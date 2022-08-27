@@ -20,7 +20,7 @@ gcc_url=https://ftp.nluug.nl/languages/gcc/releases/gcc-10.1.0/
 # general exports and crap
 export CC_PATH="$PWD/cross_compiler"
 export TARGET="x86_64-pc-lightos"
-export PATH="$PREFIX/bin:$PATH"
+
 
 SYSROOT="$PWD/sysroot/"
 patch_path="$PWD/crosscompiler_patches/"
@@ -52,7 +52,7 @@ warn () {
 }
 
 panic () {
-    echo "[Panic] \e[31m$1\e[0m"
+    echo -e "[Panic] \e[31m $1 \e[0m"
     exit 0
 }
 
@@ -78,14 +78,19 @@ _patch () {
 
 log "Welcome to the lighthouse-os cc build =D"
 
+if [[ $PATH != *"$CC_PATH/bin"* ]]; then
+    export PATH="$CC_PATH/bin:$PATH"
+else
+    warn "binaries are already in PATH variable"
+fi
+
 # step -1: check for certain things i.e, is there already a build ready, and do some setup
 bash ./sysroot.sh
 
 
 if [[ -d $CC_PATH ]]
 then
-    panic "It seems like the crosscompiler suite has already been installed.
-    To reinstall, remove the 'cross_compiler' directory from the project"
+    panic "It seems like the crosscompiler suite has already been installed. To reinstall, remove the 'cross_compiler' directory from the project"
 fi
 
 log "Creating cc build dir..."
