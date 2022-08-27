@@ -1,4 +1,4 @@
 // TODO
-void kmain () {
-
+void start () {
+    for (;;) {}
 }
