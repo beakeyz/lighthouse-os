@@ -1,4 +1,5 @@
 // TODO
-void start () {
+void _start () {
     for (;;) {}
+
 }

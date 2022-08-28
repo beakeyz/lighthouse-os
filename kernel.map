@@ -1,32 +1,67 @@
 
-lightos.elf:     file format elf64-x86-64
-architecture: i386:x86-64, flags 0x00000012:
-EXEC_P, HAS_SYMS
-start address 0x0000000000000000
+Memory Configuration
 
-Contents of section .debug_str:
- 0000 7372632f 61726368 2f783836 2f6b6d61  src/arch/x86/kma
- 0010 696e2e63 002f686f 6d652f6a 6f6f7374  in.c./home/joost
- 0020 2f737263 2f632f6c 69676874 686f7573  /src/c/lighthous
- 0030 652d6f73 00474e55 20433131 2031302e  e-os.GNU C11 10.
- 0040 312e3020 2d6d6173 6d3d696e 74656c20  1.0 -masm=intel 
- 0050 2d6d3634 202d6d61 7678202d 6d737365  -m64 -mavx -msse
- 0060 202d6d63 6d6f6465 6c3d6b65 726e656c   -mcmodel=kernel
- 0070 202d6d6e 6f2d3830 33383720 2d6d6e6f   -mno-80387 -mno
- 0080 2d726564 2d7a6f6e 65202d6d 74756e65  -red-zone -mtune
- 0090 3d67656e 65726963 202d6d61 7263683d  =generic -march=
- 00a0 7838362d 3634202d 67202d4f 33202d73  x86-64 -g -O3 -s
- 00b0 74643d63 3131202d 666e6f2d 70696320  td=c11 -fno-pic 
- 00c0 2d666e6f 2d657863 65707469 6f6e7320  -fno-exceptions 
- 00d0 2d666672 65657374 616e6469 6e67202d  -ffreestanding -
- 00e0 666e6f2d 73746163 6b2d7072 6f746563  fno-stack-protec
- 00f0 746f7220 2d666e6f 2d6f6d69 742d6672  tor -fno-omit-fr
- 0100 616d652d 706f696e 74657220 2d666e6f  ame-pointer -fno
- 0110 2d69736f 6c617465 2d657272 6f6e656f  -isolate-erroneo
- 0120 75732d70 61746873 2d617474 72696275  us-paths-attribu
- 0130 7465202d 666e6f2d 64656c65 74652d6e  te -fno-delete-n
- 0140 756c6c2d 706f696e 7465722d 63686563  ull-pointer-chec
- 0150 6b7300                               ks.             
-Contents of section .comment:
- 0000 4743433a 2028474e 55292031 302e312e  GCC: (GNU) 10.1.
- 0010 3000                                 0.              
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+                0x0000000000100000                . = 0x100000
+
+.multiboot_header
+                0x0000000000100000       0x30
+ *(.multiboot_header)
+ .multiboot_header
+                0x0000000000100000       0x30 ./out/src/arch/x86/asm/multiboot.o
+
+.text           0x0000000000101000       0x18
+ *(.text*)
+ .text          0x0000000000101000        0x2 ./out/src/arch/x86/kmain.o
+                0x0000000000101000                _start
+ *fill*         0x0000000000101002        0xe 
+ .text          0x0000000000101010        0x8 ./out/src/arch/x86/asm/multiboot.o
+                0x0000000000101010                start
+ *(.init)
+ *(.fini)
+ *(.ctors)
+ *(.dtors)
+
+.iplt           0x0000000000101018        0x0
+ .iplt          0x0000000000101018        0x0 ./out/src/arch/x86/kmain.o
+
+.rodata
+ *(.rodata*)
+
+.eh_frame       0x0000000000101018       0x2c
+ .eh_frame      0x0000000000101018       0x2c ./out/src/arch/x86/kmain.o
+                                         0x30 (size before relaxing)
+
+.rela.dyn       0x0000000000101048        0x0
+ .rela.got      0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
+ .rela.iplt     0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
+
+.data           0x0000000000102000        0x0
+ *(.data*)
+ .data          0x0000000000102000        0x0 ./out/src/arch/x86/kmain.o
+
+.got            0x0000000000101048        0x0
+ .got           0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
+
+.got.plt        0x0000000000101048        0x0
+ .got.plt       0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
+
+.igot.plt       0x0000000000101048        0x0
+ .igot.plt      0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
+
+.bss            0x0000000000102000        0x0
+ *(COMMON)
+ *(.bss*)
+ .bss           0x0000000000102000        0x0 ./out/src/arch/x86/kmain.o
+                0x0000000000101044                kernel_end = .
+LOAD ./out/src/arch/x86/kmain.o
+LOAD ./out/src/arch/x86/asm/multiboot.o
+OUTPUT(lightos.elf elf64-x86-64)
+
+.comment        0x0000000000000000       0x12
+ .comment       0x0000000000000000       0x12 ./out/src/arch/x86/kmain.o
+                                         0x13 (size before relaxing)

@@ -1,3 +1,5 @@
 /cross_compiler/
 /sysroot/
 /out/
+
+./lightos.elf

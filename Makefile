@@ -31,26 +31,18 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS :=  -m 4G -device pvpanic -smp 6 -serial stdio -enable-kvm -d cpu_reset -hda $(KERNEL_HDD) \
-		-nic user,model=e1000 -M q35 -cpu host
+QEMUFLAGS :=  -m 4G -s -serial stdio -enable-kvm -kernel ./lightos.elf \
+		-device VGA,vgamem_mb=64
 
 CHARDFLAGS := $(CFLAGS)               \
         -std=c11                     \
-        -g \
-        -masm=intel                    \
         -fno-pic                       \
         -no-pie \
-        -m64 \
-		-mavx \
-		-msse \
 	    -Wall \
 	    -MD \
 	    -MMD \
 	    -Werror \
-        -O3 \
-        -mcmodel=kernel \
-        -mno-80387                     \
-        -mno-red-zone                  \
+        -Os \
         -fno-exceptions \
 	    -ffreestanding                 \
         -fno-stack-protector           \
@@ -91,9 +83,11 @@ CXXHARDFLAGS := $(CFLAGS)               \
         -I./libraries/libc \
         -I./libraries/
 
+#-z max-page-size=0x1000
 LDHARDFLAGS := $(LDFLAGS)        \
-        -z max-page-size=0x1000   \
-        -T $(LINK_PATH)
+        -T $(LINK_PATH) \
+		-nostdlib \
+		-Map ./kernel.map
 
 # TODO: this is messy, refactor this.
 -include $(DPEND_FILES)
@@ -111,14 +105,27 @@ $(OUT)/%.o: %.cpp
 $(OUT)/%.o: %.asm
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (asm) $<"
-	@$(NASM) $< -o $@ -felf64 -F dwarf -g -w+all -Werror
+	@$(NASM) $< -o $@ -f elf64
 
 # NOTE: instead of taking all the obj vars indevidually, we might just be able to grab them all from the $(OBJ) variable
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
+	@echo "[LINKING $(ARCH)] $@"
 	@$(LD) $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
 
 PHONY:clean
 clean:
 	-rm -f $(DPEND_FILES)
 	-rm -f $(KERNEL_OUT) $(OBJ)
+
+PHONY:run
+run:
+	@qemu-system-x86_64 $(QEMUFLAGS)
+
+PHONY: make-iso
+make-iso: ./lightos.elf grub.cfg
+	mkdir -p out/isofiles/boot/grub
+	cp grub.cfg out/isofiles/boot/grub
+	cp ./lightos.elf out/isofiles/boot
+	cp ./kernel.map out/isofiles/boot
+	grub-mkrescue -o out/lightos.iso out/isofiles
