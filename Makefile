@@ -39,10 +39,9 @@ CHARDFLAGS := $(CFLAGS)               \
         -fno-pic                       \
         -no-pie \
 	    -Wall \
-	    -MD \
-	    -MMD \
 	    -Werror \
         -Os \
+		-nostdlib \
         -fno-exceptions \
 	    -ffreestanding                 \
         -fno-stack-protector           \
@@ -50,8 +49,6 @@ CHARDFLAGS := $(CFLAGS)               \
 	    -fno-isolate-erroneous-paths-attribute \
         -fno-delete-null-pointer-checks \
       	-I./src                        \
-	    -I./src/arch/$(ARCH) \
-        -I./libraries/libc \
         -I./libraries/
  
 CXXHARDFLAGS := $(CFLAGS)               \
@@ -68,6 +65,7 @@ CXXHARDFLAGS := $(CFLAGS)               \
 	    -MMD \
 	    -Werror \
         -O3 \
+		-nostdlib \
         -mcmodel=kernel \
         -mno-80387                     \
         -mno-red-zone                  \
@@ -79,15 +77,13 @@ CXXHARDFLAGS := $(CFLAGS)               \
 	    -fno-isolate-erroneous-paths-attribute \
         -fno-delete-null-pointer-checks \
         -I./src                        \
-	    -I./src/arch/$(ARCH) \
-        -I./libraries/libc \
         -I./libraries/
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := $(LDFLAGS)        \
         -T $(LINK_PATH) \
-		-nostdlib \
 		-Map ./kernel.map
+
 
 # TODO: this is messy, refactor this.
 -include $(DPEND_FILES)
@@ -111,7 +107,7 @@ $(OUT)/%.o: %.asm
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
-	@$(LD) $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
+	ld $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
 
 PHONY:clean
 clean:
@@ -129,3 +125,11 @@ make-iso: ./lightos.elf grub.cfg
 	cp ./lightos.elf out/isofiles/boot
 	cp ./kernel.map out/isofiles/boot
 	grub-mkrescue -o out/lightos.iso out/isofiles
+
+PHONY: check-multiboot
+check-multiboot:
+	grub-file --is-x86-multiboot ./$(KERNEL_OUT)
+
+PHONY: check-multiboot2
+check-multiboot2:
+	grub-file --is-x86-multiboot2 ./$(KERNEL_OUT)

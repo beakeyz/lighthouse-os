@@ -1,42 +1,31 @@
 ENTRY(start)
 
-SECTIONS
-{
-    /*kernel_phys_offset = 0xffffffff80000000;*/
-    /*addr_kernel_start = .;*/
-    /*. = kernel_phys_offset + 0x100000;*/
-    . = 1M;
+SECTIONS {
+    . = 0x10000;
 
-    .multiboot_header ALIGN(4K):
+    . = ALIGN(4K);
+    .text :
     {
-        /* Be sure that multiboot header is at the beginning */
-        KEEP(*(.multiboot_header))
+        *(.multiboot_header)
+        *(.text .text.*)
     }
 
-    .text ALIGN(4K):
+    . = ALIGN(4K);
+    .rodata :
     {
-        *(.text*)
-		*(.init)
-		*(.fini)
-		*(.ctors)
-		*(.dtors)
+        *(.rodata.*)
     }
 
-    .rodata  ALIGN(4K):
+    . = ALIGN(4K);
+    .data :
     {
-        *(.rodata*)
+        *(.data .data.*)
     }
 
-    .data  ALIGN(4K):
-    {
-        *(.data*)
-    }
-
-    .bss  ALIGN(4K) :
+    . = ALIGN(4K);
+    .bss :
     {
         *(COMMON)
-        *(.bss*)
+        *(.bss .bss.*)
     }
-
-    kernel_end = .;
 }
