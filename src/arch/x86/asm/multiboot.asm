@@ -1,22 +1,22 @@
 section .multiboot_header
 header_start:
-    dd 0xe85250d6                ; magic number
-    dd 0                         ; protected mode code
-    dd header_end - header_start ; header length
+    dd 0x1badb002                ; magic number
+    dd 0x7                       ; protected mode code
+    dd -(0x1badb002 + 0x7) ; header length
 
-    ; checksum
-    dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
+    times 5 dd 0
 
-    ; required end tag
-    dw 0    ; type
-    dw 0    ; flags
-    dd 8    ; size
+    dd 0
+    dd 1280
+    dd 1024
+    dd 32
 header_end:
-
-extern _start
 
 section .text
 bits 32
+
+global start
+extern _start
 
 start:
     mov word [0xb8000], 0x0248 ; H

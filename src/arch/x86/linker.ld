@@ -1,31 +1,43 @@
 ENTRY(start)
 
+PHDRS
+{
+    elf_headers PT_LOAD FILEHDR PHDRS FLAGS(PF_R) ;
+    boot PT_LOAD ;
+    text PT_LOAD ;
+    data PT_LOAD ;
+    bss PT_LOAD ;
+}
+
 SECTIONS {
-    . = 0x10000;
+    /* lower half kernel ftw =D */
+    . = 1M;
 
-    . = ALIGN(4K);
-    .text :
+    .boot ALIGN (4K): AT ( ADDR (.boot) )
     {
-        *(.multiboot_header)
-        *(.text .text.*)
-    }
+        /* ensure that the multiboot header is at the beginning */
+        KEEP(*(.multiboot_header))
+    }:boot
 
-    . = ALIGN(4K);
-    .rodata :
+    .text ALIGN (4K) : AT ( ADDR (.text) )
     {
-        *(.rodata.*)
-    }
+      *(.text*)
+    } :text
 
-    . = ALIGN(4K);
-    .data :
+    .rodata ALIGN (4K) : AT ( ADDR (.rodata) ) 
     {
-        *(.data .data.*)
-    }
+        *(.rodata*)
+    } :data
 
-    . = ALIGN(4K);
-    .bss :
+    .data ALIGN (4K) : AT ( ADDR (.data) ) 
+    {
+        *(.data*)
+    } :data
+  
+    /* NOLOAD ? */
+    .bss ALIGN (4K) : AT ( ADDR (.bss) )
     {
         *(COMMON)
-        *(.bss .bss.*)
-    }
+        *(.bss)
+    } :bss
 }
