@@ -14,52 +14,52 @@ Linker script and memory map
  .multiboot_header
                 0x0000000000100000       0x30 ./out/src/arch/x86/asm/multiboot.o
 
-.rel.dyn        0x0000000000100030        0x0
- .rel.got       0x0000000000100030        0x0 ./out/src/arch/x86/kmain.o
- .rel.iplt      0x0000000000100030        0x0 ./out/src/arch/x86/kmain.o
-
-.text           0x0000000000101000       0x48
+.text           0x0000000000101000       0x64
  *(.text*)
- .text          0x0000000000101000       0x10 ./out/src/arch/x86/kmain.o
+ .text          0x0000000000101000       0x31 ./out/src/arch/x86/kmain.o
                 0x0000000000101000                _start
- .text.startup  0x0000000000101010        0xb ./out/src/arch/x86/kmain.o
-                0x0000000000101010                test
- *fill*         0x000000000010101b        0x5 
- .text          0x0000000000101020       0x23 ./out/src/arch/x86/asm/multiboot.o
-                0x0000000000101020                start
- *(.init)
- *(.fini)
+ .text.startup  0x0000000000101031        0xb ./out/src/arch/x86/kmain.o
+                0x0000000000101031                test
+ *fill*         0x000000000010103c        0x4 
+ .text          0x0000000000101040       0x24 ./out/src/arch/x86/asm/multiboot.o
+                0x0000000000101040                start
+
+.iplt           0x0000000000101064        0x0
+ .iplt          0x0000000000101064        0x0 ./out/src/arch/x86/kmain.o
+
+.rel.dyn        0x0000000000101064        0x0
+ .rel.got       0x0000000000101064        0x0 ./out/src/arch/x86/kmain.o
+ .rel.iplt      0x0000000000101064        0x0 ./out/src/arch/x86/kmain.o
+ .rel.text      0x0000000000101064        0x0 ./out/src/arch/x86/kmain.o
+
+.rodata         0x0000000000102000        0x4
+                0x0000000000102000                start_ctors = .
  *(.ctors)
- *fill*         0x0000000000101043        0x1 
- .ctors         0x0000000000101044        0x4 ./out/src/arch/x86/kmain.o
- *(.dtors)
-
-.iplt           0x0000000000101048        0x0
- .iplt          0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
-
-.rodata
+ .ctors         0x0000000000102000        0x4 ./out/src/arch/x86/kmain.o
+ *(.init_array)
+                0x0000000000102004                end_ctors = .
  *(.rodata*)
 
-.data           0x0000000000102000        0x4
+.data           0x0000000000103000        0x4
  *(.data*)
- .data          0x0000000000102000        0x0 ./out/src/arch/x86/kmain.o
- .data          0x0000000000102000        0x4 ./out/src/arch/x86/asm/multiboot.o
+ .data          0x0000000000103000        0x0 ./out/src/arch/x86/kmain.o
+ .data          0x0000000000103000        0x4 ./out/src/arch/x86/asm/multiboot.o
 
-.got            0x0000000000102004        0x0
- .got           0x0000000000102004        0x0 ./out/src/arch/x86/kmain.o
+.got            0x0000000000103004        0x0
+ .got           0x0000000000103004        0x0 ./out/src/arch/x86/kmain.o
 
-.got.plt        0x0000000000102004        0x0
- .got.plt       0x0000000000102004        0x0 ./out/src/arch/x86/kmain.o
+.got.plt        0x0000000000103004        0x0
+ .got.plt       0x0000000000103004        0x0 ./out/src/arch/x86/kmain.o
 
-.igot.plt       0x0000000000102004        0x0
- .igot.plt      0x0000000000102004        0x0 ./out/src/arch/x86/kmain.o
+.igot.plt       0x0000000000103004        0x0
+ .igot.plt      0x0000000000103004        0x0 ./out/src/arch/x86/kmain.o
 
-.bss            0x0000000000103000     0x1004
+.bss            0x0000000000104000     0x1004
  *(COMMON)
  *(.bss*)
- .bss           0x0000000000103000        0x4 ./out/src/arch/x86/kmain.o
-                0x0000000000103000                test_var
- .bss           0x0000000000103004     0x1000 ./out/src/arch/x86/asm/multiboot.o
+ .bss           0x0000000000104000        0x4 ./out/src/arch/x86/kmain.o
+                0x0000000000104000                test_var
+ .bss           0x0000000000104004     0x1000 ./out/src/arch/x86/asm/multiboot.o
 LOAD ./out/src/arch/x86/kmain.o
 LOAD ./out/src/arch/x86/asm/multiboot.o
 OUTPUT(lightos.elf elf32-i386)

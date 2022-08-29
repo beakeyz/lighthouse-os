@@ -12,15 +12,14 @@ SECTIONS {
     .text ALIGN(4K):
     {
         *(.text*)
-        *(.init)
-		*(.fini)
-		*(.ctors)
-		*(.dtors)
 	}
 
     .rodata  ALIGN(4K):
     {
-       
+        start_ctors = .;
+        *(.ctors)
+        *(.init_array)
+        end_ctors = .;
         *(.rodata*)
     }
 

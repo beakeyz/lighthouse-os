@@ -31,12 +31,14 @@ start:
 
     xor ebx,ebx
     mov [mbpointer], ebx
-    mov word [0xb8000], 0x0448
 
     mov esp, stack_top
 
     push dword [mbpointer]
     call _start
+    
+    mov word [0xb8000], 0x0448
+    hlt
 
 section .bss
 stack_bottom:
