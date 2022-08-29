@@ -1,3 +1,8 @@
+section .data
+
+mbpointer:
+  dd 0
+
 section .multiboot_header
 align 4
 mboot:
@@ -7,16 +12,33 @@ mboot:
 
 	times 5 dd 0
 
-  dd 0                      ;Graphics mode
+    dd 0                      ;Graphics mode
 	dd 1280                    ;Graphics width
 	dd 1024                    ;Graphics height
 	dd 32                     ;Graphics depth
 mboot_end:
 
-global start
 
 section .text
 [bits 32]
+
+global start
+extern _start
+
 start:
-  mov word [0xb8000], 0x0248
-  hlt
+    cli
+    cld
+
+    xor ebx,ebx
+    mov [mbpointer], ebx
+    mov word [0xb8000], 0x0448
+
+    mov esp, stack_top
+
+    push dword [mbpointer]
+    call _start
+
+section .bss
+stack_bottom:
+    resb 4096
+stack_top:

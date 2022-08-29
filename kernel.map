@@ -14,41 +14,52 @@ Linker script and memory map
  .multiboot_header
                 0x0000000000100000       0x30 ./out/src/arch/x86/asm/multiboot.o
 
-.text           0x0000000000101000       0x1a
+.rel.dyn        0x0000000000100030        0x0
+ .rel.got       0x0000000000100030        0x0 ./out/src/arch/x86/kmain.o
+ .rel.iplt      0x0000000000100030        0x0 ./out/src/arch/x86/kmain.o
+
+.text           0x0000000000101000       0x48
  *(.text*)
- .text          0x0000000000101000        0x2 ./out/src/arch/x86/kmain.o
+ .text          0x0000000000101000       0x10 ./out/src/arch/x86/kmain.o
                 0x0000000000101000                _start
- *fill*         0x0000000000101002        0xe 
- .text          0x0000000000101010        0xa ./out/src/arch/x86/asm/multiboot.o
-                0x0000000000101010                start
+ .text.startup  0x0000000000101010        0xb ./out/src/arch/x86/kmain.o
+                0x0000000000101010                test
+ *fill*         0x000000000010101b        0x5 
+ .text          0x0000000000101020       0x23 ./out/src/arch/x86/asm/multiboot.o
+                0x0000000000101020                start
+ *(.init)
+ *(.fini)
+ *(.ctors)
+ *fill*         0x0000000000101043        0x1 
+ .ctors         0x0000000000101044        0x4 ./out/src/arch/x86/kmain.o
+ *(.dtors)
 
-.iplt           0x000000000010101a        0x0
- .iplt          0x000000000010101a        0x0 ./out/src/arch/x86/kmain.o
-
-.rel.dyn        0x000000000010101c        0x0
- .rel.got       0x000000000010101c        0x0 ./out/src/arch/x86/kmain.o
- .rel.iplt      0x000000000010101c        0x0 ./out/src/arch/x86/kmain.o
+.iplt           0x0000000000101048        0x0
+ .iplt          0x0000000000101048        0x0 ./out/src/arch/x86/kmain.o
 
 .rodata
  *(.rodata*)
 
-.data           0x0000000000102000        0x0
+.data           0x0000000000102000        0x4
  *(.data*)
  .data          0x0000000000102000        0x0 ./out/src/arch/x86/kmain.o
+ .data          0x0000000000102000        0x4 ./out/src/arch/x86/asm/multiboot.o
 
-.got            0x000000000010101c        0x0
- .got           0x000000000010101c        0x0 ./out/src/arch/x86/kmain.o
+.got            0x0000000000102004        0x0
+ .got           0x0000000000102004        0x0 ./out/src/arch/x86/kmain.o
 
-.got.plt        0x000000000010101c        0x0
- .got.plt       0x000000000010101c        0x0 ./out/src/arch/x86/kmain.o
+.got.plt        0x0000000000102004        0x0
+ .got.plt       0x0000000000102004        0x0 ./out/src/arch/x86/kmain.o
 
-.igot.plt       0x000000000010101c        0x0
- .igot.plt      0x000000000010101c        0x0 ./out/src/arch/x86/kmain.o
+.igot.plt       0x0000000000102004        0x0
+ .igot.plt      0x0000000000102004        0x0 ./out/src/arch/x86/kmain.o
 
-.bss            0x0000000000102000        0x0
+.bss            0x0000000000103000     0x1004
  *(COMMON)
  *(.bss*)
- .bss           0x0000000000102000        0x0 ./out/src/arch/x86/kmain.o
+ .bss           0x0000000000103000        0x4 ./out/src/arch/x86/kmain.o
+                0x0000000000103000                test_var
+ .bss           0x0000000000103004     0x1000 ./out/src/arch/x86/asm/multiboot.o
 LOAD ./out/src/arch/x86/kmain.o
 LOAD ./out/src/arch/x86/asm/multiboot.o
 OUTPUT(lightos.elf elf32-i386)

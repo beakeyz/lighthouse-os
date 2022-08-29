@@ -22,9 +22,9 @@ ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 LINK_PATH := ./src/arch/$(ARCH)/linker.ld
 
 NASM	   = /usr/bin/nasm
-CC         = ./cross_compiler/bin/i686-elf-gcc
-CXX        = ./cross_compiler/bin/i686-elf-g++
-LD         = ./cross_compiler/bin/i686-elf-ld
+CC         = ./cross_compiler/bin/i686-pc-lightos-gcc
+CXX        = ./cross_compiler/bin/i686-pc-lightos-g++
+LD         = ./cross_compiler/bin/i686-pc-lightos-ld
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 
