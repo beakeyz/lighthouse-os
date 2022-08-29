@@ -19,7 +19,11 @@ gcc_url=https://ftp.nluug.nl/languages/gcc/releases/gcc-10.1.0/
 
 # general exports and crap
 export CC_PATH="$PWD/cross_compiler"
-export TARGET="x86_64-pc-lightos"
+export TARGET="i686-elf"
+# possible:
+#           x86_64-elf          (64 bit mode apperantly)
+#           i686-elf            (32 bit mode (?))
+#           x86_64-pc-lightos   (patched 64 bit mode)
 
 
 SYSROOT="$PWD/sysroot/"
@@ -107,8 +111,8 @@ setup_src "$url/binutils/$binutils_file" "$binutils_file"
 setup_src "$gcc_url/$gcc_file" "$gcc_file"
 
 # step 1: apply patches
-_patch "$BINUTILS_SRC" "binutils.patch"
-_patch "$GCC_SRC" "gcc.patch"
+# _patch "$BINUTILS_SRC" "binutils.patch"
+# _patch "$GCC_SRC" "gcc.patch"
 
 # gcc prerequisites
 log "Fixing gcc prerequisites"

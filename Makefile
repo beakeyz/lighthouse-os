@@ -22,9 +22,9 @@ ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 LINK_PATH := ./src/arch/$(ARCH)/linker.ld
 
 NASM	   = /usr/bin/nasm
-CC         = ./cross_compiler/bin/x86_64-pc-lightos-gcc
-CXX        = ./cross_compiler/bin/x86_64-pc-lightos-g++
-LD         = ./cross_compiler/bin/x86_64-pc-lightos-ld
+CC         = ./cross_compiler/bin/i686-elf-gcc
+CXX        = ./cross_compiler/bin/i686-elf-g++
+LD         = ./cross_compiler/bin/i686-elf-ld
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 
@@ -101,13 +101,13 @@ $(OUT)/%.o: %.cpp
 $(OUT)/%.o: %.asm
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (asm) $<"
-	@$(NASM) $< -o $@ -f elf64
+	@$(NASM) $< -o $@ -f elf
 
 # NOTE: instead of taking all the obj vars indevidually, we might just be able to grab them all from the $(OBJ) variable
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
-	@ld $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
+	$(LD) $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
 
 PHONY:clean
 clean:

@@ -1,28 +1,22 @@
 section .multiboot_header
-header_start:
-    dd 0x1badb002                ; magic number
-    dd 0x7                       ; protected mode code
-    dd -(0x1badb002 + 0x7) ; header length
+align 4
+mboot:
+	dd  0x1BADB002           ;Magic
+	dd  0x7                  ;Flags (4KiB-aligned modules, memory info, framebuffer info)
+	dd  -(0x1BADB002 + 0x7)  ;Checksum
 
-    times 5 dd 0
+	times 5 dd 0
 
-    dd 0
-    dd 1280
-    dd 1024
-    dd 32
-header_end:
-
-section .text
-bits 32
+  dd 0                      ;Graphics mode
+	dd 1280                    ;Graphics width
+	dd 1024                    ;Graphics height
+	dd 32                     ;Graphics depth
+mboot_end:
 
 global start
-extern _start
 
+section .text
+[bits 32]
 start:
-    mov word [0xb8000], 0x0248 ; H
-    hlt
-    
-section .bss
-stack_bottom:
-    resb 4096 * 16
-stack_top:
+  mov word [0xb8000], 0x0248
+  hlt
