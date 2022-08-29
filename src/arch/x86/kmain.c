@@ -1,5 +1,6 @@
 #include <arch/x86/multiboot.h>
 #include <libc/stddef.h>
+#include <libc/string.h>
 // TODO test call?
 
 typedef void (*ctor_func_t)();
@@ -17,6 +18,14 @@ __attribute__((constructor)) void test () {
 void _start (multiboot_info_t* info_ptr) {
     if (info_ptr->mods_count < 1)
         return;
+
+    // Check for a memorymap
+    char* d = "test";
+
+    int i = strcmp(d, "test1");
+    if (i != 0) {
+        return;
+    }
 
     for (ctor_func_t* constructor = start_ctors; constructor < end_ctors; constructor++) {
         (*constructor)();

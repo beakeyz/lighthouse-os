@@ -15,7 +15,12 @@ typedef uint32_t size_t;
 typedef int32_t ssize_t;
 typedef uint32_t uintptr_t;
 
+#define nullptr (void*)0
+
 #define NULL 0
+
+#define true 1
+#define false 0
 
 #define __va_argsiz(t)	\
 	(((sizeof(t) + sizeof(int) - 1) / sizeof(int)) * sizeof(int))
