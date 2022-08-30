@@ -14,7 +14,7 @@ uint32_t test_var = 0;
 __attribute__((constructor)) void test () {
     test_var = 1;
 
-    println("hi\n");
+    println("hi");
 }
 
 void _start (multiboot_info_t* info_ptr) {
@@ -29,11 +29,32 @@ void _start (multiboot_info_t* info_ptr) {
         return;
     }
 
+    // start serial
     init_serial();
 
+    // global constructors
     for (ctor_func_t* constructor = start_ctors; constructor < end_ctors; constructor++) {
         (*constructor)();
     }
+
+    // TODO: Memory manager
+    // deal with the memory map here
+
+    // TODO: init gdt and idt
+    
+    // TODO: interupts (irqs and isrs)
+
+    // TODO: init devices 
+
+    // TODO: init fleSystem
+
+    // TODO: pic timer 
+
+    // TODO: ACPI and stuff
+
+    // TODO: Scheduler and threads
+
+    // TODO: start main thread for services
 
     if (test_var == 0){
         return;
