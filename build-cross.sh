@@ -19,7 +19,7 @@ gcc_url=https://ftp.nluug.nl/languages/gcc/releases/gcc-10.1.0/
 
 # general exports and crap
 export CC_PATH="$PWD/cross_compiler"
-export TARGET="i686-pc-lightos"
+export TARGET="x86_64-pc-lightos"
 # possible:
 #           x86_64-elf          (64 bit mode apperantly)
 #           i686-elf            (32 bit mode (?))

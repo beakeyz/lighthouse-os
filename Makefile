@@ -22,9 +22,9 @@ ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 LINK_PATH := ./src/arch/$(ARCH)/linker.ld
 
 NASM	   = /usr/bin/nasm
-CC         = ./cross_compiler/bin/i686-pc-lightos-gcc
-CXX        = ./cross_compiler/bin/i686-pc-lightos-g++
-LD         = ./cross_compiler/bin/i686-pc-lightos-ld
+CC         = ./cross_compiler/bin/x86_64-pc-lightos-gcc
+CXX        = ./cross_compiler/bin/x86_64-pc-lightos-g++
+LD         = ./cross_compiler/bin/x86_64-pc-lightos-ld
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 
@@ -40,7 +40,11 @@ CHARDFLAGS := $(CFLAGS)               \
         -no-pie \
 	    -Wall \
 	    -Werror \
+		-m64 \
         -Os \
+		-mno-red-zone \
+        -mno-sse \
+        -mcmodel=large \
 		-nostdlib \
         -fno-exceptions \
 	    -ffreestanding                 \
@@ -82,7 +86,7 @@ CXXHARDFLAGS := $(CFLAGS)               \
 #-z max-page-size=0x1000
 LDHARDFLAGS := $(LDFLAGS)        \
         -T $(LINK_PATH) \
-		-Map ./kernel.map
+		-Map ./kernel.map 
 
 
 # TODO: this is messy, refactor this.
@@ -101,13 +105,13 @@ $(OUT)/%.o: %.cpp
 $(OUT)/%.o: %.asm
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (asm) $<"
-	@$(NASM) $< -o $@ -f elf
+	@$(NASM) $< -o $@ -f elf64
 
 # NOTE: instead of taking all the obj vars indevidually, we might just be able to grab them all from the $(OBJ) variable
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
-	$(LD) $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
+	@$(LD) $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
 
 PHONY:clean
 clean:

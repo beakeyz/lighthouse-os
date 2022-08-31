@@ -1,7 +1,8 @@
 #ifndef __SERIAL__
 #define __SERIAL__
+#include <libc/stddef.h>
 
-#define COM1 0x3F8
+#define COM1 (uint16_t)0x3F8
 
 void init_serial();
 
