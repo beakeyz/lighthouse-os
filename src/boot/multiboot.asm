@@ -4,31 +4,33 @@ mbpointer:
   dd 0
 
 section .multiboot_header
-align 4
-mboot:
-	dd  0x1BADB002           ;Magic
-	dd  0x7                  ;Flags (4KiB-aligned modules, memory info, framebuffer info)
-	dd  -(0x1BADB002 + 0x7)  ;Checksum
+align 8
+header_start:
+    dd 0xe85250d6   ;magic_number
+    dd 0            ;Protected mode
+    dd header_end - header_start    ;Header length
 
-	times 5 dd 0
+    ;compute checksum
+    dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
 
-    dd 0                      ;Graphics mode
-	dd 1280                    ;Graphics width
-	dd 1024                    ;Graphics height
-	dd 32                     ;Graphics depth
-mboot_end:
+;align 8
+;framebuffer_tag_start:
+;    dw  0x05    ;Type: framebuffer
+;    dw  0x01    ;Optional tag
+;    dd  framebuffer_tag_end - framebuffer_tag_start ;size
+;    dd  0   ;Width - if 0 we let the bootloader decide
+;    dd  0   ;Height - same as above
+;    dd  0   ;Depth  - same as above
+;framebuffer_tag_end:
 
-section .pagetables
-
-; Only for 64 bit
-boot_pml4t:
-    resb 4096
-boot_pdpt:
-    resb 4096
-boot_pdt:
-    resb 4096
-boot_pt:
-    resb 4096
+    ;here ends the required part of the multiboot header
+	;The following is the end tag, must be always present
+    ;end tag
+    align 8
+    dw 0    ;type
+    dw 0    ;flags
+    dd 8    ;size
+header_end:
 
 section .pre_text
 [bits 32]
@@ -42,13 +44,12 @@ global end_of_mapped_memory
 ; So: check for paging, check for memory (?), check for errors
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
 start:
-    cli
-    cld
+    
 
-    xor ebx,ebx
-    ; we already moved the multiboot data into the pointer so we dont have to worry about that anymore
-    mov [mbpointer - VIRT_BASE], ebx
+    mov edi, ebx ; Address of multiboot structure
+    mov esi, eax ; Magic number
 
+    mov esp, stack_top - VIRT_BASE
     ; TODO: cpuid and PAE checks ect.  
 
     mov eax, boot_pdpt - VIRT_BASE
@@ -85,7 +86,7 @@ start:
         ; Check ecx agains the max amount of loops
         cmp ecx, 512
         jne .map_p2
-
+    
     ; set cr3
     mov eax, (boot_pml4t - VIRT_BASE)
     mov cr3, eax
@@ -106,7 +107,6 @@ start:
     or eax, 1 << 31
     or eax, 1 << 16
     mov cr0, eax
-    mov esp, stack_top
 
     lgdt [gdt64.pointer_low - VIRT_BASE]
     jmp (0x8):(long_start - VIRT_BASE)
@@ -123,6 +123,8 @@ long_start:
     mov fs, ax  ; extra segment register
     mov gs, ax  ; extra segment register
 
+    hlt
+
 long_default:
     
     mov rsp, stack_top
@@ -131,12 +133,25 @@ long_default:
     ;push qword [mbpointer]
     ;call _start
     
-    mov qword [0xb8000], 0x2f592f412f4b2f4f
+    mov rax, 0x2f592f412f4b2f4f
+    mov qword [0xb8000], rax
     hlt
 
 section .bss
 
 VIRT_BASE equ 0xffffffff80000000 
+
+; Only for 64 bit
+boot_pml4t:
+    resb 4096
+boot_pdpt:
+    resb 4096
+boot_pdt:
+    resb 4096
+boot_pt:
+    resb 4096
+
+
 
 end_of_mapped_memory:
     resq 1

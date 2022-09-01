@@ -36,23 +36,27 @@ QEMUFLAGS :=  -m 4G -s -serial stdio -enable-kvm -kernel ./lightos.elf \
 
 CHARDFLAGS := $(CFLAGS)               \
         -std=c11                     \
+        -g \
         -fno-pic                       \
         -no-pie \
+        -m64 \
+		-mavx \
+		-msse \
 	    -Wall \
+	    -MD \
+	    -MMD \
 	    -Werror \
-		-m64 \
-        -Os \
-		-mno-red-zone \
-        -mno-sse \
-        -mcmodel=large \
-		-nostdlib \
+        -O3 \
+        -mcmodel=kernel \
+        -mno-80387                     \
+        -mno-red-zone                  \
         -fno-exceptions \
 	    -ffreestanding                 \
         -fno-stack-protector           \
         -fno-omit-frame-pointer        \
 	    -fno-isolate-erroneous-paths-attribute \
         -fno-delete-null-pointer-checks \
-      	-I./src                        \
+		-I./src                        \
         -I./libraries/
  
 CXXHARDFLAGS := $(CFLAGS)               \
@@ -85,6 +89,7 @@ CXXHARDFLAGS := $(CFLAGS)               \
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := $(LDFLAGS)        \
+		-z max-page-size=0x20000 \
         -T $(LINK_PATH) \
 		-Map ./kernel.map 
 
@@ -105,13 +110,13 @@ $(OUT)/%.o: %.cpp
 $(OUT)/%.o: %.asm
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (asm) $<"
-	@$(NASM) $< -o $@ -f elf64
+	@$(NASM) $< -o $@ -felf64 -F dwarf -g -w+all -Werror
 
 # NOTE: instead of taking all the obj vars indevidually, we might just be able to grab them all from the $(OBJ) variable
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
-	@$(LD) $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
+	@$(LD) -n $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
 
 PHONY:clean
 clean:
@@ -121,6 +126,10 @@ clean:
 PHONY:run
 run:
 	@qemu-system-x86_64 $(QEMUFLAGS)
+
+PHONY:run-iso
+run-iso:
+	@qemu-system-x86_64 -monitor unix:qemu-monitor-socket,server,nowait -cpu qemu64,+x2apic  -cdrom out/lightos.iso -serial stdio -m 1G  -no-reboot -no-shutdown
 
 PHONY: make-iso
 make-iso: ./lightos.elf grub.cfg
