@@ -21,11 +21,12 @@ __attribute__((constructor)) void test () {
 
 void _start () {
 
+    init_serial();
+
     for (ctor_func_t* constructor = start_ctors; constructor < end_ctors; constructor++) {
         (*constructor)();
     }
 
-    init_serial();
 
     println("Hi from 64 bit land =D");
 
