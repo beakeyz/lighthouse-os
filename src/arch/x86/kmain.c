@@ -19,6 +19,8 @@ __attribute__((constructor)) void test () {
     //println("[TESTCONSTRUCTOR] =D");
 }
 
-void _start (multiboot_info_t* info_ptr) {
+void _start () {
+    init_serial();
 
+    println("Hi from 64 bit land =D");
 }

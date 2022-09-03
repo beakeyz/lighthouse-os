@@ -1,7 +1,4 @@
-section .data
-
-mbpointer:
-  dd 0
+%define VIRT_BASE 0xffffffff80000000
 
 section .multiboot_header
 align 8
@@ -111,11 +108,14 @@ start:
     lgdt [gdt64.pointer_low - VIRT_BASE]
     jmp (0x8):(long_start - VIRT_BASE)
 
-section .text
-
 [bits 64]
+section .text
 long_start:
-    ; stack (after we've enabled paging)
+    
+    ;mov qword rax, (511 << 39) | (510 << 30) | (511 << 21)
+    ;mov qword[(end_of_mapped_memory - VIRT_BASE)], rax 
+
+    ; update seg registers with new gdt data
     mov ax, 0x10
     mov ss, ax  ; Stack segment selector
     mov ds, ax  ; data segment register
@@ -123,25 +123,19 @@ long_start:
     mov fs, ax  ; extra segment register
     mov gs, ax  ; extra segment register
 
-    hlt
-
-long_default:
-    
     mov rsp, stack_top
     lgdt [gdt64.pointer]
 
-    ;push qword [mbpointer]
-    ;call _start
+    call _start
     
     mov rax, 0x2f592f412f4b2f4f
     mov qword [0xb8000], rax
     hlt
 
-section .bss
-
-VIRT_BASE equ 0xffffffff80000000 
+section .bss 
 
 ; Only for 64 bit
+align 4096
 boot_pml4t:
     resb 4096
 boot_pdpt:
@@ -151,25 +145,18 @@ boot_pdt:
 boot_pt:
     resb 4096
 
-
-
+align 4096
 end_of_mapped_memory:
     resq 1
-
+; 16 kb stack
 stack_bottom:
-    resb 4096
+    resb 16385
 stack_top:
 
 section .rodata
 gdt64:
     dq  0	;first entry = 0
     .code equ $ - gdt64
-        ; set the following values:
-        ; descriptor type: bit 44 has to be 1 for code and data segments
-        ; present: bit 47 has to be  1 if the entry is valid
-        ; read/write: bit 41 1 means that is readable
-        ; executable: bit 43 it has to be 1 for code segments
-        ; 64bit: bit 53 1 if this is a 64bit gdt
         dq (1 <<44) | (1 << 47) | (1 << 41) | (1 << 43) | (1 << 53)  ;second entry=code=8
     .data equ $ - gdt64
         dq (1 << 44) | (1 << 47) | (1 << 41)	;third entry = data = 10
