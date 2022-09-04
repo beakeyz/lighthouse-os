@@ -21,6 +21,11 @@
 
 #ifndef MULTIBOOT_HEADER
 #define MULTIBOOT_HEADER 1
+#include <libc/stddef.h>
+
+uintptr_t mb_initialize(void* addr);
+void* next_mb2_tag(void* cur, uint32_t type);
+void* get_mb2_tag(void* addr, uint32_t type);
 
 /*  How many bytes from the start of the file we search for the header. */
 #define MULTIBOOT_SEARCH                        32768

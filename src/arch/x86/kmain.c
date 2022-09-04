@@ -10,6 +10,8 @@ extern ctor_func_t end_ctors[];
 
 extern uint64_t _kernel_end;
 
+static uintptr_t first_valid_addr = 0;
+
 __attribute__((constructor)) void test () {
 
     println("[TESTCONSTRUCTOR] =D");
@@ -32,6 +34,7 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // Verify magic number
     if (mb_magic == 0x36d76289) {
         println("multiboot passed test");
+        first_valid_addr = mb_initialize((void*)mb_addr);
     } else {
         println("big yikes");
         hang();
