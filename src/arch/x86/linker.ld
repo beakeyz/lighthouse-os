@@ -7,7 +7,7 @@ SECTIONS {
     _kernel_start =.;
     _kern_virtual_offset = 0xffffffff80000000;
 
-    .multiboot_header :
+    .multiboot_header ALIGN(8) :
     {
         KEEP(*(.multiboot_header))
     }

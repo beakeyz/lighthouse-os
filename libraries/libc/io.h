@@ -2,7 +2,6 @@
 #define __IO__
 #include <libc/stddef.h>
 
-#define asm __asm__
 
 uint8_t in8(uint16_t port)
 {

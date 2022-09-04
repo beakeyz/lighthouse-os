@@ -1,6 +1,7 @@
 #include "serial.h"
 #include <libc/io.h>
 #include <libc/stddef.h>
+#include <libc/string.h>
 
 void init_serial() {
 
@@ -45,3 +46,4 @@ void println(const char* str) {
         putch('\n');
     }
 }
+

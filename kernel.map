@@ -22,7 +22,7 @@ Linker script and memory map
                 0x0000000000100018                start
                 0xffffffff801000c0                . = (. + _kern_virtual_offset)
 
-.text           0xffffffff80101000      0x788 load address 0x0000000000101000
+.text           0xffffffff80101000      0xb08 load address 0x0000000000101000
  *(.text*)
  .text          0xffffffff80101000      0x22e ./out/src/arch/x86/dev/debug/serial.o
                 0xffffffff80101000                in8
@@ -35,27 +35,29 @@ Linker script and memory map
                 0xffffffff80101100                print
                 0xffffffff80101170                println
  *fill*         0xffffffff8010122e        0x2 
- .text          0xffffffff80101230       0x49 ./out/src/arch/x86/kmain.o
+ .text          0xffffffff80101230       0x6b ./out/src/arch/x86/kmain.o
                 0xffffffff80101230                _start
- *fill*         0xffffffff80101279        0x7 
- .text.startup  0xffffffff80101280       0x17 ./out/src/arch/x86/kmain.o
-                0xffffffff80101280                test
- *fill*         0xffffffff80101297        0x9 
- .text          0xffffffff801012a0      0x4ab ./out/libraries/libc/string.o
-                0xffffffff801012a0                strlen
-                0xffffffff801012d0                strcmp
-                0xffffffff80101310                strcpy
-                0xffffffff80101340                memcpy
-                0xffffffff80101560                memcmp
-                0xffffffff80101590                memset
-                0xffffffff80101720                memchr
- *fill*         0xffffffff8010174b        0x5 
- .text          0xffffffff80101750       0x38 ./out/src/boot/multiboot.o
+ *fill*         0xffffffff8010129b        0x5 
+ .text.startup  0xffffffff801012a0        0xc ./out/src/arch/x86/kmain.o
+                0xffffffff801012a0                test
+ *fill*         0xffffffff801012ac        0x4 
+ .text          0xffffffff801012b0      0x81a ./out/libraries/libc/string.o
+                0xffffffff801012b0                strlen
+                0xffffffff801012e0                strcmp
+                0xffffffff80101320                strcpy
+                0xffffffff80101350                memcpy
+                0xffffffff80101570                memcmp
+                0xffffffff801015a0                memset
+                0xffffffff80101730                memchr
+                0xffffffff80101760                string_from_dec
+                0xffffffff80101a40                string_from_hex
+ *fill*         0xffffffff80101aca        0x6 
+ .text          0xffffffff80101ad0       0x38 ./out/src/boot/multiboot.o
 
-.iplt           0xffffffff80101788        0x0 load address 0x0000000000101788
- .iplt          0xffffffff80101788        0x0 ./out/src/arch/x86/dev/debug/serial.o
+.iplt           0xffffffff80101b08        0x0 load address 0x0000000000101b08
+ .iplt          0xffffffff80101b08        0x0 ./out/src/arch/x86/dev/debug/serial.o
 
-.rodata         0xffffffff80102000       0x60 load address 0x0000000000102000
+.rodata         0xffffffff80102000       0x9c load address 0x0000000000102000
                 0xffffffff80102000                start_ctors = .
  *(.ctors)
  .ctors         0xffffffff80102000        0x8 ./out/src/arch/x86/kmain.o
@@ -63,20 +65,22 @@ Linker script and memory map
                 0xffffffff80102008                end_ctors = .
  *(.rodata*)
  .rodata.str1.1
-                0xffffffff80102008       0x2c ./out/src/arch/x86/kmain.o
- .rodata        0xffffffff80102034       0x2c ./out/src/boot/multiboot.o
+                0xffffffff80102008       0x4c ./out/src/arch/x86/kmain.o
+ *fill*         0xffffffff80102054        0xc 
+ .rodata.cst16  0xffffffff80102060       0x10 ./out/libraries/libc/string.o
+ .rodata        0xffffffff80102070       0x2c ./out/src/boot/multiboot.o
 
-.eh_frame       0xffffffff80102060      0x194 load address 0x0000000000102060
- .eh_frame      0xffffffff80102060       0xd0 ./out/src/arch/x86/dev/debug/serial.o
- .eh_frame      0xffffffff80102130       0x38 ./out/src/arch/x86/kmain.o
-                                         0x50 (size before relaxing)
- .eh_frame      0xffffffff80102168       0x8c ./out/libraries/libc/string.o
-                                         0xa8 (size before relaxing)
+.eh_frame       0xffffffff801020a0      0x1e0 load address 0x00000000001020a0
+ .eh_frame      0xffffffff801020a0       0xd0 ./out/src/arch/x86/dev/debug/serial.o
+ .eh_frame      0xffffffff80102170       0x40 ./out/src/arch/x86/kmain.o
+                                         0x58 (size before relaxing)
+ .eh_frame      0xffffffff801021b0       0xd0 ./out/libraries/libc/string.o
+                                         0xe8 (size before relaxing)
 
-.rela.dyn       0xffffffff801021f8        0x0 load address 0x00000000001021f8
- .rela.got      0xffffffff801021f8        0x0 ./out/src/arch/x86/dev/debug/serial.o
- .rela.iplt     0xffffffff801021f8        0x0 ./out/src/arch/x86/dev/debug/serial.o
- .rela.text     0xffffffff801021f8        0x0 ./out/src/arch/x86/dev/debug/serial.o
+.rela.dyn       0xffffffff80102280        0x0 load address 0x0000000000102280
+ .rela.got      0xffffffff80102280        0x0 ./out/src/arch/x86/dev/debug/serial.o
+ .rela.iplt     0xffffffff80102280        0x0 ./out/src/arch/x86/dev/debug/serial.o
+ .rela.text     0xffffffff80102280        0x0 ./out/src/arch/x86/dev/debug/serial.o
 
 .data           0xffffffff80103000        0x0 load address 0x0000000000103000
  *(.data*)
@@ -84,24 +88,22 @@ Linker script and memory map
  .data          0xffffffff80103000        0x0 ./out/src/arch/x86/kmain.o
  .data          0xffffffff80103000        0x0 ./out/libraries/libc/string.o
 
-.got            0xffffffff801021f8        0x0 load address 0x00000000001021f8
- .got           0xffffffff801021f8        0x0 ./out/src/arch/x86/dev/debug/serial.o
+.got            0xffffffff80102280        0x0 load address 0x0000000000102280
+ .got           0xffffffff80102280        0x0 ./out/src/arch/x86/dev/debug/serial.o
 
-.got.plt        0xffffffff801021f8        0x0 load address 0x00000000001021f8
- .got.plt       0xffffffff801021f8        0x0 ./out/src/arch/x86/dev/debug/serial.o
+.got.plt        0xffffffff80102280        0x0 load address 0x0000000000102280
+ .got.plt       0xffffffff80102280        0x0 ./out/src/arch/x86/dev/debug/serial.o
 
-.igot.plt       0xffffffff801021f8        0x0 load address 0x00000000001021f8
- .igot.plt      0xffffffff801021f8        0x0 ./out/src/arch/x86/dev/debug/serial.o
+.igot.plt       0xffffffff80102280        0x0 load address 0x0000000000102280
+ .igot.plt      0xffffffff80102280        0x0 ./out/src/arch/x86/dev/debug/serial.o
 
 .bss            0xffffffff80103000     0x9009 load address 0x0000000000103000
  *(COMMON)
  *(.bss*)
  .bss           0xffffffff80103000        0x4 ./out/src/arch/x86/dev/debug/serial.o
- *fill*         0xffffffff80103004        0x4 
- .bss           0xffffffff80103008        0x8 ./out/src/arch/x86/kmain.o
-                0xffffffff80103008                test_var
- .bss           0xffffffff80103010        0x0 ./out/libraries/libc/string.o
- *fill*         0xffffffff80103010      0xff0 
+ .bss           0xffffffff80103004        0x0 ./out/src/arch/x86/kmain.o
+ .bss           0xffffffff80103004        0x0 ./out/libraries/libc/string.o
+ *fill*         0xffffffff80103004      0xffc 
  .bss           0xffffffff80104000     0x8009 ./out/src/boot/multiboot.o
                 0xffffffff80108000                end_of_mapped_memory
                 0xffffffff8010c009                _kernel_end = .
@@ -112,23 +114,23 @@ LOAD ./out/libraries/libc/string.o
 LOAD ./out/src/boot/multiboot.o
 OUTPUT(lightos.elf elf64-x86-64)
 
-.debug_info     0x0000000000000000      0xdcb
+.debug_info     0x0000000000000000      0xfaa
  .debug_info    0x0000000000000000      0x819 ./out/src/arch/x86/dev/debug/serial.o
- .debug_info    0x0000000000000819      0x18b ./out/src/arch/x86/kmain.o
- .debug_info    0x00000000000009a4      0x3cf ./out/libraries/libc/string.o
- .debug_info    0x0000000000000d73       0x58 ./out/src/boot/multiboot.o
+ .debug_info    0x0000000000000819      0x211 ./out/src/arch/x86/kmain.o
+ .debug_info    0x0000000000000a2a      0x528 ./out/libraries/libc/string.o
+ .debug_info    0x0000000000000f52       0x58 ./out/src/boot/multiboot.o
 
-.debug_abbrev   0x0000000000000000      0x457
+.debug_abbrev   0x0000000000000000      0x4a9
  .debug_abbrev  0x0000000000000000      0x22b ./out/src/arch/x86/dev/debug/serial.o
- .debug_abbrev  0x000000000000022b      0x100 ./out/src/arch/x86/kmain.o
- .debug_abbrev  0x000000000000032b      0x111 ./out/libraries/libc/string.o
- .debug_abbrev  0x000000000000043c       0x1b ./out/src/boot/multiboot.o
+ .debug_abbrev  0x000000000000022b      0x152 ./out/src/arch/x86/kmain.o
+ .debug_abbrev  0x000000000000037d      0x111 ./out/libraries/libc/string.o
+ .debug_abbrev  0x000000000000048e       0x1b ./out/src/boot/multiboot.o
 
-.debug_loc      0x0000000000000000     0x11d4
+.debug_loc      0x0000000000000000     0x2175
  .debug_loc     0x0000000000000000      0x74e ./out/src/arch/x86/dev/debug/serial.o
- .debug_loc     0x000000000000074e       0x25 ./out/src/arch/x86/kmain.o
- .debug_loc     0x0000000000000773      0xa61 ./out/libraries/libc/string.o
- .debug_loc     0x00000000000011d4        0x0 ./out/src/boot/multiboot.o
+ .debug_loc     0x000000000000074e       0xc9 ./out/src/arch/x86/kmain.o
+ .debug_loc     0x0000000000000817     0x195e ./out/libraries/libc/string.o
+ .debug_loc     0x0000000000002175        0x0 ./out/src/boot/multiboot.o
 
 .debug_aranges  0x0000000000000000       0xd0
  .debug_aranges
@@ -140,24 +142,24 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_aranges
                 0x00000000000000a0       0x30 ./out/src/boot/multiboot.o
 
-.debug_ranges   0x0000000000000000      0x2c0
+.debug_ranges   0x0000000000000000      0x480
  .debug_ranges  0x0000000000000000      0x1a0 ./out/src/arch/x86/dev/debug/serial.o
- .debug_ranges  0x00000000000001a0       0x70 ./out/src/arch/x86/kmain.o
- .debug_ranges  0x0000000000000210       0xb0 ./out/libraries/libc/string.o
+ .debug_ranges  0x00000000000001a0       0x30 ./out/src/arch/x86/kmain.o
+ .debug_ranges  0x00000000000001d0      0x2b0 ./out/libraries/libc/string.o
 
-.debug_line     0x0000000000000000      0xa2d
- .debug_line    0x0000000000000000      0x379 ./out/src/arch/x86/dev/debug/serial.o
- .debug_line    0x0000000000000379      0x10b ./out/src/arch/x86/kmain.o
- .debug_line    0x0000000000000484      0x553 ./out/libraries/libc/string.o
- .debug_line    0x00000000000009d7       0x56 ./out/src/boot/multiboot.o
+.debug_line     0x0000000000000000      0xedd
+ .debug_line    0x0000000000000000      0x377 ./out/src/arch/x86/dev/debug/serial.o
+ .debug_line    0x0000000000000377      0x123 ./out/src/arch/x86/kmain.o
+ .debug_line    0x000000000000049a      0x9ed ./out/libraries/libc/string.o
+ .debug_line    0x0000000000000e87       0x56 ./out/src/boot/multiboot.o
 
-.debug_str      0x0000000000000000      0x2eb
+.debug_str      0x0000000000000000      0x352
  .debug_str     0x0000000000000000      0x218 ./out/src/arch/x86/dev/debug/serial.o
                                         0x244 (size before relaxing)
- .debug_str     0x0000000000000218       0x58 ./out/src/arch/x86/kmain.o
-                                        0x230 (size before relaxing)
- .debug_str     0x0000000000000270       0x7b ./out/libraries/libc/string.o
-                                        0x24c (size before relaxing)
+ .debug_str     0x0000000000000218       0x65 ./out/src/arch/x86/kmain.o
+                                        0x23d (size before relaxing)
+ .debug_str     0x000000000000027d       0xd5 ./out/libraries/libc/string.o
+                                        0x2a6 (size before relaxing)
 
 .comment        0x0000000000000000       0x12
  .comment       0x0000000000000000       0x12 ./out/src/arch/x86/dev/debug/serial.o

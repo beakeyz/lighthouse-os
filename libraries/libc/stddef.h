@@ -15,6 +15,7 @@ typedef uint32_t size_t;
 typedef int32_t ssize_t;
 typedef uint32_t uintptr_t;
 
+#define asm __asm__
 #define nullptr (void*)0
 
 #define NULL 0

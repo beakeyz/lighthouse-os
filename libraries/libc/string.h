@@ -21,5 +21,8 @@ void *memcpy(void *dest, const void *src, size_t length);
 void *memset(void *data, int value, size_t length);
 void *memchr(const void *s, int c, size_t n);
 
+// different kinds of number-to-string formating
 
+int string_from_hex (_string buff, uint32_t n);
+int string_from_dec (_string buff, uint32_t n);
 #endif // !__STRING__

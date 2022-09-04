@@ -1,7 +1,6 @@
 %define VIRT_BASE 0xffffffff80000000
 
 section .multiboot_header
-align 8
 header_start:
     dd 0xe85250d6   ;magic_number
     dd 0            ;Protected mode
@@ -10,7 +9,6 @@ header_start:
     ;compute checksum
     dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
 
-;align 8
 ;framebuffer_tag_start:
 ;    dw  0x05    ;Type: framebuffer
 ;    dw  0x01    ;Optional tag
@@ -23,7 +21,6 @@ header_start:
     ;here ends the required part of the multiboot header
 	;The following is the end tag, must be always present
     ;end tag
-    align 8
     dw 0    ;type
     dw 0    ;flags
     dd 8    ;size
@@ -42,7 +39,6 @@ global end_of_mapped_memory
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
 start:
     
-
     mov edi, ebx ; Address of multiboot structure
     mov esi, eax ; Magic number
 

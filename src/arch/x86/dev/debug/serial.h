@@ -12,4 +12,7 @@ void print(const char* str);
 
 void println(const char* str);
 
+int printf(const char *fmt, ...);
+int vsprintf(char *buffer, const char *fmt, va_list args);
+
 #endif // !__SERIAL__
