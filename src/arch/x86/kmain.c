@@ -1,3 +1,5 @@
+#include <arch/x86/interupts/idt.h>
+#include <arch/x86/interupts/interupts.h>
 #include <arch/x86/dev/debug/serial.h>
 #include <arch/x86/multiboot.h>
 #include <libc/stddef.h>
@@ -21,6 +23,11 @@ __attribute__((constructor)) void test () {
 static void hang () {
     asm volatile ("hlt");
     __builtin_unreachable();
+}
+
+int thing (registers_t* regs) {
+    println("funnie");
+    return 1;
 }
 
 void _start (uint32_t mb_addr, uint32_t mb_magic) {
@@ -55,9 +62,14 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     // gdt
     setup_gdt();
+    println("were alive 1");
 
     // idt
+    setup_idt();
+    println("were alive 2");
 
+
+    add_handler(33, thing);
 
     // TODO: some things on the agenda:
     // 0. [ ] buff up libc ;-;
@@ -72,4 +84,5 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // 8. profit
     // 9. do more stuff but I dont wanna look this far ahead as of now -_-
 
+    for (;;) {}
 }

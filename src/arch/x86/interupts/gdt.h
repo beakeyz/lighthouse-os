@@ -1,3 +1,6 @@
+#ifndef __GDT__
+#define __GDT__
+
 #include <libc/stddef.h>
 
 typedef struct {
@@ -41,3 +44,4 @@ typedef struct
 
 void setup_gdt();
 extern void load_gdt (void* ptr);
+#endif // !__GDT__
