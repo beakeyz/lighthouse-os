@@ -40,6 +40,14 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
         println("big yikes");
         hang();
     }
+    
+    uint32_t* t = (uint32_t*)0x666;
+
+    //memset(&t, 0, sizeof(t));
+
+    if (t == 0) {
+        println("hihi");
+    }
 
     // since memory management is still very hard (;-;) I will do gdt and idt first, so
     // TODO: memmanager goes here \/
