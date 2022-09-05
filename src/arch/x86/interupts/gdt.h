@@ -40,3 +40,4 @@ typedef struct
 
 
 void setup_gdt();
+extern void load_gdt (void* ptr);

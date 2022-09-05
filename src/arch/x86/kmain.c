@@ -43,9 +43,10 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     
     uint32_t* t = (uint32_t*)0x666;
 
-    //memset(&t, 0, sizeof(t));
+    uint32_t v = 0;
+    memcpy(&v, &t, sizeof(v));
 
-    if (t == 0) {
+    if (v == 0x666) {
         println("hihi");
     }
 

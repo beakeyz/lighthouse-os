@@ -1,6 +1,7 @@
 #include "gdt.h"
 #include <libc/string.h>
 
+
 gdt_struct_t gdt[32] = {{
     {
 		{0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00},
@@ -18,7 +19,6 @@ gdt_struct_t gdt[32] = {{
 // credit: toaruos (again)
 void setup_gdt() {
     for (int i = 1; i < 32; ++i) {
-        // FIXME: this crashes rn, the rest seems fine
 		memcpy(&gdt[i], &gdt[0], sizeof(*gdt));
 	}
 
@@ -37,15 +37,5 @@ void setup_gdt() {
 	extern void * stack_top;
 	gdt[0].tss.rsp[0] = (uintptr_t)&stack_top;
 
-	asm volatile (
-		"mov %0, %%rdi\n"
-		"lgdt (%%rdi)\n"
-		"mov $0x10, %%ax\n"
-		"mov %%ax, %%ds\n"
-		"mov %%ax, %%es\n"
-		"mov %%ax, %%ss\n"
-		"mov $0x2b, %%ax\n"
-		"ltr %%ax\n"
-		: : "r"(&gdt[0].ptr)
-	);
+    load_gdt(&gdt[0].ptr); 
 }

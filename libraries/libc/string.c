@@ -1,6 +1,12 @@
 #include "string.h"
 #include <libc/stddef.h>
 
+/*
+ * FIXME: this whole file is a trainwreck, for now I'll leave it like this, but in the future
+ * I'll have to make sure to structure these kinds of functions propperly, so there aren't any
+ * arch specific functions scattered around the codebase =/
+ */
+
 size_t strlen (const char* str) {
     size_t s = 0;
     while (str[s] != 0)
@@ -27,12 +33,21 @@ _string strcpy (_string dest, string src) {
 }
 
 // TODO: dis mofo is broken as fuck, fix it
+// for now, make it x86 specific
+// FIXME: refactor memcpy and memset so they match the archetecture the kernel is being built for
 void *memcpy(void * restrict dest, const void * restrict src, size_t length)
 {
-
+    /*uint8_t* d = (void*) dest;
+    const uint8_t* s = (const void*) src;
 	for(size_t i = 0; i < length; i++){
+        d[i] = s[i];
 	}
-    return dest;
+    return dest;*/
+
+    asm volatile("rep movsb"
+	            : : "D"(dest), "S"(src), "c"(length)
+	            : "flags", "memory");
+	return dest;
 }
 
 int memcmp(const void *s1, const void *s2, size_t n)
@@ -48,6 +63,8 @@ int memcmp(const void *s1, const void *s2, size_t n)
     }
     return true;
 }
+
+// TODO: this is x86 specific. I'll leave it here for now, but when we aventually target other arches, we'll have to refactor this =/
 void *memset(void *data, int value, size_t length)
 {
     asm volatile ("cld; rep stosb"
