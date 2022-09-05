@@ -15,7 +15,7 @@ _string strcpy (_string dest, string src);
 // mem shit
 
 int memcmp (const void* dest, const void* src, size_t size);
-void *memcpy(void *dest, const void *src, size_t length);
+void *memcpy(void * restrict dest, const void * restrict src, size_t length);
 // Problematic rn
 //void *memmove(void *dest, const void *src, size_t n);
 void *memset(void *data, int value, size_t length);

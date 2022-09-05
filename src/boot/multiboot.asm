@@ -32,6 +32,8 @@ section .pre_text
 global start
 extern _start
 
+global stack_top
+
 global end_of_mapped_memory
 
 ; We'll initially be in 32 bit mode(due to multiboot and damn grub), so we're going to check if we can transfer to 64 bit 

@@ -2,6 +2,7 @@
 #include <arch/x86/multiboot.h>
 #include <libc/stddef.h>
 #include <libc/string.h>
+#include <arch/x86/interupts/gdt.h>
 
 typedef void (*ctor_func_t)();
 
@@ -40,16 +41,24 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
         hang();
     }
 
+    // since memory management is still very hard (;-;) I will do gdt and idt first, so
+    // TODO: memmanager goes here \/
+
+    // gdt
+    setup_gdt();
+
+    // idt
+
 
     // TODO: some things on the agenda:
-    // 0. buff up libc ;-;
-    // 1. parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)
-    // 2. setup the memory manager, so we are able to consistantly allocate pageframes, setup a heap and ultimately do all kinds of cool memory stuff
-    // 3. load a brand new GDT and IDT in preperation for step 4
-    // 4. setup interupts so exeptions can be handled and stuff (perhaps do this first so we can catch pmm initialization errors?)
+    // 0. [ ] buff up libc ;-;
+    // 1. [X] parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)
+    // 2. [ ] setup the memory manager, so we are able to consistantly allocate pageframes, setup a heap and ultimately do all kinds of cool memory stuff
+    // 3. [ ] load a brand new GDT and IDT in preperation for step 4
+    // 4. [ ] setup interupts so exeptions can be handled and stuff (perhaps do this first so we can catch pmm initialization errors?)
     //      -   also keyboard and mouse handlers ect.
-    // 5. setup devices so we can have some propper communitaction between the kernel and the hardware
-    // 6. setup a propper filesystem (ext2 r sm, maybe even do this earlier so we can load files and crap)
+    // 5. [ ] setup devices so we can have some propper communitaction between the kernel and the hardware
+    // 6. [ ] setup a propper filesystem (ext2 r sm, maybe even do this earlier so we can load files and crap)
     // 7. ???
     // 8. profit
     // 9. do more stuff but I dont wanna look this far ahead as of now -_-

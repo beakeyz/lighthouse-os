@@ -1,4 +1,5 @@
 #include "string.h"
+#include <libc/stddef.h>
 
 size_t strlen (const char* str) {
     size_t s = 0;
@@ -25,15 +26,13 @@ _string strcpy (_string dest, string src) {
     return dest;
 }
 
-void *memcpy(void *dest, const void *src, size_t length)
+// TODO: dis mofo is broken as fuck, fix it
+void *memcpy(void * restrict dest, const void * restrict src, size_t length)
 {
-    char *cdest = (char *)dest;
-    const char *csrc = (const char *)src;
-    for (size_t i = 0; i < length; i++)
-    {
-        cdest[i] = csrc[i];
-    }
-    return cdest;
+
+	for(size_t i = 0; i < length; i++){
+	}
+    return dest;
 }
 
 int memcmp(const void *s1, const void *s2, size_t n)
@@ -51,11 +50,10 @@ int memcmp(const void *s1, const void *s2, size_t n)
 }
 void *memset(void *data, int value, size_t length)
 {
-    uint8_t *d = (uint8_t *)data;
-    for (size_t i = 0; i < length; i++)
-    {
-        d[i] = value;
-    }
+    asm volatile ("cld; rep stosb"
+                  : "=c"((int){0})
+                  : "rdi"(data), "a"(value), "c"(length)
+                  : "flags", "memory", "rdi");
     return data;
 }
 
