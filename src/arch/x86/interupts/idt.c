@@ -1,6 +1,7 @@
 #include "idt.h"
 #include <libc/stddef.h>
 #include <arch/x86/dev/debug/serial.h>
+#include <libc/io.h>
 
 idt_entry_t idt_entries[MAX_IDT_ENTRIES];
 
@@ -54,4 +55,12 @@ void handle_isr(struct registers *regs) {
 
 void handle_irq(struct registers *regs) {
 
+}
+
+void interupt_acknowledge (int num)
+{
+    if (num >= 8 ){
+        out8(0xA0, 0x20);
+    }
+    out8(0x20, 0x20);
 }

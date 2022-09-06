@@ -49,7 +49,7 @@ void remove_handler (size_t irq_num);
 struct registers* interupt_handler (struct registers* regs);
 
 // ack (extern?)
-void interupt_acknowledge (int num);
+extern void interupt_acknowledge (int num);
 
 #endif // !__INTERUPTS__
 
