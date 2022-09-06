@@ -1,14 +1,14 @@
 #include "idt.h"
 #include <libc/stddef.h>
+#include <arch/x86/dev/debug/serial.h>
 
-static idt_ptr_t idt_ptr;
-static idt_entry_t idt_entries[MAX_IDT_ENTRIES];
+idt_entry_t idt_entries[MAX_IDT_ENTRIES];
 
 void populate_gate(uint8_t num, irq_handler_t handler, uint16_t selector, uint8_t flags) {
     uintptr_t base = (uintptr_t) handler;
     uint16_t base_low = (uint16_t) (base & 0xFFFF);
-    uint16_t base_mid = (uint16_t) ((base >> 16) & 0xFFFF);
-    uint16_t base_high = (uint16_t) ((base >> 32) & 0xFFFFffff);
+    uint16_t base_mid = (uint16_t) ((base >> 16)&0xFFFF);
+    uint32_t base_high = (uint32_t) ((base >> 32)&0xFFFFffff);
 
     idt_entries[num].base_low = base_low;
     idt_entries[num].base_mid = base_mid;
@@ -20,8 +20,9 @@ void populate_gate(uint8_t num, irq_handler_t handler, uint16_t selector, uint8_
 }
 
 void setup_idt() {
+    idt_ptr_t idt_ptr;
     // Store addr and size of the idt table in the pointer
-    idt_ptr.limit = sizeof(idt_entries);
+    idt_ptr.limit = MAX_IDT_ENTRIES * sizeof(idt_entry_t) - 1;
     idt_ptr.base = (uintptr_t)&idt_entries;
 
     populate_gate(32, _irq32, DEFAULT_SELECTOR, INTERUPT_GATE); 
@@ -43,8 +44,7 @@ void setup_idt() {
 
     // Load the idt
     asm volatile (
-        "lidt %0"
-        :: "m"(idt_ptr)
+        "lidt %0" :: "g"(idt_ptr)
     );
 }
 

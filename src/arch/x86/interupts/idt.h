@@ -25,7 +25,7 @@ typedef struct {
     uint8_t flags;
 
     uint16_t base_mid;
-    uint16_t base_high;
+    uint32_t base_high;
     uint32_t pad;
 } __attribute__((packed)) idt_entry_t;
 
