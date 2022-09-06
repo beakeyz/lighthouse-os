@@ -32,11 +32,8 @@ typedef struct registers{
 	uintptr_t rip, cs, rflags, rsp, ss;
 } registers_t;
 
-// handler func ptr
-//
+// handler func ptrs
 typedef struct registers* (*irq_handler_t)(struct registers*);
-
-// specific handler
 typedef int (*irq_specific_handler_t) (struct registers*);
 
 // add
@@ -48,8 +45,8 @@ void remove_handler (size_t irq_num);
 // main entrypoint
 struct registers* interupt_handler (struct registers* regs);
 
-// ack (extern?)
-extern void interupt_acknowledge (int num);
+// ack (this should prob be specific to the chip we use lol)
+// extern void interupt_acknowledge (int num);
 
 #endif // !__INTERUPTS__
 

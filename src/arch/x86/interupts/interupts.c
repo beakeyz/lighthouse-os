@@ -1,4 +1,5 @@
 #include "interupts.h"
+#include <arch/x86/interupts/control/pic.h>
 #include <arch/x86/dev/debug/serial.h>
 #include <libc/stddef.h>
 
@@ -40,7 +41,7 @@ static void _int_handler(struct registers *regs, int num) {
 
     if (!handler) {
         // ack and return
-        interupt_acknowledge(num);
+        pic_eoi(num);
         return;
     }
 
