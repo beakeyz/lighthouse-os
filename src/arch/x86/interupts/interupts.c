@@ -59,11 +59,4 @@ struct registers* interupt_handler (struct registers* regs) {
     }
 
     return regs;
-} 
-
-void interupt_acknowledge(int num) {
-    if (num >= 8) {
-    //	out8(0xA0, 0x20);
-	}
-	//out8(0x20, 0x20);
 }
