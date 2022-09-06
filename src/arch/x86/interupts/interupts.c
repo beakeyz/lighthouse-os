@@ -61,3 +61,11 @@ struct registers* interupt_handler (struct registers* regs) {
 
     return regs;
 }
+
+void disable_interupts() {
+    asm volatile ("cli");
+}
+
+void enable_interupts() {
+    asm volatile ("sti");
+}

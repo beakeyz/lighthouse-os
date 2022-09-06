@@ -48,5 +48,8 @@ struct registers* interupt_handler (struct registers* regs);
 // ack (this should prob be specific to the chip we use lol)
 // extern void interupt_acknowledge (int num);
 
+void disable_interupts ();
+void enable_interupts ();
+
 #endif // !__INTERUPTS__
 
