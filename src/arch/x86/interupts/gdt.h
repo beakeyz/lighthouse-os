@@ -3,6 +3,14 @@
 
 #include <libc/stddef.h>
 
+#define NULL_SELC 0
+#define KERNEL_CODE 0x8
+#define KERNEL_DATA 0x10
+#define USER_CODE 0x23
+#define USER_DATA 0x1B
+
+// TODO: defines for flag bits
+
 typedef struct {
     uint16_t limit;
     uintptr_t base;

@@ -1,3 +1,4 @@
+#include "libc/io.h"
 #include <arch/x86/interupts/idt.h>
 #include <arch/x86/interupts/interupts.h>
 #include <arch/x86/dev/debug/serial.h>
@@ -69,6 +70,8 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     setup_idt();
     println("were alive 2");
 
+    out16(0x8A00, 0x8A00);
+    out16(0x8A00, 0x08AE0);
     init_pic();
     println("yay");
 

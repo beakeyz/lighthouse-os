@@ -8,6 +8,7 @@
 #define MAX_IDT_ENTRIES     256
 #define DEFAULT_SELECTOR    0x08
 #define INTERUPT_GATE       0x8E
+// FIXME: this value correct?
 #define TRAP_GATE           0x8F
 
 // TODO
@@ -21,7 +22,7 @@ typedef struct {
     uint16_t base_low;
     uint16_t selector;
 
-    uint8_t zero;
+    uint8_t ist;
     uint8_t flags;
 
     uint16_t base_mid;
@@ -31,7 +32,7 @@ typedef struct {
 
 
 // add shit
-void populate_gate(uint8_t num, irq_handler_t handler, uint16_t selector, uint8_t flags);
+void populate_gate(uint8_t num, void* handler, uint16_t selector, uint8_t ist, uint8_t flags);
 
 // install shit
 void setup_idt ();
@@ -41,5 +42,7 @@ void handle_isr (struct registers* regs);
 
 // handle more shit
 void handle_irq (struct registers* regs);
+
+extern void flush_idt (uintptr_t ptr);
 
 #endif
