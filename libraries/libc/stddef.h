@@ -1,19 +1,20 @@
 #ifndef __STDDEF__
 #define __STDDEF__
 
-typedef signed             char int8_t;
-typedef unsigned           char uint8_t;
-typedef signed             short int16_t;
-typedef unsigned           short uint16_t;
-typedef long signed        int int32_t;
-typedef long unsigned      int uint32_t;
-typedef long long signed   int int64_t;
-typedef long long unsigned int uint64_t;
+typedef signed             char     int8_t;
+typedef unsigned           char     uint8_t;
+typedef signed             short    int16_t;
+typedef unsigned           short    uint16_t;
+typedef long signed        int      int32_t;
+typedef long unsigned      int      uint32_t;
+typedef long long signed   int      int64_t;
+typedef long long unsigned int      uint64_t;
 
-typedef char* va_list;
-typedef uint64_t size_t;
-typedef int64_t ssize_t;
-typedef uint64_t uintptr_t;
+typedef char*                       va_list;
+typedef uint64_t                    size_t;
+typedef int64_t                     ssize_t;
+typedef uint64_t                    uintptr_t;
+typedef int                         bool;
 
 #define asm __asm__
 #define nullptr (void*)0
@@ -23,9 +24,10 @@ typedef uint64_t uintptr_t;
 #define true 1
 #define false 0
 
+
+// These are standard yoink material off the internet, go cry =)
 #define __va_argsiz(t)	\
 	(((sizeof(t) + sizeof(int) - 1) / sizeof(int)) * sizeof(int))
-
 
 #define va_start(ap, pN)	\
 	((ap) = ((va_list) __builtin_next_arg(pN)))

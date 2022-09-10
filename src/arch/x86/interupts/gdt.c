@@ -3,7 +3,7 @@
 #include <libc/string.h>
 #include <libc/stddef.h>
 
-gdt_struct_t gdt[1] = {{
+static gdt_struct_t _gdt[1] = {{
     {
 		{0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00},
 		{0xFFFF, 0x0000, 0x00, 0x9A, (1 << 5) | (1 << 7) | 0x0F, 0x00},
@@ -17,13 +17,13 @@ gdt_struct_t gdt[1] = {{
 // credit: toaruos (again)
 void setup_gdt() {
 
-    gdt[0].ptr.limit = sizeof(gdt[0].default_entries)-1;
-	gdt[0].ptr.base  = (uintptr_t)&gdt[0].default_entries;
+    _gdt[0].ptr.limit = sizeof(_gdt[0].default_entries)-1;
+	_gdt[0].ptr.base  = (uintptr_t)&_gdt[0].default_entries;
 
-    if (&gdt[0] == nullptr) {
+    if (&_gdt[0] == nullptr) {
         println("yikes");
     }
 
-    load_gdt(&gdt[0].ptr);
+    load_gdt(&_gdt[0].ptr);
 }
 

@@ -1,4 +1,5 @@
-#include "libc/io.h"
+#include <arch/x86/mem/kmem_manager.h>
+#include <libc/io.h>
 #include <arch/x86/interupts/idt.h>
 #include <arch/x86/interupts/interupts.h>
 #include <arch/x86/dev/debug/serial.h>
@@ -50,15 +51,9 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
         hang();
     }
     
-    uint32_t* t = (uint32_t*)0x666;
+    struct multiboot_tag_mmap* mmap = get_mb2_tag((void*)mb_addr, 6);
 
-    uint32_t v = 0;
-    memcpy(&v, &t, sizeof(v));
-
-    if (v == 0x666) {
-        println("hihi");
-    }
-
+    init_kmem_manager(mmap, first_valid_addr);
     // since memory management is still very hard (;-;) I will do gdt and idt first, so
     // TODO: memmanager goes here \/
 
@@ -74,7 +69,7 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     out16(0x8A00, 0x08AE0);
     init_pic();
     println("yay");
-
+    
     // TODO: some things on the agenda:
     // 0. [ ] buff up libc ;-;
     // 1. [X] parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)

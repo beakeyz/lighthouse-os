@@ -19,13 +19,13 @@ uintptr_t mb_initialize(void *addr) {
             offset = cur_offset;
             println("shifted offset");
         }
-        entry += mb_memmap->size;
+        entry += mb_memmap->entry_size;
         println("shifted entry");
     }
 
     // TODO: second: modules
 
-    offset = (offset + 0xFFF) & 0xFFFfffFFFf000;
+    offset = (offset + 0x1FFFFF) & 0xFFFfffFFFf000;
     return offset;
 }
 
