@@ -17,10 +17,8 @@ uintptr_t mb_initialize(void *addr) {
         uintptr_t cur_offset = cur_entry->addr + cur_entry->len - 1; 
         if (cur_entry->type == 1 && cur_entry->len && cur_offset > offset) {
             offset = cur_offset;
-            println("shifted offset");
         }
         entry += mb_memmap->entry_size;
-        println("shifted entry");
     }
 
     // TODO: second: modules

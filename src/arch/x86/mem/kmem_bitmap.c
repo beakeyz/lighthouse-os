@@ -1,4 +1,5 @@
 #include "kmem_bitmap.h"
+#include "arch/x86/interupts/control/pic.h"
 #include "arch/x86/kmain.h"
 #include "arch/x86/mem/kmem_manager.h"
 #include <libc/stddef.h>
@@ -13,15 +14,21 @@ struct scan_attempt {
 void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_info, uint32_t addr) {
     map->bm_memory_map = (uint64_t*) &_kernel_end;
     size_t mem_size = (basic_info->mem_upper + 1024) * 1024;
-    map->bm_size = mem_size / PAGE_SIZE + 1;
+    map->bm_size = mem_size / PAGE_SIZE_BYTES + 1;
     map->bm_used_frames = 0;
     map->bm_entry_num = map->bm_size / 64 + 1;
 
     map->bm_memory_map = get_bitmap_region(addr, map->bm_size / 8 + 1);
 
-    // FIXME: this crashes after a bunch of loops, why
+    if (map->bm_entry_num == (mem_size / PAGE_SIZE_BYTES + 1) / 64 + 1) {
+        println("check passed");
+    }
+
+    // FIXME: this sometimes crashes after a bunch of loops, why
     for (uint32_t i = 0; i < map->bm_entry_num; i++) {
         map->bm_memory_map[i] = 0x0;
+        // This wait statement seems to prevent crash?
+        PIC_WAIT();
     }
 
     uint32_t kernel_entries = find_kernel_entries(addr);
@@ -33,7 +40,6 @@ void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_i
     }
     map->bm_memory_map[j] = ~(~(0ul) << (kernel_entries - (rows_num * 64)));
     map->bm_used_frames = kernel_entries;
-
 }
 
 bool bm_get(kmem_bitmap_t* map, size_t idx) {
@@ -77,36 +83,19 @@ size_t bm_find(kmem_bitmap_t* map, size_t len) {
     //static int recursive_lock = 0;
     struct scan_attempt attempt = {0,0};
 
-    for (int i = map->bm_last_allocated_bit; i < map->bm_size; i++) {
-        // skip the first entry
-        if (i == 0)
-            continue;
-
-        // we need to find a contingues batch of bits
-        
-        // if the bit is free
-        if (!bm_get(map, i)) {
-            // if we found a free bit for the first time
-            if (attempt.len == 0) {
-                // reset index
-                attempt.indx = i;
-            } 
-            attempt.indx++;
-        } else {
-            // reset
-            // TODO: see if we need to store the data of a failed find,
-            // because we could potentially start the next search at the end of 
-            // the previous search 
-            attempt.indx = attempt.len = 0;
-        }
-
-        // compare
-        if (attempt.len == len) {
-            map->bm_last_allocated_bit = attempt.indx + len;
-            return attempt.indx;
+    uintptr_t i = 0;
+    uintptr_t j = 0;
+    for (i = 0; i < map->bm_entry_num; i++) {
+        if (map->bm_memory_map[i] != BITMAP_ENTRY_FULL) {
+            for (j = 0; j < BITMAP_ROW_BITS; j++) {
+                uintptr_t cur_bit = 1 << j;
+                if ((map->bm_memory_map[i] & cur_bit) == 0) {
+                    return i * BITMAP_ROW_BITS + j;
+                }
+            }
         }
     }
-
+    
     // nothing found
     if (map->bm_last_allocated_bit == 0 || attempt.indx == 0 || attempt.len == 0) {
         println("no bitmap entry found! This is bad");
@@ -142,16 +131,20 @@ size_t bm_allocate(kmem_bitmap_t* map, size_t len) {
 }
 
 size_t bm_mark_block_used(kmem_bitmap_t* map, size_t idx, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        if (bm_get(map, idx + i) == true) {
-            // TODO: perhaps reset the set entries?
-            println("marking as used while already in use!");
-            return 0;
-        }
-        bm_set(map, idx + i, true);
+    uintptr_t _idx = idx / PAGE_SIZE_BYTES;
+    uintptr_t _size = len / PAGE_SIZE_BYTES;
+
+    // We're going to need an extra page now =[
+    if (_size % PAGE_SIZE_BYTES != 0) {
+        _size++;
     }
-    // success
-    return 1;
+    for (; _size > 0; _size--) {
+        if (!bm_get(map, _idx)) {
+            bm_set(map, _idx++, true);
+            map->bm_used_frames++;
+        }
+    }
+    return 0;
 }
 
 size_t bm_mark_block_free(kmem_bitmap_t* map, size_t idx, size_t len) {
@@ -173,8 +166,8 @@ bool bm_is_in_range(kmem_bitmap_t* map, size_t idx) {
 }
 
 uint32_t find_kernel_entries(uint64_t addr){
-    uint32_t kernel_entries = ((uint64_t)addr) / PAGE_SIZE;
-    uint32_t kernel_mod_entries = ((uint32_t)(addr)) % PAGE_SIZE;
+    uint32_t kernel_entries = ((uint64_t)addr) / PAGE_SIZE_BYTES;
+    uint32_t kernel_mod_entries = ((uint32_t)(addr)) % PAGE_SIZE_BYTES;
     if (  kernel_mod_entries != 0){
         return kernel_entries + 2;
     } 

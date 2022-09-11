@@ -44,7 +44,6 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     // Verify magic number
     if (mb_magic == 0x36d76289) {
-        println("multiboot passed test");
         // parse multiboot
         first_valid_addr = mb_initialize((void*)mb_addr);
     } else {
@@ -60,8 +59,7 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_kmem_manager(mb_addr, mb_size, basic_mem_info);
 
     // init mmap
-
-    // init kheap (kmalloc)
+    init_mmap();
    
     // gdt
     setup_gdt();
@@ -73,6 +71,9 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     init_pic();
     println("pic");
+
+    // kmalloc
+
     
     // TODO: some things on the agenda:
     // 0. [ ] buff up libc ;-;

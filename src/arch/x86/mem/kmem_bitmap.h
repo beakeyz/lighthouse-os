@@ -4,6 +4,8 @@
 #include <arch/x86/multiboot.h>
 
 #define MAX_FIND_ATTEMPTS 3
+#define BITMAP_ENTRY_FULL 0xfffffffffffffff
+#define BITMAP_ROW_BITS 64
 
 typedef struct kmem_bitmap {
     size_t bm_size;
@@ -30,5 +32,6 @@ bool bm_is_in_range (kmem_bitmap_t* map, size_t idx);
 uint32_t find_kernel_entries(uint64_t addr);
 
 void bm_get_region(kmem_bitmap_t* map, uint64_t* base_address, size_t* length_in_bytes);
+uint64_t bm_get_frame ();
 
 #endif // !__KMEM_BITMAP__

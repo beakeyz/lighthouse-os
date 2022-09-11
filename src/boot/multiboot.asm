@@ -30,6 +30,12 @@ section .pre_text
 [bits 32]
 
 global start
+
+global boot_pml4t
+global boot_pdpt
+global boot_pdt
+global boot_pt
+
 extern _start
 
 global stack_top
