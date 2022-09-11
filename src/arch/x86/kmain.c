@@ -45,30 +45,34 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // Verify magic number
     if (mb_magic == 0x36d76289) {
         println("multiboot passed test");
+        // parse multiboot
         first_valid_addr = mb_initialize((void*)mb_addr);
     } else {
         println("big yikes");
         hang();
     }
-    
+    // setup pmm
+    uint32_t mb_size = *(uint32_t*) mb_addr;
     struct multiboot_tag_mmap* mmap = get_mb2_tag((void*)mb_addr, 6);
+    struct multiboot_tag_basic_meminfo* basic_mem_info = get_mb2_tag((void*)mb_addr, 4);
 
-    init_kmem_manager(mmap, first_valid_addr);
-    // since memory management is still very hard (;-;) I will do gdt and idt first, so
-    // TODO: memmanager goes here \/
+    prep_mmap(mmap);
+    init_kmem_manager(mb_addr, mb_size, basic_mem_info);
 
+    // init mmap
+
+    // init kheap (kmalloc)
+   
     // gdt
     setup_gdt();
-    println("were alive 1");
+    println("gdt");
 
     // idt
     setup_idt();
-    println("were alive 2");
+    println("idt");
 
-    out16(0x8A00, 0x8A00);
-    out16(0x8A00, 0x08AE0);
     init_pic();
-    println("yay");
+    println("pic");
     
     // TODO: some things on the agenda:
     // 0. [ ] buff up libc ;-;

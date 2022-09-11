@@ -1,4 +1,6 @@
 #include "kmem_bitmap.h"
+#include "arch/x86/kmain.h"
+#include "arch/x86/mem/kmem_manager.h"
 #include <libc/stddef.h>
 #include <arch/x86/dev/debug/serial.h>
 #include <libc/string.h>
@@ -8,24 +10,30 @@ struct scan_attempt {
     size_t len;
 };
 
-kmem_bitmap_t make_bitmap () {
-    kmem_bitmap_t bm;
-    bm.bm_buffer = nullptr;
-    bm.bm_size = 0;
-    bm.bm_last_allocated_bit = 0;
-    return bm;
-}
+void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_info, uint32_t addr) {
+    map->bm_memory_map = (uint64_t*) &_kernel_end;
+    size_t mem_size = (basic_info->mem_upper + 1024) * 1024;
+    map->bm_size = mem_size / PAGE_SIZE + 1;
+    map->bm_used_frames = 0;
+    map->bm_entry_num = map->bm_size / 64 + 1;
 
-kmem_bitmap_t make_data_bitmap (uint8_t* data, size_t len) {
-    kmem_bitmap_t bm;
-    // reset the data inside the bitmap
-    // data is a pointer to the data (which we will then zero :clown:)
-    bm.bm_buffer = data;
-    // len is the size of the bm in bits
-    bm.bm_size = len;
-    bm.bm_last_allocated_bit = 0;
-    // do it again ;-;
-    return bm;
+    map->bm_memory_map = get_bitmap_region(addr, map->bm_size / 8 + 1);
+
+    // FIXME: this crashes after a bunch of loops, why
+    for (uint32_t i = 0; i < map->bm_entry_num; i++) {
+        map->bm_memory_map[i] = 0x0;
+    }
+
+    uint32_t kernel_entries = find_kernel_entries(addr);
+    uint32_t rows_num = kernel_entries / 64;
+    
+    uint32_t j;
+    for (j = 0; j < rows_num; j++) {
+        map->bm_memory_map[j] = ~(0);
+    }
+    map->bm_memory_map[j] = ~(~(0ul) << (kernel_entries - (rows_num * 64)));
+    map->bm_used_frames = kernel_entries;
+
 }
 
 bool bm_get(kmem_bitmap_t* map, size_t idx) {
@@ -38,7 +46,7 @@ bool bm_get(kmem_bitmap_t* map, size_t idx) {
     // get the byte in which the correct bit resides
     size_t bm_byte = idx / 8;
     // return the bit we want from the byte its in
-    return map->bm_buffer[bm_byte] & (1 << bm_bit);
+    return map->bm_memory_map[bm_byte] & (1 << bm_bit);
 }
 
 void bm_set(kmem_bitmap_t* map, size_t idx, bool value) {
@@ -52,10 +60,10 @@ void bm_set(kmem_bitmap_t* map, size_t idx, bool value) {
     size_t bm_byte = idx / 8;
     
     if (value) {
-        map->bm_buffer[bm_byte] |= (1 << bm_bit);
+        map->bm_memory_map[bm_byte] |= (1 << bm_bit);
         return;
     }
-    map->bm_buffer[bm_byte] &= ~(1 << bm_bit);
+    map->bm_memory_map[bm_byte] &= ~(1 << bm_bit);
     return;
 }
 
@@ -162,4 +170,20 @@ size_t bm_mark_block_free(kmem_bitmap_t* map, size_t idx, size_t len) {
 
 bool bm_is_in_range(kmem_bitmap_t* map, size_t idx) {
     return idx < map->bm_size;
+}
+
+uint32_t find_kernel_entries(uint64_t addr){
+    uint32_t kernel_entries = ((uint64_t)addr) / PAGE_SIZE;
+    uint32_t kernel_mod_entries = ((uint32_t)(addr)) % PAGE_SIZE;
+    if (  kernel_mod_entries != 0){
+        return kernel_entries + 2;
+    } 
+    return kernel_entries + 1;
+   
+}
+
+void bm_get_region(kmem_bitmap_t* map, uint64_t* base_address, size_t* length_in_bytes)
+{
+    *base_address = (uint64_t)map->bm_memory_map;
+    *length_in_bytes = map->bm_size / 8 + 1;
 }

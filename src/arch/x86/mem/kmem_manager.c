@@ -6,86 +6,50 @@
 #include <libc/stddef.h>
 #include <libc/string.h>
 
+static kmem_data_t kmem_data;
 static kmem_bitmap_t kmem_bitmap;
-static uintptr_t kmem_bitmap_addr;
-static uintptr_t kmem_as_size;
-static uintptr_t kmem_available_mem;
 
-static uint64_t get_free_RAM_length (struct multiboot_tag_mmap* mmap) {
-    // find the base and length of the RAM
-    const uint64_t last_idx = mmap->size - 1;
-    uint64_t addr = mmap->entries[last_idx].addr;
-    uint64_t len = mmap->entries[last_idx].len;
-    // align it to our pages
-    uint64_t aligned_addr = addr - (addr % PAGE_SIZE); 
-    // this one is a lil weird
-    uint64_t aligned_len = len + PAGE_SIZE - (len % PAGE_SIZE);
-    // compute the length of our free range
-    return aligned_addr + aligned_len - 1;
-} 
-
-/*
-static uint64_t get_free_RAM_addr (struct multiboot_tag_mmap* mmap) {
-     // find the base of the RAM
-    uint64_t last_idx = mmap->size - 1;
-    uint64_t addr = mmap->entries[last_idx].addr;
-    // align it to our pages
-    uint64_t aligned_addr = addr - (addr % PAGE_SIZE); 
-
-    return aligned_addr;
+// first prep the mmap
+void prep_mmap(struct multiboot_tag_mmap *mmap) {
+    kmem_data.mmap_entry_num = (mmap->size - sizeof(*mmap))/mmap->entry_size;
+    kmem_data.mmap_entries = (multiboot_memory_map_t*)mmap->entries;
 }
-*/
 
-void init_kmem_manager(struct multiboot_tag_mmap* mmap, uintptr_t mb_first_addr) {
+void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_basic_meminfo* basic_info) {
+    init_bitmap(&kmem_bitmap, basic_info, mb_addr + mb_size); 
+    uint64_t bitmap_start_addr;
+    size_t bitmap_size;
+    bm_get_region(&kmem_bitmap, &bitmap_start_addr, &bitmap_size); 
+
     
-    // Small outline of our pmm
-    // 1: find out what memory we can use and what is off limits (use bl data for this)
-    // 2: place the kernel heap (cuz lets do that too) somewhere
-    // 3: 
+    println("yay, reached test end");
+}
 
-    println("getting ram length!");
-    size_t mem_length = get_free_RAM_length(mmap);
-    size_t aligned_mem_length = mem_length / PAGE_SIZE;
-    kmem_as_size = 0;
-    kmem_bitmap_addr = 0;
+// then init, after kmem_manager is initialized
+void init_mmap () {
 
-    // loop 0
-    for (uintptr_t i = 0; i < mmap->size; i++) {
-        struct multiboot_mmap_entry* entry = &mmap->entries[i];
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            // yes =D
-            if (entry->len > ((aligned_mem_length / 8) + (PAGE_SIZE * 2))) {
-                println("slayyy");
-                kmem_bitmap_addr = entry->addr + PAGE_SIZE * 2;
-                kmem_as_size = aligned_mem_length;
-                break;
+}
+
+void* get_bitmap_region (uint64_t limit, uint64_t bytes) {
+
+    for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
+        multiboot_memory_map_t* map = &kmem_data.mmap_entries[i];
+
+        // If we're able to use this region
+        if (map->type == MULTIBOOT_MEMORY_AVAILABLE) {
+            // If the region lies in the higher half
+            if (map->addr + map->len > limit) {
+                size_t offest = limit > map->addr ? limit - map->addr : 0;
+                size_t available_space = map->len - offest;
+
+                if (available_space > bytes) {
+                    println("found a region =D");
+                    return (void*)(map->addr + offest);
+                }
             }
-            println("slay test");
-        } 
-    } 
-
-    kmem_as_size = 0xFFFFF;
-
-    // init bitmap
-
-    kmem_bitmap.bm_buffer = (uint8_t*) kmem_bitmap_addr;
-    kmem_bitmap.bm_size = kmem_as_size;
-    kmem_bitmap.bm_last_allocated_bit = 0;
-
-    memset((void*)kmem_bitmap_addr, 0xff, kmem_as_size / 8);
-
-    for (uintptr_t i = 0; i < mmap->size; i++) {
-        struct multiboot_mmap_entry* entry = &mmap->entries[i];
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            println("Marking range as free!");
-            size_t start = ((entry->addr) + PAGE_SIZE - ((entry->addr) % PAGE_SIZE)) / PAGE_SIZE; // align up
-            size_t size = ((entry->len) - ((entry->len) % PAGE_SIZE)) / PAGE_SIZE;          // align down
-            bm_mark_block_free(&kmem_bitmap, start, size - 1);
-            kmem_available_mem += size;
         }
     }
-
-    bm_mark_block_used(&kmem_bitmap, (kmem_bitmap_addr / PAGE_SIZE), (kmem_as_size / 8) / PAGE_SIZE);
-    kmem_bitmap.bm_last_allocated_bit = 0;
+    println("no region found, thats a yikes =/");
+    return NULL;
 }
 
