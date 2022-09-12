@@ -22,7 +22,7 @@ void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_
     bm_get_region(&kmem_bitmap, &bitmap_start_addr, &bitmap_size); 
 
     bitmap_start_addr = (bitmap_start_addr / PAGE_SIZE_BYTES) * PAGE_SIZE_BYTES;
-    size_t required_pages_num = bitmap_start_addr / PAGE_SIZE_BYTES;
+    size_t required_pages_num = bitmap_size / PAGE_SIZE_BYTES;
 
     for (uintptr_t i = 0; i < required_pages_num; i++) {
         get_vaddr((void*)(bitmap_start_addr + i * PAGE_SIZE_BYTES), 0); 
