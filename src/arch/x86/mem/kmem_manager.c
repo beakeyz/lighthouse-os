@@ -1,6 +1,7 @@
 #include "kmem_manager.h"
 #include "arch/x86/dev/debug/serial.h"
 #include "arch/x86/kmain.h"
+#include "arch/x86/mem/kmalloc.h"
 #include "arch/x86/mem/kmem_bitmap.h"
 #include "arch/x86/multiboot.h"
 #include <libc/stddef.h>
@@ -22,13 +23,20 @@ void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_
     bm_get_region(&kmem_bitmap, &bitmap_start_addr, &bitmap_size); 
 
     bitmap_start_addr = (bitmap_start_addr / PAGE_SIZE_BYTES) * PAGE_SIZE_BYTES;
-    size_t required_pages_num = bitmap_size / PAGE_SIZE_BYTES;
+    size_t required_pages_num = bitmap_size / PAGE_SIZE_BYTES + 1;
 
     for (uintptr_t i = 0; i < required_pages_num; i++) {
+        println("mapped a thing");
         get_vaddr((void*)(bitmap_start_addr + i * PAGE_SIZE_BYTES), 0); 
     }
     
-    println("yay, reached test end");
+    // init mmap
+    init_mmap(basic_info);
+
+    // init kmalloc
+    init_kmalloc(&kmem_bitmap);
+
+    println("[IMPORTANT] finished setting up memory!");
 }
 
 // then init, after kmem_manager is initialized
@@ -94,18 +102,21 @@ void* phys_to_virt(void *phys, void *virt, int flags) {
     uint16_t pd_e = PD_ENTRY((uint64_t) virt);
 
     if (!(pml4_table[pml4_e] & 0b1)) {
+        println("new pml4 thing lol");
         uintptr_t* new_table = alloc_frame();
         pml4_table[pml4_e] = (uint64_t) new_table | 0 | WRITE_BIT | PRESENT_BIT;
         clear_table(pdpr_table);
     }
 
     if( !(pdpr_table[pdpr_e] & 0b1) ) {
+        println("new pdpr thing lol");
         uintptr_t *new_table = alloc_frame();
         pdpr_table[pdpr_e] = (uint64_t) new_table | 0 | WRITE_BIT | PRESENT_BIT;
         clear_table(pd_table);
     }
      
     if( !(pd_table[pd_e] & 0b01) ) {
+        println("new pd thing lol");
         pd_table[pd_e] = (uint64_t) (phys) | WRITE_BIT | PRESENT_BIT | HUGEPAGE_BIT | flags;
     }
 

@@ -42,7 +42,7 @@ typedef struct {
 
 void init_kmem_manager (uint32_t mb_addr, uint32_t mb_first_addr, struct multiboot_tag_basic_meminfo* basic_info);
 void prep_mmap (struct multiboot_tag_mmap* mmap);
-void init_mmap();
+void init_mmap(struct multiboot_tag_basic_meminfo* basic_info);
 
 void* get_bitmap_region (uint64_t limit, size_t bytes);
 

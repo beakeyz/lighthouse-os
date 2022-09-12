@@ -20,10 +20,6 @@ void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_i
 
     map->bm_memory_map = get_bitmap_region(addr, map->bm_size / 8 + 1);
 
-    if (map->bm_entry_num == (mem_size / PAGE_SIZE_BYTES + 1) / 64 + 1) {
-        println("check passed");
-    }
-
     // FIXME: this sometimes crashes after a bunch of loops, why
     for (uint32_t i = 0; i < map->bm_entry_num; i++) {
         map->bm_memory_map[i] = 0x0;

@@ -1,3 +1,4 @@
+#include <arch/x86/mem/kmalloc.h>
 #include <arch/x86/mem/kmem_manager.h>
 #include <libc/io.h>
 #include <arch/x86/interupts/idt.h>
@@ -58,9 +59,6 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     prep_mmap(mmap);
     init_kmem_manager(mb_addr, mb_size, basic_mem_info);
 
-    // init mmap
-    init_mmap();
-   
     // gdt
     setup_gdt();
     println("gdt");
@@ -71,9 +69,6 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     init_pic();
     println("pic");
-
-    // kmalloc
-
     
     // TODO: some things on the agenda:
     // 0. [ ] buff up libc ;-;

@@ -1,4 +1,4 @@
-%define VIRT_BASE 0xffffffff80000000
+%define VIRT_BASE 0xffffffff80000000 
 
 section .multiboot_header
 header_start:
