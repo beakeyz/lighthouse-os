@@ -41,6 +41,9 @@ SECTIONS {
     {
         *(COMMON)
         *(.bss*)
+
+        . = ALIGN(4K)
+        *(.heap)
     }
     
     _kernel_end = .;
