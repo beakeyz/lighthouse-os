@@ -12,14 +12,14 @@ typedef struct kmem_bitmap {
     uint32_t bm_used_frames;
     uint32_t bm_entry_num;
     size_t bm_last_allocated_bit;
-    uint64_t* bm_memory_map;
+    uint8_t* bm_memory_map;
 } kmem_bitmap_t;
 
 void init_bitmap (kmem_bitmap_t* map, struct multiboot_tag_basic_meminfo* basic_info, uint32_t addr);
 
 // NOTE: pointer or reference?
-void bm_set(kmem_bitmap_t* map, size_t idx, bool value);
-bool bm_get(kmem_bitmap_t* map, size_t idx);
+//void bm_set(kmem_bitmap_t* map, size_t idx, bool value);
+//bool bm_get(kmem_bitmap_t* map, size_t idx);
 
 size_t bm_find (kmem_bitmap_t* map, size_t len);
 size_t bm_allocate (kmem_bitmap_t* map, size_t len);

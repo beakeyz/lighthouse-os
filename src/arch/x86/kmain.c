@@ -69,6 +69,13 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     init_pic();
     println("pic");
+
+    struct multiboot_tag_mmap* test_map = kmalloc(sizeof(struct multiboot_tag_mmap));
+    memcpy(test_map, mmap, sizeof(struct multiboot_tag_mmap));
+
+    if (test_map->size == 0) {
+        println("yay");
+    }
     
     // TODO: some things on the agenda:
     // 0. [ ] buff up libc ;-;

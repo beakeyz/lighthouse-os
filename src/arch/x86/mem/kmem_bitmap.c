@@ -11,8 +11,9 @@ struct scan_attempt {
     size_t len;
 };
 
+static int find_trailing_zeroes (size_t value);
+
 void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_info, uint32_t addr) {
-    map->bm_memory_map = (uint64_t*) &_kernel_end;
     size_t mem_size = (basic_info->mem_upper + 1024) * 1024;
     map->bm_size = mem_size / PAGE_SIZE_BYTES + 1;
     map->bm_used_frames = 0;
@@ -36,80 +37,93 @@ void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_i
     }
     map->bm_memory_map[j] = ~(~(0ul) << (kernel_entries - (rows_num * 64)));
     map->bm_used_frames = kernel_entries;
+
 }
 
-bool bm_get(kmem_bitmap_t* map, size_t idx) {
-    if (!bm_is_in_range(map, idx)) {
-        println("bitmap access was out of range!");
-        return false;
+static int find_trailing_zeroes (size_t value) {
+    for (size_t i = 0; i < 8 * sizeof(size_t); ++i) {
+        if ((value >> i) & 1) {
+            return i;
+        }
     }
-    // get the correct bit from the index
-    size_t bm_bit = idx % 8;
-    // get the byte in which the correct bit resides
-    size_t bm_byte = idx / 8;
-    // return the bit we want from the byte its in
-    return map->bm_memory_map[bm_byte] & (1 << bm_bit);
-}
-
-void bm_set(kmem_bitmap_t* map, size_t idx, bool value) {
-    if (!bm_is_in_range(map, idx)) {
-        println("bitmap set was out of range!");
-        return;
-    }
-    // get the correct bit from the index
-    size_t bm_bit = idx % 8;
-    // get the byte in which the correct bit resides
-    size_t bm_byte = idx / 8;
-    
-    if (value) {
-        map->bm_memory_map[bm_byte] |= (1 << bm_bit);
-        return;
-    }
-    map->bm_memory_map[bm_byte] &= ~(1 << bm_bit);
-    return;
+    return 8 * sizeof(size_t);
 }
 
 size_t bm_find(kmem_bitmap_t* map, size_t len) {
-    // im paranoid
-    if (map->bm_last_allocated_bit > map->bm_size) {
-        map->bm_last_allocated_bit = 0;
-        println("reset the allocation pointer (out of bounds (idk whtf happend but sure))");
-    }
 
-    //static int recursive_lock = 0;
-    struct scan_attempt attempt = {0,0};
+    const size_t bit_size = 8 * sizeof(size_t);
+    uint64_t* data = (uint64_t*)map->bm_memory_map;
 
-    uintptr_t i = 0;
-    uintptr_t j = 0;
-    for (i = 0; i < map->bm_entry_num; i++) {
-        if (map->bm_memory_map[i] != BITMAP_ENTRY_FULL) {
-            for (j = 0; j < BITMAP_ROW_BITS; j++) {
-                uintptr_t cur_bit = 1 << j;
-                if ((map->bm_memory_map[i] & cur_bit) == 0) {
-                    return i * BITMAP_ROW_BITS + j;
+    uintptr_t start_byte = 0;
+    uintptr_t start_bit = 0;
+
+    uintptr_t free_chunk_counter = 0;
+
+    println("trying to find chunks");
+
+    for (uintptr_t i = start_byte; i < map->bm_size; i++) {
+        if (data[i] == BITMAP_ENTRY_FULL) {
+            free_chunk_counter = 0;
+            start_bit = 0;
+            println("skipped full one");
+            continue;
+        }
+        
+        if (data[i] == 0x0) {
+            free_chunk_counter += bit_size;
+            start_bit = 0;
+            
+            if (free_chunk_counter >= len) {
+                println("yay, found cool chunk");
+                return free_chunk_counter;
+            }
+
+            println("skipped empty one");
+            continue;
+        }
+
+        uintptr_t current = data[i];
+        uint8_t skipped_bits = start_bit;
+
+        current >>= skipped_bits;
+        uint32_t trailing_zeroes = 0;
+
+        println("scanning bitline");
+        while (skipped_bits < bit_size) {
+            if (current == 0) {
+                if (free_chunk_counter == 0) {
+                    // WHAHA
                 }
+                free_chunk_counter += bit_size - skipped_bits;
+                skipped_bits = bit_size;
+                println("start found lol");
+            } else {
+                trailing_zeroes = find_trailing_zeroes(current);
+                current >>= trailing_zeroes;
+
+                free_chunk_counter += trailing_zeroes;
+                skipped_bits += trailing_zeroes;
+
+                if (free_chunk_counter == len) {
+                    println("something");
+                    return free_chunk_counter;
+                }
+
+                uint32_t trailing_ones = find_trailing_zeroes(~current);
+                current >>= trailing_ones;
+                skipped_bits+= trailing_ones;
+                free_chunk_counter = 0;
+                println("looped around");
             }
         }
     }
-    
-    // nothing found
-    if (map->bm_last_allocated_bit == 0 || attempt.indx == 0 || attempt.len == 0) {
-        println("no bitmap entry found! This is bad");
-        return 0;
+
+    if (free_chunk_counter < len) {
+        print("thats a yikes! could not find free chunks D=");
+        asm volatile ("hlt");
     }
 
-    // attempt a recursive search
-    map->bm_last_allocated_bit = 0;
-    // Check is redundant, because we might not find anything for a while
-    // When there is some free space at the end of the map
-    /*
-    recursive_lock++;
-    if (recursive_lock > MAX_FIND_ATTEMPTS) {
-        recursive_lock = 0;
-        println("nothing came up after MAX_FIND_ATTEMPTS amount of tries =/");
-        return 0;
-    } */
-    return bm_find(map, len);
+    return free_chunk_counter;
 }
 
 size_t bm_allocate(kmem_bitmap_t* map, size_t len) {
@@ -121,39 +135,27 @@ size_t bm_allocate(kmem_bitmap_t* map, size_t len) {
 
     // bm_mark_block_used is going to scream when it fails anyway
     if (bm_mark_block_used(map, block, len) != 0) {
+        println("returned the thing =D");
         return block;
     }
     return 0;
 }
 
 size_t bm_mark_block_used(kmem_bitmap_t* map, size_t idx, size_t len) {
-    uintptr_t _idx = idx / PAGE_SIZE_BYTES;
-    uintptr_t _size = len / PAGE_SIZE_BYTES;
+    uint8_t* start = &map->bm_memory_map[idx / 8];
+    uint8_t* end = &map->bm_memory_map[(idx + len) / 8];
 
-    // We're going to need an extra page now =[
-    if (_size % PAGE_SIZE_BYTES != 0) {
-        _size++;
+    if (start == end) {
+        memset(start, 0xff, 1);
+    } else {
+        memset(start, 0xff, end - start);
     }
-    for (; _size > 0; _size--) {
-        if (!bm_get(map, _idx)) {
-            bm_set(map, _idx++, true);
-            map->bm_used_frames++;
-        }
-    }
-    return 0;
+    return 1;
 }
 
 size_t bm_mark_block_free(kmem_bitmap_t* map, size_t idx, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        if (bm_get(map, idx + i) == false) {
-            // TODO: perhaps reset the set entries?
-            println("marking as free while already free!");
-            return 0;
-        }
-        bm_set(map, idx + i, true);
-    }
-    // success
-    return 1;
+   
+    return NULL;
 }
 
 

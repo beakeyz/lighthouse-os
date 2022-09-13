@@ -7,6 +7,9 @@
 #include <libc/stddef.h>
 #include <libc/string.h>
 
+// 2MB initial heap
+__attribute__((section(".heap"))) static uint8_t _initial_heap_mem[2*1024];
+
 static kmem_data_t kmem_data;
 static kmem_bitmap_t kmem_bitmap;
 
@@ -29,12 +32,14 @@ void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_
         println("mapped a thing");
         get_vaddr((void*)(bitmap_start_addr + i * PAGE_SIZE_BYTES), 0); 
     }
-    
+
+    memset(_initial_heap_mem, 0, sizeof(_initial_heap_mem));
+
     // init mmap
     init_mmap(basic_info);
 
     // init kmalloc
-    init_kmalloc(&kmem_bitmap);
+    init_kmalloc(&kmem_bitmap, _initial_heap_mem, sizeof(_initial_heap_mem));
 
     println("[IMPORTANT] finished setting up memory!");
 }
@@ -66,12 +71,12 @@ void* get_bitmap_region (uint64_t limit, uint64_t bytes) {
         if (map->type == MULTIBOOT_MEMORY_AVAILABLE) {
             // If the region lies in the higher half
             if (map->addr + map->len > limit) {
-                size_t offest = limit > map->addr ? limit - map->addr : 0;
-                size_t available_space = map->len - offest;
+                size_t offset = limit > map->addr ? limit - map->addr : 0;
+                size_t available_space = map->len - offset;
 
                 if (available_space >= bytes) {
                     println("found a region =D");
-                    return (void*)(map->addr + offest);
+                    return (void*)(map->addr + offset);
                 }
             }
         }

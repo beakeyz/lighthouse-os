@@ -14,7 +14,12 @@ typedef struct {
     uint8_t* heap_addr;
 } kmalloc_data_t;
 
-void init_kmalloc (kmem_bitmap_t* bitmap);
+typedef struct {
+    size_t size_in_chunks;
+    uint8_t data[0];
+} kmalloc_header_t;
+
+void init_kmalloc (kmem_bitmap_t* bitmap, uint8_t* heap_addr, size_t heap_size);
 
 void* kmalloc (size_t len);
 void* kfree (void* addr, size_t len);
