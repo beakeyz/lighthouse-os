@@ -47,7 +47,7 @@ CHARDFLAGS := $(CFLAGS)               \
 	    -MMD \
 	    -Werror \
         -O3 \
-        -mcmodel=kernel \
+        -mcmodel=large \
         -mno-80387                     \
         -mno-red-zone                  \
         -fno-exceptions \

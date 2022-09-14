@@ -52,32 +52,33 @@ start:
 
     mov esp, stack_top - VIRT_BASE
     ; TODO: cpuid and PAE checks ect.  
+    ; for now we kinda assume everything checks out :trolle:
 
     mov eax, boot_pdpt - VIRT_BASE
-    or eax, 0b11
+    or eax, 0x3
     mov dword [(boot_pml4t - VIRT_BASE) + 0], eax
 
 
     mov eax, boot_pdt - VIRT_BASE
-    or eax, 0b11
+    or eax, 0x3
     mov dword [(boot_pml4t - VIRT_BASE) + 511 * 8], eax
     
     mov eax, boot_pml4t - VIRT_BASE
-    or eax, 0b11
+    or eax, 0x3
     mov dword [(boot_pml4t - VIRT_BASE) + 510 * 8], eax
 
     mov eax, boot_pt - VIRT_BASE
-    or eax, 0b11 
+    or eax, 0x3
     mov dword [(boot_pdpt - VIRT_BASE) + 0], eax
 
     mov eax, boot_pt - VIRT_BASE
-    or eax, 0b11
+    or eax, 0x3
     mov dword [(boot_pdt - VIRT_BASE) + 510 * 8], eax
 
     mov ecx, 0  ; Loop counter
 
     .map_p2:
-        mov eax, 0x200000
+        mov eax, 0xfff
         mul ecx
         or eax, 0b10000011
 
@@ -94,7 +95,7 @@ start:
 
     ; enable PAE
     mov eax, cr4
-    or eax, 1 << 5
+    or eax, 0x60
     mov cr4, eax
 
     ; set the long mode bit

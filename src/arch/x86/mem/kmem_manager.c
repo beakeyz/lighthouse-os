@@ -8,7 +8,7 @@
 #include <libc/string.h>
 
 // 2MB initial heap
-__attribute__((section(".heap"))) static uint8_t _initial_heap_mem[2*1024];
+//__attribute__((section(".heap"))) static uint8_t _initial_heap_mem[2*1024];
 
 static kmem_data_t kmem_data;
 static kmem_bitmap_t kmem_bitmap;
@@ -19,29 +19,9 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
     kmem_data.mmap_entries = (multiboot_memory_map_t*)mmap->entries;
 }
 
+// TODO: page directory and range abstraction and stuff lol
 void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_basic_meminfo* basic_info) {
-    init_bitmap(&kmem_bitmap, basic_info, mb_addr + mb_size); 
-    uint64_t bitmap_start_addr;
-    size_t bitmap_size;
-    bm_get_region(&kmem_bitmap, &bitmap_start_addr, &bitmap_size); 
 
-    bitmap_start_addr = (bitmap_start_addr / PAGE_SIZE_BYTES) * PAGE_SIZE_BYTES;
-    size_t required_pages_num = bitmap_size / PAGE_SIZE_BYTES + 1;
-
-    for (uintptr_t i = 0; i < required_pages_num; i++) {
-        println("mapped a thing");
-        get_vaddr((void*)(bitmap_start_addr + i * PAGE_SIZE_BYTES), 0); 
-    }
-
-    memset(_initial_heap_mem, 0, sizeof(_initial_heap_mem));
-
-    // init mmap
-    init_mmap(basic_info);
-
-    // init kmalloc
-    init_kmalloc(&kmem_bitmap, _initial_heap_mem, sizeof(_initial_heap_mem));
-
-    println("[IMPORTANT] finished setting up memory!");
 }
 
 // then init, after kmem_manager is initialized

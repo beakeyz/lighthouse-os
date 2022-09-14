@@ -28,6 +28,7 @@ void* kmalloc(size_t len) {
     size_t needed_chunks = (real_size + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
     if (needed_chunks > g_kmalloc_data.total_chunks - g_kmalloc_data.allocated_chunks){
+        println("hi");
         return NULL;
     }
 
