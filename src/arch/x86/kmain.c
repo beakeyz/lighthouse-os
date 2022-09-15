@@ -36,12 +36,16 @@ int thing (registers_t* regs) {
 
 void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
+    for (;;) {}
     init_serial();
 
     for (ctor_func_t* constructor = start_ctors; constructor < end_ctors; constructor++) {
         (*constructor)();
     }
     println("Hi from 64 bit land =D");
+
+    // just hanging for now
+    hang();
 
     // Verify magic number
     if (mb_magic == 0x36d76289) {

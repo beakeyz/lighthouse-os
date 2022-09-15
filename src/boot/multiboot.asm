@@ -1,4 +1,5 @@
-%define VIRT_BASE 0xffffffff80000000 
+%define VIRT_BASE 0xffffffff80000000
+%define MAX_KERN_SIZE 0x4000000
 
 section .multiboot_header
 header_start:
@@ -37,6 +38,7 @@ global boot_pdt
 global boot_pt
 
 extern _start
+extern hang
 
 global stack_top
 
@@ -57,35 +59,59 @@ start:
     or eax, 0x3
     mov dword [(boot_pml4t - VIRT_BASE) + 0], eax
 
-    mov eax, boot_pdt - VIRT_BASE
-    or eax, 0x3
-    mov dword [(boot_pml4t - VIRT_BASE) + 511 * 8], eax
+    ; mov eax, boot_pdt - VIRT_BASE
+    ; or eax, 0x3
+    ; mov dword [(boot_pml4t - VIRT_BASE) + 511 * 8], eax
     
-    mov eax, boot_pml4t - VIRT_BASE
-    or eax, 0x3
-    mov dword [(boot_pml4t - VIRT_BASE) + 510 * 8], eax
+    ; mov eax, boot_pml4t - VIRT_BASE
+    ; or eax, 0x3
+    ; mov dword [(boot_pml4t - VIRT_BASE) + 510 * 8], eax
 
-    mov eax, boot_pt - VIRT_BASE
-    or eax, 0x3
+    
+
+    mov eax, (boot_pdt + 3) - VIRT_BASE
+    ; or eax, 0x3
     mov dword [(boot_pdpt - VIRT_BASE) + 0], eax
 
     mov eax, boot_pt - VIRT_BASE
-    or eax, 0x3
-    mov dword [(boot_pdt - VIRT_BASE) + 510 * 8], eax
-
-    mov ecx, 0  ; Loop counter
+    mov edi, boot_pdt - VIRT_BASE
+    mov ecx, (MAX_KERN_SIZE >> 21)  ; Loop counter
 
     .map_p2:
-        mov eax, 0x200000
-        mul ecx
-        or eax, 0b10000011
+        or eax, 0x3
+        mov [edi], eax
+        add edi, 8
+        add eax, 4096
 
-        mov [(boot_pt - VIRT_BASE) + ecx * 8], eax
-
-        inc ecx
-        ; Check ecx agains the max amount of loops
-        cmp ecx, 512
+        dec ecx
+        cmp ecx, 0
         jne .map_p2
+
+
+    mov ecx, (512 * (MAX_KERN_SIZE >> 21))
+    mov edi, boot_pt - VIRT_BASE
+    mov eax, 0
+
+    .map_kernel_range:
+        or eax, 0x3
+        mov [edi], eax 
+        add edi, 8
+        add eax, 4096
+
+        dec ecx
+        cmp ecx, 0
+        jne .map_kernel_range
+
+        ;mov eax, 0x200000
+        ;mul ecx
+        ;or eax, 0b10000011
+
+        ;mov [(boot_pt - VIRT_BASE) + ecx * 8], eax
+
+        ;inc ecx
+        ; Check ecx agains the max amount of loops
+        ;cmp ecx, 512
+        ;jne .map_p2
     
     ; set cr3
     mov eax, (boot_pml4t - VIRT_BASE)
@@ -115,9 +141,6 @@ start:
 section .text
 long_start:
     
-    mov qword rax, (511 << 39) | (510 << 30) | (511 << 21)
-    mov qword[(end_of_mapped_memory)], rax 
-
     ; update seg registers with new gdt data
     mov ax, 0x10
     mov ss, ax  ; Stack segment selector
@@ -128,8 +151,12 @@ long_start:
 
     mov rsp, stack_top
 
+    ; FIXME: this mofo crashes. This means that the kernel mapping has probably gone wrong somewhere...
+    ; Because the printing of OKAY after the call instruction works fine, I assume that the other mappings
+    ; have gone smoothly
     call _start
     
+    ; NOTE: this is reached and works fine
     mov rax, 0x2f592f412f4b2f4f
     mov qword [0xb8000], rax
     hlt
@@ -139,13 +166,13 @@ section .pts
 ; Only for 64 bit
 align 4096
 boot_pml4t:
-    times 4096 dd 0
+    times 4096 db 0
 boot_pdpt:
-    times 4096 dd 0
+    times 4096 db 0
 boot_pdt:
-    times 4096 dd 0
+    times 4096 db 0
 boot_pt:
-    times 4096 dd 0
+    times 4096 * (MAX_KERN_SIZE >> 21) db 0
 
 section .bss
 align 4096
