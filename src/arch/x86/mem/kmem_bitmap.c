@@ -14,30 +14,7 @@ struct scan_attempt {
 static int find_trailing_zeroes (size_t value);
 
 void init_bitmap(kmem_bitmap_t *map, struct multiboot_tag_basic_meminfo *basic_info, uint32_t addr) {
-    size_t mem_size = (basic_info->mem_upper + 1024) * 1024;
-    map->bm_size = mem_size / PAGE_SIZE_BYTES + 1;
-    map->bm_used_frames = 0;
-    map->bm_entry_num = map->bm_size / 64 + 1;
-
-    map->bm_memory_map = get_bitmap_region(addr, map->bm_size / 8 + 1);
-
-    // FIXME: this sometimes crashes after a bunch of loops, why
-    for (uint32_t i = 0; i < map->bm_entry_num; i++) {
-        map->bm_memory_map[i] = 0x0;
-        // This wait statement seems to prevent crash?
-        PIC_WAIT();
-    }
-
-    uint32_t kernel_entries = find_kernel_entries(addr);
-    uint32_t rows_num = kernel_entries / 64;
     
-    uint32_t j;
-    for (j = 0; j < rows_num; j++) {
-        map->bm_memory_map[j] = ~(0);
-    }
-    map->bm_memory_map[j] = ~(~(0ul) << (kernel_entries - (rows_num * 64)));
-    map->bm_used_frames = kernel_entries;
-
 }
 
 static int find_trailing_zeroes (size_t value) {

@@ -89,7 +89,7 @@ CXXHARDFLAGS := $(CFLAGS)               \
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := $(LDFLAGS)        \
-		-z max-page-size=0x20000 \
+		-z max-page-size=0x200000 \
         -T $(LINK_PATH) \
 		-Map ./kernel.map 
 

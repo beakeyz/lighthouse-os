@@ -2,6 +2,7 @@
 #define __KMEM_MANAGER__
 #include <arch/x86/multiboot.h>
 #include <libc/stddef.h>
+#include "libc/linkedlist.h"
 
 #define PML4_ENTRY(address)((address>>39) & 0x1ff)
 #define PDPR_ENTRY(address)((address>>30) & 0x1ff)
@@ -29,9 +30,23 @@
 #define FETCH_VIOLATION 0x10
 
 typedef struct {
+    uint8_t type;
+    uint64_t start;
+    size_t length;
+} phys_mem_range_t;
+
+typedef struct {
+    uint64_t upper;
+    uint64_t lower;
+} contiguous_phys_virt_range_t; 
+
+typedef struct {
     uint32_t mmap_entry_num;
     multiboot_memory_map_t* mmap_entries;
     uint8_t reserved_phys_count;
+    list_t region_list;
+    list_t used_region_list;
+    list_t big_phys_ranges;
 } kmem_data_t;
 
 // defines for alignment
@@ -44,7 +59,7 @@ void init_kmem_manager (uint32_t mb_addr, uint32_t mb_first_addr, struct multibo
 void prep_mmap (struct multiboot_tag_mmap* mmap);
 void init_mmap(struct multiboot_tag_basic_meminfo* basic_info);
 
-void* get_bitmap_region (uint64_t limit, size_t bytes);
+void parse_memmap ();
 
 void* alloc_frame ();
 
@@ -58,4 +73,5 @@ void* phys_to_virt (void* phys, void* virt, int flags);
 void clear_table(uintptr_t* table);
 uint64_t ensure_address_in_higher_half( uint64_t address );
 bool is_address_higher_half(uint64_t address);
+
 #endif // !__KMEM_MANAGER__

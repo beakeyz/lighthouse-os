@@ -52,12 +52,10 @@ start:
 
     mov esp, stack_top - VIRT_BASE
     ; TODO: cpuid and PAE checks ect.  
-    ; for now we kinda assume everything checks out :trolle:
 
     mov eax, boot_pdpt - VIRT_BASE
     or eax, 0x3
     mov dword [(boot_pml4t - VIRT_BASE) + 0], eax
-
 
     mov eax, boot_pdt - VIRT_BASE
     or eax, 0x3
@@ -78,7 +76,7 @@ start:
     mov ecx, 0  ; Loop counter
 
     .map_p2:
-        mov eax, 0xfff
+        mov eax, 0x200000
         mul ecx
         or eax, 0b10000011
 
@@ -117,8 +115,8 @@ start:
 section .text
 long_start:
     
-    ;mov qword rax, (511 << 39) | (510 << 30) | (511 << 21)
-    ;mov qword[(end_of_mapped_memory - VIRT_BASE)], rax 
+    mov qword rax, (511 << 39) | (510 << 30) | (511 << 21)
+    mov qword[(end_of_mapped_memory)], rax 
 
     ; update seg registers with new gdt data
     mov ax, 0x10
@@ -129,7 +127,6 @@ long_start:
     mov gs, ax  ; extra segment register
 
     mov rsp, stack_top
-    lgdt [gdt64.pointer]
 
     call _start
     
@@ -137,23 +134,25 @@ long_start:
     mov qword [0xb8000], rax
     hlt
 
-section .bss 
+section .pts 
 
 ; Only for 64 bit
 align 4096
 boot_pml4t:
-    resb 4096
+    times 4096 dd 0
 boot_pdpt:
-    resb 4096
+    times 4096 dd 0
 boot_pdt:
-    resb 4096
+    times 4096 dd 0
 boot_pt:
-    resb 4096
+    times 4096 dd 0
 
+section .bss
 align 4096
 end_of_mapped_memory:
     resq 1
 ; 16 kb stack
+
 stack_bottom:
     resb 16385
 stack_top:
