@@ -47,11 +47,12 @@ void init_mmap (struct multiboot_tag_basic_meminfo* basic_info) {
 
 void parse_memmap () {
 
+    println("yay");
     // NOTE: negative one stands for the kernel range
     phys_mem_range_t kernel_range = { -1, _kernel_start - VIRTUAL_BASE, _kernel_end - VIRTUAL_BASE - _kernel_start - VIRTUAL_BASE};
+    println("yay");
     add_node(&kmem_data.used_region_list, (void*)&kernel_range);
 
-    println("yay");
 
 
     for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
@@ -88,15 +89,20 @@ void parse_memmap () {
         for (uint64_t page_base = addr - VIRTUAL_BASE;  page_base <= (addr - VIRTUAL_BASE + length); page_base += PAGE_SIZE) {
             
             node_t* n = kmem_data.used_region_list.head;
-            while (n) {
-                println("looping");
+            while (n->next) {
+
                 phys_mem_range_t* range = (phys_mem_range_t*)n->data;
+                println("yeet");
                 if (page_base >= range->start && page_base <= range->start + range->length) {
                     println("page base was found inside a used range");
                     skip = true;
                     break;
                 }
+                println("yeet");
                 n = n->next;
+                if (!n) {
+                    println("yayay");
+                }
             }
 
             if (skip == true) {

@@ -8,11 +8,19 @@ list_t* init_list() {
 
 void add_node(list_t *list, void *data) {
     node_t* node = (node_t*) data;
-    if (!list->head) {
+    node->next = nullptr;
+    node->prev = nullptr;
+
+    if (list == nullptr) {
         println("looping");
         list->head = node;
         list->end = node;
         return;
+    }
+
+    if (list->head == nullptr) {
+
+        list->head = node;
     }
 
     list->end->next = node;

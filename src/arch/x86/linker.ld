@@ -12,7 +12,7 @@ SECTIONS {
         KEEP(*(.multiboot_header))
     }
 
-    .pre_text ALIGN(4K) :
+    .pre_text :
     {
         *(.pre_text)
     }
