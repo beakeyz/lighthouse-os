@@ -44,9 +44,6 @@ typedef struct {
     uint32_t mmap_entry_num;
     multiboot_memory_map_t* mmap_entries;
     uint8_t reserved_phys_count;
-    list_t region_list;
-    list_t used_region_list;
-    list_t big_phys_ranges;
 } kmem_data_t;
 
 // defines for alignment

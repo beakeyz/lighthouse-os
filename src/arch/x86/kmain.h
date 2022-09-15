@@ -2,8 +2,8 @@
 #define __KMAIN__
 
 #include <libc/stddef.h>
-#define PAGE_SIZE 0x200000
-#define PAGE_SIZE_BYTES 0x200000l
+#define PAGE_SIZE 0x1000
+#define PAGE_SIZE_BYTES 0x1000l
 #define PAGE_ALIGN __attribute__((aligned(PAGE_SIZE)));
 #define VIRTUAL_BASE 0xffffffff80000000
 

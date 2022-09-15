@@ -1,3 +1,5 @@
+#include "arch/x86/kmain.h"
+#include "libc/linkedlist.h"
 #include <arch/x86/mem/kmalloc.h>
 #include <arch/x86/mem/kmem_manager.h>
 #include <libc/io.h>
@@ -71,13 +73,8 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_pic();
     println("pic");
 
-    struct multiboot_tag_mmap* test_map = kmalloc(sizeof(struct multiboot_tag_mmap));
-
-    if (test_map->size == 0) {
-        println("yay");
-    }
     
-    // TODO: some things on the agenda:
+    // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;
     // 1. [X] parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)
     // 2. [ ] setup the memory manager, so we are able to consistantly allocate pageframes, setup a heap and ultimately do all kinds of cool memory stuff

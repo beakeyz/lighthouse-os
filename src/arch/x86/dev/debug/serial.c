@@ -1,4 +1,5 @@
 #include "serial.h"
+#include "arch/x86/interupts/control/pic.h"
 #include <libc/io.h>
 #include <libc/stddef.h>
 #include <libc/string.h>
@@ -19,7 +20,7 @@ void putch(char c) {
     static int was_cr = false;
     
     while ((in8(COM1 + 5) & 0x20) == 0) {
-        ;
+        PIC_WAIT();
     }
     
     if (c == '\n' && !was_cr)

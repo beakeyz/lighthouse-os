@@ -112,68 +112,27 @@ void *memchr(const void *s, int c, size_t n)
 // funnies
 // Credit goes to: https://github.com/dreamos82/Dreamos64/
 
-int string_from_dec(char *buff, uint32_t n) {
-    if (n < 0) {
-        *buff++ = '-';
-        n = ((uint32_t) n * -1);
-    }
+// quite the buffer
+static char to_str_buff[128 * 2];
 
-    char *pointer, *pointerbase;
-    int mod;
-    int size = 0;
-    pointer = buff;
-    pointerbase = buff;
-    if(n == 0) {
-        *pointer = '0';
-        return 1;
-    }
-    while (n > 0) {
-        mod = n % 10;
-        *pointer++ = mod + '0';
-        n = n / 10;
+string to_string(uint64_t val) {
+    uint8_t size = 0;
+    uint64_t size_test = val;
+    while (size_test / 10 > 0) {
+        size_test /= 10;
         size++;
     }
-    *pointer--=0;
-    while(pointer > pointerbase){
-        char swap;
-        swap = *pointer;
-        *pointer = *pointerbase;
-        *pointerbase = swap;
-        pointerbase++;
-        pointer--;
+
+    uint8_t index = 0;
+    
+    while (val / 10 > 0) {
+        uint8_t remain = val % 10;
+        val /= 10;
+        to_str_buff[size - index] = remain + '0';
+        index++;
     }
-
-    return size;
-}
-
-int string_from_hex(char *buff, uint32_t n) {
-    unsigned long tmpnumber = n;
-    int shift = 0;
-    int size = 0;
-    char *hexstring = buff;
-    while (tmpnumber >= 16){
-        tmpnumber >>= 4;
-        shift++;
-    }
-    size = shift + 1;
-    /* Now i can print the digits masking every single digit with 0xF 
-     * Each hex digit is 4 bytes long. So if i mask number&0xF
-     * I obtain exactly the number identified by the digit
-     * i.e. number is 0xA3 0XA3&0xF=3  
-     **/
-    char hex_base = 'A';
-
-    for(; shift >=0; shift--){
-        tmpnumber = n;
-        tmpnumber>>=(4*shift);
-        tmpnumber&=0xF;
-
-        if(tmpnumber < 10){
-            *hexstring++ = '0' + tmpnumber; //Same as decimal number
-        } else {
-            *hexstring++ = hex_base + tmpnumber-10; //11-15 Are letters
-        }
-        *hexstring = '\0';
-    }
-    return size;
+    uint8_t remain = val % 10;
+    to_str_buff[size - index] = remain + '0';
+    to_str_buff[size + 1] = 0;
+    return to_str_buff;
 }

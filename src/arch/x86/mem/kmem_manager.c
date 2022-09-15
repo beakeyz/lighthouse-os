@@ -23,6 +23,10 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 // TODO: page directory and range abstraction and stuff lol
 void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_basic_meminfo* basic_info) {
 
+    println(to_string(basic_info->mem_lower));
+    println(to_string(basic_info->mem_upper));
+    println("--------");
+    
     parse_memmap();
 
 }
@@ -47,13 +51,9 @@ void init_mmap (struct multiboot_tag_basic_meminfo* basic_info) {
 
 void parse_memmap () {
 
-    println("yay");
     // NOTE: negative one stands for the kernel range
-    phys_mem_range_t kernel_range = { -1, _kernel_start - VIRTUAL_BASE, _kernel_end - VIRTUAL_BASE - _kernel_start - VIRTUAL_BASE};
-    println("yay");
-    add_node(&kmem_data.used_region_list, (void*)&kernel_range);
-
-
+    phys_mem_range_t kernel_range = { -1, _kernel_start, VIRTUAL_BASE };
+    println(to_string(_kernel_start));
 
     for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
         multiboot_memory_map_t* map = &kmem_data.mmap_entries[i];
@@ -63,13 +63,12 @@ void parse_memmap () {
 
         // FIXME: with '- VIRTUAL_BASE' it does not crash, so this means that something is going wrong
         // while setting up paging =/
-        phys_mem_range_t range = { map->type, addr - VIRTUAL_BASE, length };
-        add_node(&kmem_data.region_list, (void*)&range);
+        //phys_mem_range_t range = { map->type, addr - VIRTUAL_BASE, length };
     
         if (map->type != MULTIBOOT_MEMORY_AVAILABLE) {
             continue;
         }
-        
+
         uintptr_t diff = addr % PAGE_SIZE;
         if (diff != 0) {
             println("missaligned region!");
@@ -85,37 +84,18 @@ void parse_memmap () {
             println("page is too small!");
         }
 
-        bool skip = false;
+        println(to_string(addr));
+        println(to_string(length));
+        
         for (uint64_t page_base = addr - VIRTUAL_BASE;  page_base <= (addr - VIRTUAL_BASE + length); page_base += PAGE_SIZE) {
             
-            node_t* n = kmem_data.used_region_list.head;
-            while (n->next) {
-
-                phys_mem_range_t* range = (phys_mem_range_t*)n->data;
-                println("yeet");
-                if (page_base >= range->start && page_base <= range->start + range->length) {
-                    println("page base was found inside a used range");
-                    skip = true;
-                    break;
-                }
-                println("yeet");
-                n = n->next;
-                if (!n) {
-                    println("yayay");
-                }
-            }
-
-            if (skip == true) {
+            //println("yeet");
+            if (page_base >= kernel_range.start && page_base <= kernel_range.start + kernel_range.length) {
+                println("page base was found inside a used range");
                 continue;
             }
 
-            println("added a contiguous_phys_virt_range =D");
-            contiguous_phys_virt_range_t range = { addr, addr };
-            add_node(&kmem_data.big_phys_ranges, (void*)&range);
-        } 
-
-
-
+        }
     }
     println("no region found, thats a yikes =/");
 }

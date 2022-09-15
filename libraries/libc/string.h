@@ -23,6 +23,6 @@ void *memchr(const void *s, int c, size_t n);
 
 // different kinds of number-to-string formating
 
-int string_from_hex (_string buff, uint32_t n);
-int string_from_dec (_string buff, uint32_t n);
+string to_string (uint64_t val);
+
 #endif // !__STRING__
