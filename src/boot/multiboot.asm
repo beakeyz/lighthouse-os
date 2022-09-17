@@ -122,11 +122,11 @@ section .pts
 ; Only for 64 bit
 align 4096
 boot_pml4t:
-    times 4096 dd 0
+    times 4096 db 0
 boot_pdpt:
-    times 4096 dd 0
+    times 4096 db 0
 boot_pdt:
-    times 4096 dd 0
+    times 4096 db 0
 
 section .bss
 align 4096

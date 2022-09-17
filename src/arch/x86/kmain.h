@@ -12,7 +12,7 @@ extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
 extern uintptr_t _kernel_physical_end;
 
-extern pml_t boot_pml4t[];
+extern pml_t boot_pml4t[512];
 extern pml_t boot_pdpt[];
 extern pml_t boot_pdt[];
 #endif // !__KMAIN__

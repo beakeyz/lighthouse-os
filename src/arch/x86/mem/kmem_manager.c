@@ -30,7 +30,6 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 // this layout is inspired by taoruos
 #define __def_pagemap __attribute__((aligned(0x1000UL))) = {0}
 #define standard_pd_entries 512
-pml_t init_page_maps[3][standard_pd_entries] __def_pagemap;
 pml_t high_base_pml[standard_pd_entries] __def_pagemap;
 pml_t heap_base_pml[standard_pd_entries] __def_pagemap;
 pml_t heap_base_pd[standard_pd_entries] __def_pagemap;
@@ -51,8 +50,8 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
         : : : "rax");
 
 
-    init_page_maps[0][511].raw_bits = (uint64_t)&high_base_pml | 0x03;
-    init_page_maps[0][510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
+    boot_pml4t[511].raw_bits = (uint64_t)&high_base_pml | 0x03;
+    boot_pml4t[510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
 
     for (uintptr_t i = 0; i < 64; ++i) {
         high_base_pml[i].raw_bits = (uint64_t)&twom_high_pds[i] | 0x03;
@@ -76,7 +75,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
 
     low_base_pmls[2][0].raw_bits = 0;
 
-    init_page_maps[0][0].raw_bits = (uint64_t)&low_base_pmls[0] | 0x07;
+    boot_pml4t[0].raw_bits = (uint64_t)&low_base_pmls[0] | 0x07;
 
     nframes = (first_valid_addr >> 12);
     size_t frames_bytes = (INDEX_FROM_BIT(nframes * 8) + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
@@ -96,7 +95,8 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
         // shift i back by 12 to get original byte
         heap_base_pt[i].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
     }
-    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&init_page_maps[0])) & 0x7fffffffffUL;
+
+    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&boot_pml4t[0])) & 0x7fffffffffUL;
 
     asm volatile ("" : : : "memory");
     asm volatile ("movq %0, %%cr3" :: "r"(map));
