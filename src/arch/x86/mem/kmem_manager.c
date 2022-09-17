@@ -3,16 +3,23 @@
 #include "arch/x86/kmain.h"
 #include "arch/x86/mem/kmalloc.h"
 #include "arch/x86/mem/kmem_bitmap.h"
+#include "arch/x86/mem/pml.h"
 #include "arch/x86/multiboot.h"
 #include "libc/linkedlist.h"
 #include <libc/stddef.h>
 #include <libc/string.h>
 
-// 2MB initial heap
-//__attribute__((section(".heap"))) static uint8_t _initial_heap_mem[2*1024];
 
 static kmem_data_t kmem_data;
-static kmem_bitmap_t kmem_bitmap;
+
+/**
+ * bitmap page allocator for 4KiB pages
+ */
+//static volatile uint32_t *frames;
+static size_t nframes;
+//static size_t total_memory = 0;
+//static size_t unavailable_memory = 0;
+//static uint8_t * mem_refcounts = NULL;
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
@@ -20,33 +27,85 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
     kmem_data.mmap_entries = (multiboot_memory_map_t*)mmap->entries;
 }
 
+// this layout is inspired by taoruos
+#define __def_pagemap __attribute__((aligned(PAGE_SIZE))) = {0}
+#define standard_pd_entries 512
+pml_t init_page_maps[3][standard_pd_entries] __def_pagemap;
+pml_t high_base_pml[standard_pd_entries] __def_pagemap;
+pml_t heap_base_pml[standard_pd_entries] __def_pagemap;
+pml_t heap_base_pd[standard_pd_entries] __def_pagemap;
+pml_t heap_base_pt[3*standard_pd_entries] __def_pagemap;
+pml_t low_base_pmls[34][standard_pd_entries] __def_pagemap;
+pml_t twom_high_pds[64][standard_pd_entries] __def_pagemap;
+
 // TODO: page directory and range abstraction and stuff lol
-void init_kmem_manager(uint32_t mb_addr, uint32_t mb_size, struct multiboot_tag_basic_meminfo* basic_info) {
+void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t first_valid_alloc_addr) {
+    struct multiboot_tag_mmap* mmap = get_mb2_tag((void*)mb_addr, 6); 
+    prep_mmap(mmap);
 
-    println(to_string(basic_info->mem_lower));
-    println(to_string(basic_info->mem_upper));
-    println("--------");
-    
-    parse_memmap();
+    asm volatile (
+        "movq %%cr0, %%rax\n"
+        "orq $0x10000, %%rax\n"
+        "movq %%rax, %%cr0\n"
+        : : : "rax");
 
-}
+    init_page_maps[0][511].raw_bits = (uint64_t)&high_base_pml | 0x03;
+    init_page_maps[0][510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
 
-// then init, after kmem_manager is initialized
-// (this is basically just marking our memmap as non-writable xD)
-void init_mmap (struct multiboot_tag_basic_meminfo* basic_info) {
-    kmem_data.reserved_phys_count = 0;
-    if (kmem_bitmap.bm_used_frames > 0) {
-        uint32_t counter = 0;
-        uint64_t mem_limit = (basic_info->mem_upper + 1024) * 1024;
-        while(counter < kmem_data.mmap_entry_num){
-            if(kmem_data.mmap_entries[counter].addr < mem_limit &&
-                    kmem_data.mmap_entries[counter].type > 1){
-               bm_mark_block_used(&kmem_bitmap, kmem_data.mmap_entries[counter].addr, kmem_data.mmap_entries[counter].len);
-               kmem_data.reserved_phys_count++;
-            }
-            counter++;
+    for (int i = 0; i < 64; ++i) {
+        high_base_pml[i].raw_bits = (uint64_t)&twom_high_pds[i] | 0x03;
+        for (int j = 0; j < standard_pd_entries; ++j) {
+            twom_high_pds[i][j].raw_bits = ((i << 30) + (j << 21)) | 0b1000011;
         }
     }
+
+    low_base_pmls[0][0].raw_bits = (uint64_t)&low_base_pmls[1] | 0x07;
+
+    uintptr_t end_ptr = ((uintptr_t)&_kernel_end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
+    size_t num_low_pages = end_ptr >> 12;
+    size_t pd_count = (size_t)((num_low_pages + ENTRY_MASK) >> 9);
+
+    for (int i = 0; i < pd_count; ++i) {
+        low_base_pmls[1][i].raw_bits = (uint64_t)&low_base_pmls[2+i] | 0x03;
+        for (int j = 0; j < standard_pd_entries; ++j) {
+            low_base_pmls[2+i][j].raw_bits = (uint64_t)(0x200000UL * i + 0x1000UL * j) | 0x03;
+        }
+    }
+
+    low_base_pmls[2][0].raw_bits = 0;
+
+    init_page_maps[0][0].raw_bits = (uint64_t)&low_base_pmls[0] | 0x07;
+
+    nframes = (first_valid_addr >> 12);
+    size_t frames_bytes = (INDEX_FROM_BIT(nframes * 8) + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
+    size_t frames_pages = frames_bytes >> 12;
+    first_valid_alloc_addr = (first_valid_alloc_addr + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
+
+    heap_base_pml[0].raw_bits = (uint64_t)&heap_base_pd | 0x03;
+    heap_base_pd[0].raw_bits = (uint64_t)&heap_base_pt[0 * 512] | 0x03;
+    heap_base_pd[1].raw_bits = (uint64_t)&heap_base_pt[1 * 512] | 0x03;
+    heap_base_pd[2].raw_bits = (uint64_t)&heap_base_pt[2 * 512] | 0x03;
+
+    if (frames_pages > 3 * standard_pd_entries) {
+        println("warning: frames_pages > 3*512");
+    }
+
+    for (int i = 0; i < frames_pages; ++i) {
+        // shift i back by 12 to get original byte
+        heap_base_pt[i].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
+    }
+    //uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&init_page_maps[0])) & 0x7fffffffffUL;
+
+    //asm volatile ("" : : : "memory");
+    //asm volatile ("movq %0, %%cr3" :: "r"(map));
+    //asm volatile ("" : : : "memory");
+    
+    println("loaded the new pagemaps!");
+    
+    for (;;) {}
+
+    parse_memmap();
+
 }
 
 void parse_memmap () {
@@ -101,70 +160,6 @@ void parse_memmap () {
     println("no region found, thats a yikes =/");
 }
 
-void* alloc_frame () {
-
-    size_t frame = bm_allocate(&kmem_bitmap, 1);
-    if (frame > 0) {
-        kmem_bitmap.bm_used_frames++;
-        return (void*)(frame * PAGE_SIZE_BYTES);
-    }
-
-    return nullptr;
-} 
-
-void* phys_to_virt(void *phys, void *virt, int flags) {
-    uint16_t pml4_e = PML4_ENTRY((uint64_t) virt);
-    uint64_t *pml4_table = (uint64_t *) (SIGN_EXTENSION | ENTRIES_TO_ADDRESS(510l,510l,510l,510l));
-    
-    uint16_t pdpr_e = PDPR_ENTRY((uint64_t) virt);
-    uint64_t *pdpr_table = (uint64_t *) (SIGN_EXTENSION | ENTRIES_TO_ADDRESS(510l,510l,510l, (uint64_t) pml4_e));
-
-    uint64_t *pd_table = (uint64_t *) (SIGN_EXTENSION | ENTRIES_TO_ADDRESS(510l,510l, (uint64_t) pml4_e, (uint64_t) pdpr_e));
-    uint16_t pd_e = PD_ENTRY((uint64_t) virt);
-
-    if (!(pml4_table[pml4_e] & 0b1)) {
-        println("new pml4 thing lol");
-        uintptr_t* new_table = alloc_frame();
-        pml4_table[pml4_e] = (uint64_t) new_table | 0 | WRITE_BIT | PRESENT_BIT;
-        clear_table(pdpr_table);
-    }
-
-    if( !(pdpr_table[pdpr_e] & 0b1) ) {
-        println("new pdpr thing lol");
-        uintptr_t *new_table = alloc_frame();
-        pdpr_table[pdpr_e] = (uint64_t) new_table | 0 | WRITE_BIT | PRESENT_BIT;
-        clear_table(pd_table);
-    }
-     
-    if( !(pd_table[pd_e] & 0b01) ) {
-        println("new pd thing lol");
-        pd_table[pd_e] = (uint64_t) (phys) | WRITE_BIT | PRESENT_BIT | HUGEPAGE_BIT | flags;
-    }
-
-    return virt;
-}
-
-void* get_vaddr(void *vaddr, int flags) {
-    void* new_addr = alloc_frame();
-    return phys_to_virt(new_addr, vaddr, flags);
-}
-
-void clear_table (uintptr_t* table) {
-    for (int i = 0; i < VM_PAGES_PER_TABLE; i++) {
-        table[i] = 0x00l;
-    }
-}
-
-uint64_t ensure_address_in_higher_half( uint64_t address ) {
-    if ( address > HIGHER_HALF_ADDRESS_OFFSET ) {
-        return address;
-    }
-    return address + HIGHER_HALF_ADDRESS_OFFSET;
-}
-
-bool is_address_higher_half(uint64_t address) {
-    if ( address & (1l << 62) ) {
-        return true;
-    }
-    return false;
+void* kmem_from_phys(uintptr_t addr) {
+    return (void*)(addr | HIGH_MAP_BASE);
 }

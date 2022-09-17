@@ -18,6 +18,7 @@ extern ctor_func_t start_ctors[];
 extern ctor_func_t end_ctors[];
 
 static uintptr_t first_valid_addr = 0;
+static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
 __attribute__((constructor)) void test () {
 
@@ -47,18 +48,14 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // Verify magic number
     if (mb_magic == 0x36d76289) {
         // parse multiboot
-        first_valid_addr = mb_initialize((void*)mb_addr);
+        mb_initialize((void*)mb_addr, &first_valid_addr, &first_valid_alloc_addr);
     } else {
         println("big yikes");
         hang();
     }
     // setup pmm
-    uint32_t mb_size = *(uint32_t*) mb_addr;
-    struct multiboot_tag_mmap* mmap = get_mb2_tag((void*)mb_addr, 6);
-    struct multiboot_tag_basic_meminfo* basic_mem_info = get_mb2_tag((void*)mb_addr, 4);
 
-    prep_mmap(mmap);
-    init_kmem_manager(mb_addr, mb_size, basic_mem_info);
+    init_kmem_manager(mb_addr, first_valid_addr, first_valid_alloc_addr);
 
     // gdt
     setup_gdt();

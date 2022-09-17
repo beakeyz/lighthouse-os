@@ -2,14 +2,14 @@
 #include <arch/x86/multiboot.h>
 #include <libc/stddef.h>
 
-uintptr_t mb_initialize(void *addr) {
-    static uintptr_t offset = 0;
+void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_alloc_addr) {
+    uintptr_t offset = 0;
 
     // first: find the memorymap 
     struct multiboot_tag_mmap* mb_memmap = get_mb2_tag(addr, 6);
     if (!mb_memmap) {
         println("No memorymap found! aborted");
-        return -1;
+        return;
     }
     void* entry = mb_memmap->entries;
     while ((uintptr_t)entry < (uintptr_t)mb_memmap + mb_memmap->size) {
@@ -22,9 +22,15 @@ uintptr_t mb_initialize(void *addr) {
     }
 
     // TODO: second: modules
-
-    offset = (offset + 0x1FFFFF) & 0xFFFfffFFFf000;
-    return offset;
+    struct multiboot_tag_module* mods = get_mb2_tag((void*)addr, 3); 
+    while (mods) {
+        uintptr_t a = (uintptr_t)mods->mod_end;
+        if (a > *first_valid_alloc_addr) *first_valid_alloc_addr = a;
+        mods = next_mb2_tag((char*)mods + mods->size, 3);
+    }
+    
+    *highest_addr = offset;
+    *first_valid_alloc_addr = (*first_valid_alloc_addr + 0xFFF) & 0xFFFFffffFFFFf000;
 }
 
 void* next_mb2_tag(void *cur, uint32_t type) {

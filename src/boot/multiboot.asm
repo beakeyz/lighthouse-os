@@ -33,7 +33,6 @@ global start
 global boot_pml4t
 global boot_pdpt
 global boot_pdt
-global boot_pt
 
 extern _start
 
@@ -127,8 +126,6 @@ boot_pml4t:
 boot_pdpt:
     times 4096 dd 0
 boot_pdt:
-    times 4096 dd 0
-boot_pt:
     times 4096 dd 0
 
 section .bss
