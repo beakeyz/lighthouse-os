@@ -54,9 +54,9 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     init_page_maps[0][511].raw_bits = (uint64_t)&high_base_pml | 0x03;
     init_page_maps[0][510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
 
-    for (int i = 0; i < 64; ++i) {
+    for (uintptr_t i = 0; i < 64; ++i) {
         high_base_pml[i].raw_bits = (uint64_t)&twom_high_pds[i] | 0x03;
-        for (int j = 0; j < standard_pd_entries; ++j) {
+        for (uintptr_t j = 0; j < standard_pd_entries; ++j) {
             twom_high_pds[i][j].raw_bits = ((i << 30) + (j << 21)) | 0x80 | 0x03;
         }
     }
