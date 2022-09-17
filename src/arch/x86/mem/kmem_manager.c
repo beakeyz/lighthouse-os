@@ -28,8 +28,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 }
 
 // this layout is inspired by taoruos
-// FIXME: this is the source of the kernel not loading
-#define __def_pagemap __attribute__((aligned(PAGE_SIZE))) = {0}
+#define __def_pagemap __attribute__((aligned(0x1000UL))) = {0}
 #define standard_pd_entries 512
 pml_t init_page_maps[3][standard_pd_entries] __def_pagemap;
 pml_t high_base_pml[standard_pd_entries] __def_pagemap;
@@ -44,11 +43,13 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     struct multiboot_tag_mmap* mmap = get_mb2_tag((void*)mb_addr, 6); 
     prep_mmap(mmap);
 
+    println("setting stuff");
     asm volatile (
         "movq %%cr0, %%rax\n"
         "orq $0x10000, %%rax\n"
         "movq %%rax, %%cr0\n"
         : : : "rax");
+
 
     init_page_maps[0][511].raw_bits = (uint64_t)&high_base_pml | 0x03;
     init_page_maps[0][510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
@@ -56,7 +57,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     for (int i = 0; i < 64; ++i) {
         high_base_pml[i].raw_bits = (uint64_t)&twom_high_pds[i] | 0x03;
         for (int j = 0; j < standard_pd_entries; ++j) {
-            twom_high_pds[i][j].raw_bits = ((i << 30) + (j << 21)) | 0b1000011;
+            twom_high_pds[i][j].raw_bits = ((i << 30) + (j << 21)) | 0x80 | 0x03;
         }
     }
 
