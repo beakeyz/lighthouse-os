@@ -35,7 +35,7 @@ pml_t heap_base_pml[standard_pd_entries] __def_pagemap;
 pml_t heap_base_pd[standard_pd_entries] __def_pagemap;
 pml_t heap_base_pt[3*standard_pd_entries] __def_pagemap;
 pml_t low_base_pmls[34][standard_pd_entries] __def_pagemap;
-pml_t twom_high_pds[64][standard_pd_entries] __def_pagemap;
+pml_t twom_high_pds[64][512] __def_pagemap;
 
 // TODO: page directory and range abstraction and stuff lol
 void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t first_valid_alloc_addr) {
@@ -43,11 +43,11 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     prep_mmap(mmap);
 
     println("setting stuff");
-    asm volatile (
-        "movq %%cr0, %%rax\n"
-        "orq $0x10000, %%rax\n"
-        "movq %%rax, %%cr0\n"
-        : : : "rax");
+    //asm volatile (
+    //    "movq %%cr0, %%rax\n"
+    //    "orq $0x10000, %%rax\n"
+    //    "movq %%rax, %%cr0\n"
+    //    : : : "rax");
 
 
     boot_pml4t[511].raw_bits = (uint64_t)&high_base_pml | 0x03;
@@ -55,12 +55,15 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
 
     for (uintptr_t i = 0; i < 64; ++i) {
         high_base_pml[i].raw_bits = (uint64_t)&twom_high_pds[i] | 0x03;
-        for (uintptr_t j = 0; j < standard_pd_entries; ++j) {
+        // FINDING: this loop really does not like looping more than 15 times
+        // (j < 16) and anything more than that will instantly crash
+        for (uintptr_t j = 0; j < 512; j++) {
             twom_high_pds[i][j].raw_bits = ((i << 30) + (j << 21)) | 0x80 | 0x03;
         }
     }
 
     low_base_pmls[0][0].raw_bits = (uint64_t)&low_base_pmls[1] | 0x07;
+    println("yay");
 
     uintptr_t end_ptr = ((uintptr_t)&_kernel_end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
     size_t num_low_pages = end_ptr >> 12;
@@ -72,6 +75,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
             low_base_pmls[2+i][j].raw_bits = (uint64_t)(0x200000UL * i + 0x1000UL * j) | 0x03;
         }
     }
+    println("yay");
 
     low_base_pmls[2][0].raw_bits = 0;
 
@@ -83,20 +87,21 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     first_valid_alloc_addr = (first_valid_alloc_addr + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
 
     heap_base_pml[0].raw_bits = (uint64_t)&heap_base_pd | 0x03;
-    heap_base_pd[0].raw_bits = (uint64_t)&heap_base_pt[0 * 512] | 0x03;
-    heap_base_pd[1].raw_bits = (uint64_t)&heap_base_pt[1 * 512] | 0x03;
-    heap_base_pd[2].raw_bits = (uint64_t)&heap_base_pt[2 * 512] | 0x03;
+    heap_base_pd[0].raw_bits = (uint64_t)&heap_base_pt[0] | 0x03;
+    heap_base_pd[1].raw_bits = (uint64_t)&heap_base_pt[512] | 0x03;
+    heap_base_pd[2].raw_bits = (uint64_t)&heap_base_pt[1024] | 0x03;
 
-    if (frames_pages > 3 * standard_pd_entries) {
+    println("yay");
+    if (frames_pages > 3 * 512) {
         println("warning: frames_pages > 3*512");
     }
 
     for (int i = 0; i < frames_pages; ++i) {
         // shift i back by 12 to get original byte
-        heap_base_pt[i].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
+        heap_base_pt[0].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
     }
 
-    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&boot_pml4t[0])) & 0x7fffffffffUL;
+    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&boot_pml4t)) & 0x7fffffffffUL;
 
     asm volatile ("" : : : "memory");
     asm volatile ("movq %0, %%cr3" :: "r"(map));

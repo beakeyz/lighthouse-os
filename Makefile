@@ -31,7 +31,7 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS :=  -m 4G -s -serial stdio -enable-kvm -kernel ./lightos.elf \
+QEMUFLAGS :=  -m 256M -s -serial stdio -enable-kvm -cdrom ./out/lightos.iso \
 		-device VGA,vgamem_mb=64
 
 CHARDFLAGS := $(CFLAGS)               \
@@ -127,9 +127,10 @@ PHONY:run
 run:
 	@qemu-system-x86_64 $(QEMUFLAGS)
 
+# dumb *spit*
 PHONY:run-iso
 run-iso:
-	@qemu-system-x86_64 -monitor unix:qemu-monitor-socket,server,nowait -cpu qemu64,+x2apic  -cdrom out/lightos.iso -serial stdio -m 1G  -no-reboot -no-shutdown
+	@qemu-system-x86_64 -monitor unix:qemu-monitor-socket,server,nowait -cpu qemu64,+x2apic  -cdrom out/lightos.iso -serial stdio -m 4G  -no-reboot -no-shutdown
 
 PHONY: make-iso
 make-iso: ./lightos.elf grub.cfg

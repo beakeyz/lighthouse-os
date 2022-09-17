@@ -11,13 +11,9 @@ SECTIONS {
         KEEP(*(.multiboot_header))
     }
 
-    .pre_text :
-    {
-        *(.pre_text)
-    }
-
     .text ALIGN(4K):AT (ADDR (.text))
     {
+        *(.pre_text)
         *(.text*)
 	}
 
@@ -37,14 +33,21 @@ SECTIONS {
 
     .bss  ALIGN(4K):AT (ADDR (.bss) )
     {
-        *(.pts*)
         *(COMMON)
         *(.bss*)
 
         . = ALIGN(4K);
+        *(.pts*)
         *(.heap)
     }
     
     _kernel_end = .;
     _kernel_physical_end = . ;
+
+    /DISCARD/ :
+	{
+		*(.comment)
+		*(.eh_frame)
+		*(.note.gnu.build-id)
+	}
 }

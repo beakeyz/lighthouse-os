@@ -1,5 +1,6 @@
 #include "arch/x86/dev/debug/serial.h"
 #include <arch/x86/multiboot.h>
+#include "libc/string.h"
 #include <libc/stddef.h>
 
 void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_alloc_addr) {
@@ -12,11 +13,13 @@ void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_a
         return;
     }
     void* entry = mb_memmap->entries;
+    println(to_string(mb_memmap->size / mb_memmap->entry_size));
     while ((uintptr_t)entry < (uintptr_t)mb_memmap + mb_memmap->size) {
         struct multiboot_mmap_entry* cur_entry = entry;
         uintptr_t cur_offset = cur_entry->addr + cur_entry->len - 1; 
         if (cur_entry->type == 1 && cur_entry->len && cur_offset > offset) {
             offset = cur_offset;
+            println(to_string(offset));
         }
         entry += mb_memmap->entry_size;
     }
