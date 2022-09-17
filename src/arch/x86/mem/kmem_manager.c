@@ -28,6 +28,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 }
 
 // this layout is inspired by taoruos
+// FIXME: this is the source of the kernel not loading
 #define __def_pagemap __attribute__((aligned(PAGE_SIZE))) = {0}
 #define standard_pd_entries 512
 pml_t init_page_maps[3][standard_pd_entries] __def_pagemap;
@@ -94,11 +95,11 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
         // shift i back by 12 to get original byte
         heap_base_pt[i].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
     }
-    //uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&init_page_maps[0])) & 0x7fffffffffUL;
+    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&init_page_maps[0])) & 0x7fffffffffUL;
 
-    //asm volatile ("" : : : "memory");
-    //asm volatile ("movq %0, %%cr3" :: "r"(map));
-    //asm volatile ("" : : : "memory");
+    asm volatile ("" : : : "memory");
+    asm volatile ("movq %0, %%cr3" :: "r"(map));
+    asm volatile ("" : : : "memory");
     
     println("loaded the new pagemaps!");
     
