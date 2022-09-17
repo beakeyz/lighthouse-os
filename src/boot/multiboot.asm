@@ -1,4 +1,3 @@
-%define VIRT_BASE 0xffffffff80000000 
 
 section .multiboot_header
 header_start:
@@ -35,7 +34,6 @@ global boot_pml4t
 global boot_pdpt
 global boot_pdt
 global boot_pt
-global boot_pt2
 
 extern _start
 
@@ -51,57 +49,32 @@ start:
     mov edi, ebx ; Address of multiboot structure
     mov esi, eax ; Magic number
 
-    mov esp, stack_top - VIRT_BASE
+    mov esp, stack_top
     ; TODO: cpuid and PAE checks ect.  
 
-    mov eax, boot_pdpt - VIRT_BASE
+    mov eax, boot_pdpt
     or eax, 0x3
-    mov dword [(boot_pml4t - VIRT_BASE) + 0], eax
+    mov [boot_pml4t], eax
 
-    mov eax, boot_pdt - VIRT_BASE
+    mov eax, boot_pdt
     or eax, 0x3
-    mov dword [(boot_pml4t - VIRT_BASE) + 511 * 8], eax
-    
-    mov eax, boot_pml4t - VIRT_BASE
-    or eax, 0x3
-    mov dword [(boot_pml4t - VIRT_BASE) + 510 * 8], eax
+    mov [boot_pdpt], eax
 
-    mov eax, boot_pt - VIRT_BASE
-    or eax, 0x3
-    mov dword [(boot_pdpt - VIRT_BASE) + 0], eax
+    mov eax, boot_pdt
+    mov ebx, 0x87
+    mov ecx, 32
 
-    mov eax, boot_pt - VIRT_BASE
-    or eax, 0x3
-    mov dword [(boot_pdt - VIRT_BASE) + 510 * 8], eax
+    .map_low_mem_entry:
+        mov [eax], ebx
+        add ebx, 0x200000
+        add eax, 8
 
-    mov ebx, 0
-    mov eax, boot_pt2 - VIRT_BASE
-    .map_pd_table:
+        dec ecx
+        cmp ecx, 0
+        jne .map_low_mem_entry
 
-        or eax, 0b11
-        mov dword[(boot_pt - VIRT_BASE) + ebx * 8], eax
-        add eax, 0x1000
-
-        inc ebx
-        cmp ebx, 2
-        jne .map_pd_table
-
-    mov ecx, 0  ; Loop counter
-
-    .map_p2:
-        mov eax, 4096
-        mul ecx
-        or eax, 0b11
-
-        mov [(boot_pt2 - VIRT_BASE) + ecx * 8], eax
-
-        inc ecx
-        ; Check ecx agains the max amount of loops
-        cmp ecx, 1024
-        jne .map_p2
-    
     ; set cr3
-    mov eax, (boot_pml4t - VIRT_BASE)
+    mov eax, (boot_pml4t)
     mov cr3, eax
 
     ; enable PAE
@@ -121,16 +94,14 @@ start:
     or eax, 1 << 16
     mov cr0, eax
 
-    lgdt [gdt64.pointer_low - VIRT_BASE]
-    jmp (0x8):(long_start - VIRT_BASE)
+    lgdt [gdt64.pointer]
+    jmp (0x8):(long_start)
 
 [bits 64]
 section .text
 long_start:
-    
-    mov qword rax, (511 << 39) | (510 << 30) | (511 << 21)
-    mov qword[(end_of_mapped_memory)], rax 
-
+    cli 
+    cld
     ; update seg registers with new gdt data
     mov ax, 0x10
     mov ss, ax  ; Stack segment selector
@@ -160,10 +131,6 @@ boot_pdt:
 boot_pt:
     times 4096 dd 0
 
-boot_pt2:
-    times 4096 * 2 dd 0
-
-
 section .bss
 align 4096
 end_of_mapped_memory:
@@ -185,6 +152,3 @@ gdt64:
 .pointer:
     dw .pointer - gdt64 - 1
     dq gdt64
-.pointer_low:
-    dw .pointer - gdt64 - 1
-    dq gdt64 - VIRT_BASE

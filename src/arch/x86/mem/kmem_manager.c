@@ -52,7 +52,7 @@ void init_mmap (struct multiboot_tag_basic_meminfo* basic_info) {
 void parse_memmap () {
 
     // NOTE: negative one stands for the kernel range
-    phys_mem_range_t kernel_range = { -1, _kernel_start, VIRTUAL_BASE };
+    phys_mem_range_t kernel_range = { -1, _kernel_start, _kernel_end - _kernel_start };
     println(to_string(_kernel_start));
 
     for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
@@ -65,6 +65,9 @@ void parse_memmap () {
         // while setting up paging =/
         //phys_mem_range_t range = { map->type, addr - VIRTUAL_BASE, length };
     
+        println(to_string(addr));
+        println(to_string(length));
+
         if (map->type != MULTIBOOT_MEMORY_AVAILABLE) {
             continue;
         }
@@ -84,10 +87,8 @@ void parse_memmap () {
             println("page is too small!");
         }
 
-        println(to_string(addr));
-        println(to_string(length));
         
-        for (uint64_t page_base = addr - VIRTUAL_BASE;  page_base <= (addr - VIRTUAL_BASE + length); page_base += PAGE_SIZE) {
+        for (uint64_t page_base = addr;  page_base <= (addr + length); page_base += PAGE_SIZE) {
             
             //println("yeet");
             if (page_base >= kernel_range.start && page_base <= kernel_range.start + kernel_range.length) {

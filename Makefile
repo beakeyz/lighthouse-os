@@ -31,7 +31,7 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS :=  -m 1G -s -serial stdio -enable-kvm -kernel ./lightos.elf \
+QEMUFLAGS :=  -m 4G -s -serial stdio -enable-kvm -kernel ./lightos.elf \
 		-device VGA,vgamem_mb=64
 
 CHARDFLAGS := $(CFLAGS)               \

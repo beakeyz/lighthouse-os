@@ -17,8 +17,6 @@ typedef void (*ctor_func_t)();
 extern ctor_func_t start_ctors[];
 extern ctor_func_t end_ctors[];
 
-extern uint64_t _kernel_end;
-
 static uintptr_t first_valid_addr = 0;
 
 __attribute__((constructor)) void test () {

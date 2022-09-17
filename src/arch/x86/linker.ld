@@ -5,7 +5,6 @@ SECTIONS {
     . = 1M;
 
     _kernel_start =.;
-    _kern_virtual_offset = 0xffffffff80000000;
 
     .multiboot_header ALIGN(8) :
     {
@@ -17,13 +16,12 @@ SECTIONS {
         *(.pre_text)
     }
 
-    . += _kern_virtual_offset;
-    .text ALIGN(4K):AT (ADDR (.text) - _kern_virtual_offset)
+    .text ALIGN(4K):AT (ADDR (.text))
     {
         *(.text*)
 	}
 
-    .rodata  ALIGN(4K):AT (ADDR (.rodata) - _kern_virtual_offset)
+    .rodata  ALIGN(4K):AT (ADDR (.rodata) )
     {
         start_ctors = .;
         *(.ctors)
@@ -32,12 +30,12 @@ SECTIONS {
         *(.rodata*)
     }
 
-    .data  ALIGN(4K):AT (ADDR (.data) - _kern_virtual_offset)
+    .data  ALIGN(4K):AT (ADDR (.data) )
     {
         *(.data*)
     }
 
-    .bss  ALIGN(4K):AT (ADDR (.bss) - _kern_virtual_offset)
+    .bss  ALIGN(4K):AT (ADDR (.bss) )
     {
         *(.pts*)
         *(COMMON)
@@ -48,5 +46,5 @@ SECTIONS {
     }
     
     _kernel_end = .;
-    _kernel_physical_end = . - _kern_virtual_offset;
+    _kernel_physical_end = . ;
 }
