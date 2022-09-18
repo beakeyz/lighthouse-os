@@ -18,6 +18,7 @@ void add_node(list_t *list, void *data) {
     // otherwise it gives junk (?)
     // FIXME
     if (!list->head) {
+        // this one
         println("thing");
         list->head = node;
         list->end = node;

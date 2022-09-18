@@ -69,6 +69,9 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_pic();
     println("pic");
 
+    // FIXME: using kmem_alloc raw probably is not a great idea, so I'll have to finish 
+    // kmalloc first, and then I'll continue testing here.
+
     void* thing = kmem_alloc(SMALL_PAGE_SIZE);
     memset(&thing, 0, sizeof(list_t));
     list_t* t = (list_t*)&thing;
