@@ -98,9 +98,9 @@ void setup_idt() {
 }
 
 void handle_isr(struct registers *regs) {
-
+    if (regs) {}
 }
 
 void handle_irq(struct registers *regs) {
-
+    if (regs) {}
 }

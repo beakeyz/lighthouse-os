@@ -55,7 +55,7 @@ static void _int_handler(struct registers *regs, int num) {
 struct registers* interupt_handler (struct registers* regs) {
     // TODO: call _int_handler
     println("cool =D");
-    if (regs && regs->int_no >= 0 && regs->int_no <= 127) {
+    if (regs && regs->int_no <= 127) {
         _int_handler(regs,  regs->int_no);
     }
 

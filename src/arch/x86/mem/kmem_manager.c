@@ -59,9 +59,9 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     base_init_pml[0][511].raw_bits = (uint64_t)&high_base_pml | 0x03;
     base_init_pml[0][510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
 
-    for (int i = 0; i < 64; ++i) {
+    for (size_t i = 0; i < 64; ++i) {
         high_base_pml[i].raw_bits = (uint64_t)&twom_high_pds[i] | 0x03;
-        for (int j = 0; j < 512; j++) {
+        for (size_t j = 0; j < 512; j++) {
             twom_high_pds[i][j].raw_bits = ((i << 30) + (j << 21)) | 0x80 | 0x03;
         }
     }
@@ -72,9 +72,9 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     size_t num_low_pages = end_ptr >> 12;
     size_t pd_count = (size_t)((num_low_pages + ENTRY_MASK) >> 9);
 
-    for (int i = 0; i < pd_count; ++i) {
+    for (size_t i = 0; i < pd_count; ++i) {
         low_base_pmls[1][i].raw_bits = (uint64_t)&low_base_pmls[2+i] | 0x03;
-        for (int j = 0; j < 512; ++j) {
+        for (size_t j = 0; j < 512; ++j) {
             low_base_pmls[2+i][j].raw_bits = (uint64_t)(PAGE_SIZE_BYTES * i + SMALL_PAGE_SIZE * j) | 0x03;
         }
     }
@@ -97,7 +97,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
         println("warning: frames_pages > 3*512");
     }
 
-    for (int i = 0; i < frames_pages; ++i) {
+    for (size_t i = 0; i < frames_pages; ++i) {
         // shift i back by 12 to get original byte
         heap_base_pt[i].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
     }
@@ -122,8 +122,8 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     size_t yes = 0;
     size_t no = 0;
     // go by each frame
-    for (int i = 0; i < INDEX_FROM_BIT(nframes); i++) {
-        for (int j = 0; j > 32; j++) {
+    for (size_t i = 0; i < INDEX_FROM_BIT(nframes); i++) {
+        for (size_t j = 0; j > 32; j++) {
             if (frames[i] & (0x1 << j)) {
                 no++;
                 continue;
@@ -341,6 +341,11 @@ void kmem_set_page_flags (pml_t* page, unsigned int flags) {
 
 void* kmem_alloc(size_t size) {
     if (!heap_start) {
+        return nullptr;
+    }
+
+    if (size & PAGE_LOW_MASK) {
+        println("invalid size!");
         return nullptr;
     }
 

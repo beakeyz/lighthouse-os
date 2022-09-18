@@ -31,6 +31,7 @@ static void hang () {
 }
 
 int thing (registers_t* regs) {
+    if (regs) {}
     println("funnie");
     return 1;
 }
@@ -67,6 +68,16 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     init_pic();
     println("pic");
+
+    void* thing = kmem_alloc(SMALL_PAGE_SIZE);
+    memset(&thing, 0, sizeof(list_t));
+    list_t* t = (list_t*)&thing;
+    if (t) {}
+    add_node(t, (void*)420);
+
+    println(to_string((uintptr_t)t->head->data));
+
+    println("yay");
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;

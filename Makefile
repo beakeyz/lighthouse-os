@@ -36,17 +36,14 @@ QEMUFLAGS :=  -m 256M -s -serial stdio -enable-kvm -cdrom ./out/lightos.iso \
 
 CHARDFLAGS := $(CFLAGS)               \
         -std=gnu99                     \
-        -g \
 	    -Wall \
 	    -Werror \
+		-Wextra \
         -O2 \
+		-mno-red-zone \
+        -mno-sse \
         -mcmodel=large \
-        -fno-exceptions \
 	    -ffreestanding                 \
-        -fno-stack-protector           \
-        -fno-omit-frame-pointer        \
-	    -fno-isolate-erroneous-paths-attribute \
-        -fno-delete-null-pointer-checks \
 		-I./src                        \
         -I./libraries/
  
