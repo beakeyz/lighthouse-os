@@ -2,7 +2,6 @@
 #include "arch/x86/dev/debug/serial.h"
 #include "arch/x86/kmain.h"
 #include "arch/x86/mem/kmalloc.h"
-#include "arch/x86/mem/kmem_bitmap.h"
 #include "arch/x86/mem/pml.h"
 #include "arch/x86/multiboot.h"
 #include "libc/linkedlist.h"
@@ -19,6 +18,7 @@ static volatile uint32_t *frames;
 static size_t nframes;
 static size_t total_memory = 0;
 static size_t unavailable_memory = 0;
+static uintptr_t lowest_available = 0;
 
 /*
 *   heap crap
@@ -135,7 +135,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     unavailable_memory = no*4;
 
     for (uintptr_t i = 0; i < first_valid_alloc_addr + frames_bytes; i += SMALL_PAGE_SIZE) {
-        kmem_mark_frame(i);
+        kmem_mark_frame_used(i);
     }
 
     heap_start = (char*)(KRNL_HEAP_START + frames_bytes);
@@ -200,13 +200,158 @@ void* kmem_from_phys(uintptr_t addr) {
     return (void*)(addr | HIGH_MAP_BASE);
 }
 
-void kmem_mark_frame (uintptr_t frame)
+void kmem_mark_frame_used (uintptr_t frame)
 {
-    if (frame < nframes * PAGE_SIZE) {
+    if (frame < nframes * SMALL_PAGE_SIZE) {
         uintptr_t real_frame = frame >> 12;
         uintptr_t idx = INDEX_FROM_BIT(real_frame);
         uint32_t bit = OFFSET_FROM_BIT(real_frame);
         frames[idx] |= ((uint32_t)1 << bit);
         asm ("" ::: "memory");
     }
+}
+
+void kmem_mark_frame_free (uintptr_t frame)
+{
+    if (frame < nframes * SMALL_PAGE_SIZE) {
+        uintptr_t real_frame = frame >> 12;
+        uintptr_t idx = INDEX_FROM_BIT(real_frame);
+        uint32_t bit = OFFSET_FROM_BIT(real_frame);
+
+        frames[idx]  &= ~((uint32_t)1 << bit);
+		asm ("" ::: "memory");
+		if (frame < lowest_available) lowest_available = frame;
+
+    }
+}
+
+// combination of the above two
+void kmem_mark_frame(uintptr_t frame, bool value) {
+    if (frame < nframes * SMALL_PAGE_SIZE) {
+        uintptr_t real_frame = frame >> 12;
+        uintptr_t idx = INDEX_FROM_BIT(real_frame);
+        uint32_t bit = OFFSET_FROM_BIT(real_frame);
+
+        if (value) {
+            frames[idx] |= ((uint32_t)1 << bit);
+		    asm ("" ::: "memory");
+            return;
+        }
+
+        frames[idx] &= ~((uint32_t)1 << bit);
+		asm ("" ::: "memory");
+		if (frame < lowest_available) lowest_available = frame;
+    }
+}
+
+uintptr_t kmem_get_frame () {
+    for (uintptr_t i = INDEX_FROM_BIT(lowest_available); i < INDEX_FROM_BIT(nframes); i++) {
+        if (frames[i] != (uint32_t)-1) {
+            for (uintptr_t j = 0; j < (sizeof(uint32_t)*8); ++j) {
+				if (!(frames[i] & 1 << j)) {
+					uintptr_t out = (i << 5) + j;
+					lowest_available = out + 1;
+					return out;
+				}
+			}
+        }
+    } 
+    return NULL;
+}
+
+pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
+    uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) > 12;
+    uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
+    uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
+    uint_t pd_e = (page_addr >> 9) & ENTRY_MASK;
+    uint_t pt_e = (page_addr) & ENTRY_MASK;
+
+    if (!base_init_pml[pml4_e]->structured_bits.present_bit) {
+        println("new pml4");
+        if (flags & KMEM_GET_MAKE) {
+            uintptr_t new = kmem_get_frame() << 12;
+            kmem_mark_frame_used(new);
+            memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
+            base_init_pml[pml4_e]->raw_bits = new | 0x07;
+        } else {
+            return nullptr;
+        }
+    }
+
+    pml_t* pdp = kmem_from_phys(base_init_pml[pml4_e]->structured_bits.page << 12);
+    
+    if (!pdp[pdp_e].structured_bits.present_bit) {
+        println("new pdp");
+        if (flags & KMEM_GET_MAKE) {
+            uintptr_t new = kmem_get_frame() << 12;
+            kmem_mark_frame_used(new);
+            memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
+            pdp[pdp_e].raw_bits = new | 0x07;
+        } else {
+            return nullptr;
+        }
+    }
+
+    if (pdp[pdp_e].structured_bits.size) {
+        println("Tried to get big page!");
+        return nullptr;
+    }
+
+    pml_t* pd = kmem_from_phys(pdp[pdp_e].structured_bits.page << 12);
+    
+    if (!pd[pd_e].structured_bits.present_bit) {
+        println("new pd");
+        if (flags & KMEM_GET_MAKE) {
+            uintptr_t new = kmem_get_frame() << 12;
+            kmem_mark_frame_used(new);
+            memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
+            pd[pd_e].raw_bits = new | 0x07;
+        } else {
+            return nullptr;
+        }
+    }
+
+    if (pd[pd_e].structured_bits.size) {
+        println("tried to get 2MB page!");
+        return nullptr;
+    }
+
+    pml_t* pt = kmem_from_phys(pd[pd_e].structured_bits.page << 12);
+    
+    println("jummy memory");
+    return (pml_t*)&pt[pt_e];
+}
+
+void kmem_set_page_flags (pml_t* page, unsigned int flags) {
+    if (page->structured_bits.page == 0) {
+        uintptr_t frame = kmem_get_frame();
+        kmem_mark_frame_used(frame << 12);
+        page->structured_bits.page = frame;
+    }
+
+    page->structured_bits.size          = 0;
+    page->structured_bits.present_bit   = 1;
+    page->structured_bits.writable_bit  = (flags & KMEM_FLAG_WRITABLE) ? 1 : 0;
+    page->structured_bits.user_bit      = (flags & KMEM_FLAG_KERNEL) ? 0 : 1;
+    page->structured_bits.nocache_bit   = (flags & KMEM_FLAG_NOCACHE) ? 1 : 0;
+    page->structured_bits.writethrough_bit = (flags & KMEM_FLAG_WRITETHROUGH) ? 1 : 0;
+    page->structured_bits.size          = (flags & KMEM_FLAG_SPEC) ? 1 : 0;
+    page->structured_bits.nx            = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
+}
+
+void* kmem_alloc(size_t size) {
+    if (!heap_start) {
+        return nullptr;
+    }
+
+    // TODO: locking
+    void* start = heap_start;
+
+    for (uintptr_t i = (uintptr_t)start; i < (uintptr_t)(start + size); i += SMALL_PAGE_SIZE) {
+        pml_t* page = kmem_get_page(i, KMEM_GET_MAKE);
+        kmem_set_page_flags(page, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+    }
+
+    heap_start += size;
+    return start;
 }

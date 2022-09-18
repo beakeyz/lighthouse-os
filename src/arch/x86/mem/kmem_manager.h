@@ -26,6 +26,17 @@
 #define SMALL_PAGE_SIZE 0x1000UL
 #define PAGE_SIZE_BYTES 0x200000UL
 
+// page flags
+#define KMEM_FLAG_KERNEL       0x01
+#define KMEM_FLAG_WRITABLE     0x02
+#define KMEM_FLAG_NOCACHE      0x04
+#define KMEM_FLAG_WRITETHROUGH 0x08
+#define KMEM_FLAG_SPEC         0x10
+#define KMEM_FLAG_WC           (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_SPEC)
+#define KMEM_FLAG_NOEXECUTE    0x20
+
+#define KMEM_GET_MAKE 0x01
+
 // defines for alignment
 #define ALIGN_UP(addr, size) \
     ((addr % size == 0) ? (addr) : (addr) + size - ((addr) % size))
@@ -59,6 +70,15 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
 void parse_memmap ();
 
 void* kmem_from_phys (uintptr_t addr);
-void kmem_mark_frame (uintptr_t frame);
+void kmem_mark_frame_used (uintptr_t frame);
+void kmem_mark_frame_free (uintptr_t frame);
+void kmem_mark_frame (uintptr_t frame, bool value);
+
+uintptr_t kmem_get_frame ();
+pml_t* kmem_get_page (uintptr_t addr, unsigned int flags);
+void kmem_set_page_flags (pml_t* page, unsigned int flags);
+
+void* kmem_alloc (size_t size);
+
 
 #endif // !__KMEM_MANAGER__

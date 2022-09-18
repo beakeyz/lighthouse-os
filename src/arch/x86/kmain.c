@@ -68,7 +68,6 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_pic();
     println("pic");
 
-    
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;
     // 1. [X] parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)

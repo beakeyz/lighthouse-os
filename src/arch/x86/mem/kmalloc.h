@@ -1,7 +1,6 @@
 #ifndef __KMALLOC__
 #define __KMALLOC__
 #include <libc/stddef.h>
-#include "arch/x86/mem/kmem_bitmap.h"
 
 // TODO: spinlock :clown:
 // Node or Slab (or Chunk)?
@@ -19,7 +18,7 @@ typedef struct {
     uint8_t data[0];
 } kmalloc_header_t;
 
-void init_kmalloc (kmem_bitmap_t* bitmap, uint8_t* heap_addr, size_t heap_size);
+void init_kmalloc (uint8_t* heap_addr, size_t heap_size);
 
 void* kmalloc (size_t len);
 void* kfree (void* addr, size_t len);

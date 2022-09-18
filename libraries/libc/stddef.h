@@ -1,14 +1,15 @@
 #ifndef __STDDEF__
 #define __STDDEF__
 
-typedef signed             char     int8_t;
-typedef unsigned           char     uint8_t;
-typedef signed             short    int16_t;
-typedef unsigned           short    uint16_t;
-typedef long signed        int      int32_t;
-typedef long unsigned      int      uint32_t;
-typedef long long signed   int      int64_t;
-typedef long long unsigned int      uint64_t;
+typedef signed              char    int8_t;
+typedef unsigned            char    uint8_t;
+typedef signed              short   int16_t;
+typedef unsigned            short   uint16_t;
+typedef long signed         int     int32_t;
+typedef long unsigned       int     uint32_t;
+typedef long long signed    int     int64_t;
+typedef long long unsigned  int     uint64_t;
+typedef unsigned            int     uint_t;
 
 typedef char*                       va_list;
 typedef uint64_t                    size_t;

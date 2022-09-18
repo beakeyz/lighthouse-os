@@ -35,12 +35,8 @@ QEMUFLAGS :=  -m 256M -s -serial stdio -enable-kvm -cdrom ./out/lightos.iso \
 		-device VGA,vgamem_mb=64
 
 CHARDFLAGS := $(CFLAGS)               \
-        -std=c11                     \
+        -std=gnu99                     \
         -g \
-		-static \
-        -m64 \
-		-mavx \
-		-msse \
 	    -Wall \
 	    -Werror \
         -O2 \
