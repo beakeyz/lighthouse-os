@@ -26,6 +26,10 @@
 #define SMALL_PAGE_SIZE 0x1000UL
 #define PAGE_SIZE_BYTES 0x200000UL
 
+#define PDP_MASK 0x3fffffffUL
+#define  PD_MASK 0x1fffffUL
+#define  PT_MASK PAGE_LOW_MASK
+
 // page flags
 #define KMEM_FLAG_KERNEL       0x01
 #define KMEM_FLAG_WRITABLE     0x02
@@ -70,11 +74,14 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
 void parse_memmap ();
 
 void* kmem_from_phys (uintptr_t addr);
+uintptr_t kmem_to_phys (pml_t* root, uintptr_t addr);
 void kmem_mark_frame_used (uintptr_t frame);
 void kmem_mark_frame_free (uintptr_t frame);
 void kmem_mark_frame (uintptr_t frame, bool value);
 
+
 uintptr_t kmem_get_frame ();
+pml_t* kmem_get_krnl_dir ();
 pml_t* kmem_get_page (uintptr_t addr, unsigned int flags);
 void kmem_set_page_flags (pml_t* page, unsigned int flags);
 

@@ -13,6 +13,7 @@ void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_a
         return;
     }
     void* entry = mb_memmap->entries;
+
     println(to_string(mb_memmap->size / mb_memmap->entry_size));
     while ((uintptr_t)entry < (uintptr_t)mb_memmap + mb_memmap->size) {
         struct multiboot_mmap_entry* cur_entry = entry;

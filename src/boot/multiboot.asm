@@ -30,7 +30,6 @@ section .pre_text
 
 global start
 
-global boot_pml4t
 global boot_pdpt
 global boot_pdt
 

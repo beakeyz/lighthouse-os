@@ -10,7 +10,6 @@ list_t* init_list() {
 
 void add_node(list_t *list, void *data) {
     void* n =  kmem_alloc(SMALL_PAGE_SIZE);
-    memset(&n, 0, sizeof(*n));
     node_t* node = (node_t*)&n;
     node->data = data;
     
@@ -19,7 +18,6 @@ void add_node(list_t *list, void *data) {
     // FIXME
     if (!list->head) {
         // this one
-        println("thing");
         list->head = node;
         list->end = node;
     }

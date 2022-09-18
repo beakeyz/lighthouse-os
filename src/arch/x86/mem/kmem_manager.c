@@ -29,7 +29,7 @@ static char* heap_start = NULL;
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
     kmem_data.mmap_entry_num = (mmap->size - sizeof(*mmap))/mmap->entry_size;
-    kmem_data.mmap_entries = (multiboot_memory_map_t*)mmap->entries;
+    kmem_data.mmap_entries = (struct multiboot_mmap_entry*)mmap->entries;
 }
 
 // this layout is inspired by taoruos
@@ -48,6 +48,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     struct multiboot_tag_mmap* mmap = get_mb2_tag((void*)mb_addr, 6); 
     prep_mmap(mmap);
 
+    // 4294967295
     println("setting stuff");
     asm volatile (
         "movq %%cr0, %%rax\n"
@@ -102,11 +103,9 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
         heap_base_pt[i].raw_bits = (first_valid_alloc_addr + (i << 12)) | 0x03;
     }
 
-    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&base_init_pml[0])) & 0x7fffffffffUL;
+    uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&base_init_pml[0])) & 0x7FFFffffFFUL;
 
-    asm volatile ("" : : : "memory");
     asm volatile ("movq %0, %%cr3" :: "r"(map));
-    asm volatile ("" : : : "memory");
     
     println("loaded the new pagemaps!");
     
@@ -116,24 +115,41 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     //parse_memmap();
 
     frames = (void*)((uintptr_t)KRNL_HEAP_START);
-    memset((void*)frames, 0xFF, frames_bytes);
+    // FIXME: I would like to fuck up the heap, but there is a lil issue that's kinda preventing me from doing so, 
+    // namely just the fact that this little memset kinda corrupts my whole memoryspace -_-
+    //memset((void*)frames, 0xFF, frames_bytes);
+    
+    for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
+        multiboot_memory_map_t entry = kmem_data.mmap_entries[i];
+        if (entry.type == 1) {
+
+            for (uintptr_t base = entry.addr; base < entry.addr + (entry.len & 0xFFFFffffFFFFf000); base += 0x1000) {
+                kmem_mark_frame_free(base);
+            }
+        }
+    }
 
     // lets walk the heap (yay I love loops sooo much)
     size_t yes = 0;
     size_t no = 0;
     // go by each frame
     for (size_t i = 0; i < INDEX_FROM_BIT(nframes); i++) {
-        for (size_t j = 0; j > 32; j++) {
-            if (frames[i] & (0x1 << j)) {
+        for (size_t j = 0; j < 32; j++) {
+            if (frames[i] & (uint32_t)(0x1 << j)) {
                 no++;
-                continue;
+            } else {
+                yes++;
             }
-            yes++;
         }
     }
     total_memory = yes*4;
     unavailable_memory = no*4;
 
+    // let's quickly dbprint these memory stats
+    print("Total available memory: "); println(to_string(total_memory));
+    print("Total unavailable memory: "); println(to_string(unavailable_memory));
+
+    // mark everything up to the first_valid_alloc_addr as used (cuz, uhm, it is)
     for (uintptr_t i = 0; i < first_valid_alloc_addr + frames_bytes; i += SMALL_PAGE_SIZE) {
         kmem_mark_frame_used(i);
     }
@@ -141,6 +157,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     heap_start = (char*)(KRNL_HEAP_START + frames_bytes);
 
     // TODO: refcounts
+    println("done");
 
 }
 
@@ -198,6 +215,34 @@ void parse_memmap () {
 
 void* kmem_from_phys(uintptr_t addr) {
     return (void*)(addr | HIGH_MAP_BASE);
+}
+
+uintptr_t kmem_to_phys(pml_t *root, uintptr_t addr) {
+    if (!root) root = base_init_pml[0];
+
+    uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) > 12;
+    uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
+    uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
+    uint_t pd_e = (page_addr >> 9) & ENTRY_MASK;
+    uint_t pt_e = (page_addr) & ENTRY_MASK;
+
+    if (!root[pml4_e].structured_bits.present_bit)
+        return -1;
+
+    pml_t* pdp = kmem_from_phys((uintptr_t)root[pml4_e].structured_bits.page << 12);
+
+    if (!pdp[pdp_e].structured_bits.present_bit) return (uintptr_t)-2;
+	if (pdp[pdp_e].structured_bits.size) return ((uintptr_t)pdp[pdp_e].structured_bits.page << 12) | (addr & PDP_MASK);
+
+	pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_e].structured_bits.page << 12);
+
+	if (!pd[pd_e].structured_bits.present_bit) return (uintptr_t)-3;
+	if (pd[pd_e].structured_bits.size) return ((uintptr_t)pd[pd_e].structured_bits.page << 12) | (addr & PD_MASK);
+
+	pml_t* pt = kmem_from_phys((uintptr_t)pd[pd_e].structured_bits.page << 12);
+
+	if (!pt[pt_e].structured_bits.present_bit) return (uintptr_t)-4;
+	return ((uintptr_t)pt[pt_e].structured_bits.page << 12) | (addr & PT_MASK);
 }
 
 void kmem_mark_frame_used (uintptr_t frame)
@@ -259,6 +304,10 @@ uintptr_t kmem_get_frame () {
     return NULL;
 }
 
+pml_t* kmem_get_krnl_dir () {
+    return kmem_from_phys((uintptr_t)&base_init_pml[0]);
+}
+
 pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
     uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) > 12;
     uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
@@ -318,7 +367,9 @@ pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
 
     pml_t* pt = kmem_from_phys(pd[pd_e].structured_bits.page << 12);
     
-    println("jummy memory");
+    if (pt->structured_bits.page != 0) {
+        println("jummy memory");
+    }
     return (pml_t*)&pt[pt_e];
 }
 

@@ -1,4 +1,5 @@
 #include "string.h"
+#include "arch/x86/dev/debug/serial.h"
 #include <libc/stddef.h>
 
 /*
@@ -65,15 +66,23 @@ int memcmp(const void *s1, const void *s2, size_t n)
 }
 
 // TODO: this is x86 specific. I'll leave it here for now, but when we aventually target other arches, we'll have to refactor this =/
-void *memset(void *data, int value, size_t length)
-{
-    asm volatile ("cld; rep stosb"
-                  : "=c"((int){0})
-                  : "rdi"(data), "a"(value), "c"(length)
-                  : "flags", "memory", "rdi");
-    return data;
-}
+//void *memset(void *data, int value, size_t length)
+//{
+//    asm volatile ("cld; rep stosb"
+//                  : "=c"((int){0})
+//                  : "rdi"(data), "a"(value), "c"(length)
+//                  : "flags", "memory", "rdi");
+//    return data;
+//}
 
+void * memset(void * dest, int c, size_t n) {
+	size_t i = 0;
+    println(to_string((uintptr_t)dest));
+	for ( ; i < n; ++i ) {
+		((char *)dest)[i] = c;
+	}
+	return dest;
+}
 /*
 void *memmove(void *dest, const void *src, size_t n)
 {

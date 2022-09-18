@@ -20,6 +20,8 @@ extern ctor_func_t end_ctors[];
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
+void* mb_ptr = NULL;
+
 __attribute__((constructor)) void test () {
 
     println("[TESTCONSTRUCTOR] =D");
@@ -34,6 +36,22 @@ int thing (registers_t* regs) {
     if (regs) {}
     println("funnie");
     return 1;
+}
+
+void _clear_junky_memory () {
+    struct multiboot_tag_mmap* mmap = get_mb2_tag(mb_ptr, 6);
+    void* e = mmap->entries;
+    println(to_string((uintptr_t)mb_ptr));
+    while((uintptr_t)e < (uintptr_t)mmap + mmap->size) {
+        println("hah");
+        struct multiboot_mmap_entry* cur_entry = (void*)e;
+        if (cur_entry->type == 1) {
+            for (uintptr_t base = cur_entry->addr; base < cur_entry->addr + (cur_entry->len & 0xFFFFffffFFFFf000); base += 0x1000) {
+                kmem_mark_frame_free(base);
+            }
+        }
+        e += mmap->entry_size;
+    }
 }
 
 void _start (uint32_t mb_addr, uint32_t mb_magic) {
@@ -71,14 +89,6 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     // FIXME: using kmem_alloc raw probably is not a great idea, so I'll have to finish 
     // kmalloc first, and then I'll continue testing here.
-
-    void* thing = kmem_alloc(SMALL_PAGE_SIZE);
-    memset(&thing, 0, sizeof(list_t));
-    list_t* t = (list_t*)&thing;
-    if (t) {}
-    add_node(t, (void*)420);
-
-    println(to_string((uintptr_t)t->head->data));
 
     println("yay");
 
