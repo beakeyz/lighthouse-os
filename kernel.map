@@ -47,7 +47,7 @@ Linker script and memory map
  .multiboot_header
                 0x0000000000100000       0x18 ./out/src/boot/multiboot.o
 
-.text           0x0000000000101000     0x1af2
+.text           0x0000000000101000     0x1aa2
  *(.pre_text)
  .pre_text      0x0000000000101000       0x80 ./out/src/boot/multiboot.o
                 0x0000000000101000                start
@@ -100,112 +100,112 @@ Linker script and memory map
                 0x0000000000101c30                kmalloc
                 0x0000000000101d20                kfree
  *fill*         0x0000000000101d23        0xd 
- .text          0x0000000000101d30      0x4fe ./out/src/arch/x86/mem/kmem_manager.o
+ .text          0x0000000000101d30      0x4ae ./out/src/arch/x86/mem/kmem_manager.o
                 0x0000000000101d30                prep_mmap
                 0x0000000000101d60                init_kmem_manager
-                0x0000000000102080                parse_memmap
-                0x0000000000102220                kmem_from_phys
- *fill*         0x000000000010222e        0x2 
- .text          0x0000000000102230      0x286 ./out/src/arch/x86/multiboot.o
-                0x0000000000102230                mb_initialize
-                0x0000000000102440                next_mb2_tag
-                0x0000000000102480                get_mb2_tag
- *fill*         0x00000000001024b6        0xa 
- .text          0x00000000001024c0      0x150 ./out/src/arch/x86/kmain.o
-                0x00000000001024c0                thing
-                0x00000000001024f0                _start
- .text.startup  0x0000000000102610       0x16 ./out/src/arch/x86/kmain.o
-                0x0000000000102610                test
- *fill*         0x0000000000102626        0xa 
- .text          0x0000000000102630       0x41 ./out/libraries/libc/linkedlist.o
-                0x0000000000102630                init_list
-                0x0000000000102640                add_node
- *fill*         0x0000000000102671        0xf 
- .text          0x0000000000102680       0x5c ./out/libraries/libc/io.o
-                0x0000000000102680                in8
-                0x0000000000102690                in16
-                0x00000000001026a0                out8
-                0x00000000001026b0                out16
-                0x00000000001026c0                delay
- *fill*         0x00000000001026dc        0x4 
- .text          0x00000000001026e0      0x1e3 ./out/libraries/libc/string.o
-                0x00000000001026e0                strlen
-                0x0000000000102710                strcmp
-                0x0000000000102750                strcpy
-                0x0000000000102780                memcpy
-                0x0000000000102790                memcmp
-                0x00000000001027c0                memset
-                0x00000000001027d0                memchr
-                0x0000000000102800                to_string
- *fill*         0x00000000001028c3        0xd 
- .text          0x00000000001028d0       0x17 ./out/src/arch/x86/asm/gdt.o
-                0x00000000001028d0                load_gdt
-                0x00000000001028d6                gdt_flush
- *fill*         0x00000000001028e7        0x9 
- .text          0x00000000001028f0      0x1cd ./out/src/arch/x86/asm/irq.o
-                0x00000000001028f0                flush_idt
-                0x0000000000102935                _isr0
-                0x000000000010293b                _isr1
-                0x0000000000102941                _isr2
-                0x0000000000102947                _isr3
-                0x000000000010294d                _isr4
-                0x0000000000102953                _isr5
-                0x0000000000102959                _isr6
-                0x000000000010295f                _isr7
-                0x0000000000102965                _isr8
-                0x0000000000102969                _isr9
-                0x000000000010296f                _isr10
-                0x0000000000102973                _isr11
-                0x000000000010297a                _isr12
-                0x0000000000102981                _isr13
-                0x0000000000102988                _isr14
-                0x000000000010298f                _isr15
-                0x0000000000102998                _isr16
-                0x00000000001029a1                _isr17
-                0x00000000001029a8                _isr18
-                0x00000000001029b1                _isr19
-                0x00000000001029ba                _isr20
-                0x00000000001029c3                _isr21
-                0x00000000001029cc                _isr22
-                0x00000000001029d5                _isr23
-                0x00000000001029de                _isr24
-                0x00000000001029e7                _isr25
-                0x00000000001029f0                _isr26
-                0x00000000001029f9                _isr27
-                0x0000000000102a02                _isr28
-                0x0000000000102a0b                _isr29
-                0x0000000000102a14                _isr30
-                0x0000000000102a1b                _isr31
-                0x0000000000102a24                _isr32
-                0x0000000000102a2d                _isr33
-                0x0000000000102a36                _isr34
-                0x0000000000102a3f                _isr35
-                0x0000000000102a48                _isr36
-                0x0000000000102a51                _isr37
-                0x0000000000102a5a                _isr38
-                0x0000000000102a63                _isr39
-                0x0000000000102a6c                _isr40
-                0x0000000000102a75                _isr41
-                0x0000000000102a7e                _isr42
-                0x0000000000102a87                _isr43
-                0x0000000000102a90                _isr44
-                0x0000000000102a99                _isr45
-                0x0000000000102aa2                _isr46
-                0x0000000000102aab                _isr47
-                0x0000000000102ab4                _isr50
- *fill*         0x0000000000102abd        0x3 
- .text          0x0000000000102ac0       0x32 ./out/src/boot/multiboot.o
+                0x0000000000102030                parse_memmap
+                0x00000000001021d0                kmem_from_phys
+ *fill*         0x00000000001021de        0x2 
+ .text          0x00000000001021e0      0x286 ./out/src/arch/x86/multiboot.o
+                0x00000000001021e0                mb_initialize
+                0x00000000001023f0                next_mb2_tag
+                0x0000000000102430                get_mb2_tag
+ *fill*         0x0000000000102466        0xa 
+ .text          0x0000000000102470      0x150 ./out/src/arch/x86/kmain.o
+                0x0000000000102470                thing
+                0x00000000001024a0                _start
+ .text.startup  0x00000000001025c0       0x16 ./out/src/arch/x86/kmain.o
+                0x00000000001025c0                test
+ *fill*         0x00000000001025d6        0xa 
+ .text          0x00000000001025e0       0x41 ./out/libraries/libc/linkedlist.o
+                0x00000000001025e0                init_list
+                0x00000000001025f0                add_node
+ *fill*         0x0000000000102621        0xf 
+ .text          0x0000000000102630       0x5c ./out/libraries/libc/io.o
+                0x0000000000102630                in8
+                0x0000000000102640                in16
+                0x0000000000102650                out8
+                0x0000000000102660                out16
+                0x0000000000102670                delay
+ *fill*         0x000000000010268c        0x4 
+ .text          0x0000000000102690      0x1e3 ./out/libraries/libc/string.o
+                0x0000000000102690                strlen
+                0x00000000001026c0                strcmp
+                0x0000000000102700                strcpy
+                0x0000000000102730                memcpy
+                0x0000000000102740                memcmp
+                0x0000000000102770                memset
+                0x0000000000102780                memchr
+                0x00000000001027b0                to_string
+ *fill*         0x0000000000102873        0xd 
+ .text          0x0000000000102880       0x17 ./out/src/arch/x86/asm/gdt.o
+                0x0000000000102880                load_gdt
+                0x0000000000102886                gdt_flush
+ *fill*         0x0000000000102897        0x9 
+ .text          0x00000000001028a0      0x1cd ./out/src/arch/x86/asm/irq.o
+                0x00000000001028a0                flush_idt
+                0x00000000001028e5                _isr0
+                0x00000000001028eb                _isr1
+                0x00000000001028f1                _isr2
+                0x00000000001028f7                _isr3
+                0x00000000001028fd                _isr4
+                0x0000000000102903                _isr5
+                0x0000000000102909                _isr6
+                0x000000000010290f                _isr7
+                0x0000000000102915                _isr8
+                0x0000000000102919                _isr9
+                0x000000000010291f                _isr10
+                0x0000000000102923                _isr11
+                0x000000000010292a                _isr12
+                0x0000000000102931                _isr13
+                0x0000000000102938                _isr14
+                0x000000000010293f                _isr15
+                0x0000000000102948                _isr16
+                0x0000000000102951                _isr17
+                0x0000000000102958                _isr18
+                0x0000000000102961                _isr19
+                0x000000000010296a                _isr20
+                0x0000000000102973                _isr21
+                0x000000000010297c                _isr22
+                0x0000000000102985                _isr23
+                0x000000000010298e                _isr24
+                0x0000000000102997                _isr25
+                0x00000000001029a0                _isr26
+                0x00000000001029a9                _isr27
+                0x00000000001029b2                _isr28
+                0x00000000001029bb                _isr29
+                0x00000000001029c4                _isr30
+                0x00000000001029cb                _isr31
+                0x00000000001029d4                _isr32
+                0x00000000001029dd                _isr33
+                0x00000000001029e6                _isr34
+                0x00000000001029ef                _isr35
+                0x00000000001029f8                _isr36
+                0x0000000000102a01                _isr37
+                0x0000000000102a0a                _isr38
+                0x0000000000102a13                _isr39
+                0x0000000000102a1c                _isr40
+                0x0000000000102a25                _isr41
+                0x0000000000102a2e                _isr42
+                0x0000000000102a37                _isr43
+                0x0000000000102a40                _isr44
+                0x0000000000102a49                _isr45
+                0x0000000000102a52                _isr46
+                0x0000000000102a5b                _isr47
+                0x0000000000102a64                _isr50
+ *fill*         0x0000000000102a6d        0x3 
+ .text          0x0000000000102a70       0x32 ./out/src/boot/multiboot.o
 
-.iplt           0x0000000000102af2        0x0
- .iplt          0x0000000000102af2        0x0 ./out/src/arch/x86/interupts/gdt.o
+.iplt           0x0000000000102aa2        0x0
+ .iplt          0x0000000000102aa2        0x0 ./out/src/arch/x86/interupts/gdt.o
 
-.rela.dyn       0x0000000000102af8        0x0
- .rela.got      0x0000000000102af8        0x0 ./out/src/arch/x86/interupts/gdt.o
- .rela.iplt     0x0000000000102af8        0x0 ./out/src/arch/x86/interupts/gdt.o
- .rela.text     0x0000000000102af8        0x0 ./out/src/arch/x86/interupts/gdt.o
- .rela.data     0x0000000000102af8        0x0 ./out/src/arch/x86/interupts/gdt.o
+.rela.dyn       0x0000000000102aa8        0x0
+ .rela.got      0x0000000000102aa8        0x0 ./out/src/arch/x86/interupts/gdt.o
+ .rela.iplt     0x0000000000102aa8        0x0 ./out/src/arch/x86/interupts/gdt.o
+ .rela.text     0x0000000000102aa8        0x0 ./out/src/arch/x86/interupts/gdt.o
+ .rela.data     0x0000000000102aa8        0x0 ./out/src/arch/x86/interupts/gdt.o
 
-.rodata         0x0000000000103000      0x6f2
+.rodata         0x0000000000103000      0x6ba
                 0x0000000000103000                start_ctors = .
  *(.ctors)
  .ctors         0x0000000000103000        0x8 ./out/src/arch/x86/kmain.o
@@ -230,19 +230,16 @@ Linker script and memory map
                                          0x1a (size before relaxing)
  .rodata.str1.1
                 0x0000000000103568       0x84 ./out/src/arch/x86/mem/kmem_manager.o
-                                         0x87 (size before relaxing)
  *fill*         0x00000000001035ec        0x4 
  .rodata.str1.8
                 0x00000000001035f0       0x4a ./out/src/arch/x86/mem/kmem_manager.o
- *fill*         0x000000000010363a        0x6 
- .rodata.cst16  0x0000000000103640       0x30 ./out/src/arch/x86/mem/kmem_manager.o
  .rodata.str1.1
-                0x0000000000103670       0x1c ./out/src/arch/x86/multiboot.o
+                0x000000000010363a       0x1c ./out/src/arch/x86/multiboot.o
  .rodata.str1.1
-                0x000000000010368c       0x41 ./out/src/arch/x86/kmain.o
+                0x0000000000103656       0x41 ./out/src/arch/x86/kmain.o
                                          0x49 (size before relaxing)
- *fill*         0x00000000001036cd        0x3 
- .rodata        0x00000000001036d0       0x22 ./out/src/boot/multiboot.o
+ *fill*         0x0000000000103697        0x1 
+ .rodata        0x0000000000103698       0x22 ./out/src/boot/multiboot.o
 
 .data           0x0000000000104000       0x48
  *(.data*)
@@ -272,7 +269,7 @@ Linker script and memory map
 .igot.plt       0x0000000000104048        0x0
  .igot.plt      0x0000000000104048        0x0 ./out/src/arch/x86/interupts/gdt.o
 
-.bss            0x0000000000105000    0x73000
+.bss            0x0000000000105000    0x74000
  *(COMMON)
  *(.bss*)
  .bss           0x0000000000105000        0x0 ./out/src/arch/x86/interupts/gdt.o
@@ -289,32 +286,33 @@ Linker script and memory map
  *fill*         0x00000000001068a4        0xc 
  .bss           0x00000000001068b0       0x28 ./out/src/arch/x86/mem/kmalloc.o
  *fill*         0x00000000001068d8      0x728 
- .bss           0x0000000000107000    0x68018 ./out/src/arch/x86/mem/kmem_manager.o
+ .bss           0x0000000000107000    0x69018 ./out/src/arch/x86/mem/kmem_manager.o
                 0x0000000000107000                twom_high_pds
                 0x0000000000147000                low_base_pmls
                 0x0000000000169000                heap_base_pt
                 0x000000000016c000                heap_base_pd
                 0x000000000016d000                heap_base_pml
                 0x000000000016e000                high_base_pml
- .bss           0x000000000016f018        0x0 ./out/src/arch/x86/multiboot.o
- .bss           0x000000000016f018        0x8 ./out/src/arch/x86/kmain.o
- .bss           0x000000000016f020        0x0 ./out/libraries/libc/linkedlist.o
- .bss           0x000000000016f020        0x0 ./out/libraries/libc/io.o
- .bss           0x000000000016f020      0x100 ./out/libraries/libc/string.o
- *fill*         0x000000000016f120      0xee0 
- .bss           0x0000000000170000     0x4009 ./out/src/boot/multiboot.o
-                0x0000000000170000                end_of_mapped_memory
-                0x0000000000174009                stack_top
-                0x0000000000175000                . = ALIGN (0x1000)
- *fill*         0x0000000000174009      0xff7 
+                0x000000000016f000                base_init_pml
+ .bss           0x0000000000170018        0x0 ./out/src/arch/x86/multiboot.o
+ .bss           0x0000000000170018        0x8 ./out/src/arch/x86/kmain.o
+ .bss           0x0000000000170020        0x0 ./out/libraries/libc/linkedlist.o
+ .bss           0x0000000000170020        0x0 ./out/libraries/libc/io.o
+ .bss           0x0000000000170020      0x100 ./out/libraries/libc/string.o
+ *fill*         0x0000000000170120      0xee0 
+ .bss           0x0000000000171000     0x4009 ./out/src/boot/multiboot.o
+                0x0000000000171000                end_of_mapped_memory
+                0x0000000000175009                stack_top
+                0x0000000000176000                . = ALIGN (0x1000)
+ *fill*         0x0000000000175009      0xff7 
  *(.pts*)
- .pts           0x0000000000175000     0x3000 ./out/src/boot/multiboot.o
-                0x0000000000175000                boot_pml4t
-                0x0000000000176000                boot_pdpt
-                0x0000000000177000                boot_pdt
+ .pts           0x0000000000176000     0x3000 ./out/src/boot/multiboot.o
+                0x0000000000176000                boot_pml4t
+                0x0000000000177000                boot_pdpt
+                0x0000000000178000                boot_pdt
  *(.heap)
-                0x0000000000178000                _kernel_end = .
-                0x0000000000178000                _kernel_physical_end = .
+                0x0000000000179000                _kernel_end = .
+                0x0000000000179000                _kernel_physical_end = .
 
 /DISCARD/
  *(.comment)
@@ -340,7 +338,7 @@ LOAD ./out/src/arch/x86/asm/irq.o
 LOAD ./out/src/boot/multiboot.o
 OUTPUT(lightos.elf elf64-x86-64)
 
-.debug_info     0x0000000000000000     0x3db5
+.debug_info     0x0000000000000000     0x3dc1
  .debug_info    0x0000000000000000      0x1e4 ./out/src/arch/x86/interupts/gdt.o
  .debug_info    0x00000000000001e4      0x612 ./out/src/arch/x86/interupts/idt.o
  .debug_info    0x00000000000007f6      0x41b ./out/src/arch/x86/interupts/interupts.o
@@ -349,17 +347,17 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_info    0x0000000000001303      0x842 ./out/src/arch/x86/mem/kmem_bitmap.o
  .debug_info    0x0000000000001b45      0x1bc ./out/src/arch/x86/mem/virtual_range.o
  .debug_info    0x0000000000001d01      0x3b7 ./out/src/arch/x86/mem/kmalloc.o
- .debug_info    0x00000000000020b8      0x93a ./out/src/arch/x86/mem/kmem_manager.o
- .debug_info    0x00000000000029f2      0x61d ./out/src/arch/x86/multiboot.o
- .debug_info    0x000000000000300f      0x4d3 ./out/src/arch/x86/kmain.o
- .debug_info    0x00000000000034e2      0x16a ./out/libraries/libc/linkedlist.o
- .debug_info    0x000000000000364c      0x23a ./out/libraries/libc/io.o
- .debug_info    0x0000000000003886      0x423 ./out/libraries/libc/string.o
- .debug_info    0x0000000000003ca9       0x5a ./out/src/arch/x86/asm/gdt.o
- .debug_info    0x0000000000003d03       0x5a ./out/src/arch/x86/asm/irq.o
- .debug_info    0x0000000000003d5d       0x58 ./out/src/boot/multiboot.o
+ .debug_info    0x00000000000020b8      0x946 ./out/src/arch/x86/mem/kmem_manager.o
+ .debug_info    0x00000000000029fe      0x61d ./out/src/arch/x86/multiboot.o
+ .debug_info    0x000000000000301b      0x4d3 ./out/src/arch/x86/kmain.o
+ .debug_info    0x00000000000034ee      0x16a ./out/libraries/libc/linkedlist.o
+ .debug_info    0x0000000000003658      0x23a ./out/libraries/libc/io.o
+ .debug_info    0x0000000000003892      0x423 ./out/libraries/libc/string.o
+ .debug_info    0x0000000000003cb5       0x5a ./out/src/arch/x86/asm/gdt.o
+ .debug_info    0x0000000000003d0f       0x5a ./out/src/arch/x86/asm/irq.o
+ .debug_info    0x0000000000003d69       0x58 ./out/src/boot/multiboot.o
 
-.debug_abbrev   0x0000000000000000     0x1634
+.debug_abbrev   0x0000000000000000     0x1625
  .debug_abbrev  0x0000000000000000       0xd4 ./out/src/arch/x86/interupts/gdt.o
  .debug_abbrev  0x00000000000000d4      0x1fd ./out/src/arch/x86/interupts/idt.o
  .debug_abbrev  0x00000000000002d1      0x1fa ./out/src/arch/x86/interupts/interupts.o
@@ -368,15 +366,15 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_abbrev  0x0000000000000728      0x229 ./out/src/arch/x86/mem/kmem_bitmap.o
  .debug_abbrev  0x0000000000000951       0xf4 ./out/src/arch/x86/mem/virtual_range.o
  .debug_abbrev  0x0000000000000a45      0x1bf ./out/src/arch/x86/mem/kmalloc.o
- .debug_abbrev  0x0000000000000c04      0x2aa ./out/src/arch/x86/mem/kmem_manager.o
- .debug_abbrev  0x0000000000000eae      0x23e ./out/src/arch/x86/multiboot.o
- .debug_abbrev  0x00000000000010ec      0x1ad ./out/src/arch/x86/kmain.o
- .debug_abbrev  0x0000000000001299       0xd7 ./out/libraries/libc/linkedlist.o
- .debug_abbrev  0x0000000000001370      0x138 ./out/libraries/libc/io.o
- .debug_abbrev  0x00000000000014a8      0x13b ./out/libraries/libc/string.o
- .debug_abbrev  0x00000000000015e3       0x1b ./out/src/arch/x86/asm/gdt.o
- .debug_abbrev  0x00000000000015fe       0x1b ./out/src/arch/x86/asm/irq.o
- .debug_abbrev  0x0000000000001619       0x1b ./out/src/boot/multiboot.o
+ .debug_abbrev  0x0000000000000c04      0x29b ./out/src/arch/x86/mem/kmem_manager.o
+ .debug_abbrev  0x0000000000000e9f      0x23e ./out/src/arch/x86/multiboot.o
+ .debug_abbrev  0x00000000000010dd      0x1ad ./out/src/arch/x86/kmain.o
+ .debug_abbrev  0x000000000000128a       0xd7 ./out/libraries/libc/linkedlist.o
+ .debug_abbrev  0x0000000000001361      0x138 ./out/libraries/libc/io.o
+ .debug_abbrev  0x0000000000001499      0x13b ./out/libraries/libc/string.o
+ .debug_abbrev  0x00000000000015d4       0x1b ./out/src/arch/x86/asm/gdt.o
+ .debug_abbrev  0x00000000000015ef       0x1b ./out/src/arch/x86/asm/irq.o
+ .debug_abbrev  0x000000000000160a       0x1b ./out/src/boot/multiboot.o
 
 .debug_aranges  0x0000000000000000      0x340
  .debug_aranges
@@ -414,7 +412,7 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_aranges
                 0x0000000000000310       0x30 ./out/src/boot/multiboot.o
 
-.debug_line     0x0000000000000000     0x1dae
+.debug_line     0x0000000000000000     0x1db5
  .debug_line    0x0000000000000000       0x92 ./out/src/arch/x86/interupts/gdt.o
  .debug_line    0x0000000000000092      0x227 ./out/src/arch/x86/interupts/idt.o
  .debug_line    0x00000000000002b9      0x1b1 ./out/src/arch/x86/interupts/interupts.o
@@ -424,17 +422,17 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_line    0x00000000000007b0      0x3c9 ./out/src/arch/x86/mem/kmem_bitmap.o
  .debug_line    0x0000000000000b79       0xb8 ./out/src/arch/x86/mem/virtual_range.o
  .debug_line    0x0000000000000c31      0x1a9 ./out/src/arch/x86/mem/kmalloc.o
- .debug_line    0x0000000000000dda      0x4b7 ./out/src/arch/x86/mem/kmem_manager.o
- .debug_line    0x0000000000001291      0x383 ./out/src/arch/x86/multiboot.o
- .debug_line    0x0000000000001614      0x205 ./out/src/arch/x86/kmain.o
- .debug_line    0x0000000000001819       0xa9 ./out/libraries/libc/linkedlist.o
- .debug_line    0x00000000000018c2       0xbf ./out/libraries/libc/io.o
- .debug_line    0x0000000000001981      0x25c ./out/libraries/libc/string.o
- .debug_line    0x0000000000001bdd       0x54 ./out/src/arch/x86/asm/gdt.o
- .debug_line    0x0000000000001c31      0x126 ./out/src/arch/x86/asm/irq.o
- .debug_line    0x0000000000001d57       0x57 ./out/src/boot/multiboot.o
+ .debug_line    0x0000000000000dda      0x4be ./out/src/arch/x86/mem/kmem_manager.o
+ .debug_line    0x0000000000001298      0x383 ./out/src/arch/x86/multiboot.o
+ .debug_line    0x000000000000161b      0x205 ./out/src/arch/x86/kmain.o
+ .debug_line    0x0000000000001820       0xa9 ./out/libraries/libc/linkedlist.o
+ .debug_line    0x00000000000018c9       0xbf ./out/libraries/libc/io.o
+ .debug_line    0x0000000000001988      0x25c ./out/libraries/libc/string.o
+ .debug_line    0x0000000000001be4       0x54 ./out/src/arch/x86/asm/gdt.o
+ .debug_line    0x0000000000001c38      0x126 ./out/src/arch/x86/asm/irq.o
+ .debug_line    0x0000000000001d5e       0x57 ./out/src/boot/multiboot.o
 
-.debug_str      0x0000000000000000      0xcd5
+.debug_str      0x0000000000000000      0xdf4
  .debug_str     0x0000000000000000      0x245 ./out/src/arch/x86/interupts/gdt.o
                                         0x284 (size before relaxing)
  .debug_str     0x0000000000000245       0xd7 ./out/src/arch/x86/interupts/idt.o
@@ -453,20 +451,20 @@ OUTPUT(lightos.elf elf64-x86-64)
                                         0x233 (size before relaxing)
  .debug_str     0x00000000000006e5       0xf8 ./out/src/arch/x86/mem/kmalloc.o
                                         0x362 (size before relaxing)
- .debug_str     0x00000000000007dd      0x2f0 ./out/src/arch/x86/mem/kmem_manager.o
-                                        0x512 (size before relaxing)
- .debug_str     0x0000000000000acd       0xa9 ./out/src/arch/x86/multiboot.o
+ .debug_str     0x00000000000007dd      0x40f ./out/src/arch/x86/mem/kmem_manager.o
+                                        0x520 (size before relaxing)
+ .debug_str     0x0000000000000bec       0xa9 ./out/src/arch/x86/multiboot.o
                                         0x34b (size before relaxing)
- .debug_str     0x0000000000000b76       0x63 ./out/src/arch/x86/kmain.o
+ .debug_str     0x0000000000000c95       0x63 ./out/src/arch/x86/kmain.o
                                         0x2f8 (size before relaxing)
- .debug_str     0x0000000000000bd9       0x4c ./out/libraries/libc/linkedlist.o
+ .debug_str     0x0000000000000cf8       0x4c ./out/libraries/libc/linkedlist.o
                                         0x208 (size before relaxing)
- .debug_str     0x0000000000000c25       0x37 ./out/libraries/libc/io.o
+ .debug_str     0x0000000000000d44       0x37 ./out/libraries/libc/io.o
                                         0x210 (size before relaxing)
- .debug_str     0x0000000000000c5c       0x79 ./out/libraries/libc/string.o
+ .debug_str     0x0000000000000d7b       0x79 ./out/libraries/libc/string.o
                                         0x266 (size before relaxing)
 
-.debug_loc      0x0000000000000000     0x307e
+.debug_loc      0x0000000000000000     0x31bd
  .debug_loc     0x0000000000000000      0x5a8 ./out/src/arch/x86/interupts/idt.o
  .debug_loc     0x00000000000005a8      0x34d ./out/src/arch/x86/interupts/interupts.o
  .debug_loc     0x00000000000008f5       0x6a ./out/src/arch/x86/interupts/control/pic.o
@@ -474,26 +472,26 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_loc     0x0000000000000b48      0xb46 ./out/src/arch/x86/mem/kmem_bitmap.o
  .debug_loc     0x000000000000168e       0x25 ./out/src/arch/x86/mem/virtual_range.o
  .debug_loc     0x00000000000016b3      0x32b ./out/src/arch/x86/mem/kmalloc.o
- .debug_loc     0x00000000000019de      0x6c2 ./out/src/arch/x86/mem/kmem_manager.o
- .debug_loc     0x00000000000020a0      0x90b ./out/src/arch/x86/multiboot.o
- .debug_loc     0x00000000000029ab       0xd6 ./out/src/arch/x86/kmain.o
- .debug_loc     0x0000000000002a81       0x25 ./out/libraries/libc/linkedlist.o
- .debug_loc     0x0000000000002aa6       0xac ./out/libraries/libc/io.o
- .debug_loc     0x0000000000002b52      0x52c ./out/libraries/libc/string.o
- .debug_loc     0x000000000000307e        0x0 ./out/src/arch/x86/asm/gdt.o
- .debug_loc     0x000000000000307e        0x0 ./out/src/arch/x86/asm/irq.o
- .debug_loc     0x000000000000307e        0x0 ./out/src/boot/multiboot.o
+ .debug_loc     0x00000000000019de      0x801 ./out/src/arch/x86/mem/kmem_manager.o
+ .debug_loc     0x00000000000021df      0x90b ./out/src/arch/x86/multiboot.o
+ .debug_loc     0x0000000000002aea       0xd6 ./out/src/arch/x86/kmain.o
+ .debug_loc     0x0000000000002bc0       0x25 ./out/libraries/libc/linkedlist.o
+ .debug_loc     0x0000000000002be5       0xac ./out/libraries/libc/io.o
+ .debug_loc     0x0000000000002c91      0x52c ./out/libraries/libc/string.o
+ .debug_loc     0x00000000000031bd        0x0 ./out/src/arch/x86/asm/gdt.o
+ .debug_loc     0x00000000000031bd        0x0 ./out/src/arch/x86/asm/irq.o
+ .debug_loc     0x00000000000031bd        0x0 ./out/src/boot/multiboot.o
 
-.debug_ranges   0x0000000000000000      0x7a0
+.debug_ranges   0x0000000000000000      0x770
  .debug_ranges  0x0000000000000000      0x110 ./out/src/arch/x86/interupts/idt.o
  .debug_ranges  0x0000000000000110       0x30 ./out/src/arch/x86/interupts/interupts.o
  .debug_ranges  0x0000000000000140       0xf0 ./out/src/arch/x86/dev/debug/serial.o
  .debug_ranges  0x0000000000000230      0x200 ./out/src/arch/x86/mem/kmem_bitmap.o
  .debug_ranges  0x0000000000000430       0x40 ./out/src/arch/x86/mem/kmalloc.o
- .debug_ranges  0x0000000000000470      0x190 ./out/src/arch/x86/mem/kmem_manager.o
- .debug_ranges  0x0000000000000600      0x100 ./out/src/arch/x86/multiboot.o
- .debug_ranges  0x0000000000000700       0x70 ./out/src/arch/x86/kmain.o
- .debug_ranges  0x0000000000000770       0x30 ./out/libraries/libc/string.o
+ .debug_ranges  0x0000000000000470      0x160 ./out/src/arch/x86/mem/kmem_manager.o
+ .debug_ranges  0x00000000000005d0      0x100 ./out/src/arch/x86/multiboot.o
+ .debug_ranges  0x00000000000006d0       0x70 ./out/src/arch/x86/kmain.o
+ .debug_ranges  0x0000000000000740       0x30 ./out/libraries/libc/string.o
 
 .debug_pubnames
                 0x0000000000000000        0x0

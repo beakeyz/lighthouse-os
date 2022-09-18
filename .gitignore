@@ -1,3 +1,5 @@
+.vscode/
+
 /cross_compiler/
 /sysroot/
 /out/

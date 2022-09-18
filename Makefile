@@ -46,7 +46,7 @@ CHARDFLAGS := $(CFLAGS)               \
 	    -MD \
 	    -MMD \
 	    -Werror \
-        -O3 \
+        -O2 \
         -mcmodel=large \
         -mno-80387                     \
         -mno-red-zone                  \
