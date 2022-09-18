@@ -12,3 +12,22 @@ yey, ANOTHER stinking kernel. As if the world needed another lmao
 -  L___> interupts
 -  L___> device drivers
 - vfs
+
+## Build & Run
+
+for building and running at the same time:
+```bash
+make debug
+```
+
+for building an ISO file:
+```bash
+make make-iso
+```
+
+for running the ISO:
+```bash
+make run-iso
+```
+
+In the future I will need to find a way to create a ramdisk/sysroot/apps and smash them together with the kernel
