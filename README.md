@@ -9,6 +9,6 @@ yey, ANOTHER stinking kernel. As if the world needed another lmao
 - finish kmalloc
 - figure out how to propperly setup my kernel pagetables, cuz they kinda funky atm xD
 - apic / pic
--     L___> interupts
--     L___> device drivers
+-  L___> interupts
+-  L___> device drivers
 - vfs
