@@ -23,6 +23,5 @@ void init_kmalloc (kmem_bitmap_t* bitmap, uint8_t* heap_addr, size_t heap_size);
 
 void* kmalloc (size_t len);
 void* kfree (void* addr, size_t len);
-bool _try_heap_expand (size_t len);
 
 #endif // !__KMALLOC__

@@ -37,19 +37,14 @@ QEMUFLAGS :=  -m 256M -s -serial stdio -enable-kvm -cdrom ./out/lightos.iso \
 CHARDFLAGS := $(CFLAGS)               \
         -std=c11                     \
         -g \
-        -fno-pic                       \
-        -no-pie \
+		-static \
         -m64 \
 		-mavx \
 		-msse \
 	    -Wall \
-	    -MD \
-	    -MMD \
 	    -Werror \
         -O2 \
         -mcmodel=large \
-        -mno-80387                     \
-        -mno-red-zone                  \
         -fno-exceptions \
 	    -ffreestanding                 \
         -fno-stack-protector           \
@@ -117,6 +112,11 @@ $(OUT)/%.o: %.asm
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
 	@$(LD) -n $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
+
+# TODO: this just builds and runs the kernel for now, but 
+# I'd like to have actual debugging capabilities in the future
+PHONY:debug
+debug: make-iso run
 
 PHONY:clean
 clean:

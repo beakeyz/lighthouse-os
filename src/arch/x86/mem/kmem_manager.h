@@ -22,6 +22,10 @@
 #define PAGE_LOW_MASK   0x0000000000000FFFUL
 #define ENTRY_MASK      0x1FF
 
+#define PAGE_SIZE 0x200000
+#define SMALL_PAGE_SIZE 0x1000UL
+#define PAGE_SIZE_BYTES 0x200000UL
+
 // defines for alignment
 #define ALIGN_UP(addr, size) \
     ((addr % size == 0) ? (addr) : (addr) + size - ((addr) % size))
@@ -55,5 +59,6 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
 void parse_memmap ();
 
 void* kmem_from_phys (uintptr_t addr);
+void kmem_mark_frame (uintptr_t frame);
 
 #endif // !__KMEM_MANAGER__
