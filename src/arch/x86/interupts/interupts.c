@@ -168,13 +168,11 @@ void interupt_handler (struct registers* regs) {
     println(to_string(regs->int_no));
     println(to_string(regs->err_code));
     println(to_string(regs->rsp));
-    for (;;) {}
-    if (regs) {}
+    _int_handler(regs, regs->int_no);
     return;
 }
 
 void disable_interupts() {
-    _int_handler(nullptr, 33);
     asm volatile ("cli");
 }
 
