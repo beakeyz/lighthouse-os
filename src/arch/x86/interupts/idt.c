@@ -1,68 +1,17 @@
 #include "idt.h"
 #include <arch/x86/dev/debug/serial.h>
 #include <libc/stddef.h>
+#include <libc/string.h>
 
 idt_ptr_t idt_ptr;
 idt_entry_t idt_entries[MAX_IDT_ENTRIES];
 
 
-static irq_handler_t _handlers[128] = {
-    _isr0,
-    _isr1,
-    _isr2,
-    _isr3,
-    _isr4,
-    _isr5,
-    _isr6,
-    _isr7,
-    _isr8,
-    _isr9,
-    _isr10,
-    _isr11,
-    _isr12,
-    _isr13,
-    _isr14,
-    _isr15,
-    _isr16,
-    _isr17,
-    _isr18,
-    _isr19,
-    _isr20,
-    _isr21,
-    _isr22,
-    _isr23,
-    _isr24,
-    _isr25,
-    _isr26,
-    _isr27,
-    _isr28,
-    _isr29,
-    _isr30,
-    _isr31,
-    _isr32,
-    _isr33,
-    _isr34,
-    _isr35,
-    _isr36,
-    _isr37,
-    _isr38,
-    _isr39,
-    _isr40,
-    _isr41,
-    _isr42,
-    _isr43,
-    _isr44,
-    _isr45,
-    _isr46,
-    _isr47,
-};
-
-
 void populate_gate(uint8_t num, void* handler, uint16_t selector, uint8_t ist, uint8_t flags) {
     uintptr_t base = (uintptr_t) handler;
-    uint16_t base_low = (uint16_t) (base);
-    uint16_t base_mid = (uint16_t) ((base >> 16));
-    uint32_t base_high = (uint32_t) ((base >> 32));
+    uint16_t base_low = (uint16_t) (base & 0xFFFF);
+    uint16_t base_mid = (uint16_t) ((base >> 16) & 0xFFFF);
+    uint32_t base_high = (uint32_t) ((base >> 32) & 0xFFFF);
 
     // padding (yuck)
     idt_entries[num].pad = 0;
@@ -82,19 +31,13 @@ void setup_idt() {
 
     println("setup idt");
     // Store addr and size of the idt table in the pointer
-    idt_ptr.limit = sizeof(idt_entry_t) * MAX_IDT_ENTRIES;
-    idt_ptr.base = (uintptr_t)&idt_entries[0];
+    idt_ptr.limit = (sizeof(idt_entry_t) * MAX_IDT_ENTRIES) - 1;
+    idt_ptr.base = (uintptr_t)&idt_entries;
 
-    // loop over all the 47 isrs
-    for (int i = 0; i < 48; i++) {
-        if (i == 14  || i == 32) {
-            populate_gate(i, (void*)_handlers[i], DEFAULT_SELECTOR, 1, INTERUPT_GATE);
-            continue;
-        }
-        populate_gate(i, (void*)_handlers[i], DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    }
+    memset(&idt_entries, 0, sizeof(idt_entry_t) * 256);
+
     // Load the idt
-    flush_idt((uintptr_t)&idt_ptr);
+    load_standard_idtptr();
 }
 
 void handle_isr(struct registers *regs) {

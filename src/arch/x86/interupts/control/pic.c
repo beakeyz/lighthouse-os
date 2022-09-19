@@ -17,9 +17,8 @@ void init_pic() {
 	out8(PIC1_DATA, 1); PIC_WAIT();
 	out8(PIC2_DATA, 1); PIC_WAIT();
 
-    println("Shuting off pic");
-    out8(PIC1_DATA, 0xFF); PIC_WAIT();
-    out8(PIC2_DATA, 0xFF);
+    out8(PIC1_DATA, 0);
+    out8(PIC2_DATA, 0);
 }
 
 void disable_pic() {

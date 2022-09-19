@@ -10,7 +10,6 @@
 #include <arch/x86/multiboot.h>
 #include <libc/stddef.h>
 #include <libc/string.h>
-#include <arch/x86/interupts/gdt.h>
 
 typedef void (*ctor_func_t)();
 
@@ -77,20 +76,12 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_kmem_manager(mb_addr, first_valid_addr, first_valid_alloc_addr);
 
     // gdt
-    setup_gdt();
-    println("gdt");
-
-    // idt
     setup_idt();
-    println("idt");
-
-    init_pic();
-    println("pic");
+    init_interupts();
+    enable_interupts();
 
     // FIXME: using kmem_alloc raw probably is not a great idea, so I'll have to finish 
     // kmalloc first, and then I'll continue testing here.
-
-    println("yay");
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;

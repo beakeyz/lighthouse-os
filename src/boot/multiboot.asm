@@ -109,7 +109,8 @@ long_start:
     mov gs, ax  ; extra segment register
 
     mov rsp, stack_top
-
+    lgdt [gdt64.pointer]
+    
     call _start
     
     mov rax, 0x2f592f412f4b2f4f

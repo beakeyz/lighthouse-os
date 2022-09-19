@@ -44,5 +44,6 @@ void handle_isr (struct registers* regs);
 void handle_irq (struct registers* regs);
 
 extern void flush_idt (uintptr_t ptr);
+extern void load_standard_idtptr(void);
 
 #endif

@@ -1,10 +1,9 @@
-[bits 64]
-
 global gdt_flush
 
 global load_gdt
 load_gdt:
     lgdt [rdi]
+    ; This should be a far jump
     jmp gdt_flush
     ret
 
