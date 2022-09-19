@@ -163,13 +163,13 @@ static void _int_handler(struct registers *regs, int num) {
 }
 
 // main entrypoint for the interupts (from the asm)
-void interupt_handler (struct registers* regs) {
+registers_t* interupt_handler (struct registers* regs) {
     // TODO: call _int_handler
     println(to_string(regs->int_no));
     println(to_string(regs->err_code));
     println(to_string(regs->rsp));
     _int_handler(regs, regs->int_no);
-    return;
+    return regs;
 }
 
 void disable_interupts() {

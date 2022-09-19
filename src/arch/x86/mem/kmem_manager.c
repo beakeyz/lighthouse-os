@@ -220,7 +220,7 @@ void* kmem_from_phys(uintptr_t addr) {
 uintptr_t kmem_to_phys(pml_t *root, uintptr_t addr) {
     if (!root) root = base_init_pml[0];
 
-    uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) > 12;
+    uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) >> 12;
     uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
     uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
     uint_t pd_e = (page_addr >> 9) & ENTRY_MASK;
@@ -309,25 +309,25 @@ pml_t* kmem_get_krnl_dir () {
 }
 
 pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
-    uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) > 12;
+    uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) >> 12;
     uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
     uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
     uint_t pd_e = (page_addr >> 9) & ENTRY_MASK;
     uint_t pt_e = (page_addr) & ENTRY_MASK;
 
-    if (!base_init_pml[pml4_e]->structured_bits.present_bit) {
+    if (!base_init_pml[0][pml4_e].structured_bits.present_bit) {
         println("new pml4");
         if (flags & KMEM_GET_MAKE) {
             uintptr_t new = kmem_get_frame() << 12;
             kmem_mark_frame_used(new);
             memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
-            base_init_pml[pml4_e]->raw_bits = new | 0x07;
+            base_init_pml[0][pml4_e].raw_bits = new | 0x07;
         } else {
             return nullptr;
         }
     }
 
-    pml_t* pdp = kmem_from_phys(base_init_pml[pml4_e]->structured_bits.page << 12);
+    pml_t* pdp = kmem_from_phys(base_init_pml[0][pml4_e].structured_bits.page << 12);
     
     if (!pdp[pdp_e].structured_bits.present_bit) {
         println("new pdp");

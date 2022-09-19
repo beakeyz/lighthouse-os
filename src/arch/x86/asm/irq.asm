@@ -11,12 +11,6 @@ flush_idt:
     lidt  [rdi]
     ret
 
-global load_standard_idtptr
-load_standard_idtptr:
-    [extern idt_ptr]
-    lidt [idt_ptr]
-    ret
-
 %macro push_all 0
 
     push rax

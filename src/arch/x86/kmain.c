@@ -78,10 +78,30 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // gdt
     setup_idt();
     init_interupts();
-    enable_interupts();
+    // FIXME: still crashing =(
+    //enable_interupts();
 
     // FIXME: using kmem_alloc raw probably is not a great idea, so I'll have to finish 
     // kmalloc first, and then I'll continue testing here.
+    list_t* list = kmem_alloc(SMALL_PAGE_SIZE);
+    if (list) {
+        println("resetting head and end");
+        list->head = 0;
+        list->end = 0;
+        node_t* node = kmem_alloc(SMALL_PAGE_SIZE);
+        if (node) {
+            println("initializing node");
+            node->next = 0;
+            node->prev = 0;
+            node->data = (void*)69420;
+            println("adding node");
+            list->head = node;
+            list->end = node;
+            // if the memory allocation works, we see the funnie number 
+            // in the debug console!
+            println(to_string((uintptr_t)node->data));
+        }
+    }
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;

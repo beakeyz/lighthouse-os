@@ -15,7 +15,7 @@
 typedef struct {
     uint16_t    limit;
     uintptr_t   base;
-} __attribute__((__packed__)) idt_ptr_t;
+} __attribute__((packed)) idt_ptr_t;
 
 // TODO
 typedef struct {
@@ -28,11 +28,12 @@ typedef struct {
     uint16_t base_mid;
     uint32_t base_high;
     uint32_t pad;
-} __attribute__((__packed__)) idt_entry_t;
+} __attribute__((packed)) idt_entry_t;
 
 
 // add shit
 void populate_gate(uint8_t num, void* handler, uint16_t selector, uint8_t ist, uint8_t flags);
+void simple_populate (uint8_t num, void* handler, uint8_t dpl);
 
 // install shit
 void setup_idt ();
@@ -44,6 +45,5 @@ void handle_isr (struct registers* regs);
 void handle_irq (struct registers* regs);
 
 extern void flush_idt (uintptr_t ptr);
-extern void load_standard_idtptr(void);
 
 #endif
