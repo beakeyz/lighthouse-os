@@ -76,8 +76,8 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_kmem_manager(mb_addr, first_valid_addr, first_valid_alloc_addr);
 
     // gdt
-    setup_idt();
-    init_interupts();
+    //setup_idt();
+    //init_interupts();
     // FIXME: still crashing =(
     //enable_interupts();
 
@@ -88,7 +88,7 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
         println("resetting head and end");
         list->head = 0;
         list->end = 0;
-        node_t* node = kmem_alloc(SMALL_PAGE_SIZE);
+        node_t* node = (node_t*)&list + sizeof(list_t) + 1;
         if (node) {
             println("initializing node");
             node->next = 0;
