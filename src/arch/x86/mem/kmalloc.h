@@ -19,10 +19,13 @@ static inline void _assert_failure () {
 
 #define ASSERT(assertion) (assertion ? (void)0 : _assert_failure())
 
+// FIXME: this design may have some security issues =(
 // all heap nodes should be alligned to a page
 typedef struct heap_node {
     // size of this entry in bytes
     size_t size;
+    // used to validate a node pointer
+    uintptr_t identifier;
     // flags for this block
     uint8_t flags;
     // duh
@@ -42,10 +45,23 @@ void* __attribute__((malloc)) kmalloc (size_t len);
 void kfree (void* addr);
 
 // expand heap by a page
-bool try_heap_expand ();
+bool try_heap_expand (heap_node_t* last_node);
 
 heap_node_t* split_node (heap_node_t* ptr, size_t size);
+heap_node_t* merge_node_with_next (heap_node_t* ptr);
+heap_node_t* merge_node_with_prev (heap_node_t* ptr);
+// here we will check if they are mergable (aka next to eachother)
+heap_node_t* merge_nodes (heap_node_t* ptr1, heap_node_t* ptr2);
+bool try_merge (heap_node_t* node);
+
+bool can_merge (heap_node_t* node1, heap_node_t* node2);
+
+bool verify_identity (heap_node_t* node);
+
+heap_node_t* copy_pointers (heap_node_t* from, heap_node_t* to);
+
+// TODO: remove
+void quick_print_node_sizes ();
 
 // TODO: add a wrapper for userspace?
-
 #endif // !__KMALLOC__

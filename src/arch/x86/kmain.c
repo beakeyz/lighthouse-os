@@ -37,22 +37,6 @@ int thing (registers_t* regs) {
     return 1;
 }
 
-void _clear_junky_memory () {
-    struct multiboot_tag_mmap* mmap = get_mb2_tag(mb_ptr, 6);
-    void* e = mmap->entries;
-    println(to_string((uintptr_t)mb_ptr));
-    while((uintptr_t)e < (uintptr_t)mmap + mmap->size) {
-        println("hah");
-        struct multiboot_mmap_entry* cur_entry = (void*)e;
-        if (cur_entry->type == 1) {
-            for (uintptr_t base = cur_entry->addr; base < cur_entry->addr + (cur_entry->len & 0xFFFFffffFFFFf000); base += 0x1000) {
-                kmem_mark_frame_free(base);
-            }
-        }
-        e += mmap->entry_size;
-    }
-}
-
 void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     init_serial();
@@ -74,6 +58,7 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // setup pmm
 
     init_kmem_manager(mb_addr, first_valid_addr, first_valid_alloc_addr);
+    init_kheap();
 
     // gdt
     //setup_idt();
@@ -83,25 +68,41 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     // FIXME: using kmem_alloc raw probably is not a great idea, so I'll have to finish 
     // kmalloc first, and then I'll continue testing here.
-    list_t* list = kmem_alloc(SMALL_PAGE_SIZE);
-    if (list) {
-        println("resetting head and end");
-        list->head = 0;
-        list->end = 0;
-        node_t* node = (node_t*)&list + sizeof(list_t) + 1;
-        if (node) {
-            println("initializing node");
-            node->next = 0;
-            node->prev = 0;
-            node->data = (void*)69420;
-            println("adding node");
-            list->head = node;
-            list->end = node;
-            // if the memory allocation works, we see the funnie number 
-            // in the debug console!
-            println(to_string((uintptr_t)node->data));
-        }
-    }
+
+    // freed
+    void* mock = kmalloc(SMALL_PAGE_SIZE);
+    ASSERT(mock);
+    heap_node_t* thing = mock - sizeof(heap_node_t);
+    ASSERT(verify_identity(thing));
+    println(to_string(thing->size));
+
+    // freedd
+    list_t* dummy_list = kmalloc(sizeof(list_t));
+    ASSERT(dummy_list);
+
+    kfree(mock);
+    println("yay");
+
+    quick_print_node_sizes();
+
+    // 0
+    void* mock_2 = kmalloc(SMALL_PAGE_SIZE);
+    heap_node_t* thing2 = (void*)mock_2 - sizeof(heap_node_t);
+    ASSERT(mock_2);
+    quick_print_node_sizes();
+
+    kfree(dummy_list);
+
+    quick_print_node_sizes();
+    // 1
+    node_t* dummy_node = kmalloc(sizeof(node_t));
+    heap_node_t* dummy_thing = (void*)dummy_node - sizeof(heap_node_t);
+    // this proves that dummy_node is placed in the free node BEFORE the mock_2 allocation
+    // (which was freed earlier)
+    // TODO: the linkedlist is broken due to this order of frees and mallocs: find a fix for this
+    ASSERT(dummy_thing < thing2);
+
+    quick_print_node_sizes();
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;

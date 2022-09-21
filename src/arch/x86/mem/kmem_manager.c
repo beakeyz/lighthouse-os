@@ -135,7 +135,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     // go by each frame
     for (size_t i = 0; i < INDEX_FROM_BIT(nframes); i++) {
         for (size_t j = 0; j < 32; j++) {
-            if (frames[i] & (uint32_t)(0x1 << j)) {
+            if (frames[i] & (uint32_t)(1 << j)) {
                 no++;
             } else {
                 yes++;
@@ -155,7 +155,10 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     }
 
     heap_start = (char*)(KRNL_HEAP_START + frames_bytes);
+    // ALIGN_UP((uintptr_t)heap_start, SMALL_PAGE_SIZE);
 
+    // last check: 65536
+    println(to_string((uintptr_t)frames_bytes));
     // TODO: refcounts
     println("done");
 
@@ -411,6 +414,7 @@ void* kmem_alloc(size_t size) {
     }
 
     heap_start += size;
+    memset(start, 0, size);
     // return the virtaddr we allocated
     return start;
 }
