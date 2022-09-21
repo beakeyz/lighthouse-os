@@ -369,10 +369,6 @@ pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
     }
 
     pml_t* pt = kmem_from_phys(pd[pd_e].structured_bits.page << 12);
-    
-    if (pt->structured_bits.page != 0) {
-        println("jummy memory");
-    }
     return (pml_t*)&pt[pt_e];
 }
 
