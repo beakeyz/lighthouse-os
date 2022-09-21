@@ -390,6 +390,8 @@ void kmem_set_page_flags (pml_t* page, unsigned int flags) {
     page->structured_bits.nx            = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
 }
 
+// 'expand' the kernel heap with a size that is a multiple of a pagesize (so basically 
+// allocate a number of pages for the heap)
 void* kmem_alloc(size_t size) {
     if (!heap_start) {
         return nullptr;
@@ -409,5 +411,6 @@ void* kmem_alloc(size_t size) {
     }
 
     heap_start += size;
+    // return the virtaddr we allocated
     return start;
 }
