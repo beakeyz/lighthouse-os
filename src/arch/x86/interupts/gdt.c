@@ -3,62 +3,53 @@
 #include <libc/string.h>
 #include <libc/stddef.h>
 
-#define KRNL_CODE 0x00AF9B000000FFFF  //0x08: kernel code
-#define KRNL_DATA 0x00AF93000000FFFF  //0x10: kernel data
-#define USR_CODE 0x00AFFB000000FFFF  //0x18: user code
-#define USR_DATA 0x00AFF3000000FFFF  //0x20: user data
-
-static gdt_entry_t _gdt[7] = {0};
-static gdt_pointer_t default_ptr;
-
-static inline void fill_table () {
-    for (uintptr_t i = 0; i < 7; ++i) {
-        switch (i) {
-            case 1:
-                _gdt[i].raw = KRNL_CODE;
-                break;
-            case 2:
-                _gdt[i].raw = KRNL_DATA;
-                break;
-            case 3:
-                _gdt[i].raw = USR_CODE;
-                break;
-            case 4:
-                _gdt[i].raw = USR_DATA;
-                break;
-            default:
-                _gdt[i].raw = 0;
-                break;
-        } 
-    }
-}
+_gdt_struct_t gdt[32] __attribute__((used)) = {{
+	{
+		{0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00},
+		{0xFFFF, 0x0000, 0x00, 0x9A, (1 << 5) | (1 << 7) | 0x0F, 0x00},
+		{0xFFFF, 0x0000, 0x00, 0x92, (1 << 5) | (1 << 7) | 0x0F, 0x00},
+		{0xFFFF, 0x0000, 0x00, 0xFA, (1 << 5) | (1 << 7) | 0x0F, 0x00},
+		{0xFFFF, 0x0000, 0x00, 0xF2, (1 << 5) | (1 << 7) | 0x0F, 0x00},
+		{0x0067, 0x0000, 0x00, 0xE9, 0x00, 0x00},
+	},
+	{0x00000000, 0x00000000},
+	{0x0000, 0x0000000000000000},
+	{0,{0,0,0},0,{0,0,0,0,0,0,0},0,0,0},
+}};
 
 // credit: toaruos (again)
 void setup_gdt() {
 
-    fill_table();
+    for (int i = 1; i < 32; ++i) {
+		memcpy(&gdt[i], &gdt[0], sizeof(*gdt));
+	}
 
-    default_ptr.limit = sizeof(gdt_entry_t) * 7;
-	default_ptr.base  = (uintptr_t)_gdt;
+	for (int i = 0; i < 32; ++i) {
+		gdt[i].pointer.limit = sizeof(gdt[i].entries)+sizeof(gdt[i].tss_extra)-1;
+		gdt[i].pointer.base  = (uintptr_t)&gdt[i].entries;
 
-    // some inline assembly, cuz we love that =D
-    asm volatile ("lgdt %0" :: "m"(default_ptr));
+		uintptr_t addr = (uintptr_t)&gdt[i].tss;
+		gdt[i].entries[5].limit_low = sizeof(gdt[i].tss);
+		gdt[i].entries[5].base_low = (addr & 0xFFFF);
+		gdt[i].entries[5].base_middle = (addr >> 16) & 0xFF;
+		gdt[i].entries[5].base_high = (addr >> 24) & 0xFF;
+		gdt[i].tss_extra.base_highest = (addr >> 32) & 0xFFFFFFFF;
+	}
 
-    // FIXME: huuuuge yoink from northport, but hey, its a gdt jump
-    //
-    //reset all selectors (except cs), then reload cs with a far return
-    //NOTE: this is a huge hack, as we assume rip was pushed to the stack (call instruction was used to come here).
-    asm volatile("\
-        mov $0x10, %ax \n\
-        mov %ax, %ds \n\
-        mov %ax, %es \n\
-        mov %ax, %fs \n\
-        mov %ax, %gs \n\
-        mov %ax, %ss \n\
-        pop %rdi \n\
-        push $0x8 \n\
-        push %rdi \n\
-        lretq \n\
-    ");
+	extern void * stack_top;
+	gdt[0].tss.rsp[0] = (uintptr_t)&stack_top;
+
+	asm volatile (
+		"mov %0, %%rdi\n"
+		"lgdt (%%rdi)\n"
+		"mov $0x10, %%ax\n"
+		"mov %%ax, %%ds\n"
+		"mov %%ax, %%es\n"
+		"mov %%ax, %%ss\n"
+		"mov $0x2b, %%ax\n"
+		"ltr %%ax\n"
+		: : "r"(&gdt[0].pointer)
+	);
+
+    println("GDT setup");
 }
-

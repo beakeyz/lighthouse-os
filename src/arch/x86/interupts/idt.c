@@ -37,7 +37,7 @@ void simple_populate(uint8_t num, void *handler, uint8_t dpl) {
     //your code selector may be different!
     entry->selector = DEFAULT_SELECTOR;
     //trap gate + present + DPL
-    entry->flags = 0b1110 | ((dpl & 0b11) << 5) |(1 << 7);
+    entry->flags = 0b1110 | ((dpl & 0b11) << 5) | (1 << 7);
     //ist disabled
     entry->ist = 0;
 }
@@ -47,8 +47,8 @@ void setup_idt() {
     println("setup idt");
     idt_ptr_t idt_ptr;
     // Store addr and size of the idt table in the pointer
-    idt_ptr.limit = 0xFFF;
-    idt_ptr.base = (uintptr_t)kmem_from_phys((uintptr_t)&idt_entries);
+    idt_ptr.limit = MAX_IDT_ENTRIES * sizeof(idt_entry_t) - 1;
+    idt_ptr.base = (uintptr_t)&idt_entries;
 
     // I am going to leave this in for now =)
     print("Physical addr of the idt table: ");
@@ -57,8 +57,6 @@ void setup_idt() {
     println(to_string((uintptr_t)kmem_from_phys((uintptr_t)&idt_entries)));
     print("Physical addr of the idt table, but retranslated: ");
     println(to_string((uintptr_t)kmem_to_phys(nullptr, (uintptr_t)kmem_from_phys((uintptr_t)&idt_entries))));
-
-    memset(kmem_from_phys((uintptr_t)&idt_entries), 0, idt_ptr.limit);
 
     // Load the idt
     //load_standard_idtptr();

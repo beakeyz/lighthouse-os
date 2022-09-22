@@ -59,57 +59,57 @@ extern  void irq15();
 
 void init_interupts() {
 
-    populate_gate(0, _isr0, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(1, _isr1, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(2, _isr2, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(3, _isr3, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(4, _isr4, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(5, _isr5, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(6, _isr6, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(7, _isr7, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(8, _isr8, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(9, _isr9, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(10, _isr10, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(11, _isr11, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(12, _isr12, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(13, _isr13, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(14, _isr14, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(15, _isr15, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(16, _isr16, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(17, _isr17, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(18, _isr18, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(19, _isr19, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(20, _isr20, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(21, _isr21, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(22, _isr22, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(23, _isr23, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(24, _isr24, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(25, _isr25, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(26, _isr26, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(27, _isr27, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(28, _isr28, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(29, _isr29, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(30, _isr30, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
-    populate_gate(31, _isr31, DEFAULT_SELECTOR, 0, INTERUPT_GATE); 
+    simple_populate(0, _isr0, 0); 
+    simple_populate(1, _isr1, 0); 
+    simple_populate(2, _isr2, 0); 
+    simple_populate(3, _isr3, 0); 
+    simple_populate(4, _isr4, 0); 
+    simple_populate(5, _isr5, 0); 
+    simple_populate(6, _isr6, 0); 
+    simple_populate(7, _isr7, 0); 
+    simple_populate(8, _isr8, 0); 
+    simple_populate(9, _isr9, 0); 
+    simple_populate(10, _isr10, 0); 
+    simple_populate(11, _isr11, 0); 
+    simple_populate(12, _isr12, 0); 
+    simple_populate(13, _isr13, 0); 
+    simple_populate(14, _isr14, 0); 
+    simple_populate(15, _isr15, 0); 
+    simple_populate(16, _isr16, 0); 
+    simple_populate(17, _isr17, 0); 
+    simple_populate(18, _isr18, 0); 
+    simple_populate(19, _isr19, 0); 
+    simple_populate(20, _isr20, 0); 
+    simple_populate(21, _isr21, 0); 
+    simple_populate(22, _isr22, 0); 
+    simple_populate(23, _isr23, 0); 
+    simple_populate(24, _isr24, 0); 
+    simple_populate(25, _isr25, 0); 
+    simple_populate(26, _isr26, 0); 
+    simple_populate(27, _isr27, 0); 
+    simple_populate(28, _isr28, 0); 
+    simple_populate(29, _isr29, 0); 
+    simple_populate(30, _isr30, 0); 
+    simple_populate(31, _isr31, 0); 
 
     init_pic();
 
-    populate_gate(32, irq0, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(33, irq1, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(34, irq2, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(35, irq3, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(36, irq4, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(37, irq5, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(38, irq6, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(39, irq7, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(40, irq8, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(41, irq9, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(42, irq10, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(43, irq11, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(44, irq12, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(45, irq13, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(46, irq14, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
-    populate_gate(47, irq15, DEFAULT_SELECTOR, 0, INTERUPT_GATE);
+    simple_populate(32, irq0, 0);
+    simple_populate(33, irq1, 0);
+    simple_populate(34, irq2, 0);
+    simple_populate(35, irq3, 0);
+    simple_populate(36, irq4, 0);
+    simple_populate(37, irq5, 0);
+    simple_populate(38, irq6, 0);
+    simple_populate(39, irq7, 0);
+    simple_populate(40, irq8, 0);
+    simple_populate(41, irq9, 0);
+    simple_populate(42, irq10, 0);
+    simple_populate(43, irq11, 0);
+    simple_populate(44, irq12, 0);
+    simple_populate(45, irq13, 0);
+    simple_populate(46, irq14, 0);
+    simple_populate(47, irq15, 0);
 }
 
 // FIXME: look into the idea of having a error datastruct for this type of stuff...
@@ -165,9 +165,6 @@ static void _int_handler(struct registers *regs, int num) {
 // main entrypoint for the interupts (from the asm)
 registers_t* interupt_handler (struct registers* regs) {
     // TODO: call _int_handler
-    println(to_string(regs->int_no));
-    println(to_string(regs->err_code));
-    println(to_string(regs->rsp));
     _int_handler(regs, regs->int_no);
     return regs;
 }

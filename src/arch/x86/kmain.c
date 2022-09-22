@@ -1,4 +1,5 @@
 #include "arch/x86/kmain.h"
+#include "arch/x86/interupts/gdt.h"
 #include "libc/linkedlist.h"
 #include <arch/x86/mem/kmalloc.h>
 #include <arch/x86/mem/kmem_manager.h>
@@ -61,8 +62,9 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     init_kheap();
 
     // gdt
-    //setup_idt();
-    //init_interupts();
+    setup_gdt();
+    setup_idt();
+    init_interupts();
     // FIXME: still crashing =(
     //enable_interupts();
 
@@ -72,42 +74,46 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // freed
     void* mock = kmalloc(SMALL_PAGE_SIZE);
     ASSERT(mock);
-    heap_node_t* thing = mock - sizeof(heap_node_t);
-    ASSERT(verify_identity(thing));
-    println(to_string(thing->size));
-
+    
     // freedd
     list_t* dummy_list = kmalloc(sizeof(list_t));
     ASSERT(dummy_list);
-
-    kfree(mock);
-    println("yay");
 
     quick_print_node_sizes();
 
     // 0
     void* mock_2 = kmalloc(SMALL_PAGE_SIZE);
-    heap_node_t* thing2 = (void*)mock_2 - sizeof(heap_node_t);
     ASSERT(mock_2);
-    quick_print_node_sizes();
-
-    kfree(dummy_list);
 
     quick_print_node_sizes();
+
     // 1
     node_t* dummy_node = kmalloc(sizeof(node_t));
-    heap_node_t* dummy_thing = (void*)dummy_node - sizeof(heap_node_t);
+    ASSERT(dummy_node);
+    void* _1 = kmalloc(SMALL_PAGE_SIZE);
+    void* _2 = kmalloc(SMALL_PAGE_SIZE);
+    void* _3 = kmalloc(SMALL_PAGE_SIZE);
+    ASSERT(_1);
+    ASSERT(_2);
+    ASSERT(_3);
+
+    kfree(_2);
+    quick_print_node_sizes();
+
+    void* thing = kmalloc(sizeof(node_t));
     // this proves that dummy_node is placed in the free node BEFORE the mock_2 allocation
     // (which was freed earlier)
     // TODO: the linkedlist is broken due to this order of frees and mallocs: find a fix for this
-    ASSERT(dummy_thing < thing2);
 
+    quick_print_node_sizes();
+
+    kfree(thing);
     quick_print_node_sizes();
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;
     // 1. [X] parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)
-    // 2. [ ] setup the memory manager, so we are able to consistantly allocate pageframes, setup a heap and ultimately do all kinds of cool memory stuff
+    // 2. [X] setup the memory manager, so we are able to consistantly allocate pageframes, setup a heap and ultimately do all kinds of cool memory stuff
     // 3. [ ] load a brand new GDT and IDT in preperation for step 4
     // 4. [ ] setup interupts so exeptions can be handled and stuff (perhaps do this first so we can catch pmm initialization errors?)
     //      -   also keyboard and mouse handlers ect.
@@ -117,7 +123,7 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // 8. profit
     // 9. do more stuff but I dont wanna look this far ahead as of now -_-
 
-    for(;;) {
+    while (true) {
         asm("hlt");
     }
 }
