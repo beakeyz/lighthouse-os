@@ -2,7 +2,7 @@
 ; TODO:
 
 [bits 64]
-align 4
+align 8
 
 extern interupt_handler
 
@@ -241,22 +241,13 @@ _isr31:
 	push byte 31
 	jmp isr_common_stub
 
-
-extern kpanic
-
-
 isr_common_stub:
-
 
     push_all
     mov rdi, rsp
 
     ; call c handler
-    cld
-
     call interupt_handler
-    mov rax, 0x2f592f412f4b2f4f
-    mov qword [0xb8000], rax
 
     mov rsp, rax
     ; restore regs
@@ -366,8 +357,6 @@ irq15:
 	push byte 47
 	jmp irq_common_stub
 
-[extern] _irq_handler
-
 irq_common_stub:
 
     push_all
@@ -382,5 +371,5 @@ irq_common_stub:
     pop_all
     ; cleanup
     add rsp, 16
-    sti
+
     iretq

@@ -64,51 +64,8 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // gdt
     setup_gdt();
     setup_idt();
-    init_interupts();
     // FIXME: still crashing =(
-    //enable_interupts();
-
-    // FIXME: using kmem_alloc raw probably is not a great idea, so I'll have to finish 
-    // kmalloc first, and then I'll continue testing here.
-
-    // freed
-    void* mock = kmalloc(SMALL_PAGE_SIZE);
-    ASSERT(mock);
-    
-    // freedd
-    list_t* dummy_list = kmalloc(sizeof(list_t));
-    ASSERT(dummy_list);
-
-    quick_print_node_sizes();
-
-    // 0
-    void* mock_2 = kmalloc(SMALL_PAGE_SIZE);
-    ASSERT(mock_2);
-
-    quick_print_node_sizes();
-
-    // 1
-    node_t* dummy_node = kmalloc(sizeof(node_t));
-    ASSERT(dummy_node);
-    void* _1 = kmalloc(SMALL_PAGE_SIZE);
-    void* _2 = kmalloc(SMALL_PAGE_SIZE);
-    void* _3 = kmalloc(SMALL_PAGE_SIZE);
-    ASSERT(_1);
-    ASSERT(_2);
-    ASSERT(_3);
-
-    kfree(_2);
-    quick_print_node_sizes();
-
-    void* thing = kmalloc(sizeof(node_t));
-    // this proves that dummy_node is placed in the free node BEFORE the mock_2 allocation
-    // (which was freed earlier)
-    // TODO: the linkedlist is broken due to this order of frees and mallocs: find a fix for this
-
-    quick_print_node_sizes();
-
-    kfree(thing);
-    quick_print_node_sizes();
+    enable_interupts();
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;
