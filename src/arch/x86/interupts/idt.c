@@ -5,6 +5,7 @@
 #include <arch/x86/mem/kmem_manager.h>
 #include <libc/string.h>
 
+#define INTERRUPT_VECTORS_BASE 0xFFFFffffFF000000
 idt_entry_t idt_entries[MAX_IDT_ENTRIES];
 
 void simple_populate(uint8_t num, void *handler, uint8_t dpl) {
@@ -27,8 +28,11 @@ void setup_idt() {
     println("setup idt");
     idt_ptr_t idt_ptr;
     // Store addr and size of the idt table in the pointer
-    idt_ptr.limit = MAX_IDT_ENTRIES * sizeof(idt_entry_t) - 1;
-    idt_ptr.base = (uintptr_t)&idt_entries;
+    idt_ptr.limit = 0x0FFF;
+    idt_ptr.base = (uintptr_t)idt_entries;
+
+    memset(idt_entries, 0, sizeof(idt_entry_t) * MAX_IDT_ENTRIES - 1);
+    kmem_map_memory(INTERRUPT_VECTORS_BASE, kmem_get_frame() << 12, KMEM_FLAG_WRITABLE | KMEM_FLAG_WRITETHROUGH);
 
     // I am going to leave this in for now =)
     print("Physical addr of the idt table: ");

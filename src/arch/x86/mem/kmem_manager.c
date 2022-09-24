@@ -307,6 +307,10 @@ uintptr_t kmem_get_frame () {
     return NULL;
 }
 
+void kmem_nuke_page(uintptr_t vaddr) {
+    asm volatile("invlpg %0" :: "m"(vaddr));
+}
+
 pml_t* kmem_get_krnl_dir () {
     return kmem_from_phys((uintptr_t)&base_init_pml[0]);
 }
@@ -370,6 +374,53 @@ pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
 
     pml_t* pt = kmem_from_phys(pd[pd_e].structured_bits.page << 12);
     return (pml_t*)&pt[pt_e];
+}
+
+void kmem_map_memory(uintptr_t vaddr, uintptr_t paddr, unsigned int flags) {
+
+    uintptr_t page_addr = (vaddr & 0xFFFFffffFFFFUL) >> 12;
+    uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
+    uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
+    uint_t pd_e = (page_addr >> 9) & ENTRY_MASK;
+
+    if (!base_init_pml[0][pml4_e].structured_bits.present_bit) {
+        println("fucked up");
+        pml_t* entry = &base_init_pml[0][pml4_e];
+        entry->structured_bits.page = kmem_get_frame();
+        entry->structured_bits.present_bit = 1;
+        entry->structured_bits.writable_bit = 1;
+        memset(kmem_from_phys(entry->structured_bits.page), 0, SMALL_PAGE_SIZE);
+    }
+
+    pml_t* pdp = kmem_from_phys(base_init_pml[0][pml4_e].structured_bits.page << 12);
+    
+    if (!pdp[pdp_e].structured_bits.present_bit) {
+        println("fucked up 2");
+        pml_t* entry = &pdp[pdp_e];
+        entry->structured_bits.page = kmem_get_frame();
+        entry->structured_bits.present_bit = 1;
+        entry->structured_bits.writable_bit = 1;
+        memset(kmem_from_phys(entry->structured_bits.page), 0, SMALL_PAGE_SIZE);
+    }
+
+    pml_t* pd = kmem_from_phys(pdp[pdp_e].structured_bits.page << 12);
+    
+    if (!pd[pd_e].structured_bits.present_bit) {
+        println("fucked up 3");
+        pml_t* entry = &pd[pd_e];
+        entry->structured_bits.page = kmem_get_frame();
+        entry->structured_bits.present_bit = 1;
+        entry->structured_bits.writable_bit = 1;
+        memset(kmem_from_phys(entry->structured_bits.page), 0, SMALL_PAGE_SIZE);
+    }
+
+    pml_t* pt = kmem_from_phys(pd[pd_e].structured_bits.page << 12);
+
+    pt->structured_bits.page = paddr;
+    kmem_set_page_flags(pt, flags);
+    println(to_string(paddr));
+    kmem_nuke_page(vaddr);
+
 }
 
 void kmem_set_page_flags (pml_t* page, unsigned int flags) {

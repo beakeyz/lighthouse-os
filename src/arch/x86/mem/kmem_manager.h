@@ -79,10 +79,11 @@ void kmem_mark_frame_used (uintptr_t frame);
 void kmem_mark_frame_free (uintptr_t frame);
 void kmem_mark_frame (uintptr_t frame, bool value);
 
-
+void kmem_nuke_page(uintptr_t vaddr);
 uintptr_t kmem_get_frame ();
 pml_t* kmem_get_krnl_dir ();
 pml_t* kmem_get_page (uintptr_t addr, unsigned int flags);
+void kmem_map_memory (uintptr_t vaddr, uintptr_t paddr, unsigned int flags);
 void kmem_set_page_flags (pml_t* page, unsigned int flags);
 
 void* kmem_alloc (size_t size);
