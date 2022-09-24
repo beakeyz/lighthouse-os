@@ -65,6 +65,8 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     setup_gdt();
     setup_idt();
     // FIXME: still crashing =(
+
+    add_handler(1, &thing);
     enable_interupts();
 
     // TODO: some thins on the agenda:

@@ -2,7 +2,8 @@
 ; TODO:
 
 [bits 64]
-align 8
+[section .text]
+align 4
 
 extern interupt_handler
 
@@ -359,6 +360,7 @@ irq15:
 
 irq_common_stub:
 
+    hlt
     push_all
 
     mov rdi, rsp

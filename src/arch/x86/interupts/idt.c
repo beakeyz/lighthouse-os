@@ -39,6 +39,9 @@ void setup_idt() {
     println(to_string((uintptr_t)kmem_to_phys(nullptr, (uintptr_t)kmem_from_phys((uintptr_t)&idt_entries))));
 
     init_interupts();
+
+    // TODO: mmap idt base?
+
     // Load the idt
     //load_standard_idtptr();
     asm volatile("lidt %0" :: "m"(idt_ptr));

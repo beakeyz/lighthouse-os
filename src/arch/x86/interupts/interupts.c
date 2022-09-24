@@ -165,6 +165,7 @@ static void _int_handler(struct registers *regs, int num) {
 // main entrypoint for the interupts (from the asm)
 registers_t* interupt_handler (struct registers* regs) {
     // TODO: call _int_handler
+    println("yeyz");
     _int_handler(regs, regs->int_no);
     return regs;
 }
