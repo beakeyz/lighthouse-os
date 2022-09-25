@@ -1,4 +1,5 @@
 #include "arch/x86/kmain.h"
+#include "arch/x86/dev/framebuffer/framebuffer.h"
 #include "arch/x86/interupts/gdt.h"
 #include "libc/linkedlist.h"
 #include <arch/x86/mem/kmalloc.h>
@@ -58,8 +59,21 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     }
     // setup pmm
 
+    println("fb ----");
+    struct multiboot_tag_framebuffer* fb = get_mb2_tag((uintptr_t*)mb_addr, MULTIBOOT_FRAMEBUFFER_TYPE_RGB);
+    print("fb: "); println(to_string(fb->common.framebuffer_type));
+
     init_kmem_manager(mb_addr, first_valid_addr, first_valid_alloc_addr);
     init_kheap();
+
+    asm volatile (
+		"mov $0x277, %%ecx\n" /* IA32_MSR_PAT */
+		"rdmsr\n"
+		"or $0x1000000, %%edx\n" /* set bit 56 */
+		"and $0xf9ffffff, %%edx\n" /* unset bits 57, 58 */
+		"wrmsr\n"
+		: : : "ecx", "edx", "eax"
+	);
 
     // gdt
     setup_gdt();
@@ -68,6 +82,8 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
 
     add_handler(1, &thing);
     enable_interupts();
+
+    init_fb(fb);
 
     // TODO: some thins on the agenda:
     // 0. [ ] buff up libc ;-;

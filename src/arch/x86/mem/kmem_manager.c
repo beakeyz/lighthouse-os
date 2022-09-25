@@ -155,7 +155,7 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
     }
 
     heap_start = (char*)(KRNL_HEAP_START + frames_bytes);
-    // ALIGN_UP((uintptr_t)heap_start, SMALL_PAGE_SIZE);
+    heap_start = (char*)ALIGN_UP((uintptr_t)heap_start, SMALL_PAGE_SIZE);
 
     // last check: 65536
     println(to_string((uintptr_t)frames_bytes));
@@ -234,17 +234,24 @@ uintptr_t kmem_to_phys(pml_t *root, uintptr_t addr) {
 
     pml_t* pdp = kmem_from_phys((uintptr_t)root[pml4_e].structured_bits.page << 12);
 
-    if (!pdp[pdp_e].structured_bits.present_bit) return (uintptr_t)-2;
+    if (!pdp[pdp_e].structured_bits.present_bit) {
+        return (uintptr_t)-2;
+    }
+
 	if (pdp[pdp_e].structured_bits.size) return ((uintptr_t)pdp[pdp_e].structured_bits.page << 12) | (addr & PDP_MASK);
 
 	pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_e].structured_bits.page << 12);
 
-	if (!pd[pd_e].structured_bits.present_bit) return (uintptr_t)-3;
+	if (!pd[pd_e].structured_bits.present_bit) {
+        return (uintptr_t)-3;
+    }
 	if (pd[pd_e].structured_bits.size) return ((uintptr_t)pd[pd_e].structured_bits.page << 12) | (addr & PD_MASK);
 
 	pml_t* pt = kmem_from_phys((uintptr_t)pd[pd_e].structured_bits.page << 12);
 
-	if (!pt[pt_e].structured_bits.present_bit) return (uintptr_t)-4;
+	if (!pt[pt_e].structured_bits.present_bit){ 
+        return (uintptr_t)-4;
+    }
 	return ((uintptr_t)pt[pt_e].structured_bits.page << 12) | (addr & PT_MASK);
 }
 
@@ -376,6 +383,7 @@ pml_t* kmem_get_page (uintptr_t addr, unsigned int flags) {
     return (pml_t*)&pt[pt_e];
 }
 
+/*
 void kmem_map_memory(uintptr_t vaddr, uintptr_t paddr, unsigned int flags) {
 
     uintptr_t page_addr = (vaddr & 0xFFFFffffFFFFUL) >> 12;
@@ -418,9 +426,16 @@ void kmem_map_memory(uintptr_t vaddr, uintptr_t paddr, unsigned int flags) {
 
     pt->structured_bits.page = paddr;
     kmem_set_page_flags(pt, flags);
-    println(to_string(paddr));
     kmem_nuke_page(vaddr);
 
+}
+*/
+
+// simpler version of the massive chonker above
+void kmem_map_memory(pml_t* page, uintptr_t paddr, unsigned int flags) {
+    kmem_mark_frame_used(paddr);
+    page->structured_bits.page = paddr >> 12;
+    kmem_set_page_flags(page, flags);
 }
 
 void kmem_set_page_flags (pml_t* page, unsigned int flags) {

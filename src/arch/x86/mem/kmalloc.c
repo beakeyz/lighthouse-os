@@ -187,7 +187,7 @@ bool can_merge(heap_node_t *node1, heap_node_t *node2) {
 }
 
 // we check for mergeability again, just for sanity =/
-// I'd love to make this more efficient, but I'm also too lazy xD
+// I'd love to make this more efficient (and readable), but I'm also too lazy xD
 heap_node_t* merge_node_with_next (heap_node_t* ptr) {
     if (can_merge(ptr, ptr->next)) {
         ptr->size += ptr->next->size;

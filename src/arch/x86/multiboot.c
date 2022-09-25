@@ -53,5 +53,6 @@ void* next_mb2_tag(void *cur, uint32_t type) {
 
 void* get_mb2_tag(void *addr, uint32_t type) {
     char* header = ((void*) addr) + 8;
+    println("break 1");
     return next_mb2_tag(header, type);
 }

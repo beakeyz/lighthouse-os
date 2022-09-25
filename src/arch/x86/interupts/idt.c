@@ -31,17 +31,6 @@ void setup_idt() {
     idt_ptr.limit = 0x0FFF;
     idt_ptr.base = (uintptr_t)idt_entries;
 
-    memset(idt_entries, 0, sizeof(idt_entry_t) * MAX_IDT_ENTRIES - 1);
-    kmem_map_memory(INTERRUPT_VECTORS_BASE, kmem_get_frame() << 12, KMEM_FLAG_WRITABLE | KMEM_FLAG_WRITETHROUGH);
-
-    // I am going to leave this in for now =)
-    print("Physical addr of the idt table: ");
-    println(to_string((uintptr_t)&idt_entries));
-    print("Virtual addr of the idt table: ");
-    println(to_string((uintptr_t)kmem_from_phys((uintptr_t)&idt_entries)));
-    print("Physical addr of the idt table, but retranslated: ");
-    println(to_string((uintptr_t)kmem_to_phys(nullptr, (uintptr_t)kmem_from_phys((uintptr_t)&idt_entries))));
-
     init_interupts();
 
     // TODO: mmap idt base?

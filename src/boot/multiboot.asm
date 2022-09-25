@@ -1,5 +1,6 @@
 
 section .multiboot_header
+align 8
 header_start:
     dd 0xe85250d6   ;magic_number
     dd 0            ;Protected mode
@@ -7,19 +8,31 @@ header_start:
 
     ;compute checksum
     dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
-
-;framebuffer_tag_start:
-;    dw  0x05    ;Type: framebuffer
-;    dw  0x01    ;Optional tag
-;    dd  framebuffer_tag_end - framebuffer_tag_start ;size
-;    dd  0   ;Width - if 0 we let the bootloader decide
-;    dd  0   ;Height - same as above
-;    dd  0   ;Depth  - same as above
-;framebuffer_tag_end:
-
     ;here ends the required part of the multiboot header
 	;The following is the end tag, must be always present
     ;end tag
+
+align 8
+mb_fb_tag:
+    dw 5 
+    dw 0
+    dd 20
+    dd 1024
+    dd 768
+    dd 32
+
+    align 8
+    dw 4
+    dw 0
+    dd 12
+    dd 2
+
+    align 8
+    dw 6
+    dw 0
+    dd 8
+
+align 8
     dw 0    ;type
     dw 0    ;flags
     dd 8    ;size

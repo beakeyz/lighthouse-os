@@ -1,3 +1,6 @@
+// For now this will be a super simple pool allocator. In order to increase speed and 
+// flexibility, we will add a slab alloctor in the future for smaller allocations.
+
 #ifndef __KMALLOC__
 #define __KMALLOC__
 #include "arch/x86/dev/debug/serial.h"
@@ -6,6 +9,7 @@
 #define KHEAP_USED_FLAG 0xFF
 #define KHEAP_FREE_FLAG 0x00
 #define KHEAP_FUNNY_FLAG 0x69
+
 
 // TODO: spinlock :clown:
 
