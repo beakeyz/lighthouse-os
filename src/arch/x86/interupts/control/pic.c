@@ -28,20 +28,25 @@ static void enable_vector (uint8_t vec) {
 
 void init_pic() {
     // cascade init =D
-    out8(PIC1_COMMAND, ICW1_INIT|ICW1_ICW4);
+    out8(PIC1_COMMAND, ICW1_INIT|ICW1_ICW4); 
+    PIC_WAIT();
     out8(PIC2_COMMAND, ICW1_INIT|ICW1_ICW4);
+    PIC_WAIT();
 
     out8(PIC1_DATA, 0x20);
+    PIC_WAIT();
 	out8(PIC2_DATA, 0x28);
+    PIC_WAIT();
 
 	out8(PIC1_DATA, 1 << 0x02);
+    PIC_WAIT();
 	out8(PIC2_DATA, 0x02);
+    PIC_WAIT();
 
 	out8(PIC1_DATA, 1);
+    PIC_WAIT();
     out8(PIC2_DATA, 1);
-
-    // We are not serving jack shit at this point lmao
-    disable_pic();
+    PIC_WAIT();
 }
 
 void disable_pic() {

@@ -12,7 +12,6 @@ header_start:
 	;The following is the end tag, must be always present
     ;end tag
 
-align 8
 mb_fb_tag:
     dw 5 
     dw 0
@@ -20,19 +19,9 @@ mb_fb_tag:
     dd 1024
     dd 768
     dd 32
+mb_fb_tag_end:
 
     align 8
-    dw 4
-    dw 0
-    dd 12
-    dd 2
-
-    align 8
-    dw 6
-    dw 0
-    dd 8
-
-align 8
     dw 0    ;type
     dw 0    ;flags
     dd 8    ;size
@@ -40,6 +29,7 @@ header_end:
 
 section .pre_text
 [bits 32]
+align 4
 
 global start
 
@@ -110,6 +100,8 @@ start:
 
 [bits 64]
 section .text
+align 8
+
 long_start:
     cli 
     cld
@@ -121,8 +113,7 @@ long_start:
     mov fs, ax  ; extra segment register
     mov gs, ax  ; extra segment register
 
-    mov rsp, stack_top
-    lgdt [gdt64.pointer]
+    ;mov rsp, stack_top
     
     call _start
     

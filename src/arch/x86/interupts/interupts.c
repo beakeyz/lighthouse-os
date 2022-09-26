@@ -7,109 +7,107 @@
 
 static irq_specific_handler_t handler_entries[16] = { NULL };
 
-extern  void _isr0();
-extern  void _isr1();
-extern  void _isr2();
-extern  void _isr3();
-extern  void _isr4();
-extern  void _isr5();
-extern  void _isr6();
-extern  void _isr7();
-extern  void _isr8();
-extern  void _isr9();
-extern  void _isr10();
-extern  void _isr11();
-extern  void _isr12();
-extern  void _isr13();
-extern  void _isr14();
-extern  void _isr15();
-extern  void _isr16();
-extern  void _isr17();
-extern  void _isr18();
-extern  void _isr19();
-extern  void _isr20();
-extern  void _isr21();
-extern  void _isr22();
-extern  void _isr23();
-extern  void _isr24();
-extern  void _isr25();
-extern  void _isr26();
-extern  void _isr27();
-extern  void _isr28();
-extern  void _isr29();
-extern  void _isr30();
-extern  void _isr31();
+extern  registers_t* _isr0(registers_t*);
+extern  registers_t* _isr1(registers_t*);
+extern  registers_t* _isr2(registers_t*);
+extern  registers_t* _isr3(registers_t*);
+extern  registers_t* _isr4(registers_t*);
+extern  registers_t* _isr5(registers_t*);
+extern  registers_t* _isr6(registers_t*);
+extern  registers_t* _isr7(registers_t*);
+extern  registers_t* _isr8(registers_t*);
+extern  registers_t* _isr9(registers_t*);
+extern  registers_t* _isr10(registers_t*);
+extern  registers_t* _isr11(registers_t*);
+extern  registers_t* _isr12(registers_t*);
+extern  registers_t* _isr13(registers_t*);
+extern  registers_t* _isr14(registers_t*);
+extern  registers_t* _isr15(registers_t*);
+extern  registers_t* _isr16(registers_t*);
+extern  registers_t* _isr17(registers_t*);
+extern  registers_t* _isr18(registers_t*);
+extern  registers_t* _isr19(registers_t*);
+extern  registers_t* _isr20(registers_t*);
+extern  registers_t* _isr21(registers_t*);
+extern  registers_t* _isr22(registers_t*);
+extern  registers_t* _isr23(registers_t*);
+extern  registers_t* _isr24(registers_t*);
+extern  registers_t* _isr25(registers_t*);
+extern  registers_t* _isr26(registers_t*);
+extern  registers_t* _isr27(registers_t*);
+extern  registers_t* _isr28(registers_t*);
+extern  registers_t* _isr29(registers_t*);
+extern  registers_t* _isr30(registers_t*);
+extern  registers_t* _isr31(registers_t*);
 
-extern  void irq0();
-extern  void irq1();
-extern  void irq2();
-extern  void irq3();
-extern  void irq4();
-extern  void irq5();
-extern  void irq6();
-extern  void irq7();
-extern  void irq8();
-extern  void irq9();
-extern  void irq10();
-extern  void irq11();
-extern  void irq12();
-extern  void irq13();
-extern  void irq14();
-extern  void irq15();
+extern  registers_t* irq0(registers_t*);
+extern  registers_t* irq1(registers_t*);
+extern  registers_t* irq2(registers_t*);
+extern  registers_t* irq3(registers_t*);
+extern  registers_t* irq4(registers_t*);
+extern  registers_t* irq5(registers_t*);
+extern  registers_t* irq6(registers_t*);
+extern  registers_t* irq7(registers_t*);
+extern  registers_t* irq8(registers_t*);
+extern  registers_t* irq9(registers_t*);
+extern  registers_t* irq10(registers_t*);
+extern  registers_t* irq11(registers_t*);
+extern  registers_t* irq12(registers_t*);
+extern  registers_t* irq13(registers_t*);
+extern  registers_t* irq14(registers_t*);
+extern  registers_t* irq15(registers_t*);
 
 void init_interupts() {
 
-    simple_populate(0, _isr0, 0); 
-    simple_populate(1, _isr1, 0); 
-    simple_populate(2, _isr2, 0); 
-    simple_populate(3, _isr3, 0); 
-    simple_populate(4, _isr4, 0); 
-    simple_populate(5, _isr5, 0); 
-    simple_populate(6, _isr6, 0); 
-    simple_populate(7, _isr7, 0); 
-    simple_populate(8, _isr8, 0); 
-    simple_populate(9, _isr9, 0); 
-    simple_populate(10, _isr10, 0); 
-    simple_populate(11, _isr11, 0); 
-    simple_populate(12, _isr12, 0); 
-    simple_populate(13, _isr13, 0); 
-    simple_populate(14, _isr14, 0); 
-    simple_populate(15, _isr15, 0); 
-    simple_populate(16, _isr16, 0); 
-    simple_populate(17, _isr17, 0); 
-    simple_populate(18, _isr18, 0); 
-    simple_populate(19, _isr19, 0); 
-    simple_populate(20, _isr20, 0); 
-    simple_populate(21, _isr21, 0); 
-    simple_populate(22, _isr22, 0); 
-    simple_populate(23, _isr23, 0); 
-    simple_populate(24, _isr24, 0); 
-    simple_populate(25, _isr25, 0); 
-    simple_populate(26, _isr26, 0); 
-    simple_populate(27, _isr27, 0); 
-    simple_populate(28, _isr28, 0); 
-    simple_populate(29, _isr29, 0); 
-    simple_populate(30, _isr30, 0); 
-    simple_populate(31, _isr31, 0); 
-
-    init_pic();
-
-    simple_populate(32, irq0, 0);
-    simple_populate(33, irq1, 0);
-    simple_populate(34, irq2, 0);
-    simple_populate(35, irq3, 0);
-    simple_populate(36, irq4, 0);
-    simple_populate(37, irq5, 0);
-    simple_populate(38, irq6, 0);
-    simple_populate(39, irq7, 0);
-    simple_populate(40, irq8, 0);
-    simple_populate(41, irq9, 0);
-    simple_populate(42, irq10, 0);
-    simple_populate(43, irq11, 0);
-    simple_populate(44, irq12, 0);
-    simple_populate(45, irq13, 0);
-    simple_populate(46, irq14, 0);
-    simple_populate(47, irq15, 0);
+    idt_set_gate(0,  _isr0,  0x08, 0x8E, 0);
+	idt_set_gate(1,  _isr1,  0x08, 0x8E, 0);
+	idt_set_gate(2,  _isr2,  0x08, 0x8E, 0);
+	idt_set_gate(3,  _isr3,  0x08, 0x8E, 0);
+	idt_set_gate(4,  _isr4,  0x08, 0x8E, 0);
+	idt_set_gate(5,  _isr5,  0x08, 0x8E, 0);
+	idt_set_gate(6,  _isr6,  0x08, 0x8E, 0);
+	idt_set_gate(7,  _isr7,  0x08, 0x8E, 0);
+	idt_set_gate(8,  _isr8,  0x08, 0x8E, 0);
+	idt_set_gate(9,  _isr9,  0x08, 0x8E, 0);
+	idt_set_gate(10, _isr10, 0x08, 0x8E, 0);
+	idt_set_gate(11, _isr11, 0x08, 0x8E, 0);
+	idt_set_gate(12, _isr12, 0x08, 0x8E, 0);
+	idt_set_gate(13, _isr13, 0x08, 0x8E, 0);
+	idt_set_gate(14, _isr14, 0x08, 0x8E, 0);
+	idt_set_gate(15, _isr15, 0x08, 0x8E, 0);
+	idt_set_gate(16, _isr16, 0x08, 0x8E, 0);
+	idt_set_gate(17, _isr17, 0x08, 0x8E, 0);
+	idt_set_gate(18, _isr18, 0x08, 0x8E, 0);
+	idt_set_gate(19, _isr19, 0x08, 0x8E, 0);
+	idt_set_gate(20, _isr20, 0x08, 0x8E, 0);
+	idt_set_gate(21, _isr21, 0x08, 0x8E, 0);
+	idt_set_gate(22, _isr22, 0x08, 0x8E, 0);
+	idt_set_gate(23, _isr23, 0x08, 0x8E, 0);
+	idt_set_gate(24, _isr24, 0x08, 0x8E, 0);
+	idt_set_gate(25, _isr25, 0x08, 0x8E, 0);
+	idt_set_gate(26, _isr26, 0x08, 0x8E, 0);
+	idt_set_gate(27, _isr27, 0x08, 0x8E, 0);
+	idt_set_gate(28, _isr28, 0x08, 0x8E, 0);
+	idt_set_gate(29, _isr29, 0x08, 0x8E, 0);
+	idt_set_gate(30, _isr30, 0x08, 0x8E, 0);
+	idt_set_gate(31, _isr31, 0x08, 0x8E, 0);
+	idt_set_gate(32, irq0,  0x08, 0x8E, 0);
+	idt_set_gate(33, irq1,  0x08, 0x8E, 0);
+	idt_set_gate(34, irq2,  0x08, 0x8E, 0);
+	idt_set_gate(35, irq3,  0x08, 0x8E, 0);
+	idt_set_gate(36, irq4,  0x08, 0x8E, 0);
+	idt_set_gate(37, irq5,  0x08, 0x8E, 0);
+	idt_set_gate(38, irq6,  0x08, 0x8E, 0);
+	idt_set_gate(39, irq7,  0x08, 0x8E, 0);
+	idt_set_gate(40, irq8,  0x08, 0x8E, 0);
+	idt_set_gate(41, irq9,  0x08, 0x8E, 0);
+	idt_set_gate(42, irq10, 0x08, 0x8E, 0);
+	idt_set_gate(43, irq11, 0x08, 0x8E, 0);
+	idt_set_gate(44, irq12, 0x08, 0x8E, 0);
+	idt_set_gate(45, irq13, 0x08, 0x8E, 0);
+	idt_set_gate(46, irq14, 0x08, 0x8E, 0);
+	idt_set_gate(47, irq15, 0x08, 0x8E, 0);
+   
 }
 
 // FIXME: look into the idea of having a error datastruct for this type of stuff...
@@ -143,23 +141,25 @@ void remove_handler(size_t irq_num) {
 }
 
 // Traffic distribution function: finds the right handler for the right function
-static void _int_handler(struct registers *regs, int num) {
+static registers_t* _int_handler(struct registers *regs, int num) {
     irq_specific_handler_t handler = handler_entries[num - 32];
 
     if (regs) {}
     if (!handler) {
         // ack and return
         println("no handler");
-        pic_eoi(num);
-        return;
+        goto fail;
     }
 
     // TODO
 
-    //if (handler(regs)) {
-    //    return;
-    //}
+    if (handler(regs)) {
+        pic_eoi(num);
+        return regs;
+    }
+fail:
     pic_eoi(num);
+    return regs;
 }
 
 // main entrypoint for the interupts (from the asm)

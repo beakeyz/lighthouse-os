@@ -360,7 +360,6 @@ irq15:
 
 irq_common_stub:
 
-    hlt
     push_all
 
     mov rdi, rsp

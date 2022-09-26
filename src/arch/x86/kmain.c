@@ -21,8 +21,6 @@ extern ctor_func_t end_ctors[];
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
-void* mb_ptr = NULL;
-
 __attribute__((constructor)) void test () {
 
     println("[TESTCONSTRUCTOR] =D");
@@ -36,10 +34,14 @@ static void hang () {
 int thing (registers_t* regs) {
     if (regs) {}
     println("funnie");
+    asm volatile (
+		".global _ret_from_preempt_source\n"
+		"_ret_from_preempt_source:"
+	);
     return 1;
 }
 
-void _start (uint32_t mb_addr, uint32_t mb_magic) {
+void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
 
     init_serial();
 
@@ -47,7 +49,6 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
         (*constructor)();
     }
     println("Hi from 64 bit land =D");
-
 
     // Verify magic number
     if (mb_magic == 0x36d76289) {
@@ -57,13 +58,10 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
         println("big yikes");
         hang();
     }
-    // setup pmm
 
-    println("fb ----");
-    struct multiboot_tag_framebuffer* fb = get_mb2_tag((uintptr_t*)mb_addr, MULTIBOOT_FRAMEBUFFER_TYPE_RGB);
-    print("fb: "); println(to_string(fb->common.framebuffer_type));
-
-    init_kmem_manager(mb_addr, first_valid_addr, first_valid_alloc_addr);
+    struct multiboot_tag_framebuffer* fb = get_mb2_tag((uintptr_t*)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+    struct multiboot_tag_framebuffer_common fb_common = fb->common;
+    init_kmem_manager((uintptr_t)mb_addr, first_valid_addr, first_valid_alloc_addr);
     init_kheap();
 
     asm volatile (
@@ -78,11 +76,23 @@ void _start (uint32_t mb_addr, uint32_t mb_magic) {
     // gdt
     setup_gdt();
     setup_idt();
+    init_pic();
+
+    add_handler(0, thing);
+    uint8_t val = in8(0x4D1);
+	out8(0x4D1, val | (1 << (10-8)) | (1 << (11-8)));
+
+    long divisor = 1193180 / 100;
+	out8(0x43, 0x34);
+	out8(0x40, divisor & 0xFF);
+	out8(0x40, (divisor >> 8) & 0xFF);
+
+    // FIXME FIXME: WHYYYYYYYYYY
     // FIXME: still crashing =(
+    //enable_interupts();
 
-    add_handler(1, &thing);
-    enable_interupts();
-
+    // common kinda gets lost or something, so we'll save it =)
+    fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
     init_fb(fb);
 
     // TODO: some thins on the agenda:
