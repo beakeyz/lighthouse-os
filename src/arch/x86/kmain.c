@@ -76,16 +76,7 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
     // gdt
     setup_gdt();
     setup_idt();
-    init_pic();
 
-    add_handler(0, thing);
-    uint8_t val = in8(0x4D1);
-	out8(0x4D1, val | (1 << (10-8)) | (1 << (11-8)));
-
-    long divisor = 1193180 / 100;
-	out8(0x43, 0x34);
-	out8(0x40, divisor & 0xFF);
-	out8(0x40, (divisor >> 8) & 0xFF);
 
     // FIXME FIXME: WHYYYYYYYYYY
     // FIXME: still crashing =(

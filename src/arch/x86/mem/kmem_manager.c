@@ -432,10 +432,34 @@ void kmem_map_memory(uintptr_t vaddr, uintptr_t paddr, unsigned int flags) {
 */
 
 // simpler version of the massive chonker above
-void kmem_map_memory(pml_t* page, uintptr_t paddr, unsigned int flags) {
+void kmem_map_memory (pml_t* page, uintptr_t paddr, unsigned int flags) {
+    if (!page) {
+        // cry
+    }
     kmem_mark_frame_used(paddr);
     page->structured_bits.page = paddr >> 12;
     kmem_set_page_flags(page, flags);
+}
+
+bool kmem_map_mem (uintptr_t virt, uintptr_t phys, unsigned int flags) {
+    if (virt % SMALL_PAGE_SIZE == 0) {
+        pml_t* page = kmem_get_page(virt, KMEM_GET_MAKE);
+        kmem_map_memory(page, phys, flags);
+        return true;
+    }
+    return false;
+}
+
+bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count, unsigned int flags) {
+    if (page_count % page_count != 0) {
+        return false;
+    }
+
+    for (uintptr_t i = 0; i <= page_count; ++i) {
+        uintptr_t mult = i * SMALL_PAGE_SIZE;
+        kmem_map_mem(virt_base + mult, phys_base + mult, flags);
+    }
+    return true;
 }
 
 void kmem_set_page_flags (pml_t* page, unsigned int flags) {

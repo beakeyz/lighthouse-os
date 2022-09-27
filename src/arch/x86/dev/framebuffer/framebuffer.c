@@ -18,11 +18,9 @@ void init_fb(struct multiboot_tag_framebuffer *mb_fb) {
 
     uint32_t fb_page_count = framebuffer_data.memory_size / SMALL_PAGE_SIZE;
 
-    for (uintptr_t i = 0; i <= fb_page_count; i++) {
-        pml_t* page = kmem_get_page((uintptr_t)framebuffer_data.address + i * SMALL_PAGE_SIZE, KMEM_GET_MAKE);
-        kmem_map_memory(page, framebuffer_data.phys_address + (i * SMALL_PAGE_SIZE), KMEM_FLAG_WRITABLE);
-    }
-    
+    kmem_map_range((uintptr_t)framebuffer_data.address, framebuffer_data.phys_address, fb_page_count, KMEM_FLAG_WRITABLE);
+
+    println("thing");
     // quick kinda color tester
     uint32_t color = 0xFFFFFFFF;
 	for (size_t y = 0; y < get_data().height; ++y) {

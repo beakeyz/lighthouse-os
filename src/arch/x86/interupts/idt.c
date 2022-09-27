@@ -1,11 +1,12 @@
 #include "idt.h"
 #include "arch/x86/interupts/interupts.h"
+#include "arch/x86/mem/kmalloc.h"
 #include <arch/x86/dev/debug/serial.h>
 #include <libc/stddef.h>
 #include <arch/x86/mem/kmem_manager.h>
 #include <libc/string.h>
 
-static idt_ptr_t idtp;
+static idt_ptr_t idtr;
 static idt_entry_t idt_entries[MAX_IDT_ENTRIES];
 
 void idt_set_gate(uint8_t num, interrupt_handler_t handler, uint16_t selector, uint8_t flags, int userspace) {
@@ -23,8 +24,8 @@ void setup_idt() {
 
     println("setup idt");
     // Store addr and size of the idt table in the pointer
-    idtp.limit = sizeof(idt_entries);
-    idtp.base = (uintptr_t)&idt_entries;
+    idtr.limit = 0x0FFF;
+    idtr.base = (uintptr_t)kmalloc(sizeof(idt_entries));
 
     init_interupts();
 
@@ -32,7 +33,7 @@ void setup_idt() {
 
     // Load the idt
     //load_standard_idtptr();
-    asm volatile("lidt %0" : : "m"(idtp));
+    asm volatile("lidt %0" : : "m"(idtr));
 }
 
 void handle_isr(struct registers *regs) {

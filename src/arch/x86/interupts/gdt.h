@@ -41,12 +41,14 @@ typedef struct {
 } __attribute__((packed)) gdt_entry_high_t;
 
 typedef struct  {
-	gdt_entry_t entries[6];
-	gdt_entry_high_t tss_extra;
-	gdt_pointer_t pointer;
-	tss_entry_t tss;
-} __attribute__((packed)) __attribute__((aligned(0x10))) _gdt_struct_t;
+    gdt_entry_t null;
+    gdt_entry_t kernel_code;
+    gdt_entry_t kernel_data;
+    gdt_entry_t user_null;
+    gdt_entry_t user_code;
+    gdt_entry_t user_data;
+} __attribute__((packed)) __attribute__((aligned(0x1000))) _gdt_struct_t;
 
 void setup_gdt();
-extern void load_gdt (void* ptr);
+extern void load_gdt (gdt_pointer_t* ptr);
 #endif // !__GDT__

@@ -88,6 +88,8 @@ void kmem_set_page_flags (pml_t* page, unsigned int flags);
 // mem mapping
 //void kmem_map_memory (uintptr_t vaddr, uintptr_t paddr, unsigned int flags);
 void kmem_map_memory (pml_t* page, uintptr_t paddr, unsigned int flags);
+bool kmem_map_mem (uintptr_t virt, uintptr_t phys, unsigned int flags);
+bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count, unsigned int flags);
 //void kmem_map_new_memory (uintptr_t vaddr, unsigned int flags);
 //void kmem_map_range (uintptr_t vaddr, size_t size, unsigned int flags);
 

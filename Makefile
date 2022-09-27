@@ -31,20 +31,30 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS :=  -m 1G -s -serial stdio -d int -no-reboot -enable-kvm -cdrom ./out/lightos.iso \
+QEMUFLAGS :=  -m 1G -s -serial stdio -no-reboot -enable-kvm -cdrom ./out/lightos.iso \
 		-device VGA,vgamem_mb=64
 
-CHARDFLAGS := $(CFLAGS)               \
-        -std=gnu99                     \
-	    -Wall \
-	    -Werror \
-		-Wextra \
-        -O2 \
-		-mno-red-zone \
-        -mno-sse \
-        -mcmodel=large \
-	    -ffreestanding                 \
-		-I./src                        \
+CHARDFLAGS := $(CFLAGS)               	\
+        -std=gnu99                     	\
+		-nodefaultlibs					\
+		-nostdlib						\
+	    -Wall 							\
+	    -Werror 						\
+		-Wextra 						\
+		-Wvla							\
+        -O2 							\
+		-static-pie						\
+		-mno-red-zone 					\
+        -mno-sse 						\
+		-mno-sse2						\
+		-mno-mmx						\
+		-mno-80387						\
+        -mcmodel=large 					\
+		-fsigned-char 					\
+		-Wno-unknown-warning-option		\
+	    -ffreestanding                 	\
+        -fno-exceptions 				\
+		-I./src                        	\
         -I./libraries/
  
 CXXHARDFLAGS := $(CFLAGS)               \
