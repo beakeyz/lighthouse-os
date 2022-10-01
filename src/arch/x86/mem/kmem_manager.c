@@ -25,7 +25,6 @@ static uintptr_t lowest_available = 0;
 */
 static char* heap_start = NULL;
 
-
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
     kmem_data.mmap_entry_num = (mmap->size - sizeof(*mmap))/mmap->entry_size;

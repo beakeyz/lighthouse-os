@@ -29,7 +29,7 @@ void add_handler (size_t irq_num, irq_specific_handler_t handler_ptr);
 void remove_handler (size_t irq_num);
 
 // main entrypoint
-registers_t* interupt_handler (struct registers* regs);
+registers_t* interrupt_handler (struct registers* regs);
 
 // ack (this should prob be specific to the chip we use lol)
 // extern void interupt_acknowledge (int num);

@@ -44,7 +44,7 @@ void handle_isr (struct registers* regs);
 // handle more shit
 void handle_irq (struct registers* regs);
 
-void idt_set_gate(uint8_t num, interrupt_handler_t handler, uint16_t selector, uint8_t flags, int userspace);
+void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, void (*handler)() );
 
 extern void flush_idt (uintptr_t ptr);
 

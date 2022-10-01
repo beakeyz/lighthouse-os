@@ -47,6 +47,8 @@ void init_pic() {
     PIC_WAIT();
     out8(PIC2_DATA, 1);
     PIC_WAIT();
+
+    disable_pic();
 }
 
 void disable_pic() {

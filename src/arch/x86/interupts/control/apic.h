@@ -1,18 +1,46 @@
 #ifndef __APIC__
 #define __APIC__
+#include <libc/stddef.h>
 
-#define APIC_EOI 0xB0
-#define LAPIC_ID 0x20
-#define APIC_ICR1 0x300
-#define APIC_ICR2 0x310
-#define APIC_LVT_TIMER 0x320
-#define APIC_LINT1 0x350
-#define APIC_LINT2 0x360
+#define APIC_BSP_BIT 8
+#define APIC_GLOBAL_ENABLE_BIT 11
+#define APIC_BASE_ADDRESS_MASK 0xFFFFF000
+
+#define APIC_TIMER_LVT_OFFSET 0x00000320
+
+#define APIC_TABLE_LENGTH 0x6
+
+#define APIC_TIMER_IDT_ENTRY 0x20
+#define APIC_TIMER_CONFIGURATION_OFFSET 0x3E0
+#define APIC_TIMER_INITIAL_COUNT_REGISTER_OFFSET 0x380
+#define APIC_TIMER_CURRENT_COUNT_REGISTER_OFFSET 0x390
+
+#define APIC_TIMER_DIVIDER_1 0xB
+#define APIC_TIMER_DIVIDER_2 0x0
+#define APIC_TIMER_DIVIDER_4 0x1
+#define APIC_TIMER_DIVIDER_8 0x2
+#define APIC_TIMER_DIVIDER_16 0x3
+#define APIC_TIMER_DIVIDER_32 0x8
+#define APIC_TIMER_DIVIDER_64 0x9
+#define APIC_TIMER_DIVIDER_128 0xA
+
+#define APIC_TIMER_MODE_ONE_SHOT 0x0
+#define APIC_TIMER_MODE_PERIODIC 0x20000
+#define APIC_VERSION_REGISTER_OFFSET 0x30
+#define APIC_EOI_REGISTER_OFFSET 0xB0
+
+#define APIC_SPURIOUS_VECTOR_REGISTER_OFFSET 0xF0
+#define APIC_SPURIOUS_INTERRUPT_IDT_ENTRY 0xFF
+#define APIC_SOFTWARE_ENABLE (1 << 8)
+#define APIC_ID_REGISTER_OFFSET 0x20
+
+#define MASTER_PIC_DATA_PORT 0x21
+#define SLAVE_PIC_DATA_PORT 0xA1
 
 // TODO: look for the address thats (should be) mapped to memory
 // TODO: parse MADT
 // TODO: for all this, we'll need to finish the mm first ;-;
 
-
+void init_apic();
 
 #endif // !__APIC__

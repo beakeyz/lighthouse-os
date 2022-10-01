@@ -79,8 +79,7 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
 
     // FIXME FIXME: WHYYYYYYYYYY
     // FIXME: still crashing =(
-    //init_pic();
-    //enable_interupts();
+    init_pic();
 
     // common kinda gets lost or something, so we'll save it =)
     fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
