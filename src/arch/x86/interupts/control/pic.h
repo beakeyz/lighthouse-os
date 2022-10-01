@@ -4,7 +4,7 @@
 
 #ifndef __PIC__
 #define __PIC__
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 #define PIC_EOI_CODE    0x20
 

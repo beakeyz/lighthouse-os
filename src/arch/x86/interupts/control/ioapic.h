@@ -1,6 +1,6 @@
 #ifndef __IOAPIC__
 #define __IOAPIC__
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 #define IO_APIC_ID_OFFSET   0x0
 #define IO_APIC_VER_OFFSET  0x1

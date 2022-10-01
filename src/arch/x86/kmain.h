@@ -2,7 +2,7 @@
 #define __KMAIN__
 
 #include <arch/x86/mem/pml.h>
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 #include "multiboot.h"
 
 extern uintptr_t _kernel_start;

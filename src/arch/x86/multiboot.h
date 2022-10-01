@@ -21,7 +21,7 @@
 
 #ifndef MULTIBOOT_HEADER
 #define MULTIBOOT_HEADER 1
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 void mb_initialize(void* addr, uintptr_t* highest_addr, uintptr_t* highest_valid_alloc_addr);
 void* next_mb2_tag(void* cur, uint32_t type);

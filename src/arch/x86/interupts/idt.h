@@ -1,7 +1,7 @@
 # ifndef __IDT__
 # define __IDT__
 
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 #include "interupts.h"
 
 // Some defines that are idt/irq/isr specific
@@ -34,6 +34,7 @@ typedef struct {
 
 
 // add shit
+idt_entry_t get_idt (int idx);
 
 // install shit
 void setup_idt ();

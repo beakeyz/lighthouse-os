@@ -1,9 +1,9 @@
 #include "kmalloc.h"
 #include "arch/x86/kmain.h"
 #include "arch/x86/mem/kmem_manager.h"
-#include <libc/string.h>
+#include <libk/string.h>
 #include <arch/x86/dev/debug/serial.h>
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 #define INITIAL_HEAP_SIZE 8192
 #define NODE_IDENTIFIER 0xF0CEDA22

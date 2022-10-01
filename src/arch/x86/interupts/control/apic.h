@@ -1,6 +1,6 @@
 #ifndef __APIC__
 #define __APIC__
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 #define APIC_BSP_BIT 8
 #define APIC_GLOBAL_ENABLE_BIT 11

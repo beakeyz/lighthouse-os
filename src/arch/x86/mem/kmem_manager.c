@@ -4,9 +4,9 @@
 #include "arch/x86/mem/kmalloc.h"
 #include "arch/x86/mem/pml.h"
 #include "arch/x86/multiboot.h"
-#include "libc/linkedlist.h"
-#include <libc/stddef.h>
-#include <libc/string.h>
+#include "libk/linkedlist.h"
+#include <libk/stddef.h>
+#include <libk/string.h>
 
 
 static kmem_data_t kmem_data;

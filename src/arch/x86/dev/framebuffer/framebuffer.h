@@ -5,7 +5,7 @@
 #ifndef __FRAMEBUFFER__
 #define __FRAMEBUFFER__
 #include "arch/x86/multiboot.h"
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 typedef struct fb_data {
     void *address;

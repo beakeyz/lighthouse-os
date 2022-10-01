@@ -1,8 +1,8 @@
 #include "pic.h"
 #include "arch/x86/interupts/interupts.h"
 #include <arch/x86/dev/debug/serial.h>
-#include <libc/io.h>
-#include <libc/stddef.h>
+#include <libk/io.h>
+#include <libk/stddef.h>
 
 uint16_t _irq_mask_cache = 0xffff;
 
@@ -27,6 +27,10 @@ static void enable_vector (uint8_t vec) {
 }
 
 void init_pic() {
+
+    uint8_t mask1 = in8(PIC1_DATA);
+    uint8_t mask2 = in8(PIC2_DATA);
+
     // cascade init =D
     out8(PIC1_COMMAND, ICW1_INIT|ICW1_ICW4); 
     PIC_WAIT();
@@ -38,7 +42,7 @@ void init_pic() {
 	out8(PIC2_DATA, 0x28);
     PIC_WAIT();
 
-	out8(PIC1_DATA, 1 << 0x02);
+	out8(PIC1_DATA, 0x04);
     PIC_WAIT();
 	out8(PIC2_DATA, 0x02);
     PIC_WAIT();
@@ -48,7 +52,10 @@ void init_pic() {
     out8(PIC2_DATA, 1);
     PIC_WAIT();
 
-    disable_pic();
+    out8(PIC1_DATA, mask1);
+    out8(PIC2_DATA, mask2);
+
+    //disable_pic();
 }
 
 void disable_pic() {

@@ -12,6 +12,7 @@ flush_idt:
 %macro interrupt_service_routine 1
 [global interrupt_service_routine_%1]
 interrupt_service_routine_%1:
+    hlt
     ; When this macro is called the status registers are already on the stack
     push 0	; since we have no error code, to keep things consistent we push a default EC of 0
     push %1 ; pushing the interrupt number for easier identification by the handler
@@ -28,6 +29,7 @@ interrupt_service_routine_%1:
 %macro interrupt_service_routine_error_code 1
 [global interrupt_service_routine_error_code_%1]
 interrupt_service_routine_error_code_%1:
+    hlt
     push %1 ; In this case the error code is already present on the stack
     save_context
     mov rdi, rsp
@@ -97,6 +99,19 @@ interrupt_service_routine 18
 interrupt_service_routine 32
 interrupt_service_routine 33
 interrupt_service_routine 34
+interrupt_service_routine 35
+interrupt_service_routine 36
+interrupt_service_routine 37
+interrupt_service_routine 38
+interrupt_service_routine 39
+interrupt_service_routine 40
+interrupt_service_routine 41
+interrupt_service_routine 42
+interrupt_service_routine 43
+interrupt_service_routine 44
+interrupt_service_routine 45
+interrupt_service_routine 46
+interrupt_service_routine 47
 interrupt_service_routine 255
 
 

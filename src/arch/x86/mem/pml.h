@@ -1,6 +1,6 @@
 #ifndef __PML__
 #define __PML__
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 typedef union pml {
     // this struct represents the uint64_t raw_bits, only its components

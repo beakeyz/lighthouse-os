@@ -1,6 +1,6 @@
 #ifndef __STRING__
 #define __STRING__
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 #define string const char*
 #define _string char*

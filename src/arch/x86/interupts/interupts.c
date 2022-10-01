@@ -1,9 +1,9 @@
 #include "interupts.h"
 #include "arch/x86/interupts/idt.h"
-#include "libc/string.h"
+#include "libk/string.h"
 #include <arch/x86/interupts/control/pic.h>
 #include <arch/x86/dev/debug/serial.h>
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 static irq_specific_handler_t handler_entries[16] = { NULL };
 
@@ -29,6 +29,19 @@ extern void interrupt_service_routine_18();
 extern void interrupt_service_routine_32();
 extern void interrupt_service_routine_33();
 extern void interrupt_service_routine_34();
+extern void interrupt_service_routine_35();
+extern void interrupt_service_routine_36();
+extern void interrupt_service_routine_37();
+extern void interrupt_service_routine_38();
+extern void interrupt_service_routine_39();
+extern void interrupt_service_routine_40();
+extern void interrupt_service_routine_41();
+extern void interrupt_service_routine_42();
+extern void interrupt_service_routine_43();
+extern void interrupt_service_routine_44();
+extern void interrupt_service_routine_45();
+extern void interrupt_service_routine_46();
+extern void interrupt_service_routine_47();
 extern void interrupt_service_routine_255();
 
 void init_interupts() {
@@ -55,12 +68,28 @@ void init_interupts() {
     idt_set_gate(0x20, 0x8E, 0x8, interrupt_service_routine_32);
     idt_set_gate(0x21, 0x8E, 0x8, interrupt_service_routine_33);
     idt_set_gate(0x22, 0x8E, 0x8, interrupt_service_routine_34);
+    idt_set_gate(0x23, 0x8E, 0x8, interrupt_service_routine_35);
+    idt_set_gate(0x24, 0x8E, 0x8, interrupt_service_routine_36);
+    idt_set_gate(0x25, 0x8E, 0x8, interrupt_service_routine_37);
+    idt_set_gate(0x26, 0x8E, 0x8, interrupt_service_routine_38);
+    idt_set_gate(0x27, 0x8E, 0x8, interrupt_service_routine_39);
+    idt_set_gate(0x28, 0x8E, 0x8, interrupt_service_routine_40);
+    idt_set_gate(0x29, 0x8E, 0x8, interrupt_service_routine_41);
+    idt_set_gate(0x2a, 0x8E, 0x8, interrupt_service_routine_42);
+    idt_set_gate(0x2b, 0x8E, 0x8, interrupt_service_routine_43);
+    idt_set_gate(0x2c, 0x8E, 0x8, interrupt_service_routine_44);
+    idt_set_gate(0x2d, 0x8E, 0x8, interrupt_service_routine_45);
+    idt_set_gate(0x2e, 0x8E, 0x8, interrupt_service_routine_46);
+    idt_set_gate(0x2f, 0x8E, 0x8, interrupt_service_routine_47);
     idt_set_gate(0xFF, 0x8E, 0x8, interrupt_service_routine_255);
+
+    init_pic();
 }
 
 // FIXME: look into the idea of having a error datastruct for this type of stuff...
 // otherwise return an int with statuscode?
 void add_handler(size_t irq_num, irq_specific_handler_t handler_ptr) {
+    disable_interupts();
     irq_specific_handler_t handler = handler_entries[irq_num];
     if (handler != nullptr){
         // yikes, there already is a handler
@@ -76,6 +105,7 @@ void add_handler(size_t irq_num, irq_specific_handler_t handler_ptr) {
 
     println("added handler");
     handler_entries[irq_num] = handler_ptr;
+    disable_interupts();
 }
 
 void remove_handler(size_t irq_num) {

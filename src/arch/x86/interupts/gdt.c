@@ -1,7 +1,7 @@
 #include "gdt.h"
 #include "arch/x86/dev/debug/serial.h"
-#include <libc/string.h>
-#include <libc/stddef.h>
+#include <libk/string.h>
+#include <libk/stddef.h>
 
 _gdt_struct_t gdt __attribute__((aligned(0x1000))) = { 
     { 0, 0, 0, 0x00, 0x00, 0 },

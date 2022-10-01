@@ -4,7 +4,7 @@
 
 DIRECTORY_GUARD=mkdir -p $(@D)
 ARCH :=x86
-SRC_PATHS := src libraries/libc libraries/mod libraries/utils
+SRC_PATHS := src libraries/libk libraries/mod libraries/utils
 OUT := ./out
 
 HFILES    := $(shell find $(SRC_PATHS) -type f -name '*.h')

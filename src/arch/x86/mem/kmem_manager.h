@@ -2,7 +2,7 @@
 #define __KMEM_MANAGER__
 
 #include <arch/x86/multiboot.h>
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 #include "pml.h"
 
 // some faultcodes

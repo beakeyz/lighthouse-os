@@ -1,6 +1,6 @@
 #ifndef __IO__
 #define __IO__
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 
 uint8_t in8(uint16_t port);

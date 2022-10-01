@@ -1,6 +1,6 @@
 #include "string.h"
 #include "arch/x86/dev/debug/serial.h"
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 /*
  * FIXME: this whole file is a trainwreck, for now I'll leave it like this, but in the future

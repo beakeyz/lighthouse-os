@@ -1,7 +1,7 @@
 #ifndef __INTERUPTS__
 #define __INTERUPTS__
 
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 // NOTE: this file CAN NOT include idt.h, because of an include loop =/
 

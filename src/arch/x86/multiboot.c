@@ -1,7 +1,7 @@
 #include "arch/x86/dev/debug/serial.h"
 #include <arch/x86/multiboot.h>
-#include "libc/string.h"
-#include <libc/stddef.h>
+#include "libk/string.h"
+#include <libk/stddef.h>
 
 void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_alloc_addr) {
     uintptr_t offset = 0;

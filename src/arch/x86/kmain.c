@@ -1,17 +1,17 @@
 #include "arch/x86/kmain.h"
 #include "arch/x86/dev/framebuffer/framebuffer.h"
 #include "arch/x86/interupts/gdt.h"
-#include "libc/linkedlist.h"
+#include "libk/linkedlist.h"
 #include <arch/x86/mem/kmalloc.h>
 #include <arch/x86/mem/kmem_manager.h>
-#include <libc/io.h>
+#include <libk/io.h>
 #include <arch/x86/interupts/idt.h>
 #include <arch/x86/interupts/interupts.h>
 #include <arch/x86/dev/debug/serial.h>
 #include <arch/x86/interupts/control/pic.h>
 #include <arch/x86/multiboot.h>
-#include <libc/stddef.h>
-#include <libc/string.h>
+#include <libk/stddef.h>
+#include <libk/string.h>
 
 typedef void (*ctor_func_t)();
 
@@ -59,9 +59,6 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
         hang();
     }
 
-    // gdt
-    setup_gdt();
-    setup_idt();
 
     struct multiboot_tag_framebuffer* fb = get_mb2_tag((uintptr_t*)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
     struct multiboot_tag_framebuffer_common fb_common = fb->common;
@@ -77,16 +74,37 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
 		: : : "ecx", "edx", "eax"
 	);
 
-    // FIXME FIXME: WHYYYYYYYYYY
-    // FIXME: still crashing =(
-    init_pic();
+    // gdt
+    setup_gdt();
+    setup_idt();
+
+    for (uintptr_t i = 0; i < 8; i++) {
+        print("IDT[33] at idx ");
+        print(to_string(i));
+        print(" = ");
+        println(to_string(get_idt(33).base_mid));
+    }
+
+    enable_interupts();
+    // okay, whats happening:
+    // 1 - pic tries to issue an interrupt to the cpu
+    // 2 - our cpu looks at it and goes to the idt to do some lookups
+    // 3 - the interrupt get triggerd and the ip along with the stack data get reserved
+    // 4 - the interrupt stub corresponding to the interupt number gets executed
+    // 5 - C handler gets called, and also returns
+    // 6 - cleanup, and iret
+    // 7 - control is given back to the kernel in the form of an ip restore
+    // somewhere here it goes wrong. it does not even seem to reach step 4, so that means the idt is probably not loaded correctly.
+    // or: our PIC is faulty? the GDT is broken? idt stubs are not registered right?
+    // it clearly is some kind of memory issue: the cpu tries to look at some memory location for 
+    // some idt/gdt/irq/isr/whatever data, does not find jackcrap and crashes =/
 
     // common kinda gets lost or something, so we'll save it =)
     fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
     init_fb(fb);
 
     // TODO: some thins on the agenda:
-    // 0. [ ] buff up libc ;-;
+    // 0. [ ] buff up libk ;-;
     // 1. [X] parse the multiboot header and get the data we need from the bootloader, like framebuffer, memmap, ect (when we have our own bootloader, we'll have to revisit this =\)
     // 2. [X] setup the memory manager, so we are able to consistantly allocate pageframes, setup a heap and ultimately do all kinds of cool memory stuff
     // 3. [ ] load a brand new GDT and IDT in preperation for step 4

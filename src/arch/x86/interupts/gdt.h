@@ -1,7 +1,7 @@
 #ifndef __GDT__
 #define __GDT__
 
-#include <libc/stddef.h>
+#include <libk/stddef.h>
 
 #define NULL_SELC 0
 #define KERNEL_CODE 0x8

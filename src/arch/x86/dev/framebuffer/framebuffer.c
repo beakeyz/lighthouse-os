@@ -2,8 +2,8 @@
 #include "arch/x86/dev/debug/serial.h"
 #include "arch/x86/interupts/control/pic.h"
 #include "arch/x86/mem/kmem_manager.h"
-#include "libc/stddef.h"
-#include "libc/string.h"
+#include "libk/stddef.h"
+#include "libk/string.h"
 
 static fb_data_t framebuffer_data;
 
