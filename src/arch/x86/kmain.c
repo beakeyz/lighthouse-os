@@ -59,6 +59,10 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
         hang();
     }
 
+    // gdt
+    setup_gdt();
+    setup_idt();
+
     struct multiboot_tag_framebuffer* fb = get_mb2_tag((uintptr_t*)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
     struct multiboot_tag_framebuffer_common fb_common = fb->common;
     init_kmem_manager((uintptr_t)mb_addr, first_valid_addr, first_valid_alloc_addr);
@@ -73,13 +77,9 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
 		: : : "ecx", "edx", "eax"
 	);
 
-    // gdt
-    setup_gdt();
-    setup_idt();
-
-
     // FIXME FIXME: WHYYYYYYYYYY
     // FIXME: still crashing =(
+    //init_pic();
     //enable_interupts();
 
     // common kinda gets lost or something, so we'll save it =)

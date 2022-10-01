@@ -24,8 +24,8 @@ void setup_idt() {
 
     println("setup idt");
     // Store addr and size of the idt table in the pointer
-    idtr.limit = 0x0FFF;
-    idtr.base = (uintptr_t)kmalloc(sizeof(idt_entries));
+    idtr.limit = sizeof(idt_entries) - 1;
+    idtr.base = (uintptr_t)idt_entries;
 
     init_interupts();
 

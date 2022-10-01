@@ -244,6 +244,8 @@ _isr31:
 
 isr_common_stub:
 
+    hlt
+    jmp isr_common_stub
     push_all
     mov rdi, rsp
 
@@ -360,6 +362,8 @@ irq15:
 
 irq_common_stub:
 
+    hlt
+    jmp irq_common_stub
     push_all
 
     mov rdi, rsp

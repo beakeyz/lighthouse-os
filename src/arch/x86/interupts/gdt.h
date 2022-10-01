@@ -44,7 +44,6 @@ typedef struct  {
     gdt_entry_t null;
     gdt_entry_t kernel_code;
     gdt_entry_t kernel_data;
-    gdt_entry_t user_null;
     gdt_entry_t user_code;
     gdt_entry_t user_data;
 } __attribute__((packed)) __attribute__((aligned(0x1000))) _gdt_struct_t;
