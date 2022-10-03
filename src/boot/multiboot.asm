@@ -1,5 +1,7 @@
 
 section .multiboot_header
+
+[bits 32]
 align 8
 header_start:
     dd 0xe85250d6   ;magic_number
@@ -60,7 +62,7 @@ start:
     mov [boot_pdpt], eax
 
     mov eax, boot_pdt
-    mov ebx, 0x87
+    mov ebx, 0x83
     mov ecx, 32
 
     .map_low_mem_entry:
@@ -142,7 +144,11 @@ long_start:
     
     mov rax, 0x2f592f412f4b2f4f
     mov qword [0xb8000], rax
+
+loopback:
+    cli
     hlt
+    jmp loopback
 
 section .pts 
 

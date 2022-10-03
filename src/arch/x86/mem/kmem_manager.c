@@ -104,8 +104,10 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
 
     uintptr_t map = (uintptr_t)kmem_from_phys((uintptr_t)((pml_t*)&base_init_pml[0])) & 0x7FFFffffFFUL;
 
+    asm volatile ("" : : : "memory");
     asm volatile ("movq %0, %%cr3" :: "r"(map));
-    
+    asm volatile ("" : : : "memory");
+
     println("loaded the new pagemaps!");
     
     // FIXME: this statement is prob not necessary anymore, since we

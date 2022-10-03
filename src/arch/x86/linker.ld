@@ -3,41 +3,36 @@ ENTRY(start)
 SECTIONS {
     /* lower half kernel ftw =D */
     . = 1M;
-
     _kernel_start =.;
 
-    .multiboot_header ALIGN(8) :
+    .text BLOCK(4K) : ALIGN(4K)
     {
-        KEEP(*(.multiboot_header))
-    }
-
-    .text ALIGN(4K):AT (ADDR (.text))
-    {
+        *(.multiboot_header)
         *(.pre_text)
-        *(.text*)
+        text_begin = .;
+        *(.text)
 	}
 
-    .rodata  ALIGN(4K):AT (ADDR (.rodata) )
+    .rodata BLOCK(4K) : ALIGN(4K)
     {
         start_ctors = .;
         *(.ctors)
         *(.init_array)
         end_ctors = .;
-        *(.rodata*)
+        *(.rodata)
     }
 
-    .data  ALIGN(4K):AT (ADDR (.data) )
+    .data BLOCK(4K) : ALIGN(4K)
     {
-        *(.data*)
+        *(.data)
     }
 
-    .bss  ALIGN(4K):AT (ADDR (.bss) )
+    .bss BLOCK(4K) : ALIGN(4K) 
     {
         *(COMMON)
-        *(.bss*)
+        *(.bss)
 
-        . = ALIGN(4K);
-        *(.pts*)
+        *(.pts)
         *(.heap)
     }
     
