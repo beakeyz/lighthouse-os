@@ -16,25 +16,37 @@ interrupt_service_routine_%1:
     ; When this macro is called the status registers are already on the stack
     push 0	; since we have no error code, to keep things consistent we push a default EC of 0
     push %1 ; pushing the interrupt number for easier identification by the handler
-    save_context ; Now we can save the general purpose registers
-    mov rdi, rsp    ; Let's set the current stack pointer as a parameter of the interrupts_handler
-    cld ; Clear the direction flag
-    call interrupt_handler ; Now we call the interrupt handler
-    mov rsp, rax    ; use the returned context
-    restore_context ; We served the interrupt let's restore the previous context
-    add rsp, 16 ; We can discard the interrupt number and the error code
-    iretq ; Now we can return from the interrupt
+    
+    save_context
+
+    cld
+
+    mov rdi, rsp
+    call interrupt_handler
+    mov rsp, rax
+
+    restore_context
+
+    add rsp, 16
+    
+    iretq
+
 %endmacro
 
 %macro interrupt_service_routine_error_code 1
 [global interrupt_service_routine_error_code_%1]
 interrupt_service_routine_error_code_%1:
     hlt
+    
     push %1 ; In this case the error code is already present on the stack
     save_context
-    mov rdi, rsp
+
     cld
+
+    mov rdi, rsp
     call interrupt_handler
+    mov rsp, rax
+
     restore_context
     add rsp, 16
     iretq
@@ -46,9 +58,9 @@ interrupt_service_routine_error_code_%1:
     push rbx
     push rcx
     push rdx
-    push rbp
     push rsi
     push rdi
+    push rbp
     push r8
     push r9
     push r10
@@ -68,9 +80,9 @@ interrupt_service_routine_error_code_%1:
     pop r10
     pop r9
     pop r8
+    pop rbp
     pop rdi
     pop rsi
-    pop rbp
     pop rdx
     pop rcx
     pop rbx

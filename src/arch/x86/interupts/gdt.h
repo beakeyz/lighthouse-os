@@ -26,13 +26,16 @@ typedef struct tss_entry {
 	uint16_t iomap_base;
 } __attribute__ ((packed)) tss_entry_t;
 
-typedef struct {
+typedef union {
+	struct {
         uint16_t limit_low;
 	    uint16_t base_low;
 	    uint8_t base_middle;
 	    uint8_t access;
 	    uint8_t granularity;
 	    uint8_t base_high;
+	} structured;
+	uintptr_t raw;
 } __attribute__((packed)) gdt_entry_t;
 
 typedef struct {
@@ -46,8 +49,10 @@ typedef struct  {
     gdt_entry_t kernel_data;
     gdt_entry_t user_code;
     gdt_entry_t user_data;
+	gdt_entry_t tss_low;
+	gdt_entry_t tss_high;
 } __attribute__((packed)) __attribute__((aligned(0x1000))) _gdt_struct_t;
 
-void setup_gdt();
-extern void load_gdt (gdt_pointer_t* ptr);
+__attribute__((used)) void setup_gdt();
+extern void flush_gdt ();
 #endif // !__GDT__

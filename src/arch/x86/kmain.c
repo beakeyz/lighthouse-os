@@ -43,6 +43,7 @@ int thing (registers_t* regs) {
 
 void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
 
+
     init_serial();
 
     for (ctor_func_t* constructor = start_ctors; constructor < end_ctors; constructor++) {
@@ -58,7 +59,6 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
         println("big yikes");
         hang();
     }
-
 
     struct multiboot_tag_framebuffer* fb = get_mb2_tag((uintptr_t*)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
     struct multiboot_tag_framebuffer_common fb_common = fb->common;
@@ -77,13 +77,6 @@ void _start (struct multiboot_tag* mb_addr, uint32_t mb_magic) {
     // gdt
     setup_gdt();
     setup_idt();
-
-    for (uintptr_t i = 0; i < 8; i++) {
-        print("IDT[33] at idx ");
-        print(to_string(i));
-        print(" = ");
-        println(to_string(get_idt(33).base_mid));
-    }
 
     enable_interupts();
     // okay, whats happening:

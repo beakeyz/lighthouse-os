@@ -40,8 +40,6 @@ extern _start
 
 global stack_top
 
-global end_of_mapped_memory
-
 ; We'll initially be in 32 bit mode(due to multiboot and damn grub), so we're going to check if we can transfer to 64 bit 
 ; So: check for paging, check for memory (?), check for errors
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
@@ -75,7 +73,7 @@ start:
         jne .map_low_mem_entry
 
     ; set cr3
-    mov eax, (boot_pml4t)
+    mov eax, boot_pml4t
     mov cr3, eax
 
     ; enable PAE
@@ -95,13 +93,38 @@ start:
     or eax, 1 << 16
     mov cr0, eax
 
-    lgdt [gdt64.pointer]
+    lgdt [gdtr]
     jmp (0x8):(long_start)
 
-[bits 64]
-section .text
+; gdt
 align 8
+gdtr:
+    dw gdt_end - gdt_start
+    dq gdt_start
+gdt_start:
+    dq 0
 
+    dw 0
+    dw 0
+    db 0
+    db 0x9a
+    db 0x20
+    db 0
+
+    dw 0xffff
+    dw 0
+    db 0
+    db 0x92
+    db 0
+    db 0
+gdt_end:
+
+; start of 64 bit madness
+[bits 64]
+align 8
+section .text
+
+; start lol
 long_start:
     cli 
     cld
@@ -138,18 +161,8 @@ end_of_mapped_memory:
     resq 1
 ; 16 kb stack
 
+align 8
 stack_bottom:
     resb 16385
 stack_top:
 
-section .rodata
-gdt64:
-    dq  0	;first entry = 0
-    .code equ $ - gdt64
-        dq (1 <<44) | (1 << 47) | (1 << 41) | (1 << 43) | (1 << 53)  ;second entry=code=8
-    .data equ $ - gdt64
-        dq (1 << 44) | (1 << 47) | (1 << 41)	;third entry = data = 10
-
-.pointer:
-    dw .pointer - gdt64 - 1
-    dq gdt64

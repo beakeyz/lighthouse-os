@@ -36,23 +36,16 @@ QEMUFLAGS :=  -m 1G -s -serial stdio -no-reboot -enable-kvm -cdrom ./out/lightos
 
 CHARDFLAGS := $(CFLAGS)               	\
         -std=gnu99                     	\
-		-nodefaultlibs					\
-		-nostdlib						\
 	    -Wall 							\
-	    -Werror 						\
 		-Wextra 						\
-		-Wvla							\
         -O2 							\
-		-static-pie						\
 		-mno-red-zone 					\
         -mno-sse 						\
 		-mno-sse2						\
 		-mno-mmx						\
 		-mno-80387						\
         -mcmodel=large 					\
-		-fsigned-char 					\
-		-Wno-unknown-warning-option		\
-	    -ffreestanding                 	\
+		-ffreestanding                 	\
         -fno-exceptions 				\
 		-I./src                        	\
         -I./libraries/

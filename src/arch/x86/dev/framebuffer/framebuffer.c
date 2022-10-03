@@ -26,7 +26,7 @@ void init_fb(struct multiboot_tag_framebuffer *mb_fb) {
 	for (size_t y = 0; y < get_data().height; ++y) {
 		for (size_t x = 0; x < get_data().width; ++x) {
             color -= 1;
-            if (color == 0x00) {
+            if (color <= 0x00) {
                 color = 0xFFFFFFFF;
             }
             draw_pixel(x, y, color);
