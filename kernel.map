@@ -42,7 +42,7 @@ Linker script and memory map
                 0x0000000000100000                . = 0x100000
                 0x0000000000100000                _kernel_start = .
 
-.text           0x0000000000100000     0x39fb
+.text           0x0000000000100000     0x3a06
  *(.multiboot_header)
  .multiboot_header
                 0x0000000000100000       0x30 ./out/src/boot/multiboot.o
@@ -194,14 +194,14 @@ Linker script and memory map
                 0x0000000000103940                interrupt_service_routine_47
                 0x0000000000103985                interrupt_service_routine_255
  *fill*         0x00000000001039cd        0x3 
- .text          0x00000000001039d0       0x2b ./out/src/boot/multiboot.o
+ .text          0x00000000001039d0       0x36 ./out/src/boot/multiboot.o
 
-.iplt           0x00000000001039fb        0x0
- .iplt          0x00000000001039fb        0x0 ./out/src/arch/x86/interupts/gdt.o
+.iplt           0x0000000000103a06        0x0
+ .iplt          0x0000000000103a06        0x0 ./out/src/arch/x86/interupts/gdt.o
 
-.text.startup   0x0000000000103a00       0x16
- .text.startup  0x0000000000103a00       0x16 ./out/src/arch/x86/kmain.o
-                0x0000000000103a00                test
+.text.startup   0x0000000000103a10       0x16
+ .text.startup  0x0000000000103a10       0x16 ./out/src/arch/x86/kmain.o
+                0x0000000000103a10                test
 
 .rodata         0x0000000000104000        0x8
                 0x0000000000104000                start_ctors = .
@@ -372,10 +372,10 @@ OUTPUT(lightos.elf elf64-x86-64)
  .debug_abbrev  0x000000000000001b       0x1b ./out/src/arch/x86/asm/irq.o
  .debug_abbrev  0x0000000000000036       0x1b ./out/src/boot/multiboot.o
 
-.debug_line     0x0000000000000000      0x92d
+.debug_line     0x0000000000000000      0x92f
  .debug_line    0x0000000000000000       0x55 ./out/src/arch/x86/asm/gdt.o
  .debug_line    0x0000000000000055      0x880 ./out/src/arch/x86/asm/irq.o
- .debug_line    0x00000000000008d5       0x58 ./out/src/boot/multiboot.o
+ .debug_line    0x00000000000008d5       0x5a ./out/src/boot/multiboot.o
 
 .debug_frame    0x0000000000000000        0x0
  .debug_frame   0x0000000000000000        0x0 ./out/src/arch/x86/asm/gdt.o

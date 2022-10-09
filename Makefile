@@ -31,25 +31,26 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS :=  -m 1G -s -serial stdio -no-reboot -enable-kvm -cdrom ./out/lightos.iso \
-		-device VGA,vgamem_mb=64
+QEMUFLAGS := -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
 
-CHARDFLAGS := $(CFLAGS)               	\
-        -std=gnu99                     	\
-	    -Wall 							\
-		-Wextra 						\
-        -O2 							\
-		-mno-red-zone 					\
-        -mno-sse 						\
-		-mno-sse2						\
-		-mno-mmx						\
-		-mno-80387						\
-        -mcmodel=large 					\
-		-ffreestanding                 	\
-        -fno-exceptions 				\
-		-I./src                        	\
-        -I./libraries/
- 
+CHARDFLAGS := -std=gnu99          \
+	    				-Wall 							\
+							-Wextra 						\
+        			-O2 								\
+							-nostdlib 					\
+							-nostdinc 					\
+							-mno-red-zone 			\
+        			-mno-sse 						\
+							-mno-sse2						\
+							-mno-mmx						\
+							-mno-80387					\
+							-m64 								\
+        			-mcmodel=kernel			\
+							-ffreestanding      \
+        			-fno-exceptions 		\
+							-I./src             \
+        			-I./libraries/			\
+
 CXXHARDFLAGS := $(CFLAGS)               \
         -std=c++20                     \
         -g \
@@ -79,10 +80,8 @@ CXXHARDFLAGS := $(CFLAGS)               \
         -I./libraries/
 
 #-z max-page-size=0x1000
-LDHARDFLAGS := $(LDFLAGS)        \
-		-z max-page-size=0x1000 \
-        -T $(LINK_PATH) \
-		-Map ./kernel.map 
+LDHARDFLAGS := -T $(LINK_PATH) 				\
+							 -Map $(OUT)/lightos.map \
 
 
 # TODO: this is messy, refactor this.
@@ -107,7 +106,7 @@ $(OUT)/%.o: %.asm
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
-	@$(LD) -n $(LDHARDFLAGS) $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) -o $@
+	@ld -o $@ $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LDHARDFLAGS)
 
 # TODO: this just builds and runs the kernel for now, but 
 # I'd like to have actual debugging capabilities in the future

@@ -1,7 +1,19 @@
-
+[bits 32]
 section .multiboot_header
 
-[bits 32]
+; for funzies mb1 here too =) (our kernel will die if the bl decides "ye imma use this one =D")
+align 4
+mboot:
+	dd  0x1BADB002           ;Magic
+	dd  0x7                  ;Flags (4KiB-aligned modules, memory info, framebuffer info)
+	dd  -(0x1BADB002 + 0x7)  ;Checksum
+	times 5 dd 0
+	dd 0                      ;Graphics mode
+	dd 640                    ;Graphics width
+	dd 480                    ;Graphics height
+	dd 32                     ;Graphics depth
+mboot_end:
+
 align 8
 header_start:
     dd 0xe85250d6   ;magic_number
@@ -89,6 +101,7 @@ start:
     or eax, 1 << 8
     wrmsr
 
+
     ; enable paging
     mov eax, cr0
     or eax, 1 << 31
@@ -138,7 +151,8 @@ long_start:
     mov fs, ax  ; extra segment register
     mov gs, ax  ; extra segment register
 
-    ;mov rsp, stack_top
+    mov rsp, stack_top
+    push rsp
     
     call _start
     

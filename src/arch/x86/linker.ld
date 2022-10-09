@@ -1,45 +1,55 @@
 ENTRY(start)
 
+PHDRS
+{
+  text    PT_LOAD    FLAGS((1 << 0) | (1 << 2)) ; /* Execute + Read */
+  rodata  PT_LOAD    FLAGS((1 << 2)) ;            /* Read only */
+  data    PT_LOAD    FLAGS((1 << 1) | (1 << 2)) ; /* Write + Read */
+}
+
 SECTIONS {
-    /* lower half kernel ftw =D */
-    . = 1M;
-    _kernel_start =.;
+  /* lower half kernel ftw =D */
+  . = 1M;
+  _kernel_start =.;
 
-    .text BLOCK(4K) : ALIGN(4K)
-    {
-        *(.multiboot_header)
-        *(.pre_text)
-        text_begin = .;
-        *(.text)
-	}
+  .multiboot_header : {
+    *(.multiboot_header*)
+  } :text
 
-    .rodata BLOCK(4K) : ALIGN(4K)
-    {
-        start_ctors = .;
-        *(.ctors)
-        *(.init_array)
-        end_ctors = .;
-        *(.rodata)
-    }
+  .text : AT(ADDR(.text))
+  {
+    *(.pre_text)
+    text_begin = .;
+    *(.text)
+  } :text
 
-    .data BLOCK(4K) : ALIGN(4K)
-    {
-        *(.data)
-    }
+  .rodata ALIGN(4K) : AT(ADDR(.rodata))
+  {
+    start_ctors = .;
+    *(.ctors)
+    *(.init_array)
+    end_ctors = .;
+    *(.rodata)
+  } :rodata
 
-    .bss BLOCK(4K) : ALIGN(4K) 
-    {
-        *(COMMON)
-        *(.bss)
+  .data : AT(ADDR(.data))
+  {
+    *(.data)
+  } :data
 
-        *(.pts)
-        *(.heap)
-    }
+  .bss : AT(ADDR(.bss)) 
+  {
+    *(COMMON)
+    *(.bss)
+
+    *(.pts)
+    *(.heap)
+  } :data
     
-    _kernel_end = .;
-    _kernel_physical_end = . ;
+  _kernel_end = .;
+  _kernel_physical_end = . ;
 
-    /DISCARD/ :
+  /DISCARD/ :
 	{
 		*(.comment)
 		*(.eh_frame)
