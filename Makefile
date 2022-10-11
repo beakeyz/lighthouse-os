@@ -28,7 +28,7 @@ LD         = ./cross_compiler/bin/x86_64-pc-lightos-ld
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 
-KERNEL_OUT = lightos.elf
+KERNEL_OUT = $(OUT)/lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
 QEMUFLAGS := -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
@@ -45,7 +45,7 @@ CHARDFLAGS := -std=gnu99          \
 							-mno-mmx						\
 							-mno-80387					\
 							-m64 								\
-        			-mcmodel=kernel			\
+        			-mcmodel=large			\
 							-ffreestanding      \
         			-fno-exceptions 		\
 							-I./src             \
@@ -128,12 +128,12 @@ run-iso:
 	@qemu-system-x86_64 -monitor unix:qemu-monitor-socket,server,nowait -cpu qemu64,+x2apic  -cdrom out/lightos.iso -serial stdio -m 4G  -no-reboot -no-shutdown
 
 PHONY: make-iso
-make-iso: ./lightos.elf grub.cfg
-	mkdir -p out/isofiles/boot/grub
-	cp grub.cfg out/isofiles/boot/grub
-	cp ./lightos.elf out/isofiles/boot
-	cp ./kernel.map out/isofiles/boot
-	grub-mkrescue -o out/lightos.iso out/isofiles
+make-iso: $(KERNEL_OUT) grub.cfg
+	mkdir -p $(OUT)/isofiles/boot/grub
+	cp grub.cfg $(OUT)/isofiles/boot/grub
+	cp $(OUT)/lightos.elf $(OUT)/isofiles/boot
+	cp $(OUT)/lightos.map $(OUT)/isofiles/boot
+	grub-mkrescue -o $(OUT)/lightos.iso $(OUT)/isofiles
 
 PHONY: check-multiboot
 check-multiboot:

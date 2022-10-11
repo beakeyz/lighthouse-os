@@ -1,50 +1,48 @@
 ENTRY(start)
 
-PHDRS
-{
-  text    PT_LOAD    FLAGS((1 << 0) | (1 << 2)) ; /* Execute + Read */
-  rodata  PT_LOAD    FLAGS((1 << 2)) ;            /* Read only */
-  data    PT_LOAD    FLAGS((1 << 1) | (1 << 2)) ; /* Write + Read */
-}
-
 SECTIONS {
   /* lower half kernel ftw =D */
   . = 1M;
   _kernel_start =.;
+  _kernel_virt_off = 0xffffffff80000000;
 
   .multiboot_header : {
     *(.multiboot_header*)
-  } :text
+  } 
 
-  .text : AT(ADDR(.text))
-  {
+  .pre_text : {
     *(.pre_text)
+  }
+
+  . += _kernel_virt_off;
+  .text ALIGN(4K) : AT(ADDR(.text) - _kernel_virt_off)
+  {
     text_begin = .;
     *(.text)
-  } :text
+  } 
 
-  .rodata ALIGN(4K) : AT(ADDR(.rodata))
+  .rodata ALIGN(4K) : AT(ADDR(.rodata) - _kernel_virt_off)
   {
     start_ctors = .;
     *(.ctors)
     *(.init_array)
     end_ctors = .;
     *(.rodata)
-  } :rodata
+  }
 
-  .data : AT(ADDR(.data))
+  .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_off)
   {
     *(.data)
-  } :data
+  }
 
-  .bss : AT(ADDR(.bss)) 
+  .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_off) 
   {
     *(COMMON)
     *(.bss)
 
     *(.pts)
     *(.heap)
-  } :data
+  } 
     
   _kernel_end = .;
   _kernel_physical_end = . ;

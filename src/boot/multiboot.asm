@@ -45,9 +45,12 @@ section .pre_text
 [bits 32]
 align 4
 
+%define KERNEL_VIRTUAL_ADDR 0xFFFFFFFF80000000
+
 global start
 
 global boot_pdpt
+global boot_pdpt_hh
 global boot_pdt
 
 extern _start
@@ -62,18 +65,30 @@ start:
     mov edi, ebx ; Address of multiboot structure
     mov esi, eax ; Magic number
 
-    mov esp, stack_top
+    mov esp, stack_top - KERNEL_VIRTUAL_ADDR
     ; TODO: cpuid and PAE checks ect.  
 
-    mov eax, boot_pdpt
+    mov eax, boot_pdpt - KERNEL_VIRTUAL_ADDR
     or eax, 0x3
-    mov [boot_pml4t], eax
+    mov [boot_pml4t - KERNEL_VIRTUAL_ADDR], eax
 
-    mov eax, boot_pdt
+    mov eax, boot_pdpt_hh - KERNEL_VIRTUAL_ADDR
     or eax, 0x3
-    mov [boot_pdpt], eax
+    mov [(boot_pml4t - KERNEL_VIRTUAL_ADDR) + 511 * 8], eax
+  
+    mov eax, boot_pml4t - KERNEL_VIRTUAL_ADDR ; Mapping the PML4 into itself
+    or eax, 0x3
+    mov dword [(boot_pml4t - KERNEL_VIRTUAL_ADDR) + 510 * 8], eax
 
-    mov eax, boot_pdt
+    mov eax, boot_pdt - KERNEL_VIRTUAL_ADDR
+    or eax, 0x3
+    mov [boot_pdpt - KERNEL_VIRTUAL_ADDR], eax
+
+    mov eax, boot_pdt - KERNEL_VIRTUAL_ADDR
+    or eax, 0x3
+    mov [(boot_pdpt_hh - KERNEL_VIRTUAL_ADDR) + 510 * 8], eax
+
+    mov eax, boot_pdt - KERNEL_VIRTUAL_ADDR
     mov ebx, 0x83
     mov ecx, 32
 
@@ -87,7 +102,7 @@ start:
         jne .map_low_mem_entry
 
     ; set cr3
-    mov eax, boot_pml4t
+    mov eax, boot_pml4t - KERNEL_VIRTUAL_ADDR
     mov cr3, eax
 
     ; enable PAE
@@ -101,38 +116,15 @@ start:
     or eax, 1 << 8
     wrmsr
 
-
     ; enable paging
     mov eax, cr0
     or eax, 1 << 31
     or eax, 1 << 16
     mov cr0, eax
 
-    lgdt [gdtr]
-    jmp (0x8):(long_start)
+    lgdt [gdtr - KERNEL_VIRTUAL_ADDR]
+    jmp (0x8):(long_start - KERNEL_VIRTUAL_ADDR)
 
-; gdt
-align 8
-gdtr:
-    dw gdt_end - gdt_start
-    dq gdt_start
-gdt_start:
-    dq 0
-
-    dw 0
-    dw 0
-    db 0
-    db 0x9a
-    db 0x20
-    db 0
-
-    dw 0xffff
-    dw 0
-    db 0
-    db 0x92
-    db 0
-    db 0
-gdt_end:
 
 ; start of 64 bit madness
 [bits 64]
@@ -141,6 +133,7 @@ section .text
 
 ; start lol
 long_start:
+    
     cli 
     cld
     ; update seg registers with new gdt data
@@ -164,6 +157,32 @@ loopback:
     hlt
     jmp loopback
 
+section .rodata
+
+; gdt
+align 4
+gdtr:
+    dw gdt_end - gdt_start - 1
+    dq gdt_start - KERNEL_VIRTUAL_ADDR
+gdt_start:
+    dq 0
+
+    dw 0
+    dw 0
+    db 0
+    db 0x9a
+    db 0x20
+    db 0
+
+    dw 0xffff
+    dw 0
+    db 0
+    db 0x92
+    db 0
+    db 0
+gdt_end:
+
+
 section .pts 
 
 ; Only for 64 bit
@@ -171,6 +190,8 @@ align 4096
 boot_pml4t:
     times 4096 db 0
 boot_pdpt:
+    times 4096 db 0
+boot_pdpt_hh:
     times 4096 db 0
 boot_pdt:
     times 4096 db 0

@@ -74,10 +74,13 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr, uintptr_t f
 
     for (size_t i = 0; i < pd_count; ++i) {
         low_base_pmls[1][i].raw_bits = (uint64_t)&low_base_pmls[2+i] | 0x03;
+        println("loop");
         for (size_t j = 0; j < 512; ++j) {
             low_base_pmls[2+i][j].raw_bits = (uint64_t)(PAGE_SIZE_BYTES * i + SMALL_PAGE_SIZE * j) | 0x03;
+            println("loop 2");
         }
     }
+
 
     low_base_pmls[2][0].raw_bits = 0;
 
