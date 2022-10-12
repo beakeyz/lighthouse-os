@@ -1,9 +1,9 @@
 /*
 * For legacy pic support
 */
+#ifndef __C_PIC___
+#define __C_PIC___
 
-#ifndef __PIC__
-#define __PIC__
 #include <libk/stddef.h>
 
 #define PIC_EOI_CODE    0x20
@@ -33,4 +33,4 @@ void disable_pic ();
 
 void pic_eoi (uint8_t num);
 
-#endif // !__PIC__
+#endif // !__C_PIC___

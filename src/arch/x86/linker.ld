@@ -4,7 +4,6 @@ SECTIONS {
   /* lower half kernel ftw =D */
   . = 1M;
   _kernel_start =.;
-  _kernel_virt_off = 0xffffffff80000000;
 
   .multiboot_header : {
     *(.multiboot_header*)
@@ -14,14 +13,13 @@ SECTIONS {
     *(.pre_text)
   }
 
-  . += _kernel_virt_off;
-  .text ALIGN(4K) : AT(ADDR(.text) - _kernel_virt_off)
+  .text ALIGN(4K) : AT(ADDR(.text) )
   {
     text_begin = .;
     *(.text)
   } 
 
-  .rodata ALIGN(4K) : AT(ADDR(.rodata) - _kernel_virt_off)
+  .rodata ALIGN(4K) : AT(ADDR(.rodata) )
   {
     start_ctors = .;
     *(.ctors)
@@ -30,12 +28,12 @@ SECTIONS {
     *(.rodata)
   }
 
-  .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_off)
+  .data ALIGN(4K) : AT(ADDR(.data) )
   {
     *(.data)
   }
 
-  .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_off) 
+  .bss ALIGN(4K) : AT(ADDR(.bss) ) 
   {
     *(COMMON)
     *(.bss)

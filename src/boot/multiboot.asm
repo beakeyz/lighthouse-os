@@ -45,8 +45,6 @@ section .pre_text
 [bits 32]
 align 4
 
-%define KERNEL_VIRTUAL_ADDR 0xFFFFFFFF80000000
-
 global start
 
 global boot_pdpt
@@ -65,30 +63,30 @@ start:
     mov edi, ebx ; Address of multiboot structure
     mov esi, eax ; Magic number
 
-    mov esp, stack_top - KERNEL_VIRTUAL_ADDR
+    mov esp, stack_top
     ; TODO: cpuid and PAE checks ect.  
 
-    mov eax, boot_pdpt - KERNEL_VIRTUAL_ADDR
+    mov eax, boot_pdpt
     or eax, 0x3
-    mov [boot_pml4t - KERNEL_VIRTUAL_ADDR], eax
+    mov [boot_pml4t], eax
 
-    mov eax, boot_pdpt_hh - KERNEL_VIRTUAL_ADDR
+    mov eax, boot_pdpt_hh
     or eax, 0x3
-    mov [(boot_pml4t - KERNEL_VIRTUAL_ADDR) + 511 * 8], eax
+    mov [(boot_pml4t) + 511 * 8], eax
   
-    mov eax, boot_pml4t - KERNEL_VIRTUAL_ADDR ; Mapping the PML4 into itself
+    mov eax, boot_pml4t ; Mapping the PML4 into itself
     or eax, 0x3
-    mov dword [(boot_pml4t - KERNEL_VIRTUAL_ADDR) + 510 * 8], eax
+    mov dword [(boot_pml4t) + 510 * 8], eax
 
-    mov eax, boot_pdt - KERNEL_VIRTUAL_ADDR
+    mov eax, boot_pdt
     or eax, 0x3
-    mov [boot_pdpt - KERNEL_VIRTUAL_ADDR], eax
+    mov [boot_pdpt], eax
 
-    mov eax, boot_pdt - KERNEL_VIRTUAL_ADDR
+    mov eax, boot_pdt
     or eax, 0x3
-    mov [(boot_pdpt_hh - KERNEL_VIRTUAL_ADDR) + 510 * 8], eax
+    mov [(boot_pdpt_hh) + 510 * 8], eax
 
-    mov eax, boot_pdt - KERNEL_VIRTUAL_ADDR
+    mov eax, boot_pdt
     mov ebx, 0x83
     mov ecx, 32
 
@@ -102,7 +100,7 @@ start:
         jne .map_low_mem_entry
 
     ; set cr3
-    mov eax, boot_pml4t - KERNEL_VIRTUAL_ADDR
+    mov eax, boot_pml4t
     mov cr3, eax
 
     ; enable PAE
@@ -122,8 +120,8 @@ start:
     or eax, 1 << 16
     mov cr0, eax
 
-    lgdt [gdtr - KERNEL_VIRTUAL_ADDR]
-    jmp (0x8):(long_start - KERNEL_VIRTUAL_ADDR)
+    lgdt [gdtr]
+    jmp (0x8):(long_start)
 
 
 ; start of 64 bit madness
@@ -163,7 +161,7 @@ section .rodata
 align 4
 gdtr:
     dw gdt_end - gdt_start - 1
-    dq gdt_start - KERNEL_VIRTUAL_ADDR
+    dq gdt_start
 gdt_start:
     dq 0
 
