@@ -2,7 +2,7 @@ ENTRY(start)
 
 SECTIONS {
   /* lower half kernel ftw =D */
-  . = 1M;
+  . = 0x100000;
   _kernel_start =.;
 
   .multiboot_header : {
@@ -13,13 +13,13 @@ SECTIONS {
     *(.pre_text)
   }
 
-  .text ALIGN(4K) : AT(ADDR(.text) )
+  .text ALIGN(8) : AT(ADDR(.text) )
   {
     text_begin = .;
     *(.text)
   } 
 
-  .rodata ALIGN(4K) : AT(ADDR(.rodata) )
+  .rodata ALIGN(8) : AT(ADDR(.rodata) )
   {
     start_ctors = .;
     *(.ctors)
@@ -28,12 +28,12 @@ SECTIONS {
     *(.rodata)
   }
 
-  .data ALIGN(4K) : AT(ADDR(.data) )
+  .data ALIGN(8) : AT(ADDR(.data) )
   {
     *(.data)
   }
 
-  .bss ALIGN(4K) : AT(ADDR(.bss) ) 
+  .bss ALIGN(8) : AT(ADDR(.bss) ) 
   {
     *(COMMON)
     *(.bss)

@@ -24,7 +24,9 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
 static void hang() {
-  asm volatile("hlt");
+  while (true) {
+    asm volatile("hlt");
+  }
   __builtin_unreachable();
 }
 
@@ -38,6 +40,7 @@ int thing(registers_t *regs) {
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_serial();
+  println(to_string((uint64_t)_start));
 
   for (ctor_func_t *constructor = start_ctors; constructor < end_ctors;
        constructor++) {
@@ -74,7 +77,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   setup_gdt();
   setup_idt();
 
-  // enable_interupts();
+  enable_interupts();
   // okay, whats happening:
   // 1 - pic tries to issue an interrupt to the cpu
   // 2 - our cpu looks at it and goes to the idt to do some lookups
@@ -92,16 +95,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
   init_fb(fb);
 
-  list_t* list = kmalloc(sizeof(list_t)); 
-  memset(list, 0, sizeof(list_t));
-
-  node_t* node = kmalloc(sizeof(node_t));
-  memset(node, 0, sizeof(node_t));
-
-  node->data = (void*)696969;
-  list->head = node;
-
-  println(to_string((uint64_t)list->head->data));
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;
   // 1. [X] parse the multiboot header and get the data we need from the

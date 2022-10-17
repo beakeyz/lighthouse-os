@@ -48,6 +48,9 @@ align 4
 global start
 
 global boot_pdpt
+; We will still keep this map here (for now)
+; I'll have to remember the fact that we practically have a dormant pd here
+; so I can clean it up later...
 global boot_pdpt_hh
 global boot_pdt
 
@@ -59,32 +62,20 @@ global stack_top
 ; So: check for paging, check for memory (?), check for errors
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
 start:
-    
+
     mov edi, ebx ; Address of multiboot structure
     mov esi, eax ; Magic number
 
     mov esp, stack_top
     ; TODO: cpuid and PAE checks ect.  
-
+    
     mov eax, boot_pdpt
     or eax, 0x3
     mov [boot_pml4t], eax
 
-    mov eax, boot_pdpt_hh
-    or eax, 0x3
-    mov [(boot_pml4t) + 511 * 8], eax
-  
-    mov eax, boot_pml4t ; Mapping the PML4 into itself
-    or eax, 0x3
-    mov dword [(boot_pml4t) + 510 * 8], eax
-
     mov eax, boot_pdt
     or eax, 0x3
     mov [boot_pdpt], eax
-
-    mov eax, boot_pdt
-    or eax, 0x3
-    mov [(boot_pdpt_hh) + 510 * 8], eax
 
     mov eax, boot_pdt
     mov ebx, 0x83
@@ -143,7 +134,6 @@ long_start:
     mov gs, ax  ; extra segment register
 
     mov rsp, stack_top
-    push rsp
     
     call _start
     

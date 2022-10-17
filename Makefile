@@ -122,11 +122,6 @@ PHONY:run
 run:
 	@qemu-system-x86_64 $(QEMUFLAGS)
 
-# dumb *spit*
-PHONY:run-iso
-run-iso:
-	@qemu-system-x86_64 -monitor unix:qemu-monitor-socket,server,nowait -cpu qemu64,+x2apic  -cdrom out/lightos.iso -serial stdio -m 4G  -no-reboot -no-shutdown
-
 PHONY: make-iso
 make-iso: $(KERNEL_OUT) grub.cfg
 	mkdir -p $(OUT)/isofiles/boot/grub
