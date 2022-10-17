@@ -41,7 +41,7 @@ index cf1a87e2e..0ea5c7fa7 100644
  *-*-darwin*)
    tmake_file="t-darwin "
    tm_file="${tm_file} darwin.h"
-@@ -1033,6 +1040,12 @@ case ${target} in
+@@ -1033,6 +1040,13 @@ case ${target} in
  esac
  
  case ${target} in
@@ -49,6 +49,7 @@ index cf1a87e2e..0ea5c7fa7 100644
 +    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h lightos.h"
 +    ;;
 +x86_64-*-lightos*)
++    tmake_file="${tmake_file} i386/t-x86_64-elf" # include the new multilib configuration
 +    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h lightos.h"
 +    ;;
  aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
@@ -6104,4 +6105,13 @@ index fe1828835..7a717c65e 100644
    arm*-*-symbianelf*)
      # This is a freestanding configuration; there is nothing to do here.
      ;;
-
+diff --git a/gcc/config/i386/t-x86_64-elf b/gcc/config/i386/t-x86_64-elf                                                                 
+new file mode 100644                                                                                                                     
+index 000000000..6a36eeb09                                                                                                               
+--- /dev/null                                                                                                                            
++++ b/gcc/config/i386/t-x86_64-elf                                                                                                       
+@@ -0,0 +1,4 @@                                                                                                                          
++# Add libgcc multilib variant without red-zone requirement                                                                              
++                                                                                                                                        
++MULTILIB_OPTIONS += mno-red-zone                                                                                                        
++MULTILIB_DIRNAMES += no-red-zone

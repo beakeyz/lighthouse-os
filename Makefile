@@ -33,55 +33,29 @@ KERNEL_OUT = $(OUT)/lightos.elf
 # TODO: these flags are also too messy, clean this up too
 QEMUFLAGS := -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
 
-CHARDFLAGS := -std=gnu99          \
+CHARDFLAGS := $(CFLAGS) -std=gnu11\
 	    				-Wall 							\
 							-Wextra 						\
         			-O2 								\
-							-nostdlib 					\
-							-nostdinc 					\
+							-fpie								\
 							-mno-red-zone 			\
         			-mno-sse 						\
 							-mno-sse2						\
 							-mno-mmx						\
 							-mno-80387					\
 							-m64 								\
+							-march=x86-64           \
         			-mcmodel=large			\
 							-ffreestanding      \
         			-fno-exceptions 		\
+							-MMD								\
 							-I./src             \
         			-I./libraries/			\
-
-CXXHARDFLAGS := $(CFLAGS)               \
-        -std=c++20                     \
-        -g \
-        -masm=intel                    \
-        -fno-pic                       \
-        -no-pie \
-        -m64 \
-	    -Wall \
-	    -MD \
-		-msse \
-		-mavx \
-	    -MMD \
-	    -Werror \
-        -O3 \
-		-nostdlib \
-        -mcmodel=kernel \
-        -mno-80387                     \
-        -mno-red-zone                  \
-        -fno-rtti \
-        -fno-exceptions \
-	    -ffreestanding                 \
-        -fno-stack-protector           \
-        -fno-omit-frame-pointer        \
-	    -fno-isolate-erroneous-paths-attribute \
-        -fno-delete-null-pointer-checks \
-        -I./src                        \
-        -I./libraries/
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := -T $(LINK_PATH) 				\
 							 -Map $(OUT)/lightos.map \
+							 -m elf_x86_64                          \
 
 
 # TODO: this is messy, refactor this.
@@ -90,17 +64,13 @@ $(OUT)/%.o: %.c
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (c) $<"
 	@$(CC) $(CHARDFLAGS) -c $< -o $@
-$(OUT)/%.o: %.cpp 
-	@$(DIRECTORY_GUARD)
-	@echo "[KERNEL $(ARCH)] (cpp) $<"
-	@$(CXX) $(CXXHARDFLAGS) -c $< -o $@
 %.h : %.h 
 	@echo "[KERNEL $(ARCH)] (h) $<"
 
 $(OUT)/%.o: %.asm
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (asm) $<"
-	@$(NASM) $< -o $@ -felf64 -F dwarf -g -w+all -Werror
+	@$(NASM) $< -o $@ -f elf64 
 
 # NOTE: instead of taking all the obj vars indevidually, we might just be able to grab them all from the $(OBJ) variable
 .PHONY:$(KERNEL_OUT)
