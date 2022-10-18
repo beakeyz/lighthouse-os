@@ -117,7 +117,7 @@ start:
 
 ; start of 64 bit madness
 [bits 64]
-align 8
+align 4
 section .text
 
 ; start lol
@@ -125,6 +125,9 @@ long_start:
     
     cli 
     cld
+
+    lgdt [gdtr]
+
     ; update seg registers with new gdt data
     mov ax, 0x10
     mov ss, ax  ; Stack segment selector
@@ -148,7 +151,7 @@ loopback:
 section .rodata
 
 ; gdt
-align 4
+align 8
 gdtr:
     dw gdt_end - gdt_start - 1
     dq gdt_start

@@ -19,7 +19,7 @@ gcc_url=https://ftp.nluug.nl/languages/gcc/releases/gcc-10.1.0/
 
 # general exports and crap
 export CC_PATH="$PWD/cross_compiler"
-export TARGET="x86_64-pc-lightos"
+export TARGET="x86_64-elf"
 # possible:
 #           x86_64-elf          (64 bit mode apperantly)
 #           i686-elf            (32 bit mode (?))
@@ -112,8 +112,8 @@ setup_src "$url/binutils/$binutils_file" "$binutils_file"
 setup_src "$gcc_url/$gcc_file" "$gcc_file"
 
 # step 1: apply patches
-_patch "$BINUTILS_SRC" "binutils.patch"
-_patch "$GCC_SRC" "gcc.patch"
+#_patch "$BINUTILS_SRC" "binutils.patch"
+#_patch "$GCC_SRC" "gcc.patch"
 
 # gcc prerequisites
 log "Fixing gcc prerequisites"
@@ -130,7 +130,6 @@ log "Configuring binutils"
 cd binutils
 "$BINUTILS_SRC/configure" --target="$TARGET" 	\
         --prefix="$CC_PATH" 	\
-        --with-sysroot=$SYSROOT		\
         --disable-nls 		\
         --disable-werror
 
@@ -146,9 +145,8 @@ cd gcc
 "$GCC_SRC/configure" --target="$TARGET" \
         --prefix="$CC_PATH" 		\
         --disable-nls			\
-        --enable-languages=c,c++	\
-        --with-newlib \
-        --with-sysroot=$SYSROOT
+        --enable-languages=c	\
+        -without-headers \
 
 log "Making gcc . . ."
 make all-gcc -j$(nproc)

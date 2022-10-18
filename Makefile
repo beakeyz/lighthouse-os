@@ -22,9 +22,8 @@ ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 LINK_PATH := ./src/arch/$(ARCH)/linker.ld
 
 NASM	   = /usr/bin/nasm
-CC         = ./cross_compiler/bin/x86_64-pc-lightos-gcc
-CXX        = ./cross_compiler/bin/x86_64-pc-lightos-g++
-LD         = ./cross_compiler/bin/x86_64-pc-lightos-ld
+CC         = ./cross_compiler/bin/x86_64-elf-gcc
+LD         = ./cross_compiler/bin/x86_64-elf-ld
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 
@@ -33,12 +32,9 @@ KERNEL_OUT = $(OUT)/lightos.elf
 # TODO: these flags are also too messy, clean this up too
 QEMUFLAGS := -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
 
-CHARDFLAGS := $(CFLAGS) -std=gnu11\
+CHARDFLAGS := $(CFLAGS) -std=gnu99\
 	    				-Wall 							\
-							-Wextra 						\
         			-O2 								\
-							-fpie								\
-							-mno-red-zone 			\
         			-mno-sse 						\
 							-mno-sse2						\
 							-mno-mmx						\
