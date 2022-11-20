@@ -55,9 +55,6 @@ void init_pic() {
   out8(PIC1_DATA, mask1);
   out8(PIC2_DATA, mask2);
 
-  out8(PIC1_DATA, 0b11111101);
-  out8(PIC2_DATA, 0xFF);
-
 
   // disable_pic();
 }

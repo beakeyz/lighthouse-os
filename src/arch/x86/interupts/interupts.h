@@ -13,7 +13,7 @@ typedef struct registers{
 	uintptr_t int_no, err_code;
 
 	uintptr_t rip, cs, rflags, rsp, ss;
-} registers_t;
+} __attribute__((packed)) registers_t;
 
 // handler func ptrs
 typedef struct registers* (*irq_handler_t)(struct registers*);

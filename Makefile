@@ -21,9 +21,9 @@ ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 
 LINK_PATH := ./src/arch/$(ARCH)/linker.ld
 
-NASM	   = /usr/bin/nasm
-CC         = ./cross_compiler/bin/x86_64-elf-gcc
-LD         = ./cross_compiler/bin/x86_64-elf-ld
+NASM	   		:= /usr/bin/nasm
+CC          := ./cross_compiler/bin/x86_64-elf-gcc
+LD         	:= ld 
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 
@@ -32,26 +32,34 @@ KERNEL_OUT = $(OUT)/lightos.elf
 # TODO: these flags are also too messy, clean this up too
 QEMUFLAGS := -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
 
-CHARDFLAGS := $(CFLAGS) -std=gnu99\
+CHARDFLAGS := -std=gnu11          \
 	    				-Wall 							\
+							-nostdlib						\
         			-O2 								\
         			-mno-sse 						\
 							-mno-sse2						\
 							-mno-mmx						\
 							-mno-80387					\
+							-mno-red-zone				\
 							-m64 								\
 							-march=x86-64           \
         			-mcmodel=large			\
 							-ffreestanding      \
+							-fno-stack-protector    \
+					    -fno-stack-check        \
+							-fshort-wchar           \
+							-fno-lto                \
+							-fpie                   \
         			-fno-exceptions 		\
 							-MMD								\
 							-I./src             \
         			-I./libraries/			\
 
 #-z max-page-size=0x1000
-LDHARDFLAGS := -T $(LINK_PATH) 				\
-							 -Map $(OUT)/lightos.map \
-							 -m elf_x86_64                          \
+LDHARDFLAGS := -T $(LINK_PATH) 						\
+							 -Map $(OUT)/lightos.map		\
+							 -m elf_x86_64              \
+							 -z max-page-size=0x1000    \
 
 
 # TODO: this is messy, refactor this.
@@ -81,8 +89,11 @@ debug: make-iso run
 
 PHONY:clean
 clean:
-	-rm -f $(DPEND_FILES)
-	-rm -f $(KERNEL_OUT) $(OBJ)
+	@echo [CLEAN] Cleaning depends!
+	@rm -f $(DPEND_FILES)
+	@echo [CLEAN] Cleaning objects!
+	@rm -f $(KERNEL_OUT) $(OBJ)
+	@echo [CLEAN] Done!
 
 PHONY:run
 run:

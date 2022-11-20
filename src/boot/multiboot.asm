@@ -1,18 +1,4 @@
-[bits 32]
 section .multiboot_header
-
-; for funzies mb1 here too =) (our kernel will die if the bl decides "ye imma use this one =D")
-align 4
-mboot:
-	dd  0x1BADB002           ;Magic
-	dd  0x7                  ;Flags (4KiB-aligned modules, memory info, framebuffer info)
-	dd  -(0x1BADB002 + 0x7)  ;Checksum
-	times 5 dd 0
-	dd 0                      ;Graphics mode
-	dd 640                    ;Graphics width
-	dd 480                    ;Graphics height
-	dd 32                     ;Graphics depth
-mboot_end:
 
 align 8
 header_start:
@@ -34,6 +20,11 @@ mb_fb_tag:
     dd 768
     dd 32
 mb_fb_tag_end:
+
+    align 8
+    dw 6
+    dw 0
+    dd 8
 
     align 8
     dw 0    ;type
@@ -66,9 +57,13 @@ start:
     mov edi, ebx ; Address of multiboot structure
     mov esi, eax ; Magic number
 
-    mov esp, stack_top
+    mov esp, stack_top 
     ; TODO: cpuid and PAE checks ect.  
     
+    ; set cr3
+    mov eax, boot_pml4t
+    mov cr3, eax
+
     mov eax, boot_pdpt
     or eax, 0x3
     mov [boot_pml4t], eax
@@ -81,6 +76,7 @@ start:
     mov ebx, 0x83
     mov ecx, 32
 
+
     .map_low_mem_entry:
         mov [eax], ebx
         add ebx, 0x200000
@@ -90,13 +86,9 @@ start:
         cmp ecx, 0
         jne .map_low_mem_entry
 
-    ; set cr3
-    mov eax, boot_pml4t
-    mov cr3, eax
-
     ; enable PAE
     mov eax, cr4
-    or eax, 0x60
+    or eax, 32 
     mov cr4, eax
 
     ; set the long mode bit
@@ -114,6 +106,28 @@ start:
     lgdt [gdtr]
     jmp (0x8):(long_start)
 
+; gdt
+align 8
+gdtr:
+    dw gdt_end - gdt_start
+    dq gdt_start
+gdt_start:
+    dq 0
+
+    dw 0xffff
+    dw 0
+    db 0
+    db 0x9a
+    db 0x20
+    db 0
+
+    dw 0xffff
+    dw 0
+    db 0
+    db 0x92
+    db 0
+    db 0
+gdt_end:
 
 ; start of 64 bit madness
 [bits 64]
@@ -150,28 +164,6 @@ loopback:
 
 section .rodata
 
-; gdt
-align 8
-gdtr:
-    dw gdt_end - gdt_start - 1
-    dq gdt_start
-gdt_start:
-    dq 0
-
-    dw 0
-    dw 0
-    db 0
-    db 0x9a
-    db 0x20
-    db 0
-
-    dw 0xffff
-    dw 0
-    db 0
-    db 0x92
-    db 0
-    db 0
-gdt_end:
 
 
 section .pts 
@@ -187,14 +179,9 @@ boot_pdpt_hh:
 boot_pdt:
     times 4096 db 0
 
-section .bss
-align 4096
-end_of_mapped_memory:
-    resq 1
-; 16 kb stack
-
+section .stack
 align 8
 stack_bottom:
-    resb 16385
+    times 16385 db 0
 stack_top:
 

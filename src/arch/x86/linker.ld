@@ -1,20 +1,16 @@
+OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(start)
-
-#define PF_X 0x1
-#define PF_W 0x2
-#define PF_R 0x4
 
 PHDRS
 {
-  elf_headers PT_LOAD FILEHDR PHDRS FLAGS(PF_R) ;
-  text PT_LOAD FLAGS(PF_R | PF_X) ;
-  data PT_LOAD FLAGS(PF_R | PF_W) ;
-  bss PT_LOAD FLAGS(PF_R | PF_W) ;
+  elf_headers PT_LOAD FILEHDR PHDRS FLAGS(0x4) ;
+  text PT_LOAD FLAGS(0x4 | 0x1) ;
+  data PT_LOAD FLAGS(0x4 | 0x2) ;
+  bss PT_LOAD FLAGS(0x4 | 0x2) ;
 }
 
 SECTIONS {
-  /* lower half kernel ftw =D */
-  . = 0x100000;
+  . = 1M;
   _kernel_start =.;
 
   .elf_headers (SIZEOF_HEADERS) : AT (ADDR(.elf_headers) + SIZEOF_HEADERS)
@@ -50,6 +46,7 @@ SECTIONS {
     *(.bss*)
 
     *(.pts*)
+    *(.stack*)
     *(.heap*)
   } :bss
     

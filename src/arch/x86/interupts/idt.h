@@ -20,16 +20,16 @@ typedef struct {
 } __attribute__((packed)) idt_ptr_t;
 
 // TODO
-typedef struct {
-    uint16_t base_low;
-    uint16_t selector;
+typedef struct {          // + 0 bytes
+    uint16_t base_low;    // + 2 bytes
+    uint16_t selector;    // + 4 bytes
 
-    uint8_t ist;
-    uint8_t flags;
+    uint8_t ist;          // + 5 bytes
+    uint8_t flags;        // + 6 bytes
 
-    uint16_t base_mid;
-    uint32_t base_high;
-    uint32_t pad;
+    uint16_t base_mid;    // + 8 bytes
+    uint32_t base_high;   // + 12 bytes
+    uint32_t pad;         // + 16 bytes
 } __attribute__((packed)) idt_entry_t;
 
 
@@ -45,7 +45,7 @@ void handle_isr (struct registers* regs);
 // handle more shit
 void handle_irq (struct registers* regs);
 
-void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, void (*handler)() );
+void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, registers_t* (*handler)(registers_t*) );
 
 extern void flush_idt (uintptr_t ptr);
 

@@ -57,6 +57,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     hang();
   }
 
+  setup_idt();
+
   struct multiboot_tag_framebuffer *fb =
       get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   struct multiboot_tag_framebuffer_common fb_common = fb->common;
@@ -64,18 +66,9 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
                     first_valid_alloc_addr);
   init_kheap();
 
-  asm volatile("mov $0x277, %%ecx\n" /* IA32_MSR_PAT */
-               "rdmsr\n"
-               "or $0x1000000, %%edx\n"   /* set bit 56 */
-               "and $0xf9ffffff, %%edx\n" /* unset bits 57, 58 */
-               "wrmsr\n"
-               :
-               :
-               : "ecx", "edx", "eax");
 
-  // gdt
-  setup_gdt();
-  setup_idt();
+  out8(PIC1_DATA, 0b11111001);
+  out8(PIC2_DATA, 0b11101111);
 
   enable_interupts();
   // okay, whats happening:

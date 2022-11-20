@@ -1,4 +1,10 @@
-[bits 64]
+section .text
+
+global setup_gdt
+setup_gdt:
+  cli
+  lgdt [gdtr]
+
 global flush_gdt
 flush_gdt:
     cli
@@ -15,4 +21,26 @@ flush_gdt:
     push rdi
     retfq
 
+section .rodata
 
+gdtr:
+  dw gdt_end - gdt_start - 1
+  dd gdt_start
+
+gdt_start:
+  dq 0
+
+  dw 0xffff
+  dw 0x0000
+  db 0x00
+  db 0x9A
+  db 0b10101111
+  db 0x00
+
+  dw 0xffff
+  dw 0x0000
+  db 0x00
+  db 0x92
+  db 0x10101111
+  db 0x00
+gdt_end:

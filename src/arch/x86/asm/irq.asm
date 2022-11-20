@@ -1,6 +1,7 @@
 ; This file will contain all the possible interrupts
 ; TODO:
-align 16
+bits 64
+align 8
 
 extern interrupt_handler
 
@@ -9,10 +10,30 @@ flush_idt:
     lidt  [rdi]
     ret
 
+%macro irq 1
+[global irq_%1]
+irq_%1:
+
+    push 0x00
+    push %1 ; In this case the error code is already present on the stack
+    save_context
+
+    cld
+
+    mov rdi, rsp
+    call interrupt_handler
+    mov rsp, rax
+
+    restore_context
+    add rsp, 16
+    iretq
+%endmacro
+
 %macro interrupt_service_routine 1
 [global interrupt_service_routine_%1]
 interrupt_service_routine_%1:
     ; When this macro is called the status registers are already on the stack
+    push 0x00
     push %1 ; pushing the interrupt number for easier identification by the handler
     
     save_context
@@ -34,6 +55,7 @@ interrupt_service_routine_%1:
 %macro interrupt_service_routine_error_code 1
 [global interrupt_service_routine_error_code_%1]
 interrupt_service_routine_error_code_%1:
+
     push %1 ; In this case the error code is already present on the stack
     save_context
 
@@ -104,23 +126,22 @@ interrupt_service_routine 15
 interrupt_service_routine 16
 interrupt_service_routine_error_code 17
 interrupt_service_routine 18
-interrupt_service_routine 32
-interrupt_service_routine 33
-interrupt_service_routine 34
-interrupt_service_routine 35
-interrupt_service_routine 36
-interrupt_service_routine 37
-interrupt_service_routine 38
-interrupt_service_routine 39
-interrupt_service_routine 40
-interrupt_service_routine 41
-interrupt_service_routine 42
-interrupt_service_routine 43
-interrupt_service_routine 44
-interrupt_service_routine 45
-interrupt_service_routine 46
-interrupt_service_routine 47
-interrupt_service_routine 255
+irq 32
+irq 33
+irq 34
+irq 35
+irq 36
+irq 37
+irq 38
+irq 39
+irq 40
+irq 41
+irq 42
+irq 43
+irq 44
+irq 45
+irq 46
+irq 47
 
 
 
