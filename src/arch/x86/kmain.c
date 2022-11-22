@@ -68,39 +68,10 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   setup_idt();
   init_interupts();
 
-  quick_print_node_sizes();
-
-  list_t* list = kmalloc(sizeof(list_t));
-
-  list->head = kmalloc(sizeof(node_t));
-  list->head->data = kmalloc(sizeof(uint8_t));
-  *(uint8_t*)(list->head->data) = 5;
-
-  println(to_string(*(uint8_t*)list->head->data));
-
-  quick_print_node_sizes();
-
-  kfree(list->head->data);
-  kfree(list->head);
-  kfree(list);
-  quick_print_node_sizes();
-
-
+  // NOTE: testhandler
   add_handler(1, thing);
 
   enable_interupts();
-  // okay, whats happening:
-  // 1 - pic tries to issue an interrupt to the cpu
-  // 2 - our cpu looks at it and goes to the idt to do some lookups
-  // 3 - the interrupt get triggerd and the ip along with the stack data get
-  // reserved 4 - the interrupt stub corresponding to the interupt number gets
-  // executed 5 - C handler gets called, and also returns 6 - cleanup, and iret
-  // 7 - control is given back to the kernel in the form of an ip restore
-  // somewhere here it goes wrong. it does not even seem to reach step 4, so
-  // that means the idt is probably not loaded correctly. or: our PIC is faulty?
-  // the GDT is broken? idt stubs are not registered right? it clearly is some
-  // kind of memory issue: the cpu tries to look at some memory location for
-  // some idt/gdt/irq/isr/whatever data, does not find jackcrap and crashes =/
 
   // common kinda gets lost or something, so we'll save it =)
   fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
@@ -113,8 +84,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we'll have to revisit this =\)
   // 2. [X] setup the memory manager, so we are able to consistantly allocate
   // pageframes, setup a heap and ultimately do all kinds of cool memory stuff
-  // 3. [ ] load a brand new GDT and IDT in preperation for step 4
-  // 4. [ ] setup interupts so exeptions can be handled and stuff (perhaps do
+  // 3. [X] load a brand new GDT and IDT in preperation for step 4
+  // 4. [X] setup interupts so exeptions can be handled and stuff (perhaps do
   // this first so we can catch pmm initialization errors?)
   //      -   also keyboard and mouse handlers ect.
   // 5. [ ] setup devices so we can have some propper communitaction between the
