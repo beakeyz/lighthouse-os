@@ -4,6 +4,7 @@
 #include <libk/io.h>
 #include <libk/stddef.h>
 
+// TODO: make work
 uint16_t _irq_mask_cache = 0xffff;
 
 static void enable_vector(uint8_t vec) {
@@ -55,8 +56,9 @@ void init_pic() {
   out8(PIC1_DATA, mask1);
   out8(PIC2_DATA, mask2);
 
+  out8(PIC1_DATA, 0b11111001);
+  out8(PIC2_DATA, 0b11111111);
 
-  // disable_pic();
 }
 
 void disable_pic() {

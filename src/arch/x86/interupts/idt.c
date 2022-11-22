@@ -25,8 +25,6 @@ void setup_idt() {
   memset(idt_entries, 0, sizeof(idt_entry_t) * MAX_IDT_ENTRIES);
   memset(&idtr, 0, sizeof(idtr));
 
-  init_interupts();
-
   idtr.limit = sizeof(idt_entry_t) * MAX_IDT_ENTRIES - 1;
   idtr.base = (uintptr_t)&idt_entries;
 
@@ -36,12 +34,3 @@ void setup_idt() {
 
 idt_entry_t get_idt(int idx) { return idt_entries[idx]; }
 
-void handle_isr(struct registers *regs) {
-  if (regs) {
-  }
-}
-
-void handle_irq(struct registers *regs) {
-  if (regs) {
-  }
-}

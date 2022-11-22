@@ -39,12 +39,6 @@ idt_entry_t get_idt (int idx);
 // install shit
 void setup_idt ();
 
-// handle shit
-void handle_isr (struct registers* regs);
-
-// handle more shit
-void handle_irq (struct registers* regs);
-
 void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, registers_t* (*handler)(registers_t*) );
 
 extern void flush_idt (uintptr_t ptr);

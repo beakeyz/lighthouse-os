@@ -56,14 +56,17 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     hang();
   }
 
-  setup_idt();
-
   struct multiboot_tag_framebuffer *fb =
       get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   struct multiboot_tag_framebuffer_common fb_common = fb->common;
   init_kmem_manager((uintptr_t)mb_addr, first_valid_addr,
                     first_valid_alloc_addr);
   init_kheap();
+
+
+  setup_gdt();
+  setup_idt();
+  init_interupts();
 
   quick_print_node_sizes();
 
@@ -82,8 +85,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   kfree(list);
   quick_print_node_sizes();
 
-  out8(PIC1_DATA, 0b11111001);
-  out8(PIC2_DATA, 0b11101111);
 
   add_handler(1, thing);
 

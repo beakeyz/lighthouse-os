@@ -8,6 +8,7 @@
 
 static irq_specific_handler_t handler_entries[16] = {NULL};
 
+// yeahahhhhh
 registers_t* interrupt_service_routine_0(registers_t *);
 registers_t* interrupt_service_routine_1(registers_t *);
 registers_t* interrupt_service_routine_2(registers_t *);
@@ -82,6 +83,7 @@ void init_interupts() {
   idt_set_gate(0x2e, 0x8E, 0x08, irq_46);
   idt_set_gate(0x2f, 0x8E, 0x08, irq_47);
 
+  // TODO: apic and shit?
   init_pic();
 }
 
@@ -108,6 +110,7 @@ void add_handler(size_t irq_num, irq_specific_handler_t handler_ptr) {
 }
 
 void remove_handler(size_t irq_num) {
+  disable_interupts();
   irq_specific_handler_t handler = handler_entries[irq_num];
   if (!handler) {
     // yikes
@@ -115,27 +118,23 @@ void remove_handler(size_t irq_num) {
   }
 
   handler_entries[irq_num] = nullptr;
+  enable_interupts();
 }
 
 // Traffic distribution function: finds the right handler for the right function
 static registers_t *_int_handler(struct registers *regs, int num) {
   irq_specific_handler_t handler = handler_entries[num - 32];
 
-  if (regs) {
-  }
-  if (!handler) {
-    // ack and return
-    println("no handler");
-    goto fail;
+  if (handler) {
+    if (handler(regs)) {
+
+      // ack and return
+      pic_eoi(num);
+      return regs;
+    }
   }
 
-  // TODO
-
-  if (handler(regs)) {
-    pic_eoi(num);
-    return regs;
-  }
-fail:
+  println("[INFO] no handler to catch interrupt");
   pic_eoi(num);
   return regs;
 }
@@ -143,8 +142,30 @@ fail:
 // main entrypoint for the interupts (from the asm)
 registers_t *interrupt_handler(struct registers *regs) {
   // TODO: call _int_handler
-  println("yeyz");
-  _int_handler(regs, regs->int_no);
+  switch (regs->int_no) {
+    // errors
+    // TODO: panic handlers
+
+    // irqs lol
+    case 32:
+    case 33:
+    case 34:
+    case 35:
+    case 36:
+    case 37:
+    case 38:
+    case 39:
+    case 40:
+    case 41:
+    case 42:
+    case 43:
+    case 44:
+    case 45:
+    case 46:
+    case 47:
+      _int_handler(regs, regs->int_no);
+      break; 
+  }
   return regs;
 }
 

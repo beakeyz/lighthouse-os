@@ -54,91 +54,91 @@ global stack_top
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
 start:
 
-    mov edi, ebx ; Address of multiboot structure
-    mov esi, eax ; Magic number
+  mov edi, ebx ; Address of multiboot structure
+  mov esi, eax ; Magic number
 
-    mov esp, stack_top 
-    ; TODO: cpuid and PAE checks ect.  
-    
-    ; set cr3
-    mov eax, boot_pml4t
-    mov cr3, eax
+  mov esp, stack_top 
+  ; TODO: cpuid and PAE checks ect.  
+  
+  ; set cr3
+  mov eax, boot_pml4t
+  mov cr3, eax
 
-    mov eax, boot_pdpt
-    or eax, 0x3
-    mov [boot_pml4t], eax
+  mov eax, boot_pdpt
+  or eax, 0x3
+  mov [boot_pml4t], eax
 
-    mov eax, boot_pdpt_hh
-    or eax, 0x3
-    mov [boot_pml4t + 511 * 8], eax
+  mov eax, boot_pdpt_hh
+  or eax, 0x3
+  mov [boot_pml4t + 511 * 8], eax
 
-    mov eax, boot_pml4t
-    or eax, 0x3
-    mov [boot_pml4t + 510 * 8], eax
+  mov eax, boot_pml4t
+  or eax, 0x3
+  mov [boot_pml4t + 510 * 8], eax
 
-    mov eax, boot_pdt
-    or eax, 0x3
-    mov [boot_pdpt], eax
+  mov eax, boot_pdt
+  or eax, 0x3
+  mov [boot_pdpt], eax
 
-    mov eax, boot_pdt
-    or eax, 0x3
-    mov [boot_pdpt_hh + 510 * 8], eax
+  mov eax, boot_pdt
+  or eax, 0x3
+  mov [boot_pdpt_hh + 510 * 8], eax
 
-    mov eax, boot_pdt
-    mov ebx, 0
-    mov ecx, 32
+  mov eax, boot_pdt
+  mov ebx, 0
+  mov ecx, 32
 
-    .map_low_mem_entry:
-        or ebx, 0x83
-        mov [eax], ebx
-        add ebx, 0x200000
-        add eax, 8
+  .map_low_mem_entry:
+      or ebx, 0x83
+      mov [eax], ebx
+      add ebx, 0x200000
+      add eax, 8
 
-        dec ecx
-        cmp ecx, 0
-        jne .map_low_mem_entry
+      dec ecx
+      cmp ecx, 0
+      jne .map_low_mem_entry
 
-    ; enable PAE
-    mov eax, cr4
-    or eax, 32 
-    mov cr4, eax
+  ; enable PAE
+  mov eax, cr4
+  or eax, 32 
+  mov cr4, eax
 
-    ; set the long mode bit
-    mov ecx, 0xC0000080
-    rdmsr
-    or eax, 1 << 8
-    wrmsr
+  ; set the long mode bit
+  mov ecx, 0xC0000080
+  rdmsr
+  or eax, 1 << 8
+  wrmsr
 
-    ; enable paging
-    mov eax, cr0
-    or eax, 1 << 31
-    or eax, 1 << 16
-    mov cr0, eax
+  ; enable paging
+  mov eax, cr0
+  or eax, 1 << 31
+  or eax, 1 << 16
+  mov cr0, eax
 
-    lgdt [gdtr]
-    jmp (0x8):(long_start)
+  lgdt [gdtr]
+  jmp (0x8):(long_start)
 
 ; gdt
 align 8
 gdtr:
-    dw gdt_end - gdt_start
-    dq gdt_start
+  dw gdt_end - gdt_start
+  dq gdt_start
 gdt_start:
-    dq 0
+  dq 0
 
-    dw 0xffff
-    dw 0
-    db 0
-    db 0x9a
-    db 0x20
-    db 0
+  dw 0xffff
+  dw 0
+  db 0
+  db 0x9a
+  db 0x20
+  db 0
 
-    dw 0xffff
-    dw 0
-    db 0
-    db 0x92
-    db 0
-    db 0
+  dw 0xffff
+  dw 0
+  db 0
+  db 0x92
+  db 0
+  db 0
 gdt_end:
 
 ; start of 64 bit madness
@@ -148,31 +148,31 @@ section .text
 
 ; start lol
 long_start:
-    
-    cli 
-    cld
+  
+  cli 
+  cld
 
-    lgdt [gdtr]
+  lgdt [gdtr]
 
-    ; update seg registers with new gdt data
-    mov ax, 0x10
-    mov ss, ax  ; Stack segment selector
-    mov ds, ax  ; data segment register
-    mov es, ax  ; extra segment register
-    mov fs, ax  ; extra segment register
-    mov gs, ax  ; extra segment register
+  ; update seg registers with new gdt data
+  mov ax, 0x10
+  mov ss, ax  ; Stack segment selector
+  mov ds, ax  ; data segment register
+  mov es, ax  ; extra segment register
+  mov fs, ax  ; extra segment register
+  mov gs, ax  ; extra segment register
 
-    mov rsp, stack_top
-    
-    call _start
-    
-    mov rax, 0x2f592f412f4b2f4f
-    mov qword [0xb8000], rax
+  mov rsp, stack_top
+  
+  call _start
+  
+  mov rax, 0x2f592f412f4b2f4f
+  mov qword [0xb8000], rax
 
 loopback:
-    cli
-    hlt
-    jmp loopback
+  cli
+  hlt
+  jmp loopback
 
 section .rodata
 
@@ -183,17 +183,17 @@ section .pts
 ; Only for 64 bit
 align 4096
 boot_pml4t:
-    times 4096 db 0
+  times 4096 db 0
 boot_pdpt:
-    times 4096 db 0
+  times 4096 db 0
 boot_pdpt_hh:
-    times 4096 db 0
+  times 4096 db 0
 boot_pdt:
-    times 4096 db 0
+  times 4096 db 0
 
 section .stack
 align 8
 stack_bottom:
-    times 16385 db 0
+  times 16385 db 0
 stack_top:
 
