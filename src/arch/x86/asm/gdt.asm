@@ -41,6 +41,6 @@ gdt_start:
   dw 0x0000
   db 0x00
   db 0x92
-  db 0x10101111
+  db 0b10101111
   db 0x00
 gdt_end:

@@ -104,7 +104,7 @@ void add_handler(size_t irq_num, irq_specific_handler_t handler_ptr) {
 
   println("added handler");
   handler_entries[irq_num] = handler_ptr;
-  disable_interupts();
+  enable_interupts();
 }
 
 void remove_handler(size_t irq_num) {

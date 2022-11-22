@@ -30,10 +30,10 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = $(OUT)/lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS := -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
+QEMUFLAGS := -m 1G -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
-	    				-Wall 							\
+							-Wall 							\
 							-nostdlib						\
         			-O2 								\
         			-mno-sse 						\
@@ -43,14 +43,14 @@ CHARDFLAGS := -std=gnu11          \
 							-mno-red-zone				\
 							-m64 								\
 							-march=x86-64           \
-        			-mcmodel=large			\
+							-mcmodel=large			\
 							-ffreestanding      \
 							-fno-stack-protector    \
 					    -fno-stack-check        \
 							-fshort-wchar           \
 							-fno-lto                \
 							-fpie                   \
-        			-fno-exceptions 		\
+							-fno-exceptions 		\
 							-MMD								\
 							-I./src             \
         			-I./libraries/			\
@@ -58,9 +58,7 @@ CHARDFLAGS := -std=gnu11          \
 #-z max-page-size=0x1000
 LDHARDFLAGS := -T $(LINK_PATH) 						\
 							 -Map $(OUT)/lightos.map		\
-							 -m elf_x86_64              \
 							 -z max-page-size=0x1000    \
-
 
 # TODO: this is messy, refactor this.
 -include $(DPEND_FILES)
@@ -84,10 +82,10 @@ $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 
 # TODO: this just builds and runs the kernel for now, but 
 # I'd like to have actual debugging capabilities in the future
-PHONY:debug
-debug: make-iso run
+.PHONY: debug
+debug: iso run
 
-PHONY:clean
+.PHONY: clean
 clean:
 	@echo [CLEAN] Cleaning depends!
 	@rm -f $(DPEND_FILES)
@@ -95,22 +93,26 @@ clean:
 	@rm -f $(KERNEL_OUT) $(OBJ)
 	@echo [CLEAN] Done!
 
-PHONY:run
+.PHONY: build
+build: $(KERNEL_OUT)
+
+.PHONY: run
 run:
 	@qemu-system-x86_64 $(QEMUFLAGS)
 
-PHONY: make-iso
-make-iso: $(KERNEL_OUT) grub.cfg
+
+.PHONY: iso
+iso: $(KERNEL_OUT) grub.cfg
 	mkdir -p $(OUT)/isofiles/boot/grub
 	cp grub.cfg $(OUT)/isofiles/boot/grub
 	cp $(OUT)/lightos.elf $(OUT)/isofiles/boot
 	cp $(OUT)/lightos.map $(OUT)/isofiles/boot
 	grub-mkrescue -o $(OUT)/lightos.iso $(OUT)/isofiles
 
-PHONY: check-multiboot
+.PHONY: check-multiboot
 check-multiboot:
 	grub-file --is-x86-multiboot ./$(KERNEL_OUT)
 
-PHONY: check-multiboot2
+.PHONY: check-multiboot2
 check-multiboot2:
 	grub-file --is-x86-multiboot2 ./$(KERNEL_OUT)

@@ -34,7 +34,7 @@ header_end:
 
 section .pre_text
 [bits 32]
-align 4
+align 4096
 
 global start
 
@@ -68,16 +68,28 @@ start:
     or eax, 0x3
     mov [boot_pml4t], eax
 
+    mov eax, boot_pdpt_hh
+    or eax, 0x3
+    mov [boot_pml4t + 511 * 8], eax
+
+    mov eax, boot_pml4t
+    or eax, 0x3
+    mov [boot_pml4t + 510 * 8], eax
+
     mov eax, boot_pdt
     or eax, 0x3
     mov [boot_pdpt], eax
 
     mov eax, boot_pdt
-    mov ebx, 0x83
+    or eax, 0x3
+    mov [boot_pdpt_hh + 510 * 8], eax
+
+    mov eax, boot_pdt
+    mov ebx, 0
     mov ecx, 32
 
-
     .map_low_mem_entry:
+        or ebx, 0x83
         mov [eax], ebx
         add ebx, 0x200000
         add eax, 8

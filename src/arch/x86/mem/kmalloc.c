@@ -38,7 +38,11 @@ void quick_print_node_sizes() {
         if (node->flags == KHEAP_FREE_FLAG) {
             print("(free) ");
         }
-        println(to_string(node->size));
+        print("true size: ");
+        print(to_string(node->size));
+
+        print(" size: ");
+        println(to_string(node->size - sizeof(heap_node_t)));
 
         node = node->next;
     }

@@ -31,8 +31,7 @@ static void hang() {
 }
 
 int thing(registers_t *regs) {
-  if (regs) {
-  }
+  uint8_t sc = in8(0x60);
   println("funnie");
   return 1;
 }
@@ -66,9 +65,27 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
                     first_valid_alloc_addr);
   init_kheap();
 
+  quick_print_node_sizes();
+
+  list_t* list = kmalloc(sizeof(list_t));
+
+  list->head = kmalloc(sizeof(node_t));
+  list->head->data = kmalloc(sizeof(uint8_t));
+  *(uint8_t*)(list->head->data) = 5;
+
+  println(to_string(*(uint8_t*)list->head->data));
+
+  quick_print_node_sizes();
+
+  kfree(list->head->data);
+  kfree(list->head);
+  kfree(list);
+  quick_print_node_sizes();
 
   out8(PIC1_DATA, 0b11111001);
   out8(PIC2_DATA, 0b11101111);
+
+  add_handler(1, thing);
 
   enable_interupts();
   // okay, whats happening:
