@@ -4,3 +4,14 @@
 #include <libk/string.h>
 #include <libk/stddef.h>
 
+void construct_tss_gdt() {
+
+  // make gdts with tss
+
+  // cpy stack ptr to tss entries
+
+  // load dat bitch
+  
+  // profit
+
+}

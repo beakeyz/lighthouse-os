@@ -53,6 +53,8 @@ typedef struct  {
 	gdt_entry_t tss_high;
 } __attribute__((packed)) __attribute__((aligned(0x1000))) _gdt_struct_t;
 
+void construct_tss_gdt();
+
 extern void setup_gdt();
 extern void flush_gdt ();
 #endif // !__GDT__
