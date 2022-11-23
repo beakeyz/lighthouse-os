@@ -7,6 +7,8 @@
 #include "arch/x86/multiboot.h"
 #include <libk/stddef.h>
 
+// Colorcode translation
+
 typedef struct fb_data {
     void *address;
     uint8_t bpp;
