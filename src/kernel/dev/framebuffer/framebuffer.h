@@ -4,7 +4,7 @@
 
 #ifndef __FRAMEBUFFER__
 #define __FRAMEBUFFER__
-#include "arch/x86/multiboot.h"
+#include <kernel/libk/multiboot.h>
 #include <libk/stddef.h>
 
 // Colorcode translation

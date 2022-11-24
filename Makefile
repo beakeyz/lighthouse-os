@@ -19,7 +19,7 @@ CXXOBJFILES := $(patsubst %.cpp,$(OUT)/%.o,$(CXXFILES))
 ASMFILES  := $(shell find $(SRC_PATHS) -type f -name '*.asm')
 ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 
-LINK_PATH := ./src/arch/$(ARCH)/linker.ld
+LINK_PATH := ./src/kernel/linker.ld
 
 NASM	   		:= /usr/bin/nasm
 CC          := ./cross_compiler/bin/x86_64-elf-gcc

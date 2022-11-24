@@ -1,7 +1,7 @@
 #ifndef __KMEM_MANAGER__
 #define __KMEM_MANAGER__
 
-#include <arch/x86/multiboot.h>
+#include <kernel/libk/multiboot.h>
 #include <libk/stddef.h>
 #include "pml.h"
 
@@ -68,7 +68,7 @@ typedef struct {
     uint8_t reserved_phys_count;
 } kmem_data_t;
 
-void init_kmem_manager (uint32_t mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
+void init_kmem_manager (uintptr_t* mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
 void prep_mmap (struct multiboot_tag_mmap* mmap);
 
 void parse_memmap ();

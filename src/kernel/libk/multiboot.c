@@ -1,5 +1,5 @@
-#include "arch/x86/dev/debug/serial.h"
-#include <arch/x86/multiboot.h>
+#include "multiboot.h"
+#include "kernel/dev/debug/serial.h"
 #include "libk/string.h"
 #include <libk/stddef.h>
 

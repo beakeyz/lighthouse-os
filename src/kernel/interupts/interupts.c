@@ -1,9 +1,9 @@
 #include "interupts.h"
-#include "arch/x86/interupts/idt.h"
-#include "arch/x86/mem/kmem_manager.h"
+#include "kernel/interupts/idt.h"
+#include "kernel/mem/kmem_manager.h"
 #include "libk/string.h"
-#include <arch/x86/dev/debug/serial.h>
-#include <arch/x86/interupts/control/pic.h>
+#include <kernel/dev/debug/serial.h>
+#include <kernel/interupts/control/pic.h>
 #include <libk/stddef.h>
 
 static irq_specific_handler_t handler_entries[16] = {NULL};

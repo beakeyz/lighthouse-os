@@ -3,7 +3,7 @@
 
 #ifndef __KMALLOC__
 #define __KMALLOC__
-#include "arch/x86/dev/debug/serial.h"
+#include "kernel/dev/debug/serial.h"
 #include <libk/stddef.h>
 
 #define KHEAP_USED_FLAG 0xFF

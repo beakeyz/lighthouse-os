@@ -1,9 +1,9 @@
 #include "kmem_manager.h"
-#include "arch/x86/dev/debug/serial.h"
-#include "arch/x86/kmain.h"
-#include "arch/x86/mem/kmalloc.h"
-#include "arch/x86/mem/pml.h"
-#include "arch/x86/multiboot.h"
+#include "kernel/dev/debug/serial.h"
+#include "kernel/kmain.h"
+#include "kernel/mem/kmalloc.h"
+#include "kernel/mem/pml.h"
+#include "kernel/libk/multiboot.h"
 #include "libk/linkedlist.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -42,7 +42,7 @@ pml_t low_base_pmls[34][standard_pd_entries] __def_pagemap;
 pml_t twom_high_pds[64][512] __def_pagemap;
 
 // TODO: page directory and range abstraction and stuff lol
-void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr,
+void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
                        uintptr_t first_valid_alloc_addr) {
   struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
   prep_mmap(mmap);
@@ -121,11 +121,9 @@ void init_kmem_manager(uint32_t mb_addr, uintptr_t first_valid_addr,
   // but I'll keep it here (commented) for now, since it does not harm anyone
   // parse_memmap();
 
-  frames = (void *)((uintptr_t)KRNL_HEAP_START);
-  // FIXME: I would like to fuck up the heap, but there is a lil issue that's
-  // kinda preventing me from doing so, namely just the fact that this little
-  // memset kinda corrupts my whole memoryspace -_-
-  // memset((void*)frames, 0xFF, frames_bytes);
+  // prepare bitmap-style thing
+  frames = (uint32_t *)((uintptr_t)KRNL_HEAP_START);
+  memset((void*)frames, 0xFF, frames_bytes);
 
   for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
     multiboot_memory_map_t entry = kmem_data.mmap_entries[i];
@@ -272,6 +270,7 @@ uintptr_t kmem_to_phys(pml_t *root, uintptr_t addr) {
   return ((uintptr_t)pt[pt_e].structured_bits.page << 12) | (addr & PT_MASK);
 }
 
+// flip a bit to 1 as to mark a pageframe as used in our bitmap
 void kmem_mark_frame_used(uintptr_t frame) {
   if (frame < nframes * SMALL_PAGE_SIZE) {
     uintptr_t real_frame = frame >> 12;
@@ -282,6 +281,7 @@ void kmem_mark_frame_used(uintptr_t frame) {
   }
 }
 
+// flip a bit to 0 as to mark a pageframe as free in our bitmap
 void kmem_mark_frame_free(uintptr_t frame) {
   if (frame < nframes * SMALL_PAGE_SIZE) {
     uintptr_t real_frame = frame >> 12;
@@ -450,12 +450,11 @@ void kmem_map_memory(uintptr_t vaddr, uintptr_t paddr, unsigned int flags) {
 
 // simpler version of the massive chonker above
 void kmem_map_memory(pml_t *page, uintptr_t paddr, unsigned int flags) {
-  if (!page) {
-    // cry
+  if (page) {
+    kmem_mark_frame_used(paddr);
+    page->structured_bits.page = paddr >> 12;
+    kmem_set_page_flags(page, flags);
   }
-  kmem_mark_frame_used(paddr);
-  page->structured_bits.page = paddr >> 12;
-  kmem_set_page_flags(page, flags);
 }
 
 bool kmem_map_mem(uintptr_t virt, uintptr_t phys, unsigned int flags) {

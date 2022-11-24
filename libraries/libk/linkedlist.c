@@ -1,7 +1,7 @@
 #include "linkedlist.h"
-#include "arch/x86/mem/kmem_manager.h"
+#include "kernel/mem/kmem_manager.h"
 #include "libk/stddef.h"
-#include <arch/x86/dev/debug/serial.h>
+#include <kernel/dev/debug/serial.h>
 #include <libk/string.h>
 
 list_t* init_list() {

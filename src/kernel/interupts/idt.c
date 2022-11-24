@@ -1,8 +1,8 @@
 #include "idt.h"
-#include "arch/x86/interupts/interupts.h"
-#include "arch/x86/mem/kmalloc.h"
-#include <arch/x86/dev/debug/serial.h>
-#include <arch/x86/mem/kmem_manager.h>
+#include "kernel/interupts/interupts.h"
+#include "kernel/mem/kmalloc.h"
+#include <kernel/dev/debug/serial.h>
+#include <kernel/mem/kmem_manager.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
 

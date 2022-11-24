@@ -1,14 +1,14 @@
-#include "arch/x86/kmain.h"
-#include "arch/x86/dev/framebuffer/framebuffer.h"
-#include "arch/x86/interupts/gdt.h"
+#include <kernel/kmain.h>
+#include "kernel/dev/framebuffer/framebuffer.h"
+#include "kernel/interupts/gdt.h"
 #include "libk/linkedlist.h"
-#include <arch/x86/dev/debug/serial.h>
-#include <arch/x86/interupts/control/pic.h>
-#include <arch/x86/interupts/idt.h>
-#include <arch/x86/interupts/interupts.h>
-#include <arch/x86/mem/kmalloc.h>
-#include <arch/x86/mem/kmem_manager.h>
-#include <arch/x86/multiboot.h>
+#include <kernel/dev/debug/serial.h>
+#include <kernel/interupts/control/pic.h>
+#include <kernel/interupts/idt.h>
+#include <kernel/interupts/interupts.h>
+#include <kernel/mem/kmalloc.h>
+#include <kernel/mem/kmem_manager.h>
+#include <kernel/libk/multiboot.h>
 #include <libk/io.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -59,7 +59,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   struct multiboot_tag_framebuffer *fb =
       get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   struct multiboot_tag_framebuffer_common fb_common = fb->common;
-  init_kmem_manager((uintptr_t)mb_addr, first_valid_addr,
+  init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr,
                     first_valid_alloc_addr);
   init_kheap();
 
@@ -89,7 +89,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // this first so we can catch pmm initialization errors?)
   //      -   also keyboard and mouse handlers ect.
   // 5. [ ] setup devices so we can have some propper communitaction between the
-  // kernel and the hardware
+  // kernel and the hardware, like pci and usb
   // 6. [ ] setup a propper filesystem (ext2 r sm, maybe even do this earlier so
   // we can load files and crap)
   // 7. ???

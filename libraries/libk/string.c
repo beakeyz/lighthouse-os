@@ -1,5 +1,5 @@
 #include "string.h"
-#include "arch/x86/dev/debug/serial.h"
+#include "kernel/dev/debug/serial.h"
 #include <libk/stddef.h>
 
 /*

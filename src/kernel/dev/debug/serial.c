@@ -1,5 +1,5 @@
 #include "serial.h"
-#include "arch/x86/interupts/control/pic.h"
+#include "kernel/interupts/control/pic.h"
 #include <libk/io.h>
 #include <libk/stddef.h>
 #include <libk/string.h>

@@ -1,6 +1,6 @@
 #include "pic.h"
-#include "arch/x86/interupts/interupts.h"
-#include <arch/x86/dev/debug/serial.h>
+#include "kernel/interupts/interupts.h"
+#include <kernel/dev/debug/serial.h>
 #include <libk/io.h>
 #include <libk/stddef.h>
 

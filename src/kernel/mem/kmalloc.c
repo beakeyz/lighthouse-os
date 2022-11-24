@@ -1,8 +1,8 @@
 #include "kmalloc.h"
-#include "arch/x86/kmain.h"
-#include "arch/x86/mem/kmem_manager.h"
+#include "kernel/kmain.h"
+#include "kernel/mem/kmem_manager.h"
 #include <libk/string.h>
-#include <arch/x86/dev/debug/serial.h>
+#include <kernel/dev/debug/serial.h>
 #include <libk/stddef.h>
 
 #define INITIAL_HEAP_SIZE 8192
