@@ -17,33 +17,26 @@ uint16_t in16(uint16_t port)
                  : "Nd"(port));
     return value;
 }
-
-/*
-uint32_t in32(uint16_t port)
-{
-    uint32_t value;
-    asm volatile("inl %1, %0"
-                 : "=a"(value)
-                 : "Nd"(port));
-    return value;
+uint32_t in32(uint16_t port) {
+  uint32_t value;
+  asm volatile ("inl %%dx, %%eax" : "=a" (value) : "dN" (port));
+  return value;
 }
-*/
 
 void out8(uint16_t port, uint8_t value)
 {
-    asm volatile("outb %0, %1" ::"a"(value), "Nd"(port));
+    asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
 void out16(uint16_t port, uint16_t value)
 {
-    asm volatile("outw %0, %1" ::"a"(value), "Nd"(port));
+    asm volatile("outw %0, %1" : : "a"(value), "Nd"(port));
 }
 
-/*
 void out32(uint16_t port, uint32_t value)
 {
-    asm volatile("outl %0, %1" ::"a"(value), "Nd"(port));
-}*/
+    asm volatile("outl %%eax, %%dx" : : "a"(value), "Nd"(port));
+}
 
 void delay(size_t microseconds)
 {

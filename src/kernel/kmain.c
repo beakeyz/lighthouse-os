@@ -63,7 +63,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
                     first_valid_alloc_addr);
   init_kheap();
 
-
   setup_gdt();
   setup_idt();
   init_interupts();
