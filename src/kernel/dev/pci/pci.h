@@ -13,6 +13,7 @@
 #define GET_FUNC_NUM(device_num) (uint8_t)(device_num)
 
 #define GET_PCI_ADDR(dev_num, field) (uint32_t)(0x80000000 | (GET_BUS_NUM(dev_num) << 16) | (GET_SLOT_NUM(dev_num) << 11) | (GET_FUNC_NUM(dev_num) << 8) | (field & 0xFC))
+#define GET_PCIE_ADDR(dev_num, field) (uintptr_t)((GET_BUS_NUM(device_num) << 20) | (GET_SLOT_NUM(device_num) << 15) | (GET_FUNC_NUM(device_num) << 12) | (field))
 
 typedef void* (*PCI_FUNC) (
   uint32_t dev,
@@ -21,6 +22,9 @@ typedef void* (*PCI_FUNC) (
   void* stuff
 );
 
- 
+uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
+void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
+
+// pci scanning (I would like this to be as advanced as possible and not some idiot simple thing)
 
 #endif // !__
