@@ -25,6 +25,8 @@ typedef void* (*PCI_FUNC) (
 uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
 void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
 
+bool test_pci_io ();
 // pci scanning (I would like this to be as advanced as possible and not some idiot simple thing)
+
 
 #endif // !__

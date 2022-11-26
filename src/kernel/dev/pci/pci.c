@@ -28,3 +28,16 @@ void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32
   out32(PCI_PORT_ADDR, GET_PCI_ADDR(device_num, field));
   out32(PCI_PORT_VALUE, val);
 }
+
+bool test_pci_io () {
+
+  uint32_t tmp = 0x80000000;
+  out32(PCI_PORT_ADDR, tmp);
+  tmp = in32(PCI_PORT_ADDR);
+  // if the value remains unchanged, we have I/O capabilities is PCI
+  if (tmp == 0x80000000) {
+    return true;
+  }
+  return false;
+}
+
