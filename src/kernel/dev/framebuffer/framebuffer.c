@@ -7,6 +7,7 @@
 
 static fb_data_t framebuffer_data;
 
+// TODO: double buffers
 void init_fb(struct multiboot_tag_framebuffer *mb_fb) {
   framebuffer_data.address = (void*)(uintptr_t)FRAMEBUFFER_VIRTUAL_BASE;
   framebuffer_data.phys_address = mb_fb->common.framebuffer_addr;

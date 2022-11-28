@@ -38,7 +38,7 @@ int thing(registers_t *regs) {
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
-  init_serial();
+  //init_serial();
   println(to_string((uint64_t)_start));
 
   for (ctor_func_t *constructor = start_ctors; constructor < end_ctors;

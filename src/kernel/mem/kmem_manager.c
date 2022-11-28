@@ -12,6 +12,7 @@ static kmem_data_t kmem_data;
 
 /*
  *  bitmap page allocator for 4KiB pages
+ *  TODO: put this crap into a structure -_-
  */
 static volatile uint32_t *frames;
 static size_t nframes;
@@ -68,8 +69,8 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
 
   low_base_pmls[0][0].raw_bits = (uint64_t)&low_base_pmls[1] | 0x07;
 
-  uintptr_t end_ptr =
-      ((uintptr_t)&_kernel_end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
+  // could write this into one stupid thing but eh
+  uintptr_t end_ptr = ((uintptr_t)&_kernel_end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
   size_t num_low_pages = end_ptr >> 12;
   size_t pd_count = (size_t)((num_low_pages + ENTRY_MASK) >> 9);
 
@@ -491,8 +492,7 @@ void kmem_set_page_flags(pml_t *page, unsigned int flags) {
   page->structured_bits.writable_bit = (flags & KMEM_FLAG_WRITABLE) ? 1 : 0;
   page->structured_bits.user_bit = (flags & KMEM_FLAG_KERNEL) ? 0 : 1;
   page->structured_bits.nocache_bit = (flags & KMEM_FLAG_NOCACHE) ? 1 : 0;
-  page->structured_bits.writethrough_bit =
-      (flags & KMEM_FLAG_WRITETHROUGH) ? 1 : 0;
+  page->structured_bits.writethrough_bit = (flags & KMEM_FLAG_WRITETHROUGH) ? 1 : 0;
   page->structured_bits.size = (flags & KMEM_FLAG_SPEC) ? 1 : 0;
   page->structured_bits.nx = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
 }

@@ -164,8 +164,10 @@ registers_t *interrupt_handler(struct registers *regs) {
     case 46:
     case 47:
       _int_handler(regs, regs->int_no);
-      break; 
+      return regs;
   }
+  
+  for (;;) {}
   return regs;
 }
 

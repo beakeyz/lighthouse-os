@@ -16,9 +16,9 @@ mb_fb_tag:
     dw 5 
     dw 0
     dd 20
-    dd 1024
-    dd 768
-    dd 32
+    dd 0 
+    dd 0
+    dd 0 
 mb_fb_tag_end:
 
     align 8
@@ -60,6 +60,11 @@ start:
   mov esp, stack_top 
   ; TODO: cpuid and PAE checks ect.  
   
+  ;;; TODO: remove check
+  cli
+
+  hlt
+
   ; set cr3
   mov eax, boot_pml4t
   mov cr3, eax
@@ -68,21 +73,9 @@ start:
   or eax, 0x3
   mov [boot_pml4t], eax
 
-  mov eax, boot_pdpt_hh
-  or eax, 0x3
-  mov [boot_pml4t + 511 * 8], eax
-
-  mov eax, boot_pml4t
-  or eax, 0x3
-  mov [boot_pml4t + 510 * 8], eax
-
   mov eax, boot_pdt
   or eax, 0x3
   mov [boot_pdpt], eax
-
-  mov eax, boot_pdt
-  or eax, 0x3
-  mov [boot_pdpt_hh + 510 * 8], eax
 
   mov eax, boot_pdt
   mov ebx, 0

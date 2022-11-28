@@ -4,6 +4,8 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
+static bool has_serial = false;
+
 void init_serial() {
 
     out8(COM1 + 1, 0x00);
@@ -14,9 +16,13 @@ void init_serial() {
     out8(COM1 + 2, 0xC7);
     out8(COM1 + 4, 0x0B);
 
+    has_serial = true;
 }
 
 void putch(char c) {
+    if (!has_serial) {
+        return;
+    }
     static int was_cr = false;
     
     while ((in8(COM1 + 5) & 0x20) == 0) {

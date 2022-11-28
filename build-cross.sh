@@ -90,7 +90,7 @@ else
 fi
 
 # step -1: check for certain things i.e, is there already a build ready, and do some setup
-bash ./sysroot.sh
+bash ./scripts/sysroot.sh
 
 
 if [[ -d $CC_PATH ]]

@@ -53,7 +53,7 @@ CHARDFLAGS := -std=gnu11          \
 							-fno-exceptions 		\
 							-MMD								\
 							-I./src             \
-        			-I./libraries/			\
+        			-I./src/kernel/			\
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := -T $(LINK_PATH) 						\
