@@ -52,25 +52,22 @@
 #define OFFSET_FROM_BIT(b) ((b) & 0x1F)
 
 typedef struct {
-    uint8_t type;
-    uint64_t start;
-    size_t length;
+  uint8_t type;
+  uint64_t start;
+  size_t length;
 } phys_mem_range_t;
 
 typedef struct {
-    uint64_t upper;
-    uint64_t lower;
+  uint64_t upper;
+  uint64_t lower;
 } contiguous_phys_virt_range_t; 
 
-typedef struct {
-    uint32_t mmap_entry_num;
-    multiboot_memory_map_t* mmap_entries;
-    uint8_t reserved_phys_count;
-} kmem_data_t;
-
 void init_kmem_manager (uintptr_t* mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
-void prep_mmap (struct multiboot_tag_mmap* mmap);
 
+void protect_kernel();
+void protect_heap();
+
+void prep_mmap (struct multiboot_tag_mmap* mmap);
 void parse_memmap ();
 
 void* kmem_from_phys (uintptr_t addr);
@@ -79,16 +76,16 @@ void kmem_mark_frame_used (uintptr_t frame);
 void kmem_mark_frame_free (uintptr_t frame);
 void kmem_mark_frame (uintptr_t frame, bool value);
 
-void kmem_nuke_page(uintptr_t vaddr);
+void kmem_nuke_pd(uintptr_t vaddr);
 uintptr_t kmem_get_frame ();
 pml_t* kmem_get_krnl_dir ();
-pml_t* kmem_get_page (uintptr_t addr, unsigned int flags);
+pml_t* kmem_get_page (uintptr_t addr, unsigned int kmem_flags);
 void kmem_set_page_flags (pml_t* page, unsigned int flags);
 
 /* mem mapping */
 
 //void kmem_map_memory (uintptr_t vaddr, uintptr_t paddr, unsigned int flags);
-void kmem_map_memory (pml_t* page, uintptr_t paddr, unsigned int flags);
+void _kmem_map_memory (pml_t* page, uintptr_t paddr, unsigned int flags);
 bool kmem_map_mem (uintptr_t virt, uintptr_t phys, unsigned int flags);
 bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count, unsigned int flags);
 //void kmem_map_new_memory (uintptr_t vaddr, unsigned int flags);
@@ -96,7 +93,7 @@ bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count
 
 //void kmem_umap_memory (uintptr_t vaddr);
 
-void* kmem_alloc (size_t size);
+void* kmem_alloc (size_t page_count);
 
 // TODO: write kmem_manager tests
 

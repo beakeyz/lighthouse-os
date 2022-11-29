@@ -8,7 +8,19 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
-static kmem_data_t kmem_data;
+typedef struct {
+  uint32_t mmap_entry_num;
+  multiboot_memory_map_t* mmap_entries;
+  uint8_t reserved_phys_count;
+
+  volatile uint32_t* physical_pages;
+  size_t phys_pages_count;
+  size_t total_avail_memory_bytes;
+  size_t total_unavail_memory_bytes;
+
+} kmem_data_t;
+
+static kmem_data_t KMEM_DATA;
 
 /*
  *  bitmap page allocator for 4KiB pages
@@ -27,8 +39,8 @@ static char *heap_start = NULL;
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
-  kmem_data.mmap_entry_num = (mmap->size - sizeof(*mmap)) / mmap->entry_size;
-  kmem_data.mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
+  KMEM_DATA.mmap_entry_num = (mmap->size - sizeof(*mmap)) / mmap->entry_size;
+  KMEM_DATA.mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
 }
 
 // this layout is inspired by taoruos
@@ -48,14 +60,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
   struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
   prep_mmap(mmap);
 
-  // 4294967295
-  println("setting stuff");
-  asm volatile("movq %%cr0, %%rax\n"
-               "orq $0x10000, %%rax\n"
-               "movq %%rax, %%cr0\n"
-               :
-               :
-               : "rax");
+  lowest_available = 0;
 
   base_init_pml[0][511].raw_bits = (uint64_t)&high_base_pml | 0x03;
   base_init_pml[0][510].raw_bits = (uint64_t)&heap_base_pml | 0x03;
@@ -97,7 +102,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
   heap_base_pd[0].raw_bits = (uint64_t)&heap_base_pt[0] | 0x03;
   heap_base_pd[1].raw_bits = (uint64_t)&heap_base_pt[512] | 0x03;
   heap_base_pd[2].raw_bits = (uint64_t)&heap_base_pt[1024] | 0x03;
-
+  
   if (frames_pages > 3 * 512) {
     println("warning: frames_pages > 3*512");
   }
@@ -111,11 +116,13 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
       (uintptr_t)kmem_from_phys((uintptr_t)((pml_t *)&base_init_pml[0])) &
       0x7FFFffffFFUL;
 
+
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(map));
   asm volatile("" : : : "memory");
 
   println("loaded the new pagemaps!");
+
 
   // FIXME: this statement is prob not necessary anymore, since we
   // parse the mmap prior to the kmem init, where we pass the important values
@@ -124,10 +131,9 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
 
   // prepare bitmap-style thing
   frames = (uint32_t *)((uintptr_t)KRNL_HEAP_START);
-  memset((void*)frames, 0xFF, frames_bytes);
 
-  for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
-    multiboot_memory_map_t entry = kmem_data.mmap_entries[i];
+  for (uintptr_t i = 0; i < KMEM_DATA.mmap_entry_num; i++) {
+    multiboot_memory_map_t entry = KMEM_DATA.mmap_entries[i];
     if (entry.type == 1) {
 
       for (uintptr_t base = entry.addr;
@@ -182,8 +188,8 @@ void parse_memmap() {
                                    (uint64_t)(&_kernel_end - &_kernel_start)};
   println(to_string((uint64_t)&_kernel_start));
 
-  for (uintptr_t i = 0; i < kmem_data.mmap_entry_num; i++) {
-    multiboot_memory_map_t *map = &kmem_data.mmap_entries[i];
+  for (uintptr_t i = 0; i < KMEM_DATA.mmap_entry_num; i++) {
+    multiboot_memory_map_t *map = &KMEM_DATA.mmap_entries[i];
 
     uint64_t addr = map->addr;
     uint64_t length = map->len;
@@ -317,8 +323,7 @@ void kmem_mark_frame(uintptr_t frame, bool value) {
 }
 
 uintptr_t kmem_get_frame() {
-  for (uintptr_t i = INDEX_FROM_BIT(lowest_available);
-       i < INDEX_FROM_BIT(nframes); i++) {
+  for (uintptr_t i = INDEX_FROM_BIT(lowest_available); i < INDEX_FROM_BIT(nframes); i++) {
     if (frames[i] != (uint32_t)-1) {
       for (uintptr_t j = 0; j < (sizeof(uint32_t) * 8); ++j) {
         if (!(frames[i] & 1 << j)) {
@@ -332,13 +337,13 @@ uintptr_t kmem_get_frame() {
   return NULL;
 }
 
-void kmem_nuke_page(uintptr_t vaddr) { asm volatile("invlpg %0" ::"m"(vaddr)); }
+void kmem_nuke_pd(uintptr_t vaddr) { asm volatile("invlpg %0" ::"m"(vaddr)); }
 
 pml_t *kmem_get_krnl_dir() {
   return kmem_from_phys((uintptr_t)&base_init_pml[0]);
 }
 
-pml_t *kmem_get_page(uintptr_t addr, unsigned int flags) {
+pml_t *kmem_get_page(uintptr_t addr, unsigned int kmem_flags) {
   uintptr_t page_addr = (addr & 0xFFFFffffFFFFUL) >> 12;
   uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
   uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
@@ -347,7 +352,7 @@ pml_t *kmem_get_page(uintptr_t addr, unsigned int flags) {
 
   if (!base_init_pml[0][pml4_e].structured_bits.present_bit) {
     println("new pml4");
-    if (flags & KMEM_GET_MAKE) {
+    if (kmem_flags & KMEM_GET_MAKE) {
       uintptr_t new = kmem_get_frame() << 12;
       kmem_mark_frame_used(new);
       memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
@@ -362,7 +367,7 @@ pml_t *kmem_get_page(uintptr_t addr, unsigned int flags) {
 
   if (!pdp[pdp_e].structured_bits.present_bit) {
     println("new pdp");
-    if (flags & KMEM_GET_MAKE) {
+    if (kmem_flags & KMEM_GET_MAKE) {
       uintptr_t new = kmem_get_frame() << 12;
       kmem_mark_frame_used(new);
       memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
@@ -381,7 +386,7 @@ pml_t *kmem_get_page(uintptr_t addr, unsigned int flags) {
 
   if (!pd[pd_e].structured_bits.present_bit) {
     println("new pd");
-    if (flags & KMEM_GET_MAKE) {
+    if (kmem_flags & KMEM_GET_MAKE) {
       uintptr_t new = kmem_get_frame() << 12;
       kmem_mark_frame_used(new);
       memset(kmem_from_phys(new), 0, SMALL_PAGE_SIZE);
@@ -400,57 +405,8 @@ pml_t *kmem_get_page(uintptr_t addr, unsigned int flags) {
   return (pml_t *)&pt[pt_e];
 }
 
-/*
-void kmem_map_memory(uintptr_t vaddr, uintptr_t paddr, unsigned int flags) {
-
-    uintptr_t page_addr = (vaddr & 0xFFFFffffFFFFUL) >> 12;
-    uint_t pml4_e = (page_addr >> 27) & ENTRY_MASK;
-    uint_t pdp_e = (page_addr >> 18) & ENTRY_MASK;
-    uint_t pd_e = (page_addr >> 9) & ENTRY_MASK;
-
-    if (!base_init_pml[0][pml4_e].structured_bits.present_bit) {
-        println("fucked up");
-        pml_t* entry = &base_init_pml[0][pml4_e];
-        entry->structured_bits.page = kmem_get_frame();
-        entry->structured_bits.present_bit = 1;
-        entry->structured_bits.writable_bit = 1;
-        memset(kmem_from_phys(entry->structured_bits.page), 0, SMALL_PAGE_SIZE);
-    }
-
-    pml_t* pdp = kmem_from_phys(base_init_pml[0][pml4_e].structured_bits.page <<
-12);
-
-    if (!pdp[pdp_e].structured_bits.present_bit) {
-        println("fucked up 2");
-        pml_t* entry = &pdp[pdp_e];
-        entry->structured_bits.page = kmem_get_frame();
-        entry->structured_bits.present_bit = 1;
-        entry->structured_bits.writable_bit = 1;
-        memset(kmem_from_phys(entry->structured_bits.page), 0, SMALL_PAGE_SIZE);
-    }
-
-    pml_t* pd = kmem_from_phys(pdp[pdp_e].structured_bits.page << 12);
-
-    if (!pd[pd_e].structured_bits.present_bit) {
-        println("fucked up 3");
-        pml_t* entry = &pd[pd_e];
-        entry->structured_bits.page = kmem_get_frame();
-        entry->structured_bits.present_bit = 1;
-        entry->structured_bits.writable_bit = 1;
-        memset(kmem_from_phys(entry->structured_bits.page), 0, SMALL_PAGE_SIZE);
-    }
-
-    pml_t* pt = kmem_from_phys(pd[pd_e].structured_bits.page << 12);
-
-    pt->structured_bits.page = paddr;
-    kmem_set_page_flags(pt, flags);
-    kmem_nuke_page(vaddr);
-
-}
-*/
-
 // simpler version of the massive chonker above
-void kmem_map_memory(pml_t *page, uintptr_t paddr, unsigned int flags) {
+void _kmem_map_memory(pml_t *page, uintptr_t paddr, unsigned int flags) {
   if (page) {
     kmem_mark_frame_used(paddr);
     page->structured_bits.page = paddr >> 12;
@@ -461,7 +417,7 @@ void kmem_map_memory(pml_t *page, uintptr_t paddr, unsigned int flags) {
 bool kmem_map_mem(uintptr_t virt, uintptr_t phys, unsigned int flags) {
   if (virt % SMALL_PAGE_SIZE == 0) {
     pml_t *page = kmem_get_page(virt, KMEM_GET_MAKE);
-    kmem_map_memory(page, phys, flags);
+    _kmem_map_memory(page, phys, flags);
     return true;
   }
   return false;
@@ -497,29 +453,20 @@ void kmem_set_page_flags(pml_t *page, unsigned int flags) {
   page->structured_bits.nx = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
 }
 
+/* OLD IMPL */ 
 // 'expand' the kernel heap with a size that is a multiple of a pagesize (so
 // basically allocate a number of pages for the heap)
-void *kmem_alloc(size_t size) {
-  if (!heap_start) {
-    return nullptr;
-  }
 
-  if (size & PAGE_LOW_MASK) {
-    println("invalid size!");
-    return nullptr;
-  }
+/* NEW IMPL */
+// this function should try and find a range of pages that satisfies the requested size
+// other name for function: request_pages
+void *kmem_alloc(size_t page_count) {
+  // find free page
 
-  // TODO: locking
-  void *start = heap_start;
 
-  for (uintptr_t i = (uintptr_t)start; i < (uintptr_t)(start + size);
-       i += SMALL_PAGE_SIZE) {
-    pml_t *page = kmem_get_page(i, KMEM_GET_MAKE);
-    kmem_set_page_flags(page, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
-  }
+  uintptr_t free_page = kmem_get_frame();
+  
 
-  heap_start += size;
-  memset(start, 0, size);
-  // return the virtaddr we allocated
-  return start;
+
+  return nullptr;
 }

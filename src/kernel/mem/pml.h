@@ -25,4 +25,16 @@ typedef union pml {
     uint64_t raw_bits;
 } pml_t;
 
+inline void set_writable (pml_t* pml, bool writable) { pml->structured_bits.writable_bit = writable; }
+inline void set_present (pml_t* pml, bool present) { pml->structured_bits.present_bit = present; }
+inline void set_user (pml_t* pml, bool user) { pml->structured_bits.user_bit = user; }
+inline void set_nx (pml_t* pml, bool nx) { pml->structured_bits.nx = nx; }
+inline void set_nocache (pml_t* pml, bool nocache) { pml->structured_bits.nocache_bit = nocache; }
+
+inline bool get_writable (pml_t* pml) { return pml->structured_bits.writable_bit; }
+inline bool get_present (pml_t* pml) { return pml->structured_bits.present_bit; }
+inline bool get_user (pml_t* pml) { return pml->structured_bits.user_bit; }
+inline bool get_nx (pml_t* pml) { return pml->structured_bits.nx; }
+inline bool get_nocache (pml_t* pml) { return pml->structured_bits.nocache_bit; }
+
 #endif // !__PML__

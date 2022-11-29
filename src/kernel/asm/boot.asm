@@ -1,35 +1,30 @@
 section .multiboot_header
 
-align 8
 header_start:
-    dd 0xe85250d6   ;magic_number
-    dd 0            ;Protected mode
-    dd header_end - header_start    ;Header length
+  align 8
+  dd 0xe85250d6   ;magic_number
+  dd 0            ;Protected mode
+  dd header_end - header_start    ;Header length
 
-    ;compute checksum
-    dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
-    ;here ends the required part of the multiboot header
-	;The following is the end tag, must be always present
-    ;end tag
+  ;compute checksum
+  dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
+  ;here ends the required part of the multiboot header
+  ;The following is the end tag, must be always present
+  ;end tag
 
 mb_fb_tag:
-    dw 5 
-    dw 0
-    dd 20
-    dd 0 
-    dd 0
-    dd 0 
+  dw 5 
+  dw 1 
+  dd mb_fb_tag_end - mb_fb_tag
+  dd 0 
+  dd 0
+  dd 0 
 mb_fb_tag_end:
 
-    align 8
-    dw 6
-    dw 0
-    dd 8
-
-    align 8
-    dw 0    ;type
-    dw 0    ;flags
-    dd 8    ;size
+  align 8
+  dw 0    ;type
+  dw 0    ;flags
+  dd 8    ;size
 header_end:
 
 section .pre_text
@@ -60,10 +55,7 @@ start:
   mov esp, stack_top 
   ; TODO: cpuid and PAE checks ect.  
   
-  ;;; TODO: remove check
   cli
-
-  hlt
 
   ; set cr3
   mov eax, boot_pml4t

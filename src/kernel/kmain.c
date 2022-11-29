@@ -47,6 +47,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
   println("Hi from 64 bit land =D");
 
+
   // Verify magic number
   if (mb_magic == 0x36d76289) {
     // parse multiboot
@@ -56,12 +57,22 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     hang();
   }
 
-  struct multiboot_tag_framebuffer *fb =
-      get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-  struct multiboot_tag_framebuffer_common fb_common = fb->common;
-  init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr,
-                    first_valid_alloc_addr);
+  //struct multiboot_tag_framebuffer *fb =
+  //    get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  //struct multiboot_tag_framebuffer_common fb_common = fb->common;
+  //init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr,
+  //                  first_valid_alloc_addr);
   init_kheap();
+
+  list_t* l = kmalloc(sizeof(list_t));
+
+  l->end->data = (void*)3404;
+
+  println(to_string((uintptr_t)l->end->data));
+
+  kfree(l);
+
+  println(to_string((uintptr_t)l->end->data));
 
   setup_gdt();
   setup_idt();
@@ -73,8 +84,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   enable_interupts();
 
   // common kinda gets lost or something, so we'll save it =)
-  fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
-  init_fb(fb);
+  //fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
+  //init_fb(fb);
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;

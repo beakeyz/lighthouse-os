@@ -42,12 +42,12 @@ SECTIONS {
 
   .bss ALIGN(4K) : AT(ADDR(.bss) ) 
   {
+    *(.pts)
     *(COMMON)
     *(.bss*)
+    *(.stack)
 
-    *(.pts*)
-    *(.stack*)
-    *(.heap*)
+    *(.heap)
   } :bss
     
   _kernel_end = .;

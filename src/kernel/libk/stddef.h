@@ -38,5 +38,9 @@ typedef int                         bool;
 #define va_arg(ap, t)					\
 	 (((ap) = (ap) + __va_argsiz(t)),		\
 	  *((t*) (void*) ((ap) - __va_argsiz(t))))
-
+  
+#define Kib 1024
+#define Mib Kib * Kib
+#define Gib Mib * Kib
+#define Tib Gib * Kib
 #endif // !__STDDEF__
