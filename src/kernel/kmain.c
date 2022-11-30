@@ -39,10 +39,10 @@ int thing(registers_t *regs) {
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
 
-  //init_serial();
+  init_serial();
   println("Hi from 64 bit land =D");
 
-  /*
+  
   for (ctor_func_t *constructor = start_ctors; constructor < end_ctors; constructor++) {
     (*constructor)();
   }
@@ -55,34 +55,32 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     println("big yikes");
     hang();
   }
-  */
-
-  for (;;) {}
+  
 
   //struct multiboot_tag_framebuffer *fb =
   //    get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   //struct multiboot_tag_framebuffer_common fb_common = fb->common;
   //init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr,
   //                  first_valid_alloc_addr);
-  //init_kheap();
+  init_kheap();
 
-  //list_t* l = kmalloc(sizeof(list_t));
+  list_t* l = kmalloc(sizeof(list_t));
 
-  //l->end->data = (void*)3404;
+  l->end->data = (void*)3404;
 
-  //println(to_string((uintptr_t)l->end->data));
+  println(to_string((uintptr_t)l->end->data));
 
-  //kfree(l);
+  kfree(l);
 
-  ///println(to_string((uintptr_t)l->end->data));
+  println(to_string((uintptr_t)l->end->data));
 
-  //setup_idt();
-  //init_interupts();
+  setup_idt();
+  init_interupts();
 
   // NOTE: testhandler
-  //add_handler(1, thing);
+  add_handler(1, thing);
 
-  //enable_interupts();
+  enable_interupts();
 
   // common kinda gets lost or something, so we'll save it =)
   //fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
@@ -107,5 +105,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // 8. profit
   // 9. do more stuff but I dont wanna look this far ahead as of now -_-
 
-  for (;;) {}
+  for (;;) {
+    asm volatile ("hlt");
+  }
 }
