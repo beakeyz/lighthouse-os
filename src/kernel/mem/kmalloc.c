@@ -9,48 +9,58 @@
 #define NODE_IDENTIFIER 0xF0CEDA22
 
 // fuk yea
+// reserve enough so we can use kmem_manager later to expand the heap
 __attribute__((section(".heap"))) static uint8_t init_kmalloc_mem[INITIAL_HEAP_SIZE];
 
+// TODO: structure
 static heap_node_t* heap_start_addr;
 static size_t heap_available_size;
 static size_t heap_used_size;
+
+static bool can_heap_expand;
 
 // this init is post kmem_manager, so expantion will be done using that.
 // It might be a good idea though, to heave some initial reserved memory
 // BEFORE kmem_manager is initialized, so we can use it earlier
 void init_kheap() {
-    heap_start_addr = (heap_node_t*)&init_kmalloc_mem[0];
-    heap_start_addr->identifier = NODE_IDENTIFIER;
-    heap_start_addr->size = INITIAL_HEAP_SIZE;
-    heap_start_addr->flags = KHEAP_FREE_FLAG;
-    heap_start_addr->next = NULL;
-    heap_start_addr->prev = NULL;
-    heap_used_size = 0;
-    heap_available_size = INITIAL_HEAP_SIZE;
+  heap_start_addr = (heap_node_t*)&init_kmalloc_mem[0];
+  heap_start_addr->identifier = NODE_IDENTIFIER;
+  heap_start_addr->size = INITIAL_HEAP_SIZE;
+  heap_start_addr->flags = KHEAP_FREE_FLAG;
+  heap_start_addr->next = NULL;
+  heap_start_addr->prev = NULL;
+  heap_used_size = 0;
+  heap_available_size = INITIAL_HEAP_SIZE;
+  can_heap_expand = false;
 }
 
 void quick_print_node_sizes() {
-    heap_node_t* node = heap_start_addr;
-    uintptr_t index = 0;
-    while (node) {
-        index++;
-        
-        print("node ");
-        print(to_string(index));
-        print(": ");
-        if (node->flags == KHEAP_FREE_FLAG) {
-            print("(free) ");
-        }
-        print("true size: ");
-        print(to_string(node->size));
-
-        print(" size: ");
-        println(to_string(node->size - sizeof(heap_node_t)));
-
-        node = node->next;
+  heap_node_t* node = heap_start_addr;
+  uintptr_t index = 0;
+  while (node) {
+    index++;
+    
+    print("node ");
+    print(to_string(index));
+    print(": ");
+    if (node->flags == KHEAP_FREE_FLAG) {
+      print("(free) ");
     }
-    print("Amount of nodes found: ");
-    println(to_string(index));
+    print("true size: ");
+    print(to_string(node->size));
+
+    print(" size: ");
+    println(to_string(node->size - sizeof(heap_node_t)));
+
+    node = node->next;
+  }
+  print("Amount of nodes found: ");
+  println(to_string(index));
+  print("Free heap (bytes): ");
+  println(to_string(heap_available_size));
+  print("Used heap (bytes): ");
+  println(to_string(heap_used_size));
+
 }
 
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get
@@ -129,9 +139,15 @@ void kfree (void* addr) {
 
 // just expand the heap by one 4KB page
 bool try_heap_expand(heap_node_t* last_node) {
-  heap_node_t* new_node = kmem_alloc(SMALL_PAGE_SIZE);
+  if (!can_heap_expand) {
+    return false;
+  }
+
+  // request a page from kmem_manager
+  const size_t new_node_size = SMALL_PAGE_SIZE;
+  heap_node_t* new_node = kmem_alloc(new_node_size);
   if (new_node) {
-    new_node->size = SMALL_PAGE_SIZE;
+    new_node->size = new_node_size;
     new_node->identifier = NODE_IDENTIFIER;
     new_node->flags = KHEAP_FREE_FLAG;
     new_node->next = 0;
@@ -239,16 +255,20 @@ bool try_merge(heap_node_t *node) {
     merged_node = merge_nodes(node, node->prev);
   }
 
-  if (merged_node == nullptr) {
-    return false;
-  }
-
-  // we don't really care about if the recursive merges fail
-  try_merge(node);
-  return true;
+  return (merged_node != nullptr);
 }
 
-// for if we want to handle sm
+// NOTE: when the identifier is not valid, we should ideally view the heap as corrupted and either
+// purge and reinit, or just panic and die
 bool verify_identity(heap_node_t *node) {
   return node->identifier == NODE_IDENTIFIER;
+}
+
+// TODO: this just can't be safe, lets make it safe =D
+void enable_heap_expantion () {
+  can_heap_expand = true;
+}
+
+void disable_heap_expantion () {
+  can_heap_expand = false;
 }

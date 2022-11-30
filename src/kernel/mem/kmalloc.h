@@ -67,5 +67,8 @@ heap_node_t* copy_pointers (heap_node_t* from, heap_node_t* to);
 // TODO: remove
 void quick_print_node_sizes ();
 
+void enable_heap_expantion ();
+void disable_heap_expantion ();
+
 // TODO: add a wrapper for userspace?
 #endif // !__KMALLOC__

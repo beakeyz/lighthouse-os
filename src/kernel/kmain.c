@@ -38,15 +38,9 @@ int thing(registers_t *regs) {
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
-
-  init_serial();
+  //init_serial();
   println("Hi from 64 bit land =D");
-
   
-  for (ctor_func_t *constructor = start_ctors; constructor < end_ctors; constructor++) {
-    (*constructor)();
-  }
-
   // Verify magic number
   if (mb_magic == 0x36d76289) {
     // parse multiboot
@@ -55,25 +49,19 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     println("big yikes");
     hang();
   }
+
+  for (ctor_func_t *constructor = start_ctors; constructor < end_ctors; constructor++) {
+    (*constructor)();
+  }
   
+  init_kheap();
 
   //struct multiboot_tag_framebuffer *fb =
   //    get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   //struct multiboot_tag_framebuffer_common fb_common = fb->common;
-  //init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr,
-  //                  first_valid_alloc_addr);
-  init_kheap();
+  init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
-  list_t* l = kmalloc(sizeof(list_t));
-
-  l->end->data = (void*)3404;
-
-  println(to_string((uintptr_t)l->end->data));
-
-  kfree(l);
-
-  println(to_string((uintptr_t)l->end->data));
-
+  setup_gdt();
   setup_idt();
   init_interupts();
 

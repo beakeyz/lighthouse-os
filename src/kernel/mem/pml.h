@@ -2,6 +2,7 @@
 #define __PML__
 #include <libk/stddef.h>
 
+// TODO: this kinda sucks lol
 typedef union pml {
     // this struct represents the uint64_t raw_bits, only its components
     // are structured for our sanity =)

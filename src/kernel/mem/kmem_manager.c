@@ -59,6 +59,9 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
                        uintptr_t first_valid_alloc_addr) {
   struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
   prep_mmap(mmap);
+  parse_memmap();
+
+  return;
 
   lowest_available = 0;
 
@@ -181,12 +184,20 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr,
   println("done");
 }
 
+// function inspired by serenityOS
 void parse_memmap() {
 
-  // NOTE: negative one stands for the kernel range
-  phys_mem_range_t kernel_range = {-1, (uint64_t)&_kernel_start,
+  // TODO: currently the only 'used range' is the kernel range, but if this
+  // changes, we should compensate for that
+  phys_mem_range_t kernel_range = {PMRT_USABLE, (uint64_t)&_kernel_start,
                                    (uint64_t)(&_kernel_end - &_kernel_start)};
+
+  // kernel should start at 1 Mib
+  print("Kernel start addr: ");
   println(to_string((uint64_t)&_kernel_start));
+
+  list_t* contiguous_ranges = kmalloc(sizeof(list_t));
+  memset(contiguous_ranges, 0, sizeof(list_t));
 
   for (uintptr_t i = 0; i < KMEM_DATA.mmap_entry_num; i++) {
     multiboot_memory_map_t *map = &KMEM_DATA.mmap_entries[i];
@@ -194,44 +205,52 @@ void parse_memmap() {
     uint64_t addr = map->addr;
     uint64_t length = map->len;
 
-    // FIXME: with '- VIRTUAL_BASE' it does not crash, so this means that
-    // something is going wrong while setting up paging =/
-    // phys_mem_range_t range = { map->type, addr - VIRTUAL_BASE, length };
-
+    // hihi data
+    print("map entry start addr: ");
     println(to_string(addr));
+    print("map entry length: ");
     println(to_string(length));
 
     if (map->type != MULTIBOOT_MEMORY_AVAILABLE) {
       continue;
     }
 
-    uintptr_t diff = addr % PAGE_SIZE;
+    uintptr_t diff = addr % SMALL_PAGE_SIZE;
     if (diff != 0) {
       println("missaligned region!");
-      diff = PAGE_SIZE - diff;
+      diff = SMALL_PAGE_SIZE - diff;
       addr += diff;
       length -= diff;
     }
-    if ((length % PAGE_SIZE) != 0) {
+    if ((length % SMALL_PAGE_SIZE) != 0) {
       println("missaligned length!");
-      length -= length % PAGE_SIZE;
+      length -= length % SMALL_PAGE_SIZE;
     }
-    if (length < PAGE_SIZE) {
+    if (length < SMALL_PAGE_SIZE) {
       println("page is too small!");
     }
 
-    for (uint64_t page_base = addr; page_base <= (addr + length);
-         page_base += PAGE_SIZE) {
+    for (uint64_t page_base = addr; page_base <= (addr + length); page_base += SMALL_PAGE_SIZE) {
 
-      // println("yeet");
-      if (page_base >= kernel_range.start &&
-          page_base <= kernel_range.start + kernel_range.length) {
-        println("page base was found inside a used range");
+      if (page_base >= kernel_range.start && page_base <= kernel_range.start + kernel_range.length) {
         continue;
+      }
+
+      // FIXME: how fucked is this going to be for our heap?
+      // create a contiguous range by shifting the upper addr by one pagesize every time
+      if (contiguous_ranges->head == nullptr || ((contiguous_phys_virt_range_t*)contiguous_ranges->head->data)->upper + SMALL_PAGE_SIZE != page_base) {
+        contiguous_phys_virt_range_t* range = kmalloc(sizeof(contiguous_phys_virt_range_t));
+        range->upper = page_base;
+        range->lower = page_base;
+        add_node(contiguous_ranges, range);
+        //println("Adding contiguous range!");
+      } else {
+        ((contiguous_phys_virt_range_t*)contiguous_ranges->head->data)->upper = page_base;
+        //println("Extending range!");
       }
     }
   }
-  println("no region found, thats a yikes =/");
+  quick_print_node_sizes();
 }
 
 void *kmem_from_phys(uintptr_t addr) { return (void *)(addr | HIGH_MAP_BASE); }

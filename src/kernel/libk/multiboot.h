@@ -287,8 +287,8 @@ struct multiboot_tag_framebuffer_common
   multiboot_uint32_t framebuffer_width;
   multiboot_uint32_t framebuffer_height;
   multiboot_uint8_t framebuffer_bpp;
-#define MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED 0
-#define MULTIBOOT_FRAMEBUFFER_TYPE_RGB     1
+#define MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED      0
+#define MULTIBOOT_FRAMEBUFFER_TYPE_RGB          1
 #define MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT     2
   multiboot_uint8_t framebuffer_type;
   multiboot_uint16_t reserved;

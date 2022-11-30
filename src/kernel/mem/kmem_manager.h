@@ -51,8 +51,17 @@
 #define INDEX_FROM_BIT(b)  ((b) >> 5)
 #define OFFSET_FROM_BIT(b) ((b) & 0x1F)
 
+typedef enum {
+  PMRT_USABLE = 1,
+  PMRT_RESERVED,
+  PMRT_ACPI_RECLAIM,
+  PMRT_ACPI_NVS,
+  PMRT_BAD_MEM,
+  PMRT_UNKNOWN,
+} PhysMemRangeType_t;
+
 typedef struct {
-  uint8_t type;
+  PhysMemRangeType_t type;
   uint64_t start;
   size_t length;
 } phys_mem_range_t;

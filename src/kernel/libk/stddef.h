@@ -43,4 +43,5 @@ typedef int                         bool;
 #define Mib Kib * Kib
 #define Gib Mib * Kib
 #define Tib Gib * Kib
+
 #endif // !__STDDEF__

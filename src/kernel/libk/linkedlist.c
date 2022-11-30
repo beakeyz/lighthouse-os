@@ -1,28 +1,25 @@
 #include "linkedlist.h"
 #include "kernel/mem/kmem_manager.h"
 #include "libk/stddef.h"
+#include "mem/kmalloc.h"
 #include <kernel/dev/debug/serial.h>
 #include <libk/string.h>
 
 list_t* init_list() {
-    return nullptr;
+  // TODO
+  return nullptr;
 }
 
 void add_node(list_t *list, void *data) {
-    void* n =  kmem_alloc(SMALL_PAGE_SIZE);
-    node_t* node = (node_t*)&n;
-    node->data = data;
-    
-    // With this println, it seems to print the correct value,
-    // otherwise it gives junk (?)
-    // FIXME
-    if (!list->head) {
-        // this one
-        list->head = node;
-        list->end = node;
-    }
+  node_t* node = kmalloc(sizeof(node_t));
+  node->data = data;
+  
+  if (!list->head) {
+    list->head = node;
+    list->end = node;
+  }
 
-    node->prev = list->end;
-    list->end->next = node;
-
+  node->prev = list->head;
+  list->head->next = node;
+  list->head = node;
 }
