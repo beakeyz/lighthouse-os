@@ -27,9 +27,15 @@ mb_fb_tag_end:
   dd 8    ;size
 header_end:
 
+section .stack
+align 8 
+stack_bottom:
+  times 16385 db 0
+stack_top:
+
 section .pre_text
 [bits 32]
-align 4096
+align 4
 
 global start
 
@@ -52,10 +58,7 @@ start:
   mov edi, ebx ; Address of multiboot structure
   mov esi, eax ; Magic number
 
-  mov esp, stack_top 
   ; TODO: cpuid and PAE checks ect.  
-  
-  cli
 
   ; set cr3
   mov eax, boot_pml4t
@@ -100,8 +103,41 @@ start:
   or eax, 1 << 16
   mov cr0, eax
 
+  mov esp, stack_top 
+
   lgdt [gdtr]
   jmp (0x8):(long_start)
+
+; start of 64 bit madness
+[bits 64]
+align 8 
+section .text
+
+; start lol
+long_start:
+  
+  cli 
+  cld
+
+  ; update seg registers with new gdt data
+  mov ax, 0x10
+  mov ss, ax  ; Stack segment selector
+  mov ds, ax  ; data segment register
+  mov es, ax  ; extra segment register
+  mov fs, ax  ; extra segment register
+  mov gs, ax  ; extra segment register
+
+  mov rsp, stack_top
+  
+  call _start
+  
+loopback:
+  cld
+  cli
+  hlt
+  jmp loopback
+
+section .rodata
 
 ; gdt
 align 8
@@ -126,43 +162,6 @@ gdt_start:
   db 0
 gdt_end:
 
-; start of 64 bit madness
-[bits 64]
-align 4
-section .text
-
-; start lol
-long_start:
-  
-  cli 
-  cld
-
-  lgdt [gdtr]
-
-  ; update seg registers with new gdt data
-  mov ax, 0x10
-  mov ss, ax  ; Stack segment selector
-  mov ds, ax  ; data segment register
-  mov es, ax  ; extra segment register
-  mov fs, ax  ; extra segment register
-  mov gs, ax  ; extra segment register
-
-  mov rsp, stack_top
-  
-  call _start
-  
-  mov rax, 0x2f592f412f4b2f4f
-  mov qword [0xb8000], rax
-
-loopback:
-  cli
-  hlt
-  jmp loopback
-
-section .rodata
-
-
-
 section .pts 
 
 ; Only for 64 bit
@@ -176,9 +175,4 @@ boot_pdpt_hh:
 boot_pdt:
   times 4096 db 0
 
-section .stack
-align 8
-stack_bottom:
-  times 16385 db 0
-stack_top:
 

@@ -1,9 +1,7 @@
-OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(start)
 
 PHDRS
 {
-  elf_headers PT_LOAD FILEHDR PHDRS FLAGS(0x4) ;
   text PT_LOAD FLAGS(0x4 | 0x1) ;
   data PT_LOAD FLAGS(0x4 | 0x2) ;
   bss PT_LOAD FLAGS(0x4 | 0x2) ;
@@ -12,11 +10,6 @@ PHDRS
 SECTIONS {
   . = 1M;
   _kernel_start =.;
-
-  .elf_headers (SIZEOF_HEADERS) : AT (ADDR(.elf_headers) + SIZEOF_HEADERS)
-  {
-    start_of_elf_headers = .;
-  } :elf_headers
 
   .text ALIGN(4K) : AT(ADDR(.text) )
   {
@@ -37,17 +30,24 @@ SECTIONS {
 
   .data ALIGN(4K) : AT(ADDR(.data) )
   {
-    *(.data*)
+    *(.data)
+    _syms_start = .;
+    *(.syms)
+    _syms_end = .;
   } :data
 
   .bss ALIGN(4K) : AT(ADDR(.bss) ) 
   {
     *(.pts)
+    _bss_start = .;
     *(COMMON)
-    *(.bss*)
-    *(.stack)
+    *(.bss)
+    _bss_end = .;
+    *(.stack*)
 
+    _initial_heap_start = .;
     *(.heap)
+    _initial_heap_end = .;
   } :bss
     
   _kernel_end = .;

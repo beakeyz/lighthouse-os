@@ -4,6 +4,8 @@ global setup_gdt
 setup_gdt:
   cli
   lgdt [gdtr]
+  call flush_gdt
+  ret
 
 global flush_gdt
 flush_gdt:
