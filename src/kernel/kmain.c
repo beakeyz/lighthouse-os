@@ -15,8 +15,8 @@
 
 typedef void (*ctor_func_t)();
 
-extern ctor_func_t start_ctors[];
-extern ctor_func_t end_ctors[];
+extern ctor_func_t _start_ctors[];
+extern ctor_func_t _end_ctors[];
 
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
@@ -38,7 +38,7 @@ int thing(registers_t *regs) {
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
-  //init_serial();
+  init_serial();
   println("Hi from 64 bit land =D");
   
   // Verify magic number
@@ -50,7 +50,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     hang();
   }
 
-  for (ctor_func_t *constructor = start_ctors; constructor < end_ctors; constructor++) {
+  for (ctor_func_t *constructor = _start_ctors; constructor < _end_ctors; constructor++) {
     (*constructor)();
   }
   

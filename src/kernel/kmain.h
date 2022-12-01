@@ -7,13 +7,15 @@
 
 extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
-extern uintptr_t _kernel_physical_end;
 
-extern pml_t boot_pdpt[];
-extern pml_t boot_pdt[];
+extern pml_t boot_pml4t[512];
+extern pml_t boot_pdpt[512];
+extern pml_t boot_pd0[512];
+extern pml_t boot_pd0_p[512 * 32];
 
 typedef struct multiboot_color _color_t;
 
+// -_-
 typedef struct {
     uint32_t type;
     uint32_t size;

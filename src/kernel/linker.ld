@@ -15,16 +15,17 @@ SECTIONS {
   {
     *(.multiboot_header*)
     *(.pre_text*)
-    text_begin = .;
+    _text_begin = .;
     *(.text*)
+    _text_end = .;
   } :text 
 
   .rodata ALIGN(4K) : AT(ADDR(.rodata) )
   {
-    start_ctors = .;
+    _start_ctors = .;
     *(.ctors*)
     *(.init_array)
-    end_ctors = .;
+    _end_ctors = .;
     *(.rodata*)
   } :data
 
@@ -51,7 +52,6 @@ SECTIONS {
   } :bss
     
   _kernel_end = .;
-  _kernel_physical_end = . ;
 
   /DISCARD/ :
 	{

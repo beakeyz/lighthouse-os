@@ -19,7 +19,7 @@ gcc_url=https://ftp.nluug.nl/languages/gcc/releases/gcc-10.1.0/
 
 # general exports and crap
 export CC_PATH="$PWD/cross_compiler"
-export TARGET="x86_64-elf"
+export TARGET="x86_64-pc-lightos"
 # possible:
 #           x86_64-elf          (64 bit mode apperantly)
 #           i686-elf            (32 bit mode (?))
@@ -112,8 +112,17 @@ setup_src "$url/binutils/$binutils_file" "$binutils_file"
 setup_src "$gcc_url/$gcc_file" "$gcc_file"
 
 # step 1: apply patches
-#_patch "$BINUTILS_SRC" "binutils.patch"
-#_patch "$GCC_SRC" "gcc.patch"
+read -p "[?] Do you want to patch this cc build? [YES/no]: " do_patch
+
+if [[ "$do_patch" == "yes" ]]; then 
+  _patch "$BINUTILS_SRC" "binutils.patch"
+  _patch "$GCC_SRC" "gcc.patch"
+else
+  if [[ -z $do_patch ]]; then
+    _patch "$BINUTILS_SRC" "binutils.patch"
+    _patch "$GCC_SRC" "gcc.patch"
+  fi
+fi
 
 # gcc prerequisites
 log "Fixing gcc prerequisites"

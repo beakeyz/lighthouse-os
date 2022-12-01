@@ -27,6 +27,7 @@ mb_fb_tag_end:
   dd 8    ;size
 header_end:
 
+; hihi small stack =)
 section .stack
 align 8 
 stack_bottom:
@@ -39,12 +40,10 @@ align 4
 
 global start
 
+global boot_pml4t
 global boot_pdpt
-; We will still keep this map here (for now)
-; I'll have to remember the fact that we practically have a dormant pd here
-; so I can clean it up later...
-global boot_pdpt_hh
-global boot_pdt
+global boot_pd0
+global boot_pd0_p
 
 extern _start
 
@@ -68,27 +67,43 @@ start:
   or eax, 0x3
   mov [boot_pml4t], eax
 
-  mov eax, boot_pdt
+  mov eax, boot_pd0
   or eax, 0x3
   mov [boot_pdpt], eax
 
-  mov eax, boot_pdt
-  mov ebx, 0
+  mov eax, boot_pd0
+  mov ebx, boot_pd0_p
   mov ecx, 32
 
-  .map_low_mem_entry:
-      or ebx, 0x83
-      mov [eax], ebx
-      add ebx, 0x200000
-      add eax, 8
+  .fill_directory:
+    or ebx, 0x3
+    mov [eax], ebx
+    add ebx, 0x1000
+    add eax, 8
 
-      dec ecx
-      cmp ecx, 0
-      jne .map_low_mem_entry
+    dec ecx
+    cmp ecx, 0
+    jne .fill_directory
 
-  ; enable PAE
+  mov ecx, 1024
+  mov ebx, 0 
+  mov eax, boot_pd0_p
+
+  ; We are mapping a kernel with a range of 2 Mib, this does not scale for now
+  ; NOTE: if our kernel gets too big (it won't) we're fucked
+  .map_kernel:
+    or ebx, 0x3
+    mov [eax], ebx
+    add ebx, 0x1000
+    add eax, 8
+
+    dec ecx
+    cmp ecx, 0
+    jne .map_kernel
+
+  ; enable PAE + PSE
   mov eax, cr4
-  or eax, 32 
+  or eax, 0x60 
   mov cr4, eax
 
   ; set the long mode bit
@@ -167,12 +182,12 @@ section .pts
 ; Only for 64 bit
 align 4096
 boot_pml4t:
-  times 4096 db 0
+  times 0x1000 db 0
 boot_pdpt:
-  times 4096 db 0
-boot_pdpt_hh:
-  times 4096 db 0
-boot_pdt:
-  times 4096 db 0
+  times 0x1000 db 0
+boot_pd0:
+  times 0x1000 db 0
+boot_pd0_p:
+  times 0x20000 db 0
 
 

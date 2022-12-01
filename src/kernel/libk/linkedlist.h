@@ -1,5 +1,6 @@
 #ifndef __LINKEDLIST__
 #define __LINKEDLIST__
+#include <libk/stddef.h>
 
 typedef struct node {
   void* data;
@@ -10,11 +11,14 @@ typedef struct node {
 typedef struct list {
   node_t* head;
   node_t* end;
+  size_t m_length;
 } list_t;
 
 // TODO: finish linkedlist (double link)
 list_t* init_list ();
-void add_node (list_t*, void*);
+void list_append(list_t*, void*);
+void list_append_before(list_t*, void*, uint32_t);
+void list_remove(list_t*, uint32_t);
 
 #endif // !__LINKEDLIST__
 
