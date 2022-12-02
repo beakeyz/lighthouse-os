@@ -73,6 +73,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   // Step 4: 
   
   // we are able to control the layout of virtual addresses with this shit
+
   uintptr_t virt_kernel_start = 0x2000000000 | (uintptr_t)&_kernel_start;
   uintptr_t virt_kernel_map_base = virt_kernel_start & ~0x3fffffff;
   
@@ -119,6 +120,15 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   prep_mmap(mmap);
   parse_memmap();
 
+  // TODO: remove funky test
+  /* grabs an (at this point) memory mapped virtual address and references it + changes the value at the physical address. moving this before the kernel mapping causes a pagefault */
+  uintptr_t test_virt_ptr = 0x200000000a;
+
+  *(uintptr_t*)test_virt_ptr = 696969;
+
+  size_t value = *(uintptr_t*)test_virt_ptr;
+
+  println(to_string(value));
   
 }
 

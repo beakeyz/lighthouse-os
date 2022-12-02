@@ -145,6 +145,15 @@ registers_t *interrupt_handler(struct registers *regs) {
   switch (regs->int_no) {
     // errors
     // TODO: panic handlers
+    case 14:
+      // pagefault
+      println("hi bitches!");
+      for (;;) {
+        disable_interupts();
+        asm volatile ("hlt");
+      }
+
+      break;
 
     // irqs lol
     case 32:
