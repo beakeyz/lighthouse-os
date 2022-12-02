@@ -45,6 +45,11 @@ global boot_pdpt
 global boot_pd0
 global boot_pd0_p
 
+global kernel_pd
+global kernel_pt0
+global kernel_img_pts
+global kernel_pt_last
+
 extern _start
 
 global stack_top
@@ -190,4 +195,12 @@ boot_pd0:
 boot_pd0_p:
   times 0x20000 db 0
 
+kernel_pd:
+  times 0x1000 db 0
+kernel_pt0:
+  times 0x1000 db 0
+kernel_img_pts:
+  times 0x20000 db 0
+kernel_pt_last:
+  times 0x1000 db 0
 

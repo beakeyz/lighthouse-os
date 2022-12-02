@@ -86,6 +86,8 @@ void kmem_mark_frame_free (uintptr_t frame);
 void kmem_mark_frame (uintptr_t frame, bool value);
 
 void kmem_nuke_pd(uintptr_t vaddr);
+void kmem_flush_tlb();
+
 uintptr_t kmem_get_frame ();
 pml_t* kmem_get_krnl_dir ();
 pml_t* kmem_get_page (uintptr_t addr, unsigned int kmem_flags);

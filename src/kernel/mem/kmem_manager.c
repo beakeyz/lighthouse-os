@@ -53,7 +53,10 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 
 pml_t base_init_pml[3][standard_pd_entries] __def_pagemap;
 
-pml_t kernel_pd[standard_pd_entries] __def_pagemap;
+extern pml_t kernel_pd[standard_pd_entries];
+extern pml_t kernel_pt0[standard_pd_entries];
+extern pml_t kernel_img_pts[standard_pd_entries * (32 & ENTRY_MASK)];
+extern pml_t kernel_pt_last[standard_pd_entries];
 
 // TODO: page directory and range abstraction and stuff lol
 void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t first_valid_alloc_addr) {
@@ -73,7 +76,30 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   uintptr_t virt_kernel_start = 0x2000000000 | (uintptr_t)&_kernel_start;
   uintptr_t virt_kernel_map_base = virt_kernel_start & ~0x3fffffff;
   
-  boot_pdpt[(virt_kernel_map_base >> 30) & 0x1ffu].raw_bits = kernel_pd->raw_bits | 0x3;
+  boot_pdpt[(virt_kernel_map_base >> 30) & 0x1ffu].raw_bits = (uintptr_t)&kernel_pd | 0x3;
+
+  kernel_pd[0].raw_bits = (uintptr_t)&kernel_pt0 | 0x3;
+
+  for (uintptr_t i = virt_kernel_start; i <= virt_kernel_start + (uintptr_t)&_kernel_end; i += PAGE_SIZE) {
+    print("pd_idx: ");
+    println(to_string((i - virt_kernel_map_base) >> 21));
+
+    uintptr_t kernel_pts_idx = (i - virt_kernel_start) >> 12;
+    kernel_pd[(i - virt_kernel_map_base) >> 21].raw_bits = (uintptr_t)(&kernel_img_pts[kernel_pts_idx]) | 0x3;
+
+    print("pt_idx: ");
+    println(to_string((i - virt_kernel_start) >> 12));
+
+    for (uintptr_t j = 0; j < 512; j++) {
+      kernel_img_pts[kernel_pts_idx + j].raw_bits = ((uintptr_t)&_kernel_start + i + j * SMALL_PAGE_SIZE) | 0x3;
+      print("pts_idx: ");
+      print(to_string(kernel_pts_idx + j));
+      print("  map_addr: ");
+      println(to_string((uintptr_t)&_kernel_start + i + j * SMALL_PAGE_SIZE));
+    }
+  }
+
+  kernel_pd[511].raw_bits = (uintptr_t)&kernel_pt_last | 0x3;
 
   print("funnies 1: ");
   println(to_string(virt_kernel_start));
@@ -81,6 +107,13 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   println(to_string(virt_kernel_map_base));
   print("funnies 3: ");
   println(to_string((virt_kernel_map_base >> 30) & 0x1ffu));
+
+  uintptr_t cr3_buffer = 0;
+  asm volatile (
+    "movq %%cr3, %0\n"
+    "movq %0, %%cr3" 
+    :: "r"(cr3_buffer) : "memory"
+  );
 
   struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
   prep_mmap(mmap);
@@ -100,6 +133,8 @@ void parse_memmap() {
   // kernel should start at 1 Mib
   print("Kernel start addr: ");
   println(to_string((uint64_t)&_kernel_start));
+  print("Kernel end addr: ");
+  println(to_string((uint64_t)&_kernel_end));
 
   list_t* contiguous_ranges = kmalloc(sizeof(list_t));
   memset(contiguous_ranges, 0, sizeof(list_t));
@@ -392,7 +427,7 @@ pml_t *kmem_get_page(uintptr_t addr, unsigned int kmem_flags) {
 }
 
 
-void kmem_nuke_pd(uintptr_t vaddr) { asm volatile("invlpg %0" ::"m"(vaddr)); }
+void kmem_nuke_pd(uintptr_t vaddr) { asm volatile("invlpg %0" ::"m"(vaddr) : "memory"); }
 
 // simpler version of the massive chonker above
 void _kmem_map_memory(pml_t *page, uintptr_t paddr, unsigned int flags) {
