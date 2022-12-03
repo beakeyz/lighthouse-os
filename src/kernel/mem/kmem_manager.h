@@ -14,7 +14,7 @@
 
 // paging masks
 #define KRNL_HEAP_START 0xFFFFff0000000000UL
-#define HIGH_MAP_BASE   0xFFFFff8000000000UL
+#define HIGH_MAP_BASE   0x2000000000UL
 #define MMIO_BASE       0xFFFFff1fc0000000UL
 #define USR_DEV_MAP     0x0000400000000000UL
 
@@ -79,6 +79,9 @@ void protect_heap();
 void prep_mmap (struct multiboot_tag_mmap* mmap);
 void parse_memmap ();
 
+inline uintptr_t kmem_get_page_idx (uintptr_t page_addr);
+inline uintptr_t kmem_get_page_base (uintptr_t page_addr);
+
 void* kmem_from_phys (uintptr_t addr);
 uintptr_t kmem_to_phys (pml_t* root, uintptr_t addr);
 void kmem_mark_frame_used (uintptr_t frame);
@@ -103,6 +106,7 @@ bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count
 //void kmem_map_range (uintptr_t vaddr, size_t size, unsigned int flags);
 
 //void kmem_umap_memory (uintptr_t vaddr);
+void kmem_init_physical_allocator();
 
 void* kmem_alloc (size_t page_count);
 
