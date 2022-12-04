@@ -6,9 +6,9 @@
 #include "kernel/dev/debug/serial.h"
 #include <libk/stddef.h>
 
-#define KHEAP_USED_FLAG 0xFF
-#define KHEAP_FREE_FLAG 0x00
-#define KHEAP_FUNNY_FLAG 0x69
+#define KHEAP_USED_FLAG 0x01
+#define KHEAP_FREE_FLAG 0x02
+#define KHEAP_FUNNY_FLAG 0x04
 
 
 // TODO: spinlock :clown:

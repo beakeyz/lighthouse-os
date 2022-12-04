@@ -27,12 +27,6 @@ mb_fb_tag_end:
   dd 8    ;size
 header_end:
 
-; hihi small stack =)
-section .stack
-align 8 
-stack_bottom:
-  times 16385 db 0
-stack_top:
 
 section .pre_text
 [bits 32]
@@ -46,7 +40,6 @@ global boot_pd0
 global boot_pd0_p
 
 global kernel_pd
-global kernel_pt0
 global kernel_img_pts
 global kernel_pt_last
 
@@ -63,6 +56,7 @@ start:
   mov esi, eax ; Magic number
 
   ; TODO: cpuid and PAE checks ect.  
+  mov esp, stack_top
 
   ; set cr3
   mov eax, boot_pml4t
@@ -70,19 +64,19 @@ start:
 
   mov eax, boot_pdpt
   or eax, 0x3
-  mov [boot_pml4t], eax
+  mov [(boot_pml4t)], eax
 
   mov eax, boot_pd0
   or eax, 0x3
-  mov [boot_pdpt], eax
+  mov [(boot_pdpt)], eax
 
-  mov eax, boot_pd0
+  mov eax, 0 
   mov ebx, boot_pd0_p
   mov ecx, 32
 
   .fill_directory:
     or ebx, 0x3
-    mov [eax], ebx
+    mov dword[(boot_pd0) + eax], ebx
     add ebx, 0x1000
     add eax, 8
 
@@ -90,15 +84,15 @@ start:
     cmp ecx, 0
     jne .fill_directory
 
-  mov ecx, 1024
+  mov ecx, 1024 
   mov ebx, 0 
-  mov eax, boot_pd0_p
+  mov eax, 0 
 
   ; We are mapping a kernel with a range of 2 Mib, this does not scale for now
   ; NOTE: if our kernel gets too big (it won't) we're fucked
   .map_kernel:
     or ebx, 0x3
-    mov [eax], ebx
+    mov [(boot_pd0_p) + eax], ebx
     add ebx, 0x1000
     add eax, 8
 
@@ -123,15 +117,13 @@ start:
   or eax, 1 << 16
   mov cr0, eax
 
-  mov esp, stack_top 
-
   lgdt [gdtr]
   jmp (0x8):(long_start)
 
 ; start of 64 bit madness
 [bits 64]
-align 8 
 section .text
+align 4
 
 ; start lol
 long_start:
@@ -158,28 +150,17 @@ loopback:
   jmp loopback
 
 section .rodata
-
 ; gdt
-align 8
 gdtr:
-  dw gdt_end - gdt_start
+  dw gdt_end - gdt_start - 1
   dq gdt_start
 gdt_start:
   dq 0
 
-  dw 0xffff
-  dw 0
-  db 0
-  db 0x9a
-  db 0x20
-  db 0
+  dq (1 << 44) | (1 << 47) | (1 << 41) | (1 << 43) | (1 << 53)
 
-  dw 0xffff
-  dw 0
-  db 0
-  db 0x92
-  db 0
-  db 0
+  dq (1 << 44) | (1 << 47) | (1 << 41)
+
 gdt_end:
 
 section .pts 
@@ -197,10 +178,15 @@ boot_pd0_p:
 
 kernel_pd:
   times 0x1000 db 0
-kernel_pt0:
-  times 0x1000 db 0
 kernel_img_pts:
   times 0x20000 db 0
 kernel_pt_last:
   times 0x1000 db 0
+
+; hihi small stack =)
+section .stack
+stack_bottom:
+  times 16384 db 0
+stack_top:
+
 

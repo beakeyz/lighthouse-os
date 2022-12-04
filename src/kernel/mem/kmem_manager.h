@@ -6,40 +6,42 @@
 #include "pml.h"
 
 // some faultcodes
-#define PRESENT_VIOLATION   0x1
-#define WRITE_VIOLATION 0x2
-#define ACCESS_VIOLATION    0x4
-#define RESERVED_VIOLATION   0x8
-#define FETCH_VIOLATION 0x10
+#define PRESENT_VIOLATION       0x1
+#define WRITE_VIOLATION         0x2
+#define ACCESS_VIOLATION        0x4
+#define RESERVED_VIOLATION      0x8
+#define FETCH_VIOLATION         0x10
+
+
+// Kernel high virtual base
+#define HIGH_MAP_BASE           0xFFFFFFFF80000000UL 
+// Physical range base
+#define PHYSICAL_RANGE_BASE     0xFFFFFFFF00000000UL
 
 // paging masks
-#define KRNL_HEAP_START 0xFFFFff0000000000UL
-#define HIGH_MAP_BASE   0x2000000000UL
-#define MMIO_BASE       0xFFFFff1fc0000000UL
-#define USR_DEV_MAP     0x0000400000000000UL
+#define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL
+#define PAGE_LOW_MASK           0xFFFUL
+#define ENTRY_MASK              0x1FFUL
 
-#define PAGE_SIZE_MASK  0xFFFFffffFFFFf000UL
-#define PAGE_LOW_MASK   0xFFFUL
-#define ENTRY_MASK      0x1FFUL
+#define PAGE_SIZE               0x200000
+#define SMALL_PAGE_SIZE         0x1000UL
+#define PAGE_SIZE_BYTES         0x200000UL
 
-#define PAGE_SIZE 0x200000
-#define SMALL_PAGE_SIZE 0x1000UL
-#define PAGE_SIZE_BYTES 0x200000UL
-
-#define PDP_MASK 0x3fffffffUL
-#define  PD_MASK 0x1fffffUL
-#define  PT_MASK PAGE_LOW_MASK
+#define PDP_MASK                0x3fffffffUL
+#define PD_MASK                 0x1fffffUL
+#define PT_MASK                 PAGE_LOW_MASK
 
 // page flags
-#define KMEM_FLAG_KERNEL       0x01
-#define KMEM_FLAG_WRITABLE     0x02
-#define KMEM_FLAG_NOCACHE      0x04
-#define KMEM_FLAG_WRITETHROUGH 0x08
-#define KMEM_FLAG_SPEC         0x10
-#define KMEM_FLAG_WC           (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_SPEC)
-#define KMEM_FLAG_NOEXECUTE    0x20
+#define KMEM_FLAG_KERNEL        0x01
+#define KMEM_FLAG_WRITABLE      0x02
+#define KMEM_FLAG_NOCACHE       0x04
+#define KMEM_FLAG_WRITETHROUGH  0x08
+#define KMEM_FLAG_SPEC          0x10
+#define KMEM_FLAG_WC            (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_SPEC)
+#define KMEM_FLAG_NOEXECUTE     0x20
 
-#define KMEM_GET_MAKE 0x01
+// Custom mapping flags
+#define KMEM_GET_MAKE           0x01
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \

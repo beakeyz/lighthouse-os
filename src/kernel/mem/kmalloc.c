@@ -43,7 +43,7 @@ void quick_print_node_sizes() {
     print("node ");
     print(to_string(index));
     print(": ");
-    if (node->flags == KHEAP_FREE_FLAG) {
+    if ((node->flags | KHEAP_FREE_FLAG) == KHEAP_FREE_FLAG) {
       print("(free) ");
     }
     print("true size: ");
@@ -80,8 +80,8 @@ void* kmalloc(size_t len) {
       // now split off a node of the correct size
       heap_node_t* new_node = split_node(node, len);
       if (new_node == nullptr) {
-          node = node->next;
-          continue;
+        node = node->next;
+        continue;
       }
 
       new_node->flags = KHEAP_USED_FLAG;
@@ -159,11 +159,20 @@ bool try_heap_expand(heap_node_t* last_node) {
 }
 
 heap_node_t* split_node(heap_node_t *ptr, size_t size) {
+  // trying to split a node into a bigger size than it itself is xD
   if (ptr->size <= size) {
     // this is just dumb
     println("[kmalloc:split_node] size is invalid");
     return nullptr;
   }
+
+  size_t node_free_size = ptr->size - sizeof(heap_node_t);
+  size_t extra_size = size + sizeof(heap_node_t);
+  if (node_free_size < extra_size) {
+    println("[kmalloc:split_node] node too small");
+    return nullptr;
+  }
+  
   
   if (ptr->flags == KHEAP_USED_FLAG) {
     // a node that's completely in use, should not be split

@@ -13,7 +13,7 @@ typedef struct {
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
 
-  volatile uint32_t* m_physical_pages;
+  volatile uint8_t* m_physical_pages;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
   size_t m_total_unavail_memory_bytes;
@@ -44,7 +44,7 @@ static char *heap_start = NULL;
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
-  KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(*mmap)) / mmap->entry_size;
+  KMEM_DATA.m_mmap_entry_num = (mmap->size) / mmap->entry_size;
   KMEM_DATA.m_mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
 }
 
@@ -55,8 +55,8 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 pml_t base_init_pml[3][STANDARD_PD_ENTRIES] __def_pagemap;
 
 extern pml_t kernel_pd[STANDARD_PD_ENTRIES];
-extern pml_t kernel_pt0[STANDARD_PD_ENTRIES];
 extern pml_t kernel_img_pts[STANDARD_PD_ENTRIES * (32 & ENTRY_MASK)];
+// could be used for temporary mappings?
 extern pml_t kernel_pt_last[STANDARD_PD_ENTRIES];
 
 // TODO: page directory and range abstraction and stuff lol
@@ -76,19 +76,28 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   
   // we are able to control the layout of virtual addresses with this shit
 
-  uintptr_t virt_kernel_start = 0x2000000000UL | (uintptr_t)&_kernel_start;
-  uintptr_t virt_kernel_map_base = virt_kernel_start & ~0x3ffffffful;
+  uintptr_t virt_kernel_start = HIGH_MAP_BASE | (uintptr_t)&_kernel_start;
+  uintptr_t virt_kernel_map_base = virt_kernel_start & ~PDP_MASK;
   
   boot_pdpt[(virt_kernel_map_base >> 30) & 0x1ffu].raw_bits = (uintptr_t)&kernel_pd | 0x3;
 
-  kernel_pd[0].raw_bits = (uintptr_t)&kernel_pt0 | 0x3;
+  for (uintptr_t i = virt_kernel_start; i <= virt_kernel_start + (uintptr_t)&_kernel_end; i += SMALL_PAGE_SIZE * 512) {
 
-  for (uintptr_t i = virt_kernel_start; i <= virt_kernel_start + (uintptr_t)&_kernel_end; i += PAGE_SIZE) {
+    print("pd_idx: ");
+    println(to_string((i - virt_kernel_map_base) >> 21));
+
     uintptr_t kernel_pts_idx = (i - virt_kernel_start) >> 12;
-    kernel_pd[(i - virt_kernel_map_base) >> 21].raw_bits = (uintptr_t)(&kernel_img_pts[kernel_pts_idx]) | 0x3;
+    kernel_pd[((i - virt_kernel_map_base) >> 21) & 0x1ffu].raw_bits = (uintptr_t)(&kernel_img_pts[kernel_pts_idx]) | 0x3;
+
+    print("pt_idx: ");
+    println(to_string((i - virt_kernel_start) >> 12));
 
     for (uintptr_t j = 0; j < 512; j++) {
-      kernel_img_pts[kernel_pts_idx + j].raw_bits = ((uintptr_t)&_kernel_start + i + j * SMALL_PAGE_SIZE) | 0x3;
+      kernel_img_pts[kernel_pts_idx + j].raw_bits = ((uintptr_t)&_kernel_start + (i - virt_kernel_start) + j * SMALL_PAGE_SIZE) | 0x3;
+      print("pts_idx: ");
+      print(to_string(kernel_pts_idx + j));
+      print("  map_addr: ");
+      println(to_string((uintptr_t)&_kernel_start + (i - virt_kernel_start) +  j * SMALL_PAGE_SIZE));
     }
   }
 
@@ -110,6 +119,17 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   parse_memmap();
 
   kmem_init_physical_allocator();  
+
+  uintptr_t ptr = virt_kernel_start;
+
+  uintptr_t p_ptr = (uintptr_t)&_kernel_start;
+
+  pml_t table = kernel_img_pts[(ptr >> 12) & 0x1ffu];
+
+  println(to_string(table.structured_bits.page << 12));
+
+  println(to_string((uintptr_t)(*(uintptr_t*)p_ptr)));
+
 }
 
 // function inspired by serenityOS
@@ -245,11 +265,12 @@ void parse_memmap() {
     total_contig_size += (range->upper - range->lower);
     itterator = itterator->next;
   }
+  kfree(contiguous_ranges);
 
-  print("Total contiguous size: ");
-  println(to_string(total_contig_size));
+  KMEM_DATA.m_phys_pages_count = ALIGN_UP(total_contig_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
-  quick_print_node_sizes();
+  print("Total contiguous pages: ");
+  println(to_string(KMEM_DATA.m_phys_pages_count));
 }
 
 void kmem_init_physical_allocator() {
@@ -280,10 +301,11 @@ void kmem_init_physical_allocator() {
     itterator = itterator->next;
   }
 
+  println(to_string(hightest_useable_addr));
   size_t physical_pages_count = kmem_get_page_idx(hightest_useable_addr) + 1;
 
   // TODO: uhm, what exactly do we use to indicate physical pages?
-  size_t physical_pages_bytes = physical_pages_count * sizeof(uintptr_t);
+  size_t physical_pages_bytes = physical_pages_count * sizeof(uint8_t);
   size_t physical_pages_pagecount = ALIGN_UP(physical_pages_bytes, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   size_t physical_pagetables_count = (physical_pages_pagecount + 512 - 1) / 512;
 
@@ -298,7 +320,7 @@ void kmem_init_physical_allocator() {
 
     contiguous_phys_virt_range_t* range = (contiguous_phys_virt_range_t*)itterator->data;
 
-    size_t range_size = (size_t)(range->upper - range->lower);
+    size_t range_size = ALIGN_UP((size_t)(range->upper - range->lower), SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
     if (range_size >= total_physical_count) {
       useable_range = range;
@@ -309,8 +331,12 @@ void kmem_init_physical_allocator() {
     itterator = itterator->next;
   }
 
+  println(to_string(total_physical_count));
+  println(to_string(KMEM_DATA.m_phys_pages_count));
+
   // TODO: error
   if (KMEM_DATA.m_phys_pages_count <= total_physical_count) {
+    println("Error: too much shit needed to construct physical pages");
     return;
   }
 
@@ -327,9 +353,18 @@ void kmem_init_physical_allocator() {
   contiguous_phys_virt_range_t* _ptr = kmalloc(sizeof(contiguous_phys_virt_range_t));
   memcpy(&new_range, _ptr, sizeof(contiguous_phys_virt_range_t));
 
+
+  println("Append");
   list_append(KMEM_DATA.m_used_mem_ranges, _ptr);
-  
+
+  // first allocate the pagetables
+  uintptr_t range_base = new_range.lower;
+  uintptr_t phys_pages_base = range_base + physical_pagetables_count * SMALL_PAGE_SIZE;
+
   println(to_string(physical_pagetables_count));
+
+  quick_print_node_sizes();
+
 
 }
 

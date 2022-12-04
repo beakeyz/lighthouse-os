@@ -20,6 +20,7 @@ extern ctor_func_t _end_ctors[];
 
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
+#define KERNEL_VIRTUAL_OFFSET 0xFFFFFFFF80000000
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
@@ -45,15 +46,12 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   if (mb_magic == 0x36d76289) {
     // parse multiboot
     mb_initialize((void *)mb_addr, &first_valid_addr, &first_valid_alloc_addr);
+
   } else {
     println("big yikes");
     hang();
   }
 
-  for (ctor_func_t *constructor = _start_ctors; constructor < _end_ctors; constructor++) {
-    (*constructor)();
-  }
-  
   init_kheap();
 
   //struct multiboot_tag_framebuffer *fb =
@@ -61,7 +59,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   //struct multiboot_tag_framebuffer_common fb_common = fb->common;
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
-  setup_gdt();
+  //setup_gdt();
   setup_idt();
   init_interupts();
 
