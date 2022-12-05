@@ -16,7 +16,7 @@
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xFFFFFFFF80000000UL 
 // Physical range base
-#define PHYSICAL_RANGE_BASE     0xFFFFFFFF00000000UL
+#define PHYSICAL_RANGE_BASE     0xFFF1FFF000000000UL
 
 // paging masks
 #define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL

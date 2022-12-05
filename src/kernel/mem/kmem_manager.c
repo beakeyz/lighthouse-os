@@ -22,6 +22,7 @@ typedef struct {
   list_t* m_contiguous_ranges;
   list_t* m_used_mem_ranges;
 
+  pml_t m_kernel_pd[3][512] __attribute__((aligned(0x1000UL)));
 
 } kmem_data_t;
 
@@ -55,7 +56,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 pml_t base_init_pml[3][STANDARD_PD_ENTRIES] __def_pagemap;
 
 extern pml_t kernel_pd[STANDARD_PD_ENTRIES];
-extern pml_t kernel_img_pts[STANDARD_PD_ENTRIES * (32 & ENTRY_MASK)];
+extern pml_t kernel_img_pts[STANDARD_PD_ENTRIES * 32];
 // could be used for temporary mappings?
 extern pml_t kernel_pt_last[STANDARD_PD_ENTRIES];
 
@@ -93,6 +94,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
     println(to_string((i - virt_kernel_start) >> 12));
 
     for (uintptr_t j = 0; j < 512; j++) {
+
       kernel_img_pts[kernel_pts_idx + j].raw_bits = ((uintptr_t)&_kernel_start + (i - virt_kernel_start) + j * SMALL_PAGE_SIZE) | 0x3;
       print("pts_idx: ");
       print(to_string(kernel_pts_idx + j));
@@ -117,7 +119,11 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   print("funnies 3: ");
   println(to_string((virt_kernel_map_base >> 30) & 0x1ffu));
 
-  asm volatile ( "movq %0, %%cr3" :: "r"(boot_pml4t) : "memory" );
+  uintptr_t map = (uintptr_t)(pml_t *)&boot_pml4t[0];
+
+  asm volatile("" : : : "memory");
+  asm volatile("movq %0, %%cr3" ::"r"(map));
+  asm volatile("" : : : "memory");
 
   struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
   prep_mmap(mmap);
@@ -125,15 +131,27 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   kmem_init_physical_allocator();  
 
-  uintptr_t ptr = virt_kernel_start;
+  uintptr_t ptr = (virt_kernel_start + 10);
 
   uintptr_t p_ptr = (uintptr_t)&_kernel_start;
 
-  pml_t table = kernel_img_pts[(ptr >> 12) & 0x1ffu];
+  pml_t* pdpt = (pml_t*)(uintptr_t)(boot_pdpt[(ptr >> 30) & 0x1ffu].structured_bits.page << 12);
+  pml_t* pd = (pml_t*)(uintptr_t)(pdpt[(ptr >> 21) & 0x1ffu].structured_bits.page << 12);
+  pml_t* table = (pml_t*)(uintptr_t)(pd[(ptr >> 12) & 0x1ffu].structured_bits.page << 12);
 
-  println(to_string(table.structured_bits.page << 12));
+  if (pdpt->structured_bits.present_bit) {
+    print("1");
+    if (pd->structured_bits.present_bit) {
+      print("2");
+      if (table->structured_bits.present_bit) {
+        println("3");
+        println(to_string(table->structured_bits.page << 12));
+      }
+    }
+  }
+  //println(to_string(table->raw_bits));
 
-  println(to_string((uintptr_t)(*(uintptr_t*)p_ptr)));
+  //println(to_string((uintptr_t)(*(uintptr_t*)p_ptr)));
 
 }
 
