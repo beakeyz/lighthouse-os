@@ -108,7 +108,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   //for (uintptr_t i = (uintptr_t)&_kernel_start; i < (uintptr_t)&_kernel_end; i++) {
   //. boot_pd0[i] = 0;
   //}
-  memset(boot_pd, 0, 512);
+  memset(&boot_pd, 0, sizeof(pml_t) * STANDARD_PD_ENTRIES);
 
   print("funnies 1: ");
   println(to_string(virt_kernel_start));
