@@ -22,7 +22,9 @@ typedef struct {
   list_t* m_contiguous_ranges;
   list_t* m_used_mem_ranges;
 
-  pml_t m_kernel_pd[3][512] __attribute__((aligned(0x1000UL)));
+  pml_t m_kernel_base_pd[3][512] __attribute__((aligned(0x1000UL)));
+  pml_t m_high_base_pd[512] __attribute__((aligned(0x1000UL)));
+  pml_t m_high_base_pts[64][512] __attribute__((aligned(0x1000UL)));
 
 } kmem_data_t;
 
@@ -67,20 +69,19 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_used_mem_ranges = kmalloc(sizeof(list_t));
 
-  // Step 1: create kernel_pd and shit, then map shit we need
+  memset(&KMEM_DATA.m_kernel_base_pd, 0, sizeof(pml_t) * 3 * 512);
 
-  // Step 2: parse memmap and find physical ranges in memory
+  struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
+  prep_mmap(mmap);
+  parse_memmap();
 
-  // Step 3: construct physical and virtual pages and their arrays (find a range that can hold our shit and split it in a correct manner)
-
-  // Step 4: 
-  
   // we are able to control the layout of virtual addresses with this shit
 
+  /*
   uintptr_t virt_kernel_start = HIGH_MAP_BASE | (uintptr_t)&_kernel_start;
   uintptr_t virt_kernel_map_base = virt_kernel_start & ~PDP_MASK;
   
-  boot_pdpt[(virt_kernel_map_base >> 30) & 0x1ffu].raw_bits = (uintptr_t)&kernel_pd | 0x3;
+  KMEM_DATA.m_kernel_base_pd[0][(virt_kernel_map_base >> 30) & 0x1ffu].raw_bits = (uintptr_t)&kernel_pd | 0x3;
 
   for (uintptr_t i = virt_kernel_start; i <= virt_kernel_start + (uintptr_t)&_kernel_end; i += SMALL_PAGE_SIZE * 512) {
 
@@ -104,13 +105,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   }
 
   kernel_pd[511].raw_bits = (uintptr_t)&kernel_pt_last | 0x3;
-
   memset(&kernel_pt_last, 0, sizeof(pml_t) * STANDARD_PD_ENTRIES);
-
-  //for (uintptr_t i = (uintptr_t)&_kernel_start; i < (uintptr_t)&_kernel_end; i++) {
-  //. boot_pd0[i] = 0;
-  //}
-  memset(&boot_pd0, 0, sizeof(pml_t) * STANDARD_PD_ENTRIES);
 
   print("funnies 1: ");
   println(to_string(virt_kernel_start));
@@ -118,40 +113,58 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   println(to_string(virt_kernel_map_base));
   print("funnies 3: ");
   println(to_string((virt_kernel_map_base >> 30) & 0x1ffu));
+  */
 
-  uintptr_t map = (uintptr_t)(pml_t *)&boot_pml4t[0];
+  KMEM_DATA.m_kernel_base_pd[0][511].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pd | 0x3;
+
+  for (uintptr_t dir = 0; dir < 64; dir++) {
+    KMEM_DATA.m_high_base_pd[dir].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pts[dir] | 0x3;
+    for (uintptr_t page = 0; page < 512; page++) {
+      KMEM_DATA.m_high_base_pts[dir][page].raw_bits = ((dir << 30) + (page << 21)) | 0x8;
+    }
+  }
+
+  KMEM_DATA.m_kernel_base_pd[0][0].raw_bits = (uintptr_t)&kernel_img_pts | 0x3;
+
+  kernel_img_pts[0].raw_bits = (uintptr_t)&kernel_img_pts[512] | 0x3;
+
+  const uintptr_t virt_kernel_end_ptr = ((uintptr_t)&_kernel_end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
+  const size_t kernel_page_count = virt_kernel_end_ptr >> 12;
+  const size_t kernel_pagetable_count = (kernel_page_count + ENTRY_MASK) >> 9;
+
+  for (size_t i = 0; i < kernel_pagetable_count; i++) {
+    const size_t current_pt_idx = 1024 + i * STANDARD_PD_ENTRIES;
+
+    kernel_img_pts[512 + i].raw_bits = (uintptr_t)&kernel_img_pts[current_pt_idx] | 0x3;
+    for (size_t j = 0; j < STANDARD_PD_ENTRIES; j++) {
+      kernel_img_pts[current_pt_idx + j].raw_bits = (uintptr_t)(PAGE_SIZE * i + SMALL_PAGE_SIZE * j) | 0x3;
+    }
+  }
+
+  uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
 
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(map));
   asm volatile("" : : : "memory");
 
-  struct multiboot_tag_mmap *mmap = get_mb2_tag((void *)mb_addr, 6);
-  prep_mmap(mmap);
-  parse_memmap();
+  print("New page directory pointer table: ");
+  println(to_string(map));
 
   kmem_init_physical_allocator();  
 
-  uintptr_t ptr = (virt_kernel_start + 10);
+  uintptr_t ptr = (uintptr_t)kmem_from_phys((uintptr_t)&_kernel_start);
 
-  uintptr_t p_ptr = (uintptr_t)&_kernel_start;
+  pml_t* root = KMEM_DATA.m_kernel_base_pd[0];
 
-  pml_t* pdpt = (pml_t*)(uintptr_t)(boot_pdpt[(ptr >> 30) & 0x1ffu].structured_bits.page << 12);
-  pml_t* pd = (pml_t*)(uintptr_t)(pdpt[(ptr >> 21) & 0x1ffu].structured_bits.page << 12);
-  pml_t* table = (pml_t*)(uintptr_t)(pd[(ptr >> 12) & 0x1ffu].structured_bits.page << 12);
+  if (root[(ptr >> 30) & 0x1ffu].structured_bits.present_bit) {
+    println("found");
 
-  if (pdpt->structured_bits.present_bit) {
-    print("1");
-    if (pd->structured_bits.present_bit) {
-      print("2");
-      if (table->structured_bits.present_bit) {
-        println("3");
-        println(to_string(table->structured_bits.page << 12));
-      }
+    pml_t* pdp = kmem_from_phys((uintptr_t)root[(ptr >> 30) & 0x1ffu].structured_bits.page << 12);
+
+    if (pdp[(ptr >> 21) & 0x1ffu].structured_bits.present_bit) {
+      println("found nr.2");
     }
   }
-  //println(to_string(table->raw_bits));
-
-  //println(to_string((uintptr_t)(*(uintptr_t*)p_ptr)));
 
 }
 
