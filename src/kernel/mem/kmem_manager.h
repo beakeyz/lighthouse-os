@@ -14,7 +14,7 @@
 
 
 // Kernel high virtual base
-#define HIGH_MAP_BASE           0xffffFF8000000000UL 
+#define HIGH_MAP_BASE           0xffffff8000000000UL 
 // Physical range base
 #define PHYSICAL_RANGE_BASE     0xFFF1FFF000000000UL
 

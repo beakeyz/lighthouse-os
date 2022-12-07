@@ -58,7 +58,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 pml_t base_init_pml[3][STANDARD_PD_ENTRIES] __def_pagemap;
 
 extern pml_t kernel_pd[STANDARD_PD_ENTRIES];
-extern pml_t kernel_img_pts[STANDARD_PD_ENTRIES * 32];
+extern pml_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
 // could be used for temporary mappings?
 extern pml_t kernel_pt_last[STANDARD_PD_ENTRIES];
 
@@ -120,26 +120,28 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   for (uintptr_t dir = 0; dir < 64; dir++) {
     KMEM_DATA.m_high_base_pd[dir].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pts[dir] | 0x3;
     for (uintptr_t page = 0; page < 512; page++) {
-      KMEM_DATA.m_high_base_pts[dir][page].raw_bits = ((dir << 30) + (page << 21)) | 0x8;
+      KMEM_DATA.m_high_base_pts[dir][page].raw_bits = ((dir << 30) + (page << 21)) | 0x83;
     }
   }
 
-  KMEM_DATA.m_kernel_base_pd[0][0].raw_bits = (uintptr_t)&kernel_img_pts | 0x3;
+  KMEM_DATA.m_kernel_base_pd[0][0].raw_bits = (uintptr_t)&kernel_img_pts[0] | 0x3;
 
-  kernel_img_pts[0].raw_bits = (uintptr_t)&kernel_img_pts[512] | 0x3;
+  kernel_img_pts[0][0].raw_bits = (uintptr_t)&kernel_img_pts[1] | 0x3;
 
   const uintptr_t virt_kernel_end_ptr = ((uintptr_t)&_kernel_end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
   const size_t kernel_page_count = virt_kernel_end_ptr >> 12;
   const size_t kernel_pagetable_count = (kernel_page_count + ENTRY_MASK) >> 9;
 
   for (size_t i = 0; i < kernel_pagetable_count; i++) {
-    const size_t current_pt_idx = 1024 + i * STANDARD_PD_ENTRIES;
+    const size_t current_pt_idx = 2 + i;
 
-    kernel_img_pts[512 + i].raw_bits = (uintptr_t)&kernel_img_pts[current_pt_idx] | 0x3;
+    kernel_img_pts[1][i].raw_bits = (uintptr_t)&kernel_img_pts[current_pt_idx] | 0x3;
     for (size_t j = 0; j < STANDARD_PD_ENTRIES; j++) {
-      kernel_img_pts[current_pt_idx + j].raw_bits = (uintptr_t)(PAGE_SIZE * i + SMALL_PAGE_SIZE * j) | 0x3;
+      kernel_img_pts[current_pt_idx][j].raw_bits = (uintptr_t)(PAGE_SIZE * i + SMALL_PAGE_SIZE * j) | 0x3;
     }
   }
+
+  kernel_img_pts[2][0].raw_bits = 0;
 
   uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
 
@@ -156,16 +158,18 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   pml_t* root = KMEM_DATA.m_kernel_base_pd[0];
 
-  if (root[(ptr >> 30) & 0x1ffu].structured_bits.present_bit) {
+  if (root[(ptr >> 40) & 0x1ffu].structured_bits.present_bit) {
     println("found");
 
-    pml_t* pdp = kmem_from_phys((uintptr_t)root[(ptr >> 30) & 0x1ffu].structured_bits.page << 12);
+    pml_t* pdp = (pml_t*)kmem_from_phys((uintptr_t)root[(ptr >> 40) & 0x1ffu].structured_bits.page << 12);
 
-    if (pdp[(ptr >> 21) & 0x1ffu].structured_bits.present_bit) {
-      println("found nr.2");
+    println(to_string((uintptr_t)pdp));
+
+    if (pdp[(ptr >> 30) & 0x1ffu].structured_bits.present_bit) {
+      // SUCCES! our pagetables are being read in such a way that we can dereference virtual addresses correctly!
+      println("found!");
     }
   }
-
 }
 
 // function inspired by serenityOS
