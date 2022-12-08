@@ -16,7 +16,7 @@
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xffffff8000000000UL 
 // Physical range base
-#define PHYSICAL_RANGE_BASE     0xFFF1FFF000000000UL
+#define PHYSICAL_RANGE_BASE     0xFFF0000000000000UL
 
 // paging masks
 #define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL
@@ -48,10 +48,6 @@
     ((addr % size == 0) ? (addr) : (addr) + size - ((addr) % size))
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % size))
-
-// defines for bitmap
-#define INDEX_FROM_BIT(b)  ((b) >> 5)
-#define OFFSET_FROM_BIT(b) ((b) & 0x1F)
 
 typedef enum {
   PMRT_USABLE = 1,

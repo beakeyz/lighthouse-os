@@ -18,7 +18,7 @@ typedef struct {
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
 
-  volatile uint8_t* m_physical_pages;
+  volatile uintptr_t* m_physical_pages;
   uintptr_t m_highest_phys_addr;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
@@ -31,6 +31,9 @@ typedef struct {
   pml_t m_kernel_base_pd[3][512] __attribute__((aligned(0x1000UL)));
   pml_t m_high_base_pd[512] __attribute__((aligned(0x1000UL)));
   pml_t m_high_base_pts[64][512] __attribute__((aligned(0x1000UL)));
+
+  pml_t m_phys_base_pd[512] __attribute__((aligned(0x1000UL)));
+  pml_t m_phys_base_pts[64][512] __attribute__((aligned(0x1000UL)));
 
 } kmem_data_t;
 
@@ -102,6 +105,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
     println("Could not map page");
   }
 
+  /*
   uintptr_t ptr = (uintptr_t)kmem_from_phys((uintptr_t)PHYSICAL_RANGE_BASE);
 
   pml_t* page = kmem_get_page((pml_t*)&KMEM_DATA.m_kernel_base_pd[0], ptr, KMEM_GET_MAKE);
@@ -111,7 +115,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   print("raw entry: ");
   println(to_string(*(uintptr_t*)ptr));
-
+  */
 }
 
 // function inspired by serenityOS
@@ -263,69 +267,32 @@ void parse_memmap() {
 
 void kmem_init_physical_allocator() {
 
+  /*
   uintptr_t hightest_useable_addr = KMEM_DATA.m_highest_phys_addr;
   
   println(to_string(hightest_useable_addr));
   size_t physical_pages_count = kmem_get_page_idx(hightest_useable_addr) + 1;
-
-  // TODO: uhm, what exactly do we use to indicate physical pages?
-  size_t physical_pages_bytes = physical_pages_count * sizeof(uint32_t);
+  */
+  size_t physical_pages_bytes = ALIGN_UP(KMEM_DATA.m_phys_pages_count >> 3, SMALL_PAGE_SIZE);
   size_t physical_pages_pagecount = ALIGN_UP(physical_pages_bytes, SMALL_PAGE_SIZE) >> 12;
   size_t physical_pagetables_count = (physical_pages_pagecount + 512 - 1) >> 9;
 
-  size_t total_physical_count = physical_pages_pagecount + physical_pagetables_count;
-
-  // now where do we put this crap
-
-  contiguous_phys_virt_range_t* useable_range = nullptr;
-
-  node_t* itterator = KMEM_DATA.m_contiguous_ranges->head;
-  while (itterator) {
-
-    contiguous_phys_virt_range_t* range = (contiguous_phys_virt_range_t*)itterator->data;
-
-    size_t range_size = ALIGN_UP((size_t)(range->upper - range->lower), SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
-
-    if (range_size >= total_physical_count) {
-      useable_range = range;
-      println("Found range!");
-      break;
-    }
-
-    itterator = itterator->next;
-  }
-
-  println(to_string(total_physical_count));
-  println(to_string(KMEM_DATA.m_phys_pages_count));
-
-  // TODO: error
-  if (KMEM_DATA.m_phys_pages_count <= total_physical_count) {
-    println("Error: too much shit needed to construct physical pages");
-    return;
-  }
-
-  KMEM_DATA.m_phys_pages_count -= total_physical_count;
-
-  // yoink region
-  contiguous_phys_virt_range_t new_range = {
-    .lower = useable_range->lower,
-    .upper = useable_range->lower + total_physical_count * SMALL_PAGE_SIZE
-  };
-
-  // edit old range to prevent overlapping
-  useable_range->lower += total_physical_count * SMALL_PAGE_SIZE + 1;
-
-  // allocate and append
-  contiguous_phys_virt_range_t* _ptr = kmalloc(sizeof(contiguous_phys_virt_range_t));
-  memcpy(&new_range, _ptr, sizeof(contiguous_phys_virt_range_t));
-  list_append(KMEM_DATA.m_used_mem_ranges, _ptr);
-
-  // We can't use kmem_map_page or kmem_get_page here, since
-  // they use the physical allocator when the entry does not
-  // exist. We are going to need to dynamically map everything
-  // by hand.
-
+  print("bytes needed: ");
   println(to_string(physical_pagetables_count));
+
+  print("Pages needed: ");
+  println(to_string(physical_pages_pagecount));
+
+  // hook into main pdt
+  KMEM_DATA.m_kernel_base_pd[0][510].raw_bits = (uintptr_t)&KMEM_DATA.m_phys_base_pd[0] | 0x3;
+
+  for (uintptr_t i = 0; i < physical_pagetables_count; i++) {
+    // uhm
+    KMEM_DATA.m_phys_base_pd[i].raw_bits = (uintptr_t)&KMEM_DATA.m_phys_base_pts[i] | 0x3;
+    for (uintptr_t j = 0; j < 512; j++) {
+      KMEM_DATA.m_phys_base_pts[i][j].raw_bits = (uintptr_t)((i << 21) + (j << 12)) | 0x3;
+    }
+  }
 
   quick_print_node_sizes();
 }
