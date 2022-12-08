@@ -38,4 +38,5 @@ inline bool get_user (pml_t* pml) { return pml->structured_bits.user_bit; }
 inline bool get_nx (pml_t* pml) { return pml->structured_bits.nx; }
 inline bool get_nocache (pml_t* pml) { return pml->structured_bits.nocache_bit; }
 
+extern pml_t create_pagetable (uintptr_t paddr, bool writable); 
 #endif // !__PML__

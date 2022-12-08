@@ -24,6 +24,7 @@ void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_a
     }
 
     // TODO: second: modules
+    // we don't have any modules (yet) so this should just skip
     struct multiboot_tag_module* mods = get_mb2_tag((void*)addr, 3); 
     while (mods) {
         uintptr_t a = (uintptr_t)mods->mod_end;
