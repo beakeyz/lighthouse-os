@@ -320,7 +320,10 @@ void kmem_init_physical_allocator() {
   memcpy(&new_range, _ptr, sizeof(contiguous_phys_virt_range_t));
   list_append(KMEM_DATA.m_used_mem_ranges, _ptr);
 
-  // let's now map this range, if that was not already done
+  // We can't use kmem_map_page or kmem_get_page here, since
+  // they use the physical allocator when the entry does not
+  // exist. We are going to need to dynamically map everything
+  // by hand.
 
   println(to_string(physical_pagetables_count));
 
