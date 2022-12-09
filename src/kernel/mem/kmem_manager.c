@@ -88,19 +88,9 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   parse_memmap();
 
   _init_kmem_page_layout();
-  
-  // FIXME: find out if this address is always valid
-  uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
-
-  asm volatile("" : : : "memory");
-  asm volatile("movq %0, %%cr3" ::"r"(map));
-  asm volatile("" : : : "memory");
-
-  print("New page directory pointer table: ");
-  println(to_string(map));
 
   kmem_init_physical_allocator();  
-
+ 
   if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, (uintptr_t)&_kernel_end + 0x1000, KMEM_GET_MAKE)) {
     println("Could not map page");
   }
@@ -293,6 +283,24 @@ void kmem_init_physical_allocator() {
       KMEM_DATA.m_phys_base_pts[i][j].raw_bits = (uintptr_t)((i << 21) + (j << 12)) | 0x3;
     }
   }
+
+  // FIXME: find out if this address is always valid
+  uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
+
+  asm volatile("" : : : "memory");
+  asm volatile("movq %0, %%cr3" ::"r"(map));
+  asm volatile("" : : : "memory");
+
+
+  KMEM_DATA.m_physical_pages = (void*)((uintptr_t)PHYSICAL_RANGE_BASE);
+
+  pml_t* test_ = &KMEM_DATA.m_kernel_base_pd[0][510];
+
+  println("Comparing...");
+  println(to_string(test_->structured_bits.page << 12));
+  println(to_string((uintptr_t)&KMEM_DATA.m_phys_base_pd[0]));
+
+  //memset((void*)KMEM_DATA.m_physical_pages, 0xff, 8);
 
   quick_print_node_sizes();
 }
