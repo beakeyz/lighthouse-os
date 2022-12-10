@@ -15,6 +15,7 @@
 
 // we are going to need to assert a lot of crap
 // so TODO: accuire more info on the assert
+// also TODO: make a global assert method
 static inline void _assert_failure () {
     println("assertion failed in kmalloc!");
     asm volatile("hlt");
@@ -47,6 +48,10 @@ void* __attribute__((malloc)) kmalloc (size_t len);
 
 // our kernel free impl
 void kfree (void* addr);
+
+// Mark a node as eternal.
+// TODO: make a seperate heap addressspace for this
+void keternal(void* addr);
 
 // expand heap by a page
 bool try_heap_expand (heap_node_t* last_node);

@@ -12,7 +12,7 @@ typedef union pml {
         uintptr_t user_bit:1;
         uintptr_t writethrough_bit:1;
         uintptr_t nocache_bit:1;
-        uintptr_t accessed_bit:1;
+        uintptr_t accessed_bit:1; // also called: dirty bit
         uintptr_t _available1:1;
         uintptr_t size:1;
         uintptr_t global:1;
@@ -24,7 +24,7 @@ typedef union pml {
         uintptr_t nx:1;
     } structured_bits;
     uint64_t raw_bits;
-} pml_t;
+} __attribute__((packed)) pml_t;
 
 inline void set_writable (pml_t* pml, bool writable) { pml->structured_bits.writable_bit = writable; }
 inline void set_present (pml_t* pml, bool present) { pml->structured_bits.present_bit = present; }

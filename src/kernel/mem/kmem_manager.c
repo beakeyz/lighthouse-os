@@ -87,9 +87,17 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   prep_mmap(get_mb2_tag((void *)mb_addr, 6));
   parse_memmap();
 
+  kmem_init_physical_allocator();  
+
   _init_kmem_page_layout();
 
-  kmem_init_physical_allocator();  
+  // FIXME: find out if this address is always valid
+  uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
+
+  asm volatile("" : : : "memory");
+  asm volatile("movq %0, %%cr3" ::"r"(map));
+  asm volatile("" : : : "memory");
+
  
   if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, (uintptr_t)&_kernel_end + 0x1000, KMEM_GET_MAKE)) {
     println("Could not map page");
@@ -267,41 +275,8 @@ void kmem_init_physical_allocator() {
   size_t physical_pages_pagecount = ALIGN_UP(physical_pages_bytes, SMALL_PAGE_SIZE) >> 12;
   size_t physical_pagetables_count = (physical_pages_pagecount + 512 - 1) >> 9;
 
-  print("bytes needed: ");
-  println(to_string(physical_pagetables_count));
-
-  print("Pages needed: ");
-  println(to_string(physical_pages_pagecount));
-
-  // hook into main pdt
-  KMEM_DATA.m_kernel_base_pd[0][510].raw_bits = (uintptr_t)&KMEM_DATA.m_phys_base_pd[0] | 0x3;
-
-  for (uintptr_t i = 0; i < physical_pagetables_count; i++) {
-    // uhm
-    KMEM_DATA.m_phys_base_pd[i].raw_bits = (uintptr_t)&KMEM_DATA.m_phys_base_pts[i] | 0x3;
-    for (uintptr_t j = 0; j < 512; j++) {
-      KMEM_DATA.m_phys_base_pts[i][j].raw_bits = (uintptr_t)((i << 21) + (j << 12)) | 0x3;
-    }
-  }
-
-  // FIXME: find out if this address is always valid
-  uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
-
-  asm volatile("" : : : "memory");
-  asm volatile("movq %0, %%cr3" ::"r"(map));
-  asm volatile("" : : : "memory");
-
-
-  KMEM_DATA.m_physical_pages = (void*)((uintptr_t)PHYSICAL_RANGE_BASE);
-
-  pml_t* test_ = &KMEM_DATA.m_kernel_base_pd[0][510];
-
-  println("Comparing...");
-  println(to_string(test_->structured_bits.page << 12));
-  println(to_string((uintptr_t)&KMEM_DATA.m_phys_base_pd[0]));
-
-  //memset((void*)KMEM_DATA.m_physical_pages, 0xff, 8);
-
+  // TODO: bitmap
+  
   quick_print_node_sizes();
 }
 
@@ -517,8 +492,13 @@ void *kmem_alloc(size_t page_count) {
 // TODO: make this more dynamic
 static inline void _init_kmem_page_layout () {
 
-  KMEM_DATA.m_kernel_base_pd[0][511].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pd | 0x3;
+  size_t needed_pagedirs_count = (ALIGN_UP(KMEM_DATA.m_phys_pages_count, SMALL_PAGE_SIZE) + 511) >> 9;
 
+  print("NEEDED PAGEDIR COUNT: ");
+  println(to_string(needed_pagedirs_count));
+
+  // Map 64 pds to HIGH_MAP_BASE ()
+  KMEM_DATA.m_kernel_base_pd[0][511].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pd | 0x3;
   for (uintptr_t dir = 0; dir < 64; dir++) {
     KMEM_DATA.m_high_base_pd[dir].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pts[dir] | 0x3;
     for (uintptr_t page = 0; page < 512; page++) {

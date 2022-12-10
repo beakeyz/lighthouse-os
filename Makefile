@@ -30,7 +30,7 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = $(OUT)/lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS := -m 1G -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
+QEMUFLAGS := -m 512M -cdrom ./out/lightos.iso -d cpu_reset -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
 							-Wall 							\
