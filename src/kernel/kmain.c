@@ -1,6 +1,7 @@
 #include <kernel/kmain.h>
 #include "kernel/dev/framebuffer/framebuffer.h"
 #include "kernel/interupts/gdt.h"
+#include "libk/bitmap.h"
 #include "libk/linkedlist.h"
 #include <kernel/dev/debug/serial.h>
 #include <kernel/interupts/control/pic.h>
@@ -67,6 +68,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   add_handler(1, thing);
 
   enable_interupts();
+
 
   // common kinda gets lost or something, so we'll save it =)
   //fb->common = (struct multiboot_tag_framebuffer_common)fb_common;

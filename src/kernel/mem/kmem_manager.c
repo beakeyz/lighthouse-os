@@ -4,6 +4,7 @@
 #include "kernel/mem/kmalloc.h"
 #include "kernel/mem/pml.h"
 #include "kernel/libk/multiboot.h"
+#include "libk/bitmap.h"
 #include "libk/linkedlist.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -18,7 +19,7 @@ typedef struct {
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
 
-  volatile uintptr_t* m_physical_pages;
+  bitmap_t m_phys_bitmap;
   uintptr_t m_highest_phys_addr;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
@@ -98,6 +99,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   asm volatile("movq %0, %%cr3" ::"r"(map));
   asm volatile("" : : : "memory");
 
+  println(to_string(KMEM_DATA.m_phys_bitmap.m_size));
  
   if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, (uintptr_t)&_kernel_end + 0x1000, KMEM_GET_MAKE)) {
     println("Could not map page");
@@ -271,12 +273,15 @@ void kmem_init_physical_allocator() {
   println(to_string(hightest_useable_addr));
   size_t physical_pages_count = kmem_get_page_idx(hightest_useable_addr) + 1;
   */
-  size_t physical_pages_bytes = ALIGN_UP(KMEM_DATA.m_phys_pages_count >> 3, SMALL_PAGE_SIZE);
+  size_t physical_pages_bytes = (KMEM_DATA.m_phys_pages_count + 8 - 1) >> 3;
   size_t physical_pages_pagecount = ALIGN_UP(physical_pages_bytes, SMALL_PAGE_SIZE) >> 12;
   size_t physical_pagetables_count = (physical_pages_pagecount + 512 - 1) >> 9;
 
   // TODO: bitmap
-  
+  bitmap_t map = init_bitmap(physical_pages_bytes);
+
+  memcpy(&KMEM_DATA.m_phys_bitmap, &map, sizeof(map));
+
   quick_print_node_sizes();
 }
 
