@@ -104,7 +104,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, (uintptr_t)&_kernel_end + 0x1000, KMEM_GET_MAKE)) {
     println("Could not map page");
   }
-
+  
   /*
   uintptr_t ptr = (uintptr_t)kmem_from_phys((uintptr_t)PHYSICAL_RANGE_BASE);
 
@@ -148,52 +148,37 @@ void parse_memmap() {
     uint64_t length = map->len;
     
     // TODO: register physical memory ranges
+    phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
+    range->start = addr;
+    range->length = length;
     switch (map->type) {
       case (MULTIBOOT_MEMORY_AVAILABLE): {
-        phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
         range->type = PMRT_USABLE;
-        range->start = addr;
-        range->length = length;
         list_append(KMEM_DATA.m_phys_ranges, range);
         break;
       }
       case (MULTIBOOT_MEMORY_ACPI_RECLAIMABLE): {
-        phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
         range->type = PMRT_ACPI_RECLAIM;
-        range->start = addr;
-        range->length = length;
         list_append(KMEM_DATA.m_phys_ranges, range);
         break;
       }
       case (MULTIBOOT_MEMORY_NVS): {
-        phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
         range->type = PMRT_ACPI_NVS;
-        range->start = addr;
-        range->length = length;
         list_append(KMEM_DATA.m_phys_ranges, range);
         break;
       }
       case (MULTIBOOT_MEMORY_RESERVED): {
-        phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
         range->type = PMRT_RESERVED;
-        range->start = addr;
-        range->length = length;
         list_append(KMEM_DATA.m_phys_ranges, range);
         break;
       }
       case (MULTIBOOT_MEMORY_BADRAM): {
-        phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
         range->type = PMRT_BAD_MEM;
-        range->start = addr;
-        range->length = length;
         list_append(KMEM_DATA.m_phys_ranges, range);
         break;
       }
       default: {
-        phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
         range->type = PMRT_UNKNOWN;
-        range->start = addr;
-        range->length = length;
         list_append(KMEM_DATA.m_phys_ranges, range);
         break;
       }
@@ -241,6 +226,8 @@ void parse_memmap() {
         contiguous_phys_virt_range_t* range = kmalloc(sizeof(contiguous_phys_virt_range_t));
         range->upper = page_base;
         range->lower = page_base;
+        print("lower: ");
+        println(to_string(range->lower));
         list_append(contiguous_ranges, range);
       } else {
         ((contiguous_phys_virt_range_t*)contiguous_ranges->end->data)->upper = page_base;
@@ -267,20 +254,36 @@ void parse_memmap() {
 
 void kmem_init_physical_allocator() {
 
-  /*
-  uintptr_t hightest_useable_addr = KMEM_DATA.m_highest_phys_addr;
-  
-  println(to_string(hightest_useable_addr));
-  size_t physical_pages_count = kmem_get_page_idx(hightest_useable_addr) + 1;
-  */
   size_t physical_pages_bytes = (KMEM_DATA.m_phys_pages_count + 8 - 1) >> 3;
   size_t physical_pages_pagecount = ALIGN_UP(physical_pages_bytes, SMALL_PAGE_SIZE) >> 12;
   size_t physical_pagetables_count = (physical_pages_pagecount + 512 - 1) >> 9;
 
-  // TODO: bitmap
+  // FIXME: we should probably move the bitmap somewhere else later, since
+  // we need to map the heap to a virtual addressspace eventually. This means
+  // that the heap might get reinitiallised and thus we lose our bitmap...
+  // just keep this in mind
   bitmap_t map = init_bitmap(physical_pages_bytes);
-
   memcpy(&KMEM_DATA.m_phys_bitmap, &map, sizeof(map));
+
+  // Mark the contiguous 'free' ranges as free in our bitmap
+  node_t* itterator = KMEM_DATA.m_contiguous_ranges->head;
+  while (itterator) {
+
+    contiguous_phys_virt_range_t* range = itterator->data;
+
+    // should already be page aligned
+    for (uintptr_t addr = ALIGN_UP(range->lower, SMALL_PAGE_SIZE); addr < ALIGN_DOWN(range->upper, SMALL_PAGE_SIZE); addr += SMALL_PAGE_SIZE) {
+      uintptr_t phys_page_idx = kmem_get_page_idx(addr);
+      kmem_set_phys_page_free(phys_page_idx);
+    }
+
+    itterator = itterator->next;
+  }
+
+  for (uintptr_t i = (uintptr_t)&_kernel_start; i < (uintptr_t)&_kernel_end; i += SMALL_PAGE_SIZE) {
+    uintptr_t physical_page_index = kmem_get_page_idx(i);
+    kmem_set_phys_page_used(physical_page_index);
+  }
 
   quick_print_node_sizes();
 }
@@ -294,23 +297,50 @@ uintptr_t kmem_to_phys(pml_t *root, uintptr_t addr) {
 }
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
-void kmem_mark_frame_used(uintptr_t frame) {
+void kmem_set_phys_page_used(uintptr_t idx) {
+  KMEM_DATA.m_phys_bitmap.fMark(&KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // flip a bit to 0 as to mark a pageframe as free in our bitmap
-void kmem_mark_frame_free(uintptr_t frame) {
-  
+void kmem_set_phys_page_free(uintptr_t idx) {
+  KMEM_DATA.m_phys_bitmap.fUnmark(&KMEM_DATA.m_phys_bitmap, idx);
+}
+
+bool kmem_is_phys_page_used (uintptr_t idx) {
+  const bitmap_t* __map = &KMEM_DATA.m_phys_bitmap;
+  return __map->fIsSet(&KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // combination of the above two
-void kmem_mark_frame(uintptr_t frame, bool value) {
-  
+// value = true -> marks
+// value = false -> unmarks
+void kmem_set_phys_page(uintptr_t idx, bool value) {
+  if (value) {
+    KMEM_DATA.m_phys_bitmap.fMark(&KMEM_DATA.m_phys_bitmap, idx);
+  } else {
+    KMEM_DATA.m_phys_bitmap.fUnmark(&KMEM_DATA.m_phys_bitmap, idx);
+  }
 }
 
-uintptr_t kmem_get_frame() {
-  return 0; 
+// TODO: errorhandle
+uintptr_t kmem_request_pysical_page() {
+
+  uintptr_t index = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
+
+  return (index << 12); 
 }
 
+// TODO: errorhandle
+uintptr_t kmem_prepare_new_physical_page() {
+  // find
+  uintptr_t new = kmem_request_pysical_page();
+  // set
+  kmem_set_phys_page_used(kmem_get_page_idx(new));
+  // zero
+  memset(kmem_from_phys(new), 0x00, SMALL_PAGE_SIZE);
+
+  return new;
+}
 
 pml_t *kmem_get_krnl_dir() {
   return nullptr;
@@ -402,36 +432,38 @@ bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int f
       break;
     }
 
-    const pml_t* pml4 = table == nullptr ? (pml_t*)&KMEM_DATA.m_kernel_base_pd[0] : table;
+    pml_t* pml4 = ((table == nullptr) ? (pml_t*)&KMEM_DATA.m_kernel_base_pd[0] : table);
     const bool pml4_entry_exists = (pml4[pml4_idx].structured_bits.present_bit);
 
     if (!pml4_entry_exists) {
       if (should_make) {
-        // TODO:
+        pml4[pml4_idx].raw_bits = kmem_prepare_new_physical_page() | 0x3;
         tries--;
         continue;
       }
       break;
     }
 
-    const pml_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].structured_bits.page << 12);
+    pml_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].structured_bits.page << 12);
     const bool pdp_entry_exists = (pdp[pdp_idx].structured_bits.present_bit);
 
     if (!pdp_entry_exists) {
       if (should_make) {
         // TODO:
+        pdp[pdp_idx].raw_bits = kmem_prepare_new_physical_page() | 0x3;
         tries--;
         continue;
       }
       break;
     }
 
-    const pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].structured_bits.page << 12);
+    pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].structured_bits.page << 12);
     const bool pd_entry_exists = (pd[pd_idx].structured_bits.present_bit);
 
     if (!pd_entry_exists) {
       if (should_make) {
         // TODO:
+        pd[pd_idx].raw_bits = kmem_prepare_new_physical_page() | 0x3;
         tries--;
         continue;
       }
@@ -463,6 +495,9 @@ bool kmem_map_range(uintptr_t virt_base, uintptr_t phys_base, size_t page_count,
 void kmem_set_page_flags(pml_t *page, unsigned int flags) {
   if (page->structured_bits.page == 0) {
     // TODO:
+    uintptr_t idx = kmem_request_pysical_page() >> 12;
+    kmem_set_phys_page_used(idx);
+    page->structured_bits.page = idx;
   }
 
   page->structured_bits.size = 0;
@@ -475,21 +510,11 @@ void kmem_set_page_flags(pml_t *page, unsigned int flags) {
   page->structured_bits.nx = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
 }
 
-
-/* OLD IMPL */ 
-// 'expand' the kernel heap with a size that is a multiple of a pagesize (so
-// basically allocate a number of pages for the heap)
-
 /* NEW IMPL */
 // this function should try and find a range of pages that satisfies the requested size
 // other name for function: request_pages
 void *kmem_alloc(size_t page_count) {
   // find free page
-
-
-  uintptr_t free_page = kmem_get_frame();
-  
-
 
   return nullptr;
 }

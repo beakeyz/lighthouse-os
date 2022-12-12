@@ -1,4 +1,5 @@
 #include "bitmap.h"
+#include "dev/debug/serial.h"
 #include <mem/kmalloc.h>
 #include <libk/string.h>
 
@@ -13,6 +14,7 @@ bitmap_t init_bitmap(size_t size) {
   bitmap_t map = {
     .m_default = (uint8_t)BITMAP_DEFAULT,
     .m_size = size,
+    .m_entries = size << 3,
     .m_map = nullptr
   };
 
@@ -27,30 +29,55 @@ bitmap_t init_bitmap(size_t size) {
   return map;
 }
 
-// TODO
-void bitmap_mark(uint32_t index) {
+void bitmap_mark(bitmap_t* this, uint32_t index) {
+  if (index > this->m_entries) {
+    return;
+  }
 
+  const uint32_t index_byte = index / 8;
+  const uint32_t index_bit = index % 8;
+
+  this->m_map[index_byte] |= (1 << index_bit);
+}
+
+void bitmap_unmark(bitmap_t* this, uint32_t index) {
+  if (index > this->m_entries) {
+    return;
+  }
+
+  const uint32_t index_byte = index / 8;
+  const uint32_t index_bit = index % 8;
+
+  this->m_map[index_byte] &= ~(1 << index_bit);
 }
 
 // TODO
-void bitmap_unmark(uint32_t index) {
-
+uintptr_t bitmap_find_free_range(bitmap_t* this, uint32_t index, size_t length) {
+  return 0;
 }
 
-// TODO
-void bitmap_find_free_range(uint32_t index, size_t length) {
+// returns the index of the free bit
+uintptr_t bitmap_find_free(bitmap_t* this) {
+  // doodoo linear scan >=(
+  // TODO: make not crap
+  for (uintptr_t i = 0; i < this->m_entries; i++) {
+    if (!this->fIsSet(this, i)) {
+      return i;
+    }
+  }
 
+  return 0;
 }
 
-// TODO
-void bitmap_find_free() {
-  
-}
+bool bitmap_isset(bitmap_t* this, uint32_t index) {
+  if (index > this->m_entries) {
+    return false;
+  }
 
-// TODO
-bool bitmap_isset(uint32_t index) {
+  const uint32_t index_byte = index / 8;
+  const uint32_t index_bit = index % 8;
 
-  return false;
+  return (this->m_map[index_byte] & (1 << index_bit));
 }
 
 static inline void __init_bitmap_late(bitmap_t* map) {

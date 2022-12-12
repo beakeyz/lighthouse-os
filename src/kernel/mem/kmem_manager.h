@@ -82,14 +82,17 @@ inline uintptr_t kmem_get_page_base (uintptr_t page_addr);
 
 void* kmem_from_phys (uintptr_t addr);
 uintptr_t kmem_to_phys (pml_t* root, uintptr_t addr);
-void kmem_mark_frame_used (uintptr_t frame);
-void kmem_mark_frame_free (uintptr_t frame);
-void kmem_mark_frame (uintptr_t frame, bool value);
+
+void kmem_set_phys_page_used (uintptr_t idx);
+void kmem_set_phys_page_free (uintptr_t idx);
+void kmem_set_phys_page (uintptr_t idx, bool value);
+bool kmem_is_phys_page_used (uintptr_t idx);
 
 void kmem_nuke_pd(uintptr_t vaddr);
 void kmem_flush_tlb();
 
-uintptr_t kmem_get_frame ();
+uintptr_t kmem_request_pysical_page();
+uintptr_t kmem_prepare_new_physical_page();
 pml_t* kmem_get_krnl_dir ();
 pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags);
 //pml_t* kmem_get_page (uintptr_t addr, unsigned int kmem_flags);
