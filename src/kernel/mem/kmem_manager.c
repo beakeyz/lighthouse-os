@@ -92,6 +92,8 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   _init_kmem_page_layout();
 
+  uintptr_t ad = ((uintptr_t)&_kernel_end + PAGE_SIZE);
+
   // FIXME: find out if this address is always valid
   uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
 
@@ -101,9 +103,18 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   println(to_string(KMEM_DATA.m_phys_bitmap.m_size));
  
-  if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, (uintptr_t)&_kernel_end + 0x1000, KMEM_GET_MAKE)) {
+  if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, ad, KMEM_GET_MAKE)) {
     println("Could not map page");
   }
+
+  pml_t* p = kmem_get_page(nullptr, PHYSICAL_RANGE_BASE, KMEM_GET_MAKE);
+
+  if (p->structured_bits.writable_bit) {
+    println("yay");
+  }
+  println(to_string(p->structured_bits.page << 12));
+
+  println(to_string(ad));
   
   /*
   uintptr_t ptr = (uintptr_t)kmem_from_phys((uintptr_t)PHYSICAL_RANGE_BASE);
@@ -359,36 +370,43 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
       break;
     }
 
-    const pml_t* pml4 = root == nullptr ? (pml_t*)&KMEM_DATA.m_kernel_base_pd[0] : root;
+    pml_t* pml4 = root == nullptr ? (pml_t*)&KMEM_DATA.m_kernel_base_pd[0] : root;
     const bool pml4_entry_exists = (pml4[pml4_idx].structured_bits.present_bit);
 
     if (!pml4_entry_exists) {
       if (should_make) {
-        // TODO:
+        println("making stuff 1");
+        uintptr_t addr = kmem_prepare_new_physical_page();
+        pml4[pml4_idx].raw_bits = addr | 0x3;
+
         tries--;
         continue;
       }
       return nullptr;
     }
 
-    const pml_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].structured_bits.page << 12);
+    pml_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].structured_bits.page << 12);
     const bool pdp_entry_exists = (pdp[pdp_idx].structured_bits.present_bit);
 
     if (!pdp_entry_exists) {
       if (should_make) {
-        // TODO:
+        println("making stuff 2");
+        uintptr_t addr = kmem_prepare_new_physical_page();
+        pdp[pdp_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
       }
       return nullptr;
     }
 
-    const pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].structured_bits.page << 12);
+    pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].structured_bits.page << 12);
     const bool pd_entry_exists = (pd[pd_idx].structured_bits.present_bit);
 
     if (!pd_entry_exists) {
       if (should_make) {
-        // TODO:
+        println("making stuff 3");
+        uintptr_t addr = kmem_prepare_new_physical_page();
+        pd[pd_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
       }
@@ -437,7 +455,9 @@ bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int f
 
     if (!pml4_entry_exists) {
       if (should_make) {
-        pml4[pml4_idx].raw_bits = kmem_prepare_new_physical_page() | 0x3;
+        println("making stuff 1");
+        uintptr_t addr = kmem_prepare_new_physical_page();
+        pml4[pml4_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
       }
@@ -449,8 +469,9 @@ bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int f
 
     if (!pdp_entry_exists) {
       if (should_make) {
-        // TODO:
-        pdp[pdp_idx].raw_bits = kmem_prepare_new_physical_page() | 0x3;
+        println("making stuff 2");
+        uintptr_t addr = kmem_prepare_new_physical_page();
+        pdp[pdp_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
       }
@@ -462,8 +483,9 @@ bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int f
 
     if (!pd_entry_exists) {
       if (should_make) {
-        // TODO:
-        pd[pd_idx].raw_bits = kmem_prepare_new_physical_page() | 0x3;
+        println("making stuff 3");
+        uintptr_t addr = kmem_prepare_new_physical_page();
+        pd[pd_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
       }
@@ -479,7 +501,10 @@ bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int f
     pml_t* pt = kmem_from_phys((uintptr_t)pd[pd_idx].structured_bits.page << 12);
 
     // TODO: Variablize these flags
-    pt[pt_idx] = create_pagetable(phys, true);
+    pt[pt_idx].structured_bits.page = phys >> 12;
+    kmem_set_page_flags(&pt[pt_idx], KMEM_FLAG_WRITABLE);
+
+    kmem_nuke_pd(virt);
 
     return true;
   }
@@ -496,7 +521,6 @@ void kmem_set_page_flags(pml_t *page, unsigned int flags) {
   if (page->structured_bits.page == 0) {
     // TODO:
     uintptr_t idx = kmem_request_pysical_page() >> 12;
-    kmem_set_phys_page_used(idx);
     page->structured_bits.page = idx;
   }
 
@@ -561,6 +585,7 @@ inline uintptr_t kmem_get_page_base (uintptr_t page_addr) {
   return (page_addr & ~(0xffful));
 }
 
+// deprecated
 pml_t create_pagetable(uintptr_t paddr, bool writable) {
   pml_t table = {
     .raw_bits = paddr
