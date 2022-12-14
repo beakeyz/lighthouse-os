@@ -1,6 +1,7 @@
 #include "interupts.h"
 #include "kernel/interupts/idt.h"
 #include "kernel/mem/kmem_manager.h"
+#include "libk/error.h"
 #include "libk/string.h"
 #include <kernel/dev/debug/serial.h>
 #include <kernel/interupts/control/pic.h>
@@ -146,12 +147,8 @@ registers_t *interrupt_handler(struct registers *regs) {
     // errors
     // TODO: panic handlers
     case 14:
-      // pagefault
-      println("hi bitches!");
-      for (;;) {
-        disable_interupts();
-        asm volatile ("hlt");
-      }
+      // TODO: handle pagefault correctly
+      kernel_panic("pagefault");
 
       break;
 

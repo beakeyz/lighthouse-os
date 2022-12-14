@@ -67,12 +67,12 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // NOTE: testhandler
   add_handler(1, thing);
 
-  enable_interupts();
-
 
   // common kinda gets lost or something, so we'll save it =)
   fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
   init_fb(fb);
+
+  enable_interupts();
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;

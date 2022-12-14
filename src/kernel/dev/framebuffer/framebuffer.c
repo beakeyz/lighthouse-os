@@ -20,26 +20,20 @@ void init_fb(struct multiboot_tag_framebuffer *mb_fb) {
   uint32_t fb_page_count = framebuffer_data.memory_size / SMALL_PAGE_SIZE;
 
   for (uintptr_t i = 0; i < framebuffer_data.memory_size; i+=SMALL_PAGE_SIZE) {
-    kmem_map_page(nullptr, (uintptr_t)framebuffer_data.address + i, framebuffer_data.phys_address + i, KMEM_GET_MAKE);
-
+    kmem_map_page(nullptr, (uintptr_t)framebuffer_data.address + i, framebuffer_data.phys_address + i, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER);
   }
 
-  println("thing");
   // quick kinda color tester
-  uint32_t color = 0x00000000;
-	for (size_t y = 0; y < get_data().height; ++y) {
-		for (size_t x = 0; x < get_data().width; ++x) {
-      if (color >= 0xFFFFFFFF) {
-          color = 0x00000000;
-      }
+  uint32_t color = 0xFFFFFFFF;
+  for (size_t y = 0; y < get_data().height; ++y) {
+    for (size_t x = 0; x < get_data().width; ++x) {
       draw_pixel(x, y, color);
-      color ++;
-		}
-	}
+    }
+  }
 }
 
 void draw_pixel (uint64_t x, uint64_t y, uint32_t color) {
-  *(uint32_t*)((uintptr_t)get_data().address + 4 * get_data().width * y + 4 * x) = color;
+  *(uint32_t*)((uintptr_t)get_data().address + get_data().pitch * y + x * 4) = color;
 }
     
 fb_data_t get_data() {
