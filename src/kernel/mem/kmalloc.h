@@ -13,17 +13,6 @@
 
 // TODO: spinlock :clown:
 
-// we are going to need to assert a lot of crap
-// so TODO: accuire more info on the assert
-// also TODO: make a global assert method
-static inline void _assert_failure () {
-    println("assertion failed in kmalloc!");
-    asm volatile("hlt");
-    __builtin_unreachable();
-}
-
-#define ASSERT(assertion) (assertion ? (void)0 : _assert_failure())
-
 // FIXME: this design may have some security issues =(
 // all heap nodes should be alligned to a page
 typedef struct heap_node {

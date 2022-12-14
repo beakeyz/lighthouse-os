@@ -1,10 +1,12 @@
 #include "kmem_manager.h"
+#include "interupts/interupts.h"
 #include "kernel/dev/debug/serial.h"
 #include "kernel/kmain.h"
 #include "kernel/mem/kmalloc.h"
 #include "kernel/mem/pml.h"
 #include "kernel/libk/multiboot.h"
 #include "libk/bitmap.h"
+#include "libk/error.h"
 #include "libk/linkedlist.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -62,6 +64,7 @@ extern pml_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
 extern pml_t kernel_pt_last[STANDARD_PD_ENTRIES];
 
 static inline void _init_kmem_page_layout();
+static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts);
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
@@ -92,41 +95,11 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   _init_kmem_page_layout();
 
-  uintptr_t ad = ((uintptr_t)&_kernel_end + PAGE_SIZE);
-
+  
   // FIXME: find out if this address is always valid
   uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
-
-  asm volatile("" : : : "memory");
-  asm volatile("movq %0, %%cr3" ::"r"(map));
-  asm volatile("" : : : "memory");
-
-  println(to_string(KMEM_DATA.m_phys_bitmap.m_size));
  
-  if (!kmem_map_page(nullptr, PHYSICAL_RANGE_BASE, ad, KMEM_GET_MAKE)) {
-    println("Could not map page");
-  }
-
-  pml_t* p = kmem_get_page(nullptr, PHYSICAL_RANGE_BASE, KMEM_GET_MAKE);
-
-  if (p->structured_bits.writable_bit) {
-    println("yay");
-  }
-  println(to_string(p->structured_bits.page << 12));
-
-  println(to_string(ad));
-  
-  /*
-  uintptr_t ptr = (uintptr_t)kmem_from_phys((uintptr_t)PHYSICAL_RANGE_BASE);
-
-  pml_t* page = kmem_get_page((pml_t*)&KMEM_DATA.m_kernel_base_pd[0], ptr, KMEM_GET_MAKE);
-
-  print("page entry: ");
-  println(to_string((uintptr_t)page));
-
-  print("raw entry: ");
-  println(to_string(*(uintptr_t*)ptr));
-  */
+  _load_page_dir(map, true);
 }
 
 // function inspired by serenityOS
@@ -334,23 +307,37 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
 }
 
 // TODO: errorhandle
-uintptr_t kmem_request_pysical_page() {
+ErrorOrPtr kmem_request_pysical_page() {
 
   uintptr_t index = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
+  println(to_string(index));
 
-  return (index << 12); 
+  ErrorOrPtr ret = {
+    .m_status = LIGHT_SUCCESS,
+    .m_ptr = (index << 12)
+  };
+
+  return ret; 
 }
 
 // TODO: errorhandle
-uintptr_t kmem_prepare_new_physical_page() {
+ErrorOrPtr kmem_prepare_new_physical_page() {
   // find
-  uintptr_t new = kmem_request_pysical_page();
-  // set
-  kmem_set_phys_page_used(kmem_get_page_idx(new));
-  // zero
-  memset(kmem_from_phys(new), 0x00, SMALL_PAGE_SIZE);
+  ErrorOrPtr result = kmem_request_pysical_page();
 
-  return new;
+  if (result.m_status == LIGHT_SUCCESS) {
+    uintptr_t new = result.m_ptr;
+    // set
+    kmem_set_phys_page_used(kmem_get_page_idx(new));
+    // zero
+    memset(kmem_from_phys(new), 0x00, SMALL_PAGE_SIZE);
+  } else {
+    // clean?
+    println("failed to request page");
+  }
+
+  println(to_string(result.m_ptr));
+  return result;
 }
 
 pml_t *kmem_get_krnl_dir() {
@@ -376,7 +363,8 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
     if (!pml4_entry_exists) {
       if (should_make) {
         println("making stuff 1");
-        uintptr_t addr = kmem_prepare_new_physical_page();
+        uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
+        println(to_string(addr));
         pml4[pml4_idx].raw_bits = addr | 0x3;
 
         tries--;
@@ -391,7 +379,8 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
     if (!pdp_entry_exists) {
       if (should_make) {
         println("making stuff 2");
-        uintptr_t addr = kmem_prepare_new_physical_page();
+        uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
+        println(to_string(addr));
         pdp[pdp_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
@@ -405,7 +394,8 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
     if (!pd_entry_exists) {
       if (should_make) {
         println("making stuff 3");
-        uintptr_t addr = kmem_prepare_new_physical_page();
+        uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
+        println(to_string(addr));
         pd[pd_idx].raw_bits = addr | 0x3;
         tries--;
         continue;
@@ -420,9 +410,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
 
     // this just should exist
     const pml_t* pt = kmem_from_phys((uintptr_t)pd[pd_idx].structured_bits.page << 12);
-    pml_t* page = (pml_t*)&pt[pt_idx];
-
-    return page;
+    return (pml_t*)&pt[pt_idx];
   }
   
   println("[WARNING] Could not find page!");
@@ -437,78 +425,15 @@ void kmem_nuke_pd(uintptr_t vaddr) {
 // Kinda sad that this is basically a coppy of kmem_get_page, but it iz what it iz
 bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags) {
 
-  const uintptr_t addr = virt;
-  const uintptr_t pml4_idx = (addr >> 39) & ENTRY_MASK;
-  const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
-  const uintptr_t pd_idx = (addr >> 21) & ENTRY_MASK;
-  const uintptr_t pt_idx = (addr >> 12) & ENTRY_MASK;
-  const bool should_make = (flags & KMEM_GET_MAKE);
-
-  uint32_t tries = MAX_RETRIES_FOR_PAGE_MAPPING;
-  for ( ; ; ) {
-    if (tries == 0) {
-      break;
-    }
-
-    pml_t* pml4 = ((table == nullptr) ? (pml_t*)&KMEM_DATA.m_kernel_base_pd[0] : table);
-    const bool pml4_entry_exists = (pml4[pml4_idx].structured_bits.present_bit);
-
-    if (!pml4_entry_exists) {
-      if (should_make) {
-        println("making stuff 1");
-        uintptr_t addr = kmem_prepare_new_physical_page();
-        pml4[pml4_idx].raw_bits = addr | 0x3;
-        tries--;
-        continue;
-      }
-      break;
-    }
-
-    pml_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].structured_bits.page << 12);
-    const bool pdp_entry_exists = (pdp[pdp_idx].structured_bits.present_bit);
-
-    if (!pdp_entry_exists) {
-      if (should_make) {
-        println("making stuff 2");
-        uintptr_t addr = kmem_prepare_new_physical_page();
-        pdp[pdp_idx].raw_bits = addr | 0x3;
-        tries--;
-        continue;
-      }
-      break;
-    }
-
-    pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].structured_bits.page << 12);
-    const bool pd_entry_exists = (pd[pd_idx].structured_bits.present_bit);
-
-    if (!pd_entry_exists) {
-      if (should_make) {
-        println("making stuff 3");
-        uintptr_t addr = kmem_prepare_new_physical_page();
-        pd[pd_idx].raw_bits = addr | 0x3;
-        tries--;
-        continue;
-      }
-      break;
-    }
-
-    if (pd[pd_idx].structured_bits.size) {
-      println("SIZE SET");
-      break;
-    }
-
-    // this just should exist
-    pml_t* pt = kmem_from_phys((uintptr_t)pd[pd_idx].structured_bits.page << 12);
-
+  pml_t* __page = kmem_get_page(table, virt, flags);
+  
+  if (__page) {
     // TODO: Variablize these flags
-    pt[pt_idx].structured_bits.page = phys >> 12;
-    kmem_set_page_flags(&pt[pt_idx], KMEM_FLAG_WRITABLE);
-
-    kmem_nuke_pd(virt);
+    __page->structured_bits.page = phys >> 12;
+    kmem_set_page_flags(__page, KMEM_FLAG_WRITABLE);
 
     return true;
   }
-  
   return false;
 }
 
@@ -520,7 +445,7 @@ bool kmem_map_range(uintptr_t virt_base, uintptr_t phys_base, size_t page_count,
 void kmem_set_page_flags(pml_t *page, unsigned int flags) {
   if (page->structured_bits.page == 0) {
     // TODO:
-    uintptr_t idx = kmem_request_pysical_page() >> 12;
+    uintptr_t idx = kmem_request_pysical_page().m_ptr >> 12;
     page->structured_bits.page = idx;
   }
 
@@ -576,6 +501,16 @@ static inline void _init_kmem_page_layout () {
       kernel_img_pts[current_pt_idx][j].raw_bits = (uintptr_t)(PAGE_SIZE * i + SMALL_PAGE_SIZE * j) | 0x3;
     }
   }
+}
+
+
+static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
+  if (__disable_interupts) 
+    disable_interupts();
+
+  asm volatile("" : : : "memory");
+  asm volatile("movq %0, %%cr3" ::"r"(dir));
+  asm volatile("" : : : "memory");
 }
 
 inline uintptr_t kmem_get_page_idx (uintptr_t page_addr) {

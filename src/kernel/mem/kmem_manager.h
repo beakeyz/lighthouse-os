@@ -3,6 +3,7 @@
 
 #include <kernel/libk/multiboot.h>
 #include <libk/stddef.h>
+#include "libk/error.h"
 #include "pml.h"
 
 // some faultcodes
@@ -42,6 +43,7 @@
 
 // Custom mapping flags
 #define KMEM_GET_MAKE           0x01
+#define KMEM_CREATE_USER        0x02
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
@@ -91,8 +93,8 @@ bool kmem_is_phys_page_used (uintptr_t idx);
 void kmem_nuke_pd(uintptr_t vaddr);
 void kmem_flush_tlb();
 
-uintptr_t kmem_request_pysical_page();
-uintptr_t kmem_prepare_new_physical_page();
+ErrorOrPtr kmem_request_pysical_page();
+ErrorOrPtr kmem_prepare_new_physical_page();
 pml_t* kmem_get_krnl_dir ();
 pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags);
 //pml_t* kmem_get_page (uintptr_t addr, unsigned int kmem_flags);

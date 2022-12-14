@@ -25,6 +25,7 @@ typedef int                         bool;
 #define true 1
 #define false 0
 
+#define NORETURN __attribute__((noreturn))
 
 // These are standard yoink material off the internet, go cry =)
 #define __va_argsiz(t)	\

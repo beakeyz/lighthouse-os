@@ -4,6 +4,7 @@
 #include <libk/string.h>
 #include <kernel/dev/debug/serial.h>
 #include <libk/stddef.h>
+#include <libk/error.h>
 
 #define INITIAL_HEAP_SIZE 2 * Mib // IN BYTES
 #define NODE_IDENTIFIER 0xF0CEDA22

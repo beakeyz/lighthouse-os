@@ -55,9 +55,9 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_kheap();
 
-  //struct multiboot_tag_framebuffer *fb =
-  //    get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-  //struct multiboot_tag_framebuffer_common fb_common = fb->common;
+  struct multiboot_tag_framebuffer *fb =
+      get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  struct multiboot_tag_framebuffer_common fb_common = fb->common;
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
   //setup_gdt();
@@ -71,8 +71,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
 
   // common kinda gets lost or something, so we'll save it =)
-  //fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
-  //init_fb(fb);
+  fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
+  init_fb(fb);
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;
