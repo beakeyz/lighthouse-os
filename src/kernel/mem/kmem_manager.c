@@ -210,8 +210,6 @@ void parse_memmap() {
         contiguous_phys_virt_range_t* range = kmalloc(sizeof(contiguous_phys_virt_range_t));
         range->upper = page_base;
         range->lower = page_base;
-        print("lower: ");
-        println(to_string(range->lower));
         list_append(contiguous_ranges, range);
       } else {
         ((contiguous_phys_virt_range_t*)contiguous_ranges->end->data)->upper = page_base;
@@ -349,7 +347,9 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
   const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
   const uintptr_t pd_idx = (addr >> 21) & ENTRY_MASK;
   const uintptr_t pt_idx = (addr >> 12) & ENTRY_MASK;
-  const bool should_make = (kmem_flags & KMEM_GET_MAKE);
+  const bool should_make = (kmem_flags & KMEM_CUSTOMFLAG_GET_MAKE);
+  const bool should_make_user = (kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER);
+  const uintptr_t page_creation_flags = (should_make_user ? 0x7 : 0x3);
 
   uint32_t tries = MAX_RETRIES_FOR_PAGE_MAPPING;
   for ( ; ; ) {
@@ -365,7 +365,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
         println("making stuff 1");
         uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
         println(to_string(addr));
-        pml4[pml4_idx].raw_bits = addr | 0x3;
+        pml4[pml4_idx].raw_bits = addr | page_creation_flags;
 
         tries--;
         continue;
@@ -381,7 +381,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
         println("making stuff 2");
         uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
         println(to_string(addr));
-        pdp[pdp_idx].raw_bits = addr | 0x3;
+        pdp[pdp_idx].raw_bits = addr | page_creation_flags;
         tries--;
         continue;
       }
@@ -396,7 +396,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
         println("making stuff 3");
         uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
         println(to_string(addr));
-        pd[pd_idx].raw_bits = addr | 0x3;
+        pd[pd_idx].raw_bits = addr | page_creation_flags;
         tries--;
         continue;
       }

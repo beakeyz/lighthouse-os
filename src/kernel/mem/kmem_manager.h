@@ -42,8 +42,8 @@
 #define KMEM_FLAG_NOEXECUTE     0x20
 
 // Custom mapping flags
-#define KMEM_GET_MAKE           0x01
-#define KMEM_CREATE_USER        0x02
+#define KMEM_CUSTOMFLAG_GET_MAKE           0x01
+#define KMEM_CUSTOMFLAG_CREATE_USER        0x02
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
@@ -96,7 +96,8 @@ void kmem_flush_tlb();
 ErrorOrPtr kmem_request_pysical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
 pml_t* kmem_get_krnl_dir ();
-pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags);
+pml_t* kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags);
+pml_t* kmem_clone_page(pml_t* page);
 //pml_t* kmem_get_page (uintptr_t addr, unsigned int kmem_flags);
 void kmem_set_page_flags (pml_t* page, unsigned int flags);
 
