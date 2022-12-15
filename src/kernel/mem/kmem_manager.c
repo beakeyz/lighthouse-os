@@ -42,21 +42,6 @@ typedef struct {
 
 static kmem_data_t KMEM_DATA;
 
-/*
- *  bitmap page allocator for 4KiB pages
- *  TODO: put this crap into a structure -_-
- */
-static volatile uint32_t *frames;
-static size_t nframes;
-static size_t total_memory = 0;
-static size_t unavailable_memory = 0;
-static uintptr_t lowest_available = 0;
-
-/*
- *   heap crap
- */
-static char *heap_start = NULL;
-
 // external directory layout
 extern pml_t kernel_pd[STANDARD_PD_ENTRIES];
 extern pml_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
@@ -75,9 +60,8 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 /*
 *  TODO: A few things need to be figured out:
 *           - (Optional, but desireable) Redo the pml_t structure to be more verbose and straight forward
-*           - Initialize the physical 'allocator' for physical pages, so we can create new pd entries and such
-*           - Implement the creation of entries so that kmem_map_page wont crash
-*           - Make sure kmem_map_page and kmem_get_page actually work with the creation mechanism in place
+*           - Start to think about optimisations
+*           - more implementations
 */
 void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t first_valid_alloc_addr) {
 

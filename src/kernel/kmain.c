@@ -53,11 +53,11 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     hang();
   }
 
-  init_kheap();
+  init_kheap(); // TODO: this heap impl is very bad. improve it
 
   struct multiboot_tag_framebuffer *fb =
       get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-  struct multiboot_tag_framebuffer_common fb_common = fb->common;
+
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
   //setup_gdt();
@@ -67,12 +67,11 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // NOTE: testhandler
   add_handler(1, thing);
 
-
-  // common kinda gets lost or something, so we'll save it =)
-  fb->common = (struct multiboot_tag_framebuffer_common)fb_common;
-  init_fb(fb);
-
   enable_interupts();
+
+  init_fb(fb);
+  // Next TODO: create a kernel pre-init tty
+
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;
