@@ -221,8 +221,6 @@ void parse_memmap() {
 void kmem_init_physical_allocator() {
 
   size_t physical_pages_bytes = (KMEM_DATA.m_phys_pages_count + 8 - 1) >> 3;
-  size_t physical_pages_pagecount = ALIGN_UP(physical_pages_bytes, SMALL_PAGE_SIZE) >> 12;
-  size_t physical_pagetables_count = (physical_pages_pagecount + 512 - 1) >> 9;
 
   // FIXME: we should probably move the bitmap somewhere else later, since
   // we need to map the heap to a virtual addressspace eventually. This means
@@ -497,10 +495,11 @@ static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
   asm volatile("" : : : "memory");
 }
 
-inline uintptr_t kmem_get_page_idx (uintptr_t page_addr) {
+// FIXME: macroes?
+uintptr_t kmem_get_page_idx (uintptr_t page_addr) {
   return (page_addr >> 12);
 }
-inline uintptr_t kmem_get_page_base (uintptr_t page_addr) {
+uintptr_t kmem_get_page_base (uintptr_t page_addr) {
   return (page_addr & ~(0xffful));
 }
 

@@ -79,8 +79,8 @@ void protect_heap();
 void prep_mmap (struct multiboot_tag_mmap* mmap);
 void parse_memmap ();
 
-inline uintptr_t kmem_get_page_idx (uintptr_t page_addr);
-inline uintptr_t kmem_get_page_base (uintptr_t page_addr);
+uintptr_t kmem_get_page_idx (uintptr_t page_addr);
+uintptr_t kmem_get_page_base (uintptr_t page_addr);
 
 void* kmem_from_phys (uintptr_t addr);
 uintptr_t kmem_to_phys (pml_t* root, uintptr_t addr);

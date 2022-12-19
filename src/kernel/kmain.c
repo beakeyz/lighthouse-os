@@ -2,6 +2,7 @@
 #include "kernel/dev/framebuffer/framebuffer.h"
 #include "kernel/interupts/gdt.h"
 #include "libk/bitmap.h"
+#include "libk/error.h"
 #include "libk/linkedlist.h"
 #include <kernel/dev/debug/serial.h>
 #include <kernel/interupts/control/pic.h>
@@ -21,19 +22,11 @@ extern ctor_func_t _end_ctors[];
 
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
-#define KERNEL_VIRTUAL_OFFSET 0xFFFFFFFF80000000
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
-static void hang() {
-  while (true) {
-    asm volatile("hlt");
-  }
-  __builtin_unreachable();
-}
-
 int thing(registers_t *regs) {
-  uint8_t sc = in8(0x60);
+  in8(0x60);
   println("funnie");
   return 1;
 }
@@ -44,14 +37,13 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   println("Hi from 64 bit land =D");
   
   // Verify magic number
-  if (mb_magic == 0x36d76289) {
-    // parse multiboot
-    mb_initialize((void *)mb_addr, &first_valid_addr, &first_valid_alloc_addr);
-
-  } else {
+  if (mb_magic != 0x36d76289) {
     println("big yikes");
-    hang();
+    kernel_panic("Can't verify multiboot header: invalid magic number");
   }
+
+  // parse multiboot
+  mb_initialize((void *)mb_addr, &first_valid_addr, &first_valid_alloc_addr);
 
   init_kheap(); // TODO: this heap impl is very bad. improve it
 

@@ -17,8 +17,6 @@ void init_fb(struct multiboot_tag_framebuffer *mb_fb) {
   framebuffer_data.pitch = mb_fb->common.framebuffer_pitch;
   framebuffer_data.memory_size = mb_fb->common.framebuffer_pitch * mb_fb->common.framebuffer_height;
 
-  uint32_t fb_page_count = framebuffer_data.memory_size / SMALL_PAGE_SIZE;
-
   for (uintptr_t i = 0; i < framebuffer_data.memory_size; i+=SMALL_PAGE_SIZE) {
     kmem_map_page(nullptr, (uintptr_t)framebuffer_data.address + i, framebuffer_data.phys_address + i, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER);
   }
