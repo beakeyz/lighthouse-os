@@ -21,9 +21,10 @@ void* find_rsdt () {
   uintptr_t ptr = (uintptr_t)kmem_kernel_alloc(bios_start_addr, bios_mem_size, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr != NULL) {
-    for (uintptr_t i = ptr; i < bios_mem_size; i+=16) {
+    println(to_string(bios_mem_size));
+    for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
       void* potential = (void*)i;
-      if (!memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
+      if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
         return potential;
       }
     }
@@ -45,7 +46,7 @@ void* find_rsdt () {
   
     for (uintptr_t i = start; i < length; i+= 16) {
       void* potential = (void*)i;
-      if (!memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
+      if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
         return potential;
       }
     }

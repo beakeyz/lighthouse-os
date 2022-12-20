@@ -51,6 +51,7 @@ void *memcpy(void * restrict dest, const void * restrict src, size_t length)
 	return dest;
 }
 
+// TODO: this is very confusing, it differs from the standard. find out what to do with it.
 int memcmp(const void *s1, const void *s2, size_t n)
 {
     const char *ss1 = (const char *)s1;
