@@ -43,8 +43,9 @@
 #define KMEM_FLAG_NOEXECUTE     0x20
 
 // Custom mapping flags
-#define KMEM_CUSTOMFLAG_GET_MAKE           0x01
-#define KMEM_CUSTOMFLAG_CREATE_USER        0x02
+#define KMEM_CUSTOMFLAG_GET_MAKE            0x01
+#define KMEM_CUSTOMFLAG_CREATE_USER         0x02
+#define KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE 0x04
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
@@ -113,7 +114,7 @@ bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count
 //void kmem_umap_memory (uintptr_t vaddr);
 void kmem_init_physical_allocator();
 
-void* kmem_alloc (size_t page_count);
+void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags);
 
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();

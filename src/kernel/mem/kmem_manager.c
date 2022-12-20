@@ -53,7 +53,7 @@ static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts);
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
-  KMEM_DATA.m_mmap_entry_num = (mmap->size) / mmap->entry_size;
+  KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap*)) / mmap->entry_size;
   KMEM_DATA.m_mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
 }
 
@@ -442,12 +442,35 @@ void kmem_set_page_flags(pml_t *page, unsigned int flags) {
 }
 
 /* NEW IMPL */
-// this function should try and find a range of pages that satisfies the requested size
-// other name for function: request_pages
-void *kmem_alloc(size_t page_count) {
+// allocates a region using the physical allocator and then 
+// identity maps it
+void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
   // find free page
+  const size_t pages_needed = ALIGN_UP((size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
+  void* ret = (void*)addr;
+  uintptr_t __addr = addr;
 
-  return nullptr;
+  for (uintptr_t i = 0; i < pages_needed; i++) {
+
+    const uintptr_t page_idx = kmem_get_page_idx(__addr);
+    const bool was_used = kmem_is_phys_page_used(page_idx);
+
+    if (was_used && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
+      return nullptr;
+    }
+
+    kmem_set_phys_page_used(page_idx);
+    bool result = kmem_map_page(nullptr, __addr, __addr, KMEM_CUSTOMFLAG_GET_MAKE);
+
+    if (!result) {
+      println("could not map");
+      return nullptr;
+    }
+
+    __addr += SMALL_PAGE_SIZE;
+  }
+
+  return ret;
 }
 
 // TODO: make this more dynamic

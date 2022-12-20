@@ -146,7 +146,7 @@ bool try_heap_expand(heap_node_t* last_node) {
 
   // request a page from kmem_manager
   const size_t new_node_size = SMALL_PAGE_SIZE;
-  heap_node_t* new_node = kmem_alloc(new_node_size);
+  heap_node_t* new_node = nullptr;
   if (new_node) {
     new_node->size = new_node_size;
     new_node->identifier = NODE_IDENTIFIER;
