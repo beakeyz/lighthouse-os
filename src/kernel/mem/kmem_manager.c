@@ -463,7 +463,6 @@ void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
     bool result = kmem_map_page(nullptr, __addr, __addr, KMEM_CUSTOMFLAG_GET_MAKE);
 
     if (!result) {
-      println("could not map");
       return nullptr;
     }
 

@@ -18,11 +18,9 @@ void* find_rsdt () {
   const uintptr_t bios_start_addr = 0xe0000;
   const size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
 
-  println("trying to map BIOS");
   uintptr_t ptr = (uintptr_t)kmem_kernel_alloc(bios_start_addr, bios_mem_size, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr != NULL) {
-    println("mapped BIOS");
     for (uintptr_t i = ptr; i < bios_mem_size; i+=16) {
       void* potential = (void*)i;
       if (!memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
@@ -35,7 +33,6 @@ void* find_rsdt () {
   ITTERATE(phys_ranges);
 
     phys_mem_range_t* range = itterator->data;
-    println("loopin");
     println(to_string(range->type));
 
     if (range->type != PMRT_ACPI_NVS || range->type != PMRT_ACPI_RECLAIM) {
