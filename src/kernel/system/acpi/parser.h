@@ -9,7 +9,7 @@ typedef struct {
 void init_acpi_parser();
 
 // find rsdt and (if available) xsdt
-void find_rsdt();
+void* find_rsdt();
 
 // me want cool table
 void find_table(const char* sig);

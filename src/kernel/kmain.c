@@ -4,6 +4,7 @@
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "system/acpi/acpi.h"
 #include <kernel/dev/debug/serial.h>
 #include <kernel/interupts/control/pic.h>
 #include <kernel/interupts/idt.h>
@@ -64,6 +65,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_fb(fb);
   // Next TODO: create a kernel pre-init tty
 
+  init_acpi();
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;

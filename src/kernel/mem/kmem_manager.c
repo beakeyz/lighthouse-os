@@ -514,3 +514,7 @@ pml_t create_pagetable(uintptr_t paddr, bool writable) {
 
   return table;
 }
+
+const list_t* kmem_get_phys_ranges_list() {
+  return KMEM_DATA.m_phys_ranges;
+}

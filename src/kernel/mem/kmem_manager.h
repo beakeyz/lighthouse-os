@@ -4,6 +4,7 @@
 #include <kernel/libk/multiboot.h>
 #include <libk/stddef.h>
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "pml.h"
 
 // some faultcodes
@@ -113,6 +114,9 @@ bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count
 void kmem_init_physical_allocator();
 
 void* kmem_alloc (size_t page_count);
+
+/* access to kmem_manager data struct */
+const list_t* kmem_get_phys_ranges_list();
 
 // TODO: write kmem_manager tests
 

@@ -14,6 +14,15 @@ typedef struct list {
   size_t m_length;
 } list_t;
 
+// hihi
+#define ITTERATE(list) node_t* itterator = list->head; \
+                       while (itterator) {
+
+#define SKIP_ITTERATION() itterator = itterator->next; \
+                          continue
+
+#define ENDITTERATE(list) itterator = itterator->next; }
+
 // TODO: finish linkedlist (double link)
 list_t* init_list ();
 void list_append(list_t*, void*);
