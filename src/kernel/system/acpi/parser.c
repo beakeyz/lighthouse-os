@@ -1,7 +1,9 @@
 #include "parser.h"
 #include "dev/debug/serial.h"
+#include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "mem/kmem_manager.h"
+#include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
 
@@ -10,7 +12,7 @@ void init_acpi_parser() {
 }
 
 
-void* find_rsdt () {
+void* find_rsdp() {
 
   const char* rsdt_sig = "RSD PTR ";
   // TODO: check other spots
@@ -53,5 +55,32 @@ void* find_rsdt () {
 
   ENDITTERATE(phys_ranges);
 
+  return nullptr;
+}
+
+void* find_table(void* rsdp_addr, const char* sig) {
+  if (strlen(sig) != 4) {
+    return nullptr;
+  }
+
+  XSDP_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(XSDP_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+  if (ptr->base.revision >= 2 && ptr->xsdt_addr) {
+    // xsdt
+    kernel_panic("TODO: implement higher revisions >=(");
+    return nullptr;
+  }
+
+  RSDT_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+  const size_t end_index = ((rsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint32_t);
+
+  for (uint32_t i = 0; i < end_index; i++) {
+    RSDT_t* cur = (RSDT_t*)(uintptr_t)rsdt->tables[i]; 
+    if (memcmp(cur->base.signature, sig, 4)) {
+      return (void*)(uintptr_t)rsdt->tables[i];
+    }
+  }
+  
   return nullptr;
 }
