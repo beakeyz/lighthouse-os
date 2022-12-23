@@ -24,7 +24,7 @@ int strcmp (const char * str1, const char *str2) {
     return *(const unsigned char *)str1 - *(const unsigned char *)str2;
 }
 
-_string strcpy (_string dest, string src) {
+char* strcpy (char* dest, const char* src) {
     size_t s = 0;
     while (src[s] != '\0') {
         dest[s] = src[s];
@@ -124,7 +124,7 @@ void *memchr(const void *s, int c, size_t n)
 // quite the buffer
 static char to_str_buff[128 * 2];
 
-string to_string(uint64_t val) {
+const char* to_string(uint64_t val) {
     uint8_t size = 0;
     uint64_t size_test = val;
     while (size_test / 10 > 0) {

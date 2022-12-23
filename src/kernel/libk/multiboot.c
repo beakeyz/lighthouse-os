@@ -1,6 +1,7 @@
 #include "multiboot.h"
 #include "kernel/dev/debug/serial.h"
 #include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include <libk/stddef.h>
 
 void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_alloc_addr) {
@@ -34,6 +35,25 @@ void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_a
     
     *highest_addr = offset;
     *first_valid_alloc_addr = (*first_valid_alloc_addr + 0xFFF) & 0xFFFFffffFFFFf000;
+}
+
+size_t get_total_mb2_size(void* start_addr) {
+  size_t ret = 0;
+  void* idxPtr = ((void*)start_addr) + 8;
+  struct multiboot_tag* tag = idxPtr;
+  // loop through the tags to find the right type
+  while (true) {
+    //if (tag->type == MULTIBOOT_TAG_TYPE_ACPI_NEW) break;
+    if (tag->type == 0) break;
+
+    ret += tag->size;
+
+    idxPtr += tag->size;
+    while ((uintptr_t)idxPtr & 7) idxPtr++;
+    tag = idxPtr;
+  }
+
+  return ret;
 }
 
 void* next_mb2_tag(void *cur, uint32_t type) {

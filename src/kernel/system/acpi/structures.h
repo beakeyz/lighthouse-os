@@ -46,4 +46,19 @@ typedef struct {
   SDT_header_t header;
   // TODO:
 } __attribute__((packed)) FADT_t;
+
+typedef struct {
+  uint64_t base_addr;
+  uint16_t segment_group_number;
+  uint8_t start_bus;
+  uint8_t end_bus;
+  uint32_t reserved;
+} __attribute__((packed)) PCI_Device_Descriptor_t;
+
+typedef struct {
+  SDT_header_t header;
+  uint64_t reserved;
+  PCI_Device_Descriptor_t descriptors[];
+} __attribute__((packed)) MCFG_t;
+
 #endif // !

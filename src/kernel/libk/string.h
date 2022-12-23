@@ -2,15 +2,12 @@
 #define __STRING__
 #include <libk/stddef.h>
 
-#define string const char*
-#define _string char*
-
-size_t strlen(string str);
+size_t strlen(const char* str);
 
 // 1 = 2 ?
-int strcmp (string str1, string str2);
+int strcmp (const char* str1, const char* str2);
 // and then there where two
-_string strcpy (_string dest, string src);
+char* strcpy (char* dest, const char* src);
 
 // mem shit
 
@@ -23,6 +20,6 @@ void *memchr(const void *s, int c, size_t n);
 
 // different kinds of number-to-string formating
 
-string to_string (uint64_t val);
+const char* to_string (uint64_t val);
 
 #endif // !__STRING__

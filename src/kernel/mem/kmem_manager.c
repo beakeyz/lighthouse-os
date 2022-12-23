@@ -290,7 +290,6 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
 ErrorOrPtr kmem_request_pysical_page() {
 
   uintptr_t index = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
-  println(to_string(index));
 
   ErrorOrPtr ret = {
     .m_status = LIGHT_SUCCESS,
@@ -316,7 +315,6 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
     println("failed to request page");
   }
 
-  println(to_string(result.m_ptr));
   return result;
 }
 
@@ -344,9 +342,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
 
     if (!pml4_entry_exists) {
       if (should_make) {
-        println("making stuff 1");
         uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
-        println(to_string(addr));
         pml4[pml4_idx].raw_bits = addr | page_creation_flags;
 
         tries--;
@@ -360,9 +356,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
 
     if (!pdp_entry_exists) {
       if (should_make) {
-        println("making stuff 2");
         uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
-        println(to_string(addr));
         pdp[pdp_idx].raw_bits = addr | page_creation_flags;
         tries--;
         continue;
@@ -375,9 +369,7 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
 
     if (!pd_entry_exists) {
       if (should_make) {
-        println("making stuff 3");
         uintptr_t addr = kmem_prepare_new_physical_page().m_ptr;
-        println(to_string(addr));
         pd[pd_idx].raw_bits = addr | page_creation_flags;
         tries--;
         continue;

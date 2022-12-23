@@ -24,6 +24,7 @@
 #include <libk/stddef.h>
 
 void mb_initialize(void* addr, uintptr_t* highest_addr, uintptr_t* highest_valid_alloc_addr);
+size_t get_total_mb2_size(void* start_addr);
 void* next_mb2_tag(void* cur, uint32_t type);
 void* get_mb2_tag(void* addr, uint32_t type);
 

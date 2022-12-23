@@ -2,10 +2,12 @@
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "libk/multiboot.h"
 #include "mem/kmem_manager.h"
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
+#include <kmain.h>
 
 void init_acpi_parser() {
 
@@ -17,6 +19,26 @@ void* find_rsdp() {
   const char* rsdt_sig = "RSD PTR ";
   // TODO: check other spots
 
+  // check multiboot header
+  struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)g_GlobalSystemInfo.m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+
+  if (new_ptr && new_ptr->rsdp[0]) {
+    void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    print("Multiboot has rsdp: ");
+    println(to_string((uintptr_t)ptr));
+    return ptr;
+  }
+
+  struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)g_GlobalSystemInfo.m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+
+  if (old_ptr && old_ptr->rsdp[0]) {
+    void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    print("Multiboot has rsdp: ");
+    println(to_string((uintptr_t)ptr));
+    return ptr;
+  }
+
+  // check bios mem
   const uintptr_t bios_start_addr = 0xe0000;
   const size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
 
@@ -46,7 +68,7 @@ void* find_rsdp() {
     uintptr_t start = range->start;
     uintptr_t length = range->length;
   
-    for (uintptr_t i = start; i < length; i+= 16) {
+    for (uintptr_t i = start; i < (start + length); i+= 16) {
       void* potential = (void*)i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
         return potential;
@@ -83,4 +105,25 @@ void* find_table(void* rsdp_addr, const char* sig) {
   }
   
   return nullptr;
+}
+
+void enumerate_tables(void* rsdp_addr) {
+  XSDP_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(XSDP_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+  if (ptr->base.revision >= 2 && ptr->xsdt_addr) {
+    // xsdt
+    kernel_panic("TODO: implement higher revisions >=(");
+  }
+
+  RSDT_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+  const size_t end_index = ((rsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint32_t);
+
+  for (uint32_t i = 0; i < end_index; i++) {
+    RSDT_t* cur = (RSDT_t*)(uintptr_t)rsdt->tables[i]; 
+    for (int i = 0; i < 4; i++) {
+      putch(cur->base.signature[i]);
+    }
+    print(" ");
+  }
 }
