@@ -1,0 +1,69 @@
+#include "bridge.h"
+#include "libk/error.h"
+#include <mem/kmem_manager.h>
+#include <libk/string.h>
+
+#define MAX_FUNC_PER_DEV 8
+#define MAX_DEV_PER_BUS 32
+
+#define MEM_SIZE_PER_BUS (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV * MAX_DEV_PER_BUS)
+
+void* map_bus(PCI_Bridge_t* this, uint8_t bus_num) {
+  uintptr_t bus_base_addr = this->base_addr + (MEM_SIZE_PER_BUS * (bus_num - this->start_bus));
+
+  void* mapped_bus_base = kmem_kernel_alloc(bus_base_addr, MEM_SIZE_PER_BUS, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+  return mapped_bus_base;
+}
+
+void write_field32(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field, uint32_t value) {
+  ASSERT(field <= 0xffc);
+  void* _base = map_bus(this, bus) + (SMALL_PAGE_SIZE * function + (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV) * device);
+  void* base = _base + (field & 0xfff);
+  memcpy(base, (void*)(uintptr_t)value, sizeof(uint32_t));
+}
+
+void write_field16(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field, uint16_t value) {
+  ASSERT(field <= 0xfff);
+  void* _base = map_bus(this, bus) + (SMALL_PAGE_SIZE * function + (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV) * device);
+  void* base = _base + (field & 0xfff);
+  memcpy(base, (void*)(uintptr_t)value, sizeof(uint16_t));
+}
+
+void write_field8(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field, uint8_t value) {
+  ASSERT(field <= 0xfff);
+  void* _base = map_bus(this, bus) + (SMALL_PAGE_SIZE * function + (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV) * device);
+  void* base = _base + (field & 0xfff);
+  *((uint8_t volatile*)base) = value;
+}
+
+uint32_t read_field32(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field) {
+  uint32_t ret = 0;
+
+  ASSERT(field <= 0xffc);
+  void* _base = map_bus(this, bus) + (SMALL_PAGE_SIZE * function + (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV) * device);
+  void* base = _base + (field & 0xfff);
+
+  memcpy(&ret, base, sizeof(uint32_t));
+
+  return ret;
+}
+
+uint16_t read_field16(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field) {
+  uint16_t ret = 0;
+
+  ASSERT(field <= 0xffc);
+  void* _base = map_bus(this, bus) + (SMALL_PAGE_SIZE * function + (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV) * device);
+  void* base = _base + (field & 0xfff);
+
+  memcpy(&ret, base, sizeof(uint16_t));
+
+  return ret;
+}
+
+uint8_t read_field8(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field) {
+  ASSERT(field <= 0xffc);
+  void* _base = map_bus(this, bus) + (SMALL_PAGE_SIZE * function + (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV) * device);
+  void* base = _base + (field & 0xfff);
+  return *((uint8_t volatile*)base);
+}

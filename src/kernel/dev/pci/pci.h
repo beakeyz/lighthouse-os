@@ -9,6 +9,10 @@
 #define PCI_MAX_BUSSES 256
 #define PCI_MAX_DEV_PER_BUS 32
 
+#define PCI_32BIT_PORT_SIZE 0x4
+#define PCI_16BIT_PORT_SIZE 0x2
+#define PCI_8BIT_PORT_SIZE  0x1
+
 #define GET_BUS_NUM(device_num) (uint8_t)(device_num >> 16)
 #define GET_SLOT_NUM(device_num) (uint8_t)(device_num >> 8)
 #define GET_FUNC_NUM(device_num) (uint8_t)(device_num)
@@ -18,6 +22,33 @@
 
 struct DeviceIdentifier;
 struct PCI_Bridge; 
+
+typedef enum PciRegisterOffset {
+  VENDOR_ID = 0x00,            // word
+  DEVICE_ID = 0x02,            // word
+  COMMAND = 0x04,              // word
+  STATUS = 0x06,               // word
+  REVISION_ID = 0x08,          // byte
+  PROG_IF = 0x09,              // byte
+  SUBCLASS = 0x0a,             // byte
+  CLASS = 0x0b,                // byte
+  CACHE_LINE_SIZE = 0x0c,      // byte
+  LATENCY_TIMER = 0x0d,        // byte
+  HEADER_TYPE = 0x0e,          // byte
+  BIST = 0x0f,                 // byte
+  BAR0 = 0x10,                 // u32
+  BAR1 = 0x14,                 // u32
+  BAR2 = 0x18,                 // u32
+  SECONDARY_BUS = 0x19,        // byte
+  BAR3 = 0x1C,                 // u32
+  BAR4 = 0x20,                 // u32
+  BAR5 = 0x24,                 // u32
+  SUBSYSTEM_VENDOR_ID = 0x2C,  // u16
+  SUBSYSTEM_ID = 0x2E,         // u16
+  CAPABILITIES_POINTER = 0x34, // u8
+  INTERRUPT_LINE = 0x3C,       // byte
+  INTERRUPT_PIN = 0x3D,        // byte
+} PciRegisterOffset_t;
 
 typedef void* (*PCI_FUNC) (
   uint32_t dev,
@@ -55,13 +86,6 @@ typedef struct DeviceIdentifier {
   uint8_t BIST;
 } DeviceIdentifier_t;
 
-typedef struct PCI_Bridge {
-  uint8_t start_bus;
-  uint8_t end_bus;
-  uint32_t base_addr;
-  uint32_t index;
-} __attribute__((packed)) PCI_Bridge_t;
-
 extern list_t g_pci_bridges;
 extern list_t g_pci_devices;
 extern bool g_has_registered_bridges;
@@ -75,13 +99,15 @@ void print_device_info(DeviceIdentifier_t* dev);
 
 void register_pci_devices(DeviceIdentifier_t* dev);
 
-void enumerate_function(uint64_t base_addr, uint64_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
-void enumerate_devices(uint64_t base_addr, uint64_t device);
-void enumerate_bus(uint64_t base_addr, uint64_t bus);
+void enumerate_function(uint64_t base_addr, uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
+void enumerate_devices(uint64_t base_addr, uint8_t bus, uint8_t device);
+void enumerate_bus(uint64_t base_addr, uint8_t bus);
 void enumerate_bridges();
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
 
+//uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
+//void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
 uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
 void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
 

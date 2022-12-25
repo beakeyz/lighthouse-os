@@ -1,4 +1,5 @@
 #include "pci.h"
+#include "bridge.h"
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
@@ -30,7 +31,7 @@ void print_device_info(DeviceIdentifier_t* dev) {
   println(to_string(dev->dev_id));
 }
 
-void enumerate_function(uint64_t base_addr, uint64_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
+void enumerate_function(uint64_t base_addr,uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
   uint64_t offset = func << 12;
 
@@ -43,11 +44,15 @@ void enumerate_function(uint64_t base_addr, uint64_t func, PCI_FUNC_ENUMERATE_CA
 
   if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
 
+  uint16_t vendor_id = read_field16(g_pci_bridges.head->data, bus, device, func, VENDOR_ID);
+
+  println(to_string(vendor_id));
+
   callback(identifier);
 
 }
 
-void enumerate_devices(uint64_t base_addr, uint64_t device) {
+void enumerate_devices(uint64_t base_addr, uint8_t bus, uint8_t device) {
   uint64_t offset = device << 15;
 
   uintptr_t dev_addr = base_addr + offset;
@@ -59,16 +64,16 @@ void enumerate_devices(uint64_t base_addr, uint64_t device) {
 
   if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
 
-  for (uintptr_t func = 0; func < 32; func++) {
+  for (uintptr_t func = 0; func < 8; func++) {
     if (current_active_callback.callback_name != nullptr) {
-      enumerate_function(dev_addr, func, current_active_callback.callback);
+      enumerate_function(dev_addr, bus, device, func, current_active_callback.callback);
     } else {
-      enumerate_function(dev_addr, func, print_device_info);
+      enumerate_function(dev_addr, bus, device, func, print_device_info);
     }
   }
 }
 
-void enumerate_bus(uint64_t base_addr, uint64_t bus) {
+void enumerate_bus(uint64_t base_addr, uint8_t bus) {
   uint64_t offset = bus << 20;
 
   uintptr_t bus_addr = base_addr + offset;
@@ -81,7 +86,7 @@ void enumerate_bus(uint64_t base_addr, uint64_t bus) {
   if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
 
   for (uintptr_t device = 0; device < 32; device++) {
-    enumerate_devices(bus_addr, device);
+    enumerate_devices(bus_addr, bus, device);
   }
 }
 
@@ -96,7 +101,7 @@ void enumerate_bridges() {
   
   PCI_Bridge_t* bridge = itterator->data;
 
-  for (uint64_t i = bridge->start_bus; i < bridge->end_bus; i++) {
+  for (uint8_t i = bridge->start_bus; i < bridge->end_bus; i++) {
     enumerate_bus(bridge->base_addr, i);
   }
 
@@ -143,15 +148,15 @@ uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size) {
   out32(PCI_PORT_ADDR, GET_PCI_ADDR(device_num, field));
 
   switch (size) {
-    case 4: {
+    case PCI_32BIT_PORT_SIZE: {
       uint32_t ret = in32(PCI_PORT_VALUE);
       return ret;
     }
-    case 2: {
+    case PCI_16BIT_PORT_SIZE: {
       uint16_t ret = in16(PCI_PORT_VALUE + (field & 2));
       return ret;
     }
-    case 1: {
+    case PCI_8BIT_PORT_SIZE: {
       uint8_t ret = in8(PCI_PORT_VALUE + (field & 3));
       return ret;
     }
@@ -190,6 +195,10 @@ bool init_pci() {
   }
 
   set_pci_func(register_pci_devices, "Register devices");
+
+  enumerate_bridges();
+
+  set_pci_func(print_device_info, "Print device ids");
 
   enumerate_bridges();
 
