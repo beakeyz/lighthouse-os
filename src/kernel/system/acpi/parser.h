@@ -6,6 +6,7 @@
 typedef struct {
   void* m_rsdp;
   bool m_is_xsdp;
+
 } acpi_parser_t;
 
 void init_acpi_parser();
@@ -14,7 +15,7 @@ void init_acpi_parser();
 void* find_rsdp();
 
 // me want cool table
-void* find_table(void* rsdp_addr, const char* sig);
+void* find_table(const char* sig);
 
 // just for funzies
 void print_tables(void* rsdp_addr);
@@ -22,5 +23,6 @@ void print_tables(void* rsdp_addr);
 // TODO: find needed params
 void start_aml_parsing();
 
+extern acpi_parser_t g_acpi_parser;
 
 #endif // !

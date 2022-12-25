@@ -7,6 +7,7 @@
 #include "libk/string.h"
 #include "mem/kmalloc.h"
 #include "mem/kmem_manager.h"
+#include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
 #include <libk/io.h>
 
@@ -93,9 +94,22 @@ void enumerate_bridges() {
   
   PCI_Bridge_t* bridge = itterator->data;
 
+  enumerate_bus(bridge, bridge->start_bus);
+
+  uint8_t should_enumerate_recusive = read_field8(bridge, 0, 0, 0, HEADER_TYPE);
+
+  if (should_enumerate_recusive != 0) {
   // FIXME: we are now enumerating the ENTIRE possible bus range, overkill?
-  for (uint8_t i = bridge->start_bus; i < bridge->end_bus; i++) {
-    enumerate_bus(bridge, i);
+    for (uint8_t i = 1; i < 8; i++) {
+      uint16_t vendor_id = read_field16(bridge, 0, 0, i, VENDOR_ID);
+      uint16_t class = read_field16(bridge, 0, 0, i, CLASS);
+
+      if (vendor_id == PCI_NONE_VALUE || class != 0x6) {
+        continue;
+      }
+
+      enumerate_bus(bridge, bridge->start_bus + i);
+    }
   }
 
   ENDITTERATE(list);
@@ -177,23 +191,28 @@ bool test_pci_io () {
 
 bool init_pci() {
 
-  if (!g_has_registered_bridges) {
-    kernel_panic("Trying to init pci before bridges have been registered!");
-  }
+  MCFG_t* mcfg = find_table("MCFG");
 
+  bool success = register_pci_bridges_from_mcfg((uintptr_t)mcfg);
   bool has_pci_io = test_pci_io();
 
-  if (has_pci_io) {
-    println("Pci io capabilities confirmed!");
+  if (success) {
+    if (!g_has_registered_bridges) {
+      kernel_panic("Trying to init pci before bridges have been registered!");
+    }
+
+    if (has_pci_io) {
+      println("Pci io capabilities confirmed!");
+    }
+
+    set_pci_func(register_pci_devices, "Register devices");
+
+    enumerate_bridges();
+
+    return true;
   }
 
-  set_pci_func(register_pci_devices, "Register devices");
-
-  enumerate_bridges();
-
-  set_pci_func(print_device_info, "Print device ids");
-
-  enumerate_bridges();
+  // TODO: try to initialize PCI with IO addressing
 
   return false;
 }

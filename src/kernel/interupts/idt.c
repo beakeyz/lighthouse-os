@@ -9,7 +9,7 @@
 idt_entry_t idt_entries[MAX_IDT_ENTRIES];
 
 void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector,
-                  registers_t* (*handler)(registers_t*)) {
+                  interrupt_callback_t handler) {
   idt_entries[num].base_low = (uint16_t)((uint64_t)handler & 0xFFFF);
   idt_entries[num].base_mid = (uint16_t)((uint64_t)handler >> 16);
   idt_entries[num].base_high = (uint32_t)((uint64_t)handler >> 32);

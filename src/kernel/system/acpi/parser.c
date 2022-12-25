@@ -9,7 +9,19 @@
 #include <libk/string.h>
 #include <kmain.h>
 
+acpi_parser_t g_acpi_parser = { nullptr, false };
+
 void init_acpi_parser() {
+
+  RSDP_t* rsdp = find_rsdp();
+
+  if (rsdp == nullptr) {
+    // FIXME: we're fucked lol
+    kernel_panic("no rsdt found =(");
+  }
+
+  g_acpi_parser.m_rsdp = rsdp;
+  g_acpi_parser.m_is_xsdp = (rsdp->revision >= 2);
 
 }
 
@@ -80,7 +92,16 @@ void* find_rsdp() {
   return nullptr;
 }
 
-void* find_table(void* rsdp_addr, const char* sig) {
+// find a table by poking in memory. 
+// TODO: find a way to cache the memory locations for all the tables
+void* find_table(const char* sig) {
+
+  void* rsdp_addr = g_acpi_parser.m_rsdp;
+
+  if (rsdp_addr == nullptr) {
+    return nullptr;
+  }
+
   if (strlen(sig) != 4) {
     return nullptr;
   }

@@ -11,8 +11,6 @@
 // FIXME: this value correct?
 #define TRAP_GATE           0x8F
 
-
-typedef registers_t * (*interrupt_handler_t)(registers_t*);
 // TODO
 typedef struct {
     uint16_t    limit;
@@ -39,7 +37,7 @@ idt_entry_t get_idt (int idx);
 // install shit
 void setup_idt ();
 
-void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, registers_t* (*handler)(registers_t*) );
+void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, interrupt_callback_t callback);
 
 extern void flush_idt (uintptr_t ptr);
 

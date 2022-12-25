@@ -7,7 +7,9 @@
 #include <kernel/interupts/control/pic.h>
 #include <libk/stddef.h>
 
-static irq_specific_handler_t handler_entries[16] = {NULL};
+static irq_handler_t handler_entries[16] = {NULL};
+
+static InterruptHandler_t g_handlers[16] = {NULL};
 
 // yeahahhhhh
 registers_t* interrupt_service_routine_0(registers_t *);
@@ -86,13 +88,32 @@ void init_interupts() {
 
   // TODO: apic and shit?
   init_pic();
+
+  // TODO: move into function
+  for (uint32_t i = 0; i < 16; i++) {
+    InterruptHandler_t* handler = &g_handlers[i];
+    InterruptController_t controller = init_pic_controller();
+
+    memcpy(handler->m_controller, &controller, sizeof(InterruptController_t));
+    handler->m_interrupt = nullptr;
+  }
+}
+
+// TODO: move to seperate file
+InterruptController_t init_pic_controller() {
+  InterruptController_t pic_controller = {
+    .fInterruptEOI = pic_eoi,
+    .m_type = I8259
+  };
+
+  return pic_controller;
 }
 
 // FIXME: look into the idea of having a error datastruct for this type of
 // stuff... otherwise return an int with statuscode?
-void add_handler(size_t irq_num, irq_specific_handler_t handler_ptr) {
+void add_handler(size_t irq_num, irq_handler_t handler_ptr) {
   disable_interupts();
-  irq_specific_handler_t handler = handler_entries[irq_num];
+  irq_handler_t handler = handler_entries[irq_num];
   if (handler != nullptr) {
     // yikes, there already is a handler
     println("handler already exists");
@@ -112,7 +133,7 @@ void add_handler(size_t irq_num, irq_specific_handler_t handler_ptr) {
 
 void remove_handler(size_t irq_num) {
   disable_interupts();
-  irq_specific_handler_t handler = handler_entries[irq_num];
+  irq_handler_t handler = handler_entries[irq_num];
   if (!handler) {
     // yikes
     return;
@@ -124,7 +145,7 @@ void remove_handler(size_t irq_num) {
 
 // Traffic distribution function: finds the right handler for the right function
 static registers_t *_int_handler(struct registers *regs, int num) {
-  irq_specific_handler_t handler = handler_entries[num - 32];
+  irq_handler_t handler = handler_entries[num - 32];
 
   if (handler) {
     if (handler(regs)) {
