@@ -31,62 +31,54 @@ void print_device_info(DeviceIdentifier_t* dev) {
   println(to_string(dev->dev_id));
 }
 
-void enumerate_function(uint64_t base_addr,uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
+void enumerate_function(PCI_Bridge_t* base_addr,uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
-  uint64_t offset = func << 12;
+  DeviceIdentifier_t identifier = {
+    .dev_id = read_field16(base_addr, bus, device, func, DEVICE_ID),
+    .vendor_id = read_field16(base_addr, bus, device, func, VENDOR_ID),
+    .header_type = read_field8(base_addr, bus, device, func, HEADER_TYPE),
+    .class = read_field8(base_addr, bus, device, func, CLASS),
+    .subclass = read_field8(base_addr, bus, device, func, SUBCLASS),
+    .prog_if = read_field8(base_addr, bus, device, func, PROG_IF),
+  };
 
-  uintptr_t fun_addr = base_addr + offset;
+  if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
 
-  // identitymap the funnie
-  kmem_map_page(nullptr, fun_addr, fun_addr, KMEM_CUSTOMFLAG_GET_MAKE);
-
-  DeviceIdentifier_t* identifier = (DeviceIdentifier_t*)fun_addr;
-
-  if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
-
-  uint16_t vendor_id = read_field16(g_pci_bridges.head->data, bus, device, func, VENDOR_ID);
-
-  println(to_string(vendor_id));
-
-  callback(identifier);
+  callback(&identifier);
 
 }
 
-void enumerate_devices(uint64_t base_addr, uint8_t bus, uint8_t device) {
-  uint64_t offset = device << 15;
+void enumerate_devices(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device) {
 
-  uintptr_t dev_addr = base_addr + offset;
+  uint16_t cur_vendor_id = read_field16(base_addr, bus, device, 0, VENDOR_ID);
 
-  // identitymap the funnie
-  kmem_map_page(nullptr, dev_addr, dev_addr, KMEM_CUSTOMFLAG_GET_MAKE);
+  if (cur_vendor_id == PCI_NONE_VALUE) {
+    return;
+  }
 
-  DeviceIdentifier_t* identifier = (DeviceIdentifier_t*)dev_addr;
+  const char* callback_name = current_active_callback.callback_name;
 
-  if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
+  enumerate_function(base_addr, bus, device, 0, callback_name != nullptr ? current_active_callback.callback : print_device_info);
 
-  for (uintptr_t func = 0; func < 8; func++) {
+  uint8_t cur_header_type = read_field8(base_addr, bus, device, 0, HEADER_TYPE);
+
+  if (!(cur_header_type & 0x80)) {
+    return;
+  }
+
+  for (uint8_t func = 1; func < 8; func++) {
     if (current_active_callback.callback_name != nullptr) {
-      enumerate_function(dev_addr, bus, device, func, current_active_callback.callback);
+      enumerate_function(base_addr, bus, device, func, current_active_callback.callback);
     } else {
-      enumerate_function(dev_addr, bus, device, func, print_device_info);
+      enumerate_function(base_addr, bus, device, func, print_device_info);
     }
   }
 }
 
-void enumerate_bus(uint64_t base_addr, uint8_t bus) {
-  uint64_t offset = bus << 20;
-
-  uintptr_t bus_addr = base_addr + offset;
-
-  // identitymap the funnie
-  kmem_map_page(nullptr, bus_addr, bus_addr, KMEM_CUSTOMFLAG_GET_MAKE);
-
-  DeviceIdentifier_t* identifier = (DeviceIdentifier_t*)bus_addr;
-
-  if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
+void enumerate_bus(PCI_Bridge_t* base_addr, uint8_t bus) {
 
   for (uintptr_t device = 0; device < 32; device++) {
-    enumerate_devices(bus_addr, bus, device);
+    enumerate_devices(base_addr, bus, device);
   }
 }
 
@@ -101,8 +93,9 @@ void enumerate_bridges() {
   
   PCI_Bridge_t* bridge = itterator->data;
 
+  // FIXME: we are now enumerating the ENTIRE possible bus range, overkill?
   for (uint8_t i = bridge->start_bus; i < bridge->end_bus; i++) {
-    enumerate_bus(bridge->base_addr, i);
+    enumerate_bus(bridge, i);
   }
 
   ENDITTERATE(list);

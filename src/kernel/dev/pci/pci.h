@@ -1,10 +1,13 @@
 #ifndef __LIGHT_PCI__
 #define __LIGHT_PCI__
+#include "dev/pci/bridge.h"
 #include "libk/linkedlist.h"
 #include <libk/stddef.h>
 
 #define PCI_PORT_ADDR 0xCF8
 #define PCI_PORT_VALUE 0xCFC
+
+#define PCI_NONE_VALUE 0xffff
 
 #define PCI_MAX_BUSSES 256
 #define PCI_MAX_DEV_PER_BUS 32
@@ -99,9 +102,9 @@ void print_device_info(DeviceIdentifier_t* dev);
 
 void register_pci_devices(DeviceIdentifier_t* dev);
 
-void enumerate_function(uint64_t base_addr, uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
-void enumerate_devices(uint64_t base_addr, uint8_t bus, uint8_t device);
-void enumerate_bus(uint64_t base_addr, uint8_t bus);
+void enumerate_function(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
+void enumerate_devices(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device);
+void enumerate_bus(PCI_Bridge_t* base_addr, uint8_t bus);
 void enumerate_bridges();
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
