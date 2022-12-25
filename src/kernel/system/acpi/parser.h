@@ -17,7 +17,7 @@ void* find_rsdp();
 void* find_table(void* rsdp_addr, const char* sig);
 
 // just for funzies
-void enumerate_tables(void* rsdp_addr);
+void print_tables(void* rsdp_addr);
 
 // TODO: find needed params
 void start_aml_parsing();

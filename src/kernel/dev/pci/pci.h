@@ -35,6 +35,11 @@ typedef void (*PCI_FUNC_ENUMERATE_CALLBACK) (
   struct DeviceIdentifier* identifier
 );
 
+typedef struct PciFuncCallback {
+  PCI_FUNC_ENUMERATE_CALLBACK callback;
+  const char* callback_name;
+} PciFuncCallback_t;
+
 typedef struct DeviceIdentifier {
   uint16_t vendor_id;
   uint16_t dev_id;
@@ -58,14 +63,22 @@ typedef struct PCI_Bridge {
 } __attribute__((packed)) PCI_Bridge_t;
 
 extern list_t g_pci_bridges;
+extern list_t g_pci_devices;
 extern bool g_has_registered_bridges;
+extern PciFuncCallback_t current_active_callback;
+
+bool init_pci();
+bool set_pci_func(PCI_FUNC_ENUMERATE_CALLBACK callback, const char* name);
+bool set_current_enum_func(PciFuncCallback_t new_callback);
 
 void print_device_info(DeviceIdentifier_t* dev);
+
+void register_pci_devices(DeviceIdentifier_t* dev);
 
 void enumerate_function(uint64_t base_addr, uint64_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
 void enumerate_devices(uint64_t base_addr, uint64_t device);
 void enumerate_bus(uint64_t base_addr, uint64_t bus);
-void enumerate_bridges(PCI_ENUMERATE_CALLBACK callback);
+void enumerate_bridges();
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
 

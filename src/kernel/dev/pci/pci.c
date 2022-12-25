@@ -1,5 +1,6 @@
 #include "pci.h"
 #include "dev/debug/serial.h"
+#include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
@@ -9,7 +10,19 @@
 #include <libk/io.h>
 
 list_t g_pci_bridges;
+list_t g_pci_devices;
 bool g_has_registered_bridges;
+PciFuncCallback_t current_active_callback;
+
+void register_pci_devices(DeviceIdentifier_t* dev) {
+  list_t* list = &g_pci_devices;
+  node_t* next_node = kmalloc(sizeof(node_t));
+
+  next_node->data = dev;
+
+  list_append(list, next_node);
+  println("append device");
+}
 
 void print_device_info(DeviceIdentifier_t* dev) {
   print(to_string(dev->vendor_id));
@@ -47,7 +60,11 @@ void enumerate_devices(uint64_t base_addr, uint64_t device) {
   if (identifier->dev_id == 0 || identifier->dev_id == 0xFFFF) return;
 
   for (uintptr_t func = 0; func < 32; func++) {
-    enumerate_function(dev_addr, func, print_device_info);
+    if (current_active_callback.callback_name != nullptr) {
+      enumerate_function(dev_addr, func, current_active_callback.callback);
+    } else {
+      enumerate_function(dev_addr, func, print_device_info);
+    }
   }
 }
 
@@ -68,7 +85,7 @@ void enumerate_bus(uint64_t base_addr, uint64_t bus) {
   }
 }
 
-void enumerate_bridges(PCI_ENUMERATE_CALLBACK callback) {
+void enumerate_bridges() {
 
   if (!g_has_registered_bridges) {
     return;
@@ -80,7 +97,7 @@ void enumerate_bridges(PCI_ENUMERATE_CALLBACK callback) {
   PCI_Bridge_t* bridge = itterator->data;
 
   for (uint64_t i = bridge->start_bus; i < bridge->end_bus; i++) {
-    callback(bridge->base_addr, i);
+    enumerate_bus(bridge->base_addr, i);
   }
 
   ENDITTERATE(list);
@@ -157,6 +174,51 @@ bool test_pci_io () {
   if (tmp == 0x80000000) {
     return true;
   }
+  return false;
+}
+
+bool init_pci() {
+
+  if (!g_has_registered_bridges) {
+    kernel_panic("Trying to init pci before bridges have been registered!");
+  }
+
+  bool has_pci_io = test_pci_io();
+
+  if (has_pci_io) {
+    println("Pci io capabilities confirmed!");
+  }
+
+  set_pci_func(register_pci_devices, "Register devices");
+
+  enumerate_bridges();
+
+  return false;
+}
+
+bool set_pci_func(PCI_FUNC_ENUMERATE_CALLBACK callback, const char* name) {
+
+  if (name == nullptr || !callback) {
+    return false;
+  }
+
+  PciFuncCallback_t pfc = {
+    .callback_name = name,
+    .callback = callback
+  };
+
+  set_current_enum_func(pfc);
+
+  return true;
+}
+
+bool set_current_enum_func(PciFuncCallback_t new_callback) {
+  // gotta name it something
+  if (new_callback.callback_name != nullptr) {
+    current_active_callback = new_callback;
+    return true;
+  }
+
   return false;
 }
 

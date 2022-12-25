@@ -1,4 +1,5 @@
 #include <kernel/kmain.h>
+#include "dev/pci/pci.h"
 #include "kernel/dev/framebuffer/framebuffer.h"
 #include "kernel/interupts/gdt.h"
 #include "libk/bitmap.h"
@@ -73,6 +74,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // Next TODO: create a kernel pre-init tty
 
   init_acpi();
+
+  init_pci();
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;

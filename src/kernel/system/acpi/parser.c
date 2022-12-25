@@ -107,7 +107,7 @@ void* find_table(void* rsdp_addr, const char* sig) {
   return nullptr;
 }
 
-void enumerate_tables(void* rsdp_addr) {
+void print_tables(void* rsdp_addr) {
   XSDP_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(XSDP_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr->base.revision >= 2 && ptr->xsdt_addr) {

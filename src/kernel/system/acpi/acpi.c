@@ -36,6 +36,4 @@ void init_acpi() {
 
   register_pci_bridges_from_mcfg((uintptr_t)mcfg);
 
-  enumerate_bridges(enumerate_bus);
-
 }
