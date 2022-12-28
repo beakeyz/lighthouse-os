@@ -89,8 +89,8 @@ typedef struct DeviceIdentifier {
   uint8_t BIST;
 } DeviceIdentifier_t;
 
-extern list_t g_pci_bridges;
-extern list_t g_pci_devices;
+extern list_t* g_pci_bridges;
+extern list_t* g_pci_devices;
 extern bool g_has_registered_bridges;
 extern PciFuncCallback_t current_active_callback;
 
@@ -106,6 +106,8 @@ void enumerate_function(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device, ui
 void enumerate_devices(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device);
 void enumerate_bus(PCI_Bridge_t* base_addr, uint8_t bus);
 void enumerate_bridges();
+void enumerate_pci_raw(PciFuncCallback_t callback);
+void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback);
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
 

@@ -19,7 +19,7 @@ typedef struct heap_node {
     // size of this entry in bytes
     size_t size;
     // used to validate a node pointer
-    uintptr_t identifier;
+    uint32_t identifier;
     // flags for this block
     uint8_t flags;
     // duh

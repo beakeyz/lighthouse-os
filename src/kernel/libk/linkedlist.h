@@ -23,6 +23,8 @@ typedef struct list {
 
 #define ENDITTERATE(list) itterator = itterator->next; }
 
+#define FOREACH(i, list) for (node_t* i = (list)->head; i != nullptr; i = i->next)
+
 // TODO: finish linkedlist (double link)
 list_t* init_list ();
 void list_append(list_t*, void*);

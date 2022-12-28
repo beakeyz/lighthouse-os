@@ -167,10 +167,10 @@ heap_node_t* split_node(heap_node_t *ptr, size_t size) {
     return nullptr;
   }
 
-  size_t node_free_size = ptr->size - sizeof(heap_node_t);
-  size_t extra_size = size + sizeof(heap_node_t);
+  const size_t node_free_size = ptr->size - sizeof(heap_node_t);
+  const size_t extra_size = size + sizeof(heap_node_t);
   if (node_free_size < extra_size) {
-    println("[kmalloc:split_node] node too small");
+    println("[kmalloc:split_node] node too small!");
     return nullptr;
   }
   

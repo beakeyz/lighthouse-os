@@ -1,5 +1,6 @@
 #include <kernel/kmain.h>
 #include "dev/pci/pci.h"
+#include "interupts/control/interrupt_control.h"
 #include "kernel/dev/framebuffer/framebuffer.h"
 #include "kernel/interupts/gdt.h"
 #include "libk/bitmap.h"
@@ -63,6 +64,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   //setup_gdt();
   setup_idt();
+  init_int_control_management();
   init_interupts();
 
   // NOTE: testhandler
@@ -76,6 +78,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_acpi();
 
   init_pci();
+
+  quick_print_node_sizes();
 
   // TODO: some thins on the agenda:
   // 0. [ ] buff up libk ;-;

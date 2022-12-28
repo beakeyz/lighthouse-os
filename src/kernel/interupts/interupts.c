@@ -1,4 +1,5 @@
 #include "interupts.h"
+#include "interupts/control/interrupt_control.h"
 #include "kernel/interupts/idt.h"
 #include "kernel/mem/kmem_manager.h"
 #include "libk/error.h"
@@ -85,28 +86,6 @@ void init_interupts() {
   idt_set_gate(0x2d, 0x8E, 0x08, irq_45);
   idt_set_gate(0x2e, 0x8E, 0x08, irq_46);
   idt_set_gate(0x2f, 0x8E, 0x08, irq_47);
-
-  // TODO: apic and shit?
-  init_pic();
-
-  // TODO: move into function
-  for (uint32_t i = 0; i < 16; i++) {
-    InterruptHandler_t* handler = &g_handlers[i];
-    InterruptController_t controller = init_pic_controller();
-
-    memcpy(handler->m_controller, &controller, sizeof(InterruptController_t));
-    handler->m_interrupt = nullptr;
-  }
-}
-
-// TODO: move to seperate file
-InterruptController_t init_pic_controller() {
-  InterruptController_t pic_controller = {
-    .fInterruptEOI = pic_eoi,
-    .m_type = I8259
-  };
-
-  return pic_controller;
 }
 
 // FIXME: look into the idea of having a error datastruct for this type of

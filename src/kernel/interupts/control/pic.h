@@ -4,6 +4,7 @@
 #ifndef __C_PIC___
 #define __C_PIC___
 
+#include "interupts/control/interrupt_control.h"
 #include <libk/stddef.h>
 
 #define PIC_EOI_CODE    0x20
@@ -18,6 +19,12 @@
 #define ICW1_ICW4       0x01
 #define ICW1_INIT       0x10
 
+typedef struct PIC {
+  InterruptController_t m_controller;
+  uint8_t m_pic1_line;
+  uint8_t m_pic2_line;
+} PIC_t;
+
 // credit: toaruos (took this because I was too lazy to write my own io_wait func lmao)
 #define PIC_WAIT() \
 	do { \
@@ -28,9 +35,10 @@
 		             "2:"); \
 	} while (0)
 
-void init_pic ();
-void disable_pic ();
+PIC_t* init_pic();
 
-void pic_eoi (uint8_t num);
+void pic_disable(void* this);
+
+void pic_eoi(uint8_t num);
 
 #endif // !__C_PIC___

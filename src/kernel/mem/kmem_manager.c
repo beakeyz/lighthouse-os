@@ -188,8 +188,6 @@ void parse_memmap() {
         continue;
       }
 
-      // FIXME: how fucked is this going to be for our heap?
-      // create a contiguous range by shifting the upper addr by one pagesize every time
       if (contiguous_ranges->end == nullptr || (((contiguous_phys_virt_range_t*)contiguous_ranges->end->data)->upper + SMALL_PAGE_SIZE) != page_base) {
         contiguous_phys_virt_range_t* range = kmalloc(sizeof(contiguous_phys_virt_range_t));
         range->upper = page_base;
@@ -248,8 +246,6 @@ void kmem_init_physical_allocator() {
     uintptr_t physical_page_index = kmem_get_page_idx(i);
     kmem_set_phys_page_used(physical_page_index);
   }
-
-  quick_print_node_sizes();
 }
 
 void *kmem_from_phys(uintptr_t addr) { 

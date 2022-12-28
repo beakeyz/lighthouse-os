@@ -11,19 +11,20 @@
 #include "system/acpi/structures.h"
 #include <libk/io.h>
 
-list_t g_pci_bridges;
-list_t g_pci_devices;
+list_t* g_pci_bridges;
+list_t* g_pci_devices;
 bool g_has_registered_bridges;
 PciFuncCallback_t current_active_callback;
 
+/* Default PCI callbacks */
+
 void register_pci_devices(DeviceIdentifier_t* dev) {
-  list_t* list = &g_pci_devices;
-  node_t* next_node = kmalloc(sizeof(node_t));
+  list_t* list = g_pci_devices;
+  DeviceIdentifier_t* _dev = kmalloc(sizeof(DeviceIdentifier_t));
 
-  next_node->data = dev;
+  memcpy(_dev, dev, sizeof(DeviceIdentifier_t));
 
-  list_append(list, next_node);
-  println("append device");
+  list_append(list, _dev);
 }
 
 void print_device_info(DeviceIdentifier_t* dev) {
@@ -31,6 +32,8 @@ void print_device_info(DeviceIdentifier_t* dev) {
   putch(' ');
   println(to_string(dev->dev_id));
 }
+
+/* PCI enumeration stuff */
 
 void enumerate_function(PCI_Bridge_t* base_addr,uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
@@ -46,7 +49,6 @@ void enumerate_function(PCI_Bridge_t* base_addr,uint8_t bus, uint8_t device, uin
   if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
 
   callback(&identifier);
-
 }
 
 void enumerate_devices(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device) {
@@ -89,30 +91,44 @@ void enumerate_bridges() {
     return;
   }
 
-  list_t* list = &g_pci_bridges;
-  ITTERATE(list);
-  
-  PCI_Bridge_t* bridge = itterator->data;
+  list_t* list = g_pci_bridges;
 
-  enumerate_bus(bridge, bridge->start_bus);
+  FOREACH(i, list) {
 
-  uint8_t should_enumerate_recusive = read_field8(bridge, 0, 0, 0, HEADER_TYPE);
+    PCI_Bridge_t* bridge = i->data;
 
-  if (should_enumerate_recusive != 0) {
-  // FIXME: we are now enumerating the ENTIRE possible bus range, overkill?
-    for (uint8_t i = 1; i < 8; i++) {
-      uint16_t vendor_id = read_field16(bridge, 0, 0, i, VENDOR_ID);
-      uint16_t class = read_field16(bridge, 0, 0, i, CLASS);
+    enumerate_bus(bridge, bridge->start_bus);
 
-      if (vendor_id == PCI_NONE_VALUE || class != 0x6) {
-        continue;
+    uint8_t should_enumerate_recusive = read_field8(bridge, 0, 0, 0, HEADER_TYPE);
+
+    if ((should_enumerate_recusive & 0x80) != 0) {
+      // FIXME: might we be missing some of the bus? should look into this 
+      for (uint8_t i = 1; i < 8; i++) {
+        uint16_t vendor_id = read_field16(bridge, 0, 0, i, VENDOR_ID);
+        uint16_t class = read_field16(bridge, 0, 0, i, CLASS);
+
+        if (vendor_id == PCI_NONE_VALUE || class != 0x6) {
+          continue;
+        }
+
+        enumerate_bus(bridge, bridge->start_bus + i);
       }
-
-      enumerate_bus(bridge, bridge->start_bus + i);
     }
   }
+}
 
-  ENDITTERATE(list);
+void enumerate_pci_raw(PciFuncCallback_t callback) {
+  set_current_enum_func(callback);
+  enumerate_bridges();
+}
+
+void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
+
+  FOREACH(i, g_pci_devices) {
+    DeviceIdentifier_t* dev = i->data;
+
+    callback(dev);
+  }
 }
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
@@ -141,8 +157,7 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
     bridge->start_bus = start;
     bridge->end_bus = end;
     bridge->index = i;
-    list_append(&g_pci_bridges, bridge);
-    println("append");
+    list_append(g_pci_bridges, bridge);
   }
 
   g_has_registered_bridges = true;
@@ -191,6 +206,11 @@ bool test_pci_io () {
 
 bool init_pci() {
 
+  g_pci_devices = kmalloc(sizeof(list_t));
+  memset(g_pci_devices, 0x00, sizeof(list_t));
+  g_pci_bridges = kmalloc(sizeof(list_t));
+  memset(g_pci_bridges, 0x00, sizeof(list_t));
+
   MCFG_t* mcfg = find_table("MCFG");
 
   bool success = register_pci_bridges_from_mcfg((uintptr_t)mcfg);
@@ -205,9 +225,15 @@ bool init_pci() {
       println("Pci io capabilities confirmed!");
     }
 
-    set_pci_func(register_pci_devices, "Register devices");
+    PciFuncCallback_t callback = {
+      .callback_name = "Register",
+      .callback = register_pci_devices
+    };
 
-    enumerate_bridges();
+    enumerate_pci_raw(callback);
+
+    // NOTE: test
+    enumerate_registerd_devices(print_device_info);
 
     return true;
   }
