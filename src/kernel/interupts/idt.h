@@ -7,7 +7,7 @@
 // Some defines that are idt/irq/isr specific
 #define MAX_IDT_ENTRIES     256
 #define DEFAULT_SELECTOR    0x08
-#define INTERUPT_GATE       0x8E
+#define INTERRUPT_GATE       0x8E
 // FIXME: this value correct?
 #define TRAP_GATE           0x8F
 

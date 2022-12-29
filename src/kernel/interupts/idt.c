@@ -6,7 +6,24 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
-idt_entry_t idt_entries[MAX_IDT_ENTRIES];
+static idt_entry_t idt_entries[MAX_IDT_ENTRIES];
+static idt_ptr_t idtr;
+
+// TODO: shit
+
+idt_entry_t create_idt_entry(interrupt_callback_t handler, uint16_t selector, uint8_t type) {
+  idt_entry_t ret = {
+    .base_low = (uint16_t)((uintptr_t)handler & 0xffff),
+    .base_mid = (uint16_t)((uintptr_t)handler >> 16),
+    .base_high = (uint32_t)((uintptr_t)handler >> 32),
+    .selector = selector,
+    .ist = 0,
+    .pad = 0,
+    .flags = type,
+  };
+
+  return ret;
+}
 
 void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector,
                   interrupt_callback_t handler) {
@@ -20,7 +37,6 @@ void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector,
 }
 
 void setup_idt() {
-  idt_ptr_t idtr;
 
   memset(idt_entries, 0, sizeof(idt_entry_t) * MAX_IDT_ENTRIES);
   memset(&idtr, 0, sizeof(idtr));

@@ -32,7 +32,6 @@ irq_%1:
 %macro interrupt_service_routine 1
 [global interrupt_service_routine_%1]
 interrupt_service_routine_%1:
-  ; When this macro is called the status registers are already on the stack
   push 0x00
   push %1 ; pushing the interrupt number for easier identification by the handler
   
@@ -69,7 +68,6 @@ interrupt_service_routine_error_code_%1:
   add rsp, 16
   iretq
 %endmacro
-
 
 %macro save_context 0
   push rax

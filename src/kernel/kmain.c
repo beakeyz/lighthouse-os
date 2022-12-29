@@ -9,6 +9,7 @@
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
+#include "system/processor/processor.h"
 #include <kernel/dev/debug/serial.h>
 #include <kernel/interupts/control/pic.h>
 #include <kernel/interupts/idt.h>
@@ -52,6 +53,9 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // parse multiboot
   mb_initialize((void *)mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   g_GlobalSystemInfo.m_total_multiboot_size = get_total_mb2_size((void*)mb_addr);
+
+  // init bootstrap processor
+  g_GlobalSystemInfo.m_bsp_processor = init_processor(0);
 
   init_kheap(); // TODO: this heap impl is very bad. improve it
 

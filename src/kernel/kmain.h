@@ -1,6 +1,7 @@
 #ifndef __KMAIN__
 #define __KMAIN__
 
+#include "system/processor/processor.h"
 #include <kernel/mem/pml.h>
 #include <libk/stddef.h>
 #include <kernel/libk/multiboot.h>
@@ -18,6 +19,7 @@ typedef struct multiboot_color _color_t;
 typedef struct {
   uintptr_t m_multiboot_addr;
   size_t m_total_multiboot_size;
+  Processor_t m_bsp_processor;
 } GlobalSystemInfo_t;
 
 extern GlobalSystemInfo_t g_GlobalSystemInfo;
