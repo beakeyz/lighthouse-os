@@ -113,14 +113,13 @@ void* kmalloc(size_t len) {
 
 void kfree (void* addr) {
 
-  if (addr == NULL) {
+  if (addr == nullptr) {
     // you fucking little piece of trash, how dare you pass NULL to kfree
     return;
   }
 
   // first we'll check if we can do this easily
   heap_node_t* node = (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t));
-  ASSERT(verify_identity(node));
   if (node->identifier == NODE_IDENTIFIER) {
     // we can free =D
     if (node->flags == KHEAP_USED_FLAG) {

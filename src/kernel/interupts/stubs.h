@@ -2,6 +2,7 @@
 #define __LIGHT_INTERRUPT_STUBS__
 #include <system/processor/registers.h>
 
+// uhm, these are prob all just void (*)() -_-
 extern registers_t* interrupt_asm_entry_32(registers_t*);
 extern registers_t* interrupt_asm_entry_33(registers_t*);
 extern registers_t* interrupt_asm_entry_34(registers_t*);

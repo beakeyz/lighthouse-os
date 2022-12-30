@@ -24,6 +24,7 @@ typedef int                         bool;
 
 #define true 1
 #define false 0
+#define FuncPtr void (*)()
 
 #define NORETURN __attribute__((noreturn))
 

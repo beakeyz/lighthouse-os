@@ -34,4 +34,6 @@ Processor_t init_processor(uint32_t cpu_num);
 
 bool is_bsp(Processor_t* processor);
 
+
+
 #endif // !__LIGHT_PROCESSOR__

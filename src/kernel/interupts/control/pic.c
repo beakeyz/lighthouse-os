@@ -6,28 +6,14 @@
 #include <libk/io.h>
 #include <libk/stddef.h>
 
-// TODO: make work
-uint16_t _irq_mask_cache = 0xffff;
-
-static void enable_vector(uint8_t vec) {
-  disable_interupts();
-
-  uint8_t imr;
-  if (vec & 8) {
-    imr = in8(PIC2_DATA);
-    out8(PIC2_DATA, imr);
-  } else {
-    imr = in8(PIC1_DATA);
-    out8(PIC1_DATA, imr);
-  }
-
-  enable_interupts();
-}
+static void pic_enable_vector(uint8_t vector) __attribute__((used));
+static void pic_disable_vector(uint8_t vector) __attribute__((used));
 
 PIC_t* init_pic() {
 
   PIC_t* ret = kmalloc(sizeof(PIC_t));
 
+  ret->m_controller.__parent = ret;
   ret->m_pic1_line = 0b11111101;
   ret->m_pic2_line = 0b11111111;
 
@@ -35,6 +21,8 @@ PIC_t* init_pic() {
   ret->m_controller.fInterruptEOI = pic_eoi;
   ret->m_controller.fControllerInit = (INTERRUPT_CONTROLLER_INIT)init_pic;
   ret->m_controller.fControllerDisable = pic_disable;
+  ret->m_controller.fControllerEnableVector = pic_enable_vector;
+  ret->m_controller.fControllerDisableVector = pic_disable_vector;
 
   // cascade init =D
   out8(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -83,3 +71,10 @@ void pic_eoi(uint8_t irq_num) {
 
   out8(PIC1_COMMAND, PIC_EOI_CODE);
 }
+
+static void pic_disable_vector(uint8_t vector) {
+}
+
+static void pic_enable_vector(uint8_t vec) {
+}
+

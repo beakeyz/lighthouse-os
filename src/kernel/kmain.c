@@ -57,7 +57,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // init bootstrap processor
   g_GlobalSystemInfo.m_bsp_processor = init_processor(0);
 
-  init_kheap(); // TODO: this heap impl is very bad. improve it
+  init_kheap(); // FIXME: this heap impl is very bad. improve it
 
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 

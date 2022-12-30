@@ -6,8 +6,11 @@
 #include <libk/string.h>
 
 list_t* init_list() {
-  // TODO
-  return nullptr;
+  list_t* ret = kmalloc(sizeof(list_t));
+  ret->m_length = 0;
+  ret->end = nullptr;
+  ret->head = nullptr;
+  return ret;
 }
 
 void list_append(list_t *list, void *data) {
@@ -62,4 +65,36 @@ void list_append_before(list_t *list, void *data, uint32_t index) {
   }
   // hasn't found shit =/
   // FIXME: return error
+}
+
+bool list_remove(list_t* list, uint32_t index) {
+  uint32_t current_index = 0;
+  FOREACH(i, list) {
+    if (current_index == index) {
+      node_t* next = i->next;
+      node_t* prev = i->prev;
+
+      // pointer magic
+      next->prev = prev;
+      prev->next = next;
+
+      kfree(i->data);
+      kfree(i);
+      return true;
+    }
+    current_index++;
+  }
+  return false;
+}
+
+// hihi linear scan :clown:
+void* list_get(list_t* list, uint32_t index) {
+  uint32_t current_index = 0;
+  FOREACH(i, list) {
+    if (current_index == index) {
+      return i->data;
+    }
+    current_index++;
+  }
+  return nullptr;
 }

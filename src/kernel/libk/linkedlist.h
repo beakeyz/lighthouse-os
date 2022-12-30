@@ -18,18 +18,21 @@ typedef struct list {
 #define ITTERATE(list) node_t* itterator = list->head; \
                        while (itterator) {
 
+// deprecated
 #define SKIP_ITTERATION() itterator = itterator->next; \
                           continue
-
+// deprecated
 #define ENDITTERATE(list) itterator = itterator->next; }
 
+// deprecated
 #define FOREACH(i, list) for (node_t* i = (list)->head; i != nullptr; i = i->next)
 
 // TODO: finish linkedlist (double link)
 list_t* init_list ();
 void list_append(list_t*, void*);
 void list_append_before(list_t*, void*, uint32_t);
-void list_remove(list_t*, uint32_t);
+bool list_remove(list_t*, uint32_t); // I would like to return this entry, but its kinda hard when you need to kfree a bunch of shit
+void* list_get(list_t*, uint32_t);
 
 #endif // !__LINKEDLIST__
 

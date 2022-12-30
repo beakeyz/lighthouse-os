@@ -31,7 +31,7 @@ InterruptHandler_t init_unhandled_interrupt_handler(uint16_t int_num);
 void init_interupts();
 
 // add
-void add_handler (InterruptHandler_t* handler_ptr);
+bool add_handler (InterruptHandler_t* handler_ptr);
 
 // remove
 void remove_handler (const uint16_t int_num);
