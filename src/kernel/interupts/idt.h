@@ -35,10 +35,13 @@ typedef struct {          // + 0 bytes
 idt_entry_t get_idt (int idx);
 
 // install shit
-void setup_idt ();
+void setup_idt (bool should_zero);
 
-void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, interrupt_callback_t callback);
+void register_idt_interrupt_handler(uint16_t num, void (*handler)());
+void register_idt_trap_handler(uint16_t num, void (*handler)());
 
-extern void flush_idt (uintptr_t ptr);
+void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, void(*handler)());
+
+void flush_idt ();
 
 #endif

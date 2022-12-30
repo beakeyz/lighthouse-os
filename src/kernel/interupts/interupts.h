@@ -11,31 +11,30 @@ struct Interrupt;
 struct InterruptHandler;
 
 // handler func ptrs
+typedef void (*interrupt_exeption_t) ();
+typedef void (*interrupt_error_handler_t)(registers_t*);
 typedef registers_t* (*interrupt_callback_t)(registers_t*);
-typedef int (*irq_handler_t) (registers_t*);
-
-// Represent the interrupt when fired
-typedef struct Interrupt {
-  irq_handler_t fHandler;
-  uint32_t m_irq_num;
-  INTERRUPT_CONTROLLER_TYPE m_type;
-} Interrupt_t;
 
 // Represent the interrupthandler that should handle a fired Interrupt_t
 typedef struct InterruptHandler {
+  interrupt_callback_t fHandler;
+  uint16_t m_int_num;
   bool m_is_registerd;
-  Interrupt_t* m_interrupt;
+  bool m_is_in_interrupt; // TODO: atomic?
   InterruptController_t* m_controller;
 } InterruptHandler_t;
+
+InterruptHandler_t* init_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback);
+InterruptHandler_t init_unhandled_interrupt_handler(uint16_t int_num);
 
 // init 0.0
 void init_interupts();
 
 // add
-void add_handler (size_t irq_num, irq_handler_t handler_ptr);
+void add_handler (InterruptHandler_t* handler_ptr);
 
 // remove
-void remove_handler (size_t irq_num);
+void remove_handler (const uint16_t int_num);
 
 // main entrypoint
 registers_t* interrupt_handler (struct registers* regs);

@@ -76,9 +76,9 @@ void pic_disable(void* this) {
   out8(PIC2_DATA, 0xFF);
 }
 
-void pic_eoi(uint8_t num) {
+void pic_eoi(uint8_t irq_num) {
   // irq from pic2 :clown:, so send for both
-  if (num >= 8)
+  if (irq_num >= 8)
     out8(PIC2_COMMAND, PIC_EOI_CODE);
 
   out8(PIC1_COMMAND, PIC_EOI_CODE);

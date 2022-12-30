@@ -7,7 +7,7 @@ typedef struct registers{
 	uintptr_t r11, r10, r9, r8;
 	uintptr_t rbp, rdi, rsi, rdx, rcx, rbx, rax;
 
-	uintptr_t int_no, err_code;
+	uintptr_t isr_no, err_code;
 
 	uintptr_t rip, cs, rflags, rsp, ss;
 } __attribute__((packed)) registers_t;

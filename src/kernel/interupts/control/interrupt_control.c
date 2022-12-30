@@ -30,3 +30,11 @@ void interrupt_control_switch_to_mode(INTERRUPT_CONTROLLER_TYPE type) {
       break;
   }
 }
+
+InterruptController_t* get_controller_for_int_number(uint16_t int_num) {
+  if (g_interrupt_controller_manager->m_current_type == I8259) {
+    InterruptController_t* pic = g_interrupt_controller_manager->m_controllers.head->data;
+    return pic;
+  }
+  return nullptr;
+}

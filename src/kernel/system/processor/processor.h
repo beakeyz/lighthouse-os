@@ -10,6 +10,9 @@ typedef struct ProcessorInfo {
   // TODO:
 } ProcessorInfo_t;
 
+typedef void (*PROCESSOR_LATE_INIT) (
+  struct Processor* this
+);
 
 typedef struct Processor {
   gdt_pointer_t m_gdtr;
@@ -23,7 +26,7 @@ typedef struct Processor {
   // TODO: cpu info (features, bitwidth, ect.)
   struct ProcessorInfo m_info;
   // TODO: threading
-
+  PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;
 
 ProcessorInfo_t processor_gather_info();

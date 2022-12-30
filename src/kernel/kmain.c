@@ -33,10 +33,10 @@ GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
-int thing(registers_t *regs) {
+registers_t* thing(registers_t *regs) {
   in8(0x60);
   println("funnie");
-  return 1;
+  return regs;
 }
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
@@ -62,17 +62,13 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
   g_GlobalSystemInfo.m_multiboot_addr = (uintptr_t)kmem_kernel_alloc((uintptr_t)mb_addr, g_GlobalSystemInfo.m_total_multiboot_size + 8, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  struct multiboot_tag_framebuffer *fb = get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
-  struct multiboot_tag_framebuffer *fb =
-      get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-
-  //setup_gdt();
-  setup_idt();
-  init_int_control_management();
-  init_interupts();
+  g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
 
   // NOTE: testhandler
-  add_handler(1, thing);
+  InterruptHandler_t* test = init_interrupt_handler(1, I8259, thing);
+  add_handler(test);
 
   enable_interupts();
 

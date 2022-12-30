@@ -215,6 +215,7 @@ bool can_merge(heap_node_t *node1, heap_node_t *node2) {
   if (node1 == NULL || node2 == NULL)
     return false;
 
+  // Only free nodes can merge
   if (node1->flags == KHEAP_FREE_FLAG && node2->flags == KHEAP_FREE_FLAG) {
     if ((node1->prev == node2 && node2->next == node1) || (node1->next == node2 && node2->prev == node1)) {
       return true;
@@ -238,8 +239,8 @@ heap_node_t* merge_node_with_next (heap_node_t* ptr) {
 }
 heap_node_t* merge_node_with_prev (heap_node_t* ptr) {
   if (can_merge(ptr, ptr->prev)) {
-    ptr->prev->size += ptr->size;
     heap_node_t* prev = ptr->prev;
+    prev->size += ptr->size;
     prev->next = ptr->next;
     memset(ptr, 0, ptr->size);
     return prev;
@@ -271,7 +272,7 @@ bool try_merge(heap_node_t *node) {
 // NOTE: when the identifier is not valid, we should ideally view the heap as corrupted and either
 // purge and reinit, or just panic and die
 bool verify_identity(heap_node_t *node) {
-  return node->identifier == NODE_IDENTIFIER;
+  return (node->identifier == NODE_IDENTIFIER);
 }
 
 // TODO: this just can't be safe, lets make it safe =D

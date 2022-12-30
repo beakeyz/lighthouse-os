@@ -37,6 +37,7 @@ typedef struct {
 
 void init_int_control_management();
 void interrupt_control_switch_to_mode(INTERRUPT_CONTROLLER_TYPE type);
+InterruptController_t* get_controller_for_int_number(uint16_t int_num);
 
 extern InterruptControllerManager_t* g_interrupt_controller_manager;
 

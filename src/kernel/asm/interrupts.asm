@@ -6,12 +6,9 @@ extern interrupt_handler
 [global interrupt_asm_entry_%1]
 interrupt_asm_entry_%1:
   
-  # we dont care about an errorcode here
   push 0x00
-  # push interrupt number
   push %1
 
-  # push registers
   push rax
   push rbx
   push rcx
@@ -28,15 +25,12 @@ interrupt_asm_entry_%1:
   push r14
   push r15
 
-  # clear direction flag
   cld
 
-  # prepare for common handler call
   mov rdi, rsp
   call interrupt_handler
-  mov rsp, rdi
+  mov rsp, rax
 
-  # restore stack (in the right order!)
   pop r15
   pop r14
   pop r13
@@ -51,15 +45,13 @@ interrupt_asm_entry_%1:
   pop rdx
   pop rcx
   pop rbx
+  pop rax
 
-  # stack fixup for the shit we pushed for registers_t
   add rsp, 16
 
   iretq
 %endmacro
 
-
-# stubs
 interrupt_asm_entry 32
 interrupt_asm_entry 33
 interrupt_asm_entry 34
