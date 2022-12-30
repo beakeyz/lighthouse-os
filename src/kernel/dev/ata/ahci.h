@@ -3,6 +3,6 @@
 
 // TODO: lets take a look at the intel specs for ahci
 
-
+void init_ahci();
 
 #endif // !
