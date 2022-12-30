@@ -16,13 +16,14 @@ typedef int (*irq_handler_t) (registers_t*);
 
 // Represent the interrupt when fired
 typedef struct Interrupt {
-  irq_handler_t m_handler;
+  irq_handler_t fHandler;
   uint32_t m_irq_num;
   INTERRUPT_CONTROLLER_TYPE m_type;
 } Interrupt_t;
 
 // Represent the interrupthandler that should handle a fired Interrupt_t
 typedef struct InterruptHandler {
+  bool m_is_registerd;
   Interrupt_t* m_interrupt;
   InterruptController_t* m_controller;
 } InterruptHandler_t;
