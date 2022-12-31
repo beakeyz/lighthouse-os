@@ -17,6 +17,8 @@ typedef int64_t                     ssize_t;
 typedef uint64_t                    uintptr_t;
 typedef int                         bool;
 
+typedef void (*FuncPtr)();
+
 #define asm __asm__
 #define nullptr (void*)0
 
@@ -24,7 +26,7 @@ typedef int                         bool;
 
 #define true 1
 #define false 0
-#define FuncPtr void (*)()
+//#define FuncPtr void (*)()
 
 #define NORETURN __attribute__((noreturn))
 

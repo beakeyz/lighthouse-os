@@ -1,5 +1,5 @@
 #include <kernel/kmain.h>
-#include "dev/ahci/ahci.h"
+#include "dev/disk/storage_controller.h"
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
 #include "kernel/dev/framebuffer/framebuffer.h"
@@ -81,7 +81,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_pci();
 
   // TODO: ATA/NVMe/IDE support?
-  init_ahci();
+  init_storage_controller();
 
   // TODO: some thins on the agenda:
   // 0. [X] buff up libk ;-;

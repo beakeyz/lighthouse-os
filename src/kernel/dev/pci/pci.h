@@ -24,6 +24,7 @@
 #define GET_PCIE_ADDR(dev_num, field) (uintptr_t)((GET_BUS_NUM(device_num) << 20) | (GET_SLOT_NUM(device_num) << 15) | (GET_FUNC_NUM(device_num) << 12) | (field))
 
 struct DeviceIdentifier;
+struct DeviceAddress;
 struct PCI_Bridge; 
 
 typedef enum PciRegisterOffset {
@@ -74,6 +75,13 @@ typedef struct PciFuncCallback {
   const char* callback_name;
 } PciFuncCallback_t;
 
+typedef struct DeviceAddress {
+  uint32_t index;
+  uint32_t bus_num;
+  uint32_t device_num;
+  uint32_t func_num;
+} DeviceAddress_t;
+
 typedef struct DeviceIdentifier {
   uint16_t vendor_id;
   uint16_t dev_id;
@@ -87,6 +95,8 @@ typedef struct DeviceIdentifier {
   uint8_t latency_timer;
   uint8_t header_type;
   uint8_t BIST;
+  uint8_t capabilities_ptr;
+  DeviceAddress_t address;
 } DeviceIdentifier_t;
 
 extern list_t* g_pci_bridges;
@@ -115,6 +125,16 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
 //void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
 uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
 void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
+
+PCI_Bridge_t* get_bridge_by_index(uint32_t bridge_index);
+
+void pci_write_32(DeviceAddress_t* address, uint32_t field, uint32_t value);
+void pci_write_16(DeviceAddress_t* address, uint32_t field, uint16_t value);
+void pci_write_8(DeviceAddress_t* address, uint32_t field, uint8_t value);
+
+uint32_t pci_read_32(DeviceAddress_t* address, uint32_t field);
+uint16_t pci_read_16(DeviceAddress_t* address, uint32_t field);
+uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field);
 
 bool test_pci_io ();
 // pci scanning (I would like this to be as advanced as possible and not some idiot simple thing)

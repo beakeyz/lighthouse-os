@@ -16,7 +16,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/AhciController.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/AhciController.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/ahci.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/ahci.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/dev/disk/io_device.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/dev/disk/io_device.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/mem/disk/storage_controller.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kernel/mem/disk/storage_controller.h" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -74,17 +81,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -96,6 +104,7 @@
       <workItem from="1664663673735" duration="39000" />
       <workItem from="1666480345954" duration="21000" />
       <workItem from="1667041011021" duration="381000" />
+      <workItem from="1672497952798" duration="37000" />
     </task>
     <servers />
   </component>

@@ -4,9 +4,9 @@
 
 typedef struct {
   DeviceIdentifier_t* m_identifier;
-
+  // TODO
 } AhciDevice_t;
 
-AhciDevice_t* init_ahcidevice(DeviceIdentifier_t* identifier);
+AhciDevice_t* init_ahci_device(DeviceIdentifier_t* identifier);
 
 #endif // !__LIGHT_AHCI_CONTROLLER__

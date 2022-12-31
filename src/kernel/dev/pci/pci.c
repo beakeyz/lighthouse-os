@@ -37,13 +37,29 @@ void print_device_info(DeviceIdentifier_t* dev) {
 
 void enumerate_function(PCI_Bridge_t* base_addr,uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
+  uint32_t index = base_addr->index;
+
+  DeviceAddress_t address = {
+    .index = index,
+    .bus_num = bus,
+    .device_num = device,
+    .func_num = func
+  };
+
   DeviceIdentifier_t identifier = {
     .dev_id = read_field16(base_addr, bus, device, func, DEVICE_ID),
     .vendor_id = read_field16(base_addr, bus, device, func, VENDOR_ID),
+    .command = read_field16(base_addr, bus, device, func, COMMAND),
+    .status = read_field16(base_addr, bus, device, func, STATUS),
     .header_type = read_field8(base_addr, bus, device, func, HEADER_TYPE),
     .class = read_field8(base_addr, bus, device, func, CLASS),
     .subclass = read_field8(base_addr, bus, device, func, SUBCLASS),
     .prog_if = read_field8(base_addr, bus, device, func, PROG_IF),
+    .cachelinesize = read_field8(base_addr, bus, device, func, CACHE_LINE_SIZE),
+    .latency_timer = read_field8(base_addr, bus, device, func, LATENCY_TIMER),
+    .revision_id = read_field8(base_addr, bus, device, func, REVISION_ID),
+    .BIST = read_field8(base_addr, bus, device, func, BIST),
+    .address = address
   };
 
   if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
@@ -146,7 +162,7 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
   MCFG_t* mcfg = (MCFG_t*)kmem_kernel_alloc(mcfg_ptr, length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
   uint32_t entries = (mcfg->header.length - sizeof(MCFG_t)) / sizeof(PCI_Device_Descriptor_t);
 
-  for (int i = 0; i < entries; i++) {
+  for (uint32_t i = 0; i < entries; i++) {
     uint8_t start = mcfg->descriptors[i].start_bus;
     uint8_t end = mcfg->descriptors[i].end_bus;
     uint32_t base = mcfg->descriptors[i].base_addr;
@@ -206,10 +222,8 @@ bool test_pci_io () {
 
 bool init_pci() {
 
-  g_pci_devices = kmalloc(sizeof(list_t));
-  memset(g_pci_devices, 0x00, sizeof(list_t));
-  g_pci_bridges = kmalloc(sizeof(list_t));
-  memset(g_pci_bridges, 0x00, sizeof(list_t));
+  g_pci_devices = init_list();
+  g_pci_bridges = init_list();
 
   MCFG_t* mcfg = find_table("MCFG");
 
@@ -269,3 +283,88 @@ bool set_current_enum_func(PciFuncCallback_t new_callback) {
   return false;
 }
 
+PCI_Bridge_t* get_bridge_by_index(uint32_t bridge_index) {
+  FOREACH(i, g_pci_bridges) {
+    PCI_Bridge_t* bridge = i->data;
+    if (bridge->index == bridge_index) {
+      return bridge;
+    }
+  }
+  return nullptr;
+}
+
+void pci_write_32(DeviceAddress_t* address, uint32_t field, uint32_t value) {
+  PCI_Bridge_t* bridge = get_bridge_by_index(address->index);
+  if (bridge == nullptr) {
+    return;
+  }
+  const uint8_t bus = address->bus_num;
+  const uint8_t device = address->device_num;
+  const uint8_t func = address->func_num;
+  
+  write_field32(bridge, bus, device, func, field, value);
+}
+
+void pci_write_16(DeviceAddress_t* address, uint32_t field, uint16_t value) {
+  PCI_Bridge_t* bridge = get_bridge_by_index(address->index);
+  if (bridge == nullptr) {
+    return;
+  }
+  const uint8_t bus = address->bus_num;
+  const uint8_t device = address->device_num;
+  const uint8_t func = address->func_num;
+  
+  write_field16(bridge, bus, device, func, field, value);
+}
+
+void pci_write_8(DeviceAddress_t* address, uint32_t field, uint8_t value) {
+  PCI_Bridge_t* bridge = get_bridge_by_index(address->index);
+  if (bridge == nullptr) {
+    return;
+  }
+  const uint8_t bus = address->bus_num;
+  const uint8_t device = address->device_num;
+  const uint8_t func = address->func_num;
+  
+  write_field8(bridge, bus, device, func, field, value);
+}
+
+uint32_t pci_read_32(DeviceAddress_t* address, uint32_t field) {
+  PCI_Bridge_t* bridge = get_bridge_by_index(address->index);
+  if (bridge == nullptr) {
+    return NULL;
+  }
+  const uint8_t bus = address->bus_num;
+  const uint8_t device = address->device_num;
+  const uint8_t func = address->func_num;
+  
+  return read_field32(bridge, bus, device, func, field);
+}
+
+uint16_t pci_read_16(DeviceAddress_t* address, uint32_t field) {
+  PCI_Bridge_t* bridge = get_bridge_by_index(address->index);
+  if (bridge == nullptr) {
+    return NULL;
+  }
+  uint8_t bus = address->bus_num;
+  uint8_t device = address->device_num;
+  uint8_t func = address->func_num;
+  
+  uint16_t result = read_field16(bridge, bus, device, func, field);
+  return result;
+}
+
+uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field) {
+  PCI_Bridge_t* bridge = get_bridge_by_index(address->index);
+  if (bridge == nullptr) {
+    return NULL;
+  }
+  const uint8_t bus = address->bus_num;
+  const uint8_t device = address->device_num;
+  const uint8_t func = address->func_num;
+  
+  return read_field8(bridge, bus, device, func, field);
+}
+
+/* PCI READ/WRITE WRAPPERS */
+// TODO
