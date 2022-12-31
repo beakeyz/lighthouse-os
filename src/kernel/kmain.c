@@ -1,4 +1,5 @@
 #include <kernel/kmain.h>
+#include "dev/ahci/ahci.h"
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
 #include "kernel/dev/framebuffer/framebuffer.h"
@@ -79,10 +80,11 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_pci();
 
-  quick_print_node_sizes();
+  // TODO: ATA/NVMe/IDE support?
+  init_ahci();
 
   // TODO: some thins on the agenda:
-  // 0. [ ] buff up libk ;-;
+  // 0. [X] buff up libk ;-;
   // 1. [X] parse the multiboot header and get the data we need from the
   // bootloader, like framebuffer, memmap, ect (when we have our own bootloader,
   // we'll have to revisit this =\)
@@ -92,7 +94,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // 4. [X] setup interupts so exeptions can be handled and stuff (perhaps do
   // this first so we can catch pmm initialization errors?)
   //      -   also keyboard and mouse handlers ect.
-  // 5. [ ] setup devices so we can have some propper communitaction between the
+  // 5. [X] setup devices so we can have some propper communitaction between the
   // kernel and the hardware, like pci and usb
   // 6. [ ] setup a propper filesystem (ext2 r sm, maybe even do this earlier so
   // we can load files and crap)

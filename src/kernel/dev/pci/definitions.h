@@ -1,6 +1,7 @@
 #ifndef __LIGHT_PCI_DEFINITIONS__
 #define __LIGHT_PCI_DEFINITIONS__
 
+// TODO: more
 typedef enum {
   IO,
   IOMEM16BIT,
@@ -15,7 +16,13 @@ typedef enum {
 } ClassIDType_t;
 
 typedef enum {
+  IDE_C = 0x01,
+  SATA_C = 0x06,
+  NVMe_C = 0x08,
+} MassstorageSubClasIDType_t;
+
+typedef enum {
   PCI_TO_PCI = 0x04,
-} SubClassIDType_t;
+} BridgeSubClassIDType_t;
 
 #endif // !__LIGHT_PCI_DEFINITIONS__
