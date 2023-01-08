@@ -95,6 +95,8 @@ typedef struct DeviceIdentifier {
   uint8_t latency_timer;
   uint8_t header_type;
   uint8_t BIST;
+  uint8_t interrupt_line;
+  uint8_t interrupt_pin;
   uint8_t capabilities_ptr;
   DeviceAddress_t address;
 } DeviceIdentifier_t;
@@ -138,6 +140,11 @@ uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field);
 
 bool test_pci_io ();
 // pci scanning (I would like this to be as advanced as possible and not some idiot simple thing)
+// uhm what?
 
+void pci_set_io(DeviceAddress_t* address, bool value);
+void pci_set_memory(DeviceAddress_t* address, bool value);
+void pci_set_interrupt_line(DeviceAddress_t* address, bool value);
+void pci_set_bus_mastering(DeviceAddress_t* address, bool value);
 
 #endif // !__

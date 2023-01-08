@@ -4,14 +4,14 @@
 #include <libk/stddef.h>
 #include <interupts/interupts.h>
 
-typedef enum {
+typedef enum _LIGHT_STATUS {
   LIGHT_FAIL = 0,
   LIGHT_SUCCESS = 1,
   // TODO: more types?
-} ErrorType_t;
+} LIGHT_STATUS;
 
 typedef struct _ErrorOrPtr {
-  ErrorType_t m_status;
+  LIGHT_STATUS m_status;
   uintptr_t m_ptr;
 } ErrorOrPtr;
 

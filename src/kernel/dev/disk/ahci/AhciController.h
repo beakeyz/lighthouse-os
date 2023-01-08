@@ -1,9 +1,17 @@
 #ifndef __LIGHT_AHCI_CONTROLLER__
 #define __LIGHT_AHCI_CONTROLLER__
+#include "dev/disk/ahci/definitions.h"
 #include <dev/pci/pci.h>
 
-typedef struct {
+struct AhciPort;
+
+typedef struct AhciDevice {
   DeviceIdentifier_t* m_identifier;
+
+  void* m_hba_region;
+  list_t* m_ports;
+
+  uint32_t m_used_ports;
   // TODO
 } AhciDevice_t;
 

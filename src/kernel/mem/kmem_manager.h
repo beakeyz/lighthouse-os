@@ -105,7 +105,7 @@ void kmem_set_page_flags (pml_t* page, unsigned int flags);
 /* mem mapping */
 
 //void kmem_map_memory (uintptr_t vaddr, uintptr_t paddr, unsigned int flags);
-bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags);
+bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags);
 // bool kmem_unmap_page (pml_t* table, uintptr_t virt); TODO
 bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count, unsigned int flags);
 
@@ -113,6 +113,7 @@ bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count
 void kmem_init_physical_allocator();
 
 void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags);
+void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags);
 
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();

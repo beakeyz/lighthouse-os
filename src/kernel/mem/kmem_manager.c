@@ -392,15 +392,20 @@ void kmem_nuke_pd(uintptr_t vaddr) {
   asm volatile("invlpg %0" ::"m"(vaddr) : "memory");
 }
 
-// Kinda sad that this is basically a coppy of kmem_get_page, but it iz what it iz
-bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags) {
+bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags) {
 
   pml_t* __page = kmem_get_page(table, virt, flags);
   
   if (__page) {
     // TODO: Variablize these flags
     __page->structured_bits.page = phys >> 12;
-    kmem_set_page_flags(__page, KMEM_FLAG_WRITABLE);
+
+    // secure page
+    uint32_t __flags = page_flags;
+    if (__flags == 0) {
+      __flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
+    }
+    kmem_set_page_flags(__page, page_flags);
 
     return true;
   }
@@ -448,7 +453,7 @@ void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
     }
 
     kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(nullptr, __addr, __addr, KMEM_CUSTOMFLAG_GET_MAKE);
+    bool result = kmem_map_page(nullptr, __addr, __addr, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (!result) {
       return nullptr;
@@ -458,6 +463,35 @@ void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
   }
 
   return ret;
+}
+
+// FIXME: code duplication
+void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags) {
+  const size_t pages_needed = ALIGN_UP((size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
+  void* ret = (void*)addr;
+  uintptr_t __addr = addr;
+
+  for (uintptr_t i = 0; i < pages_needed; i++) {
+
+    const uintptr_t page_idx = kmem_get_page_idx(__addr);
+    const bool was_used = kmem_is_phys_page_used(page_idx);
+
+    if (was_used && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
+      return nullptr;
+    }
+
+    kmem_set_phys_page_used(page_idx);
+    bool result = kmem_map_page(nullptr, __addr, __addr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
+
+    if (!result) {
+      return nullptr;
+    }
+
+    __addr += SMALL_PAGE_SIZE;
+  }
+
+  return ret;
+
 }
 
 // TODO: make this more dynamic

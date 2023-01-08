@@ -19,6 +19,8 @@ typedef int                         bool;
 
 typedef void (*FuncPtr)();
 
+#define ALWAYS_INLINE inline __attribute__((always_inline))
+
 #define asm __asm__
 #define nullptr (void*)0
 

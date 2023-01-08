@@ -18,6 +18,8 @@ PciFuncCallback_t current_active_callback;
 
 /* Default PCI callbacks */
 
+static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift);
+
 void register_pci_devices(DeviceIdentifier_t* dev) {
   list_t* list = g_pci_devices;
   DeviceIdentifier_t* _dev = kmalloc(sizeof(DeviceIdentifier_t));
@@ -58,6 +60,8 @@ void enumerate_function(PCI_Bridge_t* base_addr,uint8_t bus, uint8_t device, uin
     .cachelinesize = read_field8(base_addr, bus, device, func, CACHE_LINE_SIZE),
     .latency_timer = read_field8(base_addr, bus, device, func, LATENCY_TIMER),
     .revision_id = read_field8(base_addr, bus, device, func, REVISION_ID),
+    .interrupt_line = read_field8(base_addr, bus, device, func, INTERRUPT_LINE),
+    .interrupt_pin = read_field8(base_addr, bus, device, func, INTERRUPT_PIN),
     .BIST = read_field8(base_addr, bus, device, func, BIST),
     .address = address
   };
@@ -368,3 +372,36 @@ uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field) {
 
 /* PCI READ/WRITE WRAPPERS */
 // TODO
+
+static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift) {
+  if (or_and) {
+    pci_write_16(address, COMMAND, pci_read_16(address, COMMAND) | (1 << shift));
+  } else {
+    pci_write_16(address, COMMAND, pci_read_16(address, COMMAND) & ~(1 << shift));
+  }
+}
+
+void pci_set_io(DeviceAddress_t* address, bool value) {
+  pci_send_command(address, value, 0);
+}
+
+void pci_set_memory(DeviceAddress_t* address, bool value) {
+  pci_send_command(address, value, 1);
+}
+
+void pci_set_interrupt_line(DeviceAddress_t* address, bool value) {
+  pci_send_command(address, !value, 10);
+}
+
+void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
+  uint16_t placeback = pci_read_16(address, COMMAND);
+
+  if (value) {
+    placeback |= (1 << 2);
+  } else {
+    placeback &= ~(1 << 2);
+  }
+  placeback |= (1 << 0);
+
+  pci_write_16(address, COMMAND, placeback);
+}
