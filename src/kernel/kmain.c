@@ -3,7 +3,6 @@
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
 #include "kernel/dev/framebuffer/framebuffer.h"
-#include "kernel/interupts/gdt.h"
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
