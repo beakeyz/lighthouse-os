@@ -2,23 +2,24 @@
 #define __KMAIN__
 
 #include "system/processor/processor.h"
-#include <kernel/mem/pml.h>
+#include <kernel/mem/PagingComplex.h>
 #include <libk/stddef.h>
 #include <kernel/libk/multiboot.h>
 
 extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
 
-extern pml_t boot_pml4t[512];
-extern pml_t boot_pdpt[512];
-extern pml_t boot_pd0[512];
-extern pml_t boot_pd0_p[512 * 32];
+extern PagingComplex_t boot_pml4t[512];
+extern PagingComplex_t boot_pdpt[512];
+extern PagingComplex_t boot_pd0[512];
+extern PagingComplex_t boot_pd0_p[512 * 32];
 
 typedef struct multiboot_color _color_t;
 
 typedef struct {
   uintptr_t m_multiboot_addr;
   size_t m_total_multiboot_size;
+
   Processor_t m_bsp_processor;
   Processor_t* m_current_core;
 } GlobalSystemInfo_t;

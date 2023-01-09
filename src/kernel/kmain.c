@@ -82,6 +82,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
 
+  println(to_string(g_GlobalSystemInfo.m_bsp_processor.m_gdt_highest_entry));
   // TODO: some thins on the agenda:
   // 0. [X] buff up libk ;-;
   // 1. [X] parse the multiboot header and get the data we need from the

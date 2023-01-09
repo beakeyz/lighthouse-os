@@ -3,7 +3,7 @@
 #include "kernel/dev/debug/serial.h"
 #include "kernel/kmain.h"
 #include "kernel/mem/kmalloc.h"
-#include "kernel/mem/pml.h"
+#include "kernel/mem/PagingComplex.h"
 #include "kernel/libk/multiboot.h"
 #include "libk/bitmap.h"
 #include "libk/error.h"
@@ -31,22 +31,24 @@ typedef struct {
   list_t* m_contiguous_ranges;
   list_t* m_used_mem_ranges;
 
-  pml_t m_kernel_base_pd[3][512] __attribute__((aligned(0x1000UL)));
-  pml_t m_high_base_pd[512] __attribute__((aligned(0x1000UL)));
-  pml_t m_high_base_pts[64][512] __attribute__((aligned(0x1000UL)));
+  PagingComplex_t m_kernel_base_pd[3][512] __attribute__((aligned(0x1000UL)));
+  PagingComplex_t m_high_base_pd[512] __attribute__((aligned(0x1000UL)));
+  PagingComplex_t m_high_base_pts[64][512] __attribute__((aligned(0x1000UL)));
 
-  pml_t m_phys_base_pd[512] __attribute__((aligned(0x1000UL)));
-  pml_t m_phys_base_pts[64][512] __attribute__((aligned(0x1000UL)));
+  PagingComplex_t m_phys_base_pd[512] __attribute__((aligned(0x1000UL)));
+  PagingComplex_t m_phys_base_pts[64][512] __attribute__((aligned(0x1000UL)));
 
 } kmem_data_t;
 
 static kmem_data_t KMEM_DATA;
 
+// TODO: move to processor struct
+
 // external directory layout
-extern pml_t kernel_pd[STANDARD_PD_ENTRIES];
-extern pml_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
+extern PagingComplex_t kernel_pd[STANDARD_PD_ENTRIES];
+extern PagingComplex_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
 // could be used for temporary mappings?
-extern pml_t kernel_pt_last[STANDARD_PD_ENTRIES];
+extern PagingComplex_t kernel_pt_last[STANDARD_PD_ENTRIES];
 
 static inline void _init_kmem_page_layout();
 static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts);
@@ -59,7 +61,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 
 /*
 *  TODO: A few things need to be figured out:
-*           - (Optional, but desireable) Redo the pml_t structure to be more verbose and straight forward
+*           - (Optional, but desireable) Redo the PagingComplex_t structure to be more verbose and straight forward
 *           - Start to think about optimisations
 *           - more implementations
 */
@@ -69,7 +71,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_used_mem_ranges = kmalloc(sizeof(list_t));
 
-  memset(&KMEM_DATA.m_kernel_base_pd, 0, sizeof(pml_t) * 3 * 512);
+  memset(&KMEM_DATA.m_kernel_base_pd, 0, sizeof(PagingComplex_t) * 3 * 512);
 
   // nested fun
   prep_mmap(get_mb2_tag((void *)mb_addr, 6));
@@ -81,7 +83,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   
   // FIXME: find out if this address is always valid
-  uintptr_t map = ((uintptr_t)(pml_t *)&KMEM_DATA.m_kernel_base_pd[0]);
+  uintptr_t map = ((uintptr_t)(PagingComplex_t *)&KMEM_DATA.m_kernel_base_pd[0]);
  
   _load_page_dir(map, true);
 }
@@ -252,7 +254,7 @@ void *kmem_from_phys(uintptr_t addr) {
   return (void *)(addr | HIGH_MAP_BASE);
 }
 
-uintptr_t kmem_to_phys(pml_t *root, uintptr_t addr) {
+uintptr_t kmem_to_phys(PagingComplex_t *root, uintptr_t addr) {
   return 0;
 }
 
@@ -314,11 +316,11 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
   return result;
 }
 
-pml_t *kmem_get_krnl_dir() {
+PagingComplex_t *kmem_get_krnl_dir() {
   return nullptr;
 }
 
-pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
+PagingComplex_t *kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned int kmem_flags) {
   const uintptr_t pml4_idx = (addr >> 39) & ENTRY_MASK;
   const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
   const uintptr_t pd_idx = (addr >> 21) & ENTRY_MASK;
@@ -333,8 +335,8 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
       break;
     }
 
-    pml_t* pml4 = root == nullptr ? (pml_t*)&KMEM_DATA.m_kernel_base_pd[0] : root;
-    const bool pml4_entry_exists = (pml4[pml4_idx].structured_bits.present_bit);
+    PagingComplex_t* pml4 = root == nullptr ? (PagingComplex_t*)&KMEM_DATA.m_kernel_base_pd[0] : root;
+    const bool pml4_entry_exists = (pml4[pml4_idx].pde_bits.present_bit);
 
     if (!pml4_entry_exists) {
       if (should_make) {
@@ -347,8 +349,8 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
       return nullptr;
     }
 
-    pml_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].structured_bits.page << 12);
-    const bool pdp_entry_exists = (pdp[pdp_idx].structured_bits.present_bit);
+    PagingComplex_t* pdp = kmem_from_phys((uintptr_t)pml4[pml4_idx].pde_bits.page << 12);
+    const bool pdp_entry_exists = (pdp[pdp_idx].pde_bits.present_bit);
 
     if (!pdp_entry_exists) {
       if (should_make) {
@@ -360,8 +362,8 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
       return nullptr;
     }
 
-    pml_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].structured_bits.page << 12);
-    const bool pd_entry_exists = (pd[pd_idx].structured_bits.present_bit);
+    PagingComplex_t* pd = kmem_from_phys((uintptr_t)pdp[pdp_idx].pde_bits.page << 12);
+    const bool pd_entry_exists = (pd[pd_idx].pde_bits.present_bit);
 
     if (!pd_entry_exists) {
       if (should_make) {
@@ -373,18 +375,18 @@ pml_t *kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags) {
       return nullptr;
     }
 
-    if (pd[pd_idx].structured_bits.size) {
+    if (pd[pd_idx].pde_bits.size) {
       println("SIZE SET");
       break;
     }
 
     // this just should exist
-    const pml_t* pt = kmem_from_phys((uintptr_t)pd[pd_idx].structured_bits.page << 12);
-    return (pml_t*)&pt[pt_idx];
+    const PagingComplex_t* pt = kmem_from_phys((uintptr_t)pd[pd_idx].pte_bits.page << 12);
+    return (PagingComplex_t*)&pt[pt_idx];
   }
   
   println("[WARNING] Could not find page!");
-  return (pml_t*)nullptr; 
+  return (PagingComplex_t*)nullptr; 
 }
 
 
@@ -392,13 +394,13 @@ void kmem_nuke_pd(uintptr_t vaddr) {
   asm volatile("invlpg %0" ::"m"(vaddr) : "memory");
 }
 
-bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags) {
+bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags) {
 
-  pml_t* __page = kmem_get_page(table, virt, flags);
+  PagingComplex_t* __page = kmem_get_page(table, virt, flags);
   
   if (__page) {
     // TODO: Variablize these flags
-    __page->structured_bits.page = phys >> 12;
+    __page->pde_bits.page = phys >> 12;
 
     // secure page
     uint32_t __flags = page_flags;
@@ -417,21 +419,21 @@ bool kmem_map_range(uintptr_t virt_base, uintptr_t phys_base, size_t page_count,
   return true;
 }
 
-void kmem_set_page_flags(pml_t *page, unsigned int flags) {
-  if (page->structured_bits.page == 0) {
+void kmem_set_page_flags(PagingComplex_t *page, unsigned int flags) {
+  if (page->pte_bits.page == 0) {
     // TODO:
     uintptr_t idx = kmem_request_pysical_page().m_ptr >> 12;
-    page->structured_bits.page = idx;
+    page->pte_bits.page = idx;
   }
 
-  page->structured_bits.size = 0;
-  page->structured_bits.present_bit = 1;
-  page->structured_bits.writable_bit = (flags & KMEM_FLAG_WRITABLE) ? 1 : 0;
-  page->structured_bits.user_bit = (flags & KMEM_FLAG_KERNEL) ? 0 : 1;
-  page->structured_bits.nocache_bit = (flags & KMEM_FLAG_NOCACHE) ? 1 : 0;
-  page->structured_bits.writethrough_bit = (flags & KMEM_FLAG_WRITETHROUGH) ? 1 : 0;
-  page->structured_bits.size = (flags & KMEM_FLAG_SPEC) ? 1 : 0;
-  page->structured_bits.nx = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
+  //page->structured_bits.size = 0;
+  page->pte_bits.present_bit = 1;
+  page->pte_bits.writable_bit = (flags & KMEM_FLAG_WRITABLE) ? 1 : 0;
+  page->pte_bits.user_bit = (flags & KMEM_FLAG_KERNEL) ? 0 : 1;
+  page->pte_bits.nocache_bit = (flags & KMEM_FLAG_NOCACHE) ? 1 : 0;
+  page->pte_bits.writethrough_bit = (flags & KMEM_FLAG_WRITETHROUGH) ? 1 : 0;
+  page->pte_bits.PAT = (flags & KMEM_FLAG_SPEC) ? 1 : 0;
+  page->pte_bits.nx = (flags & KMEM_FLAG_NOEXECUTE) ? 1 : 0;
 }
 
 /* NEW IMPL */
@@ -548,13 +550,13 @@ uintptr_t kmem_get_page_base (uintptr_t page_addr) {
 }
 
 // deprecated
-pml_t create_pagetable(uintptr_t paddr, bool writable) {
-  pml_t table = {
+PagingComplex_t create_pagetable(uintptr_t paddr, bool writable) {
+  PagingComplex_t table = {
     .raw_bits = paddr
   };
 
-  table.structured_bits.present_bit = 1;
-  table.structured_bits.writable_bit = writable;
+  table.pde_bits.present_bit = 1;
+  table.pde_bits.writable_bit = writable;
 
   return table;
 }

@@ -8,6 +8,11 @@
 #define GDT_KERNEL_DATA 0x10
 #define GDT_USER_CODE 0x20
 #define GDT_USER_DATA 0x18
+#define GDT_TSS_SEL 0x28
+#define GDT_TSS_2_SEL 0x30
+
+#define AVAILABLE_TSS 0x9
+#define BUSY_TSS 0xb
 
 // TODO: defines for flag bits
 
@@ -43,6 +48,10 @@ typedef union {
     uint8_t granularity : 1;
     uint8_t base_hi2;
 	} structured;
+  struct {
+    uint32_t low;
+    uint32_t high;
+  };
 	uintptr_t raw;
 } __attribute__((packed)) gdt_entry_t;
 
@@ -64,6 +73,4 @@ ALWAYS_INLINE void set_gdte_limit(gdt_entry_t* entry, uint32_t limit) {
   entry->structured.limit_high = (limit >> 16) & 0xf;
 }
 
-extern void setup_gdt();
-extern void flush_gdt ();
 #endif // !__GDT__

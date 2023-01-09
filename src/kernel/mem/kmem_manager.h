@@ -5,7 +5,7 @@
 #include <libk/stddef.h>
 #include "libk/error.h"
 #include "libk/linkedlist.h"
-#include "pml.h"
+#include "mem/PagingComplex.h"
 
 // some faultcodes
 #define PRESENT_VIOLATION       0x1
@@ -85,7 +85,7 @@ uintptr_t kmem_get_page_idx (uintptr_t page_addr);
 uintptr_t kmem_get_page_base (uintptr_t page_addr);
 
 void* kmem_from_phys (uintptr_t addr);
-uintptr_t kmem_to_phys (pml_t* root, uintptr_t addr);
+uintptr_t kmem_to_phys (PagingComplex_t* root, uintptr_t addr);
 
 void kmem_set_phys_page_used (uintptr_t idx);
 void kmem_set_phys_page_free (uintptr_t idx);
@@ -97,16 +97,16 @@ void kmem_flush_tlb();
 
 ErrorOrPtr kmem_request_pysical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
-pml_t* kmem_get_krnl_dir ();
-pml_t* kmem_get_page(pml_t* root, uintptr_t addr, unsigned int kmem_flags);
-pml_t* kmem_clone_page(pml_t* page);
-void kmem_set_page_flags (pml_t* page, unsigned int flags);
+PagingComplex_t* kmem_get_krnl_dir ();
+PagingComplex_t* kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned int kmem_flags);
+PagingComplex_t* kmem_clone_page(PagingComplex_t* page);
+void kmem_set_page_flags (PagingComplex_t* page, unsigned int flags);
 
 /* mem mapping */
 
 //void kmem_map_memory (uintptr_t vaddr, uintptr_t paddr, unsigned int flags);
-bool kmem_map_page (pml_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags);
-// bool kmem_unmap_page (pml_t* table, uintptr_t virt); TODO
+bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags);
+// bool kmem_unmap_page (PagingComplex_t* table, uintptr_t virt); TODO
 bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count, unsigned int flags);
 
 //void kmem_umap_memory (uintptr_t vaddr);
