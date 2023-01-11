@@ -55,16 +55,16 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_GlobalSystemInfo.m_total_multiboot_size = get_total_mb2_size((void*)mb_addr);
 
   // init bootstrap processor
-  g_GlobalSystemInfo.m_bsp_processor = init_processor(0);
+  init_processor(&g_GlobalSystemInfo.m_bsp_processor, 0);
 
   init_kheap(); // FIXME: this heap impl is very bad. improve it
+
+  g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
 
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
   g_GlobalSystemInfo.m_multiboot_addr = (uintptr_t)kmem_kernel_alloc((uintptr_t)mb_addr, g_GlobalSystemInfo.m_total_multiboot_size + 8, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
   struct multiboot_tag_framebuffer *fb = get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-
-  g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
 
   // NOTE: testhandler
   InterruptHandler_t* test = init_interrupt_handler(1, I8259, thing);
@@ -82,7 +82,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
 
-  println(to_string(g_GlobalSystemInfo.m_bsp_processor.m_gdt_highest_entry));
   // TODO: some thins on the agenda:
   // 0. [X] buff up libk ;-;
   // 1. [X] parse the multiboot header and get the data we need from the

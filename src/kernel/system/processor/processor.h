@@ -7,7 +7,9 @@
 #include "processor_info.h"
 #include "gdt.h"
 
-#define PROCESSOR_MAX_GDT_ENTRIES 32
+#define PROCESSOR_MAX_GDT_ENTRIES 7
+#define MSR_FS_BASE 0xc0000100
+#define MSR_GS_BASE 0xc0000101
 
 struct Processor;
 
@@ -48,7 +50,7 @@ typedef struct Processor {
 } Processor_t;
 
 ProcessorInfo_t processor_gather_info();
-Processor_t init_processor(uint32_t cpu_num);
+LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num);
 
 LIGHT_STATUS init_gdt(Processor_t* processor);
 

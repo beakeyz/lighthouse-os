@@ -4,29 +4,34 @@
 #include "kmain.h"
 #include "libk/stddef.h"
 #include <libk/string.h>
+#include "mem/kmalloc.h"
+#include "system/asm_specifics.h"
+#include "system/msr.h"
 #include "system/processor/gdt.h"
 #include <interupts/interupts.h>
 
 static ALWAYS_INLINE void processor_late_init(Processor_t* this) __attribute__((used));
-static ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t* entry);
+static ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t entry);
 
 ProcessorInfo_t processor_gather_info() {
   ProcessorInfo_t ret = {};
   // TODO:
   return ret;
 }
-Processor_t init_processor(uint32_t cpu_num) {
-  Processor_t ret = {0};
+LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
 
-  ret.m_cpu_num = cpu_num;
-  ret.m_irq_depth = 0;
+  processor->m_cpu_num = cpu_num;
+  processor->m_irq_depth = 0;
 
-  ret.fLateInit = processor_late_init;
+  processor->fLateInit = processor_late_init;
 
+  if (is_bsp(processor)) {
+    // TODO: do bsp shit
+  }
   // TODO:
-  init_gdt(&ret);
+  init_gdt(processor);
 
-  return ret;
+  return LIGHT_SUCCESS;
 }
 
 ALWAYS_INLINE void processor_late_init(Processor_t* this) {
@@ -38,16 +43,15 @@ ALWAYS_INLINE void processor_late_init(Processor_t* this) {
   } else {
     flush_idt();
   }
-
 }
 
-ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t* entry) {
+ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t entry) {
   const uint16_t index = (selector & 0xfffc) >> 3;
   const uint16_t gdt_length_at_index = (index + 1) * sizeof(gdt_entry_t); 
   const uint16_t current_limit = this->m_gdtr.limit;
 
-  this->m_gdt[index].low = entry->low;
-  this->m_gdt[index].high = entry->high;
+  this->m_gdt[index].low = entry.low;
+  this->m_gdt[index].high = entry.high;
 
   if (index >= this->m_gdt_highest_entry) {
     this->m_gdt_highest_entry = index+1;
@@ -56,23 +60,17 @@ ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_
 
 void flush_gdt(Processor_t* processor) {
   // base
-  processor->m_gdtr.base = (uintptr_t)processor->m_gdt;
+  processor->m_gdtr.base = (uintptr_t)&processor->m_gdt[0];
   // limit
   processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
 
-  asm volatile("lgdt %0" :: "m"(processor->m_gdtr) : "memory");
-  asm volatile (
-    "mov $0x10, %ax\n"
-		"mov %ax, %ds\n"
-		"mov %ax, %es\n"
-		"mov %ax, %fs\n"
-		"mov %ax, %gs\n"
-		"mov %ax, %ss\n");
+  extern void _flush_gdt(gdt_pointer_t* gdt, uint16_t selectorCode, uint16_t selectorData);
+
+  _flush_gdt(&processor->m_gdtr, GDT_KERNEL_CODE, GDT_KERNEL_DATA);
 }
 
 LIGHT_STATUS init_gdt(Processor_t* processor) {
 
-  memset(processor->m_gdt, 0x00, sizeof(processor->m_gdt));
   processor->m_gdtr.limit = 0;
   processor->m_gdtr.base = NULL;
 
@@ -93,11 +91,11 @@ LIGHT_STATUS init_gdt(Processor_t* processor) {
     .low = 0x0000ffff,
     .high = 0x00affa00,
   };
-  write_to_gdt(processor, 0x0000, &null);
-  write_to_gdt(processor, GDT_KERNEL_CODE, &ring0_code);
-  write_to_gdt(processor, GDT_KERNEL_DATA, &ring0_data);
-  write_to_gdt(processor, GDT_USER_DATA, &ring3_data);
-  write_to_gdt(processor, GDT_USER_CODE, &ring3_code);
+  write_to_gdt(processor, 0x0000, null);
+  write_to_gdt(processor, GDT_KERNEL_CODE, ring0_code);
+  write_to_gdt(processor, GDT_KERNEL_DATA, ring0_data);
+  write_to_gdt(processor, GDT_USER_DATA, ring3_data);
+  write_to_gdt(processor, GDT_USER_CODE, ring3_code);
 
   gdt_entry_t tss = {0};
   set_gdte_base(&tss, (uintptr_t)&processor->m_tss & 0xffffffff);
@@ -110,17 +108,19 @@ LIGHT_STATUS init_gdt(Processor_t* processor) {
   tss.structured.op_size32 = 1;
   tss.structured.descriptor_type = 0;
   tss.structured.type = AVAILABLE_TSS;
-  //write_to_gdt(processor, GDT_TSS_SEL, &tss);
+  write_to_gdt(processor, GDT_TSS_SEL, tss);
 
   gdt_entry_t tss_2 = {0};
   tss_2.low = (uintptr_t)&processor->m_tss >> 32;
-  //write_to_gdt(processor, GDT_TSS_2_SEL, &tss_2);
+  write_to_gdt(processor, GDT_TSS_2_SEL, tss_2);
 
   flush_gdt(processor);
 
   // load task regs
+  __ltr(GDT_TSS_SEL);
 
   // set msr base
+  wrmsr(MSR_GS_BASE, (uintptr_t)processor);
 
   return LIGHT_SUCCESS;
 }

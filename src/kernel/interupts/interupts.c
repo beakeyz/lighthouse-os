@@ -555,6 +555,16 @@ registers_t *interrupt_handler(registers_t *regs) {
   return regs;
 }
 
-void disable_interupts() { asm volatile("cli"); }
+void disable_interupts() { 
+  asm volatile(
+    "cli" ::
+          : "memory"
+  );
+}
 
-void enable_interupts() { asm volatile("sti"); }
+void enable_interupts() { 
+  asm volatile(
+    "sti" ::
+          : "memory"
+  );
+}

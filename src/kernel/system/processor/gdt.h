@@ -4,10 +4,10 @@
 #include <libk/stddef.h>
 
 #define GDT_NULL_SELC 0
-#define GDT_KERNEL_CODE 0x8
+#define GDT_KERNEL_CODE 0x08
 #define GDT_KERNEL_DATA 0x10
-#define GDT_USER_CODE 0x20
 #define GDT_USER_DATA 0x18
+#define GDT_USER_CODE 0x20
 #define GDT_TSS_SEL 0x28
 #define GDT_TSS_2_SEL 0x30
 
