@@ -6,13 +6,16 @@
 
 static list_t* s_thread_list = nullptr;
 
+static void test_kernel_thread_func () {
+  for (;;) {}
+}
+
 LIGHT_STATUS init_scheduler() {
   s_thread_list = init_list();
 
   
-  proc_t* proc_ptr;
-  LIGHT_STATUS status = create_kernel_proc(proc_ptr);
-
+  proc_t* proc_ptr = nullptr;
+  LIGHT_STATUS status = create_kernel_proc(proc_ptr, test_kernel_thread_func);
 
 
   return LIGHT_FAIL;

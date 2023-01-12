@@ -23,6 +23,19 @@ typedef enum state_comp {
 
 typedef struct {
   // TODO
+  uint16_t x87_ctl_wrd;
+  uint16_t fsw;
+  uint8_t ftw;
+  uint8_t rsrv : 8;
+  uint16_t FOP;
+  uintptr_t FIP_64;
+  uintptr_t FDP_64;
+
+  uint32_t mxcsr;
+  uint32_t mxcsr_mask;
+  uint8_t mmx[128];
+  uint8_t xmm[256];
+  uint8_t rsrv1[96];
 } __attribute__((packed)) legacy_region_t;
 
 typedef struct {

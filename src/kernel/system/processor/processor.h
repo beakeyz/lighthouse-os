@@ -6,6 +6,7 @@
 #include "proc/thread.h"
 #include "processor_info.h"
 #include "gdt.h"
+#include "system/processor/fpu/state.h"
 
 #define PROCESSOR_MAX_GDT_ENTRIES 7
 #define MSR_FS_BASE 0xc0000100
@@ -52,7 +53,9 @@ void set_bsp(Processor_t* processor);
 
 void flush_gdt(Processor_t* processor);
 
-LIGHT_STATUS init_processor_ctx(thread_t*);
-LIGHT_STATUS init_processor_dynamic_ctx(thread_t*);
+LIGHT_STATUS init_processor_ctx(Processor_t* processor, thread_t*);
+LIGHT_STATUS init_processor_dynamic_ctx(Processor_t* processor, thread_t*);
+
+extern FpuState __std_fpu_state;
 
 #endif // !__LIGHT_PROCESSOR__

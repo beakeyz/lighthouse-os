@@ -9,10 +9,14 @@
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include "system/processor/gdt.h"
+#include <system/processor/fpu/state.h>
 #include <interupts/interupts.h>
 
 static ALWAYS_INLINE void processor_late_init(Processor_t* this) __attribute__((used));
 static ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t entry);
+static ALWAYS_INLINE void init_sse(Processor_t* processor);
+
+FpuState __std_fpu_state __attribute__((used));
 
 ProcessorInfo_t processor_gather_info() {
   ProcessorInfo_t ret = {};
@@ -21,6 +25,11 @@ ProcessorInfo_t processor_gather_info() {
 }
 LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
 
+  // setup hardware (should not need anything in the Processor_t struct besides capabilities)
+
+  init_sse(processor);
+
+  // setup software
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
 
@@ -41,6 +50,11 @@ ALWAYS_INLINE void processor_late_init(Processor_t* this) {
     g_GlobalSystemInfo.m_current_core = this;
     init_int_control_management();
     init_interupts();
+
+    asm volatile ("fninit");
+
+    // other save mechs?
+    asm volatile ("fnsave %0" : "=m"(__std_fpu_state));
   } else {
     flush_idt();
   }
@@ -57,6 +71,15 @@ ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_
   if (index >= this->m_gdt_highest_entry) {
     this->m_gdt_highest_entry = index+1;
   }
+}
+
+ALWAYS_INLINE void init_sse(Processor_t* processor) {
+  // check for feature
+  const uintptr_t orig_cr0 = read_cr0();
+  const uintptr_t orig_cr4 = read_cr4();
+
+  write_cr0((orig_cr0 & 0xfffffffbU) | 0x02);
+  write_cr4(orig_cr4 | 0x600);
 }
 
 void flush_gdt(Processor_t* processor) {
@@ -139,11 +162,16 @@ void set_bsp(Processor_t* processor) {
   // FIXME: uhm, what to do when this passess null?
 }
 
-LIGHT_STATUS init_processor_ctx(thread_t* t) {
+LIGHT_STATUS init_processor_ctx(Processor_t* processor, thread_t* t) {
+
+  // are we in kernel mode?
+
+  uintptr_t _kstack_top = t->m_stack_top;
+
 
   return LIGHT_SUCCESS;
 }
 
-LIGHT_STATUS init_processor_dynamic_ctx(thread_t* t) {
+LIGHT_STATUS init_processor_dynamic_ctx(Processor_t* processor, thread_t* t) {
   return LIGHT_SUCCESS;
 }

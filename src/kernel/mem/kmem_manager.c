@@ -317,7 +317,7 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
 }
 
 PagingComplex_t *kmem_get_krnl_dir() {
-  return nullptr;
+  return (PagingComplex_t *)&KMEM_DATA.m_kernel_base_pd[0];
 }
 
 PagingComplex_t *kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned int kmem_flags) {

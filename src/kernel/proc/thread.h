@@ -4,6 +4,7 @@
 #include "mem/PagingComplex.h"
 #include "proc/context.h"
 #include "proc/proc.h"
+#include "system/processor/fpu/state.h"
 #include "system/processor/gdt.h"
 #include <system/processor/registers.h>
 #include <libk/stddef.h>
@@ -27,7 +28,7 @@ typedef struct {
   uint32_t m_ticks_elapsed;
   uint32_t m_max_ticks;
 
-  void* m_fpu_state;
+  FpuState m_fpu_state;
 
   uintptr_t m_stack_top;
 
@@ -37,7 +38,7 @@ typedef struct {
 
 } thread_t;
 
-LIGHT_STATUS create_thread(thread_t*); // make this sucka
+LIGHT_STATUS create_thread(thread_t*, FuncPtr, const char*, bool); // make this sucka
 
 LIGHT_STATUS kill_thread(thread_t*); // kill thread and prepare for context swap to kernel
 LIGHT_STATUS kill_thread_if(thread_t*, bool); // kill if condition is met

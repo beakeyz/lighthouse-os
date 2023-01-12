@@ -17,6 +17,7 @@
 #include <kernel/mem/kmalloc.h>
 #include <kernel/mem/kmem_manager.h>
 #include <kernel/libk/multiboot.h>
+#include <kernel/sched/scheduler.h>
 #include <libk/io.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -81,6 +82,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
+
+  init_scheduler();
 
   // TODO: some thins on the agenda:
   // 0. [X] buff up libk ;-;
