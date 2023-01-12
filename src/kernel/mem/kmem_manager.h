@@ -115,9 +115,13 @@ void kmem_init_physical_allocator();
 void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags);
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags);
 
+ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flags);
+
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();
 
 // TODO: write kmem_manager tests
 
+// TODO: hihi remove
+// void print_bitmap (); 
 #endif // !__KMEM_MANAGER__

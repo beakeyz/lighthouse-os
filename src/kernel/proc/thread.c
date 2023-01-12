@@ -3,10 +3,10 @@
 #include "libk/error.h"
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
+#include "system/processor/fpu/state.h"
 #include <libk/string.h>
 
 // TODO: move somewhere central
-// FIXME: we now use 4 Kib as stack size, since I dont yet have a method to map page ranges where they fit in kmem_manager, so thats a TODO
 #define DEFAULT_STACK_SIZE 16 * Kib
 
 LIGHT_STATUS create_thread(thread_t* thread, FuncPtr entry, const char* name, bool kthread) { // make this sucka
@@ -21,9 +21,11 @@ LIGHT_STATUS create_thread(thread_t* thread, FuncPtr entry, const char* name, bo
   idle->m_context.rip = (uintptr_t)entry;
   idle->m_context.rdi = NULL;
 
-  uintptr_t stack = (uintptr_t)kmem_kernel_alloc(kmem_get_page_base(kmem_request_pysical_page().m_ptr), SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE);
+  uintptr_t stack = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
   idle->m_stack_top = stack;
+
+  store_fpu_state(&idle->m_fpu_state);
 
   return LIGHT_FAIL;
 } // make this sucka

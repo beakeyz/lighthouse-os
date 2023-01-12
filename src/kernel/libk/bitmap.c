@@ -1,5 +1,6 @@
 #include "bitmap.h"
 #include "dev/debug/serial.h"
+#include "libk/error.h"
 #include <mem/kmalloc.h>
 #include <libk/string.h>
 
@@ -51,9 +52,44 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
   this->m_map[index_byte] &= ~(1 << index_bit);
 }
 
+void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length) {
+  for (uintptr_t i = index; i < index + length; i++) {
+    this->fMark(this, i);
+  }
+}
+
+void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
+  for (uintptr_t i = index; i < index + length; i++) {
+    this->fUnmark(this, i);
+  }
+}
+
 // TODO
-uintptr_t bitmap_find_free_range(bitmap_t* this, uint32_t index, size_t length) {
-  return 0;
+ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
+  if (length >= this->m_entries || length == 0)
+    return Error();
+
+  bool success = false;
+  for (uintptr_t i = 0; i < this->m_entries; i++) {
+    uintptr_t length_check = length;
+
+    if (!this->fIsSet(this, i)) {
+      // lil double check
+      for (uintptr_t j = i; j < i+length; j++) {
+        if (!this->fIsSet(this, j)) {
+          length_check--;
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (length_check == 0) {
+      return Success(i);
+    }
+  }
+
+  return Error();
 }
 
 // returns the index of the free bit
@@ -87,6 +123,8 @@ static inline void __init_bitmap_late(bitmap_t* map) {
 
   map->fMark = bitmap_mark;
   map->fUnmark = bitmap_unmark;
+  map->fMarkRange = bitmap_mark_range;
+  map->fUnmarkRange = bitmap_unmark_range;
   map->fIsSet = bitmap_isset;
   map->fFindFree = bitmap_find_free;
   map->fFindFreeRange = bitmap_find_free_range;

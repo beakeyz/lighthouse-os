@@ -53,4 +53,13 @@ typedef struct {
   uint8_t esa[256]; 
 } __attribute__((aligned(64), packed)) FpuState;
 
+// FIXME: check current cpu capabilities for different fpu save methods
+ALWAYS_INLINE void save_fpu_state(FpuState* buffer) {
+  asm volatile ("fnsave %0" : "=m"(buffer));
+}
+
+ALWAYS_INLINE void store_fpu_state(FpuState* buffer) {
+  asm volatile ("frstor %0" :: "m"(buffer));
+}
+
 #endif // !__LIGHT_FPU_STATE__
