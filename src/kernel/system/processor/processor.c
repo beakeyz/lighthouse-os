@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "interupts/idt.h"
 #include "kmain.h"
+#include "libk/error.h"
 #include "libk/stddef.h"
 #include <libk/string.h>
 #include "mem/kmalloc.h"
@@ -136,4 +137,13 @@ void set_bsp(Processor_t* processor) {
     println("[[WARNING]] null passed to set_bsp");
   }
   // FIXME: uhm, what to do when this passess null?
+}
+
+LIGHT_STATUS init_processor_ctx(thread_t* t) {
+
+  return LIGHT_SUCCESS;
+}
+
+LIGHT_STATUS init_processor_dynamic_ctx(thread_t* t) {
+  return LIGHT_SUCCESS;
 }

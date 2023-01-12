@@ -13,13 +13,6 @@
 
 struct Processor;
 
-// TODO: move to fpu/state.h?
-typedef struct {
-  // lr
-  // header
-  // ext save area (CPUID)
-} __attribute__((aligned(64), packed)) FpuState;
-
 typedef void (*PROCESSOR_LATE_INIT) (
   struct Processor* this
 );
@@ -58,5 +51,8 @@ bool is_bsp(Processor_t* processor);
 void set_bsp(Processor_t* processor);
 
 void flush_gdt(Processor_t* processor);
+
+LIGHT_STATUS init_processor_ctx(thread_t*);
+LIGHT_STATUS init_processor_dynamic_ctx(thread_t*);
 
 #endif // !__LIGHT_PROCESSOR__

@@ -45,7 +45,8 @@ global kernel_pt_last
 
 extern _start
 
-global stack_top
+[global kstack_top]
+[global kstack_bottom]
 
 ; We'll initially be in 32 bit mode(due to multiboot and damn grub), so we're going to check if we can transfer to 64 bit 
 ; So: check for paging, check for memory (?), check for errors
@@ -56,7 +57,7 @@ start:
   mov esi, eax ; Magic number
 
   ; TODO: cpuid and PAE checks ect.  
-  mov esp, stack_top
+  mov esp, kstack_top
 
   ; set cr3
   mov eax, boot_pml4t
@@ -139,7 +140,7 @@ long_start:
   mov fs, ax  ; extra segment register
   mov gs, ax  ; extra segment register
 
-  mov rsp, stack_top
+  mov rsp, kstack_top
   
   call _start
   
@@ -185,8 +186,9 @@ kernel_pt_last:
 
 ; hihi small stack =)
 section .stack
-stack_bottom:
+
+kstack_bottom:
   times 16384 db 0
-stack_top:
+kstack_top:
 
 

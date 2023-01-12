@@ -9,6 +9,9 @@
 extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
 
+extern uintptr_t kstack_top;
+extern uintptr_t kstack_bottom;
+
 extern PagingComplex_t boot_pml4t[512];
 extern PagingComplex_t boot_pdpt[512];
 extern PagingComplex_t boot_pd0[512];
