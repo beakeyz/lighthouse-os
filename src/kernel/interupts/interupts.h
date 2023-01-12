@@ -7,6 +7,9 @@
 
 // NOTE: this file CAN NOT include idt.h, because of an include loop =/
 
+#define IRQ_VEC_BASE 32
+#define INTERRUPT_HANDLER_COUNT (256 - IRQ_VEC_BASE)
+
 struct Interrupt;
 struct InterruptHandler;
 

@@ -36,9 +36,7 @@ typedef struct PIC {
 	} while (0)
 
 PIC_t* init_pic();
-
 void pic_disable(void* this);
-
 void pic_eoi(uint8_t num);
 
 #endif // !__C_PIC___

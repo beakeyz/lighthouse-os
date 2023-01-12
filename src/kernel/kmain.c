@@ -10,6 +10,7 @@
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
 #include "system/processor/processor.h"
+#include "time/pit.h"
 #include <kernel/dev/debug/serial.h>
 #include <kernel/interupts/control/pic.h>
 #include <kernel/interupts/idt.h>
@@ -69,7 +70,10 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // NOTE: testhandler
   InterruptHandler_t* test = init_interrupt_handler(1, I8259, thing);
+  test->m_controller->fControllerEnableVector(1);
   add_handler(test);
+
+  init_and_install_pit();
 
   enable_interupts();
 

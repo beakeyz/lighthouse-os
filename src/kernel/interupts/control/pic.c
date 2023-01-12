@@ -1,6 +1,7 @@
 #include "pic.h"
 #include "interupts/control/interrupt_control.h"
 #include "kernel/interupts/interupts.h"
+#include "libk/string.h"
 #include "mem/kmalloc.h"
 #include <kernel/dev/debug/serial.h>
 #include <libk/io.h>
@@ -14,7 +15,7 @@ PIC_t* init_pic() {
   PIC_t* ret = kmalloc(sizeof(PIC_t));
 
   ret->m_controller.__parent = ret;
-  ret->m_pic1_line = 0b11111101;
+  ret->m_pic1_line = 0b11111111;
   ret->m_pic2_line = 0b11111111;
 
   ret->m_controller.m_type = I8259;
@@ -73,8 +74,38 @@ void pic_eoi(uint8_t irq_num) {
 }
 
 static void pic_disable_vector(uint8_t vector) {
+  disable_interupts();
+  uint8_t pic_vector_line = 0;
+
+  // PIC 2
+  if (vector & 0x8) {
+    pic_vector_line = in8(PIC2_DATA);
+    pic_vector_line |= (1 << (vector & 7));
+    out8(PIC2_DATA, pic_vector_line);
+  } else {
+    // PIC 1
+    pic_vector_line = in8(PIC2_DATA);
+    pic_vector_line |= (1 << vector);
+    out8(PIC2_DATA, pic_vector_line);
+  }
+
+  enable_interupts();
 }
 
-static void pic_enable_vector(uint8_t vec) {
+static void pic_enable_vector(uint8_t vector) {
+  disable_interupts();
+  uint8_t pic_vector_line = 0;
+
+  // PIC 2
+  if (vector & 8) {
+    pic_vector_line = in8(PIC2_DATA);
+    pic_vector_line &= ~(1 << (vector & 7));
+    out8(PIC2_DATA, pic_vector_line);
+  } else {
+    // PIC 1
+    pic_vector_line = in8(PIC1_DATA) & ~(1 << vector);
+    out8(PIC1_DATA, pic_vector_line);
+  }
+  enable_interupts();
 }
 

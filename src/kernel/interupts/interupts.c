@@ -10,9 +10,7 @@
 #include "mem/kmalloc.h"
 #include "stubs.h"
 
-#define IRQ_VEC_BASE 32
-#define INTERRUPT_HANDLER_COUNT (256 - IRQ_VEC_BASE)
-
+// TODO: linked list for dynamic handler loading?
 static InterruptHandler_t* g_handlers[INTERRUPT_HANDLER_COUNT] = {NULL};
 
 /* static defs */
