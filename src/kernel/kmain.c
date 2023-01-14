@@ -73,9 +73,9 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   test->m_controller->fControllerEnableVector(1);
   add_handler(test);
 
-  //init_and_install_pit();
+  init_and_install_pit();
 
-  //enable_interupts();
+  enable_interupts();
 
   init_fb(fb);
   // Next TODO: create a kernel pre-init tty
@@ -88,6 +88,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_storage_controller();
 
   init_scheduler();
+
+  enter_scheduler();
 
   // TODO: some thins on the agenda:
   // 0. [X] buff up libk ;-;

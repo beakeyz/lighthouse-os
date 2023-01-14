@@ -177,6 +177,8 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
     bridge->start_bus = start;
     bridge->end_bus = end;
     bridge->index = i;
+    bridge->is_mapped = false;
+    bridge->mapped_base = nullptr;
     list_append(g_pci_bridges, bridge);
   }
 

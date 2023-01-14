@@ -123,5 +123,5 @@ const list_t* kmem_get_phys_ranges_list();
 // TODO: write kmem_manager tests
 
 // TODO: hihi remove
-// void print_bitmap (); 
+ void print_bitmap (); 
 #endif // !__KMEM_MANAGER__

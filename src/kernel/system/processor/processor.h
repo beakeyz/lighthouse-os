@@ -2,6 +2,7 @@
 #define __LIGHT_PROCESSOR__
 #include <libk/stddef.h>
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "mem/PagingComplex.h"
 #include "proc/thread.h"
 #include "processor_info.h"
@@ -37,8 +38,8 @@ typedef struct Processor {
 
   // TODO: threading
   thread_t* m_current_thread;
-
   thread_t* m_root_thread;
+  list_t* m_processes;
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;
@@ -56,6 +57,6 @@ void flush_gdt(Processor_t* processor);
 LIGHT_STATUS init_processor_ctx(Processor_t* processor, thread_t*);
 LIGHT_STATUS init_processor_dynamic_ctx(Processor_t* processor, thread_t*);
 
-extern FpuState __std_fpu_state;
+extern FpuState standard_fpu_state;
 
 #endif // !__LIGHT_PROCESSOR__

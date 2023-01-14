@@ -30,7 +30,7 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = $(OUT)/lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS := -m 128M -machine q35 -usb ./out/lightos.iso -d cpu_reset -serial stdio
+QEMUFLAGS := -m 1G -machine q35 -usb ./out/lightos.iso -d cpu_reset -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
 							-Wall 							\
@@ -91,6 +91,7 @@ clean:
 	@rm -f $(DPEND_FILES)
 	@echo [CLEAN] Cleaning objects!
 	@rm -f $(KERNEL_OUT) $(OBJ)
+	@rm -rf $(OUT)
 	@echo [CLEAN] Done!
 
 .PHONY: build

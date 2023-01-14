@@ -5,11 +5,12 @@
 typedef struct registers{
 	uintptr_t r15, r14, r13, r12;
 	uintptr_t r11, r10, r9, r8;
-	uintptr_t rbp, rdi, rsi, rdx, rcx, rbx, rax;
+	uintptr_t rbp, rdi, rsi, rsp, rdx, rcx, rbx, rax;
 
-	uintptr_t isr_no, err_code;
+	uint16_t isr_no, err_code;
+  uint32_t rsrv;
 
-	uintptr_t rip, cs, rflags, rsp, ss;
+	uintptr_t rip, cs, rflags, us_rsp, ss;
 } __attribute__((packed)) registers_t;
 
 

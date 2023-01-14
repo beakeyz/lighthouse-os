@@ -30,6 +30,7 @@ bitmap_t init_bitmap(size_t size) {
   return map;
 }
 
+// FIXME: LIGHT_STATUS
 void bitmap_mark(bitmap_t* this, uint32_t index) {
   if (index > this->m_entries) {
     return;
@@ -41,6 +42,7 @@ void bitmap_mark(bitmap_t* this, uint32_t index) {
   this->m_map[index_byte] |= (1 << index_bit);
 }
 
+// FIXME: LIGHT_STATUS
 void bitmap_unmark(bitmap_t* this, uint32_t index) {
   if (index > this->m_entries) {
     return;
@@ -52,12 +54,14 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
   this->m_map[index_byte] &= ~(1 << index_bit);
 }
 
+// FIXME: LIGHT_STATUS
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length) {
   for (uintptr_t i = index; i < index + length; i++) {
     this->fMark(this, i);
   }
 }
 
+// FIXME: LIGHT_STATUS
 void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
   for (uintptr_t i = index; i < index + length; i++) {
     this->fUnmark(this, i);

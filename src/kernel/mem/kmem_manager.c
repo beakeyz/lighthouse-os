@@ -90,7 +90,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 }
 
 // TODO: remove, once we don't need this anymore for emergency debugging
-/*
+
 void print_bitmap () {
 
   for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap.m_entries; i++) {
@@ -101,7 +101,7 @@ void print_bitmap () {
     }
   }
 }
-*/
+
 
 // function inspired by serenityOS
 void parse_memmap() {
@@ -349,7 +349,7 @@ PagingComplex_t *kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned i
       break;
     }
 
-    PagingComplex_t* pml4 = root == nullptr ? (PagingComplex_t*)&KMEM_DATA.m_kernel_base_pd[0] : root;
+    PagingComplex_t* pml4 = (root == nullptr ? (PagingComplex_t*)&KMEM_DATA.m_kernel_base_pd[0] : root);
     const bool pml4_entry_exists = (pml4[pml4_idx].pde_bits.present_bit);
 
     if (!pml4_entry_exists) {
@@ -414,7 +414,7 @@ bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, unsi
   
   if (__page) {
     // TODO: Variablize these flags
-    __page->pde_bits.page = phys >> 12;
+    __page->pde_bits.page = kmem_get_page_idx(phys);
 
     // secure page
     uint32_t __flags = page_flags;
@@ -454,8 +454,13 @@ void kmem_set_page_flags(PagingComplex_t *page, unsigned int flags) {
 // allocates a region using the physical allocator and then 
 // identity maps it
 void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
+
+  if (kmem_is_phys_page_used(kmem_get_page_idx(addr)) && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
+    return nullptr;
+  }
+
   // find free page
-  const size_t pages_needed = ALIGN_UP((size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
+  const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
   void* ret = (void*)addr;
   uintptr_t __addr = addr;
 
@@ -507,6 +512,7 @@ void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int pa
 
     __addr += SMALL_PAGE_SIZE;
   }
+
   return ret;
 }
 
@@ -518,10 +524,11 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flag
   println(to_string(pages_needed));
 
   const uintptr_t start_idx = Must(KMEM_DATA.m_phys_bitmap.fFindFreeRange(&KMEM_DATA.m_phys_bitmap, pages_needed));
-  uintptr_t addr = kmem_get_page_base(start_idx);
+  const uintptr_t ret = kmem_get_page_base(start_idx);
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
     const uintptr_t page_idx = start_idx + i;
+    const uintptr_t addr = kmem_get_page_base(page_idx);
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
     if (was_used && !(custom_flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
@@ -531,13 +538,12 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flag
     kmem_set_phys_page_used(page_idx);
     bool result = kmem_map_page(nullptr, addr, addr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
 
+
     if (!result) {
       return Error();
     }
-
-    addr += SMALL_PAGE_SIZE;
   }
-  return Success(kmem_get_page_base(start_idx));
+  return Success(ret);
 }
 
 // TODO: make this more dynamic

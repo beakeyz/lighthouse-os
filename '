@@ -4,18 +4,17 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 
-// FIXME: create a place for this and remove test mark
+static list_t* s_thread_list = nullptr;
+
 static void test_kernel_thread_func () {
-  for (;;) {
-    // hi
-  }
+  for (;;) {}
 }
 
 LIGHT_STATUS init_scheduler() {
+  s_thread_list = init_list();
 
   proc_t* proc_ptr = create_kernel_proc(test_kernel_thread_func);
 
@@ -28,8 +27,6 @@ LIGHT_STATUS init_scheduler() {
   thread->m_current_state = RUNNABLE;
 
   list_append(g_GlobalSystemInfo.m_current_core->m_processes, proc_ptr);
-  g_GlobalSystemInfo.m_current_core->m_current_thread = thread;
-  g_GlobalSystemInfo.m_current_core->m_root_thread = thread;
 
   return LIGHT_FAIL;
 }
@@ -61,6 +58,10 @@ LIGHT_STATUS exit_scheduler() {
 }
 
 LIGHT_STATUS switch_context_to(thread_t* thread) {
+  
+  if (thread->m_current_state != RUNNABLE) {
+    return LIGHT_FAIL;
+  }
 
   kContext_t context = thread->m_context;
   Processor_t* current = g_GlobalSystemInfo.m_current_core;
@@ -70,20 +71,21 @@ LIGHT_STATUS switch_context_to(thread_t* thread) {
   current->m_tss.rsp[0] = context.rsp0 & 0xffffffff;
   current->m_tss.rsp[1] = context.rsp0 >> 32;
 
-  println(to_string(context.rsp));
 
+  // asm jumppoint
   asm volatile (
-    "movq %[_rsp], %%rsp \n"
+    "movq %[rsp], %%rsp \n"
     "pushq %[thread] \n"
     "pushq %[thread] \n"
-    "pushq %[_rip] \n"
+    "pushq %[rip] \n"
     "cld \n"
-    //"movq 24(%%rsp), %%rdi \n"
-    // scheduler hook
+    "movq 24(%%rsp), %%rdi \n"
+    "call %[test_regs] \n"
     "retq \n"
-    ::  [_rsp] "g" (context.rsp),
-        [_rip] "a" (context.rip),
-        [thread] "b" (thread)
+    ::  [rsp] "g" (context.rsp),
+        [rip] "a" (context.rip),
+        [thread] "b" (thread),
+        [test_regs] "c"(test_kernel_thread_func)
   );
 
   return LIGHT_FAIL;

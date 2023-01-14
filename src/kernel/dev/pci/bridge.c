@@ -1,4 +1,5 @@
 #include "bridge.h"
+#include "dev/debug/serial.h"
 #include "libk/error.h"
 #include <mem/kmem_manager.h>
 #include <libk/string.h>
@@ -11,9 +12,14 @@
 void* map_bus(PCI_Bridge_t* this, uint8_t bus_num) {
   uintptr_t bus_base_addr = this->base_addr + (MEM_SIZE_PER_BUS * (bus_num - this->start_bus));
 
-  void* mapped_bus_base = kmem_kernel_alloc(bus_base_addr, MEM_SIZE_PER_BUS, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  if (!this->is_mapped) {
+    void* mapped_bus_base = kmem_kernel_alloc(bus_base_addr, MEM_SIZE_PER_BUS, 0);
 
-  return mapped_bus_base;
+    this->mapped_base = mapped_bus_base;
+    this->is_mapped = true;
+  }
+
+  return this->mapped_base;
 }
 
 void write_field32(PCI_Bridge_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field, uint32_t value) {

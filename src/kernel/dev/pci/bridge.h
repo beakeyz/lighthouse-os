@@ -7,6 +7,9 @@ typedef struct PCI_Bridge {
   uint8_t end_bus;
   uint32_t base_addr;
   uint32_t index;
+
+  bool is_mapped;
+  void* mapped_base;
 } PCI_Bridge_t;
 
 void* map_bus(PCI_Bridge_t* this, uint8_t bus_num);

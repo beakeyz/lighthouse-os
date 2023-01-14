@@ -14,6 +14,7 @@ interrupt_asm_entry_%1:
   push rcx
   push rdx
   push rsi
+  push rsp
   push rdi
   push rbp
   push r8
@@ -41,6 +42,7 @@ interrupt_asm_entry_%1:
   pop r8
   pop rbp
   pop rdi
+  pop rsp
   pop rsi
   pop rdx
   pop rcx

@@ -14,6 +14,6 @@ typedef struct {
   size_t m_ticks_used;
 } proc_t;
 
-LIGHT_STATUS create_kernel_proc (proc_t* proc, FuncPtr entry);
+proc_t* create_kernel_proc(FuncPtr entry);
 
 #endif // !__LIGHT_PROC__

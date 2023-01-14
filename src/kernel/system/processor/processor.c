@@ -3,6 +3,7 @@
 #include "interupts/idt.h"
 #include "kmain.h"
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include <libk/string.h>
 #include "mem/kmalloc.h"
@@ -16,7 +17,7 @@ static ALWAYS_INLINE void processor_late_init(Processor_t* this) __attribute__((
 static ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t entry);
 static ALWAYS_INLINE void init_sse(Processor_t* processor);
 
-FpuState __std_fpu_state __attribute__((used));
+FpuState standard_fpu_state __attribute__((used));
 
 ProcessorInfo_t processor_gather_info() {
   ProcessorInfo_t ret = {};
@@ -45,6 +46,9 @@ LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
 }
 
 ALWAYS_INLINE void processor_late_init(Processor_t* this) {
+
+  this->m_processes = init_list();
+
   // TODO: 
   if (is_bsp(this)) {
     g_GlobalSystemInfo.m_current_core = this;
@@ -54,7 +58,7 @@ ALWAYS_INLINE void processor_late_init(Processor_t* this) {
     asm volatile ("fninit");
 
     // other save mechs?
-    asm volatile ("fnsave %0" : "=m"(__std_fpu_state));
+    save_fpu_state(&standard_fpu_state);
   } else {
     flush_idt();
   }
@@ -173,5 +177,8 @@ LIGHT_STATUS init_processor_ctx(Processor_t* processor, thread_t* t) {
 }
 
 LIGHT_STATUS init_processor_dynamic_ctx(Processor_t* processor, thread_t* t) {
+
+
+
   return LIGHT_SUCCESS;
 }
