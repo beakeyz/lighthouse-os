@@ -39,19 +39,19 @@ static ALWAYS_INLINE void full_mem_barier() {
   __atomic_thread_fence(memory_order_acq_rel);
 }
 
-static ALWAYS_INLINE void atomic_store(volatile void** var, void* d) {
+static ALWAYS_INLINE void atomicStore(volatile void** var, void* d) {
   _atomic_store(var, d, memory_order_seq_cst);
 }
 
-static ALWAYS_INLINE void atomic_store_alt(volatile uintptr_t* var, uintptr_t d) {
+static ALWAYS_INLINE void atomicStore_alt(volatile uintptr_t* var, uintptr_t d) {
   _atomic_store_alt(var, d, memory_order_seq_cst);
 }
 
-static ALWAYS_INLINE void* atomic_load(volatile void** var) {
+static ALWAYS_INLINE void* atomicLoad(volatile void** var) {
   return _atomic_load(var, memory_order_seq_cst);
 }
 
-static ALWAYS_INLINE uintptr_t atomic_load_alt(volatile uintptr_t* var) {
+static ALWAYS_INLINE uintptr_t atomicLoad_alt(volatile uintptr_t* var) {
   return _atomic_load_alt(var, memory_order_seq_cst);
 }
 

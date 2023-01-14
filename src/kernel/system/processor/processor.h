@@ -26,6 +26,8 @@ typedef struct Processor {
 
   size_t m_gdt_highest_entry;
 
+  size_t m_locked_level; // how many locks are being held at a certain point (FIXME(?): atomic?)
+
   uint32_t m_irq_depth;
   uint32_t m_cpu_num;
 

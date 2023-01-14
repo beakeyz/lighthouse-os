@@ -29,7 +29,8 @@ thread_t* create_thread(FuncPtr entry, const char* name, bool kthread) { // make
   thread->m_cpu = g_GlobalSystemInfo.m_current_core->m_cpu_num;
   thread->m_parent_proc = nullptr;
   thread->m_ticks_elapsed = 0;
-  thread->m_current_state = RUNNABLE;
+
+  thread_set_state(thread, NO_CONTEXT);
 
   thread->m_context.rip = (uintptr_t)entry;
   thread->m_context.rdi = NULL;
@@ -45,6 +46,12 @@ thread_t* create_thread(FuncPtr entry, const char* name, bool kthread) { // make
 
   return thread;
 } // make this sucka
+
+void thread_set_state(thread_t* thread, ThreadState state) {
+  thread->m_current_state = state;
+  // TODO: update thread context(?) on state change
+  // TODO: (??) onThreadStateChangeEvent?
+}
 
 LIGHT_STATUS kill_thread(thread_t* thread) {
   return LIGHT_FAIL;
@@ -101,18 +108,16 @@ extern void thread_enter_context(thread_t* from, thread_t* to) {
 
 LIGHT_STATUS thread_prepare_context(thread_t* thread) {
 
+  if (thread->m_current_state != NO_CONTEXT) {
+    return LIGHT_FAIL;
+  }
+
   kContext_t context = thread->m_context;
   uintptr_t stack_top = thread->m_stack_top;
 
   // TODO: push exit function
 
   stack_top -= sizeof(uintptr_t);
-  *((uint64_t*)stack_top) = 0;
-
-
-  stack_top -= sizeof(uintptr_t);
-  
-  println(to_string(stack_top));
   *((uint64_t*)stack_top) = (uintptr_t)&exit_thread;
 
   stack_top -= sizeof(registers_t);
@@ -231,11 +236,25 @@ void switch_thread_context(thread_t* from, thread_t* to) {
 
 ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) {
   
+  println("context switch!");
+
+  Processor_t* current = g_GlobalSystemInfo.m_current_core;
+
+  ASSERT(current->m_current_thread == to);
+  ASSERT(current->m_being_handled_by_scheduler);
+
+  current->m_being_handled_by_scheduler = false;
+
+  // TODO: make scheduler pick next thead to run
+
+  /*
   println(to_string(to->m_cpu));
   // FIXME: returning results in crash
   uintptr_t next_stack = 0;
   asm ("movq %%rsp, %0" : "=m"(next_stack));
   asm ("movq $16368, %%rsp" :::);
+
+  println(to_string(sizeof(registers_t)));
 
   Processor_t* current = g_GlobalSystemInfo.m_current_core;
 
@@ -245,11 +264,13 @@ ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers
   println(to_string(next_stack));
 
   FuncPtr ptr = (FuncPtr)next_stack;
-
+  */
   // FIXME: exit_thread seems to be on the stack, but it just gets ignored?
   // what is going on here
-  ptr();
-  for (;;){}
+  //ptr();
+  //for (;;){}
+
+  kernel_panic("TRIED TO RETURN FROM first_ctx_init");
 }
 
 ALWAYS_INLINE void common_thread_entry(void) {

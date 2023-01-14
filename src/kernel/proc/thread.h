@@ -17,6 +17,7 @@ typedef enum {
   DEAD,
   STOPPED,
   BLOCKED,
+  NO_CONTEXT,
 } ThreadState;
 
 
@@ -44,6 +45,7 @@ extern void thread_enter_context(thread_t* from, thread_t* to);
 void switch_thread_context(thread_t* from, thread_t* to);
 LIGHT_STATUS thread_prepare_context(thread_t*);
 
+void thread_set_state(thread_t*, ThreadState);
 LIGHT_STATUS kill_thread(thread_t*); // kill thread and prepare for context swap to kernel
 LIGHT_STATUS kill_thread_if(thread_t*, bool); // kill if condition is met
 LIGHT_STATUS clean_thread(thread_t*); // clean resources thead used

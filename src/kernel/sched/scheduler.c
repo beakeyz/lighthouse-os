@@ -7,7 +7,9 @@
 #include "libk/string.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
+#include "sync/atomic_ptr.h"
 #include "system/processor/gdt.h"
+#include "system/processor/processor.h"
 
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func () {
@@ -97,15 +99,71 @@ void scheduler_cleanup() {
   current->m_being_handled_by_scheduler = false;
 }
 
-LIGHT_STATUS switch_context_to(thread_t* thread) {
+LIGHT_STATUS sched_switch_context_to(thread_t* thread) {
+  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+  thread_t* from = current_processor->m_current_thread;
 
-    return LIGHT_FAIL;
+  ASSERT(from != nullptr);
+  ASSERT(from != thread);
+
+  if (from->m_current_state == RUNNING) {
+    thread_set_state(from, RUNNABLE);
+  }
+
+  if (thread->m_current_state == NO_CONTEXT) {
+    thread_prepare_context(thread);
+    thread->m_current_state = RUNNABLE;
+  }
+
+  thread->m_current_state = RUNNING;
+
+  switch_thread_context(from, thread);
+
+  ASSERT(thread == current_processor->m_current_thread);
+
+  return LIGHT_FAIL;
 }
 
 void sched_tick(registers_t*);
 
-thread_t* next_thread();
-proc_t* next_proc();
+thread_t* sched_next_thread() {
+  return nullptr;
+}
+proc_t* sched_next_proc() {
+  return nullptr;
+}
+
+void sched_next() {
+  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+
+  if (!sched_has_next()) {
+    kernel_panic("something went very wrong (scheduler)");
+  }
+
+  thread_t* n_thread = sched_next_thread();
+
+  // TODO: collect diagnostics on this threads behaviour in order to
+  // detirmine how much time this thread gets
+
+  sched_switch_context_to(n_thread);
+}
+
+void sched_safe_next() {
+  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+
+  if (!current_processor->m_being_handled_by_scheduler && current_processor->m_current_thread != nullptr) {
+    sched_next();
+  }
+}
+
+bool sched_has_next() {
+  // TODO: check if we want another proc to have execution
+
+  return (sched_next_thread() != nullptr);
+}
+
+void sched_first_switch_finished() {
+}
 
 LIGHT_STATUS sched_add_proc(proc_t*, proc_id);
 LIGHT_STATUS sched_add_thead(thread_t*);

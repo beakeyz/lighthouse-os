@@ -11,7 +11,7 @@ typedef struct AhciPort {
   struct AhciDevice* m_device;
   volatile HBA_port_registers_t* m_port_regs;
 
-  spinlock_t m_hard_lock;
+  spinlock_t* m_hard_lock;
 
   uintptr_t m_ib_page;
   uintptr_t m_cmd_list_page;

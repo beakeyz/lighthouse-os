@@ -5,19 +5,30 @@
 #include "proc/thread.h"
 #include "system/processor/registers.h"
 
+/* initialization */
 LIGHT_STATUS init_scheduler();
 
+/* control */
 void enter_scheduler();
 LIGHT_STATUS exit_scheduler();
+LIGHT_STATUS sched_switch_context_to(thread_t*);
 
+/* die */
 void scheduler_cleanup();
-
-LIGHT_STATUS switch_context_to(thread_t*);
 
 void sched_tick(registers_t*);
 
-thread_t* next_thread();
-proc_t* next_proc();
+/* choose wich thread to switch to */
+thread_t* sched_next_thread();
+
+/* choose which process to give attention */
+proc_t* sched_next_proc();
+
+/* pull a funnie */
+void sched_next();
+void sched_safe_next();
+bool sched_has_next();
+void sched_first_switch_finished();
 
 LIGHT_STATUS sched_add_proc(proc_t*, proc_id);
 LIGHT_STATUS sched_add_thead(thread_t*);

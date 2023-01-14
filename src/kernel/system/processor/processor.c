@@ -33,6 +33,7 @@ LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
   // setup software
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
+  processor->m_locked_level = 0;
 
   processor->fLateInit = processor_late_init;
 

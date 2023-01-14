@@ -9,6 +9,7 @@
 #include <libk/stddef.h>
 #include "mem/kmalloc.h"
 #include "stubs.h"
+#include "system/asm_specifics.h"
 
 // TODO: linked list for dynamic handler loading?
 static InterruptHandler_t* g_handlers[INTERRUPT_HANDLER_COUNT] = {NULL};
@@ -157,8 +158,25 @@ void general_protection_handler(registers_t* regs) {
 
 REGISTER_ERROR_HANDLER(14, pagefault);
 void pagefault_handler(registers_t* regs) {
+
+  uintptr_t err_addr = read_cr2();
+  uintptr_t cs = regs->cs;
+
+  println(" --- PAGEFAULT --- ");
   print("error at ring: ");
-  println(to_string(regs->cs & 3));
+  println(to_string(cs & 3));
+  print("error at addr: ");
+  println(to_string(err_addr));
+  if (regs->err_code & 8) {
+    println("Reserved!");
+  } 
+  if (regs->err_code & 2) {
+    println("write");
+  } else {
+    println("read");
+  }
+  println((regs->err_code & 1) ? "PV" : "NP");
+  
   kernel_panic("pagefault! (TODO: more info)");
 }
 
