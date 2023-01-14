@@ -17,7 +17,7 @@ proc_t* create_kernel_proc (FuncPtr entry) {
   const char* proc_name = "[Aniva root]";
   memcpy(proc->m_name, proc_name, strlen(proc_name) + 1);
 
-  thread_t* t = create_thread(entry, "[LazyLight]", true);
+  thread_t* t = create_thread(entry, "", true);
 
   list_append(proc->m_threads, t);
 

@@ -7,6 +7,7 @@
 #include "libk/string.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
+#include "system/processor/gdt.h"
 
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func () {
@@ -50,28 +51,15 @@ void enter_scheduler() {
     thread->m_current_state = RUNNING;
   }
 
-  switch_context_to(thread);
-
-  kernel_panic("RETURNED FROM enter_scheduler!");
-} 
-
-LIGHT_STATUS exit_scheduler() {
-
-  return LIGHT_FAIL;
-}
-
-LIGHT_STATUS switch_context_to(thread_t* thread) {
-
+  current->m_being_handled_by_scheduler = true;
   kContext_t context = thread->m_context;
-  Processor_t* current = g_GlobalSystemInfo.m_current_core;
 
   // TODO:
-  current->m_tss.iomap_base = sizeof(current->m_tss);
-  current->m_tss.rsp[0] = context.rsp0 & 0xffffffff;
-  current->m_tss.rsp[1] = context.rsp0 >> 32;
+  //current->m_tss.iomap_base = sizeof(tss_entry_t);
+  //current->m_tss.rsp0l = context.rsp0 & 0xffffffff;
+  //current->m_tss.rsp0h = context.rsp0 >> 32;
 
-  println(to_string(context.rsp));
-
+  /*
   asm volatile (
     "movq %[_rsp], %%rsp \n"
     "pushq %[thread] \n"
@@ -85,8 +73,33 @@ LIGHT_STATUS switch_context_to(thread_t* thread) {
         [_rip] "a" (context.rip),
         [thread] "b" (thread)
   );
+    */
+  switch_thread_context(thread, thread);
+
+  thread_t* t = create_thread(exit_thread, "hji", true);
+  thread_prepare_context(t);
+  t->m_current_state = RUNNING;
+  t->m_cpu = 1;
+
+  switch_thread_context(thread, t);
+
+  kernel_panic("RETURNED FROM enter_scheduler!");
+} 
+
+LIGHT_STATUS exit_scheduler() {
 
   return LIGHT_FAIL;
+}
+
+void scheduler_cleanup() {
+  Processor_t* current = g_GlobalSystemInfo.m_current_core;
+
+  current->m_being_handled_by_scheduler = false;
+}
+
+LIGHT_STATUS switch_context_to(thread_t* thread) {
+
+    return LIGHT_FAIL;
 }
 
 void sched_tick(registers_t*);

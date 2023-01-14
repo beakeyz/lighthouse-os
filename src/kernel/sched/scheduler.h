@@ -10,6 +10,8 @@ LIGHT_STATUS init_scheduler();
 void enter_scheduler();
 LIGHT_STATUS exit_scheduler();
 
+void scheduler_cleanup();
+
 LIGHT_STATUS switch_context_to(thread_t*);
 
 void sched_tick(registers_t*);

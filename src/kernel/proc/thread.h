@@ -40,6 +40,8 @@ typedef struct {
 
 thread_t* create_thread(FuncPtr, const char*, bool); // make this sucka
 
+extern void thread_enter_context(thread_t* from, thread_t* to);
+void switch_thread_context(thread_t* from, thread_t* to);
 LIGHT_STATUS thread_prepare_context(thread_t*);
 
 LIGHT_STATUS kill_thread(thread_t*); // kill thread and prepare for context swap to kernel

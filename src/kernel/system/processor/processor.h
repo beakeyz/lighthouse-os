@@ -21,7 +21,7 @@ typedef void (*PROCESSOR_LATE_INIT) (
 
 typedef struct Processor {
   gdt_pointer_t m_gdtr;
-  gdt_entry_t m_gdt[PROCESSOR_MAX_GDT_ENTRIES];
+  gdt_entry_t m_gdt[32];
   tss_entry_t m_tss;
 
   size_t m_gdt_highest_entry;
@@ -32,7 +32,6 @@ typedef struct Processor {
   void* m_stack_start;
 
   PagingComplex_t m_page_dir;
-  
   // TODO: cpu info (features, bitwidth, vendorID, ect.)
   struct ProcessorInfo m_info;
 
@@ -40,6 +39,7 @@ typedef struct Processor {
   thread_t* m_current_thread;
   thread_t* m_root_thread;
   list_t* m_processes;
+  bool m_being_handled_by_scheduler;
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;

@@ -24,7 +24,12 @@ typedef struct {
 // 64-bit tss =)
 typedef struct tss_entry {
 	uint32_t reserved_0;
-	uint64_t rsp[3]; // 6 uint32_ts with a high and a low component
+  uint32_t rsp0l;
+  uint32_t rsp0h;
+  uint32_t rsp1l;
+  uint32_t rsp1h;
+  uint32_t rsp2l;
+  uint32_t rsp2h;
 	uint64_t reserved_1;
 	uint64_t ist[7]; // 14 uint32_ts with a high and a low component
 	uint64_t reserved_2;

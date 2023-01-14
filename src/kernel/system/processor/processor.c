@@ -92,9 +92,11 @@ void flush_gdt(Processor_t* processor) {
   // limit
   processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
 
-  extern void _flush_gdt(gdt_pointer_t* gdt, uint16_t selectorCode, uint16_t selectorData);
+  //extern void _flush_gdt(gdt_pointer_t* gdt, uint16_t selectorCode, uint16_t selectorData);
 
-  _flush_gdt(&processor->m_gdtr, GDT_KERNEL_CODE, GDT_KERNEL_DATA);
+  //_flush_gdt(&processor->m_gdtr, GDT_KERNEL_CODE, GDT_KERNEL_DATA);
+
+  asm volatile ("lgdt %0" :: "g"(processor->m_gdtr) : "memory");
 }
 
 LIGHT_STATUS init_gdt(Processor_t* processor) {
@@ -126,7 +128,7 @@ LIGHT_STATUS init_gdt(Processor_t* processor) {
   write_to_gdt(processor, GDT_USER_CODE, ring3_code);
 
   gdt_entry_t tss = {0};
-  set_gdte_base(&tss, (uintptr_t)&processor->m_tss & 0xffffffff);
+  set_gdte_base(&tss, ((uintptr_t)&processor->m_tss) & 0xffffffff);
   set_gdte_limit(&tss, sizeof(tss_entry_t) - 1);
 
   tss.structured.dpl = 0;

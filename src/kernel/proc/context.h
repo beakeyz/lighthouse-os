@@ -39,7 +39,7 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, PagingComplex_t* root_table, ui
 
   regs.cs = (kernel ? GDT_KERNEL_CODE : GDT_USER_CODE);
 
-  regs.cr3 = root_table->raw_bits;
+  regs.cr3 = (uintptr_t)&root_table;
 
   if (kernel) {
     regs.rsp = stack_top;
