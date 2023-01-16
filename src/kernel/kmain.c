@@ -74,7 +74,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   test->m_controller->fControllerEnableVector(1);
   add_handler(test);
 
-  //init_and_install_pit();
+  init_and_install_pit();
 
   enable_interupts();
 

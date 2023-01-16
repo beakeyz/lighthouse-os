@@ -29,7 +29,8 @@ typedef struct Processor {
   size_t m_gdt_highest_entry;
 
   spinlock_t* m_hard_processor_lock;
-  atomic_ptr_t* m_locked_level; // how many locks are being held at a certain point (FIXME(?): atomic?)
+  atomic_ptr_t* m_locked_level;
+  atomic_ptr_t* m_vital_task_depth;
 
   uint32_t m_irq_depth;
   uint32_t m_cpu_num;
@@ -51,6 +52,7 @@ typedef struct Processor {
 
 ProcessorInfo_t processor_gather_info();
 LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num);
+Processor_t* create_processor(uint32_t num);
 
 LIGHT_STATUS init_gdt(Processor_t* processor);
 
@@ -61,6 +63,18 @@ void flush_gdt(Processor_t* processor);
 
 LIGHT_STATUS init_processor_ctx(Processor_t* processor, thread_t*);
 LIGHT_STATUS init_processor_dynamic_ctx(Processor_t* processor, thread_t*);
+
+ALWAYS_INLINE void processor_increment_vital_depth(Processor_t* processor) {
+  uintptr_t current_level = atomic_ptr_load(processor->m_vital_task_depth);
+  atomic_ptr_write(processor->m_vital_task_depth, current_level + 1);
+}
+
+ALWAYS_INLINE void processor_decrement_vital_depth(Processor_t* processor) {
+  uintptr_t current_level = atomic_ptr_load(processor->m_vital_task_depth);
+  if (current_level > 0) {
+    atomic_ptr_write(processor->m_vital_task_depth, current_level - 1);
+  }
+}
 
 extern FpuState standard_fpu_state;
 

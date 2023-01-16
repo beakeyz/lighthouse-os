@@ -35,7 +35,7 @@ LIGHT_STATUS set_pit_interrupt_handler() {
   bool success = add_handler(handler);
 
   if (success) {
-    handler->m_controller->fControllerEnableVector(PIT_TIMER_INT_NUM);
+    //handler->m_controller->fControllerEnableVector(PIT_TIMER_INT_NUM);
     return LIGHT_SUCCESS;
   }
 

@@ -7,6 +7,7 @@
 #include "libk/stddef.h"
 #include <libk/string.h>
 #include "mem/kmalloc.h"
+#include "sync/atomic_ptr.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include "system/processor/gdt.h"
@@ -24,6 +25,15 @@ ProcessorInfo_t processor_gather_info() {
   // TODO:
   return ret;
 }
+
+// Should not be used to initialize bsp
+Processor_t* create_processor(uint32_t num) {
+  Processor_t* ret = kmalloc(sizeof(Processor_t));
+  ret->m_cpu_num = num;
+  ret->fLateInit = processor_late_init;
+  return ret;
+}
+
 LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
 
   // setup hardware (should not need anything in the Processor_t struct besides capabilities)
@@ -33,7 +43,7 @@ LIGHT_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
   // setup software
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
-  processor->m_locked_level = 0;
+  atomic_ptr_write(processor->m_vital_task_depth, 0);
 
   processor->fLateInit = processor_late_init;
 

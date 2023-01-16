@@ -13,17 +13,18 @@ static void pic_disable_vector(uint8_t vector) __attribute__((used));
 PIC_t* init_pic() {
 
   PIC_t* ret = kmalloc(sizeof(PIC_t));
+  ret->m_controller = kmalloc(sizeof(InterruptController_t));
 
-  ret->m_controller.__parent = ret;
+  ret->m_controller->__parent = ret;
   ret->m_pic1_line = 0b11111111;
   ret->m_pic2_line = 0b11111111;
 
-  ret->m_controller.m_type = I8259;
-  ret->m_controller.fInterruptEOI = pic_eoi;
-  ret->m_controller.fControllerInit = (INTERRUPT_CONTROLLER_INIT)init_pic;
-  ret->m_controller.fControllerDisable = pic_disable;
-  ret->m_controller.fControllerEnableVector = pic_enable_vector;
-  ret->m_controller.fControllerDisableVector = pic_disable_vector;
+  ret->m_controller->m_type = I8259;
+  ret->m_controller->fInterruptEOI = pic_eoi;
+  ret->m_controller->fControllerInit = (INTERRUPT_CONTROLLER_INIT)init_pic;
+  ret->m_controller->fControllerDisable = pic_disable;
+  ret->m_controller->fControllerEnableVector = pic_enable_vector;
+  ret->m_controller->fControllerDisableVector = pic_disable_vector;
 
   // cascade init =D
   out8(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -56,7 +57,7 @@ void pic_disable(void* this) {
   // Lets hope
   PIC_t* _this = (PIC_t*)this;
 
-  if (_this->m_controller.m_type != I8259) {
+  if (_this->m_controller->m_type != I8259) {
     return; // invalid lmao (TODO: error handle)
   }
 

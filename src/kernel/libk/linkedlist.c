@@ -18,7 +18,7 @@ void list_append(list_t *list, void *data) {
   node->data = data;
   list->m_length++;
   
-  if (!list->head) {
+  if (list->head == nullptr || list->end == nullptr) {
     list->head = node;
     list->end = node;
     return;

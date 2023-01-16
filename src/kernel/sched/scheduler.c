@@ -1,5 +1,6 @@
 #include "scheduler.h"
 #include "dev/debug/serial.h"
+#include "interupts/interupts.h"
 #include "kmain.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
@@ -16,9 +17,7 @@ extern ALWAYS_INLINE void sched_on_cpu_enter(uint32_t cpu_num);
 
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func () {
-  for (;;) {
-    // hi
-  }
+  println("entering test_kernel_thread_func");
 }
 
 LIGHT_STATUS init_scheduler() {
@@ -39,6 +38,7 @@ LIGHT_STATUS init_scheduler() {
 
 void enter_scheduler() {
 
+  disable_interupts();
   Processor_t* current = g_GlobalSystemInfo.m_current_core;
   proc_t* proc_ptr = list_get(current->m_processes, 0);
 
@@ -64,6 +64,9 @@ void enter_scheduler() {
   current->m_tss.rsp0l = context.rsp0 & 0xffffffff;
   current->m_tss.rsp0h = context.rsp0 >> 32;
 
+  print("rsp pre-jump: ");
+  println(to_string(context.rsp));
+
   asm volatile (
     "movq %[_rsp], %%rsp \n"
     "pushq %[thread] \n"
@@ -72,6 +75,7 @@ void enter_scheduler() {
     "cld \n"
     "movq %[cpu_id], %%rdi \n"
     "call sched_on_cpu_enter \n" // hook
+    "movq 24(%%rsp), %%rdi \n"
     "retq \n"
     ::  [_rsp] "g" (context.rsp),
         [_rip] "a" (context.rip),
@@ -80,6 +84,7 @@ void enter_scheduler() {
   );
 
   kernel_panic("RETURNED FROM enter_scheduler!");
+
 } 
 
 LIGHT_STATUS exit_scheduler() {
@@ -88,6 +93,7 @@ LIGHT_STATUS exit_scheduler() {
 }
 
 extern ALWAYS_INLINE void sched_on_cpu_enter(uint32_t cpu_num) {
+
   // TODO:
 }
 

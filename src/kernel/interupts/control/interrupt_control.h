@@ -44,7 +44,7 @@ typedef struct InterruptController {
 typedef struct {
   INTERRUPT_CONTROLLER_TYPE m_current_type;
   size_t m_controller_count;
-  list_t m_controllers;
+  list_t* m_controllers;
 } InterruptControllerManager_t;
 
 void init_int_control_management();

@@ -1,8 +1,10 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
+#include "interupts/control/interrupt_control.h"
 #include "interupts/interupts.h"
 #include "kmain.h"
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "proc/context.h"
@@ -21,8 +23,8 @@
 #define DEFAULT_STACK_SIZE 16 * Kib
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
-ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
-ALWAYS_INLINE extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
+extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
+extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
 
 thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, bool kthread) { // make this sucka
 
@@ -117,9 +119,10 @@ LIGHT_STATUS thread_prepare_context(thread_t* thread) {
   kContext_t context = thread->m_context;
   uintptr_t stack_top = thread->m_stack_top;
 
+  print("starting stack_top: ");
+  println(to_string(stack_top));
   // TODO: push exit function
 
-  STACK_PUSH(stack_top, uintptr_t, 0);
   STACK_PUSH(stack_top, uintptr_t, (uintptr_t)exit_thread);
 
   stack_top -= sizeof(registers_t);
@@ -155,15 +158,15 @@ LIGHT_STATUS thread_prepare_context(thread_t* thread) {
     return_frame->ss = 0;
   }
 
+  stack_top -= sizeof(registers_t*);
+  *(uintptr_t*)stack_top = stack_top + sizeof(registers_t*);
   // FIXME: return_frame isnt put on the stack
   println(to_string((uintptr_t)return_frame));
   println(to_string(stack_top));
 
-  STACK_PUSH(stack_top, uintptr_t, (uintptr_t)return_frame);
-
   println(to_string(((registers_t*)stack_top)->rflags));
 
-  thread->m_context.rip = (uintptr_t)&common_thread_entry;
+  thread->m_context.rip = (uintptr_t)common_thread_entry;
   thread->m_context.rsp0 = thread->m_stack_top;
   thread->m_context.rsp = stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
@@ -241,18 +244,9 @@ void switch_thread_context(thread_t* from, thread_t* to) {
   );
 }
 
-ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) {
+extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) {
   
-  Processor_t* current = g_GlobalSystemInfo.m_current_core;
-
-  ASSERT(current->m_current_thread == to);
-  println("context switch!");
-  //ASSERT(current->m_being_handled_by_scheduler);
-
-  current->m_being_handled_by_scheduler = false;
-
-  // TODO: make scheduler pick next thead to run
-
+  println("Context switch!");
   /*
   println(to_string(to->m_cpu));
   // FIXME: returning results in crash
@@ -274,29 +268,12 @@ ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers
   // FIXME: exit_thread seems to be on the stack, but it just gets ignored?
   // what is going on here
   //ptr();
-  //for (;;){}
-
-  println(to_string(regs->rflags));
-  println(to_string(regs->cs));
 
   //kernel_panic("TRIED TO RETURN FROM first_ctx_init");
 }
 
-static bool init = false;
-
-ALWAYS_INLINE extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) {
-
-  // hihi
-  thread_t* t = create_thread(exit_thread, NULL, "test", true);
-  thread_prepare_context(t);
-
-  if (!init) {
-    init = true;
-    if (sched_switch_context_to(t) == LIGHT_FAIL) {
-      kernel_panic("yikes");
-
-    }
-  }
+extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) {
+  // TODO: diagnostics
 }
 
 __attribute__((naked)) void common_thread_entry(void) {

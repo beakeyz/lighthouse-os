@@ -20,7 +20,7 @@
 #define ICW1_INIT       0x10
 
 typedef struct PIC {
-  InterruptController_t m_controller;
+  InterruptController_t* m_controller;
   uint8_t m_pic1_line;
   uint8_t m_pic2_line;
 } PIC_t;

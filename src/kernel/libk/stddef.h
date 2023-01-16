@@ -32,7 +32,6 @@ typedef void (*FuncPtr)();
 
 #define NORETURN __attribute__((noreturn))
 
-// These are standard yoink material off the internet, go cry =)
 #define __va_argsiz(t)	\
 	(((sizeof(t) + sizeof(int) - 1) / sizeof(int)) * sizeof(int))
 
