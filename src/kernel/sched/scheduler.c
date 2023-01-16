@@ -5,11 +5,14 @@
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/gdt.h"
 #include "system/processor/processor.h"
+
+extern ALWAYS_INLINE void sched_on_cpu_enter(uint32_t cpu_num);
 
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func () {
@@ -25,10 +28,7 @@ LIGHT_STATUS init_scheduler() {
   ASSERT(proc_ptr != nullptr);
   ASSERT(proc_ptr->m_id == 0);
 
-  thread_t* thread = list_get(proc_ptr->m_threads, 0);
-
-  // Make sure we are runnable
-  thread->m_current_state = RUNNABLE;
+  thread_t* thread = proc_ptr->m_idle_thread;
 
   list_append(g_GlobalSystemInfo.m_current_core->m_processes, proc_ptr);
   g_GlobalSystemInfo.m_current_core->m_current_thread = thread;
@@ -45,45 +45,39 @@ void enter_scheduler() {
   ASSERT(proc_ptr != nullptr);
   ASSERT(proc_ptr->m_id == 0);
 
-  thread_t* thread = list_get(proc_ptr->m_threads, 0);
+  thread_t* thread = proc_ptr->m_idle_thread; 
 
   LIGHT_STATUS result = thread_prepare_context(thread);
 
   if (result == LIGHT_SUCCESS) {
     thread->m_current_state = RUNNING;
+  } else {
+    // yikes
+    return;
   }
 
   current->m_being_handled_by_scheduler = true;
   kContext_t context = thread->m_context;
 
   // TODO:
-  //current->m_tss.iomap_base = sizeof(tss_entry_t);
-  //current->m_tss.rsp0l = context.rsp0 & 0xffffffff;
-  //current->m_tss.rsp0h = context.rsp0 >> 32;
+  current->m_tss.iomap_base = sizeof(tss_entry_t);
+  current->m_tss.rsp0l = context.rsp0 & 0xffffffff;
+  current->m_tss.rsp0h = context.rsp0 >> 32;
 
-  /*
   asm volatile (
     "movq %[_rsp], %%rsp \n"
     "pushq %[thread] \n"
     "pushq %[thread] \n"
     "pushq %[_rip] \n"
     "cld \n"
-    //"movq 24(%%rsp), %%rdi \n"
-    // scheduler hook
+    "movq %[cpu_id], %%rdi \n"
+    "call sched_on_cpu_enter \n" // hook
     "retq \n"
     ::  [_rsp] "g" (context.rsp),
         [_rip] "a" (context.rip),
-        [thread] "b" (thread)
+        [thread] "b" (thread),
+        [cpu_id] "c" ((uintptr_t)current->m_cpu_num)
   );
-    */
-  switch_thread_context(thread, thread);
-
-  thread_t* t = create_thread(exit_thread, "hji", true);
-  thread_prepare_context(t);
-  t->m_current_state = RUNNING;
-  t->m_cpu = 1;
-
-  switch_thread_context(thread, t);
 
   kernel_panic("RETURNED FROM enter_scheduler!");
 } 
@@ -91,6 +85,10 @@ void enter_scheduler() {
 LIGHT_STATUS exit_scheduler() {
 
   return LIGHT_FAIL;
+}
+
+extern ALWAYS_INLINE void sched_on_cpu_enter(uint32_t cpu_num) {
+  // TODO:
 }
 
 void scheduler_cleanup() {
@@ -104,7 +102,9 @@ LIGHT_STATUS sched_switch_context_to(thread_t* thread) {
   thread_t* from = current_processor->m_current_thread;
 
   ASSERT(from != nullptr);
-  ASSERT(from != thread);
+  if (from == thread) {
+    return LIGHT_FAIL;
+  }
 
   if (from->m_current_state == RUNNING) {
     thread_set_state(from, RUNNABLE);
@@ -127,7 +127,7 @@ LIGHT_STATUS sched_switch_context_to(thread_t* thread) {
 void sched_tick(registers_t*);
 
 thread_t* sched_next_thread() {
-  return nullptr;
+  return g_GlobalSystemInfo.m_current_core->m_root_thread;
 }
 proc_t* sched_next_proc() {
   return nullptr;

@@ -7,6 +7,8 @@
 #include "proc/thread.h"
 #include "processor_info.h"
 #include "gdt.h"
+#include "sync/atomic_ptr.h"
+#include "sync/spinlock.h"
 #include "system/processor/fpu/state.h"
 
 #define PROCESSOR_MAX_GDT_ENTRIES 7
@@ -26,7 +28,8 @@ typedef struct Processor {
 
   size_t m_gdt_highest_entry;
 
-  size_t m_locked_level; // how many locks are being held at a certain point (FIXME(?): atomic?)
+  spinlock_t* m_hard_processor_lock;
+  atomic_ptr_t* m_locked_level; // how many locks are being held at a certain point (FIXME(?): atomic?)
 
   uint32_t m_irq_depth;
   uint32_t m_cpu_num;

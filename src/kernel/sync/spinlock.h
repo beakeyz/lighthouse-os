@@ -1,6 +1,5 @@
 #ifndef __LIGHT_SPINLOCK__
 #define __LIGHT_SPINLOCK__
-#include "kmain.h"
 #include <libk/stddef.h>
 
 typedef volatile struct {
@@ -11,10 +10,7 @@ typedef volatile struct {
 
 typedef struct {
   __spinlock_t m_lock;
-  Processor_t* m_processor;
-  proc_t* m_proc;
-  thread_t* m_thread;
-
+  // TODO:
 } spinlock_t;
 
 spinlock_t* init_spinlock();

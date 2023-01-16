@@ -3,7 +3,6 @@
 #include "libk/error.h"
 #include "mem/PagingComplex.h"
 #include "proc/context.h"
-#include "proc/proc.h"
 #include "system/processor/fpu/state.h"
 #include "system/processor/gdt.h"
 #include <system/processor/registers.h>
@@ -20,6 +19,7 @@ typedef enum {
   NO_CONTEXT,
 } ThreadState;
 
+struct proc;
 
 typedef struct {
   kContext_t m_context;
@@ -35,11 +35,11 @@ typedef struct {
 
   ThreadState m_current_state;
 
-  proc_t* m_parent_proc; // nullable
+  struct proc* m_parent_proc; // nullable
 
 } thread_t;
 
-thread_t* create_thread(FuncPtr, const char*, bool); // make this sucka
+thread_t* create_thread(FuncPtr, uintptr_t, const char*, bool); // make this sucka
 
 extern void thread_enter_context(thread_t* from, thread_t* to);
 void switch_thread_context(thread_t* from, thread_t* to);

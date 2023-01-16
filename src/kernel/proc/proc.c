@@ -17,9 +17,9 @@ proc_t* create_kernel_proc (FuncPtr entry) {
   const char* proc_name = "[Aniva root]";
   memcpy(proc->m_name, proc_name, strlen(proc_name) + 1);
 
-  thread_t* t = create_thread(entry, "", true);
+  thread_t* t = create_thread(entry, NULL, "[Aniva]", true);
 
-  list_append(proc->m_threads, t);
+  proc->m_idle_thread = t;
 
   proc->m_ticks_used = 0;
 

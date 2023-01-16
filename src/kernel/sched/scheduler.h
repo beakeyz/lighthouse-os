@@ -37,4 +37,5 @@ LIGHT_STATUS sched_remove_proc(proc_t*);
 LIGHT_STATUS sched_remove_proc_by_id(proc_id);
 LIGHT_STATUS sched_remove_thread(thread_t*);
 
+
 #endif // !__LIGHT_SCHEDULER__

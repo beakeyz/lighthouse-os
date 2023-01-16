@@ -59,6 +59,34 @@ start:
   ; TODO: cpuid and PAE checks ect.  
   mov esp, kstack_top
 
+check_cpuid:
+  pushfd
+  pop eax
+  mov ebx, eax
+  xor eax, 0x200000
+  push eax
+  popfd
+  nop
+  pushfd
+  pop eax
+  cmp eax, ebx
+  jnz cpuid_support
+
+  ; No cpuid, hang
+
+  mov eax, 'C'
+  mov [0xb8000], eax 
+
+  cld
+  cli
+spin:
+  hlt
+  jmp spin
+
+cpuid_support:
+  xor eax, eax
+  xor ebx, ebx
+
   ; set cr3
   mov eax, boot_pml4t
   mov cr3, eax

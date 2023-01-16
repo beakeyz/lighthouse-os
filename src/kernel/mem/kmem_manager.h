@@ -83,6 +83,7 @@ void parse_memmap ();
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
 uintptr_t kmem_get_page_base (uintptr_t page_addr);
+uintptr_t kmem_get_page_addr (uintptr_t page_idx);
 
 void* kmem_from_phys (uintptr_t addr);
 uintptr_t kmem_to_phys (PagingComplex_t* root, uintptr_t addr);

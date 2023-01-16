@@ -90,16 +90,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-  atomic_ptr_t* ptr = create_atomic_ptr();
-  uintptr_t value = atomic_ptr_load(ptr);
-  println(to_string(value));
-
-  atomic_ptr_write(ptr, 6969);
-
-  value = atomic_ptr_load(ptr);
-  println(to_string(value));
-
-  //enter_scheduler();
+  enter_scheduler();
 
   // TODO: some thins on the agenda:
   // 0. [X] buff up libk ;-;

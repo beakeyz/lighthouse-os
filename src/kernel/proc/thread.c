@@ -6,6 +6,7 @@
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "proc/context.h"
+#include "sched/scheduler.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include "system/processor/fpu/state.h"
@@ -19,10 +20,11 @@
 // TODO: move somewhere central
 #define DEFAULT_STACK_SIZE 16 * Kib
 
-static ALWAYS_INLINE void common_thread_entry(void) __attribute__((used));
+static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
+ALWAYS_INLINE extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
 
-thread_t* create_thread(FuncPtr entry, const char* name, bool kthread) { // make this sucka
+thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, bool kthread) { // make this sucka
 
   thread_t* thread = kmalloc(sizeof(thread_t));
   memcpy(thread->m_name, name, strlen(name));
@@ -32,9 +34,6 @@ thread_t* create_thread(FuncPtr entry, const char* name, bool kthread) { // make
 
   thread_set_state(thread, NO_CONTEXT);
 
-  thread->m_context.rip = (uintptr_t)entry;
-  thread->m_context.rdi = NULL;
-
   uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
   memset((void*)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
@@ -42,7 +41,8 @@ thread_t* create_thread(FuncPtr entry, const char* name, bool kthread) { // make
 
   store_fpu_state(&thread->m_fpu_state);
 
-  setup_regs(kthread, &g_GlobalSystemInfo.m_current_core->m_page_dir, thread->m_stack_top);
+  thread->m_context = setup_regs(kthread, &g_GlobalSystemInfo.m_current_core->m_page_dir, thread->m_stack_top);
+  contex_set_rip(&thread->m_context, (uintptr_t)entry, data);
 
   return thread;
 } // make this sucka
@@ -97,13 +97,15 @@ extern void thread_enter_context(thread_t* from, thread_t* to) {
 
   wrmsr(MSR_FS_BASE, 0);
 
-  if (from->m_context.cr3 != to->m_context.cr3)
-    write_cr3(to->m_context.cr3);
+  //if (from->m_context.cr3 != to->m_context.cr3)
+  //  write_cr3(to->m_context.cr3);
+  println("saving fpu");
 
   // NOTE: for correction purposes
   to->m_cpu = current_processor->m_cpu_num;
 
   store_fpu_state(&to->m_fpu_state);
+  println("yeet");
 }
 
 LIGHT_STATUS thread_prepare_context(thread_t* thread) {
@@ -117,44 +119,49 @@ LIGHT_STATUS thread_prepare_context(thread_t* thread) {
 
   // TODO: push exit function
 
-  stack_top -= sizeof(uintptr_t);
-  *((uint64_t*)stack_top) = (uintptr_t)&exit_thread;
+  STACK_PUSH(stack_top, uintptr_t, 0);
+  STACK_PUSH(stack_top, uintptr_t, (uintptr_t)exit_thread);
 
   stack_top -= sizeof(registers_t);
-  registers_t return_frame = *(registers_t*)stack_top;
+  registers_t* return_frame = (registers_t*)stack_top;
 
-  return_frame.r8 = context.r8;
-  return_frame.r9 = context.r9;
-  return_frame.r10 = context.r10;
-  return_frame.r11 = context.r11;
-  return_frame.r12 = context.r12;
-  return_frame.r13 = context.r13;
-  return_frame.r14 = context.r14;
-  return_frame.r15 = context.r15;
-  return_frame.rdi = context.rdi;
-  return_frame.rsi = context.rsi;
-  return_frame.rbp = context.rbp;
+  return_frame->r8 = context.r8;
+  return_frame->r9 = context.r9;
+  return_frame->r10 = context.r10;
+  return_frame->r11 = context.r11;
+  return_frame->r12 = context.r12;
+  return_frame->r13 = context.r13;
+  return_frame->r14 = context.r14;
+  return_frame->r15 = context.r15;
+  return_frame->rdi = context.rdi;
+  return_frame->rsi = context.rsi;
+  return_frame->rbp = context.rbp;
 
-  return_frame.rax = context.rax;
-  return_frame.rbx = context.rbx;
-  return_frame.rcx = context.rcx;
-  return_frame.rdx = context.rdx;
+  return_frame->rax = context.rax;
+  return_frame->rbx = context.rbx;
+  return_frame->rcx = context.rcx;
+  return_frame->rdx = context.rdx;
 
-  return_frame.rip = context.rip;
-  return_frame.rsp = NULL;
-  return_frame.rflags = context.rflags;
-  return_frame.cs = context.cs;
+  return_frame->rip = context.rip;
+  return_frame->rsp = NULL;
+  return_frame->rflags = context.rflags;
+  return_frame->cs = context.cs;
   if ((context.cs & 0x3) != 0) {
     // UP rsp
-    return_frame.us_rsp = context.rsp;
-    return_frame.ss = GDT_USER_DATA | 0x3;
+    return_frame->us_rsp = context.rsp;
+    return_frame->ss = GDT_USER_DATA | 0x3;
   } else {
-    return_frame.us_rsp = thread->m_stack_top;
-    return_frame.ss = 0;
+    return_frame->us_rsp = thread->m_stack_top;
+    return_frame->ss = 0;
   }
 
-  stack_top -= sizeof(uintptr_t);
-  *(uintptr_t*)stack_top = (uintptr_t)&return_frame;
+  // FIXME: return_frame isnt put on the stack
+  println(to_string((uintptr_t)return_frame));
+  println(to_string(stack_top));
+
+  STACK_PUSH(stack_top, uintptr_t, (uintptr_t)return_frame);
+
+  println(to_string(((registers_t*)stack_top)->rflags));
 
   thread->m_context.rip = (uintptr_t)&common_thread_entry;
   thread->m_context.rsp0 = thread->m_stack_top;
@@ -236,12 +243,11 @@ void switch_thread_context(thread_t* from, thread_t* to) {
 
 ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) {
   
-  println("context switch!");
-
   Processor_t* current = g_GlobalSystemInfo.m_current_core;
 
   ASSERT(current->m_current_thread == to);
-  ASSERT(current->m_being_handled_by_scheduler);
+  println("context switch!");
+  //ASSERT(current->m_being_handled_by_scheduler);
 
   current->m_being_handled_by_scheduler = false;
 
@@ -270,16 +276,36 @@ ALWAYS_INLINE extern void first_ctx_init(thread_t* from, thread_t* to, registers
   //ptr();
   //for (;;){}
 
-  kernel_panic("TRIED TO RETURN FROM first_ctx_init");
+  println(to_string(regs->rflags));
+  println(to_string(regs->cs));
+
+  //kernel_panic("TRIED TO RETURN FROM first_ctx_init");
 }
 
-ALWAYS_INLINE void common_thread_entry(void) {
+static bool init = false;
 
+ALWAYS_INLINE extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) {
+
+  // hihi
+  thread_t* t = create_thread(exit_thread, NULL, "test", true);
+  thread_prepare_context(t);
+
+  if (!init) {
+    init = true;
+    if (sched_switch_context_to(t) == LIGHT_FAIL) {
+      kernel_panic("yikes");
+
+    }
+  }
+}
+
+__attribute__((naked)) void common_thread_entry(void) {
   asm (
       "popq %rdi \n"
       "popq %rsi \n"
       "popq %rdx \n"
       "cld \n"
       "call first_ctx_init \n"
+      "jmp thread_exit_init_state"
     );
 }

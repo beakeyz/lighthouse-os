@@ -8,7 +8,7 @@
 
 #define STACK_PUSH_ZERO(stack, type, value)  \
   stack -= sizeof(type);                     \
-  type value = *((volatile type *)stack)
+  type* value = ((volatile type *)stack)
 
 #define STACK_POP(stack, type, value) do {    \
   value = *((volatile type *)stack);          \

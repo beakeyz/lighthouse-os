@@ -521,14 +521,13 @@ void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int pa
 // TODO: test
 ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flags) {
   const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
-  println(to_string(pages_needed));
 
   const uintptr_t start_idx = Must(KMEM_DATA.m_phys_bitmap.fFindFreeRange(&KMEM_DATA.m_phys_bitmap, pages_needed));
-  const uintptr_t ret = kmem_get_page_base(start_idx);
+  const uintptr_t ret = kmem_get_page_addr(start_idx); 
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
     const uintptr_t page_idx = start_idx + i;
-    const uintptr_t addr = kmem_get_page_base(page_idx);
+    const uintptr_t addr = kmem_get_page_addr(page_idx);
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
     if (was_used && !(custom_flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
@@ -537,7 +536,6 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flag
 
     kmem_set_phys_page_used(page_idx);
     bool result = kmem_map_page(nullptr, addr, addr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
-
 
     if (!result) {
       return Error();
@@ -597,6 +595,9 @@ static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
 // FIXME: macroes?
 uintptr_t kmem_get_page_idx (uintptr_t page_addr) {
   return (page_addr >> 12);
+}
+uintptr_t kmem_get_page_addr (uintptr_t page_idx) {
+  return (page_idx << 12);
 }
 uintptr_t kmem_get_page_base (uintptr_t page_addr) {
   return (page_addr & ~(0xffful));

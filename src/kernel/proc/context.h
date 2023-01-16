@@ -30,26 +30,24 @@ typedef struct {
   uintptr_t cr3;
 } kContext_t;
 
-ALWAYS_INLINE void set_flags(kContext_t* regs, uintptr_t flags) {
-  regs->rflags = flags;
-}
-
 ALWAYS_INLINE kContext_t setup_regs(bool kernel, PagingComplex_t* root_table, uintptr_t stack_top) {
   kContext_t regs = {0};
 
-  regs.cs = (kernel ? GDT_KERNEL_CODE : GDT_USER_CODE);
-
+  regs.cs = (kernel ? GDT_KERNEL_CODE : GDT_USER_CODE|3);
   regs.cr3 = (uintptr_t)&root_table;
 
   if (kernel) {
     regs.rsp = stack_top;
   }
   regs.rsp0 = stack_top;
-
-  set_flags(&regs, 0x0202);
+  regs.rflags = 0x0202;
 
   return regs;
-  
+}
+
+ALWAYS_INLINE void contex_set_rip(kContext_t* ctx, uintptr_t rip, uintptr_t args) {
+  ctx->rip = rip;
+  ctx->rdi = args;
 }
 
 #endif // !__LIGHT_KERNEL_CONTEXT__
