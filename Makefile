@@ -4,7 +4,7 @@
 
 DIRECTORY_GUARD=mkdir -p $(@D)
 ARCH :=x86
-SRC_PATHS := src/kernel src/libs/libc src/libs/libfb 
+SRC_PATHS := src/aniva src/libs/libc src/libs/libfb 
 OUT := ./out
 
 HFILES    := $(shell find $(SRC_PATHS) -type f -name '*.h')
@@ -19,7 +19,7 @@ CXXOBJFILES := $(patsubst %.cpp,$(OUT)/%.o,$(CXXFILES))
 ASMFILES  := $(shell find $(SRC_PATHS) -type f -name '*.asm')
 ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 
-LINK_PATH := ./src/kernel/linker.ld
+LINK_PATH := ./src/aniva/linker.ld
 
 NASM	   		:= /usr/bin/nasm
 CC          := ./cross_compiler/bin/x86_64-pc-lightos-gcc
@@ -53,7 +53,7 @@ CHARDFLAGS := -std=gnu11          \
 							-fno-exceptions 		\
 							-MMD								\
 							-I./src             \
-        			-I./src/kernel/			\
+        			-I./src/aniva/			\
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := -T $(LINK_PATH) 						\

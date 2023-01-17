@@ -1,4 +1,8 @@
-# Lighthouse OS (its actualy a kernel)
+# Lighthouse OS
+Lighthouse OS is yet another operating system that is built cuz it 
+can be built. It constits of a kernel called Aniva and a conseptual
+userspace called LightEnv
+
 yey, ANOTHER stinking kernel. As if the world needed another lmao
 
 ## Finished shit

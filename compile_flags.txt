@@ -1,5 +1,5 @@
 -I
-./src/kernel/
+./src/aniva/
 
 -I 
 ./src/
