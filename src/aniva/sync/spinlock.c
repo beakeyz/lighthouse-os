@@ -6,9 +6,9 @@
 spinlock_t* init_spinlock() {
   spinlock_t* lock = kmalloc(sizeof(spinlock_t));
 
-  //lock->m_processor = g_GlobalSystemInfo.m_current_core;
-  //lock->m_thread = g_GlobalSystemInfo.m_current_core->m_root_thread;
-  //lock->m_proc = g_GlobalSystemInfo.m_current_core->m_root_thread->m_parent_proc;
+  //lock->m_processor = get_current_processor();
+  //lock->m_thread = get_current_processor()->m_root_thread;
+  //lock->m_proc = get_current_processor()->m_root_thread->m_parent_proc;
 
   lock->m_lock = __init_spinlock();
 
@@ -16,7 +16,7 @@ spinlock_t* init_spinlock() {
 }
 
 void lock_spinlock(spinlock_t* lock) {
-  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+  Processor_t* current_processor = get_current_processor();
   uintptr_t j = atomic_ptr_load(current_processor->m_locked_level);
   atomic_ptr_write(current_processor->m_locked_level, j+1);
   // TODO: lock
@@ -43,7 +43,7 @@ __spinlock_t __init_spinlock() {
 void aquire_spinlock(__spinlock_t* lock)
 {
   while (__sync_lock_test_and_set(lock->m_latch, 0x01));
-  lock->m_cpu_num = g_GlobalSystemInfo.m_current_core->m_cpu_num; // TODO: fix
+  lock->m_cpu_num = get_current_processor()->m_cpu_num; // TODO: fix
   lock->m_func = __func__;
 }
 

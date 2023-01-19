@@ -1,18 +1,8 @@
 #include "processor.h"
-#include "dev/debug/serial.h"
 #include "interupts/idt.h"
 #include "kmain.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
-#include "libk/stddef.h"
-#include <libk/string.h>
-#include "mem/kmalloc.h"
-#include "sync/atomic_ptr.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
-#include "system/processor/gdt.h"
-#include <system/processor/fpu/state.h>
-#include <interupts/interupts.h>
 
 static ALWAYS_INLINE void processor_late_init(Processor_t* this) __attribute__((used));
 static ALWAYS_INLINE void write_to_gdt(Processor_t* this, uint16_t selector, gdt_entry_t entry);
@@ -35,24 +25,29 @@ Processor_t* create_processor(uint32_t num) {
 }
 
 ANIVA_STATUS init_processor(Processor_t* processor, uint32_t cpu_num) {
-
-  // setup hardware (should not need anything in the Processor_t struct besides capabilities)
-
-  init_sse(processor);
-
-  // setup software
+  processor->m_own_ptr = processor;
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
+  processor->fLateInit = processor_late_init;
   atomic_ptr_write(processor->m_vital_task_depth, 0);
 
-  processor->fLateInit = processor_late_init;
+  // setup hardware (should not need anything in the Processor_t struct besides capabilities)
+  // TODO: fpu, sse, mmx, xmm, tlb
+  init_sse(processor);
 
+  // TODO: setup cpu capabilities
+
+  // TODO: cpu event pipeline and deferred calls
+
+  // setup software
   if (is_bsp(processor)) {
     // TODO: do bsp shit
   }
   // TODO:
   init_gdt(processor);
 
+  // set msr base
+  wrmsr(MSR_GS_BASE, (uintptr_t)processor);
   return ANIVA_SUCCESS;
 }
 
@@ -62,13 +57,12 @@ ALWAYS_INLINE void processor_late_init(Processor_t* this) {
 
   // TODO: 
   if (is_bsp(this)) {
-    g_GlobalSystemInfo.m_current_core = this;
     init_int_control_management();
     init_interupts();
 
     asm volatile ("fninit");
 
-    // other save mechs?
+    // FIXME: other save mechs?
     save_fpu_state(&standard_fpu_state);
   } else {
     flush_idt();
@@ -103,11 +97,7 @@ void flush_gdt(Processor_t* processor) {
   // limit
   processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
 
-  //extern void _flush_gdt(gdt_pointer_t* gdt, uint16_t selectorCode, uint16_t selectorData);
-
-  //_flush_gdt(&processor->m_gdtr, GDT_KERNEL_CODE, GDT_KERNEL_DATA);
-
-  asm volatile ("lgdt %0" :: "g"(processor->m_gdtr) : "memory");
+  asm volatile ("lgdt %0" :: "m"(processor->m_gdtr) : "memory");
 }
 
 ANIVA_STATUS init_gdt(Processor_t* processor) {
@@ -160,8 +150,7 @@ ANIVA_STATUS init_gdt(Processor_t* processor) {
   // load task regs
   __ltr(GDT_TSS_SEL);
 
-  // set msr base
-  wrmsr(MSR_GS_BASE, (uintptr_t)processor);
+
 
   return ANIVA_SUCCESS;
 }
@@ -172,7 +161,7 @@ bool is_bsp(Processor_t* processor) {
 
 void set_bsp(Processor_t* processor) {
   if (processor != nullptr) {
-    g_GlobalSystemInfo.m_current_core = processor;
+    g_GlobalSystemInfo.m_bsp_processor = *processor;
   } else {
     println("[[WARNING]] null passed to set_bsp");
   }

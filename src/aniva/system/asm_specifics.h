@@ -2,6 +2,8 @@
 #define __ANIVA_ASM_SPECIFICS__
 #include <libk/stddef.h>
 
+#define GET_OFFSET(type, field) __builtin_offsetof(type, field)
+
 uintptr_t read_cr0();
 //uintptr_t read_cr1();
 uintptr_t read_cr2();

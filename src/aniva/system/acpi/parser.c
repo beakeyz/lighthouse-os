@@ -75,7 +75,6 @@ void* find_rsdp() {
     if (range->type != PMRT_ACPI_NVS || range->type != PMRT_ACPI_RECLAIM) {
       SKIP_ITTERATION();
     }
-    println("passed!");
 
     uintptr_t start = range->start;
     uintptr_t length = range->length;

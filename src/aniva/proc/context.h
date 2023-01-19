@@ -4,6 +4,8 @@
 #include "system/processor/gdt.h"
 #include <libk/stddef.h>
 
+#define EFLAGS_IF (1 << 21) | (1 << 9)
+
 typedef struct {
   uintptr_t rdi;
   uintptr_t rsi;
@@ -34,7 +36,7 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, PagingComplex_t* root_table, ui
   kContext_t regs = {0};
 
   regs.cs = (kernel ? GDT_KERNEL_CODE : GDT_USER_CODE|3);
-  regs.cr3 = (uintptr_t)&root_table;
+  regs.cr3 = (uintptr_t)root_table;
 
   if (kernel) {
     regs.rsp = stack_top;

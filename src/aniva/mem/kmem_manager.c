@@ -584,8 +584,8 @@ static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
   if (__disable_interupts) 
     disable_interupts();
 
-  ASSERT(g_GlobalSystemInfo.m_current_core != nullptr);
-  g_GlobalSystemInfo.m_current_core->m_page_dir = *(PagingComplex_t*)dir;
+  ASSERT(get_current_processor() != nullptr);
+  get_current_processor()->m_page_dir = *(PagingComplex_t*)dir;
 
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(dir));

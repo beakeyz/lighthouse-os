@@ -16,14 +16,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/AhciController.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/AhciController.h" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/ahci.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/dev/ahci/ahci.h" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/dev/disk/io_device.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/dev/disk/io_device.h" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/mem/disk/storage_controller.c" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/kernel/mem/disk/storage_controller.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/context.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/context.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/sync/spinlock.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sync/spinlock.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -42,6 +45,7 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="MakefileLocalSettings">
+    <option name="toolchainName" value="lighthouse_tc" />
     <option name="availableProjects">
       <map>
         <entry>
@@ -68,6 +72,9 @@
       </map>
     </option>
   </component>
+  <component name="MakefilesProjectLoadingState">
+    <option name="doClean" value="false" />
+  </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -89,10 +96,37 @@
     "WebServerToolWindowFactoryState": "false",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
+    "last_opened_file_path": "/home/joost/src/c/lighthouse-os/Makefile",
     "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "editor.preferences.tabs",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RunManager" selected="Makefile Target.debug">
+    <configuration name="build" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="build" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration name="clean-build" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="clean build" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration name="debug" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" activateToolWindowBeforeRun="false">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="debug" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Makefile Target.build" />
+      <item itemvalue="Makefile Target.clean-build" />
+      <item itemvalue="Makefile Target.debug" />
+    </list>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -105,7 +139,21 @@
       <workItem from="1666480345954" duration="21000" />
       <workItem from="1667041011021" duration="381000" />
       <workItem from="1672497952798" duration="37000" />
+      <workItem from="1674063185892" duration="181000" />
+      <workItem from="1674063372490" duration="55000" />
+      <workItem from="1674063433472" duration="796000" />
+      <workItem from="1674064236521" duration="40000" />
+      <workItem from="1674064283121" duration="405000" />
+      <workItem from="1674064695444" duration="85000" />
+      <workItem from="1674064787271" duration="4292000" />
     </task>
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>

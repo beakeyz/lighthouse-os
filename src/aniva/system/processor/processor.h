@@ -10,6 +10,7 @@
 #include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include "system/processor/fpu/state.h"
+#include <aniva/system/asm_specifics.h>
 
 #define PROCESSOR_MAX_GDT_ENTRIES 7
 #define MSR_FS_BASE 0xc0000100
@@ -22,6 +23,7 @@ typedef void (*PROCESSOR_LATE_INIT) (
 );
 
 typedef struct Processor {
+  struct Processor* m_own_ptr;
   gdt_pointer_t m_gdtr;
   gdt_entry_t m_gdt[32];
   tss_entry_t m_tss;
@@ -63,6 +65,10 @@ void flush_gdt(Processor_t* processor);
 
 ANIVA_STATUS init_processor_ctx(Processor_t* processor, thread_t*);
 ANIVA_STATUS init_processor_dynamic_ctx(Processor_t* processor, thread_t*);
+
+ALWAYS_INLINE Processor_t* get_current_processor() {
+    return (Processor_t*)read_gs(GET_OFFSET(Processor_t, m_own_ptr));
+}
 
 ALWAYS_INLINE void processor_increment_vital_depth(Processor_t* processor) {
   uintptr_t current_level = atomic_ptr_load(processor->m_vital_task_depth);

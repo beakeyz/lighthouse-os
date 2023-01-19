@@ -1,23 +1,13 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
-#include "interupts/control/interrupt_control.h"
-#include "interupts/interupts.h"
 #include "kmain.h"
 #include "libk/error.h"
-#include "libk/linkedlist.h"
-#include "libk/stddef.h"
 #include "mem/kmem_manager.h"
-#include "proc/context.h"
-#include "sched/scheduler.h"
+#include "proc/proc.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
-#include "system/processor/fpu/state.h"
-#include "system/processor/gdt.h"
-#include "system/processor/processor.h"
-#include "system/processor/registers.h"
 #include <libk/string.h>
 #include <libk/stack.h>
-#include <libk/io.h>
 
 // TODO: move somewhere central
 #define DEFAULT_STACK_SIZE 16 * Kib
@@ -27,10 +17,9 @@ extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) __at
 extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) __attribute__((used));
 
 thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, bool kthread) { // make this sucka
-
   thread_t* thread = kmalloc(sizeof(thread_t));
   memcpy(thread->m_name, name, strlen(name));
-  thread->m_cpu = g_GlobalSystemInfo.m_current_core->m_cpu_num;
+  thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = nullptr;
   thread->m_ticks_elapsed = 0;
 
@@ -41,9 +30,9 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, bool kt
 
   thread->m_stack_top = (stack_bottom + DEFAULT_STACK_SIZE);
 
-  store_fpu_state(&thread->m_fpu_state);
+  memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
-  thread->m_context = setup_regs(kthread, &g_GlobalSystemInfo.m_current_core->m_page_dir, thread->m_stack_top);
+  thread->m_context = setup_regs(kthread, &get_current_processor()->m_page_dir, thread->m_stack_top);
   contex_set_rip(&thread->m_context, (uintptr_t)entry, data);
 
   return thread;
@@ -66,12 +55,11 @@ ANIVA_STATUS clean_thread(thread_t* thread) {
 } // clean resources thead used
 
 void exit_thread() {
-  println("Exiting...");
 
-  thread_t* thread_to_exit = g_GlobalSystemInfo.m_current_core->m_current_thread;
+  thread_t* thread_to_exit = get_current_processor()->m_current_thread;
 
   for (;;) {
-    kernel_panic("TODO: exit thread");
+//    kernel_panic("TODO: exit thread");
   }
 }
 
@@ -80,12 +68,13 @@ extern void thread_enter_context(thread_t* from, thread_t* to) {
   println(to_string(from->m_cpu));
   println(to_string(to->m_cpu));
   println("$thread_enter_context");
-  if (to->m_current_state != RUNNING) {
-    kernel_panic("Switched to a non-running thread!");
-  }
 
-  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+  ASSERT(to->m_current_state == RUNNABLE);
 
+  Processor_t* current_processor = get_current_processor();
+
+  println(to_string((uintptr_t)&from));
+  println(to_string((uintptr_t)&current_processor->m_current_thread));
   if (current_processor->m_current_thread != from) {
     kernel_panic("Switched from an invalid thread!");
   }
@@ -97,17 +86,19 @@ extern void thread_enter_context(thread_t* from, thread_t* to) {
   
   save_fpu_state(&from->m_fpu_state);
 
+  // TODO: tls via FS base? or LDT (linux does this r sm)
+
   wrmsr(MSR_FS_BASE, 0);
 
-  //if (from->m_context.cr3 != to->m_context.cr3)
-  //  write_cr3(to->m_context.cr3);
-  println("saving fpu");
+  if (from->m_context.cr3 != to->m_context.cr3)
+    write_cr3(to->m_context.cr3);
 
   // NOTE: for correction purposes
   to->m_cpu = current_processor->m_cpu_num;
 
   store_fpu_state(&to->m_fpu_state);
-  println("yeet");
+
+  thread_set_state(to, RUNNING);
 }
 
 ANIVA_STATUS thread_prepare_context(thread_t* thread) {
@@ -115,6 +106,7 @@ ANIVA_STATUS thread_prepare_context(thread_t* thread) {
   if (thread->m_current_state != NO_CONTEXT) {
     return ANIVA_FAIL;
   }
+  thread_set_state(thread, RUNNABLE);
 
   kContext_t context = thread->m_context;
   uintptr_t stack_top = thread->m_stack_top;
@@ -160,11 +152,7 @@ ANIVA_STATUS thread_prepare_context(thread_t* thread) {
 
   stack_top -= sizeof(registers_t*);
   *(uintptr_t*)stack_top = stack_top + sizeof(registers_t*);
-  // FIXME: return_frame isnt put on the stack
-  println(to_string((uintptr_t)return_frame));
-  println(to_string(stack_top));
-
-  println(to_string(((registers_t*)stack_top)->rflags));
+  // FIXME: return_frame isn't put on the stack
 
   thread->m_context.rip = (uintptr_t)common_thread_entry;
   thread->m_context.rsp0 = thread->m_stack_top;
@@ -175,8 +163,10 @@ ANIVA_STATUS thread_prepare_context(thread_t* thread) {
 
 void switch_thread_context(thread_t* from, thread_t* to) {
 
-  Processor_t* current = g_GlobalSystemInfo.m_current_core;
-  
+  ASSERT(from->m_current_state == RUNNING && to->m_current_state == RUNNABLE);
+
+  Processor_t* current = get_current_processor();
+
   asm volatile (
     "pushfq \n"
     "pushq %%rbx \n"
@@ -192,7 +182,6 @@ void switch_thread_context(thread_t* from, thread_t* to) {
     "pushq %%r13 \n"
     "pushq %%r14 \n"
     "pushq %%r15 \n"
-    // restore from_thread stuff
     "movq %%rsp, %[from_rsp] \n"
     "leaq 1f(%%rip), %%rbx \n"
     "movq %%rbx, %[from_rip] \n"
@@ -245,44 +234,32 @@ void switch_thread_context(thread_t* from, thread_t* to) {
 }
 
 extern void first_ctx_init(thread_t* from, thread_t* to, registers_t* regs) {
-  
   println("Context switch!");
-  /*
-  println(to_string(to->m_cpu));
-  // FIXME: returning results in crash
-  uintptr_t next_stack = 0;
-  asm ("movq %%rsp, %0" : "=m"(next_stack));
-  asm ("movq $16368, %%rsp" :::);
 
-  println(to_string(sizeof(registers_t)));
-
-  Processor_t* current = g_GlobalSystemInfo.m_current_core;
-
-  println(to_string((uintptr_t)&exit_thread));
-  println(to_string(next_stack));
-  asm ("popq %0" : "=m"(next_stack));
-  println(to_string(next_stack));
-
-  FuncPtr ptr = (FuncPtr)next_stack;
-  */
-  // FIXME: exit_thread seems to be on the stack, but it just gets ignored?
-  // what is going on here
-  //ptr();
-
-  //kernel_panic("TRIED TO RETURN FROM first_ctx_init");
+  asm volatile (
+    "pushq %0\n"
+		"pushq %1\n"
+		"pushq %2\n"
+		"pushq %3\n"
+		"pushq %4\n"
+		"iretq"
+	: : "m"(regs->ss), "m"(regs->rsp), "m"(regs->rflags), "m"(regs->cs), "m"(regs->rip)
+  );
 }
 
 extern void thread_exit_init_state(thread_t* from, thread_t* to, registers_t* regs) {
   // TODO: diagnostics
+
+
+  kernel_panic("test");
 }
 
-__attribute__((naked)) void common_thread_entry(void) {
+__attribute__((naked)) void common_thread_entry() {
   asm (
       "popq %rdi \n"
       "popq %rsi \n"
       "popq %rdx \n"
       "cld \n"
-      "call first_ctx_init \n"
-      "jmp thread_exit_init_state"
+      "jmp first_ctx_init \n"
     );
 }

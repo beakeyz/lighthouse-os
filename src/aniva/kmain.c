@@ -65,7 +65,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
 
   init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
-
   g_GlobalSystemInfo.m_multiboot_addr = (uintptr_t)kmem_kernel_alloc((uintptr_t)mb_addr, g_GlobalSystemInfo.m_total_multiboot_size + 8, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
   struct multiboot_tag_framebuffer *fb = get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 

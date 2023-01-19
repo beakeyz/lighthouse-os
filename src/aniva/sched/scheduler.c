@@ -29,9 +29,9 @@ ANIVA_STATUS init_scheduler() {
 
   thread_t* thread = proc_ptr->m_idle_thread;
 
-  list_append(g_GlobalSystemInfo.m_current_core->m_processes, proc_ptr);
-  g_GlobalSystemInfo.m_current_core->m_current_thread = thread;
-  g_GlobalSystemInfo.m_current_core->m_root_thread = thread;
+  list_append(get_current_processor()->m_processes, proc_ptr);
+  get_current_processor()->m_current_thread = thread;
+  get_current_processor()->m_root_thread = thread;
 
   return ANIVA_FAIL;
 }
@@ -39,7 +39,7 @@ ANIVA_STATUS init_scheduler() {
 void enter_scheduler() {
 
   disable_interupts();
-  Processor_t* current = g_GlobalSystemInfo.m_current_core;
+  Processor_t* current = get_current_processor();
   proc_t* proc_ptr = list_get(current->m_processes, 0);
 
   ASSERT(proc_ptr != nullptr);
@@ -64,18 +64,12 @@ void enter_scheduler() {
   current->m_tss.rsp0l = context.rsp0 & 0xffffffff;
   current->m_tss.rsp0h = context.rsp0 >> 32;
 
-  print("rsp pre-jump: ");
-  println(to_string(context.rsp));
-
   asm volatile (
     "movq %[_rsp], %%rsp \n"
     "pushq %[thread] \n"
     "pushq %[thread] \n"
     "pushq %[_rip] \n"
     "cld \n"
-    "movq %[cpu_id], %%rdi \n"
-    "call sched_on_cpu_enter \n" // hook
-    "movq 24(%%rsp), %%rdi \n"
     "retq \n"
     ::  [_rsp] "g" (context.rsp),
         [_rip] "a" (context.rip),
@@ -98,13 +92,13 @@ extern ALWAYS_INLINE void sched_on_cpu_enter(uint32_t cpu_num) {
 }
 
 void scheduler_cleanup() {
-  Processor_t* current = g_GlobalSystemInfo.m_current_core;
+  Processor_t* current = get_current_processor();
 
   current->m_being_handled_by_scheduler = false;
 }
 
 ANIVA_STATUS sched_switch_context_to(thread_t* thread) {
-  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+  Processor_t* current_processor = get_current_processor();
   thread_t* from = current_processor->m_current_thread;
 
   ASSERT(from != nullptr);
@@ -133,14 +127,14 @@ ANIVA_STATUS sched_switch_context_to(thread_t* thread) {
 void sched_tick(registers_t*);
 
 thread_t* sched_next_thread() {
-  return g_GlobalSystemInfo.m_current_core->m_root_thread;
+  return get_current_processor()->m_root_thread;
 }
 proc_t* sched_next_proc() {
   return nullptr;
 }
 
 void sched_next() {
-  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+  Processor_t* current_processor = get_current_processor();
 
   if (!sched_has_next()) {
     kernel_panic("something went very wrong (scheduler)");
@@ -155,7 +149,7 @@ void sched_next() {
 }
 
 void sched_safe_next() {
-  Processor_t* current_processor = g_GlobalSystemInfo.m_current_core;
+  Processor_t* current_processor = get_current_processor();
 
   if (!current_processor->m_being_handled_by_scheduler && current_processor->m_current_thread != nullptr) {
     sched_next();

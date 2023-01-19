@@ -61,7 +61,7 @@ LDHARDFLAGS := -T $(LINK_PATH) 						\
 							 -z max-page-size=0x1000    \
 
 # TODO: this is messy, refactor this.
--include $(DPEND_FILES)
+# -include $(DPEND_FILES)
 $(OUT)/%.o: %.c 
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (c) $<"
