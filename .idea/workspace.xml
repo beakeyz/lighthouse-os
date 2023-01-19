@@ -10,20 +10,20 @@
     <generated />
   </component>
   <component name="CMakeSettings">
-    <configurations>
-      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
-    </configurations>
+    <configurations />
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/proc/context.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/context.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/interupts/control/interrupt_control.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/interupts/control/interrupt_control.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/interupts/interupts.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/interupts/interupts.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/core.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/kevent/core.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/eventregister.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/kevent/eventregister.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/stack.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/stack.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/sync/spinlock.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sync/spinlock.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
@@ -34,7 +34,9 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="ClangdSettings">
+    <option name="clangTidyViaClangd" value="false" />
     <option name="formatViaClangd" value="false" />
+    <option name="clangWarnings" value="-Wall" />
   </component>
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
@@ -98,7 +100,7 @@
     "cidr.known.project.marker": "true",
     "last_opened_file_path": "/home/joost/src/c/lighthouse-os/Makefile",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "editor.preferences.tabs",
+    "settings.editor.selected.configurable": "reference.settingsdialog.IDE.editor.colors.General",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -146,6 +148,7 @@
       <workItem from="1674064283121" duration="405000" />
       <workItem from="1674064695444" duration="85000" />
       <workItem from="1674064787271" duration="4292000" />
+      <workItem from="1674144888152" duration="3885000" />
     </task>
     <servers />
   </component>

@@ -1,5 +1,5 @@
-#ifndef __STDDEF__
-#define __STDDEF__
+#ifndef __ANIVA_STDDEF__
+#define __ANIVA_STDDEF__
 
 typedef signed              char    int8_t;
 typedef unsigned            char    uint8_t;

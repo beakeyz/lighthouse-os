@@ -13,6 +13,14 @@ list_t* init_list() {
   return ret;
 }
 
+void destroy_list(list_t* list) {
+  for (uintptr_t i = 0; i < list->m_length; i++) {
+    list_remove(list, i);
+  }
+  // yoink list
+  kfree(list);
+}
+
 void list_append(list_t *list, void *data) {
   node_t* node = kmalloc(sizeof(node_t));
   node->data = data;
@@ -80,6 +88,7 @@ bool list_remove(list_t* list, uint32_t index) {
 
       kfree(i->data);
       kfree(i);
+      list->m_length--;
       return true;
     }
     current_index++;

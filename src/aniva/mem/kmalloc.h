@@ -50,7 +50,7 @@ heap_node_t* merge_node_with_next (heap_node_t* ptr);
 heap_node_t* merge_node_with_prev (heap_node_t* ptr);
 // here we will check if they are mergable (aka next to eachother)
 heap_node_t* merge_nodes (heap_node_t* ptr1, heap_node_t* ptr2);
-bool try_merge (heap_node_t* node);
+heap_node_t* try_merge (heap_node_t* node);
 
 bool can_merge (heap_node_t* node1, heap_node_t* node2);
 
