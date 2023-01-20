@@ -20,8 +20,7 @@ void __test_event_handler(struct time_update_event_hook* hook) {
 void init_global_kevents() { // from "libk/kevent/core.h"
   init_event_registry();
 
-  register_global_kevent(TIME_UPDATE_EVENT, __test_event_handler);
-  register_global_kevent(TIME_UPDATE_EVENT, __test_event_handler);
+  // TODO: remove and add real init stuff
   register_global_kevent(TIME_UPDATE_EVENT, __test_event_handler);
 }
 
@@ -49,7 +48,7 @@ event_registry_t* create_registry(const char* name, bool kernel_registry) {
   return reg;
 }
 
-ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr callback) {
+ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr callback, EVENT_PRIORITY_t prio) {
   ASSERT(registry != nullptr);
 
   // TODO: check if given type matches callback type
@@ -57,13 +56,15 @@ ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr
   struct event* event = kmalloc(sizeof(struct event));
   event->m_callback = callback;
   event->m_type = type;
+  event->m_priority = prio;
 
   list_append(registry->m_registry, event);
   return ANIVA_SUCCESS;
 }
 
+// Kernel events are of high priority
 ANIVA_STATUS register_global_kevent(EVENT_TYPE type, FuncPtr callback) {
-  return register_event(s_kevent_registry, type, callback);
+  return register_event(s_kevent_registry, type, callback, EV_PR_HIGH);
 }
 
 void init_event_registry() {

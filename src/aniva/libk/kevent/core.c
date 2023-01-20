@@ -1,5 +1,6 @@
 #include "core.h"
 #include <libk/error.h>
+#include "dev/debug/serial.h"
 #include "eventhook.h"
 #include "libk/kevent/eventregister.h"
 #include "libk/linkedlist.h"
@@ -19,6 +20,7 @@ ALWAYS_INLINE void clean_temp_event_list(list_t* list) {
   kfree(list);
 }
 
+// TODO: sort based on priority
 ANIVA_STATUS call_event(EVENT_TYPE type, void* hook) {
 
   ASSERT(hook != nullptr);

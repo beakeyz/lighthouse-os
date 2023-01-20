@@ -8,10 +8,22 @@
 enum _ANIVA_STATUS;
 struct Processor;
 
-struct event {
+typedef uint32_t event_priority_t;
+
+typedef enum EVENT_PRIORITY {
+  EV_PR_LOWEST = 0,
+  EV_PR_LOW,
+  EV_PR_MID,
+  EV_PR_HIGH,
+  EV_PR_URGENT,
+  EV_PR_DEADLY
+} EVENT_PRIORITY_t;
+
+typedef struct event {
   EVENT_TYPE m_type;
   FuncPtr m_callback;
-};
+  EVENT_PRIORITY_t m_priority;
+} event_t;
 
 typedef struct event_registry {
   list_t* m_registry;
@@ -28,7 +40,7 @@ enum _ANIVA_STATUS destroy_registry_by_name(const char* name);
 
 list_t* get_registered_kevents_by_type(EVENT_TYPE type);
 
-enum _ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr callback);
+enum _ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr callback, EVENT_PRIORITY_t prio);
 enum _ANIVA_STATUS register_global_kevent(EVENT_TYPE type, FuncPtr callback);
 
 #endif

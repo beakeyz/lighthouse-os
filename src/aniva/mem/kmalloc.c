@@ -125,12 +125,17 @@ void kfree (void* addr) {
     if (node->flags == KHEAP_USED_FLAG) {
       node->flags = KHEAP_FREE_FLAG;
       // see if we can merge
-      if (try_merge(node) == nullptr) {
+      heap_node_t* n = try_merge(node);
+      if (n == nullptr) {
         // FUCKKKKK
         println("unable to merge nodes =/");
         //memset(addr, 0, node->size - sizeof(heap_node_t));
         return;
       }
+
+      println(to_string(n->size));
+      if (n->next)
+        try_merge(n->next);
       // FIXME: should we zero freed nodes?
       println("could merge!");
     }
@@ -233,6 +238,7 @@ heap_node_t* merge_node_with_next (heap_node_t* ptr) {
     heap_node_t* next_next = ptr->next->next;
     memset(ptr->next, 0, ptr->next->size);
 
+    next_next->prev = ptr;
     ptr->next = next_next;
     return ptr;
   }
@@ -243,7 +249,7 @@ heap_node_t* merge_node_with_prev (heap_node_t* ptr) {
     heap_node_t* prev = ptr->prev;
     prev->size += ptr->size;
     prev->next = ptr->next;
-    memset(ptr, 0, ptr->size);
+    //memset(ptr, 0, ptr->size);
     return prev;
   }
   return nullptr;
@@ -262,18 +268,13 @@ heap_node_t* merge_nodes (heap_node_t* ptr1, heap_node_t* ptr2) {
 }
 
 heap_node_t* try_merge(heap_node_t *node) {
-  println("try_merge call");
   heap_node_t* merged_node = merge_nodes(node, node->next);
   if (merged_node == nullptr) {
     merged_node = merge_nodes(node, node->prev);
   }
 
-  if (merged_node && (merged_node->next || merged_node->prev)) {
+  if (merged_node) {
     try_merge(merged_node);
-
-    if (merged_node == nullptr) {
-      println("yikes");
-    }
   }
 
   return merged_node;
