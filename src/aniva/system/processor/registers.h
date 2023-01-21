@@ -20,8 +20,7 @@ typedef struct registers {
   uintptr_t r14;
 	uintptr_t r15;
 
-	uint16_t isr_no, err_code;
-  uint32_t rsrv;
+	uintptr_t isr_no, err_code;
 
 	uintptr_t rip, cs, rflags, us_rsp, ss;
 } __attribute__((packed)) registers_t;

@@ -104,9 +104,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_stack_top;
 
-  println(to_string((uintptr_t)exit_thread));
   STACK_PUSH(rsp, uintptr_t, 0);
-  println(to_string(rsp));
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)exit_thread);
 
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
@@ -133,6 +131,8 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
 // we assume we are in this threads context
 void thread_save_context(thread_t* thread) {
+
+  thread_set_state(thread, RUNNABLE);
 
   uintptr_t rip = 0;
   uintptr_t rsp = 0;

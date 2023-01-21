@@ -86,6 +86,6 @@ void init_and_install_pit() {
 
 registers_t* pit_irq_handler(registers_t* regs) {
 
-  regs = sched_tick(regs);;
+  regs = sched_tick(regs);
   return regs;
 }

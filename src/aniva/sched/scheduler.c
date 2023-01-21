@@ -49,8 +49,19 @@ static void test_kernel_thread_func() {
     :: "memory"
     );
   println(to_string(rsp));
-}
 
+  for (;;) {}
+}
+static void test1_func() {
+  println("entering test1_func");
+
+  for (;;) {}
+}
+static void test2_func() {
+  println("entering test2_func");
+
+  for (;;) {}
+}
 
 ANIVA_STATUS init_scheduler() {
   disable_interrupts();
@@ -60,6 +71,15 @@ ANIVA_STATUS init_scheduler() {
   s_sched_frames = init_list();
   s_sched_switch_lock = init_spinlock();
   proc_t *kproc = create_kernel_proc(test_kernel_thread_func);
+
+  thread_t *test1 = create_thread(test1_func, NULL, "test1", true);
+  thread_t *test2 = create_thread(test2_func, NULL, "test2", true);
+
+  thread_prepare_context(test1);
+  thread_prepare_context(test2);
+
+  list_append(kproc->m_threads, test1);
+  list_append(kproc->m_threads, test2);
 
   // heap-allocate frame
   sched_frame_t *frame_ptr = create_sched_frame(kproc, LOW, 4);
@@ -92,12 +112,9 @@ void start_scheduler(void) {
   tss->rsp0l = context_ptr->rsp0 & 0xffffffff;
   tss->rsp0h = context_ptr->rsp0 >> 32;
 
-  thread_load_context(initial_thread);
-}
-
-void resume_scheduler(void) {
-  // yes, schedule
   atomic_ptr_write(s_no_schedule, false);
+
+  thread_load_context(initial_thread);
 }
 
 void pick_next_thread_scheduler(void) {
@@ -105,7 +122,7 @@ void pick_next_thread_scheduler(void) {
   sched_frame_t* frame = list_get(s_sched_frames, 0);
 
   // we should now either be in the kernel boot context, or in this mfs context
-  thread_t *prev_thread = list_get(frame->m_proc_to_schedule->m_threads, frame->m_scheduled_thread_index);
+  thread_t *prev_thread = s_current_thread_in_scheduler;
 
   thread_t *next_thread = pull_runnable_thread_sched_frame(frame);
 
@@ -147,12 +164,25 @@ ANIVA_STATUS pause_scheduler() {
   */
 
 exit:
-  unlock_spinlock(s_sched_switch_lock);
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return ANIVA_SUCCESS;
 }
 
+void resume_scheduler(void) {
+
+  // yes, schedule
+  unlock_spinlock(s_sched_switch_lock);
+  atomic_ptr_write(s_no_schedule, false);
+}
+
 void scheduler_cleanup() {
+
+  sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
+
+  thread_save_context(s_current_proc_in_scheduler->m_prev_thread);
+  thread_load_context(s_current_thread_in_scheduler);
+
+  kernel_panic("scheduler_cleanup");
 }
 
 ANIVA_STATUS sched_switch_context_to(thread_t *thread) {
@@ -182,11 +212,12 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
     current_thread->m_ticks_elapsed = 0;
     // we want to schedule a new thread at this point
-    println(to_string(current_thread->m_ticks_elapsed));
     pick_next_thread_scheduler();
-
-    println(s_current_thread_in_scheduler->m_name);
   }
+
+  resume_scheduler();
+
+  registers_ptr->rip = (uintptr_t)scheduler_cleanup;
 
   return registers_ptr;
 }
@@ -289,17 +320,13 @@ ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
     // fuck
     if (ptr->m_scheduled_thread_index >= ptr->m_max_async_task_threads ||
         ptr->m_scheduled_thread_index >= ptr->m_proc_to_schedule->m_requested_max_threads) {
-      println("reset");
-      println(to_string(ptr->m_scheduled_thread_index));
-      println(to_string(ptr->m_proc_to_schedule->m_requested_max_threads));
-      println(to_string(ptr->m_max_async_task_threads));
-
       ptr->m_scheduled_thread_index = 0;
     }
 
     // FIXME: wonky
     if (prev_sched_thread_idx == ptr->m_scheduled_thread_index) {
-      return nullptr;
+      //ptr->m_proc_to_schedule.
+      return ptr->m_proc_to_schedule->m_idle_thread;
     }
 
     // pull next thread

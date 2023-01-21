@@ -10,6 +10,7 @@
 #include "mem/kmalloc.h"
 #include "stubs.h"
 #include "system/asm_specifics.h"
+#include "sched/scheduler.h"
 
 // TODO: linked list for dynamic handler loading?
 static InterruptHandler_t *g_handlers[INTERRUPT_HANDLER_COUNT] = {NULL};
@@ -566,23 +567,23 @@ void remove_handler(const uint16_t int_num) {
 
 // main entrypoint for generinc interupts (from the asm)
 registers_t *interrupt_handler(registers_t *regs) {
-    // TODO: call _int_handler
+  // TODO: call _int_handler
 
-    const uint8_t int_num = regs->isr_no - 32;
-    InterruptHandler_t *handler = g_handlers[int_num];
+  const uint8_t int_num = regs->isr_no - 32;
+  InterruptHandler_t *handler = g_handlers[int_num];
 
-    // TODO: surpious n crap
-    if (handler && handler->m_is_registerd) {
+  // TODO: surpious n crap
+  if (handler && handler->m_is_registerd) {
 
-        // you never know lmao
-        if (handler->m_controller)
-          handler->m_controller->fInterruptEOI(regs->isr_no);
+      // you never know lmao
+      if (handler->m_controller)
+        handler->m_controller->fInterruptEOI(regs->isr_no);
 
-        handler->m_is_in_interrupt = true;
-        regs = handler->fHandler(regs);
-    }
+      handler->m_is_in_interrupt = true;
+      regs = handler->fHandler(regs);
+  }
 
-    return regs;
+  return regs;
 }
 
 void disable_interrupts() {
