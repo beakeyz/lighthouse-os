@@ -29,7 +29,7 @@ void unlock_spinlock(spinlock_t* lock) {
   release_spinlock(&lock->m_lock);
 }
 bool is_spinlock_locked(spinlock_t* lock) {
-  return lock->m_lock.m_cpu_num >= 0;
+  return lock->m_lock.m_cpu_num != -1;
 }
 
 /* __spinlock_t */

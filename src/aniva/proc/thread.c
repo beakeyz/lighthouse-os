@@ -25,6 +25,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   thread->m_parent_proc = nullptr;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = SCHED_DEFAULT_PROC_START_TICKS;
+  thread->m_has_been_scheduled = false;
 
   thread_set_state(thread, NO_CONTEXT);
 
@@ -124,28 +125,30 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r14);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r15);
 
-  thread->m_stack_top = rsp;
-
+  thread->m_context.rsp = rsp;
+  thread->m_context.rsp0 = thread->m_stack_top;
+  thread->m_context.cs = GDT_KERNEL_CODE;
   return ANIVA_FAIL;
 }
 
-// we assume we are in this threads context
-void thread_save_context(thread_t* thread) {
+void thread_switch_context(thread_t* from, thread_t* to, bool save_ctx) {
 
-  thread_set_state(thread, RUNNABLE);
+  if (!save_ctx)
+    goto load_ctx;
 
-  uintptr_t rip = 0;
-  uintptr_t rsp = 0;
+  print("Saving context of: ");
+  println(from->m_name);
+  thread_set_state(from, RUNNABLE);
 
   asm volatile (
     "pushfq \n"
-    "pushq %%rdi \n"
-    "pushq %%rsi \n"
-    "pushq %%rbp \n"
     "pushq %%rdx \n"
-    "pushq %%rcx \n"
     "pushq %%rbx \n"
+    "pushq %%rcx \n"
     "pushq %%rax \n"
+    "pushq %%rbp \n"
+    "pushq %%rsi \n"
+    "pushq %%rdi \n"
     "pushq %%r8 \n"
     "pushq %%r9 \n"
     "pushq %%r10 \n"
@@ -154,26 +157,22 @@ void thread_save_context(thread_t* thread) {
     "pushq %%r13 \n"
     "pushq %%r14 \n"
     "pushq %%r15 \n"
+    "movq %%rsp, %[old_rsp] \n"
     "leaq 1f(%%rip), %%rbx \n"
     "movq %%rbx, %[old_rip] \n"
-    "movq %%rsp, %[old_rsp] \n"
-    : [old_rip]"=m"(rip),
-      [old_rsp]"=m"(rsp)
+    : [old_rip]"=m"(from->m_context.rip),
+      [old_rsp]"=m"(from->m_context.rsp)
     :
     : "memory", "rbx"
-    );
+  );
+  save_fpu_state(&from->m_fpu_state);
 
-  thread->m_context.rsp = rsp;
-  thread->m_context.rip = rip;
-  thread->m_stack_top = rsp;
-  save_fpu_state(&thread->m_fpu_state);
-
-}
-void thread_load_context(thread_t* thread) {
+load_ctx:
+  print("Loading context of: ");
+  println(to->m_name);
+  to->m_has_been_scheduled = true;
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
-
-  store_fpu_state(&thread->m_fpu_state);
 
   asm volatile (
     "movq %[new_rsp], %%rbx \n"
@@ -195,27 +194,27 @@ void thread_load_context(thread_t* thread) {
     "popq %%r10 \n"
     "popq %%r9 \n"
     "popq %%r8 \n"
-    "popq %%rax \n"
-    "popq %%rbx \n"
-    "popq %%rcx \n"
-    "popq %%rdx \n"
-    "popq %%rbp \n"
-    "popq %%rsi \n"
     "popq %%rdi \n"
+    "popq %%rsi \n"
+    "popq %%rbp \n"
+    "popq %%rax \n"
+    "popq %%rcx \n"
+    "popq %%rbx \n"
+    "popq %%rdx \n"
     "popfq \n"
     :
     [tss_rsp0l]"=m"(tss_ptr->rsp0l),
     [tss_rsp0h]"=m"(tss_ptr->rsp0h),
-    "=d"(thread)
+      "=d"(to)
     :
-    [new_rsp]"g"(thread->m_stack_top),
-    [new_rip]"g"(thread->m_context.rip),
-    [thread]"d"(thread)
+    [new_rsp]"g"(to->m_context.rsp),
+    [new_rip]"g"(to->m_context.rip),
+    [thread]"d"(to)
     : "memory", "rbx"
   );
-  kernel_panic("hiekalfjds;fl");
-}
 
+  kernel_panic("returned from thread_load_context!");
+}
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) {
 

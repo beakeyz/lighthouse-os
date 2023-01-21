@@ -5,9 +5,9 @@ extern interrupt_handler
 %macro interrupt_asm_entry 1
 [global interrupt_asm_entry_%1]
 interrupt_asm_entry_%1:
-  
-  push 0x00
+
   push %1
+  push 0x00
 
   push r15
   push r14
@@ -21,7 +21,6 @@ interrupt_asm_entry_%1:
   push rbx
   push rcx
   push rdx
-  push rsp
   push rbp
   push rsi
   push rdi
@@ -35,7 +34,6 @@ interrupt_asm_entry_%1:
   pop rdi
   pop rsi
   pop rbp
-  pop rsp
   pop rdx
   pop rcx
   pop rbx

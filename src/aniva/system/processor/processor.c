@@ -5,10 +5,10 @@
 #include "system/msr.h"
 #include "mem/kmalloc.h"
 
+extern void _flush_gdt(uintptr_t gdtr);
+
 static ALWAYS_INLINE void processor_late_init(Processor_t *this) __attribute__((used));
-
 static ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry);
-
 static ALWAYS_INLINE void init_sse(Processor_t *processor);
 
 FpuState standard_fpu_state __attribute__((used));
@@ -101,7 +101,10 @@ void flush_gdt(Processor_t *processor) {
   // limit
   processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
 
-  asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
+  //asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
+
+
+  _flush_gdt((uintptr_t)&processor->m_gdtr);
 }
 
 ANIVA_STATUS init_gdt(Processor_t *processor) {

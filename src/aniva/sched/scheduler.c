@@ -6,12 +6,18 @@
 
 // how long this process takes to do it's shit
 enum SCHED_FRAME_USAGE_LEVEL {
-  SUPER_LOW,
+  SUPER_LOW = 0,
   LOW,
   MID,
   HIGH,
   SEVERE,
   MIGHT_BE_DEAD
+};
+
+enum SCHED_MODE {
+  WAITING_FOR_FIRST_TICK = 0,
+  SCHEDULING,
+  PAUSED,
 };
 
 typedef struct sched_frame {
@@ -29,6 +35,7 @@ static thread_t* s_current_thread_in_scheduler;
 static list_t* s_sched_frames;
 static spinlock_t* s_sched_switch_lock;
 static atomic_ptr_t *s_no_schedule;
+static enum SCHED_MODE s_sched_mode;
 
 // --- inline functions --- TODO: own file?
 static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads);
@@ -44,23 +51,42 @@ static void test_kernel_thread_func() {
 
   uintptr_t rsp;
   asm volatile (
-    "movq %%rsp, %0"
+    "movq %%rax, %0"
     : "=m"(rsp)
     :: "memory"
     );
+  print("test_ktf rax: ");
   println(to_string(rsp));
 
-  for (;;) {}
+  for (;;) {
+    print("a");
+  }
 }
 static void test1_func() {
   println("entering test1_func");
 
-  for (;;) {}
+  for (;;) {
+    print("b");
+  }
 }
 static void test2_func() {
   println("entering test2_func");
-
-  for (;;) {}
+  uintptr_t rsp;
+  asm volatile (
+    "movq %%rax, %0"
+    : "=m"(rsp)
+    :: "memory"
+    );
+  print("test2 rax: ");
+  println(to_string(rsp));
+  for (;;) {
+    asm volatile (
+      "movq %%rax, %0"
+      : "=m"(rsp)
+      :: "memory"
+      );
+    print(to_string(rsp));
+  }
 }
 
 ANIVA_STATUS init_scheduler() {
@@ -75,6 +101,8 @@ ANIVA_STATUS init_scheduler() {
   thread_t *test1 = create_thread(test1_func, NULL, "test1", true);
   thread_t *test2 = create_thread(test2_func, NULL, "test2", true);
 
+  println(to_string(test2->m_stack_top));
+
   thread_prepare_context(test1);
   thread_prepare_context(test2);
 
@@ -87,6 +115,7 @@ ANIVA_STATUS init_scheduler() {
   // push into the list
   push_sched_frame(frame_ptr);
 
+  s_sched_mode = PAUSED;
   s_current_proc_in_scheduler = kproc;
   s_current_thread_in_scheduler = list_get(kproc->m_threads, 0);
   return ANIVA_SUCCESS;
@@ -114,7 +143,14 @@ void start_scheduler(void) {
 
   atomic_ptr_write(s_no_schedule, false);
 
-  thread_load_context(initial_thread);
+  s_current_thread_in_scheduler = initial_thread;
+  s_current_proc_in_scheduler->m_prev_thread = initial_thread;
+
+  s_sched_mode = WAITING_FOR_FIRST_TICK;
+  //thread_load_context(initial_thread);
+  for (;;) {
+
+  }
 }
 
 void pick_next_thread_scheduler(void) {
@@ -136,6 +172,7 @@ void pick_next_thread_scheduler(void) {
 }
 
 ANIVA_STATUS pause_scheduler() {
+
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   lock_spinlock(s_sched_switch_lock);
 
@@ -177,10 +214,19 @@ void resume_scheduler(void) {
 
 void scheduler_cleanup() {
 
-  sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
+  uintptr_t rsp;
+  asm volatile (
+    "movq %%r8, %0"
+    : "=m"(rsp)
+    :: "memory"
+    );
+  print("sched_cleanup rax: ");
+  println(to_string(rsp));
 
-  thread_save_context(s_current_proc_in_scheduler->m_prev_thread);
-  thread_load_context(s_current_thread_in_scheduler);
+  enum SCHED_MODE prev_mode = s_sched_mode;
+  s_sched_mode = SCHEDULING;
+
+  thread_switch_context(s_current_proc_in_scheduler->m_prev_thread, s_current_thread_in_scheduler, prev_mode != WAITING_FOR_FIRST_TICK);
 
   kernel_panic("scheduler_cleanup");
 }
@@ -191,15 +237,18 @@ ANIVA_STATUS sched_switch_context_to(thread_t *thread) {
 
 registers_t *sched_tick(registers_t *registers_ptr) {
 
+  println("sched_tick");
+  enum SCHED_MODE prev_mode = s_sched_mode;
+
   if (atomic_ptr_load(s_no_schedule)) {
     return registers_ptr;
   }
-
   pause_scheduler();
 
   s_current_proc_in_scheduler->m_ticks_used++;
 
   thread_t *current_thread = s_current_thread_in_scheduler;
+  println("got in");
 
   if (current_thread == nullptr) {
     println("no initial thread!");
@@ -207,18 +256,20 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     return registers_ptr;
   }
 
-  current_thread->m_ticks_elapsed++;
+  if (prev_mode != WAITING_FOR_FIRST_TICK) {
+    current_thread->m_ticks_elapsed++;
 
-  if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
-    current_thread->m_ticks_elapsed = 0;
-    // we want to schedule a new thread at this point
-    pick_next_thread_scheduler();
+    if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
+      current_thread->m_ticks_elapsed = 0;
+      // we want to schedule a new thread at this point
+      pick_next_thread_scheduler();
+    }
   }
-
   resume_scheduler();
 
-  registers_ptr->rip = (uintptr_t)scheduler_cleanup;
+  println("returning");
 
+  registers_ptr->rip = (uintptr_t)scheduler_cleanup;
   return registers_ptr;
 }
 

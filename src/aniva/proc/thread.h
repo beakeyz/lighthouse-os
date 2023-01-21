@@ -30,6 +30,8 @@ typedef struct thread {
   uint32_t m_ticks_elapsed;
   uint32_t m_max_ticks;
 
+  bool m_has_been_scheduled;
+
   FpuState m_fpu_state;
 
   __attribute__((aligned(16))) uintptr_t m_stack_top;
@@ -46,8 +48,7 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
 extern void thread_enter_context(thread_t *to);
 
-void thread_save_context(thread_t* thread);
-void thread_load_context(thread_t* thread);
+void thread_switch_context(thread_t* from, thread_t* to, bool save_ctx);
 
 ANIVA_STATUS thread_prepare_context(thread_t *);
 
