@@ -11,9 +11,7 @@ atomic_ptr_t* create_atomic_ptr() {
 }
 
 uintptr_t atomic_ptr_load(atomic_ptr_t* ptr) {
-  uintptr_t* l = kmalloc(sizeof(uintptr_t));
   uintptr_t ret = atomicLoad_alt(&ptr->__lock);
-  kfree(l);
   return ret;
 }
 

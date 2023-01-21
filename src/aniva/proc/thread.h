@@ -37,7 +37,6 @@ typedef struct thread {
   ThreadState m_current_state;
 
   // allow nested context switches
-  struct thread *m_prev_thread;
   struct proc *m_parent_proc; // nullable
 
 } thread_t;

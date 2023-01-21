@@ -3,6 +3,7 @@
 #include "mem/kmalloc.h"
 #include "sync/atomic_ptr.h"
 
+// FIXME: make this wrapper actually useful
 spinlock_t* init_spinlock() {
   spinlock_t* lock = kmalloc(sizeof(spinlock_t));
 
@@ -11,7 +12,6 @@ spinlock_t* init_spinlock() {
   //lock->m_proc = get_current_processor()->m_root_thread->m_parent_proc;
 
   lock->m_lock = __init_spinlock();
-
   return lock;
 }
 
@@ -20,13 +20,16 @@ void lock_spinlock(spinlock_t* lock) {
   uintptr_t j = atomic_ptr_load(current_processor->m_locked_level);
   atomic_ptr_write(current_processor->m_locked_level, j+1);
   // TODO: lock
+  aquire_spinlock(&lock->m_lock);
 }
 void unlock_spinlock(spinlock_t* lock) {
-
+  Processor_t* current_processor = get_current_processor();
+  uintptr_t j = atomic_ptr_load(current_processor->m_locked_level);
+  atomic_ptr_write(current_processor->m_locked_level, j-1);
+  release_spinlock(&lock->m_lock);
 }
 bool is_spinlock_locked(spinlock_t* lock) {
-
-  return false;
+  return lock->m_lock.m_cpu_num >= 0;
 }
 
 /* __spinlock_t */
@@ -43,7 +46,7 @@ __spinlock_t __init_spinlock() {
 void aquire_spinlock(__spinlock_t* lock)
 {
   while (__sync_lock_test_and_set(lock->m_latch, 0x01));
-  lock->m_cpu_num = get_current_processor()->m_cpu_num; // TODO: fix
+  lock->m_cpu_num = (int)get_current_processor()->m_cpu_num;
   lock->m_func = __func__;
 }
 

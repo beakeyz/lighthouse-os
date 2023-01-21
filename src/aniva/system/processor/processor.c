@@ -3,6 +3,7 @@
 #include "kmain.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
+#include "mem/kmalloc.h"
 
 static ALWAYS_INLINE void processor_late_init(Processor_t *this) __attribute__((used));
 
@@ -151,7 +152,6 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
 
   // load task regs
   __ltr(GDT_TSS_SEL);
-
 
   return ANIVA_SUCCESS;
 }

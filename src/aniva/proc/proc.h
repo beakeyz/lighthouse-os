@@ -3,9 +3,10 @@
 
 #include "libk/error.h"
 #include "libk/linkedlist.h"
-#include "proc/thread.h"
 
 typedef size_t proc_id;
+
+struct thread;
 
 typedef struct proc {
   char m_name[32];
@@ -13,7 +14,8 @@ typedef struct proc {
 
   list_t* m_threads;
 
-  thread_t* m_idle_thread;
+  struct thread* m_idle_thread;
+  struct thread* m_prev_thread;
 
   size_t m_ticks_used;
   size_t m_requested_max_threads;

@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "libk/io.h"
 #include "time/core.h"
+#include "sched/scheduler.h"
 
 #define PIT_BASE_FREQ 1193182
 
@@ -81,11 +82,10 @@ void init_and_install_pit() {
   }
 
   reset_pit(RATE);
-
 }
 
 registers_t* pit_irq_handler(registers_t* regs) {
 
-  print("hi");
+  regs = sched_tick(regs);;
   return regs;
 }

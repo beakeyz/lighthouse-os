@@ -574,12 +574,12 @@ registers_t *interrupt_handler(registers_t *regs) {
     // TODO: surpious n crap
     if (handler && handler->m_is_registerd) {
 
-        handler->m_is_in_interrupt = true;
-        handler->fHandler(regs);
-
         // you never know lmao
         if (handler->m_controller)
-            handler->m_controller->fInterruptEOI(regs->isr_no);
+          handler->m_controller->fInterruptEOI(regs->isr_no);
+
+        handler->m_is_in_interrupt = true;
+        regs = handler->fHandler(regs);
     }
 
     return regs;
