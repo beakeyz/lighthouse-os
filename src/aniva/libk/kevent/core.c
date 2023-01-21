@@ -56,6 +56,10 @@ ANIVA_STATUS call_event(EVENT_TYPE type, void* hook) {
       CALL_EVENTS(struct thread_signal_event_hook, T_SIG_EVENT_CALLBACK);
       break;
     }
+    case CONTEXT_SWITCH_EVENT: {
+      CALL_EVENTS(struct context_switch_event_hook, C_SWTCH_EVENT_CALLBACK);
+      break;
+    }
   }
 
 #undef CALL_EVENTS
@@ -83,6 +87,13 @@ struct sched_exit_event_hook create_sched_exit_event_hook() {
 }
 struct thread_signal_event_hook create_thread_signal_event_hook(struct thread* thread) {
   struct thread_signal_event_hook ret = {
+    .thread = thread,
+  };
+  return ret;
+}
+
+struct context_switch_event_hook create_context_switch_event_hook(struct thread *thread) {
+  struct context_switch_event_hook ret = {
     .thread = thread,
   };
   return ret;

@@ -28,7 +28,7 @@ static proc_t* s_current_proc_in_scheduler;
 static thread_t* s_current_thread_in_scheduler;
 static list_t* s_sched_frames;
 static spinlock_t* s_sched_switch_lock;
-static bool s_no_schedule;
+static atomic_ptr_t *s_no_schedule;
 
 // --- inline functions --- TODO: own file?
 static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads);
@@ -41,10 +41,22 @@ static ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* p
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func() {
   println("entering test_kernel_thread_func");
+
+  uintptr_t rsp;
+  asm volatile (
+    "movq %%rsp, %0"
+    : "=m"(rsp)
+    :: "memory"
+    );
+  println(to_string(rsp));
 }
 
 
 ANIVA_STATUS init_scheduler() {
+  disable_interrupts();
+  s_no_schedule = create_atomic_ptr();
+  atomic_ptr_write(s_no_schedule, true);
+
   s_sched_frames = init_list();
   s_sched_switch_lock = init_spinlock();
   proc_t *kproc = create_kernel_proc(test_kernel_thread_func);
@@ -71,7 +83,7 @@ void start_scheduler(void) {
   // first switch to kernel thread until we are done with that thread.
   // after that mark the process as idle and start up other processes to
   // init further. these processes can be preempted
-  thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_idle_thread;
+  thread_t *initial_thread = list_get(frame_ptr->m_proc_to_schedule->m_threads, 0);
 
   kContext_t *context_ptr = &initial_thread->m_context;
 
@@ -80,11 +92,12 @@ void start_scheduler(void) {
   tss->rsp0l = context_ptr->rsp0 & 0xffffffff;
   tss->rsp0h = context_ptr->rsp0 >> 32;
 
+  thread_load_context(initial_thread);
 }
 
 void resume_scheduler(void) {
   // yes, schedule
-  s_no_schedule = false;
+  atomic_ptr_write(s_no_schedule, false);
 }
 
 void pick_next_thread_scheduler(void) {
@@ -109,7 +122,7 @@ ANIVA_STATUS pause_scheduler() {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   lock_spinlock(s_sched_switch_lock);
 
-  s_no_schedule = true;
+  atomic_ptr_write(s_no_schedule, true);
 
   // peek first sched frame
   sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
@@ -147,6 +160,11 @@ ANIVA_STATUS sched_switch_context_to(thread_t *thread) {
 }
 
 registers_t *sched_tick(registers_t *registers_ptr) {
+
+  if (atomic_ptr_load(s_no_schedule)) {
+    return registers_ptr;
+  }
+
   pause_scheduler();
 
   s_current_proc_in_scheduler->m_ticks_used++;
@@ -156,7 +174,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   if (current_thread == nullptr) {
     println("no initial thread!");
     pick_next_thread_scheduler();
-    return nullptr;
+    return registers_ptr;
   }
 
   current_thread->m_ticks_elapsed++;

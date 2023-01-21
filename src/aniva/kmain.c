@@ -99,7 +99,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   start_scheduler();
 
-  enable_interrupts();
+  //enable_interrupts();
   // For a context switch:
   //  - discard kernel boot stack
   //  - make new proc context

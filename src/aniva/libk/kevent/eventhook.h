@@ -18,4 +18,8 @@ struct thread_signal_event_hook {
   struct thread* thread;
 };
 
+struct context_switch_event_hook {
+  struct thread* thread;
+};
+
 #endif // !__ANIVA_EVENTHOOK__

@@ -5,7 +5,7 @@
 #include "proc/thread.h"
 #include "system/processor/registers.h"
 
-#define SCHED_DEFAULT_PROC_START_TICKS 10
+#define SCHED_DEFAULT_PROC_START_TICKS 1
 
 /* initialization */
 ANIVA_STATUS init_scheduler();

@@ -40,7 +40,7 @@ typedef struct Processor {
 
   void *m_stack_start;
 
-  PagingComplex_t m_page_dir;
+  PagingComplex_t* m_page_dir;
   // TODO: cpu info (features, bitwidth, vendorID, ect.)
   struct ProcessorInfo m_info;
 

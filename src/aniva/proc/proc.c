@@ -6,7 +6,6 @@
 void generic_proc_idle () {
   println("Entered generic_proc_idle");
   for (;;) {
-    print("h");
   }
 }
 

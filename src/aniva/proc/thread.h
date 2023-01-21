@@ -44,9 +44,10 @@ typedef struct thread {
 thread_t *create_thread(FuncPtr, uintptr_t, char[32], bool); // make this sucka
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
-extern void thread_enter_context(thread_t *from, thread_t *to);
+extern void thread_enter_context(thread_t *to);
 
-void switch_thread_context(thread_t *from, thread_t *to);
+void thread_save_context(thread_t* thread);
+void thread_load_context(thread_t* thread);
 
 ANIVA_STATUS thread_prepare_context(thread_t *);
 
