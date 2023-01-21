@@ -7,26 +7,58 @@
   &quot;useNewFormat&quot;: true
 }</component>
   <component name="CMakeRunConfigurationManager">
-    <generated />
+    <generated>
+      <config projectName="lighthouse-os" targetName="run" />
+      <config projectName="lighthouse-os" targetName="Makefile" />
+      <config projectName="lighthouse-os" targetName="check-multiboot2" />
+      <config projectName="lighthouse-os" targetName="build" />
+      <config projectName="lighthouse-os" targetName="debug" />
+      <config projectName="lighthouse-os" targetName="iso" />
+      <config projectName="lighthouse-os" targetName="check-multiboot" />
+    </generated>
   </component>
   <component name="CMakeSettings">
     <configurations />
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/aniva/libk/vector.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/libk/vector.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/interupts/control/interrupt_control.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/interupts/control/interrupt_control.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/interupts/control/pic.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/interupts/control/pic.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/interupts/interupts.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/interupts/interupts.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/interupts/interupts.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/interupts/interupts.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/error.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/error.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/error.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/error.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/io.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/io.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/core.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/kevent/core.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/eventhook.c" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/eventregister.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/kevent/eventregister.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/libk/stack.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/stack.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/general_event.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/general_event.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/logging.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/kevent/logging.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/linkedlist.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/linkedlist.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/linkedlist.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/linkedlist.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/string.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/string.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/tree.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/tree.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/tree.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/tree.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/context.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/context.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/proc.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/proc.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/proc.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/proc.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/time/pit.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/time/pit.c" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -74,9 +106,6 @@
       </map>
     </option>
   </component>
-  <component name="MakefilesProjectLoadingState">
-    <option name="doClean" value="false" />
-  </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -86,6 +115,9 @@
     <option name="minorVersion" value="2.3" />
   </component>
   <component name="ProjectId" id="2FYKeE3DLA0GYoRUbBBFmCLMtA8" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -98,13 +130,54 @@
     "WebServerToolWindowFactoryState": "false",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "last_opened_file_path": "/home/joost/src/c/lighthouse-os/Makefile",
+    "last_opened_file_path": "/home/joost/src/c/lighthouse-os",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "reference.settingsdialog.IDE.editor.colors.General",
+    "settings.build.tools.auto.reload": "SELECTIVE",
+    "settings.editor.selected.configurable": "build.tools",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RunManager" selected="Makefile Target.debug">
+    <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="build" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="build" CONFIG_NAME="build" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="check-multiboot" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="check-multiboot" CONFIG_NAME="check-multiboot" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="check-multiboot2" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="check-multiboot2" CONFIG_NAME="check-multiboot2" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="debug" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="debug" CONFIG_NAME="debug" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="iso" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="iso" CONFIG_NAME="iso" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="run" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="run" CONFIG_NAME="run" version="1">
+      <method v="2">
+        <option name="CLION.COMPOUND.BUILD" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="build" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile">
       <makefile filename="$PROJECT_DIR$/Makefile" target="build" workingDirectory="" arguments="">
         <envs />
@@ -124,6 +197,13 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Makefile Application.build" />
+      <item itemvalue="Makefile Application.check-multiboot" />
+      <item itemvalue="Makefile Application.check-multiboot2" />
+      <item itemvalue="Makefile Application.debug" />
+      <item itemvalue="Makefile Application.iso" />
+      <item itemvalue="Makefile Application.run" />
+      <item itemvalue="Makefile Application.Makefile" />
       <item itemvalue="Makefile Target.build" />
       <item itemvalue="Makefile Target.clean-build" />
       <item itemvalue="Makefile Target.debug" />
@@ -149,6 +229,12 @@
       <workItem from="1674064695444" duration="85000" />
       <workItem from="1674064787271" duration="4292000" />
       <workItem from="1674144888152" duration="3885000" />
+      <workItem from="1674241668443" duration="125000" />
+      <workItem from="1674241900419" duration="125000" />
+      <workItem from="1674242153443" duration="110000" />
+      <workItem from="1674242264880" duration="66000" />
+      <workItem from="1674242337321" duration="84000" />
+      <workItem from="1674244622042" duration="16551000" />
     </task>
     <servers />
   </component>

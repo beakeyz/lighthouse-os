@@ -1,6 +1,5 @@
 #ifndef __ANIVA_ERROR_WRAPPER__
 #define __ANIVA_ERROR_WRAPPER__
-#include "mem/kmalloc.h"
 #include <libk/stddef.h>
 #include <interupts/interupts.h>
 

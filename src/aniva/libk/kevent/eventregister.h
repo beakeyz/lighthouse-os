@@ -5,7 +5,6 @@
 
 #define ANIVA_EVENT_REGISTRY_NAME "Aniva Event Registry"
 
-enum _ANIVA_STATUS;
 struct Processor;
 
 typedef uint32_t event_priority_t;
@@ -34,13 +33,17 @@ typedef struct event_registry {
 } event_registry_t;
 
 void init_event_registry();
+
 event_registry_t* create_registry(const char* name, bool kernel_registry);
-enum _ANIVA_STATUS destroy_registry(event_registry_t* registry);
-enum _ANIVA_STATUS destroy_registry_by_name(const char* name);
+
+ANIVA_STATUS destroy_registry(event_registry_t* registry);
+
+ANIVA_STATUS destroy_registry_by_name(const char* name);
 
 list_t* get_registered_kevents_by_type(EVENT_TYPE type);
 
-enum _ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr callback, EVENT_PRIORITY_t prio);
-enum _ANIVA_STATUS register_global_kevent(EVENT_TYPE type, FuncPtr callback);
+ANIVA_STATUS register_event(event_registry_t* registry, EVENT_TYPE type, FuncPtr callback, EVENT_PRIORITY_t prio);
+
+ANIVA_STATUS register_global_kevent(EVENT_TYPE type, FuncPtr callback);
 
 #endif

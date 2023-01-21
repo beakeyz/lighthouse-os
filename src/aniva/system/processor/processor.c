@@ -13,175 +13,172 @@ static ALWAYS_INLINE void init_sse(Processor_t *processor);
 FpuState standard_fpu_state __attribute__((used));
 
 ProcessorInfo_t processor_gather_info() {
-    ProcessorInfo_t ret = {};
-    // TODO:
-    return ret;
+  ProcessorInfo_t ret = {};
+  // TODO:
+  return ret;
 }
 
 // Should not be used to initialize bsp
 Processor_t *create_processor(uint32_t num) {
-    Processor_t * ret = kmalloc(sizeof(Processor_t));
-    ret->m_cpu_num = num;
-    ret->fLateInit = processor_late_init;
-    return ret;
+  Processor_t * ret = kmalloc(sizeof(Processor_t));
+  ret->m_cpu_num = num;
+  ret->fLateInit = processor_late_init;
+  return ret;
 }
 
 ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
-    processor->m_own_ptr = processor;
-    processor->m_cpu_num = cpu_num;
-    processor->m_irq_depth = 0;
-    processor->fLateInit = processor_late_init;
-    atomic_ptr_write(processor->m_vital_task_depth, 0);
+  processor->m_own_ptr = processor;
+  processor->m_cpu_num = cpu_num;
+  processor->m_irq_depth = 0;
+  processor->fLateInit = processor_late_init;
+  atomic_ptr_write(processor->m_vital_task_depth, 0);
 
-    // setup hardware (should not need anything in the Processor_t struct besides capabilities)
-    // TODO: fpu, sse, mmx, xmm, tlb
-    init_sse(processor);
+  // setup hardware (should not need anything in the Processor_t struct besides capabilities)
+  // TODO: fpu, sse, mmx, xmm, tlb
+  init_sse(processor);
 
-    // TODO: setup cpu capabilities
+  // TODO: setup cpu capabilities
 
-    // TODO: cpu event pipeline and deferred calls
+  // TODO: cpu event pipeline and deferred calls
 
-    // setup software
-    if (is_bsp(processor)) {
-        // TODO: do bsp shit
-    }
-    // TODO:
-    init_gdt(processor);
+  // setup software
+  if (is_bsp(processor)) {
+    // TODO: do bsp shit
+  }
+  // TODO:
+  init_gdt(processor);
 
-    // set msr base
-    wrmsr(MSR_GS_BASE, (uintptr_t)
-    processor);
-    return ANIVA_SUCCESS;
+  // set msr base
+  wrmsr(MSR_GS_BASE, (uintptr_t)
+  processor);
+  return ANIVA_SUCCESS;
 }
 
 ALWAYS_INLINE void processor_late_init(Processor_t *this) {
 
-    this->m_processes = init_list();
+  this->m_processes = init_list();
 
-    // TODO:
-    if (is_bsp(this)) {
-        init_int_control_management();
-        init_interupts();
+  // TODO:
+  if (is_bsp(this)) {
+    init_int_control_management();
+    init_interupts();
 
-        asm volatile ("fninit");
+    asm volatile ("fninit");
 
-        // FIXME: other save mechs?
-        save_fpu_state(&standard_fpu_state);
-    } else {
-        flush_idt();
-    }
+    // FIXME: other save mechs?
+    save_fpu_state(&standard_fpu_state);
+  } else {
+    flush_idt();
+  }
 }
 
 ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry) {
-    const uint16_t index = (selector & 0xfffc) >> 3;
-    const uint16_t gdt_length_at_index = (index + 1) * sizeof(gdt_entry_t);
-    const uint16_t current_limit = this->m_gdtr.limit;
+  const uint16_t index = (selector & 0xfffc) >> 3;
+  const uint16_t gdt_length_at_index = (index + 1) * sizeof(gdt_entry_t);
+  const uint16_t current_limit = this->m_gdtr.limit;
 
-    this->m_gdt[index].low = entry.low;
-    this->m_gdt[index].high = entry.high;
+  this->m_gdt[index].low = entry.low;
+  this->m_gdt[index].high = entry.high;
 
-    if (index >= this->m_gdt_highest_entry) {
-        this->m_gdt_highest_entry = index + 1;
-    }
+  if (index >= this->m_gdt_highest_entry) {
+    this->m_gdt_highest_entry = index + 1;
+  }
 }
 
 ALWAYS_INLINE void init_sse(Processor_t *processor) {
-    // check for feature
-    const uintptr_t orig_cr0 = read_cr0();
-    const uintptr_t orig_cr4 = read_cr4();
+  // check for feature
+  const uintptr_t orig_cr0 = read_cr0();
+  const uintptr_t orig_cr4 = read_cr4();
 
-    write_cr0((orig_cr0 & 0xfffffffbU) | 0x02);
-    write_cr4(orig_cr4 | 0x600);
+  write_cr0((orig_cr0 & 0xfffffffbU) | 0x02);
+  write_cr4(orig_cr4 | 0x600);
 }
 
 void flush_gdt(Processor_t *processor) {
-    // base
-    processor->m_gdtr.base = (uintptr_t) & processor->m_gdt[0];
-    // limit
-    processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
+  // base
+  processor->m_gdtr.base = (uintptr_t) & processor->m_gdt[0];
+  // limit
+  processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
 
-    asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
+  asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
 }
 
 ANIVA_STATUS init_gdt(Processor_t *processor) {
 
-    processor->m_gdtr.limit = 0;
-    processor->m_gdtr.base = NULL;
+  processor->m_gdtr.limit = 0;
+  processor->m_gdtr.base = NULL;
 
-    gdt_entry_t null = {0};
-    gdt_entry_t ring0_code = {
-            .low = 0x0000ffff,
-            .high = 0x00af9a00,
-    };
-    gdt_entry_t ring0_data = {
-            .low = 0x0000ffff,
-            .high = 0x00af9200,
-    };
-    gdt_entry_t ring3_data = {
-            .low = 0x0000ffff,
-            .high = 0x008ff200,
-    };
-    gdt_entry_t ring3_code = {
-            .low = 0x0000ffff,
-            .high = 0x00affa00,
-    };
-    write_to_gdt(processor, 0x0000, null);
-    write_to_gdt(processor, GDT_KERNEL_CODE, ring0_code);
-    write_to_gdt(processor, GDT_KERNEL_DATA, ring0_data);
-    write_to_gdt(processor, GDT_USER_DATA, ring3_data);
-    write_to_gdt(processor, GDT_USER_CODE, ring3_code);
+  gdt_entry_t null = {0};
+  gdt_entry_t ring0_code = {
+    .low = 0x0000ffff,
+    .high = 0x00af9a00,
+  };
+  gdt_entry_t ring0_data = {
+    .low = 0x0000ffff,
+    .high = 0x00af9200,
+  };
+  gdt_entry_t ring3_data = {
+    .low = 0x0000ffff,
+    .high = 0x008ff200,
+  };
+  gdt_entry_t ring3_code = {
+    .low = 0x0000ffff,
+    .high = 0x00affa00,
+  };
+  write_to_gdt(processor, 0x0000, null);
+  write_to_gdt(processor, GDT_KERNEL_CODE, ring0_code);
+  write_to_gdt(processor, GDT_KERNEL_DATA, ring0_data);
+  write_to_gdt(processor, GDT_USER_DATA, ring3_data);
+  write_to_gdt(processor, GDT_USER_CODE, ring3_code);
 
-    gdt_entry_t tss = {0};
-    set_gdte_base(&tss, ((uintptr_t) & processor->m_tss) & 0xffffffff);
-    set_gdte_limit(&tss, sizeof(tss_entry_t) - 1);
+  gdt_entry_t tss = {0};
+  set_gdte_base(&tss, ((uintptr_t) & processor->m_tss) & 0xffffffff);
+  set_gdte_limit(&tss, sizeof(tss_entry_t) - 1);
+  tss.structured.dpl = 0;
+  tss.structured.segment_present = 1;
+  tss.structured.granularity = 0;
+  tss.structured.op_size64 = 0;
+  tss.structured.op_size32 = 1;
+  tss.structured.descriptor_type = 0;
+  tss.structured.type = AVAILABLE_TSS;
+  write_to_gdt(processor, GDT_TSS_SEL, tss);
 
-    tss.structured.dpl = 0;
-    tss.structured.segment_present = 1;
-    tss.structured.granularity = 0;
-    tss.structured.op_size64 = 0;
-    tss.structured.op_size32 = 1;
-    tss.structured.descriptor_type = 0;
-    tss.structured.type = AVAILABLE_TSS;
-    write_to_gdt(processor, GDT_TSS_SEL, tss);
+  gdt_entry_t tss_2 = {0};
+  tss_2.low = (uintptr_t) & processor->m_tss >> 32;
+  write_to_gdt(processor, GDT_TSS_2_SEL, tss_2);
 
-    gdt_entry_t tss_2 = {0};
-    tss_2.low = (uintptr_t) & processor->m_tss >> 32;
-    write_to_gdt(processor, GDT_TSS_2_SEL, tss_2);
+  flush_gdt(processor);
 
-    flush_gdt(processor);
-
-    // load task regs
-    __ltr(GDT_TSS_SEL);
+  // load task regs
+  __ltr(GDT_TSS_SEL);
 
 
-    return ANIVA_SUCCESS;
+  return ANIVA_SUCCESS;
 }
 
 bool is_bsp(Processor_t *processor) {
-    return (processor->m_cpu_num == 0);
+  return (processor->m_cpu_num == 0);
 }
 
 void set_bsp(Processor_t *processor) {
-    if (processor != nullptr) {
-        g_GlobalSystemInfo.m_bsp_processor = *processor;
-    } else {
-        println("[[WARNING]] null passed to set_bsp");
-    }
-    // FIXME: uhm, what to do when this passess null?
+  if (processor != nullptr) {
+    g_GlobalSystemInfo.m_bsp_processor = *processor;
+  } else {
+    println("[[WARNING]] null passed to set_bsp");
+  }
+  // FIXME: uhm, what to do when this passess null?
 }
 
 ANIVA_STATUS init_processor_ctx(Processor_t *processor, thread_t *t) {
 
-    // are we in kernel mode?
+  // are we in kernel mode?
 
-    uintptr_t _kstack_top = t->m_stack_top;
-
-
-    return ANIVA_SUCCESS;
+  uintptr_t _kstack_top = t->m_stack_top;
+  return ANIVA_SUCCESS;
 }
 
 ANIVA_STATUS init_processor_dynamic_ctx(Processor_t *processor, thread_t *t) {
 
 
-    return ANIVA_SUCCESS;
+  return ANIVA_SUCCESS;
 }

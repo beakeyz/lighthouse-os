@@ -45,8 +45,18 @@ registers_t* interrupt_handler (struct registers* regs);
 // ack (this should prob be specific to the chip we use lol)
 // extern void interupt_acknowledge (int num);
 
-void disable_interupts ();
-void enable_interupts ();
+void disable_interrupts();
+void enable_interrupts ();
+
+// hopefully this does not get used anywhere else ;-;
+#define CHECK_AND_DO_DISABLE_INTERRUPTS()               \
+  bool ___were_enabled_x = ((get_eflags() & 0x200) != 0); \
+  disable_interrupts()                                 
+
+#define CHECK_AND_TRY_ENABLE_INTERRUPTS()               \
+  if (___were_enabled_x) {                              \
+    enable_interrupts();                               \
+  }
 
 #endif // !__INTERUPTS__
 

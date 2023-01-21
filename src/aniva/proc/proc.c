@@ -1,27 +1,28 @@
 #include "proc.h"
-#include "kmain.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
 #include <libk/string.h>
-#include "libk/stddef.h"
-#include "mem/kmalloc.h"
-#include "mem/kmem_manager.h"
-#include "proc/context.h"
-#include "proc/thread.h"
+
+void generic_proc_idle () {
+  for (;;) {}
+}
+
+proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args) {
+  proc_t *proc = kmalloc(sizeof(proc_t));
+  proc->m_id = id;
+  proc->m_idle_thread = create_thread(generic_proc_idle, NULL, "idle", (id == 0));
+  proc->m_threads = init_list();
+  list_append(proc->m_threads, create_thread(entry, args, "First thread", (id == 0)));
+
+  strcpy(proc->m_name, name);
+
+  if (id != 0) {
+    proc->m_requested_max_threads = 2;
+    proc->m_prevent_scheduling = true;
+  } else {
+    proc->m_prevent_scheduling = false;
+    proc->m_prevent_scheduling = 52;
+  }
+}
 
 proc_t* create_kernel_proc (FuncPtr entry) {
-  proc_t* proc = kmalloc(sizeof(proc_t));
-  proc->m_threads = init_list();
-
-  proc->m_id = 0;
-  const char* proc_name = "[Aniva root]";
-  memcpy(proc->m_name, proc_name, strlen(proc_name) + 1);
-
-  thread_t* t = create_thread(entry, NULL, "[Aniva]", true);
-
-  proc->m_idle_thread = t;
-
-  proc->m_ticks_used = 0;
-
-  return proc;
+  return create_proc("[aniva_core]", 0, entry, NULL);
 }

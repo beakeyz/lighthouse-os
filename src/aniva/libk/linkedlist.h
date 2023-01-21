@@ -1,5 +1,6 @@
-#ifndef __LINKEDLIST__
-#define __LINKEDLIST__
+#ifndef __ANIVA_LINKEDLIST__
+#define __ANIVA_LINKEDLIST__
+
 #include <libk/stddef.h>
 
 typedef struct node {
@@ -31,6 +32,7 @@ typedef struct list {
 list_t* init_list ();
 void destroy_list(list_t*);
 void list_append(list_t*, void*);
+void list_prepend(list_t *list, void *data);
 void list_append_before(list_t*, void*, uint32_t);
 bool list_remove(list_t*, uint32_t); // I would like to return this entry, but its kinda hard when you need to kfree a bunch of shit
 void* list_get(list_t*, uint32_t);

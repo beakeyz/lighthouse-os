@@ -582,7 +582,7 @@ static inline void _init_kmem_page_layout () {
 
 static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
   if (__disable_interupts) 
-    disable_interupts();
+    disable_interrupts();
 
   ASSERT(get_current_processor() != nullptr);
   get_current_processor()->m_page_dir = *(PagingComplex_t*)dir;

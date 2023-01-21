@@ -1,5 +1,6 @@
 #ifndef __ANIVA_TREE__
 #define __ANIVA_TREE__
+
 #include "libk/linkedlist.h"
 #include "stddef.h"
 

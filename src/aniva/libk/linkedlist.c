@@ -37,6 +37,22 @@ void list_append(list_t *list, void *data) {
   list->end = node;
 }
 
+void list_prepend(list_t *list, void *data) {
+  node_t* node = kmalloc(sizeof(node_t));
+  node->data = data;
+  list->m_length++;
+
+  if (list->head == nullptr || list->end == nullptr) {
+    list->head = node;
+    list->end = node;
+    return;
+  }
+
+  list->head->prev = node;
+  node->next = list->head;
+  list->head = node;
+}
+
 // TODO: fix naming
 void list_append_before(list_t *list, void *data, uint32_t index) {
   uint32_t loop_idx = 0;

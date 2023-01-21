@@ -33,27 +33,27 @@ KERNEL_OUT = $(OUT)/lightos.elf
 QEMUFLAGS := -m 1G -machine q35 -usb ./out/lightos.iso -d cpu_reset -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
-							-Wall 							\
-							-nostdlib						\
-        			-O2 								\
-        			-mno-sse 						\
-							-mno-sse2						\
-							-mno-mmx						\
-							-mno-80387					\
-							-mno-red-zone				\
-							-m64 								\
-							-march=x86-64           \
-							-mcmodel=large			\
-							-ffreestanding      \
-							-fno-stack-protector    \
-					    -fno-stack-check        \
-							-fshort-wchar           \
-							-fno-lto                \
-							-fpie                   \
-							-fno-exceptions 		\
-							-MMD								\
-							-I./src             \
-        			-I./src/aniva/			\
+-Wall 							\
+-nostdlib						\
+-O2 								\
+-mno-sse 						\
+-mno-sse2						\
+-mno-mmx						\
+-mno-80387					\
+-mno-red-zone				\
+-m64 								\
+-march=x86-64           \
+-mcmodel=large			\
+-ffreestanding      \
+-fno-stack-protector    \
+-fno-stack-check        \
+-fshort-wchar           \
+-fno-lto                \
+-fpie                   \
+-fno-exceptions 		\
+-MMD								\
+-I./src             \
+-I./src/aniva/			\
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := -T $(LINK_PATH) 						\
@@ -61,7 +61,7 @@ LDHARDFLAGS := -T $(LINK_PATH) 						\
 							 -z max-page-size=0x1000    \
 
 # TODO: this is messy, refactor this.
-# -include $(DPEND_FILES)
+-include $(DPEND_FILES)
 $(OUT)/%.o: %.c 
 	@$(DIRECTORY_GUARD)
 	@echo "[KERNEL $(ARCH)] (c) $<"

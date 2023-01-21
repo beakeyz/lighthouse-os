@@ -4,7 +4,7 @@
 #include "system/processor/gdt.h"
 #include <libk/stddef.h>
 
-#define EFLAGS_IF (1 << 21) | (1 << 9)
+#define EFLAGS_IF ((1 << 21) | (1 << 9))
 
 typedef struct {
   uintptr_t rdi;
@@ -42,8 +42,7 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, PagingComplex_t* root_table, ui
     regs.rsp = stack_top;
   }
   regs.rsp0 = stack_top;
-  regs.rflags = 0x0202;
-
+  regs.rflags = EFLAGS_IF;
   return regs;
 }
 

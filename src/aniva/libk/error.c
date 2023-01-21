@@ -6,7 +6,7 @@ NORETURN void __kernel_panic() {
   // dirty system halt
   for (;;) {
     disable_heap_expantion();
-    disable_interupts();
+    disable_interrupts();
     asm volatile ("cld");
     asm volatile ("hlt");
   }

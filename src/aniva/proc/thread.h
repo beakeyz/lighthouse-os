@@ -9,40 +9,41 @@
 #include <system/processor/registers.h>
 #include <libk/stddef.h>
 
-typedef enum {
-    INVALID = 0,
-    RUNNING,
-    RUNNABLE,
-    DYING,
-    DEAD,
-    STOPPED,
-    BLOCKED,
-    NO_CONTEXT,
+typedef enum thread_state {
+  INVALID = 0,
+  RUNNING,
+  RUNNABLE,
+  DYING,
+  DEAD,
+  STOPPED,
+  BLOCKED,
+  NO_CONTEXT,
 } ThreadState;
 
 struct proc;
 
 typedef struct thread {
-    kContext_t m_context;
+  kContext_t m_context;
 
-    char m_name[32];
-    uint32_t m_cpu; // atomic?
-    uint32_t m_ticks_elapsed;
-    uint32_t m_max_ticks;
+  char m_name[32];
+  uint32_t m_cpu; // atomic?
+  uint32_t m_ticks_elapsed;
+  uint32_t m_max_ticks;
 
-    FpuState m_fpu_state;
+  FpuState m_fpu_state;
 
-    __attribute__((aligned(16))) uintptr_t m_stack_top;
+  __attribute__((aligned(16))) uintptr_t m_stack_top;
 
-    ThreadState m_current_state;
+  ThreadState m_current_state;
 
-    // allow nested context switches
-    struct thread *m_prev_thread;
-    struct proc *m_parent_proc; // nullable
+  // allow nested context switches
+  struct thread *m_prev_thread;
+  struct proc *m_parent_proc; // nullable
 
 } thread_t;
 
-thread_t *create_thread(FuncPtr, uintptr_t, const char *, bool); // make this sucka
+thread_t *create_thread(FuncPtr, uintptr_t, char[32], bool); // make this sucka
+void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
 extern void thread_enter_context(thread_t *from, thread_t *to);
 

@@ -35,7 +35,7 @@ ANIVA_STATUS set_pit_interrupt_handler() {
   bool success = add_handler(handler);
 
   if (success) {
-    //handler->m_controller->fControllerEnableVector(PIT_TIMER_INT_NUM);
+    handler->m_controller->fControllerEnableVector(PIT_TIMER_INT_NUM);
     return ANIVA_SUCCESS;
   }
 
@@ -44,13 +44,13 @@ ANIVA_STATUS set_pit_interrupt_handler() {
 }
 
 void set_pit_frequency(size_t freq, bool __enable_interupts) {
-  disable_interupts();
+  disable_interrupts();
   const size_t new_val = PIT_BASE_FREQ / freq;
   out8(T0_CTRL, new_val & 0xff);
   out8(T0_CTRL, (new_val >> 8) & 0xff);
 
   if (__enable_interupts)
-    enable_interupts();
+    enable_interrupts();
 }
 
 bool pit_frequency_capability(size_t freq) {
@@ -73,17 +73,15 @@ ALWAYS_INLINE void reset_pit (uint8_t mode) {
 }
 
 void init_and_install_pit() {
-  disable_interupts();
+  disable_interrupts();
 
   ANIVA_STATUS status = set_pit_interrupt_handler();
-
-  if (status == ANIVA_SUCCESS) {
-    println("YAEESESEKJFDS");
+  if (!status) {
+    return;
   }
 
   reset_pit(RATE);
 
-  enable_interupts();
 }
 
 registers_t* pit_irq_handler(registers_t* regs) {

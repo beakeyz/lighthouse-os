@@ -9,8 +9,8 @@
 ANIVA_STATUS init_scheduler();
 
 /* control */
-void enter_scheduler();
-ANIVA_STATUS exit_scheduler();
+void resume_scheduler(void);
+ANIVA_STATUS pause_scheduler();
 ANIVA_STATUS sched_switch_context_to(thread_t*);
 
 /* die */
@@ -29,6 +29,7 @@ void sched_next();
 void sched_safe_next();
 bool sched_has_next();
 void sched_first_switch_finished();
+
 
 ANIVA_STATUS sched_add_proc(proc_t*, proc_id);
 ANIVA_STATUS sched_add_thead(thread_t*);

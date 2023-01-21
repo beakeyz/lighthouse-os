@@ -516,50 +516,52 @@ void init_interupts() {
 
 // TODO: do stuff
 bool add_handler(InterruptHandler_t *handler_ptr) {
-    disable_interupts();
 
-    const uint16_t int_num = handler_ptr->m_int_num;
-    const InterruptHandler_t *handler = g_handlers[int_num];
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-    bool success = true;
+  const uint16_t int_num = handler_ptr->m_int_num;
+  const InterruptHandler_t *handler = g_handlers[int_num];
 
-    // this flow is kinda weird
-    // if we have a registered handler, we assume the caller knows this
-    // and thus we also assume the caller just want to replace the current
-    // handler. if there somehow is a unregistered handler, we just skip the
-    // opperation alltogether and let the caller know it failed...
-    if (handler) {
-        if (handler->m_is_registerd) {
-            remove_handler(int_num);
-        } else {
-            success = false;
-            goto skip_insert;
-        }
-    }
+  bool success = true;
 
-    insert_into_handlers(int_num, handler_ptr);
+  // this flow is kinda weird
+  // if we have a registered handler, we assume the caller knows this
+  // and thus we also assume the caller just want to replace the current
+  // handler. if there somehow is a unregistered handler, we just skip the
+  // opperation alltogether and let the caller know it failed...
+  if (handler) {
+      if (handler->m_is_registerd) {
+          remove_handler(int_num);
+      } else {
+          success = false;
+          goto skip_insert;
+      }
+  }
 
-// lil exit label
-    skip_insert:
-    enable_interupts();
-    return success;
+  insert_into_handlers(int_num, handler_ptr);
+
+  // lil exit label
+  skip_insert:
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
+  return success;
 }
 
 void remove_handler(const uint16_t int_num) {
-    disable_interupts();
 
-    InterruptHandler_t *handler = g_handlers[int_num];
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-    if (handler && handler->m_is_registerd) {
-        if (handler->m_is_in_interrupt) {
-            // hihi we tried to remove the handler while in an interrupt
-            handler->m_controller->fInterruptEOI(int_num + 32); // we need to have the irq_num lmao
-        }
-        kfree(handler);
-        g_handlers[int_num] = 0x00;
-    }
+  InterruptHandler_t *handler = g_handlers[int_num];
 
-    enable_interupts();
+  if (handler && handler->m_is_registerd) {
+      if (handler->m_is_in_interrupt) {
+          // hihi we tried to remove the handler while in an interrupt
+          handler->m_controller->fInterruptEOI(int_num + 32); // we need to have the irq_num lmao
+      }
+      kfree(handler);
+      g_handlers[int_num] = 0x00;
+  }
+
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
 // main entrypoint for generinc interupts (from the asm)
@@ -583,14 +585,14 @@ registers_t *interrupt_handler(registers_t *regs) {
     return regs;
 }
 
-void disable_interupts() {
+void disable_interrupts() {
     asm volatile(
             "cli"::
             : "memory"
             );
 }
 
-void enable_interupts() {
+void enable_interrupts() {
     asm volatile(
             "sti"::
             : "memory"

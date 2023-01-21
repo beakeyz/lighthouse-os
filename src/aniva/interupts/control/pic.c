@@ -5,6 +5,7 @@
 #include "mem/kmalloc.h"
 #include <dev/debug/serial.h>
 #include <libk/io.h>
+#include <system/asm_specifics.h>
 #include <libk/stddef.h>
 
 static void pic_enable_vector(uint8_t vector) __attribute__((used));
@@ -75,7 +76,7 @@ void pic_eoi(uint8_t irq_num) {
 }
 
 static void pic_disable_vector(uint8_t vector) {
-  disable_interupts();
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
   uint8_t pic_vector_line = 0;
 
   // PIC 2
@@ -90,11 +91,11 @@ static void pic_disable_vector(uint8_t vector) {
     out8(PIC2_DATA, pic_vector_line);
   }
 
-  enable_interupts();
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
 static void pic_enable_vector(uint8_t vector) {
-  disable_interupts();
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
   uint8_t pic_vector_line = 0;
 
   // PIC 2
@@ -107,6 +108,6 @@ static void pic_enable_vector(uint8_t vector) {
     pic_vector_line = in8(PIC1_DATA) & ~(1 << vector);
     out8(PIC1_DATA, pic_vector_line);
   }
-  enable_interupts();
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
