@@ -135,6 +135,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   regs->us_rsp = thread->m_stack_top;
   regs->ss = 0;
 
+  thread->m_context.rip = (uintptr_t)common_thread_entry;
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
@@ -160,24 +161,9 @@ void thread_enter_context_first_time(thread_t* thread) {
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
-    "cld \n"
-    "popq %%rdi \n"
-    "popq %%rsi \n"
-    "popq %%rbp \n"
-    "popq %%rdx \n"
-    "popq %%rcx \n"
-    "popq %%rbx \n"
-    "popq %%rax \n"
-    "popq %%r8  \n"
-    "popq %%r9  \n"
-    "popq %%r10 \n"
-    "popq %%r11 \n"
-    "popq %%r12 \n"
-    "popq %%r13 \n"
-    "popq %%r14 \n"
-    "popq %%r15 \n"
-    "addq $16, %%rsp \n"
-    "iretq \n"
+    "pushq %[thread] \n"
+    "pushq %[new_rip] \n"
+    "retq \n"
     :
   [tss_rsp0l]"=m"(tss_ptr->rsp0l),
   [tss_rsp0h]"=m"(tss_ptr->rsp0h),
@@ -234,8 +220,18 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   println(to->m_name);
   to->m_has_been_scheduled = true;
 
+  if (strcmp(to->m_name, "First thread") == 0) {
+    uintptr_t test;
+    asm volatile (
+      "movq %%rsp, %0 \n"
+      : "=m"(test)
+      :: "memory"
+      );
+    println(to_string(test));
+    kernel_panic("LOOKING FOR WEIRD SHIT");
+  }
+
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
-  println(to_string((uintptr_t)to));
 
   // FIXME: temporary solution, this has to be checked and verified so that no UB can occur
   thread_set_state(from, RUNNABLE);
@@ -243,18 +239,9 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
   asm volatile (
     "movq %%rsp, %[old_rsp] \n"
-    :[old_rip]"=m"(from->m_context.rip),
-    [old_rsp]"=m"(from->m_context.rsp)
-    :: "memory"
-    );
-
-  print("from rip: ");
-  println(to_string(from->m_context.rip));
-  print("to rip: ");
-  println(to_string(to->m_context.rip));
-
-  asm volatile (
-    "movq %[new_rsp], %%rbx \n"
+    "leaq 1f(%%rip), %%rbx \n"
+    "movq %%rbx, %[old_rip] \n"
+    "movq %[stack_top], %%rbx \n"
     "movl %%ebx, %[tss_rsp0l] \n"
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
@@ -264,6 +251,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "cld \n"
     "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
+    "1: \n"
     "popq %%rdi \n"
     "popq %%rsi \n"
     "popq %%rbp \n"
@@ -289,23 +277,39 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     :
     [new_rsp]"g"(to->m_context.rsp),
     [new_rip]"g"(to->m_context.rip),
+    [stack_top]"g"(to->m_stack_top),
     [thread]"d"(to)
     : "memory", "rbx"
   );
 }
 
-extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) {
-
-}
-
+// TODO: this thing
 extern void thread_exit_init_state(thread_t *from) {
 
-
-  kernel_panic("reached thread_exit_init_state");
+  //kernel_panic("reached thread_exit_init_state");
 }
 
 __attribute__((naked)) void common_thread_entry() {
-  asm volatile (
-    "jmp thread_exit_init_state \n"
+  asm (
+    "popq %rdi \n"
+    "call thread_exit_init_state \n"
+    "cld \n"
+    "popq %rdi \n"
+    "popq %rsi \n"
+    "popq %rbp \n"
+    "popq %rdx \n"
+    "popq %rcx \n"
+    "popq %rbx \n"
+    "popq %rax \n"
+    "popq %r8  \n"
+    "popq %r9  \n"
+    "popq %r10 \n"
+    "popq %r11 \n"
+    "popq %r12 \n"
+    "popq %r13 \n"
+    "popq %r14 \n"
+    "popq %r15 \n"
+    "addq $16, %rsp \n"
+    "iretq \n"
   );
 }

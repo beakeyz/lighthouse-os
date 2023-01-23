@@ -61,10 +61,9 @@ static void test_kernel_thread_func() {
   print("test rsp: ");
   println(to_string(*(uintptr_t *)rsp));
 
-  for (;;) {
+  for (;;){
     print("a");
   }
-  print("test rsp: ");
   //kernel_panic("test_kernel_thread_func panic");
 }
 static void test1_func() {
@@ -263,11 +262,8 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   }
   resume_scheduler();
 
-  if (s_initial_thread->m_has_been_scheduled) {
-    s_current_proc_in_scheduler->m_prev_thread->m_context.rip = registers_ptr->rip;
-  }
+  scheduler_cleanup();
 
-  registers_ptr->rip = (uintptr_t)scheduler_cleanup;
   return registers_ptr;
 }
 
