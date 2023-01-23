@@ -6,6 +6,9 @@
 #include "libk/io.h"
 #include "time/core.h"
 #include "sched/scheduler.h"
+#include "libk/kevent/eventhook.h"
+#include <libk/kevent/core.h>
+#include <system/asm_specifics.h>
 
 #define PIT_BASE_FREQ 1193182
 
@@ -29,6 +32,7 @@
 
 registers_t* pit_irq_handler (registers_t*);
 ALWAYS_INLINE void reset_pit (uint8_t mode);
+static size_t s_pit_ticks;
 
 ANIVA_STATUS set_pit_interrupt_handler() {
 
@@ -44,19 +48,19 @@ ANIVA_STATUS set_pit_interrupt_handler() {
   return ANIVA_FAIL;
 }
 
-void set_pit_frequency(size_t freq, bool __enable_interupts) {
+void set_pit_frequency(size_t freq, bool _enable_interrupts) {
   disable_interrupts();
   const size_t new_val = PIT_BASE_FREQ / freq;
   out8(T0_CTRL, new_val & 0xff);
   out8(T0_CTRL, (new_val >> 8) & 0xff);
 
-  if (__enable_interupts)
+  if (_enable_interrupts)
     enable_interrupts();
 }
 
 bool pit_frequency_capability(size_t freq) {
   // FIXME
-  return true;
+  return TARGET_TPS >= freq;
 }
 
 void set_pit_periodic(bool value) {
@@ -84,8 +88,23 @@ void init_and_install_pit() {
   reset_pit(RATE);
 }
 
+void uninstall_pit() {
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
+
+  InterruptController_t* controller = get_controller_for_int_number(PIT_TIMER_INT_NUM);
+  controller->fControllerDisableVector(PIT_TIMER_INT_NUM);
+  remove_handler(PIT_TIMER_INT_NUM);
+
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
+}
+
 registers_t* pit_irq_handler(registers_t* regs) {
 
-  regs = sched_tick(regs);
+  struct time_update_event_hook hook = create_time_update_event_hook(s_pit_ticks, regs);
+  call_event(TIME_UPDATE_EVENT, &hook);
+
+  s_pit_ticks++;
+
   return regs;
 }
+

@@ -133,11 +133,9 @@ void kfree (void* addr) {
         return;
       }
 
-      println(to_string(n->size));
       if (n->next)
         try_merge(n->next);
       // FIXME: should we zero freed nodes?
-      println("could merge!");
     }
   } else {
     println("invalid identifier");

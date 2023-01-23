@@ -19,9 +19,6 @@ void __test_event_handler(struct time_update_event_hook* hook) {
 
 void init_global_kevents() { // from "libk/kevent/core.h"
   init_event_registry();
-
-  // TODO: remove and add real init stuff
-  register_global_kevent(TIME_UPDATE_EVENT, __test_event_handler);
 }
 
 event_registry_t* create_registry(const char* name, bool kernel_registry) {

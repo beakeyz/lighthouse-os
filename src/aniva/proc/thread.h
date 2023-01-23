@@ -26,6 +26,7 @@ typedef struct thread {
   struct thread* m_self;
 
   kContext_t m_context;
+  registers_t *m_regs_ptr;
 
   char m_name[32];
   uint32_t m_cpu; // atomic?
@@ -36,7 +37,7 @@ typedef struct thread {
 
   FpuState m_fpu_state;
 
-  __attribute__((aligned(16))) uintptr_t m_stack_top;
+  uintptr_t m_stack_top;
 
   ThreadState m_current_state;
 

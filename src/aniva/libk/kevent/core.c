@@ -67,8 +67,9 @@ ANIVA_STATUS call_event(EVENT_TYPE type, void* hook) {
   return ANIVA_SUCCESS;
 }
 
-struct time_update_event_hook create_time_update_event_hook(size_t ticks) {
+struct time_update_event_hook create_time_update_event_hook(size_t ticks, registers_t* registers) {
   struct time_update_event_hook ret = {
+    .registers = registers,
     .ticks = ticks
   };
   return ret;

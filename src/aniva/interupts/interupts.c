@@ -623,7 +623,6 @@ registers_t *interrupt_handler(registers_t *regs) {
     regs = handler->fHandler(regs);
   }
 
-  println("return from interrupt_handler");
   return regs;
 }
 

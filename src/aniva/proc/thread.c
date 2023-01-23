@@ -112,32 +112,28 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)exit_thread);
 
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rdi);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rsi);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rbp);
-  STACK_PUSH(rsp, uintptr_t, NULL); // rsp
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rdx);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rbx);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rcx);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rax);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r8);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r9);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r10);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r11);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r12);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r13);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r14);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.r15);
-
-  STACK_PUSH(rsp, uintptr_t, NULL);
-
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rip);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
-
-  // TODO: check for userspace returns
-  STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);  // rsp0
-  STACK_PUSH(rsp, uintptr_t, 0);                    // ss
+  rsp -= sizeof(registers_t);
+  registers_t* regs = (registers_t*)rsp;
+  regs->rdi = thread->m_context.rdi;
+  regs->rsi = thread->m_context.rsi;
+  regs->rbp = thread->m_context.rbp;
+  regs->rdx = thread->m_context.rdx;
+  regs->rcx = thread->m_context.rcx;
+  regs->rbx = thread->m_context.rbx;
+  regs->rax = thread->m_context.rax;
+  regs->r8 = thread->m_context.r8;
+  regs->r9 = thread->m_context.r9;
+  regs->r10 = thread->m_context.r10;
+  regs->r11 = thread->m_context.r11;
+  regs->r12 = thread->m_context.r12;
+  regs->r13 = thread->m_context.r13;
+  regs->r14 = thread->m_context.r14;
+  regs->r15 = thread->m_context.r15;
+  regs->rip = thread->m_context.rip;
+  regs->cs = thread->m_context.cs;
+  regs->rflags = thread->m_context.rflags;
+  regs->us_rsp = thread->m_stack_top;
+  regs->ss = 0;
 
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
@@ -145,11 +141,12 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   return ANIVA_FAIL;
 }
 
+// used to bootstrap the iret stub created in thread_prepare_context
 void thread_enter_context_first_time(thread_t* thread) {
 
   thread->m_has_been_scheduled = true;
 
-  print("Loading context of: ");
+  print("(INIT) Loading context of: ");
   println(thread->m_name);
 
   ASSERT(thread->m_current_state != NO_CONTEXT);
@@ -163,11 +160,24 @@ void thread_enter_context_first_time(thread_t* thread) {
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
-    "pushq %[thread] \n"
-    "pushq %[new_rip] \n"
     "cld \n"
-    //"movq 8(%%rsp), %%rdi \n"
-    "retq \n"
+    "popq %%rdi \n"
+    "popq %%rsi \n"
+    "popq %%rbp \n"
+    "popq %%rdx \n"
+    "popq %%rcx \n"
+    "popq %%rbx \n"
+    "popq %%rax \n"
+    "popq %%r8  \n"
+    "popq %%r9  \n"
+    "popq %%r10 \n"
+    "popq %%r11 \n"
+    "popq %%r12 \n"
+    "popq %%r13 \n"
+    "popq %%r14 \n"
+    "popq %%r15 \n"
+    "addq $16, %%rsp \n"
+    "iretq \n"
     :
   [tss_rsp0l]"=m"(tss_ptr->rsp0l),
   [tss_rsp0h]"=m"(tss_ptr->rsp0h),
@@ -176,43 +186,12 @@ void thread_enter_context_first_time(thread_t* thread) {
   [new_rsp]"g"(thread->m_context.rsp),
   [new_rip]"g"(thread->m_context.rip),
   [thread]"d"(thread)
-  : "memory", "rbx"
+  : "memory"
   );
 }
 
 void thread_save_context(thread_t* thread) {
-  print("Saving context of: ");
-  println(thread->m_name);
-  thread_set_state(thread, RUNNABLE);
 
-  ASSERT(get_current_scheduling_thread() == thread);
-
-  asm volatile (
-    "pushfq \n"
-    "pushq %%rdx \n"
-    "pushq %%rbx \n"
-    "pushq %%rcx \n"
-    "pushq %%rax \n"
-    "pushq %%rbp \n"
-    "pushq %%rsi \n"
-    "pushq %%rdi \n"
-    "pushq %%r8 \n"
-    "pushq %%r9 \n"
-    "pushq %%r10 \n"
-    "pushq %%r11 \n"
-    "pushq %%r12 \n"
-    "pushq %%r13 \n"
-    "pushq %%r14 \n"
-    "pushq %%r15 \n"
-    "movq %%rsp, %[old_rsp] \n"
-    "leaq 1f(%%rip), %%rbx \n"
-    "movq %%rbx, %[old_rip] \n"
-    : [old_rip]"=m"(thread->m_context.rip),
-  [old_rsp]"=m"(thread->m_context.rsp)
-  :
-  : "memory", "rbx"
-  );
-  save_fpu_state(&thread->m_fpu_state);
 }
 
 void thread_switch_context(thread_t* from, thread_t* to) {
@@ -221,6 +200,35 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   // without saving the context it kinda works,
   // but it keep running the function all over again.
   // since no state is saved, is just starts all over
+
+  print("Saving context of: ");
+  println(from->m_name);
+  thread_set_state(from, RUNNABLE);
+
+  //ASSERT(get_current_scheduling_thread() == from);
+
+  asm volatile (
+    "pushfq \n"
+    "pushq %%r15 \n"
+    "pushq %%r14 \n"
+    "pushq %%r13 \n"
+    "pushq %%r12 \n"
+    "pushq %%r11 \n"
+    "pushq %%r10 \n"
+    "pushq %%r9 \n"
+    "pushq %%r8 \n"
+    "pushq %%rax \n"
+    "pushq %%rcx \n"
+    "pushq %%rbx \n"
+    "pushq %%rdx \n"
+    "pushq %%rsi \n"
+    "pushq %%rbp \n"
+    "pushq %%rdi \n"
+    :
+    :
+    : "memory"
+  );
+  save_fpu_state(&from->m_fpu_state);
 
   print("Loading context of: ");
   println(to->m_name);
@@ -234,6 +242,18 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   thread_set_state(to, RUNNING);
 
   asm volatile (
+    "movq %%rsp, %[old_rsp] \n"
+    :[old_rip]"=m"(from->m_context.rip),
+    [old_rsp]"=m"(from->m_context.rsp)
+    :: "memory"
+    );
+
+  print("from rip: ");
+  println(to_string(from->m_context.rip));
+  print("to rip: ");
+  println(to_string(to->m_context.rip));
+
+  asm volatile (
     "movq %[new_rsp], %%rbx \n"
     "movl %%ebx, %[tss_rsp0l] \n"
     "shrq $32, %%rbx \n"
@@ -244,25 +264,25 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "cld \n"
     "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
-    "1: \n"
-    "addq $8, %%rsp \n"
-    "popq %%r15 \n"
-    "popq %%r14 \n"
-    "popq %%r13 \n"
-    "popq %%r12 \n"
-    "popq %%r11 \n"
-    "popq %%r10 \n"
-    "popq %%r9 \n"
-    "popq %%r8 \n"
     "popq %%rdi \n"
     "popq %%rsi \n"
     "popq %%rbp \n"
-    "popq %%rax \n"
+    "popq %%rdx \n"
     "popq %%rcx \n"
     "popq %%rbx \n"
-    "popq %%rdx \n"
+    "popq %%rax \n"
+    "popq %%r8  \n"
+    "popq %%r9  \n"
+    "popq %%r10 \n"
+    "popq %%r11 \n"
+    "popq %%r12 \n"
+    "popq %%r13 \n"
+    "popq %%r14 \n"
+    "popq %%r15 \n"
     "popfq \n"
     :
+    [old_rip]"=m"(from->m_context.rip),
+    [old_rsp]"=m"(from->m_context.rsp),
     [tss_rsp0l]"=m"(tss_ptr->rsp0l),
     [tss_rsp0h]"=m"(tss_ptr->rsp0h),
       "=d"(to)

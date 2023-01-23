@@ -31,6 +31,7 @@ typedef struct sched_frame {
 } sched_frame_t;
 
 static proc_t* s_current_proc_in_scheduler;
+static thread_t *s_initial_thread;
 static thread_t* s_current_thread_in_scheduler;
 static list_t* s_sched_frames;
 static spinlock_t* s_sched_switch_lock;
@@ -53,14 +54,18 @@ static void test_kernel_thread_func() {
 
   uintptr_t rsp;
   asm volatile (
-    "movq %%rsp, %0"
+    "movq %%rsp, %0 \n"
     : "=m"(rsp)
     :: "memory"
     );
-  print(to_string(rsp));
+  print("test rsp: ");
+  println(to_string(*(uintptr_t *)rsp));
+
   for (;;) {
     print("a");
   }
+  print("test rsp: ");
+  //kernel_panic("test_kernel_thread_func panic");
 }
 static void test1_func() {
   println("entering test1_func");
@@ -132,24 +137,16 @@ void start_scheduler(void) {
   // init further. these processes can be preempted
   thread_t *initial_thread = list_get(frame_ptr->m_proc_to_schedule->m_threads, 0);
 
-  kContext_t *context_ptr = &initial_thread->m_context;
-
-  tss_entry_t* tss = &current_processor->m_tss;
-  tss->iomap_base = sizeof(current_processor->m_tss);
-  tss->rsp0l = context_ptr->rsp0 & 0xffffffff;
-  tss->rsp0h = context_ptr->rsp0 >> 32;
-
   atomic_ptr_write(s_no_schedule, false);
 
   __set_current_handled_thread(initial_thread);
   s_current_proc_in_scheduler->m_prev_thread = initial_thread;
+  s_initial_thread = initial_thread;
 
   s_sched_mode = WAITING_FOR_FIRST_TICK;
   //thread_load_context(initial_thread);
 
-  for (;;) {
-
-  }
+  for (;;) {}
 }
 
 void pick_next_thread_scheduler(void) {
@@ -215,6 +212,7 @@ void resume_scheduler(void) {
 }
 
 void scheduler_cleanup() {
+
   thread_t *next_thread = s_current_thread_in_scheduler;
   thread_t *prev_thread = s_current_proc_in_scheduler->m_prev_thread;
 
@@ -222,15 +220,13 @@ void scheduler_cleanup() {
   if (prev_thread != nullptr) {
     thread_set_state(prev_thread, RUNNABLE);
   }
-
   thread_set_state(next_thread, RUNNING);
 
-  if (next_thread->m_has_been_scheduled) {
-    thread_switch_context(prev_thread, next_thread);
-  } else {
-    // FIXME: Save context of previous thread
+  if (next_thread == s_initial_thread && !s_initial_thread->m_has_been_scheduled) {
     thread_enter_context_first_time(next_thread);
   }
+
+  thread_switch_context(prev_thread, next_thread);
 
   print("entering thread: ");
   println(s_current_thread_in_scheduler->m_name);
@@ -241,7 +237,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   println("sched_tick");
   enum SCHED_MODE prev_mode = s_sched_mode;
 
-  if (atomic_ptr_load(s_no_schedule)) {
+  if (atomic_ptr_load(s_no_schedule) || !get_current_scheduling_thread()) {
     return registers_ptr;
   }
   pause_scheduler();
@@ -266,6 +262,10 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     }
   }
   resume_scheduler();
+
+  if (s_initial_thread->m_has_been_scheduled) {
+    s_current_proc_in_scheduler->m_prev_thread->m_context.rip = registers_ptr->rip;
+  }
 
   registers_ptr->rip = (uintptr_t)scheduler_cleanup;
   return registers_ptr;
@@ -397,6 +397,6 @@ static void __set_current_handled_thread(thread_t* thread) {
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-const thread_t *get_current_scheduling_thread() {
-  return (const thread_t*)read_fs(GET_OFFSET(Processor_t , m_current_thread));
+thread_t *get_current_scheduling_thread() {
+  return (thread_t*)read_gs(GET_OFFSET(Processor_t , m_current_thread));
 }

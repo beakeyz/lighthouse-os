@@ -16,6 +16,7 @@
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
 #include "time/pit.h"
+#include "time/core.h"
 #include <dev/debug/serial.h>
 #include <interupts/control/pic.h>
 #include <interupts/idt.h>
@@ -76,12 +77,14 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   struct multiboot_tag_framebuffer *fb = get_mb2_tag((uintptr_t *)
                                                        mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
+  init_global_kevents();
+
   // NOTE: testhandler
   InterruptHandler_t *test = init_interrupt_handler(1, I8259, thing);
   test->m_controller->fControllerEnableVector(1);
   add_handler(test);
 
-  init_and_install_pit();
+  init_timer_system();
 
   init_fb(fb);
   // Next TODO: create a kernel pre-init tty
@@ -92,8 +95,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
-
-  init_global_kevents();
 
   init_scheduler();
 

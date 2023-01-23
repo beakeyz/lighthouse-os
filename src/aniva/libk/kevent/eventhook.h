@@ -3,8 +3,10 @@
 #include <libk/stddef.h>
 
 struct thread;
+struct registers;
 
 struct time_update_event_hook {
+  struct registers *registers;
   size_t ticks;
 };
 
