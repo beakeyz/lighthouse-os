@@ -215,11 +215,21 @@ void resume_scheduler(void) {
 }
 
 void scheduler_cleanup() {
+  thread_t *next_thread = s_current_thread_in_scheduler;
+  thread_t *prev_thread = s_current_proc_in_scheduler->m_prev_thread;
 
-  if (s_current_thread_in_scheduler->m_has_been_scheduled) {
-    thread_switch_context(s_current_proc_in_scheduler->m_prev_thread, s_current_thread_in_scheduler);
+  // FIXME: remove this asap
+  if (prev_thread != nullptr) {
+    thread_set_state(prev_thread, RUNNABLE);
+  }
+
+  thread_set_state(next_thread, RUNNING);
+
+  if (next_thread->m_has_been_scheduled) {
+    thread_switch_context(prev_thread, next_thread);
   } else {
-    thread_enter_context_first_time(s_current_thread_in_scheduler);
+    // FIXME: Save context of previous thread
+    thread_enter_context_first_time(next_thread);
   }
 
   print("entering thread: ");

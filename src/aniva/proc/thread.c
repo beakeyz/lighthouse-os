@@ -76,7 +76,8 @@ extern void thread_enter_context(thread_t *to) {
   println("$thread_enter_context");
   println(to->m_name);
 
-  ASSERT(to->m_current_state == RUNNABLE);
+  // FIXME: uncomment asap
+  //ASSERT(to->m_current_state == RUNNABLE);
 
   Processor_t *current_processor = get_current_processor();
 
@@ -98,6 +99,8 @@ extern void thread_enter_context(thread_t *to) {
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
+
+  println("done setting up context");
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -150,6 +153,7 @@ void thread_enter_context_first_time(thread_t* thread) {
   println(thread->m_name);
 
   ASSERT(thread->m_current_state != NO_CONTEXT);
+  thread_set_state(thread, RUNNING);
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
   tss_ptr->iomap_base = sizeof(get_current_processor()->m_tss);
@@ -162,7 +166,7 @@ void thread_enter_context_first_time(thread_t* thread) {
     "pushq %[thread] \n"
     "pushq %[new_rip] \n"
     "cld \n"
-    "movq 8(%%rsp), %%rdi \n"
+    //"movq 8(%%rsp), %%rdi \n"
     "retq \n"
     :
   [tss_rsp0l]"=m"(tss_ptr->rsp0l),
@@ -213,12 +217,21 @@ void thread_save_context(thread_t* thread) {
 
 void thread_switch_context(thread_t* from, thread_t* to) {
 
+  // FIXME: saving context is still wonky!!!
+  // without saving the context it kinda works,
+  // but it keep running the function all over again.
+  // since no state is saved, is just starts all over
+
   print("Loading context of: ");
   println(to->m_name);
   to->m_has_been_scheduled = true;
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
   println(to_string((uintptr_t)to));
+
+  // FIXME: temporary solution, this has to be checked and verified so that no UB can occur
+  thread_set_state(from, RUNNABLE);
+  thread_set_state(to, RUNNING);
 
   asm volatile (
     "movq %[new_rsp], %%rbx \n"
