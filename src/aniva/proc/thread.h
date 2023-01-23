@@ -23,6 +23,8 @@ typedef enum thread_state {
 struct proc;
 
 typedef struct thread {
+  struct thread* m_self;
+
   kContext_t m_context;
 
   char m_name[32];
@@ -47,8 +49,9 @@ thread_t *create_thread(FuncPtr, uintptr_t, char[32], bool); // make this sucka
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
 extern void thread_enter_context(thread_t *to);
-
-void thread_switch_context(thread_t* from, thread_t* to, bool save_ctx);
+void thread_enter_context_first_time(thread_t* thread);
+void thread_save_context(thread_t* thread);
+void thread_switch_context(thread_t* from, thread_t* to);
 
 ANIVA_STATUS thread_prepare_context(thread_t *);
 

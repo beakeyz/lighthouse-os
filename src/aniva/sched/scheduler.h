@@ -9,12 +9,12 @@
 
 /* initialization */
 ANIVA_STATUS init_scheduler();
+void scheduler_enter_first_thread(thread_t*);
 
 /* control */
 void start_scheduler(void);
 void resume_scheduler(void);
 ANIVA_STATUS pause_scheduler();
-ANIVA_STATUS sched_switch_context_to(thread_t*);
 void pick_next_thread_scheduler(void);
 
 /* die */
@@ -42,5 +42,6 @@ ANIVA_STATUS sched_remove_proc(proc_t*);
 ANIVA_STATUS sched_remove_proc_by_id(proc_id);
 ANIVA_STATUS sched_remove_thread(thread_t*);
 
+const thread_t *get_current_scheduling_thread();
 
 #endif // !__ANIVA_SCHEDULER__

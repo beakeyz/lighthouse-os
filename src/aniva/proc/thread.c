@@ -20,6 +20,7 @@ extern void thread_exit_init_state(thread_t *from) __attribute__((used));
 
 thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
+  thread->m_self = thread;
   strcpy(thread->m_name, name);
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = nullptr;
@@ -85,8 +86,8 @@ extern void thread_enter_context(thread_t *to) {
   //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
   //call_event(CONTEXT_SWITCH_EVENT, &hook);
 
-  // TODO: tls via FS base? or LDT (linux does this r sm)
-  wrmsr(MSR_FS_BASE, 0);
+  // FIXME: tls via FS base? or LDT (linux does this r sm)
+  //wrmsr(MSR_FS_BASE, (uintptr_t)to);
 
   // crashes =/
   //write_cr3(to->m_context.cr3);
@@ -108,13 +109,13 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)exit_thread);
 
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rdi);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rsi);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rbp);
+  STACK_PUSH(rsp, uintptr_t, NULL); // rsp
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rdx);
-  STACK_PUSH(rsp, uintptr_t, thread->m_context.rcx);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rbx);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rcx);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rax);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r8);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r9);
@@ -125,20 +126,62 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r14);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r15);
 
+  STACK_PUSH(rsp, uintptr_t, NULL);
+
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rip);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
+
+  // TODO: check for userspace returns
+  STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);  // rsp0
+  STACK_PUSH(rsp, uintptr_t, 0);                    // ss
+
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
   return ANIVA_FAIL;
 }
 
-void thread_switch_context(thread_t* from, thread_t* to, bool save_ctx) {
+void thread_enter_context_first_time(thread_t* thread) {
 
-  if (!save_ctx)
-    goto load_ctx;
+  thread->m_has_been_scheduled = true;
 
+  print("Loading context of: ");
+  println(thread->m_name);
+
+  ASSERT(thread->m_current_state != NO_CONTEXT);
+
+  tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
+  tss_ptr->iomap_base = sizeof(get_current_processor()->m_tss);
+  tss_ptr->rsp0l = thread->m_stack_top & 0xffffffff;
+  tss_ptr->rsp0h = thread->m_stack_top >> 32;
+  println(to_string((uintptr_t)thread));
+
+  asm volatile (
+    "movq %[new_rsp], %%rsp \n"
+    "pushq %[thread] \n"
+    "pushq %[new_rip] \n"
+    "cld \n"
+    "movq 8(%%rsp), %%rdi \n"
+    "retq \n"
+    :
+  [tss_rsp0l]"=m"(tss_ptr->rsp0l),
+  [tss_rsp0h]"=m"(tss_ptr->rsp0h),
+    "=d"(thread)
+  :
+  [new_rsp]"g"(thread->m_context.rsp),
+  [new_rip]"g"(thread->m_context.rip),
+  [thread]"d"(thread)
+  : "memory", "rbx"
+  );
+}
+
+void thread_save_context(thread_t* thread) {
   print("Saving context of: ");
-  println(from->m_name);
-  thread_set_state(from, RUNNABLE);
+  println(thread->m_name);
+  thread_set_state(thread, RUNNABLE);
+
+  ASSERT(get_current_scheduling_thread() == thread);
 
   asm volatile (
     "pushfq \n"
@@ -160,19 +203,22 @@ void thread_switch_context(thread_t* from, thread_t* to, bool save_ctx) {
     "movq %%rsp, %[old_rsp] \n"
     "leaq 1f(%%rip), %%rbx \n"
     "movq %%rbx, %[old_rip] \n"
-    : [old_rip]"=m"(from->m_context.rip),
-      [old_rsp]"=m"(from->m_context.rsp)
-    :
-    : "memory", "rbx"
+    : [old_rip]"=m"(thread->m_context.rip),
+  [old_rsp]"=m"(thread->m_context.rsp)
+  :
+  : "memory", "rbx"
   );
-  save_fpu_state(&from->m_fpu_state);
+  save_fpu_state(&thread->m_fpu_state);
+}
 
-load_ctx:
+void thread_switch_context(thread_t* from, thread_t* to) {
+
   print("Loading context of: ");
   println(to->m_name);
   to->m_has_been_scheduled = true;
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
+  println(to_string((uintptr_t)to));
 
   asm volatile (
     "movq %[new_rsp], %%rbx \n"
@@ -186,6 +232,7 @@ load_ctx:
     "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
     "1: \n"
+    "addq $8, %%rsp \n"
     "popq %%r15 \n"
     "popq %%r14 \n"
     "popq %%r13 \n"
@@ -212,8 +259,6 @@ load_ctx:
     [thread]"d"(to)
     : "memory", "rbx"
   );
-
-  kernel_panic("returned from thread_load_context!");
 }
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) {

@@ -45,19 +45,19 @@ static ALWAYS_INLINE void push_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE sched_frame_t pop_sched_frame();
 static ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 
+static void __set_current_handled_thread(thread_t* thread);
+
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func() {
   println("entering test_kernel_thread_func");
 
   uintptr_t rsp;
   asm volatile (
-    "movq %%rax, %0"
+    "movq %%rsp, %0"
     : "=m"(rsp)
     :: "memory"
     );
-  print("test_ktf rax: ");
-  println(to_string(rsp));
-
+  print(to_string(rsp));
   for (;;) {
     print("a");
   }
@@ -73,7 +73,7 @@ static void test2_func() {
   println("entering test2_func");
   uintptr_t rsp;
   asm volatile (
-    "movq %%rax, %0"
+    "movq %%rsp, %0"
     : "=m"(rsp)
     :: "memory"
     );
@@ -100,8 +100,6 @@ ANIVA_STATUS init_scheduler() {
 
   thread_t *test1 = create_thread(test1_func, NULL, "test1", true);
   thread_t *test2 = create_thread(test2_func, NULL, "test2", true);
-
-  println(to_string(test2->m_stack_top));
 
   thread_prepare_context(test1);
   thread_prepare_context(test2);
@@ -143,11 +141,12 @@ void start_scheduler(void) {
 
   atomic_ptr_write(s_no_schedule, false);
 
-  s_current_thread_in_scheduler = initial_thread;
+  __set_current_handled_thread(initial_thread);
   s_current_proc_in_scheduler->m_prev_thread = initial_thread;
 
   s_sched_mode = WAITING_FOR_FIRST_TICK;
   //thread_load_context(initial_thread);
+
   for (;;) {
 
   }
@@ -168,7 +167,7 @@ void pick_next_thread_scheduler(void) {
   }
 
   s_current_proc_in_scheduler->m_prev_thread = prev_thread;
-  s_current_thread_in_scheduler = next_thread;
+  __set_current_handled_thread(next_thread);
 }
 
 ANIVA_STATUS pause_scheduler() {
@@ -207,6 +206,9 @@ exit:
 
 void resume_scheduler(void) {
 
+  // make sure the scheduler is in the right state
+  s_sched_mode = SCHEDULING;
+
   // yes, schedule
   unlock_spinlock(s_sched_switch_lock);
   atomic_ptr_write(s_no_schedule, false);
@@ -214,25 +216,14 @@ void resume_scheduler(void) {
 
 void scheduler_cleanup() {
 
-  uintptr_t rsp;
-  asm volatile (
-    "movq %%r8, %0"
-    : "=m"(rsp)
-    :: "memory"
-    );
-  print("sched_cleanup rax: ");
-  println(to_string(rsp));
+  if (s_current_thread_in_scheduler->m_has_been_scheduled) {
+    thread_switch_context(s_current_proc_in_scheduler->m_prev_thread, s_current_thread_in_scheduler);
+  } else {
+    thread_enter_context_first_time(s_current_thread_in_scheduler);
+  }
 
-  enum SCHED_MODE prev_mode = s_sched_mode;
-  s_sched_mode = SCHEDULING;
-
-  thread_switch_context(s_current_proc_in_scheduler->m_prev_thread, s_current_thread_in_scheduler, prev_mode != WAITING_FOR_FIRST_TICK);
-
-  kernel_panic("scheduler_cleanup");
-}
-
-ANIVA_STATUS sched_switch_context_to(thread_t *thread) {
-    return ANIVA_FAIL;
+  print("entering thread: ");
+  println(s_current_thread_in_scheduler->m_name);
 }
 
 registers_t *sched_tick(registers_t *registers_ptr) {
@@ -248,7 +239,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   s_current_proc_in_scheduler->m_ticks_used++;
 
   thread_t *current_thread = s_current_thread_in_scheduler;
-  println("got in");
 
   if (current_thread == nullptr) {
     println("no initial thread!");
@@ -266,8 +256,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     }
   }
   resume_scheduler();
-
-  println("returning");
 
   registers_ptr->rip = (uintptr_t)scheduler_cleanup;
   return registers_ptr;
@@ -386,4 +374,19 @@ ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
 
   // yay
   return next;
+}
+
+// doing this means we have two pointers that point to the
+// same memory address (thread) idk if this might get ugly
+// TODO: sync?
+static void __set_current_handled_thread(thread_t* thread) {
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
+  Processor_t *current_processor = get_current_processor();
+  current_processor->m_current_thread = thread;
+  s_current_thread_in_scheduler = thread;
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
+}
+
+const thread_t *get_current_scheduling_thread() {
+  return (const thread_t*)read_fs(GET_OFFSET(Processor_t , m_current_thread));
 }

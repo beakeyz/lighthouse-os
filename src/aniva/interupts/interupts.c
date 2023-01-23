@@ -582,7 +582,7 @@ bool add_handler(InterruptHandler_t *handler_ptr) {
   insert_into_handlers(int_num, handler_ptr);
 
   // lil exit label
-  skip_insert:
+skip_insert:
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return success;
 }
@@ -623,6 +623,7 @@ registers_t *interrupt_handler(registers_t *regs) {
     regs = handler->fHandler(regs);
   }
 
+  println("return from interrupt_handler");
   return regs;
 }
 

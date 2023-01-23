@@ -50,8 +50,7 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
   init_gdt(processor);
 
   // set msr base
-  wrmsr(MSR_GS_BASE, (uintptr_t)
-  processor);
+  wrmsr(MSR_GS_BASE, (uintptr_t)processor);
   return ANIVA_SUCCESS;
 }
 
