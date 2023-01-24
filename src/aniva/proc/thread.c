@@ -34,6 +34,11 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   memset((void *) stack_bottom, 0x00, DEFAULT_STACK_SIZE);
   thread->m_stack_top = (stack_bottom + DEFAULT_STACK_SIZE);
 
+  print("Thread ( ");
+  print(thread->m_name);
+  print(" ) creation debug: ");
+  println(to_string(thread->m_stack_top));
+
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
   thread->m_context = setup_regs(kthread, get_current_processor()->m_page_dir, thread->m_stack_top);
@@ -135,7 +140,6 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   regs->us_rsp = thread->m_stack_top;
   regs->ss = 0;
 
-  thread->m_context.rip = (uintptr_t)common_thread_entry;
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
@@ -161,9 +165,26 @@ void thread_enter_context_first_time(thread_t* thread) {
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
-    "pushq %[thread] \n"
-    "pushq %[new_rip] \n"
-    "retq \n"
+    "movq %[thread], %%rdi \n"
+    "call thread_exit_init_state \n"
+    "cld \n"
+    "popq %%rdi \n"
+    "popq %%rsi \n"
+    "popq %%rbp \n"
+    "popq %%rdx \n"
+    "popq %%rcx \n"
+    "popq %%rbx \n"
+    "popq %%rax \n"
+    "popq %%r8  \n"
+    "popq %%r9  \n"
+    "popq %%r10 \n"
+    "popq %%r11 \n"
+    "popq %%r12 \n"
+    "popq %%r13 \n"
+    "popq %%r14 \n"
+    "popq %%r15 \n"
+    "addq $16, %%rsp \n"
+    "iretq \n"
     :
   [tss_rsp0l]"=m"(tss_ptr->rsp0l),
   [tss_rsp0h]"=m"(tss_ptr->rsp0h),
@@ -189,9 +210,20 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
   print("Saving context of: ");
   println(from->m_name);
+
   thread_set_state(from, RUNNABLE);
 
+  print("Loading context of: ");
+  println(to->m_name);
+  to->m_has_been_scheduled = true;
+
+  thread_set_state(to, RUNNING);
+
   //ASSERT(get_current_scheduling_thread() == from);
+
+  tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
+
+  save_fpu_state(&from->m_fpu_state);
 
   asm volatile (
     "pushfq \n"
@@ -210,34 +242,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "pushq %%rsi \n"
     "pushq %%rbp \n"
     "pushq %%rdi \n"
-    :
-    :
-    : "memory"
-  );
-  save_fpu_state(&from->m_fpu_state);
-
-  print("Loading context of: ");
-  println(to->m_name);
-  to->m_has_been_scheduled = true;
-
-  if (strcmp(to->m_name, "First thread") == 0) {
-    uintptr_t test;
-    asm volatile (
-      "movq %%rsp, %0 \n"
-      : "=m"(test)
-      :: "memory"
-      );
-    println(to_string(test));
-    kernel_panic("LOOKING FOR WEIRD SHIT");
-  }
-
-  tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
-
-  // FIXME: temporary solution, this has to be checked and verified so that no UB can occur
-  thread_set_state(from, RUNNABLE);
-  thread_set_state(to, RUNNING);
-
-  asm volatile (
     "movq %%rsp, %[old_rsp] \n"
     "leaq 1f(%%rip), %%rbx \n"
     "movq %%rbx, %[old_rip] \n"
@@ -252,6 +256,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
     "1: \n"
+    "addq $8, %%rsp \n"
     "popq %%rdi \n"
     "popq %%rsi \n"
     "popq %%rbp \n"
@@ -290,26 +295,5 @@ extern void thread_exit_init_state(thread_t *from) {
 }
 
 __attribute__((naked)) void common_thread_entry() {
-  asm (
-    "popq %rdi \n"
-    "call thread_exit_init_state \n"
-    "cld \n"
-    "popq %rdi \n"
-    "popq %rsi \n"
-    "popq %rbp \n"
-    "popq %rdx \n"
-    "popq %rcx \n"
-    "popq %rbx \n"
-    "popq %rax \n"
-    "popq %r8  \n"
-    "popq %r9  \n"
-    "popq %r10 \n"
-    "popq %r11 \n"
-    "popq %r12 \n"
-    "popq %r13 \n"
-    "popq %r14 \n"
-    "popq %r15 \n"
-    "addq $16, %rsp \n"
-    "iretq \n"
-  );
+
 }

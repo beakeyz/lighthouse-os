@@ -84,12 +84,7 @@ static void test2_func() {
   print("test2 rax: ");
   println(to_string(rsp));
   for (;;) {
-    asm volatile (
-      "movq %%rax, %0"
-      : "=m"(rsp)
-      :: "memory"
-      );
-    print(to_string(rsp));
+    print("c");
   }
 }
 
@@ -145,6 +140,8 @@ void start_scheduler(void) {
   s_sched_mode = WAITING_FOR_FIRST_TICK;
   //thread_load_context(initial_thread);
 
+  // ensure interrupts enabled
+  enable_interrupts();
   for (;;) {}
 }
 
@@ -208,6 +205,7 @@ void resume_scheduler(void) {
   // yes, schedule
   unlock_spinlock(s_sched_switch_lock);
   atomic_ptr_write(s_no_schedule, false);
+  enable_interrupts();
 }
 
 void scheduler_cleanup() {
