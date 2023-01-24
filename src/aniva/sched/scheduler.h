@@ -43,5 +43,5 @@ ANIVA_STATUS sched_remove_proc_by_id(proc_id);
 ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();
-
+void __set_current_handled_thread(thread_t* thread);
 #endif // !__ANIVA_SCHEDULER__

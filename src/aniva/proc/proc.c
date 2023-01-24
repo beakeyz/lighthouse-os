@@ -30,5 +30,5 @@ proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args) {
 }
 
 proc_t* create_kernel_proc (FuncPtr entry) {
-  return create_proc("[aniva-core]", 0, entry, NULL);
+  return create_proc("[aniva-core]", 0, entry, 606069);
 }

@@ -98,6 +98,10 @@ void uninstall_pit() {
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
+size_t get_pit_ticks() {
+  return s_pit_ticks;
+}
+
 registers_t* pit_irq_handler(registers_t* regs) {
 
   struct time_update_event_hook hook = create_time_update_event_hook(s_pit_ticks, regs);
@@ -107,4 +111,3 @@ registers_t* pit_irq_handler(registers_t* regs) {
 
   return regs;
 }
-

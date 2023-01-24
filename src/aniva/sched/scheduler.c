@@ -30,6 +30,7 @@ typedef struct sched_frame {
   enum SCHED_FRAME_USAGE_LEVEL m_fram_usage_lvl;
 } sched_frame_t;
 
+// --- static fields ---
 static proc_t* s_current_proc_in_scheduler;
 static thread_t *s_initial_thread;
 static thread_t* s_current_thread_in_scheduler;
@@ -46,29 +47,30 @@ static ALWAYS_INLINE void push_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE sched_frame_t pop_sched_frame();
 static ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 
-static void __set_current_handled_thread(thread_t* thread);
+
 
 // FIXME: create a place for this and remove test mark
-static void test_kernel_thread_func() {
+static void test_kernel_thread_func(uintptr_t arg) {
   println("entering test_kernel_thread_func");
-
+  println(to_string(arg));
   uintptr_t rsp;
   asm volatile (
-    "movq %%rsp, %0 \n"
+    "movq %%rax, %0 \n"
     : "=m"(rsp)
     :: "memory"
     );
   print("test rsp: ");
-  println(to_string(*(uintptr_t *)rsp));
+  println(to_string(rsp));
 
   for (;;){
     print("a");
   }
   //kernel_panic("test_kernel_thread_func panic");
 }
-static void test1_func() {
+static void test1_func(uintptr_t arg) {
   println("entering test1_func");
 
+  println(to_string(arg));
   for (;;) {
     print("b");
   }
@@ -77,7 +79,7 @@ static void test2_func() {
   println("entering test2_func");
   uintptr_t rsp;
   asm volatile (
-    "movq %%rsp, %0"
+    "movq %%rax, %0"
     : "=m"(rsp)
     :: "memory"
     );
@@ -97,7 +99,7 @@ ANIVA_STATUS init_scheduler() {
   s_sched_switch_lock = init_spinlock();
   proc_t *kproc = create_kernel_proc(test_kernel_thread_func);
 
-  thread_t *test1 = create_thread(test1_func, NULL, "test1", true);
+  thread_t *test1 = create_thread(test1_func, (uintptr_t)696969, "test1", true);
   thread_t *test2 = create_thread(test2_func, NULL, "test2", true);
 
   thread_prepare_context(test1);
@@ -212,12 +214,6 @@ void scheduler_cleanup() {
 
   thread_t *next_thread = s_current_thread_in_scheduler;
   thread_t *prev_thread = s_current_proc_in_scheduler->m_prev_thread;
-
-  // FIXME: remove this asap
-  if (prev_thread != nullptr) {
-    thread_set_state(prev_thread, RUNNABLE);
-  }
-  thread_set_state(next_thread, RUNNING);
 
   if (next_thread == s_initial_thread && !s_initial_thread->m_has_been_scheduled) {
     thread_enter_context_first_time(next_thread);
@@ -383,7 +379,7 @@ ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
 // doing this means we have two pointers that point to the
 // same memory address (thread) idk if this might get ugly
 // TODO: sync?
-static void __set_current_handled_thread(thread_t* thread) {
+void __set_current_handled_thread(thread_t* thread) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   Processor_t *current_processor = get_current_processor();
   current_processor->m_current_thread = thread;

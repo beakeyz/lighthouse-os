@@ -34,11 +34,6 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   memset((void *) stack_bottom, 0x00, DEFAULT_STACK_SIZE);
   thread->m_stack_top = (stack_bottom + DEFAULT_STACK_SIZE);
 
-  print("Thread ( ");
-  print(thread->m_name);
-  print(" ) creation debug: ");
-  println(to_string(thread->m_stack_top));
-
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
   thread->m_context = setup_regs(kthread, get_current_processor()->m_page_dir, thread->m_stack_top);
@@ -82,11 +77,11 @@ extern void thread_enter_context(thread_t *to) {
   println(to->m_name);
 
   // FIXME: uncomment asap
-  //ASSERT(to->m_current_state == RUNNABLE);
+  ASSERT(to->m_current_state == RUNNABLE);
 
+  // FIXME: remove?
   Processor_t *current_processor = get_current_processor();
-
-  current_processor->m_current_thread = to;
+  __set_current_handled_thread(to);
 
   // TODO: make use of this
   //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
@@ -106,6 +101,10 @@ extern void thread_enter_context(thread_t *to) {
   thread_set_state(to, RUNNING);
 
   println("done setting up context");
+
+  if (!to->m_has_been_scheduled) {
+    thread_enter_context_first_time(to);
+  }
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -114,7 +113,6 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_stack_top;
 
-  STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)exit_thread);
 
   rsp -= sizeof(registers_t);
@@ -215,9 +213,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
   print("Loading context of: ");
   println(to->m_name);
-  to->m_has_been_scheduled = true;
-
-  thread_set_state(to, RUNNING);
 
   //ASSERT(get_current_scheduling_thread() == from);
 

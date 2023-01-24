@@ -37,8 +37,16 @@ void set_kernel_ticker_type(TICK_TYPE type) {
   s_kernel_tick_type = type;
 }
 
+size_t get_system_ticks() {
+  switch (s_kernel_tick_type) {
+    case PIT:
+      return get_pit_ticks();
+    default:
+      break;
+  }
+  return 0;
+}
+
 void __core_timer_callback(struct time_update_event_hook* hook) {
-
-  hook->registers = sched_tick(hook->registers);
-
+  sched_tick(hook->registers);
 }
