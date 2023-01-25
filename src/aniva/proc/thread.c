@@ -4,15 +4,12 @@
 #include "mem/kmem_manager.h"
 #include <mem/kmalloc.h>
 #include "proc/proc.h"
-#include "system/msr.h"
 #include "libk/stack.h"
-#include "sched/scheduler.h"
-#include "libk/kevent/core.h"
-#include "libk/kevent/eventhook.h"
 #include <libk/string.h>
 
 // TODO: move somewhere central
 #define DEFAULT_STACK_SIZE (16 * Kib)
+#define DEFAULT_THREAD_MAX_TICKS 4
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
@@ -25,7 +22,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = nullptr;
   thread->m_ticks_elapsed = 0;
-  thread->m_max_ticks = SCHED_DEFAULT_PROC_START_TICKS;
+  thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
 
   thread_set_state(thread, NO_CONTEXT);
@@ -41,6 +38,19 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
 
   return thread;
 } // make this sucka
+
+thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, char name[32]) {
+  if (proc == nullptr || entry == nullptr) {
+    return nullptr;
+  }
+
+  thread_t *t = create_thread(entry, args, name, (proc->m_id == 0));
+  t->m_parent_proc = proc;
+  if (thread_prepare_context(t) == ANIVA_SUCCESS) {
+    return t;
+  }
+  return nullptr;
+}
 
 // funny wrapper
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
@@ -81,7 +91,6 @@ extern void thread_enter_context(thread_t *to) {
 
   // FIXME: remove?
   Processor_t *current_processor = get_current_processor();
-  __set_current_handled_thread(to);
 
   // TODO: make use of this
   //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
@@ -141,7 +150,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
-  return ANIVA_FAIL;
+  return ANIVA_SUCCESS;
 }
 
 // used to bootstrap the iret stub created in thread_prepare_context

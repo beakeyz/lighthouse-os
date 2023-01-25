@@ -16,7 +16,7 @@ typedef struct list {
 } list_t;
 
 // hihi
-#define ITTERATE(list) node_t* itterator = list->head; \
+#define ITTERATE(list) node_t* itterator = (list)->head; \
                        while (itterator) {
 
 // deprecated
@@ -26,7 +26,7 @@ typedef struct list {
 #define ENDITTERATE(list) itterator = itterator->next; }
 
 // deprecated
-#define FOREACH(i, list) for (node_t* i = (list)->head; i != nullptr; i = i->next)
+#define FOREACH(i, list) for (node_t* (i) = (list)->head; (i) != nullptr; (i) = (i)->next)
 
 // TODO: finish linkedlist (double link)
 list_t* init_list ();

@@ -1,7 +1,11 @@
 #include "proc.h"
 #include "mem/kmalloc.h"
 #include "thread.h"
+#include "libk/io.h"
 #include <libk/string.h>
+
+#define PROC_DEFAULT_MAX_THREADS 16
+#define PROC_CORE_PROCESS_NAME "[aniva-core]"
 
 void generic_proc_idle () {
   println("Entered generic_proc_idle");
@@ -11,12 +15,16 @@ void generic_proc_idle () {
 
 proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args) {
   proc_t *proc = kmalloc(sizeof(proc_t));
+
+  if (proc == nullptr) {
+    return nullptr;
+  }
+
   proc->m_id = id;
-  proc->m_idle_thread = create_thread(generic_proc_idle, NULL, "idle", (id == 0));
+  proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
   proc->m_threads = init_list();
-  list_append(proc->m_threads, create_thread(entry, args, "First thread", (id == 0)));
-  thread_prepare_context(proc->m_idle_thread);
-  thread_prepare_context((thread_t*) list_get(proc->m_threads, 0));
+  thread_t *t = create_thread_for_proc(proc, entry, args, name);
+  list_append(proc->m_threads, t);
 
   strcpy(proc->m_name, name);
 
@@ -25,10 +33,17 @@ proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args) {
     proc->m_prevent_scheduling = true;
   } else {
     proc->m_prevent_scheduling = false;
-    proc->m_requested_max_threads = 52;
+    proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
+
+  return proc;
 }
 
-proc_t* create_kernel_proc (FuncPtr entry) {
-  return create_proc("[aniva-core]", 0, entry, 606069);
+proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
+  return create_proc(PROC_CORE_PROCESS_NAME, 0, entry, args);
+}
+
+void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {
+  // TODO: generate new unique name
+  list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
 }

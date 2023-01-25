@@ -5,7 +5,7 @@
 #include "proc/thread.h"
 #include "system/processor/registers.h"
 
-#define SCHED_DEFAULT_PROC_START_TICKS 1
+#define SCHED_FRAME_DEFAULT_START_TICKS 100
 
 /* initialization */
 ANIVA_STATUS init_scheduler();
@@ -22,26 +22,12 @@ void scheduler_cleanup();
 
 registers_t *sched_tick(registers_t*);
 
-/* choose wich thread to switch to */
-thread_t* sched_next_thread();
-
-/* choose which process to give attention */
-proc_t* sched_next_proc();
-
-/* pull a funnie */
-void sched_next();
-void sched_safe_next();
-bool sched_has_next();
-void sched_first_switch_finished();
-
-
-ANIVA_STATUS sched_add_proc(proc_t*, proc_id);
-ANIVA_STATUS sched_add_thead(thread_t*);
+ANIVA_STATUS sched_add_proc(proc_t*);
 
 ANIVA_STATUS sched_remove_proc(proc_t*);
 ANIVA_STATUS sched_remove_proc_by_id(proc_id);
 ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();
-void __set_current_handled_thread(thread_t* thread);
+void set_current_handled_thread(thread_t* thread);
 #endif // !__ANIVA_SCHEDULER__

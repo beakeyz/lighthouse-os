@@ -22,6 +22,7 @@ typedef enum thread_state {
 
 struct proc;
 
+// TODO: thread uid?
 typedef struct thread {
   struct thread* m_self;
 
@@ -47,6 +48,7 @@ typedef struct thread {
 } thread_t;
 
 thread_t *create_thread(FuncPtr, uintptr_t, char[32], bool); // make this sucka
+thread_t *create_thread_for_proc(struct proc *proc, FuncPtr, uintptr_t, char[32]);
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
 extern void thread_enter_context(thread_t *to);

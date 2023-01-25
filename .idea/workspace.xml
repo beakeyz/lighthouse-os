@@ -23,14 +23,16 @@
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/linkedlist.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/linkedlist.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/linkedlist.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/linkedlist.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/mem/kmalloc.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/kmalloc.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/proc.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/proc.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/proc.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/proc.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/time/core.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/time/core.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/time/core.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/time/core.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/time/pit.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/time/pit.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/time/pit.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/time/pit.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -209,7 +211,9 @@
       <workItem from="1674480824701" duration="14795000" />
       <workItem from="1674554332898" duration="924000" />
       <workItem from="1674569441246" duration="53000" />
-      <workItem from="1674569500806" duration="3763000" />
+      <workItem from="1674569500806" duration="4462000" />
+      <workItem from="1674604324385" duration="5258000" />
+      <workItem from="1674654912247" duration="6069000" />
     </task>
     <servers />
   </component>

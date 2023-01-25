@@ -111,7 +111,7 @@ void* kmalloc(size_t len) {
   return NULL;
 }
 
-void kfree (void* addr) {
+void kfree(void* addr) {
 
   if (addr == nullptr) {
     // you fucking little piece of trash, how dare you pass NULL to kfree

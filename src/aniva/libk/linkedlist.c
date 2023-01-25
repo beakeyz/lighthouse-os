@@ -24,6 +24,8 @@ void destroy_list(list_t* list) {
 void list_append(list_t *list, void *data) {
   node_t* node = kmalloc(sizeof(node_t));
   node->data = data;
+  node->next = nullptr;
+  node->prev = nullptr;
   list->m_length++;
   
   if (list->head == nullptr || list->end == nullptr) {
@@ -40,6 +42,8 @@ void list_append(list_t *list, void *data) {
 void list_prepend(list_t *list, void *data) {
   node_t* node = kmalloc(sizeof(node_t));
   node->data = data;
+  node->next = nullptr;
+  node->prev = nullptr;
   list->m_length++;
 
   if (list->head == nullptr || list->end == nullptr) {
@@ -98,11 +102,21 @@ bool list_remove(list_t* list, uint32_t index) {
       node_t* next = i->next;
       node_t* prev = i->prev;
 
+      if (next == nullptr && prev == nullptr) {
+        // we are the only one ;-;
+        list->head = nullptr;
+        list->end = nullptr;
+      } else if (next == nullptr) {
+        // we are at the tail
+        list->end = prev;
+      } else if (prev == nullptr) {
+        // we are at the head
+        list->head = next;
+      }
       // pointer magic
       next->prev = prev;
       prev->next = next;
 
-      kfree(i->data);
       kfree(i);
       list->m_length--;
       return true;

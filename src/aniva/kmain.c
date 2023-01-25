@@ -35,7 +35,7 @@ extern ctor_func_t _start_ctors[];
 extern ctor_func_t _end_ctors[];
 
 static uintptr_t first_valid_addr = 0;
-static uintptr_t first_valid_alloc_addr = (uintptr_t) &_kernel_end;
+static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
@@ -67,15 +67,18 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_kheap(); // FIXME: this heap impl is very bad. improve it
 
+  // initialize things like fpu or interrupts
   g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
 
-  init_kmem_manager((uintptr_t *)
-                      mb_addr, first_valid_addr, first_valid_alloc_addr);
-  g_GlobalSystemInfo.m_multiboot_addr = (uintptr_t)
-    kmem_kernel_alloc((uintptr_t)
-                        mb_addr, g_GlobalSystemInfo.m_total_multiboot_size + 8, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-  struct multiboot_tag_framebuffer *fb = get_mb2_tag((uintptr_t *)
-                                                       mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  // we need memory
+  init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);
+
+  // map multiboot address
+  g_GlobalSystemInfo.m_multiboot_addr = (uintptr_t)kmem_kernel_alloc(
+    (uintptr_t)mb_addr,
+    g_GlobalSystemInfo.m_total_multiboot_size + 8,
+    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
+  );
 
   init_global_kevents();
 
@@ -86,7 +89,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_timer_system();
 
-  init_fb(fb);
+  init_fb(get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER));
   // Next TODO: create a kernel pre-init tty
 
   init_acpi();
@@ -97,8 +100,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_storage_controller();
 
   init_scheduler();
-
-  enable_interrupts();
 
   start_scheduler();
 
