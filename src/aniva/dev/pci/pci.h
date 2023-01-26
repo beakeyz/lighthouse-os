@@ -27,6 +27,12 @@ struct DeviceIdentifier;
 struct DeviceAddress;
 struct PCI_Bridge; 
 
+typedef enum PciAccessMode {
+  PCI_IOPORT_ACCESS = 0,
+  PCI_MEM_ACCESS,
+  PCI_UNKNOWN_ACCESS,
+} PciAccessMode_t;
+
 typedef enum PciRegisterOffset {
   VENDOR_ID = 0x00,            // word
   DEVICE_ID = 0x02,            // word
@@ -105,6 +111,8 @@ extern list_t* g_pci_bridges;
 extern list_t* g_pci_devices;
 extern bool g_has_registered_bridges;
 extern PciFuncCallback_t current_active_callback;
+
+PciAccessMode_t get_current_addressing_mode();
 
 bool init_pci();
 bool set_pci_func(PCI_FUNC_ENUMERATE_CALLBACK callback, const char* name);

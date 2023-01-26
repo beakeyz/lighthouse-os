@@ -12,7 +12,7 @@ ANIVA_STATUS init_scheduler();
 void scheduler_enter_first_thread(thread_t*);
 
 /* control */
-_Noreturn void start_scheduler(void);
+void start_scheduler(void);
 void resume_scheduler(void);
 ANIVA_STATUS pause_scheduler();
 void pick_next_thread_scheduler(void);

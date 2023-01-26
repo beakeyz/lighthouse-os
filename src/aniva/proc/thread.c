@@ -5,6 +5,7 @@
 #include <mem/kmalloc.h>
 #include "proc/proc.h"
 #include "libk/stack.h"
+#include "socket.h"
 #include <libk/string.h>
 
 // TODO: move somewhere central
@@ -28,8 +29,8 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   thread_set_state(thread, NO_CONTEXT);
 
   uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
-  memset((void *) stack_bottom, 0x00, DEFAULT_STACK_SIZE);
-  thread->m_stack_top = (stack_bottom + DEFAULT_STACK_SIZE);
+  thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
+  memset((void *)(thread->m_stack_top - DEFAULT_STACK_SIZE), 0x00, DEFAULT_STACK_SIZE);
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
@@ -52,6 +53,20 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
   return nullptr;
 }
 
+thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, char name[32], uint32_t port) {
+
+  threaded_socket_t *socket = create_threaded_socket(port, DEFAULT_SOCKET_BUFFER_SIZE);
+
+  // nullptr should mean that no allocation has been done
+  if (socket == nullptr) {
+    return nullptr;
+  }
+
+  thread_t *ret = create_thread_for_proc(proc, entry, (uintptr_t)socket->m_buffer, name);
+  ret->m_socket = socket;
+
+  return ret;
+}
 // funny wrapper
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
   contex_set_rip(&ptr->m_context, (uintptr_t)entry, data);
@@ -70,14 +85,20 @@ ANIVA_STATUS kill_thread(thread_t *thread) {
 ANIVA_STATUS kill_thread_if(thread_t *thread, bool condition) {
   return ANIVA_FAIL;
 } // kill if condition is me
+
+// TODO: more
 ANIVA_STATUS clean_thread(thread_t *thread) {
+  if (thread->m_socket) {
+    destroy_threaded_socket(thread->m_socket);
+  }
+  kfree(thread);
   return ANIVA_FAIL;
-} // clean resources thead used
+}
 
 void exit_thread() {
 
   for (;;) {
-    kernel_panic("TODO: exit thread");
+    //kernel_panic("TODO: exit thread");
   }
 }
 
@@ -122,7 +143,8 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_stack_top;
 
-  STACK_PUSH(rsp, uintptr_t, (uintptr_t)exit_thread);
+  STACK_PUSH(rsp, uintptr_t, 0);
+  STACK_PUSH(rsp, uintptr_t, (uintptr_t)&exit_thread);
 
   rsp -= sizeof(registers_t);
   registers_t* regs = (registers_t*)rsp;
@@ -154,6 +176,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 }
 
 // used to bootstrap the iret stub created in thread_prepare_context
+// only on the first context switch
 void thread_enter_context_first_time(thread_t* thread) {
 
   thread->m_has_been_scheduled = true;
@@ -168,7 +191,6 @@ void thread_enter_context_first_time(thread_t* thread) {
   tss_ptr->iomap_base = sizeof(get_current_processor()->m_tss);
   tss_ptr->rsp0l = thread->m_stack_top & 0xffffffff;
   tss_ptr->rsp0h = thread->m_stack_top >> 32;
-  println(to_string((uintptr_t)thread));
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
@@ -193,8 +215,6 @@ void thread_enter_context_first_time(thread_t* thread) {
     "addq $16, %%rsp \n"
     "iretq \n"
     :
-  [tss_rsp0l]"=m"(tss_ptr->rsp0l),
-  [tss_rsp0h]"=m"(tss_ptr->rsp0h),
     "=d"(thread)
   :
   [new_rsp]"g"(thread->m_context.rsp),

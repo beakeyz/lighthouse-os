@@ -39,7 +39,6 @@ typedef struct sched_frame {
 } sched_frame_t;
 
 // --- static fields ---
-static proc_t* s_current_proc_in_scheduler;
 static thread_t *s_previous_thread;
 static list_t* s_sched_frames;
 static spinlock_t* s_sched_switch_lock;
@@ -60,20 +59,8 @@ static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 
 // FIXME: create a place for this and remove test mark
 static void test_kernel_thread_func(uintptr_t arg) {
-  println("entering test_kernel_thread_func");
-  println(to_string(arg));
-  uintptr_t rsp;
-  asm volatile (
-    "movq %%rax, %0 \n"
-    : "=m"(rsp)
-    :: "memory"
-    );
-  print("test rsp: ");
-  println(to_string(rsp));
 
-  for (;;){
-  }
-  //kernel_panic("test_kernel_thread_func panic");
+  kernel_panic("test_kernel_thread_func panic");
 }
 
 ANIVA_STATUS init_scheduler() {
@@ -86,12 +73,6 @@ ANIVA_STATUS init_scheduler() {
   s_sched_frames = init_list();
   s_sched_switch_lock = init_spinlock();
 
-  proc_t *kproc = create_kernel_proc(test_kernel_thread_func, NULL);
-  list_append(kproc->m_threads, create_thread_for_proc(kproc, test_kernel_thread_func, NULL, "hi"));
-
-  sched_add_proc(kproc);
-
-  s_current_proc_in_scheduler = kproc;
   set_current_handled_thread(nullptr);
   return ANIVA_SUCCESS;
 }
@@ -100,7 +81,10 @@ ANIVA_STATUS init_scheduler() {
 void start_scheduler(void) {
 
   sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
-
+  // yikes
+  if (frame_ptr == nullptr) {
+    return;
+  }
   // TODO: initial kernel worker thread
   // first switch to kernel thread until we are done with that thread.
   // after that mark the process as idle and start up other processes to
@@ -160,18 +144,6 @@ ANIVA_STATUS pause_scheduler() {
     CHECK_AND_TRY_ENABLE_INTERRUPTS();
     return ANIVA_FAIL;
   }
-
-  // sched frame: when pausing the scheduler we want to be able to load this one
-  // when we resume. Set it as current
-  /*
-  thread_t * first_thread = list_get(s_current_proc_in_scheduler->m_threads, 0);
-
-  s_current_proc_in_scheduler = frame_ptr->m_proc_to_schedule;
-  if (s_current_thread_in_scheduler != nullptr) {
-    s_current_proc_in_scheduler->m_prev_thread = s_current_thread_in_scheduler;
-  }
-  s_current_thread_in_scheduler = (first_thread == nullptr ? s_current_proc_in_scheduler->m_idle_thread : first_thread);
-  */
 
 exit:
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
@@ -239,7 +211,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     }
   }
 
-  s_current_proc_in_scheduler->m_ticks_used++;
+  current_frame->m_proc_to_schedule->m_ticks_used++;
 
   thread_t *current_thread = get_current_scheduling_thread();
 
@@ -361,29 +333,40 @@ static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) {
 ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
 
   const uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
+  list_t *thread_list_ptr = ptr->m_proc_to_schedule->m_threads;
+
+  if (thread_list_ptr->m_length <= 0) {
+    return nullptr;
+  }
+
+  if (thread_list_ptr->m_length == 1) {
+    return list_get(thread_list_ptr, 0);
+  }
+
   ptr->m_scheduled_thread_index++;
 
-  thread_t *next = list_get(ptr->m_proc_to_schedule->m_threads, ptr->m_scheduled_thread_index);
+  thread_t *next = list_get(thread_list_ptr, ptr->m_scheduled_thread_index);
 
   if (next == nullptr) {
-    next = list_get(ptr->m_proc_to_schedule->m_threads, 0);
+    next = list_get(thread_list_ptr, 0);
     ptr->m_scheduled_thread_index = 0;
+    println("hihihi");
   }
 
   // plz be runnable
   while (!next || next->m_current_state != RUNNABLE) {
-    ptr->m_scheduled_thread_index++;
 
     // fuck
-    if (ptr->m_scheduled_thread_index >= ptr->m_max_async_task_threads ||
+    if (ptr->m_scheduled_thread_index >= thread_list_ptr->m_length ||
+        ptr->m_scheduled_thread_index >= ptr->m_max_async_task_threads ||
         ptr->m_scheduled_thread_index >= ptr->m_proc_to_schedule->m_requested_max_threads) {
       ptr->m_scheduled_thread_index = 0;
     }
 
-    if (prev_sched_thread_idx == ptr->m_scheduled_thread_index) {
-      set_sched_frame_idle(ptr);
-      return nullptr;
-    }
+    //if (prev_sched_thread_idx == ptr->m_scheduled_thread_index) {
+    //  set_sched_frame_idle(ptr);
+    //  return nullptr;
+    //}
 
     // TODO
     switch (next->m_current_state) {
@@ -393,7 +376,7 @@ ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
     }
 
     // pull next thread
-    next = list_get(ptr->m_proc_to_schedule->m_threads, ptr->m_scheduled_thread_index);
+    next = list_get(thread_list_ptr, ptr->m_scheduled_thread_index++);
   }
 
   // yay
@@ -416,8 +399,11 @@ void set_sched_frame_idle(sched_frame_t* frame_ptr) {
 }
 
 ALWAYS_INLINE void set_previous_thread(thread_t* thread) {
-  s_current_proc_in_scheduler->m_prev_thread = thread;
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
+  sched_frame_t *frame = list_get(s_sched_frames, 0);
+  frame->m_proc_to_schedule->m_prev_thread = thread;
   s_previous_thread = thread;
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
 thread_t *get_current_scheduling_thread() {

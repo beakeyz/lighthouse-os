@@ -101,6 +101,11 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
+  proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
+  proc_add_thread(aniva_proc, create_thread_as_socket(aniva_proc, aniva_task, "aniva_socket", 0));
+
+  sched_add_proc(aniva_proc);
+
   start_scheduler();
 
   // For a context switch:
@@ -118,5 +123,14 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   for (;;) {
     asm volatile ("hlt");
+  }
+}
+
+__attribute__((noreturn)) void aniva_task(uintptr_t buffer) {
+
+  println("entered eternal aniva task");
+
+  for (;;) {
+
   }
 }

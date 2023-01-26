@@ -19,8 +19,6 @@ static ALWAYS_INLINE void port_set_sleeping(AhciPort_t* port);
 static ALWAYS_INLINE ANIVA_STATUS port_sata_reset(AhciPort_t* port);
 static ALWAYS_INLINE bool port_has_phy(AhciPort_t* port);
 
-
-
 AhciPort_t* make_ahci_port(struct AhciDevice* device, volatile HBA_port_registers_t* port_regs, uint32_t index) {
 
   uintptr_t ib_page = kmem_request_pysical_page().m_ptr;

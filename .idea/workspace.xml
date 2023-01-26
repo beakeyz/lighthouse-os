@@ -22,11 +22,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/aniva/proc/core.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/proc/core.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/proc/socket.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/proc/socket.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/dev/disk/ahci/AhciPort.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/disk/ahci/AhciPort.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/pci.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/pci.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/pci.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/pci.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/libk/linkedlist.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/linkedlist.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/libk/linkedlist.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/linkedlist.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/mem/kmalloc.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/kmalloc.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/error.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/error.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/string.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/string.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/proc.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/proc.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/proc.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/proc.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
@@ -112,6 +119,11 @@
   }
 }</component>
   <component name="RunManager" selected="Makefile Target.debug">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
       <method v="2">
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
@@ -213,7 +225,7 @@
       <workItem from="1674569441246" duration="53000" />
       <workItem from="1674569500806" duration="4462000" />
       <workItem from="1674604324385" duration="5258000" />
-      <workItem from="1674654912247" duration="6069000" />
+      <workItem from="1674654912247" duration="17947000" />
     </task>
     <servers />
   </component>

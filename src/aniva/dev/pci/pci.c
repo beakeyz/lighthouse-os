@@ -11,6 +11,7 @@
 #include "system/acpi/structures.h"
 #include <libk/io.h>
 
+PciAccessMode_t s_current_addressing_mode;
 list_t* g_pci_bridges;
 list_t* g_pci_devices;
 bool g_has_registered_bridges;
@@ -237,6 +238,7 @@ bool init_pci() {
   bool has_pci_io = test_pci_io();
 
   if (success) {
+    s_current_addressing_mode = PCI_MEM_ACCESS;
     if (!g_has_registered_bridges) {
       kernel_panic("Trying to init pci before bridges have been registered!");
     }
@@ -256,9 +258,14 @@ bool init_pci() {
     enumerate_registerd_devices(print_device_info);
 
     return true;
+  } else if (has_pci_io) {
+    s_current_addressing_mode = PCI_IOPORT_ACCESS;
+    kernel_panic("TODO: implement pci io accessing globally");
+  } else {
+    // TODO: make it so the system just does not have access to its pci
+    // bus, in stead of simply panicking and halting the system...
+    kernel_panic("No viable pci access method found");
   }
-
-  // TODO: try to initialize PCI with IO addressing
 
   return false;
 }
@@ -406,4 +413,8 @@ void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
   placeback |= (1 << 0);
 
   pci_write_16(address, COMMAND, placeback);
+}
+
+PciAccessMode_t get_current_addressing_mode() {
+  return s_current_addressing_mode;
 }
