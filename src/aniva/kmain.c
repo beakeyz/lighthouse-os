@@ -135,9 +135,12 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 void test_sender_thread() {
 
   uintptr_t data = 696969;
+  uintptr_t data_2 = 696970;
+
   size_t data_size = sizeof(uintptr_t);
 
   tspckt_t **response_ptr = (tspckt_t**)Must(send_packet_to_socket(0, &data, data_size));
+  Must(send_packet_to_socket(0, &data_2, data_size));
 
   println("---------- sent the thing");
   for (;;) {
@@ -145,6 +148,7 @@ void test_sender_thread() {
 
     if (response && validate_tspckt(response)) {
 
+      // legitimacy
       print("Got data: ");
       println(to_string(*(uintptr_t*)response->m_data));
       kernel_panic("Got response!");
