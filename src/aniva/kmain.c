@@ -17,6 +17,9 @@
 #include "system/processor/processor.h"
 #include "time/pit.h"
 #include "time/core.h"
+#include "libk/queue.h"
+#include "proc/ipc/tspckt.h"
+#include "proc/socket.h"
 #include <dev/debug/serial.h>
 #include <interupts/control/pic.h>
 #include <interupts/idt.h>
@@ -40,6 +43,7 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
+void test_sender_thread();
 
 registers_t *thing(registers_t *regs) {
   in8(0x60);
@@ -99,10 +103,12 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
 
+  initialize_proc_core();
   init_scheduler();
 
   proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
   proc_add_thread(aniva_proc, create_thread_as_socket(aniva_proc, aniva_task, "aniva_socket", 0));
+  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, test_sender_thread, NULL, "test_sender"));
 
   sched_add_proc(aniva_proc);
 
@@ -126,11 +132,40 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 }
 
-__attribute__((noreturn)) void aniva_task(uintptr_t buffer) {
+void test_sender_thread() {
 
-  println("entered eternal aniva task");
+  uintptr_t data = 696969;
+  size_t data_size = sizeof(uintptr_t);
+
+  tspckt_t **response_ptr = (tspckt_t**)Must(send_packet_to_socket(0, &data, data_size));
+
+  println("---------- sent the thing");
+  for (;;) {
+    tspckt_t *response = *response_ptr;
+
+    if (response && validate_tspckt(response)) {
+
+      print("Got data: ");
+      println(to_string(*(uintptr_t*)response->m_data));
+      kernel_panic("Got response!");
+    }
+  }
+}
+
+__attribute__((noreturn)) void aniva_task(queue_t* buffer) {
+
+  uintptr_t response_data = 707070;
 
   for (;;) {
+    tspckt_t* packet = queue_dequeue(buffer);
+    if (packet) {
+      uintptr_t data = *(uintptr_t*)packet->m_data;
+      print("Received packet! data: ");
+      println(to_string(data));
 
+      packet->m_response = create_tspckt(&response_data, sizeof(uintptr_t));
+    } else {
+      //print("n");
+    }
   }
 }

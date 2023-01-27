@@ -2,9 +2,11 @@
 #define __ANIVA_SOCKET_THREAD__
 #include <libk/stddef.h>
 #include <libk/error.h>
+#include "libk/queue.h"
 
-#define MIN_SOCKET_BUFFER_SIZE 0
-#define DEFAULT_SOCKET_BUFFER_SIZE 4096
+struct thread;
+struct tspckt;
+struct threaded_socket;
 
 typedef enum THREADED_SOCKET_STATE {
   THREADED_SOCKET_STATE_LISTENING = 0,
@@ -14,20 +16,29 @@ typedef enum THREADED_SOCKET_STATE {
 
 typedef struct threaded_socket {
   uint32_t m_port;
-  size_t m_buffer_size;
-  void* m_buffer;
+  size_t m_max_size_per_buffer;
+  queue_t* m_buffers;
   THREADED_SOCKET_STATE_t m_state;
+  struct thread* m_parent;
 } threaded_socket_t;
 
-typedef struct ts_packet {
-  uint32_t m_identifier; // checksum? (like some form of security in this system lmao)
-  void* m_data;
-} ts_packet_t;
+/*
+ * create a socket in a thread
+ */
+threaded_socket_t *create_threaded_socket(struct thread* parent, uint32_t port, size_t max_size_per_buffer);
 
-threaded_socket_t *create_threaded_socket(uint32_t port, size_t buffer_size);
+/*
+ * destroy a socket and its resources
+ */
 ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr);
 
-ANIVA_STATUS send_packet_to_socket(uint32_t port, void* buffer);
+/*
+ * find a socket based on its port
+ * TODO: validate port based on checksum?
+ */
+threaded_socket_t *find_socket(uint32_t port);
+
+// TODO: with timeout?
 
 #endif
 

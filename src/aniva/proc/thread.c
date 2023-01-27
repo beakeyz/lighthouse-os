@@ -7,10 +7,9 @@
 #include "libk/stack.h"
 #include "socket.h"
 #include <libk/string.h>
+#include "core.h"
 
 // TODO: move somewhere central
-#define DEFAULT_STACK_SIZE (16 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS 4
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
@@ -55,15 +54,16 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
 
 thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, char name[32], uint32_t port) {
 
-  threaded_socket_t *socket = create_threaded_socket(port, DEFAULT_SOCKET_BUFFER_SIZE);
+  threaded_socket_t *socket = create_threaded_socket(nullptr, port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
 
   // nullptr should mean that no allocation has been done
   if (socket == nullptr) {
     return nullptr;
   }
 
-  thread_t *ret = create_thread_for_proc(proc, entry, (uintptr_t)socket->m_buffer, name);
+  thread_t *ret = create_thread_for_proc(proc, entry, (uintptr_t)socket->m_buffers, name);
   ret->m_socket = socket;
+  socket->m_parent = ret;
 
   return ret;
 }
@@ -72,7 +72,7 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
   contex_set_rip(&ptr->m_context, (uintptr_t)entry, data);
 }
 
-void thread_set_state(thread_t *thread, ThreadState state) {
+void thread_set_state(thread_t *thread, thread_state_t state) {
   thread->m_current_state = state;
   // TODO: update thread context(?) on state change
   // TODO: (??) onThreadStateChangeEvent?
@@ -145,6 +145,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)&exit_thread);
+  println(to_string(rsp));
 
   rsp -= sizeof(registers_t);
   registers_t* regs = (registers_t*)rsp;
@@ -163,6 +164,8 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   regs->r13 = thread->m_context.r13;
   regs->r14 = thread->m_context.r14;
   regs->r15 = thread->m_context.r15;
+  regs->err_code = 0;
+  regs->isr_no = 0;
   regs->rip = thread->m_context.rip;
   regs->cs = thread->m_context.cs;
   regs->rflags = thread->m_context.rflags;
@@ -192,6 +195,7 @@ void thread_enter_context_first_time(thread_t* thread) {
   tss_ptr->rsp0l = thread->m_stack_top & 0xffffffff;
   tss_ptr->rsp0h = thread->m_stack_top >> 32;
 
+
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
     "movq %[thread], %%rdi \n"
@@ -216,11 +220,11 @@ void thread_enter_context_first_time(thread_t* thread) {
     "iretq \n"
     :
     "=d"(thread)
-  :
-  [new_rsp]"g"(thread->m_context.rsp),
-  [new_rip]"g"(thread->m_context.rip),
-  [thread]"d"(thread)
-  : "memory"
+    :
+    [new_rsp]"g"(thread->m_context.rsp),
+    [new_rip]"g"(thread->m_context.rip),
+    [thread]"d"(thread)
+    : "memory"
   );
 }
 
@@ -260,11 +264,11 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "pushq %%r9 \n"
     "pushq %%r8 \n"
     "pushq %%rax \n"
-    "pushq %%rcx \n"
     "pushq %%rbx \n"
+    "pushq %%rcx \n"
     "pushq %%rdx \n"
-    "pushq %%rsi \n"
     "pushq %%rbp \n"
+    "pushq %%rsi \n"
     "pushq %%rdi \n"
     "movq %%rsp, %[old_rsp] \n"
     "leaq 1f(%%rip), %%rbx \n"
@@ -274,13 +278,12 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
     "movq %[new_rsp], %%rsp \n"
-    "pushq %[thread] \n"
     "pushq %[new_rip] \n"
     "cld \n"
-    "movq 8(%%rsp), %%rdi \n"
+    "movq %[thread], %%rdi \n"
     "jmp thread_enter_context \n"
     "1: \n"
-    "addq $8, %%rsp \n"
+    //"addq $8, %%rsp \n"
     "popq %%rdi \n"
     "popq %%rsi \n"
     "popq %%rbp \n"

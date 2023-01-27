@@ -3,9 +3,8 @@
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
+#include "core.h"
 
-#define PROC_DEFAULT_MAX_THREADS 16
-#define PROC_CORE_PROCESS_NAME "[aniva-core]"
 
 void generic_proc_idle () {
   println("Entered generic_proc_idle");

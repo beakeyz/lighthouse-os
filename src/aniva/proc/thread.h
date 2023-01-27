@@ -8,17 +8,7 @@
 #include "system/processor/gdt.h"
 #include <system/processor/registers.h>
 #include <libk/stddef.h>
-
-typedef enum thread_state {
-  INVALID = 0,
-  RUNNING,
-  RUNNABLE,
-  DYING,
-  DEAD,
-  STOPPED,
-  BLOCKED,
-  NO_CONTEXT,
-} ThreadState;
+#include "core.h"
 
 struct proc;
 struct threaded_socket;
@@ -38,7 +28,7 @@ typedef struct thread {
   bool m_has_been_scheduled;
   __attribute__((aligned(16))) uintptr_t m_stack_top;
 
-  ThreadState m_current_state;
+  thread_state_t m_current_state;
 
   // allow nested context switches
   struct proc *m_parent_proc; // nullable
@@ -60,7 +50,7 @@ void thread_switch_context(thread_t* from, thread_t* to);
 
 ANIVA_STATUS thread_prepare_context(thread_t *);
 
-void thread_set_state(thread_t *, ThreadState);
+void thread_set_state(thread_t *, thread_state_t);
 
 ANIVA_STATUS kill_thread(thread_t *); // kill thread and prepare for context swap to kernel
 ANIVA_STATUS kill_thread_if(thread_t *, bool); // kill if condition is met

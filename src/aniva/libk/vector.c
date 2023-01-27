@@ -10,6 +10,17 @@ vector_t* create_vector(size_t max_capacity) {
   return vec;
 }
 
+ErrorOrPtr vector_indexof(vector_t* vec, void* value) {
+  uintptr_t idx = 0;
+  FOREACH(i, &vec->m_items) {
+    if (i->data == value) {
+      return Success(idx);
+    }
+    idx++;
+  }
+  return Error();
+}
+
 void* vector_get(vector_t* vec, uint32_t index) {
   if (index < vec->m_max_capacity) {
     return list_get(&vec->m_items, index);
@@ -31,4 +42,13 @@ ANIVA_STATUS vector_remove(vector_t* vec, uint32_t index) {
     return ANIVA_SUCCESS;
   }
   return ANIVA_FAIL;
+}
+
+ANIVA_STATUS vector_ensure_capacity(vector_t* vec, size_t capacity) {
+  if (vec->m_max_capacity >= capacity) {
+    // TODO: truncate?
+    return ANIVA_FAIL;
+  }
+  vec->m_max_capacity = capacity;
+  return ANIVA_SUCCESS;
 }

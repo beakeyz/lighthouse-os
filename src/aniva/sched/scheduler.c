@@ -350,7 +350,6 @@ ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   if (next == nullptr) {
     next = list_get(thread_list_ptr, 0);
     ptr->m_scheduled_thread_index = 0;
-    println("hihihi");
   }
 
   // plz be runnable

@@ -1,0 +1,4 @@
+#ifndef __ANIVA_BASE_ALLOCATOR__
+#define __ANIVA_BASE_ALLOCATOR__
+
+#endif //__ANIVA_BASE_ALLOCATOR__
