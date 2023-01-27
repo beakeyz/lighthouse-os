@@ -147,30 +147,27 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)&exit_thread);
   println(to_string(rsp));
 
-  rsp -= sizeof(registers_t);
-  registers_t* regs = (registers_t*)rsp;
-  regs->rdi = thread->m_context.rdi;
-  regs->rsi = thread->m_context.rsi;
-  regs->rbp = thread->m_context.rbp;
-  regs->rdx = thread->m_context.rdx;
-  regs->rcx = thread->m_context.rcx;
-  regs->rbx = thread->m_context.rbx;
-  regs->rax = thread->m_context.rax;
-  regs->r8 = thread->m_context.r8;
-  regs->r9 = thread->m_context.r9;
-  regs->r10 = thread->m_context.r10;
-  regs->r11 = thread->m_context.r11;
-  regs->r12 = thread->m_context.r12;
-  regs->r13 = thread->m_context.r13;
-  regs->r14 = thread->m_context.r14;
-  regs->r15 = thread->m_context.r15;
-  regs->err_code = 0;
-  regs->isr_no = 0;
-  regs->rip = thread->m_context.rip;
-  regs->cs = thread->m_context.cs;
-  regs->rflags = thread->m_context.rflags;
-  regs->us_rsp = thread->m_stack_top;
-  regs->ss = 0;
+  STACK_PUSH(rsp, uintptr_t, 0);
+  STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rip);
+
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r15);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r14);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r13);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r12);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r11);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r10);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r9);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.r8);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rax);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rbx);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rcx);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rdx);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rbp);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rsi);
+  STACK_PUSH(rsp, uintptr_t, thread->m_context.rdi);
 
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
@@ -195,12 +192,8 @@ void thread_enter_context_first_time(thread_t* thread) {
   tss_ptr->rsp0l = thread->m_stack_top & 0xffffffff;
   tss_ptr->rsp0h = thread->m_stack_top >> 32;
 
-
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
-    "movq %[thread], %%rdi \n"
-    "call thread_exit_init_state \n"
-    "cld \n"
     "popq %%rdi \n"
     "popq %%rsi \n"
     "popq %%rbp \n"
@@ -216,7 +209,6 @@ void thread_enter_context_first_time(thread_t* thread) {
     "popq %%r13 \n"
     "popq %%r14 \n"
     "popq %%r15 \n"
-    "addq $16, %%rsp \n"
     "iretq \n"
     :
     "=d"(thread)

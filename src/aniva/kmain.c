@@ -3,34 +3,18 @@
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
 #include "dev/framebuffer/framebuffer.h"
-#include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/kevent/core.h"
-#include "libk/kevent/eventhook.h"
-#include "libk/kevent/eventregister.h"
-#include "libk/linkedlist.h"
-#include "sync/atomic_ptr.h"
 #include "system/acpi/acpi.h"
-#include "system/acpi/parser.h"
-#include "system/acpi/structures.h"
-#include "system/asm_specifics.h"
 #include "system/processor/processor.h"
-#include "time/pit.h"
 #include "time/core.h"
-#include "libk/queue.h"
-#include "proc/ipc/tspckt.h"
 #include "proc/socket.h"
+#include "libk/string.h"
 #include <dev/debug/serial.h>
-#include <interupts/control/pic.h>
-#include <interupts/idt.h>
-#include <interupts/interupts.h>
 #include <mem/kmalloc.h>
 #include <mem/kmem_manager.h>
-#include <libk/multiboot.h>
 #include <sched/scheduler.h>
 #include <libk/io.h>
-#include <libk/stddef.h>
-#include <libk/string.h>
 
 typedef void (*ctor_func_t)();
 
@@ -43,7 +27,6 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
-void test_sender_thread();
 
 registers_t *thing(registers_t *regs) {
   in8(0x60);
@@ -107,8 +90,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_scheduler();
 
   proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
-  proc_add_thread(aniva_proc, create_thread_as_socket(aniva_proc, aniva_task, "aniva_socket", 0));
-  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, test_sender_thread, NULL, "test_sender"));
+  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, aniva_task, NULL, "aniva_socket"));
 
   sched_add_proc(aniva_proc);
 
@@ -132,45 +114,16 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 }
 
-void test_sender_thread() {
+void aniva_task(uintptr_t buffer) {
 
-  uintptr_t data = 696969;
-  uintptr_t data_2 = 696970;
-
-  size_t data_size = sizeof(uintptr_t);
-
-  tspckt_t **response_ptr = (tspckt_t**)Must(send_packet_to_socket(0, &data, data_size));
-  send_packet_to_socket(0, &data_2, data_size);
-
-  println("---------- sent the thing");
-  for (;;) {
-    tspckt_t *response = *response_ptr;
-
-    if (validate_tspckt(response)) {
-
-      // legitimacy
-      print("Got data: ");
-      println(to_string(*(uintptr_t*)response->m_data));
-      destroy_tspckt(response);
-      kernel_panic("Got response!");
-    }
-  }
-}
-
-__attribute__((noreturn)) void aniva_task(queue_t* buffer) {
-
-  uintptr_t response_data = 707070;
+  println("entered aniva_task");
 
   for (;;) {
-    tspckt_t* packet = queue_dequeue(buffer);
-    if (validate_tspckt(packet)) {
-      uintptr_t data = *(uintptr_t*)packet->m_data;
-      print("Received packet! data: ");
-      println(to_string(data));
-
-      packet->m_response = create_tspckt(&response_data, sizeof(uintptr_t));
-    } else {
-      //print("n");
-    }
+    asm volatile (
+      "movq %%rsp, %0 \n"
+      : "=g"(buffer)
+    );
+    println(to_string(buffer));
   }
+
 }
