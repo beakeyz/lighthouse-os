@@ -7,11 +7,16 @@
 tspckt_t *create_tspckt(void* data, size_t data_size) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   const size_t packet_size = sizeof(tspckt_t) + data_size;
-  tspckt_t *packet = kmalloc(packet_size);
-  if (prepare_tspckt(packet, data, data_size) == ANIVA_FAIL) {
-    CHECK_AND_TRY_ENABLE_INTERRUPTS();
-    return nullptr;
-  }
+  tspckt_t *packet = kmalloc(sizeof(tspckt_t));
+
+  packet->m_response = create_invalid_tspckt();
+  packet->m_identifier = NULL; // TODO
+  packet->m_packet_size = packet_size;
+  packet->m_data = kmalloc(data_size);
+  // copy the data into our own buffer
+  memcpy(packet->m_data, data, data_size);
+
+  packet->m_sender_thread = get_current_scheduling_thread();
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return packet;
@@ -52,6 +57,7 @@ ANIVA_STATUS destroy_tspckt(tspckt_t* packet) {
   // for now our only heap allocated stuff is our own instance,
   // so lets just get rid of that
   kfree(packet->m_response);
+  kfree(packet->m_data);
   kfree(packet);
   return ANIVA_SUCCESS;
 }
@@ -81,7 +87,7 @@ ANIVA_STATUS tspckt_wait_for_response_with_timeout(tspckt_t* packet, size_t time
 }
 
 ANIVA_STATUS tspckt_check_for_response(tspckt_t* packet) {
-  if (packet->m_response != nullptr) {
+  if (packet != nullptr && packet->m_response != nullptr) {
     return ANIVA_SUCCESS;
   }
   return ANIVA_FAIL;

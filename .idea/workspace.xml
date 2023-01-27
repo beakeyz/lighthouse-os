@@ -22,7 +22,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/libk/queue.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/queue.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/ipc/tspckt.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/ipc/tspckt.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/socket.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/socket.c" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -137,11 +141,6 @@
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
       </method>
     </configuration>
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="build" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile">
       <makefile filename="$PROJECT_DIR$/Makefile" target="build" workingDirectory="" arguments="">
         <envs />
@@ -209,7 +208,8 @@
       <workItem from="1674569500806" duration="4462000" />
       <workItem from="1674604324385" duration="5258000" />
       <workItem from="1674654912247" duration="18180000" />
-      <workItem from="1674750883383" duration="15081000" />
+      <workItem from="1674750883383" duration="15158000" />
+      <workItem from="1674813675567" duration="2289000" />
     </task>
     <servers />
   </component>

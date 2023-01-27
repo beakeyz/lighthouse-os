@@ -58,6 +58,7 @@ threaded_socket_t *find_socket(uint32_t port) {
   return nullptr;
 }
 
+// FIXME: should this disable interrupts?
 ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   // TODO: list lookup

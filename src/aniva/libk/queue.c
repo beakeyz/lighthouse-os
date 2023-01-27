@@ -1,5 +1,7 @@
 #include "queue.h"
 #include "mem/kmalloc.h"
+#include "string.h"
+#include "proc/ipc/tspckt.h"
 
 queue_t *create_queue(size_t capacity) {
   queue_t *queue_ptr = kmalloc(sizeof (queue_t));
@@ -52,14 +54,18 @@ void queue_enqueue(queue_t *queue, void* data) {
   new_entry->m_data = data;
   new_entry->m_preceding_entry = nullptr;
 
-  if (queue->m_head_ptr == nullptr) {
+  if (queue->m_head_ptr == nullptr || queue->m_tail_ptr == nullptr) {
     queue->m_head_ptr = new_entry;
     queue->m_tail_ptr = new_entry;
+    println(to_string(*(uint64_t*) ((tspckt_t *) queue->m_head_ptr->m_data)->m_data));
+
   } else {
     queue->m_tail_ptr->m_preceding_entry = new_entry;
   }
 
   queue->m_tail_ptr = new_entry;
+  println(to_string(*(uint64_t*) ((tspckt_t *) queue->m_head_ptr->m_data)->m_data));
+
 }
 
 void* queue_dequeue(queue_t *queue) {
@@ -67,12 +73,12 @@ void* queue_dequeue(queue_t *queue) {
     return nullptr;
   }
 
-  void *ret = queue->m_head_ptr->m_data;
-
   queue_entry_t *entry_to_remove = queue->m_head_ptr;
+  void *ret = entry_to_remove->m_data;
 
-  if (queue->m_head_ptr->m_preceding_entry != nullptr) {
-    queue->m_head_ptr = queue->m_head_ptr->m_preceding_entry;
+
+  if (entry_to_remove->m_preceding_entry != nullptr) {
+    queue->m_head_ptr = entry_to_remove->m_preceding_entry;
   } else {
     // empty
     queue->m_head_ptr = nullptr;

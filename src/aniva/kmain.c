@@ -140,17 +140,18 @@ void test_sender_thread() {
   size_t data_size = sizeof(uintptr_t);
 
   tspckt_t **response_ptr = (tspckt_t**)Must(send_packet_to_socket(0, &data, data_size));
-  Must(send_packet_to_socket(0, &data_2, data_size));
+  send_packet_to_socket(0, &data_2, data_size);
 
   println("---------- sent the thing");
   for (;;) {
     tspckt_t *response = *response_ptr;
 
-    if (response && validate_tspckt(response)) {
+    if (validate_tspckt(response)) {
 
       // legitimacy
       print("Got data: ");
       println(to_string(*(uintptr_t*)response->m_data));
+      destroy_tspckt(response);
       kernel_panic("Got response!");
     }
   }
@@ -162,7 +163,7 @@ __attribute__((noreturn)) void aniva_task(queue_t* buffer) {
 
   for (;;) {
     tspckt_t* packet = queue_dequeue(buffer);
-    if (packet) {
+    if (validate_tspckt(packet)) {
       uintptr_t data = *(uintptr_t*)packet->m_data;
       print("Received packet! data: ");
       println(to_string(data));
