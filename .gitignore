@@ -3,5 +3,6 @@
 /cross_compiler/
 /sysroot/
 /out/
+/tests/out
 
 ./lightos.elf
