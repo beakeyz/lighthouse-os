@@ -17,7 +17,10 @@ typedef enum THREADED_SOCKET_STATE {
 typedef struct threaded_socket {
   uint32_t m_port;
   size_t m_max_size_per_buffer;
+
+  // FIXME: have a socket-specific buffer_queue struct that we can pass to threads
   queue_t* m_buffers;
+
   THREADED_SOCKET_STATE_t m_state;
   struct thread* m_parent;
 } threaded_socket_t;

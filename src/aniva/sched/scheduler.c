@@ -85,11 +85,10 @@ void start_scheduler(void) {
   if (frame_ptr == nullptr) {
     return;
   }
-  // TODO: initial kernel worker thread
-  // first switch to kernel thread until we are done with that thread.
-  // after that mark the process as idle and start up other processes to
-  // init further. these processes can be preempted
-  thread_t *initial_thread = list_get(frame_ptr->m_proc_to_schedule->m_threads, 0);
+
+  // let's jump into the idle thread initially, so we can then
+  // resume to the thread-pool when we leave critical sections
+  thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_idle_thread;
 
   atomic_ptr_write(s_no_schedule, false);
 
@@ -99,9 +98,11 @@ void start_scheduler(void) {
 
   s_sched_mode = WAITING_FOR_FIRST_TICK;
 
+  disable_interrupts();
   // ensure interrupts enabled
-  enable_interrupts();
-  for (;;) {}
+  //enable_interrupts();
+  //for (;;) {}
+  thread_enter_context_first_time(initial_thread);
 }
 
 void pick_next_thread_scheduler(void) {
@@ -163,7 +164,14 @@ void resume_scheduler(void) {
   atomic_ptr_write(s_no_schedule, false);
 }
 
-void scheduler_cleanup() {
+void scheduler_try_call() {
+
+  Processor_t *current = get_current_processor();
+  ASSERT_MSG(current->m_irq_depth == 0, "Trying to call scheduler while in irq");
+  ASSERT_MSG(atomic_ptr_load(current->m_critical_depth) == 0, "Trying to call scheduler while in irq");
+
+  if (!s_has_schedule_request)
+    return;
 
   s_has_schedule_request = false;
 
@@ -235,10 +243,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   }
 
   resume_scheduler();
-
-  if (s_has_schedule_request) {
-    scheduler_cleanup();
-  }
   return registers_ptr;
 }
 
@@ -370,6 +374,19 @@ ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
     // TODO
     switch (next->m_current_state) {
       case BLOCKED:
+        break;
+      case DYING: {
+        //
+        uintptr_t idx;
+        FOREACH(i, ptr->m_proc_to_schedule->m_threads) {
+          if (i->data == (void *) next) {
+            list_remove(ptr->m_proc_to_schedule->m_threads, idx);
+            break;
+          }
+          idx++;
+        }
+        break;
+      }
       default:
         break;
     }

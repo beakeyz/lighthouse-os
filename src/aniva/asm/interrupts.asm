@@ -1,6 +1,8 @@
 [bits 64]
 
 extern interrupt_handler
+extern processor_enter_interruption
+extern processor_exit_interruption
 
 %macro interrupt_asm_entry 1
 [global interrupt_asm_entry_%1]
@@ -28,8 +30,20 @@ interrupt_asm_entry_%1:
   cld
 
   mov rdi, rsp
+  mov rsi, 0x01
+  call processor_enter_interruption
+
+  mov rdi, rsp
   call interrupt_handler
   mov rsp, rax
+
+  jmp asm_common_irq_exit
+%endmacro
+
+[global asm_common_irq_exit]
+asm_common_irq_exit:
+  mov rdi, rsp
+  call processor_exit_interruption
 
   pop rdi
   pop rsi
@@ -50,7 +64,6 @@ interrupt_asm_entry_%1:
   add rsp, 16
 
   iretq
-%endmacro
 
 interrupt_asm_entry 32
 interrupt_asm_entry 33

@@ -16,7 +16,7 @@
 #define STANDARD_PD_ENTRIES 512
 #define MAX_RETRIES_FOR_PAGE_MAPPING 5
 
-typedef struct {
+struct {
   uint32_t m_mmap_entry_num;
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
@@ -38,9 +38,7 @@ typedef struct {
   PagingComplex_t m_phys_base_pd[512] __attribute__((aligned(0x1000UL)));
   PagingComplex_t m_phys_base_pts[64][512] __attribute__((aligned(0x1000UL)));
 
-} kmem_data_t;
-
-static kmem_data_t KMEM_DATA;
+} KMEM_DATA;
 
 // TODO: move to processor struct
 

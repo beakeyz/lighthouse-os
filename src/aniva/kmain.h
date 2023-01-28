@@ -18,8 +18,6 @@ extern PagingComplex_t boot_pdpt[512];
 extern PagingComplex_t boot_pd0[512];
 extern PagingComplex_t boot_pd0_p[512 * 32];
 
-typedef struct multiboot_color _color_t;
-
 typedef struct {
   uintptr_t m_multiboot_addr;
   size_t m_total_multiboot_size;
@@ -28,7 +26,7 @@ typedef struct {
   Processor_t* m_current_core;
 } GlobalSystemInfo_t;
 
-void aniva_task(uintptr_t buffer);
+void aniva_task(queue_t* buffer);
 
 extern GlobalSystemInfo_t g_GlobalSystemInfo;
 

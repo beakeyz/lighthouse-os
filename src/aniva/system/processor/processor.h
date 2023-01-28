@@ -11,6 +11,8 @@
 #include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include "system/processor/fpu/state.h"
+#include "sched/scheduler.h"
+#include "dev/debug/serial.h"
 #include <aniva/system/asm_specifics.h>
 
 #define PROCESSOR_MAX_GDT_ENTRIES 7
@@ -31,11 +33,13 @@ typedef struct Processor {
 
   size_t m_gdt_highest_entry;
 
-  spinlock_t *m_hard_processor_lock;
+  //spinlock_t *m_hard_processor_lock;
   atomic_ptr_t *m_locked_level;
-  atomic_ptr_t *m_vital_task_depth;
+
+  atomic_ptr_t *m_critical_depth;
 
   uint32_t m_irq_depth;
+  uint32_t m_prev_irq_depth;
   uint32_t m_cpu_num;
 
   void *m_stack_start;
@@ -53,38 +57,80 @@ typedef struct Processor {
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;
 
+/*
+ * gather info on hardware-specific info about the processor
+ */
 ProcessorInfo_t processor_gather_info();
 
+/*
+ * initialize early aspects of the processor abstraction
+ * i.e. interrupts or fields
+ */
 ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num);
 
+/*
+ * create processor on heap
+ */
 Processor_t *create_processor(uint32_t num);
 
+/*
+ * create a GDT for this processor
+ */
 ANIVA_STATUS init_gdt(Processor_t *processor);
 
+/*
+ * check if this is the processor we used to boot
+ */
 bool is_bsp(Processor_t *processor);
 
+/*
+ * set the ptr to processor we used to boot
+ */
 void set_bsp(Processor_t *processor);
 
+/*
+ * update gdt registers n stuff
+ */
 void flush_gdt(Processor_t *processor);
 
-ANIVA_STATUS init_processor_ctx(Processor_t *processor, thread_t *);
+/*
+ * called when we enter an interrupt or something as such
+ */
+extern void processor_enter_interruption(registers_t* registers, bool irq);
 
-ANIVA_STATUS init_processor_dynamic_ctx(Processor_t *processor, thread_t *);
+/*
+ * called when we exit an interrupt or something as such
+ */
+extern void processor_exit_interruption(registers_t* registers);
 
 ALWAYS_INLINE Processor_t *get_current_processor() {
   return (Processor_t *) read_gs(GET_OFFSET(Processor_t, m_own_ptr));
 }
 
-ALWAYS_INLINE void processor_increment_vital_depth(Processor_t *processor) {
-  uintptr_t current_level = atomic_ptr_load(processor->m_vital_task_depth);
-  atomic_ptr_write(processor->m_vital_task_depth, current_level + 1);
+ALWAYS_INLINE void processor_increment_critical_depth(Processor_t *processor) {
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
+  uintptr_t current_level = atomic_ptr_load(processor->m_critical_depth);
+  atomic_ptr_write(processor->m_critical_depth, current_level + 1);
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-ALWAYS_INLINE void processor_decrement_vital_depth(Processor_t *processor) {
-  uintptr_t current_level = atomic_ptr_load(processor->m_vital_task_depth);
-  if (current_level > 0) {
-    atomic_ptr_write(processor->m_vital_task_depth, current_level - 1);
+ALWAYS_INLINE void processor_decrement_critical_depth(Processor_t *processor) {
+  uintptr_t current_level = atomic_ptr_load(processor->m_critical_depth);
+
+  ASSERT_MSG(current_level > 0, "Tried to leave a critical processor section while not being in one!");
+
+  if (current_level == 1) {
+
+    if (processor->m_irq_depth == 0) {
+      // TODO: call the deferred_call_event here
+      // we should make sure that we dont enter any
+      // critical sections here ;-;
+
+      scheduler_try_call();
+    }
   }
+
+  atomic_ptr_write(processor->m_critical_depth, current_level - 1);
 }
 
 extern FpuState standard_fpu_state;

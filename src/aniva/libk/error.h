@@ -17,8 +17,8 @@ typedef struct _ErrorOrPtr {
 NORETURN void __kernel_panic();
 NORETURN void kernel_panic(const char* panic_message);
 
-#define ASSERT(condition) (condition ? (void)0 : kernel_panic("Assertion failed! TODO: stacktrace!"))
-
+#define ASSERT(condition) ((condition) ? (void)0 : kernel_panic("Assertion failed! TODO: stacktrace!"))
+#define ASSERT_MSG(condition, msg) if (!(condition)) { print("Assertion failed: "); kernel_panic(msg); }
 
 ALWAYS_INLINE ErrorOrPtr Error() {
   ErrorOrPtr e = {

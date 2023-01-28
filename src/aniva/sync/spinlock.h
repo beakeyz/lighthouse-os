@@ -2,6 +2,9 @@
 #define __ANIVA_SPINLOCK__
 #include <libk/stddef.h>
 
+struct Processor;
+union atomic_ptr;
+
 typedef volatile struct {
   volatile int m_latch[1];
   int m_cpu_num;
@@ -10,6 +13,8 @@ typedef volatile struct {
 
 typedef struct {
   __spinlock_t m_lock;
+  struct Processor* m_processor;
+  union atomic_ptr* m_is_locked;
   // TODO:
 } spinlock_t;
 
@@ -17,12 +22,5 @@ spinlock_t* init_spinlock();
 void lock_spinlock(spinlock_t* lock);
 void unlock_spinlock(spinlock_t* lock);
 bool is_spinlock_locked(spinlock_t* lock);
-
-/* __spinlock_t */
-__spinlock_t __init_spinlock();
-
-// arch specific
-void aquire_spinlock(__spinlock_t* lock);
-void release_spinlock(__spinlock_t* lock);
 
 #endif // !__ANIVA_SPINLOCK__

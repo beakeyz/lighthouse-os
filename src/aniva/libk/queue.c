@@ -57,14 +57,12 @@ void queue_enqueue(queue_t *queue, void* data) {
   if (queue->m_head_ptr == nullptr || queue->m_tail_ptr == nullptr) {
     queue->m_head_ptr = new_entry;
     queue->m_tail_ptr = new_entry;
-    println(to_string(*(uint64_t*) ((tspckt_t *) queue->m_head_ptr->m_data)->m_data));
 
   } else {
     queue->m_tail_ptr->m_preceding_entry = new_entry;
   }
 
   queue->m_tail_ptr = new_entry;
-  println(to_string(*(uint64_t*) ((tspckt_t *) queue->m_head_ptr->m_data)->m_data));
 
 }
 

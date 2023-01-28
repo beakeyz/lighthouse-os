@@ -121,6 +121,8 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flag
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();
 
+PagingComplex_t* kmem_create_user_page_map(size_t byte_size);
+
 // TODO: write kmem_manager tests
 
 // TODO: hihi remove

@@ -8,6 +8,7 @@
 #include "socket.h"
 #include <libk/string.h>
 #include "core.h"
+#include "sched/scheduler.h"
 
 // TODO: move somewhere central
 
@@ -18,13 +19,13 @@ extern void thread_exit_init_state(thread_t *from) __attribute__((used));
 thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
   thread->m_self = thread;
-  strcpy(thread->m_name, name);
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = nullptr;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
 
+  strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
   uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
@@ -97,6 +98,12 @@ ANIVA_STATUS clean_thread(thread_t *thread) {
 
 void exit_thread() {
 
+  pause_scheduler();
+
+  thread_set_state(get_current_scheduling_thread(), DYING);
+
+  resume_scheduler();
+
   for (;;) {
     //kernel_panic("TODO: exit thread");
   }
@@ -145,13 +152,16 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, (uintptr_t)&exit_thread);
-  println(to_string(rsp));
 
   STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rip);
+
+  // dummy irs_num and err_code
+  STACK_PUSH(rsp, uintptr_t, 0);
+  STACK_PUSH(rsp, uintptr_t, 0);
 
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r15);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.r14);
@@ -185,6 +195,7 @@ void thread_enter_context_first_time(thread_t* thread) {
   println(thread->m_name);
 
   ASSERT(thread->m_current_state != NO_CONTEXT);
+  ASSERT(get_current_scheduling_thread() == thread);
   thread_set_state(thread, RUNNING);
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
@@ -194,22 +205,12 @@ void thread_enter_context_first_time(thread_t* thread) {
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
-    "popq %%rdi \n"
-    "popq %%rsi \n"
-    "popq %%rbp \n"
-    "popq %%rdx \n"
-    "popq %%rcx \n"
-    "popq %%rbx \n"
-    "popq %%rax \n"
-    "popq %%r8  \n"
-    "popq %%r9  \n"
-    "popq %%r10 \n"
-    "popq %%r11 \n"
-    "popq %%r12 \n"
-    "popq %%r13 \n"
-    "popq %%r14 \n"
-    "popq %%r15 \n"
-    "iretq \n"
+    "movq %%rsp, %%rdi \n"
+    "movq $0, %%rsi \n"
+    "call processor_enter_interruption \n"
+    "movq %[thread], %%rdi \n"
+    "call thread_exit_init_state \n"
+    "jmp asm_common_irq_exit \n"
     :
     "=d"(thread)
     :
@@ -310,6 +311,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 // TODO: this thing
 extern void thread_exit_init_state(thread_t *from) {
 
+  println("Context switch! (thread_exit_init_state)");
   //kernel_panic("reached thread_exit_init_state");
 }
 

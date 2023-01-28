@@ -1,13 +1,18 @@
 #include "spinlock.h"
 #include "kmain.h"
 #include "mem/kmalloc.h"
-#include "sync/atomic_ptr.h"
+
+/* __spinlock_t */
+static __spinlock_t __init_spinlock();
+static void aquire_spinlock(__spinlock_t* lock);
+static void release_spinlock(__spinlock_t* lock);
 
 // FIXME: make this wrapper actually useful
 spinlock_t* init_spinlock() {
   spinlock_t* lock = kmalloc(sizeof(spinlock_t));
 
-  //lock->m_processor = get_current_processor();
+  lock->m_processor = get_current_processor();
+  lock->m_is_locked = create_atomic_ptr_with_value(false);
   //lock->m_thread = get_current_processor()->m_root_thread;
   //lock->m_proc = get_current_processor()->m_root_thread->m_parent_proc;
 
@@ -16,20 +21,22 @@ spinlock_t* init_spinlock() {
 }
 
 void lock_spinlock(spinlock_t* lock) {
-  Processor_t* current_processor = get_current_processor();
-  uintptr_t j = atomic_ptr_load(current_processor->m_locked_level);
-  atomic_ptr_write(current_processor->m_locked_level, j+1);
-  // TODO: lock
   aquire_spinlock(&lock->m_lock);
+
+  uintptr_t j = atomic_ptr_load(lock->m_processor->m_locked_level);
+  atomic_ptr_write(lock->m_processor->m_locked_level, j+1);
+  atomic_ptr_write(lock->m_is_locked, true);
 }
 void unlock_spinlock(spinlock_t* lock) {
-  Processor_t* current_processor = get_current_processor();
-  uintptr_t j = atomic_ptr_load(current_processor->m_locked_level);
-  atomic_ptr_write(current_processor->m_locked_level, j-1);
+  uintptr_t j = atomic_ptr_load(lock->m_processor->m_locked_level);
+  ASSERT_MSG(j > 0, "unlocking spinlock while having a m_locked_level of 0!");
+
+  atomic_ptr_write(lock->m_processor->m_locked_level, j-1);
+  atomic_ptr_write(lock->m_is_locked, false);
   release_spinlock(&lock->m_lock);
 }
 bool is_spinlock_locked(spinlock_t* lock) {
-  return lock->m_lock.m_cpu_num != -1;
+  return atomic_ptr_load(lock->m_is_locked) == true;
 }
 
 /* __spinlock_t */

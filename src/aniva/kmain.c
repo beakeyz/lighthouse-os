@@ -10,6 +10,7 @@
 #include "time/core.h"
 #include "proc/socket.h"
 #include "libk/string.h"
+#include "proc/ipc/tspckt.h"
 #include <dev/debug/serial.h>
 #include <mem/kmalloc.h>
 #include <mem/kmem_manager.h>
@@ -27,6 +28,8 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
+
+__attribute__((noreturn)) void test_sender();
 
 registers_t *thing(registers_t *regs) {
   in8(0x60);
@@ -90,12 +93,14 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_scheduler();
 
   proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
-  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, aniva_task, NULL, "aniva_socket"));
+  proc_add_thread(aniva_proc, create_thread_as_socket(aniva_proc, aniva_task, "aniva_socket", 0));
+  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, test_sender, NULL, "test_sender"));
 
   sched_add_proc(aniva_proc);
 
   start_scheduler();
 
+  //enable_interrupts();
   // For a context switch:
   //  - discard kernel boot stack
   //  - make new proc context
@@ -114,16 +119,47 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 }
 
-void aniva_task(uintptr_t buffer) {
+__attribute__((noreturn)) void test_sender() {
 
-  println("entered aniva_task");
+  uintptr_t data = 696969;
+  send_packet_to_socket(0, &data, sizeof(uintptr_t));
+  data += 69;
+  send_packet_to_socket(0, &data, sizeof(uintptr_t));
 
   for (;;) {
-    asm volatile (
-      "movq %%rsp, %0 \n"
-      : "=g"(buffer)
+
+  }
+}
+
+void aniva_task(queue_t *buffer) {
+
+  uintptr_t rsp_val;
+  asm volatile (
+    "movq %%rsp, %0 \n"
+    : "=g"(rsp_val)
     );
-    println(to_string(buffer));
+  println(to_string(rsp_val));
+  println(to_string(*(uintptr_t*)rsp_val));
+
+  uintptr_t count = 0;
+  for (;;) {
+    tspckt_t* packet = queue_dequeue(buffer);
+    if (validate_tspckt(packet)) {
+      print("Gotcha: ");
+      println(to_string(*(uintptr_t*)packet->m_data));
+      count++;
+      if (count >= 2) {
+        break;
+      }
+    }
   }
 
+  asm volatile (
+    "movq %%rsp, %0 \n"
+    : "=g"(rsp_val)
+    );
+  println(to_string(rsp_val));
+  println(to_string(*(uintptr_t*)rsp_val));
+
+  kernel_panic("TODO: why won't we just return to our exit_thread function ;-;");
 }

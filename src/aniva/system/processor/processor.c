@@ -4,6 +4,7 @@
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include "mem/kmalloc.h"
+#include "libk/string.h"
 
 extern void _flush_gdt(uintptr_t gdtr);
 
@@ -31,8 +32,9 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
   processor->m_own_ptr = processor;
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
+  processor->m_prev_irq_depth = 0;
   processor->fLateInit = processor_late_init;
-  atomic_ptr_write(processor->m_vital_task_depth, 0);
+  atomic_ptr_write(processor->m_critical_depth, 0);
 
   // setup hardware (should not need anything in the Processor_t struct besides capabilities)
   // TODO: fpu, sse, mmx, xmm, tlb
@@ -111,7 +113,10 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   processor->m_gdtr.limit = 0;
   processor->m_gdtr.base = NULL;
 
-  gdt_entry_t null = {0};
+  gdt_entry_t null = {
+    .low = 0x00000000,
+    .high = 0x00000000,
+  };
   gdt_entry_t ring0_code = {
     .low = 0x0000ffff,
     .high = 0x00af9a00,
@@ -171,16 +176,25 @@ void set_bsp(Processor_t *processor) {
   // FIXME: uhm, what to do when this passess null?
 }
 
-ANIVA_STATUS init_processor_ctx(Processor_t *processor, thread_t *t) {
+void processor_enter_interruption(registers_t* registers, bool irq) {
+  Processor_t *current = get_current_processor();
+  ASSERT_MSG(current, "could not get current processor when entering interruption");
 
-  // are we in kernel mode?
-
-  uintptr_t _kstack_top = t->m_stack_top;
-  return ANIVA_SUCCESS;
+  current->m_prev_irq_depth = current->m_irq_depth;
+  if (irq) {
+    current->m_irq_depth++;
+  }
 }
 
-ANIVA_STATUS init_processor_dynamic_ctx(Processor_t *processor, thread_t *t) {
+void processor_exit_interruption(registers_t* registers) {
+  Processor_t *current = get_current_processor();
+  ASSERT_MSG(current, "could not get current processor when exiting interruption");
 
+  current->m_irq_depth = current->m_prev_irq_depth;
 
-  return ANIVA_SUCCESS;
+  // call deferred calls here too?
+
+  if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {
+    scheduler_try_call();
+  }
 }
