@@ -67,7 +67,7 @@ ANIVA_STATUS init_scheduler() {
   disable_interrupts();
   s_no_schedule = create_atomic_ptr();
   atomic_ptr_write(s_no_schedule, true);
-  s_sched_mode = WAITING_FOR_FIRST_TICK;
+  s_sched_mode = PAUSED;
   s_has_schedule_request = false;
 
   s_sched_frames = init_list();
@@ -96,7 +96,7 @@ void start_scheduler(void) {
   set_previous_thread(initial_thread);
   frame_ptr->m_initial_thread = initial_thread;
 
-  s_sched_mode = WAITING_FOR_FIRST_TICK;
+  s_sched_mode = SCHEDULING;
 
   disable_interrupts();
   // ensure interrupts enabled
@@ -243,9 +243,11 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       current_thread->m_ticks_elapsed = 0;
       // we want to schedule a new thread at this point
       pick_next_thread_scheduler();
+      println("Time has elapsed!");
       scheduler_try_invoke();
     }
   } else {
+    println("Still waiting!");
     scheduler_try_invoke();
   }
 

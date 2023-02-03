@@ -23,13 +23,8 @@
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -218,7 +213,7 @@
       <workItem from="1674904151890" duration="13618000" />
       <workItem from="1674949621614" duration="110000" />
       <workItem from="1674991714542" duration="62000" />
-      <workItem from="1675380301653" duration="2291000" />
+      <workItem from="1675380301653" duration="3148000" />
     </task>
     <servers />
   </component>

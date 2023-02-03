@@ -139,9 +139,9 @@ extern void thread_enter_context(thread_t *to) {
 
   println("done setting up context");
 
-  //if (!to->m_has_been_scheduled) {
-  //  bootstrap_thread_entries(to);
-  //}
+  if (!to->m_has_been_scheduled) {
+    bootstrap_thread_entries(to);
+  }
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -281,6 +281,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
     "1: \n"
+    "hlt \n"
     //"addq $8, %%rsp \n"
     "popq %%rdi \n"
     "popq %%rsi \n"
@@ -317,8 +318,8 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 
   println("Context switch! (thread_exit_init_state)");
-  println(to_string((uintptr_t)from));
-  println(to_string(regs->rflags));
+  //println(to_string((uintptr_t)from));
+  //println(to_string(regs->cs));
   //kernel_panic("reached thread_exit_init_state");
 }
 
