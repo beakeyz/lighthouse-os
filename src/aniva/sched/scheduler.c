@@ -102,7 +102,7 @@ void start_scheduler(void) {
   // ensure interrupts enabled
   //enable_interrupts();
   //for (;;) {}
-  thread_enter_context_first_time(initial_thread);
+  bootstrap_thread_entries(initial_thread);
 }
 
 void pick_next_thread_scheduler(void) {
@@ -129,7 +129,7 @@ ANIVA_STATUS pause_scheduler() {
     return ANIVA_FAIL;
   }
 
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
+  //CHECK_AND_DO_DISABLE_INTERRUPTS();
   lock_spinlock(s_sched_switch_lock);
 
   atomic_ptr_write(s_no_schedule, true);
@@ -142,12 +142,11 @@ ANIVA_STATUS pause_scheduler() {
   if (frame_ptr == nullptr) {
     // no sched frame yet
     unlock_spinlock(s_sched_switch_lock);
-    CHECK_AND_TRY_ENABLE_INTERRUPTS();
+    //CHECK_AND_TRY_ENABLE_INTERRUPTS();
     return ANIVA_FAIL;
   }
 
-exit:
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
+  //CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return ANIVA_SUCCESS;
 }
 
@@ -164,7 +163,7 @@ void resume_scheduler(void) {
   atomic_ptr_write(s_no_schedule, false);
 }
 
-void scheduler_try_call() {
+ErrorOrPtr scheduler_try_execute() {
 
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "Could not get current processor while trying to calling scheduler")
@@ -172,7 +171,7 @@ void scheduler_try_call() {
   ASSERT_MSG(atomic_ptr_load(current->m_critical_depth) == 0, "Trying to call scheduler while in irq");
 
   if (!s_has_schedule_request)
-    return;
+    return Error();
 
   s_has_schedule_request = false;
 
@@ -180,14 +179,21 @@ void scheduler_try_call() {
   thread_t *next_thread = get_current_scheduling_thread();
   thread_t *prev_thread = s_previous_thread;
 
-  if (next_thread == frame->m_initial_thread && !next_thread->m_has_been_scheduled) {
-    thread_enter_context_first_time(next_thread);
-  }
+  //if (next_thread == frame->m_initial_thread && !next_thread->m_has_been_scheduled) {
+  //  bootstrap_thread_entries(next_thread);
+  //}
 
   thread_switch_context(prev_thread, next_thread);
 
   print("entering thread: ");
   println(get_current_scheduling_thread()->m_name);
+  return Success(0);
+}
+
+// TODO: ?
+ErrorOrPtr scheduler_try_invoke() {
+  s_has_schedule_request = true;
+  return Success(0);
 }
 
 registers_t *sched_tick(registers_t *registers_ptr) {
@@ -216,7 +222,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       //return registers_ptr;
       send_sched_frame_to_back(0);
       pick_next_thread_scheduler();
-      s_has_schedule_request = true;
+      scheduler_try_invoke();
     }
   }
 
@@ -237,12 +243,13 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       current_thread->m_ticks_elapsed = 0;
       // we want to schedule a new thread at this point
       pick_next_thread_scheduler();
-      s_has_schedule_request = true;
+      scheduler_try_invoke();
     }
   } else {
-    s_has_schedule_request = true;
+    scheduler_try_invoke();
   }
 
+  println("Resuming scheduler");
   resume_scheduler();
   return registers_ptr;
 }

@@ -44,7 +44,7 @@ thread_t *create_thread_as_socket(struct proc*, FuncPtr, char[32], uint32_t);
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
 extern void thread_enter_context(thread_t *to);
-void thread_enter_context_first_time(thread_t* thread);
+void bootstrap_thread_entries(thread_t* thread);
 void thread_save_context(thread_t* thread);
 void thread_switch_context(thread_t* from, thread_t* to);
 

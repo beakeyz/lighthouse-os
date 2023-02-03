@@ -18,7 +18,8 @@ ANIVA_STATUS pause_scheduler();
 void pick_next_thread_scheduler(void);
 
 /* die */
-void scheduler_try_call();
+ErrorOrPtr scheduler_try_execute();
+ErrorOrPtr scheduler_try_invoke();
 
 registers_t *sched_tick(registers_t*);
 

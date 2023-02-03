@@ -22,18 +22,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/tests/Makefile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/aniva/libk/list_test.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/aniva/libk/list_test.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/aniva/libk/queue_test.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/aniva/libk/queue_test.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/aniva/libk/vector_test.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/aniva/libk/vector_test.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/tests.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/tests.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,22 +93,22 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_ADD_EXTERNAL_FILES": "true",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "last_opened_file_path": "/home/joost/src/c/lighthouse-os",
-    "nodejs_package_manager_path": "npm",
-    "settings.build.tools.auto.reload": "SELECTIVE",
-    "settings.editor.selected.configurable": "CPPToolchains",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/joost/src/c/lighthouse-os-minimal&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.build.tools.auto.reload&quot;: &quot;SELECTIVE&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;CPPToolchains&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Makefile Target.debug">
     <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
       <method v="2">
@@ -220,6 +216,9 @@
       <workItem from="1674813675567" duration="2289000" />
       <workItem from="1674903448647" duration="33000" />
       <workItem from="1674904151890" duration="13618000" />
+      <workItem from="1674949621614" duration="110000" />
+      <workItem from="1674991714542" duration="62000" />
+      <workItem from="1675380301653" duration="2291000" />
     </task>
     <servers />
   </component>

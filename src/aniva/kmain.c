@@ -126,6 +126,7 @@ __attribute__((noreturn)) void test_sender() {
   data += 69;
   send_packet_to_socket(0, &data, sizeof(uintptr_t));
 
+  enable_interrupts();
   for (;;) {
 
   }
@@ -140,6 +141,7 @@ void aniva_task(queue_t *buffer) {
     );
   println(to_string(rsp_val));
   println(to_string(*(uintptr_t*)rsp_val));
+  println(to_string((uintptr_t)buffer));
 
   uintptr_t count = 0;
   for (;;) {

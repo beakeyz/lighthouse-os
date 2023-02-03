@@ -14,7 +14,7 @@
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
-extern void thread_exit_init_state(thread_t *from) __attribute__((used));
+extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribute__((used));
 
 thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
@@ -139,9 +139,9 @@ extern void thread_enter_context(thread_t *to) {
 
   println("done setting up context");
 
-  if (!to->m_has_been_scheduled) {
-    thread_enter_context_first_time(to);
-  }
+  //if (!to->m_has_been_scheduled) {
+  //  bootstrap_thread_entries(to);
+  //}
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -179,6 +179,10 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rsi);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rdi);
 
+  // ptr to registers_t struct above
+  STACK_PUSH(rsp, uintptr_t, rsp + 8);
+
+  thread->m_context.rip = (uintptr_t) &common_thread_entry;
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
@@ -187,7 +191,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
 // used to bootstrap the iret stub created in thread_prepare_context
 // only on the first context switch
-void thread_enter_context_first_time(thread_t* thread) {
+void bootstrap_thread_entries(thread_t* thread) {
 
   thread->m_has_been_scheduled = true;
 
@@ -205,12 +209,12 @@ void thread_enter_context_first_time(thread_t* thread) {
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
-    "movq %%rsp, %%rdi \n"
+    "pushq %[thread] \n"
+    "pushq %[new_rip] \n"
+    "movq 16(%%rsp), %%rdi \n"
     "movq $0, %%rsi \n"
     "call processor_enter_interruption \n"
-    "movq %[thread], %%rdi \n"
-    "call thread_exit_init_state \n"
-    "jmp asm_common_irq_exit \n"
+    "retq \n"
     :
     "=d"(thread)
     :
@@ -271,9 +275,10 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
     "movq %[new_rsp], %%rsp \n"
+    "pushq %[thread] \n"
     "pushq %[new_rip] \n"
     "cld \n"
-    "movq %[thread], %%rdi \n"
+    "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
     "1: \n"
     //"addq $8, %%rsp \n"
@@ -309,12 +314,19 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 }
 
 // TODO: this thing
-extern void thread_exit_init_state(thread_t *from) {
+extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 
   println("Context switch! (thread_exit_init_state)");
+  println(to_string((uintptr_t)from));
+  println(to_string(regs->rflags));
   //kernel_panic("reached thread_exit_init_state");
 }
 
 __attribute__((naked)) void common_thread_entry() {
-
+  asm (
+    "popq %rdi \n"
+    "popq %rsi \n"
+    "call thread_exit_init_state \n"
+    "jmp asm_common_irq_exit \n"
+  );
 }

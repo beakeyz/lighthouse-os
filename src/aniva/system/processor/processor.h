@@ -126,7 +126,7 @@ ALWAYS_INLINE void processor_decrement_critical_depth(Processor_t *processor) {
       // we should make sure that we dont enter any
       // critical sections here ;-;
 
-      scheduler_try_call();
+      scheduler_try_execute();
     }
   }
 

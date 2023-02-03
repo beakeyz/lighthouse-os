@@ -195,6 +195,6 @@ void processor_exit_interruption(registers_t* registers) {
   // call deferred calls here too?
 
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {
-    scheduler_try_call();
+    scheduler_try_execute();
   }
 }
