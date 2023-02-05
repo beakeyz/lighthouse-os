@@ -25,18 +25,19 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
 
+  memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
   strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
   uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
+  memset((void *)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
+
   thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
-  memset((void *)(thread->m_stack_top - DEFAULT_STACK_SIZE), 0x00, DEFAULT_STACK_SIZE);
-
-  memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
-
   thread->m_context = setup_regs(kthread, get_current_processor()->m_page_dir, thread->m_stack_top);
-  contex_set_rip(&thread->m_context, (uintptr_t) entry, data);
+  thread->m_real_entry = entry;
 
+
+  thread_set_entrypoint(thread, (FuncPtr) thread_entry_wrapper, data);
   return thread;
 } // make this sucka
 
@@ -68,9 +69,12 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, char name[32], ui
 
   return ret;
 }
-// funny wrapper
+
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
   contex_set_rip(&ptr->m_context, (uintptr_t)entry, data);
+
+  // put the current thread ptr into the arguments of the thread entry
+  ptr->m_context.rsi = (uintptr_t)ptr;
 }
 
 void thread_set_state(thread_t *thread, thread_state_t state) {
@@ -78,14 +82,6 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
   // TODO: update thread context(?) on state change
   // TODO: (??) onThreadStateChangeEvent?
 }
-
-ANIVA_STATUS kill_thread(thread_t *thread) {
-  return ANIVA_FAIL;
-} // kill thread and prepare for context swap to kernel
-
-ANIVA_STATUS kill_thread_if(thread_t *thread, bool condition) {
-  return ANIVA_FAIL;
-} // kill if condition is me
 
 // TODO: more
 ANIVA_STATUS clean_thread(thread_t *thread) {
@@ -96,17 +92,25 @@ ANIVA_STATUS clean_thread(thread_t *thread) {
   return ANIVA_FAIL;
 }
 
-void exit_thread() {
+void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
 
-  pause_scheduler();
+  // call the actual entrypoint of the thread
+  thread->m_real_entry(args);
 
-  thread_set_state(get_current_scheduling_thread(), DYING);
-
-  resume_scheduler();
+  // TODO: cleanup and removal from the scheduler
 
   for (;;) {
-    //kernel_panic("TODO: exit thread");
+    kernel_panic("TODO: exit thread");
   }
+}
+
+NAKED void common_thread_entry() {
+  asm (
+    "popq %rdi \n" // our beautiful thread
+    "popq %rsi \n" // ptr to its registers
+    "call thread_exit_init_state \n"
+    "jmp asm_common_irq_exit \n"
+    );
 }
 
 // TODO: redo?
@@ -124,9 +128,6 @@ extern void thread_enter_context(thread_t *to) {
   //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
   //call_event(CONTEXT_SWITCH_EVENT, &hook);
 
-  // FIXME: tls via FS base? or LDT (linux does this r sm)
-  //wrmsr(MSR_FS_BASE, (uintptr_t)to);
-
   // crashes =/
   //write_cr3(to->m_context.cr3);
 
@@ -138,10 +139,6 @@ extern void thread_enter_context(thread_t *to) {
   thread_set_state(to, RUNNING);
 
   println("done setting up context");
-
-  if (!to->m_has_been_scheduled) {
-    bootstrap_thread_entries(to);
-  }
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -149,9 +146,6 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_stack_top;
-
-  STACK_PUSH(rsp, uintptr_t, 0);
-  STACK_PUSH(rsp, uintptr_t, (uintptr_t)&exit_thread);
 
   STACK_PUSH(rsp, uintptr_t, 0);
   STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);
@@ -225,10 +219,6 @@ void bootstrap_thread_entries(thread_t* thread) {
   );
 }
 
-void thread_save_context(thread_t* thread) {
-
-}
-
 void thread_switch_context(thread_t* from, thread_t* to) {
 
   // FIXME: saving context is still wonky!!!
@@ -252,52 +242,27 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
   asm volatile (
     "pushfq \n"
-    "pushq %%r15 \n"
-    "pushq %%r14 \n"
-    "pushq %%r13 \n"
-    "pushq %%r12 \n"
-    "pushq %%r11 \n"
-    "pushq %%r10 \n"
-    "pushq %%r9 \n"
-    "pushq %%r8 \n"
-    "pushq %%rax \n"
-    "pushq %%rbx \n"
-    "pushq %%rcx \n"
-    "pushq %%rdx \n"
-    "pushq %%rbp \n"
-    "pushq %%rsi \n"
-    "pushq %%rdi \n"
+    // save rsp
     "movq %%rsp, %[old_rsp] \n"
+    // save rip
     "leaq 1f(%%rip), %%rbx \n"
     "movq %%rbx, %[old_rip] \n"
+    // restore tss
     "movq %[stack_top], %%rbx \n"
     "movl %%ebx, %[tss_rsp0l] \n"
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
+    // emplace new rsp
     "movq %[new_rsp], %%rsp \n"
     "pushq %[thread] \n"
     "pushq %[new_rip] \n"
+    // prepare for switch
     "cld \n"
     "movq 8(%%rsp), %%rdi \n"
     "jmp thread_enter_context \n"
+    // pick up where we left of
     "1: \n"
-    "hlt \n"
-    //"addq $8, %%rsp \n"
-    "popq %%rdi \n"
-    "popq %%rsi \n"
-    "popq %%rbp \n"
-    "popq %%rdx \n"
-    "popq %%rcx \n"
-    "popq %%rbx \n"
-    "popq %%rax \n"
-    "popq %%r8  \n"
-    "popq %%r9  \n"
-    "popq %%r10 \n"
-    "popq %%r11 \n"
-    "popq %%r12 \n"
-    "popq %%r13 \n"
-    "popq %%r14 \n"
-    "popq %%r15 \n"
+    "addq $8, %%rsp \n"
     "popfq \n"
     :
     [old_rip]"=m"(from->m_context.rip),
@@ -323,11 +288,3 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
   //kernel_panic("reached thread_exit_init_state");
 }
 
-__attribute__((naked)) void common_thread_entry() {
-  asm (
-    "popq %rdi \n"
-    "popq %rsi \n"
-    "call thread_exit_init_state \n"
-    "jmp asm_common_irq_exit \n"
-  );
-}

@@ -34,6 +34,11 @@ typedef void (*FuncPtr)();
 //#define FuncPtr void (*)()
 
 #define NORETURN __attribute__((noreturn))
+#define NAKED __attribute__((naked))
+#define SECTION(__sect) __attribute__((section(__sect)))
+
+#define DEFAULT_CAST(type, value) ((type)(value))
+#define PTR_CAST(type, value) (*(type*)&(value))
 
 #define __va_argsiz(t)	\
 	(((sizeof(t) + sizeof(int) - 1) / sizeof(int)) * sizeof(int))

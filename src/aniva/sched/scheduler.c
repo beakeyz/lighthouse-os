@@ -198,14 +198,17 @@ ErrorOrPtr scheduler_try_invoke() {
 
 registers_t *sched_tick(registers_t *registers_ptr) {
 
-  println("sched_tick");
+  //println("sched_tick");
 
   const enum SCHED_MODE prev_sched_mode = s_sched_mode;
 
   if (atomic_ptr_load(s_no_schedule) || !get_current_scheduling_thread()) {
     return registers_ptr;
   }
-  pause_scheduler();
+
+  if (pause_scheduler() == ANIVA_FAIL) {
+    return registers_ptr;
+  }
 
   sched_frame_t *current_frame = list_get(s_sched_frames, 0);
 
@@ -236,22 +239,17 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     return registers_ptr;
   }
 
-  if (prev_sched_mode != WAITING_FOR_FIRST_TICK && !s_has_schedule_request) {
-    current_thread->m_ticks_elapsed++;
+  current_thread->m_ticks_elapsed++;
 
-    if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
-      current_thread->m_ticks_elapsed = 0;
-      // we want to schedule a new thread at this point
-      pick_next_thread_scheduler();
-      println("Time has elapsed!");
-      scheduler_try_invoke();
-    }
-  } else {
-    println("Still waiting!");
+  if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
+    current_thread->m_ticks_elapsed = 0;
+    // we want to schedule a new thread at this point
+    pick_next_thread_scheduler();
+    println("Time has elapsed!");
     scheduler_try_invoke();
   }
 
-  println("Resuming scheduler");
+  //println("Resuming scheduler");
   resume_scheduler();
   return registers_ptr;
 }

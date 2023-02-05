@@ -5,6 +5,7 @@
 #include <libk/stddef.h>
 
 #define EFLAGS_CF (0)
+#define EFLAGS_RES (1 << 1)
 #define EFLAGS_PF (1 << 2)
 #define EFLAGS_AF (1 << 4)
 #define EFLAGS_ZF (1 << 6)
@@ -58,7 +59,7 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, PagingComplex_t* root_table, ui
     regs.rsp = stack_top;
   }
   regs.rsp0 = stack_top;
-  regs.rflags = EFLAGS_IF;
+  regs.rflags = 0x202;
   return regs;
 }
 

@@ -13,9 +13,15 @@
 struct proc;
 struct threaded_socket;
 
+typedef void (*ThreadEntry) (
+  uintptr_t arg
+);
+
 // TODO: thread uid?
 typedef struct thread {
   struct thread* m_self;
+
+  ThreadEntry m_real_entry;
 
   kContext_t m_context;
   FpuState m_fpu_state;
@@ -55,7 +61,7 @@ void thread_set_state(thread_t *, thread_state_t);
 ANIVA_STATUS kill_thread(thread_t *); // kill thread and prepare for context swap to kernel
 ANIVA_STATUS kill_thread_if(thread_t *, bool); // kill if condition is met
 ANIVA_STATUS clean_thread(thread_t *); // clean resources thead used
-void exit_thread();
+void thread_entry_wrapper(uintptr_t args, thread_t* thread);
 
 // wrappers =D
 ALWAYS_INLINE bool thread_is_socket(thread_t* t) {

@@ -156,12 +156,6 @@ void aniva_task(queue_t *buffer) {
     }
   }
 
-  asm volatile (
-    "movq %%rsp, %0 \n"
-    : "=g"(rsp_val)
-    );
-  println(to_string(rsp_val));
-  println(to_string(*(uintptr_t*)rsp_val));
-
-  kernel_panic("TODO: why won't we just return to our exit_thread function ;-;");
+  //kernel_panic("TEST: Dumped kernel stack");
+  //kernel_panic("TODO: why won't we just return to our thread_entry_wrapper function ;-;");
 }
