@@ -105,10 +105,11 @@ void kmem_set_page_flags (PagingComplex_t* page, unsigned int flags);
 
 /* mem mapping */
 
-//void kmem_map_memory (uintptr_t vaddr, uintptr_t paddr, unsigned int flags);
-bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags);
-// bool kmem_unmap_page (PagingComplex_t* table, uintptr_t virt); TODO
-bool kmem_map_range (uintptr_t virt_base, uintptr_t phys_base, size_t page_count, unsigned int flags);
+bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
+bool kmem_map_range (PagingComplex_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
+
+bool kmem_unmap_page(PagingComplex_t* table, uintptr_t virt);
+bool kmem_unmap_range(PagingComplex_t* table, uintptr_t virt, size_t page_count);
 
 //void kmem_umap_memory (uintptr_t vaddr);
 void kmem_init_physical_allocator();
@@ -117,6 +118,8 @@ void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags);
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags);
 
 ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flags);
+
+ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();

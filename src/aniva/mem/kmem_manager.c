@@ -337,8 +337,8 @@ PagingComplex_t *kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned i
   const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
   const uintptr_t pd_idx = (addr >> 21) & ENTRY_MASK;
   const uintptr_t pt_idx = (addr >> 12) & ENTRY_MASK;
-  const bool should_make = (kmem_flags & KMEM_CUSTOMFLAG_GET_MAKE);
-  const bool should_make_user = (kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER);
+  const bool should_make = (kmem_flags & KMEM_CUSTOMFLAG_GET_MAKE) != 0;
+  const bool should_make_user = (kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) != 0;
   const uintptr_t page_creation_flags = (should_make_user ? 0x7 : 0x3);
 
   uint32_t tries = MAX_RETRIES_FOR_PAGE_MAPPING;
@@ -406,29 +406,47 @@ void kmem_nuke_pd(uintptr_t vaddr) {
   asm volatile("invlpg %0" ::"m"(vaddr) : "memory");
 }
 
-bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, unsigned int flags, uint32_t page_flags) {
+bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags) {
 
-  PagingComplex_t* __page = kmem_get_page(table, virt, flags);
+  PagingComplex_t* page = kmem_get_page(table, virt, kmem_flags);
   
-  if (__page) {
+  if (page) {
     // TODO: Variablize these flags
-    __page->pde_bits.page = kmem_get_page_idx(phys);
+    page->pde_bits.page = kmem_get_page_idx(phys);
 
     // secure page
-    uint32_t __flags = page_flags;
-    if (__flags == 0) {
-      __flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
+    if (page_flags == 0) {
+      page_flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
     }
-    kmem_set_page_flags(__page, page_flags);
+    kmem_set_page_flags(page, page_flags);
 
     return true;
   }
   return false;
 }
 
-bool kmem_map_range(uintptr_t virt_base, uintptr_t phys_base, size_t page_count,
-                    unsigned int flags) {
+bool kmem_map_range(PagingComplex_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
+
+  for (uintptr_t i = 0; i < page_count; i++) {
+    uintptr_t vbase = virt_base + (kmem_get_page_addr(i));
+    uintptr_t pbase = phys_base + (kmem_get_page_addr(i));
+
+    if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags)) {
+      return false;
+    }
+  }
   return true;
+}
+
+// FIXME: free higher level pts as well
+bool kmem_unmap_page(PagingComplex_t* table, uintptr_t virt) {
+  PagingComplex_t *page = kmem_get_page(table, virt, 0);
+
+  if (page) {
+    page->raw_bits = 0;
+    return true;
+  }
+  return false;
 }
 
 void kmem_set_page_flags(PagingComplex_t *page, unsigned int flags) {
@@ -460,11 +478,10 @@ void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
   // find free page
   const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
   void* ret = (void*)addr;
-  uintptr_t __addr = addr;
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
 
-    const uintptr_t page_idx = kmem_get_page_idx(__addr);
+    const uintptr_t page_idx = kmem_get_page_idx(addr);
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
     if (was_used && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
@@ -472,16 +489,33 @@ void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
     }
 
     kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(nullptr, __addr, __addr, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+    bool result = kmem_map_page(nullptr, addr, addr, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (!result) {
       return nullptr;
     }
 
-    __addr += SMALL_PAGE_SIZE;
+    addr += SMALL_PAGE_SIZE;
   }
 
   return ret;
+}
+
+ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
+
+  const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+
+  for (uintptr_t i = 0; i < pages_needed; i++) {
+    const uintptr_t page_idx = kmem_get_page_idx(virt_base);
+    const bool was_used = kmem_is_phys_page_used(page_idx);
+
+    if (was_used) {
+      kmem_set_phys_page_free(page_idx);
+      kmem_unmap_page(nullptr, virt_base);
+    }
+
+    virt_base += SMALL_PAGE_SIZE;
+  }
 }
 
 // FIXME: code duplication

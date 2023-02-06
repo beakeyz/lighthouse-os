@@ -8,13 +8,12 @@
 #include "socket.h"
 #include <libk/string.h>
 #include "core.h"
-#include "sched/scheduler.h"
 
-// TODO: move somewhere central
-
-static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribute__((used));
+
+static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
+static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
 thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
@@ -32,6 +31,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
   memset((void *)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
+  thread->m_stack_bottom = stack_bottom;
   thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
   thread->m_context = setup_regs(kthread, get_current_processor()->m_page_dir, thread->m_stack_top);
   thread->m_real_entry = entry;
@@ -88,20 +88,27 @@ ANIVA_STATUS clean_thread(thread_t *thread) {
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);
   }
+  kmem_kernel_dealloc(thread->m_stack_bottom, DEFAULT_STACK_SIZE);
   kfree(thread);
   return ANIVA_FAIL;
 }
 
 void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
 
+  // pre-entry
+
   // call the actual entrypoint of the thread
   thread->m_real_entry(args);
 
   // TODO: cleanup and removal from the scheduler
 
-  for (;;) {
-    kernel_panic("TODO: exit thread");
-  }
+  disable_interrupts();
+  thread_t *current_thread = get_current_scheduling_thread();
+
+  thread_set_state(current_thread, DYING);
+
+  // yield will enable interrupts again
+  scheduler_yield();
 }
 
 NAKED void common_thread_entry() {
@@ -223,25 +230,26 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
   // FIXME: saving context is still wonky!!!
   // without saving the context it kinda works,
-  // but it keep running the function all over again.
+  // but it keeps running the function all over again.
   // since no state is saved, is just starts all over
 
   print("Saving context of: ");
   println(from->m_name);
-
-  thread_set_state(from, RUNNABLE);
-
   print("Loading context of: ");
   println(to->m_name);
 
-  //ASSERT(get_current_scheduling_thread() == from);
+  if (from->m_current_state == RUNNING) {
+    thread_set_state(from, RUNNABLE);
+  }
+
+  ASSERT_MSG(get_previous_scheduled_thread() == from, "get_previous_scheduled_thread() is not the thread we came from!");
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
 
   save_fpu_state(&from->m_fpu_state);
 
   asm volatile (
-    "pushfq \n"
+    THREAD_PUSH_REGS
     // save rsp
     "movq %%rsp, %[old_rsp] \n"
     // save rip
@@ -263,7 +271,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     // pick up where we left of
     "1: \n"
     "addq $8, %%rsp \n"
-    "popfq \n"
+    THREAD_POP_REGS
     :
     [old_rip]"=m"(from->m_context.rip),
     [old_rsp]"=m"(from->m_context.rsp),

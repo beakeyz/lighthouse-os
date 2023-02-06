@@ -50,6 +50,7 @@ typedef struct Processor {
 
   // TODO: threading
   thread_t *m_current_thread;
+  thread_t *m_previous_thread;
   thread_t *m_root_thread;
   list_t *m_processes;
   bool m_being_handled_by_scheduler;
