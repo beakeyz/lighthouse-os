@@ -53,7 +53,7 @@ static ALWAYS_INLINE void push_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx);
 static ALWAYS_INLINE sched_frame_t pop_sched_frame();
 static void set_sched_frame_idle(sched_frame_t* frame_ptr);
-static ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
+static USED thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 
 ANIVA_STATUS init_scheduler() {
@@ -211,8 +211,6 @@ ErrorOrPtr scheduler_try_invoke() {
 
 registers_t *sched_tick(registers_t *registers_ptr) {
 
-  //println("sched_tick");
-
   const enum SCHED_MODE prev_sched_mode = s_sched_mode;
 
   if (atomic_ptr_load(s_no_schedule) || !get_current_scheduling_thread()) {
@@ -262,7 +260,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     scheduler_try_invoke();
   }
 
-  //println("Resuming scheduler");
   resume_scheduler();
   return registers_ptr;
 }
@@ -297,6 +294,7 @@ ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_U
       kernel_panic("Thread limit of process somehow exceeded limit!");
     }
   }
+  ptr->m_scheduled_thread_index = 0;
   ptr->m_initial_thread = list_get(proc->m_threads, 0);
   ptr->m_proc_to_schedule = proc;
   ptr->m_sched_time_left = SCHED_FRAME_DEFAULT_START_TICKS;
@@ -355,79 +353,72 @@ static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) {
   resume_scheduler();
 }
 
-ALWAYS_INLINE thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
-
+/*
+ * TODO: redo this function, as it is way too messy and
+ * should be as optimal as possible
+ * perhaps we can use a queue or something (it's unclear to me which ds works best here...)
+ */
+thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   const uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
+  const thread_t *current_thread = get_current_scheduling_thread();
   list_t *thread_list_ptr = ptr->m_proc_to_schedule->m_threads;
 
-  if (thread_list_ptr->m_length <= 0) {
-    return nullptr;
-  }
+  uintptr_t current_idx = prev_sched_thread_idx + 1;
+  thread_t* next_thread = nullptr;
 
-  if (thread_list_ptr->m_length == 1) {
-    return list_get(thread_list_ptr, 0);
-  }
-
-  ptr->m_scheduled_thread_index++;
-
-  thread_t *next = list_get(thread_list_ptr, ptr->m_scheduled_thread_index);
-
-  if (next == nullptr) {
-    next = list_get(thread_list_ptr, 0);
-    ptr->m_scheduled_thread_index = 0;
-  }
-
-  // plz be runnable
   while (true) {
 
-    // fuck
-    if (ptr->m_scheduled_thread_index >= thread_list_ptr->m_length ||
-        ptr->m_scheduled_thread_index >= ptr->m_max_async_task_threads ||
-        ptr->m_scheduled_thread_index >= ptr->m_proc_to_schedule->m_requested_max_threads) {
-      ptr->m_scheduled_thread_index = 0;
+    next_thread = list_get(thread_list_ptr, current_idx);
+
+    if (next_thread == nullptr) {
+      current_idx = 0;
+      continue;
     }
 
-    // pull next thread
-    next = list_get(thread_list_ptr, ptr->m_scheduled_thread_index++);
+    bool found = false;
 
-    //if (prev_sched_thread_idx == ptr->m_scheduled_thread_index) {
-    //  set_sched_frame_idle(ptr);
-    //  return nullptr;
-    //}
-
-    // TODO
-    switch (next->m_current_state) {
-      case BLOCKED:
-        // TODO:
+    switch (next_thread->m_current_state) {
+      case INVALID:
+      case NO_CONTEXT:
+        // TODO: there is an invalid thread in the pool, handle it.
+        break;
+      case RUNNABLE:
+        // potential good thread so TODO: make an algorithm that chooses the optimal thread here
+        found = true;
+        break;
+      case DYING:
+        // TODO: this is an intermediate solution, we need actual thread death procedures
+        thread_set_state(next_thread, DEAD);
         break;
       case DEAD:
-        // TODO:
+        clean_thread(next_thread);
+        list_remove(thread_list_ptr, current_idx);
         break;
       case STOPPED:
-        // TODO:
+      case BLOCKED:
+        // TODO: let's figure out how to handle blocked threads (so waiting on IO or some shit)
+        // since we don't have any real IO yet this is kind of a placeholder lmao
         break;
-      case DYING: {
-
-        uintptr_t idx;
-        FOREACH(i, ptr->m_proc_to_schedule->m_threads) {
-          if (i->data == (void *) next) {
-            list_remove(ptr->m_proc_to_schedule->m_threads, idx);
-            break;
-          }
-          idx++;
-        }
-        break;
-      }
-      case RUNNABLE:
-        return next;
       default:
         break;
     }
 
+    if (found) {
+      break;
+    }
+
+    // we went around the loop, and found nothing to run =/
+    if (current_idx == prev_sched_thread_idx) {
+      return nullptr;
+    }
+
+    current_idx++;
   }
 
-  // yay
-  return nullptr;
+  // update the scheduler
+  ptr->m_scheduled_thread_index = current_idx;
+
+  return next_thread;
 }
 
 // doing this means we have two pointers that point to the

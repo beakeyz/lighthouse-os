@@ -1,6 +1,13 @@
 #ifndef __ANIVA_STDDEF__
 #define __ANIVA_STDDEF__
 
+/*
+ * NOTE: x86 allows inferred singing of integer values, meaning that the 'signed' keyword
+ * does not NEED to be prefixed every time, but ARM does seem to require this to be the case.
+ *
+ * Not exactly sure though, so I'll have to verify...
+ */
+
 typedef signed              char    int8_t;
 typedef unsigned            char    uint8_t;
 typedef signed              short   int16_t;
@@ -22,36 +29,35 @@ typedef uintptr_t                   paddr_t;
 
 typedef void (*FuncPtr)();
 
-#define ALWAYS_INLINE inline __attribute__((always_inline))
-
 #define asm __asm__
 #define nullptr (void*)0
-
 #define NULL 0
-
 #define true 1
 #define false 0
-//#define FuncPtr void (*)()
 
+#define ALWAYS_INLINE inline __attribute__((always_inline))
 #define NORETURN __attribute__((noreturn))
 #define NAKED __attribute__((naked))
 #define SECTION(__sect) __attribute__((section(__sect)))
+#define USED __attribute__((used))
+#define UNUSED __attribute__((unused))
 
-#define DEFAULT_CAST(type, value) ((type)(value))
-#define PTR_CAST(type, value) (*(type*)&(value))
+#define STATIC_CAST(type, value) ((type)(value))
+#define DYNAMIC_CAST(type, value) (*(type*)&(value))
 
-#define __va_argsiz(t)	\
+#define __va_argsiz(t)	                        \
 	(((sizeof(t) + sizeof(int) - 1) / sizeof(int)) * sizeof(int))
 
-#define va_start(ap, pN)	\
+#define va_start(ap, pN)	                      \
 	((ap) = ((va_list) __builtin_next_arg(pN)))
 
 #define va_end(ap)	((void)0)
 
-#define va_arg(ap, t)					\
-	 (((ap) = (ap) + __va_argsiz(t)),		\
+#define va_arg(ap, t)					                  \
+	 (((ap) = (ap) + __va_argsiz(t)),		          \
 	  *((t*) (void*) ((ap) - __va_argsiz(t))))
-  
+
+
 #define Kib 1024
 #define Mib Kib * Kib
 #define Gib Mib * Kib

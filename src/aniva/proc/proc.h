@@ -12,7 +12,9 @@ typedef struct proc {
   char m_name[32];
   proc_id m_id;
 
+  // maps?
   list_t* m_threads;
+  list_t* m_runnable_threads;
 
   struct thread* m_idle_thread;
   struct thread* m_prev_thread;

@@ -101,8 +101,8 @@ void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
   thread->m_real_entry(args);
 
   // TODO: cleanup and removal from the scheduler
-
   disable_interrupts();
+
   thread_t *current_thread = get_current_scheduling_thread();
 
   thread_set_state(current_thread, DYING);

@@ -29,7 +29,7 @@ GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
-__attribute__((noreturn)) void test_sender();
+void test_sender();
 
 registers_t *thing(registers_t *regs) {
   in8(0x60);
@@ -119,29 +119,18 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 }
 
-__attribute__((noreturn)) void test_sender() {
+void test_sender() {
 
   uintptr_t data = 696969;
   send_packet_to_socket(0, &data, sizeof(uintptr_t));
   data += 69;
   send_packet_to_socket(0, &data, sizeof(uintptr_t));
 
-  enable_interrupts();
   for (;;) {
-
   }
 }
 
 void aniva_task(queue_t *buffer) {
-
-  uintptr_t rsp_val;
-  asm volatile (
-    "movq %%rsp, %0 \n"
-    : "=g"(rsp_val)
-    );
-  println(to_string(rsp_val));
-  println(to_string(*(uintptr_t*)rsp_val));
-  println(to_string((uintptr_t)buffer));
 
   uintptr_t count = 0;
   for (;;) {
@@ -156,6 +145,7 @@ void aniva_task(queue_t *buffer) {
     }
   }
 
+  for (;;) {}
   //kernel_panic("TEST: Dumped kernel stack");
   //kernel_panic("TODO: why won't we just return to our thread_entry_wrapper function ;-;");
 }
