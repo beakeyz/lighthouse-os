@@ -23,7 +23,7 @@ void init_fb(struct multiboot_tag_framebuffer *mb_fb) {
   }
 
   // quick kinda color tester
-  uint32_t color = 0xFFAFAA99;
+  uint32_t color = 0xffffffff;
   for (size_t y = 0; y < get_global_framebuffer_data().height; ++y) {
     for (size_t x = 0; x < get_global_framebuffer_data().width; ++x) {
       draw_pixel(x, y, color);
