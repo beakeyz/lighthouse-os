@@ -22,14 +22,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/aniva/proc/ipc/thr_intrf.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/proc/ipc/thr_intrf.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/libk/stddef.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/stddef.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/proc/context.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/context.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sched/scheduler.c" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -110,6 +105,11 @@
   }
 }</component>
   <component name="RunManager" selected="Makefile Target.debug">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
       <method v="2">
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
@@ -220,7 +220,8 @@
       <workItem from="1674991714542" duration="62000" />
       <workItem from="1675380301653" duration="3148000" />
       <workItem from="1675439452132" duration="6539000" />
-      <workItem from="1675588376003" duration="13096000" />
+      <workItem from="1675588376003" duration="13713000" />
+      <workItem from="1675645685797" duration="707000" />
     </task>
     <servers />
   </component>
