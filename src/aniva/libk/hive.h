@@ -18,7 +18,9 @@ typedef struct hive_entry {
 } hive_entry_t;
 
 typedef struct {
-
+  hive_entry_t *m_root_entry;
+  hive_entry_t *m_highest_entry;
+  size_t m_entries;
 } hive_t;
 
 #endif //__ANIVA_HIVE__

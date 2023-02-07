@@ -5,6 +5,7 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
 #include "libk/kevent/core.h"
+#include "proc/ipc/thr_intrf.h"
 #include "system/acpi/acpi.h"
 #include "system/processor/processor.h"
 #include "time/core.h"
@@ -126,8 +127,8 @@ void test_sender() {
   data += 69;
   send_packet_to_socket(0, &data, sizeof(uintptr_t));
 
-  for (;;) {
-  }
+  //for (;;) {
+  //}
 }
 
 void aniva_task(queue_t *buffer) {
@@ -145,7 +146,7 @@ void aniva_task(queue_t *buffer) {
     }
   }
 
-  for (;;) {}
+  //for (;;) {}
   //kernel_panic("TEST: Dumped kernel stack");
   //kernel_panic("TODO: why won't we just return to our thread_entry_wrapper function ;-;");
 }

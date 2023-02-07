@@ -20,6 +20,7 @@ proc_t* create_clean_proc(char name[32], proc_id id) {
   }
 
   proc->m_id = id;
+  proc->m_root_pd = nullptr;
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
   proc->m_threads = init_list();
 

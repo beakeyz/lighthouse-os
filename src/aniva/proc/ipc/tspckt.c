@@ -4,6 +4,8 @@
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>
 
+static uint32_t generate_tspckt_identifier(tspckt_t* tspckt) USED;
+
 tspckt_t *create_tspckt(void* data, size_t data_size) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   const size_t packet_size = sizeof(tspckt_t) + data_size;
@@ -99,4 +101,9 @@ bool validate_tspckt(struct tspckt* packet) {
     return false;
   }
   return true;
+}
+
+uint32_t generate_tspckt_identifier(tspckt_t* tspckt) {
+  uint32_t ident = 0;
+  //
 }
