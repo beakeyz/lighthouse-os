@@ -3,6 +3,7 @@
 #include "dev/debug/serial.h"
 #include "mem/kmalloc.h"
 #include "libk/string.h"
+#include "interupts/interupts.h"
 
 // how long this process takes to do it's shit
 enum SCHED_FRAME_USAGE_LEVEL {

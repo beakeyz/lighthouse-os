@@ -73,19 +73,40 @@ typedef struct {
   uint64_t lower;
 } contiguous_phys_virt_range_t; 
 
+/*
+ * initialize kernel pagetables and physical allocator
+ */
 void init_kmem_manager (uintptr_t* mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
 
 void protect_kernel();
 void protect_heap();
 
+/*
+ * extract data from the mmap that gets provided by the
+ * bootloader
+ */
 void prep_mmap (struct multiboot_tag_mmap* mmap);
-void parse_memmap ();
+
+/*
+ * parse the entire mmap
+ */
+void parse_mmap ();
+
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
 uintptr_t kmem_get_page_base (uintptr_t page_addr);
 uintptr_t kmem_get_page_addr (uintptr_t page_idx);
 
+/*
+ * translate a physical address to a virtual address in the
+ * kernel pagetables
+ */
 void* kmem_from_phys (uintptr_t addr);
+
+/*
+ * translate a virtual address to a physical address in
+ * a pagetable given by the caller
+ */
 uintptr_t kmem_to_phys (PagingComplex_t* root, uintptr_t addr);
 
 void kmem_set_phys_page_used (uintptr_t idx);
@@ -93,10 +114,17 @@ void kmem_set_phys_page_free (uintptr_t idx);
 void kmem_set_phys_page (uintptr_t idx, bool value);
 bool kmem_is_phys_page_used (uintptr_t idx);
 
-void kmem_nuke_pd(uintptr_t vaddr);
+/*
+ * flush tlb for a virtual address
+ */
+void kmem_invalidate_pd(uintptr_t vaddr);
+
+/*
+ * completely flush the tlb cache
+ */
 void kmem_flush_tlb();
 
-ErrorOrPtr kmem_request_pysical_page();
+ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
 PagingComplex_t* kmem_get_krnl_dir ();
 PagingComplex_t* kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned int kmem_flags);
@@ -111,14 +139,27 @@ bool kmem_map_range (PagingComplex_t* table, uintptr_t virt_base, uintptr_t phys
 bool kmem_unmap_page(PagingComplex_t* table, uintptr_t virt);
 bool kmem_unmap_range(PagingComplex_t* table, uintptr_t virt, size_t page_count);
 
-//void kmem_umap_memory (uintptr_t vaddr);
+/*
+ * initialize the physical pageframe allocator
+ */
 void kmem_init_physical_allocator();
 
+/*
+ * allocate a memory-range and identitymap it
+ */
 void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags);
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags);
 
+/*
+ * find a suitable range to satisfy this allocation and
+ * identitymap it
+ */
 ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flags);
 
+/*
+ * deallocate memoryranges that where previously allocated by the
+ * allocation functions above
+ */
 ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 /* access to kmem_manager data struct */

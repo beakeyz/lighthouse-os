@@ -34,6 +34,22 @@ typedef enum thread_state {
 ANIVA_STATUS initialize_proc_core();
 
 /*
+ * Register a socket on the kernel socket chain
+ */
+ErrorOrPtr socket_register(struct threaded_socket* socket);
+
+/*
+ * unregister a socket from the kernel socket chain
+ */
+ErrorOrPtr socket_unregister(struct threaded_socket* socket);
+
+/*
+ * find a socket based on its port
+ * TODO: validate port based on checksum?
+ */
+struct threaded_socket *find_registered_socket(uint32_t port);
+
+/*
  * send a data-packet to a port
  * returns a pointer to the response ptr (thus a double pointer)
  * if all goes well, otherwise a nullptr
@@ -46,15 +62,8 @@ extern ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buff
 extern struct tspckt *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size); // socket.c
 
 /*
- * TODO
- */
-//extern struct tspckt* fetch_from_socket_buffer(queue_t* queue);
-
-/*
  * validata a tspckt based on its identifier (checksum, hash, idk man)
  */
 extern bool validate_tspckt(struct tspckt* packet); // tspctk.c
-
-extern vector_t* g_sockets;
 
 #endif //__LIGHTHOUSE_OS_CORE__

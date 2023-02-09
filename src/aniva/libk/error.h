@@ -1,7 +1,6 @@
 #ifndef __ANIVA_ERROR_WRAPPER__
 #define __ANIVA_ERROR_WRAPPER__
 #include <libk/stddef.h>
-#include <interupts/interupts.h>
 
 typedef enum _ANIVA_STATUS {
   ANIVA_FAIL = 0,

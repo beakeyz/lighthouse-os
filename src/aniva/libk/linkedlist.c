@@ -7,9 +7,18 @@
 
 list_t* init_list() {
   list_t* ret = kmalloc(sizeof(list_t));
-  ret->m_length = 0;
-  ret->end = nullptr;
-  ret->head = nullptr;
+  list_t list = create_list();
+
+  *ret = list;
+  return ret;
+}
+
+list_t create_list() {
+  list_t ret = {
+    .head = nullptr,
+    .end = nullptr,
+    .m_length = 0
+  };
   return ret;
 }
 
@@ -136,4 +145,16 @@ void* list_get(list_t* list, uint32_t index) {
     current_index++;
   }
   return nullptr;
+}
+
+// NOTE: ErrorOrPtr returns an uint64_t, while linkedlist indexing uses uint32_t here
+ErrorOrPtr list_indexof(list_t* list, void* data) {
+  uint32_t idx = 0;
+  FOREACH(i, list) {
+    if (i->data == data) {
+      return Success(idx);
+    }
+    idx++;
+  }
+  return Error();
 }

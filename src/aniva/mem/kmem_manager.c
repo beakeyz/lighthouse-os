@@ -73,7 +73,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   // nested fun
   prep_mmap(get_mb2_tag((void *)mb_addr, 6));
-  parse_memmap();
+  parse_mmap();
 
   kmem_init_physical_allocator();  
 
@@ -102,7 +102,7 @@ void print_bitmap () {
 
 
 // function inspired by serenityOS
-void parse_memmap() {
+void parse_mmap() {
 
   phys_mem_range_t kernel_range = {
     .type = PMRT_USABLE,
@@ -298,7 +298,7 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
 }
 
 // TODO: errorhandle
-ErrorOrPtr kmem_request_pysical_page() {
+ErrorOrPtr kmem_request_physical_page() {
 
   uintptr_t index = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
 
@@ -312,7 +312,7 @@ ErrorOrPtr kmem_request_pysical_page() {
 // TODO: errorhandle
 ErrorOrPtr kmem_prepare_new_physical_page() {
   // find
-  ErrorOrPtr result = kmem_request_pysical_page();
+  ErrorOrPtr result = kmem_request_physical_page();
 
   if (result.m_status == ANIVA_SUCCESS) {
     uintptr_t new = result.m_ptr;
@@ -402,7 +402,7 @@ PagingComplex_t *kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned i
 }
 
 
-void kmem_nuke_pd(uintptr_t vaddr) { 
+void kmem_invalidate_pd(uintptr_t vaddr) {
   asm volatile("invlpg %0" ::"m"(vaddr) : "memory");
 }
 
@@ -446,13 +446,15 @@ bool kmem_unmap_page(PagingComplex_t* table, uintptr_t virt) {
     page->raw_bits = 0;
     return true;
   }
+
+  kmem_invalidate_pd(virt);
   return false;
 }
 
 void kmem_set_page_flags(PagingComplex_t *page, unsigned int flags) {
   if (page->pte_bits.page == 0) {
     // TODO:
-    uintptr_t idx = kmem_request_pysical_page().m_ptr >> 12;
+    uintptr_t idx = kmem_request_physical_page().m_ptr >> 12;
     page->pte_bits.page = idx;
   }
 

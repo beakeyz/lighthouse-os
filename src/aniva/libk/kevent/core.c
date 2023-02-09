@@ -5,6 +5,7 @@
 #include "libk/kevent/eventregister.h"
 #include "libk/linkedlist.h"
 #include "mem/kmalloc.h"
+#include "system/processor/registers.h"
 
 ALWAYS_INLINE void clean_temp_event_list(list_t* list) {
   uintptr_t i = 0;

@@ -5,14 +5,20 @@
 #include "linkedlist.h"
 
 typedef struct vector {
-  list_t m_items;
   size_t m_max_capacity;
+  size_t m_length;
+  void** m_items;
 } vector_t;
 
 /*
- * allocate a vector on the heap
+ * allocate a vector with its m_items
  */
-vector_t* create_vector(size_t max_capacity);
+vector_t create_vector(size_t max_capacity);
+
+/*
+ * free the entries of the vector
+ */
+void vector_clean(vector_t* ptr);
 
 /*
  * get an item by its index
@@ -33,10 +39,5 @@ ANIVA_STATUS vector_add(vector_t*, void*);
  * remove an item
  */
 ANIVA_STATUS vector_remove(vector_t*, uint32_t);
-
-/*
- * ensure vector has a certain capacity and expand if we need more
- */
-ANIVA_STATUS vector_ensure_capacity(vector_t*, size_t);
 
 #endif //__ANIVA_VECTOR__

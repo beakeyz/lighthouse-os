@@ -14,6 +14,12 @@ typedef enum THREADED_SOCKET_STATE {
   THREADED_SOCKET_STATE_BLOCKED
 } THREADED_SOCKET_STATE_t;
 
+typedef enum THREADED_SOCKET_FLAGS {
+  TS_REGISTERED = (1 << 0),
+  TS_ACTIVE = (1 << 1),
+  TS_BUSY = (1 << 2)
+} THREADED_SOCKET_FLAGS_t;
+
 typedef struct threaded_socket {
   uint32_t m_port;
   size_t m_max_size_per_buffer;
@@ -21,6 +27,7 @@ typedef struct threaded_socket {
   // FIXME: have a socket-specific buffer_queue struct that we can pass to threads
   queue_t* m_buffers;
 
+  uintptr_t m_socket_flags;
   THREADED_SOCKET_STATE_t m_state;
   struct thread* m_parent;
 } threaded_socket_t;
@@ -36,10 +43,14 @@ threaded_socket_t *create_threaded_socket(struct thread* parent, uint32_t port, 
 ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr);
 
 /*
- * find a socket based on its port
- * TODO: validate port based on checksum?
+ * control the flags of a socket
  */
-threaded_socket_t *find_socket(uint32_t port);
+void socket_set_flag(threaded_socket_t *ptr, THREADED_SOCKET_FLAGS_t flag, bool value);
+
+/*
+ * get the value of a flag
+ */
+bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
 
 // TODO: with timeout?
 

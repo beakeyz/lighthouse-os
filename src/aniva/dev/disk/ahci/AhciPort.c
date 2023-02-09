@@ -21,7 +21,7 @@ static ALWAYS_INLINE bool port_has_phy(AhciPort_t* port);
 
 AhciPort_t* make_ahci_port(struct AhciDevice* device, volatile HBA_port_registers_t* port_regs, uint32_t index) {
 
-  uintptr_t ib_page = kmem_request_pysical_page().m_ptr;
+  uintptr_t ib_page = kmem_request_physical_page().m_ptr;
 
   AhciPort_t* ret = kmalloc(sizeof(AhciPort_t));
   ret->m_port_index = index;
@@ -32,12 +32,12 @@ AhciPort_t* make_ahci_port(struct AhciDevice* device, volatile HBA_port_register
   ret->m_hard_lock = init_spinlock();
 
   // prepare buffers
-  ret->m_fis_recieve_page = kmem_request_pysical_page().m_ptr;
-  ret->m_cmd_list_page = kmem_request_pysical_page().m_ptr;
+  ret->m_fis_recieve_page = kmem_request_physical_page().m_ptr;
+  ret->m_cmd_list_page = kmem_request_physical_page().m_ptr;
 
-  ret->m_dma_buffer = (void*)kmem_request_pysical_page().m_ptr;
+  ret->m_dma_buffer = (void*)kmem_request_physical_page().m_ptr;
 
-  uintptr_t cmd_buffer_page = kmem_request_pysical_page().m_ptr;  
+  uintptr_t cmd_buffer_page = kmem_request_physical_page().m_ptr;
   ret->m_cmd_table_buffer = kmem_kernel_alloc_extended(cmd_buffer_page, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL | KMEM_FLAG_NOCACHE);
 
   return ret;
@@ -57,7 +57,6 @@ ANIVA_STATUS initialize_port(AhciPort_t *port) {
   if (!port_has_phy(port)) {
     return ANIVA_FAIL;
   }
-  // TODO rebase
 
   port_stop_clp(port);
   port_stop_fis_recieving(port);

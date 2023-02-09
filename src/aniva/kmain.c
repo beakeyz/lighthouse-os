@@ -12,6 +12,8 @@
 #include "proc/socket.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
+#include "interupts/interupts.h"
+#include "dev/driver.h"
 #include <dev/debug/serial.h>
 #include <mem/kmalloc.h>
 #include <mem/kmem_manager.h>
@@ -29,8 +31,6 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
-
-void test_sender();
 
 registers_t *thing(registers_t *regs) {
   in8(0x60);
@@ -91,11 +91,12 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_storage_controller();
 
   initialize_proc_core();
+  init_aniva_driver_register();
+
   init_scheduler();
 
   proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
   proc_add_thread(aniva_proc, create_thread_as_socket(aniva_proc, aniva_task, "aniva_socket", 0));
-  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, test_sender, NULL, "test_sender"));
 
   sched_add_proc(aniva_proc);
 
@@ -120,33 +121,26 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 }
 
-void test_sender() {
-
-  uintptr_t data = 696969;
-  send_packet_to_socket(0, &data, sizeof(uintptr_t));
-  data += 69;
-  send_packet_to_socket(0, &data, sizeof(uintptr_t));
-
-  //for (;;) {
-  //}
+void init(){
+  println("hello from the test driver");
+}
+int exit(){
+  println("goodbye from the test driver");
+}
+int ioctl(char* fmt, ...){
+  println("called the driver message routine");
 }
 
 void aniva_task(queue_t *buffer) {
 
-  uintptr_t count = 0;
-  for (;;) {
-    tspckt_t* packet = queue_dequeue(buffer);
-    if (validate_tspckt(packet)) {
-      print("Gotcha: ");
-      println(to_string(*(uintptr_t*)packet->m_data));
-      count++;
-      if (count >= 2) {
-        break;
-      }
-    }
-  }
+  driver_identifier_t identifier = {6, 9};
+  aniva_driver_t* test_driver = create_driver("test", "test", 0, identifier, init, exit, ioctl, DT_OTHER);
 
-  //for (;;) {}
-  //kernel_panic("TEST: Dumped kernel stack");
-  //kernel_panic("TODO: why won't we just return to our thread_entry_wrapper function ;-;");
+  load_driver(test_driver);
+
+  test_driver->f_drv_msg(nullptr);
+
+  unload_driver(test_driver);
+
+  kernel_panic("aniva_task entry end");
 }
