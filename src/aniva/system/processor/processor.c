@@ -191,7 +191,6 @@ void processor_exit_interruption(registers_t* registers) {
   ASSERT_MSG(current, "could not get current processor when exiting interruption");
 
   current->m_irq_depth = current->m_prev_irq_depth;
-
   // call deferred calls here too?
 
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {

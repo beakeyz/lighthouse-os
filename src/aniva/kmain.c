@@ -73,15 +73,9 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_global_kevents();
 
-  // NOTE: testhandler
-  InterruptHandler_t *test = init_interrupt_handler(1, I8259, thing);
-  test->m_controller->fControllerEnableVector(1);
-  add_handler(test);
-
   init_timer_system();
 
   init_fb(get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER));
-  // Next TODO: create a kernel pre-init tty
 
   init_acpi();
 
@@ -122,13 +116,15 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 }
 
 void init(){
-  println("hello from the test driver");
+  println("   -   hello from the test driver");
 }
 int exit(){
-  println("goodbye from the test driver");
+  println("   -   goodbye from the test driver");
+  return 0;
 }
 int ioctl(char* fmt, ...){
-  println("called the driver message routine");
+  println("   -   called the driver message routine");
+  return 0;
 }
 
 void aniva_task(queue_t *buffer) {
@@ -142,5 +138,5 @@ void aniva_task(queue_t *buffer) {
 
   unload_driver(test_driver);
 
-  kernel_panic("aniva_task entry end");
+  for (;;) {}
 }

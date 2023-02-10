@@ -8,7 +8,7 @@
 
 typedef struct {
   DEV_TYPE_t m_type;
-  list_t m_drivers;
+  list_t* m_drivers;
 } driver_register_t;
 
 static struct {
@@ -40,7 +40,7 @@ void init_aniva_driver_register() {
   // TODO: load default drivers
 }
 
-void load_driver(struct aniva_driver* driver) {
+void load_driver(aniva_driver_t* driver) {
 
   if (!validate_driver(driver)) {
     return;
@@ -48,7 +48,7 @@ void load_driver(struct aniva_driver* driver) {
 
   driver_register_t *reg = get_register_for_driver_type(driver->m_type);
 
-  list_append(&reg->m_drivers, driver);
+  list_append(reg->m_drivers, driver);
 
   // TODO: queue driver initialization somewhere
   driver->f_init();
@@ -60,12 +60,11 @@ void unload_driver(struct aniva_driver* driver) {
   }
 
   driver_register_t *reg = get_register_for_driver_type(driver->m_type);
-  ErrorOrPtr result = list_indexof(&reg->m_drivers, driver);
+  ErrorOrPtr result = list_indexof(reg->m_drivers, driver);
 
   if (result.m_status == ANIVA_SUCCESS) {
-    // FIXME: this pagefaults right now, because of kfree in the list_remove funcion...
-    println(to_string(result.m_ptr));
-    list_remove(&reg->m_drivers, (uint32_t)result.m_ptr);
+    // FIXME: this pagefaults right now, because of kfree in the list_remove function...
+    list_remove(reg->m_drivers, (uint32_t)result.m_ptr);
   } else {
     // since it apparently is not in the list where it belongs,
     // we need to find it and get rid of it!
@@ -76,9 +75,9 @@ void unload_driver(struct aniva_driver* driver) {
         continue;
 
       // let's reuse result here
-      result = list_indexof(&entry->m_drivers, driver);
+      result = list_indexof(entry->m_drivers, driver);
       if (result.m_status == ANIVA_SUCCESS) {
-        list_remove(&entry->m_drivers, result.m_ptr);
+        list_remove(entry->m_drivers, result.m_ptr);
         // so this would be a return statement
         break;
       }
@@ -92,7 +91,7 @@ void unload_driver(struct aniva_driver* driver) {
 static driver_register_t create_driver_register(DEV_TYPE_t type) {
   driver_register_t ret = {
     .m_type = type,
-    .m_drivers = create_list()
+    .m_drivers = init_list()
   };
   return ret;
 }

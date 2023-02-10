@@ -364,6 +364,10 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   const thread_t *current_thread = get_current_scheduling_thread();
   list_t *thread_list_ptr = ptr->m_proc_to_schedule->m_threads;
 
+  if (thread_list_ptr->m_length == 0) {
+    return nullptr;
+  }
+
   uintptr_t current_idx = prev_sched_thread_idx + 1;
   thread_t* next_thread = nullptr;
 

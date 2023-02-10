@@ -2,6 +2,7 @@
 #include <libk/kevent/eventhook.h>
 #include <libk/kevent/eventregister.h>
 #include "libk/kevent/core.h"
+#include "dev/debug/serial.h"
 #include <time/pit.h>
 #include <sched/scheduler.h>
 
@@ -48,5 +49,5 @@ size_t get_system_ticks() {
 }
 
 void __core_timer_callback(struct time_update_event_hook* hook) {
-  sched_tick(hook->registers);
+  // TODO:
 }

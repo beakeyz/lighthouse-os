@@ -104,10 +104,22 @@ size_t get_pit_ticks() {
 
 registers_t* pit_irq_handler(registers_t* regs) {
 
+  // FIXME: these calls do stuff to the heap. this means that when we get interrupted while
+  // in some kind of heap call, a load of stuff can/will go wrong. we need to fix this in the future
+  // by making sure there either is a lock on the heap (which might actually be a good idea anyways) or
+  // by actually finishing the dynamic heap idea I have had for a while (being able to dynamically
+  // create/remove different kinds of heaps (zone,blob,bump,ect.) which we can then call individually.
+  // this would for this example mean that the kernel event system gets its own heap to allocate to.
+  // we can give it a heaptype that is suitable to its kind of allocations and we also don't mess with the
+  // main system heap. A big feature this heap should have is being able to be mapped to virtual ranges
+  /*
   struct time_update_event_hook hook = create_time_update_event_hook(s_pit_ticks, regs);
   call_event(TIME_UPDATE_EVENT, &hook);
+  */
 
   s_pit_ticks++;
+
+  sched_tick(regs);
 
   return regs;
 }
