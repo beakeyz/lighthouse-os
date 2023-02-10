@@ -1,26 +1,26 @@
 #include "kmalloc.h"
 #include "kmain.h"
 #include "mem/kmem_manager.h"
+#include "base_allocator.h"
 #include <libk/string.h>
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
 #include <libk/error.h>
 
-#define INITIAL_HEAP_SIZE 2 * Mib // IN BYTES
+#define INITIAL_HEAP_SIZE (2 * Mib) // IN BYTES
 #define NODE_IDENTIFIER 0xF0CEDA22
 
 // fuk yea
-// reserve enough so we can use kmem_manager later to expand the heap
-__attribute__((section(".heap"))) static uint8_t init_kmalloc_mem[INITIAL_HEAP_SIZE];
+// reserve enough, so we can use kmem_manager later to expand the heap
+SECTION(".heap") static uint8_t init_kmalloc_mem[INITIAL_HEAP_SIZE];
 
 // TODO: structure
-static heap_node_t* heap_start_addr;
+static heap_node_t* heap_start_addr = nullptr;
 static size_t heap_available_size;
 static size_t heap_used_size;
-
 static bool can_heap_expand;
 
-// this init is post kmem_manager, so expantion will be done using that.
+// this init is post kmem_manager, so expansion will be done using that.
 // It might be a good idea though, to heave some initial reserved memory
 // BEFORE kmem_manager is initialized, so we can use it earlier
 void init_kheap() {
@@ -33,6 +33,7 @@ void init_kheap() {
   heap_used_size = 0;
   heap_available_size = INITIAL_HEAP_SIZE;
   can_heap_expand = false;
+
 }
 
 void quick_print_node_sizes() {
@@ -61,7 +62,6 @@ void quick_print_node_sizes() {
   println(to_string(heap_available_size));
   print("Used heap (bytes): ");
   println(to_string(heap_used_size));
-
 }
 
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get
@@ -96,7 +96,7 @@ void* kmalloc(size_t len) {
       return (void*) new_node + sizeof(heap_node_t);
     }
 
-    // break early so we can pass the node to the expand func
+    // break early, so we can pass the node to the expand func
     if (!node->next) {
         break;
     }

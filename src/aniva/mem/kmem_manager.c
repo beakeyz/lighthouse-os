@@ -268,7 +268,14 @@ void *kmem_from_phys(uintptr_t addr) {
 }
 
 uintptr_t kmem_to_phys(PagingComplex_t *root, uintptr_t addr) {
-  return 0;
+
+  PagingComplex_t *page = kmem_get_page(root, addr, 0);
+
+  if (page == nullptr) {
+    return NULL;
+  }
+
+  return kmem_get_page_addr(page->pte_bits.page);
 }
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
