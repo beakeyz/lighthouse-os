@@ -1,5 +1,5 @@
 #include "vector.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include <libk/string.h>
 
 vector_t create_vector(size_t max_capacity) {

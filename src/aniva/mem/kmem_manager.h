@@ -127,9 +127,9 @@ void kmem_flush_tlb();
 ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
 PagingComplex_t* kmem_get_krnl_dir ();
-PagingComplex_t* kmem_get_page(PagingComplex_t* root, uintptr_t addr, unsigned int kmem_flags);
+PagingComplex_t* kmem_get_page(PagingComplex_t* root, uintptr_t addr, uint32_t kmem_flags);
 PagingComplex_t* kmem_clone_page(PagingComplex_t* page);
-void kmem_set_page_flags (PagingComplex_t* page, unsigned int flags);
+void kmem_set_page_flags (PagingComplex_t* page, uint32_t flags);
 
 /* mem mapping */
 
@@ -147,14 +147,14 @@ void kmem_init_physical_allocator();
 /*
  * allocate a memory-range and identitymap it
  */
-void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags);
-void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags);
+void* kmem_kernel_alloc (uintptr_t addr, size_t size, uint32_t flags);
+void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags);
 
 /*
  * find a suitable range to satisfy this allocation and
  * identitymap it
  */
-ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flags);
+ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 /*
  * deallocate memoryranges that where previously allocated by the

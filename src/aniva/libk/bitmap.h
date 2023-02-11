@@ -32,7 +32,7 @@ typedef bool (*BITMAP_ISSET) (
   uint32_t index
 );
 
-typedef uintptr_t (*BITMAP_FIND_FREE) (
+typedef ErrorOrPtr (*BITMAP_FIND_FREE) (
   struct bitmap* this
 );
 
@@ -63,7 +63,7 @@ void bitmap_unmark(bitmap_t* this, uint32_t index);
 
 bool bitmap_isset(bitmap_t* this, uint32_t index);
 
-uintptr_t bitmap_find_free(bitmap_t* this);
+ErrorOrPtr bitmap_find_free(bitmap_t* this);
 ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length);
 
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length);

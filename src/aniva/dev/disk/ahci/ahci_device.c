@@ -1,6 +1,6 @@
-#include "AhciController.h"
+#include "ahci_device.h"
 #include "dev/debug/serial.h"
-#include "dev/disk/ahci/AhciPort.h"
+#include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
@@ -11,20 +11,20 @@
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
-#include <mem/kmalloc.h>
+#include <mem/heap.h>
 #include <mem/kmem_manager.h>
 
-static AhciDevice_t* s_ahci_device = nullptr;
+static ahci_device_t* s_ahci_device = nullptr;
 
-static ALWAYS_INLINE void* get_hba_region(AhciDevice_t* device);
-static ALWAYS_INLINE volatile HBA* get_hba(AhciDevice_t* device);
-static ALWAYS_INLINE ANIVA_STATUS reset_hba(AhciDevice_t* device);
-static ALWAYS_INLINE ANIVA_STATUS initialize_hba(AhciDevice_t* device);
-static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(AhciDevice_t* device, bool value);
+static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
+static ALWAYS_INLINE volatile HBA* get_hba(ahci_device_t* device);
+static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device);
+static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device);
+static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value);
 
 static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
 
-static ALWAYS_INLINE void* get_hba_region(AhciDevice_t* device) {
+static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
 
   const uint32_t bar5 = pci_read_32(&device->m_identifier->address, BAR5);
   println(to_string(bar5));
@@ -36,11 +36,11 @@ static ALWAYS_INLINE void* get_hba_region(AhciDevice_t* device) {
   return hba_region;
 }
 
-static ALWAYS_INLINE volatile HBA* get_hba(AhciDevice_t* device) {
+static ALWAYS_INLINE volatile HBA* get_hba(ahci_device_t* device) {
   return (volatile HBA*)device->m_hba_region;
 }
 
-static ALWAYS_INLINE ANIVA_STATUS reset_hba(AhciDevice_t* device) {
+static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
   // NOTE: 0x01 is the ghc enable flag
   for (size_t retry = 0;; retry++) {
@@ -69,7 +69,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(AhciDevice_t* device) {
       println(" is implemented");
 
       volatile HBA_port_registers_t* port_regs = ((volatile HBA_port_registers_t*)&get_hba(device)->ports[i]);
-      AhciPort_t* port = make_ahci_port(device, port_regs, i);
+      ahci_port_t* port = make_ahci_port(device, port_regs, i);
       list_append(device->m_ports, port);
       if (initialize_port(port) == ANIVA_FAIL) {
         print("Failed to initialize AHCI port ");
@@ -81,7 +81,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(AhciDevice_t* device) {
   return ANIVA_FAIL;
 }
 
-static ALWAYS_INLINE ANIVA_STATUS initialize_hba(AhciDevice_t* device) {
+static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   get_hba(device)->control_regs.global_host_ctrl = 0x80000000;
 
@@ -97,7 +97,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(AhciDevice_t* device) {
   return reset_hba(device);
 }
 
-static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(AhciDevice_t* device, bool value) {
+static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value) {
   uint32_t ghc = get_hba(device)->control_regs.global_host_ctrl;
   if (value) {
     get_hba(device)->control_regs.global_host_ctrl = ghc | (1 << 1); // 0x02
@@ -119,7 +119,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 
   for (uint32_t i = 0; i < 32; i++) {
     if (ahci_interrupt_status & (1 << i)) {
-      AhciPort_t* port = list_get(s_ahci_device->m_ports, i);
+      ahci_port_t* port = list_get(s_ahci_device->m_ports, i);
       
       ahci_port_handle_int(port); 
     }
@@ -129,8 +129,8 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 }
 
 // TODO:
-AhciDevice_t* init_ahci_device(DeviceIdentifier_t* identifier) {
-  s_ahci_device = kmalloc(sizeof(AhciDevice_t));
+ahci_device_t* init_ahci_device(DeviceIdentifier_t* identifier) {
+  s_ahci_device = kmalloc(sizeof(ahci_device_t));
   s_ahci_device->m_identifier = identifier;
   s_ahci_device->m_hba_region = get_hba_region(s_ahci_device);
   s_ahci_device->m_ports = init_list();

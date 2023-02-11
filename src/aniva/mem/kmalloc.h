@@ -1,14 +1,18 @@
 // For now this will be a super simple pool allocator. In order to increase speed and 
-// flexibility, we will add a slab alloctor in the future for smaller allocations.
+// flexibility, we will add a slab allocator in the future for smaller allocations.
 
-#ifndef __ANIVA_KMALLOC__
-#define __ANIVA_KMALLOC__
+#ifndef __ANIVA_MALLOC__
+#define __ANIVA_MALLOC__
 #include "dev/debug/serial.h"
+#include "base_allocator.h"
 #include <libk/stddef.h>
 
-#define KHEAP_USED_FLAG 0x01
-#define KHEAP_FREE_FLAG 0x02
-#define KHEAP_FUNNY_FLAG 0x04
+typedef enum MALLOC_NODE_FLAGS {
+  MALLOC_FLAGS_USED = (1 << 0),
+  MALLOC_FLAGS_READONLY = (1 << 1)
+} MALLOC_NODE_FLAGS_t;
+
+#define MALLOC_NODE_IDENTIFIER 0xF0CEDA22
 
 // TODO: spinlock :clown:
 
@@ -28,35 +32,43 @@ typedef struct heap_node {
   // plz no padding ;-;
 } __attribute__((packed)) heap_node_t;
 
-void init_kheap();
+typedef struct memory_allocator {
+  generic_heap_t *m_heap;
 
-// our kernel malloc impl
-void* __attribute__((malloc)) kmalloc (size_t len);
+  // initial node this heap has to work with
+  heap_node_t* m_heap_start_node;
 
-// our kernel free impl
-void kfree (void* addr);
+  // this node it the node that lives at the absolute bottom,
+  // and thus is vulnerable to merging after an expansion
+  heap_node_t *m_heap_bottom_node;
 
-// expand heap by a page
-bool try_heap_expand (heap_node_t* last_node);
+  size_t m_nodes_count;
+  size_t m_free_size;
+  size_t m_used_size;
+} memory_allocator_t;
 
-heap_node_t* split_node (heap_node_t* ptr, size_t size);
-heap_node_t* merge_node_with_next (heap_node_t* ptr);
-heap_node_t* merge_node_with_prev (heap_node_t* ptr);
-// here we will check if they are mergable (aka next to eachother)
-heap_node_t* merge_nodes (heap_node_t* ptr1, heap_node_t* ptr2);
-heap_node_t* try_merge (heap_node_t* node);
+memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintptr_t flags);
 
-bool can_merge (heap_node_t* node1, heap_node_t* node2);
+void* malloc_allocate(memory_allocator_t * allocator, size_t bytes);
 
+void malloc_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t allocation_size);
+
+void malloc_deallocate(memory_allocator_t* allocator, void* addr);
+
+/*
+ * check the identifier of a node to confirm that is in fact a
+ * node that we use
+ * TODO: make this identifier dynamic and (perhaps) bound to
+ * the heap that it belongs to
+ */
 bool verify_identity (heap_node_t* node);
 
-heap_node_t* copy_pointers (heap_node_t* from, heap_node_t* to);
 
 // TODO: remove
-void quick_print_node_sizes ();
+void quick_print_node_sizes (memory_allocator_t* allocator);
 
 void enable_heap_expantion ();
 void disable_heap_expantion ();
 
 // TODO: add a wrapper for userspace?
-#endif // !__ANIVA_KMALLOC__
+#endif // !__ANIVA_MALLOC__

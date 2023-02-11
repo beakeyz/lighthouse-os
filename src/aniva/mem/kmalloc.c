@@ -2,42 +2,48 @@
 #include "kmain.h"
 #include "mem/kmem_manager.h"
 #include "base_allocator.h"
+#include "heap.h"
 #include <libk/string.h>
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
 #include <libk/error.h>
 
-#define INITIAL_HEAP_SIZE (2 * Mib) // IN BYTES
-#define NODE_IDENTIFIER 0xF0CEDA22
 
-// fuk yea
-// reserve enough, so we can use kmem_manager later to expand the heap
-SECTION(".heap") static uint8_t init_kmalloc_mem[INITIAL_HEAP_SIZE];
+static bool try_heap_expand (memory_allocator_t * allocator, size_t new_size);
+static heap_node_t* create_initial_heap_node(memory_allocator_t *allocator, void* start_address);
+static heap_node_t* split_node (memory_allocator_t * allocator, heap_node_t* ptr, size_t size);
+static heap_node_t* merge_node_with_next (memory_allocator_t * allocator, heap_node_t* ptr);
+static heap_node_t* merge_node_with_prev (memory_allocator_t * allocator, heap_node_t* ptr);
+static heap_node_t* merge_nodes (memory_allocator_t * allocator, heap_node_t* ptr1, heap_node_t* ptr2);
+static heap_node_t* try_merge (memory_allocator_t * allocator, heap_node_t* node);
+static bool can_merge (heap_node_t* node1, heap_node_t* node2);
+static bool has_flag(heap_node_t* node, uint8_t flag);
 
-// TODO: structure
-static heap_node_t* heap_start_addr = nullptr;
-static size_t heap_available_size;
-static size_t heap_used_size;
-static bool can_heap_expand;
+memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintptr_t flags) {
+  // create a heap object on the initial kernel heap :clown:
+  memory_allocator_t *heap = kmalloc(sizeof(memory_allocator_t));
 
-// this init is post kmem_manager, so expansion will be done using that.
-// It might be a good idea though, to heave some initial reserved memory
-// BEFORE kmem_manager is initialized, so we can use it earlier
-void init_kheap() {
-  heap_start_addr = (heap_node_t*)&init_kmalloc_mem[0];
-  heap_start_addr->identifier = NODE_IDENTIFIER;
-  heap_start_addr->size = INITIAL_HEAP_SIZE;
-  heap_start_addr->flags = KHEAP_FREE_FLAG;
-  heap_start_addr->next = NULL;
-  heap_start_addr->prev = NULL;
-  heap_used_size = 0;
-  heap_available_size = INITIAL_HEAP_SIZE;
-  can_heap_expand = false;
+  flags |= GHEAP_EXPANDABLE;
 
+  heap->m_heap = initialize_generic_heap(nullptr, virtual_base, size, flags);
+  heap->m_heap->f_allocate = (HEAP_ALLOCATE) malloc_allocate;
+  heap->m_heap->f_deallocate = (HEAP_DEALLOCATE) malloc_deallocate;
+  heap->m_heap->f_sized_deallocate = (HEAP_SIZED_DEALLOCATE) malloc_sized_deallocate;
+  heap->m_heap->f_expand = (HEAP_EXPAND) try_heap_expand;
+  heap->m_heap->f_debug = (HEAP_GENERAL_DEBUG) quick_print_node_sizes;
+
+  heap->m_heap_start_node = create_initial_heap_node(heap, (void *) heap->m_heap->m_virtual_base);
+  heap->m_heap_bottom_node = heap->m_heap_start_node;
+  heap->m_free_size = size;
+  heap->m_used_size = 0;
+  heap->m_nodes_count = 1;
+
+  return heap;
 }
 
-void quick_print_node_sizes() {
-  heap_node_t* node = heap_start_addr;
+// FIXME: probably should not directly print on a packed struct...
+void quick_print_node_sizes(memory_allocator_t* allocator) {
+  heap_node_t* node = allocator->m_heap_start_node;
   uintptr_t index = 0;
   while (node) {
     index++;
@@ -45,52 +51,54 @@ void quick_print_node_sizes() {
     print("node ");
     print(to_string(index));
     print(": ");
-    if ((node->flags | KHEAP_FREE_FLAG) == KHEAP_FREE_FLAG) {
+    if (!has_flag(node, MALLOC_FLAGS_USED)) {
       print("(free) ");
     }
     print("true size: ");
-    print(to_string(node->size));
+    size_t size = node->size;
+    print(to_string(size));
 
     print(" size: ");
-    println(to_string(node->size - sizeof(heap_node_t)));
+    println(to_string(size - sizeof(heap_node_t)));
 
     node = node->next;
   }
   print("Amount of nodes found: ");
   println(to_string(index));
   print("Free heap (bytes): ");
-  println(to_string(heap_available_size));
+  println(to_string(allocator->m_free_size));
   print("Used heap (bytes): ");
-  println(to_string(heap_used_size));
+  println(to_string(allocator->m_used_size));
 }
 
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get
 // a pointer to the data
-void* kmalloc(size_t len) {
-  
-  heap_node_t* node = heap_start_addr;
+void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
+
+  heap_node_t* node = allocator->m_heap_start_node;
   while (node) {
     // TODO: should we also allow allocation when len is equal to the nodesize - structsize?
-    if (node->size - sizeof(heap_node_t) > len && node->flags == KHEAP_FREE_FLAG) {
+
+    if (node->size - sizeof(heap_node_t) > bytes && !has_flag(node, MALLOC_FLAGS_USED)) {
       // yay, our node works =D
 
       // TODO: for now I'll just assume that at this point, nothing happend to
       // the identifier here. In the future we will handle this correctly
-      ASSERT(node->identifier == NODE_IDENTIFIER);
+      ASSERT(node->identifier == MALLOC_NODE_IDENTIFIER);
 
       // now split off a node of the correct size
-      heap_node_t* new_node = split_node(node, len);
+      heap_node_t* new_node = split_node(allocator, node, bytes);
       if (new_node == nullptr) {
         node = node->next;
         continue;
       }
 
-      new_node->flags = KHEAP_USED_FLAG;
+      new_node->flags |= MALLOC_FLAGS_USED;
       // for sanity
-      new_node->identifier = NODE_IDENTIFIER;
+      new_node->identifier = MALLOC_NODE_IDENTIFIER;
       
-      heap_available_size -= new_node->size;
-      heap_used_size += new_node->size;
+      allocator->m_free_size -= new_node->size;
+      allocator->m_used_size += new_node->size;
 
       // TODO: edit global shit
       return (void*) new_node + sizeof(heap_node_t);
@@ -98,34 +106,44 @@ void* kmalloc(size_t len) {
 
     // break early, so we can pass the node to the expand func
     if (!node->next) {
-        break;
+      println("break!");
+      break;
     }
     node = node->next;
   }
 
-  if (try_heap_expand(node)) {
-      return kmalloc(len);
+  // TODO: implement expanding
+  /*
+  if (try_heap_expand(allocator, node)) {
+      return malloc_allocate(allocator, bytes);
   }
+  */
 
   // yikes
   return NULL;
 }
 
-void kfree(void* addr) {
-
-  if (addr == nullptr) {
-    // you fucking little piece of trash, how dare you pass NULL to kfree
+void malloc_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t allocation_size) {
+  if (addr == nullptr || allocator == nullptr) {
     return;
   }
 
   // first we'll check if we can do this easily
   heap_node_t* node = (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t));
-  if (node->identifier == NODE_IDENTIFIER) {
+  const size_t real_allocation_size = allocation_size + sizeof(heap_node_t);
+
+  if (node->size != real_allocation_size) {
+    return;
+  }
+
+  if (verify_identity(node)) {
     // we can free =D
-    if (node->flags == KHEAP_USED_FLAG) {
-      node->flags = KHEAP_FREE_FLAG;
+    if (has_flag(node, MALLOC_FLAGS_USED)) {
+      node->flags &= ~MALLOC_FLAGS_USED;
+      allocator->m_used_size-=node->size;
+      allocator->m_free_size+=node->size;
       // see if we can merge
-      heap_node_t* n = try_merge(node);
+      heap_node_t* n = try_merge(allocator, node);
       if (n == nullptr) {
         // FUCKKKKK
         println("unable to merge nodes =/");
@@ -134,7 +152,37 @@ void kfree(void* addr) {
       }
 
       if (n->next)
-        try_merge(n->next);
+        try_merge(allocator, n->next);
+      // FIXME: should we zero freed nodes?
+    }
+  } else {
+    println("invalid identifier");
+  }
+}
+
+void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
+
+  if (addr == nullptr || allocator == nullptr) {
+    return;
+  }
+
+  // first we'll check if we can do this easily
+  heap_node_t* node = (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t));
+  if (verify_identity(node)) {
+    // we can free =D
+    if (has_flag(node, MALLOC_FLAGS_USED)) {
+      node->flags &= ~MALLOC_FLAGS_USED;
+      allocator->m_used_size-=node->size;
+      allocator->m_free_size+=node->size;
+      // see if we can merge
+      heap_node_t* n = try_merge(allocator, node);
+      if (n == nullptr) {
+        println("unable to merge nodes =/");
+        return;
+      }
+
+      if (n->next)
+        try_merge(allocator, n->next);
       // FIXME: should we zero freed nodes?
     }
   } else {
@@ -143,8 +191,8 @@ void kfree(void* addr) {
 }
 
 // just expand the heap by one 4KB page
-bool try_heap_expand(heap_node_t* last_node) {
-  if (!can_heap_expand) {
+bool try_heap_expand(memory_allocator_t *allocator, size_t new_size) {
+  if ((allocator->m_heap->m_flags & GHEAP_EXPANDABLE) == 0) {
     return false;
   }
 
@@ -153,17 +201,17 @@ bool try_heap_expand(heap_node_t* last_node) {
   heap_node_t* new_node = nullptr;
   if (new_node) {
     new_node->size = new_node_size;
-    new_node->identifier = NODE_IDENTIFIER;
-    new_node->flags = KHEAP_FREE_FLAG;
+    new_node->identifier = MALLOC_NODE_IDENTIFIER;
+    new_node->flags = 0;
     new_node->next = 0;
-    new_node->prev = last_node;
-    last_node->next = new_node;
-    return (try_merge(last_node) != nullptr);
+    new_node->prev = allocator->m_heap_bottom_node;
+    allocator->m_heap_bottom_node->next = new_node;
+    return (try_merge(allocator, allocator->m_heap_bottom_node) != nullptr);
   }
   return false;
 }
 
-heap_node_t* split_node(heap_node_t *ptr, size_t size) {
+heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t size) {
   // trying to split a node into a bigger size than it itself is xD
   if (ptr->size <= size) {
     // this is just dumb
@@ -179,21 +227,21 @@ heap_node_t* split_node(heap_node_t *ptr, size_t size) {
   }
   
   
-  if (ptr->flags == KHEAP_USED_FLAG) {
+  if (has_flag(ptr, MALLOC_FLAGS_USED)) {
     // a node that's completely in use, should not be split
     println("[kmalloc:split_node] tried to split a node that's in use");
     return nullptr;
   }
 
   // TODO: handle this correctly
-  ASSERT(ptr->identifier == NODE_IDENTIFIER);
+  ASSERT(verify_identity(ptr));
 
   // the new node for the allocation
   heap_node_t* new_first_node = ptr;
   // the old free node
   heap_node_t* new_second_node = (heap_node_t*)((uintptr_t)ptr + size + sizeof(heap_node_t));
-  new_first_node->identifier = NODE_IDENTIFIER;
-  new_second_node->identifier = NODE_IDENTIFIER;
+  new_first_node->identifier = MALLOC_NODE_IDENTIFIER;
+  new_second_node->identifier = MALLOC_NODE_IDENTIFIER;
   // now copy the data of the (big) free node over to its smaller counterpart
   new_second_node->size = new_first_node->size - size - sizeof(heap_node_t);
   // This should just be free, but we'll just copy it over anyway
@@ -212,15 +260,17 @@ heap_node_t* split_node(heap_node_t *ptr, size_t size) {
   new_first_node->flags = ptr->flags;
   new_first_node->size = size + sizeof(heap_node_t);
 
+  allocator->m_nodes_count++;
+
   return new_first_node;
 }
 
 bool can_merge(heap_node_t *node1, heap_node_t *node2) {
-  if (node1 == NULL || node2 == NULL)
+  if (node2 == nullptr || node1 == nullptr)
     return false;
 
   // Only free nodes can merge
-  if (node1->flags == KHEAP_FREE_FLAG && node2->flags == KHEAP_FREE_FLAG) {
+  if (!has_flag(node1, MALLOC_FLAGS_USED) && !has_flag(node2, MALLOC_FLAGS_USED)) {
     if ((node1->prev == node2 && node2->next == node1) || (node1->next == node2 && node2->prev == node1)) {
       return true;
     } 
@@ -230,49 +280,52 @@ bool can_merge(heap_node_t *node1, heap_node_t *node2) {
 
 // we check for mergeability again, just for sanity =/
 // I'd love to make this more efficient (and readable), but I'm also too lazy xD
-heap_node_t* merge_node_with_next (heap_node_t* ptr) {
+heap_node_t* merge_node_with_next (memory_allocator_t * allocator, heap_node_t* ptr) {
   if (can_merge(ptr, ptr->next)) {
     ptr->size += ptr->next->size;
     heap_node_t* next_next = ptr->next->next;
-    memset(ptr->next, 0, ptr->next->size);
+    //memset(ptr->next, 0, ptr->next->size);
 
     next_next->prev = ptr;
     ptr->next = next_next;
+
+    allocator->m_nodes_count--;
     return ptr;
   }
   return nullptr;
 }
-heap_node_t* merge_node_with_prev (heap_node_t* ptr) {
+heap_node_t* merge_node_with_prev (memory_allocator_t * allocator, heap_node_t* ptr) {
   if (can_merge(ptr, ptr->prev)) {
     heap_node_t* prev = ptr->prev;
     prev->size += ptr->size;
     prev->next = ptr->next;
     //memset(ptr, 0, ptr->size);
+    allocator->m_nodes_count--;
     return prev;
   }
   return nullptr;
 }
-heap_node_t* merge_nodes (heap_node_t* ptr1, heap_node_t* ptr2) {
+heap_node_t* merge_nodes (memory_allocator_t * allocator, heap_node_t* ptr1, heap_node_t* ptr2) {
   if (can_merge(ptr1, ptr2)) {
     // Because they passed the merge check we can do this =D
     // sm -> ptr1 -> ptr2 -> sm
     if (ptr1->next == ptr2) {
-        return merge_node_with_next(ptr1);
+        return merge_node_with_next(allocator,ptr1);
     }
     // ptr2 -> ptr1 -> sm
-    return merge_node_with_prev(ptr1);
+    return merge_node_with_prev(allocator,ptr1);
   }
   return nullptr;
 }
 
-heap_node_t* try_merge(heap_node_t *node) {
-  heap_node_t* merged_node = merge_nodes(node, node->next);
+heap_node_t* try_merge(memory_allocator_t * allocator, heap_node_t *node) {
+  heap_node_t* merged_node = merge_nodes(allocator,node, node->next);
   if (merged_node == nullptr) {
-    merged_node = merge_nodes(node, node->prev);
+    merged_node = merge_nodes(allocator,node, node->prev);
   }
 
   if (merged_node) {
-    try_merge(merged_node);
+    try_merge(allocator,merged_node);
   }
 
   return merged_node;
@@ -281,14 +334,20 @@ heap_node_t* try_merge(heap_node_t *node) {
 // NOTE: when the identifier is not valid, we should ideally view the heap as corrupted and either
 // purge and reinit, or just panic and die
 bool verify_identity(heap_node_t *node) {
-  return (node->identifier == NODE_IDENTIFIER);
+  return (node->identifier == MALLOC_NODE_IDENTIFIER);
 }
 
-// TODO: this just can't be safe, lets make it safe =D
-void enable_heap_expantion () {
-  can_heap_expand = true;
+bool has_flag(heap_node_t* node, uint8_t flag) {
+  return (node->flags & flag) != 0;
 }
 
-void disable_heap_expantion () {
-  can_heap_expand = false;
+static heap_node_t *create_initial_heap_node(memory_allocator_t *allocator, void* start_address) {
+  heap_node_t *ret = (heap_node_t*)start_address;
+
+  ret->next = nullptr;
+  ret->prev = nullptr;
+  ret->size = allocator->m_heap->m_current_total_size;
+  ret->flags = 0;
+  ret->identifier = MALLOC_NODE_IDENTIFIER;
+  return ret;
 }

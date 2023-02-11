@@ -1,7 +1,7 @@
 #include "core.h"
 #include "libk/linkedlist.h"
 #include "driver.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "libk/string.h"
 
 #define DRIVER_TYPE_COUNT 5

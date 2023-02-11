@@ -1,9 +1,10 @@
 #include "scheduler.h"
 #include "kmain.h"
 #include "dev/debug/serial.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "libk/string.h"
 #include "interupts/interupts.h"
+#include <mem/heap.h>
 
 // how long this process takes to do it's shit
 enum SCHED_FRAME_USAGE_LEVEL {

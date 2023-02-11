@@ -1,6 +1,6 @@
 #include "storage_controller.h"
 #include "dev/debug/serial.h"
-#include "dev/disk/ahci/AhciController.h"
+#include "dev/disk/ahci/ahci_device.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "libk/linkedlist.h"

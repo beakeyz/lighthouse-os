@@ -1,5 +1,5 @@
 #include "driver.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include <libk/string.h>
 
 aniva_driver_t* create_driver(

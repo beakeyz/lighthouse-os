@@ -1,6 +1,7 @@
 #include "atomic_ptr.h"
 #include "libk/atomic.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
+#include <mem/heap.h>
 
 union atomic_ptr {
   _Atomic uintptr_t __lock;

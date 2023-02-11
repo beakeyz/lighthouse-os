@@ -1,6 +1,6 @@
 #include "spinlock.h"
 #include "kmain.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 
 /* __spinlock_t */
 static __spinlock_t __init_spinlock();

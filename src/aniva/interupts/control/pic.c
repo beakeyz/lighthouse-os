@@ -2,7 +2,7 @@
 #include "interupts/control/interrupt_control.h"
 #include "interupts/interupts.h"
 #include "libk/string.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include <dev/debug/serial.h>
 #include <libk/io.h>
 #include <system/asm_specifics.h>

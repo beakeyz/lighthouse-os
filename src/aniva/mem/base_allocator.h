@@ -9,18 +9,39 @@
  * most likely needs to be allocated on a heap as well xD
  */
 
+// heap_ptr should be of the implemented heap type
 typedef void* (*HEAP_ALLOCATE) (
+  void* heap_ptr,
   size_t bytes
 );
 
+// heap_ptr should be of the implemented heap type
 typedef void (*HEAP_DEALLOCATE) (
+  void* heap_ptr,
   void* address
+);
+
+typedef void (*HEAP_SIZED_DEALLOCATE) (
+  void* heap_ptr,
+  void* address,
+  size_t allocation_size
+);
+
+typedef void (*HEAP_EXPAND) (
+  void* heap_ptr,
+  size_t bytes
+);
+
+typedef void (*HEAP_GENERAL_DEBUG) (
+  void* heap_ptr
 );
 
 typedef enum GHEAP_FLAGS {
   GHEAP_READONLY = (1 << 0),
   GHEAP_KERNEL = (1 << 1),
-  GHEAP_EXPANDABLE = (1 << 2)
+  GHEAP_EXPANDABLE = (1 << 2),
+  GHEAP_ZEROED = (1 << 3),
+  GHEAP_NOBLOCK = (1 << 4),
 } GHEAP_FLAGS_t;
 
 typedef struct generic_heap {
@@ -31,6 +52,9 @@ typedef struct generic_heap {
 
   HEAP_ALLOCATE f_allocate;
   HEAP_DEALLOCATE f_deallocate;
+  HEAP_SIZED_DEALLOCATE f_sized_deallocate;
+  HEAP_EXPAND f_expand;
+  HEAP_GENERAL_DEBUG f_debug;
 } generic_heap_t;
 
 /*
@@ -39,6 +63,8 @@ typedef struct generic_heap {
  * structure itself does not know how to allocate or deallocate anything
  */
 generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags);
+
+ErrorOrPtr destroy_heap(generic_heap_t* heap);
 
 static ALWAYS_INLINE bool is_heap_identity_mapped(generic_heap_t* heap_ptr) {
   return (heap_ptr->m_physical_base == heap_ptr->m_virtual_base);

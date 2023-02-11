@@ -1,9 +1,10 @@
 #include "tspckt.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "libk/string.h"
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>
 #include "interupts/interupts.h"
+#include <mem/heap.h>
 
 static uint32_t generate_tspckt_identifier(tspckt_t* tspckt) USED;
 

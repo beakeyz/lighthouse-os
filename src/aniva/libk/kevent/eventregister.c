@@ -4,7 +4,7 @@
 #include "libk/kevent/eventhook.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "system/processor/processor.h"
 #include <libk/error.h>
 #include <libk/string.h>

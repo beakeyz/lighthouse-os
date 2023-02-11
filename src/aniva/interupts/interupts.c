@@ -7,7 +7,7 @@
 #include <dev/debug/serial.h>
 #include <interupts/control/pic.h>
 #include <libk/stddef.h>
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "stubs.h"
 #include "system/asm_specifics.h"
 #include "sched/scheduler.h"
@@ -222,10 +222,6 @@ EXCEPTION(30, "Security exception");
 
 static void __unimplemented_EXCEPTION() {
   kernel_panic("Unimplemented EXCEPTION");
-}
-
-static void __unimplemented_EXCEPTION_a() {
-  kernel_panic("alt");
 }
 
 /*

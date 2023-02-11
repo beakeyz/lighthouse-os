@@ -1,6 +1,6 @@
 #include "idt.h"
 #include "interupts/interupts.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include <dev/debug/serial.h>
 #include <mem/kmem_manager.h>
 #include <libk/stddef.h>

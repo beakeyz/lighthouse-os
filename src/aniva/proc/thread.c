@@ -2,12 +2,13 @@
 #include "dev/debug/serial.h"
 #include "kmain.h"
 #include "mem/kmem_manager.h"
-#include <mem/kmalloc.h>
+#include <mem/heap.h>
 #include "proc/proc.h"
 #include "libk/stack.h"
 #include "socket.h"
 #include <libk/string.h>
 #include "core.h"
+#include <mem/heap.h>
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribute__((used));
@@ -28,7 +29,13 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
-  uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
+  uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE;
+
+  if (kthread) {
+    stack_mem_flags |= KMEM_FLAG_KERNEL;
+  }
+
+  uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,stack_mem_flags));
   memset((void *)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
   thread->m_stack_bottom = stack_bottom;

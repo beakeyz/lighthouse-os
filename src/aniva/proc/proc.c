@@ -1,9 +1,10 @@
 #include "proc.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
 #include "core.h"
+#include <mem/heap.h>
 
 
 void generic_proc_idle () {

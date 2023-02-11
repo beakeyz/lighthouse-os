@@ -3,7 +3,7 @@
 #include "interupts/control/pic.h"
 #include "libk/linkedlist.h"
 #include "libk/string.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "mem/kmem_manager.h"
 
 InterruptControllerManager_t *g_interrupt_controller_manager;

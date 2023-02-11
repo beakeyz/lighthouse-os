@@ -1,7 +1,7 @@
 #include "bitmap.h"
 #include "dev/debug/serial.h"
 #include "libk/error.h"
-#include <mem/kmalloc.h>
+#include <mem/heap.h>
 #include <libk/string.h>
 
 #ifndef BITMAP_DEFAULT
@@ -68,45 +68,44 @@ void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
   }
 }
 
-// TODO
+// TODO: find out if this bugs out
 ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
   if (length >= this->m_entries || length == 0)
     return Error();
 
-  bool success = false;
   for (uintptr_t i = 0; i < this->m_entries; i++) {
-    uintptr_t length_check = length;
+    uintptr_t length_check = 0;
 
     if (!this->fIsSet(this, i)) {
       // lil double check
       for (uintptr_t j = i; j < i+length; j++) {
-        if (!this->fIsSet(this, j)) {
-          length_check--;
-        } else {
+        if (this->fIsSet(this, j)) {
           break;
         }
+        length_check++;
       }
     }
 
-    if (length_check == 0) {
+    if (length_check == length) {
       return Success(i);
     }
+    i += length_check;
   }
 
   return Error();
 }
 
 // returns the index of the free bit
-uintptr_t bitmap_find_free(bitmap_t* this) {
+ErrorOrPtr bitmap_find_free(bitmap_t* this) {
   // doodoo linear scan >=(
   // TODO: make not crap
   for (uintptr_t i = 0; i < this->m_entries; i++) {
     if (!this->fIsSet(this, i)) {
-      return i;
+      return Success(i);
     }
   }
 
-  return 0;
+  return Error();
 }
 
 bool bitmap_isset(bitmap_t* this, uint32_t index) {

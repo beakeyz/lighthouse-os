@@ -1,5 +1,5 @@
 #include "queue.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "string.h"
 #include "proc/ipc/tspckt.h"
 

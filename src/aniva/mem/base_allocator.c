@@ -1,6 +1,7 @@
 #include "base_allocator.h"
 #include "kmalloc.h"
 #include "kmem_manager.h"
+#include "heap.h"
 
 static ALWAYS_INLINE void* dummy_alloc(size_t size);
 static ALWAYS_INLINE void dummy_dealloc(void* address);
@@ -14,8 +15,8 @@ generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t vir
 
   const size_t pages_needed = (initial_size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
 
-  ret->f_allocate = dummy_alloc;
-  ret->f_deallocate = dummy_dealloc;
+  ret->f_allocate = (HEAP_ALLOCATE) dummy_alloc;
+  ret->f_deallocate = (HEAP_DEALLOCATE) dummy_dealloc;
 
   ret->m_current_total_size = pages_needed * SMALL_PAGE_SIZE;
   ret->m_virtual_base = virtual_base;

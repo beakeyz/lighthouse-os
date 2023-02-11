@@ -3,9 +3,9 @@
 #include "dev/disk/ahci/definitions.h"
 #include <dev/pci/pci.h>
 
-struct AhciPort;
+struct ahci_port;
 
-typedef struct AhciDevice {
+typedef struct ahci_device {
   DeviceIdentifier_t* m_identifier;
 
   void* m_hba_region;
@@ -13,8 +13,8 @@ typedef struct AhciDevice {
 
   uint32_t m_used_ports;
   // TODO
-} AhciDevice_t;
+} ahci_device_t;
 
-AhciDevice_t* init_ahci_device(DeviceIdentifier_t* identifier);
+ahci_device_t* init_ahci_device(DeviceIdentifier_t* identifier);
 
 #endif // !__ANIVA_AHCI_CONTROLLER__

@@ -1,12 +1,12 @@
 #include "error.h"
 #include "dev/debug/serial.h"
-#include "mem/kmalloc.h"
+#include "interupts/interupts.h"
+#include <mem/heap.h>
 
 // x86 specific halt (duh)
 NORETURN void __kernel_panic() {
   // dirty system halt
   for (;;) {
-    disable_heap_expantion();
     disable_interrupts();
     asm volatile ("cld");
     asm volatile ("hlt");

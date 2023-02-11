@@ -5,7 +5,7 @@
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "mem/kmem_manager.h"
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"

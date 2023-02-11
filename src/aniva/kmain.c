@@ -14,8 +14,10 @@
 #include "proc/ipc/tspckt.h"
 #include "interupts/interupts.h"
 #include "dev/driver.h"
+#include "mem/heap.h"
+#include "mem/kmalloc.h"
 #include <dev/debug/serial.h>
-#include <mem/kmalloc.h>
+#include <mem/heap.h>
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
 #include <libk/io.h>
@@ -56,7 +58,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // init bootstrap processor
   init_processor(&g_GlobalSystemInfo.m_bsp_processor, 0);
 
-  init_kheap(); // FIXME: this heap impl is very bad. improve it
+  // bootstrap the kernel heap
+  init_kheap();
 
   // initialize things like fpu or interrupts
   g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
@@ -128,15 +131,18 @@ int ioctl(char* fmt, ...){
 }
 
 void aniva_task(queue_t *buffer) {
+  println("creating new test heap");
 
-  driver_identifier_t identifier = {6, 9};
-  aniva_driver_t* test_driver = create_driver("test", "test", 0, identifier, init, exit, ioctl, DT_OTHER);
+  const vaddr_t new_heap_vbase = 0xffffffff60000000UL;
+  memory_allocator_t* new_heap = create_malloc_heap(1 * Kib, new_heap_vbase, GHEAP_KERNEL);
 
-  load_driver(test_driver);
+  void* allocation = new_heap->m_heap->f_allocate(new_heap, 8);
 
-  test_driver->f_drv_msg(nullptr);
+  *(uintptr_t*)allocation = 6969;
 
-  unload_driver(test_driver);
+  println(to_string((uintptr_t)allocation));
+  println(to_string(*(uintptr_t*)allocation));
 
-  for (;;) {}
+
+  kernel_panic("TEST PANIC");
 }

@@ -2,12 +2,13 @@
 #include "interupts/interupts.h"
 #include "dev/debug/serial.h"
 #include "kmain.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "mem/PagingComplex.h"
 #include "libk/multiboot.h"
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include <mem/heap.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
 
@@ -75,11 +76,11 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   prep_mmap(get_mb2_tag((void *)mb_addr, 6));
   parse_mmap();
 
-  kmem_init_physical_allocator();  
+  kmem_init_physical_allocator();
 
   _init_kmem_page_layout();
 
-  
+
   // FIXME: find out if this address is always valid
   uintptr_t map = ((uintptr_t)(PagingComplex_t *)&KMEM_DATA.m_kernel_base_pd[0]);
  
@@ -242,19 +243,16 @@ void kmem_init_physical_allocator() {
   bitmap_t map = init_bitmap(physical_pages_bytes);
   memcpy(&KMEM_DATA.m_phys_bitmap, &map, sizeof(map));
 
+  println(to_string((uintptr_t)map.m_map));
   // Mark the contiguous 'free' ranges as free in our bitmap
-  node_t* itterator = KMEM_DATA.m_contiguous_ranges->head;
-  while (itterator) {
-
-    contiguous_phys_virt_range_t* range = itterator->data;
+  FOREACH(i, KMEM_DATA.m_contiguous_ranges) {
+    contiguous_phys_virt_range_t* range = i->data;
 
     // should already be page aligned
     for (uintptr_t addr = ALIGN_UP(range->lower, SMALL_PAGE_SIZE); addr < ALIGN_DOWN(range->upper, SMALL_PAGE_SIZE); addr += SMALL_PAGE_SIZE) {
       uintptr_t phys_page_idx = kmem_get_page_idx(addr);
       kmem_set_phys_page_free(phys_page_idx);
     }
-
-    itterator = itterator->next;
   }
 
   for (uintptr_t i = (uintptr_t)&_kernel_start; i < (uintptr_t)&_kernel_end; i += SMALL_PAGE_SIZE) {
@@ -307,11 +305,13 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
 // TODO: errorhandle
 ErrorOrPtr kmem_request_physical_page() {
 
-  uintptr_t index = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
+  ErrorOrPtr result = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
 
-  if (index == NULL) {
+  if (result.m_status == ANIVA_FAIL) {
     return Error();
   }
+
+  uintptr_t index = result.m_ptr;
 
   return Success(index << 12);
 }
@@ -478,7 +478,7 @@ void kmem_set_page_flags(PagingComplex_t *page, unsigned int flags) {
 /* NEW IMPL */
 // allocates a region using the physical allocator and then 
 // identity maps it
-void* kmem_kernel_alloc (uintptr_t addr, size_t size, int flags) {
+void* kmem_kernel_alloc (uintptr_t addr, size_t size, uint32_t flags) {
 
   if (kmem_is_phys_page_used(kmem_get_page_idx(addr)) && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
     return nullptr;
@@ -525,12 +525,13 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 
     virt_base += SMALL_PAGE_SIZE;
   }
+  return Success(0);
 }
 
 // FIXME: code duplication
 // FIXME: pages_needed calculation turned out to spit out waaay more pages than we needed,
 // so we need to test if this fix will suffice =/
-void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int page_flags) {
+void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags) {
   const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
   void* ret = (void*)addr;
   uintptr_t __addr = addr;
@@ -560,7 +561,7 @@ void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, int flags, int pa
 // @params
 // size: size in bytes that should be allocated
 // TODO: test
-ErrorOrPtr kmem_kernel_alloc_range (size_t size, int custom_flags, int page_flags) {
+ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags) {
   const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
 
   const uintptr_t start_idx = Must(KMEM_DATA.m_phys_bitmap.fFindFreeRange(&KMEM_DATA.m_phys_bitmap, pages_needed));

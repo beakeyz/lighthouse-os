@@ -3,7 +3,7 @@
 #include "kmain.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
-#include "mem/kmalloc.h"
+#include <mem/heap.h>
 #include "libk/string.h"
 
 extern void _flush_gdt(uintptr_t gdtr);
