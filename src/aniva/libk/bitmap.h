@@ -43,7 +43,7 @@ typedef ErrorOrPtr (*BITMAP_FIND_FREE_RANGE) (
 
 // 8-bit bitmap
 typedef struct bitmap {
-  const uint8_t m_default;
+  uint8_t m_default;
   size_t m_size; // size in bytes
   size_t m_entries; // size in bits
   uint8_t* m_map;
@@ -58,6 +58,8 @@ typedef struct bitmap {
 } bitmap_t;
 
 bitmap_t init_bitmap(size_t size);
+bitmap_t init_bitmap_with_default(size_t size, uint8_t default_value);
+
 void bitmap_mark(bitmap_t* this, uint32_t index);
 void bitmap_unmark(bitmap_t* this, uint32_t index);
 

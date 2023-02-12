@@ -243,7 +243,6 @@ void kmem_init_physical_allocator() {
   bitmap_t map = init_bitmap(physical_pages_bytes);
   memcpy(&KMEM_DATA.m_phys_bitmap, &map, sizeof(map));
 
-  println(to_string((uintptr_t)map.m_map));
   // Mark the contiguous 'free' ranges as free in our bitmap
   FOREACH(i, KMEM_DATA.m_contiguous_ranges) {
     contiguous_phys_virt_range_t* range = i->data;

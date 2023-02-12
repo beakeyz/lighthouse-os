@@ -16,6 +16,7 @@
 #include "dev/driver.h"
 #include "mem/heap.h"
 #include "mem/kmalloc.h"
+#include "mem/zalloc.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
@@ -134,15 +135,31 @@ void aniva_task(queue_t *buffer) {
   println("creating new test heap");
 
   const vaddr_t new_heap_vbase = 0xffffffff60000000UL;
-  memory_allocator_t* new_heap = create_malloc_heap(1 * Kib, new_heap_vbase, GHEAP_KERNEL);
+  zone_allocator_t* new_heap = create_zone_allocator(15 * Kib, new_heap_vbase, GHEAP_KERNEL);
 
-  void* allocation = new_heap->m_heap->f_allocate(new_heap, 8);
+  void* allocation1 = new_heap->m_heap->f_allocate(new_heap, 10);
+  void* allocation2 = new_heap->m_heap->f_allocate(new_heap, 10);
 
-  *(uintptr_t*)allocation = 6969;
+  *(uintptr_t*)allocation1 = 6969;
 
-  println(to_string((uintptr_t)allocation));
-  println(to_string(*(uintptr_t*)allocation));
+  println(to_string((uintptr_t)allocation1));
+  println(to_string(*(uintptr_t*)allocation1));
 
+  println("------------------");
+  *(uintptr_t*)allocation2 = 420420;
 
+  println(to_string((uintptr_t)allocation2));
+  println(to_string(*(uintptr_t*)allocation2));
+
+  new_heap->m_heap->f_sized_deallocate(new_heap, allocation1, 10);
+
+  println("------------------");
+  println(to_string((uintptr_t)allocation1));
+  println(to_string(*(uintptr_t*)allocation1));
+  void* allocation3 = new_heap->m_heap->f_allocate(new_heap, 10);
+  *(uintptr_t*)allocation3 = 6979;
+  println("------------------");
+  println(to_string((uintptr_t)allocation3));
+  println(to_string(*(uintptr_t*)allocation3));
   kernel_panic("TEST PANIC");
 }

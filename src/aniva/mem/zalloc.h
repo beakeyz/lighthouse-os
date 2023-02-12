@@ -17,13 +17,13 @@ typedef enum ZONE_FLAGS {
  * divide this in such a way that we can at minimum cover
  * SMALL_PAGE_SIZE of bytes when allocating with this
  */
-#define ZALLOC_MINIMAL_8BYTE_ENTRIES 512
-#define ZALLOC_MINIMAL_16BYTE_ENTRIES 256
-#define ZALLOC_MINIMAL_32BYTE_ENTRIES 128
-#define ZALLOC_MINIMAL_64BYTE_ENTRIES 64
-#define ZALLOC_MINIMAL_128BYTE_ENTRIES 32
-#define ZALLOC_MINIMAL_256BYTE_ENTRIES 16
-#define ZALLOC_MINIMAL_512BYTE_ENTRIES 8
+#define ZALLOC_MINIMAL_8BYTE_ENTRIES 128
+#define ZALLOC_MINIMAL_16BYTE_ENTRIES 32
+#define ZALLOC_MINIMAL_32BYTE_ENTRIES 16
+#define ZALLOC_MINIMAL_64BYTE_ENTRIES 8
+#define ZALLOC_MINIMAL_128BYTE_ENTRIES 4
+#define ZALLOC_MINIMAL_256BYTE_ENTRIES 2
+#define ZALLOC_MINIMAL_512BYTE_ENTRIES 1
 
 #define ZALLOC_POSSIBLE_SIZES_COUNT 7
 
@@ -40,7 +40,7 @@ typedef enum ZALLOC_SIZE {
 typedef struct zone {
   ZALLOC_SIZE_t m_zone_entry_size;
 
-  bitmap_t* m_entries;
+  bitmap_t m_entries;
 
   vaddr_t m_virtual_base_address;
 

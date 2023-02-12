@@ -30,6 +30,26 @@ bitmap_t init_bitmap(size_t size) {
   return map;
 }
 
+bitmap_t init_bitmap_with_default(size_t size, uint8_t default_value) {
+
+  bitmap_t map = {
+    .m_default = default_value,
+    .m_size = size,
+    .m_entries = size << 3,
+    .m_map = nullptr
+  };
+
+  if (size > 0) {
+    map.m_map = kmalloc(size);
+  }
+
+  if (map.m_map) {
+    memset(map.m_map, map.m_default, map.m_size);
+    __init_bitmap_late(&map);
+  }
+  return map;
+}
+
 // FIXME: ANIVA_STATUS
 void bitmap_mark(bitmap_t* this, uint32_t index) {
   if (index > this->m_entries) {

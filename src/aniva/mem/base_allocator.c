@@ -3,8 +3,11 @@
 #include "kmem_manager.h"
 #include "heap.h"
 
-static ALWAYS_INLINE void* dummy_alloc(size_t size);
-static ALWAYS_INLINE void dummy_dealloc(void* address);
+static ALWAYS_INLINE void* dummy_alloc(void* heap_ptr, size_t size);
+static ALWAYS_INLINE void dummy_dealloc(void* heap_ptr, void* address);
+static ALWAYS_INLINE void dummy_dealloc_sized(void* heap_ptr, void* address);
+static ALWAYS_INLINE void dummy_expand(void* heap_ptr, size_t size);
+static ALWAYS_INLINE void dummy_debug(void* heap_ptr);
 
 generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags) {
   generic_heap_t *ret = kmalloc(sizeof(generic_heap_t));
@@ -15,8 +18,15 @@ generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t vir
 
   const size_t pages_needed = (initial_size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
 
+  /*
+   * setup dummy callbacks, so that we don't fuck up
+   * when calling an unsupported function
+   */
   ret->f_allocate = (HEAP_ALLOCATE) dummy_alloc;
   ret->f_deallocate = (HEAP_DEALLOCATE) dummy_dealloc;
+  ret->f_sized_deallocate = (HEAP_SIZED_DEALLOCATE) dummy_dealloc_sized;
+  ret->f_expand = (HEAP_EXPAND) dummy_expand;
+  ret->f_debug = (HEAP_GENERAL_DEBUG) dummy_debug;
 
   ret->m_current_total_size = pages_needed * SMALL_PAGE_SIZE;
   ret->m_virtual_base = virtual_base;
@@ -31,6 +41,9 @@ generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t vir
     page_flags |= KMEM_FLAG_WRITABLE;
   }
 
+  /*
+   * map pages into the virtual address-space that this heap will use
+   */
   for (int i = 0; i < pages_needed; i++) {
     const paddr_t phys_page = Must(kmem_prepare_new_physical_page());
     const vaddr_t virtual_offset = virtual_base + (i * SMALL_PAGE_SIZE);
@@ -53,8 +66,15 @@ generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t vir
   return ret;
 }
 
-void* dummy_alloc(size_t size) {
+static ALWAYS_INLINE void* dummy_alloc(void* heap_ptr, size_t size) {
   return nullptr;
 }
-void dummy_dealloc(void* address) {
+static ALWAYS_INLINE void dummy_dealloc(void* heap_ptr, void* address) {
+}
+static ALWAYS_INLINE void dummy_dealloc_sized(void* heap_ptr, void* address) {
+}
+static ALWAYS_INLINE void dummy_expand(void* heap_ptr, size_t size) {
+}
+static ALWAYS_INLINE void dummy_debug(void* heap_ptr) {
+  println("base_allocator: dummy_debug");
 }
