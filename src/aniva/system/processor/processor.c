@@ -14,8 +14,8 @@ static ALWAYS_INLINE void init_sse(Processor_t *processor);
 
 FpuState standard_fpu_state __attribute__((used));
 
-ProcessorInfo_t processor_gather_info() {
-  ProcessorInfo_t ret = {};
+processor_info_t processor_gather_info() {
+  processor_info_t ret = {};
   // TODO:
   return ret;
 }
@@ -40,10 +40,6 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
   // TODO: fpu, sse, mmx, xmm, tlb
   init_sse(processor);
 
-  // TODO: setup cpu capabilities
-
-  // TODO: cpu event pipeline and deferred calls
-
   // setup software
   if (is_bsp(processor)) {
     // TODO: do bsp shit
@@ -59,6 +55,8 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
 ALWAYS_INLINE void processor_late_init(Processor_t *this) {
 
   this->m_processes = init_list();
+
+  this->m_info = processor_gather_info();
 
   // TODO:
   if (is_bsp(this)) {

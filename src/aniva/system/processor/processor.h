@@ -46,7 +46,7 @@ typedef struct Processor {
 
   PagingComplex_t* m_page_dir;
   // TODO: cpu info (features, bitwidth, vendorID, ect.)
-  struct ProcessorInfo m_info;
+  struct processor_info m_info;
 
   // TODO: threading
   thread_t *m_current_thread;
@@ -57,11 +57,6 @@ typedef struct Processor {
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;
-
-/*
- * gather info on hardware-specific info about the processor
- */
-ProcessorInfo_t processor_gather_info();
 
 /*
  * initialize early aspects of the processor abstraction

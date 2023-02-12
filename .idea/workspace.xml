@@ -22,14 +22,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/amd.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/amd.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/intel.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/intel.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/kmain.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/kmain.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/libk/bitmap.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/bitmap.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/libk/bitmap.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/libk/bitmap.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/mem/base_allocator.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/base_allocator.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/kmem_manager.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/mem/zalloc.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/zalloc.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/mem/zalloc.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/mem/zalloc.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor_info.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor_info.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor_info.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor_info.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -231,7 +234,7 @@
       <workItem from="1675979228613" duration="7256000" />
       <workItem from="1676046752659" duration="12655000" />
       <workItem from="1676111411134" duration="14000000" />
-      <workItem from="1676197438983" duration="7410000" />
+      <workItem from="1676197438983" duration="15133000" />
     </task>
     <servers />
   </component>

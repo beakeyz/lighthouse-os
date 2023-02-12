@@ -1,0 +1,4 @@
+#ifndef __ANIVA_AMD_PROCESSOR__
+#define __ANIVA_AMD_PROCESSOR__
+
+#endif //__ANIVA_AMD_PROCESSOR__

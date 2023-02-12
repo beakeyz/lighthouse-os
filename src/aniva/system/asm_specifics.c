@@ -39,3 +39,29 @@ uintptr_t read_cr4(){
   asm volatile ("mov %%cr4, %%rax" : "=a"(ret));
   return ret;
 }
+
+void read_cpuid(uint32_t eax, uint32_t ecx,
+                uint32_t* eax_out,
+                uint32_t* ebx_out,
+                uint32_t* ecx_out,
+                uint32_t* edx_out) {
+  uint32_t eax_buffer;
+  uint32_t ebx_buffer;
+  uint32_t ecx_buffer;
+  uint32_t edx_buffer;
+  asm volatile (
+    "cpuid"
+    :
+    "=a"(eax_buffer),
+    "=b"(ebx_buffer),
+    "=c"(ecx_buffer),
+    "=d"(edx_buffer)
+    :
+    "a"(eax),
+    "c"(ecx)
+    );
+  *eax_out = eax_buffer;
+  *ebx_out = ebx_buffer;
+  *ecx_out = ecx_buffer;
+  *edx_out = edx_buffer;
+}
