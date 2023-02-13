@@ -40,28 +40,34 @@ uintptr_t read_cr4(){
   return ret;
 }
 
+uint64_t read_xcr0() {
+  uint32_t eax, edx;
+  asm volatile("xgetbv"
+    : "=a"(eax), "=d"(edx)
+    : "c"(0u));
+  return eax + ((uint64_t)edx << 32);
+}
+
+void write_xcr0(uint64_t value) {
+  uint32_t eax = value;
+  uint32_t edx = value >> 32;
+  asm volatile("xsetbv" ::"a"(eax), "d"(edx), "c"(0u));
+}
+
 void read_cpuid(uint32_t eax, uint32_t ecx,
                 uint32_t* eax_out,
                 uint32_t* ebx_out,
                 uint32_t* ecx_out,
                 uint32_t* edx_out) {
-  uint32_t eax_buffer;
-  uint32_t ebx_buffer;
-  uint32_t ecx_buffer;
-  uint32_t edx_buffer;
   asm volatile (
     "cpuid"
     :
-    "=a"(eax_buffer),
-    "=b"(ebx_buffer),
-    "=c"(ecx_buffer),
-    "=d"(edx_buffer)
+    "=a"(*eax_out),
+    "=b"(*ebx_out),
+    "=c"(*ecx_out),
+    "=d"(*edx_out)
     :
     "a"(eax),
     "c"(ecx)
     );
-  *eax_out = eax_buffer;
-  *ebx_out = ebx_buffer;
-  *ecx_out = ecx_buffer;
-  *edx_out = edx_buffer;
 }

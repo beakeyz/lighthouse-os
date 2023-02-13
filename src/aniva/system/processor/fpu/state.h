@@ -51,15 +51,10 @@ typedef struct {
   state_header_t header;
   // ext save area (CPUID)
   uint8_t esa[256]; 
-} __attribute__((aligned(64), packed)) FpuState;
+} __attribute__((aligned(16), packed)) FpuState;
 
-// FIXME: check current cpu capabilities for different fpu save methods
-ALWAYS_INLINE void save_fpu_state(FpuState* buffer) {
-  asm volatile ("fnsave %0" : "=m"(*buffer));
-}
+void save_fpu_state(FpuState* buffer);
 
-ALWAYS_INLINE void store_fpu_state(FpuState* buffer) {
-  asm volatile ("frstor %0" :: "m"(*buffer));
-}
+void store_fpu_state(FpuState* buffer);
 
 #endif // !__ANIVA_FPU_STATE__

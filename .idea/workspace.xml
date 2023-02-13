@@ -22,13 +22,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/amd.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/amd.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/intel.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/intel.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/libk/asm.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/libk/bits.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/processor/fpu/state.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/syscall/core.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/syscall/core.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/proc/thread.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/proc/thread.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/sync/atomic_ptr.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/sync/atomic_ptr.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/asm_specifics.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/msr.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/msr.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/fpu/init.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/fpu/init.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/fpu/init.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/fpu/init.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/fpu/state.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/fpu/state.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor_info.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor_info.c" afterDir="false" />
@@ -114,6 +121,11 @@
   }
 }</component>
   <component name="RunManager" selected="Makefile Target.debug">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
       <method v="2">
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
@@ -234,7 +246,8 @@
       <workItem from="1675979228613" duration="7256000" />
       <workItem from="1676046752659" duration="12655000" />
       <workItem from="1676111411134" duration="14000000" />
-      <workItem from="1676197438983" duration="15133000" />
+      <workItem from="1676197438983" duration="15176000" />
+      <workItem from="1676305389065" duration="9730000" />
     </task>
     <servers />
   </component>

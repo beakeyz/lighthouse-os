@@ -10,10 +10,13 @@ uintptr_t read_cr2();
 uintptr_t read_cr3();
 uintptr_t read_cr4();
 
+uint64_t read_xcr0();
+
 void write_cr0(uintptr_t value);
 void write_cr2(uintptr_t value);
 void write_cr3(uintptr_t value);
 void write_cr4(uintptr_t value);
+void write_xcr0(uint64_t value);
 
 void read_cpuid(uint32_t eax, uint32_t ecx, uint32_t* eax_out, uint32_t* ebx_out, uint32_t* ecx_out, uint32_t* edx_out);
 

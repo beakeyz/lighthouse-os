@@ -161,8 +161,13 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_stack_top;
 
-  STACK_PUSH(rsp, uintptr_t, 0);
-  STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);
+  if ((thread->m_context.cs & 3) != 0) {
+    STACK_PUSH(rsp, uintptr_t, GDT_USER_DATA | 3);
+    STACK_PUSH(rsp, uintptr_t, thread->m_context.rsp);
+  } else {
+    STACK_PUSH(rsp, uintptr_t, 0);
+    STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);
+  }
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rip);

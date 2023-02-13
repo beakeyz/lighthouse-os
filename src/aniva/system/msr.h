@@ -2,6 +2,9 @@
 #define __MSR__
 #include <libk/stddef.h>
 
+#define MSR_FS_BASE 0xc0000100
+#define MSR_GS_BASE 0xc0000101
+
 // TODO:
 ALWAYS_INLINE uint64_t rdmsr(uint32_t address) {
   uint32_t low, high;

@@ -1,14 +1,21 @@
 #include "processor_info.h"
 #include "system/asm_specifics.h"
+#include "libk/string.h"
+#include "dev/debug/serial.h"
 
 #define GET_PROCESSOR_MODEL(eax) ((((eax) >> 4) & 0xf) + ((((eax) >> 16) & 0xf) << 4))
 #define GET_PROCESSOR_FAMILY(eax) ((((eax) >> 8) & 0xf) + ((((eax) >> 20) & 0xff)))
 
 static void get_processor_model_name(processor_info_t* info);
 static void detect_processor_cores(processor_info_t* info);
+static void detect_processor_capabilities(processor_info_t* info);
+void detect_processor_cache_sizes(processor_info_t* info);
+static void resolve_processor_cap_implications(processor_info_t* info);
 
 processor_info_t gather_processor_info() {
   processor_info_t info = {0};
+
+  memset(&info.m_x86_capabilities, 0x00, sizeof(info.m_x86_capabilities));
 
   uint32_t cpuid_eax;
   uint32_t cpuid_ebx;
@@ -43,6 +50,8 @@ processor_info_t gather_processor_info() {
     info.m_physical_bit_width = cpuid_eax & 0xff;
   }
 
+  detect_processor_capabilities(&info);
+
   detect_processor_cores(&info);
   detect_processor_cache_sizes(&info);
   get_processor_model_name(&info);
@@ -68,6 +77,9 @@ void detect_processor_cache_sizes(processor_info_t* info) {
     info->m_l1_instruction.m_has_cache = true;
   }
 
+  /*
+   * no other cache we can probe
+   */
   if (ext_lvl < 0x80000006)
     return;
 
@@ -84,6 +96,85 @@ void detect_processor_cache_sizes(processor_info_t* info) {
     info->m_l3.m_cache_line_size = cpuid_ecx & 0xff;
     info->m_l3.m_has_cache = true;
   }
+}
+
+/*
+ * detect the capabilities our processor has and store them in the
+ * uint32_t array we have in the processor_t structure
+ */
+static void detect_processor_capabilities(processor_info_t* info) {
+  uint32_t cpuid_eax, cpuid_ebx, cpuid_ecx, cpuid_edx;
+
+  uint32_t cpuid_level = info->m_cpuid_level;
+
+  if (cpuid_level >= 0x00000001) {
+    read_cpuid(0x00000001, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+
+    info->m_x86_capabilities[CPUID_1_ECX] = cpuid_ecx;
+    info->m_x86_capabilities[CPUID_1_EDX] = cpuid_edx;
+  }
+
+  if (cpuid_level >= 0x00000006) {
+    read_cpuid(0x00000006, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+
+    info->m_x86_capabilities[CPUID_6_EAX] = cpuid_eax;
+  }
+
+  if (cpuid_level >= 0x00000007) {
+    read_cpuid(0x00000007, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+
+    info->m_x86_capabilities[CPUID_7_ECX] = cpuid_ecx;
+    info->m_x86_capabilities[CPUID_7_EDX] = cpuid_edx;
+    info->m_x86_capabilities[CPUID_7_0_EBX] = cpuid_ebx;
+
+    if (cpuid_eax > 1) {
+      read_cpuid(0x00000007, 1, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+      info->m_x86_capabilities[CPUID_7_1_EAX] = cpuid_eax;
+    }
+  }
+
+  if (cpuid_level >= 0x0000000d) {
+    read_cpuid(0x0000000d, 1, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+    info->m_x86_capabilities[CPUID_D_1_EAX] = cpuid_eax;
+  }
+
+  read_cpuid(0x80000000, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+  info->m_cpuid_level_extended = cpuid_eax;
+
+  if ((cpuid_eax & 0xffff0000) == 0x80000000 && cpuid_eax >= 0x80000001) {
+    read_cpuid(0x80000001, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+
+    info->m_x86_capabilities[CPUID_8000_0001_ECX] = cpuid_ecx;
+    info->m_x86_capabilities[CPUID_8000_0001_EDX] = cpuid_edx;
+  }
+
+  if (info->m_cpuid_level_extended >= 0x80000007) {
+    read_cpuid(0x80000007, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+    info->m_x86_capabilities[CPUID_8000_0007_EBX] = cpuid_ebx;
+  }
+
+  if (info->m_cpuid_level_extended >= 0x80000008) {
+    read_cpuid(0x80000008, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+    info->m_x86_capabilities[CPUID_8000_0008_EBX] = cpuid_ebx;
+  }
+  if (info->m_cpuid_level_extended >= 0x8000000a) {
+    read_cpuid(0x8000000a, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+    info->m_x86_capabilities[CPUID_8000_000A_EDX] = cpuid_edx;
+  }
+  if (info->m_cpuid_level_extended >= 0x8000001f) {
+    read_cpuid(0x8000001f, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
+    info->m_x86_capabilities[CPUID_8000_001F_EAX] = cpuid_eax;
+  }
+
+
+}
+
+/*
+ * some features imply the support for other features.
+ * we need to make sure these are all set accordingly
+ */
+static void resolve_processor_cap_implications(processor_info_t* info) {
+
 }
 
 static void get_processor_model_name(processor_info_t* info) {

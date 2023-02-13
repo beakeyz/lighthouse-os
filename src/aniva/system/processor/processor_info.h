@@ -2,9 +2,33 @@
 #define __ANIVA_PROCESSOR_INFO__
 
 #include "libk/stddef.h"
+#include <libk/bits.h>
 
 #define AMD_VENDOR_ID "AuthenticAMD"
 #define INTEL_VENDOR_ID "GenuineIntel"
+
+typedef enum CPUID_LEAFS {
+  CPUID_1_EDX		= 0,
+  CPUID_8000_0001_EDX,
+  CPUID_8086_0001_EDX,
+  CPUID_LNX_1,
+  CPUID_1_ECX,
+  CPUID_C000_0001_EDX,
+  CPUID_8000_0001_ECX,
+  CPUID_LNX_2,
+  CPUID_LNX_3,
+  CPUID_7_0_EBX,
+  CPUID_D_1_EAX,
+  CPUID_LNX_4,
+  CPUID_7_1_EAX,
+  CPUID_8000_0008_EBX,
+  CPUID_6_EAX,
+  CPUID_8000_000A_EDX,
+  CPUID_7_ECX,
+  CPUID_8000_0007_EBX,
+  CPUID_7_EDX,
+  CPUID_8000_001F_EAX,
+} CPUID_LEAFS_t;
 
 /*
  * x86 cpu feature defines from the linux kernel
@@ -285,6 +309,8 @@
 #define X86_FEATURE_V_TSC_AUX		(19*32+ 9) /* "" Virtual TSC_AUX */
 #define X86_FEATURE_SME_COHERENT	(19*32+10) /* "" AMD hardware-enforced cache coherency */
 
+#define FEATURE_DWORD_NUM 20
+
 struct cpu_cache {
   bool m_has_cache;
   uint32_t m_cache_size;
@@ -322,6 +348,8 @@ typedef struct processor_info {
   uint8_t m_cache_bits;
   uint32_t m_cache_alignment;
 
+  uint32_t m_x86_capabilities[FEATURE_DWORD_NUM];
+
   struct cpu_cache m_l1_data;
   struct cpu_cache m_l1_instruction;
   struct cpu_cache m_l2;
@@ -340,17 +368,15 @@ typedef struct processor_info {
 #define X86_VENDOR_ZHAOXIN	10
 #define X86_VENDOR_VORTEX	11
 #define X86_VENDOR_NUM		12
-
 #define X86_VENDOR_UNKNOWN	0xff
 
 /*
  * gather info on hardware-specific info about the processor
  */
-processor_info_t processor_gather_info();
+processor_info_t gather_processor_info();
 
-/*
- * register cache sizes
- */
-void detect_processor_cache_sizes(processor_info_t* info);
+static ALWAYS_INLINE bool processor_has(processor_info_t* info, uint32_t cap) {
+  return test_bit(cap, (unsigned long*)info->m_x86_capabilities);
+}
 
 #endif // !__ANIVA_PROCESSOR_INFO__

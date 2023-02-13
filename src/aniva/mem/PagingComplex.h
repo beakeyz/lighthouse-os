@@ -24,7 +24,7 @@ typedef enum {
   PTE_NX = 0x8000000000000000ULL,
 } PTE_FLAGS;
 
-// TODO: this kinda sucks lol
+// FIXME: split into two
 typedef union PagingComplex {
   // this struct represents the uint64_t raw_bits, only its components
   // are structured for our sanity =)
@@ -78,7 +78,7 @@ ALWAYS_INLINE bool get_user (PagingComplex_t* complex) { return complex->pde_bit
 ALWAYS_INLINE bool get_nx (PagingComplex_t* complex) { return complex->pde_bits.nx; }
 ALWAYS_INLINE bool get_nocache (PagingComplex_t* complex) { return complex->pde_bits.nocache_bit; }
 
-ALWAYS_INLINE void set_bit (PagingComplex_t* complex, uintptr_t bit, bool value) {
+ALWAYS_INLINE void set_page_bit(PagingComplex_t* complex, uintptr_t bit, bool value) {
   if (value) {
     complex->raw_bits |= bit;
   } else {

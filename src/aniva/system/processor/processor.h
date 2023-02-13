@@ -14,10 +14,7 @@
 #include "sched/scheduler.h"
 #include "dev/debug/serial.h"
 #include <aniva/system/asm_specifics.h>
-
-#define PROCESSOR_MAX_GDT_ENTRIES 7
-#define MSR_FS_BASE 0xc0000100
-#define MSR_GS_BASE 0xc0000101
+#include <interupts/interupts.h>
 
 struct Processor;
 
@@ -42,7 +39,7 @@ typedef struct Processor {
   uint32_t m_prev_irq_depth;
   uint32_t m_cpu_num;
 
-  void *m_stack_start;
+  void *m_user_stack;
 
   PagingComplex_t* m_page_dir;
   // TODO: cpu info (features, bitwidth, vendorID, ect.)
@@ -127,6 +124,14 @@ ALWAYS_INLINE void processor_decrement_critical_depth(Processor_t *processor) {
   }
 
   atomic_ptr_write(processor->m_critical_depth, current_level - 1);
+}
+
+static ALWAYS_INLINE uint64_t get_user_stack_offset() {
+  return GET_OFFSET(Processor_t, m_user_stack);
+}
+
+static ALWAYS_INLINE uint64_t get_kernel_stack_offset() {
+  return GET_OFFSET(Processor_t, m_tss) + GET_OFFSET(tss_entry_t , rsp0l);
 }
 
 extern FpuState standard_fpu_state;

@@ -4,7 +4,7 @@
 #include <mem/heap.h>
 
 union atomic_ptr {
-  _Atomic uintptr_t __lock;
+  volatile _Atomic uintptr_t __lock;
 };
 
 atomic_ptr_t* create_atomic_ptr() {

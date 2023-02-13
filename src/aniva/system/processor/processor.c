@@ -5,6 +5,7 @@
 #include "system/msr.h"
 #include <mem/heap.h>
 #include "libk/string.h"
+#include <system/syscall/core.h>
 
 extern void _flush_gdt(uintptr_t gdtr);
 
@@ -12,13 +13,11 @@ static ALWAYS_INLINE void processor_late_init(Processor_t *this) __attribute__((
 static ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry);
 static ALWAYS_INLINE void init_sse(Processor_t *processor);
 
-FpuState standard_fpu_state __attribute__((used));
+static ALWAYS_INLINE void init_smep(processor_info_t* info);
+static ALWAYS_INLINE void init_smap(processor_info_t* info);
+static ALWAYS_INLINE void init_umip(processor_info_t* info);
 
-processor_info_t processor_gather_info() {
-  processor_info_t ret = {};
-  // TODO:
-  return ret;
-}
+extern FpuState standard_fpu_state;
 
 // Should not be used to initialize bsp
 Processor_t *create_processor(uint32_t num) {
@@ -34,11 +33,43 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
   processor->m_irq_depth = 0;
   processor->m_prev_irq_depth = 0;
   processor->fLateInit = processor_late_init;
-  atomic_ptr_write(processor->m_critical_depth, 0);
 
-  // setup hardware (should not need anything in the Processor_t struct besides capabilities)
-  // TODO: fpu, sse, mmx, xmm, tlb
+  processor->m_info = gather_processor_info();
+
   init_sse(processor);
+
+  init_smep(&processor->m_info);
+  init_smap(&processor->m_info);
+  init_umip(&processor->m_info);
+
+  if (processor_has(&processor->m_info, X86_FEATURE_PGE)) {
+    write_cr4(read_cr4() | 0x80);
+  }
+
+  if (processor_has(&processor->m_info, X86_FEATURE_FSGSBASE)) {
+    write_cr4(read_cr4() & ~(0x10000));
+  }
+
+  if (processor_has(&processor->m_info, X86_FEATURE_XSAVE)) {
+    println("XSAVE");
+    write_cr4(read_cr4() | 0x40000);
+
+    // TODO: xcr0?
+    write_xcr0(0x1);
+
+    if (processor_has(&processor->m_info, X86_FEATURE_AVX)) {
+      println("AVX");
+      write_xcr0(read_xcr0() | (AVX | SSE | X87));
+    }
+
+  }
+
+  if (processor_has(&processor->m_info, X86_FEATURE_SYSCALL)) {
+    // TODO: set syscall entry
+  } else {
+    // TODO: route syscalls via a user-callable interrupts
+    //kernel_panic("ERROR: syscalls are not supported on this device!");
+  }
 
   // setup software
   if (is_bsp(processor)) {
@@ -55,8 +86,10 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
 ALWAYS_INLINE void processor_late_init(Processor_t *this) {
 
   this->m_processes = init_list();
-
-  this->m_info = processor_gather_info();
+  this->m_critical_depth = create_atomic_ptr();
+  this->m_locked_level = create_atomic_ptr();
+  atomic_ptr_write(this->m_critical_depth, 0);
+  atomic_ptr_write(this->m_locked_level, 0);
 
   // TODO:
   if (is_bsp(this)) {
@@ -194,4 +227,28 @@ void processor_exit_interruption(registers_t* registers) {
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {
     scheduler_try_execute();
   }
+}
+
+static ALWAYS_INLINE void init_smep(processor_info_t* info) {
+  if (processor_has(info, X86_FEATURE_SMEP)) {
+    write_cr4(read_cr4() | 0x100000);
+  }
+}
+
+static ALWAYS_INLINE void init_smap(processor_info_t* info) {
+  if (processor_has(info, X86_FEATURE_SMAP)) {
+    write_cr4(read_cr4() | 0x200000);
+  }
+}
+
+static ALWAYS_INLINE void init_umip(processor_info_t* info) {
+
+  Processor_t *bsp = &g_GlobalSystemInfo.m_bsp_processor;
+
+  if (!processor_has(&bsp->m_info, X86_FEATURE_UMIP) || !processor_has(info, X86_FEATURE_UMIP)) {
+    write_cr4(read_cr4() & ~(0x800));
+    return;
+  }
+
+  write_cr4(read_cr4() | 0x800);
 }
