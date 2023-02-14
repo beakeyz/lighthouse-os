@@ -89,6 +89,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_storage_controller();
 
   initialize_proc_core();
+
   init_aniva_driver_register();
 
   init_scheduler();
@@ -117,18 +118,6 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   for (;;) {
     asm volatile ("hlt");
   }
-}
-
-void init(){
-  println("   -   hello from the test driver");
-}
-int exit(){
-  println("   -   goodbye from the test driver");
-  return 0;
-}
-int ioctl(char* fmt, ...){
-  println("   -   called the driver message routine");
-  return 0;
 }
 
 void aniva_task(queue_t *buffer) {
