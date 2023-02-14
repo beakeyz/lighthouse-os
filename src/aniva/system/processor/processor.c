@@ -5,6 +5,7 @@
 #include "system/msr.h"
 #include <mem/heap.h>
 #include "libk/string.h"
+#include "system/processor/fpu/init.h"
 #include <system/syscall/core.h>
 
 extern void _flush_gdt(uintptr_t gdtr);
@@ -51,17 +52,14 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
   }
 
   if (processor_has(&processor->m_info, X86_FEATURE_XSAVE)) {
-    println("XSAVE");
     write_cr4(read_cr4() | 0x40000);
 
     // TODO: xcr0?
     write_xcr0(0x1);
 
     if (processor_has(&processor->m_info, X86_FEATURE_AVX)) {
-      println("AVX");
       write_xcr0(read_xcr0() | (AVX | SSE | X87));
     }
-
   }
 
   if (processor_has(&processor->m_info, X86_FEATURE_SYSCALL)) {
@@ -96,7 +94,7 @@ ALWAYS_INLINE void processor_late_init(Processor_t *this) {
     init_int_control_management();
     init_interupts();
 
-    asm volatile ("fninit");
+    fpu_generic_init();
 
     // FIXME: other save mechs?
     save_fpu_state(&standard_fpu_state);

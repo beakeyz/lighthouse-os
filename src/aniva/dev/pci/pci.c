@@ -1,6 +1,8 @@
 #include "pci.h"
 #include "bridge.h"
 #include "dev/debug/serial.h"
+#include "dev/framebuffer/framebuffer.h"
+#include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
@@ -255,7 +257,7 @@ bool init_pci() {
     enumerate_pci_raw(callback);
 
     // NOTE: test
-    enumerate_registerd_devices(print_device_info);
+    //enumerate_registerd_devices(print_device_info);
 
     return true;
   } else if (has_pci_io) {

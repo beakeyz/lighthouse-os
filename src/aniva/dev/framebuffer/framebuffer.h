@@ -25,6 +25,10 @@ typedef struct fb_data {
 void init_fb (struct multiboot_tag_framebuffer* mb_fb);
 
 fb_data_t get_global_framebuffer_data ();
+
+void draw_char(size_t x, size_t y, char c);
+void draw_gray_screen();
+void draw_screen(uint32_t color);
 void draw_pixel (uint64_t x, uint64_t y, uint32_t color);
 
 #endif // !__FRAMEBUFFER__

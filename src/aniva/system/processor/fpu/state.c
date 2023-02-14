@@ -11,7 +11,6 @@ void save_fpu_state(FpuState* buffer) {
   bool fxsr = processor_has(&current->m_info, X86_FEATURE_FXSR);
 
   if (avx) {
-    println("xsave");
     asm volatile("xsave %0\n"
       : "=m"(*buffer)
       : "a"(STATIC_CAST(uint32_t ,(AVX | SSE | X87))), "d"(0u));
@@ -30,7 +29,6 @@ void store_fpu_state(FpuState* buffer) {
   bool fxsr = processor_has(&current->m_info, X86_FEATURE_FXSR);
 
   if (avx) {
-    println("xrstor");
     asm volatile("xrstor %0" ::"m"(*buffer), "a"(STATIC_CAST(uint32_t ,(AVX | SSE | X87))), "d"(0u));
   //} else if (fxsr) {
   //  asm volatile("fxrstor %0" ::"m"(*buffer));

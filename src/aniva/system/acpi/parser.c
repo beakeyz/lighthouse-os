@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "dev/debug/serial.h"
+#include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/multiboot.h"
@@ -107,10 +108,22 @@ void* find_table(const char* sig) {
 
   XSDP_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(XSDP_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
-  if (ptr->base.revision >= 2 && ptr->xsdt_addr) {
+  if (ptr->base.revision >= 2) {
     // xsdt
-    kernel_panic("TODO: implement higher revisions >=(");
-    return nullptr;
+    if (ptr->xsdt_addr) {
+      XSDT_t* xsdt = kmem_kernel_alloc((uintptr_t)ptr->xsdt_addr, sizeof(XSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+      if (xsdt != nullptr) {
+        const size_t end_index = ((xsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint64_t);
+
+        for (uint64_t i = 0; i < end_index; i++) {
+          RSDT_t* cur = (RSDT_t*)kmem_kernel_alloc((uintptr_t)xsdt->tables[i], sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE); 
+          if (memcmp(cur->base.signature, sig, 4)) {
+            return (void*)(uintptr_t)xsdt->tables[i];
+          }
+        }
+      }
+    } 
   }
 
   RSDT_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
@@ -118,7 +131,7 @@ void* find_table(const char* sig) {
   const size_t end_index = ((rsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint32_t);
 
   for (uint32_t i = 0; i < end_index; i++) {
-    RSDT_t* cur = (RSDT_t*)(uintptr_t)rsdt->tables[i]; 
+    RSDT_t* cur = (RSDT_t*)kmem_kernel_alloc((uintptr_t)rsdt->tables[i], sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE); 
     if (memcmp(cur->base.signature, sig, 4)) {
       return (void*)(uintptr_t)rsdt->tables[i];
     }

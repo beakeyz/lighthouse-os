@@ -1,4 +1,5 @@
 #include "interupts.h"
+#include "dev/framebuffer/framebuffer.h"
 #include "interupts/control/interrupt_control.h"
 #include "interupts/idt.h"
 #include "mem/kmem_manager.h"

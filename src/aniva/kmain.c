@@ -82,7 +82,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_fb(get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER));
 
   init_acpi();
-
+  
   init_pci();
 
   // TODO: ATA/NVMe/IDE support?
@@ -161,5 +161,4 @@ void aniva_task(queue_t *buffer) {
   println("------------------");
   println(to_string((uintptr_t)allocation3));
   println(to_string(*(uintptr_t*)allocation3));
-  kernel_panic("TEST PANIC");
 }

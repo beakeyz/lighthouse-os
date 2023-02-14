@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "dev/framebuffer/framebuffer.h"
 #include "kmain.h"
 #include "dev/debug/serial.h"
 #include <mem/heap.h>

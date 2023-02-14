@@ -1,5 +1,8 @@
 #include "proc.h"
 #include <mem/heap.h>
+#include "dev/debug/serial.h"
+#include "dev/framebuffer/framebuffer.h"
+#include "interupts/interupts.h"
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
@@ -9,8 +12,8 @@
 
 void generic_proc_idle () {
   println("Entered generic_proc_idle");
-  for (;;) {
-  }
+
+  for (;;){}
 }
 
 proc_t* create_clean_proc(char name[32], proc_id id) {

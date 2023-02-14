@@ -1,0 +1,6 @@
+#ifndef __ANIVA_PROCESSOR_FLAGS__
+#define __ANIVA_PROCESSOR_FLAGS__
+
+
+
+#endif // !__ANIVA_PROCESSOR_FLAGS__
