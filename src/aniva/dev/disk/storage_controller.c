@@ -13,14 +13,17 @@ static void find_storage_device(DeviceIdentifier_t* identifier);
 
 static void find_storage_device(DeviceIdentifier_t* identifier) {
 
-  static uintptr_t idx = 0;
+  if (identifier->class == MASS_STORAGE) {
 
-  const char* cls = (char*)to_string(identifier->class);
+    static uintptr_t idx = 0;
 
-  draw_char(idx, 32, cls[0]);
-  idx += 16;
-  
-  if (identifier->class == MASSSTORAGE) {
+    const char* cls = (char*)to_string(identifier->class);
+
+    for (int i = 0; i < strlen(cls); i++) {
+      draw_char(idx, 32, cls[i]);
+      idx+= 8;
+    }
+    idx += 16;
 
     MassstorageSubClasIDType_t type = identifier->subclass;
     

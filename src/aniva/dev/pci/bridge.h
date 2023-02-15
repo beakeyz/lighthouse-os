@@ -2,7 +2,7 @@
 #define __ANIVA_BRIDGE__
 #include <libk/stddef.h>
 
-typedef struct PCI_Bridge {
+typedef struct PCI_Bnidge {
   uint8_t start_bus;
   uint8_t end_bus;
   uint32_t base_addr;

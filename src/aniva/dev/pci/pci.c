@@ -2,6 +2,7 @@
 #include "bridge.h"
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "dev/pci/definitions.h"
 #include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
@@ -27,7 +28,7 @@ void register_pci_devices(DeviceIdentifier_t* dev) {
   list_t* list = g_pci_devices;
   DeviceIdentifier_t* _dev = kmalloc(sizeof(DeviceIdentifier_t));
 
-  memcpy(_dev, dev, sizeof(DeviceIdentifier_t));
+  *_dev = *dev;
 
   list_append(list, _dev);
 }
@@ -71,6 +72,16 @@ void enumerate_function(PCI_Bridge_t* base_addr,uint8_t bus, uint8_t device, uin
 
   if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
 
+  const char* str = to_string(pci_io_field_read(bus, device, func, CLASS, PCI_8BIT_PORT_SIZE));
+
+  uintptr_t offset_x = 0;
+  static uintptr_t offset_y = 50;
+  for (int i = 0; i < strlen(str); i++) {
+    draw_char(offset_x, offset_y, str[i]);
+    offset_x += 8;
+  }
+  offset_y += 8;
+
   callback(&identifier);
 }
 
@@ -84,7 +95,7 @@ void enumerate_devices(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device) {
 
   const char* callback_name = current_active_callback.callback_name;
 
-  enumerate_function(base_addr, bus, device, 0, callback_name != nullptr ? current_active_callback.callback : print_device_info);
+  enumerate_function(base_addr, bus, device, 0, callback_name != nullptr ? current_active_callback.callback : register_pci_devices);
 
   uint8_t cur_header_type = read_field8(base_addr, bus, device, 0, HEADER_TYPE);
 
@@ -130,7 +141,7 @@ void enumerate_bridges() {
         uint16_t vendor_id = read_field16(bridge, 0, 0, i, VENDOR_ID);
         uint16_t class = read_field16(bridge, 0, 0, i, CLASS);
 
-        if (vendor_id == PCI_NONE_VALUE || class != 0x6) {
+        if (vendor_id == PCI_NONE_VALUE || class != BRIDGE_DEVICE) {
           continue;
         }
 
@@ -189,32 +200,49 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
   return true;
 }
 
-uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size) {
+uint32_t pci_io_field_read(uint8_t bus, uint8_t device, uint8_t func,  uint32_t field, uint32_t size) {
+
+  uint32_t ret;
   
   // setup
-  out32(PCI_PORT_ADDR, GET_PCI_ADDR(device_num, field));
+  out32(PCI_PORT_ADDR, PCI_CONF1_ADDRESS(bus, device, func, field));
 
   switch (size) {
     case PCI_32BIT_PORT_SIZE: {
-      uint32_t ret = in32(PCI_PORT_VALUE);
-      return ret;
+      ret = in32(PCI_PORT_VALUE);
+      break;
     }
     case PCI_16BIT_PORT_SIZE: {
-      uint16_t ret = in16(PCI_PORT_VALUE + (field & 2));
-      return ret;
+      ret = in16(PCI_PORT_VALUE + (field & 2));
+      break;
     }
     case PCI_8BIT_PORT_SIZE: {
-      uint8_t ret = in8(PCI_PORT_VALUE + (field & 3));
-      return ret;
+      ret = in8(PCI_PORT_VALUE + (field & 3));
+      break;
     }
     default:
       return 0xFFFF; 
   }
+
+  return ret;
 }
 
-void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val) {
-  out32(PCI_PORT_ADDR, GET_PCI_ADDR(device_num, field));
-  out32(PCI_PORT_VALUE, val);
+void pci_io_field_write (uint8_t bus, uint8_t device, uint8_t func, uint32_t field, uint32_t size, uint32_t val) {
+  out32(PCI_PORT_ADDR, PCI_CONF1_ADDRESS(bus, device, func, field));
+
+  switch (size) {
+    case PCI_32BIT_PORT_SIZE:
+      out32(PCI_PORT_VALUE, val);
+      break;
+    case PCI_16BIT_PORT_SIZE:
+      out16(PCI_PORT_VALUE, val);
+      break;
+    case PCI_8BIT_PORT_SIZE:
+      out8(PCI_PORT_VALUE, val);
+      break;
+    default:
+      out32(PCI_PORT_VALUE, val);
+  }
 }
 
 bool test_pci_io () {

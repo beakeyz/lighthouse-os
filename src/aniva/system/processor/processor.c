@@ -66,7 +66,7 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
     // TODO: set syscall entry
   } else {
     // TODO: route syscalls via a user-callable interrupts
-    //kernel_panic("ERROR: syscalls are not supported on this device!");
+    kernel_panic("ERROR: syscalls are not supported on this device!");
   }
 
   // setup software

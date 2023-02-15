@@ -16,12 +16,36 @@
 #define PCI_16BIT_PORT_SIZE 0x2
 #define PCI_8BIT_PORT_SIZE  0x1
 
-#define GET_BUS_NUM(device_num) (uint8_t)(device_num >> 16)
-#define GET_SLOT_NUM(device_num) (uint8_t)(device_num >> 8)
-#define GET_FUNC_NUM(device_num) (uint8_t)(device_num)
+#define PCI_CONF1_BUS_SHIFT	16 /* Bus number */
+#define PCI_CONF1_DEV_SHIFT	11 /* Device number */
+#define PCI_CONF1_FUNC_SHIFT	8  /* Function number */
 
-#define GET_PCI_ADDR(dev_num, field) (uint32_t)(0x80000000 | (GET_BUS_NUM(dev_num) << 16) | (GET_SLOT_NUM(dev_num) << 11) | (GET_FUNC_NUM(dev_num) << 8) | (field & 0xFC))
-#define GET_PCIE_ADDR(dev_num, field) (uintptr_t)((GET_BUS_NUM(device_num) << 20) | (GET_SLOT_NUM(device_num) << 15) | (GET_FUNC_NUM(device_num) << 12) | (field))
+#define PCI_CONF1_BUS_MASK	0xff
+#define PCI_CONF1_DEV_MASK	0x1f
+#define PCI_CONF1_FUNC_MASK	0x7
+#define PCI_CONF1_REG_MASK	0xfc /* Limit aligned offset to a maximum of 256B */
+
+#define PCI_CONF1_ENABLE	(1 << 31)
+#define PCI_CONF1_BUS(x)	(((x) & PCI_CONF1_BUS_MASK) << PCI_CONF1_BUS_SHIFT)
+#define PCI_CONF1_DEV(x)	(((x) & PCI_CONF1_DEV_MASK) << PCI_CONF1_DEV_SHIFT)
+#define PCI_CONF1_FUNC(x)	(((x) & PCI_CONF1_FUNC_MASK) << PCI_CONF1_FUNC_SHIFT)
+#define PCI_CONF1_REG(x)	((x) & PCI_CONF1_REG_MASK)
+
+#define PCI_CONF1_ADDRESS(bus, dev, func, reg) \
+	(PCI_CONF1_ENABLE | \
+	 PCI_CONF1_BUS(bus) | \
+	 PCI_CONF1_DEV(dev) | \
+	 PCI_CONF1_FUNC(func) | \
+	 PCI_CONF1_REG(reg))
+
+
+#define PCI_CONF1_EXT_REG_SHIFT	16
+#define PCI_CONF1_EXT_REG_MASK	0xf00
+#define PCI_CONF1_EXT_REG(x)	(((x) & PCI_CONF1_EXT_REG_MASK) << PCI_CONF1_EXT_REG_SHIFT)
+
+#define PCI_CONF1_EXT_ADDRESS(bus, dev, func, reg) \
+	(PCI_CONF1_ADDRESS(bus, dev, func, reg) | \
+	 PCI_CONF1_EXT_REG(reg))
 
 struct DeviceIdentifier;
 struct DeviceAddress;
@@ -133,8 +157,8 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
 
 //uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
 //void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
-uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
-void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
+uint32_t pci_io_field_read (uint8_t bus, uint8_t device, uint8_t func, uint32_t field, uint32_t size);
+void pci_io_field_write (uint8_t bus, uint8_t device, uint8_t func,  uint32_t field, uint32_t size, uint32_t val);
 
 PCI_Bridge_t* get_bridge_by_index(uint32_t bridge_index);
 
