@@ -9,9 +9,9 @@
 
 list_t* g_controllers = nullptr;
 
-static void find_storage_device(DeviceIdentifier_t* identifier);
+static void find_storage_device(pci_device_identifier_t* identifier);
 
-static void find_storage_device(DeviceIdentifier_t* identifier) {
+static void find_storage_device(pci_device_identifier_t* identifier) {
 
   if (identifier->class == MASS_STORAGE) {
 

@@ -11,6 +11,7 @@
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "dev/pci/io.h"
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
 
@@ -28,12 +29,13 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
 
-  const uint32_t bar5 = pci_read_32(&device->m_identifier->address, BAR5);
-  println(to_string(bar5));
+  const uint32_t bus_num = device->m_identifier->address.bus_num;
+  const uint32_t device_num = device->m_identifier->address.device_num;
+  const uint32_t func_num = device->m_identifier->address.func_num;
+  uint32_t bar5;
+  early_raw_pci_impls->read32(bus_num, device_num, func_num, BAR5, &bar5);
 
   void* hba_region = kmem_kernel_alloc(kmem_get_page_base(bar5), ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  println(to_string((uintptr_t)hba_region));
 
   return hba_region;
 }
@@ -139,7 +141,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 }
 
 // TODO:
-ahci_device_t* init_ahci_device(DeviceIdentifier_t* identifier) {
+ahci_device_t* init_ahci_device(pci_device_identifier_t* identifier) {
   s_ahci_device = kmalloc(sizeof(ahci_device_t));
   s_ahci_device->m_identifier = identifier;
   s_ahci_device->m_hba_region = get_hba_region(s_ahci_device);

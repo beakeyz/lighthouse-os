@@ -64,11 +64,7 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
 
   if (processor_has(&processor->m_info, X86_FEATURE_SYSCALL)) {
     // TODO: set syscall entry
-  } else {
-    // TODO: route syscalls via a user-callable interrupts
-    kernel_panic("ERROR: syscalls are not supported on this device!");
   }
-
   // setup software
   if (is_bsp(processor)) {
     // TODO: do bsp shit

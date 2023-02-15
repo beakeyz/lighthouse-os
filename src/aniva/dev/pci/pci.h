@@ -1,7 +1,7 @@
 #ifndef __ANIVA_PCI__
 #define __ANIVA_PCI__
-#include "dev/pci/bridge.h"
 #include "libk/linkedlist.h"
+#include "dev/driver.h"
 #include <libk/stddef.h>
 
 #define PCI_PORT_ADDR 0xCF8
@@ -47,9 +47,11 @@
 	(PCI_CONF1_ADDRESS(bus, dev, func, reg) | \
 	 PCI_CONF1_EXT_REG(reg))
 
-struct DeviceIdentifier;
+struct pci_device_identifier;
 struct DeviceAddress;
-struct PCI_Bridge; 
+struct pci_bus;
+struct pci_device;
+struct raw_pci_impls;
 
 typedef enum PciAccessMode {
   PCI_IOPORT_ACCESS = 0,
@@ -97,7 +99,7 @@ typedef void (*PCI_ENUMERATE_CALLBACK) (
 );
 
 typedef void (*PCI_FUNC_ENUMERATE_CALLBACK) (
-  struct DeviceIdentifier* identifier
+  struct pci_device_identifier* identifier
 );
 
 typedef struct PciFuncCallback {
@@ -112,7 +114,20 @@ typedef struct DeviceAddress {
   uint32_t func_num;
 } DeviceAddress_t;
 
-typedef struct DeviceIdentifier {
+#define PCI_IMPLS_ERROR 0
+#define PCI_IMPLS_SUCCESS 1
+
+typedef struct pci_device_impls {
+  int (*read8)(struct pci_bus* bus, uint32_t device_function, int where, void* result);
+  int (*read16)(struct pci_bus* bus, uint32_t device_function, int where, void* result);
+  int (*read32)(struct pci_bus* bus, uint32_t device_function, int where, void* result);
+  int (*write8)(struct pci_bus* bus, uint32_t device_function, int where, void* data);
+  int (*write16)(struct pci_bus* bus, uint32_t device_function, int where, void* data);
+  int (*write32)(struct pci_bus* bus, uint32_t device_function, int where, void* data);
+//  void* (*map)(struct pci_bus* bus, uint32_t device_function, int where);
+} pci_device_impls_t;
+
+typedef struct pci_device_identifier {
   uint16_t vendor_id;
   uint16_t dev_id;
   uint16_t command;
@@ -129,7 +144,42 @@ typedef struct DeviceIdentifier {
   uint8_t interrupt_pin;
   uint8_t capabilities_ptr;
   DeviceAddress_t address;
-} DeviceIdentifier_t;
+} pci_device_identifier_t;
+
+typedef struct pci_driver {
+  aniva_driver_t* parent;
+  const pci_device_identifier_t identifier;
+  int (*f_pci_on_shutdown)(struct pci_device* device);
+  int (*f_pci_on_remove)(struct pci_device* device);
+  int (*f_pci_resume)(struct pci_device* device);
+  int (*f_pci_suspend)(struct pci_device* device);
+} pci_driver_t;
+
+typedef struct pci_device {
+  struct pci_bus *m_bus;
+  pci_device_impls_t m_impl;
+  pci_device_identifier_t m_identifier;
+
+  uint8_t m_pcie_cap;
+  uint8_t m_msi_cap;
+
+  // inline enum?? :thinking:
+  enum {
+    D0,
+    D1,
+    D2,
+    D3_HOT,
+    D3_COLD,
+    PCI_UNKNOWN,
+    PCI_POWER_ERROR
+  } m_device_state;
+
+  pci_driver_t *m_driver;
+
+  uint64_t m_dma_mask;
+  uint32_t m_imm_support:1;
+
+} pci_device_t;
 
 extern list_t* g_pci_bridges;
 extern list_t* g_pci_devices;
@@ -138,29 +188,27 @@ extern PciFuncCallback_t current_active_callback;
 
 PciAccessMode_t get_current_addressing_mode();
 
+pci_device_t create_pci_device(struct pci_bus* bus);
+pci_driver_t get_pci_device_host_bridge(struct pci_device* device);
+
 bool init_pci();
 bool set_pci_func(PCI_FUNC_ENUMERATE_CALLBACK callback, const char* name);
 bool set_current_enum_func(PciFuncCallback_t new_callback);
 
-void print_device_info(DeviceIdentifier_t* dev);
+void print_device_info(pci_device_identifier_t* dev);
 
-void register_pci_devices(DeviceIdentifier_t* dev);
+void register_pci_devices(pci_device_identifier_t* dev);
 
-void enumerate_function(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
-void enumerate_devices(PCI_Bridge_t* base_addr, uint8_t bus, uint8_t device);
-void enumerate_bus(PCI_Bridge_t* base_addr, uint8_t bus);
+void enumerate_function(struct pci_bus* base_addr, uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback);
+void enumerate_device(struct pci_bus* base_addr, uint8_t bus, uint8_t device);
+void enumerate_bus(struct pci_bus* base_addr, uint8_t bus);
 void enumerate_bridges();
 void enumerate_pci_raw(PciFuncCallback_t callback);
 void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback);
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
 
-//uint32_t pci_field_read (uint32_t device_num, uint32_t field, uint32_t size);
-//void pci_field_write (uint32_t device_num, uint32_t field, uint32_t size, uint32_t val);
-uint32_t pci_io_field_read (uint8_t bus, uint8_t device, uint8_t func, uint32_t field, uint32_t size);
-void pci_io_field_write (uint8_t bus, uint8_t device, uint8_t func,  uint32_t field, uint32_t size, uint32_t val);
-
-PCI_Bridge_t* get_bridge_by_index(uint32_t bridge_index);
+struct pci_bus* get_bridge_by_index(uint32_t bridge_index);
 
 void pci_write_32(DeviceAddress_t* address, uint32_t field, uint32_t value);
 void pci_write_16(DeviceAddress_t* address, uint32_t field, uint16_t value);
@@ -170,7 +218,8 @@ uint32_t pci_read_32(DeviceAddress_t* address, uint32_t field);
 uint16_t pci_read_16(DeviceAddress_t* address, uint32_t field);
 uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field);
 
-bool test_pci_io ();
+bool test_pci_io_type1();
+bool test_pci_io_type2();
 // pci scanning (I would like this to be as advanced as possible and not some idiot simple thing)
 // uhm what?
 
@@ -178,5 +227,7 @@ void pci_set_io(DeviceAddress_t* address, bool value);
 void pci_set_memory(DeviceAddress_t* address, bool value);
 void pci_set_interrupt_line(DeviceAddress_t* address, bool value);
 void pci_set_bus_mastering(DeviceAddress_t* address, bool value);
+
+extern struct raw_pci_impls* early_raw_pci_impls;
 
 #endif // !__
