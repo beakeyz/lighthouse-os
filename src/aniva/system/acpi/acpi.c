@@ -8,15 +8,11 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
+acpi_parser_t parser;
+
 void init_acpi() {
 
-  init_acpi_parser();
-
-  FADT_t* t = find_table("FACP");
-
-  if (t != nullptr) {
-    return;
-  }
+  init_acpi_parser(&parser);
 
   // TODO: check FADT table for irq shit and verify that the parser booted up nicely
 }

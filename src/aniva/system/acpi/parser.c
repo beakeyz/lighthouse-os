@@ -9,26 +9,44 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 #include <kmain.h>
+#include "acpi_obj.h"
 
-acpi_parser_t g_acpi_parser = { nullptr, false };
+acpi_parser_t *g_parser_ptr;
 
-void init_acpi_parser() {
+void init_acpi_parser(acpi_parser_t* parser) {
 
-  RSDP_t* rsdp = find_rsdp();
+  acpi_rsdp_t* rsdp = find_rsdp();
 
   if (rsdp == nullptr) {
     // FIXME: we're fucked lol
     kernel_panic("no rsdt found =(");
   }
 
-  g_acpi_parser.m_rsdp = rsdp;
-  g_acpi_parser.m_is_xsdp = (rsdp->revision >= 2);
+  parser->m_rsdp = rsdp;
+  parser->m_is_xsdp = (rsdp->revision >= 2);
 
+  parser->m_fadt = find_table(parser, "FACP");
+
+  if (!parser->m_fadt) {
+    kernel_panic("Unable to find ACPI table FADT!");
+  }
+
+  const uint32_t hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
+
+  parser->m_ns_root_node = acpi_create_root();
+
+  void* dsdt_table = find_table(parser, "DSDT");
+  //if (!dsdt_table)
+  //  kernel_panic("Unable to find ACPI table DSDT!");
+
+  acpi_aml_seg_t *dsdt_aml_segment = acpi_load_segment(dsdt_table, 0);
+
+  // TODO:
+
+  g_parser_ptr = parser;
 }
 
-
 void* find_rsdp() {
-
   const char* rsdt_sig = "RSD PTR ";
   // TODO: check other spots
 
@@ -58,7 +76,6 @@ void* find_rsdp() {
   uintptr_t ptr = (uintptr_t)kmem_kernel_alloc(bios_start_addr, bios_mem_size, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr != NULL) {
-    println(to_string(bios_mem_size));
     for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
       void* potential = (void*)i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
@@ -68,35 +85,33 @@ void* find_rsdp() {
   }
 
   const list_t* phys_ranges = kmem_get_phys_ranges_list();
-  ITTERATE(phys_ranges);
+  FOREACH(i, phys_ranges) {
 
-    phys_mem_range_t* range = itterator->data;
-    println(to_string(range->type));
+    phys_mem_range_t *range = i->data;
 
     if (range->type != PMRT_ACPI_NVS || range->type != PMRT_ACPI_RECLAIM) {
-      SKIP_ITTERATION();
+      continue;
     }
 
     uintptr_t start = range->start;
     uintptr_t length = range->length;
-  
-    for (uintptr_t i = start; i < (start + length); i+= 16) {
-      void* potential = (void*)i;
+
+    for (uintptr_t i = start; i < (start + length); i += 16) {
+      void *potential = (void *) i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
         return potential;
       }
     }
-
-  ENDITTERATE(phys_ranges);
+  }
 
   return nullptr;
 }
 
 // find a table by poking in memory. 
 // TODO: find a way to cache the memory locations for all the tables
-void* find_table(const char* sig) {
+void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
 
-  void* rsdp_addr = g_acpi_parser.m_rsdp;
+  void* rsdp_addr = parser->m_rsdp;
 
   if (rsdp_addr == nullptr) {
     return nullptr;
@@ -106,54 +121,64 @@ void* find_table(const char* sig) {
     return nullptr;
   }
 
-  XSDP_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(XSDP_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  acpi_xsdp_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr->base.revision >= 2) {
     // xsdt
     if (ptr->xsdt_addr) {
-      XSDT_t* xsdt = kmem_kernel_alloc((uintptr_t)ptr->xsdt_addr, sizeof(XSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+      acpi_xsdt_t* xsdt = kmem_kernel_alloc((uintptr_t)ptr->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
       if (xsdt != nullptr) {
-        const size_t end_index = ((xsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint64_t);
+        const size_t end_index = ((xsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint64_t);
 
         for (uint64_t i = 0; i < end_index; i++) {
-          RSDT_t* cur = (RSDT_t*)kmem_kernel_alloc((uintptr_t)xsdt->tables[i], sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE); 
-          if (memcmp(cur->base.signature, sig, 4)) {
-            return (void*)(uintptr_t)xsdt->tables[i];
+          acpi_rsdt_t* cur = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt->tables[i], sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+          if (memcmp(cur->base.signature, sig, 4) != 0) {
+            if (index == 0) {
+              return (void*)(uintptr_t)xsdt->tables[i];
+            }
+            index--;
           }
         }
       }
     } 
   }
 
-  RSDT_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  acpi_rsdt_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
-  const size_t end_index = ((rsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint32_t);
+  const size_t end_index = ((rsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint32_t);
 
   for (uint32_t i = 0; i < end_index; i++) {
-    RSDT_t* cur = (RSDT_t*)kmem_kernel_alloc((uintptr_t)rsdt->tables[i], sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE); 
-    if (memcmp(cur->base.signature, sig, 4)) {
-      return (void*)(uintptr_t)rsdt->tables[i];
+    acpi_rsdt_t* cur = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt->tables[i], sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    if (memcmp(cur->base.signature, sig, 4) != 0) {
+      if (index == 0) {
+        return (void*)(uintptr_t)rsdt->tables[i];
+      }
+      index--;
     }
   }
   
   return nullptr;
 }
 
+void* find_table(acpi_parser_t *parser, const char* sig) {
+  return (void*)find_table_idx(parser, sig, 0);
+}
+
 void print_tables(void* rsdp_addr) {
-  XSDP_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(XSDP_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  acpi_xsdp_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr->base.revision >= 2 && ptr->xsdt_addr) {
     // xsdt
     kernel_panic("TODO: implement higher revisions >=(");
   }
 
-  RSDT_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(RSDT_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  acpi_rsdt_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
-  const size_t end_index = ((rsdt->base.length - sizeof(SDT_header_t))) / sizeof(uint32_t);
+  const size_t end_index = ((rsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint32_t);
 
   for (uint32_t i = 0; i < end_index; i++) {
-    RSDT_t* cur = (RSDT_t*)(uintptr_t)rsdt->tables[i]; 
+    acpi_rsdt_t* cur = (acpi_rsdt_t*)(uintptr_t)rsdt->tables[i];
     for (int i = 0; i < 4; i++) {
       putch(cur->base.signature[i]);
     }

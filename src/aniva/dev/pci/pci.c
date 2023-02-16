@@ -165,18 +165,18 @@ void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
 bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
 
-  SDT_header_t* header = kmem_kernel_alloc(mcfg_ptr, sizeof(SDT_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  acpi_sdt_header_t* header = kmem_kernel_alloc(mcfg_ptr, sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   uint32_t length = header->length;
   
-  if (length == sizeof(SDT_header_t)) {
+  if (length == sizeof(acpi_sdt_header_t)) {
     return false;
   }
 
   length = ALIGN_UP(length + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
 
-  MCFG_t* mcfg = (MCFG_t*)kmem_kernel_alloc(mcfg_ptr, length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-  uint32_t entries = (mcfg->header.length - sizeof(MCFG_t)) / sizeof(PCI_Device_Descriptor_t);
+  acpi_mcfg_t* mcfg = (acpi_mcfg_t*)kmem_kernel_alloc(mcfg_ptr, length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  uint32_t entries = (mcfg->header.length - sizeof(acpi_mcfg_t)) / sizeof(PCI_Device_Descriptor_t);
 
   for (uint32_t i = 0; i < entries; i++) {
     uint8_t start = mcfg->descriptors[i].start_bus;
@@ -230,7 +230,7 @@ bool init_pci() {
   g_pci_devices = init_list();
   g_pci_bridges = init_list();
 
-  MCFG_t* mcfg = find_table("MCFG");
+  acpi_mcfg_t* mcfg = find_table(g_parser_ptr, "MCFG");
 
   if (!mcfg) {
     kernel_panic("no mcfg found!");

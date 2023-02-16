@@ -22,19 +22,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/aniva/dev/pci/ecam.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/dev/pci/ecam.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/dev/pci/io.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/dev/pci/io.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/acpi_obj.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/namespace.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/namespace.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/opcodes.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/pci.c" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/pci.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/disk/ahci/ahci_device.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/disk/ahci/ahci_device.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/disk/ahci/ahci_device.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/disk/ahci/ahci_device.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/disk/storage_controller.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/disk/storage_controller.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/bridge.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/bus.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/bridge.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/bus.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/pci.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/pci.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/pci.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/pci.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/processor/processor.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/acpi.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/acpi.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/parser.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/parser.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/parser.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/parser.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/structures.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/structures.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -116,6 +115,11 @@
   }
 }</component>
   <component name="RunManager" selected="Makefile Target.debug">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
       <method v="2">
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
@@ -149,11 +153,6 @@
     <configuration name="run" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="run" CONFIG_NAME="run" version="1">
       <method v="2">
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <configuration name="build" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile">
@@ -253,6 +252,7 @@
       <workItem from="1676479172104" duration="636000" />
       <workItem from="1676480437274" duration="6949000" />
       <workItem from="1676494194313" duration="1004000" />
+      <workItem from="1676563367309" duration="8713000" />
     </task>
     <servers />
   </component>
