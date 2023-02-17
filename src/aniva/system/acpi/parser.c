@@ -20,6 +20,8 @@ acpi_parser_t *g_parser_ptr;
 
 void init_acpi_parser(acpi_parser_t* parser) {
 
+  println("Starting ACPI parser");
+
   acpi_rsdp_t* rsdp = find_rsdp();
 
   if (rsdp == nullptr) {
@@ -40,7 +42,13 @@ void init_acpi_parser(acpi_parser_t* parser) {
 
   parser->m_ns_root_node = acpi_create_root();
 
-  void* dsdt_table = find_table(parser, "DSDT");
+  void* dsdt_table = nullptr;
+
+  dsdt_table = (void*)(uintptr_t)parser->m_fadt->dsdt_ptr;
+
+  draw_char(0, 108, to_string(parser->m_rsdp->revision)[0]);
+  draw_char(0, 116, to_string(parser->m_fadt->header.revision)[0]);
+
   if (!dsdt_table)
     kernel_panic("Unable to find ACPI table DSDT!");
 
@@ -48,8 +56,10 @@ void init_acpi_parser(acpi_parser_t* parser) {
 
   acpi_init_state(&parser->m_state);
 
+  draw_char(16, 100, 'l');
   parser_prepare_acpi_state(&parser->m_state, dsdt_aml_segment, parser->m_ns_root_node);
 
+  draw_char(24, 100, 'l');
   acpi_delete_state(&parser->m_state);
   // TODO:
 
@@ -67,7 +77,7 @@ void* find_rsdp() {
 
   if (new_ptr && new_ptr->rsdp[0]) {
     void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    print("Multiboot has rsdp: ");
+    print("Multiboot has xsdp: ");
     println(to_string((uintptr_t)ptr));
     return ptr;
   }
