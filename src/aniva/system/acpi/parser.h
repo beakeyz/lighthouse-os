@@ -26,9 +26,6 @@ typedef struct {
 
 void init_acpi_parser(acpi_parser_t* parser);
 
-int acpi_init_state(acpi_state_t* state);
-int acpi_delete_state(acpi_state_t* state);
-
 // find rsdt and (if available) xsdt
 void* find_rsdp();
 
@@ -39,8 +36,9 @@ void* find_table(acpi_parser_t *parser, const char* sig);
 // just for funzies
 void print_tables(void* rsdp_addr);
 
-// TODO: find needed params
-void start_aml_parsing();
+int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi_ns_node_t* parent_node);
+
+int parser_execute_acpi_state(acpi_state_t* state);
 
 extern acpi_parser_t *g_parser_ptr;
 #endif // !

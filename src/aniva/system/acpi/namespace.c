@@ -8,6 +8,7 @@ acpi_aml_seg_t *acpi_load_segment(void* table_ptr, int idx) {
 
   ret->aml_table = table_ptr;
   ret->idx = idx;
+
   return ret;
 }
 

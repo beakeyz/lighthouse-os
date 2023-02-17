@@ -22,18 +22,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/acpi_obj.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/namespace.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/namespace.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/opcodes.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/pci.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/aniva/system/acpi/pci.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/dev/pci/pci.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/dev/pci/pci.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/acpi.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/acpi.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/parser.c" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/parser.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/parser.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/parser.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aniva/system/acpi/structures.h" beforeDir="false" afterPath="$PROJECT_DIR$/src/aniva/system/acpi/structures.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -252,7 +241,7 @@
       <workItem from="1676479172104" duration="636000" />
       <workItem from="1676480437274" duration="6949000" />
       <workItem from="1676494194313" duration="1004000" />
-      <workItem from="1676563367309" duration="8713000" />
+      <workItem from="1676563367309" duration="9052000" />
     </task>
     <servers />
   </component>

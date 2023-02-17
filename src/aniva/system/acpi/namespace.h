@@ -29,6 +29,10 @@ typedef struct acpi_aml_seg {
   size_t idx;
 } acpi_aml_seg_t;
 
+typedef struct acpi_aml_name {
+  // TODO:
+} acpi_aml_name_t;
+
 typedef enum acpi_ns_node_type {
   ACPI_NODETYPE_NULL,
   ACPI_NODETYPE_ROOT,

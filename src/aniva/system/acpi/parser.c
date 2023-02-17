@@ -13,6 +13,11 @@
 
 acpi_parser_t *g_parser_ptr;
 
+#define RSDP_SIGNATURE "RSD PTR "
+#define FADT_SIGNATURE "FACP"
+#define DSDT_SIGNATURE "DSDT"
+#define MADT_SIGNATURE "APIC"
+
 void init_acpi_parser(acpi_parser_t* parser) {
 
   acpi_rsdp_t* rsdp = find_rsdp();
@@ -36,12 +41,19 @@ void init_acpi_parser(acpi_parser_t* parser) {
   parser->m_ns_root_node = acpi_create_root();
 
   void* dsdt_table = find_table(parser, "DSDT");
-  //if (!dsdt_table)
-  //  kernel_panic("Unable to find ACPI table DSDT!");
+  if (!dsdt_table)
+    kernel_panic("Unable to find ACPI table DSDT!");
 
   acpi_aml_seg_t *dsdt_aml_segment = acpi_load_segment(dsdt_table, 0);
 
+  acpi_init_state(&parser->m_state);
+
+  parser_prepare_acpi_state(&parser->m_state, dsdt_aml_segment, parser->m_ns_root_node);
+
+  acpi_delete_state(&parser->m_state);
   // TODO:
+
+  draw_char(100, 100, 'A');
 
   g_parser_ptr = parser;
 }
@@ -184,4 +196,39 @@ void print_tables(void* rsdp_addr) {
     }
     print(" ");
   }
+}
+
+/*
+ * AML stuff
+ */
+
+int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi_ns_node_t* parent_node) {
+
+  // TODO: make sure our state-stacks have enough memory
+
+  const size_t data_size = segment->aml_table->header.length - sizeof(acpi_sdt_header_t);
+
+  // push a context
+  acpi_context_entry_t* ctx = acpi_state_push_context_entry(state);
+  ctx->segm = segment;
+  ctx->code = segment->aml_table->data;
+  ctx->ctx_handle = parent_node;
+
+  // push a block
+  acpi_block_entry_t* block = acpi_state_push_block_entry(state);
+  block->program_counter = 0;
+  block->program_counter_limit = data_size;
+
+  // push a stackitem
+  acpi_stack_entry_t* stack_entry = acpi_state_push_stack_entry(state);
+  stack_entry->type = ACPI_INTERP_STATE_POPULATE_STACKITEM;
+  
+  // TODO: evaluate/exectute aml
+
+  return 0;
+}
+
+int parser_execute_acpi_state(acpi_state_t* state) {
+
+  return 0;
 }
