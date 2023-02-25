@@ -32,18 +32,28 @@ struct acpi_aml_seg;
 #define ACPI_BUFFER_INDEX 11
 #define ACPI_PACKAGE_INDEX 12
 
+enum acpi_obj_type {
+  ACPI_TYPE_NONE,
+  ACPI_TYPE_INTEGER,
+  ACPI_TYPE_STRING,
+  ACPI_TYPE_BUFFER,
+  ACPI_TYPE_PACKAGE,
+  ACPI_TYPE_DEVICE,
+};
+
 typedef struct {
   int var_type;
   uint64_t num;
 
+  // data
   union {
     struct acpi_str* str_p;
     struct acpi_buffer* buffer_p;
     struct acpi_package* package_p;
     struct {
-      struct acpi_invocation* invocation;
+      struct acpi_invocation* ptr;
       int ref_index;
-    };
+    } invocation_p;
   };
 
   struct acpi_ns_node* handle;
@@ -55,14 +65,14 @@ typedef struct acpi_str {
   flat_refc_t rc;
   size_t size;
   char* str;
-} acpi_str_head_t;
+} acpi_str_t;
 
 typedef struct acpi_buffer {
   flat_refc_t rc;
 
   size_t size;
   uint8_t* buffer;
-} acpi_buffer_head_t;
+} acpi_buffer_t;
 
 typedef struct acpi_package {
   flat_refc_t rc;
@@ -71,6 +81,13 @@ typedef struct acpi_package {
   acpi_variable_t* vars;
 } acpi_package_t;
 
+#define ACPI_OPERAND_OBJECT 1
+#define ACPI_NULL_NAME 2
+#define ACPI_UNRESOLVED_NAME 3
+#define ACPI_RESOLVED_NAME 4
+#define ACPI_ARG_NAME 5
+#define ACPI_LOCAL_NAME 6
+#define ACPI_DEBUG_NAME 7
 
 typedef struct acpi_operand {
   flat_refc_t rc;
@@ -129,8 +146,8 @@ typedef struct {
 
   union {
     struct {
-      uint8_t mth_result_requested;
-    };
+      uint8_t method_result_requested;
+    } method;
     struct {
       int cond_state;
       int cond_has_else;
@@ -167,7 +184,7 @@ typedef struct {
     struct {
       int ivk_argc;
       uint8_t ivk_result_requested;
-    } ivk;
+    } invoke;
   };
 } acpi_stack_entry_t;
 
@@ -349,6 +366,13 @@ static ALWAYS_INLINE acpi_context_entry_t* acpi_context_stack_peek(acpi_state_t*
 static ALWAYS_INLINE acpi_stack_entry_t* acpi_stack_peek(acpi_state_t* state) {
   if (state->stack_sp >= 0) {
     return &state->stack_base[state->stack_sp];
+  }
+  return nullptr;
+}
+
+static ALWAYS_INLINE acpi_stack_entry_t* acpi_stack_peek_at(acpi_state_t* state, uint32_t index) {
+  if (index >= 0) {
+    return &state->stack_base[index];
   }
   return nullptr;
 }

@@ -4,7 +4,9 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/multiboot.h"
+#include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "system/acpi/namespace.h"
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -19,6 +21,7 @@ acpi_parser_t *g_parser_ptr;
 #define MADT_SIGNATURE "APIC"
 
 void init_acpi_parser(acpi_parser_t* parser) {
+  g_parser_ptr = parser;
 
   println("Starting ACPI parser");
 
@@ -32,7 +35,7 @@ void init_acpi_parser(acpi_parser_t* parser) {
   parser->m_rsdp = rsdp;
   parser->m_is_xsdp = (rsdp->revision >= 2);
 
-  parser->m_fadt = find_table(parser, "FACP");
+  parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
   if (!parser->m_fadt) {
     kernel_panic("Unable to find ACPI table FADT!");
@@ -56,16 +59,10 @@ void init_acpi_parser(acpi_parser_t* parser) {
 
   acpi_init_state(&parser->m_state);
 
-  draw_char(16, 100, 'l');
   parser_prepare_acpi_state(&parser->m_state, dsdt_aml_segment, parser->m_ns_root_node);
 
-  draw_char(24, 100, 'l');
   acpi_delete_state(&parser->m_state);
   // TODO:
-
-  draw_char(100, 100, 'A');
-
-  g_parser_ptr = parser;
 }
 
 void* find_rsdp() {
@@ -234,11 +231,185 @@ int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi
   stack_entry->type = ACPI_INTERP_STATE_POPULATE_STACKITEM;
   
   // TODO: evaluate/exectute aml
+  int result = parser_execute_acpi_state(state);
 
   return 0;
 }
 
 int parser_execute_acpi_state(acpi_state_t* state) {
 
+  while (acpi_stack_peek(state)) {
+    int result = parser_partial_execute_acpi_state(state);
+    if (result) {
+      return result;
+    }
+  }
+  return 0;
+}
+
+int parser_partial_execute_acpi_state(acpi_state_t* state) {
+
+  acpi_stack_entry_t* stack = acpi_stack_peek(state);
+  acpi_context_entry_t* context = acpi_context_stack_peek(state);
+  acpi_block_entry_t* block = acpi_block_stack_peek(state);
+
+  acpi_aml_seg_t* aml_segment = context->segm;
+  uint8_t* code_ptr = context->code;
+
+  acpi_invocation_t* invocation = context->invocation;
+
+  // ayo how thefuq did this come to be??
+  if (block->program_counter >= block->program_counter_limit) {
+    return 1;
+  }
+
+  switch (stack->type) {
+    case ACPI_INTERP_STATE_POPULATE_STACKITEM:
+      if (block->program_counter != block->program_counter_limit) {
+        return parser_parse_acpi_state(state);
+      }
+      acpi_state_pop_blk_stack(state);
+      acpi_state_pop_ctx_stack(state);
+      acpi_state_pop_stack(state);
+      return 0;
+  }
+
+  return -1;
+}
+
+static int handle_zero_op(acpi_state_t* state, int pc);
+static int handle_one_op(acpi_state_t* state, int pc);
+
+int parser_parse_acpi_state(acpi_state_t* state) {
+
+  acpi_context_entry_t* context = acpi_context_stack_peek(state);
+  acpi_block_entry_t* block = acpi_block_stack_peek(state);
+
+  acpi_aml_seg_t* aml_segment = context->segm;
+  uint8_t* code_ptr = context->code;
+
+  acpi_invocation_t* invocation = context->invocation;
+
+  int pc = block->program_counter;
+
+  // ayo how thefuq did this come to be??
+  if (pc >= block->program_counter_limit) {
+    return 1;
+  }
+
+  // sizeof the header + offset into the table + the program_counter in the block
+  size_t table_rel_pc = sizeof(acpi_sdt_header_t) + (code_ptr - aml_segment->aml_table->data) + pc;
+
+  // sizeof the header + offset into the table + the program_counter_limit of the block
+  size_t table_rel_pc_limit = sizeof(acpi_sdt_header_t) + (code_ptr - aml_segment->aml_table->data) + block->program_counter_limit;
+
+  if (block->program_counter >= block->program_counter_limit) {
+    kernel_panic("parser_parse_acpi_state: pc seems to exceed the pc_limit!");
+  }
+
+  if (acpi_is_name(code_ptr[pc])) {
+    acpi_aml_name_t aml_name = {0};
+    pc += acpi_parse_aml_name(&aml_name, code_ptr + pc);
+    parser_advance_block_pc(state, pc);
+
+    switch (g_parser_ptr->m_mode) {
+      case APM_DATA:
+        // nothing yet
+        break;
+      default:
+        break;
+    }
+
+    acpi_ns_node_t* handle = acpi_resolve_node(context->ctx_handle, &aml_name);
+
+    if (!handle) {
+      // TODO: handle edge-case
+      return 0;
+    }
+
+    switch (handle->type) {
+      case ACPI_NAMESPACE_METHOD:
+        // TODO: invoke
+        break;
+      default:
+        // nothing?
+        break;
+    }
+    return 0;
+  }
+
+  int opcode;
+
+  if (code_ptr[pc] == EXTOP_PREFIX) {
+    if (pc + 1 >= block->program_counter_limit) {
+      kernel_panic("parser_parse_acpi_state: exceeded pc limit while trying to parse aml opcode!");
+    }
+    opcode = (EXTOP_PREFIX << 8) | code_ptr[pc + 1];
+    pc += 2;
+  } else {
+    opcode = code_ptr[pc];
+    pc++;
+  }
+
+  switch (opcode) {
+    case NOP_OP:
+      parser_advance_block_pc(state, pc);
+      break;
+    case ZERO_OP:
+      handle_zero_op(state, pc);
+      break;
+    case ONE_OP:
+      handle_one_op(state, pc);
+      break;
+  }
+
+  return 0;
+}
+
+static int handle_zero_op(acpi_state_t* state, int pc) {
+  if (acpi_operand_stack_ensure_capacity(state)) {
+    return -1;
+  }
+  parser_advance_block_pc(state, pc);
+
+  switch (g_parser_ptr->m_mode) {
+    case APM_OBJECT:
+    case APM_DATA :
+      {
+      acpi_operand_t* op = acpi_state_push_opstack(state);
+      op->tag = ACPI_OPERAND_OBJECT;
+      op->obj.var_type = ACPI_TYPE_INTEGER;
+      op->obj.num = 0;
+      }
+    case APM_OPTIONAL_REFERENCE:
+    case APM_REFERENCE:
+      {
+      acpi_operand_t* op = acpi_state_push_opstack(state);
+      op->tag = ACPI_NULL_NAME;
+      }
+    default:
+      break;
+  }
+  return 0;
+}
+
+static int handle_one_op(acpi_state_t* state, int pc) {
+  if (acpi_operand_stack_ensure_capacity(state)) {
+    return -1;
+  }
+  parser_advance_block_pc(state, pc);
+
+  switch (g_parser_ptr->m_mode) {
+    case APM_OBJECT:
+    case APM_DATA :
+      {
+      acpi_operand_t* op = acpi_state_push_opstack(state);
+      op->tag = ACPI_OPERAND_OBJECT;
+      op->obj.var_type = ACPI_TYPE_INTEGER;
+      op->obj.num = 1;
+      }
+    default:
+      break;
+  }
   return 0;
 }

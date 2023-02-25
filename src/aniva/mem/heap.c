@@ -1,5 +1,5 @@
 #include "heap.h"
-#include "kmalloc.h"
+#include "malloc.h"
 
 #define INITIAL_HEAP_SIZE (2 * Mib) // IN BYTES
 

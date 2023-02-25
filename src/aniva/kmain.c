@@ -15,7 +15,6 @@
 #include "interupts/interupts.h"
 #include "dev/driver.h"
 #include "mem/heap.h"
-#include "mem/kmalloc.h"
 #include "mem/zalloc.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>

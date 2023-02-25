@@ -1,4 +1,4 @@
-#include "kmalloc.h"
+#include "malloc.h"
 #include "kmain.h"
 #include "mem/kmem_manager.h"
 #include "base_allocator.h"
@@ -81,10 +81,6 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
 
     if (node->size - sizeof(heap_node_t) > bytes && !has_flag(node, MALLOC_FLAGS_USED)) {
       // yay, our node works =D
-
-      // TODO: for now I'll just assume that at this point, nothing happend to
-      // the identifier here. In the future we will handle this correctly
-      ASSERT(node->identifier == MALLOC_NODE_IDENTIFIER);
 
       // now split off a node of the correct size
       heap_node_t* new_node = split_node(allocator, node, bytes);
@@ -234,7 +230,7 @@ heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t
   }
 
   // TODO: handle this correctly
-  ASSERT(verify_identity(ptr));
+  ASSERT_MSG(verify_identity(ptr), "Tried to split a unidentified node!");
 
   // the new node for the allocation
   heap_node_t* new_first_node = ptr;

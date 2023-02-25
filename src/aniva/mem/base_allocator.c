@@ -1,5 +1,5 @@
 #include "base_allocator.h"
-#include "kmalloc.h"
+#include "malloc.h"
 #include "kmem_manager.h"
 #include "heap.h"
 
