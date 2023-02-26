@@ -173,7 +173,7 @@ void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
       // see if we can merge
       heap_node_t* n = try_merge(allocator, node);
       if (n == nullptr) {
-        println("unable to merge nodes =/");
+        //println("unable to merge nodes =/");
         return;
       }
 
@@ -211,21 +211,21 @@ heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t
   // trying to split a node into a bigger size than it itself is xD
   if (ptr->size <= size) {
     // this is just dumb
-    println("[kmalloc:split_node] size is invalid");
+    //println("[kmalloc:split_node] size is invalid");
     return nullptr;
   }
 
   const size_t node_free_size = ptr->size - sizeof(heap_node_t);
   const size_t extra_size = size + sizeof(heap_node_t);
   if (node_free_size < extra_size) {
-    println("[kmalloc:split_node] node too small!");
+    //println("[kmalloc:split_node] node too small!");
     return nullptr;
   }
   
   
   if (has_flag(ptr, MALLOC_FLAGS_USED)) {
     // a node that's completely in use, should not be split
-    println("[kmalloc:split_node] tried to split a node that's in use");
+    //println("[kmalloc:split_node] tried to split a node that's in use");
     return nullptr;
   }
 

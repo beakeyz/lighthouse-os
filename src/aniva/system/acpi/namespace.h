@@ -145,11 +145,12 @@ void acpi_unload_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* n
  * AML names
  */
 
-int acpi_parse_aml_name(acpi_aml_name_t* name, uint8_t* data);
+int acpi_parse_aml_name(acpi_aml_name_t* name, const uint8_t* data);
 
 char* acpi_aml_name_to_string(acpi_aml_name_t* name);
 
 acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_name);
+void acpi_resolve_new_node(acpi_ns_node_t *node, acpi_ns_node_t* handle, acpi_aml_name_t* aml_name);
 
 static ALWAYS_INLINE bool acpi_is_name(char c) {
   return ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || c == '_' || c == ROOT_CHAR || c == PARENT_CHAR || c == MULTI_PREFIX || c == DUAL_PREFIX);

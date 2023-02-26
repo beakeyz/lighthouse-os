@@ -1,6 +1,7 @@
 #ifndef __ANIVA_ACPI_OBJ__
 #define __ANIVA_ACPI_OBJ__
 #include <libk/stddef.h>
+#include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/reference.h"
@@ -51,6 +52,10 @@ typedef struct {
     struct acpi_buffer* buffer_p;
     struct acpi_package* package_p;
     struct {
+      struct acpi_ns_node *unresolved_context_handle;
+      const uint8_t* unres_aml_p;
+    } unresolved_aml;
+    struct {
       struct acpi_invocation* ptr;
       int ref_index;
     } invocation_p;
@@ -96,6 +101,11 @@ typedef struct acpi_operand {
   union {
     acpi_variable_t obj;
     int idx;
+
+    struct {
+      struct acpi_ns_node *unresolved_context_handle;
+      const uint8_t* unres_aml_p;
+    } unresolved_aml;
 
     struct acpi_ns_node* handle;
   };
@@ -299,11 +309,10 @@ static ALWAYS_INLINE void acpi_state_pop_opstack(acpi_state_t* state) {
  */
 
 // let's hope we have our memory mapped 0.0
-static ALWAYS_INLINE acpi_operand_t *acpi_state_push_opstack(acpi_state_t *state) {
-  if (state->operand_sp < state->operand_stack_max_size) {
-    acpi_operand_t *object = &state->operand_stack_base[state->operand_sp];
+static acpi_operand_t *acpi_state_push_opstack(acpi_state_t *state) {
+  if ((state->operand_sp +1) < state->operand_stack_max_size) {
+    acpi_operand_t *object = &state->operand_stack_base[state->operand_sp++];
     memset(object, 0, sizeof(acpi_operand_t));
-    state->operand_sp++;
     return object;
   }
   return nullptr;
@@ -413,8 +422,8 @@ void assign_acpi_var(acpi_variable_t* from, acpi_variable_t* to);
 
 void acpi_load_from_ns_node(acpi_variable_t* var, struct acpi_ns_node* node); // TODO
 
-void acpi_write_buffer(struct acpi_ns_node* buffer, acpi_variable_t* src); // TODO
-void acpi_read_buffer(acpi_variable_t *dst, struct acpi_ns_node* buffer); // TODO
+void acpi_write_buffer(struct acpi_ns_node* buffer, acpi_variable_t* src);
+void acpi_read_buffer(acpi_variable_t *dst, struct acpi_ns_node* buffer);
 
 int acpi_var_create_and_init_str(acpi_variable_t* var, const char* str);
 int acpi_var_create_str(acpi_variable_t* var, size_t length);
@@ -424,6 +433,12 @@ int acpi_var_create_package(acpi_variable_t* var, size_t length);
 int acpi_var_resize_str(acpi_variable_t* var, size_t length);
 int acpi_var_resize_buffer(acpi_variable_t* var, size_t length);
 int acpi_var_resize_package(acpi_variable_t* var, size_t length);
+
+static ALWAYS_INLINE void acpi_assign_ref(acpi_operand_t* op_src, acpi_variable_t* obj) {
+  if (op_src->tag == ACPI_OPERAND_OBJECT) {
+    assign_acpi_var(&op_src->obj, obj);
+  }
+}
 
 /*
  * Operand functions

@@ -14,6 +14,7 @@ acpi_aml_seg_t *acpi_load_segment(void* table_ptr, int idx) {
   ret->aml_table = table_ptr;
   ret->idx = idx;
 
+  println(to_string((uintptr_t) table_ptr));
   kmem_kernel_alloc((uintptr_t)ret->aml_table, sizeof(acpi_aml_table_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   draw_char(0, 100, ret->aml_table->header.signature[0]);
@@ -103,51 +104,46 @@ acpi_ns_node_t *acpi_get_root(acpi_parser_t* parser) {
   return parser->m_ns_root_node;
 }
 
-int acpi_parse_aml_name(acpi_aml_name_t* name, uint8_t* data) {
+int acpi_parse_aml_name(acpi_aml_name_t* name, const uint8_t* data) {
   if (!name) {
     return -1;
   }
 
   memset(name, 0, sizeof(acpi_aml_name_t));
 
-  uint8_t *start = data;
-  uint8_t *itteration = data;
+  const uint8_t *start = data;
+  const uint8_t *itteration = start;
 
   // absolute path
   if (*itteration == '\\') {
     name->m_absolute = true;
     itteration++;
+  } else {
+    while (*itteration == '^') {
+      name->m_scope_height++;
+      itteration++;
+    }
   }
-
-  while (*itteration == '^' && !name->m_absolute) {
-    name->m_scope_height++;
-    itteration++;
-  }
-
 
   uint32_t segs = 0;
-  switch (*itteration) {
-    case '\0':
-      // end
-      itteration++;
-      break;
-
-    case DUAL_PREFIX:
-      itteration++;
-      segs = 2;
-      break;
-    case MULTI_PREFIX:
-      itteration++;
-      segs = *itteration;
-      itteration++;
-      break;
-    default:
-      if (acpi_is_name(*itteration)) {
-        segs = 1;
-      }
+  if (*itteration == '\0') {
+    itteration++;
+    segs = 0;
+  } else if (*itteration == DUAL_PREFIX) {
+    itteration++;
+    segs = 2;
+  } else if (*itteration == MULTI_PREFIX) {
+    itteration++;
+    segs = *itteration;
+    itteration++;
+  } else {
+    if (!acpi_is_name(*itteration)) {
+      kernel_panic("NOT A NAME");
+      return -1;
+    }
+    segs = 1;
   }
-
-
+  
   name->m_should_search_parent_scopes = (name->m_absolute == false && name->m_scope_height == 0 && segs == 1);
   name->m_itterator_p = itteration;
   name->m_start_p = start;
@@ -157,8 +153,38 @@ int acpi_parse_aml_name(acpi_aml_name_t* name, uint8_t* data) {
 }
 
 char* acpi_aml_name_to_string(acpi_aml_name_t* name) {
-  // TODO
-  return "";
+  acpi_aml_name_t name_cpy = *name;
+  
+  size_t segment_num = (name_cpy.m_end_p - name_cpy.m_itterator_p) / 4;
+  size_t max_length = 1 + name_cpy.m_scope_height + segment_num * 5 + 1;
+
+  char* str = kmalloc(max_length);
+
+  int n = 0;
+  if (name_cpy.m_absolute)
+      str[n++] = '\\';
+
+  for (int i = 0; i < name_cpy.m_scope_height; i++)
+      str[n++] = '^';
+
+  if (name_cpy.m_itterator_p != name_cpy.m_end_p) {
+    for (;;) {
+      acpi_aml_name_next_segment(&name_cpy, &str[n]);
+      n += 4;
+      if (name_cpy.m_itterator_p == name_cpy.m_end_p)
+          break;
+      str[n++] = '.';
+    }
+  }
+  str[n++] = '\0';
+
+  if (n != (int)max_length) {
+    char* new_buffer = kmalloc(n);
+    memcpy(new_buffer, str, max_length);
+    kfree(str);
+    str = new_buffer;
+  }
+  return str;
 }
 
 void acpi_load_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* node) {
@@ -264,6 +290,44 @@ acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_n
   // check for namespace aliases
 
   return current_handle;
+}
+
+void acpi_resolve_new_node(acpi_ns_node_t *node, acpi_ns_node_t* handle, acpi_aml_name_t* aml_name) {
+  acpi_aml_name_t name_copy = *aml_name;
+  acpi_ns_node_t* current_handle = handle;
+
+  if (name_copy.m_absolute) {
+    // search from the namespace root
+    while (current_handle->parent) {
+      current_handle = current_handle->parent;
+    }
+  }
+
+  for (uint32_t i = 0; i < name_copy.m_scope_height; i++) {
+    if (!current_handle->parent) {
+      break;
+    }
+    current_handle = current_handle->parent;
+  }
+
+  while (true) {
+    char segment[5];
+    acpi_aml_name_next_segment(&name_copy, segment);
+    segment[4] = '\0';
+
+    if (name_copy.m_itterator_p == name_copy.m_end_p) {
+      memcpy(&node->name, segment, 4);
+      node->parent = current_handle;
+      break;
+    } else {
+      current_handle = acpi_get_node_child(current_handle, segment);
+      if (current_handle && current_handle->type == ACPI_NAMESPACE_ALIAS) {
+        // fuck man
+        current_handle = current_handle->namespace_alias_target;
+      }
+    }
+  } 
+
 }
 
 void ns_node_ensure_children_capacity(acpi_ns_node_t* node) {

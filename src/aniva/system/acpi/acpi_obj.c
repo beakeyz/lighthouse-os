@@ -2,6 +2,7 @@
 #include "libk/reference.h"
 #include "mem/PagingComplex.h"
 #include "mem/heap.h"
+#include "system/acpi/namespace.h"
 #include <libk/string.h>
 
 int acpi_init_state(acpi_state_t* state) {
@@ -242,4 +243,56 @@ int acpi_var_resize_package(acpi_variable_t* var, size_t length) {
   }
   var->package_p->pkg_size = length;
   return 0;
+}
+
+// credit to https://github.com/managarm/lai/blob/master/core/exec-operand.c
+void acpi_write_buffer(acpi_ns_node_t* buffer, acpi_variable_t* src) {
+  uint64_t value = src->num;
+
+  // Offset that we are writing to, in bytes.
+  size_t offset = buffer->namespace_buffer_field.bf_offset_bits;
+  size_t size = buffer->namespace_buffer_field.bf_size_bits;
+  uint8_t *data = buffer->namespace_buffer_field.bf_buffer->buffer;
+
+  size_t n = 0; // Number of bits that have been written.
+  while (n < size) {
+    // First bit (of the current byte) that will be overwritten.
+    int bit = (offset + n) & 7;
+
+    // Number of bits (of the current byte) that will be overwritten.
+    int m = size - n;
+    if (m > (8 - bit))
+        m = 8 - bit;
+
+    uint8_t mask = (1 << m) - 1;
+    data[(offset + n) >> 3] &= ~(mask << bit);
+    data[(offset + n) >> 3] |= ((value >> n) & mask) << bit;
+
+    n += m;
+  }
+}
+
+// credit to https://github.com/managarm/lai/blob/master/core/exec-operand.c
+void acpi_read_buffer(acpi_variable_t *dst, acpi_ns_node_t* buffer) {
+  size_t offset = buffer->namespace_buffer_field.bf_offset_bits;
+  size_t size = buffer->namespace_buffer_field.bf_size_bits;
+  uint8_t *data = buffer->namespace_buffer_field.bf_buffer->buffer;
+
+  dst->var_type = ACPI_INTEGER;
+  dst->num = 0;
+
+  size_t n = 0;
+  while (n < size) {
+      int bit = (offset + n) & 7;
+      int m = size - n;
+      if (m > (8 - bit))
+          m = 8 - bit;
+
+      uint8_t mask = (1 << m) - 1;
+      uint8_t cur_byte = data[(offset + n) >> 3];
+      uint8_t to_write = ((cur_byte & mask));
+
+      dst->num |= (uint64_t)to_write << n;
+      n += m;
+  }
 }
