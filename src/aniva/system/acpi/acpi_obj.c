@@ -1,6 +1,8 @@
 #include "acpi_obj.h"
 #include "libk/reference.h"
+#include "mem/PagingComplex.h"
 #include "mem/heap.h"
+#include <libk/string.h>
 
 int acpi_init_state(acpi_state_t* state) {
   memset(state, 0, sizeof(*state));
@@ -128,4 +130,116 @@ void assign_acpi_var(acpi_variable_t* one, acpi_variable_t* two) {
   }
 
   move_acpi_var(two, &var);
+}
+
+int acpi_var_create_and_init_str(acpi_variable_t* var, const char* str) {
+  int result = acpi_var_create_str(var, strlen(str));
+  if (result < 0) {
+    return result;
+  }
+
+  memcpy(var->str_p->str, str, strlen(str));
+  return 0;
+}
+
+int acpi_var_create_str(acpi_variable_t* var, size_t length) {
+  var->var_type = ACPI_STRING;
+
+  acpi_str_t *str_obj = kmalloc(sizeof(acpi_str_t));
+
+  if (!str_obj) {
+    return -1;
+  }
+
+  str_obj->str = kmalloc(length + 1);
+  str_obj->rc = 1;
+  str_obj->size = length + 1;
+
+  if (!str_obj->str) {
+    kfree(str_obj);
+    return -1;
+  }
+
+  var->str_p = str_obj;
+
+  return 0;
+}
+
+int acpi_var_create_buffer(acpi_variable_t* var, size_t length) {
+  var->var_type = ACPI_BUFFER;
+  var->buffer_p = kmalloc(sizeof(acpi_buffer_t));
+  var->buffer_p->buffer = kmalloc(length);
+  var->buffer_p->size = length;
+  var->buffer_p->rc = 1;
+  memset(var->buffer_p->buffer, 0x00, length);
+  return 0;
+}
+
+int acpi_var_create_package(acpi_variable_t* var, size_t length) {
+  var->var_type = ACPI_PACKAGE;
+  var->package_p = kmalloc(sizeof(acpi_package_t));
+  var->package_p->vars = kmalloc(sizeof(acpi_variable_t) * length);
+  var->package_p->pkg_size = length;
+  var->package_p->rc = 1;
+  memset(var->package_p->vars, 0x00, length * sizeof(acpi_variable_t));
+  return 0;
+}
+
+int acpi_var_resize_str(acpi_variable_t* var, size_t length) {
+  if (var->var_type != ACPI_TYPE_STRING) {
+    return -1;
+  }
+
+  // TODO: downscale?
+  if (length > strlen(var->str_p->str)) {
+    char* new_str_buff = kmalloc(length + 1);
+    strcpy(new_str_buff, var->str_p->str);
+    kfree(var->str_p->str);
+    var->str_p->str = new_str_buff;
+    var->str_p->size = length + 1;
+    return 0;
+  }
+  return -2;
+}
+
+int acpi_var_resize_buffer(acpi_variable_t* var, size_t length) {
+  if (var->var_type != ACPI_BUFFER) {
+    return -1;
+  }
+
+  if (length > var->buffer_p->size) {
+    uint8_t* new_buffer = kmalloc(length);
+    memset(new_buffer, 0x00, length);
+
+    memcpy(var->buffer_p->buffer, new_buffer, var->buffer_p->size);
+    kfree(var->buffer_p->buffer);
+
+    var->buffer_p->buffer = new_buffer;
+    var->buffer_p->size = length;
+    return 0;
+  }
+  return -2;
+}
+
+int acpi_var_resize_package(acpi_variable_t* var, size_t length) {
+  if (var->var_type != ACPI_PACKAGE) {
+    return -1;
+  }
+
+  if (length > var->package_p->pkg_size) {
+    acpi_variable_t* new_vars = kmalloc(length * sizeof(acpi_variable_t));
+    for (uint32_t i = 0; i < var->package_p->pkg_size; i++) {
+      move_acpi_var(&new_vars[i], &var->package_p->vars[i]);
+    }
+    kfree(var->package_p->vars);
+    var->package_p->vars = new_vars;
+    var->package_p->pkg_size = length;
+    return 0;
+  }
+
+  for (uint32_t i = length; i < var->package_p->pkg_size; i++) {
+    destroy_acpi_var(&var->package_p->vars[i]);
+  }
+  var->package_p->pkg_size = length;
+  return 0;
 }

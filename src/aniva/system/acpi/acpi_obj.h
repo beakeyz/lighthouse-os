@@ -416,6 +416,15 @@ void acpi_load_from_ns_node(acpi_variable_t* var, struct acpi_ns_node* node); //
 void acpi_write_buffer(struct acpi_ns_node* buffer, acpi_variable_t* src); // TODO
 void acpi_read_buffer(acpi_variable_t *dst, struct acpi_ns_node* buffer); // TODO
 
+int acpi_var_create_and_init_str(acpi_variable_t* var, const char* str);
+int acpi_var_create_str(acpi_variable_t* var, size_t length);
+int acpi_var_create_buffer(acpi_variable_t* var, size_t length);
+int acpi_var_create_package(acpi_variable_t* var, size_t length);
+
+int acpi_var_resize_str(acpi_variable_t* var, size_t length);
+int acpi_var_resize_buffer(acpi_variable_t* var, size_t length);
+int acpi_var_resize_package(acpi_variable_t* var, size_t length);
+
 /*
  * Operand functions
  */

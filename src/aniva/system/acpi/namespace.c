@@ -156,6 +156,11 @@ int acpi_parse_aml_name(acpi_aml_name_t* name, uint8_t* data) {
   return 0;
 }
 
+char* acpi_aml_name_to_string(acpi_aml_name_t* name) {
+  // TODO
+  return "";
+}
+
 void acpi_load_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* node) {
   // add to the parsers array
   if (parser->m_ns_size == parser->m_ns_max_size) {
