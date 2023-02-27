@@ -418,6 +418,20 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
     return 1;
   }
 
+  for (;;) {
+    if (acpi_is_name(code_ptr[block->program_counter])) {
+      putch(code_ptr[block->program_counter]);
+    } else {
+      putch('.');
+    }
+    block->program_counter++;
+    if (block->program_counter >= block->program_counter_limit) {
+      break;
+    }
+  }
+
+  kernel_panic("FINISHED");
+
   print("stack type: ");
   println(to_string(stack->type));
 
