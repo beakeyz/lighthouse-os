@@ -418,6 +418,9 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
     return 1;
   }
 
+  /*
+   * NOTE: this is for testing, and should be removed once that is complete
+   */
   for (;;) {
     if (acpi_is_name(code_ptr[block->program_counter])) {
       putch(code_ptr[block->program_counter]);

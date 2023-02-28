@@ -1,6 +1,8 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
+#include <libk/stddef.h>
+
 struct aniva_driver;
 
 typedef enum DRIVER_LOAD_UNLOAD_INIT_METHOD {
@@ -34,6 +36,8 @@ void load_driver(struct aniva_driver* driver);
  * unload a driver from its structure in RAM
  */
 void unload_driver(struct aniva_driver* driver);
+
+bool is_driver_loaded(struct aniva_driver* handle);
 
 #define REGISTER_DRIVER(name, descriptor, version, major, minor, init, entry, exit, drv_msg) \
   struct aniva_driver aniva_drvr_skeleton = {                                          \
