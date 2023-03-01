@@ -156,6 +156,10 @@ void enumerate_pci_raw(PciFuncCallback_t callback) {
 
 void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
+  if (g_pci_devices == nullptr) {
+    return;
+  }
+
   FOREACH(i, g_pci_devices) {
     pci_device_identifier_t* dev = i->data;
 

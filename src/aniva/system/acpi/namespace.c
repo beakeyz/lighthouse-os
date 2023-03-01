@@ -186,7 +186,7 @@ char* acpi_aml_name_to_string(acpi_aml_name_t* name) {
 
   if (n != (int)max_length) {
     char* new_buffer = kmalloc(n);
-    memcpy(new_buffer, str, max_length);
+    memcpy(new_buffer, str, n);
     kfree(str);
     str = new_buffer;
   }

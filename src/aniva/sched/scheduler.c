@@ -3,6 +3,7 @@
 #include "kmain.h"
 #include "dev/debug/serial.h"
 #include <mem/heap.h>
+#include "libk/error.h"
 #include "libk/string.h"
 #include "interupts/interupts.h"
 #include <mem/heap.h>

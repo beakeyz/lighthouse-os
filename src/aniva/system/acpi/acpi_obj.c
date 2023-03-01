@@ -22,11 +22,6 @@ int acpi_init_state(acpi_state_t* state) {
   // or have some minimal-sized stack-allocated
   // array that we can expand ondemand?
 
-  state->operand_stack_base = kmalloc(state->operand_stack_max_size * sizeof(acpi_operand_t));
-  state->block_stack_base = kmalloc(state->block_stack_max_size * sizeof(acpi_block_entry_t));
-  state->ctx_stack_base = kmalloc(state->block_stack_max_size * sizeof(acpi_context_entry_t));
-  state->stack_base = kmalloc(state->stack_max_size * sizeof(acpi_stack_entry_t));
-
   return 0;
 }
 

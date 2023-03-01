@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/reference.h"
+#include "mem/kmem_manager.h"
 #include "structures.h"
 #include "libk/string.h"
 
@@ -204,15 +205,15 @@ typedef struct {
 #define INITIAL_OPERAND_STACK_SIZE 16
 
 typedef struct {
-  acpi_context_entry_t *ctx_stack_base;
-  acpi_block_entry_t *block_stack_base;
-  acpi_stack_entry_t *stack_base;
-  acpi_operand_t *operand_stack_base;
+  acpi_context_entry_t ctx_stack_base[INITIAL_CXT_STACK_SIZE];
+  acpi_block_entry_t block_stack_base[INITIAL_BLK_STACK_SIZE];
+  acpi_stack_entry_t stack_base[INITIAL_STACK_SIZE];
+  acpi_operand_t operand_stack_base[INITIAL_OPERAND_STACK_SIZE];
 
-  uint32_t ctx_stack_max_size;
-  uint32_t block_stack_max_size;
-  uint32_t stack_max_size;
-  uint32_t operand_stack_max_size;
+  int ctx_stack_max_size;
+  int block_stack_max_size;
+  int stack_max_size;
+  int operand_stack_max_size;
 
   int ctx_sp;
   int block_sp;
@@ -310,7 +311,7 @@ static ALWAYS_INLINE void acpi_state_pop_opstack(acpi_state_t* state) {
 
 // let's hope we have our memory mapped 0.0
 static acpi_operand_t *acpi_state_push_opstack(acpi_state_t *state) {
-  if ((state->operand_sp +1) < state->operand_stack_max_size) {
+  if (state->operand_sp < state->operand_stack_max_size) {
     acpi_operand_t *object = &state->operand_stack_base[state->operand_sp++];
     memset(object, 0, sizeof(acpi_operand_t));
     return object;

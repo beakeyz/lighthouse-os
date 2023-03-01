@@ -87,6 +87,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
 
+
   initialize_proc_core();
 
   init_aniva_driver_register();
@@ -149,4 +150,6 @@ void aniva_task(queue_t *buffer) {
   println("------------------");
   println(to_string((uintptr_t)allocation3));
   println(to_string(*(uintptr_t*)allocation3));
+
+  kernel_panic("END_OF_ANIVA_TASK (TEST)");
 }

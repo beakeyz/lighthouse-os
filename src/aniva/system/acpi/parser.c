@@ -22,6 +22,8 @@ acpi_parser_t *g_parser_ptr;
 #define FADT_SIGNATURE "FACP"
 #define DSDT_SIGNATURE "DSDT"
 #define MADT_SIGNATURE "APIC"
+#define SSDT_SIGNATURE "SSDT"
+#define PSDT_SIGNATURE "PSDT"
 
 static size_t parse_acpi_var_int(size_t* out, uint8_t *code_ptr, int* pc, int limit);
 static ALWAYS_INLINE int acpi_parse_u8(uint8_t* out, uint8_t* code_ptr, int* pc, int limit);
@@ -32,9 +34,16 @@ static ALWAYS_INLINE int acpi_parse_u64(uint64_t* out, uint8_t* code_ptr, int* p
 void init_acpi_parser(acpi_parser_t* parser) {
   g_parser_ptr = parser;
 
+  size_t table_index;
+  acpi_aml_seg_t* aml_segment;
+  acpi_aml_table_t* aml_table;
+  void* dsdt_table;
+  acpi_rsdp_t* rsdp;
+  uint32_t hw_reduced;
+
   println("Starting ACPI parser");
 
-  acpi_rsdp_t* rsdp = find_rsdp();
+  rsdp = find_rsdp();
 
   if (rsdp == nullptr) {
     // FIXME: we're fucked lol
@@ -45,35 +54,60 @@ void init_acpi_parser(acpi_parser_t* parser) {
   parser->m_is_xsdp = (rsdp->revision >= 2);
 
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
+  hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
   if (!parser->m_fadt) {
     kernel_panic("Unable to find ACPI table FADT!");
   }
 
-  const uint32_t hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
-
   parser->m_ns_root_node = acpi_create_root();
-
-  void* dsdt_table = nullptr;
 
   dsdt_table = (void*)(uintptr_t)parser->m_fadt->dsdt_ptr;
   //if (parser->m_fadt->x_dsdt) {
   //  dsdt_table = (void*)(uintptr_t)parser->m_fadt->x_dsdt;
   //}
 
-  draw_char(0, 108, to_string(parser->m_rsdp->revision)[0]);
-  draw_char(0, 116, to_string(parser->m_fadt->header.revision)[0]);
-
   if (!dsdt_table)
     kernel_panic("Unable to find ACPI table DSDT!");
 
-  acpi_aml_seg_t *dsdt_aml_segment = acpi_load_segment(dsdt_table, 0);
+  aml_segment = acpi_load_segment(dsdt_table, 0);
 
   acpi_init_state(&parser->m_state);
-
-  parser_prepare_acpi_state(&parser->m_state, dsdt_aml_segment, parser->m_ns_root_node);
-
+  parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
   acpi_delete_state(&parser->m_state);
+
+  table_index = 0;
+  aml_segment = nullptr;
+  aml_table = nullptr;
+
+  println("ACPI_PARSER: loading SSDT");
+
+  while ((aml_table = find_table_idx(parser, SSDT_SIGNATURE, table_index))) {
+    aml_segment = acpi_load_segment(aml_table, table_index);
+
+    acpi_init_state(&parser->m_state);
+    parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
+    acpi_delete_state(&parser->m_state);
+
+    table_index++;
+  }
+
+  table_index = 0;
+  aml_segment = nullptr;
+  aml_table = nullptr;
+
+  println("ACPI_PARSER: loading PSDT");
+
+  while ((aml_table = find_table_idx(parser, PSDT_SIGNATURE, table_index))) {
+    aml_segment = acpi_load_segment(aml_table, table_index);
+
+    acpi_init_state(&parser->m_state);
+    parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
+    acpi_delete_state(&parser->m_state);
+
+    table_index++;
+  }
+
   // TODO:
 }
 
@@ -245,11 +279,7 @@ int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi
   // TODO: evaluate/exectute aml
   int result = parser_execute_acpi_state(state);
 
-  if (result < 0) {
-    kernel_panic("parser_prepare_acpi_state: failed to execute acpi state! (with error code: TODO)");
-  }
-
-  return 0;
+  return result;
 }
 
 int parser_execute_acpi_state(acpi_state_t* state) {
@@ -320,6 +350,7 @@ static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* oper
     case (EXTOP_PREFIX << 8) | TO_BCD_OP:
     case OBJECTTYPE_OP:
     default:
+      kernel_panic("(parser_parse_op): unimplemented opcode!");
       break;
   }
   return 0;
@@ -357,11 +388,13 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
     }
     case BITFIELD_OP:
     case BYTEFIELD_OP:
+      kernel_panic("(parser_parse_node): unimplemented opcode!");
       break;
     case WORDFIELD_OP:
     case DWORDFIELD_OP:
     case QWORDFIELD_OP:
     case (EXTOP_PREFIX << 8) | ARBFIELD_OP:
+      kernel_panic("(parser_parse_node): unimplemented opcode!");
       break;
     case (EXTOP_PREFIX << 8) | OPREGION: {
       acpi_variable_t base = {0};
@@ -494,6 +527,7 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
     }
     case ACPI_INTERP_STATE_VARPACKAGE_STACKITEM:
     case ACPI_INTERP_STATE_PACKAGE_STACKITEM:
+      kernel_panic("(parser_partial_execute_acpi_state): unimplemented interpreter state!");
       break;
     case ACPI_INTERP_STATE_NODE_STACKITEM: {
         int mode_idx = state->operand_sp - stack->opstack_frame;
@@ -548,6 +582,7 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
     case ACPI_INTERP_STATE_COND_STACKITEM:
     case ACPI_INTERP_STATE_BANKFIELD_STACKITEM:
     default:
+      kernel_panic("(parser_partial_execute_acpi_state): unimplemented interpreter state!");
       break;
   }
 
@@ -677,6 +712,7 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     bool should_pass_result = parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_EXPECT_RESULT);
 
     if (g_parser_ptr->m_mode == APM_DATA) {
+      println("1");
       // nothing yet
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_OPERAND_OBJECT;
@@ -684,15 +720,18 @@ int parser_parse_acpi_state(acpi_state_t* state) {
       op->obj.unresolved_aml.unresolved_context_handle = ctx_handle;
       op->obj.unresolved_aml.unres_aml_p = code_ptr + opcode_pc;
     } else if (!parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_RESOLVE_NAME) && should_pass_result) {
+      println("2");
       // here we shouldn't resolve the name, but just 
       // yeet it to the opstack lol
       if (acpi_operand_stack_ensure_capacity(state) < 0) {
         return -1;
       }
+
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_UNRESOLVED_NAME;
       op->unresolved_aml.unresolved_context_handle = ctx_handle;
       op->unresolved_aml.unres_aml_p = code_ptr + opcode_pc;
+
     } else {
       println("PRE resolve");
       print("absolute: ");
@@ -709,17 +748,37 @@ int parser_parse_acpi_state(acpi_state_t* state) {
 
       if (!handle) {
         // TODO: handle edge-case
+        if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_ALLOW_UNRESOLVED)) {
+          // TODO:
+          kernel_panic("TODO: found unresolved handle while in PARSER_MODE_FLAG_ALLOW_UNRESOLVED");
+        }
+        
         println("failed to parse handle: ");
         println(acpi_aml_name_to_string(&aml_name));
-        kernel_panic("could not resolve handle!");
-        return 0;
+        return -1;
       }
+
+      kernel_panic("TODO");
 
       switch (handle->type) {
         case ACPI_NAMESPACE_METHOD:
-          // TODO: invoke
+          if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_PARSE_INVOCATION)) {
+            acpi_stack_entry_t* stack_item = acpi_state_push_stack_entry(state);
+            stack_item->type = ACPI_INTERP_STATE_INVOKE_STACKITEM;
+            stack_item->opstack_frame = state->operand_sp;
+            stack_item->invoke.ivk_argc = handle->aml_method_flags & METHOD_ARGC_MASK;
+            stack_item->invoke.ivk_result_requested = should_pass_result;
+          }
           break;
         default:
+          if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_PARSE_INVOCATION)) {
+          } else {
+            if (should_pass_result) {
+              acpi_operand_t* op = acpi_state_push_opstack(state);
+              op->tag = ACPI_RESOLVED_NAME;
+              op->handle = handle;
+            }
+          }
           // nothing?
           break;
       }
@@ -807,6 +866,7 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     case (EXTOP_PREFIX << 8) | ARBFIELD_OP:
     case (EXTOP_PREFIX << 8) | MUTEX:
     case (EXTOP_PREFIX << 8) | EVENT:
+      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
       break;
     case (EXTOP_PREFIX << 8) | OPREGION:
       handle_opregion_op(state, opcode, pc);
@@ -881,6 +941,7 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     case (EXTOP_PREFIX << 8) | FROM_BCD_OP:
     case (EXTOP_PREFIX << 8) | TO_BCD_OP:
     default:
+      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
       break;
   }
 
