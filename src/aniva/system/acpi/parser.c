@@ -412,6 +412,7 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
   uint8_t* code_ptr = context->code;
 
   acpi_invocation_t* invocation = context->invocation;
+  acpi_ns_node_t* ctx_handle = context->ctx_handle;
 
   // ayo how thefuq did this come to be??
   if (block->program_counter >= block->program_counter_limit) {
@@ -420,20 +421,16 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
 
   /*
    * NOTE: this is for testing, and should be removed once that is complete
-   */
   for (;;) {
-    if (acpi_is_name(code_ptr[block->program_counter])) {
-      putch(code_ptr[block->program_counter]);
-    } else {
-      putch('.');
-    }
-    block->program_counter++;
-    if (block->program_counter >= block->program_counter_limit) {
+    putch(code_ptr[block->program_counter]);
+    if (block->program_counter++ >= block->program_counter_limit) {
       break;
     }
   }
 
   kernel_panic("FINISHED");
+   */
+
 
   print("stack type: ");
   println(to_string(stack->type));
@@ -441,6 +438,7 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
   switch (stack->type) {
     case ACPI_INTERP_STATE_POPULATE_STACKITEM:
       if (block->program_counter != block->program_counter_limit) {
+        parser_set_mode(g_parser_ptr, APM_EXEC);
         return parser_parse_acpi_state(state);
       }
       acpi_state_pop_blk_stack(state);
@@ -499,10 +497,12 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
       break;
     case ACPI_INTERP_STATE_NODE_STACKITEM: {
         int mode_idx = state->operand_sp - stack->opstack_frame;
+        print("node_arg_mode: ");
         println(to_string(stack->node_opcode.node_arg_modes[mode_idx]));
         if (stack->node_opcode.node_arg_modes[mode_idx] == 0) {
+          kernel_panic("reached the end of the node stackitem!");
           acpi_operand_t* op = &state->operand_stack_base[stack->opstack_frame];
-          parser_parse_node(stack->node_opcode.node_opcode_code, state, op, context->ctx_handle);
+          parser_parse_node(stack->node_opcode.node_opcode_code, state, op, ctx_handle);
           acpi_state_pop_opstack_n(state, mode_idx);
           acpi_state_pop_stack(state);
           return 0;
@@ -575,6 +575,7 @@ int parser_parse_acpi_state(acpi_state_t* state) {
   uint8_t* code_ptr = context->code;
 
   acpi_invocation_t* invocation = context->invocation;
+  acpi_ns_node_t* ctx_handle = context->ctx_handle;
 
   int pc = block->program_counter;
   int opcode_pc = pc;
@@ -673,26 +674,38 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     }
     parser_advance_block_pc(state, pc);
 
-    bool should_pass_result = true;
+    bool should_pass_result = parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_EXPECT_RESULT);
 
     if (g_parser_ptr->m_mode == APM_DATA) {
       // nothing yet
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_OPERAND_OBJECT;
       op->obj.var_type = ACPI_LAZY_HANDLE;
-      op->obj.unresolved_aml.unresolved_context_handle = context->ctx_handle;
+      op->obj.unresolved_aml.unresolved_context_handle = ctx_handle;
       op->obj.unresolved_aml.unres_aml_p = code_ptr + opcode_pc;
-
-    } else if (g_parser_ptr->m_mode == APM_UNRESOLVED && should_pass_result) {
+    } else if (!parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_RESOLVE_NAME) && should_pass_result) {
+      // here we shouldn't resolve the name, but just 
+      // yeet it to the opstack lol
       if (acpi_operand_stack_ensure_capacity(state) < 0) {
         return -1;
       }
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_UNRESOLVED_NAME;
-      op->unresolved_aml.unresolved_context_handle = context->ctx_handle;
+      op->unresolved_aml.unresolved_context_handle = ctx_handle;
       op->unresolved_aml.unres_aml_p = code_ptr + opcode_pc;
     } else {
-      acpi_ns_node_t* handle = acpi_resolve_node(context->ctx_handle, &aml_name);
+      println("PRE resolve");
+      print("absolute: ");
+      println(aml_name.m_absolute ? "true" : "false");
+      print("size: ");
+      println(to_string(aml_name.m_size));
+      print("itterator: ");
+      println(to_string((uintptr_t)aml_name.m_itterator_p));
+      print("end: ");
+      println(to_string((uintptr_t)aml_name.m_end_p));
+      print("height: ");
+      println(to_string(aml_name.m_scope_height));
+      acpi_ns_node_t* handle = acpi_resolve_node(ctx_handle, &aml_name);
 
       if (!handle) {
         // TODO: handle edge-case
@@ -777,7 +790,7 @@ int parser_parse_acpi_state(acpi_state_t* state) {
       break;
     case SCOPE_OP:
       // TODO: first node seems to be a SCOPE_OP, so lets impl this one first
-      handle_scope_op(state, code_ptr, limit, opcode_pc, pc, context->ctx_handle, context->segm);
+      handle_scope_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm);
       break;
     case (EXTOP_PREFIX << 8) | DEVICE:
     case (EXTOP_PREFIX << 8) | PROCESSOR:

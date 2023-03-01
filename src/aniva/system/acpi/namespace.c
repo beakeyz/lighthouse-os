@@ -140,15 +140,19 @@ int acpi_parse_aml_name(acpi_aml_name_t* name, const uint8_t* data) {
     itteration++;
   } else {
     if (!acpi_is_name(*itteration)) {
-      kernel_panic("NOT A NAME");
       return -1;
     }
+    print("it: ");
+    putch(*itteration);
+    println("");
     segs = 1;
   }
+
+  println(to_string(segs));
   
   name->m_should_search_parent_scopes = (name->m_absolute == false && name->m_scope_height == 0 && segs == 1);
-  name->m_itterator_p = itteration;
   name->m_start_p = start;
+  name->m_itterator_p = itteration;
   name->m_end_p = itteration + 4 * segs;
   name->m_size = name->m_end_p - name->m_start_p;
   return 0;

@@ -18,6 +18,11 @@ enum acpi_parser_mode {
   APM_IMMEDIATE_DWORD,
 };
 
+#define PARSER_MODE_FLAG_EXPECT_RESULT 1
+#define PARSER_MODE_FLAG_RESOLVE_NAME 2
+#define PARSER_MODE_FLAG_ALLOW_UNRESOLVED 4
+#define PARSER_MODE_FLAG_PARSE_INVOCATION 8
+
 // TODO: fill structure
 // TODO: should the acpi parser have its own heap?
 typedef struct acpi_parser {
@@ -37,6 +42,7 @@ typedef struct acpi_parser {
   size_t m_ns_max_size;
 
   spinlock_t* m_mode_lock;
+  uint8_t m_mode_flags;
   enum acpi_parser_mode m_mode;
 
 } acpi_parser_t;
@@ -72,17 +78,55 @@ static ALWAYS_INLINE ANIVA_STATUS parser_advance_block_pc(acpi_state_t* state, i
   return ANIVA_FAIL;
 }
 
+static ALWAYS_INLINE bool parser_is_mode(acpi_parser_t* parser, enum acpi_parser_mode mode) {
+  return (parser->m_mode == mode);
+}
+
+static ALWAYS_INLINE void parser_set_flags(acpi_parser_t* parser, uint8_t flags) {
+  parser->m_mode_flags = flags;
+}
+
+static ALWAYS_INLINE void parser_set_flag(acpi_parser_t* parser, uint8_t flag) {
+  parser->m_mode_flags |= flag;
+}
+
+static ALWAYS_INLINE void parser_clear_flag(acpi_parser_t* parser, uint8_t flag) {
+  parser->m_mode_flags &= ~flag;
+}
+
+static ALWAYS_INLINE bool parser_has_flags(acpi_parser_t* parser, uint8_t flags) {
+  return (parser->m_mode_flags & flags) != 0;
+}
+
 // FIXME: is this locking redundant?
 static ALWAYS_INLINE void parser_set_mode(acpi_parser_t* parser, enum acpi_parser_mode mode) {
   lock_spinlock(parser->m_mode_lock);
 
   parser->m_mode = mode;
 
-  unlock_spinlock(parser->m_mode_lock);
-}
+  switch (mode) {
+    case APM_OBJECT:
+      parser_set_flags(parser, PARSER_MODE_FLAG_EXPECT_RESULT | PARSER_MODE_FLAG_RESOLVE_NAME | PARSER_MODE_FLAG_PARSE_INVOCATION);
+      break;
+    case APM_EXEC:
+      parser_set_flags(parser, PARSER_MODE_FLAG_RESOLVE_NAME | PARSER_MODE_FLAG_PARSE_INVOCATION);
+      break;
+    case APM_REFERENCE:
+      parser_set_flags(parser, PARSER_MODE_FLAG_EXPECT_RESULT | PARSER_MODE_FLAG_RESOLVE_NAME);
+      break;
+    case APM_OPTIONAL_REFERENCE:
+      parser_set_flags(parser, PARSER_MODE_FLAG_EXPECT_RESULT | PARSER_MODE_FLAG_RESOLVE_NAME | PARSER_MODE_FLAG_ALLOW_UNRESOLVED);
+      break;
+    case APM_DATA:
+    case APM_UNRESOLVED:
+    case APM_IMMEDIATE_BYTE:
+    case APM_IMMEDIATE_WORD:
+    case APM_IMMEDIATE_DWORD:
+      parser_set_flags(parser, PARSER_MODE_FLAG_EXPECT_RESULT);
+      break;
+  }
 
-static ALWAYS_INLINE bool parser_is_mode(acpi_parser_t* parser, enum acpi_parser_mode mode) {
-  return (parser->m_mode == mode);
+  unlock_spinlock(parser->m_mode_lock);
 }
 
 extern acpi_parser_t *g_parser_ptr;
