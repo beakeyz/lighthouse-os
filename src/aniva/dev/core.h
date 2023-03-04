@@ -4,6 +4,7 @@
 #include <libk/stddef.h>
 
 struct aniva_driver;
+struct dev_manifest;
 
 typedef enum DRIVER_LOAD_UNLOAD_INIT_METHOD {
   CALL,
@@ -20,39 +21,25 @@ typedef enum DEV_TYPE {
   DT_OTHER
 } DEV_TYPE_t;
 
+typedef const char* dev_url_t;
+
 #define MAX_DRIVER_NAME_LENGTH 32
 #define MAX_DRIVER_DESCRIPTOR_LENGTH 256
 
-void init_aniva_driver_register();
+void init_aniva_driver_registry();
 
 // TODO: load driver from file
 
 /*
  * load a driver from its structure in RAM
  */
-void load_driver(struct aniva_driver* driver);
+void load_driver(struct dev_manifest* driver);
 
 /*
  * unload a driver from its structure in RAM
  */
-void unload_driver(struct aniva_driver* driver);
+void unload_driver(struct dev_manifest* driver);
 
 bool is_driver_loaded(struct aniva_driver* handle);
-
-#define REGISTER_DRIVER(name, descriptor, version, major, minor, init, entry, exit, drv_msg) \
-  struct aniva_driver aniva_drvr_skeleton = {                                          \
-  .m_name = (name),                                                           \
-  .m_descriptor = (descriptor),                                               \
-  .m_version = (version),                                                       \
-  .n_ident = {                                                                \
-    .m_major = (major),                                                         \
-    .m_minor = (minor),                                                         \
-  },                                                                                \
-  .f_init = (init)                                                                  \
-  .f_entry = (entry),                                                           \
-  .f_exit = (exit),                                                                          \
-  .f_drv_msg = (drv_msg)                                                        \
-  .m_type = DRIVER                                                             \
-  }
 
 #endif //__ANIVA_KDEV_CORE__

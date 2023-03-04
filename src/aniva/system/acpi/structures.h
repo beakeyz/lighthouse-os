@@ -2,6 +2,8 @@
 #define __ANIVA_ACPI_STRUCTURES__
 #include <libk/stddef.h>
 
+#pragma pack(1)
+
 #define ACPI_ES_TIMER 0x0001
 #define ACPI_ES_BUS_MASTER 0x0010
 #define ACPI_ES_GLOBAL 0x0020

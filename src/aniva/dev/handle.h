@@ -6,8 +6,8 @@
  * rely on, but not necicarily change...
  */
 
-typedef struct handle {
+typedef void* handle_t;
 
-} handle_t;
+handle_t get_module_handle();
 
 #endif // !

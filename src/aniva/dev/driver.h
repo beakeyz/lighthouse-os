@@ -3,11 +3,15 @@
 #include <libk/stddef.h>
 #include "core.h"
 
-typedef size_t driver_version_t;
-
 typedef void (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
 typedef int (*ANIVA_DRIVER_DRV_MSG) (char*, ...);
+
+typedef struct driver_version {
+  uint8_t maj;
+  uint8_t min;
+  uint16_t bump;
+} driver_version_t;
 
 typedef struct driver_identifier {
   uint8_t m_minor;
