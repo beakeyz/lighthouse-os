@@ -90,7 +90,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   initialize_proc_core();
 
-  init_aniva_driver_register();
+  init_aniva_driver_registry();
 
   init_scheduler();
 
