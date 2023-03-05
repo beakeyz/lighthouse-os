@@ -4,6 +4,7 @@
 #include "interupts/control/interrupt_control.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
+#include "libk/hive.h"
 #include "libk/kevent/core.h"
 #include "proc/ipc/thr_intrf.h"
 #include "system/acpi/acpi.h"
@@ -121,35 +122,19 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 }
 
 void aniva_task(queue_t *buffer) {
-  println("creating new test heap");
 
-  const vaddr_t new_heap_vbase = 0xffffffff60000000UL;
-  zone_allocator_t* new_heap = create_zone_allocator(15 * Kib, new_heap_vbase, GHEAP_KERNEL);
+  println("");
+  println("testing hive");
 
-  void* allocation1 = new_heap->m_heap->f_allocate(new_heap, 10);
-  void* allocation2 = new_heap->m_heap->f_allocate(new_heap, 10);
+  hive_t* test_hive = create_hive("root_test");
 
-  *(uintptr_t*)allocation1 = 6969;
+  uint64_t test_data1 = 69;
+  hive_add_entry(test_hive, &test_data1, "data1");
 
-  println(to_string((uintptr_t)allocation1));
-  println(to_string(*(uintptr_t*)allocation1));
+  uint64_t test_data2 = 420;
+  hive_add_entry(test_hive, &test_data2, "data2");
 
-  println("------------------");
-  *(uintptr_t*)allocation2 = 420420;
-
-  println(to_string((uintptr_t)allocation2));
-  println(to_string(*(uintptr_t*)allocation2));
-
-  new_heap->m_heap->f_sized_deallocate(new_heap, allocation1, 10);
-
-  println("------------------");
-  println(to_string((uintptr_t)allocation1));
-  println(to_string(*(uintptr_t*)allocation1));
-  void* allocation3 = new_heap->m_heap->f_allocate(new_heap, 10);
-  *(uintptr_t*)allocation3 = 6979;
-  println("------------------");
-  println(to_string((uintptr_t)allocation3));
-  println(to_string(*(uintptr_t*)allocation3));
+  
 
   kernel_panic("END_OF_ANIVA_TASK (TEST)");
 }

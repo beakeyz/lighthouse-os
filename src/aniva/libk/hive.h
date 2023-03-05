@@ -1,5 +1,6 @@
 #ifndef __ANIVA_HIVE__
 #define __ANIVA_HIVE__
+#include "libk/linkedlist.h"
 #include <libk/stddef.h>
 #include <libk/error.h>
 
@@ -10,26 +11,90 @@
  * importance.
  *
  * One issue is that we need this to be efficient, which will be a challenge and maybe even impossible...
+ * 
+ *     hive0 -> hive0_entry1 -> hive1 -> hive1_entry1
+ *              |   |               \-> hive1_entry2
+ *          entry1  entry2
  */
 
 struct hive_entry;
 struct hive;
 
+typedef enum HIVE_ENTRY_TYPE {
+  HIVE_ENTRY_TYPE_DATA = 0,
+  HIVE_ENTRY_TYPE_HOLE
+} HIVE_ENTRY_TYPE_t;
+
+#define HIVE_PART_SEPERATOR '.'
+
+typedef char* hive_url_part_t;
+
+/*
+ * An entry can either be a DATA_ENTRY (which holds a pointer), or an HOLE_ENTRY (which holds a pointer to another hive)
+ */
 typedef struct hive_entry {
-  struct hive_entry* m_entries[6];
-  size_t m_height;
-  void* m_data;
+
+  HIVE_ENTRY_TYPE_t m_type;
+
+  union {
+    struct {
+      void* m_data;
+    };
+    struct {
+      struct hive* m_hole;
+    };
+  };
+
+  hive_url_part_t m_entry_part;
 } hive_entry_t;
 
 typedef struct hive {
-  hive_entry_t *m_root_entry;
-  hive_entry_t *m_highest_entry;
-  size_t m_entries;
+  list_t *m_entries;
+  size_t m_hole_count;
+
+  hive_url_part_t m_url_part;
 } hive_t;
 
-hive_t *create_hive();
-ErrorOrPtr hive_get_highest_entry(hive_t* hive);
+/*
+ * Allocate and init a hive struct
+ */
+hive_t *create_hive(hive_url_part_t root_part);
 
+/*
+ * Add some data to a hive
+ */
+ErrorOrPtr hive_add_entry(hive_t* hive, void* data, hive_url_part_t part);
 
+/*
+ * Follows the path and inserts a hole to another
+ * hive there
+ */
+ErrorOrPtr hive_add_hole(hive_t* root, const char* path);
+
+/*
+ * Add a path to a hive, using the root of the hive
+ */
+hive_entry_t* hive_add_path(hive_t* root, const char* path);
+
+/*
+ * Find data in the hive based on the path
+ */
+void* hive_get(hive_t* root, const char* path);
+
+/*
+ * Find the path of an entry
+ */
+const char* hive_get_path(hive_t* root, void* data);
+
+/*
+ * Walk the complete hive and call the itterate_fn on each entry
+ *
+ * --this is a recursive function--
+ */
+ErrorOrPtr hive_walk(hive_t* root, void (*itterate_fn)(void* hive, void* data));
+
+static ALWAYS_INLINE bool hive_entry_is_hole(hive_entry_t* entry) {
+  return (entry->m_type == HIVE_ENTRY_TYPE_HOLE && entry->m_hole != nullptr);
+}
 
 #endif //__ANIVA_HIVE__

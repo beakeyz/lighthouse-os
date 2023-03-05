@@ -19,6 +19,7 @@ const static DEV_TYPE_t dev_types[] = {
 
 void init_aniva_driver_registry() {
   // TODO:
+
 }
 
 /*

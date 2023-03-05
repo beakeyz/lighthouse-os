@@ -1,6 +1,7 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
+#include "dev/handle.h"
 #include <libk/stddef.h>
 
 struct aniva_driver;
@@ -40,6 +41,14 @@ void load_driver(struct dev_manifest* driver);
  */
 void unload_driver(struct dev_manifest* driver);
 
+/*
+ * Check if the driver is installed into the grid
+ */
 bool is_driver_loaded(struct aniva_driver* handle);
+
+/*
+ * Find the handle to a driver through its url
+ */
+handle_t resolve_driver_url(dev_url_t url);
 
 #endif //__ANIVA_KDEV_CORE__
