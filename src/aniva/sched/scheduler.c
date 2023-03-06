@@ -402,6 +402,9 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
       case NO_CONTEXT:
         // TODO: there is an invalid thread in the pool, handle it.
         break;
+      case SLEEPING:
+        // TODO: just ignore this thread? we need some way to wake it up again
+        break;
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
         found = true;

@@ -22,7 +22,7 @@ typedef struct aniva_driver {
   const char m_name[MAX_DRIVER_NAME_LENGTH];
   const char m_descriptor[MAX_DRIVER_DESCRIPTOR_LENGTH];
   driver_version_t m_version;
-  driver_identifier_t n_ident;
+  driver_identifier_t m_ident;
 
   ANIVA_DRIVER_INIT f_init;
   ANIVA_DRIVER_EXIT f_exit;
@@ -32,6 +32,7 @@ typedef struct aniva_driver {
   ANIVA_DRIVER_DRV_MSG f_drv_msg;
 
   DEV_TYPE_t m_type;
+  uint32_t m_port;
   // TODO:
 } aniva_driver_t;
 

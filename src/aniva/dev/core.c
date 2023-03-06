@@ -1,4 +1,5 @@
 #include "core.h"
+#include "dev/debug/test.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/manifest.h"
 #include "libk/error.h"
@@ -44,12 +45,19 @@ void register_aniva_base_drivers() {
 
   // load em 1 by 1
 
-  dev_manifest_t* ps2_keyboard_manifest = create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, nullptr, 0, "io.ps2", 0);
+  dev_manifest_t* manifests_to_load[] = {
+    create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, nullptr, 0, "io.ps2", 0),
+    create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, nullptr, 0, "diagnostics.debug", 0),
+  };
 
-  ErrorOrPtr result = load_driver(ps2_keyboard_manifest);
+  const size_t load_count = sizeof(manifests_to_load) / sizeof(dev_manifest_t*) ;
 
-  if (result.m_status == ANIVA_FAIL) {
-    kernel_panic("failed to load core driver");
+  for (uintptr_t i = 0; i < load_count; i++) {
+    ErrorOrPtr result = load_driver(manifests_to_load[i]);
+
+    if (result.m_status == ANIVA_FAIL) {
+      kernel_panic("failed to load core driver");
+    }
   }
 
   resume_scheduler();

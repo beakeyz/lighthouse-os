@@ -25,11 +25,12 @@ aniva_driver_t* create_driver(
   ret->m_version = version;
 
   // TODO: check if this identifier isn't taken
-  ret->n_ident = identifier;
+  ret->m_ident = identifier;
   ret->f_init = init;
   ret->f_exit = exit;
   ret->f_drv_msg = drv_msg;
   ret->m_type = type;
+  ret->m_port = 0;
 
   return ret;
 }
@@ -47,8 +48,8 @@ ErrorOrPtr bootstrap_driver(aniva_driver_t* driver) {
   // hihi we're fucking with the scheduler
   pause_scheduler();
 
-  // TODO: fix port
-  proc_add_thread(sched_get_kernel_proc(), create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, (char*)driver->m_name, 0));
+  // TODO: fix port assignment
+  proc_add_thread(sched_get_kernel_proc(), create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, (char*)driver->m_name, driver->m_port));
 
   resume_scheduler();
 

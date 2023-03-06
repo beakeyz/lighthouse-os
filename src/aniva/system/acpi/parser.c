@@ -60,6 +60,9 @@ void init_acpi_parser(acpi_parser_t* parser) {
     kernel_panic("Unable to find ACPI table FADT!");
   }
 
+  return;
+
+  // FIXME: fix the acpi (AML) parser ;-;
   parser->m_ns_root_node = acpi_create_root();
 
   dsdt_table = (void*)(uintptr_t)parser->m_fadt->dsdt_ptr;

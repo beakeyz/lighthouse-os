@@ -20,7 +20,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t 
 
   ret->m_type = handle->m_type;
   ret->m_check_version = handle->m_version;
-  ret->m_check_ident = handle->n_ident;
+  ret->m_check_ident = handle->m_ident;
 
   ret->m_flags = flags;
 

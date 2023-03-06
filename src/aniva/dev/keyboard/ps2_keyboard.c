@@ -7,32 +7,27 @@
 #include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/io.h"
+#include "mem/heap.h"
+#include "proc/core.h"
 #include "system/processor/registers.h"
 
 #define PS2_KB_IRQ_VEC 1
 
 void ps2_keyboard_entry();
 int ps2_keyboard_exit();
-
 int ps2_keyboard_msg(char*, ...);
-
 registers_t* ps2_keyboard_irq_handler(registers_t* regs);
 
+// TODO: finish this driver
 const aniva_driver_t g_base_ps2_keyboard_driver = {
   .m_name = "ps2 keyboard",
   .m_type = DT_IO,
-  .n_ident = {
-    .m_minor = 0,
-    .m_major = 0,
-  },
-  .m_version = {
-    .maj = 0,
-    .min = 0,
-    .bump = 1
-  },
+  .m_ident = DRIVER_IDENT(0, 0),
+  .m_version = DRIVER_VERSION(0, 0, 1),
   .f_exit = ps2_keyboard_exit,
   .f_init = ps2_keyboard_entry,
-  .f_drv_msg = ps2_keyboard_msg
+  .f_drv_msg = ps2_keyboard_msg,
+  .m_port = 0
 };
 
 void ps2_keyboard_entry() {
@@ -65,6 +60,10 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
   println("called keyboard driver!");
 
   draw_char(69, y_index, 'K');
+
+  uintptr_t* data = kmalloc(sizeof(uintptr_t));
+  *data = 1;
+  send_packet_to_socket(1, data, sizeof(uintptr_t));
 
   y_index+= 9;
 

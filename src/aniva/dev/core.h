@@ -64,4 +64,8 @@ bool is_driver_loaded(struct aniva_driver* handle);
  */
 struct aniva_driver* get_driver(dev_url_t url);
 
+#define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
+
+#define DRIVER_IDENT(major, minor) {.m_major = major, .m_minor = minor} 
+
 #endif //__ANIVA_KDEV_CORE__
