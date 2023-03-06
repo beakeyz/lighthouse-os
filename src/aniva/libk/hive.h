@@ -77,11 +77,6 @@ ErrorOrPtr hive_add_hole(hive_t* root, const char* path);
 void hive_add_holes(hive_t* root, const char* path);
 
 /*
- * Add a path to a hive, using the root of the hive
- */
-hive_entry_t* hive_add_path(hive_t* root, const char* path);
-
-/*
  * Find data in the hive based on the path
  */
 void* hive_get(hive_t* root, const char* path);
@@ -92,11 +87,16 @@ void* hive_get(hive_t* root, const char* path);
 const char* hive_get_path(hive_t* root, void* data);
 
 /*
+ * Checks wether this pointer is contained in the hive
+ */
+bool hive_contains(hive_t* root, void* data);
+
+/*
  * Walk the complete hive and call the itterate_fn on each entry
  *
  * --this is a recursive function--
  */
-ErrorOrPtr hive_walk(hive_t* root, void (*itterate_fn)(void* hive, void* data));
+ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(void* hive, void* data));
 
 static ALWAYS_INLINE bool hive_entry_is_hole(hive_entry_t* entry) {
   return (entry->m_type == HIVE_ENTRY_TYPE_HOLE && entry->m_hole != nullptr);

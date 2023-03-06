@@ -194,7 +194,24 @@ const char* hive_get_path(hive_t* root, void* data) {
   return nullptr;
 }
 
-ErrorOrPtr hive_walk(hive_t* root, void (*itterate_fn)(void* hive, void* data)) {
+bool hive_contains(hive_t* root, void* data) {
+
+  FOREACH(i, root->m_entries) {
+    hive_entry_t* entry = i->data;
+
+    if (hive_entry_is_hole(entry)) {
+      return hive_contains(entry->m_hole, data);
+    } 
+
+    if (entry->m_data == data) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(void* hive, void* data)) {
 
   FOREACH(i, root->m_entries) {
     hive_entry_t* entry = i->data;

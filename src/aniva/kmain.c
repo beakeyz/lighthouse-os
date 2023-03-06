@@ -162,5 +162,35 @@ void aniva_task(queue_t *buffer) {
 
   println(to_string(*(uintptr_t*)deep_test_data));
 
+  println("------- contains -------");
+
+  bool has = hive_contains(test_hive, &test_data3);
+
+  if (has) {
+    println("found entry");
+  } else {
+    println("could not find entry");
+  }
+
+  println("------- invalid -------");
+
+  void* invalid_data = hive_get(test_hive, "?.s.e.x.?");
+
+  if (invalid_data) {
+    println("non-null returned when we entered invalid path?");
+  } else {
+    println("invalid_data test passed!");
+  }
+
+  println("------- absolute -------");
+
+  void* absolute_data = hive_get(test_hive, "root_test.test_hole.data3");
+
+  if (absolute_data) {
+    println("found data");
+  } else {
+    println("could not find data");
+  }
+
   kernel_panic("END_OF_ANIVA_TASK (TEST)");
 }
