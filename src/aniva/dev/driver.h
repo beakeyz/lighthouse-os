@@ -26,6 +26,8 @@ typedef struct aniva_driver {
 
   ANIVA_DRIVER_INIT f_init;
   ANIVA_DRIVER_EXIT f_exit;
+
+  // TODO: make an actual framework for this lmao
   // FIXME: what arguments are best to pass here?
   ANIVA_DRIVER_DRV_MSG f_drv_msg;
 
@@ -44,6 +46,16 @@ aniva_driver_t* create_driver(
   DEV_TYPE_t type
   );
 
+/*
+ * Check properties of the driver to validate its integrity
+ * TODO: more secure checking
+ */
 bool validate_driver(aniva_driver_t* driver);
+
+/*
+ * Create a thread for this driver in the kernel process
+ * and run the entry
+ */
+ErrorOrPtr bootstrap_driver(aniva_driver_t* driver);
 
 #endif //__ANIVA_DRIVER__

@@ -102,8 +102,8 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   set_hba_interrupts(device, true);
 
-  InterruptHandler_t* _handler = init_interrupt_handler(device->m_identifier->interrupt_line, I8259, ahci_irq_handler);
-  add_handler(_handler);
+  InterruptHandler_t* _handler = create_interrupt_handler(device->m_identifier->interrupt_line, I8259, ahci_irq_handler);
+  interrupts_add_handler(_handler);
 
   draw_char(8, 16, 'B');
   return reset_hba(device);

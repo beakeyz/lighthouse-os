@@ -2,6 +2,10 @@
 #include <mem/heap.h>
 #include <system/asm_specifics.h>
 #include "core.h"
+#include "dev/debug/serial.h"
+#include "libk/error.h"
+#include "libk/queue.h"
+#include "sched/scheduler.h"
 #include "thread.h"
 #include "proc/ipc/tspckt.h"
 #include "interupts/interupts.h"
@@ -9,7 +13,7 @@
 
 static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr);
 
-threaded_socket_t *create_threaded_socket(thread_t* parent, uint32_t port, size_t max_size_per_buffer) {
+threaded_socket_t *create_threaded_socket(thread_t* parent, FuncPtr exit_fn, uint32_t port, size_t max_size_per_buffer) {
 
   if (max_size_per_buffer <= MIN_SOCKET_BUFFER_SIZE) {
     return nullptr;
@@ -17,6 +21,7 @@ threaded_socket_t *create_threaded_socket(thread_t* parent, uint32_t port, size_
 
   threaded_socket_t *ret = kmalloc(sizeof(threaded_socket_t));
   ret->m_port = port;
+  ret->m_exit_fn = exit_fn;
   ret->m_state = THREADED_SOCKET_STATE_LISTENING;
   ret->m_max_size_per_buffer = max_size_per_buffer;
   ret->m_buffers = create_queue(SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT);
@@ -81,6 +86,41 @@ tspckt_t *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buf
       return response_ptr;
     }
   }
+}
+
+void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
+
+  // pre-entry
+  queue_t* buffer = (queue_t*)args;
+
+  ASSERT_MSG(buffer != nullptr, "Could not find a buffer while starting a socket");
+  ASSERT_MSG(thread->m_socket != nullptr, "Started a thread as a socket, whilst it does not act like one (thread->m_socket == nullptr)");
+
+  // call the actual entrypoint of the thread
+  thread->m_real_entry(args);
+
+  // when the entry of a socket exits, we 
+  // idle untill we recieve signals
+  thread_set_state(thread, SLEEPING);
+
+  for (;;) {
+    tspckt_t* packet = queue_dequeue(buffer);
+
+    if (validate_tspckt(packet)) {
+      // pass the message through to the socket
+    }
+  }
+
+  // if we break this loop, we finally exit the thread
+  thread->m_socket->m_exit_fn();
+
+  thread_set_state(thread, DYING);
+
+  // yield will enable interrupts again
+  scheduler_yield();
+
+  // yield will enable interrupts again
+  scheduler_yield();
 }
 
 void socket_set_flag(threaded_socket_t *ptr, THREADED_SOCKET_FLAGS_t flag, bool value) {

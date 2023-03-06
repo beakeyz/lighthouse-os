@@ -27,17 +27,17 @@ typedef struct InterruptHandler {
   InterruptController_t* m_controller;
 } InterruptHandler_t;
 
-InterruptHandler_t* init_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback);
-InterruptHandler_t init_unhandled_interrupt_handler(uint16_t int_num);
+InterruptHandler_t* create_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback);
+InterruptHandler_t create_unhandled_interrupt_handler(uint16_t int_num);
 
 // init 0.0
 void init_interupts();
 
 // add
-bool add_handler (InterruptHandler_t* handler_ptr);
+bool interrupts_add_handler (InterruptHandler_t* handler_ptr);
 
 // remove
-void remove_handler (const uint16_t int_num);
+void interrupts_remove_handler (const uint16_t int_num);
 
 // main entrypoint
 registers_t* interrupt_handler (struct registers* regs);

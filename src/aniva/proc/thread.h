@@ -11,10 +11,16 @@
 #include "core.h"
 
 struct proc;
+struct thread;
 struct threaded_socket;
 
 typedef void (*ThreadEntry) (
   uintptr_t arg
+);
+
+typedef void (*ThreadEntryWrapper) (
+  uintptr_t args,
+  struct thread* thread
 );
 
 // TODO: thread uid?
@@ -22,6 +28,7 @@ typedef struct thread {
   struct thread* m_self;
 
   ThreadEntry m_real_entry;
+  ThreadEntryWrapper m_entry_wrapper;
 
   kContext_t m_context;
   FpuState m_fpu_state;
@@ -47,8 +54,9 @@ typedef struct thread {
 
 /*
  * create a thread structure
+ * when passing NULL to ThreadEntryWrapper, we use the default
  */
-thread_t *create_thread(FuncPtr, uintptr_t, char[32], bool); // make this sucka
+thread_t *create_thread(FuncPtr, ThreadEntryWrapper, uintptr_t, char[32], bool); // make this sucka
 
 /*
  * create a thread that is supposed to execute code for a process
@@ -62,7 +70,7 @@ thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, char[32]);
  * kind of thread-pool in the processor, so TODO?
  * )
  */
-thread_t *create_thread_as_socket(struct proc*, FuncPtr, char[32], uint32_t);
+thread_t *create_thread_as_socket(struct proc*, FuncPtr, FuncPtr, char[32], uint32_t);
 
 /*
  * set up the thread and prepare to switch context
@@ -87,7 +95,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *);
 void thread_set_state(thread_t *, thread_state_t);
 
 ANIVA_STATUS kill_thread(thread_t *);
-ANIVA_STATUS clean_thread(thread_t *);
+ANIVA_STATUS destroy_thread(thread_t *);
 void thread_entry_wrapper(uintptr_t args, thread_t* thread);
 
 // wrappers =D

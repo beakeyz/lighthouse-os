@@ -5,6 +5,10 @@
 
 struct aniva_driver;
 
+// TODO: add flags
+#define DEV_MANIFEST_FLAGS_WANTS_PROCESS 1
+#define DEV_MANIFEST_FLAGS_HAS_DEPENDENCIES 2
+
 typedef struct dev_manifest {
   aniva_driver_t* m_handle;
   aniva_driver_t** m_dependencies;
@@ -17,6 +21,9 @@ typedef struct dev_manifest {
   driver_identifier_t m_check_ident;
   driver_version_t m_check_version;
 
+  DEV_TYPE_t m_type;
+
+  uint8_t m_flags;
   // timestamp
   // hash
   // vendor
@@ -24,5 +31,9 @@ typedef struct dev_manifest {
   // driver handle
   // binary validator
 } dev_manifest_t;
+
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t dep_count, dev_url_t url, uint8_t flags);
+
+bool is_manifest_valid(dev_manifest_t* manifest);
 
 #endif // !__ANIVA_DEV_MANIFEST__

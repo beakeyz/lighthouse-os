@@ -35,4 +35,8 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 void proc_add_thread(proc_t* proc, struct thread* thread);
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);
 
+static ALWAYS_INLINE bool is_kernel_proc(proc_t* proc) {
+  return (proc->m_id == 0);
+}
+
 #endif // !__ANIVA_PROC__

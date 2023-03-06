@@ -230,7 +230,7 @@ static void __unimplemented_EXCEPTION() {
 */
 
 InterruptHandler_t *
-init_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
+create_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
 
   InterruptHandler_t *ret = kmalloc(sizeof(InterruptHandler_t));
 
@@ -249,7 +249,7 @@ init_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interru
 }
 
 // ???
-InterruptHandler_t init_unhandled_interrupt_handler(uint16_t int_num) {
+InterruptHandler_t create_unhandled_interrupt_handler(uint16_t int_num) {
   InterruptHandler_t ret = {
     .fHandler = nullptr,
     .m_int_num = int_num,
@@ -553,7 +553,7 @@ void init_interupts() {
 */
 
 // TODO: do stuff
-bool add_handler(InterruptHandler_t *handler_ptr) {
+bool interrupts_add_handler(InterruptHandler_t *handler_ptr) {
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
@@ -569,7 +569,7 @@ bool add_handler(InterruptHandler_t *handler_ptr) {
   // opperation alltogether and let the caller know it failed...
   if (handler) {
     if (handler->m_is_registerd) {
-      remove_handler(int_num);
+      interrupts_remove_handler(int_num);
     } else {
       success = false;
       goto skip_insert;
@@ -584,7 +584,7 @@ skip_insert:
   return success;
 }
 
-void remove_handler(const uint16_t int_num) {
+void interrupts_remove_handler(const uint16_t int_num) {
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 

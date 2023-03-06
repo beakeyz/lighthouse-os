@@ -6,6 +6,10 @@
 #include "libk/error.h"
 #include "libk/string.h"
 #include "interupts/interupts.h"
+#include "proc/proc.h"
+#include "sync/atomic_ptr.h"
+#include "system/asm_specifics.h"
+#include "system/processor/processor.h"
 #include <mem/heap.h>
 
 // how long this process takes to do it's shit
@@ -78,9 +82,17 @@ ANIVA_STATUS init_scheduler() {
 void start_scheduler(void) {
 
   sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
-  // yikes
+
   if (frame_ptr == nullptr) {
     return;
+  }
+
+  if (is_kernel_proc(frame_ptr->m_proc_to_schedule) && sched_get_kernel_proc() == nullptr) {
+    get_current_processor()->m_kernel_process = frame_ptr->m_proc_to_schedule;
+  } else {
+    // we might have just tried to initialize the kernel proc twice for this thread...
+    // or sm else thats just wrong
+    // FIXME:
   }
 
   // let's jump into the idle thread initially, so we can then
@@ -399,7 +411,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
         thread_set_state(next_thread, DEAD);
         break;
       case DEAD:
-        clean_thread(next_thread);
+        destroy_thread(next_thread);
         list_remove(thread_list_ptr, current_idx);
         break;
       case STOPPED:
@@ -459,4 +471,12 @@ thread_t *get_current_scheduling_thread() {
 
 thread_t *get_previous_scheduled_thread() {
   return (thread_t*)read_gs(GET_OFFSET(Processor_t , m_previous_thread));
+}
+
+proc_t* sched_get_kernel_proc() {
+  return (proc_t*)read_gs(GET_OFFSET(Processor_t, m_kernel_process));
+}
+
+bool sched_can_schedule() {
+  return (atomic_ptr_load(s_no_schedule) == false);
 }

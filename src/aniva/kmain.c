@@ -1,4 +1,5 @@
 #include <kmain.h>
+#include "dev/core.h"
 #include "dev/disk/storage_controller.h"
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
@@ -35,12 +36,6 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
-
-registers_t *thing(registers_t *regs) {
-  in8(0x60);
-  println("funnie");
-  return regs;
-}
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
@@ -89,15 +84,15 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // TODO: ATA/NVMe/IDE support?
   init_storage_controller();
 
-
   initialize_proc_core();
 
   init_aniva_driver_registry();
 
   init_scheduler();
 
+
   proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
-  proc_add_thread(aniva_proc, create_thread_as_socket(aniva_proc, aniva_task, "aniva_socket", 0));
+  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, aniva_task, NULL, "aniva_socket"));
 
   sched_add_proc(aniva_proc);
 
@@ -124,56 +119,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
 void aniva_task(queue_t *buffer) {
 
-  disable_interrupts();
+  register_aniva_base_drivers();
 
-  println("");
-  println("testing hive");
-
-  hive_t* test_hive = create_hive("root_test");
-
-  println("-------- data1 -------");
-  uint64_t test_data1 = 69;
-  Must(hive_add_entry(test_hive, &test_data1, "data1"));
-
-  println("-------- data2 -------");
-  uint64_t test_data2 = 420;
-  Must(hive_add_entry(test_hive, &test_data2, "data2"));
-
-  println("------- data3 -------");
-
-  uintptr_t test_data3 = 69420;
-  Must(hive_add_entry(test_hive, &test_data3, "test_hole.data3"));
-
-  println("------- data4 -------");
-
-  uintptr_t test_data4 = 50504;
-  Must(hive_add_entry(test_hive, &test_data4, "test_hole.data4"));
-
-  println("------- data5 -------");
-
-  uintptr_t test_data5 = 8008132;
-  Must(hive_add_entry(test_hive, &test_data5, "data5"));
-
-  println("------- data6 -------");
-
-  uintptr_t test_data6 = 1234567890;
-  Must(hive_add_entry(test_hive, &test_data6, "dev.pci.something.idk.veery_deep.data"));
-
-  const char* path = hive_get_path(test_hive, &test_data4);
-
-  if (path) {
-    println(path);
-  } else {
-    println("Could not find path!");
-  }
-
-  void* d = hive_get(test_hive, "dev.pci.something.idk.veery_deep.data");
-
-  if (d == nullptr) {
-    println("could not find entry");
-  } else {
-    println(to_string(*(uintptr_t*)d));
-  }
-
-  kernel_panic("END_OF_ANIVA_TASK (TEST)");
+  for (;;) {}
 }

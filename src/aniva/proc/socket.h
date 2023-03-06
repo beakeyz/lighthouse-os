@@ -24,18 +24,21 @@ typedef struct threaded_socket {
   uint32_t m_port;
   size_t m_max_size_per_buffer;
 
+  uintptr_t m_socket_flags;
+
   // FIXME: have a socket-specific buffer_queue struct that we can pass to threads
   queue_t* m_buffers;
+  FuncPtr m_exit_fn;
 
-  uintptr_t m_socket_flags;
   THREADED_SOCKET_STATE_t m_state;
+
   struct thread* m_parent;
 } threaded_socket_t;
 
 /*
  * create a socket in a thread
  */
-threaded_socket_t *create_threaded_socket(struct thread* parent, uint32_t port, size_t max_size_per_buffer);
+threaded_socket_t *create_threaded_socket(struct thread* parent, FuncPtr exit_fn, uint32_t port, size_t max_size_per_buffer);
 
 /*
  * destroy a socket and its resources
@@ -51,6 +54,11 @@ void socket_set_flag(threaded_socket_t *ptr, THREADED_SOCKET_FLAGS_t flag, bool 
  * get the value of a flag
  */
 bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
+
+/*
+ * The default entry wrapper when creating sockets
+ */ 
+void default_socket_entry_wrapper(uintptr_t args, struct thread* thread);
 
 // TODO: with timeout?
 

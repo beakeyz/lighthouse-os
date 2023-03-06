@@ -1,4 +1,9 @@
 #include "driver.h"
+#include "dev/debug/serial.h"
+#include "libk/error.h"
+#include "proc/proc.h"
+#include "proc/thread.h"
+#include "sched/scheduler.h"
 #include <mem/heap.h>
 #include <libk/string.h>
 
@@ -35,4 +40,17 @@ bool validate_driver(aniva_driver_t* driver) {
   }
 
   return true;
+}
+
+ErrorOrPtr bootstrap_driver(aniva_driver_t* driver) {
+
+  // hihi we're fucking with the scheduler
+  pause_scheduler();
+
+  // TODO: fix port
+  proc_add_thread(sched_get_kernel_proc(), create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, (char*)driver->m_name, 0));
+
+  resume_scheduler();
+
+  return Success(0);
 }

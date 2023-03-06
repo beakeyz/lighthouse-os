@@ -21,14 +21,15 @@
 struct threaded_socket;
 
 typedef enum thread_state {
-  INVALID = 0,
-  RUNNING,
-  RUNNABLE,
-  DYING,
-  DEAD,
-  STOPPED,
-  BLOCKED,
-  NO_CONTEXT,
+  INVALID = 0,      // not initialized
+  RUNNING,          // executing
+  RUNNABLE,         // can be executed by the scheduler
+  DYING,            // waiting to be cleaned up
+  DEAD,             // thread is destroyed, the scheduler can remove it from the pool
+  STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
+  BLOCKED,          // performing blocking operation
+  SLEEPING,         // waiting for anything to happen (i.e. signals, data)
+  NO_CONTEXT,       // waiting to recieve a context to run
 } thread_state_t;
 
 ANIVA_STATUS initialize_proc_core();

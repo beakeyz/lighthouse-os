@@ -5,9 +5,11 @@
 #include <mem/heap.h>
 #include "proc/proc.h"
 #include "libk/stack.h"
+#include "sched/scheduler.h"
 #include "socket.h"
 #include <libk/string.h>
 #include "core.h"
+#include "sync/atomic_ptr.h"
 #include <mem/heap.h>
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
@@ -16,9 +18,15 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribut
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
-thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthread) { // make this sucka
+thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
   thread->m_self = thread;
+
+  if (entry_wrapper == nullptr) {
+    thread->m_entry_wrapper = thread_entry_wrapper;
+  } else {
+    thread->m_entry_wrapper = entry_wrapper;
+  }
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = nullptr;
   thread->m_ticks_elapsed = 0;
@@ -44,7 +52,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, char name[32], bool kthre
   thread->m_real_entry = entry;
 
 
-  thread_set_entrypoint(thread, (FuncPtr) thread_entry_wrapper, data);
+  thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
   return thread;
 } // make this sucka
 
@@ -53,7 +61,7 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
     return nullptr;
   }
 
-  thread_t *t = create_thread(entry, args, name, (proc->m_id == 0));
+  thread_t *t = create_thread(entry, NULL, args, name, (proc->m_id == 0));
   t->m_parent_proc = proc;
   if (thread_prepare_context(t) == ANIVA_SUCCESS) {
     return t;
@@ -61,16 +69,35 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
   return nullptr;
 }
 
-thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, char name[32], uint32_t port) {
+thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, char name[32], uint32_t port) {
+  if (proc == nullptr || entry == nullptr) {
+    return nullptr;
+  }
 
-  threaded_socket_t *socket = create_threaded_socket(nullptr, port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
+  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
 
   // nullptr should mean that no allocation has been done
   if (socket == nullptr) {
     return nullptr;
   }
 
-  thread_t *ret = create_thread_for_proc(proc, entry, (uintptr_t)socket->m_buffers, name);
+  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, (uintptr_t)socket->m_buffers, name, (proc->m_id == 0));
+
+  // failed to create thread
+  if (!ret) {
+    destroy_threaded_socket(socket);
+    destroy_thread(ret);
+    return nullptr;
+  }
+
+  ret->m_parent_proc = proc;
+
+  if (thread_prepare_context(ret) != ANIVA_SUCCESS) {
+    destroy_threaded_socket(socket);
+    destroy_thread(ret);
+    return nullptr;
+  }
+
   ret->m_socket = socket;
   socket->m_parent = ret;
 
@@ -85,13 +112,22 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
 }
 
 void thread_set_state(thread_t *thread, thread_state_t state) {
+  // let's get a hold of the scheduler while doing this
+
+  if (!sched_can_schedule()) {
+    thread->m_current_state = state;
+    return;
+  }
+
+  pause_scheduler();
   thread->m_current_state = state;
+  resume_scheduler();
   // TODO: update thread context(?) on state change
   // TODO: (??) onThreadStateChangeEvent?
 }
 
-// TODO: more
-ANIVA_STATUS clean_thread(thread_t *thread) {
+// TODO: finish
+ANIVA_STATUS destroy_thread(thread_t *thread) {
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);
   }

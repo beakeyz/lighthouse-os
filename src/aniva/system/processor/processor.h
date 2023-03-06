@@ -50,6 +50,8 @@ typedef struct Processor {
   thread_t *m_previous_thread;
   thread_t *m_root_thread;
   list_t *m_processes;
+
+  proc_t *m_kernel_process;
   bool m_being_handled_by_scheduler;
 
   PROCESSOR_LATE_INIT fLateInit;

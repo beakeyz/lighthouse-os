@@ -2,6 +2,7 @@
 #define __ANIVA_KDEV_CORE__
 
 #include "dev/handle.h"
+#include "libk/error.h"
 #include <libk/stddef.h>
 
 struct aniva_driver;
@@ -27,19 +28,31 @@ typedef const char* dev_url_t;
 #define MAX_DRIVER_NAME_LENGTH 32
 #define MAX_DRIVER_DESCRIPTOR_LENGTH 256
 
+/*
+ * Initialize the driver registry. THIS MAY NOT ADD/BOOTSTRAP ANY
+ * DRIVERS YET as the scheduler is not yet initialized and we may
+ * still be in the boot context
+ */
 void init_aniva_driver_registry();
+
+/*
+ * load and bootstrap all the drivers we need for further booting
+ * these are mostly generic drivers that we use untill we can load
+ * more advanced and specific drivers for the hardware we use
+ */
+void register_aniva_base_drivers();
 
 // TODO: load driver from file
 
 /*
  * load a driver from its structure in RAM
  */
-void load_driver(struct dev_manifest* driver);
+ErrorOrPtr load_driver(struct dev_manifest* driver);
 
 /*
  * unload a driver from its structure in RAM
  */
-void unload_driver(struct dev_manifest* driver);
+ErrorOrPtr unload_driver(struct dev_manifest* driver);
 
 /*
  * Check if the driver is installed into the grid
@@ -49,6 +62,6 @@ bool is_driver_loaded(struct aniva_driver* handle);
 /*
  * Find the handle to a driver through its url
  */
-handle_t resolve_driver_url(dev_url_t url);
+struct aniva_driver* get_driver(dev_url_t url);
 
 #endif //__ANIVA_KDEV_CORE__

@@ -55,7 +55,7 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
 }
 
 void proc_add_thread(proc_t* proc, struct thread* thread) {
-  if (thread) {
+  if (thread && proc) {
     list_append(proc->m_threads, thread);
   }
 }
