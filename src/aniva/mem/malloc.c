@@ -54,6 +54,9 @@ void quick_print_node_sizes(memory_allocator_t* allocator) {
     if (!has_flag(node, MALLOC_FLAGS_USED)) {
       print("(free) ");
     }
+    if (node->next == nullptr) {
+      print("(no next) ");
+    }
     print("true size: ");
     size_t size = node->size;
     print(to_string(size));

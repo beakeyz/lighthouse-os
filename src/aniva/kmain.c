@@ -128,13 +128,22 @@ void aniva_task(queue_t *buffer) {
 
   hive_t* test_hive = create_hive("root_test");
 
+  println("-------- data1 -------");
   uint64_t test_data1 = 69;
   hive_add_entry(test_hive, &test_data1, "data1");
 
+  println("-------- data2 -------");
   uint64_t test_data2 = 420;
   hive_add_entry(test_hive, &test_data2, "data2");
 
-  
+  println("-------- test_get -------");
+  void* test_get = hive_get(test_hive, "root_test.data1");
+
+  if (test_get == nullptr) {
+    kernel_panic("NULL");
+  }
+
+  println(to_string(*(uintptr_t*)test_get));
 
   kernel_panic("END_OF_ANIVA_TASK (TEST)");
 }

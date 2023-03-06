@@ -63,13 +63,18 @@ hive_t *create_hive(hive_url_part_t root_part);
 /*
  * Add some data to a hive
  */
-ErrorOrPtr hive_add_entry(hive_t* hive, void* data, hive_url_part_t part);
+ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path);
 
 /*
  * Follows the path and inserts a hole to another
  * hive there
  */
 ErrorOrPtr hive_add_hole(hive_t* root, const char* path);
+
+/*
+ * Follows the path and inserts holes where they are needed
+ */
+void hive_add_holes(hive_t* root, const char* path);
 
 /*
  * Add a path to a hive, using the root of the hive
