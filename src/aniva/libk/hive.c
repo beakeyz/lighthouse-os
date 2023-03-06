@@ -38,9 +38,7 @@ static const char* __hive_prepend_root_part(hive_t* root, const char* path);
 
 ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
 
-  if (strcmp(__hive_find_part_at(path, 0), root->m_url_part)) {
-    path = __hive_prepend_root_part(root, path);
-  }
+  path = __hive_prepend_root_part(root, path);
 
   //if (hive_get(root, path) != nullptr) {
   //  return Error();
@@ -55,8 +53,6 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
 
   hive_t* current_hive = root;
   size_t part_count = __hive_get_part_count(path);
-
-  println(to_string(part_count));
 
   // skip the root part
   for (uintptr_t i = 1; i < part_count; i++) {
@@ -73,14 +69,19 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
     hive_entry_t* entry = __hive_find_entry(current_hive, part);
 
     if (!entry) {
+      print("found NULL entry: ");
+      println(part);
       entry = create_hive_entry(HIVE_ENTRY_TYPE_HOLE);
       entry->m_entry_part = part;
       entry->m_hole = create_hive(part);
+      list_append(current_hive->m_entries, entry);
     }
 
     if (hive_entry_is_hole(entry)) {
+      println("emplacing new hive");
       current_hive = entry->m_hole;
     }
+    kfree(part);
   }
 
   return Error();
@@ -95,21 +96,36 @@ ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
 
     if (!strcmp(part, root->m_url_part)) {
       current_hive = root;
+      kfree(part);
       continue;
     }
 
     hive_entry_t* entry = __hive_find_entry(current_hive, part);
 
+    if (i+1 == part_count) {
+      if (!entry) {
+        entry = create_hive_entry(HIVE_ENTRY_TYPE_HOLE);
+        entry->m_entry_part = part;
+        entry->m_hole = create_hive(entry->m_entry_part);
+        return Success(0);
+      } else {
+        kfree(part);
+        return Error();
+      }
+    }
+
     if (!entry) {
+      kfree(part);
       return Error();
     }
 
     if (hive_entry_is_hole(entry)) {
       current_hive = entry->m_hole;
     }
+    kfree(part);
   }
 
-  return Success(0);
+  return Error();
 }
 
 void hive_add_holes(hive_t* root, const char* path) {
@@ -121,6 +137,7 @@ void hive_add_holes(hive_t* root, const char* path) {
 
     if (!strcmp(part, root->m_url_part)) {
       current_hive = root;
+      kfree(part);
       continue;
     }
 
@@ -135,36 +152,31 @@ void hive_add_holes(hive_t* root, const char* path) {
     if (hive_entry_is_hole(entry)) {
       current_hive = entry->m_hole;
     }
+
+    kfree(part);
   }
 }
 
 void* hive_get(hive_t* root, const char* path) {
 
-  hive_t* current_hive;
+  path = __hive_prepend_root_part(root, path);
+
+  hive_t* current_hive = root;
   size_t part_count = __hive_get_part_count(path);
 
-  println(path);
-  println(to_string(part_count));
-
-  for (uintptr_t i = 0; i < part_count; i++) {
+  for (uintptr_t i = 1; i < part_count; i++) {
     hive_url_part_t part = __hive_find_part_at(path, i);
 
-    if (!strcmp(part, root->m_url_part)) {
-      current_hive = root;
-      continue;
-    }
-
-    println(current_hive->m_url_part);
-    println(part);
 
     hive_entry_t* entry = __hive_find_entry(current_hive, part);
+    kfree(part);
 
     if (!entry) {
-      println("nullptr");
       return nullptr;
     }
 
     if (i+1 == part_count) {
+      kfree(part);
       return entry->m_data;
     }
 
@@ -276,24 +288,8 @@ static hive_url_part_t __hive_find_part_at(const char* path, uintptr_t depth) {
 
   hive_url_part_t ret = nullptr;
 
-  if (depth == 0) {
-    uintptr_t i = 0;
-    while (path[i] != HIVE_PART_SEPERATOR && path[i] != '\0') {
-      i++;
-    }
-    ret = kmalloc(i + 1);
-    strcpy(ret, &path[0]);
-    ret[i] = '\0';
-    return ret;
-  }
-
   for (uintptr_t i = 0; i < path_length; i++) {
     char c = path[i];
-
-    if (c == HIVE_PART_SEPERATOR) {
-      current_depth++;
-      continue;
-    } 
 
     if (current_depth == depth) {
       uintptr_t j = 0;
@@ -301,10 +297,16 @@ static hive_url_part_t __hive_find_part_at(const char* path, uintptr_t depth) {
         j++;
       }
       ret = kmalloc(j + 1);
-      strcpy(ret, &path[i]);
+      memcpy(ret, path + i, j);
       ret[j] = '\0';
       return ret;
     }
+
+    if (c == HIVE_PART_SEPERATOR) {
+      current_depth++;
+      continue;
+    } 
+
   }
 
   return nullptr;
@@ -325,9 +327,15 @@ static size_t __hive_get_part_count(const char* path) {
 }
 
 static const char* __hive_prepend_root_part(hive_t* root, const char* path) {
-  if (!strcmp(root->m_url_part, __hive_find_part_at(path, 0))) {
+
+  hive_url_part_t root_part = __hive_find_part_at(path, 0);
+
+  if (!strcmp(root->m_url_part, root_part)) {
+    kfree(root_part);
     return path;
   }
+
+  kfree(root_part);
 
   const size_t extended_path_size = strlen(root->m_url_part) + 1 + strlen(path) + 1;
 
@@ -345,6 +353,5 @@ static const char* __hive_prepend_root_part(hive_t* root, const char* path) {
   extended_index += strlen(path);
   extended_path[extended_index] = '\0';
 
-  println(extended_path);
   return extended_path;
 }

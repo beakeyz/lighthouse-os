@@ -123,6 +123,8 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
 void aniva_task(queue_t *buffer) {
 
+  disable_interrupts();
+
   println("");
   println("testing hive");
 
@@ -136,7 +138,7 @@ void aniva_task(queue_t *buffer) {
   uint64_t test_data2 = 420;
   hive_add_entry(test_hive, &test_data2, "data2");
 
-  println("-------- test_get -------");
+  println("------- test_get -------");
   void* test_get = hive_get(test_hive, "root_test.data1");
 
   if (test_get == nullptr) {
@@ -144,6 +146,21 @@ void aniva_task(queue_t *buffer) {
   }
 
   println(to_string(*(uintptr_t*)test_get));
+
+  println("------- test_get deep -------");
+
+  uintptr_t test_data3 = 69420;
+  if (hive_add_entry(test_hive, &test_data3, "test_hole.data3").m_status != ANIVA_SUCCESS) {
+    kernel_panic("Failed to add deep entry!");
+  }
+
+  void* deep_test_data = hive_get(test_hive, "test_hole.data3");
+
+  if (!deep_test_data) {
+    kernel_panic("Failed to find deep data!");
+  }
+
+  println(to_string(*(uintptr_t*)deep_test_data));
 
   kernel_panic("END_OF_ANIVA_TASK (TEST)");
 }

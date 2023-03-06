@@ -296,6 +296,7 @@ heap_node_t* merge_node_with_next (memory_allocator_t * allocator, heap_node_t* 
 heap_node_t* merge_node_with_prev (memory_allocator_t * allocator, heap_node_t* ptr) {
   if (can_merge(ptr, ptr->prev)) {
     heap_node_t* prev = ptr->prev;
+
     prev->size += ptr->size;
     prev->next = ptr->next;
     //memset(ptr, 0, ptr->size);
