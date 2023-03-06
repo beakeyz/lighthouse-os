@@ -192,5 +192,16 @@ void aniva_task(queue_t *buffer) {
     println("could not find data");
   }
 
+  println("------- get path -------");
+
+  const char* path = hive_get_path(test_hive, &test_data2);
+
+  if (path != nullptr) {
+    println("Found path:");
+    println(path);
+  } else {
+    println("Could not find path!");
+  }
+
   kernel_panic("END_OF_ANIVA_TASK (TEST)");
 }

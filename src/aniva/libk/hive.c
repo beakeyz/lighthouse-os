@@ -188,10 +188,52 @@ void* hive_get(hive_t* root, const char* path) {
   return nullptr;
 }
 
+void hive_remove(hive_t* root, void* data) {
+  if (!hive_contains(root, data)) {
+    return;
+  }
+
+  // TODO:
+}
+
+void hive_remove_path(hive_t* root, const char* path) {
+  if (hive_get(root, path) == nullptr) {
+    return;
+  }
+
+  // TODO:
+}
+
+// root.hole.entry
 const char* hive_get_path(hive_t* root, void* data) {
 
+  if (!hive_contains(root, data)) {
+    return nullptr;
+  }
 
-  return nullptr;
+  char* ret = nullptr;
+
+  FOREACH(i, root->m_entries) {
+    hive_entry_t* entry = i->data;
+
+    if (hive_entry_is_hole(entry)) {
+      const char* hole_path = hive_get_path(entry->m_hole, data);
+
+      if (hole_path != nullptr) {
+        // append
+        ret = (char*)__hive_prepend_root_part(root, hole_path);
+        return ret;
+      }
+    }
+
+    if (entry->m_data == data) {
+      // append
+      ret = (char*)__hive_prepend_root_part(root, entry->m_entry_part);
+      return ret;
+    }
+  }
+
+  return ret;
 }
 
 bool hive_contains(hive_t* root, void* data) {
@@ -357,8 +399,6 @@ static const char* __hive_prepend_root_part(hive_t* root, const char* path) {
   const size_t extended_path_size = strlen(root->m_url_part) + 1 + strlen(path) + 1;
 
   char* extended_path = kmalloc(extended_path_size);
-
-  bool prepending_root = true;
 
   uintptr_t extended_index = 0;
 
