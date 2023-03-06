@@ -6,6 +6,7 @@
 #include "libk/error.h"
 #include "libk/hive.h"
 #include "libk/kevent/core.h"
+#include "mem/PagingComplex.h"
 #include "proc/ipc/thr_intrf.h"
 #include "system/acpi/acpi.h"
 #include "system/processor/processor.h"
@@ -132,75 +133,46 @@ void aniva_task(queue_t *buffer) {
 
   println("-------- data1 -------");
   uint64_t test_data1 = 69;
-  hive_add_entry(test_hive, &test_data1, "data1");
+  Must(hive_add_entry(test_hive, &test_data1, "data1"));
 
   println("-------- data2 -------");
   uint64_t test_data2 = 420;
-  hive_add_entry(test_hive, &test_data2, "data2");
+  Must(hive_add_entry(test_hive, &test_data2, "data2"));
 
-  println("------- test_get -------");
-  void* test_get = hive_get(test_hive, "root_test.data1");
-
-  if (test_get == nullptr) {
-    kernel_panic("NULL");
-  }
-
-  println(to_string(*(uintptr_t*)test_get));
-
-  println("------- test_get deep -------");
+  println("------- data3 -------");
 
   uintptr_t test_data3 = 69420;
-  if (hive_add_entry(test_hive, &test_data3, "test_hole.data3").m_status != ANIVA_SUCCESS) {
-    kernel_panic("Failed to add deep entry!");
-  }
+  Must(hive_add_entry(test_hive, &test_data3, "test_hole.data3"));
 
-  void* deep_test_data = hive_get(test_hive, "test_hole.data3");
+  println("------- data4 -------");
 
-  if (!deep_test_data) {
-    kernel_panic("Failed to find deep data!");
-  }
+  uintptr_t test_data4 = 50504;
+  Must(hive_add_entry(test_hive, &test_data4, "test_hole.data4"));
 
-  println(to_string(*(uintptr_t*)deep_test_data));
+  println("------- data5 -------");
 
-  println("------- contains -------");
+  uintptr_t test_data5 = 8008132;
+  Must(hive_add_entry(test_hive, &test_data5, "data5"));
 
-  bool has = hive_contains(test_hive, &test_data3);
+  println("------- data6 -------");
 
-  if (has) {
-    println("found entry");
-  } else {
-    println("could not find entry");
-  }
+  uintptr_t test_data6 = 1234567890;
+  Must(hive_add_entry(test_hive, &test_data6, "dev.pci.something.idk.veery_deep.data"));
 
-  println("------- invalid -------");
+  const char* path = hive_get_path(test_hive, &test_data4);
 
-  void* invalid_data = hive_get(test_hive, "?.s.e.x.?");
-
-  if (invalid_data) {
-    println("non-null returned when we entered invalid path?");
-  } else {
-    println("invalid_data test passed!");
-  }
-
-  println("------- absolute -------");
-
-  void* absolute_data = hive_get(test_hive, "root_test.test_hole.data3");
-
-  if (absolute_data) {
-    println("found data");
-  } else {
-    println("could not find data");
-  }
-
-  println("------- get path -------");
-
-  const char* path = hive_get_path(test_hive, &test_data2);
-
-  if (path != nullptr) {
-    println("Found path:");
+  if (path) {
     println(path);
   } else {
     println("Could not find path!");
+  }
+
+  void* d = hive_get(test_hive, "dev.pci.something.idk.veery_deep.data");
+
+  if (d == nullptr) {
+    println("could not find entry");
+  } else {
+    println(to_string(*(uintptr_t*)d));
   }
 
   kernel_panic("END_OF_ANIVA_TASK (TEST)");

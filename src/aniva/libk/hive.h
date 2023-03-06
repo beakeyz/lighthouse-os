@@ -74,7 +74,7 @@ ErrorOrPtr hive_add_hole(hive_t* root, const char* path);
 /*
  * Follows the path and inserts holes where they are needed
  */
-void hive_add_holes(hive_t* root, const char* path);
+ErrorOrPtr hive_add_holes(hive_t* root, const char* path);
 
 /*
  * Find data in the hive based on the path

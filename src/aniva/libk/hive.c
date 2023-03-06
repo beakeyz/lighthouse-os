@@ -35,10 +35,15 @@ static ANIVA_STATUS __hive_parse_hive_path(hive_t* root, const char* path, ANIVA
 static hive_url_part_t __hive_find_part_at(const char* path, uintptr_t depth);
 static size_t __hive_get_part_count(const char* path);
 static const char* __hive_prepend_root_part(hive_t* root, const char* path);
+static bool __hive_path_is_invalid(const char* path);
 
 ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
 
   path = __hive_prepend_root_part(root, path);
+
+  if (__hive_path_is_invalid(path)) {
+    return Error();
+  }
 
   //if (hive_get(root, path) != nullptr) {
   //  return Error();
@@ -88,6 +93,13 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
 }
 
 ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
+
+  path = __hive_prepend_root_part(root, path);
+
+  if (__hive_path_is_invalid(path)) {
+    return Error();
+  }
+
   hive_t* current_hive;
   size_t part_count = __hive_get_part_count(path);
 
@@ -128,7 +140,14 @@ ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
   return Error();
 }
 
-void hive_add_holes(hive_t* root, const char* path) {
+ErrorOrPtr hive_add_holes(hive_t* root, const char* path) {
+
+  path = __hive_prepend_root_part(root, path);
+
+  if (__hive_path_is_invalid(path)) {
+    return Error();
+  }
+
   hive_t* current_hive;
   size_t part_count = __hive_get_part_count(path);
 
@@ -155,18 +174,22 @@ void hive_add_holes(hive_t* root, const char* path) {
 
     kfree(part);
   }
+  return Success(0);
 }
 
 void* hive_get(hive_t* root, const char* path) {
 
   path = __hive_prepend_root_part(root, path);
 
+  if (__hive_path_is_invalid(path)) {
+    return nullptr;
+  }
+
   hive_t* current_hive = root;
   size_t part_count = __hive_get_part_count(path);
 
   for (uintptr_t i = 1; i < part_count; i++) {
     hive_url_part_t part = __hive_find_part_at(path, i);
-
 
     hive_entry_t* entry = __hive_find_entry(current_hive, part);
     kfree(part);
@@ -242,7 +265,9 @@ bool hive_contains(hive_t* root, void* data) {
     hive_entry_t* entry = i->data;
 
     if (hive_entry_is_hole(entry)) {
-      return hive_contains(entry->m_hole, data);
+      if (hive_contains(entry->m_hole, data)) {
+        return true;
+      }
     } 
 
     if (entry->m_data == data) {
@@ -291,8 +316,12 @@ static hive_entry_t* __hive_find_entry(hive_t* hive, hive_url_part_t part) {
     return nullptr;
   }
 
+  const size_t part_length = strlen(part);
+
   FOREACH(i, hive->m_entries) {
     hive_entry_t* entry = i->data;
+
+    const size_t check_length = strlen(entry->m_entry_part);
 
     if (!strcmp(entry->m_entry_part, part)) {
       return entry;
@@ -411,4 +440,41 @@ static const char* __hive_prepend_root_part(hive_t* root, const char* path) {
   extended_path[extended_index] = '\0';
 
   return extended_path;
+}
+
+/*
+ * Invalid if:
+ *  - two seperators after eachother
+ *  - starts or ends with a seperator
+ *  - it has no parts
+ *  - it has a length of 0 (-_-)
+ *  - TODO: more
+ */
+static bool __hive_path_is_invalid(const char* path) {
+  const size_t part_count = __hive_get_part_count(path);
+  const size_t path_length = strlen(path);
+  hive_url_part_t current_part;
+
+  if (part_count == 0 || path_length == 0) {
+    return true;
+  }
+
+  if (path[0] == HIVE_PART_SEPERATOR || path[path_length] == HIVE_PART_SEPERATOR) {
+    return true;
+  }
+
+  for (uintptr_t i = 0; i < part_count; i++) {
+    current_part = __hive_find_part_at(path, i);
+
+    if (current_part == nullptr) {
+      goto fail;
+    }
+    kfree(current_part);
+  }
+
+  return false;
+
+fail:
+    kfree(current_part);
+    return true;
 }
