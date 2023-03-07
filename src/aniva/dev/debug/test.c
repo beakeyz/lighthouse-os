@@ -9,6 +9,7 @@
 #include "proc/core.h"
 #include "proc/ipc/tspckt.h"
 #include "sync/mutex.h"
+#include "sync/spinlock.h"
 
 void test_dbg_init(queue_t* buffer);
 int test_dbg_exit();

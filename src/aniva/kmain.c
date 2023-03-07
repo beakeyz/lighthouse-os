@@ -1,30 +1,20 @@
 #include <kmain.h>
-#include "dev/core.h"
 #include "dev/disk/storage_controller.h"
 #include "dev/pci/pci.h"
-#include "interupts/control/interrupt_control.h"
 #include "dev/framebuffer/framebuffer.h"
-#include "libk/error.h"
-#include "libk/hive.h"
 #include "libk/kevent/core.h"
 #include "mem/PagingComplex.h"
 #include "proc/ipc/thr_intrf.h"
 #include "proc/kprocs/root_process.h"
 #include "system/acpi/acpi.h"
-#include "system/processor/processor.h"
 #include "time/core.h"
-#include "proc/socket.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
 #include "interupts/interupts.h"
-#include "dev/driver.h"
-#include "mem/heap.h"
-#include "mem/zalloc.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
-#include <libk/io.h>
 
 typedef void (*ctor_func_t)();
 

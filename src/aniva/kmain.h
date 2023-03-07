@@ -1,9 +1,6 @@
 #ifndef __KMAIN__
 #define __KMAIN__
-
-#include "sync/mutex.h"
 #include "system/processor/processor.h"
-#include "libk/queue.h"
 #include <mem/PagingComplex.h>
 #include <libk/stddef.h>
 #include <libk/multiboot.h>

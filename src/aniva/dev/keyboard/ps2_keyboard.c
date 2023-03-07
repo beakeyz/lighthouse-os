@@ -11,8 +11,6 @@
 #include "mem/heap.h"
 #include "proc/core.h"
 #include "proc/default_socket_routines.h"
-#include "sync/mutex.h"
-#include "system/processor/registers.h"
 
 #define PS2_KB_IRQ_VEC 1
 

@@ -13,6 +13,7 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include "sync/spinlock.h"
 
 static void root_main();
 static void root_packet_dispatch();
@@ -36,8 +37,6 @@ static void root_main() {
 }
 
 static void root_packet_dispatch() {
-
-  // sanity
 
   for (;;) {
     list_t sockets = get_registered_sockets();
