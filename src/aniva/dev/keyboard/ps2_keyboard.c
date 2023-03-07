@@ -9,13 +9,14 @@
 #include "libk/io.h"
 #include "mem/heap.h"
 #include "proc/core.h"
+#include "proc/default_socket_routines.h"
 #include "system/processor/registers.h"
 
 #define PS2_KB_IRQ_VEC 1
 
 void ps2_keyboard_entry();
 int ps2_keyboard_exit();
-int ps2_keyboard_msg(char*, ...);
+uintptr_t ps2_keyboard_msg(void* buffer, size_t buffer_size);
 registers_t* ps2_keyboard_irq_handler(registers_t* regs);
 
 // TODO: finish this driver
@@ -39,6 +40,7 @@ void ps2_keyboard_entry() {
     handler->m_controller->fControllerEnableVector(PS2_KB_IRQ_VEC);
   }
 
+  println("initializing ps2 keyboard driver!");
 }
 int ps2_keyboard_exit() {
 
@@ -46,7 +48,7 @@ int ps2_keyboard_exit() {
   return 0;
 }
 
-int ps2_keyboard_msg(char* fmt, ...) {
+uintptr_t ps2_keyboard_msg(void* buffer, size_t buffer_size) {
 
   return 0;
 }
@@ -61,9 +63,14 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
 
   draw_char(69, y_index, 'K');
 
+  if (y_index > 10 * 9) {
+    send_socket_routine(1, SOCKET_ROUTINE_EXIT);
+  }
+
   uintptr_t* data = kmalloc(sizeof(uintptr_t));
   *data = 1;
   send_packet_to_socket(1, data, sizeof(uintptr_t));
+  kfree(data);
 
   y_index+= 9;
 

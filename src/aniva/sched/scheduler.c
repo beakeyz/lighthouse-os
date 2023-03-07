@@ -7,6 +7,7 @@
 #include "libk/string.h"
 #include "interupts/interupts.h"
 #include "proc/proc.h"
+#include "proc/socket.h"
 #include "sync/atomic_ptr.h"
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
@@ -134,9 +135,9 @@ void pick_next_thread_scheduler(void) {
 
 ANIVA_STATUS pause_scheduler() {
 
-  if (s_sched_mode == PAUSED) {
-    return ANIVA_FAIL;
-  }
+  //if (s_sched_mode == PAUSED) {
+  //  return ANIVA_FAIL;
+  //}
 
   //CHECK_AND_DO_DISABLE_INTERRUPTS();
   lock_spinlock(s_sched_switch_lock);
@@ -183,13 +184,13 @@ void scheduler_yield() {
   thread_t *current_thread = get_current_scheduling_thread();
 
   ASSERT_MSG(current_thread != nullptr, "trying to yield the scheduler while not having a current scheduling thread!");
-  enable_interrupts();
 
   // in this case we don't have to wait for us to exit a
   // critical CPU section, since we are not being interrupted at all
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {
     scheduler_try_execute();
   }
+  enable_interrupts();
 }
 
 ErrorOrPtr scheduler_try_execute() {
@@ -213,9 +214,6 @@ ErrorOrPtr scheduler_try_execute() {
   //}
 
   thread_switch_context(prev_thread, next_thread);
-
-  print("entering thread: ");
-  println(get_current_scheduling_thread()->m_name);
   return Success(0);
 }
 
@@ -272,7 +270,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     current_thread->m_ticks_elapsed = 0;
     // we want to schedule a new thread at this point
     pick_next_thread_scheduler();
-    println("Time has elapsed!");
     scheduler_try_invoke();
   }
 
@@ -403,10 +400,9 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
         // TODO: there is an invalid thread in the pool, handle it.
         break;
       case SLEEPING:
-        // TODO: just ignore this thread? we need some way to wake it up again
-        break;
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
+        // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
         found = true;
         break;
       case DYING:

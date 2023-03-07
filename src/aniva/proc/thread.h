@@ -4,6 +4,7 @@
 #include "libk/error.h"
 #include "mem/PagingComplex.h"
 #include "proc/context.h"
+#include "proc/socket.h"
 #include "system/processor/fpu/state.h"
 #include "system/processor/gdt.h"
 #include <system/processor/registers.h>
@@ -70,7 +71,7 @@ thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, char[32]);
  * kind of thread-pool in the processor, so TODO?
  * )
  */
-thread_t *create_thread_as_socket(struct proc*, FuncPtr, FuncPtr, char[32], uint32_t);
+thread_t *create_thread_as_socket(struct proc*, FuncPtr, FuncPtr, SocketOnPacket, char[32], uint32_t);
 
 /*
  * set up the thread and prepare to switch context

@@ -261,8 +261,8 @@ InterruptHandler_t create_unhandled_interrupt_handler(uint16_t int_num) {
 }
 
 static void insert_into_handlers(uint16_t index, InterruptHandler_t *handler) {
-  ASSERT(handler);
-  ASSERT(handler->m_int_num == index);
+  ASSERT_MSG(handler, "handler is null!");
+  ASSERT_MSG(handler->m_int_num == index, "invalid index!");
 
   handler->m_is_registerd = true;
   g_handlers[index] = handler;

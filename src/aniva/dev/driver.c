@@ -14,7 +14,7 @@ aniva_driver_t* create_driver(
   driver_identifier_t identifier,
   ANIVA_DRIVER_INIT init,
   ANIVA_DRIVER_EXIT exit,
-  ANIVA_DRIVER_DRV_MSG drv_msg,
+  SocketOnPacket drv_msg,
   DEV_TYPE_t type
 ) {
   aniva_driver_t* ret = kmalloc(sizeof(aniva_driver_t));
@@ -46,12 +46,9 @@ bool validate_driver(aniva_driver_t* driver) {
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver) {
 
   // hihi we're fucking with the scheduler
-  pause_scheduler();
 
   // TODO: fix port assignment
-  proc_add_thread(sched_get_kernel_proc(), create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, (char*)driver->m_name, driver->m_port));
-
-  resume_scheduler();
+  proc_add_thread(sched_get_kernel_proc(), create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port));
 
   return Success(0);
 }

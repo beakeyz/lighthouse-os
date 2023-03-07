@@ -28,14 +28,6 @@ void init_aniva_driver_registry() {
   // TODO:
   s_driver_hive = create_hive("dev");
 
-  hive_add_hole(s_driver_hive, "disk");
-  hive_add_hole(s_driver_hive, "io");
-  hive_add_hole(s_driver_hive, "sound");
-  hive_add_hole(s_driver_hive, "graphics");
-  hive_add_hole(s_driver_hive, "other");
-  hive_add_hole(s_driver_hive, "diagnostics");
-  hive_add_hole(s_driver_hive, "service");
-
 }
 
 void register_aniva_base_drivers() {

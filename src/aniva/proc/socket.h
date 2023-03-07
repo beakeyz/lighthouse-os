@@ -3,6 +3,7 @@
 #include <libk/stddef.h>
 #include <libk/error.h>
 #include "libk/queue.h"
+#include "sync/spinlock.h"
 
 struct thread;
 struct tspckt;
@@ -11,14 +12,26 @@ struct threaded_socket;
 typedef enum THREADED_SOCKET_STATE {
   THREADED_SOCKET_STATE_LISTENING = 0,
   THREADED_SOCKET_STATE_BUSY,
-  THREADED_SOCKET_STATE_BLOCKED
+  THREADED_SOCKET_STATE_BLOCKED,
 } THREADED_SOCKET_STATE_t;
 
 typedef enum THREADED_SOCKET_FLAGS {
-  TS_REGISTERED = (1 << 0),
-  TS_ACTIVE = (1 << 1),
-  TS_BUSY = (1 << 2)
+  TS_REGISTERED = (1 << 0), // the socket has been registered
+  TS_ACTIVE = (1 << 1),     // the socket is actively listening
+  TS_BUSY = (1 << 2),       // the socket is busy and can't respond to requests (they might fail)
+  TS_IS_CLOSED = (1 << 3),  // the socket has no callback function where packets can be passed to
+  TS_SHOULD_EXIT = (1 << 4) // the socket has recieved the command to exit
 } THREADED_SOCKET_FLAGS_t;
+
+typedef uintptr_t (*SocketOnPacket) (
+  void* buffer,
+  size_t buffer_size
+);
+
+typedef struct socket_buffer_queue {
+  spinlock_t* m_lock;
+  queue_t* m_buffers;
+} socket_buffer_queue_t;
 
 typedef struct threaded_socket {
   uint32_t m_port;
@@ -28,7 +41,9 @@ typedef struct threaded_socket {
 
   // FIXME: have a socket-specific buffer_queue struct that we can pass to threads
   queue_t* m_buffers;
+
   FuncPtr m_exit_fn;
+  SocketOnPacket m_on_packet;
 
   THREADED_SOCKET_STATE_t m_state;
 
@@ -38,7 +53,7 @@ typedef struct threaded_socket {
 /*
  * create a socket in a thread
  */
-threaded_socket_t *create_threaded_socket(struct thread* parent, FuncPtr exit_fn, uint32_t port, size_t max_size_per_buffer);
+threaded_socket_t *create_threaded_socket(struct thread* parent, FuncPtr exit_fn, SocketOnPacket on_packet_fn, uint32_t port, size_t max_size_per_buffer);
 
 /*
  * destroy a socket and its resources
@@ -59,6 +74,11 @@ bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
  * The default entry wrapper when creating sockets
  */ 
 void default_socket_entry_wrapper(uintptr_t args, struct thread* thread);
+
+/*
+ * Drain and handle all the packets of a socket
+ */
+void socket_handle_packets(threaded_socket_t* socket);
 
 // TODO: with timeout?
 

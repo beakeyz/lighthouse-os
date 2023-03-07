@@ -26,8 +26,6 @@ typedef struct {
   Processor_t* m_current_core;
 } GlobalSystemInfo_t;
 
-void aniva_task(queue_t* buffer);
-
 extern GlobalSystemInfo_t g_GlobalSystemInfo;
 
 #endif // !__KMAIN__

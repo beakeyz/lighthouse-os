@@ -44,7 +44,7 @@ proc_t* create_clean_proc(char name[32], proc_id id) {
 proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args) {
   proc_t *proc = create_clean_proc(name, id);
 
-  thread_t* thread = create_thread_for_proc(proc, entry, args, "entry");
+  thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
   list_append(proc->m_threads, thread);
 
   return proc;

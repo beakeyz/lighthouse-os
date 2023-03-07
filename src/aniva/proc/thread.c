@@ -1,6 +1,8 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
+#include "interupts/interupts.h"
 #include "kmain.h"
+#include "libk/error.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
 #include "proc/proc.h"
@@ -69,19 +71,19 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
   return nullptr;
 }
 
-thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, char name[32], uint32_t port) {
+thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t port) {
   if (proc == nullptr || entry == nullptr) {
     return nullptr;
   }
 
-  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
+  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, on_packet_fn, port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
 
   // nullptr should mean that no allocation has been done
   if (socket == nullptr) {
     return nullptr;
   }
 
-  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, (uintptr_t)socket->m_buffers, name, (proc->m_id == 0));
+  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, NULL, name, (proc->m_id == 0));
 
   // failed to create thread
   if (!ret) {
@@ -165,11 +167,9 @@ NAKED void common_thread_entry() {
 
 // TODO: redo?
 extern void thread_enter_context(thread_t *to) {
-  println("$thread_enter_context");
-  println(to->m_name);
 
   // FIXME: uncomment asap
-  ASSERT(to->m_current_state == RUNNABLE);
+  ASSERT_MSG(to->m_current_state == RUNNABLE, "thread we switch to is not RUNNABLE!");
 
   // FIXME: remove?
   Processor_t *current_processor = get_current_processor();
@@ -188,7 +188,6 @@ extern void thread_enter_context(thread_t *to) {
 
   thread_set_state(to, RUNNING);
 
-  println("done setting up context");
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -281,11 +280,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   // but it keeps running the function all over again.
   // since no state is saved, is just starts all over
 
-  print("Saving context of: ");
-  println(from->m_name);
-  print("Loading context of: ");
-  println(to->m_name);
-
   if (from->m_current_state == RUNNING) {
     thread_set_state(from, RUNNABLE);
   }
@@ -338,7 +332,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 // TODO: this thing
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 
-  println("Context switch! (thread_exit_init_state)");
   //println(to_string((uintptr_t)from));
   //println(to_string(regs->cs));
   //kernel_panic("reached thread_exit_init_state");

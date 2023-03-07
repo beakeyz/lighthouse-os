@@ -2,10 +2,11 @@
 #define __ANIVA_DRIVER__
 #include <libk/stddef.h>
 #include "core.h"
+#include "proc/socket.h"
 
 typedef void (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
-typedef int (*ANIVA_DRIVER_DRV_MSG) (char*, ...);
+//typedef uintptr_t (*ANIVA_DRIVER_DRV_MSG) (void* buffer, size_t buffer_size);
 
 typedef struct driver_version {
   uint8_t maj;
@@ -29,7 +30,7 @@ typedef struct aniva_driver {
 
   // TODO: make an actual framework for this lmao
   // FIXME: what arguments are best to pass here?
-  ANIVA_DRIVER_DRV_MSG f_drv_msg;
+  SocketOnPacket f_drv_msg;
 
   DEV_TYPE_t m_type;
   uint32_t m_port;
@@ -43,7 +44,7 @@ aniva_driver_t* create_driver(
   driver_identifier_t identifier,
   ANIVA_DRIVER_INIT init,
   ANIVA_DRIVER_EXIT exit,
-  ANIVA_DRIVER_DRV_MSG drv_msg,
+  SocketOnPacket drv_msg,
   DEV_TYPE_t type
   );
 

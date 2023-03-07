@@ -1,4 +1,5 @@
 #include "spinlock.h"
+#include "dev/debug/serial.h"
 #include "kmain.h"
 #include <mem/heap.h>
 

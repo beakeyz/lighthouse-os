@@ -45,6 +45,16 @@ ErrorOrPtr socket_register(struct threaded_socket* socket);
 ErrorOrPtr socket_unregister(struct threaded_socket* socket);
 
 /*
+ * Try to grab a new proc_id
+ */
+ErrorOrPtr generate_new_proc_id();
+
+/*
+ * return a pointer to the socket register
+ */
+list_t* get_registered_sockets();
+
+/*
  * find a socket based on its port
  * TODO: validate port based on checksum?
  */

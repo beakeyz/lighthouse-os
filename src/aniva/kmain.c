@@ -9,6 +9,7 @@
 #include "libk/kevent/core.h"
 #include "mem/PagingComplex.h"
 #include "proc/ipc/thr_intrf.h"
+#include "proc/kprocs/root_process.h"
 #include "system/acpi/acpi.h"
 #include "system/processor/processor.h"
 #include "time/core.h"
@@ -90,11 +91,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-
-  proc_t *aniva_proc = create_clean_proc("aniva_core", 0);
-  proc_add_thread(aniva_proc, create_thread_for_proc(aniva_proc, aniva_task, NULL, "aniva_socket"));
-
-  sched_add_proc(aniva_proc);
+  create_and_register_root_process();
 
   start_scheduler();
 
@@ -115,11 +112,4 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   for (;;) {
     asm volatile ("hlt");
   }
-}
-
-void aniva_task(queue_t *buffer) {
-
-  register_aniva_base_drivers();
-
-  for (;;) {}
 }

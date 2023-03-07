@@ -1,11 +1,37 @@
 #include "core.h"
+#include "libk/error.h"
+#include "libk/linkedlist.h"
+#include "libk/vector.h"
 #include "socket.h"
+#include "sync/atomic_ptr.h"
 
-static list_t *s_sockets = nullptr;
+static list_t *s_sockets;
 
+// TODO: fix this mechanism, it sucks
+static atomic_ptr_t* next_proc_id;
+
+/*
+ * Initialize:
+ *  - socket registry
+ *  - proc_id generation
+ */
 ANIVA_STATUS initialize_proc_core() {
-  s_sockets = init_list();
 
+  s_sockets = init_list();
+  next_proc_id = create_atomic_ptr_with_value(1);
+
+  return ANIVA_SUCCESS;
+}
+
+// FIXME: EWWWWWWW
+ErrorOrPtr generate_new_proc_id() {
+  uintptr_t next = atomic_ptr_load(next_proc_id);
+  atomic_ptr_write(next_proc_id, next + 1);
+  return Success(next);
+}
+
+list_t* get_registered_sockets() {
+  return s_sockets;
 }
 
 ErrorOrPtr socket_register(threaded_socket_t* socket) {

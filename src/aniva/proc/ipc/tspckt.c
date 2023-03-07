@@ -99,7 +99,7 @@ ANIVA_STATUS tspckt_check_for_response(tspckt_t* packet) {
 
 bool validate_tspckt(struct tspckt* packet) {
   // FIXME: this sucks balls, get rid of it
-  if (packet->m_sender_thread == nullptr) {
+  if (packet == nullptr || packet->m_sender_thread == nullptr) {
     return false;
   }
   return true;
@@ -108,4 +108,5 @@ bool validate_tspckt(struct tspckt* packet) {
 uint32_t generate_tspckt_identifier(tspckt_t* tspckt) {
   uint32_t ident = 0;
   //
+  return ident;
 }
