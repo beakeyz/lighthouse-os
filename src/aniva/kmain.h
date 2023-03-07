@@ -1,6 +1,7 @@
 #ifndef __KMAIN__
 #define __KMAIN__
 
+#include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "libk/queue.h"
 #include <mem/PagingComplex.h>
@@ -27,5 +28,7 @@ typedef struct {
 } GlobalSystemInfo_t;
 
 extern GlobalSystemInfo_t g_GlobalSystemInfo;
+
+extern mutex_t* g_test_mutex;
 
 #endif // !__KMAIN__

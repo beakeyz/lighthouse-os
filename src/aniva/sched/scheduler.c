@@ -6,6 +6,7 @@
 #include "libk/error.h"
 #include "libk/string.h"
 #include "interupts/interupts.h"
+#include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/socket.h"
 #include "sync/atomic_ptr.h"
@@ -73,7 +74,7 @@ ANIVA_STATUS init_scheduler() {
   s_has_schedule_request = false;
 
   s_sched_frames = init_list();
-  s_sched_switch_lock = init_spinlock();
+  s_sched_switch_lock = create_spinlock();
 
   set_current_handled_thread(nullptr);
   return ANIVA_SUCCESS;
@@ -140,7 +141,7 @@ ANIVA_STATUS pause_scheduler() {
   //}
 
   //CHECK_AND_DO_DISABLE_INTERRUPTS();
-  lock_spinlock(s_sched_switch_lock);
+  spinlock_lock(s_sched_switch_lock);
 
   atomic_ptr_write(s_no_schedule, true);
 
@@ -151,7 +152,7 @@ ANIVA_STATUS pause_scheduler() {
 
   if (frame_ptr == nullptr) {
     // no sched frame yet
-    unlock_spinlock(s_sched_switch_lock);
+    spinlock_unlock(s_sched_switch_lock);
     //CHECK_AND_TRY_ENABLE_INTERRUPTS();
     return ANIVA_FAIL;
   }
@@ -169,7 +170,7 @@ void resume_scheduler(void) {
   s_sched_mode = SCHEDULING;
 
   // yes, schedule
-  unlock_spinlock(s_sched_switch_lock);
+  spinlock_unlock(s_sched_switch_lock);
   atomic_ptr_write(s_no_schedule, false);
 }
 
@@ -190,7 +191,6 @@ void scheduler_yield() {
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {
     scheduler_try_execute();
   }
-  enable_interrupts();
 }
 
 ErrorOrPtr scheduler_try_execute() {

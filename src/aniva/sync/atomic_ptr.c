@@ -14,6 +14,11 @@ atomic_ptr_t* create_atomic_ptr() {
 atomic_ptr_t *create_atomic_ptr_with_value(uintptr_t initial_value) {
   atomic_ptr_t *ret = create_atomic_ptr();
   atomic_ptr_write(ret, initial_value);
+  return ret;
+}
+
+void destroy_atomic_ptr(atomic_ptr_t* ptr) {
+  kfree(ptr);
 }
 
 uintptr_t atomic_ptr_load(atomic_ptr_t* ptr) {

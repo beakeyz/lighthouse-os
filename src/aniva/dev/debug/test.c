@@ -2,11 +2,13 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "kmain.h"
 #include "libk/error.h"
 #include "libk/queue.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
 #include "proc/ipc/tspckt.h"
+#include "sync/mutex.h"
 
 void test_dbg_init(queue_t* buffer);
 int test_dbg_exit();
@@ -28,6 +30,9 @@ void test_dbg_init(queue_t* buffer) {
 
   println("Initialized the test debug driver!");
 
+  mutex_lock(g_test_mutex);
+
+  println("Successfully took the mutex");
 }
 
 int test_dbg_exit() {

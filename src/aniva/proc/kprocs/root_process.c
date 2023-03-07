@@ -1,6 +1,7 @@
 #include "root_process.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "kmain.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"
@@ -11,6 +12,7 @@
 #include "proc/socket.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
+#include "sync/mutex.h"
 
 static void root_main();
 static void root_packet_dispatch();
@@ -22,6 +24,8 @@ void create_and_register_root_process() {
   proc_add_thread(root_proc, create_thread_for_proc(root_proc, root_packet_dispatch, NULL, "root packet dispatch"));
 
   sched_add_proc(root_proc);
+
+  g_test_mutex = create_mutex(0);
 }
 
 static void root_main() {
@@ -36,10 +40,16 @@ static void root_main() {
 static void root_packet_dispatch() {
 
   // sanity
-  ASSERT_MSG(get_registered_sockets() != nullptr, "Tried to start the root process before sockets are initialized!");
+
+  println("locking..");
+  mutex_lock(g_test_mutex);
+
+  println("Successfully took the mutex");
 
   for (;;) {
-    FOREACH(i, get_registered_sockets()) {
+    list_t sockets = get_registered_sockets();
+
+    FOREACH(i, &sockets) {
       threaded_socket_t* socket = i->data;
 
       socket_handle_packets(socket);

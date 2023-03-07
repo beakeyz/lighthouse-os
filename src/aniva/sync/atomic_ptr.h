@@ -9,6 +9,8 @@ typedef union atomic_ptr atomic_ptr_t;
  */
 atomic_ptr_t* create_atomic_ptr();
 
+void destroy_atomic_ptr(atomic_ptr_t* ptr);
+
 /*
  * above function, but with an initial value
  */

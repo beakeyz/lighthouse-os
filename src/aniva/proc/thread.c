@@ -12,6 +12,7 @@
 #include <libk/string.h>
 #include "core.h"
 #include "sync/atomic_ptr.h"
+#include "system/processor/processor.h"
 #include <mem/heap.h>
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
@@ -337,3 +338,49 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
   //kernel_panic("reached thread_exit_init_state");
 }
 
+void thread_block(thread_t* thread) {
+
+  //processor_increment_critical_depth(get_current_processor());
+
+  // TODO: log certain things (i.e. how did we get blocked?)
+
+  thread_set_state(thread, BLOCKED);
+
+  // FIXME: we do allow blocking other threads here, we need to
+  // check if that comes with extra complications
+  if (thread == get_current_scheduling_thread()) {
+    scheduler_yield();
+  }
+
+  //processor_decrement_critical_depth(get_current_processor());
+  //kernel_panic("Unimplemented thread_block");
+}
+
+/*
+ * TODO: unblocking means returning to the runnable threadpool
+ */
+void thread_unblock(thread_t* thread) {
+
+  ASSERT_MSG(thread->m_current_state == BLOCKED, "Tried to unblock a non-blocking thread!");
+
+  if (get_current_scheduling_thread() == thread) {
+    thread_set_state(thread, RUNNING);
+    return;
+  }
+
+  thread_set_state(thread, RUNNABLE);
+}
+
+/*
+ * TODO:
+ */
+void thread_sleep(thread_t* thread) {
+  kernel_panic("Unimplemented thread_sleep");
+}
+
+/*
+ * TODO:
+ */
+void thread_wakeup(thread_t* thread) {
+  kernel_panic("Unimplemented thread_wakeup");
+}

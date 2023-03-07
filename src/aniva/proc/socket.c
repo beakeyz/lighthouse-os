@@ -3,12 +3,14 @@
 #include <system/asm_specifics.h>
 #include "core.h"
 #include "dev/debug/serial.h"
+#include "kmain.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/queue.h"
 #include "libk/string.h"
 #include "proc/default_socket_routines.h"
 #include "sched/scheduler.h"
+#include "sync/mutex.h"
 #include "thread.h"
 #include "proc/ipc/tspckt.h"
 #include "interupts/interupts.h"
@@ -203,6 +205,7 @@ void socket_handle_packets(threaded_socket_t* socket) {
           case SOCKET_ROUTINE_IGNORE_NEXT:
             break;
           case SOCKET_ROUTINE_EXIT:
+            mutex_unlock(g_test_mutex);
             socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
             break;
         }

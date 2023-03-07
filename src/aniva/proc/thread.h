@@ -95,8 +95,11 @@ ANIVA_STATUS thread_prepare_context(thread_t *);
  */
 void thread_set_state(thread_t *, thread_state_t);
 
-ANIVA_STATUS kill_thread(thread_t *);
+/*
+ * Cleans up any resources used by this thread
+ */
 ANIVA_STATUS destroy_thread(thread_t *);
+
 void thread_entry_wrapper(uintptr_t args, thread_t* thread);
 
 // wrappers =D
@@ -106,6 +109,32 @@ ALWAYS_INLINE bool thread_is_socket(thread_t* t) {
 ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) {
   return t->m_has_been_scheduled;
 }
+
+/*
+ * TODO: blocking means we get ignored by the scheduler
+ * this can happen through multiple means in threory,
+ * but for now it contains:
+ *  - mutexes
+ *
+ * we will get unblocked when the mutex is released
+ */
+void thread_block(thread_t* thread);
+
+/*
+ * TODO: unblocking means returning to the runnable threadpool
+ */
+void thread_unblock(thread_t* thread);
+
+/*
+ * TODO:
+ */
+void thread_sleep(thread_t* thread);
+
+/*
+ * TODO:
+ */
+void thread_wakeup(thread_t* thread);
+
 
 #define THREAD_PUSH_REGS   \
     "pushfq \n"            \

@@ -5,11 +5,13 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "interupts/control/pic.h"
 #include "interupts/interupts.h"
+#include "kmain.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "mem/heap.h"
 #include "proc/core.h"
 #include "proc/default_socket_routines.h"
+#include "sync/mutex.h"
 #include "system/processor/registers.h"
 
 #define PS2_KB_IRQ_VEC 1
@@ -41,6 +43,7 @@ void ps2_keyboard_entry() {
   }
 
   println("initializing ps2 keyboard driver!");
+
 }
 int ps2_keyboard_exit() {
 

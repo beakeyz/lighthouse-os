@@ -100,7 +100,7 @@ static ALWAYS_INLINE bool parser_has_flags(acpi_parser_t* parser, uint8_t flags)
 
 // FIXME: is this locking redundant?
 static ALWAYS_INLINE void parser_set_mode(acpi_parser_t* parser, enum acpi_parser_mode mode) {
-  lock_spinlock(parser->m_mode_lock);
+  spinlock_lock(parser->m_mode_lock);
 
   parser->m_mode = mode;
 
@@ -126,7 +126,7 @@ static ALWAYS_INLINE void parser_set_mode(acpi_parser_t* parser, enum acpi_parse
       break;
   }
 
-  unlock_spinlock(parser->m_mode_lock);
+  spinlock_unlock(parser->m_mode_lock);
 }
 
 extern acpi_parser_t *g_parser_ptr;

@@ -52,7 +52,7 @@ ErrorOrPtr generate_new_proc_id();
 /*
  * return a pointer to the socket register
  */
-list_t* get_registered_sockets();
+list_t get_registered_sockets();
 
 /*
  * find a socket based on its port
@@ -76,5 +76,6 @@ extern struct tspckt *send_packet_to_socket_blocking(uint32_t port, void* buffer
  * validata a tspckt based on its identifier (checksum, hash, idk man)
  */
 extern bool validate_tspckt(struct tspckt* packet); // tspctk.c
+
 
 #endif //__LIGHTHOUSE_OS_CORE__

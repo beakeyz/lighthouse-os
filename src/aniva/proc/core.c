@@ -4,8 +4,11 @@
 #include "libk/vector.h"
 #include "socket.h"
 #include "sync/atomic_ptr.h"
+#include "sync/spinlock.h"
 
 static list_t *s_sockets;
+
+static spinlock_t* s_core_socket_lock;
 
 // TODO: fix this mechanism, it sucks
 static atomic_ptr_t* next_proc_id;
@@ -18,6 +21,7 @@ static atomic_ptr_t* next_proc_id;
 ANIVA_STATUS initialize_proc_core() {
 
   s_sockets = init_list();
+  s_core_socket_lock = create_spinlock();
   next_proc_id = create_atomic_ptr_with_value(1);
 
   return ANIVA_SUCCESS;
@@ -30,8 +34,12 @@ ErrorOrPtr generate_new_proc_id() {
   return Success(next);
 }
 
-list_t* get_registered_sockets() {
-  return s_sockets;
+list_t get_registered_sockets() {
+  if (!s_sockets) {
+    list_t ret = {0};
+    return ret;
+  }
+  return *s_sockets;
 }
 
 ErrorOrPtr socket_register(threaded_socket_t* socket) {

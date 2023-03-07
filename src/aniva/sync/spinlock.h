@@ -18,9 +18,13 @@ typedef struct {
   // TODO:
 } spinlock_t;
 
-spinlock_t* init_spinlock();
-void lock_spinlock(spinlock_t* lock);
-void unlock_spinlock(spinlock_t* lock);
-bool is_spinlock_locked(spinlock_t* lock);
+spinlock_t* create_spinlock();
+void destroy_spinlock(spinlock_t* lock);
+
+void spinlock_lock(spinlock_t* lock);
+
+void spinlock_unlock(spinlock_t* lock);
+
+bool spinlock_is_locked(spinlock_t* lock);
 
 #endif // !__ANIVA_SPINLOCK__

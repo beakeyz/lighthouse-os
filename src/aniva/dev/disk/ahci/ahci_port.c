@@ -29,7 +29,7 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, volatile HBA_port_regist
   ret->m_port_regs = port_regs;
   ret->m_ib_page = ib_page;
 
-  ret->m_hard_lock = init_spinlock();
+  ret->m_hard_lock = create_spinlock();
 
   // prepare buffers
   ret->m_fis_recieve_page = kmem_request_physical_page().m_ptr;
