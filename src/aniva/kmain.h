@@ -29,6 +29,4 @@ typedef struct {
 
 extern GlobalSystemInfo_t g_GlobalSystemInfo;
 
-extern mutex_t* g_test_mutex;
-
 #endif // !__KMAIN__

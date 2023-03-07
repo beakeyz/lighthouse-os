@@ -205,7 +205,6 @@ void socket_handle_packets(threaded_socket_t* socket) {
           case SOCKET_ROUTINE_IGNORE_NEXT:
             break;
           case SOCKET_ROUTINE_EXIT:
-            mutex_unlock(g_test_mutex);
             socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
             break;
         }

@@ -36,8 +36,6 @@ static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
 GlobalSystemInfo_t g_GlobalSystemInfo;
 
-mutex_t* g_test_mutex;
-
 __attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {

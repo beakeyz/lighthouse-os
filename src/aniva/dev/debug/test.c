@@ -30,9 +30,6 @@ void test_dbg_init(queue_t* buffer) {
 
   println("Initialized the test debug driver!");
 
-  mutex_lock(g_test_mutex);
-
-  println("Successfully took the mutex");
 }
 
 int test_dbg_exit() {
