@@ -9,6 +9,8 @@
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
+#include "proc/ipc/packet_payload.h"
+#include "proc/ipc/packet_response.h"
 #include "proc/ipc/tspckt.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
@@ -16,7 +18,7 @@
 void test_dbg_init(queue_t* buffer);
 int test_dbg_exit();
 
-uintptr_t test_dbg_msg(void* buffer, size_t buffer_size);
+uintptr_t test_dbg_msg(packet_payload_t payload, packet_response_t** response);
 
 const aniva_driver_t g_test_dbg_driver = {
   .m_name = "debug",
@@ -32,13 +34,6 @@ const aniva_driver_t g_test_dbg_driver = {
 void test_dbg_init(queue_t* buffer) {
 
   println("Initialized the test debug driver!");
-
-  uintptr_t f = 696969;
-  async_ptr_t* response_handle = (async_ptr_t*)Release(send_packet_to_socket(0, &f, sizeof(f)));
-
-  packet_response_t* response = await(response_handle);
-
-  println(to_string(*(uintptr_t*)response->m_response_buffer));
 }
 
 int test_dbg_exit() {
@@ -47,14 +42,17 @@ int test_dbg_exit() {
   return 0;
 }
 
-uintptr_t test_dbg_msg(void* buffer, size_t buffer_size) {
+uintptr_t test_dbg_msg(packet_payload_t payload, packet_response_t** response) {
 
-  uintptr_t data = *(uintptr_t*)buffer;
+  uintptr_t data = *(uintptr_t*)payload.m_data;
 
   if (data == TEST_DBG_PRINT) {
     println("Hi bitch");
     draw_char(169, 100, 'h');
   }
+
+  uintptr_t hi = 666;
+  *response = create_packet_response(&hi, sizeof(hi));
 
   return 0;
 }

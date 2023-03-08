@@ -6,17 +6,20 @@
 #include "interupts/control/pic.h"
 #include "interupts/interupts.h"
 #include "kmain.h"
+#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
+#include "libk/string.h"
 #include "mem/heap.h"
 #include "proc/core.h"
 #include "proc/default_socket_routines.h"
+#include "proc/ipc/packet_response.h"
 
 #define PS2_KB_IRQ_VEC 1
 
 void ps2_keyboard_entry();
 int ps2_keyboard_exit();
-uintptr_t ps2_keyboard_msg(void* buffer, size_t buffer_size);
+uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response);
 registers_t* ps2_keyboard_irq_handler(registers_t* regs);
 
 // TODO: finish this driver
@@ -49,9 +52,7 @@ int ps2_keyboard_exit() {
   return 0;
 }
 
-uintptr_t ps2_keyboard_msg(void* buffer, size_t buffer_size) {
-
-
+uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response) {
 
   return 0;
 }
@@ -70,10 +71,14 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
     send_socket_routine(1, SOCKET_ROUTINE_EXIT);
   }
 
-  uintptr_t* data = kmalloc(sizeof(uintptr_t));
-  *data = 1;
-  send_packet_to_socket(1, data, sizeof(uintptr_t));
-  kfree(data);
+  uintptr_t data = 777;
+  uintptr_t response;
+  async_ptr_t* ptr = send_packet_to_socket(1, &data, sizeof(uintptr_t));
+
+  if (ptr) {
+    response = *(uintptr_t*)await(ptr);
+  }
+  // FIXME: how do we clean up this packet now?
 
   y_index+= 9;
 

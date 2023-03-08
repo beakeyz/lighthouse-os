@@ -2,8 +2,9 @@
 #define __ANIVA_LIBK_ASYNC_PTR__
 
 #include "mem/PagingComplex.h"
-#include "proc/thread.h"
-#include <sync/mutex.h>
+
+struct thread;
+struct mutex;
 
 typedef enum async_ptr_status {
   ASYNC_PTR_STATUS_WAITING = 0,
@@ -14,9 +15,9 @@ typedef enum async_ptr_status {
 typedef struct async_ptr {
   void* volatile* m_response;
 
-  mutex_t* m_mutex;
-  thread_t* m_responder;
-  thread_t* m_waiter;
+  struct mutex* m_mutex;
+  struct thread* m_responder;
+  struct thread* m_waiter;
   ASYNC_PTR_STATUS m_status;
 } async_ptr_t;
 

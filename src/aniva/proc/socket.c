@@ -10,6 +10,7 @@
 #include "libk/queue.h"
 #include "libk/string.h"
 #include "proc/default_socket_routines.h"
+#include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "thread.h"
@@ -71,13 +72,13 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
  * this mallocs the buffer for the caller, so caller is responsible for cleaning up 
  * their own mess
  */
-ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
+async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   // TODO: list lookup
   threaded_socket_t *socket = find_registered_socket(port);
 
   if (socket == nullptr || socket->m_parent == nullptr) {
-    return Error();
+    return nullptr;
   }
 
   tspckt_t *packet = create_tspckt(socket, buffer, buffer_size);
@@ -85,25 +86,24 @@ ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
     destroy_tspckt(packet);
-    return Error();
+    return nullptr;
   }
 
   queue_enqueue(socket->m_buffers, packet);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
-  return Success((uintptr_t)packet->m_response);
+  return packet->m_response_ptr;
 }
 
 packet_response_t *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
 
-  ErrorOrPtr result = send_packet_to_socket(port, buffer, buffer_size);
-  if (result.m_status == ANIVA_FAIL) {
+  async_ptr_t* result = send_packet_to_socket(port, buffer, buffer_size);
+
+  if (!result) {
     return nullptr;
   }
 
-  async_ptr_t* packet_res_ptr = (async_ptr_t*)Release(result);
-
-  packet_response_t* response_result = await(packet_res_ptr);
+  packet_response_t* response_result = await(result);
 
   return response_result;
 }
@@ -180,6 +180,8 @@ void socket_handle_packets(threaded_socket_t* socket) {
   tspckt_t* packet;
   while (validate_tspckt(packet = queue_dequeue(buffer))) {
 
+    mutex_lock(packet->m_packet_mutex);
+
     packet_payload_t payload = *packet->m_payload;
     //thread_set_state(thread, RUNNING);
     size_t data_size = payload.m_data_size;
@@ -211,7 +213,16 @@ void socket_handle_packets(threaded_socket_t* socket) {
       goto skip_callback;
     }
 
-    thread->m_socket->m_on_packet(payload);
+    packet_response_t* response = nullptr;
+    thread->m_socket->m_on_packet(payload, &response);
+
+    if (response != nullptr) {
+      packet->m_response = response;
+    }
+
+    // we want to keep this packet alive for now, all the way untill the response has been handled
+    mutex_unlock(packet->m_packet_mutex);
+    continue;
     // we jump here when we are done handeling a potential socketroutine
   skip_callback:
     destroy_tspckt(packet);

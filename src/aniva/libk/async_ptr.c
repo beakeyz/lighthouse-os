@@ -40,7 +40,7 @@ void* await(async_ptr_t* ptr) {
 
   ptr->m_waiter = get_current_scheduling_thread();
 
-  while(!ptr->m_response);
+  while(!*ptr->m_response);
 
   mutex_unlock(ptr->m_mutex);
 

@@ -57,7 +57,6 @@ void mutex_lock(mutex_t* mutex) {
 
       // NOTE: when we block this thread, it returns executing here after it gets unblocked by mutex_unlock,
       // since we just yield to the scheduler when we're blocked
-      println("blocking to take lock");
 
       if (spinlock_is_locked(mutex->m_lock))
         spinlock_unlock(mutex->m_lock);
@@ -68,7 +67,6 @@ void mutex_lock(mutex_t* mutex) {
     }
   }
 
-  println("taking lock");
   // take lock
   ASSERT_MSG(mutex->m_lock_depth == 0, "Tried to take a mutex while it has a locked depth greater than 0!");
 

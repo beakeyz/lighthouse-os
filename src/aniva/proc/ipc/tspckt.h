@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
+#include "sync/mutex.h"
 
 struct thread;
 struct threaded_socket;
@@ -13,9 +14,10 @@ typedef struct tspckt {
   uint32_t m_identifier; // checksum? (like some form of security in this system lmao)
   struct thread* m_sender_thread;
   struct threaded_socket* m_reciever_thread;
+  mutex_t* m_packet_mutex;
 
   async_ptr_t* m_response_ptr;
-  packet_response_t* volatile* m_response;
+  volatile packet_response_t* m_response;
   packet_payload_t* m_payload;
   size_t m_packet_size;
 } tspckt_t;

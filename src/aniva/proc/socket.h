@@ -4,6 +4,7 @@
 #include <libk/error.h>
 #include "libk/queue.h"
 #include "proc/ipc/packet_payload.h"
+#include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"
 
 struct thread;
@@ -25,7 +26,8 @@ typedef enum THREADED_SOCKET_FLAGS {
 } THREADED_SOCKET_FLAGS_t;
 
 typedef uintptr_t (*SocketOnPacket) (
-  packet_payload_t payload
+  packet_payload_t payload,
+  packet_response_t** response
 );
 
 typedef struct socket_buffer_queue {

@@ -1,6 +1,7 @@
 #ifndef __ANIVA_PROC_CORE__
 #define __ANIVA_PROC_CORE__
 
+#include "libk/async_ptr.h"
 #include "libk/linkedlist.h"
 #include "libk/error.h"
 #include "libk/vector.h"
@@ -18,6 +19,7 @@
 #define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT 128
 #define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT 64
 
+struct tspckt;
 struct threaded_socket;
 struct packet_response;
 
@@ -66,7 +68,7 @@ struct threaded_socket *find_registered_socket(uint32_t port);
  * returns a pointer to the response ptr (thus a double pointer)
  * if all goes well, otherwise a nullptr
  */
-extern ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size); // socket.c
+extern async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size); // socket.c
 
 /*
  * above function but blocking
