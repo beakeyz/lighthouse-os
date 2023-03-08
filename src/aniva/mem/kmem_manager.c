@@ -44,10 +44,10 @@ struct {
 // TODO: move to processor struct
 
 // external directory layout
-extern PagingComplex_t kernel_pd[STANDARD_PD_ENTRIES];
-extern PagingComplex_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
 // could be used for temporary mappings?
+extern PagingComplex_t kernel_pd[STANDARD_PD_ENTRIES];
 extern PagingComplex_t kernel_pt_last[STANDARD_PD_ENTRIES];
+extern PagingComplex_t kernel_img_pts[32][STANDARD_PD_ENTRIES];
 
 static inline void _init_kmem_page_layout();
 static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts);

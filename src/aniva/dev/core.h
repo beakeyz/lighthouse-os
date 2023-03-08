@@ -64,6 +64,11 @@ bool is_driver_loaded(struct aniva_driver* handle);
  */
 struct aniva_driver* get_driver(dev_url_t url);
 
+/*
+ * Resolve the drivers socket and send a packet to that port
+ */
+ErrorOrPtr driver_send_packet(const char* path, void* buffer, size_t buffer_size);
+
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
 
 #define DRIVER_IDENT(major, minor) {.m_major = major, .m_minor = minor} 

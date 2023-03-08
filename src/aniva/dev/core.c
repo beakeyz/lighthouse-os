@@ -110,3 +110,8 @@ aniva_driver_t* get_driver(dev_url_t url) {
   }
   return nullptr;
 }
+
+ErrorOrPtr driver_send_packet(const char* path, void* buffer, size_t buffer_size) {
+
+  return Success(0);
+}

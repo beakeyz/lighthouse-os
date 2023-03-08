@@ -3,8 +3,10 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "kmain.h"
+#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/queue.h"
+#include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
 #include "proc/ipc/tspckt.h"
@@ -31,6 +33,12 @@ void test_dbg_init(queue_t* buffer) {
 
   println("Initialized the test debug driver!");
 
+  uintptr_t f = 696969;
+  async_ptr_t* response_handle = (async_ptr_t*)Release(send_packet_to_socket(0, &f, sizeof(f)));
+
+  packet_response_t* response = await(response_handle);
+
+  println(to_string(*(uintptr_t*)response->m_response_buffer));
 }
 
 int test_dbg_exit() {

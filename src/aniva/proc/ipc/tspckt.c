@@ -1,26 +1,28 @@
 #include "tspckt.h"
 #include <mem/heap.h>
+#include "libk/async_ptr.h"
 #include "libk/string.h"
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>
 #include "interupts/interupts.h"
+#include "proc/ipc/packet_payload.h"
+#include "proc/ipc/packet_response.h"
 #include <mem/heap.h>
 
 static uint32_t generate_tspckt_identifier(tspckt_t* tspckt) USED;
 
-tspckt_t *create_tspckt(void* data, size_t data_size) {
+tspckt_t *create_tspckt(threaded_socket_t* reciever, void* data, size_t data_size) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   const size_t packet_size = sizeof(tspckt_t) + data_size;
   tspckt_t *packet = kmalloc(sizeof(tspckt_t));
 
-  packet->m_response = create_invalid_tspckt();
+  packet->m_sender_thread = get_current_scheduling_thread();
+  packet->m_reciever_thread = reciever;
+  packet->m_response_ptr = create_async_ptr((void*volatile*)packet->m_response, reciever->m_port);
   packet->m_identifier = NULL; // TODO
   packet->m_packet_size = packet_size;
-  packet->m_data = kmalloc(data_size);
-  // copy the data into our own buffer
-  memcpy(packet->m_data, data, data_size);
-
-  packet->m_sender_thread = get_current_scheduling_thread();
+  packet->m_response = nullptr;
+  packet->m_payload = create_packet_payload(data, data_size, packet->m_sender_thread->m_socket->m_port);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return packet;
@@ -31,12 +33,9 @@ ANIVA_STATUS prepare_tspckt(tspckt_t* packet, void* data, size_t data_size) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
   const size_t packet_size = sizeof(tspckt_t) + data_size;
-  packet->m_response = create_invalid_tspckt();
+  packet->m_response = nullptr;
   packet->m_identifier = NULL; // TODO
   packet->m_packet_size = packet_size;
-
-  // copy the data into our own buffer
-  memcpy(packet->m_data, data, data_size);
 
   packet->m_sender_thread = get_current_scheduling_thread();
 
@@ -49,7 +48,9 @@ tspckt_t *create_invalid_tspckt() {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   tspckt_t *ret = kmalloc(sizeof(tspckt_t));
   ret->m_response = nullptr;
-  ret->m_data = nullptr;
+  ret->m_payload = nullptr;
+  ret->m_response = nullptr;
+  ret->m_response_ptr = nullptr;
   ret->m_packet_size = sizeof(tspckt_t);
   ret->m_sender_thread = nullptr;
   ret->m_identifier = 0;
@@ -60,8 +61,11 @@ tspckt_t *create_invalid_tspckt() {
 ANIVA_STATUS destroy_tspckt(tspckt_t* packet) {
   // for now our only heap allocated stuff is our own instance,
   // so lets just get rid of that
-  kfree(packet->m_response);
-  kfree(packet->m_data);
+  destroy_async_ptr(packet->m_response_ptr);
+  destroy_packet_payload(packet->m_payload);
+  if (*packet->m_response) {
+    destroy_packet_response(*packet->m_response);
+  }
   kfree(packet);
   return ANIVA_SUCCESS;
 }

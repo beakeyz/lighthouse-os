@@ -3,6 +3,7 @@
 #include <libk/stddef.h>
 #include <libk/error.h>
 #include "libk/queue.h"
+#include "proc/ipc/packet_payload.h"
 #include "sync/spinlock.h"
 
 struct thread;
@@ -24,8 +25,7 @@ typedef enum THREADED_SOCKET_FLAGS {
 } THREADED_SOCKET_FLAGS_t;
 
 typedef uintptr_t (*SocketOnPacket) (
-  void* buffer,
-  size_t buffer_size
+  packet_payload_t payload
 );
 
 typedef struct socket_buffer_queue {

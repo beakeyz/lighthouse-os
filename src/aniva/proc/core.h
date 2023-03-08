@@ -19,6 +19,7 @@
 #define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT 64
 
 struct threaded_socket;
+struct packet_response;
 
 typedef enum thread_state {
   INVALID = 0,      // not initialized
@@ -70,7 +71,7 @@ extern ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buff
 /*
  * above function but blocking
  */
-extern struct tspckt *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size); // socket.c
+extern struct packet_response*send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size); // socket.c
 
 /*
  * validata a tspckt based on its identifier (checksum, hash, idk man)

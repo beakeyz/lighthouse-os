@@ -1,22 +1,29 @@
 #ifndef __ANIVA_IPC_TSPCKT__
 #define __ANIVA_IPC_TSPCKT__
 #include <libk/stddef.h>
+#include "libk/async_ptr.h"
 #include "libk/error.h"
+#include "proc/ipc/packet_payload.h"
+#include "proc/ipc/packet_response.h"
 
 struct thread;
+struct threaded_socket;
 
 typedef struct tspckt {
   uint32_t m_identifier; // checksum? (like some form of security in this system lmao)
   struct thread* m_sender_thread;
-  struct tspckt* m_response; // FIXME: atomic?
+  struct threaded_socket* m_reciever_thread;
+
+  async_ptr_t* m_response_ptr;
+  packet_response_t* volatile* m_response;
+  packet_payload_t* m_payload;
   size_t m_packet_size;
-  void* m_data;
 } tspckt_t;
 
 /*
  * allocate a tspckt on the (current) heap
  */
-tspckt_t *create_tspckt(void* data, size_t data_size);
+tspckt_t *create_tspckt(struct threaded_socket* destination, void* data, size_t data_size);
 
 /*
  * create invalid tspckt that would not pass

@@ -4,6 +4,7 @@
 #include "core.h"
 #include "dev/debug/serial.h"
 #include "kmain.h"
+#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/queue.h"
@@ -79,7 +80,7 @@ ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size
     return Error();
   }
 
-  tspckt_t *packet = create_tspckt(buffer, buffer_size);
+  tspckt_t *packet = create_tspckt(socket, buffer, buffer_size);
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
@@ -90,24 +91,21 @@ ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size
   queue_enqueue(socket->m_buffers, packet);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
-  return Success((uintptr_t)&packet->m_response);
+  return Success((uintptr_t)packet->m_response);
 }
 
-tspckt_t *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
+packet_response_t *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
 
   ErrorOrPtr result = send_packet_to_socket(port, buffer, buffer_size);
   if (result.m_status == ANIVA_FAIL) {
     return nullptr;
   }
 
-  tspckt_t **packet_dptr = (tspckt_t**) Release(result);
+  async_ptr_t* packet_res_ptr = (async_ptr_t*)Release(result);
 
-  for (;;) {
-    tspckt_t *response_ptr = (tspckt_t*)*packet_dptr;
-    if (response_ptr != nullptr) {
-      return response_ptr;
-    }
-  }
+  packet_response_t* response_result = await(packet_res_ptr);
+
+  return response_result;
 }
 
 void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
@@ -182,11 +180,12 @@ void socket_handle_packets(threaded_socket_t* socket) {
   tspckt_t* packet;
   while (validate_tspckt(packet = queue_dequeue(buffer))) {
 
+    packet_payload_t payload = *packet->m_payload;
     //thread_set_state(thread, RUNNING);
-    size_t data_size = packet->m_packet_size - sizeof(tspckt_t);
+    size_t data_size = payload.m_data_size;
 
     if (data_size == sizeof(uint16_t)) {
-      uint16_t data = *(uint16_t*)packet->m_data;
+      uint16_t data = *(uint16_t*)payload.m_data;
       uint8_t ident;
       uint8_t routine;
 
@@ -212,7 +211,7 @@ void socket_handle_packets(threaded_socket_t* socket) {
       goto skip_callback;
     }
 
-    thread->m_socket->m_on_packet(packet->m_data, data_size);
+    thread->m_socket->m_on_packet(payload);
     // we jump here when we are done handeling a potential socketroutine
   skip_callback:
     destroy_tspckt(packet);
