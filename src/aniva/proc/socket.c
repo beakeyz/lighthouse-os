@@ -216,15 +216,20 @@ void socket_handle_packets(threaded_socket_t* socket) {
     packet_response_t* response = nullptr;
     thread->m_socket->m_on_packet(payload, &response);
 
-    if (response != nullptr) {
-      packet->m_response = response;
+    if (response == nullptr) {
+      goto skip_callback;
     }
 
+    // the packet should be kept alive
+    response->m_packet_handle = packet;
+    packet->m_response = response;
     // we want to keep this packet alive for now, all the way untill the response has been handled
     mutex_unlock(packet->m_packet_mutex);
     continue;
     // we jump here when we are done handeling a potential socketroutine
   skip_callback:
+    // no need to unlock the mutex, because it just gets
+    // deleted lmao
     destroy_tspckt(packet);
   }
 }

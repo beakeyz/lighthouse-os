@@ -34,6 +34,17 @@ const aniva_driver_t g_test_dbg_driver = {
 void test_dbg_init(queue_t* buffer) {
 
   println("Initialized the test debug driver!");
+
+  uintptr_t data = 69696969;
+  async_ptr_t* ptr = send_packet_to_socket(0, &data, sizeof(data));
+
+  packet_response_t* response = (packet_response_t*)await(ptr);
+
+  println(to_string(*(uintptr_t*)response->m_response_buffer));
+
+  destroy_packet_response(response);
+
+  kernel_panic("recieved the response!");
 }
 
 int test_dbg_exit() {
@@ -51,8 +62,6 @@ uintptr_t test_dbg_msg(packet_payload_t payload, packet_response_t** response) {
     draw_char(169, 100, 'h');
   }
 
-  uintptr_t hi = 666;
-  *response = create_packet_response(&hi, sizeof(hi));
 
   return 0;
 }

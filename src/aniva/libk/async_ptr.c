@@ -1,6 +1,7 @@
 #include "async_ptr.h"
 #include "dev/debug/serial.h"
 #include "libk/error.h"
+#include "libk/string.h"
 #include "mem/heap.h"
 #include "proc/core.h"
 #include "proc/thread.h"

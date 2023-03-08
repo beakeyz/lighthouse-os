@@ -1,6 +1,7 @@
 #include "ps2_keyboard.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/debug/test.h"
 #include "dev/driver.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "interupts/control/pic.h"
@@ -54,6 +55,15 @@ int ps2_keyboard_exit() {
 
 uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response) {
 
+
+  println("ps2_keyboard_msg: recieved payload");
+
+  println(to_string(*(uintptr_t*)payload.m_data));
+
+  uintptr_t res = 1234;
+
+  *response = create_packet_response(&res, sizeof(res));
+
   return 0;
 }
 
@@ -71,14 +81,8 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
     send_socket_routine(1, SOCKET_ROUTINE_EXIT);
   }
 
-  uintptr_t data = 777;
-  uintptr_t response;
-  async_ptr_t* ptr = send_packet_to_socket(1, &data, sizeof(uintptr_t));
-
-  if (ptr) {
-    response = *(uintptr_t*)await(ptr);
-  }
-  // FIXME: how do we clean up this packet now?
+  uintptr_t data = TEST_DBG_PRINT;
+  send_packet_to_socket(1, &data, sizeof(uintptr_t));
 
   y_index+= 9;
 
