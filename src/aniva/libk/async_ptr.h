@@ -13,7 +13,7 @@ typedef enum async_ptr_status {
 } ASYNC_PTR_STATUS;
 
 typedef struct async_ptr {
-  void* volatile* m_response;
+  void* volatile* m_response_buffer;
 
   struct mutex* m_mutex;
   struct thread* m_responder;
@@ -21,9 +21,11 @@ typedef struct async_ptr {
   ASYNC_PTR_STATUS m_status;
 } async_ptr_t;
 
-async_ptr_t* create_async_ptr(void* volatile* response_buffer, uintptr_t responder_port);
+async_ptr_t* create_async_ptr(uintptr_t responder_port);
+
 void destroy_async_ptr(async_ptr_t* ptr);
 
 void* await(async_ptr_t* ptr);
+void async_ptr_assign(void* ptr);
 
 #endif // !__ANIVA_LIBK_ASYNC_PTR__

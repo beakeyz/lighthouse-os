@@ -8,7 +8,7 @@
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 
-async_ptr_t* create_async_ptr(void* volatile* response_buffer, uintptr_t responder_port) {
+async_ptr_t* create_async_ptr(uintptr_t responder_port) {
   async_ptr_t* ret = kmalloc(sizeof(async_ptr_t));
 
   threaded_socket_t* responder = find_registered_socket(responder_port);
@@ -23,7 +23,9 @@ async_ptr_t* create_async_ptr(void* volatile* response_buffer, uintptr_t respond
   ret->m_mutex = create_mutex(0);
   ret->m_responder = responder->m_parent;
   ret->m_waiter = nullptr;
-  ret->m_response = (void**)response_buffer;
+
+  // we prepare our own buffer, which can be filled from an external source
+  ret->m_response_buffer = kmalloc(sizeof(void*));
   ret->m_status = ASYNC_PTR_STATUS_WAITING;
 
   return ret;
@@ -41,9 +43,13 @@ void* await(async_ptr_t* ptr) {
 
   ptr->m_waiter = get_current_scheduling_thread();
 
-  while(!*ptr->m_response);
+  while(!*ptr->m_response_buffer);
 
   mutex_unlock(ptr->m_mutex);
 
-  return *ptr->m_response;
+  return *ptr->m_response_buffer;
+}
+
+void async_ptr_assign(void* ptr) {
+
 }

@@ -14,7 +14,7 @@
 
 static uint32_t generate_tspckt_identifier(tspckt_t* tspckt) USED;
 
-tspckt_t *create_tspckt(threaded_socket_t* reciever, void* data, size_t data_size) {
+tspckt_t *create_tspckt(threaded_socket_t* reciever, void* data, size_t data_size, packet_response_t** response_buffer) {
   const size_t packet_size = sizeof(tspckt_t) + data_size;
   tspckt_t *packet = kmalloc(sizeof(tspckt_t));
 
@@ -23,10 +23,10 @@ tspckt_t *create_tspckt(threaded_socket_t* reciever, void* data, size_t data_siz
   packet->m_packet_mutex = create_mutex(0);
   packet->m_sender_thread = get_current_scheduling_thread();
   packet->m_reciever_thread = reciever;
-  packet->m_response_ptr = create_async_ptr((void**)&packet->m_response, reciever->m_port);
+  //packet->m_response_ptr = create_async_ptr((void**)&packet->m_response, reciever->m_port);
   packet->m_identifier = NULL; // TODO
   packet->m_packet_size = packet_size;
-  packet->m_response = nullptr;
+  packet->m_response_buffer = response_buffer;
   packet->m_payload = create_packet_payload(data, data_size);
 
   return packet;
@@ -47,9 +47,8 @@ ANIVA_STATUS destroy_tspckt(tspckt_t* packet) {
   // NOTE: when a packet gets a response, it stays alive to serve as a midleman for that response.
   // this zombified version of our packet then gets cleaned up when the response is handled...
   // TODO: we could just copy all the nesecary stuff over to the response structure and then still clean up the packet...
-  ASSERT_MSG(packet->m_response == nullptr, "Tried to destroy a tspacket while it had a response")
   
-  destroy_async_ptr(packet->m_response_ptr);
+  //destroy_async_ptr(packet->m_response_ptr);
   destroy_packet_payload(packet->m_payload);
   destroy_mutex(packet->m_packet_mutex);
   kfree(packet);

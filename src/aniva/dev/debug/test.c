@@ -43,6 +43,7 @@ void test_dbg_init(queue_t* buffer) {
   println(to_string(*(uintptr_t*)response->m_response_buffer));
 
   destroy_packet_response(response);
+  destroy_async_ptr(ptr);
 
   kernel_panic("recieved the response!");
 }

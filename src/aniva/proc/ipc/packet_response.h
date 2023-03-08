@@ -7,8 +7,6 @@ struct tspckt;
 typedef struct packet_response {
   void* m_response_buffer;
   size_t m_response_size;
-
-  struct tspckt* m_packet_handle;
 } packet_response_t;
 
 packet_response_t* create_packet_response(void* data, size_t size);

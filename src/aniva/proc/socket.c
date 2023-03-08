@@ -73,7 +73,6 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
  * their own mess
  */
 async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
   // TODO: list lookup
   threaded_socket_t *socket = find_registered_socket(port);
 
@@ -81,7 +80,8 @@ async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_si
     return nullptr;
   }
 
-  tspckt_t *packet = create_tspckt(socket, buffer, buffer_size);
+  async_ptr_t* response_ptr = create_async_ptr(socket->m_port);
+  tspckt_t *packet = create_tspckt(socket, buffer, buffer_size, (packet_response_t**)response_ptr->m_response_buffer);
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
@@ -91,8 +91,7 @@ async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_si
 
   queue_enqueue(socket->m_buffers, packet);
 
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
-  return packet->m_response_ptr;
+  return response_ptr;
 }
 
 packet_response_t *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
@@ -220,12 +219,9 @@ void socket_handle_packets(threaded_socket_t* socket) {
       goto skip_callback;
     }
 
-    // the packet should be kept alive
-    response->m_packet_handle = packet;
-    packet->m_response = response;
+    *packet->m_response_buffer = response;
     // we want to keep this packet alive for now, all the way untill the response has been handled
     mutex_unlock(packet->m_packet_mutex);
-    continue;
     // we jump here when we are done handeling a potential socketroutine
   skip_callback:
     // no need to unlock the mutex, because it just gets

@@ -16,8 +16,7 @@ typedef struct tspckt {
   struct threaded_socket* m_reciever_thread;
   mutex_t* m_packet_mutex;
 
-  async_ptr_t* m_response_ptr;
-  volatile packet_response_t* m_response;
+  packet_response_t* volatile* m_response_buffer;
   packet_payload_t* m_payload;
   size_t m_packet_size;
 } tspckt_t;
@@ -25,7 +24,7 @@ typedef struct tspckt {
 /*
  * allocate a tspckt on the (current) heap
  */
-tspckt_t *create_tspckt(struct threaded_socket* destination, void* data, size_t data_size);
+tspckt_t *create_tspckt(struct threaded_socket* destination, void* data, size_t data_size, packet_response_t** response_buffer);
 
 /*
  * create invalid tspckt that would not pass
