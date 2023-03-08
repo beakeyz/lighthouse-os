@@ -51,6 +51,7 @@ void queue_enqueue(queue_t *queue, void* data) {
     return;
   }
 
+  queue->m_entries++;
   new_entry->m_data = data;
   new_entry->m_preceding_entry = nullptr;
 

@@ -198,7 +198,10 @@ ErrorOrPtr scheduler_try_execute() {
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "Could not get current processor while trying to calling scheduler")
   ASSERT_MSG(current->m_irq_depth == 0, "Trying to call scheduler while in irq");
-  ASSERT_MSG(atomic_ptr_load(current->m_critical_depth) == 0, "Trying to call scheduler while in irq");
+
+  if (atomic_ptr_load(current->m_critical_depth) != 0) {
+    return Error();
+  }
 
   if (!s_has_schedule_request)
     return Error();

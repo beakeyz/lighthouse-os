@@ -10,6 +10,7 @@
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
 #include "sync/mutex.h"
+#include "sync/spinlock.h"
 #include <mem/heap.h>
 
 static uint32_t generate_tspckt_identifier(tspckt_t* tspckt) USED;
@@ -20,7 +21,6 @@ tspckt_t *create_tspckt(threaded_socket_t* reciever, void* data, size_t data_siz
 
   ASSERT_MSG(thread_is_socket(reciever->m_parent), "reciever thread is not a socket!");
 
-  packet->m_packet_mutex = create_mutex(0);
   packet->m_sender_thread = get_current_scheduling_thread();
   packet->m_reciever_thread = reciever;
   //packet->m_response_ptr = create_async_ptr((void**)&packet->m_response, reciever->m_port);
@@ -50,7 +50,6 @@ ANIVA_STATUS destroy_tspckt(tspckt_t* packet) {
   
   //destroy_async_ptr(packet->m_response_ptr);
   destroy_packet_payload(packet->m_payload);
-  destroy_mutex(packet->m_packet_mutex);
   kfree(packet);
   return ANIVA_SUCCESS;
 }

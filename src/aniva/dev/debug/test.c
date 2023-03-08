@@ -40,12 +40,12 @@ void test_dbg_init(queue_t* buffer) {
 
   packet_response_t* response = (packet_response_t*)await(ptr);
 
+  println("recieved response!");
   println(to_string(*(uintptr_t*)response->m_response_buffer));
 
   destroy_packet_response(response);
   destroy_async_ptr(ptr);
 
-  kernel_panic("recieved the response!");
 }
 
 int test_dbg_exit() {
@@ -59,10 +59,8 @@ uintptr_t test_dbg_msg(packet_payload_t payload, packet_response_t** response) {
   uintptr_t data = *(uintptr_t*)payload.m_data;
 
   if (data == TEST_DBG_PRINT) {
-    println("Hi bitch");
     draw_char(169, 100, 'h');
   }
-
 
   return 0;
 }

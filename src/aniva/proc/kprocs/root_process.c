@@ -1,6 +1,7 @@
 #include "root_process.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "interupts/interupts.h"
 #include "kmain.h"
 #include "libk/error.h"
 #include "libk/io.h"

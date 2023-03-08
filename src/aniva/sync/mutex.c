@@ -1,8 +1,10 @@
 #include "mutex.h"
 #include "dev/debug/serial.h"
+#include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/queue.h"
+#include "libk/string.h"
 #include "mem/heap.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -22,6 +24,7 @@ mutex_t* create_mutex(uint8_t flags) {
   ret->m_lock = create_spinlock();
   ret->m_lock_holder = nullptr;
   ret->m_mutex_flags = flags;
+  ret->m_lock_depth = 0;
 
   if (flags & MUTEX_FLAG_IS_HELD) {
     flags &= ~MUTEX_FLAG_IS_HELD;
@@ -49,7 +52,9 @@ void mutex_lock(mutex_t* mutex) {
   // when we get back
   thread_t* current_thread = get_current_scheduling_thread();
 
-  if (mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD) {
+  if (mutex->m_lock_depth > 0) {
+
+    ASSERT_MSG(mutex->m_lock_holder != nullptr, "Mutex is locked, but had no holder!");
 
     if (current_thread != mutex->m_lock_holder) {
       // block current thread
@@ -58,16 +63,18 @@ void mutex_lock(mutex_t* mutex) {
       // NOTE: when we block this thread, it returns executing here after it gets unblocked by mutex_unlock,
       // since we just yield to the scheduler when we're blocked
 
-      if (spinlock_is_locked(mutex->m_lock))
-        spinlock_unlock(mutex->m_lock);
+      spinlock_unlock(mutex->m_lock);
 
       thread_block(current_thread);
+
+      spinlock_lock(mutex->m_lock);
 
       ASSERT_MSG(mutex->m_lock_depth == 0, "Mutex was not unlocked after thread got unblocked!");
     }
   }
 
   // take lock
+  // FIXME: remove this assert and propperly support multi-depth mutex locking
   ASSERT_MSG(mutex->m_lock_depth == 0, "Tried to take a mutex while it has a locked depth greater than 0!");
 
   mutex->m_mutex_flags |= MUTEX_FLAG_IS_HELD;
@@ -75,8 +82,7 @@ void mutex_lock(mutex_t* mutex) {
 
   mutex->m_lock_depth++;
 
-  if (spinlock_is_locked(mutex->m_lock))
-    spinlock_unlock(mutex->m_lock);
+  spinlock_unlock(mutex->m_lock);
 }
 
 void mutex_unlock(mutex_t* mutex) {
@@ -98,8 +104,7 @@ void mutex_unlock(mutex_t* mutex) {
     __mutex_handle_unblock(mutex);
   }
 
-  if (spinlock_is_locked(mutex->m_lock))
-    spinlock_unlock(mutex->m_lock);
+  spinlock_unlock(mutex->m_lock);
 }
 
 // FIXME: inline?
@@ -122,5 +127,7 @@ static void __mutex_handle_unblock(mutex_t* mutex) {
   if (next_holder) {
     thread_unblock(next_holder);
     mutex->m_lock_holder = next_holder;
+    return;
   }
+  mutex->m_lock_holder = nullptr;
 }

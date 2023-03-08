@@ -13,6 +13,7 @@
 #include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include "sync/spinlock.h"
 #include "thread.h"
 #include "proc/ipc/tspckt.h"
 #include "interupts/interupts.h"
@@ -175,11 +176,16 @@ void socket_handle_packets(threaded_socket_t* socket) {
   ASSERT_MSG(thread != nullptr, "Found a socket without a parent thread!");
 
   queue_t* buffer = socket->m_buffers;
-  
-  tspckt_t* packet;
-  while (validate_tspckt(packet = queue_dequeue(buffer))) {
 
-    mutex_lock(packet->m_packet_mutex);
+  while (true) {
+
+    tspckt_t* packet = queue_dequeue(buffer);
+
+    // no valid tspacket from the queue,
+    // so we bail
+    if (!validate_tspckt(packet)) {
+      break;
+    }
 
     packet_payload_t payload = *packet->m_payload;
     //thread_set_state(thread, RUNNING);
@@ -221,7 +227,6 @@ void socket_handle_packets(threaded_socket_t* socket) {
 
     *packet->m_response_buffer = response;
     // we want to keep this packet alive for now, all the way untill the response has been handled
-    mutex_unlock(packet->m_packet_mutex);
     // we jump here when we are done handeling a potential socketroutine
   skip_callback:
     // no need to unlock the mutex, because it just gets
