@@ -30,6 +30,7 @@ hive_t *create_hive(hive_url_part_t root_part) {
 }
 
 static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type);
+static void destroy_hive_entry(hive_entry_t* entry);
 static hive_entry_t* __hive_find_entry(hive_t* hive, hive_url_part_t part);
 static ANIVA_STATUS __hive_parse_hive_path(hive_t* root, const char* path, ANIVA_STATUS (*fn)(hive_t* root, hive_url_part_t part));
 static hive_url_part_t __hive_find_part_at(const char* path, uintptr_t depth);
@@ -211,20 +212,61 @@ void* hive_get(hive_t* root, const char* path) {
   return nullptr;
 }
 
-void hive_remove(hive_t* root, void* data) {
+ErrorOrPtr hive_remove(hive_t* root, void* data) {
   if (!hive_contains(root, data)) {
-    return;
+    return Error();
   }
 
-  // TODO:
+  const char* path = hive_get_path(root, data);
+
+  return hive_remove_path(root, path);
+
 }
 
-void hive_remove_path(hive_t* root, const char* path) {
-  if (hive_get(root, path) == nullptr) {
-    return;
+ErrorOrPtr hive_remove_path(hive_t* root, const char* path) {
+  // TODO:
+  path = __hive_prepend_root_part(root, path);
+
+  if (__hive_path_is_invalid(path)) {
+    return Error();
   }
 
-  // TODO:
+  if (hive_get(root, path) == nullptr) {
+    return Error();
+  }
+
+  hive_t* current_hive = root;
+  size_t part_count = __hive_get_part_count(path);
+
+  for (uintptr_t i = 1; i < part_count; i++) {
+    hive_url_part_t part = __hive_find_part_at(path, i);
+
+    hive_entry_t* entry = __hive_find_entry(current_hive, part);
+    bool is_hole = hive_entry_is_hole(entry);
+
+    kfree(part);
+
+    if (!entry) {
+      return Error();
+    }
+
+    if (i+1 == part_count) {
+      kfree(part);
+      if (is_hole) {
+        return Error();
+      }
+
+      uintptr_t index = Release(list_indexof(current_hive->m_entries, entry));
+      list_remove(current_hive->m_entries, index);
+      return Success(0);
+    }
+
+    if (hive_entry_is_hole(entry)) {
+      current_hive = entry->m_hole;
+    }
+  }
+
+  return Error();
 }
 
 // root.hole.entry
@@ -308,6 +350,10 @@ static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type) {
   ret->m_data = nullptr;
 
   return ret;
+}
+
+static void destroy_hive_entry(hive_entry_t* entry) {
+  kfree(entry);
 }
 
 static hive_entry_t* __hive_find_entry(hive_t* hive, hive_url_part_t part) {

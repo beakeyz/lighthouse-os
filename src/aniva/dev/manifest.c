@@ -29,3 +29,8 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t 
 
   return ret;
 }
+
+void destroy_dev_manifest(dev_manifest_t* manifest) {
+  // TODO: figure out if we need to take the driver handle with us...
+  kfree(manifest);
+}

@@ -35,6 +35,11 @@ aniva_driver_t* create_driver(
   return ret;
 }
 
+void destroy_driver(aniva_driver_t* driver) {
+  // TODO: when a driver holds on to resources, we need to clean them up too (if they are not being referenced ofcourse)
+  kfree(driver);
+}
+
 bool validate_driver(aniva_driver_t* driver) {
   if (driver == nullptr || driver->f_init == nullptr || driver->f_exit == nullptr) {
     return false;

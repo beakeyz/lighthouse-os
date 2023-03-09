@@ -84,13 +84,13 @@ void* hive_get(hive_t* root, const char* path);
 /*
  * Remove an entry from the hive
  */
-void hive_remove(hive_t* root, void* data);
+ErrorOrPtr hive_remove(hive_t* root, void* data);
 
 /*
  * Remove an entry using its path. this only
  * removes the outermost entry
  */
-void hive_remove_path(hive_t* root, const char* path);
+ErrorOrPtr hive_remove_path(hive_t* root, const char* path);
 
 /*
  * Find the path of an entry

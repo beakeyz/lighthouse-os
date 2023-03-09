@@ -33,6 +33,7 @@ typedef struct dev_manifest {
 } dev_manifest_t;
 
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t dep_count, dev_url_t url, uint8_t flags);
+void destroy_dev_manifest(dev_manifest_t* manifest);
 
 bool is_manifest_valid(dev_manifest_t* manifest);
 

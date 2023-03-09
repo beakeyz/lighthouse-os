@@ -34,7 +34,7 @@ typedef struct aniva_driver {
 
   DEV_TYPE_t m_type;
   uint32_t m_port;
-  // TODO:
+  // TODO: driver resources and dependencies
 } aniva_driver_t;
 
 aniva_driver_t* create_driver(
@@ -47,6 +47,8 @@ aniva_driver_t* create_driver(
   SocketOnPacket drv_msg,
   DEV_TYPE_t type
   );
+
+void destroy_driver(aniva_driver_t* driver);
 
 /*
  * Check properties of the driver to validate its integrity

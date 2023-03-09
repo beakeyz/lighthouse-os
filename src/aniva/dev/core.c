@@ -7,12 +7,14 @@
 #include "libk/linkedlist.h"
 #include "driver.h"
 #include <mem/heap.h>
+#include "libk/stddef.h"
 #include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
 
-#define DRIVER_TYPE_COUNT 5
+#define DRIVER_TYPE_COUNT 7
 
-const static DEV_TYPE_t dev_types[] = {
+const static DEV_TYPE_t dev_types[DRIVER_TYPE_COUNT] = {
   DT_DISK,
   DT_IO,
   DT_SOUND,
@@ -93,22 +95,38 @@ ErrorOrPtr unload_driver(dev_manifest_t* manifest) {
     return Error();
   }
 
+  ErrorOrPtr result = hive_remove(s_driver_hive, manifest->m_handle);
+
+  Must(result);
+
+  // FIXME: if the manifest tells us the driver was loaded:
+  //  - on the heap
+  //  - through a file
+
   // TODO:
   return Success(0);
 }
 
 bool is_driver_loaded(struct aniva_driver* handle) {
-  // TODO:
-  return false;
+  return hive_contains(s_driver_hive, handle);
 }
 
-aniva_driver_t* get_driver(dev_url_t url) {
-  aniva_driver_t* driver = hive_get(s_driver_hive, url);
+dev_manifest_t* get_driver(dev_url_t url) {
+  aniva_driver_t* handle = hive_get(s_driver_hive, url);
 
-  if (driver != nullptr) {
-    return driver;
+  if (handle == nullptr) {
+    return nullptr;
   }
-  return nullptr;
+
+  // TODO: resolve dependencies and resources
+  dev_manifest_t* manifest = create_dev_manifest(handle, NULL, 0, url, 0);
+
+  // TODO: let the handle be nullable when creating a manifest
+  if (manifest->m_handle != handle) {
+    return nullptr;
+  }
+
+  return manifest;
 }
 
 ErrorOrPtr driver_send_packet(const char* path, void* buffer, size_t buffer_size) {

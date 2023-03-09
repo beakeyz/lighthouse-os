@@ -62,7 +62,7 @@ bool is_driver_loaded(struct aniva_driver* handle);
 /*
  * Find the handle to a driver through its url
  */
-struct aniva_driver* get_driver(dev_url_t url);
+struct dev_manifest* get_driver(dev_url_t url);
 
 /*
  * Resolve the drivers socket and send a packet to that port
