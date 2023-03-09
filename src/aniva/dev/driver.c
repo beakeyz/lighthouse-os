@@ -15,7 +15,7 @@ aniva_driver_t* create_driver(
   ANIVA_DRIVER_INIT init,
   ANIVA_DRIVER_EXIT exit,
   SocketOnPacket drv_msg,
-  DEV_TYPE_t type
+  DEV_TYPE type
 ) {
   aniva_driver_t* ret = kmalloc(sizeof(aniva_driver_t));
 

@@ -7,6 +7,7 @@
 #include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
+#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 
 async_ptr_t* create_async_ptr(uintptr_t responder_port) {
@@ -24,6 +25,7 @@ async_ptr_t* create_async_ptr(uintptr_t responder_port) {
   ret->m_mutex = create_mutex(0);
   ret->m_responder = responder->m_parent;
   ret->m_waiter = nullptr;
+  ret->m_is_buffer_killed = create_atomic_ptr_with_value(false);
   ret->m_ref = create_refc(destroy_async_ptr, ret);
 
   // we prepare our own buffer, which can be filled from an external source
@@ -34,8 +36,16 @@ async_ptr_t* create_async_ptr(uintptr_t responder_port) {
 }
 
 void destroy_async_ptr(async_ptr_t* ptr) {
+  if (!ptr || ptr->m_ref->m_count > 0)
+    return;
+  
+  if (!atomic_ptr_load(ptr->m_is_buffer_killed)) {
+    kfree((void*)ptr->m_response_buffer);
+  }
+  destroy_atomic_ptr(ptr->m_is_buffer_killed);
   destroy_mutex(ptr->m_mutex);
   destroy_refc(ptr->m_ref);
+  memset(ptr, 0, sizeof(*ptr));
   kfree(ptr);
 }
 
@@ -47,11 +57,21 @@ void* await(async_ptr_t* ptr) {
   ref(ptr->m_ref);
   ptr->m_waiter = get_current_scheduling_thread();
 
-  while(!*ptr->m_response_buffer);
+  while(ptr->m_response_buffer && !*ptr->m_response_buffer) {
+    if (atomic_ptr_load(ptr->m_is_buffer_killed) != false) {
+      kfree((void*)ptr->m_response_buffer);
+      ptr->m_response_buffer = nullptr;
+      break;
+    }
+  }
 
   mutex_unlock(ptr->m_mutex);
 
-  void* response = *ptr->m_response_buffer;
+  void* response = nullptr; 
+  if (ptr->m_response_buffer) {
+    response = (void*)*ptr->m_response_buffer;
+  }
+
   unref(ptr->m_ref);
 
   return response;

@@ -9,21 +9,41 @@
 struct aniva_driver;
 struct dev_manifest;
 
-typedef enum DRIVER_LOAD_UNLOAD_INIT_METHOD {
-  CALL,
-  QUEUE
-} DRIVER_LOAD_UNLOAD_INIT_METHOD_t;
+#define DRIVER_URL_SEPERATOR '.'
 
-typedef enum DEV_TYPE {
-  DT_DISK,
+#define DRIVER_TYPE_COUNT 7
+
+typedef enum dev_type {
+  DT_DISK = 0,
   DT_IO,
   DT_SOUND,
   DT_GRAPHICS,
   DT_SERVICE,
   DT_DIAGNOSTICS,
   DT_OTHER
-} DEV_TYPE_t;
+} DEV_TYPE;
 
+typedef enum dev_flags {
+  STANDARD = (1 << 0),
+  FROM_FILE = (1 << 1),
+  LOADED_WITH_WARNIGN = (1 << 2),
+} DEV_FLAGS;
+
+const static char* dev_type_urls[DRIVER_TYPE_COUNT] = {
+  [DT_DISK] = "disk",
+  [DT_IO] = "io",
+  [DT_SOUND] = "sound",
+  [DT_GRAPHICS] = "graphics",
+  [DT_OTHER] = "other",
+  [DT_DIAGNOSTICS] = "diagnostics",
+  [DT_SERVICE] = "service",
+};
+
+/*
+ * Used by drivers to communicate, but also to send generic 
+ * messages through sockets (i.e. some ccs are global, meaning they
+ * are intercepted by the socket message dispatcher and interpreted)
+ */
 typedef uint32_t driver_control_code_t;
 
 // TODO: global dc codes 
@@ -51,6 +71,16 @@ void register_aniva_base_drivers();
 // TODO: load driver from file
 
 /*
+ * Registers the driver so it can be loaded
+ */
+ErrorOrPtr install_driver(struct dev_manifest* manifest);
+
+/*
+ * Unregisters the driver and also unloads it if it is still loaded
+ */
+ErrorOrPtr uninstall_driver(struct dev_manifest* manifest);
+
+/*
  * load a driver from its structure in RAM
  */
 ErrorOrPtr load_driver(struct dev_manifest* driver);
@@ -63,12 +93,24 @@ ErrorOrPtr unload_driver(dev_url_t url);
 /*
  * Check if the driver is installed into the grid
  */
+bool is_driver_installed(struct aniva_driver* handle);
+
+/*
+ * Check if the driver is loaded and currently active
+ */
 bool is_driver_loaded(struct aniva_driver* handle);
 
 /*
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
+
+/*
+ * Find the url for a certain dev_type
+ */
+static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
+  return dev_type_urls[type];
+}
 
 /*
  * Resolve the drivers socket and send a packet to that port

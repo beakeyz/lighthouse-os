@@ -18,6 +18,8 @@ void *memcpy(void * restrict dest, const void * restrict src, size_t length);
 void *memset(void *data, int value, size_t length);
 void *memchr(const void *s, int c, size_t n);
 
+const char* concat(char* one, char* two);
+
 // different kinds of number-to-string formating
 
 const char* to_string (uint64_t val);

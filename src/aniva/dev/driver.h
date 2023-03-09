@@ -32,7 +32,7 @@ typedef struct aniva_driver {
   // FIXME: what arguments are best to pass here?
   SocketOnPacket f_drv_msg;
 
-  DEV_TYPE_t m_type;
+  DEV_TYPE m_type;
   uint32_t m_port;
   // TODO: driver resources and dependencies
 } aniva_driver_t;
@@ -45,7 +45,7 @@ aniva_driver_t* create_driver(
   ANIVA_DRIVER_INIT init,
   ANIVA_DRIVER_EXIT exit,
   SocketOnPacket drv_msg,
-  DEV_TYPE_t type
+  DEV_TYPE type
   );
 
 void destroy_driver(aniva_driver_t* driver);

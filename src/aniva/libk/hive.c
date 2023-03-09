@@ -46,9 +46,9 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
     return Error();
   }
 
-  //if (hive_get(root, path) != nullptr) {
-  //  return Error();
-  //}
+  if (hive_get(root, path) != nullptr) {
+    return Error();
+  }
 
   hive_entry_t* entry = create_hive_entry(HIVE_ENTRY_TYPE_DATA);
   entry->m_data = data;
@@ -252,7 +252,7 @@ ErrorOrPtr hive_remove_path(hive_t* root, const char* path) {
 
     if (i+1 == part_count) {
       kfree(part);
-      if (is_hole) {
+      if (is_hole && entry->m_hole->m_entries->m_length != 0) {
         return Error();
       }
 

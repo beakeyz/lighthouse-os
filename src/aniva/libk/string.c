@@ -1,5 +1,6 @@
 #include "string.h"
 #include "dev/debug/serial.h"
+#include "mem/heap.h"
 #include <libk/stddef.h>
 
 /*
@@ -116,6 +117,16 @@ void *memchr(const void *s, int c, size_t n)
     }
 
     return nullptr;
+}
+
+const char* concat(char* one, char* two) {
+  const size_t total_length = strlen(one) + strlen(two) + 1;
+  char* ret = kmalloc(total_length);
+  // TODO this sux
+  memset((char*)ret, 0, total_length);
+  memcpy((char*)ret, one, strlen(one));
+  memcpy((char*)ret + strlen(one), two, strlen(two));
+  return ret;
 }
 
 // funnies

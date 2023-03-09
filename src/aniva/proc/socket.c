@@ -8,9 +8,11 @@
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/queue.h"
+#include "libk/reference.h"
 #include "libk/string.h"
 #include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
+#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "thread.h"
@@ -85,7 +87,7 @@ async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_
   }
 
   async_ptr_t* response_ptr = create_async_ptr(socket->m_port);
-  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, (packet_response_t**)response_ptr->m_response_buffer);
+  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, response_ptr);
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
@@ -108,6 +110,7 @@ packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, si
     return response;
   }
 
+  // await already destroys the async_ptr_t
   packet_response_t* response_result = await(result);
 
   response = *response_result;
@@ -207,7 +210,7 @@ void socket_handle_packets(threaded_socket_t* socket) {
       case DCC_EXIT:
         socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
         break;
-      case 0:
+      default:
         // TODO: can we put this result in the response?
         on_packet_result = thread->m_socket->m_on_packet(payload, &response);
         break;
@@ -215,6 +218,11 @@ void socket_handle_packets(threaded_socket_t* socket) {
 
     if (response != nullptr) {
       *packet->m_response_buffer = response;
+    } else {
+      if (is_referenced(packet->m_async_ptr_handle->m_ref)) 
+        atomic_ptr_write(packet->m_async_ptr_handle->m_is_buffer_killed, true);
+      else
+        destroy_async_ptr(packet->m_async_ptr_handle);
     }
 
     // we want to keep this packet alive for now, all the way untill the response has been handled

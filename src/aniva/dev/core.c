@@ -14,23 +14,15 @@
 #include "proc/core.h"
 #include "sched/scheduler.h"
 
-#define DRIVER_TYPE_COUNT 7
 
-const static DEV_TYPE_t dev_types[DRIVER_TYPE_COUNT] = {
-  DT_DISK,
-  DT_IO,
-  DT_SOUND,
-  DT_GRAPHICS,
-  DT_OTHER,
-  DT_DIAGNOSTICS,
-  DT_SERVICE,
-};
 
-static hive_t* s_driver_hive;
+static hive_t* s_installed_drivers;
+static hive_t* s_loaded_drivers;
 
 void init_aniva_driver_registry() {
   // TODO:
-  s_driver_hive = create_hive("dev");
+  s_installed_drivers = create_hive("i_dev");
+  s_loaded_drivers = create_hive("l_dev");
 
 }
 
@@ -42,8 +34,8 @@ void register_aniva_base_drivers() {
   // load em 1 by 1
 
   dev_manifest_t* manifests_to_load[] = {
-    create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, nullptr, 0, "io.ps2", 0),
-    create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, nullptr, 0, "diagnostics.debug", 0),
+    create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, nullptr, 0, 0),
+    create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, nullptr, 0, 0),
   };
 
   const size_t load_count = sizeof(manifests_to_load) / sizeof(dev_manifest_t*) ;
@@ -57,6 +49,48 @@ void register_aniva_base_drivers() {
   }
 
   resume_scheduler();
+}
+
+ErrorOrPtr install_driver(struct dev_manifest* manifest) {
+  if (!validate_driver(manifest->m_handle)) {
+    return Error();
+  }
+
+  if (is_driver_installed(manifest->m_handle)) {
+    return Error();
+  }
+
+  dev_url_t path = manifest->m_url;
+
+  ErrorOrPtr result = hive_add_entry(s_installed_drivers, manifest->m_handle, path);
+
+  if (result.m_status == ANIVA_FAIL) {
+    return result;
+  }
+  return Success(0);
+}
+
+ErrorOrPtr uninstall_driver(struct dev_manifest* manifest) {
+  if (!validate_driver(manifest->m_handle)) {
+    return Error();
+  }
+
+  if (!is_driver_installed(manifest->m_handle)) {
+    return Error();
+  }
+
+  if (is_driver_loaded(manifest->m_handle)) {
+    TRY(unload_driver(manifest->m_url));
+  }
+
+  dev_url_t path = manifest->m_url;
+
+  TRY(hive_remove_path(s_installed_drivers, path));
+
+  // invalidate the manifest 
+  destroy_dev_manifest(manifest);
+  return Success(0);
+
 }
 
 /*
@@ -75,13 +109,21 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     return Error();
   }
 
+  if (!is_driver_installed(manifest->m_handle)) {
+    ErrorOrPtr install_result = install_driver(manifest);
+    if (install_result.m_status == ANIVA_FAIL) {
+      return install_result;
+    }
+    //return Error();
+  }
+
   if (is_driver_loaded(manifest->m_handle)) {
     return Error();
   }
 
   dev_url_t path = manifest->m_url;
 
-  ErrorOrPtr result = hive_add_entry(s_driver_hive, manifest->m_handle, path);
+  ErrorOrPtr result = hive_add_entry(s_loaded_drivers, manifest->m_handle, path);
 
   if (result.m_status == ANIVA_FAIL) {
     return result;
@@ -93,23 +135,20 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 }
 
 ErrorOrPtr unload_driver(dev_url_t url) {
-  dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_driver_hive, url), nullptr, 0, url, 0);
+  dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_loaded_drivers, url), nullptr, 0, 0);
 
-  if (!validate_driver(dummy_manifest->m_handle)) {
+  if (!validate_driver(dummy_manifest->m_handle) || strcmp(url, dummy_manifest->m_url) != 0) {
     return Error();
   }
 
   // call the driver exit function async
   driver_send_packet(dummy_manifest->m_url, DCC_EXIT, NULL, 0);
 
-  ErrorOrPtr result = hive_remove(s_driver_hive, dummy_manifest->m_handle);
-
-  Must(result);
+  TRY(hive_remove(s_loaded_drivers, dummy_manifest->m_handle));
 
   // FIXME: if the manifest tells us the driver was loaded:
   //  - on the heap
   //  - through a file
-
 
   destroy_dev_manifest(dummy_manifest);
   // TODO:
@@ -117,18 +156,22 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 }
 
 bool is_driver_loaded(struct aniva_driver* handle) {
-  return hive_contains(s_driver_hive, handle);
+  return hive_contains(s_loaded_drivers, handle);
+}
+
+bool is_driver_installed(struct aniva_driver* handle) {
+  return hive_contains(s_installed_drivers, handle);
 }
 
 dev_manifest_t* get_driver(dev_url_t url) {
-  aniva_driver_t* handle = hive_get(s_driver_hive, url);
+  aniva_driver_t* handle = hive_get(s_installed_drivers, url);
 
   if (handle == nullptr) {
     return nullptr;
   }
 
   // TODO: resolve dependencies and resources
-  dev_manifest_t* manifest = create_dev_manifest(handle, NULL, 0, url, 0);
+  dev_manifest_t* manifest = create_dev_manifest(handle, NULL, 0, 0);
 
   // TODO: let the handle be nullable when creating a manifest
   if (manifest->m_handle != handle) {
@@ -140,12 +183,10 @@ dev_manifest_t* get_driver(dev_url_t url) {
 
 async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
-  aniva_driver_t* handle = hive_get(s_driver_hive, path);
+  aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
 
   if (!handle)
     return nullptr;
 
-  async_ptr_t* ptr = send_packet_to_socket(handle->m_port, buffer, buffer_size);
-
-  return nullptr;
+  return send_packet_to_socket_with_code(handle->m_port, code, buffer, buffer_size);
 }

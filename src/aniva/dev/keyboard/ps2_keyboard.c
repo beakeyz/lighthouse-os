@@ -10,6 +10,7 @@
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
+#include "libk/linkedlist.h"
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "proc/core.h"
@@ -24,7 +25,7 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs);
 
 // TODO: finish this driver
 const aniva_driver_t g_base_ps2_keyboard_driver = {
-  .m_name = "ps2 keyboard",
+  .m_name = "ps2_kb",
   .m_type = DT_IO,
   .m_ident = DRIVER_IDENT(0, 0),
   .m_version = DRIVER_VERSION(0, 0, 1),
@@ -34,7 +35,11 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
   .m_port = 0
 };
 
+static list_t* s_kb_event_callbacks;
+
 void ps2_keyboard_entry() {
+
+  s_kb_event_callbacks = init_list();
 
   InterruptHandler_t* handler = create_interrupt_handler(PS2_KB_IRQ_VEC, I8259, ps2_keyboard_irq_handler);
   bool success = interrupts_add_handler(handler);
@@ -54,12 +59,28 @@ int ps2_keyboard_exit() {
 
 uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response) {
 
-  if (payload.m_code) {
-    switch (payload.m_code) {
-      case KB_REGISTER_CALLBACK:
-        break;
-      case KB_UNREGISTER_CALLBACK:
-        break;
+  switch (payload.m_code) {
+    case KB_REGISTER_CALLBACK: {
+      if (payload.m_data_size != sizeof(ps2_key_callback)) {
+        // response?
+        return -1;
+      }
+      ps2_key_callback callback = (ps2_key_callback)payload.m_data;
+      list_append(s_kb_event_callbacks, callback);
+      break;
+    }
+    case KB_UNREGISTER_CALLBACK: {
+      if (payload.m_data_size != sizeof(ps2_key_callback)) {
+        // response?
+        return -1;
+      }
+      ps2_key_callback callback = payload.m_data;
+      ErrorOrPtr index_result = list_indexof(s_kb_event_callbacks, callback);
+      if (index_result.m_status == ANIVA_FAIL) {
+        return -1;
+      }
+      list_remove(s_kb_event_callbacks, index_result.m_ptr);
+      break;
     }
   }
 
@@ -71,6 +92,17 @@ static uintptr_t y_index = 0;
 registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
 
   char c = in8(0x60);
+
+  FOREACH(i, s_kb_event_callbacks) {
+    ps2_key_callback callback = i->data;
+
+    ps2_key_event_t event = {
+      .m_typed_char = c,
+      .m_key_code = (uintptr_t)c
+    };
+
+    callback(event);
+  }
 
   println("called keyboard driver!");
 

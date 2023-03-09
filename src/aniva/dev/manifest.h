@@ -21,7 +21,7 @@ typedef struct dev_manifest {
   driver_identifier_t m_check_ident;
   driver_version_t m_check_version;
 
-  DEV_TYPE_t m_type;
+  DEV_TYPE m_type;
 
   uint8_t m_flags;
   // timestamp
@@ -32,7 +32,7 @@ typedef struct dev_manifest {
   // binary validator
 } dev_manifest_t;
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t dep_count, dev_url_t url, uint8_t flags);
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t dep_count, uint8_t flags);
 void destroy_dev_manifest(dev_manifest_t* manifest);
 
 bool is_manifest_valid(dev_manifest_t* manifest);
