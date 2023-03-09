@@ -13,7 +13,6 @@
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "proc/core.h"
-#include "proc/default_socket_routines.h"
 #include "proc/ipc/packet_response.h"
 
 #define PS2_KB_IRQ_VEC 1
@@ -55,14 +54,14 @@ int ps2_keyboard_exit() {
 
 uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response) {
 
-
-  println("ps2_keyboard_msg: recieved payload");
-
-  println(to_string(*(uintptr_t*)payload.m_data));
-
-  uintptr_t res = 1234;
-
-  *response = create_packet_response(&res, sizeof(res));
+  if (payload.m_code) {
+    switch (payload.m_code) {
+      case KB_REGISTER_CALLBACK:
+        break;
+      case KB_UNREGISTER_CALLBACK:
+        break;
+    }
+  }
 
   return 0;
 }
@@ -74,17 +73,6 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
   char c = in8(0x60);
 
   println("called keyboard driver!");
-
-  draw_char(69, y_index, 'K');
-
-  if (y_index > 10 * 9) {
-    send_socket_routine(1, SOCKET_ROUTINE_EXIT);
-  }
-
-  uintptr_t data = TEST_DBG_PRINT;
-  send_packet_to_socket(1, &data, sizeof(uintptr_t));
-
-  y_index+= 9;
 
   return regs;
 }

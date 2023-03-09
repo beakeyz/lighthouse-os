@@ -2,6 +2,7 @@
 #define __ANIVA_KDEV_CORE__
 
 #include "dev/handle.h"
+#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include <libk/stddef.h>
 
@@ -22,6 +23,11 @@ typedef enum DEV_TYPE {
   DT_DIAGNOSTICS,
   DT_OTHER
 } DEV_TYPE_t;
+
+typedef uint32_t driver_control_code_t;
+
+// TODO: global dc codes 
+#define DCC_EXIT 1
 
 typedef const char* dev_url_t;
 
@@ -52,7 +58,7 @@ ErrorOrPtr load_driver(struct dev_manifest* driver);
 /*
  * unload a driver from its structure in RAM
  */
-ErrorOrPtr unload_driver(struct dev_manifest* driver);
+ErrorOrPtr unload_driver(dev_url_t url);
 
 /*
  * Check if the driver is installed into the grid
@@ -67,7 +73,7 @@ struct dev_manifest* get_driver(dev_url_t url);
 /*
  * Resolve the drivers socket and send a packet to that port
  */
-ErrorOrPtr driver_send_packet(const char* path, void* buffer, size_t buffer_size);
+async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
 

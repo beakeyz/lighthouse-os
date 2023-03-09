@@ -1,4 +1,5 @@
 #include "core.h"
+#include "dev/debug/serial.h"
 #include "dev/debug/test.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/manifest.h"
@@ -10,6 +11,7 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
+#include "proc/core.h"
 #include "sched/scheduler.h"
 
 #define DRIVER_TYPE_COUNT 7
@@ -90,12 +92,17 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   return Success(0);
 }
 
-ErrorOrPtr unload_driver(dev_manifest_t* manifest) {
-  if (!validate_driver(manifest->m_handle)) {
+ErrorOrPtr unload_driver(dev_url_t url) {
+  dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_driver_hive, url), nullptr, 0, url, 0);
+
+  if (!validate_driver(dummy_manifest->m_handle)) {
     return Error();
   }
 
-  ErrorOrPtr result = hive_remove(s_driver_hive, manifest->m_handle);
+  // call the driver exit function async
+  driver_send_packet(dummy_manifest->m_url, DCC_EXIT, NULL, 0);
+
+  ErrorOrPtr result = hive_remove(s_driver_hive, dummy_manifest->m_handle);
 
   Must(result);
 
@@ -103,6 +110,8 @@ ErrorOrPtr unload_driver(dev_manifest_t* manifest) {
   //  - on the heap
   //  - through a file
 
+
+  destroy_dev_manifest(dummy_manifest);
   // TODO:
   return Success(0);
 }
@@ -129,7 +138,14 @@ dev_manifest_t* get_driver(dev_url_t url) {
   return manifest;
 }
 
-ErrorOrPtr driver_send_packet(const char* path, void* buffer, size_t buffer_size) {
+async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
-  return Success(0);
+  aniva_driver_t* handle = hive_get(s_driver_hive, path);
+
+  if (!handle)
+    return nullptr;
+
+  async_ptr_t* ptr = send_packet_to_socket(handle->m_port, buffer, buffer_size);
+
+  return nullptr;
 }

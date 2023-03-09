@@ -2,6 +2,7 @@
 #define __ANIVA_LIBK_ASYNC_PTR__
 
 #include "mem/PagingComplex.h"
+#include <libk/reference.h>
 
 struct thread;
 struct mutex;
@@ -15,6 +16,7 @@ typedef enum async_ptr_status {
 typedef struct async_ptr {
   void* volatile* m_response_buffer;
 
+  refc_t* m_ref;
   struct mutex* m_mutex;
   struct thread* m_responder;
   struct thread* m_waiter;
@@ -27,5 +29,6 @@ void destroy_async_ptr(async_ptr_t* ptr);
 
 void* await(async_ptr_t* ptr);
 void async_ptr_assign(void* ptr);
+void async_ptr_discard(async_ptr_t* ptr);
 
 #endif // !__ANIVA_LIBK_ASYNC_PTR__

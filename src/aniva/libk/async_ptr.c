@@ -1,6 +1,7 @@
 #include "async_ptr.h"
 #include "dev/debug/serial.h"
 #include "libk/error.h"
+#include "libk/reference.h"
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "proc/core.h"
@@ -23,6 +24,7 @@ async_ptr_t* create_async_ptr(uintptr_t responder_port) {
   ret->m_mutex = create_mutex(0);
   ret->m_responder = responder->m_parent;
   ret->m_waiter = nullptr;
+  ret->m_ref = create_refc(destroy_async_ptr, ret);
 
   // we prepare our own buffer, which can be filled from an external source
   ret->m_response_buffer = kmalloc(sizeof(void*));
@@ -33,6 +35,7 @@ async_ptr_t* create_async_ptr(uintptr_t responder_port) {
 
 void destroy_async_ptr(async_ptr_t* ptr) {
   destroy_mutex(ptr->m_mutex);
+  destroy_refc(ptr->m_ref);
   kfree(ptr);
 }
 
@@ -41,15 +44,30 @@ void* await(async_ptr_t* ptr) {
 
   mutex_lock(ptr->m_mutex);
 
+  ref(ptr->m_ref);
   ptr->m_waiter = get_current_scheduling_thread();
 
   while(!*ptr->m_response_buffer);
 
   mutex_unlock(ptr->m_mutex);
 
-  return *ptr->m_response_buffer;
+  void* response = *ptr->m_response_buffer;
+  unref(ptr->m_ref);
+
+  return response;
 }
 
 void async_ptr_assign(void* ptr) {
+  // TODO
+  kernel_panic("UNIMPLEMENTED");
+}
 
+void async_ptr_discard(async_ptr_t* ptr) {
+  if (!ptr)
+    return;
+
+  // take the mutex
+  mutex_lock(ptr->m_mutex);
+
+  destroy_async_ptr(ptr);
 }

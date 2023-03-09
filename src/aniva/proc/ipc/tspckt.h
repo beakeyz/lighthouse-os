@@ -16,6 +16,7 @@ typedef struct tspckt {
   struct thread* m_sender_thread;
   struct threaded_socket* m_reciever_thread;
 
+  // this field should be zero for default socket messages
   packet_response_t* volatile* m_response_buffer;
   packet_payload_t* m_payload;
   size_t m_packet_size;
@@ -24,7 +25,7 @@ typedef struct tspckt {
 /*
  * allocate a tspckt on the (current) heap
  */
-tspckt_t *create_tspckt(struct threaded_socket* destination, void* data, size_t data_size, packet_response_t** response_buffer);
+tspckt_t *create_tspckt(struct threaded_socket* destination, driver_control_code_t code, void* data, size_t data_size, packet_response_t** response_buffer);
 
 /*
  * create invalid tspckt that would not pass

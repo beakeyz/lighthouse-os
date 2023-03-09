@@ -7,7 +7,6 @@
 #include "libk/io.h"
 #include "libk/linkedlist.h"
 #include "proc/core.h"
-#include "proc/default_socket_routines.h"
 #include "proc/ipc/tspckt.h"
 #include "proc/proc.h"
 #include "proc/socket.h"
@@ -47,7 +46,6 @@ static void root_packet_dispatch() {
 
       socket_handle_packets(socket);
     }
-
     // after one swoop we don't need to check again lmao
     scheduler_yield();
   }

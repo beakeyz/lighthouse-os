@@ -1,6 +1,7 @@
 #ifndef __ANIVA_PROC_CORE__
 #define __ANIVA_PROC_CORE__
 
+#include "dev/core.h"
 #include "libk/async_ptr.h"
 #include "libk/linkedlist.h"
 #include "libk/error.h"
@@ -71,9 +72,14 @@ struct threaded_socket *find_registered_socket(uint32_t port);
 extern async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size); // socket.c
 
 /*
+ * same thing as the function above, but it includes a driver control code
+ */
+extern async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
+
+/*
  * above function but blocking
  */
-extern struct packet_response*send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size); // socket.c
+extern struct packet_response send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size); // socket.c
 
 /*
  * validata a tspckt based on its identifier (checksum, hash, idk man)

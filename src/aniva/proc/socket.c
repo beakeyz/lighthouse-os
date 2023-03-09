@@ -9,7 +9,6 @@
 #include "libk/io.h"
 #include "libk/queue.h"
 #include "libk/string.h"
-#include "proc/default_socket_routines.h"
 #include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
@@ -74,6 +73,10 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
  * their own mess
  */
 async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
+  return send_packet_to_socket_with_code(port, 0, buffer, buffer_size);
+}
+
+async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
   // TODO: list lookup
   threaded_socket_t *socket = find_registered_socket(port);
 
@@ -82,11 +85,12 @@ async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_si
   }
 
   async_ptr_t* response_ptr = create_async_ptr(socket->m_port);
-  tspckt_t *packet = create_tspckt(socket, buffer, buffer_size, (packet_response_t**)response_ptr->m_response_buffer);
+  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, (packet_response_t**)response_ptr->m_response_buffer);
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
     destroy_tspckt(packet);
+    destroy_async_ptr(response_ptr);
     return nullptr;
   }
 
@@ -95,17 +99,22 @@ async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_si
   return response_ptr;
 }
 
-packet_response_t *send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
+packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
 
+  packet_response_t response = {0};
   async_ptr_t* result = send_packet_to_socket(port, buffer, buffer_size);
 
   if (!result) {
-    return nullptr;
+    return response;
   }
 
   packet_response_t* response_result = await(result);
 
-  return response_result;
+  response = *response_result;
+
+  destroy_packet_response(response_result);
+
+  return response;
 }
 
 void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
@@ -188,47 +197,29 @@ void socket_handle_packets(threaded_socket_t* socket) {
     }
 
     packet_payload_t payload = *packet->m_payload;
-    //thread_set_state(thread, RUNNING);
-    size_t data_size = payload.m_data_size;
-
-    if (data_size == sizeof(uint16_t)) {
-      uint16_t data = *(uint16_t*)payload.m_data;
-      uint8_t ident;
-      uint8_t routine;
-
-      ANIVA_STATUS result = parse_socket_routing(data, &ident, &routine);
-
-      if (result == ANIVA_FAIL) {
-        goto skip_callback;
-      }
-
-      if (ident == SOCKET_ROUTINE_IDENT) {
-        // TODO:
-        switch (routine) {
-          case SOCKET_ROUTINE_DEBUG:
-            println("Recieved SOCKET_ROUTINE_DEBUG routine!");
-            break;
-          case SOCKET_ROUTINE_IGNORE_NEXT:
-            break;
-          case SOCKET_ROUTINE_EXIT:
-            socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
-            break;
-        }
-      }
-      goto skip_callback;
-    }
-
     packet_response_t* response = nullptr;
-    thread->m_socket->m_on_packet(payload, &response);
+    uintptr_t on_packet_result;
 
-    if (response == nullptr) {
-      goto skip_callback;
+    //thread_set_state(thread, RUNNING);
+    const size_t data_size = payload.m_data_size;
+
+    switch (payload.m_code) {
+      case DCC_EXIT:
+        socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
+        break;
+      case 0:
+        // TODO: can we put this result in the response?
+        on_packet_result = thread->m_socket->m_on_packet(payload, &response);
+        break;
     }
 
-    *packet->m_response_buffer = response;
+    if (response != nullptr) {
+      *packet->m_response_buffer = response;
+    }
+
     // we want to keep this packet alive for now, all the way untill the response has been handled
     // we jump here when we are done handeling a potential socketroutine
-  skip_callback:
+
     // no need to unlock the mutex, because it just gets
     // deleted lmao
     destroy_tspckt(packet);

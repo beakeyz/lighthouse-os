@@ -1,6 +1,7 @@
 #ifndef __ANIVA_LIBK_REFERENCE__
 #define __ANIVA_LIBK_REFERENCE__
 #include "libk/error.h"
+#include "libk/io.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>
 #include <dev/debug/serial.h>
@@ -8,12 +9,15 @@
 typedef int flat_refc_t;
 
 typedef struct refc {
-  flat_refc_t count;
+  flat_refc_t m_count;
+  void* m_referenced_handle;
 
   // called when the refcount hits zero
-  FuncPtr* zero_waiters;
-  size_t zero_waiters_count;
+  void (*m_destructor) (void* handle);
 } refc_t;
+
+refc_t* create_refc(FuncPtr destructor, void* referenced_handle);
+void destroy_refc(refc_t* ref);
 
 static ALWAYS_INLINE void flat_ref(flat_refc_t* frc_p) {
   flat_refc_t i = *(frc_p)++;
@@ -28,29 +32,15 @@ static ALWAYS_INLINE void flat_unref(flat_refc_t* frc_p) {
 }
 
 static ALWAYS_INLINE void ref(refc_t* rc) {
-  rc->count++;
+  rc->m_count++;
 }
 
 static ALWAYS_INLINE void unref(refc_t* rc) {
-  rc->count--;
-  if (rc->count <= 0) {
-    uintptr_t idx = 0;
-    FuncPtr ptr = rc->zero_waiters[0];
-    while (ptr) {
+  ASSERT_MSG(rc->m_count > 0, "Tried to unreference without first referencing");
 
-      ptr();
-      
-      idx++;
-      ptr = rc->zero_waiters[idx];
-    }
-  }
-}
-
-static ALWAYS_INLINE void clean_refc_waiters(refc_t* rc) {
-  if (rc->zero_waiters != nullptr && rc->zero_waiters_count > 0) {
-    // let's assume that this was kmalloced as one big list
-    rc->zero_waiters_count = 0;
-    kfree(rc->zero_waiters);
+  rc->m_count--;
+  if (rc->m_count <= 0) {
+    rc->m_destructor(rc->m_referenced_handle);
   }
 }
 
