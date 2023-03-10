@@ -132,6 +132,7 @@ void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
   // NOTE: they way this works now is that we only
   // dequeue packets after the entry function has ended.
   // this is bad, so we need to handle dequeueing on a different thread...
+  socket_set_flag(thread->m_socket, TS_ACTIVE, true);
   thread->m_real_entry(args);
 
   // when the entry of a socket exits, we 
@@ -179,7 +180,7 @@ static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
 
 void socket_handle_packets(threaded_socket_t* socket) {
 
-  if (socket_is_flag_set(socket, TS_SHOULD_EXIT)) {
+  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_ACTIVE)) {
     return;
   }
 

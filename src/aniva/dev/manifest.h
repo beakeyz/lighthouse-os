@@ -2,6 +2,7 @@
 #define __ANIVA_DEV_MANIFEST__
 
 #include "dev/driver.h"
+#include "libk/linkedlist.h"
 
 struct aniva_driver;
 
@@ -11,7 +12,7 @@ struct aniva_driver;
 
 typedef struct dev_manifest {
   aniva_driver_t* m_handle;
-  aniva_driver_t** m_dependencies;
+  list_t* m_dependency_manifests;
 
   dev_url_t m_url;
 
@@ -32,7 +33,7 @@ typedef struct dev_manifest {
   // binary validator
 } dev_manifest_t;
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t dep_count, uint8_t flags);
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags);
 void destroy_dev_manifest(dev_manifest_t* manifest);
 
 bool is_manifest_valid(dev_manifest_t* manifest);

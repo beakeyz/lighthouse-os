@@ -89,13 +89,13 @@ void start_scheduler(void) {
     return;
   }
 
-  if (is_kernel_proc(frame_ptr->m_proc_to_schedule) && sched_get_kernel_proc() == nullptr) {
-    get_current_processor()->m_kernel_process = frame_ptr->m_proc_to_schedule;
-  } else {
+  //if (is_kernel_proc(frame_ptr->m_proc_to_schedule) && sched_get_kernel_proc() == nullptr) {
+  //  get_current_processor()->m_kernel_process = frame_ptr->m_proc_to_schedule;
+  //} else {
     // we might have just tried to initialize the kernel proc twice for this thread...
     // or sm else thats just wrong
     // FIXME:
-  }
+  //}
 
   // let's jump into the idle thread initially, so we can then
   // resume to the thread-pool when we leave critical sections
@@ -477,6 +477,14 @@ thread_t *get_previous_scheduled_thread() {
 
 proc_t* sched_get_kernel_proc() {
   return (proc_t*)read_gs(GET_OFFSET(Processor_t, m_kernel_process));
+}
+
+void set_kernel_proc(proc_t* proc) {
+  Processor_t* current = get_current_processor();
+  if (current->m_kernel_process != nullptr) {
+    return;
+  }
+  current->m_kernel_process = proc;
 }
 
 bool sched_can_schedule() {

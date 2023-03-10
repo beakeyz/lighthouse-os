@@ -46,5 +46,6 @@ thread_t *get_previous_scheduled_thread();
 void set_current_handled_thread(thread_t* thread);
 
 proc_t* sched_get_kernel_proc();
+void set_kernel_proc(proc_t* proc);
 
 #endif // !__ANIVA_SCHEDULER__

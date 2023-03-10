@@ -14,8 +14,6 @@
 #include "proc/core.h"
 #include "sched/scheduler.h"
 
-
-
 static hive_t* s_installed_drivers;
 static hive_t* s_loaded_drivers;
 
@@ -23,19 +21,15 @@ void init_aniva_driver_registry() {
   // TODO:
   s_installed_drivers = create_hive("i_dev");
   s_loaded_drivers = create_hive("l_dev");
-
 }
 
 void register_aniva_base_drivers() {
 
-  pause_scheduler();
-  // find all base drivers
-
   // load em 1 by 1
 
   dev_manifest_t* manifests_to_load[] = {
-    create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, nullptr, 0, 0),
-    create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, nullptr, 0, 0),
+    create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, 0),
+    create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, 0),
   };
 
   const size_t load_count = sizeof(manifests_to_load) / sizeof(dev_manifest_t*) ;
@@ -47,8 +41,6 @@ void register_aniva_base_drivers() {
       kernel_panic("failed to load core driver");
     }
   }
-
-  resume_scheduler();
 }
 
 ErrorOrPtr install_driver(struct dev_manifest* manifest) {
@@ -109,6 +101,10 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     return Error();
   }
 
+  // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
+  // where we say result == ANIVA_FAIL
+  // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
+  // need to be replaced with result != ANIVA_SUCCESS
   if (!is_driver_installed(manifest->m_handle)) {
     ErrorOrPtr install_result = install_driver(manifest);
     if (install_result.m_status == ANIVA_FAIL) {
@@ -121,8 +117,15 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     return Error();
   }
 
+  FOREACH(i, manifest->m_dependency_manifests) {
+    dev_manifest_t* dep_manifests = i->data;
+    load_driver(dep_manifests);
+  }
+
   dev_url_t path = manifest->m_url;
 
+  print("adding path: ");
+  println(path);
   ErrorOrPtr result = hive_add_entry(s_loaded_drivers, manifest->m_handle, path);
 
   if (result.m_status == ANIVA_FAIL) {
@@ -135,7 +138,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 }
 
 ErrorOrPtr unload_driver(dev_url_t url) {
-  dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_loaded_drivers, url), nullptr, 0, 0);
+  dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_loaded_drivers, url), 0);
 
   if (!validate_driver(dummy_manifest->m_handle) || strcmp(url, dummy_manifest->m_url) != 0) {
     return Error();
@@ -171,7 +174,7 @@ dev_manifest_t* get_driver(dev_url_t url) {
   }
 
   // TODO: resolve dependencies and resources
-  dev_manifest_t* manifest = create_dev_manifest(handle, NULL, 0, 0);
+  dev_manifest_t* manifest = create_dev_manifest(handle, NULL);
 
   // TODO: let the handle be nullable when creating a manifest
   if (manifest->m_handle != handle) {

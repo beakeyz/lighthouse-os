@@ -13,8 +13,6 @@ packet_payload_t* create_packet_payload(void* data, size_t size, driver_control_
 
   payload->m_data = data;
   payload->m_code = code;
-
-  //memcpy(payload->m_data, &data, size);
   return payload;
 }
 

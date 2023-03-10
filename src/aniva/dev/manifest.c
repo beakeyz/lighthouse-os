@@ -3,11 +3,12 @@
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/hive.h"
+#include "libk/linkedlist.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include <libk/string.h>
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t deps_count, uint8_t flags) {
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
   if (!handle) {
     return nullptr;
@@ -19,9 +20,17 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t 
     return nullptr;
 
   ret->m_handle = handle;
+  ret->m_dep_count = handle->m_dep_count;
 
-  ret->m_dependencies = (aniva_driver_t**)deps;
-  ret->m_dep_count = deps_count;
+  ret->m_dependency_manifests = init_list();
+
+  for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
+    dev_url_t url = handle->m_dependencies[i];
+
+    dev_manifest_t* dep_manifest = get_driver(url);
+
+    list_append(ret->m_dependency_manifests, dep_manifest);
+  }
 
   ret->m_type = handle->m_type;
   ret->m_check_version = handle->m_version;
@@ -44,6 +53,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, void** deps, size_t 
 
 void destroy_dev_manifest(dev_manifest_t* manifest) {
   // TODO: figure out if we need to take the driver handle with us...
+  destroy_list(manifest->m_dependency_manifests);
   kfree((void*)manifest->m_url);
   kfree(manifest);
 }

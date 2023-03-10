@@ -1,13 +1,20 @@
 // TODO: for now this is just a temporary solution to make this work. In 
-// the future I want to have a device drive to do this and make the code 
+// the future I want to have a device driver to do this and make the code 
 // more concise and scalable
 
 #ifndef __FRAMEBUFFER__
 #define __FRAMEBUFFER__
+#include "dev/driver.h"
 #include <libk/multiboot.h>
 #include <libk/stddef.h>
 
-// Colorcode translation
-// TODO: lets make this a driver
+#define FB_DRV_SET_MB_TAG 8
+#define FB_DRV_SET_WIDTH 9
+#define FB_DRV_SET_HEIGHT 10
+#define FB_DRV_SET_FB 11
+#define FB_DRV_MAP_FB 12
+#define FB_DRV_RESET 13
+
+extern aniva_driver_t g_base_fb_driver;
 
 #endif // !__FRAMEBUFFER__
