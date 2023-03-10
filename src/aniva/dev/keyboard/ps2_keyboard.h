@@ -6,6 +6,7 @@
 typedef struct ps2_key_event {
   uint32_t m_key_code;
   char m_typed_char;
+  bool m_pressed;
 } ps2_key_event_t;
 
 typedef void (*ps2_key_callback) (ps2_key_event_t event);

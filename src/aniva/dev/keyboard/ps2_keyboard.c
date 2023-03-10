@@ -18,10 +18,61 @@
 
 #define PS2_KB_IRQ_VEC 1
 
+char kbd_us_map[256] = {
+    0,   '\033', '1',  '2', '3',  '4', '5', '6', '7',  '8', '9', '0', '-',
+    '=', 0x08,   '\t', 'q', 'w',  'e', 'r', 't', 'y',  'u', 'i', 'o', 'p',
+    '[', ']',    '\n', 0,   'a',  's', 'd', 'f', 'g',  'h', 'j', 'k', 'l',
+    ';', '\'',   '`',  0,   '\\', 'z', 'x', 'c', 'v',  'b', 'n', 'm', ',',
+    '.', '/',    0,    '*', 0,    ' ', 0,   0,   0,    0,   0,   0,   0,
+    0,   0,      0,    0,   0,    0,   0,   0,   0,    '-', 0,   0,   0,
+    '+', 0,      0,    0,   0,    0,   0,   0,   '\\', 0,   0,   0,
+};
+
+char kbd_us_shift_map[256] = {
+    0,   '\033', '!',  '@', '#', '$', '%', '^', '&', '*', '(', ')', '_',
+    '+', 0x08,   '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P',
+    '{', '}',    '\n', 0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L',
+    ':', '\"',   '~',  0,   '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<',
+    '>', '?',    0,    '*', 0,   ' ', 0,   0,   0,   0,   0,   0,   0,
+    0,   0,      0,    0,   0,   0,   0,   0,   0,   '-', 0,   0,   0,
+    '+', 0,      0,    0,   0,   0,   0,   0,   '|', 0,   0,   0,
+};
+
+#define KBD_PORT_DATA
+#define KBD_PORT_STATUS 0x64
+#define KBD_PORT_COMMAND 0x64
+
+#define KBD_STATUS_OUTBUF_FULL 0x1u
+#define KBD_STATUS_INBUF_FULL 0x2u
+#define KBD_STATUS_SYSFLAG 0x4u
+#define KBD_STATUS_CMDORDATA 0x8u
+#define KBD_STATUS_WHICHBUF 0x20u
+#define KBD_STATUS_TIMEOUT 0x40u
+#define KBD_STATUS_PARITYERR 0x80u
+
+#define KBD_MOD_NONE 0x0u
+#define KBD_MOD_ALT 0x1u
+#define KBD_MOD_CTRL 0x2u
+#define KBD_MOD_SHIFT 0x4u
+#define KBD_MOD_SUPER 0x8u
+#define KBD_MOD_ALTGR 0x10u
+#define KBD_MOD_MASK 0x1Fu
+
+#define KBD_SCANCODE_LSHIFT 0x2au
+#define KBD_SCANCODE_RSHIFT 0x36u
+#define KBD_SCANCODE_ALT 0x38u
+#define KBD_SCANCODE_CTRL 0x1Du
+#define KBD_SCANCODE_SUPER 0x5B
+#define KBD_ACK 0xFAu
+
+#define KBD_IS_PRESSED 0x80u
+
 void ps2_keyboard_entry();
 int ps2_keyboard_exit();
 uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response);
 registers_t* ps2_keyboard_irq_handler(registers_t* regs);
+
+void set_flags(uint16_t* flags, uint8_t bit, bool val);
 
 // TODO: finish this driver
 const aniva_driver_t g_base_ps2_keyboard_driver = {
@@ -36,10 +87,12 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
 };
 
 static list_t* s_kb_event_callbacks;
+static uint16_t s_mod_flags;
 
 void ps2_keyboard_entry() {
 
   s_kb_event_callbacks = init_list();
+  s_mod_flags = NULL;
 
   InterruptHandler_t* handler = create_interrupt_handler(PS2_KB_IRQ_VEC, I8259, ps2_keyboard_irq_handler);
   bool success = interrupts_add_handler(handler);
@@ -91,20 +144,57 @@ static uintptr_t y_index = 0;
 
 registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
 
-  char c = in8(0x60);
+  uint16_t scan_code = (uint16_t)in8(0x60);
+
+  uint16_t key_code = scan_code & 0x7f;
+  bool pressed = !(scan_code & 0x80);
+
+
+  switch (key_code) {
+    case KBD_SCANCODE_ALT:
+      set_flags(&s_mod_flags, KBD_MOD_ALT, pressed);
+      break;
+    case KBD_SCANCODE_LSHIFT:
+    case KBD_SCANCODE_RSHIFT:
+      set_flags(&s_mod_flags, KBD_MOD_SHIFT, pressed);
+      break;
+    case KBD_SCANCODE_CTRL:
+      set_flags(&s_mod_flags, KBD_MOD_CTRL, pressed);
+      break;
+    case KBD_SCANCODE_SUPER:
+      set_flags(&s_mod_flags, KBD_MOD_SUPER, pressed);
+      break;
+  default:
+    break;
+  }
+
+  char character = (s_mod_flags & KBD_MOD_SHIFT)
+               ? kbd_us_shift_map[key_code]
+               : kbd_us_map[key_code];
+
+  if (pressed) {
+    putch(character);
+  }
 
   FOREACH(i, s_kb_event_callbacks) {
     ps2_key_callback callback = i->data;
 
     ps2_key_event_t event = {
-      .m_typed_char = c,
-      .m_key_code = (uintptr_t)c
+      .m_typed_char = character,
+      .m_key_code = key_code,
+      .m_pressed = pressed
     };
 
     callback(event);
   }
 
-  println("called keyboard driver!");
-
   return regs;
+}
+
+void set_flags(uint16_t* flags, uint8_t bit, bool val) {
+  if (val) {
+    *flags |= bit;
+  } else {
+    *flags &= ~bit;
+  }
 }

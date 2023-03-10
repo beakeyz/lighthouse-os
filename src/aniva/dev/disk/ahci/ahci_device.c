@@ -44,9 +44,9 @@ static ALWAYS_INLINE volatile HBA* get_hba(ahci_device_t* device) {
   return (volatile HBA*)device->m_hba_region;
 }
 
+// TODO: redo this
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
-  draw_char(16, 16, 'A');
   // NOTE: 0x01 is the ghc enable flag
   for (size_t retry = 0;; retry++) {
 
@@ -61,7 +61,6 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
     delay(1000);
   }
 
-  draw_char(24, 16, 'A');
   // get this mofo up and running
   get_hba(device)->control_regs.global_host_ctrl = (1 << 31) | (1 << 1);
   get_hba(device)->control_regs.int_status = 0xffffffff;
@@ -80,11 +79,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       if (initialize_port(port) == ANIVA_FAIL) {
         print("Failed to initialize AHCI port ");
         println(to_string(i));
-        draw_char(i * 8, 8, 'X');
-      } else {
-        draw_char(i * 8, 8, 'P');
       }
-
     }
   }
 
@@ -93,7 +88,6 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
-  draw_char(0, 16, 'H');
   get_hba(device)->control_regs.global_host_ctrl = 0x80000000;
 
   // enable hba interrupts
@@ -105,7 +99,6 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   InterruptHandler_t* _handler = create_interrupt_handler(device->m_identifier->interrupt_line, I8259, ahci_irq_handler);
   interrupts_add_handler(_handler);
 
-  draw_char(8, 16, 'B');
   return reset_hba(device);
 }
 

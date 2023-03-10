@@ -51,7 +51,6 @@ void test_dbg_init(queue_t* buffer) {
 }
 
 int test_dbg_exit() {
-  draw_char(169 + 8, 100, 'i');
   return 0;
 }
 
@@ -64,7 +63,7 @@ uintptr_t test_dbg_msg(packet_payload_t payload, packet_response_t** response) {
   uintptr_t data = *(uintptr_t*)payload.m_data;
 
   if (data == TEST_DBG_PRINT) {
-    draw_char(169, 100, 'h');
+    println("test_print");
   }
 
   return 0;

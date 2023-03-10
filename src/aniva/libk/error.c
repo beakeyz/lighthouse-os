@@ -29,9 +29,11 @@ NORETURN void kernel_panic(const char* panic_message) {
   } 
 
   if (has_framebuffer) {
+    /*
     for (int i = 0; i < strlen(panic_message); i++) {
       draw_char(i * 8, 0, panic_message[i]);
     } 
+    */
     // prepare framebuffer error message
   }
 

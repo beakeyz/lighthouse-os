@@ -10,9 +10,9 @@
 
 acpi_parser_t parser;
 
-void init_acpi() {
+void init_acpi(uintptr_t multiboot_addr) {
 
-  init_acpi_parser(&parser);
+  init_acpi_parser(&parser, multiboot_addr);
 
   // TODO: check FADT table for irq shit and verify that the parser booted up nicely
 }

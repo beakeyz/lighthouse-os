@@ -15,25 +15,22 @@
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 
-static void root_main();
+static void root_main(uintptr_t multiboot_address);
 static void root_packet_dispatch();
 
-void create_and_register_root_process() {
+void create_and_register_root_process(uintptr_t multiboot_address) {
 
   proc_t* root_proc = create_kernel_proc(root_main, NULL);
 
-  proc_add_thread(root_proc, create_thread_for_proc(root_proc, root_packet_dispatch, NULL, "root packet dispatch"));
+  proc_add_thread(root_proc, create_thread_for_proc(root_proc, root_packet_dispatch, multiboot_address, "root packet dispatch"));
 
   sched_add_proc(root_proc);
 }
 
-static void root_main() {
+static void root_main(uintptr_t multiboot_address) {
 
   register_aniva_base_drivers();
 
-  for (;;) {
-
-  }
 }
 
 static void root_packet_dispatch() {

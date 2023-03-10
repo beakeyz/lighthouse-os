@@ -41,7 +41,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // parse multiboot
   mb_initialize((void *) mb_addr, &first_valid_addr, &first_valid_alloc_addr);
-  g_GlobalSystemInfo.m_total_multiboot_size = get_total_mb2_size((void *) mb_addr);
+  size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
   // init bootstrap processor
   init_processor(&g_GlobalSystemInfo.m_bsp_processor, 0);
@@ -56,9 +56,9 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
   // map multiboot address
-  g_GlobalSystemInfo.m_multiboot_addr = (uintptr_t)kmem_kernel_alloc(
+  uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
     (uintptr_t)mb_addr,
-    g_GlobalSystemInfo.m_total_multiboot_size + 8,
+    total_multiboot_size + 8,
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
   );
 
@@ -66,9 +66,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_timer_system();
 
-  init_fb(get_mb2_tag((uintptr_t *)mb_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER));
-
-  init_acpi();
+  init_acpi(multiboot_addr);
   
   init_pci();
 
@@ -81,7 +79,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-  create_and_register_root_process();
+  create_and_register_root_process(multiboot_addr);
 
   start_scheduler();
 

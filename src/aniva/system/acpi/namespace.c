@@ -18,12 +18,6 @@ acpi_aml_seg_t *acpi_load_segment(void* table_ptr, int idx) {
   kmem_kernel_alloc((uintptr_t)ret->aml_table, sizeof(acpi_aml_table_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   kmem_kernel_alloc((uintptr_t)ret->aml_table->data, ret->aml_table->header.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  draw_char(0, 100, ret->aml_table->header.signature[0]);
-  draw_char(8, 100, ret->aml_table->header.signature[1]);
-  draw_char(16, 100, ret->aml_table->header.signature[2]);
-  draw_char(24, 100, ret->aml_table->header.signature[3]);
-  
   return ret;
 }
 

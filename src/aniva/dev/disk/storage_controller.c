@@ -15,16 +15,6 @@ static void find_storage_device(pci_device_identifier_t* identifier) {
 
   if (identifier->class == MASS_STORAGE) {
 
-    static uintptr_t idx = 0;
-
-    const char* cls = (char*)to_string(identifier->class);
-
-    for (int i = 0; i < strlen(cls); i++) {
-      draw_char(idx, 32, cls[i]);
-      idx+= 8;
-    }
-    idx += 16;
-
     MassstorageSubClasIDType_t type = identifier->subclass;
     
     // 0x01 == AHCI progIF

@@ -17,8 +17,8 @@ extern PagingComplex_t boot_pd0[512];
 extern PagingComplex_t boot_pd0_p[512 * 32];
 
 typedef struct {
-  uintptr_t m_multiboot_addr;
-  size_t m_total_multiboot_size;
+  //uintptr_t m_multiboot_addr;
+  //size_t m_total_multiboot_size;
 
   Processor_t m_bsp_processor;
   Processor_t* m_current_core;

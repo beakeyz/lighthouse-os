@@ -28,6 +28,7 @@ enum acpi_parser_mode {
 typedef struct acpi_parser {
   acpi_rsdp_t* m_rsdp;
   acpi_fadt_t *m_fadt;
+  uintptr_t m_multiboot_addr;
   bool m_is_xsdp;
 
   int m_acpi_rev;
@@ -47,10 +48,10 @@ typedef struct acpi_parser {
 
 } acpi_parser_t;
 
-void init_acpi_parser(acpi_parser_t* parser);
+void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr);
 
 // find rsdt and (if available) xsdt
-void* find_rsdp();
+void* find_rsdp(acpi_parser_t* parser);
 
 // me want cool table
 void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index);

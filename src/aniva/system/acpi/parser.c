@@ -31,7 +31,7 @@ static ALWAYS_INLINE int acpi_parse_u16(uint16_t* out, uint8_t* code_ptr, int* p
 static ALWAYS_INLINE int acpi_parse_u32(uint32_t* out, uint8_t* code_ptr, int* pc, int limit);
 static ALWAYS_INLINE int acpi_parse_u64(uint64_t* out, uint8_t* code_ptr, int* pc, int limit);
 
-void init_acpi_parser(acpi_parser_t* parser) {
+void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   g_parser_ptr = parser;
 
   size_t table_index;
@@ -43,7 +43,9 @@ void init_acpi_parser(acpi_parser_t* parser) {
 
   println("Starting ACPI parser");
 
-  rsdp = find_rsdp();
+  parser->m_multiboot_addr = multiboot_addr;
+
+  rsdp = find_rsdp(parser);
 
   if (rsdp == nullptr) {
     // FIXME: we're fucked lol
@@ -114,12 +116,12 @@ void init_acpi_parser(acpi_parser_t* parser) {
   // TODO:
 }
 
-void* find_rsdp() {
+void* find_rsdp(acpi_parser_t* parser) {
   const char* rsdt_sig = "RSD PTR ";
   // TODO: check other spots
 
   // check multiboot header
-  struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)g_GlobalSystemInfo.m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+  struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
 
   if (new_ptr && new_ptr->rsdp[0]) {
     void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
@@ -128,7 +130,7 @@ void* find_rsdp() {
     return ptr;
   }
 
-  struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)g_GlobalSystemInfo.m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+  struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
 
   if (old_ptr && old_ptr->rsdp[0]) {
     void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
