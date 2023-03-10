@@ -49,6 +49,23 @@ ErrorOrPtr socket_register(struct threaded_socket* socket);
 ErrorOrPtr socket_unregister(struct threaded_socket* socket);
 
 /*
+ * Register a socket as messaged
+ */
+ErrorOrPtr socket_register_messaged(struct threaded_socket* socket);
+
+/*
+ * Grab a socket pointer from the messaged queue
+ * WE CAN'T DETROY THIS SOCKET
+ */
+struct threaded_socket* socket_grab_messaged();
+
+/*
+ * return a pointer of the first thread in line, but 
+ * don't remove it from the queue
+ */
+struct threaded_socket* socket_peek_messaged();
+
+/*
  * Try to grab a new proc_id
  */
 ErrorOrPtr generate_new_proc_id();

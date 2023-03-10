@@ -14,6 +14,14 @@
 #define FB_DRV_SET_FB 11
 #define FB_DRV_MAP_FB 12
 #define FB_DRV_RESET 13
+#define FB_DRV_GET_FB_INFO 14
+
+typedef struct fb_info {
+  uint32_t width;
+  uint32_t height;
+  uint32_t bpp;
+  uint32_t pitch;
+} fb_info_t;
 
 extern aniva_driver_t g_base_fb_driver;
 

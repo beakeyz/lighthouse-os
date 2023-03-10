@@ -78,6 +78,12 @@ bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
 void default_socket_entry_wrapper(uintptr_t args, struct thread* thread);
 
 /*
+ * Remove the first tspckt from the queue of the socket and
+ * handle it
+ */
+ErrorOrPtr socket_handle_packet(threaded_socket_t* socket);
+
+/*
  * Drain and handle all the packets of a socket
  */
 void socket_handle_packets(threaded_socket_t* socket);

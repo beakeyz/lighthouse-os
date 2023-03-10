@@ -30,7 +30,11 @@ async_ptr_t* create_async_ptr(uintptr_t responder_port) {
 
   // we prepare our own buffer, which can be filled from an external source
   ret->m_response_buffer = kmalloc(sizeof(void*));
+  // zero dat bitch
+  memset((void*)ret->m_response_buffer, 0x00, sizeof(void*));
+
   ret->m_status = ASYNC_PTR_STATUS_WAITING;
+
 
   return ret;
 }
@@ -50,10 +54,22 @@ void destroy_async_ptr(async_ptr_t* ptr) {
 }
 
 void* await(async_ptr_t* ptr) {
+
+  if (!ptr)
+    return nullptr;
+
   ASSERT_MSG(ptr->m_responder != get_current_scheduling_thread(), "Can't wait on an async ptr on the same thread!");
 
   mutex_lock(ptr->m_mutex);
 
+  // FIXME: this ref/unref dance can be simplefied into
+  // the assumption that after awaiting an async pointer,
+  // you don't need it anymore. We need to verify that 
+  // this works before removing this though, because having
+  // is like this does mean that other threads can reference this
+  // and then prevent destruction after this thread is done waiting.
+  // the question is: do we want that to be possible?
+  
   ref(ptr->m_ref);
   ptr->m_waiter = get_current_scheduling_thread();
 

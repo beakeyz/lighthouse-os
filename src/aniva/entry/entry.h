@@ -20,8 +20,8 @@ typedef struct {
   //uintptr_t m_multiboot_addr;
   //size_t m_total_multiboot_size;
 
-  Processor_t m_bsp_processor;
-  Processor_t* m_current_core;
+  //Processor_t m_bsp_processor;
+  //Processor_t* m_current_core;
 } GlobalSystemInfo_t;
 
 extern GlobalSystemInfo_t g_GlobalSystemInfo;

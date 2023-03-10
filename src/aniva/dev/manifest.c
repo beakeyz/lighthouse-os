@@ -21,16 +21,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
   ret->m_handle = handle;
   ret->m_dep_count = handle->m_dep_count;
-
   ret->m_dependency_manifests = init_list();
-
-  for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
-    dev_url_t url = handle->m_dependencies[i];
-
-    dev_manifest_t* dep_manifest = get_driver(url);
-
-    list_append(ret->m_dependency_manifests, dep_manifest);
-  }
 
   ret->m_type = handle->m_type;
   ret->m_check_version = handle->m_version;
@@ -48,6 +39,19 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
   *(char*)&ret->m_url[dtu_length] = DRIVER_URL_SEPERATOR;
   memcpy((char*)ret->m_url + dtu_length + 1, handle->m_name, strlen(handle->m_name));
 
+  for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
+    dev_url_t url = handle->m_dependencies[i];
+
+    dev_manifest_t* dep_manifest = get_driver(url);
+
+    // if we can't load this drivers dependencies, we just terminate this entire thing
+    if (dep_manifest == nullptr) {
+      destroy_dev_manifest(ret);
+      return nullptr;
+    }
+
+    list_append(ret->m_dependency_manifests, dep_manifest);
+  }
   return ret;
 }
 

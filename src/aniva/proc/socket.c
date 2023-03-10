@@ -3,7 +3,6 @@
 #include <system/asm_specifics.h>
 #include "core.h"
 #include "dev/debug/serial.h"
-#include "kmain.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
@@ -15,6 +14,7 @@
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
+#include "system/processor/processor.h"
 #include "thread.h"
 #include "proc/ipc/tspckt.h"
 #include "interupts/interupts.h"
@@ -79,7 +79,7 @@ async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_si
 }
 
 async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
-  // TODO: list lookup
+  // FIXME: is it necceserry to enter a critical section here?
   threaded_socket_t *socket = find_registered_socket(port);
 
   if (socket == nullptr || socket->m_parent == nullptr) {
@@ -97,6 +97,7 @@ async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_
   }
 
   queue_enqueue(socket->m_buffers, packet);
+  socket_register_messaged(socket);
 
   return response_ptr;
 }
@@ -178,10 +179,11 @@ static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
   ptr->m_socket_flags = 0;
 }
 
-void socket_handle_packets(threaded_socket_t* socket) {
+ErrorOrPtr socket_handle_packet(threaded_socket_t* socket) {
 
+  // don't handle any packets when this socket is not available
   if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_ACTIVE)) {
-    return;
+    return Error();
   }
 
   thread_t* thread = socket->m_parent;
@@ -190,47 +192,56 @@ void socket_handle_packets(threaded_socket_t* socket) {
 
   queue_t* buffer = socket->m_buffers;
 
+  tspckt_t* packet = queue_dequeue(buffer);
+
+  // no valid tspacket from the queue,
+  // so we bail
+  if (!validate_tspckt(packet)) {
+    return Error();
+  }
+
+  packet_payload_t payload = *packet->m_payload;
+  packet_response_t* response = nullptr;
+  uintptr_t on_packet_result;
+
+  //thread_set_state(thread, RUNNING);
+  const size_t data_size = payload.m_data_size;
+
+  switch (payload.m_code) {
+    case DCC_EXIT:
+      socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
+      break;
+    default:
+      // TODO: can we put this result in the response?
+      on_packet_result = thread->m_socket->m_on_packet(payload, &response);
+      break;
+  }
+
+  if (response != nullptr) {
+    *packet->m_response_buffer = response;
+  } else {
+    if (mutex_is_locked(packet->m_async_ptr_handle->m_mutex)) {
+      atomic_ptr_write(packet->m_async_ptr_handle->m_is_buffer_killed, true);
+    } else {
+      destroy_async_ptr(packet->m_async_ptr_handle);
+    }
+  }
+
+  // we want to keep this packet alive for now, all the way untill the response has been handled
+  // we jump here when we are done handeling a potential socketroutine
+
+  // no need to unlock the mutex, because it just gets
+  // deleted lmao
+  destroy_tspckt(packet);
+  return Success(0);
+}
+
+void socket_handle_packets(threaded_socket_t* socket) {
+  // TODO: add some sort of validation?
   while (true) {
-
-    tspckt_t* packet = queue_dequeue(buffer);
-
-    // no valid tspacket from the queue,
-    // so we bail
-    if (!validate_tspckt(packet)) {
+    ErrorOrPtr result = socket_handle_packet(socket);
+    if (result.m_status != ANIVA_SUCCESS) {
       break;
     }
-
-    packet_payload_t payload = *packet->m_payload;
-    packet_response_t* response = nullptr;
-    uintptr_t on_packet_result;
-
-    //thread_set_state(thread, RUNNING);
-    const size_t data_size = payload.m_data_size;
-
-    switch (payload.m_code) {
-      case DCC_EXIT:
-        socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
-        break;
-      default:
-        // TODO: can we put this result in the response?
-        on_packet_result = thread->m_socket->m_on_packet(payload, &response);
-        break;
-    }
-
-    if (response != nullptr) {
-      *packet->m_response_buffer = response;
-    } else {
-      if (is_referenced(packet->m_async_ptr_handle->m_ref)) 
-        atomic_ptr_write(packet->m_async_ptr_handle->m_is_buffer_killed, true);
-      else
-        destroy_async_ptr(packet->m_async_ptr_handle);
-    }
-
-    // we want to keep this packet alive for now, all the way untill the response has been handled
-    // we jump here when we are done handeling a potential socketroutine
-
-    // no need to unlock the mutex, because it just gets
-    // deleted lmao
-    destroy_tspckt(packet);
   }
 }

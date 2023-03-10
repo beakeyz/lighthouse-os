@@ -1,4 +1,5 @@
 #include "reference.h"
+#include "dev/debug/serial.h"
 #include "mem/heap.h"
 
 refc_t* create_refc(FuncPtr destructor, void* referenced_handle) {

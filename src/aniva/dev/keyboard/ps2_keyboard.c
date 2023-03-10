@@ -6,7 +6,6 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "interupts/control/pic.h"
 #include "interupts/interupts.h"
-#include "kmain.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
@@ -171,10 +170,6 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
   char character = (s_mod_flags & KBD_MOD_SHIFT)
                ? kbd_us_shift_map[key_code]
                : kbd_us_map[key_code];
-
-  if (pressed) {
-    putch(character);
-  }
 
   FOREACH(i, s_kb_event_callbacks) {
     ps2_key_callback callback = i->data;

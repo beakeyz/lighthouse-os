@@ -23,26 +23,6 @@ void init_aniva_driver_registry() {
   s_loaded_drivers = create_hive("l_dev");
 }
 
-void register_aniva_base_drivers() {
-
-  // load em 1 by 1
-
-  dev_manifest_t* manifests_to_load[] = {
-    create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, 0),
-    create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, 0),
-  };
-
-  const size_t load_count = sizeof(manifests_to_load) / sizeof(dev_manifest_t*) ;
-
-  for (uintptr_t i = 0; i < load_count; i++) {
-    ErrorOrPtr result = load_driver(manifests_to_load[i]);
-
-    if (result.m_status == ANIVA_FAIL) {
-      kernel_panic("failed to load core driver");
-    }
-  }
-}
-
 ErrorOrPtr install_driver(struct dev_manifest* manifest) {
   if (!validate_driver(manifest->m_handle)) {
     return Error();
@@ -118,14 +98,15 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   }
 
   FOREACH(i, manifest->m_dependency_manifests) {
-    dev_manifest_t* dep_manifests = i->data;
-    load_driver(dep_manifests);
+    dev_manifest_t* dep_manifest = i->data;
+
+    // TODO: check for errors
+    if (dep_manifest && !is_driver_loaded(dep_manifest->m_handle))
+      load_driver(dep_manifest);
   }
 
   dev_url_t path = manifest->m_url;
 
-  print("adding path: ");
-  println(path);
   ErrorOrPtr result = hive_add_entry(s_loaded_drivers, manifest->m_handle, path);
 
   if (result.m_status == ANIVA_FAIL) {
@@ -188,7 +169,9 @@ async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, vo
 
   aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
 
-  if (!handle)
+  // TODO: we should let the caller know when it tried to do something funky
+  // TODO: some kind of robust error handling in the kernel
+  if (!handle) 
     return nullptr;
 
   return send_packet_to_socket_with_code(handle->m_port, code, buffer, buffer_size);

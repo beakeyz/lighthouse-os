@@ -1,7 +1,7 @@
 #include "kmem_manager.h"
 #include "interupts/interupts.h"
 #include "dev/debug/serial.h"
-#include "kmain.h"
+#include "entry/entry.h"
 #include <mem/heap.h>
 #include "mem/PagingComplex.h"
 #include "libk/multiboot.h"

@@ -3,6 +3,7 @@
 #include "string.h"
 #include "proc/ipc/tspckt.h"
 
+// FIXME: the entire capacity concept of queues is not used at the moment, let's use it
 queue_t *create_queue(size_t capacity) {
   queue_t *queue_ptr = kmalloc(sizeof (queue_t));
 
@@ -74,7 +75,6 @@ void* queue_dequeue(queue_t *queue) {
 
   queue_entry_t *entry_to_remove = queue->m_head_ptr;
   void *ret = entry_to_remove->m_data;
-
 
   if (entry_to_remove->m_preceding_entry != nullptr) {
     queue->m_head_ptr = entry_to_remove->m_preceding_entry;

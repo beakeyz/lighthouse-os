@@ -1,6 +1,6 @@
 #include "scheduler.h"
 #include "dev/framebuffer/framebuffer.h"
-#include "kmain.h"
+#include "entry/entry.h"
 #include "dev/debug/serial.h"
 #include <mem/heap.h>
 #include "libk/error.h"

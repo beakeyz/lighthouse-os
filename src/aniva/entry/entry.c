@@ -1,4 +1,4 @@
-#include <kmain.h>
+#include "entry.h"
 #include "dev/disk/storage_controller.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
@@ -7,6 +7,7 @@
 #include "proc/ipc/thr_intrf.h"
 #include "proc/kprocs/root_process.h"
 #include "system/acpi/acpi.h"
+#include "system/processor/processor.h"
 #include "time/core.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
@@ -16,17 +17,15 @@
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
 
-typedef void (*ctor_func_t)();
-
-extern ctor_func_t _start_ctors[];
-extern ctor_func_t _end_ctors[];
+//typedef void (*ctor_func_t)();
+//extern ctor_func_t _start_ctors[];
+//extern ctor_func_t _end_ctors[];
+//__attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
-GlobalSystemInfo_t g_GlobalSystemInfo;
-
-__attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
+void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 
 void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
@@ -44,13 +43,13 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
   // init bootstrap processor
-  init_processor(&g_GlobalSystemInfo.m_bsp_processor, 0);
+  init_processor(&g_bsp, 0);
 
   // bootstrap the kernel heap
   init_kheap();
 
   // initialize things like fpu or interrupts
-  g_GlobalSystemInfo.m_bsp_processor.fLateInit(&g_GlobalSystemInfo.m_bsp_processor);
+  g_bsp.fLateInit(&g_bsp);
 
   // we need memory
   init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);

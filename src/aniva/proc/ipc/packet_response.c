@@ -13,8 +13,12 @@ packet_response_t* create_packet_response(void* data, size_t size) {
   return response;
 }
 
-void destroy_packet_response(packet_response_t* response) {
+ErrorOrPtr destroy_packet_response(packet_response_t* response) {
+  if (!response) {
+    return Error();
+  }
 
   kfree(response->m_response_buffer);
   kfree(response);
+  return Success(0);
 }

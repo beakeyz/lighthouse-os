@@ -19,7 +19,7 @@ CXXOBJFILES := $(patsubst %.cpp,$(OUT)/%.o,$(CXXFILES))
 ASMFILES  := $(shell find $(SRC_PATHS) -type f -name '*.asm')
 ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 
-LINK_PATH := ./src/aniva/linker.ld
+LINK_PATH := ./src/aniva/entry/linker.ld
 
 NASM	   		:= /usr/bin/nasm
 CC          := ./cross_compiler/bin/x86_64-pc-lightos-gcc

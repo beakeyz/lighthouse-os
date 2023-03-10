@@ -4,7 +4,6 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/manifest.h"
-#include "kmain.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/queue.h"
@@ -39,12 +38,6 @@ const aniva_driver_t g_test_dbg_driver = {
 void test_dbg_init(queue_t* buffer) {
 
   println("Initialized the test debug driver!");
-
-  driver_send_packet("io.ps2_kb", KB_REGISTER_CALLBACK, kb_callback, sizeof(&kb_callback));
-
-  void* h = kmalloc(sizeof(uintptr_t));
-  *(uintptr_t*)h = 888;
-  driver_send_packet("io.ps2_kb", 0, h, sizeof(uintptr_t));
 
   println("exit");
 

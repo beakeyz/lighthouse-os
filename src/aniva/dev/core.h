@@ -61,13 +61,6 @@ typedef const char* dev_url_t;
  */
 void init_aniva_driver_registry();
 
-/*
- * load and bootstrap all the drivers we need for further booting
- * these are mostly generic drivers that we use untill we can load
- * more advanced and specific drivers for the hardware we use
- */
-void register_aniva_base_drivers();
-
 // TODO: load driver from file
 
 /*

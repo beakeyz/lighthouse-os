@@ -34,7 +34,10 @@ typedef struct aniva_driver {
 
   DEV_TYPE m_type;
   uint32_t m_port;
+
   // TODO: driver resources and dependencies
+  // TODO: we can do dependency checking when drivers try to
+  // send packets to other drivers
   size_t m_dep_count;
   dev_url_t m_dependencies[];
 } aniva_driver_t;

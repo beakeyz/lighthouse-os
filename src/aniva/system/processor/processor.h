@@ -37,6 +37,7 @@ typedef struct Processor {
 
   uint32_t m_irq_depth;
   uint32_t m_prev_irq_depth;
+  // 0 means this is the bsp
   uint32_t m_cpu_num;
 
   void *m_user_stack;
@@ -56,6 +57,8 @@ typedef struct Processor {
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;
+
+extern Processor_t g_bsp;
 
 /*
  * initialize early aspects of the processor abstraction

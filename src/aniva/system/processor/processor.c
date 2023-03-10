@@ -1,6 +1,5 @@
 #include "processor.h"
 #include "interupts/idt.h"
-#include "kmain.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include <mem/heap.h>
@@ -19,6 +18,8 @@ static ALWAYS_INLINE void init_smap(processor_info_t* info);
 static ALWAYS_INLINE void init_umip(processor_info_t* info);
 
 extern FpuState standard_fpu_state;
+
+Processor_t g_bsp;
 
 // Should not be used to initialize bsp
 Processor_t *create_processor(uint32_t num) {
@@ -192,15 +193,6 @@ bool is_bsp(Processor_t *processor) {
   return (processor->m_cpu_num == 0);
 }
 
-void set_bsp(Processor_t *processor) {
-  if (processor != nullptr) {
-    g_GlobalSystemInfo.m_bsp_processor = *processor;
-  } else {
-    println("[[WARNING]] null passed to set_bsp");
-  }
-  // FIXME: uhm, what to do when this passess null?
-}
-
 void processor_enter_interruption(registers_t* registers, bool irq) {
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when entering interruption");
@@ -237,9 +229,7 @@ static ALWAYS_INLINE void init_smap(processor_info_t* info) {
 
 static ALWAYS_INLINE void init_umip(processor_info_t* info) {
 
-  Processor_t *bsp = &g_GlobalSystemInfo.m_bsp_processor;
-
-  if (!processor_has(&bsp->m_info, X86_FEATURE_UMIP) || !processor_has(info, X86_FEATURE_UMIP)) {
+  if (!processor_has(&g_bsp.m_info, X86_FEATURE_UMIP) || !processor_has(info, X86_FEATURE_UMIP)) {
     write_cr4(read_cr4() & ~(0x800));
     return;
   }

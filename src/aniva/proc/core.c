@@ -1,12 +1,14 @@
 #include "core.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "libk/queue.h"
 #include "libk/vector.h"
 #include "socket.h"
 #include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 
 static list_t *s_sockets;
+static queue_t* s_messaged_sockets;
 
 static spinlock_t* s_core_socket_lock;
 
@@ -21,6 +23,7 @@ static atomic_ptr_t* next_proc_id;
 ANIVA_STATUS initialize_proc_core() {
 
   s_sockets = init_list();
+  s_messaged_sockets = create_limitless_queue();
   s_core_socket_lock = create_spinlock();
   next_proc_id = create_atomic_ptr_with_value(1);
 
@@ -75,6 +78,25 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
 
   list_remove(s_sockets, Release(result));
   return Success(0);
+}
+
+// for now these are just wrappers around the queue api
+// TODO: add some kind of verification
+ErrorOrPtr socket_register_messaged(struct threaded_socket* socket) {
+  queue_enqueue(s_messaged_sockets, socket);
+  return Success(0);
+}
+
+// for now these are just wrappers around the queue api
+// TODO: add some kind of verification
+struct threaded_socket* socket_grab_messaged() {
+  return queue_dequeue(s_messaged_sockets);
+}
+
+// for now these are just wrappers around the queue api
+// TODO: add some kind of verification
+threaded_socket_t* socket_peek_messaged() {
+  return queue_peek(s_messaged_sockets);
 }
 
 threaded_socket_t *find_registered_socket(uint32_t port) {

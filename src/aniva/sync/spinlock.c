@@ -1,7 +1,7 @@
 #include "spinlock.h"
 #include "dev/debug/serial.h"
-#include "kmain.h"
 #include "sync/atomic_ptr.h"
+#include "system/processor/processor.h"
 #include <mem/heap.h>
 #include <libk/string.h>
 

@@ -1,7 +1,7 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
 #include "interupts/interupts.h"
-#include "kmain.h"
+#include "entry/entry.h"
 #include "libk/error.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>

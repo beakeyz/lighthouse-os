@@ -13,7 +13,6 @@
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
-#include <kmain.h>
 #include "acpi_obj.h"
 
 acpi_parser_t *g_parser_ptr;

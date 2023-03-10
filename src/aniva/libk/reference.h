@@ -20,7 +20,7 @@ refc_t* create_refc(FuncPtr destructor, void* referenced_handle);
 void destroy_refc(refc_t* ref);
 
 static ALWAYS_INLINE bool is_referenced(refc_t* ref) {
-  return ref->m_count != 0;
+  return (ref->m_count != 0);
 }
 
 static ALWAYS_INLINE void flat_ref(flat_refc_t* frc_p) {
