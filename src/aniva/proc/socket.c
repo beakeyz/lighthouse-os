@@ -34,7 +34,6 @@ threaded_socket_t *create_threaded_socket(thread_t* parent, FuncPtr exit_fn, Soc
   ret->m_on_packet = on_packet_fn;
   ret->m_state = THREADED_SOCKET_STATE_LISTENING;
   ret->m_max_size_per_buffer = max_size_per_buffer;
-  ret->m_buffers = create_queue(SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT);
 
   // NOTE: parent should be nullable
   ret->m_parent = parent;
@@ -56,12 +55,6 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
     return ANIVA_FAIL;
   }
 
-  tspckt_t* packet;
-  while ((packet = queue_dequeue(ptr->m_buffers)) != nullptr) {
-    destroy_tspckt(packet);
-  }
-
-  kfree(ptr->m_buffers);
   kfree(ptr);
   return ANIVA_SUCCESS;
 }
@@ -96,8 +89,8 @@ async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_
     return nullptr;
   }
 
-  queue_enqueue(socket->m_buffers, packet);
-  socket_register_messaged(socket);
+  //queue_enqueue(socket->m_buffers, packet);
+  queue_enqueue(get_current_processor()->m_packet_queue.m_packets, packet);
 
   return response_ptr;
 }
@@ -124,10 +117,9 @@ packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, si
 void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
 
   // pre-entry
-  queue_t* buffer = (queue_t*)thread->m_socket->m_buffers;
 
   ASSERT_MSG(thread->m_socket != nullptr, "Started a thread as a socket, whilst it does not act like one (thread->m_socket == nullptr)");
-  ASSERT_MSG(buffer != nullptr, "Could not find a buffer while starting a socket");
+  //ASSERT_MSG(buffer != nullptr, "Could not find a buffer while starting a socket");
 
   // call the actual entrypoint of the thread
   // NOTE: they way this works now is that we only
@@ -179,26 +171,24 @@ static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
   ptr->m_socket_flags = 0;
 }
 
-ErrorOrPtr socket_handle_packet(threaded_socket_t* socket) {
-
-  // don't handle any packets when this socket is not available
-  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_ACTIVE)) {
-    return Error();
-  }
-
-  thread_t* thread = socket->m_parent;
-
-  ASSERT_MSG(thread != nullptr, "Found a socket without a parent thread!");
-
-  queue_t* buffer = socket->m_buffers;
-
-  tspckt_t* packet = queue_dequeue(buffer);
+ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
 
   // no valid tspacket from the queue,
   // so we bail
   if (!validate_tspckt(packet)) {
     return Error();
   }
+
+  threaded_socket_t* socket = packet->m_reciever_thread;
+
+  // don't handle any packets when this socket is not available
+  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_ACTIVE)) {
+    return Warning();
+  }
+
+  thread_t* thread = socket->m_parent;
+
+  ASSERT_MSG(thread != nullptr, "Found a socket without a parent thread!");
 
   packet_payload_t payload = *packet->m_payload;
   packet_response_t* response = nullptr;
@@ -234,14 +224,4 @@ ErrorOrPtr socket_handle_packet(threaded_socket_t* socket) {
   // deleted lmao
   destroy_tspckt(packet);
   return Success(0);
-}
-
-void socket_handle_packets(threaded_socket_t* socket) {
-  // TODO: add some sort of validation?
-  while (true) {
-    ErrorOrPtr result = socket_handle_packet(socket);
-    if (result.m_status != ANIVA_SUCCESS) {
-      break;
-    }
-  }
 }

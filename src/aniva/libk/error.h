@@ -4,7 +4,8 @@
 
 typedef enum _ANIVA_STATUS {
   ANIVA_FAIL = 0,
-  ANIVA_SUCCESS = 1,
+  ANIVA_WARNING = 1,
+  ANIVA_SUCCESS = 2,
   // TODO: more types?
 } ANIVA_STATUS;
 
@@ -23,6 +24,14 @@ ALWAYS_INLINE ErrorOrPtr Error() {
   ErrorOrPtr e = {
     .m_ptr = NULL,
     .m_status = ANIVA_FAIL,
+  };
+  return e;
+}
+
+ALWAYS_INLINE ErrorOrPtr Warning() {
+  ErrorOrPtr e = {
+    .m_ptr = NULL,
+    .m_status = ANIVA_WARNING
   };
   return e;
 }

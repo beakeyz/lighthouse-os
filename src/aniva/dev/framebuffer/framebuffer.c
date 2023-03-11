@@ -97,6 +97,7 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
         .pitch = s_pitch,
         .width = s_width,
         .height = s_height,
+        .used_pages = s_used_pages,
       };
       println("sent info");
       *response = create_packet_response(&info, sizeof(info));

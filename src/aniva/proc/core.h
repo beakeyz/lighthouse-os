@@ -9,7 +9,7 @@
 #include "libk/queue.h"
 
 #define DEFAULT_STACK_SIZE (16 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS 4
+#define DEFAULT_THREAD_MAX_TICKS 1
 
 #define PROC_DEFAULT_MAX_THREADS 16
 #define PROC_CORE_PROCESS_NAME "[aniva-core]"
@@ -47,23 +47,6 @@ ErrorOrPtr socket_register(struct threaded_socket* socket);
  * unregister a socket from the kernel socket chain
  */
 ErrorOrPtr socket_unregister(struct threaded_socket* socket);
-
-/*
- * Register a socket as messaged
- */
-ErrorOrPtr socket_register_messaged(struct threaded_socket* socket);
-
-/*
- * Grab a socket pointer from the messaged queue
- * WE CAN'T DETROY THIS SOCKET
- */
-struct threaded_socket* socket_grab_messaged();
-
-/*
- * return a pointer of the first thread in line, but 
- * don't remove it from the queue
- */
-struct threaded_socket* socket_peek_messaged();
 
 /*
  * Try to grab a new proc_id

@@ -10,8 +10,10 @@
 #include "libk/io.h"
 #include "libk/linkedlist.h"
 #include "libk/multiboot.h"
+#include "libk/queue.h"
 #include "libk/string.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/ipc/tspckt.h"
@@ -59,19 +61,22 @@ static void root_packet_dispatch() {
 
   for (;;) {
 
-    pause_scheduler();
-    threaded_socket_t* socket = socket_peek_messaged();
+    Processor_t* current = get_current_processor();
+    processor_increment_critical_depth(current);
 
-    if (socket != nullptr) {
-      ErrorOrPtr result = socket_handle_packet(socket);
-      if (result.m_status == ANIVA_SUCCESS) {
-        // remove the entry once we processed its packet
-        // successfuly
-        socket_grab_messaged();
+    tspckt_t* packet;
+
+    while ((packet = queue_peek(current->m_packet_queue.m_packets)) != nullptr) {
+      ErrorOrPtr result = socket_handle_tspacket(packet);
+
+      if (result.m_status == ANIVA_WARNING) {
+        break;
       }
+      queue_dequeue(current->m_packet_queue.m_packets);
     }
 
-    resume_scheduler();
+    processor_decrement_critical_depth(current);
+
     // after one swoop we don't need to check again lmao
     scheduler_yield();
   }

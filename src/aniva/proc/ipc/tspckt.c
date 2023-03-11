@@ -9,6 +9,7 @@
 #include "interupts/interupts.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
+#include "proc/socket.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include <mem/heap.h>
@@ -68,3 +69,4 @@ uint32_t generate_tspckt_identifier(tspckt_t* tspckt) {
   //
   return ident;
 }
+

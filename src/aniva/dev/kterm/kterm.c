@@ -5,14 +5,20 @@
 #include "dev/keyboard/ps2_keyboard.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
+#include "libk/io.h"
 #include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include "proc/ipc/packet_response.h"
+#include "sync/spinlock.h"
+#include <system/processor/processor.h>
 
 #define KTERM_MAX_BUFFER_SIZE 256
 
 #define KTERM_FB_ADDR 0xFFFFFFFFFF600000
 #define KTERM_FONT_HEIGHT 8
 #define KTERM_FONT_WIDTH 8
+
+#define KTERM_CURSOR_WIDTH 2
 
 static char font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0000 (nul)
@@ -154,6 +160,12 @@ static void kterm_write_char(char c);
 static void kterm_process_buffer();
 
 static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
+static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
+
+static void kterm_draw_cursor();
+static const char* kterm_get_buffer_contents();
+
+static void kterm_println(const char* msg);
 
 // This driver depends on ps2, so this is legal for now
 void kterm_on_key(ps2_key_event_t event);
@@ -178,6 +190,8 @@ aniva_driver_t g_base_kterm_driver = {
 void kterm_init() {
   println("Initialized the kterm!");
 
+  kterm_current_line = 0;
+
   // register our keyboard listener
   destroy_packet_response(await(driver_send_packet("io.ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t))));
 
@@ -191,12 +205,16 @@ void kterm_init() {
 
   // flush our terminal buffer
   kterm_flush_buffer();
+  kterm_draw_cursor();
 
-  for (uintptr_t y = 0; y < kterm_fb_info.height; y++) {
-    for (uintptr_t x = 0; x < kterm_fb_info.width; x++) {
-      kterm_draw_pixel(x, y, 0x0000ff00);
-    }
-  }
+  //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
+  kterm_println(" -- Welcome to the aniva kterm driver --\n");
+  Processor_t* processor = get_current_processor();
+
+  kterm_println(processor->m_info.m_vendor_id);
+  kterm_println("\n");
+  kterm_println(processor->m_info.m_model_id);
+  kterm_println("\n");
 
 }
 
@@ -225,24 +243,45 @@ static void kterm_write_char(char c) {
     return;
   }
 
+  println(to_string((uintptr_t)c));
+
   switch (c) {
     case '\b':
-      kterm_buffer_ptr--;
+      if (kterm_buffer_ptr > KTERM_CURSOR_WIDTH) {
+        kterm_buffer_ptr--;
+        kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
+      } else {
+        kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
+      }
       break;
-    case '\r':
+    case (char)0x0A:
       kterm_process_buffer();
       kterm_flush_buffer();
+
+      kterm_draw_cursor();
+
       break;
     default:
-      kterm_char_buffer[kterm_buffer_ptr] = c;
-      kterm_buffer_ptr++;
+      if (c >= 0x20) {
+        kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
+        kterm_char_buffer[kterm_buffer_ptr] = c;
+        kterm_buffer_ptr++;
+      }
       break;
   }
 }
 
 static void kterm_process_buffer() {
+  const char* contents = kterm_get_buffer_contents();
   // TODO: process
+  kterm_current_line++;
   println("TODO: process buffer");
+}
+
+static void kterm_draw_cursor() {
+  kterm_draw_char(0 * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
+  kterm_draw_char(1 * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
+  kterm_buffer_ptr += 2;
 }
 
 static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color) {
@@ -251,4 +290,44 @@ static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color) {
 
   if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height)
     *(uint32_t*)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8) = color;
+}
+
+static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
+  char* glyph = font8x8_basic[c];
+  for (uintptr_t _y = 0; _y < KTERM_FONT_HEIGHT; _y++) {
+    for (uintptr_t _x = 0; _x < KTERM_FONT_WIDTH; _x++) {
+      kterm_draw_pixel(x + _x, y + _y, 0x00);
+
+      if (glyph[_y] & (1 << _x)) {
+        kterm_draw_pixel(x + _x, y + _y, color);
+      }
+    }
+  }
+}
+
+static const char* kterm_get_buffer_contents() {
+  uintptr_t index = 0;
+
+  while (!kterm_char_buffer[index]) {
+    index++;
+  }
+
+  return &kterm_char_buffer[index];
+}
+
+static void kterm_println(const char* msg) {
+
+  uintptr_t index = 0;
+  while (msg[index]) {
+    char current_char = msg[index];
+    if (current_char == '\n') {
+      kterm_current_line++;
+      kterm_flush_buffer();
+      kterm_draw_cursor();
+    } else {
+      kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
+      kterm_buffer_ptr++;
+    }
+    index++;
+  }
 }

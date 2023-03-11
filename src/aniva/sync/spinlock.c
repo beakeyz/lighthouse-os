@@ -45,6 +45,7 @@ void spinlock_unlock(spinlock_t* lock) {
 
   atomic_ptr_write(lock->m_processor->m_locked_level, j-1);
   atomic_ptr_write(lock->m_is_locked, false);
+
   release_spinlock(&lock->m_lock);
 }
 

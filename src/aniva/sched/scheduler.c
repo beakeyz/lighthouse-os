@@ -10,6 +10,7 @@
 #include "proc/proc.h"
 #include "proc/socket.h"
 #include "sync/atomic_ptr.h"
+#include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
 #include <mem/heap.h>
@@ -136,11 +137,6 @@ void pick_next_thread_scheduler(void) {
 
 ANIVA_STATUS pause_scheduler() {
 
-  //if (s_sched_mode == PAUSED) {
-  //  return ANIVA_FAIL;
-  //}
-
-  //CHECK_AND_DO_DISABLE_INTERRUPTS();
   spinlock_lock(s_sched_switch_lock);
 
   atomic_ptr_write(s_no_schedule, true);
@@ -153,17 +149,18 @@ ANIVA_STATUS pause_scheduler() {
   if (frame_ptr == nullptr) {
     // no sched frame yet
     spinlock_unlock(s_sched_switch_lock);
-    //CHECK_AND_TRY_ENABLE_INTERRUPTS();
     return ANIVA_FAIL;
   }
 
-  //CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return ANIVA_SUCCESS;
 }
 
 void resume_scheduler(void) {
 
   if (s_sched_mode != PAUSED) {
+    if (spinlock_is_locked(s_sched_switch_lock)) {
+      spinlock_unlock(s_sched_switch_lock);
+    }
     return;
   }
   // make sure the scheduler is in the right state

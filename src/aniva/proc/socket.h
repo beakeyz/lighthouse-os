@@ -30,19 +30,16 @@ typedef uintptr_t (*SocketOnPacket) (
   packet_response_t** response
 );
 
-typedef struct socket_buffer_queue {
+typedef struct socket_packet_queue {
   spinlock_t* m_lock;
-  queue_t* m_buffers;
-} socket_buffer_queue_t;
+  queue_t* m_packets;
+} socket_packet_queue_t;
 
 typedef struct threaded_socket {
   uint32_t m_port;
   size_t m_max_size_per_buffer;
 
   uintptr_t m_socket_flags;
-
-  // FIXME: have a socket-specific buffer_queue struct that we can pass to threads
-  queue_t* m_buffers;
 
   FuncPtr m_exit_fn;
   SocketOnPacket m_on_packet;
@@ -78,16 +75,14 @@ bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
 void default_socket_entry_wrapper(uintptr_t args, struct thread* thread);
 
 /*
- * Remove the first tspckt from the queue of the socket and
- * handle it
+ * handle a packet
  */
-ErrorOrPtr socket_handle_packet(threaded_socket_t* socket);
+ErrorOrPtr socket_handle_tspacket(struct tspckt* packet);
 
 /*
- * Drain and handle all the packets of a socket
- */
+ErrorOrPtr socket_handle_packet(threaded_socket_t* socket);
 void socket_handle_packets(threaded_socket_t* socket);
-
+*/
 // TODO: with timeout?
 
 #endif

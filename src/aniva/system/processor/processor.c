@@ -1,5 +1,7 @@
 #include "processor.h"
 #include "interupts/idt.h"
+#include "libk/queue.h"
+#include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include <mem/heap.h>
@@ -81,6 +83,8 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
 ALWAYS_INLINE void processor_late_init(Processor_t *this) {
 
   this->m_processes = init_list();
+  this->m_packet_queue.m_packets = create_limitless_queue();
+  this->m_packet_queue.m_lock = create_spinlock();
   this->m_critical_depth = create_atomic_ptr();
   this->m_locked_level = create_atomic_ptr();
   atomic_ptr_write(this->m_critical_depth, 0);

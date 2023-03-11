@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
+#include "proc/socket.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 
@@ -38,5 +39,6 @@ tspckt_t *create_invalid_tspckt();
  * destroy a tspckt instance and pointer
  */
 ANIVA_STATUS destroy_tspckt(tspckt_t* packet);
+
 
 #endif //__ANIVA_IPC_TSPCKT__

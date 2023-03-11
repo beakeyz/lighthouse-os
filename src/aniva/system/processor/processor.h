@@ -4,7 +4,9 @@
 #include <libk/stddef.h>
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "libk/queue.h"
 #include "mem/PagingComplex.h"
+#include "proc/socket.h"
 #include "proc/thread.h"
 #include "processor_info.h"
 #include "gdt.h"
@@ -51,6 +53,8 @@ typedef struct Processor {
   thread_t *m_previous_thread;
   thread_t *m_root_thread;
   list_t *m_processes;
+
+  socket_packet_queue_t m_packet_queue;
 
   proc_t *m_kernel_process;
   bool m_being_handled_by_scheduler;
