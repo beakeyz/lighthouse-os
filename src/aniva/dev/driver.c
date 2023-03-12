@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "proc/proc.h"
+#include "proc/socket.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include <mem/heap.h>
@@ -50,10 +51,11 @@ bool validate_driver(aniva_driver_t* driver) {
 
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver) {
 
-  // hihi we're fucking with the scheduler
+  // NOTE: if the drivers port is not valid, the subsystem will verify 
+  // it and provide a new port, so we won't have to wory about that here
+  thread_t* driver_socket = create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port);
 
-  // TODO: fix port assignment
-  proc_add_thread(sched_get_kernel_proc(), create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port));
+  proc_add_thread(sched_get_kernel_proc(), driver_socket);
 
   return Success(0);
 }

@@ -77,7 +77,7 @@ uint8_t read_field8(pci_bus_t* this, uint8_t bus, uint8_t device, uint8_t functi
   switch (get_current_addressing_mode()) {
     case PCI_IOPORT_ACCESS: {
       uint8_t ret;
-      early_raw_pci_impls->read8(bus, device, function, field, &ret);
+      g_pci_type1_impl.read8(bus, device, function, field, &ret);
       return (volatile uint8_t)ret;
     }
     case PCI_MEM_ACCESS: {

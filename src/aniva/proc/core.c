@@ -8,11 +8,14 @@
 #include "sync/spinlock.h"
 
 static list_t *s_sockets;
+static uint32_t s_highest_port_cache;
 
 static spinlock_t* s_core_socket_lock;
 
 // TODO: fix this mechanism, it sucks
 static atomic_ptr_t* next_proc_id;
+
+static void revalidate_port_cache();
 
 /*
  * Initialize:
@@ -52,6 +55,18 @@ ErrorOrPtr socket_register(threaded_socket_t* socket) {
     return Error();
   }
 
+  uint32_t port = socket_verify_port(socket);
+
+  socket->m_port = port;
+
+  if (port > s_highest_port_cache) {
+    s_highest_port_cache = port;
+  }
+
+  revalidate_port_cache();
+
+  // TODO: more verification
+
   socket_set_flag(socket, TS_REGISTERED, true);
   list_append(s_sockets, socket);
   return Success(0);
@@ -68,6 +83,8 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
 
   socket_set_flag(socket, TS_REGISTERED, false);
 
+  uint32_t socket_port = socket->m_port;
+
   ErrorOrPtr result = list_indexof(s_sockets, socket);
 
   if (result.m_status == ANIVA_FAIL) {
@@ -75,6 +92,17 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
   }
 
   list_remove(s_sockets, Release(result));
+
+  if (s_highest_port_cache > socket_port) {
+    // reset and rebind to the highest port
+    s_highest_port_cache = 0;
+    FOREACH(i, s_sockets) {
+      threaded_socket_t* check = i->data;
+      if (check->m_port > s_highest_port_cache) {
+        s_highest_port_cache = check->m_port;
+      }
+    }
+  }
   return Success(0);
 }
 
@@ -86,4 +114,81 @@ threaded_socket_t *find_registered_socket(uint32_t port) {
     }
   }
   return nullptr;
+}
+
+ErrorOrPtr socket_try_verifiy_port(threaded_socket_t* socket) {
+
+  bool is_duplicate = false;
+
+  FOREACH(i, s_sockets) {
+    threaded_socket_t* check_socket = i->data;
+
+    if (socket->m_port == check_socket->m_port) {
+      is_duplicate = true;
+      break;
+    }
+  }
+
+  if (!is_duplicate)
+    return Success(socket->m_port);
+
+  uint32_t new_port = s_highest_port_cache + 1;
+
+  FOREACH(i, s_sockets) {
+    threaded_socket_t* check_socket = i->data;
+
+    if (check_socket->m_port >= new_port) {
+      // our cache is invalid, return an error
+      return Error();
+    }
+  }
+
+  // no match, success!
+  socket->m_port = new_port;
+  s_highest_port_cache = new_port;
+  return Success(new_port);
+}
+
+uint32_t socket_verify_port(threaded_socket_t* socket) {
+  ErrorOrPtr result = socket_try_verifiy_port(socket);
+
+  if (result.m_status == ANIVA_SUCCESS) {
+    return (uint32_t)result.m_ptr;
+  }
+
+  revalidate_port_cache();
+  result = socket_try_verifiy_port(socket);
+
+  if (result.m_status != ANIVA_SUCCESS) {
+    // if we STILL can't find anything, just bruteforce it...
+    uint32_t new_port = s_highest_port_cache + 1;
+    bool is_duplicate = false;
+
+    while (true) {
+      FOREACH(i, s_sockets) {
+        threaded_socket_t* check_socket = i->data;
+        if (check_socket->m_port == new_port) {
+          is_duplicate = true;
+          break;
+        }
+      }
+      if (!is_duplicate) {
+        socket->m_port = new_port;
+        return new_port;
+      }
+      new_port++;
+    }
+  }
+
+  return (uint32_t)result.m_ptr;
+}
+
+static void revalidate_port_cache() {
+  FOREACH(i, s_sockets) {
+    threaded_socket_t* check_socket = i->data;
+
+    if (check_socket->m_port >= s_highest_port_cache) {
+      s_highest_port_cache = check_socket->m_port;
+    }
+  }
 }

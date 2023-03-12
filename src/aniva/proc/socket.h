@@ -80,6 +80,21 @@ void default_socket_entry_wrapper(uintptr_t args, struct thread* thread);
 ErrorOrPtr socket_handle_tspacket(struct tspckt* packet);
 
 /*
+ * Check if a port is valid (i.e. unused and within the bounds)
+ * if it's not, the socket gets appointed a new port
+ *
+ * Returns: the port this socket lives on after the verification,
+ * if it succeeded. otherwise an error
+ */
+extern ErrorOrPtr socket_try_verifiy_port(threaded_socket_t* socket);
+
+/*
+ * verifies the port of this socket and changes it if the 
+ * verification fails. calls socket_try_verifiy_port under the hood
+ */
+extern uint32_t socket_verify_port(threaded_socket_t* socket);
+
+/*
 ErrorOrPtr socket_handle_packet(threaded_socket_t* socket);
 void socket_handle_packets(threaded_socket_t* socket);
 */

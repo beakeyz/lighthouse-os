@@ -1,5 +1,4 @@
 #include "entry.h"
-#include "dev/disk/storage_controller.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/kevent/core.h"
@@ -25,9 +24,9 @@
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
-void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
+void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 
-void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
+void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_serial();
   println("Hi from 64 bit land =D");
@@ -70,7 +69,7 @@ void _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_pci();
 
   // TODO: ATA/NVMe/IDE support?
-  init_storage_controller();
+  //init_storage_controller();
 
   initialize_proc_core();
 

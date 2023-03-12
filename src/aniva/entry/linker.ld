@@ -16,6 +16,7 @@ SECTIONS {
     *(.multiboot_header*)
     *(.pre_text*)
     _text_begin = .;
+    *(.__init*)
     *(.text*)
     _text_end = .;
   } :text 

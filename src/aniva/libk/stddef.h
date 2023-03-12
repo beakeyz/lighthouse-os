@@ -42,6 +42,7 @@ typedef void (*FuncPtr)();
 #define SECTION(__sect) __attribute__((section(__sect)))
 #define USED __attribute__((used))
 #define UNUSED __attribute__((unused))
+#define __init __attribute__((section(".__init")))
 
 #define __mmio __attribute__((aligned(1)));
 

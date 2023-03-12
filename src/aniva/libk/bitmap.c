@@ -8,9 +8,7 @@
   #define BITMAP_DEFAULT 0xff
 #endif
 
-static inline void __init_bitmap_late(bitmap_t* map);
-
-bitmap_t init_bitmap(size_t size) {
+bitmap_t create_bitmap(size_t size) {
   
   bitmap_t map = {
     .m_default = (uint8_t)BITMAP_DEFAULT,
@@ -25,12 +23,11 @@ bitmap_t init_bitmap(size_t size) {
 
   if (map.m_map) {
     memset(map.m_map, map.m_default, map.m_size);
-    __init_bitmap_late(&map);
   }
   return map;
 }
 
-bitmap_t init_bitmap_with_default(size_t size, uint8_t default_value) {
+bitmap_t create_bitmap_with_default(size_t size, uint8_t default_value) {
 
   bitmap_t map = {
     .m_default = default_value,
@@ -45,9 +42,13 @@ bitmap_t init_bitmap_with_default(size_t size, uint8_t default_value) {
 
   if (map.m_map) {
     memset(map.m_map, map.m_default, map.m_size);
-    __init_bitmap_late(&map);
   }
   return map;
+}
+
+void destroy_bitmap(bitmap_t *map) {
+  kfree(map->m_map);
+  kfree(map);
 }
 
 // FIXME: ANIVA_STATUS
@@ -77,14 +78,14 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
 // FIXME: ANIVA_STATUS
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length) {
   for (uintptr_t i = index; i < index + length; i++) {
-    this->fMark(this, i);
+    bitmap_mark(this, i);
   }
 }
 
 // FIXME: ANIVA_STATUS
 void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
   for (uintptr_t i = index; i < index + length; i++) {
-    this->fUnmark(this, i);
+    bitmap_unmark(this, i);
   }
 }
 
@@ -96,10 +97,10 @@ ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
   for (uintptr_t i = 0; i < this->m_entries; i++) {
     uintptr_t length_check = 0;
 
-    if (!this->fIsSet(this, i)) {
+    if (!bitmap_isset(this, i)) {
       // lil double check
       for (uintptr_t j = i; j < i+length; j++) {
-        if (this->fIsSet(this, j)) {
+        if (bitmap_isset(this, j)) {
           break;
         }
         length_check++;
@@ -120,7 +121,7 @@ ErrorOrPtr bitmap_find_free(bitmap_t* this) {
   // doodoo linear scan >=(
   // TODO: make not crap
   for (uintptr_t i = 0; i < this->m_entries; i++) {
-    if (!this->fIsSet(this, i)) {
+    if (!bitmap_isset(this, i)) {
       return Success(i);
     }
   }
@@ -137,18 +138,4 @@ bool bitmap_isset(bitmap_t* this, uint32_t index) {
   const uint32_t index_bit = index % 8;
 
   return (this->m_map[index_byte] & (1 << index_bit));
-}
-
-static inline void __init_bitmap_late(bitmap_t* map) {
-  if (map == nullptr || !map->m_map) {
-    return;
-  }
-
-  map->fMark = bitmap_mark;
-  map->fUnmark = bitmap_unmark;
-  map->fMarkRange = bitmap_mark_range;
-  map->fUnmarkRange = bitmap_unmark_range;
-  map->fIsSet = bitmap_isset;
-  map->fFindFree = bitmap_find_free;
-  map->fFindFreeRange = bitmap_find_free_range;
 }

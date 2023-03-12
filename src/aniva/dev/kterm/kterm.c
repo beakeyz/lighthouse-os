@@ -10,6 +10,7 @@
 #include "mem/kmem_manager.h"
 #include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"
+#include "system/acpi/parser.h"
 #include <system/processor/processor.h>
 
 #define KTERM_MAX_BUFFER_SIZE 256
@@ -164,6 +165,7 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 
 static void kterm_draw_cursor();
 static const char* kterm_get_buffer_contents();
+static void kterm_next_ln();
 
 static void kterm_println(const char* msg);
 
@@ -256,9 +258,7 @@ static void kterm_write_char(char c) {
       break;
     case (char)0x0A:
       kterm_process_buffer();
-      kterm_flush_buffer();
 
-      kterm_draw_cursor();
 
       break;
     default:
@@ -273,9 +273,22 @@ static void kterm_write_char(char c) {
 
 static void kterm_process_buffer() {
   const char* contents = kterm_get_buffer_contents();
-  // TODO: process
-  kterm_current_line++;
-  println("TODO: process buffer");
+
+  if (!strcmp(contents, "acpitables")) {
+    
+    const char* tables = parser_get_acpi_tables(g_parser_ptr->m_rsdp);
+
+    kterm_println("\n");
+    kterm_println(tables);
+    kfree((void*)tables);
+  } else if (!strcmp(contents, "help")) {
+    kterm_println("\n");
+    kterm_println("available commands: \n");
+    kterm_println(" - help: print some helpful info\n");
+    kterm_println(" - acpitables: print the acpi tables present in the system");
+  }
+
+  kterm_println("\n");
 }
 
 static void kterm_draw_cursor() {
@@ -318,6 +331,7 @@ static const char* kterm_get_buffer_contents() {
 static void kterm_println(const char* msg) {
 
   uintptr_t index = 0;
+  uintptr_t kterm_buffer_ptr_copy = kterm_buffer_ptr;
   while (msg[index]) {
     char current_char = msg[index];
     if (current_char == '\n') {
@@ -325,8 +339,13 @@ static void kterm_println(const char* msg) {
       kterm_flush_buffer();
       kterm_draw_cursor();
     } else {
-      kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
-      kterm_buffer_ptr++;
+      kterm_draw_char(kterm_buffer_ptr_copy * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
+      kterm_buffer_ptr_copy++;
+
+      if (kterm_buffer_ptr_copy * KTERM_FONT_WIDTH > kterm_fb_info.width) {
+        kterm_current_line++;
+        kterm_buffer_ptr_copy = 0;
+      }
     }
     index++;
   }

@@ -32,7 +32,7 @@ proc_t* create_clean_proc(char name[32], proc_id id);
 proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 
-void proc_add_thread(proc_t* proc, struct thread* thread);
+ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread);
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);
 
 static ALWAYS_INLINE bool is_kernel_proc(proc_t* proc) {

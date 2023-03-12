@@ -38,10 +38,7 @@ typedef struct acpi_parser {
 
   // acpi aml namespace nodes
   acpi_ns_node_t* m_ns_root_node;
-  acpi_ns_node_t** m_ns_nodes;
-
-  size_t m_ns_size;
-  size_t m_ns_max_size;
+  list_t* m_namespace_nodes;
 
   spinlock_t* m_mode_lock;
   uint8_t m_mode_flags;
@@ -60,6 +57,8 @@ void* find_table(acpi_parser_t *parser, const char* sig);
 
 // just for funzies
 void print_tables(void* rsdp_addr);
+
+const char* parser_get_acpi_tables(void* rsdp_addr);
 
 int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi_ns_node_t* parent_node);
 

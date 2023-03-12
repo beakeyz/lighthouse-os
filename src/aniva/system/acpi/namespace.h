@@ -77,7 +77,7 @@ typedef struct acpi_ns_node {
 
   size_t m_children_count;
   size_t m_max_children_count;
-  list_t* m_children;
+  list_t* m_children_list;
 
 } acpi_ns_node_t;
 

@@ -20,7 +20,6 @@ list_t* g_pci_bridges;
 list_t* g_pci_devices;
 bool g_has_registered_bridges;
 PciFuncCallback_t current_active_callback;
-raw_pci_impls_t *early_raw_pci_impls;
 
 /* Default PCI callbacks */
 
@@ -55,23 +54,24 @@ void enumerate_function(pci_bus_t* base_addr,uint8_t bus, uint8_t device, uint8_
   };
 
   pci_device_identifier_t identifier = {
-    .address = address
+    .address = address,
+    .ops = g_pci_type1_impl,
   };
 
-  early_raw_pci_impls->read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
-  early_raw_pci_impls->read16(bus, device, func, VENDOR_ID, &identifier.vendor_id);
-  early_raw_pci_impls->read16(bus, device, func, COMMAND, &identifier.command);
-  early_raw_pci_impls->read16(bus, device, func, STATUS, &identifier.status);
-  early_raw_pci_impls->read8(bus, device, func, HEADER_TYPE, &identifier.header_type);
-  early_raw_pci_impls->read8(bus, device, func, CLASS, &identifier.class);
-  early_raw_pci_impls->read8(bus, device, func, SUBCLASS, &identifier.subclass);
-  early_raw_pci_impls->read8(bus, device, func, PROG_IF, &identifier.prog_if);
-  early_raw_pci_impls->read8(bus, device, func, CACHE_LINE_SIZE, &identifier.cachelinesize);
-  early_raw_pci_impls->read8(bus, device, func, LATENCY_TIMER, &identifier.latency_timer);
-  early_raw_pci_impls->read8(bus, device, func, REVISION_ID, &identifier.revision_id);
-  early_raw_pci_impls->read8(bus, device, func, INTERRUPT_LINE, &identifier.interrupt_line);
-  early_raw_pci_impls->read8(bus, device, func, INTERRUPT_PIN, &identifier.interrupt_pin);
-  early_raw_pci_impls->read8(bus, device, func, BIST, &identifier.BIST);
+  identifier.ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
+  identifier.ops.read16(bus, device, func, VENDOR_ID, &identifier.vendor_id);
+  identifier.ops.read16(bus, device, func, COMMAND, &identifier.command);
+  identifier.ops.read16(bus, device, func, STATUS, &identifier.status);
+  identifier.ops.read8(bus, device, func, HEADER_TYPE, &identifier.header_type);
+  identifier.ops.read8(bus, device, func, CLASS, &identifier.class);
+  identifier.ops.read8(bus, device, func, SUBCLASS, &identifier.subclass);
+  identifier.ops.read8(bus, device, func, PROG_IF, &identifier.prog_if);
+  identifier.ops.read8(bus, device, func, CACHE_LINE_SIZE, &identifier.cachelinesize);
+  identifier.ops.read8(bus, device, func, LATENCY_TIMER, &identifier.latency_timer);
+  identifier.ops.read8(bus, device, func, REVISION_ID, &identifier.revision_id);
+  identifier.ops.read8(bus, device, func, INTERRUPT_LINE, &identifier.interrupt_line);
+  identifier.ops.read8(bus, device, func, INTERRUPT_PIN, &identifier.interrupt_pin);
+  identifier.ops.read8(bus, device, func, BIST, &identifier.BIST);
 
   if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
 
@@ -81,7 +81,7 @@ void enumerate_function(pci_bus_t* base_addr,uint8_t bus, uint8_t device, uint8_
 void enumerate_device(pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
 
   uint16_t cur_vendor_id;
-  early_raw_pci_impls->read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
+  g_pci_type1_impl.read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
 
   if (cur_vendor_id == PCI_NONE_VALUE) {
     return;
@@ -92,7 +92,7 @@ void enumerate_device(pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
   enumerate_function(base_addr, bus, device, 0, callback_name != nullptr ? current_active_callback.callback : register_pci_devices);
 
   uint8_t cur_header_type;
-  early_raw_pci_impls->read8( bus, device, 0, HEADER_TYPE, &cur_header_type);
+  g_pci_type1_impl.read8( bus, device, 0, HEADER_TYPE, &cur_header_type);
 
   if (!(cur_header_type & 0x80)) {
     return;
@@ -245,7 +245,6 @@ bool init_pci() {
 
   if (test_pci_io_type1()) {
     s_current_addressing_mode = PCI_IOPORT_ACCESS;
-    early_raw_pci_impls = (raw_pci_impls_t*)&raw_pci_type1_impl;
   } else if (test_pci_io_type2()) {
     kernel_panic("Detected PCI type 2 interfacing! currently not supported.");
   } else {
@@ -395,12 +394,12 @@ uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field) {
 
 static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift) {
   uint16_t placeback;
-  early_raw_pci_impls->read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
+  g_pci_type1_impl.read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
 
   if (or_and) {
-    early_raw_pci_impls->write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback | (1 << shift));
+    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback | (1 << shift));
   } else {
-    early_raw_pci_impls->write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback & ~(1 << shift));
+    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback & ~(1 << shift));
   }
 }
 
@@ -418,7 +417,7 @@ void pci_set_interrupt_line(DeviceAddress_t* address, bool value) {
 
 void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
   uint16_t placeback;
-  early_raw_pci_impls->read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
+  g_pci_type1_impl.read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
 
   if (value) {
     placeback |= (1 << 2);
@@ -427,7 +426,7 @@ void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
   }
   placeback |= (1 << 0);
 
-  early_raw_pci_impls->write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback);
+  g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback);
 }
 
 PciAccessMode_t get_current_addressing_mode() {

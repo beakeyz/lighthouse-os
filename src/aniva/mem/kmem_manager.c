@@ -93,7 +93,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 void print_bitmap () {
 
   for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap.m_entries; i++) {
-    if (KMEM_DATA.m_phys_bitmap.fIsSet(&KMEM_DATA.m_phys_bitmap, i)) {
+    if (bitmap_isset(&KMEM_DATA.m_phys_bitmap, i)) {
       print("1");
     } else {
       print("0");
@@ -240,7 +240,7 @@ void kmem_init_physical_allocator() {
   // we need to map the heap to a virtual addressspace eventually. This means
   // that the heap might get reinitiallised and thus we lose our bitmap...
   // just keep this in mind
-  bitmap_t map = init_bitmap(physical_pages_bytes);
+  bitmap_t map = create_bitmap(physical_pages_bytes);
   memcpy(&KMEM_DATA.m_phys_bitmap, &map, sizeof(map));
 
   // Mark the contiguous 'free' ranges as free in our bitmap
@@ -277,17 +277,16 @@ uintptr_t kmem_to_phys(PagingComplex_t *root, uintptr_t addr) {
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
 void kmem_set_phys_page_used(uintptr_t idx) {
-  KMEM_DATA.m_phys_bitmap.fMark(&KMEM_DATA.m_phys_bitmap, idx);
+  bitmap_mark(&KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // flip a bit to 0 as to mark a pageframe as free in our bitmap
 void kmem_set_phys_page_free(uintptr_t idx) {
-  KMEM_DATA.m_phys_bitmap.fUnmark(&KMEM_DATA.m_phys_bitmap, idx);
+  bitmap_unmark(&KMEM_DATA.m_phys_bitmap, idx);
 }
 
 bool kmem_is_phys_page_used (uintptr_t idx) {
-  const bitmap_t* __map = &KMEM_DATA.m_phys_bitmap;
-  return __map->fIsSet(&KMEM_DATA.m_phys_bitmap, idx);
+  return bitmap_isset(&KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // combination of the above two
@@ -295,16 +294,16 @@ bool kmem_is_phys_page_used (uintptr_t idx) {
 // value = false -> unmarks
 void kmem_set_phys_page(uintptr_t idx, bool value) {
   if (value) {
-    KMEM_DATA.m_phys_bitmap.fMark(&KMEM_DATA.m_phys_bitmap, idx);
+    bitmap_mark(&KMEM_DATA.m_phys_bitmap, idx);
   } else {
-    KMEM_DATA.m_phys_bitmap.fUnmark(&KMEM_DATA.m_phys_bitmap, idx);
+    bitmap_unmark(&KMEM_DATA.m_phys_bitmap, idx);
   }
 }
 
 // TODO: errorhandle
 ErrorOrPtr kmem_request_physical_page() {
 
-  ErrorOrPtr result = KMEM_DATA.m_phys_bitmap.fFindFree(&KMEM_DATA.m_phys_bitmap);
+  ErrorOrPtr result = bitmap_find_free(&KMEM_DATA.m_phys_bitmap);
 
   if (result.m_status == ANIVA_FAIL) {
     return Error();
@@ -563,7 +562,7 @@ void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, u
 ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags) {
   const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
 
-  const uintptr_t start_idx = Must(KMEM_DATA.m_phys_bitmap.fFindFreeRange(&KMEM_DATA.m_phys_bitmap, pages_needed));
+  const uintptr_t start_idx = Must(bitmap_find_free_range(&KMEM_DATA.m_phys_bitmap, pages_needed));
   const uintptr_t ret = kmem_get_page_addr(start_idx); 
 
   for (uintptr_t i = 0; i < pages_needed; i++) {

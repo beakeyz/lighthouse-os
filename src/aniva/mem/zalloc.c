@@ -47,7 +47,7 @@ zone_allocator_t *create_zone_allocator(size_t initial_size, vaddr_t virtual_bas
       ret->m_zones[i].m_zone_entry_size = zone_sizes[i];
       ret->m_zones[i].m_entry_count = zone_sizes_entries[i];
       ret->m_zones[i].m_total_zone_size = zone_size_bytes;
-      ret->m_zones[i].m_entries = init_bitmap_with_default(zone_size_bytes, 0x00);
+      ret->m_zones[i].m_entries = create_bitmap_with_default(zone_size_bytes, 0x00);
       ret->m_zones[i].m_virtual_base_address = ALIGN_UP(virtual_base + total_byte_offset, zone_sizes[i]);
       total_byte_offset += zone_size_bytes;
     }
@@ -86,14 +86,14 @@ void zexpand(zone_allocator_t* allocator, size_t extra_size) {
 static void* zone_allocate(zone_t* zone, size_t size) {
   // TODO: perhaps support allocations over multiple entries?
   const size_t entries_needed = (size + zone->m_zone_entry_size - 1) / zone->m_zone_entry_size;
-  ErrorOrPtr result = zone->m_entries.fFindFree(&zone->m_entries);
+  ErrorOrPtr result = bitmap_find_free(&zone->m_entries);
 
   if (result.m_status == ANIVA_FAIL) {
     return nullptr;
   }
 
   uintptr_t index = result.m_ptr;
-  zone->m_entries.fMark(&zone->m_entries, index);
+  bitmap_mark(&zone->m_entries, index);
   vaddr_t ret = zone->m_virtual_base_address + (index * zone->m_zone_entry_size);
   return (void*)ret;
 }
@@ -103,8 +103,8 @@ static void zone_deallocate(zone_t* zone, void* address, size_t size) {
 
   memset(address, 0x00, size);
 
-  if (zone->m_entries.fIsSet(&zone->m_entries, address_offset)) {
-    zone->m_entries.fUnmark(&zone->m_entries, address_offset);
+  if (bitmap_isset(&zone->m_entries, address_offset)) {
+    bitmap_unmark(&zone->m_entries, address_offset);
   }
 }
 

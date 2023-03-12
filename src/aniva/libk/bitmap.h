@@ -5,42 +5,6 @@
 
 struct bitmap;
 
-typedef void (*BITMAP_MARK) (
-  struct bitmap* this,
-  uint32_t index
-);
-
-typedef void (*BITMAP_UNMARK) (
-  struct bitmap* this,
-  uint32_t index
-);
-
-typedef void (*BITMAP_MARK_RANGE) (
-  struct bitmap* this,
-  uint32_t index,
-  size_t length
-);
-
-typedef void (*BITMAP_UNMARK_RANGE) (
-  struct bitmap* this,
-  uint32_t index,
-  size_t length
-);
-
-typedef bool (*BITMAP_ISSET) (
-  struct bitmap* this,
-  uint32_t index
-);
-
-typedef ErrorOrPtr (*BITMAP_FIND_FREE) (
-  struct bitmap* this
-);
-
-typedef ErrorOrPtr (*BITMAP_FIND_FREE_RANGE) (
-  struct bitmap* this,
-  size_t length
-);
-
 // 8-bit bitmap
 typedef struct bitmap {
   uint8_t m_default;
@@ -48,17 +12,11 @@ typedef struct bitmap {
   size_t m_entries; // size in bits
   uint8_t* m_map;
 
-  BITMAP_MARK fMark;
-  BITMAP_UNMARK fUnmark;
-  BITMAP_MARK_RANGE fMarkRange;
-  BITMAP_UNMARK_RANGE fUnmarkRange;
-  BITMAP_ISSET fIsSet;
-  BITMAP_FIND_FREE fFindFree;
-  BITMAP_FIND_FREE_RANGE fFindFreeRange;
 } bitmap_t;
 
-bitmap_t init_bitmap(size_t size);
-bitmap_t init_bitmap_with_default(size_t size, uint8_t default_value);
+bitmap_t create_bitmap(size_t size);
+bitmap_t create_bitmap_with_default(size_t size, uint8_t default_value);
+void destroy_bitmap(bitmap_t* map);
 
 void bitmap_mark(bitmap_t* this, uint32_t index);
 void bitmap_unmark(bitmap_t* this, uint32_t index);

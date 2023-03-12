@@ -86,5 +86,4 @@ extern struct packet_response send_packet_to_socket_blocking(uint32_t port, void
  */
 extern bool validate_tspckt(struct tspckt* packet); // tspctk.c
 
-
 #endif //__LIGHTHOUSE_OS_CORE__

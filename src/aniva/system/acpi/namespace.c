@@ -93,6 +93,7 @@ acpi_ns_node_t* acpi_create_node() {
   acpi_ns_node_t* ret = kmalloc(sizeof(acpi_ns_node_t));
   if (ret) {
     memset(ret, 0, sizeof(acpi_ns_node_t));
+    ret->m_children_list = init_list();
   }
   return ret;
 }
@@ -185,26 +186,10 @@ char* acpi_aml_name_to_string(acpi_aml_name_t* name) {
 
 void acpi_load_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* node) {
   // add to the parsers array
-  if (parser->m_ns_size == parser->m_ns_max_size) {
-    // realloc
-    size_t new_max_size = parser->m_ns_max_size * 2;
-    if (!new_max_size) {
-      new_max_size = 128;
-    }
-    acpi_ns_node_t** new_array = kmalloc(sizeof(acpi_ns_node_t*) * new_max_size);
-    if (parser->m_ns_nodes != nullptr) {
-      memcpy(new_array, parser->m_ns_nodes, sizeof(acpi_ns_node_t*) * parser->m_ns_max_size);
-      kfree(parser->m_ns_nodes);
-    }
-
-    parser->m_ns_nodes = new_array;
-    parser->m_ns_max_size = new_max_size;
-  }
 
   println("installing node");
 
-  parser->m_ns_nodes[parser->m_ns_size] = node;
-  parser->m_ns_size++;
+  list_append(parser->m_namespace_nodes, node);
 
   // add to the list of its parent
 
@@ -223,6 +208,7 @@ void acpi_unload_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* n
   // remove from the parsers array
 
   // remove from the list of its parent
+  kernel_panic("TODO: implement ns node unloading");
 }
 
 acpi_ns_node_t *acpi_get_node_child(acpi_ns_node_t* handle, const char* name) {
@@ -274,6 +260,10 @@ acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_n
       break;
     }
     current_handle = current_handle->parent;
+  }
+  
+  if (name_copy.m_itterator_p == name_copy.m_end_p) {
+    return current_handle;
   }
 
   while (name_copy.m_itterator_p != name_copy.m_end_p) {
@@ -339,7 +329,7 @@ void acpi_resolve_new_node(acpi_ns_node_t *node, acpi_ns_node_t* handle, acpi_am
 }
 
 bool ns_node_has_child(acpi_ns_node_t* handle, acpi_ns_node_t* node) {
-  FOREACH(i, handle->m_children) {
+  FOREACH(i, handle->m_children_list) {
     acpi_ns_node_t* child = i->data;
     if (memcmp(&child->name, &node->name, 4)) {
       return true;
@@ -350,7 +340,7 @@ bool ns_node_has_child(acpi_ns_node_t* handle, acpi_ns_node_t* node) {
 
 void ns_node_insert_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {
 
-  list_append(handle->m_children, child);
+  list_append(handle->m_children_list, child);
 }
 
 void ns_node_remove_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {
@@ -361,7 +351,7 @@ acpi_ns_node_t* ns_node_get_child_by_name(acpi_ns_node_t* handle, const char* na
   print("looking for: ");
   println(name);
   println("children: ");
-  FOREACH(i, handle->m_children) {
+  FOREACH(i, handle->m_children_list) {
     acpi_ns_node_t* child = i->data;
     if (memcmp(&child->name, name, 4)) {
       return child;

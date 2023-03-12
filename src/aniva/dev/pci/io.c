@@ -51,15 +51,15 @@ int pci_io_read8_type1(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field
  * type 2 pci addresssing
  * TODO: implement
  */
-int pci_io_write32_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t* value) { return 0; }
-int pci_io_write16_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t* value) { return 0; }
-int pci_io_write8_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t* value) { return 0; }
+int pci_io_write32_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t value) { return 0; }
+int pci_io_write16_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t value) { return 0; }
+int pci_io_write8_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t value) { return 0; }
 
 int pci_io_read32_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t* value) { return 0; }
 int pci_io_read16_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t* value) { return 0; }
 int pci_io_read8_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t* value) { return 0; }
 
-const raw_pci_impls_t raw_pci_type1_impl = {
+const pci_device_impls_t g_pci_type1_impl = {
   .read8 = pci_io_read8_type1,
   .read16 = pci_io_read16_type1,
   .read32 = pci_io_read32_type1,
@@ -68,7 +68,7 @@ const raw_pci_impls_t raw_pci_type1_impl = {
   .write16 = pci_io_write16_type1,
   .write32 = pci_io_write32_type1,
 };
-const raw_pci_impls_t raw_pci_type2_impl = {
+const pci_device_impls_t g_pci_type2_impl = {
   .read8 = pci_io_read8_type2,
   .read16 = pci_io_read16_type2,
   .read32 = pci_io_read32_type2,

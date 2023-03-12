@@ -6,6 +6,7 @@
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
+#include "libk/linkedlist.h"
 #include "libk/queue.h"
 #include "libk/reference.h"
 #include "libk/string.h"
@@ -225,3 +226,4 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   destroy_tspckt(packet);
   return Success(0);
 }
+

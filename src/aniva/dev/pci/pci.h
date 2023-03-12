@@ -118,12 +118,12 @@ typedef struct DeviceAddress {
 #define PCI_IMPLS_SUCCESS 1
 
 typedef struct pci_device_impls {
-  int (*read8)(struct pci_bus* bus, uint32_t device_function, int where, void* result);
-  int (*read16)(struct pci_bus* bus, uint32_t device_function, int where, void* result);
-  int (*read32)(struct pci_bus* bus, uint32_t device_function, int where, void* result);
-  int (*write8)(struct pci_bus* bus, uint32_t device_function, int where, void* data);
-  int (*write16)(struct pci_bus* bus, uint32_t device_function, int where, void* data);
-  int (*write32)(struct pci_bus* bus, uint32_t device_function, int where, void* data);
+  int (*write32)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t value);
+  int (*write16)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t value);
+  int (*write8)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t value);
+  int (*read32)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t* value);
+  int (*read16)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t* value);
+  int (*read8)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t* value);
 //  void* (*map)(struct pci_bus* bus, uint32_t device_function, int where);
 } pci_device_impls_t;
 
@@ -143,6 +143,7 @@ typedef struct pci_device_identifier {
   uint8_t interrupt_line;
   uint8_t interrupt_pin;
   uint8_t capabilities_ptr;
+  pci_device_impls_t ops;
   DeviceAddress_t address;
 } pci_device_identifier_t;
 

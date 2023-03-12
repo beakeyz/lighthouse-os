@@ -52,12 +52,12 @@ ErrorOrPtr uninstall_driver(struct dev_manifest* manifest) {
   }
 
   if (is_driver_loaded(manifest->m_handle)) {
-    TRY(unload_driver(manifest->m_url));
+    TRY(_, unload_driver(manifest->m_url));
   }
 
   dev_url_t path = manifest->m_url;
 
-  TRY(hive_remove_path(s_installed_drivers, path));
+  TRY(_, hive_remove_path(s_installed_drivers, path));
 
   // invalidate the manifest 
   destroy_dev_manifest(manifest);
@@ -99,10 +99,13 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   FOREACH(i, manifest->m_dependency_manifests) {
     dev_manifest_t* dep_manifest = i->data;
+    ErrorOrPtr error = { .m_status = ANIVA_SUCCESS };
 
     // TODO: check for errors
     if (dep_manifest && !is_driver_loaded(dep_manifest->m_handle))
-      load_driver(dep_manifest);
+      error = load_driver(dep_manifest);
+
+    TRY(_, error);
   }
 
   dev_url_t path = manifest->m_url;
@@ -128,7 +131,7 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   // call the driver exit function async
   driver_send_packet(dummy_manifest->m_url, DCC_EXIT, NULL, 0);
 
-  TRY(hive_remove(s_loaded_drivers, dummy_manifest->m_handle));
+  TRY(_, hive_remove(s_loaded_drivers, dummy_manifest->m_handle));
 
   // FIXME: if the manifest tells us the driver was loaded:
   //  - on the heap

@@ -126,6 +126,10 @@ const char* concat(char* one, char* two) {
   memset((char*)ret, 0, total_length);
   memcpy((char*)ret, one, strlen(one));
   memcpy((char*)ret + strlen(one), two, strlen(two));
+
+  // FIXME: does this give us issues?
+  kfree(one);
+  kfree(two);
   return ret;
 }
 

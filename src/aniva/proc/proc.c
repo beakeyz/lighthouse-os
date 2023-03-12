@@ -3,6 +3,8 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "interupts/interupts.h"
+#include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
@@ -54,13 +56,22 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
   return create_proc(PROC_CORE_PROCESS_NAME, 0, entry, args);
 }
 
-void proc_add_thread(proc_t* proc, struct thread* thread) {
+ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
   if (thread && proc) {
+    ErrorOrPtr does_contain = list_indexof(proc->m_threads, thread);
+
+    if (does_contain.m_status == ANIVA_SUCCESS) {
+      return Error();
+    }
+
     list_append(proc->m_threads, thread);
+    return Success(0);
   }
+  return Error();
 }
 
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {
   // TODO: generate new unique name
-  list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
+  //list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
+  kernel_panic("TODO: implement async task threads");
 }

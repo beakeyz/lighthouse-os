@@ -61,8 +61,6 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
     kernel_panic("Unable to find ACPI table FADT!");
   }
 
-  print_tables(rsdp);
-
   // FIXME: fix the acpi (AML) parser ;-;
   parser->m_ns_root_node = acpi_create_root();
 
@@ -112,8 +110,30 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
     table_index++;
   }
 
-  println(to_string(parser->m_ns_size));
+  println(to_string(parser->m_namespace_nodes->m_length));
   acpi_ns_node_t* ns_root = parser->m_ns_root_node;
+
+  println((char*)&ns_root->name);
+
+  FOREACH(i, ns_root->m_children_list) {
+    acpi_ns_node_t* child = i->data;
+    println((char*)&child->name);
+    FOREACH(j, child->m_children_list) {
+      acpi_ns_node_t* a = j->data;
+      print("--");
+      println((char*)&a->name);
+      FOREACH(k, a->m_children_list) {
+        acpi_ns_node_t* b = k->data;
+        print("----");
+        println((char*)&b->name);
+        FOREACH(l, b->m_children_list) {
+          acpi_ns_node_t* c = l->data;
+          print("------");
+          println((char*)&c->name);
+        }
+      }
+    }
+  }
 }
 
 void* find_rsdp(acpi_parser_t* parser) {
@@ -235,25 +255,38 @@ void* find_table(acpi_parser_t *parser, const char* sig) {
   return (void*)find_table_idx(parser, sig, 0);
 }
 
-void print_tables(void* rsdp_addr) {
+const char* parser_get_acpi_tables(void* rsdp_addr) {
+
   acpi_xsdp_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   if (ptr->base.revision >= 2 && ptr->xsdt_addr) {
     // xsdt
-    kernel_panic("TODO: implement higher revisions >=(");
+    return nullptr;
   }
 
   acpi_rsdt_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
   const size_t end_index = ((rsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint32_t);
 
+  char* names;
+
   for (uint32_t i = 0; i < end_index; i++) {
     acpi_rsdt_t* cur = (acpi_rsdt_t*)(uintptr_t)rsdt->tables[i];
-    for (int i = 0; i < 4; i++) {
-      putch(cur->base.signature[i]);
-    }
-    print(" ");
+    char name[5];
+    memcpy(name, cur->base.signature, 4);
+    name[4] = '\0';
+
+    names = (char*)concat(names, name);
+    names = (char*)concat(names, ", ");
   }
+
+  return names;
+}
+
+void print_tables(void* rsdp_addr) {
+  const char* tables = parser_get_acpi_tables(rsdp_addr);
+  println(tables);
+  kfree((void*)tables);
 }
 
 /*
