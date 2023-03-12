@@ -136,14 +136,9 @@ int acpi_parse_aml_name(acpi_aml_name_t* name, const uint8_t* data) {
     if (!acpi_is_name(*itteration)) {
       return -1;
     }
-    print("it: ");
-    putch(*itteration);
-    println("");
     segs = 1;
   }
 
-  println(to_string(segs));
-  
   name->m_should_search_parent_scopes = (name->m_absolute == false && name->m_scope_height == 0 && segs == 1);
   name->m_start_p = start;
   name->m_itterator_p = itteration;
@@ -205,7 +200,10 @@ void acpi_load_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* nod
     parser->m_ns_max_size = new_max_size;
   }
 
-  parser->m_ns_nodes[parser->m_ns_size++] = node;
+  println("installing node");
+
+  parser->m_ns_nodes[parser->m_ns_size] = node;
+  parser->m_ns_size++;
 
   // add to the list of its parent
 
@@ -234,9 +232,7 @@ acpi_ns_node_t *acpi_get_node_child(acpi_ns_node_t* handle, const char* name) {
     handle_p_cpy = acpi_get_root(g_parser_ptr);
   }
   
-  ns_node_get_child_by_name(handle_p_cpy, name);
-
-  return nullptr;
+  return ns_node_get_child_by_name(handle_p_cpy, name);
 }
 
 acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_name) {
@@ -244,11 +240,12 @@ acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_n
   acpi_ns_node_t* current_handle = handle;
 
   if (name_copy.m_should_search_parent_scopes) {
+    println("searching parent scopes");
     // there is only one segment in this name
     char segment[5] = {0};
     acpi_aml_name_next_segment(&name_copy, segment);
-
     ASSERT_MSG(name_copy.m_itterator_p == name_copy.m_end_p, "acpi_resolve_node: more than one segment in the aml name!");
+    segment[4] = '\0';
 
     while (current_handle) {
       acpi_ns_node_t* current_child = acpi_get_node_child(current_handle, segment);
@@ -363,7 +360,8 @@ bool ns_node_has_child(acpi_ns_node_t* handle, acpi_ns_node_t* node) {
 void ns_node_insert_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {
   ns_node_ensure_children_capacity(handle);
 
-  handle->m_children[handle->m_children_count++] = child;
+  handle->m_children[handle->m_children_count] = child;
+  handle->m_children_count++;
 }
 
 void ns_node_remove_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {

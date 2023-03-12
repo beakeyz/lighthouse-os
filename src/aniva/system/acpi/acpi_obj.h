@@ -352,11 +352,15 @@ static ALWAYS_INLINE acpi_context_entry_t *acpi_state_push_context_entry(acpi_st
  * inline acpi stack peek functions
  */
 
-static ALWAYS_INLINE acpi_operand_t* acpi_operand_stack_peek(acpi_state_t* state) {
+static ALWAYS_INLINE acpi_operand_t* acpi_operand_stack_get(acpi_state_t* state, int index) {
   if (state->operand_sp >= 0) {
-    return &state->operand_stack_base[state->operand_sp];
+    return &state->operand_stack_base[index];
   }
   return nullptr;
+}
+
+static ALWAYS_INLINE acpi_operand_t* acpi_operand_stack_peek(acpi_state_t* state) {
+  return acpi_operand_stack_get(state, state->operand_sp);
 }
 
 static ALWAYS_INLINE acpi_block_entry_t* acpi_block_stack_peek(acpi_state_t* state) {
@@ -435,11 +439,22 @@ int acpi_var_resize_str(acpi_variable_t* var, size_t length);
 int acpi_var_resize_buffer(acpi_variable_t* var, size_t length);
 int acpi_var_resize_package(acpi_variable_t* var, size_t length);
 
+void acpi_load_integer(acpi_state_t* state, acpi_operand_t* src, acpi_variable_t* dest);
+
+void acpi_store_namespace(struct acpi_ns_node* node, acpi_variable_t* object);
+
+void acpi_mutate_operand(acpi_state_t* state, acpi_operand_t* dest, acpi_variable_t* src);
+void acpi_mutate_namespace(struct acpi_ns_node* node, acpi_variable_t* obj);
+
+void acpi_load_object(acpi_variable_t* dest, struct acpi_ns_node* node);
+
 static ALWAYS_INLINE void acpi_assign_ref(acpi_operand_t* op_src, acpi_variable_t* obj) {
   if (op_src->tag == ACPI_OPERAND_OBJECT) {
     assign_acpi_var(&op_src->obj, obj);
   }
 }
+
+void acpi_get_obj_ref(acpi_state_t* state, acpi_operand_t* op, acpi_variable_t* obj);
 
 /*
  * Operand functions

@@ -61,7 +61,7 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
     kernel_panic("Unable to find ACPI table FADT!");
   }
 
-  return;
+  print_tables(rsdp);
 
   // FIXME: fix the acpi (AML) parser ;-;
   parser->m_ns_root_node = acpi_create_root();
@@ -110,6 +110,54 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
     acpi_delete_state(&parser->m_state);
 
     table_index++;
+  }
+
+  println(to_string(parser->m_ns_size));
+  for (uintptr_t i = 0; i < parser->m_ns_size; i++) {
+    char name[5];
+    name[0] = parser->m_ns_nodes[i]->name & 0xFF;
+    name[1] = (parser->m_ns_nodes[i]->name >> 8) & 0xFF;
+    name[2] = (parser->m_ns_nodes[i]->name >> 16) & 0xFF;
+    name[3] = (parser->m_ns_nodes[i]->name >> 24) & 0xFF;
+    name[4] = '\0';
+    println(name);
+
+    for (uintptr_t j = 0; j < parser->m_ns_nodes[i]->m_children_count; j++) {
+      acpi_ns_node_t* child = parser->m_ns_nodes[i]->m_children[j];
+
+      name[0] = child->name & 0xFF;
+      name[1] = (child->name >> 8) & 0xFF;
+      name[2] = (child->name >> 16) & 0xFF;
+      name[3] = (child->name >> 24) & 0xFF;
+      name[4] = '\0';
+      print(" -- ");
+      println(name);
+
+      for (uintptr_t j = 0; j < child->m_children_count; j++) {
+        acpi_ns_node_t* child_child = child->m_children[j];
+
+        name[0] = child_child->name & 0xFF;
+        name[1] = (child_child->name >> 8) & 0xFF;
+        name[2] = (child_child->name >> 16) & 0xFF;
+        name[3] = (child_child->name >> 24) & 0xFF;
+        name[4] = '\0';
+        print(" -- -- ");
+        println(name);
+
+        for (uintptr_t j = 0; j < child_child->m_children_count; j++) {
+          acpi_ns_node_t* child_child_child = child_child->m_children[j];
+
+          name[0] = child_child_child->name & 0xFF;
+          name[1] = (child_child_child->name >> 8) & 0xFF;
+          name[2] = (child_child_child->name >> 16) & 0xFF;
+          name[3] = (child_child_child->name >> 24) & 0xFF;
+          name[4] = '\0';
+          print(" -- -- ");
+          println(name);
+
+        }
+      }
+    }
   }
 
   // TODO:
@@ -265,6 +313,9 @@ int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi
 
   const size_t data_size = segment->aml_table->header.length - sizeof(acpi_sdt_header_t);
 
+  println("data_soze");
+  println(to_string(data_size));
+
   // push a context
   acpi_context_entry_t* ctx = acpi_state_push_context_entry(state);
   ctx->segm = segment;
@@ -289,7 +340,6 @@ int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi
 int parser_execute_acpi_state(acpi_state_t* state) {
 
   while (acpi_stack_peek(state)) {
-    print("loop: ");
     int result = parser_partial_execute_acpi_state(state);
     if (result < 0) {
       return result;
@@ -309,7 +359,16 @@ static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* oper
     case FINDSETLEFTBIT_OP:
     case FINDSETRIGHTBIT_OP:
     case CONCAT_OP:
-    case ADD_OP:
+    case ADD_OP: {
+      acpi_variable_t lhs = {0};
+      acpi_variable_t rhs = {0};
+      acpi_load_integer(state, &operands[0], &lhs);
+      acpi_load_integer(state, &operands[1], &rhs);
+
+      result.var_type = ACPI_INTEGER;
+      result.num = lhs.num + rhs.num;
+      break;
+    }
     case SUBTRACT_OP:
     case MOD_OP:
     case MULTIPLY_OP:
@@ -392,8 +451,6 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
     }
     case BITFIELD_OP:
     case BYTEFIELD_OP:
-      kernel_panic("(parser_parse_node): unimplemented opcode!");
-      break;
     case WORDFIELD_OP:
     case DWORDFIELD_OP:
     case QWORDFIELD_OP:
@@ -451,23 +508,11 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
   acpi_invocation_t* invocation = context->invocation;
   acpi_ns_node_t* ctx_handle = context->ctx_handle;
 
+
   // ayo how thefuq did this come to be??
-  if (block->program_counter >= block->program_counter_limit) {
-    return 1;
+  if (block->program_counter > block->program_counter_limit) {
+    return -1;
   }
-
-  /*
-   * NOTE: this is for testing, and should be removed once that is complete
-  for (;;) {
-    putch(code_ptr[block->program_counter]);
-    if (block->program_counter++ >= block->program_counter_limit) {
-      break;
-    }
-  }
-
-  kernel_panic("FINISHED");
-   */
-
 
   print("stack type: ");
   println(to_string(stack->type));
@@ -523,22 +568,125 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
       int of_offset = state->operand_sp - stack->opstack_frame;
       if (of_offset == 1) {
         // TODO
+        acpi_variable_t size_var = {0};
+
+        acpi_operand_t* operand = acpi_operand_stack_get(state, stack->opstack_frame);
+
+        acpi_get_obj_ref(state, operand, &size_var);
+        acpi_state_pop_opstack(state);
+
+        println(to_string(size_var.num));
+
+        acpi_variable_t result = {0};
+        acpi_var_create_buffer(&result, size_var.num);
+
+        int size = block->program_counter_limit - block->program_counter;
+        if (size < 0)
+          kernel_panic("invalid buffer size");
+        if (size > (int)result.buffer_p->size)
+          kernel_panic("buffer size too big");
+
+        memcpy(result.buffer_p->buffer, code_ptr + block->program_counter, size);
+
+        if (stack->buffer.buffer_result_requested) {
+          println("gave back result");
+          acpi_operand_t* operand = acpi_state_push_opstack(state);
+          operand->tag = ACPI_OPERAND_OBJECT;
+          move_acpi_var(&operand->obj, &result);
+        }
+
+        destroy_acpi_var(&size_var);
+        destroy_acpi_var(&result);
+
+        acpi_state_pop_blk_stack(state);
+        acpi_state_pop_stack(state);
+
+        return 0;
       } else {
+        println("parsing buffer stackitem");
         parser_set_mode(g_parser_ptr, APM_OBJECT);
         return parser_parse_acpi_state(state);
       }
 
-    }
+      }
+      break;
     case ACPI_INTERP_STATE_VARPACKAGE_STACKITEM:
     case ACPI_INTERP_STATE_PACKAGE_STACKITEM:
-      kernel_panic("(parser_partial_execute_acpi_state): unimplemented interpreter state!");
-      break;
+      ASSERT_MSG(acpi_operand_stack_get(state, stack->opstack_frame) != nullptr, "no operand while parsing stackitem!");
+      acpi_operand_t* operand = acpi_operand_stack_get(state, stack->opstack_frame);
+
+      if (stack->pkg.pkg_phase == 0) {
+        if (stack->type == ACPI_INTERP_STATE_PACKAGE_STACKITEM) {
+          parser_set_mode(g_parser_ptr, APM_IMMEDIATE_BYTE);
+        } else {
+          parser_set_mode(g_parser_ptr, APM_OBJECT);
+        }
+        int result = parser_parse_acpi_state(state);
+
+        stack->pkg.pkg_phase++;
+        return result;
+      } else if (stack->pkg.pkg_phase == 1) {
+        acpi_variable_t size_var = {0};
+        // FIXME: is this enough?
+        size_var = operand[1].obj;
+
+        acpi_state_pop_opstack(state);
+
+        if (acpi_var_create_package(&operand[0].obj, size_var.num) < 0) {
+          destroy_acpi_var(&size_var);
+          return -1;
+        }
+        
+        stack->pkg.pkg_phase++;
+
+        destroy_acpi_var(&size_var);
+        return 0;
+      }
+
+      if (state->operand_sp == stack->opstack_frame + 2) {
+        acpi_operand_t* package = &operand[0];
+        ASSERT_MSG(package->tag == ACPI_OPERAND_OBJECT, "package operand is not an object");
+        acpi_operand_t* initializer = &operand[1];
+        ASSERT_MSG(initializer->tag == ACPI_OPERAND_OBJECT, "initializer operand is not an object");
+
+        if (stack->pkg.pkg_idx >= (int)package->obj.package_p->pkg_size) {
+          kernel_panic("package initializer too large");
+        }
+
+        println("pre store: ");
+        println(to_string(state->operand_sp));
+        
+        acpi_store_package(&package->obj, &initializer->obj, stack->pkg.pkg_idx);
+        stack->pkg.pkg_idx++;
+        acpi_state_pop_opstack(state);
+
+      }
+
+      println("post or no store: ");
+      println(to_string(state->operand_sp));
+
+      ASSERT_MSG(state->operand_sp == stack->opstack_frame + 1, "ACPI: Something went wrong while initialising package");
+
+      if (block->program_counter == block->program_counter_limit) {
+        if (!stack->pkg.pkg_result_requested) {
+          acpi_state_pop_opstack(state);
+        }
+
+        acpi_state_pop_blk_stack(state);
+        acpi_state_pop_stack(state);
+        return 0;
+      } else {
+        parser_set_mode(g_parser_ptr, APM_DATA);
+        return parser_parse_acpi_state(state);
+      }
+
+      println("(parser_partial_execute_acpi_state): unimplemented interpreter state!");
+      return -1;
     case ACPI_INTERP_STATE_NODE_STACKITEM: {
         int mode_idx = state->operand_sp - stack->opstack_frame;
         print("node_arg_mode: ");
         println(to_string(stack->node_opcode.node_arg_modes[mode_idx]));
         if (stack->node_opcode.node_arg_modes[mode_idx] == 0) {
-          kernel_panic("reached the end of the node stackitem!");
           acpi_operand_t* op = &state->operand_stack_base[stack->opstack_frame];
           parser_parse_node(stack->node_opcode.node_opcode_code, state, op, ctx_handle);
           acpi_state_pop_opstack_n(state, mode_idx);
@@ -581,13 +729,21 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
       }
       break;
     case ACPI_INTERP_STATE_INVOKE_STACKITEM:
+      println("INVOKE_STACKITEM");
+      return -1;
     case ACPI_INTERP_STATE_RETURN_STACKITEM:
+      println("RETURN_STACKITEM");
+      return -1;
     case ACPI_INTERP_STATE_LOOP_STACKITEM:
+      println("LOOP_STACKITEM");
+      return -1;
     case ACPI_INTERP_STATE_COND_STACKITEM:
+      println("BANKFIELD_STACKITEM");
+      return -1;
     case ACPI_INTERP_STATE_BANKFIELD_STACKITEM:
     default:
-      kernel_panic("(parser_partial_execute_acpi_state): unimplemented interpreter state!");
-      break;
+      println("(parser_partial_execute_acpi_state): unimplemented interpreter state!");
+      return -1;
   }
 
   return -1;
@@ -602,6 +758,10 @@ static int handle_buffer_op(acpi_state_t* state, uint8_t* code_ptr, int limit, i
 static int handle_varpackage_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc);
 static int handle_package_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc);
 static int handle_opregion_op(acpi_state_t* state, int opcode, int pc);
+static int handle_method_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc, acpi_ns_node_t* ctx_handle, acpi_aml_seg_t* segment, acpi_invocation_t* invocation);
+static int handle_device_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc, acpi_ns_node_t* ctx_handle, acpi_aml_seg_t* segment, acpi_invocation_t* invocation);
+static int handle_name_op(acpi_state_t* state, int pc, int opcode);
+static int handle_mutex_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int pc, acpi_ns_node_t* ctx_handle, acpi_invocation_t* invocation);
 
 static int handle_scope_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc, acpi_ns_node_t* ctx_handle, acpi_aml_seg_t* segment);
 
@@ -617,12 +777,18 @@ int parser_parse_acpi_state(acpi_state_t* state) {
   acpi_ns_node_t* ctx_handle = context->ctx_handle;
 
   int pc = block->program_counter;
+
+  print("program_counter: ");
+  println(to_string(pc));
+
   int opcode_pc = pc;
   int limit = block->program_counter_limit;
 
   // ayo how thefuq did this come to be??
   if (pc >= block->program_counter_limit) {
-    return 1;
+    // TODO: wtf
+    //kernel_panic("fuck");
+    return -1;
   }
 
   // sizeof the header + offset into the table + the program_counter in the block
@@ -634,8 +800,6 @@ int parser_parse_acpi_state(acpi_state_t* state) {
   if (block->program_counter >= block->program_counter_limit) {
     kernel_panic("parser_parse_acpi_state: pc seems to exceed the pc_limit!");
   }
-
-
   switch (g_parser_ptr->m_mode) {
     case APM_IMMEDIATE_BYTE: {
       uint8_t val = 0;
@@ -697,26 +861,22 @@ int parser_parse_acpi_state(acpi_state_t* state) {
 
   // TODO implement names
   if (acpi_is_name(code_ptr[pc])) {
-    println("0-0-0-0-0-0- ACPI NAME -0-0-0-0-0-0");
     acpi_aml_name_t aml_name = {0};
     if (acpi_parse_aml_name(&aml_name, code_ptr + pc) < 0) {
       return -1;
     }
-    
-    print("size: ");
-    println(acpi_aml_name_to_string(&aml_name));
 
     pc += aml_name.m_size;
 
     if (acpi_operand_stack_ensure_capacity(state) < 0 || acpi_stack_ensure_capacity(state) < 0) {
       return -1;
     }
-    parser_advance_block_pc(state, pc);
 
+    parser_advance_block_pc(state, pc);
+    
     bool should_pass_result = parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_EXPECT_RESULT);
 
     if (g_parser_ptr->m_mode == APM_DATA) {
-      println("1");
       // nothing yet
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_OPERAND_OBJECT;
@@ -724,7 +884,6 @@ int parser_parse_acpi_state(acpi_state_t* state) {
       op->obj.unresolved_aml.unresolved_context_handle = ctx_handle;
       op->obj.unresolved_aml.unres_aml_p = code_ptr + opcode_pc;
     } else if (!parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_RESOLVE_NAME) && should_pass_result) {
-      println("2");
       // here we shouldn't resolve the name, but just 
       // yeet it to the opstack lol
       if (acpi_operand_stack_ensure_capacity(state) < 0) {
@@ -737,17 +896,6 @@ int parser_parse_acpi_state(acpi_state_t* state) {
       op->unresolved_aml.unres_aml_p = code_ptr + opcode_pc;
 
     } else {
-      println("PRE resolve");
-      print("absolute: ");
-      println(aml_name.m_absolute ? "true" : "false");
-      print("size: ");
-      println(to_string(aml_name.m_size));
-      print("itterator: ");
-      println(to_string((uintptr_t)aml_name.m_itterator_p));
-      print("end: ");
-      println(to_string((uintptr_t)aml_name.m_end_p));
-      print("height: ");
-      println(to_string(aml_name.m_scope_height));
       acpi_ns_node_t* handle = acpi_resolve_node(ctx_handle, &aml_name);
 
       if (!handle) {
@@ -762,29 +910,31 @@ int parser_parse_acpi_state(acpi_state_t* state) {
         return -1;
       }
 
-      kernel_panic("TODO");
+      if (handle->type == ACPI_NAMESPACE_METHOD && parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_PARSE_INVOCATION)) {
+        acpi_stack_entry_t* stack_item = acpi_state_push_stack_entry(state);
+        stack_item->type = ACPI_INTERP_STATE_INVOKE_STACKITEM;
+        stack_item->opstack_frame = state->operand_sp;
+        stack_item->invoke.ivk_argc = handle->aml_method_flags & METHOD_ARGC_MASK;
+        stack_item->invoke.ivk_result_requested = should_pass_result;
 
-      switch (handle->type) {
-        case ACPI_NAMESPACE_METHOD:
-          if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_PARSE_INVOCATION)) {
-            acpi_stack_entry_t* stack_item = acpi_state_push_stack_entry(state);
-            stack_item->type = ACPI_INTERP_STATE_INVOKE_STACKITEM;
-            stack_item->opstack_frame = state->operand_sp;
-            stack_item->invoke.ivk_argc = handle->aml_method_flags & METHOD_ARGC_MASK;
-            stack_item->invoke.ivk_result_requested = should_pass_result;
-          }
-          break;
-        default:
-          if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_PARSE_INVOCATION)) {
-          } else {
-            if (should_pass_result) {
-              acpi_operand_t* op = acpi_state_push_opstack(state);
-              op->tag = ACPI_RESOLVED_NAME;
-              op->handle = handle;
-            }
-          }
-          // nothing?
-          break;
+        acpi_operand_t* op = acpi_state_push_opstack(state);
+        op->tag = ACPI_RESOLVED_NAME;
+        op->handle = handle;
+      } else if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_PARSE_INVOCATION)) {
+        acpi_variable_t var = {0};
+        acpi_load_object(&var, handle);
+
+        if (should_pass_result) {
+          acpi_operand_t* op = acpi_state_push_opstack(state);
+          op->tag = ACPI_OPERAND_OBJECT;
+          move_acpi_var(&op->obj, &var);
+        }
+      } else {
+        if (should_pass_result) {
+          acpi_operand_t* op = acpi_state_push_opstack(state);
+          op->tag = ACPI_RESOLVED_NAME;
+          op->handle = handle;
+        }
       }
     }
     return 0;
@@ -808,74 +958,152 @@ int parser_parse_acpi_state(acpi_state_t* state) {
 
   switch (opcode) {
     case NOP_OP:
-      parser_advance_block_pc(state, pc);
-      break;
+      ASSERT_MSG(parser_advance_block_pc(state, pc) == ANIVA_SUCCESS, "Could not advande pc!");
     case ZERO_OP:
-      handle_zero_op(state, pc);
-      break;
+      return handle_zero_op(state, pc);
     case ONE_OP:
       handle_integer_op(state, pc, 0);
       break;
     case ONES_OP:
-      handle_integer_op(state, pc, ~((uintptr_t)0));
-      break;
+      return handle_integer_op(state, pc, ~((uintptr_t)0));
     case (EXTOP_PREFIX << 8) | REVISION_OP:
       // TODO: have a revision
-      handle_integer_op(state, pc, 0x69420);
-      break;
+      return handle_integer_op(state, pc, 0x69420);
     case (EXTOP_PREFIX << 8) | TIMER_OP:
-      handle_timer_op(state, pc);
-      break;
+      return handle_timer_op(state, pc);
     case BYTEPREFIX:
     case WORDPREFIX:
     case DWORDPREFIX:
     case QWORDPREFIX: 
-      handle_integer_prefix_op(state, code_ptr, limit, opcode, pc);
-      break;
+      return handle_integer_prefix_op(state, code_ptr, limit, opcode, pc);
     case STRINGPREFIX:
-      handle_string_prefix_op(state, block, code_ptr, pc);
-      break;
+      return handle_string_prefix_op(state, block, code_ptr, pc);
     case BUFFER_OP:
-      handle_buffer_op(state, code_ptr, limit, opcode_pc, pc);
-      break;
+      return handle_buffer_op(state, code_ptr, limit, opcode_pc, pc);
     case VARPACKAGE_OP:
-      handle_varpackage_op(state, code_ptr, limit, opcode_pc, pc);
-      break;
+      return handle_varpackage_op(state, code_ptr, limit, opcode_pc, pc);
     case PACKAGE_OP:
-      handle_package_op(state, code_ptr, limit, opcode_pc, pc);
-      break;
+      return handle_package_op(state, code_ptr, limit, opcode_pc, pc);
     case RETURN_OP:
     case WHILE_OP:
     case CONTINUE_OP:
     case BREAK_OP:
     case IF_OP:
     case ELSE_OP:
-      break;
+      println("some unimplemented controlflow operators");
+      return -1;
     case SCOPE_OP:
       // TODO: first node seems to be a SCOPE_OP, so lets impl this one first
-      handle_scope_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm);
-      break;
+      return handle_scope_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm);
     case (EXTOP_PREFIX << 8) | DEVICE:
+      return handle_device_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm, invocation);
+      break;
     case (EXTOP_PREFIX << 8) | PROCESSOR:
+      kernel_panic("proc");
+      break;
     case (EXTOP_PREFIX << 8) | POWER_RES:
+      kernel_panic("power res");
+      break;
     case (EXTOP_PREFIX << 8) | THERMALZONE:
-    case METHOD_OP:
+      break;
+      kernel_panic("thermal");
+      break;
+    case METHOD_OP: 
+      return handle_method_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm, invocation);
     case EXTERNAL_OP:
+      kernel_panic("unimplemented opcode!");
     case NAME_OP:
+      return handle_name_op(state, pc, opcode);
     case ALIAS_OP:
     case BITFIELD_OP:
     case BYTEFIELD_OP:
     case WORDFIELD_OP:
     case QWORDFIELD_OP:
     case (EXTOP_PREFIX << 8) | ARBFIELD_OP:
+      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
+      break;
     case (EXTOP_PREFIX << 8) | MUTEX:
+      return handle_mutex_op(state, code_ptr, limit, pc, ctx_handle, invocation);
+      println("mutex");
+      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
+      break;
     case (EXTOP_PREFIX << 8) | EVENT:
+      println("some fields, mutex and event");
       kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
       break;
     case (EXTOP_PREFIX << 8) | OPREGION:
-      handle_opregion_op(state, opcode, pc);
-      break;
+      return handle_opregion_op(state, opcode, pc);
     case (EXTOP_PREFIX << 8) | FIELD:
+      println("field");
+      size_t package_size;
+      acpi_aml_name_t aml_name = {0};
+      if (parse_acpi_var_int(&package_size, code_ptr, &pc, limit) < 0 || acpi_parse_aml_name(&aml_name, code_ptr + pc) < 0) {
+        return -1;
+      }
+
+      pc += aml_name.m_size;
+
+      int end_pc = opcode_pc + 2 + package_size;
+
+      acpi_ns_node_t* reg_node = acpi_resolve_node(ctx_handle, &aml_name);
+
+      if (!reg_node) {
+        kernel_panic("could not resolve node");
+      }
+
+      uint8_t access_type = *(code_ptr + pc);
+      pc++;
+
+      uintptr_t current_offset;
+      uintptr_t skip_bits;
+      acpi_aml_name_t field_name = {0};
+
+      while (pc < end_pc) {
+        switch (*(code_ptr + pc)) {
+          case 0:
+            pc++;
+            if (parse_acpi_var_int(&skip_bits, code_ptr, &pc, limit) < 0) {
+              return -1;
+            }
+            current_offset += skip_bits;
+            break;
+          case 1:
+            pc++;
+            access_type = *(code_ptr + pc);
+            pc += 2;
+            break;
+          case 2:
+            // TODO
+            return -1;
+          default:
+            if (acpi_parse_aml_name(&field_name, code_ptr + pc) < 0) {
+              return -1;
+            }
+            pc += field_name.m_size;
+            if (parse_acpi_var_int(&skip_bits, code_ptr, &pc, limit) < 0) {
+              return -1;
+            }
+            acpi_ns_node_t* node = acpi_create_node();
+            node->type = ACPI_NAMESPACE_FIELD;
+            node->namespace_field.field_region_node = reg_node;
+            node->namespace_field.field_flags = access_type;
+            node->namespace_field.field_size_bits = skip_bits;
+            node->namespace_field.field_offset_bits = current_offset;
+
+            acpi_resolve_new_node(node, ctx_handle, &field_name);
+            acpi_load_ns_node_in_parser(g_parser_ptr, node);
+
+            if (invocation) {
+              //list_append(invocation->resulting_ns_nodes, &node->)
+              kernel_panic("FIELD: invocation");
+            }
+
+            current_offset += skip_bits;
+        }
+      }
+
+      parser_advance_block_pc(state, pc);
+      return 0;
     case (EXTOP_PREFIX << 8) | INDEXFIELD:
     case (EXTOP_PREFIX << 8) | BANKFIELD:
     case ARG0_OP:
@@ -945,8 +1173,9 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     case (EXTOP_PREFIX << 8) | FROM_BCD_OP:
     case (EXTOP_PREFIX << 8) | TO_BCD_OP:
     default:
-      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
-      break;
+      println("thats a lot of stuff");
+      println("(parser_parse_acpi_state): unimplemented opcode!");
+      return -1;
   }
 
   return 0;
@@ -967,12 +1196,14 @@ static int handle_zero_op(acpi_state_t* state, int pc) {
       op->obj.var_type = ACPI_TYPE_INTEGER;
       op->obj.num = 0;
       }
+      break;
     case APM_OPTIONAL_REFERENCE:
     case APM_REFERENCE:
       {
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_NULL_NAME;
       }
+      break;
     default:
       break;
   }
@@ -1027,46 +1258,37 @@ static int handle_timer_op(acpi_state_t* state, int pc) {
 
 static int handle_integer_prefix_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode, int pc) {
   uintptr_t value = 0;
-
-  print("pc before the parse: ");
-  println(to_string(pc));
-  // TODO: parse value
-  switch (opcode) {
-    case BYTEPREFIX: {
-                       uint8_t tmp;
-                       if (acpi_parse_u8(&tmp, code_ptr, &pc, limit) < 0) {
-                         // die
-                       }
-                       value = tmp;
-                     }
-    case WORDPREFIX: {
-                       uint16_t tmp;
-                       if (acpi_parse_u16(&tmp, code_ptr, &pc, limit) < 0) {
-                         // die
-                       }
-                       value = tmp;
-                     }
-    case DWORDPREFIX: {
-                       uint32_t tmp;
-                       if (acpi_parse_u32(&tmp, code_ptr, &pc, limit) < 0) {
-                         // die
-                       }
-                       value = tmp;
-                     }
-    case QWORDPREFIX: {
-                       uint64_t tmp;
-                       if (acpi_parse_u64(&tmp, code_ptr, &pc, limit) < 0) {
-                         // die
-                       }
-                       value = tmp;
-                     }
-                     
+  if (opcode == BYTEPREFIX) {
+    uint8_t tmp;
+    if (acpi_parse_u8(&tmp, code_ptr, &pc, limit) < 0) {
+      // die
+      return -1;
+    }
+    value = tmp;
+  } else if (opcode == WORDPREFIX) {
+    uint16_t tmp;
+    if (acpi_parse_u16(&tmp, code_ptr, &pc, limit) < 0) {
+      // die
+      return -1;
+    }
+    value = tmp;
+  } else if (opcode == DWORDPREFIX) {
+    uint32_t tmp;
+    if (acpi_parse_u32(&tmp, code_ptr, &pc, limit) < 0) {
+      // die
+      return -1;
+    }
+    value = tmp;
+  } else if (opcode == QWORDPREFIX) {
+    uint64_t tmp;
+    if (acpi_parse_u64(&tmp, code_ptr, &pc, limit) < 0) {
+      // die
+      return -1;
+    }
+    value = tmp;
   }
-  print("pc after the parse: ");
-  println(to_string(pc));
 
-  handle_integer_op(state, pc, value);
-  return 0;
+  return handle_integer_op(state, pc, value);
 }
 
 static int handle_string_prefix_op(acpi_state_t* state, acpi_block_entry_t* block, uint8_t* code_ptr, int pc) {
@@ -1116,6 +1338,7 @@ static int handle_buffer_op(acpi_state_t* state, uint8_t* code_ptr, int limit, i
   acpi_stack_entry_t* stack_entry = acpi_state_push_stack_entry(state);
   stack_entry->type = ACPI_INTERP_STATE_BUFFER_STACKITEM;
   stack_entry->opstack_frame = state->operand_sp;
+  stack_entry->buffer.buffer_result_requested = parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_EXPECT_RESULT);
   return 0;
 }
 
@@ -1248,6 +1471,149 @@ static int handle_opregion_op(acpi_state_t* state, int opcode, int pc) {
   return 0;
 }
 
+static int handle_method_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc, acpi_ns_node_t* ctx_handle, acpi_aml_seg_t* segment, acpi_invocation_t* invocation) {
+
+  size_t encoded_size;
+  uint8_t flags;
+  acpi_aml_name_t name = {0};
+
+  if (parse_acpi_var_int(&encoded_size, code_ptr, &pc, limit) < 0) {
+    return -1;
+  }
+
+  if (acpi_parse_aml_name(&name, code_ptr + pc) < 0) {
+    return -1;
+  }
+  pc += name.m_size;
+
+  if (acpi_parse_u8(&flags, code_ptr, &pc, limit) < 0) {
+    return -1;
+  }
+
+  int nested_pc = pc;
+  pc = opcode_pc + 1 + encoded_size;
+
+  parser_advance_block_pc(state, pc);
+
+  acpi_ns_node_t* node = acpi_create_node();
+
+  node->type = ACPI_NAMESPACE_METHOD;
+
+  acpi_resolve_new_node(node, ctx_handle, &name);
+
+  node->aml_method_flags = flags;
+  node->segment = segment;
+  node->ptr = code_ptr + nested_pc;
+  node->size = pc - nested_pc;
+
+  acpi_load_ns_node_in_parser(g_parser_ptr, node);
+
+
+  if (invocation) {
+    kernel_panic("TODO: implement invocation (handle_method_op)");
+  }
+
+  return 0;
+}
+
+static int handle_device_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int opcode_pc, int pc, acpi_ns_node_t* ctx_handle, acpi_aml_seg_t* segment, acpi_invocation_t* invocation) {
+  int nested_pc;
+  int pc_bump;
+  size_t encoded_size;
+  acpi_aml_name_t name = {0};
+  acpi_ns_node_t* node;
+
+  acpi_context_entry_t* context;
+  acpi_block_entry_t* block;
+  acpi_stack_entry_t* stack;
+  
+  if (parse_acpi_var_int(&encoded_size, code_ptr, &pc, limit) < 0) {
+    return -1;
+  }
+
+  if (acpi_parse_aml_name(&name, code_ptr + pc) < 0) {
+    return -1;
+  }
+
+  nested_pc = pc;
+  pc_bump = encoded_size + 2 + opcode_pc;
+  pc = pc_bump;
+
+  if (acpi_stack_ensure_capacity(state) < 0 || acpi_context_stack_ensure_capacity(state) < 0 || acpi_block_stack_ensure_capacity(state) < 0) {
+    return -1;
+  } 
+
+  parser_advance_block_pc(state, pc);
+
+  node = acpi_create_node();
+  node->type = ACPI_NAMESPACE_DEVICE;
+
+  acpi_resolve_new_node(node, ctx_handle, &name);
+  acpi_load_ns_node_in_parser(g_parser_ptr, node);
+
+  if (invocation) {
+    kernel_panic("TODO implement invocation");
+  }
+
+  context = acpi_state_push_context_entry(state);
+  context->segm = segment;
+  context->ctx_handle = ctx_handle;
+  context->code = code_ptr;
+
+  block = acpi_state_push_block_entry(state);
+  block->program_counter = nested_pc;
+  block->program_counter_limit = pc_bump;
+
+  stack = acpi_state_push_stack_entry(state);
+  stack->type = ACPI_INTERP_STATE_POPULATE_STACKITEM;
+
+  println("device handled");
+  return 0;
+}
+
+static int handle_name_op(acpi_state_t* state, int pc, int opcode) {
+  if (acpi_stack_ensure_capacity(state) < 0) {
+    return -1;
+  }
+
+  parser_advance_block_pc(state, pc);
+
+  acpi_stack_entry_t* stack = acpi_state_push_stack_entry(state);
+  stack->type = ACPI_INTERP_STATE_NODE_STACKITEM;
+  stack->node_opcode.node_opcode_code = opcode;
+  stack->opstack_frame = state->operand_sp;
+  stack->node_opcode.node_arg_modes[0] = APM_UNRESOLVED;
+  stack->node_opcode.node_arg_modes[1] = APM_OBJECT;
+  stack->node_opcode.node_arg_modes[2] = 0;
+  return 0;
+}
+
+static int handle_mutex_op(acpi_state_t* state, uint8_t* code_ptr, int limit, int pc, acpi_ns_node_t* ctx_handle, acpi_invocation_t* invocation) {
+
+  println("mutex");
+  acpi_aml_name_t name = {0};
+
+  if (acpi_parse_aml_name(&name, code_ptr + pc) < 0) {
+    return -1;
+  }
+
+  // add size plus trailing byte
+  pc += name.m_size + 1;
+
+  parser_advance_block_pc(state, pc);
+
+  acpi_ns_node_t* node = acpi_create_node();
+  node->type = ACPI_NAMESPACE_MUTEX;
+
+  acpi_resolve_new_node(node, ctx_handle, &name);
+
+  acpi_load_ns_node_in_parser(g_parser_ptr, node);
+
+  if (invocation) {
+    kernel_panic("TODO: implement invocation");
+  }
+  return 0;
+}
 /*
  * ACPI opcode parsing functions
  */

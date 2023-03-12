@@ -27,6 +27,7 @@ typedef int                         bool;
 typedef uintptr_t                   vaddr_t;
 typedef uintptr_t                   paddr_t;
 
+
 typedef void (*FuncPtr)();
 
 #define asm __asm__
@@ -41,6 +42,8 @@ typedef void (*FuncPtr)();
 #define SECTION(__sect) __attribute__((section(__sect)))
 #define USED __attribute__((used))
 #define UNUSED __attribute__((unused))
+
+#define __mmio __attribute__((aligned(1)));
 
 #define STATIC_CAST(type, value) ((type)(value))
 #define DYNAMIC_CAST(type, value) (*(type*)&(value))

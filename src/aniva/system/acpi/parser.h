@@ -1,6 +1,7 @@
 #ifndef __ANIVA_ACPI_PARSER__ 
 #define __ANIVA_ACPI_PARSER__
 #include <libk/stddef.h>
+#include "dev/debug/serial.h"
 #include "structures.h"
 #include "acpi_obj.h"
 #include "namespace.h"
@@ -72,6 +73,7 @@ int parser_parse_acpi_state(acpi_state_t* state);
 
 static ALWAYS_INLINE ANIVA_STATUS parser_advance_block_pc(acpi_state_t* state, int pc) {
   acpi_block_entry_t* entry = acpi_block_stack_peek(state);
+  println(to_string(entry->program_counter_limit));
   if (entry) {
     entry->program_counter = pc;
     return ANIVA_SUCCESS;
@@ -96,7 +98,7 @@ static ALWAYS_INLINE void parser_clear_flag(acpi_parser_t* parser, uint8_t flag)
 }
 
 static ALWAYS_INLINE bool parser_has_flags(acpi_parser_t* parser, uint8_t flags) {
-  return (parser->m_mode_flags & flags) != 0;
+  return (parser->m_mode_flags & flags);
 }
 
 // FIXME: is this locking redundant?

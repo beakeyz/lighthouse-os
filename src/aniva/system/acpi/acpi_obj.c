@@ -1,7 +1,10 @@
 #include "acpi_obj.h"
+#include "dev/debug/serial.h"
+#include "libk/error.h"
 #include "libk/reference.h"
 #include "mem/PagingComplex.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
 #include "system/acpi/namespace.h"
 #include <libk/string.h>
 
@@ -56,11 +59,11 @@ int acpi_delete_state(acpi_state_t* state) {
 void init_acpi_var(acpi_variable_t* var) {
 
   // TODO
+  kernel_panic("TODO: init_acpi_var");
 
 }
 
 void destroy_acpi_var(acpi_variable_t* var) {
-
   if (!var)
     return;
 
@@ -96,36 +99,193 @@ void destroy_acpi_var(acpi_variable_t* var) {
   memset(var, 0, sizeof(acpi_variable_t));
 }
 
+void acpi_load_integer(acpi_state_t* state, acpi_operand_t* src, acpi_variable_t* dest) {
+  ASSERT_MSG(src->tag == ACPI_OPERAND_OBJECT, "Passed a non-object to acpi_load_integer");
+  ASSERT_MSG(src->obj.var_type == ACPI_INTEGER, "source operand does not contain an integer");
+
+  acpi_variable_t data = {0};
+  assign_acpi_var(&src->obj, &data);
+  move_acpi_var(dest, &data);
+}
+
+void acpi_load_package(acpi_variable_t* package, acpi_variable_t* buffer, size_t i) {
+  ASSERT_MSG(package->var_type == ACPI_PACKAGE, "Tried to call acpi_store_package on a non-package object");
+
+  assign_acpi_var(&package->package_p->vars[i], buffer);
+}
+void acpi_store_package(acpi_variable_t* package, acpi_variable_t* var, size_t i) {
+  ASSERT_MSG(package->var_type == ACPI_PACKAGE, "Tried to call acpi_store_package on a non-package object");
+
+  assign_acpi_var(var, &package->package_p->vars[i]);
+}
+
+void acpi_store_namespace(struct acpi_ns_node* node, acpi_variable_t* object) {
+  kernel_panic("TODO: implement acpi_store_namespace");
+}
+
+void acpi_mutate_namespace(acpi_ns_node_t* node, acpi_variable_t* obj) {
+  switch (node->type) {
+    case ACPI_NAMESPACE_NAME:
+      switch (node->object.var_type) {
+        case ACPI_INTEGER:
+          ASSERT_MSG(obj->var_type == ACPI_INTEGER, "Failed to mutate namespace");
+          node->object.num = obj->num;
+          break;
+        case ACPI_STRING:
+          // TODO: refc?
+          memset(node->object.str_p->str, 0, node->object.str_p->size);
+          memcpy(node->object.str_p->str, obj->str_p->str, obj->str_p->size);
+          node->object.str_p->size = obj->str_p->size;
+          break;
+        case ACPI_BUFFER:
+          // TODO: refc?
+          memset(node->object.buffer_p->buffer, 0, node->object.buffer_p->size);
+          memcpy(node->object.buffer_p->buffer, obj->buffer_p->buffer, obj->buffer_p->size);
+          node->object.buffer_p->size = obj->buffer_p->size;
+        case ACPI_PACKAGE:
+          ASSERT_MSG(obj->var_type == ACPI_PACKAGE, "Failed to mutate namespace");
+          size_t pkg_size = obj->package_p->pkg_size;
+          if (acpi_var_resize_package(&node->object, pkg_size) < 0) {
+            kernel_panic("failed to resize ACPI package");
+          }
+          for (uintptr_t i = 0; i < pkg_size; i++) {
+            acpi_variable_t temp = {0};
+            acpi_load_package(&temp, obj, i);
+            acpi_store_package(&temp, &node->object, i);
+          }
+
+        default:
+          break;
+      }
+      break;
+    case ACPI_NAMESPACE_FIELD:
+    case ACPI_NAMESPACE_INDEXFIELD:
+    case ACPI_NAMESPACE_BANKFIELD:
+    case ACPI_NAMESPACE_BUFFER_FIELD:
+      kernel_panic("TODO: implement other acpi namespace mutations");
+      break;
+  }
+}
+
+void acpi_load_object(acpi_variable_t* dest, struct acpi_ns_node* node) {
+  switch (node->type) {
+    case ACPI_NAMESPACE_NAME:
+      assign_acpi_var(&node->object, dest);
+      break;
+    case ACPI_NAMESPACE_FIELD:
+    case ACPI_NAMESPACE_INDEXFIELD:
+    case ACPI_NAMESPACE_BANKFIELD:
+      kernel_panic("TODO: implement reading opregions");
+    case ACPI_NAMESPACE_BUFFER_FIELD:
+      acpi_read_buffer(dest, node);
+      break;
+    case ACPI_NAMESPACE_EVENT:
+    case ACPI_NAMESPACE_MUTEX:
+    case ACPI_NAMESPACE_OPREGION:
+    case ACPI_NAMESPACE_THERMALZONE:
+    case ACPI_NAMESPACE_PROCESSOR:
+    case ACPI_NAMESPACE_POWERRESOURCE:
+    case ACPI_NAMESPACE_DEVICE:
+      dest->var_type = ACPI_HANDLE;
+      dest->handle = node;
+      break;
+    default:
+      kernel_panic("(acpi_load_object) unknown type");
+  }
+}
+
+void acpi_mutate_operand(acpi_state_t* state, acpi_operand_t* dest, acpi_variable_t* src) {
+  switch (dest->tag) {
+    case ACPI_OPERAND_OBJECT: {
+      if (dest->obj.var_type == ACPI_STRING_INDEX) {
+        char* window = dest->obj.str_p->str;
+        window[dest->obj.num] = src->num;
+        return;
+      }
+      if (dest->obj.var_type == ACPI_BUFFER_INDEX) {
+        uint8_t* window = dest->obj.buffer_p->buffer;
+        window[dest->obj.num] = src->num;
+        return;
+      }
+      if (dest->obj.var_type == ACPI_PACKAGE_INDEX) {
+
+        acpi_variable_t package = {0};
+        assign_acpi_var(src, &package);
+        acpi_store_package(&package, dest->obj.package_p->vars, dest->obj.num);
+        destroy_acpi_var(&package);
+        return;
+      }
+      kernel_panic("acpi_mutate_operand: Unknown operand object");
+      return;
+    }
+    case ACPI_NULL_NAME:
+      break;
+    case ACPI_RESOLVED_NAME:
+      acpi_mutate_namespace(dest->handle, src);
+      break;
+    case ACPI_ARG_NAME:
+      ASSERT_MSG(acpi_context_stack_peek(state)->invocation != nullptr, "Tried to mutate arg name without an invocation");
+      acpi_context_entry_t* context = acpi_context_stack_peek(state);
+
+      acpi_variable_t *arg_var = &context->invocation->args[dest->idx];
+      switch (arg_var->var_type) {
+        case ACPI_ARG_REF:
+          assign_acpi_var(src, &arg_var->invocation_p.ptr->args[arg_var->invocation_p.ref_index]);
+          break;
+        case ACPI_LOCAL_REF:
+          assign_acpi_var(src, &arg_var->invocation_p.ptr->local[arg_var->invocation_p.ref_index]);
+          break;
+        case ACPI_NODE_REF:
+          acpi_store_namespace(arg_var->handle, src);
+          break;
+        default:
+          assign_acpi_var(src, arg_var);
+          break;
+      }
+      break;
+    case ACPI_LOCAL_NAME:
+      ASSERT_MSG(acpi_context_stack_peek(state)->invocation != nullptr, "Tried to mutate arg name without an invocation");
+      context = acpi_context_stack_peek(state);
+      assign_acpi_var(src, &context->invocation->local[dest->idx]);
+      break;
+    case ACPI_DEBUG_NAME:
+      println("ACPI: hit ACPI_DEBUG_NAME");
+      break;
+    default:
+      kernel_panic("Unknown tag for mutating operand");
+  }
+}
+
 void move_acpi_var(acpi_variable_t* dst, acpi_variable_t* src) {
 
   acpi_variable_t buffer = {0};
 
-  swap_acpi_var(dst, &buffer);
-  swap_acpi_var(src, &buffer);
+  swap_acpi_var(&buffer, src);
+  swap_acpi_var(&buffer, dst);
 
   destroy_acpi_var(&buffer);
 }
 
 // ->one is where we copy from
 // ->two is where we copy to
-void assign_acpi_var(acpi_variable_t* one, acpi_variable_t* two) {
+void assign_acpi_var(acpi_variable_t* from, acpi_variable_t* to) {
 
-  acpi_variable_t var = *one;
-  switch (one->var_type) {
+  acpi_variable_t var = *from;
+  switch (from->var_type) {
     CASE_ACPI_STRING;
-      flat_ref(&one->str_p->rc);
+      flat_ref(&from->str_p->rc);
       break;
 
     CASE_ACPI_BUFFER;
-      flat_ref(&one->buffer_p->rc);
+      flat_ref(&from->buffer_p->rc);
       break;
 
     CASE_ACPI_PACKAGE;
-      flat_ref(&one->package_p->rc);
+      flat_ref(&from->package_p->rc);
       break;
   }
 
-  move_acpi_var(two, &var);
+  move_acpi_var(to, &var);
 }
 
 int acpi_var_create_and_init_str(acpi_variable_t* var, const char* str) {
@@ -238,6 +398,11 @@ int acpi_var_resize_package(acpi_variable_t* var, size_t length) {
   }
   var->package_p->pkg_size = length;
   return 0;
+}
+
+void acpi_get_obj_ref(acpi_state_t* state, acpi_operand_t* op, acpi_variable_t* obj) {
+  ASSERT_MSG(op->tag == ACPI_OPERAND_OBJECT, "acpi_get_obj_ref: operand is not an object");
+  assign_acpi_var(&op->obj, obj);
 }
 
 // credit to https://github.com/managarm/lai/blob/master/core/exec-operand.c
