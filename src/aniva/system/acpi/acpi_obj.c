@@ -101,10 +101,11 @@ void destroy_acpi_var(acpi_variable_t* var) {
 
 void acpi_load_integer(acpi_state_t* state, acpi_operand_t* src, acpi_variable_t* dest) {
   ASSERT_MSG(src->tag == ACPI_OPERAND_OBJECT, "Passed a non-object to acpi_load_integer");
-  ASSERT_MSG(src->obj.var_type == ACPI_INTEGER, "source operand does not contain an integer");
 
   acpi_variable_t data = {0};
   assign_acpi_var(&src->obj, &data);
+
+  ASSERT_MSG(data.var_type == ACPI_INTEGER, "Failed to load integer");
   move_acpi_var(dest, &data);
 }
 

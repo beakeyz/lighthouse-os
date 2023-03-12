@@ -1,6 +1,7 @@
 #ifndef __ANIVA_ACPI_NAMESPACE__
 #define __ANIVA_ACPI_NAMESPACE__
 #include <libk/stddef.h>
+#include "libk/linkedlist.h"
 #include "structures.h"
 #include "acpi_obj.h"
 #include "opcodes.h"
@@ -76,7 +77,7 @@ typedef struct acpi_ns_node {
 
   size_t m_children_count;
   size_t m_max_children_count;
-  struct acpi_ns_node** m_children;
+  list_t* m_children;
 
 } acpi_ns_node_t;
 
@@ -168,7 +169,6 @@ static ALWAYS_INLINE void acpi_aml_name_next_segment(acpi_aml_name_t* name, char
  * acpi_ns_node children management
  */
 
-void ns_node_ensure_children_capacity(acpi_ns_node_t* node);
 bool ns_node_has_child(acpi_ns_node_t* handle, acpi_ns_node_t* node);
 void ns_node_insert_child(acpi_ns_node_t* handle, acpi_ns_node_t* child);
 void ns_node_remove_child(acpi_ns_node_t* handle, acpi_ns_node_t* child);

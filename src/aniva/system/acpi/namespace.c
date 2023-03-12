@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "mem/heap.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
@@ -278,6 +279,12 @@ acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_n
   while (name_copy.m_itterator_p != name_copy.m_end_p) {
     char segment[4];
     acpi_aml_name_next_segment(&name_copy, segment);
+
+    putch(segment[0]);
+    putch(segment[1]);
+    putch(segment[2]);
+    putch(segment[3]);
+    putch('\n');
     current_handle = acpi_get_node_child(current_handle, segment);
     if (!current_handle) {
       return nullptr;
@@ -285,6 +292,10 @@ acpi_ns_node_t* acpi_resolve_node(acpi_ns_node_t* handle, acpi_aml_name_t* aml_n
   }
 
   // check for namespace aliases
+  if (current_handle->type == ACPI_NAMESPACE_ALIAS) {
+    current_handle = current_handle->namespace_alias_target;
+    ASSERT_MSG(current_handle->type != ACPI_NAMESPACE_ALIAS, "Found a namespace alias to another namespace alias");
+  }
 
   return current_handle;
 }
@@ -327,30 +338,10 @@ void acpi_resolve_new_node(acpi_ns_node_t *node, acpi_ns_node_t* handle, acpi_am
 
 }
 
-void ns_node_ensure_children_capacity(acpi_ns_node_t* node) {
-
-  // FIXME: I hate this lolol
-  if (node->m_children_count >= node->m_max_children_count) {
-    size_t new_max_count = node->m_max_children_count * 2;
-    if (!new_max_count) {
-      new_max_count = 128;
-    }
-
-    // realloc
-    acpi_ns_node_t** new_list = kmalloc(sizeof(acpi_ns_node_t*) * new_max_count);
-    if (node->m_children != nullptr) {
-      memcpy(new_list, node->m_children, node->m_children_count * sizeof(acpi_ns_node_t*));
-      kfree(node->m_children);
-    }
-
-    node->m_children = new_list;
-    node->m_max_children_count = new_max_count;
-  }
-}
-
 bool ns_node_has_child(acpi_ns_node_t* handle, acpi_ns_node_t* node) {
-  for (uint32_t i = 0; i < handle->m_children_count; i++) {
-    if (handle->m_children[i] == node) {
+  FOREACH(i, handle->m_children) {
+    acpi_ns_node_t* child = i->data;
+    if (memcmp(&child->name, &node->name, 4)) {
       return true;
     }
   }
@@ -358,10 +349,8 @@ bool ns_node_has_child(acpi_ns_node_t* handle, acpi_ns_node_t* node) {
 }
 
 void ns_node_insert_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {
-  ns_node_ensure_children_capacity(handle);
 
-  handle->m_children[handle->m_children_count] = child;
-  handle->m_children_count++;
+  list_append(handle->m_children, child);
 }
 
 void ns_node_remove_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {
@@ -369,10 +358,16 @@ void ns_node_remove_child(acpi_ns_node_t* handle, acpi_ns_node_t* child) {
 }
 
 acpi_ns_node_t* ns_node_get_child_by_name(acpi_ns_node_t* handle, const char* name) {
-  for (uint32_t i = 0; i < handle->m_children_count; i++) {
-    if (memcmp(&handle->m_children[i]->name, name, 4)) {
-      return handle->m_children[i];
+  print("looking for: ");
+  println(name);
+  println("children: ");
+  FOREACH(i, handle->m_children) {
+    acpi_ns_node_t* child = i->data;
+    if (memcmp(&child->name, name, 4)) {
+      return child;
     }
   }
+
+  println("no child found");
   return nullptr;
 }
