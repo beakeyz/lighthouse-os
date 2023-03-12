@@ -10,6 +10,7 @@
 #include "proc/proc.h"
 #include "proc/socket.h"
 #include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
@@ -51,8 +52,9 @@ typedef struct sched_frame {
 
 // --- static fields ---
 static list_t* s_sched_frames;
-static spinlock_t* s_sched_switch_lock;
-static atomic_ptr_t *s_no_schedule;
+//static spinlock_t* s_sched_switch_lock;
+//static atomic_ptr_t *s_no_schedule;
+static mutex_t* s_sched_mutex;
 static enum SCHED_MODE s_sched_mode;
 static bool s_has_schedule_request;
 
@@ -69,15 +71,14 @@ static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 
 ANIVA_STATUS init_scheduler() {
   disable_interrupts();
-  s_no_schedule = create_atomic_ptr();
-  atomic_ptr_write(s_no_schedule, true);
   s_sched_mode = PAUSED;
   s_has_schedule_request = false;
 
   s_sched_frames = init_list();
-  s_sched_switch_lock = create_spinlock();
+  s_sched_mutex = create_mutex(0);
 
   set_current_handled_thread(nullptr);
+
   return ANIVA_SUCCESS;
 }
 
@@ -102,7 +103,7 @@ void start_scheduler(void) {
   // resume to the thread-pool when we leave critical sections
   thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_idle_thread;
 
-  atomic_ptr_write(s_no_schedule, false);
+  //atomic_ptr_write(s_no_schedule, false);
 
   set_current_handled_thread(initial_thread);
   set_previous_thread(initial_thread);
@@ -137,18 +138,16 @@ void pick_next_thread_scheduler(void) {
 
 ANIVA_STATUS pause_scheduler() {
 
-  spinlock_lock(s_sched_switch_lock);
-
-  atomic_ptr_write(s_no_schedule, true);
+  mutex_lock(s_sched_mutex);
 
   s_sched_mode = PAUSED;
 
+  // FIXME: wtf?
   // peek first sched frame
   sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
 
   if (frame_ptr == nullptr) {
     // no sched frame yet
-    spinlock_unlock(s_sched_switch_lock);
     return ANIVA_FAIL;
   }
 
@@ -157,18 +156,15 @@ ANIVA_STATUS pause_scheduler() {
 
 void resume_scheduler(void) {
 
-  if (s_sched_mode != PAUSED) {
-    if (spinlock_is_locked(s_sched_switch_lock)) {
-      spinlock_unlock(s_sched_switch_lock);
-    }
+  if (s_sched_mode != PAUSED && !mutex_is_locked(s_sched_mutex)) {
     return;
   }
+
   // make sure the scheduler is in the right state
   s_sched_mode = SCHEDULING;
 
   // yes, schedule
-  spinlock_unlock(s_sched_switch_lock);
-  atomic_ptr_write(s_no_schedule, false);
+  mutex_unlock(s_sched_mutex);
 }
 
 void scheduler_yield() {
@@ -227,13 +223,19 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
   const enum SCHED_MODE prev_sched_mode = s_sched_mode;
 
-  if (atomic_ptr_load(s_no_schedule) || !get_current_scheduling_thread()) {
+  if (mutex_is_locked(s_sched_mutex)) {
     return registers_ptr;
   }
 
+  if (!get_current_scheduling_thread()) {
+    return registers_ptr;
+  }
+
+  /*
   if (pause_scheduler() == ANIVA_FAIL) {
     return registers_ptr;
   }
+  */
 
   sched_frame_t *current_frame = list_get(s_sched_frames, 0);
 
@@ -273,7 +275,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
     scheduler_try_invoke();
   }
 
-  resume_scheduler();
+  //resume_scheduler();
   return registers_ptr;
 }
 
@@ -485,5 +487,5 @@ void set_kernel_proc(proc_t* proc) {
 }
 
 bool sched_can_schedule() {
-  return (atomic_ptr_load(s_no_schedule) == false);
+  return (!mutex_is_locked(s_sched_mutex));
 }

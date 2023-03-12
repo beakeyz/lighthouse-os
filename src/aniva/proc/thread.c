@@ -117,14 +117,7 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
 void thread_set_state(thread_t *thread, thread_state_t state) {
   // let's get a hold of the scheduler while doing this
 
-  if (!sched_can_schedule()) {
-    thread->m_current_state = state;
-    return;
-  }
-
-  pause_scheduler();
   thread->m_current_state = state;
-  resume_scheduler();
   // TODO: update thread context(?) on state change
   // TODO: (??) onThreadStateChangeEvent?
 }
