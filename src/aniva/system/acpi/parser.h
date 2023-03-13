@@ -79,7 +79,7 @@ void* find_table(acpi_parser_t *parser, const char* sig);
 // just for funzies
 void print_tables(void* rsdp_addr);
 
-const char* parser_get_acpi_tables(void* rsdp_addr);
+const char* parser_get_acpi_tables(acpi_parser_t* parser);
 
 int parser_prepare_acpi_state(acpi_state_t* state, acpi_aml_seg_t* segment, acpi_ns_node_t* parent_node);
 

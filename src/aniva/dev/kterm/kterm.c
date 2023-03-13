@@ -286,7 +286,7 @@ static void kterm_process_buffer() {
 
   if (!strcmp(contents, "acpitables")) {
     
-    const char* tables = parser_get_acpi_tables(g_parser_ptr->m_rsdp);
+    const char* tables = parser_get_acpi_tables(g_parser_ptr);
 
     kterm_println("\n");
 
@@ -295,6 +295,9 @@ static void kterm_process_buffer() {
       kterm_println("more info: \n");
       kterm_println("rsdp address: ");
       kterm_println(to_string((uintptr_t)g_parser_ptr->m_rsdp));
+      kterm_println("\n");
+      kterm_println("xsdp address: ");
+      kterm_println(to_string((uintptr_t)g_parser_ptr->m_xsdp));
       kterm_println("\n");
       kterm_println("is xsdp: ");
       kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
@@ -322,6 +325,9 @@ static void kterm_process_buffer() {
 
       kterm_println("last parser error message: ");
       kterm_println(g_parser_ptr->m_last_error_message);
+      kterm_println("\n");
+      kterm_println("tables found: ");
+      kterm_println(to_string(g_parser_ptr->m_tables->m_length));
       kterm_println("\n");
     } else {
       kterm_println(tables);

@@ -55,7 +55,7 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   //parser->m_is_xsdp = (rsdp->revision >= 2);
 
   // NOTE: return here for debuging purposes
-  //return;
+  return;
 
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
@@ -182,6 +182,7 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
 void* find_rsdp(acpi_parser_t* parser) {
   const char* rsdt_sig = "RSD PTR ";
   // TODO: check other spots
+  parser->m_is_xsdp = false;
 
   // check multiboot header
   struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
@@ -202,7 +203,6 @@ void* find_rsdp(acpi_parser_t* parser) {
     void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
     //print("Multiboot has rsdp: ");
     //println(to_string((uintptr_t)ptr));
-    parser->m_is_xsdp = false;
     parser->m_rsdp = ptr;
     parser->m_rsdp_discovery_method = MULTIBOOT_OLD;
     return ptr;
@@ -255,7 +255,7 @@ void* find_rsdp(acpi_parser_t* parser) {
 // TODO: find a way to cache the memory locations for all the tables
 void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
   FOREACH(i, parser->m_tables) {
-    acpi_sdt_header_t* header = (acpi_sdt_header_t*)kmem_kernel_alloc((uintptr_t)i->data, sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    acpi_sdt_header_t* header = i->data;
     if (memcmp(&header->signature, sig, 4)) {
       if (index == 0) {
         header = (void*)kmem_kernel_alloc((uintptr_t)header, header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
@@ -271,28 +271,20 @@ void* find_table(acpi_parser_t *parser, const char* sig) {
   return (void*)find_table_idx(parser, sig, 0);
 }
 
-const char* parser_get_acpi_tables(void* rsdp_addr) {
-
-  acpi_xsdp_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  if (ptr->base.revision >= 2 && ptr->xsdt_addr) {
-    // xsdt
-    return nullptr;
-  }
-
-  acpi_rsdt_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  const size_t end_index = ((rsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint32_t);
+const char* parser_get_acpi_tables(acpi_parser_t* parser) {
 
   char* names = "";
 
-  for (uint32_t i = 0; i < end_index; i++) {
-    acpi_rsdt_t* cur = (acpi_rsdt_t*)(uintptr_t)rsdt->tables[i];
-    char name[5];
-    memcpy(name, cur->base.signature, 4);
-    name[4] = '\0';
+  FOREACH(i, parser->m_tables) {
+    acpi_sdt_header_t* header = i->data;
 
-    names = (char*)concat(names, name);
+    char sig[5];
+    memcpy(&sig, header->signature, 4);
+    sig[4] = '\0';
+
+    println(sig);
+
+    names = (char*)concat(names, sig);
     names = (char*)concat(names, ", ");
   }
 
