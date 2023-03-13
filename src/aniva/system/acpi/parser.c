@@ -33,16 +33,13 @@ static ALWAYS_INLINE int acpi_parse_u64(uint64_t* out, uint8_t* code_ptr, int* p
 void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   g_parser_ptr = parser;
 
-  size_t table_index;
-  acpi_aml_seg_t* aml_segment;
-  acpi_aml_table_t* aml_table;
-  void* dsdt_table;
   acpi_rsdp_t* rsdp;
   uint32_t hw_reduced;
 
   println("Starting ACPI parser");
 
   parser->m_multiboot_addr = multiboot_addr;
+  parser->m_last_error_message = "none";
 
   rsdp = find_rsdp(parser);
 
@@ -54,12 +51,24 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   parser->m_rsdp = rsdp;
   parser->m_is_xsdp = (rsdp->revision >= 2);
 
+  // NOTE: return here for debuging purposes
+  return;
+
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
-  hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
   if (!parser->m_fadt) {
     kernel_panic("Unable to find ACPI table FADT!");
   }
+
+  hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
+}
+
+void init_acpi_parser_aml(acpi_parser_t* parser) {
+
+  size_t table_index;
+  acpi_aml_seg_t* aml_segment;
+  acpi_aml_table_t* aml_table;
+  void* dsdt_table;
 
   // FIXME: fix the acpi (AML) parser ;-;
   parser->m_ns_root_node = acpi_create_root();
@@ -144,19 +153,21 @@ void* find_rsdp(acpi_parser_t* parser) {
   struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
 
   if (new_ptr && new_ptr->rsdp[0]) {
-    void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    print("Multiboot has xsdp: ");
-    println(to_string((uintptr_t)ptr));
-    return ptr;
+    //void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    //print("Multiboot has xsdp: ");
+    //println(to_string((uintptr_t)ptr));
+    parser->m_rsdp_discovery_method = MULTIBOOT_NEW;
+    return new_ptr->rsdp;
   }
 
   struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
 
   if (old_ptr && old_ptr->rsdp[0]) {
-    void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(uintptr_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    print("Multiboot has rsdp: ");
-    println(to_string((uintptr_t)ptr));
-    return ptr;
+    //void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    //print("Multiboot has rsdp: ");
+    //println(to_string((uintptr_t)ptr));
+    parser->m_rsdp_discovery_method = MULTIBOOT_OLD;
+    return old_ptr->rsdp;
   }
 
   // check bios mem
@@ -169,6 +180,7 @@ void* find_rsdp(acpi_parser_t* parser) {
     for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
       void* potential = (void*)i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
+        parser->m_rsdp_discovery_method = BIOS_POKE;
         return potential;
       }
     }
@@ -189,11 +201,13 @@ void* find_rsdp(acpi_parser_t* parser) {
     for (uintptr_t i = start; i < (start + length); i += 16) {
       void *potential = (void *) i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
+        parser->m_rsdp_discovery_method = RECLAIM_POKE;
         return potential;
       }
     }
   }
 
+  parser->m_rsdp_discovery_method = NONE;
   return nullptr;
 }
 
@@ -204,10 +218,12 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
   void* rsdp_addr = parser->m_rsdp;
 
   if (rsdp_addr == nullptr) {
+    parser->m_last_error_message = "rsdp is null";
     return nullptr;
   }
 
   if (strlen(sig) != 4) {
+    parser->m_last_error_message = "sig is not 4 chars";
     return nullptr;
   }
 
@@ -223,15 +239,20 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
 
         for (uint64_t i = 0; i < end_index; i++) {
           acpi_rsdt_t* cur = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt->tables[i], sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-          if (memcmp(cur->base.signature, sig, 4) != 0) {
+          if (memcmp(cur->base.signature, sig, 4)) {
             if (index == 0) {
               return (void*)(uintptr_t)xsdt->tables[i];
             }
             index--;
           }
         }
+      } else {
+        parser->m_last_error_message = "xsdt is null";
+        return nullptr;
       }
     } 
+    parser->m_last_error_message = "failed to poke";
+    return nullptr;
   }
 
   acpi_rsdt_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
@@ -240,7 +261,7 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
 
   for (uint32_t i = 0; i < end_index; i++) {
     acpi_rsdt_t* cur = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt->tables[i], sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    if (memcmp(cur->base.signature, sig, 4) != 0) {
+    if (memcmp(cur->base.signature, sig, 4)) {
       if (index == 0) {
         return (void*)(uintptr_t)rsdt->tables[i];
       }
@@ -268,7 +289,7 @@ const char* parser_get_acpi_tables(void* rsdp_addr) {
 
   const size_t end_index = ((rsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint32_t);
 
-  char* names;
+  char* names = "";
 
   for (uint32_t i = 0; i < end_index; i++) {
     acpi_rsdt_t* cur = (acpi_rsdt_t*)(uintptr_t)rsdt->tables[i];
@@ -401,8 +422,8 @@ static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* oper
     case (EXTOP_PREFIX << 8) | TO_BCD_OP:
     case OBJECTTYPE_OP:
     default:
-      kernel_panic("(parser_parse_op): unimplemented opcode!");
-      break;
+      println("(parser_parse_op): unimplemented opcode!");
+      return -1;
   }
   return 0;
 }
@@ -433,7 +454,8 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
       acpi_context_entry_t* ctx = acpi_context_stack_peek(state);
       if (ctx->invocation) {
         //list_append(ctx->invocation, &node->per_method_item); 
-        kernel_panic("TODO: implement invocation");
+        println("TODO: implement invocation");
+        return -1;
       }
 
       break;
@@ -444,8 +466,8 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
     case DWORDFIELD_OP:
     case QWORDFIELD_OP:
     case (EXTOP_PREFIX << 8) | ARBFIELD_OP:
-      kernel_panic("(parser_parse_node): unimplemented opcode!");
-      break;
+      println("(parser_parse_node): unimplemented opcode!");
+      return -1;
     case (EXTOP_PREFIX << 8) | OPREGION: {
       acpi_variable_t base = {0};
       acpi_variable_t size = {0};
@@ -480,13 +502,14 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
 
       acpi_context_entry_t* entry = acpi_context_stack_peek(state);
       if (entry->invocation) {
-        kernel_panic("parser_parse_node (OPREGION): this context has an invocation, which is not fully implemented!");
+        println("parser_parse_node (OPREGION): this context has an invocation, which is not fully implemented!");
+        return -1;
       }
       break;
     }
     default:
-      kernel_panic("parser_parse_node: unknown opcode!");
-      break;
+      println("parser_parse_node: unknown opcode!");
+      return -1;
   }
   return 0;
 }
@@ -576,10 +599,14 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
         acpi_var_create_buffer(&result, size_var.num);
 
         int size = block->program_counter_limit - block->program_counter;
-        if (size < 0)
-          kernel_panic("invalid buffer size");
-        if (size > (int)result.buffer_p->size)
-          kernel_panic("buffer size too big");
+        if (size < 0) {
+          println("invalid buffer size");
+          return -1;
+        }
+        if (size > (int)result.buffer_p->size) {
+          println("buffer size too big");
+          return -1;
+        }
 
         memcpy(result.buffer_p->buffer, code_ptr + block->program_counter, size);
 
@@ -645,7 +672,8 @@ int parser_partial_execute_acpi_state(acpi_state_t* state) {
         ASSERT_MSG(initializer->tag == ACPI_OPERAND_OBJECT, "initializer operand is not an object");
 
         if (stack->pkg.pkg_idx >= (int)package->obj.package_p->pkg_size) {
-          kernel_panic("package initializer too large");
+          println("package initializer too large");
+          return -1;
         }
 
         println("pre store: ");
@@ -795,7 +823,8 @@ int parser_parse_acpi_state(acpi_state_t* state) {
   size_t table_rel_pc_limit = sizeof(acpi_sdt_header_t) + (code_ptr - aml_segment->aml_table->data) + block->program_counter_limit;
 
   if (block->program_counter >= block->program_counter_limit) {
-    kernel_panic("parser_parse_acpi_state: pc seems to exceed the pc_limit!");
+    println("parser_parse_acpi_state: pc seems to exceed the pc_limit!");
+    return -1;
   }
   switch (g_parser_ptr->m_mode) {
     case APM_IMMEDIATE_BYTE: {
@@ -901,7 +930,8 @@ int parser_parse_acpi_state(acpi_state_t* state) {
         // TODO: handle edge-case
         if (parser_has_flags(g_parser_ptr, PARSER_MODE_FLAG_ALLOW_UNRESOLVED)) {
           // TODO:
-          kernel_panic("TODO: found unresolved handle while in PARSER_MODE_FLAG_ALLOW_UNRESOLVED");
+          println("TODO: found unresolved handle while in PARSER_MODE_FLAG_ALLOW_UNRESOLVED");
+          return -1;
         }
         
         println("failed to parse handle: ");
@@ -943,7 +973,8 @@ int parser_parse_acpi_state(acpi_state_t* state) {
 
   if (code_ptr[pc] == EXTOP_PREFIX) {
     if (pc + 1 >= block->program_counter_limit) {
-      kernel_panic("parser_parse_acpi_state: exceeded pc limit while trying to parse aml opcode!");
+      println("parser_parse_acpi_state: exceeded pc limit while trying to parse aml opcode!");
+      return -1;
     }
     opcode = (EXTOP_PREFIX << 8) | code_ptr[pc + 1];
     pc += 2;
@@ -996,20 +1027,19 @@ int parser_parse_acpi_state(acpi_state_t* state) {
       return handle_scope_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm);
     case (EXTOP_PREFIX << 8) | DEVICE:
       return handle_device_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm, invocation);
-      break;
     case (EXTOP_PREFIX << 8) | PROCESSOR:
       return handle_processor_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm, invocation);
     case (EXTOP_PREFIX << 8) | POWER_RES:
-      kernel_panic("power res");
-      break;
+      println("power res");
+      return -1;
     case (EXTOP_PREFIX << 8) | THERMALZONE:
-      break;
-      kernel_panic("thermal");
-      break;
+      println("thermal");
+      return -1;
     case METHOD_OP: 
       return handle_method_op(state, code_ptr, limit, opcode_pc, pc, ctx_handle, context->segm, invocation);
     case EXTERNAL_OP:
-      kernel_panic("unimplemented opcode!");
+      println("unimplemented opcode!");
+      return -1;
     case NAME_OP:
       return handle_name_op(state, pc, opcode);
     case ALIAS_OP:
@@ -1018,17 +1048,13 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     case WORDFIELD_OP:
     case QWORDFIELD_OP:
     case (EXTOP_PREFIX << 8) | ARBFIELD_OP:
-      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
-      break;
+      println("(parser_parse_acpi_state): unimplemented opcode!");
+      return -1;
     case (EXTOP_PREFIX << 8) | MUTEX:
       return handle_mutex_op(state, code_ptr, limit, pc, ctx_handle, invocation);
-      println("mutex");
-      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
-      break;
     case (EXTOP_PREFIX << 8) | EVENT:
       println("some fields, mutex and event");
-      kernel_panic("(parser_parse_acpi_state): unimplemented opcode!");
-      break;
+      return -1;
     case (EXTOP_PREFIX << 8) | OPREGION:
       return handle_opregion_op(state, opcode, pc);
     case (EXTOP_PREFIX << 8) | FIELD:
@@ -1094,7 +1120,8 @@ int parser_parse_acpi_state(acpi_state_t* state) {
 
             if (invocation) {
               //list_append(invocation->resulting_ns_nodes, &node->)
-              kernel_panic("FIELD: invocation");
+              println("FIELD: invocation");
+              return -1;
             }
 
             current_offset += skip_bits;
@@ -1241,7 +1268,8 @@ static int handle_timer_op(acpi_state_t* state, int pc) {
     case APM_DATA :
       {
         {
-          kernel_panic("TODO: implement timer functionality");
+          println("TODO: implement timer functionality");
+          return -1;
         }
         acpi_operand_t* op = acpi_state_push_opstack(state);
         op->tag = ACPI_OPERAND_OBJECT;
@@ -1307,7 +1335,8 @@ static int handle_string_prefix_op(acpi_state_t* state, acpi_block_entry_t* bloc
     acpi_operand_t* op = acpi_state_push_opstack(state);
     op->tag = ACPI_OPERAND_OBJECT;
     if (acpi_var_create_str(&op->obj, length) < 0) {
-      kernel_panic("handle_string_prefix_op: failed to create acpi string var");
+      println("handle_string_prefix_op: failed to create acpi string var");
+      return -1;
     }
     memcpy(&op->obj.str_p->str, code_ptr + pc_backup, length);
   }
@@ -1434,7 +1463,8 @@ static int handle_scope_op(acpi_state_t* state, uint8_t* code_ptr, int limit, in
   acpi_ns_node_t* scoped_ctx_handle = acpi_resolve_node(ctx_handle, &aml_name);
 
   if (!scoped_ctx_handle) {
-    kernel_panic("handle_scope_op: failed to resolve node reference in Scope()");
+    println("handle_scope_op: failed to resolve node reference in Scope()");
+    return -1;
   }
 
   acpi_context_entry_t* ctx_entry = acpi_state_push_context_entry(state);
@@ -1510,7 +1540,8 @@ static int handle_method_op(acpi_state_t* state, uint8_t* code_ptr, int limit, i
 
 
   if (invocation) {
-    kernel_panic("TODO: implement invocation (handle_method_op)");
+    println("TODO: implement invocation (handle_method_op)");
+    return -1;
   }
 
   return 0;
@@ -1552,7 +1583,8 @@ static int handle_device_op(acpi_state_t* state, uint8_t* code_ptr, int limit, i
   acpi_load_ns_node_in_parser(g_parser_ptr, node);
 
   if (invocation) {
-    kernel_panic("TODO implement invocation");
+    println("TODO implement invocation");
+    return -1;
   }
 
   context = acpi_state_push_context_entry(state);
@@ -1610,7 +1642,8 @@ static int handle_mutex_op(acpi_state_t* state, uint8_t* code_ptr, int limit, in
   acpi_load_ns_node_in_parser(g_parser_ptr, node);
 
   if (invocation) {
-    kernel_panic("TODO: implement invocation");
+    println("TODO: implement invocation");
+    return -1;
   }
   return 0;
 }
@@ -1664,7 +1697,8 @@ static int handle_processor_op(acpi_state_t* state, uint8_t* code_ptr, int limit
   acpi_load_ns_node_in_parser(g_parser_ptr, node);
 
   if (invocation) {
-    kernel_panic("TODO: implement invocation");
+    println("TODO: implement invocation");
+    return -1;
   }
 
   acpi_context_entry_t* context = acpi_state_push_context_entry(state);

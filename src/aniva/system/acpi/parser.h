@@ -24,6 +24,14 @@ enum acpi_parser_mode {
 #define PARSER_MODE_FLAG_ALLOW_UNRESOLVED 4
 #define PARSER_MODE_FLAG_PARSE_INVOCATION 8
 
+enum acpi_parser_rsdp_discovery_method {
+  MULTIBOOT_OLD,
+  MULTIBOOT_NEW,
+  BIOS_POKE,
+  RECLAIM_POKE,
+  NONE,
+};
+
 // TODO: fill structure
 // TODO: should the acpi parser have its own heap?
 typedef struct acpi_parser {
@@ -31,6 +39,10 @@ typedef struct acpi_parser {
   acpi_fadt_t *m_fadt;
   uintptr_t m_multiboot_addr;
   bool m_is_xsdp;
+
+  // NOTE: this is temporary debug, remove ASAP
+  char* m_last_error_message;
+  enum acpi_parser_rsdp_discovery_method m_rsdp_discovery_method;
 
   int m_acpi_rev;
 
@@ -47,6 +59,8 @@ typedef struct acpi_parser {
 } acpi_parser_t;
 
 void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr);
+
+void parser_init_aml(acpi_parser_t* parser);
 
 // find rsdt and (if available) xsdt
 void* find_rsdp(acpi_parser_t* parser);

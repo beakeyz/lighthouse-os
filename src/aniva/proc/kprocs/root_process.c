@@ -7,6 +7,7 @@
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/kterm/kterm.h"
 #include "interupts/interupts.h"
+#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"
@@ -24,6 +25,8 @@
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
+#include "system/acpi/acpi.h"
+#include "system/acpi/parser.h"
 #include "system/processor/processor.h"
 #include <dev/manifest.h>
 
@@ -47,17 +50,18 @@ static void root_main(uintptr_t multiboot_address) {
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, 0)));
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, 0)));
 
-  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 
   if (multiboot_address) {
     // load the kterm driver, which also loads the fb driver
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_fb_driver, 0)));
 
-    driver_send_packet("graphics.fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)multiboot_address, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(struct multiboot_tag_framebuffer));
+    destroy_packet_response(await(driver_send_packet("graphics.fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)multiboot_address, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(struct multiboot_tag_framebuffer))));
 
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_kterm_driver, 0)));
 
   }
+
+  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 }
 
 static void root_packet_dispatch() {

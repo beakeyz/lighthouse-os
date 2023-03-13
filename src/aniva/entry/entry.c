@@ -6,6 +6,7 @@
 #include "proc/ipc/thr_intrf.h"
 #include "proc/kprocs/root_process.h"
 #include "system/acpi/acpi.h"
+#include "system/acpi/parser.h"
 #include "system/processor/processor.h"
 #include "time/core.h"
 #include "libk/string.h"
@@ -65,6 +66,9 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_timer_system();
 
   init_acpi(multiboot_addr);
+
+  // NOTE: uncommented for debugging purposes
+  //parser_init_aml(g_parser_ptr);
   
   init_pci();
 

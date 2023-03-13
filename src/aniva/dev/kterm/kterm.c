@@ -226,6 +226,16 @@ int kterm_exit() {
 }
 
 uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response) {
+
+  switch (payload.m_code) {
+    case KTERM_DRV_DRAW_STRING: {
+      const char* msg = *(const char**)payload.m_data;
+      kterm_println(msg);
+      kterm_println("\n");
+      break;
+    }
+  }
+
   return 0;
 }
 
@@ -279,14 +289,50 @@ static void kterm_process_buffer() {
     const char* tables = parser_get_acpi_tables(g_parser_ptr->m_rsdp);
 
     kterm_println("\n");
-    kterm_println(tables);
-    kfree((void*)tables);
+
+    if (tables == nullptr) {
+      kterm_println("could not load tables!\n");
+      kterm_println("more info: \n");
+      kterm_println("rsdp address: ");
+      kterm_println(to_string((uintptr_t)g_parser_ptr->m_rsdp));
+      kterm_println("\n");
+      kterm_println("is xsdp: ");
+      kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
+      kterm_println("rsdp discovery method: ");
+      const char* method;
+      switch (g_parser_ptr->m_rsdp_discovery_method) {
+        case MULTIBOOT_NEW:
+          method = "multiboot xsdp";
+          break;
+        case MULTIBOOT_OLD:
+          method = "multiboot rsdp";
+          break;
+        case BIOS_POKE:
+          method = "bios poke";
+          break;
+        case RECLAIM_POKE:
+          method = "reclaim poke";
+          break;
+        case NONE:
+          method = "none";
+          break;
+      }
+      kterm_println(method);
+      kterm_println("\n");
+
+      kterm_println("last parser error message: ");
+      kterm_println(g_parser_ptr->m_last_error_message);
+      kterm_println("\n");
+    } else {
+      kterm_println(tables);
+      kfree((void*)tables);
+    }
   } else if (!strcmp(contents, "help")) {
     kterm_println("\n");
     kterm_println("available commands: \n");
     kterm_println(" - help: print some helpful info\n");
     kterm_println(" - acpitables: print the acpi tables present in the system");
-  }
+  } 
 
   kterm_println("\n");
 }
@@ -294,7 +340,7 @@ static void kterm_process_buffer() {
 static void kterm_draw_cursor() {
   kterm_draw_char(0 * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
   kterm_draw_char(1 * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
-  kterm_buffer_ptr += 2;
+  kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
 }
 
 static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color) {
@@ -338,6 +384,7 @@ static void kterm_println(const char* msg) {
       kterm_current_line++;
       kterm_flush_buffer();
       kterm_draw_cursor();
+      kterm_buffer_ptr_copy = KTERM_CURSOR_WIDTH;
     } else {
       kterm_draw_char(kterm_buffer_ptr_copy * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
       kterm_buffer_ptr_copy++;
@@ -349,4 +396,5 @@ static void kterm_println(const char* msg) {
     }
     index++;
   }
+  kterm_buffer_ptr = kterm_buffer_ptr_copy;
 }
