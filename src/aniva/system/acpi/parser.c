@@ -41,6 +41,7 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   parser->m_multiboot_addr = multiboot_addr;
   parser->m_last_error_message = "none";
   parser->m_tables = init_list();
+  parser->m_namespace_nodes = init_list();
 
   find_rsdp(parser);
 
@@ -51,11 +52,6 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   println("init tables");
   parser_init_tables(parser);
-
-  //parser->m_is_xsdp = (rsdp->revision >= 2);
-
-  // NOTE: return here for debuging purposes
-  return;
 
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
@@ -121,6 +117,8 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
   parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
   acpi_delete_state(&parser->m_state);
 
+  println(to_string(parser->m_namespace_nodes->m_length));
+
   table_index = 0;
   aml_segment = nullptr;
   aml_table = nullptr;
@@ -131,7 +129,10 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
     aml_segment = acpi_load_segment(aml_table, table_index);
 
     acpi_init_state(&parser->m_state);
-    parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
+    int result = parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
+    if (result < 0) {
+      parser->m_last_error_message = "SSDT parsing failed";
+    }
     acpi_delete_state(&parser->m_state);
 
     table_index++;
@@ -147,13 +148,15 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
     aml_segment = acpi_load_segment(aml_table, table_index);
 
     acpi_init_state(&parser->m_state);
-    parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
+    int result = parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
+    if (result < 0) {
+      parser->m_last_error_message = "PSDT parsing failed";
+    }
     acpi_delete_state(&parser->m_state);
 
     table_index++;
   }
 
-  println(to_string(parser->m_namespace_nodes->m_length));
   acpi_ns_node_t* ns_root = parser->m_ns_root_node;
 
   println((char*)&ns_root->name);
@@ -343,7 +346,7 @@ int parser_execute_acpi_state(acpi_state_t* state) {
 }
 
 // TODO:
-static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* operands, acpi_variable_t* reduction_result) {
+static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* operands, acpi_variable_t* result_ptr) {
   acpi_variable_t result = {0};
 
   switch (opcode) {
@@ -365,7 +368,16 @@ static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* oper
       result.num = lhs.num + rhs.num;
       break;
     }
-    case SUBTRACT_OP:
+    case SUBTRACT_OP: {
+      acpi_variable_t lhs = {0};
+      acpi_variable_t rhs = {0};
+      acpi_load_integer(state, &operands[0], &lhs);
+      acpi_load_integer(state, &operands[1], &rhs);
+
+      result.var_type = ACPI_INTEGER;
+      result.num = lhs.num - rhs.num;
+      break;
+    }
     case MOD_OP:
     case MULTIPLY_OP:
     case AND_OP:
@@ -412,12 +424,13 @@ static int parser_parse_op(int opcode, acpi_state_t* state, acpi_operand_t* oper
       println("(parser_parse_op): unimplemented opcode!");
       return -1;
   }
+
+  move_acpi_var(result_ptr, &result);
   return 0;
 }
 
 // TODO:
 static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* operands, acpi_ns_node_t* ctx_handle) {
-  println(to_string(opcode));
 
   switch (opcode) {
     case NAME_OP: {
@@ -452,9 +465,105 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
     case WORDFIELD_OP:
     case DWORDFIELD_OP:
     case QWORDFIELD_OP:
-    case (EXTOP_PREFIX << 8) | ARBFIELD_OP:
-      println("(parser_parse_node): unimplemented opcode!");
-      return -1;
+      ASSERT_MSG(operands[2].tag == ACPI_UNRESOLVED_NAME, "third operand is not an unresolved name while parsing integer field");
+
+      acpi_variable_t offset = {0};
+      acpi_aml_name_t name = {0};
+
+      acpi_load_integer(state, &operands[1], &offset);
+      acpi_parse_aml_name(&name, operands[2].unresolved_aml.unres_aml_p);
+
+      acpi_ns_node_t* node = acpi_create_node();
+
+      node->type = ACPI_NAMESPACE_BUFFER_FIELD;
+
+      acpi_resolve_new_node(node, operands[2].unresolved_aml.unresolved_context_handle, &name);
+
+      acpi_variable_t buffer = {0};
+      acpi_operand_load(state, &operands[0], &buffer);
+
+      node->namespace_buffer_field.bf_buffer = buffer.buffer_p;
+      flat_ref(&node->namespace_buffer_field.bf_buffer->rc);
+
+      switch (opcode) {
+        case BITFIELD_OP:
+          node->namespace_buffer_field.bf_size_bits = 1;
+          break;
+        case BYTEFIELD_OP:
+          node->namespace_buffer_field.bf_size_bits = 8;
+          break;
+        case WORDFIELD_OP:
+          node->namespace_buffer_field.bf_size_bits = 16;
+          break;
+        case DWORDFIELD_OP:
+          node->namespace_buffer_field.bf_size_bits = 32;
+          break;
+        case QWORDFIELD_OP:
+          node->namespace_buffer_field.bf_size_bits = 64;
+          break;
+      }
+      switch (opcode) {
+        case BITFIELD_OP:
+          node->namespace_buffer_field.bf_offset_bits = offset.num;
+          break;
+        case BYTEFIELD_OP:
+        case WORDFIELD_OP:
+        case DWORDFIELD_OP:
+        case QWORDFIELD_OP:
+          node->namespace_buffer_field.bf_offset_bits = offset.num * 8;
+          break;
+      }
+
+
+      acpi_load_ns_node_in_parser(g_parser_ptr, node);
+
+      //destroy_acpi_var(&buffer);
+
+      acpi_context_entry_t* context = acpi_context_stack_peek(state);
+      if (context->invocation) {
+        println("TODO: implement invocation");
+        return -1;
+      }
+      break;
+    case (EXTOP_PREFIX << 8) | ARBFIELD_OP: {
+      ASSERT_MSG(operands[3].tag == ACPI_UNRESOLVED_NAME, "no unresolved name while parsing arbfield");
+
+      acpi_aml_name_t name = {0};
+
+      acpi_variable_t offset = {0};
+      acpi_variable_t size = {0};
+      acpi_load_integer(state, &operands[1], &offset);
+      acpi_load_integer(state, &operands[2], &size);
+
+      acpi_parse_aml_name(&name, operands[3].unresolved_aml.unres_aml_p);
+
+      acpi_ns_node_t* node = acpi_create_node();
+
+      node->type = ACPI_NAMESPACE_BUFFER_FIELD;
+
+      acpi_resolve_new_node(node, operands[3].unresolved_aml.unresolved_context_handle, &name);
+
+      acpi_variable_t buffer = {0};
+      acpi_operand_load(state, &operands[0], &buffer);
+
+      node->namespace_buffer_field.bf_buffer = buffer.buffer_p;
+      node->namespace_buffer_field.bf_offset_bits = offset.num;
+      node->namespace_buffer_field.bf_size_bits = size.num;
+
+      flat_ref(&node->namespace_buffer_field.bf_buffer->rc);
+
+      acpi_load_ns_node_in_parser(g_parser_ptr, node);
+
+      //destroy_acpi_var(&buffer);
+
+      acpi_context_entry_t* context = acpi_context_stack_peek(state);
+      if (context->invocation) {
+        println("TODO: implement invocation");
+        return -1;
+      }
+      
+      break;
+    }
     case (EXTOP_PREFIX << 8) | OPREGION: {
       acpi_variable_t base = {0};
       acpi_variable_t size = {0};
@@ -473,7 +582,7 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
       println(to_string(name.m_size));
 
       println("unresolved: ");
-      println(to_string((uintptr_t)operands[0].unresolved_aml.unres_aml_p));
+      println((char*)&ctx_handle->name);
 
       println(acpi_aml_name_to_string(&name));
 
@@ -903,8 +1012,6 @@ int parser_parse_acpi_state(acpi_state_t* state) {
         return -1;
       }
 
-      println("unresolved: ");
-      println(to_string((uintptr_t)code_ptr + opcode_pc));
       acpi_operand_t* op = acpi_state_push_opstack(state);
       op->tag = ACPI_UNRESOLVED_NAME;
       op->unresolved_aml.unresolved_context_handle = ctx_handle;
@@ -969,9 +1076,6 @@ int parser_parse_acpi_state(acpi_state_t* state) {
     opcode = code_ptr[pc];
     pc++;
   }
-
-  print("opcode: ");
-  println(to_string(opcode));
 
   switch (opcode) {
     case NOP_OP:
@@ -1060,6 +1164,7 @@ int parser_parse_acpi_state(acpi_state_t* state) {
 
       if (!reg_node) {
         println("could not resolve node");
+        println(acpi_aml_name_to_string(&aml_name));
         return -1;
       }
 

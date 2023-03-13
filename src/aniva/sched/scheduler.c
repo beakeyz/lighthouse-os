@@ -111,7 +111,7 @@ void start_scheduler(void) {
 
   s_sched_mode = SCHEDULING;
 
-  disable_interrupts();
+  //disable_interrupts();
   // ensure interrupts enabled
   //enable_interrupts();
   //for (;;) {}

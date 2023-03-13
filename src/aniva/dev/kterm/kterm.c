@@ -337,8 +337,15 @@ static void kterm_process_buffer() {
     kterm_println("\n");
     kterm_println("available commands: \n");
     kterm_println(" - help: print some helpful info\n");
-    kterm_println(" - acpitables: print the acpi tables present in the system");
-  } 
+    kterm_println(" - acpitables: print the acpi tables present in the system\n");
+    kterm_println(" - amlinfo: print info about the aml parsing");
+  } else if (!strcmp(contents, "amlinfo")) {
+    kterm_println("\n");
+    kterm_println("aml namespace nodes: ");
+    kterm_println(to_string(g_parser_ptr->m_namespace_nodes->m_length));
+    kterm_println("\nlast parser error message: ");
+    kterm_println(g_parser_ptr->m_last_error_message);
+  }
 
   kterm_println("\n");
 }

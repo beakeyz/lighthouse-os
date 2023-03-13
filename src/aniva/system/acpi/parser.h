@@ -57,7 +57,6 @@ typedef struct acpi_parser {
   acpi_ns_node_t* m_ns_root_node;
   list_t* m_namespace_nodes;
 
-  spinlock_t* m_mode_lock;
   uint8_t m_mode_flags;
   enum acpi_parser_mode m_mode;
 

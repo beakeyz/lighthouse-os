@@ -457,3 +457,22 @@ void acpi_read_buffer(acpi_variable_t *dst, acpi_ns_node_t* buffer) {
       n += m;
   }
 }
+
+void acpi_operand_load(acpi_state_t* state, acpi_operand_t* operand, acpi_variable_t* buffer) {
+
+  if (operand->tag == ACPI_ARG_NAME) {
+    acpi_context_entry_t* context = acpi_context_stack_peek(state);
+    ASSERT_MSG(context->invocation != nullptr, "ACPI_ARG_NAME did not have an invocation!");
+    assign_acpi_var(&context->invocation->args[operand->idx], buffer);
+    return;
+  } else if (operand->tag == ACPI_LOCAL_NAME) {
+    acpi_context_entry_t* context = acpi_context_stack_peek(state);
+    ASSERT_MSG(context->invocation != nullptr, "ACPI_LOCAL_NAME did not have an invocation!");
+    assign_acpi_var(&context->invocation->local[operand->idx], buffer);
+    return;
+  } else if(operand->tag == ACPI_RESOLVED_NAME) {
+    acpi_load_object(buffer, operand->handle);
+    return;
+  }
+  kernel_panic("Assert not reached");
+}

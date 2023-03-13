@@ -198,6 +198,7 @@ void acpi_load_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* nod
   if (parent) {
     if (ns_node_has_child(parent, node)) {
       println("WARNING: trying to load duplicate ns node!");
+      println((char*)&node->name);
       return;
     }
     ns_node_insert_child(parent, node);

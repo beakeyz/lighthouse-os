@@ -459,7 +459,7 @@ void acpi_get_obj_ref(acpi_state_t* state, acpi_operand_t* op, acpi_variable_t* 
 /*
  * Operand functions
  */
-void acpi_operand_load(acpi_state_t* state, acpi_operand_t* operand, acpi_variable_t* buffer); // TODO
+void acpi_operand_load(acpi_state_t* state, acpi_operand_t* operand, acpi_variable_t* buffer);
 
 
 #endif //__ANIVA_ACPI_OBJ__
