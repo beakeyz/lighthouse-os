@@ -2,6 +2,7 @@
 #define __ANIVA_ACPI_PARSER__
 #include <libk/stddef.h>
 #include "dev/debug/serial.h"
+#include "libk/linkedlist.h"
 #include "structures.h"
 #include "acpi_obj.h"
 #include "namespace.h"
@@ -36,9 +37,13 @@ enum acpi_parser_rsdp_discovery_method {
 // TODO: should the acpi parser have its own heap?
 typedef struct acpi_parser {
   acpi_rsdp_t* m_rsdp;
+  acpi_xsdp_t* m_xsdp;
+  bool m_is_xsdp;
+
+  list_t* m_tables;
+
   acpi_fadt_t *m_fadt;
   uintptr_t m_multiboot_addr;
-  bool m_is_xsdp;
 
   // NOTE: this is temporary debug, remove ASAP
   char* m_last_error_message;
@@ -60,7 +65,9 @@ typedef struct acpi_parser {
 
 void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr);
 
-void parser_init_aml(acpi_parser_t* parser);
+void init_acpi_parser_aml(acpi_parser_t* parser);
+
+void parser_init_tables(acpi_parser_t* parser);
 
 // find rsdt and (if available) xsdt
 void* find_rsdp(acpi_parser_t* parser);

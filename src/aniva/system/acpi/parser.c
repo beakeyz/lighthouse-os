@@ -40,19 +40,22 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   parser->m_multiboot_addr = multiboot_addr;
   parser->m_last_error_message = "none";
+  parser->m_tables = init_list();
 
-  rsdp = find_rsdp(parser);
+  find_rsdp(parser);
 
-  if (rsdp == nullptr) {
+  if (parser->m_rsdp == nullptr && parser->m_xsdp == nullptr) {
     // FIXME: we're fucked lol
     kernel_panic("no rsdt found =(");
   }
 
-  parser->m_rsdp = rsdp;
-  parser->m_is_xsdp = (rsdp->revision >= 2);
+  println("init tables");
+  parser_init_tables(parser);
+
+  //parser->m_is_xsdp = (rsdp->revision >= 2);
 
   // NOTE: return here for debuging purposes
-  return;
+  //return;
 
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
@@ -61,6 +64,37 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   }
 
   hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
+}
+
+void parser_init_tables(acpi_parser_t* parser) {
+  acpi_xsdt_t* xsdt = nullptr;
+  acpi_rsdt_t* rsdt = nullptr;
+  size_t tables;
+
+  if (parser->m_is_xsdp) {
+    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt, xsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
+  } else {
+    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt, rsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
+  }
+
+  if (xsdt != nullptr) {
+    // parse xsdt
+    for (uintptr_t i = 0; i < tables; i++) {
+      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(xsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+      list_append(parser->m_tables, table);
+    } 
+  } else {
+    for (uintptr_t i = 0; i < tables; i++) {
+      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(rsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+      list_append(parser->m_tables, table);
+    } 
+  }
 }
 
 void init_acpi_parser_aml(acpi_parser_t* parser) {
@@ -153,21 +187,25 @@ void* find_rsdp(acpi_parser_t* parser) {
   struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
 
   if (new_ptr && new_ptr->rsdp[0]) {
-    //void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
     //print("Multiboot has xsdp: ");
     //println(to_string((uintptr_t)ptr));
+    parser->m_is_xsdp = true;
+    parser->m_xsdp = ptr;
     parser->m_rsdp_discovery_method = MULTIBOOT_NEW;
-    return new_ptr->rsdp;
+    return ptr;
   }
 
   struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
 
   if (old_ptr && old_ptr->rsdp[0]) {
-    //void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
     //print("Multiboot has rsdp: ");
     //println(to_string((uintptr_t)ptr));
+    parser->m_is_xsdp = false;
+    parser->m_rsdp = ptr;
     parser->m_rsdp_discovery_method = MULTIBOOT_OLD;
-    return old_ptr->rsdp;
+    return ptr;
   }
 
   // check bios mem
@@ -181,6 +219,7 @@ void* find_rsdp(acpi_parser_t* parser) {
       void* potential = (void*)i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
         parser->m_rsdp_discovery_method = BIOS_POKE;
+        parser->m_rsdp = potential;
         return potential;
       }
     }
@@ -202,6 +241,7 @@ void* find_rsdp(acpi_parser_t* parser) {
       void *potential = (void *) i;
       if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
         parser->m_rsdp_discovery_method = RECLAIM_POKE;
+        parser->m_rsdp = potential;
         return potential;
       }
     }
@@ -214,61 +254,16 @@ void* find_rsdp(acpi_parser_t* parser) {
 // find a table by poking in memory. 
 // TODO: find a way to cache the memory locations for all the tables
 void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
-
-  void* rsdp_addr = parser->m_rsdp;
-
-  if (rsdp_addr == nullptr) {
-    parser->m_last_error_message = "rsdp is null";
-    return nullptr;
-  }
-
-  if (strlen(sig) != 4) {
-    parser->m_last_error_message = "sig is not 4 chars";
-    return nullptr;
-  }
-
-  acpi_xsdp_t* ptr = kmem_kernel_alloc((uintptr_t)rsdp_addr, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  if (ptr->base.revision >= 2) {
-    // xsdt
-    if (ptr->xsdt_addr) {
-      acpi_xsdt_t* xsdt = kmem_kernel_alloc((uintptr_t)ptr->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-      if (xsdt != nullptr) {
-        const size_t end_index = ((xsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint64_t);
-
-        for (uint64_t i = 0; i < end_index; i++) {
-          acpi_rsdt_t* cur = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt->tables[i], sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-          if (memcmp(cur->base.signature, sig, 4)) {
-            if (index == 0) {
-              return (void*)(uintptr_t)xsdt->tables[i];
-            }
-            index--;
-          }
-        }
-      } else {
-        parser->m_last_error_message = "xsdt is null";
-        return nullptr;
-      }
-    } 
-    parser->m_last_error_message = "failed to poke";
-    return nullptr;
-  }
-
-  acpi_rsdt_t* rsdt = kmem_kernel_alloc((uintptr_t)ptr->base.rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  const size_t end_index = ((rsdt->base.length - sizeof(acpi_sdt_header_t))) / sizeof(uint32_t);
-
-  for (uint32_t i = 0; i < end_index; i++) {
-    acpi_rsdt_t* cur = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt->tables[i], sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    if (memcmp(cur->base.signature, sig, 4)) {
+  FOREACH(i, parser->m_tables) {
+    acpi_sdt_header_t* header = (acpi_sdt_header_t*)kmem_kernel_alloc((uintptr_t)i->data, sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    if (memcmp(&header->signature, sig, 4)) {
       if (index == 0) {
-        return (void*)(uintptr_t)rsdt->tables[i];
+        header = (void*)kmem_kernel_alloc((uintptr_t)header, header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+        return (void*)header;
       }
       index--;
     }
   }
-  
   return nullptr;
 }
 
