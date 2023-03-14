@@ -125,6 +125,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
         continue;
       }
       list_append(device->m_ports, port);
+      s_implemented_ports++;
     }
   }
 
@@ -235,10 +236,6 @@ int ahci_driver_exit() {
   return 0;
 }
 
-// TODO: clean up
 uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
-  list_t list_cpy = *s_ahci_device->m_ports;
-
-  *response = create_packet_response(&list_cpy, sizeof(list_cpy));
   return 0;
 }

@@ -39,7 +39,6 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   println("Starting ACPI parser");
 
   parser->m_multiboot_addr = multiboot_addr;
-  parser->m_last_error_message = "none";
   parser->m_tables = init_list();
   parser->m_namespace_nodes = init_list();
 
@@ -130,9 +129,6 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
 
     acpi_init_state(&parser->m_state);
     int result = parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
-    if (result < 0) {
-      parser->m_last_error_message = "SSDT parsing failed";
-    }
     acpi_delete_state(&parser->m_state);
 
     table_index++;
@@ -149,9 +145,6 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
 
     acpi_init_state(&parser->m_state);
     int result = parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
-    if (result < 0) {
-      parser->m_last_error_message = "PSDT parsing failed";
-    }
     acpi_delete_state(&parser->m_state);
 
     table_index++;

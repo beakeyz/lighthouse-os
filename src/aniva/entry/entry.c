@@ -8,6 +8,7 @@
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "system/processor/processor.h"
+#include "system/processor/processor_info.h"
 #include "time/core.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
@@ -61,6 +62,10 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
   );
 
+  println("some tests");
+  println(to_string(processor_has(&get_current_processor()->m_info, X86_FEATURE_SYSCALL - 1)));
+  println(to_string(get_current_processor()->m_info.m_x86_capabilities[1]));
+
   init_global_kevents();
 
   init_timer_system();
@@ -68,7 +73,7 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_acpi(multiboot_addr);
 
   // NOTE: uncommented for debugging purposes
-  init_acpi_parser_aml(g_parser_ptr);
+  //init_acpi_parser_aml(g_parser_ptr);
   
   init_pci();
 

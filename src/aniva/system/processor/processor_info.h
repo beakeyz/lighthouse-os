@@ -1,7 +1,9 @@
 #ifndef __ANIVA_PROCESSOR_INFO__
 #define __ANIVA_PROCESSOR_INFO__
 
+#include "dev/debug/serial.h"
 #include "libk/stddef.h"
+#include "libk/string.h"
 #include <libk/bits.h>
 
 #define AMD_VENDOR_ID "AuthenticAMD"
@@ -375,8 +377,13 @@ typedef struct processor_info {
  */
 processor_info_t gather_processor_info();
 
+// TODO: Verify this shit
 static ALWAYS_INLINE bool processor_has(processor_info_t* info, uint32_t cap) {
-  return test_bit(cap, (unsigned long*)info->m_x86_capabilities);
+  uintptr_t cap_mod = cap % 32;
+  uintptr_t cap_index = (cap - cap_mod) / FEATURE_DWORD_NUM;
+  bool is_set = (uint8_t)(info->m_x86_capabilities[cap_index] >> (cap_mod - 1)) & 0x01;
+  println(to_string(is_set));
+  return test_bit(cap, (const volatile unsigned long*)info->m_x86_capabilities);
 }
 
 #endif // !__ANIVA_PROCESSOR_INFO__

@@ -45,8 +45,6 @@ typedef struct acpi_parser {
   acpi_fadt_t *m_fadt;
   uintptr_t m_multiboot_addr;
 
-  // NOTE: this is temporary debug, remove ASAP
-  char* m_last_error_message;
   enum acpi_parser_rsdp_discovery_method m_rsdp_discovery_method;
 
   int m_acpi_rev;

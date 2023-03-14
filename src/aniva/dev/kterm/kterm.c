@@ -210,18 +210,12 @@ void kterm_init() {
     destroy_packet_response(response);
   }
 
-  response = await(driver_send_packet("disk.ahci", 0, 0, 0));
-
-  if (response) {
-    __test_list = *(list_t*)response->m_response_buffer;
-    destroy_packet_response(response);
-  }
-
   // flush our terminal buffer
   kterm_flush_buffer();
   kterm_draw_cursor();
 
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
+  kterm_println("\n");
   kterm_println(" -- Welcome to the aniva kterm driver --\n");
   Processor_t* processor = get_current_processor();
 
@@ -303,9 +297,10 @@ static void kterm_process_buffer() {
 
     kterm_println("\n");
 
-    if (tables == nullptr) {
-      kterm_println("could not load tables!\n");
-      kterm_println("more info: \n");
+    if (tables) {
+
+      kterm_println("\n");
+      kterm_println("acpi static table info: \n");
       kterm_println("rsdp address: ");
       kterm_println(to_string((uintptr_t)g_parser_ptr->m_rsdp));
       kterm_println("\n");
@@ -335,14 +330,10 @@ static void kterm_process_buffer() {
       }
       kterm_println(method);
       kterm_println("\n");
-
-      kterm_println("last parser error message: ");
-      kterm_println(g_parser_ptr->m_last_error_message);
-      kterm_println("\n");
       kterm_println("tables found: ");
       kterm_println(to_string(g_parser_ptr->m_tables->m_length));
       kterm_println("\n");
-    } else {
+      kterm_println("tables: ");
       kterm_println(tables);
       kfree((void*)tables);
     }
@@ -356,12 +347,6 @@ static void kterm_process_buffer() {
     kterm_println("\n");
     kterm_println("aml namespace nodes: ");
     kterm_println(to_string(g_parser_ptr->m_namespace_nodes->m_length));
-    kterm_println("\nlast parser error message: ");
-    kterm_println(g_parser_ptr->m_last_error_message);
-  } else if (!strcmp(contents, "ahciinfo")) {
-    kterm_println("ahci info: \n");
-    kterm_println("amount of ports: ");
-    kterm_println(to_string(__test_list.m_length));
   }
   kterm_println("\n");
 }
