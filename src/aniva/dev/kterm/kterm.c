@@ -178,6 +178,9 @@ static char kterm_char_buffer[256];
 
 static fb_info_t kterm_fb_info;
 
+// TODO: remove
+static list_t __test_list;
+
 aniva_driver_t g_base_kterm_driver = {
   .m_name = "kterm",
   .m_type = DT_GRAPHICS,
@@ -202,8 +205,17 @@ void kterm_init() {
   destroy_packet_response(await(driver_send_packet("graphics.fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t))));
 
   packet_response_t* response = await(driver_send_packet("graphics.fb", FB_DRV_GET_FB_INFO, NULL, 0));
-  kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
-  destroy_packet_response(response);
+  if (response) {
+    kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
+    destroy_packet_response(response);
+  }
+
+  response = await(driver_send_packet("disk.ahci", 0, 0, 0));
+
+  if (response) {
+    __test_list = *(list_t*)response->m_response_buffer;
+    destroy_packet_response(response);
+  }
 
   // flush our terminal buffer
   kterm_flush_buffer();
@@ -230,6 +242,7 @@ uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response
   switch (payload.m_code) {
     case KTERM_DRV_DRAW_STRING: {
       const char* msg = *(const char**)payload.m_data;
+      println(msg);
       kterm_println(msg);
       kterm_println("\n");
       break;
@@ -345,8 +358,11 @@ static void kterm_process_buffer() {
     kterm_println(to_string(g_parser_ptr->m_namespace_nodes->m_length));
     kterm_println("\nlast parser error message: ");
     kterm_println(g_parser_ptr->m_last_error_message);
+  } else if (!strcmp(contents, "ahciinfo")) {
+    kterm_println("ahci info: \n");
+    kterm_println("amount of ports: ");
+    kterm_println(to_string(__test_list.m_length));
   }
-
   kterm_println("\n");
 }
 

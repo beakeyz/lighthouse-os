@@ -593,7 +593,8 @@ static inline void _init_kmem_page_layout () {
   println(to_string(needed_pagedirs_count));
 
   // Map 64 pds to HIGH_MAP_BASE ()
-  KMEM_DATA.m_kernel_base_pd[0][511].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pd | 0x3;
+  KMEM_DATA.m_kernel_base_pd[0][(HIGH_MAP_BASE >> 39) & ENTRY_MASK].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pd | 0x3;
+
   for (uintptr_t dir = 0; dir < 64; dir++) {
     KMEM_DATA.m_high_base_pd[dir].raw_bits = (uintptr_t)&KMEM_DATA.m_high_base_pts[dir] | 0x3;
     for (uintptr_t page = 0; page < 512; page++) {

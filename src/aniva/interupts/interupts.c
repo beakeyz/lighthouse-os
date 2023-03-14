@@ -175,6 +175,7 @@ EXCEPTION(12, "Stack segment fault");
 REGISTER_ERROR_HANDLER(13, general_protection);
 
 void general_protection_handler(registers_t *regs) {
+  println(get_current_scheduling_thread()->m_name);
   kernel_panic("General protection fault (TODO: more info)");
 }
 

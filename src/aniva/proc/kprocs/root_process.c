@@ -49,7 +49,7 @@ static void root_main(uintptr_t multiboot_address) {
 
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, 0)));
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, 0)));
-
+  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 
   if (multiboot_address) {
     // load the kterm driver, which also loads the fb driver
@@ -61,7 +61,6 @@ static void root_main(uintptr_t multiboot_address) {
 
   }
 
-  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 }
 
 static void root_packet_dispatch() {
@@ -76,10 +75,12 @@ static void root_packet_dispatch() {
     while ((packet = queue_peek(current->m_packet_queue.m_packets)) != nullptr) {
       ErrorOrPtr result = socket_handle_tspacket(packet);
 
+      queue_dequeue(current->m_packet_queue.m_packets);
       if (result.m_status == ANIVA_WARNING) {
+        // packet was not ready, delay
+        queue_enqueue(current->m_packet_queue.m_packets, packet);
         break;
       }
-      queue_dequeue(current->m_packet_queue.m_packets);
     }
 
     processor_decrement_critical_depth(current);

@@ -3,10 +3,12 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
+#include "dev/kterm/kterm.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "interupts/control/interrupt_control.h"
 #include "interupts/interupts.h"
+#include "libk/async_ptr.h"
 #include "libk/atomic.h"
 #include "libk/error.h"
 #include "libk/io.h"
@@ -14,6 +16,7 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "dev/pci/io.h"
+#include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
@@ -116,11 +119,12 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       }
 
       ahci_port_t* port = make_ahci_port(device, port_regs, i);
-      list_append(device->m_ports, port);
       if (initialize_port(port) == ANIVA_FAIL) {
         print("Failed to initialize AHCI port ");
         println(to_string(i));
+        continue;
       }
+      list_append(device->m_ports, port);
     }
   }
 
@@ -217,6 +221,7 @@ void ahci_driver_init() {
   enumerate_registerd_devices(find_ahci_device);
 
   resume_scheduler();
+
 }
 
 int ahci_driver_exit() {
@@ -230,6 +235,10 @@ int ahci_driver_exit() {
   return 0;
 }
 
+// TODO: clean up
 uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+  list_t list_cpy = *s_ahci_device->m_ports;
+
+  *response = create_packet_response(&list_cpy, sizeof(list_cpy));
   return 0;
 }

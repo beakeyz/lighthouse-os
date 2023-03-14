@@ -22,7 +22,8 @@ typedef enum THREADED_SOCKET_FLAGS {
   TS_ACTIVE = (1 << 1),     // the socket is actively listening
   TS_BUSY = (1 << 2),       // the socket is busy and can't respond to requests (they might fail)
   TS_IS_CLOSED = (1 << 3),  // the socket has no callback function where packets can be passed to
-  TS_SHOULD_EXIT = (1 << 4) // the socket has recieved the command to exit
+  TS_SHOULD_EXIT = (1 << 4),// the socket has recieved the command to exit
+  TS_READY = (1 << 5),      // the socket is ready to recieve packets
 } THREADED_SOCKET_FLAGS_t;
 
 typedef uintptr_t (*SocketOnPacket) (

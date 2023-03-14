@@ -128,6 +128,7 @@ void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
   // this is bad, so we need to handle dequeueing on a different thread...
   socket_set_flag(thread->m_socket, TS_ACTIVE, true);
   thread->m_real_entry(args);
+  socket_set_flag(thread->m_socket, TS_READY, true);
 
   // when the entry of a socket exits, we 
   // idle untill we recieve signals
@@ -183,9 +184,14 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   threaded_socket_t* socket = packet->m_reciever_thread;
 
   // don't handle any packets when this socket is not available
-  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_ACTIVE)) {
+  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_READY)) {
+    println("socket not ready: ");
+    println(socket->m_parent->m_name);
     return Warning();
   }
+
+  println("socket ready: ");
+  println(socket->m_parent->m_name);
 
   thread_t* thread = socket->m_parent;
 
