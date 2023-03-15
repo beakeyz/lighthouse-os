@@ -1,5 +1,3 @@
-import io
-from operator import contains
 import os
 from os.path import isdir, isfile
 
@@ -7,7 +5,9 @@ class Consts:
     PROJECT_NAME: str = "lighthouse-os"
     KERNEL_NAME: str = "Aniva"
 
-    SRC_DIR = str(os.environ.get("PWD")) + "/../src"
+    PROJECT_DIR = str(os.path.abspath(""))
+
+    SRC_DIR = PROJECT_DIR + "/src"
 
     SRC_FILES = []
     HEADER_FILES = []
@@ -16,6 +16,11 @@ class Consts:
     TOTAL_LINES = 0
 
     def __init__(self) -> None:
+
+        if not self.PROJECT_DIR.endswith(self.PROJECT_NAME):
+            print("Please run this script from the project root!")
+            exit(-1)
+
         self.scan_dirs(self.SRC_DIR)
 
         if not self.SRC_DIR.__contains__(self.PROJECT_NAME):
@@ -46,9 +51,3 @@ class Consts:
                     self.HEADER_FILES.append(abs_entry)
                 elif entry.endswith(".o"):
                     self.OBJ_FILES.append(abs_entry)
-
-
-c = Consts()
-
-print(c.TOTAL_LINES)
-print(c.SRC_FILES)

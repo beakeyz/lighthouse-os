@@ -262,9 +262,6 @@ bool init_pci() {
 
   enumerate_pci_raw(callback);
 
-  // NOTE: test
-  //enumerate_registerd_devices(print_device_info);
-
   return true;
 }
 
@@ -397,36 +394,26 @@ static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and
   g_pci_type1_impl.read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
 
   if (or_and) {
-    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback | (1 << shift));
+    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback | shift);
   } else {
-    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback & ~(1 << shift));
+    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback & ~(shift));
   }
 }
 
 void pci_set_io(DeviceAddress_t* address, bool value) {
-  pci_send_command(address, value, 0);
+  pci_send_command(address, value, PCI_COMMAND_IO_SPACE);
 }
 
 void pci_set_memory(DeviceAddress_t* address, bool value) {
-  pci_send_command(address, value, 1);
+  pci_send_command(address, value, PCI_COMMAND_MEM_SPACE);
 }
 
 void pci_set_interrupt_line(DeviceAddress_t* address, bool value) {
-  pci_send_command(address, !value, 10);
+  pci_send_command(address, !value, PCI_COMMAND_INT_DISABLE);
 }
 
 void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
-  uint16_t placeback;
-  g_pci_type1_impl.read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
-
-  if (value) {
-    placeback |= (1 << 2);
-  } else {
-    placeback &= ~(1 << 2);
-  }
-  placeback |= (1 << 0);
-
-  g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback);
+  pci_send_command(address, value, PCI_COMMAND_BUS_MASTER);
 }
 
 PciAccessMode_t get_current_addressing_mode() {

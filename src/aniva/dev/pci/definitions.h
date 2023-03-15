@@ -1,6 +1,19 @@
 #ifndef __ANIVA_PCI_DEFINITIONS__
 #define __ANIVA_PCI_DEFINITIONS__
 
+typedef enum pci_commands {
+  PCI_COMMAND_IO_SPACE = (1 << 0),
+  PCI_COMMAND_MEM_SPACE = (1 << 1),
+  PCI_COMMAND_BUS_MASTER = (1 << 2),
+  PCI_COMMAND_SPECIAL_CYCLES = (1 << 3),
+  PCI_COMMAND_MEM_WRITE_INVALIDATE_ENABLE = (1 << 4),
+  PCI_COMMAND_VGA_PALLETTE_SNOOP = (1 << 5),
+  PCI_COMMAND_PARITY_ERROR_RESPONSE = (1 << 6),
+  PCI_COMMAND_SERR_ENABLE = (1 << 8),
+  PCI_COMMAND_FAST_BTB_ENABLE =(1 << 9),
+  PCI_COMMAND_INT_DISABLE = (1 << 10),
+} PCI_COMMANDS;
+
 // TODO: more
 typedef enum {
   IO,
@@ -33,10 +46,28 @@ typedef enum {
   NO_CLASS = 0xff
 } pci_class_id_t;
 
-typedef enum {
-  IDE_C = 0x01,
-  SATA_C = 0x06,
-  NVMe_C = 0x08,
-} MassstorageSubClasIDType_t;
+typedef enum pci_subclass {
+  PCI_SUBCLASS_IDE = 0x01,
+  PCI_SUBCLASS_FLOPPY = 0x02,
+  PCI_SUBCLASS_ATA = 0x05,
+  PCI_SUBCLASS_SATA = 0x06,
+  PCI_SUBCLASS_NVME = 0x08,
+
+  PCI_SUBCLASS_ETHERNET = 0x00,
+
+  PCI_SUBCLASS_HAS_VGA = 0x00,
+  PCI_SUBCLASS_XGA = 0x01,
+
+  PCI_SUBCLASS_USB = 0x03,
+} PCI_SUBCLASS;
+
+typedef enum pci_progif {
+  PCI_PROGIF_SATA = 0x01,
+
+  PCI_PROGIF_OHCI = 0x10,
+  PCI_PROGIF_UHCI = 0x20,
+  PCI_PROGIF_EHCI = 0x20,
+  PCI_PROGIF_XHCI = 0x30,
+} PCI_PROGIF;
 
 #endif // !__ANIVA_PCI_DEFINITIONS__

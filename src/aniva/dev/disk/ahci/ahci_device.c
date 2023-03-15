@@ -89,7 +89,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
   }
 
   // get this mofo up and running
-  get_hba(device)->control_regs.global_host_ctrl |= (1 << 31) | (1 << 1);
+  get_hba(device)->control_regs.global_host_ctrl |= (1 << 31);
   get_hba(device)->control_regs.int_status = 0xffffffff;
 
   uint32_t pi = get_hba(device)->control_regs.ports_impl;
@@ -137,6 +137,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   // enable hba interrupts
   pci_set_interrupt_line(&device->m_identifier->address, true);
   pci_set_bus_mastering(&device->m_identifier->address, true);
+  pci_set_memory(&device->m_identifier->address, true);
 
   get_hba(device)->control_regs.global_host_ctrl = 0x80000000;
   
@@ -199,7 +200,7 @@ static void find_ahci_device(pci_device_identifier_t* identifier) {
 
   if (identifier->class == MASS_STORAGE) {
     // 0x01 == AHCI progIF
-    if (identifier->subclass == SATA_C && identifier->prog_if == 0x01) {
+    if (identifier->subclass == PCI_SUBCLASS_SATA && identifier->prog_if == PCI_PROGIF_SATA) {
       if (s_ahci_device != nullptr) {
         println("Found second AHCI device?");
         return;
