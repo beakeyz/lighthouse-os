@@ -1,12 +1,16 @@
 #!/bin/python3
+from sys import argv
 from consts import Consts
 
-def project_main():
+def project_main() -> None:
     print("Starting project script")
+    args: list[str] = argv
 
-    c = Consts()
+    if args.pop() == "lines":
+        c = Consts()
+        c.log_source()
+        c.draw_source_bar()
 
-    print(c.SRC_FILES);
 
 if __name__ == "__main__":
     project_main()
