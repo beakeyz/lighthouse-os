@@ -226,7 +226,7 @@ boot_pd0_p:
   times 0x20000 db 0
 
 boot_hh_pdpt:
-  times 0x20000 dq 0
+  times 0x1000 db 0
 
 ; hihi small stack =)
 section .stack
