@@ -1,6 +1,7 @@
 #include "entry.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "libk/error.h"
 #include "libk/kevent/core.h"
 #include "mem/PagingComplex.h"
 #include "proc/ipc/thr_intrf.h"
@@ -39,18 +40,25 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     kernel_panic("Can't verify multiboot header: invalid magic number");
   }
 
+  println(to_string((uintptr_t)mb_addr));
+
   // parse multiboot
   mb_initialize((void *) mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
+  println(to_string((uintptr_t)&g_bsp));
+
   // init bootstrap processor
   init_processor(&g_bsp, 0);
+
+  kernel_panic("Panic");
 
   // bootstrap the kernel heap
   init_kheap();
 
   // initialize things like fpu or interrupts
   g_bsp.fLateInit(&g_bsp);
+
 
   // we need memory
   init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);

@@ -1,11 +1,16 @@
 #include "heap.h"
+#include "dev/debug/serial.h"
+#include "libk/string.h"
 #include "malloc.h"
+#include "mem/base_allocator.h"
+#include "mem/kmem_manager.h"
 
-#define INITIAL_HEAP_SIZE (2 * Mib) // IN BYTES
+#define INITIAL_HEAP_SIZE ALIGN_UP(2 * Mib, SMALL_PAGE_SIZE) // IN BYTES
+#define INITIAL_KHEAP_VBASE 0xFFFFFFFFFF600000 
 
 // fuk yea
 // reserve enough, so we can use kmem_manager later to expand the heap
-SECTION(".heap") static uint8_t init_kmalloc_mem[INITIAL_HEAP_SIZE];
+SECTION(".heap") static uint8_t init_kmalloc_mem[INITIAL_HEAP_SIZE] __attribute__((aligned(SMALL_PAGE_SIZE)));
 
 // TODO: structure
 static memory_allocator_t s_kernel_allocator;
@@ -32,19 +37,26 @@ void init_kheap() {
   s_kernel_allocator.m_nodes_count = 1;
 
   // heap data v2
-  s_generic_kernel_heap.m_current_total_size = MALLOC_NODE_IDENTIFIER;
+  s_generic_kernel_heap.m_current_total_size = INITIAL_HEAP_SIZE;
   s_generic_kernel_heap.m_flags = GHEAP_KERNEL;
-  s_generic_kernel_heap.m_virtual_base = (vaddr_t) &init_kmalloc_mem[0];
+  s_generic_kernel_heap.m_virtual_base = (vaddr_t) INITIAL_KHEAP_VBASE;
   s_generic_kernel_heap.m_physical_base = (paddr_t) &init_kmalloc_mem[0];
 
   // generic heap
+  s_generic_kernel_heap.m_parent_heap = &s_kernel_allocator;
   s_generic_kernel_heap.f_deallocate = (HEAP_DEALLOCATE) malloc_deallocate;
   s_generic_kernel_heap.f_allocate = (HEAP_ALLOCATE) malloc_allocate;
   s_generic_kernel_heap.f_sized_deallocate = (HEAP_SIZED_DEALLOCATE) malloc_sized_deallocate;
   s_generic_kernel_heap.f_debug = nullptr;
+  s_generic_kernel_heap.f_expand = (HEAP_EXPAND) malloc_try_heap_expand;
+  s_generic_kernel_heap.f_on_expand_enable = (HEAP_ON_EXPAND_ENABLE) malloc_on_heap_expand_enable;
   s_kernel_allocator.m_heap->f_expand = nullptr;
 
   // TODO: show debug message?
+}
+
+void kheap_enable_expand() {
+  enable_heap_expantion(s_kernel_allocator.m_heap);
 }
 
 // our kernel malloc impl

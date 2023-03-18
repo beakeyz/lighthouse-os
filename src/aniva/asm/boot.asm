@@ -27,6 +27,8 @@ mb_fb_tag_end:
   dd 8    ;size
 header_end:
 
+KERNEL_VIRT_BASE equ 0xFFFFffff80000000
+KERNEL_PAGE_IDX equ (KERNEL_VIRT_BASE >> 21)
 
 section .pre_text
 [bits 32]
@@ -38,10 +40,6 @@ global boot_pml4t
 global boot_pdpt
 global boot_pd0
 global boot_pd0_p
-
-global kernel_pd
-global kernel_img_pts
-global kernel_pt_last
 
 extern _start
 
@@ -57,7 +55,7 @@ start:
   mov esi, eax ; Magic number
 
   ; TODO: cpuid and PAE checks ect.  
-  mov esp, kstack_top
+  mov esp, kstack_top - KERNEL_VIRT_BASE
 
 check_cpuid:
   pushfd
@@ -88,24 +86,41 @@ cpuid_support:
   xor ebx, ebx
 
   ; set cr3
-  mov eax, boot_pml4t
+  mov eax, boot_pml4t - KERNEL_VIRT_BASE
   mov cr3, eax
 
-  mov eax, boot_pdpt
+  ; map pdpt for identity
+  mov eax, boot_pdpt - KERNEL_VIRT_BASE
   or eax, 0x3
-  mov [(boot_pml4t)], eax
+  mov [(boot_pml4t - KERNEL_VIRT_BASE)], eax
 
-  mov eax, boot_pd0
+
+  mov eax, boot_pd0 - KERNEL_VIRT_BASE
   or eax, 0x3
-  mov [(boot_pdpt)], eax
+  mov [(boot_pdpt - KERNEL_VIRT_BASE)], eax
+
+  ; map pdpt for high base
+  mov eax, boot_hh_pdpt - KERNEL_VIRT_BASE
+  or eax, 0x3
+  mov [(boot_pml4t - KERNEL_VIRT_BASE) + 511 * 8], eax
+
+  ; reroute back to the identity mapping
+  mov eax, boot_pml4t - KERNEL_VIRT_BASE
+  or eax, 0x3
+  mov [(boot_pml4t - KERNEL_VIRT_BASE) + 510 * 8], eax
+  
+  ; map p2 into our p3 for the higher half aswell
+  mov eax, boot_pd0 - KERNEL_VIRT_BASE
+  or eax, 0x3
+  mov [(boot_hh_pdpt - KERNEL_VIRT_BASE) + 510 * 8], eax
 
   mov eax, 0 
-  mov ebx, boot_pd0_p
+  mov ebx, boot_pd0_p - KERNEL_VIRT_BASE
   mov ecx, 32
 
   .fill_directory:
     or ebx, 0x3
-    mov dword[(boot_pd0) + eax], ebx
+    mov dword[(boot_pd0 - KERNEL_VIRT_BASE) + eax], ebx
     add ebx, 0x1000
     add eax, 8
 
@@ -121,7 +136,7 @@ cpuid_support:
   ; NOTE: if our kernel gets too big (it won't) we're fucked
   .map_kernel:
     or ebx, 0x3
-    mov [(boot_pd0_p) + eax], ebx
+    mov [(boot_pd0_p - KERNEL_VIRT_BASE) + eax], ebx
     add ebx, 0x1000
     add eax, 8
 
@@ -146,8 +161,8 @@ cpuid_support:
   or eax, 1 << 16
   mov cr0, eax
 
-  lgdt [gdtr]
-  jmp (0x8):(long_start)
+  lgdt [gdtr - KERNEL_VIRT_BASE]
+  jmp (0x8):(long_start - KERNEL_VIRT_BASE)
 
 ; start of 64 bit madness
 [bits 64]
@@ -156,7 +171,7 @@ align 4
 
 ; start lol
 long_start:
-  
+
   cli 
   cld
 
@@ -168,8 +183,8 @@ long_start:
   mov fs, ax  ; extra segment register
   mov gs, ax  ; extra segment register
 
-  mov rsp, kstack_top
-  
+  mov rsp, kstack_top - KERNEL_VIRT_BASE
+
   call _start
   
 loopback:
@@ -178,11 +193,16 @@ loopback:
   hlt
   jmp loopback
 
+section .data
+
+mb_ptr:
+  dq 0
+
 section .rodata
 ; gdt
 gdtr:
   dw gdt_end - gdt_start - 1
-  dq gdt_start
+  dq gdt_start - KERNEL_VIRT_BASE
 gdt_start:
   dq 0
 
@@ -205,12 +225,8 @@ boot_pd0:
 boot_pd0_p:
   times 0x20000 db 0
 
-kernel_pd:
-  times 0x1000 db 0
-kernel_img_pts:
-  times 0x20000 db 0
-kernel_pt_last:
-  times 0x1000 db 0
+boot_hh_pdpt:
+  times 0x20000 dq 0
 
 ; hihi small stack =)
 section .stack

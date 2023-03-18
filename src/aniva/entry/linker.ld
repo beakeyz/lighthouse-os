@@ -10,18 +10,25 @@ PHDRS
 SECTIONS {
   . = 1M;
   _kernel_start =.;
+  _kernel_virt_base_offset = 0xFFFFffff80000000;
 
-  .text ALIGN(4K) : AT(ADDR(.text) )
+  . += _kernel_virt_base_offset;
+
+  .pre_text ALIGN(4K) : AT(ADDR(.pre_text) - _kernel_virt_base_offset)
   {
     *(.multiboot_header*)
     *(.pre_text*)
+  } :text
+
+  .text ALIGN(4K) : AT(ADDR(.text)  - _kernel_virt_base_offset)
+  {
     _text_begin = .;
     *(.__init*)
     *(.text*)
     _text_end = .;
   } :text 
 
-  .rodata ALIGN(4K) : AT(ADDR(.rodata) )
+  .rodata ALIGN(4K) : AT(ADDR(.rodata) - _kernel_virt_base_offset)
   {
     _start_ctors = .;
     *(.ctors*)
@@ -30,7 +37,7 @@ SECTIONS {
     *(.rodata*)
   } :data
 
-  .data ALIGN(4K) : AT(ADDR(.data) )
+  .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_base_offset)
   {
     *(.data)
     _syms_start = .;
@@ -38,7 +45,7 @@ SECTIONS {
     _syms_end = .;
   } :data
 
-  .bss ALIGN(4K) : AT(ADDR(.bss) ) 
+  .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_base_offset) 
   {
     *(.pts)
     _bss_start = .;

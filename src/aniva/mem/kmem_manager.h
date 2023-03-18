@@ -16,9 +16,9 @@
 
 
 // Kernel high virtual base
-#define HIGH_MAP_BASE           0xffffff8000000000UL 
+#define HIGH_MAP_BASE           0xffffffff80000000ULL
 // Physical range base
-#define PHYSICAL_RANGE_BASE     0xffffff0000000000UL
+#define PHYSICAL_RANGE_BASE     0xffff800000000000ULL
 
 // paging masks
 #define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL
@@ -46,12 +46,13 @@
 #define KMEM_CUSTOMFLAG_GET_MAKE            0x01
 #define KMEM_CUSTOMFLAG_CREATE_USER         0x02
 #define KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE 0x04
+#define KMEM_CUSTOMFLAG_IDENTITY            0x08
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
-    ((addr % size == 0) ? (addr) : (addr) + size - ((addr) % size))
+    (((addr) % (size) == 0) ? (addr) : (addr) + (size) - ((addr) % (size)))
 
-#define ALIGN_DOWN(addr, size) ((addr) - ((addr) % size))
+#define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
 typedef enum {
   PMRT_USABLE = 1,
@@ -155,6 +156,12 @@ void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, u
  * identitymap it
  */
 ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags);
+
+/*
+ * Find a free range of physical pages and map it to 
+ * a virtual base
+ */
+ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags);
 
 /*
  * deallocate memoryranges that where previously allocated by the

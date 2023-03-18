@@ -27,9 +27,13 @@ typedef void (*HEAP_SIZED_DEALLOCATE) (
   size_t allocation_size
 );
 
-typedef void (*HEAP_EXPAND) (
+typedef ANIVA_STATUS (*HEAP_EXPAND) (
   void* heap_ptr,
   size_t bytes
+);
+
+typedef void (*HEAP_ON_EXPAND_ENABLE) (
+  void* heap_ptr
 );
 
 typedef void (*HEAP_GENERAL_DEBUG) (
@@ -45,6 +49,7 @@ typedef enum GHEAP_FLAGS {
 } GHEAP_FLAGS_t;
 
 typedef struct generic_heap {
+  void* m_parent_heap;
   vaddr_t m_virtual_base;
   paddr_t m_physical_base;
   size_t m_current_total_size;
@@ -55,6 +60,7 @@ typedef struct generic_heap {
   HEAP_SIZED_DEALLOCATE f_sized_deallocate;
   HEAP_EXPAND f_expand;
   HEAP_GENERAL_DEBUG f_debug;
+  HEAP_ON_EXPAND_ENABLE f_on_expand_enable;
 } generic_heap_t;
 
 /*
@@ -65,6 +71,16 @@ typedef struct generic_heap {
 generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags);
 
 ErrorOrPtr destroy_heap(generic_heap_t* heap);
+
+static void enable_heap_expantion(generic_heap_t* heap) {
+  if ((heap->m_flags & GHEAP_EXPANDABLE))
+    return;
+
+  heap->m_flags |= GHEAP_EXPANDABLE;
+
+  if (heap->f_on_expand_enable)
+    heap->f_on_expand_enable(heap->m_parent_heap);
+}
 
 static ALWAYS_INLINE bool is_heap_identity_mapped(generic_heap_t* heap_ptr) {
   return (heap_ptr->m_physical_base == heap_ptr->m_virtual_base);

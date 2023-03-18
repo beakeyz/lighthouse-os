@@ -7,8 +7,6 @@
 #include <libk/stddef.h>
 #include <libk/error.h>
 
-
-static bool try_heap_expand (memory_allocator_t * allocator, size_t new_size);
 static heap_node_t* create_initial_heap_node(memory_allocator_t *allocator, void* start_address);
 static heap_node_t* split_node (memory_allocator_t * allocator, heap_node_t* ptr, size_t size);
 static heap_node_t* merge_node_with_next (memory_allocator_t * allocator, heap_node_t* ptr);
@@ -22,14 +20,17 @@ memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintpt
   // create a heap object on the initial kernel heap :clown:
   memory_allocator_t *heap = kmalloc(sizeof(memory_allocator_t));
 
+  // TODO: also call the on_expand_enable function here
   flags |= GHEAP_EXPANDABLE;
 
   heap->m_heap = initialize_generic_heap(nullptr, virtual_base, size, flags);
   heap->m_heap->f_allocate = (HEAP_ALLOCATE) malloc_allocate;
   heap->m_heap->f_deallocate = (HEAP_DEALLOCATE) malloc_deallocate;
   heap->m_heap->f_sized_deallocate = (HEAP_SIZED_DEALLOCATE) malloc_sized_deallocate;
-  heap->m_heap->f_expand = (HEAP_EXPAND) try_heap_expand;
+  heap->m_heap->f_expand = (HEAP_EXPAND) malloc_try_heap_expand;
   heap->m_heap->f_debug = (HEAP_GENERAL_DEBUG) quick_print_node_sizes;
+  heap->m_heap->f_on_expand_enable = (HEAP_ON_EXPAND_ENABLE) malloc_on_heap_expand_enable;
+  heap->m_heap->m_parent_heap = heap;
 
   heap->m_heap_start_node = create_initial_heap_node(heap, (void *) heap->m_heap->m_virtual_base);
   heap->m_heap_bottom_node = heap->m_heap_start_node;
@@ -76,6 +77,7 @@ void quick_print_node_sizes(memory_allocator_t* allocator) {
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get
 // a pointer to the data
 void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
+  println("MALLOC");
 
   heap_node_t* node = allocator->m_heap_start_node;
   while (node) {
@@ -104,19 +106,21 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
 
     // break early, so we can pass the node to the expand func
     if (!node->next) {
-      println("break!");
+      println("needs: ");
+      println(to_string(bytes));
+      println("has: ");
+      println(to_string(allocator->m_free_size));
       break;
     }
     node = node->next;
   }
 
-  // TODO: implement expanding
-  /*
-  if (try_heap_expand(allocator, node)) {
+  // TODO: implement dynamic expanding
+  if (malloc_try_heap_expand(allocator, SMALL_PAGE_SIZE)) {
       return malloc_allocate(allocator, bytes);
   }
-  */
 
+  kernel_panic("FAILED TO MALLOC KERNEL MEMORY");
   // yikes
   return NULL;
 }
@@ -189,24 +193,62 @@ void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
 }
 
 // just expand the heap by one 4KB page
-bool try_heap_expand(memory_allocator_t *allocator, size_t new_size) {
-  if ((allocator->m_heap->m_flags & GHEAP_EXPANDABLE) == 0) {
-    return false;
-  }
+ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_size) {
+  // TODO: implement non-kernel heaps
+  println("HEAP EXPANTION");
+  ASSERT_MSG((allocator->m_heap->m_flags & GHEAP_EXPANDABLE) && (allocator->m_heap->m_flags & GHEAP_KERNEL), "Heap is not ready to be expanded!");
+
+  const vaddr_t new_mapping_base = allocator->m_heap->m_virtual_base + allocator->m_heap->m_current_total_size;
+
+  println(to_string(new_mapping_base));
+  println(to_string(ALIGN_UP(new_mapping_base, SMALL_PAGE_SIZE)));
+
+  ASSERT_MSG(ALIGN_UP(new_mapping_base, SMALL_PAGE_SIZE) == new_mapping_base, "Heap was misaligned while expanding!");
+
+  extra_size = ALIGN_UP(extra_size, SMALL_PAGE_SIZE);
 
   // request a page from kmem_manager
-  const size_t new_node_size = SMALL_PAGE_SIZE;
-  heap_node_t* new_node = nullptr;
+  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, new_mapping_base, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  if (result.m_status != ANIVA_SUCCESS) {
+    return ANIVA_FAIL;
+  }
+
+  allocator->m_heap->m_current_total_size += extra_size;
+  println(to_string(extra_size));
+
+  quick_print_node_sizes(allocator);
+
+  heap_node_t* new_node = (heap_node_t*)result.m_ptr;
   if (new_node) {
-    new_node->size = new_node_size;
+    new_node->size = extra_size;
     new_node->identifier = MALLOC_NODE_IDENTIFIER;
     new_node->flags = 0;
     new_node->next = 0;
     new_node->prev = allocator->m_heap_bottom_node;
     allocator->m_heap_bottom_node->next = new_node;
-    return (try_merge(allocator, allocator->m_heap_bottom_node) != nullptr);
+
+    println(to_string(kmem_get_page(nullptr, (uintptr_t)allocator->m_heap_bottom_node, 0)->raw_bits));
+    if (try_merge(allocator, allocator->m_heap_bottom_node) != nullptr) {
+      return ANIVA_SUCCESS;
+    }
   }
-  return false;
+  return ANIVA_FAIL;
+}
+
+void malloc_on_heap_expand_enable(memory_allocator_t* allocator) {
+
+  println("Trying to expand heap!");
+  const vaddr_t heap_vbase = allocator->m_heap->m_virtual_base;
+  const size_t heap_current_size = allocator->m_heap->m_current_total_size;
+
+  ASSERT_MSG(ALIGN_UP(heap_vbase, SMALL_PAGE_SIZE) == heap_vbase, "heap_vbase is not aligned!");
+  ASSERT_MSG(ALIGN_UP(heap_current_size, SMALL_PAGE_SIZE) == heap_current_size, "heap_current_size is not aligned!");
+
+  bool result = kmem_map_range(nullptr, heap_vbase, (uintptr_t)allocator->m_heap_start_node, heap_current_size / SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
+
+  if (!result) {
+    kernel_panic("Failed to enable expantion!");
+  }
 }
 
 heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t size) {

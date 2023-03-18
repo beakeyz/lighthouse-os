@@ -55,6 +55,10 @@ void malloc_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t a
 
 void malloc_deallocate(memory_allocator_t* allocator, void* addr);
 
+ANIVA_STATUS malloc_try_heap_expand (memory_allocator_t * allocator, size_t new_size);
+
+void malloc_on_heap_expand_enable(memory_allocator_t* allocator);
+
 /*
  * check the identifier of a node to confirm that is in fact a
  * node that we use
@@ -66,9 +70,6 @@ bool verify_identity (heap_node_t* node);
 
 // TODO: remove
 void quick_print_node_sizes (memory_allocator_t* allocator);
-
-void enable_heap_expantion ();
-void disable_heap_expantion ();
 
 // TODO: add a wrapper for userspace?
 #endif // !__ANIVA_MALLOC__

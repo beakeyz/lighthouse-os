@@ -8,6 +8,8 @@ static void* zone_allocate(zone_t* zone, size_t size);
 static void zone_deallocate(zone_t* zone, void* address, size_t size);
 static ZALLOC_SIZE_t get_used_zone_for_size(size_t size);
 
+static void zdummy() {}
+
 const ZALLOC_SIZE_t zone_sizes[] = {
   ZALLOC_8BYTES,
   ZALLOC_16BYTES,
@@ -24,6 +26,8 @@ zone_allocator_t *create_zone_allocator(size_t initial_size, vaddr_t virtual_bas
   ret->m_heap->f_allocate = (HEAP_ALLOCATE) zalloc;
   ret->m_heap->f_sized_deallocate = (HEAP_SIZED_DEALLOCATE) zfree;
   ret->m_heap->f_expand = (HEAP_EXPAND) zexpand;
+  ret->m_heap->f_on_expand_enable = (HEAP_ON_EXPAND_ENABLE) zdummy;
+  ret->m_heap->m_parent_heap = ret;
 
   if (initial_size < SMALL_PAGE_SIZE) {
     // TODO: we need to figure out how to index less than a page of zone-heap

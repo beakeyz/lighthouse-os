@@ -9,6 +9,8 @@
  */
 void init_kheap();
 
+void kheap_enable_expand();
+
 void* kmalloc (size_t len);
 void kfree (void* addr);
 void kfree_sized(void* addr, size_t allocation_size);
