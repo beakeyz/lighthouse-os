@@ -1,7 +1,7 @@
 #ifndef __ANIVA_LIBK_ASYNC_PTR__
 #define __ANIVA_LIBK_ASYNC_PTR__
 
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "sync/atomic_ptr.h"
 #include <libk/reference.h>
 

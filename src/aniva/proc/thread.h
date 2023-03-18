@@ -2,7 +2,7 @@
 #define __ANIVA_THREAD__
 
 #include "libk/error.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "proc/context.h"
 #include "proc/socket.h"
 #include "system/processor/fpu/state.h"

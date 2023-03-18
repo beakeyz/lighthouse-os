@@ -1,6 +1,6 @@
 #ifndef __ANIVA_KERNEL_CONTEXT__
 #define __ANIVA_KERNEL_CONTEXT__
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "system/processor/gdt.h"
 #include <libk/stddef.h>
 
@@ -49,7 +49,7 @@ typedef struct {
   uintptr_t cr3;
 } kContext_t;
 
-ALWAYS_INLINE kContext_t setup_regs(bool kernel, PagingComplex_t* root_table, uintptr_t stack_top) {
+ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintptr_t stack_top) {
   kContext_t regs = {0};
 
   regs.cs = (kernel ? GDT_KERNEL_CODE : GDT_USER_CODE|3);

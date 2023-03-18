@@ -5,7 +5,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/queue.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "proc/socket.h"
 #include "proc/thread.h"
 #include "processor_info.h"
@@ -44,7 +44,7 @@ typedef struct Processor {
 
   void *m_user_stack;
 
-  PagingComplex_t* m_page_dir;
+  pml_entry_t* m_page_dir;
   // TODO: cpu info (features, bitwidth, vendorID, ect.)
   struct processor_info m_info;
 

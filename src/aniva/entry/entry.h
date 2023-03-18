@@ -1,7 +1,7 @@
 #ifndef __KMAIN__
 #define __KMAIN__
 #include "system/processor/processor.h"
-#include <mem/PagingComplex.h>
+#include <mem/pg.h>
 #include <libk/stddef.h>
 #include <libk/multiboot.h>
 
@@ -11,10 +11,10 @@ extern uintptr_t _kernel_end;
 extern uintptr_t kstack_top;
 extern uintptr_t kstack_bottom;
 
-extern PagingComplex_t boot_pml4t[512];
-extern PagingComplex_t boot_pdpt[512];
-extern PagingComplex_t boot_pd0[512];
-extern PagingComplex_t boot_pd0_p[512 * 32];
+extern pml_entry_t boot_pml4t[512];
+extern pml_entry_t boot_pdpt[512];
+extern pml_entry_t boot_pd0[512];
+extern pml_entry_t boot_pd0_p[512 * 32];
 
 typedef struct {
   //uintptr_t m_multiboot_addr;

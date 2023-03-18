@@ -77,7 +77,6 @@ void quick_print_node_sizes(memory_allocator_t* allocator) {
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get
 // a pointer to the data
 void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
-  println("MALLOC");
 
   heap_node_t* node = allocator->m_heap_start_node;
   while (node) {
@@ -106,10 +105,6 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
 
     // break early, so we can pass the node to the expand func
     if (!node->next) {
-      println("needs: ");
-      println(to_string(bytes));
-      println("has: ");
-      println(to_string(allocator->m_free_size));
       break;
     }
     node = node->next;

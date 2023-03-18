@@ -3,7 +3,7 @@
 
 #include "libk/error.h"
 #include "libk/linkedlist.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 
 typedef size_t proc_id;
 
@@ -13,7 +13,7 @@ typedef struct proc {
   char m_name[32];
   proc_id m_id;
 
-  PagingComplex_t* m_root_pd;
+  pml_entry_t* m_root_pd;
 
   // maps?
   list_t* m_threads;

@@ -2,7 +2,7 @@
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/reference.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "system/acpi/namespace.h"

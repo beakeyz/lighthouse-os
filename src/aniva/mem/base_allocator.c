@@ -10,7 +10,7 @@ static ALWAYS_INLINE void dummy_dealloc_sized(void* heap_ptr, void* address);
 static ALWAYS_INLINE void dummy_expand(void* heap_ptr, size_t size);
 static ALWAYS_INLINE void dummy_debug(void* heap_ptr);
 
-generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags) {
+generic_heap_t *initialize_generic_heap(pml_entry_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags) {
   generic_heap_t *ret = kmalloc(sizeof(generic_heap_t));
 
   if (ret == nullptr) {

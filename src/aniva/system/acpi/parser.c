@@ -5,7 +5,7 @@
 #include "libk/linkedlist.h"
 #include "libk/multiboot.h"
 #include "libk/reference.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "system/acpi/namespace.h"

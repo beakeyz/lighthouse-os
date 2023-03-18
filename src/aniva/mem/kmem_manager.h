@@ -5,7 +5,7 @@
 #include <libk/stddef.h>
 #include "libk/error.h"
 #include "libk/linkedlist.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 
 // some faultcodes
 #define PRESENT_VIOLATION       0x1
@@ -41,6 +41,7 @@
 #define KMEM_FLAG_SPEC          0x10
 #define KMEM_FLAG_WC            (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_SPEC)
 #define KMEM_FLAG_NOEXECUTE     0x20
+#define KMEM_FLAG_GLOBAL        0x21
 
 // Custom mapping flags
 #define KMEM_CUSTOMFLAG_GET_MAKE            0x01
@@ -95,7 +96,8 @@ void parse_mmap ();
 
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
-uintptr_t kmem_get_page_base (uintptr_t page_addr);
+uintptr_t kmem_get_page_base (uintptr_t base);
+uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_base);
 uintptr_t kmem_get_page_addr (uintptr_t page_idx);
 
 /*
@@ -108,7 +110,7 @@ void* kmem_from_phys (uintptr_t addr);
  * translate a virtual address to a physical address in
  * a pagetable given by the caller
  */
-uintptr_t kmem_to_phys (PagingComplex_t* root, uintptr_t addr);
+uintptr_t kmem_to_phys (pml_entry_t* root, uintptr_t addr);
 
 void kmem_set_phys_page_used (uintptr_t idx);
 void kmem_set_phys_page_free (uintptr_t idx);
@@ -127,18 +129,18 @@ void kmem_flush_tlb();
 
 ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
-PagingComplex_t* kmem_get_krnl_dir ();
-PagingComplex_t* kmem_get_page(PagingComplex_t* root, uintptr_t addr, uint32_t kmem_flags);
-PagingComplex_t* kmem_clone_page(PagingComplex_t* page);
-void kmem_set_page_flags (PagingComplex_t* page, uint32_t flags);
+pml_entry_t* kmem_get_krnl_dir ();
+pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags);
+pml_entry_t* kmem_clone_page(pml_entry_t* page);
+void kmem_set_page_flags (pml_entry_t* page, uint32_t flags);
 
 /* mem mapping */
 
-bool kmem_map_page (PagingComplex_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
-bool kmem_map_range (PagingComplex_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
+bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
+bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
 
-bool kmem_unmap_page(PagingComplex_t* table, uintptr_t virt);
-bool kmem_unmap_range(PagingComplex_t* table, uintptr_t virt, size_t page_count);
+bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
+bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
 
 /*
  * initialize the physical pageframe allocator
@@ -172,7 +174,7 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();
 
-PagingComplex_t* kmem_create_user_page_map(size_t byte_size);
+pml_entry_t* kmem_create_user_page_map(size_t byte_size);
 
 // TODO: write kmem_manager tests
 

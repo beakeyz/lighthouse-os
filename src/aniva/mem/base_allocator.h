@@ -2,7 +2,7 @@
 #define __ANIVA_BASE_ALLOCATOR__
 #include <libk/stddef.h>
 #include <libk/error.h>
-#include "PagingComplex.h"
+#include "pg.h"
 
 /*
  * the ironic part about this is that this
@@ -68,7 +68,7 @@ typedef struct generic_heap {
  * deallocations. in reality, it can never do this because the generic_heap
  * structure itself does not know how to allocate or deallocate anything
  */
-generic_heap_t *initialize_generic_heap(PagingComplex_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags);
+generic_heap_t *initialize_generic_heap(pml_entry_t* root_table, vaddr_t virtual_base, size_t initial_size, uintptr_t flags);
 
 ErrorOrPtr destroy_heap(generic_heap_t* heap);
 

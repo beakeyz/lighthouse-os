@@ -3,7 +3,7 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
 #include "libk/kevent/core.h"
-#include "mem/PagingComplex.h"
+#include "mem/pg.h"
 #include "proc/ipc/thr_intrf.h"
 #include "proc/kprocs/root_process.h"
 #include "system/acpi/acpi.h"
@@ -51,17 +51,16 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // init bootstrap processor
   init_processor(&g_bsp, 0);
 
-  kernel_panic("Panic");
-
   // bootstrap the kernel heap
   init_kheap();
 
   // initialize things like fpu or interrupts
   g_bsp.fLateInit(&g_bsp);
 
-
   // we need memory
   init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);
+
+  kernel_panic("Panic");
 
   // map multiboot address
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
