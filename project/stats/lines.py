@@ -5,9 +5,10 @@ class SourceLanguage(IntFlag, Enum):
     NONE = 0,
     C = 1,
     CPP = 2,
-    PYTHON = 3,
-    SHELL_SCRIPT = 4,
-    MARKDOWN = 5,
+    ASM = 3,
+    PYTHON = 4,
+    SHELL_SCRIPT = 5,
+    MARKDOWN = 6,
 
     def __int__(self) -> int:
         return self._value_
@@ -23,6 +24,8 @@ class SourceLanguage(IntFlag, Enum):
             return "Shell script"
         elif self == SourceLanguage.MARKDOWN:
             return "Markdown"
+        elif self == SourceLanguage.ASM:
+            return "Assembly"
         else:
             return "None"
 

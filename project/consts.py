@@ -53,6 +53,8 @@ class Consts:
                     self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.PYTHON))
                 elif entry.endswith(".h"):
                     self.SRC_FILES.append(SourceFile(True, abs_entry, SourceLanguage.C))
+                elif entry.endswith(".asm"):
+                    self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.ASM))
                 elif entry.endswith(".md"):
                     self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.MARKDOWN))
                 elif entry.endswith(".o"):
