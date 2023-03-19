@@ -3,6 +3,7 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
 #include "libk/kevent/core.h"
+#include "libk/multiboot.h"
 #include "mem/pg.h"
 #include "proc/ipc/thr_intrf.h"
 #include "proc/kprocs/root_process.h"
@@ -60,8 +61,6 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
-  kernel_panic("Panic");
-
   // map multiboot address
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
     (uintptr_t)mb_addr,
@@ -69,8 +68,13 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
   );
 
-  println("some tests");
-  println(to_string(processor_has(&get_current_processor()->m_info, X86_FEATURE_SYSCALL - 1)));
+  // NOTE: this panic is here since I still don't know if my 
+  // new mappings will hold up against the code I've written
+  // prior to them... Will need some riggorous testing lol
+  kernel_panic("Panic");
+
+  println("PROCESSOR CAPABILITIES TEST");
+  println(to_string(processor_has(&get_current_processor()->m_info, X86_FEATURE_SYSCALL)));
   println(to_string(get_current_processor()->m_info.m_x86_capabilities[1]));
 
   init_global_kevents();
