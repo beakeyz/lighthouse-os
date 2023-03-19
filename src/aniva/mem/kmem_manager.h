@@ -104,7 +104,7 @@ uintptr_t kmem_get_page_addr (uintptr_t page_idx);
  * translate a physical address to a virtual address in the
  * kernel pagetables
  */
-void* kmem_from_phys (uintptr_t addr);
+vaddr_t kmem_from_phys (uintptr_t addr);
 
 /*
  * translate a virtual address to a physical address in
