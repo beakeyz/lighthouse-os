@@ -13,8 +13,6 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
-// this layout is inspired by taoruos
-#define __def_pagemap __attribute__((aligned(0x1000UL))) = {0}
 #define STANDARD_PD_ENTRIES 512
 #define MAX_RETRIES_FOR_PAGE_MAPPING 5
 
