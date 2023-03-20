@@ -17,8 +17,10 @@
 
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xffffffff80000000ULL
-// Physical range base
-#define PHYSICAL_RANGE_BASE     0xffff800000000000ULL
+// Base for early kernelheap mappings 
+#define EARLY_KERNEL_HEAP_BASE  0xffff800000000000ULL
+// Base for early multiboot fb
+#define EARLY_FB_MAP_BASE       0xFFFFFFFFFF600000ULL
 
 // paging masks
 #define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL
@@ -104,7 +106,9 @@ uintptr_t kmem_get_page_addr (uintptr_t page_idx);
  * translate a physical address to a virtual address in the
  * kernel pagetables
  */
-vaddr_t kmem_from_phys (uintptr_t addr);
+vaddr_t kmem_ensure_high_mapping (uintptr_t addr);
+
+vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase);
 
 /*
  * translate a virtual address to a physical address in
@@ -150,7 +154,7 @@ void kmem_init_physical_allocator();
 /*
  * allocate a memory-range and identitymap it
  */
-void* kmem_kernel_alloc (uintptr_t addr, size_t size, uint32_t flags);
+void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags);
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags);
 
 /*

@@ -53,7 +53,6 @@ int fb_driver_exit() {
 }
 
 uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
-
   switch (payload.m_code) {
     case FB_DRV_SET_MB_TAG: {
       struct multiboot_tag_framebuffer* tag = payload.m_data;
@@ -65,22 +64,16 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
         s_bpp = tag->common.framebuffer_bpp;
         s_pitch = tag->common.framebuffer_pitch;
         s_used_pages = (s_pitch * s_height + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
-
-        bool f = kmem_map_range(nullptr, (uintptr_t)s_fb_addr, (uintptr_t)s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0);
-
-        for (uintptr_t y = 0; y < s_height; y++) {
-          for (uintptr_t x = 0; x < s_width; x++) {
-          }
-        }
       }
+
       break;
     }
     case FB_DRV_MAP_FB: {
       // TODO: save a list of mappings, so we can unmap it on driver unload
       uintptr_t virtual_base = *(uintptr_t*)payload.m_data;
-      print("mapped to: ");
-      println(to_string(virtual_base));
+      //println(to_string(virtual_base));
       kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+      return 0;
       break;
     }
     case FB_DRV_SET_FB:

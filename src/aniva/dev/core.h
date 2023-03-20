@@ -47,7 +47,7 @@ const static char* dev_type_urls[DRIVER_TYPE_COUNT] = {
 typedef uint32_t driver_control_code_t;
 
 // TODO: global dc codes 
-#define DCC_EXIT 1
+#define DCC_EXIT (uint32_t)(-1)
 
 typedef const char* dev_url_t;
 

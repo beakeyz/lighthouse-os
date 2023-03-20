@@ -15,10 +15,8 @@ acpi_aml_seg_t *acpi_load_segment(void* table_ptr, int idx) {
   ret->aml_table = table_ptr;
   ret->idx = idx;
 
-  println(to_string((uintptr_t) table_ptr));
-  kmem_kernel_alloc((uintptr_t)ret->aml_table, sizeof(acpi_aml_table_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-
-  kmem_kernel_alloc((uintptr_t)ret->aml_table->data, ret->aml_table->header.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  kmem_kernel_alloc((uintptr_t)ret->aml_table, sizeof(acpi_aml_table_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
+  kmem_kernel_alloc((uintptr_t)ret->aml_table->data, ret->aml_table->header.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
   return ret;
 }
 

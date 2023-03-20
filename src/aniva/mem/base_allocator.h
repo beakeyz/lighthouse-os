@@ -2,6 +2,9 @@
 #define __ANIVA_BASE_ALLOCATOR__
 #include <libk/stddef.h>
 #include <libk/error.h>
+#include "dev/debug/serial.h"
+#include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include "pg.h"
 
 /*
@@ -78,8 +81,9 @@ static void enable_heap_expantion(generic_heap_t* heap) {
 
   heap->m_flags |= GHEAP_EXPANDABLE;
 
-  if (heap->f_on_expand_enable)
+  if (heap->f_on_expand_enable) {
     heap->f_on_expand_enable(heap->m_parent_heap);
+  }
 }
 
 static ALWAYS_INLINE bool is_heap_identity_mapped(generic_heap_t* heap_ptr) {

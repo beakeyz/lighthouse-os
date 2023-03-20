@@ -91,14 +91,6 @@ void start_scheduler(void) {
     return;
   }
 
-  //if (is_kernel_proc(frame_ptr->m_proc_to_schedule) && sched_get_kernel_proc() == nullptr) {
-  //  get_current_processor()->m_kernel_process = frame_ptr->m_proc_to_schedule;
-  //} else {
-    // we might have just tried to initialize the kernel proc twice for this thread...
-    // or sm else thats just wrong
-    // FIXME:
-  //}
-
   // let's jump into the idle thread initially, so we can then
   // resume to the thread-pool when we leave critical sections
   thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_idle_thread;
@@ -111,10 +103,6 @@ void start_scheduler(void) {
 
   s_sched_mode = SCHEDULING;
 
-  //disable_interrupts();
-  // ensure interrupts enabled
-  //enable_interrupts();
-  //for (;;) {}
   bootstrap_thread_entries(initial_thread);
 }
 
@@ -137,6 +125,8 @@ void pick_next_thread_scheduler(void) {
 }
 
 ANIVA_STATUS pause_scheduler() {
+  if (!s_sched_mutex)
+    return ANIVA_FAIL;
 
   mutex_lock(s_sched_mutex);
 
@@ -155,6 +145,8 @@ ANIVA_STATUS pause_scheduler() {
 }
 
 void resume_scheduler(void) {
+  if (!s_sched_mutex)
+    return;
 
   if (s_sched_mode != PAUSED && !mutex_is_locked(s_sched_mutex)) {
     return;
@@ -205,10 +197,6 @@ ErrorOrPtr scheduler_try_execute() {
   thread_t *next_thread = get_current_scheduling_thread();
   thread_t *prev_thread = frame->m_proc_to_schedule->m_prev_thread;
 
-  //if (next_thread == frame->m_initial_thread && !next_thread->m_has_been_scheduled) {
-  //  bootstrap_thread_entries(next_thread);
-  //}
-
   thread_switch_context(prev_thread, next_thread);
   return Success(0);
 }
@@ -220,7 +208,6 @@ ErrorOrPtr scheduler_try_invoke() {
 }
 
 registers_t *sched_tick(registers_t *registers_ptr) {
-
   const enum SCHED_MODE prev_sched_mode = s_sched_mode;
 
   if (mutex_is_locked(s_sched_mutex)) {
@@ -230,12 +217,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   if (!get_current_scheduling_thread()) {
     return registers_ptr;
   }
-
-  /*
-  if (pause_scheduler() == ANIVA_FAIL) {
-    return registers_ptr;
-  }
-  */
 
   sched_frame_t *current_frame = list_get(s_sched_frames, 0);
 
@@ -248,8 +229,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
       println("Should have switched frames!");
       // switch_frames
-      //resume_scheduler();
-      //return registers_ptr;
       send_sched_frame_to_back(0);
       pick_next_thread_scheduler();
       scheduler_try_invoke();

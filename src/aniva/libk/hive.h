@@ -61,6 +61,11 @@ typedef struct hive {
 hive_t *create_hive(hive_url_part_t root_part);
 
 /*
+ * Destroy and deallocate a hive object
+ */
+void destroy_hive(hive_t* hive);
+
+/*
  * Add some data to a hive
  */
 ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path);

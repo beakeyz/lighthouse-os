@@ -32,7 +32,6 @@ processor_info_t gather_processor_info() {
         (unsigned int *)&info.m_vendor_id[4]);
 
   if (info.m_cpuid_level >= 0x00000001) {
-    println("PROCESSORINFO: leaf 0x00000001");
     read_cpuid(0x00000001, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
 
     info.m_family = GET_PROCESSOR_FAMILY(cpuid_eax);
@@ -45,7 +44,6 @@ processor_info_t gather_processor_info() {
   }
 
   if (info.m_cpuid_level_extended >= 0x80000008) {
-    println("PROCESSORINFO: leaf 0x80000008");
     read_cpuid(0x80000008, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
 
     info.m_virtual_bit_width = (cpuid_eax >> 8) & 0xff;
@@ -110,7 +108,6 @@ static void detect_processor_capabilities(processor_info_t* info) {
   uint32_t cpuid_level = info->m_cpuid_level;
 
   if (cpuid_level >= 0x00000001) {
-    println("PROCESSORINFO: leaf 0x00000001");
     read_cpuid(0x00000001, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
 
     info->m_x86_capabilities[CPUID_1_ECX] = cpuid_ecx;
@@ -118,14 +115,12 @@ static void detect_processor_capabilities(processor_info_t* info) {
   }
 
   if (cpuid_level >= 0x00000006) {
-    println("PROCESSORINFO: leaf 0x00000006");
     read_cpuid(0x00000006, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
 
     info->m_x86_capabilities[CPUID_6_EAX] = cpuid_eax;
   }
 
   if (cpuid_level >= 0x00000007) {
-    println("PROCESSORINFO: leaf 0x00000007");
     read_cpuid(0x00000007, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
 
     info->m_x86_capabilities[CPUID_7_ECX] = cpuid_ecx;
@@ -133,14 +128,12 @@ static void detect_processor_capabilities(processor_info_t* info) {
     info->m_x86_capabilities[CPUID_7_0_EBX] = cpuid_ebx;
 
     if (cpuid_eax > 1) {
-      println("PROCESSORINFO: leaf 0x00000001 (eax > 1)");
       read_cpuid(0x00000007, 1, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
       info->m_x86_capabilities[CPUID_7_1_EAX] = cpuid_eax;
     }
   }
 
   if (cpuid_level >= 0x0000000d) {
-      println("PROCESSORINFO: leaf 0x0000000d");
     read_cpuid(0x0000000d, 1, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
     info->m_x86_capabilities[CPUID_D_1_EAX] = cpuid_eax;
   }
@@ -149,7 +142,6 @@ static void detect_processor_capabilities(processor_info_t* info) {
   info->m_cpuid_level_extended = cpuid_eax;
 
   if ((cpuid_eax & 0xffff0000) == 0x80000000 && cpuid_eax >= 0x80000001) {
-    println("PROCESSORINFO: leaf 0x80000001");
     read_cpuid(0x80000001, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
 
     info->m_x86_capabilities[CPUID_8000_0001_ECX] = cpuid_ecx;
@@ -157,23 +149,19 @@ static void detect_processor_capabilities(processor_info_t* info) {
   }
 
   if (info->m_cpuid_level_extended >= 0x80000007) {
-    println("PROCESSORINFO: leaf 0x80000007");
     read_cpuid(0x80000007, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
     info->m_x86_capabilities[CPUID_8000_0007_EBX] = cpuid_ebx;
   }
 
   if (info->m_cpuid_level_extended >= 0x80000008) {
-    println("PROCESSORINFO: leaf 0x80000008");
     read_cpuid(0x80000008, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
     info->m_x86_capabilities[CPUID_8000_0008_EBX] = cpuid_ebx;
   }
   if (info->m_cpuid_level_extended >= 0x8000000a) {
-    println("PROCESSORINFO: leaf 0x8000000a");
     read_cpuid(0x8000000a, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
     info->m_x86_capabilities[CPUID_8000_000A_EDX] = cpuid_edx;
   }
   if (info->m_cpuid_level_extended >= 0x8000001f) {
-    println("PROCESSORINFO: leaf 0x8000001f");
     read_cpuid(0x8000001f, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
     info->m_x86_capabilities[CPUID_8000_001F_EAX] = cpuid_eax;
   }

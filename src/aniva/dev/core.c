@@ -97,6 +97,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     return Error();
   }
 
+  println("adding");
   FOREACH(i, manifest->m_dependency_manifests) {
     dev_manifest_t* dep_manifest = i->data;
     ErrorOrPtr error = { .m_status = ANIVA_SUCCESS };

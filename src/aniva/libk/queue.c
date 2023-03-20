@@ -90,6 +90,10 @@ void* queue_dequeue(queue_t *queue) {
 }
 
 void* queue_peek(queue_t* queue) {
+  if (!queue || !queue->m_head_ptr) {
+    return nullptr;
+  }
+
   return queue->m_head_ptr->m_data;
 }
 

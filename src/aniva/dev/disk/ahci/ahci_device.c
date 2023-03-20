@@ -62,7 +62,7 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
   print("BAR5 address: ");
   println(to_string(bar5));
 
-  uintptr_t hba_region = (uintptr_t)kmem_kernel_alloc(bar5, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE) & 0xFFFFFFF0;
+  uintptr_t hba_region = (uintptr_t)kmem_kernel_alloc(bar5, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY) & 0xFFFFFFF0;
 
   return (void*)hba_region;
 }

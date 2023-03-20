@@ -43,24 +43,25 @@ void create_and_register_root_process(uintptr_t multiboot_address) {
   proc_add_thread(root_proc, create_thread_for_proc(root_proc, root_packet_dispatch, NULL, "root packet dispatch"));
 
   sched_add_proc(root_proc);
+
 }
 
 static void root_main(uintptr_t multiboot_address) {
 
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_test_dbg_driver, 0)));
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ps2_keyboard_driver, 0)));
-  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
+  //Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 
   if (multiboot_address) {
     // load the kterm driver, which also loads the fb driver
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_fb_driver, 0)));
 
+    destroy_packet_response(await(driver_send_packet("diagnostics.debug", 1, NULL, 0)));
+
     destroy_packet_response(await(driver_send_packet("graphics.fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)multiboot_address, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(struct multiboot_tag_framebuffer))));
 
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_kterm_driver, 0)));
-
   }
-
 }
 
 static void root_packet_dispatch() {

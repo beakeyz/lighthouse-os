@@ -15,4 +15,6 @@ void* kmalloc (size_t len);
 void kfree (void* addr);
 void kfree_sized(void* addr, size_t allocation_size);
 
+void kdebug();
+
 #endif //__ANIVA_HEAP_CORE__

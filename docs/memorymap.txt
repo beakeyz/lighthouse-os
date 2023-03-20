@@ -1,0 +1,13 @@
+Layout of ANIVA kernel memory
+
+physical:
+
+0x00ULL -> &_kernel_start: free / bios occupied
+&_kernel_start -> &_kernel_end: kernel occupied
+&_kernel_end -> 0xFFFFFFFFFFFFFFFF: free most likely
+
+virtual kernelspace:
+
+0xFFFFFFFF80000000 -> ...: kernel-mapped
+0xFFFF800000000000 -> ...: early kernelheap mapped
+0xFFFFFFFF60000000 -> 0xFFFFFFFF60000000 + fb_size: early multiboot frambuffer

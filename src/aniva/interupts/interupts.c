@@ -9,6 +9,7 @@
 #include <interupts/control/pic.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
+#include "proc/thread.h"
 #include "stubs.h"
 #include "system/asm_specifics.h"
 #include "sched/scheduler.h"
@@ -175,7 +176,6 @@ EXCEPTION(12, "Stack segment fault");
 REGISTER_ERROR_HANDLER(13, general_protection);
 
 void general_protection_handler(registers_t *regs) {
-  println(get_current_scheduling_thread()->m_name);
   kernel_panic("General protection fault (TODO: more info)");
 }
 
@@ -187,6 +187,10 @@ void pagefault_handler(registers_t *regs) {
   uintptr_t cs = regs->cs;
 
   println(" --- PAGEFAULT --- ");
+  thread_t* current = get_current_scheduling_thread();
+  if (current) {
+    println(current->m_name);
+  }
   print("error at ring: ");
   println(to_string(cs & 3));
   print("error at addr: ");
@@ -201,7 +205,7 @@ void pagefault_handler(registers_t *regs) {
   }
   println((regs->err_code & 1) ? "PV" : "NP");
 
-  kernel_panic("pagefault! (TODO: more info)");
+  //kernel_panic("pagefault! (TODO: more info)");
 }
 
 EXCEPTION(15, "Unknown error (Reserved)");

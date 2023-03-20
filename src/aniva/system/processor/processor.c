@@ -1,5 +1,6 @@
 #include "processor.h"
 #include "interupts/idt.h"
+#include "libk/error.h"
 #include "libk/queue.h"
 #include "sync/spinlock.h"
 #include "system/asm_specifics.h"

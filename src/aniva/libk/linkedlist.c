@@ -118,13 +118,16 @@ bool list_remove(list_t* list, uint32_t index) {
       } else if (next == nullptr) {
         // we are at the tail
         list->end = prev;
+        prev->next = nullptr;
       } else if (prev == nullptr) {
         // we are at the head
         list->head = next;
+        next->prev = nullptr;
+      } else {
+        // we are somewhere in between, use pointer magic
+        next->prev = prev;
+        prev->next = next;
       }
-      // pointer magic
-      next->prev = prev;
-      prev->next = next;
 
       kfree(i);
       list->m_length--;

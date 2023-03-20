@@ -190,7 +190,6 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
     return Warning();
   }
 
-  println("socket ready: ");
   println(socket->m_parent->m_name);
 
   thread_t* thread = socket->m_parent;

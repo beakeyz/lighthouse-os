@@ -5,6 +5,7 @@
 #include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "sched/scheduler.h"
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
@@ -15,7 +16,9 @@
 void generic_proc_idle () {
   println("Entered generic_proc_idle");
 
-  for (;;){}
+  for (;;) {
+    scheduler_yield();
+  }
 }
 
 proc_t* create_clean_proc(char name[32], proc_id id) {

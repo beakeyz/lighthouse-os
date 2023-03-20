@@ -74,7 +74,7 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index);
 void* find_table(acpi_parser_t *parser, const char* sig);
 
 // just for funzies
-void print_tables(void* rsdp_addr);
+void print_tables(acpi_parser_t* parser);
 
 const char* parser_get_acpi_tables(acpi_parser_t* parser);
 

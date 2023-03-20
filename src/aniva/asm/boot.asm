@@ -128,7 +128,7 @@ cpuid_support:
     cmp ecx, 0
     jne .fill_directory
 
-  mov ecx, 1024 
+  mov ecx, 0x1000
   mov ebx, 0 
   mov eax, 0 
 
@@ -223,7 +223,7 @@ boot_pdpt:
 boot_pd0:
   times 0x1000 db 0
 boot_pd0_p:
-  times 0x20000 db 0
+  times 0x80000 db 0
 
 boot_hh_pdpt:
   times 0x1000 db 0

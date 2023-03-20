@@ -12,10 +12,11 @@
 #include "sync/spinlock.h"
 #include "system/acpi/parser.h"
 #include <system/processor/processor.h>
+#include <mem/kmem_manager.h>
 
 #define KTERM_MAX_BUFFER_SIZE 256
 
-#define KTERM_FB_ADDR 0xFFFFFFFFFF600000
+#define KTERM_FB_ADDR (EARLY_FB_MAP_BASE) 
 #define KTERM_FONT_HEIGHT 8
 #define KTERM_FONT_WIDTH 8
 
@@ -210,8 +211,10 @@ void kterm_init() {
     destroy_packet_response(response);
   }
 
+
   // flush our terminal buffer
   kterm_flush_buffer();
+
   kterm_draw_cursor();
 
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
@@ -293,19 +296,19 @@ static void kterm_process_buffer() {
 
   if (!strcmp(contents, "acpitables")) {
     
-    const char* tables = parser_get_acpi_tables(g_parser_ptr);
+    //const char* tables = parser_get_acpi_tables(g_parser_ptr);
 
     kterm_println("\n");
 
-    if (tables) {
+    //if (tables) {
 
       kterm_println("\n");
       kterm_println("acpi static table info: \n");
       kterm_println("rsdp address: ");
-      kterm_println(to_string((uintptr_t)g_parser_ptr->m_rsdp));
+      kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_rsdp)));
       kterm_println("\n");
       kterm_println("xsdp address: ");
-      kterm_println(to_string((uintptr_t)g_parser_ptr->m_xsdp));
+      kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_xsdp)));
       kterm_println("\n");
       kterm_println("is xsdp: ");
       kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
@@ -332,11 +335,11 @@ static void kterm_process_buffer() {
       kterm_println("\n");
       kterm_println("tables found: ");
       kterm_println(to_string(g_parser_ptr->m_tables->m_length));
-      kterm_println("\n");
-      kterm_println("tables: ");
-      kterm_println(tables);
-      kfree((void*)tables);
-    }
+    //  kterm_println("\n");
+    //  kterm_println("tables: ");
+    //  kterm_println(tables);
+    //  kfree((void*)tables);
+    //}
   } else if (!strcmp(contents, "help")) {
     kterm_println("\n");
     kterm_println("available commands: \n");
@@ -361,8 +364,9 @@ static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color) {
   if (kterm_fb_info.pitch == 0 || kterm_fb_info.bpp == 0)
     return;
 
-  if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height)
+  if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height) {
     *(uint32_t*)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8) = color;
+  }
 }
 
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {

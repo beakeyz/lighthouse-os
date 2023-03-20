@@ -5,8 +5,8 @@
 #include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
 
-#define INITIAL_HEAP_SIZE ALIGN_UP(2 * Mib, SMALL_PAGE_SIZE) // IN BYTES
-#define INITIAL_KHEAP_VBASE 0xFFFFFFFFFF600000 
+#define INITIAL_HEAP_SIZE ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE) // IN BYTES
+#define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
 // fuk yea
 // reserve enough, so we can use kmem_manager later to expand the heap
@@ -71,4 +71,8 @@ void kfree (void* addr) {
 
 void kfree_sized(void* addr, size_t allocation_size) {
   s_kernel_allocator.m_heap->f_sized_deallocate(&s_kernel_allocator, addr, allocation_size);
+}
+
+void kdebug() {
+  quick_print_node_sizes(&s_kernel_allocator);
 }

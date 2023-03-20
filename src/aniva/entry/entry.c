@@ -41,13 +41,9 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     kernel_panic("Can't verify multiboot header: invalid magic number");
   }
 
-  println(to_string((uintptr_t)mb_addr));
-
   // parse multiboot
   mb_initialize((void *) mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
-
-  println(to_string((uintptr_t)&g_bsp));
 
   // init bootstrap processor
   init_processor(&g_bsp, 0);
@@ -65,17 +61,8 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
     (uintptr_t)mb_addr,
     total_multiboot_size + 8,
-    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
+    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
   );
-
-  // NOTE: this panic is here since I still don't know if my 
-  // new mappings will hold up against the code I've written
-  // prior to them... Will need some riggorous testing lol
-  kernel_panic("Panic");
-
-  println("PROCESSOR CAPABILITIES TEST");
-  println(to_string(processor_has(&get_current_processor()->m_info, X86_FEATURE_SYSCALL)));
-  println(to_string(get_current_processor()->m_info.m_x86_capabilities[1]));
 
   init_global_kevents();
 

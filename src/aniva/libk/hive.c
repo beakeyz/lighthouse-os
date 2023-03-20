@@ -5,6 +5,7 @@
 #include <libk/string.h>
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "sched/scheduler.h"
 
 hive_t *create_hive(hive_url_part_t root_part) {
   hive_t* ret = kmalloc(sizeof(hive_t));
@@ -29,6 +30,7 @@ hive_t *create_hive(hive_url_part_t root_part) {
   return ret;
 }
 
+
 static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type);
 static void destroy_hive_entry(hive_entry_t* entry);
 static hive_entry_t* __hive_find_entry(hive_t* hive, hive_url_part_t part);
@@ -36,6 +38,22 @@ static ANIVA_STATUS __hive_parse_hive_path(hive_t* root, const char* path, ANIVA
 static hive_url_part_t __hive_find_part_at(const char* path, uintptr_t depth);
 static size_t __hive_get_part_count(const char* path);
 static const char* __hive_prepend_root_part(hive_t* root, const char* path);
+
+void destroy_hive(hive_t* hive) {
+
+  FOREACH(i, hive->m_entries) {
+    hive_entry_t* entry = i->data;
+
+    if (entry) {
+      destroy_hive_entry(entry);
+    }
+  }
+
+  destroy_list(hive->m_entries);
+  kfree(hive->m_url_part);
+  kfree(hive);
+}
+
 static bool __hive_path_is_invalid(const char* path);
 
 ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
@@ -353,6 +371,12 @@ static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type) {
 }
 
 static void destroy_hive_entry(hive_entry_t* entry) {
+
+  // recursively kill off nested hives
+  if (entry->m_type == HIVE_ENTRY_TYPE_HOLE)
+    destroy_hive(entry->m_hole);
+
+  kfree(entry->m_entry_part);
   kfree(entry);
 }
 

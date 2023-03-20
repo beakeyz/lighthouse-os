@@ -46,14 +46,13 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     stack_mem_flags |= KMEM_FLAG_KERNEL;
   }
 
-  uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE,stack_mem_flags));
+  uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_IDENTITY, stack_mem_flags));
   memset((void *)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
   thread->m_stack_bottom = stack_bottom;
   thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
   thread->m_context = setup_regs(kthread, get_current_processor()->m_page_dir, thread->m_stack_top);
   thread->m_real_entry = entry;
-
 
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
   return thread;
@@ -154,7 +153,7 @@ NAKED void common_thread_entry() {
   asm (
     "popq %rdi \n" // our beautiful thread
     "popq %rsi \n" // ptr to its registers
-    "call thread_exit_init_state \n"
+    //"call thread_exit_init_state \n"
     "jmp asm_common_irq_exit \n"
     );
 }
@@ -236,9 +235,6 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 void bootstrap_thread_entries(thread_t* thread) {
 
   thread->m_has_been_scheduled = true;
-
-  print("(INIT) Loading context of: ");
-  println(thread->m_name);
 
   ASSERT(thread->m_current_state != NO_CONTEXT);
   ASSERT(get_current_scheduling_thread() == thread);
@@ -326,9 +322,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 // TODO: this thing
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 
-  //println(to_string((uintptr_t)from));
-  //println(to_string(regs->cs));
-  //kernel_panic("reached thread_exit_init_state");
 }
 
 void thread_block(thread_t* thread) {

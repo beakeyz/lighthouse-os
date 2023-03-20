@@ -51,6 +51,7 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   println("init tables");
   parser_init_tables(parser);
+  print_tables(parser);
 
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
@@ -278,8 +279,6 @@ const char* parser_get_acpi_tables(acpi_parser_t* parser) {
     memcpy(&sig, header->signature, 4);
     sig[4] = '\0';
 
-    println(sig);
-
     names = (char*)concat(names, sig);
     names = (char*)concat(names, ", ");
   }
@@ -287,8 +286,10 @@ const char* parser_get_acpi_tables(acpi_parser_t* parser) {
   return names;
 }
 
-void print_tables(void* rsdp_addr) {
-  const char* tables = parser_get_acpi_tables(rsdp_addr);
+void print_tables(acpi_parser_t* parser) {
+
+  const char* tables = parser_get_acpi_tables(parser);
+  println("Tables");
   println(tables);
   kfree((void*)tables);
 }

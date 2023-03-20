@@ -1,7 +1,10 @@
 #include "malloc.h"
+#include "interupts/interupts.h"
 #include "mem/kmem_manager.h"
 #include "base_allocator.h"
 #include "heap.h"
+#include "sched/scheduler.h"
+#include "system/asm_specifics.h"
 #include <libk/string.h>
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
@@ -21,7 +24,7 @@ memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintpt
   memory_allocator_t *heap = kmalloc(sizeof(memory_allocator_t));
 
   // TODO: also call the on_expand_enable function here
-  flags |= GHEAP_EXPANDABLE;
+  //flags |= GHEAP_EXPANDABLE;
 
   heap->m_heap = initialize_generic_heap(nullptr, virtual_base, size, flags);
   heap->m_heap->f_allocate = (HEAP_ALLOCATE) malloc_allocate;
@@ -79,6 +82,7 @@ void quick_print_node_sizes(memory_allocator_t* allocator) {
 void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
 
   heap_node_t* node = allocator->m_heap_start_node;
+
   while (node) {
     // TODO: should we also allow allocation when len is equal to the nodesize - structsize?
 
@@ -165,25 +169,38 @@ void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
 
   // first we'll check if we can do this easily
   heap_node_t* node = (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t));
-  if (verify_identity(node)) {
-    // we can free =D
-    if (has_flag(node, MALLOC_FLAGS_USED)) {
-      node->flags &= ~MALLOC_FLAGS_USED;
-      allocator->m_used_size-=node->size;
-      allocator->m_free_size+=node->size;
-      // see if we can merge
-      heap_node_t* n = try_merge(allocator, node);
-      if (n == nullptr) {
-        //println("unable to merge nodes =/");
-        return;
-      }
 
-      if (n->next)
-        try_merge(allocator, n->next);
-      // FIXME: should we zero freed nodes?
+  // This itterating does slow down our algorithm, but
+  // it wasn't any good to begin with anyway lmao.
+  // this does stop some weird behaviour when trying 
+  // to free a pointer that is not malloced
+  heap_node_t* it = allocator->m_heap_start_node;
+  while (it) {
+    if (!it) {
+      break;
     }
-  } else {
-    println("invalid identifier");
+
+    if (it == node) {
+      // found our node
+      if (verify_identity(node)) {
+        // we can free =D
+        if (has_flag(node, MALLOC_FLAGS_USED)) {
+          node->flags &= ~MALLOC_FLAGS_USED;
+          allocator->m_used_size-=node->size;
+          allocator->m_free_size+=node->size;
+          // see if we can merge
+
+          try_merge(allocator, node);
+
+          // FIXME: should we zero freed nodes?
+          break;
+        }
+      } else {
+        println("invalid identifier");
+      }
+      break;
+    }
+    it = it->next;
   }
 }
 
@@ -193,17 +210,17 @@ ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_
   println("HEAP EXPANTION");
   ASSERT_MSG((allocator->m_heap->m_flags & GHEAP_EXPANDABLE) && (allocator->m_heap->m_flags & GHEAP_KERNEL), "Heap is not ready to be expanded!");
 
-  const vaddr_t new_mapping_base = allocator->m_heap->m_virtual_base + allocator->m_heap->m_current_total_size;
+  const vaddr_t new_map_base = kmem_from_phys((paddr_t)allocator->m_heap_start_node, allocator->m_heap->m_virtual_base) + allocator->m_heap->m_current_total_size;
 
-  println(to_string(new_mapping_base));
-  println(to_string(ALIGN_UP(new_mapping_base, SMALL_PAGE_SIZE)));
+  println(to_string(new_map_base));
+  println(to_string(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE)));
 
-  ASSERT_MSG(ALIGN_UP(new_mapping_base, SMALL_PAGE_SIZE) == new_mapping_base, "Heap was misaligned while expanding!");
+  ASSERT_MSG(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE) == new_map_base, "Heap was misaligned while expanding!");
 
   extra_size = ALIGN_UP(extra_size, SMALL_PAGE_SIZE);
 
   // request a page from kmem_manager
-  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, new_mapping_base, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, new_map_base, KMEM_CUSTOMFLAG_GET_MAKE, 0);
   if (result.m_status != ANIVA_SUCCESS) {
     return ANIVA_FAIL;
   }
@@ -222,7 +239,6 @@ ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_
     new_node->prev = allocator->m_heap_bottom_node;
     allocator->m_heap_bottom_node->next = new_node;
 
-    println(to_string(kmem_get_page(nullptr, (uintptr_t)allocator->m_heap_bottom_node, 0)->raw_bits));
     if (try_merge(allocator, allocator->m_heap_bottom_node) != nullptr) {
       return ANIVA_SUCCESS;
     }
@@ -239,11 +255,28 @@ void malloc_on_heap_expand_enable(memory_allocator_t* allocator) {
   ASSERT_MSG(ALIGN_UP(heap_vbase, SMALL_PAGE_SIZE) == heap_vbase, "heap_vbase is not aligned!");
   ASSERT_MSG(ALIGN_UP(heap_current_size, SMALL_PAGE_SIZE) == heap_current_size, "heap_current_size is not aligned!");
 
-  bool result = kmem_map_range(nullptr, heap_vbase, (uintptr_t)allocator->m_heap_start_node, heap_current_size / SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
+  bool result = kmem_map_range(nullptr, kmem_from_phys((vaddr_t)allocator->m_heap_start_node, heap_vbase), (uintptr_t)allocator->m_heap_start_node, heap_current_size / SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
 
   if (!result) {
     kernel_panic("Failed to enable expantion!");
   }
+
+  allocator->m_heap_start_node = (heap_node_t*)kmem_from_phys((vaddr_t)allocator->m_heap_start_node, heap_vbase);
+  // TODO: fixup all the pointers in this heap
+
+  heap_node_t* node = allocator->m_heap_start_node;
+  while (node) {
+    if (node->next == nullptr) {
+      break;
+    }
+
+    ASSERT_MSG(verify_identity(node), "Node is invalid!");
+
+    node->next = (heap_node_t*)kmem_from_phys((paddr_t)node->next, heap_vbase);
+    node = node->next;
+  }
+
+  println("Done remapping nodes!");
 }
 
 heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t size) {
@@ -290,9 +323,6 @@ heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t
   // now init the data of our new used node
   new_first_node->next = new_second_node;
 
-  // TODO: these two should prob be asserts
-  new_first_node->prev = ptr->prev;
-  new_first_node->flags = ptr->flags;
   new_first_node->size = size + sizeof(heap_node_t);
 
   allocator->m_nodes_count++;
@@ -304,9 +334,11 @@ bool can_merge(heap_node_t *node1, heap_node_t *node2) {
   if (node2 == nullptr || node1 == nullptr)
     return false;
 
+
   // Only free nodes can merge
   if (!has_flag(node1, MALLOC_FLAGS_USED) && !has_flag(node2, MALLOC_FLAGS_USED)) {
-    if ((node1->prev == node2 && node2->next == node1) || (node1->next == node2 && node2->prev == node1)) {
+    if ((node1->prev != nullptr && node1->prev == node2 && node2->next != nullptr && node2->next == node1) ||
+        (node1->next != nullptr && node1->next == node2 && node2->prev != nullptr && node2->prev == node1)) {
       return true;
     } 
   }
@@ -319,9 +351,11 @@ heap_node_t* merge_node_with_next (memory_allocator_t * allocator, heap_node_t* 
   if (can_merge(ptr, ptr->next)) {
     ptr->size += ptr->next->size;
     heap_node_t* next_next = ptr->next->next;
-    //memset(ptr->next, 0, ptr->next->size);
+    memset(ptr->next, 0, sizeof(heap_node_t));
 
-    next_next->prev = ptr;
+    if (next_next) {
+      next_next->prev = ptr;
+    } 
     ptr->next = next_next;
 
     allocator->m_nodes_count--;
@@ -334,9 +368,13 @@ heap_node_t* merge_node_with_prev (memory_allocator_t * allocator, heap_node_t* 
     heap_node_t* prev = ptr->prev;
 
     prev->size += ptr->size;
+
+    ptr->next->prev = prev;
     prev->next = ptr->next;
-    //memset(ptr, 0, ptr->size);
+
+    memset(ptr, 0, sizeof(heap_node_t));
     allocator->m_nodes_count--;
+
     return prev;
   }
   return nullptr;
@@ -345,8 +383,9 @@ heap_node_t* merge_nodes (memory_allocator_t * allocator, heap_node_t* ptr1, hea
   if (can_merge(ptr1, ptr2)) {
     // Because they passed the merge check we can do this =D
     // sm -> ptr1 -> ptr2 -> sm
+    
     if (ptr1->next == ptr2) {
-        return merge_node_with_next(allocator,ptr1);
+      return merge_node_with_next(allocator,ptr1);
     }
     // ptr2 -> ptr1 -> sm
     return merge_node_with_prev(allocator,ptr1);
@@ -355,13 +394,14 @@ heap_node_t* merge_nodes (memory_allocator_t * allocator, heap_node_t* ptr1, hea
 }
 
 heap_node_t* try_merge(memory_allocator_t * allocator, heap_node_t *node) {
-  heap_node_t* merged_node = merge_nodes(allocator,node, node->next);
+  heap_node_t* merged_node = merge_nodes(allocator, node, node->prev);
+
   if (merged_node == nullptr) {
-    merged_node = merge_nodes(allocator,node, node->prev);
+    merged_node = merge_nodes(allocator, node, node->next);
   }
 
   if (merged_node) {
-    try_merge(allocator,merged_node);
+    return try_merge(allocator, merged_node);
   }
 
   return merged_node;
