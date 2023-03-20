@@ -71,7 +71,9 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
 
   // FIXME: find out if this address is always valid
-  uintptr_t map = kmem_to_phys(nullptr, (uintptr_t)KMEM_DATA.m_kernel_base_pd);
+  // NOTE: If we ever decide to change the boottime mappings, this (along with the 
+  // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
+  uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE;
  
   _load_page_dir(map, true);
 
