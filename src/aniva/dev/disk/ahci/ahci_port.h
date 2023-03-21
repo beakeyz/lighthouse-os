@@ -25,6 +25,8 @@ typedef struct ahci_port {
 
 ahci_port_t* make_ahci_port(struct ahci_device* device, volatile HBA_port_registers_t* port_regs, uint32_t index);
 
+void destroy_ahci_port(ahci_port_t* port);
+
 ANIVA_STATUS initialize_port(ahci_port_t* port);
 
 ANIVA_STATUS ahci_port_handle_int(ahci_port_t* port);

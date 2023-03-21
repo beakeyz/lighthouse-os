@@ -120,8 +120,8 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
       ahci_port_t* port = make_ahci_port(device, port_regs, i);
       if (initialize_port(port) == ANIVA_FAIL) {
-        print("Failed to initialize AHCI port ");
-        println(to_string(i));
+        println("Failed! killing port...");
+        destroy_ahci_port(port);
         continue;
       }
       list_append(device->m_ports, port);
@@ -223,7 +223,6 @@ void ahci_driver_init() {
   enumerate_registerd_devices(find_ahci_device);
 
   resume_scheduler();
-
 }
 
 int ahci_driver_exit() {

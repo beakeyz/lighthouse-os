@@ -37,10 +37,21 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, volatile HBA_port_regist
 
   ret->m_dma_buffer = (void*)kmem_prepare_new_physical_page().m_ptr;
 
-  uintptr_t cmd_buffer_page = kmem_prepare_new_physical_page().m_ptr;
+  uintptr_t cmd_buffer_page = kmem_request_physical_page().m_ptr;
   ret->m_cmd_table_buffer = kmem_kernel_alloc_extended(cmd_buffer_page, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL | KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH);
 
   return ret;
+}
+
+void destroy_ahci_port(ahci_port_t* port) {
+
+  kmem_return_physical_page(port->m_fis_recieve_page);
+  kmem_return_physical_page((paddr_t)port->m_cmd_table_buffer);
+  kmem_return_physical_page(port->m_cmd_list_page);
+  kmem_kernel_dealloc((vaddr_t)port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
+
+  destroy_spinlock(port->m_hard_lock);
+  kfree(port);
 }
 
 ANIVA_STATUS initialize_port(ahci_port_t *port) {

@@ -167,7 +167,8 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 static void kterm_draw_cursor();
 static const char* kterm_get_buffer_contents();
 static void kterm_next_ln();
-
+static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y);
+static void kterm_scroll(uintptr_t lines);
 static void kterm_println(const char* msg);
 
 // This driver depends on ps2, so this is legal for now
@@ -415,4 +416,18 @@ static void kterm_println(const char* msg) {
     index++;
   }
   kterm_buffer_ptr = kterm_buffer_ptr_copy;
+}
+
+static void kterm_next_ln() {
+
+}
+
+static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
+  if (kterm_fb_info.pitch == 0 || kterm_fb_info.bpp == 0)
+    return 0;
+
+  if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height) {
+    return (vaddr_t)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8);
+  }
+  return 0;
 }

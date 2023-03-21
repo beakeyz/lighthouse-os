@@ -74,6 +74,7 @@ void* await(async_ptr_t* ptr) {
   ptr->m_waiter = get_current_scheduling_thread();
 
   while(ptr->m_response_buffer && !*ptr->m_response_buffer) {
+    scheduler_yield();
     if (atomic_ptr_load(ptr->m_is_buffer_killed) != false) {
       kfree((void*)ptr->m_response_buffer);
       ptr->m_response_buffer = nullptr;

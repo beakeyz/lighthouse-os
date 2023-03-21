@@ -312,7 +312,7 @@ ErrorOrPtr kmem_request_physical_page() {
 
   uintptr_t index = result.m_ptr;
 
-  return Success(index << 12);
+  return Success(kmem_get_page_addr(index));
 }
 
 // TODO: errorhandle
@@ -332,6 +332,22 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
   }
 
   return result;
+}
+
+ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
+
+  if (ALIGN_UP(page_base, SMALL_PAGE_SIZE) != page_base) {
+    return Error();
+  }
+
+  vaddr_t vbase = kmem_ensure_high_mapping(page_base);
+
+  uint32_t index = kmem_get_page_idx(page_base);
+
+  kmem_set_phys_page_free(index);
+  memset((void*)vbase, 0, SMALL_PAGE_SIZE);
+
+  return Success(0);
 }
 
 pml_entry_t *kmem_get_krnl_dir() {

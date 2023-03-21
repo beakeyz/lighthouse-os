@@ -133,6 +133,7 @@ void kmem_flush_tlb();
 
 ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
+ErrorOrPtr kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir ();
 pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags);
 pml_entry_t* kmem_clone_page(pml_entry_t* page);

@@ -64,7 +64,7 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
   );
 
-  init_global_kevents();
+  //init_global_kevents();
 
   init_timer_system();
 
