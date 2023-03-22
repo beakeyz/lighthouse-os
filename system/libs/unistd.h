@@ -1,7 +1,7 @@
 #ifndef __LIGHTENV_LIBC_UNISTD__
 #define __LIGHTENV_LIBC_UNISTD__
 
-#include <libs/libc/sys/types.h>
+#include "sys/types.h"
 
 #ifdef __cplusplus
 extern "C" {
