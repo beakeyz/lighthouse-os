@@ -1,7 +1,4 @@
 #include "core.h"
-#include <libk/kevent/eventhook.h>
-#include <libk/kevent/eventregister.h>
-#include "libk/kevent/core.h"
 #include "dev/debug/serial.h"
 #include <time/pit.h>
 #include <sched/scheduler.h>

@@ -34,6 +34,19 @@ rebuild_sysroot () {
 }
 
 # TODO: figure out how to propperly do this -_-
-mkdir -p ./sysroot/libs/libc
-cp -r ./src/libs/libc/** ./sysroot/libs/
+log "Preparing sysroot"
+# mkdir -p ./../system/Lib
 
+# TODO: do the thing
+LIBC_HEADER_DIR="./../src/libs/libc"
+SYSTEM_ROOT_LIBS_DIR="./../system/libs"
+
+# Oehhh this is dangerous lol
+rm -rf $SYSTEM_ROOT_LIBS_DIR
+
+cp -r "$LIBC_HEADER_DIR" "./../system"
+mv "./../system/libc" "./../system/libs"
+
+find "$SYSTEM_ROOT_LIBS_DIR" -type f -not -name '*.h' -delete
+
+log "Done!"

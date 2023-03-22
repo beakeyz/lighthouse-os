@@ -6,8 +6,6 @@
 #include "libk/io.h"
 #include "time/core.h"
 #include "sched/scheduler.h"
-#include "libk/kevent/eventhook.h"
-#include <libk/kevent/core.h>
 #include <system/asm_specifics.h>
 
 #define PIT_BASE_FREQ 1193182

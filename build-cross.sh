@@ -25,9 +25,8 @@ export TARGET="x86_64-pc-lightos"
 #           i686-elf            (32 bit mode (?))
 #           x86_64-pc-lightos   (patched 64 bit mode)
 #           i686-pc-lightos     (?)
+export SYSROOT="$PWD/system"
 
-
-SYSROOT="$PWD/sysroot/"
 patch_path="$PWD/crosscompiler_patches/"
 
 # binutils
@@ -138,9 +137,11 @@ cd build
 log "Configuring binutils"
 cd binutils
 "$BINUTILS_SRC/configure" --target="$TARGET" 	\
+        --with-sysroot="$SYSROOT"                    \
         --prefix="$CC_PATH" 	\
         --disable-nls 		\
-        --disable-werror
+        --disable-werror     \
+        --enable-shared       \
 
 log "Started making binutils"
 make -j$(nproc)
@@ -152,10 +153,11 @@ log "Done! Starting gcc . . ."
 log "Configuring gcc"
 cd gcc
 "$GCC_SRC/configure" --target="$TARGET" \
+        --with-sysroot="$SYSROOT"            \
         --prefix="$CC_PATH" 		\
         --disable-nls			\
         --enable-languages=c	\
-        -without-headers \
+        --enable-shared \
 
 log "Making gcc . . ."
 make all-gcc -j$(nproc)

@@ -2,7 +2,6 @@
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
-#include "libk/kevent/core.h"
 #include "libk/multiboot.h"
 #include "mem/pg.h"
 #include "proc/ipc/thr_intrf.h"

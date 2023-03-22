@@ -6,3 +6,6 @@
 /tests/out
 
 ./lightos.elf
+
+*/__pycache__/
+**/__pycache__/

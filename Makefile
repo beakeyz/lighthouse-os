@@ -1,7 +1,3 @@
-#
-# Credit goes to WingOS for most of this makefile. Their project has been a great help to mine =)
-#
-
 DIRECTORY_GUARD=mkdir -p $(@D)
 ARCH :=x86
 SRC_PATHS := src/aniva src/libs/libc src/libs/libfb 
