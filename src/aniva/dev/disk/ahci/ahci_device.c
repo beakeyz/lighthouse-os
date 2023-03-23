@@ -223,6 +223,12 @@ void ahci_driver_init() {
   enumerate_registerd_devices(find_ahci_device);
 
   resume_scheduler();
+
+  char* number_of_ports = (char*)to_string(s_ahci_device->m_ports->m_length);
+  char* message = "\nimplemented ports: ";
+  const char* packet_message = concat(message, number_of_ports);
+  destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&packet_message, strlen(packet_message)));
+  kfree((void*)packet_message);
 }
 
 int ahci_driver_exit() {

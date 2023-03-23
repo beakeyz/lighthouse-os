@@ -14,7 +14,6 @@ static void release_spinlock(__spinlock_t* lock);
 spinlock_t* create_spinlock() {
   spinlock_t* lock = kmalloc(sizeof(spinlock_t));
 
-  lock->m_processor = get_current_processor();
   lock->m_is_locked = create_atomic_ptr_with_value(false);
   //lock->m_thread = get_current_processor()->m_root_thread;
   //lock->m_proc = get_current_processor()->m_root_thread->m_parent_proc;
@@ -34,6 +33,8 @@ void destroy_spinlock(spinlock_t* lock) {
 void spinlock_lock(spinlock_t* lock) {
   aquire_spinlock(&lock->m_lock);
 
+  lock->m_processor = get_current_processor();
+
   uintptr_t j = atomic_ptr_load(lock->m_processor->m_locked_level);
   atomic_ptr_write(lock->m_processor->m_locked_level, j+1);
   atomic_ptr_write(lock->m_is_locked, true);
@@ -45,6 +46,8 @@ void spinlock_unlock(spinlock_t* lock) {
 
   atomic_ptr_write(lock->m_processor->m_locked_level, j-1);
   atomic_ptr_write(lock->m_is_locked, false);
+
+  lock->m_processor = nullptr;
 
   release_spinlock(&lock->m_lock);
 }

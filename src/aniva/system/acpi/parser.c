@@ -51,7 +51,6 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   println("init tables");
   parser_init_tables(parser);
-  print_tables(parser);
 
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
@@ -68,25 +67,25 @@ void parser_init_tables(acpi_parser_t* parser) {
   size_t tables;
 
   if (parser->m_is_xsdp) {
-    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt, xsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
+    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt, xsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
   } else {
-    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt, rsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
+    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt, rsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
     tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
   }
 
   if (xsdt != nullptr) {
     // parse xsdt
     for (uintptr_t i = 0; i < tables; i++) {
-      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(xsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(xsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
 
       list_append(parser->m_tables, table);
     } 
   } else {
     for (uintptr_t i = 0; i < tables; i++) {
-      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(rsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(rsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
 
       list_append(parser->m_tables, table);
     } 
@@ -185,7 +184,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
 
   if (new_ptr && new_ptr->rsdp[0]) {
-    void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
     //print("Multiboot has xsdp: ");
     //println(to_string((uintptr_t)ptr));
     parser->m_is_xsdp = true;
@@ -197,7 +196,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
 
   if (old_ptr && old_ptr->rsdp[0]) {
-    void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
     //print("Multiboot has rsdp: ");
     //println(to_string((uintptr_t)ptr));
     parser->m_rsdp = ptr;
@@ -209,7 +208,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   const uintptr_t bios_start_addr = 0xe0000;
   const size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
 
-  uintptr_t ptr = (uintptr_t)kmem_kernel_alloc(bios_start_addr, bios_mem_size, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  uintptr_t ptr = (uintptr_t)kmem_kernel_alloc(bios_start_addr, bios_mem_size, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
 
   if (ptr != NULL) {
     for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
@@ -255,7 +254,7 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
     acpi_sdt_header_t* header = i->data;
     if (memcmp(&header->signature, sig, 4)) {
       if (index == 0) {
-        header = (void*)kmem_kernel_alloc((uintptr_t)header, header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+        header = (void*)kmem_kernel_alloc((uintptr_t)header, header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY);
         return (void*)header;
       }
       index--;

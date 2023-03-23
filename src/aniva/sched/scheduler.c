@@ -172,6 +172,7 @@ void scheduler_yield() {
   ASSERT_MSG(current_thread != nullptr, "trying to yield the scheduler while not having a current scheduling thread!");
 
   enable_interrupts();
+
   // in this case we don't have to wait for us to exit a
   // critical CPU section, since we are not being interrupted at all
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {

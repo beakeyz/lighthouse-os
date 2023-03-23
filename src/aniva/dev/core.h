@@ -14,6 +14,8 @@ struct dev_manifest;
 
 #define DRIVER_TYPE_COUNT 7
 
+#define DRIVER_WAIT_UNTIL_READY (size_t)-1
+
 typedef enum dev_type {
   DT_DISK = 0,
   DT_IO,
@@ -102,6 +104,11 @@ bool is_driver_loaded(struct aniva_driver* handle);
 struct dev_manifest* get_driver(dev_url_t url);
 
 /*
+ * Marks the driver as ready to recieve packets preemptively
+ */
+ErrorOrPtr driver_set_ready(const char* path);
+
+/*
  * Find the url for a certain dev_type
  */
 static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
@@ -120,6 +127,14 @@ async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, vo
  * This fails if the socket is not set up yet
  */
 packet_response_t* driver_send_packet_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+
+/*
+ * Sends a packet to the target driver and waits a number of scheduler yields for the socket to be ready
+ * if the timer runs out before the socket is ready, we return nullptr
+ * 
+ * When mto is set to DRIVER_WAIT_UNTIL_READY, we simply wait untill the driver marks itself ready
+ */
+packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
 
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
 

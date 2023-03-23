@@ -520,7 +520,7 @@ void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags) {
 
   const bool should_identity_map = (flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
 
-  const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   // get the vaddress that is mapped high
   const void* ret = (void*)addr;
   if (!should_identity_map) {
@@ -551,7 +551,7 @@ void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags) {
 
 ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 
-  const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
     // get the virtual address of the current page
@@ -565,7 +565,7 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 
     if (was_used) {
       kmem_set_phys_page_free(page_idx);
-      kmem_unmap_page(nullptr, vaddr);
+      //kmem_unmap_page(nullptr, vaddr);
     } else {
       return Error();
     }
@@ -576,7 +576,7 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 // FIXME: code duplication
 // FIXME: check for alignment
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags) {
-  const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   const vaddr_t virt_base = kmem_ensure_high_mapping(addr);
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
@@ -613,7 +613,7 @@ ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, u
   const bool should_identity_map = ((custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY);
   const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
 
-  const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
   const uintptr_t start_idx = Must(bitmap_find_free_range(&KMEM_DATA.m_phys_bitmap, pages_needed));
   const paddr_t phys_base = kmem_get_page_addr(start_idx);

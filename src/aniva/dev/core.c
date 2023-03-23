@@ -173,6 +173,33 @@ dev_manifest_t* get_driver(dev_url_t url) {
   return manifest;
 }
 
+ErrorOrPtr driver_set_ready(const char* path) {
+
+  // Fetch from the loaded drivers here, since unloaded
+  // Drivers can never accept packets
+  aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
+
+  if (!handle)
+    goto exit_invalid;
+
+  threaded_socket_t* socket = find_registered_socket(handle->m_port);
+
+  if (!socket)
+    goto exit_invalid;
+
+  // When the socket is not marked as active, it certainly can't be
+  // ready to recieve packets
+  if (!socket_is_flag_set(socket, TS_ACTIVE))
+    goto exit_invalid;
+
+  socket_set_flag(socket, TS_READY, true);
+
+  return Success(0);
+
+exit_invalid:
+  return Error();
+}
+
 async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
   aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
@@ -190,7 +217,10 @@ async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, vo
  * It is left to the caller to clean that up
  */
 packet_response_t* driver_send_packet_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
+  return driver_send_packet_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
+}
 
+packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto) {
   aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
 
   if (!handle)
@@ -207,8 +237,19 @@ packet_response_t* driver_send_packet_sync(const char* path, driver_control_code
   // to ensure we are the only ones asking this driver to handle some data
   threaded_socket_t* socket = find_registered_socket(handle->m_port);
 
-  if (!socket_is_flag_set(socket, TS_READY)) {
-    goto exit_fail;
+  size_t timeout = mto;
+
+  while (!socket_is_flag_set(socket, TS_ACTIVE) || !socket_is_flag_set(socket, TS_READY)) {
+
+    if (timeout != DRIVER_WAIT_UNTIL_READY) {
+
+      scheduler_yield();
+
+      timeout--;
+      if (timeout == 0) {
+        goto exit_fail;
+      }
+    }
   }
 
   mutex_lock(socket->m_packet_mutex);
@@ -228,7 +269,6 @@ packet_response_t* driver_send_packet_sync(const char* path, driver_control_code
 
     return response;
   }
-  
 
 exit_fail:
   return nullptr;
