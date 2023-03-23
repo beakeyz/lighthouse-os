@@ -12,7 +12,11 @@
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
+#include "proc/ipc/packet_payload.h"
+#include "proc/ipc/packet_response.h"
+#include "proc/socket.h"
 #include "sched/scheduler.h"
+#include "sync/mutex.h"
 
 static hive_t* s_installed_drivers;
 static hive_t* s_loaded_drivers;
@@ -179,4 +183,53 @@ async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, vo
     return nullptr;
 
   return send_packet_to_socket_with_code(handle->m_port, code, buffer, buffer_size);
+}
+
+/*
+ * NOTE: this function leaves behind a dirty packet response.
+ * It is left to the caller to clean that up
+ */
+packet_response_t* driver_send_packet_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
+
+  aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
+
+  if (!handle)
+    goto exit_fail;
+
+  //dev_manifest_t* manifest = create_dev_manifest(handle, 0);
+
+  // TODO: validate checksums and funnie hashes
+  // TODO: validate all dependencies are loaded
+
+  // NOTE: this skips any verification by the packet multiplexer, and just 
+  // kinda calls the drivers onPacket function whenever. This can result in
+  // funny behaviour, so we should try to take the drivers packet mutex, in order 
+  // to ensure we are the only ones asking this driver to handle some data
+  threaded_socket_t* socket = find_registered_socket(handle->m_port);
+
+  if (!socket_is_flag_set(socket, TS_READY)) {
+    goto exit_fail;
+  }
+
+  mutex_lock(socket->m_packet_mutex);
+
+  packet_response_t* response = nullptr;
+  packet_payload_t* payload = create_packet_payload(buffer, buffer_size, code);
+
+  socket->m_on_packet(*payload, &response);
+
+  // After the driver finishes what it is doing, we can just unlock the mutex.
+  // We are done using the driver at this point after all
+  mutex_unlock(socket->m_packet_mutex);
+
+  if (response != nullptr) {
+
+    destroy_packet_payload(payload);
+
+    return response;
+  }
+  
+
+exit_fail:
+  return nullptr;
 }

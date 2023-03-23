@@ -40,7 +40,8 @@ typedef struct memory_allocator {
 
   // this node it the node that lives at the absolute bottom,
   // and thus is vulnerable to merging after an expansion
-  heap_node_t *m_heap_bottom_node;
+  // NOTE: we need a good way to keep track of this badboy
+  // heap_node_t *m_heap_bottom_node;
 
   size_t m_nodes_count;
   size_t m_free_size;

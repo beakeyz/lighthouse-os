@@ -166,7 +166,6 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 
 static void kterm_draw_cursor();
 static const char* kterm_get_buffer_contents();
-static void kterm_next_ln();
 static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y);
 static void kterm_scroll(uintptr_t lines);
 static void kterm_println(const char* msg);
@@ -200,18 +199,17 @@ void kterm_init() {
   kterm_current_line = 0;
 
   // register our keyboard listener
-  destroy_packet_response(await(driver_send_packet("io.ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t))));
+  destroy_packet_response(driver_send_packet_sync("io.ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
 
   // map our framebuffer
   uintptr_t ptr = KTERM_FB_ADDR;
-  destroy_packet_response(await(driver_send_packet("graphics.fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t))));
+  destroy_packet_response(driver_send_packet_sync("graphics.fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t)));
 
-  packet_response_t* response = await(driver_send_packet("graphics.fb", FB_DRV_GET_FB_INFO, NULL, 0));
+  packet_response_t* response = driver_send_packet_sync("graphics.fb", FB_DRV_GET_FB_INFO, NULL, 0);
   if (response) {
     kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
     destroy_packet_response(response);
   }
-
 
   // flush our terminal buffer
   kterm_flush_buffer();
@@ -279,8 +277,6 @@ static void kterm_write_char(char c) {
       break;
     case (char)0x0A:
       kterm_process_buffer();
-
-
       break;
     default:
       if (c >= 0x20) {
@@ -401,6 +397,11 @@ static void kterm_println(const char* msg) {
     char current_char = msg[index];
     if (current_char == '\n') {
       kterm_current_line++;
+
+      if (kterm_current_line * KTERM_FONT_HEIGHT >= kterm_fb_info.height) {
+        kterm_scroll(1);
+      }
+
       kterm_flush_buffer();
       kterm_draw_cursor();
       kterm_buffer_ptr_copy = KTERM_CURSOR_WIDTH;
@@ -418,8 +419,19 @@ static void kterm_println(const char* msg) {
   kterm_buffer_ptr = kterm_buffer_ptr_copy;
 }
 
-static void kterm_next_ln() {
+// TODO: add a scroll direction (up, down, left, ect)
+// TODO: scrolling still gives weird artifacts
+static void kterm_scroll(uintptr_t lines) {
+  vaddr_t screen_top = kterm_get_pixel_address(0, 0);
+  vaddr_t screen_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - 1);
+  vaddr_t scroll_top = kterm_get_pixel_address(0, lines * KTERM_FONT_HEIGHT);
+  vaddr_t scroll_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - lines * KTERM_FONT_HEIGHT - 1);
+  size_t scroll_size = screen_end - scroll_top;
 
+  println(to_string(scroll_size));
+  memmove((void*)screen_top, (void*)scroll_top, scroll_size);
+  memset((void*)scroll_end, 0, screen_end - scroll_end);
+  kterm_current_line--;
 }
 
 static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y) {

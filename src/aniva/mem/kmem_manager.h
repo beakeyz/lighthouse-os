@@ -50,6 +50,7 @@
 #define KMEM_CUSTOMFLAG_CREATE_USER         0x02
 #define KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE 0x04
 #define KMEM_CUSTOMFLAG_IDENTITY            0x08
+#define KMEM_CUSTOMFLAG_NO_REMAP            0x10
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \

@@ -84,12 +84,12 @@ void * memset(void * dest, int c, size_t n) {
 	}
 	return dest;
 }
-/*
+
 void *memmove(void *dest, const void *src, size_t n)
 {
     char *new_dst = (char *)dest;
     const char *new_src = (const char *)src;
-    char *temporary_data = (char *)malloc(n);
+    char *temporary_data = (char *)kmalloc(n);
 
     for (size_t i = 0; i < n; i++)
     {
@@ -100,10 +100,9 @@ void *memmove(void *dest, const void *src, size_t n)
         new_dst[i] = temporary_data[i];
     }
 
-    free(temporary_data);
+    kfree(temporary_data);
     return dest;
 }
-*/
 
 void *memchr(const void *s, int c, size_t n)
 {

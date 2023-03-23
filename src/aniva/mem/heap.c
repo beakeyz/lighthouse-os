@@ -28,7 +28,7 @@ void init_kheap() {
   s_kernel_allocator.m_heap_start_node->prev = NULL;
 
   // bottom node fix-up
-  s_kernel_allocator.m_heap_bottom_node = s_kernel_allocator.m_heap_start_node;
+  //s_kernel_allocator.m_heap_bottom_node = s_kernel_allocator.m_heap_start_node;
 
   // heap data v1
   s_kernel_allocator.m_heap = &s_generic_kernel_heap;

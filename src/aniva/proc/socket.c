@@ -33,6 +33,7 @@ threaded_socket_t *create_threaded_socket(thread_t* parent, FuncPtr exit_fn, Soc
   ret->m_port = port;
   ret->m_exit_fn = exit_fn;
   ret->m_on_packet = on_packet_fn;
+  ret->m_packet_mutex = create_mutex(0);
   ret->m_state = THREADED_SOCKET_STATE_LISTENING;
   ret->m_max_size_per_buffer = max_size_per_buffer;
 
@@ -56,6 +57,7 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
     return ANIVA_FAIL;
   }
 
+  destroy_mutex(ptr->m_packet_mutex);
   kfree(ptr);
   return ANIVA_SUCCESS;
 }
@@ -200,6 +202,9 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   packet_response_t* response = nullptr;
   uintptr_t on_packet_result;
 
+  // Lock the mutex so we can do whatever
+  mutex_lock(socket->m_packet_mutex);
+
   //thread_set_state(thread, RUNNING);
   const size_t data_size = payload.m_data_size;
 
@@ -229,6 +234,10 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   // no need to unlock the mutex, because it just gets
   // deleted lmao
   destroy_tspckt(packet);
+
+  // NOTE: this mutex MUST be unlocked after we are done with this packet, otherwise 
+  // the socket will deadlock
+  mutex_unlock(socket->m_packet_mutex);
   return Success(0);
 }
 

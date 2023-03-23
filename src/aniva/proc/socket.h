@@ -7,6 +7,7 @@
 #include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"
 
+struct mutex;
 struct thread;
 struct tspckt;
 struct threaded_socket;
@@ -43,6 +44,8 @@ typedef struct threaded_socket {
   uintptr_t m_socket_flags;
 
   FuncPtr m_exit_fn;
+
+  struct mutex* m_packet_mutex;
   SocketOnPacket m_on_packet;
 
   THREADED_SOCKET_STATE_t m_state;

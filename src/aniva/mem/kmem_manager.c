@@ -611,11 +611,13 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t
 
 ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags) {
   const bool should_identity_map = ((custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY);
+  const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
+
   const size_t pages_needed = (size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
 
   const uintptr_t start_idx = Must(bitmap_find_free_range(&KMEM_DATA.m_phys_bitmap, pages_needed));
   const paddr_t phys_base = kmem_get_page_addr(start_idx);
-  const vaddr_t ret = should_identity_map ? phys_base : kmem_from_phys(phys_base, virtual_base); 
+  const vaddr_t ret = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, virtual_base) : virtual_base); 
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
     const uintptr_t page_idx = start_idx + i;

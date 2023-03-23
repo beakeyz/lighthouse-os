@@ -4,6 +4,7 @@
 #include "dev/handle.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
+#include "proc/ipc/packet_response.h"
 #include <libk/stddef.h>
 
 struct aniva_driver;
@@ -53,6 +54,8 @@ typedef const char* dev_url_t;
 
 #define MAX_DRIVER_NAME_LENGTH 32
 #define MAX_DRIVER_DESCRIPTOR_LENGTH 256
+
+#define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
 /*
  * Initialize the driver registry. THIS MAY NOT ADD/BOOTSTRAP ANY
@@ -109,6 +112,14 @@ static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
  * Resolve the drivers socket and send a packet to that port
  */
 async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+
+/*
+ * Same as above, but calls the requested function instantly, rather than waiting for the socket to 
+ * Be scheduled so it can handle our packet.
+ *
+ * This fails if the socket is not set up yet
+ */
+packet_response_t* driver_send_packet_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
 

@@ -15,9 +15,10 @@ static heap_node_t* split_node (memory_allocator_t * allocator, heap_node_t* ptr
 static heap_node_t* merge_node_with_next (memory_allocator_t * allocator, heap_node_t* ptr);
 static heap_node_t* merge_node_with_prev (memory_allocator_t * allocator, heap_node_t* ptr);
 static heap_node_t* merge_nodes (memory_allocator_t * allocator, heap_node_t* ptr1, heap_node_t* ptr2);
-static heap_node_t* try_merge (memory_allocator_t * allocator, heap_node_t* node);
+static ErrorOrPtr try_merge (memory_allocator_t * allocator, heap_node_t* node);
 static bool can_merge (heap_node_t* node1, heap_node_t* node2);
 static bool has_flag(heap_node_t* node, uint8_t flag);
+static heap_node_t* find_bottom_node(memory_allocator_t* allocator);
 
 memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintptr_t flags) {
   // create a heap object on the initial kernel heap :clown:
@@ -36,7 +37,7 @@ memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintpt
   heap->m_heap->m_parent_heap = heap;
 
   heap->m_heap_start_node = create_initial_heap_node(heap, (void *) heap->m_heap->m_virtual_base);
-  heap->m_heap_bottom_node = heap->m_heap_start_node;
+  //heap->m_heap_bottom_node = heap->m_heap_start_node;
   heap->m_free_size = size;
   heap->m_used_size = 0;
   heap->m_nodes_count = 1;
@@ -115,8 +116,11 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
   }
 
   // TODO: implement dynamic expanding
-  if (malloc_try_heap_expand(allocator, SMALL_PAGE_SIZE)) {
-      return malloc_allocate(allocator, bytes);
+  const size_t needed_size = bytes - node->size;
+  if (malloc_try_heap_expand(allocator, needed_size)) {
+    quick_print_node_sizes(allocator);
+    //kernel_panic("TEST postexpand");
+    return malloc_allocate(allocator, bytes);
   }
 
   kernel_panic("FAILED TO MALLOC KERNEL MEMORY");
@@ -144,16 +148,16 @@ void malloc_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t a
       allocator->m_used_size-=node->size;
       allocator->m_free_size+=node->size;
       // see if we can merge
-      heap_node_t* n = try_merge(allocator, node);
-      if (n == nullptr) {
+      ErrorOrPtr n = try_merge(allocator, node);
+      if (n.m_status == ANIVA_FAIL) {
         // FUCKKKKK
         println("unable to merge nodes =/");
         //memset(addr, 0, node->size - sizeof(heap_node_t));
         return;
       }
 
-      if (n->next)
-        try_merge(allocator, n->next);
+      //if (n->next)
+      //  try_merge(allocator, n->next);
       // FIXME: should we zero freed nodes?
     }
   } else {
@@ -212,37 +216,37 @@ ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_
 
   const vaddr_t new_map_base = kmem_from_phys((paddr_t)allocator->m_heap_start_node, allocator->m_heap->m_virtual_base) + allocator->m_heap->m_current_total_size;
 
-  println(to_string(new_map_base));
-  println(to_string(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE)));
-
   ASSERT_MSG(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE) == new_map_base, "Heap was misaligned while expanding!");
 
   extra_size = ALIGN_UP(extra_size, SMALL_PAGE_SIZE);
 
   // request a page from kmem_manager
-  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, new_map_base, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, new_map_base, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP, 0);
   if (result.m_status != ANIVA_SUCCESS) {
     return ANIVA_FAIL;
   }
 
-  allocator->m_heap->m_current_total_size += extra_size;
-  println(to_string(extra_size));
-
-  quick_print_node_sizes(allocator);
-
   heap_node_t* new_node = (heap_node_t*)result.m_ptr;
   if (new_node) {
+    heap_node_t* bottom = find_bottom_node(allocator);
+
+    if (!bottom) {
+      return ANIVA_FAIL;
+    }
+
     new_node->size = extra_size;
     new_node->identifier = MALLOC_NODE_IDENTIFIER;
     new_node->flags = 0;
     new_node->next = 0;
-    new_node->prev = allocator->m_heap_bottom_node;
-    allocator->m_heap_bottom_node->next = new_node;
+    new_node->prev = bottom;
+    bottom->next = new_node;
 
-    if (try_merge(allocator, allocator->m_heap_bottom_node) != nullptr) {
-      return ANIVA_SUCCESS;
-    }
+    allocator->m_heap->m_current_total_size += extra_size;
+    allocator->m_free_size += extra_size;
+
+    return try_merge(allocator, bottom).m_status;
   }
+  // a failed expand is quite fucky
   return ANIVA_FAIL;
 }
 
@@ -393,7 +397,8 @@ heap_node_t* merge_nodes (memory_allocator_t * allocator, heap_node_t* ptr1, hea
   return nullptr;
 }
 
-heap_node_t* try_merge(memory_allocator_t * allocator, heap_node_t *node) {
+ErrorOrPtr try_merge(memory_allocator_t * allocator, heap_node_t *node) {
+  ErrorOrPtr result = Error();
   heap_node_t* merged_node = merge_nodes(allocator, node, node->prev);
 
   if (merged_node == nullptr) {
@@ -401,10 +406,11 @@ heap_node_t* try_merge(memory_allocator_t * allocator, heap_node_t *node) {
   }
 
   if (merged_node) {
-    return try_merge(allocator, merged_node);
+    result = Success((vaddr_t)merged_node);
+    try_merge(allocator, merged_node);
   }
 
-  return merged_node;
+  return result;
 }
 
 // NOTE: when the identifier is not valid, we should ideally view the heap as corrupted and either
@@ -426,4 +432,19 @@ static heap_node_t *create_initial_heap_node(memory_allocator_t *allocator, void
   ret->flags = 0;
   ret->identifier = MALLOC_NODE_IDENTIFIER;
   return ret;
+}
+
+static heap_node_t* find_bottom_node(memory_allocator_t* allocator) {
+
+  heap_node_t* ret = allocator->m_heap_start_node;
+
+  while (ret) {
+
+    if (ret->next == nullptr) {
+      return ret;
+    }
+
+    ret = ret->next;
+  }
+  return nullptr;
 }
