@@ -577,7 +577,8 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 // FIXME: check for alignment
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags) {
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
-  const vaddr_t virt_base = kmem_ensure_high_mapping(addr);
+  const bool should_identity_map = (flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
+  const vaddr_t virt_base = should_identity_map ? addr : kmem_ensure_high_mapping(addr);
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
     const uintptr_t page_idx = kmem_get_page_idx(addr);
@@ -626,6 +627,7 @@ ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, u
 
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
+    // FIXME: Persistant allocate is useless here, right?
     if (was_used && !(custom_flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
       return Error();
     }

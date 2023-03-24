@@ -6,4 +6,6 @@
 
 extern aniva_driver_t g_base_kterm_driver;
 
+void println_kterm(const char*);
+
 #endif // !__ANIVA_KTERM_DRIVER__

@@ -9,7 +9,8 @@ struct ahci_device;
 
 typedef struct ahci_port {
   struct ahci_device* m_device;
-  volatile HBA_port_registers_t* m_port_regs;
+
+  uintptr_t m_port_offset;
 
   spinlock_t* m_hard_lock;
 
@@ -23,7 +24,7 @@ typedef struct ahci_port {
   uint32_t m_port_index;
 } ahci_port_t;
 
-ahci_port_t* make_ahci_port(struct ahci_device* device, volatile HBA_port_registers_t* port_regs, uint32_t index);
+ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);
 
 void destroy_ahci_port(ahci_port_t* port);
 

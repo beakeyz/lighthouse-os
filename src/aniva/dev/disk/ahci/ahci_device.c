@@ -30,6 +30,8 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
 static ahci_device_t* s_ahci_device;
 static size_t s_implemented_ports;
 
+static char* s_last_debug_msg;
+
 const aniva_driver_t g_base_ahci_driver = {
   .m_name = "ahci",
   .m_type = DT_DISK,
@@ -44,12 +46,22 @@ const aniva_driver_t g_base_ahci_driver = {
 };
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
-static ALWAYS_INLINE volatile HBA* get_hba(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value);
 
 static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
+
+uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset) {
+  volatile uint32_t* data = (volatile uint32_t*)(base + offset);
+
+  return *data;
+}
+
+void ahci_mmio_write32(uintptr_t base, uintptr_t offset, uint32_t data) {
+  volatile uint32_t* current_data = (volatile uint32_t*)(base + offset);
+  *current_data = data;
+}
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
 
@@ -62,13 +74,9 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
   print("BAR5 address: ");
   println(to_string(bar5));
 
-  uintptr_t hba_region = (uintptr_t)kmem_kernel_alloc(bar5, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY) & 0xFFFFFFF0;
+  uintptr_t hba_region = (uintptr_t)kmem_kernel_alloc_extended(bar5, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) & 0xFFFFFFF0;
 
   return (void*)hba_region;
-}
-
-static ALWAYS_INLINE volatile HBA* get_hba(ahci_device_t* device) {
-  return (volatile HBA*)device->m_hba_region;
 }
 
 // TODO: redo this
@@ -78,36 +86,44 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
   for (size_t retry = 0;; retry++) {
 
     if (retry > 1000) {
+      s_last_debug_msg = "GHC timed out!";
       return ANIVA_FAIL;
     }
 
-    if (!(get_hba(device)->control_regs.global_host_ctrl & 0x01)) {
+    if (!(device->m_hba_region->control_regs.global_host_ctrl & (AHCI_BOHC_BOS | AHCI_BOHC_BB))) {
       break;
     }
-    get_hba(device)->control_regs.global_host_ctrl |= 0x01;
+    device->m_hba_region->control_regs.global_host_ctrl |= 0x01;
     delay(1000);
   }
 
   // get this mofo up and running
-  get_hba(device)->control_regs.global_host_ctrl |= (1 << 31);
-  get_hba(device)->control_regs.int_status = 0xffffffff;
+  device->m_hba_region->control_regs.global_host_ctrl |= (1 << 31UL);
 
-  uint32_t pi = get_hba(device)->control_regs.ports_impl;
+  uint32_t pi = device->m_hba_region->control_regs.ports_impl;
 
   for (uint32_t i = 0; i < MAX_HBA_PORT_AMOUNT; i++) {
     if (pi & (1 << i)) {
-      print("HBA port ");
-      print(to_string(i));
-      println(" is implemented");
 
-      volatile HBA_port_registers_t* port_regs = ((volatile HBA_port_registers_t*)&get_hba(device)->ports[i]);
+      uintptr_t port_offset = 0x100 + i * 0x80;
 
-      switch(port_regs->signature) {
+      println_kterm("Found HBA port");
+
+      volatile HBA_port_registers_t* port_regs = ((volatile HBA_port_registers_t*)&device->m_hba_region->ports[i]);
+
+      uint32_t sig = ahci_mmio_read32((uintptr_t)device->m_hba_region + port_offset, AHCI_REG_PxSIG);
+
+      bool valid = false;
+
+      // TODO: take these sigs out of this 
+      // function scope and into a macro
+      switch(sig) {
         case 0xeb140101:
           println("ATAPI (CD, DVD)");
           break;
         case 0x00000101:
           println("AHCI: hard drive");
+          valid = true;
           break;
         case 0xffff0101:
           println("AHCI: no dev");
@@ -118,9 +134,14 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
           break;
       }
 
-      ahci_port_t* port = make_ahci_port(device, port_regs, i);
+      if (!valid) {
+        continue;
+      }
+
+      ahci_port_t* port = make_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, i);
       if (initialize_port(port) == ANIVA_FAIL) {
         println("Failed! killing port...");
+        println_kterm("Failed to initialize port");
         destroy_ahci_port(port);
         continue;
       }
@@ -129,41 +150,53 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
     }
   }
 
+  s_last_debug_msg = "Exited port enumeration";
   return ANIVA_FAIL;
 }
 
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   // enable hba interrupts
-  pci_set_interrupt_line(&device->m_identifier->address, true);
-  pci_set_bus_mastering(&device->m_identifier->address, true);
-  pci_set_memory(&device->m_identifier->address, true);
+  uint16_t bus_num = device->m_identifier->address.bus_num;
+  uint16_t dev_num = device->m_identifier->address.device_num;
+  uint16_t func_num = device->m_identifier->address.func_num;
+  uint16_t command;
+  device->m_identifier->ops.read16(bus_num, dev_num, func_num, COMMAND, &command);
+  command |= PCI_COMMAND_BUS_MASTER;
+  command |= PCI_COMMAND_MEM_SPACE;
+  command ^= PCI_COMMAND_INT_DISABLE;
+  device->m_identifier->ops.write16(bus_num, dev_num, func_num, COMMAND, command);
 
-  get_hba(device)->control_regs.global_host_ctrl = 0x80000000;
-  
+  device->m_hba_region = get_hba_region(s_ahci_device);
+
   set_hba_interrupts(device, true);
 
   InterruptHandler_t* _handler = create_interrupt_handler(device->m_identifier->interrupt_line, I8259, ahci_irq_handler);
   interrupts_add_handler(_handler);
 
-  return reset_hba(device);
+  ANIVA_STATUS status = reset_hba(device);
+
+  if (status != ANIVA_SUCCESS)
+    set_hba_interrupts(device, false);
+
+  return status;
 }
 
 static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value) {
-  uint32_t ghc = get_hba(device)->control_regs.global_host_ctrl;
   if (value) {
-    get_hba(device)->control_regs.global_host_ctrl = ghc | (1 << 1); // 0x02
+    device->m_hba_region->control_regs.global_host_ctrl |= (1 << 1); // 0x02
   } else {
-    get_hba(device)->control_regs.global_host_ctrl = ghc & ~(1 << 1);
+    device->m_hba_region->control_regs.global_host_ctrl &= ~(1 << 1);
   }
   return ANIVA_SUCCESS;
 }
 
 static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 
-  println("Recieved AHCI interrupt!");
+  // TODO: handle
+  kernel_panic("Recieved AHCI interrupt!");
 
-  uint32_t ahci_interrupt_status = get_hba(s_ahci_device)->control_regs.int_status;
+  uint32_t ahci_interrupt_status = s_ahci_device->m_hba_region->control_regs.int_status;
 
   if (ahci_interrupt_status == 0) {
     return regs;
@@ -184,7 +217,6 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 ahci_device_t* init_ahci_device(pci_device_identifier_t* identifier) {
   s_ahci_device = kmalloc(sizeof(ahci_device_t));
   s_ahci_device->m_identifier = identifier;
-  s_ahci_device->m_hba_region = get_hba_region(s_ahci_device);
   s_ahci_device->m_ports = init_list();
 
   initialize_hba(s_ahci_device);
@@ -215,19 +247,17 @@ void ahci_driver_init() {
 
   // FIXME: should this driver really take a hold of the scheduler 
   // here?
-  pause_scheduler();
-
+  s_last_debug_msg = "None";
   s_ahci_device = 0;
   s_implemented_ports = 0;
   
   enumerate_registerd_devices(find_ahci_device);
 
-  resume_scheduler();
-
   char* number_of_ports = (char*)to_string(s_ahci_device->m_ports->m_length);
   char* message = "\nimplemented ports: ";
   const char* packet_message = concat(message, number_of_ports);
   destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&packet_message, strlen(packet_message)));
+  destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&s_last_debug_msg, strlen(packet_message)));
   kfree((void*)packet_message);
 }
 

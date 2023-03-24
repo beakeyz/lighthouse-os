@@ -419,8 +419,15 @@ static void kterm_println(const char* msg) {
   kterm_buffer_ptr = kterm_buffer_ptr_copy;
 }
 
+void println_kterm(const char* msg) {
+  const size_t msg_len = strlen(msg);
+  
+  destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&msg, msg_len));
+}
+
 // TODO: add a scroll direction (up, down, left, ect)
 // TODO: scrolling still gives weird artifacts
+// FIXME: very fucking slow
 static void kterm_scroll(uintptr_t lines) {
   vaddr_t screen_top = kterm_get_pixel_address(0, 0);
   vaddr_t screen_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - 1);
@@ -428,7 +435,6 @@ static void kterm_scroll(uintptr_t lines) {
   vaddr_t scroll_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - lines * KTERM_FONT_HEIGHT - 1);
   size_t scroll_size = screen_end - scroll_top;
 
-  println(to_string(scroll_size));
   memmove((void*)screen_top, (void*)scroll_top, scroll_size);
   memset((void*)scroll_end, 0, screen_end - scroll_end);
   kterm_current_line--;
@@ -443,3 +449,4 @@ static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
   }
   return 0;
 }
+
