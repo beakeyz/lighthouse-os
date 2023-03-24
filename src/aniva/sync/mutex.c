@@ -109,6 +109,9 @@ void mutex_unlock(mutex_t* mutex) {
 
 // FIXME: inline?
 bool mutex_is_locked(mutex_t* mutex) {
+  // No mutex means no lock =/
+  if (!mutex)
+    return false;
   return (mutex->m_lock_depth > 0 && (mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD));
 }
 

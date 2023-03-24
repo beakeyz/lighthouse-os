@@ -1,5 +1,6 @@
 #include "async_ptr.h"
 #include "dev/debug/serial.h"
+#include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/reference.h"
 #include "libk/string.h"
@@ -39,7 +40,8 @@ async_ptr_t* create_async_ptr(uintptr_t responder_port) {
   return ret;
 }
 
-void destroy_async_ptr(async_ptr_t* ptr) {
+void destroy_async_ptr(async_ptr_t** ptr_p) {
+  async_ptr_t* ptr = *ptr_p;
   if (!ptr || ptr->m_ref->m_count > 0)
     return;
   
@@ -51,6 +53,9 @@ void destroy_async_ptr(async_ptr_t* ptr) {
   destroy_refc(ptr->m_ref);
   memset(ptr, 0, sizeof(*ptr));
   kfree(ptr);
+  println(get_current_scheduling_thread()->m_name);
+  println("DESTROYING ASYNC PTR");
+  *ptr_p = 0;
 }
 
 void* await(async_ptr_t* ptr) {
@@ -74,6 +79,7 @@ void* await(async_ptr_t* ptr) {
   ptr->m_waiter = get_current_scheduling_thread();
 
   while(ptr->m_response_buffer && !*ptr->m_response_buffer) {
+    println(get_current_scheduling_thread()->m_name);
     scheduler_yield();
     if (atomic_ptr_load(ptr->m_is_buffer_killed) != false) {
       kfree((void*)ptr->m_response_buffer);
@@ -99,12 +105,16 @@ void async_ptr_assign(void* ptr) {
   kernel_panic("UNIMPLEMENTED");
 }
 
-void async_ptr_discard(async_ptr_t* ptr) {
+void async_ptr_discard(void (*destructor)(void*), async_ptr_t** ptr_ptr) {
+  async_ptr_t* ptr = *ptr_ptr;
   if (!ptr)
     return;
 
   // take the mutex
   mutex_lock(ptr->m_mutex);
 
-  destroy_async_ptr(ptr);
+  if (*ptr->m_response_buffer && atomic_ptr_load(ptr->m_is_buffer_killed) == false)
+    destructor((void*)*ptr->m_response_buffer);
+
+  destroy_async_ptr(ptr_ptr);
 }

@@ -27,10 +27,11 @@ typedef struct async_ptr {
 
 async_ptr_t* create_async_ptr(uintptr_t responder_port);
 
-void destroy_async_ptr(async_ptr_t* ptr);
+void destroy_async_ptr(async_ptr_t** ptr);
 
 void* await(async_ptr_t* ptr);
 void async_ptr_assign(void* ptr);
-void async_ptr_discard(async_ptr_t* ptr);
+
+void async_ptr_discard(void (*destructor)(void*), async_ptr_t** ptr_ptr);
 
 #endif // !__ANIVA_LIBK_ASYNC_PTR__

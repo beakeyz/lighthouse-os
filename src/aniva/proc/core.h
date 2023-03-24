@@ -69,12 +69,17 @@ struct threaded_socket *find_registered_socket(uint32_t port);
  * returns a pointer to the response ptr (thus a double pointer)
  * if all goes well, otherwise a nullptr
  */
-extern async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size); // socket.c
+extern async_ptr_t** send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size); // socket.c
+
+/*
+ * Send a packet to the socket and discard the response buffer
+ */
+void send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
 
 /*
  * same thing as the function above, but it includes a driver control code
  */
-extern async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
+extern async_ptr_t** send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
 
 /*
  * above function but blocking
@@ -85,5 +90,10 @@ extern struct packet_response send_packet_to_socket_blocking(uint32_t port, void
  * validata a tspckt based on its identifier (checksum, hash, idk man)
  */
 extern bool validate_tspckt(struct tspckt* packet); // tspctk.c
+
+/*
+ * Utilises CRC32 to generate a 32-bit checksum, based on the packet struct, its buffer, and its sender thread
+ */
+extern uint32_t generate_tspckt_identifier(struct tspckt* packet); // tspckt.c
 
 #endif //__LIGHTHOUSE_OS_CORE__

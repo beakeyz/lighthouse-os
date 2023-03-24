@@ -200,7 +200,7 @@ exit_invalid:
   return Error();
 }
 
-async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
+async_ptr_t** driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
   aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
 

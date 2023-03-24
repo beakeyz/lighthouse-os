@@ -118,7 +118,7 @@ static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
 /*
  * Resolve the drivers socket and send a packet to that port
  */
-async_ptr_t* driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+async_ptr_t** driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 
 /*
  * Same as above, but calls the requested function instantly, rather than waiting for the socket to 

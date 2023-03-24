@@ -70,11 +70,39 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
  * this mallocs the buffer for the caller, so caller is responsible for cleaning up 
  * their own mess
  */
-async_ptr_t* send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
+async_ptr_t** send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
   return send_packet_to_socket_with_code(port, 0, buffer, buffer_size);
 }
 
-async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
+void send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
+
+  disable_interrupts();
+
+  threaded_socket_t *socket = find_registered_socket(port);
+
+  if (socket == nullptr || socket->m_parent == nullptr) {
+    return;
+  }
+
+  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, create_async_ptr(socket->m_port));
+
+  // don't allow buffer restriction violations
+  if (packet->m_packet_size > socket->m_max_size_per_buffer) {
+    destroy_tspckt(packet);
+    destroy_async_ptr(&packet->m_async_ptr_handle);
+    return;
+  }
+
+  //queue_enqueue(socket->m_buffers, packet);
+  queue_enqueue(get_current_processor()->m_packet_queue.m_packets, packet);
+
+  destroy_async_ptr(&packet->m_async_ptr_handle);
+  packet->m_response_buffer = 0;
+
+  enable_interrupts();
+}
+
+async_ptr_t** send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
   // FIXME: is it necceserry to enter a critical section here?
   threaded_socket_t *socket = find_registered_socket(port);
 
@@ -82,26 +110,25 @@ async_ptr_t* send_packet_to_socket_with_code(uint32_t port, driver_control_code_
     return nullptr;
   }
 
-  async_ptr_t* response_ptr = create_async_ptr(socket->m_port);
-  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, response_ptr);
+  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, create_async_ptr(socket->m_port));
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
     destroy_tspckt(packet);
-    destroy_async_ptr(response_ptr);
+    destroy_async_ptr(&packet->m_async_ptr_handle);
     return nullptr;
   }
 
   //queue_enqueue(socket->m_buffers, packet);
   queue_enqueue(get_current_processor()->m_packet_queue.m_packets, packet);
 
-  return response_ptr;
+  return &packet->m_async_ptr_handle;
 }
 
 packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
 
   packet_response_t response = {0};
-  async_ptr_t* result = send_packet_to_socket(port, buffer, buffer_size);
+  async_ptr_t* result = *send_packet_to_socket(port, buffer, buffer_size);
 
   if (!result) {
     return response;
@@ -219,12 +246,19 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   }
 
   if (response != nullptr) {
-    *packet->m_response_buffer = response;
-  } else {
-    if (mutex_is_locked(packet->m_async_ptr_handle->m_mutex)) {
-      atomic_ptr_write(packet->m_async_ptr_handle->m_is_buffer_killed, true);
+
+    if (!packet->m_response_buffer || !packet->m_async_ptr_handle || !packet->m_async_ptr_handle->m_mutex) {
+      destroy_packet_response(response);
     } else {
-      destroy_async_ptr(packet->m_async_ptr_handle);
+      *packet->m_response_buffer = response;
+    }
+  } else {
+    if (packet->m_async_ptr_handle) {
+      if (mutex_is_locked(packet->m_async_ptr_handle->m_mutex)) {
+        atomic_ptr_write(packet->m_async_ptr_handle->m_is_buffer_killed, true);
+      } else {
+        destroy_async_ptr(&packet->m_async_ptr_handle);
+      }
     }
   }
 

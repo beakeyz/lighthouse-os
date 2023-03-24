@@ -11,8 +11,6 @@ typedef struct packet_response {
 } packet_response_t;
 
 packet_response_t* create_packet_response(void* data, size_t size);
-ErrorOrPtr destroy_packet_response(packet_response_t* response);
-
-
+void destroy_packet_response(packet_response_t* response);
 
 #endif // !__ANIVA_PACKET_RESPONSE__

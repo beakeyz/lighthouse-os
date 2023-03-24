@@ -1,5 +1,6 @@
 #include "tspckt.h"
 #include <mem/heap.h>
+#include "crypto/k_crc32.h"
 #include "dev/debug/serial.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
@@ -7,14 +8,13 @@
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>
 #include "interupts/interupts.h"
+#include "proc/core.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/socket.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include <mem/heap.h>
-
-static uint32_t generate_tspckt_identifier(tspckt_t* tspckt) USED;
 
 tspckt_t *create_tspckt(threaded_socket_t* reciever, driver_control_code_t code, void* data, size_t data_size, async_ptr_t* ptr) {
   const size_t packet_size = sizeof(tspckt_t) + data_size;
@@ -24,12 +24,16 @@ tspckt_t *create_tspckt(threaded_socket_t* reciever, driver_control_code_t code,
 
   packet->m_sender_thread = get_current_scheduling_thread();
   packet->m_reciever_thread = reciever;
-  packet->m_identifier = NULL; // TODO
   packet->m_packet_size = packet_size;
   // this handle should not be destroyed when we are destroying this tspacket
   packet->m_async_ptr_handle = ptr;
   packet->m_response_buffer = (packet_response_t**)ptr->m_response_buffer;
   packet->m_payload = create_packet_payload(data, data_size, code);
+
+  // NOTE: the identifier should be initialized last, since it relies on 
+  // payload and packet being non-null
+  packet->m_identifier = 0;
+  packet->m_identifier = generate_tspckt_identifier(packet); 
 
   return packet;
 }
@@ -61,12 +65,28 @@ bool validate_tspckt(struct tspckt* packet) {
   if (packet == nullptr || packet->m_sender_thread == nullptr) {
     return false;
   }
+
+  uint32_t check_ident = generate_tspckt_identifier(packet);
+
+  if (check_ident != packet->m_identifier) {
+    return false;
+  }
+
   return true;
 }
 
-uint32_t generate_tspckt_identifier(tspckt_t* tspckt) {
-  uint32_t ident = 0;
-  //
-  return ident;
+uint32_t generate_tspckt_identifier(tspckt_t* packet) {
+  if (!packet || !packet->m_payload || !packet->m_payload->m_data)
+    return (uint32_t)-1;
+
+  tspckt_t copy = *packet;
+  copy.m_identifier = 0;
+
+  uint32_t packet_crc = kcrc32(&copy, sizeof(tspckt_t));
+  uint32_t payload_crc = kcrc32(copy.m_payload->m_data, packet->m_payload->m_data_size);
+  
+  uint64_t total_crc = ((uint64_t)packet_crc << 32) | (payload_crc & 0xFFFFFFFFUL);
+
+  return kcrc32(&total_crc, sizeof(uint64_t));
 }
 
