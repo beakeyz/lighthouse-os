@@ -19,6 +19,8 @@ static ALWAYS_INLINE void ahci_port_mmio_write32(ahci_port_t* port, uintptr_t of
   *current_data = data;
 }
 
+//static ALWAYS_INLINE void ahci_port_send_command();
+
 static ALWAYS_INLINE void port_spinup(ahci_port_t* port);
 static ALWAYS_INLINE void port_power_on(ahci_port_t* port);
 static ALWAYS_INLINE void port_start_clp(ahci_port_t* port);
@@ -56,9 +58,9 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, u
 
 void destroy_ahci_port(ahci_port_t* port) {
 
-  kmem_return_physical_page(port->m_fis_recieve_page);
-  kmem_return_physical_page((paddr_t)port->m_cmd_table_buffer);
-  kmem_return_physical_page(port->m_cmd_list_page);
+  kmem_kernel_dealloc((vaddr_t)port->m_dma_buffer, SMALL_PAGE_SIZE);
+  kmem_kernel_dealloc(port->m_cmd_list_page, SMALL_PAGE_SIZE);
+  kmem_kernel_dealloc(port->m_fis_recieve_page, SMALL_PAGE_SIZE);
   kmem_kernel_dealloc((vaddr_t)port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
   destroy_spinlock(port->m_hard_lock);

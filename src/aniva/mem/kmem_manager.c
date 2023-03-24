@@ -478,14 +478,14 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
 
 // FIXME: free higher level pts as well
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt) {
-  pml_entry_t *page = kmem_get_page(table, virt, 0);
+  pml_entry_t *page = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page(table, virt, 0));
 
   if (page) {
     page->raw_bits = 0;
     return true;
   }
 
-  kmem_invalidate_pd(virt);
+  // kmem_invalidate_pd(virt);
   return false;
 }
 
@@ -565,7 +565,7 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 
     if (was_used) {
       kmem_set_phys_page_free(page_idx);
-      //kmem_unmap_page(nullptr, vaddr);
+      kmem_unmap_page(nullptr, vaddr);
     } else {
       return Error();
     }
