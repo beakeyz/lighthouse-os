@@ -5,7 +5,7 @@
 #include "proc/thread.h"
 #include "system/processor/registers.h"
 
-#define SCHED_FRAME_DEFAULT_START_TICKS 100
+#define SCHED_FRAME_DEFAULT_START_TICKS 2
 
 /*
  * initialization

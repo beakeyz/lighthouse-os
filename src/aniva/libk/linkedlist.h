@@ -36,6 +36,7 @@ void destroy_list(list_t*);
 void list_append(list_t*, void*);
 void list_prepend(list_t *list, void *data);
 void list_append_before(list_t*, void*, uint32_t);
+void list_append_after(list_t*, void*, uint32_t);
 bool list_remove(list_t*, uint32_t); // I would like to return this entry, but its kinda hard when you need to kfree a bunch of shit
 void* list_get(list_t*, uint32_t);
 ErrorOrPtr list_indexof(list_t* list, void* data);

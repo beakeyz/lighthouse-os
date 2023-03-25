@@ -5,7 +5,10 @@
 #include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "libk/stddef.h"
+#include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
+#include "system/processor/processor.h"
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
@@ -29,7 +32,13 @@ proc_t* create_clean_proc(char name[32], proc_id id) {
   }
 
   proc->m_id = id;
-  proc->m_root_pd = nullptr;
+
+  // Only create new page dirs for non-kernel procs
+  if (id != 0)
+    proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 10 * Kib);
+  else
+    proc->m_root_pd = get_current_processor()->m_page_dir;
+
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
   proc->m_threads = init_list();
 

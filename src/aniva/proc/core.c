@@ -1,8 +1,12 @@
 #include "core.h"
+#include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/queue.h"
 #include "libk/vector.h"
+#include "proc/proc.h"
+#include "proc/thread.h"
+#include "sched/scheduler.h"
 #include "socket.h"
 #include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
@@ -29,6 +33,24 @@ ANIVA_STATUS initialize_proc_core() {
   next_proc_id = create_atomic_ptr_with_value(1);
 
   return ANIVA_SUCCESS;
+}
+
+// Leaves the current thread/process behind to be scheduled back into later
+ErrorOrPtr exec_user(char proc_name[32], FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
+
+  pause_scheduler();
+  proc_t* user_proc = create_clean_proc(proc_name, Must(generate_new_proc_id()));
+
+  proc_add_thread(user_proc, create_thread_for_proc(user_proc, entry, arg0, "mainthread"));
+
+
+  sched_add_proc(user_proc);
+
+  resume_scheduler();
+
+  scheduler_yield();
+
+  return Success(0);
 }
 
 // FIXME: EWWWWWWW

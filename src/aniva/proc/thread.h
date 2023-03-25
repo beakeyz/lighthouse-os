@@ -57,7 +57,7 @@ typedef struct thread {
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default
  */
-thread_t *create_thread(FuncPtr, ThreadEntryWrapper, uintptr_t, char[32], bool); // make this sucka
+thread_t *create_thread(FuncPtr, ThreadEntryWrapper, uintptr_t, char[32], struct proc*, bool); // make this sucka
 
 /*
  * create a thread that is supposed to execute code for a process

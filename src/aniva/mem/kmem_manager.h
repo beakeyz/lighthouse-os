@@ -42,7 +42,7 @@
 #define KMEM_FLAG_WRITETHROUGH  0x08
 #define KMEM_FLAG_SPEC          0x10
 #define KMEM_FLAG_WC            (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_SPEC)
-#define KMEM_FLAG_DMA           (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITETHROUGH)
+#define KMEM_FLAG_DMA           (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITABLE)
 #define KMEM_FLAG_NOEXECUTE     0x20
 #define KMEM_FLAG_GLOBAL        0x21
 
@@ -181,7 +181,11 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 /* access to kmem_manager data struct */
 const list_t* kmem_get_phys_ranges_list();
 
-pml_entry_t* kmem_create_user_page_map(size_t byte_size);
+/*
+ * Prepares a new pagemap that has virtual memory mapped from 0 -> initial_size
+ * This can act as clean userspace directory creation, though a lot is still missing
+ */
+pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_size);
 
 // TODO: write kmem_manager tests
 

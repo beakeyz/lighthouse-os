@@ -13,6 +13,7 @@
 
 #define PROC_DEFAULT_MAX_THREADS 16
 #define PROC_CORE_PROCESS_NAME "[aniva-core]"
+#define PROC_MAX_TICKS 4
 
 #define MIN_SOCKET_BUFFER_SIZE 0
 // FIXME: should this be the max size?
@@ -37,6 +38,12 @@ typedef enum thread_state {
 } thread_state_t;
 
 ANIVA_STATUS initialize_proc_core();
+
+/*
+ * Prio schedules a userthread
+ */
+// TODO: more args
+ErrorOrPtr exec_user(char proc_name[32], FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
 /*
  * Register a socket on the kernel socket chain

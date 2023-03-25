@@ -21,7 +21,10 @@ uintptr_t read_cr2(){
 }
 
 void write_cr3(uintptr_t cr3){
-  asm volatile("mov %%rax, %%cr3" :: "r"(cr3) : "memory");
+
+  asm volatile("" : : : "memory");
+  asm volatile("movq %0, %%cr3" ::"r"(cr3));
+  asm volatile("" : : : "memory");
 }
 
 uintptr_t read_cr3(){

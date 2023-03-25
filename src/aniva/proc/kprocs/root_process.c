@@ -13,6 +13,7 @@
 #include "libk/linkedlist.h"
 #include "libk/multiboot.h"
 #include "libk/queue.h"
+#include "libk/stddef.h"
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -62,7 +63,11 @@ static void root_main(uintptr_t multiboot_address) {
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_kterm_driver, 0)));
   }
 
-  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
+  // TODO: enable switching into userspace
+  //exec_user("test", test_user, NULL, NULL);
+
+  // FIXME: does not seem to assert interrupts...
+   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 }
 
 static void root_packet_dispatch() {

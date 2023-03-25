@@ -75,6 +75,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   _load_page_dir(map, true);
 
   kheap_enable_expand();
+
 }
 
 // TODO: remove, once we don't need this anymore for emergency debugging
@@ -678,6 +679,26 @@ static inline void _init_kmem_page_layout () {
   kmem_map_range(nullptr, kernel_physical_start, kernel_physical_start, kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 }
 
+pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
+  const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
+  const size_t page_count = ALIGN_UP(initial_mapping_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+
+  pml_entry_t* table_root = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
+
+  for (uintptr_t i = 0; i < page_count; i++) {
+
+    paddr_t physical_base = Must(kmem_prepare_new_physical_page());
+    vaddr_t virtual_base = i * SMALL_PAGE_SIZE;
+
+    bool result = kmem_map_page(table_root, virtual_base, physical_base, custom_flags, KMEM_FLAG_WRITABLE | (create_user ? 0 : KMEM_FLAG_KERNEL));
+
+    if (!result) {
+      return nullptr;
+    }
+  }
+
+  return table_root;
+}
 
 static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
   if (__disable_interupts) 

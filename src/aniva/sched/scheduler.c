@@ -4,6 +4,7 @@
 #include "dev/debug/serial.h"
 #include <mem/heap.h>
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "libk/string.h"
 #include "interupts/interupts.h"
 #include "mem/kmem_manager.h"
@@ -61,6 +62,7 @@ static bool s_has_schedule_request;
 // --- inline functions --- TODO: own file?
 static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads);
 static ALWAYS_INLINE void add_sched_frame(sched_frame_t* frame_ptr);
+static ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void remove_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void push_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx);
@@ -223,18 +225,19 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   sched_frame_t *current_frame = list_get(s_sched_frames, 0);
 
   if (s_sched_frames->m_length > 1) {
-    current_frame->m_sched_time_left--;
 
     // FIXME: switch timings seem to be wonky
     if (current_frame->m_sched_time_left <= 0) {
       current_frame->m_sched_time_left = current_frame->m_max_ticks;
 
-      println("Should have switched frames!");
       // switch_frames
+      println("Should have switched frames!");
       send_sched_frame_to_back(0);
       pick_next_thread_scheduler();
       scheduler_try_invoke();
+      return registers_ptr;
     }
+    current_frame->m_sched_time_left--;
   }
 
   current_frame->m_proc_to_schedule->m_ticks_used++;
@@ -266,7 +269,12 @@ ANIVA_STATUS sched_add_proc(proc_t *proc_ptr) {
 
   sched_frame_t *frame_ptr = create_sched_frame(proc_ptr, LOW, proc_ptr->m_requested_max_threads);
 
-  add_sched_frame(frame_ptr);
+  add_sched_frame_for_next_execute(frame_ptr);
+
+  sched_frame_t* current_frame = list_get(s_sched_frames, 0);
+
+  // Drain time left, so it gets rescheduled on the next tick
+  current_frame->m_sched_time_left = 0;
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return ANIVA_SUCCESS;
@@ -300,6 +308,12 @@ ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_U
 
 ALWAYS_INLINE void add_sched_frame(sched_frame_t* frame_ptr) {
   list_append(s_sched_frames, frame_ptr);
+}
+
+ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_ptr) {
+  // Place the new schedframe right behind the first (now running)
+  // sched frame, so it is next in line for execution
+  list_append_after(s_sched_frames, frame_ptr, 0);
 }
 
 // difference between add and insert is the fact that
@@ -340,13 +354,13 @@ static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) {
     kernel_panic("no sched frame to send to back!");
   }
 
-  if (s_sched_mode != PAUSED) {
-    pause_scheduler();
-  }
+  // TODO: detect whether the scheduler is in a tick or not
+  //if (s_sched_mode != PAUSED) {
+  //}
   sched_frame_t *frame = list_get(s_sched_frames, idx);
   list_remove(s_sched_frames, idx);
   list_append(s_sched_frames, frame);
-  resume_scheduler();
+  //resume_scheduler();
 }
 
 /*

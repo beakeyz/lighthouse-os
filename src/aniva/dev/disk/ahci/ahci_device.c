@@ -90,15 +90,15 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       return ANIVA_FAIL;
     }
 
-    if (!(device->m_hba_region->control_regs.global_host_ctrl & (AHCI_BOHC_BOS | AHCI_BOHC_BB))) {
+    if (!(device->m_hba_region->control_regs.global_host_ctrl & (1 << 0))) {
       break;
     }
-    device->m_hba_region->control_regs.global_host_ctrl |= 0x01;
+    device->m_hba_region->control_regs.global_host_ctrl |= (1 << 0);
     delay(1000);
   }
 
   // get this mofo up and running
-  device->m_hba_region->control_regs.global_host_ctrl |= (1 << 31UL);
+  device->m_hba_region->control_regs.global_host_ctrl |= (1 << 31UL) | AHCI_GHC_IE;
 
   uint32_t pi = device->m_hba_region->control_regs.ports_impl;
 
@@ -107,7 +107,6 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
       uintptr_t port_offset = 0x100 + i * 0x80;
 
-      println_kterm("Found HBA port");
 
       volatile HBA_port_registers_t* port_regs = ((volatile HBA_port_registers_t*)&device->m_hba_region->ports[i]);
 
@@ -138,6 +137,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
         continue;
       }
 
+      println_kterm("Found HBA port");
       ahci_port_t* port = make_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, i);
       if (initialize_port(port) == ANIVA_FAIL) {
         println("Failed! killing port...");
@@ -151,7 +151,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
   }
 
   s_last_debug_msg = "Exited port enumeration";
-  return ANIVA_FAIL;
+  return ANIVA_SUCCESS;
 }
 
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
@@ -160,6 +160,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   uint16_t bus_num = device->m_identifier->address.bus_num;
   uint16_t dev_num = device->m_identifier->address.device_num;
   uint16_t func_num = device->m_identifier->address.func_num;
+  uint8_t interrupt_line = device->m_identifier->interrupt_line;
   uint16_t command;
   device->m_identifier->ops.read16(bus_num, dev_num, func_num, COMMAND, &command);
   command |= PCI_COMMAND_BUS_MASTER;
@@ -169,24 +170,46 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   device->m_hba_region = get_hba_region(s_ahci_device);
 
-  set_hba_interrupts(device, true);
-
-  InterruptHandler_t* _handler = create_interrupt_handler(device->m_identifier->interrupt_line, I8259, ahci_irq_handler);
-  interrupts_add_handler(_handler);
+  // Disable interrupts for the HBA
+  uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) & ~(AHCI_GHC_IE);
+  ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
+  //set_hba_interrupts(device, false);
 
   ANIVA_STATUS status = reset_hba(device);
 
   if (status != ANIVA_SUCCESS)
-    set_hba_interrupts(device, false);
+    return status;
+
+  // HBA has been reset, enable its interrupts
+  InterruptHandler_t* _handler = create_interrupt_handler(interrupt_line, I8259, ahci_irq_handler);
+  bool result = interrupts_add_handler(_handler);
+
+  if (result)
+    _handler->m_controller->fControllerEnableVector(interrupt_line);
+
+  ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
+  ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
+
+  println("Gathering info about ports...");
+  FOREACH(i, device->m_ports) {
+    ahci_port_t* port = i->data;
+
+    status = ahci_port_gather_info(port);
+
+    if (status == ANIVA_FAIL) {
+      println("Failed to gather info!");
+      return status;
+    }
+  }
 
   return status;
 }
 
 static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value) {
   if (value) {
-    device->m_hba_region->control_regs.global_host_ctrl |= (1 << 1); // 0x02
+    device->m_hba_region->control_regs.global_host_ctrl |= AHCI_GHC_IE; // 0x02
   } else {
-    device->m_hba_region->control_regs.global_host_ctrl &= ~(1 << 1);
+    device->m_hba_region->control_regs.global_host_ctrl &= ~AHCI_GHC_IE;
   }
   return ANIVA_SUCCESS;
 }

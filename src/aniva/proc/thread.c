@@ -21,7 +21,7 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribut
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
 
-thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], bool kthread) { // make this sucka
+thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], proc_t* proc, bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
   thread->m_self = thread;
 
@@ -31,7 +31,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     thread->m_entry_wrapper = entry_wrapper;
   }
   thread->m_cpu = get_current_processor()->m_cpu_num;
-  thread->m_parent_proc = nullptr;
+  thread->m_parent_proc = proc;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
@@ -51,7 +51,9 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
   thread->m_stack_bottom = stack_bottom;
   thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
-  thread->m_context = setup_regs(kthread, get_current_processor()->m_page_dir, thread->m_stack_top);
+
+  // TODO: move away from using the root page dir of the current processor
+  thread->m_context = setup_regs(kthread, proc->m_root_pd, thread->m_stack_top);
   thread->m_real_entry = entry;
 
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
@@ -63,8 +65,7 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
     return nullptr;
   }
 
-  thread_t *t = create_thread(entry, NULL, args, name, (proc->m_id == 0));
-  t->m_parent_proc = proc;
+  thread_t *t = create_thread(entry, NULL, args, name, proc, (proc->m_id == 0));
   if (thread_prepare_context(t) == ANIVA_SUCCESS) {
     return t;
   }
@@ -83,7 +84,7 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, 
     return nullptr;
   }
 
-  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, NULL, name, (proc->m_id == 0));
+  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, NULL, name, proc, (proc->m_id == 0));
 
   // failed to create thread
   if (!ret) {
@@ -91,8 +92,6 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, 
     destroy_thread(ret);
     return nullptr;
   }
-
-  ret->m_parent_proc = proc;
 
   if (thread_prepare_context(ret) != ANIVA_SUCCESS) {
     destroy_threaded_socket(socket);
@@ -117,8 +116,7 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
   // let's get a hold of the scheduler while doing this
 
   thread->m_current_state = state;
-  // TODO: update thread context(?) on state change
-  // TODO: (??) onThreadStateChangeEvent?
+  // TODO: update thread context(?) on state change TODO: (??) onThreadStateChangeEvent?
 }
 
 // TODO: finish
@@ -166,13 +164,17 @@ extern void thread_enter_context(thread_t *to) {
 
   // FIXME: remove?
   Processor_t *current_processor = get_current_processor();
+  thread_t* previous_thread = get_previous_scheduled_thread();
 
   // TODO: make use of this
   //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
   //call_event(CONTEXT_SWITCH_EVENT, &hook);
 
-  // crashes =/
-  //write_cr3(to->m_context.cr3);
+  // Only switch pagetables if we actually need to interchange between
+  // them, otherwise thats just wasted buffers
+  if (previous_thread->m_context.cr3 != to->m_context.cr3) {
+    write_cr3(to->m_context.cr3);
+  }
 
   // NOTE: for correction purposes
   to->m_cpu = current_processor->m_cpu_num;

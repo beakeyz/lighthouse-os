@@ -5,7 +5,7 @@
 #include "libk/linkedlist.h"
 #include "mem/pg.h"
 
-typedef size_t proc_id;
+typedef int proc_id;
 
 struct thread;
 

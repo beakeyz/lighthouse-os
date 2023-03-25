@@ -56,6 +56,7 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
+
   // map multiboot address
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
     (uintptr_t)mb_addr,

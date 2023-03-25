@@ -59,8 +59,13 @@
 #define AHCI_PxIE_SDBE (1 << 3) // Port Set Device Bits FIS Interrupt
 #define AHCI_PxIE_DPE (1 << 5) // Port Descripor Processed Interrupt
 #define AHCI_PORT_INTERRUPT_ERROR 0x7DC00050
+#define AHCI_PORT_INTERRUPT_FULL_ENABLE 0x7DC0007F
 
 #define AHCI_FIS_TYPE_REG_H2D 0x27
+#define AHCI_FIS_TYPE_REG_D2H 0x34
+#define AHCI_FIS_TYPE_DMA_ACT 0x39
+#define AHCI_FIS_TYPE_DMA_SETUP 0x41
+
 
 #define AHCI_COMMAND_READ_DMA_EXT 0x25
 #define AHCI_COMMAND_WRITE_DMA_EXT 0x35
@@ -129,10 +134,30 @@ typedef struct {
 } __attribute__((packed)) CommandHeader_t;
 
 typedef struct {
-  uint8_t command_fis[64];
-  uint8_t atapi_cmd[32];
-  uint8_t reserved0[32];
-  PhysRegionDesc descriptors[];
+  uint8_t type;
+  uint8_t flags;
+  uint8_t command;
+  uint8_t features_low;
+  uint8_t lba0;
+  uint8_t lba1;
+  uint8_t lba2;
+  uint8_t dev;
+  uint8_t lba3;
+  uint8_t lba4;
+  uint8_t lba5;
+  uint8_t features_high;
+  uint16_t count;
+  uint8_t iso_command_complete;
+  uint8_t control;
+  uint32_t aux;
+} __attribute__((packed)) CommandFIS_t;
+
+typedef struct {
+  CommandFIS_t fis;
+  uint8_t fis_padding[44];
+  uint8_t atapi_cmd[16];
+  uint8_t reserved0[48];
+  PhysRegionDesc descriptors;
 } __attribute__((packed)) CommandTable_t;
 
 #endif // !__ANIVA_AHCI_DEFINITIONS__

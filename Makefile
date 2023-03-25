@@ -26,7 +26,7 @@ OBJ := $(shell find $(OUT) -type f -name '*.o')
 KERNEL_OUT = $(OUT)/lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
-QEMUFLAGS := -m 128M -machine q35 -usb ./out/lightos.iso -d cpu_reset -no-reboot -serial stdio
+QEMUFLAGS := -m 128M -machine q35 -usb ./out/lightos.iso -d trace:handle_cmd_* -no-reboot -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
 -Wall 							\

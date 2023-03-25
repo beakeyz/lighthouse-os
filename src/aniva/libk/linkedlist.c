@@ -104,6 +104,42 @@ void list_append_before(list_t *list, void *data, uint32_t index) {
   // FIXME: return error
 }
 
+void list_append_after(list_t* list, void* data, uint32_t index) {
+  uint32_t loop_idx = 0;
+
+  if (list->m_length <= 1) {
+    list_append(list, data);
+    return;
+  }
+
+  node_t* new = kmalloc(sizeof(node_t));
+  new->data = data;
+
+  node_t* next = list->head;
+  while (next) {
+
+    if (loop_idx == index) {
+      // found
+      node_t* next_to_new_node = next->next;
+      node_t* prev_to_new_node = next;
+
+      new->prev = prev_to_new_node;
+      new->next = next_to_new_node;
+
+      if (next_to_new_node)
+        next_to_new_node->prev = new;
+
+      prev_to_new_node->next = new;
+
+      list->m_length++;
+      return;
+    }
+
+    loop_idx++;
+    next = next->next;
+  }
+}
+
 bool list_remove(list_t* list, uint32_t index) {
   uint32_t current_index = 0;
   FOREACH(i, list) {
