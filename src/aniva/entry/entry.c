@@ -1,4 +1,5 @@
 #include "entry.h"
+#include "dev/disk/ahci/ahci_device.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
@@ -78,6 +79,8 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   initialize_proc_core();
 
   init_aniva_driver_registry();
+
+  //g_base_ahci_driver.f_init();
 
   init_scheduler();
 

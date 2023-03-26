@@ -67,7 +67,7 @@ static void root_main(uintptr_t multiboot_address) {
   //exec_user("test", test_user, NULL, NULL);
 
   // FIXME: does not seem to assert interrupts...
-   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
+  Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
 }
 
 static void root_packet_dispatch() {

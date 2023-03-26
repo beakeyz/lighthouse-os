@@ -82,23 +82,9 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
 // TODO: redo this
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
-  // NOTE: 0x01 is the ghc enable flag
-  for (size_t retry = 0;; retry++) {
-
-    if (retry > 1000) {
-      s_last_debug_msg = "GHC timed out!";
-      return ANIVA_FAIL;
-    }
-
-    if (!(device->m_hba_region->control_regs.global_host_ctrl & (1 << 0))) {
-      break;
-    }
-    device->m_hba_region->control_regs.global_host_ctrl |= (1 << 0);
-    delay(1000);
-  }
-
-  // get this mofo up and running
-  device->m_hba_region->control_regs.global_host_ctrl |= (1 << 31UL) | AHCI_GHC_IE;
+  // get this mofo up and running and disable interrupts
+  ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, 
+      (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_AE) & ~(AHCI_GHC_IE));;
 
   uint32_t pi = device->m_hba_region->control_regs.ports_impl;
 
@@ -160,20 +146,24 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   uint16_t bus_num = device->m_identifier->address.bus_num;
   uint16_t dev_num = device->m_identifier->address.device_num;
   uint16_t func_num = device->m_identifier->address.func_num;
-  uint8_t interrupt_line = device->m_identifier->interrupt_line;
-  uint16_t command;
-  device->m_identifier->ops.read16(bus_num, dev_num, func_num, COMMAND, &command);
-  command |= PCI_COMMAND_BUS_MASTER;
-  command |= PCI_COMMAND_MEM_SPACE;
-  command ^= PCI_COMMAND_INT_DISABLE;
-  device->m_identifier->ops.write16(bus_num, dev_num, func_num, COMMAND, command);
+  //pci_set_interrupt_line(&device->m_identifier->address, true);
+  //pci_set_bus_mastering(&device->m_identifier->address, true);
+  //pci_set_memory(&device->m_identifier->address, true);
+
+  uint8_t interrupt_line;
+  device->m_identifier->ops.read8(bus_num, dev_num, func_num, INTERRUPT_LINE, &interrupt_line);
 
   device->m_hba_region = get_hba_region(s_ahci_device);
 
-  // Disable interrupts for the HBA
-  uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) & ~(AHCI_GHC_IE);
-  ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
-  //set_hba_interrupts(device, false);
+  // We might need to fetch AHCI from the BIOS
+  if (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_CAP2) & AHCI_CAP2_BOH) {
+    uint32_t bohc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) | AHCI_BOHC_OOS;
+    ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC, bohc);
+
+    while (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) & (AHCI_BOHC_BOS | AHCI_BOHC_BB)) {
+      delay(100);
+    }
+  }
 
   ANIVA_STATUS status = reset_hba(device);
 
@@ -187,7 +177,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   if (result)
     _handler->m_controller->fControllerEnableVector(interrupt_line);
 
-  ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
+  uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
 
   println("Gathering info about ports...");
@@ -276,12 +266,14 @@ void ahci_driver_init() {
   
   enumerate_registerd_devices(find_ahci_device);
 
+  /*
   char* number_of_ports = (char*)to_string(s_ahci_device->m_ports->m_length);
   char* message = "\nimplemented ports: ";
   const char* packet_message = concat(message, number_of_ports);
   destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&packet_message, strlen(packet_message)));
   destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&s_last_debug_msg, strlen(packet_message)));
   kfree((void*)packet_message);
+  */
 }
 
 int ahci_driver_exit() {

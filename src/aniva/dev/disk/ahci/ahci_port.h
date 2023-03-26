@@ -10,6 +10,12 @@ struct ahci_device;
 typedef struct ahci_port {
   struct ahci_device* m_device;
 
+  const char* m_device_model;
+
+  uintptr_t m_max_sector;
+  size_t m_logical_sector_size;
+  size_t m_physical_sector_size;
+
   bool m_awaiting_dma_transfer_complete;
   bool m_is_waiting;
   bool m_transfer_failed;

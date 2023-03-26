@@ -9,7 +9,7 @@
 #define AHCI_REG_IS 0x08 // Interrupt Status Register
 #define AHCI_REG_PI 0x0C // Ports implemented
 #define AHCI_REG_CAP2 0x24 // Host Capabilities Extended
-#define AHCI_REG_AHCI_BOHC 0x28 // BIOS/OS Handoff Control and Status
+#define AHCI_REG_BOHC 0x28 // BIOS/OS Handoff Control and Status
 
 #define AHCI_REG_PxCLB 0x00 // Port Command List Base Address
 #define AHCI_REG_PxCLBU 0x04 // Port Command List Base Address Upper
@@ -44,6 +44,8 @@
 #define AHCI_BOHC_BB (1 << 4) // BIOS Busy
 
 #define AHCI_PxCMD_ST (1 << 0) // Start
+#define ACHI_PxCMD_SUD (1 << 1) // Staggered spin-up
+#define ACHI_PxCMD_POD (1 << 2) // Power on device (Cold precense detection)
 #define AHCI_PxCMD_FRE (1 << 4) // FIS Receive Enable
 #define AHCI_PxCMD_FR (1 << 14) // FIS Receive Running
 #define AHCI_PxCMD_CR (1 << 15) // Command List Running

@@ -2,6 +2,7 @@
 #include "ahci_device.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/definitions.h"
+#include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
 #include "libk/error.h"
 #include "libk/io.h"
@@ -52,12 +53,37 @@ static ALWAYS_INLINE ANIVA_STATUS ahci_port_await_dma_completion(ahci_port_t* po
   return ANIVA_SUCCESS;
 }
 
+static ALWAYS_INLINE ANIVA_STATUS ahci_port_await_dma_completion_sync(ahci_port_t* port) {
+
+  if (port->m_is_waiting) {
+
+    uintptr_t tmt;
+
+    tmt = 0;
+
+    // Wait until CI resets
+    while (ahci_port_mmio_read32(port, AHCI_REG_PxCI)) {
+      tmt++;
+
+      // Max. 1 second
+      if (tmt >= 1000) {
+        goto timeout;
+      }
+
+      delay(1000);
+    }
+
+    return ANIVA_SUCCESS;
+  }
+
+timeout:
+  return ANIVA_FAIL;
+}
+
 static ANIVA_STATUS ahci_port_send_command(ahci_port_t* port, uint8_t cmd, paddr_t buffer, size_t size, bool write, uintptr_t lba, uint16_t blk_count) {
 
   if (ahci_port_await_dma_completion(port) == false)
     return ANIVA_FAIL;
-
-  ahci_port_mmio_write32(port, AHCI_REG_PxIS, (uint32_t)-1);
 
   uint32_t cmd_header_idx = ahci_port_find_free_cmd_header(port);
 
@@ -99,7 +125,6 @@ static ANIVA_STATUS ahci_port_send_command(ahci_port_t* port, uint8_t cmd, paddr
   cmd_fis->type = AHCI_FIS_TYPE_REG_H2D;
   cmd_fis->flags = 0x80;
   cmd_fis->command = cmd;
-  cmd_fis->control = 1;
   cmd_fis->lba0 = lba & 0xFF;
   cmd_fis->lba1 = (lba >> 8) & 0xFF;
   cmd_fis->lba2 = (lba >> 16) & 0xFF;
@@ -114,17 +139,12 @@ static ANIVA_STATUS ahci_port_send_command(ahci_port_t* port, uint8_t cmd, paddr
   port->m_transfer_failed = false;
 
   uint32_t ci = ahci_port_mmio_read32(port, AHCI_REG_PxCI);
-  println(to_string(ci));
   ci |= (1 << cmd_header_idx);
-  println(to_string(ci));
   ahci_port_mmio_write32(port, AHCI_REG_PxCI, ci);
 
   // FIXME: the write above here does not get accepted?
   // Qemu trace seems to show AHCI does do something with this, 
   // but there just is no response in the form of an interrupt...
-  ci = ahci_port_mmio_read32(port, AHCI_REG_PxCI);
-  println(to_string(ci));
-
   return ANIVA_SUCCESS;
 }
 
@@ -150,6 +170,7 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, u
 
   ret->m_hard_lock = create_spinlock();
   ret->m_awaiting_dma_transfer_complete = false;
+  ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
 
   // prepare buffers
@@ -158,7 +179,6 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, u
 
   ret->m_dma_buffer = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
   ret->m_cmd_table_buffer = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
-
 
   return ret;
 }
@@ -176,13 +196,22 @@ void destroy_ahci_port(ahci_port_t* port) {
 
 ANIVA_STATUS initialize_port(ahci_port_t *port) {
 
+  if (!port_has_phy(port)) {
+    println_kterm("No Phy");
+    kernel_panic("No Phy");
+    return ANIVA_FAIL;
+  }
+
+  // Reset errors
+  ahci_port_mmio_write32(port, AHCI_REG_PxSERR, ahci_port_mmio_read32(port, AHCI_REG_PxSERR));
+
   port_set_sleeping(port);
 
   memset((void*)port->m_fis_recieve_page, 0, SMALL_PAGE_SIZE);
   memset((void*)port->m_cmd_list_page, 0, SMALL_PAGE_SIZE);
 
-  uintptr_t cmd_list = kmem_to_phys(nullptr, port->m_cmd_list_page);
-  uintptr_t fis_recieve = kmem_to_phys(nullptr, port->m_fis_recieve_page);
+  paddr_t cmd_list = kmem_to_phys(nullptr, port->m_cmd_list_page);
+  paddr_t fis_recieve = kmem_to_phys(nullptr, port->m_fis_recieve_page);
 
   // TODO: check for CAP.S64A so we can set CLBU and FBU accortingly
   ahci_port_mmio_write32(port, AHCI_REG_PxCLB, cmd_list);
@@ -190,8 +219,15 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
   ahci_port_mmio_write32(port, AHCI_REG_PxFB, fis_recieve);
   ahci_port_mmio_write32(port, AHCI_REG_PxFBU, 0);
 
-  // Start recieving FIS
-  port_start_fis_recieving(port);
+  /*
+  CommandHeader_t* headers = (CommandHeader_t*)cmd_list;
+
+  for (uint32_t i = 0; i < 32; i++) {
+    headers[i].phys_region_desc_table_lenght = 8;
+    headers[i].command_table_base_addr = (uintptr_t)kmem_kernel_alloc(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_IDENTITY);
+    headers[i].command_table_base_addr_upper = 0;
+  }
+  */
 
   // Reset errors
   ahci_port_mmio_write32(port, AHCI_REG_PxSERR, ahci_port_mmio_read32(port, AHCI_REG_PxSERR));
@@ -221,20 +257,58 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   ahci_port_mmio_write32(port, AHCI_REG_PxIE, AHCI_PORT_INTERRUPT_FULL_ENABLE);
 
-  vaddr_t dev_identify_buffer = Release(kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-  paddr_t dev_ident_phys = kmem_to_phys(nullptr, dev_identify_buffer);
+  ata_identify_block_t* dev_identify_buffer = (ata_identify_block_t*)Release(kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  paddr_t dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
 
   println("Waiting for cmd...");
-  if (ahci_port_send_command(port, AHCI_COMMAND_IDENTIFY_DEVICE, dev_ident_phys, 512, false, 0, 0) == ANIVA_FAIL || !ahci_port_await_dma_completion(port)) {
-    kmem_kernel_dealloc(dev_identify_buffer, SMALL_PAGE_SIZE);
-    return ANIVA_FAIL;
+  if (ahci_port_send_command(port, AHCI_COMMAND_IDENTIFY_DEVICE, dev_ident_phys, 512, false, 0, 0) == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL) {
+    goto fail_and_dealloc;
   }
 
-  uint16_t* data = (uint16_t*) dev_identify_buffer;
+  if (dev_identify_buffer->general_config.dev_type) {
+    goto fail_and_dealloc;
+  }
+
+  // Default sector size
+  port->m_logical_sector_size = 512;
+  port->m_physical_sector_size = 512;
+
+  uint16_t psstlss = dev_identify_buffer->physical_sector_size_to_logical_sector_size;
+
+  if ((psstlss >> 14) == 1) {
+    if (psstlss & (1 << 12)) {
+      port->m_logical_sector_size = dev_identify_buffer->logical_sector_size;
+    }
+    if (psstlss & (1 << 13)) {
+      port->m_physical_sector_size = port->m_logical_sector_size << (psstlss & 0xF);
+    }
+  }
+  if (dev_identify_buffer->commands_and_feature_sets_supported[1] & (1 << 10)) {
+    port->m_max_sector = dev_identify_buffer->user_addressable_logical_sectors_count;
+  } else {
+    port->m_max_sector = dev_identify_buffer->max_28_bit_addressable_logical_sector;
+  }
+
+  // TODO: Save 
+  const char* model_num = (const char*)dev_identify_buffer->model_number;
+
+  println_kterm("");
+  println_kterm(model_num);
+  println_kterm("");
+
+  println_kterm("Logical sector size: ");
+  println_kterm(to_string(port->m_logical_sector_size));
+  println_kterm("Physical sector size: ");
+  println_kterm(to_string(port->m_physical_sector_size));
 
   println_kterm("Recieved the thing");
 
   return ANIVA_SUCCESS;
+
+fail_and_dealloc:
+  kernel_panic("DEV IDENTIFY WENT WRONG");
+  kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+  return ANIVA_FAIL;
 }
 
 ANIVA_STATUS ahci_port_handle_int(ahci_port_t* port) {
