@@ -2,10 +2,12 @@
 #include "ahci_device.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/definitions.h"
+#include "dev/disk/partition/gpt.h"
 #include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
 #include "libk/error.h"
 #include "libk/io.h"
+#include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include <mem/heap.h>
 #include "libk/string.h"
@@ -312,7 +314,6 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   // TODO: Save 
   const char* model_num = (const char*)dev_identify_buffer->model_number;
-
   memcpy(port->m_device_model, model_num, 40);
 
   println_kterm("");
@@ -327,11 +328,29 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   println_kterm(to_string(port->m_generic.m_max_blk));
 
   // TODO: do actual useful stuff with this
-  uint8_t buffer[512];
-  port->m_generic.f_read_sync(&port->m_generic, &buffer, 512, 0);
+  //uint8_t buffer[512];
+  //port->m_generic.f_read_sync(&port->m_generic, &buffer, 512, 0);
+  gpt_table_t* test_table = create_gpt_table(&port->m_generic);
 
-  println_kterm("Recieved the thing");
+  if (test_table != nullptr) {
+    println_kterm("");
+    println_kterm(to_string(test_table->m_header.first_usable_lba));
+    println_kterm(to_string(test_table->m_header.last_usable_lba));
+    println_kterm(to_string(test_table->m_header.entries_count));
 
+    println_kterm("Partitions: ");
+    uint64_t index = 0;
+    FOREACH(i, test_table->m_partitions) {
+      gpt_partition_t* part = i->data;
+
+      println_kterm(to_string(index));
+      index++;
+    }
+    println_kterm("Recieved the thing");
+  }
+
+  kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+  println_kterm("Done!");
   return ANIVA_SUCCESS;
 
 fail_and_dealloc:

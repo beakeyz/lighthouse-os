@@ -20,6 +20,7 @@
 #include "sched/scheduler.h"
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
+#include <crypto/k_crc32.h>
 
 #include <dev/framebuffer/framebuffer.h>
 
@@ -241,6 +242,42 @@ void destroy_ahci_device(ahci_device_t* device) {
   // TODO:
 }
 
+ahci_dch_t* create_ahci_command_header(size_t size, disk_offset_t offset) {
+  ahci_dch_t* header = kmalloc(sizeof(ahci_dch_t));
+
+  // TODO
+  header->m_flags = 0;
+  header->m_crc = 0;
+
+  header->m_req_buffer = kmalloc(sizeof(size));
+  header->m_req_size = size;
+  header->m_req_offset = offset;
+
+  header->m_crc = kcrc32(header, sizeof(ahci_dch_t));
+
+  return header;
+}
+
+void destroy_ahci_command_header(ahci_dch_t* header) {
+  kfree(header->m_req_buffer);
+  kfree(header);
+}
+
+ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header) {
+
+  uintptr_t crc_check;
+  ahci_dch_t copy = *header;
+  copy.m_crc = 0;
+
+  crc_check = kcrc32(&copy, sizeof(ahci_dch_t));
+
+  if (crc_check == header->m_crc) {
+    return Success(0);
+  }
+
+  return Error();
+}
+
 static void find_ahci_device(pci_device_identifier_t* identifier) {
 
   if (identifier->class == MASS_STORAGE) {
@@ -288,5 +325,32 @@ int ahci_driver_exit() {
 }
 
 uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+
+  if (s_ahci_device == nullptr) {
+    return (uintptr_t)-1;
+  }
+
+  switch (payload.m_code) {
+    case AHCI_MSG_READ: {
+      ahci_dch_t* header = (ahci_dch_t*)payload.m_data;
+
+      if (ahci_cmd_header_check_crc(header).m_status == ANIVA_FAIL) {
+        kernel_panic("FUCK ahci command header does not have a matching crc32!");
+        return (uintptr_t)-1;
+      }
+
+      ahci_port_t* port = list_get(s_ahci_device->m_ports, header->m_port_index);
+
+      int result = port->m_generic.f_read_sync(&port->m_generic, header->m_req_buffer, header->m_req_size, header->m_req_offset);
+
+      if (result < 0) {
+        return (uintptr_t)-1;
+      }
+
+      *response = create_packet_response(header, sizeof(ahci_dch_t));
+      return 0;
+    }
+  }
+
   return 0;
 }
