@@ -3,6 +3,7 @@
 
 #include "dev/disk/ahci/definitions.h"
 #include <sync/spinlock.h>
+#include "dev/disk/generic.h"
 #include "libk/error.h"
 
 struct ahci_device;
@@ -10,11 +11,8 @@ struct ahci_device;
 typedef struct ahci_port {
   struct ahci_device* m_device;
 
-  const char* m_device_model;
-
-  uintptr_t m_max_sector;
-  size_t m_logical_sector_size;
-  size_t m_physical_sector_size;
+  char m_device_model[40];
+  generic_disk_dev_t m_generic;
 
   bool m_awaiting_dma_transfer_complete;
   bool m_is_waiting;

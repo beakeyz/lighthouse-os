@@ -13,6 +13,11 @@
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
 
+static int ahci_port_read(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+
 static ALWAYS_INLINE uint32_t ahci_port_mmio_read32(ahci_port_t* port, uintptr_t offset) {
   volatile uint32_t* data = (volatile uint32_t*)(port->m_port_offset + offset);
   return *data;
@@ -73,6 +78,8 @@ static ALWAYS_INLINE ANIVA_STATUS ahci_port_await_dma_completion_sync(ahci_port_
       delay(1000);
     }
 
+    port->m_is_waiting = false;
+    // TODO: check error
     return ANIVA_SUCCESS;
   }
 
@@ -173,6 +180,15 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, u
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
 
+  memset(&ret->m_generic, 0x00, sizeof(generic_disk_dev_t));
+
+  ret->m_generic.m_parent = ret;
+
+  ret->m_generic.f_read = generic_disk_opperation;
+  ret->m_generic.f_read_sync = generic_disk_opperation;
+  ret->m_generic.f_write = generic_disk_opperation;
+  ret->m_generic.f_write_sync = generic_disk_opperation;
+
   // prepare buffers
   ret->m_fis_recieve_page = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
   ret->m_cmd_list_page = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
@@ -270,36 +286,49 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   }
 
   // Default sector size
-  port->m_logical_sector_size = 512;
-  port->m_physical_sector_size = 512;
+  port->m_generic.m_logical_sector_size = 512;
+  port->m_generic.m_physical_sector_size = 512;
 
   uint16_t psstlss = dev_identify_buffer->physical_sector_size_to_logical_sector_size;
 
   if ((psstlss >> 14) == 1) {
     if (psstlss & (1 << 12)) {
-      port->m_logical_sector_size = dev_identify_buffer->logical_sector_size;
+      port->m_generic.m_logical_sector_size = dev_identify_buffer->logical_sector_size;
     }
     if (psstlss & (1 << 13)) {
-      port->m_physical_sector_size = port->m_logical_sector_size << (psstlss & 0xF);
+      port->m_generic.m_physical_sector_size = port->m_generic.m_logical_sector_size << (psstlss & 0xF);
     }
   }
   if (dev_identify_buffer->commands_and_feature_sets_supported[1] & (1 << 10)) {
-    port->m_max_sector = dev_identify_buffer->user_addressable_logical_sectors_count;
+    port->m_generic.m_max_blk = dev_identify_buffer->user_addressable_logical_sectors_count;
   } else {
-    port->m_max_sector = dev_identify_buffer->max_28_bit_addressable_logical_sector;
+    port->m_generic.m_max_blk = dev_identify_buffer->max_28_bit_addressable_logical_sector;
   }
+
+  port->m_generic.f_read = ahci_port_read;
+  port->m_generic.f_read_sync = ahci_port_read_sync;
+  port->m_generic.f_write = ahci_port_write;
+  port->m_generic.f_write_sync = ahci_port_write_sync;
 
   // TODO: Save 
   const char* model_num = (const char*)dev_identify_buffer->model_number;
+
+  memcpy(port->m_device_model, model_num, 40);
 
   println_kterm("");
   println_kterm(model_num);
   println_kterm("");
 
   println_kterm("Logical sector size: ");
-  println_kterm(to_string(port->m_logical_sector_size));
+  println_kterm(to_string(port->m_generic.m_logical_sector_size));
   println_kterm("Physical sector size: ");
-  println_kterm(to_string(port->m_physical_sector_size));
+  println_kterm(to_string(port->m_generic.m_physical_sector_size));
+  println_kterm("Max bloc: ");
+  println_kterm(to_string(port->m_generic.m_max_blk));
+
+  // TODO: do actual useful stuff with this
+  uint8_t buffer[512];
+  port->m_generic.f_read_sync(&port->m_generic, &buffer, 512, 0);
 
   println_kterm("Recieved the thing");
 
@@ -399,3 +428,59 @@ static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port) {
   uint32_t sata_stat = ahci_port_mmio_read32(port, AHCI_REG_PxSSTS);
   return (sata_stat & 0x0f) == 3;
 }
+
+/*
+ * TODO: implement
+ */
+
+int ahci_port_read(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+
+  return -1;
+}
+
+int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+  return -1;
+}
+
+int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+
+  if (size == 0) {
+    return -1;
+  }
+
+  ahci_port_t* parent;
+  paddr_t tmp;
+  uintptr_t lba;
+  size_t blk_count;
+
+  // Prepare the parent port
+  parent = port->m_parent;
+
+  // Preallocate a buffer 
+  // TODO: is this buffer needed? Can we dump the result straigt into the buffer argument?
+  tmp = Must(kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_DMA));
+
+  // TODO: bitshift with the log2() of the sector/block size
+  // for more acurate readings
+  lba = offset / port->m_logical_sector_size;
+  blk_count = size / port->m_logical_sector_size;
+
+  println("Waiting...");
+  ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_READ_DMA_EXT, (paddr_t)tmp, size, false, lba, blk_count);
+
+  if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(parent) == ANIVA_FAIL) {
+    return -1;
+  }
+
+  // Copy prebuffer into final buffer
+  memcpy(buffer, (void*)tmp, size);
+
+  kmem_kernel_dealloc(tmp, size);
+
+  return 0;
+}
+
+int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+  return -1;
+}
+

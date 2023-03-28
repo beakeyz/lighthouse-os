@@ -29,7 +29,7 @@ typedef struct {
 
   uint16_t reserved_for_cfa[2];
   uint16_t retired2;
-  uint16_t serial_number[10];
+  uint8_t serial_number[20];
 
   uint16_t retired3[2];
   uint16_t obsolete4;
@@ -138,5 +138,7 @@ typedef struct {
   uint16_t signature : 8;
   uint16_t checksum : 8;
 } __attribute__((packed)) ata_identify_block_t;
+
+typedef uintptr_t disk_offset_t;
 
 #endif // !__ANIVA_SHARED_DISK_DEFS__
