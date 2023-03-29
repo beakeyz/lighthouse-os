@@ -4,15 +4,17 @@
 #include "dev/disk/shared.h"
 #include "dev/driver.h"
 #include <dev/pci/pci.h>
+#include <libk/hive.h>
 
 struct ahci_port;
 
 #define AHCI_MSG_GET_PORT_COUNT 5
 #define AHCI_MSG_READ 6
+#define AHCI_MSG_GET_PORT 7
 
 typedef struct ahci_driver_command_header {
  uint32_t m_crc;
- uint32_t m_port_index;
+ char m_port_path[32];
  void* m_req_buffer;
  size_t m_req_size;
  disk_offset_t m_req_offset;
@@ -23,7 +25,7 @@ typedef struct ahci_device {
   pci_device_identifier_t* m_identifier;
 
   volatile HBA* m_hba_region;
-  list_t* m_ports;
+  hive_t* m_ports;
 
   uint32_t m_used_ports;
   // TODO

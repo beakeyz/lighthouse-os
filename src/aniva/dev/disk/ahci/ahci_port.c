@@ -6,6 +6,7 @@
 #include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
 #include "libk/error.h"
+#include "libk/hive.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
@@ -19,6 +20,21 @@ static int ahci_port_read(generic_disk_dev_t* port, void* buffer, size_t size, d
 static int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+
+static char* create_port_path(ahci_port_t* port) {
+
+  const char* prefix = "prt";
+  const size_t index_len = strlen(to_string(port->m_port_index));
+  const size_t total_len = strlen(prefix) + index_len + 1;
+  char* ret = kmalloc(total_len);
+
+  memset(ret, 0, total_len);
+  memcpy(ret, prefix, strlen(prefix));
+  memcpy(ret + strlen(prefix), to_string(port->m_port_index), index_len);
+
+  return ret;
+}
+
 
 static ALWAYS_INLINE uint32_t ahci_port_mmio_read32(ahci_port_t* port, uintptr_t offset) {
   volatile uint32_t* data = (volatile uint32_t*)(port->m_port_offset + offset);
@@ -167,7 +183,7 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
-ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) {
+ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) {
 
   uintptr_t ib_page = kmem_prepare_new_physical_page().m_ptr;
 
@@ -181,6 +197,7 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, u
   ret->m_awaiting_dma_transfer_complete = false;
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
+  ret->m_gpt_table = nullptr;
 
   memset(&ret->m_generic, 0x00, sizeof(generic_disk_dev_t));
 
@@ -190,6 +207,8 @@ ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, u
   ret->m_generic.f_read_sync = generic_disk_opperation;
   ret->m_generic.f_write = generic_disk_opperation;
   ret->m_generic.f_write_sync = generic_disk_opperation;
+
+  ret->m_generic.m_path = create_port_path(ret);
 
   // prepare buffers
   ret->m_fis_recieve_page = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
@@ -326,27 +345,27 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   println_kterm(to_string(port->m_generic.m_physical_sector_size));
   println_kterm("Max bloc: ");
   println_kterm(to_string(port->m_generic.m_max_blk));
+  println_kterm("");
 
   // TODO: do actual useful stuff with this
   //uint8_t buffer[512];
   //port->m_generic.f_read_sync(&port->m_generic, &buffer, 512, 0);
-  gpt_table_t* test_table = create_gpt_table(&port->m_generic);
+  gpt_table_t* gpt_table = create_gpt_table(&port->m_generic);
 
-  if (test_table != nullptr) {
+  if (!gpt_table) {
+    // TODO: Search for MBR
+    goto fail_and_dealloc;
+  }
+
+  port->m_gpt_table = gpt_table;
+
+  FOREACH(i, port->m_gpt_table->m_partitions->m_entries) {
+    hive_entry_t* entry = i->data;
+    gpt_partition_t* part = entry->m_data;
+
+    println_kterm(port->m_generic.m_path);
+    println_kterm(part->m_path);
     println_kterm("");
-    println_kterm(to_string(test_table->m_header.first_usable_lba));
-    println_kterm(to_string(test_table->m_header.last_usable_lba));
-    println_kterm(to_string(test_table->m_header.entries_count));
-
-    println_kterm("Partitions: ");
-    uint64_t index = 0;
-    FOREACH(i, test_table->m_partitions) {
-      gpt_partition_t* part = i->data;
-
-      println_kterm(to_string(index));
-      index++;
-    }
-    println_kterm("Recieved the thing");
   }
 
   kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
@@ -484,7 +503,7 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
   lba = offset / port->m_logical_sector_size;
   blk_count = size / port->m_logical_sector_size;
 
-  println("Waiting...");
+  // println("Waiting...");
   ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_READ_DMA_EXT, (paddr_t)tmp, size, false, lba, blk_count);
 
   if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(parent) == ANIVA_FAIL) {

@@ -104,7 +104,7 @@ void ps2_keyboard_entry() {
 
 }
 int ps2_keyboard_exit() {
-
+  destroy_list(s_kb_event_callbacks);
   interrupts_remove_handler(PS2_KB_IRQ_VEC);
   return 0;
 }

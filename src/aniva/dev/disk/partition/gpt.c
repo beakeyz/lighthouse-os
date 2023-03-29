@@ -1,9 +1,22 @@
 #include "gpt.h"
 #include "dev/debug/serial.h"
 #include "libk/error.h"
+#include "libk/hive.h"
 #include "libk/linkedlist.h"
 #include "mem/heap.h"
 #include <libk/string.h>
+
+static char* gpt_partition_create_path(gpt_partition_t* partition) {
+  const char* prefix = "part";
+  const size_t index_len = strlen(to_string(partition->m_index));
+  const size_t total_len = strlen(prefix) + index_len + 1;
+  char* ret = kmalloc(total_len);
+
+  memset(ret, 0x00, total_len);
+  memcpy(ret, "part", 4);
+  memcpy(ret + 4, to_string(partition->m_index), index_len);
+  return ret;
+}
 
 static bool gpt_header_is_valid(gpt_partition_header_t* header) {
 
@@ -29,7 +42,7 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
   gpt_table_t* ret = kmalloc(sizeof(gpt_table_t));
 
   ret->m_device = device;
-  ret->m_partitions = init_list();
+  ret->m_partitions = create_hive("part");
 
   // TODO: get gpt header
   uint8_t buffer[device->m_logical_sector_size];
@@ -53,6 +66,7 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
   // Check partitions
 
   const size_t partition_entry_size = ret->m_header.partition_entry_size;
+  uintptr_t partition_index = 0;
   disk_offset_t blk_offset = ret->m_header.partition_array_start_lba * device->m_logical_sector_size;
 
   for (uintptr_t i = 0; i < ret->m_header.entries_count; i++) {
@@ -72,8 +86,11 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
       continue;
     }
 
-    list_append(ret->m_partitions, create_gpt_partition(&entry));
+    gpt_partition_t* partition = create_gpt_partition(&entry, partition_index);
 
+    hive_add_entry(ret->m_partitions, partition, partition->m_path);
+
+    partition_index++;
     blk_offset += partition_entry_size;
   }
 
@@ -85,17 +102,19 @@ fail_and_destroy:
 }
 
 void destroy_gpt_table(gpt_table_t* table) {
-  destroy_list(table->m_partitions);
+  destroy_hive(table->m_partitions);
   kfree(table);
 }
 
-gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry) {
+gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t index) {
   gpt_partition_t* ret = kmalloc(sizeof(gpt_partition_t));
 
   memcpy(ret->m_guid, entry->partition_guid, 16);
   memcpy(ret->m_name, entry->partition_name, 72);
   ret->m_start_lba = entry->first_lba;
   ret->m_end_lba = entry->last_lba;
+  ret->m_index = index;
+  ret->m_path = gpt_partition_create_path(ret);
 
   return ret;
 }

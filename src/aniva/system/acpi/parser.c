@@ -52,6 +52,8 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   println("init tables");
   parser_init_tables(parser);
 
+  print_tables(parser);
+
   parser->m_fadt = find_table(parser, FADT_SIGNATURE);
 
   if (!parser->m_fadt) {
@@ -267,9 +269,7 @@ void* find_table(acpi_parser_t *parser, const char* sig) {
   return (void*)find_table_idx(parser, sig, 0);
 }
 
-const char* parser_get_acpi_tables(acpi_parser_t* parser) {
-
-  char* names = "";
+const int parser_get_acpi_tables(acpi_parser_t* parser, char* names) {
 
   FOREACH(i, parser->m_tables) {
     acpi_sdt_header_t* header = i->data;
@@ -278,19 +278,22 @@ const char* parser_get_acpi_tables(acpi_parser_t* parser) {
     memcpy(&sig, header->signature, 4);
     sig[4] = '\0';
 
-    names = (char*)concat(names, sig);
-    names = (char*)concat(names, ", ");
+    concat(names, sig, names);
+
+    if (i->next)
+      concat(names, ", ", names);
   }
 
-  return names;
+  return 0;
 }
 
 void print_tables(acpi_parser_t* parser) {
 
-  const char* tables = parser_get_acpi_tables(parser);
+  const char tables[parser->m_tables->m_length * 6];
+
+  parser_get_acpi_tables(parser, (char*)tables);
   println("Tables");
   println(tables);
-  kfree((void*)tables);
 }
 
 /*

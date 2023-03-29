@@ -18,7 +18,7 @@ void *memmove(void *dest, const void *src, size_t n);
 void *memset(void *data, int value, size_t length);
 void *memchr(const void *s, int c, size_t n);
 
-const char* concat(char* one, char* two);
+const int concat(char* one, char* two, char* out);
 
 // different kinds of number-to-string formating
 

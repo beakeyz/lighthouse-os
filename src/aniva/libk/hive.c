@@ -338,15 +338,16 @@ bool hive_contains(hive_t* root, void* data) {
   return false;
 }
 
-ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(void* hive, void* data)) {
+ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(hive_t* hive, void* data)) {
 
   FOREACH(i, root->m_entries) {
     hive_entry_t* entry = i->data;
 
     if (hive_entry_is_hole(entry)) {
-      hive_walk(entry->m_hole, itterate_fn);
+      TRY(hive_walk(entry->m_hole, itterate_fn));
     } else {
-      itterate_fn(root, entry);
+      if (itterate_fn(root, entry->m_data) == false)
+        return Error();
     }
   }
 

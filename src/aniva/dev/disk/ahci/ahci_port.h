@@ -4,6 +4,7 @@
 #include "dev/disk/ahci/definitions.h"
 #include <sync/spinlock.h>
 #include "dev/disk/generic.h"
+#include "dev/disk/partition/gpt.h"
 #include "libk/error.h"
 
 struct ahci_device;
@@ -30,9 +31,11 @@ typedef struct ahci_port {
   uintptr_t m_cmd_table_buffer;
 
   uint32_t m_port_index;
+
+  gpt_table_t* m_gpt_table;
 } ahci_port_t;
 
-ahci_port_t* make_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);
+ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);
 
 void destroy_ahci_port(ahci_port_t* port);
 

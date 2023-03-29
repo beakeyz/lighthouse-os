@@ -11,6 +11,7 @@
 #include "libk/async_ptr.h"
 #include "libk/atomic.h"
 #include "libk/error.h"
+#include "libk/hive.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
@@ -125,20 +126,34 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       }
 
       println_kterm("Found HBA port");
-      ahci_port_t* port = make_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, i);
+      ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, i);
       if (initialize_port(port) == ANIVA_FAIL) {
         println("Failed! killing port...");
         println_kterm("Failed to initialize port");
         destroy_ahci_port(port);
         continue;
       }
-      list_append(device->m_ports, port);
+      hive_add_entry(device->m_ports, port, port->m_generic.m_path);
       s_implemented_ports++;
     }
   }
 
   s_last_debug_msg = "Exited port enumeration";
   return ANIVA_SUCCESS;
+}
+
+static bool port_itterator(hive_t* current, void* data) {
+
+  ANIVA_STATUS status;
+  ahci_port_t* port = data;
+
+  status = ahci_port_gather_info(port);
+
+  if (status == ANIVA_FAIL) {
+    println("Failed to gather info!");
+    return false;
+  }
+  return true;
 }
 
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
@@ -182,16 +197,9 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
 
   println("Gathering info about ports...");
-  FOREACH(i, device->m_ports) {
-    ahci_port_t* port = i->data;
 
-    status = ahci_port_gather_info(port);
-
-    if (status == ANIVA_FAIL) {
-      println("Failed to gather info!");
-      return status;
-    }
-  }
+  if (hive_walk(device->m_ports, port_itterator).m_status == ANIVA_FAIL)
+    return ANIVA_FAIL;
 
   return status;
 }
@@ -218,7 +226,9 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 
   for (uint32_t i = 0; i < 32; i++) {
     if (ahci_interrupt_status & (1 << i)) {
-      ahci_port_t* port = list_get(s_ahci_device->m_ports, i);
+      char port_path[strlen("prt") + strlen(to_string(i)) + 1];
+      concat("prt", (char*)to_string(i), port_path);
+      ahci_port_t* port = hive_get(s_ahci_device->m_ports, port_path);
       
       ahci_port_handle_int(port); 
     }
@@ -231,7 +241,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 ahci_device_t* init_ahci_device(pci_device_identifier_t* identifier) {
   s_ahci_device = kmalloc(sizeof(ahci_device_t));
   s_ahci_device->m_identifier = identifier;
-  s_ahci_device->m_ports = init_list();
+  s_ahci_device->m_ports = create_hive("ports");
 
   initialize_hba(s_ahci_device);
 
@@ -331,6 +341,20 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
   }
 
   switch (payload.m_code) {
+    case AHCI_MSG_GET_PORT: {
+      ahci_dch_t* header = (ahci_dch_t*)payload.m_data;
+
+      if (ahci_cmd_header_check_crc(header).m_status == ANIVA_FAIL) {
+        kernel_panic("FUCK ahci command has invalid crc32");
+        return (uintptr_t)-1;
+      }
+
+      const char* path = header->m_req_buffer;
+
+      // TODO:
+
+      break;
+    }
     case AHCI_MSG_READ: {
       ahci_dch_t* header = (ahci_dch_t*)payload.m_data;
 
@@ -339,7 +363,7 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
         return (uintptr_t)-1;
       }
 
-      ahci_port_t* port = list_get(s_ahci_device->m_ports, header->m_port_index);
+      ahci_port_t* port = hive_get(s_ahci_device->m_ports, header->m_port_path);
 
       int result = port->m_generic.f_read_sync(&port->m_generic, header->m_req_buffer, header->m_req_size, header->m_req_offset);
 

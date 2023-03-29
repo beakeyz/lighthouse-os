@@ -10,6 +10,7 @@ typedef struct disk_dev {
   handle_t m_parent;
 
   const char* m_device_name;
+  char* m_path;
 
   uintptr_t m_max_blk;
   size_t m_logical_sector_size;

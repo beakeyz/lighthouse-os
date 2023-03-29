@@ -118,18 +118,18 @@ void *memchr(const void *s, int c, size_t n)
     return nullptr;
 }
 
-const char* concat(char* one, char* two) {
-  const size_t total_length = strlen(one) + strlen(two) + 1;
-  char* ret = kmalloc(total_length);
-  // TODO this sux
-  memset((char*)ret, 0, total_length);
-  memcpy((char*)ret, one, strlen(one));
-  memcpy((char*)ret + strlen(one), two, strlen(two));
+const int concat(char* one, char* two, char* out) {
+  if (out == nullptr) {
+    return -1;
+  }
 
-  // FIXME: does this give us issues?
-  kfree(one);
-  kfree(two);
-  return ret;
+  const size_t total_length = strlen(one) + strlen(two) + 1;
+  // TODO this sux
+  memset((char*)out, 0, total_length);
+  memcpy((char*)out, one, strlen(one));
+  memcpy((char*)out + strlen(one), two, strlen(two));
+
+  return 0;
 }
 
 // funnies

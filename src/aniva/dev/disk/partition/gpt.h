@@ -2,6 +2,7 @@
 #define __ANIVA_GPT_PARTITION__
 #include "dev/disk/generic.h"
 #include "libk/linkedlist.h"
+#include <libk/hive.h>
 #include <libk/stddef.h>
 
 #define GPT_SIG_0 0x20494645
@@ -12,9 +13,13 @@ typedef struct gpt_partition {
   uint8_t m_guid[16];
   char m_name[72];
 
+  // Path how we can find this partition through 
+  // Its parent device
+  char* m_path;
+  uintptr_t m_index;
+
   uint64_t m_start_lba;
   uint64_t m_end_lba;
-
 } gpt_partition_t;
 
 typedef struct gpt_partition_entry {
@@ -53,13 +58,13 @@ typedef struct {
   gpt_partition_header_t m_header;
 
   generic_disk_dev_t* m_device;
-  list_t* m_partitions;
+  hive_t* m_partitions;
 } gpt_table_t;
 
 gpt_table_t* create_gpt_table(generic_disk_dev_t* device);
 void destroy_gpt_table(gpt_table_t* table);
 
-gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry);
+gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t index);
 void destroy_gpt_partition(gpt_partition_t* partition);
 
 #endif // !__ANIVA_GPT_PARTITION__
