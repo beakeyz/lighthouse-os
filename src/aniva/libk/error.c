@@ -4,6 +4,7 @@
 #include "dev/kterm/kterm.h"
 #include "interupts/interupts.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "mem/kmem_manager.h"
 #include <mem/heap.h>
 #include <libk/string.h>
 

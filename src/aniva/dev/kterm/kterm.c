@@ -346,7 +346,7 @@ static void kterm_process_buffer() {
   } else if (!strcmp(contents, "amlinfo")) {
     kterm_println("\n");
     kterm_println("aml namespace nodes: ");
-    kterm_println(to_string(g_parser_ptr->m_namespace_nodes->m_length));
+    kterm_println(to_string(g_parser_ptr->m_namespace_nodes->m_total_entry_count));
   }
   kterm_println("\n");
 }
@@ -435,7 +435,7 @@ static void kterm_scroll(uintptr_t lines) {
   vaddr_t scroll_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - lines * KTERM_FONT_HEIGHT - 1);
   size_t scroll_size = screen_end - scroll_top;
 
-  memmove((void*)screen_top, (void*)scroll_top, scroll_size);
+  memcpy((void*)screen_top, (void*)scroll_top, scroll_size);
   memset((void*)scroll_end, 0, screen_end - scroll_end);
   kterm_current_line--;
 }

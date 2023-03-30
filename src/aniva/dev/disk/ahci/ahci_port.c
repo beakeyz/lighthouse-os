@@ -370,6 +370,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
   println_kterm("Done!");
+  //kdebug();
   return ANIVA_SUCCESS;
 
 fail_and_dealloc:

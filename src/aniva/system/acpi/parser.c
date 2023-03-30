@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
+#include "libk/hive.h"
 #include "libk/linkedlist.h"
 #include "libk/multiboot.h"
 #include "libk/reference.h"
@@ -40,7 +41,7 @@ void init_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   parser->m_multiboot_addr = multiboot_addr;
   parser->m_tables = init_list();
-  parser->m_namespace_nodes = init_list();
+  parser->m_namespace_nodes = create_hive("acpi");
 
   find_rsdp(parser);
 
@@ -118,7 +119,7 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
   parser_prepare_acpi_state(&parser->m_state, aml_segment, parser->m_ns_root_node);
   acpi_delete_state(&parser->m_state);
 
-  println(to_string(parser->m_namespace_nodes->m_length));
+  println(to_string(parser->m_namespace_nodes->m_entries->m_length));
 
   table_index = 0;
   aml_segment = nullptr;
@@ -152,29 +153,6 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
     table_index++;
   }
 
-  acpi_ns_node_t* ns_root = parser->m_ns_root_node;
-
-  println((char*)&ns_root->name);
-
-  FOREACH(i, ns_root->m_children_list) {
-    acpi_ns_node_t* child = i->data;
-    println((char*)&child->name);
-    FOREACH(j, child->m_children_list) {
-      acpi_ns_node_t* a = j->data;
-      print("--");
-      println((char*)&a->name);
-      FOREACH(k, a->m_children_list) {
-        acpi_ns_node_t* b = k->data;
-        print("----");
-        println((char*)&b->name);
-        FOREACH(l, b->m_children_list) {
-          acpi_ns_node_t* c = l->data;
-          print("------");
-          println((char*)&c->name);
-        }
-      }
-    }
-  }
 }
 
 void* find_rsdp(acpi_parser_t* parser) {
@@ -430,6 +408,7 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
 
   switch (opcode) {
     case NAME_OP: {
+                    println("Name");
       acpi_variable_t obj = {0};
       acpi_assign_ref(&operands[1], &obj);
 
@@ -573,7 +552,6 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
       acpi_aml_name_t name = {0};
       acpi_parse_aml_name(&name, operands[0].unresolved_aml.unres_aml_p);
 
-
       println("OPREGION");
       println(to_string(name.m_size));
 
@@ -583,9 +561,9 @@ static int parser_parse_node(int opcode, acpi_state_t* state, acpi_operand_t* op
       println(acpi_aml_name_to_string(&name));
 
       acpi_ns_node_t *node = acpi_create_node();
-      node->type = ACPI_NAMESPACE_OPREGION;
       acpi_resolve_new_node(node, ctx_handle, &name);
 
+      node->type = ACPI_NAMESPACE_OPREGION;
       node->namespace_opregion.op_addr_space = operands[1].obj.num;
       node->namespace_opregion.op_base = base.num;
       node->namespace_opregion.op_length = size.num;

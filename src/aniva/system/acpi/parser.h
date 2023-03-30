@@ -2,6 +2,7 @@
 #define __ANIVA_ACPI_PARSER__
 #include <libk/stddef.h>
 #include "dev/debug/serial.h"
+#include "libk/hive.h"
 #include "libk/linkedlist.h"
 #include "structures.h"
 #include "acpi_obj.h"
@@ -53,7 +54,7 @@ typedef struct acpi_parser {
 
   // acpi aml namespace nodes
   acpi_ns_node_t* m_ns_root_node;
-  list_t* m_namespace_nodes;
+  hive_t* m_namespace_nodes;
 
   uint8_t m_mode_flags;
   enum acpi_parser_mode m_mode;

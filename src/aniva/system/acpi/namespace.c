@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "libk/error.h"
+#include "libk/hive.h"
 #include "libk/linkedlist.h"
 #include "mem/heap.h"
 #include "libk/string.h"
@@ -100,7 +101,7 @@ acpi_ns_node_t *acpi_get_root(acpi_parser_t* parser) {
   return parser->m_ns_root_node;
 }
 
-int acpi_parse_aml_name(acpi_aml_name_t* name, const uint8_t* data) {
+int acpi_parse_aml_name(acpi_aml_name_t* name, const void* data) {
   if (!name) {
     return -1;
   }
@@ -138,6 +139,9 @@ int acpi_parse_aml_name(acpi_aml_name_t* name, const uint8_t* data) {
     }
     segs = 1;
   }
+
+  println("Name parsed");
+  println(to_string(name->m_scope_height));
 
   name->m_should_search_parent_scopes = (name->m_absolute == false && name->m_scope_height == 0 && segs == 1);
   name->m_start_p = start;
@@ -182,16 +186,52 @@ char* acpi_aml_name_to_string(acpi_aml_name_t* name) {
   return str;
 }
 
+char* acpi_get_absolute_node_path(acpi_ns_node_t* node) {
+
+  acpi_ns_node_t* itterator = nullptr;
+  size_t depth = 0;
+  size_t str_len = 0;
+  char* ret;
+
+  for (itterator = node; itterator->parent != nullptr; itterator = itterator->parent)
+    depth++;
+
+  str_len = depth * 5;
+
+  ret = kmalloc(str_len + 1);
+
+  size_t i = str_len;
+  for (itterator = node; itterator->parent != nullptr; itterator = itterator->parent) {
+    i -= 4;
+    memcpy(ret + i, &itterator->name, 4);
+    i -= 1;
+    ret[i] = '.';
+  }
+
+  if (i) {
+    kfree(ret);
+    return nullptr;
+  }
+
+  ret[0] = '\\';
+  ret[str_len] = '\0';
+  return ret;
+}
+
 void acpi_load_ns_node_in_parser(struct acpi_parser* parser, acpi_ns_node_t* node) {
   // add to the parsers array
 
   println("installing node");
 
-  list_append(parser->m_namespace_nodes, node);
+  // Get full node path
+  const char* abs_path = acpi_get_absolute_node_path(node);
+  println(abs_path);
+  hive_add_entry(parser->m_namespace_nodes, node, abs_path);
 
   // add to the list of its parent
-
   acpi_ns_node_t* parent = node->parent;
+
+  println((char*)&parent->name);
 
   if (parent) {
     if (ns_node_has_child(parent, node)) {

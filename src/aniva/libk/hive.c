@@ -31,7 +31,7 @@ hive_t *create_hive(hive_url_part_t root_part) {
 }
 
 
-static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type);
+static hive_entry_t* create_hive_entry(hive_t* hole, void* data, hive_url_part_t part);
 static void destroy_hive_entry(hive_entry_t* entry);
 static hive_entry_t* __hive_find_entry(hive_t* hive, hive_url_part_t part);
 static ANIVA_STATUS __hive_parse_hive_path(hive_t* root, const char* path, ANIVA_STATUS (*fn)(hive_t* root, hive_url_part_t part));
@@ -68,10 +68,8 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
     return Error();
   }
 
-  hive_entry_t* entry = create_hive_entry(HIVE_ENTRY_TYPE_DATA);
-  entry->m_data = data;
-
-  if (!entry) {
+  hive_entry_t* new_entry = create_hive_entry(nullptr, data, nullptr);
+  if (!new_entry) {
     return Error();
   }
 
@@ -84,28 +82,41 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
 
     // end is reached: we need to emplace a data entry
     if (i+1 == part_count) {
-      entry->m_entry_part = part;
+      new_entry->m_entry_part = part;
 
-      list_append(current_hive->m_entries, entry);
+      // Increment stats
+      // TODO: stats are widely missing from 
+      // the functions where they should be implemented
+      current_hive->m_total_entry_count++;
+      root->m_total_entry_count++;
+
+      println("Just kinda found shit");
+      println(to_string(part_count));
+      list_append(current_hive->m_entries, new_entry);
       return Success(0);
     }
 
-    hive_entry_t* entry = __hive_find_entry(current_hive, part);
+    bool created_new_entry = false;
+    hive_entry_t* current_entry = __hive_find_entry(current_hive, part);
 
-    if (!entry) {
-      print("found NULL entry: ");
-      println(part);
-      entry = create_hive_entry(HIVE_ENTRY_TYPE_HOLE);
-      entry->m_entry_part = part;
-      entry->m_hole = create_hive(part);
-      list_append(current_hive->m_entries, entry);
+    // Don't get rid of part here, we still need it
+    if (!current_entry) {
+      // Append a new hole
+      created_new_entry = true;
+      current_entry = create_hive_entry(create_hive(part), nullptr, part);
+      list_append(current_hive->m_entries, current_entry);
+      // Fallthrough
     }
 
-    if (hive_entry_is_hole(entry)) {
-      println("emplacing new hive");
-      current_hive = entry->m_hole;
+    if (hive_entry_is_hole(current_entry)) {
+      current_hive = current_entry->m_hole;
+    } else {
+      current_entry->m_hole = create_hive(part);
+      current_hive = current_entry->m_hole;
     }
-    kfree(part);
+
+    if (!created_new_entry)
+      kfree(part);
   }
 
   return Error();
@@ -113,6 +124,8 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
 
 ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
 
+  kernel_panic("UNIMPLEMENTED hive_add_hole");
+  /*
   path = __hive_prepend_root_part(root, path);
 
   if (__hive_path_is_invalid(path)) {
@@ -135,9 +148,8 @@ ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
 
     if (i+1 == part_count) {
       if (!entry) {
-        entry = create_hive_entry(HIVE_ENTRY_TYPE_HOLE);
+        entry = create_hive_entry(create_hive(entry->m_entry_part), nullptr);
         entry->m_entry_part = part;
-        entry->m_hole = create_hive(entry->m_entry_part);
         return Success(0);
       } else {
         kfree(part);
@@ -155,44 +167,14 @@ ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
     }
     kfree(part);
   }
+  */
 
   return Error();
 }
 
 ErrorOrPtr hive_add_holes(hive_t* root, const char* path) {
 
-  path = __hive_prepend_root_part(root, path);
-
-  if (__hive_path_is_invalid(path)) {
-    return Error();
-  }
-
-  hive_t* current_hive;
-  size_t part_count = __hive_get_part_count(path);
-
-  for (uintptr_t i = 0; i < part_count; i++) {
-    hive_url_part_t part = __hive_find_part_at(path, i);
-
-    if (!strcmp(part, root->m_url_part)) {
-      current_hive = root;
-      kfree(part);
-      continue;
-    }
-
-    hive_entry_t* entry = __hive_find_entry(current_hive, part);
-
-    if (!entry) {
-      entry = create_hive_entry(HIVE_ENTRY_TYPE_HOLE);
-      entry->m_entry_part = part;
-      entry->m_hole = create_hive(part);
-    }
-
-    if (hive_entry_is_hole(entry)) {
-      current_hive = entry->m_hole;
-    }
-
-    kfree(part);
-  }
+  kernel_panic("UNIMPLEMENTED hive_add_holes");
   return Success(0);
 }
 
@@ -214,6 +196,7 @@ void* hive_get(hive_t* root, const char* path) {
     kfree(part);
 
     if (!entry) {
+      println(part);
       return nullptr;
     }
 
@@ -238,7 +221,6 @@ ErrorOrPtr hive_remove(hive_t* root, void* data) {
   const char* path = hive_get_path(root, data);
 
   return hive_remove_path(root, path);
-
 }
 
 ErrorOrPtr hive_remove_path(hive_t* root, const char* path) {
@@ -290,9 +272,9 @@ ErrorOrPtr hive_remove_path(hive_t* root, const char* path) {
 // root.hole.entry
 const char* hive_get_path(hive_t* root, void* data) {
 
-  if (!hive_contains(root, data)) {
-    return nullptr;
-  }
+  //if (!hive_contains(root, data)) {
+  //  return nullptr;
+  //}
 
   char* ret = nullptr;
 
@@ -300,11 +282,13 @@ const char* hive_get_path(hive_t* root, void* data) {
     hive_entry_t* entry = i->data;
 
     if (hive_entry_is_hole(entry)) {
+      println("Found hole!");
       const char* hole_path = hive_get_path(entry->m_hole, data);
 
       if (hole_path != nullptr) {
         // append
         ret = (char*)__hive_prepend_root_part(root, hole_path);
+        kfree((void*)hole_path);
         return ret;
       }
     }
@@ -317,6 +301,11 @@ const char* hive_get_path(hive_t* root, void* data) {
   }
 
   return ret;
+}
+
+void* hive_get_relative(hive_t* root, const char* subpath) {
+  kernel_panic("UNIMPLEMENTED hive_get_relative");
+  return nullptr;
 }
 
 bool hive_contains(hive_t* root, void* data) {
@@ -358,15 +347,17 @@ ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(hive_t* hive, void* data)
  * Static functions
  */
 
-static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type) {
+static hive_entry_t* create_hive_entry(hive_t* hole, void* data, hive_url_part_t part) {
   hive_entry_t* ret = kmalloc(sizeof(hive_entry_t));
 
   if (!ret) {
     return nullptr;
   }
 
-  ret->m_type = type;
-  ret->m_data = nullptr;
+  // ret->m_type = type;
+  ret->m_data = data;
+  ret->m_hole = hole;
+  ret->m_entry_part = part;
 
   return ret;
 }
@@ -374,7 +365,7 @@ static hive_entry_t* create_hive_entry(HIVE_ENTRY_TYPE_t type) {
 static void destroy_hive_entry(hive_entry_t* entry) {
 
   // recursively kill off nested hives
-  if (entry->m_type == HIVE_ENTRY_TYPE_HOLE)
+  if (hive_entry_is_hole(entry))
     destroy_hive(entry->m_hole);
 
   kfree(entry->m_entry_part);

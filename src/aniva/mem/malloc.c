@@ -80,6 +80,9 @@ void quick_print_node_sizes(memory_allocator_t* allocator) {
 
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get
 // a pointer to the data
+// TODO: first check the bottom node to see if we can just 
+// chuck this one at the end, otherwise loop over the list to 
+// find an unused node
 void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
 
   heap_node_t* node = allocator->m_heap_start_node;
@@ -93,9 +96,14 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
       // now split off a node of the correct size
       heap_node_t* new_node = split_node(allocator, node, bytes);
       if (new_node == nullptr) {
+        // break early, as to pass this node to the expand function
+        if (!node->next) {
+          break;
+        }
         node = node->next;
         continue;
       }
+
 
       new_node->flags |= MALLOC_FLAGS_USED;
       // for sanity
@@ -116,10 +124,17 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
   }
 
   // TODO: implement dynamic expanding
-  const size_t needed_size = bytes - node->size;
-  if (malloc_try_heap_expand(allocator, needed_size)) {
+  size_t needed_size;
+
+  if (bytes > node->size)
+    needed_size = bytes - node->size;
+  else
+   needed_size = node->size - bytes;
+
+  if (malloc_try_heap_expand(allocator, needed_size) == ANIVA_SUCCESS) {
     quick_print_node_sizes(allocator);
     //kernel_panic("TEST postexpand");
+    //println("expanded!");
     return malloc_allocate(allocator, bytes);
   }
 
@@ -212,21 +227,28 @@ void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
 ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_size) {
   // TODO: implement non-kernel heaps
   println("HEAP EXPANTION");
+  println(to_string(extra_size));
   ASSERT_MSG((allocator->m_heap->m_flags & GHEAP_EXPANDABLE) && (allocator->m_heap->m_flags & GHEAP_KERNEL), "Heap is not ready to be expanded!");
 
-  const vaddr_t new_map_base = kmem_from_phys((paddr_t)allocator->m_heap_start_node, allocator->m_heap->m_virtual_base) + allocator->m_heap->m_current_total_size;
+  const vaddr_t unaligned_new_map_base = kmem_from_phys((paddr_t)allocator->m_heap_start_node, allocator->m_heap->m_virtual_base) + allocator->m_heap->m_current_total_size;
+  const vaddr_t aligned_new_map_base = ALIGN_DOWN(unaligned_new_map_base, SMALL_PAGE_SIZE);
 
-  ASSERT_MSG(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE) == new_map_base, "Heap was misaligned while expanding!");
+  // The unaligned value should be larger than the base that was aligned down...
+  // Also, since we only add page-aligned values to the total size, this should
+  // always stay zero
+  const vaddr_t base_delta = unaligned_new_map_base - aligned_new_map_base;
+
+  //ASSERT_MSG(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE) == new_map_base, "Heap was misaligned while expanding!");
 
   extra_size = ALIGN_UP(extra_size, SMALL_PAGE_SIZE);
 
   // request a page from kmem_manager
-  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, new_map_base, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP, 0);
+  ErrorOrPtr result = kmem_kernel_map_and_alloc_range(extra_size, aligned_new_map_base, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP, 0);
   if (result.m_status != ANIVA_SUCCESS) {
     return ANIVA_FAIL;
   }
 
-  heap_node_t* new_node = (heap_node_t*)result.m_ptr;
+  heap_node_t* new_node = (heap_node_t*)result.m_ptr + base_delta;
   if (new_node) {
     heap_node_t* bottom = find_bottom_node(allocator);
 
@@ -287,7 +309,7 @@ heap_node_t* split_node(memory_allocator_t * allocator, heap_node_t *ptr, size_t
   // trying to split a node into a bigger size than it itself is xD
   if (ptr->size <= size) {
     // this is just dumb
-    //println("[kmalloc:split_node] size is invalid");
+    println("[kmalloc:split_node] size is invalid");
     return nullptr;
   }
 

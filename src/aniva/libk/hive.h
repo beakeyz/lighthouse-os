@@ -34,16 +34,10 @@ typedef char* hive_url_part_t;
  */
 typedef struct hive_entry {
 
-  HIVE_ENTRY_TYPE_t m_type;
+  // HIVE_ENTRY_TYPE_t m_type;
 
-  union {
-    struct {
-      void* m_data;
-    };
-    struct {
-      struct hive* m_hole;
-    };
-  };
+  void* m_data;
+  struct hive* m_hole;
 
   hive_url_part_t m_entry_part;
 } hive_entry_t;
@@ -51,6 +45,7 @@ typedef struct hive_entry {
 typedef struct hive {
   list_t *m_entries;
   size_t m_hole_count;
+  size_t m_total_entry_count;
 
   hive_url_part_t m_url_part;
 } hive_t;
@@ -108,6 +103,11 @@ const char* hive_get_path(hive_t* root, void* data);
 bool hive_contains(hive_t* root, void* data);
 
 /*
+ * Walks the hive to see if it contains this subpath
+ */
+void* hive_get_relative(hive_t* root, const char* subpath);
+
+/*
  * Walk the complete hive and call the itterate_fn on each entry
  *
  * --this is a recursive function--
@@ -115,7 +115,7 @@ bool hive_contains(hive_t* root, void* data);
 ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(hive_t* hive, void* data));
 
 static ALWAYS_INLINE bool hive_entry_is_hole(hive_entry_t* entry) {
-  return (entry->m_type == HIVE_ENTRY_TYPE_HOLE && entry->m_hole != nullptr);
+  return (entry->m_hole != nullptr);
 }
 
 #endif //__ANIVA_HIVE__
