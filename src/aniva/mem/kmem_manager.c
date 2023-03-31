@@ -75,7 +75,6 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   _load_page_dir(map, true);
 
   kheap_enable_expand();
-
 }
 
 // TODO: remove, once we don't need this anymore for emergency debugging

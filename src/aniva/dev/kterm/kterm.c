@@ -328,7 +328,7 @@ static void kterm_process_buffer() {
     kterm_println(" - exit: panic the kernel");
   } else if (!strcmp(contents, "exit")) {
     kernel_panic("TODO: exit/shutdown");
-  }
+  } 
   kterm_println("\n");
 }
 

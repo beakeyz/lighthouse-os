@@ -1,11 +1,12 @@
 #include "heap.h"
 #include "dev/debug/serial.h"
+#include "libk/error.h"
 #include "libk/string.h"
 #include "malloc.h"
 #include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
 
-#define INITIAL_HEAP_SIZE ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE) // IN BYTES
+#define INITIAL_HEAP_SIZE ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE) // IN BYTES
 #define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
 // fuk yea
@@ -50,7 +51,6 @@ void init_kheap() {
   s_generic_kernel_heap.f_debug = nullptr;
   s_generic_kernel_heap.f_expand = (HEAP_EXPAND) malloc_try_heap_expand;
   s_generic_kernel_heap.f_on_expand_enable = (HEAP_ON_EXPAND_ENABLE) malloc_on_heap_expand_enable;
-  s_kernel_allocator.m_heap->f_expand = nullptr;
 
   // TODO: show debug message?
 }
@@ -71,6 +71,10 @@ void kfree (void* addr) {
 
 void kfree_sized(void* addr, size_t allocation_size) {
   s_kernel_allocator.m_heap->f_sized_deallocate(&s_kernel_allocator, addr, allocation_size);
+}
+
+void kheap_ensure_size(size_t size) {
+  s_kernel_allocator.m_heap->f_expand(&s_kernel_allocator, size);
 }
 
 void kdebug() {

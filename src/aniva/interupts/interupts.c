@@ -205,7 +205,7 @@ void pagefault_handler(registers_t *regs) {
   }
   println((regs->err_code & 1) ? "PV" : "NP");
 
-  //kernel_panic("pagefault! (TODO: more info)");
+  kernel_panic("pagefault! (TODO: more info)");
 }
 
 EXCEPTION(15, "Unknown error (Reserved)");

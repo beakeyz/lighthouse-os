@@ -183,7 +183,7 @@ void* hive_get(hive_t* root, const char* path) {
   path = __hive_prepend_root_part(root, path);
 
   if (__hive_path_is_invalid(path)) {
-    return nullptr;
+    goto invalid_path;
   }
 
   hive_t* current_hive = root;
@@ -196,12 +196,12 @@ void* hive_get(hive_t* root, const char* path) {
     kfree(part);
 
     if (!entry) {
-      println(part);
+      // NOTE: freeing path here seems to upset some Must() call =/ so yea FIXME
       return nullptr;
     }
 
     if (i+1 == part_count) {
-      kfree(part);
+      kfree((void*)path);
       return entry->m_data;
     }
 
@@ -210,6 +210,8 @@ void* hive_get(hive_t* root, const char* path) {
     }
   }
 
+invalid_path:
+  kfree((void*)path);
   return nullptr;
 }
 

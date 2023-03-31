@@ -223,7 +223,7 @@ void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
   }
 }
 
-// just expand the heap by one 4KB page
+// just expand the heap by some page-aligned amount
 ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_size) {
   // TODO: implement non-kernel heaps
   println("HEAP EXPANTION");
@@ -239,6 +239,9 @@ ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_
   const vaddr_t base_delta = unaligned_new_map_base - aligned_new_map_base;
 
   //ASSERT_MSG(ALIGN_UP(new_map_base, SMALL_PAGE_SIZE) == new_map_base, "Heap was misaligned while expanding!");
+  if (base_delta != 0) {
+    kernel_panic("base_delta is non-null!");
+  }
 
   extra_size = ALIGN_UP(extra_size, SMALL_PAGE_SIZE);
 
@@ -282,10 +285,6 @@ void malloc_on_heap_expand_enable(memory_allocator_t* allocator) {
   ASSERT_MSG(ALIGN_UP(heap_current_size, SMALL_PAGE_SIZE) == heap_current_size, "heap_current_size is not aligned!");
 
   bool result = kmem_map_range(nullptr, kmem_from_phys((vaddr_t)allocator->m_heap_start_node, heap_vbase), (uintptr_t)allocator->m_heap_start_node, heap_current_size / SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
-
-  if (!result) {
-    kernel_panic("Failed to enable expantion!");
-  }
 
   allocator->m_heap_start_node = (heap_node_t*)kmem_from_phys((vaddr_t)allocator->m_heap_start_node, heap_vbase);
   // TODO: fixup all the pointers in this heap
