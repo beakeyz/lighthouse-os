@@ -24,12 +24,17 @@ NORETURN void kernel_panic(const char* panic_message) {
   disable_interrupts();
 
   bool has_serial = true;
-  bool has_framebuffer = false;
+  bool has_framebuffer = true;
 
   if (has_serial) {
     print("[KERNEL PANIC] ");
     println(panic_message);
   } 
+
+  if (has_framebuffer) {
+    println_kterm("[KERNEL PANIC] ");
+    println_kterm(panic_message);
+  }
 
   /*
   if (has_framebuffer) {

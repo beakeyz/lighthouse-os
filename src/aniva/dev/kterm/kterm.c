@@ -7,6 +7,7 @@
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
+#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"
@@ -310,25 +311,7 @@ static void kterm_process_buffer() {
       kterm_println("is xsdp: ");
       kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
       kterm_println("rsdp discovery method: ");
-      const char* method;
-      switch (g_parser_ptr->m_rsdp_discovery_method) {
-        case MULTIBOOT_NEW:
-          method = "multiboot xsdp";
-          break;
-        case MULTIBOOT_OLD:
-          method = "multiboot rsdp";
-          break;
-        case BIOS_POKE:
-          method = "bios poke";
-          break;
-        case RECLAIM_POKE:
-          method = "reclaim poke";
-          break;
-        case NONE:
-          method = "none";
-          break;
-      }
-      kterm_println(method);
+      kterm_println(g_parser_ptr->m_rsdp_discovery_method.m_name);
       kterm_println("\n");
       kterm_println("tables found: ");
       kterm_println(to_string(g_parser_ptr->m_tables->m_length));
@@ -342,11 +325,9 @@ static void kterm_process_buffer() {
     kterm_println("available commands: \n");
     kterm_println(" - help: print some helpful info\n");
     kterm_println(" - acpitables: print the acpi tables present in the system\n");
-    kterm_println(" - amlinfo: print info about the aml parsing");
-  } else if (!strcmp(contents, "amlinfo")) {
-    kterm_println("\n");
-    kterm_println("aml namespace nodes: ");
-    kterm_println(to_string(g_parser_ptr->m_namespace_nodes->m_total_entry_count));
+    kterm_println(" - exit: panic the kernel");
+  } else if (!strcmp(contents, "exit")) {
+    kernel_panic("TODO: exit/shutdown");
   }
   kterm_println("\n");
 }
@@ -420,9 +401,16 @@ static void kterm_println(const char* msg) {
 }
 
 void println_kterm(const char* msg) {
+  if (!is_driver_installed(&g_base_kterm_driver)) {
+    return;
+  }
+
   const size_t msg_len = strlen(msg);
   
-  destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&msg, msg_len));
+  // destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&msg, msg_len));
+
+  kterm_println(msg);
+  kterm_println("\n");
 }
 
 // TODO: add a scroll direction (up, down, left, ect)

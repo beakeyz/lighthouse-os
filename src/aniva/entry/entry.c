@@ -69,9 +69,6 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_timer_system();
 
   init_acpi(multiboot_addr);
-
-  // NOTE: uncommented for debugging purposes
-  // init_acpi_parser_aml(g_parser_ptr);
   
   init_pci();
 

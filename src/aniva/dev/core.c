@@ -146,10 +146,16 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 }
 
 bool is_driver_loaded(struct aniva_driver* handle) {
+  if (!s_loaded_drivers) {
+    return false;
+  }
   return hive_contains(s_loaded_drivers, handle);
 }
 
 bool is_driver_installed(struct aniva_driver* handle) {
+  if (!s_loaded_drivers || !s_installed_drivers) {
+    return false;
+  }
   return hive_contains(s_installed_drivers, handle);
 }
 

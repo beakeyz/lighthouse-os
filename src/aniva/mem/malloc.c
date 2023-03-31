@@ -132,7 +132,7 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
    needed_size = node->size - bytes;
 
   if (malloc_try_heap_expand(allocator, needed_size) == ANIVA_SUCCESS) {
-    quick_print_node_sizes(allocator);
+    // quick_print_node_sizes(allocator);
     //kernel_panic("TEST postexpand");
     //println("expanded!");
     return malloc_allocate(allocator, bytes);

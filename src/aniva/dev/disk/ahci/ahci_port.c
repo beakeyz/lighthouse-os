@@ -21,6 +21,18 @@ static int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, 
 static int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 
+static void decode_disk_model_number(char* model_number) {
+  for (uintptr_t chunk = 0; chunk < 40; chunk+= 2) {
+    char first_char = model_number[chunk];
+
+    if (!first_char)
+      return;
+    
+    model_number[chunk] = model_number[chunk+1];
+    model_number[chunk+1] = first_char;
+  }
+}
+
 static char* create_port_path(ahci_port_t* port) {
 
   const char* prefix = "prt";
@@ -331,12 +343,12 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   port->m_generic.f_write = ahci_port_write;
   port->m_generic.f_write_sync = ahci_port_write_sync;
 
-  // TODO: Save 
-  const char* model_num = (const char*)dev_identify_buffer->model_number;
-  memcpy(port->m_device_model, model_num, 40);
+  memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
+  // TODO: is this specific to AHCI, or a generic ATA thing?
+  decode_disk_model_number(port->m_device_model);
 
   println_kterm("");
-  println_kterm(model_num);
+  println_kterm(port->m_device_model);
   println_kterm("");
 
   println_kterm("Logical sector size: ");
