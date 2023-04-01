@@ -252,14 +252,14 @@ void destroy_ahci_device(ahci_device_t* device) {
   // TODO:
 }
 
-ahci_dch_t* create_ahci_command_header(size_t size, disk_offset_t offset) {
+ahci_dch_t* create_ahci_command_header(void* buffer, size_t size, disk_offset_t offset) {
   ahci_dch_t* header = kmalloc(sizeof(ahci_dch_t));
 
   // TODO
   header->m_flags = 0;
   header->m_crc = 0;
 
-  header->m_req_buffer = kmalloc(sizeof(size));
+  header->m_req_buffer = buffer;
   header->m_req_size = size;
   header->m_req_offset = offset;
 
@@ -269,7 +269,7 @@ ahci_dch_t* create_ahci_command_header(size_t size, disk_offset_t offset) {
 }
 
 void destroy_ahci_command_header(ahci_dch_t* header) {
-  kfree(header->m_req_buffer);
+  // kfree(header->m_req_buffer);
   kfree(header);
 }
 
@@ -351,8 +351,11 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
 
       const char* path = header->m_req_buffer;
 
-      // TODO:
+      ahci_port_t* res = hive_get(s_ahci_device->m_ports, path);
+      header->m_req_buffer = &res->m_generic;
+      header->m_req_size = sizeof(uintptr_t);
 
+      *response = create_packet_response(header, sizeof(ahci_dch_t));
       break;
     }
     case AHCI_MSG_READ: {

@@ -6,7 +6,8 @@
 #include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
 
-#define INITIAL_HEAP_SIZE ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE) // IN BYTES
+// Let's just give our kernel a shitload of initial heapmemory =)
+#define INITIAL_HEAP_SIZE ALIGN_UP(2 * Mib, SMALL_PAGE_SIZE) // IN BYTES
 #define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
 // fuk yea

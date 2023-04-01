@@ -6,6 +6,7 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/kterm/kterm.h"
+#include "fs/vfs.h"
 #include "interupts/interupts.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
@@ -65,6 +66,26 @@ static void root_main(uintptr_t multiboot_address) {
 
   // FIXME: does not seem to assert interrupts...
   Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_ahci_driver, 0)));
+
+  generic_disk_dev_t* device;
+  const char* path = "prt0";
+  ahci_dch_t* header = create_ahci_command_header((void*)path, strlen(path), 0);
+
+  packet_response_t* response = driver_send_packet_sync("disk.ahci", AHCI_MSG_GET_PORT, header, sizeof(ahci_dch_t));
+
+  if (response->m_response_buffer != nullptr) {
+    ahci_dch_t* res_header = response->m_response_buffer;
+    device = res_header->m_req_buffer;
+
+    destroy_ahci_command_header(res_header);
+  }
+
+  destroy_packet_response(response);
+
+  vfs_t* vfs = create_vfs(device);
+
+  println_kterm("Successfuly created VFS with: ");
+  println_kterm(vfs->m_device->m_device_name);
 }
 
 static void root_packet_dispatch() {

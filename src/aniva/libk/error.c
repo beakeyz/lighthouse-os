@@ -18,10 +18,17 @@ NORETURN void __kernel_panic() {
   }
 }
 
+static bool has_paniced = false;
+
 // TODO: retrieve stack info and stacktrace, for debugging purposes
 NORETURN void kernel_panic(const char* panic_message) {
 
   disable_interrupts();
+
+  if (has_paniced) 
+    goto skip_diagnostics;
+
+  has_paniced = true;
 
   bool has_serial = true;
   bool has_framebuffer = true;
@@ -46,6 +53,6 @@ NORETURN void kernel_panic(const char* panic_message) {
   }
   */
 
-  disable_interrupts();
+skip_diagnostics:
   __kernel_panic();
 }

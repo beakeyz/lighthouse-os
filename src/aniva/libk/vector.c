@@ -47,8 +47,13 @@ ANIVA_STATUS vector_add(vector_t* vec, void* data) {
 
 ANIVA_STATUS vector_remove(vector_t* vec, uint32_t index) {
   if (vec->m_length > 0) {
-    vec->m_length--;
-    vec->m_items[vec->m_length] = nullptr;
+
+    vec->m_items[index] = 0;
+
+    for (uintptr_t i = index; i < vec->m_length-1; i++) {
+      vec->m_items[i] = vec->m_items[i+1];
+    }
+
     return ANIVA_SUCCESS;
   }
   return ANIVA_FAIL;

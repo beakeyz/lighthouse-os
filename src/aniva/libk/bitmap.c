@@ -8,41 +8,29 @@
   #define BITMAP_DEFAULT 0xff
 #endif
 
-bitmap_t create_bitmap(size_t size) {
+// We leave the calculation of the amount of 
+// bytes for this map to the caller
+bitmap_t* create_bitmap(size_t size) {
   
-  bitmap_t map = {
-    .m_default = (uint8_t)BITMAP_DEFAULT,
-    .m_size = size,
-    .m_entries = size << 3,
-    .m_map = nullptr
-  };
+  bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
+  map->m_default = (uint8_t)BITMAP_DEFAULT;
+  map->m_size = size;
+  map->m_entries = size << 3;
 
-  if (size > 0) {
-    map.m_map = kmalloc(size);
-  }
+  memset(map->m_map, map->m_default, size);
 
-  if (map.m_map) {
-    memset(map.m_map, map.m_default, map.m_size);
-  }
   return map;
 }
 
-bitmap_t create_bitmap_with_default(size_t size, uint8_t default_value) {
+bitmap_t* create_bitmap_with_default(size_t size, uint8_t default_value) {
 
-  bitmap_t map = {
-    .m_default = default_value,
-    .m_size = size,
-    .m_entries = size << 3,
-    .m_map = nullptr
-  };
+  bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
+  map->m_default = default_value;
+  map->m_size = size;
+  map->m_entries = size << 3;
 
-  if (size > 0) {
-    map.m_map = kmalloc(size);
-  }
+  memset(map->m_map, map->m_default, size);
 
-  if (map.m_map) {
-    memset(map.m_map, map.m_default, map.m_size);
-  }
   return map;
 }
 

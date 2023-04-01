@@ -10,12 +10,14 @@ typedef struct bitmap {
   uint8_t m_default;
   size_t m_size; // size in bytes
   size_t m_entries; // size in bits
-  uint8_t* m_map;
-
+  uint8_t m_map[];
 } bitmap_t;
 
-bitmap_t create_bitmap(size_t size);
-bitmap_t create_bitmap_with_default(size_t size, uint8_t default_value);
+#define BITS_TO_BYTES(bits) (bits >> 3)
+#define BYTES_TO_BITS(bytes) (bytes << 3)
+
+bitmap_t* create_bitmap(size_t size);
+bitmap_t* create_bitmap_with_default(size_t size, uint8_t default_value);
 void destroy_bitmap(bitmap_t* map);
 
 void bitmap_mark(bitmap_t* this, uint32_t index);

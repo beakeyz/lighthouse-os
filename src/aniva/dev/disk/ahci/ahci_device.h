@@ -34,7 +34,7 @@ typedef struct ahci_device {
 ahci_device_t* init_ahci_device(pci_device_identifier_t* identifier);
 void destroy_ahci_device(ahci_device_t* device);
 
-ahci_dch_t* create_ahci_command_header(size_t size, disk_offset_t offset);
+ahci_dch_t* create_ahci_command_header(void* buffer, size_t size, disk_offset_t offset);
 void destroy_ahci_command_header(ahci_dch_t* header);
 
 ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header);

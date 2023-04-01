@@ -59,10 +59,10 @@ ALWAYS_INLINE uintptr_t Must(ErrorOrPtr eop) {
   return eop.m_ptr;
 }
 
-#define TRY(err_or_ptr)         \
-  err_or_ptr;           \
-  if (err_or_ptr.m_status == ANIVA_FAIL) {      \
-    return err_or_ptr;                          \
+#define TRY(result, err_or_ptr)         \
+  ErrorOrPtr result = err_or_ptr;           \
+  if (result.m_status == ANIVA_FAIL) {      \
+    return result;                          \
   }                                         \
 
 #endif // !__ANIVA_ERROR_WRAPPER__

@@ -17,7 +17,9 @@ generic_heap_t *initialize_generic_heap(pml_entry_t* root_table, vaddr_t virtual
     return nullptr;
   }
 
-  const size_t pages_needed = (initial_size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+  // Some allocators, like zalloc, don't need the base-allocator to 
+  // allocate for them, they do it themselves
+  const size_t pages_needed = initial_size == 0 ? 0 : (initial_size + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
 
   /*
    * setup dummy callbacks, so that we don't fuck up

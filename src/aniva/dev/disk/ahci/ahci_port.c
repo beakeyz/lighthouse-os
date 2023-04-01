@@ -31,6 +31,22 @@ static void decode_disk_model_number(char* model_number) {
     model_number[chunk] = model_number[chunk+1];
     model_number[chunk+1] = first_char;
   }
+
+  // Let's shave off trailing spaces
+
+  char prev;
+  for (uintptr_t i = 0; i < 40; i++) {
+
+    // After we've found 2 spaces in a row, let's 
+    // assume that we have found the end of the modelnumber
+    if (model_number[i] == ' ' && prev == ' ' && i > 1) {
+      // Nullterminate
+      model_number[i] = '\0';
+      continue;
+    }
+
+    prev = model_number[i];
+  }
 }
 
 static char* create_port_path(ahci_port_t* port) {
@@ -346,6 +362,8 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
   // TODO: is this specific to AHCI, or a generic ATA thing?
   decode_disk_model_number(port->m_device_model);
+
+  port->m_generic.m_device_name = port->m_device_model;
 
   println_kterm("");
   println_kterm(port->m_device_model);

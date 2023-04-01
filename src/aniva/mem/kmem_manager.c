@@ -21,7 +21,7 @@ struct {
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
 
-  bitmap_t m_phys_bitmap;
+  bitmap_t* m_phys_bitmap;
   uintptr_t m_highest_phys_addr;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
@@ -81,8 +81,8 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
 void print_bitmap () {
 
-  for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap.m_entries; i++) {
-    if (bitmap_isset(&KMEM_DATA.m_phys_bitmap, i)) {
+  for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_entries; i++) {
+    if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i)) {
       print("1");
     } else {
       print("0");
@@ -278,16 +278,16 @@ uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
 void kmem_set_phys_page_used(uintptr_t idx) {
-  bitmap_mark(&KMEM_DATA.m_phys_bitmap, idx);
+  bitmap_mark(KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // flip a bit to 0 as to mark a pageframe as free in our bitmap
 void kmem_set_phys_page_free(uintptr_t idx) {
-  bitmap_unmark(&KMEM_DATA.m_phys_bitmap, idx);
+  bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
 }
 
 bool kmem_is_phys_page_used (uintptr_t idx) {
-  return bitmap_isset(&KMEM_DATA.m_phys_bitmap, idx);
+  return bitmap_isset(KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // combination of the above two
@@ -295,16 +295,16 @@ bool kmem_is_phys_page_used (uintptr_t idx) {
 // value = false -> unmarks
 void kmem_set_phys_page(uintptr_t idx, bool value) {
   if (value) {
-    bitmap_mark(&KMEM_DATA.m_phys_bitmap, idx);
+    bitmap_mark(KMEM_DATA.m_phys_bitmap, idx);
   } else {
-    bitmap_unmark(&KMEM_DATA.m_phys_bitmap, idx);
+    bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
   }
 }
 
 // TODO: errorhandle
 ErrorOrPtr kmem_request_physical_page() {
 
-  ErrorOrPtr result = bitmap_find_free(&KMEM_DATA.m_phys_bitmap);
+  ErrorOrPtr result = bitmap_find_free(KMEM_DATA.m_phys_bitmap);
 
   if (result.m_status == ANIVA_FAIL) {
     return Error();
@@ -610,13 +610,13 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t
   return kmem_kernel_map_and_alloc_range(size, HIGH_MAP_BASE, custom_flags, page_flags);
 }
 
-ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags) {
+ErrorOrPtr kmem_kernel_map_and_alloc_range(size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags) {
   const bool should_identity_map = ((custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY);
   const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
 
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
-  const uintptr_t start_idx = Must(bitmap_find_free_range(&KMEM_DATA.m_phys_bitmap, pages_needed));
+  const uintptr_t start_idx = Must(bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, pages_needed));
   const paddr_t phys_base = kmem_get_page_addr(start_idx);
   const vaddr_t ret = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, virtual_base) : virtual_base); 
 

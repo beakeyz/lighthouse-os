@@ -3,12 +3,14 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "interupts/interupts.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"
 #include "system/acpi/parser.h"
@@ -328,7 +330,36 @@ static void kterm_process_buffer() {
     kterm_println(" - exit: panic the kernel");
   } else if (!strcmp(contents, "exit")) {
     kernel_panic("TODO: exit/shutdown");
-  } 
+  } else if (!strcmp(contents, "ztest")) {
+    zone_allocator_t* allocator = create_zone_allocator(4 * Kib, 0);
+
+    uintptr_t* test_data = allocator->m_heap->f_allocate(allocator, sizeof(uintptr_t));
+    *test_data = 6969;
+
+    kterm_println("\nAllocated 8 bytes: ");
+    kterm_println(to_string(*test_data));
+
+    uintptr_t* test_data2 = allocator->m_heap->f_allocate(allocator, sizeof(uintptr_t) * 4);
+    *test_data2 = 420;
+
+    kterm_println("\nAllocated 8 bytes: ");
+    kterm_println(to_string(*test_data2));
+
+    allocator->m_heap->f_sized_deallocate(allocator, test_data, sizeof(uintptr_t));
+
+    kterm_println("\nDeallocated 8 bytes: ");
+    kterm_println(to_string(*test_data));
+
+    allocator->m_heap->f_sized_deallocate(allocator, test_data2, sizeof(uintptr_t) * 4);
+
+    kterm_println("\nDeallocated 8 bytes: ");
+    kterm_println(to_string(*test_data2));
+
+    kterm_println("\n Total zone allocator size: ");
+    kterm_println(to_string(allocator->m_heap->m_current_total_size));
+
+    kterm_println("\nSuccessfully created Zone!\n");
+  }
   kterm_println("\n");
 }
 
@@ -401,13 +432,13 @@ static void kterm_println(const char* msg) {
 }
 
 void println_kterm(const char* msg) {
-  if (!is_driver_installed(&g_base_kterm_driver)) {
+  // Fuck this shit lmao, what if we fuck up the mapping?
+  // how do we ensure that kterm_driver stays mapped high?
+  if (!is_driver_installed((aniva_driver_t*)kmem_ensure_high_mapping((uintptr_t)&g_base_kterm_driver))) {
     return;
   }
 
   const size_t msg_len = strlen(msg);
-  
-  // destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&msg, msg_len));
 
   kterm_println(msg);
   kterm_println("\n");

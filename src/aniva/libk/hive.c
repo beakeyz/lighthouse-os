@@ -90,8 +90,6 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
       current_hive->m_total_entry_count++;
       root->m_total_entry_count++;
 
-      println("Just kinda found shit");
-      println(to_string(part_count));
       list_append(current_hive->m_entries, new_entry);
       return Success(0);
     }
@@ -284,7 +282,6 @@ const char* hive_get_path(hive_t* root, void* data) {
     hive_entry_t* entry = i->data;
 
     if (hive_entry_is_hole(entry)) {
-      println("Found hole!");
       const char* hole_path = hive_get_path(entry->m_hole, data);
 
       if (hole_path != nullptr) {
@@ -301,8 +298,7 @@ const char* hive_get_path(hive_t* root, void* data) {
       return ret;
     }
   }
-
-  return ret;
+  return nullptr;
 }
 
 void* hive_get_relative(hive_t* root, const char* subpath) {
@@ -315,15 +311,17 @@ bool hive_contains(hive_t* root, void* data) {
   FOREACH(i, root->m_entries) {
     hive_entry_t* entry = i->data;
 
-    if (entry->m_data == data) {
-      return true;
-    }
-
     if (hive_entry_is_hole(entry)) {
       if (hive_contains(entry->m_hole, data)) {
         return true;
       }
-    } 
+    }
+
+    if (!entry->m_data)
+      continue;
+
+    if (entry->m_data == data)
+      return true;
   }
 
   return false;
@@ -334,13 +332,15 @@ ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(hive_t* hive, void* data)
   FOREACH(i, root->m_entries) {
     hive_entry_t* entry = i->data;
 
-    if (!itterate_fn(root, entry->m_data)) {
-      return Error();
+    if (hive_entry_is_hole(entry)) {
+      TRY(res, hive_walk(entry->m_hole, itterate_fn));
     }
 
-    if (hive_entry_is_hole(entry)) {
-      TRY(hive_walk(entry->m_hole, itterate_fn));
-    }
+    if (!entry->m_data)
+      continue;
+
+    if (!itterate_fn(root, entry->m_data))
+      return Error();
   }
 
   return Success(0);
