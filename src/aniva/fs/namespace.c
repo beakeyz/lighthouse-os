@@ -11,7 +11,7 @@ void init_vns() {
 
   vnamespace_t* root_namespace = create_vnamespace("root", nullptr);
 
-  vfs_attach_namespace(nullptr, root_namespace);
+  vfs_attach_root_namespace(root_namespace);
 
   vns_assign_vns(g_root_vnode, root_namespace);
   

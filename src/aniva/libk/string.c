@@ -125,9 +125,10 @@ const int concat(char* one, char* two, char* out) {
 
   const size_t total_length = strlen(one) + strlen(two) + 1;
   // TODO this sux
-  memset((char*)out, 0, total_length);
-  memcpy((char*)out, one, strlen(one));
-  memcpy((char*)out + strlen(one), two, strlen(two));
+  memset(out, 0, total_length);
+  memcpy(out, one, strlen(one));
+  memcpy(out + strlen(one), two, strlen(two));
+  out[total_length-1] = '\0';
 
   return 0;
 }

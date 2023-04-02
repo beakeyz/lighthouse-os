@@ -9,7 +9,7 @@
 #include "fs/vnode.h"
 #include <libk/hive.h>
 
-#define VFS_PATH_SEPERATOR '.'
+#define VFS_PATH_SEPERATOR '/'
 
 struct vfs;
 
@@ -53,6 +53,8 @@ ErrorOrPtr vfs_unmount(const char* path);
  */
 vnode_t* vfs_resolve(const char* path);
 
-ErrorOrPtr vfs_attach_namespace(const char* path, vnamespace_t* namespace);
+ErrorOrPtr vfs_attach_namespace(const char* path);
+
+ErrorOrPtr vfs_attach_root_namespace(vnamespace_t* namespace);
 
 #endif // !__ANIVA_VFS__

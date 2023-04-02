@@ -192,7 +192,7 @@ aniva_driver_t g_base_kterm_driver = {
   .f_exit = kterm_exit,
   .f_drv_msg = kterm_on_packet,
   .m_port = 4,
-  .m_dependencies = {"graphics.fb", "io.ps2_kb"},
+  .m_dependencies = {"graphics/fb", "io/ps2_kb"},
   .m_dep_count = 2,
 };
 
@@ -202,13 +202,13 @@ void kterm_init() {
   kterm_current_line = 0;
 
   // register our keyboard listener
-  destroy_packet_response(driver_send_packet_sync("io.ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
+  destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
 
   // map our framebuffer
   uintptr_t ptr = KTERM_FB_ADDR;
-  destroy_packet_response(driver_send_packet_sync("graphics.fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t)));
+  destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t)));
 
-  packet_response_t* response = driver_send_packet_sync("graphics.fb", FB_DRV_GET_FB_INFO, NULL, 0);
+  packet_response_t* response = driver_send_packet_sync("graphics/fb", FB_DRV_GET_FB_INFO, NULL, 0);
   if (response) {
     kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
     destroy_packet_response(response);

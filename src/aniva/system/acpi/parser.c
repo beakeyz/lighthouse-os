@@ -65,7 +65,6 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   parser->m_multiboot_addr = multiboot_addr;
   parser->m_tables = init_list();
-  // parser->m_namespace_nodes = create_hive("acpi");
 
   find_rsdp(parser);
 

@@ -56,7 +56,7 @@ static void root_main(uintptr_t multiboot_address) {
     // load the kterm driver, which also loads the fb driver
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_fb_driver, 0)));
 
-    destroy_packet_response(driver_send_packet_sync("graphics.fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)multiboot_address, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(struct multiboot_tag_framebuffer)));
+    destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)multiboot_address, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(struct multiboot_tag_framebuffer)));
 
     Must(load_driver(create_dev_manifest((aniva_driver_t*)&g_base_kterm_driver, 0)));
   }

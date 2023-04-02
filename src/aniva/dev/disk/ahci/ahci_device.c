@@ -200,7 +200,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   println("Gathering info about ports...");
 
-  if (hive_walk(device->m_ports, port_itterator).m_status == ANIVA_FAIL)
+  if (hive_walk(device->m_ports, true, port_itterator).m_status == ANIVA_FAIL)
     return ANIVA_FAIL;
 
   return status;
@@ -229,7 +229,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
   for (uint32_t i = 0; i < 32; i++) {
     if (ahci_interrupt_status & (1 << i)) {
       char port_path[strlen("prt") + strlen(to_string(i)) + 1];
-      concat("prt", (char*)to_string(i), port_path);
+      concat("prt", (char*)to_string(i), (char*)port_path);
       ahci_port_t* port = hive_get(s_ahci_device->m_ports, port_path);
       
       ahci_port_handle_int(port); 

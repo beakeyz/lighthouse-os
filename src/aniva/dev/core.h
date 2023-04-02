@@ -10,7 +10,7 @@
 struct aniva_driver;
 struct dev_manifest;
 
-#define DRIVER_URL_SEPERATOR '.'
+#define DRIVER_URL_SEPERATOR '/'
 
 #define DRIVER_TYPE_COUNT 7
 

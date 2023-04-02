@@ -25,7 +25,7 @@ typedef enum HIVE_ENTRY_TYPE {
   HIVE_ENTRY_TYPE_HOLE
 } HIVE_ENTRY_TYPE_t;
 
-#define HIVE_PART_SEPERATOR '.'
+#define HIVE_PART_SEPERATOR '/'
 
 typedef char* hive_url_part_t;
 
@@ -118,7 +118,7 @@ void* hive_get_relative(hive_t* root, const char* subpath);
  *
  * --this is a recursive function--
  */
-ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(hive_t* hive, void* data));
+ErrorOrPtr hive_walk(hive_t* root, bool recursive, bool (*itterate_fn)(hive_t* hive, void* data));
 
 static ALWAYS_INLINE bool hive_entry_is_hole(hive_entry_t* entry) {
   return (entry->m_hole != nullptr);

@@ -2,6 +2,7 @@
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "fs/namespace.h"
 #include "fs/vfs.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
@@ -78,6 +79,23 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_aniva_driver_registry();
 
   init_vfs();
+
+  Must(vfs_attach_namespace("root/test"));
+
+  vnode_t test = {
+    .m_name = "tst.v",
+  };
+
+  vfs_mount("root/test", &test);
+
+  vnode_t* node = vfs_resolve("root/test/tst.v");
+
+  if (node) {
+    println("Found node!");
+    println(node->m_name);
+  } else {
+    println("Could not find node!");
+  }
 
   // NOTE: test
   println("Listing precompiled drivers!");

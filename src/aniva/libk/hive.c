@@ -377,13 +377,13 @@ bool hive_contains(hive_t* root, void* data) {
   return false;
 }
 
-ErrorOrPtr hive_walk(hive_t* root, bool (*itterate_fn)(hive_t* hive, void* data)) {
+ErrorOrPtr hive_walk(hive_t* root, bool recursive, bool (*itterate_fn)(hive_t* hive, void* data)) {
 
   FOREACH(i, root->m_entries) {
     hive_entry_t* entry = i->data;
 
-    if (hive_entry_is_hole(entry)) {
-      TRY(res, hive_walk(entry->m_hole, itterate_fn));
+    if (hive_entry_is_hole(entry) && recursive) {
+      TRY(res, hive_walk(entry->m_hole, recursive, itterate_fn));
     }
 
     if (!entry->m_data)
