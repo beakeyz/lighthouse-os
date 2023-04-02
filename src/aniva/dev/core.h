@@ -59,6 +59,8 @@ typedef const char* dev_url_t;
 
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
+#define EXPORT_DRIVER(name) SECTION(".kpcdrvs") struct aniva_driver* exported_##name = (struct aniva_driver*)&name
+
 /*
  * Initialize the driver registry. THIS MAY NOT ADD/BOOTSTRAP ANY
  * DRIVERS YET as the scheduler is not yet initialized and we may

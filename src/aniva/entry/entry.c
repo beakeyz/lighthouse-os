@@ -76,7 +76,13 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_aniva_driver_registry();
 
-  //g_base_ahci_driver.f_init();
+  // NOTE: test
+  println("Listing precompiled drivers!");
+  FOREACH_PCDRV(dptr) {
+    aniva_driver_t* driver = *dptr;
+    print("Found driver: ");
+    println(driver->m_name);
+  }
 
   init_scheduler();
 

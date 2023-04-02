@@ -26,7 +26,7 @@ SECTIONS {
     _text_begin = .;
     *(.__init*)
     *(.text*)
-    _text_end = .;
+    _text_end = .;  
   } :text 
 
   .rodata ALIGN(4K) : AT(ADDR(.rodata) - _kernel_virt_base_offset)
@@ -35,7 +35,13 @@ SECTIONS {
     *(.ctors*)
     *(.init_array)
     _end_ctors = .;
+
+    _kernel_pcdrvs_start = .;
+    *(.kpcdrvs*)
+    _kernel_pcdrvs_end = .;
+
     *(.rodata*)
+
   } :data
 
   .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_base_offset)

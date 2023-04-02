@@ -5,16 +5,23 @@
 #include <libk/stddef.h>
 #include <libk/multiboot.h>
 
+struct aniva_driver;
+
 extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
 
 extern uintptr_t kstack_top;
 extern uintptr_t kstack_bottom;
 
+extern struct aniva_driver* _kernel_pcdrvs_start[];
+extern struct aniva_driver* _kernel_pcdrvs_end[];
+
 extern pml_entry_t boot_pml4t[512];
 extern pml_entry_t boot_pdpt[512];
 extern pml_entry_t boot_pd0[512];
 extern pml_entry_t boot_pd0_p[512 * 32];
+
+#define FOREACH_PCDRV(i) for (struct aniva_driver** i = _kernel_pcdrvs_start; i < _kernel_pcdrvs_end; i++)
 
 typedef struct {
   //uintptr_t m_multiboot_addr;
@@ -22,8 +29,8 @@ typedef struct {
 
   //Processor_t m_bsp_processor;
   //Processor_t* m_current_core;
-} GlobalSystemInfo_t;
+} system_info_t;
 
-extern GlobalSystemInfo_t g_GlobalSystemInfo;
+extern system_info_t g_system_info;
 
 #endif // !__KMAIN__
