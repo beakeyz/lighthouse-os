@@ -21,9 +21,7 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="f0838b63-2afb-4caf-9e4a-a28ac76954de" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -104,11 +102,6 @@
   }
 }</component>
   <component name="RunManager" selected="Makefile Target.debug">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="Makefile" type="CLionNativeAppRunConfigurationType" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="lighthouse-os" TARGET_NAME="Makefile" CONFIG_NAME="Makefile" version="1">
       <method v="2">
         <option name="CLION.COMPOUND.BUILD" enabled="true" />
@@ -242,6 +235,7 @@
       <workItem from="1676480437274" duration="6949000" />
       <workItem from="1676494194313" duration="1004000" />
       <workItem from="1676563367309" duration="9052000" />
+      <workItem from="1680445232866" duration="67000" />
     </task>
     <servers />
   </component>

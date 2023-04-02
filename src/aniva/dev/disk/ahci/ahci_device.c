@@ -90,6 +90,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
   uint32_t pi = device->m_hba_region->control_regs.ports_impl;
 
+  uintptr_t internal_index = 0;
   for (uint32_t i = 0; i < MAX_HBA_PORT_AMOUNT; i++) {
     if (pi & (1 << i)) {
 
@@ -126,7 +127,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       }
 
       println_kterm("Found HBA port");
-      ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, i);
+      ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, internal_index);
       if (initialize_port(port) == ANIVA_FAIL) {
         println("Failed! killing port...");
         println_kterm("Failed to initialize port");
@@ -135,6 +136,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       }
       hive_add_entry(device->m_ports, port, port->m_generic.m_path);
       s_implemented_ports++;
+      internal_index++;
     }
   }
 
@@ -352,8 +354,14 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
       const char* path = header->m_req_buffer;
 
       ahci_port_t* res = hive_get(s_ahci_device->m_ports, path);
-      header->m_req_buffer = &res->m_generic;
-      header->m_req_size = sizeof(uintptr_t);
+
+      if (res) {
+        header->m_req_buffer = &res->m_generic;
+        header->m_req_size = sizeof(uintptr_t);
+      } else {
+        header->m_req_buffer = 0;
+        header->m_req_size = 0;
+      }
 
       *response = create_packet_response(header, sizeof(ahci_dch_t));
       break;

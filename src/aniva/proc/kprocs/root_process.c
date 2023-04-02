@@ -84,8 +84,12 @@ static void root_main(uintptr_t multiboot_address) {
 
   vfs_t* vfs = create_vfs(device);
 
-  println_kterm("Successfuly created VFS with: ");
-  println_kterm(vfs->m_device->m_device_name);
+  if (vfs->m_device) {
+    println_kterm("Successfuly created VFS with: ");
+    println_kterm(vfs->m_device->m_device_name);
+  } else {
+    println_kterm("Failed to setup VFS");
+  }
 }
 
 static void root_packet_dispatch() {
