@@ -61,6 +61,12 @@ hive_t *create_hive(hive_url_part_t root_part);
 void destroy_hive(hive_t* hive);
 
 /*
+ * Set the data pointer of a hive_entry that we find at the
+ * specified path
+ */
+void hive_set(hive_t* root, void* data, const char* path);
+
+/*
  * Add some data to a hive
  */
 ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path);
@@ -69,7 +75,7 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path);
  * Follows the path and inserts a hole to another
  * hive there
  */
-ErrorOrPtr hive_add_hole(hive_t* root, const char* path);
+ErrorOrPtr hive_add_hole(hive_t* root, const char* path, hive_t* hole);
 
 /*
  * Follows the path and inserts holes where they are needed

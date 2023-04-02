@@ -384,6 +384,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   if (!gpt_table) {
     // TODO: Search for MBR
+    println_kterm("Could not find GPT table!");
     goto fail_and_dealloc;
   }
 
@@ -395,6 +396,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
     println_kterm(port->m_generic.m_path);
     println_kterm(part->m_path);
+    println_kterm(part->m_type.m_name);
     println_kterm("");
   }
 

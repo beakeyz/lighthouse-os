@@ -120,52 +120,66 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
   return Error();
 }
 
-ErrorOrPtr hive_add_hole(hive_t* root, const char* path) {
+ErrorOrPtr hive_add_hole(hive_t* root, const char* path, hive_t* hole) {
 
-  kernel_panic("UNIMPLEMENTED hive_add_hole");
-  /*
   path = __hive_prepend_root_part(root, path);
 
   if (__hive_path_is_invalid(path)) {
     return Error();
   }
 
-  hive_t* current_hive;
+  if (hive_get(root, path) != nullptr) {
+    return Error();
+  }
+
+  hive_entry_t* new_entry = create_hive_entry(hole, nullptr, nullptr);
+  if (!new_entry) {
+    return Error();
+  }
+
+  hive_t* current_hive = root;
   size_t part_count = __hive_get_part_count(path);
 
-  for (uintptr_t i = 0; i < part_count; i++) {
+  // skip the root part
+  for (uintptr_t i = 1; i < part_count; i++) {
     hive_url_part_t part = __hive_find_part_at(path, i);
 
-    if (!strcmp(part, root->m_url_part)) {
-      current_hive = root;
-      kfree(part);
-      continue;
-    }
-
-    hive_entry_t* entry = __hive_find_entry(current_hive, part);
-
+    // end is reached: we need to emplace a data entry
     if (i+1 == part_count) {
-      if (!entry) {
-        entry = create_hive_entry(create_hive(entry->m_entry_part), nullptr);
-        entry->m_entry_part = part;
-        return Success(0);
-      } else {
-        kfree(part);
-        return Error();
-      }
+      new_entry->m_entry_part = part;
+
+      // Increment stats
+      // TODO: stats are widely missing from 
+      // the functions where they should be implemented
+      current_hive->m_total_entry_count++;
+      root->m_total_entry_count++;
+
+      list_append(current_hive->m_entries, new_entry);
+      return Success(0);
     }
 
-    if (!entry) {
+    bool created_new_entry = false;
+    hive_entry_t* current_entry = __hive_find_entry(current_hive, part);
+
+    // Don't get rid of part here, we still need it
+    if (!current_entry) {
+      // Append a new hole
+      created_new_entry = true;
+      current_entry = create_hive_entry(create_hive(part), nullptr, part);
+      list_append(current_hive->m_entries, current_entry);
+      // Fallthrough
+    }
+
+    if (hive_entry_is_hole(current_entry)) {
+      current_hive = current_entry->m_hole;
+    } else {
+      current_entry->m_hole = create_hive(part);
+      current_hive = current_entry->m_hole;
+    }
+
+    if (!created_new_entry)
       kfree(part);
-      return Error();
-    }
-
-    if (hive_entry_is_hole(entry)) {
-      current_hive = entry->m_hole;
-    }
-    kfree(part);
   }
-  */
 
   return Error();
 }
@@ -174,6 +188,42 @@ ErrorOrPtr hive_add_holes(hive_t* root, const char* path) {
 
   kernel_panic("UNIMPLEMENTED hive_add_holes");
   return Success(0);
+}
+
+void hive_set(hive_t* root, void* data, const char* path) {
+
+  path = __hive_prepend_root_part(root, path);
+
+  if (__hive_path_is_invalid(path)) {
+    goto invalid_path;
+  }
+
+  hive_t* current_hive = root;
+  size_t part_count = __hive_get_part_count(path);
+
+  for (uintptr_t i = 1; i < part_count; i++) {
+    hive_url_part_t part = __hive_find_part_at(path, i);
+
+    hive_entry_t* entry = __hive_find_entry(current_hive, part);
+    kfree(part);
+
+    if (!entry) {
+      // NOTE: freeing path here seems to upset some Must() call =/ so yea FIXME
+      goto invalid_path;
+    }
+
+    if (i+1 == part_count) {
+      kfree((void*)path);
+      entry->m_data = data;
+    }
+
+    if (hive_entry_is_hole(entry)) {
+      current_hive = entry->m_hole;
+    }
+  }
+
+invalid_path:
+  kfree((void*)path);
 }
 
 void* hive_get(hive_t* root, const char* path) {

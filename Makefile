@@ -19,7 +19,7 @@ LINK_PATH := ./src/aniva/entry/linker.ld
 
 NASM	   		:= /usr/bin/nasm
 CC          := ./cross_compiler/bin/x86_64-pc-lightos-gcc
-LD         	:= ld 
+LD         	:= ./cross_compiler/bin/x86_64-pc-lightos-ld
 
 OBJ := $(shell find $(OUT) -type f -name '*.o')
 

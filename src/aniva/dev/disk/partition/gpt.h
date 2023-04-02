@@ -1,17 +1,42 @@
 #ifndef __ANIVA_GPT_PARTITION__
 #define __ANIVA_GPT_PARTITION__
+#include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "libk/linkedlist.h"
+#include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include <libk/hive.h>
 #include <libk/stddef.h>
 
 #define GPT_SIG_0 0x20494645
 #define GPT_SIG_1 0x54524150
 
-typedef struct gpt_partition {
-  // TODO:
+// GUIDs are mixed endian
+// The first hals is big endian
+// The second half is small endian
+typedef struct gpt_partition_type {
   uint8_t m_guid[16];
   char m_name[72];
+} gpt_partition_type_t;
+
+static ALWAYS_INLINE void gpt_part_type_decode_name(gpt_partition_type_t* type) {
+  uintptr_t index = 0;
+  char decoded_name[72] = {0};
+
+  for (uintptr_t i = 0; i < 72; i++) {
+    if (type->m_name[i]) {
+      decoded_name[index] = type->m_name[i];
+      index++;
+    }
+  }
+
+  memcpy(type->m_name, decoded_name, 72);
+}
+
+
+typedef struct gpt_partition {
+  // TODO:
+  gpt_partition_type_t m_type;
 
   // Path how we can find this partition through 
   // Its parent device

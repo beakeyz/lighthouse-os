@@ -2,6 +2,7 @@
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "fs/vfs.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
 #include "mem/pg.h"
@@ -75,6 +76,8 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   initialize_proc_core();
 
   init_aniva_driver_registry();
+
+  init_vfs();
 
   // NOTE: test
   println("Listing precompiled drivers!");

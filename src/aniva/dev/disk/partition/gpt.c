@@ -109,8 +109,11 @@ void destroy_gpt_table(gpt_table_t* table) {
 gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t index) {
   gpt_partition_t* ret = kmalloc(sizeof(gpt_partition_t));
 
-  memcpy(ret->m_guid, entry->partition_guid, 16);
-  memcpy(ret->m_name, entry->partition_name, 72);
+  memcpy(ret->m_type.m_guid, entry->partition_guid, 16);
+  memcpy(ret->m_type.m_name, entry->partition_name, 72);
+
+  gpt_part_type_decode_name(&ret->m_type);
+
   ret->m_start_lba = entry->first_lba;
   ret->m_end_lba = entry->last_lba;
   ret->m_index = index;
