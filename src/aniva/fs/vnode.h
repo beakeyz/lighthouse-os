@@ -15,6 +15,9 @@ typedef struct vnode {
   uint32_t m_access_count;
   uint32_t m_event_count;
 
+  /* Gets assigned when the vnode is mounted somewhere in the VFS */
+  uintptr_t m_id;
+
   size_t m_size;
 
   const char* m_name;
@@ -25,8 +28,11 @@ typedef struct vnode {
 
   void (*f_write) (struct vnode*, uintptr_t off, size_t size, void* buffer);
   void (*f_read) (struct vnode*, uintptr_t off, size_t size, void* buffer);
+  void (*f_msg) (struct vnode*, driver_control_code_t code, packet_payload_t payload, packet_response_t** buffer);
+  /* Should return bytestreams of their respective files */
+  void* (*f_open_stream) (struct vnode*);
+  void* (*f_close_stream) (struct vnode*);
   /* TODO: other vnode operations */
-
 
   struct vnode* m_parent;
   struct vnode* m_ref;
@@ -35,9 +41,9 @@ typedef struct vnode {
 #define VN_ROOT     (0x000001)
 #define VN_SYS      (0x000002)
 #define VN_MOUNT    (0x000004)
+#define VN_FROZEN   (0x000008)
 
 bool vn_is_socket(vnode_t);
-bool vn_is_file(vnode_t);
 bool vn_is_system(vnode_t);
 
 /* 
