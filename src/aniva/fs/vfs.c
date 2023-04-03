@@ -13,21 +13,14 @@
 
 static vfs_t s_vfs;
 
-vnode_t* g_root_vnode;
-
 void init_vfs(void) {
 
   // Init caches
   init_vcache();
 
   s_vfs.m_namespaces = create_hive("vfs_ns");
+  s_vfs.m_lock = create_mutex(0);
   s_vfs.m_id = "system_vfs";
-
-  g_root_vnode = kmalloc(sizeof(vnode_t));
-  memset(g_root_vnode, 0x00, sizeof(vnode_t));
-
-  g_root_vnode->m_name = "/";
-  g_root_vnode->m_lock = create_mutex(0);
 
   // Init vfs namespaces
   init_vns();

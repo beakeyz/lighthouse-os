@@ -20,12 +20,21 @@ typedef struct virtual_namespace {
   /* Id that specifies this namespace */
   char* m_id;
 
+  /* Simple string that describes the type of vnodes this namespace facilitates */
+  char* m_desc;
+
+  /* Some flags that help us manage capabilities of this namespace */
+  uint32_t m_flags;
+
   /* Should be a hash table */
   hive_t* m_vnodes;
 
   struct virtual_namespace* m_parent;
   hive_t* m_children;
 } vnamespace_t;
+
+#define VNS_SYSTEM (0x00000001) /* Owned by the kernel */
+#define VNS_FROZEN (0x00000002) /* Writes are discarded */
 
 void init_vns();
 

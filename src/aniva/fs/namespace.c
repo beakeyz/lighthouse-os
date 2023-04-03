@@ -7,14 +7,15 @@
 #include "mem/heap.h"
 
 void init_vns() {
-  ASSERT_MSG(g_root_vnode != nullptr, "Can't initialize vnamespaces without knowing the root vnode");
 
-  vnamespace_t* root_namespace = create_vnamespace("root", nullptr);
+  // Install the system namespace
+  vnamespace_t* root_namespace = create_vnamespace("system", nullptr);
+
+  root_namespace->m_flags |= VNS_SYSTEM;
+  root_namespace->m_desc = "sys";
 
   vfs_attach_root_namespace(root_namespace);
 
-  vns_assign_vns(g_root_vnode, root_namespace);
-  
 }
 
 vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
@@ -29,6 +30,8 @@ vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
   ns->m_children = create_hive(id);
   ns->m_vnodes = create_hive(id);
   ns->m_id = id;
+  ns->m_desc = nullptr;
+  ns->m_flags = NULL;
   ns->m_parent = parent;
 
   ns->m_distance_to_root = 0;

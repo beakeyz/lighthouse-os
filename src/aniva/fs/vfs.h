@@ -7,6 +7,7 @@
 #include "dev/disk/generic.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
+#include "sync/mutex.h"
 #include <libk/hive.h>
 
 #define VFS_PATH_SEPERATOR '/'
@@ -30,6 +31,8 @@ struct vfs;
  */
 typedef struct vfs {
   char* m_id;
+
+  mutex_t* m_lock;
 
   hive_t* m_namespaces;
 } vfs_t;

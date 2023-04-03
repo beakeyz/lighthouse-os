@@ -80,15 +80,15 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_vfs();
 
-  Must(vfs_attach_namespace("root/test"));
+  Must(vfs_attach_namespace("system/test"));
 
   vnode_t test = {
     .m_name = "tst.v",
   };
 
-  vfs_mount("root/test", &test);
+  vfs_mount("system/test", &test);
 
-  vnode_t* node = vfs_resolve("root/test/tst.v");
+  vnode_t* node = vfs_resolve("system/test/tst.v");
 
   if (node) {
     println("Found node!");

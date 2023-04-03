@@ -25,18 +25,26 @@ typedef struct vnode {
 
   void (*f_write) (struct vnode*, uintptr_t off, size_t size, void* buffer);
   void (*f_read) (struct vnode*, uintptr_t off, size_t size, void* buffer);
+  /* TODO: other vnode operations */
+
 
   struct vnode* m_parent;
+  struct vnode* m_ref;
 } vnode_t;
 
 #define VN_ROOT     (0x000001)
 #define VN_SYS      (0x000002)
 #define VN_MOUNT    (0x000004)
 
-extern vnode_t* g_root_vnode;
-
 bool vn_is_socket(vnode_t);
 bool vn_is_file(vnode_t);
 bool vn_is_system(vnode_t);
+
+/* 
+ * Makes sure write opperations (or anything that changes 
+ * the vnode) are either canceled or queued 
+ */
+void vn_freeze(vnode_t*);
+void vn_unfreeze(vnode_t*);
 
 #endif // !__ANIVA_VNODE__

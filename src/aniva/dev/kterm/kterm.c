@@ -3,6 +3,7 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "fs/vfs.h"
 #include "interupts/interupts.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
@@ -359,6 +360,9 @@ static void kterm_process_buffer() {
     kterm_println(to_string(allocator->m_heap->m_current_total_size));
 
     kterm_println("\nSuccessfully created Zone!\n");
+  } else if (!strcmp(contents, "lsdsk")) {
+    // TODO: get all the registered (for now) AHCI ports and all the attached partitions
+
   }
   kterm_println("\n");
 }
