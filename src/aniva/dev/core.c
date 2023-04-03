@@ -81,7 +81,12 @@ ErrorOrPtr uninstall_driver(struct dev_manifest* manifest) {
  */
 ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
-  if (!validate_driver(manifest->m_handle)) {
+  if (!manifest)
+    return Error();
+
+  aniva_driver_t* handle = manifest->m_handle;
+
+  if (!validate_driver(handle)) {
     return Error();
   }
 
@@ -97,7 +102,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     //return Error();
   }
 
-  if (is_driver_loaded(manifest->m_handle)) {
+  if (is_driver_loaded(handle)) {
     return Error();
   }
 
@@ -112,13 +117,15 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   dev_url_t path = manifest->m_url;
 
-  ErrorOrPtr result = hive_add_entry(s_loaded_drivers, manifest->m_handle, path);
+  ErrorOrPtr result = hive_add_entry(s_loaded_drivers, handle, path);
 
   if (result.m_status == ANIVA_FAIL) {
     return result;
   }
 
-  bootstrap_driver(manifest->m_handle);
+  dev_url_t full_path = hive_get_path(s_loaded_drivers, handle);
+
+  Must(bootstrap_driver(handle, full_path));
 
   return Success(0);
 }

@@ -30,7 +30,6 @@ typedef struct virtual_namespace {
   hive_t* m_vnodes;
 
   struct virtual_namespace* m_parent;
-  hive_t* m_children;
 } vnamespace_t;
 
 #define VNS_SYSTEM (0x00000001) /* Owned by the kernel */

@@ -7,12 +7,15 @@
 #include "dev/disk/generic.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
+#include "libk/error.h"
 #include "sync/mutex.h"
 #include <libk/hive.h>
 
 #define VFS_PATH_SEPERATOR '/'
 
 struct vfs;
+struct fs_type;
+struct aniva_driver;
 
 /*
  * The VFS consists of namespaces that in turn hold vnodes. Every vnode 
@@ -49,7 +52,14 @@ void init_vfs();
  *
  */
 ErrorOrPtr vfs_mount(const char* path, vnode_t* node);
+ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs);
+ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver);
 ErrorOrPtr vfs_unmount(const char* path);
+
+/*
+ * Establish a connection from vnode_linker -> vnode_linked
+ */
+ErrorOrPtr vfs_link(const char* link_path, const char* linked_path);
 
 /*
  * Resolve an absolute path

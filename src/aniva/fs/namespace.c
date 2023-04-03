@@ -27,7 +27,6 @@ vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
   if (!ns)
     return nullptr;
 
-  ns->m_children = create_hive(id);
   ns->m_vnodes = create_hive(id);
   ns->m_id = id;
   ns->m_desc = nullptr;

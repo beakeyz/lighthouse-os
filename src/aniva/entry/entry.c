@@ -22,6 +22,8 @@
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
 
+void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
+
 //typedef void (*ctor_func_t)();
 //extern ctor_func_t _start_ctors[];
 //extern ctor_func_t _end_ctors[];
@@ -29,8 +31,6 @@
 
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
-
-void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
@@ -80,22 +80,9 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_vfs();
 
-  Must(vfs_attach_namespace("system/test"));
-
-  vnode_t test = {
-    .m_name = "tst.v",
-  };
-
-  vfs_mount("system/test", &test);
-
-  vnode_t* node = vfs_resolve("system/test/tst.v");
-
-  if (node) {
-    println("Found node!");
-    println(node->m_name);
-  } else {
-    println("Could not find node!");
-  }
+  // NOTE: test
+  Must(vfs_attach_namespace("l_dev"));
+  Must(vfs_attach_namespace("l_dev/graphics"));
 
   // NOTE: test
   println("Listing precompiled drivers!");

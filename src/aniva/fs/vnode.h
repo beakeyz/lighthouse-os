@@ -1,6 +1,7 @@
 #ifndef __ANIVA_VNODE__
 #define __ANIVA_VNODE__
 
+#include "libk/linkedlist.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
 
@@ -16,7 +17,7 @@ typedef struct vnode {
   uint32_t m_event_count;
 
   /* Gets assigned when the vnode is mounted somewhere in the VFS */
-  uintptr_t m_id;
+  int m_id;
 
   size_t m_size;
 
@@ -26,25 +27,52 @@ typedef struct vnode {
 
   void* m_data;
 
-  void (*f_write) (struct vnode*, uintptr_t off, size_t size, void* buffer);
-  void (*f_read) (struct vnode*, uintptr_t off, size_t size, void* buffer);
-  void (*f_msg) (struct vnode*, driver_control_code_t code, packet_payload_t payload, packet_response_t** buffer);
+  int (*f_write) (struct vnode*, uintptr_t off, size_t size, void* buffer);
+  int (*f_read) (struct vnode*, uintptr_t off, size_t size, void* buffer);
+  int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
   /* Should return bytestreams of their respective files */
   void* (*f_open_stream) (struct vnode*);
   void* (*f_close_stream) (struct vnode*);
   /* TODO: other vnode operations */
 
-  struct vnode* m_parent;
-  struct vnode* m_ref;
+  /* 
+   * A node is either linked, or linking. We can't have a link referencing 
+   * another link in aniva.
+   */
+  union {
+    /*
+     * If this node links to another node, this points to that node, 
+     * and all opperations may be forwarded to that node.
+     */
+    struct vnode* m_ref;
+    list_t* m_links;
+  };
 } vnode_t;
 
 #define VN_ROOT     (0x000001)
 #define VN_SYS      (0x000002)
 #define VN_MOUNT    (0x000004)
 #define VN_FROZEN   (0x000008)
+#define VN_CACHED   (0x000010)
+#define VN_LINK     (0x000011)
+
+vnode_t* create_generic_vnode(const char* name, uint32_t flags);
+
+/*
+ * Due to the nature of vnodes, we can only destroy them if they are 
+ * generic. If they have drivers, filesystems, ect. attached, those 
+ * need to be cleaned up first...
+ *
+ * vnodes also can't be mounted when they are destroyed. We mostly leave
+ * this for the caller, but we fail nontheless if the node *seems* mounted
+ * (aka. the fields of the node suggest that it is)
+ */
+ErrorOrPtr destroy_generic_vnode(vnode_t*);
 
 bool vn_is_socket(vnode_t);
 bool vn_is_system(vnode_t);
+bool vn_seems_mounted(vnode_t);
+bool vn_is_link(vnode_t);
 
 /* 
  * Makes sure write opperations (or anything that changes 

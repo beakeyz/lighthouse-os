@@ -4,6 +4,8 @@
 #include "core.h"
 #include "proc/socket.h"
 
+struct vnode;
+
 typedef void (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
 //typedef uintptr_t (*ANIVA_DRIVER_DRV_MSG) (void* buffer, size_t buffer_size);
@@ -25,6 +27,8 @@ typedef struct aniva_driver {
   driver_version_t m_version;
   driver_identifier_t m_ident;
 
+  uint32_t m_flags;
+
   ANIVA_DRIVER_INIT f_init;
   ANIVA_DRIVER_EXIT f_exit;
 
@@ -42,6 +46,10 @@ typedef struct aniva_driver {
   dev_url_t m_dependencies[];
 } aniva_driver_t;
 
+#define DRV_FS      (0x00000001) /* Should be mounted inside the vfs */
+#define DRV_SYS     (0x00000002) /* Is this a system-driver or user/nonessendial driver */
+#define DRV_ACTIVE  (0x00000004) /* Is this driver available for opperations */
+
 aniva_driver_t* create_driver(
   const char* name,
   const char* descriptor,
@@ -52,6 +60,10 @@ aniva_driver_t* create_driver(
   SocketOnPacket drv_msg,
   DEV_TYPE type
   );
+
+struct vnode* create_fs_driver(aniva_driver_t* driver);
+
+void detach_fs_driver(struct vnode* node);
 
 void destroy_driver(aniva_driver_t* driver);
 
@@ -65,6 +77,6 @@ bool validate_driver(aniva_driver_t* driver);
  * Create a thread for this driver in the kernel process
  * and run the entry
  */
-ErrorOrPtr bootstrap_driver(aniva_driver_t* driver);
+ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path);
 
 #endif //__ANIVA_DRIVER__

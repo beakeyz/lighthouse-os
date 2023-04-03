@@ -363,6 +363,9 @@ static void kterm_process_buffer() {
   } else if (!strcmp(contents, "lsdsk")) {
     // TODO: get all the registered (for now) AHCI ports and all the attached partitions
 
+    // NOTE: test
+    vnode_t* node = vfs_resolve("l_dev/graphics/fb");
+
   }
   kterm_println("\n");
 }
