@@ -192,7 +192,6 @@ aniva_driver_t g_base_kterm_driver = {
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_drv_msg = kterm_on_packet,
-  .m_port = 4,
   .m_dependencies = {"graphics/fb", "io/ps2_kb"},
   .m_dep_count = 2,
 };

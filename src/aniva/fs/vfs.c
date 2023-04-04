@@ -57,6 +57,12 @@ ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
   return mount_result;
 }
 
+/* TODO: is this really the best idea? */
+ErrorOrPtr vfs_mount_generic_disk(const char* mountpoint, generic_disk_dev_t* device) {
+
+  return Success(0);
+}
+
 /*
  * Just unmount whatever we find at the end of this path
  */

@@ -42,7 +42,6 @@ const aniva_driver_t g_base_ahci_driver = {
   .f_init = ahci_driver_init,
   .f_exit = ahci_driver_exit,
   .f_drv_msg = ahci_driver_on_packet,
-  .m_port = 5,
   .m_dependencies = {},
   .m_dep_count = 0
 };

@@ -81,8 +81,14 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_vfs();
 
   // NOTE: test
+  // TODO: how the actual fuck do we want to manage devices in our kernel???
+  // are we going micro, mono or perhaps even exo?
+  // how big will the role of the vfs be?
+  //  * how will processes even interact with the kernel??? * 
   Must(vfs_attach_namespace("l_dev"));
   Must(vfs_attach_namespace("l_dev/graphics"));
+  Must(vfs_attach_namespace("l_dev/io"));
+  Must(vfs_attach_namespace("l_dev/disk"));
 
   // NOTE: test
   println("Listing precompiled drivers!");
