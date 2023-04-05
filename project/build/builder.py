@@ -1,5 +1,5 @@
 from enum import Enum
-from stats.lines import SourceFile
+from stats.lines import SourceFile, SourceLanguage
 import consts
 import os
 
@@ -8,7 +8,6 @@ class BuilderMode(Enum):
     INVALID = -1
     KERNEL = 0
     USERSPACE = 1
-    LINK = 2
 
 
 class BuilderResult(Enum):
@@ -36,23 +35,60 @@ class ProjectBuilder(object):
 
     # Either build or link, based on the buildermode
     def do(self) -> BuilderResult:
-        if self.builderMode == BuilderMode.LINK:
-            return self.link()
+        print("Building...")
+        if self.build() == BuilderResult.FAIL:
+            return BuilderResult.FAIL
 
-        return self.build()
+        print("Linking...")
+        return self.link()
 
     def build(self) -> BuilderResult:
         for srcFile in self.constants.SRC_FILES:
+            srcFile: SourceFile = srcFile
             if self.shouldBuild(srcFile):
                 if self.builderMode == BuilderMode.KERNEL:
-                    srcFile.setBuildDir(self.constants.KERNEL_C_FLAGS)
+                    if srcFile.language == SourceLanguage.C:
+                        srcFile.setBuildFlags(self.constants.KERNEL_C_FLAGS)
+                    elif srcFile.language == SourceLanguage.ASM:
+                        srcFile.setBuildFlags(self.constants.KERNEL_ASM_FLAGS)
+                    else:
+                        return BuilderResult.FAIL
+
                 print(f"Building {srcFile.path}...")
-                os.system(srcFile.getCompileCmd())
-        return BuilderResult.FAIL
+                os.system(f"mkdir -p {srcFile.getOutputDir()}")
+
+                if os.system(srcFile.getCompileCmd()) != 0:
+                    return BuilderResult.FAIL
+        return BuilderResult.SUCCESS
 
     def link(self) -> BuilderResult:
         self.constants.reinit()
-        pass
+
+        objFiles: str = " "
+
+        SDN = self.constants.SRC_DIR_NAME
+        ODN = self.constants.OUT_DIR_NAME
+
+        KEP = self.constants.KERNEL_ELF_PATH
+        KLF = self.constants.KERNEL_LD_FLAGS
+
+        for objFile in self.constants.OBJ_FILES:
+            objFile: str = objFile
+
+            for builderPath in self.srcPath:
+                builderPath = builderPath.replace(SDN, ODN)
+
+                if (objFile.find(builderPath) != -1):
+                    # Pad the end with a space
+                    objFiles += f"{objFile} "
+                    break
+
+        ld = self.constants.CROSS_LD_DIR
+
+        if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") == 0:
+            return BuilderResult.SUCCESS
+
+        return BuilderResult.FAIL
 
     def clean(self) -> None:
         pass
@@ -61,7 +97,9 @@ class ProjectBuilder(object):
         for path in self.srcPath:
             # The path of this file is one that we care about
             if file.get_path().find(path) != -1 and file.is_header is False:
-                if file.compilerDir == "":
+                # Without a compiler or output path, we are
+                # not really able to do much, are we...
+                if file.compilerDir == "" or file.outputPath == "":
                     return False
                 return True
         return False

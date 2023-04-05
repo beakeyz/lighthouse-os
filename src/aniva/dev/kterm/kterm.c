@@ -364,6 +364,12 @@ static void kterm_process_buffer() {
 
     // NOTE: test
     vnode_t* node = vfs_resolve("l_dev/graphics/fb");
+    kterm_println("\n");
+
+    if (node)
+      kterm_println(node->m_name);
+    else
+      kterm_println("Could not find vnode!");
 
   }
   kterm_println("\n");

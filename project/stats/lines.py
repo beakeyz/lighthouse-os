@@ -34,17 +34,21 @@ class SourceLanguage(IntFlag, Enum):
 class SourceFile:
 
     is_header: bool = False
-    path: str = ""
+    path: str
+    fileName: str
     language: SourceLanguage = SourceLanguage.NONE
     compilerDir: str
+    outputPath: str
     buildFlags: str
 
-    def __init__(self, is_header: bool, path: str, language: SourceLanguage) -> None:
+    def __init__(self, is_header: bool, path: str, fileName: str, language: SourceLanguage) -> None:
         self.is_header = is_header
         self.path = path
         self.language = language
+        self.fileName = fileName
         self.compilerDir = ""
         self.buildFlags = ""
+        self.outputPath = ""
 
     def get_path(self) -> str:
         return self.path
@@ -55,7 +59,29 @@ class SourceFile:
     def setBuildFlags(self, flags: str) -> None:
         self.buildFlags = flags
 
+    def setOutputPath(self, path: str) -> None:
+        path = self.addObjectSuffix(path)
+        self.outputPath = path
+
+    def addObjectSuffix(self, path: str) -> str:
+        path = path.replace(".c", ".o")
+        path = path.replace(".asm", ".o")
+        path = path.replace(".cpp", ".o")
+        return path
+
+    def getOutputDir(self) -> str:
+        path = self.outputPath
+        filename = self.fileName
+        suffix = self.addObjectSuffix(filename)
+        path = path.removesuffix(suffix)
+        return path
+
     def getCompileCmd(self) -> str:
         if self.is_header:
             return "echo Tried to build header! Ignoring..."
-        return f"{self.compilerDir} {self.path} {self.buildFlags}"
+
+        if self.language == SourceLanguage.C:
+            return f"{self.compilerDir} {self.buildFlags} -c {self.path} -o {self.outputPath}"
+
+        if self.language == SourceLanguage.ASM:
+            return f"{self.compilerDir} {self.path} -o {self.outputPath} {self.buildFlags}"
