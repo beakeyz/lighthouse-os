@@ -1,8 +1,11 @@
 #!/bin/python3
+
 from sys import argv
 from consts import Consts
 from deps.dependencies import DependencyManager
 from deps.ramdisk import RamdiskManager
+from build.builder import ProjectBuilder, BuilderMode, BuilderResult
+
 
 def project_main() -> None:
     print("Starting project script")
@@ -13,29 +16,34 @@ def project_main() -> None:
         print("Please supply at least one valid command!")
         return
 
+    c = Consts()
+
     if commands[1] == "lines":
-        c = Consts()
         c.log_source()
         c.draw_source_bar()
     elif commands[1] == "deps":
-        c = DependencyManager()
-        c.pacman_install()
+        dpm = DependencyManager()
+        dpm.pacman_install()
     elif commands[1] == "ramdisk":
         if len(commands) != 3:
             print("Please supply a valid subcommand for ramdisk!")
             return
 
-        c = RamdiskManager()
+        rdm = RamdiskManager()
 
         print(commands[2])
 
         if commands[2] == "create":
-            c.create_ramdisk()
+            rdm.create_ramdisk()
         else:
             print("Please supply a valid subcommand for ramdisk!")
+    elif commands[1] == "build":
+        print("Trying to build project")
+        builder = ProjectBuilder(BuilderMode.KERNEL)
+        if builder.do() != BuilderResult.SUCCESS:
+            print("Failed!")
     else:
         print("Please supply valid commands")
-        
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 
 from enum import Enum, IntFlag
 
+
 class SourceLanguage(IntFlag, Enum):
     NONE = 0,
     C = 1,
@@ -35,11 +36,26 @@ class SourceFile:
     is_header: bool = False
     path: str = ""
     language: SourceLanguage = SourceLanguage.NONE
+    compilerDir: str
+    buildFlags: str
 
     def __init__(self, is_header: bool, path: str, language: SourceLanguage) -> None:
         self.is_header = is_header
         self.path = path
         self.language = language
+        self.compilerDir = ""
+        self.buildFlags = ""
 
     def get_path(self) -> str:
         return self.path
+
+    def set_compiler(self, path: str) -> None:
+        self.compilerDir = path
+
+    def setBuildFlags(self, flags: str) -> None:
+        self.buildFlags = flags
+
+    def getCompileCmd(self) -> str:
+        if self.is_header:
+            return "echo Tried to build header! Ignoring..."
+        return f"{self.compilerDir} {self.path} {self.buildFlags}"

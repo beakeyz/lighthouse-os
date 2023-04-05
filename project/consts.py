@@ -1,6 +1,7 @@
 import os
 from os.path import isdir, isfile
-from stats.lines import *
+from stats.lines import SourceFile, SourceLanguage
+
 
 class Consts:
     PROJECT_NAME: str = "lighthouse-os"
@@ -9,7 +10,25 @@ class Consts:
     PROJECT_DIR = str(os.path.abspath(""))
 
     SRC_DIR = PROJECT_DIR + "/src"
+    OUT_DIR = PROJECT_DIR + "/out"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
+    COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
+
+    KERNEL_MAP_PATH = OUT_DIR + "/lightos.map"
+    KERNEL_LINKERSCRIPT_PATH = PROJECT_DIR + "/src/aniva/entry/linker.ld"
+
+    CROSS_GCC_DIR = COMPILER_DIR + "x86_64-pc-lightos-gcc"
+    CROSS_LD_DIR = COMPILER_DIR + "x86_64-pc-lightos-ld"
+    CROSS_ASM_DIR = "/usr/bin/nasm"
+
+    # TODO:
+    DEFAULT_C_FLAGS = ""
+    KERNEL_C_FLAGS = "-std=gnu11 -Wall -nostdlib -O2 -mno-sse -mno-sse2"
+    "-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
+    "-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
+    "-fno-lto -fpie -fno-exceptions -MMD -I./src -I./src/aniva/"
+
+    KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
 
     SRC_FILES: list[SourceFile] = []
     OBJ_FILES = []
@@ -18,6 +37,11 @@ class Consts:
     TOTAL_LINES = 0
 
     def __init__(self) -> None:
+        self.SRC_FILES = []
+        self.OBJ_FILES = []
+        self.SRC_LINES = []
+
+        self.TOTAL_LINES = 0
 
         if not self.PROJECT_DIR.endswith(self.PROJECT_NAME):
             print("Please run this script from the project root!")
@@ -32,29 +56,35 @@ class Consts:
         for file in self.SRC_FILES:
             with open(file.path) as f:
                 lines: int = len(f.readlines())
-                self.TOTAL_LINES += lines 
+                self.TOTAL_LINES += lines
                 self.SRC_LINES[int(file.language)] += lines
 
-    
+    def reinit(self) -> None:
+        self.__init__()
+
     def scan_dirs(self, path) -> None:
         dirs: list[str] = os.listdir(path)
         for entry in dirs:
             if entry.startswith("."):
                 continue
 
-            abs_entry:str = path + "/" + entry
+            abs_entry: str = path + "/" + entry
 
             if isdir(abs_entry):
                 self.scan_dirs(abs_entry)
             elif isfile(abs_entry):
                 if entry.endswith(".c"):
-                    self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.C))
+                    file = SourceFile(False, abs_entry, SourceLanguage.C)
+                    file.set_compiler(self.CROSS_GCC_DIR)
+                    self.SRC_FILES.append(file)
                 if entry.endswith(".py"):
                     self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.PYTHON))
                 elif entry.endswith(".h"):
                     self.SRC_FILES.append(SourceFile(True, abs_entry, SourceLanguage.C))
                 elif entry.endswith(".asm"):
-                    self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.ASM))
+                    file = SourceFile(False, abs_entry, SourceLanguage.ASM)
+                    file.set_compiler(self.CROSS_ASM_DIR)
+                    self.SRC_FILES.append(file)
                 elif entry.endswith(".md"):
                     self.SRC_FILES.append(SourceFile(False, abs_entry, SourceLanguage.MARKDOWN))
                 elif entry.endswith(".o"):

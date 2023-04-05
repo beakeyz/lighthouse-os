@@ -1,6 +1,7 @@
 DIRECTORY_GUARD=mkdir -p $(@D)
 ARCH :=x86
-SRC_PATHS := src/aniva src/drivers src/libs/libc 
+SRC_PATHS := src/aniva src/drivers 
+CROSS_PATH := ./cross_compiler/bin
 OUT := ./out
 
 HFILES    := $(shell find $(SRC_PATHS) -type f -name '*.h')
@@ -15,13 +16,13 @@ CXXOBJFILES := $(patsubst %.cpp,$(OUT)/%.o,$(CXXFILES))
 ASMFILES  := $(shell find $(SRC_PATHS) -type f -name '*.asm')
 ASMOBJFILES := $(patsubst %.asm,$(OUT)/%.o,$(ASMFILES))
 
+OBJ := $(shell find $(OUT) -type f -name '*.o')
+
 LINK_PATH := ./src/aniva/entry/linker.ld
 
 NASM	   		:= /usr/bin/nasm
-CC          := ./cross_compiler/bin/x86_64-pc-lightos-gcc
-LD         	:= ./cross_compiler/bin/x86_64-pc-lightos-ld
-
-OBJ := $(shell find $(OUT) -type f -name '*.o')
+CC              := $(CROSS_PATH)/x86_64-pc-lightos-gcc
+LD         		:= $(CROSS_PATH)/x86_64-pc-lightos-ld
 
 KERNEL_OUT = $(OUT)/lightos.elf
 
@@ -75,7 +76,8 @@ $(OUT)/%.o: %.asm
 .PHONY:$(KERNEL_OUT)
 $(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
 	@echo "[LINKING $(ARCH)] $@"
-	@ld -o $@ $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LDHARDFLAGS)
+	@$(LD) -o $@ $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LDHARDFLAGS)
+	@echo "Done =D"
 
 # TODO: this just builds and runs the kernel for now, but 
 # I'd like to have actual debugging capabilities in the future
