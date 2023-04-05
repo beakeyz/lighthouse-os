@@ -1,10 +1,10 @@
 
-void lightapp_start();
+void lightapp_startup();
 
 /*
  * TODO: library initialization for userspace
  */
-void lightapp_start() {
+void lightapp_startup() {
 
   for (;;) {}
 }

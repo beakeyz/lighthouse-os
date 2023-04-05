@@ -21,6 +21,7 @@ class ProjectBuilder(object):
     builderMode: BuilderMode
     srcPath: list[str]
     constants: consts.Consts
+    userspaceBinariesOutPath: str
 
     def __init__(self, mode: BuilderMode, constants: consts.Consts) -> None:
         self.builderMode = mode
@@ -29,6 +30,8 @@ class ProjectBuilder(object):
             self.srcPath = ["src/aniva", "src/drivers", "src/libs"]
         elif mode == BuilderMode.USERSPACE:
             self.srcPath = ["src/user", "src/libs"]
+            self.userspaceBinariesOutPath = constants.OUT_DIR + "/user/binaries"
+            self.constants.ensure_path(self.userspaceBinariesOutPath)
         else:
             self.builderMode = BuilderMode.INVALID
         pass
@@ -60,6 +63,19 @@ class ProjectBuilder(object):
                 if os.system(srcFile.getCompileCmd()) != 0:
                     return BuilderResult.FAIL
         return BuilderResult.SUCCESS
+
+    # Build a userspace binary
+    def buildUserspace(self) -> BuilderResult:
+        pass
+
+    # Determine if we want to (re)build a sourcefile
+    # based of the size of the file
+    # TODO: make a system to cache filesizes
+    def shouldBuildFile(self, file: SourceFile, cachedSize: int) -> bool:
+        newSize: int = os.path.getsize(file.path)
+        if (newSize != cachedSize):
+            return True
+        return False
 
     def link(self) -> BuilderResult:
         self.constants.reinit()

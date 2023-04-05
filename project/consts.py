@@ -48,6 +48,7 @@ class Consts:
 
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
 
+    CRT_FILES: list[str] = []
     SRC_FILES: list[SourceFile] = []
     OBJ_FILES = []
     SRC_LINES: list[int] = []
@@ -58,6 +59,7 @@ class Consts:
         self.SRC_FILES = []
         self.OBJ_FILES = []
         self.SRC_LINES = []
+        self.CRT_FILES = []
 
         self.TOTAL_LINES = 0
 
@@ -96,22 +98,28 @@ class Consts:
             if isdir(abs_entry):
                 self.scan_dirs(abs_entry)
             elif isfile(abs_entry):
-                if entry.endswith(".c"):
+                # CRTs are special, so we handle them first
+                if entry.startswith("crt"):
+                    self.CRT_FILES.append(abs_entry)
+                elif entry.endswith(".c"):
                     file = SourceFile(False, abs_entry, entry, SourceLanguage.C)
                     file.set_compiler(self.CROSS_GCC_DIR)
                     file.setOutputPath(file.get_path().replace(self.SRC_DIR, self.OUT_DIR))
                     self.SRC_FILES.append(file)
                 if entry.endswith(".py"):
-                    self.SRC_FILES.append(SourceFile(False, abs_entry, entry, SourceLanguage.PYTHON))
+                    file = SourceFile(False, abs_entry, entry, SourceLanguage.PYTHON)
+                    self.SRC_FILES.append(file)
                 elif entry.endswith(".h"):
-                    self.SRC_FILES.append(SourceFile(True, abs_entry, entry, SourceLanguage.C))
+                    file = SourceFile(True, abs_entry, entry, SourceLanguage.C)
+                    self.SRC_FILES.append(file)
                 elif entry.endswith(".asm"):
                     file = SourceFile(False, abs_entry, entry, SourceLanguage.ASM)
                     file.set_compiler(self.CROSS_ASM_DIR)
                     file.setOutputPath(file.get_path().replace(self.SRC_DIR, self.OUT_DIR))
                     self.SRC_FILES.append(file)
                 elif entry.endswith(".md"):
-                    self.SRC_FILES.append(SourceFile(False, abs_entry, entry, SourceLanguage.MARKDOWN))
+                    file = SourceFile(False, abs_entry, entry, SourceLanguage.MARKDOWN)
+                    self.SRC_FILES.append(file)
                 elif entry.endswith(".o"):
                     self.OBJ_FILES.append(abs_entry)
 

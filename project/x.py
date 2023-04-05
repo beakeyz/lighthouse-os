@@ -1,5 +1,6 @@
 #!/bin/python3
 
+import os, io
 from sys import argv
 from consts import Consts
 from enum import Enum
@@ -24,65 +25,169 @@ class Status(object):
         pass
 
 
+class CommandCallback(object):
+
+    params: ...
+
+    def __init__(self, params=...) -> None:
+        self.params = params
+        pass
+
+    def call(self) -> Status:
+        raise NotImplementedError
+
+
+class Command(object):
+
+    name: str
+    flags: list[str] = None
+    callbacks: dict[str, CommandCallback] = None
+    callback: CommandCallback = None
+
+    def __init__(self, name: str, args: dict[str, CommandCallback] = None, callback: CommandCallback = None, flags: list[str] = None) -> None:
+        self.name = name
+        self.callbacks = args
+        self.callback = callback
+        self.flags = flags
+        pass
+
+
+# Should give the user a step-by-step experiance with the buildsystem
+class CommandProcessor(object):
+
+    cmds: dict[str, Command] = {}
+
+    def __init__(self) -> None:
+        pass
+
+    def register_cmd(self, cmd: Command) -> bool:
+        self.cmds[cmd.name] = cmd
+        return cmd.callback is not None
+
+    def execute(self, command: str) -> Status:
+        cmd: Command
+        try:
+            cmd = self.cmds[command]
+        except Exception:
+            return Status(StatusCode.Fail, "Could not parse command")
+
+        if cmd.callbacks is None and cmd.callback is not None:
+            # TODO: check and ask for flags
+            return cmd.callback.call()
+        elif cmd.callbacks is not None:
+            # Ask the user which subcommand to execute
+            print("Available options: ")
+            for subcmd in cmd.callbacks:
+                print(" > " + subcmd)
+
+            subcmd_str: str = input("(Select subcommand) > ")
+
+            return self.execute_subcommand(cmd, subcmd_str)
+
+        return Status(StatusCode.Fail, "Could not parse command")
+
+    def execute_subcommand(self, parent: Command, subcmd: str) -> Status:
+        # Try to retrieve the callback from the parent
+        subcallback: CommandCallback
+        try:
+            subcallback = parent.callbacks[subcmd]
+        except Exception:
+            return Status(StatusCode.Fail, "Could not parse subcommand")
+
+        # Execute the subcommand callback
+        if parent.flags is not None:
+            # TODO ask for flags
+            return Status(StatusCode.Fail, "TODO: implement flags")
+
+        if subcallback is not None:
+            return subcallback.call()
+
+        return Status(StatusCode.Fail, "Could not parse subcommand")
+
+
+class LinesCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        c.log_source()
+        c.draw_source_bar()
+        return Status(StatusCode.Success, "")
+
+
+class DepsCallback(CommandCallback):
+    def call(self) -> Status:
+        mgr = DependencyManager()
+        mgr.pacman_install()
+        return Status(StatusCode.Success, "")
+
+
+class RamdiskCreateCallback(CommandCallback):
+    def call(self) -> Status:
+        ramdisk = RamdiskManager()
+
+        ramdisk.create_ramdisk()
+        return Status(StatusCode.Success, "Created ramdisk!")
+
+
+class BuildsysBuildKernelCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        builder = ProjectBuilder(BuilderMode.KERNEL, c)
+
+        if builder.do() == BuilderResult.SUCCESS:
+            return Status(StatusCode.Success, "Built the kernel =D")
+
+        return Status(StatusCode.Fail, "Failed to build the kernel =(")
+
+
+class BuildsysBuildUserspaceCallback(CommandCallback):
+    def call(self) -> Status:
+        return Status(StatusCode.Fail, "TODO: implement userspace building")
+
+
 # Global todos:
 #   TODO: implement caching of built files, so that we don't have to
 #         rebuild the project every time we change one thing
 #   TODO: redo the command handleing in x.py, its hot trash
-
-
 def project_main() -> Status:
-    print("Starting project script")
+    SCRIPT_LOGO =  "   __   _      __   __  __                                \n"
+    SCRIPT_LOGO += "  / /  (_)__ _/ /  / /_/ /  ___  __ _____ ___     ___  ___\n"
+    SCRIPT_LOGO += " / /__/ / _ `/ _ \/ __/ _ \/ _ \/ // (_-</ -_)___/ _ \(_-<\n"
+    SCRIPT_LOGO += "/____/_/\_, /_//_/\__/_//_/\___/\_,_/___/\__/    \___/___/\n"
+    SCRIPT_LOGO += "  / _ )__ __(_)/ /__/ /__ __ _____                        \n"
+    SCRIPT_LOGO += " / _  / // / // // _ (_-</ // (_-<                        \n"
+    SCRIPT_LOGO += "/____/\_,_/_//__/_,_/___/\_, /___/                        \n"
+    SCRIPT_LOGO += "                        /___/                             \n"
 
     commands: list[str] = argv
 
-    if len(commands) == 1:
-        return Status(StatusCode.Fail, "Please supply atleast one valid command")
+    # Remove the command used to execute x.py
+    commands.pop(0)
 
-    c = Consts()
+    cmd_processor = CommandProcessor()
 
-    #
-    # EWWWW this reaks lmao
-    #
+    cmd_processor.register_cmd(Command("lines", callback=LinesCallback()))
+    cmd_processor.register_cmd(Command("deps", callback=DepsCallback()))
+    cmd_processor.register_cmd(Command("ramdisk", args={
+        "create": RamdiskCreateCallback()
+    }))
+    cmd_processor.register_cmd(Command("build", args={
+        "kernel": BuildsysBuildKernelCallback(),
+        "user": BuildsysBuildUserspaceCallback()
+    }))
 
-    if commands[1] == "lines":
-        c.log_source()
-        c.draw_source_bar()
-        return Status(StatusCode.Success, "finished showing project diagnostics")
-    elif commands[1] == "deps":
-        dpm = DependencyManager()
-        dpm.pacman_install()
-        return Status(StatusCode.Success, "finished installing dependencies!")
-    elif commands[1] == "ramdisk":
-        if len(commands) != 3:
-            return Status(StatusCode.Fail, "Ramdisk needs atleast one subcommand")
+    # TODO: add option to turn off this feature
+    print(SCRIPT_LOGO)
+    # TODO: print available actions
 
-        rdm = RamdiskManager()
+    print("Available options: ")
+    for cmd in cmd_processor.cmds:
+        print(" > " + cmd)
 
-        print(commands[2])
+    response: str = input("(Select action) > ")
 
-        if commands[2] == "create":
-            rdm.create_ramdisk()
-            return Status(StatusCode.Success, "Created ramdisk!")
+    # TODO: parse invalid command tokens (spaces, special chars, ect)
 
-        return Status(0, "Could not handle subcommand")
-    elif commands[1] == "build":
-        if len(commands) != 3:
-            return Status(StatusCode.Fail, "The Buildsys needs atleast one subcommand")
-
-        print("Trying to build project")
-
-        if commands[2] == "kernel":
-            builder = ProjectBuilder(BuilderMode.KERNEL, c)
-            if builder.do() != BuilderResult.SUCCESS:
-                return Status(StatusCode.Fail, "Failed to build!")
-
-            return Status(StatusCode.Success, "Finished building the kernel =D")
-        elif commands[2] == "user":
-            return Status(StatusCode.Fail, "TODO: implement userspace building")
-
-        return Status(StatusCode.Fail, "Could not handle subcommand")
-
-    return Status(StatusCode.Fail, "Failed to execute project utilities")
+    return cmd_processor.execute(response)
 
 
 if __name__ == "__main__":
