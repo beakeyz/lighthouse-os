@@ -175,6 +175,11 @@ class GenerateUserProcessCallback(CommandCallback):
         with open(f"{thisProcDir}/manifest.json", "w") as file:
             file.write(js)
 
+        initialCFile: str = "int Main() {\n  return 0;\n}"
+
+        with open(f"{thisProcDir}/main.c", "w") as file:
+            file.write(initialCFile)
+
         return Status(StatusCode.Success, "Created thing!")
 
 
