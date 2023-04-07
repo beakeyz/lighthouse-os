@@ -1,6 +1,8 @@
 #include "kterm.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/disk/ahci/ahci_device.h"
+#include "dev/disk/ahci/ahci_port.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "fs/vfs.h"
@@ -8,6 +10,7 @@
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
+#include "libk/linkedlist.h"
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -364,13 +367,22 @@ static void kterm_process_buffer() {
   } else if (!strcmp(contents, "lsdsk")) {
     // TODO: get all the registered (for now) AHCI ports and all the attached partitions
 
+    packet_response_t* port = driver_send_packet_sync("disk/ahci", AHCI_MSG_GET_PORT, "prt0", strlen("ptr0"));
+
     // NOTE: test
-    vnode_t* node = vfs_resolve("l_dev/graphics/fb");
+
     kterm_println("\n");
 
-    if (node)
-      kterm_println(node->m_name);
-    else
+    if (port && port->m_response_size == sizeof(ahci_port_t)) {
+      ahci_port_t p = *(ahci_port_t*)port->m_response_buffer;
+
+      partitioned_disk_dev_t** device;
+
+      for (device = &p.m_generic.m_devs; (*device); device = &(*device)->m_next) {
+        kterm_println((*device)->m_partition_data.m_name);
+        kterm_println("\n");
+      }
+    } else
       kterm_println("Could not find vnode!");
 
   }

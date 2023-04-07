@@ -1,10 +1,23 @@
 #ifndef __ANIVA_GENERIC_DISK_DEV__
 #define __ANIVA_GENERIC_DISK_DEV__
+#include "dev/debug/serial.h"
+#include "dev/disk/partition/generic.h"
 #include "dev/disk/shared.h"
 #include "dev/handle.h"
+#include "mem/heap.h"
 #include <libk/stddef.h>
 
 // TODO: generic error codes
+
+struct disk_dev;
+struct partitioned_disk_dev;
+
+typedef struct generic_disk_ops {
+  int (*f_read) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
+  int (*f_write) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
+  int (*f_read_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
+  int (*f_write_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
+} generic_disk_ops_t;
 
 typedef struct disk_dev {
   handle_t m_parent;
@@ -16,11 +29,95 @@ typedef struct disk_dev {
   size_t m_logical_sector_size;
   size_t m_physical_sector_size;
 
-  int (*f_read) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-  int (*f_write) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-  int (*f_read_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-  int (*f_write_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
+  generic_disk_ops_t m_ops;
+
+  size_t m_partitioned_dev_count;
+  struct partitioned_disk_dev* m_devs;
 } generic_disk_dev_t;
+
+typedef struct partitioned_disk_dev {
+  struct disk_dev* m_parent;
+
+  generic_partition_t m_partition_data;
+  
+  generic_disk_ops_t m_ops;
+
+  struct partitioned_disk_dev* m_next;
+} partitioned_disk_dev_t;
+
+int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
+int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
+
+static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t partition, generic_disk_ops_t ops) {
+  partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
+  
+  ret->m_parent = parent;
+
+  ret->m_partition_data = partition;
+  ret->m_ops = ops;
+  ret->m_next = nullptr;
+
+  return ret;
+}
+
+static void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
+
+  if (!generic->m_devs) {
+    generic->m_devs = dev;
+    return;
+  }
+
+  partitioned_disk_dev_t** device;
+  
+  // Simply attach to the end of the linked list
+  for (device = &generic->m_devs; *device; device = &(*device)->m_next) {
+    if (!(*device)) {
+      break;
+    }
+  }
+
+  if (!(*device)) {
+    *device = dev;
+  }
+}
+
+static void detatch_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
+
+  if (!dev)
+    return;
+
+  partitioned_disk_dev_t** previous = nullptr;
+  partitioned_disk_dev_t** device;
+
+  for (device = &generic->m_devs; (*device); device = &(*device)->m_next) {
+    if ((*device) == dev) {
+      if (previous) {
+        (*previous)->m_next = (*device)->m_next;
+      }
+      *device = nullptr;
+      break;
+    }
+
+    previous = device;
+  }
+}
+
+static partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* generic, uintptr_t block) {
+
+  partitioned_disk_dev_t** device;
+  
+  for (device = &generic->m_devs; (*device); device = &(*device)->m_next) {
+    uintptr_t start_lba = (*device)->m_partition_data.m_start_lba;
+    uintptr_t end_lba = (*device)->m_partition_data.m_end_lba;
+
+    // Check if the block is contained in this partition
+    if (block >= start_lba && block <= end_lba) {
+      return device;
+    }
+  }
+
+  return nullptr;
+}
 
 static ALWAYS_INLINE int generic_disk_opperation(generic_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
   return -1;

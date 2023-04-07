@@ -144,7 +144,7 @@ class BuildsysBuildUserspaceCallback(CommandCallback):
         c = Consts()
         builder = ProjectBuilder(BuilderMode.USERSPACE, c)
 
-        if builder.link() == BuilderResult.SUCCESS:
+        if builder.do() == BuilderResult.SUCCESS:
             return Status(StatusCode.Success, "Built the userspace =D")
 
         return Status(StatusCode.Fail, "Failed to build the userspace =(")

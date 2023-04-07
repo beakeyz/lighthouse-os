@@ -55,7 +55,7 @@ typedef struct gpt_partition_entry {
     uint64_t last_lba;
 
     uint64_t attributes;
-    char partition_name[72];
+    uint16_t partition_name[36]; // UTF-16 encoded
 } __attribute__((packed)) gpt_partition_entry_t;
 
 typedef struct gpt_partition_header {
@@ -81,6 +81,8 @@ typedef struct gpt_partition_header {
 
 typedef struct {
   gpt_partition_header_t m_header;
+
+  size_t m_partition_count;
 
   generic_disk_dev_t* m_device;
   hive_t* m_partitions;

@@ -2,9 +2,12 @@
 #include "ahci_device.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/definitions.h"
+#include "dev/disk/generic.h"
+#include "dev/disk/partition/generic.h"
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
+#include "fs/vnode.h"
 #include "libk/error.h"
 #include "libk/hive.h"
 #include "libk/io.h"
@@ -231,10 +234,10 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
 
   ret->m_generic.m_parent = ret;
 
-  ret->m_generic.f_read = generic_disk_opperation;
-  ret->m_generic.f_read_sync = generic_disk_opperation;
-  ret->m_generic.f_write = generic_disk_opperation;
-  ret->m_generic.f_write_sync = generic_disk_opperation;
+  ret->m_generic.m_ops.f_read = generic_disk_opperation;
+  ret->m_generic.m_ops.f_read_sync = generic_disk_opperation;
+  ret->m_generic.m_ops.f_write = generic_disk_opperation;
+  ret->m_generic.m_ops.f_write_sync = generic_disk_opperation;
 
   ret->m_generic.m_path = create_port_path(ret);
 
@@ -354,10 +357,10 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
     port->m_generic.m_max_blk = dev_identify_buffer->max_28_bit_addressable_logical_sector;
   }
 
-  port->m_generic.f_read = ahci_port_read;
-  port->m_generic.f_read_sync = ahci_port_read_sync;
-  port->m_generic.f_write = ahci_port_write;
-  port->m_generic.f_write_sync = ahci_port_write_sync;
+  port->m_generic.m_ops.f_read = ahci_port_read;
+  port->m_generic.m_ops.f_read_sync = ahci_port_read_sync;
+  port->m_generic.m_ops.f_write = ahci_port_write;
+  port->m_generic.m_ops.f_write_sync = ahci_port_write_sync;
 
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
   // TODO: is this specific to AHCI, or a generic ATA thing?
@@ -377,9 +380,6 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   println_kterm(to_string(port->m_generic.m_max_blk));
   println_kterm("");
 
-  // TODO: do actual useful stuff with this
-  //uint8_t buffer[512];
-  //port->m_generic.f_read_sync(&port->m_generic, &buffer, 512, 0);
   gpt_table_t* gpt_table = create_gpt_table(&port->m_generic);
 
   if (!gpt_table) {
@@ -390,14 +390,24 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   port->m_gpt_table = gpt_table;
 
+  port->m_generic.m_partitioned_dev_count = port->m_gpt_table->m_partition_count;
+
+  println_kterm(to_string(port->m_generic.m_partitioned_dev_count));
+
+  /*
+   * TODO: should we put every partitioned device in the vfs?
+   */
   FOREACH(i, port->m_gpt_table->m_partitions->m_entries) {
     hive_entry_t* entry = i->data;
     gpt_partition_t* part = entry->m_data;
 
-    println_kterm(port->m_generic.m_path);
-    println_kterm(part->m_path);
-    println_kterm(part->m_type.m_name);
-    println_kterm("");
+    generic_partition_t partition = create_generic_partition(part->m_type.m_name, part->m_start_lba, part->m_end_lba, NULL);
+
+    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, partition, port->m_generic.m_ops);
+
+    println_kterm(partitioned_device->m_partition_data.m_name);
+
+    attach_partitioned_disk_device(&port->m_generic, partitioned_device);
   }
 
   kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);

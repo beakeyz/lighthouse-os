@@ -102,11 +102,12 @@ run:
 
 
 .PHONY: iso
-iso: build
+iso:
 	mkdir -p $(OUT)/isofiles/boot/grub
 	cp grub.cfg $(OUT)/isofiles/boot/grub
 	cp $(OUT)/lightos.elf $(OUT)/isofiles/boot
 	cp $(OUT)/lightos.map $(OUT)/isofiles/boot
+	cp $(OUT)/anivaRamdisk.igz $(OUT)/isofiles/boot
 	grub-mkrescue -o $(OUT)/lightos.iso $(OUT)/isofiles
 
 .PHONY: check-multiboot

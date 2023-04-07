@@ -43,7 +43,6 @@ const aniva_driver_t g_base_ahci_driver = {
   .f_exit = ahci_driver_exit,
   .f_drv_msg = ahci_driver_on_packet,
   .m_dependencies = {"graphics/kterm"},
-  .m_flags = DRV_SOCK,
   .m_dep_count = 0
 };
 EXPORT_DRIVER(g_base_ahci_driver);
@@ -349,26 +348,15 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
 
   switch (payload.m_code) {
     case AHCI_MSG_GET_PORT: {
-      ahci_dch_t* header = (ahci_dch_t*)payload.m_data;
-
-      if (ahci_cmd_header_check_crc(header).m_status == ANIVA_FAIL) {
-        kernel_panic("FUCK ahci command has invalid crc32");
-        return (uintptr_t)-1;
-      }
-
-      const char* path = header->m_req_buffer;
+      const char* path = (const char*)payload.m_data;
 
       ahci_port_t* res = hive_get(s_ahci_device->m_ports, path);
 
-      if (res) {
-        header->m_req_buffer = &res->m_generic;
-        header->m_req_size = sizeof(uintptr_t);
-      } else {
-        header->m_req_buffer = 0;
-        header->m_req_size = 0;
-      }
+      ahci_port_t copy = *res;
 
-      *response = create_packet_response(header, sizeof(ahci_dch_t));
+      if (res) {
+        *response = create_packet_response(&copy, sizeof(ahci_port_t));
+      }
       break;
     }
     case AHCI_MSG_READ: {
@@ -381,7 +369,7 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
 
       ahci_port_t* port = hive_get(s_ahci_device->m_ports, header->m_port_path);
 
-      int result = port->m_generic.f_read_sync(&port->m_generic, header->m_req_buffer, header->m_req_size, header->m_req_offset);
+      int result = port->m_generic.m_ops.f_read_sync(&port->m_generic, header->m_req_buffer, header->m_req_size, header->m_req_offset);
 
       if (result < 0) {
         return (uintptr_t)-1;

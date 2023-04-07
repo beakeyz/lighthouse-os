@@ -13,7 +13,6 @@ typedef struct ahci_port {
   struct ahci_device* m_device;
 
   char m_device_model[40];
-  generic_disk_dev_t m_generic;
 
   bool m_awaiting_dma_transfer_complete;
   bool m_is_waiting;
@@ -33,6 +32,8 @@ typedef struct ahci_port {
   uint32_t m_port_index;
 
   gpt_table_t* m_gpt_table;
+
+  generic_disk_dev_t m_generic;
 } ahci_port_t;
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);

@@ -42,6 +42,7 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
   gpt_table_t* ret = kmalloc(sizeof(gpt_table_t));
 
   ret->m_device = device;
+  ret->m_partition_count = 0;
   ret->m_partitions = create_hive("part");
 
   // TODO: get gpt header
@@ -51,7 +52,7 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
   if (device->m_logical_sector_size == 512)
     gpt_block = 512;
 
-  int result = device->f_read_sync(device, buffer, device->m_logical_sector_size, gpt_block);
+  int result = device->m_ops.f_read_sync(device, buffer, device->m_logical_sector_size, gpt_block);
 
   if (result < 0) {
     goto fail_and_destroy;
@@ -73,7 +74,7 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
 
     // Let's put the whole block into this buffer
     uint8_t entry_buffer[device->m_logical_sector_size];
-    if (device->f_read_sync(device, entry_buffer, device->m_logical_sector_size, blk_offset) < 0) {
+    if (device->m_ops.f_read_sync(device, entry_buffer, device->m_logical_sector_size, blk_offset) < 0) {
       goto fail_and_destroy;
     }
 
@@ -88,6 +89,7 @@ gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
 
     gpt_partition_t* partition = create_gpt_partition(&entry, partition_index);
 
+    ret->m_partition_count++;
     hive_add_entry(ret->m_partitions, partition, partition->m_path);
 
     partition_index++;

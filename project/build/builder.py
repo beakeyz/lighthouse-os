@@ -47,19 +47,32 @@ class ProjectBuilder(object):
         return self.link()
 
     def build(self) -> BuilderResult:
-        for srcFile in self.constants.SRC_FILES:
-            srcFile: SourceFile = srcFile
-            if self.shouldBuild(srcFile):
-                if self.builderMode == BuilderMode.KERNEL:
+        if self.builderMode == BuilderMode.KERNEL:
+            for srcFile in self.constants.SRC_FILES:
+                srcFile: SourceFile = srcFile
+                if self.shouldBuild(srcFile):
                     if srcFile.language == SourceLanguage.C:
                         srcFile.setBuildFlags(self.constants.KERNEL_C_FLAGS)
                     elif srcFile.language == SourceLanguage.ASM:
                         srcFile.setBuildFlags(self.constants.KERNEL_ASM_FLAGS)
                     else:
                         return BuilderResult.FAIL
-                elif self.builderMode == BuilderMode.USERSPACE:
-                    srcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
-                    pass
+
+                    print(f"Building {srcFile.path}...")
+                    os.system(f"mkdir -p {srcFile.getOutputDir()}")
+
+                    if os.system(srcFile.getCompileCmd()) != 0:
+                        return BuilderResult.FAIL
+        else:
+            return self.buildUserspace()
+        return BuilderResult.SUCCESS
+
+    # Build a userspace binary
+    def buildUserspace(self) -> BuilderResult:
+        for srcFile in self.constants.SRC_FILES:
+            srcFile: SourceFile = srcFile
+            if self.shouldBuild(srcFile):
+                srcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
 
                 print(f"Building {srcFile.path}...")
                 os.system(f"mkdir -p {srcFile.getOutputDir()}")
@@ -67,10 +80,6 @@ class ProjectBuilder(object):
                 if os.system(srcFile.getCompileCmd()) != 0:
                     return BuilderResult.FAIL
         return BuilderResult.SUCCESS
-
-    # Build a userspace binary
-    def buildUserspace(self) -> BuilderResult:
-        pass
 
     # Determine if we want to (re)build a sourcefile
     # based of the size of the file
@@ -133,7 +142,12 @@ class ProjectBuilder(object):
 
                             if manifest["name"] == entryName:
                                 print(f"Building process: {entryName}")
-                                # TODO
+                                print(f"Binary out path: {self.userspaceBinariesOutPath}/{entryName}")
+                                # TODO: we should check the manifest.json for
+                                # the libraries we need to staticaly link
+                                # with. After that we dump the binary to
+                                # the output directory
+                                # (currently out/user/binaries)
 
                         pass
                 pass
