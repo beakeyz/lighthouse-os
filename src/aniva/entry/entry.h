@@ -23,9 +23,14 @@ extern pml_entry_t boot_pd0_p[512 * 32];
 
 #define FOREACH_PCDRV(i) for (struct aniva_driver** i = _kernel_pcdrvs_start; i < _kernel_pcdrvs_end; i++)
 
+/*
+ * Global system variables, that should be known throughout the 
+ * entire kernel
+ * TODO: find a better place for all this stuff
+ */
 typedef struct {
-  //uintptr_t m_multiboot_addr;
-  //size_t m_total_multiboot_size;
+  uintptr_t multiboot_addr;
+  size_t total_multiboot_size;
 
   //Processor_t m_bsp_processor;
   //Processor_t* m_current_core;

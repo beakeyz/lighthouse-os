@@ -157,7 +157,7 @@ static char font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}  // U+007F
 };
 
-void kterm_init();
+int kterm_init();
 int kterm_exit();
 uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response);
 
@@ -195,8 +195,9 @@ aniva_driver_t g_base_kterm_driver = {
   .m_dependencies = {"graphics/fb", "io/ps2_kb"},
   .m_dep_count = 2,
 };
+EXPORT_DRIVER(g_base_kterm_driver);
 
-void kterm_init() {
+int kterm_init() {
   println("Initialized the kterm!");
 
   kterm_current_line = 0;
@@ -229,6 +230,7 @@ void kterm_init() {
   kterm_println(processor->m_info.m_model_id);
   kterm_println("\n");
 
+  return 0;
 }
 
 int kterm_exit() {

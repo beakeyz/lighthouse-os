@@ -21,8 +21,8 @@ bool sched_can_schedule();
 
 /*
  * pick the next thread to run in the current sched frame
- */
-void pick_next_thread_scheduler(void);
+ */ 
+ErrorOrPtr pick_next_thread_scheduler(void);
 
 /*
  * yield to the scheduler and let it switch to a new thread
@@ -36,6 +36,9 @@ ErrorOrPtr scheduler_try_invoke();
 registers_t *sched_tick(registers_t*);
 
 ANIVA_STATUS sched_add_proc(proc_t*);
+
+void sched_idle_current_process();
+void sched_wake_current_process();
 
 ANIVA_STATUS sched_remove_proc(proc_t*);
 ANIVA_STATUS sched_remove_proc_by_id(proc_id);

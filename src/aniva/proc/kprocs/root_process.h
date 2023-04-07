@@ -8,6 +8,6 @@
  *  - TODO ...
  */
 
-void create_and_register_root_process(uintptr_t multiboot_addr);
+void create_and_register_root_process();
 
 #endif // !

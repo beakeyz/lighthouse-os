@@ -17,56 +17,93 @@
 #include "proc/socket.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include <entry/entry.h>
 
 static hive_t* s_installed_drivers;
 static hive_t* s_loaded_drivers;
+
+static bool load_precompiled_driver(hive_t* current, void* driver) {
+  aniva_driver_t* handle = driver;
+
+  print("Loading driver: ");
+  println(handle->m_name);
+
+  load_driver(create_dev_manifest(handle, 0));
+
+  return true;
+}
 
 void init_aniva_driver_registry() {
   // TODO:
   s_installed_drivers = create_hive("i_dev");
   s_loaded_drivers = create_hive("l_dev");
+
+  // Install exported drivers
+  FOREACH_PCDRV(ptr) {
+    aniva_driver_t* driver = *ptr;
+
+    install_driver(driver);
+  }
+
+  hive_walk(s_installed_drivers, true, load_precompiled_driver);
 }
 
-ErrorOrPtr install_driver(struct dev_manifest* manifest) {
-  if (!validate_driver(manifest->m_handle)) {
-    return Error();
+ErrorOrPtr install_driver(aniva_driver_t* handle) {
+  if (!validate_driver(handle)) {
+    goto fail_and_exit;
   }
 
-  if (is_driver_installed(manifest->m_handle)) {
-    return Error();
+  if (is_driver_installed(handle)) {
+    goto fail_and_exit;
   }
 
-  dev_url_t path = manifest->m_url;
+  dev_url_t path = get_driver_url(handle);
 
-  ErrorOrPtr result = hive_add_entry(s_installed_drivers, manifest->m_handle, path);
+  ErrorOrPtr result = hive_add_entry(s_installed_drivers, handle, path);
 
   if (result.m_status == ANIVA_FAIL) {
-    return result;
+    goto fail_and_exit;
   }
+
   return Success(0);
+
+fail_and_exit:
+  return Error();
 }
 
-ErrorOrPtr uninstall_driver(struct dev_manifest* manifest) {
-  if (!validate_driver(manifest->m_handle)) {
+/*
+ * TODO: resolve dependencies!
+ */
+ErrorOrPtr uninstall_driver(aniva_driver_t* handle) {
+  if (!handle)
     return Error();
+
+  const char* driver_url = get_driver_url(handle);
+
+  if (!validate_driver(handle)) {
+    goto fail_and_exit;
   }
 
-  if (!is_driver_installed(manifest->m_handle)) {
-    return Error();
+  if (!is_driver_installed(handle)) {
+    goto fail_and_exit;
   }
 
-  if (is_driver_loaded(manifest->m_handle)) {
-    TRY(res, unload_driver(manifest->m_url));
+  if (is_driver_loaded(handle)) {
+    if (unload_driver(driver_url).m_status != ANIVA_SUCCESS) {
+      goto fail_and_exit;
+    }
   }
 
-  dev_url_t path = manifest->m_url;
-
-  TRY(res, hive_remove_path(s_installed_drivers, path));
+  if (hive_remove_path(s_installed_drivers, driver_url).m_status != ANIVA_SUCCESS)
+    goto fail_and_exit;
 
   // invalidate the manifest 
-  destroy_dev_manifest(manifest);
+  kfree((void*)driver_url);
   return Success(0);
 
+fail_and_exit:
+  kfree((void*)driver_url);
+  return Error();
 }
 
 /*
@@ -87,7 +124,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   aniva_driver_t* handle = manifest->m_handle;
 
   if (!validate_driver(handle)) {
-    return Error();
+    goto fail_and_exit;
   }
 
   // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
@@ -95,15 +132,13 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
   // need to be replaced with result != ANIVA_SUCCESS
   if (!is_driver_installed(manifest->m_handle)) {
-    ErrorOrPtr install_result = install_driver(manifest);
-    if (install_result.m_status == ANIVA_FAIL) {
-      return install_result;
+    if (install_driver(manifest->m_handle).m_status != ANIVA_SUCCESS) {
+      goto fail_and_exit;
     }
-    //return Error();
   }
 
   if (is_driver_loaded(handle)) {
-    return Error();
+    goto fail_and_exit;
   }
 
   FOREACH(i, manifest->m_dependency_manifests) {
@@ -111,7 +146,9 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
     // TODO: check for errors
     if (dep_manifest && !is_driver_loaded(dep_manifest->m_handle)) {
-      TRY(res, load_driver(dep_manifest));
+      if (load_driver(dep_manifest).m_status != ANIVA_SUCCESS) {
+        goto fail_and_exit;
+      }
     }
   }
 
@@ -119,28 +156,37 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   ErrorOrPtr result = hive_add_entry(s_loaded_drivers, handle, path);
 
-  if (result.m_status == ANIVA_FAIL) {
-    return result;
+  if (result.m_status != ANIVA_SUCCESS) {
+    goto fail_and_exit;
   }
 
   dev_url_t full_path = hive_get_path(s_loaded_drivers, handle);
 
   Must(bootstrap_driver(handle, full_path));
 
+  destroy_dev_manifest(manifest);
   return Success(0);
+
+fail_and_exit:
+  destroy_dev_manifest(manifest);
+  return Error();
 }
 
 ErrorOrPtr unload_driver(dev_url_t url) {
   dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_loaded_drivers, url), 0);
 
   if (!validate_driver(dummy_manifest->m_handle) || strcmp(url, dummy_manifest->m_url) != 0) {
+    destroy_dev_manifest(dummy_manifest);
     return Error();
   }
 
   // call the driver exit function async
   driver_send_packet(dummy_manifest->m_url, DCC_EXIT, NULL, 0);
 
-  TRY(res, hive_remove(s_loaded_drivers, dummy_manifest->m_handle));
+  if (hive_remove(s_loaded_drivers, dummy_manifest->m_handle).m_status != ANIVA_SUCCESS) {
+    destroy_dev_manifest(dummy_manifest);
+    return Error();
+  }
 
   // FIXME: if the manifest tells us the driver was loaded:
   //  - on the heap
@@ -184,6 +230,11 @@ dev_manifest_t* get_driver(dev_url_t url) {
   return manifest;
 }
 
+/*
+ * This function is kinda funky, since anyone who knows the url, can 
+ * simply set the driver as ready for kicks and giggles. We might need
+ * some security here lmao, so TODO/FIXME
+ */
 ErrorOrPtr driver_set_ready(const char* path) {
 
   // Fetch from the loaded drivers here, since unloaded
@@ -192,6 +243,19 @@ ErrorOrPtr driver_set_ready(const char* path) {
 
   if (!handle)
     goto exit_invalid;
+
+  // This driver is not a socket, and thus we can't find a thread
+  // That is linked to this driver. We only give it a bootstrap thread
+  // in this case
+  if ((handle->m_flags & DRV_SOCK) == 0) {
+    handle->m_flags |= DRV_ACTIVE;
+    return Success(0);
+  }
+
+  /* This driver is mounted in the system fs. We could find it that way... */
+  if (handle->m_flags & DRV_FS) {
+    // TODO:
+  }
 
   threaded_socket_t* socket = find_registered_socket(handle->m_port);
 
@@ -220,6 +284,21 @@ async_ptr_t** driver_send_packet(const char* path, driver_control_code_t code, v
   if (!handle) 
     return nullptr;
 
+  if ((handle->m_flags & DRV_SOCK) == 0) {
+
+    packet_response_t* response;
+    packet_payload_t* payload = create_packet_payload(buffer, buffer_size, code);
+
+    uintptr_t result = handle->f_drv_msg(*payload, &response);
+
+    if (response) {
+      destroy_packet_response(response);
+    }
+    destroy_packet_payload(payload);
+
+    return NULL;
+  }
+
   return send_packet_to_socket_with_code(handle->m_port, code, buffer, buffer_size);
 }
 
@@ -231,12 +310,25 @@ packet_response_t* driver_send_packet_sync(const char* path, driver_control_code
   return driver_send_packet_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
 }
 
+#define LOCK_SOCKET_MAYBE(socket) do { if (socket) mutex_lock(socket->m_packet_mutex); } while(0)
+#define UNLOCK_SOCKET_MAYBE(socket) do { if (socket) mutex_unlock(socket->m_packet_mutex); } while(0)
+
 packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto) {
   aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
 
   if (!handle)
     goto exit_fail;
 
+  threaded_socket_t* socket = nullptr;
+  SocketOnPacket msg_func;
+
+  if ((handle->m_flags & DRV_SOCK) == 0) {
+    println("Driver is no socket");
+    msg_func = handle->f_drv_msg;
+  } else {
+    socket = find_registered_socket(handle->m_port);
+    msg_func = socket->m_on_packet;
+  }
   //dev_manifest_t* manifest = create_dev_manifest(handle, 0);
 
   // TODO: validate checksums and funnie hashes
@@ -246,15 +338,16 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
   // kinda calls the drivers onPacket function whenever. This can result in
   // funny behaviour, so we should try to take the drivers packet mutex, in order 
   // to ensure we are the only ones asking this driver to handle some data
-  threaded_socket_t* socket = find_registered_socket(handle->m_port);
 
   size_t timeout = mto;
 
-  while (!socket_is_flag_set(socket, TS_ACTIVE) || !socket_is_flag_set(socket, TS_READY)) {
+  println("Waiting untill driver is ready");
+  /* NOTE: this is the same logic as that which is used in driver_is_ready(...) */
+  while (!driver_is_ready(handle)) {
+
+    scheduler_yield();
 
     if (timeout != DRIVER_WAIT_UNTIL_READY) {
-
-      scheduler_yield();
 
       timeout--;
       if (timeout == 0) {
@@ -263,23 +356,21 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
     }
   }
 
-  mutex_lock(socket->m_packet_mutex);
+  println("Ready!");
+  LOCK_SOCKET_MAYBE(socket);
 
   packet_response_t* response = nullptr;
   packet_payload_t* payload = create_packet_payload(buffer, buffer_size, code);
 
-  socket->m_on_packet(*payload, &response);
+  msg_func(*payload, &response);
 
   // After the driver finishes what it is doing, we can just unlock the mutex.
   // We are done using the driver at this point after all
-  mutex_unlock(socket->m_packet_mutex);
+  UNLOCK_SOCKET_MAYBE(socket);
 
-  if (response != nullptr) {
+  destroy_packet_payload(payload);
 
-    destroy_packet_payload(payload);
-
-    return response;
-  }
+  return response;
 
 exit_fail:
   return nullptr;

@@ -54,7 +54,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
   // TODO: move away from using the root page dir of the current processor
   thread->m_context = setup_regs(kthread, proc->m_root_pd, thread->m_stack_top);
-  thread->m_real_entry = entry;
+  thread->m_real_entry = (ThreadEntry)entry;
 
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
   return thread;
@@ -134,13 +134,17 @@ void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
   // pre-entry
 
   // call the actual entrypoint of the thread
-  thread->m_real_entry(args);
+  int result = thread->m_real_entry(args);
+
+  // TODO: report or cache the result somewhere until
+  // It is approved by the kernel
 
   // TODO: cleanup and removal from the scheduler
   disable_interrupts();
 
   thread_t *current_thread = get_current_scheduling_thread();
 
+  println("Set thing to dying");
   thread_set_state(current_thread, DYING);
 
   // yield will enable interrupts again
@@ -160,6 +164,8 @@ NAKED void common_thread_entry() {
 extern void thread_enter_context(thread_t *to) {
 
   // FIXME: uncomment asap
+  println(to->m_name);
+  println(to_string(to->m_current_state));
   ASSERT_MSG(to->m_current_state == RUNNABLE, "thread we switch to is not RUNNABLE!");
 
   // FIXME: remove?

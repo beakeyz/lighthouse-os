@@ -108,22 +108,42 @@ void start_scheduler(void) {
   bootstrap_thread_entries(initial_thread);
 }
 
-void pick_next_thread_scheduler(void) {
+/*
+ * Try to fetch another thread for us to schedule.
+ * If this current process is in idle mode, we just 
+ * schedule the idle thread
+ */
+ErrorOrPtr pick_next_thread_scheduler(void) {
   // get first frame (proc)
   sched_frame_t* frame = list_get(s_sched_frames, 0);
+
+  if (!frame)
+    return Error();
 
   // we should now either be in the kernel boot context, or in this mfs context
   thread_t *prev_thread = get_current_scheduling_thread();
 
+  if (frame->m_proc_to_schedule->m_flags & PROC_IDLE) {
+    println("Trying to set idlethread");
+    println(prev_thread->m_name);
+    set_previous_thread(prev_thread);
+    set_current_handled_thread(frame->m_proc_to_schedule->m_idle_thread);
+
+    return Success(0);
+  }
+
   thread_t *next_thread = pull_runnable_thread_sched_frame(frame);
 
+  /* There are no threads left. We can safely kill this process */
   if (next_thread == nullptr) {
-    // TODO: find out what to do
-    next_thread = frame->m_proc_to_schedule->m_idle_thread;
+    println("No next thread");
+    return Error();
   }
 
   set_previous_thread(prev_thread);
   set_current_handled_thread(next_thread);
+
+  return Success(0);
 }
 
 ANIVA_STATUS pause_scheduler() {
@@ -162,18 +182,20 @@ void resume_scheduler(void) {
 }
 
 void scheduler_yield() {
+  ASSERT_MSG(s_sched_frames, "Tried to yield to an uninitialized scheduler!");
+
   disable_interrupts();
   // invoke the scheduler early
   scheduler_try_invoke();
   // prepare the next thread
-  pick_next_thread_scheduler();
+  if (pick_next_thread_scheduler().m_status != ANIVA_SUCCESS) {
+    kernel_panic("TODO: terminate the process which has no threads left!");
+  }
 
   Processor_t *current = get_current_processor();
   thread_t *current_thread = get_current_scheduling_thread();
 
   ASSERT_MSG(current_thread != nullptr, "trying to yield the scheduler while not having a current scheduling thread!");
-
-  enable_interrupts();
 
   // in this case we don't have to wait for us to exit a
   // critical CPU section, since we are not being interrupted at all
@@ -211,6 +233,32 @@ ErrorOrPtr scheduler_try_invoke() {
   return Success(0);
 }
 
+/*
+ * Let's just pagefault is we don't have a process lmao
+ */
+void sched_idle_current_process() {
+  disable_interrupts();
+
+  sched_frame_t* current_frame = list_get(s_sched_frames, 0);
+
+  current_frame->m_proc_to_schedule->m_flags |= PROC_IDLE;
+
+  scheduler_yield();
+}
+
+/*
+ * Let's just pagefault is we don't have a process lmao
+ */
+void sched_wake_current_process() {
+  disable_interrupts();
+
+  sched_frame_t* current_frame = list_get(s_sched_frames, 0);
+
+  current_frame->m_proc_to_schedule->m_flags &= ~PROC_IDLE;
+
+  scheduler_yield();
+}
+
 registers_t *sched_tick(registers_t *registers_ptr) {
   const enum SCHED_MODE prev_sched_mode = s_sched_mode;
 
@@ -224,6 +272,15 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
   sched_frame_t *current_frame = list_get(s_sched_frames, 0);
 
+  println("Sched tick");
+
+  if (current_frame->m_proc_to_schedule->m_flags & PROC_IDLE) {
+    Must(pick_next_thread_scheduler());
+
+    scheduler_try_invoke();
+    return registers_ptr;
+  }
+
   if (s_sched_frames->m_length > 1) {
 
     // FIXME: switch timings seem to be wonky
@@ -233,7 +290,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       // switch_frames
       println("Should have switched frames!");
       send_sched_frame_to_back(0);
-      pick_next_thread_scheduler();
+      Must(pick_next_thread_scheduler());
       scheduler_try_invoke();
       return registers_ptr;
     }
@@ -244,18 +301,24 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
   thread_t *current_thread = get_current_scheduling_thread();
 
+  ASSERT_MSG(current_thread, "No initial thread!");
+  /*
   if (current_thread == nullptr) {
     println("no initial thread!");
     pick_next_thread_scheduler();
     return registers_ptr;
   }
+  */
 
   current_thread->m_ticks_elapsed++;
 
   if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
     current_thread->m_ticks_elapsed = 0;
     // we want to schedule a new thread at this point
-    pick_next_thread_scheduler();
+    if (pick_next_thread_scheduler().m_status != ANIVA_SUCCESS) {
+      // TODO: we might try to spawn another eternal process
+      kernel_panic("Could not pick another thread to schedule!");
+    }
     scheduler_try_invoke();
   }
 
@@ -363,10 +426,14 @@ static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) {
   //resume_scheduler();
 }
 
+#define SCHED_MAX_PULL_CYCLES 2
+
 /*
  * TODO: redo this function, as it is way too messy and
  * should be as optimal as possible
  * perhaps we can use a queue or something (it's unclear to me which ds works best here...)
+ *
+ * Returning nullptr means that this thread does not have any threads left. Let's just kill it at that point...
  */
 thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   const uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
@@ -377,6 +444,8 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
     return nullptr;
   }
 
+  uintptr_t cycles = 0;
+  uintptr_t unrunnable_threads = 0;
   uintptr_t current_idx = prev_sched_thread_idx + 1;
   thread_t* next_thread = nullptr;
 
@@ -384,8 +453,22 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
 
     next_thread = list_get(thread_list_ptr, current_idx);
 
+    if (!next_thread && cycles > SCHED_MAX_PULL_CYCLES) {
+      /* If there are no threads left, this process is just dead */
+      if (thread_list_ptr->m_length == 0) {
+        return nullptr;
+      }
+
+      next_thread = ptr->m_proc_to_schedule->m_idle_thread;
+
+      ASSERT_MSG(next_thread, "FATAL: Tried to idle a process without it having an idle-thread");
+      ASSERT_MSG(next_thread->m_current_state == RUNNABLE, "FATAL: the idle thread has not been marked runnable for some reason");
+      break;
+    } 
+
     if (next_thread == nullptr) {
       current_idx = 0;
+      cycles++;
       continue;
     }
 
@@ -409,7 +492,9 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
       case DEAD:
         destroy_thread(next_thread);
         list_remove(thread_list_ptr, current_idx);
-        break;
+
+        /* Let's recurse here, in order to update our loop */
+        return pull_runnable_thread_sched_frame(ptr);
       case STOPPED:
       case BLOCKED:
         // TODO: let's figure out how to handle blocked threads (so waiting on IO or some shit)
@@ -423,13 +508,10 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
       break;
     }
 
-    // we went around the loop, and found nothing to run =/
-    if (current_idx == prev_sched_thread_idx) {
-      return nullptr;
-    }
-
     current_idx++;
   }
+
+  ASSERT_MSG(next_thread, "FATAL: Tried to pick a null-thread to schedule!");
 
   // update the scheduler
   ptr->m_scheduled_thread_index = current_idx;

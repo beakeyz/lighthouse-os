@@ -25,7 +25,7 @@
 
 #include <dev/framebuffer/framebuffer.h>
 
-void ahci_driver_init();
+int ahci_driver_init();
 int ahci_driver_exit();
 uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response);
 
@@ -42,7 +42,7 @@ const aniva_driver_t g_base_ahci_driver = {
   .f_init = ahci_driver_init,
   .f_exit = ahci_driver_exit,
   .f_drv_msg = ahci_driver_on_packet,
-  .m_dependencies = {},
+  .m_dependencies = {"graphics/kterm"},
   .m_dep_count = 0
 };
 
@@ -304,7 +304,7 @@ static void find_ahci_device(pci_device_identifier_t* identifier) {
   }
 }
 
-void ahci_driver_init() {
+int ahci_driver_init() {
 
   // FIXME: should this driver really take a hold of the scheduler 
   // here?
@@ -322,10 +322,13 @@ void ahci_driver_init() {
   destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&s_last_debug_msg, strlen(packet_message)));
   kfree((void*)packet_message);
   */
+  return 0;
 }
 
 int ahci_driver_exit() {
   // shutdown ahci device
+
+  println("Shut down ahci driver");
 
   if (s_ahci_device) {
     destroy_ahci_device(s_ahci_device);

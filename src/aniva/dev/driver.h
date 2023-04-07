@@ -6,7 +6,7 @@
 
 struct vnode;
 
-typedef void (*ANIVA_DRIVER_INIT) ();
+typedef int (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
 //typedef uintptr_t (*ANIVA_DRIVER_DRV_MSG) (void* buffer, size_t buffer_size);
 
@@ -49,6 +49,7 @@ typedef struct aniva_driver {
 #define DRV_FS      (0x00000001) /* Should be mounted inside the vfs */
 #define DRV_SYS     (0x00000002) /* Is this a system-driver or user/nonessendial driver */
 #define DRV_ACTIVE  (0x00000004) /* Is this driver available for opperations */
+#define DRV_SOCK    (0x00000008) /* Does this driver require a socket */
 
 aniva_driver_t* create_driver(
   const char* name,
@@ -72,6 +73,8 @@ void destroy_driver(aniva_driver_t* driver);
  * TODO: more secure checking
  */
 bool validate_driver(aniva_driver_t* driver);
+
+bool driver_is_ready(aniva_driver_t* driver);
 
 /*
  * Create a thread for this driver in the kernel process

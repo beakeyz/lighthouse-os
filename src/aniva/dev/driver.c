@@ -136,6 +136,33 @@ bool validate_driver(aniva_driver_t* driver) {
   return true;
 }
 
+bool driver_is_ready(aniva_driver_t* driver) {
+
+  if (driver->m_flags & DRV_SOCK) {
+
+    threaded_socket_t* socket = find_registered_socket(driver->m_port);
+
+    if (!socket)
+      return false;
+
+    return (socket_is_flag_set(socket, TS_ACTIVE) && socket_is_flag_set(socket, TS_READY));
+  }
+
+  return driver->m_flags & DRV_ACTIVE;
+}
+
+static void generic_driver_entry(aniva_driver_t* driver) {
+
+  /* Just make sure this driver is marked as inactive */
+  driver->m_flags &= ~DRV_ACTIVE;
+
+  /* NOTE: The driver can also mark itself as ready */
+  driver->f_init();
+
+  /* Init finished, the driver is ready for messages */
+  driver->m_flags |= DRV_ACTIVE;
+}
+
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
 
   ErrorOrPtr result;
@@ -192,14 +219,20 @@ ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
     }
   }
 
-  /* Preemptively set the driver to active */
-  driver->m_flags |= DRV_ACTIVE;
-
   // NOTE: if the drivers port is not valid, the subsystem will verify 
   // it and provide a new port, so we won't have to wory about that here
-  thread_t* driver_socket = create_thread_as_socket(sched_get_kernel_proc(), driver->f_init, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port);
 
-  result = proc_add_thread(sched_get_kernel_proc(), driver_socket);
+  if (driver->m_flags & DRV_SOCK) {
+
+    thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)driver->f_init, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port);
+
+    result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
+  } else {
+    generic_driver_entry(driver);
+  }
+
+  /* Preemptively set the driver to active */
+  driver->m_flags |= DRV_ACTIVE;
 
   return result;
 }

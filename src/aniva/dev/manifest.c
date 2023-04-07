@@ -8,6 +8,27 @@
 #include "mem/kmem_manager.h"
 #include <libk/string.h>
 
+size_t get_driver_url_length(aniva_driver_t* handle) {
+  const char* driver_type_url = get_driver_type_url(handle->m_type);
+  const size_t dtu_length = strlen(driver_type_url);
+  return strlen(driver_type_url) + 1 + strlen(handle->m_name);
+}
+
+const char* get_driver_url(aniva_driver_t* handle) {
+  /* Prerequisites */
+  const char* dtu = get_driver_type_url(handle->m_type);
+  size_t dtu_length = strlen(dtu);
+
+  size_t size = get_driver_url_length(handle);
+  const char* ret = kmalloc(size + 1);
+  memset((char*)ret, 0, size + 1);
+  memcpy((char*)ret, dtu, dtu_length);
+  *(char*)&ret[dtu_length] = DRIVER_URL_SEPERATOR;
+  memcpy((char*)ret + dtu_length + 1, handle->m_name, strlen(handle->m_name));
+
+  return ret;
+}
+
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
   if (!handle) {
@@ -29,15 +50,9 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
   ret->m_flags = flags;
 
-  const char* driver_type_url = get_driver_type_url(handle->m_type);
-  const size_t dtu_length = strlen(driver_type_url);
-  ret->m_url_length = strlen(driver_type_url) + 1 + strlen(handle->m_name);
+  ret->m_url_length = get_driver_url_length(handle);
   // TODO: concat
-  ret->m_url = kmalloc(ret->m_url_length + 1);
-  memset((char*)ret->m_url, 0, ret->m_url_length + 1);
-  memcpy((char*)ret->m_url, driver_type_url, dtu_length);
-  *(char*)&ret->m_url[dtu_length] = DRIVER_URL_SEPERATOR;
-  memcpy((char*)ret->m_url + dtu_length + 1, handle->m_name, strlen(handle->m_name));
+  ret->m_url = get_driver_url(handle);
 
   for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
     dev_url_t url = handle->m_dependencies[i];

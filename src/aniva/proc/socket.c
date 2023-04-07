@@ -156,7 +156,13 @@ void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
   // dequeue packets after the entry function has ended.
   // this is bad, so we need to handle dequeueing on a different thread...
   socket_set_flag(thread->m_socket, TS_ACTIVE, true);
-  thread->m_real_entry(args);
+  int result = thread->m_real_entry(args);
+
+  /* When a socket fails to initialize, just immidiately dispose of it */
+  if (result < 0) {
+    goto socket_exit;
+  }
+
   socket_set_flag(thread->m_socket, TS_READY, true);
 
   // when the entry of a socket exits, we 
@@ -169,9 +175,36 @@ void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
     }
     // TODO: implement acurate sleeping
     // NOTE: we need to sleep here, in such a way that we do allow context switches WHILE keeping interrupts enabled...
-    delay(1000);
+
+    Processor_t* current = get_current_processor();
+
+    pause_scheduler();
+
+    tspckt_t* packet;
+
+    while ((packet = queue_peek(current->m_packet_queue.m_packets)) != nullptr) {
+      // Wait for the right thread to handle this packet
+      if (packet->m_reciever_thread != thread->m_socket) {
+        break;
+      }
+      ErrorOrPtr result = socket_handle_tspacket(packet);
+
+      queue_dequeue(current->m_packet_queue.m_packets);
+      if (result.m_status == ANIVA_WARNING) {
+        // packet was not ready, delay
+        queue_enqueue(current->m_packet_queue.m_packets, packet);
+        break;
+      }
+    }
+
+    //processor_decrement_critical_depth(current);
+    resume_scheduler();
+
+    // after one swoop we don't need to check again lmao
+    scheduler_yield();
   }
 
+socket_exit:
   // if we break this loop, we finally exit the thread
   thread->m_socket->m_exit_fn();
 

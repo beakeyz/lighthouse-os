@@ -66,7 +66,7 @@ char kbd_us_shift_map[256] = {
 
 #define KBD_IS_PRESSED 0x80u
 
-void ps2_keyboard_entry();
+int ps2_keyboard_entry();
 int ps2_keyboard_exit();
 uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response);
 registers_t* ps2_keyboard_irq_handler(registers_t* regs);
@@ -82,13 +82,13 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
   .f_exit = ps2_keyboard_exit,
   .f_init = ps2_keyboard_entry,
   .f_drv_msg = ps2_keyboard_msg,
-  .m_port = 0
 };
+EXPORT_DRIVER(g_base_ps2_keyboard_driver);
 
 static list_t* s_kb_event_callbacks;
 static uint16_t s_mod_flags;
 
-void ps2_keyboard_entry() {
+int ps2_keyboard_entry() {
 
   s_kb_event_callbacks = init_list();
   s_mod_flags = NULL;
@@ -101,7 +101,7 @@ void ps2_keyboard_entry() {
   }
 
   println("initializing ps2 keyboard driver!");
-
+  return 0;
 }
 int ps2_keyboard_exit() {
   destroy_list(s_kb_event_callbacks);

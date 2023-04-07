@@ -5,17 +5,23 @@
 #include <libk/error.h>
 
 struct aniva_driver;
+struct fs_context;
 
 typedef struct fs_type {
   const char* m_name;
   uint32_t m_flags;
 
   int (*f_mount)(struct fs_type*, const char*, void*);
+  int (*f_init_context)(struct fs_context*);
 
   struct fs_type* m_next;
 
   struct aniva_driver* m_driver;
 } fs_type_t;
+
+typedef struct fs_context {
+
+} fs_context_t;
 
 #define FST_REQ_DRIVER (0x00000001)
 

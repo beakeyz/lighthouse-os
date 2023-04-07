@@ -102,7 +102,7 @@ run:
 
 
 .PHONY: iso
-iso:
+iso: build
 	mkdir -p $(OUT)/isofiles/boot/grub
 	cp grub.cfg $(OUT)/isofiles/boot/grub
 	cp $(OUT)/lightos.elf $(OUT)/isofiles/boot

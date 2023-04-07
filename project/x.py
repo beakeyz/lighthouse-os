@@ -191,10 +191,13 @@ def project_main() -> Status:
 
 
 if __name__ == "__main__":
-    status: Status = project_main()
-    messagePrefix: str = "Success"
+    try:
+        status: Status = project_main()
+        messagePrefix: str = "Success"
 
-    if status.code == StatusCode.Fail:
-        messagePrefix = "Error"
+        if status.code == StatusCode.Fail:
+            messagePrefix = "Error"
 
-    print(f"{messagePrefix}: {status.msg}")
+        print(f"{messagePrefix}: {status.msg}")
+    except Exception:
+        print("Exited unexpectedly!")

@@ -62,9 +62,9 @@ typedef const char* dev_url_t;
 #define EXPORT_DRIVER(name) SECTION(".kpcdrvs") struct aniva_driver* exported_##name = (struct aniva_driver*)&name
 
 /*
- * Initialize the driver registry. THIS MAY NOT ADD/BOOTSTRAP ANY
- * DRIVERS YET as the scheduler is not yet initialized and we may
- * still be in the boot context
+ * Initializes the registry for kernel drivers. 
+ * Also bootstraps any drivers that came precompiled 
+ * with the kernel
  */
 void init_aniva_driver_registry();
 
@@ -73,12 +73,12 @@ void init_aniva_driver_registry();
 /*
  * Registers the driver so it can be loaded
  */
-ErrorOrPtr install_driver(struct dev_manifest* manifest);
+ErrorOrPtr install_driver(struct aniva_driver* manifest);
 
 /*
  * Unregisters the driver and also unloads it if it is still loaded
  */
-ErrorOrPtr uninstall_driver(struct dev_manifest* manifest);
+ErrorOrPtr uninstall_driver(struct aniva_driver* manifest);
 
 /*
  * load a driver from its structure in RAM
@@ -137,6 +137,10 @@ packet_response_t* driver_send_packet_sync(const char* path, driver_control_code
  * When mto is set to DRIVER_WAIT_UNTIL_READY, we simply wait untill the driver marks itself ready
  */
 packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
+
+extern const char* get_driver_url(struct aniva_driver* handle);
+
+extern size_t get_driver_url_length(struct aniva_driver* handle);
 
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
 

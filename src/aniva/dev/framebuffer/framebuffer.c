@@ -1,6 +1,7 @@
 #include "framebuffer.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "entry/entry.h"
 #include "interupts/control/pic.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
@@ -20,7 +21,7 @@ static uint32_t s_used_pages;
 static uint32_t s_width;
 static uint32_t s_height;
 
-void fb_driver_init();
+int fb_driver_init();
 int fb_driver_exit();
 uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** response);
 
@@ -37,8 +38,14 @@ aniva_driver_t g_base_fb_driver = {
   .f_drv_msg = fb_driver_on_packet,
   .m_port = 2,
 };
+EXPORT_DRIVER(g_base_fb_driver);
 
-void fb_driver_init() {
+int fb_driver_init() {
+
+  if (g_system_info.multiboot_addr == NULL) {
+    return -1;
+  }
+
   println("Initialized fb driver!");
   s_fb_tag = nullptr;
   s_bpp = 0;
@@ -46,6 +53,12 @@ void fb_driver_init() {
   s_width = 0;
   s_height = 0;
   s_used_pages = 0;
+
+  driver_set_ready("graphics/fb");
+
+  destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(void*)));
+
+  return 0;
 }
 
 int fb_driver_exit() {
@@ -56,7 +69,9 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
   switch (payload.m_code) {
     case FB_DRV_SET_MB_TAG: {
       struct multiboot_tag_framebuffer* tag = payload.m_data;
+      println("Setting framebuffer info");
       if (tag->common.size != 0 && tag->common.framebuffer_addr != 0) {
+        println("Set framebuffer info");
         s_fb_tag = tag;
         s_fb_addr = tag->common.framebuffer_addr;
         s_width = tag->common.framebuffer_width;
@@ -71,7 +86,8 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
     case FB_DRV_MAP_FB: {
       // TODO: save a list of mappings, so we can unmap it on driver unload
       uintptr_t virtual_base = *(uintptr_t*)payload.m_data;
-      //println(to_string(virtual_base));
+      print("Mapped framebuffer: ");
+      println(to_string(virtual_base));
       kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0);
       return 0;
       break;
@@ -93,6 +109,7 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
         .used_pages = s_used_pages,
       };
       println("sent info");
+      println(to_string(info.bpp));
       *response = create_packet_response(&info, sizeof(info));
       break;
     }

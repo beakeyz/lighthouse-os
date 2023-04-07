@@ -1,10 +1,17 @@
 #include "ata.h"
 #include "dev/core.h"
 
-void ata_driver_init();
-int ata_driver_exit();
+int ata_driver_init() {
+  return 0;
+}
 
-uintptr_t ata_driver_on_packet(packet_payload_t payload, packet_response_t** response);
+int ata_driver_exit() {
+  return 0;
+}
+
+uintptr_t ata_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+  return 0;
+}
 
 const aniva_driver_t g_base_ata_driver = {
   .m_name = "ata",
@@ -19,14 +26,3 @@ const aniva_driver_t g_base_ata_driver = {
   .m_dep_count = 0,
 };
 
-void ata_driver_init() {
-
-}
-
-int ata_driver_exit() {
-  return 0;
-}
-
-uintptr_t ata_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
-  return 0;
-}

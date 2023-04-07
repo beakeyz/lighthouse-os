@@ -15,7 +15,7 @@ struct proc;
 struct thread;
 struct threaded_socket;
 
-typedef void (*ThreadEntry) (
+typedef int (*ThreadEntry) (
   uintptr_t arg
 );
 

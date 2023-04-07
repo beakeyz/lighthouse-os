@@ -22,6 +22,8 @@
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
 
+system_info_t g_system_info;
+
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 
 //typedef void (*ctor_func_t)();
@@ -66,6 +68,9 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
   );
 
+  g_system_info.multiboot_addr = multiboot_addr;
+  g_system_info.total_multiboot_size = total_multiboot_size + 8;
+
   //init_global_kevents();
 
   init_timer_system();
@@ -75,8 +80,6 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_pci();
 
   initialize_proc_core();
-
-  init_aniva_driver_registry();
 
   init_vfs();
 
@@ -90,17 +93,11 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   Must(vfs_attach_namespace("l_dev/io"));
   Must(vfs_attach_namespace("l_dev/disk"));
 
-  // NOTE: test
-  println("Listing precompiled drivers!");
-  FOREACH_PCDRV(dptr) {
-    aniva_driver_t* driver = *dptr;
-    print("Found driver: ");
-    println(driver->m_name);
-  }
-
   init_scheduler();
 
-  create_and_register_root_process(multiboot_addr);
+  create_and_register_root_process();
+
+  init_aniva_driver_registry();
 
   start_scheduler();
 
