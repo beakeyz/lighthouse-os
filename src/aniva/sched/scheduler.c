@@ -272,8 +272,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
   sched_frame_t *current_frame = list_get(s_sched_frames, 0);
 
-  println("Sched tick");
-
   if (current_frame->m_proc_to_schedule->m_flags & PROC_IDLE) {
     Must(pick_next_thread_scheduler());
 

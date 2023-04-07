@@ -164,8 +164,6 @@ NAKED void common_thread_entry() {
 extern void thread_enter_context(thread_t *to) {
 
   // FIXME: uncomment asap
-  println(to->m_name);
-  println(to_string(to->m_current_state));
   ASSERT_MSG(to->m_current_state == RUNNABLE, "thread we switch to is not RUNNABLE!");
 
   // FIXME: remove?
