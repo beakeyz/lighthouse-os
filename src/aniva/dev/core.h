@@ -60,6 +60,7 @@ typedef const char* dev_url_t;
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
 #define EXPORT_DRIVER(name) SECTION(".kpcdrvs") struct aniva_driver* exported_##name = (struct aniva_driver*)&name
+#define NO_MANIFEST NULL
 
 /*
  * Initializes the registry for kernel drivers. 
@@ -73,17 +74,17 @@ void init_aniva_driver_registry();
 /*
  * Registers the driver so it can be loaded
  */
-ErrorOrPtr install_driver(struct aniva_driver* manifest);
+ErrorOrPtr install_driver(struct aniva_driver* handle);
 
 /*
  * Unregisters the driver and also unloads it if it is still loaded
  */
-ErrorOrPtr uninstall_driver(struct aniva_driver* manifest);
+ErrorOrPtr uninstall_driver(struct aniva_driver* handle);
 
 /*
  * load a driver from its structure in RAM
  */
-ErrorOrPtr load_driver(struct dev_manifest* driver);
+ErrorOrPtr load_driver(struct dev_manifest* manifest);
 
 /*
  * unload a driver from its structure in RAM

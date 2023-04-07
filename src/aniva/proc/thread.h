@@ -71,7 +71,7 @@ thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, char[32]);
  * kind of thread-pool in the processor, so TODO?
  * )
  */
-thread_t *create_thread_as_socket(struct proc*, FuncPtr, FuncPtr, SocketOnPacket, char[32], uint32_t);
+thread_t *create_thread_as_socket(struct proc*, FuncPtr, uintptr_t, FuncPtr, SocketOnPacket, char[32], uint32_t);
 
 /*
  * set up the thread and prepare to switch context

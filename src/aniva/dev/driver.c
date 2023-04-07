@@ -1,8 +1,11 @@
 #include "driver.h"
+#include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/manifest.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
@@ -138,6 +141,8 @@ bool validate_driver(aniva_driver_t* driver) {
 
 bool driver_is_ready(aniva_driver_t* driver) {
 
+  const bool active_flag = driver->m_flags & DRV_ACTIVE;
+
   if (driver->m_flags & DRV_SOCK) {
 
     threaded_socket_t* socket = find_registered_socket(driver->m_port);
@@ -145,22 +150,43 @@ bool driver_is_ready(aniva_driver_t* driver) {
     if (!socket)
       return false;
 
-    return (socket_is_flag_set(socket, TS_ACTIVE) && socket_is_flag_set(socket, TS_READY));
+    return active_flag && (socket_is_flag_set(socket, TS_ACTIVE) && socket_is_flag_set(socket, TS_READY));
   }
 
-  return driver->m_flags & DRV_ACTIVE;
+  return active_flag;
 }
 
-static void generic_driver_entry(aniva_driver_t* driver) {
+static int generic_driver_entry(aniva_driver_t* driver) {
 
   /* Just make sure this driver is marked as inactive */
   driver->m_flags &= ~DRV_ACTIVE;
 
+  /* Ensure dependencies are loaded */
+  dev_manifest_t* manifest = create_dev_manifest(driver, 0);
+
+  FOREACH(i, manifest->m_dependency_manifests) {
+    dev_manifest_t* dep_manifest = i->data;
+
+    if (!dep_manifest || !is_driver_loaded(dep_manifest->m_handle)) {
+      kernel_panic("dependencies are not loaded!");
+      return -1;
+    }
+  }
+
+  destroy_dev_manifest(manifest);
+
   /* NOTE: The driver can also mark itself as ready */
-  driver->f_init();
+  int result = driver->f_init();
+
+  if (result < 0) {
+    // Unload the driver
+    kernel_panic("Driver failed to init, TODO: implement graceful driver unloading");
+  }
 
   /* Init finished, the driver is ready for messages */
   driver->m_flags |= DRV_ACTIVE;
+
+  return result;
 }
 
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
@@ -219,20 +245,21 @@ ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
     }
   }
 
+  /* Preemptively set the driver to inactive */
+  driver->m_flags &= ~DRV_ACTIVE;
+
   // NOTE: if the drivers port is not valid, the subsystem will verify 
   // it and provide a new port, so we won't have to wory about that here
 
   if (driver->m_flags & DRV_SOCK) {
 
-    thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)driver->f_init, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port);
+    thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)generic_driver_entry, (uintptr_t)driver, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port);
 
     result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
   } else {
     generic_driver_entry(driver);
   }
 
-  /* Preemptively set the driver to active */
-  driver->m_flags |= DRV_ACTIVE;
 
   return result;
 }

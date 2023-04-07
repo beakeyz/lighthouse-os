@@ -5,6 +5,7 @@
 #include "proc/socket.h"
 
 struct vnode;
+struct dev_manifest;
 
 typedef int (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
@@ -42,14 +43,16 @@ typedef struct aniva_driver {
   // TODO: driver resources and dependencies
   // TODO: we can do dependency checking when drivers try to
   // send packets to other drivers
+  struct dev_manifest* m_manifest;
+
   size_t m_dep_count;
   dev_url_t m_dependencies[];
 } aniva_driver_t;
 
-#define DRV_FS      (0x00000001) /* Should be mounted inside the vfs */
-#define DRV_SYS     (0x00000002) /* Is this a system-driver or user/nonessendial driver */
-#define DRV_ACTIVE  (0x00000004) /* Is this driver available for opperations */
-#define DRV_SOCK    (0x00000008) /* Does this driver require a socket */
+#define DRV_FS                  (0x00000001) /* Should be mounted inside the vfs */
+#define DRV_NON_ESSENTIAL       (0x00000002) /* Is this a system-driver or user/nonessential driver */
+#define DRV_ACTIVE              (0x00000004) /* Is this driver available for opperations */
+#define DRV_SOCK                (0x00000008) /* Does this driver require a socket */
 
 aniva_driver_t* create_driver(
   const char* name,

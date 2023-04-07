@@ -41,7 +41,7 @@ class Consts:
 
     # TODO: expand
     # Default userspace flags (just anything that isn't the kernel basically)
-    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding"
+    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -I./src/libs"
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     KERNEL_ASM_FLAGS = " -f elf64"

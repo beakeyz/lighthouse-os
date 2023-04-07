@@ -22,16 +22,25 @@
 static hive_t* s_installed_drivers;
 static hive_t* s_loaded_drivers;
 
-static bool load_precompiled_driver(hive_t* current, void* driver) {
-  aniva_driver_t* handle = driver;
+/*
+ * We need to make sure to call this before we load a 
+ * precompiled driver. Uninitialised fields might contain
+ * non-null values
+ */
+static void asign_new_aniva_driver_manifest(aniva_driver_t* driver) {
+  driver->m_manifest = 0;
+}
 
-  print("Loading driver: ");
-  println(handle->m_name);
+static bool load_precompiled_driver(hive_t* current, void* data) {
+  aniva_driver_t* driver = data;
 
-  load_driver(create_dev_manifest(handle, 0));
+  asign_new_aniva_driver_manifest(driver);
+
+  load_driver(create_dev_manifest(driver, NULL));
 
   return true;
 }
+
 
 void init_aniva_driver_registry() {
   // TODO:
@@ -42,7 +51,14 @@ void init_aniva_driver_registry() {
   FOREACH_PCDRV(ptr) {
     aniva_driver_t* driver = *ptr;
 
-    install_driver(driver);
+    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
+
+    // NOTE: we should just let errors happen here,
+    // since It could happen that a driver is already
+    // loaded as a dependency. This means that this call
+    // will always fail in that case, since we try to load
+    // a driver that has already been loaded
+    Must(install_driver(driver));
   }
 
   hive_walk(s_installed_drivers, true, load_precompiled_driver);
@@ -164,7 +180,6 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   Must(bootstrap_driver(handle, full_path));
 
-  destroy_dev_manifest(manifest);
   return Success(0);
 
 fail_and_exit:
@@ -173,18 +188,17 @@ fail_and_exit:
 }
 
 ErrorOrPtr unload_driver(dev_url_t url) {
-  dev_manifest_t* dummy_manifest = create_dev_manifest(hive_get(s_loaded_drivers, url), 0);
+  aniva_driver_t* handle = hive_get(s_loaded_drivers, url);
 
-  if (!validate_driver(dummy_manifest->m_handle) || strcmp(url, dummy_manifest->m_url) != 0) {
-    destroy_dev_manifest(dummy_manifest);
+  if (!validate_driver(handle) || strcmp(url, handle->m_manifest->m_url) != 0) {
     return Error();
   }
 
   // call the driver exit function async
-  driver_send_packet(dummy_manifest->m_url, DCC_EXIT, NULL, 0);
+  if (handle->m_flags & DRV_SOCK)
+    driver_send_packet(handle->m_manifest->m_url, DCC_EXIT, NULL, 0);
 
-  if (hive_remove(s_loaded_drivers, dummy_manifest->m_handle).m_status != ANIVA_SUCCESS) {
-    destroy_dev_manifest(dummy_manifest);
+  if (hive_remove(s_loaded_drivers, handle).m_status != ANIVA_SUCCESS) {
     return Error();
   }
 
@@ -192,7 +206,7 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   //  - on the heap
   //  - through a file
 
-  destroy_dev_manifest(dummy_manifest);
+  destroy_dev_manifest(handle->m_manifest);
   // TODO:
   return Success(0);
 }

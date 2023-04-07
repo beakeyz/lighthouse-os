@@ -72,7 +72,7 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
   return nullptr;
 }
 
-thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t port) {
+thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t port) {
   if (proc == nullptr || entry == nullptr) {
     return nullptr;
   }
@@ -84,7 +84,7 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, FuncPtr exit_fn, 
     return nullptr;
   }
 
-  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, NULL, name, proc, (proc->m_id == 0));
+  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, arg0, name, proc, (proc->m_id == 0));
 
   // failed to create thread
   if (!ret) {

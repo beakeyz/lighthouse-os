@@ -2,6 +2,7 @@ from enum import Enum
 from stats.lines import SourceFile, SourceLanguage
 import consts
 import os
+import json
 
 
 class BuilderMode(Enum):
@@ -56,6 +57,9 @@ class ProjectBuilder(object):
                         srcFile.setBuildFlags(self.constants.KERNEL_ASM_FLAGS)
                     else:
                         return BuilderResult.FAIL
+                elif self.builderMode == BuilderMode.USERSPACE:
+                    srcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
+                    pass
 
                 print(f"Building {srcFile.path}...")
                 os.system(f"mkdir -p {srcFile.getOutputDir()}")
@@ -78,33 +82,63 @@ class ProjectBuilder(object):
         return False
 
     def link(self) -> BuilderResult:
-        self.constants.reinit()
+        if self.builderMode == BuilderMode.KERNEL:
+            self.constants.reinit()
 
-        objFiles: str = " "
+            objFiles: str = " "
 
-        SDN = self.constants.SRC_DIR_NAME
-        ODN = self.constants.OUT_DIR_NAME
+            SDN = self.constants.SRC_DIR_NAME
+            ODN = self.constants.OUT_DIR_NAME
 
-        KEP = self.constants.KERNEL_ELF_PATH
-        KLF = self.constants.KERNEL_LD_FLAGS
+            KEP = self.constants.KERNEL_ELF_PATH
+            KLF = self.constants.KERNEL_LD_FLAGS
 
-        for objFile in self.constants.OBJ_FILES:
-            objFile: str = objFile
+            for objFile in self.constants.OBJ_FILES:
+                objFile: str = objFile
 
-            for builderPath in self.srcPath:
-                builderPath = builderPath.replace(SDN, ODN)
+                for builderPath in self.srcPath:
+                    builderPath = builderPath.replace(SDN, ODN)
 
-                if (objFile.find(builderPath) != -1):
-                    # Pad the end with a space
-                    objFiles += f"{objFile} "
-                    break
+                    if (objFile.find(builderPath) != -1):
+                        # Pad the end with a space
+                        objFiles += f"{objFile} "
+                        break
 
-        ld = self.constants.CROSS_LD_DIR
+            ld = self.constants.CROSS_LD_DIR
 
-        if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") == 0:
-            return BuilderResult.SUCCESS
+            if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") == 0:
+                return BuilderResult.SUCCESS
 
-        return BuilderResult.FAIL
+            return BuilderResult.FAIL
+        elif self.builderMode == BuilderMode.USERSPACE:
+            # For each directory in the src/user directory
+            # we should link a binary
+            userDir: str = self.constants.SRC_DIR + "/user"
+
+            for entry in os.listdir(userDir):
+
+                entryName: str = entry
+                entry: str = f"{userDir}/{entry}"
+
+                # Skip anything that is not a process direcotry
+                if not os.path.isdir(entry):
+                    continue
+
+                for procEntry in os.listdir(entry):
+                    if procEntry == "manifest.json":
+                        procEntry: str = f"{entry}/{procEntry}"
+
+                        with open(procEntry, "r") as manifestFile:
+                            manifest = json.load(manifestFile)
+
+                            if manifest["name"] == entryName:
+                                print(f"Building process: {entryName}")
+                                # TODO
+
+                        pass
+                pass
+
+            return BuilderResult.FAIL
 
     def clean(self) -> None:
         pass

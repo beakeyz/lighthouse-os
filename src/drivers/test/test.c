@@ -5,8 +5,9 @@
 #include <dev/driver.h>
 #include <libk/stddef.h>
 
-void test_init() {
+int test_init() {
   println("Hi =D");
+  return 0;
 }
 
 int test_exit() {
@@ -28,6 +29,7 @@ aniva_driver_t extern_test_driver = {
   .f_init = test_init,
   .f_exit = test_exit,
   .f_drv_msg = test_msg,
+  .m_dep_count = 0,
 };
 
 EXPORT_DRIVER(extern_test_driver);

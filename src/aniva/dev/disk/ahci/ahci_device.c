@@ -43,6 +43,7 @@ const aniva_driver_t g_base_ahci_driver = {
   .f_exit = ahci_driver_exit,
   .f_drv_msg = ahci_driver_on_packet,
   .m_dependencies = {"graphics/kterm"},
+  .m_flags = DRV_SOCK,
   .m_dep_count = 0
 };
 EXPORT_DRIVER(g_base_ahci_driver);
@@ -203,6 +204,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   if (hive_walk(device->m_ports, true, port_itterator).m_status == ANIVA_FAIL)
     return ANIVA_FAIL;
 
+  println("Done!");
   return status;
 }
 

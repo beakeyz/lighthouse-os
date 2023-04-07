@@ -183,9 +183,6 @@ static char kterm_char_buffer[256];
 
 static fb_info_t kterm_fb_info;
 
-// TODO: remove
-static list_t __test_list;
-
 aniva_driver_t g_base_kterm_driver = {
   .m_name = "kterm",
   .m_type = DT_GRAPHICS,
@@ -228,6 +225,9 @@ int kterm_init() {
   kterm_println(processor->m_info.m_vendor_id);
   kterm_println("\n");
   kterm_println(processor->m_info.m_model_id);
+  kterm_println("\n");
+  kterm_println("Available cores: ");
+  kterm_println(to_string(processor->m_info.m_max_available_cores));
   kterm_println("\n");
 
   return 0;

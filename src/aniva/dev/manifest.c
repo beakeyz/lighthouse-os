@@ -35,6 +35,11 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
     return nullptr;
   }
 
+  /* If it already has one, no need to make it */
+  if (handle->m_manifest) {
+    return handle->m_manifest;
+  }
+
   dev_manifest_t* ret = kmalloc(sizeof(dev_manifest_t));
 
   if (!ret)
@@ -54,9 +59,16 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
   // TODO: concat
   ret->m_url = get_driver_url(handle);
 
+  /*
+   * We kinda trust too much in the fact that m_dep_count is 
+   * correct...
+   */
   for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
     dev_url_t url = handle->m_dependencies[i];
 
+    /*
+     * Get the driver from the installed pool
+     */
     dev_manifest_t* dep_manifest = get_driver(url);
 
     // if we can't load this drivers dependencies, we just terminate this entire thing
@@ -67,6 +79,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
     list_append(ret->m_dependency_manifests, dep_manifest);
   }
+
   return ret;
 }
 

@@ -1,6 +1,6 @@
 #!/bin/python3
 
-import os, io
+import os, io, json
 from sys import argv
 from consts import Consts
 from enum import Enum
@@ -141,7 +141,41 @@ class BuildsysBuildKernelCallback(CommandCallback):
 
 class BuildsysBuildUserspaceCallback(CommandCallback):
     def call(self) -> Status:
+        c = Consts()
+        builder = ProjectBuilder(BuilderMode.USERSPACE, c)
+
+        if builder.link() == BuilderResult.SUCCESS:
+            return Status(StatusCode.Success, "Built the userspace =D")
+
+        return Status(StatusCode.Fail, "Failed to build the userspace =(")
         return Status(StatusCode.Fail, "TODO: implement userspace building")
+
+
+class GenerateUserProcessCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        processName: str = input("(Enter process name) > ")
+        linkingType: str = input("(Entry linking type) > ")
+
+        if linkingType != "static" and linkingType != "dynamic":
+            print("Invalid linking type")
+            return self.call()
+
+        manifest: dict = {
+            "name": processName,
+            "linking": linkingType
+        }
+
+        js: str = json.dumps(manifest)
+        processDir: str = c.SRC_DIR + "/user"
+        thisProcDir: str = f"{processDir}/{processName}"
+
+        os.makedirs(thisProcDir)
+
+        with open(f"{thisProcDir}/manifest.json", "w") as file:
+            file.write(js)
+
+        return Status(StatusCode.Success, "Created thing!")
 
 
 # Global todos:
@@ -174,6 +208,9 @@ def project_main() -> Status:
         "kernel": BuildsysBuildKernelCallback(),
         "user": BuildsysBuildUserspaceCallback()
     }))
+    cmd_processor.register_cmd(Command("generator", args={
+        "userprocess": GenerateUserProcessCallback()
+    }))
 
     # TODO: add option to turn off this feature
     print(SCRIPT_LOGO)
@@ -199,5 +236,6 @@ if __name__ == "__main__":
             messagePrefix = "Error"
 
         print(f"{messagePrefix}: {status.msg}")
-    except Exception:
+    except Exception as e:
         print("Exited unexpectedly!")
+        print(e)
