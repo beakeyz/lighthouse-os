@@ -45,6 +45,7 @@ const aniva_driver_t g_base_ahci_driver = {
   .m_dependencies = {"graphics/kterm"},
   .m_dep_count = 0
 };
+EXPORT_DRIVER(g_base_ahci_driver);
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device);
