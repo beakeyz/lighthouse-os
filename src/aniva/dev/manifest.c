@@ -45,6 +45,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
   if (!ret)
     return nullptr;
 
+
   ret->m_handle = handle;
   ret->m_dep_count = handle->m_dep_count;
   ret->m_dependency_manifests = init_list();
@@ -65,6 +66,9 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
    */
   for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
     dev_url_t url = handle->m_dependencies[i];
+    
+    if (!url)
+      continue;
 
     /*
      * Get the driver from the installed pool

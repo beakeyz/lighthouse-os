@@ -12,12 +12,13 @@ struct dev_manifest;
 
 #define DRIVER_URL_SEPERATOR '/'
 
-#define DRIVER_TYPE_COUNT 7
+#define DRIVER_TYPE_COUNT 8
 
 #define DRIVER_WAIT_UNTIL_READY (size_t)-1
 
 typedef enum dev_type {
   DT_DISK = 0,
+  DT_FS,
   DT_IO,
   DT_SOUND,
   DT_GRAPHICS,
@@ -34,6 +35,7 @@ typedef enum dev_flags {
 
 const static char* dev_type_urls[DRIVER_TYPE_COUNT] = {
   [DT_DISK] = "disk",
+  [DT_FS] = "fs",
   [DT_IO] = "io",
   [DT_SOUND] = "sound",
   [DT_GRAPHICS] = "graphics",
@@ -105,6 +107,14 @@ bool is_driver_loaded(struct aniva_driver* handle);
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
+
+/*
+ * This tries to get a driver from the loaded pool. If it is not
+ * found, we see if it is installed and if it allows for dynamic 
+ * loading. If the DRV_ALLOW_DYNAMIC_LOADING bit is set in both
+ * the driver and the method, we try to load the driver anyway
+ */
+struct dev_manifest* try_driver_get(struct aniva_driver* driver, uint32_t flags);
 
 /*
  * Marks the driver as ready to recieve packets preemptively

@@ -37,6 +37,7 @@ typedef void (*FuncPtr)();
 #define false 0
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
+#define NOINLINE __attribute__((noinline))
 #define NORETURN __attribute__((noreturn))
 #define NAKED __attribute__((naked))
 #define SECTION(__sect) __attribute__((section(__sect)))

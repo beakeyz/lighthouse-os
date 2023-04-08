@@ -1,4 +1,5 @@
 #include "core.h"
+#include "dev/debug/serial.h"
 #include "libk/error.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
@@ -51,8 +52,33 @@ ErrorOrPtr unregister_filesystem(fs_type_t* fs) {
   kernel_panic("TODO: implement unregister_filesystem");
 }
 
+static fs_type_t* __get_fs_type(const char* name, uint32_t length) {
+
+  fs_type_t* ret;
+
+  mutex_lock(fsystems_lock);
+
+  ret = *(find_fs_type(name, length));
+
+  /* Don't dynamicaly load and the driver does not have to be active */
+  if (ret && !try_driver_get(ret->m_driver, NULL)) {
+    ret = NULL;
+  }
+
+  mutex_unlock(fsystems_lock);
+  return ret;
+}
+
 fs_type_t* get_fs_type(const char* name) {
-  kernel_panic("TODO: implement get_fs_type");
+  fs_type_t* ret;
+
+  ret = __get_fs_type(name, strlen(name));
+
+  if (!ret) {
+    // Can we do anything to still try to get this filesystem?
+  }
+
+  return ret;
 }
 
 void init_fs_core() {

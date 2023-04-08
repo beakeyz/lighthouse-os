@@ -6,7 +6,6 @@
 #include <libk/stddef.h>
 
 int test_init() {
-  println("Hi =D");
   return 0;
 }
 

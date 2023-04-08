@@ -2,6 +2,7 @@
 #define __ANIVA_DRIVER__
 #include <libk/stddef.h>
 #include "core.h"
+#include "libk/reference.h"
 #include "proc/socket.h"
 
 struct vnode;
@@ -49,10 +50,11 @@ typedef struct aniva_driver {
   dev_url_t m_dependencies[];
 } aniva_driver_t;
 
-#define DRV_FS                  (0x00000001) /* Should be mounted inside the vfs */
-#define DRV_NON_ESSENTIAL       (0x00000002) /* Is this a system-driver or user/nonessential driver */
-#define DRV_ACTIVE              (0x00000004) /* Is this driver available for opperations */
-#define DRV_SOCK                (0x00000008) /* Does this driver require a socket */
+#define DRV_FS                      (0x00000001) /* Should be mounted inside the vfs */
+#define DRV_NON_ESSENTIAL           (0x00000002) /* Is this a system-driver or user/nonessential driver */
+#define DRV_ACTIVE                  (0x00000004) /* Is this driver available for opperations */
+#define DRV_SOCK                    (0x00000008) /* Does this driver require a socket */
+#define DRV_ALLOW_DYNAMIC_LOADING   (0x00000010) /* Allows the installed driver to be loaded when we need it */
 
 aniva_driver_t* create_driver(
   const char* name,

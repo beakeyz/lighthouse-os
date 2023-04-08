@@ -6,7 +6,9 @@ int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_
   int result = -1;
   disk_offset_t offset;
 
-  if (block >= dev->m_partition_data.m_start_lba && block <= dev->m_partition_data.m_end_lba) {
+  block = dev->m_partition_data.m_start_lba + block;
+
+  if (block <= dev->m_partition_data.m_end_lba) {
 
     offset = block * dev->m_parent->m_logical_sector_size;
 

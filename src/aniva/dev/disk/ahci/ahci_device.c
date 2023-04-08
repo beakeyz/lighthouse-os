@@ -43,7 +43,7 @@ const aniva_driver_t g_base_ahci_driver = {
   .f_exit = ahci_driver_exit,
   .f_drv_msg = ahci_driver_on_packet,
   .m_dependencies = {"graphics/kterm"},
-  .m_dep_count = 0
+  .m_dep_count = 1
 };
 EXPORT_DRIVER(g_base_ahci_driver);
 

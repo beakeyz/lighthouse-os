@@ -2,6 +2,7 @@
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "fs/core.h"
 #include "fs/namespace.h"
 #include "fs/vfs.h"
 #include "libk/error.h"
@@ -34,7 +35,7 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
-void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
+NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_serial();
   println("Hi from 64 bit land =D");
@@ -82,6 +83,8 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   initialize_proc_core();
 
   init_vfs();
+
+  init_fs_core();
 
   // NOTE: test
   // TODO: how the actual fuck do we want to manage devices in our kernel???

@@ -1,20 +1,17 @@
+#include "dev/core.h"
+#include "dev/debug/serial.h"
+#include "dev/disk/generic.h"
+#include "dev/driver.h"
+#include "fs/ext2/core.h"
+#include "mem/heap.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
 #include <libk/error.h>
 #include <fs/core.h>
 #include <fs/vnode.h>
 
-struct ext2_superblock {
-
-} __attribute__((packed));
-
-struct ext2_inode_table {
-
-} __attribute__((packed));
-
-struct ext2_block_group_descriptor {
-
-} __attribute__((packed));
+int ext2_init();
+int ext2_exit();
 
 typedef struct ext2_info {
   uint32_t blocksize;
@@ -42,17 +39,56 @@ vnode_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_de
 
   ASSERT_MSG(device, "Can't initialize ext2 fs without a disk device");
 
+  ext2_superblock_t* superblock = kmalloc(sizeof(ext2_superblock_t));
+
+  read_sync_partitioned_block(device, superblock, sizeof(ext2_superblock_t), 1);
+
+  // TODO: =)
+
   return 0;
 }
 
+/*
+ * TODO: make disk usage a path of least resistance instead of just picking out something.
+ * If there is no ahci driver, we would be fucked in this case lol
+ */
+aniva_driver_t ext2_drv = {
+  .m_name = "ext2",
+  .m_type = DT_FS,
+  .f_init = ext2_init,
+  .f_exit = ext2_exit,
+  .m_dependencies = {"disk/ahci"},
+  .m_dep_count = 1,
+};
+EXPORT_DRIVER(ext2_drv);
+
 fs_type_t ext2_type = {
+  .m_driver = &ext2_drv,
   .m_name = "ext2",
   .f_mount = ext2_mount,
 };
 
-void init_ext2_fs() {
+int ext2_init() {
 
-  /* TODO: caches? */
+  println("Initialized ext2 driver");
+  ErrorOrPtr result;
 
-  register_filesystem(&ext2_type);
+  result = register_filesystem(&ext2_type);
+
+  if (result.m_status == ANIVA_FAIL)
+    return -1;
+
+  // kernel_panic("Registered the ext2 filesystem...");
+  return 0;
 }
+
+int ext2_exit() {
+
+  ErrorOrPtr result = unregister_filesystem(&ext2_type);
+
+  if (result.m_status == ANIVA_FAIL)
+    return -1;
+
+  return 0;
+}
+

@@ -244,6 +244,29 @@ dev_manifest_t* get_driver(dev_url_t url) {
   return manifest;
 }
 
+dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
+  if (!driver || !driver->m_manifest)
+    return nullptr;
+
+  bool is_loaded = is_driver_loaded(driver);
+  bool is_installed = is_driver_installed(driver);
+
+  if (driver->m_flags & DRV_ALLOW_DYNAMIC_LOADING && flags & DRV_ALLOW_DYNAMIC_LOADING) {
+    Must(load_driver(driver->m_manifest));
+  }
+
+  /* If the flags specify that the driver has to be active, we check for that */
+  if ((driver->m_flags & DRV_ACTIVE) == 0 && (flags & DRV_ACTIVE)) {
+    return nullptr;
+  }
+
+  if (is_loaded && is_installed) {
+    return create_dev_manifest(driver, 0);
+  }
+
+  return nullptr;
+}
+
 /*
  * This function is kinda funky, since anyone who knows the url, can 
  * simply set the driver as ready for kicks and giggles. We might need

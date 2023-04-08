@@ -5,6 +5,7 @@
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "fs/core.h"
 #include "fs/vfs.h"
 #include "interupts/interupts.h"
 #include "libk/async_ptr.h"
@@ -382,9 +383,9 @@ static void kterm_process_buffer() {
         kterm_println((*device)->m_partition_data.m_name);
         kterm_println("\n");
       }
-    } else
+    } else {
       kterm_println("Could not find vnode!");
-
+    }
   }
   kterm_println("\n");
 }
@@ -460,7 +461,9 @@ static void kterm_println(const char* msg) {
 void println_kterm(const char* msg) {
   // Fuck this shit lmao, what if we fuck up the mapping?
   // how do we ensure that kterm_driver stays mapped high?
-  if (!is_driver_installed((aniva_driver_t*)kmem_ensure_high_mapping((uintptr_t)&g_base_kterm_driver))) {
+  // NOTE: there is (or was?) a bug where removing kmem_ensure_high_mapping
+  // whould pagefault, but idk how or why the fack that happen
+  if (!driver_is_ready((aniva_driver_t*)kmem_ensure_high_mapping((uintptr_t)&g_base_kterm_driver))) {
     return;
   }
 
