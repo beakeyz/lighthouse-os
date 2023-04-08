@@ -10,6 +10,8 @@ int ramfs_exit();
 
 vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
+  vnode_t* node = create_generic_vnode("cramfs", VN_MOUNT);
+
   return nullptr;
 }
 
@@ -18,8 +20,6 @@ aniva_driver_t ramfs = {
   .m_type = DT_FS,
   .f_init = ramfs_init,
   .f_exit = ramfs_exit,
-  .m_dependencies = {"disk/ahci"},
-  .m_dep_count = 1,
 };
 EXPORT_DRIVER(ramfs);
 

@@ -55,6 +55,8 @@ typedef struct vnode {
 #define VN_FROZEN   (0x000008)
 #define VN_CACHED   (0x000010)
 #define VN_LINK     (0x000011)
+#define VN_FS       (0x000012)
+#define VN_DIR      (0x000014)
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
 

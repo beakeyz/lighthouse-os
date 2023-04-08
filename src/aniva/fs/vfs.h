@@ -52,9 +52,8 @@ void init_vfs();
  *
  */
 ErrorOrPtr vfs_mount(const char* path, vnode_t* node);
-ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs);
-ErrorOrPtr vfs_mount_fs(const char* mountpoint, const char* fs_name);
-ErrorOrPtr vfs_mount_generic_disk(const char* mountpoint, generic_disk_dev_t* device);
+ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device);
+ErrorOrPtr vfs_mount_fs(const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device);
 ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver);
 ErrorOrPtr vfs_unmount(const char* path);
 

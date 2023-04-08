@@ -403,7 +403,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
     generic_partition_t partition = create_generic_partition(part->m_type.m_name, part->m_start_lba, part->m_end_lba, NULL);
 
-    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, partition, port->m_generic.m_ops);
+    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, partition);
 
     println_kterm(partitioned_device->m_partition_data.m_name);
 

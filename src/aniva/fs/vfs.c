@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "fs/cache.h"
+#include "fs/core.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
@@ -57,10 +58,32 @@ ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
   return mount_result;
 }
 
-/* TODO: is this really the best idea? */
-ErrorOrPtr vfs_mount_generic_disk(const char* mountpoint, generic_disk_dev_t* device) {
+ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) {
+
+  vnode_t* mountnode = nullptr;
+
+  if (fs->f_mount)
+    mountnode = fs->f_mount(fs, mountpoint, device);
+
+  if (!mountnode)
+    return Error();
+
+  ErrorOrPtr mount_result = vfs_mount(mountpoint, mountnode);
+
+  if (mount_result.m_status == ANIVA_SUCCESS) {
+  }
 
   return Success(0);
+}
+
+ErrorOrPtr vfs_mount_fs(const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device) {
+
+  fs_type_t* type = get_fs_type(fs_name);
+
+  if (!type)
+    return Error();
+
+  return vfs_mount_fs_type(mountpoint, type, device);
 }
 
 /*

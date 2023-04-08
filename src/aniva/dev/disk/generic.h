@@ -25,6 +25,8 @@ typedef struct disk_dev {
   const char* m_device_name;
   char* m_path;
 
+  uint32_t m_flags;
+
   uintptr_t m_max_blk;
   size_t m_logical_sector_size;
   size_t m_physical_sector_size;
@@ -35,26 +37,28 @@ typedef struct disk_dev {
   struct partitioned_disk_dev* m_devs;
 } generic_disk_dev_t;
 
+#define GDISKDEV_SCSI       (0x00000001) /* Does this device use the SCSI protocol */
+#define GDISKDEV_RAM        (0x00000002) /* Is this a ramdevice */
+
 typedef struct partitioned_disk_dev {
   struct disk_dev* m_parent;
 
   generic_partition_t m_partition_data;
-  
-  generic_disk_ops_t m_ops;
 
   struct partitioned_disk_dev* m_next;
 } partitioned_disk_dev_t;
 
+int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
+int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
 int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
 
-static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t partition, generic_disk_ops_t ops) {
+static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t partition) {
   partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
   
   ret->m_parent = parent;
 
   ret->m_partition_data = partition;
-  ret->m_ops = ops;
   ret->m_next = nullptr;
 
   return ret;
