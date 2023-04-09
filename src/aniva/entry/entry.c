@@ -32,6 +32,23 @@ void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 //extern ctor_func_t _end_ctors[];
 //__attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
+NOINLINE void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
+  println("Looking for ramdisk...");
+
+  struct multiboot_tag_module* mod = get_mb2_tag((void*)multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
+
+  while (mod) {
+    const uintptr_t module_start = mod->mod_start;
+    const uintptr_t module_end = mod->mod_end;
+
+    println("Found module!");
+    println(to_string(module_start));
+    println(to_string(module_end));
+
+    mod = next_mb2_tag(mod + mod->size, MULTIBOOT_TAG_TYPE_MODULE);
+  }
+}
+
 static uintptr_t first_valid_addr = 0;
 static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
 
@@ -68,6 +85,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     total_multiboot_size + 8,
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
   );
+
+  try_fetch_initramdisk((uintptr_t)mb_addr);
 
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = total_multiboot_size + 8;
