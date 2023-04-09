@@ -13,7 +13,7 @@ typedef struct vnode {
   void* m_dev;
 
   uint32_t m_flags;
-  uint32_t m_access_count;
+  uint32_t m_access_count; /* Atomic? */
   uint32_t m_event_count;
 
   /* Gets assigned when the vnode is mounted somewhere in the VFS */
@@ -27,8 +27,8 @@ typedef struct vnode {
 
   void* m_data;
 
-  int (*f_write) (struct vnode*, uintptr_t off, size_t size, void* buffer);
-  int (*f_read) (struct vnode*, uintptr_t off, size_t size, void* buffer);
+  int (*f_write) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
+  int (*f_read) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
   int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
   /* Should return bytestreams of their respective files */
   void* (*f_open_stream) (struct vnode*);

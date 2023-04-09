@@ -1,5 +1,6 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
@@ -8,9 +9,37 @@
 int ramfs_init();
 int ramfs_exit();
 
+static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
+
+
+  return 0;
+}
+
+static int ramfs_write(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
+  kernel_panic("TODO: implement ramfs_write");
+  return 0;
+}
+
+/*
+ * We get passed the addressspace of the ramdisk through the partitioned_disk_dev_t
+ * which holds the boundaries for our disk
+ */
 vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
-  vnode_t* node = create_generic_vnode("cramfs", VN_MOUNT);
+  /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
+  const generic_disk_dev_t* parent = device->m_parent;
+
+  if (!parent)
+    return nullptr;
+
+  const size_t partition_size = device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba;
+  vnode_t* node = create_generic_vnode("cramfs", VN_MOUNT | VN_FS);
+
+  node->m_size = partition_size;
+  node->m_data = (void*)device->m_partition_data.m_start_lba;
+
+  node->f_read = ramfs_read;
+  node->f_write = ramfs_write;
 
   return nullptr;
 }

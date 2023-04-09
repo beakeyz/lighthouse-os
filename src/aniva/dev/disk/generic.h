@@ -64,6 +64,10 @@ static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* p
   return ret;
 }
 
+static void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev) {
+  kfree(dev);
+}
+
 static void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
 
   if (!generic->m_devs) {

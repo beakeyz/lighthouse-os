@@ -3,6 +3,8 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/disk/ahci/ahci_port.h"
+#include "dev/disk/generic.h"
+#include "dev/disk/ramdisk.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "fs/core.h"
@@ -366,26 +368,23 @@ static void kterm_process_buffer() {
 
     kterm_println("\nSuccessfully created Zone!\n");
   } else if (!strcmp(contents, "lsdsk")) {
-    // TODO: get all the registered (for now) AHCI ports and all the attached partitions
 
-    packet_response_t* port = driver_send_packet_sync("disk/ahci", AHCI_MSG_GET_PORT, "prt0", strlen("ptr0"));
+    kterm_println("\nTrying to create and read from dummy ramdisk!\n");
+    generic_disk_dev_t* ramdisk = create_generic_ramdev(SMALL_PAGE_SIZE);
 
-    // NOTE: test
+    uintptr_t buffer;
 
-    kterm_println("\n");
+    ramdisk->m_ops.f_read_sync(ramdisk, &buffer, sizeof(uintptr_t), 0);
 
-    if (port && port->m_response_size == sizeof(ahci_port_t)) {
-      ahci_port_t p = *(ahci_port_t*)port->m_response_buffer;
+    bool could_kill = destroy_generic_ramdev(ramdisk);
 
-      partitioned_disk_dev_t** device;
+    kterm_println("Successfully read from dummy ramdisk: ");
+    kterm_println(to_string(buffer));
+    if (could_kill)
+      kterm_println("\nCould kill the disk!");
+    else
+      kterm_println("\nCould not kill the disk!");
 
-      for (device = &p.m_generic.m_devs; (*device); device = &(*device)->m_next) {
-        kterm_println((*device)->m_partition_data.m_name);
-        kterm_println("\n");
-      }
-    } else {
-      kterm_println("Could not find vnode!");
-    }
   }
   kterm_println("\n");
 }
