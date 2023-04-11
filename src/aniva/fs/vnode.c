@@ -45,6 +45,7 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   node->f_msg = vnode_msg;
 
   node->m_name = name;
+  node->m_id = -1;
 
   node->m_flags = flags;
 
@@ -90,16 +91,16 @@ ErrorOrPtr destroy_generic_vnode(vnode_t* node) {
 }
 
 bool vn_seems_mounted(vnode_t node) {
-  if (!(node.m_flags & VN_MOUNT))
-    return false;
+  if ((node.m_flags & VN_MOUNT))
+    return true;
 
-  if (node.m_id < 0)
-    return false;
+  if (node.m_id > 0)
+    return true;
 
-  if (!node.m_ns)
-    return false;
+  if (node.m_ns)
+    return true;
 
-  return true;
+  return false;
 }
 
 bool vn_is_link(vnode_t node) {
