@@ -125,6 +125,7 @@ gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t in
 }
 
 void destroy_gpt_partition(gpt_partition_t* partition) {
+  kfree(partition->m_path);
   kfree(partition);
 }
 
