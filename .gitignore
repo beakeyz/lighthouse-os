@@ -1,6 +1,7 @@
 .vscode/
 
 /cross_compiler/
+cross_compiler/
 /sysroot/
 /out/
 /tests/out

@@ -37,6 +37,15 @@ registers_t *sched_tick(registers_t*);
 
 ANIVA_STATUS sched_add_proc(proc_t*);
 
+/*
+ * Try and insert a new process into the scheduler
+ * to be scheduled on the next reschedule. This function
+ * either agressively inserts itself at the front of the 
+ * process selection or simply puts itself behind the current 
+ * running process to be scheduled next, based on the reschedule param
+ */
+ErrorOrPtr sched_add_priority_proc(proc_t*, bool reschedule);
+
 void sched_idle_current_process();
 void sched_wake_current_process();
 
@@ -46,6 +55,7 @@ ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();
 thread_t *get_previous_scheduled_thread();
+proc_t* get_current_proc();
 void set_current_handled_thread(thread_t* thread);
 
 proc_t* sched_get_kernel_proc();

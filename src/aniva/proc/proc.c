@@ -15,7 +15,6 @@
 #include "core.h"
 #include <mem/heap.h>
 
-
 void generic_proc_idle () {
   println("Entered generic_proc_idle");
 
@@ -24,49 +23,64 @@ void generic_proc_idle () {
   }
 }
 
-proc_t* create_clean_proc(char name[32], proc_id id) {
+proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags) {
   proc_t *proc = kmalloc(sizeof(proc_t));
 
   if (proc == nullptr) {
     return nullptr;
   }
 
-  proc->m_id = id;
+  proc->m_id = Must(generate_new_proc_id());
+  proc->m_flags = flags | PROC_UNRUNNED;
 
   // Only create new page dirs for non-kernel procs
-  if (id != 0)
+  if ((flags & PROC_KERNEL) == 0) {
+    proc->m_requested_max_threads = 2;
+  //  proc->m_prevent_scheduling = true;
     proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 10 * Kib);
-  else
+  } else {
     proc->m_root_pd = get_current_processor()->m_page_dir;
+  //  proc->m_prevent_scheduling = false;
+    proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
+  }
 
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
   proc->m_threads = init_list();
 
   strcpy(proc->m_name, name);
 
-  if (id != 0) {
-    proc->m_requested_max_threads = 2;
-    proc->m_prevent_scheduling = true;
-  } else {
-    proc->m_prevent_scheduling = false;
-    proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
-  }
-
-  return proc;
-}
-
-proc_t* create_proc(char name[32], proc_id id, FuncPtr entry, uintptr_t args) {
-  proc_t *proc = create_clean_proc(name, id);
-
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
-  list_append(proc->m_threads, thread);
+
+  Must(proc_add_thread(proc, thread));
 
   return proc;
 }
+
+#define IS_KERNEL_FUNC(func) true
 
 proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
-  return create_proc(PROC_CORE_PROCESS_NAME, 0, entry, args);
+
+  /* TODO: check */
+  if (!IS_KERNEL_FUNC(entry)) {
+    return nullptr;
+  }
+
+  return create_proc(PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
+
+proc_t* create_proc_from_path(const char* path) {
+  kernel_panic("TODO: create_proc_from_path");
+  return nullptr;
+}
+
+ErrorOrPtr try_terminate_process(proc_t* proc) {
+
+  proc_t* current = get_current_proc();
+
+  return Success(0);
+}
+
+void terminate_process(proc_t* proc);
 
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
   if (thread && proc) {
@@ -74,6 +88,13 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
 
     if (does_contain.m_status == ANIVA_SUCCESS) {
       return Error();
+    }
+
+    /* If this is the first thread, we need to make sure it gets ran first */
+    if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
+      proc->m_init_thread = thread;
+      /* Ensure the schedulers picks up on this fact */
+      proc->m_flags |= PROC_UNRUNNED;
     }
 
     list_append(proc->m_threads, thread);

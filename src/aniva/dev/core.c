@@ -281,17 +281,19 @@ ErrorOrPtr driver_set_ready(const char* path) {
   if (!handle)
     goto exit_invalid;
 
+  handle->m_flags |= DRV_ACTIVE;
+
   // This driver is not a socket, and thus we can't find a thread
   // That is linked to this driver. We only give it a bootstrap thread
   // in this case
   if ((handle->m_flags & DRV_SOCK) == 0) {
-    handle->m_flags |= DRV_ACTIVE;
     return Success(0);
   }
 
   /* This driver is mounted in the system fs. We could find it that way... */
   if (handle->m_flags & DRV_FS) {
     // TODO:
+    kernel_panic("TODO: implement readying of FS drivers");
   }
 
   threaded_socket_t* socket = find_registered_socket(handle->m_port);

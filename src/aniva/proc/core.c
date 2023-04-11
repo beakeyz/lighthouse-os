@@ -38,17 +38,7 @@ ANIVA_STATUS initialize_proc_core() {
 // Leaves the current thread/process behind to be scheduled back into later
 ErrorOrPtr exec_user(char proc_name[32], FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
 
-  pause_scheduler();
-  proc_t* user_proc = create_clean_proc(proc_name, Must(generate_new_proc_id()));
-
-  proc_add_thread(user_proc, create_thread_for_proc(user_proc, entry, arg0, "mainthread"));
-
-
-  sched_add_proc(user_proc);
-
-  resume_scheduler();
-
-  scheduler_yield();
+  kernel_panic("TODO exec_user");
 
   return Success(0);
 }

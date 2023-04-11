@@ -7,9 +7,9 @@
 #include "fs/vfs.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
+#include "libk/stddef.h"
 #include "mem/pg.h"
 #include "proc/ipc/thr_intrf.h"
-#include "proc/kprocs/root_process.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "system/processor/processor.h"
@@ -26,6 +26,7 @@
 system_info_t g_system_info;
 
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
+NORETURN void kernel_thread();
 
 //typedef void (*ctor_func_t)();
 //extern ctor_func_t _start_ctors[];
@@ -117,9 +118,10 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-  create_and_register_root_process();
+  proc_t* root_proc = create_kernel_proc(kernel_thread, NULL);
+  set_kernel_proc(root_proc);
 
-  init_aniva_driver_registry();
+  sched_add_proc(root_proc);
 
   start_scheduler();
 
@@ -136,8 +138,15 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   //    in their own context
   //  - have this mechanism in place in such a way that when a thread is done and exists, it automatically cleans up
   //  - the stack and reverts to its sub-thread if it has it.
+}
+
+NORETURN void kernel_thread() {
+
+  init_aniva_driver_registry();
 
   for (;;) {
     asm volatile ("hlt");
   }
+
+  kernel_panic("Reached end of start_thread");
 }

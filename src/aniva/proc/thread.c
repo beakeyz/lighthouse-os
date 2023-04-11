@@ -65,7 +65,9 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
     return nullptr;
   }
 
-  thread_t *t = create_thread(entry, NULL, args, name, proc, (proc->m_id == 0));
+  const bool is_kernel = proc->m_flags & PROC_KERNEL;
+
+  thread_t *t = create_thread(entry, NULL, args, name, proc, is_kernel);
   if (thread_prepare_context(t) == ANIVA_SUCCESS) {
     return t;
   }
@@ -84,7 +86,9 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
     return nullptr;
   }
 
-  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, arg0, name, proc, (proc->m_id == 0));
+  const bool is_kernel = proc->m_flags & PROC_KERNEL;
+
+  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, arg0, name, proc, is_kernel);
 
   // failed to create thread
   if (!ret) {
@@ -155,7 +159,7 @@ NAKED void common_thread_entry() {
   asm (
     "popq %rdi \n" // our beautiful thread
     "popq %rsi \n" // ptr to its registers
-    //"call thread_exit_init_state \n"
+    // "call thread_exit_init_state \n"
     "jmp asm_common_irq_exit \n"
     );
 }
@@ -276,7 +280,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   // but it keeps running the function all over again.
   // since no state is saved, is just starts all over
 
-  if (from->m_current_state == RUNNING) {
+  if (from && from->m_current_state == RUNNING) {
     thread_set_state(from, RUNNABLE);
   }
 
@@ -284,7 +288,8 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
 
-  save_fpu_state(&from->m_fpu_state);
+  if (from)
+    save_fpu_state(&from->m_fpu_state);
 
   asm volatile (
     THREAD_PUSH_REGS
@@ -327,7 +332,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 
 // TODO: this thing
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
-
 }
 
 void thread_block(thread_t* thread) {

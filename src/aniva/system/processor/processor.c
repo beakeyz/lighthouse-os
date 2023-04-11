@@ -1,4 +1,5 @@
 #include "processor.h"
+#include "dev/debug/serial.h"
 #include "interupts/idt.h"
 #include "libk/error.h"
 #include "libk/queue.h"

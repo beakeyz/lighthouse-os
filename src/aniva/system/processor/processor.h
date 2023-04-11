@@ -56,6 +56,7 @@ typedef struct Processor {
 
   socket_packet_queue_t m_packet_queue;
 
+  proc_t *m_current_proc;
   proc_t *m_kernel_process;
   bool m_being_handled_by_scheduler;
 

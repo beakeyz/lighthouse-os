@@ -189,6 +189,10 @@ static int generic_driver_entry(aniva_driver_t* driver) {
   return result;
 }
 
+static void test() {
+  kernel_panic("Entered test");
+}
+
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
 
   ErrorOrPtr result;
@@ -253,9 +257,13 @@ ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
 
   if (driver->m_flags & DRV_SOCK) {
 
+    println("Creating socket driver");
     thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)generic_driver_entry, (uintptr_t)driver, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, driver->m_port);
 
     result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
+
+
+    println("Created socket driver");
   } else {
     generic_driver_entry(driver);
   }

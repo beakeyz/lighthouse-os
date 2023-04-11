@@ -148,7 +148,6 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
   uint16_t key_code = scan_code & 0x7f;
   bool pressed = !(scan_code & 0x80);
 
-
   switch (key_code) {
     case KBD_SCANCODE_ALT:
       set_flags(&s_mod_flags, KBD_MOD_ALT, pressed);
