@@ -10,11 +10,11 @@
  * Some dummy op functions
  */
 
-static int vnode_write(vnode_t* node, uintptr_t offset, size_t size, void* buffer) {
+static int vnode_write(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
   return 0;
 }
 
-static int vnode_read(vnode_t* node, uintptr_t offset, size_t size, void* buffer) {
+static int vnode_read(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
   return 0;
 }
 

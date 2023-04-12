@@ -4,6 +4,7 @@
 #include "libk/error.h"
 #include "libk/hive.h"
 #include "libk/linkedlist.h"
+#include "sync/mutex.h"
 #include <libk/stddef.h>
 
 /*
@@ -12,6 +13,11 @@
  */
 
 struct vnode;
+
+/* TODO: work out how we can stash away vnodes */
+typedef struct vnode_stash {
+  
+} vnode_stash_t;
 
 typedef struct virtual_namespace {
   /* how many vnamespaces are in between this namespace and the root */
@@ -29,6 +35,9 @@ typedef struct virtual_namespace {
   /* Should be a hash table */
   hive_t* m_vnodes;
 
+  /* Locks the mutating functionality of a namespace */
+  mutex_t* m_mutate_lock;
+
   struct virtual_namespace* m_parent;
 } vnamespace_t;
 
@@ -38,19 +47,34 @@ typedef struct virtual_namespace {
 
 void init_vns();
 
+/*
+ * Create a namespace instance
+ */
 vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent);
+
+void destroy_vnamespace(vnamespace_t* ns);
 
 /*
  * Binds a node to a namespace
  * if the node already has a namespace, it fails
  */
-ErrorOrPtr vns_assign_vns(struct vnode* node, vnamespace_t* namespace);
+ErrorOrPtr vns_assign_vnode(struct vnode* node, vnamespace_t* namespace);
+
+/*
+ * Locking for namespaces. Namespaces get locked when we do vnode resolutions,
+ * in order to ensure the namespace does not get yeeted right when we try to 
+ * find it. When a vnode is grabbed by something (a process, the kernel, ect.)
+ * we simply send it vnamespace events to signal it has moved location (when this 
+ * is necessery) ((TODO))
+ */
+ErrorOrPtr vns_commit_mutate(vnamespace_t* ns);
+ErrorOrPtr vns_uncommit_mutate(vnamespace_t* ns);
 
 /*
  * Binds a node to a namespace
  * if the node does not already has a namespace, it fails
  */
-ErrorOrPtr vns_reassign_vns(struct vnode* node, vnamespace_t* namespace);
+ErrorOrPtr vns_reassign_vnode(struct vnode* node, vnamespace_t* namespace);
 
 struct vnode* vns_find_vnode(vnamespace_t* ns, const char* path);
 
@@ -77,6 +101,9 @@ static ALWAYS_INLINE const char* vns_stash_prefix() {
   return "@stashed";
 }
 
-ErrorOrPtr vns_try_move(vnamespace_t* ns, vnamespace_t* new_parent);
+/*
+ * NOTE: The new path excludes the id of the new namespace
+ */
+ErrorOrPtr vns_try_move(vnamespace_t** ns, const char* path);
 
 #endif // !__ANIVA_FS_NAMESPACE__

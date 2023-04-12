@@ -64,8 +64,9 @@ ErrorOrPtr hive_add_entry(hive_t* root, void* data, const char* path) {
     return Error();
   }
 
+  /* When the entry already exists, we don't really want to instantly die yk */
   if (hive_get(root, path) != nullptr) {
-    return Error();
+    return Warning();
   }
 
   hive_entry_t* new_entry = create_hive_entry(nullptr, data, nullptr);

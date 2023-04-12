@@ -1,10 +1,12 @@
 #include "namespace.h"
+#include "dev/debug/serial.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
 #include "libk/hive.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
+#include "sync/mutex.h"
 
 void init_vns() {
 
@@ -15,7 +17,6 @@ void init_vns() {
   root_namespace->m_desc = "sys";
 
   vfs_attach_root_namespace(root_namespace);
-
 }
 
 vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
@@ -41,7 +42,15 @@ vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
   return ns;
 }
 
-ErrorOrPtr vns_assign_vns(struct vnode* node, vnamespace_t* namespace) {
+void destroy_vnamespace(vnamespace_t* ns) {
+  if (!ns)
+    return;
+
+  destroy_hive(ns->m_vnodes);
+  kfree(ns);
+}
+
+ErrorOrPtr vns_assign_vnode(struct vnode* node, vnamespace_t* namespace) {
 
   if (!node)
     return Error();
@@ -59,7 +68,7 @@ ErrorOrPtr vns_assign_vns(struct vnode* node, vnamespace_t* namespace) {
   return Success(0);
 }
 
-ErrorOrPtr vns_reassign_vns(struct vnode* node, vnamespace_t* namespace) {
+ErrorOrPtr vns_reassign_vnode(struct vnode* node, vnamespace_t* namespace) {
 
   if (!node)
     return Error();
@@ -81,3 +90,123 @@ ErrorOrPtr vns_reassign_vns(struct vnode* node, vnamespace_t* namespace) {
 
   return Success(0);
 }
+
+vnode_t* vns_find_vnode(vnamespace_t* ns, const char* path) {
+
+  vnode_t* ret = hive_get(ns->m_vnodes, path);
+
+  if (!ret) {
+    /* Look in the stashed vnodes perhaps */
+  }
+
+  return ret;
+}
+
+vnode_t* vns_try_remove_vnode(vnamespace_t* ns, const char* path) {
+
+  vnode_t* ret = vns_find_vnode(ns, path);
+
+  if (!ret)
+    return nullptr;
+
+  ErrorOrPtr result = hive_remove(ns->m_vnodes, ret);
+
+  if (result.m_status == ANIVA_FAIL) {
+    return nullptr;
+  }
+
+  return ret;
+}
+
+ErrorOrPtr vns_commit_mutate(vnamespace_t* ns) {
+  if (mutex_is_locked(ns->m_mutate_lock))
+    return Error();
+
+  mutex_lock(ns->m_mutate_lock);
+
+  return Success(0);
+}
+
+ErrorOrPtr vns_uncommit_mutate(vnamespace_t* ns) {
+  if (!mutex_is_locked(ns->m_mutate_lock))
+    return Error();
+
+  mutex_unlock(ns->m_mutate_lock);
+
+  return Success(0);
+}
+
+bool vns_contains_vnode(vnamespace_t* ns, const char* path) {
+  return (vns_find_vnode(ns, path) != nullptr);
+}
+
+bool vns_contains_obj(vnamespace_t* ns, struct vnode* obj) {
+  return hive_contains(ns->m_vnodes, obj);
+}
+
+void vns_stash_vnode(vnamespace_t* ns, struct vnode* node) {
+  kernel_panic("TODO: (vns_stash_vnode) implement vnode stashing");
+}
+
+void vns_activate_vnode(vnamespace_t* ns, struct vnode* node) {
+  kernel_panic("TODO: (vns_activate_vnode) implement vnode stashing");
+}
+
+static void vns_mutate(vnamespace_t* namespace, vnamespace_t obj) {
+
+
+  if (!namespace)
+    return;
+
+  /* TODO: when the old namespace still contains nodes, what do we want to do with them? */
+  if (namespace->m_vnodes) {
+    /* Right now we just simply yeet out all the nodes it previously had, so the caller must respect that */
+    destroy_hive(namespace->m_vnodes);
+  }
+  
+  memcpy(namespace, &obj, sizeof(vnamespace_t));
+}
+
+ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path) {
+
+  if (!ns_p)
+    return Error();
+
+  ErrorOrPtr result;
+  vnamespace_t* ns = *ns_p;
+
+  if (!ns)
+    return Error();
+
+  vnamespace_t* parent = ns->m_parent;
+
+  result = vns_commit_mutate(ns);
+
+  if (result.m_status == ANIVA_FAIL)
+    return result;
+
+  /* Remember the size of the seperator */
+  size_t full_path_len = strlen(path) + 1 + strlen(ns->m_id);
+
+  char full_path[full_path_len + 1];
+
+  /* Move the namespace */
+  vnamespace_t* dummy = vfs_create_path(full_path);
+
+  if (!dummy)
+    return Error();
+
+  vns_mutate(dummy, *ns);
+
+  /* Make sure the old namespace is dead */
+  destroy_vnamespace(ns);
+
+  /* Update the reference */
+  *ns_p = dummy;
+
+  /* If, at this point, we fail to uncommit; something has gone very wrong */
+  Must(vns_uncommit_mutate(*ns_p));
+
+  return result;
+}
+

@@ -5,6 +5,7 @@
 #include "fs/core.h"
 #include "fs/namespace.h"
 #include "fs/vfs.h"
+#include "fs/vnode.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
@@ -111,10 +112,25 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // are we going micro, mono or perhaps even exo?
   // how big will the role of the vfs be?
   //  * how will processes even interact with the kernel??? * 
-  Must(vfs_attach_namespace("l_dev"));
-  Must(vfs_attach_namespace("l_dev/graphics"));
-  Must(vfs_attach_namespace("l_dev/io"));
-  Must(vfs_attach_namespace("l_dev/disk"));
+  vfs_create_path("l_dev/graphics");
+  vfs_create_path("l_dev/io");
+  vfs_create_path("l_dev/disk");
+  // Must(vfs_try_create_path("l_dev/disk"));
+
+  vnode_t* test = create_generic_vnode("Test", 0);
+  test->m_data = "Hi, I am david!";
+
+  vfs_mount("l_dev/graphics", test);
+
+  kernel_panic("Test");
+
+  test = vfs_resolve("l_dev/disk/Test");
+
+  print("Test: ");
+  if (test)
+    println((char*)test->m_data);
+
+  kernel_panic("Noting");
 
   init_scheduler();
 
