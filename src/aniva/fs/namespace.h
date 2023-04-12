@@ -77,4 +77,6 @@ static ALWAYS_INLINE const char* vns_stash_prefix() {
   return "@stashed";
 }
 
+ErrorOrPtr vns_try_move(vnamespace_t* ns, vnamespace_t* new_parent);
+
 #endif // !__ANIVA_FS_NAMESPACE__
