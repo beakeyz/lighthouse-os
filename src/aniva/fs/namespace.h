@@ -51,4 +51,29 @@ ErrorOrPtr vns_assign_vns(struct vnode* node, vnamespace_t* namespace);
  */
 ErrorOrPtr vns_reassign_vns(struct vnode* node, vnamespace_t* namespace);
 
+struct vnode* vns_find_vnode(vnamespace_t* ns, const char* path);
+
+struct vnode* vns_try_remove_vnode(vnamespace_t* ns, const char* path);
+
+bool vns_contains_vnode(vnamespace_t* ns, const char* path);
+
+bool vns_contains_obj(vnamespace_t* ns, struct vnode* obj);
+
+/* 
+ * Cache a vnode to speed up searches (we might want to do 
+ * this if a vnode isnt used much
+*/
+void vns_stash_vnode(vnamespace_t* ns, struct vnode* node);
+
+/*
+ * Reverse action to the above func
+ */
+void vns_activate_vnode(vnamespace_t* ns, struct vnode* node);
+
+void vns_replace_vnode(vnamespace_t* ns, const char* path, struct vnode* node);
+
+static ALWAYS_INLINE const char* vns_stash_prefix() {
+  return "@stashed";
+}
+
 #endif // !__ANIVA_FS_NAMESPACE__
