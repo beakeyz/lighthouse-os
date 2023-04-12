@@ -32,8 +32,9 @@ typedef struct virtual_namespace {
   struct virtual_namespace* m_parent;
 } vnamespace_t;
 
-#define VNS_SYSTEM (0x00000001) /* Owned by the kernel */
-#define VNS_FROZEN (0x00000002) /* Writes are discarded */
+#define VNS_SYSTEM    (0x00000001) /* Owned by the kernel */
+#define VNS_FROZEN    (0x00000002) /* Writes are discarded */
+#define VNS_HAS_STASH (0x00000004) /* Does this namespace has stashed nodes */
 
 void init_vns();
 
