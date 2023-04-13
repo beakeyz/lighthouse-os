@@ -27,12 +27,28 @@ typedef struct vnode {
 
   void* m_data;
 
+  /* Write data to this node (really should fail if the node isn't taken) */
   int (*f_write) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
+
+  /* Read data from this node (really should fail if the node isn't taken) */
   int (*f_read) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
+
+  /* Send some data to this node and have whatever is connected do something for you */
   int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
+
   /* Should return bytestreams of their respective files */
   void* (*f_open_stream) (struct vnode*);
   void* (*f_close_stream) (struct vnode*);
+
+  /* Take this node to do operations on it */
+  int (*f_take) (struct vnode*, uint32_t flags);
+
+  /* Release this node so others can do operations on it */
+  int (*f_release) (struct vnode*);
+
+  /* Grab named data associated with this node */
+  struct vnode* (*f_find) (struct vnode*, char*);
+
   /* TODO: other vnode operations */
 
   /* 
@@ -49,14 +65,15 @@ typedef struct vnode {
   };
 } vnode_t;
 
-#define VN_ROOT     (0x000001)
-#define VN_SYS      (0x000002)
-#define VN_MOUNT    (0x000004)
-#define VN_FROZEN   (0x000008)
-#define VN_CACHED   (0x000010)
-#define VN_LINK     (0x000011)
-#define VN_FS       (0x000012)
-#define VN_DIR      (0x000014)
+#define VN_ROOT     (0x000001) /* Is this node the root of something? */
+#define VN_SYS      (0x000002) /* Is this node owned by the system? */
+#define VN_MOUNT    (0x000004) /* Is this node a mountpoint for something? */
+#define VN_FROZEN   (0x000008) /* Is this node frozen by the system? */
+#define VN_CACHED   (0x000010) /* Does this node have cached data somewhere? */
+#define VN_LINK     (0x000011) /* Does this node point to something else? */
+#define VN_FS       (0x000012) /* Is this node a filesystem? */
+#define VN_DIR      (0x000014) /* Is this node a directory? */
+#define VN_TAKEN    (0x000018) /* Has someone taken this node? */
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
 
