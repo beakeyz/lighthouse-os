@@ -115,22 +115,20 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   vfs_create_path("l_dev/graphics");
   vfs_create_path("l_dev/io");
   vfs_create_path("l_dev/disk");
-  // Must(vfs_try_create_path("l_dev/disk"));
 
   vnode_t* test = create_generic_vnode("Test", 0);
   test->m_data = "Hi, I am david!";
 
-  vfs_mount("l_dev/graphics", test);
-
-  kernel_panic("Test");
+  vfs_mount("l_dev/disk", test);
 
   test = vfs_resolve("l_dev/disk/Test");
 
   print("Test: ");
-  if (test)
-    println((char*)test->m_data);
 
-  kernel_panic("Noting");
+  if (test) {
+    print("Found it! -> ");
+    println(test->m_name);
+  }
 
   init_scheduler();
 

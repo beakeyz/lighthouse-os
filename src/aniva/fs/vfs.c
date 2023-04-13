@@ -21,19 +21,19 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
     return Error();
   }
 
-  println(path);
-
   // If it ends at a namespace, all good, just attacht the node there
-  vnamespace_t* namespace = hive_get(s_vfs.m_namespaces, path);
+  vnamespace_t* namespace = vfs_create_path(path);
 
   if (!namespace) {
     return Error();
   }
 
-  println(namespace->m_id);
-  println(to_string((uintptr_t)namespace->m_vnodes));
-
   Must(hive_add_entry(namespace->m_vnodes, node, node->m_name));
+
+  vnode_t* test = hive_get(namespace->m_vnodes, node->m_name);
+
+  print("Name: ");
+  println(test->m_name);
 
   node->m_ns = namespace;
   node->m_id = namespace->m_vnodes->m_total_entry_count + 1;
@@ -122,28 +122,35 @@ vnode_t* vfs_resolve(const char* path) {
 
   path_copy[i] = '\0';
 
-
   vnamespace_t* namespace = hive_get(s_vfs.m_namespaces, path_copy);
 
   if (!namespace)
     return nullptr;
 
   println(node_id);
-  ret = hive_get(namespace->m_vnodes, node_id);
+  return hive_get(namespace->m_vnodes, node_id);
+}
 
-  if (ret)
-    return ret;
+static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace_t* parent) {
+  vnamespace_t* ns = create_vnamespace(id, parent);
 
-  return nullptr;
+  Must(hive_add_entry(s_vfs.m_namespaces, ns, path));
+
+  return ns;
 }
 
 vnamespace_t* vfs_create_path(const char* path) {
+  vnamespace_t* current_parent;
   vnamespace_t* result = hive_get(s_vfs.m_namespaces, path);
+  uintptr_t previous_index = NULL;
   uintptr_t index = NULL;
   size_t path_size = strlen(path) + 1;
 
-  if (result)
+  if (result) {
+    print("Found entry: ");
+    println(result->m_id);
     return result;
+  }
 
   char path_copy[path_size];
 
@@ -159,14 +166,17 @@ vnamespace_t* vfs_create_path(const char* path) {
 
     if (!path_copy[index] || index >= path_size) {
       /* We probably reached the end. Did we create all namespaces? */
-      result = vfs_ensure_attached_namespace(path_copy);
-      break;
+      return vfs_insert_namespace(path_copy, &path_copy[previous_index], current_parent);
     }
 
     /* Null-terminate */
     path_copy[index] = 0x00;
 
-    result = vfs_ensure_attached_namespace(path_copy);
+    // result = vfs_ensure_attached_namespace(path_copy);
+    if ((result = hive_get(s_vfs.m_namespaces, path_copy)) == nullptr) {
+      /* Create TODO should have parent */
+      current_parent = result = vfs_insert_namespace(path_copy, &path_copy[previous_index], current_parent);
+    }
 
     /* If attaching the namespace failed fsr, we can die */
     if (!result) {
@@ -175,6 +185,7 @@ vnamespace_t* vfs_create_path(const char* path) {
 
     /* Since we know that there was a seperator at this spot, just place it back */
     path_copy[index++] = VFS_PATH_SEPERATOR;
+    previous_index = index;
   }
 
   return result;
@@ -187,13 +198,19 @@ vnamespace_t* vfs_ensure_attached_namespace(const char* path) {
   
   vnamespace_t* namespace = hive_get(s_vfs.m_namespaces, path);
 
+  /* Only now it's a valid namespace */
   if (namespace) {
-    return namespace;
+    if (namespace->m_parent) {
+      return namespace;
+    }
+
+    /* TODO: walk the path to resolve the parents? */
+    kernel_panic("Namespace had no parent!");
   }
 
   char* new_namespace_id;
   size_t path_length = strlen(path);
-  uintptr_t idx = path_length - 1;
+  uintptr_t idx = 0;
 
   // Find the last part of the path
   while (idx && path[idx] && path[idx] != VFS_PATH_SEPERATOR) {
@@ -235,6 +252,11 @@ vnamespace_t* vfs_ensure_attached_namespace(const char* path) {
   if (!namespace) {
     return nullptr;
   }
+
+  print("Parent path: ");
+  println(path_copy);
+  print("Parent: ");
+  println(parent->m_id);
 
   ErrorOrPtr res =  hive_add_entry(s_vfs.m_namespaces, namespace, path);
 

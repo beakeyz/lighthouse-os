@@ -67,7 +67,7 @@ ErrorOrPtr vfs_link(const char* link_path, const char* linked_path);
  */
 vnode_t* vfs_resolve(const char* path);
 
-vnamespace_t* vfs_ensure_attached_namespace(const char* path);
+// vnamespace_t* vfs_ensure_attached_namespace(const char* path);
 
 vnamespace_t* vfs_create_path(const char* path);
 
