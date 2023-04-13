@@ -36,10 +36,21 @@ typedef struct proc {
 #define PROC_KERNEL     (0x00000002)
 #define PROC_STALLED    (0x00000004)
 #define PROC_UNRUNNED   (0x00000008)
+#define PROC_FINISHED   (0x00000010)
 
 proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 proc_t* create_proc_from_path(const char* path);
+
+/*
+ * Murder a proc object with all its threads as well.
+ * TODO: we need to verify that these cleanups happen
+ * gracefully, meaning that there is no leftover 
+ * debris from killing all those threads. 
+ * We really want threads to have their own heaps, so that 
+ * we don't have to keep track of what they allocated...
+ */
+void destroy_proc(proc_t*);
 
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread);
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);

@@ -72,6 +72,7 @@ static void set_sched_frame_idle(sched_frame_t* frame_ptr);
 static USED thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
+static void should_proc_die(proc_t* proc);
 
 ANIVA_STATUS init_scheduler() {
   disable_interrupts();
@@ -293,6 +294,21 @@ registers_t *sched_tick(registers_t *registers_ptr) {
   }
 
   if (s_sched_frames->m_length > 1) {
+
+    /* If this process is marked as done */
+    if (current_frame->m_proc_to_schedule->m_flags & PROC_FINISHED) {
+
+      print("Terminated process: ");
+      println(current_frame->m_proc_to_schedule->m_name);
+
+      /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
+      destroy_proc(current_frame->m_proc_to_schedule);
+
+      remove_sched_frame(current_frame);
+
+      /* recurse in order to reset scheduler tick state */
+      return sched_tick(registers_ptr);
+    }
 
     // FIXME: switch timings seem to be wonky
     if (current_frame->m_sched_time_left <= 0) {

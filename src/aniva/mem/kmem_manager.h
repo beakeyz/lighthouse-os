@@ -98,6 +98,7 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
  */
 void parse_mmap ();
 
+void load_page_dir(uintptr_t dir, bool __disable_interupts);
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
 uintptr_t kmem_get_page_base (uintptr_t base);
@@ -186,6 +187,11 @@ const list_t* kmem_get_phys_ranges_list();
  * This can act as clean userspace directory creation, though a lot is still missing
  */
 pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_size);
+
+/*
+ * Free this entire addressspace for future use
+ */
+void kmem_destroy_page_dir(pml_entry_t* dir);
 
 // TODO: write kmem_manager tests
 

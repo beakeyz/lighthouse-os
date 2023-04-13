@@ -5,6 +5,14 @@
 #include "proc/thread.h"
 #include "system/processor/registers.h"
 
+/*
+ * The current model is a simple fifo algorithm, wich does not take into
+ * account how much time a process needs to do its thing or how much resources
+ * it is taking up (same goes for threads). We want to be able to optimize this
+ * easily in the future, so let's make sure we can do that
+ * (TODO)
+ */
+
 #define SCHED_FRAME_DEFAULT_START_TICKS 2
 
 /*

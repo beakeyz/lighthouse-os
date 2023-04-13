@@ -11,6 +11,7 @@
 #include "libk/stddef.h"
 #include "mem/pg.h"
 #include "proc/ipc/thr_intrf.h"
+#include "proc/proc.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "system/processor/processor.h"
@@ -23,6 +24,8 @@
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
+
+#include <dev/kterm/kterm.h>
 
 system_info_t g_system_info;
 
@@ -154,9 +157,26 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   //  - the stack and reverts to its sub-thread if it has it.
 }
 
+void test_proc_entry(uintptr_t arg) {
+
+  println("Tried to do funnie");
+  println_kterm("Hi");
+
+  /* Let's attempt to terminate ourselves */
+  try_terminate_process(get_current_proc());
+
+  for (;;) {
+    asm volatile("hlt");
+  }
+}
+
 NORETURN void kernel_thread() {
 
   init_aniva_driver_registry();
+
+  proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
+
+  sched_add_proc(test_proc);
 
   for (;;) {
     asm volatile ("hlt");

@@ -47,6 +47,7 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
   proc->m_threads = init_list();
 
+  memset(proc->m_name, 0, 32);
   strcpy(proc->m_name, name);
 
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
@@ -73,9 +74,44 @@ proc_t* create_proc_from_path(const char* path) {
   return nullptr;
 }
 
+void destroy_proc(proc_t* proc) {
+
+  FOREACH(i, proc->m_threads) {
+    /* Kill every thread */
+    destroy_thread(i->data);
+  }
+
+  /* Free everything else */
+
+  /* 
+   * Kill the root pd if it has one, other than the currently active page dir. 
+   * We already kinda expect this to only be called from kernel context, but 
+   * you never know... For that we simply allow every page directory to be 
+   * killed as long as we are not currently using it :clown: 
+   */
+  if (proc->m_root_pd != get_current_processor()->m_page_dir) {
+    kmem_destroy_page_dir(proc->m_root_pd);
+  }
+}
+
 ErrorOrPtr try_terminate_process(proc_t* proc) {
 
-  proc_t* current = get_current_proc();
+  /* If we try to terminate while the process is marked finished, we can just hard-kill it */
+  if (proc->m_flags & PROC_FINISHED) {
+    /* We honestly don't really care if its contained in the scheduler at this point */
+    ANIVA_STATUS remove_res = sched_remove_proc(proc);
+
+    destroy_proc(proc);
+
+    /* Warning? */
+    return Success(0);
+  }
+
+  pause_scheduler();
+
+  proc->m_flags |= PROC_FINISHED;
+
+  resume_scheduler();
 
   return Success(0);
 }

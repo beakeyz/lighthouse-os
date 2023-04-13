@@ -124,6 +124,7 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
 }
 
 // TODO: finish
+// TODO: when this thread has gotten it's own heap, free that aswell
 ANIVA_STATUS destroy_thread(thread_t *thread) {
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);

@@ -36,7 +36,6 @@ struct {
 } KMEM_DATA;
 
 static inline void _init_kmem_page_layout();
-static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts);
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
@@ -72,7 +71,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
   uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE;
  
-  _load_page_dir(map, true);
+  load_page_dir(map, true);
 
   kheap_enable_expand();
 }
@@ -324,7 +323,13 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
     uintptr_t new = result.m_ptr;
     // set
     kmem_set_phys_page_used(kmem_get_page_idx(new));
-    // zero
+
+    // There might be an issue here as we try to zero
+    // and this page is never mapped. We might need some
+    // sort of temporary mapping like serenity has to do
+    // this, but we might also rewrite this entire thing
+    // as to map this sucker before we zero. This would 
+    // mean that you can't just get a nice clean page...
     memset((void*)kmem_ensure_high_mapping(new), 0x00, SMALL_PAGE_SIZE);
   } else {
     // clean?
@@ -668,21 +673,26 @@ static inline void _init_kmem_page_layout () {
   }
   */
 
-  println("Done mapping ranges");
-
   const paddr_t kernel_physical_end = (uintptr_t)&_kernel_end - HIGH_MAP_BASE;
   const paddr_t kernel_physical_start = (uintptr_t)&_kernel_start - HIGH_MAP_BASE;
   const size_t kernel_page_count = kernel_physical_end >> 12;
 
   // Identitymap the kernel
   kmem_map_range(nullptr, kernel_physical_start, kernel_physical_start, kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+
+  println("Done mapping ranges");
 }
 
 pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
   const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const size_t page_count = ALIGN_UP(initial_mapping_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
-  pml_entry_t* table_root = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
+  /* 
+   * We can't just take a clean page here, since we need it mapped somewhere... 
+   * For that we'll have to use the kernel allocation feature to instantly map
+   * it somewhere for us in kernelspace =D
+   */
+  pml_entry_t* table_root = (pml_entry_t*)Must(kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, 0));
 
   for (uintptr_t i = 0; i < page_count; i++) {
 
@@ -699,7 +709,11 @@ pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_
   return table_root;
 }
 
-static inline void _load_page_dir(uintptr_t dir, bool __disable_interupts) {
+void kmem_destroy_page_dir(pml_entry_t* dir) {
+  kernel_panic("TODO: implement kmem_destroy_page_dir");
+}
+
+void load_page_dir(uintptr_t dir, bool __disable_interupts) {
   if (__disable_interupts) 
     disable_interrupts();
 
