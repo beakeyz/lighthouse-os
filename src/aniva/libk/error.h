@@ -54,7 +54,7 @@ ALWAYS_INLINE uintptr_t Release(ErrorOrPtr eop) {
 }
 
 ALWAYS_INLINE uintptr_t Must(ErrorOrPtr eop) {
-  if (eop.m_status == ANIVA_FAIL) {
+  if (eop.m_status != ANIVA_SUCCESS) {
     kernel_panic("ErrorOrPtr: Must(...) failed!");
   }
   return eop.m_ptr;

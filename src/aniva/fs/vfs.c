@@ -21,25 +21,26 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
     return Error();
   }
 
-  // If it ends at a namespace, all good, just attacht the node there
+  if (node->m_ns) {
+    /* We don't yet allow multiple mounts, so TODO */
+    return Error();
+  }
+
+  // If it ends at a namespace, all good. just attacht the node there
   vnamespace_t* namespace = vfs_create_path(path);
 
   if (!namespace) {
     return Error();
   }
 
+  /* When we try to mount duplicates, we fail rn */
   Must(hive_add_entry(namespace->m_vnodes, node, node->m_name));
 
   vnode_t* test = hive_get(namespace->m_vnodes, node->m_name);
 
-  print("Name: ");
-  println(test->m_name);
-
   node->m_ns = namespace;
   node->m_id = namespace->m_vnodes->m_total_entry_count + 1;
   node->m_flags |= VN_MOUNT;
-  //node->m_data = 0;
-  //node->m_size = 0;
 
   return Success(0);
 }
