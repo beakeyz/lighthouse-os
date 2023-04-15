@@ -19,8 +19,11 @@ Too lazy
     time the real memory changes. This could be handy for 
     userspace apps that need to be able to read certain kernel
     memoryblocks, without them being able to modify the memory.
+
+    ```
               (read)                (read/write)
     userspace   ->   mirror reference   <->   kernel
+    ```
 
     In short, some kind of intermediate state for memory-blocks,
     where only one party can write meaningful information to the 
