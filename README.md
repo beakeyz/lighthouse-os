@@ -12,7 +12,8 @@ Too lazy
 
 ## TODOS:
 
-- [0 ] Libk/LibEnv: A RO reference to memory
+- [0] Libk/LibEnv: A RO reference to memory
+
     We could have some kind of mechanism with which we can
     create a reference to some memory, but we create a kind
     of mirror of the actual memory, which gets updated every
