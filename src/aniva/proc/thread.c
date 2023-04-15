@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
+#include "mem/zalloc.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
 #include "sched/scheduler.h"
@@ -25,27 +26,24 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread_t *thread = kmalloc(sizeof(thread_t));
   thread->m_self = thread;
 
-  if (entry_wrapper == nullptr) {
-    thread->m_entry_wrapper = thread_entry_wrapper;
-  } else {
-    thread->m_entry_wrapper = entry_wrapper;
-  }
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = proc;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
+  thread->m_entry_wrapper = thread_entry_wrapper;
+
+  if (entry_wrapper) {
+    thread->m_entry_wrapper = entry_wrapper;
+  }
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
   strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
-  uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE;
+  uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
 
-  if (kthread) {
-    stack_mem_flags |= KMEM_FLAG_KERNEL;
-  }
-
+  /* TODO: We should probably allocate this somewhere in the processes memory range */
   uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_IDENTITY, stack_mem_flags));
   memset((void *)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
@@ -55,6 +53,8 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   // TODO: move away from using the root page dir of the current processor
   thread->m_context = setup_regs(kthread, proc->m_root_pd, thread->m_stack_top);
   thread->m_real_entry = (ThreadEntry)entry;
+
+  thread->m_heap = create_zone_allocator(2 * Kib, kthread ? GHEAP_KERNEL : 0)->m_heap;
 
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
   return thread;

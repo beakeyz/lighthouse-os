@@ -3,6 +3,7 @@
 #include "malloc.h"
 #include "kmem_manager.h"
 #include "heap.h"
+#include "sync/mutex.h"
 
 static ALWAYS_INLINE void* dummy_alloc(void* heap_ptr, size_t size);
 static ALWAYS_INLINE void dummy_dealloc(void* heap_ptr, void* address);
@@ -31,13 +32,14 @@ generic_heap_t *initialize_generic_heap(pml_entry_t* root_table, vaddr_t virtual
   ret->f_expand = (HEAP_EXPAND) dummy_expand;
   ret->f_debug = (HEAP_GENERAL_DEBUG) dummy_debug;
 
+  ret->m_lock = create_mutex(0);
   ret->m_current_total_size = pages_needed * SMALL_PAGE_SIZE;
   ret->m_virtual_base = virtual_base;
   ret->m_flags = flags;
 
   uintptr_t page_flags = 0;
 
-  if ((flags & GHEAP_KERNEL) != 0) {
+  if (flags & GHEAP_KERNEL) {
     page_flags |= KMEM_FLAG_KERNEL;
   }
   if ((flags & GHEAP_READONLY) == 0) {

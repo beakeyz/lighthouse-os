@@ -685,7 +685,8 @@ static inline void _init_kmem_page_layout () {
 
 pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
   const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
-  const size_t page_count = ALIGN_UP(initial_mapping_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+  /* Make sure we never start with 0 pages */
+  const size_t page_count = (ALIGN_UP(initial_mapping_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE) + 1;
 
   /* 
    * We can't just take a clean page here, since we need it mapped somewhere... 
@@ -709,6 +710,10 @@ pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_
   return table_root;
 }
 
+/*
+ * TODO: do we want to murder an entire addressspace, or do we just want to get rid 
+ * of the mappings?
+ */
 void kmem_destroy_page_dir(pml_entry_t* dir) {
   kernel_panic("TODO: implement kmem_destroy_page_dir");
 }
@@ -755,6 +760,6 @@ pml_entry_t create_pagetable(uintptr_t paddr, bool writable) {
   return table;
 }
 
-const list_t* kmem_get_phys_ranges_list() {
+list_t const* kmem_get_phys_ranges_list() {
   return KMEM_DATA.m_phys_ranges;
 }

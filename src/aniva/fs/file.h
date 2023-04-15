@@ -1,6 +1,5 @@
 #ifndef __ANIVA_FIL_IMPL__
 #define __ANIVA_FIL_IMPL__
-#include "fdiscriptor.h"
 #include "sync/atomic_ptr.h"
 #include <sync/mutex.h>
 

@@ -335,6 +335,7 @@ static void kterm_process_buffer() {
     kterm_println("available commands: \n");
     kterm_println(" - help: print some helpful info\n");
     kterm_println(" - acpitables: print the acpi tables present in the system\n");
+    kterm_println(" - ztest: spawn a zone allocator and test it\n");
     kterm_println(" - exit: panic the kernel");
   } else if (!strcmp(contents, "exit")) {
     kernel_panic("TODO: exit/shutdown");

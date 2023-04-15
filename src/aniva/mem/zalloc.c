@@ -21,6 +21,7 @@ static const enum ZONE_ENTRY_SIZE default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_CO
   [4] = ZALLOC_128BYTES,
   [5] = ZALLOC_256BYTES,
   [6] = ZALLOC_512BYTES,
+  [7] = ZALLOC_1024BYTES,
 };
 
 zone_allocator_t *create_zone_allocator(size_t initial_size, uintptr_t flags) {
@@ -43,10 +44,10 @@ zone_allocator_t *create_zone_allocator(size_t initial_size, uintptr_t flags) {
   for (uintptr_t i = 0; i < DEFAULT_ZONE_ENTRY_SIZE_COUNT; i++) {
     enum ZONE_ENTRY_SIZE entry_size = default_entry_sizes[i];
 
-    size_t entries_for_this_zone = initial_size / entry_size;
+    size_t entries_for_this_zone = (initial_size / entry_size) / DEFAULT_ZONE_ENTRY_SIZE_COUNT + 1;
     println(to_string(entries_for_this_zone));
 
-    ErrorOrPtr result = zone_store_add(&ret->m_store, create_zone(entry_size, entries_for_this_zone / DEFAULT_ZONE_ENTRY_SIZE_COUNT));
+    ErrorOrPtr result = zone_store_add(&ret->m_store, create_zone(entry_size, entries_for_this_zone));
 
     zone_t* zone = (zone_t*)Release(result);
 
@@ -165,9 +166,6 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
       break;
     }
   }
-
-  print("Extra entries: ");
-  println(to_string(extra_entries));
 
   max_entries += extra_entries;
   bitmap_bytes += extra_bitmap_bytes;

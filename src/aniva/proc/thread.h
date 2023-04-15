@@ -44,7 +44,7 @@ typedef struct thread {
   __attribute__((aligned(16))) uintptr_t m_stack_bottom;
   __attribute__((aligned(16))) uintptr_t m_stack_top;
 
-  // generic_heap_t* m_heap;
+  generic_heap_t* m_heap;
 
   thread_state_t m_current_state;
 

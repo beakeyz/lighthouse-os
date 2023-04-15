@@ -180,7 +180,7 @@ ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, u
 ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 /* access to kmem_manager data struct */
-const list_t* kmem_get_phys_ranges_list();
+list_t const* kmem_get_phys_ranges_list();
 
 /*
  * Prepares a new pagemap that has virtual memory mapped from 0 -> initial_size

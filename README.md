@@ -1,4 +1,5 @@
 # Lighthouse OS
+
 Lighthouse OS is yet another operating system that is built cuz it 
 can be built. It constits of a kernel called Aniva and a conseptual
 userspace called LightEnv
@@ -6,32 +7,30 @@ userspace called LightEnv
 yey, ANOTHER stinking kernel. As if the world needed another lmao
 
 ## Finished shit
-- basically nothing, I am still working on everything at once xD
-- well actually it boots, so I guess thats working
+
+Too lazy
 
 ## TODOS:
-- finish kmalloc
-- figure out how to propperly setup my kernel pagetables, cuz they kinda funky atm xD
-- apic / pic
-- _\\___> interupts
-- _\\___> device drivers
-- vfs
+
+- [0 ] Libk/LibEnv: A RO reference to memory
+    We could have some kind of mechanism with which we can
+    create a reference to some memory, but we create a kind
+    of mirror of the actual memory, which gets updated every
+    time the real memory changes. This could be handy for 
+    userspace apps that need to be able to read certain kernel
+    memoryblocks, without them being able to modify the memory.
+
+              (read)                (read/write)
+    userspace   ->   mirror reference   <->   kernel
+
+    In short, some kind of intermediate state for memory-blocks,
+    where only one party can write meaningful information to the 
+    block. THIS MEANS THE KERNEL SHOULD NEVER DIGEST ANY DATA IN
+    THE MIRROR as it could be contaminated with stuff the user-
+    space put in there...
 
 ## Build & Run
 
-for building and running at the same time:
-```bash
-make debug
-```
+Either use python project utilities,
+or the makefile located in the project root
 
-for building an ISO file:
-```bash
-make make-iso
-```
-
-for running the ISO:
-```bash
-make run-iso
-```
-
-In the future I will need to find a way to create a ramdisk/sysroot/apps and smash them together with the kernel

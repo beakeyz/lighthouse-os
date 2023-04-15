@@ -14,7 +14,7 @@ header_start:
 
 mb_fb_tag:
   dw 5 
-  dw 1 
+  dw 0 
   dd mb_fb_tag_end - mb_fb_tag
   dd 0 
   dd 0

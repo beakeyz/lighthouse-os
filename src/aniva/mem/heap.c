@@ -5,6 +5,8 @@
 #include "malloc.h"
 #include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
+#include <sched/scheduler.h>
+#include "sync/mutex.h"
 
 // Let's just give our kernel a shitload of initial heapmemory =)
 #define INITIAL_HEAP_SIZE ALIGN_UP(2 * Mib, SMALL_PAGE_SIZE) // IN BYTES
@@ -80,4 +82,40 @@ void kheap_ensure_size(size_t size) {
 
 void kdebug() {
   quick_print_node_sizes(&s_kernel_allocator);
+}
+
+void* allocate_heap_memory(generic_heap_t* heap, size_t size) {
+  if (!heap || !heap->m_lock)
+    return nullptr;
+
+  mutex_lock(heap->m_lock);
+
+  void* result = heap->f_allocate(heap->m_parent_heap, size);
+
+  mutex_unlock(heap->m_lock);
+
+  return result;
+}
+
+void deallocate_heap_memory(generic_heap_t* heap, void* addr, size_t size) {
+  if (!heap || !heap->m_lock)
+    return;
+
+  mutex_lock(heap->m_lock);
+
+  heap->f_sized_deallocate(heap->m_parent_heap, addr, size);
+
+  mutex_unlock(heap->m_lock);
+}
+
+void* allocate_memory(size_t size) {
+  generic_heap_t* heap = get_current_scheduling_thread()->m_heap;
+
+  return allocate_heap_memory(heap, size);
+}
+
+void deallocate_memory(void* addr, size_t size) {
+  generic_heap_t* heap = get_current_scheduling_thread()->m_heap;
+
+  deallocate_heap_memory(heap, addr, size);
 }

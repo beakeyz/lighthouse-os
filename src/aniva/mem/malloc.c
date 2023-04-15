@@ -150,33 +150,47 @@ void malloc_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t a
 
   // first we'll check if we can do this easily
   heap_node_t* node = (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t));
-  const size_t real_allocation_size = allocation_size + sizeof(heap_node_t);
 
-  if (node->size != real_allocation_size) {
+  /* Invalid address */
+  if (!verify_identity(node))
     return;
-  }
 
-  if (verify_identity(node)) {
-    // we can free =D
-    if (has_flag(node, MALLOC_FLAGS_USED)) {
-      node->flags &= ~MALLOC_FLAGS_USED;
-      allocator->m_used_size-=node->size;
-      allocator->m_free_size+=node->size;
-      // see if we can merge
-      ErrorOrPtr n = try_merge(allocator, node);
-      if (n.m_status == ANIVA_FAIL) {
-        // FUCKKKKK
-        println("unable to merge nodes =/");
-        //memset(addr, 0, node->size - sizeof(heap_node_t));
-        return;
-      }
+  const size_t required_node_size = allocation_size + sizeof(heap_node_t);
 
-      //if (n->next)
-      //  try_merge(allocator, n->next);
-      // FIXME: should we zero freed nodes?
+  if (node->size != required_node_size)
+    return;
+
+  // This itterating does slow down our algorithm, but
+  // it wasn't any good to begin with anyway lmao.
+  // this does stop some weird behaviour when trying 
+  // to free a pointer that is not malloced
+  heap_node_t* it = allocator->m_heap_start_node;
+  while (it) {
+    if (!it) {
+      break;
     }
-  } else {
-    println("invalid identifier");
+
+    if (it == node) {
+      // found our node
+      if (verify_identity(node)) {
+        // we can free =D
+        if (has_flag(node, MALLOC_FLAGS_USED)) {
+          node->flags &= ~MALLOC_FLAGS_USED;
+          allocator->m_used_size-=node->size;
+          allocator->m_free_size+=node->size;
+          // see if we can merge
+
+          try_merge(allocator, node);
+
+          // FIXME: should we zero freed nodes?
+          break;
+        }
+      } else {
+        println("invalid identifier");
+      }
+      break;
+    }
+    it = it->next;
   }
 }
 
@@ -188,6 +202,10 @@ void malloc_deallocate(memory_allocator_t* allocator, void* addr) {
 
   // first we'll check if we can do this easily
   heap_node_t* node = (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t));
+
+  /* Invalid address */
+  if (!verify_identity(node))
+    return;
 
   // This itterating does slow down our algorithm, but
   // it wasn't any good to begin with anyway lmao.

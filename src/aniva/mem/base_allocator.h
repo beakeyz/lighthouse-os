@@ -7,6 +7,8 @@
 #include "mem/kmem_manager.h"
 #include "pg.h"
 
+struct mutex;
+
 /*
  * the ironic part about this is that this
  * most likely needs to be allocated on a heap as well xD
@@ -57,6 +59,8 @@ typedef struct generic_heap {
   paddr_t m_physical_base;
   size_t m_current_total_size;
   uintptr_t m_flags;
+
+  struct mutex* m_lock;
 
   HEAP_ALLOCATE f_allocate;
   HEAP_DEALLOCATE f_deallocate;

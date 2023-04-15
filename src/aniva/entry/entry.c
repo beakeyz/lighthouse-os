@@ -91,7 +91,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
   );
 
-  try_fetch_initramdisk((uintptr_t)mb_addr);
+  try_fetch_initramdisk((uintptr_t)multiboot_addr);
 
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = total_multiboot_size + 8;
@@ -160,7 +160,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 void test_proc_entry(uintptr_t arg) {
 
   println("Tried to do funnie");
-  println_kterm("Hi");
+  println_kterm("Hello from the test process");
 
   /* Let's attempt to terminate ourselves */
   try_terminate_process(get_current_proc());
