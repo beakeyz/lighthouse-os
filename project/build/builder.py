@@ -79,6 +79,14 @@ class ProjectBuilder(object):
 
                 if os.system(srcFile.getCompileCmd()) != 0:
                     return BuilderResult.FAIL
+        for crtFile in self.constants.CRT_FILES:
+            crtFile: SourceFile = crtFile
+
+            print(f"(crt) Building {crtFile.path}...")
+            os.system(f"mkdir -p {crtFile.getOutputDir()}")
+
+            if os.system(f"{crtFile.compilerDir} -c {crtFile.path} -o {crtFile.outputPath}") != 0:
+                return BuilderResult.FAIL
         return BuilderResult.SUCCESS
 
     # Determine if we want to (re)build a sourcefile
@@ -172,11 +180,7 @@ class ProjectBuilder(object):
                                 # with. After that we dump the binary to
                                 # the output directory
                                 # (currently out/user/binaries)
-
-                        pass
-                pass
-
-            return BuilderResult.FAIL
+            return BuilderResult.SUCCESS
 
     def clean(self) -> None:
         pass

@@ -52,7 +52,8 @@ class Consts:
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
 
-    CRT_FILES: list[str] = []
+    # NOTE: crt files have to be asm files!
+    CRT_FILES: list[SourceFile] = []
     SRC_FILES: list[SourceFile] = []
     OBJ_FILES = []
     SRC_LINES: list[int] = []
@@ -103,8 +104,11 @@ class Consts:
                 self.scan_dirs(abs_entry)
             elif isfile(abs_entry):
                 # CRTs are special, so we handle them first
-                if entry.startswith("crt"):
-                    self.CRT_FILES.append(abs_entry)
+                if entry.startswith("crt") and (entry.endswith(".S") or entry.endswith(".s")):
+                    file = SourceFile(False, abs_entry, entry, SourceLanguage.ASM)
+                    file.set_compiler(self.CROSS_GCC_DIR)
+                    file.setOutputPath(file.get_path().replace(self.SRC_DIR, self.OUT_DIR))
+                    self.CRT_FILES.append(file)
                 elif entry.endswith(".c"):
                     file = SourceFile(False, abs_entry, entry, SourceLanguage.C)
                     file.set_compiler(self.CROSS_GCC_DIR)

@@ -64,8 +64,15 @@ class SourceFile:
         self.outputPath = path
 
     def addObjectSuffix(self, path: str) -> str:
+        # C suffixes
         path = path.replace(".c", ".o")
+
+        # ASM suffixes
         path = path.replace(".asm", ".o")
+        path = path.replace(".S", ".o")
+        path = path.replace(".s", ".o")
+
+        # CPP suffixes
         path = path.replace(".cpp", ".o")
         return path
 
