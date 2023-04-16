@@ -14,12 +14,14 @@ class Consts:
 
     SRC_DIR = PROJECT_DIR + "/" + SRC_DIR_NAME
     OUT_DIR = PROJECT_DIR + "/" + OUT_DIR_NAME
+    LIBS_OUT_DIR = OUT_DIR + "/libs"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
     COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
 
     KERNEL_MAP_PATH = OUT_DIR + "/lightos.map"
     KERNEL_ELF_PATH = OUT_DIR + "/lightos.elf"
     KERNEL_LINKERSCRIPT_PATH = PROJECT_DIR + "/src/aniva/entry/linker.ld"
+    USERSPACE_DEFAULT_LDSCRPT_PATH = PROJECT_DIR + "/src/user/linker.ld"
 
     CROSS_GCC_DIR = COMPILER_DIR + "/x86_64-pc-lightos-gcc"
     CROSS_LD_DIR = COMPILER_DIR + "/x86_64-pc-lightos-ld"
@@ -47,6 +49,8 @@ class Consts:
     KERNEL_ASM_FLAGS = " -f elf64"
 
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
+
+    USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
 
     CRT_FILES: list[str] = []
     SRC_FILES: list[SourceFile] = []

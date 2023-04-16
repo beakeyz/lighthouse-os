@@ -22,7 +22,7 @@ class ProjectBuilder(object):
     builderMode: BuilderMode
     srcPath: list[str]
     constants: consts.Consts
-    userspaceBinariesOutPath: str
+    # userspaceBinariesOutPath: str
 
     def __init__(self, mode: BuilderMode, constants: consts.Consts) -> None:
         self.builderMode = mode
@@ -31,8 +31,8 @@ class ProjectBuilder(object):
             self.srcPath = ["src/aniva", "src/drivers", "src/libs"]
         elif mode == BuilderMode.USERSPACE:
             self.srcPath = ["src/user", "src/libs"]
-            self.userspaceBinariesOutPath = constants.OUT_DIR + "/user/binaries"
-            self.constants.ensure_path(self.userspaceBinariesOutPath)
+            # self.userspaceBinariesOutPath = constants.OUT_DIR + "/user/binaries"
+            # self.constants.ensure_path(self.userspaceBinariesOutPath)
         else:
             self.builderMode = BuilderMode.INVALID
         pass
@@ -91,16 +91,17 @@ class ProjectBuilder(object):
         return False
 
     def link(self) -> BuilderResult:
+        self.constants.reinit()
+
+        SDN = self.constants.SRC_DIR_NAME
+        ODN = self.constants.OUT_DIR_NAME
+
+        KEP = self.constants.KERNEL_ELF_PATH
+        KLF = self.constants.KERNEL_LD_FLAGS
+
         if self.builderMode == BuilderMode.KERNEL:
-            self.constants.reinit()
 
             objFiles: str = " "
-
-            SDN = self.constants.SRC_DIR_NAME
-            ODN = self.constants.OUT_DIR_NAME
-
-            KEP = self.constants.KERNEL_ELF_PATH
-            KLF = self.constants.KERNEL_LD_FLAGS
 
             for objFile in self.constants.OBJ_FILES:
                 objFile: str = objFile
@@ -140,9 +141,32 @@ class ProjectBuilder(object):
                         with open(procEntry, "r") as manifestFile:
                             manifest = json.load(manifestFile)
 
+                            # TODO: check for dependencies
                             if manifest["name"] == entryName:
+                                objFiles: str = " "
                                 print(f"Building process: {entryName}")
-                                print(f"Binary out path: {self.userspaceBinariesOutPath}/{entryName}")
+                                print(f"Binary out path: {self.constants.OUT_DIR}/user/{entryName}")
+
+                                BIN_OUT_PATH = f"{self.constants.OUT_DIR}/user/{entryName}"
+                                BIN_OUT = BIN_OUT_PATH + "/" + entryName
+
+                                ULF = self.constants.USERSPACE_LD_FLAGS
+
+                                for objFile in self.constants.OBJ_FILES:
+                                    objFile: str = objFile
+
+                                    if objFile.find(BIN_OUT_PATH) != -1:
+                                        objFiles += f"{objFile} "
+                                        print(objFile)
+                                    elif objFile.find(self.constants.LIBS_OUT_DIR) != -1:
+                                        objFiles += f"{objFile} "
+                                        print(objFile)
+
+                                ld = self.constants.CROSS_LD_DIR
+
+                                if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ULF}") != 0:
+                                    return BuilderResult.FAIL
+
                                 # TODO: we should check the manifest.json for
                                 # the libraries we need to staticaly link
                                 # with. After that we dump the binary to
