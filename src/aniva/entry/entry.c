@@ -69,6 +69,11 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     kernel_panic("Can't verify multiboot header: invalid magic number");
   }
 
+  for (;;) {
+    println("TODO: finish rest of bl stuff");
+    asm volatile ("hlt");
+  }
+
   // parse multiboot
   mb_initialize((void *) mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
