@@ -65,6 +65,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // Verify magic number
   if (mb_magic != 0x36d76289) {
     println("big yikes");
+    println(to_string(mb_magic));
     kernel_panic("Can't verify multiboot header: invalid magic number");
   }
 

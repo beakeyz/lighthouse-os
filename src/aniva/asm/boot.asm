@@ -51,6 +51,7 @@ extern _start
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
 start:
 
+
   mov edi, ebx ; Address of multiboot structure
   mov esi, eax ; Magic number
 
@@ -85,15 +86,11 @@ cpuid_support:
   xor eax, eax
   xor ebx, ebx
 
-  ; set cr3
-  mov eax, boot_pml4t - KERNEL_VIRT_BASE
-  mov cr3, eax
 
   ; map pdpt for identity
   mov eax, boot_pdpt - KERNEL_VIRT_BASE
   or eax, 0x3
   mov [(boot_pml4t - KERNEL_VIRT_BASE)], eax
-
 
   mov eax, boot_pd0 - KERNEL_VIRT_BASE
   or eax, 0x3
@@ -143,6 +140,10 @@ cpuid_support:
     dec ecx
     cmp ecx, 0
     jne .map_kernel
+
+  ; set cr3
+  mov eax, boot_pml4t - KERNEL_VIRT_BASE
+  mov cr3, eax
 
   ; enable PAE + PSE
   mov eax, cr4

@@ -4,4 +4,7 @@
 -I 
 ./src/
 
+-I
+./src/libs/
+
 -nostdlib

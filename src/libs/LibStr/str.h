@@ -1,6 +1,6 @@
 #ifndef __ANIVA_LIGHTENV_STR__
 #define __ANIVA_LIGHTENV_STR__
-#include <libs/LibDef/def.h>
+#include <LibDef/def.h>
 
 typedef char* str_t;
 
