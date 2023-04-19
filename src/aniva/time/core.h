@@ -3,7 +3,7 @@
 
 #include "libk/stddef.h"
 
-#define TARGET_TPS 250
+#define TARGET_TPS 1000 
 
 typedef enum {
   UNSET,

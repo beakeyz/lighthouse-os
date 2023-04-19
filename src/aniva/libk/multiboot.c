@@ -7,6 +7,8 @@
 void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_alloc_addr) {
     uintptr_t offset = 0;
 
+    println(to_string(offset));
+
     // first: find the memorymap 
     struct multiboot_tag_mmap* mb_memmap = get_mb2_tag(addr, 6);
     if (!mb_memmap) {
@@ -22,6 +24,15 @@ void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_a
             offset = cur_offset;
         }
         entry += mb_memmap->entry_size;
+        /*
+        print("Entry: ");
+        print(to_string(cur_entry->addr));
+        print(" -> ");
+        print(to_string(cur_entry->len));
+        print(" -> ");
+        print(to_string(cur_entry->type));
+        println("\n");
+        */
     }
 
     // TODO: second: modules

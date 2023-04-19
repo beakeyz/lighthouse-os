@@ -71,7 +71,7 @@ void set_pit_periodic(bool value) {
 ALWAYS_INLINE void reset_pit (uint8_t mode) {
   if (pit_frequency_capability(TARGET_TPS)) {
     out8(PIT_CTRL, T0_SEL | PIT_WRITE | mode);
-    set_pit_frequency(100, false);
+    set_pit_frequency(1000, false);
   }
 }
 
