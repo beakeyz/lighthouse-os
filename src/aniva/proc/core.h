@@ -66,6 +66,12 @@ ErrorOrPtr generate_new_proc_id();
 list_t get_registered_sockets();
 
 /*
+ * Spawn a thread for the current running process. Does not
+ * care about if we are in usermode or kernelland
+ */
+ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
+
+/*
  * find a socket based on its port
  * TODO: validate port based on checksum?
  */

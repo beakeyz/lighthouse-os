@@ -55,9 +55,7 @@ static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool
 static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
 
 uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset) {
-  volatile uint32_t* data = (volatile uint32_t*)(base + offset);
-
-  return *data;
+  return *(volatile uint32_t*)(base + offset);
 }
 
 void ahci_mmio_write32(uintptr_t base, uintptr_t offset, uint32_t data) {

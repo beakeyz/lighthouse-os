@@ -6,6 +6,9 @@
 #include "mem/kmem_manager.h"
 #include "ramdisk.h"
 
+static char* s_root_dev_name;
+static char s_root_dev_name_buffer[64];
+
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
 
   int result = -1;

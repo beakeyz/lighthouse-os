@@ -27,6 +27,8 @@ typedef struct disk_dev {
 
   uint32_t m_flags;
 
+  uint16_t m_firmware_rev[4];
+
   uintptr_t m_max_blk;
   size_t m_logical_sector_size;
   size_t m_physical_sector_size;
@@ -37,7 +39,7 @@ typedef struct disk_dev {
   struct partitioned_disk_dev* m_devs;
 } generic_disk_dev_t;
 
-#define GDISKDEV_SCSI       (0x00000001) /* Does this device use the SCSI protocol */
+#define GDISKDEV_SCSI       (0x00000001) /* Does this device use SCSI */
 #define GDISKDEV_RAM        (0x00000002) /* Is this a ramdevice */
 
 typedef struct partitioned_disk_dev {
@@ -52,6 +54,12 @@ int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size
 int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
 int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
+
+/*
+ * Find the disk device from which we where booted in
+ * order to read config files and load ramdisks
+ */
+void register_boot_device();
 
 static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t partition) {
   partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));

@@ -265,8 +265,6 @@ void destroy_ahci_port(ahci_port_t* port) {
 ANIVA_STATUS initialize_port(ahci_port_t *port) {
 
   if (!port_has_phy(port)) {
-    println_kterm("No Phy");
-    kernel_panic("No Phy");
     return ANIVA_FAIL;
   }
 
@@ -321,18 +319,22 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
 
 ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
+  /* Activate port */
   port_set_active(port);
 
+  /* Fully enable interrupts */
   ahci_port_mmio_write32(port, AHCI_REG_PxIE, AHCI_PORT_INTERRUPT_FULL_ENABLE);
 
+  /* Prepare a buffer for the identify data */
   ata_identify_block_t* dev_identify_buffer = (ata_identify_block_t*)Release(kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
   paddr_t dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
 
-  println("Waiting for cmd...");
+  /* Send the identify command to the device */
   if (ahci_port_send_command(port, AHCI_COMMAND_IDENTIFY_DEVICE, dev_ident_phys, 512, false, 0, 0) == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL) {
     goto fail_and_dealloc;
   }
 
+  /* dev_type should be zero */
   if (dev_identify_buffer->general_config.dev_type) {
     goto fail_and_dealloc;
   }
@@ -343,31 +345,42 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   uint16_t psstlss = dev_identify_buffer->physical_sector_size_to_logical_sector_size;
 
+  /* Check if this drive has non-default values for sectorsizes */
   if ((psstlss >> 14) == 1) {
+    /* Let's use the value disk tells us about */
     if (psstlss & (1 << 12)) {
       port->m_generic.m_logical_sector_size = dev_identify_buffer->logical_sector_size;
     }
+    /* Same goes for physical size */
     if (psstlss & (1 << 13)) {
       port->m_generic.m_physical_sector_size = port->m_generic.m_logical_sector_size << (psstlss & 0xF);
     }
   }
+
+  /* Find how large the disk is */
   if (dev_identify_buffer->commands_and_feature_sets_supported[1] & (1 << 10)) {
     port->m_generic.m_max_blk = dev_identify_buffer->user_addressable_logical_sectors_count;
   } else {
     port->m_generic.m_max_blk = dev_identify_buffer->max_28_bit_addressable_logical_sector;
   }
 
+  memcpy(port->m_generic.m_firmware_rev, dev_identify_buffer->firmware_revision, sizeof(uint16_t) * 4);
+
+  /* Prepare generic disk ops */
   port->m_generic.m_ops.f_read = ahci_port_read;
   port->m_generic.m_ops.f_read_sync = ahci_port_read_sync;
   port->m_generic.m_ops.f_write = ahci_port_write;
   port->m_generic.m_ops.f_write_sync = ahci_port_write_sync;
 
+  /* Give the device its name */
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
-  // TODO: is this specific to AHCI, or a generic ATA thing?
+
+  // FIXME: is this specific to AHCI, or a generic ATA thing?
   decode_disk_model_number(port->m_device_model);
 
   port->m_generic.m_device_name = port->m_device_model;
 
+  /* TODO: remove debug info */
   println_kterm("");
   println_kterm(port->m_device_model);
   println_kterm("");
@@ -380,8 +393,10 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   println_kterm(to_string(port->m_generic.m_max_blk));
   println_kterm("");
 
+  /* Lay out partitions (FIXME: should we really do this here?) */
   gpt_table_t* gpt_table = create_gpt_table(&port->m_generic);
 
+  /* Too lazy to implement mbr =/ */
   if (!gpt_table) {
     // TODO: Search for MBR
     println_kterm("Could not find GPT table!");
@@ -397,6 +412,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   /*
    * TODO: should we put every partitioned device in the vfs?
    */
+  /* Attatch the partition devices to the generic disk device */
   FOREACH(i, port->m_gpt_table->m_partitions->m_entries) {
     hive_entry_t* entry = i->data;
     gpt_partition_t* part = entry->m_data;
@@ -410,6 +426,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
     attach_partitioned_disk_device(&port->m_generic, partitioned_device);
   }
 
+  /* Clean the buffer */
   kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
   println_kterm("Done!");
   //kdebug();
@@ -516,10 +533,15 @@ static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port) {
 
 int ahci_port_read(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
 
+  kernel_panic("TODO: implement async ahci read");
+
   return -1;
 }
 
 int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+
+  kernel_panic("TODO: implement async ahci write");
+
   return -1;
 }
 
@@ -561,7 +583,31 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
   return 0;
 }
 
+/*
+ * It's the job of the caller to ensure that the buffer
+ * is actually in a physical address
+ */
 int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
-  return -1;
+
+  kernel_panic("TODO: implement safe write functions");
+
+  if (!port || !port->m_parent) 
+    return -1;
+
+  if (!buffer || !size)
+    return -1;
+
+  /* TODO: log2() */
+  ahci_port_t* parent = port->m_parent;
+  uintptr_t lba = offset / port->m_logical_sector_size;
+  size_t blk_count = size / port->m_logical_sector_size;
+
+  ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_WRITE_DMA_EXT, (paddr_t)buffer, size, true, lba, blk_count);
+
+  if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(parent)) {
+    return -1;
+  }
+
+  return 0;
 }
 

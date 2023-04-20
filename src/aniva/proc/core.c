@@ -43,6 +43,26 @@ ErrorOrPtr exec_user(char proc_name[32], FuncPtr entry, uintptr_t arg0, uintptr_
   return Success(0);
 }
 
+ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
+
+  /* Don't be dumb lol */
+  if (!entry)
+    return Error();
+
+  proc_t* current = get_current_proc();
+
+  /* No currently scheduling proc means we are fucked lol */
+  if (!current)
+    return Error();
+
+  thread_t* thread = create_thread_for_proc(current, entry, arg0, name);
+
+  if (!thread)
+    return Error();
+
+  return proc_add_thread(current, thread);
+}
+
 // FIXME: EWWWWWWW
 ErrorOrPtr generate_new_proc_id() {
   uintptr_t next = atomic_ptr_load(next_proc_id);
