@@ -319,6 +319,11 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
 
 ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
+  println_kterm(to_string(port->m_generic.m_uid));
+  generic_disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
+
+  ASSERT_MSG(device == &port->m_generic, "Mismatch");
+
   /* Activate port */
   port_set_active(port);
 

@@ -1,5 +1,6 @@
 #include "entry.h"
 #include "dev/disk/ahci/ahci_device.h"
+#include "dev/disk/generic.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "fs/core.h"
@@ -172,6 +173,8 @@ void test_proc_entry(uintptr_t arg) {
 }
 
 NORETURN void kernel_thread() {
+
+  init_gdisk_dev();
 
   init_aniva_driver_registry();
 

@@ -235,6 +235,7 @@ void kterm_command_worker() {
         kterm_println(" - help: print some helpful info\n");
         kterm_println(" - acpitables: print the acpi tables present in the system\n");
         kterm_println(" - ztest: spawn a zone allocator and test it\n");
+        kterm_println(" - testramdisk: spawn a ramdisk and test it\n");
         kterm_println(" - exit: panic the kernel");
       } else if (!strcmp(contents, "exit")) {
         kernel_panic("TODO: exit/shutdown");
@@ -267,7 +268,7 @@ void kterm_command_worker() {
         kterm_println(to_string(allocator->m_heap->m_current_total_size));
 
         kterm_println("\nSuccessfully created Zone!\n");
-      } else if (!strcmp(contents, "lsdsk")) {
+      } else if (!strcmp(contents, "testramdisk")) {
 
         kterm_println("\nTrying to create and read from dummy ramdisk!\n");
         generic_disk_dev_t* ramdisk = create_generic_ramdev(SMALL_PAGE_SIZE);

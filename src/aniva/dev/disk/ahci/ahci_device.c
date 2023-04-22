@@ -3,6 +3,7 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
+#include "dev/disk/generic.h"
 #include "dev/kterm/kterm.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
@@ -132,6 +133,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
         destroy_ahci_port(port);
         continue;
       }
+      register_gdisk_dev(&port->m_generic);
       hive_add_entry(device->m_ports, port, port->m_generic.m_path);
       s_implemented_ports++;
       internal_index++;

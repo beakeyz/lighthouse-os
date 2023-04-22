@@ -9,6 +9,8 @@
 
 // TODO: generic error codes
 
+typedef uintptr_t disk_uid_t;
+
 struct disk_dev;
 struct partitioned_disk_dev;
 
@@ -24,6 +26,9 @@ typedef struct disk_dev {
 
   const char* m_device_name;
   char* m_path;
+
+  /* Generic uid that acts as an index into the list of device that are available */
+  disk_uid_t m_uid;
 
   uint32_t m_flags;
 
@@ -61,6 +66,14 @@ int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size
  */
 void register_boot_device();
 
+void init_gdisk_dev();
+
+ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device);
+ErrorOrPtr register_gdisk_dev_with_uid(generic_disk_dev_t* device, disk_uid_t uid);
+ErrorOrPtr unregister_gdisk_dev(generic_disk_dev_t* device);
+
+generic_disk_dev_t* find_gdisk_device(disk_uid_t uid);
+
 static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t partition) {
   partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
   
@@ -97,7 +110,7 @@ static void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitio
   }
 }
 
-static void detatch_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
+static void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
 
   if (!dev)
     return;
@@ -110,7 +123,6 @@ static void detatch_partitioned_disk_device(generic_disk_dev_t* generic, partiti
       if (previous) {
         (*previous)->m_next = (*device)->m_next;
       }
-      *device = nullptr;
       break;
     }
 
