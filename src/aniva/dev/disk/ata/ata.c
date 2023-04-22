@@ -1,7 +1,25 @@
 #include "ata.h"
 #include "dev/core.h"
+#include "dev/debug/serial.h"
+#include "dev/pci/pci.h"
+#include <dev/pci/definitions.h>
+
+static void find_ata_controller(pci_device_identifier_t* ident) {
+  if (ident->address.device_num == MASS_STORAGE) {
+    if (ident->address.bus_num == PCI_SUBCLASS_ATA) {
+      println("ATA: found an ata controller");
+    } else if (ident->address.bus_num == PCI_SUBCLASS_IDE) {
+      println("ATA: found an ide controller");
+    }
+  }
+}
 
 int ata_driver_init() {
+
+  println("Initializing generic ATA driver");
+
+  enumerate_registerd_devices(find_ata_controller);
+
   return 0;
 }
 
@@ -25,4 +43,5 @@ const aniva_driver_t g_base_ata_driver = {
   .m_dependencies = {},
   .m_dep_count = 0,
 };
+EXPORT_DRIVER(g_base_ata_driver);
 
