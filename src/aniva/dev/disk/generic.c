@@ -80,17 +80,23 @@ ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device) {
   struct gdisk_store_entry** entry = get_store_entry(device);
 
   /* We need to assert that get_store_entry returned an empty entry */
-  if (*entry)
+  if (*entry) {
     return Error();
+  }
+
+  mutex_lock(s_gdisk_lock);
 
   *entry = create_gdisk_store_entry(device);
 
   /* Then update the tail pointer */
   s_last_gdisk = *entry;
 
+  mutex_unlock(s_gdisk_lock);
+
   return Success(0);
 }
 
+/* TODO: locking */
 ErrorOrPtr unregister_gdisk_dev(generic_disk_dev_t* device) {
   struct gdisk_store_entry** entry = &s_gdisks;
   struct gdisk_store_entry** previous_entry = nullptr;
@@ -160,6 +166,7 @@ generic_disk_dev_t* find_gdisk_device(disk_uid_t uid) {
   return nullptr;
 }
 
+/* TODO: locking */
 ErrorOrPtr register_gdisk_dev_with_uid(generic_disk_dev_t* device, disk_uid_t uid) {
 
   if (uid == 0) {
