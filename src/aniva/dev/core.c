@@ -178,6 +178,9 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   dev_url_t full_path = hive_get_path(s_loaded_drivers, handle);
 
+  /* Link the driver to its manifest */
+  handle->m_manifest = manifest;
+
   Must(bootstrap_driver(handle, full_path));
 
   return Success(0);
@@ -245,13 +248,14 @@ dev_manifest_t* get_driver(dev_url_t url) {
 }
 
 dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
-  if (!driver || !driver->m_manifest)
+  if (!driver || !driver->m_manifest) {
     return nullptr;
+  }
 
   bool is_loaded = is_driver_loaded(driver);
   bool is_installed = is_driver_installed(driver);
 
-  if (driver->m_flags & DRV_ALLOW_DYNAMIC_LOADING && flags & DRV_ALLOW_DYNAMIC_LOADING) {
+  if ((driver->m_flags & DRV_ALLOW_DYNAMIC_LOADING) && (flags & DRV_ALLOW_DYNAMIC_LOADING)) {
     Must(load_driver(driver->m_manifest));
   }
 

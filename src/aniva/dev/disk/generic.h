@@ -4,6 +4,7 @@
 #include "dev/disk/partition/generic.h"
 #include "dev/disk/shared.h"
 #include "dev/handle.h"
+#include "fs/superblock.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>
 
@@ -44,11 +45,14 @@ typedef struct disk_dev {
   struct partitioned_disk_dev* m_devs;
 } generic_disk_dev_t;
 
-#define GDISKDEV_SCSI       (0x00000001) /* Does this device use SCSI */
-#define GDISKDEV_RAM        (0x00000002) /* Is this a ramdevice */
+#define GDISKDEV_SCSI                   (0x00000001) /* Does this device use SCSI */
+#define GDISKDEV_RAM                    (0x00000002) /* Is this a ramdevice */
+#define GDISKDEV_RAM_COMPRESSED         (0x00000002) /* Is this a compressed ramdevice */
 
 typedef struct partitioned_disk_dev {
   struct disk_dev* m_parent;
+
+  fs_superblock_t* m_superblock;
 
   generic_partition_t m_partition_data;
 
@@ -57,8 +61,8 @@ typedef struct partitioned_disk_dev {
 
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
-int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
-int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
+int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
+int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
 
 /*
  * Find the disk device from which we where booted in
@@ -67,6 +71,7 @@ int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size
 void register_boot_device();
 
 void init_gdisk_dev();
+void init_root_device_probing();
 
 ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device);
 ErrorOrPtr register_gdisk_dev_with_uid(generic_disk_dev_t* device, disk_uid_t uid);

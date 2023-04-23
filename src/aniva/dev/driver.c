@@ -168,12 +168,11 @@ static int generic_driver_entry(aniva_driver_t* driver) {
     dev_manifest_t* dep_manifest = i->data;
 
     if (!dep_manifest || !is_driver_loaded(dep_manifest->m_handle)) {
+      /* TODO: check if the dependencies allow for dynamic loading and if so, load them anyway */
       kernel_panic("dependencies are not loaded!");
       return -1;
     }
   }
-
-  destroy_dev_manifest(manifest);
 
   /* NOTE: The driver can also mark itself as ready */
   int result = driver->f_init();

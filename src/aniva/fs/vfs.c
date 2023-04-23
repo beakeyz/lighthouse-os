@@ -68,18 +68,19 @@ ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partiti
 
   vnode_t* mountnode = nullptr;
 
+  println("Trying to mount fs type");
+
   if (fs->f_mount)
     mountnode = fs->f_mount(fs, mountpoint, device);
 
   if (!mountnode)
     return Error();
 
+  println("Trying to really mount fs type");
+
   ErrorOrPtr mount_result = vfs_mount(mountpoint, mountnode);
 
-  if (mount_result.m_status == ANIVA_SUCCESS) {
-  }
-
-  return Success(0);
+  return mount_result;
 }
 
 ErrorOrPtr vfs_mount_fs(const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device) {

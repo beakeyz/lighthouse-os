@@ -9,5 +9,8 @@ int Main() {
 
   s += a;
 
+  for (;;) {
+  }
+
   return a;
 }

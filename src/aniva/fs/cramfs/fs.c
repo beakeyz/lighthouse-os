@@ -11,6 +11,7 @@ int ramfs_exit();
 
 static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
 
+  kernel_panic("TODO: implement ramfs_read");
 
   return 0;
 }
@@ -25,6 +26,8 @@ static int ramfs_write(vnode_t* node, void* buffer, size_t size, uintptr_t offse
  * which holds the boundaries for our disk
  */
 vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
+
+  println("Mounting ramfs");
 
   /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
   const generic_disk_dev_t* parent = device->m_parent;
@@ -41,7 +44,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   node->f_read = ramfs_read;
   node->f_write = ramfs_write;
 
-  return nullptr;
+  return node;
 }
 
 aniva_driver_t ramfs = {
@@ -55,6 +58,7 @@ EXPORT_DRIVER(ramfs);
 fs_type_t cramfs = {
   .m_name = "cramfs",
   .f_mount = mount_ramfs,
+  .m_driver = &ramfs,
   .m_flags = FST_REQ_DRIVER
 };
 

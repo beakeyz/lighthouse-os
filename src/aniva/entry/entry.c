@@ -1,6 +1,7 @@
 #include "entry.h"
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/disk/generic.h"
+#include "dev/disk/ramdisk.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "fs/core.h"
@@ -38,21 +39,39 @@ NORETURN void kernel_thread();
 //extern ctor_func_t _end_ctors[];
 //__attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
 
-NOINLINE void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
+/*
+ * NOTE: has to be run after driver initialization
+ */
+void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   println("Looking for ramdisk...");
 
   struct multiboot_tag_module* mod = get_mb2_tag((void*)multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
 
-  while (mod) {
-    const uintptr_t module_start = mod->mod_start;
-    const uintptr_t module_end = mod->mod_end;
+  if (!mod)
+    return;
 
-    println("Found module!");
-    println(to_string(module_start));
-    println(to_string(module_end));
+  const uintptr_t module_start = mod->mod_start;
+  const uintptr_t module_end = mod->mod_end;
 
-    mod = next_mb2_tag(mod + mod->size, MULTIBOOT_TAG_TYPE_MODULE);
-  }
+  /* Prefetch data */
+  const size_t ramdisk_size = module_end - module_start;
+  const size_t ramdisk_page_count = kmem_get_page_idx(ramdisk_size + SMALL_PAGE_SIZE - 1);
+
+  /* Map user pages */
+  kmem_map_range(nullptr, kmem_ensure_high_mapping(module_start), module_start, ramdisk_page_count, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0);
+
+  /* Grab mapped address */
+  const uintptr_t ramdisk_addr = kmem_ensure_high_mapping(module_start);
+
+  /* Create ramdisk object */
+  generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, ramdisk_size);
+
+  /* We know ramdisks through modules are compressed */
+  ramdisk->m_flags |= GDISKDEV_RAM_COMPRESSED;
+
+  Must(vfs_mount_fs("Devices/disk", "cramfs", ramdisk->m_devs));
+
+  println("Done doing ramdisk things");
 }
 
 static uintptr_t first_valid_addr = 0;
@@ -93,8 +112,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
   );
 
-  try_fetch_initramdisk((uintptr_t)multiboot_addr);
-
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = total_multiboot_size + 8;
 
@@ -117,16 +134,13 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // are we going micro, mono or perhaps even exo?
   // how big will the role of the vfs be?
   //  * how will processes even interact with the kernel??? * 
-  vfs_create_path("l_dev/graphics");
-  vfs_create_path("l_dev/io");
-  vfs_create_path("l_dev/disk");
 
   vnode_t* test = create_generic_vnode("Test", 0);
   test->m_data = "Hi, I am david!";
 
-  vfs_mount("l_dev/disk", test);
+  vfs_mount("Devices/disk", test);
 
-  test = vfs_resolve("l_dev/disk/Test");
+  test = vfs_resolve("Devices/Test");
 
   print("Test: ");
 
@@ -177,6 +191,10 @@ NORETURN void kernel_thread() {
   init_gdisk_dev();
 
   init_aniva_driver_registry();
+
+  try_fetch_initramdisk((uintptr_t)g_system_info.multiboot_addr);
+
+  init_root_device_probing();
 
   proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
 

@@ -32,6 +32,8 @@ typedef struct {
   uintptr_t multiboot_addr;
   size_t total_multiboot_size;
 
+  /* Allow for 128 UTF-8 characters of cmd line */
+  char cmdline[128];
   //Processor_t m_bsp_processor;
   //Processor_t* m_current_core;
 } system_info_t;

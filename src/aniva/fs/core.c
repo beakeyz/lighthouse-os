@@ -1,5 +1,6 @@
 #include "core.h"
 #include "dev/debug/serial.h"
+#include "dev/kterm/kterm.h"
 #include "libk/error.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
@@ -62,6 +63,7 @@ static fs_type_t* __get_fs_type(const char* name, uint32_t length) {
 
   /* Don't dynamicaly load and the driver does not have to be active */
   if (ret && !try_driver_get(ret->m_driver, NULL)) {
+    kernel_panic("Could not find driver");
     ret = NULL;
   }
 

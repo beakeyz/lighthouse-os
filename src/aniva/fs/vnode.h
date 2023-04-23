@@ -1,6 +1,7 @@
 #ifndef __ANIVA_VNODE__
 #define __ANIVA_VNODE__
 
+#include "fs/file.h"
 #include "libk/linkedlist.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
@@ -47,7 +48,8 @@ typedef struct vnode {
   int (*f_release) (struct vnode*);
 
   /* Grab named data associated with this node */
-  struct vnode* (*f_find) (struct vnode*, char*);
+  struct file* (*f_find) (struct vnode*, char*);
+
 
   /* TODO: other vnode operations */
 

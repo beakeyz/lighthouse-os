@@ -1,5 +1,6 @@
 #include "generic.h"
 #include "dev/debug/serial.h"
+#include "fs/vfs.h"
 #include "libk/error.h"
 #include <libk/string.h>
 #include "mem/heap.h"
@@ -21,7 +22,8 @@ static struct gdisk_store_entry* s_last_gdisk;
 
 static disk_uid_t generate_new_disk_uid() {
 
-  mutex_lock(s_gdisk_lock);
+  if (!mutex_is_locked_by_current_thread(s_gdisk_lock))
+    return -1;
 
   struct gdisk_store_entry* entry = s_last_gdisk;
 
@@ -29,13 +31,13 @@ static disk_uid_t generate_new_disk_uid() {
 
   if (!entry) {
     ret = 0;
-    goto unlock_and_exit;
+    goto exit;
   }
 
   ret = entry->dev->m_uid + 1;
 
-unlock_and_exit:;
-  mutex_unlock(s_gdisk_lock);
+  // Label is here for eventual locking / allocation cleaning
+exit:;
 
   return ret;
 }
@@ -244,7 +246,7 @@ int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t siz
   return 0;
 }
 
-int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
+int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
 
   if (!dev || !dev->m_parent)
     return -1;
@@ -268,7 +270,7 @@ int read_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_
   return result;
 }
 
-int write_sync_partitioned_block(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
+int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
   kernel_panic("TODO: implement write_sync_partitioned_block");
 }
 
@@ -381,5 +383,44 @@ void register_boot_device() {
 
 void init_gdisk_dev() {
   s_gdisk_lock = create_mutex(0);
+
+}
+
+void init_root_device_probing() {
+
+  /*
+   * Init probing for the root device
+   */
+  generic_disk_dev_t* root_device = find_gdisk_device(0);
+
+  if (!root_device) {
+    /* if this does not work, there might just not be any harddisks connected, we should check for usb or ramdisks.. */
+    kernel_panic("Could not find root disk. No disks atached?");
+  }
+
+  partitioned_disk_dev_t* part = root_device->m_devs;
+
+  /*
+   * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,
+   * we bruteforce every partition and check if it contains a valid FAT32 filesystem. If
+   * it does, we check if it contains a kconfig file and if it does, we simply take 
+   * that drive and partition as our root.
+   */
+  while (part) {
+
+    print("Testing for fat filesystem: ");
+    println(part->m_partition_data.m_name);
+
+    /*
+     * Test for a fat32 filesystem
+     */
+    if (vfs_mount_fs("/root", "fat32", part).m_status == ANIVA_SUCCESS)
+      break;
+    
+    part = part->m_next;
+  }
+
+  kernel_panic("init_root_device_probing test");
+
 }
 

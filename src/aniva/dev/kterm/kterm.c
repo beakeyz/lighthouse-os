@@ -270,21 +270,19 @@ void kterm_command_worker() {
         kterm_println("\nSuccessfully created Zone!\n");
       } else if (!strcmp(contents, "testramdisk")) {
 
-        kterm_println("\nTrying to create and read from dummy ramdisk!\n");
-        generic_disk_dev_t* ramdisk = create_generic_ramdev(SMALL_PAGE_SIZE);
-
         uintptr_t buffer;
 
-        ramdisk->m_ops.f_read_sync(ramdisk, &buffer, sizeof(uintptr_t), 0);
+        vnode_t* ramfs = vfs_resolve("Devices/disk/cramfs");
 
-        bool could_kill = destroy_generic_ramdev(ramdisk);
+        if (!ramfs){
+          kernel_panic("Could not resolve ramfs");
+        }
+
+        ramfs->f_read(ramfs, &buffer, sizeof(uintptr_t), 0);
 
         kterm_println("Successfully read from dummy ramdisk: ");
         kterm_println(to_string(buffer));
-        if (could_kill)
-          kterm_println("\nCould kill the disk!");
-        else
-          kterm_println("\nCould not kill the disk!");
+
       }
       kterm_println("\n");
 
