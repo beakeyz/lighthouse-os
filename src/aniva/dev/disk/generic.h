@@ -10,7 +10,7 @@
 
 // TODO: generic error codes
 
-typedef uintptr_t disk_uid_t;
+typedef uint8_t disk_uid_t;
 
 struct disk_dev;
 struct partitioned_disk_dev;
