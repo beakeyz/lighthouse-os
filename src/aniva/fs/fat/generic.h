@@ -1,5 +1,6 @@
 #ifndef __ANIVA_GENERIC_FAT__
 #define __ANIVA_GENERIC_FAT__
+#include "dev/disk/shared.h"
 #include "fs/superblock.h"
 #include "fs/vnode.h"
 #include "mem/heap.h"
@@ -129,6 +130,14 @@ typedef struct {
   uint32_t size;
 } __attribute__((packed)) fat_dir_entry_t;
 
+/* TODO: */
+typedef struct {
+  disk_offset_t pos;
+  disk_offset_t offset;
+
+  fat_dir_entry_t* dir_entry;
+} fat_dir_t;
+
 typedef struct {
 
 } __attribute__((packed)) fat_lfn_entry_t;
@@ -143,6 +152,8 @@ typedef struct {
   uint16_t first_fat;
 
   uint8_t fat_type; /* bits of this FAT fs (12, 16, 32) */
+
+  
 
   mutex_t* fat_lock;
 
@@ -164,6 +175,9 @@ void destroy_fat_fs_info(fat_fs_info_t* info) {
 
 size_t fat_calculate_clusters(fs_superblock_t* block);
 void fat_get_cluster(vnode_t* node, uintptr_t clustern);
+ErrorOrPtr fat_get_dir_entry(vnode_t* node, uintptr_t* offset, fat_dir_entry_t** dir_entry);
+
+ErrorOrPtr fat_find(vnode_t* node, const char* path);
 
 /* TODO: implement FAT functions */
 

@@ -22,6 +22,23 @@ enum FAT_ERRCODES {
   FAT_INVAL = 1,
 };
 
+/* Following ASCII */
+static inline uint8_t fat_to_lower(char c) {
+  return ((c >= 'A') && (c <= 'Z')) ? c+32 : c;
+}
+
+typedef uintptr_t fat_offset_t;
+
+static inline fat_offset_t fat_make_offset(fs_superblock_t* sb, uintptr_t block_nr, fat_dir_entry_t* de0, fat_dir_entry_t* de1);
+
+static ErrorOrPtr fat_get_dir_entry_heavy(vnode_t* n, uintptr_t* offset, fat_dir_entry_t** dir_entry);
+ErrorOrPtr fat_get_dir_entry(vnode_t* node, uintptr_t* offset, fat_dir_entry_t** dir_entry);
+
+/* TODO: */
+static int fat_parse_lfn(void* dir, fat_offset_t* offset);
+
+static int fat_parse_short_fn(fs_superblock_t* sb, fat_dir_entry_t* dir, const char* name);
+
 static int parse_fat_bpb(fat_boot_sector_t* bpb, fs_superblock_t* block) {
 
   if (!fat_valid_bs(bpb)) {

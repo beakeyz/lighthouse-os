@@ -6,7 +6,20 @@
 #include <sync/mutex.h>
 #include <libk/stddef.h>
 
+struct vnode;
 struct virtual_namespace;
+
+/* TODO: migrate ops to these structs */
+struct generic_vnode_ops {
+};
+
+struct vnode_dir_ops {
+  int (*f_create)(struct vnode* dir);
+  int (*f_remove)(struct vnode* dir);
+  int (*f_make)(struct vnode* dir);
+  int (*f_rename)(struct vnode* dir, const char* new_name);
+  /* TODO: ;-; */
+};
 
 typedef struct vnode {
   mutex_t* m_lock;

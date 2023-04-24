@@ -1,3 +1,4 @@
+#include "core.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
