@@ -292,10 +292,9 @@ generic_disk_dev_t* create_generic_ramdev(size_t size) {
 generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   /* Trolle xD */
   const size_t ramdisk_blksize = 1;
-  size = ALIGN_UP(size, SMALL_PAGE_SIZE);
   paddr_t start_addr = address;
 
-  memset((void*)start_addr, 0x00, size);
+  size = ALIGN_UP(size, SMALL_PAGE_SIZE);
 
   generic_disk_dev_t* dev = kmalloc(sizeof(generic_disk_dev_t));
   memset(dev, 0x00, sizeof(generic_disk_dev_t));

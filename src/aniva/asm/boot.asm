@@ -233,7 +233,7 @@ boot_hh_pdpt:
 section .stack
 
 kstack_bottom:
-  times 16384 db 0
+  times 32768 db 0
 kstack_top:
 
 

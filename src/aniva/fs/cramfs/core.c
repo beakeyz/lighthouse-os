@@ -3,8 +3,10 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
+#include "fs/cramfs/compression.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
+#include "mem/kmem_manager.h"
 #include <fs/core.h>
 
 int ramfs_init();
@@ -33,14 +35,35 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
   const generic_disk_dev_t* parent = device->m_parent;
 
+  ASSERT_MSG(parent->m_devs == device, "Ramdisk partition mismatch!");
+
   if (!parent)
+    return nullptr;
+
+  if ((parent->m_flags & GDISKDEV_RAM) == 0)
     return nullptr;
 
   const size_t partition_size = device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba;
   vnode_t* node = create_generic_vnode("cramfs", VN_MOUNT | VN_FS);
 
   node->m_size = partition_size;
-  node->m_data = (void*)device->m_partition_data.m_start_lba;
+  node->m_data = (void*)Must(kmem_kernel_alloc_range(partition_size, 0, 0));
+
+  println("A");
+  if (parent->m_flags & GDISKDEV_RAM_COMPRESSED) {
+    println("B");
+
+    uint32_t* uncompressed_data = (void*)device->m_partition_data.m_start_lba;
+
+    /* Is enforcing success here a good idea? */
+    Must(cram_decompress(device, node->m_data));
+
+    ASSERT_MSG(node->m_data != nullptr, "decompressing resulted in NULL");
+
+    /* Free the pages of the compressed ramdisk */
+    kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1));
+  }
+  kernel_panic("Yeet");
 
   node->f_read = ramfs_read;
   node->f_write = ramfs_write;

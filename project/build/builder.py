@@ -28,7 +28,7 @@ class ProjectBuilder(object):
         self.builderMode = mode
         self.constants = constants
         if mode == BuilderMode.KERNEL:
-            self.srcPath = ["src/aniva", "src/drivers", "src/libs"]
+            self.srcPath = ["src/aniva", "src/drivers"]
         elif mode == BuilderMode.USERSPACE:
             self.srcPath = ["src/user", "src/libs"]
             # self.userspaceBinariesOutPath = constants.OUT_DIR + "/user/binaries"

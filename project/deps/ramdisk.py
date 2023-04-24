@@ -21,4 +21,4 @@ class RamdiskManager(object):
 
         with tarfile.open(self.OUT_PATH, "w:gz") as anivaRamdisk:
             anivaRamdisk.add("system", arcname="/", filter=self.__tar_filter)
-            pass
+            anivaRamdisk.add("out/user/init/init", arcname="/init", filter=self.__tar_filter)
