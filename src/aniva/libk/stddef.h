@@ -22,7 +22,7 @@ typedef char*                       va_list;
 typedef uint64_t                    size_t;
 typedef int64_t                     ssize_t;
 typedef uint64_t                    uintptr_t;
-typedef _Bool                       bool;
+typedef uint8_t                     bool;
 
 typedef uintptr_t                   vaddr_t;
 typedef uintptr_t                   paddr_t;

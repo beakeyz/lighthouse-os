@@ -154,13 +154,13 @@ EXCEPTION(5, "Bounds range exceeded");
 REGISTER_ERROR_HANDLER_NO_CODE(6, illegal_instruction);
 
 void illegal_instruction_handler(registers_t *regs) {
-
+  kernel_panic("illegal_instruction_handler");
 }
 
 REGISTER_ERROR_HANDLER_NO_CODE(7, fpu);
 
 void fpu_handler(registers_t *regs) {
-
+  kernel_panic("fpu_handler");
 }
 
 EXCEPTION(8, "Double fault");
