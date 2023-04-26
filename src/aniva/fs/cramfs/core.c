@@ -41,13 +41,22 @@ int ramfs_exit();
 
 static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
 
-  kernel_panic("TODO: implement ramfs_read");
+  uintptr_t start_offset = (uintptr_t)node->m_data;
+
+  memcpy(buffer, (void*)(start_offset + offset), size);
 
   return 0;
 }
 
 static int ramfs_write(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
-  kernel_panic("TODO: implement ramfs_write");
+  kernel_panic("TODO: implement ramfs_write (should we though?)");
+  return 0;
+}
+
+static vnode_t* ramfs_find(vnode_t* node, char* name) {
+
+
+
   return 0;
 }
 
@@ -73,6 +82,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   const size_t partition_size = ALIGN_UP(device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba, SMALL_PAGE_SIZE);
   vnode_t* node = create_generic_vnode("cramfs", VN_MOUNT | VN_FS);
 
+  node->m_dev = device;
   node->m_size = partition_size;
   node->m_data = (void*)device->m_partition_data.m_start_lba;
 
@@ -82,6 +92,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
     /* We need to allocate for the decompressed size */
     node->m_data = (void*)Must(kmem_kernel_alloc_range(decompressed_size, 0, 0));
+    node->m_size = decompressed_size;
 
     /* Is enforcing success here a good idea? */
     Must(cram_decompress(device, node->m_data));
@@ -97,6 +108,17 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   node->f_read = ramfs_read;
   node->f_write = ramfs_write;
+  node->f_find = ramfs_find;
+
+  uint8_t* t = node->m_data;
+
+  while ((uintptr_t)t < (uintptr_t)(node->m_data + node->m_size)) {
+    if (*t)
+      putch(*t);
+    else 
+      putch(' ');
+    t++;
+  }
 
   return node;
 }

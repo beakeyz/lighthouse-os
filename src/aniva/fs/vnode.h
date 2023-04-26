@@ -9,6 +9,14 @@
 struct vnode;
 struct virtual_namespace;
 
+/* TODO: */
+enum VNODE_TYPES {
+  DIR,
+  MOUNTPOINT,
+  FILE,
+  // More
+};
+
 /* TODO: migrate ops to these structs */
 struct generic_vnode_ops {
 };
@@ -24,6 +32,7 @@ struct vnode_dir_ops {
 typedef struct vnode {
   mutex_t* m_lock;
 
+  /* pointer to this nodes 'device' in posix terms */
   void* m_dev;
 
   uint32_t m_flags;
@@ -32,6 +41,9 @@ typedef struct vnode {
 
   /* Gets assigned when the vnode is mounted somewhere in the VFS */
   int m_id;
+
+  /* Context specific index of this vnode */
+  uintptr_t m_inum;
 
   size_t m_size;
 
@@ -61,7 +73,7 @@ typedef struct vnode {
   int (*f_release) (struct vnode*);
 
   /* Grab named data associated with this node */
-  struct file* (*f_find) (struct vnode*, char*);
+  struct vnode* (*f_find) (struct vnode*, char*);
 
 
   /* TODO: other vnode operations */
