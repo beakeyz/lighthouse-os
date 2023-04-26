@@ -294,8 +294,6 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   const size_t ramdisk_blksize = 1;
   paddr_t start_addr = address;
 
-  size = ALIGN_UP(size, SMALL_PAGE_SIZE);
-
   generic_disk_dev_t* dev = kmalloc(sizeof(generic_disk_dev_t));
   memset(dev, 0x00, sizeof(generic_disk_dev_t));
 
@@ -306,11 +304,11 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   dev->m_logical_sector_size = ramdisk_blksize;
   dev->m_physical_sector_size = ramdisk_blksize;
   dev->m_device_name = "ramdev"; /* Should we create a unique name? */
-  dev->m_max_blk = start_addr + size;
+  dev->m_max_blk = size;
 
   generic_partition_t part = {
     .m_start_lba = start_addr,
-    .m_end_lba = dev->m_max_blk,
+    .m_end_lba = start_addr + size,
     .m_name = "rampart0",
   };
 

@@ -194,7 +194,7 @@ NORETURN void kernel_thread() {
 
   try_fetch_initramdisk((uintptr_t)g_system_info.multiboot_addr);
 
-  init_root_device_probing();
+  // init_root_device_probing();
 
   proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
 

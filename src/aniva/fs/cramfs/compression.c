@@ -52,28 +52,29 @@ struct huffman_cache default_cache = { 0, { 0 } };
 
 static void fill_huffman_table(struct huffman_table* table, uint8_t* lengths, size_t size) {
 
+  uint16_t offsets[16] = { 0 };
+  uint32_t count = 0;
+
   /* Zero */
   memset(table, 0, sizeof(struct huffman_table));
 
   for (size_t i = 0; i < size; i++) {
-    table->counts[lengths[i]]++; 
+      table->counts[lengths[i]]++; 
   }
 
   table->counts[0] = 0;
 
-  uint16_t offsets[16] = { 0 };
-  uint32_t count = 0;
+  /* NOTE: Dangerous assert */
+  // ASSERT_MSG(table->counts[0] == 0, "Huffman table count missmatch! (counts[0] != 0)");
 
-  for (uint32_t i = 0; i < 16; i++) {
+  for (uint8_t i = 0; i < 16; i++) {
     offsets[i] = count;
     count += table->counts[i];
   }
 
   for (size_t i = 0; i < size; i++) {
-    if (lengths[i]) {
-      table->alphabet[offsets[lengths[i]]] = i;
-      offsets[lengths[i]]++;
-    }
+    if (lengths[i])
+      table->alphabet[offsets[lengths[i]]++] = i;
   }
 }
 
@@ -91,7 +92,7 @@ static void build_fixed_tables() {
   const uint8_t fixed_distances_size = 30;
 
   uint8_t l[fixed_lengths_size];
-  for (uint8_t i = 0; i < 144; i++) {
+  for (uint16_t i = 0; i < 144; i++) {
     l[i] = 8;
   }
   for (uint16_t i = 144; i < 256; i++) {
@@ -106,7 +107,7 @@ static void build_fixed_tables() {
 
   fill_huffman_table(fixed_lengths, l, fixed_lengths_size);
 
-  for (uint8_t i = 0; i < fixed_distances_size; i++) {
+  for (uint32_t i = 0; i < fixed_distances_size; i++) {
     l[i] = 5;
   }
 
@@ -127,6 +128,9 @@ static void c_reset_bit_buffer(decompress_ctx_t* ctx) {
  * When we want to read a byte, we need to reset the bit buffer in order to preserve alignment
  */
 static ALWAYS_INLINE uint8_t c_read(decompress_ctx_t* ctx) {
+  if ((uintptr_t)ctx->m_current > ctx->m_end_addr) {
+    kernel_panic("cramfs decompression: Overflow error =(");
+  }
   return *ctx->m_current++;
 }
 
@@ -148,8 +152,7 @@ static void c_write_from(decompress_ctx_t* ctx, uint32_t offset) {
   const size_t overflown_ptr = ctx->m_cache->cache_ptr + HUFFMAN_CACHE_SIZE;
   const uint8_t lookback_data = ctx->m_cache->cache[(overflown_ptr - offset) & HUFFMAN_CACHE_MASK];
 
-  // c_write(ctx, lookback_data);
-
+  c_write(ctx, lookback_data);
 }
 
 static uint16_t c_read16(decompress_ctx_t* ctx) {
@@ -171,11 +174,12 @@ static uint8_t c_read_bit(decompress_ctx_t* ctx) {
   if (ctx->m_bit_buffer_bits_count == 0) {
     /* Fill the buffer */
     ctx->m_bit_buffer = c_read(ctx);
+
     /* We fill the buffer with 8 bits */
     ctx->m_bit_buffer_bits_count = 8;
   }
 
-  uint8_t ret = ctx->m_bit_buffer & 0x01;
+  uint8_t ret = ctx->m_bit_buffer & 1;
 
   ctx->m_bit_buffer >>= 1;
 
@@ -187,9 +191,9 @@ static uint8_t c_read_bit(decompress_ctx_t* ctx) {
 static uint32_t c_read_bits(decompress_ctx_t* ctx, uint8_t count) {
 
   uint32_t ret = 0;
-  for (uint8_t i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     /* Load bit into the ith place of the buffer */
-    ret |= (c_read_bit(ctx) << i);
+    ret |= (c_read_bit(ctx) << i) & 0xFFFFFFFF;
   }
 
   return ret;
@@ -201,7 +205,7 @@ static uint32_t c_read_bits(decompress_ctx_t* ctx, uint8_t count) {
 static uint32_t c_read_symbol(decompress_ctx_t* ctx, struct huffman_table* table) {
   int count = 0;
   int current = 0;
-  for (int i = 1; current >= 0; i++) {
+  for (uint32_t i = 1; current >= 0; i++) {
     /* Prepare for next bit and read it */
     current = (current << 1) | c_read_bit(ctx);
     /* Go backwards in the tree */
@@ -215,6 +219,8 @@ static uint32_t c_read_symbol(decompress_ctx_t* ctx, struct huffman_table* table
 static ErrorOrPtr handle_non_compressed(decompress_ctx_t* ctx, struct gzip_compressed_header* header) {
 
   println("Found Non-compressed block");
+
+  c_reset_bit_buffer(ctx);
 
   /* Non-compressed blocks start with these two words */
   uint16_t len = c_read16(ctx);
@@ -265,33 +271,20 @@ static ErrorOrPtr huffman_inflate(decompress_ctx_t* ctx, struct gzip_compressed_
   };
 
   for (;;) {
-    print("Symb: ");
-    const uint32_t symb = c_read_symbol(ctx, lengths);
-
-    println(to_string(symb));
+    uint32_t symb = c_read_symbol(ctx, lengths);
 
     if (symb == 256) {
       break;
     } else if (symb < 256) {
       c_write(ctx, symb);
     } else {
-      uint32_t dsymb = symb - 257;
-      uint32_t length = c_read_bits(ctx, __lbits[dsymb] + __length_codes[dsymb]);
+      symb -= 257;
+      uint32_t length = c_read_bits(ctx, __lbits[symb]) + __length_codes[symb];
       uint32_t dist = c_read_symbol(ctx, dists);
-      uint32_t offset = c_read_bits(ctx, __dbits[dist] + __distances[dist]);
-
-      println("Writing back");
-      println(to_string(length));
-      println(to_string(dist));
-      println(to_string(offset));
-
-      const size_t overflown_ptr = ctx->m_cache->cache_ptr + HUFFMAN_CACHE_SIZE;
-      const uint8_t lookback_data = ctx->m_cache->cache[(overflown_ptr - offset) & HUFFMAN_CACHE_MASK];
+      uint32_t offset = c_read_bits(ctx, __dbits[dist]) + __distances[dist];
 
       for (uint32_t i = 0; i < length; i++) {
-        print(to_string(lookback_data));
-        println(" thing =)");
-        c_write(ctx, lookback_data);
+        c_write_from(ctx, offset);
       }
     }
   }
@@ -306,14 +299,14 @@ static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx, struct gzip_com
       16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15
   };
 
-  uint8_t dyn_lengths[320] = {0};
+  uint8_t dyn_lengths[320] = { 0 };
 
   uint32_t dyn_literals  = 257 + c_read_bits(ctx, 5);
   uint32_t dyn_distances = 1 + c_read_bits(ctx, 5);
   uint32_t dyn_code_lens  = 4 + c_read_bits(ctx, 4);
 
   for (uint32_t i = 0; i < dyn_code_lens; i++) {
-    dyn_lengths[i] = c_read_bits(ctx, 3);
+    dyn_lengths[clens[i]] = c_read_bits(ctx, 3);
   }
 
   struct huffman_table dyn_codes;
@@ -322,8 +315,6 @@ static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx, struct gzip_com
 
   for (uint32_t i = 0; i < dyn_literals + dyn_distances;) {
     int symb = c_read_symbol(ctx, &dyn_codes);
-
-    println(to_string(symb));
 
     uint32_t repeat_count = 0;
 
@@ -349,7 +340,8 @@ static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx, struct gzip_com
         break;
     }
 
-    for (uint32_t j = 0; j < repeat_count; j++) {
+    /* While repeat_count is non-null, keep copying lengths */
+    while (repeat_count--) {
       dyn_lengths[i++] = symb;
     }
   }
@@ -357,7 +349,7 @@ static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx, struct gzip_com
   struct huffman_table dyn_len_table;
   struct huffman_table dyn_dist_table;
 
-  fill_huffman_table(&dyn_dist_table, dyn_lengths, dyn_literals);
+  fill_huffman_table(&dyn_len_table, dyn_lengths, dyn_literals);
   fill_huffman_table(&dyn_dist_table, dyn_lengths + dyn_literals, dyn_distances);
 
   return huffman_inflate(ctx, header, &dyn_len_table, &dyn_dist_table);
@@ -490,4 +482,20 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) 
   ErrorOrPtr result = generic_inflate(&ctx, &header);
 
   return result;
+}
+
+size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
+
+  decompress_ctx_t dummy_ctx = {
+    .m_current = (uint8_t*)(device->m_partition_data.m_end_lba - 8),
+    .m_end_addr = device->m_partition_data.m_end_lba,
+  };
+
+  uint32_t crc32 = c_read32(&dummy_ctx);
+
+  println(to_string(crc32));
+
+  /* TODO: validate crc32? */
+
+  return c_read32(&dummy_ctx);
 }
