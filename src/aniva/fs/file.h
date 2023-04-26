@@ -1,50 +1,73 @@
 #ifndef __ANIVA_FIL_IMPL__
 #define __ANIVA_FIL_IMPL__
+#include "dev/disk/shared.h"
+#include "libk/error.h"
 #include "sync/atomic_ptr.h"
 #include <sync/mutex.h>
 
+/*
+ * A file is the most generic type of vobj.
+ * it represents an fs entry that can hold any arbitrary data of any size.
+ * dealing with files should mean no need to worry about the underlying
+ * filesystem or device. Reading from a file should simply be the following steps:
+ *  1) open the file (using a handle, or a path)
+ *  2) read the data into a buffer r sm
+ *  3) close the file to clean up
+ * writing should then be this:
+ *  1) open the file (same as above)
+ *  2) write into a certain offset or line
+ *  3) close the file to clean up and save changes to device
+ *
+ * Ez pz
+ */
+
 struct file;
+struct vobj;
 struct vnode;
 
-/* TODO: ops */
+typedef struct file_ops {
+  int (*f_sync)     (struct file* file);
+  int (*f_read)     (struct file* file, void* buffer, size_t size, uintptr_t offset);
+  int (*f_write)    (struct file* file, void* buffer, size_t size, uintptr_t offset);
+  /* 
+   * Closing the file: 
+   *  - We will detach from the parent vnode
+   *  - We will sync if we can
+   *  - Try to clean data buffers if there are any
+   */
+  int (*f_close)    (struct file* file);
+  int (*f_resize)   (struct file* file, size_t new_size);
+} file_ops_t;
+
+/*
+ * When this object is alive, we assume it (and its vnode) have already already opend
+ */
 typedef struct file {
-  const char* m_path;
-
-  struct vnode* m_node;
-
-  mutex_t* m_lock;
-  atomic_ptr_t* m_count;
 
   uint32_t m_flags;
-  
+
+  /* Every file has an 'offset' or 'address' for where it starts */
+  disk_offset_t m_offset;
+
+  /* How many 'chunks' this file encapsulates */
+  uintptr_t m_scatter_count;
+
+  /* The files parent object */
+  struct vobj* m_obj;
+
+  file_ops_t* m_ops;
+
+  /* Pointer to the data buffer. TODO: make this easily managable */
+  void* m_data;
+  size_t m_size;
+
 } __attribute__((aligned(4))) file_t;
 
-/*
- * Open the file and increment atomic access counter
- */
-static ALWAYS_INLINE file_t* get_file(file_t* file) {
-  if (!file)
-    return nullptr;
+file_t* create_file(struct vnode* parent, uint32_t flags, const char* path);
+file_t* create_file_from_vobj(struct vobj* obj);
+void destroy_file(file_t* file);
 
-  atomic_ptr_write(file->m_count, atomic_ptr_load(file->m_count) + 1);
-  return file;
-}
-
-/*
- * Getter for the vnode of this file
- */
-static ALWAYS_INLINE struct vnode* get_file_vnode(file_t* file) {
-  if (!file)
-    return nullptr;
-
-  return file->m_node;
-}
-
-typedef struct fhandle {
-  uint32_t m_size;
-  uint8_t m_fhandle[];
-} fhandle_t;
-
-// TODO:
+/* TODO: what will the syntax be? */
+ErrorOrPtr file_open();
 
 #endif // !__ANIVA_FIL_IMPL__

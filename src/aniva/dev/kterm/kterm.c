@@ -8,7 +8,10 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "fs/core.h"
+#include "fs/file.h"
 #include "fs/vfs.h"
+#include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "interupts/interupts.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
@@ -270,18 +273,28 @@ void kterm_command_worker() {
         kterm_println("\nSuccessfully created Zone!\n");
       } else if (!strcmp(contents, "testramdisk")) {
 
-        uintptr_t buffer;
-
         vnode_t* ramfs = vfs_resolve("Devices/disk/cramfs");
 
         if (!ramfs){
           kernel_panic("Could not resolve ramfs");
         }
 
-        ramfs->f_read(ramfs, &buffer, sizeof(uintptr_t), 0);
+        kterm_println("\nTaking fs\n");
+        vn_take(ramfs, VN_SYS);
 
-        kterm_println("Successfully read from dummy ramdisk: ");
-        kterm_println(to_string(buffer));
+        kterm_println("Finding file...\n");
+        vobj_t* obj = ramfs->f_find(ramfs, "dummy.txt");
+        ASSERT_MSG(obj, "Could not get vobj from test");
+        ASSERT_MSG(obj->m_flags & VOBJ_FILE, "Object was not a file!");
+        file_t* file = obj->m_child;
+        ASSERT_MSG(file, "Could not get file from test");
+
+        kterm_println("Data: ");
+        kterm_println((const char*)file->m_data);
+        kterm_println("\n");
+
+        kterm_println("Releasing file\n");
+        vn_release(ramfs);
 
       }
       kterm_println("\n");

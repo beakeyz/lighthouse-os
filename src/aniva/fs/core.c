@@ -50,7 +50,30 @@ ErrorOrPtr register_filesystem(fs_type_t* fs) {
 }
 
 ErrorOrPtr unregister_filesystem(fs_type_t* fs) {
-  kernel_panic("TODO: implement unregister_filesystem");
+
+  kernel_panic("TODO: test unregister_filesystem");
+
+  fs_type_t** itterator;
+
+  mutex_lock(fsystems_lock);
+
+  itterator = &fsystems;
+
+  while (*itterator) {
+    if (*itterator == fs) {
+
+      *itterator = fs->m_next;
+      fs->m_next = nullptr;
+      
+      mutex_unlock(fsystems_lock);
+      return Success(0);
+    }
+
+    itterator = &(*itterator)->m_next;
+  }
+
+  mutex_unlock(fsystems_lock);
+  return Error();
 }
 
 static fs_type_t* __get_fs_type(const char* name, uint32_t length) {

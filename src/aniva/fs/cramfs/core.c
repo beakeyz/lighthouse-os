@@ -4,13 +4,20 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/cramfs/compression.h"
+#include "fs/file.h"
 #include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "libk/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include <fs/core.h>
 
-struct tar_file {
+#include <dev/kterm/kterm.h>
+
+int ramfs_init();
+int ramfs_exit();
+
+typedef struct tar_file {
   uint8_t fn[100];
   uint8_t mode[8];
   uint8_t owner_id[8];
@@ -34,10 +41,28 @@ struct tar_file {
   uint8_t d_min[8];
 
   uint8_t prefix[155];
-};
+} tar_file_t;
 
-int ramfs_init();
-int ramfs_exit();
+#define TAR_USTAR_ALIGNMENT 512
+
+static uintptr_t decode_tar_ascii(uint8_t* str, size_t length) {
+  
+  uintptr_t ret = 0;
+  uint8_t* c = str;
+
+  /* Itterate to null byte */
+  for (uintptr_t i = 0; i < length; i++) {
+    ret *= 8;
+    ret += *c - '0';
+    c++;
+  }
+
+  return ret;
+}
+
+static uintptr_t apply_tar_alignment(uintptr_t val) {
+  return (((val + TAR_USTAR_ALIGNMENT - 1) / TAR_USTAR_ALIGNMENT) + 1) * TAR_USTAR_ALIGNMENT;
+}
 
 static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
 
@@ -53,11 +78,53 @@ static int ramfs_write(vnode_t* node, void* buffer, size_t size, uintptr_t offse
   return 0;
 }
 
-static vnode_t* ramfs_find(vnode_t* node, char* name) {
+static vobj_t* ramfs_find(vnode_t* node, char* name) {
+
+  tar_file_t current_file = { 0 };
+  uintptr_t current_offset = 0;
+  size_t name_len = strlen(name);
+
+  /* Create file early to catch vnode grabbing issues early */
+  file_t* file = create_file(node, 0, name);
+
+  if (!file)
+    return nullptr;
+
+  while (true) {
+    int result = node->f_read(node, &current_file, sizeof(tar_file_t), current_offset);
+
+    if (result)
+      break;
+
+    /* Invalid TAR archive file */
+    if (!memcmp(current_file.ustar, "ustar", 5)) {
+      break;
+    }
+
+    uintptr_t current_file_offset = (uintptr_t)node->m_data + current_offset;
+    uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
+
+    if (memcmp(current_file.fn, name, name_len)) {
+      /*
+       * TODO: how do we want this to work? 
+       * TODO: Create vobj 
+       */
+
+      uint8_t* data = (uint8_t*)(current_file_offset + TAR_USTAR_ALIGNMENT);
+
+      file->m_data = data;
+      file->m_size = filesize;
+      file->m_offset = current_file_offset;
+
+      return file->m_obj;
+    }
 
 
+    current_offset += apply_tar_alignment(filesize);
+  }
 
-  return 0;
+  kernel_panic("Did not find ramfs object =(");
+  return nullptr;
 }
 
 /*
@@ -109,16 +176,6 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   node->f_read = ramfs_read;
   node->f_write = ramfs_write;
   node->f_find = ramfs_find;
-
-  uint8_t* t = node->m_data;
-
-  while ((uintptr_t)t < (uintptr_t)(node->m_data + node->m_size)) {
-    if (*t)
-      putch(*t);
-    else 
-      putch(' ');
-    t++;
-  }
 
   return node;
 }

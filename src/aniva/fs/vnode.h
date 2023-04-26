@@ -2,10 +2,12 @@
 #define __ANIVA_VNODE__
 
 #include "fs/file.h"
+#include "libk/error.h"
 #include "libk/linkedlist.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
 
+struct vobj;
 struct vnode;
 struct virtual_namespace;
 
@@ -31,6 +33,7 @@ struct vnode_dir_ops {
 
 typedef struct vnode {
   mutex_t* m_lock;
+  mutex_t* m_vobj_lock;
 
   /* pointer to this nodes 'device' in posix terms */
   void* m_dev;
@@ -62,19 +65,12 @@ typedef struct vnode {
   /* Send some data to this node and have whatever is connected do something for you */
   int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
 
-  /* Should return bytestreams of their respective files */
-  void* (*f_open_stream) (struct vnode*);
-  void* (*f_close_stream) (struct vnode*);
-
-  /* Take this node to do operations on it */
-  int (*f_take) (struct vnode*, uint32_t flags);
-
-  /* Release this node so others can do operations on it */
-  int (*f_release) (struct vnode*);
-
   /* Grab named data associated with this node */
-  struct vnode* (*f_find) (struct vnode*, char*);
+  struct vobj* (*f_find) (struct vnode*, char*);
 
+  struct vnode_dir_ops* m_dir_ops;
+
+  struct vobj* m_objects;
 
   /* TODO: other vnode operations */
 
@@ -126,5 +122,19 @@ bool vn_is_link(vnode_t);
  */
 void vn_freeze(vnode_t*);
 void vn_unfreeze(vnode_t*);
+
+/*
+ * Taking a vnode means you take custody of all the vobjects that
+ * result out of this vnode. When you release this node, all of these 
+ * objects will be synced, destroyed and/or saved.
+ */
+int vn_take(vnode_t* node, uint32_t flags);
+int vn_release(vnode_t* node);
+
+ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj);
+ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj);
+ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path);
+
+bool vn_has_object(vnode_t* node, const char* path);
 
 #endif // !__ANIVA_VNODE__

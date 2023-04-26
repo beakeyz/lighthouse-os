@@ -45,6 +45,7 @@ void destroy_mutex(mutex_t* mutex) {
 }
 
 void mutex_lock(mutex_t* mutex) {
+  ASSERT_MSG(mutex, "Tried to lock a mutex that has not been initialized");
   ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
 
   spinlock_lock(mutex->m_lock);
@@ -91,7 +92,7 @@ void mutex_lock(mutex_t* mutex) {
 }
 
 void mutex_unlock(mutex_t* mutex) {
-
+  ASSERT_MSG(mutex, "Tried to unlock a mutex that has not been initialized");
   ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
   // ASSERT_MSG(mutex->m_lock_holder != nullptr, "mutex has no holder while trying to unlock!");
   ASSERT_MSG(mutex->m_lock_depth > 0, "Tried to unlock a mutex while it was already unlocked!");
