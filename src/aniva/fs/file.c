@@ -52,6 +52,7 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
   }
 
   ret->m_obj->m_flags |= VOBJ_FILE;
+  ret->m_obj->m_flags &= ~VOBJ_EMPTY;
   ret->m_obj->m_child = ret;
   ret->m_obj->m_ops->f_destory_child = (void (*)(void*))destroy_file;
 
