@@ -93,10 +93,10 @@ typedef struct vnode {
 #define VN_MOUNT    (0x000004) /* Is this node a mountpoint for something? */
 #define VN_FROZEN   (0x000008) /* Is this node frozen by the system? */
 #define VN_CACHED   (0x000010) /* Does this node have cached data somewhere? */
-#define VN_LINK     (0x000011) /* Does this node point to something else? */
-#define VN_FS       (0x000012) /* Is this node a filesystem? */
-#define VN_DIR      (0x000014) /* Is this node a directory? */
-#define VN_TAKEN    (0x000018) /* Has someone taken this node? */
+#define VN_LINK     (0x000020) /* Does this node point to something else? */
+#define VN_FS       (0x000040) /* Is this node a filesystem? */
+#define VN_DIR      (0x000080) /* Is this node a directory? */
+#define VN_TAKEN    (0x000100) /* Has someone taken this node? */
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
 
