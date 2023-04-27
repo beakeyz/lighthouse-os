@@ -1,4 +1,5 @@
 .vscode/
+.ccls-cache/
 
 /cross_compiler/
 cross_compiler/

@@ -1,4 +1,5 @@
 #include "vobj.h"
+#include "dev/debug/serial.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
 #include "mem/heap.h"
@@ -30,10 +31,12 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
   }
 
   vobj_t* obj = kmalloc(sizeof(vobj_t));
+  memset(obj, 0, sizeof(vobj_t));
 
   obj->m_lock = create_mutex(0);
   obj->m_ops = &generic_ops;
 
+  obj->m_parent = nullptr;
   obj->m_child = nullptr;
   obj->m_flags = VOBJ_EMPTY;
   obj->m_path = kmalloc(strlen(path) + 1);
@@ -57,4 +60,5 @@ void destroy_vobj(vobj_t* obj) {
 
   /* Murder object */
   obj->m_ops->f_destroy(obj);
+
 }

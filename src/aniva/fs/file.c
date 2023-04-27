@@ -1,4 +1,5 @@
 #include "file.h"
+#include "dev/debug/serial.h"
 #include "fs/vobj.h"
 #include "mem/heap.h"
 
@@ -65,5 +66,6 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
 }
 
 void destroy_file(file_t* file) {
+  println("Destroyed file object");
   kfree(file);
 }

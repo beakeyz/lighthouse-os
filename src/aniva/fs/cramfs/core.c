@@ -66,6 +66,9 @@ static uintptr_t apply_tar_alignment(uintptr_t val) {
 
 static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
 
+  if (!node || !buffer || !size)
+    return -1;
+
   uintptr_t start_offset = (uintptr_t)node->m_data;
 
   memcpy(buffer, (void*)(start_offset + offset), size);
@@ -119,10 +122,10 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
       return file->m_obj;
     }
 
-
     current_offset += apply_tar_alignment(filesize);
   }
 
+  destroy_vobj(file->m_obj);
   kernel_panic("Did not find ramfs object =(");
   return nullptr;
 }

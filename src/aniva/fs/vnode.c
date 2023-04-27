@@ -1,8 +1,10 @@
 
 #include "vnode.h"
+#include "dev/debug/serial.h"
 #include "fs/vobj.h"
 #include "libk/error.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -159,19 +161,23 @@ int vn_release(vnode_t* node) {
   vobj_t** obj = &node->m_objects;
 
   while (*obj) {
-    ASSERT_MSG((*obj)->m_ops, "vnode contained invalid vobject!");
+    vobj_t* current = *obj;
+
+    ASSERT_MSG(current->m_ops, "vnode contained invalid vobject!");
 
     /* Cache the next */
-    vobj_t** next = &(*obj)->m_next;
+    vobj_t** next = &current->m_next;
 
-    vn_detach_object(node, *obj);
+    /* NOTE: Too aggressive must here */
+    Must(vn_detach_object(node, current));
 
     /* Murder the object */
-    destroy_vobj(*obj);
+    destroy_vobj(current);
 
     obj = next;
   }
 
+  node->m_objects = nullptr;
   node->m_flags &= ~VN_TAKEN;
 
   return 0;
@@ -218,6 +224,7 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
     if (obj->m_flags & VOBJ_MOVABLE) {
       kernel_panic("TODO: this vobject is movable. IMPLEMENT");
     }
+    println("Has parent");
     return Error();
   }
 
@@ -232,7 +239,8 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
 
   obj->m_parent = node;
 
-exit_success:;
+exit_success:
+  println("Generic fail");
   mutex_unlock(node->m_vobj_lock);
   return Success(0);
 

@@ -29,6 +29,11 @@ typedef struct vobj {
   /* A vobj can be anything from a file to a directory, so keep a generic pointer around */
   handle_t m_child;
 
+  union {
+    struct vobj* m_ref;
+    struct vobj* m_external_links;
+  };
+
   struct vobj* m_next;
 } vobj_t;
 
@@ -39,6 +44,7 @@ typedef struct vobj {
 #define VOBJ_ETERNAL    0x00000010 /* Does this vobj ever get cleaned? */
 #define VOBJ_EMPTY      0x00000020 /* Is this vobject an empty shell? */
 #define VOBJ_MOVABLE    0x00000040 /* Can this object be moved to different vnodes? */
+#define VOBJ_REF        0x00000080 /* Does this object reference another object? */
 
 vobj_t* create_generic_vobj(struct vnode* parent, const char* path);
 void destroy_vobj(vobj_t* obj);
