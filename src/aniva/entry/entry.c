@@ -58,10 +58,7 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   const size_t ramdisk_page_count = kmem_get_page_idx(ramdisk_size + SMALL_PAGE_SIZE - 1);
 
   /* Map user pages */
-  kmem_map_range(nullptr, kmem_ensure_high_mapping(module_start), module_start, ramdisk_page_count, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0);
-
-  /* Grab mapped address */
-  const uintptr_t ramdisk_addr = kmem_ensure_high_mapping(module_start);
+  const uintptr_t ramdisk_addr = (const uintptr_t)kmem_kernel_alloc_extended(module_start, ramdisk_page_count, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0);
 
   /* Create ramdisk object */
   generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, ramdisk_size);

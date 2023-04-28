@@ -283,15 +283,18 @@ void kterm_command_worker() {
         vn_take(ramfs, VN_SYS);
 
         kterm_println("Finding file...\n");
-        vobj_t* obj = ramfs->f_find(ramfs, "dummy.txt");
+        vobj_t* obj = ramfs->f_find(ramfs, "init");
 
         ASSERT_MSG(obj, "Could not get vobj from test");
         ASSERT_MSG(obj->m_flags & VOBJ_FILE, "Object was not a file!");
         file_t* file = obj->m_child;
         ASSERT_MSG(file, "Could not get file from test");
 
-        kterm_println("Data: ");
-        kterm_println((const char*)file->m_data);
+        //kterm_println("Data: ");
+        //kterm_println((const char*)file->m_data);
+        //kterm_println("\n");
+        kterm_println("File size: ");
+        kterm_println(to_string(file->m_size));
         kterm_println("\n");
 
         kterm_println("Releasing file\n");

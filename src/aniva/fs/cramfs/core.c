@@ -165,7 +165,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     return nullptr;
 
   const size_t partition_size = ALIGN_UP(device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba, SMALL_PAGE_SIZE);
-  vnode_t* node = create_generic_vnode("cramfs", VN_MOUNT | VN_FS);
+  vnode_t* node = create_generic_vnode(type->m_name, VN_MOUNT | VN_FS);
 
   node->m_dev = device;
   node->m_size = partition_size;

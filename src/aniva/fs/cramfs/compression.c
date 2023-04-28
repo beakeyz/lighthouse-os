@@ -50,7 +50,7 @@ struct huffman_table* fixed_distances = nullptr;
 /* another TODO: just implement a kernel cache manager where we can create such cache -_- */
 struct huffman_cache default_cache = { 0, { 0 } };
 
-static void fill_huffman_table(struct huffman_table* table, uint8_t* lengths, size_t size) {
+static void fill_huffman_table(struct huffman_table* table, const uint8_t* lengths, size_t size) {
 
   uint16_t offsets[16] = { 0 };
   uint32_t count = 0;
@@ -193,7 +193,7 @@ static uint32_t c_read_bits(decompress_ctx_t* ctx, uint8_t count) {
   uint32_t ret = 0;
   for (uint32_t i = 0; i < count; i++) {
     /* Load bit into the ith place of the buffer */
-    ret |= (c_read_bit(ctx) << i) & 0xFFFFFFFF;
+    ret |= (c_read_bit(ctx) << i);
   }
 
   return ret;
@@ -271,15 +271,15 @@ static ErrorOrPtr huffman_inflate(decompress_ctx_t* ctx, struct gzip_compressed_
   };
 
   for (;;) {
-    uint32_t symb = c_read_symbol(ctx, lengths);
+    const uint32_t symb = c_read_symbol(ctx, lengths);
 
     if (symb == 256) {
       break;
     } else if (symb < 256) {
       c_write(ctx, symb);
     } else {
-      symb -= 257;
-      uint32_t length = c_read_bits(ctx, __lbits[symb]) + __length_codes[symb];
+      uint32_t fixed_symb = symb - 257;
+      uint32_t length = c_read_bits(ctx, __lbits[fixed_symb]) + __length_codes[fixed_symb];
       uint32_t dist = c_read_symbol(ctx, dists);
       uint32_t offset = c_read_bits(ctx, __dbits[dist]) + __distances[dist];
 

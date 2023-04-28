@@ -2,8 +2,8 @@ ENTRY(__lightapp_startup)
 
 SECTIONS {
 
-  /* Let's start user applications at 10Kib */
-  . = 0x10000;
+  /* Let's start user applications at 100Kib */
+  . = 0x100000;
   
   .text ALIGN(4K) : AT(ADDR(.text))
   {
