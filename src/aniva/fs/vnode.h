@@ -45,9 +45,6 @@ typedef struct vnode {
   /* Gets assigned when the vnode is mounted somewhere in the VFS */
   int m_id;
 
-  /* Context specific index of this vnode */
-  uintptr_t m_inum;
-
   size_t m_size;
 
   const char* m_name;
@@ -71,6 +68,7 @@ typedef struct vnode {
   struct vnode_dir_ops* m_dir_ops;
 
   struct vobj* m_objects;
+  size_t m_object_count;
 
   /* TODO: other vnode operations */
 
@@ -134,6 +132,10 @@ int vn_release(vnode_t* node);
 ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj);
 ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj);
 ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path);
+
+struct vobj* vn_get_object(vnode_t* node, const char* path);
+struct vobj* vn_get_object_idx(vnode_t* node, uintptr_t idx);
+ErrorOrPtr vn_obj_get_index(vnode_t* node, struct vobj*);
 
 bool vn_has_object(vnode_t* node, const char* path);
 

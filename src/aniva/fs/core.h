@@ -1,6 +1,7 @@
 #ifndef __ANIVA_FS_CORE__
 #define __ANIVA_FS_CORE__
 
+#include "fs/superblock.h"
 #include <libk/stddef.h>
 #include <libk/error.h>
 #include <dev/disk/generic.h>
@@ -13,20 +14,14 @@ typedef struct fs_type {
   const char* m_name;
   uint32_t m_flags;
 
+  void (*f_kill_superblock)(struct fs_type*, fs_superblock_t* sb);
+  void (*f_unmount)(struct fs_type*, struct vnode*);
   struct vnode* (*f_mount)(struct fs_type*, const char*, partitioned_disk_dev_t* dev);
 
   struct fs_type* m_next;
 
   struct aniva_driver* m_driver;
 } fs_type_t;
-
-typedef struct fs_ops {
-  /*
-   * This struct contains the generic opperations
-   * that can be done on filesystems, like reading,
-   * writing, creating directories, ect.
-   */
-} fs_ops_t;
 
 #define FST_REQ_DRIVER (0x00000001)
 

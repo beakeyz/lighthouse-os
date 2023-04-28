@@ -43,6 +43,16 @@ typedef struct tar_file {
   uint8_t prefix[155];
 } tar_file_t;
 
+typedef enum TAR_TYPE {
+  TAR_TYPE_FILE = '0',
+  TAR_TYPE_HARD_LINK = '1',
+  TAR_TYPE_SYMLINK = '2',
+  TAR_TYPE_CHAR_DEV = '3',
+  TAR_TYPE_BLK_DEV = '4',
+  TAR_TYPE_DIR = '5',
+  TAR_TYPE_FIFO = '6',
+} TAR_TYPE_t;
+
 #define TAR_USTAR_ALIGNMENT 512
 
 static uintptr_t decode_tar_ascii(uint8_t* str, size_t length) {
@@ -113,13 +123,18 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
        * TODO: Create vobj 
        */
 
-      uint8_t* data = (uint8_t*)(current_file_offset + TAR_USTAR_ALIGNMENT);
+      if (current_file.type == TAR_TYPE_FILE) {
+        uint8_t* data = (uint8_t*)(current_file_offset + TAR_USTAR_ALIGNMENT);
 
-      file->m_data = data;
-      file->m_size = filesize;
-      file->m_offset = current_file_offset;
+        file->m_data = data;
+        file->m_size = filesize;
+        file->m_offset = current_file_offset;
+        file->m_obj->m_inum = current_file_offset;
 
-      return file->m_obj;
+        return file->m_obj;
+      } else {
+        kernel_panic("cramfs: unsupported fsentry type");
+      }
     }
 
     current_offset += apply_tar_alignment(filesize);

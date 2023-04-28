@@ -30,7 +30,6 @@ struct ext2 {
   /* stats of this ext2 filesystem */
   ext2_info_t                           m_info;
   
-  fs_ops_t                              m_ops;
 };
 
 struct ext2_superblock* fetch_superblock();

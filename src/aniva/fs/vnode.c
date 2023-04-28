@@ -189,6 +189,7 @@ static vobj_t** find_vobject(vnode_t* node, vobj_t* obj) {
 
   vobj_t** ret = &node->m_objects;
 
+  /* Loop until we match pointers */
   for (; *ret; ret = &(*ret)->m_next) {
     if (*ret == obj)
       break;
@@ -203,7 +204,9 @@ static vobj_t** find_vobject_path(vnode_t* node, const char* path) {
 
   vobj_t** ret = &node->m_objects;
 
+  /* Loop until there is no next object */
   for (; *ret; ret = &(*ret)->m_next) {
+    /* Check path */
     if (memcmp((*ret)->m_path, path, strlen(path)))
       break;
   }
@@ -228,16 +231,24 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
     return Error();
   }
 
+  /* vobject opperations are locked by m_vobj_lock, so we need to take it here */
   mutex_lock(node->m_vobj_lock);
 
+  /* Look for the thing */
   vobj_t** slot = find_vobject(node, obj);
 
+  /* Slot already taken?? */
   if (*slot)
     goto exit_error;
 
+  /* Assign slot */
   *slot = obj;
 
+  /* Take ownership of the object */
   obj->m_parent = node;
+
+  /* Increment count */
+  node->m_object_count++;
 
 exit_success:
   println("Generic fail");
@@ -260,6 +271,11 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
   if (!obj->m_parent)
     return Error();
 
+  /* Can't detach an object if there are none on the node -_- */
+  if (node->m_object_count == 0) {
+    return Error();
+  }
+
   mutex_lock(node->m_vobj_lock);
 
   vobj_t** slot = find_vobject(node, obj);
@@ -271,6 +287,8 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
     *slot = obj->m_next;
     obj->m_next = nullptr;
 
+    node->m_object_count--;
+
     mutex_unlock(node->m_vobj_lock);
     return Success(0);
   }
@@ -281,6 +299,7 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
 
 ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path) {
 
+  /* First find the object without taking the mutex */
   vobj_t** slot = find_vobject_path(node, path);
 
   if (!slot)
@@ -289,6 +308,7 @@ ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path) {
   if (!*slot)
     return Error();
 
+  /* Then detach while taking the mutex */
   return vn_detach_object(node, *slot);
 }
 
@@ -296,4 +316,85 @@ bool vn_has_object(vnode_t* node, const char* path) {
   vobj_t** obj = find_vobject_path(node, path);
 
   return (obj && *obj);
+}
+
+struct vobj* vn_get_object(vnode_t* node, const char* path) {
+  
+  vobj_t* itt;
+
+  if (!node || !path)
+    return nullptr;
+
+  mutex_lock(node->m_vobj_lock);
+
+  itt = node->m_objects;
+
+  while (itt) {
+
+    if (memcmp(itt->m_path, path, strlen(path))) {
+      mutex_unlock(node->m_vobj_lock);
+      return itt;
+    }
+
+    itt = itt->m_next;
+  }
+
+  mutex_unlock(node->m_vobj_lock);
+  return nullptr;
+}
+
+struct vobj* vn_get_object_idx(vnode_t* node, uintptr_t idx) {
+
+  vobj_t* itt;
+
+  if (!node)
+    return nullptr;
+
+  if (idx == 0) {
+    return node->m_objects;
+  }
+
+  mutex_lock(node->m_vobj_lock);
+
+  itt = node->m_objects;
+
+  for (uintptr_t i = 0; i < idx; i++) {
+    /* Could not find it (index > object count) */
+    if (!itt) {
+      mutex_unlock(node->m_vobj_lock);
+      return nullptr;
+    }
+
+    itt = itt->m_next;
+  }
+
+  mutex_unlock(node->m_vobj_lock);
+  return itt;
+}
+
+ErrorOrPtr vn_obj_get_index(vnode_t* node, vobj_t* obj) {
+
+  ErrorOrPtr result;
+  uintptr_t idx;
+  vobj_t** itt;
+
+  if (!node)
+    return Error();
+
+  itt = &node->m_objects;
+  result = Error();
+  idx = 0;
+
+  while (*itt) {
+
+    if (*itt == obj) {
+      result = Success(idx);
+      break;
+    }
+
+    itt = &(*itt)->m_next;
+    idx++;
+  }
+
+  return result;
 }

@@ -284,6 +284,7 @@ void kterm_command_worker() {
 
         kterm_println("Finding file...\n");
         vobj_t* obj = ramfs->f_find(ramfs, "dummy.txt");
+
         ASSERT_MSG(obj, "Could not get vobj from test");
         ASSERT_MSG(obj->m_flags & VOBJ_FILE, "Object was not a file!");
         file_t* file = obj->m_child;

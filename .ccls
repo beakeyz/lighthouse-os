@@ -1,9 +1,0 @@
-clang
--I
-./src/aniva/
-
--I 
-./src/
-
--I
-./src/libs/

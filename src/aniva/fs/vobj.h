@@ -26,6 +26,9 @@ typedef struct vobj {
   vobj_ops_t* m_ops;
   mutex_t* m_lock;
 
+  /* Context specific index of this vnode */
+  uintptr_t m_inum;
+
   /* A vobj can be anything from a file to a directory, so keep a generic pointer around */
   handle_t m_child;
 
