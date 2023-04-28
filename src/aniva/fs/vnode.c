@@ -3,6 +3,7 @@
 #include "dev/debug/serial.h"
 #include "fs/vobj.h"
 #include "libk/error.h"
+#include "libk/linkedlist.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
@@ -13,11 +14,11 @@
  */
 
 static int vnode_write(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
-  return 0;
+  return -1;
 }
 
 static int vnode_read(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
-  return 0;
+  return -1;
 }
 
 static int vnode_msg(vnode_t* node, driver_control_code_t code, void* buffer, size_t size) {
@@ -30,6 +31,22 @@ static void* vnode_open_stream(vnode_t* node) {
 
 static void* vnode_close_stream(vnode_t* node) {
   return NULL;
+}
+  
+static vobj_t* vnode_find (vnode_t* node, char* name) {
+  return nullptr;
+}
+
+static vobj_handle_t vnode_seek(vnode_t* node, char* name) {
+  return 0;
+}
+
+static vobj_t* vnode_resolve(vnode_t* node, vobj_handle_t handle) {
+  return nullptr;
+}
+
+static int vnode_force_sync(vnode_t* node) {
+  return -1;
 }
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
@@ -44,7 +61,11 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
 
   node->f_write = vnode_write;
   node->f_read = vnode_read;
+  node->f_force_sync = vnode_force_sync;
   node->f_msg = vnode_msg;
+  node->f_seek = vnode_seek;
+  node->f_find = vnode_find;
+  node->f_resolve = vnode_resolve;
   node->m_lock = create_mutex(0);
   node->m_vobj_lock = create_mutex(0);
 
@@ -52,7 +73,6 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   memcpy((void*)node->m_name, name, strlen(name) + 1);
 
   node->m_id = -1;
-
   node->m_flags = flags;
 
 //  node->f_open_stream = vnode_open_stream;
@@ -250,6 +270,12 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
   /* Increment count */
   node->m_object_count++;
 
+  /* Try to generate handle */
+  TRY(gen_res, vobj_generate_handle(obj));
+
+  /* Assign the handle */
+  obj->m_handle = gen_res.m_ptr;
+
 exit_success:
   println("Generic fail");
   mutex_unlock(node->m_vobj_lock);
@@ -285,7 +311,9 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
     ASSERT_MSG(*slot == obj, "vobj: weird mismatch while detaching from vnode");
 
     *slot = obj->m_next;
+
     obj->m_next = nullptr;
+    obj->m_handle = 0;
 
     node->m_object_count--;
 
@@ -398,3 +426,135 @@ ErrorOrPtr vn_obj_get_index(vnode_t* node, vobj_t* obj) {
 
   return result;
 }
+
+/*
+ * Loops through the nodes links and tries to find a link
+ * with the name of link_name. Returns true (1) if it finds
+ * one, returns false (0) if it does not
+ * 
+ * returns false if an error occured
+ */
+static bool vn_has_link(vnode_t* node, const char* link_name) {
+
+  if (!node || link_name)
+    return false;
+
+  if ((node->m_flags & VN_LINK) == 0)
+    return false;
+
+  FOREACH(i, node->m_links) {
+    vnode_t* link = i->data;
+
+    if (memcmp(link->m_name, link_name, strlen(link_name))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+ErrorOrPtr vn_link(vnode_t* node, vnode_t* link) {
+  if (!node || !link)
+    return Error();
+
+  if (vn_has_link(node, link->m_name))
+    return Error();
+
+  /* First time we link a node, so initialize */
+  if ((node->m_flags & VN_LINK) == 0) {
+    if (node->m_ref) {
+      /* No link, but this node is referenced. */
+      return Error();
+    }
+
+    node->m_links = init_list();
+  }
+
+  list_append(node->m_links, link);
+
+  return Success(0);
+}
+
+ErrorOrPtr vn_unlink(vnode_t* node, vnode_t* link) {
+  if (!node || !link)
+    return Error();
+
+  if (!vn_has_link(node, link->m_name))
+    return Error();
+
+  TRY(result, list_indexof(node->m_links, link));
+
+  uint32_t index = result.m_ptr;
+
+  bool remove_res = list_remove(node->m_links, index);
+
+  if (!remove_res)
+    return Error();
+
+  /* This was the last link, mark the node as unlinked */
+  if (!node->m_links->m_length) {
+    node->m_flags &= ~VN_LINK;
+    destroy_list(node->m_links);
+  }
+
+  return Success(0);
+}
+
+vnode_t* vn_get_link(vnode_t* node, const char* link_name) {
+  if (!node || !link_name)
+    return nullptr;
+
+  if ((node->m_flags & VN_LINK) == 0 || !node->m_links)
+    return nullptr;
+
+  FOREACH(i, node->m_links) {
+    vnode_t* link = i->data;
+
+    if (memcmp(link->m_name, link_name, strlen(link_name))) {
+      return link;
+    }
+  }
+
+  return nullptr;
+}
+
+/*
+ * Wrapper around the ->f_seek function
+ * TODO: allow seeking from untaken nodes if they 
+ * are marked flexible
+ */
+vobj_handle_t vn_seek(vnode_t* node, char* name) {
+
+  vobj_handle_t ret;
+
+  if (!node || !name)
+    return 0;
+
+  /* Can't seek from an untaken node */
+  if ((node->m_flags & VN_TAKEN) == 0) 
+    return 0;
+
+  ret = node->f_seek(node, name);
+
+  return ret;
+}
+
+/*
+ * Wrapper around ->f_resolve
+ * TODO: allow resloving from flexible vnodes
+ */
+vobj_t* vn_resolve(vnode_t* node, vobj_handle_t handle) {
+
+  vobj_t* ret;
+
+  if (!node || !handle)
+    return nullptr;
+
+  if ((node->m_flags & VN_TAKEN) == 0)
+    return nullptr;
+
+  ret = node->f_resolve(node, handle);
+
+  return ret;
+}
+

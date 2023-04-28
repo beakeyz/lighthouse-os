@@ -1,7 +1,7 @@
 #ifndef __ANIVA_VFS_VOBJ__
 #define __ANIVA_VFS_VOBJ__
 
-#include "dev/handle.h"
+#include "libk/error.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -11,26 +11,60 @@
 
 struct vobj;
 struct vnode;
+struct file;
+
+typedef enum VOBJ_TYPE {
+  VOBJ_TYPE_EMPTY = 0,
+  /* Generic files in the filesystem get this */
+  VOBJ_TYPE_FILE,
+  /* A directory can be extracted from a filesystem, in which case it gets a vobj */
+  VOBJ_TYPE_DIR,
+  /* When we obtain a device from the vfs */
+  VOBJ_TYPE_DEVICE,
+  /* When we obtain a driver from the vfs */
+  VOBJ_TYPE_DRIVER,
+  /* This boi links to another vobj */
+  VOBJ_TYPE_LINK,
+  /*
+   * This boi acts as a lookuptable (A vnode can create these types when 
+   * it can be flexible about vobj creation). This table can result in more
+   * vobjects that are managed by the taken vnode. If the node gets released,
+   * this object also get demolished.
+   */
+  VOBJ_TYPE_TABLE,
+} VOBJ_TYPE_t;
+
+typedef uintptr_t vobj_handle_t;
 
 typedef struct vobj_ops {
   struct vobj* (*f_create)(struct vnode* parent, const char* path);
   void (*f_destroy)(struct vobj* obj);
-  void (*f_destory_child)(handle_t child_ptr);
+  void (*f_destory_child)(void* child_ptr);
+
+  /* Try to link this object */
+  ErrorOrPtr (*f_link)(struct vobj*, struct vobj*);
+
 } vobj_ops_t;
 
 typedef struct vobj {
   const char* m_path;
   uint32_t m_flags;
+  VOBJ_TYPE_t m_type;
 
   struct vnode* m_parent;
   vobj_ops_t* m_ops;
   mutex_t* m_lock;
 
+  /*
+   * This is the handle that we can use to find this vobj implicitly.
+   */
+  vobj_handle_t m_handle;
+
   /* Context specific index of this vnode */
   uintptr_t m_inum;
 
   /* A vobj can be anything from a file to a directory, so keep a generic pointer around */
-  handle_t m_child;
+  void* m_child;
 
   union {
     struct vobj* m_ref;
@@ -41,15 +75,20 @@ typedef struct vobj {
 } vobj_t;
 
 #define VOBJ_IMMUTABLE  0x00000001 /* Can we change the data that this object holds? */
-#define VOBJ_FILE       0x00000002 /* Is this object pointing to a generic file? */
-#define VOBJ_CONFIG     0x00000004 /* Does this object point to configuration? */
-#define VOBJ_SYS        0x00000008 /* Is this object owned by the system? */
-#define VOBJ_ETERNAL    0x00000010 /* Does this vobj ever get cleaned? */
-#define VOBJ_EMPTY      0x00000020 /* Is this vobject an empty shell? */
-#define VOBJ_MOVABLE    0x00000040 /* Can this object be moved to different vnodes? */
-#define VOBJ_REF        0x00000080 /* Does this object reference another object? */
+#define VOBJ_CONFIG     0x00000002 /* Does this object point to configuration? */
+#define VOBJ_SYS        0x00000004 /* Is this object owned by the system? */
+#define VOBJ_ETERNAL    0x00000008 /* Does this vobj ever get cleaned? */
+#define VOBJ_MOVABLE    0x00000010 /* Can this object be moved to different vnodes? */
+#define VOBJ_REF        0x00000020 /* Does this object reference another object? */
+
+#define INVALID_OBJ_HANDLE (vobj_handle_t)0
 
 vobj_t* create_generic_vobj(struct vnode* parent, const char* path);
 void destroy_vobj(vobj_t* obj);
+
+ErrorOrPtr vobj_generate_handle(vobj_t* object);
+bool vobj_verify_handle(vobj_t* object);
+
+struct file* vobj_get_file(vobj_t* obj);
 
 #endif // !__ANIVA_VFS_VOBJ__

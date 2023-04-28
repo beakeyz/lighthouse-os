@@ -2,6 +2,7 @@
 #define __ANIVA_VNODE__
 
 #include "fs/file.h"
+#include "fs/vobj.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include <sync/mutex.h>
@@ -62,8 +63,13 @@ typedef struct vnode {
   /* Send some data to this node and have whatever is connected do something for you */
   int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
 
+  /* Force a sync between diffed buffers and the device */
+  int (*f_force_sync) (struct vnode*);
+
   /* Grab named data associated with this node */
   struct vobj* (*f_find) (struct vnode*, char*);
+  vobj_handle_t (*f_seek) (struct vnode*, char*);
+  struct vobj* (*f_resolve) (struct vnode*, vobj_handle_t);
 
   struct vnode_dir_ops* m_dir_ops;
 
@@ -95,6 +101,9 @@ typedef struct vnode {
 #define VN_FS       (0x000040) /* Is this node a filesystem? */
 #define VN_DIR      (0x000080) /* Is this node a directory? */
 #define VN_TAKEN    (0x000100) /* Has someone taken this node? */
+
+/* When a flexible node is taken anyway, behaviour should not change */
+#define VN_FLEXIBLE (0x000200) /* Flexible nodes allow opperations while they are not taken */
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
 
@@ -138,5 +147,13 @@ struct vobj* vn_get_object_idx(vnode_t* node, uintptr_t idx);
 ErrorOrPtr vn_obj_get_index(vnode_t* node, struct vobj*);
 
 bool vn_has_object(vnode_t* node, const char* path);
+
+ErrorOrPtr vn_link(vnode_t* node, vnode_t* link);
+ErrorOrPtr vn_unlink(vnode_t* node, vnode_t* link);
+
+vnode_t* vn_get_link(vnode_t* node, const char* link_name);
+
+vobj_handle_t vn_seek(vnode_t* node, char* name);
+struct vobj* vn_resolve(vnode_t* node, vobj_handle_t handle);
 
 #endif // !__ANIVA_VNODE__

@@ -14,6 +14,7 @@
 #include "fs/vobj.h"
 #include "interupts/interupts.h"
 #include "libk/async_ptr.h"
+#include "libk/bin/elf_types.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"
@@ -286,9 +287,23 @@ void kterm_command_worker() {
         vobj_t* obj = ramfs->f_find(ramfs, "init");
 
         ASSERT_MSG(obj, "Could not get vobj from test");
-        ASSERT_MSG(obj->m_flags & VOBJ_FILE, "Object was not a file!");
-        file_t* file = obj->m_child;
+        ASSERT_MSG(obj->m_type == VOBJ_TYPE_FILE, "Object was not a file!");
+        file_t* file = vobj_get_file(obj);
         ASSERT_MSG(file, "Could not get file from test");
+
+        Elf64_Ehdr ehdr;
+
+        int read_result = file->m_ops->f_read(file, &ehdr, sizeof(Elf64_Ehdr), 0);
+
+        if (read_result)
+          kernel_panic("Failed to read from file!");
+
+        /* Yay, we can read a valid elf file =D */
+        char elf_name[4] = {0};
+        memcpy(elf_name, &ehdr.e_ident[1], 3);
+
+        kterm_println(elf_name);
+        kterm_println("\n");
 
         //kterm_println("Data: ");
         //kterm_println((const char*)file->m_data);

@@ -1,19 +1,58 @@
 #include "file.h"
 #include "dev/debug/serial.h"
+#include "fs/vnode.h"
 #include "fs/vobj.h"
+#include "libk/error.h"
 #include "mem/heap.h"
 
 int f_close(file_t* file) {
+
+  kernel_panic("TODO: implement f_close");
 
   return 0;
 }
 
 int f_read(file_t* file, void* buffer, size_t size, uintptr_t offset) {
 
+  const uintptr_t end_offset = offset + size;
+  const uintptr_t read_offset = (uintptr_t)file->m_data + offset;
+
+  /* Can't read outside of the file */
+  if (offset > file->m_size) {
+    return -1;
+  }
+
+  if (end_offset > file->m_size) {
+    uintptr_t delta = end_offset - file->m_size;
+
+    /* We'll just copy everything we can */
+    size -= delta;
+  }
+
+  memcpy(buffer, (void*)read_offset, size);
+
   return 0;
 }
 
 int f_write(file_t* file, void* buffer, size_t size, uintptr_t offset) {
+
+  const uintptr_t end_offset = offset + size;
+  const uintptr_t write_offset = (uintptr_t)file->m_data + offset;
+
+  /* Can't read outside of the file */
+  if (offset > file->m_size) {
+    return -1;
+  }
+
+  if (end_offset > file->m_size) {
+    uintptr_t delta = end_offset - file->m_size;
+
+    /* We'll just copy everything we can */
+    size -= delta;
+  }
+
+  /* Copy the bytes from the external buffer into the buffer of the file object */
+  memcpy((void*)write_offset, buffer, size);
 
   return 0;
 }
@@ -25,11 +64,44 @@ int f_resize(file_t* file, size_t new_size) {
    * free up the memory that that gives us
    */
 
+  kernel_panic("TODO: implement f_resize");
+
   return 0;
 }
 
+/*
+ * NOTE: This function may block for a while
+ */
 int generic_f_sync(file_t* file) {
-  return 1;
+
+  int result;
+  vobj_t* object;
+  vnode_t* parent_node;
+
+  if (!file)
+    return -1;
+
+  object = file->m_obj;
+
+  if (!object)
+    return -1;
+
+  parent_node = object->m_parent;
+
+  /* Write the entire file buffer to the node */
+  result = parent_node->f_write(parent_node, file->m_data, file->m_size, 0);
+
+  if (result) {
+    kernel_panic("FIXME: Could not sync file! (Implement handler)");
+  }
+
+  result = parent_node->f_force_sync(parent_node);
+
+  if (result) {
+    kernel_panic("FIXME: Failed to force sync! (Implement handler)");
+  }
+
+  return result;
 }
 
 file_ops_t generic_file_ops = {
@@ -52,8 +124,7 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
     return nullptr;
   }
 
-  ret->m_obj->m_flags |= VOBJ_FILE;
-  ret->m_obj->m_flags &= ~VOBJ_EMPTY;
+  ret->m_obj->m_type = VOBJ_TYPE_FILE;
   ret->m_obj->m_child = ret;
   ret->m_obj->m_ops->f_destory_child = (void (*)(void*))destroy_file;
 

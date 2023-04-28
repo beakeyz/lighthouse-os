@@ -1,9 +1,11 @@
 #include "vobj.h"
 #include "dev/debug/serial.h"
+#include "fs/file.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
+#include <crypto/k_crc32.h>
 
 static void generic_destroy_vobj(vobj_t* obj) {
 
@@ -38,7 +40,8 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
 
   obj->m_parent = nullptr;
   obj->m_child = nullptr;
-  obj->m_flags = VOBJ_EMPTY;
+  obj->m_type = VOBJ_TYPE_EMPTY;
+
   obj->m_path = kmalloc(strlen(path) + 1);
   memcpy((void*)obj->m_path, path, strlen(path) + 1);
 
@@ -61,4 +64,33 @@ void destroy_vobj(vobj_t* obj) {
   /* Murder object */
   obj->m_ops->f_destroy(obj);
 
+}
+
+ErrorOrPtr vobj_generate_handle(vobj_t* object) {
+
+  vobj_handle_t ret;
+  uint32_t crc;
+
+  if (!object)
+    return Error();
+
+  /* We need a handle of zero to create a handle and a parent */
+  if (object->m_handle || !object->m_parent)
+    return Error();
+
+  crc = kcrc32(object, sizeof(vobj_t));
+  ret = crc + object->m_parent->m_object_count;
+
+  return Success(ret);
+}
+
+file_t* vobj_get_file(vobj_t* obj) {
+
+  if (!obj)
+    return nullptr;
+
+  if (obj->m_type != VOBJ_TYPE_FILE)
+    return nullptr;
+
+  return (file_t*)obj->m_child;
 }
