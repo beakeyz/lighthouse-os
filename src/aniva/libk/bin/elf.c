@@ -1,8 +1,12 @@
 #include "elf.h"
 #include "fs/file.h"
+#include <fs/vobj.h>
 #include "libk/bin/elf_types.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
+#include "mem/pg.h"
+#include "mem/zalloc.h"
 #include "proc/proc.h"
 
 /*
@@ -53,6 +57,8 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
   proc_t* ret;
   struct elf64_hdr header;
   struct elf64_phdr* phdrs;
+  struct elf_image image;
+  uintptr_t proc_flags;
   int status;
 
   status = elf_read(file, &header, sizeof(struct elf64_hdr), 0);
@@ -76,5 +82,50 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
   /* TODO: */
 
+  proc_flags = PROC_DEFERED_HEAP;
+
+  if (kernel)
+    proc_flags |= PROC_KERNEL;
+
+  ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
+
+  image.m_total_exe_bytes = file->m_size;
+  image.m_lowest_addr = (vaddr_t)-1;
+  image.m_highest_addr = 0;
+
+  for (uintptr_t i = 0; i < header.e_phnum; i++) {
+    struct elf64_phdr phdr = phdrs[i];
+
+    switch (phdr.p_type) {
+      case PT_LOAD:
+        {
+          vaddr_t virtual_phdr_base = phdr.p_vaddr;
+          size_t phdr_size = phdr.p_memsz;
+
+          vaddr_t alloc_result = (vaddr_t)kmem_alloc_extended(ret->m_root_pd, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_WRITABLE);
+
+          if ((alloc_result + phdr_size) > image.m_highest_addr) {
+            image.m_highest_addr = alloc_result + phdr_size;
+          }
+          if (alloc_result < image.m_lowest_addr) {
+            image.m_lowest_addr = alloc_result;
+          }
+        }
+        break;
+    }
+  }
+
+  // TODO: make heap compatible with this shit
+  // ret->m_heap = create_zone_allocator_ex(ret->m_root_pd, ALIGN_UP(image.m_highest_addr, SMALL_PAGE_SIZE), 10 * Kib, 10 * Mib, 0)->m_heap;
+
+  kfree(phdrs);
   return ret;
+
+error_and_out:
+  /* TODO: clean more stuff */
+  kfree(phdrs);
+  destroy_proc(ret);
+
+  return nullptr;
+
 }

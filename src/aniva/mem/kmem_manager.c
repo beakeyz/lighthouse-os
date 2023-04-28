@@ -518,6 +518,10 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
 // allocates a region using the physical allocator and then 
 // identity maps it
 void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags) {
+  return kmem_alloc(nullptr, addr, size, flags);
+}
+
+void* kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t flags) {
 
   if (kmem_is_phys_page_used(kmem_get_page_idx(addr)) && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
     return nullptr;
@@ -544,7 +548,7 @@ void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags) {
     const vaddr_t v_address = (vaddr_t)ret + (i * SMALL_PAGE_SIZE);
 
     kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(nullptr, v_address, p_address, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+    bool result = kmem_map_page(map, v_address, p_address, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (!result) {
       return nullptr;
@@ -555,6 +559,10 @@ void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags) {
 }
 
 ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
+  return kmem_dealloc(nullptr, virt_base, size);
+}
+
+ErrorOrPtr kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
 
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
@@ -562,7 +570,7 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
     // get the virtual address of the current page
     const vaddr_t vaddr = virt_base + (i * SMALL_PAGE_SIZE);
     // get the physical base of that page
-    const paddr_t paddr = kmem_to_phys(nullptr, vaddr);
+    const paddr_t paddr = kmem_to_phys(map, vaddr);
     // get the index of that physical page
     const uintptr_t page_idx = kmem_get_page_idx(paddr);
     // check if this page is actually used
@@ -570,7 +578,7 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 
     if (was_used) {
       kmem_set_phys_page_free(page_idx);
-      kmem_unmap_page(nullptr, vaddr);
+      kmem_unmap_page(map, vaddr);
     } else {
       return Error();
     }
@@ -581,6 +589,10 @@ ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 // FIXME: code duplication
 // FIXME: check for alignment
 void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags) {
+  return kmem_alloc_extended(nullptr, addr, size, flags, page_flags);
+}
+
+void* kmem_alloc_extended (pml_entry_t* map, uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags) {
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   const bool should_identity_map = (flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const vaddr_t virt_base = should_identity_map ? addr : kmem_ensure_high_mapping(addr);
@@ -597,7 +609,7 @@ void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, u
     }
 
     kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(nullptr, vaddr, paddr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
+    bool result = kmem_map_page(map, vaddr, paddr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
 
     if (!result) {
       return nullptr;
@@ -616,6 +628,10 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t
 }
 
 ErrorOrPtr kmem_kernel_map_and_alloc_range(size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags) {
+  return kmem_map_and_alloc_range(nullptr, size, virtual_base, custom_flags, page_flags);
+}
+
+ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags) {
   const bool should_identity_map = ((custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY);
   const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
 
@@ -638,7 +654,7 @@ ErrorOrPtr kmem_kernel_map_and_alloc_range(size_t size, vaddr_t virtual_base, ui
     }
 
     kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(nullptr, vaddr, paddr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
+    bool result = kmem_map_page(map, vaddr, paddr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
 
     if (!result) {
       return Error();

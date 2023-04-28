@@ -54,8 +54,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_context = setup_regs(kthread, proc->m_root_pd, thread->m_stack_top);
   thread->m_real_entry = (ThreadEntry)entry;
 
-  thread->m_heap = create_zone_allocator(2 * Kib, kthread ? GHEAP_KERNEL : 0)->m_heap;
-
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
   return thread;
 } // make this sucka

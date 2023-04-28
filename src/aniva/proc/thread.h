@@ -2,7 +2,6 @@
 #define __ANIVA_THREAD__
 
 #include "libk/error.h"
-#include "mem/base_allocator.h"
 #include "mem/pg.h"
 #include "proc/context.h"
 #include "proc/socket.h"
@@ -43,8 +42,6 @@ typedef struct thread {
   bool m_has_been_scheduled;
   __attribute__((aligned(16))) uintptr_t m_stack_bottom;
   __attribute__((aligned(16))) uintptr_t m_stack_top;
-
-  generic_heap_t* m_heap;
 
   thread_state_t m_current_state;
 

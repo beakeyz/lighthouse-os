@@ -54,10 +54,12 @@ typedef enum GHEAP_FLAGS {
 } GHEAP_FLAGS_t;
 
 typedef struct generic_heap {
+
   void* m_parent_heap;
   vaddr_t m_virtual_base;
   paddr_t m_physical_base;
   size_t m_current_total_size;
+  size_t m_hard_max_size;
   uintptr_t m_flags;
 
   struct mutex* m_lock;
@@ -68,6 +70,7 @@ typedef struct generic_heap {
   HEAP_EXPAND f_expand;
   HEAP_GENERAL_DEBUG f_debug;
   HEAP_ON_EXPAND_ENABLE f_on_expand_enable;
+
 } generic_heap_t;
 
 /*

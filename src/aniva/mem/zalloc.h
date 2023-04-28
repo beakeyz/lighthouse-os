@@ -4,6 +4,7 @@
 #include <libk/error.h>
 #include "base_allocator.h"
 #include "libk/bitmap.h"
+#include "mem/pg.h"
 
 typedef enum ZONE_FLAGS {
   ZONE_USED = (1 << 0),
@@ -91,6 +92,8 @@ typedef struct zone_allocator {
  * saturate this allocator with zones as needed
  */
 zone_allocator_t *create_zone_allocator(size_t initial_size, uintptr_t flags);
+zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
+zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_size, uintptr_t flags);
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 

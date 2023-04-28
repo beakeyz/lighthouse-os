@@ -14,6 +14,7 @@
 #include "fs/vobj.h"
 #include "interupts/interupts.h"
 #include "libk/async_ptr.h"
+#include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/error.h"
 #include "libk/io.h"
@@ -25,6 +26,7 @@
 #include "mem/zalloc.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_response.h"
+#include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
@@ -288,19 +290,19 @@ void kterm_command_worker() {
         file_t* file = vobj_get_file(obj);
         ASSERT_MSG(file, "Could not get file from test");
 
-        Elf64_Ehdr ehdr;
-
-        int read_result = file->m_ops->f_read(file, &ehdr, sizeof(Elf64_Ehdr), 0);
-
-        if (read_result)
-          kernel_panic("Failed to read from file!");
-
-        //kterm_println("Data: ");
-        //kterm_println((const char*)file->m_data);
-        //kterm_println("\n");
         kterm_println("File size: ");
         kterm_println(to_string(file->m_size));
         kterm_println("\n");
+
+        proc_t* proc = elf_exec_static_64(file, false);
+
+        if (proc) {
+          kterm_println("Could create proc!\n");
+          kterm_println("Name: "); kterm_println(proc->m_name);
+          kterm_println("\n");
+        } else {
+          kterm_println("Failed to create proc!\n");
+        }
 
       }
       kterm_println("\n");

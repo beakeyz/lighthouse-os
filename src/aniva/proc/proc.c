@@ -7,6 +7,7 @@
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
 #include "thread.h"
@@ -37,11 +38,17 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
   if ((flags & PROC_KERNEL) == 0) {
     proc->m_requested_max_threads = 2;
   //  proc->m_prevent_scheduling = true;
-    proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 10 * Kib);
+    proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
   } else {
     proc->m_root_pd = get_current_processor()->m_page_dir;
   //  proc->m_prevent_scheduling = false;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
+  }
+
+  if ((flags & PROC_DEFERED_HEAP) == PROC_DEFERED_HEAP) {
+    proc->m_heap = nullptr;
+  } else {
+    proc->m_heap = create_zone_allocator(128 * Kib, 0)->m_heap;
   }
 
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");

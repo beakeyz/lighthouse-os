@@ -21,6 +21,8 @@ static memory_allocator_t s_kernel_allocator;
 static generic_heap_t s_generic_kernel_heap;
 
 void init_kheap() {
+  
+
 
   s_kernel_allocator.m_heap_start_node = (heap_node_t*)&init_kmalloc_mem[0];
 
@@ -109,13 +111,13 @@ void deallocate_heap_memory(generic_heap_t* heap, void* addr, size_t size) {
 }
 
 void* allocate_memory(size_t size) {
-  generic_heap_t* heap = get_current_scheduling_thread()->m_heap;
+  generic_heap_t* heap = get_current_proc()->m_heap;
 
   return allocate_heap_memory(heap, size);
 }
 
 void deallocate_memory(void* addr, size_t size) {
-  generic_heap_t* heap = get_current_scheduling_thread()->m_heap;
+  generic_heap_t* heap = get_current_proc()->m_heap;
 
   deallocate_heap_memory(heap, addr, size);
 }

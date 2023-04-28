@@ -174,6 +174,14 @@ ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t
 ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags);
 
 /*
+ * Map a memoryrange into the desired page map
+ */
+ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags);
+void* kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t flags);
+void* kmem_alloc_extended (pml_entry_t* map, uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags);
+ErrorOrPtr kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size);
+
+/*
  * deallocate memoryranges that where previously allocated by the
  * allocation functions above
  */

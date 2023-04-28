@@ -3,6 +3,7 @@
 
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "mem/base_allocator.h"
 #include "mem/pg.h"
 
 typedef int proc_id;
@@ -21,6 +22,8 @@ typedef struct proc {
   list_t* m_threads;
   list_t* m_runnable_threads;
 
+  generic_heap_t* m_heap;
+
   struct thread* m_init_thread;
   struct thread* m_idle_thread;
   struct thread* m_prev_thread;
@@ -32,11 +35,12 @@ typedef struct proc {
 } proc_t;
 
 /* We will probably find more usages for this */
-#define PROC_IDLE       (0x00000001)
-#define PROC_KERNEL     (0x00000002)
-#define PROC_STALLED    (0x00000004)
-#define PROC_UNRUNNED   (0x00000008)
-#define PROC_FINISHED   (0x00000010)
+#define PROC_IDLE           (0x00000001)
+#define PROC_KERNEL         (0x00000002)
+#define PROC_STALLED        (0x00000004)
+#define PROC_UNRUNNED       (0x00000008)
+#define PROC_FINISHED       (0x00000010)
+#define PROC_DEFERED_HEAP   (0x00000020) /* Wait with creating a heap */
 
 proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
