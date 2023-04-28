@@ -9,10 +9,11 @@
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
+static vobj_t** find_vobject_path(vnode_t* node, const char* path);
+
 /*
  * Some dummy op functions
  */
-
 static int vnode_write(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
   return -1;
 }
@@ -33,15 +34,79 @@ static void* vnode_close_stream(vnode_t* node) {
   return NULL;
 }
   
-static vobj_t* vnode_find (vnode_t* node, char* name) {
+static vobj_t* vnode_find(vnode_t* node, char* name) {
+
+  if (!node || !name)
+    return nullptr;
+
+  if (!vn_is_available(node) || !node->m_objects)
+    return nullptr;
+
+  mutex_lock(node->m_vobj_lock);
+
+  vobj_t* ret;
+  vobj_t** slot = find_vobject_path(node, name);
+
+  if (slot && *slot) {
+    ret = *slot;
+
+    mutex_unlock(node->m_vobj_lock);
+    return ret;
+  }
+
+  mutex_unlock(node->m_vobj_lock);
   return nullptr;
 }
 
 static vobj_handle_t vnode_seek(vnode_t* node, char* name) {
+
+  if (!node || !name)
+    return 0;
+
+  mutex_lock(node->m_vobj_lock);
+
+  vobj_t** obj = find_vobject_path(node, name);
+
+  if (obj && *obj) {
+    mutex_unlock(node->m_vobj_lock);
+    return (*obj)->m_handle;
+  }
+
+  mutex_unlock(node->m_vobj_lock);
   return 0;
 }
 
 static vobj_t* vnode_resolve(vnode_t* node, vobj_handle_t handle) {
+
+  vobj_t* itt;
+
+  if (!node || !handle)
+    return nullptr;
+
+  /*
+  if ((node->m_flags & VN_TAKEN) == 0)
+    return nullptr;
+  */
+
+  /* NOTE: we can prob assume this node is taken if ->m_objects is non-null, but this needs a lil testing */
+  if (!node->m_objects)
+    return nullptr;
+
+  mutex_lock(node->m_vobj_lock);
+
+  itt = node->m_objects;
+
+  while (itt) {
+
+    if (itt->m_handle == handle) {
+      mutex_unlock(node->m_vobj_lock);
+      return itt;
+    }
+    
+    itt = itt->m_next;
+  }
+
+  mutex_unlock(node->m_vobj_lock);
   return nullptr;
 }
 
@@ -132,7 +197,7 @@ bool vn_seems_mounted(vnode_t node) {
 }
 
 bool vn_is_link(vnode_t node) {
-  return (node.m_flags & VN_LINK);
+  return (node.m_flags & VN_LINK) == VN_LINK;
 }
 
 /*
@@ -140,6 +205,19 @@ bool vn_is_link(vnode_t node) {
  */
 void vn_freeze(vnode_t* node) {
   node->m_flags |= VN_FROZEN;
+}
+
+bool vn_is_available(vnode_t* node) {
+
+  if ((node->m_flags & VN_TAKEN) == VN_TAKEN) {
+    return (mutex_is_locked_by_current_thread(node->m_lock));
+  }
+  
+  /*
+   * If the vnode is not taken by the current thread, the only
+   * way it can be available is if it is marked flexible
+   */
+  return (node->m_flags & VN_FLEXIBLE) == VN_FLEXIBLE;
 }
 
 /*
@@ -173,10 +251,8 @@ int vn_take(vnode_t* node, uint32_t flags) {
 
 int vn_release(vnode_t* node) {
   /* Can't release someone elses node =D */
-  if (!node || !mutex_is_locked_by_current_thread(node->m_lock))
+  if (!node || (node->m_flags & VN_TAKEN) == 0 || !mutex_is_locked_by_current_thread(node->m_lock))
     return -1;
-
-  mutex_unlock(node->m_lock);
 
   vobj_t** obj = &node->m_objects;
 
@@ -199,6 +275,8 @@ int vn_release(vnode_t* node) {
 
   node->m_objects = nullptr;
   node->m_flags &= ~VN_TAKEN;
+
+  mutex_unlock(node->m_lock);
 
   return 0;
 }
@@ -238,8 +316,8 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
   if (!node || !obj)
     return Error();
 
-  /* Only allow attaching when the node is taken */
-  if ((node->m_flags & VN_TAKEN) == 0) 
+  /* Only allow attaching when the node is taken or flexible */
+  if (!vn_is_available(node)) 
     return Error();
 
   /* TODO: we could try moving the object */
@@ -519,9 +597,30 @@ vnode_t* vn_get_link(vnode_t* node, const char* link_name) {
 }
 
 /*
+ * Wrapper around ->f_find
+ */
+vobj_t* vn_find(vnode_t* node, char* name) {
+
+  vobj_t* ret;
+
+  if (!node || !name)
+    return nullptr;
+
+  ret = vn_get_object(node, name);
+
+  if (ret)
+    return ret;
+
+  ret = node->f_find(node, name);
+
+  return ret;
+}
+
+/*
  * Wrapper around the ->f_seek function
  * TODO: allow seeking from untaken nodes if they 
  * are marked flexible
+ * NOTE: we assume ->f_seek handles locking correctly here
  */
 vobj_handle_t vn_seek(vnode_t* node, char* name) {
 
@@ -531,7 +630,7 @@ vobj_handle_t vn_seek(vnode_t* node, char* name) {
     return 0;
 
   /* Can't seek from an untaken node */
-  if ((node->m_flags & VN_TAKEN) == 0) 
+  if (!vn_is_available(node) || !node->m_objects) 
     return 0;
 
   ret = node->f_seek(node, name);
@@ -542,6 +641,7 @@ vobj_handle_t vn_seek(vnode_t* node, char* name) {
 /*
  * Wrapper around ->f_resolve
  * TODO: allow resloving from flexible vnodes
+ * NOTE: we assume ->f_resolve handles locking correctly here
  */
 vobj_t* vn_resolve(vnode_t* node, vobj_handle_t handle) {
 
@@ -550,11 +650,10 @@ vobj_t* vn_resolve(vnode_t* node, vobj_handle_t handle) {
   if (!node || !handle)
     return nullptr;
 
-  if ((node->m_flags & VN_TAKEN) == 0)
+  if (vn_is_available(node) || !node->m_objects)
     return nullptr;
 
   ret = node->f_resolve(node, handle);
 
   return ret;
 }
-

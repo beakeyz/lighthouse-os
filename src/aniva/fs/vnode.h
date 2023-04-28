@@ -92,18 +92,18 @@ typedef struct vnode {
   };
 } vnode_t;
 
-#define VN_ROOT     (0x000001) /* Is this node the root of something? */
-#define VN_SYS      (0x000002) /* Is this node owned by the system? */
-#define VN_MOUNT    (0x000004) /* Is this node a mountpoint for something? */
-#define VN_FROZEN   (0x000008) /* Is this node frozen by the system? */
-#define VN_CACHED   (0x000010) /* Does this node have cached data somewhere? */
-#define VN_LINK     (0x000020) /* Does this node point to something else? */
-#define VN_FS       (0x000040) /* Is this node a filesystem? */
-#define VN_DIR      (0x000080) /* Is this node a directory? */
-#define VN_TAKEN    (0x000100) /* Has someone taken this node? */
+#define VN_ROOT     (0x00000001) /* Is this node the root of something? */
+#define VN_SYS      (0x00000002) /* Is this node owned by the system? */
+#define VN_MOUNT    (0x00000004) /* Is this node a mountpoint for something? */
+#define VN_FROZEN   (0x00000008) /* Is this node frozen by the system? */
+#define VN_CACHED   (0x00000010) /* Does this node have cached data somewhere? */
+#define VN_LINK     (0x00000020) /* Does this node point to something else? */
+#define VN_FS       (0x00000040) /* Is this node a filesystem? */
+#define VN_DIR      (0x00000080) /* Is this node a directory? */
+#define VN_TAKEN    (0x00000100) /* Has someone taken this node? */
 
 /* When a flexible node is taken anyway, behaviour should not change */
-#define VN_FLEXIBLE (0x000200) /* Flexible nodes allow opperations while they are not taken */
+#define VN_FLEXIBLE (0x00000200) /* Flexible nodes allow opperations while they are not taken */
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
 
@@ -120,6 +120,9 @@ ErrorOrPtr destroy_generic_vnode(vnode_t*);
 
 bool vn_is_socket(vnode_t);
 bool vn_is_system(vnode_t);
+
+bool vn_is_available(vnode_t* node);
+
 bool vn_seems_mounted(vnode_t);
 bool vn_is_link(vnode_t);
 
@@ -153,6 +156,7 @@ ErrorOrPtr vn_unlink(vnode_t* node, vnode_t* link);
 
 vnode_t* vn_get_link(vnode_t* node, const char* link_name);
 
+struct vobj* vn_find(vnode_t* node, char* name);
 vobj_handle_t vn_seek(vnode_t* node, char* name);
 struct vobj* vn_resolve(vnode_t* node, vobj_handle_t handle);
 

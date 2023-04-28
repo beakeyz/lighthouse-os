@@ -10,6 +10,7 @@
 #include "libk/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
+#include "sync/mutex.h"
 #include <fs/core.h>
 
 #include <dev/kterm/kterm.h>
@@ -103,6 +104,8 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
   if (!file)
     return nullptr;
 
+  mutex_lock(node->m_vobj_lock);
+
   while (true) {
     int result = node->f_read(node, &current_file, sizeof(tar_file_t), current_offset);
 
@@ -131,15 +134,16 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
         file->m_offset = current_file_offset;
         file->m_obj->m_inum = current_file_offset;
 
+        mutex_unlock(node->m_vobj_lock);
         return file->m_obj;
-      } else {
-        kernel_panic("cramfs: unsupported fsentry type");
       }
+      kernel_panic("cramfs: unsupported fsentry type");
     }
 
     current_offset += apply_tar_alignment(filesize);
   }
 
+  mutex_unlock(node->m_vobj_lock);
   destroy_vobj(file->m_obj);
   kernel_panic("Did not find ramfs object =(");
   return nullptr;
@@ -194,6 +198,9 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   node->f_read = ramfs_read;
   node->f_write = ramfs_write;
   node->f_find = ramfs_find;
+
+  /* cramfs is a flexible fs */
+  node->m_flags |= VN_FLEXIBLE;
 
   return node;
 }

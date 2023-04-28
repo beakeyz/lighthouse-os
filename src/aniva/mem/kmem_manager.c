@@ -675,7 +675,7 @@ static inline void _init_kmem_page_layout () {
 
   const paddr_t kernel_physical_end = (uintptr_t)&_kernel_end - HIGH_MAP_BASE;
   const paddr_t kernel_physical_start = (uintptr_t)&_kernel_start - HIGH_MAP_BASE;
-  const size_t kernel_page_count = kernel_physical_end >> 12;
+  const size_t kernel_page_count = (kernel_physical_end - kernel_physical_start) >> 12;
 
   // Identitymap the kernel
   kmem_map_range(nullptr, kernel_physical_start, kernel_physical_start, kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
@@ -707,7 +707,35 @@ pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_
     }
   }
 
+  const paddr_t kernel_physical_end = (uintptr_t)&_kernel_end - HIGH_MAP_BASE;
+  const paddr_t kernel_physical_start = (uintptr_t)&_kernel_start - HIGH_MAP_BASE;
+  const size_t kernel_page_count = (kernel_physical_end - kernel_physical_start) >> 12;
+
+  // Map the kernel
+  bool kernel_map_result = kmem_map_range(table_root, (uintptr_t)&_kernel_start, kernel_physical_start, kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+
+  if (!kernel_map_result) {
+    /* TODO: cleanup */
+    kernel_panic("Failed to map kernel while kmem_create_page_dir");
+    return nullptr;
+  }
+
   return table_root;
+}
+
+void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entry_t* map) {
+
+  // paddr_t entry = kmem_to_phys(map, vbase);
+
+  /* Mapping bytes into a virtial address of a different pmap */
+
+  /*
+   * TODO:  step 1 -> find physical address 
+   *        step 2 -> map into current map
+   *        step 3 -> copy bytes
+   *        step 4 -> unmap in current map
+   *        step 5 -> move over to the next page
+   */
 }
 
 /*

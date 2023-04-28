@@ -28,7 +28,7 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
     return nullptr;
 
   /* A parent that is not taken should not have any object registered to it */
-  if ((parent->m_flags & VN_TAKEN) == 0) {
+  if (!vn_is_available(parent)) {
     return nullptr;
   }
 

@@ -280,11 +280,8 @@ void kterm_command_worker() {
           kernel_panic("Could not resolve ramfs");
         }
 
-        kterm_println("\nTaking fs\n");
-        vn_take(ramfs, VN_SYS);
-
-        kterm_println("Finding file...\n");
-        vobj_t* obj = ramfs->f_find(ramfs, "init");
+        kterm_println("\nFinding file...\n");
+        vobj_t* obj = vn_find(ramfs, "init");
 
         ASSERT_MSG(obj, "Could not get vobj from test");
         ASSERT_MSG(obj->m_type == VOBJ_TYPE_FILE, "Object was not a file!");
@@ -298,22 +295,12 @@ void kterm_command_worker() {
         if (read_result)
           kernel_panic("Failed to read from file!");
 
-        /* Yay, we can read a valid elf file =D */
-        char elf_name[4] = {0};
-        memcpy(elf_name, &ehdr.e_ident[1], 3);
-
-        kterm_println(elf_name);
-        kterm_println("\n");
-
         //kterm_println("Data: ");
         //kterm_println((const char*)file->m_data);
         //kterm_println("\n");
         kterm_println("File size: ");
         kterm_println(to_string(file->m_size));
         kterm_println("\n");
-
-        kterm_println("Releasing file\n");
-        vn_release(ramfs);
 
       }
       kterm_println("\n");
