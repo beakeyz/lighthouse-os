@@ -3,6 +3,7 @@
 #include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include <mem/heap.h>
+#include "mem/page_dir.h"
 #include "mem/pg.h"
 #include "libk/multiboot.h"
 #include "libk/bitmap.h"
@@ -646,12 +647,10 @@ ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtu
     const vaddr_t vaddr = ret + (i * SMALL_PAGE_SIZE);
     const paddr_t paddr = phys_base + (i * SMALL_PAGE_SIZE);
 
-    const bool was_used = kmem_is_phys_page_used(page_idx);
-
     // FIXME: Persistant allocate is useless here, right?
-    if (was_used && !(custom_flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
-      return Error();
-    }
+    // if (was_used && !(custom_flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
+    //   return Error();
+    // }
 
     kmem_set_phys_page_used(page_idx);
     bool result = kmem_map_page(map, vaddr, paddr, KMEM_CUSTOMFLAG_GET_MAKE, page_flags);
@@ -699,10 +698,19 @@ static inline void _init_kmem_page_layout () {
   println("Done mapping ranges");
 }
 
-pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
+page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
+
+  println("Create");
+
+  page_dir_t ret = {
+    .m_root = nullptr,
+    .m_kernel_low = (uintptr_t)&_kernel_start,
+    .m_kernel_high = (uintptr_t)&_kernel_end, 
+  };
+
   const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   /* Make sure we never start with 0 pages */
-  const size_t page_count = (ALIGN_UP(initial_mapping_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE) + 1;
+  const size_t page_count = initial_mapping_size ? ((ALIGN_UP(initial_mapping_size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE) + 1) : 0;
 
   /* 
    * We can't just take a clean page here, since we need it mapped somewhere... 
@@ -719,24 +727,27 @@ pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_
     bool result = kmem_map_page(table_root, virtual_base, physical_base, custom_flags, KMEM_FLAG_WRITABLE | (create_user ? 0 : KMEM_FLAG_KERNEL));
 
     if (!result) {
-      return nullptr;
+      return ret;
     }
   }
 
   const paddr_t kernel_physical_end = (uintptr_t)&_kernel_end - HIGH_MAP_BASE;
   const paddr_t kernel_physical_start = (uintptr_t)&_kernel_start - HIGH_MAP_BASE;
-  const size_t kernel_page_count = (kernel_physical_end - kernel_physical_start) >> 12;
+  const size_t kernel_size = (kernel_physical_end - kernel_physical_start);
+  const size_t kernel_page_count = kernel_size >> 12;
 
   // Map the kernel
-  bool kernel_map_result = kmem_map_range(table_root, (uintptr_t)&_kernel_start, kernel_physical_start, kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  kmem_map_range(table_root, HIGH_MAP_BASE, 0, (4ULL * Gib) / PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE);
+  //kmem_alloc_extended(table_root, kernel_physical_start, kernel_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
 
-  if (!kernel_map_result) {
-    /* TODO: cleanup */
-    kernel_panic("Failed to map kernel while kmem_create_page_dir");
-    return nullptr;
-  }
+  println(to_string((uintptr_t)table_root - HIGH_MAP_BASE));
 
-  return table_root;
+  ret.m_root = table_root;
+
+  return ret;
+
+error_and_out:
+  kernel_panic("Failed to create page dir! (TODO: implement resolve)");
 }
 
 void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entry_t* map) {

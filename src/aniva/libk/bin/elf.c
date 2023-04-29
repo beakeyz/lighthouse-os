@@ -1,7 +1,9 @@
 #include "elf.h"
+#include "dev/debug/serial.h"
 #include "fs/file.h"
 #include <fs/vobj.h>
 #include "libk/bin/elf_types.h"
+#include "libk/error.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -28,6 +30,8 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
   int read_res;
   size_t total_size;
 
+  if (!elf || !elf_header)
+    return nullptr;
   
   total_size = elf_header->e_phnum * sizeof(struct elf64_phdr);
 
@@ -89,10 +93,13 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
+  /* DEBUG */
+  /* 
   image.m_total_exe_bytes = file->m_size;
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 
+  println("New page dir");
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     struct elf64_phdr phdr = phdrs[i];
 
@@ -102,7 +109,12 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
           vaddr_t virtual_phdr_base = phdr.p_vaddr;
           size_t phdr_size = phdr.p_memsz;
 
-          vaddr_t alloc_result = (vaddr_t)kmem_alloc_extended(ret->m_root_pd, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_WRITABLE);
+          vaddr_t alloc_result = (vaddr_t)Must(kmem_map_and_alloc_range(
+                ret->m_root_pd.m_root,
+                phdr_size,
+                virtual_phdr_base,
+                KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY,
+                KMEM_FLAG_WRITABLE));
 
           if ((alloc_result + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = alloc_result + phdr_size;
@@ -114,9 +126,12 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
         break;
     }
   }
+  */
 
   // TODO: make heap compatible with this shit
   // ret->m_heap = create_zone_allocator_ex(ret->m_root_pd, ALIGN_UP(image.m_highest_addr, SMALL_PAGE_SIZE), 10 * Kib, 10 * Mib, 0)->m_heap;
+
+  // ASSERT_MSG(ret->m_root_pd.m_root, "No root");
 
   kfree(phdrs);
   return ret;

@@ -355,7 +355,6 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
   obj->m_handle = gen_res.m_ptr;
 
 exit_success:
-  println("Generic fail");
   mutex_unlock(node->m_vobj_lock);
   return Success(0);
 

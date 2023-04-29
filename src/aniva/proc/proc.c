@@ -2,6 +2,7 @@
 #include <mem/heap.h>
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "entry/entry.h"
 #include "interupts/interupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
@@ -40,7 +41,9 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
   //  proc->m_prevent_scheduling = true;
     proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
   } else {
-    proc->m_root_pd = get_current_processor()->m_page_dir;
+    proc->m_root_pd.m_root = get_current_processor()->m_page_dir;
+    proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
+    proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
   //  proc->m_prevent_scheduling = false;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
@@ -58,7 +61,6 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
   strcpy(proc->m_name, name);
 
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
-
   Must(proc_add_thread(proc, thread));
 
   return proc;
@@ -96,8 +98,8 @@ void destroy_proc(proc_t* proc) {
    * you never know... For that we simply allow every page directory to be 
    * killed as long as we are not currently using it :clown: 
    */
-  if (proc->m_root_pd != get_current_processor()->m_page_dir) {
-    kmem_destroy_page_dir(proc->m_root_pd);
+  if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
+    kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 }
 
@@ -126,24 +128,24 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
 void terminate_process(proc_t* proc);
 
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
-  if (thread && proc) {
-    ErrorOrPtr does_contain = list_indexof(proc->m_threads, thread);
+  if (!thread || !proc)
+    return Error();
 
-    if (does_contain.m_status == ANIVA_SUCCESS) {
-      return Error();
-    }
+  ErrorOrPtr does_contain = list_indexof(proc->m_threads, thread);
 
-    /* If this is the first thread, we need to make sure it gets ran first */
-    if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
-      proc->m_init_thread = thread;
-      /* Ensure the schedulers picks up on this fact */
-      proc->m_flags |= PROC_UNRUNNED;
-    }
-
-    list_append(proc->m_threads, thread);
-    return Success(0);
+  if (does_contain.m_status == ANIVA_SUCCESS) {
+    return Error();
   }
-  return Error();
+
+  /* If this is the first thread, we need to make sure it gets ran first */
+  if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
+    proc->m_init_thread = thread;
+    /* Ensure the schedulers picks up on this fact */
+    proc->m_flags |= PROC_UNRUNNED;
+  }
+
+  list_append(proc->m_threads, thread);
+  return Success(0);
 }
 
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {

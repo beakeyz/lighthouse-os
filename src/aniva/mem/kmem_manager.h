@@ -5,6 +5,7 @@
 #include <libk/stddef.h>
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "mem/page_dir.h"
 #include "mem/pg.h"
 
 // some faultcodes
@@ -194,7 +195,7 @@ list_t const* kmem_get_phys_ranges_list();
  * Prepares a new pagemap that has virtual memory mapped from 0 -> initial_size
  * This can act as clean userspace directory creation, though a lot is still missing
  */
-pml_entry_t* kmem_create_page_dir(uint32_t custom_flags, size_t initial_size);
+page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_size);
 
 /*
  * Free this entire addressspace for future use

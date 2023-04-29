@@ -44,14 +44,28 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
 
   /* TODO: We should probably allocate this somewhere in the processes memory range */
-  uintptr_t stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_IDENTITY, stack_mem_flags));
-  memset((void *)stack_bottom, 0x00, DEFAULT_STACK_SIZE);
+  uintptr_t stack_bottom;
+
+  if (kthread) {
+    stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_IDENTITY, stack_mem_flags));
+  } else {
+
+    uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - 1, SMALL_PAGE_SIZE) - DEFAULT_STACK_SIZE;
+    /* TODO: */
+    stack_bottom = Must(kmem_map_and_alloc_range(
+        proc->m_root_pd.m_root,
+        DEFAULT_STACK_SIZE,
+        stack_start,
+        KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY | KMEM_CUSTOMFLAG_GET_MAKE,
+        KMEM_FLAG_WRITABLE));
+  }
+  memset((void *)kmem_ensure_high_mapping(stack_bottom), 0x00, DEFAULT_STACK_SIZE);
 
   thread->m_stack_bottom = stack_bottom;
   thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
 
   // TODO: move away from using the root page dir of the current processor
-  thread->m_context = setup_regs(kthread, proc->m_root_pd, thread->m_stack_top);
+  thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_stack_top);
   thread->m_real_entry = (ThreadEntry)entry;
 
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
@@ -180,7 +194,10 @@ extern void thread_enter_context(thread_t *to) {
   // Only switch pagetables if we actually need to interchange between
   // them, otherwise thats just wasted buffers
   if (previous_thread->m_context.cr3 != to->m_context.cr3) {
-    write_cr3(to->m_context.cr3);
+    /* TODO: remove debug */
+    println(to_string(kmem_to_phys(nullptr, to->m_context.cr3)));
+    load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
+    kernel_panic("Swapped things");
   }
 
   // NOTE: for correction purposes
@@ -196,7 +213,7 @@ extern void thread_enter_context(thread_t *to) {
 ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   thread_set_state(thread, RUNNABLE);
-  uintptr_t rsp = thread->m_stack_top;
+  uintptr_t rsp = kmem_ensure_high_mapping(thread->m_stack_top);
 
   if ((thread->m_context.cs & 3) != 0) {
     STACK_PUSH(rsp, uintptr_t, GDT_USER_DATA | 3);

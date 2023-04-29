@@ -4,6 +4,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "mem/base_allocator.h"
+#include "mem/page_dir.h"
 #include "mem/pg.h"
 
 typedef int proc_id;
@@ -16,7 +17,7 @@ typedef struct proc {
 
   uint32_t m_flags;
 
-  pml_entry_t* m_root_pd;
+  page_dir_t m_root_pd;
 
   // maps?
   list_t* m_threads;

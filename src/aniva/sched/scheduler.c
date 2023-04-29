@@ -318,6 +318,12 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       println("Should have switched frames!");
       send_sched_frame_to_back(0);
       Must(pick_next_thread_scheduler());
+
+      /* Debug */
+      println(get_current_proc()->m_name);
+      println(get_current_scheduling_thread()->m_name);
+      println(to_string((uintptr_t)get_current_scheduling_thread()->m_real_entry));
+
       scheduler_try_invoke();
       return registers_ptr;
     }
