@@ -633,7 +633,7 @@ ErrorOrPtr kmem_kernel_map_and_alloc_range(size_t size, vaddr_t virtual_base, ui
 
 ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags) {
   const bool should_identity_map = ((custom_flags & KMEM_CUSTOMFLAG_IDENTITY) == KMEM_CUSTOMFLAG_IDENTITY);
-  const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
+  const bool should_remap = ((custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP);
 
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
@@ -659,6 +659,32 @@ ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtu
     }
   }
   return Success(ret);
+}
+
+ErrorOrPtr kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+  const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
+
+  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+
+  const vaddr_t ret = vbase; 
+
+  for (uintptr_t i = 0; i < pages_needed; i++) {
+
+    const uintptr_t page_idx = Must(bitmap_find_free(KMEM_DATA.m_phys_bitmap));
+    const paddr_t page_base = kmem_get_page_addr(page_idx);
+
+    const vaddr_t vaddr = vbase + (i * SMALL_PAGE_SIZE);
+    const paddr_t paddr = page_base;
+
+    kmem_set_phys_page_used(page_idx);
+    bool result = kmem_map_page(map, vaddr, paddr, custom_flags, page_flags);
+
+    if (!result) {
+      return Error();
+    }
+  }
+  return Success(ret);
+
 }
 
 // TODO: make this more dynamic
@@ -699,8 +725,6 @@ static inline void _init_kmem_page_layout () {
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
 
-  println("Create");
-
   page_dir_t ret = { 0 };
 
   const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
@@ -725,6 +749,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
       return ret;
     }
   }
+
 
   const paddr_t kernel_physical_end = ALIGN_UP(kmem_to_phys(nullptr, (uintptr_t)&_kernel_end), SMALL_PAGE_SIZE);
   const paddr_t kernel_physical_start = ALIGN_DOWN(kmem_to_phys(nullptr, (uintptr_t)&_kernel_start), SMALL_PAGE_SIZE);

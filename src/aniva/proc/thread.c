@@ -57,6 +57,8 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
     uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - 1, SMALL_PAGE_SIZE) - DEFAULT_STACK_SIZE;
     /* TODO: */
+
+    println("Doing stack");
     stack_bottom = Must(kmem_map_and_alloc_range(
         proc->m_root_pd.m_root,
         DEFAULT_STACK_SIZE,
@@ -64,7 +66,10 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
         KMEM_FLAG_WRITABLE));
   }
+  /* TODO: pagefault because stack_bottom is an invalid address... */
+  println("Did stack, zeroing");
   memset((void *)kmem_ensure_high_mapping(stack_bottom), 0x00, DEFAULT_STACK_SIZE);
+  println("Did stack, 100% kinda");
 
   thread->m_stack_bottom = stack_bottom;
   thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);

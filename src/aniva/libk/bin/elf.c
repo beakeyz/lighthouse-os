@@ -5,6 +5,7 @@
 #include "libk/bin/elf_types.h"
 #include "libk/error.h"
 #include "libk/stddef.h"
+#include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/pg.h"
@@ -91,7 +92,9 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
   if (kernel)
     proc_flags |= PROC_KERNEL;
 
+          println("Allocating funnie");
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
+          println("Allocating funnie");
 
   image.m_total_exe_bytes = file->m_size;
   image.m_lowest_addr = (vaddr_t)-1;
@@ -106,12 +109,18 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
           vaddr_t virtual_phdr_base = phdr.p_vaddr;
           size_t phdr_size = phdr.p_memsz;
 
+          println("Allocating funnie");
+
           vaddr_t alloc_result = (vaddr_t)Must(kmem_map_and_alloc_range(
                 ret->m_root_pd.m_root,
                 phdr_size,
                 virtual_phdr_base,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY,
+                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
                 KMEM_FLAG_WRITABLE));
+
+          println("Allocated funnie");
+          println(to_string(alloc_result));
+          println(to_string(kmem_get_page_addr(kmem_get_page(ret->m_root_pd.m_root, alloc_result, 0)->raw_bits)));
 
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
@@ -129,6 +138,7 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
     }
   }
 
+  println("Mapped PT_LOAD phdrs of elf");
   // TODO: make heap compatible with this shit
   // ret->m_heap = create_zone_allocator_ex(ret->m_root_pd, ALIGN_UP(image.m_highest_addr, SMALL_PAGE_SIZE), 10 * Kib, 10 * Mib, 0)->m_heap;
 

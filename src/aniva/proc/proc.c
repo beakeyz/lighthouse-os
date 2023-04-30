@@ -54,7 +54,9 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
     proc->m_heap = create_zone_allocator(128 * Kib, 0)->m_heap;
   }
 
+          println("Allocating funnie");
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
+          println("Allocating funnie");
   proc->m_threads = init_list();
 
   memset(proc->m_name, 0, 32);
