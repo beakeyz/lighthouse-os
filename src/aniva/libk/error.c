@@ -38,21 +38,13 @@ NORETURN void kernel_panic(const char* panic_message) {
     println(panic_message);
   } 
 
+  /* NOTE: crashes in userspace (duh) */
+  /*
   if (has_framebuffer) {
     println_kterm("[KERNEL PANIC] ");
     println_kterm(panic_message);
   }
-
-  /*
-  if (has_framebuffer) {
-
-    const char* string = panic_message;
-
-    packet_response_t* response = await(driver_send_packet("graphics.kterm", KTERM_DRV_DRAW_STRING, &string, strlen(string)));
-
-  }
   */
-
 skip_diagnostics:
   __kernel_panic();
 }

@@ -93,13 +93,10 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
-  /* DEBUG */
-  /* 
   image.m_total_exe_bytes = file->m_size;
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 
-  println("New page dir");
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     struct elf64_phdr phdr = phdrs[i];
 
@@ -113,8 +110,13 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
                 ret->m_root_pd.m_root,
                 phdr_size,
                 virtual_phdr_base,
-                KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY,
+                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY,
                 KMEM_FLAG_WRITABLE));
+
+          /* Copy elf into the mapped area */
+          /* NOTE: we are required to be in the kernel map for this */
+          elf_read(file, (void*)kmem_ensure_high_mapping(alloc_result), phdr.p_filesz, phdr.p_offset);
+          memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
           if ((alloc_result + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = alloc_result + phdr_size;
@@ -126,7 +128,6 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
         break;
     }
   }
-  */
 
   // TODO: make heap compatible with this shit
   // ret->m_heap = create_zone_allocator_ex(ret->m_root_pd, ALIGN_UP(image.m_highest_addr, SMALL_PAGE_SIZE), 10 * Kib, 10 * Mib, 0)->m_heap;

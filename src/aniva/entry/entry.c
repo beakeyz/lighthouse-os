@@ -185,6 +185,8 @@ void test_proc_entry(uintptr_t arg) {
 
 NORETURN void kernel_thread() {
 
+  kernel_panic("Ding");
+
   init_gdisk_dev();
 
   init_aniva_driver_registry();

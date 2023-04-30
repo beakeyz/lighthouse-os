@@ -186,7 +186,11 @@ long_start:
 
   mov rsp, kstack_top - KERNEL_VIRT_BASE
 
-  call _start
+  lea rbx, [rel _start]
+
+  push 0x08
+  push rbx
+  retq
   
 loopback:
   cld

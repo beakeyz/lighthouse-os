@@ -6,6 +6,7 @@
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
 #include "mem/zalloc.h"
+#include "proc/context.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
 #include "sched/scheduler.h"
@@ -68,7 +69,9 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_stack_top);
   thread->m_real_entry = (ThreadEntry)entry;
 
+  // contex_set_rip(&thread->m_context, (uintptr_t)&thread->m_real_entry, 0);
   thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
+  
   return thread;
 } // make this sucka
 
@@ -146,13 +149,11 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
   return ANIVA_FAIL;
 }
 
-void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
-
-  // pre-entry
-
-  // call the actual entrypoint of the thread
-  int result = thread->m_real_entry(args);
-
+/*
+ * Routine to be called when a thread ends execution. We can just stick this to the 
+ * end of the stack of the thread 
+ */
+extern NORETURN void thread_end_lifecycle() {
   // TODO: report or cache the result somewhere until
   // It is approved by the kernel
 
@@ -166,6 +167,18 @@ void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
 
   // yield will enable interrupts again
   scheduler_yield();
+
+  kernel_panic("thread_end_lifecycle returned!");
+}
+
+void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
+
+  // pre-entry
+
+  // call the actual entrypoint of the thread
+  int result = thread->m_real_entry(args);
+
+  thread_end_lifecycle();
 }
 
 NAKED void common_thread_entry() {
@@ -195,9 +208,7 @@ extern void thread_enter_context(thread_t *to) {
   // them, otherwise thats just wasted buffers
   if (previous_thread->m_context.cr3 != to->m_context.cr3) {
     /* TODO: remove debug */
-    println(to_string(kmem_to_phys(nullptr, to->m_context.cr3)));
     load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
-    kernel_panic("Swapped things");
   }
 
   // NOTE: for correction purposes
@@ -207,6 +218,8 @@ extern void thread_enter_context(thread_t *to) {
 
   thread_set_state(to, RUNNING);
 
+  println("Doing thing");
+  println(to->m_name);
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -215,6 +228,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = kmem_ensure_high_mapping(thread->m_stack_top);
 
+  STACK_PUSH(rsp, uintptr_t, (uintptr_t)&thread_end_lifecycle);
   if ((thread->m_context.cs & 3) != 0) {
     STACK_PUSH(rsp, uintptr_t, GDT_USER_DATA | 3);
     STACK_PUSH(rsp, uintptr_t, thread->m_context.rsp);

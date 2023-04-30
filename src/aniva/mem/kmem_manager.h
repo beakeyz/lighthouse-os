@@ -19,7 +19,7 @@
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xffffffff80000000ULL
 // Base for early kernelheap mappings 
-#define EARLY_KERNEL_HEAP_BASE  0xffff800000000000ULL
+#define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
 #define EARLY_FB_MAP_BASE       0xFFFFFFFFFF600000ULL
 
@@ -180,6 +180,7 @@ ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, u
 ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags);
 void* kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t flags);
 void* kmem_alloc_extended (pml_entry_t* map, uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags);
+// ErrorOrPtr kmem_map_and_alloc_to(pml_entry_t* map, vaddr_t vbase, paddr_t pstart, size_t size, uint32_t custom_flags, uint32_t page_flags);
 ErrorOrPtr kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size);
 
 /*

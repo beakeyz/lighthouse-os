@@ -7,6 +7,7 @@
 #include "mem/kmem_manager.h"
 #include <sched/scheduler.h>
 #include "sync/mutex.h"
+#include <entry/entry.h>
 
 // Let's just give our kernel a shitload of initial heapmemory =)
 #define INITIAL_HEAP_SIZE ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE) // IN BYTES
@@ -21,10 +22,8 @@ static memory_allocator_t s_kernel_allocator;
 static generic_heap_t s_generic_kernel_heap;
 
 void init_kheap() {
-  
 
-
-  s_kernel_allocator.m_heap_start_node = (heap_node_t*)&init_kmalloc_mem[0];
+  s_kernel_allocator.m_heap_start_node = (void*)kmem_ensure_high_mapping((uintptr_t)&init_kmalloc_mem[0]);
 
   // start node
   s_kernel_allocator.m_heap_start_node->identifier = MALLOC_NODE_IDENTIFIER;
