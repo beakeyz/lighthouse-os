@@ -19,6 +19,8 @@
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribute__((used));
+/* Routine that ends our thread */
+extern NORETURN void thread_end_lifecycle();
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
@@ -32,7 +34,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
-  thread->m_entry_wrapper = thread_entry_wrapper;
 
   if (entry_wrapper) {
     thread->m_entry_wrapper = entry_wrapper;
@@ -48,7 +49,10 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   uintptr_t stack_bottom;
 
   if (kthread) {
-    stack_bottom = Must(kmem_kernel_alloc_range(DEFAULT_STACK_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_IDENTITY, stack_mem_flags));
+    stack_bottom = Must(kmem_kernel_alloc_range(
+          DEFAULT_STACK_SIZE,
+          KMEM_CUSTOMFLAG_GET_MAKE,
+          stack_mem_flags));
   } else {
 
     uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - 1, SMALL_PAGE_SIZE) - DEFAULT_STACK_SIZE;
@@ -57,7 +61,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         proc->m_root_pd.m_root,
         DEFAULT_STACK_SIZE,
         stack_start,
-        KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_IDENTITY | KMEM_CUSTOMFLAG_GET_MAKE,
+        KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
         KMEM_FLAG_WRITABLE));
   }
   memset((void *)kmem_ensure_high_mapping(stack_bottom), 0x00, DEFAULT_STACK_SIZE);
@@ -68,12 +72,12 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   // TODO: move away from using the root page dir of the current processor
   thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_stack_top);
   thread->m_real_entry = (ThreadEntry)entry;
+  thread->m_exit = (FuncPtr)thread_end_lifecycle;
 
-  // contex_set_rip(&thread->m_context, (uintptr_t)&thread->m_real_entry, 0);
-  thread_set_entrypoint(thread, (FuncPtr) thread->m_entry_wrapper, data);
+  thread_set_entrypoint(thread, (FuncPtr) thread->m_real_entry, data);
   
   return thread;
-} // make this sucka
+}
 
 thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, char name[32]) {
   if (proc == nullptr || entry == nullptr) {
@@ -124,11 +128,8 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
   return ret;
 }
 
-void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data) {
-  contex_set_rip(&ptr->m_context, (uintptr_t)entry, data);
-
-  // put the current thread ptr into the arguments of the thread entry
-  ptr->m_context.rsi = (uintptr_t)ptr;
+void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0) {
+  contex_set_rip(&ptr->m_context, (uintptr_t)entry, arg0);
 }
 
 void thread_set_state(thread_t *thread, thread_state_t state) {
@@ -157,7 +158,6 @@ extern NORETURN void thread_end_lifecycle() {
   // TODO: report or cache the result somewhere until
   // It is approved by the kernel
 
-  // TODO: cleanup and removal from the scheduler
   disable_interrupts();
 
   thread_t *current_thread = get_current_scheduling_thread();
@@ -165,20 +165,10 @@ extern NORETURN void thread_end_lifecycle() {
   println("Set thing to dying");
   thread_set_state(current_thread, DYING);
 
-  // yield will enable interrupts again
+  // yield will enable interrupts again (I hope)
   scheduler_yield();
 
   kernel_panic("thread_end_lifecycle returned!");
-}
-
-void thread_entry_wrapper(uintptr_t args, thread_t* thread) {
-
-  // pre-entry
-
-  // call the actual entrypoint of the thread
-  int result = thread->m_real_entry(args);
-
-  thread_end_lifecycle();
 }
 
 NAKED void common_thread_entry() {
@@ -217,18 +207,17 @@ extern void thread_enter_context(thread_t *to) {
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
-
-  println("Doing thing");
-  println(to->m_name);
 }
 
 // called when a thread is created and enters the scheduler for the first time
 ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   thread_set_state(thread, RUNNABLE);
-  uintptr_t rsp = kmem_ensure_high_mapping(thread->m_stack_top);
+  uintptr_t rsp = thread->m_stack_top;
 
-  STACK_PUSH(rsp, uintptr_t, (uintptr_t)&thread_end_lifecycle);
+  /* Stitch the exit function at the end of the thread stack */
+  *(uintptr_t*)rsp = (uintptr_t)thread->m_exit;
+
   if ((thread->m_context.cs & 3) != 0) {
     STACK_PUSH(rsp, uintptr_t, GDT_USER_DATA | 3);
     STACK_PUSH(rsp, uintptr_t, thread->m_context.rsp);

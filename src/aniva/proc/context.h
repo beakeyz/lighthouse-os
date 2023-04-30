@@ -65,9 +65,9 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintpt
 
 // TODO: user regs
 
-ALWAYS_INLINE void contex_set_rip(kContext_t* ctx, uintptr_t rip, uintptr_t args) {
+ALWAYS_INLINE void contex_set_rip(kContext_t* ctx, uintptr_t rip, uintptr_t arg0) {
   ctx->rip = rip;
-  ctx->rdi = args;
+  ctx->rdi = arg0;
 }
 
 #endif // !__ANIVA_KERNEL_CONTEXT__

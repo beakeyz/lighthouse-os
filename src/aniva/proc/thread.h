@@ -29,6 +29,7 @@ typedef struct thread {
   struct thread* m_self;
 
   ThreadEntry m_real_entry;
+  FuncPtr m_exit;
   ThreadEntryWrapper m_entry_wrapper;
 
   kContext_t m_context;
@@ -99,8 +100,6 @@ void thread_set_state(thread_t *, thread_state_t);
  * Cleans up any resources used by this thread
  */
 ANIVA_STATUS destroy_thread(thread_t *);
-
-void thread_entry_wrapper(uintptr_t args, thread_t* thread);
 
 // wrappers =D
 ALWAYS_INLINE bool thread_is_socket(thread_t* t) {

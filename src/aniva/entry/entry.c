@@ -32,7 +32,7 @@
 system_info_t g_system_info;
 
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
-NORETURN void kernel_thread();
+void kernel_thread();
 
 //typedef void (*ctor_func_t)();
 //extern ctor_func_t _start_ctors[];
@@ -183,9 +183,7 @@ void test_proc_entry(uintptr_t arg) {
   }
 }
 
-NORETURN void kernel_thread() {
-
-  kernel_panic("Ding");
+void kernel_thread() {
 
   init_gdisk_dev();
 
