@@ -37,11 +37,13 @@ typedef struct proc {
 
 /* We will probably find more usages for this */
 #define PROC_IDLE           (0x00000001)
-#define PROC_KERNEL         (0x00000002)
-#define PROC_STALLED        (0x00000004)
-#define PROC_UNRUNNED       (0x00000008)
-#define PROC_FINISHED       (0x00000010)
-#define PROC_DEFERED_HEAP   (0x00000020) /* Wait with creating a heap */
+#define PROC_KERNEL         (0x00000002) /* This process runs directoy in the kernel */
+#define PROC_DRIVER         (0x00000004) /* This process runs with kernel privileges in its own pagemap */
+#define PROC_STALLED        (0x00000008)
+#define PROC_UNRUNNED       (0x00000010) /* V-card still intact*/
+#define PROC_FINISHED       (0x00000020) /* Process should be cleaned up by the scheduler (TODO: let cleaning be done by a reaper thread/proc)*/
+#define PROC_DEFERED_HEAP   (0x00000040) /* Wait with creating a heap */
+#define PROC_REAPER         (0x00000080) /* Process capable of killing other processes and threads */
 
 proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);

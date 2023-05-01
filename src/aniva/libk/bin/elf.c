@@ -68,6 +68,7 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
   struct elf64_phdr* phdrs;
   struct elf_image image;
   uintptr_t proc_flags;
+  uint32_t page_flags;
   int status;
 
   status = elf_read(file, &header, sizeof(struct elf64_hdr), 0);
@@ -91,10 +92,13 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
   /* TODO: */
 
+  page_flags = KMEM_FLAG_WRITABLE;
   proc_flags = PROC_DEFERED_HEAP;
 
-  if (kernel)
-    proc_flags |= PROC_KERNEL;
+  if (kernel) {
+    /* When executing elf files in 'kernel' mode, they internally run as a driver */
+    proc_flags |= PROC_DRIVER;
+  }
 
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
@@ -113,13 +117,13 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
           println("Allocating funnie");
 
-          vaddr_t alloc_result = (vaddr_t)Must(kmem_map_and_alloc_range(
+          paddr_t alloc_result = (vaddr_t)Must(kmem_map_and_alloc_range(
                 ret->m_root_pd.m_root,
                 phdr_size,
                 virtual_phdr_base,
-                KMEM_CUSTOMFLAG_GET_MAKE | 
+                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER |
                 KMEM_CUSTOMFLAG_GIVE_PHYS | KMEM_CUSTOMFLAG_NO_REMAP,
-                0));
+                page_flags));
 
           println("Allocated funnie");
           println(to_string(alloc_result));
@@ -136,6 +140,14 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
           if (alloc_result < image.m_lowest_addr) {
             image.m_lowest_addr = alloc_result;
           }
+
+          uintptr_t thing = (kmem_to_phys(ret->m_root_pd.m_root, header.e_entry));
+
+          println(to_string(header.e_entry));
+          print("At entry: ");
+          println(to_string(thing));
+          print("Value: ");
+          println(to_string(*(uintptr_t*)kmem_ensure_high_mapping(thing)));
         }
         break;
     }

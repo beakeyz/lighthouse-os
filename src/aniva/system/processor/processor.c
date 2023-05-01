@@ -146,6 +146,8 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   processor->m_gdtr.limit = 0;
   processor->m_gdtr.base = NULL;
 
+  memset(processor->m_gdt, 0, sizeof(gdt_entry_t) * 32);
+
   gdt_entry_t null = {
     .low = 0x00000000,
     .high = 0x00000000,
@@ -201,6 +203,9 @@ bool is_bsp(Processor_t *processor) {
 }
 
 void processor_enter_interruption(registers_t* registers, bool irq) {
+
+  //println("Entered");
+
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when entering interruption");
 
@@ -212,7 +217,7 @@ void processor_enter_interruption(registers_t* registers, bool irq) {
 
 void processor_exit_interruption(registers_t* registers) {
 
-  println("Exited");
+  //println("Exited");
 
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when exiting interruption");

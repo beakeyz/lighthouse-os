@@ -217,6 +217,8 @@ void* kmem_alloc_extended (pml_entry_t* map, uintptr_t addr, size_t size, uint32
 ErrorOrPtr kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 ErrorOrPtr kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size);
 
+ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
+
 /*
  * deallocate memoryranges that where previously allocated by the
  * allocation functions above

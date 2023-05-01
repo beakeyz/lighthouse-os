@@ -58,6 +58,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
   /* Compute the kernel stack top */
   thread->m_kernel_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
+  thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
   /* Zero memory, since we don't want random shit in our stack */
   memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
@@ -69,9 +70,8 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
    * or we try to somehow let every thread share one stack (which like how tf would that work lol)
    */
   if (!kthread) {
-    uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - 1, SMALL_PAGE_SIZE) - DEFAULT_STACK_SIZE;
-
-    println("Doing stack");
+    /* let's have 1 SMALL_PAGE_SIZE of buffer '-' */
+    const uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
 
     /* Remap the kernel-allocated stack bottom into the processes pagedir */
     real_stack_bottom = Must(kmem_map_into(
@@ -82,16 +82,12 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
         KMEM_FLAG_WRITABLE));
 
-    println(to_string(real_stack_bottom));
-    println(to_string(stack_start));
-    println(to_string(kmem_to_phys(proc->m_root_pd.m_root, stack_start)));
-    println(to_string(kmem_to_phys(proc->m_root_pd.m_root, thread->m_kernel_stack_bottom)));
+    thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
   }
 
   /* Assign generic pointers to the stack top and bottom */
   thread->m_stack_bottom = real_stack_bottom;
-  thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
   /* Do context before we assign the userstack */
   thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_kernel_stack_top);
@@ -109,7 +105,8 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
     return nullptr;
   }
 
-  const bool is_kernel = proc->m_flags & PROC_KERNEL;
+  const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
+    ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 
   thread_t *t = create_thread(entry, NULL, args, name, proc, is_kernel);
   if (thread_prepare_context(t) == ANIVA_SUCCESS) {
@@ -130,7 +127,8 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
     return nullptr;
   }
 
-  const bool is_kernel = proc->m_flags & PROC_KERNEL;
+  const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
+    ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 
   thread_t *ret = create_thread(entry, default_socket_entry_wrapper, arg0, name, proc, is_kernel);
 
@@ -201,7 +199,7 @@ NAKED void common_thread_entry() {
   asm (
     "popq %rdi \n" // our beautiful thread
     "popq %rsi \n" // ptr to its registers
-    // "call thread_exit_init_state \n"
+    //"call thread_exit_init_state \n"
     "jmp asm_common_irq_exit \n"
     );
 }
@@ -241,15 +239,17 @@ extern void thread_enter_context(thread_t *to) {
     println(to->m_name);
 
     println(to_string((uintptr_t)to->m_real_entry));
+    println(to_string(kmem_to_phys((pml_entry_t*)to->m_context.cr3, (uintptr_t)to->m_real_entry)));
+    println(to_string(*(uintptr_t*)to->m_real_entry));
 
     /* 
      * FIXME: This function returs, but when we try to do that 
      * in actual usermode (by letting this function return) it
      * crashes =(
      */
-    to->m_real_entry(0);
+    //to->m_real_entry(0);
 
-    kernel_panic("Yeet");
+    //kernel_panic("Yeet");
   }
 }
 

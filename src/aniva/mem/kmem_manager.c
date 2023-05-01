@@ -9,6 +9,7 @@
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "system/processor/processor.h"
 #include <mem/heap.h>
 #include <mem/base_allocator.h>
 #include <libk/stddef.h>
@@ -784,7 +785,6 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
     }
   }
 
-
   const paddr_t kernel_physical_end = ALIGN_UP(kmem_to_phys(nullptr, (uintptr_t)&_kernel_end), SMALL_PAGE_SIZE);
   const paddr_t kernel_physical_start = ALIGN_DOWN(kmem_to_phys(nullptr, (uintptr_t)&_kernel_start), SMALL_PAGE_SIZE);
   const size_t kernel_size = (kernel_physical_end - kernel_physical_start);
@@ -793,7 +793,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   // Map the kernel
   // NOTE: we are mapping the entire range from 0Mib to the end of the kernel
   // in order to do this -_-
-  kmem_map_range(table_root, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE);
+  kmem_map_range(table_root, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
   ret.m_root = table_root;
   ret.m_kernel_low = HIGH_MAP_BASE;
@@ -818,6 +818,20 @@ void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entr
    *        step 4 -> unmap in current map
    *        step 5 -> move over to the next page
    */
+}
+
+ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
+  Processor_t* current = get_current_processor();
+
+  pml_entry_t* current_map = current->m_page_dir;
+
+  if (!current_map)
+    current_map = kmem_get_krnl_dir();
+
+  paddr_t phys = kmem_to_phys(external_map, vaddr);
+
+  /* TODO: */
+  return Error();
 }
 
 /*

@@ -295,7 +295,7 @@ void kterm_command_worker() {
         kterm_println("\n");
 
         println("Trying to make proc");
-        proc_t* proc = elf_exec_static_64(file, false);
+        proc_t* proc = elf_exec_static_64(file, true);
         println("Made proc");
 
         if (proc) {

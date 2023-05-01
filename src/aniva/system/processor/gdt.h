@@ -23,22 +23,22 @@ typedef struct {
 
 // 64-bit tss =)
 typedef struct tss_entry {
-	uint32_t reserved_0;
+  uint32_t reserved_0;
   uint32_t rsp0l;
   uint32_t rsp0h;
   uint32_t rsp1l;
   uint32_t rsp1h;
   uint32_t rsp2l;
   uint32_t rsp2h;
-	uint64_t reserved_1;
-	uint64_t ist[7]; // 14 uint32_ts with a high and a low component
-	uint64_t reserved_2;
-	uint16_t reserved_3;
-	uint16_t iomap_base;
+  uint64_t reserved_1;
+  uint64_t ist[7]; // 14 uint32_ts with a high and a low component
+  uint64_t reserved_2;
+  uint16_t reserved_3;
+  uint16_t iomap_base;
 } __attribute__ ((packed)) tss_entry_t;
 
 typedef union {
-	struct {
+  struct {
     uint16_t limit_low;
     uint16_t base_low;
     uint8_t base_high;
@@ -52,7 +52,7 @@ typedef union {
     uint8_t op_size32 : 1;
     uint8_t granularity : 1;
     uint8_t base_hi2;
-	} structured;
+  } structured;
   struct {
     uint32_t low;
     uint32_t high;
