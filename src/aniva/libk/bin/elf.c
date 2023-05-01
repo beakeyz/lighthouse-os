@@ -54,6 +54,10 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
   return ret;
 }
 
+static void test__() {
+  kernel_panic("FUCK OFF");
+}
+
 /*
  * FIXME: do we clos the file if this function fails?
  */
@@ -92,9 +96,7 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
   if (kernel)
     proc_flags |= PROC_KERNEL;
 
-          println("Allocating funnie");
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
-          println("Allocating funnie");
 
   image.m_total_exe_bytes = file->m_size;
   image.m_lowest_addr = (vaddr_t)-1;
@@ -115,9 +117,9 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
                 ret->m_root_pd.m_root,
                 phdr_size,
                 virtual_phdr_base,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER |
+                KMEM_CUSTOMFLAG_GET_MAKE | 
                 KMEM_CUSTOMFLAG_GIVE_PHYS | KMEM_CUSTOMFLAG_NO_REMAP,
-                KMEM_FLAG_WRITABLE));
+                0));
 
           println("Allocated funnie");
           println(to_string(alloc_result));

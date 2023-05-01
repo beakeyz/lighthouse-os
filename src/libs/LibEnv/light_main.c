@@ -12,4 +12,5 @@ void lightapp_startup(MainEntry main);
 void lightapp_startup(MainEntry main) {
 
   uintptr_t ret = main();
+  for (;;) {}
 }

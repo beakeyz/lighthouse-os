@@ -267,7 +267,7 @@ vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase) {
 
 uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
 
-  pml_entry_t *page = kmem_get_page(root, addr, 0);
+  pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
 
   if (page == nullptr) {
     return NULL;
@@ -360,14 +360,14 @@ pml_entry_t *kmem_get_krnl_dir() {
   return (pml_entry_t *)KMEM_DATA.m_kernel_base_pd;
 }
 
-pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_flags) {
+pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_flags, uint32_t page_flags) {
   const uintptr_t pml4_idx = (addr >> 39) & ENTRY_MASK;
   const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
   const uintptr_t pd_idx = (addr >> 21) & ENTRY_MASK;
   const uintptr_t pt_idx = (addr >> 12) & ENTRY_MASK;
-  const bool should_make = (kmem_flags & KMEM_CUSTOMFLAG_GET_MAKE) != 0;
-  const bool should_make_user = (kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) != 0;
-  const uintptr_t page_creation_flags = (should_make_user ? 0x7 : 0x3);
+  const bool should_make = ((kmem_flags & KMEM_CUSTOMFLAG_GET_MAKE) == KMEM_CUSTOMFLAG_GET_MAKE);
+  const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
+  const uintptr_t page_creation_flags = (should_make_user ? 0x07 : 0x03) | page_flags;
 
   uint32_t tries = MAX_RETRIES_FOR_PAGE_MAPPING;
   for ( ; ; ) {
@@ -452,20 +452,20 @@ void kmem_invalidate_pd(uintptr_t vaddr) {
 
 bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags) {
 
-  pml_entry_t* page = kmem_get_page(table, virt, kmem_flags);
+  // secure page
+  if (page_flags == 0)
+    page_flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
+
+  pml_entry_t* page = kmem_get_page(table, virt, kmem_flags, page_flags);
   
-  if (page) {
-
-    // secure page
-    if (page_flags == 0) {
-      page_flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
-    }
-    kmem_set_page_flags(page, page_flags);
-    kmem_set_page_base(page, phys);
-
-    return true;
+  if (!page) {
+    return false;
   }
-  return false;
+
+  kmem_set_page_flags(page, page_flags);
+  kmem_set_page_base(page, phys);
+
+  return true;
 }
 
 ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags) {
@@ -512,7 +512,7 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
 
 // FIXME: free higher level pts as well
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt) {
-  pml_entry_t *page = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page(table, virt, 0));
+  pml_entry_t *page = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page(table, virt, 0, 0));
 
   if (page) {
     page->raw_bits = 0;
@@ -793,7 +793,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   // Map the kernel
   // NOTE: we are mapping the entire range from 0Mib to the end of the kernel
   // in order to do this -_-
-  kmem_map_range(table_root, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  kmem_map_range(table_root, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE);
 
   ret.m_root = table_root;
   ret.m_kernel_low = HIGH_MAP_BASE;

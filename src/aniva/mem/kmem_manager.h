@@ -168,7 +168,7 @@ ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
 ErrorOrPtr kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir ();
-pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags);
+pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
 pml_entry_t* kmem_clone_page(pml_entry_t* page);
 void kmem_set_page_flags (pml_entry_t* page, uint32_t flags);
 

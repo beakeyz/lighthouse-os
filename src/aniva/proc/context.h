@@ -52,14 +52,17 @@ typedef struct {
 ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintptr_t stack_top) {
   kContext_t regs = {0};
 
-  regs.cs = (kernel ? GDT_KERNEL_CODE : GDT_USER_CODE|3);
+  // regs.cs = GDT_USER_CODE | 3;
+  regs.cs = GDT_KERNEL_CODE;
+  regs.rflags = 0x0202;
+  regs.rsp0 = stack_top;
   regs.cr3 = (uintptr_t)root_table;
 
   if (kernel) {
+    //regs.cs = GDT_KERNEL_CODE;
     regs.rsp = stack_top;
   }
-  regs.rsp0 = stack_top;
-  regs.rflags = 0x202;
+
   return regs;
 }
 

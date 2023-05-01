@@ -35,6 +35,9 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
 
+  thread->m_real_entry = (ThreadEntry)entry;
+  thread->m_exit = (FuncPtr)thread_end_lifecycle;
+
   if (entry_wrapper) {
     thread->m_entry_wrapper = entry_wrapper;
   }
@@ -53,14 +56,11 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         stack_mem_flags));
   real_stack_bottom = thread->m_kernel_stack_bottom;
 
-  /* Compute the stack top */
+  /* Compute the kernel stack top */
   thread->m_kernel_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
-  /* TODO: pagefault because stack_bottom is an invalid address... */
-  println("Did stack, zeroing");
   /* Zero memory, since we don't want random shit in our stack */
   memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
-  println("Did stack, 100% kinda");
 
   /*
    * FIXME: right now, we try to remap the stack every time a thread is created,
@@ -82,20 +82,25 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
         KMEM_FLAG_WRITABLE));
 
+    println(to_string(real_stack_bottom));
+    println(to_string(stack_start));
+    println(to_string(kmem_to_phys(proc->m_root_pd.m_root, stack_start)));
+    println(to_string(kmem_to_phys(proc->m_root_pd.m_root, thread->m_kernel_stack_bottom)));
+
   }
 
   /* Assign generic pointers to the stack top and bottom */
   thread->m_stack_bottom = real_stack_bottom;
   thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
-  // TODO: move away from using the root page dir of the current processor
-  thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_stack_top);
-  thread->m_real_entry = (ThreadEntry)entry;
-  thread->m_exit = (FuncPtr)thread_end_lifecycle;
+  /* Do context before we assign the userstack */
+  thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_kernel_stack_top);
 
-  thread_set_entrypoint(thread, (FuncPtr) thread->m_real_entry, data);
-    println("Did stack");
+  /* Set the appropriate stack top */
+  thread->m_context.rsp = thread->m_stack_top;
   
+  /* Set the entrypoint last */
+  thread_set_entrypoint(thread, (FuncPtr) thread->m_real_entry, data);
   return thread;
 }
 
@@ -173,6 +178,7 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
 /*
  * Routine to be called when a thread ends execution. We can just stick this to the 
  * end of the stack of the thread 
+ * FIXME: when a user process ends this gets entered in usermode. That kinda stinks :clown:
  */
 extern NORETURN void thread_end_lifecycle() {
   // TODO: report or cache the result somewhere until
@@ -253,7 +259,11 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_kernel_stack_top;
 
-  /* Stitch the exit function at the end of the thread stack */
+  /* 
+   * Stitch the exit function at the end of the thread stack 
+   * NOTE: we can do this since STACK_PUSH first decrements the
+   *       stack pointer and then it places the value
+   */
   *(uintptr_t*)rsp = (uintptr_t)thread->m_exit;
 
   if ((thread->m_context.cs & 3) != 0) {
@@ -261,7 +271,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
     STACK_PUSH(rsp, uintptr_t, thread->m_context.rsp);
   } else {
     STACK_PUSH(rsp, uintptr_t, 0);
-    STACK_PUSH(rsp, uintptr_t, thread->m_stack_top);
+    STACK_PUSH(rsp, uintptr_t, thread->m_kernel_stack_top);
   }
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
@@ -292,7 +302,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   thread->m_context.rip = (uintptr_t) &common_thread_entry;
   thread->m_context.rsp = rsp;
-  thread->m_context.rsp0 = thread->m_stack_top;
+  thread->m_context.rsp0 = thread->m_kernel_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
   return ANIVA_SUCCESS;
 }
@@ -309,8 +319,8 @@ void bootstrap_thread_entries(thread_t* thread) {
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
   tss_ptr->iomap_base = sizeof(get_current_processor()->m_tss);
-  tss_ptr->rsp0l = thread->m_stack_top & 0xffffffff;
-  tss_ptr->rsp0h = thread->m_stack_top >> 32;
+  tss_ptr->rsp0l = thread->m_context.rsp0 & 0xffffffff;
+  tss_ptr->rsp0h = thread->m_context.rsp0 >> 32;
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"
@@ -356,12 +366,13 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "leaq 1f(%%rip), %%rbx \n"
     "movq %%rbx, %[old_rip] \n"
     // restore tss
-    "movq %[stack_top], %%rbx \n"
+    "movq %[base_stack_top], %%rbx \n"
     "movl %%ebx, %[tss_rsp0l] \n"
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
     // emplace new rsp
     "movq %[new_rsp], %%rsp \n"
+    "movq %%rbp, %[old_rbp] \n"
     "pushq %[thread] \n"
     "pushq %[new_rip] \n"
     // prepare for switch
@@ -373,6 +384,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "addq $8, %%rsp \n"
     THREAD_POP_REGS
     :
+    [old_rbp]"=m"(from->m_context.rbp),
     [old_rip]"=m"(from->m_context.rip),
     [old_rsp]"=m"(from->m_context.rsp),
     [tss_rsp0l]"=m"(tss_ptr->rsp0l),
@@ -381,7 +393,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     :
     [new_rsp]"g"(to->m_context.rsp),
     [new_rip]"g"(to->m_context.rip),
-    [stack_top]"g"(to->m_stack_top),
+    [base_stack_top]"g"(to->m_context.rsp0),
     [thread]"d"(to)
     : "memory", "rbx"
   );

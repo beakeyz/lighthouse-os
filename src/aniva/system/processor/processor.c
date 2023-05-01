@@ -3,6 +3,8 @@
 #include "interupts/idt.h"
 #include "libk/error.h"
 #include "libk/queue.h"
+#include "proc/proc.h"
+#include "sched/scheduler.h"
 #include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
@@ -136,7 +138,6 @@ void flush_gdt(Processor_t *processor) {
 
   //asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
 
-
   _flush_gdt((uintptr_t)&processor->m_gdtr);
 }
 
@@ -172,7 +173,7 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   write_to_gdt(processor, GDT_USER_CODE, ring3_code);
 
   gdt_entry_t tss = {0};
-  set_gdte_base(&tss, ((uintptr_t) & processor->m_tss) & 0xffffffff);
+  set_gdte_base(&tss, ((uintptr_t)&processor->m_tss) & 0xffffffff);
   set_gdte_limit(&tss, sizeof(tss_entry_t) - 1);
   tss.structured.dpl = 0;
   tss.structured.segment_present = 1;
@@ -184,7 +185,7 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   write_to_gdt(processor, GDT_TSS_SEL, tss);
 
   gdt_entry_t tss_2 = {0};
-  tss_2.low = (uintptr_t) & processor->m_tss >> 32;
+  tss_2.low = (uintptr_t)&processor->m_tss >> 32;
   write_to_gdt(processor, GDT_TSS_2_SEL, tss_2);
 
   flush_gdt(processor);
@@ -210,6 +211,9 @@ void processor_enter_interruption(registers_t* registers, bool irq) {
 }
 
 void processor_exit_interruption(registers_t* registers) {
+
+  println("Exited");
+
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when exiting interruption");
 
