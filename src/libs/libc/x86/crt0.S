@@ -4,5 +4,5 @@
 .extern Main
 
 __lightapp_startup:
-  movq $Main, %rsi
+  movq $Main, %rdi
   call lightapp_startup

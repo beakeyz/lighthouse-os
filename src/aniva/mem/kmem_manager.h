@@ -53,6 +53,7 @@
 #define KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE 0x04
 #define KMEM_CUSTOMFLAG_IDENTITY            0x08
 #define KMEM_CUSTOMFLAG_NO_REMAP            0x10
+#define KMEM_CUSTOMFLAG_GIVE_PHYS           0x20
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
@@ -79,6 +80,34 @@ typedef struct {
   uint64_t upper;
   uint64_t lower;
 } contiguous_phys_virt_range_t; 
+
+/*
+ * TODO: encorperate some system that ensures safety with 
+ * this structure, like only allowing the owner pointer
+ * to destroy this structure and zeroing all the other 
+ * m_references when it eventually does
+ */
+struct kmem_region {
+  size_t m_page_count;
+  bool m_contiguous;
+  page_dir_t* m_dir;
+  
+  void** m_references;
+};
+typedef struct kmem_region kregion_t;
+typedef struct kmem_region* kregion;
+
+/*
+ * This struct represents a page that was gathered from a specific 
+ * page dir. We can trace back and verify the pbase if we walk the 
+ * page dir with the p0-3 and optionally p4 if we use 5-level paging
+ */
+struct kmem_page {
+  uintptr_t p0, p1, p2, p3, p4;
+  vaddr_t vbase;
+  paddr_t pbase;
+  page_dir_t* dir;
+};
 
 /*
  * initialize kernel pagetables and physical allocator
@@ -147,6 +176,11 @@ void kmem_set_page_flags (pml_entry_t* page, uint32_t flags);
 
 bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
 bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
+
+/*
+ * Map from the kernel pagemap into the specified pagemap
+ */
+ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags);
 
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);

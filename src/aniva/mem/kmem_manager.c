@@ -468,6 +468,35 @@ bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t
   return false;
 }
 
+ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags) {
+
+  /* Let's return a default of Error if the caller tries to map a size of zero */
+  ErrorOrPtr result = Error();
+  size_t page_count;
+
+  if (size == 0)
+    goto out;
+  
+  page_count = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
+
+  for (uintptr_t i = 0; i < page_count; i++) {
+    vaddr_t old_vbase = old + (i * SMALL_PAGE_SIZE);
+    vaddr_t new_vbase = new + (i * SMALL_PAGE_SIZE);
+
+    paddr_t old_phys = kmem_to_phys(nullptr, old_vbase);
+
+    if (!kmem_map_page(table, new_vbase, old_phys, kmem_flags, page_flags)) {
+      result = Error();
+      break;
+    }
+
+    result = Success(new);
+  } 
+
+out:
+  return result;
+}
+
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
 
   for (uintptr_t i = 0; i < page_count; i++) {
@@ -658,6 +687,11 @@ ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtu
       return Error();
     }
   }
+
+  if ((custom_flags & KMEM_CUSTOMFLAG_GIVE_PHYS) == KMEM_CUSTOMFLAG_GIVE_PHYS) {
+    return Success(phys_base);
+  }
+
   return Success(ret);
 }
 

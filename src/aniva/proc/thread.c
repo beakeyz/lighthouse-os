@@ -43,36 +43,50 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
+  uintptr_t real_stack_bottom;
   uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
 
-  /* TODO: We should probably allocate this somewhere in the processes memory range */
-  uintptr_t stack_bottom;
-
-  if (kthread) {
-    stack_bottom = Must(kmem_kernel_alloc_range(
-          DEFAULT_STACK_SIZE,
-          KMEM_CUSTOMFLAG_GET_MAKE,
-          stack_mem_flags));
-  } else {
-
-    uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - 1, SMALL_PAGE_SIZE) - DEFAULT_STACK_SIZE;
-    /* TODO: */
-
-    println("Doing stack");
-    stack_bottom = Must(kmem_map_and_alloc_range(
-        proc->m_root_pd.m_root,
+  /* Allocate kernel memory for the stack */
+  thread->m_kernel_stack_bottom = Must(kmem_kernel_alloc_range(
         DEFAULT_STACK_SIZE,
-        stack_start,
-        KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
-        KMEM_FLAG_WRITABLE));
-  }
+        KMEM_CUSTOMFLAG_GET_MAKE,
+        stack_mem_flags));
+  real_stack_bottom = thread->m_kernel_stack_bottom;
+
+  /* Compute the stack top */
+  thread->m_kernel_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
+
   /* TODO: pagefault because stack_bottom is an invalid address... */
   println("Did stack, zeroing");
-  memset((void *)kmem_ensure_high_mapping(stack_bottom), 0x00, DEFAULT_STACK_SIZE);
+  /* Zero memory, since we don't want random shit in our stack */
+  memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
   println("Did stack, 100% kinda");
 
-  thread->m_stack_bottom = stack_bottom;
-  thread->m_stack_top = ALIGN_DOWN(stack_bottom + DEFAULT_STACK_SIZE, 16);
+  /*
+   * FIXME: right now, we try to remap the stack every time a thread is created,
+   * this means that the stack of the previous thread (if there is one) of this
+   * process gets corrupted, so we either need to give every thread its own stack,
+   * or we try to somehow let every thread share one stack (which like how tf would that work lol)
+   */
+  if (!kthread) {
+    uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - 1, SMALL_PAGE_SIZE) - DEFAULT_STACK_SIZE;
+
+    println("Doing stack");
+
+    /* Remap the kernel-allocated stack bottom into the processes pagedir */
+    real_stack_bottom = Must(kmem_map_into(
+        proc->m_root_pd.m_root,
+        thread->m_kernel_stack_bottom,
+        stack_start,
+        DEFAULT_STACK_SIZE,
+        KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
+        KMEM_FLAG_WRITABLE));
+
+  }
+
+  /* Assign generic pointers to the stack top and bottom */
+  thread->m_stack_bottom = real_stack_bottom;
+  thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
   // TODO: move away from using the root page dir of the current processor
   thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_stack_top);
@@ -80,6 +94,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_exit = (FuncPtr)thread_end_lifecycle;
 
   thread_set_entrypoint(thread, (FuncPtr) thread->m_real_entry, data);
+    println("Did stack");
   
   return thread;
 }
@@ -212,13 +227,31 @@ extern void thread_enter_context(thread_t *to) {
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
+
+  if (memcmp(to->m_parent_proc->m_name, "init", 4)) {
+    println("Found our thread");
+    print(to->m_parent_proc->m_name);
+    print(":");
+    println(to->m_name);
+
+    println(to_string((uintptr_t)to->m_real_entry));
+
+    /* 
+     * FIXME: This function returs, but when we try to do that 
+     * in actual usermode (by letting this function return) it
+     * crashes =(
+     */
+    to->m_real_entry(0);
+
+    kernel_panic("Yeet");
+  }
 }
 
 // called when a thread is created and enters the scheduler for the first time
 ANIVA_STATUS thread_prepare_context(thread_t *thread) {
 
   thread_set_state(thread, RUNNABLE);
-  uintptr_t rsp = thread->m_stack_top;
+  uintptr_t rsp = thread->m_kernel_stack_top;
 
   /* Stitch the exit function at the end of the thread stack */
   *(uintptr_t*)rsp = (uintptr_t)thread->m_exit;

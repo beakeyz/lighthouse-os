@@ -115,12 +115,13 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
                 ret->m_root_pd.m_root,
                 phdr_size,
                 virtual_phdr_base,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
+                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER |
+                KMEM_CUSTOMFLAG_GIVE_PHYS | KMEM_CUSTOMFLAG_NO_REMAP,
                 KMEM_FLAG_WRITABLE));
 
           println("Allocated funnie");
           println(to_string(alloc_result));
-          println(to_string(kmem_get_page_addr(kmem_get_page(ret->m_root_pd.m_root, alloc_result, 0)->raw_bits)));
+          println(to_string(kmem_to_phys(ret->m_root_pd.m_root, virtual_phdr_base)));
 
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */

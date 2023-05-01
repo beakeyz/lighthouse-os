@@ -41,6 +41,10 @@ typedef struct thread {
   uint32_t m_max_ticks;
 
   bool m_has_been_scheduled;
+  /* The vaddress of the stack bottom, as seen by the kernel */
+  __attribute__((aligned(16))) vaddr_t m_kernel_stack_bottom;
+  __attribute__((aligned(16))) vaddr_t m_kernel_stack_top;
+  /* The vaddress of the stack bottom and top, from the process */
   __attribute__((aligned(16))) uintptr_t m_stack_bottom;
   __attribute__((aligned(16))) uintptr_t m_stack_top;
 
