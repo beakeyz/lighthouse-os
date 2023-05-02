@@ -132,7 +132,8 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
           elf_read(file, (void*)kmem_ensure_high_mapping(alloc_result), phdr.p_filesz, phdr.p_offset);
-          memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
+          // ???
+          // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
           if ((alloc_result + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = alloc_result + phdr_size;
