@@ -398,6 +398,8 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) {
     /* We'll have to unlock the mutex here also, to avoid nasty shit */
     mutex_unlock(s_sched_mutex);
     scheduler_yield();
+
+    return Success(0);
   }
 
   mutex_unlock(s_sched_mutex);

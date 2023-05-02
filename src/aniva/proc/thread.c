@@ -249,7 +249,7 @@ extern void thread_enter_context(thread_t *to) {
      */
     //to->m_real_entry(0);
 
-    //kernel_panic("Yeet");
+    kernel_panic("Yeet");
   }
 }
 

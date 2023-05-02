@@ -27,6 +27,7 @@ void generic_proc_idle () {
 
 proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags) {
   proc_t *proc = kmalloc(sizeof(proc_t));
+  memset(proc, 0, sizeof(proc_t));
 
   if (proc == nullptr) {
     return nullptr;
@@ -57,8 +58,7 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
   proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
   proc->m_threads = init_list();
 
-  memset(proc->m_name, 0, 32);
-  strcpy(proc->m_name, name);
+  memcpy(proc->m_name, name, 31);
 
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
   Must(proc_add_thread(proc, thread));

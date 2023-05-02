@@ -11,6 +11,7 @@
 #include "mem/pg.h"
 #include "mem/zalloc.h"
 #include "proc/proc.h"
+#include "sched/scheduler.h"
 
 /*
  * Represents the elf file when it is eventually laid out in memory.
@@ -61,7 +62,7 @@ static void test__() {
 /*
  * FIXME: do we clos the file if this function fails?
  */
-proc_t* elf_exec_static_64(file_t* file, bool kernel) {
+ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   proc_t* ret;
   struct elf64_hdr header;
@@ -75,20 +76,20 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
   /* No filE??? */
   if (status)
-    return nullptr;
+    return Error();
 
   /* No elf? */
   if (!memcmp(header.e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
-    return nullptr;
+    return Error();
 
   /* No 64 bit binary =( */
   if (header.e_ident[EI_CLASS] != ELF_CLASS_64)
-    return nullptr;
+    return Error();
 
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)
-    return nullptr;
+    return Error();
 
   /* TODO: */
 
@@ -117,57 +118,48 @@ proc_t* elf_exec_static_64(file_t* file, bool kernel) {
 
           println("Allocating funnie");
 
-          paddr_t alloc_result = (vaddr_t)Must(kmem_map_and_alloc_range(
-                ret->m_root_pd.m_root,
-                phdr_size,
-                virtual_phdr_base,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER |
-                KMEM_CUSTOMFLAG_GIVE_PHYS | KMEM_CUSTOMFLAG_NO_REMAP,
-                page_flags));
+          vaddr_t kalloc = Must(kmem_kernel_alloc_range(phdr_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
-          println("Allocated funnie");
-          println(to_string(alloc_result));
-          println(to_string(kmem_to_phys(ret->m_root_pd.m_root, virtual_phdr_base)));
+          println("Allocating funnie");
+          Must(kmem_map_into(ret->m_root_pd.m_root, kalloc, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
+          println("Allocating funnie");
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
-          elf_read(file, (void*)kmem_ensure_high_mapping(alloc_result), phdr.p_filesz, phdr.p_offset);
+          elf_read(file, (void*)kalloc, phdr.p_filesz, phdr.p_offset);
           // ???
           // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
-          if ((alloc_result + phdr_size) > image.m_highest_addr) {
-            image.m_highest_addr = alloc_result + phdr_size;
+          if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
+            image.m_highest_addr = virtual_phdr_base + phdr_size;
           }
-          if (alloc_result < image.m_lowest_addr) {
-            image.m_lowest_addr = alloc_result;
+          if (virtual_phdr_base < image.m_lowest_addr) {
+            image.m_lowest_addr = virtual_phdr_base;
           }
-
-          uintptr_t thing = (kmem_to_phys(ret->m_root_pd.m_root, header.e_entry));
-
-          println(to_string(header.e_entry));
-          print("At entry: ");
-          println(to_string(thing));
-          print("Value: ");
-          println(to_string(*(uintptr_t*)kmem_ensure_high_mapping(thing)));
         }
         break;
     }
   }
 
-  println("Mapped PT_LOAD phdrs of elf");
   // TODO: make heap compatible with this shit
   // ret->m_heap = create_zone_allocator_ex(ret->m_root_pd, ALIGN_UP(image.m_highest_addr, SMALL_PAGE_SIZE), 10 * Kib, 10 * Mib, 0)->m_heap;
 
   // ASSERT_MSG(ret->m_root_pd.m_root, "No root");
 
   kfree(phdrs);
-  return ret;
+
+  kernel_panic("Hehe");
+
+  /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
+  sched_add_priority_proc(ret, true);
+
+  return Success(0);
 
 error_and_out:
   /* TODO: clean more stuff */
   kfree(phdrs);
   destroy_proc(ret);
 
-  return nullptr;
+  return Error();
 
 }

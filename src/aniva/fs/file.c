@@ -4,6 +4,10 @@
 #include "fs/vobj.h"
 #include "libk/error.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
+#include "mem/page_dir.h"
+
+file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 int f_close(file_t* file) {
 
@@ -104,13 +108,48 @@ int generic_f_sync(file_t* file) {
   return result;
 }
 
+
 file_ops_t generic_file_ops = {
   .f_close = f_close,
   .f_sync = generic_f_sync,
   .f_read = f_read,
   .f_write = f_write,
+  .f_kmap = f_kmap,
   .f_resize = f_resize,
 };
+
+/*
+ * NOTE: mapping a file means the mappings get the same flags, both
+ * in the kernel map, and in the new map
+ */
+file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+  
+  file_t ret = {
+    0
+  };
+
+  const size_t def_size = ALIGN_UP(size, SMALL_PAGE_SIZE);
+  const size_t page_count = kmem_get_page_idx(def_size);
+
+  /* NOTE: aggressive Must() */
+  vaddr_t alloc_result = Must(kmem_kernel_alloc_range(def_size, custom_flags, page_flags));
+
+  paddr_t physical_base = kmem_to_phys(nullptr, alloc_result);
+
+  if (!physical_base) {
+    kernel_panic("Potential bug: kmem_to_phys returned NULL");
+    return ret;
+  }
+
+  vaddr_t new_virt_base = kmem_map_range(dir->m_root, kmem_ensure_high_mapping(physical_base), physical_base, page_count, custom_flags, page_flags);
+    
+  ret.m_size = def_size;
+  ret.m_data = (void*)new_virt_base;
+  ret.m_offset = file->m_offset;
+  ret.m_ops = &generic_file_ops;
+
+  return ret;
+}
 
 file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
 

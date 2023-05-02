@@ -9,6 +9,8 @@
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "proc/proc.h"
+#include "sched/scheduler.h"
 #include "system/processor/processor.h"
 #include <mem/heap.h>
 #include <mem/base_allocator.h>
@@ -842,12 +844,28 @@ void kmem_destroy_page_dir(pml_entry_t* dir) {
   kernel_panic("TODO: implement kmem_destroy_page_dir");
 }
 
+/*
+ * NOTE: caller needs to ensure that they pass a physical address
+ * as page map. CR3 only takes physical addresses
+ */
 void load_page_dir(uintptr_t dir, bool __disable_interupts) {
   if (__disable_interupts) 
     disable_interrupts();
 
+  pml_entry_t* page_map = (pml_entry_t*)dir;
+
   ASSERT(get_current_processor() != nullptr);
-  get_current_processor()->m_page_dir = (pml_entry_t*)dir;
+  get_current_processor()->m_page_dir = page_map;
+
+  /*
+  proc_t* current_proc = get_current_proc();
+
+  if (current_proc) {
+    current_proc->m_root_pd.m_root = (pml_entry_t*)dir;
+    current_proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
+    current_proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
+  }
+  */
 
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(dir));
