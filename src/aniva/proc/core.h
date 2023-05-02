@@ -21,6 +21,10 @@
 #define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT 128
 #define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT 64
 
+extern char thread_entry_stub[];
+extern char thread_entry_stub_end[];
+
+struct thread;
 struct tspckt;
 struct threaded_socket;
 struct packet_response;
@@ -40,10 +44,17 @@ typedef enum thread_state {
 ANIVA_STATUS initialize_proc_core();
 
 /*
- * Prio schedules a userthread
+ * Allocate a page and map it into the page dir.
+ * Params:
+ * - thread: the thread we will relocate the stub for
+ * - offset: the offset that the virtual base will have. every increment will
+ *           increase the real virtual offset by offset * stub_size 
+ * - custom_flags: flags for the kmem allocator
+ * - page_flags: flags for the pages
  */
-// TODO: more args
-ErrorOrPtr exec_user(char proc_name[32], FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
+ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, uint32_t custom_flags, uint32_t page_flags);
+
+ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread);
 
 /*
  * Register a socket on the kernel socket chain

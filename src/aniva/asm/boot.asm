@@ -66,6 +66,8 @@ check_cpuid:
   push eax
   popfd
   nop
+  nop
+  nop
   pushfd
   pop eax
   cmp eax, ebx

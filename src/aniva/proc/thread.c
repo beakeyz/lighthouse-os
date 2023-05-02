@@ -23,7 +23,7 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribut
 extern NORETURN void thread_end_lifecycle();
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
-static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t data);
+static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
 thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], proc_t* proc, bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
@@ -34,6 +34,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
+  thread->m_tid = create_atomic_ptr_with_value(-1);
 
   thread->m_real_entry = (ThreadEntry)entry;
   thread->m_exit = (FuncPtr)thread_end_lifecycle;
@@ -96,7 +97,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_context.rsp = thread->m_stack_top;
   
   /* Set the entrypoint last */
-  thread_set_entrypoint(thread, (FuncPtr) thread->m_real_entry, data);
+  thread_set_entrypoint(thread, (FuncPtr)thread->m_real_entry, data, 0);
   return thread;
 }
 
@@ -151,8 +152,8 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
   return ret;
 }
 
-void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0) {
-  contex_set_rip(&ptr->m_context, (uintptr_t)entry, arg0);
+void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
+  contex_set_rip(&ptr->m_context, (uintptr_t)entry, arg0, arg1);
 }
 
 void thread_set_state(thread_t *thread, thread_state_t state) {
@@ -168,6 +169,7 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);
   }
+  destroy_atomic_ptr(thread->m_tid);
   kmem_kernel_dealloc(thread->m_stack_bottom, DEFAULT_STACK_SIZE);
   kfree(thread);
   return ANIVA_FAIL;
@@ -231,26 +233,6 @@ extern void thread_enter_context(thread_t *to) {
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
-
-  if (memcmp(to->m_parent_proc->m_name, "init", 4)) {
-    println("Found our thread");
-    print(to->m_parent_proc->m_name);
-    print(":");
-    println(to->m_name);
-
-    println(to_string((uintptr_t)to->m_real_entry));
-    println(to_string(kmem_to_phys((pml_entry_t*)to->m_context.cr3, (uintptr_t)to->m_real_entry)));
-    println(to_string(*(uintptr_t*)to->m_real_entry));
-
-    /* 
-     * FIXME: This function returs, but when we try to do that 
-     * in actual usermode (by letting this function return) it
-     * crashes =(
-     */
-    //to->m_real_entry(0);
-
-    kernel_panic("Yeet");
-  }
 }
 
 // called when a thread is created and enters the scheduler for the first time

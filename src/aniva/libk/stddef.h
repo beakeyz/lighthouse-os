@@ -30,6 +30,8 @@ typedef uintptr_t                   paddr_t;
 
 typedef void (*FuncPtr)();
 
+#define FuncPtrWith(type, name) type (*name)()
+
 #define asm __asm__
 #define nullptr (void*)0
 #define NULL 0

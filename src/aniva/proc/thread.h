@@ -35,6 +35,7 @@ typedef struct thread {
   kContext_t m_context;
   FpuState m_fpu_state;
 
+  atomic_ptr_t* m_tid;
   char m_name[32];
   uint32_t m_cpu; // atomic?
   uint32_t m_ticks_elapsed;
@@ -52,6 +53,9 @@ typedef struct thread {
 
   // allow nested context switches
   struct proc *m_parent_proc; // nullable
+
+  /* The virtual address of the relocated entry. nullptr if there isn't one */
+  void (*f_relocated_entry_stub) (FuncPtr real_entry);
 
   // every thread should have the capability to be a socket,
   // but not every thread should be treated as one

@@ -148,8 +148,6 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   kfree(phdrs);
 
-  kernel_panic("Hehe");
-
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
   sched_add_priority_proc(ret, true);
 

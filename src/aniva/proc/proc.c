@@ -10,6 +10,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "sched/scheduler.h"
+#include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
 #include "thread.h"
 #include "libk/io.h"
@@ -35,6 +36,7 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
 
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
+  proc->m_thread_count = create_atomic_ptr_with_value(0);
 
   // Only create new page dirs for non-kernel procs
   if ((flags & PROC_KERNEL) == 0 || (flags & PROC_DRIVER) == PROC_DRIVER) {
@@ -91,6 +93,7 @@ void destroy_proc(proc_t* proc) {
   }
 
   /* Free everything else */
+  destroy_atomic_ptr(proc->m_thread_count);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
@@ -143,6 +146,10 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
     /* Ensure the schedulers picks up on this fact */
     proc->m_flags |= PROC_UNRUNNED;
   }
+
+  uintptr_t current_thread_count = atomic_ptr_load(proc->m_thread_count);
+  atomic_ptr_write(thread->m_tid, current_thread_count);
+  atomic_ptr_write(proc->m_thread_count, current_thread_count+1);
 
   list_append(proc->m_threads, thread);
   return Success(0);

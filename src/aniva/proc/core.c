@@ -4,12 +4,14 @@
 #include "libk/linkedlist.h"
 #include "libk/queue.h"
 #include "libk/vector.h"
+#include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "socket.h"
 #include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
+#include "system/processor/processor.h"
 
 static list_t *s_sockets;
 static uint32_t s_highest_port_cache;
@@ -21,26 +23,69 @@ static atomic_ptr_t* next_proc_id;
 
 static void revalidate_port_cache();
 
-/*
- * Initialize:
- *  - socket registry
- *  - proc_id generation
- */
-ANIVA_STATUS initialize_proc_core() {
+ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, uint32_t custom_flags, uint32_t page_flags) {
 
-  s_sockets = init_list();
-  s_core_socket_lock = create_spinlock();
-  next_proc_id = create_atomic_ptr_with_value(1);
+  Processor_t* current;
+  page_dir_t* dir;
+  size_t stub_size;
+  size_t aligned_size;
+  vaddr_t virtual_stub_base;
+  paddr_t physical_stub_base;
+  vaddr_t virtual_kaddr;
+  
+  if (!thread || thread->f_relocated_entry_stub)
+    return Error();
 
-  return ANIVA_SUCCESS;
-}
+  dir = &thread->m_parent_proc->m_root_pd;
+  stub_size = ((uintptr_t)&thread_entry_stub_end - (uintptr_t)&thread_entry_stub);
+  aligned_size = ALIGN_UP(stub_size, SMALL_PAGE_SIZE);
 
-// Leaves the current thread/process behind to be scheduled back into later
-ErrorOrPtr exec_user(char proc_name[32], FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
+  TRY(map_result, kmem_map_and_alloc_range(dir->m_root, stub_size, THREAD_ENTRY_BASE - (aligned_size * offset), KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags));
 
-  kernel_panic("TODO exec_user");
+  virtual_stub_base = map_result.m_ptr;
+
+  if (!virtual_stub_base)
+    return Error();
+
+  thread->f_relocated_entry_stub = (FuncPtr)virtual_stub_base;
+
+  /* We are in this pagemap, life is ez =D */
+  if (current->m_page_dir == dir->m_root) {
+    memcpy((void*)virtual_stub_base, &thread_entry_stub, stub_size);
+    return Success(0);
+  }
+
+  physical_stub_base = kmem_to_phys(dir->m_root, virtual_stub_base);
+  
+  virtual_kaddr = kmem_ensure_high_mapping(physical_stub_base);
+
+  memcpy((void*)virtual_kaddr, &thread_entry_stub, stub_size);
 
   return Success(0);
+}
+
+ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
+
+  Processor_t* current;
+  page_dir_t* dir;
+  size_t stub_size;
+  size_t aligned_size;
+  
+  if (!thread)
+    return Error();
+
+  dir = &thread->m_parent_proc->m_root_pd;
+  stub_size = ((uintptr_t)&thread_entry_stub_end - (uintptr_t)&thread_entry_stub);
+  aligned_size = ALIGN_UP(stub_size, SMALL_PAGE_SIZE);
+
+  current = get_current_processor();
+
+  println("Dealloc");
+  if (current->m_page_dir != kmem_get_krnl_dir()) {
+    return Error();
+  }
+
+  return kmem_dealloc(dir->m_root, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
 }
 
 ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
@@ -224,3 +269,18 @@ static void revalidate_port_cache() {
     }
   }
 }
+
+/*
+ * Initialize:
+ *  - socket registry
+ *  - proc_id generation
+ */
+ANIVA_STATUS initialize_proc_core() {
+
+  s_sockets = init_list();
+  s_core_socket_lock = create_spinlock();
+  next_proc_id = create_atomic_ptr_with_value(1);
+
+  return ANIVA_SUCCESS;
+}
+

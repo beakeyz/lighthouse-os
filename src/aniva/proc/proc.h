@@ -6,6 +6,7 @@
 #include "mem/base_allocator.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
+#include "sync/atomic_ptr.h"
 
 typedef int proc_id;
 
@@ -31,6 +32,8 @@ typedef struct proc {
 
   size_t m_ticks_used;
   size_t m_requested_max_threads;
+
+  atomic_ptr_t* m_thread_count;
 
   // bool m_prevent_scheduling;
 } proc_t;

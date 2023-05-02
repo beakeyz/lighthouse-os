@@ -23,6 +23,9 @@
 // Base for early multiboot fb
 #define EARLY_FB_MAP_BASE       0xFFFFFFFFFF600000ULL
 
+/* We need to be carefull, because the userstack is placed directly under the kernel */
+#define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
+
 // paging masks
 #define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL
 #define PAGE_LOW_MASK           0xFFFUL
