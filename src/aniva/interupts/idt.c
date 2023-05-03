@@ -53,7 +53,8 @@ void setup_idt(bool should_zero) {
   }
 
   idtr.limit = sizeof(idt_entry_t) * MAX_IDT_ENTRIES - 1;
-  idtr.base = (uintptr_t)&idt_entries;
+  idtr.base = kmem_ensure_high_mapping((uintptr_t)&idt_entries);
+
 }
 
 void flush_idt () {

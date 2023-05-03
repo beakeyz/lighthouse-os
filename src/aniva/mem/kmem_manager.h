@@ -22,6 +22,8 @@
 #define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
 #define EARLY_FB_MAP_BASE       0xFFFFFFFFFF600000ULL
+// Base for the quickmap engine. We take the pretty much highest possible vaddr
+#define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
@@ -57,6 +59,8 @@
 #define KMEM_CUSTOMFLAG_IDENTITY            0x08
 #define KMEM_CUSTOMFLAG_NO_REMAP            0x10
 #define KMEM_CUSTOMFLAG_GIVE_PHYS           0x20
+#define KMEM_CUSTOMFLAG_USE_QUICKMAP        0x40
+#define KMEM_CUSTOMFLAG_UNMAP               0x80
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
@@ -171,13 +175,18 @@ ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
 ErrorOrPtr kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir ();
+
 pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
+pml_entry_t* kmem_get_page_with_quickmap (pml_entry_t* table, vaddr_t virt, uint32_t kmem_flags, uint32_t page_flags);
+
 pml_entry_t* kmem_clone_page(pml_entry_t* page);
-void kmem_set_page_flags (pml_entry_t* page, uint32_t flags);
+void kmem_set_page_flags (pml_entry_t* page,  uint32_t flags);
 
 /* mem mapping */
 
 bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
+
+/* Same as above, but uses the quickmapper to ensure the map succeeds */
 bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
 
 /*
@@ -186,6 +195,7 @@ bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_bas
 ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags);
 
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
+bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
 
 /*

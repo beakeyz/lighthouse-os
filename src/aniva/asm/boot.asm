@@ -102,11 +102,6 @@ cpuid_support:
   mov eax, boot_hh_pdpt - KERNEL_VIRT_BASE
   or eax, 0x3
   mov [(boot_pml4t - KERNEL_VIRT_BASE) + 511 * 8], eax
-
-  ; reroute back to the identity mapping
-  mov eax, boot_pml4t - KERNEL_VIRT_BASE
-  or eax, 0x3
-  mov [(boot_pml4t - KERNEL_VIRT_BASE) + 510 * 8], eax
   
   ; map p2 into our p3 for the higher half aswell
   mov eax, boot_pd0 - KERNEL_VIRT_BASE
@@ -186,9 +181,14 @@ long_start:
   mov fs, ax  ; extra segment register
   mov gs, ax  ; extra segment register
 
-  mov rsp, kstack_top - KERNEL_VIRT_BASE
+  mov rsp, kstack_top
 
   lea rbx, [rel _start]
+  add rbx, KERNEL_VIRT_BASE
+
+  ; Remove identity mapping
+  ; mov rax, 0
+  ; mov [boot_pml4t], rax
 
   push 0x08
   push rbx

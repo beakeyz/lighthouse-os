@@ -176,11 +176,10 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   node->m_data = (void*)device->m_partition_data.m_start_lba;
 
   if (parent->m_flags & GDISKDEV_RAM_COMPRESSED) {
-
     size_t decompressed_size = cram_find_decompressed_size(device);
 
     /* We need to allocate for the decompressed size */
-    node->m_data = (void*)Must(kmem_kernel_alloc_range(decompressed_size, 0, 0));
+    node->m_data = (void*)Must(kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
     node->m_size = decompressed_size;
 
     /* Is enforcing success here a good idea? */

@@ -87,7 +87,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 
   // parse multiboot
-  mb_initialize((void *) mb_addr, &first_valid_addr, &first_valid_alloc_addr);
+  mb_initialize((void *)kmem_ensure_high_mapping((uintptr_t)mb_addr), &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
   // init bootstrap processor
@@ -100,7 +100,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_bsp.fLateInit(&g_bsp);
 
   // we need memory
-  init_kmem_manager((uintptr_t *)mb_addr, first_valid_addr, first_valid_alloc_addr);
+  init_kmem_manager((uintptr_t *)kmem_ensure_high_mapping((uintptr_t)mb_addr), first_valid_addr, first_valid_alloc_addr);
+
+  kernel_panic("Yay");
 
   // map multiboot address
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
@@ -185,6 +187,8 @@ void test_proc_entry(uintptr_t arg) {
 
 void kernel_thread() {
 
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
+
   init_gdisk_dev();
 
   init_aniva_driver_registry();
@@ -196,6 +200,8 @@ void kernel_thread() {
   proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
 
   sched_add_proc(test_proc);
+
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 
   for (;;) {
     asm volatile ("hlt");

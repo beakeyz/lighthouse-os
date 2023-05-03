@@ -45,7 +45,7 @@ void bitmap_mark(bitmap_t* this, uint32_t index) {
     return;
   }
 
-  const uint32_t index_byte = index / 8;
+  const uint32_t index_byte = ALIGN_UP(index, 8) / 8;
   const uint32_t index_bit = index % 8;
 
   this->m_map[index_byte] |= (1 << index_bit);
@@ -57,7 +57,7 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
     return;
   }
 
-  const uint32_t index_byte = index / 8;
+  const uint32_t index_byte = ALIGN_UP(index, 8) / 8;
   const uint32_t index_bit = index % 8;
 
   this->m_map[index_byte] &= ~(1 << index_bit);
@@ -82,17 +82,22 @@ ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
   if (length >= this->m_entries || length == 0)
     return Error();
 
-  for (uintptr_t i = 0; i < this->m_entries; i++) {
-    uintptr_t length_check = 0;
+  if (length == 1) {
+    return bitmap_find_free(this);
+  }
 
-    if (!bitmap_isset(this, i)) {
-      // lil double check
-      for (uintptr_t j = i; j < i+length; j++) {
-        if (bitmap_isset(this, j)) {
-          break;
-        }
-        length_check++;
-      }
+  for (uintptr_t i = 0; i < this->m_entries; i++) {
+    uintptr_t length_check = 1;
+
+    if (bitmap_isset(this, i))
+      continue;
+
+    // lil double check
+    for (uintptr_t j = 1; j < length; j++) {
+      if (bitmap_isset(this, i + j))
+        break;
+
+      length_check++;
     }
 
     if (length_check == length) {
@@ -122,8 +127,8 @@ bool bitmap_isset(bitmap_t* this, uint32_t index) {
     return false;
   }
 
-  const uint32_t index_byte = index / 8;
-  const uint32_t index_bit = index % 8;
+  const uint64_t index_byte = ALIGN_UP(index, 8) >> 3ULL;
+  const uint32_t index_bit = index % 8UL;
 
   return (this->m_map[index_byte] & (1 << index_bit));
 }

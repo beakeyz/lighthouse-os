@@ -7,8 +7,6 @@
 void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_alloc_addr) {
     uintptr_t offset = 0;
 
-    println(to_string(offset));
-
     // first: find the memorymap 
     struct multiboot_tag_mmap* mb_memmap = get_mb2_tag(addr, 6);
     if (!mb_memmap) {
