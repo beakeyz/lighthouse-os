@@ -2,6 +2,7 @@
 #define __ANIVA_PCI__
 #include "libk/linkedlist.h"
 #include "dev/driver.h"
+#include "system/acpi/structures.h"
 #include <libk/stddef.h>
 
 #define PCI_PORT_ADDR 0xCF8
@@ -207,7 +208,7 @@ void enumerate_bridges();
 void enumerate_pci_raw(PciFuncCallback_t callback);
 void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback);
 
-bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr);
+bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr);
 
 struct pci_bus* get_bridge_by_index(uint32_t bridge_index);
 

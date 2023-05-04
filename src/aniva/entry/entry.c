@@ -50,8 +50,8 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   if (!mod)
     return;
 
-  const uintptr_t module_start = mod->mod_start;
-  const uintptr_t module_end = mod->mod_end;
+  const paddr_t module_start = mod->mod_start;
+  const paddr_t module_end = mod->mod_end;
 
   /* Prefetch data */
   const size_t ramdisk_size = module_end - module_start;
@@ -79,7 +79,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_serial();
   println("Hi from 64 bit land =D");
 
-  mb_addr = (void*)kmem_ensure_high_mapping((uintptr_t)mb_addr);
+  void* virtual_mb_addr = (void*)kmem_ensure_high_mapping((uintptr_t)mb_addr);
 
   // Verify magic number
   if (mb_magic != 0x36d76289) {
@@ -89,7 +89,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 
   // parse multiboot
-  mb_initialize(mb_addr, &first_valid_addr, &first_valid_alloc_addr);
+  mb_initialize(virtual_mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
   // init bootstrap processor
@@ -98,28 +98,37 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // bootstrap the kernel heap
   init_kheap();
 
+  // we need memory
+  init_kmem_manager((uintptr_t*)virtual_mb_addr, first_valid_addr, first_valid_alloc_addr);
+
   // initialize things like fpu or interrupts
   g_bsp.fLateInit(&g_bsp);
 
-  // we need memory
-  init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
-
   // map multiboot address
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
-    ((uintptr_t)mb_addr - HIGH_MAP_BASE),
+    (uintptr_t)mb_addr,
     total_multiboot_size + 8,
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
   );
 
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = total_multiboot_size + 8;
+  g_system_info.has_framebuffer = false;
+
+  struct multiboot_tag_framebuffer* fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+
+  /* Copy the framebuffer */
+  if (fb) {
+    memcpy(&g_system_info.framebuffer_tag_copy, fb, sizeof(struct multiboot_tag_framebuffer));
+    g_system_info.has_framebuffer = true;
+  }
 
   //init_global_kevents();
 
   init_timer_system();
 
   init_acpi(multiboot_addr);
-  
+
   init_pci();
 
   initialize_proc_core();

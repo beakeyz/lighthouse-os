@@ -220,21 +220,21 @@ void kterm_command_worker() {
       const char* contents = s_kterm_cmd_buffer.buffer;
 
       if (!strcmp(contents, "acpitables")) {
-          kterm_println("\n");
-          kterm_println("acpi static table info: \n");
-          kterm_println("rsdp address: ");
-          kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_rsdp)));
-          kterm_println("\n");
-          kterm_println("xsdp address: ");
-          kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_xsdp)));
-          kterm_println("\n");
-          kterm_println("is xsdp: ");
-          kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
-          kterm_println("rsdp discovery method: ");
-          kterm_println(g_parser_ptr->m_rsdp_discovery_method.m_name);
-          kterm_println("\n");
-          kterm_println("tables found: ");
-          kterm_println(to_string(g_parser_ptr->m_tables->m_length));
+        kterm_println("\n");
+        kterm_println("acpi static table info: \n");
+        kterm_println("rsdp address: ");
+        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_rsdp)));
+        kterm_println("\n");
+        kterm_println("xsdp address: ");
+        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_xsdp)));
+        kterm_println("\n");
+        kterm_println("is xsdp: ");
+        kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
+        kterm_println("rsdp discovery method: ");
+        kterm_println(g_parser_ptr->m_rsdp_discovery_method.m_name);
+        kterm_println("\n");
+        kterm_println("tables found: ");
+        kterm_println(to_string(g_parser_ptr->m_tables->m_length));
       } else if (!strcmp(contents, "help")) {
         kterm_println("\n");
         kterm_println("available commands: \n");
@@ -512,11 +512,8 @@ static void kterm_println(const char* msg) {
 }
 
 void println_kterm(const char* msg) {
-  // Fuck this shit lmao, what if we fuck up the mapping?
-  // how do we ensure that kterm_driver stays mapped high?
-  // NOTE: there is (or was?) a bug where removing kmem_ensure_high_mapping
-  // whould pagefault, but idk how or why the fack that happen
-  if (!driver_is_ready((aniva_driver_t*)kmem_ensure_high_mapping((uintptr_t)&g_base_kterm_driver))) {
+
+  if (!driver_is_ready(&g_base_kterm_driver)) {
     return;
   }
 

@@ -188,10 +188,6 @@ static int generic_driver_entry(aniva_driver_t* driver) {
   return result;
 }
 
-static void test() {
-  kernel_panic("Entered test");
-}
-
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
 
   ErrorOrPtr result;

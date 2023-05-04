@@ -154,7 +154,8 @@ vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase);
  * translate a virtual address to a physical address in
  * a pagetable given by the caller
  */
-uintptr_t kmem_to_phys (pml_entry_t* root, uintptr_t addr);
+uintptr_t kmem_to_phys(pml_entry_t* root, uintptr_t addr);
+uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr);
 
 void kmem_set_phys_page_used (uintptr_t idx);
 void kmem_set_phys_page_free (uintptr_t idx);

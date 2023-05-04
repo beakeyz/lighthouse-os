@@ -42,7 +42,7 @@ EXPORT_DRIVER(g_base_fb_driver);
 
 int fb_driver_init() {
 
-  if (g_system_info.multiboot_addr == NULL) {
+  if (!g_system_info.has_framebuffer) {
     return -1;
   }
 
@@ -54,9 +54,13 @@ int fb_driver_init() {
   s_height = 0;
   s_used_pages = 0;
 
+
+  /* Early ready mark */
   driver_set_ready("graphics/fb");
 
-  destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_SET_MB_TAG, get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER), sizeof(void*)));
+  struct multiboot_tag_framebuffer* fb = &g_system_info.framebuffer_tag_copy;
+
+  destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_SET_MB_TAG, fb, sizeof(void*)));
 
   return 0;
 }
@@ -70,6 +74,12 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
     case FB_DRV_SET_MB_TAG: {
       struct multiboot_tag_framebuffer* tag = payload.m_data;
       println("Setting framebuffer info");
+      println(to_string((uintptr_t)tag));
+
+      if (!tag) {
+        break;
+      }
+
       if (tag->common.size != 0 && tag->common.framebuffer_addr != 0) {
         println("Set framebuffer info");
         s_fb_tag = tag;

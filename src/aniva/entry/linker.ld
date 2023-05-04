@@ -10,15 +10,16 @@ PHDRS
 SECTIONS {
   . = 1M;
   _kernel_virt_base_offset = 0xFFFFffff80000000;
-  
-  .pre_text ALIGN(4K) : AT(ADDR(.pre_text))
+
+  . += _kernel_virt_base_offset;
+
+  _kernel_start =.;
+
+  .pre_text ALIGN(4K) : AT(ADDR(.pre_text) - _kernel_virt_base_offset)
   {
     *(.multiboot_header*)
     *(.pre_text*)
   } :text
-
-  . += _kernel_virt_base_offset;
-  _kernel_start =.;
 
   .text ALIGN(4K) : AT(ADDR(.text)  - _kernel_virt_base_offset)
   {

@@ -104,7 +104,6 @@ void* malloc_allocate(memory_allocator_t * allocator, size_t bytes) {
         continue;
       }
 
-
       new_node->flags |= MALLOC_FLAGS_USED;
       // for sanity
       new_node->identifier = MALLOC_NODE_IDENTIFIER;
@@ -296,15 +295,16 @@ ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_
 void malloc_on_heap_expand_enable(memory_allocator_t* allocator) {
 
   println("Trying to expand heap!");
+  const paddr_t physical_node_start_addr = kmem_to_phys(nullptr, (uintptr_t)allocator->m_heap_start_node);
   const vaddr_t heap_vbase = allocator->m_heap->m_virtual_base;
   const size_t heap_current_size = allocator->m_heap->m_current_total_size;
 
   ASSERT_MSG(ALIGN_UP(heap_vbase, SMALL_PAGE_SIZE) == heap_vbase, "heap_vbase is not aligned!");
   ASSERT_MSG(ALIGN_UP(heap_current_size, SMALL_PAGE_SIZE) == heap_current_size, "heap_current_size is not aligned!");
 
-  bool result = kmem_map_range(nullptr, kmem_from_phys((vaddr_t)allocator->m_heap_start_node, heap_vbase), (uintptr_t)allocator->m_heap_start_node, heap_current_size / SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
+  bool result = kmem_map_range(nullptr, kmem_from_phys(physical_node_start_addr, heap_vbase), physical_node_start_addr, heap_current_size / SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0);
 
-  allocator->m_heap_start_node = (heap_node_t*)kmem_from_phys((vaddr_t)allocator->m_heap_start_node, heap_vbase);
+  allocator->m_heap_start_node = (heap_node_t*)kmem_from_phys(physical_node_start_addr, heap_vbase);
   // TODO: fixup all the pointers in this heap
 
   heap_node_t* node = allocator->m_heap_start_node;
@@ -315,7 +315,7 @@ void malloc_on_heap_expand_enable(memory_allocator_t* allocator) {
 
     ASSERT_MSG(verify_identity(node), "Node is invalid!");
 
-    node->next = (heap_node_t*)kmem_from_phys((paddr_t)node->next, heap_vbase);
+    node->next = (heap_node_t*)kmem_from_phys(kmem_to_phys(nullptr, (uintptr_t)node->next), heap_vbase);
     node = node->next;
   }
 

@@ -51,6 +51,8 @@ extern _start
 ; if any step of the process goes wrong, we'll revert and boot in 32 bit mode anyway (if that's possible)
 start:
 
+  cli
+  cld
 
   mov edi, ebx ; Address of multiboot structure
   mov esi, eax ; Magic number
@@ -66,20 +68,12 @@ check_cpuid:
   push eax
   popfd
   nop
-  nop
-  nop
   pushfd
   pop eax
   cmp eax, ebx
   jnz cpuid_support
 
   ; No cpuid, hang
-
-  mov eax, 'C'
-  mov [0xb8000], eax 
-
-  cld
-  cli
 spin:
   hlt
   jmp spin
@@ -185,10 +179,6 @@ long_start:
 
   lea rbx, [rel _start]
   add rbx, KERNEL_VIRT_BASE
-
-  ; Remove identity mapping
-  ; mov rax, 0
-  ; mov [boot_pml4t], rax
 
   push 0x08
   push rbx

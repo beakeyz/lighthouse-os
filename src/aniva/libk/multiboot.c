@@ -43,7 +43,7 @@ void mb_initialize(void *addr, uintptr_t* highest_addr, uintptr_t* first_valid_a
     }
     
     *highest_addr = offset;
-    *first_valid_alloc_addr = (*first_valid_alloc_addr + 0xFFF) & 0xFFFFffffFFFFf000;
+    *first_valid_alloc_addr = (*first_valid_alloc_addr + SMALL_PAGE_SIZE - 1) & PAGE_SIZE_MASK;
 }
 
 size_t get_total_mb2_size(void* start_addr) {
@@ -66,8 +66,8 @@ size_t get_total_mb2_size(void* start_addr) {
 }
 
 void* next_mb2_tag(void *cur, uint32_t type) {
-    void* idxPtr = cur;
-    struct multiboot_tag* tag = idxPtr;
+    uintptr_t idxPtr = (uintptr_t)cur;
+    struct multiboot_tag* tag = (void*)idxPtr;
     // loop through the tags to find the right type
     while (true) {
       if (tag->type == type) return tag;
@@ -75,7 +75,7 @@ void* next_mb2_tag(void *cur, uint32_t type) {
 
       idxPtr += tag->size;
       while ((uintptr_t)idxPtr & 7) idxPtr++;
-      tag = idxPtr;
+      tag = (void*)idxPtr;
     }
 } 
 

@@ -92,6 +92,11 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   return Success(0);
 }
 
+/*
+ * NOTE: We don't immediately map the entire table length once we find it. That is only done 
+ * once we try to find a table using find_table_idx (which does not find a table index, but 
+ * rather a table WITH an index so TODO: fix this naming inconsistency)
+ */
 void parser_init_tables(acpi_parser_t* parser) {
   acpi_xsdt_t* xsdt = nullptr;
   acpi_rsdt_t* rsdt = nullptr;
@@ -99,42 +104,46 @@ void parser_init_tables(acpi_parser_t* parser) {
 
   if (parser->m_is_xsdp) {
     xsdt = (acpi_xsdt_t*)kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc((uintptr_t)xsdt, xsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    xsdt = (acpi_xsdt_t*)kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)xsdt), xsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
-  } else {
-    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)rsdt, rsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
-  }
 
-  if (xsdt != nullptr) {
-    // parse xsdt
     for (uintptr_t i = 0; i < tables; i++) {
+      /* The table addresses should just be physical */
       acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(xsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
       list_append(parser->m_tables, table);
     } 
-  } else {
-    for (uintptr_t i = 0; i < tables; i++) {
-      acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(rsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
 
-      list_append(parser->m_tables, table);
-    } 
+    return;
   }
+
+  rsdt = (acpi_rsdt_t*)kmem_kernel_alloc((uintptr_t)parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  rsdt = (acpi_rsdt_t*)kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)rsdt), rsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
+
+  for (uintptr_t i = 0; i < tables; i++) {
+    acpi_sdt_header_t* table = (acpi_sdt_header_t*)kmem_kernel_alloc(rsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+
+    list_append(parser->m_tables, table);
+  } 
 }
 
 void* find_rsdp(acpi_parser_t* parser) {
-  const char* rsdt_sig = "RSD PTR ";
   // TODO: check other spots
   parser->m_is_xsdp = false;
+  parser->m_xsdp = nullptr;
+  parser->m_rsdp = nullptr;
+  parser->m_rsdp_discovery_method = create_rsdp_method_state(NONE);
 
   // check multiboot header
   struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
 
   if (new_ptr && new_ptr->rsdp[0]) {
-    void* ptr = kmem_kernel_alloc((uintptr_t)new_ptr->rsdp, sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-    //print("Multiboot has xsdp: ");
-    //println(to_string((uintptr_t)ptr));
+    /* TODO: check if ->rsdp is a virtual or physical address */
+    void* ptr = kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)new_ptr->rsdp), sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    print("Multiboot has xsdp: ");
+    println(to_string((uintptr_t)ptr));
+    println(to_string((uintptr_t)new_ptr->rsdp));
     parser->m_is_xsdp = true;
     parser->m_xsdp = ptr;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
@@ -144,7 +153,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
 
   if (old_ptr && old_ptr->rsdp[0]) {
-    void* ptr = kmem_kernel_alloc((uintptr_t)old_ptr->rsdp, sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+    void* ptr = kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)old_ptr->rsdp), sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
     //print("Multiboot has rsdp: ");
     //println(to_string((uintptr_t)ptr));
     parser->m_rsdp = ptr;
@@ -161,7 +170,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   if (ptr != NULL) {
     for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
       void* potential = (void*)i;
-      if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
+      if (memcmp(RSDP_SIGNATURE, potential, strlen(RSDP_SIGNATURE))) {
         parser->m_rsdp_discovery_method = create_rsdp_method_state(BIOS_POKE);
         parser->m_rsdp = potential;
         return potential;
@@ -183,7 +192,7 @@ void* find_rsdp(acpi_parser_t* parser) {
 
     for (uintptr_t i = start; i < (start + length); i += 16) {
       void *potential = (void *) i;
-      if (memcmp(rsdt_sig, potential, strlen(rsdt_sig))) {
+      if (memcmp(RSDP_SIGNATURE, potential, strlen(RSDP_SIGNATURE))) {
         parser->m_rsdp_discovery_method = create_rsdp_method_state(RECLAIM_POKE);
         parser->m_rsdp = potential;
         return potential;
@@ -195,14 +204,12 @@ void* find_rsdp(acpi_parser_t* parser) {
   return nullptr;
 }
 
-// find a table by poking in memory. 
-// TODO: find a way to cache the memory locations for all the tables
 void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
   FOREACH(i, parser->m_tables) {
     acpi_sdt_header_t* header = i->data;
     if (memcmp(&header->signature, sig, 4)) {
       if (index == 0) {
-        header = (void*)kmem_kernel_alloc((uintptr_t)header, header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+        header = (void*)kmem_kernel_alloc(kmem_to_phys(nullptr,(uintptr_t)header), header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
         return (void*)header;
       }
       index--;

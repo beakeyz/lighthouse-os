@@ -61,7 +61,6 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_used_mem_ranges = kmalloc(sizeof(list_t));
 
-
   // nested fun
   prep_mmap(get_mb2_tag((void *)mb_addr, 6));
   parse_mmap();
@@ -80,7 +79,6 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
  
   load_page_dir(map, true);
 
-  // kheap_enable_expand();
 }
 
 // TODO: remove, once we don't need this anymore for emergency debugging
@@ -271,7 +269,7 @@ vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase) {
   return (vaddr_t)(addr | vbase);
 }
 
-uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
+uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) {
 
   pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
 
@@ -280,6 +278,23 @@ uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
   }
 
   return kmem_get_page_base(page->raw_bits);
+}
+
+uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
+
+  paddr_t aligned_paddr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
+  size_t delta = addr - aligned_paddr;
+
+  pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
+
+  /* Address is not mapped */
+  if (page == nullptr) {
+    return NULL;
+  }
+
+  paddr_t aligned_base = kmem_get_page_base(page->raw_bits);
+
+  return aligned_base + delta;
 }
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
@@ -630,30 +645,41 @@ void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags) {
 void* kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t flags) {
 
   if (kmem_is_phys_page_used(kmem_get_page_idx(addr)) && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
+
+    /* Already mapped high prob */
+    if (!map || map == kmem_get_krnl_dir())
+      return (void*)kmem_ensure_high_mapping(addr);
+
     return nullptr;
   }
 
   const bool should_identity_map = (flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
-
+  const paddr_t aligned_paddr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
+  const vaddr_t aligned_vaddr = kmem_ensure_high_mapping(aligned_paddr);
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
-  // get the vaddress that is mapped high
+
+  // get the vaddress that is mapped high and we want to return
   const void* ret = (void*)addr;
   if (!should_identity_map) {
     ret = (void*)kmem_ensure_high_mapping(addr);
   }
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
-    const uintptr_t page_idx = kmem_get_page_idx(addr);
+    const uintptr_t page_idx = kmem_get_page_idx(aligned_paddr);
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
     if (was_used && !(flags & KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE)) {
       return nullptr;
     }
 
-    const paddr_t p_address = addr + (i * SMALL_PAGE_SIZE);
-    const vaddr_t v_address = (vaddr_t)ret + (i * SMALL_PAGE_SIZE);
+    /* Map the aligned p and v addresses */
+    const paddr_t p_address = aligned_paddr + (i * SMALL_PAGE_SIZE);
+    const vaddr_t v_address = aligned_vaddr + (i * SMALL_PAGE_SIZE);
 
+    /* Mark used */
     kmem_set_phys_page_used(page_idx);
+
+    /* And map */
     bool result = kmem_map_page(map, v_address, p_address, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (!result) {
@@ -822,8 +848,8 @@ static inline void _init_kmem_page_layout () {
 
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
-  /* Map an extra Megabyte in order to ensure that we can map more later */
-  const size_t extra_mappings = kmem_get_page_idx(ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE));
+  /* Map some extra Megabytes in order to ensure that we can map more later */
+  const size_t extra_mappings = kmem_get_page_idx(ALIGN_UP(5 * Mib, SMALL_PAGE_SIZE));
 
   kmem_map_range(nullptr, HIGH_MAP_BASE, 0, total_kernel_page_count + extra_mappings, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
@@ -889,6 +915,8 @@ void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entr
    *        step 4 -> unmap in current map
    *        step 5 -> move over to the next page
    */
+
+  kernel_panic("TODO: implement kmem_copy_bytes_into_map");
 }
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
@@ -900,6 +928,8 @@ ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
     current_map = kmem_get_krnl_dir();
 
   paddr_t phys = kmem_to_phys(external_map, vaddr);
+
+  kernel_panic("TODO: implement kmem_to_current_pagemap");
 
   /* TODO: */
   return Error();

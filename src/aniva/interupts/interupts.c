@@ -205,8 +205,6 @@ void pagefault_handler(registers_t *regs) {
     println("read");
   }
   println((regs->err_code & 1) ? "PV" : "NP");
-  print("Root pd: ");
-  println(to_string((uintptr_t)current->m_parent_proc->m_root_pd.m_root));
 
   kernel_panic("pagefault! (TODO: more info)");
 }
@@ -288,7 +286,9 @@ void init_interupts() {
   //        - do we do function decleration in asm or c???
   //        - cry
 
+  println("Yay");
   setup_idt(true);
+  println("Yay");
 
   register_idt_interrupt_handler(0x00, devision_by_zero_asm_entry);
   register_idt_interrupt_handler(0x01, debug_asm_entry);
@@ -548,10 +548,11 @@ void init_interupts() {
   register_idt_interrupt_handler(0xfe, (FuncPtr) interrupt_asm_entry_254);
   register_idt_interrupt_handler(0xff, (FuncPtr) interrupt_asm_entry_255);
 
+  println("Yay");
+  println(to_string((uintptr_t)g_handlers));
+
   // prepare all waiting handlers
-  for (uint8_t i = 0; i < INTERRUPT_HANDLER_COUNT; i++) {
-    memset(g_handlers[i], 0x00, sizeof(InterruptHandler_t));
-  }
+  memset(&g_handlers, 0x00, sizeof(InterruptHandler_t*) * INTERRUPT_HANDLER_COUNT);
 
   flush_idt();
 }

@@ -167,9 +167,9 @@ void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
   }
 }
 
-bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
+bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr) {
 
-  acpi_sdt_header_t* header = kmem_kernel_alloc(mcfg_ptr, sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
+  acpi_sdt_header_t* header = &mcfg_ptr->header;
 
   uint32_t length = header->length;
   
@@ -179,13 +179,12 @@ bool register_pci_bridges_from_mcfg(uintptr_t mcfg_ptr) {
 
   length = ALIGN_UP(length + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
 
-  acpi_mcfg_t* mcfg = (acpi_mcfg_t*)kmem_kernel_alloc(mcfg_ptr, length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE);
-  uint32_t entries = (mcfg->header.length - sizeof(acpi_mcfg_t)) / sizeof(PCI_Device_Descriptor_t);
+  uint32_t entries = (header->length - sizeof(acpi_mcfg_t)) / sizeof(PCI_Device_Descriptor_t);
 
   for (uint32_t i = 0; i < entries; i++) {
-    uint8_t start = mcfg->descriptors[i].start_bus;
-    uint8_t end = mcfg->descriptors[i].end_bus;
-    uint32_t base = mcfg->descriptors[i].base_addr;
+    uint8_t start = mcfg_ptr->descriptors[i].start_bus;
+    uint8_t end = mcfg_ptr->descriptors[i].end_bus;
+    uint32_t base = mcfg_ptr->descriptors[i].base_addr;
   
     // add to pci bridge list
     pci_bus_t* bridge = kmalloc(sizeof(pci_bus_t));
@@ -241,7 +240,7 @@ bool init_pci() {
 //    return false;
   }
 
-  bool success = register_pci_bridges_from_mcfg((uintptr_t)mcfg);
+  bool success = register_pci_bridges_from_mcfg(mcfg);
 
   if (test_pci_io_type1()) {
     s_current_addressing_mode = PCI_IOPORT_ACCESS;
