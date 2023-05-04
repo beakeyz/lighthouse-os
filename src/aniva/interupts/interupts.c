@@ -13,6 +13,7 @@
 #include "stubs.h"
 #include "system/asm_specifics.h"
 #include "sched/scheduler.h"
+#include "system/processor/processor.h"
 
 // TODO: linked list for dynamic handler loading?
 static InterruptHandler_t *g_handlers[INTERRUPT_HANDLER_COUNT] = {NULL};
@@ -204,6 +205,8 @@ void pagefault_handler(registers_t *regs) {
     println("read");
   }
   println((regs->err_code & 1) ? "PV" : "NP");
+  print("Root pd: ");
+  println(to_string((uintptr_t)current->m_parent_proc->m_root_pd.m_root));
 
   kernel_panic("pagefault! (TODO: more info)");
 }

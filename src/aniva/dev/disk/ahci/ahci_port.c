@@ -557,7 +557,8 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
   }
 
   ahci_port_t* parent;
-  paddr_t tmp;
+  vaddr_t tmp;
+  paddr_t phys_tmp;
   uintptr_t lba;
   size_t blk_count;
 
@@ -566,7 +567,8 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
 
   // Preallocate a buffer 
   // TODO: is this buffer needed? Can we dump the result straigt into the buffer argument?
-  tmp = Must(kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_DMA));
+  tmp = Must(kmem_kernel_alloc_range(size, 0, KMEM_FLAG_DMA));
+  phys_tmp = kmem_to_phys(nullptr, tmp);
 
   // TODO: bitshift with the log2() of the sector/block size
   // for more acurate readings
@@ -574,7 +576,7 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
   blk_count = size / port->m_logical_sector_size;
 
   // println("Waiting...");
-  ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_READ_DMA_EXT, (paddr_t)tmp, size, false, lba, blk_count);
+  ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_READ_DMA_EXT, phys_tmp, size, false, lba, blk_count);
 
   if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(parent) == ANIVA_FAIL) {
     return -1;

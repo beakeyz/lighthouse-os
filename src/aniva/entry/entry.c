@@ -148,8 +148,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     println(test->m_name);
   }
 
-  kernel_panic("Test");
-
   init_scheduler();
 
   proc_t* root_proc = create_kernel_proc(kernel_thread, NULL);

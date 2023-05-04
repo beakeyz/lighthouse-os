@@ -72,6 +72,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   uint32_t page_flags;
   int status;
 
+  println("Reaing elf");
   status = elf_read(file, &header, sizeof(struct elf64_hdr), 0);
 
   /* No filE??? */
@@ -86,6 +87,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   if (header.e_ident[EI_CLASS] != ELF_CLASS_64)
     return Error();
 
+  println("Loading phdrs");
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)
@@ -101,12 +103,14 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
     proc_flags |= PROC_DRIVER;
   }
 
+  println("Creating proc");
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
   image.m_total_exe_bytes = file->m_size;
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 
+  println("Mapping elf");
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     struct elf64_phdr phdr = phdrs[i];
 

@@ -755,7 +755,7 @@ ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtu
     ASSERT_MSG(!bitmap_isset(KMEM_DATA.m_phys_bitmap, page_idx), "Page index does seem to be used!");
 
     kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(map, vaddr, paddr, custom_flags, page_flags);
+    bool result = kmem_map_page(map, vaddr, paddr, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags);
 
     if (!result) {
       return Error();
@@ -821,10 +821,11 @@ static inline void _init_kmem_page_layout () {
   */
 
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const paddr_t kernel_physical_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t kernel_page_count = (kernel_physical_end - kernel_physical_start) >> 12;
+  const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
+  /* Map an extra Megabyte in order to ensure that we can map more later */
+  const size_t extra_mappings = kmem_get_page_idx(ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE));
 
-  kmem_map_range(nullptr, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  kmem_map_range(nullptr, HIGH_MAP_BASE, 0, total_kernel_page_count + extra_mappings, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
   init_quickmapper();
 
@@ -833,6 +834,7 @@ static inline void _init_kmem_page_layout () {
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
 
+  println("Creating page dir");
   page_dir_t ret = { 0 };
 
   const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
@@ -858,20 +860,16 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
     }
   }
 
-  const paddr_t kernel_physical_end = ALIGN_UP(kmem_to_phys(nullptr, (uintptr_t)&_kernel_end), SMALL_PAGE_SIZE);
-  const paddr_t kernel_physical_start = ALIGN_DOWN(kmem_to_phys(nullptr, (uintptr_t)&_kernel_start), SMALL_PAGE_SIZE);
-  const size_t kernel_size = (kernel_physical_end - kernel_physical_start);
-  const size_t kernel_page_count = kernel_size >> 12;
+  const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
 
-  // Map the kernel
-  // NOTE: we are mapping the entire range from 0Mib to the end of the kernel
-  // in order to do this -_-
-  kmem_map_range(table_root, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  kmem_map_range(table_root, HIGH_MAP_BASE, 0, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
   ret.m_root = table_root;
   ret.m_kernel_low = HIGH_MAP_BASE;
   ret.m_kernel_high = HIGH_MAP_BASE + (kernel_physical_end >> 12);
 
+  println("Created page dir");
   return ret;
 
 error_and_out:

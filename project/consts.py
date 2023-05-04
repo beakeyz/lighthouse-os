@@ -80,7 +80,7 @@ class Consts:
         self.scan_dirs(self.OUT_DIR)
         self.scan_dirs(self.PROJECT_MANAGEMENT_DIR)
 
-        for _ in SourceLanguage:
+        for _ in range(7):
             self.SRC_LINES.append(0)
 
         for file in self.SRC_FILES:
