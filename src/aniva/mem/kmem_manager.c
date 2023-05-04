@@ -824,10 +824,9 @@ static inline void _init_kmem_page_layout () {
   const paddr_t kernel_physical_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_page_count = (kernel_physical_end - kernel_physical_start) >> 12;
 
-  println(to_string(kernel_physical_start));
-  println(to_string(kernel_physical_end));
-
   kmem_map_range(nullptr, HIGH_MAP_BASE, 0, kernel_physical_end >> 12, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+
+  init_quickmapper();
 
   println("Done mapping ranges");
 }
@@ -946,7 +945,7 @@ void load_page_dir(uintptr_t dir, bool __disable_interupts) {
 
 // FIXME: macroes?
 uintptr_t kmem_get_page_idx (uintptr_t page_addr) {
-  return (page_addr >> 12);
+  return (ALIGN_DOWN(page_addr, SMALL_PAGE_SIZE) >> 12);
 }
 uintptr_t kmem_get_page_addr (uintptr_t page_idx) {
   return (page_idx << 12);

@@ -70,12 +70,12 @@ void* next_mb2_tag(void *cur, uint32_t type) {
     struct multiboot_tag* tag = idxPtr;
     // loop through the tags to find the right type
     while (true) {
-        if (tag->type == type) return tag;
-        if (tag->type == 0) return nullptr;
+      if (tag->type == type) return tag;
+      if (tag->type == 0) return nullptr;
 
-        idxPtr += tag->size;
-        while ((uintptr_t)idxPtr & 7) idxPtr++;
-        tag = idxPtr;
+      idxPtr += tag->size;
+      while ((uintptr_t)idxPtr & 7) idxPtr++;
+      tag = idxPtr;
     }
 } 
 

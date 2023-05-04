@@ -79,6 +79,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_serial();
   println("Hi from 64 bit land =D");
 
+  mb_addr = (void*)kmem_ensure_high_mapping((uintptr_t)mb_addr);
+
   // Verify magic number
   if (mb_magic != 0x36d76289) {
     println("big yikes");
@@ -87,7 +89,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 
   // parse multiboot
-  mb_initialize((void *)kmem_ensure_high_mapping((uintptr_t)mb_addr), &first_valid_addr, &first_valid_alloc_addr);
+  mb_initialize(mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
   // init bootstrap processor
@@ -100,15 +102,13 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_bsp.fLateInit(&g_bsp);
 
   // we need memory
-  init_kmem_manager((uintptr_t *)kmem_ensure_high_mapping((uintptr_t)mb_addr), first_valid_addr, first_valid_alloc_addr);
-
-  kernel_panic("Yay");
+  init_kmem_manager((uintptr_t*)mb_addr, first_valid_addr, first_valid_alloc_addr);
 
   // map multiboot address
   uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
-    (uintptr_t)mb_addr,
+    ((uintptr_t)mb_addr - HIGH_MAP_BASE),
     total_multiboot_size + 8,
-    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE | KMEM_CUSTOMFLAG_IDENTITY
+    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
   );
 
   g_system_info.multiboot_addr = multiboot_addr;
@@ -147,6 +147,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     print("Found it! -> ");
     println(test->m_name);
   }
+
+  kernel_panic("Test");
 
   init_scheduler();
 
