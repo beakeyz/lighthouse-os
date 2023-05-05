@@ -25,6 +25,8 @@
 // Base for the quickmap engine. We take the pretty much highest possible vaddr
 #define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 
+#define HIGH_STACK_BASE         0xfffffffE00000000ULL
+
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
 
@@ -194,6 +196,8 @@ bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_bas
  * Map from the kernel pagemap into the specified pagemap
  */
 ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags);
+
+ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table);
 
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);

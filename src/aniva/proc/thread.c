@@ -48,15 +48,18 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
+  size_t stack_page_count;
   uintptr_t real_stack_bottom;
   uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
 
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(kmem_kernel_alloc_range(
         DEFAULT_STACK_SIZE,
-        KMEM_CUSTOMFLAG_GET_MAKE,
+        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         stack_mem_flags));
+
   real_stack_bottom = thread->m_kernel_stack_bottom;
+  stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
 
   /* Compute the kernel stack top */
   thread->m_kernel_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
@@ -73,20 +76,18 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
    */
   if (!kthread) {
     /* let's have 1 SMALL_PAGE_SIZE of buffer '-' */
-    const uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
-
-    println_kterm(to_string((uintptr_t)proc->m_root_pd.m_root));
-    println_kterm(to_string(kmem_to_phys(nullptr, (uintptr_t)proc->m_root_pd.m_root)));
+    real_stack_bottom = ALIGN_UP(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
 
     /* Remap the kernel-allocated stack bottom into the processes pagedir */
-    real_stack_bottom = Must(kmem_map_into(
-        (void*)kmem_to_phys(nullptr, (uintptr_t)proc->m_root_pd.m_root),
+    Must(kmem_map_into(
+        proc->m_root_pd.m_root,
         thread->m_kernel_stack_bottom,
-        stack_start,
-        DEFAULT_STACK_SIZE,
-        KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_GET_MAKE,
+        real_stack_bottom,
+        DEFAULT_STACK_SIZE + SMALL_PAGE_SIZE,
+        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
 
+    /* TODO: subtract random offset */
     thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
   }
@@ -99,6 +100,11 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
   /* Set the appropriate stack top */
   thread->m_context.rsp = thread->m_stack_top;
+
+  print("Phys stack: ");
+  println(to_string(thread->m_context.rsp));
+  println(to_string(kmem_to_phys(proc->m_root_pd.m_root, thread->m_context.rsp)));
+  println(to_string(kmem_to_phys(nullptr, thread->m_kernel_stack_top)));
   
   /* Set the entrypoint last */
   thread_set_entrypoint(thread, (FuncPtr)thread->m_real_entry, data, 0);
@@ -263,6 +269,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
     STACK_PUSH(rsp, uintptr_t, 0);
     STACK_PUSH(rsp, uintptr_t, thread->m_kernel_stack_top);
   }
+
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rflags);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.cs);
   STACK_PUSH(rsp, uintptr_t, thread->m_context.rip);

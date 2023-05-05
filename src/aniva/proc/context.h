@@ -52,6 +52,7 @@ typedef struct {
 ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintptr_t stack_top) {
   kContext_t regs = {0};
 
+  /* TODO: fix userspace switching */
   //regs.cs = GDT_USER_CODE | 3;
   regs.rflags = 0x0202;
   regs.rsp0 = stack_top;

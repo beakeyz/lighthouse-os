@@ -100,14 +100,12 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
     proc_flags |= PROC_DRIVER;
   }
 
-  println_kterm("Creating proc");
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
   image.m_total_exe_bytes = file->m_size;
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 
-  println_kterm("Mapping elf");
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     struct elf64_phdr phdr = phdrs[i];
 
@@ -117,20 +115,15 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
           vaddr_t virtual_phdr_base = phdr.p_vaddr;
           size_t phdr_size = phdr.p_memsz;
 
-          println_kterm("Allocating funnie");
-
           vaddr_t kalloc = Must(kmem_kernel_alloc_range(phdr_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
-          println_kterm("Allocating funnie");
           Must(kmem_map_into(ret->m_root_pd.m_root, kalloc, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
-          println_kterm("Allocating funnie");
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
           elf_read(file, (void*)kalloc, phdr.p_filesz, phdr.p_offset);
           // ???
           // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
-          println_kterm("Allocating funnie");
 
           if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = virtual_phdr_base + phdr_size;

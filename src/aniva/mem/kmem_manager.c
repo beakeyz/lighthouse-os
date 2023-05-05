@@ -897,7 +897,9 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   println_kterm(to_string(kernel_physical_end));
   println_kterm(to_string(total_kernel_page_count));
 
-  kmem_map_range(phys_table_root, HIGH_MAP_BASE, 0, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  Must(kmem_copy_kernel_mapping(table_root));
+
+  //kmem_map_range(phys_table_root, HIGH_MAP_BASE, 0, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
   ret.m_root = table_root;
   ret.m_kernel_low = HIGH_MAP_BASE;
@@ -977,6 +979,24 @@ void load_page_dir(uintptr_t dir, bool __disable_interupts) {
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(dir));
   asm volatile("" : : : "memory");
+}
+
+ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
+
+  const vaddr_t base = HIGH_MAP_BASE;
+  const uintptr_t pml4_idx = (base >> 39) & ENTRY_MASK;
+
+  pml_entry_t* kernel_root = (void*)kmem_ensure_high_mapping((uintptr_t)kmem_get_krnl_dir());
+
+  pml_entry_t kernel_lvl_3 = kernel_root[pml4_idx];
+  bool is_present = pml_entry_is_bit_set(&kernel_lvl_3, PDE_PRESENT);
+
+  if (!is_present)
+    return Error();
+
+  new_table[pml4_idx] = kernel_lvl_3;
+
+  return Success(0);
 }
 
 // FIXME: macroes?

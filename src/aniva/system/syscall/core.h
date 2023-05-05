@@ -9,14 +9,18 @@
  * TODO: figure out lmao
  */
 
-enum SYSCALLS {
-  EXIT
+enum SYSCALL_ID {
+  EXIT = 0,
+  OPEN,
+  CLOSE,
+  GETTIME,
 };
 
-struct syscall {
-  thread_t* m_caller_thread;
-  // timestamp
+typedef int64_t (*sys_fn)(int64_t, int64_t, int64_t, int64_t);
 
+struct syscall {
+  enum SYSCALL_ID m_id;
+  sys_fn m_handler;
 };
 
 extern void sys_handler(registers_t* regs);
