@@ -49,24 +49,26 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread_set_state(thread, NO_CONTEXT);
 
   size_t stack_page_count;
-  uintptr_t real_stack_bottom;
   uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
 
   /* Allocate kernel memory for the stack */
-  thread->m_kernel_stack_bottom = Must(kmem_kernel_alloc_range(
+  thread->m_kernel_stack_bottom = Must(__kmem_kernel_alloc_range(
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         stack_mem_flags));
 
-  real_stack_bottom = thread->m_kernel_stack_bottom;
   stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
 
   /* Compute the kernel stack top */
-  thread->m_kernel_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
-  thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
+  thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE, 16);
+  thread->m_user_stack_top = 0;
+  thread->m_user_stack_bottom = 0;
 
   /* Zero memory, since we don't want random shit in our stack */
   memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
+
+  /* Do context before we assign the userstack */
+  thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_kernel_stack_top);
 
   /*
    * FIXME: right now, we try to remap the stack every time a thread is created,
@@ -76,35 +78,22 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
    */
   if (!kthread) {
     /* let's have 1 SMALL_PAGE_SIZE of buffer '-' */
-    real_stack_bottom = ALIGN_UP(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
+    thread->m_user_stack_bottom = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
 
     /* Remap the kernel-allocated stack bottom into the processes pagedir */
-    Must(kmem_map_into(
+    thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
-        thread->m_kernel_stack_bottom,
-        real_stack_bottom,
-        DEFAULT_STACK_SIZE + SMALL_PAGE_SIZE,
-        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
+        thread->m_user_stack_bottom, 
+        DEFAULT_STACK_SIZE, 
+        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
 
     /* TODO: subtract random offset */
-    thread->m_stack_top = ALIGN_DOWN(real_stack_bottom + DEFAULT_STACK_SIZE, 16);
+    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16) - 512;
 
+    /* We don't touch rsp when the thread is not a kthread */
+    thread->m_context.rsp = thread->m_user_stack_top;
   }
-
-  /* Assign generic pointers to the stack top and bottom */
-  thread->m_stack_bottom = real_stack_bottom;
-
-  /* Do context before we assign the userstack */
-  thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_kernel_stack_top);
-
-  /* Set the appropriate stack top */
-  thread->m_context.rsp = thread->m_stack_top;
-
-  print("Phys stack: ");
-  println(to_string(thread->m_context.rsp));
-  println(to_string(kmem_to_phys(proc->m_root_pd.m_root, thread->m_context.rsp)));
-  println(to_string(kmem_to_phys(nullptr, thread->m_kernel_stack_top)));
   
   /* Set the entrypoint last */
   thread_set_entrypoint(thread, (FuncPtr)thread->m_real_entry, data, 0);
@@ -180,7 +169,12 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
     destroy_threaded_socket(thread->m_socket);
   }
   destroy_atomic_ptr(thread->m_tid);
-  kmem_kernel_dealloc(thread->m_stack_bottom, DEFAULT_STACK_SIZE);
+  __kmem_kernel_dealloc(thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE);
+
+  if (thread->m_user_stack_bottom) {
+    __kmem_kernel_dealloc(thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
+  }
+
   kfree(thread);
   return ANIVA_FAIL;
 }

@@ -45,7 +45,7 @@ void bitmap_mark(bitmap_t* this, uint32_t index) {
     return;
   }
 
-  const uint32_t index_byte = ALIGN_UP(index, 8) / 8;
+  const uint32_t index_byte = index >> 3;
   const uint32_t index_bit = index % 8;
 
   this->m_map[index_byte] |= (1 << index_bit);
@@ -57,7 +57,7 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
     return;
   }
 
-  const uint32_t index_byte = ALIGN_UP(index, 8) / 8;
+  const uint32_t index_byte = index >> 3;
   const uint32_t index_bit = index % 8;
 
   this->m_map[index_byte] &= ~(1 << index_bit);
@@ -127,7 +127,7 @@ bool bitmap_isset(bitmap_t* this, uint32_t index) {
     return false;
   }
 
-  const uint64_t index_byte = ALIGN_UP(index, 8) >> 3ULL;
+  const uint64_t index_byte = index >> 3ULL;
   const uint32_t index_bit = index % 8UL;
 
   return (this->m_map[index_byte] & (1 << index_bit));

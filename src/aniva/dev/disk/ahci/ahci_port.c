@@ -242,21 +242,21 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_generic.m_path = create_port_path(ret);
 
   // prepare buffers
-  ret->m_fis_recieve_page = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
-  ret->m_cmd_list_page = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
+  ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ret->m_cmd_list_page = (paddr_t)Must(__kmem_kernel_alloc(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
-  ret->m_dma_buffer = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
-  ret->m_cmd_table_buffer = (paddr_t)kmem_kernel_alloc_extended(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA);
+  ret->m_dma_buffer = (paddr_t)Must(__kmem_kernel_alloc(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ret->m_cmd_table_buffer = (paddr_t)Must(__kmem_kernel_alloc(Release(kmem_request_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
   return ret;
 }
 
 void destroy_ahci_port(ahci_port_t* port) {
 
-  kmem_kernel_dealloc(port->m_dma_buffer, SMALL_PAGE_SIZE);
-  kmem_kernel_dealloc(port->m_cmd_list_page, SMALL_PAGE_SIZE);
-  kmem_kernel_dealloc(port->m_fis_recieve_page, SMALL_PAGE_SIZE);
-  kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc(port->m_dma_buffer, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc(port->m_cmd_list_page, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc(port->m_fis_recieve_page, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
   destroy_spinlock(port->m_hard_lock);
   kfree(port);
@@ -331,7 +331,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   ahci_port_mmio_write32(port, AHCI_REG_PxIE, AHCI_PORT_INTERRUPT_FULL_ENABLE);
 
   /* Prepare a buffer for the identify data */
-  ata_identify_block_t* dev_identify_buffer = (ata_identify_block_t*)Release(kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ata_identify_block_t* dev_identify_buffer = (ata_identify_block_t*)Release(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
   paddr_t dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
 
   /* Send the identify command to the device */
@@ -432,14 +432,14 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   }
 
   /* Clean the buffer */
-  kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
   println_kterm("Done!");
   //kdebug();
   return ANIVA_SUCCESS;
 
 fail_and_dealloc:
   kernel_panic("DEV IDENTIFY WENT WRONG");
-  kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
   return ANIVA_FAIL;
 }
 
@@ -567,7 +567,7 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
 
   // Preallocate a buffer 
   // TODO: is this buffer needed? Can we dump the result straigt into the buffer argument?
-  tmp = Must(kmem_kernel_alloc_range(size, 0, KMEM_FLAG_DMA));
+  tmp = Must(__kmem_kernel_alloc_range(size, 0, KMEM_FLAG_DMA));
   phys_tmp = kmem_to_phys(nullptr, tmp);
 
   // TODO: bitshift with the log2() of the sector/block size
@@ -585,7 +585,7 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
   // Copy prebuffer into final buffer
   memcpy(buffer, (void*)tmp, size);
 
-  kmem_kernel_dealloc(tmp, size);
+  __kmem_kernel_dealloc(tmp, size);
 
   return 0;
 }

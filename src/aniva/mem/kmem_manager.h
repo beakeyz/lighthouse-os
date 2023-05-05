@@ -177,28 +177,25 @@ void kmem_flush_tlb();
 ErrorOrPtr kmem_request_physical_page();
 ErrorOrPtr kmem_prepare_new_physical_page();
 ErrorOrPtr kmem_return_physical_page(paddr_t page_base);
-pml_entry_t* kmem_get_krnl_dir ();
+pml_entry_t* kmem_get_krnl_dir();
 
 pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
-pml_entry_t* kmem_get_page_with_quickmap (pml_entry_t* table, vaddr_t virt, uint32_t kmem_flags, uint32_t page_flags);
+pml_entry_t* kmem_get_page_with_quickmap(pml_entry_t* table, vaddr_t virt, uint32_t kmem_flags, uint32_t page_flags);
 
+/* TODO: implement */
 pml_entry_t* kmem_clone_page(pml_entry_t* page);
-void kmem_set_page_flags (pml_entry_t* page,  uint32_t flags);
+
+void kmem_set_page_flags(pml_entry_t* page,  uint32_t flags);
 
 /* mem mapping */
 
-bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
-
-/* Same as above, but uses the quickmapper to ensure the map succeeds */
-bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
-
 /*
- * Map from the kernel pagemap into the specified pagemap
+ * Generic mapping functions
  */
+bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
+bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
 ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags);
-
 ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table);
-
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
@@ -209,39 +206,23 @@ bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
 void kmem_init_physical_allocator();
 
 /*
- * allocate a memory-range and identitymap it
+ * These functions are all about mapping and allocating
+ * memory using the global physical memory bitmap
  */
-void* kmem_kernel_alloc(paddr_t addr, size_t size, uint32_t flags);
-void* kmem_kernel_alloc_extended (uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags);
+ErrorOrPtr __kmem_kernel_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-/*
- * find a suitable range to satisfy this allocation and
- * identitymap it
- */
-ErrorOrPtr kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
 
-/*
- * Find a free range of physical pages and map it to 
- * a virtual base
- */
-ErrorOrPtr kmem_kernel_map_and_alloc_range (size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-/*
- * Map a memoryrange into the desired page map
- */
-ErrorOrPtr kmem_map_and_alloc_range(pml_entry_t* map, size_t size, vaddr_t virtual_base, uint32_t custom_flags, uint32_t page_flags);
-void* kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t flags);
-void* kmem_alloc_extended (pml_entry_t* map, uintptr_t addr, size_t size, uint32_t flags, uint32_t page_flags);
-ErrorOrPtr kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size);
+ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size);
+ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
+
+ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
-
-/*
- * deallocate memoryranges that where previously allocated by the
- * allocation functions above
- */
-ErrorOrPtr kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 /* access to kmem_manager data struct */
 list_t const* kmem_get_phys_ranges_list();

@@ -55,10 +55,9 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
 
   /* Prefetch data */
   const size_t ramdisk_size = module_end - module_start;
-  const size_t ramdisk_page_count = kmem_get_page_idx(ramdisk_size + SMALL_PAGE_SIZE - 1);
 
   /* Map user pages */
-  const uintptr_t ramdisk_addr = (const uintptr_t)kmem_kernel_alloc_extended(module_start, ramdisk_page_count, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0);
+  const uintptr_t ramdisk_addr = (const uintptr_t)Must(__kmem_kernel_alloc(module_start, ramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0));
 
   /* Create ramdisk object */
   generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, ramdisk_size);
@@ -105,11 +104,12 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_bsp.fLateInit(&g_bsp);
 
   // map multiboot address
-  uintptr_t multiboot_addr = (uintptr_t)kmem_kernel_alloc(
+  uintptr_t multiboot_addr = (uintptr_t)Must(__kmem_kernel_alloc(
     (uintptr_t)mb_addr,
     total_multiboot_size + 8,
-    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE
-  );
+    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE,
+    0
+  ));
 
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = total_multiboot_size + 8;

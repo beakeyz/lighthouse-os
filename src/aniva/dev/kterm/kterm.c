@@ -345,6 +345,7 @@ int kterm_init() {
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("Command worker", kterm_command_worker, NULL));
+  println("Spawned thread");
 
   // flush our terminal buffer
   kterm_flush_buffer();

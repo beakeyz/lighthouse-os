@@ -277,7 +277,7 @@ int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, siz
 generic_disk_dev_t* create_generic_ramdev(size_t size) {
 
   size = ALIGN_UP(size, SMALL_PAGE_SIZE);
-  uintptr_t start_addr = Must(kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_CREATE_USER, 0));
+  uintptr_t start_addr = Must(__kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_CREATE_USER, 0));
 
   generic_disk_dev_t* dev = create_generic_ramdev_at(start_addr, size);
 
@@ -331,7 +331,7 @@ bool destroy_generic_ramdev(generic_disk_dev_t* device) {
 
   const size_t ramdev_size = end_addr - start_addr;
 
-  ErrorOrPtr result = kmem_kernel_dealloc(start_addr, ramdev_size);
+  ErrorOrPtr result = __kmem_kernel_dealloc(start_addr, ramdev_size);
 
   if (result.m_status != ANIVA_SUCCESS)
     return false;

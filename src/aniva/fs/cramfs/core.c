@@ -179,7 +179,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     size_t decompressed_size = cram_find_decompressed_size(device);
 
     /* We need to allocate for the decompressed size */
-    node->m_data = (void*)Must(kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+    node->m_data = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
     node->m_size = decompressed_size;
 
     /* Is enforcing success here a good idea? */
@@ -188,7 +188,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     ASSERT_MSG(node->m_data != nullptr, "decompressing resulted in NULL");
 
     /* Free the pages of the compressed ramdisk */
-    kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1));
+    __kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1));
 
     device->m_partition_data.m_start_lba = (uintptr_t)node->m_data;
     device->m_partition_data.m_end_lba = (uintptr_t)node->m_data + partition_size;

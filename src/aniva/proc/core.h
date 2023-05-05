@@ -8,7 +8,7 @@
 #include "libk/vector.h"
 #include "libk/queue.h"
 
-#define DEFAULT_STACK_SIZE ALIGN_UP((16 * Kib), SMALL_PAGE_SIZE)
+#define DEFAULT_STACK_SIZE (16 * Kib)
 #define DEFAULT_THREAD_MAX_TICKS 1
 
 #define PROC_DEFAULT_MAX_THREADS 16

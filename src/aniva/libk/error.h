@@ -9,6 +9,10 @@ typedef enum _ANIVA_STATUS {
   // TODO: more types?
 } ANIVA_STATUS;
 
+/*
+ * FIXME: it seems like adding any more fields here 
+ * breaks a lot of stuff. Why? idk. Should figure that out ig
+ */
 typedef struct _ErrorOrPtr {
   ANIVA_STATUS m_status;
   uintptr_t m_ptr;

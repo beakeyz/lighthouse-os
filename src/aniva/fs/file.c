@@ -132,7 +132,7 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
   const size_t page_count = kmem_get_page_idx(def_size);
 
   /* NOTE: aggressive Must() */
-  vaddr_t alloc_result = Must(kmem_kernel_alloc_range(def_size, custom_flags, page_flags));
+  vaddr_t alloc_result = Must(__kmem_kernel_alloc_range(def_size, custom_flags, page_flags));
 
   paddr_t physical_base = kmem_to_phys(nullptr, alloc_result);
 

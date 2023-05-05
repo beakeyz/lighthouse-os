@@ -204,8 +204,6 @@ bool is_bsp(Processor_t *processor) {
 
 void processor_enter_interruption(registers_t* registers, bool irq) {
 
-  //println("Entered");
-
   Processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when entering interruption");
 

@@ -46,8 +46,8 @@ typedef struct thread {
   __attribute__((aligned(16))) vaddr_t m_kernel_stack_bottom;
   __attribute__((aligned(16))) vaddr_t m_kernel_stack_top;
   /* The vaddress of the stack bottom and top, from the process */
-  __attribute__((aligned(16))) uintptr_t m_stack_bottom;
-  __attribute__((aligned(16))) uintptr_t m_stack_top;
+  __attribute__((aligned(16))) uintptr_t m_user_stack_bottom;
+  __attribute__((aligned(16))) uintptr_t m_user_stack_top;
 
   thread_state_t m_current_state;
 

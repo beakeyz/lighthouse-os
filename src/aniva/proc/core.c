@@ -40,7 +40,7 @@ ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, u
   stub_size = ((uintptr_t)&thread_entry_stub_end - (uintptr_t)&thread_entry_stub);
   aligned_size = ALIGN_UP(stub_size, SMALL_PAGE_SIZE);
 
-  TRY(map_result, kmem_map_and_alloc_range(dir->m_root, stub_size, THREAD_ENTRY_BASE - (aligned_size * offset), KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags));
+  TRY(map_result, __kmem_alloc_range(dir->m_root, THREAD_ENTRY_BASE - (aligned_size * offset), stub_size, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags));
 
   virtual_stub_base = map_result.m_ptr;
 
@@ -85,7 +85,7 @@ ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
     return Error();
   }
 
-  return kmem_dealloc(dir->m_root, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
+  return __kmem_dealloc(dir->m_root, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
 }
 
 ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
@@ -100,7 +100,9 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
   if (!current)
     return Error();
 
+  println("Trying to create thread");
   thread_t* thread = create_thread_for_proc(current, entry, arg0, name);
+  println("Trying to create thread");
 
   if (!thread)
     return Error();

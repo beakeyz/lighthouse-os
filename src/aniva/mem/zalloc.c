@@ -66,7 +66,7 @@ zone_store_t* create_zone_store(size_t initial_capacity) {
   // We subtract the size of the entire zone_store header struct without 
   // the size of the m_zones field
   const size_t bytes = initial_capacity * sizeof(uintptr_t) - (sizeof(zone_store_t) - 8);
-  zone_store_t* store = (zone_store_t*)Must(kmem_kernel_alloc_range(bytes, 0, 0));
+  zone_store_t* store = (zone_store_t*)Must(__kmem_kernel_alloc_range(bytes, 0, 0));
 
   // set the counts
   store->m_zones_count = 0;
@@ -79,7 +79,7 @@ zone_store_t* create_zone_store(size_t initial_capacity) {
 }
 
 void destroy_zone_store(zone_store_t* store) {
-  kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
+  __kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
 }
 
 ErrorOrPtr zone_store_add(zone_store_t** store_dptr, zone_t* zone) {
@@ -170,7 +170,7 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
   max_entries += extra_entries;
   bitmap_bytes += extra_bitmap_bytes;
 
-  zone_t* zone = (zone_t*)Release(kmem_kernel_alloc_range(aligned_size, 0, 0));
+  zone_t* zone = (zone_t*)Release(__kmem_kernel_alloc_range(aligned_size, 0, 0));
 
   // We'll have to construct this bitmap ourselves
   zone->m_entries = (bitmap_t) {
