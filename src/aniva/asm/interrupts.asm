@@ -1,4 +1,5 @@
 [bits 64]
+[section .text]
 
 extern interrupt_handler
 extern processor_enter_interruption

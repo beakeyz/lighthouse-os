@@ -1,5 +1,6 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
+#include "dev/kterm/kterm.h"
 #include "interupts/interupts.h"
 #include "entry/entry.h"
 #include "libk/error.h"
@@ -74,9 +75,12 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     /* let's have 1 SMALL_PAGE_SIZE of buffer '-' */
     const uintptr_t stack_start = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
 
+    println_kterm(to_string((uintptr_t)proc->m_root_pd.m_root));
+    println_kterm(to_string(kmem_to_phys(nullptr, (uintptr_t)proc->m_root_pd.m_root)));
+
     /* Remap the kernel-allocated stack bottom into the processes pagedir */
     real_stack_bottom = Must(kmem_map_into(
-        proc->m_root_pd.m_root,
+        (void*)kmem_to_phys(nullptr, (uintptr_t)proc->m_root_pd.m_root),
         thread->m_kernel_stack_bottom,
         stack_start,
         DEFAULT_STACK_SIZE,

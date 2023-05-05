@@ -1,4 +1,4 @@
-section .multiboot_header
+[section .multiboot_header]
 
 header_start:
   align 8
@@ -30,18 +30,18 @@ header_end:
 KERNEL_VIRT_BASE equ 0xFFFFffff80000000
 KERNEL_PAGE_IDX equ (KERNEL_VIRT_BASE >> 21)
 
-section .pre_text
+[section .pre_text]
 [bits 32]
 align 4
 
-global start
+[global start]
 
-global boot_pml4t
-global boot_pdpt
-global boot_pd0
-global boot_pd0_p
+[global boot_pml4t]
+[global boot_pdpt]
+[global boot_pd0]
+[global boot_pd0_p]
 
-extern _start
+[extern _start]
 
 [global kstack_top]
 [global kstack_bottom]
@@ -158,7 +158,7 @@ cpuid_support:
 
 ; start of 64 bit madness
 [bits 64]
-section .text
+[section .text]
 align 4
 
 ; start lol
@@ -190,12 +190,12 @@ loopback:
   hlt
   jmp loopback
 
-section .data
+[section .data]
 
 mb_ptr:
   dq 0
 
-section .rodata
+[section .rodata]
 ; gdt
 gdtr:
   dw gdt_end - gdt_start - 1
@@ -209,7 +209,7 @@ gdt_start:
 
 gdt_end:
 
-section .pts 
+[section .pts]
 
 ; Only for 64 bit
 align 4096
@@ -226,7 +226,7 @@ boot_hh_pdpt:
   times 0x1000 db 0
 
 ; hihi small stack =)
-section .stack
+[section .stack]
 
 kstack_bottom:
   times 32768 db 0

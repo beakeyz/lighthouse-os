@@ -1,4 +1,5 @@
 #include "kmem_manager.h"
+#include "dev/kterm/kterm.h"
 #include "interupts/interupts.h"
 #include "dev/debug/serial.h"
 #include "entry/entry.h"
@@ -559,7 +560,7 @@ ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t si
     vaddr_t old_vbase = old + (i * SMALL_PAGE_SIZE);
     vaddr_t new_vbase = new + (i * SMALL_PAGE_SIZE);
 
-    paddr_t old_phys = kmem_to_phys(nullptr, old_vbase);
+    paddr_t old_phys = kmem_to_phys_aligned(nullptr, old_vbase);
 
     if (!kmem_map_page(table, new_vbase, old_phys, kmem_flags, page_flags)) {
       result = Error();
@@ -849,7 +850,7 @@ static inline void _init_kmem_page_layout () {
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
   /* Map some extra Megabytes in order to ensure that we can map more later */
-  const size_t extra_mappings = kmem_get_page_idx(ALIGN_UP(5 * Mib, SMALL_PAGE_SIZE));
+  const size_t extra_mappings = kmem_get_page_idx(ALIGN_UP(10 * Mib, SMALL_PAGE_SIZE));
 
   kmem_map_range(nullptr, HIGH_MAP_BASE, 0, total_kernel_page_count + extra_mappings, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
@@ -860,7 +861,7 @@ static inline void _init_kmem_page_layout () {
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
 
-  println("Creating page dir");
+  println_kterm("Creating page dir");
   page_dir_t ret = { 0 };
 
   const bool create_user = ((custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
@@ -873,13 +874,15 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
    * it somewhere for us in kernelspace =D
    */
   pml_entry_t* table_root = (pml_entry_t*)Must(kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, 0));
+  pml_entry_t* phys_table_root = (void*)kmem_to_phys(nullptr, (uintptr_t)table_root);
+  println_kterm("Created root");
 
   for (uintptr_t i = 0; i < page_count; i++) {
 
     paddr_t physical_base = Must(kmem_prepare_new_physical_page());
     vaddr_t virtual_base = i * SMALL_PAGE_SIZE;
 
-    bool result = kmem_map_page(table_root, virtual_base, physical_base, custom_flags, KMEM_FLAG_WRITABLE | (create_user ? 0 : KMEM_FLAG_KERNEL));
+    bool result = kmem_map_page(phys_table_root, virtual_base, physical_base, custom_flags, KMEM_FLAG_WRITABLE | (create_user ? 0 : KMEM_FLAG_KERNEL));
 
     if (!result) {
       return ret;
@@ -889,13 +892,18 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
 
-  kmem_map_range(table_root, HIGH_MAP_BASE, 0, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  println_kterm("Mapping kernel into: ");
+  println_kterm(to_string((uintptr_t)phys_table_root));
+  println_kterm(to_string(kernel_physical_end));
+  println_kterm(to_string(total_kernel_page_count));
+
+  kmem_map_range(phys_table_root, HIGH_MAP_BASE, 0, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 
   ret.m_root = table_root;
   ret.m_kernel_low = HIGH_MAP_BASE;
   ret.m_kernel_high = HIGH_MAP_BASE + (kernel_physical_end >> 12);
 
-  println("Created page dir");
+  println_kterm("Created page dir");
   return ret;
 
 error_and_out:

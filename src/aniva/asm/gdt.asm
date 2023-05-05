@@ -1,4 +1,4 @@
-section .text
+[section .text]
 
 ; TODO:
 [global _flush_gdt]  

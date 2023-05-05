@@ -1,4 +1,5 @@
 [bits 64]
+[section .text]
 
 
 global thread_entry_stub
