@@ -6,6 +6,9 @@
 #include "libk/bitmap.h"
 #include "mem/pg.h"
 
+/*
+ * Flags for an indevidual zone
+ */
 typedef enum ZONE_FLAGS {
   ZONE_USED = (1 << 0),
   ZONE_PERMANENT = (1 << 1),
@@ -21,9 +24,16 @@ typedef enum ZONE_ENTRY_SIZE {
   ZALLOC_256BYTES = 256,
   ZALLOC_512BYTES = 512,
   ZALLOC_1024BYTES = 1024,
+  // ZALLOC_4096BYTES = 0x1000,
 } ZONE_ENTRY_SIZE_t;
 
-#define DEFAULT_ZONE_ENTRY_SIZE_COUNT 8
+/* Create a zone allocator that fits dynamicly sized object */
+#define ZALLOC_FLAG_DYNAMIC             0x00000001
+
+#define DEFAULT_ZONE_ENTRY_SIZE_COUNT   8
+
+#define DEFAULT_ZALLOC_MEM_SIZE         2 * Mib
+
 
 /*
  * Ideas for a different zalloc design:
@@ -49,7 +59,6 @@ typedef enum ZONE_ENTRY_SIZE {
  *  - the current implementation is very agressive when it comes to page allocation. If, due to alignement, it 
  *    is able to snatch a few more pages, it won't hesitate to fill that empty space with more subzones/blocks/entries.
  */
-
 typedef struct zone {
   size_t m_zone_entry_size;
   size_t m_total_available_size;
@@ -83,17 +92,32 @@ typedef struct zone_allocator {
 
   zone_store_t* m_store;
 
+  uint32_t m_flags;
+
   enum ZONE_ENTRY_SIZE m_max_zone_size;
   enum ZONE_ENTRY_SIZE m_min_zone_size;
+
+  /* We link zone allocators in a global list that we sort based on 
+   * Their zone size. If they are dynamic, this links into a seperate
+   * list for those
+   */
+  struct zone_allocator* m_next;
 } zone_allocator_t;
+
+/* Sorted by size, as specified above. */
+extern zone_allocator_t* g_sized_zallocators;
+/* These are mostly allocators for threads and such, so this can grow quite large as there are more threads f.e */
+extern zone_allocator_t* g_dynamic_zallocators;
+
+void init_zalloc();
 
 /*
  * make a new zone allocator. based on the initial_size, we will
  * saturate this allocator with zones as needed
  */
-zone_allocator_t *create_zone_allocator(size_t initial_size, uintptr_t flags);
+zone_allocator_t *create_dynamic_zone_allocator(size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
-zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_size, uintptr_t flags);
+zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 

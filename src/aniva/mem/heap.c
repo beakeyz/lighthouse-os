@@ -6,6 +6,7 @@
 #include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
 #include <sched/scheduler.h>
+#include "mem/zalloc.h"
 #include "sync/mutex.h"
 #include <entry/entry.h>
 
@@ -55,6 +56,8 @@ void init_kheap() {
   s_generic_kernel_heap.f_debug = nullptr;
   s_generic_kernel_heap.f_expand = (HEAP_EXPAND) malloc_try_heap_expand;
   s_generic_kernel_heap.f_on_expand_enable = (HEAP_ON_EXPAND_ENABLE) malloc_on_heap_expand_enable;
+
+  init_zalloc();
 
   // TODO: show debug message?
 }
