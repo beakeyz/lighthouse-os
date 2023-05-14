@@ -352,7 +352,7 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
   TRY(gen_res, vobj_generate_handle(obj));
 
   /* Assign the handle */
-  obj->m_handle = gen_res.m_ptr;
+  obj->m_handle = gen_res;
 
 exit_success:
   mutex_unlock(node->m_vobj_lock);
@@ -561,7 +561,7 @@ ErrorOrPtr vn_unlink(vnode_t* node, vnode_t* link) {
 
   TRY(result, list_indexof(node->m_links, link));
 
-  uint32_t index = result.m_ptr;
+  uint32_t index = result;
 
   bool remove_res = list_remove(node->m_links, index);
 

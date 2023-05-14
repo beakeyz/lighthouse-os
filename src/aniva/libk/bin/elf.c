@@ -3,6 +3,7 @@
 #include "dev/debug/serial.h"
 #include "fs/file.h"
 #include <fs/vobj.h>
+#include "interupts/interupts.h"
 #include "libk/bin/elf_types.h"
 #include "libk/error.h"
 #include "libk/stddef.h"
@@ -69,6 +70,8 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   uint32_t page_flags;
   int status;
 
+  disable_interrupts();
+
   println_kterm("Reaing elf");
   status = elf_read(file, &header, sizeof(struct elf64_hdr), 0);
 
@@ -106,6 +109,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 
+  println("Ding");
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     struct elf64_phdr phdr = phdrs[i];
 
@@ -115,16 +119,24 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
           vaddr_t virtual_phdr_base = phdr.p_vaddr;
           size_t phdr_size = phdr.p_memsz;
 
+          println("Alloc range");
           vaddr_t kalloc = Must(__kmem_kernel_alloc_range(phdr_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
+          println("Map range");
+          println(to_string(kalloc));
+          println(to_string(virtual_phdr_base));
+          println(to_string(phdr_size));
+          println(to_string((uintptr_t)ret->m_root_pd.m_root));
           Must(kmem_map_into(ret->m_root_pd.m_root, kalloc, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
+          println("Read range");
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
           elf_read(file, (void*)kalloc, phdr.p_filesz, phdr.p_offset);
           // ???
           // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
+          println("Set range");
           if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = virtual_phdr_base + phdr_size;
           }
@@ -143,6 +155,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   kfree(phdrs);
 
+  println("Schedule");
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
   sched_add_priority_proc(ret, true);
 

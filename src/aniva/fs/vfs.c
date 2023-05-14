@@ -61,7 +61,7 @@ ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
   println(path);
   TRY(mount_result, vfs_mount(path, node));
 
-  return mount_result;
+  return Success(mount_result);
 }
 
 ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) {
@@ -279,11 +279,11 @@ ErrorOrPtr vfs_attach_root_namespace(vnamespace_t* namespace) {
 
   /* Warning means that the namespace already exists in this case */
   /* TODO: make error shit more clear lmao */
-  if (res.m_status == ANIVA_WARNING) {
+  if (res_status.m_status == ANIVA_WARNING) {
     destroy_vnamespace(namespace);
   }
 
-  return res;
+  return Success(res);
 }
 
 void init_vfs(void) {

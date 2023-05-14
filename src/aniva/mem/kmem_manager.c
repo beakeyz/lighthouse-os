@@ -11,6 +11,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "mem/quickmapper.h"
+#include "mem/zalloc.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
@@ -22,12 +23,15 @@
 #define STANDARD_PD_ENTRIES 512
 #define MAX_RETRIES_FOR_PAGE_MAPPING 5
 
-struct {
+static struct {
   uint32_t m_mmap_entry_num;
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
 
+  size_t m_mapper_mem_size;
+
   bitmap_t* m_phys_bitmap;
+  bitmap_t* m_mapper_bitmap;
   uintptr_t m_highest_phys_addr;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
@@ -49,6 +53,19 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
   KMEM_DATA.m_mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
 }
 
+static void kmem_init_pagetable_mapper() {
+
+  KMEM_DATA.m_mapper_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
+
+  size_t bitmap_bytes = (kmem_get_page_idx(KMEM_DATA.m_mapper_mem_size) + 8 - 1) >> 3;
+
+  KMEM_DATA.m_mapper_bitmap = create_bitmap_with_default(bitmap_bytes, 0x00);
+
+  /* TODO: we need to allocate this as a kresource */
+  ASSERT_MSG(KMEM_DATA.m_mapper_mem_size, "No memory range for the kernel pagetable mapper");
+  ASSERT_MSG(KMEM_DATA.m_mapper_bitmap, "No mapper bitmap!");
+}
+
 /*
 *  TODO: A few things need to be figured out:
 *           - (Optional, but desireable) Redo the pml_entry_t structure to be more verbose and straight forward
@@ -67,6 +84,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   parse_mmap();
 
   kmem_init_physical_allocator();
+  //kmem_init_pagetable_mapper();
 
   KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)kmem_ensure_high_mapping(kmem_prepare_new_physical_page().m_ptr);
 
@@ -76,7 +94,6 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   // NOTE: If we ever decide to change the boottime mappings, this (along with the 
   // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
   uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE;
-
  
   load_page_dir(map, true);
 
@@ -254,7 +271,7 @@ void kmem_init_physical_allocator() {
   paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   paddr_t physical_kernel_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   size_t kernel_size = physical_kernel_end - physical_kernel_start;
-  size_t kernel_page_count = kernel_size >> 12;
+  size_t kernel_page_count = (kernel_size >> 12) + 1;
 
   for (uintptr_t i = 0; i < kernel_page_count; i++) {
     paddr_t addr = physical_kernel_start + (i * SMALL_PAGE_SIZE);
@@ -344,9 +361,17 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
   // find
   TRY(result, kmem_request_physical_page());
 
-  uintptr_t new = result.m_ptr;
   // set
-  kmem_set_phys_page_used(kmem_get_page_idx(new));
+  kmem_set_phys_page_used(kmem_get_page_idx(result));
+
+  println("Make2");
+  println(to_string(result));
+  println(to_string(kmem_ensure_high_mapping(result)));
+
+  /* FIXME: This should NEVER be zero */
+  println(to_string(kmem_to_phys(nullptr, kmem_ensure_high_mapping(result))));
+  println(to_string((uintptr_t)&_kernel_start));
+  println(to_string((uintptr_t)&_kernel_end));
 
   // There might be an issue here as we try to zero
   // and this page is never mapped. We might need some
@@ -354,9 +379,10 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
   // this, but we might also rewrite this entire thing
   // as to map this sucker before we zero. This would 
   // mean that you can't just get a nice clean page...
-  memset((void*)kmem_ensure_high_mapping(new), 0x00, SMALL_PAGE_SIZE);
+  memset((void*)kmem_ensure_high_mapping(result), 0x00, SMALL_PAGE_SIZE);
+  println("Make2");
 
-  return result;
+  return Success(result);
 }
 
 ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
@@ -405,7 +431,9 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     if (!pml4_entry_exists) {
       if (should_make) {
-        paddr_t page_addr = kmem_prepare_new_physical_page().m_ptr;
+        println("Make");
+        paddr_t page_addr = Must(kmem_prepare_new_physical_page());
+        println(to_string(page_addr));
 
         kmem_set_page_base(&pml4[pml4_idx], page_addr);
         pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
@@ -415,6 +443,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
         pml_entry_set_bit(&pml4[pml4_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
         pml_entry_set_bit(&pml4[pml4_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
         pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+        println("Made");
 
         tries--;
         continue;
@@ -427,7 +456,9 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     if (!pdp_entry_exists) {
       if (should_make) {
+        println("Make2");
         uintptr_t page_addr = kmem_prepare_new_physical_page().m_ptr;
+        println("Make2_1");
         kmem_set_page_base(&pdp[pdp_idx], page_addr);
         pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
         pml_entry_set_bit(&pdp[pdp_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
@@ -436,6 +467,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
         pml_entry_set_bit(&pdp[pdp_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
         pml_entry_set_bit(&pdp[pdp_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
         pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+        println("Make2_2");
         tries--;
         continue;
       }
@@ -537,6 +569,8 @@ bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t
   if (!page) {
     return false;
   }
+
+  phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
 
   kmem_set_page_flags(page, page_flags);
   kmem_set_page_base(page, phys);
@@ -762,6 +796,14 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_
 
 }
 
+ErrorOrPtr kmem_page_mapper_fetch_page() {
+
+  TRY(result, bitmap_find_free(KMEM_DATA.m_mapper_bitmap));
+
+
+  return Success(0);
+}
+
 // TODO: make this more dynamic
 static inline void _init_kmem_page_layout () {
 
@@ -786,6 +828,18 @@ static inline void _init_kmem_page_layout () {
     kmem_map_range(nullptr, vbase, pbase, pages, KMEM_CUSTOMFLAG_GET_MAKE, 0);
   }
   */
+
+  const size_t mapper_page_limit = kmem_get_page_idx(ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE));
+
+  for (uintptr_t i = 0; i < mapper_page_limit; i++) {
+    vaddr_t virtual_offset = i * SMALL_PAGE_SIZE;
+    paddr_t physical_addr = Must(kmem_request_physical_page());
+
+    /* Manually set the page as used */
+    //kmem_set_phys_page_used(kmem_get_page_idx(physical_addr));
+
+    //kmem_map_page(nullptr, KPAGE_MAPPER_BASE + virtual_offset, physical_addr, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  }
 
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
@@ -919,6 +973,7 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
 
   const vaddr_t base = HIGH_MAP_BASE;
   const uintptr_t pml4_idx = (base >> 39) & ENTRY_MASK;
+  const uintptr_t pdp_idx = (base >> 30) & ENTRY_MASK;
 
   pml_entry_t* kernel_root = (void*)kmem_ensure_high_mapping((uintptr_t)kmem_get_krnl_dir());
 

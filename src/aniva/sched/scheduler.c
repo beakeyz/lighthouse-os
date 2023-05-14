@@ -491,7 +491,7 @@ ALWAYS_INLINE ErrorOrPtr remove_sched_frame(sched_frame_t* frame_ptr) {
 
   TRY(result, list_indexof(s_sched_frames, frame_ptr));
 
-  if (!list_remove(s_sched_frames, result.m_ptr)) {
+  if (!list_remove(s_sched_frames, result)) {
     return Error();
   }
 

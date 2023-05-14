@@ -42,7 +42,7 @@ ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, u
 
   TRY(map_result, __kmem_alloc_range(dir->m_root, THREAD_ENTRY_BASE - (aligned_size * offset), stub_size, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags));
 
-  virtual_stub_base = map_result.m_ptr;
+  virtual_stub_base = map_result;
 
   if (!virtual_stub_base)
     return Error();

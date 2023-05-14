@@ -27,6 +27,8 @@
 
 #define HIGH_STACK_BASE         0xfffffffE00000000ULL
 
+#define KPAGE_MAPPER_BASE        0xFFFFFEEE80000000ULL
+
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
 
@@ -118,10 +120,16 @@ struct kmem_page {
   page_dir_t* dir;
 };
 
+typedef struct kmem_mapping {
+  size_t m_size;
+  vaddr_t m_vbase;
+  paddr_t m_pbase;
+} kmapping_t;
+
 /*
  * initialize kernel pagetables and physical allocator
  */
-void init_kmem_manager (uintptr_t* mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
+void init_kmem_manager(uintptr_t* mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
 
 void protect_kernel();
 void protect_heap();
@@ -223,6 +231,16 @@ ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
+
+/*
+ * Get a page we can use as a mapping page
+ */
+ErrorOrPtr kmem_page_mapper_fetch_page();
+
+/*
+ * Free a page so we can use it as a mapping page again
+ */
+ErrorOrPtr kmem_page_mapper_return_page(vaddr_t vaddr);
 
 /* access to kmem_manager data struct */
 list_t const* kmem_get_phys_ranges_list();
