@@ -493,6 +493,7 @@ size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
 
   uint32_t crc32 = c_read32(&dummy_ctx);
 
+  print("Crc: ");
   println(to_string(crc32));
 
   /* TODO: validate crc32? */

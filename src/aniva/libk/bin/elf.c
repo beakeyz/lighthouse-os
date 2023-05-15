@@ -126,7 +126,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
           println(to_string(kalloc));
           println(to_string(virtual_phdr_base));
           println(to_string(phdr_size));
-          println(to_string((uintptr_t)ret->m_root_pd.m_root));
+          println(to_string((uintptr_t)kmem_to_phys(nullptr, (uintptr_t)ret->m_root_pd.m_root)));
           Must(kmem_map_into(ret->m_root_pd.m_root, kalloc, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
           println("Read range");
