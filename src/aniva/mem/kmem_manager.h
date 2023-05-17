@@ -67,6 +67,7 @@
 #define KMEM_CUSTOMFLAG_UNMAP               0x80
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
+#define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002
 
 // defines for alignment
 #define ALIGN_UP(addr, size) \
