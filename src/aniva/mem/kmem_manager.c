@@ -15,6 +15,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
+#include "system/resource.h"
 #include <mem/heap.h>
 #include <mem/base_allocator.h>
 #include <libk/stddef.h>
@@ -47,7 +48,17 @@ static struct {
 
 } KMEM_DATA;
 
-static inline void _init_kmem_page_layout();
+static void _init_kmem_page_layout();
+
+/*
+ * Get a page we can use as a mapping page
+ */
+static ErrorOrPtr __kmem_page_mapper_fetch_page();
+
+/*
+ * Free a page so we can use it as a mapping page again
+ */
+static ErrorOrPtr __kmem_page_mapper_return_page(vaddr_t vaddr);
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
@@ -99,6 +110,8 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE;
  
   load_page_dir(map, true);
+
+  print_bitmap();
 
   kernel_panic("Test");
 
@@ -426,7 +439,6 @@ static pml_entry_t *__kmem_get_bootstrap_page(uintptr_t addr, unsigned int kmem_
 
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
     kmem_set_page_flags(&pml4[pml4_idx], page_creation_flags);
-
   }
 
   pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits));
@@ -494,13 +506,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     println(to_string(page_addr));
 
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_READ_WRITE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+    kmem_set_page_flags(&pml4[pd_idx], page_creation_flags);
   }
 
   pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits));
@@ -516,13 +522,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     println(to_string(page_addr));
 
     kmem_set_page_base(&pdp[pdp_idx], page_addr);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_READ_WRITE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+    kmem_set_page_flags(&pdp[pd_idx], page_creation_flags);
   }
 
   pml_entry_t* pd = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits));
@@ -538,13 +538,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     println(to_string(page_addr));
 
     kmem_set_page_base(&pd[pd_idx], page_addr);
-    pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
-    pml_entry_set_bit(&pd[pd_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
-    pml_entry_set_bit(&pd[pd_idx], PDE_READ_WRITE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(&pd[pd_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
-    pml_entry_set_bit(&pd[pd_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(&pd[pd_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
-    pml_entry_set_bit(&pd[pd_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+    kmem_set_page_flags(&pd[pd_idx], page_creation_flags);
   }
 
   // this just should exist
@@ -638,6 +632,7 @@ static ErrorOrPtr __bootstrap_map(vaddr_t virtual_base, paddr_t physical_base, u
 static ErrorOrPtr __bootstrap_map_range(vaddr_t virtual_base, paddr_t physical_base, size_t page_count, uint32_t custom_flags, uint32_t page_flags) {
 
   for (uintptr_t i = 0; i < page_count; i++) {
+
     uintptr_t vbase = virtual_base + (kmem_get_page_addr(i));
     uintptr_t pbase = physical_base + (kmem_get_page_addr(i));
 
@@ -894,19 +889,20 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_
 
 }
 
-ErrorOrPtr kmem_page_mapper_fetch_page() 
+static ErrorOrPtr __kmem_page_mapper_fetch_page()
 {
   kernel_panic("TODO: implement kmem_page_mapper_fetch_page");
 }
 
 // TODO: make this more dynamic
-static inline void _init_kmem_page_layout () {
+static void _init_kmem_page_layout () {
 
   const paddr_t kernel_physical_start = ALIGN_UP((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end - kernel_physical_start);
-  /* Map some extra Megabytes in order to ensure that we can map more later */
-  size_t extra_mappings = total_kernel_page_count + kmem_get_page_idx(ALIGN_UP(1 * Gib, SMALL_PAGE_SIZE));
+
+  /* Map some extra bytes in order to ensure that we can map more later */
+  const size_t extra_mappings_bytes = (ALIGN_UP(5 * Mib, SMALL_PAGE_SIZE));
 
   /* Map the kernel range */
   Must(__bootstrap_map_range((uintptr_t)&_kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0));
@@ -917,6 +913,27 @@ static inline void _init_kmem_page_layout () {
    *  - I/O ranges
    *  - Resource allocation
    *  - ect.
+   */
+
+  const size_t extra_mappings_pages = kmem_get_page_idx(extra_mappings_bytes);
+  const uintptr_t extra_mappings_index = Must(bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, extra_mappings_pages));
+  const paddr_t extra_mappings_region = kmem_get_page_addr(extra_mappings_index);
+
+  for (uintptr_t i = 0; i < extra_mappings_pages; i++) {
+    kmem_set_phys_page_used(extra_mappings_index + i);
+  }
+
+  println(to_string(extra_mappings_pages));
+  println(to_string(extra_mappings_region));
+
+  /* NOTE: we cant use __kmem_alloc_ex here, since it uses post-bootstrap mapping utilities */
+  Must(__bootstrap_map_range(kmem_from_phys(extra_mappings_region, KERNEL_PD_BASE), extra_mappings_region, extra_mappings_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+
+  /*
+   * TODO: create a resource for these pages so we can pull from that instead of using 
+   * kmem_request_physical_page AND then we don't have worry about the fact that 
+   * kmem_request_physical_page could potentially pull one of our pages since we know 
+   * they are marked 'used' in the bitmap
    */
 
   println("Done mapping ranges");

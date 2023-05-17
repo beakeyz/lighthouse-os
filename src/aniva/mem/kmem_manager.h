@@ -18,6 +18,8 @@
 
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xffffffff80000000ULL
+/* 128 Tib */
+#define KERNEL_PD_BASE          0x0000800000000000ULL
 // Base for early kernelheap mappings 
 #define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
@@ -26,8 +28,6 @@
 #define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 
 #define HIGH_STACK_BASE         0xfffffffE00000000ULL
-
-#define KPAGE_MAPPER_BASE        0xFFFFFEEE80000000ULL
 
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
@@ -234,16 +234,6 @@ ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
-
-/*
- * Get a page we can use as a mapping page
- */
-ErrorOrPtr kmem_page_mapper_fetch_page();
-
-/*
- * Free a page so we can use it as a mapping page again
- */
-ErrorOrPtr kmem_page_mapper_return_page(vaddr_t vaddr);
 
 /* access to kmem_manager data struct */
 list_t const* kmem_get_phys_ranges_list();
