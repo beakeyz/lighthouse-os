@@ -27,6 +27,7 @@ bool bitmap_isset(bitmap_t* this, uint32_t index);
 
 ErrorOrPtr bitmap_find_free(bitmap_t* this);
 ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length);
+ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx);
 
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length);
 void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length);

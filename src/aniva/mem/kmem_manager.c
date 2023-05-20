@@ -29,8 +29,6 @@ static struct {
   multiboot_memory_map_t* m_mmap_entries;
   uint8_t m_reserved_phys_count;
 
-  size_t m_mapper_mem_size;
-
   bitmap_t* m_phys_bitmap;
   bitmap_t* m_mapper_bitmap;
   uintptr_t m_highest_phys_addr;
@@ -49,34 +47,12 @@ static struct {
 } KMEM_DATA;
 
 static void _init_kmem_page_layout();
-
-/*
- * Get a page we can use as a mapping page
- */
-static ErrorOrPtr __kmem_page_mapper_fetch_page();
-
-/*
- * Free a page so we can use it as a mapping page again
- */
-static ErrorOrPtr __kmem_page_mapper_return_page(vaddr_t vaddr);
+static void _init_kmem_page_layout_late();
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
   KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap*)) / mmap->entry_size;
   KMEM_DATA.m_mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
-}
-
-static void kmem_init_pagetable_mapper() {
-
-  KMEM_DATA.m_mapper_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
-
-  size_t bitmap_bytes = (kmem_get_page_idx(KMEM_DATA.m_mapper_mem_size) + 8 - 1) >> 3;
-
-  KMEM_DATA.m_mapper_bitmap = create_bitmap_with_default(bitmap_bytes, 0x00);
-
-  /* TODO: we need to allocate this as a kresource */
-  ASSERT_MSG(KMEM_DATA.m_mapper_mem_size, "No memory range for the kernel pagetable mapper");
-  ASSERT_MSG(KMEM_DATA.m_mapper_bitmap, "No mapper bitmap!");
 }
 
 /*
@@ -98,7 +74,6 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   parse_mmap();
 
   kmem_init_physical_allocator();
-  // kmem_init_pagetable_mapper();
 
   KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)kmem_ensure_high_mapping(kmem_prepare_new_physical_page().m_ptr);
 
@@ -111,9 +86,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
  
   load_page_dir(map, true);
 
-  print_bitmap();
-
-  kernel_panic("Test");
+  _init_kmem_page_layout_late();
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
@@ -493,6 +466,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uintptr_t page_creation_flags = (should_make_user ? 0x07 : 0x03) | page_flags;
 
+  /* Grab the root, which should be mapped to the high base */
   pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root));
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
@@ -656,13 +630,12 @@ bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t
     return false;
   }
 
-  phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
+  /* Realign the physical address */
+  //if ((kmem_flags & KMEM_CUSTOMFLAG_NO_PHYS_REALIGN) != KMEM_CUSTOMFLAG_NO_PHYS_REALIGN)
+  //  phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
 
   kmem_set_page_flags(page, page_flags);
   kmem_set_page_base(page, phys);
-
-  /* Let's just unmap, just to be sure */
-  try_quickunmap();
 
   return true;
 }
@@ -756,12 +729,12 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
   //kmem_set_page_base(page, base);
 
   pml_entry_set_bit(page, PTE_PRESENT, true);
-  pml_entry_set_bit(page, PTE_USER, ((flags & KMEM_FLAG_KERNEL) == KMEM_FLAG_KERNEL) ? false : true);
-  pml_entry_set_bit(page, PTE_READ_WRITE, ((flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE) ? true : false);
-  pml_entry_set_bit(page, PTE_NO_CACHE, ((flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE) ? true : false);
-  pml_entry_set_bit(page, PTE_WRITE_THROUGH, ((flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH) ? true : false);
-  pml_entry_set_bit(page, PTE_PAT, ((flags & KMEM_FLAG_SPEC) == KMEM_FLAG_SPEC) ? true : false);
-  pml_entry_set_bit(page, PTE_NX, ((flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE) ? true : false);
+  pml_entry_set_bit(page, PTE_USER, ((flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL));
+  pml_entry_set_bit(page, PTE_READ_WRITE, ((flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE));
+  pml_entry_set_bit(page, PTE_NO_CACHE, ((flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE));
+  pml_entry_set_bit(page, PTE_WRITE_THROUGH, ((flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH));
+  pml_entry_set_bit(page, PTE_PAT, ((flags & KMEM_FLAG_SPEC) == KMEM_FLAG_SPEC));
+  pml_entry_set_bit(page, PTE_NX, ((flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE));
 
 }
 
@@ -889,23 +862,25 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_
 
 }
 
-static ErrorOrPtr __kmem_page_mapper_fetch_page()
-{
-  kernel_panic("TODO: implement kmem_page_mapper_fetch_page");
-}
-
 // TODO: make this more dynamic
 static void _init_kmem_page_layout () {
 
   const paddr_t kernel_physical_start = ALIGN_UP((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end - kernel_physical_start);
+  const size_t total_pre_kernel_page_count = kmem_get_page_idx(kernel_physical_start);
+  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
+  const size_t total_kernel_page_count = kernel_end_idx - total_pre_kernel_page_count;
 
   /* Map some extra bytes in order to ensure that we can map more later */
   const size_t extra_mappings_bytes = (ALIGN_UP(5 * Mib, SMALL_PAGE_SIZE));
 
   /* Map the kernel range */
   Must(__bootstrap_map_range((uintptr_t)&_kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+  
+  /* Map everything before the kernel */
+  Must(__bootstrap_map_range(HIGH_MAP_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_GLOBAL));
+  /* Also map this to the pd base, so the post-bootstrap mapper works */
+  Must(__bootstrap_map_range(KERNEL_PD_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE | KMEM_FLAG_GLOBAL));
 
   /* 
    * TODO: we need mappings for:
@@ -916,18 +891,16 @@ static void _init_kmem_page_layout () {
    */
 
   const size_t extra_mappings_pages = kmem_get_page_idx(extra_mappings_bytes);
-  const uintptr_t extra_mappings_index = Must(bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, extra_mappings_pages));
+  /* Make sure we map after the kernel */
+  const uintptr_t extra_mappings_index = Must(bitmap_find_free_range_from(KMEM_DATA.m_phys_bitmap, extra_mappings_pages, kernel_end_idx));
   const paddr_t extra_mappings_region = kmem_get_page_addr(extra_mappings_index);
+  const vaddr_t extra_mappings_virtual_start = kmem_ensure_high_mapping(extra_mappings_region);
 
-  for (uintptr_t i = 0; i < extra_mappings_pages; i++) {
-    kmem_set_phys_page_used(extra_mappings_index + i);
-  }
-
-  println(to_string(extra_mappings_pages));
-  println(to_string(extra_mappings_region));
-
-  /* NOTE: we cant use __kmem_alloc_ex here, since it uses post-bootstrap mapping utilities */
-  Must(__bootstrap_map_range(kmem_from_phys(extra_mappings_region, KERNEL_PD_BASE), extra_mappings_region, extra_mappings_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+  /*
+   * NOTE: we cant use __kmem_alloc_ex here, since it uses post-bootstrap mapping utilities 
+   * NOTE: at this point there is a large free region after the kernel we can use for new mappings. Let's make sure we map enough
+   */
+  Must(__bootstrap_map_range(extra_mappings_virtual_start, extra_mappings_region, extra_mappings_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
   /*
    * TODO: create a resource for these pages so we can pull from that instead of using 
@@ -937,6 +910,17 @@ static void _init_kmem_page_layout () {
    */
 
   println("Done mapping ranges");
+}
+
+static void _init_kmem_page_layout_late() {
+
+  const size_t total_pages = KMEM_DATA.m_phys_pages_count;
+  const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
+
+  const size_t high_page_count = total_pages - kernel_end_idx;
+
+  ASSERT_MSG(kmem_map_range(nullptr, kmem_ensure_high_mapping(kernel_physical_end), kernel_physical_end, high_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map all memory");
 }
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {

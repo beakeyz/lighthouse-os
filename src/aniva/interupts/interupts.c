@@ -207,7 +207,7 @@ void pagefault_handler(registers_t *regs) {
   println((regs->err_code & 1) ? "PV" : "NP");
 
   /* NOTE: tmp debug */
-  // print_bitmap();
+  //print_bitmap();
 
   kernel_panic("pagefault! (TODO: more info)");
 }

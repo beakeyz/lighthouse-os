@@ -100,6 +100,23 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((uintptr_t*)virtual_mb_addr, first_valid_addr, first_valid_alloc_addr);
 
+  vaddr_t test_base = 0xFFFF400000000000ULL;
+  paddr_t test_addr = Must(kmem_prepare_new_physical_page());
+
+  println(to_string(test_addr));
+  println(to_string(*(uintptr_t*)kmem_ensure_high_mapping(test_addr)));
+
+  *(uintptr_t*)kmem_ensure_high_mapping(test_addr) = 69;
+
+  println(to_string(*(uintptr_t*)kmem_ensure_high_mapping(test_addr)));
+
+  ASSERT_MSG(kmem_map_page(nullptr, test_base, test_addr, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map");
+
+  println(to_string(test_base));
+  println(to_string(*(uintptr_t*)(test_base)));
+
+  kernel_panic("Test");
+
   // initialize things like fpu or interrupts
   g_bsp.fLateInit(&g_bsp);
 

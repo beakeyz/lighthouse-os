@@ -77,16 +77,28 @@ void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
   }
 }
 
-// TODO: find out if this bugs out
 ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
+  /*
+   * We can perhaps cache the last found range so the next search 
+   * can start from that index, until the index gets 'corrupted' by 
+   * a free or something before the cached index
+   */
+  return bitmap_find_free_range_from(this, length, 0);
+}
+
+// TODO: find out if this bugs out
+ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx) {
   if (length >= this->m_entries || length == 0)
     return Error();
 
-  if (length == 1) {
-    return bitmap_find_free(this);
-  }
+  /* lol, we can never find anything if this happens :clown: */
+  if (start_idx + length > this->m_entries)
+    return Error();
 
-  for (uintptr_t i = 0; i < this->m_entries; i++) {
+  if (length == 1)
+    return bitmap_find_free(this);
+
+  for (uintptr_t i = start_idx; i < this->m_entries; i++) {
     uintptr_t length_check = 1;
 
     if (bitmap_isset(this, i))

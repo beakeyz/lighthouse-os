@@ -77,18 +77,25 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
       println(to_string((uintptr_t)tag));
 
       if (!tag) {
-        break;
+        return -1;
       }
 
-      if (tag->common.size != 0 && tag->common.framebuffer_addr != 0) {
-        println("Set framebuffer info");
-        s_fb_tag = tag;
-        s_fb_addr = tag->common.framebuffer_addr;
-        s_width = tag->common.framebuffer_width;
-        s_height = tag->common.framebuffer_height;
-        s_bpp = tag->common.framebuffer_bpp;
-        s_pitch = tag->common.framebuffer_pitch;
-        s_used_pages = (s_pitch * s_height + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+      if (tag->common.size == 0 || tag->common.framebuffer_addr == 0) {
+        return -1;
+      }
+
+      println("Set framebuffer info");
+      s_fb_tag = tag;
+      s_fb_addr = tag->common.framebuffer_addr;
+      s_width = tag->common.framebuffer_width;
+      s_height = tag->common.framebuffer_height;
+      s_bpp = tag->common.framebuffer_bpp;
+      s_pitch = tag->common.framebuffer_pitch;
+      s_used_pages = (s_pitch * s_height + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+
+      /* Mark framebuffer memory as used, just to be sure */
+      for (uintptr_t i = 0; i < s_used_pages; i++) {
+        kmem_set_phys_page_used(kmem_get_page_idx(s_fb_addr) + i);
       }
 
       break;
@@ -98,7 +105,7 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
       uintptr_t virtual_base = *(uintptr_t*)payload.m_data;
       print("Mapped framebuffer: ");
       println(to_string(virtual_base));
-      kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+      kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_PHYS_REALIGN, 0);
       return 0;
       break;
     }

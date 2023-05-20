@@ -352,6 +352,8 @@ int kterm_init() {
 
   kterm_draw_cursor();
 
+  kernel_panic("Test");
+
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
   kterm_println("\n");
   kterm_println(" -- Welcome to the aniva kterm driver --\n");
