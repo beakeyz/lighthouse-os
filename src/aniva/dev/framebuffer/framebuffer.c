@@ -105,7 +105,8 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
       uintptr_t virtual_base = *(uintptr_t*)payload.m_data;
       print("Mapped framebuffer: ");
       println(to_string(virtual_base));
-      kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_PHYS_REALIGN, 0);
+      //kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_PHYS_REALIGN, 0);
+      __kmem_alloc_ex(nullptr, s_fb_addr, virtual_base, s_used_pages * SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_NO_REMAP, 0);
       return 0;
       break;
     }
