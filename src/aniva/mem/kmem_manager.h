@@ -67,6 +67,7 @@
 #define KMEM_CUSTOMFLAG_USE_QUICKMAP        0x00000040
 #define KMEM_CUSTOMFLAG_UNMAP               0x00000080
 #define KMEM_CUSTOMFLAG_NO_PHYS_REALIGN     0x00000100
+#define KMEM_CUSTOMFLAG_NO_MARK             0x00000200
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002
@@ -174,6 +175,10 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr);
 
 void kmem_set_phys_page_used (uintptr_t idx);
 void kmem_set_phys_page_free (uintptr_t idx);
+
+void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count);
+void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count);
+
 void kmem_set_phys_page (uintptr_t idx, bool value);
 bool kmem_is_phys_page_used (uintptr_t idx);
 

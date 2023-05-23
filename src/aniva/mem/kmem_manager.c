@@ -319,6 +319,18 @@ void kmem_set_phys_page_free(uintptr_t idx) {
   bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
 }
 
+void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count) {
+  for (uintptr_t i = 0; i < page_count; i++) {
+    kmem_set_phys_page_used(start_idx + i);
+  }
+}
+
+void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count) {
+  for (uintptr_t i = 0; i < page_count; i++) {
+    kmem_set_phys_page_free(start_idx + i);
+  }
+}
+
 bool kmem_is_phys_page_used (uintptr_t idx) {
   return bitmap_isset(KMEM_DATA.m_phys_bitmap, idx);
 }
@@ -468,14 +480,29 @@ void kmem_invalidate_pd(uintptr_t vaddr) {
 bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) {
 
   pml_entry_t* page;
+  uintptr_t phys_idx;
+  bool should_mark;
 
-  // secure page
+  /* 
+   * secure page 
+   * NOTE: we don't use KMEM_FLAG_KERNEL here
+   * since otherwise it is impossible to specify 
+   * userpages like this =/ semantics are weird here lmao
+   */
   if (page_flags == 0)
-    page_flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
+    page_flags = KMEM_FLAG_WRITABLE;
+
+  phys_idx = kmem_get_page_idx(phys);
+
+  /* Does the caller specify we should not mark? */
+  should_mark = ((kmem_flags & KMEM_CUSTOMFLAG_NO_MARK) != KMEM_CUSTOMFLAG_NO_MARK);
   
-  // Set the physical page as used here to prevent 
-  // kmem_get_page from grabbing it 
-  kmem_set_phys_page_used(kmem_get_pagr_idx(phys));
+  /*
+   * Set the physical page as used here to prevent 
+   * kmem_get_page from grabbing it 
+   */
+  if (should_mark)
+    kmem_set_phys_page_used(phys_idx);
 
   page = kmem_get_page(table, virt, kmem_flags, page_flags);
   
@@ -484,12 +511,18 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   }
 
   /* Realign the physical address */
-  //if ((kmem_flags & KMEM_CUSTOMFLAG_NO_PHYS_REALIGN) != KMEM_CUSTOMFLAG_NO_PHYS_REALIGN)
-  //  phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
+  if ((kmem_flags & KMEM_CUSTOMFLAG_NO_PHYS_REALIGN) != KMEM_CUSTOMFLAG_NO_PHYS_REALIGN)
+    phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
 
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
-  kmem_set_phys_page_free(kmem_get_page_idx(phys));
+
+  /* 
+   * If the caller does not specify that they want to defer 
+   * freeing the physical page, we just do
+   */
+  if (should_mark)
+    kmem_set_phys_page_free(phys_idx);
 
   return true;
 }
@@ -532,14 +565,29 @@ out:
 
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
 
-  for (uintptr_t i = 0; i < page_count; i++) {
-    uintptr_t vbase = virt_base + (kmem_get_page_addr(i));
-    uintptr_t pbase = phys_base + (kmem_get_page_addr(i));
+  uintptr_t start_idx;
+  bool should_mark;
 
-    if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags)) {
+  start_idx = kmem_get_page_idx(phys_base);
+  should_mark = ((kmem_flags & KMEM_CUSTOMFLAG_NO_MARK) != KMEM_CUSTOMFLAG_NO_MARK);
+
+  if (should_mark)
+    kmem_set_phys_range_used(start_idx, page_count);
+
+  for (uintptr_t i = 0; i < page_count; i++) {
+    const uintptr_t offset = kmem_get_page_addr(i);
+    const uintptr_t vbase = virt_base + offset;
+    const uintptr_t pbase = phys_base + offset;
+
+    /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
+    if (!kmem_map_page(table, vbase, pbase, KMEM_CUSTOMFLAG_NO_MARK | kmem_flags, page_flags)) {
       return false;
     }
   }
+
+  if (should_mark)
+    kmem_set_phys_range_free(start_idx, page_count);
+
   return true;
 }
 
@@ -649,31 +697,17 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
   print("Physical(no align): ");
   println(to_string(addr));
 
+  /* Compute return value since we align the parameter */
   const vaddr_t ret = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
 
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+    return Error();
+
   /*
-   * Mark our pages as used BEFORE we map the range, since map_page
+   * Mark our pages as used AFTER we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
-  for (uintptr_t i = 0; i < pages_needed; i++) {
-    paddr_t phys_addr = phys_base + (i * SMALL_PAGE_SIZE);
-    uintptr_t phys_idx = kmem_get_page_idx(phys_addr);
-    
-    kmem_set_phys_page_used(phys_idx);
-  }
-
-  for (uintptr_t i = 0; i < pages_needed; i++) {
-
-    paddr_t phys_addr = phys_base + (i * SMALL_PAGE_SIZE);
-    vaddr_t virt_addr = virt_base + (i * SMALL_PAGE_SIZE);
-
-    /* Ensure that we don't fail because we need to create a mapping first */
-    bool result = kmem_map_page(map, virt_addr, phys_addr, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags);
-
-    if (!result) {
-      return Error();
-    }
-  }
+  kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
 
   return Success(ret);
 }
@@ -690,56 +724,20 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
   const paddr_t phys_base = addr;
   const vaddr_t virt_base = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
 
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+    return Error();
+
   /*
-   * Mark our pages as used BEFORE we map the range, since map_page
+   * Mark our pages as used AFTER we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
-  for (uintptr_t i = 0; i < pages_needed; i++) {
-    paddr_t phys_addr = phys_base + (i * SMALL_PAGE_SIZE);
-    uintptr_t phys_idx = kmem_get_page_idx(phys_addr);
-    
-    kmem_set_phys_page_used(phys_idx);
-  }
-
-  for (uintptr_t i = 0; i < pages_needed; i++) {
-
-    paddr_t phys_addr = phys_base + (i * SMALL_PAGE_SIZE);
-    vaddr_t virt_addr = virt_base + (i * SMALL_PAGE_SIZE);
-
-    bool result = kmem_map_page(map, virt_addr, phys_addr, custom_flags, page_flags);
-
-    if (!result) {
-      return Error();
-    }
-  }
+  kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
 
   return Success(virt_base);
 }
 
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
-  const bool should_remap = (!(custom_flags & KMEM_CUSTOMFLAG_NO_REMAP));
-
-  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
-
-  const vaddr_t ret = vbase; 
-
-  for (uintptr_t i = 0; i < pages_needed; i++) {
-
-    const uintptr_t page_idx = Must(bitmap_find_free(KMEM_DATA.m_phys_bitmap));
-    const paddr_t page_base = kmem_get_page_addr(page_idx);
-
-    const vaddr_t vaddr = vbase + (i * SMALL_PAGE_SIZE);
-    const paddr_t paddr = page_base;
-
-    kmem_set_phys_page_used(page_idx);
-    bool result = kmem_map_page(map, vaddr, paddr, custom_flags, page_flags);
-
-    if (!result) {
-      return Error();
-    }
-  }
-  return Success(ret);
-
+  kernel_panic("TODO: implement __kmem_map_and_alloc_scattered");
 }
 
 // TODO: make this more dynamic
@@ -755,10 +753,10 @@ static void _init_kmem_page_layout () {
   const size_t extra_mappings_bytes = (ALIGN_UP(5 * Mib, SMALL_PAGE_SIZE));
 
   /* Map the kernel range */
-  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map kernel");
+  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map kernel");
   
   /* Map everything before the kernel */
-  ASSERT_MSG(kmem_map_range(nullptr, HIGH_MAP_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+  ASSERT_MSG(kmem_map_range(nullptr, HIGH_MAP_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
 
   println("Done mapping bootstrap ranges");
 }
@@ -774,7 +772,7 @@ static void _init_kmem_page_layout_late() {
   print("High page count: ");
   println(to_string(high_page_count));
 
-  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_end, kernel_physical_end, high_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map all memory");
+  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_end, kernel_physical_end, high_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map all memory");
 }
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {

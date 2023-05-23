@@ -57,6 +57,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         stack_mem_flags));
 
+
   stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
 
   /* Compute the kernel stack top */

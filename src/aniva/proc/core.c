@@ -100,9 +100,7 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
   if (!current)
     return Error();
 
-  println("Trying to create thread");
   thread_t* thread = create_thread_for_proc(current, entry, arg0, name);
-  println("Trying to create thread");
 
   if (!thread)
     return Error();
