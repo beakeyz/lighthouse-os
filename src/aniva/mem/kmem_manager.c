@@ -472,6 +472,9 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   // secure page
   if (page_flags == 0)
     page_flags = KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL;
+  
+  // Set the physical page as used here to prevent 
+  // kmem_get_page from grabbing it kmem_set_phys_page_used(kmem_get_pagr_idx(phys));
 
   page = kmem_get_page(table, virt, kmem_flags, page_flags);
   
@@ -485,6 +488,7 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
 
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
+ kmem_set_phys_page_free(kmem_get_page_idx(phys));
 
   return true;
 }
