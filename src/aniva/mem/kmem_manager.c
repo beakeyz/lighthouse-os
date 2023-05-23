@@ -489,7 +489,7 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
 
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
-   kmem_set_phys_page_free(kmem_get_page_idx(phys));
+  kmem_set_phys_page_free(kmem_get_page_idx(phys));
 
   return true;
 }
