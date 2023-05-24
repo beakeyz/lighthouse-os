@@ -230,9 +230,9 @@ extern void thread_enter_context(thread_t *to) {
   if (previous_thread->m_context.cr3 != to->m_context.cr3) {
     if (to->m_context.cr3 == (uintptr_t)kmem_get_krnl_dir()) {
       /* The exception is the kernel page dir, since it is stored as a physical address */
-      load_page_dir(to->m_context.cr3, false);
+      kmem_load_page_dir(to->m_context.cr3, false);
     } else {
-      load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
+      kmem_load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
     }
   }
 

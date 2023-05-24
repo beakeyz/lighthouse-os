@@ -151,7 +151,7 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
  */
 void parse_mmap ();
 
-void load_page_dir(uintptr_t dir, bool __disable_interupts);
+void kmem_load_page_dir(uintptr_t dir, bool __disable_interupts);
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
 uintptr_t kmem_get_page_base (uintptr_t base);
@@ -185,7 +185,9 @@ bool kmem_is_phys_page_used (uintptr_t idx);
 /*
  * flush tlb for a virtual address
  */
-void kmem_invalidate_pd(uintptr_t vaddr);
+void kmem_invalidate_tlb_cache_entry(uintptr_t vaddr);
+void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size);
+void kmem_refresh_tlb();
 
 /*
  * completely flush the tlb cache

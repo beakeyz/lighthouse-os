@@ -84,7 +84,7 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
   // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
   uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE;
  
-  load_page_dir(map, true);
+  kmem_load_page_dir(map, true);
 
   _init_kmem_page_layout_late();
 
@@ -231,6 +231,10 @@ void parse_mmap() {
   println(to_string(KMEM_DATA.m_phys_pages_count));
 }
 
+/*
+ * Initialize the physical page allocator that keeps track
+ * of which physical pages are used and which are free
+ */
 void kmem_init_physical_allocator() {
 
   size_t physical_pages_bytes = (KMEM_DATA.m_phys_pages_count + 8 - 1) >> 3;
@@ -273,14 +277,25 @@ void kmem_init_physical_allocator() {
   }
 }
 
+/*
+ * Transform a physical address to an address that is mapped to the 
+ * high kernel range
+ */
 vaddr_t kmem_ensure_high_mapping(uintptr_t addr) { 
   return (vaddr_t)(addr | HIGH_MAP_BASE);
 }
 
+/*
+ * Transform a physical address to an arbitrary virtual base
+ */
 vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase) {
   return (vaddr_t)(addr | vbase);
 }
 
+/*
+ * Translate a virtual address to a physical address that is
+ * page-aligned
+ */
 uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) {
 
   pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
@@ -292,6 +307,9 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) {
   return kmem_get_page_base(page->raw_bits);
 }
 
+/*
+ * Same as the function above, but this one also keeps the alignment in mind
+ */
 uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
 
   paddr_t aligned_paddr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
@@ -346,7 +364,10 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
   }
 }
 
-// TODO: errorhandle
+/*
+ * Try to find a free physical page, using the bitmap that was 
+ * setup by the physical page allocator
+ */
 ErrorOrPtr kmem_request_physical_page() {
 
   TRY(index, bitmap_find_free(KMEM_DATA.m_phys_bitmap));
@@ -354,7 +375,10 @@ ErrorOrPtr kmem_request_physical_page() {
   return Success(index);
 }
 
-// TODO: errorhandle
+/*
+ * Try to find a free physical page, just as kmem_request_physical_page, 
+ * but this also marks it as used and makes sure it is filled with zeros
+ */
 ErrorOrPtr kmem_prepare_new_physical_page() {
   // find
   TRY(result, kmem_request_physical_page());
@@ -374,6 +398,9 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
   return Success(address);
 }
 
+/*
+ * Return a physical page to the physical page allocator
+ */
 ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
 
   if (ALIGN_UP(page_base, SMALL_PAGE_SIZE) != page_base) {
@@ -391,6 +418,9 @@ ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
   return Success(0);
 }
 
+/*
+ * Find the kernel root page directory
+ */
 pml_entry_t *kmem_get_krnl_dir() {
   return (pml_entry_t*)((uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE);
 }
@@ -473,8 +503,26 @@ pml_entry_t* kmem_get_page_with_quickmap (pml_entry_t* table, vaddr_t virt, uint
   kernel_panic("kmem_get_page_with_quickmap: not implemented");
 }
 
-void kmem_invalidate_pd(uintptr_t vaddr) {
+void kmem_invalidate_tlb_cache_entry(uintptr_t vaddr) {
   asm volatile("invlpg %0" ::"m"(vaddr) : "memory");
+}
+
+void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size) {
+
+  vaddr_t virtual_base = ALIGN_DOWN(vaddr, SMALL_PAGE_SIZE);
+  uintptr_t indices = kmem_get_page_idx(size);
+
+  for (uintptr_t i = 0; i < indices; i++) {
+    kmem_invalidate_tlb_cache_entry(virtual_base + i * SMALL_PAGE_SIZE);
+  }
+}
+
+void kmem_refresh_tlb() {
+  /* FIXME: is this always up to date? */
+  pml_entry_t* current = get_current_processor()->m_page_dir;
+
+  /* Reloading CR3 will clear the tlb */
+  kmem_load_page_dir((uintptr_t)current, false);
 }
 
 bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) {
@@ -513,6 +561,9 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   /* Realign the physical address */
   if ((kmem_flags & KMEM_CUSTOMFLAG_NO_PHYS_REALIGN) != KMEM_CUSTOMFLAG_NO_PHYS_REALIGN)
     phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
+
+  /* Clear the tlb cache to update the mapping fr */
+  kmem_invalidate_tlb_cache_entry(virt);
 
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
@@ -599,10 +650,12 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
 
   if (page) {
     page->raw_bits = 0;
+
+    kmem_invalidate_tlb_cache_entry(virt);
+
     return true;
   }
 
-  // kmem_invalidate_pd(virt);
   return false;
 }
 
@@ -868,7 +921,7 @@ void kmem_destroy_page_dir(pml_entry_t* dir) {
  * NOTE: caller needs to ensure that they pass a physical address
  * as page map. CR3 only takes physical addresses
  */
-void load_page_dir(uintptr_t dir, bool __disable_interupts) {
+void kmem_load_page_dir(uintptr_t dir, bool __disable_interupts) {
   if (__disable_interupts) 
     disable_interrupts();
 
