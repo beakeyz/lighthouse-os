@@ -446,26 +446,27 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uintptr_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
-  pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_krnl_dir());
-  if (root)
-    pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)root);
-
-  pml_entry_t* pml4_e = &pml4[pml4_idx];
-  const bool pml4_entry_exists = (pml_entry_is_bit_set(pml4_e, PDE_PRESENT));
+  pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root));
+  const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
   if (!pml4_entry_exists) {
     if (!should_make) {
       return nullptr;
     }
-    paddr_t page_addr = Must(kmem_prepare_new_physical_page());
+    uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    kmem_set_page_base(pml4_e, page_addr);
-    kmem_set_page_flags(pml4_e, page_creation_flags);
+    kmem_set_page_base(&pml4[pml4_idx], page_addr);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_READ_WRITE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4_e->raw_bits));
-  pml_entry_t* pdp_e = &pdp[pdp_idx];
-  const bool pdp_entry_exists = (pml_entry_is_bit_set(pdp_e, PDE_PRESENT));
+  pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits));
+  const bool pdp_entry_exists = (pml_entry_is_bit_set((pml_entry_t*)&pdp[pdp_idx], PDE_PRESENT));
 
   if (!pdp_entry_exists) {
     if (!should_make) {
@@ -473,13 +474,18 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     }
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    kmem_set_page_base(pdp_e, page_addr);
-    kmem_set_page_flags(pdp_e, page_creation_flags);
+    kmem_set_page_base(&pdp[pdp_idx], page_addr);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_READ_WRITE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  pml_entry_t* pd = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pdp_e->raw_bits));
-  pml_entry_t* pd_e = &pd[pd_idx];
-  const bool pd_entry_exists = pml_entry_is_bit_set(pd_e, PDE_PRESENT);
+  pml_entry_t* pd = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits));
+  const bool pd_entry_exists = pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT);
 
   if (!pd_entry_exists) {
     if (!should_make) {
@@ -487,12 +493,18 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     }
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    kmem_set_page_base(pd_e, page_addr);
-    kmem_set_page_flags(pd_e, page_creation_flags);
+    kmem_set_page_base(&pd[pd_idx], page_addr);
+    pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
+    pml_entry_set_bit(&pd[pd_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
+    pml_entry_set_bit(&pd[pd_idx], PDE_READ_WRITE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
+    pml_entry_set_bit(&pd[pd_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
+    pml_entry_set_bit(&pd[pd_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
+    pml_entry_set_bit(&pd[pd_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
+    pml_entry_set_bit(&pd[pd_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
   // this just should exist
-  const pml_entry_t* pt = (const pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pd_e->raw_bits));
+  const pml_entry_t* pt = (const pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits));
   return (pml_entry_t*)&pt[pt_idx];
 }
 
@@ -648,15 +660,13 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
 
   page = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page(table, virt, custom_flags, 0));
 
-  if (page) {
-    page->raw_bits = 0;
-
-    kmem_invalidate_tlb_cache_entry(virt);
-
-    return true;
+  if (!page) {
+    return false;
   }
 
-  return false;
+  page->raw_bits = 0;
+
+  return true;
 }
 
 // FIXME: free higher level pts as well
@@ -716,7 +726,9 @@ ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
     
     kmem_set_phys_page_free(page_idx);
 
+    println("Unmapping");
     kmem_unmap_page(map, vaddr);
+    println("Unmapped");
   }
   return Success(0);
 }
