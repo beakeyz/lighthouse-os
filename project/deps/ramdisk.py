@@ -22,3 +22,7 @@ class RamdiskManager(object):
         with tarfile.open(self.OUT_PATH, "w:gz") as anivaRamdisk:
             anivaRamdisk.add("system", arcname="/", filter=self.__tar_filter)
             anivaRamdisk.add("out/user/init/init", arcname="/init", filter=self.__tar_filter)
+
+    def remove_ramdisk(self) -> bool:
+
+        return False

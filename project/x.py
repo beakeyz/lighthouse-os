@@ -128,6 +128,16 @@ class RamdiskCreateCallback(CommandCallback):
         return Status(StatusCode.Success, "Created ramdisk!")
 
 
+class RamdiskRemoveCallback(CommandCallback):
+    def call(self) -> Status:
+        ramdisk = RamdiskManager()
+
+        if ramdisk.remove_ramdisk() == True:
+            return Status(StatusCode.Success, "Removed ramdisk!")
+
+        return Status(StatusCode.Fail, "Failed to remove ramdisk!")
+
+
 class BuildsysBuildKernelCallback(CommandCallback):
     def call(self) -> Status:
         c = Consts()
@@ -207,7 +217,8 @@ def project_main() -> Status:
     cmd_processor.register_cmd(Command("lines", callback=LinesCallback()))
     cmd_processor.register_cmd(Command("deps", callback=DepsCallback()))
     cmd_processor.register_cmd(Command("ramdisk", args={
-        "create": RamdiskCreateCallback()
+        "create": RamdiskCreateCallback(),
+        "remove": RamdiskRemoveCallback(),
     }))
     cmd_processor.register_cmd(Command("build", args={
         "kernel": BuildsysBuildKernelCallback(),
