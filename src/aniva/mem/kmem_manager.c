@@ -688,6 +688,12 @@ bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count) {
   return true;
 }
 
+/*
+ * NOTE: this function sets the flags for a page entry, not
+ * any other entries like page directory entries or any of the such.
+ *
+ * NOTE: this also always sets the PRESENT bit to true
+ */
 void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
 
   //uintptr_t base = kmem_request_physical_page().m_ptr;
