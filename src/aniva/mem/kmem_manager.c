@@ -446,6 +446,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uintptr_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
+  println("A");
   pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root));
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
@@ -465,8 +466,11 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
+  println("B");
   pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits));
   const bool pdp_entry_exists = (pml_entry_is_bit_set((pml_entry_t*)&pdp[pdp_idx], PDE_PRESENT));
+
+  println(to_string(pdp_entry_exists));
 
   if (!pdp_entry_exists) {
     if (!should_make) {
@@ -484,6 +488,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
+  println("C");
   pml_entry_t* pd = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits));
   const bool pd_entry_exists = pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT);
 
@@ -503,6 +508,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pd[pd_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
+  println("D");
   // this just should exist
   const pml_entry_t* pt = (const pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits));
   return (pml_entry_t*)&pt[pt_idx];
@@ -564,6 +570,7 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   if (should_mark)
     kmem_set_phys_page_used(phys_idx);
 
+  println("get_page");
   page = kmem_get_page(table, virt, kmem_flags, page_flags);
   
   if (!page) {
@@ -574,11 +581,12 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   if ((kmem_flags & KMEM_CUSTOMFLAG_NO_PHYS_REALIGN) != KMEM_CUSTOMFLAG_NO_PHYS_REALIGN)
     phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
 
-  /* Clear the tlb cache to update the mapping fr */
-  kmem_invalidate_tlb_cache_entry(virt);
-
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
+
+  /* Clear the tlb cache to update the mapping fr */
+  /* NOTE: this has a tendency to crash =/ */
+  // kmem_invalidate_tlb_cache_entry(virt);
 
   /* 
    * If the caller does not specify that they want to defer 
@@ -629,27 +637,24 @@ out:
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
 
   uintptr_t start_idx;
-  bool should_mark;
+
+  /* Can't map zero pages =( */
+  if (!page_count)
+    return false;
 
   start_idx = kmem_get_page_idx(phys_base);
-  should_mark = ((kmem_flags & KMEM_CUSTOMFLAG_NO_MARK) != KMEM_CUSTOMFLAG_NO_MARK);
-
-  if (should_mark)
-    kmem_set_phys_range_used(start_idx, page_count);
 
   for (uintptr_t i = 0; i < page_count; i++) {
     const uintptr_t offset = kmem_get_page_addr(i);
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
 
+    println("Mapping");
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
     if (!kmem_map_page(table, vbase, pbase, KMEM_CUSTOMFLAG_NO_MARK | kmem_flags, page_flags)) {
       return false;
     }
   }
-
-  if (should_mark)
-    kmem_set_phys_range_free(start_idx, page_count);
 
   return true;
 }
@@ -771,14 +776,14 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
   /* Compute return value since we align the parameter */
   const vaddr_t ret = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
 
-  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
-    return Error();
-
   /*
-   * Mark our pages as used AFTER we map the range, since map_page
+   * Mark our pages as used BEFORE we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
   kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
+
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+    return Error();
 
   return Success(ret);
 }
@@ -795,14 +800,14 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
   const paddr_t phys_base = addr;
   const vaddr_t virt_base = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
 
-  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
-    return Error();
-
   /*
-   * Mark our pages as used AFTER we map the range, since map_page
+   * Mark our pages as used BEFORE we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
   kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
+
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+    return Error();
 
   return Success(virt_base);
 }
@@ -980,6 +985,26 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
   new_table[pml4_idx] = kernel_lvl_3;
 
   return Success(0);
+}
+
+ErrorOrPtr kmem_get_kernel_addresss(vaddr_t virtual_address, pml_entry_t* map) {
+
+  pml_entry_t* page;
+  vaddr_t v_kernel_address;
+
+  /* Can't grab from NULL */
+  if (!map) 
+    return Error();
+
+  /* Make sure we don't make a new page here */
+  page = kmem_get_page(map, virtual_address, 0, 0);
+
+  if (!page)
+    return Error();
+
+  v_kernel_address = kmem_get_page_base(page->raw_bits);
+
+  return Success(v_kernel_address);
 }
 
 // FIXME: macroes?

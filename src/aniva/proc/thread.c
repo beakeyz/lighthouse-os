@@ -95,7 +95,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     /* We don't touch rsp when the thread is not a kthread */
     thread->m_context.rsp = thread->m_user_stack_top;
   }
-  
+
   /* Set the entrypoint last */
   thread_set_entrypoint(thread, (FuncPtr)thread->m_real_entry, data, 0);
   return thread;

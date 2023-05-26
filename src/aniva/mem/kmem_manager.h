@@ -242,6 +242,14 @@ ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
+/*
+ * Return a translation of the address provided that is 
+ * useable for the kernel
+ * 
+ * Fails if virtual_address is not mapped into the provided map
+ */
+ErrorOrPtr kmem_get_kernel_addresss(vaddr_t virtual_address, pml_entry_t* map);
+
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 
 /* access to kmem_manager data struct */

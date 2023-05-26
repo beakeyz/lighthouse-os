@@ -109,7 +109,6 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 
-  println("Ding");
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     struct elf64_phdr phdr = phdrs[i];
 
@@ -120,14 +119,14 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
           size_t phdr_size = phdr.p_memsz;
 
           println("Alloc range");
-          vaddr_t kalloc = Must(__kmem_kernel_alloc_range(phdr_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
-          println("Map range");
-          println(to_string(kalloc));
-          println(to_string(virtual_phdr_base));
-          println(to_string(phdr_size));
-          println(to_string((uintptr_t)kmem_to_phys(nullptr, (uintptr_t)ret->m_root_pd.m_root)));
-          Must(kmem_map_into(ret->m_root_pd.m_root, kalloc, virtual_phdr_base, phdr_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
+          vaddr_t kalloc = Must(__kmem_alloc_range(
+                ret->m_root_pd.m_root,
+                virtual_phdr_base,
+                phdr_size,
+                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
+                KMEM_FLAG_WRITABLE
+                ));
 
           println("Read range");
           /* Copy elf into the mapped area */
@@ -155,7 +154,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   kfree(phdrs);
 
-  println("Schedule");
+  kernel_panic("Ready to schedule");
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
   sched_add_priority_proc(ret, true);
 
