@@ -120,18 +120,20 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
           println("Alloc range");
 
-          vaddr_t kalloc = Must(__kmem_alloc_range(
+          vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
                 ret->m_root_pd.m_root,
                 virtual_phdr_base,
                 phdr_size,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
+                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
                 KMEM_FLAG_WRITABLE
                 ));
+
+          vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_addresss(v_user_phdr_start, ret->m_root_pd.m_root));
 
           println("Read range");
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
-          elf_read(file, (void*)kalloc, phdr.p_filesz, phdr.p_offset);
+          elf_read(file, (void*)v_kernel_phdr_start, phdr.p_filesz, phdr.p_offset);
           // ???
           // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
@@ -154,7 +156,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   kfree(phdrs);
 
-  kernel_panic("Ready to schedule");
+  // kernel_panic("Ready to schedule");
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
   sched_add_priority_proc(ret, true);
 

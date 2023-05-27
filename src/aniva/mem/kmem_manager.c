@@ -387,6 +387,9 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
 
   paddr_t address = kmem_get_page_addr(result);
 
+  print("prep phys page idx: ");
+  println(to_string(result));
+
   // There might be an issue here as we try to zero
   // and this page is never mapped. We might need some
   // sort of temporary mapping like serenity has to do
@@ -446,7 +449,6 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uintptr_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
-  println("A");
   pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root));
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
@@ -466,11 +468,8 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  println("B");
   pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits));
   const bool pdp_entry_exists = (pml_entry_is_bit_set((pml_entry_t*)&pdp[pdp_idx], PDE_PRESENT));
-
-  println(to_string(pdp_entry_exists));
 
   if (!pdp_entry_exists) {
     if (!should_make) {
@@ -488,7 +487,6 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  println("C");
   pml_entry_t* pd = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits));
   const bool pd_entry_exists = pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT);
 
@@ -508,7 +506,6 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pd[pd_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  println("D");
   // this just should exist
   const pml_entry_t* pt = (const pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits));
   return (pml_entry_t*)&pt[pt_idx];
@@ -570,7 +567,6 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   if (should_mark)
     kmem_set_phys_page_used(phys_idx);
 
-  println("get_page");
   page = kmem_get_page(table, virt, kmem_flags, page_flags);
   
   if (!page) {
@@ -649,7 +645,6 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
 
-    println("Mapping");
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
     if (!kmem_map_page(table, vbase, pbase, KMEM_CUSTOMFLAG_NO_MARK | kmem_flags, page_flags)) {
       return false;
@@ -734,12 +729,11 @@ ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
 
     if (!was_used) 
       return Error();
-    
-    kmem_set_phys_page_free(page_idx);
 
-    println("Unmapping");
-    kmem_unmap_page(map, vaddr);
-    println("Unmapped");
+    if (!kmem_unmap_page(map, vaddr))
+      return Error();
+
+    kmem_set_phys_page_free(page_idx);
   }
   return Success(0);
 }
@@ -867,6 +861,8 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, 0));
   pml_entry_t* phys_table_root = (void*)kmem_to_phys(nullptr, (uintptr_t)table_root);
 
+  memset(table_root, 0, SMALL_PAGE_SIZE);
+
   for (uintptr_t i = 0; i < page_count; i++) {
 
     paddr_t physical_base = Must(kmem_prepare_new_physical_page());
@@ -990,6 +986,7 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
 ErrorOrPtr kmem_get_kernel_addresss(vaddr_t virtual_address, pml_entry_t* map) {
 
   pml_entry_t* page;
+  paddr_t p_address;
   vaddr_t v_kernel_address;
 
   /* Can't grab from NULL */
@@ -1002,7 +999,17 @@ ErrorOrPtr kmem_get_kernel_addresss(vaddr_t virtual_address, pml_entry_t* map) {
   if (!page)
     return Error();
 
-  v_kernel_address = kmem_get_page_base(page->raw_bits);
+  p_address = kmem_get_page_base(page->raw_bits);
+
+  /*
+   * FIXME: 'high' mappings have a hard limit in them, so we will have to 
+   * create some kind of dynamic mapping for certain types of memory. 
+   * For example:
+   *  - we map driver memory at a certain base for driver memory * the driver index
+   *  - we map kernel resources at a certain base just for kernel resources
+   *  - ect.
+   */
+  v_kernel_address = kmem_ensure_high_mapping(p_address);
 
   return Success(v_kernel_address);
 }
