@@ -39,7 +39,7 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
   proc->m_thread_count = create_atomic_ptr_with_value(0);
 
   // Only create new page dirs for non-kernel procs
-  if ((flags & PROC_KERNEL) == 0 || (flags & PROC_DRIVER) == PROC_DRIVER) {
+  if ((flags & PROC_KERNEL) != PROC_KERNEL || (flags & PROC_DRIVER) == PROC_DRIVER) {
     proc->m_requested_max_threads = 2;
   //  proc->m_prevent_scheduling = true;
     proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);

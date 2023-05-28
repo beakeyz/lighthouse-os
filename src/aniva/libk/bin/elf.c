@@ -58,7 +58,8 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
 }
 
 /*
- * FIXME: do we clos the file if this function fails?
+ * FIXME: do we close the file if this function fails?
+ * FIXME: flags?
  */
 ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 

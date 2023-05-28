@@ -810,23 +810,29 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_
   kernel_panic("TODO: implement __kmem_map_and_alloc_scattered");
 }
 
-// TODO: make this more dynamic
-static void _init_kmem_page_layout () {
+static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
+{
 
-  const paddr_t kernel_physical_start = ALIGN_UP((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
+  const paddr_t kernel_physical_start = kernel_start - HIGH_MAP_BASE;
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t total_pre_kernel_page_count = kmem_get_page_idx(kernel_physical_start);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
   const size_t total_kernel_page_count = kernel_end_idx - total_pre_kernel_page_count;
 
-  /* Map some extra bytes in order to ensure that we can map more later */
-  const size_t extra_mappings_bytes = (ALIGN_UP(5 * Mib, SMALL_PAGE_SIZE));
-
   /* Map the kernel range */
-  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map kernel");
+  ASSERT_MSG(kmem_map_range(map, kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map kernel");
   
   /* Map everything before the kernel */
-  ASSERT_MSG(kmem_map_range(nullptr, HIGH_MAP_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+}
+
+// TODO: make this more dynamic
+static void _init_kmem_page_layout () {
+
+  ASSERT_MSG(kmem_get_krnl_dir(), "Tried to init kmem_page_layout without a present krnl dir");
+
+  __kmem_map_kernel_range_to_map(nullptr);
 
   println("Done mapping bootstrap ranges");
 }
@@ -861,6 +867,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, 0));
   pml_entry_t* phys_table_root = (void*)kmem_to_phys(nullptr, (uintptr_t)table_root);
 
+  /* Clear root, so we have no random mappings */
   memset(table_root, 0, SMALL_PAGE_SIZE);
 
   for (uintptr_t i = 0; i < page_count; i++) {
@@ -875,18 +882,15 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
     }
   }
 
-  const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const paddr_t kernel_physical_start = ALIGN_UP((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t total_kernel_page_count = kmem_get_page_idx(kernel_physical_end);
+  /* NOTE: this works, but I really don't want to have to do this =/ */
+  Must(kmem_copy_kernel_mapping(table_root));
 
-  /* Copy the high kernel mappings */
-  //Must(kmem_copy_kernel_mapping(table_root));
-
-  ASSERT_MSG(kmem_map_range(phys_table_root, HIGH_MAP_BASE, 0, total_kernel_page_count, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map kernel pages for new pagemap");
+  /* NOTE: for some reason this does not do what it needs to */
+  //__kmem_map_kernel_range_to_map(table_root);
 
   ret.m_root = table_root;
-  ret.m_kernel_low = HIGH_MAP_BASE + kernel_physical_start;
-  ret.m_kernel_high = HIGH_MAP_BASE + kernel_physical_end;
+  ret.m_kernel_low = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
+  ret.m_kernel_high = ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
 
   println_kterm("Created page dir");
   return ret;
@@ -978,6 +982,7 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
   if (!is_present)
     return Error();
 
+  /* FIXME: this is so hacky lmao */
   new_table[pml4_idx] = kernel_lvl_3;
 
   return Success(0);
