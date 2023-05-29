@@ -26,11 +26,12 @@ typedef void (*PROCESSOR_LATE_INIT)(
 
 typedef struct Processor {
   struct Processor *m_own_ptr;
-  gdt_pointer_t m_gdtr;
-  gdt_entry_t m_gdt[32] __attribute__((aligned(0x10)));
-  tss_entry_t m_tss;
 
-  size_t m_gdt_highest_entry;
+  /* GDT */
+  gdt_entry_t m_gdt[6]              __attribute__((aligned(0x10)));
+  gdt_entry_high_t m_extra_tss      __attribute__((aligned(0x10)));
+  tss_entry_t m_tss                 __attribute__((aligned(0x10)));
+  gdt_pointer_t m_gdtr              __attribute__((aligned(0x10)));
 
   //spinlock_t *m_hard_processor_lock;
   atomic_ptr_t *m_locked_level;

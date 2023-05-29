@@ -563,7 +563,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   thread_t* next_thread = nullptr;
 
   /* Clear the flag and run initializer */
-  if (proc->m_flags & PROC_UNRUNNED) {
+  if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {
     proc->m_flags &= ~PROC_UNRUNNED;
 
     /* We require the initial thread to be in the threads list */

@@ -6,8 +6,8 @@
 #define GDT_NULL_SELC 0
 #define GDT_KERNEL_CODE 0x08
 #define GDT_KERNEL_DATA 0x10
-#define GDT_USER_DATA 0x18
-#define GDT_USER_CODE 0x20
+#define GDT_USER_CODE 0x18
+#define GDT_USER_DATA 0x20
 #define GDT_TSS_SEL 0x28
 #define GDT_TSS_2_SEL 0x30
 
@@ -17,8 +17,8 @@
 // TODO: defines for flag bits
 
 typedef struct {
-    uint16_t limit;
-    uintptr_t base;
+  uint16_t limit;
+  uintptr_t base;
 } __attribute__((packed)) gdt_pointer_t;
 
 // 64-bit tss =)
@@ -47,7 +47,7 @@ typedef union {
     uint8_t dpl : 2;
     uint8_t segment_present : 1;
     uint8_t limit_high : 4;
-    uint8_t unused : 1;
+    uint8_t available : 1;
     uint8_t op_size64 : 1;
     uint8_t op_size32 : 1;
     uint8_t granularity : 1;
@@ -57,8 +57,13 @@ typedef union {
     uint32_t low;
     uint32_t high;
   };
-	uintptr_t raw;
+  uintptr_t raw;
 } __attribute__((packed)) gdt_entry_t;
+
+typedef struct {
+  uint32_t base;
+  uint32_t reserved0;
+} __attribute__((packed)) gdt_entry_high_t;
 
 ALWAYS_INLINE uintptr_t get_gdte_base(gdt_entry_t* entry) {
   uintptr_t base = entry->structured.base_low;
@@ -69,7 +74,7 @@ ALWAYS_INLINE uintptr_t get_gdte_base(gdt_entry_t* entry) {
 
 ALWAYS_INLINE void set_gdte_base(gdt_entry_t* entry, uintptr_t base) {
   entry->structured.base_low = base & 0xffffu;
-  entry->structured.base_hi2 = (base >> 16u) & 0xffu;
+  entry->structured.base_high = (base >> 16u) & 0xffu;
   entry->structured.base_hi2 = (base >> 24u) & 0xffu;
 }
 

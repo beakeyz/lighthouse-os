@@ -60,7 +60,10 @@ ALWAYS_INLINE uintptr_t read_cs() {
 }
 
 ALWAYS_INLINE void __ltr(uint16_t sel) {
-  asm volatile("ltr %0" :: "r"(sel));
+  asm volatile(
+      "ltr %0"
+      :: "r"((uint16_t)(sel | (uint16_t)3))
+      );
 }
 
 #endif // !__ANIVA_ASM_SPECIFICS__

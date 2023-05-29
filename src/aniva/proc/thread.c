@@ -1,6 +1,7 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
+#include "interupts/control/interrupt_control.h"
 #include "interupts/interupts.h"
 #include "entry/entry.h"
 #include "libk/error.h"
@@ -16,6 +17,7 @@
 #include "core.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
+#include "time/pit.h"
 #include <mem/heap.h>
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
@@ -56,7 +58,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         stack_mem_flags));
-
 
   stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
 
@@ -226,15 +227,20 @@ extern void thread_enter_context(thread_t *to) {
   //call_event(CONTEXT_SWITCH_EVENT, &hook);
 
   // Only switch pagetables if we actually need to interchange between
-  // them, otherwise thats just wasted buffers
+  // them, otherwise thats just wasted tlb
   if (previous_thread->m_context.cr3 != to->m_context.cr3) {
     if (to->m_context.cr3 == (uintptr_t)kmem_get_krnl_dir()) {
       /* The exception is the kernel page dir, since it is stored as a physical address */
       kmem_load_page_dir(to->m_context.cr3, false);
     } else {
       kmem_load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
+
+      uninstall_pit();
     }
   }
+
+  print("Switch: ");
+  println(to->m_name);
 
   // NOTE: for correction purposes
   to->m_cpu = current_processor->m_cpu_num;
@@ -312,7 +318,7 @@ void bootstrap_thread_entries(thread_t* thread) {
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
   tss_ptr->iomap_base = sizeof(get_current_processor()->m_tss);
   tss_ptr->rsp0l = thread->m_context.rsp0 & 0xffffffff;
-  tss_ptr->rsp0h = thread->m_context.rsp0 >> 32;
+  tss_ptr->rsp0h = (thread->m_context.rsp0 >> 32) & 0xffffffff;
 
   asm volatile (
     "movq %[new_rsp], %%rsp \n"

@@ -110,15 +110,8 @@ ALWAYS_INLINE void processor_late_init(Processor_t *this) {
 
 ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry) {
   const uint16_t index = (selector & 0xfffc) >> 3;
-  const uint16_t gdt_length_at_index = (index + 1) * sizeof(gdt_entry_t);
-  const uint16_t current_limit = this->m_gdtr.limit;
 
-  this->m_gdt[index].low = entry.low;
-  this->m_gdt[index].high = entry.high;
-
-  if (index >= this->m_gdt_highest_entry) {
-    this->m_gdt_highest_entry = index + 1;
-  }
+  this->m_gdt[index] = entry;
 }
 
 ALWAYS_INLINE void init_sse(Processor_t *processor) {
@@ -132,9 +125,9 @@ ALWAYS_INLINE void init_sse(Processor_t *processor) {
 
 void flush_gdt(Processor_t *processor) {
   // base
-  processor->m_gdtr.base = (uintptr_t) & processor->m_gdt[0];
+  processor->m_gdtr.base = (uintptr_t)&processor->m_gdt[0];
   // limit
-  processor->m_gdtr.limit = (processor->m_gdt_highest_entry * sizeof(gdt_entry_t)) - 1;
+  processor->m_gdtr.limit = (sizeof(processor->m_gdt) + sizeof(processor->m_extra_tss)) - 1;
 
   //asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
 
@@ -146,11 +139,10 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   processor->m_gdtr.limit = 0;
   processor->m_gdtr.base = NULL;
 
-  memset(processor->m_gdt, 0, sizeof(gdt_entry_t) * 32);
+  memset(processor->m_gdt, 0, sizeof(gdt_entry_t) * 6);
 
   gdt_entry_t null = {
-    .low = 0x00000000,
-    .high = 0x00000000,
+    .raw = 0,
   };
   gdt_entry_t ring0_code = {
     .low = 0x0000ffff,
@@ -160,35 +152,39 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
     .low = 0x0000ffff,
     .high = 0x00af9200,
   };
-  gdt_entry_t ring3_data = {
-    .low = 0x0000ffff,
-    .high = 0x008ff200,
-  };
   gdt_entry_t ring3_code = {
     .low = 0x0000ffff,
     .high = 0x00affa00,
   };
+  gdt_entry_t ring3_data = {
+    .low = 0x0000ffff,
+    .high = 0x008ff200,
+  };
+    
   write_to_gdt(processor, 0x0000, null);
   write_to_gdt(processor, GDT_KERNEL_CODE, ring0_code);
   write_to_gdt(processor, GDT_KERNEL_DATA, ring0_data);
-  write_to_gdt(processor, GDT_USER_DATA, ring3_data);
   write_to_gdt(processor, GDT_USER_CODE, ring3_code);
+  write_to_gdt(processor, GDT_USER_DATA, ring3_data);
 
-  gdt_entry_t tss = {0};
-  set_gdte_base(&tss, ((uintptr_t)&processor->m_tss) & 0xffffffff);
-  set_gdte_limit(&tss, sizeof(tss_entry_t) - 1);
+  uintptr_t tss_addr = (uintptr_t)&processor->m_tss;
+
+  gdt_entry_t tss = { 0 };
+  set_gdte_base(&tss, (tss_addr & 0xffffffff));
+  set_gdte_limit(&tss, sizeof(tss_entry_t));
   tss.structured.dpl = 0;
   tss.structured.segment_present = 1;
-  tss.structured.granularity = 0;
-  tss.structured.op_size64 = 0;
-  tss.structured.op_size32 = 1;
   tss.structured.descriptor_type = 0;
+  tss.structured.available = 0;
+  tss.structured.op_size64 = 0;
+  tss.structured.op_size32 = 0;
+  tss.structured.granularity = 0;
   tss.structured.type = AVAILABLE_TSS;
   write_to_gdt(processor, GDT_TSS_SEL, tss);
 
-  gdt_entry_t tss_2 = {0};
-  tss_2.low = (uintptr_t)&processor->m_tss >> 32;
-  write_to_gdt(processor, GDT_TSS_2_SEL, tss_2);
+  gdt_entry_high_t tss_2 = {0};
+  tss_2.base = (tss_addr >> 32) & 0xffffffff;
+  processor->m_extra_tss = tss_2;
 
   flush_gdt(processor);
 
@@ -222,7 +218,8 @@ void processor_exit_interruption(registers_t* registers) {
 
   if (current->m_prev_irq_depth > 0)
     current->m_prev_irq_depth--;
-  // call deferred calls here too?
+
+  /* call events or deferred calls here too? */
 
   if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0) {
     scheduler_try_execute();

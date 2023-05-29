@@ -9,6 +9,9 @@
 InterruptControllerManager_t *g_interrupt_controller_manager;
 static const int __pic_only = 1;
 
+/*
+ * FIXME: This is so bad, refactor
+ */
 void init_int_control_management() {
 
     g_interrupt_controller_manager = kmalloc(sizeof(InterruptControllerManager_t));

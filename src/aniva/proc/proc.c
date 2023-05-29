@@ -19,6 +19,7 @@
 #include <mem/heap.h>
 
 void generic_proc_idle () {
+  /* Hmmmm */
   println("Entered generic_proc_idle");
 
   for (;;) {
@@ -64,6 +65,7 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
 
   memcpy(proc->m_name, name, 31);
 
+  /* NOTE: ->m_init_thread gets set by proc_add_thread */
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
   Must(proc_add_thread(proc, thread));
 
