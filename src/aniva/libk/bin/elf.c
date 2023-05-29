@@ -129,7 +129,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
                 KMEM_FLAG_WRITABLE
                 ));
 
-          vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_addresss(v_user_phdr_start, ret->m_root_pd.m_root));
+          vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, ret->m_root_pd.m_root));
 
           println("Read range");
           /* Copy elf into the mapped area */

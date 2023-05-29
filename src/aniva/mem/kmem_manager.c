@@ -425,6 +425,7 @@ ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
  * Find the kernel root page directory
  */
 pml_entry_t *kmem_get_krnl_dir() {
+  /* NOTE: this is a physical address :clown: */
   return (pml_entry_t*)((uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE);
 }
 
@@ -759,14 +760,6 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
   const paddr_t phys_base = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
   const vaddr_t virt_base = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, vbase) : vbase);
 
-  println(to_string(should_remap));
-  print("Base: ");
-  println(to_string(virt_base));
-  print("Physical: ");
-  println(to_string(phys_base));
-  print("Physical(no align): ");
-  println(to_string(addr));
-
   /* Compute return value since we align the parameter */
   const vaddr_t ret = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
 
@@ -816,15 +809,10 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
   const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
   const paddr_t kernel_physical_start = kernel_start - HIGH_MAP_BASE;
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t total_pre_kernel_page_count = kmem_get_page_idx(kernel_physical_start);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
-  const size_t total_kernel_page_count = kernel_end_idx - total_pre_kernel_page_count;
-
-  /* Map the kernel range */
-  ASSERT_MSG(kmem_map_range(map, kernel_start, kernel_physical_start, total_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map kernel");
   
   /* Map everything before the kernel */
-  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, total_pre_kernel_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, kernel_end_idx, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
 }
 
 // TODO: make this more dynamic
@@ -883,14 +871,19 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   }
 
   /* NOTE: this works, but I really don't want to have to do this =/ */
-  Must(kmem_copy_kernel_mapping(table_root));
+  // Must(kmem_copy_kernel_mapping(table_root));
 
-  /* NOTE: for some reason this does not do what it needs to */
-  //__kmem_map_kernel_range_to_map(table_root);
+  const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
+  const vaddr_t kernel_end = ALIGN_DOWN((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
+  const paddr_t kernel_physical_start = kernel_start - HIGH_MAP_BASE;
+  const paddr_t kernel_physical_end = kernel_end - HIGH_MAP_BASE;
+  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end - kernel_physical_start);
+  
+  ASSERT_MSG(kmem_map_range(table_root, kernel_start, kernel_physical_start, kernel_end_idx, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
 
   ret.m_root = table_root;
-  ret.m_kernel_low = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
-  ret.m_kernel_high = ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
+  ret.m_kernel_low = kernel_start;
+  ret.m_kernel_high = kernel_end;
 
   println_kterm("Created page dir");
   return ret;
@@ -988,7 +981,7 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
   return Success(0);
 }
 
-ErrorOrPtr kmem_get_kernel_addresss(vaddr_t virtual_address, pml_entry_t* map) {
+ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
 
   pml_entry_t* page;
   paddr_t p_address;

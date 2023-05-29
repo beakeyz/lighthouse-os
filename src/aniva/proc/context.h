@@ -58,7 +58,6 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintpt
   regs.rsp0 = stack_top;
   regs.cr3 = (uintptr_t)root_table;
 
-  // regs.cs = GDT_KERNEL_CODE;
   if (kernel) {
     regs.cs = GDT_KERNEL_CODE;
     regs.rsp = stack_top;

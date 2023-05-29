@@ -5,6 +5,8 @@
 #include "interupts/interupts.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "mem/kmem_manager.h"
+#include "proc/proc.h"
+#include "sched/scheduler.h"
 #include <mem/heap.h>
 #include <libk/string.h>
 
@@ -32,11 +34,18 @@ NORETURN void kernel_panic(const char* panic_message) {
 
   bool has_serial = true;
   bool has_framebuffer = true;
+  proc_t* current_proc;
 
   if (has_serial) {
     print("[KERNEL PANIC] ");
     println(panic_message);
-  } 
+  }
+
+  current_proc = get_current_proc();
+
+  /* Let's not try to write to the kterm when we don't have the mapping... */
+  if (current_proc->m_root_pd.m_root != kmem_get_krnl_dir())
+    has_framebuffer = false;
 
   /* NOTE: crashes in userspace (duh) */
   if (has_framebuffer) {

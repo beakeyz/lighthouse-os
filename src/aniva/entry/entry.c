@@ -56,15 +56,18 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   /* Prefetch data */
   const size_t ramdisk_size = module_end - module_start;
 
+  println_kterm("Allocating kernel range...");
   /* Map user pages */
   const uintptr_t ramdisk_addr = (const uintptr_t)Must(__kmem_kernel_alloc(module_start, ramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0));
 
+  println_kterm("Creating ram device...");
   /* Create ramdisk object */
   generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, ramdisk_size);
 
   /* We know ramdisks through modules are compressed */
   ramdisk->m_flags |= GDISKDEV_RAM_COMPRESSED;
 
+  println_kterm("Mounting ram device...");
   Must(vfs_mount_fs("Devices/disk", "cramfs", ramdisk->m_devs));
 
   println("Done doing ramdisk things");

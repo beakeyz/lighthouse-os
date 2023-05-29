@@ -248,7 +248,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_
  * 
  * Fails if virtual_address is not mapped into the provided map
  */
-ErrorOrPtr kmem_get_kernel_addresss(vaddr_t virtual_address, pml_entry_t* map);
+ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* from_map);
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 

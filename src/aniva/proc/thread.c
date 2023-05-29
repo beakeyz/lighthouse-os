@@ -28,6 +28,13 @@ extern NORETURN void thread_end_lifecycle();
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
+/*
+ * Fills the userstack with certain data for userspace
+ * and a trampoline so we can return from userspace when 
+ * the process exits (aka returns)
+ */
+static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
+
 thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], proc_t* proc, bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
   thread->m_self = thread;
@@ -51,15 +58,23 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread_set_state(thread, NO_CONTEXT);
 
   size_t stack_page_count;
+  paddr_t stack_physical_bottom;
+
   uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
 
   /* Allocate kernel memory for the stack */
-  thread->m_kernel_stack_bottom = Must(__kmem_kernel_alloc_range(
+  thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
+        proc->m_root_pd.m_root,
+        HIGH_MAP_BASE,
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         stack_mem_flags));
 
+  print("Kstack: ");
+  println(to_string(thread->m_kernel_stack_bottom));
+
   stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
+  stack_physical_bottom = kmem_to_phys(nullptr, thread->m_kernel_stack_bottom);
 
   /* Compute the kernel stack top */
   thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE, 16);
@@ -82,16 +97,18 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     /* let's have 1 SMALL_PAGE_SIZE of buffer '-' */
     thread->m_user_stack_bottom = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
 
-    /* Remap the kernel-allocated stack bottom into the processes pagedir */
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         thread->m_user_stack_bottom, 
         DEFAULT_STACK_SIZE, 
-        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
+        KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
 
+    print("Ustack: ");
+    println(to_string(thread->m_user_stack_bottom));
+
     /* TODO: subtract random offset */
-    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16) - 512;
+    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
     /* We don't touch rsp when the thread is not a kthread */
     thread->m_context.rsp = thread->m_user_stack_top;

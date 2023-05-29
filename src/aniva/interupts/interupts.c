@@ -186,6 +186,8 @@ void pagefault_handler(registers_t *regs) {
 
   uintptr_t err_addr = read_cr2();
   uintptr_t cs = regs->cs;
+  
+  uint32_t error_word = regs->err_code;
 
   println(" --- PAGEFAULT --- ");
   thread_t* current = get_current_scheduling_thread();
@@ -196,15 +198,15 @@ void pagefault_handler(registers_t *regs) {
   println(to_string(cs & 3));
   print("error at addr: ");
   println(to_string(err_addr));
-  if (regs->err_code & 8) {
+  if (error_word & 8) {
     println("Reserved!");
   }
-  if (regs->err_code & 2) {
+  if (error_word & 2) {
     println("write");
   } else {
     println("read");
   }
-  println((regs->err_code & 1) ? "PV" : "NP");
+  println((error_word & 1) ? "ProtVi" : "Non-Present");
 
   /* NOTE: tmp debug */
   //print_bitmap();
