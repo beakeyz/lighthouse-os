@@ -67,6 +67,7 @@ void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);
 
 ErrorOrPtr try_terminate_process(proc_t* proc);
 
+/* Heh? */
 void terminate_process(proc_t* proc);
 
 /*

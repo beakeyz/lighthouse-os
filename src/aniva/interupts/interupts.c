@@ -9,11 +9,14 @@
 #include <interupts/control/pic.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
+#include "proc/proc.h"
 #include "proc/thread.h"
 #include "stubs.h"
 #include "system/asm_specifics.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
+
+extern void asm_common_irq_exit(void);
 
 // TODO: linked list for dynamic handler loading?
 static InterruptHandler_t *g_handlers[INTERRUPT_HANDLER_COUNT] = {NULL};
@@ -24,7 +27,7 @@ static void insert_into_handlers(uint16_t index, InterruptHandler_t *handler);
 // inspired by serenityOS
 #define REGISTER_ERROR_HANDLER(code, title)                            \
 extern void title##_asm_entry();                                       \
-extern void title##_handler(registers_t*) __attribute__((used));       \
+extern registers_t* title##_handler(registers_t*) __attribute__((used));       \
 __attribute__((naked)) void title##_asm_entry() {                      \
   asm volatile (                                                       \
     "    pushq $0x00\n"                                                \
@@ -47,23 +50,7 @@ __attribute__((naked)) void title##_asm_entry() {                      \
     "    movq %rsp, %rdi\n"                                            \
     "    call " #title "_handler\n"                                    \
     "    movq %rax, %rsp\n"                                            \
-    "    popq %rdi\n"                                                  \
-    "    popq %rsi\n"                                                  \
-    "    popq %rbp\n"                                                  \
-    "    popq %rdx\n"                                                  \
-    "    popq %rcx\n"                                                  \
-    "    popq %rbx\n"                                                  \
-    "    popq %rax\n"                                                  \
-    "    popq %r8\n"                                                   \
-    "    popq %r9\n"                                                   \
-    "    popq %r10\n"                                                  \
-    "    popq %r11\n"                                                  \
-    "    popq %r12\n"                                                  \
-    "    popq %r13\n"                                                  \
-    "    popq %r14\n"                                                  \
-    "    popq %r15\n"                                                  \
-    "    addq $16, %rsp\n" /* undo alignment */                        \
-    "    iretq"                                                        \
+    "    jmp asm_common_irq_exit\n"                                    \
   );                                                                   \
 }
 
@@ -176,13 +163,19 @@ EXCEPTION(12, "Stack segment fault");
 
 REGISTER_ERROR_HANDLER(13, general_protection);
 
-void general_protection_handler(registers_t *regs) {
+registers_t* general_protection_handler(registers_t *regs) {
   kernel_panic("General protection fault (TODO: more info)");
 }
 
 REGISTER_ERROR_HANDLER(14, pagefault);
 
-void pagefault_handler(registers_t *regs) {
+/*
+ * FIXME: this handler is going to get called a bunch of 
+ * different times when running the system, so this and a 
+ * few handlers that serve the same fate should get overlapping
+ * and rigid handling.
+ */
+registers_t* pagefault_handler(registers_t *regs) {
 
   uintptr_t err_addr = read_cr2();
   uintptr_t cs = regs->cs;
@@ -190,9 +183,12 @@ void pagefault_handler(registers_t *regs) {
   uint32_t error_word = regs->err_code;
 
   println(" --- PAGEFAULT --- ");
-  thread_t* current = get_current_scheduling_thread();
-  if (current) {
-    println(current->m_name);
+  thread_t* current_thread = get_current_scheduling_thread();
+  proc_t* current_proc = get_current_proc();
+  if (current_proc && current_thread) {
+    print(current_proc->m_name);
+    print(" : ");
+    println(current_thread->m_name);
   }
   print("error at ring: ");
   println(to_string(cs & 3));
@@ -206,11 +202,39 @@ void pagefault_handler(registers_t *regs) {
   } else {
     println("read");
   }
-  println((error_word & 1) ? "ProtVi" : "Non-Present");
+
+  println(((error_word & 1) == 1) ? "ProtVi" : "Non-Present");
 
   /* NOTE: tmp debug */
   //print_bitmap();
 
+  if (!current_thread)
+    goto panic;
+
+  if (!current_proc)
+    goto panic;
+
+  /* Drivers and other kernel processes should get insta-nuked */
+  /* FIXME: a driver can be a non-kernel process. Should user drivers meet the same fate as kernel drivers? */
+  if ((current_proc->m_flags & PROC_KERNEL) == PROC_KERNEL)
+    goto panic;
+
+  if ((current_proc->m_flags & PROC_DRIVER) == PROC_DRIVER)
+    goto panic;
+
+  Must(try_terminate_process(current_proc));
+
+  kmem_load_page_dir((uintptr_t)kmem_get_krnl_dir(), false);
+
+  println("Yielding...");
+
+  // kernel_panic("Terminated process");
+
+  scheduler_yield();
+
+  return regs;
+
+panic:
   kernel_panic("pagefault! (TODO: more info)");
 }
 
