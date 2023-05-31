@@ -1,7 +1,9 @@
 #ifndef __ANIVA_SYS_RESOURCE__
 #define __ANIVA_SYS_RESOURCE__
 
+#include "libk/bitmap.h"
 #include "libk/error.h"
+#include "mem/page_dir.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -28,7 +30,7 @@ struct kernel_resource_ops;
 
 typedef enum kernel_resource_type {
   RESOURCE_TYPE_IRQ = 0,
-  RESOURCE_TYPE_MEM_RANGE,
+  RESOURCE_TYPE_MEMORY,
   RESOURCE_TYPE_IO_RANGE,
 } kernel_resource_type_t;
 
@@ -113,10 +115,6 @@ ErrorOrPtr unregister_resource(kernel_resource_t* resource);
 kernel_resource_t* find_resource(kernel_resource_type_t type, uintptr_t data);
 kernel_resource_t* find_resource_by_name(kernel_resource_type_t type, char* name);
 
-kernel_resource_t* create_mem_range_resource(char* name, paddr_t physical_start, size_t length);
-kernel_resource_t* create_irq_resource(char* name, uintptr_t irq_num);
-kernel_resource_t* create_io_range_resource(char* name, uintptr_t start, uintptr_t end);
-
 void destroy_resource(kernel_resource_t* resource);
 
 ErrorOrPtr resource_attach_specific_data(kernel_resource_t* resource, void* data);
@@ -126,7 +124,6 @@ ErrorOrPtr resource_attach_owner(kernel_resource_t* resource, void* owner);
 ErrorOrPtr resource_detach_owner(kernel_resource_t* resource);
 
 ErrorOrPtr resource_take(kernel_resource_t* resource, void* new_owner);
-
 
 typedef struct {
   // Controller
@@ -138,15 +135,63 @@ typedef struct {
   // Attached handler
 } irq_resource_data_t;
 
-typedef struct {
+kernel_resource_t* create_irq_resource(char* name, uintptr_t irq_num);
+
+typedef enum memory_resource_type {
+  MEMORY_RESOURCE_DRIVER = 0,
+  MEMORY_RESOURCE_DMA,
+  MEMORY_RESOURCE_PROCESS,
+  MEMORY_RESOURCE_PCI,
+  MEMORY_RESOURCE_BUFFER,
+} memory_resource_type_t;
+
+#define MEMORY_RESOURCE_TYPE_COUNT 16
+
+/* NOTE: A memory resource can be both backed by memory AND disk */
+#define MEMORY_RESOURCE_FLAGS_MEMORY_BACKED   (0x00000001)
+#define MEMORY_RESOURCE_FLAGS_DISK_BACKED     (0x00000002)
+#define MEMORY_RESOURCE_FLAGS_MAPPED          (0x00000004)
+
+/*
+ * Should we try to keep track of the physical memory ranges that backs
+ * this resource?
+ */
+typedef struct memory_resource_data {
+
+  uint32_t m_flags;
+
   // Virtual address space 
+  vaddr_t m_vbase;
   // Pagemap
-  // Kernel-owned
-} mem_range_resource_data_t;
+  page_dir_t* m_dir;
+  // type
+  memory_resource_type_t m_type;
+
+  uintptr_t m_lowest_phys_idx;
+  uintptr_t m_highest_phys_idx;
+
+  /*
+   * This bitmap starts at m_lowest_phys_idx and ends at m_highest_phys_idx 
+   * in the physical address space and this keeps track of the pages used.
+   * (or disk sectors if this is disk-backed)
+   */
+  bitmap_t* m_phys_bitmap;
+
+  /* Table of different types of memory */
+  kernel_resource_t* m_types[MEMORY_RESOURCE_TYPE_COUNT];
+
+} memory_resource_data_t;
+
+/*
+ * Resource routines specific for memory resources
+ */
+kernel_resource_t* create_memory_resource(char* name, paddr_t physical_start, size_t length);
 
 typedef struct {
   // Access count
   // TODO: what else is specific to io ranges?
 } io_range_resource_data_t;
+
+kernel_resource_t* create_io_range_resource(char* name, uintptr_t start, uintptr_t end);
 
 #endif // !__ANIVA_SYS_RESOURCE__

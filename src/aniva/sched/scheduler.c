@@ -10,6 +10,7 @@
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/socket.h"
+#include "proc/thread.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
@@ -538,7 +539,7 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id procid) {
   return nullptr;
 }
 
-#define SCHED_MAX_PULL_CYCLES 2
+#define SCHED_MAX_PULL_CYCLES 3
 
 /*
  * TODO: redo this function, as it is way too messy and
@@ -572,6 +573,22 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
     return proc->m_init_thread;
   }
 
+  /* Only one entry. Just kinda run it ig */
+  if (thread_list_ptr->m_length == 1) {
+    thread_t* core_thread = thread_list_ptr->head->data;
+
+    if (core_thread->m_current_state == RUNNABLE)
+      return core_thread;
+
+    if (core_thread->m_current_state == RUNNING) {
+      thread_set_state(core_thread, RUNNABLE);
+
+      return core_thread;
+    }
+
+    println("WARNING: only thread in proc is not runnable or running =(");
+  }
+
   while (true) {
 
     next_thread = list_get(thread_list_ptr, current_idx);
@@ -584,12 +601,17 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
 
       next_thread = ptr->m_proc_to_schedule->m_idle_thread;
 
+      println("Getting idle thread");
+      println(to_string((uintptr_t)list_get(thread_list_ptr, 0)));
+      println(to_string(current_idx));
+
+      /* FIXME: we can prob allow this, because we can just kill the process */
       ASSERT_MSG(next_thread, "FATAL: Tried to idle a process without it having an idle-thread");
       ASSERT_MSG(next_thread->m_current_state == RUNNABLE, "FATAL: the idle thread has not been marked runnable for some reason");
       break;
     } 
 
-    if (next_thread == nullptr) {
+    if (!next_thread) {
       current_idx = 0;
       cycles++;
       continue;

@@ -29,22 +29,24 @@ static size_t __io_range_count;
 static size_t __irq_count;
 
 static kernel_resource_t** __resource_table[] = {
-  [RESOURCE_TYPE_MEM_RANGE] =           &__mem_range_resources,
+  [RESOURCE_TYPE_MEMORY] =           &__mem_range_resources,
   [RESOURCE_TYPE_IO_RANGE] =            &__io_range_resources,
   [RESOURCE_TYPE_IRQ] =                 &__irq_resources,
 };
 
 static size_t* __count_table[] = {
-  [RESOURCE_TYPE_MEM_RANGE] =           &__mem_range_count,
+  [RESOURCE_TYPE_MEMORY] =           &__mem_range_count,
   [RESOURCE_TYPE_IO_RANGE] =            &__io_range_count,
   [RESOURCE_TYPE_IRQ] =                 &__irq_count,
 };
 
-static void __increment_resource_count(kernel_resource_type_t type) {
+static void __increment_resource_count(kernel_resource_type_t type)
+{
   (*__count_table[type])++;
 }
 
-static void __decrement_resource_count(kernel_resource_type_t type) {
+static void __decrement_resource_count(kernel_resource_type_t type) 
+{
   (*__count_table[type])--;
 }
 
@@ -52,7 +54,8 @@ static void __decrement_resource_count(kernel_resource_type_t type) {
  * We find the appropriate list by using the type enum as an index into
  * an array we have predefined above
  */
-static kernel_resource_t** __find_kernel_resource(kernel_resource_t* resource) {
+static kernel_resource_t** __find_kernel_resource(kernel_resource_t* resource) 
+{
 
   if (!resource)
     return nullptr;
@@ -68,7 +71,8 @@ static kernel_resource_t** __find_kernel_resource(kernel_resource_t* resource) {
   return ret;
 }
 
-static kernel_resource_t** __find_kernel_resource_by_name(kernel_resource_type_t r_type, char* r_name) {
+static kernel_resource_t** __find_kernel_resource_by_name(kernel_resource_type_t r_type, char* r_name) 
+{
 
   if (!r_name)
     return nullptr;
@@ -86,7 +90,8 @@ static kernel_resource_t** __find_kernel_resource_by_name(kernel_resource_type_t
 /*
  * Locks the global lock and inserts a resource into the list
  */
-static ErrorOrPtr __insert_kernel_resource(kernel_resource_t* resource) {
+static ErrorOrPtr __insert_kernel_resource(kernel_resource_t* resource) 
+{
   
   if (!resource)
     return Error();
@@ -120,7 +125,8 @@ error_and_exit:
 /*
  * Locks the global lock and remove a resource from the list
  */
-static ErrorOrPtr __remove_kernel_resource(kernel_resource_t* resource) {
+static ErrorOrPtr __remove_kernel_resource(kernel_resource_t* resource) 
+{
 
   kernel_resource_t** itterator;
   

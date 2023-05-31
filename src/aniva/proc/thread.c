@@ -94,8 +94,12 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
    * or we try to somehow let every thread share one stack (which like how tf would that work lol)
    */
   if (!kthread) {
-    /* let's have 1 SMALL_PAGE_SIZE of buffer '-' */
-    thread->m_user_stack_bottom = ALIGN_DOWN(proc->m_root_pd.m_kernel_low - DEFAULT_STACK_SIZE, SMALL_PAGE_SIZE) - SMALL_PAGE_SIZE;
+    /*
+     * let's have 1 SMALL_PAGE_SIZE of buffer '-'
+     * FIXME: either retrieve / mark this with vmalloc or Allocate
+     * a kernel resource for this
+     */
+    thread->m_user_stack_bottom = HIGH_STACK_BASE;
 
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
@@ -108,7 +112,12 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     println(to_string(thread->m_user_stack_bottom));
 
     /* TODO: subtract random offset */
-    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16);
+    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16) - 8;
+
+    memset(
+        (void*)Must(kmem_get_kernel_address(thread->m_user_stack_bottom, proc->m_root_pd.m_root))
+        , 0
+        , DEFAULT_STACK_SIZE);
 
     /* We don't touch rsp when the thread is not a kthread */
     thread->m_context.rsp = thread->m_user_stack_top;
@@ -251,8 +260,6 @@ extern void thread_enter_context(thread_t *to) {
       kmem_load_page_dir(to->m_context.cr3, false);
     } else {
       kmem_load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
-
-      uninstall_pit();
     }
   }
 

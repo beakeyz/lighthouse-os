@@ -78,6 +78,8 @@ void list_append_before(list_t *list, void *data, uint32_t index) {
 
       node_t* new = kmalloc(sizeof(node_t));
       new->data = data;
+      new->prev = nullptr;
+      new->next = nullptr;
 
       if (old_next == nullptr) {
         old_next = list->end;
@@ -114,6 +116,8 @@ void list_append_after(list_t* list, void* data, uint32_t index) {
 
   node_t* new = kmalloc(sizeof(node_t));
   new->data = data;
+  new->next = nullptr;
+  new->prev = nullptr;
 
   node_t* next = list->head;
   while (next) {
@@ -176,6 +180,10 @@ bool list_remove(list_t* list, uint32_t index) {
 
 // hihi linear scan :clown:
 void* list_get(list_t* list, uint32_t index) {
+
+  if (index >= list->m_length)
+    return nullptr;
+
   uint32_t current_index = 0;
   FOREACH(i, list) {
     if (current_index == index) {

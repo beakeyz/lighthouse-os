@@ -18,8 +18,6 @@
 
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xffffffff80000000ULL
-/* 128 Tib */
-#define KERNEL_PD_BASE          0x0000800000000000ULL
 // Base for early kernelheap mappings 
 #define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
@@ -27,7 +25,8 @@
 // Base for the quickmap engine. We take the pretty much highest possible vaddr
 #define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 
-#define HIGH_STACK_BASE         0xfffffffE00000000ULL
+/* Bottom of the userstack per process. Every thread gets thread_id * STACK_SIZE as a new base */
+#define HIGH_STACK_BASE         0x0000800000000000ULL
 
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
