@@ -1,5 +1,5 @@
 #include "serial.h"
-#include "interupts/control/pic.h"
+#include "interrupts/control/pic.h"
 #include "system/acpi/parser.h"
 #include <libk/io.h>
 #include <libk/stddef.h>

@@ -1,6 +1,6 @@
 #include "interrupt_control.h"
 #include "dev/debug/serial.h"
-#include "interupts/control/pic.h"
+#include "interrupts/control/pic.h"
 #include "libk/linkedlist.h"
 #include "libk/string.h"
 #include <mem/heap.h>

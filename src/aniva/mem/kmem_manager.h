@@ -150,7 +150,7 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
  */
 void parse_mmap ();
 
-void kmem_load_page_dir(uintptr_t dir, bool __disable_interupts);
+void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
 uintptr_t kmem_get_page_base (uintptr_t base);

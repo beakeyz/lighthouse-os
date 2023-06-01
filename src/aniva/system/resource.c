@@ -31,13 +31,13 @@ static size_t __io_range_count;
 static size_t __irq_count;
 
 static kernel_resource_t** __resource_table[] = {
-  [RESOURCE_TYPE_MEMORY] =           &__mem_range_resources,
+  [RESOURCE_TYPE_MEMORY] =              &__mem_range_resources,
   [RESOURCE_TYPE_IO_RANGE] =            &__io_range_resources,
   [RESOURCE_TYPE_IRQ] =                 &__irq_resources,
 };
 
 static size_t* __count_table[] = {
-  [RESOURCE_TYPE_MEMORY] =           &__mem_range_count,
+  [RESOURCE_TYPE_MEMORY] =              &__mem_range_count,
   [RESOURCE_TYPE_IO_RANGE] =            &__io_range_count,
   [RESOURCE_TYPE_IRQ] =                 &__irq_count,
 };
@@ -243,7 +243,6 @@ ErrorOrPtr __destroy_memory_resource(kernel_resource_t* resource)
 
 kernel_resource_ops_t mem_range_ops = {
   .f_destroy = __destroy_memory_resource,
-  // TODO: 
 };
 
 kernel_resource_t* create_memory_resource(char* name, vaddr_t virtual_base, size_t length, page_dir_t* dir, memory_resource_type_t mem_type)

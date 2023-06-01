@@ -12,7 +12,7 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "libk/async_ptr.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"

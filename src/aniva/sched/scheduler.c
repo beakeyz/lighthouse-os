@@ -6,7 +6,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/string.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/socket.h"

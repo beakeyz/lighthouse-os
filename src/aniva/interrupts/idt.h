@@ -2,7 +2,7 @@
 # define __IDT__
 
 #include <libk/stddef.h>
-#include "interupts.h"
+#include "interrupts.h"
 
 // Some defines that are idt/irq/isr specific
 #define MAX_IDT_ENTRIES     256

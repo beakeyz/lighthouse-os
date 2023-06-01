@@ -1,6 +1,6 @@
 #include "async_ptr.h"
 #include "dev/debug/serial.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "libk/error.h"
 #include "libk/reference.h"
 #include "libk/string.h"

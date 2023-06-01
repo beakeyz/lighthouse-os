@@ -1,6 +1,6 @@
 #include "processor.h"
 #include "dev/debug/serial.h"
-#include "interupts/idt.h"
+#include "interrupts/idt.h"
 #include "libk/error.h"
 #include "libk/queue.h"
 #include "proc/proc.h"
@@ -97,7 +97,7 @@ ALWAYS_INLINE void processor_late_init(Processor_t *this) {
   // TODO:
   if (is_bsp(this)) {
     init_int_control_management();
-    init_interupts();
+    init_interrupts();
 
     fpu_generic_init();
 

@@ -1,5 +1,5 @@
 #include "malloc.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "mem/kmem_manager.h"
 #include "base_allocator.h"
 #include "heap.h"

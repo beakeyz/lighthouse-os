@@ -2,7 +2,7 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "entry/entry.h"
-#include "interupts/control/pic.h"
+#include "interrupts/control/pic.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
 #include "mem/kmem_manager.h"

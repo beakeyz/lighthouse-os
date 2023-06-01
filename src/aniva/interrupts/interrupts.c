@@ -1,12 +1,12 @@
-#include "interupts.h"
+#include "interrupts.h"
 #include "dev/framebuffer/framebuffer.h"
-#include "interupts/control/interrupt_control.h"
-#include "interupts/idt.h"
+#include "interrupts/control/interrupt_control.h"
+#include "interrupts/idt.h"
 #include "mem/kmem_manager.h"
 #include "libk/error.h"
 #include "libk/string.h"
 #include <dev/debug/serial.h>
-#include <interupts/control/pic.h>
+#include <interrupts/control/pic.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
 #include "proc/proc.h"
@@ -308,7 +308,7 @@ static void insert_into_handlers(uint16_t index, InterruptHandler_t *handler) {
 */
 
 // heap should be up and running
-void init_interupts() {
+void init_interrupts() {
   // TODO: massive todo lol
   //        - find out what to do with EXCEPTIONs
   //        - find out what to do with generic handlers
@@ -635,7 +635,7 @@ void interrupts_remove_handler(const uint16_t int_num) {
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-// main entrypoint for generinc interupts (from the asm)
+// main entrypoint for generinc interrupts (from the asm)
 registers_t *interrupt_handler(registers_t *regs) {
 
   const uint8_t int_num = regs->isr_no - 32;

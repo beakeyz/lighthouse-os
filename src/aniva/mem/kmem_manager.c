@@ -1,6 +1,6 @@
 #include "kmem_manager.h"
 #include "dev/kterm/kterm.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include <mem/heap.h>
@@ -937,8 +937,8 @@ void kmem_destroy_page_dir(pml_entry_t* dir) {
  * NOTE: caller needs to ensure that they pass a physical address
  * as page map. CR3 only takes physical addresses
  */
-void kmem_load_page_dir(paddr_t dir, bool __disable_interupts) {
-  if (__disable_interupts) 
+void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts) {
+  if (__disable_interrupts) 
     disable_interrupts();
 
   pml_entry_t* page_map = (pml_entry_t*)dir;

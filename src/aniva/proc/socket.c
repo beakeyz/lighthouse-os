@@ -18,7 +18,7 @@
 #include "system/processor/processor.h"
 #include "thread.h"
 #include "proc/ipc/tspckt.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include <mem/heap.h>
 
 static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr);

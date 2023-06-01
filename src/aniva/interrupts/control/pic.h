@@ -4,7 +4,7 @@
 #ifndef __C_PIC___
 #define __C_PIC___
 
-#include "interupts/control/interrupt_control.h"
+#include "interrupts/control/interrupt_control.h"
 #include <libk/stddef.h>
 
 #define PIC_EOI_CODE    0x20

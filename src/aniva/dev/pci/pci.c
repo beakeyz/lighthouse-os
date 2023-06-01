@@ -3,7 +3,7 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/pci/definitions.h"
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/stddef.h"

@@ -1,7 +1,7 @@
-#ifndef __INTERUPTS__
-#define __INTERUPTS__
+#ifndef __ANIVA_INTERRUPTS__
+#define __ANIVA_INTERRUPTS__
 
-#include "interupts/control/interrupt_control.h"
+#include "interrupts/control/interrupt_control.h"
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
 
@@ -31,7 +31,7 @@ InterruptHandler_t* create_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROL
 InterruptHandler_t create_unhandled_interrupt_handler(uint16_t int_num);
 
 // init 0.0
-void init_interupts();
+void init_interrupts();
 
 // add
 bool interrupts_add_handler (InterruptHandler_t* handler_ptr);
@@ -58,5 +58,5 @@ void enable_interrupts ();
     enable_interrupts();                               \
   }
 
-#endif // !__INTERUPTS__
+#endif // !__ANIVA_INTERRUPTS__
 

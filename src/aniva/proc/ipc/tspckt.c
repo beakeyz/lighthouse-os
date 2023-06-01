@@ -7,7 +7,7 @@
 #include "libk/string.h"
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>
-#include "interupts/interupts.h"
+#include "interrupts/interrupts.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"

@@ -16,7 +16,7 @@
 #include "sched/scheduler.h"
 #include "dev/debug/serial.h"
 #include <aniva/system/asm_specifics.h>
-#include <interupts/interupts.h>
+#include <interrupts/interrupts.h>
 
 struct Processor;
 
