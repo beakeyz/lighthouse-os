@@ -2,6 +2,7 @@
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "mem/heap.h"
+#include "mem/zalloc.h"
 #include "sync/mutex.h"
 
 /*
@@ -21,6 +22,10 @@
  */
 
 static mutex_t* __g_resource_lock;
+static zone_allocator_t* __resource_zallocator;
+static zone_allocator_t* __memory_specific_zallocator;
+static zone_allocator_t* __irq_specific_zallocator;
+static zone_allocator_t* __io_specific_zallocator;
 
 static kernel_resource_t* __mem_range_resources;
 static kernel_resource_t* __io_range_resources;
@@ -174,7 +179,7 @@ memory_resource_data_t* __create_memory_resource_data(page_dir_t* dir, memory_re
 {
 
   size_t _types_size;
-  memory_resource_data_t* data = kmalloc(sizeof(memory_resource_data_t));
+  memory_resource_data_t* data = __memory_specific_zallocator->m_heap->f_allocate(__memory_specific_zallocator, sizeof(memory_resource_data_t));
 
   if (!data)
     return nullptr;
@@ -250,7 +255,7 @@ kernel_resource_t* create_memory_resource(char* name, vaddr_t virtual_base, size
   if (!name || !length)
     return nullptr;
 
-  kernel_resource_t* resource = kmalloc(sizeof(kernel_resource_t));
+  kernel_resource_t* resource = __resource_zallocator->m_heap->f_allocate(__resource_zallocator, sizeof(kernel_resource_t));
 
   if (!resource)
     return nullptr;
@@ -314,5 +319,10 @@ void init_kernel_resources()
   __mem_range_resources = nullptr;
   __io_range_resources = nullptr;
   __irq_resources = nullptr;
+
+  __resource_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(kernel_resource_t), NULL);
+  __memory_specific_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(memory_resource_data_t), NULL);
+  //__irq_specific_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(irq_resource_data_t), NULL);
+  //__io_specific_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(io_range_resource_data_t), NULL);
 
 }

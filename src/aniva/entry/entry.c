@@ -94,6 +94,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   mb_initialize(virtual_mb_addr, &first_valid_addr, &first_valid_alloc_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
+  uintptr_t* d = (uintptr_t*)0xFFFFFFFFFFFFFFFF;
+  *d = 60;
+
   // init bootstrap processor
   init_processor(&g_bsp, 0);
 

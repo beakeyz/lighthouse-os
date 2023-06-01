@@ -871,7 +871,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   }
 
   /* NOTE: this works, but I really don't want to have to do this =/ */
-  // Must(kmem_copy_kernel_mapping(table_root));
+  Must(kmem_copy_kernel_mapping(table_root));
 
   const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
   const vaddr_t kernel_end = ALIGN_DOWN((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
@@ -879,7 +879,9 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   const paddr_t kernel_physical_end = kernel_end - HIGH_MAP_BASE;
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end - kernel_physical_start);
   
+  /*
   ASSERT_MSG(kmem_map_range(table_root, kernel_start, kernel_physical_start, kernel_end_idx, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+  */
 
   ret.m_root = table_root;
   ret.m_kernel_low = kernel_start;
@@ -966,6 +968,7 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
   const vaddr_t base = HIGH_MAP_BASE;
   const uintptr_t pml4_idx = (base >> 39) & ENTRY_MASK;
   const uintptr_t pdp_idx = (base >> 30) & ENTRY_MASK;
+  const uintptr_t pd_idx = (base >> 21) & ENTRY_MASK;
 
   pml_entry_t* kernel_root = (void*)kmem_ensure_high_mapping((uintptr_t)kmem_get_krnl_dir());
 

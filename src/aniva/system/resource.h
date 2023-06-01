@@ -82,7 +82,6 @@ typedef struct kernel_resource {
   kernel_resource_owner_type_t m_owner_type;
 
   char* m_name;
-  uint32_t m_flags;
 
   /* Generic flat pointer to the data of the resource */
   uintptr_t m_data;
@@ -101,6 +100,8 @@ typedef struct kernel_resource {
 
   /* Generic resource operations */
   kernel_resource_ops_t* m_ops;
+
+  uint32_t m_flags;
 
 } kernel_resource_t;
 
@@ -171,8 +172,6 @@ typedef enum memory_resource_type {
  */
 typedef struct memory_resource_data {
 
-  uint32_t m_flags;
-
   // Pagemap
   page_dir_t* m_dir;
   // type
@@ -191,12 +190,23 @@ typedef struct memory_resource_data {
   /* Table of different types of memory */
   kernel_resource_t** m_types;
 
+  uint32_t m_flags;
+
 } memory_resource_data_t;
 
 /*
  * Resource routines specific for memory resources
  */
 kernel_resource_t* create_memory_resource(char* name, vaddr_t virtual_base, size_t length, page_dir_t* dir, memory_resource_type_t mem_type);
+
+ErrorOrPtr resource_request_memory(char* name, size_t memory_size, memory_resource_type_t type);
+
+/*
+ * Return a pointer to the memory resource that contains this address
+ * NOTE: any operations on this resource fail if the caller does not 
+ * own the resource
+ */
+ErrorOrPtr resource_find_memory_range(uintptr_t address);
 
 ErrorOrPtr memory_resource_attach_phys_mem(kernel_resource_t* resource, vaddr_t offset, uintptr_t index);
 ErrorOrPtr memory_resource_attach_phys_range(kernel_resource_t* resource, vaddr_t offset, uintptr_t index, size_t count);

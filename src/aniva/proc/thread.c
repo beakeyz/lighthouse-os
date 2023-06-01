@@ -17,6 +17,7 @@
 #include "core.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
+#include "system/resource.h"
 #include "time/pit.h"
 #include <mem/heap.h>
 

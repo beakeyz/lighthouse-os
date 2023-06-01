@@ -28,7 +28,7 @@ typedef enum ZONE_ENTRY_SIZE {
 } ZONE_ENTRY_SIZE_t;
 
 /* Create a zone allocator that fits dynamicly sized object */
-#define ZALLOC_FLAG_DYNAMIC             0x00000001
+#define ZALLOC_FLAG_DYNAMIC             (0x00000001)
 
 #define DEFAULT_ZONE_ENTRY_SIZE_COUNT   8
 
