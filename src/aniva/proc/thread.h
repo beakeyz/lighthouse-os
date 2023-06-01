@@ -52,7 +52,7 @@ typedef struct thread {
   thread_state_t m_current_state;
 
   // allow nested context switches
-  struct proc *m_parent_proc; // nullable
+  struct proc *m_parent_proc; // nullable?
 
   /* The virtual address of the relocated entry. nullptr if there isn't one */
   void (*f_relocated_entry_stub) (FuncPtr real_entry);

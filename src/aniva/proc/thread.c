@@ -60,15 +60,13 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   size_t stack_page_count;
   paddr_t stack_physical_bottom;
 
-  uint32_t stack_mem_flags = KMEM_FLAG_WRITABLE | (kthread ? KMEM_FLAG_KERNEL : 0);
-
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         HIGH_MAP_BASE,
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
-        stack_mem_flags));
+        KMEM_FLAG_WRITABLE));
 
   print("Kstack: ");
   println(to_string(thread->m_kernel_stack_bottom));
@@ -112,7 +110,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
     println(to_string(thread->m_user_stack_bottom));
 
     /* TODO: subtract random offset */
-    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16) - 8;
+    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16);
 
     memset(
         (void*)Must(kmem_get_kernel_address(thread->m_user_stack_bottom, proc->m_root_pd.m_root))
@@ -197,10 +195,11 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
     destroy_threaded_socket(thread->m_socket);
   }
   destroy_atomic_ptr(thread->m_tid);
-  __kmem_kernel_dealloc(thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE);
+
+  Must(__kmem_dealloc(thread->m_parent_proc->m_root_pd.m_root, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
   if (thread->m_user_stack_bottom) {
-    __kmem_kernel_dealloc(thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
+    Must(__kmem_dealloc(thread->m_parent_proc->m_root_pd.m_root, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
   }
 
   kfree(thread);
@@ -392,11 +391,16 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "movl %%ebx, %[tss_rsp0l] \n"
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
-    // emplace new rsp
+
+    /*
+     * FIXME: when we switch back from user stack, we try to 
+     * push on a stack that is not yet mapped...
+     */
     "movq %[new_rsp], %%rsp \n"
     "movq %%rbp, %[old_rbp] \n"
     "pushq %[thread] \n"
     "pushq %[new_rip] \n"
+
     // prepare for switch
     "cld \n"
     "movq 8(%%rsp), %%rdi \n"
