@@ -35,6 +35,9 @@ bitmap_t* create_bitmap_with_default(size_t size, uint8_t default_value) {
 }
 
 void destroy_bitmap(bitmap_t *map) {
+  if (!map)
+    return;
+
   kfree(map->m_map);
   kfree(map);
 }

@@ -56,10 +56,22 @@ typedef struct kernel_resource_ops {
   void (*f_write32)(uintptr_t offset, uint32_t data);
   void (*f_write64)(uintptr_t offset, uint64_t data);
 
-  /* Detach the resource from its owner */
-  ErrorOrPtr (*f_detach)(struct kernel_resource* resource);
+  ErrorOrPtr (*f_destroy)(struct kernel_resource* resource);
+
+  /* Chops off a part of the resource and splits it into a new resource */
+  ErrorOrPtr (*f_allocate)(struct kernel_resource* parent, size_t size);
+
+  ErrorOrPtr (*f_reserve)(struct kernel_resource* parent, uintptr_t start, size_t size);
+
+  /* Tries to merge one resource with another, fails if merge is impossible (i.e. type mismatch, range mismatch, ect.) */
+  ErrorOrPtr (*f_deallocate)(struct kernel_resource* parent, struct kernel_resource* child);
+
+  /* Freezes any actions on this resource (FIXME: should we queue actions afterwards?) */
+  ErrorOrPtr (*f_freeze)(struct kernel_resource* resource);
 
 } kernel_resource_ops_t;
+
+#define KERNEL_RESOURCE_FLAG_FROZEN         (0x00000001)
 
 typedef struct kernel_resource {
   
@@ -70,6 +82,7 @@ typedef struct kernel_resource {
   kernel_resource_owner_type_t m_owner_type;
 
   char* m_name;
+  uint32_t m_flags;
 
   /* Generic flat pointer to the data of the resource */
   uintptr_t m_data;
@@ -160,8 +173,6 @@ typedef struct memory_resource_data {
 
   uint32_t m_flags;
 
-  // Virtual address space 
-  vaddr_t m_vbase;
   // Pagemap
   page_dir_t* m_dir;
   // type
@@ -178,14 +189,17 @@ typedef struct memory_resource_data {
   bitmap_t* m_phys_bitmap;
 
   /* Table of different types of memory */
-  kernel_resource_t* m_types[MEMORY_RESOURCE_TYPE_COUNT];
+  kernel_resource_t** m_types;
 
 } memory_resource_data_t;
 
 /*
  * Resource routines specific for memory resources
  */
-kernel_resource_t* create_memory_resource(char* name, paddr_t physical_start, size_t length);
+kernel_resource_t* create_memory_resource(char* name, vaddr_t virtual_base, size_t length, page_dir_t* dir, memory_resource_type_t mem_type);
+
+ErrorOrPtr memory_resource_attach_phys_mem(kernel_resource_t* resource, vaddr_t offset, uintptr_t index);
+ErrorOrPtr memory_resource_attach_phys_range(kernel_resource_t* resource, vaddr_t offset, uintptr_t index, size_t count);
 
 typedef struct {
   // Access count
