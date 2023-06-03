@@ -1,6 +1,7 @@
 #include "vfs.h"
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
+#include "dev/kterm/kterm.h"
 #include "fs/cache.h"
 #include "fs/core.h"
 #include "fs/namespace.h"
@@ -68,15 +69,17 @@ ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partiti
 
   vnode_t* mountnode = nullptr;
 
-  println("Trying to mount fs type");
+  println_kterm("Trying to mount fs type");
 
   if (fs->f_mount)
     mountnode = fs->f_mount(fs, mountpoint, device);
 
+  println_kterm("Finished fs-specific mount");
+
   if (!mountnode)
     return Error();
 
-  println("Trying to really mount fs type");
+  println_kterm("Trying to really mount fs type");
 
   ErrorOrPtr mount_result = vfs_mount(mountpoint, mountnode);
 

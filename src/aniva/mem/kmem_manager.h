@@ -134,7 +134,7 @@ typedef struct kmem_mapping {
 /*
  * initialize kernel pagetables and physical allocator
  */
-void init_kmem_manager(uintptr_t* mb_addr, uintptr_t mb_first_addr, uintptr_t first_valid_alloc_addr);
+void init_kmem_manager(uintptr_t* mb_addr);
 
 void protect_kernel();
 void protect_heap();

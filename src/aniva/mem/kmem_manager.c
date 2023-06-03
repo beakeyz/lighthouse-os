@@ -62,7 +62,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 *           - more implementations
 *           - Implement a lock around the physical allocator
 */
-void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t first_valid_alloc_addr) {
+void init_kmem_manager(uintptr_t* mb_addr) {
 
   KMEM_DATA.m_contiguous_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
@@ -75,14 +75,14 @@ void init_kmem_manager(uintptr_t* mb_addr, uintptr_t first_valid_addr, uintptr_t
 
   kmem_init_physical_allocator();
 
-  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)kmem_ensure_high_mapping(kmem_prepare_new_physical_page().m_ptr);
+  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
 
   _init_kmem_page_layout();
 
   // FIXME: find out if this address is always valid
   // NOTE: If we ever decide to change the boottime mappings, this (along with the 
   // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
-  uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE;
+  uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd;
  
   kmem_load_page_dir(map, true);
 
@@ -426,7 +426,7 @@ ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
  */
 pml_entry_t *kmem_get_krnl_dir() {
   /* NOTE: this is a physical address :clown: */
-  return (pml_entry_t*)((uintptr_t)KMEM_DATA.m_kernel_base_pd - HIGH_MAP_BASE);
+  return KMEM_DATA.m_kernel_base_pd;
 }
 
 /*
@@ -831,12 +831,26 @@ static void _init_kmem_page_layout_late() {
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
 
-  const size_t high_page_count = total_pages - kernel_end_idx;
+  const size_t max_page_count = kmem_get_page_idx(ALIGN_UP(1 * Gib, SMALL_PAGE_SIZE));
+  size_t total_pages_to_map = total_pages - kernel_end_idx;
 
-  print("High page count: ");
-  println(to_string(high_page_count));
+  /* TODO: calculate based on the pagesize */
+  const size_t pte_mapping_capacity = 512; // SMALL_PAGE_SIZE / sizeof(uintptr_t)
+  const size_t pde_mapping_capacity = 512; // SMALL_PAGE_SIZE / sizeof(uintptr_t)
+  const size_t pd_mapping_capacity = 512; // SMALL_PAGE_SIZE / sizeof(uintptr_t)
 
-  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_end, kernel_physical_end, high_page_count, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map all memory");
+  /* Calculate how many ptes we need to map the entire range */
+  const size_t ptes_needed = (total_pages_to_map / pte_mapping_capacity) + 1;
+
+  const size_t pdes_needed = (ptes_needed / pde_mapping_capacity) + 1;
+
+  const size_t pds_needed = (pdes_needed / pd_mapping_capacity) + 1;
+
+  if (total_pages_to_map > max_page_count)
+    total_pages_to_map = max_page_count;
+  /* TODO: huh? */
+
+  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_end, kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map all memory");
 }
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {

@@ -263,9 +263,6 @@ extern void thread_enter_context(thread_t *to) {
     }
   }
 
-  print("Switch: ");
-  println(to->m_name);
-
   // NOTE: for correction purposes
   to->m_cpu = current_processor->m_cpu_num;
 

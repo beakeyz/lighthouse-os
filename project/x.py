@@ -4,6 +4,7 @@ import os, io, json
 from sys import argv
 from consts import Consts
 from enum import Enum
+from installer.install import Installer, InstallerType
 from deps.dependencies import DependencyManager
 from deps.ramdisk import RamdiskManager
 from build.builder import ProjectBuilder, BuilderMode, BuilderResult
@@ -193,6 +194,21 @@ class GenerateUserProcessCallback(CommandCallback):
         return Status(StatusCode.Success, "Created thing!")
 
 
+# Create a disk image in which we install the bootloader, kernel and ramdisk
+class InstallImageCallback(CommandCallback):
+    def call(self) -> Status:
+        installer = Installer(InstallerType.IMAGE)
+        # TODO
+        return Status(StatusCode.Fail, "TODO")
+
+    
+# Install bootloader, kernel and ramdisk directly to the device
+class InstallDeviceCallback(CommandCallback):
+    def call(self) -> Status:
+        installer = Installer(InstallerType.DEVICE)
+        # TODO
+        return Status(StatusCode.Fail, "TODO")
+
 # Global todos:
 #   TODO: implement caching of built files, so that we don't have to
 #         rebuild the project every time we change one thing
@@ -226,6 +242,10 @@ def project_main() -> Status:
     }))
     cmd_processor.register_cmd(Command("generator", args={
         "userprocess": GenerateUserProcessCallback()
+    }))
+    cmd_processor.register_cmd(Command("install", args={
+        "image": InstallImageCallback(),
+        "device": InstallDeviceCallback(),
     }))
 
     # TODO: add option to turn off this feature

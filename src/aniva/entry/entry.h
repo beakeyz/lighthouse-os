@@ -38,7 +38,6 @@ typedef struct {
   //Processor_t* m_current_core;
 
   /* We copy the multiboot framebuffer tag here, if it's available */
-  struct multiboot_tag_framebuffer framebuffer_tag_copy;
   bool has_framebuffer;
 
 } system_info_t;

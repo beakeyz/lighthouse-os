@@ -47,6 +47,9 @@ void register_idt_trap_handler(uint16_t num, void (*handler)()) {
   idt_entry_t entry = create_idt_entry(handler, DEFAULT_SELECTOR, TRAP_GATE);
 }
 
+/*
+ * TODO: just allocate pages dynamically for the idt?
+ */
 void setup_idt(bool should_zero) {
 
   if (should_zero) {

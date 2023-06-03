@@ -44,7 +44,7 @@ NORETURN void kernel_panic(const char* panic_message) {
   current_proc = get_current_proc();
 
   /* Let's not try to write to the kterm when we don't have the mapping... */
-  if (current_proc->m_root_pd.m_root != kmem_get_krnl_dir())
+  if (!current_proc || current_proc->m_root_pd.m_root != kmem_get_krnl_dir())
     has_framebuffer = false;
 
   /* NOTE: crashes in userspace (duh) */

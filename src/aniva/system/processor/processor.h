@@ -28,8 +28,7 @@ typedef struct Processor {
   struct Processor *m_own_ptr;
 
   /* GDT */
-  gdt_entry_t m_gdt[6]              __attribute__((aligned(0x10)));
-  gdt_entry_high_t m_extra_tss      __attribute__((aligned(0x10)));
+  gdt_entry_t m_gdt[7]              __attribute__((aligned(0x10)));
   tss_entry_t m_tss                 __attribute__((aligned(0x10)));
   gdt_pointer_t m_gdtr              __attribute__((aligned(0x10)));
 

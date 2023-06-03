@@ -235,5 +235,9 @@ int ramfs_init() {
 
 int ramfs_exit() {
 
+  /*
+   * TODO: unregister
+   */
+
   return 0;
 }

@@ -127,7 +127,7 @@ void flush_gdt(Processor_t *processor) {
   // base
   processor->m_gdtr.base = (uintptr_t)&processor->m_gdt[0];
   // limit
-  processor->m_gdtr.limit = (sizeof(processor->m_gdt) + sizeof(processor->m_extra_tss)) - 1;
+  processor->m_gdtr.limit = (sizeof(processor->m_gdt)) - 1;
 
   //asm volatile ("lgdt %0"::"m"(processor->m_gdtr) : "memory");
 
@@ -139,7 +139,8 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   processor->m_gdtr.limit = 0;
   processor->m_gdtr.base = NULL;
 
-  memset(processor->m_gdt, 0, sizeof(gdt_entry_t) * 6);
+  memset(processor->m_gdt, 0, sizeof(gdt_entry_t) * 7);
+  memset(&processor->m_tss, 0, sizeof(tss_entry_t));
 
   gdt_entry_t null = {
     .raw = 0,
@@ -152,39 +153,39 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
     .low = 0x0000ffff,
     .high = 0x00af9200,
   };
-  gdt_entry_t ring3_code = {
-    .low = 0x0000ffff,
-    .high = 0x00affa00,
-  };
   gdt_entry_t ring3_data = {
     .low = 0x0000ffff,
     .high = 0x008ff200,
+  };
+  gdt_entry_t ring3_code = {
+    .low = 0x0000ffff,
+    .high = 0x00affa00,
   };
     
   write_to_gdt(processor, 0x0000, null);
   write_to_gdt(processor, GDT_KERNEL_CODE, ring0_code);
   write_to_gdt(processor, GDT_KERNEL_DATA, ring0_data);
-  write_to_gdt(processor, GDT_USER_CODE, ring3_code);
   write_to_gdt(processor, GDT_USER_DATA, ring3_data);
+  write_to_gdt(processor, GDT_USER_CODE, ring3_code);
 
   uintptr_t tss_addr = (uintptr_t)&processor->m_tss;
 
   gdt_entry_t tss = { 0 };
   set_gdte_base(&tss, (tss_addr & 0xffffffff));
-  set_gdte_limit(&tss, sizeof(tss_entry_t));
+  set_gdte_limit(&tss, sizeof(tss_entry_t) - 1);
   tss.structured.dpl = 0;
   tss.structured.segment_present = 1;
   tss.structured.descriptor_type = 0;
   tss.structured.available = 0;
   tss.structured.op_size64 = 0;
-  tss.structured.op_size32 = 0;
+  tss.structured.op_size32 = 1;
   tss.structured.granularity = 0;
   tss.structured.type = AVAILABLE_TSS;
   write_to_gdt(processor, GDT_TSS_SEL, tss);
 
-  gdt_entry_high_t tss_2 = {0};
-  tss_2.base = (tss_addr >> 32) & 0xffffffff;
-  processor->m_extra_tss = tss_2;
+  gdt_entry_t tss_2 = {0};
+  tss_2.low = (tss_addr >> 32) & 0xffffffff;
+  write_to_gdt(processor, GDT_TSS_2_SEL, tss_2);
 
   flush_gdt(processor);
 

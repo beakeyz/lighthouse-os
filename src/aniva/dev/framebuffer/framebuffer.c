@@ -58,7 +58,7 @@ int fb_driver_init() {
   /* Early ready mark */
   driver_set_ready("graphics/fb");
 
-  struct multiboot_tag_framebuffer* fb = &g_system_info.framebuffer_tag_copy;
+  struct multiboot_tag_framebuffer* fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
   destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_SET_MB_TAG, fb, sizeof(void*)));
 

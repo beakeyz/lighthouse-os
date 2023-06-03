@@ -235,7 +235,9 @@ registers_t* pagefault_handler(registers_t *regs) {
   return regs;
 
 panic:
-  kernel_panic("pagefault! (TODO: more info)");
+  //kernel_panic("pagefault! (TODO: more info)");
+  /* Temp =) */
+  return nullptr;
 }
 
 EXCEPTION(15, "Unknown error (Reserved)");
@@ -304,16 +306,9 @@ static void insert_into_handlers(uint16_t index, InterruptHandler_t *handler) {
 }
 
 /*
-   INTERRUPTS
-*/
-
-// heap should be up and running
+ * TODO: migrate irqs to the eventhandler (kevent system)?
+ */
 void init_interrupts() {
-  // TODO: massive todo lol
-  //        - find out what to do with EXCEPTIONs
-  //        - find out what to do with generic handlers
-  //        - do we do function decleration in asm or c???
-  //        - cry
 
   setup_idt(true);
 

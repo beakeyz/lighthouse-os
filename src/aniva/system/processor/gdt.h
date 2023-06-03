@@ -6,8 +6,8 @@
 #define GDT_NULL_SELC 0
 #define GDT_KERNEL_CODE 0x08
 #define GDT_KERNEL_DATA 0x10
-#define GDT_USER_CODE 0x18
-#define GDT_USER_DATA 0x20
+#define GDT_USER_DATA 0x18
+#define GDT_USER_CODE 0x20
 #define GDT_TSS_SEL 0x28
 #define GDT_TSS_2_SEL 0x30
 
@@ -59,11 +59,6 @@ typedef union {
   };
   uintptr_t raw;
 } __attribute__((packed)) gdt_entry_t;
-
-typedef struct {
-  uint32_t base;
-  uint32_t reserved0;
-} __attribute__((packed)) gdt_entry_high_t;
 
 ALWAYS_INLINE uintptr_t get_gdte_base(gdt_entry_t* entry) {
   uintptr_t base = entry->structured.base_low;

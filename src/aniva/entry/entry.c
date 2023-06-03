@@ -73,9 +73,6 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   println("Done doing ramdisk things");
 }
 
-static uintptr_t first_valid_addr = 0;
-static uintptr_t first_valid_alloc_addr = (uintptr_t)&_kernel_end;
-
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_serial();
@@ -91,11 +88,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 
   // parse multiboot
-  mb_initialize(virtual_mb_addr, &first_valid_addr, &first_valid_alloc_addr);
+  mb_initialize(virtual_mb_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
-
-  uintptr_t* d = (uintptr_t*)0xFFFFFFFFFFFFFFFF;
-  *d = 60;
 
   // init bootstrap processor
   init_processor(&g_bsp, 0);
@@ -104,30 +98,23 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_kheap();
 
   // we need memory
-  init_kmem_manager((uintptr_t*)virtual_mb_addr, first_valid_addr, first_valid_alloc_addr);
+  init_kmem_manager((uintptr_t*)virtual_mb_addr);
 
-  // initialize things like fpu or interrupts
+  // initialize cpu-related things that need the memorymanager and the heap
   g_bsp.fLateInit(&g_bsp);
 
   // map multiboot address
-  uintptr_t multiboot_addr = (uintptr_t)Must(__kmem_kernel_alloc(
+  const size_t final_multiboot_size = total_multiboot_size + 8;
+  const uintptr_t multiboot_addr = (uintptr_t)Must(__kmem_kernel_alloc(
     (uintptr_t)mb_addr,
-    total_multiboot_size + 8,
+    final_multiboot_size,
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE,
     0
   ));
 
   g_system_info.multiboot_addr = multiboot_addr;
-  g_system_info.total_multiboot_size = total_multiboot_size + 8;
-  g_system_info.has_framebuffer = false;
-
-  struct multiboot_tag_framebuffer* fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-
-  /* Copy the framebuffer */
-  if (fb) {
-    memcpy(&g_system_info.framebuffer_tag_copy, fb, sizeof(struct multiboot_tag_framebuffer));
-    g_system_info.has_framebuffer = true;
-  }
+  g_system_info.total_multiboot_size = final_multiboot_size;
+  g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
 
   //init_global_kevents();
 
@@ -148,20 +135,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // are we going micro, mono or perhaps even exo?
   // how big will the role of the vfs be?
   //  * how will processes even interact with the kernel??? * 
-
-  vnode_t* test = create_generic_vnode("Test", 0);
-  test->m_data = "Hi, I am david!";
-
-  vfs_mount("Devices/disk", test);
-
-  test = vfs_resolve("Devices/Test");
-
-  print("Test: ");
-
-  if (test) {
-    print("Found it! -> ");
-    println(test->m_name);
-  }
 
   init_scheduler();
 

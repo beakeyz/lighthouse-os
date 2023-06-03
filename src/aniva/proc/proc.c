@@ -83,6 +83,7 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
     return nullptr;
   }
 
+  /* TODO: don't limit to one name */
   return create_proc(PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
