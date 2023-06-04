@@ -56,12 +56,9 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
 }
 
 /*
-*  TODO: A few things need to be figured out:
-*           - (Optional, but desireable) Redo the pml_entry_t structure to be more verbose and straight forward
-*           - Start to think about optimisations
-*           - more implementations
-*           - Implement a lock around the physical allocator
-*/
+ * TODO: Implement a lock around the physical allocator
+ * FIXME: this could be heapless
+ */
 void init_kmem_manager(uintptr_t* mb_addr) {
 
   KMEM_DATA.m_contiguous_ranges = kmalloc(sizeof(list_t));
@@ -642,7 +639,7 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
   start_idx = kmem_get_page_idx(phys_base);
 
   for (uintptr_t i = 0; i < page_count; i++) {
-    const uintptr_t offset = kmem_get_page_addr(i);
+    const uintptr_t offset = i * SMALL_PAGE_SIZE;
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
 
@@ -753,7 +750,8 @@ ErrorOrPtr __kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t cu
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) {
 
-  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+  size_t pages_needed = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
+
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
@@ -767,7 +765,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
    * Mark our pages as used BEFORE we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
-  kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
+  kmem_set_phys_range_used(kmem_get_page_idx(addr), pages_needed);
 
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
@@ -1031,7 +1029,7 @@ ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
 
 // FIXME: macroes?
 uintptr_t kmem_get_page_idx (uintptr_t page_addr) {
-  return (ALIGN_DOWN(page_addr, SMALL_PAGE_SIZE) >> 12);
+  return (page_addr >> 12);
 }
 uintptr_t kmem_get_page_addr (uintptr_t page_idx) {
   return (page_idx << 12);

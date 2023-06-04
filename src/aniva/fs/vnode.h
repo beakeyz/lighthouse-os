@@ -52,7 +52,7 @@ typedef struct vnode {
 
   struct virtual_namespace* m_ns;
 
-  void* m_data;
+  uint8_t* m_data;
 
   /* Write data to this node (really should fail if the node isn't taken) */
   int (*f_write) (struct vnode*, void* buffer, size_t size, uintptr_t offset);

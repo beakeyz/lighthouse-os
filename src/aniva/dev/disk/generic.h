@@ -5,6 +5,7 @@
 #include "dev/disk/shared.h"
 #include "dev/handle.h"
 #include "fs/superblock.h"
+#include "libk/error.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>
 
@@ -77,14 +78,21 @@ ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device);
 ErrorOrPtr register_gdisk_dev_with_uid(generic_disk_dev_t* device, disk_uid_t uid);
 ErrorOrPtr unregister_gdisk_dev(generic_disk_dev_t* device);
 
+/*
+ * find the partitioned device (weird naming sceme but its whatever) 
+ * of a generic disk device at idx
+ * idx is a dword, since the number of partitions should never exceed that limit lmao
+ */
+partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t idx);
+
 generic_disk_dev_t* find_gdisk_device(disk_uid_t uid);
 
-static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t partition) {
+static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t* partition) {
   partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
   
   ret->m_parent = parent;
 
-  ret->m_partition_data = partition;
+  ret->m_partition_data = *partition;
   ret->m_next = nullptr;
 
   return ret;
@@ -94,16 +102,16 @@ static void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev) {
   kfree(dev);
 }
 
+/*
+ * TODO: attach device limit
+ */
 static void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
-
-  if (!generic->m_devs) {
-    generic->m_devs = dev;
-    return;
-  }
 
   partitioned_disk_dev_t** device;
   
-  // Simply attach to the end of the linked list
+  /*
+   * This code is stupid
+   */
   for (device = &generic->m_devs; *device; device = &(*device)->m_next) {
     if (!(*device)) {
       break;
@@ -112,6 +120,7 @@ static void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitio
 
   if (!(*device)) {
     *device = dev;
+    generic->m_partitioned_dev_count++;
   }
 }
 
@@ -133,6 +142,10 @@ static void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitio
 
     previous = device;
   }
+
+  ASSERT_MSG(generic->m_partitioned_dev_count, "Tried to detach partitioned disk device when the dev count of the generic disk device was already zero!");
+
+  generic->m_partitioned_dev_count--;
 }
 
 static partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* generic, uintptr_t block) {

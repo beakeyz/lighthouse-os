@@ -285,14 +285,13 @@ generic_disk_dev_t* create_generic_ramdev(size_t size) {
 }
 
 /*
- * We leave it to the called to map the addressspace
+ * We leave it to the caller to map the addressspace
  * TODO: maybe we could pass an addressspace object that
  * enforces mappings...
  */
 generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   /* Trolle xD */
-  const size_t ramdisk_blksize = 1;
-  paddr_t start_addr = address;
+  const size_t ramdisk_blksize = sizeof(uint8_t);
 
   generic_disk_dev_t* dev = kmalloc(sizeof(generic_disk_dev_t));
   memset(dev, 0x00, sizeof(generic_disk_dev_t));
@@ -307,12 +306,12 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   dev->m_max_blk = size;
 
   generic_partition_t part = {
-    .m_start_lba = start_addr,
-    .m_end_lba = start_addr + size,
+    .m_start_lba = address,
+    .m_end_lba = address + size,
     .m_name = "rampart0",
   };
 
-  partitioned_disk_dev_t* partdev = create_partitioned_disk_dev(dev, part);
+  partitioned_disk_dev_t* partdev = create_partitioned_disk_dev(dev, &part);
   
   attach_partitioned_disk_device(dev, partdev);
 
@@ -342,6 +341,32 @@ bool destroy_generic_ramdev(generic_disk_dev_t* device) {
   kfree(device);
 
   return true;
+}
+
+partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t idx) {
+
+  partitioned_disk_dev_t* ret;
+
+  if (!diskdev || idx >= diskdev->m_partitioned_dev_count)
+    return nullptr;
+
+  ret = diskdev->m_devs;
+
+  /* TODO: find out if this is faster than normal linear scan */
+  while (idx) {
+    if (!ret)
+      return nullptr;
+
+    if (idx % 2 == 0) {
+      ret = ret->m_next->m_next;
+      idx -= 2;
+    } else {
+      ret = ret->m_next;
+      idx--;
+    }
+  }
+
+  return ret;
 }
 
 int ramdisk_read(generic_disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {

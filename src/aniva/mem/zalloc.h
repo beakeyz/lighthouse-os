@@ -27,8 +27,12 @@ typedef enum ZONE_ENTRY_SIZE {
   // ZALLOC_4096BYTES = 0x1000,
 } ZONE_ENTRY_SIZE_t;
 
+#define ZALLOC_MIN_ZONE_ENTRY_SIZE (ZALLOC_8BYTES)
+#define ZALLOC_MAX_ZONE_ENTRY_SIZE (ZALLOC_1024BYTES)
+
 /* Create a zone allocator that fits dynamicly sized object */
 #define ZALLOC_FLAG_DYNAMIC             (0x00000001)
+#define ZALLOC_FLAG_FIXED_SIZE          (0x00000002)
 
 #define DEFAULT_ZONE_ENTRY_SIZE_COUNT   8
 
@@ -110,6 +114,12 @@ extern zone_allocator_t* g_sized_zallocators;
 extern zone_allocator_t* g_dynamic_zallocators;
 
 void init_zalloc();
+
+void* zalloc(zone_allocator_t* allocator, size_t size);
+void zfree(zone_allocator_t* allocator, void* address, size_t size);
+
+void* zalloc_fixed(zone_allocator_t* allocator);
+void zfree_fixed(zone_allocator_t* allocator, void* address);
 
 /*
  * make a new zone allocator. based on the initial_size, we will

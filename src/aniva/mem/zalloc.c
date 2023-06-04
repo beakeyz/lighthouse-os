@@ -241,7 +241,10 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
   /* Calculate how big this zone needs to be */
 
-  if ((flags & ZALLOC_FLAG_DYNAMIC) == ZALLOC_FLAG_DYNAMIC) {
+  ret->m_min_zone_size = ZALLOC_MIN_ZONE_ENTRY_SIZE;
+  ret->m_max_zone_size = ZALLOC_MAX_ZONE_ENTRY_SIZE;
+
+  if (is_dynamic(ret)) {
 
     for (uintptr_t i = 0; i < DEFAULT_ZONE_ENTRY_SIZE_COUNT; i++) {
       enum ZONE_ENTRY_SIZE entry_size = default_entry_sizes[i];
@@ -256,27 +259,26 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
       ret->m_heap->m_current_total_size += zone->m_total_available_size;
     }
 
-  } else {
+    goto end_and_attach;
+  } 
 
-    ret->m_max_zone_size = hard_max_entry_size;
-    ret->m_min_zone_size = hard_max_entry_size;
+  ret->m_max_zone_size = hard_max_entry_size;
+  ret->m_min_zone_size = hard_max_entry_size;
 
-    /* FIXME: integer devision */
-    size_t entries_for_this_zone = (initial_size / hard_max_entry_size);
+  /* FIXME: integer devision */
+  size_t entries_for_this_zone = (initial_size / hard_max_entry_size);
 
-    ErrorOrPtr result = zone_store_add(&ret->m_store, create_zone(hard_max_entry_size, entries_for_this_zone));
+  ErrorOrPtr result = zone_store_add(&ret->m_store, create_zone(hard_max_entry_size, entries_for_this_zone));
 
-    zone_t* zone = (zone_t*)Release(result);
+  zone_t* zone = (zone_t*)Release(result);
 
-    ret->m_heap->m_current_total_size += zone->m_total_available_size;
+  ret->m_heap->m_current_total_size += zone->m_total_available_size;
 
-  }
-
-  /* Attach */
+end_and_attach:
+  /* NOTE: attach after we've setup the zones */
   Must(attach_allocator(ret));
 
   return ret;
-
 }
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
@@ -457,6 +459,20 @@ void zfree(zone_allocator_t* allocator, void* address, size_t size) {
       break;
     }
   }
+}
+
+void* zalloc_fixed(zone_allocator_t* allocator) {
+  if ((allocator->m_flags & ZALLOC_FLAG_DYNAMIC) == ZALLOC_FLAG_DYNAMIC)
+    return nullptr;
+
+  return zalloc(allocator, allocator->m_max_zone_size);
+}
+
+void zfree_fixed(zone_allocator_t* allocator, void* address) {
+  if ((allocator->m_flags & ZALLOC_FLAG_DYNAMIC) == ZALLOC_FLAG_DYNAMIC)
+    return;
+
+  zfree(allocator, address, allocator->m_max_zone_size);
 }
 
 void zexpand(zone_allocator_t* allocator, size_t extra_size) {

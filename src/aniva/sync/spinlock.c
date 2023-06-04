@@ -30,6 +30,10 @@ void destroy_spinlock(spinlock_t* lock) {
   kfree(lock);
 }
 
+/*
+ * FIXME: should we limit spinlock usage in IRQs? 
+ * could they pose a risk for potential deadlocks?
+ */
 void spinlock_lock(spinlock_t* lock) {
   aquire_spinlock(&lock->m_lock);
 

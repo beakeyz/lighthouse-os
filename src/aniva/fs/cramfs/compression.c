@@ -1,5 +1,6 @@
 #include "compression.h"
 #include "dev/debug/serial.h"
+#include "dev/kterm/kterm.h"
 #include "libk/error.h"
 #include "libk/string.h"
 #include "mem/heap.h"
@@ -43,8 +44,9 @@ static void c_write_from(decompress_ctx_t* ctx, uint32_t offset);
  * decode the huffman encoded huffman trees (Yea, mega funky), or
  * formally, the blocks which are compressed using fixed huffman coding.
  */
-struct huffman_table* fixed_lengths = nullptr;
-struct huffman_table* fixed_distances = nullptr;
+struct huffman_table fixed_lengths = { 0 };
+struct huffman_table fixed_distances = { 0 };
+bool fixed_tables_built = false;
 
 /* TODO: Find a place to dynamically allocate for this cache */
 /* another TODO: just implement a kernel cache manager where we can create such cache -_- */
@@ -80,13 +82,10 @@ static void fill_huffman_table(struct huffman_table* table, const uint8_t* lengt
 
 static void build_fixed_tables() {
 
-  if (fixed_distances && fixed_lengths) { 
-    kernel_panic("TEST: fixed tables already built");
+  if (fixed_tables_built)
     return;
-  }
 
-  fixed_lengths = kmalloc(sizeof(struct huffman_table));
-  fixed_distances = kmalloc(sizeof(struct huffman_table));
+  fixed_tables_built = true;
 
   const uint16_t fixed_lengths_size = 288;
   const uint8_t fixed_distances_size = 30;
@@ -105,13 +104,13 @@ static void build_fixed_tables() {
     l[i] = 8;
   }
 
-  fill_huffman_table(fixed_lengths, l, fixed_lengths_size);
+  fill_huffman_table(&fixed_lengths, l, fixed_lengths_size);
 
   for (uint32_t i = 0; i < fixed_distances_size; i++) {
     l[i] = 5;
   }
 
-  fill_huffman_table(fixed_distances, l, fixed_distances_size);
+  fill_huffman_table(&fixed_distances, l, fixed_distances_size);
 }
 
 static void destroy_gzip_header(struct gzip_compressed_header* header) {
@@ -375,7 +374,7 @@ ErrorOrPtr generic_inflate(decompress_ctx_t* ctx, struct gzip_compressed_header*
         break;
       /* fixed huffman code */
       case 0x01:
-        result = huffman_inflate(ctx, header, fixed_lengths, fixed_distances);
+        result = huffman_inflate(ctx, header, &fixed_lengths, &fixed_distances);
         break;
       /* dynamic huffman code */
       case 0x02:
@@ -461,7 +460,7 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) 
     }
   }
 
-  println(header.name);
+  println_kterm(header.name);
 
   if (header.flags & GZIP_FLAG_COMM) {
     header.comment = kmalloc(MAX_COMMENT_LEN);
@@ -486,17 +485,15 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) 
 
 size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
 
-  decompress_ctx_t dummy_ctx = {
-    .m_current = (uint8_t*)(device->m_partition_data.m_end_lba - 8),
-    .m_end_addr = device->m_partition_data.m_end_lba,
-  };
+  decompress_ctx_t dummy_ctx = { 0 };
+
+  dummy_ctx.m_current = (uint8_t*)device->m_partition_data.m_end_lba - 8;
+  dummy_ctx.m_end_addr = device->m_partition_data.m_end_lba;
 
   uint32_t crc32 = c_read32(&dummy_ctx);
 
-  print("Crc: ");
-  println(to_string(crc32));
-
   /* TODO: validate crc32? */
+  println_kterm(to_string(crc32));
 
   return c_read32(&dummy_ctx);
 }

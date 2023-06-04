@@ -1,5 +1,6 @@
 #include "string.h"
 #include "dev/debug/serial.h"
+#include "libk/error.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>
 
@@ -87,21 +88,7 @@ void * memset(void * dest, int c, size_t n) {
 
 void *memmove(void *dest, const void *src, size_t n)
 {
-    char *new_dst = (char *)dest;
-    const char *new_src = (const char *)src;
-    char *temporary_data = (char *)kmalloc(n);
-
-    for (size_t i = 0; i < n; i++)
-    {
-        temporary_data[i] = new_src[i];
-    }
-    for (size_t i = 0; i < n; i++)
-    {
-        new_dst[i] = temporary_data[i];
-    }
-
-    kfree(temporary_data);
-    return dest;
+  kernel_panic("(memmove) Just don't");
 }
 
 void *memchr(const void *s, int c, size_t n)

@@ -155,11 +155,12 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
  */
 vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
-  println("Mounting ramfs");
+  println_kterm("Mounting ramfs");
 
   /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
   const generic_disk_dev_t* parent = device->m_parent;
 
+  ASSERT_MSG(parent->m_partitioned_dev_count == 1, "Ramdisk device should have only one partitioned device!");
   ASSERT_MSG(parent->m_devs == device, "Ramdisk partition mismatch!");
 
   if (!parent)
@@ -168,27 +169,38 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   if ((parent->m_flags & GDISKDEV_RAM) == 0)
     return nullptr;
 
+  println_kterm("Creating vnode...");
+
   const size_t partition_size = ALIGN_UP(device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba, SMALL_PAGE_SIZE);
   vnode_t* node = create_generic_vnode(type->m_name, VN_MOUNT | VN_FS);
 
   node->m_dev = device;
   node->m_size = partition_size;
-  node->m_data = (void*)device->m_partition_data.m_start_lba;
+  node->m_data = (uint8_t*)device->m_partition_data.m_start_lba;
 
   if (parent->m_flags & GDISKDEV_RAM_COMPRESSED) {
     size_t decompressed_size = cram_find_decompressed_size(device);
 
+    ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
+
+    println_kterm("Allocating for the ramdisk...");
+    println_kterm(to_string(decompressed_size));
+
     /* We need to allocate for the decompressed size */
     node->m_data = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
     node->m_size = decompressed_size;
+
+    println_kterm("Decompressing...");
 
     /* Is enforcing success here a good idea? */
     Must(cram_decompress(device, node->m_data));
 
     ASSERT_MSG(node->m_data != nullptr, "decompressing resulted in NULL");
 
+    println_kterm("Deallocating...");
+
     /* Free the pages of the compressed ramdisk */
-    __kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1));
+    Must(__kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1)));
 
     device->m_partition_data.m_start_lba = (uintptr_t)node->m_data;
     device->m_partition_data.m_end_lba = (uintptr_t)node->m_data + partition_size;

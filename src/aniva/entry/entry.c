@@ -8,6 +8,7 @@
 #include "fs/namespace.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
+#include "kevent/kevent.h"
 #include "libk/error.h"
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
@@ -54,27 +55,40 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   const paddr_t module_end = mod->mod_end;
 
   /* Prefetch data */
-  const size_t ramdisk_size = module_end - module_start;
+  const size_t cramdisk_size = module_end - module_start;
 
   println_kterm("Allocating kernel range...");
+  println_kterm(to_string(cramdisk_size));
   /* Map user pages */
-  const uintptr_t ramdisk_addr = (const uintptr_t)Must(__kmem_kernel_alloc(module_start, ramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER, 0));
+  const uintptr_t ramdisk_addr = (const uintptr_t)Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+
+  println_kterm(to_string(kmem_ensure_high_mapping(module_end)));
+  println_kterm(to_string(ramdisk_addr + cramdisk_size));
 
   println_kterm("Creating ram device...");
   /* Create ramdisk object */
-  generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, ramdisk_size);
+  generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
   /* We know ramdisks through modules are compressed */
   ramdisk->m_flags |= GDISKDEV_RAM_COMPRESSED;
 
   println_kterm("Mounting ram device...");
-  Must(vfs_mount_fs("Devices/disk", "cramfs", ramdisk->m_devs));
+  println_kterm(to_string(ramdisk->m_devs->m_partition_data.m_end_lba));
+
+  partitioned_disk_dev_t* partitioned_device = find_partition_at(ramdisk, 0);
+
+  ASSERT_MSG(partitioned_device, "No base partition in the ram device!");
+
+  println_kterm(to_string(partitioned_device->m_partition_data.m_end_lba));
+
+  Must(vfs_mount_fs("Devices/disk", "cramfs", partitioned_device));
 
   println("Done doing ramdisk things");
 }
 
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
+  /* TODO: move serial to driver level, have early serial that gets migrated to a driver later */
   init_serial();
   println("Hi from 64 bit land =D");
 
@@ -116,7 +130,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_system_info.total_multiboot_size = final_multiboot_size;
   g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
 
-  //init_global_kevents();
+  init_kevents();
 
   init_timer_system();
 
