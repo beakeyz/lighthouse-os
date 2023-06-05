@@ -10,6 +10,8 @@
 #include "fs/vnode.h"
 #include "kevent/kevent.h"
 #include "libk/error.h"
+#include "libk/hashmap.h"
+#include "libk/io.h"
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "mem/pg.h"

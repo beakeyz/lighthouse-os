@@ -494,6 +494,9 @@ size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
 
   /* TODO: validate crc32? */
   println_kterm(to_string(crc32));
+  println_kterm("End lba: ");
+  println_kterm(to_string(device->m_partition_data.m_end_lba));
+  println_kterm(to_string(kmem_get_page_idx(kmem_to_phys(nullptr, device->m_partition_data.m_end_lba))));
 
   return c_read32(&dummy_ctx);
 }

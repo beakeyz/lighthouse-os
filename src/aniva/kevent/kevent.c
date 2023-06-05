@@ -39,7 +39,7 @@ void init_kevents()
 {
   __kevent_lock = create_mutex(0);
 
-  __kevent_named_table = create_hashmap(KEVENT_MAX_NAMED_EVENTS, HASHMAP_FLAG_STR_KEY);
+  __kevent_named_table = create_hashmap(KEVENT_MAX_NAMED_EVENTS, HASHMAP_FLAG_SK);
 
   for (uint32_t i = 0; i < KEVENT_TYPE_COUNT; i++) {
     __kevent_unnamed_table[i] = init_list();

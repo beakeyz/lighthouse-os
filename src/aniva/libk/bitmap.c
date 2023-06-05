@@ -42,7 +42,6 @@ void destroy_bitmap(bitmap_t *map) {
   kfree(map);
 }
 
-// FIXME: ANIVA_STATUS
 void bitmap_mark(bitmap_t* this, uint32_t index) {
   if (index > this->m_entries) {
     return;
@@ -51,10 +50,13 @@ void bitmap_mark(bitmap_t* this, uint32_t index) {
   const uint32_t index_byte = index >> 3;
   const uint32_t index_bit = index % 8;
 
+  /* FIXME: is the slowdown worth this? */
+  if (bitmap_isset(this, index))
+    return;
+
   this->m_map[index_byte] |= (1 << index_bit);
 }
 
-// FIXME: ANIVA_STATUS
 void bitmap_unmark(bitmap_t* this, uint32_t index) {
   if (index > this->m_entries) {
     return;
@@ -63,17 +65,19 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
   const uint32_t index_byte = index >> 3;
   const uint32_t index_bit = index % 8;
 
+  /* FIXME: is the slowdown worth this? */
+  if (!bitmap_isset(this, index))
+    return;
+
   this->m_map[index_byte] &= ~(1 << index_bit);
 }
 
-// FIXME: ANIVA_STATUS
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length) {
   for (uintptr_t i = index; i < index + length; i++) {
     bitmap_mark(this, i);
   }
 }
 
-// FIXME: ANIVA_STATUS
 void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
   for (uintptr_t i = index; i < index + length; i++) {
     bitmap_unmark(this, i);

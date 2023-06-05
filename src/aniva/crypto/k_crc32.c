@@ -9,9 +9,15 @@ static const uint32_t crc32_codewords[16] = {
   0xBDBDF21C
 };
 
-#define CRC_CYCLE 2
-#define CRC_INITIAL_XOR 0xF3fe5a99UL
+#define CRC_CYCLE 5                     /* Old: 2 */
+#define CRC_INITIAL_XOR 0xF3fe5a99UL    /* Randomly chosen tbh */
 
+/*
+ * TODO: xnu has some fancy crc functions with dynamic table loading and stuff.
+ * we could (and probably should, with more subsystems relying on this functionality)
+ * implement a similar system like that, or at least bump up the integity of the 
+ * algorithm and polynomial that we are using now
+ */
 uint32_t kcrc32(void* data, size_t data_size) {
   uint32_t ret = CRC_INITIAL_XOR;
   uint8_t* buffer = (uint8_t*)data;

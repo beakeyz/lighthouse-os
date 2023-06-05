@@ -31,6 +31,7 @@ class Consts:
     DEFAULT_C_FLAGS = ""
 
     # Default kernel flags
+    # TODO: implement -Werror -Wpedantic
     KERNEL_C_FLAGS = "-std=gnu11 -Wall -nostdlib -O2 -mno-sse -mno-sse2"
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"

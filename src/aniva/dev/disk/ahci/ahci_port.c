@@ -242,11 +242,11 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_generic.m_path = create_port_path(ret);
 
   // prepare buffers
-  ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc(Must(kmem_prepare_new_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-  ret->m_cmd_list_page = (paddr_t)Must(__kmem_kernel_alloc(Must(kmem_prepare_new_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ret->m_cmd_list_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
-  ret->m_dma_buffer = (paddr_t)Must(__kmem_kernel_alloc(Must(kmem_prepare_new_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-  ret->m_cmd_table_buffer = (paddr_t)Must(__kmem_kernel_alloc(Must(kmem_prepare_new_physical_page()), SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ret->m_dma_buffer = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+  ret->m_cmd_table_buffer = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
   return ret;
 }
