@@ -707,6 +707,27 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
 
 }
 
+/*
+ * Check if the virtual address returns a page when walking the pagetree
+ * and return success if we where able to find it. Fail otherwise
+ * Returns: the virtual base that we aligned to to find the page
+ */
+ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address) {
+
+  vaddr_t virtual_base;
+  pml_entry_t* page;
+
+  virtual_base = ALIGN_DOWN(v_address, SMALL_PAGE_SIZE);
+
+  /* Don't create anything, just find */
+  page = kmem_get_page(table, virtual_base, 0, 0);
+
+  if (page && kmem_get_page_base(page->raw_bits))
+    return Success(virtual_base);
+
+  return Error();
+}
+
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
   return __kmem_dealloc(nullptr, virt_base, size);
 }
@@ -789,7 +810,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
    * Mark our pages as used BEFORE we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
-  kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
+  kmem_set_phys_range_used(phys_idx, pages_needed);
 
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();

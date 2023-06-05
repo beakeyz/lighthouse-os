@@ -219,6 +219,8 @@ bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
 
+ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address);
+
 /*
  * initialize the physical pageframe allocator
  */

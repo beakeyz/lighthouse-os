@@ -5,13 +5,39 @@
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
 
-ErrorOrPtr mb_initialize(void *addr) {
+#define MB_MOD_PROBE_LOOPLIM 32
+#define MB_TAG_PROBE_LOOPLIM 128
+
+ErrorOrPtr init_multiboot(void* addr) {
 
   // first: find the memorymap 
   struct multiboot_tag_mmap* mb_memmap = get_mb2_tag(addr, 6);
   if (!mb_memmap) {
     println("No memorymap found! aborted");
     return Error();
+  }
+
+  return Success(0);
+}
+
+/*
+ * Called after kmem_manager is set up, since we need to have access to the physical
+ * allocator here
+ */
+ErrorOrPtr finalize_multiboot(void* addr) {
+
+  uint32_t i = 0;
+  struct multiboot_tag_module* mod = get_mb2_tag(addr, MULTIBOOT_TAG_TYPE_MODULE);
+
+  while (mod && (i++) < MB_MOD_PROBE_LOOPLIM) {
+    const paddr_t module_start_idx = kmem_get_page_idx(ALIGN_DOWN(mod->mod_start, SMALL_PAGE_SIZE));
+    const paddr_t module_end_idx = kmem_get_page_idx(ALIGN_UP(mod->mod_end, SMALL_PAGE_SIZE));
+
+    const size_t module_size_pages = module_end_idx - module_start_idx;
+
+    kmem_set_phys_range_used(module_start_idx, module_size_pages);
+
+    mod = next_mb2_tag((char*)mod, MULTIBOOT_TAG_TYPE_MODULE);
   }
 
   /* TODO: do we need to do anything else to init multiboot for the kernel? */

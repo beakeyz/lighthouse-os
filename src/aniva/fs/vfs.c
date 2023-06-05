@@ -69,18 +69,14 @@ ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partiti
 
   vnode_t* mountnode = nullptr;
 
-  println_kterm("Trying to mount fs type");
-
+  /* Execute fs-specific mount routine */
   if (fs->f_mount)
     mountnode = fs->f_mount(fs, mountpoint, device);
-
-  println_kterm("Finished fs-specific mount");
 
   if (!mountnode)
     return Error();
 
-  println_kterm("Trying to really mount fs type");
-
+  /* Mount into our vfs */
   ErrorOrPtr mount_result = vfs_mount(mountpoint, mountnode);
 
   return mount_result;

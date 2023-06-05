@@ -25,7 +25,9 @@
 
 #include "libk/error.h"
 
-ErrorOrPtr mb_initialize(void* addr);
+ErrorOrPtr init_multiboot(void* addr);
+ErrorOrPtr finalize_multiboot(void* addr);
+
 size_t get_total_mb2_size(void* start_addr);
 void* next_mb2_tag(void* cur, uint32_t type);
 void* get_mb2_tag(void* addr, uint32_t type);

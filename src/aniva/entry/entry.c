@@ -57,29 +57,18 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   /* Prefetch data */
   const size_t cramdisk_size = module_end - module_start;
 
-  println_kterm("Allocating kernel range...");
-  println_kterm(to_string(cramdisk_size));
   /* Map user pages */
-  const uintptr_t ramdisk_addr = (const uintptr_t)Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+  const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
-  println_kterm(to_string(kmem_ensure_high_mapping(module_end)));
-  println_kterm(to_string(ramdisk_addr + cramdisk_size));
-
-  println_kterm("Creating ram device...");
   /* Create ramdisk object */
   generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
   /* We know ramdisks through modules are compressed */
   ramdisk->m_flags |= GDISKDEV_RAM_COMPRESSED;
 
-  println_kterm("Mounting ram device...");
-  println_kterm(to_string(ramdisk->m_devs->m_partition_data.m_end_lba));
-
   partitioned_disk_dev_t* partitioned_device = find_partition_at(ramdisk, 0);
 
   ASSERT_MSG(partitioned_device, "No base partition in the ram device!");
-
-  println_kterm(to_string(partitioned_device->m_partition_data.m_end_lba));
 
   Must(vfs_mount_fs("Devices/disk", "cramfs", partitioned_device));
 
@@ -92,6 +81,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_serial();
   println("Hi from 64 bit land =D");
 
+  /* FIXME: do we still need this? */
   void* virtual_mb_addr = (void*)kmem_ensure_high_mapping((uintptr_t)mb_addr);
 
   // Verify magic number
@@ -102,7 +92,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   }
 
   // parse multiboot
-  mb_initialize(virtual_mb_addr);
+  init_multiboot(virtual_mb_addr);
   size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
 
   // init bootstrap processor
@@ -125,6 +115,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE,
     0
   ));
+
+  // Perform multiboot finalization
+  finalize_multiboot((void*)multiboot_addr);
 
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = final_multiboot_size;

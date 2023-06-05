@@ -169,8 +169,6 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   if ((parent->m_flags & GDISKDEV_RAM) == 0)
     return nullptr;
 
-  println_kterm("Creating vnode...");
-
   const size_t partition_size = ALIGN_UP(device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba, SMALL_PAGE_SIZE);
   vnode_t* node = create_generic_vnode(type->m_name, VN_MOUNT | VN_FS);
 
@@ -183,21 +181,14 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
     ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
 
-    println_kterm("Allocating for the ramdisk...");
-    println_kterm(to_string(decompressed_size));
-
     /* We need to allocate for the decompressed size */
     node->m_data = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
     node->m_size = decompressed_size;
-
-    println_kterm("Decompressing...");
 
     /* Is enforcing success here a good idea? */
     Must(cram_decompress(device, node->m_data));
 
     ASSERT_MSG(node->m_data != nullptr, "decompressing resulted in NULL");
-
-    println_kterm("Deallocating...");
 
     /* Free the pages of the compressed ramdisk */
     Must(__kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1)));
