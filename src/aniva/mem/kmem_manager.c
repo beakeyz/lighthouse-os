@@ -369,6 +369,9 @@ ErrorOrPtr kmem_request_physical_page() {
 
   TRY(index, bitmap_find_free(KMEM_DATA.m_phys_bitmap));
 
+  if (index == 481)
+    kernel_panic("No");
+
   return Success(index);
 }
 
@@ -786,7 +789,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
    * Mark our pages as used BEFORE we map the range, since map_page
    * sometimes yoinks pages for itself 
    */
-  kmem_set_phys_range_used(kmem_get_page_idx(addr), pages_needed);
+  kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
 
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();

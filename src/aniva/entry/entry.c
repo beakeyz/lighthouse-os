@@ -114,8 +114,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   const uintptr_t multiboot_addr = (uintptr_t)Must(__kmem_kernel_alloc(
     (uintptr_t)mb_addr,
     final_multiboot_size,
-    KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE,
-    0
+    NULL,
+    NULL
   ));
 
   // Perform multiboot finalization
@@ -125,7 +125,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_system_info.total_multiboot_size = final_multiboot_size;
   g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
 
-  init_kevents();
+  // init_kevents();
 
   init_timer_system();
 

@@ -37,8 +37,13 @@ typedef struct {
   //Processor_t m_bsp_processor;
   //Processor_t* m_current_core;
 
-  /* We copy the multiboot framebuffer tag here, if it's available */
+  /*
+   * Set to check if we have an available connection to the 
+   * user through a bootloader-provided framebuffer 
+   */
   bool has_framebuffer;
+
+  uintptr_t count;
 
 } system_info_t;
 

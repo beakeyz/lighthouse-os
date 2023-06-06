@@ -19,6 +19,19 @@ static uintptr_t __hashmap_hash_str(hashmap_key_t str)
   return hashed_key;
 }
 
+typedef struct hashmap_entry {
+
+  /* The actual value stored at this address */
+  hashmap_value_t m_value;
+
+  /* Hash that is computed on collision */
+  uintptr_t m_hash;
+
+  struct hashmap_entry* m_next;
+
+} hashmap_entry_t;
+
+
 /*
  * Allocate kernel memory for a hashmap entry and initialize 
  * its internals
@@ -43,6 +56,37 @@ static hashmap_entry_t* __create_hashmap_entry(hashmap_value_t data, uint32_t fl
 }
 
 /*
+ * Destroy a hashmap_entry_t object and free its memory
+ */
+static void __destroy_hashmap_entry(hashmap_entry_t* entry)
+{
+
+  if (!entry)
+    return;
+
+  memset(entry, 0, sizeof(hashmap_entry_t));
+
+  kfree(entry);
+}
+
+/*
+ * Compute the total size of the hashmap object based on its max size
+ * and the flags
+ */
+static size_t __get_hashmap_size(size_t max_size, uint32_t hm_flags)
+{
+  size_t hashmap_size = sizeof(hashmap_t);
+
+  if ((hm_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA) {
+    hashmap_size += max_size * sizeof(hashmap_entry_t);
+  } else {
+    hashmap_size += max_size * sizeof(hashmap_value_t);
+  }
+
+  return hashmap_size;
+}
+
+/*
  * Allocate kernel memory for the hashmap and initialize 
  * its internals
  */
@@ -54,7 +98,10 @@ hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
   if (!max_size)
     return nullptr;
 
-  hashmap_size = sizeof(hashmap_t) + (max_size * sizeof(hashmap_entry_t));
+  /* FIXME: implement open addressing */
+  flags |= HASHMAP_FLAG_CA;
+
+  hashmap_size = __get_hashmap_size(max_size, flags);
 
   ret = kmalloc(hashmap_size);
 
@@ -63,9 +110,6 @@ hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
 
   memset(ret, 0, hashmap_size);
 
-  /* FIXME: implement open addressing */
-  flags |= HASHMAP_FLAG_CA;
-
   ret->m_flags = flags;
   ret->m_size = 0;
   ret->m_max_size = max_size;
@@ -73,6 +117,53 @@ hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
   ret->f_hash_func = __hashmap_hash_str;
 
   return ret;
+}
+
+static void __hashmap_cleanup(hashmap_t* map) 
+{
+  hashmap_entry_t* current_entry;
+  hashmap_entry_t* cached_next;
+
+  for (uintptr_t i = 0; i < map->m_max_size; i++) {
+    current_entry = (hashmap_entry_t*)map->m_list + i;
+
+    /* Continue if there is no next, since all the roots get cleaned up with the memset call */
+    if (!current_entry->m_next)
+      continue;
+
+    current_entry = current_entry->m_next;
+
+    /* We start at the root, which is not heap-allocated, so we skip that one */
+    while (current_entry->m_next) {
+      cached_next = current_entry->m_next;
+
+      /* Destroy will invalidate the pointer */
+      __destroy_hashmap_entry(current_entry);
+
+      /* So we'll revalidate it with the cashed next */
+      current_entry = cached_next;
+    }
+  }
+}
+
+/*
+ * There SHOULD be nothing going wrong here, but you never know
+ */
+void destroy_hashmap(hashmap_t* map) {
+
+  if (!map)
+    return;
+
+  __hashmap_cleanup(map);
+
+  memset(map, 0, __get_hashmap_size(map->m_max_size, map->m_flags));
+
+  kfree(map);
+}
+
+ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn) {
+  kernel_panic("TODO: implement hashmap_itterate");
+  return Error();
 }
 
 /*
@@ -391,6 +482,10 @@ static ErrorOrPtr __hashmap_set_open(hashmap_t* map, hashmap_key_t key, hashmap_
   kernel_panic("TODO: implement __hashmap_set_open");
 }
 
+/*
+ * Set (mutate) a value in the map
+ * NOTE: this fails if the entry does not exist
+ */
 ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value) {
 
   if (!map || !key)
@@ -400,4 +495,88 @@ ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
     return __hashmap_set_closed(map, key, value);
 
   return __hashmap_set_open(map, key, value);
+}
+
+/*
+ * Remove a value with closed addressing
+ */
+ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
+{
+  uintptr_t index;
+  hashmap_entry_t* prev;
+  hashmap_entry_t* entry;
+
+  __HASHMAP_GET_INDX(map, hashed_key, key, idx);
+
+  entry = (hashmap_entry_t*)map->m_list + idx;
+
+  /* No hash automatically means no entry =/ */
+  if (!entry || !entry->m_hash)
+    return Error();
+
+  if (entry->m_hash == (uint32_t)hashed_key) {
+
+    /*
+     * Reset the hash and value, so the entry essentially
+     * gets marked as 'free'
+     */
+    entry->m_hash = NULL;
+    entry->m_value = NULL;
+
+    return Success(0);
+  }
+
+  /* No next means we don't have to continue looking xD */
+  if (!entry->m_next)
+    return Error();
+
+  __HASHMAP_GET_NEW_INDX(map, new_idx, new_hash, idx, hashed_key);
+
+  /* Cache the root */
+  prev = entry;
+
+  /* value is NULL if the entry was not found */
+  entry = (hashmap_entry_t*)Release(__hashmap_find_entry(map, entry, new_hash));
+
+  if (!entry)
+    return Error();
+
+  /* Sad implementation: linear scan to find the entry behind the one we need to remove */
+  while (index++ < map->m_size) {
+
+    if (prev->m_next == entry)
+      break;
+
+    prev = prev->m_next;
+  }
+
+  prev->m_next = entry->m_next;
+
+  /* Clean up object */
+  entry->m_value = NULL;
+  entry->m_hash = NULL;
+  entry->m_next = nullptr;
+
+  return Success(0);
+
+}
+
+/*
+ * Remove an entry with open addressing
+ */
+ErrorOrPtr __hashmap_remove_open(hashmap_t* map, hashmap_key_t key)
+{
+  kernel_panic("TODO: implement __hashmap_remove_open");
+  return Error();
+}
+
+ErrorOrPtr hashmap_remove(hashmap_t* map, hashmap_key_t key) {
+
+  if (!map || !key)
+    return Error();
+
+  if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
+    return __hashmap_remove_closed(map, key);
+
+  return __hashmap_remove_open(map, key);
 }

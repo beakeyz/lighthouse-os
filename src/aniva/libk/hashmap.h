@@ -12,16 +12,7 @@
 typedef void* hashmap_key_t;
 typedef void* hashmap_value_t;
 
-typedef struct __hashmap_entry {
-
-  /* The actual value stored at this address */
-  hashmap_value_t m_value;
-
-  uintptr_t m_hash;
-
-  struct __hashmap_entry* m_next;
-
-} hashmap_entry_t;
+struct hashmap_entry;
 
 #define HASHMAP_FLAG_SK         (0x00000001) /* Does this hashmap use strings for keys? */
 #define HASHMAP_FLAG_CA         (0x00000002) /* Does this hashmap use closed addressing? (FIXME/TODO: open addressing is still unimplemented) */
@@ -40,10 +31,16 @@ typedef struct __hashmap {
   hashmap_value_t m_list[];
 } hashmap_t;
 
+typedef ErrorOrPtr (*hashmap_itterate_fn_t) (hashmap_value_t value);
+
 hashmap_t* create_hashmap(size_t max_size, uint32_t flags);
+void destroy_hashmap(hashmap_t* map);
+
+ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn);
 
 ErrorOrPtr hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
 ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
+ErrorOrPtr hashmap_remove(hashmap_t* map, hashmap_key_t key);
 hashmap_value_t hashmap_get(hashmap_t* map, hashmap_key_t key);
 
 bool hashmap_has(hashmap_t* map, hashmap_key_t key);
