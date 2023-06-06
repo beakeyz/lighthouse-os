@@ -72,6 +72,9 @@ void init_kmem_manager(uintptr_t* mb_addr) {
 
   kmem_init_physical_allocator();
 
+  // Perform multiboot finalization
+  finalize_multiboot(mb_addr);
+
   KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
 
   _init_kmem_page_layout();
@@ -368,9 +371,6 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
 ErrorOrPtr kmem_request_physical_page() {
 
   TRY(index, bitmap_find_free(KMEM_DATA.m_phys_bitmap));
-
-  if (index == 481)
-    kernel_panic("No");
 
   return Success(index);
 }

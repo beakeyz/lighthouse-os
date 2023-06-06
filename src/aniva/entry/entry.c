@@ -118,9 +118,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     NULL
   ));
 
-  // Perform multiboot finalization
-  finalize_multiboot((void*)multiboot_addr);
-
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = final_multiboot_size;
   g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
