@@ -460,8 +460,6 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) 
     }
   }
 
-  println_kterm(header.name);
-
   if (header.flags & GZIP_FLAG_COMM) {
     header.comment = kmalloc(MAX_COMMENT_LEN);
     memset(header.comment, 0, MAX_COMMENT_LEN);
@@ -493,10 +491,7 @@ size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
   uint32_t crc32 = c_read32(&dummy_ctx);
 
   /* TODO: validate crc32? */
-  println_kterm(to_string(crc32));
-  println_kterm("End lba: ");
-  println_kterm(to_string(device->m_partition_data.m_end_lba));
-  println_kterm(to_string(kmem_get_page_idx(kmem_to_phys(nullptr, device->m_partition_data.m_end_lba))));
+  (void)crc32;
 
   return c_read32(&dummy_ctx);
 }
