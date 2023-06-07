@@ -448,7 +448,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const uintptr_t pt_idx = (addr >> 12) & ENTRY_MASK;
   const bool should_make = ((kmem_flags & KMEM_CUSTOMFLAG_GET_MAKE) == KMEM_CUSTOMFLAG_GET_MAKE);
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
-  const uintptr_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
+  const uint32_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
   pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root));
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));

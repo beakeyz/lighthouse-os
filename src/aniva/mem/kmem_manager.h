@@ -26,7 +26,7 @@
 #define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 
 /* Bottom of the userstack per process. Every thread gets thread_id * STACK_SIZE as a new base */
-#define HIGH_STACK_BASE         0x0000800000000000ULL
+#define HIGH_STACK_BASE         0x0000000080000000ULL
 
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
