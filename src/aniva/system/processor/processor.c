@@ -35,7 +35,7 @@ static ErrorOrPtr __init_syscalls(Processor_t* processor)
   wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
 
   /* Set the syscall segments */
-  wrmsr_ex(MSR_STAR, 0, (GDT_USER_CODE << 16) | (GDT_KERNEL_CODE));
+  wrmsr_ex(MSR_STAR, 0, (0x13 << 16) | GDT_KERNEL_CODE);
 
   /* Set the syscall entry */
   wrmsr(MSR_LSTAR, (uintptr_t)sys_entry);

@@ -1,5 +1,7 @@
 #include "core.h"
+#include "dev/debug/serial.h"
 #include "system/processor/processor.h"
+#include <dev/kterm/kterm.h>
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
@@ -24,12 +26,11 @@ NAKED void sys_entry() {
     // FIXME: we are pushing r11 and rcx twice here, and we already know they
     // contain predetirmined values. What should we do with them?
     // FIXME: can we add some fancy logic here to allow syscalls from ring 0?
-    "pushq $0x1b                            \n"
+    "pushq %[user_ss]                       \n"
     "pushq %%gs:%c[usr_stck_offset]         \n"
     "pushq %%r11                            \n"
-    "pushq $0x23                            \n"
+    "pushq %[user_cs]                       \n"
     "pushq %%rcx                            \n"
-    "pushq $0                               \n"
     "pushq $0                               \n"
     "pushq %%r15                            \n"
     "pushq %%r14                            \n"
@@ -74,7 +75,7 @@ NAKED void sys_entry() {
     "popq %%r13                             \n"
     "popq %%r14                             \n"
     "popq %%r15                             \n"
-    "addq $16, %%rsp                        \n"
+    "addq $8, %%rsp                        \n"
     "popq %%rcx                             \n"
     "addq $16, %%rsp                        \n"
 
@@ -85,7 +86,9 @@ NAKED void sys_entry() {
     :
     :
     [krnl_stck_offset]"i"(get_kernel_stack_offset()),
-    [usr_stck_offset]"i"(get_user_stack_offset())
+    [usr_stck_offset]"i"(get_user_stack_offset()),
+    [user_ss]"g"(GDT_USER_DATA | 3),
+    [user_cs]"g"(GDT_USER_CODE | 3)
     : "memory"
     );
 }
@@ -95,6 +98,7 @@ void sys_handler(registers_t* regs) {
   Processor_t* current_processor = get_current_processor();
   thread_t *current_thread = get_current_scheduling_thread();
 
-  kernel_panic("SUCCESS! recieved syscall!");
+  println_kterm("Recieved syscall!");
+  println("Recieved syscall!");
 
 }
