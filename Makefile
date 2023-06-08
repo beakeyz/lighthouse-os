@@ -28,7 +28,7 @@ KERNEL_OUT = $(OUT)/lightos.elf
 
 # TODO: these flags are also too messy, clean this up too
 # usefull flag for tracing: -d trace:handle_cmd_* 
-QEMUFLAGS := -m 128M -machine q35 -usb ./out/lightos.iso -no-reboot -serial stdio
+QEMUFLAGS := -m 128M -machine q35 -usb ./out/lightos.iso -enable-kvm -no-reboot -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
 -Wall 							\

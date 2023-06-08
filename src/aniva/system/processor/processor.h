@@ -69,7 +69,7 @@ extern Processor_t g_bsp;
  * initialize early aspects of the processor abstraction
  * i.e. interrupts or fields
  */
-ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num);
+void init_processor(Processor_t *processor, uint32_t cpu_num);
 
 /*
  * create processor on heap

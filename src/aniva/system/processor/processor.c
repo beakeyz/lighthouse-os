@@ -23,19 +23,27 @@ static ALWAYS_INLINE void init_smep(processor_info_t* info);
 static ALWAYS_INLINE void init_smap(processor_info_t* info);
 static ALWAYS_INLINE void init_umip(processor_info_t* info);
 
+Processor_t g_bsp;
 extern FpuState standard_fpu_state;
 
-Processor_t g_bsp;
+static ErrorOrPtr __init_syscalls(Processor_t* processor)
+{
+  
+  return Success(0);
+}
 
 // Should not be used to initialize bsp
 Processor_t *create_processor(uint32_t num) {
   Processor_t * ret = kmalloc(sizeof(Processor_t));
   ret->m_cpu_num = num;
-  ret->fLateInit = processor_late_init;
+
+  /* TODO */
+  kernel_panic("TODO: support multiple processors (smp)");
+  
   return ret;
 }
 
-ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
+void init_processor(Processor_t *processor, uint32_t cpu_num) {
   processor->m_own_ptr = processor;
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
@@ -70,18 +78,14 @@ ANIVA_STATUS init_processor(Processor_t *processor, uint32_t cpu_num) {
   }
 
   if (processor_has(&processor->m_info, X86_FEATURE_SYSCALL)) {
-    // TODO: set syscall entry
+    // Set syscall entry
+    ASSERT_MSG(__init_syscalls(processor).m_status == ANIVA_SUCCESS, "Failed to initialize syscalls");
   }
-  // setup software
-  if (is_bsp(processor)) {
-    // TODO: do bsp shit
-  }
-  // TODO:
+
   init_gdt(processor);
 
   // set msr base
   wrmsr(MSR_GS_BASE, (uintptr_t)processor);
-  return ANIVA_SUCCESS;
 }
 
 ALWAYS_INLINE void processor_late_init(Processor_t *this) {
