@@ -24,6 +24,10 @@ typedef void (*PROCESSOR_LATE_INIT)(
   struct Processor *this
 );
 
+#define PROCESSOR_FLAG_INT_SYSCALLS     (0x00000001) /* Do we use interrupts for syscalls, or does this CPU have the SYSCALL feature (sysenter/sysexit) */
+#define PROCESSOR_FLAG_XSAVE            (0x00000002) /* Do we have xsave for fpu stuff */
+#define PROCESSOR_FLAG_VIRTUAL          (0x00000004) /* Is this a virtual (emulated) or a physical processor */
+
 typedef struct Processor {
   struct Processor *m_own_ptr;
 
@@ -41,6 +45,7 @@ typedef struct Processor {
   uint32_t m_prev_irq_depth;
   // 0 means this is the bsp
   uint32_t m_cpu_num;
+  uint32_t m_flags;
 
   void *m_user_stack;
 
@@ -58,7 +63,6 @@ typedef struct Processor {
 
   proc_t *m_current_proc;
   proc_t *m_kernel_process;
-  bool m_being_handled_by_scheduler;
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;

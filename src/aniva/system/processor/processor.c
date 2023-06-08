@@ -28,7 +28,25 @@ extern FpuState standard_fpu_state;
 
 static ErrorOrPtr __init_syscalls(Processor_t* processor)
 {
-  
+  /* We support the syscall feature */
+  processor->m_flags &= ~PROCESSOR_FLAG_INT_SYSCALLS;
+
+  /* Enable syscall extention */
+  wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
+
+  /* Set the syscall segments */
+  wrmsr_ex(MSR_STAR, 0, (GDT_USER_CODE << 16) | (GDT_KERNEL_CODE));
+
+  /* Set the syscall entry */
+  wrmsr(MSR_LSTAR, (uintptr_t)sys_entry);
+
+  /* Mask all these eflag bits so there is no leaking of kernel data to userspace */
+  wrmsr(MSR_SFMASK, EFLAGS_CF|EFLAGS_PF|EFLAGS_AF|
+	       EFLAGS_ZF|EFLAGS_SF|EFLAGS_TF|
+	       EFLAGS_IF|EFLAGS_DF|EFLAGS_OF|
+	       EFLAGS_IOPL|EFLAGS_NT|EFLAGS_RF|
+	       EFLAGS_AC|EFLAGS_ID);
+
   return Success(0);
 }
 
@@ -44,6 +62,9 @@ Processor_t *create_processor(uint32_t num) {
 }
 
 void init_processor(Processor_t *processor, uint32_t cpu_num) {
+
+  memset(processor, 0, sizeof(*processor));
+
   processor->m_own_ptr = processor;
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
@@ -76,6 +97,9 @@ void init_processor(Processor_t *processor, uint32_t cpu_num) {
       write_xcr0(read_xcr0() | (AVX | SSE | X87));
     }
   }
+
+  /* We are guaranteed to support interrupt syscalls */
+  processor->m_flags |= PROCESSOR_FLAG_INT_SYSCALLS;
 
   if (processor_has(&processor->m_info, X86_FEATURE_SYSCALL)) {
     // Set syscall entry

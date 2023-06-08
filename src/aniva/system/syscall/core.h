@@ -16,7 +16,7 @@ enum SYSCALL_ID {
   GETTIME,
 };
 
-typedef int64_t (*sys_fn)(int64_t, int64_t, int64_t, int64_t);
+typedef int64_t (*sys_fn)(uint64_t, uint64_t, uint64_t, uint64_t);
 
 struct syscall {
   enum SYSCALL_ID m_id;
