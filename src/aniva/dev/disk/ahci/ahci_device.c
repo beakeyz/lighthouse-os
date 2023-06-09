@@ -191,12 +191,11 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   if (status != ANIVA_SUCCESS)
     return status;
 
-  // HBA has been reset, enable its interrupts
-  InterruptHandler_t* _handler = create_interrupt_handler(interrupt_line, I8259, ahci_irq_handler);
-  bool result = interrupts_add_handler(_handler);
+  // HBA has been reset, enable its interrupts and claim this line
+  ErrorOrPtr result = install_quick_int_handler(interrupt_line, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, I8259, ahci_irq_handler);
 
-  if (result)
-    _handler->m_controller->fControllerEnableVector(interrupt_line);
+  if (result.m_status == ANIVA_SUCCESS)
+    quick_int_handler_enable_vector(interrupt_line);
 
   uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);

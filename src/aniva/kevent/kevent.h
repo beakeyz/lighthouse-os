@@ -10,9 +10,9 @@
 
 #define KEVENT_NAME_MAX_LENGTH 32
 
-#define KEVENT_FLAG_NAMELESS            (0x00000001) /* This event is identified only by its ID and type */
-#define KEVENT_FLAG_NO_CHAINING         (0x00000002) /* This event only holds one handler */
-#define KEVENT_FLAG_HIGH_PRIO           (0x00000004) /* This event is allowed to interrupt kernel processes like scheduling*/
+// #define KEVENT_FLAG_NAMELESS            (0x00000001) /* This event is identified only by its ID and type */
+#define KEVENT_FLAG_NO_CHAINING         (0x00000001) /* This event only holds one handler */
+#define KEVENT_FLAG_HIGH_PRIO           (0x00000002) /* This event is allowed to interrupt kernel processes like scheduling*/
 
 #define KEVENT_TYPE_COUNT 6
 
@@ -98,12 +98,6 @@ ErrorOrPtr kevent_set_flags(kevent_t** event, uint32_t flags);
  * fails if the name is not found or if the key is invalid
  * or if the callchain fails
  */
-ErrorOrPtr fire_event(char* name, kevent_key_t key, void* data); 
-
-/*
- * Try to call the eventlisteners of an event that has no name and just an id and type
- * fails if the id is not found or if the key is invalid
- */
-ErrorOrPtr fire_event_id(uint32_t id, kevent_type_t type, kevent_key_t key, void* data); 
+ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data); 
 
 #endif // !__ANIVA_KEVENT__

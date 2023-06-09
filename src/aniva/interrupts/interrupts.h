@@ -2,6 +2,7 @@
 #define __ANIVA_INTERRUPTS__
 
 #include "interrupts/control/interrupt_control.h"
+#include "libk/error.h"
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
 
@@ -11,33 +12,41 @@
 #define INTERRUPT_HANDLER_COUNT (256 - IRQ_VEC_BASE)
 
 struct Interrupt;
-struct InterruptHandler;
+struct quick_interrupthandler;
 
 // handler func ptrs
 typedef void (*interrupt_exeption_t) ();
 typedef void (*interrupt_error_handler_t)(registers_t*);
 typedef registers_t* (*interrupt_callback_t)(registers_t*);
 
-// Represent the interrupthandler that should handle a fired Interrupt_t
-typedef struct InterruptHandler {
+#define QIH_FLAG_REGISTERED         (0x00000001)
+#define QIH_FLAG_IN_INTERRUPT       (0x00000002)
+#define QIH_FLAG_BLOCK_EVENTS       (0x00000004)
+
+typedef struct quick_interrupt_handler {
   interrupt_callback_t fHandler;
-  uint16_t m_int_num;
-  bool m_is_registerd;
-  bool m_is_in_interrupt; // TODO: atomic?
+  uint32_t m_int_num;
+  uint32_t m_flags;
   InterruptController_t* m_controller;
-} InterruptHandler_t;
+} quick_interrupthandler_t;
 
-InterruptHandler_t* create_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback);
-InterruptHandler_t create_unhandled_interrupt_handler(uint16_t int_num);
+/*
+ * Fill a predefined space based on the int_num for a quick interrupt handler
+ */
+ErrorOrPtr install_quick_int_handler(uint32_t int_num, uint32_t flags, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback);
 
-// init 0.0
+/*
+ * Zero out the quick handler at spot int_num
+ */
+void uninstall_quick_int_handler(uint32_t int_num);
+
+ErrorOrPtr quick_int_handler_enable_vector(uint32_t int_num);
+ErrorOrPtr quick_int_handler_disable_vector(uint32_t int_num);
+
+/*
+ * Initialize the interrupt subsystem
+ */
 void init_interrupts();
-
-// add
-bool interrupts_add_handler (InterruptHandler_t* handler_ptr);
-
-// remove
-void interrupts_remove_handler (const uint16_t int_num);
 
 // main entrypoint
 registers_t* interrupt_handler (struct registers* regs);

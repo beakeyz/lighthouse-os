@@ -34,15 +34,9 @@ static size_t s_pit_ticks;
 
 ANIVA_STATUS set_pit_interrupt_handler() {
 
-  InterruptHandler_t* handler = create_interrupt_handler(PIT_TIMER_INT_NUM, I8259, pit_irq_handler);
-  bool success = interrupts_add_handler(handler);
+  Must(install_quick_int_handler(PIT_TIMER_INT_NUM, QIH_FLAG_REGISTERED, I8259, pit_irq_handler));
+  Must(quick_int_handler_enable_vector(PIT_TIMER_INT_NUM));
 
-  if (success) {
-    handler->m_controller->fControllerEnableVector(PIT_TIMER_INT_NUM);
-    return ANIVA_SUCCESS;
-  }
-
-  // TODO
   return ANIVA_FAIL;
 }
 
@@ -89,9 +83,7 @@ void init_and_install_pit() {
 void uninstall_pit() {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-  InterruptController_t* controller = get_controller_for_int_number(PIT_TIMER_INT_NUM);
-  controller->fControllerDisableVector(PIT_TIMER_INT_NUM);
-  interrupts_remove_handler(PIT_TIMER_INT_NUM);
+  uninstall_quick_int_handler(PIT_TIMER_INT_NUM);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }

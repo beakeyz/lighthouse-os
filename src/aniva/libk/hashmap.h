@@ -43,6 +43,8 @@ ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 ErrorOrPtr hashmap_remove(hashmap_t* map, hashmap_key_t key);
 hashmap_value_t hashmap_get(hashmap_t* map, hashmap_key_t key);
 
-bool hashmap_has(hashmap_t* map, hashmap_key_t key);
+static inline bool hashmap_has(hashmap_t* map, hashmap_key_t key) {
+  return (hashmap_get(map, key) != nullptr);
+}
 
 #endif // !__ANIVA_LIBK_HASHMAP__

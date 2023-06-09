@@ -2,6 +2,7 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "interrupts/control/interrupt_control.h"
 #include "interrupts/idt.h"
+#include "kevent/kevent.h"
 #include "mem/kmem_manager.h"
 #include "libk/error.h"
 #include "libk/string.h"
@@ -12,6 +13,7 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "stubs.h"
+#include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
@@ -19,10 +21,17 @@
 extern void asm_common_irq_exit(void);
 
 // TODO: linked list for dynamic handler loading?
-static InterruptHandler_t *g_handlers[INTERRUPT_HANDLER_COUNT] = {NULL};
+static spinlock_t* __interrupt_handler_spinlock = nullptr;
+static quick_interrupthandler_t __interrupt_handlers[INTERRUPT_HANDLER_COUNT] = { NULL };
 
 /* static defs */
-static void insert_into_handlers(uint16_t index, InterruptHandler_t *handler);
+static void insert_into_handlers(uint16_t index, quick_interrupthandler_t *handler);
+
+#define INTERRUPTS_EVENT_NAME           "k_interrupts"
+#define INTERRUPTS_DEFAULT_HOOKS_C      (256 - IRQ_VEC_BASE)
+#define INTERRUPTS_EXTRA_HOOKS_C        5
+#define INTERRUPTS_EVENT_MAX_HOOK_C     (INTERRUPTS_DEFAULT_HOOKS_C + INTERRUPTS_EXTRA_HOOKS_C) 
+static kevent_key_t __interrupts_event_key;
 
 // inspired by serenityOS
 #define REGISTER_ERROR_HANDLER(code, title)                            \
@@ -262,47 +271,97 @@ static void __unimplemented_EXCEPTION() {
   kernel_panic("Unimplemented EXCEPTION");
 }
 
+static ErrorOrPtr __quick_int_handler_toggle_vector(uint32_t int_num, bool enabled) {
+
+  quick_interrupthandler_t* handler;
+
+  if (int_num > INTERRUPT_HANDLER_COUNT)
+    return Error();
+
+  handler = &__interrupt_handlers[int_num];
+
+  if ((handler->m_flags & QIH_FLAG_REGISTERED) != QIH_FLAG_REGISTERED)
+    return Error();
+
+  if (!handler->m_controller)
+    return Error();
+
+  if (enabled)
+    handler->m_controller->fControllerEnableVector(int_num);
+  else
+    handler->m_controller->fControllerDisableVector(int_num);
+
+  return Success(0);
+}
+
+ErrorOrPtr quick_int_handler_enable_vector(uint32_t int_num) {
+  return __quick_int_handler_toggle_vector(int_num, true);
+}
+
+ErrorOrPtr quick_int_handler_disable_vector(uint32_t int_num) {
+  return __quick_int_handler_toggle_vector(int_num, false);
+}
+
 /*
-   INTERRUPT HANDLER
-*/
+ * Quick interrupt handlers are for interrupts that only need one handler. If we need to
+ * manage more, we use kevents. These are more bulky, but also more robust
+ */
+static quick_interrupthandler_t *__install_quick_int_handler(uint32_t int_num, uint32_t flags, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
 
-InterruptHandler_t *
-create_interrupt_handler(uint16_t int_num, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
+  quick_interrupthandler_t *ret;
+  InterruptController_t *controller;
 
-  InterruptHandler_t *ret = kmalloc(sizeof(InterruptHandler_t));
-
-  InterruptController_t *controller_ptr = get_controller_for_int_number(int_num);
-
-  if (controller_ptr->m_type != type) {
+  if (int_num > INTERRUPT_HANDLER_COUNT)
     return nullptr;
-  }
+
+  ret = &__interrupt_handlers[int_num];
+
+  controller = get_controller_for_int_number(int_num);
+
+  if (!controller || controller->m_type != type)
+    return nullptr;
 
   ret->m_int_num = int_num;
-  ret->m_is_registerd = false;
-  ret->m_controller = controller_ptr;
+  ret->m_flags = flags;
+  ret->m_controller = controller;
   ret->fHandler = callback;
 
-  return ret;
-}
-
-// ???
-InterruptHandler_t create_unhandled_interrupt_handler(uint16_t int_num) {
-  InterruptHandler_t ret = {
-    .fHandler = nullptr,
-    .m_int_num = int_num,
-    .m_controller = nullptr,
-    .m_is_registerd = false
-  };
+  quick_int_handler_enable_vector(int_num);
 
   return ret;
 }
 
-static void insert_into_handlers(uint16_t index, InterruptHandler_t *handler) {
-  ASSERT_MSG(handler, "handler is null!");
-  ASSERT_MSG(handler->m_int_num == index, "invalid index!");
+ErrorOrPtr install_quick_int_handler(uint32_t int_num, uint32_t flags, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
 
-  handler->m_is_registerd = true;
-  g_handlers[index] = handler;
+  if (__install_quick_int_handler(int_num, flags, type, callback))
+    return Success(0);
+
+  return Error();
+}
+
+void uninstall_quick_int_handler(uint32_t int_num) {
+
+  if (int_num > INTERRUPT_HANDLER_COUNT)
+    return;
+
+  quick_interrupthandler_t* handler = &__interrupt_handlers[int_num];
+
+  /* Not registerd, lets ignore it */
+  if ((handler->m_flags & QIH_FLAG_REGISTERED) != QIH_FLAG_REGISTERED)
+    return;
+
+  if (handler->m_controller)
+    quick_int_handler_disable_vector(int_num);
+
+  /* Zero out only that handler */
+  memset(handler, 0, sizeof(quick_interrupthandler_t));
+}
+
+static void __init_interrupt_kevents()
+{
+  kevent_key_t event_key = Must(create_kevent(INTERRUPTS_EVENT_NAME, KEVENT_TYPE_IRQ, KEVENT_FLAG_HIGH_PRIO, INTERRUPTS_EVENT_MAX_HOOK_C));
+
+  __interrupts_event_key = event_key;
 }
 
 /*
@@ -571,63 +630,11 @@ void init_interrupts() {
   register_idt_interrupt_handler(0xff, (FuncPtr) interrupt_asm_entry_255);
 
   // prepare all waiting handlers
-  memset(&g_handlers, 0x00, sizeof(InterruptHandler_t*) * INTERRUPT_HANDLER_COUNT);
+  memset(&__interrupt_handlers, 0x00, sizeof(__interrupt_handlers));
 
   flush_idt();
-}
 
-/*
-   MORE HANDLER SHIT
-*/
-
-// TODO: do stuff
-bool interrupts_add_handler(InterruptHandler_t *handler_ptr) {
-
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
-
-  const uint16_t int_num = handler_ptr->m_int_num;
-  const InterruptHandler_t *handler = g_handlers[int_num];
-
-  bool success = true;
-
-  // this flow is kinda weird
-  // if we have a registered handler, we assume the caller knows this
-  // and thus we also assume the caller just want to replace the current
-  // handler. if there somehow is a unregistered handler, we just skip the
-  // opperation alltogether and let the caller know it failed...
-  if (handler) {
-    if (handler->m_is_registerd) {
-      interrupts_remove_handler(int_num);
-    } else {
-      success = false;
-      goto skip_insert;
-    }
-  }
-
-  insert_into_handlers(int_num, handler_ptr);
-
-  // lil exit label
-skip_insert:
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
-  return success;
-}
-
-void interrupts_remove_handler(const uint16_t int_num) {
-
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
-
-  InterruptHandler_t *handler = g_handlers[int_num];
-
-  if (handler && handler->m_is_registerd) {
-    if (handler->m_is_in_interrupt) {
-      // hihi we tried to remove the handler while in an interrupt
-      handler->m_controller->fInterruptEOI(int_num + 32); // we need to have the irq_num lmao
-    }
-    kfree(handler);
-    g_handlers[int_num] = 0x00;
-  }
-
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
+  __init_interrupt_kevents();
 }
 
 // main entrypoint for generinc interrupts (from the asm)
@@ -635,20 +642,26 @@ registers_t *interrupt_handler(registers_t *regs) {
 
   const uint8_t int_num = regs->isr_no - 32;
 
-  InterruptHandler_t *handler = g_handlers[int_num];
+  /* Do quick interrupt */
+  quick_interrupthandler_t *handler = &__interrupt_handlers[int_num];
 
-  // TODO: surpious n crap
-  if (handler && handler->m_is_registerd) {
+  if (handler && (handler->m_flags & QIH_FLAG_REGISTERED) == QIH_FLAG_REGISTERED) {
 
-    handler->m_is_in_interrupt = true;
+    handler->m_flags |= QIH_FLAG_IN_INTERRUPT;
     handler->fHandler(regs);
 
-    // you never know lmao
+    /* FIXME: we can probably assert for the presence of a controller */
     if (handler->m_controller) {
       handler->m_controller->fInterruptEOI(regs->isr_no);
-      handler->m_is_in_interrupt = false;
+      handler->m_flags &= ~QIH_FLAG_IN_INTERRUPT;
     }
+
+    /* Quick handler wants to ignore events */
+    if (handler->m_flags & QIH_FLAG_BLOCK_EVENTS)
+      return regs;
   }
+
+  /* TODO: event */
 
   return regs;
 }
