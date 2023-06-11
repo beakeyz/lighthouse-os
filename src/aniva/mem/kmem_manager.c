@@ -815,8 +815,12 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
 
+  println("Mapping");
+
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
+
+  println("Done mapping");
 
   return Success(virt_base);
 }

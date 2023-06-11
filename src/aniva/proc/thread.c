@@ -100,6 +100,8 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
      */
     thread->m_user_stack_bottom = HIGH_STACK_BASE;
 
+    println("Yay");
+
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         thread->m_user_stack_bottom, 

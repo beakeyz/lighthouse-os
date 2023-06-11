@@ -21,6 +21,8 @@ typedef struct kevent_contex {
 kevent_contex_t create_clean_context();
 kevent_contex_t create_context(void* data, uint32_t flags);
 
+void context_set_canceled(kevent_contex_t* context, bool canceled);
+
 /*
  * Check if the context has been altered
  */

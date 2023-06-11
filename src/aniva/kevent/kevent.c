@@ -1,4 +1,7 @@
 #include "kevent.h"
+#include "kevent/context.h"
+#include "kevent/eventhook.h"
+#include "kevent/pipe.h"
 #include "libk/error.h"
 #include "libk/hashmap.h"
 #include "libk/linkedlist.h"
@@ -6,10 +9,6 @@
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include <crypto/k_crc32.h>
-
-#define KEVENT_MAX_NAMED_EVENTS 256
-#define KEVENT_MAX_UNNAMED_EVENTS 1024
-#define KEVENT_MAX_EVENTS (KEVENT_MAX_NAMED_EVENTS + KEVENT_MAX_UNNAMED_EVENTS)
 
 static mutex_t* __kevent_lock = nullptr;
 
@@ -34,10 +33,8 @@ static ErrorOrPtr __validate_kevent_key(kevent_t* event, kevent_key_t key)
   return Error();
 }
 
-static ErrorOrPtr __validate_kevent(char* eventname, kevent_key_t key)
+static ErrorOrPtr __validate_kevent(kevent_t* event, kevent_key_t key)
 {
-  kevent_t* event = hashmap_get(__kevents_table, eventname);
-
   if (!event)
     return Error();
 
@@ -48,11 +45,78 @@ static ErrorOrPtr __validate_kevent(char* eventname, kevent_key_t key)
   return __validate_kevent_key(event, key);
 }
 
+static ErrorOrPtr __kevent_destroy_hooks(kevent_t* event)
+{
+
+  kevent_hook_t* next_hook;
+
+  while (event->m_hooks) {
+
+    next_hook = event->m_hooks->m_next;
+
+    destroy_keventhook(event->m_hooks);
+
+    event->m_hooks = next_hook;
+  }
+
+  return Success(0);
+}
+
+kevent_t* kevent_get(char* name) {
+  kevent_t* ret;
+
+  if (!name)
+    return nullptr;
+
+  ret = hashmap_get(__kevents_table, name);
+
+  return ret;
+}
+
+/*
+ * We attach keventhooks by sorting them by ID and putting them in
+ * a linked list. When constructing the pipeline, we sort based on 
+ * privilege
+ */
+ErrorOrPtr kevent_attach_hook(kevent_t* event, kevent_hook_t* hook) {
+  
+  kevent_hook_t** current_hook;
+
+  if (!event || !hook)
+    return Error();
+
+  current_hook = &event->m_hooks;
+
+  while (*current_hook && (*current_hook)->m_next) {
+
+    kevent_hook_t* __current = *current_hook;
+
+    if (__current->m_id < hook->m_id && __current->m_next->m_id > hook->m_id)
+      break;
+    
+    current_hook = &__current->m_next;
+  }
+
+  if (*current_hook == nullptr) {
+    *current_hook = hook;
+    hook->m_next = nullptr;
+  } else {
+    hook->m_next = (*current_hook)->m_next;
+    (*current_hook)->m_next = hook;
+  }
+
+  return Success(0);
+}
+
+ErrorOrPtr kevent_detach_hook(kevent_t* event, kevent_hook_t* hook){
+  kernel_panic("TODO: implement kevent_detach_hook");
+}
+
 void init_kevents()
 {
   __kevent_lock = create_mutex(0);
 
-  __kevents_table = create_hashmap(KEVENT_MAX_NAMED_EVENTS, HASHMAP_FLAG_SK);
+  __kevents_table = create_hashmap(KEVENT_MAX_EVENTS, HASHMAP_FLAG_SK);
 
   /* Create a zallocator for our kevents */
   __kevent_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_t) * (KEVENT_MAX_EVENTS), sizeof(kevent_t), ZALLOC_FLAG_FIXED_SIZE);
@@ -61,11 +125,12 @@ void init_kevents()
   ASSERT_MSG(__kevents_table, "Failed to create kevent named table");
   ASSERT_MSG(__kevent_allocator, "Failed to create kevent allocator");
   ASSERT_MSG(__kevent_allocator->m_max_zone_size == sizeof(kevent_t), "kevent allocator size mismatch");
+
+  init_eventhooks();
 }
 
 ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t max_hook_count)
 {
-
   const bool no_chaining = (flags & KEVENT_FLAG_NO_CHAINING) != KEVENT_FLAG_NO_CHAINING;
   //const bool nameless = (flags & KEVENT_FLAG_NAMELESS) != KEVENT_FLAG_NAMELESS;
   kevent_t* event;
@@ -98,7 +163,7 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
   event->m_hooks_count = 0;
   event->m_max_hooks_count = max_hook_count;
 
-  event->m_firing_lock = create_spinlock();
+  event->m_firing_lock = create_mutex(0);
 
   event->m_key = kcrc32(event, sizeof(kevent_t));
 
@@ -119,9 +184,30 @@ fail_and_unlock:
 
 ErrorOrPtr destroy_kevent(char* name, kevent_key_t key)
 {
-  return Error();
+  kevent_t* event;
+
+  if (!name)
+    return Error();
+
+  event = hashmap_get(__kevents_table, name);
+
+  TRY(validate_result, __validate_kevent(event, key));
+
+  TRY(destroy_result, __kevent_destroy_hooks(event));
+
+  destroy_mutex(event->m_firing_lock);
+
+  destroy_zone_allocator(event->m_hook_allocator, true);
+
+  zfree_fixed(__kevent_allocator, event);
+
+  return Success(0);
 }
 
+/*
+ * NOTE: when doing this, we invalidate any lingering keys that might be 
+ * laying around...
+ */
 ErrorOrPtr kevent_set_max_hooks(kevent_t** event, size_t new_max_hook_count)
 {
   return Error();
@@ -134,10 +220,56 @@ ErrorOrPtr kevent_set_flags(kevent_t** event, uint32_t flags)
 
 ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data)
 {
+  kevent_t* event;
+  kevent_contex_t context;
+
+  if (!name)
+    return Error();
+
   /* 0) Find the event we need to fire */
+  event = hashmap_get(__kevents_table, name);
+
+  TRY(validate_result, __validate_kevent(event, key));
+
   /* 1) Create initial context */
+  context = (kevent_contex_t){
+    .m_data = data,
+    .m_flags = E_CONTEXT_FLAG_IMMUTABLE,
+    .m_crc = 0,
+  };
+
+  context.m_crc = kcrc32(&context, sizeof(kevent_contex_t));
+
   /* 2) Construct pipeline */
+  uintptr_t index;
+  ErrorOrPtr result;
+  kevent_contex_t* current_context;
+  kevent_pipeline_t pipe = create_kevent_pipeline(event, &context);
+
+  result = kpipeline_execute_next(&pipe);
+
   /* 3) Traverse the pipeline */
-  /* 4) Return the result of the traverse */
-  return Error();
+  while (index++ <= KEVENT_MAX_EVENT_HOOKS) {
+    result = kpipeline_execute_next(&pipe);
+
+    if (result.m_status != ANIVA_SUCCESS)
+      break;
+
+    current_context = (kevent_contex_t*)Release(result);
+
+    /* Canceled lol */
+    if ((current_context->m_flags & E_CONTEXT_FLAG_CANCELED) == E_CONTEXT_FLAG_CANCELED)
+      break;
+  }
+
+  /* Destroy the pipeline entry allocator */
+  destroy_kevent_pipeline(&pipe);
+
+  /* Remove the invalid context ptr */
+  result.m_ptr = 0;
+
+  /*
+   * 4) Return the result of the traverse 
+   */
+  return result;
 }

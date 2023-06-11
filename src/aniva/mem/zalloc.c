@@ -5,6 +5,7 @@
 #include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/string.h"
+#include "mem/base_allocator.h"
 
 /* Only the sized list needs to know what its end is */
 zone_allocator_t* sized_end_allocator;
@@ -209,7 +210,27 @@ raw_attach:;
 }
 
 static void detach_allocator(zone_allocator_t* allocator) {
+
+  zone_allocator_t** allocator_list;
+
+  if (!allocator)
+    return;
+
+  allocator_list = &g_sized_zallocators;
+
   /* Check if we are dynamic and detach from the correct list */
+  if (is_dynamic(allocator)) {
+    allocator_list = &g_dynamic_zallocators;
+  }
+
+  /* TODO: use binary search instead of linear scanning */
+  for (; *allocator_list; allocator_list = &(*allocator_list)->m_next) {
+    /* Found our entry */
+    if (*allocator_list == allocator) {
+      *allocator_list = allocator->m_next;
+      break;
+    }
+  }
 }
 
 zone_allocator_t *create_dynamic_zone_allocator(size_t initial_size, uintptr_t flags) {
@@ -282,7 +303,14 @@ end_and_attach:
 }
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
-  kernel_panic("UNIMPLEMENTED: destroy_zone_allocator");
+
+  detach_allocator(allocator);
+
+  destroy_zone_store(allocator->m_store);
+
+  destroy_heap(allocator->m_heap);
+
+  kfree(allocator);
 }
 
 zone_store_t* create_zone_store(size_t initial_capacity) {
@@ -303,6 +331,14 @@ zone_store_t* create_zone_store(size_t initial_capacity) {
 }
 
 void destroy_zone_store(zone_store_t* store) {
+
+  for (uintptr_t i = 0; i < store->m_zones_count; i++) {
+    zone_t* zone = store->m_zones[i];
+
+    /* TODO: resolve pml root */
+    __kmem_kernel_dealloc((vaddr_t)zone, zone->m_total_zone_size);
+  }
+
   __kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
 }
 
@@ -412,6 +448,7 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
 
   zone->m_entries_start = ((uintptr_t)zone + aligned_size) - entries_bytes;
   zone->m_total_available_size = entries_bytes;
+  zone->m_total_zone_size = aligned_size;
 
   return zone;
 }

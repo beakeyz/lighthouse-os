@@ -47,8 +47,7 @@ generic_heap_t *initialize_generic_heap(pml_entry_t* root_table, vaddr_t virtual
   }
 
   /*
-   * map pages into the virtual address-space that this heap will use
-   */
+   * TODO: map pages into the virtual address-space that this heap will use
   for (int i = 0; i < pages_needed; i++) {
     const paddr_t phys_page = Must(kmem_prepare_new_physical_page());
     const vaddr_t virtual_offset = virtual_base + (i * SMALL_PAGE_SIZE);
@@ -67,8 +66,21 @@ generic_heap_t *initialize_generic_heap(pml_entry_t* root_table, vaddr_t virtual
       return nullptr;
     }
   }
+   */
 
   return ret;
+}
+
+ErrorOrPtr destroy_heap(generic_heap_t* heap) {
+
+  if (!heap)
+    return Error();
+
+  destroy_mutex(heap->m_lock);
+
+  kfree(heap);
+
+  return Success(0);
 }
 
 static ALWAYS_INLINE void* dummy_alloc(void* heap_ptr, size_t size) {

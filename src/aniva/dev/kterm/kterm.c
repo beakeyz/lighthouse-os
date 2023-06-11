@@ -274,6 +274,11 @@ void kterm_command_worker() {
         kterm_println(to_string(allocator->m_heap->m_current_total_size));
 
         kterm_println("\nSuccessfully created Zone!\n");
+
+        destroy_zone_allocator(allocator, true);
+
+        kterm_println("\nSuccessfully destroyed Zone!\n");
+
       } else if (!strcmp(contents, "testramdisk")) {
 
         vnode_t* ramfs = vfs_resolve("Devices/disk/cramfs");

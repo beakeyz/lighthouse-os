@@ -357,13 +357,6 @@ void uninstall_quick_int_handler(uint32_t int_num) {
   memset(handler, 0, sizeof(quick_interrupthandler_t));
 }
 
-static void __init_interrupt_kevents()
-{
-  kevent_key_t event_key = Must(create_kevent(INTERRUPTS_EVENT_NAME, KEVENT_TYPE_IRQ, KEVENT_FLAG_HIGH_PRIO, INTERRUPTS_EVENT_MAX_HOOK_C));
-
-  __interrupts_event_key = event_key;
-}
-
 /*
  * TODO: migrate irqs to the eventhandler (kevent system)?
  */
@@ -633,8 +626,6 @@ void init_interrupts() {
   memset(&__interrupt_handlers, 0x00, sizeof(__interrupt_handlers));
 
   flush_idt();
-
-  __init_interrupt_kevents();
 }
 
 // main entrypoint for generinc interrupts (from the asm)
