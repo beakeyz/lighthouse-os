@@ -108,6 +108,6 @@ ErrorOrPtr kevent_set_flags(kevent_t** event, uint32_t flags);
  * fails if the name is not found or if the key is invalid
  * or if the callchain fails
  */
-ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data); 
+ErrorOrPtr fire_event(char* name, kevent_key_t key, void* data); 
 
 #endif // !__ANIVA_KEVENT__

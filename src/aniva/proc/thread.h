@@ -62,8 +62,6 @@ typedef struct thread {
   struct threaded_socket* m_socket;
 } thread_t;
 
-void thread_init();
-
 /*
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default

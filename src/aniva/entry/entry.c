@@ -131,7 +131,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_pci();
 
-  initialize_proc_core();
+  init_proc_core();
 
   init_vfs();
 
@@ -167,6 +167,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   //  - the stack and reverts to its sub-thread if it has it.
 }
 
+/*
+ * TODO: remove test proc
+ */
 void test_proc_entry(uintptr_t arg) {
 
   println("Tried to do funnie");

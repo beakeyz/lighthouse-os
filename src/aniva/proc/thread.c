@@ -4,11 +4,13 @@
 #include "interrupts/control/interrupt_control.h"
 #include "interrupts/interrupts.h"
 #include "entry/entry.h"
+#include "kevent/kevent.h"
 #include "libk/error.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
 #include "mem/zalloc.h"
 #include "proc/context.h"
+#include "proc/kprocs/idle.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
 #include "sched/scheduler.h"
@@ -40,6 +42,12 @@ static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
 
 thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], proc_t* proc, bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
+
+  if (!thread)
+    return nullptr;
+
+  memset(thread, 0, sizeof(thread_t));
+
   thread->m_self = thread;
 
   thread->m_cpu = get_current_processor()->m_cpu_num;
@@ -47,7 +55,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
-  thread->m_tid = create_atomic_ptr_with_value(-1);
+  thread->m_tid = create_atomic_ptr_with_value((uintptr_t)-1);
 
   thread->m_real_entry = (ThreadEntry)entry;
   thread->m_exit = (FuncPtr)thread_end_lifecycle;
@@ -70,9 +78,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
-
-  print("Kstack: ");
-  println(to_string(thread->m_kernel_stack_bottom));
 
   stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
   stack_physical_bottom = kmem_to_phys(nullptr, thread->m_kernel_stack_bottom);
@@ -102,17 +107,12 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
      */
     thread->m_user_stack_bottom = HIGH_STACK_BASE;
 
-    println("Yay");
-
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         thread->m_user_stack_bottom, 
         DEFAULT_STACK_SIZE, 
         KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
-
-    print("Ustack: ");
-    println(to_string(thread->m_user_stack_bottom));
 
     /* TODO: subtract random offset */
     thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16);
@@ -212,7 +212,8 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
 }
 
 thread_t* get_generic_idle_thread() {
-
+  ASSERT_MSG(__generic_idle_thread, "Tried to get generic idle thread before it was initialized");
+  return __generic_idle_thread;
 }
 
 /*
@@ -277,6 +278,10 @@ extern void thread_enter_context(thread_t *to) {
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
+
+  if (thread_is_socket(to)) {
+    /* TODO: check for a packet */
+  }
 }
 
 // called when a thread is created and enters the scheduler for the first time
@@ -480,9 +485,4 @@ void thread_sleep(thread_t* thread) {
  */
 void thread_wakeup(thread_t* thread) {
   kernel_panic("Unimplemented thread_wakeup");
-}
-
-void thread_init() {
-  /* TODO: */
-  __generic_idle_thread = nullptr; 
 }

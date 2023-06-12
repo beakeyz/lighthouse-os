@@ -235,6 +235,17 @@ static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
   ptr->m_socket_flags = 0;
 }
 
+ErrorOrPtr socket_try_handler_tspacket(threaded_socket_t* socket) {
+
+  /* 0) Validate the socket */
+
+  /* 1) See if there is a packet for us (in the sockets queue) */
+
+  /* 2) Yoink it and handle it */
+
+  return Success(0);
+}
+
 ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
 
   // no valid tspacket from the queue,

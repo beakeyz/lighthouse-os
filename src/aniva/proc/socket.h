@@ -79,6 +79,12 @@ bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
 void default_socket_entry_wrapper(uintptr_t args, struct thread* thread);
 
 /*
+ * See if there is a packet lying around for us and if so, we 
+ * handle it and yeet it out
+ */
+ErrorOrPtr socket_try_handler_tspacket(threaded_socket_t* socket);
+
+/*
  * handle a packet
  */
 ErrorOrPtr socket_handle_tspacket(struct tspckt* packet);

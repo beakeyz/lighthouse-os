@@ -41,7 +41,7 @@ typedef enum thread_state {
   NO_CONTEXT,       // waiting to recieve a context to run
 } thread_state_t;
 
-ANIVA_STATUS initialize_proc_core();
+ANIVA_STATUS init_proc_core();
 
 /*
  * Allocate a page and map it into the page dir.

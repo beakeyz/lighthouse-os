@@ -1,6 +1,7 @@
 #ifndef __ANIVA_PROC__
 #define __ANIVA_PROC__
 
+#include "kevent/kevent.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "mem/base_allocator.h"

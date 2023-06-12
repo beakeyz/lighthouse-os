@@ -9,6 +9,7 @@
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "proc/kprocs/idle.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
@@ -17,15 +18,6 @@
 #include <libk/string.h>
 #include "core.h"
 #include <mem/heap.h>
-
-void generic_proc_idle () {
-  /* Hmmmm */
-  println("Entered generic_proc_idle");
-
-  for (;;) {
-    scheduler_yield();
-  }
-}
 
 proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags) {
   proc_t *proc = kmalloc(sizeof(proc_t));
@@ -61,7 +53,7 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
     proc->m_heap = create_dynamic_zone_allocator(128 * Kib, 0)->m_heap;
   }
 
-  proc->m_idle_thread = create_thread_for_proc(proc, generic_proc_idle, NULL, "idle");
+  proc->m_idle_thread = nullptr;
 
   proc->m_threads = init_list();
 

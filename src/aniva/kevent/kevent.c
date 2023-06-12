@@ -219,7 +219,7 @@ ErrorOrPtr kevent_set_flags(kevent_t** event, uint32_t flags)
   return Error();
 }
 
-ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data)
+ErrorOrPtr fire_event(char* name, kevent_key_t key, void* data)
 {
   kevent_t* event;
   kevent_contex_t context;

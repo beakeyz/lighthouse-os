@@ -100,13 +100,13 @@ void start_scheduler(void) {
 
   // let's jump into the idle thread initially, so we can then
   // resume to the thread-pool when we leave critical sections
-  thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_idle_thread;
+  thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_init_thread;
 
   //atomic_ptr_write(s_no_schedule, false);
 
   set_current_proc(frame_ptr->m_proc_to_schedule);
   set_current_handled_thread(initial_thread);
-  set_previous_thread(initial_thread);
+  set_previous_thread(nullptr);
   frame_ptr->m_initial_thread = initial_thread;
 
   s_sched_mode = SCHEDULING;
@@ -132,7 +132,8 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
   thread_t *prev_thread = get_current_scheduling_thread();
 
   if (frame->m_proc_to_schedule->m_flags & PROC_IDLE) {
-    println("Trying to set idlethread");
+    kernel_panic("FIXME: Trying to set idlethread");
+
     println(prev_thread->m_name);
     set_previous_thread(frame->m_proc_to_schedule->m_idle_thread);
     set_current_handled_thread(frame->m_proc_to_schedule->m_idle_thread);
@@ -599,11 +600,13 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
         return nullptr;
       }
 
+      /*
+       * FIXME: in stead of switching to an idle thread, we should mark the process as idle, and skip it 
+       * from this point onwards until it gets woken up
+       */
       next_thread = ptr->m_proc_to_schedule->m_idle_thread;
 
-      println("Getting idle thread");
-      println(to_string((uintptr_t)list_get(thread_list_ptr, 0)));
-      println(to_string(current_idx));
+      kernel_panic("TODO: the scheduler failed to pull a thread from the process so we should do sm about it!");
 
       /* FIXME: we can prob allow this, because we can just kill the process */
       ASSERT_MSG(next_thread, "FATAL: Tried to idle a process without it having an idle-thread");

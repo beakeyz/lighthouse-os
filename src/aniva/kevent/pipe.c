@@ -25,6 +25,11 @@ kevent_pipeline_t create_kevent_pipeline(kevent_t* event, kevent_contex_t* conte
     kevent_privilege_t priv = i;
 
     for (current = &event->m_hooks; *current; current = &(*current)->m_next) {
+
+      /* Filter out the hooks that don't meet the condition */
+      if (!(*current)->m_hook_condition(*context)) {
+        continue;
+      }
       
       /* Privilege matches */
       if ((*current)->m_privilege == priv) {

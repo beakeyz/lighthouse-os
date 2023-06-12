@@ -237,16 +237,14 @@ registers_t* pagefault_handler(registers_t *regs) {
 
   println("Yielding...");
 
-  // kernel_panic("Terminated process");
+  kernel_panic("FIXME: Terminated process");
 
   scheduler_yield();
 
   return regs;
 
 panic:
-  //kernel_panic("pagefault! (TODO: more info)");
-  /* Temp =) */
-  return nullptr;
+  kernel_panic("pagefault! (TODO: more info)");
 }
 
 EXCEPTION(15, "Unknown error (Reserved)");
