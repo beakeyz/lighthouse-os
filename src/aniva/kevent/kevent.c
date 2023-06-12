@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "libk/hashmap.h"
 #include "libk/linkedlist.h"
+#include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"

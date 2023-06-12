@@ -335,8 +335,13 @@ void destroy_zone_store(zone_store_t* store) {
   for (uintptr_t i = 0; i < store->m_zones_count; i++) {
     zone_t* zone = store->m_zones[i];
 
+    size_t zone_size = sizeof(zone_t);
+
+    zone_size += zone->m_entries.m_size;
+    zone_size += zone->m_total_available_size;
+
     /* TODO: resolve pml root */
-    __kmem_kernel_dealloc((vaddr_t)zone, zone->m_total_zone_size);
+    __kmem_kernel_dealloc((vaddr_t)zone, zone_size);
   }
 
   __kmem_kernel_dealloc((uintptr_t)store, store->m_capacity * sizeof(uintptr_t) + (sizeof(zone_store_t) - 8));
@@ -448,7 +453,6 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
 
   zone->m_entries_start = ((uintptr_t)zone + aligned_size) - entries_bytes;
   zone->m_total_available_size = entries_bytes;
-  zone->m_total_zone_size = aligned_size;
 
   return zone;
 }

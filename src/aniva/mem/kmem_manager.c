@@ -736,7 +736,11 @@ ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 }
 
 ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
+  return __kmem_dealloc_ex(map, virt_base, size, false);
+}
 
+ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, uintptr_t virt_base, size_t size, bool unmap) {
+  
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
@@ -752,8 +756,10 @@ ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
     if (!was_used) 
       return Error();
 
-    if (!kmem_unmap_page(map, vaddr))
-      return Error();
+    if (unmap) {
+      if (!kmem_unmap_page(map, vaddr))
+        return Error();
+    }
 
     kmem_set_phys_page_free(page_idx);
   }
@@ -815,12 +821,8 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
 
-  println("Mapping");
-
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
-
-  println("Done mapping");
 
   return Success(virt_base);
 }

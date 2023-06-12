@@ -106,9 +106,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((uintptr_t*)virtual_mb_addr);
 
-  // Initialize kevent before interrupts
-  init_kevents();
-
   // initialize cpu-related things that need the memorymanager and the heap
   g_bsp.fLateInit(&g_bsp);
 
@@ -124,6 +121,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   g_system_info.multiboot_addr = multiboot_addr;
   g_system_info.total_multiboot_size = final_multiboot_size;
   g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
+
+  // Initialize kevent
+  init_kevents();
 
   init_timer_system();
 

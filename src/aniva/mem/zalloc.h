@@ -66,7 +66,6 @@ typedef enum ZONE_ENTRY_SIZE {
 typedef struct zone {
   size_t m_zone_entry_size;
   size_t m_total_available_size;
-  size_t m_total_zone_size;
 
   vaddr_t m_entries_start;
 
