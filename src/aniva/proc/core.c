@@ -281,6 +281,8 @@ ANIVA_STATUS initialize_proc_core() {
   s_core_socket_lock = create_spinlock();
   next_proc_id = create_atomic_ptr_with_value(1);
 
+  thread_init();
+
   return ANIVA_SUCCESS;
 }
 

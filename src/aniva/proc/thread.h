@@ -62,6 +62,8 @@ typedef struct thread {
   struct threaded_socket* m_socket;
 } thread_t;
 
+void thread_init();
+
 /*
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default
@@ -108,6 +110,12 @@ void thread_set_state(thread_t *, thread_state_t);
  * Cleans up any resources used by this thread
  */
 ANIVA_STATUS destroy_thread(thread_t *);
+
+/*
+ * Returns the default idle thread that can be used for any thread that does not
+ * need any special idle behaviour
+ */
+thread_t* get_generic_idle_thread();
 
 // wrappers =D
 ALWAYS_INLINE bool thread_is_socket(thread_t* t) {

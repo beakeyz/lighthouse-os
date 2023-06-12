@@ -29,6 +29,8 @@ extern NORETURN void thread_end_lifecycle();
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
 static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
+static thread_t* __generic_idle_thread;
+
 /*
  * Fills the userstack with certain data for userspace
  * and a trampoline so we can return from userspace when 
@@ -207,6 +209,10 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
 
   kfree(thread);
   return ANIVA_FAIL;
+}
+
+thread_t* get_generic_idle_thread() {
+
 }
 
 /*
@@ -474,4 +480,9 @@ void thread_sleep(thread_t* thread) {
  */
 void thread_wakeup(thread_t* thread) {
   kernel_panic("Unimplemented thread_wakeup");
+}
+
+void thread_init() {
+  /* TODO: */
+  __generic_idle_thread = nullptr; 
 }

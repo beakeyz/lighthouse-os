@@ -43,6 +43,8 @@ void uninstall_quick_int_handler(uint32_t int_num);
 ErrorOrPtr quick_int_handler_enable_vector(uint32_t int_num);
 ErrorOrPtr quick_int_handler_disable_vector(uint32_t int_num);
 
+size_t interrupts_get_handler_count(uint32_t int_num);
+
 /*
  * Initialize the interrupt subsystem
  */

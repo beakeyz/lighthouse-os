@@ -6,6 +6,7 @@
 #include "libk/error.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
+#include "sync/spinlock.h"
 #include <libk/stddef.h>
 
 #define KEVENT_NAME_MAX_LENGTH 32
@@ -42,7 +43,7 @@ typedef struct kevent {
    * Protects the entire object and should be held when
    * the event is fired
    */
-  mutex_t* m_firing_lock;
+  spinlock_t* m_firing_lock;
 
   /*
    * This key is an crc32 of the finished kevent object 

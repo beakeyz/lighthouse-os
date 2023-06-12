@@ -164,7 +164,7 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
   event->m_hooks_count = 0;
   event->m_max_hooks_count = max_hook_count;
 
-  event->m_firing_lock = create_mutex(0);
+  event->m_firing_lock = create_spinlock();
 
   event->m_key = kcrc32(event, sizeof(kevent_t));
 
@@ -196,7 +196,7 @@ ErrorOrPtr destroy_kevent(char* name, kevent_key_t key)
 
   TRY(destroy_result, __kevent_destroy_hooks(event));
 
-  destroy_mutex(event->m_firing_lock);
+  destroy_spinlock(event->m_firing_lock);
 
   destroy_zone_allocator(event->m_hook_allocator, true);
 
@@ -232,6 +232,15 @@ ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data)
 
   TRY(validate_result, __validate_kevent(event, key));
 
+  if (!event->m_hooks)
+    return Error();
+
+  /* TODO: let the caller detirmine if we are allowed to spin here */
+  if (spinlock_is_locked(event->m_firing_lock))
+    return Error();
+
+  spinlock_lock(event->m_firing_lock);
+
   /* 1) Create initial context */
   context = (kevent_contex_t){
     .m_data = data,
@@ -250,7 +259,7 @@ ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data)
   result = kpipeline_execute_next(&pipe);
 
   /* 3) Traverse the pipeline */
-  while (index++ <= KEVENT_MAX_EVENT_HOOKS) {
+  while (result.m_status == ANIVA_SUCCESS && index++ <= KEVENT_MAX_EVENT_HOOKS) {
     result = kpipeline_execute_next(&pipe);
 
     if (result.m_status != ANIVA_SUCCESS)
@@ -272,5 +281,8 @@ ErrorOrPtr fire_event(char* name, kevent_key_t key, kevent_contex_t* data)
   /*
    * 4) Return the result of the traverse 
    */
+unlock_and_exit:
+  spinlock_unlock(event->m_firing_lock);
+
   return result;
 }
