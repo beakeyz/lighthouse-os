@@ -2,6 +2,7 @@
 #define __LIGHTENV_LIBC_STDIO__
 
 #define SEEK_SET 0
+#define _STDIO_H
 
 typedef struct { int _; } FILE;
 
