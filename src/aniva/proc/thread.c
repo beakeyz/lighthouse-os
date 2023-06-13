@@ -161,25 +161,28 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
   const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
     ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 
-  thread_t *ret = create_thread(entry, default_socket_entry_wrapper, arg0, name, proc, is_kernel);
+  thread_t *ret = create_thread(entry, nullptr, arg0, name, proc, is_kernel);
 
   // failed to create thread
   if (!ret) {
-    destroy_threaded_socket(socket);
-    destroy_thread(ret);
-    return nullptr;
+    goto dealloc_and_exit;
   }
 
   if (thread_prepare_context(ret) != ANIVA_SUCCESS) {
-    destroy_threaded_socket(socket);
-    destroy_thread(ret);
-    return nullptr;
+    goto dealloc_and_exit;
   }
 
   ret->m_socket = socket;
   socket->m_parent = ret;
 
+  socket_enable(ret);
+
   return ret;
+
+dealloc_and_exit:
+  destroy_threaded_socket(socket);
+  destroy_thread(ret);
+  return nullptr;
 }
 
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
@@ -196,6 +199,9 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
 // TODO: finish
 // TODO: when this thread has gotten it's own heap, free that aswell
 ANIVA_STATUS destroy_thread(thread_t *thread) {
+  if (!thread)
+    return ANIVA_FAIL;
+
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);
   }
@@ -208,7 +214,7 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
   }
 
   kfree(thread);
-  return ANIVA_FAIL;
+  return ANIVA_SUCCESS;
 }
 
 thread_t* get_generic_idle_thread() {
@@ -279,9 +285,11 @@ extern void thread_enter_context(thread_t *to) {
 
   thread_set_state(to, RUNNING);
 
-  if (thread_is_socket(to)) {
-    /* TODO: check for a packet */
-  }
+  if (!thread_is_socket(to))
+    return;
+
+  /* TODO: check for a packet */
+  socket_try_handle_tspacket(to->m_socket);
 }
 
 // called when a thread is created and enters the scheduler for the first time

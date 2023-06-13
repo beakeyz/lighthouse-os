@@ -31,11 +31,13 @@ threaded_socket_t *create_threaded_socket(thread_t* parent, FuncPtr exit_fn, Soc
 
   threaded_socket_t *ret = kmalloc(sizeof(threaded_socket_t));
   ret->m_port = port;
-  ret->m_exit_fn = exit_fn;
+  ret->m_packet_queue.m_packets = create_limitless_queue();
+  ret->m_packet_queue.m_lock = create_spinlock();
   ret->m_on_packet = on_packet_fn;
-  ret->m_packet_mutex = create_mutex(0);
   ret->m_state = THREADED_SOCKET_STATE_LISTENING;
   ret->m_max_size_per_buffer = max_size_per_buffer;
+
+  ret->m_packet_mutex = create_mutex(0);
 
   // NOTE: parent should be nullable
   ret->m_parent = parent;
@@ -94,7 +96,7 @@ void send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code
   }
 
   //queue_enqueue(socket->m_buffers, packet);
-  queue_enqueue(get_current_processor()->m_packet_queue.m_packets, packet);
+  queue_enqueue(socket->m_packet_queue.m_packets, packet);
 
   destroy_async_ptr(&packet->m_async_ptr_handle);
   packet->m_response_buffer = 0;
@@ -119,8 +121,7 @@ async_ptr_t** send_packet_to_socket_with_code(uint32_t port, driver_control_code
     return nullptr;
   }
 
-  //queue_enqueue(socket->m_buffers, packet);
-  queue_enqueue(get_current_processor()->m_packet_queue.m_packets, packet);
+  queue_enqueue(socket->m_packet_queue.m_packets, packet);
 
   return &packet->m_async_ptr_handle;
 }
@@ -144,76 +145,26 @@ packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, si
   return response;
 }
 
-void default_socket_entry_wrapper(uintptr_t args, thread_t* thread) {
+ErrorOrPtr socket_enable(struct thread* socket) {
 
-  // pre-entry
+  if (!socket || !thread_is_socket(socket))
+    return Error();
 
-  ASSERT_MSG(thread->m_socket != nullptr, "Started a thread as a socket, whilst it does not act like one (thread->m_socket == nullptr)");
-  //ASSERT_MSG(buffer != nullptr, "Could not find a buffer while starting a socket");
+  socket_set_flag(socket->m_socket, TS_READY, true);
 
-  // call the actual entrypoint of the thread
-  // NOTE: they way this works now is that we only
-  // dequeue packets after the entry function has ended.
-  // this is bad, so we need to handle dequeueing on a different thread...
-  socket_set_flag(thread->m_socket, TS_ACTIVE, true);
-  int result = thread->m_real_entry(args);
-
-  /* When a socket fails to initialize, just immidiately dispose of it */
-  if (result < 0) {
-    goto socket_exit;
-  }
-
-  socket_set_flag(thread->m_socket, TS_READY, true);
-
-  // when the entry of a socket exits, we 
-  // idle untill we recieve signals
-  //thread_set_state(thread, SLEEPING);
-
-  for (;;) {
-    if (socket_is_flag_set(thread->m_socket, TS_SHOULD_EXIT)) {
-      break;
-    }
-    // TODO: implement acurate sleeping
-    // NOTE: we need to sleep here, in such a way that we do allow context switches WHILE keeping interrupts enabled...
-
-    Processor_t* current = get_current_processor();
-
-    pause_scheduler();
-
-    tspckt_t* packet;
-
-    while ((packet = queue_peek(current->m_packet_queue.m_packets)) != nullptr) {
-      // Wait for the right thread to handle this packet
-      if (packet->m_reciever_thread != thread->m_socket) {
-        break;
-      }
-      ErrorOrPtr result = socket_handle_tspacket(packet);
-
-      queue_dequeue(current->m_packet_queue.m_packets);
-      if (result.m_status == ANIVA_WARNING) {
-        // packet was not ready, delay
-        queue_enqueue(current->m_packet_queue.m_packets, packet);
-        break;
-      }
-    }
-
-    //processor_decrement_critical_depth(current);
-    resume_scheduler();
-
-    // after one swoop we don't need to check again lmao
-    scheduler_yield();
-  }
-
-socket_exit:
-  // if we break this loop, we finally exit the thread
-  thread->m_socket->m_exit_fn();
-
-  // signal the scheduler we want to get cleaned up
-  thread_set_state(thread, DYING);
-
-  // yield will enable interrupts again
-  scheduler_yield();
+  return Success(0);
 }
+
+ErrorOrPtr socket_disable(struct thread* socket) {
+
+  if (!socket || !thread_is_socket(socket))
+    return Error();
+
+  socket_set_flag(socket->m_socket, TS_READY, false);
+
+  return Success(0);
+}
+
 
 void socket_set_flag(threaded_socket_t *ptr, THREADED_SOCKET_FLAGS_t flag, bool value) {
   if (value) {
@@ -235,13 +186,36 @@ static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
   ptr->m_socket_flags = 0;
 }
 
-ErrorOrPtr socket_try_handler_tspacket(threaded_socket_t* socket) {
+ErrorOrPtr socket_try_handle_tspacket(threaded_socket_t* socket) {
+
+  tspckt_t* packet;
+  thread_t* parent_thread;
 
   /* 0) Validate the socket */
+  if (!socket || !socket->m_parent)
+    return Error();
+
+  if (!socket_is_flag_set(socket, TS_READY))
+    return Error();
+
+
+  parent_thread = socket->m_parent;
 
   /* 1) See if there is a packet for us (in the sockets queue) */
+  packet = queue_peek(socket->m_packet_queue.m_packets);
+
+  if (!validate_tspckt(packet) || packet->m_reciever_thread != socket)
+    return Error();
 
   /* 2) Yoink it and handle it */
+  ErrorOrPtr result = socket_handle_tspacket(packet);
+
+  queue_dequeue(socket->m_packet_queue.m_packets);
+  if (result.m_status == ANIVA_WARNING) {
+    // packet was not ready, delay
+    queue_enqueue(socket->m_packet_queue.m_packets, packet);
+    return Error();
+  }
 
   return Success(0);
 }
@@ -273,8 +247,8 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   packet_response_t* response = nullptr;
   uintptr_t on_packet_result;
 
-  // Lock the mutex so we can do whatever
-  mutex_lock(socket->m_packet_mutex);
+  // FIXME: Lock the mutex so we can do whatever
+  // mutex_lock(socket->m_packet_mutex);
 
   //thread_set_state(thread, RUNNING);
   const size_t data_size = payload.m_data_size;
@@ -289,6 +263,7 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
       break;
   }
 
+  /* Massive ew */
   if (response != nullptr) {
 
     if (!packet->m_response_buffer || !packet->m_async_ptr_handle || !packet->m_async_ptr_handle->m_mutex) {
@@ -315,7 +290,8 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
 
   // NOTE: this mutex MUST be unlocked after we are done with this packet, otherwise 
   // the socket will deadlock
-  mutex_unlock(socket->m_packet_mutex);
+  // FIXME: locking?
+  // mutex_unlock(socket->m_packet_mutex);
   return Success(0);
 }
 

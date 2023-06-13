@@ -59,8 +59,6 @@ typedef struct Processor {
   thread_t *m_root_thread;
   list_t *m_processes;
 
-  socket_packet_queue_t m_packet_queue;
-
   proc_t *m_current_proc;
   proc_t *m_kernel_process;
 
