@@ -1,6 +1,9 @@
 #include "core.h"
 #include "dev/debug/serial.h"
+#include "libk/error.h"
+#include "libk/string.h"
 #include "system/processor/processor.h"
+#include "system/processor/registers.h"
 #include <dev/kterm/kterm.h>
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
@@ -15,7 +18,10 @@ static struct syscall __static_syscalls[] = {
 
 static size_t static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
 
-/* This stub mimics interrupt behaviour */
+/* 
+ * This stub mimics interrupt behaviour 
+ * TODO: move this to pure asm to avoid compiler funzies
+ */
 NAKED void sys_entry() {
   asm (
     "movq %%rsp, %%gs:%c[usr_stck_offset]   \n"
@@ -93,12 +99,44 @@ NAKED void sys_entry() {
     );
 }
 
+typedef struct syscall_args {
+  uint64_t arg0;
+  uint64_t arg1;
+  uint64_t arg2;
+  uint64_t arg3;
+  uint64_t arg4;
+  uint64_t syscall_id;
+} syscall_args_t;
+
+static syscall_args_t __syscall_parse_args(registers_t* regs)
+{
+  /* Caller should handle this */
+  if (!regs)
+    return (syscall_args_t) { 0 };
+
+  return (syscall_args_t) {
+    .syscall_id = regs->rax,
+    .arg0 = regs->rbx,
+    .arg1 = regs->rdx,
+    .arg2 = regs->rdi,
+    .arg3 = regs->rsi,
+    .arg4 = regs->r8,
+  };
+}
+
 void sys_handler(registers_t* regs) {
 
   Processor_t* current_processor = get_current_processor();
   thread_t *current_thread = get_current_scheduling_thread();
 
-  println_kterm("Recieved syscall!");
-  println("Recieved syscall!");
+  syscall_args_t args = __syscall_parse_args(regs);
 
+  println(to_string(args.arg0));
+  println(to_string(args.arg1));
+  println(to_string(args.arg2));
+  println(to_string(args.arg3));
+  println(to_string(args.arg4));
+  println(to_string(args.syscall_id));
+
+  kernel_panic("Recieved syscall!");
 }

@@ -1,39 +1,15 @@
 #include "system.h"
 
-static syscall_result_t syscall_0(syscall_id_t id)
-{
+/*
+ * TODO: move syscall stubs to asm to avoid compiler funzies
+ */
 
-}
-
-static syscall_result_t syscall_1(syscall_id_t id, uintptr_t arg0)
-{
-
-}
-
-static syscall_result_t syscall_2(syscall_id_t id, uintptr_t arg0, uintptr_t arg1)
-{
-
-}
-
-static syscall_result_t syscall_3(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2)
-{
-
-}
-
-static syscall_result_t syscall_4(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3)
-{
-
-}
-
-static syscall_result_t syscall_5(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4)
-{
-
-}
-
-static syscall_result_t syscall_6(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4, uintptr_t arg5)
-{
-
-}
+extern syscall_result_t syscall_0(syscall_id_t id);
+extern syscall_result_t syscall_1(syscall_id_t id, uintptr_t arg0);
+extern syscall_result_t syscall_2(syscall_id_t id, uintptr_t arg0, uintptr_t arg1);
+extern syscall_result_t syscall_3(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2);
+extern syscall_result_t syscall_4(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
+extern syscall_result_t syscall_5(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4);
 
 syscall_result_t syscall_x(
   syscall_id_t id,
@@ -42,12 +18,16 @@ syscall_result_t syscall_x(
   uintptr_t arg1,
   uintptr_t arg2,
   uintptr_t arg3,
-  uintptr_t arg4,
-  uintptr_t arg5
+  uintptr_t arg4
 )
 {
   syscall_result_t __result;
-  syscall_id_t __id = id;
+  syscall_id_t __id;
+
+  if (argc > SYS_MAXARGS)
+    return SYS_ERR;
+
+  __id = id;
 
   switch (argc) {
     case SYS_0ARG:
@@ -68,9 +48,8 @@ syscall_result_t syscall_x(
     case SYS_5ARG:
       __result = syscall_5(id, arg0, arg1, arg2, arg3, arg4);
       break;
-    case SYS_6ARG:
-      __result = syscall_6(id, arg0, arg1, arg2, arg3, arg4, arg5);
-      break;
+    default:
+      return SYS_ERR;
   }
 
   return __result;

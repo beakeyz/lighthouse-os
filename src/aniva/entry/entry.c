@@ -17,6 +17,7 @@
 #include "libk/stddef.h"
 #include "mem/pg.h"
 #include "proc/core.h"
+#include "proc/ipc/packet_response.h"
 #include "proc/ipc/thr_intrf.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -180,29 +181,12 @@ void test_proc_entry(uintptr_t arg) {
 
   uintptr_t thing = 5;
 
-  send_packet_to_socket_with_code(55, 0, &thing, sizeof(thing));
-
-  for (;;) {
-    asm volatile("hlt");
-  }
-
   /* Let's attempt to terminate ourselves */
   try_terminate_process(get_current_proc());
 
-}
-
-void socket_on_entry() {
-
   for (;;) {
     asm volatile("hlt");
   }
-}
-
-uintptr_t socket_on_packet(packet_payload_t payload, packet_response_t** response) {
-
-  kernel_panic("Got");
-
-  return 0;
 }
 
 void kernel_thread() {
@@ -218,8 +202,6 @@ void kernel_thread() {
   // init_root_device_probing();
 
   proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
-
-  proc_add_thread(test_proc, create_thread_as_socket(test_proc, socket_on_entry, NULL, nullptr, socket_on_packet, "test_socket", 55));
 
   sched_add_proc(test_proc);
 

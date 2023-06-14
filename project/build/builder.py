@@ -72,7 +72,10 @@ class ProjectBuilder(object):
         for srcFile in self.constants.SRC_FILES:
             srcFile: SourceFile = srcFile
             if self.shouldBuild(srcFile):
-                srcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
+                if srcFile.language == SourceLanguage.C:
+                    srcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
+                elif srcFile.language == SourceLanguage.ASM:
+                    srcFile.setBuildFlags(self.constants.USERSPACE_ASM_FLAGS)
 
                 print(f"Building {srcFile.path}...")
                 os.system(f"mkdir -p {srcFile.getOutputDir()}")

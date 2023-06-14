@@ -48,6 +48,7 @@ class Consts:
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     KERNEL_ASM_FLAGS = " -f elf64"
+    USERSPACE_ASM_FLAGS = " -f elf64"
 
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
 

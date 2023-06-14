@@ -1,13 +1,23 @@
 #ifndef __LIGHTENV_SYSTEM__
 #define __LIGHTENV_SYSTEM__
 
-#include <libs/LibDef/def.h>
+#include <LibDef/def.h>
 
 /*
  * Syscalls
  * 
  * This header defines a framework for defining the absolute most basic form of syscall definitions
  * which simply execute the syscall instruction for the architecture we support and build for
+ *
+ * We use a different calling convention to System-V, since syscall uses some registers to store different things,
+ * namely uses rcx and r11
+ * rax: function
+ * rbx: arg0
+ * rdx: arg1
+ * rdi: arg2
+ * rsi: arg3
+ * r8:  arg4
+ * 
  *
  * TODO: syscall tracing
  */
@@ -26,7 +36,8 @@
 #define SYS_3ARG            (3)
 #define SYS_4ARG            (4)
 #define SYS_5ARG            (5)
-#define SYS_6ARG            (6)
+
+#define SYS_MAXARGS         (5)
 
 typedef uintptr_t syscall_id_t;
 typedef int syscall_result_t;
@@ -39,8 +50,7 @@ syscall_result_t syscall_x(
   uintptr_t arg1,
   uintptr_t arg2,
   uintptr_t arg3,
-  uintptr_t arg4,
-  uintptr_t arg5
+  uintptr_t arg4
 );
 
 #endif // !__LIGHTENV_SYSTEM__
