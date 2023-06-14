@@ -15,7 +15,7 @@ void lightapp_startup(MainEntry main) {
 
   process_result_t result;
 
-  if (!result) {
+  if (!main) {
     exit(ERROR);
   }
 

@@ -14,7 +14,7 @@
 
 typedef uintptr_t syscall_id_t;
 
-typedef uint64_t (*sys_fn)(
+typedef uint64_t (*sys_fn_t)(
     uint64_t arg0,
     uint64_t arg1,
     uint64_t arg2,
@@ -24,7 +24,7 @@ typedef uint64_t (*sys_fn)(
 
 typedef struct syscall {
   syscall_id_t m_id;
-  sys_fn m_handler;
+  sys_fn_t m_handler;
 } syscall_t;
 
 extern void sys_handler(registers_t* regs);

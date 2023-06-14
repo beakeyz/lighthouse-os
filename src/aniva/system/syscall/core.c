@@ -3,15 +3,17 @@
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/string.h"
+#include "proc/thread.h"
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
+#include "system/syscall/sys_exit/sys_exit.h"
 #include <dev/kterm/kterm.h>
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
 
-static struct syscall __static_syscalls[] = {
-  [SYSID_EXIT]        = { SYSID_EXIT, nullptr },
+static syscall_t __static_syscalls[] = {
+  [SYSID_EXIT]        = { SYSID_EXIT, (sys_fn_t)sys_exit_handler },
   [SYSID_OPEN]        = { SYSID_OPEN, nullptr },
 };
 
@@ -123,19 +125,39 @@ static syscall_args_t __syscall_parse_args(registers_t* regs)
   };
 }
 
+static void __syscall_set_retval(registers_t* regs, uintptr_t ret)
+{
+  regs->rax = ret;
+}
+
 void sys_handler(registers_t* regs) {
 
-  Processor_t* current_processor = get_current_processor();
-  thread_t *current_thread = get_current_scheduling_thread();
+  uintptr_t result;
+  thread_t* current_thread;
+  syscall_t call;
+  syscall_args_t args;
 
-  syscall_args_t args = __syscall_parse_args(regs);
+  ASSERT_MSG(regs, "Somehow we got no registers from the syscall entry!");
 
-  println(to_string(args.arg0));
-  println(to_string(args.arg1));
-  println(to_string(args.arg2));
-  println(to_string(args.arg3));
-  println(to_string(args.arg4));
-  println(to_string(args.syscall_id));
+  args = __syscall_parse_args(regs);
 
-  kernel_panic("Recieved syscall!");
+  /* Execute the main syscall handler (All permissions) */
+  call = __static_syscalls[args.syscall_id];
+
+  if (!call.m_handler)
+    kernel_panic("TODO: handle syscalls without main handler");
+
+  /*
+   * Syscalls are always called from the context of the process that 
+   * invoked them, so we can get its process objects simply by using the
+   * get_current_... functions (for threads, processes, cpus, ect.)
+   */
+  result = call.m_handler(args.arg0, args.arg1, args.arg2, args.arg3, args.arg4);
+
+  /*
+   * Execute any other handlers (These handlers may not alter the syscall information,
+   * like result value or registers, but are purely based in the kernel) 
+   */
+
+  __syscall_set_retval(regs, result);
 }
