@@ -6,22 +6,26 @@
 #include "proc/thread.h"
 
 /*
- * TODO: figure out lmao
+ * This header represents the core of the kernel syscall system
+ * evey type of syscall has an ID and we can register additional syscall handlers
+ * by giving them these functions that we then call in to when the syscall
+ * is invoked.
  */
 
-enum SYSCALL_ID {
-  EXIT = 0,
-  OPEN,
-  CLOSE,
-  GETTIME,
-};
+typedef uintptr_t syscall_id_t;
 
-typedef int64_t (*sys_fn)(uint64_t, uint64_t, uint64_t, uint64_t);
+typedef uint64_t (*sys_fn)(
+    uint64_t arg0,
+    uint64_t arg1,
+    uint64_t arg2,
+    uint64_t arg3,
+    uint64_t arg4
+);
 
-struct syscall {
-  enum SYSCALL_ID m_id;
+typedef struct syscall {
+  syscall_id_t m_id;
   sys_fn m_handler;
-};
+} syscall_t;
 
 extern void sys_handler(registers_t* regs);
 extern NAKED void sys_entry();

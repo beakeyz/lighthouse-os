@@ -27,11 +27,19 @@
 [global syscall_0]
 syscall_0:
   ; Move syscall ID into rax
-  mov rdi, rax
+  mov rax, rdi
+
+  ; Make sure unused arguments are masked
+  __syscall_clear_registers
+
   syscall
 
   retq
 
+;
+; TODO: we could try pushing the System-V arguments to the stack, clearing
+; the registers, and the popping the arguments back into our syscall argument registers
+;
 [global syscall_1]
 syscall_1:
   ; Move syscall ID into rax

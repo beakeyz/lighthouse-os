@@ -1,16 +1,5 @@
 #include "system.h"
 
-/*
- * TODO: move syscall stubs to asm to avoid compiler funzies
- */
-
-extern syscall_result_t syscall_0(syscall_id_t id);
-extern syscall_result_t syscall_1(syscall_id_t id, uintptr_t arg0);
-extern syscall_result_t syscall_2(syscall_id_t id, uintptr_t arg0, uintptr_t arg1);
-extern syscall_result_t syscall_3(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2);
-extern syscall_result_t syscall_4(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
-extern syscall_result_t syscall_5(syscall_id_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4);
-
 syscall_result_t syscall_x(
   syscall_id_t id,
   size_t argc,

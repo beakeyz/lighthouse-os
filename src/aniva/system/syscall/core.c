@@ -1,4 +1,5 @@
 #include "core.h"
+#include "LibSys/syscall.h"
 #include "dev/debug/serial.h"
 #include "libk/error.h"
 #include "libk/string.h"
@@ -10,13 +11,11 @@ extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
 
 static struct syscall __static_syscalls[] = {
-  [EXIT]        = { EXIT, nullptr },
-  [OPEN]        = { OPEN, nullptr },
-  [CLOSE]       = { CLOSE, nullptr },
-  [GETTIME]     = { GETTIME, nullptr },
+  [SYSID_EXIT]        = { SYSID_EXIT, nullptr },
+  [SYSID_OPEN]        = { SYSID_OPEN, nullptr },
 };
 
-static size_t static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
+static const size_t static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
 
 /* 
  * This stub mimics interrupt behaviour 

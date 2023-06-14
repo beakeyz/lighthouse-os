@@ -35,7 +35,7 @@ class Consts:
     KERNEL_C_FLAGS = "-std=gnu11 -Wall -nostdlib -O2 -mno-sse -mno-sse2"
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
-    KERNEL_C_FLAGS += " -fno-lto -fpie -fno-exceptions -MMD -I./src -I./src/aniva/"
+    KERNEL_C_FLAGS += " -fno-lto -fpie -fno-exceptions -MMD -I./src -I./src/aniva/ -I./src/libs"
     KERNEL_C_FLAGS += " -D\'KERNEL\'"
 
     # Default libenv flags (aka the aniva equivilant of libc)
@@ -44,7 +44,7 @@ class Consts:
 
     # TODO: expand
     # Default userspace flags (just anything that isn't the kernel basically)
-    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -I./src/libs"
+    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -I./src/libs -I./src/libs/libc"
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     KERNEL_ASM_FLAGS = " -f elf64"
