@@ -18,8 +18,8 @@ typedef struct tspckt {
   struct threaded_socket* m_reciever_thread;
 
   // this field should be zero for default socket messages
-  async_ptr_t* m_async_ptr_handle;
-  packet_response_t* volatile* m_response_buffer;
+  // async_ptr_t* m_async_ptr_handle;
+  // packet_response_t* volatile* m_response_buffer;
   packet_payload_t* m_payload;
   size_t m_packet_size;
 } tspckt_t;

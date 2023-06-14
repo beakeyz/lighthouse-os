@@ -24,6 +24,7 @@
 extern char thread_entry_stub[];
 extern char thread_entry_stub_end[];
 
+struct proc;
 struct thread;
 struct tspckt;
 struct threaded_socket;
@@ -88,6 +89,9 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
  */
 struct threaded_socket *find_registered_socket(uint32_t port);
 
+struct proc* find_proc(const char* name);
+struct thread* find_thread(struct proc* proc, uint64_t tid);
+
 /*
  * send a data-packet to a port
  * returns a pointer to the response ptr (thus a double pointer)
@@ -98,7 +102,7 @@ extern async_ptr_t** send_packet_to_socket(uint32_t port, void* buffer, size_t b
 /*
  * Send a packet to the socket and discard the response buffer
  */
-void send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
+extern ErrorOrPtr send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
 
 /*
  * same thing as the function above, but it includes a driver control code

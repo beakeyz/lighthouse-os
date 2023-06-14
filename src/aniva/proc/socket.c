@@ -76,14 +76,14 @@ async_ptr_t** send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_s
   return send_packet_to_socket_with_code(port, 0, buffer, buffer_size);
 }
 
-void send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
+ErrorOrPtr send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
   disable_interrupts();
 
   threaded_socket_t *socket = find_registered_socket(port);
 
   if (socket == nullptr || socket->m_parent == nullptr) {
-    return;
+    return Error();
   }
 
   tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, create_async_ptr(socket->m_port));
@@ -91,17 +91,15 @@ void send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
     destroy_tspckt(packet);
-    destroy_async_ptr(&packet->m_async_ptr_handle);
-    return;
+    return Error();
   }
 
   //queue_enqueue(socket->m_buffers, packet);
   queue_enqueue(socket->m_packet_queue.m_packets, packet);
 
-  destroy_async_ptr(&packet->m_async_ptr_handle);
-  packet->m_response_buffer = 0;
-
   enable_interrupts();
+
+  return Success(0);
 }
 
 async_ptr_t** send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
@@ -117,13 +115,12 @@ async_ptr_t** send_packet_to_socket_with_code(uint32_t port, driver_control_code
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
     destroy_tspckt(packet);
-    destroy_async_ptr(&packet->m_async_ptr_handle);
     return nullptr;
   }
 
   queue_enqueue(socket->m_packet_queue.m_packets, packet);
 
-  return &packet->m_async_ptr_handle;
+  kernel_panic("TODO: fix packet sending");
 }
 
 packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
@@ -266,19 +263,6 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   /* Massive ew */
   if (response != nullptr) {
 
-    if (!packet->m_response_buffer || !packet->m_async_ptr_handle || !packet->m_async_ptr_handle->m_mutex) {
-      destroy_packet_response(response);
-    } else {
-      *packet->m_response_buffer = response;
-    }
-  } else {
-    if (packet->m_async_ptr_handle) {
-      if (mutex_is_locked(packet->m_async_ptr_handle->m_mutex)) {
-        atomic_ptr_write(packet->m_async_ptr_handle->m_is_buffer_killed, true);
-      } else {
-        destroy_async_ptr(&packet->m_async_ptr_handle);
-      }
-    }
   }
 
   // we want to keep this packet alive for now, all the way untill the response has been handled

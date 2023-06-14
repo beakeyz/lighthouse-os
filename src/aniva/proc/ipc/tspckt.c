@@ -26,8 +26,6 @@ tspckt_t *create_tspckt(threaded_socket_t* reciever, driver_control_code_t code,
   packet->m_reciever_thread = reciever;
   packet->m_packet_size = packet_size;
   // this handle should not be destroyed when we are destroying this tspacket
-  packet->m_async_ptr_handle = ptr;
-  packet->m_response_buffer = (packet_response_t**)ptr->m_response_buffer;
   packet->m_payload = create_packet_payload(data, data_size, code);
 
   // NOTE: the identifier should be initialized last, since it relies on 

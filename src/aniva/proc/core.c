@@ -183,6 +183,14 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
   return Success(0);
 }
 
+proc_t* find_proc(const char* name) {
+  kernel_panic("TODO: implement find_proc");
+}
+
+thread_t* find_thread(proc_t* proc, uint64_t tid) {
+  kernel_panic("TODO: implement find_thread");
+}
+
 threaded_socket_t *find_registered_socket(uint32_t port) {
   FOREACH(i, s_sockets) {
     threaded_socket_t *socket = i->data;
