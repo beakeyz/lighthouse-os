@@ -23,9 +23,8 @@ typedef struct proc {
 
   // maps?
   list_t* m_threads;
-  list_t* m_runnable_threads;
 
-  generic_heap_t* m_heap;
+  // generic_heap_t* m_heap;
 
   struct thread* m_init_thread;
   struct thread* m_idle_thread;

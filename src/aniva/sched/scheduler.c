@@ -114,6 +114,21 @@ void start_scheduler(void) {
   bootstrap_thread_entries(initial_thread);
 }
 
+static void pick_next_process_scheduler() {
+  uintptr_t idx = 0;
+  sched_frame_t* current;
+
+  while (idx++ < s_sched_frames->m_length+1) {
+    send_sched_frame_to_back(0);
+
+    current = list_get(s_sched_frames, 0);
+
+    if(!(current->m_proc_to_schedule->m_flags & PROC_FINISHED))
+      break;
+    
+  }
+}
+
 /*
  * Try to fetch another thread for us to schedule.
  * If this current process is in idle mode, we just 
@@ -125,6 +140,16 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
 
   if (!frame)
     return Error();
+
+  /* Check if this frame is done */
+  if (frame->m_proc_to_schedule->m_flags & PROC_FINISHED) {
+    /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
+    //destroy_proc(frame->m_proc_to_schedule);
+
+    remove_sched_frame(frame);
+
+    frame = list_get(s_sched_frames, 0);
+  }
 
   set_current_proc(frame->m_proc_to_schedule);
 
@@ -318,7 +343,8 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
       // switch_frames
       println("Should have switched frames!");
-      send_sched_frame_to_back(0);
+      //send_sched_frame_to_back(0);
+      pick_next_process_scheduler();
       Must(pick_next_thread_scheduler());
 
       /* Debug */

@@ -113,13 +113,15 @@ void deallocate_heap_memory(generic_heap_t* heap, void* addr, size_t size) {
 }
 
 void* allocate_memory(size_t size) {
-  generic_heap_t* heap = get_current_proc()->m_heap;
+  //generic_heap_t* heap = get_current_proc()->m_heap;
 
-  return allocate_heap_memory(heap, size);
+  //return allocate_heap_memory(heap, size);
+  kernel_panic("TODO: implement allocate_memory");
 }
 
 void deallocate_memory(void* addr, size_t size) {
-  generic_heap_t* heap = get_current_proc()->m_heap;
+  //generic_heap_t* heap = get_current_proc()->m_heap;
 
-  deallocate_heap_memory(heap, addr, size);
+  //deallocate_heap_memory(heap, addr, size);
+  kernel_panic("TODO: implement deallocate_memory");
 }

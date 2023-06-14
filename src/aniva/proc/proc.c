@@ -46,13 +46,6 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
 
-  if ((flags & PROC_DEFERED_HEAP) == PROC_DEFERED_HEAP) {
-    proc->m_heap = nullptr;
-  } else {
-    /* FIXME: every heap should know in what page dir it lives */
-    proc->m_heap = create_dynamic_zone_allocator(128 * Kib, 0)->m_heap;
-  }
-
   proc->m_idle_thread = nullptr;
 
   proc->m_threads = init_list();
@@ -93,6 +86,8 @@ void destroy_proc(proc_t* proc) {
 
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
+
+  destroy_list(proc->m_threads);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
