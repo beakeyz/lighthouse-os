@@ -70,6 +70,8 @@ ErrorOrPtr try_terminate_process(proc_t* proc);
 /* Heh? */
 void terminate_process(proc_t* proc);
 
+bool proc_can_schedule(proc_t* proc);
+
 /*
  * This means that the process will be removed from the scheduler queue
  * and will only be emplaced back once an external source has requested

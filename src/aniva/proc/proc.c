@@ -10,6 +10,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/kprocs/idle.h"
+#include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
@@ -100,22 +101,33 @@ void destroy_proc(proc_t* proc) {
   }
 }
 
+
+bool proc_can_schedule(proc_t* proc) {
+  if (!proc || (proc->m_flags & PROC_FINISHED) || (proc->m_flags & PROC_IDLE))
+    return false;
+
+  if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread)
+    return false;
+
+  /* If none of the conditions above are met, it seems like we can schedule */
+  return true;
+}
+
+/*
+ * Terminate the process, which means that we
+ * 1) mark it as finished
+ * 2) remove it from the scheduler
+ * 3) Queue it to the reaper thread so It can be safely be disposed of
+ */
 ErrorOrPtr try_terminate_process(proc_t* proc) {
-
-  /* If we try to terminate while the process is marked finished, we can just hard-kill it */
-  if (proc->m_flags & PROC_FINISHED) {
-    /* We honestly don't really care if its contained in the scheduler at this point */
-    ANIVA_STATUS remove_res = sched_remove_proc(proc);
-
-    destroy_proc(proc);
-
-    /* Warning? */
-    return Success(0);
-  }
 
   pause_scheduler();
 
   proc->m_flags |= PROC_FINISHED;
+
+  sched_remove_proc(proc);
+
+  TRY(reap_result, reaper_register_process(proc));
 
   resume_scheduler();
 

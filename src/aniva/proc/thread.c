@@ -146,12 +146,12 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, ch
   return nullptr;
 }
 
-thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t port) {
-  if (proc == nullptr || entry == nullptr) {
+thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port) {
+  if (!proc || !entry || !port) {
     return nullptr;
   }
 
-  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, on_packet_fn, port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
+  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, on_packet_fn, *port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
 
   // nullptr should mean that no allocation has been done
   if (socket == nullptr) {
@@ -174,6 +174,8 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
 
   ret->m_socket = socket;
   socket->m_parent = ret;
+
+  *port = socket->m_port;
 
   socket_enable(ret);
 

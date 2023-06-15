@@ -142,7 +142,7 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
     return Error();
 
   /* Check if this frame is done */
-  if (frame->m_proc_to_schedule->m_flags & PROC_FINISHED) {
+  while (!proc_can_schedule(frame->m_proc_to_schedule)) {
     /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
     //destroy_proc(frame->m_proc_to_schedule);
 
@@ -322,21 +322,6 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
   if (s_sched_frames->m_length > 1) {
 
-    /* If this process is marked as done */
-    if (current_frame->m_proc_to_schedule->m_flags & PROC_FINISHED) {
-
-      print("Terminated process: ");
-      println(current_frame->m_proc_to_schedule->m_name);
-
-      /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
-      destroy_proc(current_frame->m_proc_to_schedule);
-
-      remove_sched_frame(current_frame);
-
-      /* recurse in order to reset scheduler tick state */
-      return sched_tick(registers_ptr);
-    }
-
     // FIXME: switch timings seem to be wonky
     if (current_frame->m_sched_time_left <= 0) {
       current_frame->m_sched_time_left = current_frame->m_max_ticks;
@@ -515,6 +500,10 @@ void insert_sched_frame(sched_frame_t* frame_ptr) {
   resume_scheduler();
 }
 
+/*
+ * We should find a better way to index processes based on priority, rather than 
+ * just throwing them in a pseudo-queue (which is really a list lmao)
+ */
 ALWAYS_INLINE ErrorOrPtr remove_sched_frame(sched_frame_t* frame_ptr) {
 
   TRY(result, list_indexof(s_sched_frames, frame_ptr));

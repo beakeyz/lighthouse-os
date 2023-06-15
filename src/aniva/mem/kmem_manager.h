@@ -266,7 +266,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_size);
 /*
  * Free this entire addressspace for future use
  */
-void kmem_destroy_page_dir(pml_entry_t* dir);
+ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir);
 
 // TODO: write kmem_manager tests
 

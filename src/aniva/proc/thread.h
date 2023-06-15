@@ -75,12 +75,9 @@ thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, char[32]);
 
 /*
  * create a thread that is supposed to act as a socket for itc and ipc
- * (
- * These should be able to run separately from a process and in some
- * kind of thread-pool in the processor, so TODO?
- * )
+ * NOTE: this mutates the port value to something which is always available
  */
-thread_t *create_thread_as_socket(struct proc*, FuncPtr, uintptr_t, FuncPtr, SocketOnPacket, char[32], uint32_t);
+thread_t *create_thread_as_socket(struct proc* process, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port);
 
 /*
  * set up the thread and prepare to switch context

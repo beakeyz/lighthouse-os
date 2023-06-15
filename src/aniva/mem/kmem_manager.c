@@ -49,6 +49,13 @@ static struct {
 static void _init_kmem_page_layout();
 static void _init_kmem_page_layout_late();
 
+static bool __is_current_pagemap(pml_entry_t* map)
+{
+  Processor_t* current_processor = get_current_processor();
+
+  return (current_processor->m_page_dir == map);
+}
+
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
   KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap*)) / mmap->entry_size;
@@ -969,12 +976,57 @@ ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
   return Error();
 }
 
+static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
+{
+  const vaddr_t base = HIGH_MAP_BASE;
+  const uintptr_t pml4_idx = (base >> 39) & ENTRY_MASK;
+
+  pml_entry_t kernel_lvl_3 = dir[pml4_idx];
+  bool is_present = pml_entry_is_bit_set(&kernel_lvl_3, PDE_PRESENT);
+
+  /* Appearantly there is no shared kernel mapping? */
+  if (!is_present)
+    return Error();
+
+  /* FIXME: this is so hacky lmao */
+  dir[pml4_idx].raw_bits = NULL;
+
+  return Success(0);
+}
+
 /*
  * TODO: do we want to murder an entire addressspace, or do we just want to get rid 
  * of the mappings?
  */
-void kmem_destroy_page_dir(pml_entry_t* dir) {
-  kernel_panic("TODO: implement kmem_destroy_page_dir");
+ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
+
+  if (__is_current_pagemap(dir))
+    return Error();
+
+  /*
+   * We don't care about the result here
+   * since it only fails if there is no kernel
+   * entry, which is fine
+   */
+  __clear_shared_kernel_mapping(dir);
+
+  kernel_panic("TODO: implement recursive mapping freeing");
+
+  /*
+   * How do we want to clear our mappings?
+   * 1) We recursively go through each level in the pagetable. 
+   *    when we find an entry that is presens and its not at the bottom
+   *    level of the pagetable, we go a level deeper and recurse
+   * 2) At each mapping, we check if its shared of some sort (aka, we should not clear it)
+   *    if it is not shared, we can clear the mapping
+   * 3) When we have cleared an entire pde, pte, ect. we can free up that page. Since a pagetable is just a tree of
+   *    pages that contain mappings, we should make sure we find all the pages that contain clearable mappings,
+   *    so that we can return them to the physical allocator, for them to be reused. Otherwise we 
+   *    keep these actually unused pages marked as 'used' by the allocator and we thus bleed memory
+   *    which is not so nice =)
+   */
+
+  return Success(0);
 }
 
 /*
@@ -1009,8 +1061,6 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) {
 
   const vaddr_t base = HIGH_MAP_BASE;
   const uintptr_t pml4_idx = (base >> 39) & ENTRY_MASK;
-  const uintptr_t pdp_idx = (base >> 30) & ENTRY_MASK;
-  const uintptr_t pd_idx = (base >> 21) & ENTRY_MASK;
 
   pml_entry_t* kernel_root = (void*)kmem_ensure_high_mapping((uintptr_t)kmem_get_krnl_dir());
 

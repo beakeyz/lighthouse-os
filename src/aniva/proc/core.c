@@ -19,7 +19,7 @@ static uint32_t s_highest_port_cache;
 static spinlock_t* s_core_socket_lock;
 
 // TODO: fix this mechanism, it sucks
-static atomic_ptr_t* next_proc_id;
+static atomic_ptr_t* __next_proc_id;
 
 static void revalidate_port_cache();
 
@@ -108,10 +108,16 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
   return proc_add_thread(current, thread);
 }
 
-// FIXME: EWWWWWWW
+/*
+ * TODO: have process ids be contained inside a bitmap.
+ * This gives us more dynamic procid taking and releasing,
+ * at the cost of a greater space complexity. For a max. capacity 
+ * of 1024 processes we would need 16 qwords or 16 * 8 = 128 bytes
+ * in our bitmap.
+ */
 ErrorOrPtr generate_new_proc_id() {
-  uintptr_t next = atomic_ptr_load(next_proc_id);
-  atomic_ptr_write(next_proc_id, next + 1);
+  uintptr_t next = atomic_ptr_load(__next_proc_id);
+  atomic_ptr_write(__next_proc_id, next + 1);
   return Success(next);
 }
 
@@ -142,9 +148,11 @@ ErrorOrPtr socket_register(threaded_socket_t* socket) {
 
   revalidate_port_cache();
 
-  // TODO: more verification
-
   socket_set_flag(socket, TS_REGISTERED, true);
+
+  /*
+   * TODO: sort based on port value (low -> high)
+   */
   list_append(s_sockets, socket);
   return Success(0);
 }
@@ -287,7 +295,7 @@ ANIVA_STATUS init_proc_core() {
 
   s_sockets = init_list();
   s_core_socket_lock = create_spinlock();
-  next_proc_id = create_atomic_ptr_with_value(1);
+  __next_proc_id = create_atomic_ptr_with_value(1);
 
   return ANIVA_SUCCESS;
 }

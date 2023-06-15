@@ -19,6 +19,7 @@
 #include "proc/core.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/ipc/thr_intrf.h"
+#include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "system/acpi/acpi.h"
@@ -39,7 +40,7 @@
 system_info_t g_system_info;
 
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
-void kernel_thread();
+void kthread_entry();
 
 //typedef void (*ctor_func_t)();
 //extern ctor_func_t _start_ctors[];
@@ -149,9 +150,11 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-  proc_t* root_proc = create_kernel_proc(kernel_thread, NULL);
-  set_kernel_proc(root_proc);
+  proc_t* root_proc = create_kernel_proc(kthread_entry, NULL);
 
+  init_reaper(root_proc);
+
+  set_kernel_proc(root_proc);
   sched_add_proc(root_proc);
 
   start_scheduler();
@@ -189,7 +192,7 @@ void test_proc_entry(uintptr_t arg) {
   }
 }
 
-void kernel_thread() {
+void kthread_entry() {
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
