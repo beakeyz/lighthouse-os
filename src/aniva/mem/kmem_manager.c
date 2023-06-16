@@ -997,6 +997,9 @@ static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
 /*
  * TODO: do we want to murder an entire addressspace, or do we just want to get rid 
  * of the mappings?
+ * FIXME: with the current implementation we are definately bleeding memory, so another
+ * TODO: plz fix the resource allocator asap so we can systematically find what mapping we can 
+ *       murder and which we need to leave alive
  */
 ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
 
@@ -1009,8 +1012,6 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
    * entry, which is fine
    */
   __clear_shared_kernel_mapping(dir);
-
-  kernel_panic("TODO: implement recursive mapping freeing");
 
   /*
    * How do we want to clear our mappings?
@@ -1025,6 +1026,67 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
    *    keep these actually unused pages marked as 'used' by the allocator and we thus bleed memory
    *    which is not so nice =)
    */
+
+  const uintptr_t dir_entry_limit = SMALL_PAGE_SIZE / sizeof(pml_entry_t);
+
+  for (uintptr_t i = 0; i < dir_entry_limit; i++) {
+    paddr_t pml4_entry_phys = kmem_get_page_base(dir[i].raw_bits);
+    pml_entry_t* pml4_entry = (pml_entry_t*)kmem_ensure_high_mapping(pml4_entry_phys);
+
+    if (!pml_entry_is_bit_set(pml4_entry, PDE_PRESENT))
+      continue;
+
+    for (uintptr_t j = 0; j < dir_entry_limit; j++) {
+      paddr_t pdp_entry_phys = kmem_get_page_base(pml4_entry[j].raw_bits);
+      pml_entry_t* pdp_entry = (pml_entry_t*)kmem_ensure_high_mapping(pdp_entry_phys);
+
+      if (!pml_entry_is_bit_set(pdp_entry, PDE_PRESENT))
+        continue;
+
+      for (uintptr_t k = 0; k < dir_entry_limit; k++) {
+        paddr_t pd_entry_phys = kmem_get_page_base(pdp_entry[k].raw_bits);
+        pml_entry_t* pd_entry = (pml_entry_t*)kmem_ensure_high_mapping(pd_entry_phys);
+
+        if (!pml_entry_is_bit_set(pd_entry, PDE_PRESENT))
+          continue;
+
+        for (uintptr_t l = 0; l < dir_entry_limit; l++) {
+          pml_entry_t* pt_entry = (pml_entry_t*)kmem_ensure_high_mapping(kmem_get_page_base(pd_entry[l].raw_bits));
+
+          if (!pml_entry_is_bit_set(pt_entry, PDE_PRESENT))
+            continue;
+
+          /* Perform global resource lookup to determine if this mapping can be yeeted or not */
+
+          paddr_t phys = kmem_get_page_base(pt_entry->raw_bits);
+          uintptr_t idx = kmem_get_page_idx(phys);
+
+          /* Make sure the mapping we point to is now free if this mapping is not shared or anything */
+          // kmem_set_phys_page_free(idx);
+
+          pt_entry->raw_bits = NULL;
+
+        } // pt
+
+        uintptr_t idx = kmem_get_page_idx(pd_entry_phys);
+        kmem_set_phys_page_free(idx);
+
+      } // pd
+
+      uintptr_t idx = kmem_get_page_idx(pdp_entry_phys);
+      kmem_set_phys_page_free(idx);
+
+    } // pdp
+
+    uintptr_t idx = kmem_get_page_idx(pml4_entry_phys);
+    kmem_set_phys_page_free(idx);
+
+  } // pml4
+
+  paddr_t dir_phys = kmem_to_phys(nullptr, (uintptr_t)dir);
+  uintptr_t idx = kmem_get_page_idx(dir_phys);
+
+  kmem_set_phys_page_free(idx);
 
   return Success(0);
 }
@@ -1041,16 +1103,6 @@ void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts) {
 
   ASSERT(get_current_processor() != nullptr);
   get_current_processor()->m_page_dir = page_map;
-
-  /*
-  proc_t* current_proc = get_current_proc();
-
-  if (current_proc) {
-    current_proc->m_root_pd.m_root = (pml_entry_t*)dir;
-    current_proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
-    current_proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
-  }
-  */
 
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(dir));

@@ -17,7 +17,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_OPEN]        = { SYSID_OPEN, nullptr },
 };
 
-static const size_t static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
+static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
 
 /* 
  * This stub mimics interrupt behaviour 
@@ -130,6 +130,16 @@ static void __syscall_set_retval(registers_t* regs, uintptr_t ret)
   regs->rax = ret;
 }
 
+static bool __syscall_verify_sysid(syscall_id_t id)
+{
+  if (id >= __static_syscall_count)
+    return false;
+  if (!__static_syscalls[id].m_handler)
+    return false;
+
+  return true;
+}
+
 void sys_handler(registers_t* regs) {
 
   uintptr_t result;
@@ -141,11 +151,14 @@ void sys_handler(registers_t* regs) {
 
   args = __syscall_parse_args(regs);
 
+  /* Verify that this syscall id is valid and has a valid handler */
+  if (!__syscall_verify_sysid(args.syscall_id)) {
+    /* TODO: murder the disbehaving process */
+    kernel_panic("Tried to call an invalid syscall!");
+  }
+
   /* Execute the main syscall handler (All permissions) */
   call = __static_syscalls[args.syscall_id];
-
-  if (!call.m_handler)
-    kernel_panic("TODO: handle syscalls without main handler");
 
   /*
    * Syscalls are always called from the context of the process that 
