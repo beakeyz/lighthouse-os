@@ -26,6 +26,7 @@
 #include "system/acpi/parser.h"
 #include "system/processor/processor.h"
 #include "system/processor/processor_info.h"
+#include "system/resource.h"
 #include "time/core.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
@@ -197,6 +198,8 @@ void kthread_entry() {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
   init_gdisk_dev();
+
+  init_kresources();
 
   init_aniva_driver_registry();
 

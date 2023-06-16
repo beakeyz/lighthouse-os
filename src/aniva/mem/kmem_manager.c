@@ -812,6 +812,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
 
 ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
 
+  proc_t* current_proc = get_current_proc();
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
@@ -1050,23 +1051,7 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
         if (!pml_entry_is_bit_set(pd_entry, PDE_PRESENT))
           continue;
 
-        for (uintptr_t l = 0; l < dir_entry_limit; l++) {
-          pml_entry_t* pt_entry = (pml_entry_t*)kmem_ensure_high_mapping(kmem_get_page_base(pd_entry[l].raw_bits));
-
-          if (!pml_entry_is_bit_set(pt_entry, PDE_PRESENT))
-            continue;
-
-          /* Perform global resource lookup to determine if this mapping can be yeeted or not */
-
-          paddr_t phys = kmem_get_page_base(pt_entry->raw_bits);
-          uintptr_t idx = kmem_get_page_idx(phys);
-
-          /* Make sure the mapping we point to is now free if this mapping is not shared or anything */
-          // kmem_set_phys_page_free(idx);
-
-          pt_entry->raw_bits = NULL;
-
-        } // pt
+        memset(pd_entry, 0, SMALL_PAGE_SIZE);
 
         uintptr_t idx = kmem_get_page_idx(pd_entry_phys);
         kmem_set_phys_page_free(idx);

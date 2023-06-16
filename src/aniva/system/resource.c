@@ -4,6 +4,7 @@
 #include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
+#include <string.h>
 
 /*
  * NOTE: in this file (or range of files) I try to enforce a different 
@@ -20,309 +21,192 @@
  *  - Make sure only one kernelobject owns a given resource
  *  - Make sure resources are grouped and ordered nicely so we can easly and quickly find them
  */
+static kresource_t* __resources[3];
+static mutex_t* __resource_mutex;
+static zone_allocator_t* __resource_allocator;
 
-static mutex_t* __g_resource_lock;
-static zone_allocator_t* __resource_zallocator;
-static zone_allocator_t* __memory_specific_zallocator;
-static zone_allocator_t* __irq_specific_zallocator;
-static zone_allocator_t* __io_specific_zallocator;
-
-static kernel_resource_t* __mem_range_resources;
-static kernel_resource_t* __io_range_resources;
-static kernel_resource_t* __irq_resources;
-
-static size_t __mem_range_count;
-static size_t __io_range_count;
-static size_t __irq_count;
-
-static kernel_resource_t** __resource_table[] = {
-  [RESOURCE_TYPE_MEMORY] =              &__mem_range_resources,
-  [RESOURCE_TYPE_IO_RANGE] =            &__io_range_resources,
-  [RESOURCE_TYPE_IRQ] =                 &__irq_resources,
-};
-
-static size_t* __count_table[] = {
-  [RESOURCE_TYPE_MEMORY] =              &__mem_range_count,
-  [RESOURCE_TYPE_IO_RANGE] =            &__io_range_count,
-  [RESOURCE_TYPE_IRQ] =                 &__irq_count,
-};
-
-static void __increment_resource_count(kernel_resource_type_t type)
+static inline bool __resource_contains(kresource_t* resource, uintptr_t address) 
 {
-  (*__count_table[type])++;
+  return (address >= resource->m_start && address < resource->m_size);
 }
 
-static void __decrement_resource_count(kernel_resource_type_t type) 
+static inline bool __resource_type_is_valid(kresource_type_t type)
 {
-  (*__count_table[type])--;
+  return (type >= KRES_MIN_TYPE && type <= KRES_MAX_TYPE);
+}
+
+static bool __resource_is_shared(kresource_t* resource)
+{
+  if (!resource)
+    return false;
+
+  if (resource->m_shared_count.m_count > 1)
+    return true;
+
+  if (resource->m_flags & KRES_FLAG_SHARED)
+    return true;
+
+  return false;
 }
 
 /*
- * We find the appropriate list by using the type enum as an index into
- * an array we have predefined above
+ * Quick fast-slow linkedlist traverse
+ * used for binary search
  */
-static kernel_resource_t** __find_kernel_resource(kernel_resource_t* resource) 
+static kresource_t* __find_middle_kresource(kresource_t* start, kresource_t* end, kresource_type_t type)
 {
+  kresource_t* fast;
+  kresource_t* slow;
 
-  if (!resource)
+  if (!__resource_type_is_valid(type))
     return nullptr;
 
-  kernel_resource_t** ret;
+  fast = start;
+  end = start;
 
-  for (ret = __resource_table[resource->m_type]; *ret; ret = &(*ret)->m_next) {
-    if (*ret == resource) {
+  if (!fast)
+    fast = __resources[type];
+
+  while (fast && fast->m_next) {
+
+    if (fast == end)
       break;
-    }
+
+    fast = fast->m_next->m_next;
+    slow = slow->m_next;
+  }
+
+  return slow;
+}
+
+/*
+ * TODO: switch to binary search to account for large resource counts
+ */
+static kresource_t** __find_kresource(uintptr_t address, kresource_type_t type)
+{
+  kresource_t** ret;
+
+  if (!__resource_type_is_valid(type))
+    return nullptr;
+
+  /* Find the appropriate list for this type */
+  ret = &__resources[type];
+
+  for (; *ret; ret = &(*ret)->m_next) {
+    if (__resource_contains(*ret, address)) 
+      break;
   }
 
   return ret;
 }
 
-static kernel_resource_t** __find_kernel_resource_by_name(kernel_resource_type_t r_type, char* r_name) 
+/*
+ * TODO: switch to binary search to account for large resource counts
+ */
+static kresource_t** __find_prev_kresource(kresource_t* source, kresource_type_t type)
 {
+  kresource_t** ret;
+  kresource_t** itt;
 
-  if (!r_name)
+  if (!__resource_type_is_valid(type))
     return nullptr;
 
-  kernel_resource_t** ret;
+  /* Find the appropriate list for this type */
+  itt = &__resources[type];
+  ret = nullptr;
 
-  for (ret = __resource_table[r_type]; *ret; ret = &(*ret)->m_next) {
-    if (memcmp((*ret)->m_name, r_name, strlen(r_name))) 
+  for (; *itt; itt = &(*itt)->m_next) {
+    if (*itt == source) 
       break;
+
+    ret = itt;
   }
 
   return ret;
 }
 
-/*
- * Locks the global lock and inserts a resource into the list
- */
-static ErrorOrPtr __insert_kernel_resource(kernel_resource_t* resource) 
+static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_type_t type) 
 {
-  
-  if (!resource)
-    return Error();
+  kresource_t* ret;
 
-  /* Lock the global lock */
-  mutex_lock(__g_resource_lock);
-
-  kernel_resource_t** slot = __find_kernel_resource(resource);
-
-  if (!slot)
-    goto error_and_exit;
-
-  if (*slot) 
-    goto error_and_exit;
-
-  *slot = resource;
-
-  __increment_resource_count(resource->m_type);
-
-  /* Unlock before returning success */
-  mutex_unlock(__g_resource_lock);
-
-  return Success(0);
-
-error_and_exit:
-  mutex_unlock(__g_resource_lock);
-
-  return Error();
-}
-
-/*
- * Locks the global lock and remove a resource from the list
- */
-static ErrorOrPtr __remove_kernel_resource(kernel_resource_t* resource) 
-{
-
-  kernel_resource_t** itterator;
-  
-  if (!resource)
-    return Error();
-
-  /* Lock the global lock */
-  mutex_lock(__g_resource_lock);
-
-  /* Zero */
-  itterator = __resource_table[resource->m_type];
-
-  while (*itterator) {
-    if (*itterator == resource) {
-
-      *itterator = resource->m_next;
-      resource->m_next = nullptr;
-
-      mutex_unlock(__g_resource_lock);
-
-      return Success(0);
-    }
-
-    itterator = &(*itterator)->m_next;
-  }
-
-  mutex_unlock(__g_resource_lock);
-  return Error();
-}
-
-/*
- * Memory resource
- *
- * This resource should be able to do a bunch of things:
- *  - Devide itself into ranges 
- *  - Know about its users
- *  - Know about its mappings
- *  - Make sure certain rules are followed that ensure the resource 
- *    is not used by anyone but its owners
- */
-
-memory_resource_data_t* __create_memory_resource_data(page_dir_t* dir, memory_resource_type_t mem_type)
-{
-
-  size_t _types_size;
-  memory_resource_data_t* data = __memory_specific_zallocator->m_heap->f_allocate(__memory_specific_zallocator, sizeof(memory_resource_data_t));
-
-  if (!data)
+  /* Allocator should be initialized here */
+  if (!__resource_allocator)
     return nullptr;
 
-  memset(data, 0, sizeof(memory_resource_data_t));
-
-  data->m_type = mem_type;
-  data->m_dir = dir;
-  data->m_flags = 0;
-
-  _types_size = sizeof(void*) * MEMORY_RESOURCE_TYPE_COUNT;
-
-  data->m_types = kmalloc(_types_size);
-  memset(data->m_types, 0, _types_size);
-
-  data->m_phys_bitmap = nullptr;
-  data->m_highest_phys_idx = 0;
-  data->m_lowest_phys_idx = 0;
-
-  return data;
-}
-
-ErrorOrPtr __destroy_memory_resource_data(memory_resource_data_t* data) 
-{
-
-  if (data->m_phys_bitmap) {
-
-    /* TODO: free the pages that the bitmap specifies */
-    if (data->m_lowest_phys_idx && data->m_highest_phys_idx)
-      kernel_panic("TODO: implement physical page management in __destroy_memory_resource_data");
-
-    destroy_bitmap(data->m_phys_bitmap);
-  }
-
-  for (uintptr_t i = 0; i < MEMORY_RESOURCE_TYPE_COUNT; i++) {
-    kernel_resource_t* child = data->m_types[i];
-
-    if (!child)
-      continue;
-
-    TRY(_, child->m_ops->f_destroy(child));
-  }
-
-  kfree(data->m_types);
-
-  kfree(data);
-
-  return Success(0);
-}
-
-ErrorOrPtr __destroy_memory_resource(kernel_resource_t* resource)
-{
-
-  if (!resource)
-    return Error();
-
-  TRY(_, __destroy_memory_resource_data(resource->m_resource_specific_data));
-
-  destroy_mutex(resource->m_lock);
-
-  kfree(resource->m_name);
-  kfree(resource);
-
-  return Success(0);
-}
-
-kernel_resource_ops_t mem_range_ops = {
-  .f_destroy = __destroy_memory_resource,
-};
-
-kernel_resource_t* create_memory_resource(char* name, vaddr_t virtual_base, size_t length, page_dir_t* dir, memory_resource_type_t mem_type)
-{
-  if (!name || !length)
+  /* We can't create a resource with an invalid type */
+  if (!__resource_type_is_valid(type))
     return nullptr;
 
-  kernel_resource_t* resource = __resource_zallocator->m_heap->f_allocate(__resource_zallocator, sizeof(kernel_resource_t));
+  ret = zalloc_fixed(__resource_allocator);
 
-  if (!resource)
+  if (!ret)
     return nullptr;
 
-  memset(resource, 0, sizeof(kernel_resource_t));
+  memset(ret, 0, sizeof(kresource_t));
 
-  resource->m_type = RESOURCE_TYPE_MEMORY;
+  ret->m_start = start;
+  ret->m_size = size;
+  ret->m_type = type;
 
-  resource->m_name = kmalloc(strlen(name) + 1);
-  memcpy(resource->m_name, name, strlen(name));
-  resource->m_name[strlen(name)] = NULL;
+  ret->m_shared_count.m_referenced_handle = ret;
 
-  resource->m_ops = &mem_range_ops;
-
-  resource->m_lock = create_mutex(0);
-
-  resource->m_data = virtual_base;
-  resource->m_length = length;
-
-  resource->m_owner_type = RESOURCE_OWNER_TYPE_NONE;
-
-  resource->m_resource_specific_data = __create_memory_resource_data(dir, mem_type);
-
-  if (!resource->m_resource_specific_data)
-    goto fail_and_exit;
-
-  return resource;
-
-fail_and_exit:
-
-  destroy_mutex(resource->m_lock);
-  kfree(resource->m_name);
-  kfree(resource);
-
-  return nullptr;
+  return ret;
 }
-
-
-kernel_resource_ops_t io_range_ops = {
-
-};
-
-kernel_resource_ops_t irq_ops = {
-
-};
 
 /*
- * NOTE: kernel resources require the initial kernel heap
+ * Create a new allocation and copy the source into it
  */
-void init_kernel_resources() 
+static kresource_t* __copy_kresource(kresource_t source)
 {
+  kresource_t* ret = zalloc_fixed(__resource_allocator);
 
-  /* Create mutex for global resource mutation */
-  __g_resource_lock = create_mutex(0);
+  if (!ret)
+    return nullptr;
 
-  /* Zero out the 'global' variables */
-  __mem_range_count = 0;
-  __io_range_count = 0;
-  __irq_count = 0;
+  memcpy(ret, &source, sizeof(kresource_t));
 
-  __mem_range_resources = nullptr;
-  __io_range_resources = nullptr;
-  __irq_resources = nullptr;
+  /* Clear the next ptr to prevent confusion */
+  ret->m_next = nullptr;
 
-  __resource_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(kernel_resource_t), NULL);
-  __memory_specific_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(memory_resource_data_t), NULL);
-  //__irq_specific_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(irq_resource_data_t), NULL);
-  //__io_specific_zallocator = create_zone_allocator_ex(nullptr, NULL, 2 * Mib, sizeof(io_range_resource_data_t), NULL);
+  return ret;
+}
 
+ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, struct kresource_mirror** regions)
+{
+  kresource_t* containing_resource;
+
+  if (!regions || !__resource_type_is_valid(type))
+    return Error();
+
+  containing_resource = *__find_kresource(start, type);
+
+  if (!containing_resource)
+    return Error();
+
+  /* Now that we have the containing resource, we can determine what to do with it */
+  if (__resource_is_shared(containing_resource)) {
+    /* Oof, we'll have to share this resource */
+
+    /* Is this shareable? */
+
+    return Success(0);
+  }
+
+  /* Split off a new resource */
+
+  kernel_panic("Nein");
+}
+
+void init_kresources() 
+{
+  __resource_mutex = create_mutex(0);
+  __resource_allocator = create_zone_allocator_ex(nullptr, 0, 2 * Mib, sizeof(kresource_t), 0);
+
+  /*
+   * Create a base-resource for every resource type that starts
+   * at 0 and ends at 64bit_max. Every subsequent resource shall 
+   * be spliced from this base
+   */
+  for (kresource_type_t type = KRES_MIN_TYPE; type <= KRES_MAX_TYPE; type++)
+    __resources[type] = __create_kresource(0, 0xFFFFFFFFFFFFFFFF, type);
 }

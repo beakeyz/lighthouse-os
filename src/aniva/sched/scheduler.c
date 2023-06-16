@@ -426,32 +426,24 @@ ANIVA_STATUS sched_remove_proc(proc_t *proc) {
   return sched_remove_proc_by_id(proc->m_id);
 }
 
+/*
+ * We require the scheduler to be locked by this 
+ * point, which generaly means it is paused
+ */
 ANIVA_STATUS sched_remove_proc_by_id(proc_id id) {
 
-  /* If the scheduler is busy, we simply fuck off */
-  if (mutex_is_locked(s_sched_mutex))
+  if (!mutex_is_locked(s_sched_mutex))
     return ANIVA_FAIL;
 
-  /* Yay, we can alter scheduler behaviour */
-  mutex_lock(s_sched_mutex);
-
-  /* TODO: flag to the reaper thread so that this process can be fucked */
-  
   sched_frame_t* frame = find_sched_frame(id);
 
   if (!frame)
-    goto fail_and_unlock;
+    return ANIVA_FAIL;
 
-  if (remove_sched_frame(frame).m_status != ANIVA_SUCCESS) {
-    goto fail_and_unlock;
-  }
+  if (remove_sched_frame(frame).m_status != ANIVA_SUCCESS)
+    return ANIVA_FAIL;
 
-  mutex_unlock(s_sched_mutex);
   return ANIVA_SUCCESS;
-
-fail_and_unlock:
-  mutex_unlock(s_sched_mutex);
-  return ANIVA_FAIL;
 }
 
 ANIVA_STATUS sched_remove_thread(thread_t *);

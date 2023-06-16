@@ -78,6 +78,15 @@ proc_t* create_proc_from_path(const char* path) {
   return nullptr;
 }
 
+static void __proc_clear_shared_resources(proc_t* proc)
+{
+  /* 1) Loop over all the allocated resources by this process */
+  /* 2) detach from every resource and then the resource manager should
+   *    automatically destroy resources and merge their address ranges
+   *    into neighboring resources
+   */
+}
+
 void destroy_proc(proc_t* proc) {
 
   FOREACH(i, proc->m_threads) {
@@ -121,14 +130,19 @@ bool proc_can_schedule(proc_t* proc) {
  */
 ErrorOrPtr try_terminate_process(proc_t* proc) {
 
+  /* Pause scheduler: can't yield and mutex is held */
   pause_scheduler();
 
+  /* Mark as finished */
   proc->m_flags |= PROC_FINISHED;
 
+  /* Remove from the scheduler */
   sched_remove_proc(proc);
 
+  /* Register to the reaper */
   TRY(reap_result, reaper_register_process(proc));
 
+  /* Resume scheduling */
   resume_scheduler();
 
   return Success(0);

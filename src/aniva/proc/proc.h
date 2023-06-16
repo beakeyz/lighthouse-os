@@ -9,9 +9,26 @@
 #include "mem/pg.h"
 #include "sync/atomic_ptr.h"
 
-typedef int proc_id;
-
 struct thread;
+struct kresource_mirror;
+
+/*
+ * proc.h
+ *
+ * We define our blueprint for any process in the kernel here. Processes know about
+ * a bunch of things like how many threads they have and which, what page directory
+ * it uses, what resources its claiming, ect.
+ * A bunch of things should be layed out a bit further:
+ *
+ * 1) resources
+ * Every process owns a resource map. This is essensially an array that is indexed 
+ * based on resource type and contains linked lists to all the resources, which are sorted
+ * on address hight (a memory resource with the address 0x1fff gets placed before a memory
+ * resource with the address 0xffff). Since resources also need to know if they are shared,
+ * every resource also keeps a linked list of owners
+ */
+
+typedef int proc_id;
 
 typedef struct proc {
   char m_name[32];
@@ -24,7 +41,7 @@ typedef struct proc {
   // maps?
   list_t* m_threads;
 
-  // generic_heap_t* m_heap;
+  struct kresource_mirror* m_resources;
 
   struct thread* m_init_thread;
   struct thread* m_idle_thread;
@@ -35,15 +52,14 @@ typedef struct proc {
 
   atomic_ptr_t* m_thread_count;
 
-  // bool m_prevent_scheduling;
 } proc_t;
 
 /* We will probably find more usages for this */
 #define PROC_IDLE           (0x00000001)
-#define PROC_KERNEL         (0x00000002) /* This process runs directoy in the kernel */
+#define PROC_KERNEL         (0x00000002) /* This process runs directly in the kernel */
 #define PROC_DRIVER         (0x00000004) /* This process runs with kernel privileges in its own pagemap */
 #define PROC_STALLED        (0x00000008)
-#define PROC_UNRUNNED       (0x00000010) /* V-card still intact*/
+#define PROC_UNRUNNED       (0x00000010) /* V-card still intact */
 #define PROC_FINISHED       (0x00000020) /* Process should be cleaned up by the scheduler (TODO: let cleaning be done by a reaper thread/proc)*/
 #define PROC_DEFERED_HEAP   (0x00000040) /* Wait with creating a heap */
 #define PROC_REAPER         (0x00000080) /* Process capable of killing other processes and threads */
