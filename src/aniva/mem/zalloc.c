@@ -18,7 +18,7 @@ void* zalloc(zone_allocator_t* allocator, size_t size);
 void zfree(zone_allocator_t* allocator, void* address, size_t size);
 void zexpand(zone_allocator_t* allocator, size_t extra_size);
 
-static void* zone_allocate(zone_t* zone, size_t size);
+static ErrorOrPtr zone_allocate(zone_t* zone, size_t size);
 static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size);
 
 static const enum ZONE_ENTRY_SIZE default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_COUNT] = {
@@ -60,20 +60,26 @@ static zone_allocator_t** try_find_middle_zone_allocator(zone_allocator_t** star
  * Tries to find the specified allocator and returns the last 
  * slot if it isn't found
  */
-static zone_allocator_t** try_find_zone_allocator(zone_allocator_t* allocator, bool dyn) {
+static ErrorOrPtr try_attach_zone_allocator(zone_allocator_t* allocator, bool dyn) {
 
   zone_allocator_t* current;
   /* When we attach to the sized list, we need to make sure that we add it in order */
   zone_allocator_t** ret = &g_sized_zallocators;
 
   if (!allocator)
-    return nullptr;
+    return Error();
 
   if (dyn)
     ret = &g_dynamic_zallocators;
 
   for (; *ret; ret = &(*ret)->m_next) {
     current = *ret;
+
+    /* Found the last sized allocator =D */
+    if (!current->m_next) {
+      sized_end_allocator = allocator;
+      continue;
+    }
 
     /*
      * If we reached the end, we just return that. Otherwise 
@@ -83,13 +89,7 @@ static zone_allocator_t** try_find_zone_allocator(zone_allocator_t* allocator, b
         current->m_next->m_max_zone_size > allocator->m_max_zone_size)) && 
         !dyn) {
 
-      /* Also do some preperations for the sized thingy */
-      allocator->m_next = current;
-
-      /* Found the last sized allocator =D */
-      if (!current) {
-        sized_end_allocator = allocator;
-      }
+      allocator->m_next = current->m_next;
 
       break;
     }
@@ -99,7 +99,12 @@ static zone_allocator_t** try_find_zone_allocator(zone_allocator_t* allocator, b
 
   }
 
-  return ret;
+  if (*ret)
+    return Error();
+
+  *ret = allocator;
+
+  return Success(0);
 }
 
 static zone_allocator_t** try_find_last_of_size(size_t zone_size) {
@@ -126,7 +131,6 @@ static zone_allocator_t** try_find_last_of_size(size_t zone_size) {
         const zone_allocator_t* allocator = *itt;
 
         if (!allocator->m_next && allocator->m_max_zone_size == zone_size) {
-          println("Yay");
           break;
         }
 
@@ -196,17 +200,8 @@ static ErrorOrPtr attach_allocator(zone_allocator_t* allocator) {
   }
 
 raw_attach:;
-
   /* Find the last */
-  zone_allocator_t** slot = try_find_zone_allocator(allocator, dyn);
-
-  if (!slot || *slot) {
-    return Error();
-  } else {
-    *slot = allocator;
-  }
-
-  return Success(0);
+  return try_attach_zone_allocator(allocator, dyn);
 }
 
 static void detach_allocator(zone_allocator_t* allocator) {
@@ -297,14 +292,16 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
 end_and_attach:
   /* NOTE: attach after we've setup the zones */
-  Must(attach_allocator(ret));
+  //println("Trying to attach");
+  //Must(attach_allocator(ret));
+  //println("did attach");
 
   return ret;
 }
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
 
-  detach_allocator(allocator);
+  // detach_allocator(allocator);
 
   destroy_zone_store(allocator->m_store);
 
@@ -466,12 +463,12 @@ void* zalloc(zone_allocator_t* allocator, size_t size) {
       continue;
 
     if (size <= zone->m_zone_entry_size) {
-      void* result = zone_allocate(zone, size);
+      ErrorOrPtr result = zone_allocate(zone, size);
 
-      if (!result)
+      if (result.m_status == ANIVA_FAIL)
         continue;
 
-      return result;
+      return (void*)Release(result);
     }
   }
 
@@ -521,20 +518,20 @@ void zexpand(zone_allocator_t* allocator, size_t extra_size) {
 }
 
 
-static void* zone_allocate(zone_t* zone, size_t size) {
+static ErrorOrPtr zone_allocate(zone_t* zone, size_t size) {
   ASSERT_MSG(size <= zone->m_zone_entry_size, "Allocating over the span of multiple subzones is not yet implemented!");
 
   // const size_t entries_needed = (size + zone->m_zone_entry_size - 1) / zone->m_zone_entry_size;
   ErrorOrPtr result = bitmap_find_free(&zone->m_entries);
 
   if (result.m_status == ANIVA_FAIL) {
-    return nullptr;
+    return Error();
   }
 
   uintptr_t index = result.m_ptr;
   bitmap_mark(&zone->m_entries, index);
   vaddr_t ret = zone->m_entries_start + (index * zone->m_zone_entry_size);
-  return (void*)ret;
+  return Success(ret);
 }
 
 static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size) {

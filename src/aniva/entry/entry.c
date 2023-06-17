@@ -201,6 +201,17 @@ void kthread_entry() {
 
   init_kresources();
 
+  kresource_mirror_t* test_list;
+  debug_resources(KRES_TYPE_MEM);
+
+  resource_claim(0xFF, 0xFFFFFFFF, KRES_TYPE_MEM, &test_list);
+  debug_resources(KRES_TYPE_MEM);
+
+  resource_claim(0xFFFFF, 0xFFFFFFFF, KRES_TYPE_MEM, &test_list);
+  debug_resources(KRES_TYPE_MEM);
+
+  kernel_panic("TODO: test kresources");
+
   init_aniva_driver_registry();
 
   try_fetch_initramdisk((uintptr_t)g_system_info.multiboot_addr);

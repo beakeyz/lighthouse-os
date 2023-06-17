@@ -73,12 +73,14 @@ typedef struct kresource {
   struct kresource* m_next;
 } kresource_t;
 
+void debug_resources(kresource_type_t type);
+
 /*
  * If the requested resource is already used, we just increment the refcount
  * otherwise we can splice off a new resource and have it fresh
  */
 ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, struct kresource_mirror** regions);
-void resource_release(uintptr_t start, size_t size, struct kresource_mirror** regions);
+void resource_release(struct kresource_mirror** region);
 
 /*
  * This serves as a pseudo-resource in the sense that 
@@ -96,7 +98,7 @@ typedef struct kresource_mirror {
   size_t m_size;
   kresource_type_t m_type;
   kresource_flags_t m_flags;
-  struct kresource_store* m_next;
+  struct kresource_mirror* m_next;
 } kresource_mirror_t;
 
 #endif // !__ANIVA_SYS_RESOURCE__

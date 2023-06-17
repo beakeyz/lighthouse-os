@@ -39,13 +39,6 @@ static ALWAYS_INLINE void ref(refc_t* rc) {
   rc->m_count++;
 }
 
-static ALWAYS_INLINE void unref(refc_t* rc) {
-  ASSERT_MSG(rc->m_count > 0, "Tried to unreference without first referencing");
-
-  rc->m_count--;
-  if (rc->m_count <= 0) {
-    rc->m_destructor(rc->m_referenced_handle);
-  }
-}
+void unref(refc_t* rc);
 
 #endif // !__ANIVA_LIBK_REFERENCE__
