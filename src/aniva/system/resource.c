@@ -351,6 +351,10 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
     /* If we have some space left on the high side, we can split it and claim */
     result = __resource_get_high_side_space(start, size, *resource_slot);
 
+    /*
+     * NOTE: Being able to get high space means that 
+     * the requested range ends at this resource.
+     */
     if (result.m_status == ANIVA_SUCCESS) {
       uintptr_t resource_start = (*resource_slot)->m_start;
       uintptr_t resource_end = resource_start + (*resource_slot)->m_size;
@@ -361,7 +365,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
       (*resource_slot)->m_size  -= delta;
 
       /* Make sure we don't mark twice */
-      if (just_marked_res != *resource_slot)
+      if (just_marked_res != *resource_slot) 
         __resource_reference(*resource_slot);
 
       split->m_next = (*resource_slot)->m_next;

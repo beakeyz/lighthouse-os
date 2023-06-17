@@ -204,10 +204,13 @@ void kthread_entry() {
   kresource_mirror_t* test_list;
   debug_resources(KRES_TYPE_MEM);
 
-  resource_claim(0xFF, 0xFFFFFFFF, KRES_TYPE_MEM, &test_list);
+  resource_claim(0xFF, 0xFFF, KRES_TYPE_MEM, &test_list);
   debug_resources(KRES_TYPE_MEM);
 
-  resource_claim(0xFFFFF, 0xFFFFFFFF, KRES_TYPE_MEM, &test_list);
+  resource_claim(0x1f, 0xFFF, KRES_TYPE_MEM, &test_list);
+  debug_resources(KRES_TYPE_MEM);
+
+  resource_claim(0x1ff, 0xFFFF, KRES_TYPE_MEM, &test_list);
   debug_resources(KRES_TYPE_MEM);
 
   kernel_panic("TODO: test kresources");
