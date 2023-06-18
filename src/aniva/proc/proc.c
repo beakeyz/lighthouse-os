@@ -87,6 +87,9 @@ static void __proc_clear_shared_resources(proc_t* proc)
    */
 }
 
+/*
+ * Caller should ensure proc != zero
+ */
 void destroy_proc(proc_t* proc) {
 
   FOREACH(i, proc->m_threads) {
@@ -105,7 +108,8 @@ void destroy_proc(proc_t* proc) {
    * you never know... For that we simply allow every page directory to be 
    * killed as long as we are not currently using it :clown: 
    */
-  if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
+  //if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
+  if (proc->m_root_pd.m_root != kmem_get_krnl_dir()) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 }

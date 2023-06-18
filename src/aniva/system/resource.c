@@ -315,12 +315,12 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
    *      we can simply 'claim' it by setting the reference count to 1
    */
   ErrorOrPtr result;
-  kresource_t* just_marked_res;
+  kresource_t* last_referenced_resource;
   const uintptr_t end_addr = start + size;
   uintptr_t itt_addr = start;
   size_t itt_size = size;
 
-  while (*curr_resource_slot && itt_addr <= end_addr) {
+  while (*curr_resource_slot && itt_addr < end_addr) {
 
     /*
     if (__resource_is_shared(*resource_slot)) {
@@ -331,6 +331,8 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
 
     /* If the entire resource is covered by the size, reference and go next */
     if (__covers_entire_resource(itt_addr, itt_size, *curr_resource_slot)) {
+      println(to_string(start));
+      println(to_string(size));
       goto mark_and_cycle;
     }
 
@@ -342,7 +344,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
 
     if (result.m_status == ANIVA_SUCCESS) {
 
-      if (__resource_is_referenced(*curr_resource_slot)) {
+      if (__resource_is_referenced(*curr_resource_slot) && last_referenced_resource != *curr_resource_slot) {
         goto mark_and_cycle;
       }
 
@@ -355,15 +357,19 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
       (*curr_resource_slot)->m_size  -= delta;
 
       /* We need to reference this resource here since we are trying to claim the entire range */
-      __resource_reference(*curr_resource_slot);
+      if (last_referenced_resource != *curr_resource_slot)
+        __resource_reference(*curr_resource_slot);
 
-      /* Cache the marked resource */
-      just_marked_res = *curr_resource_slot;
+      /* Cache */
+      last_referenced_resource = *curr_resource_slot;
 
       split->m_next = *curr_resource_slot;
+
+      /* Place the split-off resource in the link */
       *curr_resource_slot = split;
 
-      goto cycle;
+      /* Set the current slot to the Resource we where able to free and fallthrough */
+      curr_resource_slot = &split->m_next;
     }
 
     /* If we have some space left on the high side, we can split it and claim */
@@ -375,7 +381,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
      */
     if (result.m_status == ANIVA_SUCCESS) {
 
-      if (__resource_is_referenced(*curr_resource_slot) && just_marked_res != *curr_resource_slot) {
+      if (__resource_is_referenced(*curr_resource_slot) && last_referenced_resource != *curr_resource_slot) {
         __resource_reference(*curr_resource_slot);
         break;
       }
@@ -389,7 +395,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
       (*curr_resource_slot)->m_size  -= delta;
 
       /* Make sure we don't mark twice */
-      if (just_marked_res != *curr_resource_slot) 
+      if (last_referenced_resource != *curr_resource_slot)
         __resource_reference(*curr_resource_slot);
 
       split->m_next = (*curr_resource_slot)->m_next;
@@ -400,15 +406,19 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
     }
 
     if (__resource_is_referenced(*curr_resource_slot) && __resource_contains(*curr_resource_slot, itt_addr)) {
+      kernel_panic("referenced entire resource!");
+      /* Already marked, just cycle */
+      if (last_referenced_resource == *curr_resource_slot)
+        goto cycle;
       goto mark_and_cycle;
     }
     
     curr_resource_slot = &(*curr_resource_slot)->m_next;
     continue;
 mark_and_cycle:;
-    if (just_marked_res != *curr_resource_slot)
+    if (last_referenced_resource != *curr_resource_slot)
       __resource_reference(*curr_resource_slot);
-    just_marked_res = *curr_resource_slot;
+    last_referenced_resource = *curr_resource_slot;
 cycle:;
     itt_addr += (*curr_resource_slot)->m_size;
     itt_size -= (*curr_resource_slot)->m_size;

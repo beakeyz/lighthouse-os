@@ -49,6 +49,7 @@ static struct {
 static void _init_kmem_page_layout();
 static void _init_kmem_page_layout_late();
 
+/* FIXME: broken? */
 static bool __is_current_pagemap(pml_entry_t* map)
 {
   Processor_t* current_processor = get_current_processor();
@@ -747,7 +748,8 @@ ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
 }
 
 ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, uintptr_t virt_base, size_t size, bool unmap) {
-  
+
+  proc_t* current_proc = get_current_proc();
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
@@ -770,6 +772,11 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, uintptr_t virt_base, size_t size,
 
     kmem_set_phys_page_free(page_idx);
   }
+
+  if (current_proc) {
+    resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &current_proc->m_resources);
+    debug_resources(KRES_TYPE_MEM);
+  }
   return Success(0);
 }
 
@@ -787,6 +794,7 @@ ErrorOrPtr __kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t cu
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) {
 
+  proc_t* current_proc = get_current_proc();
   size_t pages_needed = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
 
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
@@ -806,6 +814,11 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
 
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
+
+  if (current_proc) {
+    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &current_proc->m_resources);
+    debug_resources(KRES_TYPE_MEM);
+  }
 
   return Success(ret);
 }
@@ -1009,8 +1022,8 @@ static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
  */
 ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
 
-  if (__is_current_pagemap(dir))
-    return Error();
+  //if (__is_current_pagemap(dir))
+  //  return Error();
 
   /*
    * We don't care about the result here
@@ -1032,6 +1045,7 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
    *    keep these actually unused pages marked as 'used' by the allocator and we thus bleed memory
    *    which is not so nice =)
    */
+  println("Trying to destroy thing");
 
   const uintptr_t dir_entry_limit = SMALL_PAGE_SIZE / sizeof(pml_entry_t);
 
@@ -1077,6 +1091,8 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
   uintptr_t idx = kmem_get_page_idx(dir_phys);
 
   kmem_set_phys_page_free(idx);
+
+  println("Tryed to destroy thing");
 
   return Success(0);
 }

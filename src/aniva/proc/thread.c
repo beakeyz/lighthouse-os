@@ -269,6 +269,8 @@ extern void thread_enter_context(thread_t *to) {
   //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
   //call_event(CONTEXT_SWITCH_EVENT, &hook);
 
+  println(to->m_name);
+
   // Only switch pagetables if we actually need to interchange between
   // them, otherwise thats just wasted tlb
   if (previous_thread->m_context.cr3 != to->m_context.cr3) {
