@@ -33,6 +33,10 @@ ALWAYS_INLINE ErrorOrPtr Error() {
   return e;
 }
 
+ALWAYS_INLINE bool IsError(ErrorOrPtr e) {
+  return (e.m_status == ANIVA_FAIL);
+}
+
 ALWAYS_INLINE ErrorOrPtr Warning() {
   ErrorOrPtr e = {
     .m_ptr = NULL,

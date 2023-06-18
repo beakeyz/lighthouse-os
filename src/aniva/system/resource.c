@@ -98,7 +98,7 @@ static inline bool __resource_type_is_valid(kresource_type_t type)
 
 static bool __resource_is_referenced(kresource_t* resource)
 {
-  if (resource && resource->m_shared_count.m_count >= 1)
+  if (resource && resource->m_shared_count >= 1)
     return true;
 
   return false;
@@ -109,7 +109,7 @@ static bool __resource_is_shared(kresource_t* resource)
   if (!resource)
     return false;
 
-  if (resource->m_shared_count.m_count > 1)
+  if (resource->m_shared_count > 1)
     return true;
 
   if (resource->m_flags & KRES_FLAG_SHARED)
@@ -121,10 +121,19 @@ static bool __resource_is_shared(kresource_t* resource)
 static void __resource_reference(kresource_t* resource)
 {
   /* We will be shared with this reference */
-  if (resource->m_shared_count.m_count)
+  if (resource->m_shared_count)
     resource->m_flags |= KRES_FLAG_SHARED;
 
-  ref(&resource->m_shared_count);
+  flat_ref(&resource->m_shared_count);
+}
+
+static void __resource_unreference(kresource_t* resource)
+{
+  /* We will be shared with this reference */
+  if (resource->m_shared_count <= 1)
+    resource->m_flags &= ~KRES_FLAG_SHARED;
+
+  flat_unref(&resource->m_shared_count);
 }
 
 static void __resource_reference_range(uintptr_t start, size_t size, kresource_type_t type, kresource_t* r_start)
@@ -221,6 +230,12 @@ static inline bool __kresource_does_collide_with_next(kresource_t* new, kresourc
   return ((new->m_start + new->m_size) > old->m_next->m_start);
 }
 
+static void __destroy_kresource(kresource_t* resource)
+{
+  memset(resource, 0, sizeof(kresource_t));
+  zfree_fixed(__resource_allocator, resource);
+}
+
 static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_type_t type) 
 {
   kresource_t* ret;
@@ -244,7 +259,7 @@ static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_t
   ret->m_size = size;
   ret->m_type = type;
 
-  ret->m_shared_count.m_referenced_handle = ret;
+  ret->m_shared_count = NULL;
 
   return ret;
 }
@@ -272,20 +287,24 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
   bool does_collide;
   bool should_place_after;
   size_t resource_cover_count;
-  kresource_t** resource_slot;
+  kresource_t** curr_resource_slot;
   kresource_t* old_resource;
   kresource_mirror_t* new_resource_mirror;
 
-  if (!regions || !__resource_type_is_valid(type))
+  if (!__resource_mutex || !__resource_allocator || !regions || !__resource_type_is_valid(type))
     return Error();
+
+  mutex_lock(__resource_mutex);
 
   /* Find the lowest resource that collides with this range */
-  resource_slot = __find_kresource(start, type);
+  curr_resource_slot = __find_kresource(start, type);
 
-  if (!(*resource_slot))
+  if (!(*curr_resource_slot)) {
+    mutex_unlock(__resource_mutex);
     return Error();
+  }
 
-  old_resource = *resource_slot;
+  old_resource = *curr_resource_slot;
 
   /*
    * Now that we have the containing resource, we can determine what to do with it.
@@ -301,7 +320,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
   uintptr_t itt_addr = start;
   size_t itt_size = size;
 
-  while (*resource_slot && itt_addr <= end_addr) {
+  while (*curr_resource_slot && itt_addr <= end_addr) {
 
     /*
     if (__resource_is_shared(*resource_slot)) {
@@ -311,92 +330,99 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
     */
 
     /* If the entire resource is covered by the size, reference and go next */
-    if (__covers_entire_resource(itt_addr, itt_size, *resource_slot)) {
-      __resource_reference(*resource_slot);
-      goto cycle;
+    if (__covers_entire_resource(itt_addr, itt_size, *curr_resource_slot)) {
+      goto mark_and_cycle;
     }
 
     /*
      * If we have space left on the low side, that means we'll have to place a new 
      * resource above the old resource
      */
-    result = __resource_get_low_side_space(start, size, *resource_slot);
+    result = __resource_get_low_side_space(start, size, *curr_resource_slot);
 
     if (result.m_status == ANIVA_SUCCESS) {
-      if (__resource_is_referenced(*resource_slot)) {
-        __resource_reference(*resource_slot);
-        goto cycle;
+
+      if (__resource_is_referenced(*curr_resource_slot)) {
+        goto mark_and_cycle;
       }
 
-      uintptr_t resource_start = (*resource_slot)->m_start;
+      uintptr_t resource_start = (*curr_resource_slot)->m_start;
       uintptr_t delta = Release(result);
 
-      kresource_t* split = __create_kresource(resource_start, delta, KRES_TYPE_MEM);
+      kresource_t* split = __create_kresource(resource_start, delta, type);
 
-      (*resource_slot)->m_start += delta;
-      (*resource_slot)->m_size  -= delta;
+      (*curr_resource_slot)->m_start += delta;
+      (*curr_resource_slot)->m_size  -= delta;
 
       /* We need to reference this resource here since we are trying to claim the entire range */
-      __resource_reference(*resource_slot);
+      __resource_reference(*curr_resource_slot);
 
       /* Cache the marked resource */
-      just_marked_res = *resource_slot;
+      just_marked_res = *curr_resource_slot;
 
-      split->m_next = *resource_slot;
-      *resource_slot = split;
+      split->m_next = *curr_resource_slot;
+      *curr_resource_slot = split;
 
       goto cycle;
     }
 
     /* If we have some space left on the high side, we can split it and claim */
-    result = __resource_get_high_side_space(start, size, *resource_slot);
+    result = __resource_get_high_side_space(start, size, *curr_resource_slot);
 
     /*
      * NOTE: Being able to get high space means that 
      * the requested range ends at this resource.
      */
     if (result.m_status == ANIVA_SUCCESS) {
-      uintptr_t resource_start = (*resource_slot)->m_start;
-      uintptr_t resource_end = resource_start + (*resource_slot)->m_size;
+
+      if (__resource_is_referenced(*curr_resource_slot) && just_marked_res != *curr_resource_slot) {
+        __resource_reference(*curr_resource_slot);
+        break;
+      }
+
+      uintptr_t resource_start = (*curr_resource_slot)->m_start;
+      uintptr_t resource_end = resource_start + (*curr_resource_slot)->m_size;
       uintptr_t delta = Release(result);
       /* Split is the resource that gets created as a result of the space we have left high */
-      kresource_t* split = __create_kresource(resource_end - delta, delta, KRES_TYPE_MEM);
+      kresource_t* split = __create_kresource(resource_end - delta, delta, type);
 
-      (*resource_slot)->m_size  -= delta;
+      (*curr_resource_slot)->m_size  -= delta;
 
       /* Make sure we don't mark twice */
-      if (just_marked_res != *resource_slot) 
-        __resource_reference(*resource_slot);
+      if (just_marked_res != *curr_resource_slot) 
+        __resource_reference(*curr_resource_slot);
 
-      split->m_next = (*resource_slot)->m_next;
-      (*resource_slot)->m_next = split;
+      split->m_next = (*curr_resource_slot)->m_next;
+      (*curr_resource_slot)->m_next = split;
 
       /* Having space on the high size means we have reached the end of the possible resources we need to handle */
       break;
     }
 
-    if (__resource_is_referenced(*resource_slot) && __resource_contains(*resource_slot, itt_addr)) {
-      __resource_reference(*resource_slot);
-      goto cycle;
+    if (__resource_is_referenced(*curr_resource_slot) && __resource_contains(*curr_resource_slot, itt_addr)) {
+      goto mark_and_cycle;
     }
     
-    resource_slot = &(*resource_slot)->m_next;
+    curr_resource_slot = &(*curr_resource_slot)->m_next;
     continue;
-cycle:
-    itt_addr += (*resource_slot)->m_size;
-    itt_size -= (*resource_slot)->m_size;
+mark_and_cycle:;
+    if (just_marked_res != *curr_resource_slot)
+      __resource_reference(*curr_resource_slot);
+    just_marked_res = *curr_resource_slot;
+cycle:;
+    itt_addr += (*curr_resource_slot)->m_size;
+    itt_size -= (*curr_resource_slot)->m_size;
 
-    if (itt_addr > end_addr)
-      itt_addr = end_addr;
-
-    resource_slot = &(*resource_slot)->m_next;
+    curr_resource_slot = &(*curr_resource_slot)->m_next;
   }
 
   /* Manually create a new resource mirror */
   new_resource_mirror = zalloc_fixed(__resource_mirror_allocator);
 
-  if (!new_resource_mirror)
+  if (!new_resource_mirror) {
+    mutex_unlock(__resource_mutex);
     return Error();
+  }
 
   memset(new_resource_mirror, 0, sizeof(kresource_mirror_t));
 
@@ -408,8 +434,124 @@ cycle:
   new_resource_mirror->m_next = *regions;
   *regions = new_resource_mirror;
 
+  mutex_unlock(__resource_mutex);
   return Success(0);
+}
 
+ErrorOrPtr resource_release_region(struct kresource_mirror** region) 
+{
+  uintptr_t start;
+  size_t size;
+  kresource_type_t type;
+  kresource_t* first_used_resource;
+  kresource_t* previous_resource;
+
+  if (!region || !*region)
+    return Error();
+
+  type = (*region)->m_type;
+  start = (*region)->m_start;
+  size = (*region)->m_size;
+
+  mutex_lock(__resource_mutex);  
+
+  first_used_resource = __resources[type];
+
+  /*
+   * Find the resource with linear scan
+   * TODO: faster algoritm
+   */
+  while (first_used_resource) {
+    if (__resource_contains(first_used_resource, start))
+      break;
+    previous_resource = first_used_resource;
+    first_used_resource = first_used_resource->m_next;
+  }
+
+  if (!first_used_resource) {
+    mutex_unlock(__resource_mutex);
+    return Error();
+  }
+
+  /* We now have the first resource that contains our mirror region */
+
+  const uintptr_t end_addr = start + size;
+
+  uintptr_t itter_addr = start;
+  size_t itter_size = size;
+  kresource_t* itter_resource = first_used_resource;
+
+  while (itter_resource && __resource_contains(itter_resource, itter_addr)) {
+
+    /* Always unreference this entry */
+    __resource_unreference(itter_resource);
+
+    /* If both the current and the previous resource are mergable, we can merge them */
+    if (previous_resource && itter_resource->m_shared_count == previous_resource->m_shared_count) {
+      
+      /* First, inflate the previous */
+      previous_resource->m_size += itter_resource->m_size;
+
+      /* Second, remove the itter resource from the link */
+      previous_resource->m_next = itter_resource->m_next;
+
+      /* Third, free the itter_resource */
+      __destroy_kresource(itter_resource);
+
+      /* Last, reset itter_resource */
+      itter_resource = previous_resource;
+    }
+
+    /* Shift the size */
+    itter_addr += itter_resource->m_size;
+    itter_size -= itter_resource->m_size;
+
+    previous_resource = itter_resource;
+    itter_resource = itter_resource->m_next;
+  }
+
+  /* Cache the mirror to remove */
+  kresource_mirror_t* mirror = *region;
+
+  /* Skip the mirror in the list */
+  *region = (*region)->m_next;
+
+  /* Zero out */
+  memset(mirror, 0, sizeof(kresource_mirror_t));
+
+  /* Free */
+  zfree_fixed(__resource_mirror_allocator, mirror);
+
+  mutex_unlock(__resource_mutex);
+
+  return Success(0);
+}
+
+ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_mirror_t** mirrors_start)
+{
+
+  kresource_mirror_t** current;
+
+  if (!mirrors_start || !*mirrors_start)
+    return Error();
+
+  current = mirrors_start;
+
+  /*
+   * Find the mirror we care about
+   * TODO: switch to better algoritm
+   */
+  while (current) {
+    if ((*current)->m_start == start && (*current)->m_size == size)
+      break;
+
+    current = &(*mirrors_start)->m_next;
+  }
+
+  if (!current || !*current)
+    return Error();
+
+  return resource_release_region(current);
 }
 
 void debug_resources(kresource_type_t type)
@@ -425,6 +567,9 @@ void debug_resources(kresource_type_t type)
 
   println("Debugging resources: ");
 
+  if (!__resource_mutex || !list || !__resource_allocator)
+    return;
+
   for (; list; list = list->m_next) {
     print("Resource (");
     print(to_string(index));
@@ -433,7 +578,7 @@ void debug_resources(kresource_type_t type)
     print(" (");
     print(to_string(list->m_size));
     print(" bytes) references: ");
-    print(to_string(list->m_shared_count.m_count));
+    print(to_string(list->m_shared_count));
     println(" } ");
     index ++;
   }

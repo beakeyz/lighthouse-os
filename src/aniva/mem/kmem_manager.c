@@ -832,6 +832,11 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
+  if (current_proc) {
+    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &current_proc->m_resources);
+    debug_resources(KRES_TYPE_MEM);
+  }
+
   return Success(virt_base);
 }
 

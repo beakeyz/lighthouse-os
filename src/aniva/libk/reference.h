@@ -28,11 +28,10 @@ static ALWAYS_INLINE void flat_ref(flat_refc_t* frc_p) {
 }
 
 static ALWAYS_INLINE void flat_unref(flat_refc_t* frc_p) {
-  flat_refc_t i = (*(frc_p)--);
-  if (i < 0) {
-    // bro wtf
-    *frc_p = 0;
+  if (!*frc_p) {
+    return;
   }
+  (*frc_p)--;
 }
 
 static ALWAYS_INLINE void ref(refc_t* rc) {

@@ -67,7 +67,7 @@ typedef struct kresource {
   kresource_flags_t m_flags;
 
   /* How many shares does this resource have? */
-  refc_t m_shared_count;
+  flat_refc_t m_shared_count;
 
   /* Always have resources grouped together */
   struct kresource* m_next;
@@ -80,7 +80,16 @@ void debug_resources(kresource_type_t type);
  * otherwise we can splice off a new resource and have it fresh
  */
 ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, struct kresource_mirror** regions);
-void resource_release(struct kresource_mirror** region);
+
+/*
+ * Resource release routines
+ * Returns:
+ * - Success -> the resource is completely free and unreferenced entirely throughout
+ * - Warning -> the resource was successfully unreferenced, but parts of it are still referenced
+ * - Error   -> something went wrong while trying to release
+ */
+ErrorOrPtr resource_release_region(struct kresource_mirror** region);
+ErrorOrPtr resource_release(uintptr_t start, size_t size, struct kresource_mirror** mirrors_start);
 
 /*
  * This serves as a pseudo-resource in the sense that 
