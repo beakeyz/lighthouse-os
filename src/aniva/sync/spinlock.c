@@ -1,5 +1,6 @@
 #include "spinlock.h"
 #include "dev/debug/serial.h"
+#include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
 #include <mem/heap.h>
@@ -73,7 +74,10 @@ __spinlock_t __init_spinlock() {
 
 void aquire_spinlock(__spinlock_t* lock)
 {
-  while (__sync_lock_test_and_set(lock->m_latch, 0x01));
+  while (__sync_lock_test_and_set(lock->m_latch, 0x01)) {
+    /* FIXME: should we? */
+    scheduler_yield();
+  }
   lock->m_cpu_num = (int)get_current_processor()->m_cpu_num;
   lock->m_func = __func__;
 }

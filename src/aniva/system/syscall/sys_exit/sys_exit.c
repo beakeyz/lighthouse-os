@@ -12,8 +12,6 @@ uintptr_t sys_exit_handler(uintptr_t code) {
 
   try_terminate_process(current_proc);
 
-  println("Yielding");
-
   scheduler_yield();
 
   kernel_panic("TODO: exit a process");

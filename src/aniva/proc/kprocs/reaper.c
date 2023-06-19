@@ -35,17 +35,15 @@ static void USED reaper_main() {
 
   /* Simply pass execution through */
   for (;;) {
-    println("Killing process");
-
     proc_t* proc = queue_dequeue(__reaper_queue);
 
     if (proc) {
       /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
-      //mutex_lock(__reaper_lock);
+      mutex_lock(__reaper_lock);
 
       destroy_proc(proc);
 
-      //mutex_unlock(__reaper_lock);
+      mutex_unlock(__reaper_lock);
     }
 
     scheduler_yield();
@@ -72,6 +70,7 @@ static uintptr_t USED reaper_on_packet(packet_payload_t payload, packet_response
   if (proc_can_schedule(process))
     return -1;
 
+
   /*
    * NOTE: these data structures are non-atomic, so 
    *       opperations like these are generaly unsafe.
@@ -96,10 +95,12 @@ ErrorOrPtr reaper_register_process(proc_t* proc) {
   ASSERT_MSG(!(__reaper_thread->m_parent_proc->m_flags & PROC_IDLE), "Kernelprocess seems to be idle!");
 
   //TRY(send_result, send_packet_to_socket_no_response(__reaper_port, 0, proc, sizeof(proc_t*)));
-
-  println("Registered for death");
+  
+  mutex_lock(__reaper_lock);
 
   queue_enqueue(__reaper_queue, proc);
+
+  mutex_unlock(__reaper_lock);
 
   return Success(0);
 }

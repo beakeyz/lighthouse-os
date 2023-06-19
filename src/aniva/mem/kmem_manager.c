@@ -774,7 +774,7 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, uintptr_t virt_base, size_t size,
   }
 
   if (current_proc) {
-    resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &current_proc->m_resources);
+    TRY(release_result, resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &current_proc->m_resources));
     debug_resources(KRES_TYPE_MEM);
   }
   return Success(0);
@@ -816,7 +816,12 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
     return Error();
 
   if (current_proc) {
-    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &current_proc->m_resources);
+    /*
+     * NOTE: make sure to claim the range that we actually plan to use here, not what is actually 
+     * allocated internally. This is because otherwise we won't be able to find this resource again if we 
+     * try to release it
+     */
+    resource_claim(ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &current_proc->m_resources);
     debug_resources(KRES_TYPE_MEM);
   }
 
@@ -1045,7 +1050,6 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
    *    keep these actually unused pages marked as 'used' by the allocator and we thus bleed memory
    *    which is not so nice =)
    */
-  println("Trying to destroy thing");
 
   const uintptr_t dir_entry_limit = SMALL_PAGE_SIZE / sizeof(pml_entry_t);
 
@@ -1091,8 +1095,6 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
   uintptr_t idx = kmem_get_page_idx(dir_phys);
 
   kmem_set_phys_page_free(idx);
-
-  println("Tryed to destroy thing");
 
   return Success(0);
 }

@@ -551,11 +551,11 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_mirror_t** m
    * Find the mirror we care about
    * TODO: switch to better algoritm
    */
-  while (current) {
+  while (current && *current) {
     if ((*current)->m_start == start && (*current)->m_size == size)
       break;
 
-    current = &(*mirrors_start)->m_next;
+    current = &(*current)->m_next;
   }
 
   if (!current || !*current)
