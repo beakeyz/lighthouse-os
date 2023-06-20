@@ -466,6 +466,7 @@ ErrorOrPtr resource_release_region(struct kresource_mirror** region)
   mutex_lock(__resource_mutex);  
 
   first_used_resource = __resources[type];
+  previous_resource = nullptr;
 
   /*
    * Find the resource with linear scan

@@ -89,9 +89,6 @@ static void __proc_clear_shared_resources(proc_t* proc)
 
   kresource_mirror_t* current_mirror;
 
-  print("Reousrce: ");
-  println(to_string((uintptr_t)proc->m_resources));
-
   if (!proc->m_resources)
     return;
 
@@ -104,12 +101,7 @@ static void __proc_clear_shared_resources(proc_t* proc)
 
     /* Skip mirrors with size zero */
     if (!size)
-      continue;
-
-    print("Mirror start: ");
-    println(to_string(start));
-    print("Mirror size: ");
-    println(to_string(size));
+      goto cycle;
 
     /* We only handle memory resources for now */
     /* TODO: destry other resource types */

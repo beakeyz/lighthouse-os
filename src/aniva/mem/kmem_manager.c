@@ -775,7 +775,6 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, proc_t* process, uintptr_t virt_b
 
   if (process) {
     TRY(release_result, resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &process->m_resources));
-    //debug_resources(KRES_TYPE_MEM);
   }
   return Success(0);
 }
