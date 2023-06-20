@@ -14,6 +14,7 @@
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
+#include "system/resource.h"
 #include "thread.h"
 #include "libk/io.h"
 #include <libk/string.h>
@@ -85,12 +86,58 @@ static void __proc_clear_shared_resources(proc_t* proc)
    *    automatically destroy resources and merge their address ranges
    *    into neighboring resources
    */
+
+  kresource_mirror_t* current_mirror;
+
+  print("Reousrce: ");
+  println(to_string((uintptr_t)proc->m_resources));
+
+  if (!proc->m_resources)
+    return;
+
+  current_mirror = proc->m_resources;
+  
+  while (current_mirror) {
+
+    uintptr_t start = current_mirror->m_start;
+    size_t size = current_mirror->m_size;
+
+    /* Skip mirrors with size zero */
+    if (!size)
+      continue;
+
+    print("Mirror start: ");
+    println(to_string(start));
+    print("Mirror size: ");
+    println(to_string(size));
+
+    /* We only handle memory resources for now */
+    /* TODO: destry other resource types */
+    switch (current_mirror->m_type) {
+      case KRES_TYPE_MEM:
+        /*
+         * TODO: propegate error 
+         * NOTE: resource_release pops the according mirror from the 
+         *       processes linked list
+         */
+        Must(__kmem_dealloc(proc->m_root_pd.m_root, proc, start, size));
+        break;
+      default:
+        /* Skip this entry for now */
+        goto cycle;
+    }
+
+    continue;
+cycle:
+    current_mirror = current_mirror->m_next;
+  }
 }
 
 /*
  * Caller should ensure proc != zero
  */
 void destroy_proc(proc_t* proc) {
+  println("Destroying");
 
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
@@ -101,6 +148,9 @@ void destroy_proc(proc_t* proc) {
   destroy_atomic_ptr(proc->m_thread_count);
 
   destroy_list(proc->m_threads);
+
+  /* loop over all the resources of this process and release them by using __kmem_dealloc */
+  __proc_clear_shared_resources(proc);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 

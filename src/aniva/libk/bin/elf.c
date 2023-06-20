@@ -123,6 +123,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
           vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
                 ret->m_root_pd.m_root,
+                ret,
                 virtual_phdr_base,
                 phdr_size,
                 KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,

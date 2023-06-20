@@ -2,11 +2,8 @@
 #define __ANIVA_SYS_RESOURCE__
 
 #include "dev/driver.h"
-#include "libk/bitmap.h"
 #include "libk/error.h"
 #include "libk/reference.h"
-#include "mem/page_dir.h"
-#include "proc/proc.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>

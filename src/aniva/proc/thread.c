@@ -74,6 +74,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
+        proc,
         HIGH_MAP_BASE,
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
@@ -109,6 +110,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
+        proc,
         thread->m_user_stack_bottom, 
         DEFAULT_STACK_SIZE, 
         KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
@@ -201,18 +203,22 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
 // TODO: finish
 // TODO: when this thread has gotten it's own heap, free that aswell
 ANIVA_STATUS destroy_thread(thread_t *thread) {
+  proc_t* parent_proc;
+
   if (!thread)
     return ANIVA_FAIL;
+
+  parent_proc = thread->m_parent_proc;
 
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);
   }
   destroy_atomic_ptr(thread->m_tid);
 
-  Must(__kmem_dealloc(thread->m_parent_proc->m_root_pd.m_root, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
+  Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
   if (thread->m_user_stack_bottom) {
-    Must(__kmem_dealloc(thread->m_parent_proc->m_root_pd.m_root, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
+    Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
   }
 
   kfree(thread);

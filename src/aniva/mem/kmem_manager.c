@@ -740,16 +740,16 @@ ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address) {
 }
 
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
-  return __kmem_dealloc(nullptr, virt_base, size);
+  return __kmem_dealloc(nullptr, nullptr, virt_base, size);
 }
 
-ErrorOrPtr __kmem_dealloc(pml_entry_t* map, uintptr_t virt_base, size_t size) {
-  return __kmem_dealloc_ex(map, virt_base, size, false);
+ErrorOrPtr __kmem_dealloc(pml_entry_t* map, proc_t* process, uintptr_t virt_base, size_t size) {
+  /* NOTE: process is nullable, so it does not matter if we are not in a process at this point */
+  return __kmem_dealloc_ex(map, process, virt_base, size, false);
 }
 
-ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, uintptr_t virt_base, size_t size, bool unmap) {
+ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, proc_t* process, uintptr_t virt_base, size_t size, bool unmap) {
 
-  proc_t* current_proc = get_current_proc();
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
@@ -773,28 +773,27 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, uintptr_t virt_base, size_t size,
     kmem_set_phys_page_free(page_idx);
   }
 
-  if (current_proc) {
-    TRY(release_result, resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &current_proc->m_resources));
-    debug_resources(KRES_TYPE_MEM);
+  if (process) {
+    TRY(release_result, resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &process->m_resources));
+    //debug_resources(KRES_TYPE_MEM);
   }
   return Success(0);
 }
 
 ErrorOrPtr __kmem_kernel_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags) {
-  return __kmem_alloc(nullptr, addr, size, custom_flags, page_flags);
+  return __kmem_alloc(nullptr, nullptr, addr, size, custom_flags, page_flags);
 }
 
 ErrorOrPtr __kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags) {
-  return __kmem_alloc_range(nullptr, HIGH_MAP_BASE, size, custom_flags, page_flags);
+  return __kmem_alloc_range(nullptr, nullptr, HIGH_MAP_BASE, size, custom_flags, page_flags);
 }
 
-ErrorOrPtr __kmem_alloc(pml_entry_t* map, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags) {
-  return __kmem_alloc_ex(map, addr, HIGH_MAP_BASE, size, custom_flags, page_flags);
+ErrorOrPtr __kmem_alloc(pml_entry_t* map, proc_t* process, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+  return __kmem_alloc_ex(map, process, addr, HIGH_MAP_BASE, size, custom_flags, page_flags);
 }
 
-ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) {
+ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, proc_t* process, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) {
 
-  proc_t* current_proc = get_current_proc();
   size_t pages_needed = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
 
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
@@ -815,22 +814,21 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, paddr_t addr, vaddr_t vbase, size_t
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
-  if (current_proc) {
+  if (process) {
     /*
      * NOTE: make sure to claim the range that we actually plan to use here, not what is actually 
      * allocated internally. This is because otherwise we won't be able to find this resource again if we 
      * try to release it
      */
-    resource_claim(ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &current_proc->m_resources);
+    resource_claim(ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
     debug_resources(KRES_TYPE_MEM);
   }
 
   return Success(ret);
 }
 
-ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
 
-  proc_t* current_proc = get_current_proc();
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
@@ -850,8 +848,8 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, vaddr_t vbase, size_t size, uint
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
-  if (current_proc) {
-    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &current_proc->m_resources);
+  if (process) {
+    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
     debug_resources(KRES_TYPE_MEM);
   }
 

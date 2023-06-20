@@ -263,7 +263,7 @@ ANIVA_STATUS malloc_try_heap_expand(memory_allocator_t *allocator, size_t extra_
   extra_size = ALIGN_UP(extra_size, SMALL_PAGE_SIZE);
 
   // request a page from kmem_manager
-  ErrorOrPtr result = __kmem_alloc_range(nullptr, aligned_new_map_base, extra_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP, 0);
+  ErrorOrPtr result = __kmem_alloc_range(nullptr, nullptr, aligned_new_map_base, extra_size, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_REMAP, 0);
   if (result.m_status != ANIVA_SUCCESS) {
     return ANIVA_FAIL;
   }
