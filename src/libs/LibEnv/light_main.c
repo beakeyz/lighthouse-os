@@ -7,6 +7,7 @@
 typedef int (*MainEntry)();
 
 void lightapp_startup(MainEntry main) __attribute__((used)) ;
+extern void __attribute__((noreturn)) halt(void);
 
 /*
  * TODO: library initialization for userspace
@@ -38,5 +39,5 @@ void lightapp_startup(MainEntry main) {
 
   exit(result);
 
-  for (;;) {}
+  halt();
 }

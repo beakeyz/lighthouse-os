@@ -9,6 +9,7 @@
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "proc/handle.h"
 #include "proc/kprocs/idle.h"
 #include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
@@ -29,25 +30,24 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
     return nullptr;
   }
 
+  proc->m_handle_map = create_khandle_map_ex(KHNDL_DEFAULT_ENTRIES);
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
   proc->m_thread_count = create_atomic_ptr_with_value(0);
 
   // Only create new page dirs for non-kernel procs
   if ((flags & PROC_KERNEL) != PROC_KERNEL || (flags & PROC_DRIVER) == PROC_DRIVER) {
-    proc->m_requested_max_threads = 2;
-  //  proc->m_prevent_scheduling = true;
+    proc->m_requested_max_threads = 3;
     proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
   } else {
-    /* NOTE: kernel processes get the kernel page dir */
     /* FIXME: should kernel processes just get the kernel page dir? prolly not lol */
     proc->m_root_pd.m_root = kmem_get_krnl_dir();
     proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
-  //  proc->m_prevent_scheduling = false;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
 
+  /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
 
   proc->m_threads = init_list();
@@ -126,10 +126,19 @@ cycle:
 }
 
 /*
+ * Loop over all the open handles of this process and clear out the 
+ * lingering references and objects
+ */
+static void __proc_clear_handles(proc_t* proc)
+{
+  /* TODO: */
+  (void)proc;
+}
+
+/*
  * Caller should ensure proc != zero
  */
 void destroy_proc(proc_t* proc) {
-  println("Destroying");
 
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
@@ -138,8 +147,12 @@ void destroy_proc(proc_t* proc) {
 
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
-
   destroy_list(proc->m_threads);
+
+  /* Yeet handles */
+  __proc_clear_handles(proc);
+
+  destroy_khandle_map(&proc->m_handle_map);
 
   /* loop over all the resources of this process and release them by using __kmem_dealloc */
   __proc_clear_shared_resources(proc);

@@ -2,7 +2,7 @@
 #include "LibSys/syscall.h"
 #include "LibSys/system.h"
 
-static void __attribute__((noreturn)) halt(void)
+void __attribute__((noreturn)) halt(void)
 {
   for (;;){}
 }

@@ -1,10 +1,15 @@
 
+#include "LibSys/handle.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
 
 int Main() {
 
-  syscall_result_t result = syscall_5(SYSID_EXIT, 0, 1, 2, 3, 4);
+  /*
+   * FIXME: are we going to give every path root a letter like windows, 
+   * or do we just have one root like linux/unix?
+   */
+  HANDLE_t handle = open_handle("dummy.txt", HNDL_TYPE_FILE, NULL, NULL);
 
-  return 999;
+  return handle;
 }

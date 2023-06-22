@@ -3,7 +3,6 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/partition/generic.h"
 #include "dev/disk/shared.h"
-#include "dev/handle.h"
 #include "fs/superblock.h"
 #include "libk/error.h"
 #include "mem/heap.h"
@@ -24,7 +23,7 @@ typedef struct generic_disk_ops {
 } generic_disk_ops_t;
 
 typedef struct disk_dev {
-  handle_t m_parent;
+  void* m_parent;
 
   const char* m_device_name;
   char* m_path;

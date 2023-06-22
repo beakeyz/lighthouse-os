@@ -7,14 +7,22 @@
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
 #include "system/syscall/sys_exit/sys_exit.h"
+#include "system/syscall/sys_open/sys_open.h"
 #include <dev/kterm/kterm.h>
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
 
+/*
+ * TODO: instead of having a weird-ass static list, we
+ * could dynamically register syscalls by using linker sections
+ */
 static syscall_t __static_syscalls[] = {
-  [SYSID_EXIT]        = { SYSID_EXIT, (sys_fn_t)sys_exit_handler },
-  [SYSID_OPEN]        = { SYSID_OPEN, nullptr },
+  [SYSID_EXIT]              = { SYSID_EXIT, (sys_fn_t)sys_exit_handler },
+  [SYSID_OPEN]              = { SYSID_OPEN, (sys_fn_t)sys_open },
+  [SYSID_OPEN_PROC]         = { SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },
+  [SYSID_OPEN_FILE]         = { SYSID_OPEN_FILE, (sys_fn_t)sys_open_file },
+  [SYSID_OPEN_DRIVER]       = { SYSID_OPEN_DRIVER, (sys_fn_t)sys_open_driver },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

@@ -7,6 +7,7 @@
 #include "mem/base_allocator.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
+#include "proc/handle.h"
 #include "sync/atomic_ptr.h"
 
 struct thread;
@@ -38,6 +39,8 @@ typedef struct proc {
 
   page_dir_t m_root_pd;
 
+  khandle_map_t m_handle_map;
+
   // maps?
   list_t* m_threads;
 
@@ -63,6 +66,7 @@ typedef struct proc {
 #define PROC_FINISHED       (0x00000020) /* Process should be cleaned up by the scheduler (TODO: let cleaning be done by a reaper thread/proc)*/
 #define PROC_DEFERED_HEAP   (0x00000040) /* Wait with creating a heap */
 #define PROC_REAPER         (0x00000080) /* Process capable of killing other processes and threads */
+#define PROC_HAD_HANDLE     (0x00000100) /* Process is referenced in userspace by a handle */
 
 proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);

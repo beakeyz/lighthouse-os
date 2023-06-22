@@ -101,6 +101,13 @@ ErrorOrPtr vfs_unmount(const char* path) {
 
 /* TODO: support relative paths */
 /* TODO: more robust resolving */
+/*
+ * TODO: reimplement in order to do selective scanning
+ * (
+ *  Which is just walking the namespace/vnode/vobj tree and doing opperations
+ *  based on what we find
+ * )
+ */
 vnode_t* vfs_resolve(const char* path) {
 
   vnode_t* ret;

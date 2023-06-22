@@ -8,6 +8,6 @@
 ./src/libs/
 
 -I
-./src/libs/libc
+./src/libs/LibC
 
 -nostdlib

@@ -20,22 +20,22 @@ syscall_result_t syscall_x(
 
   switch (argc) {
     case SYS_0ARG:
-      __result = syscall_0(id);
+      __result = syscall_0(__id);
       break;
     case SYS_1ARG:
-      __result = syscall_1(id, arg0);
+      __result = syscall_1(__id, arg0);
       break;
     case SYS_2ARG:
-      __result = syscall_2(id, arg0, arg1);
+      __result = syscall_2(__id, arg0, arg1);
       break;
     case SYS_3ARG:
-      __result = syscall_3(id, arg0, arg1, arg2);
+      __result = syscall_3(__id, arg0, arg1, arg2);
       break;
     case SYS_4ARG:
-      __result = syscall_4(id, arg0, arg1, arg2, arg3);
+      __result = syscall_4(__id, arg0, arg1, arg2, arg3);
       break;
     case SYS_5ARG:
-      __result = syscall_5(id, arg0, arg1, arg2, arg3, arg4);
+      __result = syscall_5(__id, arg0, arg1, arg2, arg3, arg4);
       break;
     default:
       return SYS_ERR;

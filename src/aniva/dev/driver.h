@@ -55,6 +55,7 @@ typedef struct aniva_driver {
 #define DRV_ACTIVE                  (0x00000004) /* Is this driver available for opperations */
 #define DRV_SOCK                    (0x00000008) /* Does this driver require a socket */
 #define DRV_ALLOW_DYNAMIC_LOADING   (0x00000010) /* Allows the installed driver to be loaded when we need it */
+#define DRV_HAS_HANDLE              (0x00000020) /* This driver is tethered to a handle */
 
 aniva_driver_t* create_driver(
   const char* name,

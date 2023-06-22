@@ -30,6 +30,11 @@ typedef uintptr_t                   paddr_t;
 
 typedef void (*FuncPtr)();
 
+/* Marks everything that comes from userspace and should thus be checked */
+#ifndef __user
+  #define __user
+#endif
+
 #define FuncPtrWith(type, name) type (*name)()
 
 #define asm __asm__

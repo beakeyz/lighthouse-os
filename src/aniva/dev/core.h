@@ -1,7 +1,6 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
-#include "dev/handle.h"
 #include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "proc/ipc/packet_response.h"

@@ -40,8 +40,12 @@ typedef void (*FuncPtr)();
 #define nullptr (void*)0
 
 #define NULL 0
+
 #define true 1
 #define false 0
+
+#define TRUE true
+#define FALSE false
 
 #define STATIC_CAST(type, value) ((type)(value))
 

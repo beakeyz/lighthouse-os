@@ -42,6 +42,7 @@ typedef struct hive_entry {
   hive_url_part_t m_entry_part;
 } hive_entry_t;
 
+/* TODO: implement hives with hashmaps */
 typedef struct hive {
   list_t *m_entries;
   size_t m_hole_count;
