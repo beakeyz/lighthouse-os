@@ -19,6 +19,12 @@ typedef uint8_t             handle_type_t;
 #define HANDLE_t            handle_t
 #define HANDLE_TYPE_t       handle_type_t
 
+#define HNDL_TYPE_FILE      (0)
+#define HNDL_TYPE_DRIVER    (1)
+#define HNDL_TYPE_PROC      (2)
+#define HNDL_TYPE_FS_ROOT   (3)
+#define HNDL_TYPE_VOBJ      (4)
+
 #define HNDL_INV            (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */
 #define HNDL_BUSY           (-3) /* Handle target was busy and could not accept the handle at this time */
@@ -42,6 +48,11 @@ BOOL verify_handle(
  */
 BOOL expand_handle_capacity(
   __IN__ size_t extra_size
+);
+
+BOOL get_handle_type(
+  __IN__ HANDLE_t handle,
+  __OUT__ HANDLE_TYPE_t* type
 );
 
 #endif // !__LIGHTENV_HANDLE__
