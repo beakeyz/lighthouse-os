@@ -13,7 +13,11 @@
 #include "LibSys/system.h"
 #include "stdint.h"
 
-typedef int handle_t;
+typedef int                 handle_t;
+typedef uint8_t             handle_type_t;
+
+#define HANDLE_t            handle_t
+#define HANDLE_TYPE_t       handle_type_t
 
 #define HNDL_INV            (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */
