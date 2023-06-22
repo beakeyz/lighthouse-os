@@ -4,7 +4,9 @@
 #define SEEK_SET 0
 #define _STDIO_H
 
-typedef struct { int _; } FILE;
+typedef struct _FILE { 
+  void* buff; 
+} FILE;
 
 #ifdef __cplusplus
 extern "C" {

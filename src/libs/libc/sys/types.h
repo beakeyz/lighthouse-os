@@ -22,8 +22,6 @@ typedef int pid_t;
 
 typedef uintptr_t process_result_t;
 
-typedef float       FLOAT;
-
 typedef uint8_t     byte_t;
 typedef uint16_t    word_t;
 typedef uint32_t    dword_t;
@@ -33,6 +31,8 @@ typedef uint64_t    qword_t;
 #define WORD        word_t
 #define DWORD       dword_t
 #define QWORD       qword_t
+#define BOOL        bool
+#define FLOAT64     float
 
 typedef void (*FuncPtr)();
 

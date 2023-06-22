@@ -22,6 +22,11 @@
  * TODO: syscall tracing
  */
 
+/* Function parameter tags */
+#define __IN__
+#define __OUT__
+#define __OPTIONAL__
+
 #define SYS_OK              (0)
 #define SYS_INV             (1)
 #define SYS_KERR            (2)
