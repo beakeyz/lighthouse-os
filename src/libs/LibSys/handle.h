@@ -19,6 +19,7 @@ typedef uint8_t             handle_type_t;
 #define HANDLE_t            handle_t
 #define HANDLE_TYPE_t       handle_type_t
 
+#define HNDL_TYPE_INVAL     (-1)
 #define HNDL_TYPE_FILE      (0)
 #define HNDL_TYPE_DRIVER    (1)
 #define HNDL_TYPE_PROC      (2)
