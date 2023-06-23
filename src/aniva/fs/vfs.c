@@ -16,6 +16,15 @@
 
 static vfs_t s_vfs;
 
+/*
+ * Check if a path starts with the absolute character sequence,
+ * which means we will have to search from the absolute root
+ */
+static bool __vfs_path_is_absolute(const char* path)
+{
+  return false;
+}
+
 ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
 
   if (!node) {
@@ -48,7 +57,7 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
 
 ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
 
-  vnode_t* current = vfs_resolve(path);
+  vnode_t* current = vfs_resolve_node(path);
 
   if (current)
     return Error();
@@ -108,35 +117,177 @@ ErrorOrPtr vfs_unmount(const char* path) {
  *  based on what we find
  * )
  */
-vnode_t* vfs_resolve(const char* path) {
+vobj_t* vfs_resolve(const char* path) {
 
-  vnode_t* ret;
+  vobj_t* ret;
+  vnode_t* end_vnode;
+  vnamespace_t* end_namespace;
+
+  uintptr_t node_id_index;
+  char* node_id;
+  char* obj_id;
 
   uintptr_t i;
-  const char* node_id;
   size_t path_length;
 
-  path_length = strlen(path);
-  i = path_length - 1;
-
-  while (path[i] && path[i] != VFS_PATH_SEPERATOR) {
-    i--;
-  }
-
-  node_id = &path[i+1];
-
-  char path_copy[path_length];
-  memcpy(path_copy, path, path_length);
-
-  path_copy[i] = '\0';
-
-  vnamespace_t* namespace = hive_get(s_vfs.m_namespaces, path_copy);
-
-  if (!namespace)
+  if (!path)
     return nullptr;
 
-  println(node_id);
-  return hive_get(namespace->m_vnodes, node_id);
+  path_length = strlen(path);
+
+  char path_copy[path_length + 1];
+  path_copy[path_length] = NULL;
+
+  /* Copy over path to buffer */
+  memcpy(path_copy, path, path_length);
+
+  i = 0;
+
+  while (path_copy[i]) {
+
+    if (path_copy[i] == VFS_PATH_SEPERATOR) {
+      /* Reset byte */
+      path_copy[i] = NULL;
+
+      vnamespace_t* buffer = hive_get(s_vfs.m_namespaces, path_copy);
+
+      /* Set back to the seperator early */
+      path_copy[i] = VFS_PATH_SEPERATOR;
+
+      /* If this is null we have reached the end of the namespace chain */
+      if (!buffer)
+        break;
+
+      end_namespace = buffer;
+
+      /* Buffer the node id just in case we can't find the next namespace */
+      node_id_index = i + 1;
+    }
+
+    i++;
+  }
+
+  /* Could not find the namespace */
+  if (!path_copy[i] || !end_namespace)
+    return nullptr;
+
+  /* Verify node id place */
+  if (path_copy[node_id_index-1] != VFS_PATH_SEPERATOR)
+    return nullptr;
+
+  /* Reset the itterator index */
+  i = node_id_index;
+
+  /* Set the node id */
+  node_id = &path_copy[node_id_index];
+
+  /*
+   * Shave off the next seperator 
+   * NOTE: we should end this loop with the object id sitting at the end
+   * of our index, since it comes right after the vnode path entry
+   */
+  while (path_copy[i]) {
+    if (path_copy[i] == VFS_PATH_SEPERATOR) {
+      path_copy[i] = NULL;
+      break;
+    }
+    i++;
+  }
+
+  /* Find the node */
+  end_vnode = hive_get(end_namespace->m_vnodes, node_id);
+
+  if (!end_vnode)
+    return nullptr;
+
+  /* Place does not match */
+  if (path_copy[i])
+    return nullptr;
+
+  /* Buffer the object id (path) which we have now reached */
+  obj_id = &path_copy[i + 1];
+
+  ret = end_vnode->f_find(end_vnode, obj_id);
+
+  return ret;
+}
+
+vnode_t* vfs_resolve_node(const char* path) {
+
+  vnode_t* ret;
+  vnamespace_t* end_namespace;
+
+  uintptr_t node_id_index;
+  char* node_id;
+  char* obj_id;
+
+  uintptr_t i;
+  size_t path_length;
+
+  if (!path)
+    return nullptr;
+
+  path_length = strlen(path);
+
+  char path_copy[path_length + 1];
+  path_copy[path_length] = NULL;
+
+  /* Copy over path to buffer */
+  memcpy(path_copy, path, path_length);
+
+  i = 0;
+
+  while (path_copy[i]) {
+
+    if (path_copy[i] == VFS_PATH_SEPERATOR) {
+      /* Reset byte */
+      path_copy[i] = NULL;
+
+      vnamespace_t* buffer = hive_get(s_vfs.m_namespaces, path_copy);
+
+      /* Set back to the seperator early */
+      path_copy[i] = VFS_PATH_SEPERATOR;
+
+      /* If this is null we have reached the end of the namespace chain */
+      if (!buffer)
+        break;
+
+      end_namespace = buffer;
+
+      /* Buffer the node id just in case we can't find the next namespace */
+      node_id_index = i + 1;
+    }
+
+    i++;
+  }
+
+  /* Could not find the namespace */
+  if (!end_namespace)
+    return nullptr;
+
+  /* Verify node id */
+  if (path_copy[node_id_index-1] != VFS_PATH_SEPERATOR)
+    return nullptr;
+
+  /* Reset the itterator index */
+  i = node_id_index;
+
+  /* Set the node id */
+  node_id = &path_copy[node_id_index];
+
+  /* Shave off the next seperator */
+  while (path_copy[i]) {
+    if (path_copy[i] == VFS_PATH_SEPERATOR) {
+      path_copy[i] = NULL;
+      break;
+    }
+    i++;
+  }
+
+  /* Find the node */
+  ret = hive_get(end_namespace->m_vnodes, node_id);
+
+  return ret;
 }
 
 static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace_t* parent) {
@@ -299,7 +450,7 @@ void init_vfs(void) {
 
   s_vfs.m_namespaces = create_hive("vfs_ns");
   s_vfs.m_lock = create_mutex(0);
-  s_vfs.m_id = "system_vfs";
+  s_vfs.m_id = NULL;
 
   // Init vfs namespaces
   init_vns();

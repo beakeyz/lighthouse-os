@@ -24,13 +24,7 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
   switch (type) {
     case HNDL_TYPE_FILE:;
 
-      vnode_t* ramfs = vfs_resolve("Devices/disk/cramfs");
-
-      if (!ramfs){
-        return HNDL_INVAL;
-      }
-
-      vobj_t* obj = vn_find(ramfs, (char*)path);
+      vobj_t* obj = vfs_resolve(path);
 
       if (!obj)
         return HNDL_INVAL;

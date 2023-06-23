@@ -32,7 +32,7 @@ HANDLE_t open_handle(
   if (!path)
     return HNDL_INVAL;
 
-  ret = syscall_4(SYSID_OPEN, (uintptr_t)path, type, flags, mode);
+  ret = syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
 
   return ret;
 }

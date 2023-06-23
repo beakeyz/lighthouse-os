@@ -281,7 +281,9 @@ void kterm_command_worker() {
 
       } else if (!strcmp(contents, "testramdisk")) {
 
-        vnode_t* ramfs = vfs_resolve("Devices/disk/cramfs");
+        kterm_println("\nFinding node...\n");
+        vnode_t* ramfs = vfs_resolve_node("Devices/disk/cramfs");
+        kterm_println("\nFound node\n");
 
         if (!ramfs){
           kernel_panic("Could not resolve ramfs");

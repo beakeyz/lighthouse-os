@@ -7,11 +7,13 @@
 #include "dev/disk/generic.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "libk/error.h"
 #include "sync/mutex.h"
 #include <libk/hive.h>
 
-#define VFS_PATH_SEPERATOR '/'
+#define VFS_PATH_SEPERATOR      '/'
+#define VFS_ABS_PATH_IDENTIFIER ':/'
 
 struct vfs;
 struct fs_type;
@@ -65,7 +67,15 @@ ErrorOrPtr vfs_link(const char* link_path, const char* linked_path);
 /*
  * Resolve an absolute path
  */
-vnode_t* vfs_resolve(const char* path);
+vobj_t* vfs_resolve(const char* path);
+
+/*
+ * Both *namespace* and *node* are optional, when the path is absolute, or either are optional 
+ * when its not. Any other case will return nullptr
+ */
+vobj_t* vfs_resolve_relative(vnamespace_t* namespace, vnode_t* node, const char* path);
+
+vnode_t* vfs_resolve_node(const char* path);
 
 // vnamespace_t* vfs_ensure_attached_namespace(const char* path);
 
