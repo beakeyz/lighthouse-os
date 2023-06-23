@@ -3,7 +3,7 @@
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
 
-int Main() {
+int main() {
 
   /*
    * FIXME: are we going to give every path root a letter like windows, 
