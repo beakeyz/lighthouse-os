@@ -1,12 +1,12 @@
 
 .global __lightapp_startup
 
-.extern Main
+.extern main
 .extern lightapp_startup
 
 __lightapp_startup:
 
-  movq $Main, %rdi
+  movq $main, %rdi
   andq $0xFFFFFFFFFFFFFFF0, %rsp
 
   call lightapp_startup
