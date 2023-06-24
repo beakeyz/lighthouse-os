@@ -405,7 +405,6 @@ void register_boot_device() {
 
 void init_gdisk_dev() {
   s_gdisk_lock = create_mutex(0);
-
 }
 
 void init_root_device_probing() {
@@ -420,8 +419,6 @@ void init_root_device_probing() {
   for (generic_disk_dev_t* root_device; root_device; root_device = find_gdisk_device(device_index), device_index++) {
 
     partitioned_disk_dev_t* part = root_device->m_devs;
-
-    println("Disk");
 
     /*
      * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,

@@ -2,6 +2,7 @@
 #include "LibSys/handle.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
+#include <stdio.h>
 
 int main() {
 

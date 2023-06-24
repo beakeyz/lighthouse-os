@@ -162,6 +162,18 @@ class BuildsysBuildUserspaceCallback(CommandCallback):
         return Status(StatusCode.Fail, "TODO: implement userspace building")
 
 
+class BuildsysBuildLibraryCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        builder = ProjectBuilder(BuilderMode.USERSPACE, c)
+
+        if builder.do() == BuilderResult.SUCCESS:
+            return Status(StatusCode.Success, "Built the userspace =D")
+
+        return Status(StatusCode.Fail, "Failed to build the userspace =(")
+        return Status(StatusCode.Fail, "TODO: implement userspace building")
+
+
 class GenerateUserProcessCallback(CommandCallback):
     def call(self) -> Status:
         c = Consts()
@@ -186,7 +198,7 @@ class GenerateUserProcessCallback(CommandCallback):
         with open(f"{thisProcDir}/manifest.json", "w") as file:
             file.write(js)
 
-        initialCFile: str = "int Main() {\n  return 0;\n}"
+        initialCFile: str = "int main() {\n  return 0;\n}"
 
         with open(f"{thisProcDir}/main.c", "w") as file:
             file.write(initialCFile)
@@ -238,7 +250,8 @@ def project_main() -> Status:
     }))
     cmd_processor.register_cmd(Command("build", args={
         "kernel": BuildsysBuildKernelCallback(),
-        "user": BuildsysBuildUserspaceCallback()
+        "user": BuildsysBuildUserspaceCallback(),
+        "lib": BuildsysBuildLibraryCallback()
     }))
     cmd_processor.register_cmd(Command("generator", args={
         "userprocess": GenerateUserProcessCallback()

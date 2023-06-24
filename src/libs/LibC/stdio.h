@@ -1,11 +1,16 @@
 #ifndef __LIGHTENV_LIBC_STDIO__
 #define __LIGHTENV_LIBC_STDIO__
 
+#include "LibSys/handle_def.h"
+#include <sys/types.h>
+
 #define SEEK_SET 0
 #define _STDIO_H
 
 typedef struct _FILE { 
+  HANDLE_t handle;
   void* buff; 
+  size_t buffersize;
 } FILE;
 
 #ifdef __cplusplus
