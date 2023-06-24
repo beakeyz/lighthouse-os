@@ -169,12 +169,12 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   if ((parent->m_flags & GDISKDEV_RAM) == 0)
     return nullptr;
 
-  const size_t partition_size = ALIGN_UP(device->m_partition_data.m_end_lba - device->m_partition_data.m_start_lba, SMALL_PAGE_SIZE);
-  vnode_t* node = create_generic_vnode(type->m_name, VN_MOUNT | VN_FS);
+  const size_t partition_size = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
+  vnode_t* node = create_generic_vnode(mountpoint, VN_MOUNT | VN_FS);
 
   node->m_dev = device;
   node->m_size = partition_size;
-  node->m_data = (uint8_t*)device->m_partition_data.m_start_lba;
+  node->m_data = (uint8_t*)device->m_start_lba;
 
   if (parent->m_flags & GDISKDEV_RAM_COMPRESSED) {
     size_t decompressed_size = cram_find_decompressed_size(device);
@@ -191,10 +191,10 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     ASSERT_MSG(node->m_data != nullptr, "decompressing resulted in NULL");
 
     /* Free the pages of the compressed ramdisk */
-    Must(__kmem_kernel_dealloc(device->m_partition_data.m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1)));
+    Must(__kmem_kernel_dealloc(device->m_start_lba, kmem_get_page_idx(node->m_size + SMALL_PAGE_SIZE - 1)));
 
-    device->m_partition_data.m_start_lba = (uintptr_t)node->m_data;
-    device->m_partition_data.m_end_lba = (uintptr_t)node->m_data + partition_size;
+    device->m_start_lba = (uintptr_t)node->m_data;
+    device->m_end_lba = (uintptr_t)node->m_data + partition_size;
   }
 
   node->f_read = ramfs_read;

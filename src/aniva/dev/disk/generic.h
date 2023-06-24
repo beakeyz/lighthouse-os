@@ -1,11 +1,12 @@
 #ifndef __ANIVA_GENERIC_DISK_DEV__
 #define __ANIVA_GENERIC_DISK_DEV__
 #include "dev/debug/serial.h"
-#include "dev/disk/partition/generic.h"
 #include "dev/disk/shared.h"
 #include "fs/superblock.h"
 #include "libk/error.h"
+#include "libk/log2.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
 #include <libk/stddef.h>
 
 // TODO: generic error codes
@@ -22,6 +23,10 @@ typedef struct generic_disk_ops {
   int (*f_write_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
 } generic_disk_ops_t;
 
+#define PART_TYPE_NONE              (0)
+#define PART_TYPE_GPT               (1)
+#define PART_TYPE_MBR               (2)
+
 typedef struct disk_dev {
   void* m_parent;
 
@@ -30,6 +35,7 @@ typedef struct disk_dev {
 
   /* Generic uid that acts as an index into the list of device that are available */
   disk_uid_t m_uid;
+  uint8_t m_partition_type;
 
   uint32_t m_flags;
 
@@ -47,14 +53,21 @@ typedef struct disk_dev {
 
 #define GDISKDEV_SCSI                   (0x00000001) /* Does this device use SCSI */
 #define GDISKDEV_RAM                    (0x00000002) /* Is this a ramdevice */
-#define GDISKDEV_RAM_COMPRESSED         (0x00000002) /* Is this a compressed ramdevice */
+#define GDISKDEV_RAM_COMPRESSED         (0x00000004) /* Is this a compressed ramdevice */
+
+#define PD_FLAG_ONLY_SYNC               (0x00000001) /* This partitioned device can't use async IO */
 
 typedef struct partitioned_disk_dev {
   struct disk_dev* m_parent;
 
   fs_superblock_t* m_superblock;
 
-  generic_partition_t m_partition_data;
+  char* m_name;
+  uint64_t m_start_lba;
+  uint64_t m_end_lba;
+
+  uint32_t m_flags;
+  uint32_t m_block_size;
 
   struct partitioned_disk_dev* m_next;
 } partitioned_disk_dev_t;
@@ -64,6 +77,11 @@ int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t siz
 int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
 int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
 
+/* Read or Write to a partitioned device using a caller-controlled buffer */
+int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn);
+int pd_bwrite(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn);
+
+int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize);
 /*
  * Find the disk device from which we where booted in
  * order to read config files and load ramdisks
@@ -86,12 +104,21 @@ partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t 
 
 generic_disk_dev_t* find_gdisk_device(disk_uid_t uid);
 
-static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, generic_partition_t* partition) {
+static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags) {
   partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
   
   ret->m_parent = parent;
+  ret->m_name = name;
 
-  ret->m_partition_data = *partition;
+  /* FIXME: Should we align these? */
+  ret->m_start_lba = start;
+  ret->m_end_lba = end;
+
+  /* TODO: check for range */
+  ret->m_block_size = parent->m_logical_sector_size;
+
+  ret->m_flags = flags;
+
   ret->m_next = nullptr;
 
   return ret;
@@ -152,8 +179,8 @@ static partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_d
   partitioned_disk_dev_t** device;
   
   for (device = &generic->m_devs; (*device); device = &(*device)->m_next) {
-    uintptr_t start_lba = (*device)->m_partition_data.m_start_lba;
-    uintptr_t end_lba = (*device)->m_partition_data.m_end_lba;
+    uintptr_t start_lba = (*device)->m_start_lba;
+    uintptr_t end_lba = (*device)->m_end_lba;
 
     // Check if the block is contained in this partition
     if (block >= start_lba && block <= end_lba) {

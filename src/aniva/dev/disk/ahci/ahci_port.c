@@ -3,7 +3,6 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
-#include "dev/disk/partition/generic.h"
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
@@ -410,6 +409,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   port->m_gpt_table = gpt_table;
 
+  port->m_generic.m_partition_type = PART_TYPE_GPT;
   port->m_generic.m_partitioned_dev_count = port->m_gpt_table->m_partition_count;
 
   println_kterm(to_string(port->m_generic.m_partitioned_dev_count));
@@ -422,11 +422,10 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
     hive_entry_t* entry = i->data;
     gpt_partition_t* part = entry->m_data;
 
-    generic_partition_t partition = create_generic_partition(part->m_type.m_name, part->m_start_lba, part->m_end_lba, NULL);
+    /* TODO: support async disk IO */
+    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, part->m_type.m_name, part->m_start_lba, part->m_end_lba, PD_FLAG_ONLY_SYNC);
 
-    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, &partition);
-
-    println_kterm(partitioned_device->m_partition_data.m_name);
+    println_kterm(partitioned_device->m_name);
 
     attach_partitioned_disk_device(&port->m_generic, partitioned_device);
   }

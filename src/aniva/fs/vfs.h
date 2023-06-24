@@ -15,9 +15,11 @@
 #define VFS_PATH_SEPERATOR      '/'
 #define VFS_ABS_PATH_IDENTIFIER ':'
 
-#define VFS_DEFAULT_DEVICE_MP   ":/Devices"
-#define VFS_DEFAULT_ROOT_MP     ":/Root"
-#define VFS_DEFAULT_INIT_MP     ":/Init"
+#define VFS_ROOT                ":/"
+#define VFS_ROOT_ID             ":"
+#define VFS_DEFAULT_DEVICE_MP   "Devices"
+#define VFS_DEFAULT_ROOT_MP     "Root"
+#define VFS_DEFAULT_INIT_MP     "Init"
 
 struct vfs;
 struct fs_type;
@@ -58,8 +60,8 @@ void init_vfs();
  *
  */
 ErrorOrPtr vfs_mount(const char* path, vnode_t* node);
-ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device);
-ErrorOrPtr vfs_mount_fs(const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device);
+ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device);
+ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device);
 ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver);
 ErrorOrPtr vfs_unmount(const char* path);
 

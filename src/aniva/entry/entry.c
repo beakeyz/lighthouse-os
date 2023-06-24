@@ -78,7 +78,7 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
 
   ASSERT_MSG(partitioned_device, "No base partition in the ram device!");
 
-  Must(vfs_mount_fs("Devices/disk", "cramfs", partitioned_device));
+  Must(vfs_mount_fs("Devices/disk", "cramfs", "cramfs", partitioned_device));
 
   println("Done doing ramdisk things");
 }

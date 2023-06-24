@@ -3,6 +3,7 @@
 #include "fs/vfs.h"
 #include "libk/error.h"
 #include <libk/string.h>
+#include "libk/log2.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "ramdisk.h"
@@ -231,7 +232,7 @@ int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size
 
   const uintptr_t block = offset * dev->m_parent->m_logical_sector_size;
 
-  if (block >= dev->m_partition_data.m_start_lba && block <= dev->m_partition_data.m_end_lba) {
+  if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
 
     if (dev->m_parent->m_ops.f_read_sync)
       result = dev->m_parent->m_ops.f_read_sync(dev->m_parent, buffer, size, offset);
@@ -254,9 +255,9 @@ int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size
   int result = -1;
   disk_offset_t offset;
 
-  block = dev->m_partition_data.m_start_lba + block;
+  block = dev->m_start_lba + block;
 
-  if (block <= dev->m_partition_data.m_end_lba) {
+  if (block <= dev->m_end_lba) {
 
     offset = block * dev->m_parent->m_logical_sector_size;
 
@@ -272,6 +273,35 @@ int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size
 
 int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
   kernel_panic("TODO: implement write_sync_partitioned_block");
+}
+
+int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
+{
+  if ((dev->m_flags & PD_FLAG_ONLY_SYNC) == PD_FLAG_ONLY_SYNC)
+    return read_sync_partitioned_blocks(dev, buffer, dev->m_block_size, blockn);
+
+  kernel_panic("TODO: implement async disk IO");
+}
+
+int pd_bwrite(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
+{
+  if ((dev->m_flags & PD_FLAG_ONLY_SYNC) == PD_FLAG_ONLY_SYNC)
+    return write_sync_partitioned_blocks(dev, buffer, dev->m_block_size, blockn);
+
+  kernel_panic("TODO: implement async disk IO");
+}
+
+int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize)
+{
+  if (blksize > SMALL_PAGE_SIZE || blksize < 512 || !POWER_OF_2(blksize))
+    return -1;
+
+  if (blksize < dev->m_parent->m_logical_sector_size)
+    return -1;
+
+  dev->m_block_size = blksize;
+
+  return 0;
 }
 
 generic_disk_dev_t* create_generic_ramdev(size_t size) {
@@ -305,13 +335,8 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   dev->m_device_name = "ramdev"; /* Should we create a unique name? */
   dev->m_max_blk = size;
 
-  generic_partition_t part = {
-    .m_start_lba = address,
-    .m_end_lba = address + size,
-    .m_name = "rampart0",
-  };
-
-  partitioned_disk_dev_t* partdev = create_partitioned_disk_dev(dev, &part);
+  /* A ramdisk can't use async IO by definition */
+  partitioned_disk_dev_t* partdev = create_partitioned_disk_dev(dev, "rampart0", address, address + size, PD_FLAG_ONLY_SYNC);
   
   attach_partitioned_disk_device(dev, partdev);
 
@@ -325,8 +350,8 @@ bool destroy_generic_ramdev(generic_disk_dev_t* device) {
   if (!device || (device->m_flags & GDISKDEV_RAM) == 0 || !device->m_devs || device->m_devs->m_next)
     return false;
 
-  const uintptr_t start_addr = device->m_devs->m_partition_data.m_start_lba;
-  const uintptr_t end_addr = device->m_devs->m_partition_data.m_end_lba;
+  const uintptr_t start_addr = device->m_devs->m_start_lba;
+  const uintptr_t end_addr = device->m_devs->m_end_lba;
 
   const size_t ramdev_size = end_addr - start_addr;
 
@@ -381,8 +406,8 @@ int ramdisk_read(generic_disk_dev_t* device, void* buffer, size_t size, disk_off
   if (device->m_devs->m_next)
     return -1;
 
-  const uintptr_t start_addr = device->m_devs->m_partition_data.m_start_lba;
-  const uintptr_t end_addr = device->m_devs->m_partition_data.m_end_lba;
+  const uintptr_t start_addr = device->m_devs->m_start_lba;
+  const uintptr_t end_addr = device->m_devs->m_end_lba;
 
   const uintptr_t read_addr = start_addr + offset;
 
@@ -412,11 +437,13 @@ void init_root_device_probing() {
   /*
    * Init probing for the root device
    */
+  generic_disk_dev_t* root_device;
   disk_uid_t device_index;
 
   device_index = 0;
+  root_device = find_gdisk_device(0);
 
-  for (generic_disk_dev_t* root_device; root_device; root_device = find_gdisk_device(device_index), device_index++) {
+  while (root_device) {
 
     partitioned_disk_dev_t* part = root_device->m_devs;
 
@@ -429,22 +456,25 @@ void init_root_device_probing() {
     while (part) {
 
       print("Testing for fat filesystem: ");
-      println(part->m_partition_data.m_name);
+      println(part->m_name);
 
       /*
        * Test for a fat32 filesystem
        */
-      if (!IsError(vfs_mount_fs(VFS_DEFAULT_ROOT_MP, "fat32", part)))
+      if (!IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "fat32", part)))
         break;
       
       /*
        * Also test for ext2 just in case
        */
-      if (!IsError(vfs_mount_fs(VFS_DEFAULT_ROOT_MP, "ext2", part)))
+      if (!IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "ext2", part)))
         break;
 
       part = part->m_next;
     }
+
+    device_index++;
+    root_device = find_gdisk_device(device_index);
   }
 
   kernel_panic("init_root_device_probing test");

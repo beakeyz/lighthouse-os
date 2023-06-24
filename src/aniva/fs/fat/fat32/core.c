@@ -57,12 +57,12 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, fs_superblock_t* block) {
     return FAT_INVAL;
   }
 
-  if (bpb->fat32.sectors_per_fat == 0 && bpb->sectors_per_fat == 0) {
+  if (bpb->sectors_per_fat == 0 && bpb->fat32.sectors_per_fat == 0) {
     return FAT_INVAL;
   }
 
   /* TODO: fill data in superblock with useful data */
-
+  block->m_blocksize = bpb->sector_size;
 
   return FAT_OK;
 }
@@ -71,23 +71,29 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   /* Get FAT =^) */
 
+  fs_superblock_t* sb;
   fat_fs_info_t* ffi;
   uint8_t bpb_buffer[device->m_parent->m_logical_sector_size];
   fat_boot_sector_t* boot_sector = (fat_boot_sector_t*)bpb_buffer;
 
-  int read_result = read_sync_partitioned_blocks(device, &bpb_buffer, device->m_parent->m_logical_sector_size, 0);
+  int read_result = pd_bread(device, &bpb_buffer, 0);
 
-  if (read_result) {
+  if (read_result < 0) {
     return nullptr;
   }
 
   device->m_superblock = create_fs_superblock();
+
   ffi = create_fat_fs_info();
+  sb = device->m_superblock;
 
   if (!ffi)
     return nullptr;
 
   device->m_superblock->m_fs_specific_info = ffi;
+
+  /* Copy the boot sector cuz why not lol */
+  ffi->boot_sector_copy = *boot_sector;
 
   int parse_result = parse_fat_bpb(boot_sector, device->m_superblock);
 
@@ -96,11 +102,32 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   if (!boot_sector->sectors_per_fat && boot_sector->fat32.sectors_per_fat) {
     /* FAT32 */
+    ffi->fat_type = FTYPE_FAT32;
   } else {
     /* FAT12 or FAT16 */
+    ffi->fat_type = FTYPE_FAT16;
   }
 
+  /* Compute total size */
+  ffi->total_fs_size = boot_sector->sector_size * boot_sector->total_sectors;
+
+  if (device->m_parent->m_logical_sector_size > sb->m_blocksize) {
+
+    if (!pd_set_blocksize(device, sb->m_blocksize)) {
+      kernel_panic("Failed to set blocksize! abort");
+    }
+
+  }
+
+  /* TODO: */
   vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
+  println(to_string(ffi->fat_type));
+  println(to_string(boot_sector->sectors_per_fat));
+  println(to_string(boot_sector->sectors));
+  println(to_string(boot_sector->media));
+  println(to_string(boot_sector->dir_entries));
+  println(to_string(boot_sector->sector_size));
+  println(to_string(boot_sector->total_sectors));
   kernel_panic("Test");
 
   return node;

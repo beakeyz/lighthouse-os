@@ -13,6 +13,7 @@
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
+#include <string.h>
 
 static vfs_t s_vfs;
 
@@ -74,7 +75,7 @@ ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
   return Success(mount_result);
 }
 
-ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) {
+ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) {
 
   vnode_t* mountnode = nullptr;
 
@@ -86,19 +87,19 @@ ErrorOrPtr vfs_mount_fs_type(const char* mountpoint, struct fs_type* fs, partiti
     return Error();
 
   /* Mount into our vfs */
-  ErrorOrPtr mount_result = vfs_mount(mountpoint, mountnode);
+  ErrorOrPtr mount_result = vfs_mount(path, mountnode);
 
   return mount_result;
 }
 
-ErrorOrPtr vfs_mount_fs(const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device) {
+ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device) {
 
   fs_type_t* type = get_fs_type(fs_name);
 
   if (!type)
     return Error();
 
-  return vfs_mount_fs_type(mountpoint, type, device);
+  return vfs_mount_fs_type(path, mountpoint, type, device);
 }
 
 /*
@@ -300,21 +301,28 @@ static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace
 
 vnamespace_t* vfs_create_path(const char* path) {
   vnamespace_t* current_parent;
-  vnamespace_t* result = hive_get(s_vfs.m_namespaces, path);
+  vnamespace_t* result;
   uintptr_t previous_index = NULL;
   uintptr_t index = NULL;
   size_t path_size = strlen(path) + 1;
+
+  /* Cut off any trailing slash */
+  if (path[strlen(path)-1] == VFS_PATH_SEPERATOR) {
+    path_size--;
+  }
+
+  char path_copy[path_size];
+
+  memcpy(path_copy, path, path_size);
+  path_copy[strlen(path)-1] = NULL;
+
+  result = hive_get(s_vfs.m_namespaces, path_copy);
 
   if (result) {
     print("Found entry: ");
     println(result->m_id);
     return result;
   }
-
-  char path_copy[path_size];
-
-  memset(path_copy, 0x00, path_size);
-  memcpy((void*)path_copy, path, path_size);
 
   while (true) {
     
@@ -325,6 +333,9 @@ vnamespace_t* vfs_create_path(const char* path) {
 
     if (!path_copy[index] || index >= path_size) {
       /* We probably reached the end. Did we create all namespaces? */
+      println("End");
+      println(path_copy);
+      println(&path_copy[previous_index]);
       return vfs_insert_namespace(path_copy, &path_copy[previous_index], current_parent);
     }
 
@@ -343,7 +354,8 @@ vnamespace_t* vfs_create_path(const char* path) {
     }
 
     /* Since we know that there was a seperator at this spot, just place it back */
-    path_copy[index++] = VFS_PATH_SEPERATOR;
+    path_copy[index] = VFS_PATH_SEPERATOR;
+    index++;
     previous_index = index;
   }
 
@@ -450,7 +462,12 @@ void init_vfs(void) {
 
   s_vfs.m_namespaces = create_hive("vfs_ns");
   s_vfs.m_lock = create_mutex(0);
-  s_vfs.m_id = NULL;
+
+  char* root_id = VFS_ROOT_ID;
+
+  s_vfs.m_id = kmalloc(strlen(root_id));
+  memcpy(s_vfs.m_id, root_id, strlen(root_id));
+  s_vfs.m_id[strlen(root_id)] = NULL;
 
   // Init vfs namespaces
   init_vns();

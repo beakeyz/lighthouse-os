@@ -410,9 +410,9 @@ ErrorOrPtr generic_inflate(decompress_ctx_t* ctx, struct gzip_compressed_header*
 ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) {
 
   decompress_ctx_t ctx = {
-    .m_start_addr = device->m_partition_data.m_start_lba,
-    .m_end_addr = device->m_partition_data.m_end_lba,
-    .m_current = (uint8_t*)device->m_partition_data.m_start_lba,
+    .m_start_addr = device->m_start_lba,
+    .m_end_addr = device->m_end_lba,
+    .m_current = (uint8_t*)device->m_start_lba,
     .m_out = result_buffer,
     .m_current_out = result_buffer,
     .m_bit_buffer = 0,
@@ -485,8 +485,8 @@ size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
 
   decompress_ctx_t dummy_ctx = { 0 };
 
-  dummy_ctx.m_current = (uint8_t*)device->m_partition_data.m_end_lba - 8;
-  dummy_ctx.m_end_addr = device->m_partition_data.m_end_lba;
+  dummy_ctx.m_current = (uint8_t*)device->m_end_lba - 8;
+  dummy_ctx.m_end_addr = device->m_end_lba;
 
   uint32_t crc32 = c_read32(&dummy_ctx);
 

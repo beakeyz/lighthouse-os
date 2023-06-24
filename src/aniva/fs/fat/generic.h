@@ -142,18 +142,22 @@ typedef struct {
 
 } __attribute__((packed)) fat_lfn_entry_t;
 
+#define FTYPE_FAT32         (0)
+#define FTYPE_FAT16         (1)
+#define FTYPE_FAT12         (2)
+#define FTYPE_FATex         (3)
+
 /*
  * Specific data regarding the FAT filesystem we encounter
  * TODO: should this hold caches?
  */
 typedef struct {
-  uint16_t sectors_per_cluster;
-  uint32_t cluster_size;
-  uint16_t first_fat;
+
+  fat_boot_sector_t boot_sector_copy;
 
   uint8_t fat_type; /* bits of this FAT fs (12, 16, 32) */
 
-  
+  size_t total_fs_size;
 
   mutex_t* fat_lock;
 
