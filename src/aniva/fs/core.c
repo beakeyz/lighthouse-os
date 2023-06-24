@@ -1,6 +1,7 @@
 #include "core.h"
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
+#include "fs/vnode.h"
 #include "libk/error.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
@@ -111,3 +112,4 @@ void init_fs_core() {
   fsystems_lock = create_mutex(0);
 
 }
+

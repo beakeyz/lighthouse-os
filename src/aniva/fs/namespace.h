@@ -14,6 +14,8 @@
 
 struct vnode;
 
+#define ROOT_NAMESPACE_ID ":"
+
 /* TODO: work out how we can stash away vnodes */
 typedef struct vnode_stash {
   

@@ -28,8 +28,9 @@ typedef struct fs_type {
 void init_fs_core();
 
 fs_type_t* get_fs_driver(fs_type_t* fs);
+fs_type_t* get_fs_type(const char* name);
+
 ErrorOrPtr register_filesystem(fs_type_t* fs);
 ErrorOrPtr unregister_filesystem(fs_type_t* fs);
-fs_type_t* get_fs_type(const char* name);
 
 #endif // !__ANIVA_FS_CORE__

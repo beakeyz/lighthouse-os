@@ -11,7 +11,7 @@
 void init_vns() {
 
   // Install the system namespace
-  vnamespace_t* root_namespace = create_vnamespace("system", nullptr);
+  vnamespace_t* root_namespace = create_vnamespace(ROOT_NAMESPACE_ID, nullptr);
 
   root_namespace->m_flags |= VNS_SYSTEM;
   root_namespace->m_desc = "sys";

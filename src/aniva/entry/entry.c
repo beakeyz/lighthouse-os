@@ -206,11 +206,11 @@ void kthread_entry() {
 
   try_fetch_initramdisk((uintptr_t)g_system_info.multiboot_addr);
 
-  // init_root_device_probing();
+  init_root_device_probing();
 
-  proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
+  //proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
 
-  sched_add_proc(test_proc);
+  //sched_add_proc(test_proc);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 

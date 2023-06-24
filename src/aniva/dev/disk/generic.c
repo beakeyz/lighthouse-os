@@ -413,33 +413,41 @@ void init_root_device_probing() {
   /*
    * Init probing for the root device
    */
-  generic_disk_dev_t* root_device = find_gdisk_device(0);
+  disk_uid_t device_index;
 
-  if (!root_device) {
-    /* if this does not work, there might just not be any harddisks connected, we should check for usb or ramdisks.. */
-    kernel_panic("Could not find root disk. No disks atached?");
-  }
+  device_index = 0;
 
-  partitioned_disk_dev_t* part = root_device->m_devs;
+  for (generic_disk_dev_t* root_device; root_device; root_device = find_gdisk_device(device_index), device_index++) {
 
-  /*
-   * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,
-   * we bruteforce every partition and check if it contains a valid FAT32 filesystem. If
-   * it does, we check if it contains a kconfig file and if it does, we simply take 
-   * that drive and partition as our root.
-   */
-  while (part) {
+    partitioned_disk_dev_t* part = root_device->m_devs;
 
-    print("Testing for fat filesystem: ");
-    println(part->m_partition_data.m_name);
+    println("Disk");
 
     /*
-     * Test for a fat32 filesystem
+     * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,
+     * we bruteforce every partition and check if it contains a valid FAT32 filesystem. If
+     * it does, we check if it contains a kconfig file and if it does, we simply take 
+     * that drive and partition as our root.
      */
-    if (vfs_mount_fs("/root", "fat32", part).m_status == ANIVA_SUCCESS)
-      break;
-    
-    part = part->m_next;
+    while (part) {
+
+      print("Testing for fat filesystem: ");
+      println(part->m_partition_data.m_name);
+
+      /*
+       * Test for a fat32 filesystem
+       */
+      if (!IsError(vfs_mount_fs(VFS_DEFAULT_ROOT_MP, "fat32", part)))
+        break;
+      
+      /*
+       * Also test for ext2 just in case
+       */
+      if (!IsError(vfs_mount_fs(VFS_DEFAULT_ROOT_MP, "ext2", part)))
+        break;
+
+      part = part->m_next;
+    }
   }
 
   kernel_panic("init_root_device_probing test");

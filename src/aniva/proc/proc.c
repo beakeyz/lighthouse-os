@@ -3,6 +3,8 @@
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "entry/entry.h"
+#include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "interrupts/interrupts.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
@@ -131,8 +133,40 @@ cycle:
  */
 static void __proc_clear_handles(proc_t* proc)
 {
-  /* TODO: */
-  (void)proc;
+  khandle_map_t* map;
+  khandle_t* current_handle;
+
+  if (!proc)
+    return;
+
+  map = &proc->m_handle_map;
+
+  for (uint32_t i = 0; i < map->max_count; i++) {
+    current_handle = &map->handles[i];
+
+    if (!current_handle->reference.kobj)
+      continue;
+
+    switch (current_handle->type) {
+      case KHNDL_TYPE_FILE:
+        {
+          vnode_t* node = current_handle->reference.vobj->m_parent;
+        
+          ASSERT_MSG(node, "File handle vobj didn't have a parent node!");
+
+          vn_detach_object(node, current_handle->reference.vobj);
+
+          destroy_vobj(current_handle->reference.vobj);
+          break;
+        }
+      case KHNDL_TYPE_PROC:
+      case KHNDL_TYPE_NONE:
+      default:
+        break;
+    }
+
+    destroy_khandle(current_handle);
+  }
 }
 
 /*
@@ -145,17 +179,17 @@ void destroy_proc(proc_t* proc) {
     destroy_thread(i->data);
   }
 
+  /* Yeet handles */
+  __proc_clear_handles(proc);
+
+  /* loop over all the resources of this process and release them by using __kmem_dealloc */
+  __proc_clear_shared_resources(proc);
+
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
 
-  /* Yeet handles */
-  __proc_clear_handles(proc);
-
   destroy_khandle_map(&proc->m_handle_map);
-
-  /* loop over all the resources of this process and release them by using __kmem_dealloc */
-  __proc_clear_shared_resources(proc);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
@@ -163,8 +197,7 @@ void destroy_proc(proc_t* proc) {
    * you never know... For that we simply allow every page directory to be 
    * killed as long as we are not currently using it :clown: 
    */
-  //if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
-  if (proc->m_root_pd.m_root != kmem_get_krnl_dir()) {
+  if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 }

@@ -13,7 +13,11 @@
 #include <libk/hive.h>
 
 #define VFS_PATH_SEPERATOR      '/'
-#define VFS_ABS_PATH_IDENTIFIER ':/'
+#define VFS_ABS_PATH_IDENTIFIER ':'
+
+#define VFS_DEFAULT_DEVICE_MP   ":/Devices"
+#define VFS_DEFAULT_ROOT_MP     ":/Root"
+#define VFS_DEFAULT_INIT_MP     ":/Init"
 
 struct vfs;
 struct fs_type;

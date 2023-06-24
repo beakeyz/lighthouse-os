@@ -32,7 +32,8 @@ typedef uint64_t    qword_t;
 #define DWORD       dword_t
 #define QWORD       qword_t
 #define BOOL        bool
-#define FLOAT64     float
+#define FLOAT32     float
+#define FLOAT64     double
 
 typedef void (*FuncPtr)();
 

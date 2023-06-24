@@ -10,5 +10,8 @@
 #define SYSID_OPEN_PROC         6
 #define SYSID_OPEN_DRIVER       7
 #define SYSID_SEND_IO_CTL       8
+#define SYSID_CREATE_THREAD     9
+#define SYSID_CREATE_PROC       10
+#define SYSID_CREATE_FILE       11
 
 #endif // !__LIGHTENV_SYSCALL__

@@ -25,7 +25,9 @@ int fseek(FILE*, long, int);
 long ftell(FILE*);
 unsigned long long fwrite(const void*, unsigned long long, unsigned long long, FILE*);
 void setbuf(FILE*, char*);
-int vfprintf(FILE*, const char*, char*);
+int vfprintf(FILE* stream, const char* fmt, char*);
+
+int printf(const char* fmt, ...);
 
 #ifdef __cplusplus
 }

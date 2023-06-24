@@ -100,10 +100,10 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     /* FAT12 or FAT16 */
   }
 
-  vnode_t* node = create_generic_vnode("fat", VN_FS | VN_ROOT);
+  vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
   kernel_panic("Test");
 
-  return nullptr;
+  return node;
 }
 
 aniva_driver_t fat32_drv = {
