@@ -116,8 +116,9 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     if (!pd_set_blocksize(device, sb->m_blocksize)) {
       kernel_panic("Failed to set blocksize! abort");
     }
-
   }
+
+  ffi->is_dirty = is_fat32(ffi) ? (boot_sector->fat32.state & FAT_STATE_DIRTY) : (boot_sector->fat16.state & FAT_STATE_DIRTY);
 
   /* TODO: */
   vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);

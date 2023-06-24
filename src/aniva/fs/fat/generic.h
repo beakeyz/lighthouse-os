@@ -48,6 +48,8 @@
 #define FAT_ATTR_ARCHIVE 0x20
 #define FAT_ATTR_LFN (FAT_ATTR_RO | FAT_ATTR_HIDDEN | FAT_ATTR_SYSTEM | FAT_ATTR_VOLUME_ID)
 
+#define FAT_STATE_DIRTY 0x01
+
 /*
  * The fat boot sector
  */
@@ -142,10 +144,10 @@ typedef struct {
 
 } __attribute__((packed)) fat_lfn_entry_t;
 
-#define FTYPE_FAT32         (0)
-#define FTYPE_FAT16         (1)
-#define FTYPE_FAT12         (2)
-#define FTYPE_FATex         (3)
+#define FTYPE_FAT32         (32)
+#define FTYPE_FAT16         (16)
+#define FTYPE_FAT12         (12)
+#define FTYPE_FATex         (64) /* ? */
 
 /*
  * Specific data regarding the FAT filesystem we encounter
@@ -156,6 +158,13 @@ typedef struct {
   fat_boot_sector_t boot_sector_copy;
 
   uint8_t fat_type; /* bits of this FAT fs (12, 16, 32) */
+  bool is_dirty;
+
+  uint32_t fat_start;
+  uint32_t fat_len;
+
+  uint32_t dir_entries_start;
+  uint32_t dir_entries_length;
 
   size_t total_fs_size;
 
@@ -175,6 +184,21 @@ static fat_fs_info_t* create_fat_fs_info() {
 void destroy_fat_fs_info(fat_fs_info_t* info) {
   destroy_mutex(info->fat_lock);
   kfree(info);
+}
+
+static inline bool is_fat32(fat_fs_info_t* finfo)
+{
+  return (finfo->fat_type == FTYPE_FAT32);
+}
+
+static inline bool is_fat16(fat_fs_info_t* finfo)
+{
+  return (finfo->fat_type == FTYPE_FAT16);
+}
+
+static inline bool is_fat12(fat_fs_info_t* finfo)
+{
+  return (finfo->fat_type == FTYPE_FAT12);
 }
 
 size_t fat_calculate_clusters(fs_superblock_t* block);
