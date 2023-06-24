@@ -230,7 +230,7 @@ int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size
     return result;
 
 
-  const uintptr_t block = offset * dev->m_parent->m_logical_sector_size;
+  const uintptr_t block = offset / dev->m_parent->m_logical_sector_size;
 
   if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
 
