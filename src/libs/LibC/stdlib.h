@@ -9,13 +9,19 @@ extern "C" {
 
 extern void exit(uintptr_t result);
 
-void abort(void);
-int atexit(void (*)(void));
-int atoi(const char*);
-void free(void*);
-void* malloc(unsigned long long);
-char* getenv(const char*);
+extern void abort(void);
+extern int atexit(void (*)(void));
+extern int atoi(const char*);
 
+extern void* malloc(size_t __size);
+extern void* calloc(size_t count, size_t __size);
+
+extern void* realloc(void* ptr, size_t __size);
+extern void free(void*);
+
+extern char* getenv(const char*);
+
+extern int system(const char* cmd);
 
 #ifdef __cplusplus
 }

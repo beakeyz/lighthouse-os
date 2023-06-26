@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #define miliseconds 0.001
 #define width 5
