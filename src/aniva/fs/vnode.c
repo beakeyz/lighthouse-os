@@ -58,61 +58,17 @@ static vobj_t* vnode_find(vnode_t* node, char* name) {
   return nullptr;
 }
 
-static vobj_handle_t vnode_seek(vnode_t* node, char* name) {
-
-  if (!node || !name)
-    return 0;
-
-  mutex_lock(node->m_vobj_lock);
-
-  vobj_t** obj = find_vobject_path(node, name);
-
-  if (obj && *obj) {
-    mutex_unlock(node->m_vobj_lock);
-    return (*obj)->m_handle;
-  }
-
-  mutex_unlock(node->m_vobj_lock);
-  return 0;
-}
-
-static vobj_t* vnode_resolve(vnode_t* node, vobj_handle_t handle) {
-
-  vobj_t* itt;
-
-  if (!node || !handle)
-    return nullptr;
-
-  /*
-  if ((node->m_flags & VN_TAKEN) == 0)
-    return nullptr;
-  */
-
-  /* NOTE: we can prob assume this node is taken if ->m_objects is non-null, but this needs a lil testing */
-  if (!node->m_objects)
-    return nullptr;
-
-  mutex_lock(node->m_vobj_lock);
-
-  itt = node->m_objects;
-
-  while (itt) {
-
-    if (itt->m_handle == handle) {
-      mutex_unlock(node->m_vobj_lock);
-      return itt;
-    }
-    
-    itt = itt->m_next;
-  }
-
-  mutex_unlock(node->m_vobj_lock);
-  return nullptr;
-}
-
 static int vnode_force_sync(vnode_t* node) {
   return -1;
 }
+
+static struct generic_vnode_ops __generic_vnode_ops = {
+  .f_write = vnode_write,
+  .f_read = vnode_read,
+  .f_force_sync = vnode_force_sync,
+  .f_msg = vnode_msg,
+  .f_find = vnode_find,
+};
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   vnode_t* node;
@@ -124,13 +80,7 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
 
   memset(node, 0x00, sizeof(vnode_t));
 
-  node->f_write = vnode_write;
-  node->f_read = vnode_read;
-  node->f_force_sync = vnode_force_sync;
-  node->f_msg = vnode_msg;
-  node->f_seek = vnode_seek;
-  node->f_find = vnode_find;
-  node->f_resolve = vnode_resolve;
+  node->m_ops = &__generic_vnode_ops;
   node->m_lock = create_mutex(0);
   node->m_vobj_lock = create_mutex(0);
 
@@ -264,10 +214,7 @@ int vn_release(vnode_t* node) {
     /* Cache the next */
     vobj_t** next = &current->m_next;
 
-    /* NOTE: Too aggressive must here */
-    Must(vn_detach_object(node, current));
-
-    /* Murder the object */
+    /* Murder the object and detach it */
     destroy_vobj(current);
 
     obj = next;
@@ -610,49 +557,8 @@ vobj_t* vn_find(vnode_t* node, char* name) {
   if (ret)
     return ret;
 
-  ret = node->f_find(node, name);
+  ret = node->m_ops->f_find(node, name);
 
   return ret;
 }
 
-/*
- * Wrapper around the ->f_seek function
- * TODO: allow seeking from untaken nodes if they 
- * are marked flexible
- * NOTE: we assume ->f_seek handles locking correctly here
- */
-vobj_handle_t vn_seek(vnode_t* node, char* name) {
-
-  vobj_handle_t ret;
-
-  if (!node || !name)
-    return 0;
-
-  /* Can't seek from an untaken node */
-  if (!vn_is_available(node) || !node->m_objects) 
-    return 0;
-
-  ret = node->f_seek(node, name);
-
-  return ret;
-}
-
-/*
- * Wrapper around ->f_resolve
- * TODO: allow resloving from flexible vnodes
- * NOTE: we assume ->f_resolve handles locking correctly here
- */
-vobj_t* vn_resolve(vnode_t* node, vobj_handle_t handle) {
-
-  vobj_t* ret;
-
-  if (!node || !handle)
-    return nullptr;
-
-  if (vn_is_available(node) || !node->m_objects)
-    return nullptr;
-
-  ret = node->f_resolve(node, handle);
-
-  return ret;
-}

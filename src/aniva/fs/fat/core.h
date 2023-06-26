@@ -155,8 +155,6 @@ typedef struct {
  */
 typedef struct {
 
-  fat_boot_sector_t boot_sector_copy;
-
   uint8_t fat_type; /* bits of this FAT fs (12, 16, 32) */
   bool is_dirty;
 
@@ -169,6 +167,9 @@ typedef struct {
   size_t total_fs_size;
 
   mutex_t* fat_lock;
+
+  fat_boot_sector_t boot_sector_copy;
+  fat_boot_fsinfo_t boot_fs_info;
 
 } fat_fs_info_t;
 
@@ -200,6 +201,12 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
 {
   return (finfo->fat_type == FTYPE_FAT12);
 }
+
+typedef struct fat_entry {
+  int entry_number;
+  void* data_buf;
+  size_t data_size;
+} fat_entry_t;
 
 size_t fat_calculate_clusters(fs_superblock_t* block);
 void fat_get_cluster(vnode_t* node, uintptr_t clustern);

@@ -107,7 +107,8 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
   mutex_lock(node->m_vobj_lock);
 
   while (true) {
-    int result = node->f_read(node, &current_file, sizeof(tar_file_t), current_offset);
+    /* Raw read :clown: */
+    int result = node->m_ops->f_read(node, &current_file, sizeof(tar_file_t), current_offset);
 
     if (result)
       break;
@@ -148,6 +149,12 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
   kernel_panic("Did not find ramfs object =(");
   return nullptr;
 }
+
+static struct generic_vnode_ops ramfs_vnode_ops = {
+  .f_read = ramfs_read,
+  .f_write = ramfs_write,
+  .f_find = ramfs_find,
+};
 
 /*
  * We get passed the addressspace of the ramdisk through the partitioned_disk_dev_t
@@ -197,9 +204,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     device->m_end_lba = (uintptr_t)node->m_data + partition_size;
   }
 
-  node->f_read = ramfs_read;
-  node->f_write = ramfs_write;
-  node->f_find = ramfs_find;
+  node->m_ops = &ramfs_vnode_ops;
 
   /* cramfs is a flexible fs */
   node->m_flags |= VN_FLEXIBLE;

@@ -83,6 +83,9 @@ typedef struct vobj {
 
 #define INVALID_OBJ_HANDLE (vobj_handle_t)0
 
+/*
+ * Allocate space for a vobject and attach it to the parent vnode
+ */ 
 vobj_t* create_generic_vobj(struct vnode* parent, const char* path);
 void destroy_vobj(vobj_t* obj);
 

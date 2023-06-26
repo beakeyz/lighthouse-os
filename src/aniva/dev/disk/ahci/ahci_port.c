@@ -100,7 +100,7 @@ static ALWAYS_INLINE ANIVA_STATUS ahci_port_await_dma_completion(ahci_port_t* po
       port->m_transfer_failed = false;
       // TODO: real dbg msg
       println("AHCIPORT: dma transfer failed!");
-      return false;
+      return ANIVA_FAIL;
     }
   }
   return ANIVA_SUCCESS;
@@ -321,7 +321,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   println_kterm(to_string(port->m_generic.m_uid));
   generic_disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
 
-  ASSERT_MSG(device == &port->m_generic, "Mismatch");
+  ASSERT_MSG(device == &port->m_generic, "Device to generic port device mismatch (ahci)");
 
   /* Activate port */
   port_set_active(port);

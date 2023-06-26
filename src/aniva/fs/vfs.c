@@ -208,7 +208,7 @@ vobj_t* vfs_resolve(const char* path) {
   /* Buffer the object id (path) which we have now reached */
   obj_id = &path_copy[i + 1];
 
-  ret = end_vnode->f_find(end_vnode, obj_id);
+  ret = end_vnode->m_ops->f_find(end_vnode, obj_id);
 
   return ret;
 }
@@ -305,16 +305,18 @@ vnamespace_t* vfs_create_path(const char* path) {
   uintptr_t previous_index = NULL;
   uintptr_t index = NULL;
   size_t path_size = strlen(path) + 1;
-
-  /* Cut off any trailing slash */
-  if (path[strlen(path)-1] == VFS_PATH_SEPERATOR) {
-    path_size--;
-  }
+  uintptr_t path_end_index = strlen(path);
 
   char path_copy[path_size];
 
   memcpy(path_copy, path, path_size);
-  path_copy[strlen(path)-1] = NULL;
+
+  /* Cut off any trailing slash */
+  if (path[strlen(path)-1] == VFS_PATH_SEPERATOR) {
+    path_end_index -= 1;
+  }
+
+  path_copy[path_end_index] = NULL;
 
   result = hive_get(s_vfs.m_namespaces, path_copy);
 

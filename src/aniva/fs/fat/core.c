@@ -5,7 +5,7 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/core.h"
-#include "fs/fat/generic.h"
+#include "fs/fat/core.h"
 #include "fs/namespace.h"
 #include "fs/superblock.h"
 #include "fs/vnode.h"
@@ -28,11 +28,6 @@ static inline uint8_t fat_to_lower(char c) {
 }
 
 typedef uintptr_t fat_offset_t;
-
-static inline fat_offset_t fat_make_offset(fs_superblock_t* sb, uintptr_t block_nr, fat_dir_entry_t* de0, fat_dir_entry_t* de1);
-
-static ErrorOrPtr fat_get_dir_entry_heavy(vnode_t* n, uintptr_t* offset, fat_dir_entry_t** dir_entry);
-ErrorOrPtr fat_get_dir_entry(vnode_t* node, uintptr_t* offset, fat_dir_entry_t** dir_entry);
 
 /* TODO: */
 static int fat_parse_lfn(void* dir, fat_offset_t* offset);
@@ -73,10 +68,11 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   fs_superblock_t* sb;
   fat_fs_info_t* ffi;
-  uint8_t bpb_buffer[device->m_parent->m_logical_sector_size];
-  fat_boot_sector_t* boot_sector = (fat_boot_sector_t*)bpb_buffer;
+  uint8_t buffer[device->m_parent->m_logical_sector_size];
+  fat_boot_sector_t* boot_sector = (fat_boot_sector_t*)buffer;
+  fat_boot_fsinfo_t* fat_boot_fs_info;
 
-  int read_result = pd_bread(device, &bpb_buffer, 0);
+  int read_result = pd_bread(device, buffer, 0);
 
   if (read_result < 0) {
     return nullptr;
@@ -86,7 +82,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   ffi = create_fat_fs_info();
   sb = device->m_superblock;
-
+  
   if (!ffi)
     return nullptr;
 
@@ -120,18 +116,47 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   ffi->is_dirty = is_fat32(ffi) ? (boot_sector->fat32.state & FAT_STATE_DIRTY) : (boot_sector->fat16.state & FAT_STATE_DIRTY);
 
+  device->m_superblock->m_total_blocks = ffi->boot_sector_copy.sectors;
+
+  if (!device->m_superblock->m_total_blocks)
+    device->m_superblock->m_total_blocks = ffi->boot_sector_copy.total_sectors;
+
+  device->m_superblock->m_first_usable_block = ffi->boot_sector_copy.reserved_sectors;
+
+  /* NOTE: we reuse the buffer of the boot sector */
+  read_result = pd_bread(device, buffer, 1);
+
+  if (read_result < 0)
+    goto fail;
+
+  fat_boot_fs_info = (fat_boot_fsinfo_t*)buffer;
+
+  ffi->boot_fs_info = *fat_boot_fs_info;
+
+  device->m_superblock->m_free_blocks = ffi->boot_fs_info.free_clusters;
+
+  println(to_string(device->m_superblock->m_total_blocks));
+  println(to_string(device->m_superblock->m_free_blocks));
+
   /* TODO: */
   vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
-  println(to_string(ffi->fat_type));
-  println(to_string(boot_sector->sectors_per_fat));
-  println(to_string(boot_sector->sectors));
-  println(to_string(boot_sector->media));
-  println(to_string(boot_sector->dir_entries));
-  println(to_string(boot_sector->sector_size));
-  println(to_string(boot_sector->total_sectors));
+
   kernel_panic("Test");
 
   return node;
+
+fail:
+
+  if (ffi)
+    destroy_fat_fs_info(ffi);
+
+  /* Make sure the devices superblock is killed before we use this pointer again */
+  if (device->m_superblock)
+    destroy_fs_superblock(device->m_superblock);
+
+  device->m_superblock = nullptr;
+
+  return nullptr;
 }
 
 aniva_driver_t fat32_drv = {

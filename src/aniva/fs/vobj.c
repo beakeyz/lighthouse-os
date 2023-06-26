@@ -58,6 +58,10 @@ void destroy_vobj(vobj_t* obj) {
   ASSERT_MSG(obj->m_child && obj->m_ops->f_destory_child, "No way to destroy child of vobj!");
   ASSERT_MSG(obj->m_ops->f_destroy, "No way to destroy object!");
 
+  /* Try to detach */
+  if (obj->m_parent)
+    vn_detach_object(obj->m_parent, obj);
+
   /* Murder the child (wtf) */
   obj->m_ops->f_destory_child(obj->m_child);
 

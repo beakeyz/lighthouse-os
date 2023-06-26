@@ -154,8 +154,7 @@ static void __proc_clear_handles(proc_t* proc)
         
           ASSERT_MSG(node, "File handle vobj didn't have a parent node!");
 
-          vn_detach_object(node, current_handle->reference.vobj);
-
+          /* destroy_vobj also detaches from the vnode */
           destroy_vobj(current_handle->reference.vobj);
           break;
         }

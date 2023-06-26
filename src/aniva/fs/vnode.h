@@ -11,6 +11,7 @@
 struct vobj;
 struct vnode;
 struct virtual_namespace;
+struct partitioned_disk_dev;
 
 /* TODO: */
 enum VNODE_TYPES {
@@ -22,6 +23,24 @@ enum VNODE_TYPES {
 
 /* TODO: migrate ops to these structs */
 struct generic_vnode_ops {
+  /* Write data to this node (really should fail if the node isn't taken) */
+  int (*f_write) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
+
+  /* Read data from this node (really should fail if the node isn't taken) */
+  int (*f_read) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
+
+  /* Send some data to this node and have whatever is connected do something for you */
+  int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
+
+  /* Force a sync between diffed buffers and the device */
+  int (*f_force_sync) (struct vnode*);
+
+  int (*f_make_dir)(struct vnode*, void* dir_entry, void* dir_attr, uint32_t flags);
+  int (*f_rm_dir)(struct vnode*, void* dir_entry, uint32_t flags);
+
+  /* Grab named data associated with this node */
+  struct vobj* (*f_find) (struct vnode*, char*);
+
 };
 
 struct vnode_dir_ops {
@@ -29,7 +48,6 @@ struct vnode_dir_ops {
   int (*f_remove)(struct vnode* dir);
   int (*f_make)(struct vnode* dir);
   int (*f_rename)(struct vnode* dir, const char* new_name);
-  /* TODO: ;-; */
 };
 
 typedef struct vnode {
@@ -54,29 +72,16 @@ typedef struct vnode {
 
   uint8_t* m_data;
 
-  /* Write data to this node (really should fail if the node isn't taken) */
-  int (*f_write) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
-
-  /* Read data from this node (really should fail if the node isn't taken) */
-  int (*f_read) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
-
-  /* Send some data to this node and have whatever is connected do something for you */
-  int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
-
-  /* Force a sync between diffed buffers and the device */
-  int (*f_force_sync) (struct vnode*);
-
-  /* Grab named data associated with this node */
-  struct vobj* (*f_find) (struct vnode*, char*);
-  vobj_handle_t (*f_seek) (struct vnode*, char*);
-  struct vobj* (*f_resolve) (struct vnode*, vobj_handle_t);
-
+  struct partitioned_disk_dev* m_device;
+  struct generic_vnode_ops* m_ops; 
   struct vnode_dir_ops* m_dir_ops;
 
+  /*
+   * Objects can be anything from files to directories to simply kobjects
+   * and they should probably be stored in a hashtable here lol
+   */
   struct vobj* m_objects;
   size_t m_object_count;
-
-  /* TODO: other vnode operations */
 
   /* 
    * A node is either linked, or linking. We can't have a link referencing 

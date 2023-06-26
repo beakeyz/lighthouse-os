@@ -12,23 +12,39 @@
 #include <libk/stddef.h>
 
 struct sb_ops;
+struct vnode;
 
-typedef struct {
+typedef struct fs_superblock {
 
   struct sb_ops* m_ops;
   mutex_t* m_ops_lock;
 
   uint32_t m_blocksize;
+  uint32_t m_flags;
+
+  uint32_t m_free_blocks;
+  uint32_t m_dirty_blocks;
+  uint32_t m_faulty_blocks;
+  uint32_t m_total_blocks;
+
+  uint32_t m_first_usable_block;
+
   uintptr_t m_max_filesize;
 
   void* m_fs_specific_info;
-  /* TODO: */
-
   
+  /*
+  size_t m_block_count;
+  size_t m_reserved_block_count;
+  uintptr_t m_last_usable_block;
+  */
+
 } fs_superblock_t;
 
 typedef struct sb_ops {
   void (*destroy_fs_specific_info)(void*);
+  int (*reload_sb)(struct vnode*);
+  void (*remount_fs)(struct vnode*);
 } sb_ops_t;
 
 static fs_superblock_t* create_fs_superblock() {

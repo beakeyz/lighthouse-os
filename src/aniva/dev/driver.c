@@ -117,7 +117,7 @@ vnode_t* create_fs_driver(aniva_driver_t* driver) {
   node->m_dev = driver;
 
   /* Add msg hook */
-  node->f_msg = driver_fs_msg;
+  node->m_ops->f_msg = driver_fs_msg;
 
   return node;
 }
