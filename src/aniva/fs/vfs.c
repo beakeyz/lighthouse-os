@@ -4,6 +4,7 @@
 #include "dev/kterm/kterm.h"
 #include "fs/cache.h"
 #include "fs/core.h"
+#include "fs/directory.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
@@ -23,7 +24,12 @@ static vfs_t s_vfs;
  */
 static bool __vfs_path_is_absolute(const char* path)
 {
-  return false;
+  return (path[0] == VFS_ABS_PATH_IDENTIFIER);
+}
+
+vnamespace_t* vfs_get_abs_root() 
+{
+  return hive_get(s_vfs.m_namespaces, VFS_ROOT_ID);
 }
 
 ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
@@ -106,7 +112,72 @@ ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs
  * Just unmount whatever we find at the end of this path
  */
 ErrorOrPtr vfs_unmount(const char* path) {
+  kernel_panic("TODO: implement vfs_unmount");
+
+  /* 0) resolve whatever is at this path */
+  /* 1) if its a vnode, good. We can unmount those */
+  /* 1.1 -> Release all vobjects that are still open on this vnode */
+  /* 1.2 -> Clean up the vnode */
+  /* 1.3 -> Remove the vnode from the path */
+  /* 2) if its a vobj, good. We can also unmount those but with a little more work */
+  /* 2.1 -> Find the vnode responsible for this vobj */
+  /* 2.2 -> Ask the vnode to unmount the object for us */
+  /* 2.3 -> Clean up the vobj and detach it from its vnode */
+  /* 2.4 -> Clean up the path */
   return Error();
+}
+
+vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, const char* path)
+{
+
+  uint32_t i;
+  char* obj_id;
+  char buffer[strlen(path) + 1];
+
+  if (!path)
+    return nullptr;
+
+  if (!node && !rel_ns && !dir)
+    return vfs_resolve(path);
+
+  memcpy(buffer, path, strlen(path));
+  buffer[strlen(path)] = NULL;
+
+  if (!rel_ns && !dir)
+    return vn_open(node, buffer); 
+
+  if (!rel_ns)
+    return nullptr;
+
+  i = 0;
+
+  /*
+   * Shave off the next seperator 
+   * NOTE: we should end this loop with the object id sitting at the end
+   * of our index, since it comes right after the vnode path entry
+   */
+  while (buffer[i]) {
+    if (buffer[i] == VFS_PATH_SEPERATOR) {
+      buffer[i] = NULL;
+      break;
+    }
+    i++;
+  }
+
+  /* Find the node */
+  node = hive_get(rel_ns->m_vnodes, buffer);
+
+  if (!node)
+    return nullptr;
+
+  /* Place does not match */
+  if (buffer[i])
+    return nullptr;
+
+  /* Buffer the object id (path) which we have now reached */
+  obj_id = &buffer[i + 1];
+
+  return vn_open(node, obj_id);
 }
 
 /* TODO: support relative paths */
@@ -133,6 +204,9 @@ vobj_t* vfs_resolve(const char* path) {
 
   if (!path)
     return nullptr;
+
+  if (!__vfs_path_is_absolute(path))
+    return vfs_resolve_relative(vfs_get_abs_root(), nullptr, nullptr, path);
 
   path_length = strlen(path);
 
@@ -208,7 +282,7 @@ vobj_t* vfs_resolve(const char* path) {
   /* Buffer the object id (path) which we have now reached */
   obj_id = &path_copy[i + 1];
 
-  ret = end_vnode->m_ops->f_find(end_vnode, obj_id);
+  ret = vn_open(end_vnode, obj_id);
 
   return ret;
 }
@@ -226,6 +300,10 @@ vnode_t* vfs_resolve_node(const char* path) {
   size_t path_length;
 
   if (!path)
+    return nullptr;
+
+  /* Path to resolve a vnode must be absolute */
+  if (!__vfs_path_is_absolute(path))
     return nullptr;
 
   path_length = strlen(path);

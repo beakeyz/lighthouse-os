@@ -68,7 +68,7 @@ typedef struct proc {
 #define PROC_REAPER         (0x00000080) /* Process capable of killing other processes and threads */
 #define PROC_HAD_HANDLE     (0x00000100) /* Process is referenced in userspace by a handle */
 
-proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags);
+proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 proc_t* create_proc_from_path(const char* path);
 
@@ -89,6 +89,11 @@ ErrorOrPtr try_terminate_process(proc_t* proc);
 
 /* Heh? */
 void terminate_process(proc_t* proc);
+
+/*
+ * Exit the current process
+ */
+void proc_exit();
 
 bool proc_can_schedule(proc_t* proc);
 

@@ -4,37 +4,73 @@
 #include "fs/vobj.h"
 #include "libk/error.h"
 #include "libk/linkedlist.h"
+#include "libk/reference.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
-static vobj_t** find_vobject_path(vnode_t* node, const char* path);
+static vobj_t** find_vobject_path(vnode_t* node, const char* path) 
+{
+  if (!node || !path)
+    return nullptr;
+
+  vobj_t** ret = &node->m_objects;
+
+  /* Loop until there is no next object */
+  for (; *ret; ret = &(*ret)->m_next) {
+    /* Check path */
+    if (memcmp((*ret)->m_path, path, strlen(path)))
+      break;
+  }
+
+  return ret;
+}
+
+
+static vobj_t** find_vobject(vnode_t* node, vobj_t* obj) 
+{
+  if (!node || !obj)
+    return nullptr;
+
+  vobj_t** ret = &node->m_objects;
+
+  /* Loop until we match pointers */
+  for (; *ret; ret = &(*ret)->m_next) {
+    if (*ret == obj)
+      break;
+  }
+
+  return ret;
+}
+
 
 /*
  * Some dummy op functions
  */
-static int vnode_write(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
-  return -1;
-}
 
-static int vnode_read(vnode_t* node, void* buffer, uintptr_t offset, size_t size) {
-  return -1;
-}
-
-static int vnode_msg(vnode_t* node, driver_control_code_t code, void* buffer, size_t size) {
+static int vnode_msg(vnode_t* node, driver_control_code_t code, void* buffer, size_t size) 
+{
   return NULL;
 }
 
-static void* vnode_open_stream(vnode_t* node) {
+/*
+ * A stream is a glorified buffer that can take in and store data and notify
+ * stream holders of data changes, since the stream holds pointers to notification
+ * functions it calls when there is data IO in the stream
+ */
+static void* vnode_open_stream(vnode_t* node, void* stream, size_t stream_size) 
+{
   return NULL;
 }
 
-static void* vnode_close_stream(vnode_t* node) {
+static void* vnode_close_stream(vnode_t* node, void* stream) 
+{
   return NULL;
 }
   
-static vobj_t* vnode_find(vnode_t* node, char* name) {
+static vobj_t* vnode_open(vnode_t* node, char* name) 
+{
 
   if (!node || !name)
     return nullptr;
@@ -58,16 +94,39 @@ static vobj_t* vnode_find(vnode_t* node, char* name) {
   return nullptr;
 }
 
-static int vnode_force_sync(vnode_t* node) {
+static int vnode_close(vnode_t* node, vobj_t* obj)
+{
+  return 0;
+}
+
+static int vnode_force_sync(vnode_t* node) 
+{
+  return -1;
+}
+
+static int vnode_force_sync_once(vnode_t* node, vobj_t* obj) 
+{
+  return -1;
+}
+
+static int vnode_makedir(vnode_t* node, void* dir_entry, void* dir_attr, uint32_t flags)
+{
+  return -1;
+}
+
+static int vnode_rmdir(vnode_t* node, void* dir_entry, uint32_t flags)
+{
   return -1;
 }
 
 static struct generic_vnode_ops __generic_vnode_ops = {
-  .f_write = vnode_write,
-  .f_read = vnode_read,
   .f_force_sync = vnode_force_sync,
+  .f_force_sync_once = vnode_force_sync_once,
   .f_msg = vnode_msg,
-  .f_find = vnode_find,
+  .f_open = vnode_open,
+  .f_close = vnode_close,
+  .f_makedir = vnode_makedir,
+  .f_rmdir = vnode_rmdir,
 };
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
@@ -89,9 +148,6 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
 
   node->m_id = -1;
   node->m_flags = flags;
-
-//  node->f_open_stream = vnode_open_stream;
-//  node->f_close_stream = vnode_close_stream;
 
   return node;
 }
@@ -226,37 +282,6 @@ int vn_release(vnode_t* node) {
   mutex_unlock(node->m_lock);
 
   return 0;
-}
-
-static vobj_t** find_vobject(vnode_t* node, vobj_t* obj) {
-  if (!node || !obj)
-    return nullptr;
-
-  vobj_t** ret = &node->m_objects;
-
-  /* Loop until we match pointers */
-  for (; *ret; ret = &(*ret)->m_next) {
-    if (*ret == obj)
-      break;
-  }
-
-  return ret;
-}
-
-static vobj_t** find_vobject_path(vnode_t* node, const char* path) {
-  if (!node || !path)
-    return nullptr;
-
-  vobj_t** ret = &node->m_objects;
-
-  /* Loop until there is no next object */
-  for (; *ret; ret = &(*ret)->m_next) {
-    /* Check path */
-    if (memcmp((*ret)->m_path, path, strlen(path)))
-      break;
-  }
-
-  return ret;
 }
 
 ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
@@ -545,20 +570,47 @@ vnode_t* vn_get_link(vnode_t* node, const char* link_name) {
 /*
  * Wrapper around ->f_find
  */
-vobj_t* vn_find(vnode_t* node, char* name) {
+vobj_t* vn_open(vnode_t* node, char* name) {
 
   vobj_t* ret;
 
   if (!node || !name)
     return nullptr;
 
+  /* Look if we have it cached */
   ret = vn_get_object(node, name);
 
-  if (ret)
+  if (ret) {
+    vobj_ref(ret);
     return ret;
+  }
 
-  ret = node->m_ops->f_find(node, name);
+  ret = node->m_ops->f_open(node, name);
+
+  vobj_ref(ret);
 
   return ret;
 }
 
+int vn_close(vnode_t* node, struct vobj* obj)
+{
+  if (!node || !obj || !node->m_ops || !node->m_ops->f_close)
+    return -1;
+
+  if (node->m_ops->f_close(node, obj) < 0)
+    return -1;
+
+  /* Look if we have it attached */
+  vobj_t** slot = find_vobject(node, obj);
+
+  if (!slot || !*slot) {
+    return -1;
+  }
+
+  ASSERT_MSG(*slot == obj, "vn_close: *slot != obj (object mismatch)!");
+
+  /* Unref in order to only destroy when the object is not used anywhere */
+  vobj_unref(obj);
+
+  return 0;
+}

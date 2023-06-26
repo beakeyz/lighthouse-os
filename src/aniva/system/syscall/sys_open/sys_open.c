@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
+#include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
@@ -22,24 +23,33 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
   ret = HNDL_INVAL;
 
   switch (type) {
-    case HNDL_TYPE_FILE:;
+    case HNDL_TYPE_FILE:
+      {
+        vobj_t* obj = vfs_resolve(path);
 
-      vobj_t* obj = vfs_resolve(path);
+        if (!obj)
+          return HNDL_INVAL;
 
-      if (!obj)
-        return HNDL_INVAL;
+        create_khandle(&handle, &type, obj);
 
-      create_khandle(&handle, &type, obj);
-
-      result = bind_khandle(&process->m_handle_map, &handle);
-
-      println(to_string(Release(result)));
-
-      if (!IsError(result))
-        ret = Release(result);
-
-      break;
+        break;
+      }
     case HNDL_TYPE_PROC:
+      {
+        proc_t* proc = find_proc(path);
+
+        if (!proc)
+          return HNDL_NOT_FOUND;
+
+        /* Pretend we didn't find this one xD */
+        if (proc->m_flags & PROC_KERNEL)
+          return HNDL_NOT_FOUND;
+
+        /* We do allow handles to drivers */
+        create_khandle(&handle, &type, proc);
+
+        break;
+      }
     case HNDL_TYPE_DRIVER:
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
@@ -48,6 +58,13 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
       kernel_panic("Tried to open unimplemented handle!");
       break;
   }
+
+  result = bind_khandle(&process->m_handle_map, &handle);
+
+  println(to_string(Release(result)));
+
+  if (!IsError(result))
+    ret = Release(result);
 
   return ret;
 }

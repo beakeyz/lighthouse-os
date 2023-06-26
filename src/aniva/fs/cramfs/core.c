@@ -108,7 +108,7 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
 
   while (true) {
     /* Raw read :clown: */
-    int result = node->m_ops->f_read(node, &current_file, sizeof(tar_file_t), current_offset);
+    int result = ramfs_read(node, &current_file, sizeof(tar_file_t), current_offset);
 
     if (result)
       break;
@@ -151,9 +151,7 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
 }
 
 static struct generic_vnode_ops ramfs_vnode_ops = {
-  .f_read = ramfs_read,
-  .f_write = ramfs_write,
-  .f_find = ramfs_find,
+  .f_open = ramfs_find,
 };
 
 /*

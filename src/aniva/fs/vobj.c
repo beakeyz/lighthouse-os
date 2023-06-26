@@ -3,6 +3,7 @@
 #include "fs/file.h"
 #include "fs/vnode.h"
 #include "libk/error.h"
+#include "libk/reference.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
@@ -86,6 +87,25 @@ ErrorOrPtr vobj_generate_handle(vobj_t* object) {
   ret = crc + object->m_parent->m_object_count;
 
   return Success(ret);
+}
+
+void vobj_ref(vobj_t* obj) 
+{
+  if (!obj)
+    return;
+
+  flat_ref(&obj->m_refc);
+}
+
+void vobj_unref(vobj_t* obj)
+{
+  if (!obj)
+    return;
+
+  flat_unref(&obj->m_refc);
+
+  if (!obj->m_refc)
+    destroy_vobj(obj);
 }
 
 file_t* vobj_get_file(vobj_t* obj) {

@@ -92,8 +92,11 @@ int generic_f_sync(file_t* file) {
 
   parent_node = object->m_parent;
 
-  /* Write the entire file buffer to the node */
-  result = parent_node->m_ops->f_write(parent_node, file->m_data, file->m_size, 0);
+  if (!parent_node || !parent_node->m_ops || !parent_node->m_ops->f_force_sync_once)
+    return -1;
+
+  /* Just force the node to sync this object */
+  result = parent_node->m_ops->f_force_sync_once(parent_node, file->m_obj);
 
   if (result) {
     kernel_panic("FIXME: Could not sync file! (Implement handler)");

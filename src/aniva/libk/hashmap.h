@@ -33,6 +33,8 @@ typedef struct __hashmap {
 
 typedef ErrorOrPtr (*hashmap_itterate_fn_t) (hashmap_value_t value);
 
+void init_hashmap();
+
 hashmap_t* create_hashmap(size_t max_size, uint32_t flags);
 void destroy_hashmap(hashmap_t* map);
 

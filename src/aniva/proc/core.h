@@ -8,18 +8,20 @@
 #include "libk/vector.h"
 #include "libk/queue.h"
 
-#define DEFAULT_STACK_SIZE (16 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS 1
+#define DEFAULT_STACK_SIZE                      (16 * Kib)
+#define DEFAULT_THREAD_MAX_TICKS                (1)
 
-#define PROC_DEFAULT_MAX_THREADS 16
-#define PROC_CORE_PROCESS_NAME "[aniva-core]"
-#define PROC_MAX_TICKS 4
+#define PROC_DEFAULT_MAX_THREADS                (16)
+#define PROC_CORE_PROCESS_NAME                  "[aniva-core]"
+#define PROC_MAX_TICKS                          (4)
 
-#define MIN_SOCKET_BUFFER_SIZE 0
+#define PROC_SOFTMAX                            (0x1000)
+
+#define MIN_SOCKET_BUFFER_SIZE                  (0)
 // FIXME: should this be the max size?
-#define SOCKET_DEFAULT_SOCKET_BUFFER_SIZE 4096
-#define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT 128
-#define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT 64
+#define SOCKET_DEFAULT_SOCKET_BUFFER_SIZE       (4096)
+#define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT     (128)
+#define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT     (64)
 
 extern char thread_entry_stub[];
 extern char thread_entry_stub_end[];
@@ -91,6 +93,9 @@ struct threaded_socket *find_registered_socket(uint32_t port);
 
 struct proc* find_proc(const char* name);
 struct thread* find_thread(struct proc* proc, uint64_t tid);
+
+ErrorOrPtr proc_register(struct proc* proc);
+ErrorOrPtr proc_unregister(char* name);
 
 /*
  * send a data-packet to a port

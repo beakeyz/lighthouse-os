@@ -282,15 +282,7 @@ void kterm_command_worker() {
       } else if (!strcmp(contents, "testramdisk")) {
 
         kterm_println("\nFinding node...\n");
-        vnode_t* ramfs = vfs_resolve_node("Devices/disk/cramfs");
-        kterm_println("\nFound node\n");
-
-        if (!ramfs){
-          kernel_panic("Could not resolve ramfs");
-        }
-
-        kterm_println("\nFinding file...\n");
-        vobj_t* obj = vn_find(ramfs, "init");
+        vobj_t* obj = vfs_resolve("Root/init");
 
         ASSERT_MSG(obj, "Could not get vobj from test");
         ASSERT_MSG(obj->m_type == VOBJ_TYPE_FILE, "Object was not a file!");

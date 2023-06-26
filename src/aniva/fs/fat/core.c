@@ -139,11 +139,11 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   println(to_string(device->m_superblock->m_free_blocks));
 
   /* TODO: */
-  vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
+  //vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
 
-  kernel_panic("Test");
+  //kernel_panic("Test");
 
-  return node;
+  return nullptr;
 
 fail:
 

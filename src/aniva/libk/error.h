@@ -22,7 +22,7 @@ NORETURN void __kernel_panic();
 NORETURN void kernel_panic(const char* panic_message);
 
 #define ASSERT(condition) ((condition) ? (void)0 : kernel_panic("Assertion failed! TODO: stacktrace!"))
-#define ASSERT_MSG(condition, msg) if (!(condition)) { print("Assertion failed: "); kernel_panic(msg); }
+#define ASSERT_MSG(condition, msg) do { if (!(condition)) { print("Assertion failed: "); kernel_panic(msg); } } while(0)
 
 // TODO: Add error messages
 ALWAYS_INLINE ErrorOrPtr Error() {

@@ -63,6 +63,7 @@ static struct gdisk_store_entry* create_gdisk_store_entry(generic_disk_dev_t* de
 
   ret->dev = device;
   ret->next = nullptr;
+
   device->m_uid = generate_new_disk_uid();
 
   return ret;
@@ -447,6 +448,14 @@ void init_root_device_probing() {
 
     partitioned_disk_dev_t* part = root_device->m_devs;
 
+    if (root_device->m_flags & GDISKDEV_RAM) {
+
+      if (IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", part)))
+        goto cycle_next;
+
+      break;
+    }
+
     /*
      * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,
      * we bruteforce every partition and check if it contains a valid FAT32 filesystem. If
@@ -454,9 +463,6 @@ void init_root_device_probing() {
      * that drive and partition as our root.
      */
     while (part) {
-
-      print("Testing for fat filesystem: ");
-      println(part->m_name);
 
       /*
        * Test for a fat32 filesystem
@@ -473,11 +479,12 @@ void init_root_device_probing() {
       part = part->m_next;
     }
 
+cycle_next:
     device_index++;
     root_device = find_gdisk_device(device_index);
   }
 
-  kernel_panic("init_root_device_probing test");
+  //kernel_panic("init_root_device_probing test");
 
 }
 

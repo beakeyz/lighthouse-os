@@ -3,7 +3,11 @@
 #include "libk/error.h"
 #include "libk/string.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include <crypto/k_crc32.h>
+
+static zone_allocator_t* __hash_entry_allocator;
 
 /*
  * Main hash function for string keys
@@ -40,10 +44,10 @@ static hashmap_entry_t* __create_hashmap_entry(hashmap_value_t data, uint32_t fl
 {
   hashmap_entry_t* entry;
 
-  if (!data)
+  if (!data || !__hash_entry_allocator)
     return nullptr;
 
-  entry = kmalloc(sizeof(hashmap_entry_t));
+  entry = zalloc_fixed(__hash_entry_allocator);
 
   if (!entry)
     return nullptr;
@@ -60,13 +64,12 @@ static hashmap_entry_t* __create_hashmap_entry(hashmap_value_t data, uint32_t fl
  */
 static void __destroy_hashmap_entry(hashmap_entry_t* entry)
 {
-
-  if (!entry)
+  if (!entry || !__hash_entry_allocator)
     return;
 
   memset(entry, 0, sizeof(hashmap_entry_t));
 
-  kfree(entry);
+  zfree_fixed(__hash_entry_allocator, entry);
 }
 
 /*
@@ -94,6 +97,8 @@ hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
 
   hashmap_t* ret;
   size_t hashmap_size;
+  size_t aligned_size;
+  uint32_t delta;
 
   if (!max_size)
     return nullptr;
@@ -102,11 +107,17 @@ hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
   flags |= HASHMAP_FLAG_CA;
 
   hashmap_size = __get_hashmap_size(max_size, flags);
+  aligned_size = ALIGN_UP(hashmap_size, SMALL_PAGE_SIZE);
 
-  ret = kmalloc(hashmap_size);
+  ret = (hashmap_t*)Must(__kmem_kernel_alloc_range(aligned_size, 0, 0));
 
   if (!ret)
     return nullptr;
+
+  delta = aligned_size - hashmap_size;
+
+  /* We are able to claim this memory just for free entries, so lets take it =D */
+  max_size += delta;
 
   memset(ret, 0, hashmap_size);
 
@@ -579,4 +590,11 @@ ErrorOrPtr hashmap_remove(hashmap_t* map, hashmap_key_t key) {
     return __hashmap_remove_closed(map, key);
 
   return __hashmap_remove_open(map, key);
+}
+
+void init_hashmap() 
+{
+  __hash_entry_allocator = create_zone_allocator_ex(nullptr, NULL, 64 * Kib, sizeof(hashmap_entry_t), 0);
+
+  ASSERT_MSG(__hash_entry_allocator, "Failed to create hashentry allocator!");
 }

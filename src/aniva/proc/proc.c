@@ -24,8 +24,15 @@
 #include "core.h"
 #include <mem/heap.h>
 
-proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags) {
-  proc_t *proc = kmalloc(sizeof(proc_t));
+proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
+  size_t name_length;
+  proc_t *proc;
+
+  if (!name || !entry)
+    return nullptr;
+
+  /* TODO: create proc cache */
+  proc = kmalloc(sizeof(proc_t));
   memset(proc, 0, sizeof(proc_t));
 
   if (proc == nullptr) {
@@ -54,11 +61,19 @@ proc_t* create_proc(char name[32], FuncPtr entry, uintptr_t args, uint32_t flags
 
   proc->m_threads = init_list();
 
-  memcpy(proc->m_name, name, 31);
+  name_length = strlen(name);
+
+  if (name_length > 31)
+    name_length = 31;
+
+  memcpy(proc->m_name, name, name_length);
+  proc->m_name[31] = NULL;
 
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
   Must(proc_add_thread(proc, thread));
+
+  proc_register(proc);
 
   return proc;
 }
@@ -155,7 +170,9 @@ static void __proc_clear_handles(proc_t* proc)
           ASSERT_MSG(node, "File handle vobj didn't have a parent node!");
 
           /* destroy_vobj also detaches from the vnode */
-          destroy_vobj(current_handle->reference.vobj);
+          //destroy_vobj(current_handle->reference.vobj);
+          vn_close(node, current_handle->reference.vobj);
+
           break;
         }
       case KHNDL_TYPE_PROC:
@@ -199,6 +216,10 @@ void destroy_proc(proc_t* proc) {
   if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
+
+  proc_unregister(proc->m_name);
+
+  kfree(proc);
 }
 
 
@@ -239,7 +260,12 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
   return Success(0);
 }
 
-void terminate_process(proc_t* proc);
+
+void proc_exit() 
+{
+  try_terminate_process(get_current_proc());
+  scheduler_yield();
+}
 
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
   if (!thread || !proc)

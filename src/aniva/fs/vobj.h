@@ -2,6 +2,7 @@
 #define __ANIVA_VFS_VOBJ__
 
 #include "libk/error.h"
+#include "libk/reference.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -51,6 +52,8 @@ typedef struct vobj {
   uint32_t m_flags;
   VOBJ_TYPE_t m_type;
 
+  flat_refc_t m_refc;
+
   struct vnode* m_parent;
   vobj_ops_t* m_ops;
   mutex_t* m_lock;
@@ -88,6 +91,9 @@ typedef struct vobj {
  */ 
 vobj_t* create_generic_vobj(struct vnode* parent, const char* path);
 void destroy_vobj(vobj_t* obj);
+
+void vobj_ref(vobj_t* obj);
+void vobj_unref(vobj_t* obj);
 
 ErrorOrPtr vobj_generate_handle(vobj_t* object);
 bool vobj_verify_handle(vobj_t* object);

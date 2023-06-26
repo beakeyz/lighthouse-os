@@ -23,24 +23,21 @@ enum VNODE_TYPES {
 
 /* TODO: migrate ops to these structs */
 struct generic_vnode_ops {
-  /* Write data to this node (really should fail if the node isn't taken) */
-  int (*f_write) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
-
-  /* Read data from this node (really should fail if the node isn't taken) */
-  int (*f_read) (struct vnode*, void* buffer, size_t size, uintptr_t offset);
-
   /* Send some data to this node and have whatever is connected do something for you */
   int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
 
   /* Force a sync between diffed buffers and the device */
   int (*f_force_sync) (struct vnode*);
+  int (*f_force_sync_once) (struct vnode*, struct vobj*);
 
-  int (*f_make_dir)(struct vnode*, void* dir_entry, void* dir_attr, uint32_t flags);
-  int (*f_rm_dir)(struct vnode*, void* dir_entry, uint32_t flags);
+  int (*f_makedir)(struct vnode*, void* dir_entry, void* dir_attr, uint32_t flags);
+  int (*f_rmdir)(struct vnode*, void* dir_entry, uint32_t flags);
 
   /* Grab named data associated with this node */
-  struct vobj* (*f_find) (struct vnode*, char*);
+  struct vobj* (*f_open) (struct vnode*, char*);
 
+  /* Close a vobject that has been opened by this vnode */
+  int (*f_close)(struct vnode*, struct vobj*); 
 };
 
 struct vnode_dir_ops {
@@ -49,6 +46,8 @@ struct vnode_dir_ops {
   int (*f_make)(struct vnode* dir);
   int (*f_rename)(struct vnode* dir, const char* new_name);
 };
+
+#define VN_PERTDEV(node) ((struct partitioned_disk_dev*)node->m_dev)
 
 typedef struct vnode {
   mutex_t* m_lock;
@@ -161,8 +160,7 @@ ErrorOrPtr vn_unlink(vnode_t* node, vnode_t* link);
 
 vnode_t* vn_get_link(vnode_t* node, const char* link_name);
 
-struct vobj* vn_find(vnode_t* node, char* name);
-vobj_handle_t vn_seek(vnode_t* node, char* name);
-struct vobj* vn_resolve(vnode_t* node, vobj_handle_t handle);
+struct vobj* vn_open(vnode_t* node, char* name);
+int vn_close(vnode_t* node, struct vobj* obj);
 
 #endif // !__ANIVA_VNODE__

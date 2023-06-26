@@ -22,6 +22,7 @@
 #define VFS_DEFAULT_INIT_MP     "Init"
 
 struct vfs;
+struct vdir;
 struct fs_type;
 struct aniva_driver;
 
@@ -71,19 +72,25 @@ ErrorOrPtr vfs_unmount(const char* path);
 ErrorOrPtr vfs_link(const char* link_path, const char* linked_path);
 
 /*
- * Resolve an absolute path
+ * Resolve a path into a vobject
+ * 
+ * We check if the path is relative or absolute by looking for 
+ * the VFS_ROOT_ID at the start of the path
+ * If this path is relative, we only try to resolve from the root node 
+ * with vfs_resolve_relative
+ * if that fails we return nullptr
  */
 vobj_t* vfs_resolve(const char* path);
+
+vnamespace_t* vfs_get_abs_root();
 
 /*
  * Both *namespace* and *node* are optional, when the path is absolute, or either are optional 
  * when its not. Any other case will return nullptr
  */
-vobj_t* vfs_resolve_relative(vnamespace_t* namespace, vnode_t* node, const char* path);
+vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, struct vdir* dir, const char* path);
 
 vnode_t* vfs_resolve_node(const char* path);
-
-// vnamespace_t* vfs_ensure_attached_namespace(const char* path);
 
 vnamespace_t* vfs_create_path(const char* path);
 

@@ -3,7 +3,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "libk/queue.h"
-#include "libk/vector.h"
+#include <libk/hashmap.h>
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -18,10 +18,39 @@ static uint32_t s_highest_port_cache;
 
 static spinlock_t* s_core_socket_lock;
 
+static hashmap_t* __proc_map;
 // TODO: fix this mechanism, it sucks
 static atomic_ptr_t* __next_proc_id;
 
 static void revalidate_port_cache();
+
+static ErrorOrPtr __register_proc(proc_t* proc)
+{
+  if (!proc || !__proc_map)
+    return Error();
+
+  return hashmap_put(__proc_map, proc->m_name, proc);
+}
+
+static ErrorOrPtr __unregister_proc(proc_t* proc)
+{
+  if (!proc || !__proc_map)
+    return Error();
+
+  return hashmap_remove(__proc_map, proc->m_name);
+}
+
+static ErrorOrPtr __unregister_proc_by_name(const char* name)
+{
+  hashmap_key_t key;
+  
+  if (!name || !__proc_map)
+    return Error();
+
+  key = (hashmap_key_t)name;
+
+  return hashmap_remove(__proc_map, key);
+}
 
 ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, uint32_t custom_flags, uint32_t page_flags) {
 
@@ -192,11 +221,41 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
 }
 
 proc_t* find_proc(const char* name) {
-  kernel_panic("TODO: implement find_proc");
+
+  proc_t* ret;
+  hashmap_key_t key;
+
+  if (!name || !__proc_map)
+    return nullptr;
+
+  key = (hashmap_key_t)name;
+
+  ret = hashmap_get(__proc_map, key);
+
+  return ret;
 }
 
 thread_t* find_thread(proc_t* proc, uint64_t tid) {
   kernel_panic("TODO: implement find_thread");
+}
+
+
+ErrorOrPtr proc_register(struct proc* proc)
+{
+  ErrorOrPtr result;
+
+  result = __register_proc(proc);
+
+  return result;
+}
+
+ErrorOrPtr proc_unregister(char* name) 
+{
+  ErrorOrPtr result;
+
+  result = __unregister_proc_by_name(name);
+
+  return result;
 }
 
 threaded_socket_t *find_registered_socket(uint32_t port) {
@@ -296,6 +355,8 @@ ANIVA_STATUS init_proc_core() {
   s_sockets = init_list();
   s_core_socket_lock = create_spinlock();
   __next_proc_id = create_atomic_ptr_with_value(1);
+
+  __proc_map = create_hashmap(PROC_SOFTMAX, HASHMAP_FLAG_CA);
 
   return ANIVA_SUCCESS;
 }

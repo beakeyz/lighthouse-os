@@ -51,13 +51,13 @@ void kthread_entry();
 /*
  * NOTE: has to be run after driver initialization
  */
-void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
+ErrorOrPtr __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   println("Looking for ramdisk...");
 
   struct multiboot_tag_module* mod = get_mb2_tag((void*)multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
 
   if (!mod)
-    return;
+    return Error();
 
   const paddr_t module_start = mod->mod_start;
   const paddr_t module_end = mod->mod_end;
@@ -71,16 +71,14 @@ void __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   /* Create ramdisk object */
   generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
+  if (!ramdisk)
+    return Error();
+
   /* We know ramdisks through modules are compressed */
   ramdisk->m_flags |= GDISKDEV_RAM_COMPRESSED;
 
-  partitioned_disk_dev_t* partitioned_device = find_partition_at(ramdisk, 0);
-
-  ASSERT_MSG(partitioned_device, "No base partition in the ram device!");
-
-  Must(vfs_mount_fs("Devices/disk", "cramfs", "cramfs", partitioned_device));
-
-  println("Done doing ramdisk things");
+  /* Register the ramdisk as a disk device */
+  return register_gdisk_dev(ramdisk);
 }
 
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
@@ -134,6 +132,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // Initialize kevent
   init_kevents();
 
+  init_hashmap();
+
   init_timer_system();
 
   init_acpi(multiboot_addr);
@@ -146,8 +146,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_fs_core();
 
-  // NOTE: test
-  // TODO: how the actual fuck do we want to manage devices in our kernel???
+  // FIXME
   // are we going micro, mono or perhaps even exo?
   // how big will the role of the vfs be?
   //  * how will processes even interact with the kernel??? * 
@@ -189,7 +188,7 @@ void test_proc_entry(uintptr_t arg) {
   uintptr_t thing = 5;
 
   /* Let's attempt to terminate ourselves */
-  try_terminate_process(get_current_proc());
+  proc_exit();
 
   for (;;) {
     asm volatile("hlt");
@@ -199,6 +198,7 @@ void test_proc_entry(uintptr_t arg) {
 void kthread_entry() {
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
+
 
   init_gdisk_dev();
 

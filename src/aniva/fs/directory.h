@@ -4,6 +4,8 @@
 #include <libk/stddef.h>
 
 struct vobj;
+struct vdir;
+struct vdir_ops;
 struct vdir_attr;
 
 /*
@@ -34,5 +36,8 @@ typedef struct vdir_attr {
   uint32_t m_flags;
   size_t m_total_size_under;
 } vdir_attr_t;
+
+typedef struct vdir_ops {
+} vdir_ops_t;
 
 #endif // !__ANIVA_DIRECTORY_VOBJ__
