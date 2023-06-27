@@ -39,11 +39,11 @@ struct kresource_mirror;
 
 #define KRES_TYPE_COUNT         (KRES_MAX_TYPE+1)
 
-#define KRES_FLAG_BASE_RESOURCE (0x00000001) /* This resource is the parent of all other resources */
-#define KRES_FLAG_SHARED        (0x00000002) /* This resource has a refcount of > 1 */
-#define KRES_FLAG_NEVER_SHARE   (0x00000004) /* Never share this resource */
-#define KRES_FLAG_PROTECTED_R   (0x00000008) /* Protected resource: reads should be checked */
-#define KRES_FLAG_PROTECTED_W   (0x00000010) /* Protected resource: writes should be checked */
+#define KRES_FLAG_BASE_RESOURCE (0x0001) /* This resource is the parent of all other resources */
+#define KRES_FLAG_SHARED        (0x0002) /* This resource has a refcount of > 1 */
+#define KRES_FLAG_NEVER_SHARE   (0x0004) /* Never share this resource */
+#define KRES_FLAG_PROTECTED_R   (0x0008) /* Protected resource: reads should be checked */
+#define KRES_FLAG_PROTECTED_W   (0x0010) /* Protected resource: writes should be checked */
 #define KRES_FLAG_PROTECTED_RW  (KRES_FLAG_PROTECTED_R | KRES_FLAG_PROTECTED_W) /* Both reads and writes are protected */
 
 typedef uint16_t kresource_type_t; 

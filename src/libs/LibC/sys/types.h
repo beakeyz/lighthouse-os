@@ -35,6 +35,8 @@ typedef uint64_t    qword_t;
 #define FLOAT32     float
 #define FLOAT64     double
 
+#define VOID        void
+
 typedef void (*FuncPtr)();
 
 #define asm __asm__

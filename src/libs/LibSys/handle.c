@@ -7,9 +7,8 @@
  * invalide, otherwise use a syscall (TODO) to verify if the 
  * handle gives a valid result
  */
-BOOL verify_handle(
-  __IN__ handle_t handle
-) {
+BOOL verify_handle(__IN__ handle_t handle)
+{
   if (handle < 0)
     return FALSE;
 
@@ -26,7 +25,8 @@ HANDLE_t open_handle(
   __IN__ __OPTIONAL__ HANDLE_TYPE_t type,
   __IN__ DWORD flags,
   __IN__ DWORD mode
-) {
+)
+{
   HANDLE_t ret;
 
   if (!path)
