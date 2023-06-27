@@ -1,0 +1,6 @@
+#ifndef __LIGHTENV_MEM_DEALLOC__
+#define __LIGHTENV_MEM_DEALLOC__
+
+
+
+#endif // !__LIGHTENV_MEM_DEALLOC__

@@ -13,10 +13,24 @@ extern void abort(void);
 extern int atexit(void (*)(void));
 extern int atoi(const char*);
 
-extern void* malloc(size_t __size);
-extern void* calloc(size_t count, size_t __size);
+/*
+ * Allocate a block of memory on the heap
+ */
+extern void* malloc(size_t __size) __attribute__((malloc));
 
-extern void* realloc(void* ptr, size_t __size);
+/*
+ * Allocate count blocks of memory of __size bytes
+ */
+extern void* calloc(size_t count, size_t __size) __attribute__((malloc));
+
+/*
+ * Reallocate the block at ptr of __size bytes
+ */
+extern void* realloc(void* ptr, size_t __size) __attribute__((malloc));
+
+/*
+ * Free a block of memory allocated by malloc, calloc or realloc
+ */
 extern void free(void*);
 
 extern char* getenv(const char*);

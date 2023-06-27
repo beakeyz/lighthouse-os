@@ -7,17 +7,17 @@ extern "C" {
 
 #include <stdint.h>
 
-unsigned long long strlen(const char* str);
+extern unsigned long long strlen(const char* str);
 
-int strcmp (const char* str1, const char* str2);
-char* strcpy (char* dest, const char* src);
+extern int strcmp (const char* str1, const char* str2);
+extern char* strcpy (char* dest, const char* src);
 
-int memcmp (const void* dest, const void* src, size_t size);
-void *memcpy(void * restrict dest, const void * restrict src, size_t length);
+extern int memcmp (const void* dest, const void* src, size_t size);
+extern void *memcpy(void * restrict dest, const void * restrict src, size_t length);
 
-void *memmove(void *dest, const void *src, size_t n);
-void *memset(void *data, int value, size_t length);
-void *memchr(const void *s, int c, size_t n);
+extern void *memmove(void *dest, const void *src, size_t n);
+extern void *memset(void *data, int value, size_t length);
+extern void *memchr(const void *s, int c, size_t n);
 
 #ifdef __cplusplus
 }

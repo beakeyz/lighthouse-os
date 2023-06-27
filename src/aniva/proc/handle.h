@@ -42,7 +42,8 @@ typedef struct kernel_handle {
 #define KHDNL_PROT_LVL_LOWEST       (0)
 
 #define KHNDL_FLAG_BUSY             (0x01) /* khandle is busy and we have given up waiting for it */
-#define KHNDL_FLAG_WAITING          (0x02) /* khandle is busy but we are waiting for it to be free */
+#define KHNDL_FLAG_WAITING          (0x02) /* khandle is busy but we are waiting for it to be free so opperations on this handle can be queued if needed */
+#define KHNDL_FLAG_LOCKED           (0x04) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
 #define KHNDL_FLAG_INVALID          (0x80) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 
 #define KHNDL_TYPE_NONE             (0)
