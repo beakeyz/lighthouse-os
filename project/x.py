@@ -210,7 +210,10 @@ class GenerateUserProcessCallback(CommandCallback):
 class InstallImageCallback(CommandCallback):
     def call(self) -> Status:
         installer = Installer(InstallerType.IMAGE)
-        # TODO
+
+        if (installer.install() == True):
+            return Status(StatusCode.Success, "Installed!")
+
         return Status(StatusCode.Fail, "TODO")
 
     
@@ -218,7 +221,10 @@ class InstallImageCallback(CommandCallback):
 class InstallDeviceCallback(CommandCallback):
     def call(self) -> Status:
         installer = Installer(InstallerType.DEVICE)
-        # TODO
+
+        if (installer.install() == True):
+            return Status(StatusCode.Success, "Installed!")
+
         return Status(StatusCode.Fail, "TODO")
 
 # Global todos:

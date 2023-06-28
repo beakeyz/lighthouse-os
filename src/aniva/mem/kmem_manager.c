@@ -820,7 +820,6 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, proc_t* process, paddr_t addr, vadd
      * try to release it
      */
     resource_claim(ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
-    debug_resources(KRES_TYPE_MEM);
   }
 
   return Success(ret);
@@ -849,7 +848,6 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, 
 
   if (process) {
     resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
-    debug_resources(KRES_TYPE_MEM);
   }
 
   return Success(virt_base);

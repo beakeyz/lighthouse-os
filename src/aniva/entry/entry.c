@@ -75,7 +75,7 @@ ErrorOrPtr __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
     return Error();
 
   /* We know ramdisks through modules are compressed */
-  ramdisk->m_flags |= GDISKDEV_RAM_COMPRESSED;
+  ramdisk->m_flags |= GDISKDEV_FLAG_RAM_COMPRESSED;
 
   /* Register the ramdisk as a disk device */
   return register_gdisk_dev(ramdisk);

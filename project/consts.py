@@ -2,12 +2,25 @@ import os
 from os.path import isdir, isfile
 from stats.lines import SourceFile, SourceLanguage
 
+def take_input(string: str) -> str:
+    '''
+    Generic routine we can use to generate a consistent input prompt
+    '''
+
+    if string is None:
+        return None
+
+    return input(f"({string}) > ")
+
 
 class Consts:
     PROJECT_NAME: str = "lighthouse-os"
     KERNEL_NAME: str = "Aniva"
 
     PROJECT_DIR = str(os.path.abspath(""))
+
+    # Path where we can store our configuration
+    PROJECT_DATA_DIR = PROJECT_DIR + "/.data"
 
     SRC_DIR_NAME = "src"
     OUT_DIR_NAME = "out"

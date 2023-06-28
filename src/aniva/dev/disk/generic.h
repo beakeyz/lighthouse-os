@@ -33,13 +33,15 @@ typedef struct disk_dev {
   const char* m_device_name;
   char* m_path;
 
-  /* Generic uid that acts as an index into the list of device that are available */
-  disk_uid_t m_uid;
-  uint8_t m_partition_type;
-
   uint32_t m_flags;
 
-  uint16_t m_firmware_rev[4];
+  uint16_t m_reserved;
+
+  /* Generic uid that acts as an index into the list of device that are available */
+  disk_uid_t m_uid;         // 8 bits
+  uint8_t m_partition_type; // 8 bits
+
+  uint16_t m_firmware_rev[4]; // 64 bits
 
   uintptr_t m_max_blk;
   size_t m_logical_sector_size;
@@ -51,11 +53,11 @@ typedef struct disk_dev {
   struct partitioned_disk_dev* m_devs;
 } generic_disk_dev_t;
 
-#define GDISKDEV_SCSI                   (0x00000001) /* Does this device use SCSI */
-#define GDISKDEV_RAM                    (0x00000002) /* Is this a ramdevice */
-#define GDISKDEV_RAM_COMPRESSED         (0x00000004) /* Is this a compressed ramdevice */
+#define GDISKDEV_FLAG_SCSI                   (0x00000001) /* Does this device use SCSI */
+#define GDISKDEV_FLAG_RAM                    (0x00000002) /* Is this a ramdevice */
+#define GDISKDEV_FLAG_RAM_COMPRESSED         (0x00000004) /* Is this a compressed ramdevice */
 
-#define PD_FLAG_ONLY_SYNC               (0x00000001) /* This partitioned device can't use async IO */
+#define PD_FLAG_ONLY_SYNC                    (0x00000001) /* This partitioned device can't use async IO */
 
 typedef struct partitioned_disk_dev {
   struct disk_dev* m_parent;

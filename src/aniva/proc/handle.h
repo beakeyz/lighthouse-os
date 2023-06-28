@@ -22,8 +22,8 @@ typedef uint8_t khandle_type_t;
  */
 typedef struct kernel_handle {
   khandle_type_t type;
-  uint8_t flags;
-  uint16_t protection_lvl;
+  uint8_t protection_lvl;
+  uint16_t flags;
   uint32_t index;
   union {
     struct file* file;
@@ -35,16 +35,19 @@ typedef struct kernel_handle {
   } reference;
 } khandle_t;
 
-#define KHNDL_PROT_LVL_TOP          (1200)
-#define KHNDL_PROT_LVL_HIGH         (800)
-#define KHNDL_PROT_LVL_MEDIUM       (500)
-#define KHDNL_PROT_LVL_LOW          (250)
+#define KHNDL_PROT_LVL_TOP          (0xFF)
+#define KHNDL_PROT_LVL_HIGH         (150)
+#define KHNDL_PROT_LVL_MEDIUM       (100)
+#define KHDNL_PROT_LVL_LOW          (50)
 #define KHDNL_PROT_LVL_LOWEST       (0)
 
-#define KHNDL_FLAG_BUSY             (0x01) /* khandle is busy and we have given up waiting for it */
-#define KHNDL_FLAG_WAITING          (0x02) /* khandle is busy but we are waiting for it to be free so opperations on this handle can be queued if needed */
-#define KHNDL_FLAG_LOCKED           (0x04) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
-#define KHNDL_FLAG_INVALID          (0x80) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
+#define KHNDL_FLAG_BUSY             (0x0001) /* khandle is busy and we have given up waiting for it */
+#define KHNDL_FLAG_WAITING          (0x0002) /* khandle is busy but we are waiting for it to be free so opperations on this handle can be queued if needed */
+#define KHNDL_FLAG_LOCKED           (0x0004) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
+#define KHNDL_FLAG_READACCESS       (0x0008)
+#define KHNDL_FLAG_WRITEACCESS      (0x0010)
+#define KHNDL_FLAG_RW_ACCESS        (KHNDL_FLAG_READACCESS | KHNDL_FLAG_WRITEACCESS)
+#define KHNDL_FLAG_INVALID          (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 
 #define KHNDL_TYPE_NONE             (0)
 #define KHNDL_TYPE_FILE             (1)

@@ -327,7 +327,7 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   generic_disk_dev_t* dev = kmalloc(sizeof(generic_disk_dev_t));
   memset(dev, 0x00, sizeof(generic_disk_dev_t));
 
-  dev->m_flags |= GDISKDEV_RAM;
+  dev->m_flags |= GDISKDEV_FLAG_RAM;
   dev->m_parent = nullptr;
   dev->m_ops.f_read_sync = ramdisk_read;
   dev->m_ops.f_write_sync = ramdisk_write;
@@ -348,7 +348,7 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
 bool destroy_generic_ramdev(generic_disk_dev_t* device) {
 
   /* If we get passed a faulty ramdevice, just die */
-  if (!device || (device->m_flags & GDISKDEV_RAM) == 0 || !device->m_devs || device->m_devs->m_next)
+  if (!device || (device->m_flags & GDISKDEV_FLAG_RAM) == 0 || !device->m_devs || device->m_devs->m_next)
     return false;
 
   const uintptr_t start_addr = device->m_devs->m_start_lba;
@@ -448,7 +448,7 @@ void init_root_device_probing() {
 
     partitioned_disk_dev_t* part = root_device->m_devs;
 
-    if (root_device->m_flags & GDISKDEV_RAM) {
+    if (root_device->m_flags & GDISKDEV_FLAG_RAM) {
 
       if (IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", part)))
         goto cycle_next;

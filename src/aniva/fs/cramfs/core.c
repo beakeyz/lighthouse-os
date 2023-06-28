@@ -171,7 +171,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   if (!parent)
     return nullptr;
 
-  if ((parent->m_flags & GDISKDEV_RAM) == 0)
+  if ((parent->m_flags & GDISKDEV_FLAG_RAM) == 0)
     return nullptr;
 
   const size_t partition_size = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
@@ -181,7 +181,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   node->m_size = partition_size;
   node->m_data = (uint8_t*)device->m_start_lba;
 
-  if (parent->m_flags & GDISKDEV_RAM_COMPRESSED) {
+  if (parent->m_flags & GDISKDEV_FLAG_RAM_COMPRESSED) {
     size_t decompressed_size = cram_find_decompressed_size(device);
 
     ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
