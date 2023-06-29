@@ -853,8 +853,28 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, 
   return Success(virt_base);
 }
 
-ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
-  kernel_panic("TODO: implement __kmem_map_and_alloc_scattered");
+/*
+ * This function will never remap, and the vbase will 
+ */
+ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+
+  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+  const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
+  const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
+
+  kresource_mirror_t resource;
+
+  //TRY(query_result, query_unused_resource(size, KRES_TYPE_MEM, &resource, &process->m_resources));
+
+  const vaddr_t virt_base = resource.m_start;
+
+  kernel_panic("TODO: implement __kmem_map_kernel_range_to_map");
+
+  if (process) {
+    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+  }
+
+  return Success(virt_base);
 }
 
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 

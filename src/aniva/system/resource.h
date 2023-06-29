@@ -105,9 +105,27 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, struct kresource_mirro
 typedef struct kresource_mirror {
   uintptr_t m_start;
   size_t m_size;
+
   kresource_type_t m_type;
   kresource_flags_t m_flags;
+
+  uint32_t m_reserved0;
+
   struct kresource_mirror* m_next;
 } kresource_mirror_t;
+
+/*
+ * Try to change the flags of a certain resource
+ * size is nullable
+ * NULL resource_flags will result in a flag reset to defaults
+ */
+ErrorOrPtr mutate_resource(uintptr_t start, size_t size, kresource_type_t type, kresource_flags_t resource_flags, kresource_mirror_t** mirrors);
+
+/*
+ * Looks for a unused virtual region of the specified size we can 
+ * Creates a kresource mirror that may be used in order to 
+ * claim this region, for instance
+ */
+ErrorOrPtr query_unused_resource(size_t size, kresource_type_t type, kresource_mirror_t* out, kresource_mirror_t** mirrors);
 
 #endif // !__ANIVA_SYS_RESOURCE__

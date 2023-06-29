@@ -6,6 +6,7 @@
 #include "proc/thread.h"
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
+#include "system/syscall/sys_alloc/sys_alloc_mem.h"
 #include "system/syscall/sys_exit/sys_exit.h"
 #include "system/syscall/sys_open/sys_open.h"
 #include <dev/kterm/kterm.h>
@@ -23,6 +24,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_OPEN_PROC]         = { SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },
   [SYSID_OPEN_FILE]         = { SYSID_OPEN_FILE, (sys_fn_t)sys_open_file },
   [SYSID_OPEN_DRIVER]       = { SYSID_OPEN_DRIVER, (sys_fn_t)sys_open_driver },
+  [SYSID_ALLOCATE_PAGES]    = { SYSID_ALLOCATE_PAGES, (sys_fn_t)sys_alloc_pages, },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
