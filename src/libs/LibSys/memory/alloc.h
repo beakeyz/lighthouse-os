@@ -18,17 +18,7 @@
 #include "sys/types.h"
 
 /* Minimum of 5 Kib in order to save pool integrity */
-#define MIN_POOLSIZE            (5 * 0x1000)
-
-/*
- * Base allocation function
- * 
- * Simply returns a pointer to the allocated buffer
- */
-VOID* allocate_memory(
-  __IN__ size_t size
-);
-
+#define MIN_POOLSIZE            (0x1000)
 
 enum {
   MEMPOOL_TYPE_DEFAULT      = 0,
@@ -36,47 +26,65 @@ enum {
   MEMPOOL_TYPE_IO           = 2
 };
 
+/* I/O opperation permissions */
 #define MEMPOOL_FLAG_R              (0x00000001)
 #define MEMPOOL_FLAG_W              (0x00000002)
 #define MEMPOOL_FLAG_RW             (MEM_POOL_FLAG_R | MEM_POOL_FLAG_W)
 
-/*
- * Proctect this pool from process-to-process memory allocation (allocator sharing)
- */
+/* Proctect this pool from process-to-process memory allocation (allocator sharing) */
 #define MEMPOOL_FLAG_PTPALLOC_PROT  (0x00000004)
-
+/* Pool location resides in memory */
 #define MEMPOOL_FLAG_MEMBACKED      (0x00000008)
+/* Pool location resides on disk */
 #define MEMPOOL_FLAG_DISKBACKED     (0x00000010)
-
-typedef uint32_t poolid_t;
+/* This pool is used by the processes memory allocation stack */
+#define MEMPOOL_FLAG_MALLOCPOOL     (0x00000020)
 
 /*
  * Try to allocate a new pool for this process
+ * The pool address is rounded up to the next (Most likely 4Kib) page 
+ * aligned address. if pooladdr is NULL, 
  *
- * Fails if the poolsize is less than MIN_POOLSIZE
+ * if the poolsize is less than MIN_POOLSIZE, the actual 
+ * size gets rounded up to a multiple of MIN_POOLSIZE
  *
  * Flags indicate the protection level
  */
-int allocate_pool(
-  __IN__ size_t poolsize,
-  __IN__ DWORD flags,
-  __IN__ __OPTIONAL__ DWORD pooltype,
-  __OUT__ __OPTIONAL__ poolid_t* pool
+VOID* allocate_pool(
+  __IN__ __OPTIONAL__   VOID* pooladdr,
+  __IN__ __OUT__        size_t* poolsize,
+  __IN__                DWORD flags,
+  __IN__ __OPTIONAL__   DWORD pooltype
+);
+
+/*
+ * Advanced pool allocation
+ * Allocates the pool in the address-space of another
+ * process, specified by the handle
+ * 
+ * Otherwise, the same rules apply as to allocate_pool
+ */
+VOID* allocate_pool_av(
+  __IN__                HANDLE_t handle,
+  __IN__ __OPTIONAL__   VOID* pooladdr,
+  __IN__ __OUT__        size_t* poolsize,
+  __IN__                DWORD flags,
+  __IN__ __OPTIONAL__   DWORD pooltype
 );
 
 /*
  * Find out what flags this pool has
  */
-int find_pool_flags(
-  __IN__ poolid_t pool,
-  __OUT__ DWORD* flags
+int query_pool_flags(
+  __IN__    VOID* pooladdr,
+  __OUT__   DWORD* flags
 );
 
 /*
  * Customize the flags of a certain pool
  */
 int modify_pool_flags(
-  __IN__ poolid_t pool,
+  __IN__ VOID* pool,
   __IN__ DWORD flags
 );
 
@@ -85,10 +93,8 @@ int modify_pool_flags(
  * from which we have a handle
  */
 int get_pool_count(
-    __OUT__ DWORD* poolcount,
-    __IN__ __OPTIONAL__ HANDLE_t handle
+  __OUT__               DWORD* poolcount,
+  __IN__ __OPTIONAL__   HANDLE_t handle
 );
-
-
 
 #endif // !__LIGHTENV_MEM_ALLOC__
