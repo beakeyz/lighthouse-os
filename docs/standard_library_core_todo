@@ -1,0 +1,8 @@
+LibC std functions to implement
+  - [ ] printf
+  - [ ] scanf
+  - [ ] system("clear")
+  - [ ] malloc / free
+  - [ ] str(case)cmp
+  - [ ] putchar
+  - [ ] sleep
