@@ -27,14 +27,6 @@
 #define __OUT__
 #define __OPTIONAL__
 
-#define SYS_OK              (0)
-#define SYS_INV             (1)
-#define SYS_KERR            (2)
-#define SYS_NOENT           (3)
-#define SYS_NOPERM          (4)
-#define SYS_NULL            (5)
-#define SYS_ERR             (-1)
-
 #define SYS_0ARG            (0)
 #define SYS_1ARG            (1)
 #define SYS_2ARG            (2)

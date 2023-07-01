@@ -24,7 +24,7 @@ struct elf_image {
   size_t m_total_exe_bytes;
 };
 
-static int elf_read(file_t* file, void* buffer, size_t size, uintptr_t offset) {
+static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
   return file->m_ops->f_read(file, buffer, size, offset);
 }
 
@@ -47,7 +47,7 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
   if (!ret)
     return nullptr;
 
-  read_res = elf->m_ops->f_read(elf, ret, total_size, elf_header->e_phoff);
+  read_res = elf->m_ops->f_read(elf, ret, &total_size, elf_header->e_phoff);
 
   if (read_res) {
     kfree(ret);
@@ -69,12 +69,14 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   struct elf_image image;
   uintptr_t proc_flags;
   uint32_t page_flags;
+  size_t read_size;
   int status;
 
   disable_interrupts();
 
   println_kterm("Reaing elf");
-  status = elf_read(file, &header, sizeof(struct elf64_hdr), 0);
+  read_size = sizeof(struct elf64_hdr);
+  status = elf_read(file, &header, &read_size, 0);
 
   /* No filE??? */
   if (status)
@@ -135,7 +137,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
           println("Read range");
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
-          elf_read(file, (void*)v_kernel_phdr_start, phdr.p_filesz, phdr.p_offset);
+          elf_read(file, (void*)v_kernel_phdr_start, &phdr.p_filesz, phdr.p_offset);
           // ???
           // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 

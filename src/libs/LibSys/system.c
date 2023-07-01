@@ -1,4 +1,5 @@
 #include "system.h"
+#include "syscall.h"
 
 syscall_result_t syscall_x(
   syscall_id_t id,

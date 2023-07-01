@@ -16,13 +16,20 @@ int f_close(file_t* file) {
   return 0;
 }
 
-int f_read(file_t* file, void* buffer, size_t size, uintptr_t offset) {
+int f_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
 
-  const uintptr_t end_offset = offset + size;
-  const uintptr_t read_offset = (uintptr_t)file->m_data + offset;
+  uintptr_t end_offset;
+  uintptr_t read_offset;
+
+  if (!buffer || !size)
+    return -1;
+
+  end_offset = offset + *size;
+  read_offset = (uintptr_t)file->m_data + offset;
 
   /* Can't read outside of the file */
   if (offset > file->m_size) {
+    *size = 0;
     return -1;
   }
 
@@ -30,33 +37,17 @@ int f_read(file_t* file, void* buffer, size_t size, uintptr_t offset) {
     uintptr_t delta = end_offset - file->m_size;
 
     /* We'll just copy everything we can */
-    size -= delta;
+    *size -= delta;
   }
 
-  memcpy(buffer, (void*)read_offset, size);
+  memcpy(buffer, (void*)read_offset, *size);
 
   return 0;
 }
 
-int f_write(file_t* file, void* buffer, size_t size, uintptr_t offset) {
+int f_write(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
 
-  const uintptr_t end_offset = offset + size;
-  const uintptr_t write_offset = (uintptr_t)file->m_data + offset;
-
-  /* Can't read outside of the file */
-  if (offset > file->m_size) {
-    return -1;
-  }
-
-  if (end_offset > file->m_size) {
-    uintptr_t delta = end_offset - file->m_size;
-
-    /* We'll just copy everything we can */
-    size -= delta;
-  }
-
-  /* Copy the bytes from the external buffer into the buffer of the file object */
-  memcpy((void*)write_offset, buffer, size);
+  kernel_panic("Tried to write to a file! (TODO: implement)");
 
   return 0;
 }

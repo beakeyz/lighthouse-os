@@ -7,12 +7,8 @@
 
 #include <stddef.h>
 
-/* */
-#define MEM_
-
-void init_memalloc(
-  void
-);
+/* Allocate malloc memory */
+#define MEM_MALLOC      (0x00000001)
 
 /*
  * Memory allocation on a byte alignment

@@ -1,7 +1,6 @@
 #ifndef __LIGHTENV_HANDLE_DEF__
 #define __LIGHTENV_HANDLE_DEF__
 
-
 typedef int                 handle_t;
 typedef unsigned char       handle_type_t;
 

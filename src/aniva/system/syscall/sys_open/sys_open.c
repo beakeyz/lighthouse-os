@@ -61,8 +61,6 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
 
   result = bind_khandle(&process->m_handle_map, &handle);
 
-  println(to_string(Release(result)));
-
   if (!IsError(result))
     ret = Release(result);
 

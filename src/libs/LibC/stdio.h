@@ -12,8 +12,13 @@
  */
 typedef struct _FILE { 
   HANDLE_t handle;
-  void* buff; 
-  size_t buffersize;
+
+  uint8_t* w_buff; 
+  size_t w_buf_size;
+  size_t w_buf_written;
+
+  uint8_t* r_buff; 
+  size_t r_buf_size;
 } FILE;
 
 #ifdef __cplusplus
@@ -21,8 +26,10 @@ extern "C" {
 #endif
 
 extern FILE* stderr;
+extern FILE* stdout;
 
 #define stderr stderr
+#define stdout stdout
 
 extern int fclose(FILE*);
 extern int fflush(FILE*);

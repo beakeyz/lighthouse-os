@@ -6,10 +6,12 @@
 #include "proc/thread.h"
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
-#include "system/syscall/sys_alloc/sys_alloc_mem.h"
-#include "system/syscall/sys_exit/sys_exit.h"
-#include "system/syscall/sys_open/sys_open.h"
 #include <dev/kterm/kterm.h>
+
+#include "sys_alloc/sys_alloc_mem.h"
+#include "sys_rw/sys_rw.h"
+#include "sys_exit/sys_exit.h"
+#include "sys_open/sys_open.h"
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
@@ -20,6 +22,9 @@ extern void processor_exit_interruption(registers_t* registers);
  */
 static syscall_t __static_syscalls[] = {
   [SYSID_EXIT]              = { SYSID_EXIT, (sys_fn_t)sys_exit_handler },
+  [SYSID_CLOSE]             = { SYSID_CLOSE , (sys_fn_t)nullptr, },
+  [SYSID_READ]              = { SYSID_READ, (sys_fn_t)nullptr },
+  [SYSID_WRITE]             = { SYSID_WRITE, (sys_fn_t)sys_write },
   [SYSID_OPEN]              = { SYSID_OPEN, (sys_fn_t)sys_open },
   [SYSID_OPEN_PROC]         = { SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },
   [SYSID_OPEN_FILE]         = { SYSID_OPEN_FILE, (sys_fn_t)sys_open_file },

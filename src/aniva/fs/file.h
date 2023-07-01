@@ -28,8 +28,8 @@ struct vnode;
 
 typedef struct file_ops {
   int (*f_sync)     (struct file* file);
-  int (*f_read)     (struct file* file, void* buffer, size_t size, uintptr_t offset);
-  int (*f_write)    (struct file* file, void* buffer, size_t size, uintptr_t offset);
+  int (*f_read)     (struct file* file, void* buffer, size_t* size, uintptr_t offset);
+  int (*f_write)    (struct file* file, void* buffer, size_t* size, uintptr_t offset);
   /* Allocate a part of the file into a buffer and map that buffer to the specefied page dir */
   struct file (*f_kmap)      (struct file* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
   /* 

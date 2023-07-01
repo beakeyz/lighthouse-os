@@ -6,7 +6,6 @@
 #include <dev/driver.h>
 #include <proc/proc.h>
 #include <mem/kmem_manager.h>
-#include <string.h>
 
 /*
  * Called when a handle changes to a new type
@@ -100,8 +99,8 @@ khandle_map_t create_khandle_map_ex(uint32_t max_count)
   ret.max_count = max_count;
   ret.lock = create_mutex(0);
 
-  /* Ensure we can create this list */
-  ret.handles = (khandle_t*)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, NULL, NULL));
+  /* Ensure we can create this list that provides a maximum of 1024 handles */
+  ret.handles = (khandle_t*)Must(__kmem_kernel_alloc_range(max_count * sizeof(khandle_t), NULL, NULL));
 
   /* Zero */
   memset(ret.handles, 0, SMALL_PAGE_SIZE);
@@ -136,6 +135,34 @@ khandle_t* find_khandle(khandle_map_t* map, uint32_t user_handle)
   return &map->handles[user_handle];
 }
 
+static ErrorOrPtr __try_reallocate_handles(khandle_map_t* map, size_t new_max_count)
+{
+  khandle_t* new_list;
+
+  /* Debug */
+  kernel_panic("TODO: had to reallocate khandles! verify this works (__try_reallocate_handles)");
+
+  if (!map || !new_max_count || new_max_count > KHNDL_MAX_ENTRIES)
+    return Error();
+
+  /* Allocate new space */
+  TRY(reallocate_result, __kmem_kernel_alloc_range(new_max_count * sizeof(khandle_t), NULL, NULL));
+
+  /* Set the pointer */
+  new_list = (khandle_t*)reallocate_result;
+
+  /* Since they are stored as one massive vector, we can simply copy all of it over */
+  memcpy(map->handles, new_list, map->max_count * sizeof(khandle_t));
+
+  /* We can now deallocate the old list */
+  TRY(deallocate_result, __kmem_kernel_dealloc((uint64_t)map->handles, map->max_count * sizeof(khandle_t)));
+
+  /* Update max_count */
+  map->max_count = new_max_count;
+
+  return Success(0);
+}
+
 static void __bind_khandle(khandle_map_t* map, khandle_t* handle, uint32_t index)
 {
   if (!map || !handle)
@@ -153,6 +180,7 @@ static void __bind_khandle(khandle_map_t* map, khandle_t* handle, uint32_t index
 ErrorOrPtr bind_khandle(khandle_map_t* map, khandle_t* handle) 
 {
 
+  ErrorOrPtr res;
   uint32_t current_index;
   khandle_t* slot;
 
@@ -160,6 +188,22 @@ ErrorOrPtr bind_khandle(khandle_map_t* map, khandle_t* handle)
     return Error();
 
   mutex_lock(map->lock);
+
+  if (map->count >= map->max_count) {
+
+    /* Have we reached the hardlimit? */
+    if (map->max_count >= KHNDL_MAX_ENTRIES)
+      return Error();
+
+    /* __try_reallocate_handles will mutate the values in map */
+    res = __try_reallocate_handles(map, KHNDL_MAX_ENTRIES);
+
+    /* If we fail to reallocate, thats kinda cringe lol */
+    if (IsError(res)) {
+      mutex_unlock(map->lock);
+      return res;
+    }
+  }
 
   /* Check if the next free index is valid */
   current_index = map->next_free_index;

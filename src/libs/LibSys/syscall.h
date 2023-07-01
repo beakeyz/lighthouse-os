@@ -31,9 +31,12 @@
 /* Protect this region from external I/O */
 #define F_MEM_PROTECT           (0x00000002)
 
-#define SYS_OK                  (0)
-#define SYS_INV_ARGS            (-1)
-#define SYS_ERR                 (-2)
-#define SYS_NO_PERM             (-3)
+#define SYS_OK              (0)
+#define SYS_INV             (-1)
+#define SYS_KERR            (-2)
+#define SYS_NOENT           (-3)
+#define SYS_NOPERM          (-4)
+#define SYS_NULL            (-5)
+#define SYS_ERR             (-6)
 
 #endif // !__LIGHTENV_SYSCALL__

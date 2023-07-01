@@ -14,7 +14,7 @@ uint32_t sys_alloc_pages(size_t size, uint32_t flags, void* __user* buffer)
   proc_t* current_process;
 
   if (!size || !buffer || !*buffer)
-    return SYS_INV_ARGS;
+    return SYS_INV;
 
   /* Align up the size to the closest next page base */
   size = ALIGN_UP(size, SMALL_PAGE_SIZE);

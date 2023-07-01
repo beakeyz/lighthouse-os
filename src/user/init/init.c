@@ -23,7 +23,8 @@ int main() {
 
   *memory = 0x6969;
 
-  printf("Memory thing: %x", *memory);
+  // FIXME: GPF
+  //printf("Memory thing: %x\n", *memory);
 
   return handle_2;
 }

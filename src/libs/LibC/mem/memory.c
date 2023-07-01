@@ -12,6 +12,8 @@ struct malloc_range {
 
 static struct malloc_range* __start_range;
 
+static size_t counter;
+
 /*
  * Add a range of a pagealigned size
  */
@@ -48,7 +50,7 @@ static void __add_malloc_range(size_t size)
  *
  * TODO: check if the process has requested a heap of a specific size
  */
-void init_memalloc()
+void __init_memalloc(void)
 {
   /* Initialize structures */
   /* Ask for a memory region from the kernel */
@@ -56,6 +58,28 @@ void init_memalloc()
   /* Mark readiness */
 
   __start_range = NULL;
+  counter = 0;
 
   __add_malloc_range(DEFAULT_INITIAL_RANGE_SIZE);
+}
+
+
+void* mem_alloc(size_t size, uint32_t flags)
+{
+  /* EZ bump allocator */
+  void* res = (void*)((uint8_t*)__start_range->m_bytes + counter);
+  counter += size;
+  return res;
+}
+
+void* mem_move_alloc(void* ptr, size_t new_size, uint32_t flags) 
+{
+  /* Also nope =) */
+  return nullptr;
+}
+
+int mem_dealloc(void* addr, uint32_t flags)
+{
+  /* No */
+  return 0;
 }

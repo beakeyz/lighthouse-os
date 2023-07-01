@@ -1,4 +1,6 @@
 
+#include <LibC/mem/memory.h>
+
 #include "LibSys/syscall.h"
 #include "LibSys/system.h"
 #include <stdlib.h>
@@ -8,6 +10,9 @@ typedef int (*MainEntry)();
 
 void lightapp_startup(MainEntry main) __attribute__((used)) ;
 extern void __attribute__((noreturn)) halt(void);
+
+extern void __init_memalloc(void);
+extern void __init_stdio(void);
 
 /*
  * TODO: library initialization for userspace
@@ -19,6 +24,9 @@ void lightapp_startup(MainEntry main) {
   if (!main) {
     exit(ERROR);
   }
+
+  __init_memalloc();
+  __init_stdio();
 
   /* 1) Init userspace libraries */
   /* 1.1 -> init posix standard data streams (stdin, stdout, stderr) */

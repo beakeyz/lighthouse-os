@@ -25,6 +25,7 @@ typedef struct kernel_handle {
   uint8_t protection_lvl;
   uint16_t flags;
   uint32_t index;
+  uintptr_t offset;
   union {
     struct file* file;
     struct aniva_driver* driver;
