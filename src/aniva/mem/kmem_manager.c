@@ -864,6 +864,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, siz
 
   kresource_mirror_t resource;
 
+  /* Find an unused virtual range */
   //TRY(query_result, query_unused_resource(size, KRES_TYPE_MEM, &resource, &process->m_resources));
 
   const vaddr_t virt_base = resource.m_start;
