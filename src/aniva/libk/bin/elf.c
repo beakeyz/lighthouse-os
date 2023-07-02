@@ -15,15 +15,6 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
-/*
- * Represents the elf file when it is eventually laid out in memory.
- */
-struct elf_image {
-  vaddr_t m_lowest_addr;
-  vaddr_t m_highest_addr;
-  size_t m_total_exe_bytes;
-};
-
 static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
   return file->m_ops->f_read(file, buffer, size, offset);
 }
@@ -66,7 +57,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   proc_t* ret;
   struct elf64_hdr header;
   struct elf64_phdr* phdrs;
-  struct elf_image image;
+  struct proc_image image;
   uintptr_t proc_flags;
   uint32_t page_flags;
   size_t read_size;
@@ -143,10 +134,10 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
           println("Set range");
           if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
-            image.m_highest_addr = virtual_phdr_base + phdr_size;
+            image.m_highest_addr = ALIGN_UP(virtual_phdr_base + phdr_size, SMALL_PAGE_SIZE);
           }
           if (virtual_phdr_base < image.m_lowest_addr) {
-            image.m_lowest_addr = virtual_phdr_base;
+            image.m_lowest_addr = ALIGN_DOWN(virtual_phdr_base, SMALL_PAGE_SIZE);
           }
         }
         break;
@@ -160,7 +151,9 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   kfree(phdrs);
 
-  // kernel_panic("Ready to schedule");
+  /* Copy over the image object */
+  ret->m_image = image;
+
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
   sched_add_priority_proc(ret, true);
 

@@ -129,7 +129,9 @@ static void __proc_clear_shared_resources(proc_t* proc)
          * NOTE: resource_release pops the according mirror from the 
          *       processes linked list
          */
+        println("Trying to dealloc");
         Must(__kmem_dealloc(proc->m_root_pd.m_root, proc, start, size));
+        println("deallocced");
         break;
       default:
         /* Skip this entry for now */

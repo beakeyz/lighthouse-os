@@ -5,6 +5,7 @@
 #include "libk/error.h"
 #include "libk/linkedlist.h"
 #include "mem/base_allocator.h"
+#include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
 #include "proc/handle.h"
@@ -12,6 +13,7 @@
 
 struct thread;
 struct kresource_mirror;
+struct proc_image;
 
 /*
  * proc.h
@@ -31,6 +33,30 @@ struct kresource_mirror;
 
 typedef int proc_id;
 
+typedef struct proc_image {
+  /* NOTE: make sure the low and high addresses are page-aligned */
+  vaddr_t m_lowest_addr;
+  vaddr_t m_highest_addr;
+  size_t m_total_exe_bytes;
+} proc_image_t;
+
+inline bool proc_image_is_correctly_aligned(proc_image_t* image)
+{
+  return (ALIGN_UP(image->m_highest_addr, SMALL_PAGE_SIZE) == image->m_highest_addr &&
+          ALIGN_DOWN(image->m_lowest_addr, SMALL_PAGE_SIZE) == image->m_lowest_addr);
+}
+
+inline void proc_image_align(proc_image_t* image) 
+{
+  image->m_highest_addr = ALIGN_UP(image->m_highest_addr, SMALL_PAGE_SIZE);
+  image->m_lowest_addr = ALIGN_DOWN(image->m_lowest_addr, SMALL_PAGE_SIZE);
+}
+
+/*
+ * This struct may get quite big, so let's make sure to put 
+ * frequently used fields close to eachother in order to minimize 
+ * cache-misses
+ */
 typedef struct proc {
   char m_name[32];
   proc_id m_id;
@@ -40,6 +66,9 @@ typedef struct proc {
   page_dir_t m_root_pd;
 
   khandle_map_t m_handle_map;
+
+  /* Represent the image that this proc stems from (either from disk or in-ram) */
+  struct proc_image m_image;
 
   // maps?
   list_t* m_threads;

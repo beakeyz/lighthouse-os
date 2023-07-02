@@ -854,28 +854,47 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, 
 }
 
 /*
- * This function will never remap, and the vbase will 
+ * This function will never remap or use identity mapping, so
+ * KMEM_CUSTOMFLAG_NO_REMAP and KMEM_CUSTOMFLAG_IDENTITY are ignored here
  */
-ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
+
+  ErrorOrPtr res;
+  paddr_t p_addr;
+  vaddr_t v_addr;
 
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
-  const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
-  const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
-  kresource_mirror_t resource;
+  /*
+   * 1) Loop for as many times as we need pages
+   * 2) Find a physical page to map
+   * 3) Map the physical page to its corresponding virtual address
+   * 4) Claim the resource (virtual addressrange)
+   */
+  for (uint64_t i = 0; i < pages_needed; i++) {
+  
+    res = kmem_prepare_new_physical_page();
 
-  /* Find an unused virtual range */
-  //TRY(query_result, query_unused_resource(size, KRES_TYPE_MEM, &resource, &process->m_resources));
+    if (IsError(res))
+      return res;
 
-  const vaddr_t virt_base = resource.m_start;
+    p_addr = Release(res);
+    v_addr = vbase + (i * SMALL_PAGE_SIZE);
 
-  kernel_panic("TODO: implement __kmem_map_kernel_range_to_map");
-
-  if (process) {
-    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    /*
+     * NOTE: don't mark, because otherwise the physical pages gets
+     * marked free again after it is mapped
+     */
+    if (!kmem_map_page(map, v_addr, p_addr, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK | custom_flags, page_flags)) {
+      return Error();
+    }
   }
 
-  return Success(virt_base);
+  if (process) {
+    resource_claim(vbase, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+  }
+
+  return Success(vbase);
 }
 
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 

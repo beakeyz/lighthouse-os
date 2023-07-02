@@ -8,11 +8,13 @@ static int __write_byte(FILE* stream, uint64_t* counter, char byte)
   if (!stream->w_buff)
     return -1;
 
+  /* TODO: test past this point */
+  exit(0x69);
+
   stream->w_buff[stream->w_buf_written++] = byte;
 
   /* Sync the buffer if the max. buffersize is reached, or the byte is a newline char */
   if (stream->w_buf_written >= stream->w_buf_size || byte == '\n') {
-    exit(999);
     fflush(stream);
   }
 
@@ -37,7 +39,6 @@ static int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
 
 int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
 {
-
   uint64_t i = 0;
 
   for (const char* c = fmt; *c; c++) {

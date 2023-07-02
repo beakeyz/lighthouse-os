@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "LibSys/syscall.h"
 #include <LibSys/system.h>
+#include <stdlib.h>
 
 #define DEFAULT_INITIAL_RANGE_SIZE      (2 * Mib)
 
@@ -29,6 +30,8 @@ static void __add_malloc_range(size_t size)
 
   if (result != SYS_OK)
     return;
+
+  exit((uint64_t)buffer);
 
   struct malloc_range* range = (struct malloc_range*)buffer;
 
@@ -66,6 +69,9 @@ void __init_memalloc(void)
 
 void* mem_alloc(size_t size, uint32_t flags)
 {
+  if (!__start_range)
+    return nullptr;
+
   /* EZ bump allocator */
   void* res = (void*)((uint8_t*)__start_range->m_bytes + counter);
   counter += size;
