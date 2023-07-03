@@ -257,12 +257,10 @@ ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
 
     result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
 
-
     println("Created socket driver");
   } else {
     generic_driver_entry(driver);
   }
-
 
   return result;
 }

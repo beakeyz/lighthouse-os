@@ -8,9 +8,6 @@ static int __write_byte(FILE* stream, uint64_t* counter, char byte)
   if (!stream->w_buff)
     return -1;
 
-  /* TODO: test past this point */
-  exit(0x69);
-
   stream->w_buff[stream->w_buf_written++] = byte;
 
   /* Sync the buffer if the max. buffersize is reached, or the byte is a newline char */

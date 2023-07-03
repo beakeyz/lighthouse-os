@@ -5,6 +5,7 @@
 #include "mem/pg.h"
 #include "proc/context.h"
 #include "proc/socket.h"
+#include <sync/atomic_ptr.h>
 #include "system/processor/fpu/state.h"
 #include "system/processor/gdt.h"
 #include <system/processor/registers.h>
@@ -111,6 +112,8 @@ ANIVA_STATUS destroy_thread(thread_t *);
  * need any special idle behaviour
  */
 thread_t* get_generic_idle_thread();
+
+#define T_SOCKET(t) (t->m_socket)
 
 // wrappers =D
 ALWAYS_INLINE bool thread_is_socket(thread_t* t) {

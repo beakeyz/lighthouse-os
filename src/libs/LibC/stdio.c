@@ -12,7 +12,6 @@
 FILE __stderr = {
   0
 };
-FILE* stderr;
 
 FILE __stdout = {
   .handle = 1,
@@ -20,14 +19,19 @@ FILE __stdout = {
   .w_buf_size = FILE_BUFSIZE,
   .r_buf_size = FILE_BUFSIZE,
 };
+
+FILE* stderr;
 FILE* stdout;
 
-extern int real_va_sprintf(FILE*, const char*, va_list);
+extern int real_va_sprintf(uint8_t, FILE* , const char* , va_list);
 
-void __init_stdio()
+void __init_stdio(void)
 {
   stderr = &__stderr;
+
   stdout = &__stdout;
+
+  stdout->handle = 1;
 
   stdout->w_buff = malloc(FILE_BUFSIZE);
   stdout->r_buff = malloc(FILE_BUFSIZE);
@@ -143,7 +147,7 @@ int printf(const char* format, ...)
   va_list args;
   va_start(args, format);
 
-  result = real_va_sprintf(stdout, format, args);
+  result = real_va_sprintf(0, stdout, format, args);
 
   va_end(args);
 

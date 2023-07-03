@@ -17,6 +17,14 @@ class RamdiskManager(object):
 
         return tarinfo
 
+    def __copy_headers(self) -> bool:
+        '''
+        Tries to find which Libraries must be included in the 
+        fsroot and copies over the needed headers to the sysroot (system/) directory
+        so they can be placed into the ramdisk
+        '''
+        return False
+
     def create_ramdisk(self) -> None:
 
         with tarfile.open(self.OUT_PATH, "w:gz") as anivaRamdisk:

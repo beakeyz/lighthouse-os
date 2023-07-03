@@ -1,7 +1,6 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
-#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "proc/ipc/packet_response.h"
 #include <libk/stddef.h>
@@ -32,31 +31,29 @@ typedef enum dev_flags {
   LOADED_WITH_WARNIGN = (1 << 2),
 } DEV_FLAGS;
 
-const static char* dev_type_urls[DRIVER_TYPE_COUNT] = {
-  [DT_DISK] = "disk",
-  [DT_FS] = "fs",
-  [DT_IO] = "io",
-  [DT_SOUND] = "sound",
-  [DT_GRAPHICS] = "graphics",
-  [DT_OTHER] = "other",
-  [DT_DIAGNOSTICS] = "diagnostics",
-  [DT_SERVICE] = "service",
-};
+/* Defined in dev/core.c */
+extern const char* dev_type_urls[DRIVER_TYPE_COUNT];
 
 /*
  * Used by drivers to communicate, but also to send generic 
  * messages through sockets (i.e. some ccs are global, meaning they
  * are intercepted by the socket message dispatcher and interpreted)
  */
-typedef uint32_t driver_control_code_t;
+typedef const char*                     dev_url_t;
 
-// TODO: global dc codes 
-#define DCC_EXIT (uint32_t)(-1)
+typedef uint32_t                        driver_control_code_t;
 
-typedef const char* dev_url_t;
+/* Welcome to the */
+typedef driver_control_code_t           dcc_t;
 
-#define MAX_DRIVER_NAME_LENGTH 32
-#define MAX_DRIVER_DESCRIPTOR_LENGTH 256
+/* Global driver control codes */
+#define DCC_EXIT                        (uint32_t)(-1)
+#define DCC_RESPONSE                    (uint32_t)(-2)
+#define DCC_WRITE                       (uint32_t)(-3)
+
+
+#define MAX_DRIVER_NAME_LENGTH          32
+#define MAX_DRIVER_DESCRIPTOR_LENGTH    256
 
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
@@ -130,7 +127,8 @@ static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
 /*
  * Resolve the drivers socket and send a packet to that port
  */
-async_ptr_t** driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t buffer_size);
 
 /*
  * Same as above, but calls the requested function instantly, rather than waiting for the socket to 

@@ -395,9 +395,6 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
 
   paddr_t address = kmem_get_page_addr(result);
 
-  print("prep phys page idx: ");
-  println(to_string(result));
-
   // There might be an issue here as we try to zero
   // and this page is never mapped. We might need some
   // sort of temporary mapping like serenity has to do

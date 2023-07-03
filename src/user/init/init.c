@@ -19,6 +19,10 @@ int main() {
   /* Open a handle to our own process */
   HANDLE_t handle_2 = open_handle("init", HNDL_TYPE_PROC, NULL, NULL);
 
+  uint32_t* memory = malloc(sizeof(uint32_t));
+
+  *memory = 0x6969;
+
   // FIXME: GPF
   printf("Memory thing\n");
 

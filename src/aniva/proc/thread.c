@@ -238,12 +238,10 @@ thread_t* get_generic_idle_thread() {
 extern NORETURN void thread_end_lifecycle() {
   // TODO: report or cache the result somewhere until
   // It is approved by the kernel
-
-  disable_interrupts();
-
   thread_t *current_thread = get_current_scheduling_thread();
 
-  println("Set thing to dying");
+  ASSERT_MSG(current_thread, "Can't end a null thread!");
+
   thread_set_state(current_thread, DYING);
 
   // yield will enable interrupts again (I hope)

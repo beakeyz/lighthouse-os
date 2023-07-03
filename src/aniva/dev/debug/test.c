@@ -4,7 +4,6 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/manifest.h"
-#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/queue.h"
 #include "libk/string.h"
@@ -17,7 +16,7 @@
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 
-void test_dbg_init(queue_t* buffer);
+int test_dbg_init();
 int test_dbg_exit();
 
 void kb_callback(ps2_key_event_t event);
@@ -29,16 +28,17 @@ const aniva_driver_t g_test_dbg_driver = {
   .m_type = DT_DIAGNOSTICS,
   .m_ident = DRIVER_IDENT(0, 1),
   .m_version = DRIVER_VERSION(0, 0, 1),
-  .f_init = (FuncPtr)test_dbg_init,
+  .f_init = test_dbg_init,
   .f_exit = test_dbg_exit,
   .f_drv_msg = test_dbg_msg,
   .m_port = 1,
 };
 
-void test_dbg_init(queue_t* buffer) {
+int test_dbg_init() {
 
   println("Initialized the test debug driver!");
 
+  return 0;
 }
 
 int test_dbg_exit() {

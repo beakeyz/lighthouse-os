@@ -9,7 +9,6 @@
 #include "dev/pci/pci.h"
 #include "interrupts/control/interrupt_control.h"
 #include "interrupts/interrupts.h"
-#include "libk/async_ptr.h"
 #include "libk/atomic.h"
 #include "libk/error.h"
 #include "libk/hive.h"

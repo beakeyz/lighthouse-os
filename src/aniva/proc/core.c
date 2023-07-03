@@ -5,6 +5,7 @@
 #include "libk/queue.h"
 #include <libk/hashmap.h>
 #include "mem/kmem_manager.h"
+#include "proc/ipc/tspckt.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -13,10 +14,10 @@
 #include "sync/spinlock.h"
 #include "system/processor/processor.h"
 
-static list_t *s_sockets;
+static list_t *__sockets;
 static uint32_t s_highest_port_cache;
 
-static spinlock_t* s_core_socket_lock;
+static spinlock_t* __core_socket_lock;
 
 static hashmap_t* __proc_map;
 // TODO: fix this mechanism, it sucks
@@ -151,11 +152,11 @@ ErrorOrPtr generate_new_proc_id() {
 }
 
 list_t get_registered_sockets() {
-  if (!s_sockets) {
+  if (!__sockets) {
     list_t ret = {0};
     return ret;
   }
-  return *s_sockets;
+  return *__sockets;
 }
 
 ErrorOrPtr socket_register(threaded_socket_t* socket) {
@@ -182,7 +183,7 @@ ErrorOrPtr socket_register(threaded_socket_t* socket) {
   /*
    * TODO: sort based on port value (low -> high)
    */
-  list_append(s_sockets, socket);
+  list_append(__sockets, socket);
   return Success(0);
 }
 
@@ -199,18 +200,18 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
 
   uint32_t socket_port = socket->m_port;
 
-  ErrorOrPtr result = list_indexof(s_sockets, socket);
+  ErrorOrPtr result = list_indexof(__sockets, socket);
 
   if (result.m_status == ANIVA_FAIL) {
     return Error();
   }
 
-  list_remove(s_sockets, Release(result));
+  list_remove(__sockets, Release(result));
 
   if (s_highest_port_cache > socket_port) {
     // reset and rebind to the highest port
     s_highest_port_cache = 0;
-    FOREACH(i, s_sockets) {
+    FOREACH(i, __sockets) {
       threaded_socket_t* check = i->data;
       if (check->m_port > s_highest_port_cache) {
         s_highest_port_cache = check->m_port;
@@ -259,7 +260,7 @@ ErrorOrPtr proc_unregister(char* name)
 }
 
 threaded_socket_t *find_registered_socket(uint32_t port) {
-  FOREACH(i, s_sockets) {
+  FOREACH(i, __sockets) {
     threaded_socket_t *socket = i->data;
     if (socket && socket->m_port == port) {
       return socket;
@@ -272,7 +273,7 @@ ErrorOrPtr socket_try_verifiy_port(threaded_socket_t* socket) {
 
   bool is_duplicate = false;
 
-  FOREACH(i, s_sockets) {
+  FOREACH(i, __sockets) {
     threaded_socket_t* check_socket = i->data;
 
     if (socket->m_port == check_socket->m_port) {
@@ -286,7 +287,7 @@ ErrorOrPtr socket_try_verifiy_port(threaded_socket_t* socket) {
 
   uint32_t new_port = s_highest_port_cache + 1;
 
-  FOREACH(i, s_sockets) {
+  FOREACH(i, __sockets) {
     threaded_socket_t* check_socket = i->data;
 
     if (check_socket->m_port >= new_port) {
@@ -317,7 +318,7 @@ uint32_t socket_verify_port(threaded_socket_t* socket) {
     bool is_duplicate = false;
 
     while (true) {
-      FOREACH(i, s_sockets) {
+      FOREACH(i, __sockets) {
         threaded_socket_t* check_socket = i->data;
         if (check_socket->m_port == new_port) {
           is_duplicate = true;
@@ -336,7 +337,7 @@ uint32_t socket_verify_port(threaded_socket_t* socket) {
 }
 
 static void revalidate_port_cache() {
-  FOREACH(i, s_sockets) {
+  FOREACH(i, __sockets) {
     threaded_socket_t* check_socket = i->data;
 
     if (check_socket->m_port >= s_highest_port_cache) {
@@ -349,14 +350,22 @@ static void revalidate_port_cache() {
  * Initialize:
  *  - socket registry
  *  - proc_id generation
+ *  - tspacket caching
+ *  - TODO: process caching with its own zone allocator
  */
 ANIVA_STATUS init_proc_core() {
 
-  s_sockets = init_list();
-  s_core_socket_lock = create_spinlock();
+  __sockets = init_list();
+  __core_socket_lock = create_spinlock();
   __next_proc_id = create_atomic_ptr_with_value(1);
 
+  /*
+   * TODO: we can also just store processes in a vector, since we
+   * have the PROC_SOFTMAX that limits process creation
+   */
   __proc_map = create_hashmap(PROC_SOFTMAX, HASHMAP_FLAG_CA);
+
+  init_tspckt();
 
   return ANIVA_SUCCESS;
 }

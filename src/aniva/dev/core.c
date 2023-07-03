@@ -15,12 +15,24 @@
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/socket.h"
+#include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include <entry/entry.h>
 
 static hive_t* s_installed_drivers;
 static hive_t* s_loaded_drivers;
+
+const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
+  [DT_DISK] = "disk",
+  [DT_FS] = "fs",
+  [DT_IO] = "io",
+  [DT_SOUND] = "sound",
+  [DT_GRAPHICS] = "graphics",
+  [DT_OTHER] = "other",
+  [DT_DIAGNOSTICS] = "diagnostics",
+  [DT_SERVICE] = "service",
+};
 
 /*
  * We need to make sure to call this before we load a 
@@ -318,31 +330,49 @@ exit_invalid:
   return Error();
 }
 
-async_ptr_t** driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
+ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
-  aniva_driver_t* handle = hive_get(s_loaded_drivers, path);
+  aniva_driver_t* handle;
 
-  // TODO: we should let the caller know when it tried to do something funky
-  // TODO: some kind of robust error handling in the kernel
-  if (!handle) 
-    return nullptr;
+  if (!path)
+    return Error();
 
-  if ((handle->m_flags & DRV_SOCK) == 0) {
+  handle = hive_get(s_loaded_drivers, path);
+
+  return driver_send_packet_ex(handle, code, buffer, buffer_size);
+}
+
+ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t buffer_size) 
+{
+  thread_t* current;
+
+  if (!driver || !driver->f_drv_msg) 
+    return Error();
+
+  if ((driver->m_flags & DRV_SOCK) == 0) {
 
     packet_response_t* response;
     packet_payload_t* payload = create_packet_payload(buffer, buffer_size, code);
 
-    uintptr_t result = handle->f_drv_msg(*payload, &response);
+    uintptr_t result = driver->f_drv_msg(*payload, &response);
 
     if (response) {
+
+      current = get_current_scheduling_thread();
+
+      /* If the sender (caller) thread is a socket, we can send our response there, otherwise its just lost to the void */
+      if (current && thread_is_socket(current)) {
+        TRY(_, send_packet_to_socket_ex(current->m_socket->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size));
+      }
+
       destroy_packet_response(response);
     }
     destroy_packet_payload(payload);
 
-    return NULL;
+    return Error();
   }
 
-  return send_packet_to_socket_with_code(handle->m_port, code, buffer, buffer_size);
+  return send_packet_to_socket_ex(driver->m_port, code, buffer, buffer_size);
 }
 
 /*

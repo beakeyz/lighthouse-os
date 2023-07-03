@@ -31,8 +31,6 @@ static void __add_malloc_range(size_t size)
   if (result != SYS_OK)
     return;
 
-  exit((uint64_t)buffer);
-
   struct malloc_range* range = (struct malloc_range*)buffer;
 
   /* Point this range to the previous first range */
@@ -73,7 +71,7 @@ void* mem_alloc(size_t size, uint32_t flags)
     return nullptr;
 
   /* EZ bump allocator */
-  void* res = (void*)((uint8_t*)__start_range->m_bytes + counter);
+  void* res = (void*)((uint8_t*)&__start_range->m_bytes[0] + counter);
   counter += size;
   return res;
 }

@@ -2,8 +2,8 @@
 #include <mem/heap.h>
 #include <system/asm_specifics.h>
 #include "core.h"
+#include "dev/core.h"
 #include "dev/debug/serial.h"
-#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"
@@ -72,11 +72,11 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
  * this mallocs the buffer for the caller, so caller is responsible for cleaning up 
  * their own mess
  */
-async_ptr_t** send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
-  return send_packet_to_socket_with_code(port, 0, buffer, buffer_size);
+ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
+  return send_packet_to_socket_ex(port, 0, buffer, buffer_size);
 }
 
-ErrorOrPtr send_packet_to_socket_no_response(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
+ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
 
   disable_interrupts();
 
@@ -86,7 +86,7 @@ ErrorOrPtr send_packet_to_socket_no_response(uint32_t port, driver_control_code_
     return Error();
   }
 
-  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, create_async_ptr(socket->m_port));
+  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size);
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
@@ -100,46 +100,6 @@ ErrorOrPtr send_packet_to_socket_no_response(uint32_t port, driver_control_code_
   enable_interrupts();
 
   return Success(0);
-}
-
-async_ptr_t** send_packet_to_socket_with_code(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
-  // FIXME: is it necceserry to enter a critical section here?
-  threaded_socket_t *socket = find_registered_socket(port);
-
-  if (socket == nullptr || socket->m_parent == nullptr) {
-    return nullptr;
-  }
-
-  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size, create_async_ptr(socket->m_port));
-
-  // don't allow buffer restriction violations
-  if (packet->m_packet_size > socket->m_max_size_per_buffer) {
-    destroy_tspckt(packet);
-    return nullptr;
-  }
-
-  queue_enqueue(socket->m_packet_queue.m_packets, packet);
-
-  kernel_panic("TODO: fix packet sending");
-}
-
-packet_response_t send_packet_to_socket_blocking(uint32_t port, void* buffer, size_t buffer_size) {
-
-  packet_response_t response = {0};
-  async_ptr_t* result = *send_packet_to_socket(port, buffer, buffer_size);
-
-  if (!result) {
-    return response;
-  }
-
-  // await already destroys the async_ptr_t
-  packet_response_t* response_result = await(result);
-
-  response = *response_result;
-
-  destroy_packet_response(response_result);
-
-  return response;
 }
 
 ErrorOrPtr socket_enable(struct thread* socket) {
@@ -254,6 +214,9 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
     case DCC_EXIT:
       socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
       break;
+    case DCC_RESPONSE:
+      /* This packet is a response to an earlier sent packet */
+      break;
     default:
       // TODO: can we put this result in the response?
       on_packet_result = thread->m_socket->m_on_packet(payload, &response);
@@ -262,15 +225,18 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
 
   /* Massive ew */
   if (response != nullptr) {
+    send_packet_to_socket_ex(T_SOCKET(packet->m_sender_thread)->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size);
 
+    destroy_packet_response(response);
   }
+
+  destroy_tspckt(packet);
 
   // we want to keep this packet alive for now, all the way untill the response has been handled
   // we jump here when we are done handeling a potential socketroutine
 
   // no need to unlock the mutex, because it just gets
   // deleted lmao
-  destroy_tspckt(packet);
 
   // NOTE: this mutex MUST be unlocked after we are done with this packet, otherwise 
   // the socket will deadlock

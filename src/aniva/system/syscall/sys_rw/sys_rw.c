@@ -1,7 +1,9 @@
 
 #include "sys_rw.h"
 #include "LibSys/syscall.h"
+#include "dev/driver.h"
 #include "fs/file.h"
+#include "libk/error.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
@@ -20,6 +22,8 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
   khandle = &current_proc->m_handle_map.handles[handle];
 
+  kernel_panic("Tried to sys_write");
+
   switch (khandle->type) {
     case KHNDL_TYPE_FILE:
       {
@@ -36,6 +40,13 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
         khandle->offset += write_len;
 
+        break;
+      }
+    case KHNDL_TYPE_DRIVER:
+      {
+        aniva_driver_t* driver = khandle->reference.driver;
+
+        //driver_send_packet()
         break;
       }
     default:

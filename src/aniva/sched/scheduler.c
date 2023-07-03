@@ -92,17 +92,21 @@ ANIVA_STATUS init_scheduler() {
 // first scheduler entry
 void start_scheduler(void) {
 
+  proc_t* initial_process;
+  thread_t *initial_thread;
   sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
 
   if (frame_ptr == nullptr) {
     return;
   }
 
+  initial_process = frame_ptr->m_proc_to_schedule;
+
+  ASSERT_MSG((initial_process->m_flags & PROC_KERNEL) == PROC_KERNEL, "FATAL: initial process was not a kernel process");
+
   // let's jump into the idle thread initially, so we can then
   // resume to the thread-pool when we leave critical sections
-  thread_t *initial_thread = frame_ptr->m_proc_to_schedule->m_init_thread;
-
-  //atomic_ptr_write(s_no_schedule, false);
+  initial_thread = initial_process->m_init_thread;
 
   set_current_proc(frame_ptr->m_proc_to_schedule);
   set_current_handled_thread(initial_thread);
@@ -160,7 +164,7 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
     kernel_panic("FIXME: Trying to set idlethread");
 
     println(prev_thread->m_name);
-    set_previous_thread(frame->m_proc_to_schedule->m_idle_thread);
+    //set_previous_thread(frame->m_proc_to_schedule->m_idle_thread);
     set_current_handled_thread(frame->m_proc_to_schedule->m_idle_thread);
 
     return Success(0);

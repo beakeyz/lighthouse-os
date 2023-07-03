@@ -13,7 +13,6 @@
 #include "fs/vnode.h"
 #include "fs/vobj.h"
 #include "interrupts/interrupts.h"
-#include "libk/async_ptr.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/error.h"

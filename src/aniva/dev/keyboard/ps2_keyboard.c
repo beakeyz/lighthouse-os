@@ -6,7 +6,6 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "interrupts/control/pic.h"
 #include "interrupts/interrupts.h"
-#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/io.h"
 #include "libk/linkedlist.h"

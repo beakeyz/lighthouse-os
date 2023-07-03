@@ -29,7 +29,6 @@ extern FILE* stderr;
 extern FILE* stdout;
 
 #define stderr stderr
-#define stdout stdout
 
 extern int fclose(FILE*);
 extern int fflush(FILE*);

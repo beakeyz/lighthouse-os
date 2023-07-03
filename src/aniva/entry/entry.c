@@ -9,7 +9,6 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "kevent/kevent.h"
-#include "libk/async_ptr.h"
 #include "libk/error.h"
 #include "libk/hashmap.h"
 #include "libk/io.h"
