@@ -17,6 +17,8 @@
 #include <mem/heap.h>
 #include <libk/string.h>
 
+void generic_driver_entry(aniva_driver_t* driver);
+
 /*
  * We use goto's here to make sure that node->m_lock is unlocked when this function exits
  */
@@ -156,7 +158,7 @@ bool driver_is_ready(aniva_driver_t* driver) {
   return active_flag;
 }
 
-static int generic_driver_entry(aniva_driver_t* driver) {
+void generic_driver_entry(aniva_driver_t* driver) {
 
   /* Just make sure this driver is marked as inactive */
   driver->m_flags &= ~DRV_ACTIVE;
@@ -170,7 +172,10 @@ static int generic_driver_entry(aniva_driver_t* driver) {
     if (!dep_manifest || !is_driver_loaded(dep_manifest->m_handle)) {
       /* TODO: check if the dependencies allow for dynamic loading and if so, load them anyway */
       kernel_panic("dependencies are not loaded!");
-      return -1;
+
+      /* Mark the driver as failed */
+      driver->m_flags |= DRV_FAILED;
+      return;
     }
   }
 
@@ -184,8 +189,6 @@ static int generic_driver_entry(aniva_driver_t* driver) {
 
   /* Init finished, the driver is ready for messages */
   driver->m_flags |= DRV_ACTIVE;
-
-  return result;
 }
 
 ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {

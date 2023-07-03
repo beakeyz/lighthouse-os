@@ -311,6 +311,7 @@ void kterm_command_worker() {
 aniva_driver_t g_base_kterm_driver = {
   .m_name = "kterm",
   .m_type = DT_GRAPHICS,
+  .m_flags = DRV_SOCK,
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_drv_msg = kterm_on_packet,
@@ -320,7 +321,6 @@ aniva_driver_t g_base_kterm_driver = {
 EXPORT_DRIVER(g_base_kterm_driver);
 
 int kterm_init() {
-  println("Initialized the kterm!");
 
   kterm_current_line = 0;
   s_kterm_cmd_lock = create_mutex(0);
@@ -328,18 +328,22 @@ int kterm_init() {
   /* Zero out the cmd buffer */
   memset(&s_kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
 
+  println("Initialized the kterm! 1");
   // register our keyboard listener
   destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
+  println("Initialized the kterm! 2");
 
   // map our framebuffer
   uintptr_t ptr = KTERM_FB_ADDR;
   destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t)));
+  println("Initialized the kterm! 3");
 
   packet_response_t* response = driver_send_packet_sync("graphics/fb", FB_DRV_GET_FB_INFO, NULL, 0);
   if (response) {
     kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
     destroy_packet_response(response);
   }
+  println("Initialized the kterm! 4");
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("Command worker", kterm_command_worker, NULL));
@@ -363,11 +367,16 @@ int kterm_init() {
   kterm_println(to_string(processor->m_info.m_max_available_cores));
   kterm_println("\n");
 
+  for (;;) {
+    scheduler_yield();
+  }
+
   return 0;
 }
 
 int kterm_exit() {
   // TODO: unmap framebuffer
+  kernel_panic("kterm_exit");
   return 0;
 }
 

@@ -185,19 +185,11 @@ void test_proc_entry(uintptr_t arg) {
   println_kterm("Hello from the test process");
 
   uintptr_t thing = 5;
-
-  /* Let's attempt to terminate ourselves */
-  proc_exit();
-
-  for (;;) {
-    asm volatile("hlt");
-  }
 }
 
 void kthread_entry() {
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
-
 
   init_gdisk_dev();
 

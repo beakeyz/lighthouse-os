@@ -56,6 +56,8 @@ typedef struct aniva_driver {
 #define DRV_SOCK                    (0x00000008) /* Does this driver require a socket */
 #define DRV_ALLOW_DYNAMIC_LOADING   (0x00000010) /* Allows the installed driver to be loaded when we need it */
 #define DRV_HAS_HANDLE              (0x00000020) /* This driver is tethered to a handle */
+#define DRV_FAILED                  (0x00000040)
+#define DRV_DEFERRED                (0x00000080)
 
 aniva_driver_t* create_driver(
   const char* name,
@@ -67,6 +69,11 @@ aniva_driver_t* create_driver(
   SocketOnPacket drv_msg,
   DEV_TYPE type
   );
+
+static inline bool driver_is_deferred(aniva_driver_t* drv)
+{
+  return ((drv->m_flags & DRV_DEFERRED) == DRV_DEFERRED);
+}
 
 struct vnode* create_fs_driver(aniva_driver_t* driver);
 

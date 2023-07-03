@@ -8,7 +8,7 @@
 #include <libk/multiboot.h>
 #include <libk/stddef.h>
 
-#define FB_DRV_SET_MB_TAG 8
+//#define FB_DRV_SET_MB_TAG 8 /* FIXME: should drv messages be able to alter mb framebuffer tag? */
 #define FB_DRV_SET_WIDTH 9
 #define FB_DRV_SET_HEIGHT 10
 #define FB_DRV_SET_FB 11

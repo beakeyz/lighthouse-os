@@ -9,6 +9,7 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "proc/ipc/packet_response.h"
+#include "sched/scheduler.h"
 #include <dev/driver.h>
 
 // hihi the entire kernel has access to this :clown:
@@ -40,7 +41,37 @@ aniva_driver_t g_base_fb_driver = {
 };
 EXPORT_DRIVER(g_base_fb_driver);
 
+static int __set_mb_tag(struct multiboot_tag_framebuffer* tag)
+{
+  if (!tag) {
+    return -1;
+  }
+
+  if (tag->common.size == 0 || tag->common.framebuffer_addr == 0) {
+    return -1;
+  }
+
+  println("Set framebuffer info");
+  s_fb_tag = tag;
+  s_fb_addr = tag->common.framebuffer_addr;
+  s_width = tag->common.framebuffer_width;
+  s_height = tag->common.framebuffer_height;
+  s_bpp = tag->common.framebuffer_bpp;
+  s_pitch = tag->common.framebuffer_pitch;
+  s_used_pages = (s_pitch * s_height + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
+
+  /* Mark framebuffer memory as used, just to be sure */
+  for (uintptr_t i = 0; i < s_used_pages; i++) {
+    kmem_set_phys_page_used(kmem_get_page_idx(s_fb_addr) + i);
+  }
+
+  return 0;
+}
+
 int fb_driver_init() {
+
+  int result;
+  struct multiboot_tag_framebuffer* fb;
 
   if (!g_system_info.has_framebuffer) {
     return -1;
@@ -54,15 +85,14 @@ int fb_driver_init() {
   s_height = 0;
   s_used_pages = 0;
 
-
   /* Early ready mark */
   driver_set_ready("graphics/fb");
 
-  struct multiboot_tag_framebuffer* fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
-  destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_SET_MB_TAG, fb, sizeof(void*)));
+  result = __set_mb_tag(fb);
 
-  return 0;
+  return result;
 }
 
 int fb_driver_exit() {
@@ -70,41 +100,17 @@ int fb_driver_exit() {
 }
 
 uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+
+  int result;
+
   switch (payload.m_code) {
-    case FB_DRV_SET_MB_TAG: {
-      struct multiboot_tag_framebuffer* tag = payload.m_data;
-      println("Setting framebuffer info");
-      println(to_string((uintptr_t)tag));
-
-      if (!tag) {
-        return -1;
-      }
-
-      if (tag->common.size == 0 || tag->common.framebuffer_addr == 0) {
-        return -1;
-      }
-
-      println("Set framebuffer info");
-      s_fb_tag = tag;
-      s_fb_addr = tag->common.framebuffer_addr;
-      s_width = tag->common.framebuffer_width;
-      s_height = tag->common.framebuffer_height;
-      s_bpp = tag->common.framebuffer_bpp;
-      s_pitch = tag->common.framebuffer_pitch;
-      s_used_pages = (s_pitch * s_height + SMALL_PAGE_SIZE - 1) / SMALL_PAGE_SIZE;
-
-      /* Mark framebuffer memory as used, just to be sure */
-      for (uintptr_t i = 0; i < s_used_pages; i++) {
-        kmem_set_phys_page_used(kmem_get_page_idx(s_fb_addr) + i);
-      }
-
-      break;
-    }
     case FB_DRV_MAP_FB: {
       // TODO: save a list of mappings, so we can unmap it on driver unload
       uintptr_t virtual_base = *(uintptr_t*)payload.m_data;
       print("Mapped framebuffer: ");
       println(to_string(virtual_base));
+      print("Size: ");
+      println(to_string(s_used_pages * SMALL_PAGE_SIZE));
       //kmem_map_range(nullptr, virtual_base, s_fb_addr, s_used_pages, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_PHYS_REALIGN, 0);
       __kmem_alloc_ex(nullptr, nullptr, s_fb_addr, virtual_base, s_used_pages * SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_NO_REMAP, 0);
       return 0;
@@ -132,5 +138,5 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
       break;
     }
   }
-  return 0;
+  return result;
 }

@@ -128,7 +128,8 @@ static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
  * Resolve the drivers socket and send a packet to that port
  */
 ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
-ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t buffer_size);
+ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
+ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
 
 /*
  * Same as above, but calls the requested function instantly, rather than waiting for the socket to 

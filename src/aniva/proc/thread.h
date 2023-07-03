@@ -67,12 +67,12 @@ typedef struct thread {
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default
  */
-thread_t *create_thread(FuncPtr, ThreadEntryWrapper, uintptr_t, char[32], struct proc*, bool); // make this sucka
+thread_t *create_thread(FuncPtr, ThreadEntryWrapper, uintptr_t, const char[32], struct proc*, bool); // make this sucka
 
 /*
  * create a thread that is supposed to execute code for a process
  */
-thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, char[32]);
+thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, const char[32]);
 
 /*
  * create a thread that is supposed to act as a socket for itc and ipc

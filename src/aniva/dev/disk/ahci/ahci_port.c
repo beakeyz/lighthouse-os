@@ -318,7 +318,6 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
 
 ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
-  println_kterm(to_string(port->m_generic.m_uid));
   generic_disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
 
   ASSERT_MSG(device == &port->m_generic, "Device to generic port device mismatch (ahci)");
@@ -384,26 +383,12 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   port->m_generic.m_device_name = port->m_device_model;
 
-  /* TODO: remove debug info */
-  println_kterm("");
-  println_kterm(port->m_device_model);
-  println_kterm("");
-
-  println_kterm("Logical sector size: ");
-  println_kterm(to_string(port->m_generic.m_logical_sector_size));
-  println_kterm("Physical sector size: ");
-  println_kterm(to_string(port->m_generic.m_physical_sector_size));
-  println_kterm("Max bloc: ");
-  println_kterm(to_string(port->m_generic.m_max_blk));
-  println_kterm("");
-
   /* Lay out partitions (FIXME: should we really do this here?) */
   gpt_table_t* gpt_table = create_gpt_table(&port->m_generic);
 
   /* Too lazy to implement mbr =/ */
   if (!gpt_table) {
     // TODO: Search for MBR
-    println_kterm("Could not find GPT table!");
     goto fail_and_dealloc;
   }
 
@@ -411,8 +396,6 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   port->m_generic.m_partition_type = PART_TYPE_GPT;
   port->m_generic.m_partitioned_dev_count = port->m_gpt_table->m_partition_count;
-
-  println_kterm(to_string(port->m_generic.m_partitioned_dev_count));
 
   /*
    * TODO: should we put every partitioned device in the vfs?
@@ -425,14 +408,11 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
     /* TODO: support async disk IO */
     partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, part->m_type.m_name, part->m_start_lba, part->m_end_lba, PD_FLAG_ONLY_SYNC);
 
-    println_kterm(partitioned_device->m_name);
-
     attach_partitioned_disk_device(&port->m_generic, partitioned_device);
   }
 
   /* Clean the buffer */
   __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
-  println_kterm("Done!");
   //kdebug();
   return ANIVA_SUCCESS;
 

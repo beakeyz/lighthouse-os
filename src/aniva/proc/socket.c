@@ -188,7 +188,7 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   threaded_socket_t* socket = packet->m_reciever_thread;
 
   // don't handle any packets when this socket is not available
-  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_READY)) {
+  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_READY) || mutex_is_locked(socket->m_packet_mutex)) {
     println("socket not ready: ");
     println(socket->m_parent->m_name);
     return Warning();
@@ -215,6 +215,8 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
       socket_set_flag(thread->m_socket, TS_SHOULD_EXIT, true);
       break;
     case DCC_RESPONSE:
+
+      kernel_panic("TODO: responses");
       /* This packet is a response to an earlier sent packet */
       break;
     default:
@@ -223,7 +225,6 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
       break;
   }
 
-  /* Massive ew */
   if (response != nullptr) {
     send_packet_to_socket_ex(T_SOCKET(packet->m_sender_thread)->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size);
 

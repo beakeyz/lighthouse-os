@@ -42,8 +42,11 @@ const aniva_driver_t g_base_ahci_driver = {
   .f_init = ahci_driver_init,
   .f_exit = ahci_driver_exit,
   .f_drv_msg = ahci_driver_on_packet,
-  .m_dependencies = {"graphics/kterm"},
-  .m_dep_count = 1
+  /*
+   * FIXME: when we insert a dependency here that is deferred (a socket), we completely die, since this 
+   * non-socket driver will fail to load as it realizes that it is unable to load its dependency...
+   */
+  .m_dep_count = 0
 };
 EXPORT_DRIVER(g_base_ahci_driver);
 
@@ -71,13 +74,7 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
   uint32_t bar5;
   g_pci_type1_impl.read32(bus_num, device_num, func_num, BAR5, &bar5);
 
-  print("BAR5 address: ");
-  println(to_string(bar5));
-
   uintptr_t hba_region = (uintptr_t)Must(__kmem_kernel_alloc(bar5, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
-
-  println("Got the address");
-  println(to_string(hba_region));
 
   return (void*)hba_region;
 }
@@ -127,11 +124,9 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
         continue;
       }
 
-      println_kterm("Found HBA port");
       ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, internal_index);
       if (initialize_port(port) == ANIVA_FAIL) {
         println("Failed! killing port...");
-        println_kterm("Failed to initialize port");
         destroy_ahci_port(port);
         continue;
       }

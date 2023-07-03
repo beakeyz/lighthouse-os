@@ -3,6 +3,10 @@
 #include "dev/core.h"
 #include <libk/stddef.h>
 
+/*
+ * TODO: this may probably also keep track of the response buffers and size, 
+ * since that might be handy for doing quick response copying
+ */
 typedef struct packet_payload {
   void* m_data;
   size_t m_data_size;

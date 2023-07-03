@@ -40,7 +40,7 @@ static thread_t* __generic_idle_thread;
  */
 static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
 
-thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, char name[32], proc_t* proc, bool kthread) { // make this sucka
+thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, const char name[32], proc_t* proc, bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
 
   if (!thread)
@@ -133,7 +133,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   return thread;
 }
 
-thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, char name[32]) {
+thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, const char name[32]) {
   if (proc == nullptr || entry == nullptr) {
     return nullptr;
   }
@@ -238,6 +238,9 @@ thread_t* get_generic_idle_thread() {
 extern NORETURN void thread_end_lifecycle() {
   // TODO: report or cache the result somewhere until
   // It is approved by the kernel
+
+  kernel_panic("thread_end_lifecycle");
+
   thread_t *current_thread = get_current_scheduling_thread();
 
   ASSERT_MSG(current_thread, "Can't end a null thread!");
