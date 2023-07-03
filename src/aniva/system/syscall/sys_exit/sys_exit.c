@@ -6,6 +6,9 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 
+/*
+ * FIXME: what if a sub-thread of a certain process calls exit() ?
+ */
 uintptr_t sys_exit_handler(uintptr_t code) {
   proc_t* current_proc;
   thread_t* current_thread;
@@ -28,7 +31,7 @@ uintptr_t sys_exit_handler(uintptr_t code) {
     current_proc->m_flags |= PROC_STALLED | PROC_IDLE;
 
     /* This thread will be idle forever */
-    // thread_set_state(current_thread, IDLE);
+    thread_set_state(current_thread, BLOCKED);
   } else 
     try_terminate_process(current_proc);
 

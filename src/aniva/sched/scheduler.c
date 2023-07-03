@@ -332,14 +332,29 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
       // switch_frames
       println("Should have switched frames!");
-      //send_sched_frame_to_back(0);
+
+      /* Pick a next process */
       pick_next_process_scheduler();
+
+      /* Pick a next thread */
       Must(pick_next_thread_scheduler());
 
       /* Debug */
       println(get_current_proc()->m_name);
       println(get_current_scheduling_thread()->m_name);
       println(to_string((uintptr_t)get_current_scheduling_thread()->m_real_entry));
+
+      /*
+       * Handle any packets that might have come in for sockets in this process 
+       * TODO: export to function of proc.c
+       */
+      FOREACH(i, current_frame->m_proc_to_schedule->m_threads) {
+        thread_t* t = i->data;
+
+        if (t && thread_is_socket(t)) {
+          socket_try_handle_tspacket(T_SOCKET(t));
+        }
+      }
 
       scheduler_try_invoke();
       return registers_ptr;

@@ -290,12 +290,6 @@ extern void thread_enter_context(thread_t *to) {
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
-
-  if (!thread_is_socket(to))
-    return;
-
-  /* TODO: check for a packet */
-  socket_try_handle_tspacket(to->m_socket);
 }
 
 // called when a thread is created and enters the scheduler for the first time
