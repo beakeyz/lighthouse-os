@@ -146,9 +146,15 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
  * in our bitmap.
  */
 ErrorOrPtr generate_new_proc_id() {
-  uintptr_t next = atomic_ptr_load(__next_proc_id);
-  atomic_ptr_write(__next_proc_id, next + 1);
-  return Success(next);
+  uintptr_t next = atomic_ptr_load(__next_proc_id) + 1;
+
+  /* Limit exceeded, since a proc_id is always 32-bit here (for now) */
+  if (next > (uint64_t)0xFFFFFFFF) {
+    return Error();
+  }
+
+  atomic_ptr_write(__next_proc_id, next);
+  return Success((uint32_t)next);
 }
 
 list_t get_registered_sockets() {

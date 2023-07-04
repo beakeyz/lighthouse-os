@@ -38,6 +38,20 @@ mutex_t* create_mutex(uint8_t flags) {
 
 void destroy_mutex(mutex_t* mutex) {
 
+  thread_t* waiter;
+
+  if (!mutex || !mutex->m_waiters)
+    return;
+
+  waiter = queue_dequeue(mutex->m_waiters);
+
+  while (waiter) {
+
+    thread_unblock(waiter);
+    
+    waiter = queue_dequeue(mutex->m_waiters);
+  }
+
   destroy_queue(mutex->m_waiters, false);
   destroy_spinlock(mutex->m_lock);
   kfree(mutex);

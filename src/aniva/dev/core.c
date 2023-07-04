@@ -507,7 +507,6 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
 
   size_t timeout = mto;
 
-  println("Waiting untill driver is ready");
   /* NOTE: this is the same logic as that which is used in driver_is_ready(...) */
   while (!driver_is_ready(handle)) {
 
@@ -522,7 +521,6 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
     }
   }
 
-  println("Ready!");
   LOCK_SOCKET_MAYBE(socket);
 
   packet_response_t* response = nullptr;

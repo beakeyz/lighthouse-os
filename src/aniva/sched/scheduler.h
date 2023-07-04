@@ -58,7 +58,7 @@ void sched_idle_current_process();
 void sched_wake_current_process();
 
 ANIVA_STATUS sched_remove_proc(proc_t*);
-ANIVA_STATUS sched_remove_proc_by_id(proc_id);
+ANIVA_STATUS sched_remove_proc_by_id(proc_id_t);
 ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();

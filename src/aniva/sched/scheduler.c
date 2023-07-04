@@ -67,7 +67,7 @@ static ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_
 static ALWAYS_INLINE ErrorOrPtr remove_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void push_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx);
-static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id proc);
+static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t proc);
 static ALWAYS_INLINE sched_frame_t pop_sched_frame();
 static void set_sched_frame_idle(sched_frame_t* frame_ptr);
 static USED thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
@@ -342,7 +342,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       /* Debug */
       println(get_current_proc()->m_name);
       println(get_current_scheduling_thread()->m_name);
-      println(to_string((uintptr_t)get_current_scheduling_thread()->m_real_entry));
+      println(to_string((uintptr_t)get_current_scheduling_thread()->f_real_entry));
 
       /*
        * Handle any packets that might have come in for sockets in this process 
@@ -449,7 +449,7 @@ ANIVA_STATUS sched_remove_proc(proc_t *proc) {
  * We require the scheduler to be locked by this 
  * point, which generaly means it is paused
  */
-ANIVA_STATUS sched_remove_proc_by_id(proc_id id) {
+ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id) {
 
   if (!mutex_is_locked(s_sched_mutex))
     return ANIVA_FAIL;
@@ -554,7 +554,7 @@ static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) {
  * we might need to look into sorting processes based on proc_id, and the 
  * preforming a binary search, so TODO
  */
-static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id procid) {
+static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid) {
 
   FOREACH(i, s_sched_frames) {
     sched_frame_t* frame = i->data;

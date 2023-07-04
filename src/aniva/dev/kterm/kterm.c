@@ -311,7 +311,6 @@ void kterm_command_worker() {
 aniva_driver_t g_base_kterm_driver = {
   .m_name = "kterm",
   .m_type = DT_GRAPHICS,
-  .m_flags = DRV_SOCK,
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_drv_msg = kterm_on_packet,
@@ -366,10 +365,6 @@ int kterm_init() {
   kterm_println("Available cores: ");
   kterm_println(to_string(processor->m_info.m_max_available_cores));
   kterm_println("\n");
-
-  for (;;) {
-    scheduler_yield();
-  }
 
   return 0;
 }

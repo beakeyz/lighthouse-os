@@ -10,12 +10,12 @@
  * we imply that the mutex immediately gets locked after 
  * creation
  */
-#define MUTEX_FLAG_IS_HELD (1<<0)
+#define MUTEX_FLAG_IS_HELD                  (1<<0)
 
 /*
  * TODO: implement
  */
-#define MUTEX_FLAG_IS_SHARED (1<<1)
+#define MUTEX_FLAG_IS_SHARED                (1<<1)
 
 typedef struct mutex {
   uint8_t m_mutex_flags;

@@ -18,6 +18,7 @@
 #include <libk/string.h>
 #include "core.h"
 #include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include "time/pit.h"
@@ -50,18 +51,20 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
   thread->m_self = thread;
 
+  thread->m_lock = create_mutex(0);
+
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = proc;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
-  thread->m_tid = create_atomic_ptr_with_value((uintptr_t)-1);
+  thread->m_tid = -1;
 
-  thread->m_real_entry = (ThreadEntry)entry;
-  thread->m_exit = (FuncPtr)thread_end_lifecycle;
+  thread->f_real_entry = (ThreadEntry)entry;
+  thread->f_exit = (FuncPtr)thread_end_lifecycle;
 
   if (entry_wrapper) {
-    thread->m_entry_wrapper = entry_wrapper;
+    thread->f_entry_wrapper = entry_wrapper;
   }
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
@@ -129,7 +132,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   }
 
   /* Set the entrypoint last */
-  thread_set_entrypoint(thread, (FuncPtr)thread->m_real_entry, data, 0);
+  thread_set_entrypoint(thread, (FuncPtr)thread->f_real_entry, data, 0);
   return thread;
 }
 
@@ -213,7 +216,8 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
   if (thread->m_socket) {
     destroy_threaded_socket(thread->m_socket);
   }
-  destroy_atomic_ptr(thread->m_tid);
+  //destroy_atomic_ptr(thread->m_tid);
+  destroy_mutex(0);
 
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
@@ -306,7 +310,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread) {
    * NOTE: we can do this since STACK_PUSH first decrements the
    *       stack pointer and then it places the value
    */
-  *(uintptr_t*)rsp = (uintptr_t)thread->m_exit;
+  *(uintptr_t*)rsp = (uintptr_t)thread->f_exit;
 
   if ((thread->m_context.cs & 3) != 0) {
     STACK_PUSH(rsp, uintptr_t, GDT_USER_DATA | 3);

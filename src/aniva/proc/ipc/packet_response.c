@@ -18,6 +18,9 @@ void destroy_packet_response(packet_response_t* response) {
     return;
   }
 
+  memset(response->m_response_buffer, 0, response->m_response_size);
+  memset(response, 0, sizeof(packet_response_t));
+
   kfree(response->m_response_buffer);
   kfree(response);
 }

@@ -16,11 +16,17 @@
 
 #define PROC_SOFTMAX                            (0x1000)
 
+/* The 32-bit limit for proc ids */
+#define PROC_HARDMAX                            (0xFFFFFFFF)
+
+#define THREAD_HARDMAX                          (0xFFFFFFFF)
+
 #define MIN_SOCKET_BUFFER_SIZE                  (0)
 // FIXME: should this be the max size?
 #define SOCKET_DEFAULT_SOCKET_BUFFER_SIZE       (4096)
 #define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT     (128)
 #define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT     (64)
+
 
 extern char thread_entry_stub[];
 extern char thread_entry_stub_end[];
@@ -67,6 +73,55 @@ ErrorOrPtr socket_register(struct threaded_socket* socket);
  * unregister a socket from the kernel socket chain
  */
 ErrorOrPtr socket_unregister(struct threaded_socket* socket);
+
+
+typedef int thread_id_t;
+typedef int proc_id_t;
+
+
+/* 64 bit value that combines the tid and the pid together */
+typedef uint64_t full_proc_id_t;
+
+
+typedef union {
+  struct {
+    thread_id_t thread_id;
+    proc_id_t proc_id;
+  };
+  full_proc_id_t id;
+} u_full_proc_id_t;
+
+
+static inline full_proc_id_t create_full_procid(uint32_t proc_id, uint32_t thread_id)
+{
+  u_full_proc_id_t ret;
+
+  ret.proc_id = proc_id;
+  ret.thread_id = thread_id;
+
+  return ret.id;
+}
+
+
+static inline uint32_t full_procid_get_tid(full_proc_id_t fprocid)
+{
+  u_full_proc_id_t u_id;
+
+  u_id.id = fprocid;
+
+  return u_id.thread_id;
+}
+
+
+static inline proc_id_t full_procid_get_pid(full_proc_id_t fprocid)
+{
+  u_full_proc_id_t u_id;
+
+  u_id.id = fprocid;
+
+  return u_id.proc_id;
+}
+
 
 /*
  * Try to grab a new proc_id

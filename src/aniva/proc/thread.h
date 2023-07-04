@@ -14,6 +14,7 @@
 
 struct proc;
 struct thread;
+struct mutex;
 struct threaded_socket;
 
 typedef int (*ThreadEntry) (
@@ -25,18 +26,21 @@ typedef void (*ThreadEntryWrapper) (
   struct thread* thread
 );
 
+
 // TODO: thread uid?
 typedef struct thread {
   struct thread* m_self;
 
-  ThreadEntry m_real_entry;
-  FuncPtr m_exit;
-  ThreadEntryWrapper m_entry_wrapper;
+  ThreadEntry f_real_entry;
+  ThreadEntryWrapper f_entry_wrapper;
+  FuncPtr f_exit;
+
+  struct mutex* m_lock;
 
   kContext_t m_context;
   FpuState m_fpu_state;
 
-  atomic_ptr_t* m_tid;
+  thread_id_t m_tid;
   char m_name[32];
   uint32_t m_cpu; // atomic?
   uint32_t m_ticks_elapsed;

@@ -285,7 +285,10 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
   }
 
   uintptr_t current_thread_count = atomic_ptr_load(proc->m_thread_count);
-  atomic_ptr_write(thread->m_tid, current_thread_count);
+
+  /* TODO: thread locking */
+  thread->m_tid = current_thread_count;
+
   atomic_ptr_write(proc->m_thread_count, current_thread_count+1);
 
   list_append(proc->m_threads, thread);

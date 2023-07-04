@@ -31,8 +31,6 @@ struct proc_image;
  * every resource also keeps a linked list of owners
  */
 
-typedef int proc_id;
-
 typedef struct proc_image {
   /* NOTE: make sure the low and high addresses are page-aligned */
   vaddr_t m_lowest_addr;
@@ -59,7 +57,7 @@ inline void proc_image_align(proc_image_t* image)
  */
 typedef struct proc {
   char m_name[32];
-  proc_id m_id;
+  proc_id_t m_id;
 
   uint32_t m_flags;
 
