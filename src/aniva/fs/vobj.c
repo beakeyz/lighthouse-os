@@ -71,6 +71,18 @@ void destroy_vobj(vobj_t* obj) {
 
 }
 
+void vobj_register_child(vobj_t* obj, void* child, VOBJ_TYPE_t type, FuncPtr destroy_fn)
+{
+
+  if (!obj)
+    return;
+
+  obj->m_child = child;
+  obj->m_type = type;
+
+  obj->m_ops->f_destory_child = destroy_fn;
+}
+
 ErrorOrPtr vobj_generate_handle(vobj_t* object) {
 
   vobj_handle_t ret;

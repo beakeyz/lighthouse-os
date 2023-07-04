@@ -157,9 +157,7 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
     return nullptr;
   }
 
-  ret->m_obj->m_type = VOBJ_TYPE_FILE;
-  ret->m_obj->m_child = ret;
-  ret->m_obj->m_ops->f_destory_child = (void (*)(void*))destroy_file;
+  vobj_register_child(ret->m_obj, ret, VOBJ_TYPE_FILE, destroy_file);
 
   ret->m_ops = &generic_file_ops;
 

@@ -247,24 +247,24 @@ void kterm_command_worker() {
       } else if (!strcmp(contents, "ztest")) {
         zone_allocator_t* allocator = create_zone_allocator_ex(nullptr, 0, 4 * Kib, sizeof(uintptr_t), 0);
 
-        uintptr_t* test_data = allocator->m_heap->f_allocate(allocator, sizeof(uintptr_t));
+        uintptr_t* test_data = zalloc(allocator, sizeof(uintptr_t));
         *test_data = 6969;
 
         kterm_println("\nAllocated 8 bytes: ");
         kterm_println(to_string(*test_data));
 
-        uintptr_t* test_data2 = allocator->m_heap->f_allocate(allocator, sizeof(uintptr_t));
+        uintptr_t* test_data2 = zalloc(allocator, sizeof(uintptr_t));
         *test_data2 = 420;
 
         kterm_println("\nAllocated 8 bytes: ");
         kterm_println(to_string(*test_data2));
 
-        allocator->m_heap->f_sized_deallocate(allocator, test_data, sizeof(uintptr_t));
+        zfree(allocator, test_data, sizeof(uintptr_t));
 
         kterm_println("\nDeallocated 8 bytes: ");
         kterm_println(to_string(*test_data));
 
-        allocator->m_heap->f_sized_deallocate(allocator, test_data2, sizeof(uintptr_t));
+        zfree(allocator, test_data2, sizeof(uintptr_t));
 
         kterm_println("\nDeallocated 8 bytes: ");
         kterm_println(to_string(*test_data2));

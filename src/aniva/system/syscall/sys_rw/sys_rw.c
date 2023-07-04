@@ -1,6 +1,7 @@
 
 #include "sys_rw.h"
 #include "LibSys/syscall.h"
+#include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "fs/file.h"
 #include "libk/error.h"
@@ -22,7 +23,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
   khandle = &current_proc->m_handle_map.handles[handle];
 
-  kernel_panic("Tried to sys_write");
+  println((char*)buffer);
 
   switch (khandle->type) {
     case KHNDL_TYPE_FILE:
@@ -33,7 +34,9 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         if (!file || !file->m_ops || !file->m_ops->f_write)
           return SYS_INV;
 
+        println("Writing");
         result = file->m_ops->f_write(file, buffer, &write_len, khandle->offset);
+        println("Wrote");
 
         if (result < 0)
           return SYS_KERR;

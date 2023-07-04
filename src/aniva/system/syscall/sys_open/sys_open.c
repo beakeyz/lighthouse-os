@@ -27,10 +27,13 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
       {
         vobj_t* obj = vfs_resolve(path);
 
-        if (!obj)
+        if (!obj || !obj->m_child)
           return HNDL_INVAL;
 
-        create_khandle(&handle, &type, obj);
+        if (obj->m_type != VOBJ_TYPE_FILE)
+          return HNDL_INVAL;
+
+        create_khandle(&handle, &type, obj->m_child);
 
         break;
       }
