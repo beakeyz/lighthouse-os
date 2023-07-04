@@ -4,7 +4,7 @@ import os, io, json
 from sys import argv
 from consts import Consts
 from enum import Enum
-from installer.install import Installer, InstallerType
+from installer.install import Installer, InstallerType, take_input
 from deps.dependencies import DependencyManager
 from deps.ramdisk import RamdiskManager
 from build.builder import ProjectBuilder, BuilderMode, BuilderResult
@@ -177,16 +177,23 @@ class BuildsysBuildLibraryCallback(CommandCallback):
 class GenerateUserProcessCallback(CommandCallback):
     def call(self) -> Status:
         c = Consts()
-        processName: str = input("(Enter process name) > ")
-        linkingType: str = input("(Entry linking type) > ")
+        processName: str = take_input("Enter process name")
+        linkingType: str = take_input("Entry linking type { static, dynamic }")
+        processType: str = take_input("Enter proc type { process, service, driver }")
 
         if linkingType != "static" and linkingType != "dynamic":
             print("Invalid linking type")
             return self.call()
 
+        if processType != "process" and processType != "service" and processType != "driver":
+            print("Invalid process type")
+            return self.call()
+
         manifest: dict = {
             "name": processName,
-            "linking": linkingType
+            "linking": linkingType,
+            "type": processType,
+            "libs": ["LibC"]
         }
 
         js: str = json.dumps(manifest)

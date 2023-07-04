@@ -52,6 +52,11 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         //driver_send_packet()
         break;
       }
+    case KHNDL_TYPE_PROC:
+      {
+
+        break;
+      }
     default:
       return SYS_INV;
   }

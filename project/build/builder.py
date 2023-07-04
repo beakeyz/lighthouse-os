@@ -9,6 +9,7 @@ class BuilderMode(Enum):
     INVALID = -1
     KERNEL = 0
     USERSPACE = 1
+    LIBRARIES = 2
 
 
 class BuilderResult(Enum):
@@ -33,6 +34,8 @@ class ProjectBuilder(object):
             self.srcPath = ["src/user", "src/libs"]
             # self.userspaceBinariesOutPath = constants.OUT_DIR + "/user/binaries"
             # self.constants.ensure_path(self.userspaceBinariesOutPath)
+        elif mode == BuilderMode.LIBRARIES:
+            self.srcPath = ["src/libs"]
         else:
             self.builderMode = BuilderMode.INVALID
         pass
@@ -166,12 +169,12 @@ class ProjectBuilder(object):
                                 for objFile in self.constants.OBJ_FILES:
                                     objFile: str = objFile
 
+                                    # Add objectfiles from the processes directory
                                     if objFile.find(BIN_OUT_PATH) != -1:
                                         objFiles += f"{objFile} "
-                                        print(objFile)
+                                    # Add objectfiles from libraries (TODO: Limit to libraries in the manifest)
                                     elif objFile.find(self.constants.LIBS_OUT_DIR) != -1:
                                         objFiles += f"{objFile} "
-                                        print(objFile)
 
                                 ld = self.constants.CROSS_LD_DIR
 
