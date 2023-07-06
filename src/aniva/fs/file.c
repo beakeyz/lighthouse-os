@@ -16,6 +16,11 @@ int f_close(file_t* file) {
   return 0;
 }
 
+/*
+ * The standard file read funciton will try to read from the files data 
+ * buffer if that exsists, otherwise we will have to go to the device to read
+ * from it
+ */
 int f_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
 
   uintptr_t end_offset;
@@ -24,17 +29,22 @@ int f_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
   if (!buffer || !size)
     return -1;
 
-  end_offset = offset + *size;
-  read_offset = (uintptr_t)file->m_data + offset;
+  /* FIXME: we should still be able to read from files even if they have no buffer */
+  if (!file || !file->m_buffer)
+    return -1;
 
-  /* Can't read outside of the file */
-  if (offset > file->m_size) {
+  end_offset = offset + *size;
+  read_offset = (uintptr_t)file->m_buffer + offset;
+
+  /* TODO: in this case, we could try to read from the device (filesystem) */
+  if (offset > file->m_buffer_size) {
     *size = 0;
     return -1;
   }
 
-  if (end_offset > file->m_size) {
-    uintptr_t delta = end_offset - file->m_size;
+  /* TODO: also in this case, we should read from the device (filesystem) */
+  if (end_offset > file->m_buffer_size) {
+    uintptr_t delta = end_offset - file->m_buffer_size;
 
     /* We'll just copy everything we can */
     *size -= delta;
@@ -122,6 +132,13 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
     0
   };
 
+  /*
+   * FIXME: this function returns the right stuff, but works 
+   * in an incorrect way.
+   */
+
+  kernel_panic("TODO: fix f_kmap");
+
   const size_t def_size = ALIGN_UP(size, SMALL_PAGE_SIZE);
   const size_t page_count = kmem_get_page_idx(def_size);
 
@@ -137,8 +154,8 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
 
   vaddr_t new_virt_base = kmem_map_range(dir->m_root, kmem_ensure_high_mapping(physical_base), physical_base, page_count, custom_flags, page_flags);
     
-  ret.m_size = def_size;
-  ret.m_data = (void*)new_virt_base;
+  ret.m_buffer_size = def_size;
+  ret.m_buffer = (void*)new_virt_base;
   ret.m_offset = file->m_offset;
   ret.m_ops = &generic_file_ops;
 
@@ -161,8 +178,8 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
 
   ret->m_ops = &generic_file_ops;
 
-  ret->m_data = nullptr;
-  ret->m_size = 0;
+  ret->m_buffer = nullptr;
+  ret->m_buffer_size = 0;
 
   return ret;
 }

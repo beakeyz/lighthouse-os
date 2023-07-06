@@ -145,9 +145,9 @@ class BuildsysBuildKernelCallback(CommandCallback):
         builder = ProjectBuilder(BuilderMode.KERNEL, c)
 
         if builder.do() == BuilderResult.SUCCESS:
-            return Status(StatusCode.Success, "Built the kernel =D")
+            return Status(StatusCode.Success, "Built kernel =D")
 
-        return Status(StatusCode.Fail, "Failed to build the kernel =(")
+        return Status(StatusCode.Fail, "Failed to build kernel =(")
 
 
 class BuildsysBuildUserspaceCallback(CommandCallback):
@@ -156,23 +156,45 @@ class BuildsysBuildUserspaceCallback(CommandCallback):
         builder = ProjectBuilder(BuilderMode.USERSPACE, c)
 
         if builder.do() == BuilderResult.SUCCESS:
-            return Status(StatusCode.Success, "Built the userspace =D")
+            return Status(StatusCode.Success, "Built userspace =D")
 
-        return Status(StatusCode.Fail, "Failed to build the userspace =(")
-        return Status(StatusCode.Fail, "TODO: implement userspace building")
+        return Status(StatusCode.Fail, "Failed to build userspace =(")
 
 
 class BuildsysBuildLibraryCallback(CommandCallback):
     def call(self) -> Status:
         c = Consts()
-        builder = ProjectBuilder(BuilderMode.USERSPACE, c)
+        builder = ProjectBuilder(BuilderMode.LIBRARIES, c)
 
         if builder.do() == BuilderResult.SUCCESS:
-            return Status(StatusCode.Success, "Built the userspace =D")
+            return Status(StatusCode.Success, "Built libraries =D")
 
-        return Status(StatusCode.Fail, "Failed to build the userspace =(")
-        return Status(StatusCode.Fail, "TODO: implement userspace building")
+        return Status(StatusCode.Fail, "Failed to build libraries =(")
 
+
+class BuildsysBuildAllCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+
+        builder = ProjectBuilder(BuilderMode.LIBRARIES, c)
+
+        # Libraries are first
+        if builder.do() != BuilderResult.SUCCESS:
+            return Status(StatusCode.Fail, "Failed to build libraries =(")
+
+        builder = ProjectBuilder(BuilderMode.USERSPACE, c)
+
+        # Then userspace
+        if builder.do() != BuilderResult.SUCCESS:
+            return Status(StatusCode.Fail, "Failed to build userspace =(")
+
+        builder = ProjectBuilder(BuilderMode.KERNEL, c)
+
+        # Then the kernel
+        if builder.do() != BuilderResult.SUCCESS:
+            return Status(StatusCode.Fail, "Failed to build kernel =(")
+
+        return Status(StatusCode.Success, "Built project =D")
 
 class GenerateUserProcessCallback(CommandCallback):
     def call(self) -> Status:
@@ -264,7 +286,8 @@ def project_main() -> Status:
     cmd_processor.register_cmd(Command("build", args={
         "kernel": BuildsysBuildKernelCallback(),
         "user": BuildsysBuildUserspaceCallback(),
-        "lib": BuildsysBuildLibraryCallback()
+        "lib": BuildsysBuildLibraryCallback(),
+        "all": BuildsysBuildAllCallback(),
     }))
     cmd_processor.register_cmd(Command("generator", args={
         "userprocess": GenerateUserProcessCallback()

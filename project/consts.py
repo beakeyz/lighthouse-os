@@ -57,7 +57,7 @@ class Consts:
 
     # TODO: implement compat with external kernel drivers as modules (which are treated as userspace until they are discovered to be drivers)
     # Default userspace flags (just anything that isn't the kernel basically)
-    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -I./src/libs -I./src/libs/LibC"
+    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/LibC"
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     # Extention for the userspace CFlags to include kernel headers
@@ -70,6 +70,9 @@ class Consts:
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
     USERSPACE_LD_FLAGS_SHARED_EXT = " -shared"
+
+    ELF_EXTENTION = ".elf"
+    SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary
 
     # NOTE: crt files have to be asm files!
     CRT_FILES: list[SourceFile] = []
@@ -117,7 +120,7 @@ class Consts:
         libSrcDir = f"{self.SRC_DIR}/libs" 
 
         # Scan the entire user source dir
-        completeContent = os.listdir(userSrcDir)
+        completeContent = os.listdir(libSrcDir)
 
         # Add every directory, since that is the only place where libraries should be
         for path in completeContent:

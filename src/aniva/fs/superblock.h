@@ -22,12 +22,13 @@ typedef struct fs_superblock {
   uint32_t m_blocksize;
   uint32_t m_flags;
 
-  uint32_t m_free_blocks;
+  /* FIXME: are these fields supposed to to be 64-bit? */
   uint32_t m_dirty_blocks;
   uint32_t m_faulty_blocks;
-  uint32_t m_total_blocks;
+  size_t m_free_blocks;
+  size_t m_total_blocks;
 
-  uint32_t m_first_usable_block;
+  uintptr_t m_first_usable_block;
 
   uintptr_t m_max_filesize;
 
@@ -47,8 +48,11 @@ typedef struct sb_ops {
   void (*remount_fs)(struct vnode*);
 } sb_ops_t;
 
+/* TODO: caching */
 static fs_superblock_t* create_fs_superblock() {
   fs_superblock_t* ret = kmalloc(sizeof(fs_superblock_t));
+
+  memset(ret, 0, sizeof(fs_superblock_t));
 
   ret->m_ops_lock = create_mutex(0);
 

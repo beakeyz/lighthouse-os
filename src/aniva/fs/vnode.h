@@ -1,6 +1,7 @@
 #ifndef __ANIVA_VNODE__
 #define __ANIVA_VNODE__
 
+#include "dev/disk/generic.h"
 #include "fs/file.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
@@ -11,7 +12,6 @@
 struct vobj;
 struct vnode;
 struct virtual_namespace;
-struct partitioned_disk_dev;
 
 /* TODO: */
 enum VNODE_TYPES {
@@ -33,7 +33,7 @@ struct generic_vnode_ops {
   int (*f_makedir)(struct vnode*, void* dir_entry, void* dir_attr, uint32_t flags);
   int (*f_rmdir)(struct vnode*, void* dir_entry, uint32_t flags);
 
-  /* Grab named data associated with this node */
+  /* Grab or create named data associated with this node */
   struct vobj* (*f_open) (struct vnode*, char*);
 
   /* Close a vobject that has been opened by this vnode */
@@ -49,6 +49,8 @@ struct vnode_dir_ops {
 
 #define VN_PERTDEV(node) ((struct partitioned_disk_dev*)node->m_dev)
 
+#define VN_SUPERBLOCK(node) ((struct fs_superblock*)(node->m_device->m_superblock))
+
 typedef struct vnode {
   mutex_t* m_lock;
   mutex_t* m_vobj_lock;
@@ -63,15 +65,14 @@ typedef struct vnode {
   /* Gets assigned when the vnode is mounted somewhere in the VFS */
   int m_id;
 
-  size_t m_size;
-
   const char* m_name;
 
+  //size_t m_size;
+  //uint8_t* m_data;
+
+  partitioned_disk_dev_t* m_device;
+
   struct virtual_namespace* m_ns;
-
-  uint8_t* m_data;
-
-  struct partitioned_disk_dev* m_device;
   struct generic_vnode_ops* m_ops; 
   struct vnode_dir_ops* m_dir_ops;
 

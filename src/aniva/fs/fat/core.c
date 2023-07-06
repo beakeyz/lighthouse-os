@@ -5,10 +5,12 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/core.h"
+#include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/namespace.h"
 #include "fs/superblock.h"
 #include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
 #include "libk/string.h"
@@ -62,6 +64,37 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, fs_superblock_t* block) {
   return FAT_OK;
 }
 
+/* 
+ * If this path does not resolve to a file, but does end in a directory, 
+ * we should make this file
+ */
+static vobj_t* fat_open(vnode_t* node, char* path)
+{
+  return nullptr;
+}
+
+static int fat_close(vnode_t* node, vobj_t* obj)
+{
+  return -1;
+}
+
+static int fat_mkdir(struct vnode* node, void* dir_entry, void* dir_attr, uint32_t flags)
+{
+  return -1;
+}
+
+static struct generic_vnode_ops __fat_vnode_ops = {
+  .f_open = fat_open,
+  .f_close = fat_close,
+  .f_makedir = fat_mkdir,
+  /* TODO */
+  .f_rmdir = nullptr,
+};
+
+/*
+ * FAT will keep a list of vobjects that have been given away by the system, in order to map
+ * vobjects to disk-locations and FATs easier.
+ */
 vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
   /* Get FAT =^) */
@@ -71,6 +104,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   uint8_t buffer[device->m_parent->m_logical_sector_size];
   fat_boot_sector_t* boot_sector = (fat_boot_sector_t*)buffer;
   fat_boot_fsinfo_t* fat_boot_fs_info;
+  vnode_t* node;
 
   int read_result = pd_bread(device, buffer, 0);
 
@@ -78,15 +112,20 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     return nullptr;
   }
 
+  /* Create sb */
   device->m_superblock = create_fs_superblock();
 
-  ffi = create_fat_fs_info();
-  sb = device->m_superblock;
-  
-  if (!ffi)
-    return nullptr;
+  /* Create root vnode */
+  node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
 
-  device->m_superblock->m_fs_specific_info = ffi;
+  /* Set the vnode device */
+  node->m_device = device;
+
+  create_fat_info(node);
+
+  /* Cache superblock and fs info */
+  sb = device->m_superblock;
+  ffi = device->m_superblock->m_fs_specific_info;
 
   /* Copy the boot sector cuz why not lol */
   ffi->boot_sector_copy = *boot_sector;
@@ -96,6 +135,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   if (parse_result != FAT_OK)
     return nullptr;
 
+  /* Check FAT type */
   if (!boot_sector->sectors_per_fat && boot_sector->fat32.sectors_per_fat) {
     /* FAT32 */
     ffi->fat_type = FTYPE_FAT32;
@@ -138,21 +178,21 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   println(to_string(device->m_superblock->m_total_blocks));
   println(to_string(device->m_superblock->m_free_blocks));
 
-  /* TODO: */
-  //vnode_t* node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
-
   //kernel_panic("Test");
 
   return nullptr;
 
 fail:
 
-  if (ffi)
-    destroy_fat_fs_info(ffi);
+  if (node) {
+    destroy_fat_info(node);
+    destroy_generic_vnode(node);
+  }
 
   /* Make sure the devices superblock is killed before we use this pointer again */
   if (device->m_superblock)
     destroy_fs_superblock(device->m_superblock);
+
 
   device->m_superblock = nullptr;
 
@@ -179,6 +219,8 @@ int fat32_init() {
 
   println("Initialized fat32 driver");
   ErrorOrPtr result;
+
+  init_fat_cache();
 
   result = register_filesystem(&fat32_type);
 

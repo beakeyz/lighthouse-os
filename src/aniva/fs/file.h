@@ -42,12 +42,21 @@ typedef struct file_ops {
   int (*f_resize)   (struct file* file, size_t new_size);
 } file_ops_t;
 
+#define FILE_READONLY       (0x00000001)
+#define FILE_ORPHAN         (0x00000002)
+
 /*
- * When this object is alive, we assume it (and its vnode) have already already opend
+ * NOTE: When this object is alive, we assume it (and its vnode) have already already opend
+ * 
+ * Every file has a data buffer that can hold a single piece of contiguous memory that reflects 
+ * the files internal data. We can only hold ONE buffer of a single size at a time, so when we
+ * want to access a different part of the file (on disk for example) we'll have to (sync and) switch out
+ * the entire buffer. We could (TODO) try to cache different buffers and link them together
  */
 typedef struct file {
 
   uint32_t m_flags;
+  uint32_t m_res0;
 
   /* Every file has an 'offset' or 'address' for where it starts */
   disk_offset_t m_offset;
@@ -61,8 +70,9 @@ typedef struct file {
   file_ops_t* m_ops;
 
   /* Pointer to the data buffer. TODO: make this easily managable */
-  void* m_data;
-  size_t m_size;
+  void* m_buffer;
+  size_t m_buffer_size;
+  size_t m_total_size;
 
 } __attribute__((aligned(4))) file_t;
 

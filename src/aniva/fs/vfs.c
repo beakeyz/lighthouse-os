@@ -14,7 +14,6 @@
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
-#include <string.h>
 
 static vfs_t s_vfs;
 

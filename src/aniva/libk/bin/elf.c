@@ -99,7 +99,7 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
 
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
-  image.m_total_exe_bytes = file->m_size;
+  image.m_total_exe_bytes = file->m_buffer_size;
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 

@@ -557,8 +557,9 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
    * NOTE: we don't use KMEM_FLAG_KERNEL here
    * since otherwise it is impossible to specify 
    * userpages like this =/ semantics are weird here lmao
+   * TODO: remove this weird behaviour, we should promote verbosity
    */
-  if (page_flags == 0)
+  if (page_flags == 0 && !(kmem_flags & KMEM_CUSTOMFLAG_READONLY))
     page_flags = KMEM_FLAG_WRITABLE;
 
   phys_idx = kmem_get_page_idx(phys);

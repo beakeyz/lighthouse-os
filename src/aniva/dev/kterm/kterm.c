@@ -289,7 +289,7 @@ void kterm_command_worker() {
         ASSERT_MSG(file, "Could not get file from test");
 
         kterm_println("File size: ");
-        kterm_println(to_string(file->m_size));
+        kterm_println(to_string(file->m_buffer_size));
         kterm_println("\n");
 
         println("Trying to make proc");

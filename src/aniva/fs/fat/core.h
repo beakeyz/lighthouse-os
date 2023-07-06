@@ -53,7 +53,7 @@
 /*
  * The fat boot sector
  */
-typedef struct {
+typedef struct fat_boot_sector {
   uint8_t unused[3]; /* Bootstrap funnie */
   uint8_t sys_id[8]; /* Name */
 
@@ -108,7 +108,10 @@ static inline bool fat_valid_bs(fat_boot_sector_t* bs){
 	return fat_valid_media(bs->media);
 }
 
-typedef struct {
+/*
+ * Lil bit of data that is most commonly found on sector 2
+ */
+typedef struct fat_boot_fsinfo {
   uint32_t signature0;
   uint32_t res0[120];
   uint32_t signature1;
@@ -117,7 +120,10 @@ typedef struct {
   uint32_t res1[4];
 } __attribute__((packed)) fat_boot_fsinfo_t;
 
-typedef struct {
+/*
+ * A generic directory entry for this filesystem
+ */
+typedef struct fat_dir_entry {
   uint8_t name[FAT_MAX_NAME];
   uint8_t attr;
   uint8_t lcase;
@@ -141,7 +147,7 @@ typedef struct {
 } fat_dir_t;
 
 typedef struct {
-
+  /* TODO */
 } __attribute__((packed)) fat_lfn_entry_t;
 
 #define FTYPE_FAT32         (32)
@@ -153,7 +159,7 @@ typedef struct {
  * Specific data regarding the FAT filesystem we encounter
  * TODO: should this hold caches?
  */
-typedef struct {
+typedef struct fat_fs_info {
 
   uint8_t fat_type; /* bits of this FAT fs (12, 16, 32) */
   bool is_dirty;
@@ -172,20 +178,6 @@ typedef struct {
   fat_boot_fsinfo_t boot_fs_info;
 
 } fat_fs_info_t;
-
-static fat_fs_info_t* create_fat_fs_info() {
-  fat_fs_info_t* ret = kmalloc(sizeof(fat_fs_info_t));
-  memset(ret, 0, sizeof(fat_fs_info_t));
-
-  ret->fat_lock = create_mutex(0);
-
-  return ret;
-}
-
-void destroy_fat_fs_info(fat_fs_info_t* info) {
-  destroy_mutex(info->fat_lock);
-  kfree(info);
-}
 
 static inline bool is_fat32(fat_fs_info_t* finfo)
 {
