@@ -1,6 +1,6 @@
 #ifndef __ANIVA_SCHEDULER__
 #define __ANIVA_SCHEDULER__
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "system/processor/registers.h"

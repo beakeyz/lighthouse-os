@@ -4,8 +4,8 @@
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/pci/definitions.h"
 #include "interrupts/interrupts.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include <mem/heap.h>

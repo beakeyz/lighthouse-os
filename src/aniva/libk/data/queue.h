@@ -1,7 +1,7 @@
 #ifndef __ANIVA_LIBK_QUEUE__
 #define __ANIVA_LIBK_QUEUE__
-#include "stddef.h"
-#include "error.h"
+
+#include "libk/flow/error.h"
 
 typedef struct queue_entry {
   struct queue_entry* m_preceding_entry;

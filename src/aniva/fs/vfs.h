@@ -8,9 +8,9 @@
 #include "fs/namespace.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "sync/mutex.h"
-#include <libk/hive.h>
+#include <libk/data/hive.h>
 
 #define VFS_PATH_SEPERATOR      '/'
 #define VFS_ABS_PATH_IDENTIFIER ':'

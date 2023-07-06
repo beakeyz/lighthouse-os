@@ -1,6 +1,6 @@
 #include "string.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>
 

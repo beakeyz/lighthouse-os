@@ -2,10 +2,10 @@
 #define __ANIVA_PROC_CORE__
 
 #include "dev/core.h"
-#include "libk/linkedlist.h"
-#include "libk/error.h"
-#include "libk/vector.h"
-#include "libk/queue.h"
+#include "libk/data/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/vector.h"
+#include "libk/data/queue.h"
 
 #define DEFAULT_STACK_SIZE                      (16 * Kib)
 #define DEFAULT_THREAD_MAX_TICKS                (1)

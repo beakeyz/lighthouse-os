@@ -1,6 +1,6 @@
 #include "multiboot.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>

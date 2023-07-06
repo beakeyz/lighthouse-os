@@ -2,9 +2,9 @@
 #define __ANIVA_PROCESSOR__
 
 #include <libk/stddef.h>
-#include "libk/error.h"
-#include "libk/linkedlist.h"
-#include "libk/queue.h"
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
+#include "libk/data/queue.h"
 #include "mem/pg.h"
 #include "proc/socket.h"
 #include "proc/thread.h"

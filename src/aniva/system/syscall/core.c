@@ -1,7 +1,7 @@
 #include "core.h"
 #include "LibSys/syscall.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "proc/thread.h"
 #include "system/processor/processor.h"

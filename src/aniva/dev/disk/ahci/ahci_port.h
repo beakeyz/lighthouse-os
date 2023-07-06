@@ -5,7 +5,7 @@
 #include <sync/spinlock.h>
 #include "dev/disk/generic.h"
 #include "dev/disk/partition/gpt.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 
 struct ahci_device;
 

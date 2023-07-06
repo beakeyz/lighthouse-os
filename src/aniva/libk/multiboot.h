@@ -23,7 +23,7 @@
 #define MULTIBOOT_HEADER 1
 #include <libk/stddef.h>
 
-#include "libk/error.h"
+#include "libk/flow/error.h"
 
 ErrorOrPtr init_multiboot(void* addr);
 ErrorOrPtr finalize_multiboot(void* addr);

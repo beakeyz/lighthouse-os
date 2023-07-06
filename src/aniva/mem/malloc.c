@@ -8,7 +8,7 @@
 #include <libk/string.h>
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 
 static heap_node_t* create_initial_heap_node(memory_allocator_t *allocator, void* start_address);
 static heap_node_t* split_node (memory_allocator_t * allocator, heap_node_t* ptr, size_t size);

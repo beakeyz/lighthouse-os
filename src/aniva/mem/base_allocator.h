@@ -1,7 +1,7 @@
 #ifndef __ANIVA_BASE_ALLOCATOR__
 #define __ANIVA_BASE_ALLOCATOR__
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include "dev/debug/serial.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"

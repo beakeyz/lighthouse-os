@@ -1,6 +1,6 @@
 #ifndef __ANIVA_LIBK_REFERENCE__
 #define __ANIVA_LIBK_REFERENCE__
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/io.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>

@@ -2,8 +2,8 @@
 #define __ANIVA_ACPI_PARSER__
 #include <libk/stddef.h>
 #include "dev/debug/serial.h"
-#include "libk/hive.h"
-#include "libk/linkedlist.h"
+#include "libk/data/hive.h"
+#include "libk/data/linkedlist.h"
 #include "structures.h"
 #include "sync/spinlock.h"
 

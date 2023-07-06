@@ -2,7 +2,7 @@
 #define __ANIVA_EVENTHOOK__
 
 #include "kevent/context.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 
 typedef kevent_contex_t* (*kevent_hook_fn_t) (kevent_contex_t*);
 typedef bool (*kevent_hook_condition_fn_t) (kevent_contex_t);

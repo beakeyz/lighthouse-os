@@ -1,7 +1,7 @@
 #ifndef __ANIVA_REAPER_THREAD__
 #define __ANIVA_REAPER_THREAD__
 
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 

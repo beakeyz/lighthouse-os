@@ -2,7 +2,7 @@
 #define __ANIVA_KEVENT_PIPE__
 
 #include "kevent/context.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "mem/zalloc.h"
 
 struct kevent;

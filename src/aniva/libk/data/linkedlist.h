@@ -2,7 +2,7 @@
 #define __ANIVA_LINKEDLIST__
 
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 
 typedef struct node {
   void* data;

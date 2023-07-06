@@ -1,0 +1,8 @@
+{
+  "name": "TestDrv",
+  "linking": "static",
+  "type": "driver",
+  "libs": [
+    "LibC"
+  ]
+}

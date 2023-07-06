@@ -1,5 +1,6 @@
 #ifndef __ANIVA_ERROR_WRAPPER__
 #define __ANIVA_ERROR_WRAPPER__
+
 #include <libk/stddef.h>
 
 typedef enum _ANIVA_STATUS {

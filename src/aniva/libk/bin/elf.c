@@ -5,7 +5,7 @@
 #include <fs/vobj.h>
 #include "interrupts/interrupts.h"
 #include "libk/bin/elf_types.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "mem/heap.h"

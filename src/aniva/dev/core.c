@@ -3,9 +3,9 @@
 #include "dev/debug/test.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/manifest.h"
-#include "libk/error.h"
-#include "libk/hive.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/hive.h"
+#include "libk/data/linkedlist.h"
 #include "driver.h"
 #include <mem/heap.h>
 #include "libk/stddef.h"

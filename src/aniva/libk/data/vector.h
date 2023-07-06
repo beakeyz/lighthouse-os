@@ -1,7 +1,7 @@
 #ifndef __ANIVA_VECTOR__
 #define __ANIVA_VECTOR__
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include "linkedlist.h"
 
 typedef struct vector {

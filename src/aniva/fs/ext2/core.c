@@ -6,7 +6,7 @@
 #include "mem/heap.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include <fs/core.h>
 #include <fs/vnode.h>
 

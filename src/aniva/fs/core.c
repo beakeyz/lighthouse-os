@@ -2,7 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
 #include "fs/vnode.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
 #include <libk/string.h>

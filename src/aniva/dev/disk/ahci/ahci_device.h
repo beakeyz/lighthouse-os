@@ -4,7 +4,7 @@
 #include "dev/disk/shared.h"
 #include "dev/driver.h"
 #include <dev/pci/pci.h>
-#include <libk/hive.h>
+#include <libk/data/hive.h>
 
 struct ahci_port;
 

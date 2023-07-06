@@ -1,7 +1,7 @@
 #ifndef __ANIVA_THR_INTRF__
 #define __ANIVA_THR_INTRF__
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include "proc/thread.h"
 
 /*

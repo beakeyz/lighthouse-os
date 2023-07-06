@@ -1,7 +1,7 @@
 #include "eventhook.h"
 #include "crypto/k_crc32.h"
 #include "kevent/kevent.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "mem/zalloc.h"
 
 static zone_allocator_t* __kevent_hook_allocator = nullptr;

@@ -3,7 +3,7 @@
 
 #include "fs/superblock.h"
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include <dev/disk/generic.h>
 
 struct vnode;

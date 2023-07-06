@@ -2,7 +2,7 @@
 #define __ANIVA_DRIVER__
 #include <libk/stddef.h>
 #include "core.h"
-#include "libk/reference.h"
+#include "libk/flow/reference.h"
 #include "proc/socket.h"
 
 struct vnode;

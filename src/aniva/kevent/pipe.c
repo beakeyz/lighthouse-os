@@ -1,7 +1,7 @@
 #include "pipe.h"
 #include "crypto/k_crc32.h"
 #include "kevent/kevent.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "mem/zalloc.h"
 
 kevent_pipeline_t create_kevent_pipeline(kevent_t* event, kevent_contex_t* context) {

@@ -2,7 +2,7 @@
 #define __ANIVA_LIBK_ELF_BIN__
 
 #include "fs/file.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "proc/proc.h"
 #include <libk/stddef.h>
 

@@ -2,8 +2,8 @@
 #define __ANIVA_PROC__
 
 #include "kevent/kevent.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
 #include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"

@@ -1,7 +1,7 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "proc/ipc/packet_response.h"
 #include <libk/stddef.h>
 
@@ -51,13 +51,22 @@ typedef driver_control_code_t           dcc_t;
 #define DCC_RESPONSE                    (uint32_t)(-2)
 #define DCC_WRITE                       (uint32_t)(-3)
 
-
 #define MAX_DRIVER_NAME_LENGTH          32
 #define MAX_DRIVER_DESCRIPTOR_LENGTH    256
 
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
-#define EXPORT_DRIVER(name) SECTION(".kpcdrvs") struct aniva_driver* exported_##name = (struct aniva_driver*)&name
+#define EXPORT_DRIVER(name) static SECTION(".kpcdrvs") USED struct aniva_driver* exported_##name = (struct aniva_driver*)&name
+
+/*
+#define DRIVER_NAME(name) static const char* SECTION(".drv_name") __exported_drv_name USED = (const char*)(name)
+
+#define DRIVER_FLAGS(flags) static const uint32_t SECTION(".drv_flags") __exported_drv_flags USED = (uint32_t)(flags)
+#define DRIVER_MSG(msg_fn) static FuncPtr SECTION(".drv_msg") __exported_msg_fn USED = (FuncPtr)(msg_fn)
+#define DRIVER_INIT(init_fn) static FuncPtr SECTION(".drv_init") __exported_init_fn USED = (FuncPtr)(init_fn)
+#define DRIVER_EXIT(exit_fn) static FuncPtr SECTION(".drv_exit")__exported_exit_fn USED = (FuncPtr)(exit_fn)
+*/
+
 #define NO_MANIFEST NULL
 
 /*

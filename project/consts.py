@@ -55,10 +55,13 @@ class Consts:
     LIBENV_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -fPIC"
     LIBENV_C_FLAGS += " -D\'LIBENV\'"
 
-    # TODO: expand
+    # TODO: implement compat with external kernel drivers as modules (which are treated as userspace until they are discovered to be drivers)
     # Default userspace flags (just anything that isn't the kernel basically)
     USERSPACE_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -I./src/libs -I./src/libs/LibC"
     USERSPACE_C_FLAGS += " -D\'USER\'"
+
+    # Extention for the userspace CFlags to include kernel headers
+    USERSPACE_C_FLAGS_KRNL_INCLUDE_EXT = " -I./src/aniva"
 
     KERNEL_ASM_FLAGS = " -f elf64"
     USERSPACE_ASM_FLAGS = " -f elf64"
@@ -66,12 +69,16 @@ class Consts:
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
+    USERSPACE_LD_FLAGS_SHARED_EXT = " -shared"
 
     # NOTE: crt files have to be asm files!
     CRT_FILES: list[SourceFile] = []
     SRC_FILES: list[SourceFile] = []
     OBJ_FILES = []
     SRC_LINES: list[int] = []
+
+    USER_PROJECT_PATHS: list[str] = []
+    LIBS_PROJECT_PATHS: list[str] = []
 
     TOTAL_LINES = 0
 
@@ -94,6 +101,29 @@ class Consts:
         self.scan_dirs(self.SRC_DIR)
         self.scan_dirs(self.OUT_DIR)
         self.scan_dirs(self.PROJECT_MANAGEMENT_DIR)
+
+        userSrcDir = f"{self.SRC_DIR}/user" 
+
+        # Scan the entire user source dir
+        completeContent = os.listdir(userSrcDir)
+
+        # Add every directory, since that is the only place where userprograms should be
+        # TODO: recursive and check for manifest.json?
+        for path in completeContent:
+            absPath: str = f"{userSrcDir}/{path}"
+            if isdir(absPath):
+                self.USER_PROJECT_PATHS.append(absPath)
+
+        libSrcDir = f"{self.SRC_DIR}/libs" 
+
+        # Scan the entire user source dir
+        completeContent = os.listdir(userSrcDir)
+
+        # Add every directory, since that is the only place where libraries should be
+        for path in completeContent:
+            absPath: str = f"{libSrcDir}/{path}"
+            if isdir(absPath):
+                self.LIBS_PROJECT_PATHS.append(absPath)
 
         for _ in range(7):
             self.SRC_LINES.append(0)

@@ -1,6 +1,6 @@
 #ifndef __ANIVA_PIT__
 #define __ANIVA_PIT__
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include <libk/stddef.h>
 
 #define PIT_TIMER_INT_NUM 0

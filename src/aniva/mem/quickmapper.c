@@ -1,7 +1,7 @@
 #include "quickmapper.h"
 #include "dev/debug/serial.h"
 #include "kmem_manager.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "system/processor/processor.h"
 #include <libk/stddef.h>

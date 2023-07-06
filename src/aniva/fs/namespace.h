@@ -1,9 +1,9 @@
 #ifndef __ANIVA_FS_NAMESPACE__
 #define __ANIVA_FS_NAMESPACE__
 
-#include "libk/error.h"
-#include "libk/hive.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/hive.h"
+#include "libk/data/linkedlist.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 

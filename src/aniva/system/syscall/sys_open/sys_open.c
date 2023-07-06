@@ -2,7 +2,7 @@
 #include "dev/debug/serial.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"

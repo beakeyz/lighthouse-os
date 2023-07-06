@@ -1,8 +1,8 @@
 #ifndef __ANIVA_SOCKET_THREAD__
 #define __ANIVA_SOCKET_THREAD__
 #include <libk/stddef.h>
-#include <libk/error.h>
-#include "libk/queue.h"
+#include <libk/flow/error.h>
+#include "libk/data/queue.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"

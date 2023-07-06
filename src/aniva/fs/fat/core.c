@@ -9,8 +9,8 @@
 #include "fs/namespace.h"
 #include "fs/superblock.h"
 #include "fs/vnode.h"
-#include "libk/error.h"
-#include "libk/log2.h"
+#include "libk/flow/error.h"
+#include "libk/math/log2.h"
 #include "libk/string.h"
 #include <libk/stddef.h>
 

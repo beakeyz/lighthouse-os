@@ -1,8 +1,8 @@
 #ifndef __ANIVA_VFS_VOBJ__
 #define __ANIVA_VFS_VOBJ__
 
-#include "libk/error.h"
-#include "libk/reference.h"
+#include "libk/flow/error.h"
+#include "libk/flow/reference.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 

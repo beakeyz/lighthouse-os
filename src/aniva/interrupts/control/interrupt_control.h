@@ -1,6 +1,6 @@
 #ifndef __ANIVA_INTERRUPT_CONTROL__
 #define __ANIVA_INTERRUPT_CONTROL__
-#include "libk/linkedlist.h"
+#include "libk/data/linkedlist.h"
 #include <libk/stddef.h>
 
 typedef void (*INTERRUPT_CONTROLLER_EOI) (

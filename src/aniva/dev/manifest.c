@@ -1,9 +1,9 @@
 #include "manifest.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
-#include "libk/hive.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/hive.h"
+#include "libk/data/linkedlist.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include <libk/string.h>

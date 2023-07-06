@@ -2,7 +2,7 @@
 #include "dev/debug/serial.h"
 #include "interrupts/control/interrupt_control.h"
 #include "interrupts/interrupts.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/io.h"
 #include "time/core.h"
 #include "sched/scheduler.h"

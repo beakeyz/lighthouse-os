@@ -282,7 +282,7 @@ def project_main() -> Status:
     for cmd in cmd_processor.cmds:
         print(" > " + cmd)
 
-    response: str = input("(Select action) > ")
+    response: str = take_input("Select action")
 
     # TODO: parse invalid command tokens (spaces, special chars, ect)
 

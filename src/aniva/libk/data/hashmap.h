@@ -1,7 +1,7 @@
 #ifndef __ANIVA_LIBK_HASHMAP__
 #define __ANIVA_LIBK_HASHMAP__
 
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include <libk/stddef.h>
 
 /*

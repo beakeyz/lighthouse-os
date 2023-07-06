@@ -1,9 +1,8 @@
 #ifndef __ANIVA_TREE__
 #define __ANIVA_TREE__
 
-#include "libk/error.h"
-#include "libk/linkedlist.h"
-#include "stddef.h"
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
 
 struct binary_tree;
 struct binary_tree_node;

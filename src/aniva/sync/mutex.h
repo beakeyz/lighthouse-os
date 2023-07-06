@@ -1,6 +1,6 @@
 #ifndef __ANIVA_SYNC_MUTEX__
 #define __ANIVA_SYNC_MUTEX__
-#include "libk/queue.h"
+#include "libk/data/queue.h"
 #include "proc/thread.h"
 #include "sync/spinlock.h"
 #include <libk/stddef.h>

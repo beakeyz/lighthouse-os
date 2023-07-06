@@ -3,8 +3,8 @@
 
 #include "fs/file.h"
 #include "fs/vobj.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
 

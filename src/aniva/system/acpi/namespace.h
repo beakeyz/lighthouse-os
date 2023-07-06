@@ -1,6 +1,6 @@
 #ifndef __ANIVA_ACPI_NAMESPACE__
 #define __ANIVA_ACPI_NAMESPACE__
-#include "libk/hive.h"
+#include "libk/data/hive.h"
 #include <libk/stddef.h>
 
 /*

@@ -1,9 +1,9 @@
 #include "generic.h"
 #include "dev/debug/serial.h"
 #include "fs/vfs.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include <libk/string.h>
-#include "libk/log2.h"
+#include "libk/math/log2.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "ramdisk.h"

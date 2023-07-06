@@ -2,7 +2,7 @@
 #define __ANIVA_INTERRUPTS__
 
 #include "interrupts/control/interrupt_control.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
 

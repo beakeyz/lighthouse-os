@@ -2,7 +2,7 @@
 #define __ANIVA_DEV_MANIFEST__
 
 #include "dev/driver.h"
-#include "libk/linkedlist.h"
+#include "libk/data/linkedlist.h"
 
 struct aniva_driver;
 

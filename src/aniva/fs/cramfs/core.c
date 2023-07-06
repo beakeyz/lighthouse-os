@@ -7,7 +7,7 @@
 #include "fs/file.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"

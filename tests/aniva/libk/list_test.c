@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #define __ANIVA_STDDEF__
-#include <src/aniva/libk/linkedlist.h>
+#include <src/aniva/libk/data/linkedlist.h>
 
 LIGHTOS_TEST_RESULT_t list_add_test(LIGHTOS_TEST_t* test);
 LIGHTOS_TEST_RESULT_t list_remove_test(LIGHTOS_TEST_t* test);

@@ -1,7 +1,7 @@
 #include "hive.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
 #include <libk/string.h>
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"

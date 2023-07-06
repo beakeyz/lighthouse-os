@@ -70,21 +70,43 @@ class ProjectBuilder(object):
             return self.buildUserspace()
         return BuilderResult.SUCCESS
 
-    # Build a userspace binary
-    def buildUserspace(self) -> BuilderResult:
-        for srcFile in self.constants.SRC_FILES:
-            srcFile: SourceFile = srcFile
-            if self.shouldBuild(srcFile):
-                if srcFile.language == SourceLanguage.C:
-                    srcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
-                elif srcFile.language == SourceLanguage.ASM:
-                    srcFile.setBuildFlags(self.constants.USERSPACE_ASM_FLAGS)
+    def buildLibraries(self) -> BuilderResult:
+        if (self.builderMode != BuilderMode.LIBRARIES):
+            return BuilderResult.FAIL
 
-                print(f"Building {srcFile.path}...")
-                os.system(f"mkdir -p {srcFile.getOutputDir()}")
+        # Just treat every library project path entry as a seperate library
+        for libraryPath in self.constants.LIBS_PROJECT_PATHS:
+            self.buildAndLinkLibrary(libraryPath)
 
-                if os.system(srcFile.getCompileCmd()) != 0:
+        return BuilderResult.SUCCESS
+
+    def buildAndLinkLibrary(self, path: str) -> BuilderResult:
+
+        libsSrcDir: str = self.constants.SRC_DIR + "/libs"
+
+        if path.find(libsSrcDir) == -1:
+            return BuilderResult.FAIL
+        
+        for libSrcFile in self.constants.SRC_FILES:
+            if self.shouldBuild(libSrcFile):
+                if libSrcFile.language == SourceLanguage.C:
+                    libSrcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
+                elif libSrcFile.language == SourceLanguage.ASM:
+                    libSrcFile.setBuildFlags(self.constants.USERSPACE_ASM_FLAGS)
+
+                print(f"Building {libSrcFile.path}...")
+                os.system(f"mkdir -p {libSrcFile.getOutputDir()}")
+
+                if os.system(libSrcFile.getCompileCmd()) != 0:
                     return BuilderResult.FAIL
+
+        pass
+
+    # Build the entire userspace
+    def buildUserspace(self) -> BuilderResult:
+        for userDirectory in self.constants.USER_PROJECT_PATHS:
+            self.buildUserspaceBinary(userDirectory)
+
         for crtFile in self.constants.CRT_FILES:
             crtFile: SourceFile = crtFile
 
@@ -93,6 +115,59 @@ class ProjectBuilder(object):
 
             if os.system(f"{crtFile.compilerDir} -c {crtFile.path} -o {crtFile.outputPath}") != 0:
                 return BuilderResult.FAIL
+        return BuilderResult.SUCCESS
+
+    def buildUserspaceBinary(self, path: str) -> BuilderResult:
+        '''
+        Build a binary out of a single userspace project
+        * path: a absolute path to the userspace project folder
+        '''
+
+        userDir: str = self.constants.SRC_DIR + "/user"
+
+        if path.find(userDir) == -1:
+            return BuilderResult.FAIL
+
+        manifestPath: str = f"{path}/manifest.json"
+        ourSourceFiles: list[SourceFile] = [];
+
+        # Filter the sourcefiles that are in our directory
+        for srcFile in self.constants.SRC_FILES:
+            srcFile: SourceFile = srcFile
+            if srcFile.path.find(path) != -1:
+                ourSourceFiles.append(srcFile)
+
+        userCFlags: str = self.constants.USERSPACE_C_FLAGS
+
+        try:
+            with open(manifestPath, "r") as manifestFile:
+                manifest = json.load(manifestFile)
+
+                programName: str = manifest["name"]
+
+                print(f"Building program: {programName}")
+
+                # Add kernel headers if we are a driver
+                if manifest["type"] == "driver":
+                    userCFlags += self.constants.USERSPACE_C_FLAGS_KRNL_INCLUDE_EXT
+                
+                for srcFile in ourSourceFiles:
+                    srcFile: SourceFile = srcFile
+                    if self.shouldBuild(srcFile):
+                        if srcFile.language == SourceLanguage.C:
+                            srcFile.setBuildFlags(userCFlags)
+                        elif srcFile.language == SourceLanguage.ASM:
+                            srcFile.setBuildFlags(self.constants.USERSPACE_ASM_FLAGS)
+
+                        print(f"Building {srcFile.path}...")
+                        os.system(f"mkdir -p {srcFile.getOutputDir()}")
+
+                        if os.system(srcFile.getCompileCmd()) != 0:
+                            return BuilderResult.FAIL
+
+        except:
+            return BuilderResult.FAIL
+
         return BuilderResult.SUCCESS
 
     # Determine if we want to (re)build a sourcefile
@@ -139,53 +214,51 @@ class ProjectBuilder(object):
             # we should link a binary
             userDir: str = self.constants.SRC_DIR + "/user"
 
-            for entry in os.listdir(userDir):
+            for entryPath in os.listdir(userDir):
 
-                entryName: str = entry
-                entry: str = f"{userDir}/{entry}"
+                entryName: str = entryPath
+                entryPath: str = f"{userDir}/{entryPath}"
 
                 # Skip anything that is not a process direcotry
-                if not os.path.isdir(entry):
+                if not os.path.isdir(entryPath):
                     continue
 
-                for procEntry in os.listdir(entry):
-                    if procEntry == "manifest.json":
-                        procEntry: str = f"{entry}/{procEntry}"
+                manifestPath: str = f"{entryPath}/manifest.json"
 
-                        with open(procEntry, "r") as manifestFile:
-                            manifest = json.load(manifestFile)
+                with open(manifestPath, "r") as manifestFile:
+                    manifest = json.load(manifestFile)
 
-                            # TODO: check for dependencies
-                            if manifest["name"] == entryName:
-                                objFiles: str = " "
-                                print(f"Building process: {entryName}")
-                                print(f"Binary out path: {self.constants.OUT_DIR}/user/{entryName}")
+                    # TODO: check for dependencies
+                    if manifest["name"] == entryName:
+                        objFiles: str = " "
+                        print(f"Building process: {entryName}")
+                        print(f"Binary out path: {self.constants.OUT_DIR}/user/{entryName}")
 
-                                BIN_OUT_PATH = f"{self.constants.OUT_DIR}/user/{entryName}"
-                                BIN_OUT = BIN_OUT_PATH + "/" + entryName
+                        BIN_OUT_PATH = f"{self.constants.OUT_DIR}/user/{entryName}"
+                        BIN_OUT = BIN_OUT_PATH + "/" + entryName
 
-                                ULF = self.constants.USERSPACE_LD_FLAGS
+                        ULF = self.constants.USERSPACE_LD_FLAGS
 
-                                for objFile in self.constants.OBJ_FILES:
-                                    objFile: str = objFile
+                        for objFile in self.constants.OBJ_FILES:
+                            objFile: str = objFile
 
-                                    # Add objectfiles from the processes directory
-                                    if objFile.find(BIN_OUT_PATH) != -1:
-                                        objFiles += f"{objFile} "
-                                    # Add objectfiles from libraries (TODO: Limit to libraries in the manifest)
-                                    elif objFile.find(self.constants.LIBS_OUT_DIR) != -1:
-                                        objFiles += f"{objFile} "
+                            # Add objectfiles from the processes directory
+                            if objFile.find(BIN_OUT_PATH) != -1:
+                                objFiles += f"{objFile} "
+                            # Add objectfiles from libraries (TODO: Limit to libraries in the manifest)
+                            elif objFile.find(self.constants.LIBS_OUT_DIR) != -1:
+                                objFiles += f"{objFile} "
 
-                                ld = self.constants.CROSS_LD_DIR
+                        ld = self.constants.CROSS_LD_DIR
 
-                                if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ULF}") != 0:
-                                    return BuilderResult.FAIL
+                        if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ULF}") != 0:
+                            return BuilderResult.FAIL
 
-                                # TODO: we should check the manifest.json for
-                                # the libraries we need to staticaly link
-                                # with. After that we dump the binary to
-                                # the output directory
-                                # (currently out/user/binaries)
+                        # TODO: we should check the manifest.json for
+                        # the libraries we need to staticaly link
+                        # with. After that we dump the binary to
+                        # the output directory
+                        # (currently out/user/binaries)
             return BuilderResult.SUCCESS
 
     def clean(self) -> None:

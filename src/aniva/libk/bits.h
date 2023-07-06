@@ -1,6 +1,6 @@
 #ifndef __ANIVA_LIBK_BITS__
 #define __ANIVA_LIBK_BITS__
-#include "stddef.h"
+#include "libk/stddef.h"
 #include "asm.h"
 
 #define bit_op(operation, num, addr)                              \

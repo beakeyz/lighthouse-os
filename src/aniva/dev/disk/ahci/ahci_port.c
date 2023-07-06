@@ -7,10 +7,10 @@
 #include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
 #include "fs/vnode.h"
-#include "libk/error.h"
-#include "libk/hive.h"
+#include "libk/flow/error.h"
+#include "libk/data/hive.h"
 #include "libk/io.h"
-#include "libk/linkedlist.h"
+#include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include <mem/heap.h>
 #include "libk/string.h"

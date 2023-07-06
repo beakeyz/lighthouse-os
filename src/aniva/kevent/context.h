@@ -1,7 +1,7 @@
 #ifndef __ANIVA_KEVENT_CONTEXT__
 #define __ANIVA_KEVENT_CONTEXT__
 
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include <libk/stddef.h>
 
 #define E_CONTEXT_FLAG_CANCELED     (0x00000001)

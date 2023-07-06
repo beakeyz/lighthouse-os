@@ -1,6 +1,6 @@
 #include "bus.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "pci.h"
 #include "io.h"

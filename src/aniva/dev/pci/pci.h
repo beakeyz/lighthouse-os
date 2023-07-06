@@ -1,6 +1,6 @@
 #ifndef __ANIVA_PCI__
 #define __ANIVA_PCI__
-#include "libk/linkedlist.h"
+#include "libk/data/linkedlist.h"
 #include "dev/driver.h"
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>

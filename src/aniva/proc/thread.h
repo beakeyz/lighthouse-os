@@ -1,7 +1,7 @@
 #ifndef __ANIVA_THREAD__
 #define __ANIVA_THREAD__
 
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "mem/pg.h"
 #include "proc/context.h"
 #include "proc/socket.h"

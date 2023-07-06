@@ -4,7 +4,7 @@
 #include "interrupts/idt.h"
 #include "kevent/kevent.h"
 #include "mem/kmem_manager.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include <dev/debug/serial.h>
 #include <interrupts/control/pic.h>

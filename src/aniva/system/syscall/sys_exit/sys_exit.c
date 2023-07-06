@@ -1,6 +1,6 @@
 #include "sys_exit.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "proc/proc.h"
 #include "proc/thread.h"

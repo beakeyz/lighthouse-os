@@ -2,7 +2,7 @@
 #include <mem/heap.h>
 #include "crypto/k_crc32.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>

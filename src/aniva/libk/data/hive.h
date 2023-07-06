@@ -1,8 +1,8 @@
 #ifndef __ANIVA_HIVE__
 #define __ANIVA_HIVE__
-#include "libk/linkedlist.h"
+#include "libk/data/linkedlist.h"
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 
 /*
  * experimental data structure: the hive works by combining a height-map with a two-dimensional list.

@@ -1,6 +1,6 @@
 #include "cache.h"
-#include "libk/hive.h"
-#include "libk/linkedlist.h"
+#include "libk/data/hive.h"
+#include "libk/data/linkedlist.h"
 
 hive_t* s_node_base_cache;
 hive_t* s_read_cache;

@@ -1,9 +1,9 @@
 #ifndef __ANIVA_ZALLOC__
 #define __ANIVA_ZALLOC__
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include "base_allocator.h"
-#include "libk/bitmap.h"
+#include "libk/data/bitmap.h"
 #include "mem/pg.h"
 
 /*

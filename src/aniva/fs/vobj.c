@@ -2,8 +2,8 @@
 #include "dev/debug/serial.h"
 #include "fs/file.h"
 #include "fs/vnode.h"
-#include "libk/error.h"
-#include "libk/reference.h"
+#include "libk/flow/error.h"
+#include "libk/flow/reference.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>

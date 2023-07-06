@@ -2,8 +2,8 @@
 #include "heap.h"
 #include "kmem_manager.h"
 #include "dev/debug/serial.h"
-#include "libk/bitmap.h"
-#include "libk/error.h"
+#include "libk/data/bitmap.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/base_allocator.h"
 

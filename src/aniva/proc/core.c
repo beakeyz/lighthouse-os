@@ -1,9 +1,9 @@
 #include "core.h"
 #include "dev/debug/serial.h"
-#include "libk/error.h"
-#include "libk/linkedlist.h"
-#include "libk/queue.h"
-#include <libk/hashmap.h>
+#include "libk/flow/error.h"
+#include "libk/data/linkedlist.h"
+#include "libk/data/queue.h"
+#include <libk/data/hashmap.h>
 #include "mem/kmem_manager.h"
 #include "proc/ipc/tspckt.h"
 #include "proc/proc.h"

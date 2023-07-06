@@ -1,7 +1,7 @@
 #ifndef __ANIVA_HEAP_CORE__
 #define __ANIVA_HEAP_CORE__
 #include <libk/stddef.h>
-#include <libk/error.h>
+#include <libk/flow/error.h>
 #include "base_allocator.h"
 
 /*
