@@ -13,12 +13,10 @@ struct vobj;
 struct vnode;
 struct virtual_namespace;
 
-/* TODO: */
 enum VNODE_TYPES {
-  DIR,
-  MOUNTPOINT,
-  FILE,
-  // More
+  VNODE_NONE = 0,
+  VNODE_MOUNTPOINT, /* Every mountpoint has a partitioned disk device */
+  VNODE_DRIVER,     /* Every driver has a drv object attached */
 };
 
 /* TODO: migrate ops to these structs */
@@ -47,16 +45,11 @@ struct vnode_dir_ops {
   int (*f_rename)(struct vnode* dir, const char* new_name);
 };
 
-#define VN_PERTDEV(node) ((struct partitioned_disk_dev*)node->m_dev)
-
 #define VN_SUPERBLOCK(node) ((struct fs_superblock*)(node->m_device->m_superblock))
 
 typedef struct vnode {
   mutex_t* m_lock;
   mutex_t* m_vobj_lock;
-
-  /* pointer to this nodes 'device' in posix terms */
-  void* m_dev;
 
   uint32_t m_flags;
   uint32_t m_access_count; /* Atomic? */
@@ -67,10 +60,13 @@ typedef struct vnode {
 
   const char* m_name;
 
-  //size_t m_size;
-  //uint8_t* m_data;
+  enum VNODE_TYPES m_type;
 
-  partitioned_disk_dev_t* m_device;
+  union {
+    partitioned_disk_dev_t* m_device;
+    /* pointer to this nodes 'device' in posix terms */
+    void* m_drv;
+  };
 
   struct virtual_namespace* m_ns;
   struct generic_vnode_ops* m_ops; 
@@ -111,6 +107,16 @@ typedef struct vnode {
 #define VN_FLEXIBLE (0x00000200) /* Flexible nodes allow opperations while they are not taken */
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
+
+static void vnode_set_type(vnode_t* node, enum VNODE_TYPES type)
+{
+  node->m_type = type;
+}
+
+static bool vnode_has_driver(vnode_t* node) 
+{
+  return (node->m_type == VNODE_DRIVER && node->m_drv);
+}
 
 /*
  * Due to the nature of vnodes, we can only destroy them if they are 

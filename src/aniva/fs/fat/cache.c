@@ -1,6 +1,5 @@
 #include "cache.h"
 #include "fs/fat/core.h"
-#include "fs/fat/file.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include <mem/zalloc.h>

@@ -129,6 +129,10 @@ static struct generic_vnode_ops __generic_vnode_ops = {
   .f_rmdir = vnode_rmdir,
 };
 
+/*
+ * FIXME: When creating a vnode, we really should require the caller to also 
+ * set a type every time...
+ */
 vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   vnode_t* node;
 
@@ -149,6 +153,11 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   node->m_id = -1;
   node->m_flags = flags;
 
+  vnode_set_type(node, VNODE_NONE);
+
+  if ((flags & VN_FS) == VN_FS)
+    vnode_set_type(node, VNODE_MOUNTPOINT);
+
   return node;
 }
 
@@ -160,9 +169,9 @@ ErrorOrPtr destroy_generic_vnode(vnode_t* node) {
   }
 
   /*
-   * If the device is not deattached, this node can't be destroyed
+   * If the node has a driver that is not deattached, this node can't be destroyed
    */
-  if (node->m_dev)
+  if (vnode_has_driver(node))
     return Error();
 
   /*

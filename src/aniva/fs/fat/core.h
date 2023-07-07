@@ -2,10 +2,10 @@
 #define __ANIVA_GENERIC_FAT__
 #include "dev/disk/shared.h"
 #include "fs/superblock.h"
-#include "fs/vnode.h"
 #include "mem/heap.h"
-#include "sync/mutex.h"
 #include <libk/stddef.h>
+
+struct vnode;
 
 #define FAT_SECTOR_SIZE 512
 
@@ -161,14 +161,18 @@ typedef struct {
  */
 typedef struct fat_fs_info {
 
-  uint8_t fat_type; /* bits of this FAT fs (12, 16, 32) */
-  bool is_dirty;
+  uint8_t fats, fat_type; /* FAT count and bits of this FAT fs (12, 16, 32) */
+  uint8_t fat_file_shift, has_dirty;
+  uint32_t first_valid_sector;
 
-  uint32_t fat_start;
-  uint32_t fat_len;
+  uint32_t fat_start;   // The File Allocation Table start sector
+  uint32_t fat_len;     // The length of the FAT in sectors
 
-  uint32_t dir_entries_start;
-  uint32_t dir_entries_length;
+  uint32_t root_dir_cluster;
+  uint32_t max_cluster;
+
+  uint32_t dir_start_cluster;
+  uint32_t dir_entries;
 
   size_t total_fs_size;
 
@@ -178,6 +182,8 @@ typedef struct fat_fs_info {
   fat_boot_fsinfo_t boot_fs_info;
 
 } fat_fs_info_t;
+
+#define FAT_FSINFO(superblk) ((fat_fs_info_t*)((superblk)->m_fs_specific_info))
 
 static inline bool is_fat32(fat_fs_info_t* finfo)
 {
@@ -194,18 +200,43 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
   return (finfo->fat_type == FTYPE_FAT12);
 }
 
-typedef struct fat_entry {
-  int entry_number;
-  void* data_buf;
-  size_t data_size;
-} fat_entry_t;
+typedef struct fat_file {
 
-size_t fat_calculate_clusters(fs_superblock_t* block);
-void fat_get_cluster(vnode_t* node, uintptr_t clustern);
-ErrorOrPtr fat_get_dir_entry(vnode_t* node, uintptr_t* offset, fat_dir_entry_t** dir_entry);
+  int entry;
+  void* clusterchain_buffer;
+  size_t clusterchain_size;
 
-ErrorOrPtr fat_find(vnode_t* node, const char* path);
+  /* Index into the clusterchain */
+  union {
+    uint8_t* index_ft12[2]; // mostly unused
+    uint16_t* index_ft16; // mostly unused
+    uint32_t* index_ft32;
+  } idx;
 
-/* TODO: implement FAT functions */
+  struct vnode* parent_node;
+} fat_file_t;
+
+/*
+ * Clear without doing any buffer work
+ */
+static void clear_fat_file(fat_file_t* file) 
+{
+  file->parent_node = NULL;
+  file->entry = 0;
+  file->idx.index_ft32 = 0;
+  file->clusterchain_size = 0;
+  file->clusterchain_buffer = nullptr;
+}
+
+static void fat_file_set_entry(fat_file_t* file, int entry)
+{
+  file->entry = entry;
+  file->idx.index_ft32 = NULL;
+}
+
+extern int fat_prepare_finfo(struct fs_superblock* sb);
+
+extern int ffile_read(fat_file_t* f, int e);
+extern int ffile_write(fat_file_t* f, int e);
 
 #endif // !__ANIVA_GENERIC_FAT__

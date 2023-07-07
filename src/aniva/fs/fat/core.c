@@ -16,6 +16,7 @@
 #include "libk/string.h"
 #include <libk/stddef.h>
 
+/* Driver predefinitions */
 int fat32_exit();
 int fat32_init();
 
@@ -33,7 +34,6 @@ typedef uintptr_t fat_offset_t;
 
 /* TODO: */
 static int fat_parse_lfn(void* dir, fat_offset_t* offset);
-
 static int fat_parse_short_fn(fs_superblock_t* sb, fat_dir_entry_t* dir, const char* name);
 
 static int parse_fat_bpb(fat_boot_sector_t* bpb, fs_superblock_t* block) {
@@ -102,8 +102,8 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   fs_superblock_t* sb;
   fat_fs_info_t* ffi;
   uint8_t buffer[device->m_parent->m_logical_sector_size];
-  fat_boot_sector_t* boot_sector = (fat_boot_sector_t*)buffer;
-  fat_boot_fsinfo_t* fat_boot_fs_info;
+  fat_boot_sector_t* boot_sector;
+  fat_boot_fsinfo_t* internal_fs_info;
   vnode_t* node;
 
   int read_result = pd_bread(device, buffer, 0);
@@ -127,11 +127,16 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   sb = device->m_superblock;
   ffi = device->m_superblock->m_fs_specific_info;
 
-  /* Copy the boot sector cuz why not lol */
-  ffi->boot_sector_copy = *boot_sector;
+  /* Set the local pointer to the bootsector */
+  boot_sector = &ffi->boot_sector_copy;
 
+  /* Copy the boot sector cuz why not lol */
+  memcpy(boot_sector, buffer, sizeof(fat_boot_sector_t));
+
+  /* Try to parse boot sector */
   int parse_result = parse_fat_bpb(boot_sector, device->m_superblock);
 
+  /* Not a valid FAT fs */
   if (parse_result != FAT_OK)
     return nullptr;
 
@@ -147,6 +152,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* Compute total size */
   ffi->total_fs_size = boot_sector->sector_size * boot_sector->total_sectors;
 
+  /* Attempt to reset the blocksize for the partitioned device */
   if (device->m_parent->m_logical_sector_size > sb->m_blocksize) {
 
     if (!pd_set_blocksize(device, sb->m_blocksize)) {
@@ -154,8 +160,12 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     }
   }
 
-  ffi->is_dirty = is_fat32(ffi) ? (boot_sector->fat32.state & FAT_STATE_DIRTY) : (boot_sector->fat16.state & FAT_STATE_DIRTY);
+  /* Did a previous OS mark this filesystem as dirty? */
+  ffi->has_dirty = is_fat32(ffi) ? (boot_sector->fat32.state & FAT_STATE_DIRTY) : (boot_sector->fat16.state & FAT_STATE_DIRTY);
 
+  /* TODO: move superblock initialization to its own function */
+
+  /* Fetch blockcounts */
   device->m_superblock->m_total_blocks = ffi->boot_sector_copy.sectors;
 
   if (!device->m_superblock->m_total_blocks)
@@ -169,14 +179,21 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   if (read_result < 0)
     goto fail;
 
-  fat_boot_fs_info = (fat_boot_fsinfo_t*)buffer;
+  /* Set the local pointer */
+  internal_fs_info = &ffi->boot_fs_info;
 
-  ffi->boot_fs_info = *fat_boot_fs_info;
+  /* Copy the boot fsinfo to the ffi structure */
+  memcpy(internal_fs_info, buffer, sizeof(fat_boot_fsinfo_t));
 
   device->m_superblock->m_free_blocks = ffi->boot_fs_info.free_clusters;
 
+  fat_prepare_finfo(device->m_superblock);
+
+  node->m_ops = &__fat_vnode_ops;
+
   println(to_string(device->m_superblock->m_total_blocks));
   println(to_string(device->m_superblock->m_free_blocks));
+  println("Did fat filesystem!");
 
   //kernel_panic("Test");
 

@@ -13,4 +13,6 @@ void init_fat_cache(void);
 ErrorOrPtr create_fat_info(vnode_t* node);
 void destroy_fat_info(vnode_t* node);
 
+ErrorOrPtr create_fat_file(vnode_t* node);
+
 #endif // !__ANIVA_FAT_CACHE__

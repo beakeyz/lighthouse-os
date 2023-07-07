@@ -34,13 +34,13 @@ static int driver_fs_msg(vnode_t* node, driver_control_code_t code, void* buffer
 
   node->m_access_count++;
 
-  if (!node->m_dev) {
+  if (!vnode_has_driver(node)) {
     result = -1;
     goto generic_exit;
   }
 
   /* Fetch the driver from our node */
-  aniva_driver_t* driver = node->m_dev;
+  aniva_driver_t* driver = node->m_drv;
 
   /* Find the assigned socket for that driver */
   threaded_socket_t* socket = find_registered_socket(driver->m_port);
@@ -115,8 +115,10 @@ vnode_t* create_fs_driver(aniva_driver_t* driver) {
    */
   vnode_t* node = create_generic_vnode(driver->m_name, VN_SYS | VN_FROZEN);
 
+  vnode_set_type(node, VNODE_DRIVER);
+
   /* Add dev handle */
-  node->m_dev = driver;
+  node->m_drv = driver;
 
   /* Add msg hook */
   node->m_ops->f_msg = driver_fs_msg;
