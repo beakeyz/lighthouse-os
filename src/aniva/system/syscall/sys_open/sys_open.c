@@ -1,4 +1,5 @@
 #include "sys_open.h"
+#include "LibSys/handle_def.h"
 #include "dev/debug/serial.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
@@ -10,16 +11,16 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
-HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, uint32_t mode)
+HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, uint32_t mode)
 {
   HANDLE_t ret;
   khandle_t handle;
   ErrorOrPtr result;
-  proc_t* process;
+  proc_t* current_process;
 
   /* TODO: verify user input */
 
-  process = get_current_proc();
+  current_process = get_current_proc();
   ret = HNDL_INVAL;
 
   switch (type) {
@@ -62,7 +63,14 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
       break;
   }
 
-  result = bind_khandle(&process->m_handle_map, &handle);
+  /* TODO: check for permissions and open with the appropriate flags */
+
+  /* Clear state bits */
+  flags &= ~HNDL_OPT_MASK;
+
+  handle.flags = flags;
+
+  result = bind_khandle(&current_process->m_handle_map, &handle);
 
   if (!IsError(result))
     ret = Release(result);
@@ -70,19 +78,19 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint32_t flags, u
   return ret;
 }
 
-HANDLE_t sys_open_file(const char* __user path, uint32_t flags, uint32_t mode)
+HANDLE_t sys_open_file(const char* __user path, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open proc!");
   return HNDL_INVAL;
 }
 
-HANDLE_t sys_open_proc(const char* __user name, uint32_t flags, uint32_t mode)
+HANDLE_t sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open driver!");
   return HNDL_INVAL;
 }
 
-HANDLE_t sys_open_driver(const char* __user name, uint32_t flags, uint32_t mode)
+HANDLE_t sys_open_driver(const char* __user name, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open file!");
   return HNDL_INVAL;

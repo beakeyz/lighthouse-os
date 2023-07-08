@@ -165,13 +165,16 @@ static void __proc_clear_handles(proc_t* proc)
     switch (current_handle->type) {
       case KHNDL_TYPE_FILE:
         {
-          vnode_t* node = current_handle->reference.vobj->m_parent;
+          file_t* file = current_handle->reference.file;
+
+          ASSERT_MSG(file, "File handle didn't have a file!");
+
+          vnode_t* node = file->m_obj->m_parent;
         
           ASSERT_MSG(node, "File handle vobj didn't have a parent node!");
 
-          /* destroy_vobj also detaches from the vnode */
-          //destroy_vobj(current_handle->reference.vobj);
-          vn_close(node, current_handle->reference.vobj);
+          /* close the vobj, which decrements its refc */
+          vn_close(node, file->m_obj);
 
           break;
         }
@@ -195,9 +198,11 @@ void destroy_proc(proc_t* proc) {
     destroy_thread(i->data);
   }
 
+  println("Clearing handles");
   /* Yeet handles */
   __proc_clear_handles(proc);
 
+  println("Clearing resources");
   /* loop over all the resources of this process and release them by using __kmem_dealloc */
   __proc_clear_shared_resources(proc);
 
@@ -205,6 +210,7 @@ void destroy_proc(proc_t* proc) {
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
 
+  println("Clearing khandle map");
   destroy_khandle_map(&proc->m_handle_map);
 
   /* 

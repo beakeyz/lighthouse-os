@@ -1,5 +1,6 @@
 
 #include "LibSys/handle.h"
+#include "LibSys/handle_def.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
 #include <stdio.h>
@@ -29,7 +30,7 @@ int main() {
   HANDLE_t handle = open_handle("Root/dummy.txt", HNDL_TYPE_FILE, NULL, NULL);
 
   /* Open a handle to the binary file of our own process */
-  HANDLE_t handle_1 = open_handle("Root/init", HNDL_TYPE_FILE, NULL, NULL);
+  HANDLE_t handle_1 = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   /* Open a handle to our own process */
   HANDLE_t handle_2 = open_handle("init", HNDL_TYPE_PROC, NULL, NULL);

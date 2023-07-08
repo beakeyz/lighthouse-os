@@ -22,4 +22,20 @@ typedef unsigned char       handle_type_t;
 #define HNDL_NO_PERM        (-5) /* No permission to recieve a handle */
 #define HNDL_PROTECTED      (-6) /* Handle target is protected and cant have handles right now */
 
+#define HNDL_FLAG_BUSY              (0x0001) /* khandle is busy and we have given up waiting for it */
+#define HNDL_FLAG_WAITING           (0x0002) /* khandle is busy but we are waiting for it to be free so opperations on this handle can be queued if needed */
+#define HNDL_FLAG_LOCKED            (0x0004) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
+#define HNDL_FLAG_READACCESS        (0x0008)
+#define HNDL_FLAG_WRITEACCESS       (0x0010)
+#define HNDL_FLAG_RW                (HNDL_FLAG_READACCESS | HNDL_FLAG_WRITEACCESS)
+#define HNDL_FLAG_INVALID           (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
+
+/* 
+ * We use this mask to easily clear out any flags that indicate a certain state of the handle 
+ * Since permissions (Like Read/Write) and state (locked/waiting) are stored in the same dword,
+ * we want to have this to avoid any confusion
+ */
+#define HNDL_OPT_MASK               (HNDL_FLAG_BUSY | HNDL_FLAG_LOCKED | HNDL_FLAG_WAITING | HNDL_FLAG_INVALID)
+
+
 #endif // !__LIGHTENV_HANDLE_DEF__

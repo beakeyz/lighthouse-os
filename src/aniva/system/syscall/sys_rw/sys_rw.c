@@ -9,7 +9,10 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
-
+/*
+ * When writing to a handle (filediscriptor in unix terms) we have to 
+ * obey the privileges that the handle was opened with
+ */
 uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 {
   int result;
@@ -23,6 +26,9 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
   khandle = &current_proc->m_handle_map.handles[handle];
 
+  if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
+    return SYS_NOPERM;
+  
   println((char*)buffer);
 
   switch (khandle->type) {
@@ -34,9 +40,11 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         if (!file || !file->m_ops || !file->m_ops->f_write)
           return SYS_INV;
 
-        println("Writing");
+        /* Don't read RO files */
+        if (file->m_flags & FILE_READONLY)
+          return SYS_INV;
+
         result = file->m_ops->f_write(file, buffer, &write_len, khandle->offset);
-        println("Wrote");
 
         if (result < 0)
           return SYS_KERR;
