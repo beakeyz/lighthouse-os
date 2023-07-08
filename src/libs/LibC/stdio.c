@@ -38,12 +38,58 @@ void __init_stdio(void)
 }
 
 /*
+ * Write a single byte into the buffer of a stream
+ */
+int __write_byte(FILE* stream, uint64_t* counter, char byte)
+{
+  if (!stream->w_buff)
+    return -1;
+
+  /* Sync the buffer if the max. buffersize is reached, or the byte is a newline char */
+  if (stream->w_buf_written >= stream->w_buf_size || byte == '\n') {
+    fflush(stream);
+  }
+
+  stream->w_buff[stream->w_buf_written++] = byte;
+
+  if (counter)
+    (*counter)++;
+
+  return 0;
+}
+
+/*
+ * Write a string of bytes into the buffer of a stream
+ */
+int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
+{
+  int result = 0;
+
+  for (char* c = bytes; *c; c++) {
+    result = __write_byte(stream, counter, *c);
+
+    if (result < 0)
+      break;
+  }
+
+  return result;
+}
+
+
+/*
  * Send the fclose syscall in order to close the 
  * file stream and resources that where attached to it 
  */
 int fclose(FILE* file) {
-  (void)file;
-  return NULL;
+
+  if (!file)
+    return -1;
+
+  fflush(file);
+  
+  syscall_1(SYSID_CLOSE, file->handle);
+
+  return 0;
 }
 
 /*

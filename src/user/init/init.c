@@ -39,7 +39,6 @@ int main() {
 
   *memory = 0x6969;
 
-  // FIXME: GPF
   printf("Memory thing\n");
 
   return handle_2;

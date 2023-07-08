@@ -3,36 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static int __write_byte(FILE* stream, uint64_t* counter, char byte)
-{
-  if (!stream->w_buff)
-    return -1;
-
-  stream->w_buff[stream->w_buf_written++] = byte;
-
-  /* Sync the buffer if the max. buffersize is reached, or the byte is a newline char */
-  if (stream->w_buf_written >= stream->w_buf_size || byte == '\n') {
-    fflush(stream);
-  }
-
-  (*counter)++;
-
-  return 0;
-}
-
-static int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
-{
-  int result = 0;
-
-  for (char* c = bytes; *c; c++) {
-    result = __write_byte(stream, counter, *c);
-
-    if (result < 0)
-      break;
-  }
-
-  return result;
-}
+extern int __write_byte(FILE* stream, uint64_t* counter, char byte);
+extern int __write_bytes(FILE* stream, uint64_t* counter, char* bytes);
 
 int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
 {
