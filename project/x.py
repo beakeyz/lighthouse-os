@@ -8,6 +8,7 @@ from installer.install import Installer, InstallerType, take_input
 from deps.dependencies import DependencyManager
 from deps.ramdisk import RamdiskManager
 from build.builder import ProjectBuilder, BuilderMode, BuilderResult
+from installer.system import create_systemroot
 
 
 class StatusCode(Enum):
@@ -235,6 +236,17 @@ class GenerateUserProcessCallback(CommandCallback):
         return Status(StatusCode.Success, "Created thing!")
 
 
+class InstallSysrootCallback(CommandCallback):
+    def call(self) -> Status:
+
+        c = Consts()
+
+        if not create_systemroot(c):
+            return Status(StatusCode.Fail, "Could not creaste sysroot!")
+
+        return Status(StatusCode.Success, "Installed sysroot!")
+
+
 # Create a disk image in which we install the bootloader, kernel and ramdisk
 class InstallImageCallback(CommandCallback):
     def call(self) -> Status:
@@ -293,6 +305,7 @@ def project_main() -> Status:
         "userprocess": GenerateUserProcessCallback()
     }))
     cmd_processor.register_cmd(Command("install", args={
+        "sysroot": InstallSysrootCallback(),
         "image": InstallImageCallback(),
         "device": InstallDeviceCallback(),
     }))

@@ -417,7 +417,7 @@ struct vobj* vn_get_object(vnode_t* node, const char* path) {
 
   while (itt) {
 
-    if (memcmp(itt->m_path, path, strlen(path))) {
+    if (memcmp(itt->m_path, path, strlen(itt->m_path))) {
       mutex_unlock(node->m_vobj_lock);
       return itt;
     }
@@ -585,6 +585,9 @@ vobj_t* vn_open(vnode_t* node, char* name) {
 
   if (!node || !name)
     return nullptr;
+
+  print("Name is: ");
+  println(name);
 
   /* Look if we have it cached */
   ret = vn_get_object(node, name);

@@ -10,14 +10,24 @@
 /*
  * Called when a handle changes to a new type
  */
-static void __on_handle_change_to(khandle_t handle)
+static void __on_handle_change(khandle_t handle, bool bind)
 {
+  /*
+   * FIXME: drivers, processes, ect. can have more than one handle, 
+   * so flags are useless in this case lmao
+   */
   switch (handle.type) {
     case KHNDL_TYPE_DRIVER:
-      handle.reference.driver->m_flags |= DRV_HAS_HANDLE;
+      if (bind)
+        handle.reference.driver->m_flags |= DRV_HAS_HANDLE;
+      else
+        handle.reference.driver->m_flags &= ~DRV_HAS_HANDLE;
       break;
     case KHNDL_TYPE_PROC:
-      handle.reference.process->m_flags |= PROC_HAD_HANDLE;
+      if (bind)
+        handle.reference.process->m_flags |= PROC_HAD_HANDLE;
+      else
+        handle.reference.process->m_flags &= ~PROC_HAD_HANDLE;
       break;
     case KHNDL_TYPE_FILE:
     case KHNDL_TYPE_FS_ROOT:
@@ -44,29 +54,7 @@ void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref)
   /*
    * Update for the 'type change'
    */
-  __on_handle_change_to(*out_handle);
-}
-
-/*
- * Called when a handle changes away from its 'old' type 
- */
-static void __on_handle_change_from(khandle_t handle)
-{
-  switch (handle.type) {
-    case KHNDL_TYPE_DRIVER:
-      handle.reference.driver->m_flags &= ~DRV_HAS_HANDLE;
-      break;
-    case KHNDL_TYPE_PROC:
-      handle.reference.process->m_flags &= ~PROC_HAD_HANDLE;
-      break;
-    case KHNDL_TYPE_FILE:
-    case KHNDL_TYPE_FS_ROOT:
-    case KHNDL_TYPE_KOBJ:
-    case KHNDL_TYPE_VOBJ:
-    case KHNDL_TYPE_NONE:
-    default:
-      break;
-  }
+  __on_handle_change(*out_handle, true);
 }
 
 void destroy_khandle(khandle_t* handle) 
@@ -74,7 +62,7 @@ void destroy_khandle(khandle_t* handle)
   if (!handle)
     return;
 
-  __on_handle_change_from(*handle);
+  __on_handle_change(*handle, false);
 
   memset(handle, 0, sizeof(khandle_t));
 }
@@ -275,7 +263,8 @@ ErrorOrPtr mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index)
   if (index >= map->max_count)
     return Error();
 
-  __on_handle_change_from(map->handles[index]);
+  /* unbind */
+  __on_handle_change(map->handles[index], false);
 
   map->handles[index] = handle;
 

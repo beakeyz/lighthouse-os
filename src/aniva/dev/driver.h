@@ -10,7 +10,6 @@ struct dev_manifest;
 
 typedef int (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
-//typedef uintptr_t (*ANIVA_DRIVER_DRV_MSG) (void* buffer, size_t buffer_size);
 
 typedef struct driver_version {
   uint8_t maj;

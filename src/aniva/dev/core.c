@@ -11,6 +11,7 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
@@ -22,6 +23,8 @@
 
 static hive_t* __installed_drivers;
 static hive_t* __loaded_drivers;
+
+static zone_allocator_t* __dev_manifest_allocator;
 
 const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
   [DT_DISK] = "disk",
@@ -35,6 +38,8 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
 };
 
 static list_t* __deferred_drivers;
+
+#define DEV_MANIFEST_SOFTMAX 512
 
 /*
  * We need to make sure to call this before we load a 
@@ -74,6 +79,8 @@ void init_aniva_driver_registry() {
   __installed_drivers = create_hive("i_dev");
   __loaded_drivers = create_hive("l_dev");
 
+  __dev_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, DEV_MANIFEST_SOFTMAX * sizeof(dev_manifest_t), sizeof(dev_manifest_t), NULL);
+
   __deferred_drivers = init_list();
 
   // Install exported drivers
@@ -106,6 +113,24 @@ void init_aniva_driver_registry() {
   }
 
   destroy_list(__deferred_drivers);
+}
+
+
+struct dev_manifest* allocate_dmanifest()
+{
+  if (!__dev_manifest_allocator)
+    return nullptr;
+
+  return zalloc_fixed(__dev_manifest_allocator);
+}
+
+
+void free_dmanifest(struct dev_manifest* manifest)
+{
+  if (!__dev_manifest_allocator)
+    return;
+
+  zfree_fixed(__dev_manifest_allocator, manifest);
 }
 
 
@@ -301,7 +326,14 @@ bool is_driver_installed(struct aniva_driver* handle) {
   return hive_contains(__installed_drivers, handle);
 }
 
-
+/*
+ * TODO: when checking this, it could be that the url
+ * is totally invalid and results in a pagefault. In that 
+ * case we want to be able to tell the pf handler that we 
+ * can expect a pagefault and that when it happens, we should 
+ * not terminate the kernel, but rather signal it to this
+ * routine so that we can act accordingly
+ */
 dev_manifest_t* get_driver(dev_url_t url) {
   aniva_driver_t* handle = hive_get(__installed_drivers, url);
 

@@ -52,7 +52,7 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
  */
-ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
+ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule) {
 
   proc_t* ret;
   struct elf64_hdr header;
@@ -155,9 +155,10 @@ ErrorOrPtr elf_exec_static_64(file_t* file, bool kernel) {
   ret->m_image = image;
 
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
-  sched_add_priority_proc(ret, true);
+  if (!defer_schedule)
+    sched_add_priority_proc(ret, true);
 
-  return Success(0);
+  return Success((uintptr_t)ret);
 
 error_and_out:
   /* TODO: clean more stuff */

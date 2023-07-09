@@ -24,6 +24,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
+#include "proc/handle.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
@@ -174,6 +175,7 @@ static char font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}  // U+007F
 };
 
+/* Command processing information */
 typedef struct {
   /* Commands can't be longer than 128 bytes :clown: */
   char buffer[KTERM_MAX_CMD_LENGTH];
@@ -202,6 +204,7 @@ static void kterm_println(const char* msg);
 // This driver depends on ps2, so this is legal for now
 void kterm_on_key(ps2_key_event_t event);
 
+/* Buffer information */
 static uintptr_t kterm_current_line;
 static uintptr_t kterm_buffer_ptr;
 static char kterm_char_buffer[256];
@@ -218,8 +221,9 @@ void kterm_command_worker() {
       /* TODO: process cmd */
       const char* contents = s_kterm_cmd_buffer.buffer;
 
+      kterm_println("\n");
+
       if (!strcmp(contents, "acpitables")) {
-        kterm_println("\n");
         kterm_println("acpi static table info: \n");
         kterm_println("rsdp address: ");
         kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_rsdp)));
@@ -235,7 +239,6 @@ void kterm_command_worker() {
         kterm_println("tables found: ");
         kterm_println(to_string(g_parser_ptr->m_tables->m_length));
       } else if (!strcmp(contents, "help")) {
-        kterm_println("\n");
         kterm_println("available commands: \n");
         kterm_println(" - help: print some helpful info\n");
         kterm_println(" - acpitables: print the acpi tables present in the system\n");
@@ -250,7 +253,7 @@ void kterm_command_worker() {
         uintptr_t* test_data = zalloc(allocator, sizeof(uintptr_t));
         *test_data = 6969;
 
-        kterm_println("\nAllocated 8 bytes: ");
+        kterm_println("Allocated 8 bytes: ");
         kterm_println(to_string(*test_data));
 
         uintptr_t* test_data2 = zalloc(allocator, sizeof(uintptr_t));
@@ -280,7 +283,7 @@ void kterm_command_worker() {
 
       } else if (!strcmp(contents, "testramdisk")) {
 
-        kterm_println("\nFinding node...\n");
+        kterm_println("Finding node...\n");
         vobj_t* obj = vfs_resolve("Root/init");
 
         ASSERT_MSG(obj, "Could not get vobj from test");
@@ -293,10 +296,59 @@ void kterm_command_worker() {
         kterm_println("\n");
 
         println("Trying to make proc");
-        Must(elf_exec_static_64(file, false));
+        Must(elf_exec_static_64_ex(file, false, false));
         println("Made proc");
 
+      } else {
+
+        proc_t* p;
+
+        println(contents);
+
+        if (contents[0] == NULL)
+          goto end_processing;
+
+        println("Resolve");
+        vobj_t* obj = vfs_resolve(contents);
+
+        if (!obj) {
+          kterm_println("Could not find object!");
+          goto end_processing;
+        }
+
+        println("file");
+        file_t* file = vobj_get_file(obj);
+
+
+        if (!file) {
+          kterm_println("Could not execute object!");
+          goto end_processing;
+        }
+
+        println("exec");
+        p = (proc_t*)Must(elf_exec_static_64_ex(file, false, true));
+
+        vobj_close(obj);
+
+        khandle_type_t driver_type = KHNDL_TYPE_DRIVER;
+
+        khandle_t stdin;
+        khandle_t stdout;
+        khandle_t stderr;
+
+        create_khandle(&stdin, &driver_type, &g_base_kterm_driver);
+        create_khandle(&stdout, &driver_type, &g_base_kterm_driver);
+        create_khandle(&stderr, &driver_type, &g_base_kterm_driver);
+
+        bind_khandle(&p->m_handle_map, &stdin);
+        bind_khandle(&p->m_handle_map, &stdout);
+        bind_khandle(&p->m_handle_map, &stderr);
+
+        sched_add_priority_proc(p, true);
+
       }
+
+end_processing:
       kterm_println("\n");
 
       memset(&s_kterm_cmd_buffer, 0, sizeof(s_kterm_cmd_buffer));
@@ -319,6 +371,10 @@ aniva_driver_t g_base_kterm_driver = {
 };
 EXPORT_DRIVER(g_base_kterm_driver);
 
+/*
+ * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it 
+ * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
+ */
 int kterm_init() {
 
   kterm_current_line = 0;
@@ -327,22 +383,18 @@ int kterm_init() {
   /* Zero out the cmd buffer */
   memset(&s_kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
 
-  println("Initialized the kterm! 1");
   // register our keyboard listener
   destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
-  println("Initialized the kterm! 2");
 
   // map our framebuffer
   uintptr_t ptr = KTERM_FB_ADDR;
   destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t)));
-  println("Initialized the kterm! 3");
 
   packet_response_t* response = driver_send_packet_sync("graphics/fb", FB_DRV_GET_FB_INFO, NULL, 0);
   if (response) {
     kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
     destroy_packet_response(response);
   }
-  println("Initialized the kterm! 4");
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("Command worker", kterm_command_worker, NULL));
@@ -401,7 +453,7 @@ static void kterm_flush_buffer() {
 }
 
 static void kterm_write_char(char c) {
-  if (kterm_buffer_ptr + 1 >= KTERM_MAX_BUFFER_SIZE) {
+  if (kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
     // time to flush the buffer
     return;
   }
@@ -442,8 +494,11 @@ static void kterm_process_buffer() {
   if (mutex_is_locked(s_kterm_cmd_lock))
     return;
 
+  mutex_lock(s_kterm_cmd_lock);
+
   memcpy(s_kterm_cmd_buffer.buffer, contents, contents_size);
 
+  mutex_unlock(s_kterm_cmd_lock);
 }
 
 static void kterm_draw_cursor() {

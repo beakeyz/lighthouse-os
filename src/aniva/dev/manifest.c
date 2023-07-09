@@ -6,6 +6,7 @@
 #include "libk/data/linkedlist.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "sync/mutex.h"
 #include <libk/string.h>
 
 size_t get_driver_url_length(aniva_driver_t* handle) {
@@ -29,6 +30,49 @@ const char* get_driver_url(aniva_driver_t* handle) {
   return ret;
 }
 
+
+bool manifest_write_fn(aniva_driver_t* driver, int(*write_fn)())
+{
+  dev_manifest_t* manifest;
+
+  if (!driver || !write_fn)
+    return false;
+  
+  manifest = driver->m_manifest;
+
+  if (!manifest)
+    return false;
+
+  mutex_lock(&manifest->m_lock);
+
+  manifest->m_ops.f_write = write_fn;
+
+  mutex_unlock(&manifest->m_lock);
+
+  return true;
+}
+
+bool manifest_read_fn(aniva_driver_t* driver, int(*read_fn)())
+{
+  dev_manifest_t* manifest;
+
+  if (!driver || !read_fn)
+    return false;
+  
+  manifest = driver->m_manifest;
+
+  if (!manifest)
+    return false;
+
+  mutex_lock(&manifest->m_lock);
+
+  manifest->m_ops.f_write = read_fn;
+
+  mutex_unlock(&manifest->m_lock);
+
+  return true;
+}
+
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
   if (!handle) {
@@ -40,11 +84,12 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
     return handle->m_manifest;
   }
 
-  dev_manifest_t* ret = kmalloc(sizeof(dev_manifest_t));
+  dev_manifest_t* ret = allocate_dmanifest();
 
   if (!ret)
     return nullptr;
 
+  init_mutex(&ret->m_lock, NULL);
 
   ret->m_handle = handle;
   ret->m_dep_count = handle->m_dep_count;
@@ -65,6 +110,9 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
    * correct...
    */
   for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
+
+    /* TODO: we can check if this address is located in a 
+     used resource in oder to validate it */
     dev_url_t url = handle->m_dependencies[i];
     
     if (!url)
@@ -76,7 +124,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
     dev_manifest_t* dep_manifest = get_driver(url);
 
     // if we can't load this drivers dependencies, we just terminate this entire thing
-    if (dep_manifest == nullptr) {
+    if (!dep_manifest) {
       destroy_dev_manifest(ret);
       return nullptr;
     }
@@ -89,7 +137,10 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
 
 void destroy_dev_manifest(dev_manifest_t* manifest) {
   // TODO: figure out if we need to take the driver handle with us...
+
+  clear_mutex(&manifest->m_lock);
+
   destroy_list(manifest->m_dependency_manifests);
   kfree((void*)manifest->m_url);
-  kfree(manifest);
+  free_dmanifest(manifest);
 }

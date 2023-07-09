@@ -36,13 +36,33 @@ mutex_t* create_mutex(uint8_t flags) {
   return ret;
 }
 
-void destroy_mutex(mutex_t* mutex) {
+void init_mutex(mutex_t* lock, uint8_t flags)
+{
+  lock->m_waiters = create_limitless_queue();
+  lock->m_lock = create_spinlock();
+  lock->m_lock_holder = nullptr;
+  lock->m_mutex_flags = flags;
+  lock->m_lock_depth = 0;
 
+  if (flags & MUTEX_FLAG_IS_HELD) {
+    flags &= ~MUTEX_FLAG_IS_HELD;
+
+    mutex_lock(lock);
+  }
+}
+
+void clear_mutex(mutex_t* mutex)
+{
   thread_t* waiter;
 
   if (!mutex || !mutex->m_waiters)
     return;
 
+  /*
+   * FIXME: This can get nasty if there are other threads
+   * waiting to do stuff with this mutex, because the
+   * object that this mutex protects is then unprotected for a time
+   */
   waiter = queue_dequeue(mutex->m_waiters);
 
   while (waiter) {
@@ -54,13 +74,15 @@ void destroy_mutex(mutex_t* mutex) {
 
   destroy_queue(mutex->m_waiters, false);
   destroy_spinlock(mutex->m_lock);
-  kfree(mutex);
+}
 
+void destroy_mutex(mutex_t* mutex) {
+  clear_mutex(mutex);
+  kfree(mutex);
 }
 
 void mutex_lock(mutex_t* mutex) {
   ASSERT_MSG(mutex, "Tried to lock a mutex that has not been initialized");
-  ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
 
   spinlock_lock(mutex->m_lock);
 
@@ -77,6 +99,10 @@ void mutex_lock(mutex_t* mutex) {
      * if they are null 
      */
     if (current_thread != mutex->m_lock_holder) {
+
+      /* We may lock a mutex from within a irq, but we cant block on it */
+      ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't block on a mutex from within an IRQ!");
+
       // block current thread
       queue_enqueue(mutex->m_waiters, current_thread);
 
@@ -107,7 +133,7 @@ void mutex_lock(mutex_t* mutex) {
 
 void mutex_unlock(mutex_t* mutex) {
   ASSERT_MSG(mutex, "Tried to unlock a mutex that has not been initialized");
-  ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
+  //ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
   // ASSERT_MSG(mutex->m_lock_holder != nullptr, "mutex has no holder while trying to unlock!");
   ASSERT_MSG(mutex->m_lock_depth > 0, "Tried to unlock a mutex while it was already unlocked!");
   ASSERT_MSG((mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD), "IS_HELD flag not set while trying to unlock mutex");

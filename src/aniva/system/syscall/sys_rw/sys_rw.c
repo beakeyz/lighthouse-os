@@ -57,6 +57,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
       {
         aniva_driver_t* driver = khandle->reference.driver;
 
+        kernel_panic("tried to write to driver");
         //driver_send_packet()
         break;
       }

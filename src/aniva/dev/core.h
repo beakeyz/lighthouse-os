@@ -78,6 +78,10 @@ void init_aniva_driver_registry();
 
 // TODO: load driver from file
 
+struct dev_manifest* allocate_dmanifest();
+
+void free_dmanifest(struct dev_manifest* manifest);
+
 /*
  * Registers the driver so it can be loaded
  */

@@ -128,22 +128,26 @@ ErrorOrPtr vfs_unmount(const char* path) {
 
 vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, const char* path)
 {
-
   uint32_t i;
   char* obj_id;
-  char buffer[strlen(path) + 1];
+  char buffer_obj[strlen(path) + 1];
+  char* buffer_ptr = buffer_obj;
 
   if (!path)
     return nullptr;
 
   if (!node && !rel_ns && !dir)
-    return vfs_resolve(path);
+    return nullptr;
 
-  memcpy(buffer, path, strlen(path));
-  buffer[strlen(path)] = NULL;
+  memcpy(buffer_obj, path, strlen(path));
+  buffer_obj[strlen(path)] = NULL;
 
-  if (!rel_ns && !dir)
-    return vn_open(node, buffer); 
+  /* Shift the pointer forward to cut of the seperator */
+  if (buffer_obj[0] == VFS_PATH_SEPERATOR)
+    buffer_ptr++;
+
+  if (!rel_ns && !dir && node)
+    return vn_open(node, buffer_obj); 
 
   if (!rel_ns)
     return nullptr;
@@ -155,26 +159,26 @@ vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, c
    * NOTE: we should end this loop with the object id sitting at the end
    * of our index, since it comes right after the vnode path entry
    */
-  while (buffer[i]) {
-    if (buffer[i] == VFS_PATH_SEPERATOR) {
-      buffer[i] = NULL;
+  while (buffer_ptr[i]) {
+    if (buffer_ptr[i] == VFS_PATH_SEPERATOR) {
+      buffer_ptr[i] = NULL;
       break;
     }
     i++;
   }
 
   /* Find the node */
-  node = hive_get(rel_ns->m_vnodes, buffer);
+  node = hive_get(rel_ns->m_vnodes, buffer_ptr);
 
   if (!node)
     return nullptr;
 
   /* Place does not match */
-  if (buffer[i])
+  if (buffer_ptr[i])
     return nullptr;
 
   /* Buffer the object id (path) which we have now reached */
-  obj_id = &buffer[i + 1];
+  obj_id = &buffer_ptr[i + 1];
 
   return vn_open(node, obj_id);
 }
@@ -212,8 +216,16 @@ vobj_t* vfs_resolve(const char* path) {
   char path_copy[path_length + 1];
   path_copy[path_length] = NULL;
 
-  /* Copy over path to buffer */
-  memcpy(path_copy, path, path_length);
+  if (path[0] == VFS_PATH_SEPERATOR) {
+    path_length--;
+
+    /* Cut off the seperator at the start */
+    memcpy(path_copy, path+1, path_length);
+  } else {
+    /* Copy over path to buffer */
+    memcpy(path_copy, path, path_length);
+  }
+
 
   i = 0;
 
@@ -550,5 +562,4 @@ void init_vfs(void) {
 
   // Init vfs namespaces
   init_vns();
-
 }

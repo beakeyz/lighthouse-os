@@ -10,7 +10,7 @@ size_t strlen (const char* str) {
 }
 
 int strcmp (const char * str1, const char *str2) {
-    while (*str1 == *str2 && (*str1) && (*str2))
+    while (*str1 == *str2 && (*str1))
     {
         str1++;
         str2++;
@@ -29,16 +29,19 @@ char* strcpy (char* dest, const char* src) {
 
 int memcmp(const void *s1, const void *s2, size_t n)
 {
-    const char *ss1 = (const char *)s1;
-    const char *ss2 = (const char *)s2;
-    for (size_t i = 0; i < n; i++)
+  if (!n)
+    return FALSE;
+  
+  const char *ss1 = (const char *)s1;
+  const char *ss2 = (const char *)s2;
+  for (size_t i = 0; i < n; i++)
+  {
+    if (ss1[i] != ss2[i])
     {
-        if (ss1[i] != ss2[i])
-        {
-            return FALSE;
-        }
+      return FALSE;
     }
-    return TRUE;
+  }
+  return TRUE;
 }
 
 void *memcpy(void * restrict dest, const void * restrict src, size_t length) 

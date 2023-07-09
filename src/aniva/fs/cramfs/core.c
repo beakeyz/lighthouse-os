@@ -105,6 +105,11 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
   uintptr_t current_offset = 0;
   size_t name_len = strlen(name);
 
+  if (!name || !name_len)
+    return nullptr;
+
+  println(name);
+
   /* Create file early to catch vnode grabbing issues early */
   file_t* file = create_file(node, FILE_READONLY, name);
 

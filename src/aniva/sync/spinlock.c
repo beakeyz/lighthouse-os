@@ -74,11 +74,20 @@ __spinlock_t __init_spinlock() {
 
 void aquire_spinlock(__spinlock_t* lock)
 {
+  Processor_t* current;
+
+  if (!lock)
+    return;
+
+  current = get_current_processor();
+
   while (__sync_lock_test_and_set(lock->m_latch, 0x01)) {
+
+    ASSERT_MSG(current->m_irq_depth == 0, "Can't block on a spinlock from within an IRQ!");
     /* FIXME: should we? */
     scheduler_yield();
   }
-  lock->m_cpu_num = (int)get_current_processor()->m_cpu_num;
+  lock->m_cpu_num = (int)current->m_cpu_num;
   lock->m_func = __func__;
 }
 

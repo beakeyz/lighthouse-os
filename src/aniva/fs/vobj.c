@@ -130,3 +130,11 @@ file_t* vobj_get_file(vobj_t* obj) {
 
   return (file_t*)obj->m_child;
 }
+
+int vobj_close(vobj_t* obj)
+{
+  if (!obj || !obj->m_parent)
+    return -1;
+
+  return vn_close(obj->m_parent, obj);
+}

@@ -229,6 +229,11 @@ invalid_path:
 
 void* hive_get(hive_t* root, const char* path) {
 
+  /* Some epic invalid paths
+   TODO: see if these checks need to go anywhere else */
+  if (!path || !*path)
+    return nullptr;
+
   path = __hive_prepend_root_part(root, path);
 
   if (__hive_path_is_invalid(path)) {

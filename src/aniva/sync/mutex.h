@@ -32,6 +32,8 @@ typedef struct mutex {
  * Allocate and initialize a mutex
  */
 mutex_t* create_mutex(uint8_t flags);
+void init_mutex(mutex_t* lock, uint8_t flags);
+void clear_mutex(mutex_t* mutex);
 
 /*
  * Deallocate and uninitialize the mutex

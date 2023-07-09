@@ -97,6 +97,8 @@ void vobj_unref(vobj_t* obj);
 
 void vobj_register_child(vobj_t* obj, void* child, VOBJ_TYPE_t type, FuncPtr destroy_fn);
 
+int vobj_close(vobj_t* obj);
+
 ErrorOrPtr vobj_generate_handle(vobj_t* object);
 bool vobj_verify_handle(vobj_t* object);
 

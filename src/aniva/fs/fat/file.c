@@ -6,7 +6,7 @@
  * Translate a fs-local index to a block number and offset within that block 
  * on the actual partitioned device
  */
-static int ffile_block_info(fat_file_t* file, int index, int* offset, uintptr_t* blocknr)
+static int f32file_block_info(fat_file_t* file, int index, int* offset, uintptr_t* blocknr)
 {
   kernel_panic("TODO: fatfile_block_info");
 }
@@ -14,7 +14,7 @@ static int ffile_block_info(fat_file_t* file, int index, int* offset, uintptr_t*
 /*
  * Get the current cluster that this fat_file is pointing to
  */
-static int ffile_get(fat_file_t* file)
+static int f32file_get(fat_file_t* file)
 {
   kernel_panic("TODO: fatfile_get");
 }
@@ -22,7 +22,7 @@ static int ffile_get(fat_file_t* file)
 /*
  * Put a cluster into the clusterchain
  */
-static int ffile_put(fat_file_t* file, int cluster)
+static int f32file_put(fat_file_t* file, int cluster)
 {
   kernel_panic("TODO: fatfile_put");
 }
@@ -30,7 +30,7 @@ static int ffile_put(fat_file_t* file, int cluster)
 /*
  * Grab the next cluster in the chain
  */
-static int ffile_next_cluster(fat_file_t* file)
+static int f32file_next_cluster(fat_file_t* file)
 {
   kernel_panic("TODO: fatfile_next_cluster");
 }
@@ -38,7 +38,7 @@ static int ffile_next_cluster(fat_file_t* file)
 /*
  * Set the index of the file inside the clusterchain
  */
-static int ffile_seek_index(fat_file_t* file, int index)
+static int f32file_seek_index(fat_file_t* file, int index)
 {
   kernel_panic("TODO: fatfile_seek_index");
 }
