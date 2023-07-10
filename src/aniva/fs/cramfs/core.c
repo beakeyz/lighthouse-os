@@ -163,8 +163,20 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
   return nullptr;
 }
 
+int ramfs_close(vnode_t* node, vobj_t* obj)
+{
+  return 0;
+}
+
+int ramfs_msg(vnode_t* node, driver_control_code_t code, void* buffer, size_t size)
+{
+  return 0;
+}
+
 static struct generic_vnode_ops ramfs_vnode_ops = {
   .f_open = ramfs_find,
+  .f_close = ramfs_close,
+  .f_msg = ramfs_msg,
 };
 
 static void __tar_create_superblock(vnode_t* node, partitioned_disk_dev_t* device)

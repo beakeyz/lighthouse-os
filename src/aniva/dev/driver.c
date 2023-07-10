@@ -160,6 +160,67 @@ bool driver_is_ready(aniva_driver_t* driver) {
   return active_flag;
 }
 
+bool driver_is_busy(aniva_driver_t* driver)
+{
+  if (!driver || !driver->m_manifest)
+    return false;
+
+  return (mutex_is_locked(&driver->m_manifest->m_lock));
+}
+
+/*
+ * Quick TODO: create a way to validata pointer origin
+ */
+int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
+{
+  int result;
+  dev_manifest_t* manifest;
+
+  if (!driver ||!buffer || !buffer_size)
+    return DRV_STAT_INVAL;
+
+  manifest = driver->m_manifest;
+
+  if (!manifest || !manifest->m_ops.f_read)
+    return DRV_STAT_NOMAN;
+
+  if (driver_is_busy(driver))
+    return DRV_STAT_BUSY;
+
+  mutex_lock(&manifest->m_lock);
+
+  result = manifest->m_ops.f_read(driver, buffer, buffer_size);
+
+  mutex_unlock(&manifest->m_lock);
+
+  return result;
+}
+
+int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
+{
+  int result;
+  dev_manifest_t* manifest;
+
+  if (!driver ||!buffer || !buffer_size)
+    return DRV_STAT_INVAL;
+
+  manifest = driver->m_manifest;
+
+  if (!manifest || !manifest->m_ops.f_read)
+    return DRV_STAT_NOMAN;
+
+  if (driver_is_busy(driver))
+    return DRV_STAT_BUSY;
+
+  mutex_lock(&manifest->m_lock);
+
+  result = manifest->m_ops.f_write(driver, buffer, buffer_size);
+
+  mutex_unlock(&manifest->m_lock);
+
+  return result;
+}
+
 void generic_driver_entry(aniva_driver_t* driver) {
 
   /* Just make sure this driver is marked as inactive */

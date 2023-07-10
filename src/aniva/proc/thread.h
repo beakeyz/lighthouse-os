@@ -16,6 +16,7 @@ struct proc;
 struct thread;
 struct mutex;
 struct threaded_socket;
+struct aniva_driver;
 
 typedef int (*ThreadEntry) (
   uintptr_t arg
@@ -36,23 +37,24 @@ typedef struct thread {
   FuncPtr f_exit;
 
   struct mutex* m_lock;
+  struct aniva_driver* m_qdriver; /* The current querying driver */
 
   kContext_t m_context;
   FpuState m_fpu_state;
 
-  thread_id_t m_tid;
   char m_name[32];
+  thread_id_t m_tid;
   uint32_t m_cpu; // atomic?
   uint32_t m_ticks_elapsed;
   uint32_t m_max_ticks;
 
   bool m_has_been_scheduled;
   /* The vaddress of the stack bottom, as seen by the kernel */
-  __attribute__((aligned(16))) vaddr_t m_kernel_stack_bottom;
-  __attribute__((aligned(16))) vaddr_t m_kernel_stack_top;
+  vaddr_t m_kernel_stack_bottom;
+  vaddr_t m_kernel_stack_top;
   /* The vaddress of the stack bottom and top, from the process */
-  __attribute__((aligned(16))) uintptr_t m_user_stack_bottom;
-  __attribute__((aligned(16))) uintptr_t m_user_stack_top;
+  uintptr_t m_user_stack_bottom;
+  uintptr_t m_user_stack_top;
 
   thread_state_t m_current_state;
 
@@ -83,6 +85,10 @@ thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, const char[3
  * NOTE: this mutates the port value to something which is always available
  */
 thread_t *create_thread_as_socket(struct proc* process, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port);
+
+void thread_set_qdrv(thread_t* t, struct aniva_driver* driver);
+
+struct aniva_driver* thread_get_qdrv(thread_t* t);
 
 /*
  * set up the thread and prepare to switch context

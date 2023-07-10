@@ -25,10 +25,13 @@ typedef struct _FILE {
 extern "C" {
 #endif
 
-extern FILE* stderr;
+extern FILE* stdin;
 extern FILE* stdout;
+extern FILE* stderr;
 
-#define stderr stderr
+#define stdin   stdin
+#define stdout  stdout
+#define stderr  stderr
 
 extern int fclose(FILE*);
 extern int fflush(FILE*);

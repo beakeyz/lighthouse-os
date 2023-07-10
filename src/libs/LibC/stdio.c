@@ -8,33 +8,38 @@
 
 #define FILE_BUFSIZE    (0x2000)
 
-/* Initialize this to POSIXefy our userspace =O */
-FILE __stderr = {
-  0
+FILE __stdin = {
+  .handle = 0,
+  .r_buf_size = FILE_BUFSIZE,
 };
 
 FILE __stdout = {
   .handle = 1,
   .w_buf_written = 0,
   .w_buf_size = FILE_BUFSIZE,
-  .r_buf_size = FILE_BUFSIZE,
+  //.r_buf_size = FILE_BUFSIZE,
 };
 
-FILE* stderr;
+/* Initialize this to POSIXefy our userspace =O */
+FILE __stderr = {
+  0
+};
+
+FILE* stdin;
 FILE* stdout;
+FILE* stderr;
 
 extern int real_va_sprintf(uint8_t, FILE* , const char* , va_list);
 
 void __init_stdio(void)
 {
+  stdin = &__stdin;
+  stdout = &__stdout;
   stderr = &__stderr;
 
-  stdout = &__stdout;
-
-  stdout->handle = 1;
-
+  /* Create buffers */
+  stdin->r_buff = malloc(FILE_BUFSIZE);
   stdout->w_buff = malloc(FILE_BUFSIZE);
-  stdout->r_buff = malloc(FILE_BUFSIZE);
 }
 
 /*
@@ -93,6 +98,16 @@ int fclose(FILE* file) {
 }
 
 /*
+ * Open a file at the specified path with the specified modes
+ * returns a FILE object that holds a local read- and write buffer
+ */
+FILE* fopen(const char* path, const char* modes) {
+  (void)path;
+  (void)modes;
+  return nullptr;
+}
+
+/*
  * Flush the local write buffer for this 
  * stream (file) to the kernel
  */
@@ -115,14 +130,10 @@ int fflush(FILE* file) {
   return 0;
 }
 
-/*
- * Open a file at the specified path with the specified modes
- * returns a FILE object that holds a local read- and write buffer
- */
-FILE* fopen(const char* path, const char* modes) {
-  (void)path;
-  (void)modes;
-  return nullptr;
+int scanf (const char *__restrict __format, ...)
+{
+  (void)__format;
+  return 0;
 }
 
 /*

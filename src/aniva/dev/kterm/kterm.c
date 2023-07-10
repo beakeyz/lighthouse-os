@@ -340,6 +340,10 @@ void kterm_command_worker() {
         create_khandle(&stdout, &driver_type, &g_base_kterm_driver);
         create_khandle(&stderr, &driver_type, &g_base_kterm_driver);
 
+        stdin.flags |= HNDL_FLAG_READACCESS;
+        stdout.flags |= HNDL_FLAG_WRITEACCESS;
+        stderr.flags |= HNDL_FLAG_RW;
+
         bind_khandle(&p->m_handle_map, &stdin);
         bind_khandle(&p->m_handle_map, &stdout);
         bind_khandle(&p->m_handle_map, &stderr);

@@ -335,6 +335,21 @@ bool is_driver_installed(struct aniva_driver* handle) {
  * routine so that we can act accordingly
  */
 dev_manifest_t* get_driver(dev_url_t url) {
+
+  /* If we are asking for the current executing driver */
+  if (url && strcmp(url, "this")) {
+
+    /* 1) Check inside the current thread */
+    thread_t* current_thread = get_current_scheduling_thread();
+
+    aniva_driver_t* driver = thread_get_qdrv(current_thread);
+
+    if (driver)
+      return driver->m_manifest;
+
+    /* 2) Check if we are initializing a driver at the moment (TODO) */
+  }
+
   aniva_driver_t* handle = hive_get(__installed_drivers, url);
 
   if (handle == nullptr) {

@@ -306,7 +306,7 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
     if (obj->m_flags & VOBJ_MOVABLE) {
       kernel_panic("TODO: this vobject is movable. IMPLEMENT");
     }
-    println("Has parent");
+    //println("Has parent");
     return Error();
   }
 
@@ -586,9 +586,6 @@ vobj_t* vn_open(vnode_t* node, char* name) {
   if (!node || !name)
     return nullptr;
 
-  print("Name is: ");
-  println(name);
-
   /* Look if we have it cached */
   ret = vn_get_object(node, name);
 
@@ -609,6 +606,7 @@ int vn_close(vnode_t* node, struct vobj* obj)
   if (!node || !obj || !node->m_ops || !node->m_ops->f_close)
     return -1;
 
+  /* Failing to close fs-side, is actually a major issue */
   if (node->m_ops->f_close(node, obj) < 0)
     return -1;
 

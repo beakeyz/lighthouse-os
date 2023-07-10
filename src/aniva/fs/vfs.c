@@ -26,7 +26,7 @@ static bool __vfs_path_is_absolute(const char* path)
   return (path[0] == VFS_ABS_PATH_IDENTIFIER);
 }
 
-vnamespace_t* vfs_get_abs_root() 
+vnamespace_t*   vfs_get_abs_root() 
 {
   return hive_get(s_vfs.m_namespaces, VFS_ROOT_ID);
 }
@@ -41,6 +41,15 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
     /* We don't yet allow multiple mounts, so TODO */
     return Error();
   }
+
+  if (!node->m_ops)
+    return Error();
+
+  if (!node->m_ops->f_open || !node->m_ops->f_close)
+    return Error();
+
+  if (!node->m_ops->f_msg)
+    return Error();
 
   // If it ends at a namespace, all good. just attacht the node there
   vnamespace_t* namespace = vfs_create_path(path);
@@ -130,8 +139,8 @@ vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, c
 {
   uint32_t i;
   char* obj_id;
-  char buffer_obj[strlen(path) + 1];
-  char* buffer_ptr = buffer_obj;
+  size_t path_size = strlen(path);
+  char buffer[path_size + 1];
 
   if (!path)
     return nullptr;
@@ -139,15 +148,21 @@ vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, c
   if (!node && !rel_ns && !dir)
     return nullptr;
 
-  memcpy(buffer_obj, path, strlen(path));
-  buffer_obj[strlen(path)] = NULL;
+  memset(buffer, 0, path_size + 1);
 
   /* Shift the pointer forward to cut of the seperator */
-  if (buffer_obj[0] == VFS_PATH_SEPERATOR)
-    buffer_ptr++;
+  if (path[0] == VFS_PATH_SEPERATOR) {
+    path_size--;
+
+    memcpy(buffer, path + 1, path_size);
+  } else {
+    memcpy(buffer, path, path_size);
+  }
+
+  buffer[path_size] = NULL;
 
   if (!rel_ns && !dir && node)
-    return vn_open(node, buffer_obj); 
+    return vn_open(node, buffer); 
 
   if (!rel_ns)
     return nullptr;
@@ -159,26 +174,26 @@ vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, c
    * NOTE: we should end this loop with the object id sitting at the end
    * of our index, since it comes right after the vnode path entry
    */
-  while (buffer_ptr[i]) {
-    if (buffer_ptr[i] == VFS_PATH_SEPERATOR) {
-      buffer_ptr[i] = NULL;
+  while (buffer[i]) {
+    if (buffer[i] == VFS_PATH_SEPERATOR) {
+      buffer[i] = NULL;
       break;
     }
     i++;
   }
 
   /* Find the node */
-  node = hive_get(rel_ns->m_vnodes, buffer_ptr);
+  node = hive_get(rel_ns->m_vnodes, buffer);
 
   if (!node)
     return nullptr;
 
   /* Place does not match */
-  if (buffer_ptr[i])
+  if (buffer[i])
     return nullptr;
 
   /* Buffer the object id (path) which we have now reached */
-  obj_id = &buffer_ptr[i + 1];
+  obj_id = &buffer[i + 1];
 
   return vn_open(node, obj_id);
 }

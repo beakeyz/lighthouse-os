@@ -455,6 +455,19 @@ void thread_switch_context(thread_t* from, thread_t* to) {
 extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 }
 
+
+void thread_set_qdrv(thread_t* t, struct aniva_driver* driver)
+{
+  mutex_lock(t->m_lock);
+  t->m_qdriver = driver;
+  mutex_unlock(t->m_lock);
+}
+
+struct aniva_driver* thread_get_qdrv(thread_t* t)
+{
+  return t->m_qdriver;
+}
+
 void thread_block(thread_t* thread) {
 
   //processor_increment_critical_depth(get_current_processor());

@@ -58,6 +58,10 @@ typedef struct aniva_driver {
 #define DRV_FAILED                  (0x00000040)
 #define DRV_DEFERRED                (0x00000080)
 
+#define DRV_STAT_INVAL      (-1)
+#define DRV_STAT_NOMAN      (-2)
+#define DRV_STAT_BUSY       (-3)
+
 aniva_driver_t* create_driver(
   const char* name,
   const char* descriptor,
@@ -69,6 +73,8 @@ aniva_driver_t* create_driver(
   DEV_TYPE type
   );
 
+void destroy_driver(aniva_driver_t* driver);
+
 static inline bool driver_is_deferred(aniva_driver_t* drv)
 {
   return ((drv->m_flags & DRV_DEFERRED) == DRV_DEFERRED);
@@ -78,8 +84,6 @@ struct vnode* create_fs_driver(aniva_driver_t* driver);
 
 void detach_fs_driver(struct vnode* node);
 
-void destroy_driver(aniva_driver_t* driver);
-
 /*
  * Check properties of the driver to validate its integrity
  * TODO: more secure checking
@@ -87,6 +91,11 @@ void destroy_driver(aniva_driver_t* driver);
 bool validate_driver(aniva_driver_t* driver);
 
 bool driver_is_ready(aniva_driver_t* driver);
+
+bool driver_is_busy(aniva_driver_t* driver);
+
+int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size);
+int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size);
 
 /*
  * Create a thread for this driver in the kernel process
