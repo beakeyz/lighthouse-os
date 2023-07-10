@@ -160,7 +160,8 @@ static void __bind_khandle(khandle_map_t* map, khandle_t* handle, uint32_t index
   handle->index = index;
 
   /* Then copy it over */
-  map->handles[index] = *handle;
+  //map->handles[index] = *handle;
+  memcpy(&map->handles[index], handle, sizeof(khandle_t));
   map->count++;
 }
 

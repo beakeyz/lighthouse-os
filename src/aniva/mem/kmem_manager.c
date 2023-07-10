@@ -716,6 +716,11 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
 
 }
 
+ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size)
+{
+  kernel_panic("TODO: kmem_validate_ptr");
+}
+
 /*
  * Check if the virtual address returns a page when walking the pagetree
  * and return success if we where able to find it. Fail otherwise
@@ -750,6 +755,9 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, proc_t* process, uintptr_t virt_b
 
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
+  println(to_string(virt_base));
+  println(to_string(size));
+
   for (uintptr_t i = 0; i < pages_needed; i++) {
     // get the virtual address of the current page
     const vaddr_t vaddr = virt_base + (i * SMALL_PAGE_SIZE);
@@ -760,7 +768,7 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, proc_t* process, uintptr_t virt_b
     // check if this page is actually used
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
-    if (!was_used) 
+    if (!was_used)
       return Error();
 
     if (unmap) {
@@ -774,6 +782,7 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, proc_t* process, uintptr_t virt_b
   if (process) {
     TRY(release_result, resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &process->m_resources));
   }
+
   return Success(0);
 }
 

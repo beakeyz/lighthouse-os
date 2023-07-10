@@ -58,6 +58,7 @@ typedef struct aniva_driver {
 #define DRV_FAILED                  (0x00000040)
 #define DRV_DEFERRED                (0x00000080)
 
+#define DRV_STAT_OK         (0)
 #define DRV_STAT_INVAL      (-1)
 #define DRV_STAT_NOMAN      (-2)
 #define DRV_STAT_BUSY       (-3)

@@ -169,7 +169,7 @@ bool driver_is_busy(aniva_driver_t* driver)
 }
 
 /*
- * Quick TODO: create a way to validata pointer origin
+ * Quick TODO: create a way to validate pointer origin
  */
 int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
 {
@@ -206,7 +206,7 @@ int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
 
   manifest = driver->m_manifest;
 
-  if (!manifest || !manifest->m_ops.f_read)
+  if (!manifest || !manifest->m_ops.f_write)
     return DRV_STAT_NOMAN;
 
   if (driver_is_busy(driver))

@@ -337,7 +337,7 @@ bool is_driver_installed(struct aniva_driver* handle) {
 dev_manifest_t* get_driver(dev_url_t url) {
 
   /* If we are asking for the current executing driver */
-  if (url && strcmp(url, "this")) {
+  if (url && strcmp(url, "this") == 0) {
 
     /* 1) Check inside the current thread */
     thread_t* current_thread = get_current_scheduling_thread();
@@ -348,21 +348,21 @@ dev_manifest_t* get_driver(dev_url_t url) {
       return driver->m_manifest;
 
     /* 2) Check if we are initializing a driver at the moment (TODO) */
+
+    return nullptr;
   }
 
   aniva_driver_t* handle = hive_get(__installed_drivers, url);
 
-  if (handle == nullptr) {
+  if (!handle)
     return nullptr;
-  }
 
   // TODO: resolve dependencies and resources
   dev_manifest_t* manifest = create_dev_manifest(handle, NULL);
 
   // TODO: let the handle be nullable when creating a manifest
-  if (manifest->m_handle != handle) {
+  if (manifest->m_handle != handle)
     return nullptr;
-  }
 
   return manifest;
 }

@@ -50,7 +50,7 @@ void destroy_dev_manifest(dev_manifest_t* manifest);
 
 bool is_manifest_valid(dev_manifest_t* manifest);
 
-bool manifest_write_fn(aniva_driver_t* driver, int(*write_fn)());
-bool manifest_read_fn(aniva_driver_t* driver, int(*read_fn)());
+bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)());
+bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)());
 
 #endif // !__ANIVA_DEV_MANIFEST__

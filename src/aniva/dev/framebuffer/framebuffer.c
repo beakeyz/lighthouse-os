@@ -131,6 +131,7 @@ uintptr_t fb_driver_on_packet(packet_payload_t payload, packet_response_t** resp
         .width = s_width,
         .height = s_height,
         .used_pages = s_used_pages,
+        .paddr = s_fb_addr,
       };
       println("sent info");
       println(to_string(info.bpp));

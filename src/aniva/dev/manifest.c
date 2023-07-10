@@ -31,7 +31,7 @@ const char* get_driver_url(aniva_driver_t* handle) {
 }
 
 
-bool manifest_write_fn(aniva_driver_t* driver, int(*write_fn)())
+bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)())
 {
   dev_manifest_t* manifest;
 
@@ -52,7 +52,7 @@ bool manifest_write_fn(aniva_driver_t* driver, int(*write_fn)())
   return true;
 }
 
-bool manifest_read_fn(aniva_driver_t* driver, int(*read_fn)())
+bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
 {
   dev_manifest_t* manifest;
 
@@ -66,7 +66,7 @@ bool manifest_read_fn(aniva_driver_t* driver, int(*read_fn)())
 
   mutex_lock(&manifest->m_lock);
 
-  manifest->m_ops.f_write = read_fn;
+  manifest->m_ops.f_read = read_fn;
 
   mutex_unlock(&manifest->m_lock);
 

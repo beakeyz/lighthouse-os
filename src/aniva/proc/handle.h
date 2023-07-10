@@ -79,6 +79,10 @@ void destroy_khandle_map(khandle_map_t* map);
 /* NOTE: mutates the handle to fill in the index they are put at */
 ErrorOrPtr bind_khandle(khandle_map_t* map, khandle_t* handle);
 
+ErrorOrPtr bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
+ErrorOrPtr try_bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
+
+
 /* NOTE: mutates the handle to clear the index */
 ErrorOrPtr unbind_khandle(khandle_map_t* map, khandle_t* handle);
 

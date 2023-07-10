@@ -58,6 +58,7 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
 
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
+  proc->m_resources = nullptr;
 
   proc->m_threads = init_list();
 
@@ -104,21 +105,33 @@ static void __proc_clear_shared_resources(proc_t* proc)
    *    into neighboring resources
    */
 
-  kresource_mirror_t* current_mirror;
-
   if (!proc->m_resources)
     return;
-
-  current_mirror = proc->m_resources;
   
-  while (current_mirror) {
+  /*
+   * NOTE: We don't always link through the list here, since 
+   * __kmem_dealloc calls resource_release which will place 
+   * the address of the next resource in ->m_resources
+   */
+  while (proc->m_resources) {
+
+    kresource_mirror_t* current_mirror = proc->m_resources;
 
     uintptr_t start = current_mirror->m_start;
     size_t size = current_mirror->m_size;
 
-    /* Skip mirrors with size zero */
-    if (!size)
-      goto cycle;
+    /* Skip mirrors with size zero (unlikely) */
+    if (!size) {
+
+      /* Link to next */
+      proc->m_resources = current_mirror->m_next;
+
+      /* Destroy kresource_mirror */
+      destroy_kresource_mirror(current_mirror);
+
+      /* Go next */
+      continue;
+    }
 
     /* We only handle memory resources for now */
     /* TODO: destry other resource types */
@@ -129,16 +142,16 @@ static void __proc_clear_shared_resources(proc_t* proc)
          * NOTE: resource_release pops the according mirror from the 
          *       processes linked list
          */
+        println("Deallocing:");
+        println(to_string(start));
+        println(to_string(size));
         Must(__kmem_dealloc(proc->m_root_pd.m_root, proc, start, size));
+
         break;
       default:
         /* Skip this entry for now */
-        goto cycle;
+        break;
     }
-
-    continue;
-cycle:
-    current_mirror = current_mirror->m_next;
   }
 }
 
@@ -193,6 +206,7 @@ static void __proc_clear_handles(proc_t* proc)
  */
 void destroy_proc(proc_t* proc) {
 
+  println("Clearing Threads");
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
     destroy_thread(i->data);

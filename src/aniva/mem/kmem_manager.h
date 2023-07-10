@@ -153,6 +153,11 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
  */
 void parse_mmap ();
 
+/*
+ * initialize the physical pageframe allocator
+ */
+void kmem_init_physical_allocator();
+
 void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
 
 uintptr_t kmem_get_page_idx (uintptr_t page_addr);
@@ -225,9 +230,9 @@ bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
 ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address);
 
 /*
- * initialize the physical pageframe allocator
+ * Check if the process has access to the specified range
  */
-void kmem_init_physical_allocator();
+ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size);
 
 /*
  * These functions are all about mapping and allocating

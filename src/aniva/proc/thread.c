@@ -219,12 +219,15 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
   //destroy_atomic_ptr(thread->m_tid);
   destroy_mutex(0);
 
+  println("One");
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
   if (thread->m_user_stack_bottom) {
+    println("Two");
     Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
   }
 
+  println("Three");
   kfree(thread);
   return ANIVA_SUCCESS;
 }

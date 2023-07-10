@@ -7,6 +7,7 @@
 #include "dev/disk/ramdisk.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "dev/manifest.h"
 #include "fs/core.h"
 #include "fs/file.h"
 #include "fs/vfs.h"
@@ -31,6 +32,7 @@
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/acpi/parser.h"
+#include "system/resource.h"
 #include <system/processor/processor.h>
 #include <mem/kmem_manager.h>
 
@@ -308,15 +310,14 @@ void kterm_command_worker() {
         if (contents[0] == NULL)
           goto end_processing;
 
-        println("Resolve");
         vobj_t* obj = vfs_resolve(contents);
+
 
         if (!obj) {
           kterm_println("Could not find object!");
           goto end_processing;
         }
 
-        println("file");
         file_t* file = vobj_get_file(obj);
 
 
@@ -325,28 +326,43 @@ void kterm_command_worker() {
           goto end_processing;
         }
 
-        println("exec");
         p = (proc_t*)Must(elf_exec_static_64_ex(file, false, true));
 
         vobj_close(obj);
 
         khandle_type_t driver_type = KHNDL_TYPE_DRIVER;
 
-        khandle_t stdin;
-        khandle_t stdout;
-        khandle_t stderr;
+        khandle_t _stdin;
+        khandle_t _stdout;
+        khandle_t _stderr;
 
-        create_khandle(&stdin, &driver_type, &g_base_kterm_driver);
-        create_khandle(&stdout, &driver_type, &g_base_kterm_driver);
-        create_khandle(&stderr, &driver_type, &g_base_kterm_driver);
+        create_khandle(&_stdin, &driver_type, &g_base_kterm_driver);
+        create_khandle(&_stdout, &driver_type, &g_base_kterm_driver);
+        create_khandle(&_stderr, &driver_type, &g_base_kterm_driver);
 
-        stdin.flags |= HNDL_FLAG_READACCESS;
-        stdout.flags |= HNDL_FLAG_WRITEACCESS;
-        stderr.flags |= HNDL_FLAG_RW;
+        _stdin.flags |= HNDL_FLAG_READACCESS;
+        _stdout.flags |= HNDL_FLAG_WRITEACCESS;
+        _stderr.flags |= HNDL_FLAG_RW;
 
-        bind_khandle(&p->m_handle_map, &stdin);
-        bind_khandle(&p->m_handle_map, &stdout);
-        bind_khandle(&p->m_handle_map, &stderr);
+        bind_khandle(&p->m_handle_map, &_stdin);
+        bind_khandle(&p->m_handle_map, &_stdout);
+        bind_khandle(&p->m_handle_map, &_stderr);
+
+        /*
+         * Create mapping to ensure this process has access to the framebuffer when doing syscalls 
+         * NOTE: this is probably temporary
+         */
+        Must(__kmem_alloc_ex(
+              p->m_root_pd.m_root,
+              nullptr,
+              kterm_fb_info.paddr,
+              KTERM_FB_ADDR,
+              kterm_fb_info.used_pages * SMALL_PAGE_SIZE,
+              KMEM_CUSTOMFLAG_NO_REMAP,
+              KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
+              ));
+
+        debug_resources(KRES_TYPE_MEM);
 
         sched_add_priority_proc(p, true);
 
@@ -375,6 +391,26 @@ aniva_driver_t g_base_kterm_driver = {
 };
 EXPORT_DRIVER(g_base_kterm_driver);
 
+static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size)
+{
+  char* str = (char*)buffer;
+
+  /* Make sure the end of the buffer is null-terminated and the start is non-null */
+  if (str[*buffer_size] != NULL || str[0] == NULL)
+    return DRV_STAT_INVAL;
+
+  /* TODO; string.h: char validation */
+
+  kterm_println(str);
+
+  return DRV_STAT_OK;
+}
+
+static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size)
+{
+  kernel_panic("kterm_read(TODO: impl)");
+}
+
 /*
  * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it 
  * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
@@ -383,6 +419,9 @@ int kterm_init() {
 
   kterm_current_line = 0;
   s_kterm_cmd_lock = create_mutex(0);
+
+  ASSERT_MSG(driver_manifest_write(&g_base_kterm_driver, kterm_write), "Failed to manifest kterm write");
+  ASSERT_MSG(driver_manifest_read(&g_base_kterm_driver, kterm_read), "Failed to manifest kterm read");
 
   /* Zero out the cmd buffer */
   memset(&s_kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
@@ -403,6 +442,12 @@ int kterm_init() {
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("Command worker", kterm_command_worker, NULL));
   println("Spawned thread");
+
+  /*
+   * We could create a kevent hook for every process creation, which
+   * could then automatically map the framebuffer for us
+   */
+  //create_keventhook
 
   // flush our terminal buffer
   kterm_flush_buffer();
@@ -434,16 +479,23 @@ int kterm_exit() {
 uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response) {
 
   switch (payload.m_code) {
-    case KTERM_DRV_DRAW_STRING: {
-      const char* msg = *(const char**)payload.m_data;
-      println(msg);
-      kterm_println(msg);
-      kterm_println("\n");
-      break;
-    }
+    case KTERM_DRV_DRAW_STRING: 
+      {
+        const char* str = *(const char**)payload.m_data;
+        size_t buffer_size = payload.m_data_size;
+
+        /* Make sure the end of the buffer is null-terminated and the start is non-null */
+        if (str[buffer_size] != NULL || str[0] == NULL)
+          return DRV_STAT_INVAL;
+
+        println(str);
+        kterm_println(str);
+        //kterm_println("\n");
+        break;
+      }
   }
 
-  return 0;
+  return DRV_STAT_OK;
 }
 
 void kterm_on_key(ps2_key_event_t event) {

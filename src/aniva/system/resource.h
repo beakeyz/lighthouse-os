@@ -114,6 +114,8 @@ typedef struct kresource_mirror {
   struct kresource_mirror* m_next;
 } kresource_mirror_t;
 
+void destroy_kresource_mirror(kresource_mirror_t* mirror);
+
 /*
  * Try to change the flags of a certain resource
  * size is nullable

@@ -7,7 +7,6 @@
 #include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
-#include <string.h>
 
 /*
  * NOTE: in this file (or range of files) I try to enforce a different 
@@ -406,7 +405,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
     }
 
     if (__resource_is_referenced(*curr_resource_slot) && __resource_contains(*curr_resource_slot, itt_addr)) {
-      kernel_panic("referenced entire resource!");
+      //kernel_panic("referenced entire resource!");
       /* Already marked, just cycle */
       if (last_referenced_resource == *curr_resource_slot)
         goto cycle;
@@ -439,6 +438,10 @@ cycle:;
   new_resource_mirror->m_start = start;
   new_resource_mirror->m_size = size;
   new_resource_mirror->m_type = type;
+
+  println("Allocing: ");
+  println(to_string(start));
+  println(to_string(size));
 
   /* Link this mirror into the regions list */
   new_resource_mirror->m_next = *regions;
@@ -563,6 +566,14 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_mirror_t** m
     return Error();
 
   return resource_release_region(current);
+}
+
+void destroy_kresource_mirror(kresource_mirror_t* mirror)
+{
+  if (!mirror)
+    return;
+  
+  zfree_fixed(__resource_mirror_allocator, mirror);
 }
 
 void debug_resources(kresource_type_t type)

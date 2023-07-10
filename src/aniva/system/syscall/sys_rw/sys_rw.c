@@ -55,11 +55,18 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
       }
     case KHNDL_TYPE_DRIVER:
       {
+        int result;
+        size_t buffer_size = length;
         aniva_driver_t* driver = khandle->reference.driver;
 
-        kernel_panic("tried to write to driver");
+        result = drv_write(driver, buffer, &buffer_size);
+
+        if (result == DRV_STAT_OK)
+          break;
+
+        kernel_panic("Failed to write to driver");
         //driver_send_packet()
-        break;
+        return SYS_KERR;
       }
     case KHNDL_TYPE_PROC:
       {

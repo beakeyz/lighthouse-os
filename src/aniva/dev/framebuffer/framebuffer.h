@@ -22,6 +22,7 @@ typedef struct fb_info {
   uint32_t bpp;
   uint32_t pitch;
   size_t used_pages;
+  paddr_t paddr; 
 } fb_info_t;
 
 extern aniva_driver_t g_base_fb_driver;
