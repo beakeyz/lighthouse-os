@@ -4,12 +4,14 @@
 #ifndef __ANIVA_MALLOC__
 #define __ANIVA_MALLOC__
 #include "dev/debug/serial.h"
-#include "base_allocator.h"
+#include "libk/flow/error.h"
+#include "mem/page_dir.h"
+#include "mem/pg.h"
 #include <libk/stddef.h>
 
 typedef enum MALLOC_NODE_FLAGS {
-  MALLOC_FLAGS_USED = (1 << 0),
-  MALLOC_FLAGS_READONLY = (1 << 1)
+  MALLOC_NODE_FLAG_USED = (1 << 0),
+  MALLOC_NODE_FLAG_READONLY = (1 << 1)
 } MALLOC_NODE_FLAGS_t;
 
 #define MALLOC_NODE_IDENTIFIER 0xF0CEDA22
@@ -21,56 +23,67 @@ typedef enum MALLOC_NODE_FLAGS {
 typedef struct heap_node {
   // size of this entry in bytes
   size_t size;
-  // used to validate a node pointer
-  uint32_t identifier;
-  // flags for this block
-  uint8_t flags;
   // duh
   struct heap_node* next;
   // duh 2x
   struct heap_node* prev;
   // plz no padding ;-;
-} __attribute__((packed)) heap_node_t;
+  // flags for this block
+  uint32_t flags;
+  // used to validate a node pointer
+  uint32_t identifier;
+
+  uint8_t data[];
+} heap_node_t;
+
+typedef struct heap_node_buffer {
+
+  /* Amount of nodes that are present here */
+  size_t m_node_count;
+
+  /* Total size that the buffer takes up */
+  size_t m_buffer_size;
+
+  /* Link through all the buffers with this */
+  struct heap_node_buffer* m_next;
+
+  heap_node_t* m_last_free_node;
+
+  /* This list is kinda scetchy, since we cant index it regularly, because not every node has the same size */
+  heap_node_t m_start_node[];
+} heap_node_buffer_t;
 
 typedef struct memory_allocator {
-  generic_heap_t *m_heap;
-
-  // initial node this heap has to work with
-  heap_node_t* m_heap_start_node;
 
   // this node it the node that lives at the absolute bottom,
   // and thus is vulnerable to merging after an expansion
   // NOTE: we need a good way to keep track of this badboy
   // heap_node_t *m_heap_bottom_node;
 
-  size_t m_nodes_count;
+  uint32_t m_flags;
+  uint32_t m_buffer_count;
+
+  page_dir_t m_parent_dir; 
+
+  heap_node_buffer_t* m_buffers;
+
   size_t m_free_size;
   size_t m_used_size;
 } memory_allocator_t;
 
 memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintptr_t flags);
+memory_allocator_t *create_malloc_heap_ex(page_dir_t* dir, size_t size, vaddr_t virtual_base, uintptr_t flags);
 
-void* malloc_allocate(memory_allocator_t * allocator, size_t bytes);
+void* memory_allocate(memory_allocator_t * allocator, size_t bytes);
+void memory_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t allocation_size);
+void memory_deallocate(memory_allocator_t* allocator, void* addr);
 
-void malloc_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t allocation_size);
-
-void malloc_deallocate(memory_allocator_t* allocator, void* addr);
-
-ANIVA_STATUS malloc_try_heap_expand (memory_allocator_t * allocator, size_t new_size);
-
-void malloc_on_heap_expand_enable(memory_allocator_t* allocator);
-
-/*
- * check the identifier of a node to confirm that is in fact a
- * node that we use
- * TODO: make this identifier dynamic and (perhaps) bound to
- * the heap that it belongs to
- */
-bool verify_identity (heap_node_t* node);
-
+ANIVA_STATUS memory_try_heap_expand (memory_allocator_t * allocator, size_t new_size);
 
 // TODO: remove
 void quick_print_node_sizes (memory_allocator_t* allocator);
+
+heap_node_t* memory_get_heapnode_at(heap_node_buffer_t* buffer, uint32_t index);
 
 // TODO: add a wrapper for userspace?
 #endif // !__ANIVA_MALLOC__

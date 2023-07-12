@@ -2,7 +2,6 @@
 #define __ANIVA_ZALLOC__
 #include <libk/stddef.h>
 #include <libk/flow/error.h>
-#include "base_allocator.h"
 #include "libk/data/bitmap.h"
 #include "mem/pg.h"
 
@@ -91,12 +90,19 @@ typedef struct zone_store {
 
 #define ZONE_STORE_DATA_FIELDS_SIZE (sizeof(zone_store_t) - sizeof(uintptr_t))
 
+/*
+ * TODO (?): We could expand this object so that it becomes viable to store it completely
+ * independently from any other kind of heap. The only dependency it would have then is the 
+ * physical allocator
+ */
 typedef struct zone_allocator {
-  generic_heap_t* m_heap;
+  //generic_heap_t* m_heap;
 
   zone_store_t* m_store;
 
+  size_t m_total_size;
   uint32_t m_flags;
+  uint32_t m_res0;
 
   enum ZONE_ENTRY_SIZE m_max_zone_size;
   enum ZONE_ENTRY_SIZE m_min_zone_size;

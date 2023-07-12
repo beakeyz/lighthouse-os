@@ -106,95 +106,15 @@ partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t 
 
 generic_disk_dev_t* find_gdisk_device(disk_uid_t uid);
 
-static partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags) {
-  partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
-  
-  ret->m_parent = parent;
-  ret->m_name = name;
-
-  /* FIXME: Should we align these? */
-  ret->m_start_lba = start;
-  ret->m_end_lba = end;
-
-  /* TODO: check for range */
-  ret->m_block_size = parent->m_logical_sector_size;
-
-  ret->m_flags = flags;
-
-  ret->m_next = nullptr;
-
-  return ret;
-}
-
-static void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev) {
-  kfree(dev);
-}
+partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags);
+void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev);
 
 /*
  * TODO: attach device limit
  */
-static void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
-
-  partitioned_disk_dev_t** device;
-  
-  /*
-   * This code is stupid
-   */
-  for (device = &generic->m_devs; *device; device = &(*device)->m_next) {
-    if (!(*device)) {
-      break;
-    }
-  }
-
-  if (!(*device)) {
-    *device = dev;
-    generic->m_partitioned_dev_count++;
-  }
-}
-
-static void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
-
-  if (!dev)
-    return;
-
-  partitioned_disk_dev_t** previous = nullptr;
-  partitioned_disk_dev_t** device;
-
-  for (device = &generic->m_devs; (*device); device = &(*device)->m_next) {
-    if ((*device) == dev) {
-      if (previous) {
-        (*previous)->m_next = (*device)->m_next;
-      }
-      break;
-    }
-
-    previous = device;
-  }
-
-  ASSERT_MSG(generic->m_partitioned_dev_count, "Tried to detach partitioned disk device when the dev count of the generic disk device was already zero!");
-
-  generic->m_partitioned_dev_count--;
-}
-
-static partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* generic, uintptr_t block) {
-
-  partitioned_disk_dev_t** device;
-  
-  for (device = &generic->m_devs; (*device); device = &(*device)->m_next) {
-    uintptr_t start_lba = (*device)->m_start_lba;
-    uintptr_t end_lba = (*device)->m_end_lba;
-
-    // Check if the block is contained in this partition
-    if (block >= start_lba && block <= end_lba) {
-      return device;
-    }
-  }
-
-  return nullptr;
-}
-
-static ALWAYS_INLINE int generic_disk_opperation(generic_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
-  return -1;
-}
+void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev);
+void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev);
+partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* generic, uintptr_t block);
+int generic_disk_opperation(generic_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 
 #endif // !__ANIVA_GENERIC_DISK_DEV__

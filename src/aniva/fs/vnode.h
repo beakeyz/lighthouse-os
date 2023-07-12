@@ -108,12 +108,12 @@ typedef struct vnode {
 
 vnode_t* create_generic_vnode(const char* name, uint32_t flags);
 
-static void vnode_set_type(vnode_t* node, enum VNODE_TYPES type)
+static inline void vnode_set_type(vnode_t* node, enum VNODE_TYPES type)
 {
   node->m_type = type;
 }
 
-static bool vnode_has_driver(vnode_t* node) 
+static inline bool vnode_has_driver(vnode_t* node) 
 {
   return (node->m_type == VNODE_DRIVER && node->m_drv);
 }

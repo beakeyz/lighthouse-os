@@ -332,6 +332,7 @@ vnode_t* vfs_resolve_node(const char* path) {
   if (!__vfs_path_is_absolute(path))
     return nullptr;
 
+  end_namespace = nullptr;
   path_length = strlen(path);
 
   char path_copy[path_length + 1];
@@ -404,8 +405,8 @@ static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace
 }
 
 vnamespace_t* vfs_create_path(const char* path) {
-  vnamespace_t* current_parent;
-  vnamespace_t* result;
+  vnamespace_t* current_parent = nullptr;
+  vnamespace_t* result = nullptr;
   uintptr_t previous_index = NULL;
   uintptr_t index = NULL;
   size_t path_size = strlen(path) + 1;

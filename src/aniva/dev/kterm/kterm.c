@@ -275,7 +275,7 @@ void kterm_command_worker() {
         kterm_println(to_string(*test_data2));
 
         kterm_println("\n Total zone allocator size: ");
-        kterm_println(to_string(allocator->m_heap->m_current_total_size));
+        kterm_println(to_string(allocator->m_total_size));
 
         kterm_println("\nSuccessfully created Zone!\n");
 
@@ -366,11 +366,7 @@ void kterm_command_worker() {
               KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
               ));
 
-        debug_resources(KRES_TYPE_MEM);
-
         sched_add_priority_proc(p, true);
-
-        println("Got end");
 
       }
 

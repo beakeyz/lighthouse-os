@@ -5,7 +5,6 @@
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
-#include "mem/base_allocator.h"
 
 /* Only the sized list needs to know what its end is */
 zone_allocator_t* sized_end_allocator;
@@ -242,14 +241,9 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
   // kernel for some pages
   /* TODO: map should be used here */
   /* TODO: start_addr should be used here */
-  ret->m_heap = initialize_generic_heap(nullptr, 0, 0, flags);
-  ret->m_heap->f_allocate = (HEAP_ALLOCATE) zalloc;
-  ret->m_heap->f_sized_deallocate = (HEAP_SIZED_DEALLOCATE) zfree;
-  ret->m_heap->f_expand = (HEAP_EXPAND) zexpand;
-  ret->m_heap->m_parent_heap = ret;
 
   // Initialize the initial zones
-  ret->m_heap->m_current_total_size = 0;
+  ret->m_total_size = 0;
 
   // Create a store that can hold the maximum amount of zones for 1 page
   ret->m_store = create_zone_store(512 - ZONE_STORE_DATA_FIELDS_SIZE);
@@ -272,7 +266,7 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
       zone_t* zone = (zone_t*)Release(result);
 
-      ret->m_heap->m_current_total_size += zone->m_total_available_size;
+      ret->m_total_size += zone->m_total_available_size;
     }
 
     goto end_and_attach;
@@ -288,7 +282,7 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
   zone_t* zone = (zone_t*)Release(result);
 
-  ret->m_heap->m_current_total_size += zone->m_total_available_size;
+  ret->m_total_size += zone->m_total_available_size;
 
 end_and_attach:
   /* NOTE: attach after we've setup the zones */
@@ -305,7 +299,7 @@ void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
 
   destroy_zone_store(allocator->m_store);
 
-  destroy_heap(allocator->m_heap);
+  //destroy_heap(allocator->m_heap);
 
   kfree(allocator);
 }

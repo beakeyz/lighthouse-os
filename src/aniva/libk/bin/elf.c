@@ -74,7 +74,6 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
 
   disable_interrupts();
 
-  println_kterm("Reaing elf");
   read_size = sizeof(struct elf64_hdr);
   status = elf_read(file, &header, &read_size, 0);
 
@@ -90,7 +89,6 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   if (header.e_ident[EI_CLASS] != ELF_CLASS_64)
     return Error();
 
-  println_kterm("Loading phdrs");
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)
@@ -121,8 +119,6 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
           vaddr_t virtual_phdr_base = phdr.p_vaddr;
           size_t phdr_size = phdr.p_memsz;
 
-          println("Alloc range");
-
           vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
                 ret->m_root_pd.m_root,
                 ret,
@@ -134,14 +130,12 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
 
           vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, ret->m_root_pd.m_root));
 
-          println("Read range");
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
           elf_read(file, (void*)v_kernel_phdr_start, &phdr.p_filesz, phdr.p_offset);
           // ???
           // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
-          println("Set range");
           if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = ALIGN_UP(virtual_phdr_base + phdr_size, SMALL_PAGE_SIZE);
           }

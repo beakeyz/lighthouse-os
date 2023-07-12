@@ -4,7 +4,6 @@
 #include "kevent/kevent.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
-#include "mem/base_allocator.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"

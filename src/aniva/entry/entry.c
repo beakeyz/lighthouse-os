@@ -152,8 +152,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-  println("Yay");
-
   proc_t* root_proc = create_kernel_proc(kthread_entry, NULL);
 
   init_reaper(root_proc);
@@ -161,8 +159,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   set_kernel_proc(root_proc);
   sched_add_proc(root_proc);
 
-
-  println("Yay");
   start_scheduler();
 
   //enable_interrupts();

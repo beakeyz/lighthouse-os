@@ -17,7 +17,6 @@
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include <mem/heap.h>
-#include <mem/base_allocator.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
 
@@ -1022,7 +1021,6 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   ret.m_kernel_low = kernel_start;
   ret.m_kernel_high = kernel_end;
 
-  println_kterm("Created page dir");
   return ret;
 
 error_and_out:
