@@ -115,7 +115,7 @@ ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
     return Error();
   }
 
-  return __kmem_dealloc(dir->m_root, thread->m_parent_proc, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
+  return __kmem_dealloc_unmap(dir->m_root, thread->m_parent_proc, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
 }
 
 ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {

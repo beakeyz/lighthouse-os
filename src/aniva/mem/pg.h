@@ -6,7 +6,7 @@
 
 typedef enum {
   PDE_PRESENT = (1 << 0),
-  PDE_READ_WRITE = (1 << 1),
+  PDE_WRITABLE = (1 << 1),
   PDE_USER = (1 << 2),
   PDE_WRITE_THROUGH = (1 << 3),
   PDE_NO_CACHE = (1 << 4),
@@ -18,7 +18,7 @@ typedef enum {
 
 typedef enum {
   PTE_PRESENT = (1 << 0),
-  PTE_READ_WRITE = (1 << 1),
+  PTE_WRITABLE = (1 << 1),
   PTE_USER = (1 << 2),
   PTE_WRITE_THROUGH = (1 << 3),
   PTE_NO_CACHE = (1 << 4),

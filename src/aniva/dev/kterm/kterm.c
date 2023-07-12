@@ -326,6 +326,10 @@ void kterm_command_worker() {
           goto end_processing;
         }
 
+        uintptr_t thing = 18446744071569580032U;
+
+        uintptr_t phys = kmem_to_phys(nullptr, thing);
+
         p = (proc_t*)Must(elf_exec_static_64_ex(file, false, true));
 
         vobj_close(obj);
@@ -365,6 +369,8 @@ void kterm_command_worker() {
         debug_resources(KRES_TYPE_MEM);
 
         sched_add_priority_proc(p, true);
+
+        println("Got end");
 
       }
 
@@ -514,8 +520,6 @@ static void kterm_write_char(char c) {
     return;
   }
 
-  println(to_string((uintptr_t)c));
-
   switch (c) {
     case '\b':
       if (kterm_buffer_ptr > KTERM_CURSOR_WIDTH) {
@@ -550,7 +554,10 @@ static void kterm_process_buffer() {
   if (mutex_is_locked(s_kterm_cmd_lock))
     return;
 
+  println("Locking");
   mutex_lock(s_kterm_cmd_lock);
+
+  println("Locked");
 
   memcpy(s_kterm_cmd_buffer.buffer, contents, contents_size);
 

@@ -70,9 +70,13 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   memcpy(proc->m_name, name, name_length);
   proc->m_name[31] = NULL;
 
+  println("Creating thread");
+
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
   thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
   Must(proc_add_thread(proc, thread));
+
+  println("Created thread");
 
   proc_register(proc);
 
@@ -104,6 +108,8 @@ static void __proc_clear_shared_resources(proc_t* proc)
    *    automatically destroy resources and merge their address ranges
    *    into neighboring resources
    */
+
+  ErrorOrPtr result;
 
   if (!proc->m_resources)
     return;
@@ -145,7 +151,9 @@ static void __proc_clear_shared_resources(proc_t* proc)
         println("Deallocing:");
         println(to_string(start));
         println(to_string(size));
-        Must(__kmem_dealloc(proc->m_root_pd.m_root, proc, start, size));
+        result = __kmem_dealloc_ex(proc->m_root_pd.m_root, proc, start, size, true, true);
+
+        (void)result;
 
         break;
       default:

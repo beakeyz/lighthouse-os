@@ -247,7 +247,8 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, struct proc* process, paddr_t addr,
 ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, struct proc* process, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 ErrorOrPtr __kmem_dealloc(pml_entry_t* map, struct proc* process, uintptr_t virt_base, size_t size);
-ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, struct proc* process, uintptr_t virt_base, size_t size, bool unmap);
+ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, struct proc* process, uintptr_t virt_base, size_t size);
+ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, struct proc* process, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused);
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, struct proc* process, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
