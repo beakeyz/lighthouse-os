@@ -462,6 +462,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     if (!should_make) {
       return nullptr;
     }
+
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
@@ -525,7 +526,10 @@ pml_entry_t* kmem_get_page_with_quickmap (pml_entry_t* table, vaddr_t virt, uint
 }
 
 void kmem_invalidate_tlb_cache_entry(uintptr_t vaddr) {
-  asm volatile("invlpg %0" ::"m"(vaddr) : "memory");
+  asm volatile("invlpg (%0)" : : "r"(vaddr));
+
+  /* TODO: send message to other cores that they need to 
+  perform a tlb shootdown aswell on this address */
 }
 
 void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size) {
@@ -613,7 +617,6 @@ ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t si
   page_count = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
 
   for (uintptr_t i = 0; i < page_count; i++) {
-    println("Mapping loop");
     vaddr_t old_vbase = old + (i * SMALL_PAGE_SIZE);
     vaddr_t new_vbase = new + (i * SMALL_PAGE_SIZE);
 
@@ -622,8 +625,6 @@ ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t si
     if (!old_phys) {
       return Error();
     }
-
-    println("Mapping page");
 
     if (!kmem_map_page(table, new_vbase, old_phys, kmem_flags, page_flags)) {
       result = Error();
@@ -663,6 +664,14 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
 
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags) {
 
+  if (ALIGN_DOWN(virt, SMALL_PAGE_SIZE) == 0xFFFFFFFF8072A000) {
+    kernel_panic("HUH 1");
+  }
+
+  if (ALIGN_UP(virt, SMALL_PAGE_SIZE) == 0xFFFFFFFF8072A000) {
+    kernel_panic("HUH 2");
+  }
+
   pml_entry_t *page = kmem_get_page(table, virt, custom_flags, 0);
 
   if (!page) {
@@ -672,6 +681,8 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
   //page->raw_bits = 0;
   set_page_bit(page, PTE_PRESENT, false);
   set_page_bit(page, PTE_WRITABLE, false);
+
+  kmem_invalidate_tlb_cache_entry(virt);
 
   return true;
 }
@@ -743,7 +754,7 @@ ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address) {
 }
 
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
-  return __kmem_dealloc_unmap(nullptr, nullptr, virt_base, size);
+  return __kmem_dealloc(nullptr, nullptr, virt_base, size);
 }
 
 ErrorOrPtr __kmem_dealloc(pml_entry_t* map, proc_t* process, uintptr_t virt_base, size_t size) {
@@ -851,8 +862,6 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, 
    * sometimes yoinks pages for itself 
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
-  
-  println("Trying to map");
 
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();

@@ -19,6 +19,15 @@ static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
   return file->m_ops->f_read(file, buffer, size, offset);
 }
 
+/*!
+ * @brief Copy the contents of an ELF into the correct user pages
+ *
+ * When mapping a userrange scattered, we need to first read the file into a contiguous kernel
+ * region, after which we can loop over all the userpages and find their physical addresses. 
+ * We translate these to high kernel addresses so that we can copy the correct bytes over
+ */
+static int elf_read_into_user_range(pml_entry_t* root, file_t* file, vaddr_t user_start, size_t size, uintptr_t offset);
+
 static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_header) {
 
   struct elf64_phdr* ret;

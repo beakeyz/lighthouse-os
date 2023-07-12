@@ -77,7 +77,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
-        nullptr,
+        proc,
         HIGH_MAP_BASE,
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
@@ -95,12 +95,8 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   /* Zero memory, since we don't want random shit in our stack */
   memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
-  println("Zeroing");
-  
   /* Do context before we assign the userstack */
   thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_kernel_stack_top);
-
-  println("Zeroing");
 
   /*
    * FIXME: right now, we try to remap the stack every time a thread is created,
@@ -111,38 +107,25 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   if (!kthread) {
     thread->m_user_stack_bottom = HIGH_STACK_BASE;
 
-  println("Zeroing");
-
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
-        nullptr,
+        proc,
         thread->m_user_stack_bottom, 
         DEFAULT_STACK_SIZE, 
         KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
 
-  println("Zeroing");
-
     /* TODO: subtract random offset */
     thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16);
-
-  println("Zeroing");
 
     memset(
         (void*)Must(kmem_get_kernel_address(thread->m_user_stack_bottom, proc->m_root_pd.m_root))
         , 0
         , DEFAULT_STACK_SIZE);
 
-  println("Zeroed");
-
     /* We don't touch rsp when the thread is not a kthread */
     thread->m_context.rsp = thread->m_user_stack_top;
   }
-
-  print("kstack bottom: ");
-  println(to_string(thread->m_kernel_stack_bottom));
-  print("ustack bottom: ");
-  println(to_string(thread->m_user_stack_bottom));
 
   /* Set the entrypoint last */
   thread_set_entrypoint(thread, (FuncPtr)thread->f_real_entry, data, 0);
@@ -232,10 +215,10 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
 
   destroy_mutex(0);
 
-  Must(__kmem_dealloc_unmap(parent_proc->m_root_pd.m_root, nullptr, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
+  Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
   if (thread->m_user_stack_bottom) {
-    Must(__kmem_dealloc_unmap(parent_proc->m_root_pd.m_root, nullptr, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
+    Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
   }
 
   kfree(thread);

@@ -75,28 +75,36 @@ static bool __is_khandle_bound(khandle_t* handle)
   return (handle != nullptr && ((handle->index != KHNDL_INVALID_INDEX) && handle->reference.kobj != nullptr));
 }
 
+void init_khandle_map(khandle_map_t* ret, uint32_t max_count)
+{
+  if (!ret)
+    return;
+
+  if (!max_count || max_count > KHNDL_MAX_ENTRIES)
+    max_count = KHNDL_DEFAULT_ENTRIES;
+
+  memset(ret, 0, sizeof(khandle_map_t));
+
+  ret->max_count = max_count;
+  ret->lock = create_mutex(0);
+
+  /* Ensure we can create this list that provides a maximum of 1024 handles */
+  ret->handles = (khandle_t*)Must(__kmem_kernel_alloc_range(max_count * sizeof(khandle_t), NULL, NULL));
+
+  /* Zero */
+  memset(ret->handles, 0, SMALL_PAGE_SIZE);
+
+  /* Should we? */
+  for (uint32_t i = 0; i < ret->max_count; i++) {
+    ret->handles[i].index = KHNDL_INVALID_INDEX;
+  }
+}
+
 khandle_map_t create_khandle_map_ex(uint32_t max_count)
 {
   khandle_map_t ret;
-  
-  if (!max_count)
-    max_count = KHNDL_DEFAULT_ENTRIES;
 
-  memset(&ret, 0, sizeof(khandle_map_t));
-
-  ret.max_count = max_count;
-  ret.lock = create_mutex(0);
-
-  /* Ensure we can create this list that provides a maximum of 1024 handles */
-  ret.handles = (khandle_t*)Must(__kmem_kernel_alloc_range(max_count * sizeof(khandle_t), NULL, NULL));
-
-  /* Zero */
-  memset(ret.handles, 0, SMALL_PAGE_SIZE);
-
-  /* Should we? */
-  for (uint32_t i = 0; i < ret.max_count; i++) {
-    ret.handles[i].index = KHNDL_INVALID_INDEX;
-  }
+  init_khandle_map(&ret, max_count);
 
   return ret;
 }
@@ -109,7 +117,9 @@ void destroy_khandle_map(khandle_map_t* map)
 
   destroy_mutex(map->lock);
 
-  Must(__kmem_kernel_dealloc((vaddr_t)map->handles, SMALL_PAGE_SIZE));
+  ASSERT_MSG(map->max_count, "Tried to destroy a khandle map without a max_count!");
+
+  Must(__kmem_kernel_dealloc((vaddr_t)map->handles, map->max_count * sizeof(khandle_t)));
 }
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t user_handle)
