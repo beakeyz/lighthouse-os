@@ -4,11 +4,11 @@
 #include "dev/pci/pci.h"
 #include <dev/pci/definitions.h>
 
-static void find_ata_controller(pci_device_identifier_t* ident) {
-  if (ident->address.device_num == MASS_STORAGE) {
-    if (ident->address.bus_num == PCI_SUBCLASS_ATA) {
+static void find_ata_controller(pci_device_t* device) {
+  if (device->address.device_num == MASS_STORAGE) {
+    if (device->address.bus_num == PCI_SUBCLASS_ATA) {
       println("ATA: found an ata controller");
-    } else if (ident->address.bus_num == PCI_SUBCLASS_IDE) {
+    } else if (device->address.bus_num == PCI_SUBCLASS_IDE) {
       println("ATA: found an ide controller");
     }
   }

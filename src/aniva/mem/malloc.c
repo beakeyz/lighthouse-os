@@ -185,6 +185,7 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
   size_t data_size;
   heap_node_t* start_node;
   heap_node_buffer_t* ret;
+  ErrorOrPtr result;
 
   if (!allocator || !size || !(*size))
     return nullptr;
@@ -194,15 +195,20 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
 
   total_buffer_size = ALIGN_UP(*size + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE);
 
-  /* FIXME: is this allocation corret? */
-  ret = (heap_node_buffer_t*)Must(__kmem_alloc_range(
+  result = __kmem_alloc_range(
         allocator->m_parent_dir.m_root,
         nullptr,
         HIGH_MAP_BASE,
         total_buffer_size,
         NULL,
         KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
-        ));
+        );
+
+  if (IsError(result))
+    return nullptr;
+
+  /* FIXME: is this allocation corret? */
+  ret = (heap_node_buffer_t*)Release(result);
 
   /* Total size of the available data */
   data_size = total_buffer_size - sizeof(heap_node_buffer_t);
@@ -229,8 +235,6 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
 
   allocator->m_buffer_count++;
 
-  println("Thing");
-
   /*
    * The free_size field is a bit of a lie, since for every allocation we 
    * miss sizeof(heap_node_t) bytes lmao
@@ -242,7 +246,6 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
 
 static void destroy_heap_node_buffer(memory_allocator_t* allocator, heap_node_buffer_t* buffer)
 {
-
   heap_node_buffer_t* current_buffer;
 
   if (!allocator || !buffer)

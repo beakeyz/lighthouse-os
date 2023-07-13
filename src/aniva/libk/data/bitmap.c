@@ -15,7 +15,7 @@ bitmap_t* create_bitmap(size_t size) {
   bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
   map->m_default = (uint8_t)BITMAP_DEFAULT;
   map->m_size = size;
-  map->m_entries = size << 3;
+  map->m_entries = size * 8;
 
   memset(map->m_map, map->m_default, size);
 
@@ -50,10 +50,6 @@ void bitmap_mark(bitmap_t* this, uint32_t index) {
   const uint32_t index_byte = index >> 3;
   const uint32_t index_bit = index % 8;
 
-  /* FIXME: is the slowdown worth this? */
-  if (bitmap_isset(this, index))
-    return;
-
   this->m_map[index_byte] |= (1 << index_bit);
 }
 
@@ -64,10 +60,6 @@ void bitmap_unmark(bitmap_t* this, uint32_t index) {
 
   const uint32_t index_byte = index >> 3;
   const uint32_t index_bit = index % 8;
-
-  /* FIXME: is the slowdown worth this? */
-  if (!bitmap_isset(this, index))
-    return;
 
   this->m_map[index_byte] &= ~(1 << index_bit);
 }
@@ -130,11 +122,19 @@ ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t 
 
 // returns the index of the free bit
 ErrorOrPtr bitmap_find_free(bitmap_t* this) {
-  // doodoo linear scan >=(
-  // TODO: make not crap
-  for (uintptr_t i = 0; i < this->m_entries; i++) {
-    if (!bitmap_isset(this, i)) {
-      return Success(i);
+
+  /*
+   * Let's hope we keep this in cache ;-;
+   */
+  for (uintptr_t i = 0; i < this->m_size; i++) {
+    if (this->m_map[i] == 0xff)
+      continue;
+
+    uintptr_t start_idx = BYTES_TO_BITS(i);
+
+    for (uintptr_t j = 0; j < 8; j++) {
+      if (!bitmap_isset(this, start_idx + j))
+        return Success(start_idx + j);
     }
   }
 
@@ -147,7 +147,7 @@ bool bitmap_isset(bitmap_t* this, uint32_t index) {
     return false;
   }
   */
-  ASSERT_MSG(index <= this->m_entries, "Bitmap (bitmap_isset): index out of bounds");
+  ASSERT_MSG(index < this->m_entries, "Bitmap (bitmap_isset): index out of bounds");
 
   const uint64_t index_byte = index >> 3ULL;
   const uint32_t index_bit = index % 8UL;

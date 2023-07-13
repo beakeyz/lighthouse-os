@@ -85,10 +85,9 @@ typedef struct zone {
 typedef struct zone_store {
   size_t m_zones_count;
   size_t m_capacity;
+  struct zone_store* m_next; /* When a store is full, we can allocate a new store and link it after this one */
   zone_t* m_zones[];
 } __attribute__((packed)) zone_store_t;
-
-#define ZONE_STORE_DATA_FIELDS_SIZE (sizeof(zone_store_t) - sizeof(uintptr_t))
 
 /*
  * TODO (?): We could expand this object so that it becomes viable to store it completely
@@ -99,13 +98,15 @@ typedef struct zone_allocator {
   //generic_heap_t* m_heap;
 
   zone_store_t* m_store;
+  size_t m_store_count;
 
+  size_t m_grow_size; /* Size we add to the allocator every time we grow */
   size_t m_total_size;
   uint32_t m_flags;
   uint32_t m_res0;
 
-  enum ZONE_ENTRY_SIZE m_max_zone_size;
-  enum ZONE_ENTRY_SIZE m_min_zone_size;
+  enum ZONE_ENTRY_SIZE m_max_entry_size;
+  enum ZONE_ENTRY_SIZE m_min_entry_size;
 
   /* We link zone allocators in a global list that we sort based on 
    * Their zone size. If they are dynamic, this links into a seperate
@@ -113,6 +114,8 @@ typedef struct zone_allocator {
    */
   struct zone_allocator* m_next;
 } zone_allocator_t;
+
+#define FOREACH_ZONESTORE(allocator, i) for (zone_store_t* i = allocator->m_store; i != nullptr; i = i->m_next)
 
 /* Sorted by size, as specified above. */
 extern zone_allocator_t* g_sized_zallocators;
@@ -132,6 +135,7 @@ void zfree_fixed(zone_allocator_t* allocator, void* address);
  * saturate this allocator with zones as needed
  */
 zone_allocator_t *create_dynamic_zone_allocator(size_t initial_size, uintptr_t flags);
+zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 
@@ -139,9 +143,13 @@ void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 
 zone_store_t* create_zone_store(size_t initial_capacity);
 
-void destroy_zone_store(zone_store_t* store);
+void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store);
+void destroy_zone_stores(zone_allocator_t* allocator);
 
-ErrorOrPtr zone_store_add(zone_store_t** store_dptr, zone_t* zone);
+ErrorOrPtr allocator_add_zone(zone_allocator_t* allocator, zone_t* zone);
+ErrorOrPtr allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone);
+
+ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone);
 ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone);
 
 /*
@@ -151,6 +159,6 @@ ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone);
  */
 zone_t* create_zone(const size_t entry_size, size_t max_entries);
 
-void destroy_zone(zone_t* zone);
+void destroy_zone(zone_allocator_t* allocator, zone_t* zone);
 
 #endif //__ANIVA_ZALLOC__

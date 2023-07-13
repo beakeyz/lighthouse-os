@@ -15,6 +15,7 @@
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "mem/pg.h"
+#include "mem/zalloc.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/ipc/thr_intrf.h"

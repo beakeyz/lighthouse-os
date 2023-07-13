@@ -10,75 +10,183 @@
 #include "libk/string.h"
 #include <mem/heap.h>
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
 #include "io.h"
 #include <libk/io.h>
 
-PciAccessMode_t s_current_addressing_mode;
-list_t* g_pci_bridges;
-list_t* g_pci_devices;
-bool g_has_registered_bridges;
-PciFuncCallback_t current_active_callback;
+pci_accessmode_t __current_addressing_mode;
+list_t* __pci_bridges;
+list_t* __pci_devices;
+zone_allocator_t* __pci_dev_allocator;
+bool __has_registered_bridges;
 
 /* Default PCI callbacks */
 
 static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift);
 
-void register_pci_devices(pci_device_identifier_t* dev) {
-  list_t* list = g_pci_devices;
-  pci_device_identifier_t* _dev = kmalloc(sizeof(pci_device_identifier_t));
+void register_pci_devices(pci_device_t* dev) {
+  pci_device_t* _dev;
 
-  *_dev = *dev;
+  if (!dev || !__pci_devices || !__pci_dev_allocator)
+    return;
 
-  list_append(list, _dev);
+  _dev = zalloc_fixed(__pci_dev_allocator);
+
+  memcpy(_dev, dev, sizeof(pci_device_t));
+
+  list_append(__pci_devices, _dev);
 }
 
-void print_device_info(pci_device_identifier_t* dev) {
+void print_device_info(pci_device_t* dev) {
   print(to_string(dev->vendor_id));
   putch(' ');
   println(to_string(dev->dev_id));
 }
 
+uintptr_t get_pci_register_size(pci_register_offset_t offset)
+{
+  switch (offset) {
+    case BAR0:
+    case BAR1:
+    case BAR2:
+    case BAR3:
+    case BAR4:
+    case BAR5:
+    case ROM_ADDRESS:
+      return 32;
+    case VENDOR_ID:
+    case DEVICE_ID:
+    case COMMAND:
+    case STATUS:
+    case SUBSYSTEM_VENDOR_ID:
+    case SUBSYSTEM_ID:
+      return 16;
+    default:
+      return 8;
+  }
+}
+
+bool pci_register_is_std(pci_register_offset_t offset)
+{
+  return (offset >= FIRST_REGISTER && offset <= LAST_REGISTER);
+}
+
+static int pci_dev_write(pci_device_t* device, uint32_t field, uintptr_t __value)
+{
+
+  DeviceAddress_t* address;
+
+  if (!device)
+    return -1;
+
+  address = &device->address;
+
+  /* TODO: support non-std registers with this */
+  if (!pci_register_is_std(field))
+    return -1;
+
+  switch (get_pci_register_size(field)) {
+    case 32:
+      {
+        uint32_t value = (uint32_t)__value;
+        return device->raw_ops.write32(address->bus_num, address->device_num, address->func_num, field, value);
+      }
+    case 16:
+      {
+        uint16_t value = (uint16_t)__value;
+        return device->raw_ops.write16(address->bus_num, address->device_num, address->func_num, field, value);
+      }
+    case 8:
+      {
+        uint8_t value = (uint8_t)__value;
+        return device->raw_ops.write8(address->bus_num, address->device_num, address->func_num, field, value);
+      }
+  }
+  return -1;
+}
+
+static int pci_dev_read(pci_device_t* device, uint32_t field, uintptr_t* __value)
+{
+
+  DeviceAddress_t* address;
+
+  if (!device)
+    return -1;
+
+  address = &device->address;
+
+  /* TODO: support non-std registers with this */
+  if (!pci_register_is_std(field))
+    return -1;
+
+  switch (get_pci_register_size(field)) {
+    case 32:
+      {
+        uint32_t* value = (uint32_t*)__value;
+        return device->raw_ops.read32(address->bus_num, address->device_num, address->func_num, field, value);
+      }
+    case 16:
+      {
+        uint16_t* value = (uint16_t*)__value;
+        return device->raw_ops.read16(address->bus_num, address->device_num, address->func_num, field, value);
+      }
+    case 8:
+      {
+        uint8_t* value = (uint8_t*)__value;
+        return device->raw_ops.read8(address->bus_num, address->device_num, address->func_num, field, value);
+      }
+  }
+  return -1;
+}
+
 /* PCI enumeration stuff */
 
-void enumerate_function(pci_bus_t* base_addr,uint8_t bus, uint8_t device, uint8_t func, PCI_FUNC_ENUMERATE_CALLBACK callback) {
+void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t bus, uint8_t device, uint8_t func) {
 
-  uint32_t index = base_addr->index;
+  uint32_t index;
 
-  DeviceAddress_t address = {
-    .index = index,
-    .bus_num = bus,
-    .device_num = device,
-    .func_num = func
+  if (!callback)
+    return;
+  
+  index = base_addr->index;
+
+  pci_device_t identifier = {
+    .address = {
+      .index = index,
+      .bus_num = bus,
+      .device_num = device,
+      .func_num = func
+    },
+    .raw_ops = g_pci_type1_impl,
+    .ops = {
+      .read = pci_dev_read,
+      .write = pci_dev_write,
+    }
   };
 
-  pci_device_identifier_t identifier = {
-    .address = address,
-    .ops = g_pci_type1_impl,
-  };
-
-  identifier.ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
-  identifier.ops.read16(bus, device, func, VENDOR_ID, &identifier.vendor_id);
-  identifier.ops.read16(bus, device, func, COMMAND, &identifier.command);
-  identifier.ops.read16(bus, device, func, STATUS, &identifier.status);
-  identifier.ops.read8(bus, device, func, HEADER_TYPE, &identifier.header_type);
-  identifier.ops.read8(bus, device, func, CLASS, &identifier.class);
-  identifier.ops.read8(bus, device, func, SUBCLASS, &identifier.subclass);
-  identifier.ops.read8(bus, device, func, PROG_IF, &identifier.prog_if);
-  identifier.ops.read8(bus, device, func, CACHE_LINE_SIZE, &identifier.cachelinesize);
-  identifier.ops.read8(bus, device, func, LATENCY_TIMER, &identifier.latency_timer);
-  identifier.ops.read8(bus, device, func, REVISION_ID, &identifier.revision_id);
-  identifier.ops.read8(bus, device, func, INTERRUPT_LINE, &identifier.interrupt_line);
-  identifier.ops.read8(bus, device, func, INTERRUPT_PIN, &identifier.interrupt_pin);
-  identifier.ops.read8(bus, device, func, BIST, &identifier.BIST);
+  identifier.raw_ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
+  identifier.raw_ops.read16(bus, device, func, VENDOR_ID, &identifier.vendor_id);
+  identifier.raw_ops.read16(bus, device, func, COMMAND, &identifier.command);
+  identifier.raw_ops.read16(bus, device, func, STATUS, &identifier.status);
+  identifier.raw_ops.read8(bus, device, func, HEADER_TYPE, &identifier.header_type);
+  identifier.raw_ops.read8(bus, device, func, CLASS, &identifier.class);
+  identifier.raw_ops.read8(bus, device, func, SUBCLASS, &identifier.subclass);
+  identifier.raw_ops.read8(bus, device, func, PROG_IF, &identifier.prog_if);
+  identifier.raw_ops.read8(bus, device, func, CACHE_LINE_SIZE, &identifier.cachelinesize);
+  identifier.raw_ops.read8(bus, device, func, LATENCY_TIMER, &identifier.latency_timer);
+  identifier.raw_ops.read8(bus, device, func, REVISION_ID, &identifier.revision_id);
+  identifier.raw_ops.read8(bus, device, func, INTERRUPT_LINE, &identifier.interrupt_line);
+  identifier.raw_ops.read8(bus, device, func, INTERRUPT_PIN, &identifier.interrupt_pin);
+  identifier.raw_ops.read8(bus, device, func, BIST, &identifier.BIST);
 
   if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
 
-  callback(&identifier);
+  callback->callback(&identifier);
 }
 
-void enumerate_device(pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
+void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
 
   uint16_t cur_vendor_id;
   g_pci_type1_impl.read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
@@ -87,9 +195,7 @@ void enumerate_device(pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
     return;
   }
 
-  const char* callback_name = current_active_callback.callback_name;
-
-  enumerate_function(base_addr, bus, device, 0, callback_name != nullptr ? current_active_callback.callback : register_pci_devices);
+  enumerate_function(callback, base_addr, bus, device, 0);
 
   uint8_t cur_header_type;
   g_pci_type1_impl.read8( bus, device, 0, HEADER_TYPE, &cur_header_type);
@@ -99,35 +205,31 @@ void enumerate_device(pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
   }
 
   for (uint8_t func = 1; func < 8; func++) {
-    if (current_active_callback.callback_name != nullptr) {
-      enumerate_function(base_addr, bus, device, func, current_active_callback.callback);
-    } else {
-      enumerate_function(base_addr, bus, device, func, print_device_info);
-    }
+    enumerate_function(callback, base_addr, bus, device, func);
   }
 }
 
-void enumerate_bus(pci_bus_t* base_addr, uint8_t bus) {
+void enumerate_bus(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus) {
 
   for (uintptr_t device = 0; device < 32; device++) {
-    enumerate_device(base_addr, bus, device);
+    enumerate_device(callback, base_addr, bus, device);
   }
 }
 
-void enumerate_bridges() {
+void enumerate_bridges(pci_callback_t* callback) {
 
-  if (!g_has_registered_bridges) {
+  if (!__has_registered_bridges) {
     return;
   }
 
-  list_t* list = g_pci_bridges;
+  list_t* list = __pci_bridges;
 
   FOREACH(i, list) {
 
     pci_bus_t* bridge = i->data;
 
     for (uintptr_t i = bridge->start_bus; i < bridge->end_bus; i++) {
-      enumerate_bus(bridge, i);
+      enumerate_bus(callback, bridge, i);
     }
 /*
     uint8_t should_enumerate_recusive = pci_io_field_read(0, 0, 0, HEADER_TYPE, PCI_8BIT_PORT_SIZE);
@@ -149,19 +251,14 @@ void enumerate_bridges() {
   }
 }
 
-void enumerate_pci_raw(PciFuncCallback_t callback) {
-  set_current_enum_func(callback);
-  enumerate_bridges();
-}
-
 void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
-  if (g_pci_devices == nullptr) {
+  if (__pci_devices == nullptr) {
     return;
   }
 
-  FOREACH(i, g_pci_devices) {
-    pci_device_identifier_t* dev = i->data;
+  FOREACH(i, __pci_devices) {
+    pci_device_t* dev = i->data;
 
     callback(dev);
   }
@@ -194,12 +291,65 @@ bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr) {
     bridge->index = i;
     bridge->is_mapped = false;
     bridge->mapped_base = nullptr;
-    list_append(g_pci_bridges, bridge);
+    list_append(__pci_bridges, bridge);
   }
 
-  g_has_registered_bridges = true;
+  __has_registered_bridges = true;
   return true;
 }
+
+uintptr_t get_bar_address(uint32_t bar)
+{
+  if (is_bar_io(bar)) {
+    return (uintptr_t)(bar & PCI_BASE_ADDRESS_IO_MASK);
+  }
+
+  ASSERT_MSG(is_bar_mem(bar), "Invalid bar?");
+
+  return (uintptr_t)(bar & PCI_BASE_ADDRESS_MEM_MASK);
+}
+
+bool is_bar_io(uint32_t bar)
+{
+  return (bar & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_IO;
+}
+
+bool is_bar_mem(uint32_t bar)
+{
+  return (bar & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_MEM;
+}
+
+uint8_t bar_get_type(uint32_t bar)
+{
+  return (uint8_t)(bar & PCI_BASE_ADDRESS_MEM_TYPE_MASK);
+}
+
+bool is_bar_16bit(uint32_t bar)
+{
+  return (!is_bar_32bit(bar) && !is_bar_16bit(bar));
+}
+
+bool is_bar_32bit(uint32_t bar)
+{
+  return (bar_get_type(bar) == PCI_BASE_ADDRESS_MEM_TYPE_32);
+}
+
+bool is_bar_64bit(uint32_t bar)
+{
+  return (bar_get_type(bar) == PCI_BASE_ADDRESS_MEM_TYPE_64);
+}
+
+void pci_device_register_resource(pci_device_t* device, uint32_t index)
+{
+  uintptr_t value;
+
+}
+
+void pci_device_unregister_resource(pci_device_t* device, uint32_t index)
+{
+  kernel_panic("Impl");
+}
+
 
 // TODO:
 bool test_pci_io_type2() {
@@ -230,20 +380,21 @@ bool test_pci_io_type1() {
 
 bool init_pci() {
 
-  g_pci_devices = init_list();
-  g_pci_bridges = init_list();
+  __pci_devices = init_list();
+  __pci_bridges = init_list();
+
+  __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
 
   acpi_mcfg_t* mcfg = find_table(g_parser_ptr, "MCFG");
 
   if (!mcfg) {
     kernel_panic("no mcfg found!");
-//    return false;
   }
 
   bool success = register_pci_bridges_from_mcfg(mcfg);
 
   if (test_pci_io_type1()) {
-    s_current_addressing_mode = PCI_IOPORT_ACCESS;
+    __current_addressing_mode = PCI_IOPORT_ACCESS;
   } else if (test_pci_io_type2()) {
     kernel_panic("Detected PCI type 2 interfacing! currently not supported.");
   } else {
@@ -254,52 +405,26 @@ bool init_pci() {
     kernel_panic("Unable to register pci bridges from mcfg! (ACPI)");
   }
 
-  PciFuncCallback_t callback = {
+  pci_callback_t callback = {
     .callback_name = "Register",
     .callback = register_pci_devices
   };
 
-  enumerate_pci_raw(callback);
+  enumerate_bridges(&callback);
 
   return true;
 }
 
 pci_device_t create_pci_device(struct pci_bus* bus) {
   pci_device_t ret = {0};
-  pci_device_impls_t impls;
+  pci_device_ops_io_t impls;
 
   // TODO
   return ret;
 }
 
-bool set_pci_func(PCI_FUNC_ENUMERATE_CALLBACK callback, const char* name) {
-
-  if (name == nullptr || !callback) {
-    return false;
-  }
-
-  PciFuncCallback_t pfc = {
-    .callback_name = name,
-    .callback = callback
-  };
-
-  set_current_enum_func(pfc);
-
-  return true;
-}
-
-bool set_current_enum_func(PciFuncCallback_t new_callback) {
-  // gotta name it something
-  if (new_callback.callback_name != nullptr) {
-    current_active_callback = new_callback;
-    return true;
-  }
-
-  return false;
-}
-
 pci_bus_t* get_bridge_by_index(uint32_t bridge_index) {
-  FOREACH(i, g_pci_bridges) {
+  FOREACH(i, __pci_bridges) {
     pci_bus_t* bridge = i->data;
     if (bridge->index == bridge_index) {
       return bridge;
@@ -415,6 +540,6 @@ void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
   pci_send_command(address, value, PCI_COMMAND_BUS_MASTER);
 }
 
-PciAccessMode_t get_current_addressing_mode() {
-  return s_current_addressing_mode;
+pci_accessmode_t get_current_addressing_mode() {
+  return __current_addressing_mode;
 }

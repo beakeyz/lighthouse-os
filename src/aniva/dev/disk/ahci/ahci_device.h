@@ -22,7 +22,7 @@ typedef struct ahci_driver_command_header {
 } ahci_dch_t;
 
 typedef struct ahci_device {
-  pci_device_identifier_t* m_identifier;
+  pci_device_t* m_identifier;
 
   volatile HBA* m_hba_region;
   hive_t* m_ports;
@@ -31,7 +31,7 @@ typedef struct ahci_device {
   // TODO
 } ahci_device_t;
 
-ahci_device_t* init_ahci_device(pci_device_identifier_t* identifier);
+ahci_device_t* init_ahci_device(pci_device_t* identifier);
 void destroy_ahci_device(ahci_device_t* device);
 
 ahci_dch_t* create_ahci_command_header(void* buffer, size_t size, disk_offset_t offset);

@@ -846,11 +846,17 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, proc_t* process, paddr_t addr, vadd
 
 ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) {
 
+  ErrorOrPtr result;
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
-  const uintptr_t phys_idx = Must(bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, pages_needed));
+  result = bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, pages_needed);
+
+  if (IsError(result))
+    return result;
+
+  const uintptr_t phys_idx = Release(result);
   const paddr_t addr = kmem_get_page_addr(phys_idx);
 
   const paddr_t phys_base = addr;

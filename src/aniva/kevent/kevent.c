@@ -125,7 +125,6 @@ void init_kevents()
   ASSERT_MSG(__kevent_lock, "Failed to create kevent lock");
   ASSERT_MSG(__kevents_table, "Failed to create kevent named table");
   ASSERT_MSG(__kevent_allocator, "Failed to create kevent allocator");
-  ASSERT_MSG(__kevent_allocator->m_max_zone_size == sizeof(kevent_t), "kevent allocator size mismatch");
 
   init_eventhooks();
 }

@@ -73,8 +73,10 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
   const uint32_t func_num = device->m_identifier->address.func_num;
   uint32_t bar5;
   g_pci_type1_impl.read32(bus_num, device_num, func_num, BAR5, &bar5);
+  
+  uintptr_t bar_addr = get_bar_address(bar5);
 
-  uintptr_t hba_region = (uintptr_t)Must(__kmem_kernel_alloc(bar5, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+  uintptr_t hba_region = (uintptr_t)Must(__kmem_kernel_alloc(bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
   return (void*)hba_region;
 }
@@ -166,7 +168,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   //pci_set_memory(&device->m_identifier->address, true);
 
   uint8_t interrupt_line;
-  device->m_identifier->ops.read8(bus_num, dev_num, func_num, INTERRUPT_LINE, &interrupt_line);
+  device->m_identifier->raw_ops.read8(bus_num, dev_num, func_num, INTERRUPT_LINE, &interrupt_line);
 
   device->m_hba_region = get_hba_region(s_ahci_device);
 
@@ -237,7 +239,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 }
 
 // TODO:
-ahci_device_t* init_ahci_device(pci_device_identifier_t* identifier) {
+ahci_device_t* init_ahci_device(pci_device_t* identifier) {
   s_ahci_device = kmalloc(sizeof(ahci_device_t));
   s_ahci_device->m_identifier = identifier;
   s_ahci_device->m_ports = create_hive("ports");
@@ -287,7 +289,7 @@ ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header) {
   return Error();
 }
 
-static void find_ahci_device(pci_device_identifier_t* identifier) {
+static void find_ahci_device(pci_device_t* identifier) {
 
   if (identifier->class == MASS_STORAGE) {
     // 0x01 == AHCI progIF

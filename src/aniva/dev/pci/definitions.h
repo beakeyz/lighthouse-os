@@ -10,10 +10,38 @@ typedef enum pci_commands {
   PCI_COMMAND_MEM_WRITE_INVALIDATE_ENABLE = (1 << 4),
   PCI_COMMAND_VGA_PALLETTE_SNOOP = (1 << 5),
   PCI_COMMAND_PARITY_ERROR_RESPONSE = (1 << 6),
+  PCI_COMMAND_WAIT = (1 << 7),
   PCI_COMMAND_SERR_ENABLE = (1 << 8),
-  PCI_COMMAND_FAST_BTB_ENABLE =(1 << 9),
-  PCI_COMMAND_INT_DISABLE = (1 << 10),
+  PCI_COMMAND_FAST_BTB_ENABLE =(1 << 9), /* Fast back-to-back writes */
+  PCI_COMMAND_INT_DISABLE = (1 << 10), /* INTx emulation disable */
 } PCI_COMMANDS;
+
+typedef enum pci_status {
+  PCI_STATUS_IMM_READY  = 0x01,
+  PCI_STATUS_INTERRUPT  = 0x08,
+  PCI_STATUS_CAP_LIST   = 0x10,
+  PCI_STATUS_66MHZ      = 0x20,
+  PCI_STATUS_UDF        = 0x40,
+  PCI_STATUS_FAST_BACK  = 0x80,
+  PCI_STATUS_PARITY     = 0x100,
+  /* There are more, but these are not used for now */
+} PCI_STATUS;
+
+#define PCI_BASE_ADDRESS_SPACE      0x01 /* 0 = memory, 1 = I/O */
+#define PCI_BASE_ADDRESS_SPACE_IO   0x01
+#define PCI_BASE_ADDRESS_SPACE_MEM  0x00
+#define  PCI_BASE_ADDRESS_MEM_TYPE_MASK	0x06
+#define  PCI_BASE_ADDRESS_MEM_TYPE_32	0x00	/* 32 bit address */
+#define  PCI_BASE_ADDRESS_MEM_TYPE_1M	0x02	/* Below 1M [obsolete] */
+#define  PCI_BASE_ADDRESS_MEM_TYPE_64	0x04	/* 64 bit address */
+#define  PCI_BASE_ADDRESS_MEM_PREFETCH	0x08	/* prefetchable? */
+#define  PCI_BASE_ADDRESS_MEM_MASK	(~0x0fUL)
+#define  PCI_BASE_ADDRESS_IO_MASK	(~0x03UL)
+/* bit 1 is reserved if address_space = 1 */
+
+#define PCI_ROM_ADDRESS		0x30	/* Bits 31..11 are address, 10..1 reserved */
+#define  PCI_ROM_ADDRESS_ENABLE	0x01
+#define PCI_ROM_ADDRESS_MASK	(~0x7ffU)
 
 // TODO: more
 typedef enum {
