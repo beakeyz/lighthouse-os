@@ -131,16 +131,13 @@ void detach_fs_driver(vnode_t* node) {
 }
 
 void destroy_driver(aniva_driver_t* driver) {
-  // TODO: when a driver holds on to resources, we need to clean them up too (if they are not being referenced ofcourse)
+  /*
+   * FIXME: we need to figure out:
+   *  - Where the driver has been allocated from (file, internal, ect.)
+   *  - What resources this driver holds on to (files, kresources, kevents, ect.)
+   *  - ect.
+   */
   kfree(driver);
-}
-
-bool validate_driver(aniva_driver_t* driver) {
-  if (driver == nullptr || driver->f_init == nullptr || driver->f_exit == nullptr) {
-    return false;
-  }
-
-  return true;
 }
 
 bool driver_is_ready(aniva_driver_t* driver) {

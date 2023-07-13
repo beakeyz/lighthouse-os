@@ -37,9 +37,50 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
   [DT_SERVICE] = "service",
 };
 
-static list_t* __deferred_drivers;
+dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
+  [DT_DISK] = {
+    .type = DT_DISK,
+    .max_count = DRV_INFINITE,
+    .current_count = 0,
+  },
+  [DT_FS] = {
+    .type = DT_FS,
+    .max_count = DRV_INFINITE,
+    .current_count = 0,
+  },
+  [DT_IO] = {
+    .type = DT_IO,
+    .max_count = DRV_INFINITE,
+    .current_count = 0,
+  },
+  [DT_SOUND] = {
+    .type = DT_SOUND,
+    .max_count = 1,
+    .current_count = 0,
+  },
+  [DT_GRAPHICS] = {
+    .type = DT_GRAPHICS,
+    .max_count = 1,
+    .current_count = 0,
+  },
+  [DT_OTHER] = {
+    .type = DT_OTHER,
+    .max_count = DRV_INFINITE,
+    .current_count = 0,
+  },
+  [DT_DIAGNOSTICS] = {
+    .type = DT_DIAGNOSTICS,
+    .max_count = 1,
+    .current_count = 0,
+  },
+  [DT_SERVICE] = {
+    .type = DT_SERVICE,
+    .max_count = DRV_SERVICE_MAX,
+    .current_count = 0,
+  },
+};
 
-#define DEV_MANIFEST_SOFTMAX 512
+static list_t* __deferred_drivers;
 
 /*
  * We need to make sure to call this before we load a 
@@ -49,7 +90,6 @@ static list_t* __deferred_drivers;
 static void asign_new_aniva_driver_manifest(aniva_driver_t* driver) {
   driver->m_manifest = 0;
 }
-
 
 static bool __load_precompiled_driver(aniva_driver_t* driver) {
 
@@ -75,7 +115,6 @@ static bool walk_precompiled_drivers_to_load(hive_t* current, void* data) {
 
 
 void init_aniva_driver_registry() {
-  // TODO:
   __installed_drivers = create_hive("i_dev");
   __loaded_drivers = create_hive("l_dev");
 
@@ -103,7 +142,7 @@ void init_aniva_driver_registry() {
     aniva_driver_t* driver = i->data;
 
     /* Skip invalid drivers, as a sanity check */
-    if (!validate_driver(driver))
+    if (!verify_driver(driver))
       continue;
 
     /* Clear the deferred flag */
@@ -134,6 +173,29 @@ void free_dmanifest(struct dev_manifest* manifest)
 }
 
 
+bool verify_driver(struct aniva_driver* driver) 
+{
+
+  dev_constraint_t* constaint;
+
+  if (!driver || !driver->f_init || !driver->f_exit) {
+    return false;
+  }
+
+  if (driver->m_type >= DRIVER_TYPE_COUNT)
+    return false;
+
+  constaint = &__dev_constraints[driver->m_type];
+
+  /* We can't load more of this type of driver, so we mark this as invalid */
+  if (constaint->current_count == constaint->max_count && !is_driver_loaded(driver)) {
+    driver->m_flags |= DRV_LIMIT_REACHED;
+    return false;
+  }
+
+  return true;
+}
+
 static bool __should_defer(aniva_driver_t* driver)
 {
   return ((driver->m_flags & DRV_SOCK) == DRV_SOCK);
@@ -141,7 +203,7 @@ static bool __should_defer(aniva_driver_t* driver)
 
 
 ErrorOrPtr install_driver(aniva_driver_t* handle) {
-  if (!validate_driver(handle)) {
+  if (!verify_driver(handle)) {
     goto fail_and_exit;
   }
 
@@ -179,7 +241,7 @@ ErrorOrPtr uninstall_driver(aniva_driver_t* handle) {
 
   const char* driver_url = get_driver_url(handle);
 
-  if (!validate_driver(handle)) {
+  if (!verify_driver(handle)) {
     goto fail_and_exit;
   }
 
@@ -206,6 +268,22 @@ fail_and_exit:
 }
 
 
+static void __driver_register_presence(DEV_TYPE type) 
+{
+  if (type >= DRIVER_TYPE_COUNT)
+    return;
+
+  __dev_constraints[type].current_count++;
+}
+
+static void __driver_unregister_presence(DEV_TYPE type) 
+{
+  if (type >= DRIVER_TYPE_COUNT || __dev_constraints[type].current_count)
+    return;
+
+  __dev_constraints[type].current_count--;
+}
+
 /*
  * Steps to load a driver into our registry
  * 1: Resolve the url in the manifest
@@ -223,7 +301,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   aniva_driver_t* handle = manifest->m_handle;
 
-  if (!validate_driver(handle)) {
+  if (!verify_driver(handle)) {
     goto fail_and_exit;
   }
 
@@ -256,7 +334,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
         kernel_panic("TODO: handle deferred dependencies!");
       }
 
-      if (load_driver(dep_manifest).m_status != ANIVA_SUCCESS) {
+      if (IsError(load_driver(dep_manifest))) {
         goto fail_and_exit;
       }
     }
@@ -266,14 +344,19 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   ErrorOrPtr result = hive_add_entry(__loaded_drivers, handle, path);
 
-  if (result.m_status != ANIVA_SUCCESS) {
+  if (IsError(result)) {
     goto fail_and_exit;
   }
 
   dev_url_t full_path = hive_get_path(__loaded_drivers, handle);
 
+  if (!full_path)
+    goto fail_and_exit;
+
   /* Link the driver to its manifest */
   handle->m_manifest = manifest;
+
+  __driver_register_presence(handle->m_type);
 
   Must(bootstrap_driver(handle, full_path));
 
@@ -288,7 +371,7 @@ fail_and_exit:
 ErrorOrPtr unload_driver(dev_url_t url) {
   aniva_driver_t* handle = hive_get(__loaded_drivers, url);
 
-  if (!validate_driver(handle) || strcmp(url, handle->m_manifest->m_url) != 0) {
+  if (!verify_driver(handle) || strcmp(url, handle->m_manifest->m_url) != 0) {
     return Error();
   }
 
@@ -300,9 +383,7 @@ ErrorOrPtr unload_driver(dev_url_t url) {
     return Error();
   }
 
-  // FIXME: if the manifest tells us the driver was loaded:
-  //  - on the heap
-  //  - through a file
+  __driver_unregister_presence(handle->m_type);
 
   destroy_dev_manifest(handle->m_manifest);
   // TODO:

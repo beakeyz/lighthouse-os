@@ -24,12 +24,14 @@
 #define SYSID_CREATE_PROC       10
 #define SYSID_CREATE_FILE       11
 
-#define SYSID_ALLOCATE_PAGES    (12)
+#define SYSID_ALLOCATE_PAGES    12
 
 /* This is used by libc malloc */
 #define F_MEM_MALLOC            (0x00000001)
 /* Protect this region from external I/O */
 #define F_MEM_PROTECT           (0x00000002)
+
+#define SYSID_SYSEXEC           13 /* Ask the system to do stuff for us */
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

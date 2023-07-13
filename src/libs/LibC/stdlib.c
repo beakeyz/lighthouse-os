@@ -1,5 +1,9 @@
 
 #include <mem/memory.h>
+#include <LibSys/system.h>
+#include <stddef.h>
+#include <string.h>
+#include "LibSys/syscall.h"
 #include "stdlib.h"
 
 /*
@@ -41,4 +45,25 @@ void free(void* ptr)
 {
   mem_dealloc(ptr, MEM_MALLOC);
 }
+
+/*
+ * Classically, the system libc call will simply execve the shell interpreter with
+ * a fork() syscall, but we are too poor for that atm, so we will simply ask the kernel
+ * real nicely to do this shit for us
+ */
+int system(const char* cmd)
+{
+  size_t cmd_len;
+
+  if (!cmd || !(*cmd))
+    return -1;
+
+  cmd_len = strlen(cmd);
+
+  if (!cmd_len)
+    return -1;
+
+  return syscall_2(SYSID_SYSEXEC, (uintptr_t)cmd, cmd_len);
+}
+
 

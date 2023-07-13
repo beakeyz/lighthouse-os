@@ -28,8 +28,18 @@ typedef enum dev_type {
 typedef enum dev_flags {
   STANDARD = (1 << 0),
   FROM_FILE = (1 << 1),
-  LOADED_WITH_WARNIGN = (1 << 2),
+  LOADED_WITH_WARNING = (1 << 2),
 } DEV_FLAGS;
+
+typedef struct dev_constraint {
+  DEV_TYPE type;
+  uint32_t max_count;
+  uint32_t current_count;
+} dev_constraint_t;
+
+#define DRV_INFINITE            0xFFFFFFFF
+#define DRV_SERVICE_MAX         0x100
+#define DEV_MANIFEST_SOFTMAX    512
 
 /* Defined in dev/core.c */
 extern const char* dev_type_urls[DRIVER_TYPE_COUNT];
@@ -116,6 +126,8 @@ bool is_driver_loaded(struct aniva_driver* handle);
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
+
+bool verify_driver(struct aniva_driver* driver);
 
 /*
  * This tries to get a driver from the loaded pool. If it is not

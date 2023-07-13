@@ -12,6 +12,7 @@
 #include "sys_rw/sys_rw.h"
 #include "sys_exit/sys_exit.h"
 #include "sys_open/sys_open.h"
+#include "system/syscall/sys_exec/sys_exec.h"
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
@@ -30,6 +31,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_OPEN_FILE]         = { SYSID_OPEN_FILE, (sys_fn_t)sys_open_file },
   [SYSID_OPEN_DRIVER]       = { SYSID_OPEN_DRIVER, (sys_fn_t)sys_open_driver },
   [SYSID_ALLOCATE_PAGES]    = { SYSID_ALLOCATE_PAGES, (sys_fn_t)sys_alloc_pages, },
+  [SYSID_SYSEXEC]           = { SYSID_SYSEXEC, (sys_fn_t)sys_exec, },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

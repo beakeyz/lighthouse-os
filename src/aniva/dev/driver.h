@@ -11,11 +11,16 @@ struct dev_manifest;
 typedef int (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
 
-typedef struct driver_version {
-  uint8_t maj;
-  uint8_t min;
-  uint16_t bump;
+typedef union driver_version {
+  struct {
+    uint8_t maj;
+    uint8_t min;
+    uint16_t bump;
+  };
+  uint32_t version;
 } driver_version_t;
+
+#define DEF_DRV_VERSION(maj, min, bump) { maj, min, bump }
 
 typedef struct driver_identifier {
   uint8_t m_minor;
@@ -55,8 +60,9 @@ typedef struct aniva_driver {
 #define DRV_SOCK                    (0x00000008) /* Does this driver require a socket */
 #define DRV_ALLOW_DYNAMIC_LOADING   (0x00000010) /* Allows the installed driver to be loaded when we need it */
 #define DRV_HAS_HANDLE              (0x00000020) /* This driver is tethered to a handle */
-#define DRV_FAILED                  (0x00000040)
-#define DRV_DEFERRED                (0x00000080)
+#define DRV_FAILED                  (0x00000040) /* Failiure to load =/ */
+#define DRV_DEFERRED                (0x00000080) /* This driver should be loaded at a later stage */
+#define DRV_LIMIT_REACHED           (0x00000100) /* This driver could not be verified, since the limit of its tipe has been reached */
 
 #define DRV_STAT_OK         (0)
 #define DRV_STAT_INVAL      (-1)
@@ -84,12 +90,6 @@ static inline bool driver_is_deferred(aniva_driver_t* drv)
 struct vnode* create_fs_driver(aniva_driver_t* driver);
 
 void detach_fs_driver(struct vnode* node);
-
-/*
- * Check properties of the driver to validate its integrity
- * TODO: more secure checking
- */
-bool validate_driver(aniva_driver_t* driver);
 
 bool driver_is_ready(aniva_driver_t* driver);
 

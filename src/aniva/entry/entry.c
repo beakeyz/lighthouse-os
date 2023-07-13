@@ -2,6 +2,7 @@
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
+#include "dev/driver.h"
 #include "dev/pci/pci.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "fs/core.h"
@@ -43,10 +44,7 @@ system_info_t g_system_info;
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 void kthread_entry();
 
-//typedef void (*ctor_func_t)();
-//extern ctor_func_t _start_ctors[];
-//extern ctor_func_t _end_ctors[];
-//__attribute__((constructor)) void test() { println("[TESTCONSTRUCTOR] =D"); }
+driver_version_t kernel_version = DEF_DRV_VERSION(0, 0, 0);
 
 /*
  * NOTE: has to be run after driver initialization

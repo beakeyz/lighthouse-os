@@ -1,5 +1,6 @@
 #ifndef __KMAIN__
 #define __KMAIN__
+#include "dev/driver.h"
 #include "system/processor/processor.h"
 #include <mem/pg.h>
 #include <libk/stddef.h>
@@ -20,6 +21,9 @@ extern pml_entry_t boot_pml4t[512];
 extern pml_entry_t boot_pdpt[512];
 extern pml_entry_t boot_pd0[512];
 extern pml_entry_t boot_pd0_p[512 * 32];
+
+/* TODO: automatic version bumping */
+extern driver_version_t kernel_version;
 
 #define FOREACH_PCDRV(i) for (struct aniva_driver** i = _kernel_pcdrvs_start; i < _kernel_pcdrvs_end; i++)
 
