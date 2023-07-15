@@ -29,16 +29,19 @@ BOOL proc_is_public(
   __IN__ HANDLE_t handle
 );
 
+typedef DWORD control_code_t;
+
 /*
  * Try to send a bit of data to the process
  * Fails if the process is not open for communication, busy 
  * of if the handle is invalid
  */
 BOOL proc_send_data(
-  __IN__    HANDLE_t    handle,
-  __IN__    VOID*       buffer,
-  __INOUT__ size_t*     buffer_size,
-  __IN__    DWORD       flags
+  __IN__                    HANDLE_t        handle,
+  __IN__                    control_code_t  code,
+  __IN__    __OPTIONAL__    VOID*           buffer,
+  __INOUT__ __OPTIONAL__    size_t*         buffer_size,
+  __IN__                    DWORD           flags
 );
 
 /*

@@ -24,7 +24,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
   current_proc = get_current_proc();
 
-  khandle = &current_proc->m_handle_map.handles[handle];
+  khandle = find_khandle(&current_proc->m_handle_map, handle);
 
   if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
     return SYS_NOPERM;

@@ -53,8 +53,6 @@ threaded_socket_t *create_threaded_socket(thread_t* parent, FuncPtr exit_fn, Soc
 
   ret->m_packet_mutex = create_mutex(0);
 
-  memset(&ret->m_old_context, 0, sizeof(thread_context_t));
-
   // NOTE: parent should be nullable
   ret->m_parent = parent;
 
@@ -78,46 +76,6 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
   destroy_mutex(ptr->m_packet_mutex);
   zfree_fixed(__socket_allocator, ptr);
   return ANIVA_SUCCESS;
-}
-
-bool socket_has_userpacket_handler(threaded_socket_t* socket)
-{
-  /* Check if the socket has a handler AND if its in userspace
-   * Not mapped in the kernel map, but mapped as user in the processes
-   * mapping
-   */
-  pml_entry_t* page;
-  proc_t* p;
-
-  if (!socket || !socket->m_parent)
-    return false;
-
-  p = socket->m_parent->m_parent_proc;
-
-  if (!p)
-    return false;
-
-  /* Mapped in kernelspace? */
-  if ((uintptr_t)socket->f_on_packet > HIGH_MAP_BASE)
-    return false;
-
-  page = kmem_get_page(p->m_root_pd.m_root, (uintptr_t)socket->f_on_packet, NULL, NULL);
-
-  /* Mapped? */
-  if (!page)
-    return false;
-
-  /* Not mapped as user */
-  if (!pml_entry_is_bit_set(page, PTE_USER))
-    return false;
-
-  page = kmem_get_page(nullptr, (uintptr_t)socket->f_on_packet, NULL, NULL);
-
-  /* Should not be mapped in the kernel */
-  if (page)
-    return false;
-
-  return true;
 }
 
 /*
@@ -153,6 +111,9 @@ ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, v
   spinlock_lock(socket->m_packet_queue.m_lock);
 
   tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size);
+
+  if (!packet)
+    return Error();
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
@@ -325,9 +286,12 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
       /* This packet is a response to an earlier sent packet */
       break;
     default:
-      // TODO: can we put this result in the response?
-      on_packet_result = thread->m_socket->f_on_packet(payload, &response);
-      break;
+      {
+        // TODO: can we put this result in the response?
+        SocketOnPacket sop = (SocketOnPacket)thread->m_socket->f_on_packet;
+        on_packet_result = sop(payload, &response);
+        break;
+      }
   }
 
   if (response != nullptr) {

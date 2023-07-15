@@ -23,23 +23,6 @@ static bool __can_try_handle_here(threaded_socket_t* socket)
       (socket->m_parent->m_parent_proc->m_flags & PROC_KERNEL) == PROC_DRIVER));
 }
 
-static void __prepare_user_packet(threaded_socket_t* socket) 
-{
-  /* Try to get into a context where we can call a userfunction in usercontext and 
-   * uppon return of the function we return here in kernel-mode (like a syscall return)
-   */
-  disable_interrupts();
-
-  kernel_panic("Try to handle userpacket");
-
-  socket_set_flag(socket, TS_SHOULD_HANDLE_USERPACKET, true);
-
-  /* Just to be sure */
-  socket_set_flag(socket, TS_HANDLING_USERPACKET, false);
-
-  enable_interrupts();
-}
-
 void socket_arbiter_entry()
 {
   ErrorOrPtr result;
@@ -61,28 +44,12 @@ void socket_arbiter_entry()
         break;
 
       /* Skip sockets that are currently handling userpackets */
-      if (!current_socket->f_on_packet || socket_is_flag_set(current_socket, TS_SHOULD_HANDLE_USERPACKET) || socket_is_flag_set(current_socket, TS_HANDLING_USERPACKET))
+      if (!current_socket->f_on_packet)
         goto cycle;
 
-      /* When we can't directly handle packets here, we should look to  */
+      /* When we can't directly handle packets here, just skip  */
       if (!__can_try_handle_here(current_socket)) {
-
-        if (!socket_has_userpacket_handler(current_socket)) {
-          /*
-           * Silently remove the handler, since it seems to be invalid 
-           * FIXME: locking? 
-           */
-          current_socket->f_on_packet = NULL;
-          goto cycle;
-        }
-
-        /* If there is no packet to handle currently, we just cycle through */
-        if (!queue_peek(current_socket->m_packet_queue.m_packets))
-          goto cycle;
-
-        /* If there is, we need to prepare and yield */
-        __prepare_user_packet(current_socket);
-        goto unlock_and_yield;
+        goto cycle;
       }
 
       /* Try to handle any packets that the socket might have */

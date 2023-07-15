@@ -8,6 +8,7 @@
 
 struct file;
 struct proc;
+struct thread;
 struct vobj;
 struct aniva_driver;
 struct virtual_namespace;
@@ -30,6 +31,7 @@ typedef struct kernel_handle {
     struct file* file;
     struct aniva_driver* driver;
     struct proc* process;
+    struct thread* thread;
     struct virtual_namespace* namespace;
     struct vobj* vobj;
     void* kobj;
@@ -49,6 +51,7 @@ typedef struct kernel_handle {
 #define KHNDL_TYPE_FS_ROOT          (4)
 #define KHNDL_TYPE_VOBJ             (5)
 #define KHNDL_TYPE_KOBJ             (6)
+#define KHNDL_TYPE_THREAD           (7)
 
 void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref);
 void destroy_khandle(khandle_t* handle);

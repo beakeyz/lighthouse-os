@@ -1,10 +1,22 @@
 
 #include "LibSys/handle.h"
 #include "LibSys/handle_def.h"
+#include "LibSys/proc/process.h"
+#include "LibSys/proc/socket.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+bool thing = false;
+
+uintptr_t init_socket_handler(control_code_t code)
+{
+  thing = true;
+  printf("Reached socket_handler =D\n");
+  return 0;
+}
 
 /*
  * What should the init process do?
@@ -22,6 +34,8 @@
  *  - Find the vector of further bootstrap applications to run and run them
  */
 int main() {
+
+  thing = false;
 
   /*
    * FIXME: are we going to give every path root a letter like windows, 
@@ -43,11 +57,11 @@ int main() {
 
   char buffer[128];
 
-  scanf("Whats your name: %s", buffer);
+  //scanf("Whats your name: %s", buffer);
 
   buffer[127] = NULL;
 
-  printf("Your name is: %s", buffer);
+  //printf("Your name is: %s", buffer);
 
   return handle_2;
 }

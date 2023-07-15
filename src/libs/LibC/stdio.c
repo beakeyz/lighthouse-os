@@ -222,8 +222,28 @@ int printf(const char* format, ...)
   return result;
 }
 
+char* fgets(char* str, size_t size, FILE* stream)
+{
+  int c;
+  char* ret;
+  /* TODO: gets */
+}
+
+int fgetc(FILE* stream)
+{
+  uint8_t buffer;
+  if (fread(&buffer, 1, 1, stream) <= 0) {
+    return -1;
+  }
+  return buffer;
+}
+
+int fputc(int c, FILE* stream)
+{
+  return __write_byte(stream, NULL, c);
+}
+
 int putchar (int c) 
 {
-
-  return 0;
+  return fputc(c, stdout);
 }

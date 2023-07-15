@@ -182,45 +182,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   //  - the stack and reverts to its sub-thread if it has it.
 }
 
-uintptr_t __test_1_pckt(packet_payload_t payload, packet_response_t** response)
-{
-  return 0;
-}
-
-/*
- * TODO: remove test proc
- */
-void __test_socket_1() {
-
-  Must(socket_register_pckt_func(__test_1_pckt));
-
-  uintptr_t data = 69;
-
-  Must(send_packet_to_socket(2, &data, sizeof(data)));
-
-  for (;;) {
-    //println("yay 1");
-    scheduler_yield();
-  }
-}
-
-uintptr_t __test_2_pckt(packet_payload_t payload, packet_response_t** response)
-{
-  kernel_panic("Got packet");
-  return 0;
-}
-
-void __test_socket_2() {
-
-  println("Yay 2");
-  Must(socket_register_pckt_func(__test_2_pckt));
-
-  for (;;) {
-    //println("yay 2");
-    scheduler_yield();
-  }
-}
-
 void kthread_entry() {
 
   pause_scheduler();

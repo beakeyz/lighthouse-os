@@ -27,8 +27,6 @@ typedef enum THREADED_SOCKET_FLAGS {
   TS_IS_CLOSED = (1 << 3),  // the socket has no callback function where packets can be passed to
   TS_SHOULD_EXIT = (1 << 4),// the socket has recieved the command to exit
   TS_READY = (1 << 5),      // the socket is ready to recieve packets
-  TS_SHOULD_HANDLE_USERPACKET = (1 << 6),
-  TS_HANDLING_USERPACKET = (1 << 7), // the socket is busy in userspace, trying to handle a packet
 } THREADED_SOCKET_FLAGS_t;
 
 typedef uintptr_t (*SocketOnPacket) (
@@ -46,8 +44,6 @@ typedef struct threaded_socket {
 
   uint32_t m_port;
   uint32_t m_socket_flags;
-
-  thread_context_t m_old_context;
 
   SocketOnPacket f_on_packet;
   FuncPtr f_exit_fn;
@@ -87,8 +83,6 @@ void socket_set_flag(threaded_socket_t *ptr, THREADED_SOCKET_FLAGS_t flag, bool 
  * get the value of a flag
  */
 bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
-
-bool socket_has_userpacket_handler(threaded_socket_t* socket);
 
 /*
  * See if there is a packet lying around for us and if so, we 

@@ -1,6 +1,5 @@
 #include "queue.h"
 #include <mem/heap.h>
-#include "string.h"
 #include "proc/ipc/tspckt.h"
 
 // FIXME: the entire capacity concept of queues is not used at the moment, let's use it

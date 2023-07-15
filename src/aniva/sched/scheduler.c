@@ -268,7 +268,7 @@ ErrorOrPtr scheduler_try_execute() {
   thread_t *next_thread = get_current_scheduling_thread();
   thread_t *prev_thread = frame->m_proc_to_schedule->m_prev_thread;
 
-  thread_try_prepare_userpacket(next_thread);
+  //thread_try_prepare_userpacket(next_thread);
 
   thread_switch_context(prev_thread, next_thread);
   return Success(0);

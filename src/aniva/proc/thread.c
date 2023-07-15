@@ -400,61 +400,11 @@ void bootstrap_thread_entries(thread_t* thread) {
  */
 bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread)
 {
-  threaded_socket_t* socket;
-
-  ASSERT_MSG(thread_is_socket(thread), "Tried to revert userpacket context on a non-socket!");
-
-  socket = thread->m_socket;
-
-  if (!socket_is_flag_set(socket, TS_HANDLING_USERPACKET))
-    return false;
-
-  /* 1) Copy the buffered context back except rflags, which should still be fine */
-  memcpy(regs, &socket->m_old_context, THRD_CTX_STACK_BLOCK_SIZE - sizeof(uintptr_t));
-
-  /* 2) Copy back the buffered RIP */
-  regs->rip = socket->m_old_context.rip;
-
-  return true;
+  return false;
 }
 
 void thread_try_prepare_userpacket(thread_t* to)
 {
-  threaded_socket_t* to_socket;
-
-  if (!to || !thread_is_socket(to))
-    return;
-
-  to_socket = to->m_socket;
-
-  if (!socket_has_userpacket_handler(to_socket))
-    return;
-
-  if (!socket_is_flag_set(to_socket, TS_SHOULD_HANDLE_USERPACKET) || !to_socket->f_on_packet)
-    return;
-
-  socket_set_flag(to_socket, TS_HANDLING_USERPACKET, true);
-
-  tspckt_t* packet = queue_dequeue(to_socket->m_packet_queue.m_packets);
-    
-  if (!packet)
-    return;
-
-  /* First, copy over the entire context block from the thread structure */
-  memcpy(&to_socket->m_old_context, &to->m_context, sizeof(thread_context_t));
-
-  /* Copy the current registers into the buffer */
-  thread_context_t* to_regs = (thread_context_t*)to->m_context.rsp;
-  memcpy(&to_socket->m_old_context, to_regs, THRD_CTX_STACK_BLOCK_SIZE);
-
-  /* Zero out everything, except rflags */
-  memset(to_regs, 0, THRD_CTX_STACK_BLOCK_SIZE - sizeof(uintptr_t));
-
-  /* Userpackets will only get codes */
-  to_regs->rdi = packet->m_payload.m_code;
-
-  /* Set packet function */
-  to->m_context.rip = (uintptr_t)to_socket->f_on_packet;
 }
 
 void thread_switch_context(thread_t* from, thread_t* to) {
@@ -490,10 +440,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "shrq $32, %%rbx \n"
     "movl %%ebx, %[tss_rsp0h] \n"
 
-    /*
-     * FIXME: when we switch back from user stack, we try to 
-     * push on a stack that is not yet mapped...
-     */
     "movq %[new_rsp], %%rsp \n"
     "movq %%rbp, %[old_rbp] \n"
     "pushq %[thread] \n"

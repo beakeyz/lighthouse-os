@@ -127,6 +127,9 @@ khandle_t* find_khandle(khandle_map_t* map, uint32_t user_handle)
   if (!map)
     return nullptr;
 
+  if (user_handle >= map->max_count)
+    return nullptr;
+
   if (!__is_khandle_bound(&map->handles[user_handle]))
     return nullptr;
 

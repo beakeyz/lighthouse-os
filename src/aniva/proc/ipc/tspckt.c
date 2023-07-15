@@ -79,14 +79,14 @@ bool validate_tspckt(struct tspckt* packet) {
 }
 
 ErrorOrPtr generate_tspckt_identifier(tspckt_t* packet) {
-  if (!packet || !packet->m_payload.m_data)
+  if (!packet)
     return Error();
 
   tspckt_t copy = *packet;
   copy.m_identifier = 0;
 
   uint32_t packet_crc = kcrc32(&copy, sizeof(tspckt_t));
-  uint32_t payload_crc = kcrc32(copy.m_payload.m_data, packet->m_payload.m_data_size);
+  uint32_t payload_crc = copy.m_payload.m_data ? kcrc32(copy.m_payload.m_data, packet->m_payload.m_data_size) : 0;
   
   uint64_t total_crc = ((uint64_t)packet_crc << 32) | (payload_crc & 0xFFFFFFFFUL);
 
