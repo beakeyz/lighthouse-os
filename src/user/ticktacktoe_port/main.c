@@ -147,7 +147,7 @@ player_t* game_loop (gamedata_t* data_p) {
         system("clear");
         printf("%s: %d\n", data_p->one_p->name_p, data_p->one_p->score);
         printf("%s: %d\n", data_p->two_p->name_p, data_p->two_p->score);
-        putchar('\n');
+        printf("\n");
 
         for (int i = 0; i < 3; i++) {
             bool is_last = (i == 2);

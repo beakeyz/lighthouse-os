@@ -67,26 +67,6 @@ HANDLE_t open_handle(
   __IN__ DWORD mode
 );
 
-
-/* FIXME: do these belong here? */
-HANDLE_t open_file(
-  __IN__ const char* path,
-  __IN__ DWORD flags,
-  __IN__ DWORD mode
-);
-
-HANDLE_t open_proc(
-  __IN__ const char* name,
-  __IN__ DWORD flags,
-  __IN__ DWORD mode
-);
-
-HANDLE_t open_driver(
-  __IN__ const char* name,
-  __IN__ DWORD flags,
-  __IN__ DWORD mode
-);
-
 /*
  * Clone a handle that the process of the caller owns. The properties
  * of the duplicated handle will stay the same and it will also point to 

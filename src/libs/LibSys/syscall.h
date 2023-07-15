@@ -32,6 +32,9 @@
 #define F_MEM_PROTECT           (0x00000002)
 
 #define SYSID_SYSEXEC           13 /* Ask the system to do stuff for us */
+#define SYSID_DESTROY_THREAD    14
+#define SYSID_DESTROY_PROC      15
+#define SYSID_DESTROY_FILE      16
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

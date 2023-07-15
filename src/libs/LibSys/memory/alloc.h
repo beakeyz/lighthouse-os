@@ -52,7 +52,7 @@ enum {
  */
 VOID* allocate_pool(
   __IN__ __OPTIONAL__   VOID* pooladdr,
-  __IN__ __OUT__        size_t* poolsize,
+  __INOUT__             size_t* poolsize,
   __IN__                DWORD flags,
   __IN__ __OPTIONAL__   DWORD pooltype
 );
@@ -67,7 +67,7 @@ VOID* allocate_pool(
 VOID* allocate_pool_av(
   __IN__                HANDLE_t handle,
   __IN__ __OPTIONAL__   VOID* pooladdr,
-  __IN__ __OUT__        size_t* poolsize,
+  __INOUT__             size_t* poolsize,
   __IN__                DWORD flags,
   __IN__ __OPTIONAL__   DWORD pooltype
 );

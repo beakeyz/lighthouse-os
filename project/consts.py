@@ -40,6 +40,9 @@ class Consts:
     CROSS_LD_DIR = COMPILER_DIR + "/x86_64-pc-lightos-ld"
     CROSS_ASM_DIR = "/usr/bin/nasm"
 
+    # Libraries that should always be linked staticly
+    LIBENV_ALWAYS_STATIC_LIBS = ["libs/LibC", "libs/LibEnv"]
+
     # TODO:
     DEFAULT_C_FLAGS = ""
 
@@ -52,7 +55,7 @@ class Consts:
     KERNEL_C_FLAGS += " -D\'KERNEL\'"
 
     # Default libenv flags (aka the aniva equivilant of libc)
-    LIBENV_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -fPIC"
+    LIBENV_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -fPIC -shared"
     LIBENV_C_FLAGS += " -D\'LIBENV\'"
 
     # TODO: implement compat with external kernel drivers as modules (which are treated as userspace until they are discovered to be drivers)
@@ -69,7 +72,8 @@ class Consts:
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
-    USERSPACE_LD_FLAGS_SHARED_EXT = " -shared"
+
+    LIB_LD_FLAGS = " -shared -fPIC"
 
     ELF_EXTENTION = ".elf"
     SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary

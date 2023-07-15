@@ -25,6 +25,7 @@
 /* Function parameter tags */
 #define __IN__
 #define __OUT__
+#define __INOUT__
 #define __OPTIONAL__
 
 #define SYS_0ARG            (0)

@@ -30,6 +30,7 @@ FILE* stdout;
 FILE* stderr;
 
 extern int real_va_sprintf(uint8_t, FILE* , const char* , va_list);
+extern int real_va_scanf(FILE*, const char*, va_list);
 
 void __init_stdio(void)
 {
@@ -130,10 +131,20 @@ int fflush(FILE* file) {
   return 0;
 }
 
+/*
+ * This takes bytes from stdin until we get a newline/EOF
+ */
 int scanf (const char *__restrict __format, ...)
 {
-  (void)__format;
-  return 0;
+  int result;
+  va_list args;
+  va_start(args, __format);
+
+  result = real_va_scanf(stdout, __format, args);
+
+  va_end(args);
+
+  return result;
 }
 
 /*
@@ -209,4 +220,10 @@ int printf(const char* format, ...)
   va_end(args);
 
   return result;
+}
+
+int putchar (int c) 
+{
+
+  return 0;
 }

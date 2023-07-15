@@ -240,6 +240,7 @@ class ProjectBuilder(object):
 
                             programName: str = manifest["name"]
                             programType: str = manifest["type"]
+                            linkType: str = manifest["linking"]
 
                             objFiles: str = " "
                             print(f"Building process: {entryName}")
@@ -276,7 +277,6 @@ class ProjectBuilder(object):
             return BuilderResult.SUCCESS
         elif self.builderMode == BuilderMode.LIBRARIES:
             # TODO: make work
-            '''
             out: str = self.constants.LIBS_OUT_DIR
             entries: list[str] = os.listdir(out)
 
@@ -290,6 +290,17 @@ class ProjectBuilder(object):
                 if not os.path.isdir(absLibOutPath):
                     continue
 
+                should_terminate: bool = False
+
+                for static_libs in self.constants.LIBENV_ALWAYS_STATIC_LIBS:
+                    if absLibOutPath.find(static_libs) != -1:
+                        should_terminate = True
+                        break
+
+                # If this library is one we should skip, just return a mock success
+                if should_terminate:
+                    return BuilderResult.SUCCESS
+
                 objFiles: str = " "
 
                 for objFile in self.constants.OBJ_FILES:
@@ -300,13 +311,12 @@ class ProjectBuilder(object):
                         objFiles += f"{objFile} "
 
                 BIN_OUT: str = BIN_OUT_PATH + "/" + e + self.constants.SHARED_LIB_EXTENTION
-                ULF = self.constants.USERSPACE_LD_FLAGS + self.constants.USERSPACE_LD_FLAGS_SHARED_EXT
+                ULF = self.constants.LIB_LD_FLAGS
 
                 ld = self.constants.CROSS_LD_DIR
 
                 if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ULF}") != 0:
                     return BuilderResult.FAIL
-'''
             return BuilderResult.SUCCESS
 
         return BuilderResult.FAIL

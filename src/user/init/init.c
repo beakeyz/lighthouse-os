@@ -41,5 +41,13 @@ int main() {
 
   printf("Memory thing\n");
 
+  char buffer[128];
+
+  scanf("Whats your name: %s", buffer);
+
+  buffer[127] = NULL;
+
+  printf("Your name is: %s", buffer);
+
   return handle_2;
 }
