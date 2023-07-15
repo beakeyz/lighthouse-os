@@ -32,7 +32,11 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
     return nullptr;
 
   /* TODO: create proc cache */
-  proc = kmalloc(sizeof(proc_t));
+  proc = kzalloc(sizeof(proc_t));
+
+  if (!proc)
+    return nullptr;
+
   memset(proc, 0, sizeof(proc_t));
 
   if (proc == nullptr) {
@@ -71,7 +75,15 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   proc->m_name[31] = NULL;
 
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
-  thread_t* thread = create_thread_for_proc(proc, entry, args, "main");
+  thread_t* thread;
+  
+  if ((proc->m_flags & PROC_NO_SOCKET) == PROC_NO_SOCKET || (proc->m_flags & PROC_KERNEL) == PROC_KERNEL)
+    thread = create_thread_for_proc(proc, entry, args, "main");
+  else
+    thread = create_thread_as_socket(proc, entry, args, nullptr, nullptr, "main", NULL);
+
+  ASSERT_MSG(thread, "Failed to create main thread for process!");
+
   Must(proc_add_thread(proc, thread));
 
   proc_register(proc);
@@ -79,6 +91,7 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   return proc;
 }
 
+/* This should probably be done by kmem_manager lmao */
 #define IS_KERNEL_FUNC(func) true
 
 proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
@@ -240,7 +253,7 @@ void destroy_proc(proc_t* proc) {
 
   proc_unregister(proc->m_name);
 
-  kfree(proc);
+  kzfree(proc, sizeof(proc_t));
 }
 
 

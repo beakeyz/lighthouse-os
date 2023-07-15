@@ -7,7 +7,6 @@ typedef struct registers {
   uintptr_t rdi;
   uintptr_t rsi;
   uintptr_t rbp;
-  //uintptr_t rsp;
   uintptr_t rdx;
   uintptr_t rcx;
   uintptr_t rbx;

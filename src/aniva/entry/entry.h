@@ -43,7 +43,7 @@ typedef struct {
 
   /*
    * Set to check if we have an available connection to the 
-   * user through a bootloader-provided framebuffer 
+   * user through a bootloader-provided (firmware, like GOP or vesa) framebuffer 
    */
   bool has_framebuffer;
 

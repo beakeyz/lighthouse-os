@@ -5,11 +5,13 @@
 #include "interrupts/interrupts.h"
 #include "entry/entry.h"
 #include "kevent/kevent.h"
+#include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
 #include "mem/zalloc.h"
 #include "proc/context.h"
+#include "proc/ipc/tspckt.h"
 #include "proc/kprocs/idle.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
@@ -148,11 +150,19 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, co
 }
 
 thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port) {
-  if (!proc || !entry || !port) {
+
+  uint32_t _port;
+
+  if (!proc || !entry) {
     return nullptr;
   }
 
-  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, on_packet_fn, *port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
+  _port = 0;
+
+  if (port)
+    _port = *port;
+
+  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, on_packet_fn, _port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
 
   // nullptr should mean that no allocation has been done
   if (socket == nullptr) {
@@ -176,7 +186,8 @@ thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, F
   ret->m_socket = socket;
   socket->m_parent = ret;
 
-  *port = socket->m_port;
+  if (port)
+    *port = socket->m_port;
 
   socket_enable(ret);
 
@@ -383,12 +394,77 @@ void bootstrap_thread_entries(thread_t* thread) {
   );
 }
 
+/*
+ * To be called from a faulthandler directly out of the userpacket context
+ * which means interrupts are off
+ */
+bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread)
+{
+  threaded_socket_t* socket;
+
+  ASSERT_MSG(thread_is_socket(thread), "Tried to revert userpacket context on a non-socket!");
+
+  socket = thread->m_socket;
+
+  if (!socket_is_flag_set(socket, TS_HANDLING_USERPACKET))
+    return false;
+
+  /* 1) Copy the buffered context back except rflags, which should still be fine */
+  memcpy(regs, &socket->m_old_context, THRD_CTX_STACK_BLOCK_SIZE - sizeof(uintptr_t));
+
+  /* 2) Copy back the buffered RIP */
+  regs->rip = socket->m_old_context.rip;
+
+  return true;
+}
+
+void thread_try_prepare_userpacket(thread_t* to)
+{
+  threaded_socket_t* to_socket;
+
+  if (!to || !thread_is_socket(to))
+    return;
+
+  to_socket = to->m_socket;
+
+  if (!socket_has_userpacket_handler(to_socket))
+    return;
+
+  if (!socket_is_flag_set(to_socket, TS_SHOULD_HANDLE_USERPACKET) || !to_socket->f_on_packet)
+    return;
+
+  socket_set_flag(to_socket, TS_HANDLING_USERPACKET, true);
+
+  tspckt_t* packet = queue_dequeue(to_socket->m_packet_queue.m_packets);
+    
+  if (!packet)
+    return;
+
+  /* First, copy over the entire context block from the thread structure */
+  memcpy(&to_socket->m_old_context, &to->m_context, sizeof(thread_context_t));
+
+  /* Copy the current registers into the buffer */
+  thread_context_t* to_regs = (thread_context_t*)to->m_context.rsp;
+  memcpy(&to_socket->m_old_context, to_regs, THRD_CTX_STACK_BLOCK_SIZE);
+
+  /* Zero out everything, except rflags */
+  memset(to_regs, 0, THRD_CTX_STACK_BLOCK_SIZE - sizeof(uintptr_t));
+
+  /* Userpackets will only get codes */
+  to_regs->rdi = packet->m_payload.m_code;
+
+  /* Set packet function */
+  to->m_context.rip = (uintptr_t)to_socket->f_on_packet;
+}
+
 void thread_switch_context(thread_t* from, thread_t* to) {
 
   // FIXME: saving context is still wonky!!!
   // without saving the context it kinda works,
   // but it keeps running the function all over again.
   // since no state is saved, is just starts all over
+
+  threaded_socket_t* to_socket;
 
   if (from && from->m_current_state == RUNNING) {
     thread_set_state(from, RUNNABLE);

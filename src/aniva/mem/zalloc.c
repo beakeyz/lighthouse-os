@@ -7,47 +7,34 @@
 #include "libk/string.h"
 
 /* Only the sized list needs to know what its end is */
-zone_allocator_t* sized_end_allocator;
-size_t sized_allocator_count;
 
-zone_allocator_t* g_sized_zallocators;
-zone_allocator_t* g_dynamic_zallocators;
-
-void* zalloc(zone_allocator_t* allocator, size_t size);
-void zfree(zone_allocator_t* allocator, void* address, size_t size);
-void zexpand(zone_allocator_t* allocator, size_t extra_size);
+size_t __kernel_allocator_count;
+zone_allocator_t* __kernel_allocators;
 
 static ErrorOrPtr zone_allocate(zone_t* zone, size_t size);
 static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size);
 
-static const enum ZONE_ENTRY_SIZE default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_COUNT] = {
+static const enum ZONE_ENTRY_SIZE __default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_COUNT] = {
   [0] = ZALLOC_8BYTES,
   [1] = ZALLOC_16BYTES,
   [2] = ZALLOC_32BYTES,
   [3] = ZALLOC_64BYTES,
   [4] = ZALLOC_128BYTES,
+  //
   [5] = ZALLOC_256BYTES,
   [6] = ZALLOC_512BYTES,
   [7] = ZALLOC_1024BYTES,
 };
 
-void init_zalloc() {
-  sized_allocator_count = 0;
-  sized_end_allocator = nullptr;
-  g_sized_zallocators = nullptr;
-  g_dynamic_zallocators = nullptr;
-}
-
 /*
  * Find the middle of a range using a fast and a slow pointer
  */
-static zone_allocator_t** try_find_middle_zone_allocator(zone_allocator_t** start, zone_allocator_t** end) {
+static zone_allocator_t** __try_find_middle_zone_allocator(zone_allocator_t** start, zone_allocator_t** end) {
 
   zone_allocator_t** slow = start;
   zone_allocator_t** fast = start;
 
-  while (*fast && (*fast)->m_next) {
-
+  while (*fast && ((*fast)->m_next) && (fast != end && (&(*fast)->m_next != end))) {
     slow = &(*slow)->m_next;
     fast = &(*fast)->m_next->m_next;
   }
@@ -56,180 +43,100 @@ static zone_allocator_t** try_find_middle_zone_allocator(zone_allocator_t** star
 }
 
 /*
- * Tries to find the specified allocator and returns the last 
- * slot if it isn't found
+ * This could probably also be done with a binary search
  */
-static ErrorOrPtr try_attach_zone_allocator(zone_allocator_t* allocator, bool dyn) {
+static ErrorOrPtr __kallocators_add_allocator(zone_allocator_t* allocator)
+{
+  size_t size_to_add;
+  zone_allocator_t* next;
+  zone_allocator_t** itt;
 
-  zone_allocator_t* current;
-  /* When we attach to the sized list, we need to make sure that we add it in order */
-  zone_allocator_t** ret = &g_sized_zallocators;
-
-  if (!allocator)
+  if (!allocator || !allocator->m_entry_size)
     return Error();
 
-  if (dyn)
-    ret = &g_dynamic_zallocators;
+  size_to_add = allocator->m_entry_size;
 
-  for (; *ret; ret = &(*ret)->m_next) {
-    current = *ret;
+  for (itt = &__kernel_allocators; *itt; itt = &(*itt)->m_next) {
+     next = (*itt)->m_next;
 
-    /* Found the last sized allocator =D */
-    if (!current->m_next) {
-      sized_end_allocator = allocator;
-      continue;
-    }
+    /* No duplicate sizes */
+    if (size_to_add == (*itt)->m_entry_size)
+      return Error();
 
-    /*
-     * If we reached the end, we just return that. Otherwise 
-     * we check if we have reached the end of our size
-     */
-    if ((current->m_next && (current->m_max_entry_size == allocator->m_max_entry_size &&
-        current->m_next->m_max_entry_size > allocator->m_max_entry_size)) && 
-        !dyn) {
-
-      allocator->m_next = current->m_next;
-
+    if (size_to_add > (*itt)->m_entry_size && (!next || size_to_add < next->m_entry_size))
       break;
-    }
-    /* The sized allocator check get priority here */
-    else if (current == allocator)
-      break;
-
   }
 
-  if (*ret)
-    return Error();
+  if (*itt) {
 
-  *ret = allocator;
+    /*
+     * Since the size of the allocator to add is inbetween the itterator and the nexts size,
+     * we need to put it inbetween the two
+     */
+    allocator->m_next = next;
+
+    (*itt)->m_next = allocator;
+
+  } else {
+    *itt = allocator;
+  }
+
+  __kernel_allocator_count++;
 
   return Success(0);
 }
 
-static zone_allocator_t** try_find_last_of_size(size_t zone_size) {
+/*!
+ * @brief Find the optimal zone allocator to store a allocatin of the size specified
+ *
+ * Try to find a zone allocator that fits our size specification. The 
+ */
+static zone_allocator_t* __get_allocator_for_size(size_t size)
+{
+  zone_allocator_t** current;
+  zone_allocator_t** priv = nullptr; 
 
-  bool greater_size;
-  zone_allocator_t* current_start = g_sized_zallocators;
-  zone_allocator_t* current_end = sized_end_allocator;
+  zone_allocator_t** end = nullptr; 
+  zone_allocator_t** start = &__kernel_allocators; 
 
-  while (current_start && current_end) {
+  while ((current = __try_find_middle_zone_allocator(start, end)) != nullptr) {
+    if (!current || !(*current) || current == priv)
+      break;
 
-    zone_allocator_t** middle = try_find_middle_zone_allocator(&current_start, &current_end);
+    println(to_string((*current)->m_entry_size));
 
-    if (!middle || !(*middle))
-      return nullptr;
+    /* If we accept this allocation size, break */
+    if ((*current)->m_entry_size == size || ((*current)->m_entry_size - size) <= ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON)
+      return (*current);
 
-    /* Found it! */
-    if ((*middle)->m_max_entry_size == zone_size) {
-
-      /* Let's loop until the next size is different */
-
-      zone_allocator_t** itt = middle;
-
-      for (; *itt; itt = &(*itt)->m_next) {
-        const zone_allocator_t* allocator = *itt;
-
-        if (!allocator->m_next && allocator->m_max_entry_size == zone_size) {
-          break;
-        }
-
-        if (allocator->m_next->m_max_entry_size != zone_size) {
-
-          ASSERT_MSG(allocator->m_max_entry_size < (*itt)->m_next->m_max_entry_size, "try_find_last_of_size: found middle of size, but there the next size was not in order!");
-          
-          break;
-        }
-      }
-
-      return itt;
-    }
-
-    greater_size = (*middle)->m_max_entry_size > zone_size;
-
-    /* Our target size is to the 'left' of this allocator */
-    if (greater_size) {
-      current_end = *middle;
+    /*
+     * Otherwise devide the list and search the half that must contain the correct size 
+     */
+    if ((*current)->m_entry_size > size) {
+      end = current;
     } else {
-      current_start = *middle;
+      start = current;
     }
+
+    priv = current;
   }
 
   return nullptr;
 }
 
-static bool is_dynamic(zone_allocator_t* allocator) {
+void init_zalloc() {
+  __kernel_allocator_count = 0;
+  __kernel_allocators = nullptr;
 
-  ASSERT_MSG(allocator, "is_dynamic: passed nullptr as allocator!");
+  zone_allocator_t* current;
 
-  return (allocator->m_flags & ZALLOC_FLAG_DYNAMIC) == ZALLOC_FLAG_DYNAMIC;
-}
+  for (uintptr_t i = 0; i < DEFAULT_ZONE_ENTRY_SIZE_COUNT; i++) {
+    current = create_zone_allocator(16 * Kib, __default_entry_sizes[i], ZALLOC_FLAG_KERNEL);
 
-static ErrorOrPtr attach_allocator(zone_allocator_t* allocator) {
-  /* Check if we are dynamic and emplace in the correct list */
+    ASSERT_MSG(current, "Failed to create kernel zone allocators");
 
-  size_t allocator_size;
-  bool dyn = is_dynamic(allocator);
-
-  if (!dyn) {
-    /* Attach after the last allocator of the same size */
-    ASSERT_MSG(allocator->m_max_entry_size == allocator->m_min_entry_size, "attach_allocator: allocator size mismatch! (min != max)");
-    ASSERT_MSG(allocator->m_max_entry_size, "attach_allocator: allocator has no size!");
-
-    allocator_size = allocator->m_max_entry_size;
-
-    zone_allocator_t** last = try_find_last_of_size(allocator_size);
-
-    /* We prob don't have this size yet, add it somewhere in order */
-    if (!last) {
-      goto raw_attach;
-    }
-
-    zone_allocator_t* next = (*last)->m_next;
-
-    /* Attach */
-    (*last)->m_next = allocator;
-    allocator->m_next = next;
-
-    /* this is the new last allocator */
-    if (next == nullptr) {
-      sized_end_allocator = allocator;
-    }
-
-    return Success(0);
+    Must(__kallocators_add_allocator(current));
   }
-
-raw_attach:;
-  /* Find the last */
-  return try_attach_zone_allocator(allocator, dyn);
-}
-
-static void detach_allocator(zone_allocator_t* allocator) {
-
-  zone_allocator_t** allocator_list;
-
-  if (!allocator)
-    return;
-
-  allocator_list = &g_sized_zallocators;
-
-  /* Check if we are dynamic and detach from the correct list */
-  if (is_dynamic(allocator)) {
-    allocator_list = &g_dynamic_zallocators;
-  }
-
-  /* TODO: use binary search instead of linear scanning */
-  for (; *allocator_list; allocator_list = &(*allocator_list)->m_next) {
-    /* Found our entry */
-    if (*allocator_list == allocator) {
-      *allocator_list = allocator->m_next;
-      break;
-    }
-  }
-}
-
-zone_allocator_t *create_dynamic_zone_allocator(size_t initial_size, uintptr_t flags) 
-{
-  return create_zone_allocator_ex(nullptr, 0, initial_size, 0, ZALLOC_FLAG_DYNAMIC | flags);
 }
 
 zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
@@ -241,64 +148,55 @@ zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_ent
 
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) {
 
-  /* FIXME: as an allocator, we don't want to depend on another allocator to be created */
-  zone_allocator_t *ret = kmalloc(sizeof(zone_allocator_t));
+  ErrorOrPtr result;
+  size_t entries_for_this_zone;
+  zone_t* new_zone;
+  zone_store_t* new_zone_store;
+  zone_allocator_t *ret;
 
-  // We don't need a virtual base yet. For now, we will just ask the 
-  // kernel for some pages
-  /* TODO: map should be used here */
-  /* TODO: start_addr should be used here */
+  if (!initial_size || !hard_max_entry_size)
+    return nullptr;
+
+  /* FIXME: as an allocator, we don't want to depend on another allocator to be created */
+  ret = kmalloc(sizeof(zone_allocator_t));
 
   // Initialize the initial zones
   ret->m_total_size = 0;
   ret->m_grow_size = initial_size;
 
+  new_zone_store = create_zone_store(DEFAULT_ZONE_STORE_CAPACITY);
+
+  if (!new_zone_store)
+    goto fail_and_dealloc;
+
   // Create a store that can hold the maximum amount of zones for 1 page
-  ret->m_store = create_zone_store(DEFAULT_ZONE_STORE_CAPACITY);
+  ret->m_store = new_zone_store;
+  ret->m_store_count = 1;
   ret->m_flags = flags;
 
-  /* Calculate how big this zone needs to be */
-
-  ret->m_min_entry_size = ZALLOC_MIN_ZONE_ENTRY_SIZE;
-  ret->m_max_entry_size = ZALLOC_MAX_ZONE_ENTRY_SIZE;
-
-  if (is_dynamic(ret)) {
-
-    for (uintptr_t i = 0; i < DEFAULT_ZONE_ENTRY_SIZE_COUNT; i++) {
-      enum ZONE_ENTRY_SIZE entry_size = default_entry_sizes[i];
-
-      size_t entries_for_this_zone = (initial_size / entry_size) / DEFAULT_ZONE_ENTRY_SIZE_COUNT + 1;
-      println(to_string(entries_for_this_zone));
-
-      ErrorOrPtr result = zone_store_add(ret->m_store, create_zone(entry_size, entries_for_this_zone));
-
-      zone_t* zone = (zone_t*)Release(result);
-
-      ret->m_total_size += zone->m_total_available_size;
-    }
-
-    goto end_and_attach;
-  } 
-
-  ret->m_max_entry_size = hard_max_entry_size;
-  ret->m_min_entry_size = hard_max_entry_size;
+  ret->m_entry_size = hard_max_entry_size;
 
   /* FIXME: integer devision */
-  size_t entries_for_this_zone = (initial_size / hard_max_entry_size);
+  /* Calculate how big this zone needs to be */
+  entries_for_this_zone = (initial_size / hard_max_entry_size);
 
-  ErrorOrPtr result = zone_store_add(ret->m_store, create_zone(hard_max_entry_size, entries_for_this_zone));
+  new_zone = create_zone(hard_max_entry_size, entries_for_this_zone);
 
-  zone_t* zone = (zone_t*)Release(result);
+  if (!new_zone)
+    goto fail_and_dealloc;
 
-  ret->m_total_size += zone->m_total_available_size;
+  result = zone_store_add(ret->m_store, new_zone);
 
-end_and_attach:
-  /* NOTE: attach after we've setup the zones */
-  //println("Trying to attach");
-  //Must(attach_allocator(ret));
-  //println("did attach");
+  if (IsError(result))
+    goto fail_and_dealloc;
+
+  ret->m_total_size += new_zone->m_total_available_size;
 
   return ret;
+
+fail_and_dealloc:
+  kfree(ret);
+  return nullptr;
 }
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
@@ -335,12 +233,12 @@ static ErrorOrPtr grow_zone_allocator(zone_allocator_t* allocator) {
    */
 
   grow_size = allocator->m_grow_size;
-  entry_size = allocator->m_max_entry_size;
+  entry_size = allocator->m_entry_size;
 
   /* FIXME: integer devision */
   size_t entries_for_this_zone = (grow_size / entry_size);
 
-  new_zone = create_zone(allocator->m_max_entry_size, entries_for_this_zone);
+  new_zone = create_zone(allocator->m_entry_size, entries_for_this_zone);
 
   /* Failed to create zone: probably out of physical memory */
   if (!new_zone)
@@ -380,7 +278,13 @@ zone_store_t* create_zone_store(size_t initial_capacity) {
 
   // We subtract the size of the entire zone_store header struct without 
   // the size of the m_zones field
-  const size_t bytes = initial_capacity * sizeof(uintptr_t) - (sizeof(zone_store_t) - 8);
+  const size_t bytes = ALIGN_UP(initial_capacity * sizeof(zone_t*) + (sizeof(zone_store_t)), SMALL_PAGE_SIZE);
+  /* The amount of bytes that we gain by aligning up */
+  const size_t delta_bytes = (bytes - sizeof(zone_store_t)) - (initial_capacity * sizeof(zone_t*));
+  const size_t delta_entries = delta_bytes ? (delta_bytes >> 3) : 0; // delta / sizeof(zone_t*)
+
+  initial_capacity += delta_entries;
+
   zone_store_t* store;
   ErrorOrPtr result;
 
@@ -397,7 +301,7 @@ zone_store_t* create_zone_store(size_t initial_capacity) {
   store->m_capacity = initial_capacity;
 
   // Make sure this zone store is uninitialised
-  memset(store->m_zones, 0, initial_capacity * sizeof(uintptr_t));
+  memset(store->m_zones, 0, initial_capacity * sizeof(zone_t*));
 
   return store;
 }
@@ -473,7 +377,7 @@ ErrorOrPtr allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone)
 
 ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone) {
 
-  if (!store || !store->m_capacity)
+  if (!store || !zone || !store->m_capacity)
     return Error();
 
   // More zones than we can handle?
@@ -485,7 +389,7 @@ ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone) {
 
   store->m_zones_count++;
 
-  return Success((uintptr_t)zone);
+  return Success(0);
 }
 
 /* 
@@ -610,6 +514,73 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
   return zone;
 }
 
+static void __tmp_dbg()
+{
+  uintptr_t count = 0;
+  zone_allocator_t* current = __kernel_allocators;
+
+  while (current)
+  {
+    print("Zone allocator: "); println(to_string(count));
+    print("Size: "); println(to_string(current->m_total_size));
+    print("Store count: "); println(to_string(current->m_store_count));
+    print("Entry size: "); println(to_string(current->m_entry_size));
+
+    current = current->m_next;
+    count++;
+  }
+}
+
+void* kzalloc(size_t size)
+{
+  size_t allocator_size;
+  zone_allocator_t* allocator;
+
+  if (!size)
+    return nullptr;
+
+  allocator = __get_allocator_for_size(size);
+
+  if (!allocator) {
+
+    allocator_size = ZALLOC_DEFAULT_ALLOC_COUNT * size;
+
+    /* Let's try to create a new allocator for this size */
+    allocator = create_zone_allocator(allocator_size, size, ZALLOC_FLAG_KERNEL);
+
+    Must(__kallocators_add_allocator(allocator));
+  } 
+
+  /*
+  if (!allocator)
+    return nullptr;
+    */
+
+  ASSERT_MSG(allocator, "Failed to find zone allocator for kernel allocation!");
+
+  return zalloc(allocator, size);
+}
+
+void kzfree(void* address, size_t size)
+{
+  size_t allocator_size;
+  zone_allocator_t* allocator;
+
+  if (!size)
+    return;
+
+  allocator = __get_allocator_for_size(size);
+
+  /*
+  if (!allocator)
+    return;
+    */
+
+  ASSERT_MSG(allocator, "Failed to find zone allocator to free kernel allocation!");
+
+  zfree(allocator, address, size);
+}
+
 void* zalloc(zone_allocator_t* allocator, size_t size) {
 
   ErrorOrPtr result;
@@ -698,23 +669,12 @@ void zfree(zone_allocator_t* allocator, void* address, size_t size) {
 }
 
 void* zalloc_fixed(zone_allocator_t* allocator) {
-  if ((allocator->m_flags & ZALLOC_FLAG_DYNAMIC) == ZALLOC_FLAG_DYNAMIC)
-    return nullptr;
-
-  return zalloc(allocator, allocator->m_max_entry_size);
+  return zalloc(allocator, allocator->m_entry_size);
 }
 
 void zfree_fixed(zone_allocator_t* allocator, void* address) {
-  if ((allocator->m_flags & ZALLOC_FLAG_DYNAMIC) == ZALLOC_FLAG_DYNAMIC)
-    return;
-
-  zfree(allocator, address, allocator->m_max_entry_size);
+  zfree(allocator, address, allocator->m_entry_size);
 }
-
-void zexpand(zone_allocator_t* allocator, size_t extra_size) {
-  kernel_panic("UNIMPLEMENTED: zexpand");
-}
-
 
 static ErrorOrPtr zone_allocate(zone_t* zone, size_t size) {
   ASSERT_MSG(size <= zone->m_zone_entry_size, "Allocating over the span of multiple subzones is not yet implemented!");

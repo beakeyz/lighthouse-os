@@ -120,7 +120,7 @@ void init_kevents()
   __kevents_table = create_hashmap(KEVENT_MAX_EVENTS, HASHMAP_FLAG_SK);
 
   /* Create a zallocator for our kevents */
-  __kevent_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_t) * (KEVENT_MAX_EVENTS), sizeof(kevent_t), ZALLOC_FLAG_FIXED_SIZE);
+  __kevent_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_t) * (KEVENT_MAX_EVENTS), sizeof(kevent_t), NULL);
 
   ASSERT_MSG(__kevent_lock, "Failed to create kevent lock");
   ASSERT_MSG(__kevents_table, "Failed to create kevent named table");
@@ -155,7 +155,7 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
   if (no_chaining)
     max_hook_count = 1;
 
-  event->m_hook_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_hook_t) * max_hook_count, sizeof(kevent_hook_t), ZALLOC_FLAG_FIXED_SIZE);
+  event->m_hook_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_hook_t) * max_hook_count, sizeof(kevent_hook_t), NULL);
   event->m_type = type;
   event->m_flags = flags;
 

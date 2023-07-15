@@ -90,10 +90,10 @@ typedef struct proc {
 #define PROC_STALLED        (0x00000008) /* This process ran as either a socket or a shared library and is now waiting detachment or an exit signal of some sort */
 #define PROC_UNRUNNED       (0x00000010) /* V-card still intact */
 #define PROC_FINISHED       (0x00000020) /* Process should be cleaned up by the scheduler (TODO: let cleaning be done by a reaper thread/proc)*/
-#define PROC_DEFERED_HEAP   (0x00000040) /* Wait with creating a heap */
-#define PROC_REAPER         (0x00000080) /* Process capable of killing other processes and threads */
-#define PROC_HAD_HANDLE     (0x00000100) /* Process is referenced in userspace by a handle */
-#define PROC_SHOULD_STALL   (0x00000200) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
+#define PROC_REAPER         (0x00000040) /* Process capable of killing other processes and threads */
+#define PROC_HAD_HANDLE     (0x00000080) /* Process is referenced in userspace by a handle */
+#define PROC_SHOULD_STALL   (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
+#define PROC_NO_SOCKET      (0x00000200)
 
 proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);

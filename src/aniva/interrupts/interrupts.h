@@ -8,6 +8,13 @@
 
 // NOTE: this file CAN NOT include idt.h, because of an include loop =/
 
+/*
+ * Pure ASM function that moves the current stackpointer to rdi (System-V arg0), executes 
+ * processor_exit_interruption, restores cpu state (It is required that there is a valid
+ * context stack) and performs an interrupt return
+ */
+extern void asm_common_irq_exit(void);
+
 #define IRQ_VEC_BASE 32
 #define INTERRUPT_HANDLER_COUNT (256 - IRQ_VEC_BASE)
 

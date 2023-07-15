@@ -57,8 +57,6 @@ void init_kheap() {
 
   /* Give the buffer to the allocator */
   s_kernel_allocator.m_buffers = initial_buffer;
-
-  init_zalloc();
 }
 
 // our kernel malloc impl

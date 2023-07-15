@@ -10,7 +10,12 @@
 #include "libk/data/queue.h"
 #include "libk/flow/reference.h"
 #include "libk/string.h"
+#include "mem/kmem_manager.h"
+#include "mem/pg.h"
+#include "mem/zalloc.h"
+#include "proc/context.h"
 #include "proc/ipc/packet_response.h"
+#include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
@@ -21,23 +26,34 @@
 #include "interrupts/interrupts.h"
 #include <mem/heap.h>
 
+static zone_allocator_t* __socket_allocator;
+
 static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr);
 
 threaded_socket_t *create_threaded_socket(thread_t* parent, FuncPtr exit_fn, SocketOnPacket on_packet_fn, uint32_t port, size_t max_size_per_buffer) {
 
-  if (max_size_per_buffer <= MIN_SOCKET_BUFFER_SIZE) {
-    return nullptr;
-  }
+  threaded_socket_t *ret;
 
-  threaded_socket_t *ret = kmalloc(sizeof(threaded_socket_t));
+  if (max_size_per_buffer <= MIN_SOCKET_BUFFER_SIZE)
+    return nullptr;
+
+  ret = zalloc_fixed(__socket_allocator);
+
+  if (!ret)
+    return nullptr;
+
   ret->m_port = port;
+  ret->m_socket_flags = NULL;
   ret->m_packet_queue.m_packets = create_limitless_queue();
   ret->m_packet_queue.m_lock = create_spinlock();
-  ret->m_on_packet = on_packet_fn;
+  ret->f_on_packet = on_packet_fn;
+  ret->f_exit_fn = exit_fn;
   ret->m_state = THREADED_SOCKET_STATE_LISTENING;
   ret->m_max_size_per_buffer = max_size_per_buffer;
 
   ret->m_packet_mutex = create_mutex(0);
+
+  memset(&ret->m_old_context, 0, sizeof(thread_context_t));
 
   // NOTE: parent should be nullable
   ret->m_parent = parent;
@@ -60,8 +76,48 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
   }
 
   destroy_mutex(ptr->m_packet_mutex);
-  kfree(ptr);
+  zfree_fixed(__socket_allocator, ptr);
   return ANIVA_SUCCESS;
+}
+
+bool socket_has_userpacket_handler(threaded_socket_t* socket)
+{
+  /* Check if the socket has a handler AND if its in userspace
+   * Not mapped in the kernel map, but mapped as user in the processes
+   * mapping
+   */
+  pml_entry_t* page;
+  proc_t* p;
+
+  if (!socket || !socket->m_parent)
+    return false;
+
+  p = socket->m_parent->m_parent_proc;
+
+  if (!p)
+    return false;
+
+  /* Mapped in kernelspace? */
+  if ((uintptr_t)socket->f_on_packet > HIGH_MAP_BASE)
+    return false;
+
+  page = kmem_get_page(p->m_root_pd.m_root, (uintptr_t)socket->f_on_packet, NULL, NULL);
+
+  /* Mapped? */
+  if (!page)
+    return false;
+
+  /* Not mapped as user */
+  if (!pml_entry_is_bit_set(page, PTE_USER))
+    return false;
+
+  page = kmem_get_page(nullptr, (uintptr_t)socket->f_on_packet, NULL, NULL);
+
+  /* Should not be mapped in the kernel */
+  if (page)
+    return false;
+
+  return true;
 }
 
 /*
@@ -73,12 +129,17 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr) {
  * their own mess
  */
 ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size) {
-  return send_packet_to_socket_ex(port, 0, buffer, buffer_size);
+  return send_packet_to_socket_ex(port, DCC_DATA, buffer, buffer_size);
 }
 
+/*!
+ * @brief Extended function that 'sends' packets to sockets
+ *
+ * Tries to lock the spinlock of the socket (NOTE: returns a warning if 
+ * the mutex is already lock, as to support sending packets in irqs) 
+ * and then adds a tspacket to the queue of the socket
+ */
 ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
-
-  disable_interrupts();
 
   threaded_socket_t *socket = find_registered_socket(port);
 
@@ -86,18 +147,23 @@ ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, v
     return Error();
   }
 
+  if (spinlock_is_locked(socket->m_packet_queue.m_lock))
+    return Warning();
+
+  spinlock_lock(socket->m_packet_queue.m_lock);
+
   tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size);
 
   // don't allow buffer restriction violations
   if (packet->m_packet_size > socket->m_max_size_per_buffer) {
     destroy_tspckt(packet);
+    spinlock_unlock(socket->m_packet_queue.m_lock);
     return Error();
   }
 
-  //queue_enqueue(socket->m_buffers, packet);
   queue_enqueue(socket->m_packet_queue.m_packets, packet);
 
-  enable_interrupts();
+  spinlock_unlock(socket->m_packet_queue.m_lock);
 
   return Success(0);
 }
@@ -138,6 +204,33 @@ bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag) {
   return (ptr->m_socket_flags & flag) != 0;
 }
 
+ErrorOrPtr socket_register_pckt_func(SocketOnPacket fn)
+{
+  thread_t* current_thread;
+  threaded_socket_t* socket;
+
+  if (!fn)
+    return Error();
+
+  current_thread = get_current_scheduling_thread();
+
+  if (!current_thread || !thread_is_socket(current_thread))
+    return Error();
+
+  socket = current_thread->m_socket;
+
+  ASSERT_MSG(socket, "WHAT: thread marked as socket but didn't have one?");
+
+  /* Lock the mutext to ensure we are allowed to modify the function */
+  mutex_lock(socket->m_packet_mutex);
+
+  socket->f_on_packet = fn;
+
+  mutex_unlock(socket->m_packet_mutex);
+
+  return Success(0);
+}
+
 
 static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
   ptr->m_socket_flags = 0;
@@ -154,7 +247,6 @@ ErrorOrPtr socket_try_handle_tspacket(threaded_socket_t* socket) {
 
   if (!socket_is_flag_set(socket, TS_READY))
     return Error();
-
 
   parent_thread = socket->m_parent;
 
@@ -177,6 +269,17 @@ ErrorOrPtr socket_try_handle_tspacket(threaded_socket_t* socket) {
   return Success(0);
 }
 
+static bool __is_socket_ready(threaded_socket_t* socket)
+{
+  return (
+      socket &&
+      socket->m_packet_mutex &&
+      !socket_is_flag_set(socket, TS_SHOULD_EXIT) &&
+      socket_is_flag_set(socket, TS_READY) &&
+      !mutex_is_locked(socket->m_packet_mutex) &&
+      socket->f_on_packet);
+}
+
 ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
 
   // no valid tspacket from the queue,
@@ -188,7 +291,7 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   threaded_socket_t* socket = packet->m_reciever_thread;
 
   // don't handle any packets when this socket is not available
-  if (socket_is_flag_set(socket, TS_SHOULD_EXIT) || !socket_is_flag_set(socket, TS_READY) || mutex_is_locked(socket->m_packet_mutex)) {
+  if (!__is_socket_ready(socket)) {
     println("socket not ready: ");
     println(socket->m_parent->m_name);
     return Warning();
@@ -200,7 +303,9 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
 
   ASSERT_MSG(thread != nullptr, "Found a socket without a parent thread!");
 
-  packet_payload_t payload = *packet->m_payload;
+  /* Copy the payload onto the stack */
+  packet_payload_t payload = packet->m_payload;
+  /* Create a placeholder pointer for the response */
   packet_response_t* response = nullptr;
   uintptr_t on_packet_result;
 
@@ -221,11 +326,12 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
       break;
     default:
       // TODO: can we put this result in the response?
-      on_packet_result = thread->m_socket->m_on_packet(payload, &response);
+      on_packet_result = thread->m_socket->f_on_packet(payload, &response);
       break;
   }
 
   if (response != nullptr) {
+
     send_packet_to_socket_ex(T_SOCKET(packet->m_sender_thread)->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size);
 
     destroy_packet_response(response);
@@ -246,3 +352,9 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   return Success(0);
 }
 
+void init_socket()
+{
+  __socket_allocator = create_zone_allocator(16 * Kib, sizeof(threaded_socket_t), NULL);
+
+  ASSERT_MSG(__socket_allocator, "Failed to create socket allocator!");
+}

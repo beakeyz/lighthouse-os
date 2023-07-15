@@ -39,16 +39,16 @@ typedef struct thread {
   struct mutex* m_lock;
   struct aniva_driver* m_qdriver; /* The current querying driver */
 
-  kContext_t m_context;
+  thread_context_t m_context;
   FpuState m_fpu_state;
+
+  bool m_has_been_scheduled;
 
   char m_name[32];
   thread_id_t m_tid;
   uint32_t m_cpu; // atomic?
   uint32_t m_ticks_elapsed;
   uint32_t m_max_ticks;
-
-  bool m_has_been_scheduled;
   /* The vaddress of the stack bottom, as seen by the kernel */
   vaddr_t m_kernel_stack_bottom;
   vaddr_t m_kernel_stack_top;
@@ -132,6 +132,9 @@ ALWAYS_INLINE bool thread_is_socket(thread_t* t) {
 ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) {
   return t->m_has_been_scheduled;
 }
+
+bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread);
+void thread_try_prepare_userpacket(thread_t* to);
 
 /*
  * TODO: blocking means we get ignored by the scheduler

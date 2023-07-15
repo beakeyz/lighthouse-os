@@ -5,7 +5,10 @@
 #include "libk/data/queue.h"
 #include <libk/data/hashmap.h>
 #include "mem/kmem_manager.h"
+#include "proc/ipc/packet_payload.h"
+#include "proc/ipc/packet_response.h"
 #include "proc/ipc/tspckt.h"
+#include "proc/kprocs/socket_arbiter.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -14,14 +17,14 @@
 #include "sync/spinlock.h"
 #include "system/processor/processor.h"
 
-static list_t *__sockets;
 static uint32_t s_highest_port_cache;
-
-static spinlock_t* __core_socket_lock;
-
-static hashmap_t* __proc_map;
 // TODO: fix this mechanism, it sucks
 static atomic_ptr_t* __next_proc_id;
+
+static spinlock_t* __core_socket_lock;
+/* FIXME: I don't like the fact that this is a fucking linked list */
+static list_t *__sockets;
+static hashmap_t* __proc_map;
 
 static void revalidate_port_cache();
 
@@ -146,14 +149,14 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
  * in our bitmap.
  */
 ErrorOrPtr generate_new_proc_id() {
-  uintptr_t next = atomic_ptr_load(__next_proc_id) + 1;
+  uintptr_t next = atomic_ptr_load(__next_proc_id);
 
   /* Limit exceeded, since a proc_id is always 32-bit here (for now) */
   if (next > (uint64_t)0xFFFFFFFF) {
     return Error();
   }
 
-  atomic_ptr_write(__next_proc_id, next);
+  atomic_ptr_write(__next_proc_id, next + 1);
   return Success((uint32_t)next);
 }
 
@@ -185,6 +188,9 @@ ErrorOrPtr socket_register(threaded_socket_t* socket) {
   revalidate_port_cache();
 
   socket_set_flag(socket, TS_REGISTERED, true);
+
+  /* Let the arbiter know we exist */
+  Must(socket_arbiter_register_socket(socket));
 
   /*
    * TODO: sort based on port value (low -> high)
@@ -224,6 +230,9 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
       }
     }
   }
+
+  Must(socket_arbiter_remove_socket(socket));
+
   return Success(0);
 }
 
@@ -363,7 +372,7 @@ ANIVA_STATUS init_proc_core() {
 
   __sockets = init_list();
   __core_socket_lock = create_spinlock();
-  __next_proc_id = create_atomic_ptr_with_value(1);
+  __next_proc_id = create_atomic_ptr_with_value(0);
 
   /*
    * TODO: we can also just store processes in a vector, since we
@@ -372,6 +381,9 @@ ANIVA_STATUS init_proc_core() {
   __proc_map = create_hashmap(PROC_SOFTMAX, HASHMAP_FLAG_CA);
 
   init_tspckt();
+  init_socket();
+  init_packet_payloads();
+  init_packet_response();
 
   return ANIVA_SUCCESS;
 }

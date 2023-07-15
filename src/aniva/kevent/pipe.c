@@ -13,7 +13,7 @@ kevent_pipeline_t create_kevent_pipeline(kevent_t* event, kevent_contex_t* conte
   pipe = (kevent_pipeline_t) {
     .m_head = nullptr,
     .m_context = context,
-    .m_entry_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_pipe_entry_t) * KEVENT_MAX_EVENT_HOOKS, sizeof(kevent_pipe_entry_t), ZALLOC_FLAG_FIXED_SIZE),
+    .m_entry_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_pipe_entry_t) * KEVENT_MAX_EVENT_HOOKS, sizeof(kevent_pipe_entry_t), NULL),
   };
 
   kevent_pipe_entry_t** current_pentry = &pipe.m_head;

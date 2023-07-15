@@ -50,13 +50,15 @@ static int driver_fs_msg(vnode_t* node, driver_control_code_t code, void* buffer
     goto generic_exit;
   }
 
-  packet_payload_t* payload = create_packet_payload(buffer, size, code);
+  packet_payload_t payload;
   packet_response_t* response;
+
+  init_packet_payload(&payload, nullptr, buffer, size, code);
 
   /* Lock the mutex to ensure we are clear to use all of the drivers resources */
   mutex_lock(socket->m_packet_mutex);
 
-  result = (int)driver->f_drv_msg(*payload, &response);
+  result = (int)driver->f_drv_msg(payload, &response);
 
   mutex_unlock(socket->m_packet_mutex);
 
@@ -65,7 +67,7 @@ static int driver_fs_msg(vnode_t* node, driver_control_code_t code, void* buffer
     destroy_packet_response(response);
   }
 
-  destroy_packet_payload(payload);
+  destroy_packet_payload(&payload);
 
 generic_exit:
   mutex_unlock(node->m_lock);

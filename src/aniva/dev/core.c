@@ -555,9 +555,11 @@ ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_cod
   if ((driver->m_flags & DRV_SOCK) == 0) {
 
     packet_response_t* response;
-    packet_payload_t* payload = create_packet_payload(buffer, buffer_size, code);
+    packet_payload_t payload;
 
-    uintptr_t result = driver->f_drv_msg(*payload, &response);
+    init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
+
+    uintptr_t result = driver->f_drv_msg(payload, &response);
 
     if (response) {
 
@@ -580,7 +582,7 @@ ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_cod
       destroy_packet_response(response);
     }
 
-    destroy_packet_payload(payload);
+    destroy_packet_payload(&payload);
 
     return Success(0);
   }
@@ -611,11 +613,10 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
   SocketOnPacket msg_func;
 
   if ((handle->m_flags & DRV_SOCK) == 0) {
-    println("Driver is no socket");
     msg_func = handle->f_drv_msg;
   } else {
     socket = find_registered_socket(handle->m_port);
-    msg_func = socket->m_on_packet;
+    msg_func = socket->f_on_packet;
 
     if (!socket)
       goto exit_fail;
@@ -652,15 +653,17 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
   LOCK_SOCKET_MAYBE(socket);
 
   packet_response_t* response = nullptr;
-  packet_payload_t* payload = create_packet_payload(buffer, buffer_size, code);
+  packet_payload_t payload;
 
-  msg_func(*payload, &response);
+  init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
+
+  msg_func(payload, &response);
 
   // After the driver finishes what it is doing, we can just unlock the mutex.
   // We are done using the driver at this point after all
   UNLOCK_SOCKET_MAYBE(socket);
 
-  destroy_packet_payload(payload);
+  destroy_packet_payload(&payload);
 
   return response;
 

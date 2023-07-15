@@ -14,6 +14,7 @@ typedef enum ZONE_FLAGS {
   ZONE_SHOULD_ZERO = (1 << 2)
 } ZONE_FLAGS_t;
 
+/* These are the default entry sizes */
 typedef enum ZONE_ENTRY_SIZE {
   ZALLOC_8BYTES = 8,
   ZALLOC_16BYTES = 16,
@@ -26,16 +27,14 @@ typedef enum ZONE_ENTRY_SIZE {
   // ZALLOC_4096BYTES = 0x1000,
 } ZONE_ENTRY_SIZE_t;
 
-#define ZALLOC_MIN_ZONE_ENTRY_SIZE (ZALLOC_8BYTES)
-#define ZALLOC_MAX_ZONE_ENTRY_SIZE (ZALLOC_1024BYTES)
-
-/* Create a zone allocator that fits dynamicly sized object */
-#define ZALLOC_FLAG_DYNAMIC             (0x00000001)
-#define ZALLOC_FLAG_FIXED_SIZE          (0x00000002)
-
 #define DEFAULT_ZONE_ENTRY_SIZE_COUNT   8
 
-#define DEFAULT_ZALLOC_MEM_SIZE         2 * Mib
+/* Create a zone allocator that fits dynamicly sized object */
+#define ZALLOC_FLAG_KERNEL              (0x00000001)
+
+#define ZALLOC_DEFAULT_MEM_SIZE         16 * Kib
+#define ZALLOC_DEFAULT_ALLOC_COUNT      128 /* What is the default amount of an object that we should be able to allocate before we should expand the allocator */
+#define ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON 4 /* How much a allocation may deviate from the size of a allocator in order to still be stored there */
 
 
 /*
@@ -105,8 +104,7 @@ typedef struct zone_allocator {
   uint32_t m_flags;
   uint32_t m_res0;
 
-  enum ZONE_ENTRY_SIZE m_max_entry_size;
-  enum ZONE_ENTRY_SIZE m_min_entry_size;
+  enum ZONE_ENTRY_SIZE m_entry_size;
 
   /* We link zone allocators in a global list that we sort based on 
    * Their zone size. If they are dynamic, this links into a seperate
@@ -117,12 +115,10 @@ typedef struct zone_allocator {
 
 #define FOREACH_ZONESTORE(allocator, i) for (zone_store_t* i = allocator->m_store; i != nullptr; i = i->m_next)
 
-/* Sorted by size, as specified above. */
-extern zone_allocator_t* g_sized_zallocators;
-/* These are mostly allocators for threads and such, so this can grow quite large as there are more threads f.e */
-extern zone_allocator_t* g_dynamic_zallocators;
-
 void init_zalloc();
+
+void* kzalloc(size_t size);
+void kzfree(void* address, size_t size);
 
 void* zalloc(zone_allocator_t* allocator, size_t size);
 void zfree(zone_allocator_t* allocator, void* address, size_t size);
@@ -134,7 +130,6 @@ void zfree_fixed(zone_allocator_t* allocator, void* address);
  * make a new zone allocator. based on the initial_size, we will
  * saturate this allocator with zones as needed
  */
-zone_allocator_t *create_dynamic_zone_allocator(size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);

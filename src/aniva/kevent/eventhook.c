@@ -9,7 +9,7 @@ static zone_allocator_t* __kevent_hook_allocator = nullptr;
 void init_eventhooks() {
 
   /* ALlocator for the hooks */
-  __kevent_hook_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_hook_t) * KEVENT_MAX_EVENT_HOOKS, sizeof(kevent_hook_t), ZALLOC_FLAG_FIXED_SIZE); 
+  __kevent_hook_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_hook_t) * KEVENT_MAX_EVENT_HOOKS, sizeof(kevent_hook_t), NULL); 
 }
 
 static ErrorOrPtr __validate_keventhook(kevent_hook_t* hook)

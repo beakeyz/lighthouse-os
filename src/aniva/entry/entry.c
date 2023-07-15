@@ -18,10 +18,13 @@
 #include "mem/pg.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
+#include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/ipc/thr_intrf.h"
 #include "proc/kprocs/reaper.h"
+#include "proc/kprocs/socket_arbiter.h"
 #include "proc/proc.h"
+#include "proc/socket.h"
 #include "proc/thread.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
@@ -108,6 +111,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((uintptr_t*)virtual_mb_addr);
 
+  // we need more memory
+  init_zalloc();
+
   // we need resources
   init_kresources();
 
@@ -116,14 +122,14 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // map multiboot address
   const size_t final_multiboot_size = total_multiboot_size + 8;
-  const uintptr_t multiboot_addr = (uintptr_t)Must(__kmem_kernel_alloc(
+  Must(__kmem_kernel_alloc(
     (uintptr_t)mb_addr,
     final_multiboot_size,
     NULL,
     NULL
   ));
 
-  g_system_info.multiboot_addr = multiboot_addr;
+  g_system_info.multiboot_addr = (uintptr_t)virtual_mb_addr;
   g_system_info.total_multiboot_size = final_multiboot_size;
   g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
 
@@ -134,7 +140,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_timer_system();
 
-  init_acpi(multiboot_addr);
+  init_acpi(g_system_info.multiboot_addr);
 
   init_pci();
 
@@ -153,6 +159,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   proc_t* root_proc = create_kernel_proc(kthread_entry, NULL);
 
+  init_socket_arbiter(root_proc);
   init_reaper(root_proc);
 
   set_kernel_proc(root_proc);
@@ -175,20 +182,48 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   //  - the stack and reverts to its sub-thread if it has it.
 }
 
+uintptr_t __test_1_pckt(packet_payload_t payload, packet_response_t** response)
+{
+  return 0;
+}
+
 /*
  * TODO: remove test proc
  */
-void test_proc_entry(uintptr_t arg) {
+void __test_socket_1() {
 
-  println("Tried to do funnie");
-  println_kterm("Hello from the test process");
+  Must(socket_register_pckt_func(__test_1_pckt));
 
-  uintptr_t thing = 5;
+  uintptr_t data = 69;
+
+  Must(send_packet_to_socket(2, &data, sizeof(data)));
+
+  for (;;) {
+    //println("yay 1");
+    scheduler_yield();
+  }
+}
+
+uintptr_t __test_2_pckt(packet_payload_t payload, packet_response_t** response)
+{
+  kernel_panic("Got packet");
+  return 0;
+}
+
+void __test_socket_2() {
+
+  println("Yay 2");
+  Must(socket_register_pckt_func(__test_2_pckt));
+
+  for (;;) {
+    //println("yay 2");
+    scheduler_yield();
+  }
 }
 
 void kthread_entry() {
 
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
+  pause_scheduler();
 
   init_gdisk_dev();
 
@@ -198,11 +233,7 @@ void kthread_entry() {
 
   init_root_device_probing();
 
-  //proc_t* test_proc = create_proc("Test", test_proc_entry, NULL, PROC_KERNEL);
-
-  //sched_add_proc(test_proc);
-
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
+  resume_scheduler();
 
   for (;;) {
     asm volatile ("hlt");

@@ -225,6 +225,11 @@ bool is_bsp(Processor_t *processor) {
   return (processor->m_cpu_num == 0);
 }
 
+/*!
+ * @brief Called when the processor enters an interrupted state (context switch, irq, syscall, ect.)
+ *
+ * The current state of the processor, registers and such get stored here
+ */
 void processor_enter_interruption(registers_t* registers, bool irq) {
 
   Processor_t *current = get_current_processor();

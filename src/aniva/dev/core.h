@@ -57,6 +57,7 @@ typedef uint32_t                        driver_control_code_t;
 typedef driver_control_code_t           dcc_t;
 
 /* Global driver control codes */
+#define DCC_DATA                        (uint32_t)(0)
 #define DCC_EXIT                        (uint32_t)(-1)
 #define DCC_RESPONSE                    (uint32_t)(-2)
 #define DCC_WRITE                       (uint32_t)(-3)

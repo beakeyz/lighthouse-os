@@ -18,8 +18,6 @@
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
 
-extern void asm_common_irq_exit(void);
-
 // TODO: linked list for dynamic handler loading?
 static spinlock_t* __interrupt_handler_spinlock = nullptr;
 static quick_interrupthandler_t __interrupt_handlers[INTERRUPT_HANDLER_COUNT] = { NULL };
@@ -222,6 +220,13 @@ registers_t* pagefault_handler(registers_t *regs) {
 
   if (!current_proc)
     goto panic;
+
+  if (thread_is_socket(current_thread) &&
+      thread_try_revert_userpacket_context(regs, current_thread)) {
+
+    /* If this succeeded it means that we successfuly returned from the userpacket handler, and we can now simply return */
+    return regs;
+  }
 
   /* Drivers and other kernel processes should get insta-nuked */
   /* FIXME: a driver can be a non-kernel process. Should user drivers meet the same fate as kernel drivers? */

@@ -18,7 +18,7 @@ typedef struct tspckt {
   uint32_t m_identifier; // checksum? (like some form of security in this system lmao)
   uint32_t m_reserved0;
 
-  packet_payload_t* m_payload;
+  packet_payload_t m_payload;
   size_t m_packet_size;
 } tspckt_t;
 

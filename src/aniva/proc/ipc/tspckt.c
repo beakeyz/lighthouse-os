@@ -28,7 +28,8 @@ tspckt_t *create_tspckt(threaded_socket_t* reciever, driver_control_code_t code,
   packet->m_reciever_thread = reciever;
   packet->m_packet_size = packet_size;
   // this handle should not be destroyed when we are destroying this tspacket
-  packet->m_payload = create_packet_payload(data, data_size, code);
+  
+  init_packet_payload(&packet->m_payload, packet, data, data_size, code);
 
   // NOTE: the identifier should be initialized last, since it relies on 
   // payload and packet being non-null
@@ -54,7 +55,7 @@ ANIVA_STATUS destroy_tspckt(tspckt_t* packet) {
   // this zombified version of our packet then gets cleaned up when the response is handled...
   // TODO: we could just copy all the nesecary stuff over to the response structure and then still clean up the packet...
   
-  destroy_packet_payload(packet->m_payload);
+  destroy_packet_payload(&packet->m_payload);
 
   zfree_fixed(__tspckt_allocator, packet);
   return ANIVA_SUCCESS;
@@ -78,14 +79,14 @@ bool validate_tspckt(struct tspckt* packet) {
 }
 
 ErrorOrPtr generate_tspckt_identifier(tspckt_t* packet) {
-  if (!packet || !packet->m_payload || !packet->m_payload->m_data)
+  if (!packet || !packet->m_payload.m_data)
     return Error();
 
   tspckt_t copy = *packet;
   copy.m_identifier = 0;
 
   uint32_t packet_crc = kcrc32(&copy, sizeof(tspckt_t));
-  uint32_t payload_crc = kcrc32(copy.m_payload->m_data, packet->m_payload->m_data_size);
+  uint32_t payload_crc = kcrc32(copy.m_payload.m_data, packet->m_payload.m_data_size);
   
   uint64_t total_crc = ((uint64_t)packet_crc << 32) | (payload_crc & 0xFFFFFFFFUL);
 

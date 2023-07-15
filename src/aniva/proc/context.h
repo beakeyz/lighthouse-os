@@ -23,34 +23,36 @@
 #define EFLAGS_VIP (1 << 20)
 #define EFLAGS_ID (1 << 21)
 
+#define THRD_CTX_STACK_BLOCK_SIZE 128
+
 typedef struct {
-  uintptr_t rdi;
-  uintptr_t rsi;
-  uintptr_t rbp;
-  uintptr_t rsp;
-  uintptr_t rbx;
-  uintptr_t rdx;
-  uintptr_t rcx;
-  uintptr_t rax;
-  uintptr_t r8;
-  uintptr_t r9;
-  uintptr_t r10;
-  uintptr_t r11;
-  uintptr_t r12;
-  uintptr_t r13;
-  uintptr_t r14;
-  uintptr_t r15;
+  uintptr_t rdi;    // 0
+  uintptr_t rsi;    // 8
+  uintptr_t rbp;    // 16
+  uintptr_t rdx;    // 24
+  uintptr_t rcx;    // 32
+  uintptr_t rbx;    // 40
+  uintptr_t rax;    // 48
+  uintptr_t r8;     // 56
+  uintptr_t r9;     // 64
+  uintptr_t r10;    // 72
+  uintptr_t r11;    // 80
+  uintptr_t r12;    // 88
+  uintptr_t r13;    // 96
+  uintptr_t r14;    // 104
+  uintptr_t r15;    // 112
+  uintptr_t rflags; // 120
+  /* Size: 128 bytes */
+
   uintptr_t rip;
+  uintptr_t rsp;
   uintptr_t rsp0;
   uintptr_t cs;
-
-  uintptr_t rflags;
-
   uintptr_t cr3;
-} kContext_t;
+} thread_context_t;
 
-ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintptr_t stack_top) {
-  kContext_t regs = {0};
+ALWAYS_INLINE thread_context_t setup_regs(bool kernel, pml_entry_t* root_table, uintptr_t stack_top) {
+  thread_context_t regs = {0};
 
   /* TODO: fix userspace switching */
   regs.cs = GDT_USER_CODE | 3;
@@ -68,7 +70,7 @@ ALWAYS_INLINE kContext_t setup_regs(bool kernel, pml_entry_t* root_table, uintpt
 
 // TODO: user regs
 
-ALWAYS_INLINE void contex_set_rip(kContext_t* ctx, uintptr_t rip, uintptr_t arg0, uintptr_t arg1) {
+ALWAYS_INLINE void contex_set_rip(thread_context_t* ctx, uintptr_t rip, uintptr_t arg0, uintptr_t arg1) {
   ctx->rip = rip;
   ctx->rdi = arg0;
   ctx->rsi = arg1;

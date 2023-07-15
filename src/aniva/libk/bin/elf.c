@@ -97,7 +97,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   /* TODO: */
 
   page_flags = KMEM_FLAG_WRITABLE;
-  proc_flags = PROC_DEFERED_HEAP;
+  proc_flags = NULL;
 
   if (kernel) {
     /* When executing elf files in 'kernel' mode, they internally run as a driver */
@@ -105,6 +105,9 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   }
 
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
+
+  if (!ret)
+    return Error();
 
   image.m_total_exe_bytes = file->m_buffer_size;
   image.m_lowest_addr = (vaddr_t)-1;

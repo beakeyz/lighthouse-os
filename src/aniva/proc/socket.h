@@ -3,9 +3,11 @@
 #include <libk/stddef.h>
 #include <libk/flow/error.h>
 #include "libk/data/queue.h"
+#include "proc/context.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
 #include "sync/spinlock.h"
+#include "system/processor/registers.h"
 
 struct mutex;
 struct thread;
@@ -25,6 +27,8 @@ typedef enum THREADED_SOCKET_FLAGS {
   TS_IS_CLOSED = (1 << 3),  // the socket has no callback function where packets can be passed to
   TS_SHOULD_EXIT = (1 << 4),// the socket has recieved the command to exit
   TS_READY = (1 << 5),      // the socket is ready to recieve packets
+  TS_SHOULD_HANDLE_USERPACKET = (1 << 6),
+  TS_HANDLING_USERPACKET = (1 << 7), // the socket is busy in userspace, trying to handle a packet
 } THREADED_SOCKET_FLAGS_t;
 
 typedef uintptr_t (*SocketOnPacket) (
@@ -43,8 +47,10 @@ typedef struct threaded_socket {
   uint32_t m_port;
   uint32_t m_socket_flags;
 
-  SocketOnPacket m_on_packet;
-  FuncPtr m_exit_fn;
+  thread_context_t m_old_context;
+
+  SocketOnPacket f_on_packet;
+  FuncPtr f_exit_fn;
 
   socket_packet_queue_t m_packet_queue;
 
@@ -53,6 +59,8 @@ typedef struct threaded_socket {
   struct mutex* m_packet_mutex;
   struct thread* m_parent;
 } threaded_socket_t;
+
+void init_socket();
 
 /*
  * create a socket in a thread
@@ -67,6 +75,9 @@ ANIVA_STATUS destroy_threaded_socket(threaded_socket_t* ptr);
 ErrorOrPtr socket_enable(struct thread* socket);
 ErrorOrPtr socket_disable(struct thread* socket);
 
+/* Register a I/O function for the current socket */
+ErrorOrPtr socket_register_pckt_func(SocketOnPacket fn);
+
 /*
  * control the flags of a socket
  */
@@ -76,6 +87,8 @@ void socket_set_flag(threaded_socket_t *ptr, THREADED_SOCKET_FLAGS_t flag, bool 
  * get the value of a flag
  */
 bool socket_is_flag_set(threaded_socket_t* ptr, THREADED_SOCKET_FLAGS_t flag);
+
+bool socket_has_userpacket_handler(threaded_socket_t* socket);
 
 /*
  * See if there is a packet lying around for us and if so, we 
