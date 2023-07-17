@@ -20,7 +20,7 @@ struct hashmap_entry;
 
 typedef struct __hashmap {
 
-  size_t m_max_size;
+  size_t m_max_entries;
   size_t m_size;
 
   uintptr_t (*f_hash_func)(hashmap_key_t data);
@@ -31,14 +31,14 @@ typedef struct __hashmap {
   hashmap_value_t m_list[];
 } hashmap_t;
 
-typedef ErrorOrPtr (*hashmap_itterate_fn_t) (hashmap_value_t value);
+typedef ErrorOrPtr (*hashmap_itterate_fn_t) (hashmap_value_t value, uint64_t arg1);
 
 void init_hashmap();
 
-hashmap_t* create_hashmap(size_t max_size, uint32_t flags);
+hashmap_t* create_hashmap(size_t max_entries, uint32_t flags);
 void destroy_hashmap(hashmap_t* map);
 
-ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn);
+ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg1);
 
 ErrorOrPtr hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
 ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);

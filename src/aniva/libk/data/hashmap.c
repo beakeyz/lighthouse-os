@@ -76,14 +76,14 @@ static void __destroy_hashmap_entry(hashmap_entry_t* entry)
  * Compute the total size of the hashmap object based on its max size
  * and the flags
  */
-static size_t __get_hashmap_size(size_t max_size, uint32_t hm_flags)
+static size_t __get_hashmap_size(size_t max_entries, uint32_t hm_flags)
 {
   size_t hashmap_size = sizeof(hashmap_t);
 
   if ((hm_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA) {
-    hashmap_size += max_size * sizeof(hashmap_entry_t);
+    hashmap_size += max_entries * sizeof(hashmap_entry_t);
   } else {
-    hashmap_size += max_size * sizeof(hashmap_value_t);
+    hashmap_size += max_entries * sizeof(hashmap_value_t);
   }
 
   return hashmap_size;
@@ -93,20 +93,20 @@ static size_t __get_hashmap_size(size_t max_size, uint32_t hm_flags)
  * Allocate kernel memory for the hashmap and initialize 
  * its internals
  */
-hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
+hashmap_t* create_hashmap(size_t max_entries, uint32_t flags) {
 
   hashmap_t* ret;
   size_t hashmap_size;
   size_t aligned_size;
   uint32_t delta;
 
-  if (!max_size)
+  if (!max_entries)
     return nullptr;
 
   /* FIXME: implement open addressing */
   flags |= HASHMAP_FLAG_CA;
 
-  hashmap_size = __get_hashmap_size(max_size, flags);
+  hashmap_size = __get_hashmap_size(max_entries, flags);
   aligned_size = ALIGN_UP(hashmap_size, SMALL_PAGE_SIZE);
 
   ret = (hashmap_t*)Must(__kmem_kernel_alloc_range(aligned_size, 0, 0));
@@ -117,13 +117,13 @@ hashmap_t* create_hashmap(size_t max_size, uint32_t flags) {
   delta = aligned_size - hashmap_size;
 
   /* We are able to claim this memory just for free entries, so lets take it =D */
-  max_size += delta;
+  max_entries += (delta >> 3); // delta / sizeof(hashmap_value_t)
 
   memset(ret, 0, hashmap_size);
 
   ret->m_flags = flags;
   ret->m_size = 0;
-  ret->m_max_size = max_size;
+  ret->m_max_entries = max_entries;
 
   ret->f_hash_func = __hashmap_hash_str;
 
@@ -135,7 +135,7 @@ static void __hashmap_cleanup(hashmap_t* map)
   hashmap_entry_t* current_entry;
   hashmap_entry_t* cached_next;
 
-  for (uintptr_t i = 0; i < map->m_max_size; i++) {
+  for (uintptr_t i = 0; i < map->m_max_entries; i++) {
     current_entry = (hashmap_entry_t*)map->m_list + i;
 
     /* Continue if there is no next, since all the roots get cleaned up with the memset call */
@@ -167,14 +167,52 @@ void destroy_hashmap(hashmap_t* map) {
 
   __hashmap_cleanup(map);
 
-  memset(map, 0, __get_hashmap_size(map->m_max_size, map->m_flags));
+  memset(map, 0, __get_hashmap_size(map->m_max_entries, map->m_flags));
 
   kfree(map);
 }
 
-ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn) {
+ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg1) {
+
+  ErrorOrPtr result;
+
+  if (!map || !fn)
+    return Error();
+
+  if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA) {
+
+    for (uint64_t i = 0; i < map->m_max_entries; i++) {
+      hashmap_entry_t* entry = (hashmap_entry_t*)map->m_list + i;
+
+      while (entry) {
+
+        result = fn(entry->m_value, arg1);
+
+        if (IsError(result))
+          return ErrorWithVal((uint64_t)entry->m_value);
+        
+        entry = entry->m_next;
+      }
+    }
+
+    return Success(0);
+  }
+
+  for (uint64_t i = 0; i < map->m_max_entries; i++) {
+    hashmap_value_t v = map->m_list[i];
+
+    if (!v)
+      continue;
+    
+    result = fn(v, arg1);
+
+    /* On error, return the value that caused it */
+    if (IsError(result))
+      return ErrorWithVal((uint64_t)v);
+  }
+
   kernel_panic("TODO: implement hashmap_itterate");
-  return Error();
+  return Success(0);
 }
 
 /*
@@ -244,7 +282,7 @@ static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, ui
   current_end = nullptr;
   current_start = root;
 
-  for (uintptr_t i = 0; i < map->m_max_size; i++) {
+  for (uintptr_t i = 0; i < map->m_max_entries; i++) {
     hashmap_entry_t* middle = (hashmap_entry_t*)Release(__hashmap_find_middle_entry(current_start, current_end));
 
     if (!middle)
@@ -271,7 +309,7 @@ static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, ui
 
 #define __HASHMAP_GET_INDX(map, hashed_key, key, idx)                   \
   uintptr_t hashed_key = map->f_hash_func(key);                         \
-  uintptr_t idx = hashed_key % map->m_max_size 
+  uintptr_t idx = hashed_key % map->m_max_entries 
 
 /* NOTE: the new hash should always be more than the hash of the root node */
 #define __HASHMAP_GET_NEW_INDX(map, new_idx, new_hash, idx, hashed_key) \
@@ -369,7 +407,7 @@ ErrorOrPtr hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
   if (!map || !key || !value)
     return Error();
 
-  if (map->m_size >= map->m_max_size) {
+  if (map->m_size >= map->m_max_entries) {
 
     if (map->m_flags & HASHMAP_FLAG_FS)
       return Error();

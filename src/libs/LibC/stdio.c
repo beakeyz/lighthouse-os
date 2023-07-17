@@ -222,6 +222,11 @@ int printf(const char* format, ...)
   return result;
 }
 
+char* gets(char* str, size_t size)
+{
+  return fgets(str, size, stdin);
+}
+
 char* fgets(char* str, size_t size, FILE* stream)
 {
   int c;

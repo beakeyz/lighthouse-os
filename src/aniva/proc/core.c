@@ -4,6 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include <libk/data/hashmap.h>
+#include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
@@ -236,6 +237,49 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
   return Success(0);
 }
 
+static ErrorOrPtr __find_proc_by_id(void* p, uint64_t id)
+{
+  proc_t* proc = (proc_t*)p;
+  proc_id_t pid = (proc_id_t)id;
+
+  /* Yay, found it */
+  if (proc->m_id == pid)
+    return Error();
+
+  return Success(0);
+}
+
+proc_t* find_proc_by_id(proc_id_t id)
+{
+  proc_t* ret;
+  ErrorOrPtr result;
+
+  result = hashmap_itterate(__proc_map, __find_proc_by_id, id);
+
+  /* A successful itteration means we didn't find the proc we where looking for */
+  if (!IsError(result))
+    return nullptr;
+
+  ret = (proc_t*)Release(result);
+
+  return ret;
+}
+
+struct thread* find_thread_by_fid(full_proc_id_t fid) 
+{
+  u_fid_t __id;
+  proc_t* p;
+
+  __id.id = fid;
+
+  p = find_proc_by_id(__id.proc_id);
+
+  if (!p)
+    return nullptr;
+
+  return find_thread(p, __id.thread_id);
+}
+
 proc_t* find_proc(const char* name) {
 
   proc_t* ret;
@@ -251,8 +295,21 @@ proc_t* find_proc(const char* name) {
   return ret;
 }
 
-thread_t* find_thread(proc_t* proc, uint64_t tid) {
-  kernel_panic("TODO: implement find_thread");
+thread_t* find_thread(proc_t* proc, thread_id_t tid) {
+  
+  thread_t* ret;
+
+  if (!proc)
+    return nullptr;
+
+  FOREACH(i, proc->m_threads) {
+    ret = i->data;
+
+    if (ret->m_tid == tid)
+      return ret;
+  }
+
+  return nullptr;
 }
 
 

@@ -34,6 +34,14 @@ ALWAYS_INLINE ErrorOrPtr Error() {
   return e;
 }
 
+ALWAYS_INLINE ErrorOrPtr ErrorWithVal(uintptr_t val) {
+  ErrorOrPtr e = {
+    .m_ptr = val,
+    .m_status = ANIVA_FAIL,
+  };
+  return e;
+}
+
 ALWAYS_INLINE bool IsError(ErrorOrPtr e) {
   return (e.m_status == ANIVA_FAIL);
 }

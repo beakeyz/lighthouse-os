@@ -24,7 +24,7 @@ extern void processor_exit_interruption(registers_t* registers);
 static syscall_t __static_syscalls[] = {
   [SYSID_EXIT]              = { SYSID_EXIT, (sys_fn_t)sys_exit_handler },
   [SYSID_CLOSE]             = { SYSID_CLOSE , (sys_fn_t)nullptr, },
-  [SYSID_READ]              = { SYSID_READ, (sys_fn_t)nullptr },
+  [SYSID_READ]              = { SYSID_READ, (sys_fn_t)sys_read, },
   [SYSID_WRITE]             = { SYSID_WRITE, (sys_fn_t)sys_write },
   [SYSID_OPEN]              = { SYSID_OPEN, (sys_fn_t)sys_open },
   [SYSID_OPEN_PROC]         = { SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },

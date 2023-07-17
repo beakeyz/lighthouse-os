@@ -81,15 +81,15 @@ typedef int proc_id_t;
 
 /* 64 bit value that combines the tid and the pid together */
 typedef uint64_t full_proc_id_t;
-
+typedef full_proc_id_t fid_t;
 
 typedef union {
   struct {
     thread_id_t thread_id;
     proc_id_t proc_id;
   };
-  full_proc_id_t id;
-} u_full_proc_id_t;
+  fid_t id;
+} u_full_proc_id_t, u_fid_t;
 
 
 static inline full_proc_id_t create_full_procid(uint32_t proc_id, uint32_t thread_id)
@@ -145,8 +145,11 @@ ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
  */
 struct threaded_socket *find_registered_socket(uint32_t port);
 
+struct proc* find_proc_by_id(proc_id_t id);
 struct proc* find_proc(const char* name);
-struct thread* find_thread(struct proc* proc, uint64_t tid);
+
+struct thread* find_thread_by_fid(full_proc_id_t fid);
+struct thread* find_thread(struct proc* proc, thread_id_t tid);
 
 ErrorOrPtr proc_register(struct proc* proc);
 ErrorOrPtr proc_unregister(char* name);

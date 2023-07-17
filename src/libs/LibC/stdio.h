@@ -74,6 +74,7 @@ extern int sscanf (const char*__restrict __s,
 
 extern int printf(const char* fmt, ...);
 
+extern char* gets(char* str, size_t size);
 extern char* fgets(char* str, size_t size, FILE* stream);
 extern int fgetc(FILE* stream);
 extern int fputc(int c, FILE* stream);

@@ -12,6 +12,7 @@
 #include "libk/data/linkedlist.h"
 #include "mem/quickmapper.h"
 #include "mem/zalloc.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
@@ -726,9 +727,41 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
 
 }
 
+/*!
+ * @brief Check if the specified process has access to an address
+ *
+ * when process is null, we simply use the kernel process
+ */
 ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size)
 {
-  kernel_panic("TODO: kmem_validate_ptr");
+  paddr_t p_addr;
+  vaddr_t v_offset;
+  size_t p_page_count;
+  pml_entry_t* root;
+  pml_entry_t* page;
+
+  root = (process ? (process->m_root_pd.m_root) : nullptr);
+
+  p_page_count = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+
+  for (uint64_t i = 0; i < p_page_count; i++) {
+    v_offset = v_address + (i * SMALL_PAGE_SIZE);
+
+    if (v_offset >= HIGH_MAP_BASE)
+      return Error();
+
+    page = kmem_get_page(root, v_offset, NULL, NULL);
+
+    /* Should be mapped AND should be mapped as user */
+    if (!page || !pml_entry_is_bit_set(page, PTE_USER | PTE_PRESENT)) 
+      return Error();
+
+    /* TODO: check if the physical address is within a reserved range */
+    /* TODO: check if the process owns the virtual range in its resource map */
+    //p_addr = kmem_to_phys(root, v_offset);
+  }
+
+  return Success(0);
 }
 
 /*

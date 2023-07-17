@@ -18,9 +18,14 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
   ErrorOrPtr result;
   proc_t* current_process;
 
-  /* TODO: verify user input */
+  if (!path)
+    return HNDL_INVAL;
 
   current_process = get_current_proc();
+
+  if (!current_process || IsError(kmem_validate_ptr(current_process, (uintptr_t)path, 1)))
+    return HNDL_INVAL;
+
   ret = HNDL_INVAL;
 
   switch (type) {

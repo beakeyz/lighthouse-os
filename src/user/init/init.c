@@ -9,15 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-bool thing = false;
-
-uintptr_t init_socket_handler(control_code_t code)
-{
-  thing = true;
-  printf("Reached socket_handler =D\n");
-  return 0;
-}
-
 /*
  * What should the init process do?
  *  - Verify system integrity before bootstrapping further
@@ -35,19 +26,23 @@ uintptr_t init_socket_handler(control_code_t code)
  */
 int main() {
 
-  thing = false;
-
   /*
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?
    */
   HANDLE_t handle = open_handle("Root/dummy.txt", HNDL_TYPE_FILE, NULL, NULL);
 
+  printf("open dummy.txt!\n");
+
   /* Open a handle to the binary file of our own process */
   HANDLE_t handle_1 = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
+  printf("open Root/init!\n");
+
   /* Open a handle to our own process */
   HANDLE_t handle_2 = open_handle("init", HNDL_TYPE_PROC, NULL, NULL);
+
+  printf("open init proc!\n");
 
   uint32_t* memory = malloc(sizeof(uint32_t));
 
@@ -58,10 +53,11 @@ int main() {
   char buffer[128];
 
   //scanf("Whats your name: %s", buffer);
+  gets(buffer, sizeof(buffer));
 
   buffer[127] = NULL;
 
-  //printf("Your name is: %s", buffer);
+  printf("Your name is: %s", buffer);
 
   return handle_2;
 }
