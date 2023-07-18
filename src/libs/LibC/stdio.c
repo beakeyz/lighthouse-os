@@ -3,6 +3,7 @@
 #include "sys/types.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -160,6 +161,7 @@ int fprintf(FILE* stream, const char* str, ...) {
  * Read a certain amount of bytes from a file into a buffer
  */
 unsigned long long fread(void* buffer, unsigned long long size, unsigned long long count, FILE* file) {
+
   (void)buffer;
   (void)size;
   (void)count;
@@ -231,7 +233,22 @@ char* fgets(char* str, size_t size, FILE* stream)
 {
   int c;
   char* ret;
-  /* TODO: gets */
+
+  /* Cache the start of the string */
+  ret = str;
+  size--;
+
+  memset(str, 0, size);
+
+  while ((c = fgetc(stream) != NULL) && size) {
+    size--;
+    *str++ = c;
+
+    if (c == '\n')
+      return ret;
+  }
+
+  return ret;
 }
 
 int fgetc(FILE* stream)

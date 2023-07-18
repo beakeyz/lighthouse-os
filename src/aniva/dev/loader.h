@@ -26,4 +26,12 @@
 
 // TODO: litterally everything
 
+#include "dev/external.h"
+#include "fs/file.h"
+#include "libk/flow/error.h"
+
+bool file_contains_drivers(file_t* file);
+
+ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out);
+
 #endif // !__ANIVA_DRV_LOADER__

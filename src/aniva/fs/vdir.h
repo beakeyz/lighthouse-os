@@ -15,14 +15,17 @@ struct vdir_attr;
  * for files to be ordered for easier access
  */
 typedef struct vdir {
+
+  /* This name is simply the name of this directory only. This does not include any slashes or path seperators */
+  const char* m_name;
+  uint32_t m_name_len;
   
   struct vdir* m_parent_dir;
-  struct vobj* m_parent_obj;
   struct vdir_attr* m_attr;
+  struct vdir_ops* m_ops;
 
-  const char* m_name;
-
-  void* m_fs_data;
+  /* Linked list of the cached objects in this vdir */
+  struct vobj* m_objects;
 
 } vdir_t;
 
@@ -38,6 +41,8 @@ typedef struct vdir_attr {
 } vdir_attr_t;
 
 typedef struct vdir_ops {
+  int (*f_destroy)(struct vdir*);
+  int (*f_put_obj)(struct vdir*, struct vobj*);
 } vdir_ops_t;
 
 #endif // !__ANIVA_DIRECTORY_VOBJ__

@@ -130,7 +130,7 @@ static void __proc_clear_shared_resources(proc_t* proc)
    */
   while (proc->m_resources) {
 
-    kresource_mirror_t* current_mirror = proc->m_resources;
+    kresource_t* current_mirror = proc->m_resources;
 
     uintptr_t start = current_mirror->m_start;
     size_t size = current_mirror->m_size;

@@ -38,7 +38,7 @@ typedef struct pci_device_io_ops {
 //  void* (*map)(struct pci_bus* bus, uint32_t device_function, int where);
 } pci_device_ops_io_t;
 
-extern const pci_device_ops_io_t g_pci_type1_impl;
-extern const pci_device_ops_io_t g_pci_type2_impl;
+extern pci_device_ops_io_t g_pci_type1_impl;
+extern pci_device_ops_io_t g_pci_type2_impl;
 
 #endif //__ANIVA_PCI_IO__

@@ -235,9 +235,10 @@ static void __destroy_kresource(kresource_t* resource)
   zfree_fixed(__resource_allocator, resource);
 }
 
-static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_type_t type) 
+static kresource_t* __create_kresource_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type) 
 {
   kresource_t* ret;
+  size_t name_len;
 
   /* Allocator should be initialized here */
   if (!__resource_allocator)
@@ -254,6 +255,13 @@ static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_t
 
   memset(ret, 0, sizeof(kresource_t));
 
+  name_len = strlen(name);
+
+  if (name_len >= sizeof(ret->m_name))
+    name_len = sizeof(ret->m_name) - 1;
+
+  memcpy((uint8_t*)ret->m_name, name, name_len);
+
   ret->m_start = start;
   ret->m_size = size;
   ret->m_type = type;
@@ -261,6 +269,11 @@ static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_t
   ret->m_shared_count = NULL;
 
   return ret;
+}
+
+static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_type_t type) 
+{
+  return __create_kresource_ex("Generic claim", start, size, type);
 }
 
 /*
@@ -281,14 +294,19 @@ static kresource_t* __copy_kresource(kresource_t source)
   return ret;
 }
 
-ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, struct kresource_mirror** regions)
+ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
+{
+  return resource_claim_ex("Generic Claim", start, size, type, regions);
+}
+
+ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
 {
   bool does_collide;
   bool should_place_after;
   size_t resource_cover_count;
   kresource_t** curr_resource_slot;
   kresource_t* old_resource;
-  kresource_mirror_t* new_resource_mirror;
+  kresource_t* new_mirror;
 
   if (!__resource_mutex || !__resource_allocator || !regions || !__resource_type_is_valid(type))
     return Error();
@@ -318,6 +336,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, s
   const uintptr_t end_addr = start + size;
   uintptr_t itt_addr = start;
   size_t itt_size = size;
+  size_t name_len;
 
   while (*curr_resource_slot && itt_addr < end_addr) {
 
@@ -425,33 +444,46 @@ cycle:;
     curr_resource_slot = &(*curr_resource_slot)->m_next;
   }
 
-  /* Manually create a new resource mirror */
-  new_resource_mirror = zalloc_fixed(__resource_mirror_allocator);
+  /* We can just register it here, which will be enough */
+  if (!regions) {
+    mutex_unlock(__resource_mutex);
+    return Success(0);
+  }
 
-  if (!new_resource_mirror) {
+  /* Manually create a new resource mirror */
+  new_mirror = zalloc_fixed(__resource_mirror_allocator);
+
+  if (!new_mirror) {
     mutex_unlock(__resource_mutex);
     return Error();
   }
 
-  memset(new_resource_mirror, 0, sizeof(kresource_mirror_t));
+  memset(new_mirror, 0, sizeof(kresource_t));
 
-  new_resource_mirror->m_start = start;
-  new_resource_mirror->m_size = size;
-  new_resource_mirror->m_type = type;
+  name_len = strlen(name);
+
+  if (name_len >= sizeof(new_mirror->m_name))
+    name_len = sizeof(new_mirror->m_name) - 1;
+
+  memcpy((uint8_t*)new_mirror->m_name, name, name_len);
+
+  new_mirror->m_start = start;
+  new_mirror->m_size = size;
+  new_mirror->m_type = type;
 
   println("Allocing: ");
   println(to_string(start));
   println(to_string(size));
 
   /* Link this mirror into the regions list */
-  new_resource_mirror->m_next = *regions;
-  *regions = new_resource_mirror;
+  new_mirror->m_next = *regions;
+  *regions = new_mirror;
 
   mutex_unlock(__resource_mutex);
   return Success(0);
 }
 
-ErrorOrPtr resource_release_region(struct kresource_mirror** region) 
+ErrorOrPtr resource_release_region(kresource_t** region) 
 {
   uintptr_t start;
   size_t size;
@@ -525,13 +557,13 @@ ErrorOrPtr resource_release_region(struct kresource_mirror** region)
   }
 
   /* Cache the mirror to remove */
-  kresource_mirror_t* mirror = *region;
+  kresource_t* mirror = *region;
 
   /* Skip the mirror in the list */
   *region = (*region)->m_next;
 
   /* Zero out */
-  memset(mirror, 0, sizeof(kresource_mirror_t));
+  memset(mirror, 0, sizeof(kresource_t));
 
   /* Free */
   zfree_fixed(__resource_mirror_allocator, mirror);
@@ -541,10 +573,10 @@ ErrorOrPtr resource_release_region(struct kresource_mirror** region)
   return Success(0);
 }
 
-ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_mirror_t** mirrors_start)
+ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t** mirrors_start)
 {
 
-  kresource_mirror_t** current;
+  kresource_t** current;
 
   if (!mirrors_start || !*mirrors_start)
     return Error();
@@ -568,7 +600,7 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_mirror_t** m
   return resource_release_region(current);
 }
 
-void destroy_kresource_mirror(kresource_mirror_t* mirror)
+void destroy_kresource_mirror(kresource_t* mirror)
 {
   if (!mirror)
     return;
@@ -609,8 +641,10 @@ void debug_resources(kresource_type_t type)
 void init_kresources() 
 {
   __resource_mutex = create_mutex(0);
-  __resource_allocator = create_zone_allocator_ex(nullptr, 0, 2 * Mib, sizeof(kresource_t), 0);
-  __resource_mirror_allocator = create_zone_allocator_ex(nullptr, 0, 2 * Mib, sizeof(kresource_mirror_t), 0);
+
+  /* Seperate the mirrors from the system kresources */
+  __resource_allocator = create_zone_allocator_ex(nullptr, 0, 128 * Kib, sizeof(kresource_t), 0);
+  __resource_mirror_allocator = create_zone_allocator_ex(nullptr, 0, 128 * Kib, sizeof(kresource_t), 0);
 
   /*
    * Create a base-resource for every resource type that starts

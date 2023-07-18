@@ -17,6 +17,7 @@
 #include <libk/io.h>
 
 pci_accessmode_t __current_addressing_mode;
+pci_device_ops_io_t* __current_pci_access_impl;
 list_t* __pci_bridges;
 list_t* __pci_devices;
 zone_allocator_t* __pci_dev_allocator;
@@ -159,7 +160,7 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
       .device_num = device,
       .func_num = func
     },
-    .raw_ops = g_pci_type1_impl,
+    .raw_ops = *__current_pci_access_impl,
     .ops = {
       .read = pci_dev_read,
       .write = pci_dev_write,
@@ -189,7 +190,7 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
 void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
 
   uint16_t cur_vendor_id;
-  g_pci_type1_impl.read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
+  __current_pci_access_impl->read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
 
   if (cur_vendor_id == PCI_NONE_VALUE) {
     return;
@@ -198,7 +199,7 @@ void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bu
   enumerate_function(callback, base_addr, bus, device, 0);
 
   uint8_t cur_header_type;
-  g_pci_type1_impl.read8( bus, device, 0, HEADER_TYPE, &cur_header_type);
+  __current_pci_access_impl->read8( bus, device, 0, HEADER_TYPE, &cur_header_type);
 
   if (!(cur_header_type & 0x80)) {
     return;
@@ -395,8 +396,10 @@ bool init_pci() {
 
   if (test_pci_io_type1()) {
     __current_addressing_mode = PCI_IOPORT_ACCESS;
+    __current_pci_access_impl = &g_pci_type1_impl;
   } else if (test_pci_io_type2()) {
     kernel_panic("Detected PCI type 2 interfacing! currently not supported.");
+    __current_pci_access_impl = &g_pci_type2_impl;
   } else {
     kernel_panic("No viable pci access method found");
   }
@@ -515,12 +518,12 @@ uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field) {
 
 static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift) {
   uint16_t placeback;
-  g_pci_type1_impl.read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
+  __current_pci_access_impl->read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
 
   if (or_and) {
-    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback | shift);
+    __current_pci_access_impl->write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback | shift);
   } else {
-    g_pci_type1_impl.write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback & ~(shift));
+    __current_pci_access_impl->write16(address->bus_num, address->device_num, address->func_num, COMMAND, placeback & ~(shift));
   }
 }
 

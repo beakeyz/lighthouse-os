@@ -871,7 +871,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, proc_t* process, paddr_t addr, vadd
      * allocated internally. This is because otherwise we won't be able to find this resource again if we 
      * try to release it
      */
-    resource_claim(ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    resource_claim_ex("kmem alloc", ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
   }
 
   return Success(ret);
@@ -905,7 +905,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, 
     return Error();
 
   if (process) {
-    resource_claim(virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    resource_claim_ex("kmem alloc range", virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
   }
 
   return Success(virt_base);
@@ -956,7 +956,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, vad
   }
 
   if (process) {
-    resource_claim(vbase, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    resource_claim_ex("kmem alloc scattered", vbase, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
   }
 
   return Success(vbase);

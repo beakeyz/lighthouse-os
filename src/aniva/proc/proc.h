@@ -11,8 +11,8 @@
 #include "sync/atomic_ptr.h"
 
 struct thread;
-struct kresource_mirror;
 struct proc_image;
+struct kresource;
 
 /*
  * proc.h
@@ -70,7 +70,7 @@ typedef struct proc {
   // maps?
   list_t* m_threads;
 
-  struct kresource_mirror* m_resources;
+  struct kresource* m_resources;
 
   struct thread* m_init_thread;
   struct thread* m_idle_thread;

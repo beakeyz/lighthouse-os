@@ -214,7 +214,7 @@ typedef struct pci_device {
   DeviceAddress_t address;
 
   /* These resources can be both I/O and memory ranges */
-  kresource_mirror_t resources[PCI_NUM_RESOURCES];
+  kresource_t resources[PCI_NUM_RESOURCES];
 
   struct pci_bus *bus;
   struct pci_driver *driver;

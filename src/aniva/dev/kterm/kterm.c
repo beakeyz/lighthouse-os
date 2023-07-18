@@ -195,10 +195,6 @@ void kterm_command_worker() {
           goto end_processing;
         }
 
-        uintptr_t thing = 18446744071569580032U;
-
-        uintptr_t phys = kmem_to_phys(nullptr, thing);
-
         p = (proc_t*)Must(elf_exec_static_64_ex(file, false, true));
 
         vobj_close(obj);
@@ -236,7 +232,6 @@ void kterm_command_worker() {
               ));
 
         sched_add_priority_proc(p, true);
-
       }
 
 end_processing:
@@ -253,7 +248,7 @@ end_processing:
 
 aniva_driver_t g_base_kterm_driver = {
   .m_name = "kterm",
-  .m_type = DT_GRAPHICS,
+  .m_type = DT_OTHER,
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_drv_msg = kterm_on_packet,

@@ -4,7 +4,7 @@
 #include "dev/kterm/kterm.h"
 #include "fs/cache.h"
 #include "fs/core.h"
-#include "fs/directory.h"
+#include "fs/vdir.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"

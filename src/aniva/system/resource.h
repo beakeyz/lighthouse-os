@@ -24,7 +24,6 @@
  */
 
 struct kresource;
-struct kresource_mirror;
 
 /*
  * NOTE: types should be going from 0
@@ -57,6 +56,8 @@ void init_kresources();
  * NOTE: memory resources work on virtual memory
  */
 typedef struct kresource {
+  
+  const char m_name[32];
 
   /* Data regarding the resource */
   uintptr_t m_start;
@@ -78,56 +79,36 @@ void debug_resources(kresource_type_t type);
 /*
  * If the requested resource is already used, we just increment the refcount
  * otherwise we can splice off a new resource and have it fresh
+ * when regions is null we will use the default system list
  */
-ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, struct kresource_mirror** regions);
+ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
+ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
 
 /*
  * Resource release routines
+ * when regions is null we will use the default system list
  * Returns:
  * - Success -> the resource is completely free and unreferenced entirely throughout
  * - Warning -> the resource was successfully unreferenced, but parts of it are still referenced
  * - Error   -> something went wrong while trying to release
  */
-ErrorOrPtr resource_release_region(struct kresource_mirror** region);
-ErrorOrPtr resource_release(uintptr_t start, size_t size, struct kresource_mirror** mirrors_start);
+ErrorOrPtr resource_release_region(kresource_t** region);
+ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t** mirrors_start);
 
-/*
- * This serves as a pseudo-resource in the sense that 
- * it only stores the start address and the size. The
- * resource manager should be able to infer the actual 
- * kresource from this
- * NOTE: the mirror contains the actual address, while the real
- *       resource can contain a lower address. This has to do with 
- *       the fact that we reuse kresource objects when we share them.
- *       owner-sided we should store the absolute address, so we can
- *       do the appropriate arithmatic on it
- */
-typedef struct kresource_mirror {
-  uintptr_t m_start;
-  size_t m_size;
-
-  kresource_type_t m_type;
-  kresource_flags_t m_flags;
-
-  uint32_t m_reserved0;
-
-  struct kresource_mirror* m_next;
-} kresource_mirror_t;
-
-void destroy_kresource_mirror(kresource_mirror_t* mirror);
+void destroy_kresource_mirror(kresource_t* mirror);
 
 /*
  * Try to change the flags of a certain resource
  * size is nullable
  * NULL resource_flags will result in a flag reset to defaults
  */
-ErrorOrPtr mutate_resource(uintptr_t start, size_t size, kresource_type_t type, kresource_flags_t resource_flags, kresource_mirror_t** mirrors);
+ErrorOrPtr mutate_resource(uintptr_t start, size_t size, kresource_type_t type, kresource_flags_t resource_flags, kresource_t** mirrors);
 
 /*
  * Looks for a unused virtual region of the specified size we can 
  * Creates a kresource mirror that may be used in order to 
  * claim this region, for instance
  */
-ErrorOrPtr query_unused_resource(size_t size, kresource_type_t type, kresource_mirror_t* out, kresource_mirror_t** mirrors);
+ErrorOrPtr query_unused_resource(size_t size, kresource_type_t type, kresource_t* out, kresource_t** mirrors);
 
 #endif // !__ANIVA_SYS_RESOURCE__

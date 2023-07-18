@@ -15,7 +15,7 @@ def take_input(string: str) -> str:
 
 class Consts:
     PROJECT_NAME: str = "lighthouse-os"
-    KERNEL_NAME: str = "Aniva"
+    KERNEL_NAME: str = "aniva"
 
     PROJECT_DIR = str(os.path.abspath(""))
 
@@ -82,6 +82,7 @@ class Consts:
     CRT_FILES: list[SourceFile] = []
     SRC_FILES: list[SourceFile] = []
     OBJ_FILES = []
+    KERNEL_OBJ_FILES = []
     SRC_LINES: list[int] = []
 
     USER_PROJECT_PATHS: list[str] = []
@@ -92,6 +93,7 @@ class Consts:
     def __init__(self) -> None:
         self.SRC_FILES = []
         self.OBJ_FILES = []
+        self.KERNEL_OBJ_FILES = []
         self.SRC_LINES = []
         self.CRT_FILES = []
 
@@ -182,6 +184,8 @@ class Consts:
                     self.SRC_FILES.append(file)
                 elif entry.endswith(".o"):
                     self.OBJ_FILES.append(abs_entry)
+                    if abs_entry.find(f"{self.OUT_DIR}/{self.KERNEL_NAME}") != -1:
+                        self.KERNEL_OBJ_FILES.append(abs_entry)
 
     def log_source(self) -> None:
         print("Logging source files: ")

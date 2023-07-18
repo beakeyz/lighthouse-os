@@ -27,6 +27,7 @@ typedef struct _FILE {
   size_t w_buf_written;
 
   size_t r_buf_size;
+  size_t r_offset;
 
   uint32_t _flags;
 

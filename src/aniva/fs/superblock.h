@@ -11,9 +11,15 @@
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
+struct vdir;
 struct sb_ops;
 struct vnode;
 
+/*
+ * FIXME: should we move the entire functionality of superblocks to the vnode struct?
+ * It is kinda cumbersome to manage two of these obnoxious structs, and in this kernel,
+ * the vnodes pretty much do the job of superblocks in kernels like linux...
+ */
 typedef struct fs_superblock {
 
   struct sb_ops* m_ops;
@@ -29,16 +35,11 @@ typedef struct fs_superblock {
   size_t m_total_blocks;
 
   uintptr_t m_first_usable_block;
-
   uintptr_t m_max_filesize;
 
   void* m_fs_specific_info;
-  
-  /*
-  size_t m_block_count;
-  size_t m_reserved_block_count;
-  uintptr_t m_last_usable_block;
-  */
+
+  struct vdir* m_root_dir;
 
 } fs_superblock_t;
 
