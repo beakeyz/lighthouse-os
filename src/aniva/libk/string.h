@@ -9,9 +9,11 @@ int strcmp (const char* str1, const char* str2);
 // and then there where two
 char* strcpy (char* dest, const char* src);
 
+char* strdup(const char* str);
+
 // mem shit
 
-int memcmp (const void* dest, const void* src, size_t size);
+bool memcmp (const void* dest, const void* src, size_t size);
 void *memcpy(void * restrict dest, const void * restrict src, size_t length);
 // Problematic rn
 void *memmove(void *dest, const void *src, size_t n);

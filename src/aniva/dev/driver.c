@@ -170,7 +170,7 @@ bool driver_is_busy(aniva_driver_t* driver)
 /*
  * Quick TODO: create a way to validate pointer origin
  */
-int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
+int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   int result;
   dev_manifest_t* manifest;
@@ -188,14 +188,14 @@ int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
 
   mutex_lock(&manifest->m_lock);
 
-  result = manifest->m_ops.f_read(driver, buffer, buffer_size);
+  result = manifest->m_ops.f_read(driver, buffer, buffer_size, offset);
 
   mutex_unlock(&manifest->m_lock);
 
   return result;
 }
 
-int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
+int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   int result;
   dev_manifest_t* manifest;
@@ -213,7 +213,7 @@ int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size)
 
   mutex_lock(&manifest->m_lock);
 
-  result = manifest->m_ops.f_write(driver, buffer, buffer_size);
+  result = manifest->m_ops.f_write(driver, buffer, buffer_size, offset);
 
   mutex_unlock(&manifest->m_lock);
 

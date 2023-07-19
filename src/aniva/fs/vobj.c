@@ -1,6 +1,7 @@
 #include "vobj.h"
 #include "dev/debug/serial.h"
 #include "fs/file.h"
+#include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
@@ -43,8 +44,7 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
   obj->m_child = nullptr;
   obj->m_type = VOBJ_TYPE_EMPTY;
 
-  obj->m_path = kmalloc(strlen(path) + 1);
-  memcpy((void*)obj->m_path, path, strlen(path) + 1);
+  obj->m_path = strdup(path);
 
   /* This is quite aggressive, we should prob just clean and return nullptr... */
   Must(vn_attach_object(parent, obj));
@@ -73,7 +73,6 @@ void destroy_vobj(vobj_t* obj) {
 
 void vobj_register_child(vobj_t* obj, void* child, VOBJ_TYPE_t type, FuncPtr destroy_fn)
 {
-
   if (!obj)
     return;
 

@@ -62,7 +62,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         size_t buffer_size = length;
         aniva_driver_t* driver = khandle->reference.driver;
 
-        result = drv_write(driver, buffer, &buffer_size);
+        result = drv_write(driver, buffer, &buffer_size, khandle->offset);
 
         if (result == DRV_STAT_OK)
           break;
@@ -125,7 +125,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         size_t buffer_size = length;
         aniva_driver_t* driver = khandle->reference.driver;
 
-        result = drv_read(driver, buffer, &buffer_size);
+        result = drv_read(driver, buffer, &buffer_size, khandle->offset);
 
         if (result == DRV_STAT_OK)
           break;

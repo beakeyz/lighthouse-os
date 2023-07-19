@@ -1,4 +1,5 @@
 #include "core.h"
+#include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
 
@@ -44,9 +45,9 @@ static int f32file_seek_index(fat_file_t* file, int index)
 }
 
 /* Very linux-y */
-int fat_prepare_finfo(struct fs_superblock* sb)
+int fat_prepare_finfo(vnode_t* node)
 {
-  fat_fs_info_t* info = FAT_FSINFO(sb);
+  fat_fs_info_t* info = FAT_FSINFO(node);
 
   info->fat_lock = create_mutex(0);
 

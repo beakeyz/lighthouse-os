@@ -181,21 +181,29 @@ void kterm_command_worker() {
 
         vobj_t* obj = vfs_resolve(contents);
 
-
         if (!obj) {
           kterm_println("Could not find object!");
           goto end_processing;
         }
 
-        file_t* file = vobj_get_file(obj);
+        kterm_println(to_string(obj->m_refc));
 
+        file_t* file = vobj_get_file(obj);
 
         if (!file) {
           kterm_println("Could not execute object!");
           goto end_processing;
         }
 
-        p = (proc_t*)Must(elf_exec_static_64_ex(file, false, true));
+        ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
+
+        if (IsError(result)) {
+          kterm_println("Coult not execute object!");
+          vobj_close(obj);
+          goto end_processing;
+        }
+
+        p = (proc_t*)Release(result);
 
         vobj_close(obj);
 
@@ -257,7 +265,7 @@ aniva_driver_t g_base_kterm_driver = {
 };
 EXPORT_DRIVER(g_base_kterm_driver);
 
-static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size)
+static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   char* str = (char*)buffer;
 
@@ -272,7 +280,7 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size)
   return DRV_STAT_OK;
 }
 
-static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size)
+static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   kernel_panic("kterm_read(TODO: impl)");
 }

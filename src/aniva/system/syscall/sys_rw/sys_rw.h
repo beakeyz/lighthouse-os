@@ -7,4 +7,7 @@
 uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length);
 uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length);
 
+/* TODO */
+uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t flags);
+
 #endif // !__ANIVA_SYS_READWRITE__

@@ -8,7 +8,6 @@
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/namespace.h"
-#include "fs/superblock.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
@@ -34,9 +33,9 @@ typedef uintptr_t fat_offset_t;
 
 /* TODO: */
 static int fat_parse_lfn(void* dir, fat_offset_t* offset);
-static int fat_parse_short_fn(fs_superblock_t* sb, fat_dir_entry_t* dir, const char* name);
+static int fat_parse_short_fn(fat_dir_entry_t* dir, const char* name);
 
-static int parse_fat_bpb(fat_boot_sector_t* bpb, fs_superblock_t* block) {
+static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
 
   if (!fat_valid_bs(bpb)) {
     return FAT_INVAL;
@@ -59,7 +58,7 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, fs_superblock_t* block) {
   }
 
   /* TODO: fill data in superblock with useful data */
-  block->m_blocksize = bpb->sector_size;
+  block->fs_data.m_blocksize = bpb->sector_size;
 
   return FAT_OK;
 }
@@ -99,7 +98,6 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   /* Get FAT =^) */
 
-  fs_superblock_t* sb;
   fat_fs_info_t* ffi;
   uint8_t buffer[device->m_parent->m_logical_sector_size];
   fat_boot_sector_t* boot_sector;
@@ -112,9 +110,6 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     return nullptr;
   }
 
-  /* Create sb */
-  device->m_superblock = create_fs_superblock();
-
   /* Create root vnode */
   node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
 
@@ -124,8 +119,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   create_fat_info(node);
 
   /* Cache superblock and fs info */
-  sb = device->m_superblock;
-  ffi = device->m_superblock->m_fs_specific_info;
+  ffi = VN_FS_DATA(node).m_fs_specific_info;
 
   /* Set the local pointer to the bootsector */
   boot_sector = &ffi->boot_sector_copy;
@@ -134,7 +128,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   memcpy(boot_sector, buffer, sizeof(fat_boot_sector_t));
 
   /* Try to parse boot sector */
-  int parse_result = parse_fat_bpb(boot_sector, device->m_superblock);
+  int parse_result = parse_fat_bpb(boot_sector, node);
 
   /* Not a valid FAT fs */
   if (parse_result != FAT_OK)
@@ -153,9 +147,9 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   ffi->total_fs_size = boot_sector->sector_size * boot_sector->total_sectors;
 
   /* Attempt to reset the blocksize for the partitioned device */
-  if (device->m_parent->m_logical_sector_size > sb->m_blocksize) {
+  if (device->m_parent->m_logical_sector_size > VN_FS_DATA(node).m_blocksize) {
 
-    if (!pd_set_blocksize(device, sb->m_blocksize)) {
+    if (!pd_set_blocksize(device, VN_FS_DATA(node).m_blocksize)) {
       kernel_panic("Failed to set blocksize! abort");
     }
   }
@@ -166,12 +160,12 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* TODO: move superblock initialization to its own function */
 
   /* Fetch blockcounts */
-  device->m_superblock->m_total_blocks = ffi->boot_sector_copy.sectors;
+  VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.sectors;
 
-  if (!device->m_superblock->m_total_blocks)
-    device->m_superblock->m_total_blocks = ffi->boot_sector_copy.total_sectors;
+  if (!VN_FS_DATA(node).m_total_blocks)
+    VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.total_sectors;
 
-  device->m_superblock->m_first_usable_block = ffi->boot_sector_copy.reserved_sectors;
+  VN_FS_DATA(node).m_first_usable_block = ffi->boot_sector_copy.reserved_sectors;
 
   /* NOTE: we reuse the buffer of the boot sector */
   read_result = pd_bread(device, buffer, 1);
@@ -185,14 +179,12 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* Copy the boot fsinfo to the ffi structure */
   memcpy(internal_fs_info, buffer, sizeof(fat_boot_fsinfo_t));
 
-  device->m_superblock->m_free_blocks = ffi->boot_fs_info.free_clusters;
+  VN_FS_DATA(node).m_free_blocks = ffi->boot_fs_info.free_clusters;
 
-  fat_prepare_finfo(device->m_superblock);
+  fat_prepare_finfo(node);
 
   node->m_ops = &__fat_vnode_ops;
 
-  println(to_string(device->m_superblock->m_total_blocks));
-  println(to_string(device->m_superblock->m_free_blocks));
   println("Did fat filesystem!");
 
   //kernel_panic("Test");
@@ -205,13 +197,6 @@ fail:
     destroy_fat_info(node);
     destroy_generic_vnode(node);
   }
-
-  /* Make sure the devices superblock is killed before we use this pointer again */
-  if (device->m_superblock)
-    destroy_fs_superblock(device->m_superblock);
-
-
-  device->m_superblock = nullptr;
 
   return nullptr;
 }

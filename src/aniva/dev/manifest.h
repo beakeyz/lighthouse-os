@@ -14,8 +14,8 @@
 #define DMAN_FLAG_HAS_FILE      (0x00000020)
 
 typedef struct driver_ops {
-  int (*f_write) (aniva_driver_t* driver, void* buffer, size_t* buffer_size);
-  int (*f_read) (aniva_driver_t* driver, void* buffer, size_t* buffer_size);
+  int (*f_write) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
+  int (*f_read) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
 } driver_ops_t;
 
 typedef struct dev_manifest {

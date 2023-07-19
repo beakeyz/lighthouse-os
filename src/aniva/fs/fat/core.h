@@ -1,8 +1,8 @@
 #ifndef __ANIVA_GENERIC_FAT__
 #define __ANIVA_GENERIC_FAT__
 #include "dev/disk/shared.h"
-#include "fs/superblock.h"
 #include "mem/heap.h"
+#include "sync/mutex.h"
 #include <libk/stddef.h>
 
 struct vnode;
@@ -183,7 +183,7 @@ typedef struct fat_fs_info {
 
 } fat_fs_info_t;
 
-#define FAT_FSINFO(superblk) ((fat_fs_info_t*)((superblk)->m_fs_specific_info))
+#define FAT_FSINFO(node) ((fat_fs_info_t*)((node)->fs_data.m_fs_specific_info))
 
 static inline bool is_fat32(fat_fs_info_t* finfo)
 {
@@ -234,7 +234,7 @@ static void fat_file_set_entry(fat_file_t* file, int entry)
   file->idx.index_ft32 = NULL;
 }
 
-extern int fat_prepare_finfo(struct fs_superblock* sb);
+extern int fat_prepare_finfo(struct vnode* node);
 
 extern int ffile_read(fat_file_t* f, int e);
 extern int ffile_write(fat_file_t* f, int e);

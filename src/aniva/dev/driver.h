@@ -95,8 +95,8 @@ bool driver_is_ready(aniva_driver_t* driver);
 
 bool driver_is_busy(aniva_driver_t* driver);
 
-int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size);
-int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size);
+int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
+int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
 
 /*
  * Create a thread for this driver in the kernel process

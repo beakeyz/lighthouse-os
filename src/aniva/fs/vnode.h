@@ -6,6 +6,7 @@
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
+#include "mem/zalloc.h"
 #include <sync/mutex.h>
 #include <libk/stddef.h>
 
@@ -19,7 +20,7 @@ enum VNODE_TYPES {
   VNODE_DRIVER,     /* Every driver has a drv object attached */
 };
 
-/* TODO: migrate ops to these structs */
+/* TODO: clean this up and move functions to their supposed structs */
 struct generic_vnode_ops {
   /* Send some data to this node and have whatever is connected do something for you */
   int (*f_msg) (struct vnode*, driver_control_code_t code, void* buffer, size_t size);
@@ -36,16 +37,19 @@ struct generic_vnode_ops {
 
   /* Close a vobject that has been opened by this vnode */
   int (*f_close)(struct vnode*, struct vobj*); 
+
+  void (*destroy_fs_specific_info)(void*);
+  int (*reload_sb)(struct vnode*);
+  void (*remount_fs)(struct vnode*);
 };
 
+/* TODO: migrate */
 struct vnode_dir_ops {
   int (*f_create)(struct vnode* dir);
   int (*f_remove)(struct vnode* dir);
   int (*f_make)(struct vnode* dir);
   int (*f_rename)(struct vnode* dir, const char* new_name);
 };
-
-#define VN_SUPERBLOCK(node) ((struct fs_superblock*)(node->m_device->m_superblock))
 
 typedef struct vnode {
   mutex_t* m_lock;
@@ -72,11 +76,13 @@ typedef struct vnode {
   struct generic_vnode_ops* m_ops; 
   struct vnode_dir_ops* m_dir_ops;
 
+  zone_allocator_t* m_vdir_allocator;
+
   /*
    * Objects can be anything from files to directories to simply kobjects
    * and they should probably be stored in a hashtable here lol
    */
-  struct vobj* m_objects;
+  struct vdir* m_objects;
   size_t m_object_count;
 
   /* 
@@ -90,8 +96,28 @@ typedef struct vnode {
      */
     struct vnode* m_ref;
     list_t* m_links;
+
+    /* This sub-struct contains the fields that tell us stuff about the filesystem */
+    struct {
+      uint32_t m_blocksize;
+      uint32_t m_flags;
+
+      /* FIXME: are these fields supposed to to be 64-bit? */
+      uint32_t m_dirty_blocks;
+      uint32_t m_faulty_blocks;
+      size_t m_free_blocks;
+      size_t m_total_blocks;
+
+      uintptr_t m_first_usable_block;
+      uintptr_t m_max_filesize;
+
+      void* m_fs_specific_info;
+
+    } fs_data;
   };
 } vnode_t;
+
+#define VN_FS_DATA(node) (node)->fs_data
 
 #define VN_ROOT     (0x00000001) /* Is this node the root of something? */
 #define VN_SYS      (0x00000002) /* Is this node owned by the system? */
@@ -152,13 +178,17 @@ void vn_unfreeze(vnode_t*);
 int vn_take(vnode_t* node, uint32_t flags);
 int vn_release(vnode_t* node);
 
+/* Attach relative to the root vdir */
 ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj);
+
+/* Attach relative from the given vdir */
+ErrorOrPtr vn_attach_object_rel(vnode_t* node, struct vdir* dir, struct vobj* obj);
+
 ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj);
 ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path);
 
+struct vobj* vn_get_object_rel(vnode_t* node, struct vdir* dir, const char* path);
 struct vobj* vn_get_object(vnode_t* node, const char* path);
-struct vobj* vn_get_object_idx(vnode_t* node, uintptr_t idx);
-ErrorOrPtr vn_obj_get_index(vnode_t* node, struct vobj*);
 
 bool vn_has_object(vnode_t* node, const char* path);
 

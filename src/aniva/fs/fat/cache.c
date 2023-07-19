@@ -13,7 +13,7 @@ ErrorOrPtr create_fat_info(vnode_t* node)
 {
   fat_fs_info_t* info;
 
-  if (!node || !node->m_device || !VN_SUPERBLOCK(node))
+  if (!node)
     return Error();
 
   info = zalloc_fixed(__fat_info_cache);
@@ -21,7 +21,7 @@ ErrorOrPtr create_fat_info(vnode_t* node)
   if (!info)
     return Error();
 
-  VN_SUPERBLOCK(node)->m_fs_specific_info = info;
+  node->fs_data.m_fs_specific_info = info;
 
   return Success(0);
 }
@@ -30,14 +30,14 @@ void destroy_fat_info(vnode_t* node)
 {
   fat_fs_info_t* info;
 
-  if (!node || !node->m_device || !VN_SUPERBLOCK(node))
+  if (!node || !FAT_FSINFO(node))
     return;
 
-  info = VN_SUPERBLOCK(node)->m_fs_specific_info;
+  info = FAT_FSINFO(node);
 
   zfree_fixed(__fat_info_cache, info);
 
-  VN_SUPERBLOCK(node)->m_fs_specific_info = nullptr;
+  node->fs_data.m_fs_specific_info = nullptr;
 }
 
 void init_fat_cache(void)

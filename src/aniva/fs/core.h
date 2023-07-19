@@ -1,7 +1,6 @@
 #ifndef __ANIVA_FS_CORE__
 #define __ANIVA_FS_CORE__
 
-#include "fs/superblock.h"
 #include <libk/stddef.h>
 #include <libk/flow/error.h>
 #include <dev/disk/generic.h>
@@ -14,7 +13,6 @@ typedef struct fs_type {
   const char* m_name;
   uint32_t m_flags;
 
-  void (*f_kill_superblock)(struct fs_type*, fs_superblock_t* sb);
   void (*f_unmount)(struct fs_type*, struct vnode*);
   struct vnode* (*f_mount)(struct fs_type*, const char*, partitioned_disk_dev_t* dev);
 

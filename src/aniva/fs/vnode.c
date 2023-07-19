@@ -1,49 +1,190 @@
 
 #include "vnode.h"
 #include "dev/debug/serial.h"
+#include "fs/vfs.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/reference.h"
+#include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
+#include "vdir.h"
 
-static vobj_t** find_vobject_path(vnode_t* node, const char* path) 
+/*
+ * Find the last VFS_PATH_SEPERATOR and cut it off
+ */
+static void __cut_off_filename(char* path)
 {
-  if (!node || !path)
+  uint64_t i = strlen(path) - 1;
+
+  while (i--) {
+    if (path[i] == VFS_PATH_SEPERATOR) {
+      path[i] = NULL;
+      break;
+    }
+  }
+}
+
+/* 
+ * This always takes an absolute path
+ */
+static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
+{
+  vdir_t* prev;
+  vdir_t* ret;
+  bool reached_end;
+  char* buffer;
+  char* buffer_start;
+
+  /* Quick copy of the path on the heap ;-; */
+  buffer = strdup(path);
+  buffer_start = buffer;
+  reached_end = false;
+  ret = root;
+  prev = root;
+
+  if (memcmp(root->m_name, path, root->m_name_len))
+    /* Skip the roots name in the scan */
+    buffer += root->m_name_len;
+
+  /* Buffer will be freed inside this loop */
+  while (buffer && !reached_end) {
+    
+    while (*buffer != VFS_PATH_SEPERATOR) {
+      if (*buffer == NULL) {
+        reached_end = true;
+        break;
+      }
+      buffer++;
+    }
+
+    /* Set */
+    *buffer = NULL;
+
+    for (; ret; ret = ret->m_next_sibling) {
+      if (memcmp(buffer_start, ret->m_name, ret->m_name_len)) {
+        break;
+      }
+    }
+
+    if (!ret || reached_end) {
+      kfree(buffer_start);
+      buffer = nullptr;
+      continue;
+    } else {
+      /* Decend into the next subdir */
+      prev = ret;
+      ret = ret->m_subdirs;
+    }
+    /* Reset */
+    *buffer = VFS_PATH_SEPERATOR;
+    buffer++;
+  }
+
+  /* Assert? */
+  if (buffer){
+    kfree(buffer_start);
+    return nullptr;
+  }
+
+  if (ret)
+    return ret;
+
+  return prev;
+}
+
+static vdir_t* __create_vobject_path(vnode_t* node, const char* path) 
+{
+  vdir_t* ret;
+  vdir_t* prev;
+  bool reached_end;
+  char* buffer;
+  char* buffer_start;
+
+  /* Quick copy of the path on the heap ;-; */
+  buffer = strdup(path);
+  buffer_start = buffer;
+  reached_end = false;
+  ret = node->m_objects;
+  prev = ret;
+
+  /* Buffer will be freed inside this loop */
+  while (buffer && !reached_end) {
+    
+    while (*buffer != VFS_PATH_SEPERATOR) {
+      if (*buffer == NULL) {
+        reached_end = true;
+        break;
+      }
+      buffer++;
+    }
+
+    /* Set */
+    *buffer = NULL;
+
+    for (; ret; ret = ret->m_next_sibling) {
+      if (memcmp(buffer_start, ret->m_name, ret->m_name_len)) {
+        break;
+      }
+    }
+
+    if (reached_end) {
+      kfree(buffer_start);
+      buffer = nullptr;
+      break;
+    } 
+
+    if (!ret) {
+      /* Create a vdir and link it */
+      ret = create_vdir(node, prev, buffer_start);
+    } else {
+      /* Decend into the next subdir */
+      prev = ret;
+      ret = ret->m_subdirs;
+    }
+    /* Reset */
+    *buffer = VFS_PATH_SEPERATOR;
+    buffer++;
+  }
+
+  /* Assert? */
+  if (buffer){
+    kfree(buffer_start);
+    return nullptr;
+  }
+
+  if (!ret)
+    return prev;
+
+  return ret;
+}
+
+static vobj_t* __find_vobject_path(vdir_t* root, const char* path) 
+{
+  vobj_t* ret;
+  vdir_t* dir;
+
+  if (!root || !path)
     return nullptr;
 
-  vobj_t** ret = &node->m_objects;
+  dir = __scan_for_dir_from(root, path);
+
+  if (!dir)
+    return nullptr;
 
   /* Loop until there is no next object */
-  for (; *ret; ret = &(*ret)->m_next) {
+  for (ret = dir->m_objects; ret; ret = ret->m_next) {
     /* Check path */
-    if (memcmp((*ret)->m_path, path, strlen(path)))
+    if (memcmp(ret->m_path, path, strlen(path)))
       break;
   }
 
   return ret;
 }
-
-
-static vobj_t** find_vobject(vnode_t* node, vobj_t* obj) 
-{
-  if (!node || !obj)
-    return nullptr;
-
-  vobj_t** ret = &node->m_objects;
-
-  /* Loop until we match pointers */
-  for (; *ret; ret = &(*ret)->m_next) {
-    if (*ret == obj)
-      break;
-  }
-
-  return ret;
-}
-
 
 /*
  * Some dummy op functions
@@ -80,18 +221,10 @@ static vobj_t* vnode_open(vnode_t* node, char* name)
 
   mutex_lock(node->m_vobj_lock);
 
-  vobj_t* ret;
-  vobj_t** slot = find_vobject_path(node, name);
-
-  if (slot && *slot) {
-    ret = *slot;
-
-    mutex_unlock(node->m_vobj_lock);
-    return ret;
-  }
+  vobj_t* ret = __find_vobject_path(node->m_objects, name);
 
   mutex_unlock(node->m_vobj_lock);
-  return nullptr;
+  return ret;
 }
 
 static int vnode_close(vnode_t* node, vobj_t* obj)
@@ -153,6 +286,12 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   node->m_id = -1;
   node->m_flags = flags;
 
+  /* Take 2 pages initially to store any vdir objects */
+  node->m_vdir_allocator = create_zone_allocator(8 * Kib, sizeof(vdir_t), NULL);
+
+  /* Create the root vdir for this node */
+  node->m_objects = create_vdir(node, nullptr, ".");
+
   vnode_set_type(node, VNODE_NONE);
 
   if ((flags & VN_FS) == VN_FS)
@@ -189,6 +328,13 @@ ErrorOrPtr destroy_generic_vnode(vnode_t* node) {
     kernel_panic("TODO: clean vnode from cache");
   }
 
+  /* Kill all the directories and the objects that are attached to them */
+  if (node->m_objects)
+    destroy_vdirs(node->m_objects, true);
+
+  if (node->m_vdir_allocator)
+    destroy_zone_allocator(node->m_vdir_allocator, true);
+
   destroy_mutex(node->m_lock);
   destroy_mutex(node->m_vobj_lock);
 
@@ -222,6 +368,13 @@ void vn_freeze(vnode_t* node) {
   node->m_flags |= VN_FROZEN;
 }
 
+/*
+ * If writes are queued, we need to flush them...
+ */
+void vn_unfreeze(vnode_t* node) {
+  node->m_flags &= ~VN_FROZEN;
+}
+
 bool vn_is_available(vnode_t* node) {
 
   if ((node->m_flags & VN_TAKEN) == VN_TAKEN) {
@@ -233,13 +386,6 @@ bool vn_is_available(vnode_t* node) {
    * way it can be available is if it is marked flexible
    */
   return (node->m_flags & VN_FLEXIBLE) == VN_FLEXIBLE;
-}
-
-/*
- * If writes are queued, we need to flush them...
- */
-void vn_unfreeze(vnode_t* node) {
-  node->m_flags &= ~VN_FROZEN;
 }
 
 int vn_take(vnode_t* node, uint32_t flags) {
@@ -269,21 +415,7 @@ int vn_release(vnode_t* node) {
   if (!node || (node->m_flags & VN_TAKEN) == 0 || !mutex_is_locked_by_current_thread(node->m_lock))
     return -1;
 
-  vobj_t** obj = &node->m_objects;
-
-  while (*obj) {
-    vobj_t* current = *obj;
-
-    ASSERT_MSG(current->m_ops, "vnode contained invalid vobject!");
-
-    /* Cache the next */
-    vobj_t** next = &current->m_next;
-
-    /* Murder the object and detach it */
-    destroy_vobj(current);
-
-    obj = next;
-  }
+  destroy_vdirs(node->m_objects, true);
 
   node->m_objects = nullptr;
   node->m_flags &= ~VN_TAKEN;
@@ -292,8 +424,18 @@ int vn_release(vnode_t* node) {
 
   return 0;
 }
+  
 
-ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
+ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) 
+{
+  return vn_attach_object_rel(node, node->m_objects, obj);
+}
+
+ErrorOrPtr vn_attach_object_rel(vnode_t* node, struct vdir* dir, struct vobj* obj)
+{
+  vdir_t* slot;
+  int result;
+
   if (!node || !obj)
     return Error();
 
@@ -313,15 +455,20 @@ ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) {
   /* vobject opperations are locked by m_vobj_lock, so we need to take it here */
   mutex_lock(node->m_vobj_lock);
 
-  /* Look for the thing */
-  vobj_t** slot = find_vobject(node, obj);
+  println(obj->m_path);
 
-  /* Slot already taken?? */
-  if (*slot)
+  /* Look for the thing */
+  slot = __create_vobject_path(node, obj->m_path);
+
+  if (!slot)
     goto exit_error;
 
-  /* Assign slot */
-  *slot = obj;
+  result = vdir_put_vobj(slot, obj);
+
+  if (result < 0)
+    goto exit_error;
+
+  ASSERT_MSG(obj->m_parent_dir == slot, "Parent dir mismatch for vobject attaching");
 
   /* Take ownership of the object */
   obj->m_parent = node;
@@ -349,6 +496,10 @@ exit_error:;
  */
 ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
 
+  char* path;
+  vdir_t* dir;
+  vobj_t** slot;
+
   if (!node || !obj)
     return Error();
 
@@ -360,9 +511,24 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
     return Error();
   }
 
+  path = strdup(obj->m_path);
+  __cut_off_filename(path);
+
   mutex_lock(node->m_vobj_lock);
 
-  vobj_t** slot = find_vobject(node, obj);
+  /* Find the directory we are located in */
+  dir = __scan_for_dir_from(node->m_objects, path);
+
+  if (!dir) {
+    mutex_unlock(node->m_vobj_lock);
+    return Error();
+  }
+
+  /* Check if it contains our slot */
+  for (slot = &dir->m_objects; *slot; slot = &(*slot)->m_next) {
+    if (*slot == obj)
+      break;
+  }
 
   if (*slot) {
     /* Sanity */
@@ -386,103 +552,34 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
 ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path) {
 
   /* First find the object without taking the mutex */
-  vobj_t** slot = find_vobject_path(node, path);
+  vobj_t* slot = __find_vobject_path(node->m_objects, path);
 
   if (!slot)
     return Error();
 
-  if (!*slot)
-    return Error();
-
   /* Then detach while taking the mutex */
-  return vn_detach_object(node, *slot);
+  return vn_detach_object(node, slot);
 }
 
 bool vn_has_object(vnode_t* node, const char* path) {
-  vobj_t** obj = find_vobject_path(node, path);
+  vobj_t* obj = __find_vobject_path(node->m_objects, path);
 
-  return (obj && *obj);
+  return (obj != nullptr);;
 }
 
 struct vobj* vn_get_object(vnode_t* node, const char* path) {
   
-  vobj_t* itt;
+  vobj_t* ret;
 
   if (!node || !path)
     return nullptr;
 
   mutex_lock(node->m_vobj_lock);
 
-  itt = node->m_objects;
-
-  while (itt) {
-
-    if (memcmp(itt->m_path, path, strlen(itt->m_path))) {
-      mutex_unlock(node->m_vobj_lock);
-      return itt;
-    }
-
-    itt = itt->m_next;
-  }
+  ret = __find_vobject_path(node->m_objects, path);
 
   mutex_unlock(node->m_vobj_lock);
-  return nullptr;
-}
-
-struct vobj* vn_get_object_idx(vnode_t* node, uintptr_t idx) {
-
-  vobj_t* itt;
-
-  if (!node)
-    return nullptr;
-
-  if (idx == 0) {
-    return node->m_objects;
-  }
-
-  mutex_lock(node->m_vobj_lock);
-
-  itt = node->m_objects;
-
-  for (uintptr_t i = 0; i < idx; i++) {
-    /* Could not find it (index > object count) */
-    if (!itt) {
-      mutex_unlock(node->m_vobj_lock);
-      return nullptr;
-    }
-
-    itt = itt->m_next;
-  }
-
-  mutex_unlock(node->m_vobj_lock);
-  return itt;
-}
-
-ErrorOrPtr vn_obj_get_index(vnode_t* node, vobj_t* obj) {
-
-  ErrorOrPtr result;
-  uintptr_t idx;
-  vobj_t** itt;
-
-  if (!node)
-    return Error();
-
-  itt = &node->m_objects;
-  result = Error();
-  idx = 0;
-
-  while (*itt) {
-
-    if (*itt == obj) {
-      result = Success(idx);
-      break;
-    }
-
-    itt = &(*itt)->m_next;
-    idx++;
-  }
-
-  return result;
+  return ret;
 }
 
 /*
@@ -594,7 +691,9 @@ vobj_t* vn_open(vnode_t* node, char* name) {
     return ret;
   }
 
+  println("Opening");
   ret = node->m_ops->f_open(node, name);
+  println("Opened");
 
   vobj_ref(ret);
 
@@ -609,15 +708,6 @@ int vn_close(vnode_t* node, struct vobj* obj)
   /* Failing to close fs-side, is actually a major issue */
   if (node->m_ops->f_close(node, obj) < 0)
     return -1;
-
-  /* Look if we have it attached */
-  vobj_t** slot = find_vobject(node, obj);
-
-  if (!slot || !*slot) {
-    return -1;
-  }
-
-  ASSERT_MSG(*slot == obj, "vn_close: *slot != obj (object mismatch)!");
 
   /* Unref in order to only destroy when the object is not used anywhere */
   vobj_unref(obj);

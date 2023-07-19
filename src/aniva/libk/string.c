@@ -35,6 +35,25 @@ char* strcpy (char* dest, const char* src) {
     return dest;
 }
 
+char* strdup(const char* str)
+{
+  char* ret;
+
+  if (!str)
+    return nullptr;
+
+  size_t len = strlen(str);
+
+  ret = kmalloc(len + 1);
+
+  ASSERT_MSG(ret, "Failed to allocate a new string for kernel_strdup");
+
+  memset(ret, 0, len + 1);
+  memcpy(ret, str, len);
+
+  return ret;
+}
+
 // TODO: dis mofo is broken as fuck, fix it
 // for now, make it x86 specific
 // FIXME: refactor memcpy and memset so they match the archetecture the kernel is being built for
@@ -54,7 +73,7 @@ void *memcpy(void * restrict dest, const void * restrict src, size_t length)
 }
 
 // TODO: this is very confusing, it differs from the standard. find out what to do with it.
-int memcmp(const void *s1, const void *s2, size_t n)
+bool memcmp(const void *s1, const void *s2, size_t n)
 {
     const char *ss1 = (const char *)s1;
     const char *ss2 = (const char *)s2;

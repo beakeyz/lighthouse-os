@@ -1,6 +1,7 @@
 #include "core.h"
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
+#include "fs/vdir.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include <sync/mutex.h>
@@ -110,6 +111,8 @@ fs_type_t* get_fs_type(const char* name) {
 void init_fs_core() {
 
   fsystems_lock = create_mutex(0);
+
+  init_vdir();
 
 }
 

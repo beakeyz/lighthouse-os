@@ -58,6 +58,8 @@ typedef struct vobj {
   vobj_ops_t* m_ops;
   mutex_t* m_lock;
 
+  struct vdir* m_parent_dir;
+
   /*
    * This is the handle that we can use to find this vobj implicitly.
    */

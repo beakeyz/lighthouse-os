@@ -2,7 +2,6 @@
 #define __ANIVA_GENERIC_DISK_DEV__
 #include "dev/debug/serial.h"
 #include "dev/disk/shared.h"
-#include "fs/superblock.h"
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
 #include "mem/heap.h"
@@ -61,8 +60,6 @@ typedef struct disk_dev {
 
 typedef struct partitioned_disk_dev {
   struct disk_dev* m_parent;
-
-  fs_superblock_t* m_superblock;
 
   char* m_name;
   uint64_t m_start_lba;
