@@ -732,13 +732,9 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
 
   page->raw_bits = NULL;
 
-  /* When we dont unmap recursively, just invalidate and return */
-  if ((custom_flags & KMEM_CUSTOMFLAG_RECURSIVE_UNMAP) == 0)
-    goto end;
+  if ((custom_flags & KMEM_CUSTOMFLAG_RECURSIVE_UNMAP) == KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)
+    __kmem_do_recursive_unmap(table, virt);
 
-  __kmem_do_recursive_unmap(table, virt);
-
-end:
   kmem_invalidate_tlb_cache_entry(virt);
 
   return true;
