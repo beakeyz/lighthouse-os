@@ -31,6 +31,9 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   if (!name || !entry)
     return nullptr;
 
+  println("proc create");
+  kmem_debug();
+
   /* TODO: create proc cache */
   proc = kzalloc(sizeof(proc_t));
 
@@ -62,7 +65,8 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
 
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
-  proc->m_resources = nullptr;
+
+  create_resource_bundle(&proc->m_resource_bundle);
 
   proc->m_threads = init_list();
 
@@ -119,8 +123,11 @@ static void __proc_clear_shared_resources(proc_t* proc)
    */
 
   ErrorOrPtr result;
+  kresource_t* start_resource;
+  kresource_t* current;
+  kresource_t* next;
 
-  if (!proc->m_resources)
+  if (!*proc->m_resource_bundle)
     return;
   
   /*
@@ -128,45 +135,73 @@ static void __proc_clear_shared_resources(proc_t* proc)
    * __kmem_dealloc calls resource_release which will place 
    * the address of the next resource in ->m_resources
    */
-  while (proc->m_resources) {
 
-    kresource_t* current_mirror = proc->m_resources;
+  for (kresource_type_t type = 0; type < KRES_MAX_TYPE; type++) {
 
-    uintptr_t start = current_mirror->m_start;
-    size_t size = current_mirror->m_size;
+    /* Find the first resource of this type */
+    current = start_resource = proc->m_resource_bundle[type];
 
-    /* Skip mirrors with size zero (unlikely) */
-    if (!size) {
+    while (current) {
 
-      /* Link to next */
-      proc->m_resources = current_mirror->m_next;
+      next = current->m_next;
 
-      /* Destroy kresource_mirror */
-      destroy_kresource_mirror(current_mirror);
+      uintptr_t start = current->m_start;
+      size_t size = current->m_size;
 
-      /* Go next */
+      /* Skip mirrors with size zero or no references */
+      if (!size || !current->m_shared_count) {
+        goto next_resource;
+      }
+
+      /* TODO: destry other resource types */
+      switch (current->m_type) {
+        case KRES_TYPE_MEM:
+
+          /* Should we dealloc or simply unmap? */
+          if (current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) {
+
+            /* Preset */
+            result = Error();
+
+            /* Try to unmap */
+            if (kmem_unmap_range_ex(proc->m_root_pd.m_root, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
+
+              /* Pre-emptively remove the flags, just in case this fails */
+              current->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
+
+              /* Yay, now release the thing */
+              result = resource_release(start, size, start_resource);
+            }
+
+            break;
+          }
+
+          result = __kmem_dealloc_ex(proc->m_root_pd.m_root, proc, start, size, false, true);
+          break;
+        default:
+          /* Skip this entry for now */
+          break;
+      }
+
+      /* If we successfully dealloc, the resource, we cant trust the link anymore. Start over */
+      if (!IsError(result))
+        goto reset;
+
+next_resource:
+      if (current->m_next) {
+        ASSERT_MSG(current->m_type == current->m_next->m_type, "Found type mismatch while cleaning process resources");
+      }
+
+      current = next;
       continue;
-    }
 
-    /* We only handle memory resources for now */
-    /* TODO: destry other resource types */
-    switch (current_mirror->m_type) {
-      case KRES_TYPE_MEM:
-        /*
-         * TODO: propegate error 
-         * NOTE: resource_release pops the according mirror from the 
-         *       processes linked list
-         */
-        result = __kmem_dealloc_ex(proc->m_root_pd.m_root, proc, start, size, false, true);
-
-        (void)result;
-
-        break;
-      default:
-        /* Skip this entry for now */
-        break;
+reset:
+      current = start_resource;
     }
   }
+
+  /* Destroy the entire bundle, which deallocates the structures */
+  destroy_resource_bundle(proc->m_resource_bundle);
 }
 
 /*
@@ -220,7 +255,6 @@ static void __proc_clear_handles(proc_t* proc)
  */
 void destroy_proc(proc_t* proc) {
 
-  println("Clearing Threads");
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
     destroy_thread(i->data);
@@ -254,6 +288,8 @@ void destroy_proc(proc_t* proc) {
   proc_unregister(proc->m_name);
 
   kzfree(proc, sizeof(proc_t));
+
+  kmem_debug();
 }
 
 

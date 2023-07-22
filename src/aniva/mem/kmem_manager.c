@@ -99,17 +99,26 @@ void init_kmem_manager(uintptr_t* mb_addr) {
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
 
-// TODO: remove, once we don't need this anymore for emergency debugging
+void kmem_debug()
+{
+  println(" -- kmem debug -- ");
 
-void print_bitmap () {
-
-  for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_entries; i++) {
-    if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i)) {
-      print("1");
-    } else {
-      print("0");
+  uint64_t total_used_pages = 0;
+  
+  for (uint64_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_size; i++) {
+    uint8_t val = KMEM_DATA.m_phys_bitmap->m_map[i];
+    for (uint8_t i = 0; i < 8; i++) {
+      if ((1 << i) & val)
+        total_used_pages++;
     }
   }
+
+  print("Total: ");
+  println(to_string(KMEM_DATA.m_phys_pages_count));
+  print("Total used: ");
+  println(to_string(total_used_pages));
+  print("Total free: ");
+  println(to_string(KMEM_DATA.m_phys_pages_count - total_used_pages));
 }
 
 
@@ -662,15 +671,58 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
   return true;
 }
 
+/* Assumes we have a physical address buffer */
+#define DO_PD_CHECK(parent, entry, idx)                     \
+  ({                                                        \
+    for (uintptr_t i = 0; i < 512; i++) {                   \
+      if (pml_entry_is_bit_set(&entry[i], PTE_PRESENT)) {   \
+        return false;                                       \
+      }                                                     \
+    }                                                       \
+    parent[idx].raw_bits = NULL;                            \
+    phys = kmem_to_phys_aligned(table, (vaddr_t)entry);     \
+    kmem_set_phys_page_free(kmem_get_page_idx(phys));       \
+   })
+
+static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
+{
+  /* This part is a small copy of kmem_get_page, but we need our own nuance here, so fuck off will ya? */
+  bool entry_exists;
+  paddr_t phys;
+
+  /* Indices we need for recursive deallocating */
+  const uintptr_t pml4_idx = (virt >> 39) & ENTRY_MASK;
+  const uintptr_t pdp_idx = (virt >> 30) & ENTRY_MASK;
+  const uintptr_t pd_idx = (virt >> 21) & ENTRY_MASK;
+
+  pml_entry_t* pml4 = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)(table == nullptr ? kmem_get_krnl_dir() : table));
+  entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
+
+  if (!entry_exists)
+    return false;
+
+  pml_entry_t* pdp = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits));
+  entry_exists = (pml_entry_is_bit_set(&pdp[pdp_idx], PDE_PRESENT));
+
+  if (!entry_exists)
+    return false;
+
+  pml_entry_t* pd = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits));
+  entry_exists = (pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT));
+
+  if (!entry_exists)
+    return false;
+
+  pml_entry_t* pt = (pml_entry_t*)kmem_ensure_high_mapping((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits));
+  
+  DO_PD_CHECK(pd, pt, pd_idx);
+  DO_PD_CHECK(pdp, pd, pdp_idx);
+  DO_PD_CHECK(pml4, pdp, pml4_idx);
+
+  return true;
+}
+
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags) {
-
-  if (ALIGN_DOWN(virt, SMALL_PAGE_SIZE) == 0xFFFFFFFF8072A000) {
-    kernel_panic("HUH 1");
-  }
-
-  if (ALIGN_UP(virt, SMALL_PAGE_SIZE) == 0xFFFFFFFF8072A000) {
-    kernel_panic("HUH 2");
-  }
 
   pml_entry_t *page = kmem_get_page(table, virt, custom_flags, 0);
 
@@ -678,10 +730,15 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
     return false;
   }
 
-  //page->raw_bits = 0;
-  set_page_bit(page, PTE_PRESENT, false);
-  set_page_bit(page, PTE_WRITABLE, false);
+  page->raw_bits = NULL;
 
+  /* When we dont unmap recursively, just invalidate and return */
+  if ((custom_flags & KMEM_CUSTOMFLAG_RECURSIVE_UNMAP) == 0)
+    goto end;
+
+  __kmem_do_recursive_unmap(table, virt);
+
+end:
   kmem_invalidate_tlb_cache_entry(virt);
 
   return true;
@@ -693,12 +750,16 @@ bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt) {
 }
 
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count) {
+  return kmem_unmap_range_ex(table, virt, page_count, NULL);
+}
 
+bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, uint32_t custom_flags)
+{
   for (uintptr_t i = 0; i < page_count; i++) {
 
     vaddr_t virtual_offset = virt + (i * SMALL_PAGE_SIZE);
 
-    if (!kmem_unmap_page(table, virtual_offset)) {
+    if (!kmem_unmap_page_ex(table, virtual_offset, custom_flags)) {
       return false;
     }
   }
@@ -824,7 +885,7 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, proc_t* process, uintptr_t virt_b
     }
   }
 
-  if (process && IsError(resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, &process->m_resources))) {
+  if (process && IsError(resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, GET_RESOURCE(process->m_resource_bundle, KRES_TYPE_MEM)))) {
     return Error();
   }
 
@@ -871,7 +932,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, proc_t* process, paddr_t addr, vadd
      * allocated internally. This is because otherwise we won't be able to find this resource again if we 
      * try to release it
      */
-    resource_claim_ex("kmem alloc", ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    resource_claim_ex("kmem alloc", ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(process->m_resource_bundle, KRES_TYPE_MEM));
   }
 
   return Success(ret);
@@ -905,7 +966,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, proc_t* process, vaddr_t vbase, 
     return Error();
 
   if (process) {
-    resource_claim_ex("kmem alloc range", virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    resource_claim_ex("kmem alloc range", virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(process->m_resource_bundle, KRES_TYPE_MEM));
   }
 
   return Success(virt_base);
@@ -956,7 +1017,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, vad
   }
 
   if (process) {
-    resource_claim_ex("kmem alloc scattered", vbase, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &process->m_resources);
+    resource_claim_ex("kmem alloc scattered", vbase, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(process->m_resource_bundle, KRES_TYPE_MEM));
   }
 
   return Success(vbase);
@@ -1190,7 +1251,7 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
 
   } // pml4
 
-  paddr_t dir_phys = kmem_to_phys(nullptr, (uintptr_t)dir);
+  paddr_t dir_phys = kmem_to_phys_aligned(nullptr, (uintptr_t)dir);
   uintptr_t idx = kmem_get_page_idx(dir_phys);
 
   kmem_set_phys_page_free(idx);

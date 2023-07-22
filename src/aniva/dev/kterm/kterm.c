@@ -186,8 +186,6 @@ void kterm_command_worker() {
           goto end_processing;
         }
 
-        kterm_println(to_string(obj->m_refc));
-
         file_t* file = vobj_get_file(obj);
 
         if (!file) {
@@ -231,13 +229,18 @@ void kterm_command_worker() {
          */
         Must(__kmem_alloc_ex(
               p->m_root_pd.m_root,
-              nullptr,
+              p,
               kterm_fb_info.paddr,
               KTERM_FB_ADDR,
               kterm_fb_info.used_pages * SMALL_PAGE_SIZE,
               KMEM_CUSTOMFLAG_NO_REMAP,
               KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
               ));
+
+        /* Apply the flags to our resource */
+        resource_apply_flags(KTERM_FB_ADDR, kterm_fb_info.used_pages * SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, GET_RESOURCE(p->m_resource_bundle, KRES_TYPE_MEM));
+
+        debug_resources(p->m_resource_bundle, KRES_TYPE_MEM);
 
         sched_add_priority_proc(p, true);
       }

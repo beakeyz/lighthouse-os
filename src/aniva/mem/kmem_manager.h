@@ -10,13 +10,14 @@
 
 struct proc;
 
+void kmem_debug();
+
 // some faultcodes
 #define PRESENT_VIOLATION       0x1
 #define WRITE_VIOLATION         0x2
 #define ACCESS_VIOLATION        0x4
 #define RESERVED_VIOLATION      0x8
 #define FETCH_VIOLATION         0x10
-
 
 // Kernel high virtual base
 #define HIGH_MAP_BASE           0xffffffff80000000ULL
@@ -70,6 +71,7 @@ struct proc;
 #define KMEM_CUSTOMFLAG_NO_PHYS_REALIGN     0x00000100
 #define KMEM_CUSTOMFLAG_NO_MARK             0x00000200
 #define KMEM_CUSTOMFLAG_READONLY            0x00000400 /* Temporary */
+#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000800
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002
@@ -79,6 +81,8 @@ struct proc;
     (((addr) % (size) == 0) ? (addr) : (addr) + (size) - ((addr) % (size)))
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
+
+#define GET_PAGECOUNT(bytes) (ALIGN_UP(bytes, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE)
 
 typedef enum {
   PMRT_USABLE = 1,
@@ -226,6 +230,7 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table);
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
+bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, uint32_t custom_flags);
 
 ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address);
 
@@ -279,6 +284,4 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir);
 
 // TODO: write kmem_manager tests
 
-// TODO: hihi remove
- void print_bitmap (); 
 #endif // !__KMEM_MANAGER__

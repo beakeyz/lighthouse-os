@@ -8,6 +8,7 @@
 
 struct malloc_range {
   struct malloc_range* m_next;
+  size_t m_size;
   uint8_t m_bytes[];
 };
 
@@ -35,6 +36,7 @@ static void __add_malloc_range(size_t size)
 
   /* Point this range to the previous first range */
   range->m_next = __start_range;
+  range->m_size = size - sizeof(struct malloc_range);
 
   /* Smack this range right in front */
   __start_range = range;

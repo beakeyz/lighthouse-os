@@ -9,6 +9,7 @@
 #include "mem/pg.h"
 #include "proc/handle.h"
 #include "sync/atomic_ptr.h"
+#include "system/resource.h"
 
 struct thread;
 struct proc_image;
@@ -70,7 +71,7 @@ typedef struct proc {
   // maps?
   list_t* m_threads;
 
-  struct kresource* m_resources;
+  kresource_bundle_t m_resource_bundle;
 
   struct thread* m_init_thread;
   struct thread* m_idle_thread;
