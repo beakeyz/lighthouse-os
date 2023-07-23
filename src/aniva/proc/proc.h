@@ -100,6 +100,9 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 proc_t* create_proc_from_path(const char* path);
 
+/* Block until the process has ended execution */
+void await_proc_termination(proc_t* proc);
+
 /*
  * Murder a proc object with all its threads as well.
  * TODO: we need to verify that these cleanups happen

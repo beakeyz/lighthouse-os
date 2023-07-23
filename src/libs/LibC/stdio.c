@@ -12,6 +12,9 @@
 FILE __stdin = {
   .handle = 0,
   .r_buf_size = FILE_BUFSIZE,
+  .r_offset = 0,
+  .r_buff = NULL,
+  .r_capacity = NULL,
 };
 
 FILE __stdout = {
@@ -82,6 +85,54 @@ int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
   return result;
 }
 
+int __read_byte(FILE* stream, uint8_t* buffer)
+{
+  size_t r_size;
+
+  if (!buffer)
+    return NULL;
+
+  /* We have run out of local buffer space. Lets ask for some new */
+  if (!stream->r_capacity) {
+
+    /* Call the kernel deliver a new section of the stream */
+    r_size = syscall_3(SYSID_READ, stream->handle, (uint64_t)((void*)stream->r_buff), stream->r_buf_size);
+
+    if (!r_size)
+      return NULL;
+
+    /* Reset the read offset */
+    stream->r_offset = NULL;
+
+    /* Set capacity for the next read */
+    stream->r_capacity = r_size;
+  }
+
+  *buffer = stream->r_buff[stream->r_offset];
+
+  stream->r_offset++;
+  stream->r_capacity--;
+
+  return 1;
+}
+
+int __read_bytes(FILE* stream, uint8_t* buffer, size_t size)
+{
+  int ret = 0;
+  int result;
+
+  for (uint64_t i = 0; i < size; i++) {
+    result = __read_byte(stream, &buffer[i]);
+
+    if (!result)
+      break;
+
+    ret += result;
+  }
+
+  /* Return the amount of bytes read */
+  return ret;
+}
 
 /*
  * Send the fclose syscall in order to close the 
@@ -162,11 +213,25 @@ int fprintf(FILE* stream, const char* str, ...) {
  */
 unsigned long long fread(void* buffer, unsigned long long size, unsigned long long count, FILE* file) {
 
-  (void)buffer;
-  (void)size;
-  (void)count;
-  (void)file;
-  return NULL;
+  int r_count;
+  uint8_t* i_buffer;
+
+  if (!buffer || !size || !count || !file)
+    return NULL;
+
+  i_buffer = (uint8_t*)buffer;
+
+  for (uint64_t i = 0; i < count; i++) {
+    r_count = __read_bytes(file, i_buffer, size);
+
+    i_buffer += r_count;
+
+    /* Check this read */
+    if (r_count != size)
+      return i;
+  }
+
+  return count;
 }
 
 /*
@@ -240,23 +305,28 @@ char* fgets(char* str, size_t size, FILE* stream)
 
   memset(str, 0, size);
 
-  while ((c = fgetc(stream) != NULL) && size) {
+  for (c = fgetc(stream); c != NULL; c = fgetc(stream)) {
     size--;
     *str++ = c;
 
-    if (c == '\n')
+    if ((uint8_t)c == '\n')
       return ret;
+
   }
 
-  return ret;
+  if (!size)
+    return ret;
+
+  return NULL;
 }
 
 int fgetc(FILE* stream)
 {
   uint8_t buffer;
-  if (fread(&buffer, 1, 1, stream) <= 0) {
+  if (fread(&buffer, 1, 1, stream) == NULL) {
     return -1;
   }
+
   return buffer;
 }
 

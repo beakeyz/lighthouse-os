@@ -82,19 +82,24 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
   return SYS_OK;
 }
 
+/*
+ * sys_read returns the amount of bytes read
+ */
 uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 {
   int result;
+  size_t read_len;
   proc_t* current_proc;
   khandle_t* khandle;
 
   if (!buffer)
-    return SYS_INV;
+    return NULL;
 
   current_proc = get_current_proc();
 
-  if (!current_proc || IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
-    return SYS_INV;
+  if (!current_proc || 
+      IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
+    return NULL;
 
   khandle = find_khandle(&current_proc->m_handle_map, handle);
 
@@ -104,16 +109,16 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
   switch (khandle->type) {
     case KHNDL_TYPE_FILE:
       {
-        size_t read_len = length;
+        read_len = length;
         file_t* file = khandle->reference.file;
 
         if (!file || !file->m_ops || !file->m_ops->f_write)
-          return SYS_INV;
+          return NULL;
 
         result = file->m_ops->f_read(file, buffer, &read_len, khandle->offset);
 
         if (result < 0)
-          return SYS_KERR;
+          return NULL;
 
         khandle->offset += read_len;
 
@@ -122,25 +127,24 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
     case KHNDL_TYPE_DRIVER:
       {
         int result;
-        size_t buffer_size = length;
         aniva_driver_t* driver = khandle->reference.driver;
 
-        result = drv_read(driver, buffer, &buffer_size, khandle->offset);
+        result = drv_read(driver, buffer, &read_len, khandle->offset);
 
-        if (result == DRV_STAT_OK)
-          break;
+        if (result != DRV_STAT_OK)
+          return NULL;
 
-        kernel_panic("Failed to read from driver");
-        return SYS_KERR;
-      }
-    case KHNDL_TYPE_PROC:
-      {
+        khandle->offset += read_len;
 
         break;
       }
+    case KHNDL_TYPE_PROC:
+      {
+        break;
+      }
     default:
-      return SYS_INV;
+      return NULL;
   }
 
-  return SYS_OK;
+  return read_len;
 }

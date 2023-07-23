@@ -79,6 +79,7 @@ void kterm_on_key(ps2_key_event_t event);
 static uintptr_t kterm_current_line;
 static uintptr_t kterm_buffer_ptr;
 static char kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
+static char kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
 
 static fb_info_t kterm_fb_info;
 
@@ -91,8 +92,6 @@ void kterm_command_worker() {
 
       /* TODO: process cmd */
       const char* contents = s_kterm_cmd_buffer.buffer;
-
-      kterm_println("\n");
 
       if (!strcmp(contents, "acpitables")) {
         kterm_println("acpi static table info: \n");
@@ -243,6 +242,9 @@ void kterm_command_worker() {
         debug_resources(p->m_resource_bundle, KRES_TYPE_MEM);
 
         sched_add_priority_proc(p, true);
+
+        println("Yay");
+        await_proc_termination(p);
       }
 
 end_processing:
@@ -285,7 +287,28 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
 
 static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
-  kernel_panic("kterm_read(TODO: impl)");
+  (void)offset;
+
+  /* Ew */
+  if (!buffer || !buffer_size || !(*buffer_size))
+    return DRV_STAT_INVAL;
+
+  /* Wait until we have shit to read */
+  while (*kterm_stdin_buffer == NULL)
+    scheduler_yield();
+
+  /* Make sure we don't transfer garbo */
+  memset(buffer, NULL, *buffer_size);
+
+  /* Yay, copy */
+  memcpy(buffer, kterm_stdin_buffer, *buffer_size);
+
+  *buffer_size = strlen(kterm_stdin_buffer);
+
+  /* Reset stdin_buffer */
+  memset(kterm_stdin_buffer, NULL, sizeof(kterm_stdin_buffer));
+
+  return DRV_STAT_OK;
 }
 
 /*
@@ -302,6 +325,8 @@ int kterm_init() {
 
   /* Zero out the cmd buffer */
   memset(&s_kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
+  memset(kterm_stdin_buffer, 0, sizeof(kterm_stdin_buffer));
+  memset(kterm_char_buffer, 0, sizeof(kterm_char_buffer));
 
   // register our keyboard listener
   destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
@@ -395,6 +420,7 @@ static void kterm_write_char(char c) {
     case '\b':
       if (kterm_buffer_ptr > KTERM_CURSOR_WIDTH) {
         kterm_buffer_ptr--;
+        kterm_char_buffer[kterm_buffer_ptr] = NULL;
         kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
       } else {
         kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
@@ -414,23 +440,42 @@ static void kterm_write_char(char c) {
 }
 
 static void kterm_process_buffer() {
-  const char* contents = kterm_get_buffer_contents();
-  const size_t contents_size = strlen(contents);
+  char buffer[KTERM_MAX_BUFFER_SIZE];
+  size_t buffer_size;
 
-  if (contents_size >= KTERM_MAX_BUFFER_SIZE) {
+  /* Copy the buffer localy, so we can clear it early */
+  {
+    const char* contents = kterm_get_buffer_contents();
+    buffer_size = strlen(contents);
+
+    memcpy(buffer, contents, buffer_size);
+  }
+
+  if (buffer_size >= KTERM_MAX_BUFFER_SIZE) {
     /* Bruh, we cant process this... */
     return;
   }
 
-  if (mutex_is_locked(s_kterm_cmd_lock))
+  /* Make sure we add the newline so we also flush the char buffer */
+  kterm_println("\n");
+
+  if (mutex_is_locked(s_kterm_cmd_lock)) {
+    memset(kterm_stdin_buffer, 0, sizeof(kterm_stdin_buffer));
+    memcpy(kterm_stdin_buffer, buffer, buffer_size);
+
+    if (buffer_size+1 == KTERM_MAX_BUFFER_SIZE)
+      kterm_stdin_buffer[buffer_size-1] = '\n';
+    else
+      kterm_stdin_buffer[buffer_size] = '\n';
     return;
+  }
 
   println("Locking");
   mutex_lock(s_kterm_cmd_lock);
 
   println("Locked");
 
-  memcpy(s_kterm_cmd_buffer.buffer, contents, contents_size);
+  memcpy(s_kterm_cmd_buffer.buffer, buffer, buffer_size);
 
   mutex_unlock(s_kterm_cmd_lock);
 }
@@ -535,7 +580,7 @@ static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
     return 0;
 
   if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height) {
-    return (vaddr_t)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8);
+    return (volatile vaddr_t)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8);
   }
   return 0;
 }

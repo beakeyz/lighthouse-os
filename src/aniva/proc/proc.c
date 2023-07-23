@@ -304,6 +304,13 @@ bool proc_can_schedule(proc_t* proc) {
   return true;
 }
 
+void await_proc_termination(proc_t* proc)
+{
+  while ((proc->m_flags & PROC_FINISHED) == 0) {
+    scheduler_yield();
+  }
+}
+
 /*
  * Terminate the process, which means that we
  * 1) mark it as finished

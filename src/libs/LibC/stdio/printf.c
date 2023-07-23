@@ -25,6 +25,9 @@ int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
       case 'c':
         __write_byte(stream, &i, va_arg(va, int));
         break;
+      case 's':
+        __write_bytes(stream, &i, va_arg(va, char*));
+        break;
       case 'X':
       case 'x':
         {

@@ -28,6 +28,7 @@ typedef struct _FILE {
 
   size_t r_buf_size;
   size_t r_offset;
+  size_t r_capacity;
 
   uint32_t _flags;
 
@@ -44,6 +45,12 @@ extern FILE* stderr;
 #define stdin   stdin
 #define stdout  stdout
 #define stderr  stderr
+
+#define SEEK_SET 0 /* Set fileoffset directly */
+#define SEEK_CUR 1 /* Add to or subtract from the current offset */
+#define SEEK_END 2 /* Set the fileoffset to the end of the file (filesize) plus an extra offset */
+#define SEEK_DATA 3 /* Go to the start of the next offset that contains data */
+#define SEEK_HOLE 4 /* Go to the start of the next offset that contains a hole */
 
 extern int fclose(FILE*);
 extern int fflush(FILE*);

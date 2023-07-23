@@ -25,7 +25,6 @@
  *  - Find the vector of further bootstrap applications to run and run them
  */
 int main() {
-
   /*
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?
@@ -53,11 +52,13 @@ int main() {
   char buffer[128];
 
   //scanf("Whats your name: %s", buffer);
-  gets(buffer, sizeof(buffer));
+  char* resp = gets(buffer, sizeof(buffer));
 
-  buffer[127] = NULL;
+  char* test = "hihihi";
 
-  printf("Your name is: %s", buffer);
+  printf("Lil test: %s\n", test);
+
+  printf("Your name is: %s\n", resp);
 
   return handle_2;
 }
