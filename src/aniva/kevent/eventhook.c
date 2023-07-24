@@ -78,7 +78,7 @@ ErrorOrPtr kevent_do_hook(char* e_name, kevent_hook_fn_t function, kevent_hook_c
   /* Attach the hook, sorted by ID */
   TRY(attach_result, kevent_attach_hook(event, hook));
 
-  return Success(0);
+  return Success(hook->m_id);
 }
 
 ErrorOrPtr kevent_do_unhook(char* e_name, uint32_t hook_id);

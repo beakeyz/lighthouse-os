@@ -54,11 +54,10 @@ int main() {
   //scanf("Whats your name: %s", buffer);
   char* resp = gets(buffer, sizeof(buffer));
 
-  char* test = "hihihi";
-
-  printf("Lil test: %s\n", test);
-
-  printf("Your name is: %s\n", resp);
+  if (resp)
+    printf("Your name is: %s\n", resp);
+  else 
+    printf("Could not take in that name!\n");
 
   return handle_2;
 }

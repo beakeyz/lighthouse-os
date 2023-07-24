@@ -6,6 +6,7 @@
 #include "fs/vnode.h"
 #include "fs/vobj.h"
 #include "interrupts/interrupts.h"
+#include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
@@ -31,9 +32,6 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   if (!name || !entry)
     return nullptr;
 
-  println("proc create");
-  kmem_debug();
-
   /* TODO: create proc cache */
   proc = kzalloc(sizeof(proc_t));
 
@@ -41,10 +39,6 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
     return nullptr;
 
   memset(proc, 0, sizeof(proc_t));
-
-  if (proc == nullptr) {
-    return nullptr;
-  }
 
   proc->m_handle_map = create_khandle_map_ex(KHNDL_DEFAULT_ENTRIES);
   proc->m_id = Must(generate_new_proc_id());
@@ -68,6 +62,7 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
 
   create_resource_bundle(&proc->m_resource_bundle);
 
+  proc->m_terminate_bell = create_doorbell(5, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
 
   name_length = strlen(name);
@@ -274,6 +269,7 @@ void destroy_proc(proc_t* proc) {
 
   println("Clearing khandle map");
   destroy_khandle_map(&proc->m_handle_map);
+  destroy_doorbell(proc->m_terminate_bell);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
@@ -306,9 +302,16 @@ bool proc_can_schedule(proc_t* proc) {
 
 void await_proc_termination(proc_t* proc)
 {
-  while ((proc->m_flags & PROC_FINISHED) == 0) {
+  kdoor_t terminate_door;
+
+  init_kdoor(&terminate_door, NULL, NULL);
+
+  Must(register_kdoor(proc->m_terminate_bell, &terminate_door));
+
+  while (!kdoor_is_rang(&terminate_door))
     scheduler_yield();
-  }
+
+  destroy_kdoor(&terminate_door);
 }
 
 /*
@@ -324,6 +327,9 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
 
   /* Mark as finished */
   proc->m_flags |= PROC_FINISHED;
+
+  /* Ring the doorbell, so waiters know this process has terminated */
+  doorbell_ring(proc->m_terminate_bell);
 
   /* Remove from the scheduler */
   sched_remove_proc(proc);

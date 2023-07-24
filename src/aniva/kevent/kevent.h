@@ -29,8 +29,6 @@ typedef enum kevent_type {
   KEVENT_TYPE_ERROR,
 } kevent_type_t;
 
-typedef uint32_t kevent_key_t;
-
 const char* kevent_type_to_str(kevent_type_t type);
 kevent_type_t str_to_kevent_type(const char*);
 
@@ -44,12 +42,6 @@ typedef struct kevent {
    * the event is fired
    */
   spinlock_t* m_firing_lock;
-
-  /*
-   * This key is an crc32 of the finished kevent object 
-   * and should be used to verify actions on this kevent
-   */
-  kevent_key_t m_key;
 
   char m_name[KEVENT_NAME_MAX_LENGTH];
 
@@ -92,7 +84,7 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
  * Try to remove an event
  * fails if the name is not found or if the key is invalid
  */
-ErrorOrPtr destroy_kevent(char* name, kevent_key_t key);
+ErrorOrPtr destroy_kevent(kevent_t* event);
 
 kevent_t* kevent_get(char* name);
 size_t kevent_get_hook_count(char* name);
@@ -108,6 +100,6 @@ ErrorOrPtr kevent_set_flags(kevent_t** event, uint32_t flags);
  * fails if the name is not found or if the key is invalid
  * or if the callchain fails
  */
-ErrorOrPtr fire_event(char* name, kevent_key_t key, void* data); 
+ErrorOrPtr fire_event(char* name, void* data); 
 
 #endif // !__ANIVA_KEVENT__

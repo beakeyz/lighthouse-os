@@ -55,12 +55,12 @@ int __write_byte(FILE* stream, uint64_t* counter, char byte)
   if (!stream->w_buff)
     return -1;
 
+  stream->w_buff[stream->w_buf_written++] = byte;
+
   /* Sync the buffer if the max. buffersize is reached, or the byte is a newline char */
   if (stream->w_buf_written >= stream->w_buf_size || byte == '\n') {
     fflush(stream);
   }
-
-  stream->w_buff[stream->w_buf_written++] = byte;
 
   if (counter)
     (*counter)++;
@@ -301,16 +301,16 @@ char* fgets(char* str, size_t size, FILE* stream)
 
   /* Cache the start of the string */
   ret = str;
-  size--;
 
   memset(str, 0, size);
 
-  for (c = fgetc(stream); c != NULL; c = fgetc(stream)) {
-    size--;
-    *str++ = c;
+  for (c = fgetc(stream); c && size; c = fgetc(stream)) {
 
     if ((uint8_t)c == '\n')
       return ret;
+
+    size--;
+    *str++ = c;
 
   }
 

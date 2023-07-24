@@ -40,6 +40,8 @@ void init_eventhooks();
 kevent_hook_t* create_keventhook(kevent_hook_fn_t function, kevent_hook_condition_fn_t condition, kevent_privilege_t priv);
 void destroy_keventhook(kevent_hook_t* hook);
 
+void await_eventhook_fire(uint32_t id);
+
 /*
  * Returns the ID of the hook
  */

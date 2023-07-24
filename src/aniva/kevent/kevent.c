@@ -12,39 +12,8 @@
 #include <crypto/k_crc32.h>
 
 static mutex_t* __kevent_lock = nullptr;
-
 static hashmap_t* __kevents_table = nullptr;
-
 static zone_allocator_t* __kevent_allocator = nullptr;
-
-static ErrorOrPtr __validate_kevent_key(kevent_t* event, kevent_key_t key) 
-{
-  kevent_t copy = *event;
-
-  /* Mask mutable fields */
-  copy.m_hooks_count = 0;
-  copy.m_hooks = 0;
-  copy.m_key = 0;
-
-  uint32_t check_crc = kcrc32(&copy, sizeof(kevent_t));
-  
-  if (check_crc == event->m_key)
-    return Success(0);
-
-  return Error();
-}
-
-static ErrorOrPtr __validate_kevent(kevent_t* event, kevent_key_t key)
-{
-  if (!event)
-    return Error();
-
-  if (event->m_key != key)
-    return Error();
-
-  /* This might raise some issues later? */
-  return __validate_kevent_key(event, key);
-}
 
 static ErrorOrPtr __kevent_destroy_hooks(kevent_t* event)
 {
@@ -66,7 +35,7 @@ static ErrorOrPtr __kevent_destroy_hooks(kevent_t* event)
 kevent_t* kevent_get(char* name) {
   kevent_t* ret;
 
-  if (!name)
+  if (!name || !__kevents_table)
     return nullptr;
 
   ret = hashmap_get(__kevents_table, name);
@@ -155,6 +124,9 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
   if (no_chaining)
     max_hook_count = 1;
 
+  if (!max_hook_count || max_hook_count > KEVENT_MAX_EVENT_HOOKS)
+    max_hook_count = KEVENT_MAX_EVENT_HOOKS;
+
   event->m_hook_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_hook_t) * max_hook_count, sizeof(kevent_hook_t), NULL);
   event->m_type = type;
   event->m_flags = flags;
@@ -165,8 +137,6 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
 
   event->m_firing_lock = create_spinlock();
 
-  event->m_key = kcrc32(event, sizeof(kevent_t));
-
   /* TODO: id */
   event->m_id = 0;
 
@@ -174,7 +144,7 @@ ErrorOrPtr create_kevent(char* name, kevent_type_t type, uint32_t flags, size_t 
     goto fail_and_unlock;
 
   mutex_unlock(__kevent_lock);
-  return Success(event->m_key);
+  return Success(0);
 
 fail_and_unlock:
 
@@ -182,17 +152,8 @@ fail_and_unlock:
   return Error();
 }
 
-ErrorOrPtr destroy_kevent(char* name, kevent_key_t key)
+ErrorOrPtr destroy_kevent(kevent_t* event)
 {
-  kevent_t* event;
-
-  if (!name)
-    return Error();
-
-  event = hashmap_get(__kevents_table, name);
-
-  TRY(validate_result, __validate_kevent(event, key));
-
   TRY(destroy_result, __kevent_destroy_hooks(event));
 
   destroy_spinlock(event->m_firing_lock);
@@ -218,7 +179,7 @@ ErrorOrPtr kevent_set_flags(kevent_t** event, uint32_t flags)
   return Error();
 }
 
-ErrorOrPtr fire_event(char* name, kevent_key_t key, void* data)
+ErrorOrPtr fire_event(char* name, void* data)
 {
   kevent_t* event;
   kevent_contex_t context;
@@ -227,9 +188,7 @@ ErrorOrPtr fire_event(char* name, kevent_key_t key, void* data)
     return Error();
 
   /* 0) Find the event we need to fire */
-  event = hashmap_get(__kevents_table, name);
-
-  TRY(validate_result, __validate_kevent(event, key));
+  event = kevent_get(name);
 
   if (!event->m_hooks)
     return Error();

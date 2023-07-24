@@ -29,7 +29,6 @@ static void insert_into_handlers(uint16_t index, quick_interrupthandler_t *handl
 #define INTERRUPTS_DEFAULT_HOOKS_C      (256 - IRQ_VEC_BASE)
 #define INTERRUPTS_EXTRA_HOOKS_C        5
 #define INTERRUPTS_EVENT_MAX_HOOK_C     (INTERRUPTS_DEFAULT_HOOKS_C + INTERRUPTS_EXTRA_HOOKS_C) 
-static kevent_key_t __interrupts_event_key;
 
 // inspired by serenityOS
 #define REGISTER_ERROR_HANDLER(code, title)                            \

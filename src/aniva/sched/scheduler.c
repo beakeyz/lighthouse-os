@@ -333,7 +333,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       current_frame->m_sched_time_left = current_frame->m_max_ticks;
 
       // switch_frames
-      println("Should have switched frames!");
+      //println("Should have switched frames!");
 
       /* Pick a next process */
       pick_next_process_scheduler();
@@ -342,9 +342,9 @@ registers_t *sched_tick(registers_t *registers_ptr) {
       Must(pick_next_thread_scheduler());
 
       /* Debug */
-      println(get_current_proc()->m_name);
-      println(get_current_scheduling_thread()->m_name);
-      println(to_string((uintptr_t)get_current_scheduling_thread()->f_real_entry));
+      //println(get_current_proc()->m_name);
+      //println(get_current_scheduling_thread()->m_name);
+      //println(to_string((uintptr_t)get_current_scheduling_thread()->f_real_entry));
 
       /*
        * Handle any packets that might have come in for sockets in this process 

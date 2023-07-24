@@ -181,21 +181,21 @@ void kterm_command_worker() {
         vobj_t* obj = vfs_resolve(contents);
 
         if (!obj) {
-          kterm_println("Could not find object!");
+          kterm_println("Could not find object!\n");
           goto end_processing;
         }
 
         file_t* file = vobj_get_file(obj);
 
         if (!file) {
-          kterm_println("Could not execute object!");
+          kterm_println("Could not execute object!\n");
           goto end_processing;
         }
 
         ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
 
         if (IsError(result)) {
-          kterm_println("Coult not execute object!");
+          kterm_println("Coult not execute object!\n");
           vobj_close(obj);
           goto end_processing;
         }
@@ -243,13 +243,10 @@ void kterm_command_worker() {
 
         sched_add_priority_proc(p, true);
 
-        println("Yay");
         await_proc_termination(p);
       }
 
 end_processing:
-      kterm_println("\n");
-
       memset(&s_kterm_cmd_buffer, 0, sizeof(s_kterm_cmd_buffer));
 
       mutex_unlock(s_kterm_cmd_lock);
@@ -300,10 +297,10 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
   /* Make sure we don't transfer garbo */
   memset(buffer, NULL, *buffer_size);
 
+  *buffer_size = strlen(kterm_stdin_buffer);
+
   /* Yay, copy */
   memcpy(buffer, kterm_stdin_buffer, *buffer_size);
-
-  *buffer_size = strlen(kterm_stdin_buffer);
 
   /* Reset stdin_buffer */
   memset(kterm_stdin_buffer, NULL, sizeof(kterm_stdin_buffer));
@@ -458,15 +455,14 @@ static void kterm_process_buffer() {
 
   /* Make sure we add the newline so we also flush the char buffer */
   kterm_println("\n");
+  println("do stuff");
 
   if (mutex_is_locked(s_kterm_cmd_lock)) {
     memset(kterm_stdin_buffer, 0, sizeof(kterm_stdin_buffer));
     memcpy(kterm_stdin_buffer, buffer, buffer_size);
 
-    if (buffer_size+1 == KTERM_MAX_BUFFER_SIZE)
-      kterm_stdin_buffer[buffer_size-1] = '\n';
-    else
-      kterm_stdin_buffer[buffer_size] = '\n';
+    kterm_stdin_buffer[buffer_size] = '\n';
+
     return;
   }
 

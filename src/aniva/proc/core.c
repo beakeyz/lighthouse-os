@@ -1,5 +1,6 @@
 #include "core.h"
 #include "dev/debug/serial.h"
+#include "kevent/kevent.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
@@ -436,6 +437,8 @@ ANIVA_STATUS init_proc_core() {
    * have the PROC_SOFTMAX that limits process creation
    */
   __proc_map = create_hashmap(PROC_SOFTMAX, HASHMAP_FLAG_CA);
+
+  Must(create_kevent("proc_terminate", KEVENT_TYPE_CUSTOM, NULL, 8));
 
   init_tspckt();
   init_socket();

@@ -2,6 +2,7 @@
 #define __ANIVA_PROC__
 
 #include "kevent/kevent.h"
+#include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "mem/kmem_manager.h"
@@ -58,11 +59,9 @@ inline void proc_image_align(proc_image_t* image)
 typedef struct proc {
   char m_name[32];
   proc_id_t m_id;
-
   uint32_t m_flags;
 
   page_dir_t m_root_pd;
-
   khandle_map_t m_handle_map;
 
   /* Represent the image that this proc stems from (either from disk or in-ram) */
@@ -76,6 +75,8 @@ typedef struct proc {
   struct thread* m_init_thread;
   struct thread* m_idle_thread;
   struct thread* m_prev_thread;
+
+  kdoorbell_t* m_terminate_bell;
 
   size_t m_ticks_used;
   size_t m_requested_max_threads;
