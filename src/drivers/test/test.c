@@ -23,7 +23,6 @@ aniva_driver_t extern_test_driver = {
   .m_name = "ExternalTest",
   .m_descriptor = "Just funnie test",
   .m_version = DRIVER_VERSION(0, 0, 1),
-  .m_ident = DRIVER_IDENT(0, 0),
   .m_type = DT_OTHER,
   .f_init = test_init,
   .f_exit = test_exit,

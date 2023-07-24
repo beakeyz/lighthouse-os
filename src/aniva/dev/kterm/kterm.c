@@ -540,7 +540,7 @@ static void kterm_println(const char* msg) {
 
 void println_kterm(const char* msg) {
 
-  if (!driver_is_ready(&g_base_kterm_driver)) {
+  if (!driver_is_ready(get_driver("other/kterm"))) {
     return;
   }
 

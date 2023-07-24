@@ -33,7 +33,6 @@ aniva_driver_t g_base_fb_driver = {
   .m_name = "fb",
   .m_type = DT_GRAPHICS,
   .m_version = DRIVER_VERSION(0, 0, 1),
-  .m_ident = DRIVER_IDENT(2, 0),
   .f_init = fb_driver_init,
   .f_exit = fb_driver_exit,
   .f_drv_msg = fb_driver_on_packet,

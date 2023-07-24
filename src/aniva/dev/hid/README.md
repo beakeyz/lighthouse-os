@@ -1,4 +1,8 @@
-# Aniva keyboard device interface
+# Aniva HID interface
+
+The suite that should give clear HID support in the Aniva kernel
+
+## keyboard
 
 This part of the kernel is dedicated to ease the development of keyboard drivers. Keyboard drivers supply the kernel with keyevents, which the kernel can then 
 pass on to userspace, either through dedicated listeners for keyevents in us, or through the stdin stream. Here, we specify the interface that drivers will

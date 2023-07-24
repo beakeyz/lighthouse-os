@@ -11,6 +11,9 @@ struct dev_manifest;
 typedef int (*ANIVA_DRIVER_INIT) ();
 typedef int (*ANIVA_DRIVER_EXIT) ();
 
+/*
+ * Every type of driver has a version
+ */
 typedef union driver_version {
   struct {
     uint8_t maj;
@@ -22,18 +25,11 @@ typedef union driver_version {
 
 #define DEF_DRV_VERSION(maj, min, bump) { maj, min, bump }
 
-typedef struct driver_identifier {
-  uint8_t m_minor;
-  uint8_t m_major;
-} driver_identifier_t;
-
 typedef struct aniva_driver {
   const char m_name[MAX_DRIVER_NAME_LENGTH];
   const char m_descriptor[MAX_DRIVER_DESCRIPTOR_LENGTH];
-  driver_version_t m_version;
-  driver_identifier_t m_ident;
 
-  uint32_t m_flags;
+  driver_version_t m_version;
 
   ANIVA_DRIVER_INIT f_init;
   ANIVA_DRIVER_EXIT f_exit;
@@ -44,11 +40,6 @@ typedef struct aniva_driver {
 
   DEV_TYPE m_type;
   uint32_t m_port;
-
-  // TODO: driver resources and dependencies
-  // TODO: we can do dependency checking when drivers try to
-  // send packets to other drivers
-  struct dev_manifest* m_manifest;
 
   size_t m_dep_count;
   dev_url_t m_dependencies[];
@@ -69,39 +60,38 @@ typedef struct aniva_driver {
 #define DRV_STAT_NOMAN      (-2)
 #define DRV_STAT_BUSY       (-3)
 
+/*
 aniva_driver_t* create_driver(
   const char* name,
   const char* descriptor,
   driver_version_t version,
-  driver_identifier_t identifier,
   ANIVA_DRIVER_INIT init,
   ANIVA_DRIVER_EXIT exit,
   SocketOnPacket drv_msg,
   DEV_TYPE type
   );
 
+
 void destroy_driver(aniva_driver_t* driver);
+*/
 
-static inline bool driver_is_deferred(aniva_driver_t* drv)
-{
-  return ((drv->m_flags & DRV_DEFERRED) == DRV_DEFERRED);
-}
+#define driver_is_deferred(manifest) ((manifest->m_flags & DRV_DEFERRED) == DRV_DEFERRED)
 
-struct vnode* create_fs_driver(aniva_driver_t* driver);
+struct vnode* create_fs_driver(struct dev_manifest* manifest);
 
 void detach_fs_driver(struct vnode* node);
 
-bool driver_is_ready(aniva_driver_t* driver);
+bool driver_is_ready(struct dev_manifest* manifest);
 
-bool driver_is_busy(aniva_driver_t* driver);
+bool driver_is_busy(struct dev_manifest* manifest);
 
-int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
-int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
+int drv_read(struct dev_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
+int drv_write(struct dev_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
 
 /*
  * Create a thread for this driver in the kernel process
  * and run the entry
  */
-ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path);
+ErrorOrPtr bootstrap_driver(struct dev_manifest* manifest);
 
 #endif //__ANIVA_DRIVER__

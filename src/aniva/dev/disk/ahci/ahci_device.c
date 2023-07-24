@@ -37,7 +37,6 @@ static char* s_last_debug_msg;
 const aniva_driver_t g_base_ahci_driver = {
   .m_name = "ahci",
   .m_type = DT_DISK,
-  .m_ident = DRIVER_IDENT(0, 0),
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = ahci_driver_init,
   .f_exit = ahci_driver_exit,

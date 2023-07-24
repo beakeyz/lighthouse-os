@@ -76,7 +76,6 @@ void set_flags(uint16_t* flags, uint8_t bit, bool val);
 const aniva_driver_t g_base_ps2_keyboard_driver = {
   .m_name = "ps2_kb",
   .m_type = DT_IO,
-  .m_ident = DRIVER_IDENT(0, 0),
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_exit = ps2_keyboard_exit,
   .f_init = ps2_keyboard_entry,

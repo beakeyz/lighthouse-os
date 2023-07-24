@@ -4,6 +4,7 @@
 #include "LibSys/syscall.h"
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
+#include "dev/manifest.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
@@ -60,7 +61,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
       {
         int result;
         size_t buffer_size = length;
-        aniva_driver_t* driver = khandle->reference.driver;
+        dev_manifest_t* driver = khandle->reference.driver;
 
         result = drv_write(driver, buffer, &buffer_size, khandle->offset);
 
@@ -127,7 +128,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
     case KHNDL_TYPE_DRIVER:
       {
         int result;
-        aniva_driver_t* driver = khandle->reference.driver;
+        dev_manifest_t* driver = khandle->reference.driver;
 
         result = drv_read(driver, buffer, &read_len, khandle->offset);
 

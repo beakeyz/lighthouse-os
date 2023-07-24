@@ -26,7 +26,6 @@ uintptr_t test_dbg_msg(packet_payload_t payload, packet_response_t** response);
 const aniva_driver_t g_test_dbg_driver = {
   .m_name = "debug",
   .m_type = DT_DIAGNOSTICS,
-  .m_ident = DRIVER_IDENT(0, 1),
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = test_dbg_init,
   .f_exit = test_dbg_exit,

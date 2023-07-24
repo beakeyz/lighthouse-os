@@ -33,15 +33,23 @@ const char* get_driver_url(aniva_driver_t* handle) {
 
 bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)())
 {
+  dev_url_t path;
   dev_manifest_t* manifest;
 
   if (!driver || !write_fn)
     return false;
+
+  path = get_driver_url(driver);
+
+  if (!path)
+    return false;
   
-  manifest = driver->m_manifest;
+  manifest = get_driver(path);
 
   if (!manifest)
     return false;
+
+  kfree((void*)path);
 
   mutex_lock(&manifest->m_lock);
 
@@ -54,15 +62,23 @@ bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)())
 
 bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
 {
+  dev_url_t path;
   dev_manifest_t* manifest;
 
   if (!driver || !read_fn)
     return false;
+
+  path = get_driver_url(driver);
+
+  if (!path)
+    return false;
   
-  manifest = driver->m_manifest;
+  manifest = get_driver(path);
 
   if (!manifest)
     return false;
+
+  kfree((void*)path);
 
   mutex_lock(&manifest->m_lock);
 
@@ -73,15 +89,10 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
   return true;
 }
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
 
   if (!handle) {
     return nullptr;
-  }
-
-  /* If it already has one, no need to make it */
-  if (handle->m_manifest) {
-    return handle->m_manifest;
   }
 
   dev_manifest_t* ret = allocate_dmanifest();
@@ -95,11 +106,9 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags) {
   ret->m_dep_count = handle->m_dep_count;
   ret->m_dependency_manifests = init_list();
 
-  ret->m_type = handle->m_type;
   ret->m_check_version = handle->m_version;
-  ret->m_check_ident = handle->m_ident;
 
-  ret->m_flags = flags;
+  ret->m_flags = NULL;
 
   ret->m_url_length = get_driver_url_length(handle);
   // TODO: concat

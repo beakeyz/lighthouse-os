@@ -31,12 +31,9 @@ typedef struct dev_manifest {
   size_t m_dep_count;
   size_t m_url_length;
 
-  driver_identifier_t m_check_ident;
   driver_version_t m_check_version;
 
-  DEV_TYPE m_type;
-
-  uint8_t m_flags;
+  uint32_t m_flags;
   // timestamp
   // hash
   // vendor
@@ -45,12 +42,12 @@ typedef struct dev_manifest {
   // binary validator
 } dev_manifest_t;
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle, uint8_t flags);
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle);
 void destroy_dev_manifest(dev_manifest_t* manifest);
 
 bool is_manifest_valid(dev_manifest_t* manifest);
 
-bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)());
-bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)());
+bool driver_manifest_write(struct aniva_driver* manifest, int(*write_fn)());
+bool driver_manifest_read(struct aniva_driver* manifest, int(*read_fn)());
 
 #endif // !__ANIVA_DEV_MANIFEST__

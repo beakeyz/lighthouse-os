@@ -96,12 +96,12 @@ void free_dmanifest(struct dev_manifest* manifest);
 /*
  * Registers the driver so it can be loaded
  */
-ErrorOrPtr install_driver(struct aniva_driver* handle);
+ErrorOrPtr install_driver(struct aniva_driver* driver);
 
 /*
  * Unregisters the driver and also unloads it if it is still loaded
  */
-ErrorOrPtr uninstall_driver(struct aniva_driver* handle);
+ErrorOrPtr uninstall_driver(struct dev_manifest* handle);
 
 /*
  * load a driver from its structure in RAM
@@ -116,12 +116,12 @@ ErrorOrPtr unload_driver(dev_url_t url);
 /*
  * Check if the driver is installed into the grid
  */
-bool is_driver_installed(struct aniva_driver* handle);
+bool is_driver_installed(struct dev_manifest* handle);
 
 /*
  * Check if the driver is loaded and currently active
  */
-bool is_driver_loaded(struct aniva_driver* handle);
+bool is_driver_loaded(struct dev_manifest* handle);
 
 /*
  * Find the handle to a driver through its url
@@ -155,7 +155,7 @@ static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
  */
 ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
-ErrorOrPtr driver_send_packet_ex(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
+ErrorOrPtr driver_send_packet_ex(struct dev_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
 
 /*
  * Same as above, but calls the requested function instantly, rather than waiting for the socket to 
@@ -178,7 +178,5 @@ extern const char* get_driver_url(struct aniva_driver* handle);
 extern size_t get_driver_url_length(struct aniva_driver* handle);
 
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 
-
-#define DRIVER_IDENT(major, minor) {.m_major = major, .m_minor = minor} 
 
 #endif //__ANIVA_KDEV_CORE__

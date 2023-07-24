@@ -17,7 +17,7 @@
 #include <mem/heap.h>
 #include <libk/string.h>
 
-void generic_driver_entry(aniva_driver_t* driver);
+void generic_driver_entry(dev_manifest_t* driver);
 
 /*
  * We use goto's here to make sure that node->m_lock is unlocked when this function exits
@@ -74,38 +74,15 @@ generic_exit:
   return result;
 }
 
-aniva_driver_t* create_driver(
-  const char* name,
-  const char* descriptor,
-  driver_version_t version,
-  driver_identifier_t identifier,
-  ANIVA_DRIVER_INIT init,
-  ANIVA_DRIVER_EXIT exit,
-  SocketOnPacket drv_msg,
-  DEV_TYPE type
-) {
-  aniva_driver_t* ret = kmalloc(sizeof(aniva_driver_t));
-
-  strcpy((char*)ret->m_name, name);
-  strcpy((char*)ret->m_descriptor, descriptor);
-
-  ret->m_version = version;
-
-  // TODO: check if this identifier isn't taken
-  ret->m_ident = identifier;
-  ret->f_init = init;
-  ret->f_exit = exit;
-  ret->f_drv_msg = drv_msg;
-  ret->m_type = type;
-  ret->m_port = 0;
-
-  return ret;
-}
-
 /* TODO: finish checkups and preps for fs */
-vnode_t* create_fs_driver(aniva_driver_t* driver) {
-  if (!(driver->m_flags & DRV_FS))
+vnode_t* create_fs_driver(dev_manifest_t* manifest) {
+
+  aniva_driver_t* driver;
+
+  if (!(manifest->m_flags & DRV_FS))
     return nullptr;
+
+  driver = manifest->m_handle;
 
   /* 
    * There isn't really anything special about fs_driver nodes. 
@@ -132,23 +109,17 @@ void detach_fs_driver(vnode_t* node) {
   kernel_panic("TODO: implement detach_fs_driver");
 }
 
-void destroy_driver(aniva_driver_t* driver) {
-  /*
-   * FIXME: we need to figure out:
-   *  - Where the driver has been allocated from (file, internal, ect.)
-   *  - What resources this driver holds on to (files, kresources, kevents, ect.)
-   *  - ect.
-   */
-  kfree(driver);
-}
+bool driver_is_ready(dev_manifest_t* manifest) {
 
-bool driver_is_ready(aniva_driver_t* driver) {
+  const bool active_flag = manifest->m_flags & DRV_ACTIVE;
+  aniva_driver_t* driver;
+  threaded_socket_t* socket;
 
-  const bool active_flag = driver->m_flags & DRV_ACTIVE;
+  if (manifest->m_flags & DRV_SOCK) {
 
-  if (driver->m_flags & DRV_SOCK) {
+    driver = manifest->m_handle;
 
-    threaded_socket_t* socket = find_registered_socket(driver->m_port);
+    socket = find_registered_socket(driver->m_port);
 
     if (!socket)
       return false;
@@ -159,31 +130,31 @@ bool driver_is_ready(aniva_driver_t* driver) {
   return active_flag;
 }
 
-bool driver_is_busy(aniva_driver_t* driver)
+bool driver_is_busy(dev_manifest_t* manifest)
 {
-  if (!driver || !driver->m_manifest)
+  if (!manifest)
     return false;
 
-  return (mutex_is_locked(&driver->m_manifest->m_lock));
+  return (mutex_is_locked(&manifest->m_lock));
 }
 
 /*
  * Quick TODO: create a way to validate pointer origin
  */
-int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset)
+int drv_read(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   int result;
-  dev_manifest_t* manifest;
+  aniva_driver_t* driver;
 
-  if (!driver ||!buffer || !buffer_size)
+  if (!manifest ||!buffer || !buffer_size)
     return DRV_STAT_INVAL;
 
-  manifest = driver->m_manifest;
+  driver = manifest->m_handle;
 
-  if (!manifest || !manifest->m_ops.f_read)
+  if (!driver || !manifest->m_ops.f_read)
     return DRV_STAT_NOMAN;
 
-  if (driver_is_busy(driver))
+  if (driver_is_busy(manifest))
     return DRV_STAT_BUSY;
 
   mutex_lock(&manifest->m_lock);
@@ -195,20 +166,20 @@ int drv_read(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_
   return result;
 }
 
-int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset)
+int drv_write(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   int result;
-  dev_manifest_t* manifest;
+  aniva_driver_t* driver;
 
-  if (!driver ||!buffer || !buffer_size)
+  if (!manifest ||!buffer || !buffer_size)
     return DRV_STAT_INVAL;
 
-  manifest = driver->m_manifest;
+  driver = manifest->m_handle;
 
-  if (!manifest || !manifest->m_ops.f_write)
+  if (!driver || !manifest->m_ops.f_write)
     return DRV_STAT_NOMAN;
 
-  if (driver_is_busy(driver))
+  if (driver_is_busy(manifest))
     return DRV_STAT_BUSY;
 
   mutex_lock(&manifest->m_lock);
@@ -220,29 +191,26 @@ int drv_write(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr
   return result;
 }
 
-void generic_driver_entry(aniva_driver_t* driver) {
+void generic_driver_entry(dev_manifest_t* manifest) {
 
   /* Just make sure this driver is marked as inactive */
-  driver->m_flags &= ~DRV_ACTIVE;
-
-  /* Ensure dependencies are loaded */
-  dev_manifest_t* manifest = create_dev_manifest(driver, 0);
+  manifest->m_flags &= ~DRV_ACTIVE;
 
   FOREACH(i, manifest->m_dependency_manifests) {
     dev_manifest_t* dep_manifest = i->data;
 
-    if (!dep_manifest || !is_driver_loaded(dep_manifest->m_handle)) {
+    if (!dep_manifest || !is_driver_loaded(dep_manifest)) {
       /* TODO: check if the dependencies allow for dynamic loading and if so, load them anyway */
       kernel_panic("dependencies are not loaded!");
 
       /* Mark the driver as failed */
-      driver->m_flags |= DRV_FAILED;
+      manifest->m_flags |= DRV_FAILED;
       return;
     }
   }
 
   /* NOTE: The driver can also mark itself as ready */
-  int result = driver->f_init();
+  int result = manifest->m_handle->f_init();
 
   if (result < 0) {
     // Unload the driver
@@ -250,72 +218,30 @@ void generic_driver_entry(aniva_driver_t* driver) {
   }
 
   /* Init finished, the driver is ready for messages */
-  driver->m_flags |= DRV_ACTIVE;
+  manifest->m_flags |= DRV_ACTIVE;
 }
 
-ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
+ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
 
   ErrorOrPtr result;
+  aniva_driver_t* driver;
 
-  if (!driver)
+  if (!manifest)
     return Error();
 
-  /* TODO: check if the driver fs is actually enabled */
-  /* TODO: create an fs type to host all the driver shit */
-  if (driver->m_flags & DRV_FS) {
-    /* TODO: check if this path is already used by a driver */
-
-    uintptr_t i;
-    const char* parsed_driver_name;
-    size_t path_length;
-
-    path_length = strlen(path);
-    i = path_length - 1;
-
-    while (i && path[i] && path[i] != VFS_PATH_SEPERATOR) {
-      i--;
-    }
-
-    /*
-     * Reached the start of the path. We don't allow the mounting of devices
-     * in the root of the VFS, so we'll return an error =/
-     */
-    if (!i) {
-      return Error();
-    }
-
-    parsed_driver_name = &path[i+1];
-
-    /* Invalid path */
-    if (!memcmp(parsed_driver_name, driver->m_name, strlen(driver->m_name))
-        || parsed_driver_name[strlen(driver->m_name)]) {
-      return Error();
-    }
-
-    char path_copy[path_length];
-    memcpy(path_copy, path, path_length);
-
-    path_copy[i] = '\0';
-
-    // println("Mounting driver");
-    // println(path_copy);
-    // println(parsed_driver_name);
-
-    result = vfs_mount_driver(path_copy, driver);
-
-    if (result.m_status != ANIVA_SUCCESS) {
-      kernel_panic("TODO: check for errors while mounting driver to vfs!");
-      return result;
-    }
+  if (manifest->m_flags & DRV_FS) {
+    /* TODO: redo */
   }
 
+  driver = manifest->m_handle;
+
   /* Preemptively set the driver to inactive */
-  driver->m_flags &= ~DRV_ACTIVE;
+  manifest->m_flags &= ~DRV_ACTIVE;
 
   // NOTE: if the drivers port is not valid, the subsystem will verify 
   // it and provide a new port, so we won't have to wory about that here
 
-  if (driver->m_flags & DRV_SOCK) {
+  if (manifest->m_flags & DRV_SOCK) {
 
     println("Creating socket driver");
     thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)generic_driver_entry, (uintptr_t)driver, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, &driver->m_port);
@@ -324,7 +250,7 @@ ErrorOrPtr bootstrap_driver(aniva_driver_t* driver, dev_url_t path) {
 
     println("Created socket driver");
   } else {
-    generic_driver_entry(driver);
+    generic_driver_entry(manifest);
   }
 
   return result;
