@@ -297,6 +297,7 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
   /* Make sure we don't transfer garbo */
   memset(buffer, NULL, *buffer_size);
 
+  /* Set the buffersize to our string in preperation for the copy */
   *buffer_size = strlen(kterm_stdin_buffer);
 
   /* Yay, copy */
@@ -339,14 +340,7 @@ int kterm_init() {
   }
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
-  Must(spawn_thread("Command worker", kterm_command_worker, NULL));
-  println("Spawned thread");
-
-  /*
-   * We could create a kevent hook for every process creation, which
-   * could then automatically map the framebuffer for us
-   */
-  //create_keventhook
+  Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
 
   // flush our terminal buffer
   kterm_flush_buffer();
