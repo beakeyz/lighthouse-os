@@ -244,7 +244,7 @@ ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
   if (manifest->m_flags & DRV_SOCK) {
 
     println("Creating socket driver");
-    thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)generic_driver_entry, (uintptr_t)driver, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, &driver->m_port);
+    thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)generic_driver_entry, (uintptr_t)manifest, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, &driver->m_port);
 
     result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
 
