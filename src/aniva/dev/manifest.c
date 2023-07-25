@@ -90,19 +90,17 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
 
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
 
-  if (!handle) {
-    return nullptr;
-  }
+  ASSERT(handle);
 
   dev_manifest_t* ret = allocate_dmanifest();
 
-  if (!ret)
-    return nullptr;
+  ASSERT(ret);
 
   init_mutex(&ret->m_lock, NULL);
 
   ret->m_handle = handle;
-  ret->m_dep_count = handle->m_dep_count;
+
+  ret->m_dep_count = NULL;
   ret->m_dependency_manifests = init_list();
 
   ret->m_check_version = handle->m_version;
@@ -113,11 +111,31 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
   // TODO: concat
   ret->m_url = get_driver_url(handle);
 
+  return ret;
+}
+
+void destroy_dev_manifest(dev_manifest_t* manifest) {
+  // TODO: figure out if we need to take the driver handle with us...
+
+  clear_mutex(&manifest->m_lock);
+
+  destroy_list(manifest->m_dependency_manifests);
+  kfree((void*)manifest->m_url);
+  free_dmanifest(manifest);
+}
+
+void manifest_gather_dependencies(dev_manifest_t* manifest)
+{
+  aniva_driver_t* handle = manifest->m_handle;
+
+  /* We should not have any dependencies on the manifest at this point */
+  ASSERT(!manifest->m_dep_count);
+
   /*
    * We kinda trust too much in the fact that m_dep_count is 
    * correct...
    */
-  for (uintptr_t i = 0; i < ret->m_dep_count; i++) {
+  for (uintptr_t i = 0; i < handle->m_dep_count; i++) {
 
     /* TODO: we can check if this address is located in a 
      used resource in oder to validate it */
@@ -133,22 +151,16 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
 
     // if we can't load this drivers dependencies, we just terminate this entire thing
     if (!dep_manifest) {
-      destroy_dev_manifest(ret);
-      return nullptr;
+      return;
     }
 
-    list_append(ret->m_dependency_manifests, dep_manifest);
-  }
+    list_append(manifest->m_dependency_manifests, dep_manifest);
 
-  return ret;
+    manifest->m_dep_count++;
+  }
 }
 
-void destroy_dev_manifest(dev_manifest_t* manifest) {
-  // TODO: figure out if we need to take the driver handle with us...
-
-  clear_mutex(&manifest->m_lock);
-
-  destroy_list(manifest->m_dependency_manifests);
-  kfree((void*)manifest->m_url);
-  free_dmanifest(manifest);
+bool ensure_dependencies(dev_manifest_t* manifest)
+{
+  return (manifest->m_handle && manifest->m_dep_count == manifest->m_handle->m_dep_count);
 }

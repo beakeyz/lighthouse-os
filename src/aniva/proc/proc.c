@@ -124,6 +124,8 @@ static void __proc_clear_shared_resources(proc_t* proc)
 
   if (!*proc->m_resource_bundle)
     return;
+
+  debug_resources(proc->m_resource_bundle, KRES_TYPE_MEM);
   
   /*
    * NOTE: We don't always link through the list here, since 
@@ -153,7 +155,7 @@ static void __proc_clear_shared_resources(proc_t* proc)
         case KRES_TYPE_MEM:
 
           /* Should we dealloc or simply unmap? */
-          if (current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) {
+          if ((current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
 
             /* Preset */
             result = Error();
@@ -195,6 +197,7 @@ reset:
     }
   }
 
+  debug_resources(proc->m_resource_bundle, KRES_TYPE_MEM);
   /* Destroy the entire bundle, which deallocates the structures */
   destroy_resource_bundle(proc->m_resource_bundle);
 }

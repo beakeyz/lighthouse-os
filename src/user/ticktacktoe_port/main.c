@@ -59,17 +59,14 @@ int main (int argc, char** argv) {
     // function ptrs =D
     data_p->clear_board = clear_brd;
 
-// managing controllflow with tags (bad practise in bigger projects, but fine here)
-start:
-    if (!main_menu(data_p)) {
-        goto end;
+    while (true) {
+      if (!main_menu(data_p)) {
+        break;
+      }
+
+      end_screen(game_loop(data_p), data_p);
     }
 
-    end_screen(game_loop(data_p), data_p);
-
-    goto start;
-
-end:
     system("clear");
     printf("Thanks for playing!\n");
     player_t* winner = (data_p->one_p->score > data_p->two_p->score ) ? data_p->one_p : data_p->two_p;
@@ -95,31 +92,30 @@ void reset_player (player_t* ptr) {
 }
 
 bool main_menu (gamedata_t* data) {
-    system("clear");
-
     // reset board (function pointer just cuz I felt cute)
     data->clear_board(data);
 
     if (data->games_passed == 0) {
 
-        printf("Welcome to tick tack toe!\n");
-        char name_buffer[128];
+      system("clear");
+      printf("Welcome to tick tack toe!\n");
+      char name_buffer[128];
 
-        // name
-        printf("Name of player 1: \n");
-        fgets(name_buffer, sizeof(name_buffer), stdin);
-        memcpy((void*)data->one_p->name_p, name_buffer, sizeof(char) * 128);
+      // name
+      printf("Name of player 1: \n");
+      fgets(name_buffer, sizeof(name_buffer), stdin);
+      memcpy((void*)data->one_p->name_p, name_buffer, sizeof(char) * 128);
 
 
-        // name
-        printf("Name of player 2: \n");
-        fgets(name_buffer, sizeof(name_buffer), stdin);
-        memcpy((void*)data->two_p->name_p, name_buffer, sizeof(char) * 128);
+      // name
+      printf("Name of player 2: \n");
+      fgets(name_buffer, sizeof(name_buffer), stdin);
+      memcpy((void*)data->two_p->name_p, name_buffer, 128);
 
-        // TODO: custom chars
-        data->one_p->player_char = 'X';
-        data->two_p->player_char = 'O';
-        return true;
+      // TODO: custom chars
+      data->one_p->player_char = 'X';
+      data->two_p->player_char = 'O';
+      return true;
     }
 
     printf("Want to play again?\n");

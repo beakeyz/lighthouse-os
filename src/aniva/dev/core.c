@@ -91,8 +91,12 @@ static bool __load_precompiled_driver(dev_manifest_t* manifest) {
   if (manifest->m_flags & DRV_DEFERRED)
     return true;
 
-  println(manifest->m_handle->m_name);
+  manifest_gather_dependencies(manifest);
 
+  /*
+   * NOTE: this fails if the driver is already loaded, but we ignore this
+   * since we also load drivers preemptively if they are needed as a dependency
+   */
   load_driver(manifest);
 
   return true;
@@ -200,6 +204,8 @@ ErrorOrPtr install_driver(aniva_driver_t* handle) {
 
   manifest = create_dev_manifest(handle);
 
+  ASSERT(manifest);
+
   if (is_driver_installed(manifest)) {
     goto fail_and_exit;
   }
@@ -287,28 +293,29 @@ static void __driver_unregister_presence(DEV_TYPE type)
  */
 ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
+  ErrorOrPtr result;
+  aniva_driver_t* handle;
+
   if (!manifest)
     return Error();
 
-  aniva_driver_t* handle = manifest->m_handle;
+  handle = manifest->m_handle;
 
-  if (!verify_driver(handle)) {
+  if (!verify_driver(handle))
     goto fail_and_exit;
-  }
 
   // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
   // where we say result == ANIVA_FAIL
   // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
   // need to be replaced with result != ANIVA_SUCCESS
   if (!is_driver_installed(manifest)) {
-    if (install_driver(manifest->m_handle).m_status != ANIVA_SUCCESS) {
+    if (IsError(install_driver(manifest->m_handle))) {
       goto fail_and_exit;
     }
   }
 
-  if (is_driver_loaded(manifest)) {
+  if (is_driver_loaded(manifest))
     goto fail_and_exit;
-  }
 
   FOREACH(i, manifest->m_dependency_manifests) {
     dev_manifest_t* dep_manifest = i->data;
@@ -331,7 +338,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     }
   }
 
-  ErrorOrPtr result = hive_add_entry(__loaded_driver_manifests, manifest, manifest->m_url);
+  result = hive_add_entry(__loaded_driver_manifests, manifest, manifest->m_url);
 
   if (IsError(result)) {
     goto fail_and_exit;
@@ -339,6 +346,11 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   __driver_register_presence(handle->m_type);
 
+  /*
+   * TODO/NOTE: We wrap this bootstrap in a Must(), since we still need 
+   * sufficient handling for drivers that try to pull oopsies
+   * (Like checking if we ACTUALLY need the driver)
+   */
   Must(bootstrap_driver(manifest));
 
   return Success(0);

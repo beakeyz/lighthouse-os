@@ -503,21 +503,16 @@ static void kterm_process_buffer() {
 
   /* Make sure we add the newline so we also flush the char buffer */
   kterm_println("\n");
-  println("do stuff");
 
   if (mutex_is_locked(__kterm_cmd_lock)) {
     memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
     memcpy(__kterm_stdin_buffer, buffer, buffer_size);
 
     __kterm_stdin_buffer[buffer_size] = '\n';
-
     return;
   }
 
-  println("Locking");
   mutex_lock(__kterm_cmd_lock);
-
-  println("Locked");
 
   memcpy(__kterm_cmd_buffer.buffer, buffer, buffer_size);
 

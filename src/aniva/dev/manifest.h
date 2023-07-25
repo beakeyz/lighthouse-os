@@ -45,6 +45,9 @@ typedef struct dev_manifest {
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle);
 void destroy_dev_manifest(dev_manifest_t* manifest);
 
+void manifest_gather_dependencies(dev_manifest_t* manifest);
+bool ensure_dependencies(dev_manifest_t* manifest);
+
 bool is_manifest_valid(dev_manifest_t* manifest);
 
 bool driver_manifest_write(struct aniva_driver* manifest, int(*write_fn)());
