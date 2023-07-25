@@ -199,7 +199,6 @@ static int vnode_msg(vnode_t* node, driver_control_code_t code, void* buffer, si
  * A stream is a glorified buffer that can take in and store data and notify
  * stream holders of data changes, since the stream holds pointers to notification
  * functions it calls when there is data IO in the stream
- */
 static void* vnode_open_stream(vnode_t* node, void* stream, size_t stream_size) 
 {
   return NULL;
@@ -209,6 +208,7 @@ static void* vnode_close_stream(vnode_t* node, void* stream)
 {
   return NULL;
 }
+*/
   
 static vobj_t* vnode_open(vnode_t* node, char* name) 
 {
@@ -482,7 +482,6 @@ ErrorOrPtr vn_attach_object_rel(vnode_t* node, struct vdir* dir, struct vobj* ob
   /* Assign the handle */
   obj->m_handle = gen_res;
 
-exit_success:
   mutex_unlock(node->m_vobj_lock);
   return Success(0);
 

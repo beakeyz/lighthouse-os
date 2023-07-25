@@ -20,13 +20,13 @@ static bool __can_try_handle_here(threaded_socket_t* socket)
 {
   /* When the socket is a userthread, we can't simply execute it here =/ */
   return (((socket->m_parent->m_parent_proc->m_flags & PROC_KERNEL) == PROC_KERNEL ||
-      (socket->m_parent->m_parent_proc->m_flags & PROC_KERNEL) == PROC_DRIVER));
+      (socket->m_parent->m_parent_proc->m_flags & PROC_DRIVER) == PROC_DRIVER));
 }
 
 void socket_arbiter_entry()
 {
   ErrorOrPtr result;
-  uint32_t* current_port;
+  uint32_t* current_port = NULL;
   threaded_socket_t* current_socket;
 
   while (true) {

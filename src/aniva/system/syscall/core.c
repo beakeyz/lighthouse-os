@@ -160,7 +160,6 @@ static bool __syscall_verify_sysid(syscall_id_t id)
 void sys_handler(registers_t* regs) {
 
   uintptr_t result;
-  thread_t* current_thread;
   syscall_t call;
   syscall_args_t args;
 

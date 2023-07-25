@@ -231,12 +231,12 @@ static ErrorOrPtr __hashmap_try_resize(hashmap_t* map)
 
 /*
  * Sort the closed entry buffer based on hash from low to high
- */
 static ErrorOrPtr __hashmap_sort_closed_entry(hashmap_entry_t* root)
 {
   kernel_panic("TODO: implement __hashmap_sort_closed_entry");
   return Error();
 }
+ */
 
 /*
  * Find the middle pointer in the linked list of entries
@@ -551,7 +551,7 @@ ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
  */
 ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
 {
-  uintptr_t index;
+  uintptr_t index = 0;
   hashmap_entry_t* prev;
   hashmap_entry_t* entry;
 

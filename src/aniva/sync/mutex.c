@@ -140,8 +140,6 @@ void mutex_unlock(mutex_t* mutex) {
 
   spinlock_lock(mutex->m_lock);
 
-  thread_t* current_thread = get_current_scheduling_thread();
-
   mutex->m_lock_depth--;
 
   if (mutex->m_lock_depth == 0) {

@@ -51,17 +51,6 @@ typedef enum thread_state {
 
 ANIVA_STATUS init_proc_core();
 
-/*
- * Allocate a page and map it into the page dir.
- * Params:
- * - thread: the thread we will relocate the stub for
- * - offset: the offset that the virtual base will have. every increment will
- *           increase the real virtual offset by offset * stub_size 
- * - custom_flags: flags for the kmem allocator
- * - page_flags: flags for the pages
- */
-ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, uint32_t custom_flags, uint32_t page_flags);
-
 ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread);
 
 /*

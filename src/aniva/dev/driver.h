@@ -23,7 +23,7 @@ typedef union driver_version {
   uint32_t version;
 } driver_version_t;
 
-#define DEF_DRV_VERSION(maj, min, bump) { maj, min, bump }
+#define DEF_DRV_VERSION(maj, min, bump) {{ (maj), (min), (bump) }}
 
 typedef struct aniva_driver {
   const char m_name[MAX_DRIVER_NAME_LENGTH];

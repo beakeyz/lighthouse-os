@@ -35,6 +35,7 @@ FILE* stderr;
 
 extern int real_va_sprintf(uint8_t, FILE* , const char* , va_list);
 extern int real_va_scanf(FILE*, const char*, va_list);
+extern int real_va_sscanf(const char* buffer, const char* fmt, va_list args);
 
 void __init_stdio(void)
 {
@@ -196,6 +197,18 @@ int scanf (const char *__restrict __format, ...)
 
   va_end(args);
 
+  return result;
+}
+
+int sscanf (const char* buffer, const char* format, ...)
+{
+  int result;
+  va_list args;
+  va_start(args, format);
+
+  result = real_va_sscanf(buffer, format, args);
+
+  va_end(args);
   return result;
 }
 

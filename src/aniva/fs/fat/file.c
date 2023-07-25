@@ -44,15 +44,25 @@ static int f32file_seek_index(fat_file_t* file, int index)
   kernel_panic("TODO: fatfile_seek_index");
 }
 
+fat_file_ops_t __f32_ops = {
+  .get = f32file_get,
+  .put = f32file_put,
+  .seek_index = f32file_seek_index,
+  .next_cluster = f32file_next_cluster,
+  .get_block_info = f32file_block_info,
+};
+
 /* Very linux-y */
 int fat_prepare_finfo(vnode_t* node)
 {
   fat_fs_info_t* info = FAT_FSINFO(node);
 
   info->fat_lock = create_mutex(0);
+  info->m_file_ops = NULL;
 
   if (is_fat32(info)) {
     info->fat_file_shift = 2;
+    info->m_file_ops = &__f32_ops;
     return 0;
   }
 

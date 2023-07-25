@@ -1,7 +1,9 @@
 #include "vfs.h"
+#include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/kterm/kterm.h"
+#include "dev/manifest.h"
 #include "fs/cache.h"
 #include "fs/core.h"
 #include "fs/vdir.h"
@@ -61,8 +63,6 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
   /* When we try to mount duplicates, we fail rn */
   Must(hive_add_entry(namespace->m_vnodes, node, node->m_name));
 
-  vnode_t* test = hive_get(namespace->m_vnodes, node->m_name);
-
   node->m_ns = namespace;
   node->m_id = namespace->m_vnodes->m_total_entry_count + 1;
   node->m_flags |= VN_MOUNT;
@@ -72,12 +72,26 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
 
 ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
 
+  dev_url_t url;
+  dev_manifest_t* manifest;
   vnode_t* current = vfs_resolve_node(path);
 
   if (current)
     return Error();
 
-  vnode_t* node = create_fs_driver(driver);
+  url = get_driver_url(driver);
+
+  if (!url)
+    return Error();
+  
+  manifest = get_driver(url);
+
+  kfree((void*)url);
+
+  if (!manifest)
+    return Error();
+
+  vnode_t* node = create_fs_driver(manifest);
 
   if (!node)
     return Error();
@@ -227,6 +241,8 @@ vobj_t* vfs_resolve(const char* path) {
     return vfs_resolve_relative(vfs_get_abs_root(), nullptr, nullptr, path);
 
   path_length = strlen(path);
+  node_id_index = NULL;
+  end_namespace = NULL;
 
   char path_copy[path_length + 1];
   path_copy[path_length] = NULL;
@@ -320,7 +336,6 @@ vnode_t* vfs_resolve_node(const char* path) {
 
   uintptr_t node_id_index;
   char* node_id;
-  char* obj_id;
 
   uintptr_t i;
   size_t path_length;

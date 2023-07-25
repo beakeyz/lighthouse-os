@@ -32,8 +32,8 @@ static inline uint8_t fat_to_lower(char c) {
 typedef uintptr_t fat_offset_t;
 
 /* TODO: */
-static int fat_parse_lfn(void* dir, fat_offset_t* offset);
-static int fat_parse_short_fn(fat_dir_entry_t* dir, const char* name);
+//static int fat_parse_lfn(void* dir, fat_offset_t* offset);
+//static int fat_parse_short_fn(fat_dir_entry_t* dir, const char* name);
 
 static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
 

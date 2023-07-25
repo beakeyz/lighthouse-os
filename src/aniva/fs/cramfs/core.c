@@ -93,11 +93,6 @@ static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset
   return 0;
 }
 
-static int ramfs_write(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
-  kernel_panic("TODO: implement ramfs_write (should we though?)");
-  return 0;
-}
-
 static vobj_t* ramfs_find(vnode_t* node, char* name) {
 
   tar_file_t current_file = { 0 };

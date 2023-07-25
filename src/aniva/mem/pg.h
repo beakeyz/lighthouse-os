@@ -4,29 +4,23 @@
 #include "libk/string.h"
 #include <libk/stddef.h>
 
-typedef enum {
-  PDE_PRESENT = (1 << 0),
-  PDE_WRITABLE = (1 << 1),
-  PDE_USER = (1 << 2),
-  PDE_WRITE_THROUGH = (1 << 3),
-  PDE_NO_CACHE = (1 << 4),
-  PDE_HUGE_PAGE = (1 << 7),
-  PDE_GLOBAL = (1 << 8),
-  // last bit of the 64 bit integer
-  PDE_NX = 0x8000000000000000ULL,
-} PDE_FLAGS;
+#define PDE_PRESENT (1 << 0)
+#define PDE_WRITABLE (1 << 1)
+#define PDE_USER (1 << 2)
+#define PDE_WRITE_THROUGH (1 << 3)
+#define PDE_NO_CACHE (1 << 4)
+#define PDE_HUGE_PAGE (1 << 7)
+#define PDE_GLOBAL (1 << 8)
+#define PDE_NX (0x8000000000000000ULL)
 
-typedef enum {
-  PTE_PRESENT = (1 << 0),
-  PTE_WRITABLE = (1 << 1),
-  PTE_USER = (1 << 2),
-  PTE_WRITE_THROUGH = (1 << 3),
-  PTE_NO_CACHE = (1 << 4),
-  PTE_PAT = (1 << 7),
-  PTE_GLOBAL = (1 << 8),
-  // last bit of the 64 bit integer
-  PTE_NX = 0x8000000000000000ULL,
-} PTE_FLAGS;
+#define PTE_PRESENT (1 << 0)
+#define PTE_WRITABLE (1 << 1)
+#define PTE_USER (1 << 2)
+#define PTE_WRITE_THROUGH (1 << 3)
+#define PTE_NO_CACHE (1 << 4)
+#define PTE_PAT (1 << 7)
+#define PTE_GLOBAL (1 << 8)
+#define PTE_NX (0x8000000000000000ULL)
 
 // FIXME: split into two
 typedef union pml_entry {

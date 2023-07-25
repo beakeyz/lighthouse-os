@@ -35,8 +35,8 @@ static void decode_disk_model_number(char* model_number) {
   }
 
   // Let's shave off trailing spaces
+  char prev = NULL;
 
-  char prev;
   for (uintptr_t i = 0; i < 40; i++) {
 
     // After we've found 2 spaces in a row, let's 

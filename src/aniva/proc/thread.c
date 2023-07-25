@@ -41,7 +41,7 @@ static thread_t* __generic_idle_thread;
  * and a trampoline so we can return from userspace when 
  * the process exits (aka returns)
  */
-static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
+//static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
 
 thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, const char name[32], proc_t* proc, bool kthread) { // make this sucka
   thread_t *thread = kmalloc(sizeof(thread_t));
@@ -73,9 +73,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   strcpy(thread->m_name, name);
   thread_set_state(thread, NO_CONTEXT);
 
-  size_t stack_page_count;
-  paddr_t stack_physical_bottom;
-
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
@@ -84,9 +81,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
-
-  stack_page_count = kmem_get_page_idx(DEFAULT_STACK_SIZE);
-  stack_physical_bottom = kmem_to_phys(nullptr, thread->m_kernel_stack_bottom);
 
   /* Compute the kernel stack top */
   thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE, 16);
@@ -413,8 +407,6 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   // without saving the context it kinda works,
   // but it keeps running the function all over again.
   // since no state is saved, is just starts all over
-
-  threaded_socket_t* to_socket;
 
   if (from && from->m_current_state == RUNNING) {
     thread_set_state(from, RUNNABLE);

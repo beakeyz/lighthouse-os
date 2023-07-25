@@ -328,9 +328,9 @@ class ProjectBuilder(object):
     def shouldBuild(self, file: SourceFile) -> bool:
         for path in self.srcPath:
             # The path of this file is one that we care about
-            if file.get_path().find(path) != -1 and file.is_header is False:
+            if file.get_path().find(path) != -1 and not file.is_header:
                 # Without a compiler or output path, we are
-                # not really able to do much, are we...
+                # not really able to do much, are we?
                 if file.compilerDir == "" or file.outputPath == "":
                     return False
                 return True

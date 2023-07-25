@@ -46,15 +46,6 @@
 
 #define KTERM_CURSOR_WIDTH 2
 
-/* Command processing information */
-typedef struct {
-  /* Commands can't be longer than 128 bytes :clown: */
-  char buffer[KTERM_MAX_BUFFER_SIZE];
-} kterm_cmd_t;
-
-mutex_t* s_kterm_cmd_lock;
-kterm_cmd_t s_kterm_cmd_buffer;
-
 int kterm_init();
 int kterm_exit();
 uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response);
@@ -64,34 +55,84 @@ static void kterm_write_char(char c);
 static void kterm_process_buffer();
 
 static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
+static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 
 static void kterm_draw_cursor();
 static const char* kterm_get_buffer_contents();
-static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y);
+static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y);
 static void kterm_scroll(uintptr_t lines);
 static void kterm_println(const char* msg);
 
 // This driver depends on ps2, so this is legal for now
 void kterm_on_key(ps2_key_event_t event);
 
-/* Buffer information */
-static uintptr_t kterm_current_line;
-static uintptr_t kterm_buffer_ptr;
-static char kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
-static char kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
+/* Command processing information */
+typedef struct {
+  /* Commands can't be longer than 128 bytes :clown: */
+  char buffer[KTERM_MAX_BUFFER_SIZE];
+} kterm_cmd_t;
 
-static fb_info_t kterm_fb_info;
+mutex_t* __kterm_cmd_lock;
+kterm_cmd_t __kterm_cmd_buffer;
+
+/* Buffer information */
+static uintptr_t __kterm_current_line;
+static uintptr_t __kterm_buffer_ptr;
+static char __kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
+static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
+
+static uint32_t* __kterm_double_buffer;
+static size_t __kterm_double_buffer_size;
+
+static fb_info_t __kterm_fb_info;
+
+/*
+static void kterm_doubl_buffer_clear() 
+{
+  memset(__kterm_double_buffer, 0, __kterm_double_buffer_size);
+}
+
+static void kterm_swap()
+{
+  for (uintptr_t x = 0; x < __kterm_fb_info.width; x++) {
+    for (uintptr_t y = 0; y < __kterm_fb_info.height; y++) {
+      uint32_t double_color = *kterm_get_pixel_address(x, y);
+      kterm_draw_pixel_raw(x, y, double_color);
+    }
+  }
+}
+*/
+
+static void kterm_clear_raw()
+{
+  for (uintptr_t x = 0; x < __kterm_fb_info.width; x++) {
+    for (uintptr_t y = 0; y < __kterm_fb_info.height; y++) {
+      kterm_draw_pixel_raw(x, y, 00);
+    }
+  }
+}
+
+static void kterm_clear() 
+{
+  //kterm_doubl_buffer_clear();
+  //kterm_swap();
+
+  kterm_clear_raw();
+
+  __kterm_current_line = 0;
+  kterm_draw_cursor();
+}
 
 void kterm_command_worker() {
 
   for (;;) {
 
-    if (s_kterm_cmd_buffer.buffer[0] != 0) {
-      mutex_lock(s_kterm_cmd_lock);
+    if (__kterm_cmd_buffer.buffer[0] != 0) {
+      mutex_lock(__kterm_cmd_lock);
 
       /* TODO: process cmd */
-      const char* contents = s_kterm_cmd_buffer.buffer;
+      const char* contents = __kterm_cmd_buffer.buffer;
 
       if (!strcmp(contents, "acpitables")) {
         kterm_println("acpi static table info: \n");
@@ -108,13 +149,16 @@ void kterm_command_worker() {
         kterm_println("\n");
         kterm_println("tables found: ");
         kterm_println(to_string(g_parser_ptr->m_tables->m_length));
+        kterm_println("\n");
       } else if (!strcmp(contents, "help")) {
         kterm_println("available commands: \n");
         kterm_println(" - help: print some helpful info\n");
         kterm_println(" - acpitables: print the acpi tables present in the system\n");
         kterm_println(" - ztest: spawn a zone allocator and test it\n");
         kterm_println(" - testramdisk: spawn a ramdisk and test it\n");
-        kterm_println(" - exit: panic the kernel");
+        kterm_println(" - exit: panic the kernel\n");
+      } else if (!strcmp(contents, "clear")) {
+        kterm_clear();
       } else if (!strcmp(contents, "exit")) {
         kernel_panic("TODO: exit/shutdown");
       } else if (!strcmp(contents, "ztest")) {
@@ -205,14 +249,15 @@ void kterm_command_worker() {
         vobj_close(obj);
 
         khandle_type_t driver_type = KHNDL_TYPE_DRIVER;
+        dev_manifest_t* kterm_manifest = get_driver("other/kterm");
 
         khandle_t _stdin;
         khandle_t _stdout;
         khandle_t _stderr;
 
-        create_khandle(&_stdin, &driver_type, &g_base_kterm_driver);
-        create_khandle(&_stdout, &driver_type, &g_base_kterm_driver);
-        create_khandle(&_stderr, &driver_type, &g_base_kterm_driver);
+        create_khandle(&_stdin, &driver_type, kterm_manifest);
+        create_khandle(&_stdout, &driver_type, kterm_manifest);
+        create_khandle(&_stderr, &driver_type, kterm_manifest);
 
         _stdin.flags |= HNDL_FLAG_READACCESS;
         _stdout.flags |= HNDL_FLAG_WRITEACCESS;
@@ -229,15 +274,15 @@ void kterm_command_worker() {
         Must(__kmem_alloc_ex(
               p->m_root_pd.m_root,
               p,
-              kterm_fb_info.paddr,
+              (paddr_t)__kterm_fb_info.paddr,
               KTERM_FB_ADDR,
-              kterm_fb_info.used_pages * SMALL_PAGE_SIZE,
+              __kterm_fb_info.size,
               KMEM_CUSTOMFLAG_NO_REMAP,
               KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
               ));
 
         /* Apply the flags to our resource */
-        resource_apply_flags(KTERM_FB_ADDR, kterm_fb_info.used_pages * SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, GET_RESOURCE(p->m_resource_bundle, KRES_TYPE_MEM));
+        resource_apply_flags(KTERM_FB_ADDR, GET_PAGECOUNT(__kterm_fb_info.size), KRES_FLAG_MEM_KEEP_PHYS, GET_RESOURCE(p->m_resource_bundle, KRES_TYPE_MEM));
 
         debug_resources(p->m_resource_bundle, KRES_TYPE_MEM);
 
@@ -247,9 +292,9 @@ void kterm_command_worker() {
       }
 
 end_processing:
-      memset(&s_kterm_cmd_buffer, 0, sizeof(s_kterm_cmd_buffer));
+      memset(&__kterm_cmd_buffer, 0, sizeof(__kterm_cmd_buffer));
 
-      mutex_unlock(s_kterm_cmd_lock);
+      mutex_unlock(__kterm_cmd_lock);
     }
 
     scheduler_yield();
@@ -291,20 +336,20 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
     return DRV_STAT_INVAL;
 
   /* Wait until we have shit to read */
-  while (*kterm_stdin_buffer == NULL)
+  while (*__kterm_stdin_buffer == NULL)
     scheduler_yield();
 
   /* Make sure we don't transfer garbo */
   memset(buffer, NULL, *buffer_size);
 
   /* Set the buffersize to our string in preperation for the copy */
-  *buffer_size = strlen(kterm_stdin_buffer);
+  *buffer_size = strlen(__kterm_stdin_buffer);
 
   /* Yay, copy */
-  memcpy(buffer, kterm_stdin_buffer, *buffer_size);
+  memcpy(buffer, __kterm_stdin_buffer, *buffer_size);
 
   /* Reset stdin_buffer */
-  memset(kterm_stdin_buffer, NULL, sizeof(kterm_stdin_buffer));
+  memset(__kterm_stdin_buffer, NULL, sizeof(__kterm_stdin_buffer));
 
   return DRV_STAT_OK;
 }
@@ -315,16 +360,16 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
  */
 int kterm_init() {
 
-  kterm_current_line = 0;
-  s_kterm_cmd_lock = create_mutex(0);
+  __kterm_current_line = 0;
+  __kterm_cmd_lock = create_mutex(0);
 
   ASSERT_MSG(driver_manifest_write(&g_base_kterm_driver, kterm_write), "Failed to manifest kterm write");
   ASSERT_MSG(driver_manifest_read(&g_base_kterm_driver, kterm_read), "Failed to manifest kterm read");
 
   /* Zero out the cmd buffer */
-  memset(&s_kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
-  memset(kterm_stdin_buffer, 0, sizeof(kterm_stdin_buffer));
-  memset(kterm_char_buffer, 0, sizeof(kterm_char_buffer));
+  memset(&__kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
+  memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
+  memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
   // register our keyboard listener
   destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
@@ -335,9 +380,14 @@ int kterm_init() {
 
   packet_response_t* response = driver_send_packet_sync("graphics/fb", FB_DRV_GET_FB_INFO, NULL, 0);
   if (response) {
-    kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
+    __kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
     destroy_packet_response(response);
   }
+
+  __kterm_double_buffer_size = ALIGN_UP(__kterm_fb_info.size, SMALL_PAGE_SIZE);
+  __kterm_double_buffer = (void*)Must(__kmem_kernel_alloc_range(__kterm_double_buffer_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL | KMEM_FLAG_GLOBAL));
+
+  memset(__kterm_double_buffer, 0, __kterm_double_buffer_size);
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
@@ -386,6 +436,10 @@ uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response
         //kterm_println("\n");
         break;
       }
+    case KTERM_DRV_CLEAR:
+      {
+        kterm_clear();
+      }
   }
 
   return DRV_STAT_OK;
@@ -397,24 +451,24 @@ void kterm_on_key(ps2_key_event_t event) {
 }
 
 static void kterm_flush_buffer() {
-  memset(kterm_char_buffer, 0, sizeof(char) * KTERM_MAX_BUFFER_SIZE);
-  kterm_buffer_ptr = 0;
+  memset(__kterm_char_buffer, 0, sizeof(char) * KTERM_MAX_BUFFER_SIZE);
+  __kterm_buffer_ptr = 0;
 }
 
 static void kterm_write_char(char c) {
-  if (kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
+  if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
     // time to flush the buffer
     return;
   }
 
   switch (c) {
     case '\b':
-      if (kterm_buffer_ptr > KTERM_CURSOR_WIDTH) {
-        kterm_buffer_ptr--;
-        kterm_char_buffer[kterm_buffer_ptr] = NULL;
-        kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
+      if (__kterm_buffer_ptr > KTERM_CURSOR_WIDTH) {
+        __kterm_buffer_ptr--;
+        __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
+        kterm_draw_char(__kterm_buffer_ptr * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
       } else {
-        kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
+        __kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
       }
       break;
     case (char)0x0A:
@@ -422,9 +476,9 @@ static void kterm_write_char(char c) {
       break;
     default:
       if (c >= 0x20) {
-        kterm_draw_char(kterm_buffer_ptr * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
-        kterm_char_buffer[kterm_buffer_ptr] = c;
-        kterm_buffer_ptr++;
+        kterm_draw_char(__kterm_buffer_ptr * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
+        __kterm_char_buffer[__kterm_buffer_ptr] = c;
+        __kterm_buffer_ptr++;
       }
       break;
   }
@@ -451,48 +505,59 @@ static void kterm_process_buffer() {
   kterm_println("\n");
   println("do stuff");
 
-  if (mutex_is_locked(s_kterm_cmd_lock)) {
-    memset(kterm_stdin_buffer, 0, sizeof(kterm_stdin_buffer));
-    memcpy(kterm_stdin_buffer, buffer, buffer_size);
+  if (mutex_is_locked(__kterm_cmd_lock)) {
+    memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
+    memcpy(__kterm_stdin_buffer, buffer, buffer_size);
 
-    kterm_stdin_buffer[buffer_size] = '\n';
+    __kterm_stdin_buffer[buffer_size] = '\n';
 
     return;
   }
 
   println("Locking");
-  mutex_lock(s_kterm_cmd_lock);
+  mutex_lock(__kterm_cmd_lock);
 
   println("Locked");
 
-  memcpy(s_kterm_cmd_buffer.buffer, buffer, buffer_size);
+  memcpy(__kterm_cmd_buffer.buffer, buffer, buffer_size);
 
-  mutex_unlock(s_kterm_cmd_lock);
+  mutex_unlock(__kterm_cmd_lock);
 }
 
 static void kterm_draw_cursor() {
-  kterm_draw_char(0 * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
-  kterm_draw_char(1 * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
-  kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
+  kterm_draw_char(0 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
+  kterm_draw_char(1 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
+  __kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
 }
 
 static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color) {
-  if (kterm_fb_info.pitch == 0 || kterm_fb_info.bpp == 0)
+  if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
     return;
 
-  if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height) {
-    *(uint32_t*)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8) = color;
+  if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
+    *(uint32_t volatile*)((vaddr_t)__kterm_double_buffer + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
   }
 }
 
+static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
+  if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
+    return;
+
+  if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
+    *(uint32_t volatile*)(KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
+  }
+
+  kterm_draw_pixel(x, y, color);
+}
+
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
-  char* glyph = font8x8_basic[c];
+  char* glyph = font8x8_basic[(uint32_t)c];
   for (uintptr_t _y = 0; _y < KTERM_FONT_HEIGHT; _y++) {
     for (uintptr_t _x = 0; _x < KTERM_FONT_WIDTH; _x++) {
-      kterm_draw_pixel(x + _x, y + _y, 0x00);
+      kterm_draw_pixel_raw(x + _x, y + _y, 0x00);
 
       if (glyph[_y] & (1 << _x)) {
-        kterm_draw_pixel(x + _x, y + _y, color);
+        kterm_draw_pixel_raw(x + _x, y + _y, color);
       }
     }
   }
@@ -501,23 +566,23 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
 static const char* kterm_get_buffer_contents() {
   uintptr_t index = 0;
 
-  while (!kterm_char_buffer[index]) {
+  while (!__kterm_char_buffer[index]) {
     index++;
   }
 
-  return &kterm_char_buffer[index];
+  return &__kterm_char_buffer[index];
 }
 
 static void kterm_println(const char* msg) {
 
   uintptr_t index = 0;
-  uintptr_t kterm_buffer_ptr_copy = kterm_buffer_ptr;
+  uintptr_t kterm_buffer_ptr_copy = __kterm_buffer_ptr;
   while (msg[index]) {
     char current_char = msg[index];
     if (current_char == '\n') {
-      kterm_current_line++;
+      __kterm_current_line++;
 
-      if (kterm_current_line * KTERM_FONT_HEIGHT >= kterm_fb_info.height) {
+      if (__kterm_current_line * KTERM_FONT_HEIGHT >= __kterm_fb_info.height) {
         kterm_scroll(1);
       }
 
@@ -525,17 +590,17 @@ static void kterm_println(const char* msg) {
       kterm_draw_cursor();
       kterm_buffer_ptr_copy = KTERM_CURSOR_WIDTH;
     } else {
-      kterm_draw_char(kterm_buffer_ptr_copy * KTERM_FONT_WIDTH, kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
+      kterm_draw_char(kterm_buffer_ptr_copy * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
       kterm_buffer_ptr_copy++;
 
-      if (kterm_buffer_ptr_copy * KTERM_FONT_WIDTH > kterm_fb_info.width) {
-        kterm_current_line++;
+      if (kterm_buffer_ptr_copy * KTERM_FONT_WIDTH > __kterm_fb_info.width) {
+        __kterm_current_line++;
         kterm_buffer_ptr_copy = 0;
       }
     }
     index++;
   }
-  kterm_buffer_ptr = kterm_buffer_ptr_copy;
+  __kterm_buffer_ptr = kterm_buffer_ptr_copy;
 }
 
 void println_kterm(const char* msg) {
@@ -544,33 +609,26 @@ void println_kterm(const char* msg) {
     return;
   }
 
-  const size_t msg_len = strlen(msg);
-
   kterm_println(msg);
   kterm_println("\n");
 }
 
 // TODO: add a scroll direction (up, down, left, ect)
-// TODO: scrolling still gives weird artifacts
-// FIXME: very fucking slow
-static void kterm_scroll(uintptr_t lines) {
-  vaddr_t screen_top = kterm_get_pixel_address(0, 0);
-  vaddr_t screen_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - 1);
-  vaddr_t scroll_top = kterm_get_pixel_address(0, lines * KTERM_FONT_HEIGHT);
-  vaddr_t scroll_end = kterm_get_pixel_address(kterm_fb_info.width - 1, kterm_fb_info.height - lines * KTERM_FONT_HEIGHT - 1);
-  size_t scroll_size = screen_end - scroll_top;
-
-  memcpy((void*)screen_top, (void*)scroll_top, scroll_size);
-  memset((void*)scroll_end, 0, screen_end - scroll_end);
-  kterm_current_line--;
+// FIXME: scrolling still gives weird artifacts
+static void kterm_scroll(uintptr_t lines) 
+{
+  volatile uint32_t* top = kterm_get_pixel_address(0, 0);
+  (void)top;
+  __kterm_current_line -= 3;
+  kernel_panic("TODO: implement scrolling");
 }
 
-static vaddr_t kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
-  if (kterm_fb_info.pitch == 0 || kterm_fb_info.bpp == 0)
+static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
+  if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
     return 0;
 
-  if (x >= 0 && y >= 0 && x < kterm_fb_info.width && y < kterm_fb_info.height) {
-    return (volatile vaddr_t)(KTERM_FB_ADDR + kterm_fb_info.pitch * y + x * kterm_fb_info.bpp / 8);
+  if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
+    return (uint32_t volatile*)((vaddr_t)__kterm_double_buffer + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8);
   }
   return 0;
 }

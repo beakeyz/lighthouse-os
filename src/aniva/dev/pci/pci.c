@@ -14,6 +14,7 @@
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
 #include "io.h"
+#include "system/resource.h"
 #include <libk/io.h>
 
 pci_accessmode_t __current_addressing_mode;
@@ -340,10 +341,16 @@ bool is_bar_64bit(uint32_t bar)
   return (bar_get_type(bar) == PCI_BASE_ADDRESS_MEM_TYPE_64);
 }
 
+/*
+ * TODO: verify syntax
+ */
 void pci_device_register_resource(pci_device_t* device, uint32_t index)
 {
-  uintptr_t value;
-
+  //uintptr_t value;
+  //resource_claim_ex("PCI_resource", uintptr_t start, size_t size, kresource_type_t type, kresource_t **regions)
+  (void)device;
+  (void)index;
+  kernel_panic("Impl");
 }
 
 void pci_device_unregister_resource(pci_device_t* device, uint32_t index)
@@ -419,11 +426,7 @@ bool init_pci() {
 }
 
 pci_device_t create_pci_device(struct pci_bus* bus) {
-  pci_device_t ret = {0};
-  pci_device_ops_io_t impls;
-
-  // TODO
-  return ret;
+  kernel_panic("Impl: create_pci_device");
 }
 
 pci_bus_t* get_bridge_by_index(uint32_t bridge_index) {

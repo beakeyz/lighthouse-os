@@ -136,8 +136,6 @@ uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** respons
   return 0;
 }
 
-static uintptr_t y_index = 0;
-
 registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
 
   uint16_t scan_code = (uint16_t)in8(0x60);

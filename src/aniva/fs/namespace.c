@@ -182,8 +182,6 @@ ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path) {
   if (!ns)
     return Error();
 
-  vnamespace_t* parent = ns->m_parent;
-
   result = vns_commit_mutate(ns);
 
   if (result.m_status == ANIVA_FAIL)

@@ -12,28 +12,6 @@ void init_eventhooks() {
   __kevent_hook_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_hook_t) * KEVENT_MAX_EVENT_HOOKS, sizeof(kevent_hook_t), NULL); 
 }
 
-static ErrorOrPtr __validate_keventhook(kevent_hook_t* hook)
-{
-  uint32_t check_id;
-  kevent_hook_t copy;
-
-  if (!hook)
-    return Error();
-
-  copy = *hook;
-
-  copy.m_next = nullptr;
-  copy.m_id = 0;
-
-  check_id = kcrc32(&copy, sizeof(kevent_hook_t));
-
-  /* ID mismatch */
-  if (check_id != hook->m_id)
-    return Error();
-
-  return Success(0);
-}
-
 kevent_hook_t* create_keventhook(kevent_hook_fn_t function, kevent_hook_condition_fn_t condition, kevent_privilege_t priv) {
 
   if (!__kevent_hook_allocator)

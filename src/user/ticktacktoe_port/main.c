@@ -106,14 +106,14 @@ bool main_menu (gamedata_t* data) {
         char name_buffer[128];
 
         // name
-        printf("Name of player 1: ");
-        scanf("%s", name_buffer);
+        printf("Name of player 1: \n");
+        fgets(name_buffer, sizeof(name_buffer), stdin);
         memcpy((void*)data->one_p->name_p, name_buffer, sizeof(char) * 128);
 
 
         // name
-        printf("Name of player 2: ");
-        scanf("%s", name_buffer);
+        printf("Name of player 2: \n");
+        fgets(name_buffer, sizeof(name_buffer), stdin);
         memcpy((void*)data->two_p->name_p, name_buffer, sizeof(char) * 128);
 
         // TODO: custom chars
@@ -125,10 +125,10 @@ bool main_menu (gamedata_t* data) {
     printf("Want to play again?\n");
     char buffer[128];
 
-    printf("[y/n] ");
-    scanf("%s", buffer);
+    printf("[y/N] \n");
+    fgets(buffer, sizeof(buffer), stdin);
     // lets hope they don't overflow the buffer :clown:
-    return (strcasecmp(buffer, "yes") == 0 || strcasecmp(buffer, "y") == 0);
+    return (strcmp(buffer, "yes") == 0 || strcmp(buffer, "y") == 0);
 }
 
 // main game logic
@@ -158,7 +158,6 @@ player_t* game_loop (gamedata_t* data_p) {
             if (!is_last) draw_intermediate_layer();
             putchar('\n');
         }
-
        
         while (true) {
     
@@ -186,17 +185,37 @@ player_t* game_loop (gamedata_t* data_p) {
             printf("Give the coords to the tile you want to set!\n");
             int x;
             int y;
-            printf("Give X coord 0 <-> 2: ");
-            scanf("%d", &x);
-            if (x < 0 || x > 2) {
-                put_error_in_buffer(error_buffer, "that coord (X) was out of bounds!");
-                break;
+            char buffer[4];
+            printf("Give X coord 0 <-> 2: \n");
+
+            /* Try to get the X coord from the user */
+            char* result = fgets(buffer, sizeof(buffer), stdin);
+            if(result[1] != '\0') {
+              put_error_in_buffer(error_buffer, "that coord (X) was invalid!");
+              break;
             }
-            printf("Give Y coord 0 <-> 2: ");
-            scanf("%d", &y);
+            sscanf(buffer, "%d", &x);
+
+            /* Validate bounds */
+            if (x < 0 || x > 2) {
+              put_error_in_buffer(error_buffer, "that coord (X) was out of bounds!");
+              break;
+            }
+
+            printf("Give Y coord 0 <-> 2: \n");
+
+            /* Try to get the Y coord from the user */
+            result = fgets(buffer, sizeof(buffer), stdin);
+            if(result[1] != '\0') {
+              put_error_in_buffer(error_buffer, "that coord (Y) was invalid!");
+              break;
+            }
+            sscanf(buffer, "%d", &y);
+
+            /* Check bounds again */
             if (y < 0 || y > 2) {
-                put_error_in_buffer(error_buffer, "that coord (Y) was out of bounds!");
-                break;
+              put_error_in_buffer(error_buffer, "that coord (Y) was out of bounds!");
+              break;
             }
 
             memset(error_buffer, 0, sizeof(error_buffer));
@@ -204,8 +223,8 @@ player_t* game_loop (gamedata_t* data_p) {
             // handle turn
             char ch = data_p->board[y][x];
             if (ch != ' ') {
-                put_error_in_buffer(error_buffer, "That place is already set!");
-                break;
+              put_error_in_buffer(error_buffer, "That place is already set!");
+              break;
             }
             data_p->board[y][x] = current->player_char;
 
@@ -246,8 +265,6 @@ player_t* game_loop (gamedata_t* data_p) {
             data_p->player_turn_p = opposing;
 
             break;
-            // you never know ;-;
-            sleep(10 * miliseconds);
         }
         // if this is reached + the check is passed that means no one won =/
         if (is_round_over(data_p)) {

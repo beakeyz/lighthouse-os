@@ -26,7 +26,7 @@ static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
  * region, after which we can loop over all the userpages and find their physical addresses. 
  * We translate these to high kernel addresses so that we can copy the correct bytes over
  */
-static int elf_read_into_user_range(pml_entry_t* root, file_t* file, vaddr_t user_start, size_t size, uintptr_t offset);
+//static int elf_read_into_user_range(pml_entry_t* root, file_t* file, vaddr_t user_start, size_t size, uintptr_t offset);
 
 static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_header) {
 
@@ -63,9 +63,9 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
  */
 ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule) {
 
-  proc_t* ret;
+  proc_t* ret = NULL;
+  struct elf64_phdr* phdrs = NULL;
   struct elf64_hdr header;
-  struct elf64_phdr* phdrs;
   struct proc_image image;
   uintptr_t proc_flags;
   uint32_t page_flags;
@@ -107,7 +107,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
   if (!ret)
-    return Error();
+    goto error_and_out;
 
   image.m_total_exe_bytes = file->m_buffer_size;
   image.m_lowest_addr = (vaddr_t)-1;
@@ -128,7 +128,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
                 virtual_phdr_base,
                 phdr_size,
                 KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
-                KMEM_FLAG_WRITABLE
+                page_flags
                 ));
 
           vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, ret->m_root_pd.m_root));
@@ -168,8 +168,12 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
 
 error_and_out:
   /* TODO: clean more stuff */
-  kfree(phdrs);
-  destroy_proc(ret);
+  
+  if (phdrs)
+    kfree(phdrs);
+
+  if (ret)
+    destroy_proc(ret);
 
   return Error();
 

@@ -19,11 +19,8 @@
 #include "system/processor/processor.h"
 
 // TODO: linked list for dynamic handler loading?
-static spinlock_t* __interrupt_handler_spinlock = nullptr;
+//static spinlock_t* __interrupt_handler_spinlock = nullptr;
 static quick_interrupthandler_t __interrupt_handlers[INTERRUPT_HANDLER_COUNT] = { NULL };
-
-/* static defs */
-static void insert_into_handlers(uint16_t index, quick_interrupthandler_t *handler);
 
 #define INTERRUPTS_EVENT_NAME           "k_interrupts"
 #define INTERRUPTS_DEFAULT_HOOKS_C      (256 - IRQ_VEC_BASE)

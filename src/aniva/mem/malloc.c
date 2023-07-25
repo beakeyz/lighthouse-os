@@ -156,21 +156,6 @@ ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
   return result;
 }
 
-static heap_node_t* find_bottom_node(heap_node_buffer_t* buffer) {
-
-  heap_node_t* ret = buffer->m_start_node;
-
-  while (ret) {
-
-    if (ret->next == nullptr) {
-      return ret;
-    }
-
-    ret = ret->next;
-  }
-  return nullptr;
-}
-
 #define MEM_ALLOC_DEFAULT_BUFFERSIZE    (64 * Kib)
 #define MEM_ALLOC_MIN_BUFFERSIZE        (16 * Kib) /* 4 Page minimum */
 
@@ -390,7 +375,23 @@ memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintpt
   kernel_panic("TODO: create_malloc_heap");
 }
 
-void quick_print_node_sizes(memory_allocator_t* allocator) {
+void destroy_malloc_heap(memory_allocator_t* allocator)
+{
+  heap_node_buffer_t* next;
+  heap_node_buffer_t* buffer;
+
+  buffer = allocator->m_buffers;
+
+  while (buffer) {
+    next = buffer->m_next;
+
+    destroy_heap_node_buffer(allocator, buffer);
+
+    buffer = next;
+  }
+
+  kernel_panic("TODO: implement destroy_malloc_heap");
+
 }
 
 // kmalloc is going to split a node and then return the address of the newly created node + its size to get

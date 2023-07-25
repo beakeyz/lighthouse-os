@@ -209,7 +209,7 @@ ErrorOrPtr fire_event(char* name, void* data)
   context.m_crc = kcrc32(&context, sizeof(kevent_contex_t));
 
   /* 2) Construct pipeline */
-  uintptr_t index;
+  uintptr_t index = NULL;
   ErrorOrPtr result;
   kevent_contex_t* current_context;
   kevent_pipeline_t pipe = create_kevent_pipeline(event, &context);
@@ -239,7 +239,6 @@ ErrorOrPtr fire_event(char* name, void* data)
   /*
    * 4) Return the result of the traverse 
    */
-unlock_and_exit:
   spinlock_unlock(event->m_firing_lock);
 
   return result;

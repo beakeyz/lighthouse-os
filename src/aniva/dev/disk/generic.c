@@ -9,8 +9,8 @@
 #include "ramdisk.h"
 #include <sync/mutex.h>
 
-static char* s_root_dev_name;
-static char s_root_dev_name_buffer[64];
+//static char* s_root_dev_name;
+//static char s_root_dev_name_buffer[64];
 static mutex_t* s_gdisk_lock;
 
 struct gdisk_store_entry {

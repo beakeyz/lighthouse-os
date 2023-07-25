@@ -23,12 +23,6 @@ acpi_parser_t *g_parser_ptr;
 #define SSDT_SIGNATURE "SSDT"
 #define PSDT_SIGNATURE "PSDT"
 
-static size_t parse_acpi_var_int(size_t* out, uint8_t *code_ptr, int* pc, int limit);
-static ALWAYS_INLINE int acpi_parse_u8(uint8_t* out, uint8_t* code_ptr, int* pc, int limit);
-static ALWAYS_INLINE int acpi_parse_u16(uint16_t* out, uint8_t* code_ptr, int* pc, int limit);
-static ALWAYS_INLINE int acpi_parse_u32(uint32_t* out, uint8_t* code_ptr, int* pc, int limit);
-static ALWAYS_INLINE int acpi_parse_u64(uint64_t* out, uint8_t* code_ptr, int* pc, int limit);
-
 static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rsdp_method method) {
   const char* name;
   switch (method) {
@@ -58,10 +52,6 @@ static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rs
 ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
   g_parser_ptr = parser;
 
-  acpi_rsdp_t* rsdp;
-  uint32_t hw_reduced;
-
-
   parser->m_multiboot_addr = multiboot_addr;
   parser->m_tables = init_list();
 
@@ -88,7 +78,8 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
     return Error();
   }
 
-  hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
+  //hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
+
   return Success(0);
 }
 
@@ -266,84 +257,4 @@ void init_acpi_parser_aml(acpi_parser_t* parser) {
   // (like querying for certain data about pci addresses, for example)
 
   kernel_panic("UNIMPLEMENTED: redo init_acpi_parser_aml");
-}
-
-
-/*
- * ACPI opcode parsing functions
- */
-
-static size_t parse_acpi_var_int(size_t* out, uint8_t *code_ptr, int* pc, int limit) {
-  if (*pc + 1 > limit)
-      return -1;
-  uint8_t sz = (code_ptr[*pc] >> 6) & 3;
-  if (!sz) {
-    *out = (size_t)(code_ptr[*pc] & 0x3F);
-    (*pc)++;
-    return 0;
-  } else if (sz == 1) {
-    if (*pc + 2 > limit)
-      return -1;
-    *out = (size_t)(code_ptr[*pc] & 0x0F) | (size_t)(code_ptr[*pc + 1] << 4);
-    *pc += 2;
-    return 0;
-  } else if (sz == 2) {
-    if (*pc + 3 > limit)
-      return -1;
-    *out = (size_t)(code_ptr[*pc] & 0x0F) | (size_t)(code_ptr[*pc + 1] << 4)
-           | (size_t)(code_ptr[*pc + 2] << 12);
-    *pc += 3;
-    return 0;
-  } else {
-    if (*pc + 4 > limit || sz != 3)
-      return -1;
-    *out = (size_t)(code_ptr[*pc] & 0x0F) | (size_t)(code_ptr[*pc + 1] << 4)
-           | (size_t)(code_ptr[*pc + 2] << 12) | (size_t)(code_ptr[*pc + 3] << 20);
-    *pc += 4;
-    return 0;
-  }
-}
-
-static ALWAYS_INLINE int acpi_parse_u8(uint8_t* out, uint8_t* code_ptr, int* pc, int limit) {
-  if (*pc + 1 > limit) {
-    return -1;
-  }
-
-  *out = code_ptr[*pc];
-  (*pc)++;
-  return 0;
-}
-
-static ALWAYS_INLINE int acpi_parse_u16(uint16_t* out, uint8_t* code_ptr, int* pc, int limit) {
-  if (*pc + 2 > limit) {
-    return -1;
-  }
-
-  *out = ((uint16_t)code_ptr[*pc]) | (((uint16_t)code_ptr[*pc + 1]) << 8);
-  *pc += 2;
-  return 0;
-}
-
-static ALWAYS_INLINE int acpi_parse_u32(uint32_t* out, uint8_t* code_ptr, int* pc, int limit) {
-  if (*pc + 4 > limit) {
-    return -1;
-  }
-
-  *out = ((uint32_t)code_ptr[*pc])              | (((uint32_t)code_ptr[*pc + 1]) << 8)
-      |  (((uint32_t) code_ptr[*pc + 2]) << 16) | (((uint32_t) code_ptr[*pc + 3]) << 24);
-  *pc += 4;
-  return 0;
-}
-
-static ALWAYS_INLINE int acpi_parse_u64(uint64_t* out, uint8_t* code_ptr, int* pc, int limit) {
-  if (*pc + 8 > limit) {
-    return -1;
-  }
-
-  *out = ((uint64_t)code_ptr[*pc])              | (((uint64_t)code_ptr[*pc + 1]) << 8)
-      |  (((uint64_t) code_ptr[*pc + 2]) << 16) | (((uint64_t) code_ptr[*pc + 3]) << 24)
-      |  (((uint64_t) code_ptr[*pc + 4]) << 32) | (((uint64_t) code_ptr[*pc + 5]) << 40)
-      |  (((uint64_t) code_ptr[*pc + 6]) << 48) | (((uint64_t) code_ptr[*pc + 7]) << 56);
-  *pc += 8;
-  return 0;
 }

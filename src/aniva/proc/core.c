@@ -38,14 +38,6 @@ static ErrorOrPtr __register_proc(proc_t* proc)
   return hashmap_put(__proc_map, proc->m_name, proc);
 }
 
-static ErrorOrPtr __unregister_proc(proc_t* proc)
-{
-  if (!proc || !__proc_map)
-    return Error();
-
-  return hashmap_remove(__proc_map, proc->m_name);
-}
-
 static ErrorOrPtr __unregister_proc_by_name(const char* name)
 {
   hashmap_key_t key;
@@ -56,47 +48,6 @@ static ErrorOrPtr __unregister_proc_by_name(const char* name)
   key = (hashmap_key_t)name;
 
   return hashmap_remove(__proc_map, key);
-}
-
-ErrorOrPtr relocate_thread_entry_stub(struct thread* thread, uintptr_t offset, uint32_t custom_flags, uint32_t page_flags) {
-
-  Processor_t* current;
-  page_dir_t* dir;
-  size_t stub_size;
-  size_t aligned_size;
-  vaddr_t virtual_stub_base;
-  paddr_t physical_stub_base;
-  vaddr_t virtual_kaddr;
-  
-  if (!thread || thread->f_relocated_entry_stub)
-    return Error();
-
-  dir = &thread->m_parent_proc->m_root_pd;
-  stub_size = ((uintptr_t)&thread_entry_stub_end - (uintptr_t)&thread_entry_stub);
-  aligned_size = ALIGN_UP(stub_size, SMALL_PAGE_SIZE);
-
-  TRY(map_result, __kmem_alloc_range(dir->m_root, thread->m_parent_proc, THREAD_ENTRY_BASE - (aligned_size * offset), stub_size, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags));
-
-  virtual_stub_base = map_result;
-
-  if (!virtual_stub_base)
-    return Error();
-
-  thread->f_relocated_entry_stub = (FuncPtr)virtual_stub_base;
-
-  /* We are in this pagemap, life is ez =D */
-  if (current->m_page_dir == dir->m_root) {
-    memcpy((void*)virtual_stub_base, &thread_entry_stub, stub_size);
-    return Success(0);
-  }
-
-  physical_stub_base = kmem_to_phys(dir->m_root, virtual_stub_base);
-  
-  virtual_kaddr = kmem_ensure_high_mapping(physical_stub_base);
-
-  memcpy((void*)virtual_kaddr, &thread_entry_stub, stub_size);
-
-  return Success(0);
 }
 
 ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {

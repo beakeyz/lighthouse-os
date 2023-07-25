@@ -69,11 +69,11 @@ static ALWAYS_INLINE void push_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx);
 static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t proc);
 static ALWAYS_INLINE sched_frame_t pop_sched_frame();
-static void set_sched_frame_idle(sched_frame_t* frame_ptr);
+//static void set_sched_frame_idle(sched_frame_t* frame_ptr);
 static USED thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
-static void should_proc_die(proc_t* proc);
+//static void should_proc_die(proc_t* proc);
 
 ANIVA_STATUS init_scheduler() {
   disable_interrupts();
@@ -579,7 +579,6 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid) {
  */
 thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   const uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
-  const thread_t *current_thread = get_current_scheduling_thread();
   proc_t* proc = ptr->m_proc_to_schedule;
   list_t *thread_list_ptr = proc->m_threads;
 
@@ -588,7 +587,6 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
   }
 
   uintptr_t cycles = 0;
-  uintptr_t unrunnable_threads = 0;
   uintptr_t current_idx = prev_sched_thread_idx + 1;
   thread_t* next_thread = nullptr;
 
@@ -705,10 +703,12 @@ void set_current_handled_thread(thread_t* thread) {
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
+/*
 void set_sched_frame_idle(sched_frame_t* frame_ptr) {
   frame_ptr->m_frame_state = SCHED_FRAME_IDLE;
   frame_ptr->m_max_ticks = 20;
 }
+*/
 
 static ALWAYS_INLINE void set_current_proc(proc_t* proc) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();

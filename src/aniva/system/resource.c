@@ -109,20 +109,6 @@ static bool __resource_is_referenced(kresource_t* resource)
   return false;
 }
 
-static bool __resource_is_shared(kresource_t* resource)
-{
-  if (!resource)
-    return false;
-
-  if (resource->m_shared_count > 1)
-    return true;
-
-  if (resource->m_flags & KRES_FLAG_SHARED)
-    return true;
-
-  return false;
-}
-
 static void __resource_reference(kresource_t* resource)
 {
   /* We will be shared with this reference */
@@ -140,42 +126,10 @@ static void __resource_unreference(kresource_t* resource)
 
   flat_unref(&resource->m_shared_count);
 }
-
-static void __resource_reference_range(uintptr_t start, size_t size, kresource_type_t type, kresource_t* r_start)
-{
-  kresource_t* itt;
-  uintptr_t itt_addr;
-
-  if (!__resource_type_is_valid(type))
-    return;
-
-  //ASSERT_MSG(r_start, "Tried to reference a resource range, but none was given");
-
-  if (!r_start)
-    return;
-
-  itt = r_start;
-  itt_addr = start;
-
-  while (__resource_contains(itt, itt_addr)) {
-
-    __resource_reference(itt);
-    
-    itt_addr += itt->m_size;
-
-    /* Don't exceed the actual range */
-    if (itt_addr >= (start + size)) {
-      break;
-    }
-
-    itt = itt->m_next;
-  }
-}
-
 /*
  * Quick fast-slow linkedlist traverse
  * used for binary search
- */
+ * TODO: implement in the actual searching stuff
 static kresource_t* __find_middle_kresource(kresource_t* start, kresource_t* end, kresource_type_t type)
 {
   kresource_t* fast;
@@ -192,7 +146,7 @@ static kresource_t* __find_middle_kresource(kresource_t* start, kresource_t* end
 
   while (fast && fast->m_next) {
 
-    if (fast == end)
+    if (fast == end || fast->m_next == end)
       break;
 
     fast = fast->m_next->m_next;
@@ -201,6 +155,7 @@ static kresource_t* __find_middle_kresource(kresource_t* start, kresource_t* end
 
   return slow;
 }
+*/
 
 /*
  * TODO: switch to binary search to account for large resource counts
@@ -216,8 +171,9 @@ static kresource_t** __find_kresource(uintptr_t address, kresource_type_t type, 
   ret = start;
 
   for (; *ret; ret = &(*ret)->m_next) {
-    if (__resource_contains(*ret, address)) 
+    if (__resource_contains(*ret, address)) {
       break;
+    }
   }
 
   return ret;
@@ -284,24 +240,6 @@ static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_t
   return __create_kresource_ex("Generic claim", start, size, type);
 }
 
-/*
- * Create a new allocation and copy the source into it
- */
-static kresource_t* __copy_kresource(kresource_t source)
-{
-  kresource_t* ret = zalloc_fixed(__resource_allocator);
-
-  if (!ret)
-    return nullptr;
-
-  memcpy(ret, &source, sizeof(kresource_t));
-
-  /* Clear the next ptr to prevent confusion */
-  ret->m_next = nullptr;
-
-  return ret;
-}
-
 ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
 {
   kresource_type_t type;
@@ -316,12 +254,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
 
 ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
 {
-  bool does_collide;
-  bool should_place_after;
-  size_t resource_cover_count;
   kresource_t** curr_resource_slot;
-  kresource_t* old_resource;
-  kresource_t* new_mirror;
 
   if (!__resource_mutex || !__resource_allocator || !regions || !(*regions) || !__resource_type_is_valid(type))
     return Error();
@@ -339,8 +272,6 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
     return Error();
   }
 
-  old_resource = *curr_resource_slot;
-
   /*
    * Now that we have the containing resource, we can determine what to do with it.
    * Let's loop over every single resource that is contained inside the requested resource
@@ -350,13 +281,11 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
    *      we can simply 'claim' it by setting the reference count to 1
    */
   ErrorOrPtr result;
-  kresource_t* last_referenced_resource;
-  const uintptr_t end_addr = start + size;
+  kresource_t* last_referenced_resource = nullptr;
   uintptr_t itt_addr = start;
   size_t itt_size = size;
-  size_t name_len;
 
-  while (*curr_resource_slot && itt_addr < end_addr) {
+  while (*curr_resource_slot && itt_addr < (start + size)) {
 
     /*
     if (__resource_is_shared(*resource_slot)) {
@@ -478,22 +407,17 @@ ErrorOrPtr resource_release_region(kresource_t* previous_resource, kresource_t* 
 {
   uintptr_t start;
   size_t size;
-  kresource_type_t type;
 
   /* We can't live without a current_region =/ */
   if (!current_resource)
     return Error();
 
   /* Grab region info */
-  type = current_resource->m_type;
   start = current_resource->m_start;
   size = current_resource->m_size;
 
   /* Lock */
   mutex_lock(__resource_mutex);  
-
-  /* Compute end address */
-  const uintptr_t end_addr = start + size;
 
   /* Prepare itterator varialbles */
   uintptr_t itter_addr = start;

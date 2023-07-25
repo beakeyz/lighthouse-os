@@ -6,6 +6,7 @@
 #include <libk/stddef.h>
 
 struct vnode;
+struct fat_file_ops;
 
 #define FAT_SECTOR_SIZE 512
 
@@ -178,6 +179,8 @@ typedef struct fat_fs_info {
 
   mutex_t* fat_lock;
 
+  struct fat_file_ops* m_file_ops;
+
   fat_boot_sector_t boot_sector_copy;
   fat_boot_fsinfo_t boot_fs_info;
 
@@ -216,9 +219,17 @@ typedef struct fat_file {
   struct vnode* parent_node;
 } fat_file_t;
 
+typedef struct fat_file_ops {
+  int (*get_block_info)(fat_file_t* file, int index, int* offset, uintptr_t* blocknr);
+  int (*get)(fat_file_t* file);
+  int (*put)(fat_file_t* file, int cluster);
+  int (*next_cluster)(fat_file_t* file);
+  int (*seek_index)(fat_file_t* file, int index);
+} fat_file_ops_t;
+
 /*
  * Clear without doing any buffer work
- */
+ * TODO: use 
 static void clear_fat_file(fat_file_t* file) 
 {
   file->parent_node = NULL;
@@ -233,6 +244,7 @@ static void fat_file_set_entry(fat_file_t* file, int entry)
   file->entry = entry;
   file->idx.index_ft32 = NULL;
 }
+*/
 
 extern int fat_prepare_finfo(struct vnode* node);
 

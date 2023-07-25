@@ -22,8 +22,8 @@ typedef struct _ErrorOrPtr {
 NORETURN void __kernel_panic();
 NORETURN void kernel_panic(const char* panic_message);
 
-#define ASSERT(condition) ((condition) ? (void)0 : kernel_panic("Assertion failed! TODO: stacktrace!"))
-#define ASSERT_MSG(condition, msg) do { if (!(condition)) { print("Assertion failed: "); kernel_panic(msg); } } while(0)
+#define ASSERT(condition) ((condition) ? (void)0 : kernel_panic("Assertion failed! (In: " __FILE__ ") TODO: stacktrace!"))
+#define ASSERT_MSG(condition, msg) do { if (!(condition)) { print("Assertion failed (In: " __FILE__ "): "); kernel_panic(msg); } } while(0)
 
 // TODO: Add error messages
 ALWAYS_INLINE ErrorOrPtr Error() {
@@ -77,11 +77,12 @@ ALWAYS_INLINE uintptr_t Must(ErrorOrPtr eop) {
   return eop.m_ptr;
 }
 
-#define TRY(result, err_or_ptr)         \
-  ErrorOrPtr result##_status = err_or_ptr;           \
-  uintptr_t result = result##_status.m_ptr;        \
-  if (result##_status.m_status == ANIVA_FAIL) {      \
-    return result##_status;                          \
-  }                                         \
+#define TRY(result, err_or_ptr)                 \
+  ErrorOrPtr result##_status = err_or_ptr;      \
+  uintptr_t result = result##_status.m_ptr;     \
+  (void)result;                                 \
+  if (result##_status.m_status == ANIVA_FAIL) { \
+    return result##_status;                     \
+  }                                         
 
 #endif // !__ANIVA_ERROR_WRAPPER__

@@ -11,7 +11,6 @@
 
 size_t get_driver_url_length(aniva_driver_t* handle) {
   const char* driver_type_url = get_driver_type_url(handle->m_type);
-  const size_t dtu_length = strlen(driver_type_url);
   return strlen(driver_type_url) + 1 + strlen(handle->m_name);
 }
 

@@ -248,10 +248,13 @@ ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
 
     result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
 
+    if (IsError(result))
+      return Error();
+
     println("Created socket driver");
   } else {
     generic_driver_entry(manifest);
   }
 
-  return result;
+  return Success(0);
 }

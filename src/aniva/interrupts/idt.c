@@ -40,11 +40,10 @@ void idt_set_gate(uint16_t num, uint8_t flags, uint16_t selector, void(*handler)
 }
 
 void register_idt_interrupt_handler(uint16_t num, void (*handler)()) {
-  idt_entry_t entry = create_idt_entry(handler, DEFAULT_SELECTOR, INTERRUPT_GATE);
-  idt_entries[num] = entry;
+  idt_entries[num] = create_idt_entry(handler, DEFAULT_SELECTOR, INTERRUPT_GATE);
 }
 void register_idt_trap_handler(uint16_t num, void (*handler)()) {
-  idt_entry_t entry = create_idt_entry(handler, DEFAULT_SELECTOR, TRAP_GATE);
+  idt_entries[num] = create_idt_entry(handler, DEFAULT_SELECTOR, TRAP_GATE);
 }
 
 /*

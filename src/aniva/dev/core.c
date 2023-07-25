@@ -192,7 +192,7 @@ static bool __should_defer(dev_manifest_t* driver)
 
 ErrorOrPtr install_driver(aniva_driver_t* handle) {
 
-  dev_manifest_t* manifest;
+  dev_manifest_t* manifest = nullptr;
 
   if (!verify_driver(handle)) {
     goto fail_and_exit;
@@ -330,8 +330,6 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
       }
     }
   }
-
-  dev_url_t path = manifest->m_url;
 
   ErrorOrPtr result = hive_add_entry(__loaded_driver_manifests, manifest, manifest->m_url);
 
@@ -493,7 +491,6 @@ ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void
   return driver_send_packet_a(path, code, buffer, buffer_size, nullptr, nullptr);
 }
 
-
 ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size)
 {
   dev_manifest_t* manifest;
@@ -514,6 +511,7 @@ ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, vo
  */
 ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size) 
 {
+  uintptr_t error;
   thread_t* current;
   aniva_driver_t* driver;
 
@@ -527,12 +525,12 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
 
   if ((manifest->m_flags & DRV_SOCK) == 0) {
 
-    packet_response_t* response;
+    packet_response_t* response = nullptr;
     packet_payload_t payload;
 
     init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
 
-    uintptr_t result = driver->f_drv_msg(payload, &response);
+    error = driver->f_drv_msg(payload, &response);
 
     if (response) {
 
@@ -556,6 +554,9 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
     }
 
     destroy_packet_payload(&payload);
+
+    if (error)
+      return Error();
 
     return Success(0);
   }

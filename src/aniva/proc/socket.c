@@ -200,7 +200,6 @@ static ALWAYS_INLINE void reset_socket_flags(threaded_socket_t* ptr) {
 ErrorOrPtr socket_try_handle_tspacket(threaded_socket_t* socket) {
 
   tspckt_t* packet;
-  thread_t* parent_thread;
 
   /* 0) Validate the socket */
   if (!socket || !socket->m_parent)
@@ -208,8 +207,6 @@ ErrorOrPtr socket_try_handle_tspacket(threaded_socket_t* socket) {
 
   if (!socket_is_flag_set(socket, TS_READY))
     return Error();
-
-  parent_thread = socket->m_parent;
 
   /* 1) See if there is a packet for us (in the sockets queue) */
   packet = queue_peek(socket->m_packet_queue.m_packets);
@@ -268,13 +265,11 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
   packet_payload_t payload = packet->m_payload;
   /* Create a placeholder pointer for the response */
   packet_response_t* response = nullptr;
-  uintptr_t on_packet_result;
 
   // FIXME: Lock the mutex so we can do whatever
   // mutex_lock(socket->m_packet_mutex);
 
   //thread_set_state(thread, RUNNING);
-  const size_t data_size = payload.m_data_size;
 
   switch (payload.m_code) {
     case DCC_EXIT:
@@ -289,7 +284,7 @@ ErrorOrPtr socket_handle_tspacket(tspckt_t* packet) {
       {
         // TODO: can we put this result in the response?
         SocketOnPacket sop = (SocketOnPacket)thread->m_socket->f_on_packet;
-        on_packet_result = sop(payload, &response);
+        sop(payload, &response);
         break;
       }
   }

@@ -10,7 +10,6 @@ static void get_processor_model_name(processor_info_t* info);
 static void detect_processor_cores(processor_info_t* info);
 static void detect_processor_capabilities(processor_info_t* info);
 void detect_processor_cache_sizes(processor_info_t* info);
-static void resolve_processor_cap_implications(processor_info_t* info);
 
 processor_info_t gather_processor_info() {
   processor_info_t info = {0};
@@ -169,14 +168,6 @@ static void detect_processor_capabilities(processor_info_t* info) {
 
 }
 
-/*
- * some features imply the support for other features.
- * we need to make sure these are all set accordingly
- */
-static void resolve_processor_cap_implications(processor_info_t* info) {
-
-}
-
 static void get_processor_model_name(processor_info_t* info) {
   uint32_t *buffer;
 
@@ -202,4 +193,12 @@ static void detect_processor_cores(processor_info_t* info) {
 
   if (eax & 0x1f)
     info->m_max_available_cores = (eax >> 26) + 1;
+}
+
+bool processor_has(processor_info_t* info, uint32_t cap) {
+  uintptr_t cap_mod = cap % 32;
+  uintptr_t cap_index = (cap - cap_mod) / FEATURE_DWORD_NUM;
+  bool is_set = (uint8_t)(info->m_x86_capabilities[cap_index] >> (cap_mod)) & 0x01;
+  //return test_bit(cap, (const volatile unsigned long*)info->m_x86_capabilities);
+  return is_set;
 }

@@ -514,23 +514,6 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
   return zone;
 }
 
-static void __tmp_dbg()
-{
-  uintptr_t count = 0;
-  zone_allocator_t* current = __kernel_allocators;
-
-  while (current)
-  {
-    print("Zone allocator: "); println(to_string(count));
-    print("Size: "); println(to_string(current->m_total_size));
-    print("Store count: "); println(to_string(current->m_store_count));
-    print("Entry size: "); println(to_string(current->m_entry_size));
-
-    current = current->m_next;
-    count++;
-  }
-}
-
 void* kzalloc(size_t size)
 {
   size_t allocator_size;
@@ -563,7 +546,6 @@ void* kzalloc(size_t size)
 
 void kzfree(void* address, size_t size)
 {
-  size_t allocator_size;
   zone_allocator_t* allocator;
 
   if (!size)

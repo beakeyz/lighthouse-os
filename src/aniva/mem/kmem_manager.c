@@ -49,14 +49,6 @@ static struct {
 static void _init_kmem_page_layout();
 static void _init_kmem_page_layout_late();
 
-/* FIXME: broken? */
-static bool __is_current_pagemap(pml_entry_t* map)
-{
-  Processor_t* current_processor = get_current_processor();
-
-  return (current_processor->m_page_dir == map);
-}
-
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
   KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap*)) / mmap->entry_size;
@@ -649,13 +641,9 @@ out:
 
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
 
-  uintptr_t start_idx;
-
   /* Can't map zero pages =( */
   if (!page_count)
     return false;
-
-  start_idx = kmem_get_page_idx(phys_base);
 
   for (uintptr_t i = 0; i < page_count; i++) {
     const uintptr_t offset = i * SMALL_PAGE_SIZE;
@@ -791,7 +779,6 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
  */
 ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size)
 {
-  paddr_t p_addr;
   vaddr_t v_offset;
   size_t p_page_count;
   pml_entry_t* root;
@@ -1021,9 +1008,6 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, proc_t* process, vad
 
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-
-  const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
-  const paddr_t kernel_physical_start = kernel_start - HIGH_MAP_BASE;
   const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
   
@@ -1049,18 +1033,6 @@ static void _init_kmem_page_layout_late() {
 
   const size_t max_page_count = kmem_get_page_idx(ALIGN_UP(1 * Gib, SMALL_PAGE_SIZE));
   size_t total_pages_to_map = total_pages - kernel_end_idx;
-
-  /* TODO: calculate based on the pagesize */
-  const size_t pte_mapping_capacity = 512; // SMALL_PAGE_SIZE / sizeof(uintptr_t)
-  const size_t pde_mapping_capacity = 512; // SMALL_PAGE_SIZE / sizeof(uintptr_t)
-  const size_t pd_mapping_capacity = 512; // SMALL_PAGE_SIZE / sizeof(uintptr_t)
-
-  /* Calculate how many ptes we need to map the entire range */
-  const size_t ptes_needed = (total_pages_to_map / pte_mapping_capacity) + 1;
-
-  const size_t pdes_needed = (ptes_needed / pde_mapping_capacity) + 1;
-
-  const size_t pds_needed = (pdes_needed / pd_mapping_capacity) + 1;
 
   if (total_pages_to_map > max_page_count)
     total_pages_to_map = max_page_count;
@@ -1105,9 +1077,6 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
 
   const vaddr_t kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start, SMALL_PAGE_SIZE);
   const vaddr_t kernel_end = ALIGN_DOWN((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
-  const paddr_t kernel_physical_start = kernel_start - HIGH_MAP_BASE;
-  const paddr_t kernel_physical_end = kernel_end - HIGH_MAP_BASE;
-  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end - kernel_physical_start);
   
   /*
   ASSERT_MSG(kmem_map_range(table_root, kernel_start, kernel_physical_start, kernel_end_idx, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
@@ -1118,9 +1087,6 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   ret.m_kernel_high = kernel_end;
 
   return ret;
-
-error_and_out:
-  kernel_panic("Failed to create page dir! (TODO: implement resolve)");
 }
 
 void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entry_t* map) {
@@ -1141,14 +1107,6 @@ void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entr
 }
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
-  Processor_t* current = get_current_processor();
-
-  pml_entry_t* current_map = current->m_page_dir;
-
-  if (!current_map)
-    current_map = kmem_get_krnl_dir();
-
-  paddr_t phys = kmem_to_phys(external_map, vaddr);
 
   kernel_panic("TODO: implement kmem_to_current_pagemap");
 
