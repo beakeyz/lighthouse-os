@@ -572,6 +572,7 @@ ErrorOrPtr vfs_attach_root_namespace(vnamespace_t* namespace) {
   /* TODO: make error shit more clear lmao */
   if (res_status.m_status == ANIVA_WARNING) {
     destroy_vnamespace(namespace);
+    return Warning();
   }
 
   return Success(res);
@@ -584,12 +585,7 @@ void init_vfs(void) {
 
   s_vfs.m_namespaces = create_hive("vfs_ns");
   s_vfs.m_lock = create_mutex(0);
-
-  char* root_id = VFS_ROOT_ID;
-
-  s_vfs.m_id = kmalloc(strlen(root_id));
-  memcpy(s_vfs.m_id, root_id, strlen(root_id));
-  s_vfs.m_id[strlen(root_id)] = NULL;
+  s_vfs.m_id = VFS_ROOT_ID; 
 
   // Init vfs namespaces
   init_vns();

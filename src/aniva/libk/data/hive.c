@@ -49,7 +49,7 @@ void destroy_hive(hive_t* hive) {
   }
 
   destroy_list(hive->m_entries);
-  kfree(hive->m_url_part);
+  //kfree(hive->m_url_part);
   kfree(hive);
 }
 

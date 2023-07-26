@@ -57,20 +57,28 @@ void init_kheap() {
 
   /* Give the buffer to the allocator */
   s_kernel_allocator.m_buffers = initial_buffer;
+
 }
+
+/**
+ * TODO: either fix memory allocator, or migrate the entire kernel to use kfree_sized
+ **/
 
 // our kernel malloc impl
 void* kmalloc (size_t len) {
   return memory_allocate(&s_kernel_allocator, len);
+  //return kzalloc(len);
 }
 
 // our kernel free impl
 void kfree (void* addr) {
   memory_deallocate(&s_kernel_allocator, addr);
+  //kernel_panic("TODO: phase out memory allocator (it sucks mega balls and needs a big fix)");
 }
 
 void kfree_sized(void* addr, size_t allocation_size) {
   memory_sized_deallocate(&s_kernel_allocator, addr, allocation_size);
+  //kzfree(addr, allocation_size);
 }
 
 void kheap_ensure_size(size_t size) {

@@ -22,7 +22,7 @@ static bool verify_identity(heap_node_t *node) {
 }
 
 static bool has_flag(heap_node_t* node, uint8_t flag) {
-  return (node->flags & flag) != 0;
+  return (node->flags & flag) == flag;
 }
 
 static heap_node_t* split_node(heap_node_buffer_t* buffer, heap_node_t *ptr, size_t size) {
@@ -142,15 +142,19 @@ heap_node_t* merge_nodes (heap_node_buffer_t* buffer, heap_node_t* ptr1, heap_no
 
 ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
   ErrorOrPtr result = Error();
-  heap_node_t* merged_node = merge_nodes(buffer, node, node->prev);
+  heap_node_t* merged_node;
 
-  if (merged_node == nullptr) {
-    merged_node = merge_nodes(buffer, node, node->next);
-  }
+  /* TODO: loop limit */
+  while (true) {
+    merged_node = merge_nodes(buffer, node, node->prev);
 
-  if (merged_node) {
+    if (!merged_node)
+      merged_node = merge_nodes(buffer, node, node->next);
+
+    if (!merged_node)
+      break;
+
     result = Success((vaddr_t)merged_node);
-    try_merge(buffer, merged_node);
   }
 
   return result;
@@ -290,6 +294,15 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
   while (node) {
     // TODO: should we also allow allocation when len is equal to the nodesize - structsize?
 
+    if (node->size - sizeof(heap_node_t) == bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
+      node->flags |= MALLOC_NODE_FLAG_USED;
+
+      allocator->m_free_size -= node->size;
+      allocator->m_used_size += node->size;
+
+      return Success((uintptr_t)node->data);
+    }
+
     if (node->size - sizeof(heap_node_t) > bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
       // yay, our node works =D
 
@@ -324,17 +337,6 @@ cycle:
 
 static ErrorOrPtr heap_buffer_allocate(memory_allocator_t* allocator, heap_node_buffer_t* buffer, size_t bytes)
 {
-  ErrorOrPtr result;
-
-  if (buffer->m_last_free_node)
-    result = heap_buffer_allocate_in(allocator, buffer, buffer->m_last_free_node, bytes);
-
-  if (!IsError(result))
-    return result;
-
-  /* Could not allocate at the last free node. Revert the pointer */
-  buffer->m_last_free_node = nullptr;
-
   /* 
    * Just bruteforce it from the start 
    * FIXME: should we start from the end actually?
@@ -345,6 +347,7 @@ static ErrorOrPtr heap_buffer_allocate(memory_allocator_t* allocator, heap_node_
 static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_node_buffer_t* buffer, void* addr)
 {
   // first we'll check if we can do this easily
+  ErrorOrPtr result;
   heap_node_t* node = TO_NODE(addr);
 
   /* Invalid address */
@@ -358,13 +361,15 @@ static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_nod
   if (!heap_buffer_contains(buffer, (uintptr_t)node))
     return Error();
 
-  // see if we can merge
-  TRY(_, try_merge(buffer, node));
+  result = try_merge(buffer, node);
+
+  if (!IsError(result))
+    node = (heap_node_t*)Release(result);
 
   node->flags &= ~MALLOC_NODE_FLAG_USED;
 
-  allocator->m_used_size-=node->size;
-  allocator->m_free_size+=node->size;
+  allocator->m_used_size -= node->size;
+  allocator->m_free_size += node->size;
 
   // FIXME: should we zero freed nodes?
   return Success(0);
@@ -430,6 +435,8 @@ void* memory_allocate(memory_allocator_t * allocator, size_t bytes) {
    * )
    */
 
+  println("Malloc expantion!!!");
+
   heap_node_buffer_t* new_buffer;
   size_t size = MEM_ALLOC_DEFAULT_BUFFERSIZE;
 
@@ -463,19 +470,14 @@ void memory_deallocate(memory_allocator_t* allocator, void* addr) {
 
   while (current_buffer) {
 
-    if (heap_buffer_contains(current_buffer, (uintptr_t)addr)) {
-
-      /*
-       * We don't really care about the result here, as the address was already 
-       * contained inside the buffer and if the address does not result in a valid
-       * node, that's not really an issue (right?)
-       */
-      heap_buffer_deallocate(allocator, current_buffer, addr);
-      return;
+    if (!IsError(heap_buffer_deallocate(allocator, current_buffer, addr))) {
+      break;
     }
 
     current_buffer = current_buffer->m_next;
   }
+
+  //println("Could not find buffer to deallocate in!");
 }
 
 // just expand the heap by some page-aligned amount

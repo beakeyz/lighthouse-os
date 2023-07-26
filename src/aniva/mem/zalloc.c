@@ -11,6 +11,8 @@
 size_t __kernel_allocator_count;
 zone_allocator_t* __kernel_allocators;
 
+zone_allocator_t __initial_allocator[DEFAULT_ZONE_ENTRY_SIZE_COUNT];
+
 static ErrorOrPtr zone_allocate(zone_t* zone, size_t size);
 static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size);
 
@@ -131,7 +133,10 @@ void init_zalloc() {
   zone_allocator_t* current;
 
   for (uintptr_t i = 0; i < DEFAULT_ZONE_ENTRY_SIZE_COUNT; i++) {
-    current = create_zone_allocator(16 * Kib, __default_entry_sizes[i], ZALLOC_FLAG_KERNEL);
+
+    current = &__initial_allocator[i];
+
+    init_zone_allocator(current, 16 * Kib, __default_entry_sizes[i], ZALLOC_FLAG_KERNEL);
 
     ASSERT_MSG(current, "Failed to create kernel zone allocators");
 
@@ -139,26 +144,21 @@ void init_zalloc() {
   }
 }
 
-zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
-{
-  return create_zone_allocator_ex(nullptr, 0, initial_size, hard_max_entry_size, flags);
+#define DEFAULT_ZONE_STORE_CAPACITY ((SMALL_PAGE_SIZE - sizeof(zone_store_t)) >> 3)
+
+ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) {
+  return init_zone_allocator_ex(allocator, nullptr, NULL, initial_size, hard_max_entry_size, flags);
 }
 
-#define DEFAULT_ZONE_STORE_CAPACITY (512 - sizeof(zone_store_t))
-
-zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) {
-
+ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+{
   ErrorOrPtr result;
   size_t entries_for_this_zone;
   zone_t* new_zone;
   zone_store_t* new_zone_store;
-  zone_allocator_t *ret;
 
-  if (!initial_size || !hard_max_entry_size)
-    return nullptr;
-
-  /* FIXME: as an allocator, we don't want to depend on another allocator to be created */
-  ret = kmalloc(sizeof(zone_allocator_t));
+  if (!ret || !initial_size || !hard_max_entry_size)
+    return Error();
 
   // Initialize the initial zones
   ret->m_total_size = 0;
@@ -192,11 +192,34 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
   ret->m_total_size += new_zone->m_total_available_size;
 
-  return ret;
+  return Success(0);
 
 fail_and_dealloc:
   kfree(ret);
-  return nullptr;
+  return Error();
+}
+
+zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+{
+  return create_zone_allocator_ex(nullptr, 0, initial_size, hard_max_entry_size, flags);
+}
+
+zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) {
+
+  zone_allocator_t *ret;
+
+  if (!initial_size || !hard_max_entry_size)
+    return nullptr;
+
+  /* FIXME: as an allocator, we don't want to depend on another allocator to be created */
+  ret = kmalloc(sizeof(zone_allocator_t));
+
+  if (IsError(init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags))) {
+    kfree(ret);
+    return nullptr;
+  }
+
+  return ret;
 }
 
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {

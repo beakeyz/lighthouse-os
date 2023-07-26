@@ -28,9 +28,8 @@ vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
   if (!ns)
     return nullptr;
 
-  ns->m_id = kmalloc(strlen(id) + 1);
-  memset(ns->m_id, 0, strlen(id) + 1);
-  memcpy(ns->m_id, id, strlen(id) + 1);
+  memset(ns->m_id, 0, sizeof(ns->m_id));
+  memcpy(ns->m_id, id, (strlen(id) >= sizeof(ns->m_id)) ? sizeof(ns->m_id) : strlen(id));
 
   ns->m_vnodes = create_hive(ns->m_id);
   ns->m_desc = nullptr;
@@ -50,7 +49,6 @@ void destroy_vnamespace(vnamespace_t* ns) {
     return;
 
   destroy_hive(ns->m_vnodes);
-  kfree(ns->m_id);
   kfree(ns);
 }
 

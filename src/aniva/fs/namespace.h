@@ -26,10 +26,10 @@ typedef struct virtual_namespace {
   uintptr_t m_distance_to_root;
 
   /* Id that specifies this namespace */
-  char* m_id;
+  char m_id[32];
 
   /* Simple string that describes the type of vnodes this namespace facilitates */
-  char* m_desc;
+  const char* m_desc;
 
   /* Some flags that help us manage capabilities of this namespace */
   uint32_t m_flags;

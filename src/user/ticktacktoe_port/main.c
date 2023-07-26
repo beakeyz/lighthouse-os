@@ -308,11 +308,11 @@ bool is_round_over (gamedata_t* data) {
 
 // use 56 char long buffers
 void put_error_in_buffer (char buffer[], char* err) {
-    if (sizeof(err) > sizeof(char) * 56) {
+    if (strlen(err) >= 56) {
         printf("buffer overflow =[\n");
         // nothing
     }
-    memcpy(buffer, err, sizeof(char) * 56);
+    memcpy(buffer, err, 56);
 }
 
 bool end_screen (player_t* winner, gamedata_t* data) {

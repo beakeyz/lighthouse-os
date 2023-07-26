@@ -134,6 +134,9 @@ zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_ent
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 
+ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
+ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* allocator, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
+
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 
 zone_store_t* create_zone_store(size_t initial_capacity);

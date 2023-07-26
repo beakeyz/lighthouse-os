@@ -7,7 +7,8 @@ hive_t* s_read_cache;
 
 void init_vcache() {
 
-  s_node_base_cache = create_hive("base_cache");
+  (void)s_node_base_cache;
+  (void)s_read_cache;
   // TODO:
 }
 
