@@ -42,6 +42,4 @@ ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header);
 uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset);
 void ahci_mmio_write32(uintptr_t base, uintptr_t offset, uint32_t data);
 
-const extern aniva_driver_t g_base_ahci_driver;
-
 #endif // !__ANIVA_AHCI_CONTROLLER__

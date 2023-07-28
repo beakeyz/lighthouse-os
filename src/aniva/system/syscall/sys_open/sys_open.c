@@ -71,9 +71,8 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
   /* TODO: check for permissions and open with the appropriate flags */
 
   /* Clear state bits */
-  flags &= ~HNDL_OPT_MASK;
-
   handle.flags = flags;
+  handle.flags &= ~HNDL_OPT_MASK;
 
   result = bind_khandle(&current_process->m_handle_map, &handle);
 

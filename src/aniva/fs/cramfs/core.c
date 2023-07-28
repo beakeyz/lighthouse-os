@@ -205,7 +205,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   println_kterm("Mounting ramfs");
 
   /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
-  const generic_disk_dev_t* parent = device->m_parent;
+  const disk_dev_t* parent = device->m_parent;
 
   ASSERT_MSG(parent->m_partitioned_dev_count == 1, "Ramdisk device should have only one partitioned device!");
   ASSERT_MSG(parent->m_devs == device, "Ramdisk partition mismatch!");

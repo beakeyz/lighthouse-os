@@ -18,10 +18,10 @@
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
 
-static int ahci_port_read(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
-static int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
-static int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
-static int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_read(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_write_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 
 static void decode_disk_model_number(char* model_number) {
   for (uintptr_t chunk = 0; chunk < 40; chunk+= 2) {
@@ -215,29 +215,23 @@ static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) {
 
-  uintptr_t ib_page = kmem_prepare_new_physical_page().m_ptr;
-
   ahci_port_t* ret = kmalloc(sizeof(ahci_port_t));
   ret->m_port_index = index;
   ret->m_device = device;
   ret->m_port_offset = port_offset;
-  ret->m_ib_page = ib_page;
+  ret->m_ib_page = Must(kmem_prepare_new_physical_page());
 
   ret->m_hard_lock = create_spinlock();
+
+  /* Flags? */
   ret->m_awaiting_dma_transfer_complete = false;
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
   ret->m_gpt_table = nullptr;
 
-  memset(&ret->m_generic, 0x00, sizeof(generic_disk_dev_t));
+  memset(&ret->m_generic, 0x00, sizeof(disk_dev_t));
 
   ret->m_generic.m_parent = ret;
-
-  ret->m_generic.m_ops.f_read = generic_disk_opperation;
-  ret->m_generic.m_ops.f_read_sync = generic_disk_opperation;
-  ret->m_generic.m_ops.f_write = generic_disk_opperation;
-  ret->m_generic.m_ops.f_write_sync = generic_disk_opperation;
-
   ret->m_generic.m_path = create_port_path(ret);
 
   // prepare buffers
@@ -258,6 +252,7 @@ void destroy_ahci_port(ahci_port_t* port) {
   __kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
   destroy_spinlock(port->m_hard_lock);
+  kfree(port->m_generic.m_path);
   kfree(port);
 }
 
@@ -318,7 +313,7 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
 
 ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
-  generic_disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
+  disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
 
   ASSERT_MSG(device == &port->m_generic, "Device to generic port device mismatch (ahci)");
 
@@ -515,21 +510,21 @@ static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port) {
  * TODO: implement
  */
 
-int ahci_port_read(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+int ahci_port_read(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
 
   kernel_panic("TODO: implement async ahci read");
 
   return -1;
 }
 
-int ahci_port_write(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
 
   kernel_panic("TODO: implement async ahci write");
 
   return -1;
 }
 
-int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
 
   if (size == 0) {
     return -1;
@@ -573,7 +568,7 @@ int ahci_port_read_sync(generic_disk_dev_t* port, void* buffer, size_t size, dis
  * It's the job of the caller to ensure that the buffer
  * is actually in a physical address
  */
-int ahci_port_write_sync(generic_disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+int ahci_port_write_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
 
   kernel_panic("TODO: implement safe write functions");
 

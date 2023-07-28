@@ -33,7 +33,7 @@ typedef struct ahci_port {
 
   gpt_table_t* m_gpt_table;
 
-  generic_disk_dev_t m_generic;
+  disk_dev_t m_generic;
 } ahci_port_t;
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);

@@ -4,6 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "dev/driver.h"
 #include "proc/proc.h"
+#include "sync/mutex.h"
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <system/resource.h>
@@ -51,7 +52,7 @@
 	(PCI_CONF1_ADDRESS(bus, dev, func, reg) | \
 	 PCI_CONF1_EXT_REG(reg))
 
-struct DeviceAddress;
+struct pci_device_address;
 struct pci_bus;
 struct pci_driver;
 struct pci_device;
@@ -175,23 +176,24 @@ typedef struct pci_callback {
   const char* callback_name;
 } pci_callback_t;
 
-typedef struct DeviceAddress {
+typedef struct pci_device_address {
   uint32_t index;
   uint32_t bus_num;
   uint32_t device_num;
   uint32_t func_num;
-} DeviceAddress_t;
-
-#define PCI_IMPLS_ERROR 0
-#define PCI_IMPLS_SUCCESS 1
+} pci_device_address_t;
 
 typedef struct pci_device_ops {
   int (*write)(struct pci_device* dev, uint32_t field, uintptr_t value);
   int (*read)(struct pci_device* dev, uint32_t field, uintptr_t* value);
 } pci_device_ops_t;
 
-typedef struct pci_device {
+bool init_pci();
+void init_pci_drivers();
 
+int unregister_unused_pci_drivers();
+
+typedef struct pci_device {
   uint16_t vendor_id;
   uint16_t dev_id;
   uint16_t command;
@@ -211,7 +213,7 @@ typedef struct pci_device {
 
   pci_device_ops_t ops;
   pci_device_ops_io_t raw_ops;
-  DeviceAddress_t address;
+  pci_device_address_t address;
 
   /* These resources can be both I/O and memory ranges */
   kresource_t resources[PCI_NUM_RESOURCES];
@@ -237,31 +239,7 @@ typedef struct pci_device {
 void pci_device_register_resource(pci_device_t* device, uint32_t index);
 void pci_device_unregister_resource(pci_device_t* device, uint32_t index);
 
-/* Every pci device may have one active driver where the vendor_id and dev_id are covered in the compat field of the driver */
-void pci_device_attach_driver(pci_device_t* device, struct pci_driver* driver);
-void pci_device_detach_driver(pci_device_t* device, struct pci_driver* driver);
-
-typedef struct pci_driver {
-  aniva_driver_t* parent;
-  const pci_device_t identifier;
-  int (*f_pci_on_shutdown)(struct pci_device* device);
-  int (*f_pci_on_remove)(struct pci_device* device);
-  int (*f_pci_resume)(struct pci_device* device);
-  int (*f_pci_suspend)(struct pci_device* device);
-} pci_driver_t;
-
-extern bool __has_registered_bridges;
-
-pci_accessmode_t get_current_addressing_mode();
-
 pci_device_t create_pci_device(struct pci_bus* bus);
-pci_driver_t get_pci_device_host_bridge(struct pci_device* device);
-
-bool init_pci();
-
-void print_device_info(pci_device_t* dev);
-
-void register_pci_devices(pci_device_t* dev);
 
 void enumerate_function(pci_callback_t* callback, struct pci_bus* base_addr, uint8_t bus, uint8_t device, uint8_t func);
 void enumerate_device(pci_callback_t* callback, struct pci_bus* base_addr, uint8_t bus, uint8_t device);
@@ -271,25 +249,114 @@ void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback);
 
 bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr);
 
+#define PCI_DEVID_USE_VENDOR_ID     (1 << 0)
+#define PCI_DEVID_USE_DEVICE_ID     (1 << 1)
+#define PCI_DEVID_USE_SUB_VENDOR_ID (1 << 2)
+#define PCI_DEVID_USE_SUB_DEVICE_ID (1 << 3)
+
+#define PCI_DEVID_USE_CLASS         (1 << 4)
+#define PCI_DEVID_USE_SUBCLASS      (1 << 5)
+#define PCI_DEVID_USE_PROG_IF       (1 << 6)
+#define PCI_DEVID_RESERVED_BIT      (1 << 7)
+
+#define PCI_DEVID_ANY_VALUE (~0)
+
+#define PCI_DEVID_USE_ALL 0xFF
+#define PCI_DEVID_USE_IDS (uint8_t)(PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID | PCI_DEVID_USE_SUB_VENDOR_ID | PCI_DEVID_USE_SUB_DEVICE_ID)
+#define PCI_DEVID_USE_CLASSES (uint8_t)(PCI_DEVID_USE_CLASS | PCI_DEVID_USE_SUBCLASS | PCI_DEVID_USE_PROG_IF)
+
+#define PCI_DEVID_SHOULD(id, bit) ((id & bit) == bit)
+
+typedef struct pci_dev_id {
+
+  struct {
+    uint16_t vendor_id;
+    uint16_t device_id;
+    uint16_t sub_vendor;
+    uint16_t sub_device;
+  } ids;
+
+  struct {
+    uint8_t class;
+    uint8_t subclass;
+    uint8_t prog_if;
+  } classes;
+
+  uint8_t usage_bits;
+} pci_dev_id_t;
+
+bool is_end_devid(pci_dev_id_t* dev_id);
+
+#define FOREACH_PCI_DEVID(i, devids) for (pci_dev_id_t* i = devids; !is_end_devid(i); i++)
+
+#define PCI_DEVID_CLASSES(class, subclass, prog_if)                     { { 0, }, { class, subclass, prog_if }, PCI_DEVID_USE_CLASSES }
+#define PCI_DEVID_IDS(vendor, device, sub_vendor, sub_device)           { { vendor, device, sub_vendor, sub_device }, { 0, }, PCI_DEVID_USE_IDS }
+
+#define PCI_DEVID_CLASSES_EX(class, subclass, prog_if, bits)            { { 0, } , { class, subclass, prog_if }, (bits) }
+#define PCI_DEVID_IDS_EX(vendor, device, sub_vendor, sub_device, bits)  { { vendor, device, sub_vendor, sub_device }, { 0, }, (bits) }
+
+#define PCI_DEVID_FULL(vendor, device, sub_vendor, sub_device, class, subclass, prog_if) \
+  { { vendor, device, sub_vendor, sub_device }, { class, subclass, prog_if }, PCI_DEVID_USE_ALL }
+#define PCI_DEVID(vendor, device, sub_vendor, sub_device, class, subclass, prog_if, bits) \
+  { { vendor, device, sub_vendor, sub_device }, { class, subclass, prog_if }, bits }
+#define PCI_DEVID_END { { 0, }, { 0, }, 0 }
+
+
+/*
+ *
+ */
+typedef struct pci_driver {
+  /* Amount of devices this driver is giving service to */
+  uint8_t device_count; // NOTE: we are wasting a bunch of space here. For any 8-, 16- or 32 bit numbers place them below here 
+  
+  /* Lock that ensures only one opperation at a time on this driver */
+  mutex_t* lock;
+
+  /* Functions that are called for specific PCI housekeeping */
+  int (*f_probe) (struct pci_device* device, struct pci_driver* driver);
+  int (*f_pci_on_shutdown)(struct pci_device* device);
+  int (*f_pci_on_remove)(struct pci_device* device);
+  int (*f_pci_resume)(struct pci_device* device);
+  int (*f_pci_suspend)(struct pci_device* device);
+
+  pci_dev_id_t* id_table;
+
+  /* The parent driver that makes up */
+  //aniva_driver_t* parent;
+} pci_driver_t;
+
+bool is_pci_driver_unused(pci_driver_t* driver);
+
+/* Every pci device may have one active driver where the vendor_id and dev_id are covered in the compat field of the driver */
+void pci_device_attach_driver(pci_device_t* device, struct pci_driver* driver);
+void pci_device_detach_driver(pci_device_t* device, struct pci_driver* driver);
+
+int register_pci_driver(struct pci_driver* driver);
+int unregister_pci_driver(struct pci_driver* driver);
+
+extern bool __has_registered_bridges;
+
+pci_accessmode_t get_current_addressing_mode();
+
 struct pci_bus* get_bridge_by_index(uint32_t bridge_index);
 
-void pci_write_32(DeviceAddress_t* address, uint32_t field, uint32_t value);
-void pci_write_16(DeviceAddress_t* address, uint32_t field, uint16_t value);
-void pci_write_8(DeviceAddress_t* address, uint32_t field, uint8_t value);
+void pci_write_32(pci_device_address_t* address, uint32_t field, uint32_t value);
+void pci_write_16(pci_device_address_t* address, uint32_t field, uint16_t value);
+void pci_write_8(pci_device_address_t* address, uint32_t field, uint8_t value);
 
-uint32_t pci_read_32(DeviceAddress_t* address, uint32_t field);
-uint16_t pci_read_16(DeviceAddress_t* address, uint32_t field);
-uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field);
+uint32_t pci_read_32(pci_device_address_t* address, uint32_t field);
+uint16_t pci_read_16(pci_device_address_t* address, uint32_t field);
+uint8_t pci_read_8(pci_device_address_t* address, uint32_t field);
 
 bool test_pci_io_type1();
 bool test_pci_io_type2();
 // pci scanning (I would like this to be as advanced as possible and not some idiot simple thing)
 // uhm what?
 
-void pci_set_io(DeviceAddress_t* address, bool value);
-void pci_set_memory(DeviceAddress_t* address, bool value);
-void pci_set_interrupt_line(DeviceAddress_t* address, bool value);
-void pci_set_bus_mastering(DeviceAddress_t* address, bool value);
+void pci_set_io(pci_device_address_t* address, bool value);
+void pci_set_memory(pci_device_address_t* address, bool value);
+void pci_set_interrupt_line(pci_device_address_t* address, bool value);
+void pci_set_bus_mastering(pci_device_address_t* address, bool value);
 
 extern struct raw_pci_impls* early_raw_pci_impls;
 

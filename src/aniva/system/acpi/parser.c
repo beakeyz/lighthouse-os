@@ -131,25 +131,20 @@ void* find_rsdp(acpi_parser_t* parser) {
 
   if (new_ptr && new_ptr->rsdp[0]) {
     /* TODO: check if ->rsdp is a virtual or physical address */
-    void* ptr = (void*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)new_ptr->rsdp), sizeof(acpi_xsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
-    print("Multiboot has xsdp: ");
-    println(to_string((uintptr_t)ptr));
-    println(to_string((uintptr_t)new_ptr->rsdp));
     parser->m_is_xsdp = true;
-    parser->m_xsdp = ptr;
+    parser->m_xsdp = (void*)new_ptr->rsdp;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
-    return ptr;
+    return parser->m_xsdp;
   }
 
   struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
 
   if (old_ptr && old_ptr->rsdp[0]) {
-    void* ptr = (void*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)old_ptr->rsdp), sizeof(acpi_rsdp_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
     //print("Multiboot has rsdp: ");
     //println(to_string((uintptr_t)ptr));
-    parser->m_rsdp = ptr;
+    parser->m_rsdp = (void*)old_ptr->rsdp;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
-    return ptr;
+    return parser->m_rsdp;
   }
 
   // check bios mem

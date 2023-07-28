@@ -25,29 +25,15 @@
 
 #include <dev/framebuffer/framebuffer.h>
 
-int ahci_driver_init();
-int ahci_driver_exit();
-uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response);
-
 static ahci_device_t* s_ahci_device;
 static size_t s_implemented_ports;
 
 static char* s_last_debug_msg;
 
-const aniva_driver_t g_base_ahci_driver = {
-  .m_name = "ahci",
-  .m_type = DT_DISK,
-  .m_version = DRIVER_VERSION(0, 0, 1),
-  .f_init = ahci_driver_init,
-  .f_exit = ahci_driver_exit,
-  .f_drv_msg = ahci_driver_on_packet,
-  /*
-   * FIXME: when we insert a dependency here that is deferred (a socket), we completely die, since this 
-   * non-socket driver will fail to load as it realizes that it is unable to load its dependency...
-   */
-  .m_dep_count = 0
+static pci_dev_id_t ahci_id_table[] = {
+  PCI_DEVID_CLASSES(MASS_STORAGE, PCI_SUBCLASS_SATA, PCI_PROGIF_SATA),
+  PCI_DEVID_END
 };
-EXPORT_DRIVER(g_base_ahci_driver);
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device);
@@ -131,8 +117,12 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
         destroy_ahci_port(port);
         continue;
       }
+
+      /* Register the global disk device */
       register_gdisk_dev(&port->m_generic);
+
       hive_add_entry(device->m_ports, port, port->m_generic.m_path);
+
       s_implemented_ports++;
       internal_index++;
     }
@@ -288,20 +278,19 @@ ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header) {
   return Error();
 }
 
-static void find_ahci_device(pci_device_t* identifier) {
+static int ahci_probe(pci_device_t* identifier, pci_driver_t* driver) {
+  s_ahci_device = init_ahci_device(identifier);
 
-  if (identifier->class == MASS_STORAGE) {
-    // 0x01 == AHCI progIF
-    if (identifier->subclass == PCI_SUBCLASS_SATA && identifier->prog_if == PCI_PROGIF_SATA) {
-      if (s_ahci_device != nullptr) {
-        println("Found second AHCI device?");
-        return;
-      }
-      // ahci controller
-      s_ahci_device = init_ahci_device(identifier);
-    }
-  }
+  if (s_ahci_device)
+    return 0;
+
+  return -1;
 }
+
+pci_driver_t ahci_pci_driver = {
+  .id_table = ahci_id_table,
+  .f_probe = ahci_probe,
+};
 
 int ahci_driver_init() {
 
@@ -310,8 +299,8 @@ int ahci_driver_init() {
   s_last_debug_msg = "None";
   s_ahci_device = 0;
   s_implemented_ports = 0;
-  
-  enumerate_registerd_devices(find_ahci_device);
+
+  register_pci_driver(&ahci_pci_driver);
 
   /*
   char* number_of_ports = (char*)to_string(s_ahci_device->m_ports->m_length);
@@ -332,6 +321,9 @@ int ahci_driver_exit() {
   if (s_ahci_device) {
     destroy_ahci_device(s_ahci_device);
   }
+
+  unregister_pci_driver(&ahci_pci_driver);
+
   s_implemented_ports = 0;
 
   return 0;
@@ -379,3 +371,19 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
 
   return 0;
 }
+
+
+aniva_driver_t base_ahci_driver = {
+  .m_name = "ahci",
+  .m_type = DT_DISK,
+  .m_version = DRIVER_VERSION(0, 0, 1),
+  .f_init = ahci_driver_init,
+  .f_exit = ahci_driver_exit,
+  .f_drv_msg = ahci_driver_on_packet,
+  /*
+   * FIXME: when we insert a dependency here that is deferred (a socket), we completely die, since this 
+   * non-socket driver will fail to load as it realizes that it is unable to load its dependency...
+   */
+  .m_dep_count = 0
+};
+EXPORT_DRIVER(base_ahci_driver);

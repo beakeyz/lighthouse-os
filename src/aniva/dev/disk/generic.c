@@ -14,7 +14,7 @@
 static mutex_t* s_gdisk_lock;
 
 struct gdisk_store_entry {
-  generic_disk_dev_t* dev;
+  disk_dev_t* dev;
   struct gdisk_store_entry* next;
 };
 
@@ -43,7 +43,7 @@ exit:;
   return ret;
 }
 
-struct gdisk_store_entry** get_store_entry(generic_disk_dev_t* device) {
+struct gdisk_store_entry** get_store_entry(disk_dev_t* device) {
 
   struct gdisk_store_entry** entry = &s_gdisks;
 
@@ -56,7 +56,7 @@ struct gdisk_store_entry** get_store_entry(generic_disk_dev_t* device) {
   return entry;
 }
 
-static struct gdisk_store_entry* create_gdisk_store_entry(generic_disk_dev_t* device) {
+static struct gdisk_store_entry* create_gdisk_store_entry(disk_dev_t* device) {
   struct gdisk_store_entry* ret = kmalloc(sizeof(struct gdisk_store_entry));
 
   memset(ret, 0, sizeof(struct gdisk_store_entry));
@@ -80,7 +80,7 @@ static void destroy_gdisk_store_entry(struct gdisk_store_entry* entry) {
   kfree(entry);
 }
 
-partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags) {
+partitioned_disk_dev_t* create_partitioned_disk_dev(disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags) {
   partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
   
   ret->m_parent = parent;
@@ -104,7 +104,7 @@ void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev) {
   kfree(dev);
 }
 
-void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
+void attach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t* dev) {
 
   partitioned_disk_dev_t** device;
   
@@ -123,7 +123,7 @@ void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_dis
   }
 }
 
-void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev) {
+void detach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t* dev) {
 
   if (!dev)
     return;
@@ -147,7 +147,7 @@ void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_dis
   generic->m_partitioned_dev_count--;
 }
 
-partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* generic, uintptr_t block) {
+partitioned_disk_dev_t** fetch_designated_device_for_block(disk_dev_t* generic, uintptr_t block) {
 
   partitioned_disk_dev_t** device;
   
@@ -164,11 +164,11 @@ partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* g
   return nullptr;
 }
 
-int generic_disk_opperation(generic_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
+int generic_disk_opperation(disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
   return -1;
 }
 
-ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device) {
+ErrorOrPtr register_gdisk_dev(disk_dev_t* device) {
   struct gdisk_store_entry** entry = get_store_entry(device);
 
   /* We need to assert that get_store_entry returned an empty entry */
@@ -189,7 +189,7 @@ ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device) {
 }
 
 /* TODO: locking */
-ErrorOrPtr unregister_gdisk_dev(generic_disk_dev_t* device) {
+ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
   struct gdisk_store_entry** entry = &s_gdisks;
   struct gdisk_store_entry** previous_entry = nullptr;
   
@@ -238,7 +238,7 @@ ErrorOrPtr unregister_gdisk_dev(generic_disk_dev_t* device) {
   return Success(0);
 }
 
-generic_disk_dev_t* find_gdisk_device(disk_uid_t uid) {
+disk_dev_t* find_gdisk_device(disk_uid_t uid) {
 
   disk_uid_t i = 0; 
 
@@ -259,7 +259,7 @@ generic_disk_dev_t* find_gdisk_device(disk_uid_t uid) {
 }
 
 /* TODO: locking */
-ErrorOrPtr register_gdisk_dev_with_uid(generic_disk_dev_t* device, disk_uid_t uid) {
+ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid) {
 
   if (uid == 0) {
     struct gdisk_store_entry* entry = create_gdisk_store_entry(device);
@@ -393,12 +393,12 @@ int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize)
   return 0;
 }
 
-generic_disk_dev_t* create_generic_ramdev(size_t size) {
+disk_dev_t* create_generic_ramdev(size_t size) {
 
   size = ALIGN_UP(size, SMALL_PAGE_SIZE);
   uintptr_t start_addr = Must(__kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_CREATE_USER, 0));
 
-  generic_disk_dev_t* dev = create_generic_ramdev_at(start_addr, size);
+  disk_dev_t* dev = create_generic_ramdev_at(start_addr, size);
 
   return dev;
 }
@@ -408,12 +408,12 @@ generic_disk_dev_t* create_generic_ramdev(size_t size) {
  * TODO: maybe we could pass an addressspace object that
  * enforces mappings...
  */
-generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
+disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
   /* Trolle xD */
   const size_t ramdisk_blksize = sizeof(uint8_t);
 
-  generic_disk_dev_t* dev = kmalloc(sizeof(generic_disk_dev_t));
-  memset(dev, 0x00, sizeof(generic_disk_dev_t));
+  disk_dev_t* dev = kmalloc(sizeof(disk_dev_t));
+  memset(dev, 0x00, sizeof(disk_dev_t));
 
   dev->m_flags |= GDISKDEV_FLAG_RAM;
   dev->m_parent = nullptr;
@@ -433,7 +433,7 @@ generic_disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
 
 }
 
-bool destroy_generic_ramdev(generic_disk_dev_t* device) {
+bool destroy_generic_ramdev(disk_dev_t* device) {
 
   /* If we get passed a faulty ramdevice, just die */
   if (!device || (device->m_flags & GDISKDEV_FLAG_RAM) == 0 || !device->m_devs || device->m_devs->m_next)
@@ -457,7 +457,7 @@ bool destroy_generic_ramdev(generic_disk_dev_t* device) {
   return true;
 }
 
-partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t idx) {
+partitioned_disk_dev_t* find_partition_at(disk_dev_t* diskdev, uint32_t idx) {
 
   partitioned_disk_dev_t* ret;
 
@@ -483,7 +483,7 @@ partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t 
   return ret;
 }
 
-int ramdisk_read(generic_disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
+int ramdisk_read(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
 
   if (!device || !device->m_devs || !device->m_physical_sector_size)
     return -1;
@@ -508,7 +508,7 @@ int ramdisk_read(generic_disk_dev_t* device, void* buffer, size_t size, disk_off
   return 0;
 }
 
-int ramdisk_write(generic_disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
+int ramdisk_write(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
   kernel_panic("TODO: implement ramdisk_write");
 }
 
@@ -526,10 +526,13 @@ void init_root_device_probing() {
   /*
    * Init probing for the root device
    */
-  generic_disk_dev_t* root_device;
+  disk_dev_t* root_device;
   disk_uid_t device_index;
 
+  partitioned_disk_dev_t* root_ramdisk;
+
   device_index = 0;
+  root_ramdisk = nullptr;
   root_device = find_gdisk_device(0);
 
   while (root_device) {
@@ -538,10 +541,9 @@ void init_root_device_probing() {
 
     if (root_device->m_flags & GDISKDEV_FLAG_RAM) {
 
-      if (IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", part)))
-        goto cycle_next;
-
-      break;
+      /* We can use this ramdisk as a fallback to mount */
+      root_ramdisk = part; 
+      goto cycle_next;
     }
 
     /*
@@ -572,7 +574,23 @@ cycle_next:
     root_device = find_gdisk_device(device_index);
   }
 
+  if (!root_device) {
+      if (IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
+        kernel_panic("Could not find a root device to mount! TODO: fix");
+      }
+  }
+
   //kernel_panic("init_root_device_probing test");
 
 }
 
+bool gdisk_is_valid(disk_dev_t* device)
+{
+  return (
+      device &&
+      device->m_devs &&
+      device->m_path &&
+      (device->m_ops.f_read || device->m_ops.f_read_sync) &&
+      device->m_max_blk
+      );
+}

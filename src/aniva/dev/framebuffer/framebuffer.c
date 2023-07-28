@@ -71,7 +71,6 @@ static int __set_mb_tag(struct multiboot_tag_framebuffer* tag)
 
 int fb_driver_init() {
 
-  int result;
   struct multiboot_tag_framebuffer* fb;
 
   if (!g_system_info.has_framebuffer) {
@@ -86,14 +85,9 @@ int fb_driver_init() {
   s_height = 0;
   s_size = 0;
 
-  /* Early ready mark */
-  driver_set_ready("graphics/fb");
-
   fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
-  result = __set_mb_tag(fb);
-
-  return result;
+  return __set_mb_tag(fb);
 }
 
 int fb_driver_exit() {

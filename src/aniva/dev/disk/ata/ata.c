@@ -4,21 +4,33 @@
 #include "dev/pci/pci.h"
 #include <dev/pci/definitions.h>
 
-static void find_ata_controller(pci_device_t* device) {
-  if (device->address.device_num == MASS_STORAGE) {
-    if (device->address.bus_num == PCI_SUBCLASS_ATA) {
-      println("ATA: found an ata controller");
-    } else if (device->address.bus_num == PCI_SUBCLASS_IDE) {
-      println("ATA: found an ide controller");
-    }
-  }
+static pci_dev_id_t ata_dev_ids[] = {
+  PCI_DEVID_CLASSES_EX(MASS_STORAGE, PCI_SUBCLASS_ATA, 0, PCI_DEVID_USE_CLASS | PCI_DEVID_USE_SUBCLASS),
+  PCI_DEVID_CLASSES_EX(MASS_STORAGE, PCI_SUBCLASS_IDE, 0, PCI_DEVID_USE_CLASS | PCI_DEVID_USE_SUBCLASS),
+  PCI_DEVID_END,
+};
+
+uintptr_t ata_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+  return 0;
 }
+
+int ata_probe(pci_device_t* device, pci_driver_t* driver)
+{
+  println("Found ATA device!");
+  return 0;
+}
+
+static pci_driver_t ata_pci_driver = {
+  .id_table = ata_dev_ids,
+  .f_probe = ata_probe,
+};
 
 int ata_driver_init() {
 
   println("Initializing generic ATA driver");
 
-  enumerate_registerd_devices(find_ata_controller);
+  register_pci_driver(&ata_pci_driver);
+  //enumerate_registerd_devices(find_ata_controller);
 
   return 0;
 }
@@ -27,9 +39,6 @@ int ata_driver_exit() {
   return 0;
 }
 
-uintptr_t ata_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
-  return 0;
-}
 
 const aniva_driver_t g_base_ata_driver = {
   .m_name = "ata",

@@ -70,7 +70,7 @@ ErrorOrPtr __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
 
   /* Create ramdisk object */
-  generic_disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
+  disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
   if (!ramdisk)
     return Error();
@@ -100,7 +100,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // parse multiboot
   init_multiboot(virtual_mb_addr);
-  size_t total_multiboot_size = get_total_mb2_size((void *) mb_addr);
+  size_t total_multiboot_size = get_total_mb2_size((void *)virtual_mb_addr);
 
   // init bootstrap processor
   init_processor(&g_bsp, 0);
@@ -184,16 +184,25 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
 void kthread_entry() {
 
+  /* Make sure the scheduler won't ruin our day */
   pause_scheduler();
 
+  /* Initialize global disk device registers */
   init_gdisk_dev();
 
+  /* Install and load initial drivers */
   init_aniva_driver_registry();
 
+  /* Scan for pci devices and initialize any matching drivers */
+  init_pci_drivers();
+
+  /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk((uintptr_t)g_system_info.multiboot_addr);
 
+  /* Probe for a root device */
   init_root_device_probing();
 
+  /* Setup is done: we can start scheduling stuff */
   resume_scheduler();
 
   for (;;) {

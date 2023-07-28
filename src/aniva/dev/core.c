@@ -21,6 +21,10 @@
 #include "sync/mutex.h"
 #include <entry/entry.h>
 
+/* 
+ * These hives give us more flexibility with finding drivers in nested paths,
+ * since we enforce these type urls, but everything after that is free to choose
+ */
 static hive_t* __installed_driver_manifests;
 static hive_t* __loaded_driver_manifests;
 
@@ -36,6 +40,25 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
   [DT_DIAGNOSTICS] = "diagnostics",
   [DT_SERVICE] = "service",
 };
+
+const char* driver_get_type_str(struct dev_manifest* driver)
+{
+  size_t type_str_len = NULL;
+  dev_url_t drv_url = driver->m_url;
+
+  while (*(drv_url + type_str_len) != DRIVER_URL_SEPERATOR) {
+    type_str_len++;
+  }
+
+  for (uint64_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
+    if (memcmp(dev_type_urls[i], drv_url, type_str_len)) {
+      return dev_type_urls[i];
+    }
+  }
+
+  /* Invalid type part in the url */
+  return nullptr;
+}
 
 dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
   [DT_DISK] = {

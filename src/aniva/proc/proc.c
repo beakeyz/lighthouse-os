@@ -2,6 +2,7 @@
 #include <mem/heap.h>
 #include "dev/debug/serial.h"
 #include "dev/framebuffer/framebuffer.h"
+#include "dev/kterm/kterm.h"
 #include "entry/entry.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
@@ -40,7 +41,8 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
 
   memset(proc, 0, sizeof(proc_t));
 
-  proc->m_handle_map = create_khandle_map_ex(KHNDL_DEFAULT_ENTRIES);
+  init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
+
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
   proc->m_thread_count = create_atomic_ptr_with_value(0);
@@ -219,7 +221,7 @@ static void __proc_clear_handles(proc_t* proc)
   for (uint32_t i = 0; i < map->max_count; i++) {
     current_handle = &map->handles[i];
 
-    if (!current_handle->reference.kobj)
+    if (!current_handle->reference.kobj || current_handle->index == KHNDL_INVALID_INDEX)
       continue;
 
     switch (current_handle->type) {
@@ -244,7 +246,7 @@ static void __proc_clear_handles(proc_t* proc)
         break;
     }
 
-    destroy_khandle(current_handle);
+    //destroy_khandle(current_handle);
   }
 }
 
@@ -258,21 +260,18 @@ void destroy_proc(proc_t* proc) {
     destroy_thread(i->data);
   }
 
-  println("Clearing handles");
   /* Yeet handles */
   __proc_clear_handles(proc);
 
-  println("Clearing resources");
   /* loop over all the resources of this process and release them by using __kmem_dealloc */
   __proc_clear_shared_resources(proc);
 
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
-
-  println("Clearing khandle map");
-  destroy_khandle_map(&proc->m_handle_map);
   destroy_doorbell(proc->m_terminate_bell);
+
+  destroy_khandle_map(&proc->m_handle_map);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
@@ -283,8 +282,6 @@ void destroy_proc(proc_t* proc) {
   if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
-
-  proc_unregister(proc->m_name);
 
   kzfree(proc, sizeof(proc_t));
 
@@ -339,6 +336,8 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
 
   /* Register to the reaper */
   TRY(reap_result, reaper_register_process(proc));
+
+  proc_unregister(proc->m_name);
 
   /* Resume scheduling */
   resume_scheduler();

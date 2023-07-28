@@ -50,11 +50,14 @@ typedef struct disk_dev {
 
   size_t m_partitioned_dev_count;
   struct partitioned_disk_dev* m_devs;
-} generic_disk_dev_t;
+} disk_dev_t;
 
 #define GDISKDEV_FLAG_SCSI                   (0x00000001) /* Does this device use SCSI */
 #define GDISKDEV_FLAG_RAM                    (0x00000002) /* Is this a ramdevice */
 #define GDISKDEV_FLAG_RAM_COMPRESSED         (0x00000004) /* Is this a compressed ramdevice */
+#define GDISKDEV_FLAG_RO                     (0x00000008)
+#define GDISKDEV_FLAG_NO_PART                (0x00000010)
+#define GDISKDEV_FLAG_LEGACY                 (0x00000020)
 
 #define PD_FLAG_ONLY_SYNC                    (0x00000001) /* This partitioned device can't use async IO */
 
@@ -90,28 +93,30 @@ void register_boot_device();
 void init_gdisk_dev();
 void init_root_device_probing();
 
-ErrorOrPtr register_gdisk_dev(generic_disk_dev_t* device);
-ErrorOrPtr register_gdisk_dev_with_uid(generic_disk_dev_t* device, disk_uid_t uid);
-ErrorOrPtr unregister_gdisk_dev(generic_disk_dev_t* device);
+ErrorOrPtr register_gdisk_dev(disk_dev_t* device);
+ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid);
+ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device);
+
+bool gdisk_is_valid(disk_dev_t* device);
 
 /*
  * find the partitioned device (weird naming sceme but its whatever) 
  * of a generic disk device at idx
  * idx is a dword, since the number of partitions should never exceed that limit lmao
  */
-partitioned_disk_dev_t* find_partition_at(generic_disk_dev_t* diskdev, uint32_t idx);
+partitioned_disk_dev_t* find_partition_at(disk_dev_t* diskdev, uint32_t idx);
 
-generic_disk_dev_t* find_gdisk_device(disk_uid_t uid);
+disk_dev_t* find_gdisk_device(disk_uid_t uid);
 
-partitioned_disk_dev_t* create_partitioned_disk_dev(generic_disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags);
+partitioned_disk_dev_t* create_partitioned_disk_dev(disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags);
 void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev);
 
 /*
  * TODO: attach device limit
  */
-void attach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev);
-void detach_partitioned_disk_device(generic_disk_dev_t* generic, partitioned_disk_dev_t* dev);
-partitioned_disk_dev_t** fetch_designated_device_for_block(generic_disk_dev_t* generic, uintptr_t block);
-int generic_disk_opperation(generic_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
+void attach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t* dev);
+void detach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t* dev);
+partitioned_disk_dev_t** fetch_designated_device_for_block(disk_dev_t* generic, uintptr_t block);
+int generic_disk_opperation(disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 
 #endif // !__ANIVA_GENERIC_DISK_DEV__

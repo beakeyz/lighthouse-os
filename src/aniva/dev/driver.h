@@ -8,9 +8,6 @@
 struct vnode;
 struct dev_manifest;
 
-typedef int (*ANIVA_DRIVER_INIT) ();
-typedef int (*ANIVA_DRIVER_EXIT) ();
-
 /*
  * Every type of driver has a version
  */
@@ -31,12 +28,15 @@ typedef struct aniva_driver {
 
   driver_version_t m_version;
 
-  ANIVA_DRIVER_INIT f_init;
-  ANIVA_DRIVER_EXIT f_exit;
-
   // TODO: make an actual framework for this lmao
   // FIXME: what arguments are best to pass here?
   SocketOnPacket f_drv_msg;
+
+  int (*f_init)(void);
+  int (*f_exit)(void);
+
+  /* Used to try and verify if this driver supports a device */
+  int (*f_probe)(struct aniva_driver* driver, void* device_info);
 
   DEV_TYPE m_type;
   uint32_t m_port;

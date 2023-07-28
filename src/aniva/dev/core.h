@@ -62,8 +62,8 @@ typedef driver_control_code_t           dcc_t;
 #define DCC_RESPONSE                    (uint32_t)(-2)
 #define DCC_WRITE                       (uint32_t)(-3)
 
-#define MAX_DRIVER_NAME_LENGTH          32
-#define MAX_DRIVER_DESCRIPTOR_LENGTH    256
+#define MAX_DRIVER_NAME_LENGTH          128
+#define MAX_DRIVER_DESCRIPTOR_LENGTH    64  /* Descriptions should be short, simple and effective */
 
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
@@ -142,6 +142,8 @@ struct dev_manifest* try_driver_get(struct aniva_driver* driver, uint32_t flags)
  * Marks the driver as ready to recieve packets preemptively
  */
 ErrorOrPtr driver_set_ready(const char* path);
+
+const char* driver_get_type_str(struct dev_manifest* driver);
 
 /*
  * Find the url for a certain dev_type

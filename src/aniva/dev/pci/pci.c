@@ -11,29 +11,165 @@
 #include <mem/heap.h>
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "sync/mutex.h"
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
 #include "io.h"
 #include "system/resource.h"
 #include <libk/io.h>
 
-pci_accessmode_t __current_addressing_mode;
-pci_device_ops_io_t* __current_pci_access_impl;
-list_t* __pci_bridges;
-list_t* __pci_devices;
-zone_allocator_t* __pci_dev_allocator;
+static pci_accessmode_t __current_addressing_mode;
+static pci_device_ops_io_t* __current_pci_access_impl;
+static list_t* __pci_bridges;
+static list_t* __pci_devices;
+
+static zone_allocator_t* __pci_dev_allocator;
+
 bool __has_registered_bridges;
 
-/* Default PCI callbacks */
+struct pci_driver_link {
+  pci_driver_t* this;
+  struct pci_driver_link* next;
+};
 
-static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift);
+static struct pci_driver_link* __pci_drivers;
 
-void register_pci_devices(pci_device_t* dev) {
+#define FOREACH_PCI_DRIVER(i, drivers) for (struct pci_driver_link* i = drivers; i; i = i->next)
+
+static struct pci_driver_link** __find_pci_driver(pci_driver_t* driver)
+{
+  struct pci_driver_link** ret = &__pci_drivers;
+
+  for (; *ret; ret = &(*ret)->next) {
+    if ((*ret)->this == driver)
+      return ret;
+  }
+
+  return ret;
+}
+
+static int __add_pci_driver(pci_driver_t* driver) 
+{
+  struct pci_driver_link** slot;
+
+  slot = __find_pci_driver(driver);
+
+  if (*slot == nullptr) {
+    *slot = kzalloc(sizeof(struct pci_driver_link));
+
+    (*slot)->this = driver;
+    (*slot)->next = nullptr;
+
+    return 0;
+  }
+
+  return -1;
+}
+
+static int __remove_pci_driver(pci_driver_t* driver)
+{
+  struct pci_driver_link** slot;
+  struct pci_driver_link* to_remove;
+
+  slot = __find_pci_driver(driver);
+
+  if (*slot) {
+    to_remove = *slot;
+
+    *slot = to_remove->next;
+    
+    kzfree(*slot, sizeof(struct pci_driver_link));
+
+    return 0;
+  }
+
+  return -1;
+}
+
+static bool __has_pci_driver(pci_driver_t* driver)
+{
+  struct pci_driver_link** link;
+
+  link = __find_pci_driver(driver);
+
+  if (!(*link))
+    return false;
+
+  if (!(*link)->this)
+    return false;
+
+  return true;
+}
+
+static bool matches_pci_devid(pci_device_t* device, pci_dev_id_t id) 
+{
+  /* Ids */
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_VENDOR_ID) && device->vendor_id != id.ids.vendor_id)
+    return false;
+
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_DEVICE_ID) && device->dev_id != id.ids.device_id)
+    return false;
+
+  /* Classes */
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_CLASS) && device->class != id.classes.class)
+    return false;
+
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_SUBCLASS) && device->subclass != id.classes.subclass)
+    return false;
+
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_PROG_IF) && device->prog_if != id.classes.prog_if)
+    return false;
+
+  return true;
+}
+
+/*
+ * Register a pci device to our local bus and try to find a pci driver for it
+ */
+static void __register_pci_device(pci_device_t* dev) {
+
+  int probe_error;
+  pci_driver_t* fitting_driver;
   pci_device_t* _dev;
 
   if (!dev || !__pci_devices || !__pci_dev_allocator)
     return;
 
+  fitting_driver = nullptr;
+
+  /*
+   * TODO: we might have multiple drivers that cover the same devices.
+   * we should give every device a value that describes how sophisticated they 
+   * are, with which we can determine if we want to load this driver, or look for 
+   * one that is more sophisticated and can thus be used far more
+   */
+
+  /* Loop over every registered pci driver */
+  FOREACH_PCI_DRIVER(i, __pci_drivers) {
+    pci_driver_t* d = i->this;
+
+    /* Loop over their supported ids */
+    FOREACH_PCI_DEVID(dev_id, d->id_table) {
+
+      /* Try to match */
+      if (matches_pci_devid(dev, *dev_id)) {
+        probe_error = d->f_probe(dev, d);
+        fitting_driver = d;
+        break;
+      }
+    }
+
+    /* Have we found our driver? */
+    if (fitting_driver) 
+      break;
+  }
+
+  /* Yay, this pci device can be piloted by a fitting driver! */
+  if (fitting_driver && !probe_error) {
+    dev->driver = fitting_driver;
+  }
+
+  /* Allocate the device */
   _dev = zalloc_fixed(__pci_dev_allocator);
 
   memcpy(_dev, dev, sizeof(pci_device_t));
@@ -41,10 +177,46 @@ void register_pci_devices(pci_device_t* dev) {
   list_append(__pci_devices, _dev);
 }
 
-void print_device_info(pci_device_t* dev) {
-  print(to_string(dev->vendor_id));
-  putch(' ');
-  println(to_string(dev->dev_id));
+/* Default PCI callbacks */
+
+static ALWAYS_INLINE void pci_send_command(pci_device_address_t* address, bool or_and, uint32_t shift);
+
+bool is_end_devid(pci_dev_id_t* dev_id)
+{
+  pci_dev_id_t end_dev = PCI_DEVID_END;
+  return (memcmp(dev_id, &end_dev, sizeof(pci_dev_id_t)));
+}
+
+bool is_pci_driver_unused(pci_driver_t* driver)
+{
+  if (!__has_pci_driver(driver))
+    return false;
+
+  FOREACH(i, __pci_devices) {
+    pci_device_t* device = i->data;
+
+    if (device->driver == driver)
+      return true;
+  }
+
+  return false;
+}
+
+int register_pci_driver(struct pci_driver* driver)
+{
+  if (!driver->id_table)
+    return -1;
+
+  driver->lock = create_mutex(NULL);
+
+  return __add_pci_driver(driver);
+}
+
+int unregister_pci_driver(struct pci_driver* driver)
+{
+  destroy_mutex(driver->lock);
+
+  return __remove_pci_driver(driver);
 }
 
 uintptr_t get_pci_register_size(pci_register_offset_t offset)
@@ -78,7 +250,7 @@ bool pci_register_is_std(pci_register_offset_t offset)
 static int pci_dev_write(pci_device_t* device, uint32_t field, uintptr_t __value)
 {
 
-  DeviceAddress_t* address;
+  pci_device_address_t* address;
 
   if (!device)
     return -1;
@@ -112,7 +284,7 @@ static int pci_dev_write(pci_device_t* device, uint32_t field, uintptr_t __value
 static int pci_dev_read(pci_device_t* device, uint32_t field, uintptr_t* __value)
 {
 
-  DeviceAddress_t* address;
+  pci_device_address_t* address;
 
   if (!device)
     return -1;
@@ -386,6 +558,21 @@ bool test_pci_io_type1() {
   return passed;
 }
 
+/*
+ * Enumerate over all the pci devices present on the bus and try to find 
+ * drivers for them. This should be called after we have loaded/installed all our 
+ * drivers.
+ */
+void init_pci_drivers()
+{
+  pci_callback_t callback = {
+    .callback_name = "Register",
+    .callback = __register_pci_device
+  };
+
+  enumerate_bridges(&callback);
+}
+
 bool init_pci() {
 
   __pci_devices = init_list();
@@ -414,14 +601,6 @@ bool init_pci() {
   if (!success) {
     kernel_panic("Unable to register pci bridges from mcfg! (ACPI)");
   }
-
-  pci_callback_t callback = {
-    .callback_name = "Register",
-    .callback = register_pci_devices
-  };
-
-  enumerate_bridges(&callback);
-
   return true;
 }
 
@@ -443,7 +622,7 @@ pci_bus_t* get_bridge_by_index(uint32_t bridge_index) {
  * TODO: these functions only seem to work in qemu, real hardware has some different method to get these 
  * fields memory mapped... let's figure out what the heck
  */
-void pci_write_32(DeviceAddress_t* address, uint32_t field, uint32_t value) {
+void pci_write_32(pci_device_address_t* address, uint32_t field, uint32_t value) {
   pci_bus_t* bridge = get_bridge_by_index(address->index);
   if (bridge == nullptr) {
     return;
@@ -455,7 +634,7 @@ void pci_write_32(DeviceAddress_t* address, uint32_t field, uint32_t value) {
   write_field32(bridge, bus, device, func, field, value);
 }
 
-void pci_write_16(DeviceAddress_t* address, uint32_t field, uint16_t value) {
+void pci_write_16(pci_device_address_t* address, uint32_t field, uint16_t value) {
   pci_bus_t* bridge = get_bridge_by_index(address->index);
   if (bridge == nullptr) {
     return;
@@ -467,7 +646,7 @@ void pci_write_16(DeviceAddress_t* address, uint32_t field, uint16_t value) {
   write_field16(bridge, bus, device, func, field, value);
 }
 
-void pci_write_8(DeviceAddress_t* address, uint32_t field, uint8_t value) {
+void pci_write_8(pci_device_address_t* address, uint32_t field, uint8_t value) {
   pci_bus_t* bridge = get_bridge_by_index(address->index);
   if (bridge == nullptr) {
     return;
@@ -479,7 +658,7 @@ void pci_write_8(DeviceAddress_t* address, uint32_t field, uint8_t value) {
   write_field8(bridge, bus, device, func, field, value);
 }
 
-uint32_t pci_read_32(DeviceAddress_t* address, uint32_t field) {
+uint32_t pci_read_32(pci_device_address_t* address, uint32_t field) {
   pci_bus_t* bridge = get_bridge_by_index(address->index);
   if (bridge == nullptr) {
     return NULL;
@@ -491,7 +670,7 @@ uint32_t pci_read_32(DeviceAddress_t* address, uint32_t field) {
   return read_field32(bridge, bus, device, func, field);
 }
 
-uint16_t pci_read_16(DeviceAddress_t* address, uint32_t field) {
+uint16_t pci_read_16(pci_device_address_t* address, uint32_t field) {
   pci_bus_t* bridge = get_bridge_by_index(address->index);
   if (bridge == nullptr) {
     return NULL;
@@ -504,7 +683,7 @@ uint16_t pci_read_16(DeviceAddress_t* address, uint32_t field) {
   return result;
 }
 
-uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field) {
+uint8_t pci_read_8(pci_device_address_t* address, uint32_t field) {
   pci_bus_t* bridge = get_bridge_by_index(address->index);
   if (bridge == nullptr) {
     return NULL;
@@ -519,7 +698,7 @@ uint8_t pci_read_8(DeviceAddress_t* address, uint32_t field) {
 /* PCI READ/WRITE WRAPPERS */
 // TODO
 
-static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and, uint32_t shift) {
+static ALWAYS_INLINE void pci_send_command(pci_device_address_t* address, bool or_and, uint32_t shift) {
   uint16_t placeback;
   __current_pci_access_impl->read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
 
@@ -530,19 +709,19 @@ static ALWAYS_INLINE void pci_send_command(DeviceAddress_t* address, bool or_and
   }
 }
 
-void pci_set_io(DeviceAddress_t* address, bool value) {
+void pci_set_io(pci_device_address_t* address, bool value) {
   pci_send_command(address, value, PCI_COMMAND_IO_SPACE);
 }
 
-void pci_set_memory(DeviceAddress_t* address, bool value) {
+void pci_set_memory(pci_device_address_t* address, bool value) {
   pci_send_command(address, value, PCI_COMMAND_MEM_SPACE);
 }
 
-void pci_set_interrupt_line(DeviceAddress_t* address, bool value) {
+void pci_set_interrupt_line(pci_device_address_t* address, bool value) {
   pci_send_command(address, !value, PCI_COMMAND_INT_DISABLE);
 }
 
-void pci_set_bus_mastering(DeviceAddress_t* address, bool value) {
+void pci_set_bus_mastering(pci_device_address_t* address, bool value) {
   pci_send_command(address, value, PCI_COMMAND_BUS_MASTER);
 }
 

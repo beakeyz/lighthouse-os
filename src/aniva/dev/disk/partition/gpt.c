@@ -38,7 +38,7 @@ static bool gpt_entry_is_used(uint8_t guid[16]) {
   return false;
 }
 
-gpt_table_t* create_gpt_table(generic_disk_dev_t* device) {
+gpt_table_t* create_gpt_table(disk_dev_t* device) {
   gpt_table_t* ret = kmalloc(sizeof(gpt_table_t));
 
   ret->m_device = device;

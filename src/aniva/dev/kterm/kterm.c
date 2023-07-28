@@ -54,7 +54,7 @@ static void kterm_flush_buffer();
 static void kterm_write_char(char c);
 static void kterm_process_buffer();
 
-static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
+//static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 
@@ -82,8 +82,10 @@ static uintptr_t __kterm_buffer_ptr;
 static char __kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
 static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
 
+/*
 static uint32_t* __kterm_double_buffer;
 static size_t __kterm_double_buffer_size;
+*/
 
 static fb_info_t __kterm_fb_info;
 
@@ -384,11 +386,6 @@ int kterm_init() {
     destroy_packet_response(response);
   }
 
-  __kterm_double_buffer_size = ALIGN_UP(__kterm_fb_info.size, SMALL_PAGE_SIZE);
-  __kterm_double_buffer = (void*)Must(__kmem_kernel_alloc_range(__kterm_double_buffer_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL | KMEM_FLAG_GLOBAL));
-
-  memset(__kterm_double_buffer, 0, __kterm_double_buffer_size);
-
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
 
@@ -525,15 +522,6 @@ static void kterm_draw_cursor() {
   __kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
 }
 
-static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color) {
-  if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
-    return;
-
-  if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
-    *(uint32_t volatile*)((vaddr_t)__kterm_double_buffer + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
-  }
-}
-
 static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
   if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
     return;
@@ -542,7 +530,7 @@ static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
     *(uint32_t volatile*)(KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
   }
 
-  kterm_draw_pixel(x, y, color);
+  //kterm_draw_pixel(x, y, color);
 }
 
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
@@ -623,7 +611,7 @@ static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
     return 0;
 
   if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
-    return (uint32_t volatile*)((vaddr_t)__kterm_double_buffer + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8);
+    return (uint32_t volatile*)((vaddr_t)KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8);
   }
   return 0;
 }

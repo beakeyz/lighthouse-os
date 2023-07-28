@@ -84,11 +84,11 @@ typedef struct {
 
   size_t m_partition_count;
 
-  generic_disk_dev_t* m_device;
+  disk_dev_t* m_device;
   hive_t* m_partitions;
 } gpt_table_t;
 
-gpt_table_t* create_gpt_table(generic_disk_dev_t* device);
+gpt_table_t* create_gpt_table(disk_dev_t* device);
 void destroy_gpt_table(gpt_table_t* table);
 
 gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t index);
