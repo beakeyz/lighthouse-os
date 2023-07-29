@@ -52,8 +52,8 @@ NORETURN void kernel_panic(const char* panic_message) {
 
   /* NOTE: crashes in userspace (duh) */
   if (has_framebuffer) {
-    println_kterm("[KERNEL PANIC] ");
-    println_kterm(panic_message);
+    //println_kterm("[KERNEL PANIC] ");
+    //println_kterm(panic_message);
   }
 skip_diagnostics:
   __kernel_panic();

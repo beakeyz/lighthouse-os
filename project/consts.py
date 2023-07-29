@@ -35,11 +35,13 @@ class Consts:
 
     KERNEL_MAP_PATH = OUT_DIR + "/lightos.map"
     KERNEL_ELF_PATH = OUT_DIR + "/lightos.elf"
+    KERNEL_KSYMS_SRC_PATH = f"{SRC_DIR}/{KERNEL_NAME}/asm/ksyms.asm"
     KERNEL_LINKERSCRIPT_PATH = PROJECT_DIR + "/src/aniva/entry/linker.ld"
     USERSPACE_DEFAULT_LDSCRPT_PATH = PROJECT_DIR + "/src/user/linker.ld"
 
     CROSS_GCC_DIR = COMPILER_DIR + "/x86_64-pc-lightos-gcc"
     CROSS_LD_DIR = COMPILER_DIR + "/x86_64-pc-lightos-ld"
+    CROSS_NM_DIR = COMPILER_DIR + "/x86_64-pc-lightos-nm"
     CROSS_ASM_DIR = "/usr/bin/nasm"
 
     # Libraries that should always be linked staticly
@@ -71,7 +73,9 @@ class Consts:
     KERNEL_ASM_FLAGS = " -f elf64"
     USERSPACE_ASM_FLAGS = " -f elf64"
 
-    KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -export-dynamic -z max-page-size=0x1000"
+    KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000"
+
+    KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH} > {KERNEL_MAP_PATH}"
 
     DRIVER_LD_FLAGS_EXT = " -shared -fPIC"
 

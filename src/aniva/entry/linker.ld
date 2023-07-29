@@ -32,14 +32,21 @@ SECTIONS {
 
   .rodata ALIGN(4K) : AT(ADDR(.rodata) - _kernel_virt_base_offset)
   {
+    /* Any global constructors */
     _start_ctors = .;
     *(.ctors*)
     *(.init_array)
     _end_ctors = .;
 
+    /* Precompiled base-drivers that are built into the kernel go here */
     _kernel_pcdrvs_start = .;
     *(.kpcdrvs*)
     _kernel_pcdrvs_end = .;
+
+    /* The symbols of the kernel will be placed here in a large symboltable */
+    _start_ksyms = .;
+    *(.ksyms*)
+    _end_ksyms = .;
 
     *(.rodata*)
 
@@ -48,9 +55,6 @@ SECTIONS {
   .data ALIGN(4K) : AT(ADDR(.data) - _kernel_virt_base_offset)
   {
     *(.data)
-    _syms_start = .;
-    *(.syms)
-    _syms_end = .;
   } :data
 
   .bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_virt_base_offset) 

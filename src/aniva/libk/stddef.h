@@ -48,6 +48,7 @@ typedef void (*FuncPtr)();
 #define NORETURN __attribute__((noreturn))
 #define NAKED __attribute__((naked))
 #define SECTION(__sect) __attribute__((section(__sect)))
+#define ALIGN(a) __attribute__((aligned(a)))
 #define USED __attribute__((used))
 #define UNUSED __attribute__((unused))
 #define __init __attribute__((section(".__init")))

@@ -10,6 +10,7 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "kevent/kevent.h"
+#include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/data/hashmap.h"
 #include "libk/io.h"

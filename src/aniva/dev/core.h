@@ -67,7 +67,7 @@ typedef driver_control_code_t           dcc_t;
 
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
-#define EXPORT_DRIVER(name) static SECTION(".kpcdrvs") USED struct aniva_driver* exported_##name = (struct aniva_driver*)&name
+#define EXPORT_DRIVER(name) static SECTION(".kpcdrvs") ALIGN(8) USED struct aniva_driver* exported_##name = (struct aniva_driver*)&name
 
 /*
 #define DRIVER_NAME(name) static const char* SECTION(".drv_name") __exported_drv_name USED = (const char*)(name)

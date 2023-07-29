@@ -16,6 +16,7 @@
 #include "interrupts/interrupts.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
+#include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
@@ -162,7 +163,12 @@ void kterm_command_worker() {
       } else if (!strcmp(contents, "clear")) {
         kterm_clear();
       } else if (!strcmp(contents, "exit")) {
-        kernel_panic("TODO: exit/shutdown");
+
+        /* NOTE this is just to show that this system works =D */
+        void (*pnc)(char*) = (FuncPtr)get_ksym_address("kernel_panic");
+
+        pnc("TODO: exit/shutdown");
+
       } else if (!strcmp(contents, "ztest")) {
         zone_allocator_t* allocator = create_zone_allocator_ex(nullptr, 0, 4 * Kib, sizeof(uintptr_t), 0);
 

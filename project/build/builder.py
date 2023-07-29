@@ -1,6 +1,7 @@
 from enum import Enum
 from stats.lines import SourceFile, SourceLanguage
 import build.manifest
+import build.symbols
 import consts
 import os
 import json
@@ -53,22 +54,25 @@ class ProjectBuilder(object):
         print("Linking...")
         return self.link()
 
+    def buildKernelSourceFile(self, file: SourceFile) -> int:
+        if file.language == SourceLanguage.C:
+            file.setBuildFlags(self.constants.KERNEL_C_FLAGS)
+        elif file.language == SourceLanguage.ASM:
+            file.setBuildFlags(self.constants.KERNEL_ASM_FLAGS)
+        else:
+            return -1 
+        return os.system(file.getCompileCmd())
+
     def build(self) -> BuilderResult:
         if self.builderMode == BuilderMode.KERNEL or self.builderMode == BuilderMode.DRIVERS:
             for srcFile in self.constants.SRC_FILES:
                 srcFile: SourceFile = srcFile
                 if self.shouldBuild(srcFile):
-                    if srcFile.language == SourceLanguage.C:
-                        srcFile.setBuildFlags(self.constants.KERNEL_C_FLAGS)
-                    elif srcFile.language == SourceLanguage.ASM:
-                        srcFile.setBuildFlags(self.constants.KERNEL_ASM_FLAGS)
-                    else:
-                        return BuilderResult.FAIL
 
                     print(f"Building {srcFile.path}...")
                     os.system(f"mkdir -p {srcFile.getOutputDir()}")
 
-                    if os.system(srcFile.getCompileCmd()) != 0:
+                    if self.buildKernelSourceFile(srcFile) != 0:
                         return BuilderResult.FAIL
             return BuilderResult.SUCCESS
         elif self.builderMode == BuilderMode.USERSPACE:
@@ -214,11 +218,35 @@ class ProjectBuilder(object):
                         break
 
             ld = self.constants.CROSS_LD_DIR
+            nm = self.constants.CROSS_NM_DIR
 
-            if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") == 0:
-                return BuilderResult.SUCCESS
+            if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") != 0:
+                return BuilderResult.FAIL
 
-            return BuilderResult.FAIL
+            if os.system(f"{nm} {self.constants.KERNEL_NM_FLAGS}") != 0:
+                return BuilderResult.FAIL
+
+            # Run the symbol generator to inject the kernels symbols directly into the build
+            symbols: list[KSymbol] = build.symbols.read_map(self.constants.KERNEL_MAP_PATH)
+
+            file = build.symbols.write_map_to_source(symbols, self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
+
+            if file == None:
+                return BuilderResult.FAIL
+
+            # Build the sourcefile
+            if self.buildKernelSourceFile(file) != 0:
+                return BuilderResult.FAIL
+
+            ksyms_file_obj_path = f"{file.getOutputDir()}ksyms.o"
+
+            if objFiles.find(ksyms_file_obj_path) == -1:
+                objFiles += ksyms_file_obj_path
+
+            if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") != 0:
+                return BuilderResult.FAIL
+
+            return BuilderResult.SUCCESS
         elif self.builderMode == BuilderMode.USERSPACE:
             # For each directory in the src/user directory
             # we should link a binary

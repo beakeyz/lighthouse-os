@@ -8,6 +8,7 @@ from installer.install import Installer, InstallerType, take_input
 from deps.dependencies import DependencyManager
 from deps.ramdisk import RamdiskManager
 from build.builder import ProjectBuilder, BuilderMode, BuilderResult
+from build.symbols import *
 from installer.system import create_systemroot
 
 
@@ -148,7 +149,7 @@ class BuildsysBuildKernelCallback(CommandCallback):
         if builder.do() == BuilderResult.SUCCESS:
             return Status(StatusCode.Success, "Built kernel =D")
 
-        return Status(StatusCode.Fail, "Failed to build kernel =(")
+        return Status(StatusCode.Fail, "Failed to build kernel")
 
 
 class BuildsysBuildUserspaceCallback(CommandCallback):
@@ -156,10 +157,10 @@ class BuildsysBuildUserspaceCallback(CommandCallback):
         c = Consts()
         builder = ProjectBuilder(BuilderMode.USERSPACE, c)
 
-        if builder.do() == BuilderResult.SUCCESS:
+        if builder.do() == BuilderResult.SUCCESSS:
             return Status(StatusCode.Success, "Built userspace =D")
 
-        return Status(StatusCode.Fail, "Failed to build userspace =(")
+        return Status(StatusCode.Fail, "Failed to build userspace")
 
 
 class BuildsysBuildLibraryCallback(CommandCallback):
@@ -170,7 +171,7 @@ class BuildsysBuildLibraryCallback(CommandCallback):
         if builder.do() == BuilderResult.SUCCESS:
             return Status(StatusCode.Success, "Built libraries =D")
 
-        return Status(StatusCode.Fail, "Failed to build libraries =(")
+        return Status(StatusCode.Fail, "Failed to build libraries")
 
 
 class BuildsysBuildDriversCallback(CommandCallback):
@@ -181,7 +182,7 @@ class BuildsysBuildDriversCallback(CommandCallback):
         if builder.do() == BuilderResult.SUCCESS:
             return Status(StatusCode.Success, "Built drivers =D")
 
-        return Status(StatusCode.Fail, "Failed to build drivers =(")
+        return Status(StatusCode.Fail, "Failed to build drivers")
 
 class BuildsysBuildAllCallback(CommandCallback):
     def call(self) -> Status:
@@ -191,27 +192,39 @@ class BuildsysBuildAllCallback(CommandCallback):
 
         # Libraries are first
         if builder.do() != BuilderResult.SUCCESS:
-            return Status(StatusCode.Fail, "Failed to build libraries =(")
+            return Status(StatusCode.Fail, "Failed to build libraries")
 
         builder = ProjectBuilder(BuilderMode.USERSPACE, c)
 
         # Then userspace
         if builder.do() != BuilderResult.SUCCESS:
-            return Status(StatusCode.Fail, "Failed to build userspace =(")
+            return Status(StatusCode.Fail, "Failed to build userspace")
 
         builder = ProjectBuilder(BuilderMode.KERNEL, c)
 
         # Then the kernel
         if builder.do() != BuilderResult.SUCCESS:
-            return Status(StatusCode.Fail, "Failed to build kernel =(")
+            return Status(StatusCode.Fail, "Failed to build kernel")
 
         builder = ProjectBuilder(BuilderMode.DRIVERS, c)
 
         # Then the kernel
         if builder.do() != BuilderResult.SUCCESS:
-            return Status(StatusCode.Fail, "Failed to build drivers =(")
+            return Status(StatusCode.Fail, "Failed to build drivers")
 
         return Status(StatusCode.Success, "Built project =D")
+
+
+class GenerateKSymsCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        symbols: list[KSymbol] = read_map(c.KERNEL_MAP_PATH)
+
+        if write_map_to_source(symbols, c.KERNEL_KSYMS_SRC_PATH, c):
+            return Status(StatusCode.Success, "Wrote symbols to asm/ksyms.asm !")
+    
+        return Status(StatusCode.Fail, "Failed to write symbols")
+
 
 class GenerateUserProcessCallback(CommandCallback):
     def call(self) -> Status:
@@ -319,7 +332,8 @@ def project_main() -> Status:
         "all": BuildsysBuildAllCallback(),
     }))
     cmd_processor.register_cmd(Command("generator", args={
-        "userprocess": GenerateUserProcessCallback()
+        "userprocess": GenerateUserProcessCallback(),
+        "ksyms": GenerateKSymsCallback(),
     }))
     cmd_processor.register_cmd(Command("install", args={
         "sysroot": InstallSysrootCallback(),

@@ -169,6 +169,7 @@ void init_aniva_driver_registry() {
   }
 
   destroy_list(__deferred_driver_manifests);
+  __deferred_driver_manifests = nullptr;
 }
 
 
@@ -240,7 +241,7 @@ ErrorOrPtr install_driver(aniva_driver_t* handle) {
   }
 
   /* Mark this driver as deferred, so that we can delay its loading */
-  if (__should_defer(manifest)) {
+  if (__deferred_driver_manifests && __should_defer(manifest)) {
     list_append(__deferred_driver_manifests, manifest);
     manifest->m_flags |= DRV_DEFERRED;
   }
