@@ -1,5 +1,5 @@
 {
   "name": "init",
   "linking": "static",
-  "type": "service"
+  "type": "process"
 }

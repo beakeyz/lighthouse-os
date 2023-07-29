@@ -173,6 +173,16 @@ class BuildsysBuildLibraryCallback(CommandCallback):
         return Status(StatusCode.Fail, "Failed to build libraries =(")
 
 
+class BuildsysBuildDriversCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        builder = ProjectBuilder(BuilderMode.DRIVERS, c)
+
+        if builder.do() == BuilderResult.SUCCESS:
+            return Status(StatusCode.Success, "Built drivers =D")
+
+        return Status(StatusCode.Fail, "Failed to build drivers =(")
+
 class BuildsysBuildAllCallback(CommandCallback):
     def call(self) -> Status:
         c = Consts()
@@ -194,6 +204,12 @@ class BuildsysBuildAllCallback(CommandCallback):
         # Then the kernel
         if builder.do() != BuilderResult.SUCCESS:
             return Status(StatusCode.Fail, "Failed to build kernel =(")
+
+        builder = ProjectBuilder(BuilderMode.DRIVERS, c)
+
+        # Then the kernel
+        if builder.do() != BuilderResult.SUCCESS:
+            return Status(StatusCode.Fail, "Failed to build drivers =(")
 
         return Status(StatusCode.Success, "Built project =D")
 
@@ -299,6 +315,7 @@ def project_main() -> Status:
         "kernel": BuildsysBuildKernelCallback(),
         "user": BuildsysBuildUserspaceCallback(),
         "lib": BuildsysBuildLibraryCallback(),
+        "drivers": BuildsysBuildDriversCallback(),
         "all": BuildsysBuildAllCallback(),
     }))
     cmd_processor.register_cmd(Command("generator", args={

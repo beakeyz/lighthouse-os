@@ -1,5 +1,6 @@
 from enum import Enum
 from stats.lines import SourceFile, SourceLanguage
+import build.manifest
 import consts
 import os
 import json
@@ -10,6 +11,7 @@ class BuilderMode(Enum):
     KERNEL = 0
     USERSPACE = 1
     LIBRARIES = 2
+    DRIVERS = 3
 
 
 class BuilderResult(Enum):
@@ -29,13 +31,15 @@ class ProjectBuilder(object):
         self.builderMode = mode
         self.constants = constants
         if mode == BuilderMode.KERNEL:
-            self.srcPath = ["src/aniva", "src/drivers"]
+            self.srcPath = ["src/aniva"]
         elif mode == BuilderMode.USERSPACE:
-            self.srcPath = ["src/user", "src/libs"]
+            self.srcPath = ["src/user"]
             # self.userspaceBinariesOutPath = constants.OUT_DIR + "/user/binaries"
             # self.constants.ensure_path(self.userspaceBinariesOutPath)
         elif mode == BuilderMode.LIBRARIES:
             self.srcPath = ["src/libs"]
+        elif mode == BuilderMode.DRIVERS:
+            self.srcPath = ["src/drivers"]
         else:
             self.builderMode = BuilderMode.INVALID
         pass
@@ -50,7 +54,7 @@ class ProjectBuilder(object):
         return self.link()
 
     def build(self) -> BuilderResult:
-        if self.builderMode == BuilderMode.KERNEL:
+        if self.builderMode == BuilderMode.KERNEL or self.builderMode == BuilderMode.DRIVERS:
             for srcFile in self.constants.SRC_FILES:
                 srcFile: SourceFile = srcFile
                 if self.shouldBuild(srcFile):
@@ -318,7 +322,34 @@ class ProjectBuilder(object):
                 if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ULF}") != 0:
                     return BuilderResult.FAIL
             return BuilderResult.SUCCESS
+        elif self.builderMode == BuilderMode.DRIVERS:
+            
 
+            for driver_manifest in self.constants.DRIVER_MANIFESTS:
+
+                driver_manifest: build.manifest.BuildManifest = driver_manifest
+                manifest_out_path: str = driver_manifest.path.strip("manifest.json").replace(self.constants.SRC_DIR, self.constants.OUT_DIR)
+
+                print("Manifest out path")
+                print(manifest_out_path)
+
+                objFiles: str = " "
+
+                for objFile in self.constants.OBJ_FILES:
+                    objFile: str = objFile
+
+                    if objFile.find(manifest_out_path) != -1:
+                        objFiles += f"{objFile} "
+
+                ld = self.constants.CROSS_LD_DIR
+                out_file = manifest_out_path + driver_manifest.manifested_name
+
+                out_flags = f"{self.constants.DRIVER_LD_FLAGS_EXT}"
+ 
+                if os.system(f"{ld} -o {out_file} {objFiles} {out_flags} ") != 0:
+                    return BuilderResult.FAIL
+
+                return BuilderResult.SUCCESS
         return BuilderResult.FAIL
         
 

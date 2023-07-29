@@ -2,6 +2,7 @@
 #define __ANIVA_EXTERNAL_DRIVER__
 
 #include "dev/driver.h"
+#include "dev/manifest.h"
 #include "fs/file.h"
 #include "proc/proc.h"
 
@@ -21,8 +22,8 @@ typedef struct extern_driver {
   /* Process that this driver got */
   proc_t* m_process;
 
-  /* In-house copy of the driver */
-  aniva_driver_t m_local;
+  /* This drivers manifest */
+  dev_manifest_t* m_manifest;
 } extern_driver_t;
 
 #endif // !__ANIVA_EXTERNAL_DRIVER__

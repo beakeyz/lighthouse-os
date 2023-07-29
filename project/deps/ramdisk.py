@@ -31,6 +31,7 @@ class RamdiskManager(object):
             anivaRamdisk.add("system", arcname="/", filter=self.__tar_filter)
             anivaRamdisk.add("out/user/init/init", arcname="/init", filter=self.__tar_filter)
             anivaRamdisk.add("out/user/ticktacktoe_port/ticktacktoe_port", arcname="/ttt", filter=self.__tar_filter)
+            anivaRamdisk.add("out/drivers/test/test.drv", arcname="/test.drv", filter=self.__tar_filter)
 
     def remove_ramdisk(self) -> bool:
 

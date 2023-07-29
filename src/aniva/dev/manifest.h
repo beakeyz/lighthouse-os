@@ -20,13 +20,18 @@ typedef struct driver_ops {
 
 typedef struct dev_manifest {
   aniva_driver_t* m_handle;
+
   list_t* m_dependency_manifests;
 
   driver_ops_t m_ops;
 
   mutex_t m_lock;
 
+  /* Url of the installed driver */
   dev_url_t m_url;
+
+  /* Path to the binary of the driver, only on external drivers */
+  const char* m_driver_file_path;
 
   size_t m_dep_count;
   size_t m_url_length;

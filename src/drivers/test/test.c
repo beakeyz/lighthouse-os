@@ -6,6 +6,8 @@
 #include <libk/stddef.h>
 
 int test_init() {
+
+  println("Initialized test driver!");
   return 0;
 }
 

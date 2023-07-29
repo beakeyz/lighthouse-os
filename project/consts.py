@@ -1,6 +1,8 @@
 import os
 from os.path import isdir, isfile
 from stats.lines import SourceFile, SourceLanguage
+from build.manifest import BuildManifest, BuildManifestType
+import build.manifest
 
 def take_input(string: str) -> str:
     '''
@@ -47,7 +49,7 @@ class Consts:
     DEFAULT_C_FLAGS = ""
 
     # Default kernel flags
-    # TODO: implement -Wpedantic 
+    # TODO: implement -Wpedantic -Wextra
     KERNEL_C_FLAGS = "-std=gnu11 -Werror -Wall -nostdlib -O2 -mno-sse -mno-sse2"
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
@@ -69,7 +71,9 @@ class Consts:
     KERNEL_ASM_FLAGS = " -f elf64"
     USERSPACE_ASM_FLAGS = " -f elf64"
 
-    KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -z max-page-size=0x1000"
+    KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -Map {KERNEL_MAP_PATH} -export-dynamic -z max-page-size=0x1000"
+
+    DRIVER_LD_FLAGS_EXT = " -shared -fPIC"
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
 
@@ -88,14 +92,25 @@ class Consts:
     USER_PROJECT_PATHS: list[str] = []
     LIBS_PROJECT_PATHS: list[str] = []
 
+    PROCESS_MANIFESTS: list[BuildManifest] = []
+    DRIVER_MANIFESTS: list[BuildManifest] = []
+    LIBRARY_MANIFESTS: list[BuildManifest] = []
+
     TOTAL_LINES = 0
 
     def __init__(self) -> None:
+
+        # We have to clear the working variables in Consts every time we init, cause of reinit()
         self.SRC_FILES = []
         self.OBJ_FILES = []
         self.KERNEL_OBJ_FILES = []
         self.SRC_LINES = []
         self.CRT_FILES = []
+        self.PROCESS_MANIFESTS = []
+        self.DRIVER_MANIFESTS = []
+        self.LIBRARY_MANIFESTS = []
+        self.USER_PROJECT_PATHS = []
+        self.LIBS_PROJECT_PATHS = []
 
         self.TOTAL_LINES = 0
 
@@ -148,6 +163,20 @@ class Consts:
 
     def scan_dirs(self, path) -> None:
         dirs: list[str] = os.listdir(path)
+        manifest: BuildManifest = build.manifest.scan_for_manifest(path)
+
+        if manifest != None:
+
+            manifest.gather_sourcefiles(self.SRC_FILES)
+
+            # If this directory contains a manifest that was not yet added, add it
+            if manifest.type == BuildManifestType.K_DRIVER and not self.DRIVER_MANIFESTS.__contains__(manifest):
+                self.DRIVER_MANIFESTS.append(manifest)
+            if manifest.type == BuildManifestType.U_PROCESS and not self.PROCESS_MANIFESTS.__contains__(manifest):
+                self.PROCESS_MANIFESTS.append(manifest)
+            if manifest.type == BuildManifestType.U_LIBRARY and not self.PROCESS_MANIFESTS.__contains__(manifest):
+                self.LIBRARY_MANIFESTS.append(manifest)
+
         for entry in dirs:
             if entry.startswith("."):
                 continue
