@@ -11,3 +11,8 @@ cross_compiler/
 
 */__pycache__/
 **/__pycache__/
+
+/src/aniva/asm/ksyms.asm
+**/**/ksyms.asm
+*/**/ksyms.asm
+/**/ksyms.asm
