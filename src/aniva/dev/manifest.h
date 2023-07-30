@@ -11,7 +11,7 @@
 #define DMAN_FLAG_PSEUDO        (0x00000004)
 #define DMAN_FLAG_SYSTEM        (0x00000008)
 #define DMAN_FLAG_ORPHAN        (0x00000010)
-#define DMAN_FLAG_HAS_FILE      (0x00000020)
+#define DMAN_FLAG_IS_EXTERNAL   (0x00000020)
 
 typedef struct driver_ops {
   int (*f_write) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);

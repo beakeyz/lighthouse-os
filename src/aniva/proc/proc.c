@@ -175,7 +175,7 @@ static void __proc_clear_shared_resources(proc_t* proc)
             break;
           }
 
-          result = __kmem_dealloc_ex(proc->m_root_pd.m_root, proc, start, size, false, true);
+          result = __kmem_dealloc_ex(proc->m_root_pd.m_root, proc->m_resource_bundle, start, size, false, true);
           break;
         default:
           /* Skip this entry for now */

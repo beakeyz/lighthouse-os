@@ -3,238 +3,241 @@
 [global __ksyms_count]
 align 8
 __ksyms_count:
-	dq 1016
+	dq 1026
 
 [global __ksyms_table]
 align 8
 __ksyms_table:
 	dq 42
-	dq 0xffffffff8010fec0
+	dq 0xffffffff8010fb90
 	db "ahci_cmd_header_check_crc",0x00
 	dq 33
-	dq 0xffffffff8010f8a0
+	dq 0xffffffff8010f570
 	db "ahci_driver_exit",0x00
 	dq 33
-	dq 0xffffffff8010f830
+	dq 0xffffffff8010f500
 	db "ahci_driver_init",0x00
 	dq 38
-	dq 0xffffffff8010ff70
+	dq 0xffffffff8010fc40
 	db "ahci_driver_on_packet",0x00
 	dq 33
-	dq 0xffffffff8010f920
+	dq 0xffffffff8010f5f0
 	db "ahci_mmio_read32",0x00
 	dq 34
-	dq 0xffffffff8010f930
+	dq 0xffffffff8010f600
 	db "ahci_mmio_write32",0x00
 	dq 32
-	dq 0xffffffff80138340
+	dq 0xffffffff80139340
 	db "ahci_pci_driver",0x00
 	dq 38
-	dq 0xffffffff8010f300
+	dq 0xffffffff8010efd0
 	db "ahci_port_gather_info",0x00
 	dq 37
-	dq 0xffffffff8010f730
+	dq 0xffffffff8010f400
 	db "ahci_port_handle_int",0x00
 	dq 35
-	dq 0xffffffff80110610
+	dq 0xffffffff801109d0
 	db "allocate_dmanifest",0x00
 	dq 32
-	dq 0xffffffff80111c10
+	dq 0xffffffff80112260
 	db "allocate_memory",0x00
 	dq 35
-	dq 0xffffffff801122c0
+	dq 0xffffffff80112910
 	db "allocator_add_zone",0x00
 	dq 38
-	dq 0xffffffff80112420
+	dq 0xffffffff80112a70
 	db "allocator_remove_zone",0x00
 	dq 34
-	dq 0xffffffff801beee8
+	dq 0xffffffff801bfee8
 	db "apic_base_address",0x00
 	dq 37
-	dq 0xffffffff801beee0
+	dq 0xffffffff801bfee0
 	db "apic_hh_base_address",0x00
 	dq 31
-	dq 0xffffffff801bde40
+	dq 0xffffffff801bee40
 	db "__arbiter_lock",0x00
 	dq 33
-	dq 0xffffffff801bde00
+	dq 0xffffffff801bee00
 	db "__arbiter_thread",0x00
 	dq 36
 	dq 0xffffffff80101420
 	db "asm_common_irq_exit",0x00
 	dq 32
-	dq 0xffffffff8010e410
+	dq 0xffffffff8010e0e0
 	db "ata_driver_exit",0x00
 	dq 32
-	dq 0xffffffff8010e470
+	dq 0xffffffff8010e140
 	db "ata_driver_init",0x00
 	dq 37
-	dq 0xffffffff8010e400
+	dq 0xffffffff8010e0d0
 	db "ata_driver_on_packet",0x00
 	dq 26
-	dq 0xffffffff8010e420
+	dq 0xffffffff8010e0f0
 	db "ata_probe",0x00
 	dq 32
-	dq 0xffffffff8011f680
+	dq 0xffffffff8011fce0
 	db "atomic_ptr_load",0x00
 	dq 33
-	dq 0xffffffff8011f690
+	dq 0xffffffff8011fcf0
 	db "atomic_ptr_write",0x00
 	dq 47
-	dq 0xffffffff8010d6f0
+	dq 0xffffffff8010d3c0
 	db "attach_partitioned_disk_device",0x00
 	dq 39
-	dq 0xffffffff80118360
+	dq 0xffffffff801189c0
 	db "await_proc_termination",0x00
 	dq 29
-	dq 0xffffffff8010c1b0
+	dq 0xffffffff8010be80
 	db "bar_get_type",0x00
 	dq 33
-	dq 0xffffffff80138240
+	dq 0xffffffff80139240
 	db "base_ahci_driver",0x00
 	dq 29
-	dq 0xffffffff80116ea0
+	dq 0xffffffff801174e0
 	db "bind_khandle",0x00
 	dq 33
-	dq 0xffffffff80121050
+	dq 0xffffffff801218c0
 	db "bitmap_find_free",0x00
 	dq 39
-	dq 0xffffffff801212a0
+	dq 0xffffffff80121b10
 	db "bitmap_find_free_range",0x00
 	dq 44
-	dq 0xffffffff80121120
+	dq 0xffffffff80121990
 	db "bitmap_find_free_range_from",0x00
 	dq 29
-	dq 0xffffffff801212d0
+	dq 0xffffffff80121b40
 	db "bitmap_isset",0x00
 	dq 28
-	dq 0xffffffff80120f80
+	dq 0xffffffff801217f0
 	db "bitmap_mark",0x00
 	dq 34
-	dq 0xffffffff80120fd0
+	dq 0xffffffff80121840
 	db "bitmap_mark_range",0x00
 	dq 30
-	dq 0xffffffff80120fa0
+	dq 0xffffffff80121810
 	db "bitmap_unmark",0x00
 	dq 36
-	dq 0xffffffff80121010
+	dq 0xffffffff80121880
 	db "bitmap_unmark_range",0x00
 	dq 25
-	dq 0xffffffff8013b000
+	dq 0xffffffff8013c000
 	db "boot_pd0",0x00
 	dq 27
-	dq 0xffffffff8013c000
+	dq 0xffffffff8013d000
 	db "boot_pd0_p",0x00
 	dq 26
-	dq 0xffffffff8013a000
+	dq 0xffffffff8013b000
 	db "boot_pdpt",0x00
 	dq 27
-	dq 0xffffffff80139000
+	dq 0xffffffff8013a000
 	db "boot_pml4t",0x00
 	dq 33
-	dq 0xffffffff8010a4c0
+	dq 0xffffffff8010a190
 	db "bootstrap_driver",0x00
 	dq 41
-	dq 0xffffffff80117b10
+	dq 0xffffffff80118170
 	db "bootstrap_thread_entries",0x00
 	dq 25
-	dq 0xffffffff801c8a90
+	dq 0xffffffff801c9a90
 	db "_bss_end",0x00
 	dq 27
-	dq 0xffffffff801bd000
+	dq 0xffffffff801be000
 	db "_bss_start",0x00
 	dq 28
-	dq 0xffffffff80129cc0
+	dq 0xffffffff8012a530
 	db "cache_vnode",0x00
 	dq 28
-	dq 0xffffffff8011eee0
+	dq 0xffffffff8011f540
 	db "clear_mutex",0x00
 	dq 34
-	dq 0xffffffff801213b0
+	dq 0xffffffff80121c20
 	db "compare_ptr_tuple",0x00
 	dq 30
-	dq 0xffffffff80121390
+	dq 0xffffffff80121c00
 	db "compare_tuple",0x00
 	dq 23
-	dq 0xffffffff80120870
+	dq 0xffffffff801210e0
 	db "concat",0x00
 	dq 34
 	dq 0xffffffff80106830
 	db "construct_tss_gdt",0x00
 	dq 32
-	dq 0xffffffff801273b0
+	dq 0xffffffff80127c20
 	db "cram_decompress",0x00
 	dq 44
-	dq 0xffffffff80127a40
+	dq 0xffffffff801282b0
 	db "cram_find_decompressed_size",0x00
 	dq 23
-	dq 0xffffffff80138440
+	dq 0xffffffff80139440
 	db "cramfs",0x00
 	dq 35
 	dq 0xffffffff801077d0
 	db "create_acpi_parser",0x00
 	dq 43
-	dq 0xffffffff8010fe00
+	dq 0xffffffff8010fad0
 	db "create_ahci_command_header",0x00
 	dq 33
-	dq 0xffffffff8010eee0
+	dq 0xffffffff8010ebb0
 	db "create_ahci_port",0x00
 	dq 34
-	dq 0xffffffff8011f5d0
+	dq 0xffffffff8011fc30
 	db "create_atomic_ptr",0x00
 	dq 45
-	dq 0xffffffff8011f610
+	dq 0xffffffff8011fc70
 	db "create_atomic_ptr_with_value",0x00
 	dq 30
-	dq 0xffffffff80120e20
+	dq 0xffffffff80121690
 	db "create_bitmap",0x00
 	dq 43
-	dq 0xffffffff80120ea0
+	dq 0xffffffff80121710
 	db "create_bitmap_with_default",0x00
 	dq 36
-	dq 0xffffffff8010a930
+	dq 0xffffffff8010a600
 	db "create_dev_manifest",0x00
 	dq 32
-	dq 0xffffffff8011ff70
+	dq 0xffffffff801207e0
 	db "create_doorbell",0x00
+	dq 39
+	dq 0xffffffff80111da0
+	db "create_external_driver",0x00
 	dq 32
-	dq 0xffffffff80128cb0
+	dq 0xffffffff80129520
 	db "create_fat_info",0x00
 	dq 28
-	dq 0xffffffff801298b0
+	dq 0xffffffff8012a120
 	db "create_file",0x00
 	dq 33
-	dq 0xffffffff8010a110
+	dq 0xffffffff80109de0
 	db "create_fs_driver",0x00
 	dq 38
-	dq 0xffffffff8010dfb0
+	dq 0xffffffff8010dc80
 	db "create_generic_ramdev",0x00
 	dq 41
-	dq 0xffffffff8010de70
+	dq 0xffffffff8010db40
 	db "create_generic_ramdev_at",0x00
 	dq 37
-	dq 0xffffffff80124a90
+	dq 0xffffffff80125300
 	db "create_generic_vnode",0x00
 	dq 36
-	dq 0xffffffff80125950
+	dq 0xffffffff801261c0
 	db "create_generic_vobj",0x00
 	dq 37
-	dq 0xffffffff8010e520
+	dq 0xffffffff8010e1f0
 	db "create_gpt_partition",0x00
 	dq 33
-	dq 0xffffffff8010e710
+	dq 0xffffffff8010e3e0
 	db "create_gpt_table",0x00
 	dq 31
-	dq 0xffffffff801214a0
+	dq 0xffffffff80121d10
 	db "create_hashmap",0x00
 	dq 28
-	dq 0xffffffff80123200
+	dq 0xffffffff80123a70
 	db "create_hive",0x00
 	dq 38
-	dq 0xffffffff80119d90
+	dq 0xffffffff8011a3f0
 	db "create_invalid_tspckt",0x00
 	dq 35
-	dq 0xffffffff80118940
+	dq 0xffffffff80118fa0
 	db "create_kernel_proc",0x00
 	dq 30
 	dq 0xffffffff80108020
@@ -246,163 +249,166 @@ __ksyms_table:
 	dq 0xffffffff80107b00
 	db "create_kevent_pipeline",0x00
 	dq 31
-	dq 0xffffffff80116b00
+	dq 0xffffffff80117140
 	db "create_khandle",0x00
 	dq 38
-	dq 0xffffffff80116d40
+	dq 0xffffffff80117380
 	db "create_khandle_map_ex",0x00
 	dq 39
-	dq 0xffffffff80121fa0
+	dq 0xffffffff80122810
 	db "create_limitless_queue",0x00
 	dq 28
-	dq 0xffffffff80122300
+	dq 0xffffffff80122b70
 	db "create_list",0x00
 	dq 35
-	dq 0xffffffff801137f0
+	dq 0xffffffff80113e40
 	db "create_malloc_heap",0x00
 	dq 29
-	dq 0xffffffff8011f220
+	dq 0xffffffff8011f880
 	db "create_mutex",0x00
 	dq 39
-	dq 0xffffffff80119ff0
+	dq 0xffffffff8011a650
 	db "create_packet_response",0x00
 	dq 33
-	dq 0xffffffff80116ab0
+	dq 0xffffffff801170f0
 	db "create_pagetable",0x00
 	dq 44
-	dq 0xffffffff8010d640
+	dq 0xffffffff8010d310
 	db "create_partitioned_disk_dev",0x00
 	dq 34
-	dq 0xffffffff8010c550
+	dq 0xffffffff8010c220
 	db "create_pci_device",0x00
 	dq 28
-	dq 0xffffffff80118620
+	dq 0xffffffff80118c80
 	db "create_proc",0x00
 	dq 33
 	dq 0xffffffff80106130
 	db "create_processor",0x00
 	dq 38
-	dq 0xffffffff80117f40
+	dq 0xffffffff801185a0
 	db "create_proc_from_path",0x00
 	dq 33
-	dq 0xffffffff80121370
+	dq 0xffffffff80121be0
 	db "create_ptr_tuple",0x00
 	dq 29
-	dq 0xffffffff80121f40
+	dq 0xffffffff801227b0
 	db "create_queue",0x00
 	dq 28
-	dq 0xffffffff801204d0
+	dq 0xffffffff80120d40
 	db "create_refc",0x00
 	dq 39
 	dq 0xffffffff80105400
 	db "create_resource_bundle",0x00
 	dq 32
-	dq 0xffffffff8011f6a0
+	dq 0xffffffff8011fd00
 	db "create_spinlock",0x00
 	dq 30
-	dq 0xffffffff801171c0
+	dq 0xffffffff80117800
 	db "create_thread",0x00
 	dq 40
-	dq 0xffffffff801179d0
+	dq 0xffffffff80118030
 	db "create_thread_as_socket",0x00
 	dq 39
-	dq 0xffffffff80119370
+	dq 0xffffffff801199d0
 	db "create_threaded_socket",0x00
 	dq 39
-	dq 0xffffffff80117960
+	dq 0xffffffff80117fc0
 	db "create_thread_for_proc",0x00
 	dq 30
-	dq 0xffffffff80119c50
+	dq 0xffffffff8011a2b0
 	db "create_tspckt",0x00
 	dq 29
-	dq 0xffffffff80121350
+	dq 0xffffffff80121bc0
 	db "create_tuple",0x00
 	dq 28
-	dq 0xffffffff80128110
+	dq 0xffffffff80128980
 	db "create_vdir",0x00
 	dq 30
-	dq 0xffffffff801228c0
+	dq 0xffffffff80123130
 	db "create_vector",0x00
 	dq 34
-	dq 0xffffffff80128e70
+	dq 0xffffffff801296e0
 	db "create_vnamespace",0x00
 	dq 28
-	dq 0xffffffff80112530
+	dq 0xffffffff80112b80
 	db "create_zone",0x00
 	dq 38
-	dq 0xffffffff801129b0
+	dq 0xffffffff80113000
 	db "create_zone_allocator",0x00
 	dq 41
-	dq 0xffffffff801127f0
+	dq 0xffffffff80112e40
 	db "create_zone_allocator_ex",0x00
 	dq 34
-	dq 0xffffffff80112060
+	dq 0xffffffff801126b0
 	db "create_zone_store",0x00
 	dq 34
-	dq 0xffffffff80111c50
+	dq 0xffffffff801122a0
 	db "deallocate_memory",0x00
 	dq 32
-	dq 0xffffffff8011cac0
+	dq 0xffffffff8011d120
 	db "debug_asm_entry",0x00
 	dq 30
-	dq 0xffffffff8011d120
+	dq 0xffffffff8011d780
 	db "debug_handler",0x00
 	dq 32
 	dq 0xffffffff80105200
 	db "debug_resources",0x00
 	dq 30
-	dq 0xffffffff801c0560
+	dq 0xffffffff801c1560
 	db "default_cache",0x00
 	dq 22
-	dq 0xffffffff8011fa30
+	dq 0xffffffff80120090
 	db "delay",0x00
 	dq 44
-	dq 0xffffffff8010fe90
+	dq 0xffffffff8010fb60
 	db "destroy_ahci_command_header",0x00
 	dq 36
-	dq 0xffffffff8010fdf0
+	dq 0xffffffff8010fac0
 	db "destroy_ahci_device",0x00
 	dq 34
-	dq 0xffffffff8010f100
+	dq 0xffffffff8010edd0
 	db "destroy_ahci_port",0x00
 	dq 35
-	dq 0xffffffff8011f650
+	dq 0xffffffff8011fcb0
 	db "destroy_atomic_ptr",0x00
 	dq 31
-	dq 0xffffffff80120f20
+	dq 0xffffffff80121790
 	db "destroy_bitmap",0x00
 	dq 37
-	dq 0xffffffff8010aa50
+	dq 0xffffffff8010a720
 	db "destroy_dev_manifest",0x00
 	dq 33
-	dq 0xffffffff80120010
+	dq 0xffffffff80120880
 	db "destroy_doorbell",0x00
+	dq 40
+	dq 0xffffffff80111e20
+	db "destroy_external_driver",0x00
 	dq 33
-	dq 0xffffffff80128d20
+	dq 0xffffffff80129590
 	db "destroy_fat_info",0x00
 	dq 29
-	dq 0xffffffff80129850
+	dq 0xffffffff8012a0c0
 	db "destroy_file",0x00
 	dq 39
-	dq 0xffffffff8010e040
+	dq 0xffffffff8010dd10
 	db "destroy_generic_ramdev",0x00
 	dq 38
-	dq 0xffffffff80124bf0
+	dq 0xffffffff80125460
 	db "destroy_generic_vnode",0x00
 	dq 38
-	dq 0xffffffff8010ea00
+	dq 0xffffffff8010e6d0
 	db "destroy_gpt_partition",0x00
 	dq 34
-	dq 0xffffffff8010e4d0
+	dq 0xffffffff8010e1a0
 	db "destroy_gpt_table",0x00
 	dq 32
-	dq 0xffffffff801215b0
+	dq 0xffffffff80121e20
 	db "destroy_hashmap",0x00
 	dq 29
-	dq 0xffffffff801232a0
+	dq 0xffffffff80123b10
 	db "destroy_hive",0x00
 	dq 30
-	dq 0xffffffff80120200
+	dq 0xffffffff80120a70
 	db "destroy_kdoor",0x00
 	dq 31
 	dq 0xffffffff80108230
@@ -414,262 +420,283 @@ __ksyms_table:
 	dq 0xffffffff80107c60
 	db "destroy_kevent_pipeline",0x00
 	dq 32
-	dq 0xffffffff80116ba0
+	dq 0xffffffff801171e0
 	db "destroy_khandle",0x00
 	dq 36
-	dq 0xffffffff80116da0
+	dq 0xffffffff801173e0
 	db "destroy_khandle_map",0x00
 	dq 34
 	dq 0xffffffff801053a0
 	db "destroy_kresource",0x00
 	dq 29
-	dq 0xffffffff80122730
+	dq 0xffffffff80122fa0
 	db "destroy_list",0x00
 	dq 36
-	dq 0xffffffff80113830
+	dq 0xffffffff80113e80
 	db "destroy_malloc_heap",0x00
 	dq 30
-	dq 0xffffffff8011efa0
+	dq 0xffffffff8011f600
 	db "destroy_mutex",0x00
 	dq 39
-	dq 0xffffffff80119fd0
+	dq 0xffffffff8011a630
 	db "destroy_packet_payload",0x00
 	dq 40
-	dq 0xffffffff8011a0a0
+	dq 0xffffffff8011a700
 	db "destroy_packet_response",0x00
 	dq 45
-	dq 0xffffffff8010d6c0
+	dq 0xffffffff8010d390
 	db "destroy_partitioned_disk_dev",0x00
 	dq 29
-	dq 0xffffffff80117f80
+	dq 0xffffffff801185e0
 	db "destroy_proc",0x00
 	dq 30
-	dq 0xffffffff80122030
+	dq 0xffffffff801228a0
 	db "destroy_queue",0x00
 	dq 29
-	dq 0xffffffff80120530
+	dq 0xffffffff80120da0
 	db "destroy_refc",0x00
 	dq 52
-	dq 0xffffffff8011a1d0
+	dq 0xffffffff8011a830
 	db "destroy_relocated_thread_entry_stub",0x00
 	dq 40
 	dq 0xffffffff80105460
 	db "destroy_resource_bundle",0x00
 	dq 33
-	dq 0xffffffff8011f730
+	dq 0xffffffff8011fd90
 	db "destroy_spinlock",0x00
 	dq 31
-	dq 0xffffffff80117550
+	dq 0xffffffff80117ba0
 	db "destroy_thread",0x00
 	dq 40
-	dq 0xffffffff80119490
+	dq 0xffffffff80119af0
 	db "destroy_threaded_socket",0x00
 	dq 31
-	dq 0xffffffff80119e00
+	dq 0xffffffff8011a460
 	db "destroy_tspckt",0x00
 	dq 29
-	dq 0xffffffff80128320
+	dq 0xffffffff80128b90
 	db "destroy_vdir",0x00
 	dq 30
-	dq 0xffffffff801283e0
+	dq 0xffffffff80128c50
 	db "destroy_vdirs",0x00
 	dq 31
-	dq 0xffffffff80122970
+	dq 0xffffffff801231e0
 	db "destroy_vector",0x00
 	dq 35
-	dq 0xffffffff80129000
+	dq 0xffffffff80129870
 	db "destroy_vnamespace",0x00
 	dq 29
-	dq 0xffffffff80125a80
+	dq 0xffffffff801262f0
 	db "destroy_vobj",0x00
 	dq 29
-	dq 0xffffffff801124e0
+	dq 0xffffffff80112b30
 	db "destroy_zone",0x00
 	dq 39
-	dq 0xffffffff801121d0
+	dq 0xffffffff80112820
 	db "destroy_zone_allocator",0x00
 	dq 35
-	dq 0xffffffff80112140
+	dq 0xffffffff80112790
 	db "destroy_zone_store",0x00
 	dq 36
-	dq 0xffffffff80112250
+	dq 0xffffffff801128a0
 	db "destroy_zone_stores",0x00
 	dq 33
-	dq 0xffffffff8010a180
+	dq 0xffffffff80109e50
 	db "detach_fs_driver",0x00
 	dq 47
-	dq 0xffffffff8010d730
+	dq 0xffffffff8010d400
 	db "detach_partitioned_disk_device",0x00
 	dq 45
 	dq 0xffffffff80106a30
 	db "detect_processor_cache_sizes",0x00
 	dq 34
-	dq 0xffffffff80137680
+	dq 0xffffffff80138680
 	db "__dev_constraints",0x00
 	dq 43
-	dq 0xffffffff8011ca70
+	dq 0xffffffff8011d0d0
 	db "devision_by_zero_asm_entry",0x00
 	dq 41
-	dq 0xffffffff8011d0e0
+	dq 0xffffffff8011d740
 	db "devision_by_zero_handler",0x00
 	dq 30
-	dq 0xffffffff80138380
+	dq 0xffffffff80139380
 	db "dev_type_urls",0x00
 	dq 35
-	dq 0xffffffff8011eec0
+	dq 0xffffffff8011f520
 	db "disable_interrupts",0x00
 	dq 31
-	dq 0xffffffff801200f0
+	dq 0xffffffff80120960
 	db "doorbell_reset",0x00
 	dq 30
-	dq 0xffffffff80120040
+	dq 0xffffffff801208b0
 	db "doorbell_ring",0x00
 	dq 36
-	dq 0xffffffff80110550
+	dq 0xffffffff80110910
 	db "driver_get_type_str",0x00
 	dq 31
-	dq 0xffffffff8010a270
+	dq 0xffffffff80109f40
 	db "driver_is_busy",0x00
 	dq 32
-	dq 0xffffffff8010a1c0
+	dq 0xffffffff80109e90
 	db "driver_is_ready",0x00
 	dq 37
-	dq 0xffffffff8010a860
+	dq 0xffffffff8010a530
 	db "driver_manifest_read",0x00
 	dq 38
-	dq 0xffffffff8010a790
+	dq 0xffffffff8010a460
 	db "driver_manifest_write",0x00
 	dq 35
-	dq 0xffffffff80111450
+	dq 0xffffffff80111810
 	db "driver_send_packet",0x00
 	dq 37
-	dq 0xffffffff801113a0
+	dq 0xffffffff80111760
 	db "driver_send_packet_a",0x00
 	dq 38
-	dq 0xffffffff801111e0
+	dq 0xffffffff801115a0
 	db "driver_send_packet_ex",0x00
 	dq 40
-	dq 0xffffffff801119b0
+	dq 0xffffffff80111d70
 	db "driver_send_packet_sync",0x00
 	dq 53
-	dq 0xffffffff80111780
+	dq 0xffffffff80111b40
 	db "driver_send_packet_sync_with_timeout",0x00
 	dq 33
-	dq 0xffffffff801110f0
+	dq 0xffffffff801114b0
 	db "driver_set_ready",0x00
 	dq 25
-	dq 0xffffffff8010a2c0
+	dq 0xffffffff80109f90
 	db "drv_read",0x00
 	dq 26
-	dq 0xffffffff8010a3c0
+	dq 0xffffffff8010a090
 	db "drv_write",0x00
 	dq 38
-	dq 0xffffffff8011fa50
+	dq 0xffffffff801202e0
 	db "elf_exec_static_64_ex",0x00
+	dq 33
+	dq 0xffffffff801200f0
+	db "elf_find_section",0x00
+	dq 29
+	dq 0xffffffff801200d0
+	db "elf_get_shdr",0x00
+	dq 34
+	dq 0xffffffff801200b0
+	db "elf_get_shdr_name",0x00
+	dq 34
+	dq 0xffffffff80120240
+	db "elf_grab_sheaders",0x00
+	dq 39
+	dq 0xffffffff801201a0
+	db "elf_section_start_addr",0x00
+	dq 39
+	dq 0xffffffff801201f0
+	db "elf_section_start_size",0x00
 	dq 32
-	dq 0xffffffff80121380
+	dq 0xffffffff80121bf0
 	db "empty_ptr_tuple",0x00
 	dq 28
-	dq 0xffffffff80121360
+	dq 0xffffffff80121bd0
 	db "empty_tuple",0x00
 	dq 34
-	dq 0xffffffff8011eed0
+	dq 0xffffffff8011f530
 	db "enable_interrupts",0x00
 	dq 27
-	dq 0xffffffff8012a000
+	dq 0xffffffff8012b000
 	db "_end_ctors",0x00
 	dq 27
-	dq 0xffffffff801328ce
+	dq 0xffffffff80133a38
 	db "_end_ksyms",0x00
 	dq 36
-	dq 0xffffffff8010ab80
+	dq 0xffffffff8010a850
 	db "ensure_dependencies",0x00
 	dq 34
-	dq 0xffffffff8010bfc0
+	dq 0xffffffff8010bc90
 	db "enumerate_bridges",0x00
 	dq 30
-	dq 0xffffffff8010bf50
+	dq 0xffffffff8010bc20
 	db "enumerate_bus",0x00
 	dq 33
-	dq 0xffffffff8010bd90
+	dq 0xffffffff8010ba60
 	db "enumerate_device",0x00
 	dq 35
-	dq 0xffffffff8010baf0
+	dq 0xffffffff8010b7c0
 	db "enumerate_function",0x00
 	dq 44
-	dq 0xffffffff8010c000
+	dq 0xffffffff8010bcd0
 	db "enumerate_registerd_devices",0x00
 	dq 25
-	dq 0xffffffff80138620
+	dq 0xffffffff80139620
 	db "ext2_drv",0x00
 	dq 26
-	dq 0xffffffff80128620
+	dq 0xffffffff80128e90
 	db "ext2_exit",0x00
 	dq 26
-	dq 0xffffffff801285b0
+	dq 0xffffffff80128e20
 	db "ext2_init",0x00
 	dq 27
-	dq 0xffffffff80128670
+	dq 0xffffffff80128ee0
 	db "ext2_mount",0x00
 	dq 26
-	dq 0xffffffff801385e0
+	dq 0xffffffff801395e0
 	db "ext2_type",0x00
 	dq 26
-	dq 0xffffffff80138720
+	dq 0xffffffff80139720
 	db "__f32_ops",0x00
 	dq 26
-	dq 0xffffffff801387a0
+	dq 0xffffffff801397a0
 	db "fat32_drv",0x00
 	dq 27
-	dq 0xffffffff80128c60
+	dq 0xffffffff801294d0
 	db "fat32_exit",0x00
 	dq 27
-	dq 0xffffffff80128be0
+	dq 0xffffffff80129450
 	db "fat32_init",0x00
 	dq 28
-	dq 0xffffffff80128920
+	dq 0xffffffff80129190
 	db "fat32_mount",0x00
 	dq 27
-	dq 0xffffffff80138760
+	dq 0xffffffff80139760
 	db "fat32_type",0x00
 	dq 34
-	dq 0xffffffff80128850
+	dq 0xffffffff801290c0
 	db "fat_prepare_finfo",0x00
 	dq 31
-	dq 0xffffffff8010aba0
+	dq 0xffffffff8010a870
 	db "fb_driver_exit",0x00
 	dq 31
-	dq 0xffffffff8010abb0
+	dq 0xffffffff8010a880
 	db "fb_driver_init",0x00
 	dq 36
-	dq 0xffffffff8010ad90
+	dq 0xffffffff8010aa60
 	db "fb_driver_on_packet",0x00
 	dq 24
-	dq 0xffffffff801295f0
+	dq 0xffffffff80129e60
 	db "f_close",0x00
 	dq 50
-	dq 0xffffffff8010d7f0
+	dq 0xffffffff8010d4c0
 	db "fetch_designated_device_for_block",0x00
+	dq 38
+	dq 0xffffffff8010fdb0
+	db "file_contains_drivers",0x00
 	dq 35
-	dq 0xffffffff80120b00
+	dq 0xffffffff80121370
 	db "finalize_multiboot",0x00
 	dq 34
-	dq 0xffffffff8010da50
+	dq 0xffffffff8010d720
 	db "find_gdisk_device",0x00
 	dq 29
-	dq 0xffffffff80116e60
+	dq 0xffffffff801174a0
 	db "find_khandle",0x00
 	dq 34
-	dq 0xffffffff8010e0d0
+	dq 0xffffffff8010dda0
 	db "find_partition_at",0x00
 	dq 26
-	dq 0xffffffff8011a680
+	dq 0xffffffff8011ace0
 	db "find_proc",0x00
 	dq 32
-	dq 0xffffffff8011a5c0
+	dq 0xffffffff8011ac20
 	db "find_proc_by_id",0x00
 	dq 39
-	dq 0xffffffff8011a7f0
+	dq 0xffffffff8011ae50
 	db "find_registered_socket",0x00
 	dq 26
 	dq 0xffffffff801074b0
@@ -681,25 +708,25 @@ __ksyms_table:
 	dq 0xffffffff801076e0
 	db "find_table_idx",0x00
 	dq 28
-	dq 0xffffffff8011a6e0
+	dq 0xffffffff8011ad40
 	db "find_thread",0x00
 	dq 35
-	dq 0xffffffff8011a620
+	dq 0xffffffff8011ac80
 	db "find_thread_by_fid",0x00
 	dq 27
 	dq 0xffffffff80108310
 	db "fire_event",0x00
 	dq 32
-	dq 0xffffffff801c8580
+	dq 0xffffffff801c9580
 	db "fixed_distances",0x00
 	dq 30
-	dq 0xffffffff801c87e0
+	dq 0xffffffff801c97e0
 	db "fixed_lengths",0x00
 	dq 35
-	dq 0xffffffff801c8568
+	dq 0xffffffff801c9568
 	db "fixed_tables_built",0x00
 	dq 23
-	dq 0xffffffff80129760
+	dq 0xffffffff80129fd0
 	db "f_kmap",0x00
 	dq 27
 	dq 0xffffffff801013e0
@@ -708,253 +735,253 @@ __ksyms_table:
 	dq 0xffffffff80106190
 	db "flush_gdt",0x00
 	dq 26
-	dq 0xffffffff8011c440
+	dq 0xffffffff8011caa0
 	db "flush_idt",0x00
 	dq 30
-	dq 0xffffffff80137020
+	dq 0xffffffff80138020
 	db "font8x8_basic",0x00
 	dq 30
-	dq 0xffffffff8011cb60
+	dq 0xffffffff8011d1c0
 	db "fpu_asm_entry",0x00
 	dq 33
 	dq 0xffffffff80106960
 	db "fpu_generic_init",0x00
 	dq 28
-	dq 0xffffffff8011d240
+	dq 0xffffffff8011d8a0
 	db "fpu_handler",0x00
 	dq 23
-	dq 0xffffffff801297a0
+	dq 0xffffffff8012a010
 	db "f_read",0x00
 	dq 31
-	dq 0xffffffff80110660
+	dq 0xffffffff80110a20
 	db "free_dmanifest",0x00
 	dq 25
-	dq 0xffffffff80129670
+	dq 0xffffffff80129ee0
 	db "f_resize",0x00
 	dq 24
-	dq 0xffffffff80129630
+	dq 0xffffffff80129ea0
 	db "f_write",0x00
 	dq 38
 	dq 0xffffffff80106b90
 	db "gather_processor_info",0x00
 	dq 34
-	dq 0xffffffff80138a40
+	dq 0xffffffff80139a40
 	db "g_base_ata_driver",0x00
 	dq 33
-	dq 0xffffffff80138080
+	dq 0xffffffff80139080
 	db "g_base_fb_driver",0x00
 	dq 36
-	dq 0xffffffff80137f60
+	dq 0xffffffff80138f60
 	db "g_base_kterm_driver",0x00
 	dq 43
-	dq 0xffffffff80138940
+	dq 0xffffffff80139940
 	db "g_base_ps2_keyboard_driver",0x00
 	dq 22
-	dq 0xffffffff801bd0e0
+	dq 0xffffffff801be0e0
 	db "g_bsp",0x00
 	dq 31
-	dq 0xffffffff8010e3b0
+	dq 0xffffffff8010e080
 	db "gdisk_is_valid",0x00
 	dq 45
-	dq 0xffffffff8011cbb0
+	dq 0xffffffff8011d210
 	db "general_protection_asm_entry",0x00
 	dq 43
-	dq 0xffffffff8011d280
+	dq 0xffffffff8011d8e0
 	db "general_protection_handler",0x00
 	dq 37
-	dq 0xffffffff8011a380
+	dq 0xffffffff8011a9e0
 	db "generate_new_proc_id",0x00
 	dq 43
-	dq 0xffffffff80119ed0
+	dq 0xffffffff8011a530
 	db "generate_tspckt_identifier",0x00
 	dq 40
-	dq 0xffffffff8010d830
+	dq 0xffffffff8010d500
 	db "generic_disk_opperation",0x00
 	dq 37
-	dq 0xffffffff8010a050
+	dq 0xffffffff80109d20
 	db "generic_driver_entry",0x00
 	dq 33
-	dq 0xffffffff80138900
+	dq 0xffffffff80139900
 	db "generic_file_ops",0x00
 	dq 31
-	dq 0xffffffff801296b0
+	dq 0xffffffff80129f20
 	db "generic_f_sync",0x00
 	dq 28
-	dq 0xffffffff80138420
+	dq 0xffffffff80139420
 	db "generic_ops",0x00
 	dq 34
-	dq 0xffffffff801189c0
+	dq 0xffffffff80119020
 	db "generic_proc_idle",0x00
 	dq 32
-	dq 0xffffffff8010c170
+	dq 0xffffffff8010be40
 	db "get_bar_address",0x00
 	dq 36
-	dq 0xffffffff8010c590
+	dq 0xffffffff8010c260
 	db "get_bridge_by_index",0x00
 	dq 46
-	dq 0xffffffff8011ca30
+	dq 0xffffffff8011d090
 	db "get_controller_for_int_number",0x00
 	dq 44
-	dq 0xffffffff8010cbe0
+	dq 0xffffffff8010c8b0
 	db "get_current_addressing_mode",0x00
 	dq 33
-	dq 0xffffffff8011c220
+	dq 0xffffffff8011c880
 	db "get_current_proc",0x00
 	dq 46
-	dq 0xffffffff8011c200
+	dq 0xffffffff8011c860
 	db "get_current_scheduling_thread",0x00
 	dq 27
-	dq 0xffffffff80110f30
+	dq 0xffffffff801112f0
 	db "get_driver",0x00
 	dq 31
-	dq 0xffffffff8010a670
+	dq 0xffffffff8010a340
 	db "get_driver_url",0x00
 	dq 38
-	dq 0xffffffff8010a600
+	dq 0xffffffff8010a2d0
 	db "get_driver_url_length",0x00
 	dq 30
-	dq 0xffffffff80129990
+	dq 0xffffffff8012a200
 	db "get_fs_driver",0x00
 	dq 28
-	dq 0xffffffff80129b20
+	dq 0xffffffff8012a390
 	db "get_fs_type",0x00
 	dq 40
-	dq 0xffffffff80117650
+	dq 0xffffffff80117cb0
 	db "get_generic_idle_thread",0x00
 	dq 24
-	dq 0xffffffff8011c470
+	dq 0xffffffff8011cad0
 	db "get_idt",0x00
 	dq 33
-	dq 0xffffffff8011fe70
+	dq 0xffffffff801206a0
 	db "get_ksym_address",0x00
 	dq 30
-	dq 0xffffffff8011fe10
+	dq 0xffffffff80120640
 	db "get_ksym_name",0x00
 	dq 28
-	dq 0xffffffff80120dd0
+	dq 0xffffffff80121640
 	db "get_mb2_tag",0x00
 	dq 38
-	dq 0xffffffff8010b920
+	dq 0xffffffff8010b5f0
 	db "get_pci_register_size",0x00
 	dq 30
-	dq 0xffffffff80124540
+	dq 0xffffffff80124db0
 	db "get_pit_ticks",0x00
 	dq 46
-	dq 0xffffffff8011c210
+	dq 0xffffffff8011c870
 	db "get_previous_scheduled_thread",0x00
 	dq 37
-	dq 0xffffffff80112fb0
+	dq 0xffffffff80113600
 	db "get_quickmapped_addr",0x00
 	dq 39
-	dq 0xffffffff8011a410
+	dq 0xffffffff8011aa70
 	db "get_registered_sockets",0x00
 	dq 32
-	dq 0xffffffff8010d5f0
+	dq 0xffffffff8010d2c0
 	db "get_store_entry",0x00
 	dq 33
-	dq 0xffffffff80124640
+	dq 0xffffffff80124eb0
 	db "get_system_ticks",0x00
 	dq 41
-	dq 0xffffffff8011ff30
+	dq 0xffffffff801207a0
 	db "get_total_ksym_area_size",0x00
 	dq 35
-	dq 0xffffffff80120d50
+	dq 0xffffffff801215c0
 	db "get_total_mb2_size",0x00
 	dq 47
-	dq 0xffffffff801beef0
+	dq 0xffffffff801bfef0
 	db "g_interrupt_controller_manager",0x00
 	dq 29
-	dq 0xffffffff801bd680
+	dq 0xffffffff801be680
 	db "g_parser_ptr",0x00
 	dq 33
-	dq 0xffffffff801381c0
+	dq 0xffffffff801391c0
 	db "g_pci_type1_impl",0x00
 	dq 33
-	dq 0xffffffff80138180
+	dq 0xffffffff80139180
 	db "g_pci_type2_impl",0x00
 	dq 30
-	dq 0xffffffff801bd020
+	dq 0xffffffff801be020
 	db "g_system_info",0x00
 	dq 34
-	dq 0xffffffff80138b40
+	dq 0xffffffff80139b40
 	db "g_test_dbg_driver",0x00
 	dq 28
-	dq 0xffffffff801219f0
+	dq 0xffffffff80122260
 	db "hashmap_get",0x00
 	dq 33
-	dq 0xffffffff801216e0
+	dq 0xffffffff80121f50
 	db "hashmap_itterate",0x00
 	dq 28
-	dq 0xffffffff80121820
+	dq 0xffffffff80122090
 	db "hashmap_put",0x00
 	dq 31
-	dq 0xffffffff80121e30
+	dq 0xffffffff801226a0
 	db "hashmap_remove",0x00
 	dq 40
-	dq 0xffffffff80121cc0
+	dq 0xffffffff80122530
 	db "__hashmap_remove_closed",0x00
 	dq 38
-	dq 0xffffffff80121df0
+	dq 0xffffffff80122660
 	db "__hashmap_remove_open",0x00
 	dq 28
-	dq 0xffffffff80121b40
+	dq 0xffffffff801223b0
 	db "hashmap_set",0x00
 	dq 41
-	dq 0xffffffff801bda90
+	dq 0xffffffff801bea90
 	db "__has_registered_bridges",0x00
 	dq 27
-	dq 0xffffffff80138068
+	dq 0xffffffff80139068
 	db "__help_str",0x00
 	dq 31
-	dq 0xffffffff80123360
+	dq 0xffffffff80123bd0
 	db "hive_add_entry",0x00
 	dq 30
-	dq 0xffffffff80123700
+	dq 0xffffffff80123f70
 	db "hive_add_hole",0x00
 	dq 31
-	dq 0xffffffff80123aa0
+	dq 0xffffffff80124310
 	db "hive_add_holes",0x00
 	dq 30
-	dq 0xffffffff80124050
+	dq 0xffffffff801248c0
 	db "hive_contains",0x00
 	dq 25
-	dq 0xffffffff80123cb0
+	dq 0xffffffff80124520
 	db "hive_get",0x00
 	dq 30
-	dq 0xffffffff80123f10
+	dq 0xffffffff80124780
 	db "hive_get_path",0x00
 	dq 34
-	dq 0xffffffff80124010
+	dq 0xffffffff80124880
 	db "hive_get_relative",0x00
 	dq 28
-	dq 0xffffffff801240f0
+	dq 0xffffffff80124960
 	db "hive_remove",0x00
 	dq 33
-	dq 0xffffffff80123cf0
+	dq 0xffffffff80124560
 	db "hive_remove_path",0x00
 	dq 25
-	dq 0xffffffff80123ae0
+	dq 0xffffffff80124350
 	db "hive_set",0x00
 	dq 26
-	dq 0xffffffff80124160
+	dq 0xffffffff801249d0
 	db "hive_walk",0x00
 	dq 29
-	dq 0xffffffff8011c2b0
+	dq 0xffffffff8011c910
 	db "idt_set_gate",0x00
 	dq 46
-	dq 0xffffffff8011cb10
+	dq 0xffffffff8011d170
 	db "illegal_instruction_asm_entry",0x00
 	dq 44
-	dq 0xffffffff8011d200
+	dq 0xffffffff8011d860
 	db "illegal_instruction_handler",0x00
 	dq 21
-	dq 0xffffffff8011f9e0
+	dq 0xffffffff80120040
 	db "in16",0x00
 	dq 21
-	dq 0xffffffff8011f9f0
+	dq 0xffffffff80120050
 	db "in32",0x00
 	dq 20
-	dq 0xffffffff8011f9d0
+	dq 0xffffffff80120030
 	db "in8",0x00
 	dq 26
 	dq 0xffffffff80107a90
@@ -963,169 +990,169 @@ __ksyms_table:
 	dq 0xffffffff80107a50
 	db "init_acpi_parser_aml",0x00
 	dq 33
-	dq 0xffffffff8010f940
+	dq 0xffffffff8010f610
 	db "init_ahci_device",0x00
 	dq 37
-	dq 0xffffffff80124430
+	dq 0xffffffff80124ca0
 	db "init_and_install_pit",0x00
 	dq 43
-	dq 0xffffffff80110c00
+	dq 0xffffffff80110fc0
 	db "init_aniva_driver_registry",0x00
 	dq 26
-	dq 0xffffffff8011c900
+	dq 0xffffffff8011cf60
 	db "init_apic",0x00
 	dq 35
-	dq 0xffffffff80118ec0
+	dq 0xffffffff80119520
 	db "init_defered_calls",0x00
 	dq 32
 	dq 0xffffffff801084a0
 	db "init_eventhooks",0x00
 	dq 31
-	dq 0xffffffff80128d80
+	dq 0xffffffff801295f0
 	db "init_fat_cache",0x00
 	dq 29
-	dq 0xffffffff80129c50
+	dq 0xffffffff8012a4c0
 	db "init_fs_core",0x00
 	dq 31
-	dq 0xffffffff8010e160
+	dq 0xffffffff8010de30
 	db "init_gdisk_dev",0x00
 	dq 25
 	dq 0xffffffff801061e0
 	db "init_gdt",0x00
 	dq 29
-	dq 0xffffffff80121ea0
+	dq 0xffffffff80122710
 	db "init_hashmap",0x00
 	dq 36
-	dq 0xffffffff801bdb80
+	dq 0xffffffff801beb80
 	db "__initial_allocator",0x00
 	dq 34
-	dq 0xffffffff801f2000
+	dq 0xffffffff801f3000
 	db "_initial_heap_end",0x00
 	dq 36
-	dq 0xffffffff801d0a90
+	dq 0xffffffff801d1a90
 	db "_initial_heap_start",0x00
 	dq 32
-	dq 0xffffffff8010f1d0
+	dq 0xffffffff8010eea0
 	db "initialize_port",0x00
 	dq 33
-	dq 0xffffffff80122000
+	dq 0xffffffff80122870
 	db "initialize_queue",0x00
 	dq 44
-	dq 0xffffffff8011c910
+	dq 0xffffffff8011cf70
 	db "init_int_control_management",0x00
 	dq 32
-	dq 0xffffffff8011d840
+	dq 0xffffffff8011dea0
 	db "init_interrupts",0x00
 	dq 27
-	dq 0xffffffff801201a0
+	dq 0xffffffff80120a10
 	db "init_kdoor",0x00
 	dq 29
 	dq 0xffffffff80107ea0
 	db "init_kevents",0x00
 	dq 33
-	dq 0xffffffff80116c20
+	dq 0xffffffff80117260
 	db "init_khandle_map",0x00
 	dq 27
-	dq 0xffffffff80111a40
+	dq 0xffffffff80112090
 	db "init_kheap",0x00
 	dq 34
-	dq 0xffffffff801156d0
+	dq 0xffffffff80115d20
 	db "init_kmem_manager",0x00
 	dq 32
 	dq 0xffffffff80105520
 	db "init_kresources",0x00
 	dq 26
-	dq 0xffffffff801222b0
+	dq 0xffffffff80122b20
 	db "init_list",0x00
 	dq 31
-	dq 0xffffffff80120a60
+	dq 0xffffffff801212d0
 	db "init_multiboot",0x00
 	dq 27
-	dq 0xffffffff8011f2d0
+	dq 0xffffffff8011f930
 	db "init_mutex",0x00
 	dq 36
-	dq 0xffffffff80119fb0
+	dq 0xffffffff8011a610
 	db "init_packet_payload",0x00
 	dq 37
-	dq 0xffffffff80119fe0
+	dq 0xffffffff8011a640
 	db "init_packet_payloads",0x00
 	dq 37
-	dq 0xffffffff8011a130
+	dq 0xffffffff8011a790
 	db "init_packet_response",0x00
 	dq 25
-	dq 0xffffffff8010c3e0
+	dq 0xffffffff8010c0b0
 	db "init_pci",0x00
 	dq 33
-	dq 0xffffffff8010c370
+	dq 0xffffffff8010c040
 	db "init_pci_drivers",0x00
 	dq 25
-	dq 0xffffffff8011c4b0
+	dq 0xffffffff8011cb10
 	db "init_pic",0x00
 	dq 31
-	dq 0xffffffff8011ab30
+	dq 0xffffffff8011b190
 	db "init_proc_core",0x00
 	dq 31
 	dq 0xffffffff80106310
 	db "init_processor",0x00
 	dq 33
-	dq 0xffffffff80112ea0
+	dq 0xffffffff801134f0
 	db "init_quickmapper",0x00
 	dq 28
-	dq 0xffffffff80118d90
+	dq 0xffffffff801193f0
 	db "init_reaper",0x00
 	dq 41
-	dq 0xffffffff8010e1b0
+	dq 0xffffffff8010de80
 	db "init_root_device_probing",0x00
 	dq 31
-	dq 0xffffffff8011ac70
+	dq 0xffffffff8011b2d0
 	db "init_scheduler",0x00
 	dq 28
-	dq 0xffffffff80110190
+	dq 0xffffffff80110550
 	db "init_serial",0x00
 	dq 28
-	dq 0xffffffff80119af0
+	dq 0xffffffff8011a150
 	db "init_socket",0x00
 	dq 36
-	dq 0xffffffff80119060
+	dq 0xffffffff801196c0
 	db "init_socket_arbiter",0x00
 	dq 34
-	dq 0xffffffff80124570
+	dq 0xffffffff80124de0
 	db "init_timer_system",0x00
 	dq 28
-	dq 0xffffffff80119f10
+	dq 0xffffffff8011a570
 	db "init_tspckt",0x00
 	dq 28
-	dq 0xffffffff80129cb0
+	dq 0xffffffff8012a520
 	db "init_vcache",0x00
 	dq 26
-	dq 0xffffffff80128560
+	dq 0xffffffff80128dd0
 	db "init_vdir",0x00
 	dq 28
-	dq 0xffffffff80122830
+	dq 0xffffffff801230a0
 	db "init_vector",0x00
 	dq 25
-	dq 0xffffffff80126990
+	dq 0xffffffff80127200
 	db "init_vfs",0x00
 	dq 25
-	dq 0xffffffff80128f90
+	dq 0xffffffff80129800
 	db "init_vns",0x00
 	dq 28
-	dq 0xffffffff801128b0
+	dq 0xffffffff80112f00
 	db "init_zalloc",0x00
 	dq 36
-	dq 0xffffffff801127c0
+	dq 0xffffffff80112e10
 	db "init_zone_allocator",0x00
 	dq 39
-	dq 0xffffffff801126b0
+	dq 0xffffffff80112d00
 	db "init_zone_allocator_ex",0x00
 	dq 35
-	dq 0xffffffff8011b4a0
+	dq 0xffffffff8011bb00
 	db "insert_sched_frame",0x00
 	dq 31
-	dq 0xffffffff80110720
+	dq 0xffffffff80110ae0
 	db "install_driver",0x00
 	dq 42
-	dq 0xffffffff8011d6c0
+	dq 0xffffffff8011dd20
 	db "install_quick_int_handler",0x00
 	dq 40
 	dq 0xffffffff80102366
@@ -1800,85 +1827,85 @@ __ksyms_table:
 	dq 0xffffffff8010232d
 	db "interrupt_asm_entry_99",0x00
 	dq 49
-	dq 0xffffffff8011c9c0
+	dq 0xffffffff8011d020
 	db "interrupt_control_switch_to_mode",0x00
 	dq 34
-	dq 0xffffffff8011ee30
+	dq 0xffffffff8011f490
 	db "interrupt_handler",0x00
 	dq 29
-	dq 0xffffffff8010c1c0
+	dq 0xffffffff8010be90
 	db "is_bar_16bit",0x00
 	dq 29
-	dq 0xffffffff8010c210
+	dq 0xffffffff8010bee0
 	db "is_bar_32bit",0x00
 	dq 29
-	dq 0xffffffff8010c220
+	dq 0xffffffff8010bef0
 	db "is_bar_64bit",0x00
 	dq 26
-	dq 0xffffffff8010c190
+	dq 0xffffffff8010be60
 	db "is_bar_io",0x00
 	dq 27
-	dq 0xffffffff8010c1a0
+	dq 0xffffffff8010be70
 	db "is_bar_mem",0x00
 	dq 23
 	dq 0xffffffff801066d0
 	db "is_bsp",0x00
 	dq 36
-	dq 0xffffffff80110ed0
+	dq 0xffffffff80111290
 	db "is_driver_installed",0x00
 	dq 33
-	dq 0xffffffff80110e80
+	dq 0xffffffff80111240
 	db "is_driver_loaded",0x00
 	dq 29
-	dq 0xffffffff8010b6c0
+	dq 0xffffffff8010b390
 	db "is_end_devid",0x00
 	dq 37
-	dq 0xffffffff8010b710
+	dq 0xffffffff8010b3e0
 	db "is_pci_driver_unused",0x00
 	dq 32
-	dq 0xffffffff80129cd0
+	dq 0xffffffff8012a540
 	db "is_vnode_cached",0x00
 	dq 28
-	dq 0xffffffff801104d0
+	dq 0xffffffff80110890
 	db "kb_callback",0x00
 	dq 27
-	dq 0xffffffff80137520
+	dq 0xffffffff80138520
 	db "kbd_us_map",0x00
 	dq 33
-	dq 0xffffffff80137420
+	dq 0xffffffff80138420
 	db "kbd_us_shift_map",0x00
 	dq 23
-	dq 0xffffffff801119e0
+	dq 0xffffffff80112030
 	db "kcrc32",0x00
 	dq 27
-	dq 0xffffffff80120330
+	dq 0xffffffff80120ba0
 	db "kdoor_move",0x00
 	dq 41
-	dq 0xffffffff801bdd48
+	dq 0xffffffff801bed48
 	db "__kernel_allocator_count",0x00
 	dq 36
-	dq 0xffffffff801bdd40
+	dq 0xffffffff801bed40
 	db "__kernel_allocators",0x00
 	dq 28
-	dq 0xffffffff801f2000
+	dq 0xffffffff801f3000
 	db "_kernel_end",0x00
 	dq 31
-	dq 0xffffffff801203c0
+	dq 0xffffffff80120c30
 	db "__kernel_panic",0x00
 	dq 29
-	dq 0xffffffff80120400
+	dq 0xffffffff80120c70
 	db "kernel_panic",0x00
 	dq 35
-	dq 0xffffffff8012a040
+	dq 0xffffffff8012b040
 	db "_kernel_pcdrvs_end",0x00
 	dq 37
-	dq 0xffffffff8012a000
+	dq 0xffffffff8012b000
 	db "_kernel_pcdrvs_start",0x00
 	dq 30
 	dq 0xffffffff80100000
 	db "_kernel_start",0x00
 	dq 31
-	dq 0xffffffff801bd000
+	dq 0xffffffff801be000
 	db "kernel_version",0x00
 	dq 41
 	dq 0xffffffff80000000
@@ -1902,196 +1929,196 @@ __ksyms_table:
 	dq 0xffffffff801082f0
 	db "kevent_set_max_hooks",0x00
 	dq 22
-	dq 0xffffffff80111b40
+	dq 0xffffffff80112190
 	db "kfree",0x00
 	dq 28
-	dq 0xffffffff80111b80
+	dq 0xffffffff801121d0
 	db "kfree_sized",0x00
 	dq 34
-	dq 0xffffffff80111bd0
+	dq 0xffffffff80112220
 	db "kheap_ensure_size",0x00
 	dq 24
-	dq 0xffffffff80111b00
+	dq 0xffffffff80112150
 	db "kmalloc",0x00
 	dq 29
-	dq 0xffffffff80116010
+	dq 0xffffffff80116660
 	db "__kmem_alloc",0x00
 	dq 32
-	dq 0xffffffff80115e10
+	dq 0xffffffff80116460
 	db "__kmem_alloc_ex",0x00
 	dq 35
-	dq 0xffffffff801160a0
+	dq 0xffffffff801166f0
 	db "__kmem_alloc_range",0x00
 	dq 35
-	dq 0xffffffff80115b60
+	dq 0xffffffff801161b0
 	db "kmem_assert_mapped",0x00
 	dq 41
-	dq 0xffffffff801166a0
+	dq 0xffffffff80116ce0
 	db "kmem_copy_bytes_into_map",0x00
 	dq 41
-	dq 0xffffffff80116990
+	dq 0xffffffff80116fd0
 	db "kmem_copy_kernel_mapping",0x00
 	dq 37
-	dq 0xffffffff80116460
+	dq 0xffffffff80116aa0
 	db "kmem_create_page_dir",0x00
 	dq 31
-	dq 0xffffffff80115d70
+	dq 0xffffffff801163c0
 	db "__kmem_dealloc",0x00
 	dq 34
-	dq 0xffffffff80115bd0
+	dq 0xffffffff80116220
 	db "__kmem_dealloc_ex",0x00
 	dq 37
-	dq 0xffffffff80115de0
+	dq 0xffffffff80116430
 	db "__kmem_dealloc_unmap",0x00
 	dq 27
-	dq 0xffffffff80113c60
+	dq 0xffffffff801142b0
 	db "kmem_debug",0x00
 	dq 38
-	dq 0xffffffff80116720
+	dq 0xffffffff80116d60
 	db "kmem_destroy_page_dir",0x00
 	dq 41
-	dq 0xffffffff80114420
+	dq 0xffffffff80114a70
 	db "kmem_ensure_high_mapping",0x00
 	dq 31
-	dq 0xffffffff80114430
+	dq 0xffffffff80114a80
 	db "kmem_from_phys",0x00
 	dq 40
-	dq 0xffffffff801169e0
+	dq 0xffffffff80117020
 	db "kmem_get_kernel_address",0x00
 	dq 34
-	dq 0xffffffff80114810
+	dq 0xffffffff80114e60
 	db "kmem_get_krnl_dir",0x00
 	dq 30
-	dq 0xffffffff80114840
+	dq 0xffffffff80114e90
 	db "kmem_get_page",0x00
 	dq 35
-	dq 0xffffffff80116a70
+	dq 0xffffffff801170b0
 	db "kmem_get_page_addr",0x00
 	dq 35
-	dq 0xffffffff80116a80
+	dq 0xffffffff801170c0
 	db "kmem_get_page_base",0x00
 	dq 34
-	dq 0xffffffff80116a60
+	dq 0xffffffff801170a0
 	db "kmem_get_page_idx",0x00
 	dq 44
-	dq 0xffffffff80114f40
+	dq 0xffffffff80115590
 	db "kmem_get_page_with_quickmap",0x00
 	dq 42
-	dq 0xffffffff80116ad0
+	dq 0xffffffff80117110
 	db "kmem_get_phys_ranges_list",0x00
 	dq 45
-	dq 0xffffffff80114270
+	dq 0xffffffff801148c0
 	db "kmem_init_physical_allocator",0x00
 	dq 48
-	dq 0xffffffff80114f80
+	dq 0xffffffff801155d0
 	db "kmem_invalidate_tlb_cache_entry",0x00
 	dq 48
-	dq 0xffffffff80114f90
+	dq 0xffffffff801155e0
 	db "kmem_invalidate_tlb_cache_range",0x00
 	dq 39
-	dq 0xffffffff801145c0
+	dq 0xffffffff80114c10
 	db "kmem_is_phys_page_used",0x00
 	dq 36
-	dq 0xffffffff80116050
+	dq 0xffffffff801166a0
 	db "__kmem_kernel_alloc",0x00
 	dq 42
-	dq 0xffffffff801162a0
+	dq 0xffffffff801168f0
 	db "__kmem_kernel_alloc_range",0x00
 	dq 38
-	dq 0xffffffff80115da0
+	dq 0xffffffff801163f0
 	db "__kmem_kernel_dealloc",0x00
 	dq 35
-	dq 0xffffffff80116910
+	dq 0xffffffff80116f50
 	db "kmem_load_page_dir",0x00
 	dq 47
-	dq 0xffffffff801162e0
+	dq 0xffffffff80116930
 	db "__kmem_map_and_alloc_scattered",0x00
 	dq 30
-	dq 0xffffffff801154d0
+	dq 0xffffffff80115b20
 	db "kmem_map_into",0x00
 	dq 30
-	dq 0xffffffff80115340
+	dq 0xffffffff80115990
 	db "kmem_map_page",0x00
 	dq 31
-	dq 0xffffffff80115600
+	dq 0xffffffff80115c50
 	db "kmem_map_range",0x00
 	dq 47
-	dq 0xffffffff801146c0
+	dq 0xffffffff80114d10
 	db "kmem_prepare_new_physical_page",0x00
 	dq 33
-	dq 0xffffffff80114fc0
+	dq 0xffffffff80115610
 	db "kmem_refresh_tlb",0x00
 	dq 43
-	dq 0xffffffff80114670
+	dq 0xffffffff80114cc0
 	db "kmem_request_physical_page",0x00
 	dq 42
-	dq 0xffffffff80114770
+	dq 0xffffffff80114dc0
 	db "kmem_return_physical_page",0x00
 	dq 35
-	dq 0xffffffff80116a90
+	dq 0xffffffff801170d0
 	db "kmem_set_page_base",0x00
 	dq 36
-	dq 0xffffffff801152c0
+	dq 0xffffffff80115910
 	db "kmem_set_page_flags",0x00
 	dq 35
-	dq 0xffffffff80114600
+	dq 0xffffffff80114c50
 	db "kmem_set_phys_page",0x00
 	dq 40
-	dq 0xffffffff80114480
+	dq 0xffffffff80114ad0
 	db "kmem_set_phys_page_free",0x00
 	dq 40
-	dq 0xffffffff80114440
+	dq 0xffffffff80114a90
 	db "kmem_set_phys_page_used",0x00
 	dq 41
-	dq 0xffffffff80114540
+	dq 0xffffffff80114b90
 	db "kmem_set_phys_range_free",0x00
 	dq 41
-	dq 0xffffffff801144c0
+	dq 0xffffffff80114b10
 	db "kmem_set_phys_range_used",0x00
 	dq 40
-	dq 0xffffffff801166e0
+	dq 0xffffffff80116d20
 	db "kmem_to_current_pagemap",0x00
 	dq 29
-	dq 0xffffffff80114c80
+	dq 0xffffffff801152d0
 	db "kmem_to_phys",0x00
 	dq 37
-	dq 0xffffffff80114c30
+	dq 0xffffffff80115280
 	db "kmem_to_phys_aligned",0x00
 	dq 32
-	dq 0xffffffff801150d0
+	dq 0xffffffff80115720
 	db "kmem_unmap_page",0x00
 	dq 35
-	dq 0xffffffff80115040
+	dq 0xffffffff80115690
 	db "kmem_unmap_page_ex",0x00
 	dq 33
-	dq 0xffffffff80115130
+	dq 0xffffffff80115780
 	db "kmem_unmap_range",0x00
 	dq 36
-	dq 0xffffffff801151e0
+	dq 0xffffffff80115830
 	db "kmem_unmap_range_ex",0x00
 	dq 34
-	dq 0xffffffff80115a80
+	dq 0xffffffff801160d0
 	db "kmem_validate_ptr",0x00
 	dq 39
 	dq 0xffffffff80107cd0
 	db "kpipeline_execute_next",0x00
 	dq 30
-	dq 0xffffffff801c8a90
+	dq 0xffffffff801c9a90
 	db "kstack_bottom",0x00
 	dq 27
-	dq 0xffffffff801d0a90
+	dq 0xffffffff801d1a90
 	db "kstack_top",0x00
 	dq 30
-	dq 0xffffffff8012a040
+	dq 0xffffffff8012b040
 	db "__ksyms_count",0x00
 	dq 30
-	dq 0xffffffff8012a048
+	dq 0xffffffff8012b048
 	db "__ksyms_table",0x00
 	dq 35
-	dq 0xffffffff801bd720
+	dq 0xffffffff801be720
 	db "__kterm_cmd_buffer",0x00
 	dq 33
-	dq 0xffffffff801bd820
+	dq 0xffffffff801be820
 	db "__kterm_cmd_lock",0x00
 	dq 37
 	dq 0xffffffff80109240
@@ -2106,124 +2133,127 @@ __ksyms_table:
 	dq 0xffffffff80108fc0
 	db "kterm_on_key",0x00
 	dq 32
-	dq 0xffffffff80109d90
+	dq 0xffffffff80109a60
 	db "kterm_on_packet",0x00
 	dq 30
 	dq 0xffffffff801047f0
 	db "kthread_entry",0x00
 	dq 24
-	dq 0xffffffff80112cd0
+	dq 0xffffffff80113320
 	db "kzalloc",0x00
 	dq 23
-	dq 0xffffffff80112a60
+	dq 0xffffffff801130b0
 	db "kzfree",0x00
 	dq 28
-	dq 0xffffffff80122320
+	dq 0xffffffff80122b90
 	db "list_append",0x00
 	dq 34
-	dq 0xffffffff80122540
+	dq 0xffffffff80122db0
 	db "list_append_after",0x00
 	dq 35
-	dq 0xffffffff80122460
+	dq 0xffffffff80122cd0
 	db "list_append_before",0x00
 	dq 25
-	dq 0xffffffff801227a0
+	dq 0xffffffff80123010
 	db "list_get",0x00
 	dq 29
-	dq 0xffffffff801227f0
+	dq 0xffffffff80123060
 	db "list_indexof",0x00
 	dq 29
-	dq 0xffffffff801223c0
+	dq 0xffffffff80122c30
 	db "list_prepend",0x00
 	dq 28
-	dq 0xffffffff80122670
+	dq 0xffffffff80122ee0
 	db "list_remove",0x00
 	dq 28
-	dq 0xffffffff801108a0
+	dq 0xffffffff80110c60
 	db "load_driver",0x00
+	dq 37
+	dq 0xffffffff8010fdc0
+	db "load_external_driver",0x00
 	dq 45
-	dq 0xffffffff8010aad0
+	dq 0xffffffff8010a7a0
 	db "manifest_gather_dependencies",0x00
 	dq 24
-	dq 0xffffffff8010af50
+	dq 0xffffffff8010ac20
 	db "map_bus",0x00
 	dq 23
-	dq 0xffffffff80120840
+	dq 0xffffffff801210b0
 	db "memchr",0x00
 	dq 23
-	dq 0xffffffff801207a0
+	dq 0xffffffff80121010
 	db "memcmp",0x00
 	dq 23
-	dq 0xffffffff80120790
+	dq 0xffffffff80121000
 	db "memcpy",0x00
 	dq 24
-	dq 0xffffffff80120800
+	dq 0xffffffff80121070
 	db "memmove",0x00
 	dq 32
-	dq 0xffffffff80113930
+	dq 0xffffffff80113f80
 	db "memory_allocate",0x00
 	dq 34
-	dq 0xffffffff80113b50
+	dq 0xffffffff801141a0
 	db "memory_deallocate",0x00
 	dq 39
-	dq 0xffffffff801137c0
+	dq 0xffffffff80113e10
 	db "memory_get_heapnode_at",0x00
 	dq 40
-	dq 0xffffffff80113b10
+	dq 0xffffffff80114160
 	db "memory_sized_deallocate",0x00
 	dq 39
-	dq 0xffffffff80113c10
+	dq 0xffffffff80114260
 	db "memory_try_heap_expand",0x00
 	dq 23
-	dq 0xffffffff801207d0
+	dq 0xffffffff80121040
 	db "memset",0x00
 	dq 28
-	dq 0xffffffff80113540
+	dq 0xffffffff80113b90
 	db "merge_nodes",0x00
 	dq 37
-	dq 0xffffffff80113480
+	dq 0xffffffff80113ad0
 	db "merge_node_with_prev",0x00
 	dq 28
-	dq 0xffffffff80127ae0
+	dq 0xffffffff80128350
 	db "mount_ramfs",0x00
 	dq 31
-	dq 0xffffffff80117100
+	dq 0xffffffff80117740
 	db "mutate_khandle",0x00
 	dq 32
-	dq 0xffffffff8011f550
+	dq 0xffffffff8011fbb0
 	db "mutex_is_locked",0x00
 	dq 50
-	dq 0xffffffff8011f570
+	dq 0xffffffff8011fbd0
 	db "mutex_is_locked_by_current_thread",0x00
 	dq 27
-	dq 0xffffffff8011eff0
+	dq 0xffffffff8011f650
 	db "mutex_lock",0x00
 	dq 29
-	dq 0xffffffff8011f370
+	dq 0xffffffff8011f9d0
 	db "mutex_unlock",0x00
 	dq 29
-	dq 0xffffffff80120d90
+	dq 0xffffffff80121600
 	db "next_mb2_tag",0x00
 	dq 22
-	dq 0xffffffff8011fa10
+	dq 0xffffffff80120070
 	db "out16",0x00
 	dq 22
-	dq 0xffffffff8011fa20
+	dq 0xffffffff80120080
 	db "out32",0x00
 	dq 21
-	dq 0xffffffff8011fa00
+	dq 0xffffffff80120060
 	db "out8",0x00
 	dq 36
-	dq 0xffffffff8011d2c0
+	dq 0xffffffff8011d920
 	db "pagefault_asm_entry",0x00
 	dq 34
-	dq 0xffffffff8011d2f0
+	dq 0xffffffff8011d950
 	db "pagefault_handler",0x00
 	dq 27
-	dq 0xffffffff80113d90
+	dq 0xffffffff801143e0
 	db "parse_mmap",0x00
 	dq 23
-	dq 0xffffffff801bd6a0
+	dq 0xffffffff801be6a0
 	db "parser",0x00
 	dq 39
 	dq 0xffffffff80107900
@@ -2232,133 +2262,133 @@ __ksyms_table:
 	dq 0xffffffff801072e0
 	db "parser_init_tables",0x00
 	dq 32
-	dq 0xffffffff8011af90
+	dq 0xffffffff8011b5f0
 	db "pause_scheduler",0x00
 	dq 45
-	dq 0xffffffff8010c230
+	dq 0xffffffff8010bf00
 	db "pci_device_register_resource",0x00
 	dq 47
-	dq 0xffffffff8010c270
+	dq 0xffffffff8010bf40
 	db "pci_device_unregister_resource",0x00
 	dq 36
-	dq 0xffffffff8010ce90
+	dq 0xffffffff8010cb60
 	db "pci_io_read16_type1",0x00
 	dq 36
-	dq 0xffffffff8010cfc0
+	dq 0xffffffff8010cc90
 	db "pci_io_read16_type2",0x00
 	dq 36
-	dq 0xffffffff8010ce10
+	dq 0xffffffff8010cae0
 	db "pci_io_read32_type1",0x00
 	dq 36
-	dq 0xffffffff8010cc40
+	dq 0xffffffff8010c910
 	db "pci_io_read32_type2",0x00
 	dq 35
-	dq 0xffffffff8010cf30
+	dq 0xffffffff8010cc00
 	db "pci_io_read8_type1",0x00
 	dq 35
-	dq 0xffffffff8010cfd0
+	dq 0xffffffff8010cca0
 	db "pci_io_read8_type2",0x00
 	dq 37
-	dq 0xffffffff8010ccd0
+	dq 0xffffffff8010c9a0
 	db "pci_io_write16_type1",0x00
 	dq 37
-	dq 0xffffffff8010cc20
+	dq 0xffffffff8010c8f0
 	db "pci_io_write16_type2",0x00
 	dq 37
-	dq 0xffffffff8010cc50
+	dq 0xffffffff8010c920
 	db "pci_io_write32_type1",0x00
 	dq 37
-	dq 0xffffffff8010cc10
+	dq 0xffffffff8010c8e0
 	db "pci_io_write32_type2",0x00
 	dq 36
-	dq 0xffffffff8010cd70
+	dq 0xffffffff8010ca40
 	db "pci_io_write8_type1",0x00
 	dq 36
-	dq 0xffffffff8010cc30
+	dq 0xffffffff8010c900
 	db "pci_io_write8_type2",0x00
 	dq 28
-	dq 0xffffffff8010c810
+	dq 0xffffffff8010c4e0
 	db "pci_read_16",0x00
 	dq 28
-	dq 0xffffffff8010c790
+	dq 0xffffffff8010c460
 	db "pci_read_32",0x00
 	dq 27
-	dq 0xffffffff8010c890
+	dq 0xffffffff8010c560
 	db "pci_read_8",0x00
 	dq 36
-	dq 0xffffffff8010bae0
+	dq 0xffffffff8010b7b0
 	db "pci_register_is_std",0x00
 	dq 38
-	dq 0xffffffff8010cb30
+	dq 0xffffffff8010c800
 	db "pci_set_bus_mastering",0x00
 	dq 39
-	dq 0xffffffff8010ca70
+	dq 0xffffffff8010c740
 	db "pci_set_interrupt_line",0x00
 	dq 27
-	dq 0xffffffff8010c910
+	dq 0xffffffff8010c5e0
 	db "pci_set_io",0x00
 	dq 31
-	dq 0xffffffff8010c9c0
+	dq 0xffffffff8010c690
 	db "pci_set_memory",0x00
 	dq 29
-	dq 0xffffffff8010c670
+	dq 0xffffffff8010c340
 	db "pci_write_16",0x00
 	dq 29
-	dq 0xffffffff8010c5f0
+	dq 0xffffffff8010c2c0
 	db "pci_write_32",0x00
 	dq 28
-	dq 0xffffffff8010c700
+	dq 0xffffffff8010c3d0
 	db "pci_write_8",0x00
 	dq 25
-	dq 0xffffffff8010dd60
+	dq 0xffffffff8010da30
 	db "pd_bread",0x00
 	dq 26
-	dq 0xffffffff8010dde0
+	dq 0xffffffff8010dab0
 	db "pd_bwrite",0x00
 	dq 33
-	dq 0xffffffff8010de40
+	dq 0xffffffff8010db10
 	db "pd_set_blocksize",0x00
 	dq 28
-	dq 0xffffffff8011c8a0
+	dq 0xffffffff8011cf00
 	db "pic_disable",0x00
 	dq 24
-	dq 0xffffffff8011c690
+	dq 0xffffffff8011ccf0
 	db "pic_eoi",0x00
 	dq 43
-	dq 0xffffffff8011b800
+	dq 0xffffffff8011be60
 	db "pick_next_thread_scheduler",0x00
 	dq 41
-	dq 0xffffffff80124410
+	dq 0xffffffff80124c80
 	db "pit_frequency_capability",0x00
 	dq 32
-	dq 0xffffffff80124290
+	dq 0xffffffff80124b00
 	db "pit_irq_handler",0x00
 	dq 30
-	dq 0xffffffff801bde20
+	dq 0xffffffff801bee20
 	db "__port_vector",0x00
 	dq 26
-	dq 0xffffffff80113c20
+	dq 0xffffffff80114270
 	db "prep_mmap",0x00
 	dq 22
-	dq 0xffffffff801102c0
+	dq 0xffffffff80110680
 	db "print",0x00
 	dq 24
-	dq 0xffffffff80110330
+	dq 0xffffffff801106f0
 	db "println",0x00
 	dq 30
-	dq 0xffffffff80109e80
+	dq 0xffffffff80109b50
 	db "println_kterm",0x00
 	dq 29
 	dq 0xffffffff801079d0
 	db "print_tables",0x00
 	dq 43
-	dq 0xffffffff80118980
+	dq 0xffffffff80118fe0
 	db "proc_add_async_task_thread",0x00
 	dq 32
-	dq 0xffffffff80118530
+	dq 0xffffffff80118b90
 	db "proc_add_thread",0x00
 	dq 34
-	dq 0xffffffff80118320
+	dq 0xffffffff80118980
 	db "proc_can_schedule",0x00
 	dq 45
 	dq 0xffffffff801066e0
@@ -2370,76 +2400,76 @@ __ksyms_table:
 	dq 0xffffffff801071f0
 	db "processor_has",0x00
 	dq 26
-	dq 0xffffffff801184d0
+	dq 0xffffffff80118b30
 	db "proc_exit",0x00
 	dq 30
-	dq 0xffffffff8011a720
+	dq 0xffffffff8011ad80
 	db "proc_register",0x00
 	dq 32
-	dq 0xffffffff8011a790
+	dq 0xffffffff8011adf0
 	db "proc_unregister",0x00
 	dq 35
-	dq 0xffffffff8010cfe0
+	dq 0xffffffff8010ccb0
 	db "ps2_keyboard_entry",0x00
 	dq 34
-	dq 0xffffffff8010d0b0
+	dq 0xffffffff8010cd80
 	db "ps2_keyboard_exit",0x00
 	dq 41
-	dq 0xffffffff8010d1d0
+	dq 0xffffffff8010cea0
 	db "ps2_keyboard_irq_handler",0x00
 	dq 33
-	dq 0xffffffff8010d110
+	dq 0xffffffff8010cde0
 	db "ps2_keyboard_msg",0x00
 	dq 22
-	dq 0xffffffff80110270
+	dq 0xffffffff80110630
 	db "putch",0x00
 	dq 30
-	dq 0xffffffff801221f0
+	dq 0xffffffff80122a60
 	db "queue_dequeue",0x00
 	dq 30
-	dq 0xffffffff80122170
+	dq 0xffffffff801229e0
 	db "queue_enqueue",0x00
 	dq 38
-	dq 0xffffffff80122290
+	dq 0xffffffff80122b00
 	db "queue_ensure_capacity",0x00
 	dq 27
-	dq 0xffffffff80122270
+	dq 0xffffffff80122ae0
 	db "queue_peek",0x00
 	dq 49
-	dq 0xffffffff8011d650
+	dq 0xffffffff8011dcb0
 	db "quick_int_handler_disable_vector",0x00
 	dq 48
-	dq 0xffffffff8011d5e0
+	dq 0xffffffff8011dc40
 	db "quick_int_handler_enable_vector",0x00
 	dq 26
-	dq 0xffffffff80113190
+	dq 0xffffffff801137e0
 	db "quick_map",0x00
 	dq 29
-	dq 0xffffffff80113060
+	dq 0xffffffff801136b0
 	db "quick_map_ex",0x00
 	dq 28
-	dq 0xffffffff80112fe0
+	dq 0xffffffff80113630
 	db "quick_unmap",0x00
 	dq 29
-	dq 0xffffffff8010d560
+	dq 0xffffffff8010d230
 	db "ramdisk_read",0x00
 	dq 30
-	dq 0xffffffff8010d450
+	dq 0xffffffff8010d120
 	db "ramdisk_write",0x00
 	dq 22
-	dq 0xffffffff80138480
+	dq 0xffffffff80139480
 	db "ramfs",0x00
 	dq 28
-	dq 0xffffffff80127ab0
+	dq 0xffffffff80128320
 	db "ramfs_close",0x00
 	dq 27
-	dq 0xffffffff80127ad0
+	dq 0xffffffff80128340
 	db "ramfs_exit",0x00
 	dq 27
-	dq 0xffffffff80127e00
+	dq 0xffffffff80128670
 	db "ramfs_init",0x00
 	dq 26
-	dq 0xffffffff80127ac0
+	dq 0xffffffff80128330
 	db "ramfs_msg",0x00
 	dq 27
 	dq 0xffffffff801072b0
@@ -2457,52 +2487,52 @@ __ksyms_table:
 	dq 0xffffffff80107280
 	db "read_cr4",0x00
 	dq 29
-	dq 0xffffffff8010b300
+	dq 0xffffffff8010afd0
 	db "read_field16",0x00
 	dq 29
-	dq 0xffffffff8010b250
+	dq 0xffffffff8010af20
 	db "read_field32",0x00
 	dq 28
-	dq 0xffffffff8010b3b0
+	dq 0xffffffff8010b080
 	db "read_field8",0x00
 	dq 38
-	dq 0xffffffff8010dc50
+	dq 0xffffffff8010d920
 	db "read_sync_partitioned",0x00
 	dq 45
-	dq 0xffffffff8010dce0
+	dq 0xffffffff8010d9b0
 	db "read_sync_partitioned_blocks",0x00
 	dq 26
 	dq 0xffffffff80107290
 	db "read_xcr0",0x00
 	dq 40
-	dq 0xffffffff80118c70
+	dq 0xffffffff801192d0
 	db "reaper_register_process",0x00
 	dq 37
-	dq 0xffffffff8010e120
+	dq 0xffffffff8010ddf0
 	db "register_boot_device",0x00
 	dq 36
-	dq 0xffffffff801299d0
+	dq 0xffffffff8012a240
 	db "register_filesystem",0x00
 	dq 35
-	dq 0xffffffff8010d840
+	dq 0xffffffff8010d510
 	db "register_gdisk_dev",0x00
 	dq 44
-	dq 0xffffffff8010dac0
+	dq 0xffffffff8010d790
 	db "register_gdisk_dev_with_uid",0x00
 	dq 47
-	dq 0xffffffff8011c310
+	dq 0xffffffff8011c970
 	db "register_idt_interrupt_handler",0x00
 	dq 42
-	dq 0xffffffff8011c360
+	dq 0xffffffff8011c9c0
 	db "register_idt_trap_handler",0x00
 	dq 31
-	dq 0xffffffff80120250
+	dq 0xffffffff80120ac0
 	db "register_kdoor",0x00
 	dq 47
-	dq 0xffffffff8010c060
+	dq 0xffffffff8010bd30
 	db "register_pci_bridges_from_mcfg",0x00
 	dq 36
-	dq 0xffffffff8010b7b0
+	dq 0xffffffff8010b480
 	db "register_pci_driver",0x00
 	dq 37
 	dq 0xffffffff801050d0
@@ -2520,145 +2550,145 @@ __ksyms_table:
 	dq 0xffffffff80104f50
 	db "resource_release_region",0x00
 	dq 37
-	dq 0xffffffff801bde78
+	dq 0xffffffff801bee78
 	db "__response_allocator",0x00
 	dq 33
-	dq 0xffffffff8011b020
+	dq 0xffffffff8011b680
 	db "resume_scheduler",0x00
 	dq 31
 	dq 0xffffffff80106840
 	db "save_fpu_state",0x00
 	dq 24
-	dq 0xffffffff801bddf0
+	dq 0xffffffff801bedf0
 	db "s_calls",0x00
 	dq 40
-	dq 0xffffffff8011bce0
+	dq 0xffffffff8011c340
 	db "sched_add_priority_proc",0x00
 	dq 31
-	dq 0xffffffff8011b220
+	dq 0xffffffff8011b880
 	db "sched_add_proc",0x00
 	dq 35
-	dq 0xffffffff8011c260
+	dq 0xffffffff8011c8c0
 	db "sched_can_schedule",0x00
 	dq 38
-	dq 0xffffffff8011c230
+	dq 0xffffffff8011c890
 	db "sched_get_kernel_proc",0x00
 	dq 43
-	dq 0xffffffff8011bc00
+	dq 0xffffffff8011c260
 	db "sched_idle_current_process",0x00
 	dq 34
-	dq 0xffffffff8011b460
+	dq 0xffffffff8011bac0
 	db "sched_remove_proc",0x00
 	dq 40
-	dq 0xffffffff8011b390
+	dq 0xffffffff8011b9f0
 	db "sched_remove_proc_by_id",0x00
 	dq 27
-	dq 0xffffffff8011bea0
+	dq 0xffffffff8011c500
 	db "sched_tick",0x00
 	dq 38
-	dq 0xffffffff8011b0b0
+	dq 0xffffffff8011b710
 	db "scheduler_try_execute",0x00
 	dq 37
-	dq 0xffffffff8011b1f0
+	dq 0xffffffff8011b850
 	db "scheduler_try_invoke",0x00
 	dq 32
-	dq 0xffffffff8011ba30
+	dq 0xffffffff8011c090
 	db "scheduler_yield",0x00
 	dq 43
-	dq 0xffffffff8011bc70
+	dq 0xffffffff8011c2d0
 	db "sched_wake_current_process",0x00
 	dq 38
-	dq 0xffffffff80119640
+	dq 0xffffffff80119ca0
 	db "send_packet_to_socket",0x00
 	dq 41
-	dq 0xffffffff80119510
+	dq 0xffffffff80119b70
 	db "send_packet_to_socket_ex",0x00
 	dq 43
-	dq 0xffffffff8011c180
+	dq 0xffffffff8011c7e0
 	db "set_current_handled_thread",0x00
 	dq 26
-	dq 0xffffffff8010d430
+	dq 0xffffffff8010d100
 	db "set_flags",0x00
 	dq 32
-	dq 0xffffffff8011c240
+	dq 0xffffffff8011c8a0
 	db "set_kernel_proc",0x00
 	dq 39
-	dq 0xffffffff801245c0
+	dq 0xffffffff80124e30
 	db "set_kernel_ticker_type",0x00
 	dq 34
-	dq 0xffffffff80124370
+	dq 0xffffffff80124be0
 	db "set_pit_frequency",0x00
 	dq 42
-	dq 0xffffffff801242e0
+	dq 0xffffffff80124b50
 	db "set_pit_interrupt_handler",0x00
 	dq 33
-	dq 0xffffffff80124420
+	dq 0xffffffff80124c90
 	db "set_pit_periodic",0x00
 	dq 26
-	dq 0xffffffff8011c3b0
+	dq 0xffffffff8011ca10
 	db "setup_idt",0x00
 	dq 34
-	dq 0xffffffff801c8a88
+	dq 0xffffffff801c9a88
 	db "s_node_base_cache",0x00
 	dq 37
-	dq 0xffffffff80118ed0
+	dq 0xffffffff80119530
 	db "socket_arbiter_entry",0x00
 	dq 47
-	dq 0xffffffff801191e0
+	dq 0xffffffff80119840
 	db "socket_arbiter_register_socket",0x00
 	dq 45
-	dq 0xffffffff80119280
+	dq 0xffffffff801198e0
 	db "socket_arbiter_remove_socket",0x00
 	dq 31
-	dq 0xffffffff80119890
+	dq 0xffffffff80119ef0
 	db "socket_disable",0x00
 	dq 30
-	dq 0xffffffff80119860
+	dq 0xffffffff80119ec0
 	db "socket_enable",0x00
 	dq 39
-	dq 0xffffffff80119a90
+	dq 0xffffffff8011a0f0
 	db "socket_handle_tspacket",0x00
 	dq 35
-	dq 0xffffffff801198e0
+	dq 0xffffffff80119f40
 	db "socket_is_flag_set",0x00
 	dq 32
-	dq 0xffffffff8011a9e0
+	dq 0xffffffff8011b040
 	db "socket_register",0x00
 	dq 42
-	dq 0xffffffff80119900
+	dq 0xffffffff80119f60
 	db "socket_register_pckt_func",0x00
 	dq 32
-	dq 0xffffffff801198c0
+	dq 0xffffffff80119f20
 	db "socket_set_flag",0x00
 	dq 43
-	dq 0xffffffff801199a0
+	dq 0xffffffff8011a000
 	db "socket_try_handle_tspacket",0x00
 	dq 40
-	dq 0xffffffff8011a850
+	dq 0xffffffff8011aeb0
 	db "socket_try_verifiy_port",0x00
 	dq 34
-	dq 0xffffffff8011a470
+	dq 0xffffffff8011aad0
 	db "socket_unregister",0x00
 	dq 35
-	dq 0xffffffff8011a8f0
+	dq 0xffffffff8011af50
 	db "socket_verify_port",0x00
 	dq 29
-	dq 0xffffffff8011a2d0
+	dq 0xffffffff8011a930
 	db "spawn_thread",0x00
 	dq 35
-	dq 0xffffffff8011f990
+	dq 0xffffffff8011fff0
 	db "spinlock_is_locked",0x00
 	dq 30
-	dq 0xffffffff8011f7a0
+	dq 0xffffffff8011fe00
 	db "spinlock_lock",0x00
 	dq 32
-	dq 0xffffffff8011f8c0
+	dq 0xffffffff8011ff20
 	db "spinlock_unlock",0x00
 	dq 29
-	dq 0xffffffff801c8a80
+	dq 0xffffffff801c9a80
 	db "s_read_cache",0x00
 	dq 35
-	dq 0xffffffff801bd340
+	dq 0xffffffff801be340
 	db "standard_fpu_state",0x00
 	dq 23
 	dq 0xffffffff80101000
@@ -2667,28 +2697,28 @@ __ksyms_table:
 	dq 0xffffffff80100030
 	db "start",0x00
 	dq 29
-	dq 0xffffffff8012a000
+	dq 0xffffffff8012b000
 	db "_start_ctors",0x00
 	dq 29
-	dq 0xffffffff8012a040
+	dq 0xffffffff8012b040
 	db "_start_ksyms",0x00
 	dq 32
-	dq 0xffffffff8011ada0
+	dq 0xffffffff8011b400
 	db "start_scheduler",0x00
 	dq 32
 	dq 0xffffffff801068d0
 	db "store_fpu_state",0x00
 	dq 23
-	dq 0xffffffff80120620
+	dq 0xffffffff80120e90
 	db "strcmp",0x00
 	dq 23
-	dq 0xffffffff80120670
+	dq 0xffffffff80120ee0
 	db "strcpy",0x00
 	dq 23
-	dq 0xffffffff801206a0
+	dq 0xffffffff80120f10
 	db "strdup",0x00
 	dq 23
-	dq 0xffffffff801205f0
+	dq 0xffffffff80120e60
 	db "strlen",0x00
 	dq 32
 	dq 0xffffffff80105940
@@ -2724,34 +2754,34 @@ __ksyms_table:
 	dq 0xffffffff80105680
 	db "sys_write",0x00
 	dq 30
-	dq 0xffffffff80110400
+	dq 0xffffffff801107c0
 	db "test_dbg_exit",0x00
 	dq 30
-	dq 0xffffffff80110410
+	dq 0xffffffff801107d0
 	db "test_dbg_init",0x00
 	dq 29
-	dq 0xffffffff80110460
+	dq 0xffffffff80110820
 	db "test_dbg_msg",0x00
 	dq 34
-	dq 0xffffffff8010c2c0
+	dq 0xffffffff8010bf90
 	db "test_pci_io_type1",0x00
 	dq 34
-	dq 0xffffffff8010c2b0
+	dq 0xffffffff8010bf80
 	db "test_pci_io_type2",0x00
 	dq 28
 	dq 0xffffffff80101000
 	db "_text_begin",0x00
 	dq 26
-	dq 0xffffffff80129cd3
+	dq 0xffffffff8012a543
 	db "_text_end",0x00
 	dq 29
-	dq 0xffffffff80117dd0
+	dq 0xffffffff80118430
 	db "thread_block",0x00
 	dq 37
-	dq 0xffffffff80117180
+	dq 0xffffffff801177c0
 	db "thread_end_lifecycle",0x00
 	dq 37
-	dq 0xffffffff801176b0
+	dq 0xffffffff80117d10
 	db "thread_enter_context",0x00
 	dq 34
 	dq 0xffffffff80101400
@@ -2760,256 +2790,256 @@ __ksyms_table:
 	dq 0xffffffff80101415
 	db "thread_entry_stub_end",0x00
 	dq 39
-	dq 0xffffffff80117d50
+	dq 0xffffffff801183b0
 	db "thread_exit_init_state",0x00
 	dq 32
-	dq 0xffffffff80117dc0
+	dq 0xffffffff80118420
 	db "thread_get_qdrv",0x00
 	dq 39
-	dq 0xffffffff801177e0
+	dq 0xffffffff80117e40
 	db "thread_prepare_context",0x00
 	dq 32
-	dq 0xffffffff80117d60
+	dq 0xffffffff801183c0
 	db "thread_set_qdrv",0x00
 	dq 33
-	dq 0xffffffff80117540
+	dq 0xffffffff80117b90
 	db "thread_set_state",0x00
 	dq 29
-	dq 0xffffffff80117ec0
+	dq 0xffffffff80118520
 	db "thread_sleep",0x00
 	dq 38
-	dq 0xffffffff80117bf0
+	dq 0xffffffff80118250
 	db "thread_switch_context",0x00
 	dq 46
-	dq 0xffffffff80117be0
+	dq 0xffffffff80118240
 	db "thread_try_prepare_userpacket",0x00
 	dq 53
-	dq 0xffffffff80117bd0
+	dq 0xffffffff80118230
 	db "thread_try_revert_userpacket_context",0x00
 	dq 31
-	dq 0xffffffff80117e30
+	dq 0xffffffff80118490
 	db "thread_unblock",0x00
 	dq 30
-	dq 0xffffffff80117f00
+	dq 0xffffffff80118560
 	db "thread_wakeup",0x00
 	dq 26
-	dq 0xffffffff80120970
+	dq 0xffffffff801211e0
 	db "to_string",0x00
 	dq 31
-	dq 0xffffffff80110fc0
+	dq 0xffffffff80111380
 	db "try_driver_get",0x00
 	dq 38
 	dq 0xffffffff80101300
 	db "try_fetch_initramdisk",0x00
 	dq 26
-	dq 0xffffffff80113660
+	dq 0xffffffff80113cb0
 	db "try_merge",0x00
 	dq 29
-	dq 0xffffffff80113160
+	dq 0xffffffff801137b0
 	db "try_quickmap",0x00
 	dq 31
-	dq 0xffffffff80112f50
+	dq 0xffffffff801135a0
 	db "try_quickunmap",0x00
 	dq 38
-	dq 0xffffffff80118420
+	dq 0xffffffff80118a80
 	db "try_terminate_process",0x00
 	dq 31
-	dq 0xffffffff80117040
+	dq 0xffffffff80117680
 	db "unbind_khandle",0x00
 	dq 33
-	dq 0xffffffff80111650
+	dq 0xffffffff80111a10
 	db "uninstall_driver",0x00
 	dq 30
-	dq 0xffffffff801244d0
+	dq 0xffffffff80124d40
 	db "uninstall_pit",0x00
 	dq 44
-	dq 0xffffffff8011d790
+	dq 0xffffffff8011ddf0
 	db "uninstall_quick_int_handler",0x00
 	dq 30
-	dq 0xffffffff801114e0
+	dq 0xffffffff801118a0
 	db "unload_driver",0x00
 	dq 22
-	dq 0xffffffff80120560
+	dq 0xffffffff80120dd0
 	db "unref",0x00
 	dq 38
-	dq 0xffffffff80129ae0
+	dq 0xffffffff8012a350
 	db "unregister_filesystem",0x00
 	dq 37
-	dq 0xffffffff8010d910
+	dq 0xffffffff8010d5e0
 	db "unregister_gdisk_dev",0x00
 	dq 33
-	dq 0xffffffff801202c0
+	dq 0xffffffff80120b30
 	db "unregister_kdoor",0x00
 	dq 38
-	dq 0xffffffff8010b880
+	dq 0xffffffff8010b550
 	db "unregister_pci_driver",0x00
 	dq 32
-	dq 0xffffffff80119e60
+	dq 0xffffffff8011a4c0
 	db "validate_tspckt",0x00
 	dq 38
-	dq 0xffffffff801c8a40
+	dq 0xffffffff801c9a40
 	db "__vdir_attr_allocator",0x00
 	dq 31
-	dq 0xffffffff80128460
+	dq 0xffffffff80128cd0
 	db "vdir_find_vobj",0x00
 	dq 30
-	dq 0xffffffff80128510
+	dq 0xffffffff80128d80
 	db "vdir_put_vobj",0x00
 	dq 27
-	dq 0xffffffff80122ac0
+	dq 0xffffffff80123330
 	db "vector_add",0x00
 	dq 27
-	dq 0xffffffff80122a90
+	dq 0xffffffff80123300
 	db "vector_get",0x00
 	dq 31
-	dq 0xffffffff801229f0
+	dq 0xffffffff80123260
 	db "vector_indexof",0x00
 	dq 30
-	dq 0xffffffff80122c20
+	dq 0xffffffff80123490
 	db "vector_remove",0x00
 	dq 30
-	dq 0xffffffff801106b0
+	dq 0xffffffff80110a70
 	db "verify_driver",0x00
 	dq 42
-	dq 0xffffffff801267f0
+	dq 0xffffffff80127060
 	db "vfs_attach_root_namespace",0x00
 	dq 32
-	dq 0xffffffff801262c0
+	dq 0xffffffff80126b30
 	db "vfs_create_path",0x00
 	dq 46
-	dq 0xffffffff80126880
+	dq 0xffffffff801270f0
 	db "vfs_ensure_attached_namespace",0x00
 	dq 33
-	dq 0xffffffff80125ce0
+	dq 0xffffffff80126550
 	db "vfs_get_abs_root",0x00
 	dq 26
-	dq 0xffffffff80126540
+	dq 0xffffffff80126db0
 	db "vfs_mount",0x00
 	dq 33
-	dq 0xffffffff80126610
+	dq 0xffffffff80126e80
 	db "vfs_mount_driver",0x00
 	dq 29
-	dq 0xffffffff80126770
+	dq 0xffffffff80126fe0
 	db "vfs_mount_fs",0x00
 	dq 34
-	dq 0xffffffff80126710
+	dq 0xffffffff80126f80
 	db "vfs_mount_fs_type",0x00
 	dq 28
-	dq 0xffffffff80125f20
+	dq 0xffffffff80126790
 	db "vfs_resolve",0x00
 	dq 33
-	dq 0xffffffff80126150
+	dq 0xffffffff801269c0
 	db "vfs_resolve_node",0x00
 	dq 37
-	dq 0xffffffff80125d70
+	dq 0xffffffff801265e0
 	db "vfs_resolve_relative",0x00
 	dq 28
-	dq 0xffffffff80125d30
+	dq 0xffffffff801265a0
 	db "vfs_unmount",0x00
 	dq 33
-	dq 0xffffffff80125270
+	dq 0xffffffff80125ae0
 	db "vn_attach_object",0x00
 	dq 37
-	dq 0xffffffff80124f50
+	dq 0xffffffff801257c0
 	db "vn_attach_object_rel",0x00
 	dq 25
-	dq 0xffffffff80125880
+	dq 0xffffffff801260f0
 	db "vn_close",0x00
 	dq 33
-	dq 0xffffffff801252a0
+	dq 0xffffffff80125b10
 	db "vn_detach_object",0x00
 	dq 38
-	dq 0xffffffff80125410
+	dq 0xffffffff80125c80
 	db "vn_detach_object_path",0x00
 	dq 26
-	dq 0xffffffff80124d70
+	dq 0xffffffff801255e0
 	db "vn_freeze",0x00
 	dq 28
-	dq 0xffffffff801256c0
+	dq 0xffffffff80125f30
 	db "vn_get_link",0x00
 	dq 30
-	dq 0xffffffff801254b0
+	dq 0xffffffff80125d20
 	db "vn_get_object",0x00
 	dq 30
-	dq 0xffffffff80125470
+	dq 0xffffffff80125ce0
 	db "vn_has_object",0x00
 	dq 32
-	dq 0xffffffff80124d90
+	dq 0xffffffff80125600
 	db "vn_is_available",0x00
 	dq 27
-	dq 0xffffffff80124d60
+	dq 0xffffffff801255d0
 	db "vn_is_link",0x00
 	dq 24
-	dq 0xffffffff80125550
+	dq 0xffffffff80125dc0
 	db "vn_link",0x00
 	dq 24
-	dq 0xffffffff80125780
+	dq 0xffffffff80125ff0
 	db "vn_open",0x00
 	dq 27
-	dq 0xffffffff80124ec0
+	dq 0xffffffff80125730
 	db "vn_release",0x00
 	dq 35
-	dq 0xffffffff801293e0
+	dq 0xffffffff80129c50
 	db "vns_activate_vnode",0x00
 	dq 33
-	dq 0xffffffff80129060
+	dq 0xffffffff801298d0
 	db "vns_assign_vnode",0x00
 	dq 34
-	dq 0xffffffff80129260
+	dq 0xffffffff80129ad0
 	db "vns_commit_mutate",0x00
 	dq 33
-	dq 0xffffffff80129360
+	dq 0xffffffff80129bd0
 	db "vns_contains_obj",0x00
 	dq 35
-	dq 0xffffffff80129320
+	dq 0xffffffff80129b90
 	db "vns_contains_vnode",0x00
 	dq 33
-	dq 0xffffffff80124d40
+	dq 0xffffffff801255b0
 	db "vn_seems_mounted",0x00
 	dq 31
-	dq 0xffffffff80129190
+	dq 0xffffffff80129a00
 	db "vns_find_vnode",0x00
 	dq 35
-	dq 0xffffffff801290e0
+	dq 0xffffffff80129950
 	db "vns_reassign_vnode",0x00
 	dq 32
-	dq 0xffffffff801293a0
+	dq 0xffffffff80129c10
 	db "vns_stash_vnode",0x00
 	dq 29
-	dq 0xffffffff80129420
+	dq 0xffffffff80129c90
 	db "vns_try_move",0x00
 	dq 37
-	dq 0xffffffff801291d0
+	dq 0xffffffff80129a40
 	db "vns_try_remove_vnode",0x00
 	dq 36
-	dq 0xffffffff801292c0
+	dq 0xffffffff80129b30
 	db "vns_uncommit_mutate",0x00
 	dq 24
-	dq 0xffffffff80124de0
+	dq 0xffffffff80125650
 	db "vn_take",0x00
 	dq 28
-	dq 0xffffffff80124d80
+	dq 0xffffffff801255f0
 	db "vn_unfreeze",0x00
 	dq 26
-	dq 0xffffffff80125600
+	dq 0xffffffff80125e70
 	db "vn_unlink",0x00
 	dq 27
-	dq 0xffffffff80125c90
+	dq 0xffffffff80126500
 	db "vobj_close",0x00
 	dq 37
-	dq 0xffffffff80125bb0
+	dq 0xffffffff80126420
 	db "vobj_generate_handle",0x00
 	dq 30
-	dq 0xffffffff80125c70
+	dq 0xffffffff801264e0
 	db "vobj_get_file",0x00
 	dq 25
-	dq 0xffffffff80125c20
+	dq 0xffffffff80126490
 	db "vobj_ref",0x00
 	dq 36
-	dq 0xffffffff80125b90
+	dq 0xffffffff80126400
 	db "vobj_register_child",0x00
 	dq 27
-	dq 0xffffffff80125c30
+	dq 0xffffffff801264a0
 	db "vobj_unref",0x00
 	dq 26
 	dq 0xffffffff80107220
@@ -3021,39 +3051,39 @@ __ksyms_table:
 	dq 0xffffffff80107270
 	db "write_cr4",0x00
 	dq 30
-	dq 0xffffffff8010b0a0
+	dq 0xffffffff8010ad70
 	db "write_field16",0x00
 	dq 30
-	dq 0xffffffff8010aff0
+	dq 0xffffffff8010acc0
 	db "write_field32",0x00
 	dq 29
-	dq 0xffffffff8010b150
+	dq 0xffffffff8010ae20
 	db "write_field8",0x00
 	dq 39
-	dq 0xffffffff8010dca0
+	dq 0xffffffff8010d970
 	db "write_sync_partitioned",0x00
 	dq 46
-	dq 0xffffffff8010dd20
+	dq 0xffffffff8010d9f0
 	db "write_sync_partitioned_blocks",0x00
 	dq 27
 	dq 0xffffffff801072a0
 	db "write_xcr0",0x00
 	dq 23
-	dq 0xffffffff80112b20
+	dq 0xffffffff80113170
 	db "zalloc",0x00
 	dq 29
-	dq 0xffffffff80112e30
+	dq 0xffffffff80113480
 	db "zalloc_fixed",0x00
 	dq 22
-	dq 0xffffffff80112de0
+	dq 0xffffffff80113430
 	db "zfree",0x00
 	dq 28
-	dq 0xffffffff80112e60
+	dq 0xffffffff801134b0
 	db "zfree_fixed",0x00
 	dq 31
-	dq 0xffffffff80112320
+	dq 0xffffffff80112970
 	db "zone_store_add",0x00
 	dq 34
-	dq 0xffffffff80112360
+	dq 0xffffffff801129b0
 	db "zone_store_remove",0x00
 	dq 0

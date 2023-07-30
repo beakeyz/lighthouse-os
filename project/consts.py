@@ -77,7 +77,7 @@ class Consts:
 
     KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH} > {KERNEL_MAP_PATH}"
 
-    DRIVER_LD_FLAGS_EXT = " -shared -fPIC"
+    DRIVER_LD_FLAGS_EXT = " -pie -shared "
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
 

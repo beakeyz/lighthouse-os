@@ -331,7 +331,7 @@ def project_main() -> Status:
         "drivers": BuildsysBuildDriversCallback(),
         "all": BuildsysBuildAllCallback(),
     }))
-    cmd_processor.register_cmd(Command("generator", args={
+    cmd_processor.register_cmd(Command("gen", args={
         "userprocess": GenerateUserProcessCallback(),
         "ksyms": GenerateKSymsCallback(),
     }))

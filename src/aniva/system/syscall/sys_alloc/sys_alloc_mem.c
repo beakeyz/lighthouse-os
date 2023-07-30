@@ -29,7 +29,7 @@ uint32_t sys_alloc_pages(size_t size, uint32_t flags, void* __user* buffer)
   /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
   base = (void*)Must(__kmem_map_and_alloc_scattered(
         current_process->m_root_pd.m_root,
-        current_process,
+        current_process->m_resource_bundle,
         current_process->m_image.m_highest_addr,
         size,
         KMEM_CUSTOMFLAG_CREATE_USER,

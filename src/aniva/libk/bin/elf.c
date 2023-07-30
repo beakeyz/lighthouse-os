@@ -57,6 +57,67 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
   return ret;
 }
 
+const char* elf_get_shdr_name(struct elf64_hdr* header, struct elf64_shdr* shdr)
+{
+  struct elf64_shdr* strhdr = elf_get_shdr(header, header->e_shstrndx);
+  return (const char*)((uintptr_t)header + strhdr->sh_offset + shdr->sh_name);
+}
+
+struct elf64_shdr* elf_get_shdr(struct elf64_hdr* header, uint32_t i)
+{
+  return (struct elf64_shdr*)((uintptr_t)header + header->e_shoff + header->e_shentsize * i);
+}
+
+void* elf_section_start_addr(struct elf64_hdr* header, const char* name)
+{
+  return (void*)elf_get_shdr(header, elf_find_section(header, name))->sh_addr;
+}
+
+void* elf_section_start_size(struct elf64_hdr* header, const char* name)
+{
+  return (void*)elf_get_shdr(header, elf_find_section(header, name))->sh_size;
+}
+
+uint32_t elf_find_section(struct elf64_hdr* header, const char* name)
+{
+  const char* str_start = (const char*)((uintptr_t)header + header->e_shstrndx);
+
+  for (uint32_t i = 1; i < header->e_shnum; i++) {
+    struct elf64_shdr* shdr = elf_get_shdr(header, i);
+
+    if ((shdr->sh_flags & SHF_ALLOC) && strcmp(str_start + shdr->sh_name, name) == 0)
+      return i;
+  }
+
+  return 0;
+}
+
+ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
+{
+  int error;
+  size_t read_size;
+
+  if (!file || !header)
+    return Error();
+
+  read_size = sizeof(struct elf64_hdr);
+
+  error = elf_read(file, header, &read_size, 0);
+
+  if (error < 0)
+    return Error();
+
+  /* No elf? */
+  if (!memcmp(header->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
+    return Error();
+
+  /* No 64 bit binary =( */
+  if (header->e_ident[EI_CLASS] != ELF_CLASS_64)
+    return Error();
+
+  return Success(0);
+}
+
 /*
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
@@ -69,24 +130,8 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   struct proc_image image;
   uintptr_t proc_flags;
   uint32_t page_flags;
-  size_t read_size;
-  int status;
-
-  disable_interrupts();
-
-  read_size = sizeof(struct elf64_hdr);
-  status = elf_read(file, &header, &read_size, 0);
-
-  /* No filE??? */
-  if (status)
-    return Error();
-
-  /* No elf? */
-  if (!memcmp(header.e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
-    return Error();
-
-  /* No 64 bit binary =( */
-  if (header.e_ident[EI_CLASS] != ELF_CLASS_64)
+   
+  if (IsError(elf_grab_sheaders(file, &header)))
     return Error();
 
   phdrs = elf_load_phdrs_64(file, &header);
@@ -124,7 +169,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
 
           vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
                 ret->m_root_pd.m_root,
-                ret,
+                ret->m_resource_bundle,
                 virtual_phdr_base,
                 phdr_size,
                 KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,

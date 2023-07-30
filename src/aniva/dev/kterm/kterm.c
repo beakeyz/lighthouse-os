@@ -5,8 +5,10 @@
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
+#include "dev/external.h"
 #include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "dev/loader.h"
 #include "dev/manifest.h"
 #include "fs/core.h"
 #include "fs/file.h"
@@ -223,6 +225,12 @@ void kterm_command_worker() {
 
       } else {
 
+        extern_driver_t* driver = create_external_driver(NULL);
+
+        Must(load_external_driver(contents, driver));
+
+        kernel_panic("PANIC");
+
         proc_t* p;
 
         println(contents);
@@ -281,7 +289,7 @@ void kterm_command_worker() {
          */
         Must(__kmem_alloc_ex(
               p->m_root_pd.m_root,
-              p,
+              p->m_resource_bundle,
               (paddr_t)__kterm_fb_info.paddr,
               KTERM_FB_ADDR,
               __kterm_fb_info.size,

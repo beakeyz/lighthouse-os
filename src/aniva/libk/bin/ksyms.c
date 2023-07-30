@@ -30,10 +30,14 @@ uintptr_t get_ksym_address(char* name)
   uint8_t* i = &__ksyms_table;
   ksym_t* current_symbol = (ksym_t*)i;
 
+  if (!name || !*name)
+    return NULL;
+
   while (current_symbol->sym_len) {
     current_symbol = (ksym_t*)i;
 
-    if (memcmp(name, current_symbol->name, strlen(current_symbol->name)))
+    if (memcmp(name, current_symbol->name, strlen(current_symbol->name)) &&
+        memcmp(name, current_symbol->name, strlen(name)))
       return current_symbol->address;
     
     i += current_symbol->sym_len;

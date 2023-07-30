@@ -65,7 +65,7 @@ typedef int64_t     Elf64_Sxword;
 #define ARCH_X86_32  0x03
 #define ARCH_AARCH64 0xb7
 #define BITS_LE      0x01
-#define SHT_RELA     0x00000004
+
 #define R_X86_64_RELATIVE  0x00000008
 #define R_AARCH64_RELATIVE 0x00000403
 
@@ -158,5 +158,89 @@ typedef struct elf64_phdr {
   Elf64_Xword p_memsz;		/* Segment size in memory */
   Elf64_Xword p_align;		/* Segment alignment, file & memory */
 } Elf64_Phdr;
+
+#define SHF_WRITE         0x00000001
+#define SHF_ALLOC         0x00000002
+#define SHF_EXECINSTR     0x00000004
+#define SHF_MASKOS        0x0F000000
+#define SHF_MASKPROC      0xF0000000
+#define SHF_X86_64_LARGE  0x10000000
+#define SHF_X86_64_UNWIND 0x70000001
+
+typedef struct elf64_shdr {
+  Elf64_Word  sh_name;
+  Elf64_Word  sh_type;
+  Elf64_Xword sh_flags;
+  Elf64_Addr  sh_addr;
+  Elf64_Off   sh_offset;
+  Elf64_Xword sh_size;
+  Elf64_Word  sh_link;
+  Elf64_Word  sh_info;
+  Elf64_Xword sh_addralign;
+  Elf64_Xword sh_entsize;
+} Elf64_Shdr;
+
+#define STT_NOTYPE   0
+#define STT_OBJECT   1 
+#define STT_FUNC     2 
+#define STT_SECTION  3 
+#define STT_FILE     4 
+#define STT_LOOS    10
+#define STT_HIOS    12
+#define STT_LOPROC  13
+#define STT_HIPROC  15
+
+#define SHN_UNDEF       0
+#define SHN_LORESERVE	0xff00
+#define SHN_LOPROC      0xFF00
+#define SHN_HIPROC      0xFF1F
+#define SHN_LOOS        0xFF20
+#define SHN_HIOS        0xFF3F
+#define SHN_ABS         0xFFF1
+#define SHN_COMMON      0xFFF2
+#define SHN_HIRESERVE	0xffff
+
+#define SHT_NULL          0x00000000
+#define SHT_PROGBITS      0x00000001
+#define SHT_SYMTAB        0x00000002
+#define SHT_STRTAB        0x00000003
+#define SHT_RELA          0x00000004
+#define SHT_HASH          0x00000005
+#define SHT_DYNAMIC       0x00000006
+#define SHT_NOTE          0x00000007
+#define SHT_NOBITS        0x00000008
+#define SHT_REL           0x00000009
+#define SHT_SHLIB         0x00000010
+#define SHT_DYNSYM        0x00000011
+#define SHT_LOOS          0x60000000
+#define SHT_HIOS          0x6FFFFFFF
+#define SHT_LOPROC        0x70000000
+#define SHT_HIPROC        0x7FFFFFFF
+
+typedef struct elf64_sym {
+  Elf64_Word    st_name;
+  uint8_t       st_info;
+  uint8_t       st_other;
+  Elf64_Half    st_shndx;
+  Elf64_Addr    st_value;
+  Elf64_Xword   st_size;
+} Elf64_Sym;
+
+#define ELF64_R_SYM(i)      ((i) >> 32)
+#define ELF64_R_TYPE(i)     ((i) & 0xFFFFFFFFL)
+
+#define ELF32_R_SYM(x)      ((x) >> 8)
+#define ELF32_R_TYPE(x)     ((x) & 0xff)
+
+typedef struct elf64_rel {
+  Elf64_Addr  r_offset;
+  Elf64_Xword r_info;
+} Elf64_Rel;
+
+typedef struct elf64_rela {
+  Elf64_Addr   r_offset;
+  Elf64_Xword  r_info;
+  Elf64_Sxword r_addend;
+} Elf64_Rela;
 
 #endif // !__ANIVA_LIBK_ELF_TYPES__
