@@ -52,7 +52,7 @@ class Consts:
 
     # Default kernel flags
     # TODO: implement -Wpedantic -Wextra
-    KERNEL_C_FLAGS = "-std=gnu11 -Werror -Wall -nostdlib -O2 -mno-sse -mno-sse2"
+    KERNEL_C_FLAGS = "-std=gnu11 -Werror -Wall -nostdlib -O2 -mno-sse -mno-sse2 -static"
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
     KERNEL_C_FLAGS += " -fno-lto -fpie -fno-exceptions -MMD -I./src -I./src/aniva/ -I./src/libs"
@@ -77,7 +77,7 @@ class Consts:
 
     KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH} > {KERNEL_MAP_PATH}"
 
-    DRIVER_LD_FLAGS_EXT = " -pie -shared "
+    DRIVER_LD_FLAGS_EXT = " -r "
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
 

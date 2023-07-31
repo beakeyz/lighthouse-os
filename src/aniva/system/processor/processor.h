@@ -15,6 +15,7 @@
 #include "system/processor/fpu/state.h"
 #include "sched/scheduler.h"
 #include "dev/debug/serial.h"
+#include "system/resource/context.h"
 #include <aniva/system/asm_specifics.h>
 #include <interrupts/interrupts.h>
 
@@ -61,6 +62,8 @@ typedef struct Processor {
 
   proc_t *m_current_proc;
   proc_t *m_kernel_process;
+
+  resource_ctx_t* m_current_resource_ctx;
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;

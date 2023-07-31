@@ -88,7 +88,7 @@ class SourceFile:
             return "echo Tried to build header! Ignoring..."
 
         if self.language == SourceLanguage.C:
-            return f"{self.compilerDir} {self.buildFlags} -c {self.path} -o {self.outputPath}"
+            return f"{self.compilerDir} -c {self.buildFlags} {self.path} -o {self.outputPath}"
 
         if self.language == SourceLanguage.ASM:
             return f"{self.compilerDir} {self.path} -o {self.outputPath} {self.buildFlags}"

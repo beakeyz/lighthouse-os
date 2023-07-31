@@ -1,6 +1,7 @@
 #include "loader.h"
 #include "dev/debug/serial.h"
 #include "dev/external.h"
+#include "dev/manifest.h"
 #include "fs/vobj.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
@@ -10,10 +11,19 @@
 #include "mem/kmem_manager.h"
 #include <fs/vfs.h>
 
-static ErrorOrPtr __fixup_section_headers(extern_driver_t* driver, struct elf64_hdr* file_start)
+struct loader_ctx {
+  struct elf64_hdr* hdr; 
+  size_t size;
+  struct elf64_shdr* shdrs;
+  char* section_strings;
+  char* strtab;
+  extern_driver_t* driver;
+};
+
+static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
 {
-  for (uint32_t i = 1; i < file_start->e_shnum; i++) {
-    struct elf64_shdr* shdr = elf_get_shdr(file_start, i);
+  for (uint32_t i = 0; i < ctx->hdr->e_shnum; i++) {
+    struct elf64_shdr* shdr = elf_get_shdr(ctx->hdr, i);
 
     switch (shdr->sh_type) {
       case SHT_NOBITS:
@@ -22,13 +32,13 @@ static ErrorOrPtr __fixup_section_headers(extern_driver_t* driver, struct elf64_
             break;
 
           /* Just give any NOBITS sections a bit of memory */
-          TRY(result, __kmem_alloc_range(nullptr, driver->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, NULL));
+          TRY(result, __kmem_alloc_range(nullptr, ctx->driver->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, NULL));
 
           shdr->sh_addr = result;
           break;
         }
       default:
-        shdr->sh_addr = (uintptr_t)file_start + shdr->sh_offset;
+        shdr->sh_addr = (uintptr_t)ctx->hdr + shdr->sh_offset;
         break;
     }
   }
@@ -36,73 +46,89 @@ static ErrorOrPtr __fixup_section_headers(extern_driver_t* driver, struct elf64_
   return Success(0);
 }
 
-static ErrorOrPtr __do_driver_relocations(extern_driver_t* driver, struct elf64_hdr* file_start, size_t file_size)
+static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
 {
+  struct elf64_shdr* shdr;
+  struct elf64_rela* table;
+  struct elf64_shdr* target_shdr;
+  struct elf64_sym* symtable_start;
+  size_t rela_count;
 
   /* Walk the section headers */
-  for (uint32_t i = 1; i < file_start->e_shnum; i++) {
-    struct elf64_shdr* shdr = elf_get_shdr(file_start, i);
+  for (uint32_t i = 0; i < ctx->hdr->e_shnum; i++) {
+    shdr = elf_get_shdr(ctx->hdr, i);
 
-    switch (shdr->sh_type) {
-      case SHT_RELA:
-        {
-          /* Get the rel table of this section */
-          struct elf64_rela* table = (struct elf64_rela*)shdr->sh_addr;
+    if (shdr->sh_type != SHT_RELA)
+      continue;
 
-          /* Get the target section to apply these reallocacions to */
-          struct elf64_shdr* target_shdr = elf_get_shdr(file_start, shdr->sh_info);
+    /* Get the rel table of this section */
+    table = (struct elf64_rela*)shdr->sh_addr;
 
-          /* Get the start of the symbol table */
-          struct elf64_sym* symtable_start = (struct elf64_sym*)elf_get_shdr(file_start, shdr->sh_link)->sh_addr;
+    /* Get the target section to apply these reallocacions to */
+    target_shdr = elf_get_shdr(ctx->hdr, shdr->sh_info);
 
-          /* Compute the amount of relocations */
-          const size_t rela_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_rela)) / sizeof(struct elf64_rela);
+    /* Get the start of the symbol table */
+    symtable_start = (struct elf64_sym*)elf_get_shdr(ctx->hdr, shdr->sh_link)->sh_addr;
 
-          println(to_string(rela_count));
+    /* Compute the amount of relocations */
+    rela_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_rela)) / sizeof(struct elf64_rela);
 
-          for (uint32_t i = 0; i < rela_count; i++) {
-            struct elf64_rela* current = &table[i];
+    println(to_string(rela_count));
 
-            println(to_string(i));
+    for (uint32_t i = 0; i < rela_count; i++) {
+      struct elf64_rela* current = &table[i];
 
-            vaddr_t P = target_shdr->sh_addr + current->r_offset;
-            vaddr_t S = symtable_start[ELF64_R_SYM(table[i].r_info)].st_value;
-            vaddr_t A = table[i].r_addend;
+      println(to_string(i));
 
-            print("reloc type: ");
-            println(to_string(ELF64_R_TYPE(current->r_info)));
+      vaddr_t P = target_shdr->sh_addr + current->r_offset;
+      vaddr_t S = symtable_start[ELF64_R_SYM(table[i].r_info)].st_value;
+      vaddr_t A = current->r_addend;
 
-            switch (ELF64_R_TYPE(current->r_info)) {
-              case 1:
-                (*(uintptr_t*)P) = S + A;
-                break;
-              case 2:
-                (*(uint32_t*)P) = S + A - P;
-                break;
-              case 10:
-                (*(uint32_t*)P) = S + A;
-                break;
-              case 24:
-                (*(uintptr_t*)P) = S + A - P;
-                break;
-              case 25:
-              case 29:
-              case 31:
-                break;
-            }
-          }
+      print("reloc type: ");
+      println(to_string(ELF64_R_TYPE(current->r_info)));
+
+      print("Target: ");
+      println(elf_get_shdr_name(ctx->hdr, target_shdr));
+      print("Current: ");
+      println(elf_get_shdr_name(ctx->hdr, shdr));
+      print("P value: ");
+      println(to_string(*(uintptr_t*)P));
+      print("P: ");
+      println(to_string(P));
+      print("S: ");
+      println(to_string(S));
+      print("A: ");
+      println(to_string(A));
+
+      switch (ELF64_R_TYPE(current->r_info)) {
+        case 1:
+          (*(uintptr_t*)P) = S + A;
           break;
-        }
+        case 2:
+          (*(uint32_t*)P) = S + A - P;
+          break;
+        case 10:
+          (*(uint32_t*)P) = S + A;
+          break;
+        case 24:
+          (*(uintptr_t*)P) = S + A - P;
+          break;
+        case 25:
+        case 29:
+        case 31:
+          println("Unsupported reallocation!");
+          break;
+      }
     }
   }
 
   return Success(0);
 }
 
-static ErrorOrPtr __resolve_kernel_symbols(extern_driver_t* driver, struct elf64_hdr* file_start)
+static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
 {
-  for (uint32_t i = 1; i < file_start->e_shnum; i++) {
-    struct elf64_shdr* shdr = elf_get_shdr(file_start, i);
+  for (uint32_t i = 0; i < ctx->hdr->e_shnum; i++) {
+    struct elf64_shdr* shdr = elf_get_shdr(ctx->hdr, i);
 
     if (shdr->sh_type != SHT_SYMTAB)
       continue;
@@ -111,7 +137,7 @@ static ErrorOrPtr __resolve_kernel_symbols(extern_driver_t* driver, struct elf64
     const size_t sym_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_sym)) / sizeof(struct elf64_sym);
 
     /* Grab the start of the symbol name table */
-    char* names = (char*)elf_get_shdr(file_start, shdr->sh_link)->sh_addr;
+    char* names = (char*)elf_get_shdr(ctx->hdr, shdr->sh_link)->sh_addr;
 
     /* Grab the start of the symbol table */
     struct elf64_sym* sym_table_start = (struct elf64_sym*)shdr->sh_addr;
@@ -130,12 +156,17 @@ static ErrorOrPtr __resolve_kernel_symbols(extern_driver_t* driver, struct elf64
           if (!current_symbol->st_value)
             break;
 
-          driver->m_ksymbol_count++;
+          ctx->driver->m_ksymbol_count++;
           break;
         default:
           {
-            struct elf64_shdr* hdr = elf_get_shdr(file_start, current_symbol->st_shndx);
+            struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
             current_symbol->st_value += hdr->sh_addr;
+
+            if (memcmp("exported_", sym_name, strlen("exported_"))) {
+              println(to_string(current_symbol->st_value));
+              ctx->driver->m_manifest = create_dev_manifest((aniva_driver_t*)current_symbol->st_value);
+            }
           }
       }
     }
@@ -144,30 +175,103 @@ static ErrorOrPtr __resolve_kernel_symbols(extern_driver_t* driver, struct elf64
   return Success(0);
 }
 
-static ErrorOrPtr __move_driver(extern_driver_t* out, struct elf64_hdr* file_start, size_t size)
+static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
 {
 
   /* First, make sure any values and addresses are mapped correctly */
-  if (IsError(__fixup_section_headers(out, file_start)))
+  if (IsError(__fixup_section_headers(ctx)))
     return Error();
 
 
   println("resolving stuff");
-  if (IsError(__resolve_kernel_symbols(out, file_start)))
+  if (IsError(__resolve_kernel_symbols(ctx)))
     return Error();
 
 
   println("Doing relocations r sm");
   /* Then handle any pending relocations */
-  if (IsError(__do_driver_relocations(out, file_start, size)))
+  if (IsError(__do_driver_relocations(ctx)))
     return Error();
 
   return Success(0);
 }
 
-bool file_contains_drivers(file_t* file)
+/*
+ * Do basic checks on the ELF and the driver which should be 
+ * embedded in the file. If we can't find or validate it, we fail
+ * and abort the load.
+ * These checks are similar to the ones linux does
+ */
+static int __check_driver(struct loader_ctx* ctx)
 {
-  return false;
+  uint32_t i;
+  struct elf64_shdr* shdr;
+
+  if (!memcmp(ctx->hdr->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
+    return -1;
+
+  if (ctx->hdr->e_ident[EI_CLASS] != ELF_CLASS_64)
+    return -1;
+
+  if (ctx->hdr->e_type != ET_REL)
+    return -1;
+
+  if (ctx->hdr->e_shentsize != sizeof(struct elf64_shdr))
+    return -1;
+
+  if (!ctx->hdr->e_shstrndx)
+    return -1;
+
+  if (ctx->hdr->e_shstrndx >= ctx->hdr->e_shnum)
+    return -1;
+
+  /* Probably a valid elf, let's grab some funny data */
+  ctx->shdrs = (void*)ctx->hdr + ctx->hdr->e_shoff;
+  ctx->section_strings = (void*)ctx->hdr + ctx->shdrs[ctx->hdr->e_shstrndx].sh_offset;
+
+  for (i = 1; i < ctx->hdr->e_shnum; i++) {
+    shdr = &ctx->shdrs[i];
+
+    switch (shdr->sh_type) {
+      default:
+
+        /* Validate section */
+
+        if (strcmp(ctx->section_strings + shdr->sh_name, ".kpcdrvs") == 0) {
+          println(to_string(shdr->sh_size));
+          println(to_string(shdr->sh_addr));
+          println(to_string(shdr->sh_offset));
+          println(to_string(shdr->sh_link));
+
+          kernel_panic("Found the section that holds driver data");
+        }
+
+        break;
+    }
+  }
+
+  return 0;
+}
+
+/*
+ * TODO: match every allocation with a deallocation on load failure
+ */
+static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
+{
+
+  int error;
+
+  error = __check_driver(ctx);
+
+  if (error)
+    return Error();
+
+  if (IsError(__move_driver(ctx)))
+    return Error();
+
+  kernel_panic("TODO: load external driver");
+
+  return Success(0);
 }
 
 ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out)
@@ -176,8 +280,7 @@ ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out)
   size_t read_size;
   vobj_t* file_obj;
   file_t* file;
-  aniva_driver_t* driver_data;
-  struct elf64_hdr header;
+  struct loader_ctx ctx = { 0 };
 
   if (!out)
     return Error();
@@ -187,10 +290,6 @@ ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out)
 
   if (!file)
     return Error();
-
-  if (IsError(elf_grab_sheaders(file, &header))) {
-    return Error();
-  }
 
   /* Allocate contiguous space for the driver */
   TRY(driver_load_base, __kmem_alloc_range(nullptr, out->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL));
@@ -207,24 +306,19 @@ ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out)
   if (error < 0)
     goto fail_and_deallocate;
 
-  if (IsError(__move_driver(out, (struct elf64_hdr*)driver_load_base, read_size)))
-    goto fail_and_deallocate;
+  ctx.hdr = (struct elf64_hdr*)driver_load_base;
+  ctx.size = read_size;
+  ctx.driver = out;
 
-  println("Looking for kpcdrv");
-  struct elf64_shdr* pcdrv_sct = elf_get_shdr((struct elf64_hdr*)driver_load_base, elf_find_section((struct elf64_hdr*)driver_load_base, ".rela.kpcdrvs"));
-
-  println(to_string((uintptr_t)pcdrv_sct));
-  println(to_string(pcdrv_sct->sh_size));
-  println(to_string(pcdrv_sct->sh_addr));
-  println(to_string(*(uintptr_t*)pcdrv_sct->sh_addr));
-
-  (void)driver_data;
-
-  kernel_panic("TODO: load external driver");
-
-  return Success(0);
+  return __load_ext_driver(&ctx);
 
 fail_and_deallocate:
   /* TODO */
   return Error();
+}
+
+
+bool file_contains_drivers(file_t* file)
+{
+  return false;
 }

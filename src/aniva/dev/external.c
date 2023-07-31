@@ -18,6 +18,9 @@ extern_driver_t* create_external_driver(uint32_t flags)
   return drv;
 }
 
+/*
+ * TODO: move this resource clear routine to the resource context subsystem
+ */
 static void __ext_driver_clear_resources(extern_driver_t* driver)
 {
   ErrorOrPtr result;
