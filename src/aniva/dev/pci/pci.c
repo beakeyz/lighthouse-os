@@ -48,22 +48,105 @@ static struct pci_driver_link** __find_pci_driver(pci_driver_t* driver)
   return ret;
 }
 
+static bool __matches_pci_devid(pci_device_t* device, pci_dev_id_t id) 
+{
+  /* Ids */
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_VENDOR_ID) && device->vendor_id != id.ids.vendor_id)
+    return false;
+
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_DEVICE_ID) && device->dev_id != id.ids.device_id)
+    return false;
+
+  /* Classes */
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_CLASS) && device->class != id.classes.class)
+    return false;
+
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_SUBCLASS) && device->subclass != id.classes.subclass)
+    return false;
+
+  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_PROG_IF) && device->prog_if != id.classes.prog_if)
+    return false;
+
+  return true;
+}
+
+/*
+ * Try to see if there is a suitable device present for this driver to manage
+ * NOTE: the caller may not have the drivers lock held on call
+ * FIXME: when the device already has a driver, we should try to determine whether to
+ *        replace the old driver with this one...
+ */
+static int __find_fitting_pci_devices(pci_driver_t* driver)
+{
+  pci_device_t* ret;
+  pci_dev_id_t* ids;
+
+  /* If we can't probe, thats kinda cringe tbh */
+  if (!driver->f_probe)
+    return -1;
+
+  /* TODO: remove this assert */
+  ASSERT(!driver->device_count);
+
+  int probe_error;
+  ids = driver->id_table;
+  driver->device_count = 0;
+
+  mutex_lock(driver->lock);
+
+  FOREACH(i, __pci_devices) {
+    ret = i->data;
+
+    /* For now, skip any device that already has a driver, until we can choose one over the other */
+    if (ret->driver)
+      continue;
+
+    FOREACH_PCI_DEVID(i, ids) {
+      if (__matches_pci_devid(ret, *i)) {
+        /* Try to probe */
+        probe_error = driver->f_probe(ret, driver);
+
+        if (!probe_error) {
+
+          ret->driver = driver;
+
+          driver->device_count++;
+        }
+      }
+
+      probe_error = 0;
+    }
+  }
+
+  /* If we didn't find any devices, that counts as failure */
+  if (!driver->device_count) {
+    mutex_unlock(driver->lock);
+    return -1;
+  }
+
+  mutex_unlock(driver->lock);
+  return 0;
+}
+
 static int __add_pci_driver(pci_driver_t* driver) 
 {
   struct pci_driver_link** slot;
 
   slot = __find_pci_driver(driver);
 
-  if (*slot == nullptr) {
-    *slot = kzalloc(sizeof(struct pci_driver_link));
+  if (*slot)
+    return -1;
 
-    (*slot)->this = driver;
-    (*slot)->next = nullptr;
+  *slot = kzalloc(sizeof(struct pci_driver_link));
 
-    return 0;
-  }
+  (*slot)->this = driver;
+  (*slot)->next = nullptr;
 
-  return -1;
+  /* This takes and releases the drivers lock */
+  if (__find_fitting_pci_devices(driver))
+    return -1;
+
+  return 0;
 }
 
 static int __remove_pci_driver(pci_driver_t* driver)
@@ -101,27 +184,6 @@ static bool __has_pci_driver(pci_driver_t* driver)
   return true;
 }
 
-static bool matches_pci_devid(pci_device_t* device, pci_dev_id_t id) 
-{
-  /* Ids */
-  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_VENDOR_ID) && device->vendor_id != id.ids.vendor_id)
-    return false;
-
-  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_DEVICE_ID) && device->dev_id != id.ids.device_id)
-    return false;
-
-  /* Classes */
-  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_CLASS) && device->class != id.classes.class)
-    return false;
-
-  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_SUBCLASS) && device->subclass != id.classes.subclass)
-    return false;
-
-  if (PCI_DEVID_SHOULD(id.usage_bits, PCI_DEVID_USE_PROG_IF) && device->prog_if != id.classes.prog_if)
-    return false;
-
-  return true;
-}
 
 /*
  * Register a pci device to our local bus and try to find a pci driver for it
@@ -152,7 +214,7 @@ static void __register_pci_device(pci_device_t* dev) {
     FOREACH_PCI_DEVID(dev_id, d->id_table) {
 
       /* Try to match */
-      if (matches_pci_devid(dev, *dev_id)) {
+      if (__matches_pci_devid(dev, *dev_id)) {
         probe_error = d->f_probe(dev, d);
         fitting_driver = d;
         break;
@@ -202,6 +264,12 @@ bool is_pci_driver_unused(pci_driver_t* driver)
   return false;
 }
 
+/*
+ * TODO: registering a new pci device should prompt rescan of the bus
+ * in order to figure out where we should put this driver
+ *
+ * NOTE: This function may fail when we can't find a device for this driver to govern
+ */
 int register_pci_driver(struct pci_driver* driver)
 {
   if (!driver->id_table)

@@ -312,7 +312,11 @@ typedef struct pci_driver {
   /* Lock that ensures only one opperation at a time on this driver */
   mutex_t* lock;
 
-  /* Functions that are called for specific PCI housekeeping */
+  /*
+   * Functions that are called for specific PCI housekeeping 
+   */
+
+  /* NOTE: Probe is mostly called while the drivers lock is held */
   int (*f_probe) (struct pci_device* device, struct pci_driver* driver);
   int (*f_pci_on_shutdown)(struct pci_device* device);
   int (*f_pci_on_remove)(struct pci_device* device);

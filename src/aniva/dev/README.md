@@ -21,4 +21,13 @@ kernel can come pre-loaded with certain drivers, but these are not ACTUALLY load
 (either by the kernel, or by another driver). When the kernel can't resolve a dependency, it finds out whether the kernel
 can function without it. If this is not the case, it should crash until we find a way to work around this limitation =/
 
+## Internal vs. External
+
+Aniva now allows for external loading of drivers. This means that we can support a wider range of devices and we can achieve 
+a bigger modularity of functionality. 
+
+Most internal drivers are things that we want the kernel to always be able to suport, like filesystems or basic firmware protocols 
+for i.e. graphics (GOP, VESA). External drivers are means for devices that are more of a niche, like specific network adapters, or
+HID devices, et cetera.
+
 - TODO: work this out further

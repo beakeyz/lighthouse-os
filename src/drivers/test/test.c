@@ -2,9 +2,31 @@
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
+#include <dev/pci/pci.h>
+#include <dev/pci/definitions.h>
+
+pci_dev_id_t test_ids[] = {
+  PCI_DEVID_CLASSES_EX(NETWORK_CONTROLLER, 0, 0, PCI_DEVID_USE_CLASS),
+  PCI_DEVID_END,
+};
+
+int test_probe(pci_device_t* dev, pci_driver_t* driver)
+{
+  println("Found a potential device!");
+
+  return 0;
+}
+
+pci_driver_t test_pci_driver = {
+  .id_table = test_ids,
+  .f_probe = test_probe,
+};
 
 int test_init() {
-  println("Yay");
+  println("Initalizing test driver!");
+
+  register_pci_driver(&test_pci_driver);
+
   return 0;
 }
 
