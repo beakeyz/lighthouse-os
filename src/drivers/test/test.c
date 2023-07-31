@@ -6,7 +6,9 @@ int test_init() {
   return 0;
 }
 
-aniva_driver_t extern_test_driver = {
+DEFINE_EXPORTED_DRIVER(extern_test_driver) 
+  =
+{
   .m_name = "ExternalTest",
   .m_descriptor = "Just funnie test",
   .m_version = DRIVER_VERSION(0, 0, 1),
@@ -14,4 +16,3 @@ aniva_driver_t extern_test_driver = {
   .f_init = test_init,
   .m_dep_count = 0,
 };
-EXPORT_DRIVER(extern_test_driver);

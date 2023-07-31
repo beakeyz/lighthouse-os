@@ -32,6 +32,6 @@
 
 bool file_contains_drivers(file_t* file);
 
-ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out);
+extern_driver_t* load_external_driver(const char* path);
 
 #endif // !__ANIVA_DRV_LOADER__

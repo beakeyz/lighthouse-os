@@ -69,6 +69,8 @@ typedef driver_control_code_t           dcc_t;
 
 #define EXPORT_DRIVER(name) static struct aniva_driver* exported_##name USED SECTION(".kpcdrvs") = (struct aniva_driver*)&name 
 
+#define DEFINE_EXPORTED_DRIVER(name) aniva_driver_t name SECTION(".kpcdrvs")
+
 /*
 #define DRIVER_NAME(name) static const char* SECTION(".drv_name") __exported_drv_name USED = (const char*)(name)
 

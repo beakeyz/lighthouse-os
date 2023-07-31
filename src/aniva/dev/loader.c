@@ -18,6 +18,8 @@ struct loader_ctx {
   char* section_strings;
   char* strtab;
   extern_driver_t* driver;
+
+  uint32_t kpcdrvs_idx;
 };
 
 static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
@@ -80,9 +82,15 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
 
       println(to_string(i));
 
+      /* Where we are going to change stuff */
       vaddr_t P = target_shdr->sh_addr + current->r_offset;
+
+      /* The value of the symbol we are referring to */
       vaddr_t S = symtable_start[ELF64_R_SYM(table[i].r_info)].st_value;
       vaddr_t A = current->r_addend;
+
+      size_t size = 0;
+      vaddr_t val = S + A;
 
       print("reloc type: ");
       println(to_string(ELF64_R_TYPE(current->r_info)));
@@ -101,17 +109,21 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
       println(to_string(A));
 
       switch (ELF64_R_TYPE(current->r_info)) {
-        case 1:
-          (*(uintptr_t*)P) = S + A;
+        case R_X86_64_64:
+          size = 8;
           break;
-        case 2:
-          (*(uint32_t*)P) = S + A - P;
+        case R_X86_64_32S:
+        case R_X86_64_32:
+          size = 4;
           break;
-        case 10:
-          (*(uint32_t*)P) = S + A;
+        case R_X86_64_PC32:
+        case R_X86_64_PLT32:
+          val -= P;
+          size = 4;
           break;
-        case 24:
-          (*(uintptr_t*)P) = S + A - P;
+        case R_X86_64_PC64:
+          val -= P;
+          size = 8;
           break;
         case 25:
         case 29:
@@ -119,6 +131,11 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
           println("Unsupported reallocation!");
           break;
       }
+
+      if (!size)
+        return Error();
+
+      memcpy((void*)P, &val, size);
     }
   }
 
@@ -162,11 +179,6 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
           {
             struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
             current_symbol->st_value += hdr->sh_addr;
-
-            if (memcmp("exported_", sym_name, strlen("exported_"))) {
-              println(to_string(current_symbol->st_value));
-              ctx->driver->m_manifest = create_dev_manifest((aniva_driver_t*)current_symbol->st_value);
-            }
           }
       }
     }
@@ -193,6 +205,10 @@ static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
   if (IsError(__do_driver_relocations(ctx)))
     return Error();
 
+
+  /* Find the driver structure */
+
+
   return Success(0);
 }
 
@@ -205,6 +221,7 @@ static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
 static int __check_driver(struct loader_ctx* ctx)
 {
   uint32_t i;
+  uint32_t kpcdrv_sections = 0;
   struct elf64_shdr* shdr;
 
   if (!memcmp(ctx->hdr->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
@@ -238,17 +255,20 @@ static int __check_driver(struct loader_ctx* ctx)
         /* Validate section */
 
         if (strcmp(ctx->section_strings + shdr->sh_name, ".kpcdrvs") == 0) {
-          println(to_string(shdr->sh_size));
-          println(to_string(shdr->sh_addr));
-          println(to_string(shdr->sh_offset));
-          println(to_string(shdr->sh_link));
+          /* TODO: real validation */
 
-          kernel_panic("Found the section that holds driver data");
+          if (shdr->sh_size != sizeof(aniva_driver_t))
+            return -1;
+
+          kpcdrv_sections++;
+          ctx->kpcdrvs_idx = i;
         }
-
         break;
     }
   }
+
+  if (kpcdrv_sections != 1)
+    return -1;
 
   return 0;
 }
@@ -269,30 +289,49 @@ static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
   if (IsError(__move_driver(ctx)))
     return Error();
 
+  struct elf64_shdr* driver_header = &ctx->shdrs[ctx->kpcdrvs_idx];
+  aniva_driver_t* driver = (aniva_driver_t*)driver_header->sh_addr;
+
+  println(driver->m_name);
+
+  int i = driver->f_init();
+
+  println(to_string(i));
+
   kernel_panic("TODO: load external driver");
 
   return Success(0);
 }
 
-ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out)
+extern_driver_t* load_external_driver(const char* path)
 {
   int error;
+  ErrorOrPtr result;
+  uintptr_t driver_load_base;
   size_t read_size;
   vobj_t* file_obj;
   file_t* file;
+  extern_driver_t* out;
   struct loader_ctx ctx = { 0 };
 
+  out = create_external_driver(NULL);
+
   if (!out)
-    return Error();
+    return nullptr;
 
   file_obj = vfs_resolve(path);
   file = vobj_get_file(file_obj);
 
   if (!file)
-    return Error();
+    goto fail_and_deallocate;
 
   /* Allocate contiguous space for the driver */
-  TRY(driver_load_base, __kmem_alloc_range(nullptr, out->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL));
+  result = __kmem_alloc_range(nullptr, out->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL);
+
+  if (IsError(result))
+    goto fail_and_deallocate;
+
+  driver_load_base = Release(result);
 
   /* Set driver fields */
   out->m_load_base = driver_load_base;
@@ -310,11 +349,19 @@ ErrorOrPtr load_external_driver(const char* path, extern_driver_t* out)
   ctx.size = read_size;
   ctx.driver = out;
 
-  return __load_ext_driver(&ctx);
+  result = __load_ext_driver(&ctx);
+
+  if (IsError(result))
+    goto fail_and_deallocate;
+
+  return out;
 
 fail_and_deallocate:
+  if (out)
+    destroy_external_driver(out);
+
   /* TODO */
-  return Error();
+  return nullptr;
 }
 
 

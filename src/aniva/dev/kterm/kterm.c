@@ -225,9 +225,9 @@ void kterm_command_worker() {
 
       } else {
 
-        extern_driver_t* driver = create_external_driver(NULL);
+        extern_driver_t* driver = load_external_driver(contents);
 
-        Must(load_external_driver(contents, driver));
+        (void)driver;
 
         kernel_panic("PANIC");
 
