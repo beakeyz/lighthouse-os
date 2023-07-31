@@ -55,7 +55,7 @@ class Consts:
     KERNEL_C_FLAGS = "-std=gnu11 -Werror -Wall -nostdlib -O2 -mno-sse -mno-sse2 -static"
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
-    KERNEL_C_FLAGS += " -fno-lto -fpie -fno-exceptions -MMD -I./src -I./src/aniva/ -I./src/libs"
+    KERNEL_C_FLAGS += " -fno-lto -fno-exceptions -MMD -I./src -I./src/aniva/ -I./src/libs"
     KERNEL_C_FLAGS += " -D\'KERNEL\'"
 
     # Default libenv flags (aka the aniva equivilant of libc)
