@@ -13,8 +13,8 @@
 
 typedef struct extern_driver {
 
-  uint32_t m_sibling_count; /* Amount of external drivers that got loaded from the same file */
   uint32_t m_flags;
+  uint32_t m_res0;
 
   vaddr_t m_load_base;
   size_t m_load_size;

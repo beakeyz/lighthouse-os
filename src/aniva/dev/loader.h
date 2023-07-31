@@ -30,8 +30,9 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 
-bool file_contains_drivers(file_t* file);
+bool file_contains_driver(file_t* file);
 
 extern_driver_t* load_external_driver(const char* path);
+void unload_external_driver(extern_driver_t* driver);
 
 #endif // !__ANIVA_DRV_LOADER__

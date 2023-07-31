@@ -1,4 +1,6 @@
 #include "external.h"
+#include "dev/manifest.h"
+#include "fs/vobj.h"
 #include "mem/zalloc.h"
 #include "system/resource.h"
 
@@ -102,6 +104,14 @@ reset:
 void destroy_external_driver(extern_driver_t* driver)
 {
   __ext_driver_clear_resources(driver);
+
+  /* We can now close the file if it has one */
+  if (driver->m_file)
+    vobj_close(driver->m_file->m_obj);
+
+  if (driver->m_manifest)
+    destroy_dev_manifest(driver->m_manifest);
+
   kzfree(driver, sizeof(extern_driver_t));
 }
 

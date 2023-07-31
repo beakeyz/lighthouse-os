@@ -229,6 +229,15 @@ void kterm_command_worker() {
 
         (void)driver;
 
+        println(driver->m_manifest->m_url);
+
+        dev_manifest_t* manifest = get_driver("other/ExternalTest");
+
+        ASSERT(manifest);
+
+        println(manifest->m_url);
+        println(manifest->m_driver_file_path);
+
         kernel_panic("PANIC");
 
         proc_t* p;

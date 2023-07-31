@@ -1,5 +1,7 @@
 #include "loader.h"
+#include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/driver.h"
 #include "dev/external.h"
 #include "dev/manifest.h"
 #include "fs/vobj.h"
@@ -12,6 +14,7 @@
 #include <fs/vfs.h>
 
 struct loader_ctx {
+  const char* path;
   struct elf64_hdr* hdr; 
   size_t size;
   struct elf64_shdr* shdrs;
@@ -275,13 +278,68 @@ static int __check_driver(struct loader_ctx* ctx)
 }
 
 /*
+ * Detect certain aspects of drivers, like
+ * 
+ * o do they have msg functions (ioctls)
+ * o do they provide non-trivial service
+ * o do they claim to spawn any processes (deamons)
+ * o do they want to run in userspace (is this a userspace driver actually?)
+ * o ...
+ *
+ */
+static void __detect_driver_attributes(dev_manifest_t* manifest)
+{
+  /* TODO: */
+  (void)manifest;
+}
+
+/*
+ * Initializes the internal driver structures and installs
+ * the driver in the kernel context. When the driver is put
+ * into place, load_driver will call its init function
+ */
+static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
+{
+  ErrorOrPtr result;
+  struct elf64_shdr* driver_header;
+  aniva_driver_t* driver_data;
+
+  driver_header = &ctx->shdrs[ctx->expdrv_idx];
+  driver_data = (aniva_driver_t*)driver_header->sh_addr;
+
+  println("Creating manifest");
+  ctx->driver->m_manifest = create_dev_manifest(driver_data);
+
+  if (!ctx->driver->m_manifest)
+    return Error();
+
+  __detect_driver_attributes(ctx->driver->m_manifest);
+
+  println("Installing");
+  /* We could create a valid manifest! let's install it and finally load it */
+  result = install_driver(ctx->driver->m_manifest);
+
+  if (IsError(result))
+    return Error();
+
+  /* We could install the driver, so we came that far =D */
+  ctx->driver->m_manifest->m_driver_file_path = ctx->path;
+
+  println("Gathering deps");
+  manifest_gather_dependencies(ctx->driver->m_manifest);
+
+  println("Loading");
+  return load_driver(ctx->driver->m_manifest);
+}
+
+/*
  * TODO: match every allocation with a deallocation on load failure
  */
 static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
 {
-
   int error;
 
+  /* TODO: implement + check signatures */
   error = __check_driver(ctx);
 
   if (error)
@@ -290,18 +348,7 @@ static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
   if (IsError(__move_driver(ctx)))
     return Error();
 
-  struct elf64_shdr* driver_header = &ctx->shdrs[ctx->expdrv_idx];
-  aniva_driver_t* driver = (aniva_driver_t*)driver_header->sh_addr;
-
-  println(driver->m_name);
-
-  int i = driver->f_init();
-
-  println(to_string(i));
-
-  kernel_panic("TODO: load external driver");
-
-  return Success(0);
+  return __init_driver(ctx);
 }
 
 extern_driver_t* load_external_driver(const char* path)
@@ -315,16 +362,16 @@ extern_driver_t* load_external_driver(const char* path)
   extern_driver_t* out;
   struct loader_ctx ctx = { 0 };
 
-  out = create_external_driver(NULL);
-
-  if (!out)
-    return nullptr;
-
   file_obj = vfs_resolve(path);
   file = vobj_get_file(file_obj);
 
   if (!file)
-    goto fail_and_deallocate;
+    return nullptr;
+
+  out = create_external_driver(NULL);
+
+  if (!out)
+    return nullptr;
 
   /* Allocate contiguous space for the driver */
   result = __kmem_alloc_range(nullptr, out->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL);
@@ -337,6 +384,7 @@ extern_driver_t* load_external_driver(const char* path)
   /* Set driver fields */
   out->m_load_base = driver_load_base;
   out->m_load_size = ALIGN_UP(file->m_buffer_size, SMALL_PAGE_SIZE);
+  out->m_file = file;
 
   read_size = file->m_buffer_size;
 
@@ -349,6 +397,7 @@ extern_driver_t* load_external_driver(const char* path)
   ctx.hdr = (struct elf64_hdr*)driver_load_base;
   ctx.size = read_size;
   ctx.driver = out;
+  ctx.path = path;
 
   result = __load_ext_driver(&ctx);
 
@@ -365,8 +414,50 @@ fail_and_deallocate:
   return nullptr;
 }
 
-
-bool file_contains_drivers(file_t* file)
+/*
+ * Calls the drivers exit function
+ * Deallocates any created structures and uninstalls the 
+ * driver from the global kernel knowlege
+ */
+void unload_external_driver(extern_driver_t* driver)
 {
+  int error;
+  dev_manifest_t* manifset;
+  aniva_driver_t* driver_data;
+
+  manifset = driver->m_manifest;
+  driver_data = manifset->m_handle;
+  error = 0;
+
+  if (driver_data->f_exit)
+    error = driver_data->f_exit();
+
+  /* TODO: what to do when the driver fails to exit itself? */
+  (void)error;
+
+  ASSERT(!error);
+
+  /*
+   * the destructor of the external driver will deallocate most if not all
+   * of the resources used by the driver. This will happen since the driver gets assigned a resource
+   * context, which gets entered every time the driver is called. Every subsequent allocation will go through
+   * the context and gets tracked, so that we can clean it up nicely when the context is destroyed
+   */
+  destroy_external_driver(driver);
+}
+
+/*
+ * TODO: in order to prob whether there is a driver present in a file, there must be a few
+ * conditions that are met:
+ *
+ * o the file is a valid ELF
+ * o the ELF contains a valid (TODO) signature
+ * o the ELF contains the .expdrv section which is sizeof(aniva_driver_t)
+ *
+ * This requires us to load the entire file however, so this is kinda kostly =/
+ */
+bool file_contains_driver(file_t* file)
+{
+  (void)file;
   return false;
 }

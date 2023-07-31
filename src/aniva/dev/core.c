@@ -143,6 +143,7 @@ void init_aniva_driver_registry() {
   // Install exported drivers
   FOREACH_PCDRV(ptr) {
 
+    dev_manifest_t* manifest;
     aniva_driver_t* driver = *ptr;
 
     println("Loading: ");
@@ -150,12 +151,16 @@ void init_aniva_driver_registry() {
     println(to_string((uintptr_t)driver));
     ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
 
+    manifest = create_dev_manifest(driver);
+
+    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
+
     // NOTE: we should just let errors happen here,
     // since It could happen that a driver is already
     // loaded as a dependency. This means that this call
     // will always fail in that case, since we try to load
     // a driver that has already been loaded
-    Must(install_driver(driver));
+    Must(install_driver(manifest));
   }
 
   hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
@@ -200,7 +205,7 @@ bool verify_driver(struct aniva_driver* driver)
 {
   dev_constraint_t* constaint;
 
-  if (!driver || !driver->f_init || !driver->f_exit) {
+  if (!driver || !driver->f_init) {
     return false;
   }
 
@@ -223,23 +228,19 @@ static bool __should_defer(dev_manifest_t* driver)
 }
 
 
-ErrorOrPtr install_driver(aniva_driver_t* handle) {
+ErrorOrPtr install_driver(dev_manifest_t* manifest) {
 
-  dev_manifest_t* manifest = nullptr;
+  ErrorOrPtr result;
 
-  if (!verify_driver(handle)) {
+  if (!verify_driver(manifest->m_handle)) {
     goto fail_and_exit;
   }
-
-  manifest = create_dev_manifest(handle);
-
-  ASSERT(manifest);
 
   if (is_driver_installed(manifest)) {
     goto fail_and_exit;
   }
 
-  ErrorOrPtr result = hive_add_entry(__installed_driver_manifests, manifest, manifest->m_url);
+  result = hive_add_entry(__installed_driver_manifests, manifest, manifest->m_url);
 
   if (IsError(result)) {
     goto fail_and_exit;
@@ -338,7 +339,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
   // need to be replaced with result != ANIVA_SUCCESS
   if (!is_driver_installed(manifest)) {
-    if (IsError(install_driver(manifest->m_handle))) {
+    if (IsError(install_driver(manifest))) {
       goto fail_and_exit;
     }
   }
@@ -556,7 +557,7 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
   thread_t* current;
   aniva_driver_t* driver;
 
-  if (!manifest)
+  if (!manifest || (manifest->m_flags & DMAN_FLAG_HAS_MSG_FUNC) == 0)
     return Error();
 
   driver = manifest->m_handle;
@@ -602,6 +603,7 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
     return Success(0);
   }
 
+  /* DEPRECATED: i've decided that socket drivers are fucking stupid lol */
   return send_packet_to_socket_ex(driver->m_port, code, buffer, buffer_size);
 }
 

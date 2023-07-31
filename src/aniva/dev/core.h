@@ -98,7 +98,7 @@ void free_dmanifest(struct dev_manifest* manifest);
 /*
  * Registers the driver so it can be loaded
  */
-ErrorOrPtr install_driver(struct aniva_driver* driver);
+ErrorOrPtr install_driver(struct dev_manifest* driver);
 
 /*
  * Unregisters the driver and also unloads it if it is still loaded
