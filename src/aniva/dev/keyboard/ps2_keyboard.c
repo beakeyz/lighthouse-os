@@ -81,7 +81,7 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
   .f_init = ps2_keyboard_entry,
   .f_drv_msg = ps2_keyboard_msg,
 };
-EXPORT_DRIVER(g_base_ps2_keyboard_driver);
+EXPORT_DRIVER_PTR(g_base_ps2_keyboard_driver);
 
 static list_t* s_kb_event_callbacks;
 static uint16_t s_mod_flags;

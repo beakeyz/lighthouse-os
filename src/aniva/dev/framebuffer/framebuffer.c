@@ -38,7 +38,7 @@ aniva_driver_t g_base_fb_driver = {
   .f_drv_msg = fb_driver_on_packet,
   .m_port = 2,
 };
-EXPORT_DRIVER(g_base_fb_driver);
+EXPORT_DRIVER_PTR(g_base_fb_driver);
 
 static int __set_mb_tag(struct multiboot_tag_framebuffer* tag)
 {

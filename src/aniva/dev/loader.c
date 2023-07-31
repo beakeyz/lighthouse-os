@@ -19,7 +19,7 @@ struct loader_ctx {
   char* strtab;
   extern_driver_t* driver;
 
-  uint32_t kpcdrvs_idx;
+  uint32_t expdrv_idx;
 };
 
 static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
@@ -129,6 +129,7 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
         case 29:
         case 31:
           println("Unsupported reallocation!");
+          size = 8;
           break;
       }
 
@@ -254,14 +255,14 @@ static int __check_driver(struct loader_ctx* ctx)
 
         /* Validate section */
 
-        if (strcmp(ctx->section_strings + shdr->sh_name, ".kpcdrvs") == 0) {
+        if (strcmp(ctx->section_strings + shdr->sh_name, ".expdrv") == 0) {
           /* TODO: real validation */
 
           if (shdr->sh_size != sizeof(aniva_driver_t))
             return -1;
 
           kpcdrv_sections++;
-          ctx->kpcdrvs_idx = i;
+          ctx->expdrv_idx = i;
         }
         break;
     }
@@ -289,7 +290,7 @@ static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
   if (IsError(__move_driver(ctx)))
     return Error();
 
-  struct elf64_shdr* driver_header = &ctx->shdrs[ctx->kpcdrvs_idx];
+  struct elf64_shdr* driver_header = &ctx->shdrs[ctx->expdrv_idx];
   aniva_driver_t* driver = (aniva_driver_t*)driver_header->sh_addr;
 
   println(driver->m_name);

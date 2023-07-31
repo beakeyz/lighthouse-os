@@ -386,4 +386,4 @@ aniva_driver_t base_ahci_driver = {
    */
   .m_dep_count = 0
 };
-EXPORT_DRIVER(base_ahci_driver);
+EXPORT_DRIVER_PTR(base_ahci_driver);

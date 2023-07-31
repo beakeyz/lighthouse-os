@@ -13,6 +13,4 @@ typedef struct ata_dev {
 
 } ata_dev_t;
 
-const extern aniva_driver_t g_base_ata_driver;
-
 #endif // !__ANIVA_ATA__

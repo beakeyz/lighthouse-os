@@ -1,12 +1,14 @@
+#include "dev/debug/serial.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
 
 int test_init() {
+  println("Yay");
   return 0;
 }
 
-DEFINE_EXPORTED_DRIVER(extern_test_driver) 
+EXPORT_DRIVER(extern_test_driver) 
   =
 {
   .m_name = "ExternalTest",

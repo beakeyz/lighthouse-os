@@ -60,6 +60,41 @@ def __put_string(file, string: str):
 def __put_address(file, address):
     file.write(f"\tdq 0x{address}\n")
 
+def write_dummy_source(out_path: str, c: Consts) -> SourceFile:
+    '''
+    Write a dummy variant of the ksyms source file, to make the linker happy
+    '''
+
+    if not out_path.endswith(".asm"):
+        return None 
+
+    try:
+        os.remove(out_path)
+    except:
+        pass
+
+    with open(out_path, "x") as source_file:
+        source_file.write("[section .ksyms]\n")
+
+        source_file.write("\n")
+
+        __put_global_label(source_file, "__ksyms_count")
+        __put_quad(source_file, 0)
+
+        source_file.write("\n")
+
+        __put_global_label(source_file, "__ksyms_table")
+        
+        # Mark the end of the symbol table with a 0x00
+        __put_quad(source_file, 0)
+
+    # Write a dummy sourcefile
+    file = SourceFile(False, out_path, "ksyms.asm", SourceLanguage.ASM)
+    file.set_compiler(c.CROSS_ASM_DIR)
+    file.setOutputPath(file.get_path().replace(c.SRC_DIR, c.OUT_DIR))
+
+    return file
+
 def write_map_to_source(map: list[KSymbol], out_path: str, c: Consts) -> SourceFile:
 
     if not out_path.endswith(".asm"):

@@ -258,7 +258,7 @@ aniva_driver_t ramfs = {
   .f_init = ramfs_init,
   .f_exit = ramfs_exit,
 };
-EXPORT_DRIVER(ramfs);
+EXPORT_DRIVER_PTR(ramfs);
 
 fs_type_t cramfs = {
   .m_name = "cramfs",

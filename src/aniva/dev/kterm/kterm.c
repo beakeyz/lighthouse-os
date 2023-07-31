@@ -326,7 +326,7 @@ aniva_driver_t g_base_kterm_driver = {
   .m_dependencies = {"graphics/fb", "io/ps2_kb"},
   .m_dep_count = 2,
 };
-EXPORT_DRIVER(g_base_kterm_driver);
+EXPORT_DRIVER_PTR(g_base_kterm_driver);
 
 static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {

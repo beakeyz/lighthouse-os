@@ -51,5 +51,5 @@ const aniva_driver_t g_base_ata_driver = {
   .m_dependencies = {},
   .m_dep_count = 0,
 };
-EXPORT_DRIVER(g_base_ata_driver);
+EXPORT_DRIVER_PTR(g_base_ata_driver);
 

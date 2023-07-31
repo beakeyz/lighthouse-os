@@ -75,7 +75,7 @@ class Consts:
 
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000"
 
-    KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH} > {KERNEL_MAP_PATH}"
+    KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH}"
 
     DRIVER_LD_FLAGS_EXT = " -r "
 

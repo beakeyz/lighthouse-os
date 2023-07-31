@@ -220,15 +220,33 @@ class ProjectBuilder(object):
             ld = self.constants.CROSS_LD_DIR
             nm = self.constants.CROSS_NM_DIR
 
+            file = build.symbols.write_dummy_source(self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
+
+            if file == None:
+                return BuilderResult.FAIL
+
+            # Build the dummy sourcefile
+            if self.buildKernelSourceFile(file) != 0:
+                return BuilderResult.FAIL
+
+            ksyms_file_obj_path = f"{file.getOutputDir()}ksyms.o"
+
+            # Add it if it didn't exist before
+            if objFiles.find(ksyms_file_obj_path) == -1:
+                objFiles += ksyms_file_obj_path
+
+            # Try to link
             if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") != 0:
                 return BuilderResult.FAIL
 
-            if os.system(f"{nm} {self.constants.KERNEL_NM_FLAGS}") != 0:
+            # We have a valid ELF now, lets dump the symbols
+            if os.system(f"{nm} {self.constants.KERNEL_NM_FLAGS} > {self.constants.KERNEL_MAP_PATH}") != 0:
                 return BuilderResult.FAIL
 
             # Run the symbol generator to inject the kernels symbols directly into the build
             symbols: list[KSymbol] = build.symbols.read_map(self.constants.KERNEL_MAP_PATH)
 
+            # We can no generate the corrent symbol sourcefile
             file = build.symbols.write_map_to_source(symbols, self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
 
             if file == None:
@@ -238,11 +256,7 @@ class ProjectBuilder(object):
             if self.buildKernelSourceFile(file) != 0:
                 return BuilderResult.FAIL
 
-            ksyms_file_obj_path = f"{file.getOutputDir()}ksyms.o"
-
-            if objFiles.find(ksyms_file_obj_path) == -1:
-                objFiles += ksyms_file_obj_path
-
+            # Link again to include the symbols in the build =D
             if os.system(f"{ld} -o {KEP} {objFiles} {KLF}") != 0:
                 return BuilderResult.FAIL
 

@@ -25,6 +25,4 @@ typedef struct fb_info {
   uint32_t* volatile paddr; 
 } fb_info_t;
 
-extern aniva_driver_t g_base_fb_driver;
-
 #endif // !__FRAMEBUFFER__

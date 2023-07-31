@@ -209,7 +209,7 @@ aniva_driver_t fat32_drv = {
   .m_dependencies = {"disk/ahci"},
   .m_dep_count = 1,
 };
-EXPORT_DRIVER(fat32_drv);
+EXPORT_DRIVER_PTR(fat32_drv);
 
 fs_type_t fat32_type = {
   .m_driver = &fat32_drv,

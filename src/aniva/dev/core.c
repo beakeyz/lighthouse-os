@@ -139,10 +139,15 @@ void init_aniva_driver_registry() {
 
   __deferred_driver_manifests = init_list();
 
+  println("Loading things");
   // Install exported drivers
   FOREACH_PCDRV(ptr) {
+
     aniva_driver_t* driver = *ptr;
 
+    println("Loading: ");
+    println(driver->m_name);
+    println(to_string((uintptr_t)driver));
     ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
 
     // NOTE: we should just let errors happen here,

@@ -59,7 +59,7 @@ aniva_driver_t ext2_drv = {
   .m_dependencies = {"disk/ahci"},
   .m_dep_count = 1,
 };
-EXPORT_DRIVER(ext2_drv);
+EXPORT_DRIVER_PTR(ext2_drv);
 
 fs_type_t ext2_type = {
   .m_driver = &ext2_drv,
