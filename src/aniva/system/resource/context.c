@@ -8,6 +8,20 @@ static resource_ctx_t* __resource_contexts;
 static mutex_t* __resource_context_lock;
 static zone_allocator_t* __res_ctx_allocator;
 
+/*
+ * This struct represents the stack that we use to keep track of every context
+ *  entering a context means pushing onto the stack
+ *  exiting a context means popping of of the stack
+ * Every stack has a HARD max depth, meaning that when this gets overrun, we consider this a 
+ * fatal error and we panic =)
+ * A resource context should also be able to cover a bit more than regular kresources,
+ * since these are also meant to be used to keep track of resources allocated by drivers and kernel
+ * subsystems. Processes will have enough with just kresources for now...
+ */
+struct resource_ctx_stack {
+
+};
+
 static resource_ctx_t* alloc_resource_ctx()
 {
   return zalloc_fixed(__res_ctx_allocator);

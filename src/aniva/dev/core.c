@@ -419,7 +419,7 @@ bool is_driver_loaded(dev_manifest_t* manifest) {
     return false;
   }
 
-  return hive_contains(__loaded_driver_manifests, manifest);
+  return (hive_get(__loaded_driver_manifests, manifest->m_url) != nullptr);
 }
 
 
@@ -428,7 +428,7 @@ bool is_driver_installed(dev_manifest_t* manifest) {
     return false;
   }
 
-  return hive_contains(__installed_driver_manifests, manifest);
+  return (hive_get(__installed_driver_manifests, manifest->m_url) != nullptr);
 }
 
 /*

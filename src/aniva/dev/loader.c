@@ -11,6 +11,7 @@
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
+#include "proc/proc.h"
 #include <fs/vfs.h>
 
 struct loader_ctx {
@@ -316,6 +317,7 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
   __detect_driver_attributes(ctx->driver->m_manifest);
 
   println("Installing");
+  println(ctx->driver->m_manifest->m_url);
   /* We could create a valid manifest! let's install it and finally load it */
   result = install_driver(ctx->driver->m_manifest);
 
