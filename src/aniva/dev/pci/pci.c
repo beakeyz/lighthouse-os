@@ -101,9 +101,6 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
     if (ret->driver)
       continue;
 
-    println(to_string(ret->class));
-    println(to_string(NETWORK_CONTROLLER));
-
     FOREACH_PCI_DEVID(i, ids) {
       if (__matches_pci_devid(ret, *i)) {
         /* Try to probe */

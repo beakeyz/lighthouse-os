@@ -20,6 +20,9 @@
 #include <mem/heap.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
+#include <dev/core.h>
+#include <dev/driver.h>
+#include <dev/manifest.h>
 
 #define STANDARD_PD_ENTRIES 512
 #define MAX_RETRIES_FOR_PAGE_MAPPING 5
@@ -829,6 +832,15 @@ ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address) {
   return Error();
 }
 
+/*
+ * NOTE: About the 'current_driver' mechanism
+ * 
+ * We track allocations of drivers by keeping track of which driver we are currently executing, but there is nothing stopping the
+ * drivers (yet) from using any kernel function that bypasses this mechanism, so mallicious (or simply malfunctioning) drivers can
+ * cause us to lose memory at a big pase. We should (TODO) limit drivers to only use the functions that are deemed safe to use by drivers,
+ * AKA we should blacklist any 'unsafe' functions, like __kmem_alloc_ex, which bypasses any resource tracking
+ */
+
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
   return __kmem_dealloc(nullptr, nullptr, virt_base, size);
 }
@@ -950,8 +962,8 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
 
   if (resources) {
     resource_claim_ex("kmem alloc range", virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(resources, KRES_TYPE_MEM));
-  }
 
+  }
   return Success(virt_base);
 }
 

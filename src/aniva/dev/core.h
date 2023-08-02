@@ -129,7 +129,6 @@ bool is_driver_loaded(struct dev_manifest* handle);
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
-
 bool verify_driver(struct aniva_driver* driver);
 
 /*

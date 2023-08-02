@@ -5,6 +5,7 @@
 #include "libk/flow/reference.h"
 #include "libk/string.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
 
@@ -624,9 +625,92 @@ void create_resource_bundle(kresource_bundle_t* out)
   }
 }
 
+/*!
+ * @brief Loops over the resources in the bundle and cleans them up
+ *
+ * Every type of resource needs its own type of cleanup, which is why we loop over every
+ * used resource to release it. We should however (TODO again) try to support resources 
+ * managing their teardown themselves, since we can simply give them a fuction pointer to
+ * a function that knows how to destroy and cleanup that type of resource (like kmalloc, vs __kmem_kernel_alloc)
+ */
+static void __bundle_clear_resources(kresource_bundle_t bundle)
+{
+  ErrorOrPtr result;
+  kresource_t* start_resource;
+  kresource_t* current;
+  kresource_t* next;
+
+  for (kresource_type_t type = 0; type < KRES_MAX_TYPE; type++) {
+
+    /* Find the first resource of this type */
+    current = start_resource = bundle[type];
+
+    while (current) {
+
+      next = current->m_next;
+
+      uintptr_t start = current->m_start;
+      size_t size = current->m_size;
+
+      /* Skip mirrors with size zero or no references */
+      if (!size || !current->m_shared_count) {
+        goto next_resource;
+      }
+
+      /* TODO: destry other resource types */
+      switch (current->m_type) {
+        case KRES_TYPE_MEM:
+
+          /* Should we dealloc or simply unmap? */
+          if ((current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
+
+            /* Preset */
+            result = Error();
+
+            /* Try to unmap */
+            if (kmem_unmap_range_ex(nullptr, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
+
+              /* Pre-emptively remove the flags, just in case this fails */
+              current->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
+
+              /* Yay, now release the thing */
+              result = resource_release(start, size, start_resource);
+            }
+
+            break;
+          }
+
+          result = __kmem_dealloc_ex(nullptr, bundle, start, size, false, true);
+          break;
+        default:
+          /* Skip this entry for now */
+          break;
+      }
+
+      /* If we successfully dealloc, the resource, we cant trust the link anymore. Start over */
+      if (!IsError(result))
+        goto reset;
+
+next_resource:
+      if (current->m_next) {
+        ASSERT_MSG(current->m_type == current->m_next->m_type, "Found type mismatch while cleaning process resources");
+      }
+
+      current = next;
+      continue;
+
+reset:
+      current = start_resource;
+    }
+  }
+}
+
+
 void destroy_resource_bundle(kresource_bundle_t bundle)
 {
   kresource_t* current;
+
+  __bundle_clear_resources(bundle);
   
   for (kresource_type_t type = KRES_MIN_TYPE; type <= KRES_MAX_TYPE; type++) {
     

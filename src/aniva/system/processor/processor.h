@@ -11,6 +11,7 @@
 #include "processor_info.h"
 #include "gdt.h"
 #include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/processor/fpu/state.h"
 #include "sched/scheduler.h"
@@ -20,6 +21,7 @@
 #include <interrupts/interrupts.h>
 
 struct Processor;
+struct dev_manifest;
 
 typedef void (*PROCESSOR_LATE_INIT)(
   struct Processor *this
@@ -63,7 +65,7 @@ typedef struct Processor {
   proc_t *m_current_proc;
   proc_t *m_kernel_process;
 
-  resource_ctx_t* m_current_resource_ctx;
+  //resource_ctx_stack_t* m_resource_ctx_stack;
 
   PROCESSOR_LATE_INIT fLateInit;
 } Processor_t;

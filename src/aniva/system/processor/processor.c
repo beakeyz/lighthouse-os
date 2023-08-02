@@ -5,6 +5,7 @@
 #include "libk/data/queue.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"

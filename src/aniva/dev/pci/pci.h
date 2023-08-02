@@ -326,7 +326,7 @@ typedef struct pci_driver {
   pci_dev_id_t* id_table;
 
   /* The parent driver that makes up */
-  //aniva_driver_t* parent;
+  struct dev_manifest* manifest;
 } pci_driver_t;
 
 bool is_pci_driver_unused(pci_driver_t* driver);

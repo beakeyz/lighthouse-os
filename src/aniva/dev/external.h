@@ -28,9 +28,6 @@ typedef struct extern_driver {
   /* Process that this driver got */
   proc_t* m_process;
 
-  /* Resources that this driver has claimed */
-  kresource_bundle_t m_resources;
-
   /* This drivers manifest */
   dev_manifest_t* m_manifest;
 } extern_driver_t;

@@ -38,7 +38,7 @@ static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
             break;
 
           /* Just give any NOBITS sections a bit of memory */
-          TRY(result, __kmem_alloc_range(nullptr, ctx->driver->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, NULL));
+          TRY(result, __kmem_alloc_range(nullptr, ctx->driver->m_manifest->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, NULL));
 
           shdr->sh_addr = result;
           break;
@@ -79,12 +79,8 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
     /* Compute the amount of relocations */
     rela_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_rela)) / sizeof(struct elf64_rela);
 
-    println(to_string(rela_count));
-
     for (uint32_t i = 0; i < rela_count; i++) {
       struct elf64_rela* current = &table[i];
-
-      println(to_string(i));
 
       /* Where we are going to change stuff */
       vaddr_t P = target_shdr->sh_addr + current->r_offset;
@@ -95,22 +91,6 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
 
       size_t size = 0;
       vaddr_t val = S + A;
-
-      print("reloc type: ");
-      println(to_string(ELF64_R_TYPE(current->r_info)));
-
-      print("Target: ");
-      println(elf_get_shdr_name(ctx->hdr, target_shdr));
-      print("Current: ");
-      println(elf_get_shdr_name(ctx->hdr, shdr));
-      print("P value: ");
-      println(to_string(*(uintptr_t*)P));
-      print("P: ");
-      println(to_string(P));
-      print("S: ");
-      println(to_string(S));
-      print("A: ");
-      println(to_string(A));
 
       switch (ELF64_R_TYPE(current->r_info)) {
         case R_X86_64_64:
@@ -129,11 +109,8 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
           val -= P;
           size = 8;
           break;
-        case 25:
-        case 29:
-        case 31:
-          println("Unsupported reallocation!");
-          size = 8;
+        default:
+          size = 0;
           break;
       }
 
@@ -200,12 +177,10 @@ static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
     return Error();
 
 
-  println("resolving stuff");
   if (IsError(__resolve_kernel_symbols(ctx)))
     return Error();
 
 
-  println("Doing relocations r sm");
   /* Then handle any pending relocations */
   if (IsError(__do_driver_relocations(ctx)))
     return Error();
@@ -308,16 +283,13 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
   driver_header = &ctx->shdrs[ctx->expdrv_idx];
   driver_data = (aniva_driver_t*)driver_header->sh_addr;
 
-  println("Creating manifest");
-  ctx->driver->m_manifest = create_dev_manifest(driver_data);
+  result = manifest_emplace_handle(ctx->driver->m_manifest, driver_data);
 
-  if (!ctx->driver->m_manifest)
+  if (IsError(result))
     return Error();
 
   __detect_driver_attributes(ctx->driver->m_manifest);
 
-  println("Installing");
-  println(ctx->driver->m_manifest->m_url);
   /* We could create a valid manifest! let's install it and finally load it */
   result = install_driver(ctx->driver->m_manifest);
 
@@ -327,10 +299,8 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
   /* We could install the driver, so we came that far =D */
   ctx->driver->m_manifest->m_driver_file_path = ctx->path;
 
-  println("Gathering deps");
   manifest_gather_dependencies(ctx->driver->m_manifest);
 
-  println("Loading");
   return load_driver(ctx->driver->m_manifest);
 }
 
@@ -372,11 +342,14 @@ extern_driver_t* load_external_driver(const char* path)
 
   out = create_external_driver(NULL);
 
-  if (!out)
+  if (!out || !out->m_manifest)
     return nullptr;
 
+  /* Make sure we know this is external */
+  out->m_manifest->m_flags |= DMAN_FLAG_IS_EXTERNAL;
+
   /* Allocate contiguous space for the driver */
-  result = __kmem_alloc_range(nullptr, out->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL);
+  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL);
 
   if (IsError(result))
     goto fail_and_deallocate;
@@ -423,21 +396,17 @@ fail_and_deallocate:
  */
 void unload_external_driver(extern_driver_t* driver)
 {
-  int error;
+  ErrorOrPtr result;
   dev_manifest_t* manifset;
-  aniva_driver_t* driver_data;
+
+  if (!driver)
+    return;
 
   manifset = driver->m_manifest;
-  driver_data = manifset->m_handle;
-  error = 0;
 
-  if (driver_data->f_exit)
-    error = driver_data->f_exit();
+  result = unload_driver(manifset->m_url);
 
-  /* TODO: what to do when the driver fails to exit itself? */
-  (void)error;
-
-  ASSERT(!error);
+  Must(result);
 
   /*
    * the destructor of the external driver will deallocate most if not all

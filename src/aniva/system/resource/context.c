@@ -1,26 +1,17 @@
 #include "context.h"
+#include "dev/core.h"
+#include "dev/manifest.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
+#include "system/resource.h"
 
 static resource_ctx_t* __resource_contexts;
 static mutex_t* __resource_context_lock;
 static zone_allocator_t* __res_ctx_allocator;
 
-/*
- * This struct represents the stack that we use to keep track of every context
- *  entering a context means pushing onto the stack
- *  exiting a context means popping of of the stack
- * Every stack has a HARD max depth, meaning that when this gets overrun, we consider this a 
- * fatal error and we panic =)
- * A resource context should also be able to cover a bit more than regular kresources,
- * since these are also meant to be used to keep track of resources allocated by drivers and kernel
- * subsystems. Processes will have enough with just kresources for now...
- */
-struct resource_ctx_stack {
-
-};
+#define MAX_RESOURCE_CTX_STACK_ENTRIES (SMALL_PAGE_SIZE / sizeof(resource_ctx_t))
 
 static resource_ctx_t* alloc_resource_ctx()
 {
@@ -53,7 +44,9 @@ resource_ctx_t* get_current_resource_ctx()
    * Since the current resource context is stored in the local CPU, use the GS base (where we store the current CPU struct)
    * to locate our current context
    */
-  return (resource_ctx_t*)read_gs(GET_OFFSET(Processor_t, m_current_resource_ctx));
+  //resource_ctx_stack_t* stack = (resource_ctx_stack_t*)read_gs(GET_OFFSET(Processor_t, m_resource_ctx_stack));
+  //return &stack->entries[stack->stack_index];
+  return nullptr;
 }
 
 bool resource_ctx_is_last(resource_ctx_t* ctx)
@@ -65,7 +58,7 @@ bool resource_ctx_is_last(resource_ctx_t* ctx)
    * move to the next context in the link and remove the previous, when
    * we exit a context
    */
-  return (ctx->next == nullptr);
+  return (ctx->driver == nullptr);
 }
 
 void init_resource_ctx()
@@ -79,7 +72,7 @@ void init_resource_ctx()
   mutex_lock(__resource_context_lock);
 
   /* Create the allocator */
-  __res_ctx_allocator = create_zone_allocator(SMALL_PAGE_SIZE, sizeof(resource_ctx_t), NULL);
+  __res_ctx_allocator = create_zone_allocator(16 * Kib, sizeof(resource_ctx_stack_t) + MAX_RESOURCE_CTX_STACK_ENTRIES * sizeof(resource_ctx_t), NULL);
 
   /* Make sure that this is empty */
   memset(__resource_contexts->resource_bundle, 0, sizeof(kresource_bundle_t));

@@ -10,6 +10,14 @@ typedef enum _ANIVA_STATUS {
   // TODO: more types?
 } ANIVA_STATUS;
 
+#define EOP_ERROR 0
+#define EOP_NOMEM 1
+#define EOP_INVAL 2
+#define EOP_BUSY  3
+#define EOP_NODEV 4
+#define EOP_NOCON 5
+#define EOP_NULL  6
+
 /*
  * FIXME: it seems like adding any more fields here 
  * breaks a lot of stuff. Why? idk. Should figure that out ig

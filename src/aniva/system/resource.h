@@ -62,7 +62,11 @@ void init_kresources();
  */
 typedef struct kresource {
   
-  const char m_name[32];
+  const char m_name[24];
+
+  /* Function that prompts the resources deletion and releases the physical resource it holds (memory, irqs, io ports) */
+  // TODO: implement fully
+  int (*f_release) (struct kresource*);
 
   /* Data regarding the resource */
   uintptr_t m_start;

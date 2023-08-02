@@ -7,6 +7,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
+#include "system/resource.h"
 #include <libk/string.h>
 
 size_t get_driver_url_length(aniva_driver_t* handle) {
@@ -90,8 +91,6 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
 
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
 
-  ASSERT(handle);
-
   dev_manifest_t* ret = allocate_dmanifest();
 
   ASSERT(ret);
@@ -100,26 +99,49 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
 
   ret->m_handle = handle;
 
+  ret->m_flags = NULL;
   ret->m_dep_count = NULL;
   ret->m_dependency_manifests = init_list();
 
-  ret->m_check_version = handle->m_version;
+  if (handle) {
+    ret->m_check_version = handle->m_version;
+    ret->m_url_length = get_driver_url_length(handle);
+    // TODO: concat
+    ret->m_url = get_driver_url(handle);
+  } else {
+    ret->m_flags |= DMAN_FLAG_DEFERRED_HNDL;
+  }
 
-  ret->m_flags = NULL;
-
-  ret->m_url_length = get_driver_url_length(handle);
-  // TODO: concat
-  ret->m_url = get_driver_url(handle);
+  create_resource_bundle(&ret->m_resources);
 
   return ret;
+}
+
+ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* handle)
+{
+  if (manifest->m_handle || !(manifest->m_flags & DMAN_FLAG_DEFERRED_HNDL))
+    return Error();
+
+  /* Mark the manifest as non-deferred */
+  manifest->m_flags &= ~DMAN_FLAG_DEFERRED_HNDL;
+
+  /* Emplace the handle and its data */
+  manifest->m_handle = handle;
+  manifest->m_check_version = handle->m_version;
+  manifest->m_url_length = get_driver_url_length(handle);
+  manifest->m_url = get_driver_url(handle);
+
+  return Success(0);
 }
 
 void destroy_dev_manifest(dev_manifest_t* manifest) {
   // TODO: figure out if we need to take the driver handle with us...
 
   clear_mutex(&manifest->m_lock);
-
   destroy_list(manifest->m_dependency_manifests);
+
+  destroy_resource_bundle(manifest->m_resources);
+
   kfree((void*)manifest->m_url);
   free_dmanifest(manifest);
 }
@@ -130,6 +152,7 @@ void manifest_gather_dependencies(dev_manifest_t* manifest)
 
   /* We should not have any dependencies on the manifest at this point */
   ASSERT(!manifest->m_dep_count);
+  ASSERT(manifest->m_dependency_manifests);
 
   /*
    * We kinda trust too much in the fact that m_dep_count is 

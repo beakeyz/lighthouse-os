@@ -1,5 +1,7 @@
 #include "dev/debug/serial.h"
+#include "dev/kterm/kterm.h"
 #include "libk/string.h"
+#include "mem/kmem_manager.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
@@ -13,8 +15,7 @@ pci_dev_id_t test_ids[] = {
 
 int test_probe(pci_device_t* dev, pci_driver_t* driver)
 {
-  println("Found a potential device!");
-  println(to_string(driver->device_count));
+  println_kterm("Found a potential device!");
   return 0;
 }
 
@@ -23,10 +24,27 @@ pci_driver_t test_pci_driver = {
   .f_probe = test_probe,
 };
 
+static uintptr_t hihi;
+
 int test_init() {
   println("Initalizing test driver!");
 
   register_pci_driver(&test_pci_driver);
+
+  hihi = Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, NULL, NULL));
+
+  *(uintptr_t*)hihi = 69;
+
+  println(to_string(hihi));
+  println(to_string(*(uintptr_t*)hihi));
+
+  return 0;
+}
+
+int test_exit() {
+
+  println("Exiting test driver!");
+  __kmem_kernel_dealloc(hihi, SMALL_PAGE_SIZE);
 
   return 0;
 }
@@ -39,5 +57,6 @@ EXPORT_DRIVER(extern_test_driver)
   .m_version = DRIVER_VERSION(0, 0, 1),
   .m_type = DT_OTHER,
   .f_init = test_init,
+  .f_exit = test_exit,
   .m_dep_count = 0,
 };

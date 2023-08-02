@@ -33,10 +33,25 @@ typedef struct resource_context {
     struct dev_manifest* driver;
     struct proc* process;
   };
-
-  /* Next context in the chain */
-  struct resource_context* next;
 } resource_ctx_t;
+
+/*
+ * This struct represents the stack that we use to keep track of every context
+ *  entering a context means pushing onto the stack
+ *  exiting a context means popping of of the stack
+ * Every stack has a HARD max depth, meaning that when this gets overrun, we consider this a 
+ * fatal error and we panic =)
+ * A resource context should also be able to cover a bit more than regular kresources,
+ * since these are also meant to be used to keep track of resources allocated by drivers and kernel
+ * subsystems. Processes will have enough with just kresources for now...
+ */
+typedef struct resource_ctx_stack {
+  uintptr_t stack_index;
+  uintptr_t stack_capacity;
+
+  resource_ctx_t entries[];
+} resource_ctx_stack_t;
+
 
 /*
  * Initialization

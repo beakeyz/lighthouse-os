@@ -226,17 +226,19 @@ void kterm_command_worker() {
       } else {
 
         extern_driver_t* driver = load_external_driver(contents);
-
-        (void)driver;
-
-        println(driver->m_manifest->m_url);
-
         dev_manifest_t* manifest = get_driver("other/ExternalTest");
 
         ASSERT(manifest);
 
-        println(manifest->m_url);
-        println(manifest->m_driver_file_path);
+        kterm_println(manifest->m_url);
+        kterm_println("\n");
+        kterm_println(manifest->m_driver_file_path);
+        kterm_println("\n");
+
+        kterm_println(to_string(driver->m_ksymbol_count));
+        kterm_println("\n");
+
+        unload_external_driver(driver);
 
         kernel_panic("PANIC");
 

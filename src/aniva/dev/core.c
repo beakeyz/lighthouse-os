@@ -19,6 +19,8 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include "system/asm_specifics.h"
+#include "system/processor/processor.h"
 #include <entry/entry.h>
 
 /* 
@@ -139,16 +141,12 @@ void init_aniva_driver_registry() {
 
   __deferred_driver_manifests = init_list();
 
-  println("Loading things");
   // Install exported drivers
   FOREACH_PCDRV(ptr) {
 
     dev_manifest_t* manifest;
     aniva_driver_t* driver = *ptr;
 
-    println("Loading: ");
-    println(driver->m_name);
-    println(to_string((uintptr_t)driver));
     ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
 
     manifest = create_dev_manifest(driver);
@@ -392,21 +390,38 @@ fail_and_exit:
 
 
 ErrorOrPtr unload_driver(dev_url_t url) {
+
+  int error;
   dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, url);
 
   if (!verify_driver(manifest->m_handle) || strcmp(url, manifest->m_url) != 0) {
     return Error();
   }
 
+  mutex_lock(&manifest->m_lock);
+
   // call the driver exit function async
   if (manifest->m_flags & DRV_SOCK)
     driver_send_packet(manifest->m_url, DCC_EXIT, NULL, 0);
 
-  if (hive_remove(__loaded_driver_manifests, manifest).m_status != ANIVA_SUCCESS) {
+  if (IsError(hive_remove(__loaded_driver_manifests, manifest)))
     return Error();
-  }
 
+  error = NULL; 
+
+  /* Exit */
+  if (manifest->m_handle->f_exit)
+    error = manifest->m_handle->f_exit();
+
+  /* Unregister presence before unlocking the manifest */
   __driver_unregister_presence(manifest->m_handle->m_type);
+
+  mutex_unlock(&manifest->m_lock);
+
+  /* Fuck man */
+  if (error)
+    return Error();
+
 
   //destroy_dev_manifest(manifest);
   // TODO:
@@ -479,7 +494,6 @@ fail_and_exit:
   kfree((void*)path);
   return nullptr;
 }
-
 
 /*
  * This function is kinda funky, since anyone who knows the url, can 
