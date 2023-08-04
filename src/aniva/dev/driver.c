@@ -111,23 +111,9 @@ void detach_fs_driver(vnode_t* node) {
 
 bool driver_is_ready(dev_manifest_t* manifest) {
 
-  const bool active_flag = manifest->m_flags & DRV_ACTIVE;
-  aniva_driver_t* driver;
-  threaded_socket_t* socket;
+  const bool active_flag = (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
 
-  if (manifest->m_flags & DRV_SOCK) {
-
-    driver = manifest->m_handle;
-
-    socket = find_registered_socket(driver->m_port);
-
-    if (!socket)
-      return false;
-
-    return active_flag && (socket_is_flag_set(socket, TS_ACTIVE) && socket_is_flag_set(socket, TS_READY));
-  }
-
-  return active_flag;
+  return active_flag && !mutex_is_locked(&manifest->m_lock);
 }
 
 bool driver_is_busy(dev_manifest_t* manifest)
@@ -223,9 +209,6 @@ void generic_driver_entry(dev_manifest_t* manifest) {
 
 ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
 
-  ErrorOrPtr result;
-  aniva_driver_t* driver;
-
   if (!manifest)
     return Error();
 
@@ -233,28 +216,12 @@ ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
     /* TODO: redo */
   }
 
-  driver = manifest->m_handle;
-
   /* Preemptively set the driver to inactive */
   manifest->m_flags &= ~DRV_ACTIVE;
 
   // NOTE: if the drivers port is not valid, the subsystem will verify 
   // it and provide a new port, so we won't have to wory about that here
-
-  if (manifest->m_flags & DRV_SOCK) {
-
-    println("Creating socket driver");
-    thread_t* driver_thread = create_thread_as_socket(sched_get_kernel_proc(), (FuncPtr)generic_driver_entry, (uintptr_t)manifest, (FuncPtr)driver->f_exit, driver->f_drv_msg, (char*)driver->m_name, &driver->m_port);
-
-    result = proc_add_thread(sched_get_kernel_proc(), driver_thread);
-
-    if (IsError(result))
-      return Error();
-
-    println("Created socket driver");
-  } else {
-    generic_driver_entry(manifest);
-  }
+  generic_driver_entry(manifest);
 
   return Success(0);
 }

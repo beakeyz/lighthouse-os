@@ -167,7 +167,7 @@ void init_aniva_driver_registry() {
     dev_manifest_t* manifest = i->data;
 
     /* Skip invalid drivers, as a sanity check */
-    if (!verify_driver(manifest->m_handle))
+    if (!verify_driver(manifest))
       continue;
 
     /* Clear the deferred flag */
@@ -199,11 +199,14 @@ void free_dmanifest(struct dev_manifest* manifest)
 }
 
 
-bool verify_driver(struct aniva_driver* driver) 
+bool verify_driver(dev_manifest_t* manifest) 
 {
   dev_constraint_t* constaint;
+  aniva_driver_t* driver;
 
-  if (!driver || !driver->f_init) {
+  driver = manifest->m_handle;
+
+  if ((!driver && ((manifest->m_flags & DRV_DEFERRED_HNDL) == 0)) || !driver->f_init) {
     return false;
   }
 
@@ -222,7 +225,9 @@ bool verify_driver(struct aniva_driver* driver)
 
 static bool __should_defer(dev_manifest_t* driver)
 {
-  return ((driver->m_flags & DRV_SOCK) == DRV_SOCK);
+  /* TODO: */
+  (void)driver;
+  return false;
 }
 
 
@@ -230,7 +235,7 @@ ErrorOrPtr install_driver(dev_manifest_t* manifest) {
 
   ErrorOrPtr result;
 
-  if (!verify_driver(manifest->m_handle)) {
+  if (!verify_driver(manifest)) {
     goto fail_and_exit;
   }
 
@@ -266,7 +271,7 @@ ErrorOrPtr uninstall_driver(dev_manifest_t* manifest) {
   if (!manifest)
     return Error();
 
-  if (!verify_driver(manifest->m_handle)) {
+  if (!verify_driver(manifest)) {
     goto fail_and_exit;
   }
 
@@ -327,10 +332,10 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   if (!manifest)
     return Error();
 
-  handle = manifest->m_handle;
-
-  if (!verify_driver(handle))
+  if (!verify_driver(manifest))
     goto fail_and_exit;
+
+  handle = manifest->m_handle;
 
   // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
   // where we say result == ANIVA_FAIL
@@ -394,15 +399,11 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   int error;
   dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, url);
 
-  if (!verify_driver(manifest->m_handle) || strcmp(url, manifest->m_url) != 0) {
+  if (!verify_driver(manifest) || strcmp(url, manifest->m_url) != 0) {
     return Error();
   }
 
   mutex_lock(&manifest->m_lock);
-
-  // call the driver exit function async
-  if (manifest->m_flags & DRV_SOCK)
-    driver_send_packet(manifest->m_url, DCC_EXIT, NULL, 0);
 
   if (IsError(hive_remove(__loaded_driver_manifests, manifest)))
     return Error();
@@ -421,7 +422,6 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   /* Fuck man */
   if (error)
     return Error();
-
 
   //destroy_dev_manifest(manifest);
   // TODO:
@@ -507,42 +507,22 @@ ErrorOrPtr driver_set_ready(const char* path) {
   dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, path);
 
   if (!manifest)
-    goto exit_invalid;
+    return Error();
 
   manifest->m_flags |= DRV_ACTIVE;
 
-  // This driver is not a socket, and thus we can't find a thread
-  // That is linked to this driver. We only give it a bootstrap thread
-  // in this case
-  if ((manifest->m_flags & DRV_SOCK) == 0) {
-    return Success(0);
-  }
-
-  /* This driver is mounted in the system fs. We could find it that way... */
-  if (manifest->m_flags & DRV_FS) {
-    // TODO:
-    kernel_panic("TODO: implement readying of FS drivers");
-  }
-
-  threaded_socket_t* socket = find_registered_socket(manifest->m_handle->m_port);
-
-  if (!socket)
-    goto exit_invalid;
-
-  // When the socket is not marked as active, it certainly can't be
-  // ready to recieve packets
-  if (!socket_is_flag_set(socket, TS_ACTIVE))
-    goto exit_invalid;
-
-  socket_set_flag(socket, TS_READY, true);
-
   return Success(0);
-
-exit_invalid:
-  return Error();
 }
 
-
+/*!
+ * @brief Send a packet to a driver directly
+ *
+ * This function is kinda funny, since it does not really send a packet in the traditional sense, but it
+ * rather calls the drivers message function while also locking it. This is because drivers are pretty much static
+ * most of the time and also not capable of async functions. For that we need a socket, which polls for packets every
+ * so often. We might want to probe a driver to see if it has a socket but that will require more busses and
+ * more registry...
+ */
 ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
   return driver_send_packet_a(path, code, buffer, buffer_size, nullptr, nullptr);
 }
@@ -571,7 +551,7 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
   thread_t* current;
   aniva_driver_t* driver;
 
-  if (!manifest || (manifest->m_flags & DMAN_FLAG_HAS_MSG_FUNC) == 0)
+  if (!manifest)
     return Error();
 
   driver = manifest->m_handle;
@@ -579,46 +559,45 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
   if (!driver->f_drv_msg) 
     return Error();
 
-  if ((manifest->m_flags & DRV_SOCK) == 0) {
+  mutex_lock(&manifest->m_lock);
 
-    packet_response_t* response = nullptr;
-    packet_payload_t payload;
+  /* Prepare buffers */
+  packet_response_t* response = nullptr;
+  packet_payload_t payload;
 
-    init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
+  init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
 
-    error = driver->f_drv_msg(payload, &response);
+  error = driver->f_drv_msg(payload, &response);
 
-    if (response) {
+  if (response) {
 
-      current = get_current_scheduling_thread();
+    current = get_current_scheduling_thread();
 
-      if (resp_buffer && resp_buffer_size) {
+    if (resp_buffer && resp_buffer_size) {
 
-        /* Quick clamp to a valid size */
-        if (*resp_buffer_size < response->m_response_size)
-          *resp_buffer_size = response->m_response_size;
+      /* Quick clamp to a valid size */
+      if (*resp_buffer_size < response->m_response_size)
+        *resp_buffer_size = response->m_response_size;
 
-        memcpy(resp_buffer, response->m_response_buffer, *resp_buffer_size);
+      memcpy(resp_buffer, response->m_response_buffer, *resp_buffer_size);
 
-      /* If the sender (caller) thread is a socket, we can send our response there, otherwise its just lost to the void */
-      } 
-      else if (current && thread_is_socket(current)) {
-        TRY(_, send_packet_to_socket_ex(current->m_socket->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size));
-      }
-
-      destroy_packet_response(response);
+    /* If the sender (caller) thread is a socket, we can send our response there, otherwise its just lost to the void */
+    } 
+    else if (current && thread_is_socket(current)) {
+      TRY(_, send_packet_to_socket_ex(current->m_socket->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size));
     }
 
-    destroy_packet_payload(&payload);
-
-    if (error)
-      return Error();
-
-    return Success(0);
+    destroy_packet_response(response);
   }
 
-  /* DEPRECATED: i've decided that socket drivers are fucking stupid lol */
-  return send_packet_to_socket_ex(driver->m_port, code, buffer, buffer_size);
+  destroy_packet_payload(&payload);
+
+  mutex_unlock(&manifest->m_lock);
+
+  if (error)
+    return Error();
+
+  return Success(0);
 }
 
 
@@ -641,18 +620,10 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
     goto exit_fail;
 
   threaded_socket_t* socket = nullptr;
-  SocketOnPacket msg_func;
+  SocketOnPacket msg_func = nullptr;
 
-  if ((manifest->m_flags & DRV_SOCK) == 0) {
+  if (manifest->m_handle)
     msg_func = manifest->m_handle->f_drv_msg;
-  } else {
-    socket = find_registered_socket(manifest->m_handle->m_port);
-    msg_func = socket->f_on_packet;
-
-    if (!socket)
-      goto exit_fail;
-  }
-  //dev_manifest_t* manifest = create_dev_manifest(handle, 0);
 
   // TODO: validate checksums and funnie hashes
   // TODO: validate all dependencies are loaded

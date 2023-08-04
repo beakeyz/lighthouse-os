@@ -108,15 +108,30 @@ void vobj_ref(vobj_t* obj)
   flat_ref(&obj->m_refc);
 }
 
-void vobj_unref(vobj_t* obj)
+int vobj_unref(vobj_t* obj)
 {
+  int error;
+  vnode_t* parent;
+
   if (!obj)
-    return;
+    return -1;
 
   flat_unref(&obj->m_refc);
 
-  if (!obj->m_refc)
-    destroy_vobj(obj);
+  /* If the object is still referenced, we need not kill it yet */
+  if (obj->m_refc)
+    return 0;
+
+  parent = obj->m_parent;
+
+  error = parent->m_ops->f_close(parent, obj);
+
+  if (error)
+    return error;
+
+  destroy_vobj(obj);
+
+  return 0;
 }
 
 file_t* vobj_get_file(vobj_t* obj) {

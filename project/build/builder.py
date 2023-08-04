@@ -244,7 +244,7 @@ class ProjectBuilder(object):
                 return BuilderResult.FAIL
 
             # Run the symbol generator to inject the kernels symbols directly into the build
-            symbols: list[KSymbol] = build.symbols.read_map(self.constants.KERNEL_MAP_PATH)
+            symbols: list[build.symbols.KSymbol] = build.symbols.read_map(self.constants.KERNEL_MAP_PATH)
 
             # We can no generate the corrent symbol sourcefile
             file = build.symbols.write_map_to_source(symbols, self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
@@ -365,7 +365,6 @@ class ProjectBuilder(object):
                     return BuilderResult.FAIL
             return BuilderResult.SUCCESS
         elif self.builderMode == BuilderMode.DRIVERS:
-            
 
             for driver_manifest in self.constants.DRIVER_MANIFESTS:
 
@@ -391,8 +390,7 @@ class ProjectBuilder(object):
                 if os.system(f"{ld} -o {out_file} {objFiles} {out_flags} ") != 0:
                     return BuilderResult.FAIL
 
-                return BuilderResult.SUCCESS
-        return BuilderResult.FAIL
+        return BuilderResult.SUCCESS
         
 
     def clean(self) -> None:

@@ -1,5 +1,7 @@
 #include "handle.h"
 #include "dev/debug/serial.h"
+#include "fs/file.h"
+#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
@@ -10,29 +12,37 @@
 /*
  * Called when a handle changes to a new type
  */
-static void __on_handle_change(khandle_t handle, bool bind)
+static void __on_handle_change(khandle_t* handle, bool bind)
 {
+  vobj_t* obj = nullptr;
   /*
    * FIXME: drivers, processes, ect. can have more than one handle, 
    * so flags are useless in this case lmao
    */
-  switch (handle.type) {
+  switch (handle->type) {
     case KHNDL_TYPE_DRIVER:
-      if (bind)
-        handle.reference.driver->m_flags |= DRV_HAS_HANDLE;
-      else
-        handle.reference.driver->m_flags &= ~DRV_HAS_HANDLE;
-      break;
     case KHNDL_TYPE_PROC:
-      if (bind)
-        handle.reference.process->m_flags |= PROC_HAD_HANDLE;
-      else
-        handle.reference.process->m_flags &= ~PROC_HAD_HANDLE;
-      break;
-    case KHNDL_TYPE_FILE:
     case KHNDL_TYPE_FS_ROOT:
     case KHNDL_TYPE_KOBJ:
+      break;
+    case KHNDL_TYPE_FILE:
+      {
+        obj = handle->reference.file->m_obj;
+        // fallthrough
+      }
     case KHNDL_TYPE_VOBJ:
+      {
+        if (bind)
+          break;
+
+        /* Check if the object was already set */
+        if (!obj)
+          obj = handle->reference.vobj;
+
+        /* Close the object */
+        vobj_close(obj);
+        break;
+      }
     case KHNDL_TYPE_NONE:
     default:
       break;
@@ -54,7 +64,7 @@ void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref)
   /*
    * Update for the 'type change'
    */
-  __on_handle_change(*out_handle, true);
+  __on_handle_change(out_handle, true);
 }
 
 void destroy_khandle(khandle_t* handle) 
@@ -62,9 +72,10 @@ void destroy_khandle(khandle_t* handle)
   if (!handle)
     return;
 
-  __on_handle_change(*handle, false);
+  __on_handle_change(handle, false);
 
   memset(handle, 0, sizeof(khandle_t));
+  handle->index = KHNDL_INVALID_INDEX;
 }
 
 /*
@@ -252,16 +263,24 @@ unlock_and_success:
 /* NOTE: mutates the handle to clear the index */
 ErrorOrPtr unbind_khandle(khandle_map_t* map, khandle_t* handle) 
 {
+  khandle_t* _handle;
+
   if (!map || !handle)
     return Error();
 
-  /* Zero out this entry */
-  destroy_khandle(&map->handles[handle->index]);
+  _handle = &map->handles[handle->index];
 
-  map->next_free_index = handle->index;
+  /* WTF */
+  if (_handle != handle)
+    return Error();
+
+  /* Zero out this entry */
+  destroy_khandle(_handle);
+
+  map->next_free_index = _handle->index;
 
   /* Set the correct index */
-  handle->index = KHNDL_INVALID_INDEX;
+  _handle->index = KHNDL_INVALID_INDEX;
 
   return Success(0);
 }
@@ -278,7 +297,7 @@ ErrorOrPtr mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index)
     return Error();
 
   /* unbind */
-  __on_handle_change(map->handles[index], false);
+  __on_handle_change(&map->handles[index], false);
 
   map->handles[index] = handle;
 

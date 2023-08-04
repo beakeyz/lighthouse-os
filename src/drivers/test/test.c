@@ -24,19 +24,10 @@ pci_driver_t test_pci_driver = {
   .f_probe = test_probe,
 };
 
-static uintptr_t hihi;
-
 int test_init() {
   println("Initalizing test driver!");
 
   register_pci_driver(&test_pci_driver);
-
-  hihi = Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, NULL, NULL));
-
-  *(uintptr_t*)hihi = 69;
-
-  println(to_string(hihi));
-  println(to_string(*(uintptr_t*)hihi));
 
   return 0;
 }
@@ -44,7 +35,6 @@ int test_init() {
 int test_exit() {
 
   println("Exiting test driver!");
-  __kmem_kernel_dealloc(hihi, SMALL_PAGE_SIZE);
 
   return 0;
 }

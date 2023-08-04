@@ -28,10 +28,12 @@ typedef struct ahci_device {
   hive_t* m_ports;
 
   uint32_t m_used_ports;
-  // TODO
+  uint32_t m_available_ports;
+
+  struct ahci_device* m_next;
 } ahci_device_t;
 
-ahci_device_t* init_ahci_device(pci_device_t* identifier);
+ahci_device_t* create_ahci_device(pci_device_t* identifier);
 void destroy_ahci_device(ahci_device_t* device);
 
 ahci_dch_t* create_ahci_command_header(void* buffer, size_t size, disk_offset_t offset);

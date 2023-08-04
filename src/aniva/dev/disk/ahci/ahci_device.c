@@ -25,10 +25,7 @@
 
 #include <dev/framebuffer/framebuffer.h>
 
-static ahci_device_t* s_ahci_device;
-static size_t s_implemented_ports;
-
-static char* s_last_debug_msg;
+static ahci_device_t* __ahci_devices;
 
 static pci_dev_id_t ahci_id_table[] = {
   PCI_DEVID_CLASSES(MASS_STORAGE, PCI_SUBCLASS_SATA, PCI_PROGIF_SATA),
@@ -41,6 +38,27 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value);
 
 static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
+
+static void __register_ahci_device(ahci_device_t* device)
+{
+  device->m_next = __ahci_devices;
+  __ahci_devices = device;
+}
+
+static void __unregister_ahci_device(ahci_device_t* device)
+{
+  ahci_device_t** target;
+
+  for (target = &__ahci_devices; *target; target = &(*target)->m_next) {
+
+    if (*target == device) {
+      *target = device->m_next;
+      device->m_next = nullptr;
+
+      return;
+    }
+  }
+}
 
 uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset) {
   return *(volatile uint32_t*)(base + offset);
@@ -123,12 +141,10 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
       hive_add_entry(device->m_ports, port, port->m_generic.m_path);
 
-      s_implemented_ports++;
       internal_index++;
     }
   }
 
-  s_last_debug_msg = "Exited port enumeration";
   return ANIVA_SUCCESS;
 }
 
@@ -159,7 +175,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   uint8_t interrupt_line;
   device->m_identifier->raw_ops.read8(bus_num, dev_num, func_num, INTERRUPT_LINE, &interrupt_line);
 
-  device->m_hba_region = get_hba_region(s_ahci_device);
+  device->m_hba_region = get_hba_region(__ahci_devices);
 
   // We might need to fetch AHCI from the BIOS
   if (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_CAP2) & AHCI_CAP2_BOH) {
@@ -208,7 +224,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
   // TODO: handle
   kernel_panic("Recieved AHCI interrupt!");
 
-  uint32_t ahci_interrupt_status = s_ahci_device->m_hba_region->control_regs.int_status;
+  uint32_t ahci_interrupt_status = __ahci_devices->m_hba_region->control_regs.int_status;
 
   if (ahci_interrupt_status == 0) {
     return regs;
@@ -218,7 +234,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
     if (ahci_interrupt_status & (1 << i)) {
       char port_path[strlen("prt") + strlen(to_string(i)) + 1];
       concat("prt", (char*)to_string(i), (char*)port_path);
-      ahci_port_t* port = hive_get(s_ahci_device->m_ports, port_path);
+      ahci_port_t* port = hive_get(__ahci_devices->m_ports, port_path);
       
       ahci_port_handle_int(port); 
     }
@@ -228,18 +244,38 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
 }
 
 // TODO:
-ahci_device_t* init_ahci_device(pci_device_t* identifier) {
-  s_ahci_device = kmalloc(sizeof(ahci_device_t));
-  s_ahci_device->m_identifier = identifier;
-  s_ahci_device->m_ports = create_hive("ports");
+ahci_device_t* create_ahci_device(pci_device_t* identifier) {
+  ahci_device_t* ahci_device = kmalloc(sizeof(ahci_device_t));
 
-  initialize_hba(s_ahci_device);
+  memset(ahci_device, 0, sizeof(ahci_device_t));
 
-  return s_ahci_device;
+  __register_ahci_device(ahci_device);
+
+  ahci_device->m_identifier = identifier;
+  ahci_device->m_ports = create_hive("ports");
+
+  if (initialize_hba(ahci_device) == ANIVA_FAIL) {
+    destroy_ahci_device(ahci_device);
+    return nullptr;
+  }
+
+  return ahci_device;
+}
+
+static bool __destroy_device_ports(hive_t* root, void* port)
+{
+  destroy_ahci_port(port);
+  return true;
 }
 
 void destroy_ahci_device(ahci_device_t* device) {
-  // TODO:
+
+  __unregister_ahci_device(device);
+
+  hive_walk(device->m_ports, true, __destroy_device_ports);
+  destroy_hive(device->m_ports);
+
+  kfree(device);
 }
 
 ahci_dch_t* create_ahci_command_header(void* buffer, size_t size, disk_offset_t offset) {
@@ -279,12 +315,12 @@ ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header) {
 }
 
 static int ahci_probe(pci_device_t* identifier, pci_driver_t* driver) {
-  s_ahci_device = init_ahci_device(identifier);
+  ahci_device_t* ahci_device = create_ahci_device(identifier);
 
-  if (s_ahci_device)
-    return 0;
+  if (!ahci_device)
+    return -1;
 
-  return -1;
+  return 0;
 }
 
 pci_driver_t ahci_pci_driver = {
@@ -296,20 +332,10 @@ int ahci_driver_init() {
 
   // FIXME: should this driver really take a hold of the scheduler 
   // here?
-  s_last_debug_msg = "None";
-  s_ahci_device = 0;
-  s_implemented_ports = 0;
+  __ahci_devices = nullptr;
 
   register_pci_driver(&ahci_pci_driver);
 
-  /*
-  char* number_of_ports = (char*)to_string(s_ahci_device->m_ports->m_length);
-  char* message = "\nimplemented ports: ";
-  const char* packet_message = concat(message, number_of_ports);
-  destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&packet_message, strlen(packet_message)));
-  destroy_packet_response(driver_send_packet_sync("graphics.kterm", KTERM_DRV_DRAW_STRING, (void**)&s_last_debug_msg, strlen(packet_message)));
-  kfree((void*)packet_message);
-  */
   return 0;
 }
 
@@ -318,20 +344,18 @@ int ahci_driver_exit() {
 
   println("Shut down ahci driver");
 
-  if (s_ahci_device) {
-    destroy_ahci_device(s_ahci_device);
+  if (__ahci_devices) {
+    destroy_ahci_device(__ahci_devices);
   }
 
   unregister_pci_driver(&ahci_pci_driver);
-
-  s_implemented_ports = 0;
 
   return 0;
 }
 
 uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
 
-  if (s_ahci_device == nullptr) {
+  if (__ahci_devices == nullptr) {
     return (uintptr_t)-1;
   }
 
@@ -339,7 +363,7 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
     case AHCI_MSG_GET_PORT: {
       const char* path = (const char*)payload.m_data;
 
-      ahci_port_t* res = hive_get(s_ahci_device->m_ports, path);
+      ahci_port_t* res = hive_get(__ahci_devices->m_ports, path);
 
       ahci_port_t copy = *res;
 
@@ -356,7 +380,7 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
         return (uintptr_t)-1;
       }
 
-      ahci_port_t* port = hive_get(s_ahci_device->m_ports, header->m_port_path);
+      ahci_port_t* port = hive_get(__ahci_devices->m_ports, header->m_port_path);
 
       int result = port->m_generic.m_ops.f_read_sync(&port->m_generic, header->m_req_buffer, header->m_req_size, header->m_req_offset);
 

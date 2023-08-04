@@ -17,13 +17,15 @@
 struct loader_ctx {
   const char* path;
   struct elf64_hdr* hdr; 
-  size_t size;
   struct elf64_shdr* shdrs;
   char* section_strings;
   char* strtab;
   extern_driver_t* driver;
 
-  uint32_t expdrv_idx;
+  size_t size;
+  size_t sym_count;
+
+  uint32_t expdrv_idx, symtab_idx;
 };
 
 static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
@@ -126,43 +128,38 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
 
 static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
 {
-  for (uint32_t i = 0; i < ctx->hdr->e_shnum; i++) {
-    struct elf64_shdr* shdr = elf_get_shdr(ctx->hdr, i);
+  struct elf64_shdr* shdr = &ctx->shdrs[ctx->symtab_idx];
 
-    if (shdr->sh_type != SHT_SYMTAB)
-      continue;
+  /* Grab the symbol count */
+  ctx->sym_count = shdr->sh_size / sizeof(struct elf64_sym);
 
-    /* Grab the symbol count */
-    const size_t sym_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_sym)) / sizeof(struct elf64_sym);
+  /* Grab the start of the symbol name table */
+  char* names = (char*)elf_get_shdr(ctx->hdr, shdr->sh_link)->sh_addr;
 
-    /* Grab the start of the symbol name table */
-    char* names = (char*)elf_get_shdr(ctx->hdr, shdr->sh_link)->sh_addr;
+  /* Grab the start of the symbol table */
+  struct elf64_sym* sym_table_start = (struct elf64_sym*)shdr->sh_addr;
 
-    /* Grab the start of the symbol table */
-    struct elf64_sym* sym_table_start = (struct elf64_sym*)shdr->sh_addr;
+  /* Walk the table and resolve any symbols */
+  for (uint32_t i = 0; i < ctx->sym_count; i++) {
+    struct elf64_sym* current_symbol = &sym_table_start[i];
+    char* sym_name = names + current_symbol->st_name;
 
-    /* Walk the table and resolve any symbols */
-    for (uint32_t i = 0; i < sym_count; i++) {
-      struct elf64_sym* current_symbol = &sym_table_start[i];
-      char* sym_name = names + current_symbol->st_name;
+    switch (current_symbol->st_shndx) {
+      case SHN_UNDEF:
 
-      switch (current_symbol->st_shndx) {
-        case SHN_UNDEF:
+        current_symbol->st_value = get_ksym_address(sym_name);
 
-          current_symbol->st_value = get_ksym_address(sym_name);
-
-          /* Oops, invalid symbol: skip */
-          if (!current_symbol->st_value)
-            break;
-
-          ctx->driver->m_ksymbol_count++;
+        /* Oops, invalid symbol: skip */
+        if (!current_symbol->st_value)
           break;
-        default:
-          {
-            struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
-            current_symbol->st_value += hdr->sh_addr;
-          }
-      }
+
+        ctx->driver->m_ksymbol_count++;
+        break;
+      default:
+        {
+          struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
+          current_symbol->st_value += hdr->sh_addr;
+        }
     }
   }
 
@@ -201,7 +198,8 @@ static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
 static int __check_driver(struct loader_ctx* ctx)
 {
   uint32_t i;
-  uint32_t kpcdrv_sections = 0;
+  uint32_t expdrv_sections = 0,
+           symtab_sections = 0;
   struct elf64_shdr* shdr;
 
   if (!memcmp(ctx->hdr->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
@@ -230,6 +228,11 @@ static int __check_driver(struct loader_ctx* ctx)
     shdr = &ctx->shdrs[i];
 
     switch (shdr->sh_type) {
+      case SHT_SYMTAB:
+        {
+          ctx->symtab_idx = i;
+          symtab_sections++;
+        }
       default:
 
         /* Validate section */
@@ -240,14 +243,14 @@ static int __check_driver(struct loader_ctx* ctx)
           if (shdr->sh_size != sizeof(aniva_driver_t))
             return -1;
 
-          kpcdrv_sections++;
+          expdrv_sections++;
           ctx->expdrv_idx = i;
         }
         break;
     }
   }
 
-  if (kpcdrv_sections != 1)
+  if (expdrv_sections != 1 || symtab_sections != 1)
     return -1;
 
   return 0;
@@ -270,6 +273,76 @@ static void __detect_driver_attributes(dev_manifest_t* manifest)
 }
 
 /*
+ * We need to check if the functions that the driver claims to have are valid
+ * functions within the ELF
+ *
+ * At this point it is verified that the .expdrv section *probably* contains an
+ * aniva_driver_t struct, which is implied by the size of the section, but we need to ensure that
+ * there are valid function pointers in the struct that we got, and that these functions are valid 
+ * within the ELF
+ *
+ * We do this by checking if the address that the function pointers contain, points to a valid symbol.
+ * If they do, we consider the driver safe to run
+ */
+static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_manifest)
+{
+  size_t function_count;
+  struct elf64_shdr* symtab_shdr;
+  struct elf64_sym* sym_table_start;
+  dev_manifest_t* manifest = ctx->driver->m_manifest;
+
+  void* driver_functions[] = {
+    manifest->m_handle->f_init,
+    manifest->m_handle->f_exit,
+    manifest->m_handle->f_probe,
+    manifest->m_handle->f_drv_msg,
+  };
+
+  void* manifest_functions[] = {
+    /* These functions may be set by the driver once it inits, so we should check these again after initialization */
+    manifest->m_ops.f_read,
+    manifest->m_ops.f_write,
+  };
+
+  void** functions = (verify_manifest ? manifest_functions : driver_functions);
+
+  if (verify_manifest)
+    function_count = sizeof(manifest_functions) / sizeof(*manifest_functions);
+  else
+    function_count = sizeof(driver_functions) / sizeof(*driver_functions);
+
+  /* Grab the correct sections */
+  symtab_shdr = &ctx->shdrs[ctx->symtab_idx];
+  sym_table_start = (struct elf64_sym*)symtab_shdr->sh_addr;
+  
+  for (uintptr_t i = 0; i < function_count; i++) {
+    bool found_symbol = false;
+    void* func = functions[i];
+
+    /* Skip functions that are NULL */
+    if (!func)
+      continue;
+
+    /* If the function isn't mapped high, it's just instantly invalid lol */
+    if (func <= (void*)HIGH_MAP_BASE)
+      return Error();
+
+    for (uintptr_t j = 0; j < ctx->sym_count; j++) {
+      struct elf64_sym* current_symbol = &sym_table_start[j];
+
+      if (current_symbol->st_value == (uintptr_t)func) {
+        found_symbol = true;
+        break;
+      }
+    }
+    if (!found_symbol)
+      return Error();
+  }
+
+  return Success(0);
+}
+
+/*
  * Initializes the internal driver structures and installs
  * the driver in the kernel context. When the driver is put
  * into place, load_driver will call its init function
@@ -288,18 +361,17 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
   if (IsError(result))
     return Error();
 
-  __detect_driver_attributes(ctx->driver->m_manifest);
-
-  /* We could create a valid manifest! let's install it and finally load it */
-  result = install_driver(ctx->driver->m_manifest);
+  result = __verify_driver_functions(ctx, false);
 
   if (IsError(result))
     return Error();
 
-  /* We could install the driver, so we came that far =D */
-  ctx->driver->m_manifest->m_driver_file_path = ctx->path;
+  __detect_driver_attributes(ctx->driver->m_manifest);
 
   manifest_gather_dependencies(ctx->driver->m_manifest);
+
+  /* We could install the driver, so we came that far =D */
+  ctx->driver->m_manifest->m_driver_file_path = ctx->path;
 
   return load_driver(ctx->driver->m_manifest);
 }
@@ -323,6 +395,12 @@ static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
   return __init_driver(ctx);
 }
 
+/*
+ * @brief load an external driver from a file
+ *
+ * This will load, verify and init an external driver/klib from
+ * a file. This will ultimately fail if the driver is already installed
+ */
 extern_driver_t* load_external_driver(const char* path)
 {
   int error;
@@ -346,7 +424,7 @@ extern_driver_t* load_external_driver(const char* path)
     return nullptr;
 
   /* Make sure we know this is external */
-  out->m_manifest->m_flags |= DMAN_FLAG_IS_EXTERNAL;
+  out->m_manifest->m_flags |= DRV_IS_EXTERNAL;
 
   /* Allocate contiguous space for the driver */
   result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL);

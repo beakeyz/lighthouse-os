@@ -7,15 +7,6 @@
 #include "sync/mutex.h"
 #include "system/resource.h"
 
-#define DMAN_FLAG_WANT_PROC     (0x00000001)
-#define DMAN_FLAG_HAD_DEP       (0x00000002)
-#define DMAN_FLAG_PSEUDO        (0x00000004)
-#define DMAN_FLAG_SYSTEM        (0x00000008)
-#define DMAN_FLAG_ORPHAN        (0x00000010)
-#define DMAN_FLAG_IS_EXTERNAL   (0x00000020)
-#define DMAN_FLAG_HAS_MSG_FUNC  (0x00000040)
-#define DMAN_FLAG_DEFERRED_HNDL (0x00000080)
-
 typedef struct driver_ops {
   int (*f_write) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
   int (*f_read) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);

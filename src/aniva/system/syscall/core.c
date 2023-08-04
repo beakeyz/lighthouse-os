@@ -12,6 +12,7 @@
 #include "sys_rw/sys_rw.h"
 #include "sys_exit/sys_exit.h"
 #include "sys_open/sys_open.h"
+#include "sys_drv/sys_drv.h"
 #include "system/syscall/sys_exec/sys_exec.h"
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
@@ -22,16 +23,18 @@ extern void processor_exit_interruption(registers_t* registers);
  * could dynamically register syscalls by using linker sections
  */
 static syscall_t __static_syscalls[] = {
-  [SYSID_EXIT]              = { SYSID_EXIT, (sys_fn_t)sys_exit_handler },
-  [SYSID_CLOSE]             = { SYSID_CLOSE , (sys_fn_t)nullptr, },
-  [SYSID_READ]              = { SYSID_READ, (sys_fn_t)sys_read, },
-  [SYSID_WRITE]             = { SYSID_WRITE, (sys_fn_t)sys_write },
-  [SYSID_OPEN]              = { SYSID_OPEN, (sys_fn_t)sys_open },
-  [SYSID_OPEN_PROC]         = { SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },
-  [SYSID_OPEN_FILE]         = { SYSID_OPEN_FILE, (sys_fn_t)sys_open_file },
-  [SYSID_OPEN_DRIVER]       = { SYSID_OPEN_DRIVER, (sys_fn_t)sys_open_driver },
-  [SYSID_ALLOCATE_PAGES]    = { SYSID_ALLOCATE_PAGES, (sys_fn_t)sys_alloc_pages, },
-  [SYSID_SYSEXEC]           = { SYSID_SYSEXEC, (sys_fn_t)sys_exec, },
+  [SYSID_EXIT]              = { 0, SYSID_EXIT, (sys_fn_t)sys_exit_handler },
+  [SYSID_CLOSE]             = { 0, SYSID_CLOSE , (sys_fn_t)sys_close, },
+  [SYSID_READ]              = { 0, SYSID_READ, (sys_fn_t)sys_read, },
+  [SYSID_WRITE]             = { 0, SYSID_WRITE, (sys_fn_t)sys_write },
+  [SYSID_OPEN]              = { 0, SYSID_OPEN, (sys_fn_t)sys_open },
+  [SYSID_OPEN_FILE]         = { 0, SYSID_OPEN_FILE, (sys_fn_t)sys_open_file },
+  [SYSID_OPEN_PROC]         = { 0, SYSID_OPEN_PROC, (sys_fn_t)sys_open_proc },
+  [SYSID_OPEN_DRIVER]       = { 0, SYSID_OPEN_DRIVER, (sys_fn_t)sys_open_driver },
+  [SYSID_SEND_IO_CTL]       = { 0, SYSID_SEND_IO_CTL, (sys_fn_t)sys_send_ioctl, },
+  [SYSID_ALLOCATE_PAGES]    = { 0, SYSID_ALLOCATE_PAGES, (sys_fn_t)sys_alloc_pages, },
+  [SYSID_SYSEXEC]           = { 0, SYSID_SYSEXEC, (sys_fn_t)sys_exec, },
+  [SYSID_GET_HNDL_TYPE]     = { 0, SYSID_GET_HNDL_TYPE, (sys_fn_t)sys_get_handle_type, },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
@@ -40,7 +43,7 @@ static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeo
  * This stub mimics interrupt behaviour 
  * TODO: move this to pure asm to avoid compiler funzies
  */
-NAKED void sys_entry() {
+NAKED NOINLINE void sys_entry() {
   asm (
     "movq %%rsp, %%gs:%c[usr_stck_offset]   \n"
     "movq %%gs:%c[krnl_stck_offset], %%rsp  \n"
@@ -132,6 +135,7 @@ static syscall_args_t __syscall_parse_args(registers_t* regs)
   if (!regs)
     return (syscall_args_t) { 0 };
 
+  /* Here, our beautiful calling convention */
   return (syscall_args_t) {
     .syscall_id = regs->rax,
     .arg0 = regs->rbx,
@@ -184,7 +188,7 @@ void sys_handler(registers_t* regs) {
   result = call.m_handler(args.arg0, args.arg1, args.arg2, args.arg3, args.arg4);
 
   /*
-   * Execute any other handlers (These handlers may not alter the syscall information,
+   * TODO: Execute any other handlers (These handlers may not alter the syscall information,
    * like result value or registers, but are purely based in the kernel) 
    */
 

@@ -139,6 +139,7 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
             /* We can just fill the files data, since it is readonly */
             file->m_buffer = data;
             file->m_buffer_size = filesize;
+            file->m_total_size = filesize;
             file->m_offset = current_file_offset;
             file->m_obj->m_inum = current_file_offset;
 

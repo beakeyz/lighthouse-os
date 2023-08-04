@@ -10,9 +10,15 @@ extern_driver_t* create_external_driver(uint32_t flags)
 
   drv = kzalloc(sizeof(extern_driver_t));
 
+  if (!drv)
+    return nullptr;
+
+  memset(drv, 0, sizeof(extern_driver_t));
+
   drv->m_process = NULL;
   drv->m_file = NULL;
   drv->m_flags = flags;
+
   drv->m_manifest = create_dev_manifest(nullptr); 
 
   return drv;

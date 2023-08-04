@@ -42,7 +42,7 @@ class BuildManifest(object):
 
 def get_manifest_type(path: str) -> BuildManifestType:
     if not path.endswith("manifest.json"):
-        return INVALID
+        return BuildManifestType.INVALID
 
     if path.find("src/drivers") != -1:
         return BuildManifestType.K_DRIVER
@@ -68,12 +68,13 @@ def scan_for_manifest(path: str) -> BuildManifest:
     for dir in os.listdir(path):
         if dir == "manifest.json":
             full_path = f"{path}/{dir}"
+            print(full_path)
             with open(full_path, 'r') as manifest_file:
                 manifest_json = json.load(manifest_file)
 
-                if manifest_json["type"] == None:
+                if manifest_json["type"] is None:
                     return BuildManifest(BuildManifestType.INVALID, full_path)
-                
+
                 if manifest_json["type"] == "process":
                     return BuildManifest(BuildManifestType.U_PROCESS, full_path)
 
@@ -82,7 +83,7 @@ def scan_for_manifest(path: str) -> BuildManifest:
 
                 if manifest_json["type"] == "user_driver":
                     return BuildManifest(BuildManifestType.U_DRIVER, full_path)
-                
+
                 if manifest_json["type"] == "library":
                     return BuildManifest(BuildManifestType.U_LIBRARY, full_path)
 

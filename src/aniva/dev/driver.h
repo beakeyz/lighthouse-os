@@ -45,15 +45,23 @@ typedef struct aniva_driver {
   dev_url_t m_dependencies[];
 } aniva_driver_t;
 
-#define DRV_FS                      (0x00000001) /* Should be mounted inside the vfs */
-#define DRV_NON_ESSENTIAL           (0x00000002) /* Is this a system-driver or user/nonessential driver */
-#define DRV_ACTIVE                  (0x00000004) /* Is this driver available for opperations */
-#define DRV_SOCK                    (0x00000008) /* Does this driver require a socket */
-#define DRV_ALLOW_DYNAMIC_LOADING   (0x00000010) /* Allows the installed driver to be loaded when we need it */
-#define DRV_HAS_HANDLE              (0x00000020) /* This driver is tethered to a handle */
-#define DRV_FAILED                  (0x00000040) /* Failiure to load =/ */
-#define DRV_DEFERRED                (0x00000080) /* This driver should be loaded at a later stage */
-#define DRV_LIMIT_REACHED           (0x00000100) /* This driver could not be verified, since the limit of its tipe has been reached */
+#define DRV_FS                    (0x00000001) /* Should be mounted inside the vfs */
+#define DRV_NON_ESSENTIAL         (0x00000002) /* Is this a system-driver or user/nonessential driver */
+#define DRV_ACTIVE                (0x00000004) /* Is this driver available for opperations */
+#define DRV_ALLOW_DYNAMIC_LOADING (0x00000008) /* Allows the installed driver to be loaded when we need it */
+#define DRV_HAS_HANDLE            (0x00000010) /* This driver is tethered to a handle */
+#define DRV_FAILED                (0x00000020) /* Failiure to load =/ */
+#define DRV_DEFERRED              (0x00000040) /* This driver should be loaded at a later stage */
+#define DRV_LIMIT_REACHED         (0x00000080) /* This driver could not be verified, since the limit of its tipe has been reached */
+
+#define DRV_WANT_PROC             (0x00000100)
+#define DRV_HAD_DEP               (0x00000200)
+#define DRV_SYSTEM                (0x00000400)
+#define DRV_ORPHAN                (0x00000800)
+#define DRV_IS_EXTERNAL           (0x00001000)
+#define DRV_HAS_MSG_FUNC          (0x00002000)
+#define DRV_DEFERRED_HNDL         (0x00004000)
+
 
 #define DRV_STAT_OK         (0)
 #define DRV_STAT_INVAL      (-1)

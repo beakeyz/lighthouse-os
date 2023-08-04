@@ -24,12 +24,11 @@
  * while also keeping things nice and lightweight
  */
 
-// TODO: litterally everything
-
 #include "dev/external.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
 
+/* TODO ? */
 bool file_contains_driver(file_t* file);
 
 extern_driver_t* load_external_driver(const char* path);

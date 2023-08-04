@@ -89,8 +89,8 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
   return true;
 }
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
-
+dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
+{
   dev_manifest_t* ret = allocate_dmanifest();
 
   ASSERT(ret);
@@ -103,13 +103,17 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
   ret->m_dep_count = NULL;
   ret->m_dependency_manifests = init_list();
 
+  /* Reset the manifest opperations */
+  memset(&ret->m_ops, 0, sizeof(ret->m_ops));
+
   if (handle) {
     ret->m_check_version = handle->m_version;
     ret->m_url_length = get_driver_url_length(handle);
     // TODO: concat
     ret->m_url = get_driver_url(handle);
+
   } else {
-    ret->m_flags |= DMAN_FLAG_DEFERRED_HNDL;
+    ret->m_flags |= DRV_DEFERRED_HNDL;
   }
 
   create_resource_bundle(&ret->m_resources);
@@ -119,11 +123,11 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle) {
 
 ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* handle)
 {
-  if (manifest->m_handle || !(manifest->m_flags & DMAN_FLAG_DEFERRED_HNDL))
+  if (manifest->m_handle || !(manifest->m_flags & DRV_DEFERRED_HNDL))
     return Error();
 
   /* Mark the manifest as non-deferred */
-  manifest->m_flags &= ~DMAN_FLAG_DEFERRED_HNDL;
+  manifest->m_flags &= ~DRV_DEFERRED_HNDL;
 
   /* Emplace the handle and its data */
   manifest->m_handle = handle;

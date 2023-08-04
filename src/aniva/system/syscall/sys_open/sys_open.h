@@ -10,4 +10,6 @@ HANDLE_t sys_open_file(const char* __user path, uint16_t flags, uint32_t mode);
 HANDLE_t sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode);
 HANDLE_t sys_open_driver(const char* __user name, uint16_t flags, uint32_t mode);
 
+uintptr_t sys_close(HANDLE_t handle);
+
 #endif // !__ANIVA_SYS_OPEN__

@@ -173,12 +173,13 @@ class Consts:
 
             manifest.gather_sourcefiles(self.SRC_FILES)
 
-            # If this directory contains a manifest that was not yet added, add it
+            # If this directory contains a manifest that
+            # was not yet added, add it
             if manifest.type == BuildManifestType.K_DRIVER and not self.DRIVER_MANIFESTS.__contains__(manifest):
                 self.DRIVER_MANIFESTS.append(manifest)
-            if manifest.type == BuildManifestType.U_PROCESS and not self.PROCESS_MANIFESTS.__contains__(manifest):
+            elif manifest.type == BuildManifestType.U_PROCESS and not self.PROCESS_MANIFESTS.__contains__(manifest):
                 self.PROCESS_MANIFESTS.append(manifest)
-            if manifest.type == BuildManifestType.U_LIBRARY and not self.PROCESS_MANIFESTS.__contains__(manifest):
+            elif manifest.type == BuildManifestType.U_LIBRARY and not self.PROCESS_MANIFESTS.__contains__(manifest):
                 self.LIBRARY_MANIFESTS.append(manifest)
 
         for entry in dirs:

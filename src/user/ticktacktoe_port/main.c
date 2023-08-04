@@ -45,7 +45,6 @@ void clear_brd (gamedata_t*);
 void put_error_in_buffer (char buffer[], char* err);
 
 int main (int argc, char** argv) {
-
     // starting
     gamedata_t* data_p = (gamedata_t*)malloc(sizeof(gamedata_t));
     data_p->one_p = (player_t*)malloc(sizeof(player_t));

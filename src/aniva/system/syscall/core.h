@@ -12,7 +12,7 @@
  * is invoked.
  */
 
-typedef uintptr_t syscall_id_t;
+typedef uint32_t syscall_id_t;
 
 typedef uint64_t (*sys_fn_t)(
     uint64_t arg0,
@@ -22,7 +22,17 @@ typedef uint64_t (*sys_fn_t)(
     uint64_t arg4
 );
 
+#define SYSCALL_CALLED  (0x00000001)
+#define SYSCALL_CUSTOM  (0x00000002)
+
+/*
+ * Concepts for syscalls
+ *
+ * o Syslinks -> bind syscalls to different sources. Allows for 'custom' or 'dynamic' syscalls by drivers
+ * o Call counting -> track syscall call counts per process
+ */
 typedef struct syscall {
+  uint32_t m_flags;
   syscall_id_t m_id;
   sys_fn_t m_handler;
 } syscall_t;

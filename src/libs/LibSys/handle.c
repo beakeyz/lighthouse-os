@@ -7,7 +7,8 @@
  * invalide, otherwise use a syscall (TODO) to verify if the 
  * handle gives a valid result
  */
-BOOL verify_handle(__IN__ handle_t handle)
+BOOL
+verify_handle(handle_t handle)
 {
   if (handle < 0)
     return FALSE;
@@ -17,15 +18,36 @@ BOOL verify_handle(__IN__ handle_t handle)
   return TRUE;
 }
 
+BOOL
+get_handle_type(HANDLE_t handle, HANDLE_TYPE_t* type)
+{
+  char t = syscall_1(SYSID_GET_HNDL_TYPE, handle);
+
+  if (t < 0)
+    return FALSE;
+
+  /* NOTE: HANDLE_TYPE_t is unsigned */
+  *type = t;
+
+  return TRUE;
+}
+
+BOOL
+close_handle(HANDLE_t handle)
+{
+  QWORD result = syscall_1(SYSID_CLOSE, handle);
+
+  if (result == SYS_OK)
+    return TRUE;
+
+  return FALSE;
+}
+
 /*
  * Send a syscall to open a handle
  */
-HANDLE_t open_handle(
-  __IN__ const char* path,
-  __IN__ __OPTIONAL__ HANDLE_TYPE_t type,
-  __IN__ DWORD flags,
-  __IN__ DWORD mode
-)
+HANDLE_t
+open_handle(const char* path, HANDLE_TYPE_t type, DWORD flags, DWORD mode)
 {
   HANDLE_t ret;
 

@@ -230,7 +230,7 @@ void scheduler_yield() {
   // invoke the scheduler early
   scheduler_try_invoke();
   // prepare the next thread
-  if (pick_next_thread_scheduler().m_status != ANIVA_SUCCESS) {
+  if (IsError(pick_next_thread_scheduler())) {
     kernel_panic("TODO: terminate the process which has no threads left!");
   }
 

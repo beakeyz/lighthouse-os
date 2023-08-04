@@ -14,6 +14,7 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_FS_ROOT   (4)
 #define HNDL_TYPE_VOBJ      (5) /* A handle to a virtual object in the vfs */
 #define HNDL_TYPE_KOBJ      (6) /* A handle to a kernel object */
+#define HNDL_TYPE_THREAD    (7)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

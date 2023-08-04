@@ -704,12 +704,6 @@ int vn_close(vnode_t* node, struct vobj* obj)
   if (!node || !obj || !node->m_ops || !node->m_ops->f_close)
     return -1;
 
-  /* Failing to close fs-side, is actually a major issue */
-  if (node->m_ops->f_close(node, obj) < 0)
-    return -1;
-
   /* Unref in order to only destroy when the object is not used anywhere */
-  vobj_unref(obj);
-
-  return 0;
+  return vobj_unref(obj);
 }

@@ -1,6 +1,9 @@
 #include "sys_open.h"
 #include "LibSys/handle_def.h"
+#include "LibSys/syscall.h"
+#include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/manifest.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
@@ -14,7 +17,7 @@
 HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, uint32_t mode)
 {
   HANDLE_t ret;
-  khandle_t handle;
+  khandle_t handle = { 0 };
   ErrorOrPtr result;
   proc_t* current_process;
 
@@ -26,7 +29,7 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
   if (!current_process || IsError(kmem_validate_ptr(current_process, (uintptr_t)path, 1)))
     return HNDL_INVAL;
 
-  ret = HNDL_INVAL;
+  ret = HNDL_NOT_FOUND;
 
   switch (type) {
     case HNDL_TYPE_FILE:
@@ -60,6 +63,15 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
         break;
       }
     case HNDL_TYPE_DRIVER:
+      {
+        dev_manifest_t* driver = get_driver(path);
+
+        if (!driver)
+          return HNDL_NOT_FOUND;
+
+        create_khandle(&handle, &type, driver);
+        break;
+      }
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
     case HNDL_TYPE_VOBJ:
@@ -68,12 +80,16 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
       break;
   }
 
+  if (!handle.reference.kobj)
+    return HNDL_NOT_FOUND;
+
   /* TODO: check for permissions and open with the appropriate flags */
 
   /* Clear state bits */
   handle.flags = flags;
   handle.flags &= ~HNDL_OPT_MASK;
 
+  /* Copy the handle into the map */
   result = bind_khandle(&current_process->m_handle_map, &handle);
 
   if (!IsError(result))
@@ -98,4 +114,26 @@ HANDLE_t sys_open_driver(const char* __user name, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open file!");
   return HNDL_INVAL;
+}
+
+uintptr_t sys_close(HANDLE_t handle)
+{
+  khandle_t* c_handle;
+  ErrorOrPtr result;
+  proc_t* current_process;
+
+  current_process = get_current_proc();
+
+  c_handle = find_khandle(&current_process->m_handle_map, handle);
+
+  if (!c_handle)
+    return SYS_INV;
+
+  /* Destroying the khandle */
+  result = unbind_khandle(&current_process->m_handle_map, c_handle);
+
+  if (IsError(result))
+    return SYS_ERR;
+  
+  return SYS_OK;
 }
