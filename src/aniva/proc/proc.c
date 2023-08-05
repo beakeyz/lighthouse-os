@@ -1,7 +1,6 @@
 #include "proc.h"
 #include <mem/heap.h>
 #include "dev/debug/serial.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "dev/kterm/kterm.h"
 #include "entry/entry.h"
 #include "fs/vnode.h"

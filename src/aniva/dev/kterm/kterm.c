@@ -6,10 +6,12 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/external.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
+#include "dev/video/core.h"
+#include "dev/video/device.h"
+#include "dev/video/framebuffer.h"
 #include "fs/core.h"
 #include "fs/file.h"
 #include "fs/vfs.h"
@@ -284,7 +286,7 @@ void kterm_command_worker() {
         Must(__kmem_alloc_ex(
               p->m_root_pd.m_root,
               p->m_resource_bundle,
-              (paddr_t)__kterm_fb_info.paddr,
+              (paddr_t)__kterm_fb_info.addr,
               KTERM_FB_ADDR,
               __kterm_fb_info.size,
               KMEM_CUSTOMFLAG_NO_REMAP,
@@ -317,7 +319,7 @@ aniva_driver_t g_base_kterm_driver = {
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_drv_msg = kterm_on_packet,
-  .m_dependencies = {"graphics/fb", "io/ps2_kb"},
+  .m_dependencies = {"graphics/efifb", "io/ps2_kb"},
   .m_dep_count = 2,
 };
 EXPORT_DRIVER_PTR(g_base_kterm_driver);
@@ -381,18 +383,21 @@ int kterm_init() {
   memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
+  /* TODO: when we implement our HID driver, this should be replaced with a event endpoint we can probe */
   // register our keyboard listener
   destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
 
+  /* FIXME: integrate video device integration */
   // map our framebuffer
+  size_t size;
   uintptr_t ptr = KTERM_FB_ADDR;
-  destroy_packet_response(driver_send_packet_sync("graphics/fb", FB_DRV_MAP_FB, &ptr, sizeof(uintptr_t)));
+  video_device_t* device = get_active_video_device();
 
-  packet_response_t* response = driver_send_packet_sync("graphics/fb", FB_DRV_GET_FB_INFO, NULL, 0);
-  if (response) {
-    __kterm_fb_info = *(fb_info_t*)response->m_response_buffer;
-    destroy_packet_response(response);
-  }
+  ASSERT_MSG(device, "Could not find active video device!");
+  ASSERT_MSG(video_device_mmap(device, (void*)ptr, &size) == 0, "Failed to mmap the current video driver!");
+  ASSERT_MSG(device->fbinfo, "Video device didn't contain framebuffer info!");
+
+  __kterm_fb_info = *device->fbinfo;
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
@@ -537,8 +542,6 @@ static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
   if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
     *(uint32_t volatile*)(KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
   }
-
-  //kterm_draw_pixel(x, y, color);
 }
 
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {

@@ -16,7 +16,7 @@ struct proc;
 struct thread;
 struct mutex;
 struct threaded_socket;
-struct aniva_driver;
+struct dev_manifest;
 
 typedef int (*ThreadEntry) (
   uintptr_t arg
@@ -37,7 +37,7 @@ typedef struct thread {
   FuncPtr f_exit;
 
   struct mutex* m_lock;
-  struct aniva_driver* m_qdriver; /* The current querying driver */
+  struct dev_manifest* m_current_driver; /* The current querying driver */
 
   thread_context_t m_context;
   FpuState m_fpu_state;
@@ -86,9 +86,8 @@ thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, const char[3
  */
 thread_t *create_thread_as_socket(struct proc* process, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port);
 
-void thread_set_qdrv(thread_t* t, struct aniva_driver* driver);
-
-struct aniva_driver* thread_get_qdrv(thread_t* t);
+void thread_set_current_driver(thread_t* t, struct dev_manifest* driver);
+struct dev_manifest* thread_get_current_driver(thread_t* t);
 
 /*
  * set up the thread and prepare to switch context

@@ -3,7 +3,6 @@
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
 #include "dev/driver.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "interrupts/control/pic.h"
 #include "interrupts/interrupts.h"
 #include "libk/flow/error.h"

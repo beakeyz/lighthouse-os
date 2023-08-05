@@ -209,6 +209,8 @@ void generic_driver_entry(dev_manifest_t* manifest) {
 
 ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
 
+  dev_manifest_t* previous_driver;
+
   if (!manifest)
     return Error();
 
@@ -219,9 +221,16 @@ ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
   /* Preemptively set the driver to inactive */
   manifest->m_flags &= ~DRV_ACTIVE;
 
+  /* Make sure the current driver is correct */
+  previous_driver = get_current_driver();
+  set_current_driver(manifest);
+
   // NOTE: if the drivers port is not valid, the subsystem will verify 
   // it and provide a new port, so we won't have to wory about that here
   generic_driver_entry(manifest);
+
+  /* Also make sure it is reset when we are done */
+  set_current_driver(previous_driver);
 
   return Success(0);
 }

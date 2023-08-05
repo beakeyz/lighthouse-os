@@ -721,7 +721,5 @@ static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size) {
 
   bitmap_unmark(&zone->m_entries, address_offset);
 
-  memset(address, 0x00, size);
-
   return Success(0);
 }

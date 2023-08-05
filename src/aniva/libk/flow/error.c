@@ -3,7 +3,6 @@
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
 #include "interrupts/interrupts.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"

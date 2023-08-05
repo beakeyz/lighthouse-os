@@ -31,6 +31,7 @@ typedef struct aniva_driver {
   // TODO: make an actual framework for this lmao
   // FIXME: what arguments are best to pass here?
   SocketOnPacket f_drv_msg;
+  //uintptr_t (*f_msg)(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t size);
 
   int (*f_init)(void);
   int (*f_exit)(void);

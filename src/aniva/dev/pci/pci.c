@@ -1,7 +1,6 @@
 #include "pci.h"
 #include "bus.h"
 #include "dev/debug/serial.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "dev/pci/definitions.h"
 #include "interrupts/interrupts.h"
 #include "libk/flow/error.h"

@@ -1,5 +1,6 @@
 #include "core.h"
 #include "dev/debug/serial.h"
+#include "interrupts/interrupts.h"
 #include "kevent/kevent.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -281,6 +282,27 @@ ErrorOrPtr proc_unregister(char* name)
   result = __unregister_proc_by_name(name);
 
   return result;
+}
+
+/*
+ * Should we lock the scheduler here? 
+ */
+void set_current_driver(struct dev_manifest* manifest)
+{
+  thread_t* current_thread = get_current_scheduling_thread();
+
+  thread_set_current_driver(current_thread, manifest);
+}
+
+void reset_current_driver()
+{
+  set_current_driver(nullptr);
+}
+
+struct dev_manifest* get_current_driver()
+{
+  thread_t* current_thread = get_current_scheduling_thread();
+  return thread_get_current_driver(current_thread);
 }
 
 threaded_socket_t *find_registered_socket(uint32_t port) {

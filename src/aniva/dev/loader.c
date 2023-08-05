@@ -240,8 +240,10 @@ static int __check_driver(struct loader_ctx* ctx)
         if (strcmp(ctx->section_strings + shdr->sh_name, ".expdrv") == 0) {
           /* TODO: real validation */
 
-          if (shdr->sh_size != sizeof(aniva_driver_t))
+          if (shdr->sh_size != sizeof(aniva_driver_t)) {
+            kernel_panic("Size check failed while loading external driver: could it be that dependencies enlarge the sections size?");
             return -1;
+          }
 
           expdrv_sections++;
           ctx->expdrv_idx = i;

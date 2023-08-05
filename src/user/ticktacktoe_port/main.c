@@ -185,7 +185,7 @@ player_t* game_loop (gamedata_t* data_p) {
 
             /* Try to get the X coord from the user */
             char* result = fgets(buffer, sizeof(buffer), stdin);
-            if(result[1] != '\0') {
+            if(result[1] != '\0' || result[0] < '0' || result[0] > '2') {
               put_error_in_buffer(error_buffer, "that coord (X) was invalid!");
               break;
             }
@@ -201,7 +201,7 @@ player_t* game_loop (gamedata_t* data_p) {
 
             /* Try to get the Y coord from the user */
             result = fgets(buffer, sizeof(buffer), stdin);
-            if(result[1] != '\0') {
+            if(result[1] != '\0' || result[0] < '0' || result[0] > '2') {
               put_error_in_buffer(error_buffer, "that coord (Y) was invalid!");
               break;
             }
@@ -234,27 +234,23 @@ player_t* game_loop (gamedata_t* data_p) {
             int good_vert = 0;
             int good_side_1 = 0;
             int good_side_2 = 0;
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
-                    if (data_p->board[i][j] == cur_char) {
-                        good_hor++;
-                    }
-                    if (data_p->board[j][i] == cur_char) {
-                        good_vert++;
-                    }
 
-                    if (data_p->board[i][j] == cur_char && (i == j)) {
-                        good_side_1++;
-                    }
-                    if (data_p->board[i][j] == cur_char && (i == j || (j == 2 && i == 0 || j == 0 && i == 2))) {
-                        good_side_2++;
-                    }
+            for (uint8_t i = 0; i < 3; i++) {
+              char* cur = data_p->board[i];
+              /* Horizontal check */
+              if ((cur[0] + cur[1] + cur[2]) == (3 * cur_char))
+                return current;
 
-                    if (good_vert == 3 || good_hor == 3 || good_side_2 == 3 || good_side_1 == 3) {
-                        return current;
-                    } 
-                }
-                good_hor = good_vert = 0;
+              /* Vertical check */
+              if ((data_p->board[0][i] + 
+                    data_p->board[1][i] +
+                    data_p->board[2][i]) == (3 * cur_char))
+                return current;
+            }
+
+            for (uint8_t i = 0; i < 2; i++) {
+              if ((data_p->board[0][2*i] + data_p->board[1][1] + data_p->board[2 - 2*i][2]) == (3 * cur_char))
+                return current;
             }
 
             data_p->player_turn_p = opposing;

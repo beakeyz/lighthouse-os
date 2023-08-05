@@ -23,8 +23,6 @@
 #include <mem/kmem_manager.h>
 #include <crypto/k_crc32.h>
 
-#include <dev/framebuffer/framebuffer.h>
-
 static ahci_device_t* __ahci_devices;
 
 static pci_dev_id_t ahci_id_table[] = {

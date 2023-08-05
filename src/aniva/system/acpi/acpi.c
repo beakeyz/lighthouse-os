@@ -1,6 +1,5 @@
 #include "acpi.h"
 #include "dev/debug/serial.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "dev/pci/pci.h"
 #include "libk/flow/error.h"
 #include "system/acpi/parser.h"

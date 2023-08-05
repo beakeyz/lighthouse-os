@@ -1,5 +1,4 @@
 #include "interrupts.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "interrupts/control/interrupt_control.h"
 #include "interrupts/idt.h"
 #include "kevent/kevent.h"

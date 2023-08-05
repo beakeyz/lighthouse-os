@@ -75,14 +75,40 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
   
   manifest = get_driver(path);
 
+  kfree((void*)path);
+
   if (!manifest)
     return false;
-
-  kfree((void*)path);
 
   mutex_lock(&manifest->m_lock);
 
   manifest->m_ops.f_read = read_fn;
+
+  mutex_unlock(&manifest->m_lock);
+
+  return true;
+}
+
+bool install_private_data(struct aniva_driver* driver, void* data)
+{
+  dev_url_t path;
+  dev_manifest_t* manifest;
+
+  path = get_driver_url(driver);
+
+  if (!path)
+    return false;
+
+  manifest = get_driver(path);
+
+  kfree((void*)path);
+
+  if (!manifest)
+    return false;
+
+  mutex_lock(&manifest->m_lock);
+
+  manifest->m_private = data;
 
   mutex_unlock(&manifest->m_lock);
 
@@ -140,6 +166,9 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
 
 void destroy_dev_manifest(dev_manifest_t* manifest) {
   // TODO: figure out if we need to take the driver handle with us...
+
+  println("Destroying: ");
+  println(manifest->m_url);
 
   clear_mutex(&manifest->m_lock);
   destroy_list(manifest->m_dependency_manifests);

@@ -1,6 +1,5 @@
 #include "parser.h"
 #include "dev/debug/serial.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"

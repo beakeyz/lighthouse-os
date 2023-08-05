@@ -129,6 +129,8 @@ bool is_driver_loaded(struct dev_manifest* handle);
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
+struct dev_manifest* get_driver_from_type(DEV_TYPE type, uint32_t index);
+size_t get_driver_type_count(DEV_TYPE type);
 bool verify_driver(struct dev_manifest* manifest);
 
 /*
@@ -149,7 +151,8 @@ const char* driver_get_type_str(struct dev_manifest* driver);
 /*
  * Find the url for a certain dev_type
  */
-static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) {
+static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) 
+{
   return dev_type_urls[type];
 }
 

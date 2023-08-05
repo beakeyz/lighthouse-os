@@ -1,7 +1,6 @@
 #include "test.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
-#include "dev/framebuffer/framebuffer.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"

@@ -226,7 +226,109 @@ invalid_path:
   kfree((void*)path);
 }
 
+/*
+ * The new rewritten get algorithm for the hive (basically a tree) implementation
+ *
+ * A hive is basically a linkedlist that contains linkedlists, for better data grouping.
+ * It's probably technically called something else, but this kind 'hive' had a different kind
+ * of function when I first designed it. It then got rewritten and rewritten and now it's
+ * just basically a tree lmao
+ * 
+ * Anyhow, this hive_get function simply walks the path string that is provided and cuts it 
+ * up where there are HIVE_PART_SEPERATOR symbols (most likely '/'). It walks the hive structure
+ * at the same time as it does the path and finds the matching entry per subpath that gets extracted
+ * (a subpath is every part of the path that is inbetween HIVE_PART_SEPERATOR symbols, or at the start 
+ * (the root) or at the end (the tail)). When we reach the end of the path, we can assume that 
+ * the data is supposed to be here.
+ *
+ * The current implementation of hive_t has a lot of unnecessary heap usage, which I want to slowly phase out
+ */
 void* hive_get(hive_t* root, const char* path) {
+
+  char* end_ptr;
+  char* start_ptr;
+  char buffer[strlen(path) + 1];
+  hive_t* current;
+  hive_entry_t* current_entry;
+  memcpy(buffer, path, strlen(path) + 1);
+
+  start_ptr = buffer;
+  end_ptr = buffer;
+  current = root;
+  current_entry = nullptr;
+
+  /* Loop one, to look for the root pathpart */
+  while (*end_ptr) {
+    if (*end_ptr != HIVE_PART_SEPERATOR) {
+      end_ptr++;
+      continue;
+    }
+
+    /* Preemptive null-terminate */
+    *end_ptr = '\0';
+
+    /* Check if we are indeed in the root */
+    if (strcmp(root->m_url_part, start_ptr) != 0) {
+      /* Nope, let's fix this up */
+      *end_ptr = HIVE_PART_SEPERATOR;
+      start_ptr = end_ptr = buffer;
+      break;
+    }
+    
+    /* We are, make sure that we actually skip this part in the path */
+    end_ptr++;
+    start_ptr = end_ptr;
+    break;
+  }
+
+  /* Loop two, to resolve the rest of the path */
+  while (*end_ptr) {
+
+    if (*end_ptr != HIVE_PART_SEPERATOR)
+      goto cycle;
+
+    /* Temporarily terminate the string */
+    *end_ptr = '\0';
+
+    FOREACH(i, current->m_entries) {
+      current_entry = i->data;
+
+      if (!hive_entry_is_hole(current_entry))
+        continue;
+
+      if (strcmp(current_entry->m_entry_part, start_ptr) == 0) {
+        current = current_entry->m_hole;
+        break;
+      }
+
+      current_entry = nullptr;
+    }
+
+    /* When the linear scan is done, we drop down here */
+    if (!current_entry)
+      return nullptr;
+
+    *end_ptr = HIVE_PART_SEPERATOR;
+    start_ptr = end_ptr + 1;
+cycle:
+    end_ptr++;
+  }
+
+  if (!current)
+    return nullptr;
+
+  FOREACH(i, current->m_entries) {
+    current_entry = i->data;
+
+    if (strcmp(current_entry->m_entry_part, start_ptr) == 0) {
+      return current_entry->m_data;
+    }
+  }
+
+  return nullptr;
+}
+
+void* hive_get_old(hive_t* root, const char* path) {
 
   /* Some epic invalid paths
    TODO: see if these checks need to go anywhere else */
@@ -339,7 +441,7 @@ const char* hive_get_path(hive_t* root, void* data) {
     if (hive_entry_is_hole(entry)) {
       const char* hole_path = hive_get_path(entry->m_hole, data);
 
-      if (hole_path != nullptr) {
+      if (hole_path) {
         // append
         ret = (char*)__hive_prepend_root_part(root, hole_path);
         kfree((void*)hole_path);

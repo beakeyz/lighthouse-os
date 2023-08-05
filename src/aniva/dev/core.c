@@ -181,12 +181,18 @@ void init_aniva_driver_registry() {
 }
 
 
-struct dev_manifest* allocate_dmanifest()
+dev_manifest_t* allocate_dmanifest()
 {
+  dev_manifest_t* ret;
+
   if (!__dev_manifest_allocator)
     return nullptr;
 
-  return zalloc_fixed(__dev_manifest_allocator);
+  ret = zalloc_fixed(__dev_manifest_allocator);
+
+  memset(ret, 0, sizeof(dev_manifest_t));
+
+  return ret;
 }
 
 
@@ -194,6 +200,8 @@ void free_dmanifest(struct dev_manifest* manifest)
 {
   if (!__dev_manifest_allocator)
     return;
+
+  kernel_panic("Why are we freeing a manifest rn?");
 
   zfree_fixed(__dev_manifest_allocator, manifest);
 }
@@ -356,12 +364,12 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     // TODO: check for errors
     if (dep_manifest && !is_driver_loaded(dep_manifest)) {
 
+      print("Loading driver: ");
+      println(handle->m_name);
+      print("Loading dependency: ");
+      println(dep_manifest->m_handle->m_name);
+
       if (driver_is_deferred(dep_manifest)) {
-        print("Loading driver: ");
-        println(handle->m_name);
-        print("Loading dependency: ");
-        println(dep_manifest->m_handle->m_name);
-  
         kernel_panic("TODO: handle deferred dependencies!");
       }
 
@@ -389,7 +397,6 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   return Success(0);
 
 fail_and_exit:
-  destroy_dev_manifest(manifest);
   return Error();
 }
 
@@ -458,12 +465,47 @@ dev_manifest_t* get_driver(dev_url_t url) {
 
   /* If we are asking for the current executing driver */
   if (url && strcmp(url, "this") == 0) {
-    kernel_panic("TODO: implement get_driver(\"this\")");
+    return get_current_driver();
   }
 
-   return hive_get(__installed_driver_manifests, url);
+  return hive_get(__installed_driver_manifests, url);
 }
 
+size_t get_driver_type_count(DEV_TYPE type)
+{
+  return __dev_constraints[type].current_count;
+}
+
+struct dev_manifest* get_driver_from_type(DEV_TYPE type, uint32_t index)
+{
+  const char* url_start = dev_type_urls[type];
+  dev_constraint_t constraint = __dev_constraints[type];
+
+  if (index >= constraint.current_count)
+    index = 0;
+
+  /* Manual hive itteration LMAO */
+  FOREACH(i, __installed_driver_manifests->m_entries) {
+    hive_entry_t* entry = i->data;
+
+    if (entry->m_hole && strcmp(entry->m_entry_part, url_start) == 0) {
+
+      FOREACH(j, entry->m_hole->m_entries) {
+        hive_entry_t* entry = j->data;
+
+        if (!entry->m_data)
+          continue;
+
+        if (!index)
+          return entry->m_data;
+
+        index--;
+      }
+    }
+  }
+
+  return nullptr;
+}
 
 dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
 
