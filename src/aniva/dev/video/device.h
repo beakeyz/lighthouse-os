@@ -2,8 +2,6 @@
 #define __ANIVA_VID_DEVICE__
 
 #include "dev/core.h"
-#include "dev/video/framebuffer.h"
-#include "dev/video/precedence.h"
 
 #define VIDDEV_FLAG_FB          (0x01)
 #define VIDDEV_FLAG_GPU         (0x02)
@@ -12,6 +10,9 @@
 
 struct video_device_ops;
 struct aniva_driver;
+
+struct vd_framebuffer;
+struct fb_info;
 
 /*
  * Fun little idea:
@@ -30,29 +31,46 @@ struct aniva_driver;
  * or sometimes even compute paralel for us. 
  *
  * /How does communication work between the outside world and video drivers?
+ * Probably like IOCTLs / DMSG
+ *
+ * A video device most likely contains only one connector, but can contain up to
+ * max_connector_count connectors. It is up to the driver to figure this out. A 
+ * connector is a representation of the physical connection between the graphics 
+ * hardware and the display. The connector structure knows about the kind of communication
+ * that the hardware needs, so the video_device should go there for its transfers. 
+ *
  * 
  */
 typedef struct video_device {
-  video_dev_precedence_t precedence;
-  uint8_t res0;
-  uint16_t flags;
-  uint32_t res1;
-  fb_info_t* fbinfo;
+  uint32_t flags;
+  uint16_t max_connector_count;
+  uint16_t current_connector_count;
+  struct fb_info* fbinfo;
+
+  struct vd_framebuffer* framebuffers;
 
   struct dev_manifest* manifest;
   struct video_device_ops* ops;
 } video_device_t;
 
+void register_video_device(struct aniva_driver* driver, struct video_device* device);
+void unregister_video_device(struct video_device* device);
 int destroy_video_device(video_device_t* device);
 
-/*
- * NEVER use these function raw
- * we have wrappers for them that do essensial preperations and cleanup. This 
- * goes for most _ops in the system
- */
+struct video_device* get_active_video_device();
+
+struct vd_framebuffer* vid_dev_attach_vdfb(struct video_device* device);
+void vid_dev_detach_vdfb(struct video_device* device, struct vd_framebuffer* framebuffer);
+
+struct vd_framebuffer* vid_dev_vdfb_get(struct video_device* device, uint32_t index);
+
+void vid_dev_register_connector();
+void vid_dev_unregister_connector();
+
 typedef struct video_device_ops {
   int (*f_mmap) (video_device_t* device, void* p_buffer, size_t* p_size);
   int (*f_msg) (video_device_t* device, driver_control_code_t code);
+
   int (*f_destroy)(video_device_t* device);
 } video_device_ops_t;
 

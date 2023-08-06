@@ -16,6 +16,7 @@ typedef struct refc {
   void (*m_destructor) (void* handle);
 } refc_t;
 
+void init_refc(refc_t* ref, FuncPtr destructor, void* handle);
 refc_t* create_refc(FuncPtr destructor, void* referenced_handle);
 void destroy_refc(refc_t* ref);
 
@@ -28,7 +29,7 @@ static ALWAYS_INLINE void flat_ref(flat_refc_t* frc_p) {
 }
 
 static ALWAYS_INLINE void flat_unref(flat_refc_t* frc_p) {
-  if (!*frc_p) {
+  if (!frc_p || !(*frc_p)) {
     return;
   }
   (*frc_p)--;

@@ -99,6 +99,9 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device);
 
 bool gdisk_is_valid(disk_dev_t* device);
 
+uint8_t diskdev_detect_partitioning_type(disk_dev_t* dev);
+int diskdev_populate_partition_table(disk_dev_t* dev);
+
 /*
  * find the partitioned device (weird naming sceme but its whatever) 
  * of a generic disk device at idx

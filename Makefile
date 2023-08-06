@@ -23,6 +23,7 @@ LINK_PATH := ./src/aniva/entry/linker.ld
 NASM	   		:= /usr/bin/nasm
 CC              := $(CROSS_PATH)/x86_64-pc-lightos-gcc
 LD         		:= $(CROSS_PATH)/x86_64-pc-lightos-ld
+OC         		:= $(CROSS_PATH)/x86_64-pc-lightos-objcopy
 
 KERNEL_OUT = $(OUT)/lightos.elf
 

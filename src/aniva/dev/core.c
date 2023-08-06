@@ -15,6 +15,7 @@
 #include "proc/core.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
+#include "proc/proc.h"
 #include "proc/socket.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -66,42 +67,66 @@ dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
   [DT_DISK] = {
     .type = DT_DISK,
     .max_count = DRV_INFINITE,
+    .max_active = DRV_INFINITE,
+    .current_active = 0,
     .current_count = 0,
+    .active = nullptr,
   },
   [DT_FS] = {
     .type = DT_FS,
     .max_count = DRV_INFINITE,
+    .max_active = DRV_INFINITE,
+    .current_active = 0,
     .current_count = 0,
+    .active = nullptr,
   },
   [DT_IO] = {
     .type = DT_IO,
     .max_count = DRV_INFINITE,
+    .max_active = DRV_INFINITE,
+    .current_active = 0,
     .current_count = 0,
+    .active = nullptr,
   },
   [DT_SOUND] = {
     .type = DT_SOUND,
-    .max_count = 1,
+    .max_count = 10,
+    .max_active = 1,
+    .current_active = 0,
     .current_count = 0,
+    .active = nullptr,
   },
   [DT_GRAPHICS] = {
     .type = DT_GRAPHICS,
-    .max_count = 1,
+    .max_count = 10,
+    .max_active = 1,
     .current_count = 0,
+    .current_active = 0,
+    .active = nullptr,
   },
   [DT_OTHER] = {
     .type = DT_OTHER,
     .max_count = DRV_INFINITE,
+    .max_active = DRV_INFINITE,
+    .current_active = 0,
     .current_count = 0,
+    .active = nullptr,
   },
   [DT_DIAGNOSTICS] = {
     .type = DT_DIAGNOSTICS,
     .max_count = 1,
+    .max_active = 1,
     .current_count = 0,
+    .current_active = 0,
+    .active = nullptr,
   },
   [DT_SERVICE] = {
     .type = DT_SERVICE,
     .max_count = DRV_SERVICE_MAX,
+    .max_active = DRV_SERVICE_MAX,
+    .current_active = 0,
     .current_count = 0,
+    .active = 0,
   },
 };
 
@@ -305,8 +330,55 @@ fail_and_exit:
   return Error();
 }
 
+static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
+{
+  dev_manifest_t* c_active_manifest;
+  dev_constraint_t* constraint = &__dev_constraints[type];
 
-static void __driver_register_presence(DEV_TYPE type) 
+  c_active_manifest = constraint->active;
+
+  /* Easy job yay */
+  if (constraint->max_active == 1) {
+    switch (constraint->current_active) {
+      case 0:
+        {
+          constraint->active = manifest;
+          constraint->current_active++;
+          break;
+        }
+      case 1:
+        {
+          if (manifest->m_handle->m_precedence > c_active_manifest->m_handle->m_precedence) {
+            constraint->active = manifest;
+          }
+          break;
+        }
+      default:
+        break;
+    }
+    return;
+  }
+
+  ASSERT_MSG(!c_active_manifest, "active manifest isn't null while we are allowing more than one active drivers!");
+
+  ASSERT_MSG(constraint->current_active != constraint->max_active, "Reached maximum amount of active drivers for this type. TODO: implement error handling here");
+
+  constraint->current_active++;
+}
+
+static void __driver_unregister_active(dev_type_t type) 
+{
+  dev_constraint_t* constraint = &__dev_constraints[type];
+
+  ASSERT_MSG(constraint->current_active, "Tried to unregister active while there are no active drivers!");
+
+  /* Just make sure this is null if we unregister active */
+  constraint->active = nullptr;
+
+  constraint->current_active--;
+}
+
+static void __driver_register_presence(dev_type_t type) 
 {
   if (type >= DRIVER_TYPE_COUNT)
     return;
@@ -314,7 +386,7 @@ static void __driver_register_presence(DEV_TYPE type)
   __dev_constraints[type].current_count++;
 }
 
-static void __driver_unregister_presence(DEV_TYPE type) 
+static void __driver_unregister_presence(dev_type_t type) 
 {
   if (type >= DRIVER_TYPE_COUNT || __dev_constraints[type].current_count)
     return;
@@ -394,6 +466,8 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
    */
   Must(bootstrap_driver(manifest));
 
+  __driver_register_active(handle->m_type, manifest);
+
   return Success(0);
 
 fail_and_exit:
@@ -423,6 +497,7 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 
   /* Unregister presence before unlocking the manifest */
   __driver_unregister_presence(manifest->m_handle->m_type);
+  __driver_unregister_active(manifest->m_handle->m_type); 
 
   mutex_unlock(&manifest->m_lock);
 
@@ -471,12 +546,18 @@ dev_manifest_t* get_driver(dev_url_t url) {
   return hive_get(__installed_driver_manifests, url);
 }
 
-size_t get_driver_type_count(DEV_TYPE type)
+size_t get_driver_type_count(dev_type_t type)
 {
   return __dev_constraints[type].current_count;
 }
 
-struct dev_manifest* get_driver_from_type(DEV_TYPE type, uint32_t index)
+struct dev_manifest* get_active_driver_from_type(dev_type_t type)
+{
+  dev_constraint_t constraint = __dev_constraints[type];
+  return constraint.active;
+}
+
+struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
 {
   const char* url_start = dev_type_urls[type];
   dev_constraint_t constraint = __dev_constraints[type];
@@ -520,20 +601,18 @@ dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
 
   ret = get_driver(path);
 
+  kfree((void*)path);
+
   if (!ret)
     goto fail_and_exit;
 
-  if (!is_driver_loaded(ret))
-    goto fail_and_exit;
-
   /* If the flags specify that the driver has to be active, we check for that */
-  if ((ret->m_flags & DRV_ACTIVE) == 0 && (flags & DRV_ACTIVE))
+  if ((ret->m_flags & DRV_ACTIVE) == 0 && (flags & DRV_ACTIVE) == DRV_ACTIVE)
     goto fail_and_exit;
 
   return ret;
 
 fail_and_exit:
-  kfree((void*)path);
   return nullptr;
 }
 

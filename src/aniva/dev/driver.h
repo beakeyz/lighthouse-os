@@ -2,6 +2,7 @@
 #define __ANIVA_DRIVER__
 #include <libk/stddef.h>
 #include "core.h"
+#include "dev/precedence.h"
 #include "libk/flow/reference.h"
 #include "proc/socket.h"
 
@@ -39,7 +40,9 @@ typedef struct aniva_driver {
   /* Used to try and verify if this driver supports a device */
   int (*f_probe)(struct aniva_driver* driver, void* device_info);
 
-  DEV_TYPE m_type;
+  dev_type_t m_type;
+  drv_precedence_t m_precedence;
+  uint16_t res0;
   uint32_t m_port;
 
   size_t m_dep_count;

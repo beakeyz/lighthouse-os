@@ -38,14 +38,9 @@ static bool gpt_entry_is_used(uint8_t guid[16]) {
   return false;
 }
 
-gpt_table_t* create_gpt_table(disk_dev_t* device) {
-  gpt_table_t* ret = kmalloc(sizeof(gpt_table_t));
+bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table) {
 
-  ret->m_device = device;
-  ret->m_partition_count = 0;
-  ret->m_partitions = create_hive("part");
-
-  // TODO: get gpt header
+  gpt_partition_header_t* header;
   uint8_t buffer[device->m_logical_sector_size];
   uint32_t gpt_block = 0;
 
@@ -54,15 +49,29 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
 
   int result = device->m_ops.f_read_sync(device, buffer, device->m_logical_sector_size, gpt_block);
 
-  if (result < 0) {
-    goto fail_and_destroy;
-  }
+  if (result < 0)
+    return false;
 
-  memcpy(&ret->m_header, buffer, sizeof(gpt_partition_header_t));
+  header = (void*)buffer;
 
-  if (!gpt_header_is_valid(&ret->m_header)) {
+  if (!gpt_header_is_valid(header))
+    return false;
+
+  if (table)
+    memcpy(&table->m_header, buffer, sizeof(gpt_partition_header_t));
+
+  return true;
+}
+
+gpt_table_t* create_gpt_table(disk_dev_t* device) {
+  gpt_table_t* ret = kmalloc(sizeof(gpt_table_t));
+
+  ret->m_device = device;
+  ret->m_partition_count = 0;
+  ret->m_partitions = init_list();
+
+  if (!disk_try_copy_gpt_header(device, ret))
     goto fail_and_destroy;
-  }
 
   // Check partitions
 
@@ -90,7 +99,7 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
     gpt_partition_t* partition = create_gpt_partition(&entry, partition_index);
 
     ret->m_partition_count++;
-    hive_add_entry(ret->m_partitions, partition, partition->m_path);
+    list_append(ret->m_partitions, partition);
 
     partition_index++;
     blk_offset += partition_entry_size;
@@ -104,7 +113,7 @@ fail_and_destroy:
 }
 
 void destroy_gpt_table(gpt_table_t* table) {
-  destroy_hive(table->m_partitions);
+  destroy_list(table->m_partitions);
   kfree(table);
 }
 

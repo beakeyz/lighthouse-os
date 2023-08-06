@@ -53,7 +53,7 @@ ErrorOrPtr finalize_multiboot(void* addr) {
 
     kmem_set_phys_range_used(phys_fb_start_idx, phys_fb_page_count);
 
-    fbuffer = next_mb2_tag((char*)mod, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+    fbuffer = next_mb2_tag((char*)fbuffer, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   }
 
   /* TODO: do we need to do anything else to init multiboot for the kernel? */

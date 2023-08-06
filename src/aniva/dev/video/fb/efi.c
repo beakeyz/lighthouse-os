@@ -1,10 +1,8 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/manifest.h"
-#include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "dev/video/precedence.h"
 #include "entry/entry.h"
 #include "interrupts/control/pic.h"
 #include "libk/flow/error.h"
@@ -15,6 +13,9 @@
 #include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
 #include <dev/driver.h>
+
+int fb_driver_init();
+int fb_driver_exit();
 
 static int __fbinfo_set_colors(fb_info_t* info, struct multiboot_tag_framebuffer* fb)
 {
@@ -66,11 +67,22 @@ static video_device_ops_t efi_devops = {
 };
 
 static video_device_t vdev = {
-  .precedence = VID_DEV_PRECEDENCE_BASIC,
   .flags = VIDDEV_FLAG_FB | VIDDEV_FLAG_FIRMWARE,
   .ops = &efi_devops,
 };
 
+// FIXME: this driver only works for the multiboot fb that we get passed
+// by the bootloaded. We need to create another driver for using an external 
+// GPU
+aniva_driver_t efifb_driver = {
+  .m_name = "efifb",
+  .m_precedence = DRV_PRECEDENCE_BASIC,
+  .m_type = DT_GRAPHICS,
+  .m_version = DRIVER_VERSION(0, 0, 1),
+  .f_init = fb_driver_init,
+  .f_exit = fb_driver_exit,
+};
+EXPORT_DRIVER_PTR(efifb_driver);
 
 /*
  * Generic EFI GOP framebuffer driver lmao
@@ -124,7 +136,7 @@ int fb_driver_init() {
   kmem_set_phys_range_used(fb_start_idx, fb_page_count);
 
   /* Register the video device (install it on our manifest) */
-  register_video_device(&vdev);
+  register_video_device(&efifb_driver, &vdev);
 
   return 0;
 }
@@ -135,16 +147,3 @@ int fb_driver_exit() {
 
   return 0;
 }
-
-// FIXME: this driver only works for the multiboot fb that we get passed
-// by the bootloaded. We need to create another driver for using an external 
-// GPU
-aniva_driver_t g_base_fb_driver = {
-  .m_name = "efifb",
-  .m_type = DT_GRAPHICS,
-  .m_version = DRIVER_VERSION(0, 0, 1),
-  .f_init = fb_driver_init,
-  .f_exit = fb_driver_exit,
-  .f_drv_msg = nullptr,
-};
-EXPORT_DRIVER_PTR(g_base_fb_driver);

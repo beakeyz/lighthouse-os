@@ -9,21 +9,20 @@ struct aniva_driver;
 struct dev_manifest;
 
 #define DRIVER_URL_SEPERATOR '/'
-
 #define DRIVER_TYPE_COUNT 8
-
 #define DRIVER_WAIT_UNTIL_READY (size_t)-1
 
-typedef enum dev_type {
-  DT_DISK = 0,
-  DT_FS,
-  DT_IO,
-  DT_SOUND,
-  DT_GRAPHICS,
-  DT_SERVICE,
-  DT_DIAGNOSTICS,
-  DT_OTHER
-} DEV_TYPE;
+typedef uint8_t dev_type_t;
+
+#define DT_DISK 0
+#define DT_FS 1
+#define DT_IO 2
+#define DT_SOUND 3
+#define DT_GRAPHICS 4
+#define DT_SERVICE 5
+#define DT_DIAGNOSTICS 6
+#define DT_OTHER 7
+#define DEV_TYPE 8
 
 typedef enum dev_flags {
   STANDARD = (1 << 0),
@@ -32,9 +31,19 @@ typedef enum dev_flags {
 } DEV_FLAGS;
 
 typedef struct dev_constraint {
-  DEV_TYPE type;
+  uint32_t max_active;
+  uint32_t current_active;
   uint32_t max_count;
   uint32_t current_count;
+  dev_type_t type;
+
+  /* The rest of the qword taken by ->type -_- */
+  uint8_t res0;
+  uint16_t res1;
+  uint32_t res2;
+
+  /* This field should only be used when max_active is 1 and current_active is 1 */
+  struct dev_manifest* active;
 } dev_constraint_t;
 
 #define DRV_INFINITE            0xFFFFFFFF
@@ -129,9 +138,19 @@ bool is_driver_loaded(struct dev_manifest* handle);
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
-struct dev_manifest* get_driver_from_type(DEV_TYPE type, uint32_t index);
-size_t get_driver_type_count(DEV_TYPE type);
+struct dev_manifest* get_active_driver_from_type(dev_type_t type);
+struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
+size_t get_driver_type_count(dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);
+
+/*
+ * Replaces the current active driver of this manifests type
+ * with the manifests. This unloads the old driver and loads the 
+ * new one. Both must be installed
+ *
+ * @uninstall: if true we uninstall the old driver
+ */
+void replace_active_driver(struct dev_manifest* manifest, bool uninstall);
 
 /*
  * This tries to get a driver from the loaded pool. If it is not
@@ -151,7 +170,7 @@ const char* driver_get_type_str(struct dev_manifest* driver);
 /*
  * Find the url for a certain dev_type
  */
-static ALWAYS_INLINE const char* get_driver_type_url(DEV_TYPE type) 
+static ALWAYS_INLINE const char* get_driver_type_url(dev_type_t type) 
 {
   return dev_type_urls[type];
 }

@@ -9,7 +9,6 @@
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
-#include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
 #include "fs/core.h"
@@ -393,6 +392,9 @@ int kterm_init() {
   uintptr_t ptr = KTERM_FB_ADDR;
   video_device_t* device = get_active_video_device();
 
+  /*
+   * NOTE: kterm will always simply grab the entire framebuffer
+   */
   ASSERT_MSG(device, "Could not find active video device!");
   ASSERT_MSG(video_device_mmap(device, (void*)ptr, &size) == 0, "Failed to mmap the current video driver!");
   ASSERT_MSG(device->fbinfo, "Video device didn't contain framebuffer info!");

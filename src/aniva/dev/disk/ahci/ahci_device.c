@@ -137,7 +137,7 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
       /* Register the global disk device */
       register_gdisk_dev(&port->m_generic);
 
-      hive_add_entry(device->m_ports, port, port->m_generic.m_path);
+      list_append(device->m_ports, port);
 
       internal_index++;
     }
@@ -146,18 +146,23 @@ static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
   return ANIVA_SUCCESS;
 }
 
-static bool port_itterator(hive_t* current, void* data) {
+static ErrorOrPtr gather_ports_info(ahci_device_t* device) {
 
   ANIVA_STATUS status;
-  ahci_port_t* port = data;
 
-  status = ahci_port_gather_info(port);
+  FOREACH(i, device->m_ports) {
 
-  if (status == ANIVA_FAIL) {
-    println("Failed to gather info!");
-    return false;
+    ahci_port_t* port = i->data;
+
+    status = ahci_port_gather_info(port);
+
+    if (status == ANIVA_FAIL) {
+      println("Failed to gather info!");
+      return Error();
+    }
   }
-  return true;
+
+  return Success(0);
 }
 
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
@@ -201,8 +206,8 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   println("Gathering info about ports...");
 
-  if (hive_walk(device->m_ports, true, port_itterator).m_status == ANIVA_FAIL)
-    return ANIVA_FAIL;
+  if (IsError(gather_ports_info(device)))
+      return ANIVA_FAIL;
 
   println("Done!");
   return status;
@@ -217,25 +222,33 @@ static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool
   return ANIVA_SUCCESS;
 }
 
-static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs) {
+static registers_t* ahci_irq_handler(registers_t *regs) {
 
+  ahci_device_t* device = __ahci_devices;
   // TODO: handle
   kernel_panic("Recieved AHCI interrupt!");
 
-  uint32_t ahci_interrupt_status = __ahci_devices->m_hba_region->control_regs.int_status;
+  while (device) {
+  
+    uint32_t ahci_interrupt_status = device->m_hba_region->control_regs.int_status;
 
-  if (ahci_interrupt_status == 0) {
-    return regs;
-  }
-
-  for (uint32_t i = 0; i < 32; i++) {
-    if (ahci_interrupt_status & (1 << i)) {
-      char port_path[strlen("prt") + strlen(to_string(i)) + 1];
-      concat("prt", (char*)to_string(i), (char*)port_path);
-      ahci_port_t* port = hive_get(__ahci_devices->m_ports, port_path);
-      
-      ahci_port_handle_int(port); 
+    if (ahci_interrupt_status == 0) {
+      goto next;
     }
+
+    FOREACH(i, device->m_ports) {
+      ahci_port_t* port = i->data;
+
+      /* Sanity check */
+      ASSERT(port->m_port_index < 32);
+
+      if (ahci_interrupt_status & (1 << port->m_port_index)) {
+        ahci_port_handle_int(port); 
+      }
+    }
+
+next:
+    device = device->m_next;
   }
 
   return regs;
@@ -250,7 +263,7 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier) {
   __register_ahci_device(ahci_device);
 
   ahci_device->m_identifier = identifier;
-  ahci_device->m_ports = create_hive("ports");
+  ahci_device->m_ports = init_list();
 
   if (initialize_hba(ahci_device) == ANIVA_FAIL) {
     destroy_ahci_device(ahci_device);
@@ -260,56 +273,17 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier) {
   return ahci_device;
 }
 
-static bool __destroy_device_ports(hive_t* root, void* port)
-{
-  destroy_ahci_port(port);
-  return true;
-}
-
 void destroy_ahci_device(ahci_device_t* device) {
 
   __unregister_ahci_device(device);
 
-  hive_walk(device->m_ports, true, __destroy_device_ports);
-  destroy_hive(device->m_ports);
-
-  kfree(device);
-}
-
-ahci_dch_t* create_ahci_command_header(void* buffer, size_t size, disk_offset_t offset) {
-  ahci_dch_t* header = kmalloc(sizeof(ahci_dch_t));
-
-  // TODO
-  header->m_flags = 0;
-  header->m_crc = 0;
-
-  header->m_req_buffer = buffer;
-  header->m_req_size = size;
-  header->m_req_offset = offset;
-
-  header->m_crc = kcrc32(header, sizeof(ahci_dch_t));
-
-  return header;
-}
-
-void destroy_ahci_command_header(ahci_dch_t* header) {
-  // kfree(header->m_req_buffer);
-  kfree(header);
-}
-
-ErrorOrPtr ahci_cmd_header_check_crc(ahci_dch_t* header) {
-
-  uintptr_t crc_check;
-  ahci_dch_t copy = *header;
-  copy.m_crc = 0;
-
-  crc_check = kcrc32(&copy, sizeof(ahci_dch_t));
-
-  if (crc_check == header->m_crc) {
-    return Success(0);
+  FOREACH(i, device->m_ports) {
+    destroy_ahci_port(i->data);
   }
 
-  return Error();
+  destroy_list(device->m_ports);
+
+  kfree(device);
 }
 
 static int ahci_probe(pci_device_t* identifier, pci_driver_t* driver) {
@@ -357,38 +331,9 @@ uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** re
     return (uintptr_t)-1;
   }
 
+  kernel_panic("TODO: implement ahci on_packet functions");
+
   switch (payload.m_code) {
-    case AHCI_MSG_GET_PORT: {
-      const char* path = (const char*)payload.m_data;
-
-      ahci_port_t* res = hive_get(__ahci_devices->m_ports, path);
-
-      ahci_port_t copy = *res;
-
-      if (res) {
-        *response = create_packet_response(&copy, sizeof(ahci_port_t));
-      }
-      break;
-    }
-    case AHCI_MSG_READ: {
-      ahci_dch_t* header = (ahci_dch_t*)payload.m_data;
-
-      if (ahci_cmd_header_check_crc(header).m_status == ANIVA_FAIL) {
-        kernel_panic("FUCK ahci command header does not have a matching crc32!");
-        return (uintptr_t)-1;
-      }
-
-      ahci_port_t* port = hive_get(__ahci_devices->m_ports, header->m_port_path);
-
-      int result = port->m_generic.m_ops.f_read_sync(&port->m_generic, header->m_req_buffer, header->m_req_size, header->m_req_offset);
-
-      if (result < 0) {
-        return (uintptr_t)-1;
-      }
-
-      *response = create_packet_response(header, sizeof(ahci_dch_t));
-      return 0;
-    }
   }
 
   return 0;

@@ -1,5 +1,6 @@
 #include "generic.h"
 #include "dev/debug/serial.h"
+#include "dev/disk/partition/gpt.h"
 #include "fs/vfs.h"
 #include "libk/flow/error.h"
 #include <libk/string.h>
@@ -483,6 +484,16 @@ partitioned_disk_dev_t* find_partition_at(disk_dev_t* diskdev, uint32_t idx) {
   return ret;
 }
 
+uint8_t diskdev_detect_partitioning_type(disk_dev_t* dev)
+{
+  if (disk_try_copy_gpt_header(dev, nullptr))
+    return PART_TYPE_GPT;
+
+  /* TODO: detect mbr */
+
+  return PART_TYPE_NONE;
+}
+
 int ramdisk_read(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
 
   if (!device || !device->m_devs || !device->m_physical_sector_size)
@@ -575,7 +586,7 @@ cycle_next:
   }
 
   if (!root_device) {
-      if (IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
+      if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
         kernel_panic("Could not find a root device to mount! TODO: fix");
       }
   }
@@ -583,6 +594,7 @@ cycle_next:
   //kernel_panic("init_root_device_probing test");
 
 }
+
 
 bool gdisk_is_valid(disk_dev_t* device)
 {

@@ -46,13 +46,13 @@ NORETURN void kernel_panic(const char* panic_message) {
   current_thread = get_current_scheduling_thread();
 
   /* Let's not try to write to the kterm when we don't have the mapping... */
-  if (!current_proc || !current_thread || current_proc->m_root_pd.m_root != kmem_get_krnl_dir())
+  if (!current_proc || !current_thread || current_proc->m_root_pd.m_root != kmem_get_krnl_dir() || !get_driver("other/kterm"))
     has_framebuffer = false;
 
   /* NOTE: crashes in userspace (duh) */
   if (has_framebuffer) {
-    //println_kterm("[KERNEL PANIC] ");
-    //println_kterm(panic_message);
+    println_kterm("[KERNEL PANIC] ");
+    println_kterm(panic_message);
   }
 skip_diagnostics:
   __kernel_panic();

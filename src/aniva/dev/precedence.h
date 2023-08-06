@@ -15,12 +15,12 @@
  * However we don't go further than that, so we simply trust drivers to report 
  * the correct value. If they don't, that's not really our problem lmao
  */
-typedef uint8_t video_dev_precedence_t;
+typedef uint8_t drv_precedence_t;
 
-#define VID_DEV_PRECEDENCE_BASIC    10
-#define VID_DEV_PRECEDENCE_MID      50
-#define VID_DEV_PRECEDENCE_HIGH     100
-#define VID_DEV_PRECEDENCE_EXTREME  200
-#define VID_DEV_PRECEDENCE_FULL     0xff
+#define DRV_PRECEDENCE_BASIC    10
+#define DRV_PRECEDENCE_MID      50
+#define DRV_PRECEDENCE_HIGH     100
+#define DRV_PRECEDENCE_EXTREME  200
+#define DRV_PRECEDENCE_FULL     0xff
 
 #endif // !__ANIVA_VID_DEV_PRECEDENCE__

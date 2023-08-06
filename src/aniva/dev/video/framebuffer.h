@@ -1,9 +1,11 @@
 #ifndef __ANIVA_VID_DEV_FRAMEBUFFER__
 #define __ANIVA_VID_DEV_FRAMEBUFFER__
 
+#include "libk/flow/reference.h"
 #include "libk/stddef.h"
 
 struct fb_ops;
+struct vdfb_ops;
 struct video_device;
 
 #define FB_PIXELTYPE_PACKED 0
@@ -30,6 +32,10 @@ typedef union fb_color {
   uint32_t raw_clr;
 } fb_color_t;
 
+/*
+ * The fb_info struct for in-kernel tracking of the attributes of 
+ * a framebuffer device
+ */
 typedef struct fb_info {
 
   /* Generic fb stuff */
@@ -74,14 +80,54 @@ void destroy_fb_info(fb_info_t* info);
 typedef struct fb_ops {
   int (*f_destroy) (fb_info_t* info);
 
+  /* Transforms the standard framebuffer color into a packed DWORD for the framebuffer */
+  uint32_t (*f_clr_transform) (fb_color_t clr);
+
   /* Draw a simple rectangle */
-  int (*f_draw_rect)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t clr);
+  int (*f_draw_rect)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t clr);
   /* Draw a glyph from a bitmap */
-  int (*f_draw_glyph)(fb_info_t* info, uint32_t x, uint32_t y, uint8_t* glyph_bm, uint32_t glyph_bm_len, uint32_t clr);
+  int (*f_draw_glyph)(fb_info_t* info, uint32_t x, uint32_t y, uint8_t* glyph_bm, uint32_t glyph_bm_len, fb_color_t clr);
 
   /* TODO: create a helper struct for any virtual mapping / tranfer */
   int (*f_mmap)(fb_info_t* info, void* p_buffer, size_t* p_size);
   /* ... */
 } fb_ops_t;
+
+/*
+ * The vd_framebuffer is for external 'users' of the video device to 
+ * perform rendering in a more orchestrated way. This is less technical 
+ * than fb_info, since that contains information about how framebuffer memory
+ * is structured
+ */
+typedef struct vd_framebuffer {
+  struct video_device* device;
+  struct vdfb_ops* ops;
+
+  refc_t ref;
+
+  uint32_t pitch;
+
+  /*
+   * Logical width and height of the framebuffer
+   */
+  uint32_t width, height;
+
+  /*
+   * link into the ->framebuffers list in video_device
+   */
+  struct vd_framebuffer* next;
+
+  vaddr_t dma_buffer;
+
+} vd_framebuffer_t;
+
+vd_framebuffer_t* create_vdfb(struct video_device* device);
+void destroy_vdfb(vd_framebuffer_t* framebuffer);
+void release_vdfb(vd_framebuffer_t* framebuffer);
+
+typedef struct vdfb_ops {
+  vd_framebuffer_t* (*f_create)(struct video_device* device);
+  void (*f_destroy)(vd_framebuffer_t* buffer);
+} vdfb_ops_t;
 
 #endif // !__ANIVA_VID_DEV_FRAMEBUFFER__

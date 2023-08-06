@@ -85,7 +85,7 @@ typedef struct {
   size_t m_partition_count;
 
   disk_dev_t* m_device;
-  hive_t* m_partitions;
+  list_t* m_partitions;
 } gpt_table_t;
 
 gpt_table_t* create_gpt_table(disk_dev_t* device);
@@ -93,5 +93,7 @@ void destroy_gpt_table(gpt_table_t* table);
 
 gpt_partition_t* create_gpt_partition(gpt_partition_entry_t* entry, uintptr_t index);
 void destroy_gpt_partition(gpt_partition_t* partition);
+
+bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table);
 
 #endif // !__ANIVA_GPT_PARTITION__
