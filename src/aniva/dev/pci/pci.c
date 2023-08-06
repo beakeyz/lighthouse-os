@@ -74,6 +74,8 @@ static bool __matches_pci_devid(pci_device_t* device, pci_dev_id_t id)
  * NOTE: the caller may not have the drivers lock held on call
  * FIXME: when the device already has a driver, we should try to determine whether to
  *        replace the old driver with this one...
+ *
+ * @returns: the amount of fitting devices found
  */
 static int __find_fitting_pci_devices(pci_driver_t* driver)
 {
@@ -115,33 +117,35 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
     }
   }
 
-  /* If we didn't find any devices, that counts as failure */
-  if (!driver->device_count) {
-    mutex_unlock(driver->lock);
-    return -1;
-  }
-
   mutex_unlock(driver->lock);
-  return 0;
+  return driver->device_count;
 }
 
+/*!
+ * @brief Try to add the pci driver to the link
+ *
+ * Fails if it either alread exists, or if we could not find a fitting device
+ * Nothing to add here...
+ */
 static int __add_pci_driver(pci_driver_t* driver) 
 {
   struct pci_driver_link** slot;
 
   slot = __find_pci_driver(driver);
 
+  /* Does it exists? */
   if (*slot)
     return -1;
 
+  /* This takes and releases the drivers lock */
+  if (!__find_fitting_pci_devices(driver))
+    return -1;
+
+  /* We found some devices for this driver, AND a slot in the link! happy day */
   *slot = kzalloc(sizeof(struct pci_driver_link));
 
   (*slot)->this = driver;
   (*slot)->next = nullptr;
-
-  /* This takes and releases the drivers lock */
-  if (__find_fitting_pci_devices(driver))
-    return -1;
 
   return 0;
 }

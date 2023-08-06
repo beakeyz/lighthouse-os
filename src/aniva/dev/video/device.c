@@ -100,3 +100,12 @@ int destroy_video_device(video_device_t* device)
 {
   return device->ops->f_destroy(device);
 }
+
+struct vd_framebuffer* vid_dev_attach_vdfb(struct video_device* device);
+void vid_dev_detach_vdfb(struct video_device* device, struct vd_framebuffer* framebuffer);
+
+struct vd_framebuffer* vid_dev_vdfb_get(struct video_device* device, uint32_t index);
+
+void vid_dev_register_connector();
+void vid_dev_unregister_connector();
+

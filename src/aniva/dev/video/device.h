@@ -53,9 +53,10 @@ typedef struct video_device {
   struct video_device_ops* ops;
 } video_device_t;
 
+int destroy_video_device(video_device_t* device);
+
 void register_video_device(struct aniva_driver* driver, struct video_device* device);
 void unregister_video_device(struct video_device* device);
-int destroy_video_device(video_device_t* device);
 
 struct video_device* get_active_video_device();
 
