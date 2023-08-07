@@ -27,7 +27,7 @@ export TARGET="x86_64-pc-lightos"
 #           i686-pc-lightos     (?)
 export SYSROOT="$PWD/system"
 
-patch_path="$PWD/crosscompiler_patches/"
+patch_path="$PWD/resources/"
 
 # binutils
 bin_utils_version="2.33.1"
