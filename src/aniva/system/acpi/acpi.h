@@ -3,7 +3,11 @@
 
 #include <libk/stddef.h>
 
-void init_acpi(uintptr_t multiboot_addr);
+struct acpi_parser;
+
+void init_acpi();
 bool is_acpi_init();
+
+void get_root_acpi_parser(struct acpi_parser* out);
 
 #endif // !

@@ -1,5 +1,6 @@
-#include "multiboot.h"
+#include "multiboot.h" 
 #include "dev/debug/serial.h"
+#include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
@@ -17,6 +18,9 @@ ErrorOrPtr init_multiboot(void* addr) {
     return Error();
   }
 
+  /* NOTE: addr is virtual */
+  g_system_info.total_multiboot_size = ALIGN_UP(get_total_mb2_size(addr) + 8, SMALL_PAGE_SIZE);
+
   return Success(0);
 }
 
@@ -27,36 +31,35 @@ ErrorOrPtr init_multiboot(void* addr) {
  */
 ErrorOrPtr finalize_multiboot(void* addr) {
 
-  uint32_t i = 0;
-  struct multiboot_tag_module* mod = get_mb2_tag(addr, MULTIBOOT_TAG_TYPE_MODULE);
+  const size_t mb_pagecount = GET_PAGECOUNT(g_system_info.total_multiboot_size);
+  const paddr_t aligned_mb_start = ALIGN_DOWN((uintptr_t)addr, SMALL_PAGE_SIZE);
+  const uintptr_t mb_start_idx = kmem_get_page_idx(aligned_mb_start); 
 
-  /* Mark any module memory as used */
-  while (mod && (i++) < MB_MOD_PROBE_LOOPLIM) {
+  /* Reserve multiboot memory */
+  kmem_set_phys_range_used(mb_start_idx, mb_pagecount);
+
+  struct multiboot_tag_module* mod = g_system_info.ramdisk;
+
+  /* Mark the ramdisk 'module' memory as used */
+  if (mod && mod->mod_start && mod->mod_end && mod->mod_end > mod->mod_start) {
     const paddr_t module_start_idx = kmem_get_page_idx(ALIGN_DOWN(mod->mod_start, SMALL_PAGE_SIZE));
     const paddr_t module_end_idx = kmem_get_page_idx(ALIGN_UP(mod->mod_end, SMALL_PAGE_SIZE));
 
     const size_t module_size_pages = module_end_idx - module_start_idx;
 
     kmem_set_phys_range_used(module_start_idx, module_size_pages);
-
-    mod = next_mb2_tag((char*)mod, MULTIBOOT_TAG_TYPE_MODULE);
   }
 
-  i = 0;
-  struct multiboot_tag_framebuffer* fbuffer = get_mb2_tag(addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  struct multiboot_tag_framebuffer* fbuffer = g_system_info.firmware_fb;
 
-  /* Mark any framebuffer memory as used */
-  while (fbuffer && (i++) < MB_MOD_PROBE_LOOPLIM) {
+  /* Mark the framebuffer memory as used */
+  if (fbuffer && fbuffer->common.framebuffer_addr) {
 
     uintptr_t phys_fb_start_idx = kmem_get_page_idx(ALIGN_DOWN(fbuffer->common.framebuffer_addr, SMALL_PAGE_SIZE));
     uintptr_t phys_fb_page_count = kmem_get_page_idx(ALIGN_UP(fbuffer->common.framebuffer_pitch * fbuffer->common.framebuffer_height, SMALL_PAGE_SIZE));
 
     kmem_set_phys_range_used(phys_fb_start_idx, phys_fb_page_count);
-
-    fbuffer = next_mb2_tag((char*)fbuffer, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   }
-
-  /* TODO: do we need to do anything else to init multiboot for the kernel? */
 
   return Success(0);
 }
@@ -73,7 +76,7 @@ size_t get_total_mb2_size(void* start_addr) {
     ret += tag->size;
 
     idxPtr += tag->size;
-    while ((uintptr_t)idxPtr & 7) idxPtr++;
+    idxPtr = (void*)ALIGN_UP((uintptr_t)idxPtr, 8);
     tag = idxPtr;
   }
 
@@ -89,7 +92,8 @@ void* next_mb2_tag(void *cur, uint32_t type) {
     if (tag->type == 0) return nullptr;
 
     idxPtr += tag->size;
-    while ((uintptr_t)idxPtr & 7) idxPtr++;
+
+    idxPtr = ALIGN_UP(idxPtr, 8);
     tag = (void*)idxPtr;
   }
 } 

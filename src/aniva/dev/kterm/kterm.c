@@ -35,6 +35,7 @@
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
+#include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "system/resource.h"
 #include <system/processor/processor.h>
@@ -141,20 +142,25 @@ void kterm_command_worker() {
       const char* contents = __kterm_cmd_buffer.buffer;
 
       if (!strcmp(contents, "acpitables")) {
+
+        acpi_parser_t parser;
+
+        get_root_acpi_parser(&parser);
+
         kterm_println("acpi static table info: \n");
         kterm_println("rsdp address: ");
-        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_rsdp)));
+        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser.m_rsdp)));
         kterm_println("\n");
         kterm_println("xsdp address: ");
-        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)g_parser_ptr->m_xsdp)));
+        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser.m_xsdp)));
         kterm_println("\n");
         kterm_println("is xsdp: ");
-        kterm_println(g_parser_ptr->m_is_xsdp ? "true\n" : "false\n");
+        kterm_println(parser.m_is_xsdp ? "true\n" : "false\n");
         kterm_println("rsdp discovery method: ");
-        kterm_println(g_parser_ptr->m_rsdp_discovery_method.m_name);
+        kterm_println(parser.m_rsdp_discovery_method.m_name);
         kterm_println("\n");
         kterm_println("tables found: ");
-        kterm_println(to_string(g_parser_ptr->m_tables->m_length));
+        kterm_println(to_string(parser.m_tables->m_length));
         kterm_println("\n");
       } else if (!strcmp(contents, "help")) {
         kterm_println("available commands: \n");

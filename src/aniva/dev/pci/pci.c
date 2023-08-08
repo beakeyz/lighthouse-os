@@ -649,7 +649,7 @@ bool init_pci() {
 
   __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
 
-  acpi_mcfg_t* mcfg = find_table(g_parser_ptr, "MCFG");
+  acpi_mcfg_t* mcfg = find_table(g_parser_ptr, "MCFG", sizeof(acpi_mcfg_t));
 
   if (!mcfg) {
     kernel_panic("no mcfg found!");

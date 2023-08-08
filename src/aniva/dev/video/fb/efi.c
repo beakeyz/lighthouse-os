@@ -103,12 +103,12 @@ int fb_driver_init() {
   struct multiboot_tag_framebuffer* fb;
 
   /* Check the early system logs */
-  if (!g_system_info.has_framebuffer)
+  if (!(g_system_info.sys_flags & SYSFLAGS_HAS_FRAMEBUFFER))
     return -1;
 
   println("Initialized fb driver!");
 
-  fb = get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  fb = g_system_info.firmware_fb;
 
   if (!fb)
     return -1;

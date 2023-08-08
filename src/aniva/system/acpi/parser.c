@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "dev/debug/serial.h"
+#include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
@@ -12,8 +13,6 @@
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
-
-acpi_parser_t *g_parser_ptr;
 
 #define RSDP_SIGNATURE "RSD PTR "
 #define FADT_SIGNATURE "FACP"
@@ -48,20 +47,17 @@ static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rs
   };
 }
 
-ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
-  g_parser_ptr = parser;
-
-  parser->m_multiboot_addr = multiboot_addr;
-  parser->m_tables = init_list();
-
+ErrorOrPtr create_acpi_parser(acpi_parser_t* parser) {
   println("Starting ACPI parser");
 
-  find_rsdp(parser);
-  println("Found rsdp");
+  parser->m_tables = init_list();
+
+  ASSERT(find_rsdp(parser));
 
   if (parser->m_rsdp_discovery_method.m_method == NONE) {
     // FIXME: we're fucked lol
     // kernel_panic("no rsdt found =(");
+    //return Error();
     return Error();
   }
 
@@ -71,7 +67,7 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
    */
   parser_init_tables(parser);
 
-  parser->m_fadt = find_table(parser, FADT_SIGNATURE);
+  parser->m_fadt = find_table(parser, FADT_SIGNATURE, sizeof(acpi_fadt_t));
 
   if (!parser->m_fadt) {
     return Error();
@@ -79,6 +75,7 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 
   //hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
+  println("Started");
   return Success(0);
 }
 
@@ -90,58 +87,97 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr) {
 void parser_init_tables(acpi_parser_t* parser) {
   acpi_xsdt_t* xsdt = nullptr;
   acpi_rsdt_t* rsdt = nullptr;
+  acpi_sdt_header_t* header;
   size_t tables;
+  uintptr_t table_entry;
+  paddr_t phys;
 
-  if (parser->m_is_xsdp) {
-    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
-    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)xsdt), xsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
+  ASSERT_MSG(parser->m_rsdp || parser->m_xsdp, "No ACPI pointer found!");
+
+  if (parser->m_xsdp) {
+    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), NULL, 0));
+    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, xsdt->base.length, NULL, 0));
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
 
     for (uintptr_t i = 0; i < tables; i++) {
-      /* The table addresses should just be physical */
-      acpi_sdt_header_t* table = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(xsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
 
-      list_append(parser->m_tables, table);
+      if (!xsdt->tables[i])
+        break;
+
+      table_entry = xsdt->tables[i];
+      phys = kmem_to_phys(nullptr, table_entry);
+
+      if (phys && table_entry >= HIGH_MAP_BASE)
+        table_entry = phys;
+
+      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, sizeof(acpi_sdt_header_t), NULL, 0));
+
+      list_append(parser->m_tables, header);
     } 
 
     return;
   }
 
-  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc((uintptr_t)parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
-  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uintptr_t)rsdt), rsdt->base.length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
+  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), NULL, 0));
+  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, rsdt->base.length, NULL, 0));
   tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
 
   for (uintptr_t i = 0; i < tables; i++) {
-    acpi_sdt_header_t* table = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(rsdt->tables[i], sizeof(acpi_sdt_header_t), KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
 
-    list_append(parser->m_tables, table);
+      uint32_t table_entry = rsdt->tables[i];
+      paddr_t phys = kmem_to_phys(nullptr, table_entry);
+
+      if (phys)
+        table_entry = phys;
+
+      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, sizeof(acpi_sdt_header_t), NULL, 0));
+
+      list_append(parser->m_tables, header);
   } 
 }
 
 void* find_rsdp(acpi_parser_t* parser) {
   // TODO: check other spots
+  uintptr_t pointer;
+  paddr_t phys;
+
   parser->m_is_xsdp = false;
   parser->m_xsdp = nullptr;
   parser->m_rsdp = nullptr;
   parser->m_rsdp_discovery_method = create_rsdp_method_state(NONE);
 
   // check multiboot header
-  struct multiboot_tag_new_acpi* new_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+  struct multiboot_tag_new_acpi* new_ptr = g_system_info.xsdp;
 
-  if (new_ptr && new_ptr->rsdp[0]) {
-    /* TODO: check if ->rsdp is a virtual or physical address */
+  if (new_ptr) {
+    /* check if ->rsdp is a virtual or physical address */
+    pointer = (uintptr_t)new_ptr->rsdp;
+    phys = kmem_to_phys(nullptr, pointer);
+
+    if (phys != NULL && pointer >= HIGH_MAP_BASE)
+      pointer = phys;
+
+    print("Multiboot has xsdp: ");
+    println(to_string(pointer));
     parser->m_is_xsdp = true;
-    parser->m_xsdp = (void*)new_ptr->rsdp;
+    parser->m_xsdp = (void*)Release(__kmem_kernel_alloc(pointer, sizeof(acpi_xsdp_t), NULL, NULL));
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
     return parser->m_xsdp;
   }
 
-  struct multiboot_tag_old_acpi* old_ptr = get_mb2_tag((void*)parser->m_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+  struct multiboot_tag_old_acpi* old_ptr = g_system_info.rsdp;
 
-  if (old_ptr && old_ptr->rsdp[0]) {
-    //print("Multiboot has rsdp: ");
-    //println(to_string((uintptr_t)ptr));
-    parser->m_rsdp = (void*)old_ptr->rsdp;
+  if (old_ptr) {
+
+    pointer = (uintptr_t)old_ptr->rsdp;
+    phys = kmem_to_phys(nullptr, pointer);
+
+    if (phys != NULL && pointer >= HIGH_MAP_BASE)
+      pointer = phys;
+
+    print("Multiboot has rsdp: ");
+    println(to_string(pointer));
+    parser->m_rsdp = (void*)Release(__kmem_kernel_alloc(pointer, sizeof(acpi_rsdp_t), NULL, NULL));
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
     return parser->m_rsdp;
   }
@@ -150,7 +186,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   const uintptr_t bios_start_addr = 0xe0000;
   const size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
 
-  uintptr_t ptr = (uintptr_t)Must(__kmem_kernel_alloc(bios_start_addr, bios_mem_size, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
+  uintptr_t ptr = (uintptr_t)Must(__kmem_kernel_alloc(bios_start_addr, bios_mem_size, NULL, 0));
 
   if (ptr != NULL) {
     for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
@@ -189,12 +225,15 @@ void* find_rsdp(acpi_parser_t* parser) {
   return nullptr;
 }
 
-void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
+void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size) {
   FOREACH(i, parser->m_tables) {
     acpi_sdt_header_t* header = i->data;
     if (memcmp(&header->signature, sig, 4)) {
       if (index == 0) {
-        header = (void*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr,(uintptr_t)header), header->length, KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE, 0));
+
+        if (table_size)
+          header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uint64_t)header), table_size, NULL, NULL));
+
         return (void*)header;
       }
       index--;
@@ -203,8 +242,8 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index) {
   return nullptr;
 }
 
-void* find_table(acpi_parser_t *parser, const char* sig) {
-  return (void*)find_table_idx(parser, sig, 0);
+void* find_table(acpi_parser_t *parser, const char* sig, size_t table_size) {
+  return (void*)find_table_idx(parser, sig, 0, table_size);
 }
 
 const int parser_get_acpi_tables(acpi_parser_t* parser, char* names) {

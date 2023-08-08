@@ -142,15 +142,16 @@ ErrorOrPtr bitmap_find_free(bitmap_t* this) {
 }
 
 bool bitmap_isset(bitmap_t* this, uint32_t index) {
-  /*
-  if (index > this->m_entries) {
-    return false;
+
+  if (index >= this->m_entries) {
+    return true;
   }
-  */
-  ASSERT_MSG(index < this->m_entries, "Bitmap (bitmap_isset): index out of bounds");
+
+  //ASSERT_MSG(index < this->m_entries, "Bitmap (bitmap_isset): index out of bounds");
 
   const uint64_t index_byte = index >> 3ULL;
   const uint32_t index_bit = index % 8UL;
+
 
   return (this->m_map[index_byte] & (1 << index_bit));
 }

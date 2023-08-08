@@ -54,10 +54,9 @@ driver_version_t kernel_version = DEF_DRV_VERSION(0, 0, 0);
 /*
  * NOTE: has to be run after driver initialization
  */
-ErrorOrPtr __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
-  println("Looking for ramdisk...");
+ErrorOrPtr __init try_fetch_initramdisk() {
 
-  struct multiboot_tag_module* mod = get_mb2_tag((void*)multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
+  struct multiboot_tag_module* mod = g_system_info.ramdisk;
 
   if (!mod)
     return Error();
@@ -84,14 +83,31 @@ ErrorOrPtr __init try_fetch_initramdisk(uintptr_t multiboot_addr) {
   return register_gdisk_dev(ramdisk);
 }
 
+static void register_kernel_data(paddr_t p_mb_addr) 
+{
+  g_system_info.sys_flags = NULL;
+  g_system_info.kernel_start_addr = (vaddr_t)&_kernel_start;
+  g_system_info.kernel_end_addr = (vaddr_t)&_kernel_end;
+  g_system_info.kernel_version = kernel_version.version;
+  g_system_info.phys_multiboot_addr = p_mb_addr;
+  g_system_info.virt_multiboot_addr = kmem_ensure_high_mapping(p_mb_addr);
+
+  /* Cache important tags */
+  g_system_info.rsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+  g_system_info.xsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+  g_system_info.firmware_fb = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+  g_system_info.ramdisk = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
+
+  if (g_system_info.firmware_fb)
+    g_system_info.sys_flags |= SYSFLAGS_HAS_FRAMEBUFFER;
+}
+
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   /* TODO: move serial to driver level, have early serial that gets migrated to a driver later */
   init_serial();
   println("Hi from 64 bit land =D");
-
-  /* FIXME: do we still need this? */
-  void* virtual_mb_addr = (void*)kmem_ensure_high_mapping((uintptr_t)mb_addr);
+  println(to_string((uintptr_t)mb_addr));
 
   // Verify magic number
   if (mb_magic != 0x36d76289) {
@@ -100,9 +116,11 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
     kernel_panic("Can't verify multiboot header: invalid magic number");
   }
 
+  // Make sure the initial system info is setup
+  register_kernel_data((paddr_t)mb_addr);
+
   // parse multiboot
-  init_multiboot(virtual_mb_addr);
-  size_t total_multiboot_size = get_total_mb2_size((void *)virtual_mb_addr);
+  init_multiboot((void*)g_system_info.virt_multiboot_addr);
 
   // init bootstrap processor
   init_processor(&g_bsp, 0);
@@ -111,7 +129,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_kheap();
 
   // we need memory
-  init_kmem_manager((uintptr_t*)virtual_mb_addr);
+  init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
   // we need more memory
   init_zalloc();
@@ -122,19 +140,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // initialize cpu-related things that need the memorymanager and the heap
   g_bsp.fLateInit(&g_bsp);
 
-  // map multiboot address
-  const size_t final_multiboot_size = total_multiboot_size + 8;
-  Must(__kmem_kernel_alloc(
-    (uintptr_t)mb_addr,
-    final_multiboot_size,
-    NULL,
-    NULL
-  ));
-
-  g_system_info.multiboot_addr = (uintptr_t)virtual_mb_addr;
-  g_system_info.total_multiboot_size = final_multiboot_size;
-  g_system_info.has_framebuffer = (get_mb2_tag((void*)g_system_info.multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER) != nullptr);
-
   // Initialize kevent
   init_kevents();
 
@@ -142,7 +147,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_timer_system();
 
-  init_acpi(g_system_info.multiboot_addr);
+  init_acpi();
 
   init_pci();
 
@@ -199,7 +204,7 @@ void kthread_entry() {
   init_pci_drivers();
 
   /* Try to fetch the initrd which we can mount initial root to */
-  try_fetch_initramdisk((uintptr_t)g_system_info.multiboot_addr);
+  try_fetch_initramdisk();
 
   /* Probe for a root device */
   init_root_device_probing();

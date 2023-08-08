@@ -28,8 +28,8 @@
  * These hives give us more flexibility with finding drivers in nested paths,
  * since we enforce these type urls, but everything after that is free to choose
  */
-static hive_t* __installed_driver_manifests;
-static hive_t* __loaded_driver_manifests;
+static hive_t* __installed_driver_manifests = nullptr;
+static hive_t* __loaded_driver_manifests = nullptr;
 
 static zone_allocator_t* __dev_manifest_allocator;
 
@@ -537,6 +537,9 @@ bool is_driver_installed(dev_manifest_t* manifest) {
  * routine so that we can act accordingly
  */
 dev_manifest_t* get_driver(dev_url_t url) {
+
+  if (!__installed_driver_manifests)
+    return nullptr;
 
   /* If we are asking for the current executing driver */
   if (url && strcmp(url, "this") == 0) {

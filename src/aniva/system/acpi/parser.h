@@ -29,7 +29,7 @@ typedef struct acpi_parser {
   list_t* m_tables;
 
   acpi_fadt_t *m_fadt;
-  uintptr_t m_multiboot_addr;
+  //uintptr_t m_multiboot_addr;
 
   acpi_parser_rsdp_discovery_method_t m_rsdp_discovery_method;
 
@@ -37,7 +37,7 @@ typedef struct acpi_parser {
 
 } acpi_parser_t;
 
-ErrorOrPtr create_acpi_parser(acpi_parser_t* parser, uintptr_t multiboot_addr);
+ErrorOrPtr create_acpi_parser(acpi_parser_t* parser);
 
 void init_acpi_parser_aml(acpi_parser_t* parser);
 
@@ -47,8 +47,8 @@ void parser_init_tables(acpi_parser_t* parser);
 void* find_rsdp(acpi_parser_t* parser);
 
 // me want cool table
-void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index);
-void* find_table(acpi_parser_t *parser, const char* sig);
+void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size);
+void* find_table(acpi_parser_t *parser, const char* sig, size_t table_size);
 
 // just for funzies
 void print_tables(acpi_parser_t* parser);
@@ -58,6 +58,4 @@ const int parser_get_acpi_tables(acpi_parser_t* parser, char* out);
 /*
  * TODO: redo aml
  */
-
-extern acpi_parser_t *g_parser_ptr;
 #endif // !

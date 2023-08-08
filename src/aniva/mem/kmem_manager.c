@@ -75,10 +75,10 @@ void init_kmem_manager(uintptr_t* mb_addr) {
 
   kmem_init_physical_allocator();
 
+  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
+
   // Perform multiboot finalization
   finalize_multiboot(mb_addr);
-
-  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
 
   _init_kmem_page_layout();
 
@@ -86,7 +86,7 @@ void init_kmem_manager(uintptr_t* mb_addr) {
   // NOTE: If we ever decide to change the boottime mappings, this (along with the 
   // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
   uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd;
- 
+
   kmem_load_page_dir(map, true);
 
   _init_kmem_page_layout_late();
@@ -559,6 +559,7 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   pml_entry_t* page;
   uintptr_t phys_idx;
   bool should_mark;
+  bool was_used;
 
   /* 
    * secure page 
@@ -574,6 +575,7 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
 
   /* Does the caller specify we should not mark? */
   should_mark = ((kmem_flags & KMEM_CUSTOMFLAG_NO_MARK) != KMEM_CUSTOMFLAG_NO_MARK);
+  was_used = kmem_is_phys_page_used(phys_idx);
   
   /*
    * Set the physical page as used here to prevent 
@@ -597,13 +599,13 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
 
   /* Clear the tlb cache to update the mapping fr */
   /* NOTE: this has a tendency to crash =/ */
-  // kmem_invalidate_tlb_cache_entry(virt);
+  //kmem_invalidate_tlb_cache_entry(virt);
 
   /* 
    * If the caller does not specify that they want to defer 
-   * freeing the physical page, we just do
+   * freeing the physical page, we just do it now
    */
-  if (should_mark)
+  if (should_mark && !was_used)
     kmem_set_phys_page_free(phys_idx);
 
   return true;
@@ -901,7 +903,7 @@ ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t resources, paddr_t 
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) {
 
-  size_t pages_needed = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
+  size_t pages_needed = GET_PAGECOUNT(size);
 
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
@@ -1024,7 +1026,7 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
   
   /* Map everything before the kernel */
-  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, kernel_end_idx, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, kernel_end_idx, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
 }
 
 // TODO: make this more dynamic
@@ -1040,17 +1042,14 @@ static void _init_kmem_page_layout () {
 static void _init_kmem_page_layout_late() {
 
   const size_t total_pages = KMEM_DATA.m_phys_pages_count;
-  const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+
+  const vaddr_t virtual_kernel_base = ALIGN_UP(g_system_info.kernel_end_addr, SMALL_PAGE_SIZE);
+  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
 
-  const size_t max_page_count = kmem_get_page_idx(ALIGN_UP(1 * Gib, SMALL_PAGE_SIZE));
   size_t total_pages_to_map = total_pages - kernel_end_idx;
 
-  if (total_pages_to_map > max_page_count)
-    total_pages_to_map = max_page_count;
-  /* TODO: huh? */
-
-  ASSERT_MSG(kmem_map_range(nullptr, (uintptr_t)&_kernel_end, kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to map all memory");
+  kmem_map_range(nullptr, virtual_kernel_base, kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, 0);
 }
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {
