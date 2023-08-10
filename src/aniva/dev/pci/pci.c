@@ -11,6 +11,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
+#include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "system/acpi/structures.h"
 #include "io.h"
@@ -649,7 +650,7 @@ bool init_pci() {
 
   __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
 
-  acpi_mcfg_t* mcfg = find_table(g_parser_ptr, "MCFG", sizeof(acpi_mcfg_t));
+  acpi_mcfg_t* mcfg = find_acpi_table("MCFG", sizeof(acpi_mcfg_t));
 
   if (!mcfg) {
     kernel_panic("no mcfg found!");

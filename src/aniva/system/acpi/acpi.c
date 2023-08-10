@@ -7,11 +7,11 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
-static acpi_parser_t parser;
+static acpi_parser_t _parser;
 
 void init_acpi() {
 
-  Must(create_acpi_parser(&parser));
+  Must(create_acpi_parser(&_parser));
 
   // TODO: check FADT table for irq shit and verify that the parser booted up nicely
   // TODO: the purpose of this stub is to verify what the parser did while booting 
@@ -25,5 +25,10 @@ void get_root_acpi_parser(struct acpi_parser* out)
   if (!out)
     return;
 
-  memcpy(out, &parser, sizeof(acpi_parser_t));
+  memcpy(out, &_parser, sizeof(acpi_parser_t));
+}
+
+void* find_acpi_table(char* signature, size_t table_size)
+{
+  return acpi_parser_find_table(&_parser, signature, table_size);
 }

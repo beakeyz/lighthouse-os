@@ -1,4 +1,6 @@
 #include "serial.h"
+#include "dev/debug/early_tty.h"
+#include "entry/entry.h"
 #include "interrupts/control/pic.h"
 #include "system/acpi/parser.h"
 #include <libk/io.h>
@@ -45,6 +47,10 @@ void print(const char* str) {
   while (str[x] != '\0') {
       putch(str[x++]);
   }
+
+  if (g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) {
+    etty_print((char*)str);
+  }
 }
 
 void println(const char* str) {
@@ -54,6 +60,10 @@ void println(const char* str) {
   }
   if (str[x-1] != '\n') {
       putch('\n');
+  }
+
+  if (g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) {
+    etty_println((char*)str);
   }
 }
 

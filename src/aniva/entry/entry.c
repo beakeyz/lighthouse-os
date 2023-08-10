@@ -1,5 +1,6 @@
 #include "entry.h"
 #include "dev/core.h"
+#include "dev/debug/early_tty.h"
 #include "dev/disk/ahci/ahci_device.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
@@ -106,6 +107,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   /* TODO: move serial to driver level, have early serial that gets migrated to a driver later */
   init_serial();
+
+  disable_interrupts();
+
   println("Hi from 64 bit land =D");
   println(to_string((uintptr_t)mb_addr));
 
@@ -131,6 +135,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
+  // Initialize an early console
+  init_early_tty(g_system_info.firmware_fb);
+
   // we need more memory
   init_zalloc();
 
@@ -146,16 +153,30 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_hashmap();
 
   init_timer_system();
-
-  init_acpi();
-
-  init_pci();
+  
+  println("Initialized system utils");
 
   init_proc_core();
 
+  println("Initialized proc core");
+
   init_vfs();
 
+  println("Initialized vfs");
+
   init_fs_core();
+
+  println("Initialized fs core");
+
+  /* Initialize the ACPI subsystem */
+  init_acpi();
+
+  println("Initialized ACPI");
+
+  /* Initialize the PCI subsystem */
+  init_pci();
+
+  println("Initialized PCI");
 
   // FIXME
   // are we going micro, mono or perhaps even exo?
@@ -172,21 +193,14 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   set_kernel_proc(root_proc);
   sched_add_proc(root_proc);
 
+  for (;;) {}
+  // Clear the early tty
+  destroy_early_tty();
+
   start_scheduler();
 
-  //enable_interrupts();
-  // For a context switch:
-  //  - discard kernel boot stack
-  //  - make new proc context
-  //  - initialize its idle thread context
-  //  - setup exit mechanism, which cleans up the thread and process structures and deps
-  //  - since kernel idle thread SHOULD never exit, this is just as fallback. any other thread
-  //    should also have an exit trap
-  //  - when we are able to schedule a new thread, save current threads info into the new threads structure, then
-  //    set up a new thread context and jump to the thread entry (or have a unified ep for threads which setup things
-  //    in their own context
-  //  - have this mechanism in place in such a way that when a thread is done and exists, it automatically cleans up
-  //  - the stack and reverts to its sub-thread if it has it.
+  // Verify not reached
+  kernel_panic("Somehow came back to the kernel entry function!");
 }
 
 void kthread_entry() {

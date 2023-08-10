@@ -372,13 +372,13 @@ void init_interrupts() {
   register_idt_interrupt_handler(0x05, __exception_5);
   register_idt_interrupt_handler(0x06, illegal_instruction_asm_entry);
   register_idt_interrupt_handler(0x07, fpu_asm_entry);
-  //register_idt_interrupt_handler(0x08, __exception_8);
+  register_idt_interrupt_handler(0x08, __exception_8);
   register_idt_interrupt_handler(0x09, __exception_9);
   register_idt_interrupt_handler(0x0a, __exception_10);
   register_idt_interrupt_handler(0x0b, __exception_11);
   register_idt_interrupt_handler(0x0c, __exception_12);
   register_idt_interrupt_handler(0x0d, general_protection_asm_entry);
-  //register_idt_interrupt_handler(0x0e, pagefault_asm_entry);
+  register_idt_interrupt_handler(0x0e, pagefault_asm_entry);
   register_idt_interrupt_handler(0x0f, __exception_15);
   register_idt_interrupt_handler(0x10, __exception_16);
   register_idt_interrupt_handler(0x11, __exception_17);

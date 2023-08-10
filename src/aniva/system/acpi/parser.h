@@ -47,8 +47,8 @@ void parser_init_tables(acpi_parser_t* parser);
 void* find_rsdp(acpi_parser_t* parser);
 
 // me want cool table
-void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size);
-void* find_table(acpi_parser_t *parser, const char* sig, size_t table_size);
+void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size);
+void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t table_size);
 
 // just for funzies
 void print_tables(acpi_parser_t* parser);

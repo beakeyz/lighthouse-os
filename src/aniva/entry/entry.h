@@ -27,7 +27,8 @@ extern driver_version_t kernel_version;
 
 #define FOREACH_PCDRV(i) for (struct aniva_driver** i = _kernel_pcdrvs_start; i < _kernel_pcdrvs_end; i++)
 
-#define SYSFLAGS_HAS_FRAMEBUFFER (0x00000001)
+#define SYSFLAGS_HAS_FRAMEBUFFER    (0x00000001)
+#define SYSFLAGS_HAS_EARLY_TTY      (0x00000002)
 
 /*
  * Global system variables, that should be known throughout the 

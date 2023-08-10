@@ -15,6 +15,7 @@
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "system/acpi/opcodes.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include <mem/heap.h>
@@ -813,25 +814,25 @@ ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t siz
   return Success(0);
 }
 
-/*
- * Check if the virtual address returns a page when walking the pagetree
- * and return success if we where able to find it. Fail otherwise
- * Returns: the virtual base that we aligned to to find the page
- */
-ErrorOrPtr kmem_assert_mapped(pml_entry_t* table, vaddr_t v_address) {
-
-  vaddr_t virtual_base;
+ErrorOrPtr kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size)
+{
   pml_entry_t* page;
+  vaddr_t vaddr;
+  size_t page_count;
 
-  virtual_base = ALIGN_DOWN(v_address, SMALL_PAGE_SIZE);
+  page_count = GET_PAGECOUNT(size);
 
-  /* Don't create anything, just find */
-  page = kmem_get_page(table, virtual_base, 0, 0);
+  for (uint64_t i = 0; i < page_count; i++) {
 
-  if (page && kmem_get_page_base(page->raw_bits))
-    return Success(virtual_base);
+    vaddr = base + (i * SMALL_PAGE_SIZE);
 
-  return Error();
+    page = kmem_get_page(table, vaddr, NULL, NULL);
+
+    if (!page)
+      return Error();
+  }
+
+  return Success(0);
 }
 
 /*

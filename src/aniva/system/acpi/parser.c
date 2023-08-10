@@ -67,7 +67,7 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser) {
    */
   parser_init_tables(parser);
 
-  parser->m_fadt = find_table(parser, FADT_SIGNATURE, sizeof(acpi_fadt_t));
+  parser->m_fadt = acpi_parser_find_table(parser, FADT_SIGNATURE, sizeof(acpi_fadt_t));
 
   if (!parser->m_fadt) {
     return Error();
@@ -183,19 +183,24 @@ void* find_rsdp(acpi_parser_t* parser) {
   }
 
   // check bios mem
-  const uintptr_t bios_start_addr = 0xe0000;
-  const size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
+  uintptr_t bios_start_addr = 0xe0000;
+  size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
 
-  uintptr_t ptr = (uintptr_t)Must(__kmem_kernel_alloc(bios_start_addr, bios_mem_size, NULL, 0));
+  if (IsError(kmem_ensure_mapped(nullptr, bios_start_addr, bios_mem_size)))
+    bios_start_addr = Must(__kmem_kernel_alloc(bios_start_addr, bios_mem_size, NULL, NULL));
 
-  if (ptr != NULL) {
-    for (uintptr_t i = ptr; i < ptr + bios_mem_size; i+=16) {
-      void* potential = (void*)i;
-      if (memcmp(RSDP_SIGNATURE, potential, strlen(RSDP_SIGNATURE))) {
-        parser->m_rsdp_discovery_method = create_rsdp_method_state(BIOS_POKE);
-        parser->m_rsdp = potential;
-        return potential;
-      }
+  for (uintptr_t i = bios_start_addr; i < bios_start_addr + bios_mem_size; i+=16) {
+    acpi_xsdp_t* potential = (void *)i;
+    if (memcmp(RSDP_SIGNATURE, potential, strlen(RSDP_SIGNATURE))) {
+      parser->m_rsdp_discovery_method = create_rsdp_method_state(RECLAIM_POKE);
+
+      if (potential->base.revision >= 2 && potential->xsdt_addr) {
+        parser->m_xsdp = potential;
+        parser->m_is_xsdp = true;
+      } else 
+        parser->m_rsdp = (acpi_rsdp_t*)potential;
+
+      return potential;
     }
   }
 
@@ -212,10 +217,16 @@ void* find_rsdp(acpi_parser_t* parser) {
     uintptr_t length = range->length;
 
     for (uintptr_t i = start; i < (start + length); i += 16) {
-      void *potential = (void *) i;
+      acpi_xsdp_t* potential = (void *)i;
       if (memcmp(RSDP_SIGNATURE, potential, strlen(RSDP_SIGNATURE))) {
         parser->m_rsdp_discovery_method = create_rsdp_method_state(RECLAIM_POKE);
-        parser->m_rsdp = potential;
+
+        if (potential->base.revision >= 2 && potential->xsdt_addr) {
+          parser->m_xsdp = potential;
+          parser->m_is_xsdp = true;
+        } else 
+          parser->m_rsdp = (acpi_rsdp_t*)potential;
+
         return potential;
       }
     }
@@ -225,7 +236,7 @@ void* find_rsdp(acpi_parser_t* parser) {
   return nullptr;
 }
 
-void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size) {
+void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size) {
   FOREACH(i, parser->m_tables) {
     acpi_sdt_header_t* header = i->data;
     if (memcmp(&header->signature, sig, 4)) {
@@ -242,8 +253,8 @@ void* find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_
   return nullptr;
 }
 
-void* find_table(acpi_parser_t *parser, const char* sig, size_t table_size) {
-  return (void*)find_table_idx(parser, sig, 0, table_size);
+void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t table_size) {
+  return (void*)acpi_parser_find_table_idx(parser, sig, 0, table_size);
 }
 
 const int parser_get_acpi_tables(acpi_parser_t* parser, char* names) {
