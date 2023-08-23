@@ -1,5 +1,5 @@
 
-result=$(grub-file --is-x86-multiboot ./../lightos.elf)
+result=$(grub-file --is-x86-multiboot ./../aniva.elf)
 
 echo "$result"
 

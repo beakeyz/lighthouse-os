@@ -184,6 +184,7 @@ class BuildsysBuildDriversCallback(CommandCallback):
 
         return Status(StatusCode.Fail, "Failed to build drivers")
 
+
 class BuildsysBuildAllCallback(CommandCallback):
     def call(self) -> Status:
         c = Consts()

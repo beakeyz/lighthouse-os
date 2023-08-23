@@ -40,7 +40,7 @@ typedef struct {
   uint32_t length;
   uintptr_t xsdt_addr;
   uint8_t extended_checksum;
-//  uint8_t reserved[3];
+  uint8_t reserved[3];
 } __attribute__((packed)) acpi_xsdp_t;
 
 typedef struct {

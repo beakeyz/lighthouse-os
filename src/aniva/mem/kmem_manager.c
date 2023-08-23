@@ -90,7 +90,9 @@ void init_kmem_manager(uintptr_t* mb_addr) {
 
   kmem_load_page_dir(map, true);
 
+  println("Doing late stuff");
   _init_kmem_page_layout_late();
+  println("Done with late stuff");
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
@@ -591,10 +593,6 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
     return false;
   }
 
-  /* Realign the physical address */
-  if ((kmem_flags & KMEM_CUSTOMFLAG_NO_PHYS_REALIGN) != KMEM_CUSTOMFLAG_NO_PHYS_REALIGN)
-    phys = ALIGN_DOWN(phys, SMALL_PAGE_SIZE);
-
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
 
@@ -1023,7 +1021,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
 
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  const paddr_t kernel_physical_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
   
   /* Map everything before the kernel */
@@ -1044,13 +1042,19 @@ static void _init_kmem_page_layout_late() {
 
   const size_t total_pages = KMEM_DATA.m_phys_pages_count;
 
-  const vaddr_t virtual_kernel_base = ALIGN_UP(g_system_info.kernel_end_addr, SMALL_PAGE_SIZE);
   const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
+  const size_t max_page_count = GET_PAGECOUNT(ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE));
 
   size_t total_pages_to_map = total_pages - kernel_end_idx;
 
-  kmem_map_range(nullptr, virtual_kernel_base, kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, 0);
+  if (total_pages_to_map > max_page_count)
+    total_pages_to_map = max_page_count;
+
+  ASSERT_MSG(
+      kmem_map_range(nullptr, kmem_ensure_high_mapping(kernel_physical_end), kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE), 
+      "Could not map the rest of the physical memory space!"
+  );
 }
 
 page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_size) {

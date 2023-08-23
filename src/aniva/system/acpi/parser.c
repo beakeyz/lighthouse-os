@@ -94,11 +94,19 @@ void parser_init_tables(acpi_parser_t* parser) {
 
   ASSERT_MSG(parser->m_rsdp || parser->m_xsdp, "No ACPI pointer found!");
 
+  println("Lol");
   if (parser->m_xsdp) {
     xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), NULL, 0));
+    println("A");
+    println(to_string((uintptr_t)xsdt));
+    println(to_string((uintptr_t)parser->m_xsdp->xsdt_addr));
+    println(to_string(parser->m_xsdp->length));
+    println(to_string(xsdt->base.length));
     xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, xsdt->base.length, NULL, 0));
+    println("B");
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
 
+    println(to_string(tables));
     for (uintptr_t i = 0; i < tables; i++) {
 
       if (!xsdt->tables[i])
@@ -139,7 +147,6 @@ void parser_init_tables(acpi_parser_t* parser) {
 void* find_rsdp(acpi_parser_t* parser) {
   // TODO: check other spots
   uintptr_t pointer;
-  paddr_t phys;
 
   parser->m_is_xsdp = false;
   parser->m_xsdp = nullptr;
@@ -152,15 +159,13 @@ void* find_rsdp(acpi_parser_t* parser) {
   if (new_ptr) {
     /* check if ->rsdp is a virtual or physical address */
     pointer = (uintptr_t)new_ptr->rsdp;
-    phys = kmem_to_phys(nullptr, pointer);
-
-    if (phys != NULL && pointer >= HIGH_MAP_BASE)
-      pointer = phys;
 
     print("Multiboot has xsdp: ");
     println(to_string(pointer));
     parser->m_is_xsdp = true;
-    parser->m_xsdp = (void*)Release(__kmem_kernel_alloc(pointer, sizeof(acpi_xsdp_t), NULL, NULL));
+    parser->m_xsdp = (acpi_xsdp_t*)pointer;
+
+    println(parser->m_xsdp->base.OEMID);
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
     return parser->m_xsdp;
   }
@@ -170,14 +175,10 @@ void* find_rsdp(acpi_parser_t* parser) {
   if (old_ptr) {
 
     pointer = (uintptr_t)old_ptr->rsdp;
-    phys = kmem_to_phys(nullptr, pointer);
-
-    if (phys != NULL && pointer >= HIGH_MAP_BASE)
-      pointer = phys;
 
     print("Multiboot has rsdp: ");
     println(to_string(pointer));
-    parser->m_rsdp = (void*)Release(__kmem_kernel_alloc(pointer, sizeof(acpi_rsdp_t), NULL, NULL));
+    parser->m_rsdp = (acpi_rsdp_t*)pointer;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
     return parser->m_rsdp;
   }

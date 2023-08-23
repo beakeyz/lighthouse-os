@@ -25,11 +25,11 @@ CC              := $(CROSS_PATH)/x86_64-pc-lightos-gcc
 LD         		:= $(CROSS_PATH)/x86_64-pc-lightos-ld
 OC         		:= $(CROSS_PATH)/x86_64-pc-lightos-objcopy
 
-KERNEL_OUT = $(OUT)/lightos.elf
+KERNEL_OUT = $(OUT)/aniva.elf
 
 # TODO: these flags are also too messy, clean this up too
 # usefull flag for tracing: -d trace:handle_cmd_* 
-QEMUFLAGS := -m 128M -machine q35 -usb ./out/lightos.iso -enable-kvm -no-reboot -serial stdio
+QEMUFLAGS := -m 1G -machine q35 -usb ./out/lightos.iso -enable-kvm -no-reboot -serial stdio
 
 CHARDFLAGS := -std=gnu11          \
 -Wall 							\
@@ -56,7 +56,7 @@ CHARDFLAGS := -std=gnu11          \
 
 #-z max-page-size=0x1000
 LDHARDFLAGS := -T $(LINK_PATH) 						\
-							 -Map $(OUT)/lightos.map		\
+							 -Map $(OUT)/aniva.map		\
 							 -z max-page-size=0x1000    \
 
 # TODO: this is messy, refactor this.
@@ -106,8 +106,8 @@ run:
 iso:
 	mkdir -p $(OUT)/isofiles/boot/grub
 	cp grub.cfg $(OUT)/isofiles/boot/grub
-	cp $(OUT)/lightos.elf $(OUT)/isofiles/boot
-	cp $(OUT)/lightos.map $(OUT)/isofiles/boot
+	cp $(OUT)/aniva.elf $(OUT)/isofiles/boot
+	cp $(OUT)/aniva.map $(OUT)/isofiles/boot
 	cp $(OUT)/anivaRamdisk.igz $(OUT)/isofiles/boot
 	cp ./resources/stage2_eltorito  $(OUT)/isofiles/boot/grub/
 	grub-mkrescue -o $(OUT)/lightos.iso $(OUT)/isofiles

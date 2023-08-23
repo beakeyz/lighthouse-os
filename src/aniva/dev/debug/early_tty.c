@@ -1,6 +1,8 @@
 #include "early_tty.h"
+#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "libk/gfx/font.h"
+#include "libk/string.h"
 #include "mem/kmem_manager.h"
 
 static struct multiboot_tag_framebuffer* framebuffer;
@@ -26,7 +28,16 @@ void init_early_tty(struct multiboot_tag_framebuffer* fb)
   y_idx = 0;
   x_idx = 0;
 
-  vid_buffer = Must(__kmem_kernel_alloc(framebuffer->common.framebuffer_addr, framebuffer->common.framebuffer_pitch * framebuffer->common.framebuffer_height, NULL, NULL));
+  println(to_string((uint64_t)fb));
+  println(to_string((uint64_t)fb->common.framebuffer_addr));
+
+  vid_buffer = Must(__kmem_kernel_alloc(fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+  for (uint32_t y = 0; y < framebuffer->common.framebuffer_height; y++) {
+    for (uint32_t x = 0; x < framebuffer->common.framebuffer_width; x++) {
+      __etty_pixel(x, y, BLACK);
+    }
+  }
 
   g_system_info.sys_flags |= SYSFLAGS_HAS_EARLY_TTY;
 }

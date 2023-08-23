@@ -93,7 +93,7 @@ static void register_kernel_data(paddr_t p_mb_addr)
   g_system_info.phys_multiboot_addr = p_mb_addr;
   g_system_info.virt_multiboot_addr = kmem_ensure_high_mapping(p_mb_addr);
 
-  /* Cache important tags */
+  /* Cache the physical address of important tags */
   g_system_info.rsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
   g_system_info.xsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
   g_system_info.firmware_fb = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
@@ -138,6 +138,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // Initialize an early console
   init_early_tty(g_system_info.firmware_fb);
 
+  println("Initialized tty");
+
   // we need more memory
   init_zalloc();
 
@@ -178,6 +180,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   println("Initialized PCI");
 
+  for (;;) {}
+
   // FIXME
   // are we going micro, mono or perhaps even exo?
   // how big will the role of the vfs be?
@@ -193,7 +197,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   set_kernel_proc(root_proc);
   sched_add_proc(root_proc);
 
-  for (;;) {}
   // Clear the early tty
   destroy_early_tty();
 

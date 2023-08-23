@@ -107,7 +107,7 @@ class ProjectBuilder(object):
 
         if path.find(libsSrcDir) == -1:
             return BuilderResult.FAIL
-        
+
         for libSrcFile in self.constants.SRC_FILES:
             libSrcFile: SourceFile = libSrcFile
             if self.shouldBuild(libSrcFile) and libSrcFile.get_path().find(path) != -1:
@@ -143,7 +143,7 @@ class ProjectBuilder(object):
             return BuilderResult.FAIL
 
         manifestPath: str = f"{path}/manifest.json"
-        ourSourceFiles: list[SourceFile] = [];
+        ourSourceFiles: list[SourceFile] = []
 
         # Filter the sourcefiles that are in our directory
         for srcFile in self.constants.SRC_FILES:
@@ -164,7 +164,7 @@ class ProjectBuilder(object):
                 # Add kernel headers if we are a driver
                 if manifest["type"] == "driver":
                     userCFlags += self.constants.USERSPACE_C_FLAGS_KRNL_INCLUDE_EXT
-                
+
                 for srcFile in ourSourceFiles:
                     srcFile: SourceFile = srcFile
                     if self.shouldBuild(srcFile):
@@ -179,7 +179,7 @@ class ProjectBuilder(object):
                         if os.system(srcFile.getCompileCmd()) != 0:
                             return BuilderResult.FAIL
 
-        except:
+        except Exception:
             return BuilderResult.FAIL
 
         return BuilderResult.SUCCESS
@@ -192,6 +192,7 @@ class ProjectBuilder(object):
         if (newSize != cachedSize):
             return True
         return False
+
 
     def link(self) -> BuilderResult:
         self.constants.reinit()
@@ -222,7 +223,7 @@ class ProjectBuilder(object):
 
             file = build.symbols.write_dummy_source(self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
 
-            if file == None:
+            if file is None:
                 return BuilderResult.FAIL
 
             # Build the dummy sourcefile
@@ -249,7 +250,7 @@ class ProjectBuilder(object):
             # We can no generate the corrent symbol sourcefile
             file = build.symbols.write_map_to_source(symbols, self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
 
-            if file == None:
+            if file is None:
                 return BuilderResult.FAIL
 
             # Build the sourcefile

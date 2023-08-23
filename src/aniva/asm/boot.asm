@@ -120,7 +120,7 @@ cpuid_support:
   mov ebx, 0 
   mov eax, 0 
 
-  ; We are mapping a kernel with a range of 2 Mib, this does not scale for now
+  ; We are mapping a kernel with a range of 16 Mib, this does not scale for now
   ; NOTE: if our kernel gets too big (it won't) we're fucked
   .map_kernel:
     or ebx, 0x3

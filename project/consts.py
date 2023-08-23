@@ -33,8 +33,8 @@ class Consts:
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
     COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
 
-    KERNEL_MAP_PATH = OUT_DIR + "/lightos.map"
-    KERNEL_ELF_PATH = OUT_DIR + "/lightos.elf"
+    KERNEL_MAP_PATH = OUT_DIR + "/aniva.map"
+    KERNEL_ELF_PATH = OUT_DIR + "/aniva.elf"
     KERNEL_KSYMS_SRC_PATH = f"{SRC_DIR}/{KERNEL_NAME}/asm/ksyms.asm"
     KERNEL_LINKERSCRIPT_PATH = PROJECT_DIR + "/src/aniva/entry/linker.ld"
     USERSPACE_DEFAULT_LDSCRPT_PATH = PROJECT_DIR + "/src/user/linker.ld"
