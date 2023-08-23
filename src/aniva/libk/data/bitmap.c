@@ -43,22 +43,22 @@ void destroy_bitmap(bitmap_t *map) {
 }
 
 void bitmap_mark(bitmap_t* this, uint32_t index) {
-  if (index > this->m_entries) {
+  if (index >= this->m_entries) {
     return;
   }
 
-  const uint32_t index_byte = index >> 3;
+  const uint32_t index_byte = index / 8;
   const uint32_t index_bit = index % 8;
 
   this->m_map[index_byte] |= (1 << index_bit);
 }
 
 void bitmap_unmark(bitmap_t* this, uint32_t index) {
-  if (index > this->m_entries) {
+  if (index >= this->m_entries) {
     return;
   }
 
-  const uint32_t index_byte = index >> 3;
+  const uint32_t index_byte = index / 8;
   const uint32_t index_bit = index % 8;
 
   this->m_map[index_byte] &= ~(1 << index_bit);
@@ -87,34 +87,32 @@ ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
 
 // TODO: find out if this bugs out
 ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx) {
-  if (length >= this->m_entries || length == 0)
+  if (!length)
     return Error();
 
   /* lol, we can never find anything if this happens :clown: */
-  if (start_idx + length > this->m_entries)
+  if (start_idx + length >= this->m_entries)
     return Error();
 
-  if (length == 1)
-    return bitmap_find_free(this);
-
   for (uintptr_t i = start_idx; i < this->m_entries; i++) {
-    uintptr_t length_check = 1;
 
     if (bitmap_isset(this, i))
       continue;
 
-    // lil double check
-    for (uintptr_t j = 1; j < length; j++) {
+    uintptr_t j = 1;
+
+    while (j < length) {
+
       if (bitmap_isset(this, i + j))
         break;
 
-      length_check++;
+      j++;
     }
 
-    if (length_check == length) {
+    if (j == length)
       return Success(i);
-    }
-    i += length_check;
+
+    i += j;
   }
 
   return Error();

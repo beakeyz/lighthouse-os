@@ -124,7 +124,7 @@ ALWAYS_INLINE void processor_late_init(Processor_t *this) {
   // TODO:
   if (is_bsp(this)) {
     init_int_control_management();
-    //init_interrupts();
+    init_interrupts();
 
     fpu_generic_init();
 

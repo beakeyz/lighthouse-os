@@ -225,6 +225,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   __tar_create_superblock(node, device);
 
   if (parent->m_flags & GDISKDEV_FLAG_RAM_COMPRESSED) {
+
     size_t decompressed_size = cram_find_decompressed_size(device);
 
     ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
@@ -239,7 +240,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     ASSERT_MSG(TAR_BLOCK_START(node) != nullptr, "decompressing resulted in NULL");
 
     /* Free the pages of the compressed ramdisk */
-    Must(__kmem_kernel_dealloc(device->m_start_lba, kmem_get_page_idx(TAR_SUPERBLOCK(node).m_free_blocks + SMALL_PAGE_SIZE - 1)));
+    Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(TAR_SUPERBLOCK(node).m_free_blocks)));
 
     device->m_start_lba = (uintptr_t)TAR_BLOCK_START(node);
     device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + partition_size;

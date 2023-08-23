@@ -94,16 +94,11 @@ void parser_init_tables(acpi_parser_t* parser) {
 
   ASSERT_MSG(parser->m_rsdp || parser->m_xsdp, "No ACPI pointer found!");
 
-  println("Lol");
+  kmem_debug();
+
   if (parser->m_xsdp) {
     xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), NULL, 0));
-    println("A");
-    println(to_string((uintptr_t)xsdt));
-    println(to_string((uintptr_t)parser->m_xsdp->xsdt_addr));
-    println(to_string(parser->m_xsdp->length));
-    println(to_string(xsdt->base.length));
     xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, xsdt->base.length, NULL, 0));
-    println("B");
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
 
     println(to_string(tables));
@@ -126,7 +121,9 @@ void parser_init_tables(acpi_parser_t* parser) {
     return;
   }
 
+  println(to_string(parser->m_rsdp->rsdt_addr));
   rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), NULL, 0));
+  println(to_string((uintptr_t)rsdt));
   rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, rsdt->base.length, NULL, 0));
   tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
 
@@ -162,10 +159,9 @@ void* find_rsdp(acpi_parser_t* parser) {
 
     print("Multiboot has xsdp: ");
     println(to_string(pointer));
+
     parser->m_is_xsdp = true;
     parser->m_xsdp = (acpi_xsdp_t*)pointer;
-
-    println(parser->m_xsdp->base.OEMID);
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
     return parser->m_xsdp;
   }

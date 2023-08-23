@@ -97,24 +97,24 @@ typedef struct vnode {
     struct vnode* m_ref;
     list_t* m_links;
 
-    /* This sub-struct contains the fields that tell us stuff about the filesystem */
-    struct {
-      uint32_t m_blocksize;
-      uint32_t m_flags;
-
-      /* FIXME: are these fields supposed to to be 64-bit? */
-      uint32_t m_dirty_blocks;
-      uint32_t m_faulty_blocks;
-      size_t m_free_blocks;
-      size_t m_total_blocks;
-
-      uintptr_t m_first_usable_block;
-      uintptr_t m_max_filesize;
-
-      void* m_fs_specific_info;
-
-    } fs_data;
   };
+  /* This sub-struct contains the fields that tell us stuff about the filesystem */
+  struct {
+    uint32_t m_blocksize;
+    uint32_t m_flags;
+
+    /* FIXME: are these fields supposed to to be 64-bit? */
+    uint32_t m_dirty_blocks;
+    uint32_t m_faulty_blocks;
+    size_t m_free_blocks;
+    size_t m_total_blocks;
+
+    uintptr_t m_first_usable_block;
+    uintptr_t m_max_filesize;
+
+    void* m_fs_specific_info;
+
+  } fs_data;
 } vnode_t;
 
 #define VN_FS_DATA(node) (node)->fs_data

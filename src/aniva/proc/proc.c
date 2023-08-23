@@ -41,6 +41,7 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   memset(proc, 0, sizeof(proc_t));
 
   init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
+  create_resource_bundle(&proc->m_resource_bundle);
 
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
@@ -60,8 +61,6 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
 
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
-
-  create_resource_bundle(&proc->m_resource_bundle);
 
   proc->m_terminate_bell = create_doorbell(5, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();

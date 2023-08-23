@@ -76,10 +76,10 @@ void init_kmem_manager(uintptr_t* mb_addr) {
 
   kmem_init_physical_allocator();
 
-  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
-
   // Perform multiboot finalization
   finalize_multiboot(mb_addr);
+
+  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
 
   _init_kmem_page_layout();
 
@@ -90,9 +90,7 @@ void init_kmem_manager(uintptr_t* mb_addr) {
 
   kmem_load_page_dir(map, true);
 
-  println("Doing late stuff");
   _init_kmem_page_layout_late();
-  println("Done with late stuff");
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
@@ -103,12 +101,9 @@ void kmem_debug()
 
   uint64_t total_used_pages = 0;
   
-  for (uint64_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_size; i++) {
-    uint8_t val = KMEM_DATA.m_phys_bitmap->m_map[i];
-    for (uint8_t i = 0; i < 8; i++) {
-      if ((1 << i) & val)
-        total_used_pages++;
-    }
+  for (uint64_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_entries; i++) {
+    if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i))
+      total_used_pages++;
   }
 
   print("Total: ");
@@ -123,6 +118,8 @@ void kmem_debug()
 // function inspired by serenityOS
 void parse_mmap() {
 
+  KMEM_DATA.m_phys_pages_count = 0;
+
   // ???
   phys_mem_range_t kernel_range = {
     .type = PMRT_USABLE,
@@ -133,7 +130,6 @@ void parse_mmap() {
   phys_mem_range_t* ptr = kmalloc(sizeof(phys_mem_range_t));
   memcpy(&kernel_range, ptr, sizeof(phys_mem_range_t));
   list_append(KMEM_DATA.m_used_mem_ranges, ptr);
-
 
   // kernel should start at 1 Mib
   print("Kernel start addr: ");
@@ -188,6 +184,9 @@ void parse_mmap() {
       continue;
     }
 
+    // devide by pagesize
+    KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(length);
+
     // hihi data
     print("map entry start addr: ");
     println(to_string(addr));
@@ -231,17 +230,6 @@ void parse_mmap() {
     }
   }
 
-  size_t total_contig_size = 0;
-
-  FOREACH(i, KMEM_DATA.m_contiguous_ranges) {
-    contiguous_phys_virt_range_t* range = i->data;
-
-    total_contig_size += (range->upper - range->lower);
-  }
-
-  // devide by pagesize
-  KMEM_DATA.m_phys_pages_count = ALIGN_UP(total_contig_size, SMALL_PAGE_SIZE) >> 12;
-
   print("Total contiguous pages: ");
   println(to_string(KMEM_DATA.m_phys_pages_count));
 }
@@ -252,13 +240,14 @@ void parse_mmap() {
  */
 void kmem_init_physical_allocator() {
 
-  size_t physical_pages_bytes = (KMEM_DATA.m_phys_pages_count + 8 - 1) >> 3;
+  size_t physical_pages_bytes = ALIGN_UP(KMEM_DATA.m_phys_pages_count, 8) >> 3;
 
   // FIXME: we should probably move the bitmap somewhere else later, since
   // we need to map the heap to a virtual addressspace eventually. This means
   // that the heap might get reinitiallised and thus we lose our bitmap...
   // just keep this in mind
   KMEM_DATA.m_phys_bitmap = create_bitmap(physical_pages_bytes);
+  KMEM_DATA.m_phys_bitmap->m_entries = KMEM_DATA.m_phys_pages_count;
 
   // Mark the contiguous 'free' ranges as free in our bitmap
   FOREACH(i, KMEM_DATA.m_contiguous_ranges) {
@@ -274,9 +263,6 @@ void kmem_init_physical_allocator() {
       kmem_set_phys_page_free(phys_page_idx);
     }
   }
-
-  println(to_string((uintptr_t)&_kernel_start));
-  println(to_string((uintptr_t)&_kernel_end));
 
   // subtract the base of the mapping used while booting
   paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
@@ -655,7 +641,7 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     const uintptr_t pbase = phys_base + offset;
 
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
-    if (!kmem_map_page(table, vbase, pbase, KMEM_CUSTOMFLAG_NO_MARK | kmem_flags, page_flags)) {
+    if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags)) {
       return false;
     }
   }
@@ -902,7 +888,7 @@ ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t resources, paddr_t 
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) {
 
-  size_t pages_needed = GET_PAGECOUNT(size);
+  const size_t pages_needed = GET_PAGECOUNT(size);
 
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
@@ -919,7 +905,8 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr
    */
   kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
 
-  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+  /* Don't mark, since we have already done that */
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
   if (resources) {
@@ -958,7 +945,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
 
-  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
   if (resources) {
@@ -1044,7 +1031,7 @@ static void _init_kmem_page_layout_late() {
 
   const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
-  const size_t max_page_count = GET_PAGECOUNT(ALIGN_UP(1 * Mib, SMALL_PAGE_SIZE));
+  const size_t max_page_count = GET_PAGECOUNT(ALIGN_UP(1 * Gib, SMALL_PAGE_SIZE));
 
   size_t total_pages_to_map = total_pages - kernel_end_idx;
 

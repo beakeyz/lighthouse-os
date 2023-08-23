@@ -105,7 +105,13 @@ static void register_kernel_data(paddr_t p_mb_addr)
 
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
-  /* TODO: move serial to driver level, have early serial that gets migrated to a driver later */
+  /*
+   * TODO: move serial to driver level, have early serial that gets migrated to a driver later 
+   * TODO: create a nice logging system, with log clients that connect to a single place to post
+   * logs. The logging server can collect these logs and do all sorts of stuff with them, like save
+   * them to a file, display them to the current console provider, or beam them over serial or USB
+   * connectors =D
+   */
   init_serial();
 
   disable_interrupts();
@@ -135,11 +141,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
-  // Initialize an early console
-  init_early_tty(g_system_info.firmware_fb);
-
-  println("Initialized tty");
-
   // we need more memory
   init_zalloc();
 
@@ -152,35 +153,26 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // Initialize kevent
   init_kevents();
 
+  /* Initialize hashmap caching */
   init_hashmap();
 
+  /* Initialize the timer system */
   init_timer_system();
-  
-  println("Initialized system utils");
 
+  /* Initialize the subsystem responsible for managing processes */
   init_proc_core();
 
-  println("Initialized proc core");
-
+  /* Initialize the VFS */
   init_vfs();
 
-  println("Initialized vfs");
-
+  /* Initialize the filesystem core */
   init_fs_core();
-
-  println("Initialized fs core");
 
   /* Initialize the ACPI subsystem */
   init_acpi();
 
-  println("Initialized ACPI");
-
   /* Initialize the PCI subsystem */
   init_pci();
-
-  println("Initialized PCI");
-
-  for (;;) {}
 
   // FIXME
   // are we going micro, mono or perhaps even exo?
@@ -196,9 +188,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   set_kernel_proc(root_proc);
   sched_add_proc(root_proc);
-
-  // Clear the early tty
-  destroy_early_tty();
 
   start_scheduler();
 

@@ -83,7 +83,7 @@ void kmem_debug();
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
-#define GET_PAGECOUNT(bytes) (ALIGN_UP(bytes, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE)
+#define GET_PAGECOUNT(bytes) (ALIGN_UP(bytes, SMALL_PAGE_SIZE) >> 12)
 
 typedef enum {
   PMRT_USABLE = 1,
