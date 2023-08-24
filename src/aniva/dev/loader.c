@@ -297,7 +297,7 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
     manifest->m_handle->f_init,
     manifest->m_handle->f_exit,
     manifest->m_handle->f_probe,
-    manifest->m_handle->f_drv_msg,
+    manifest->m_handle->f_msg,
   };
 
   void* manifest_functions[] = {

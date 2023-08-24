@@ -93,8 +93,6 @@ ErrorOrPtr reaper_register_process(proc_t* proc) {
 
   /* TODO: If the reaper thread is idle, wake it up */
   ASSERT_MSG(!(__reaper_thread->m_parent_proc->m_flags & PROC_IDLE), "Kernelprocess seems to be idle!");
-
-  //TRY(send_result, send_packet_to_socket_no_response(__reaper_port, 0, proc, sizeof(proc_t*)));
   
   mutex_lock(__reaper_lock);
 

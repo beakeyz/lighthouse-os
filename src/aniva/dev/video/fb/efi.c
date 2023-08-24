@@ -17,57 +17,67 @@
 int fb_driver_init();
 int fb_driver_exit();
 
-static int __fbinfo_set_colors(fb_info_t* info, struct multiboot_tag_framebuffer* fb)
-{
-  /* TODO */
-  println(to_string(fb->framebuffer_red_mask_size));
-  println(to_string(fb->framebuffer_green_mask_size));
-  println(to_string(fb->framebuffer_blue_mask_size));
+/* Local framebuffer information for the driver */
+fb_info_t info = { 0 };
 
-  println(to_string(fb->framebuffer_red_field_position));
-  println(to_string(fb->framebuffer_green_field_position));
-  println(to_string(fb->framebuffer_blue_field_position));
-
-  println(to_string(fb->framebuffer_palette_num_colors));
-
-  return 0;
-}
-
-static int efi_fbmemmap(fb_info_t* info, void* p_buffer, size_t* p_size) 
+static int efi_fbmemmap(uintptr_t base, size_t* p_size) 
 {
   size_t size;
-  uintptr_t virtual_base;
 
-  if (!p_buffer || !p_size)
+  if (!base || !p_size)
     return -1;
 
-  size = ALIGN_UP(info->size, SMALL_PAGE_SIZE);
-  virtual_base = (uintptr_t)p_buffer;
+  size = ALIGN_UP(info.size, SMALL_PAGE_SIZE);
 
   println("Mapping framebuffer");
 
-  Must(__kmem_alloc_ex(nullptr, nullptr, info->addr, virtual_base, size, KMEM_CUSTOMFLAG_NO_REMAP, NULL));
+  Must(__kmem_alloc_ex(nullptr, nullptr, info.addr, base, size, KMEM_CUSTOMFLAG_NO_REMAP, NULL));
 
   *p_size = size;
 
   return 0;
 }
 
-static int efi_memmap(video_device_t* device, void* p_buffer, size_t* p_size) 
+static uint64_t fb_driver_msg(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  return efi_fbmemmap(device->fbinfo, p_buffer, p_size);
+  switch (code) {
+    case VIDDEV_DCC_BLT:
+      {
+        break;
+      }
+    case VIDDEV_DCC_MAPFB:
+      {
+        viddev_mapfb_t* mapfb;
+
+        /* Quick size verify */
+        if (size != sizeof(viddev_mapfb_t))
+          return -1;
+
+        mapfb = buffer;
+
+        efi_fbmemmap(mapfb->virtual_base, mapfb->size);
+      }
+    case VIDDEV_DCC_GET_FBINFO:
+      {
+        if (!out_buffer || out_size != sizeof(fb_info_t))
+          return -1;
+
+        memcpy(out_buffer, &info, out_size);
+        return DRV_STAT_OK;
+      }
+    default:
+      return -1;
+  }
+  return DRV_STAT_OK;
 }
 
-static fb_ops_t efi_fbops = {
-  .f_mmap = efi_fbmemmap,
-};
-
 static video_device_ops_t efi_devops = {
-  .f_mmap = efi_memmap,
 };
 
 static video_device_t vdev = {
   .flags = VIDDEV_FLAG_FB | VIDDEV_FLAG_FIRMWARE,
+  .max_connector_count = 0,
+  .current_connector_count = 0,
   .ops = &efi_devops,
 };
 
@@ -81,6 +91,7 @@ aniva_driver_t efifb_driver = {
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = fb_driver_init,
   .f_exit = fb_driver_exit,
+  .f_msg = fb_driver_msg,
 };
 EXPORT_DRIVER_PTR(efifb_driver);
 
@@ -99,7 +110,6 @@ EXPORT_DRIVER_PTR(efifb_driver);
  */
 int fb_driver_init() {
 
-  fb_info_t* info;
   struct multiboot_tag_framebuffer* fb;
 
   /* Check the early system logs */
@@ -113,24 +123,15 @@ int fb_driver_init() {
   if (!fb)
     return -1;
 
-  info = create_fb_info(&vdev, NULL);
+  info.addr = fb->common.framebuffer_addr;
+  info.pitch = fb->common.framebuffer_pitch;
+  info.bpp = fb->common.framebuffer_bpp;
+  info.width = fb->common.framebuffer_width;
+  info.height = fb->common.framebuffer_height;
+  info.size = info.pitch * info.height;
 
-  if (!info)
-    return -1;
-
-  info->addr = fb->common.framebuffer_addr;
-  info->pitch = fb->common.framebuffer_pitch;
-  info->bpp = fb->common.framebuffer_bpp;
-  info->width = fb->common.framebuffer_width;
-  info->height = fb->common.framebuffer_height;
-  info->size = info->pitch * info->height;
-
-  info->ops = &efi_fbops;
-
-  __fbinfo_set_colors(info, fb);
-
-  size_t fb_page_count = GET_PAGECOUNT(info->size);
-  uintptr_t fb_start_idx = kmem_get_page_idx(info->addr);
+  size_t fb_page_count = GET_PAGECOUNT(info.size);
+  uintptr_t fb_start_idx = kmem_get_page_idx(info.addr);
 
   /* Mark the physical range used */
   kmem_set_phys_range_used(fb_start_idx, fb_page_count);

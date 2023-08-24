@@ -66,7 +66,7 @@ char kbd_us_shift_map[256] = {
 
 int ps2_keyboard_entry();
 int ps2_keyboard_exit();
-uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response);
+uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 registers_t* ps2_keyboard_irq_handler(registers_t* regs);
 
 void set_flags(uint16_t* flags, uint8_t bit, bool val);
@@ -78,7 +78,7 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_exit = ps2_keyboard_exit,
   .f_init = ps2_keyboard_entry,
-  .f_drv_msg = ps2_keyboard_msg,
+  .f_msg = ps2_keyboard_msg,
 };
 EXPORT_DRIVER_PTR(g_base_ps2_keyboard_driver);
 
@@ -105,24 +105,24 @@ int ps2_keyboard_exit() {
   return 0;
 }
 
-uintptr_t ps2_keyboard_msg(packet_payload_t payload, packet_response_t** response) {
+uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
 
-  switch (payload.m_code) {
+  switch (code) {
     case KB_REGISTER_CALLBACK: {
-      if (payload.m_data_size != sizeof(ps2_key_callback)) {
+      if (size != sizeof(ps2_key_callback)) {
         // response?
         return -1;
       }
-      ps2_key_callback callback = (ps2_key_callback)payload.m_data;
+      ps2_key_callback callback = (ps2_key_callback)buffer;
       list_append(s_kb_event_callbacks, callback);
       break;
     }
     case KB_UNREGISTER_CALLBACK: {
-      if (payload.m_data_size != sizeof(ps2_key_callback)) {
+      if (size != sizeof(ps2_key_callback)) {
         // response?
         return -1;
       }
-      ps2_key_callback callback = payload.m_data;
+      ps2_key_callback callback = buffer;
       ErrorOrPtr index_result = list_indexof(s_kb_event_callbacks, callback);
       if (index_result.m_status == ANIVA_FAIL) {
         return -1;

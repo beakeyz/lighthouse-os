@@ -53,7 +53,7 @@
 
 int kterm_init();
 int kterm_exit();
-uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response);
+uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
 static void kterm_flush_buffer();
 static void kterm_write_char(char c);
@@ -323,7 +323,7 @@ aniva_driver_t g_base_kterm_driver = {
   .m_type = DT_OTHER,
   .f_init = kterm_init,
   .f_exit = kterm_exit,
-  .f_drv_msg = kterm_on_packet,
+  .f_msg = kterm_on_packet,
   .m_dependencies = {"graphics/efifb", "io/ps2_kb"},
   .m_dep_count = 2,
 };
@@ -390,22 +390,25 @@ int kterm_init() {
 
   /* TODO: when we implement our HID driver, this should be replaced with a event endpoint we can probe */
   // register our keyboard listener
-  destroy_packet_response(driver_send_packet_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t)));
+  driver_send_msg_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t));
 
   /* FIXME: integrate video device integration */
   // map our framebuffer
   size_t size;
   uintptr_t ptr = KTERM_FB_ADDR;
-  video_device_t* device = get_active_video_device();
+
+  viddev_mapfb_t fb_map = {
+    .size = &size,
+    .virtual_base = ptr,
+  };
 
   /*
-   * NOTE: kterm will always simply grab the entire framebuffer
+   * This is the wrong way of getting information to the graphics API, because it is not a given that
+   * the loaded graphics driver is indeed efifb. It might very well be virtio or some other nonsense. 
+   * In that case, we need a function that gives us the current graphics driver path
    */
-  ASSERT_MSG(device, "Could not find active video device!");
-  ASSERT_MSG(video_device_mmap(device, (void*)ptr, &size) == 0, "Failed to mmap the current video driver!");
-  ASSERT_MSG(device->fbinfo, "Video device didn't contain framebuffer info!");
-
-  __kterm_fb_info = *device->fbinfo;
+  driver_send_msg("graphics/efifb", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map));
+  driver_send_msg_a("graphics/efifb", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t));
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
@@ -437,13 +440,13 @@ int kterm_exit() {
   return 0;
 }
 
-uintptr_t kterm_on_packet(packet_payload_t payload, packet_response_t** response) {
+uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
 
-  switch (payload.m_code) {
+  switch (code) {
     case KTERM_DRV_DRAW_STRING: 
       {
-        const char* str = *(const char**)payload.m_data;
-        size_t buffer_size = payload.m_data_size;
+        const char* str = *(const char**)buffer;
+        size_t buffer_size = size;
 
         /* Make sure the end of the buffer is null-terminated and the start is non-null */
         if (str[buffer_size] != NULL || str[0] == NULL)

@@ -10,7 +10,7 @@ static pci_dev_id_t ata_dev_ids[] = {
   PCI_DEVID_END,
 };
 
-uintptr_t ata_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+uintptr_t ata_driver_on_packet(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
   return 0;
 }
 
@@ -46,7 +46,7 @@ const aniva_driver_t g_base_ata_driver = {
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = ata_driver_init,
   .f_exit = ata_driver_exit,
-  .f_drv_msg = ata_driver_on_packet,
+  .f_msg = ata_driver_on_packet,
   .m_port = 6,
   .m_dependencies = {},
   .m_dep_count = 0,

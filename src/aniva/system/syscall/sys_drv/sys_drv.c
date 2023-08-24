@@ -38,7 +38,7 @@ sys_send_ioctl(HANDLE_t handle, driver_control_code_t code, void __user* buffer,
         dev_manifest_t* driver = c_hndl->reference.driver;
 
         /* NOTE: this call locks the manifest */
-        result = driver_send_packet(driver->m_url, code, buffer, size);
+        result = driver_send_msg(driver->m_url, code, buffer, size);
         break;
       }
     case KHNDL_TYPE_FILE:

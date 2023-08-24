@@ -560,6 +560,47 @@ struct dev_manifest* get_active_driver_from_type(dev_type_t type)
   return constraint.active;
 }
 
+/*!
+ * @brief Copy the path of the driver url into a buffer
+ *
+ * The URL (we use path and URL together for the same stuff) of any driver will 
+ * probably never exceed 128 bytes. If they eventually do, we're fucked =)
+ *
+ * @buffer: the buffer we copy to
+ * @type: the driver type we want to get the path of
+ */
+int get_active_driver_path(char buffer[128], dev_type_t type)
+{
+  dev_manifest_t* manifest;
+  dev_constraint_t* constraint;
+
+  if (!buffer)
+    return -1;
+
+  constraint = &__dev_constraints[type];
+
+  manifest = constraint->active;
+
+  if (!manifest)
+    return -1;
+
+  if (strlen(manifest->m_url) >= 128)
+    return -2;
+
+  memcpy(buffer, manifest->m_url, strlen(manifest->m_url) + 1);
+
+  return 0;
+}
+
+/*!
+ * @brief Find the nth driver of a type
+ *
+ *
+ * @type: the type of driver to look for
+ * @index: the index into the list of drivers there
+ *
+ * @returns: the manifest of the driver we find
+ */
 struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
 {
   const char* url_start = dev_type_urls[type];
@@ -589,6 +630,19 @@ struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
   }
 
   return nullptr;
+}
+
+/*
+ * Replaces the current active driver of this manifests type
+ * with the manifests. This unloads the old driver and loads the 
+ * new one. Both must be installed
+ *
+ * @manifest: the manifest to try to activate
+ * @uninstall: if true we uninstall the old driver
+ */
+void replace_active_driver(struct dev_manifest* manifest, bool uninstall)
+{
+  kernel_panic("TODO: replace_active_driver");
 }
 
 dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
@@ -647,11 +701,11 @@ ErrorOrPtr driver_set_ready(const char* path) {
  * so often. We might want to probe a driver to see if it has a socket but that will require more busses and
  * more registry...
  */
-ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
-  return driver_send_packet_a(path, code, buffer, buffer_size, nullptr, nullptr);
+ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
+  return driver_send_msg_a(path, code, buffer, buffer_size, nullptr, NULL);
 }
 
-ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size)
+ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size)
 {
   dev_manifest_t* manifest;
 
@@ -660,7 +714,7 @@ ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, vo
 
   manifest = hive_get(__loaded_driver_manifests, path);
 
-  return driver_send_packet_ex(manifest, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
+  return driver_send_msg_ex(manifest, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 }
 
 
@@ -669,10 +723,9 @@ ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, vo
  * take in a direct response, in which case we can copy the response from the driver
  * directly into the buffer that the caller gave us
  */
-ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size) 
+ErrorOrPtr driver_send_msg_ex(struct dev_manifest* manifest, dcc_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size) 
 {
   uintptr_t error;
-  thread_t* current;
   aniva_driver_t* driver;
 
   if (!manifest)
@@ -680,41 +733,13 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
 
   driver = manifest->m_handle;
 
-  if (!driver->f_drv_msg) 
+  if (!driver->f_msg) 
     return Error();
 
   mutex_lock(&manifest->m_lock);
 
-  /* Prepare buffers */
-  packet_response_t* response = nullptr;
-  packet_payload_t payload;
-
-  init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
-
-  error = driver->f_drv_msg(payload, &response);
-
-  if (response) {
-
-    current = get_current_scheduling_thread();
-
-    if (resp_buffer && resp_buffer_size) {
-
-      /* Quick clamp to a valid size */
-      if (*resp_buffer_size < response->m_response_size)
-        *resp_buffer_size = response->m_response_size;
-
-      memcpy(resp_buffer, response->m_response_buffer, *resp_buffer_size);
-
-    /* If the sender (caller) thread is a socket, we can send our response there, otherwise its just lost to the void */
-    } 
-    else if (current && thread_is_socket(current)) {
-      TRY(_, send_packet_to_socket_ex(current->m_socket->m_port, DCC_RESPONSE, response->m_response_buffer, response->m_response_size));
-    }
-
-    destroy_packet_response(response);
-  }
-
-  destroy_packet_payload(&payload);
+  /* NOTE: it is the drivers job to verify the buffers. We don't manage shit here */
+  error = driver->f_msg(manifest->m_handle, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 
   mutex_unlock(&manifest->m_lock);
 
@@ -729,25 +754,24 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* manifest, driver_control_c
  * NOTE: this function leaves behind a dirty packet response.
  * It is left to the caller to clean that up
  */
-packet_response_t* driver_send_packet_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
-  return driver_send_packet_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
+ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
+  return driver_send_msg_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
 }
 
 
 #define LOCK_SOCKET_MAYBE(socket) do { if (socket) mutex_lock(socket->m_packet_mutex); } while(0)
 #define UNLOCK_SOCKET_MAYBE(socket) do { if (socket) mutex_unlock(socket->m_packet_mutex); } while(0)
 
-packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto) {
+ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto) {
+
+  uintptr_t result;
   dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, path);
 
-  if (!manifest)
+  /*
+   * Invalid, or our driver can't be reached =/
+   */
+  if (!manifest || !manifest->m_handle || !manifest->m_handle->f_msg)
     goto exit_fail;
-
-  threaded_socket_t* socket = nullptr;
-  SocketOnPacket msg_func = nullptr;
-
-  if (manifest->m_handle)
-    msg_func = manifest->m_handle->f_drv_msg;
 
   // TODO: validate checksums and funnie hashes
   // TODO: validate all dependencies are loaded
@@ -756,9 +780,6 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
   // kinda calls the drivers onPacket function whenever. This can result in
   // funny behaviour, so we should try to take the drivers packet mutex, in order 
   // to ensure we are the only ones asking this driver to handle some data
-
-  if (!msg_func)
-    goto exit_fail;
 
   size_t timeout = mto;
 
@@ -776,23 +797,13 @@ packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver
     }
   }
 
-  LOCK_SOCKET_MAYBE(socket);
+  result = manifest->m_handle->f_msg(manifest->m_handle, code, buffer, buffer_size, NULL, NULL);
 
-  packet_response_t* response = nullptr;
-  packet_payload_t payload;
+  if (result)
+    return Error();
 
-  init_packet_payload(&payload, nullptr, buffer, buffer_size, code);
-
-  msg_func(payload, &response);
-
-  // After the driver finishes what it is doing, we can just unlock the mutex.
-  // We are done using the driver at this point after all
-  UNLOCK_SOCKET_MAYBE(socket);
-
-  destroy_packet_payload(&payload);
-
-  return response;
+  return Success(0);
 
 exit_fail:
-  return nullptr;
+  return Error();
 }

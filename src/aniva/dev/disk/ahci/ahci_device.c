@@ -325,16 +325,13 @@ int ahci_driver_exit() {
   return 0;
 }
 
-uintptr_t ahci_driver_on_packet(packet_payload_t payload, packet_response_t** response) {
+uintptr_t ahci_driver_on_packet(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
 
   if (__ahci_devices == nullptr) {
     return (uintptr_t)-1;
   }
 
   kernel_panic("TODO: implement ahci on_packet functions");
-
-  switch (payload.m_code) {
-  }
 
   return 0;
 }
@@ -346,7 +343,7 @@ aniva_driver_t base_ahci_driver = {
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = ahci_driver_init,
   .f_exit = ahci_driver_exit,
-  .f_drv_msg = ahci_driver_on_packet,
+  .f_msg = ahci_driver_on_packet,
   /*
    * FIXME: when we insert a dependency here that is deferred (a socket), we completely die, since this 
    * non-socket driver will fail to load as it realizes that it is unable to load its dependency...

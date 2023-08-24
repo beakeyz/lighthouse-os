@@ -62,50 +62,33 @@ struct video_device* get_active_video_device()
   return manifest->m_private;
 }
 
-int video_device_mmap(video_device_t* device, void* p_buffer, size_t* p_size)
+/*!
+ * @brief Try to make us the new active video driver
+ *
+ * Since there can only be one active video driver at a time, we need infrastructure to manage
+ * which drivers get to be loaded and which dont. For this we have precedence. Video drivers with
+ * a higher precedence than the active video device driver will pass this function. Those who have lower 
+ * precedence won't. drivers should call this function as early as possible to avoid unnecessary allocations.
+ *
+ * @device: the video device to activate
+ */
+int try_activate_video_device(video_device_t* device)
 {
-  int error;
+  video_device_t* c_active_device;
 
-  if (!device->ops || !device->ops->f_mmap)
+  if (!device)
     return -1;
 
-  dev_manifest_t* prev = get_current_driver();
-  set_current_driver(device->manifest);
+  c_active_device = get_active_video_device();
 
-  error = device->ops->f_mmap(device, p_buffer, p_size);
+  (void)c_active_device;
+  /* TODO: */
+  kernel_panic("TODO: try_activate_video_device");
 
-  set_current_driver(prev);
-
-  return error;
-}
-
-int video_device_msg(video_device_t* device, driver_control_code_t code)
-{
-  int error;
-
-  if (!device->ops || !device->ops->f_msg)
-    return -1;
-
-  dev_manifest_t* prev = get_current_driver();
-  set_current_driver(device->manifest);
-
-  error = device->ops->f_msg(device, code);
-
-  set_current_driver(prev);
-
-  return error;
+  return 0;
 }
 
 int destroy_video_device(video_device_t* device)
 {
-  return device->ops->f_destroy(device);
+  kernel_panic("TODO: destroy_video_device");
 }
-
-struct vd_framebuffer* vid_dev_attach_vdfb(struct video_device* device);
-void vid_dev_detach_vdfb(struct video_device* device, struct vd_framebuffer* framebuffer);
-
-struct vd_framebuffer* vid_dev_vdfb_get(struct video_device* device, uint32_t index);
-
-void vid_dev_register_connector();
-void vid_dev_unregister_connector();
-

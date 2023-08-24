@@ -1,0 +1,5 @@
+{
+  "name": "env.drv",
+  "linking": "static",
+  "type": "driver"
+}

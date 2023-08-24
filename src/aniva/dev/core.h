@@ -140,16 +140,10 @@ bool is_driver_loaded(struct dev_manifest* handle);
 struct dev_manifest* get_driver(dev_url_t url);
 struct dev_manifest* get_active_driver_from_type(dev_type_t type);
 struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
+int get_active_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);
 
-/*
- * Replaces the current active driver of this manifests type
- * with the manifests. This unloads the old driver and loads the 
- * new one. Both must be installed
- *
- * @uninstall: if true we uninstall the old driver
- */
 void replace_active_driver(struct dev_manifest* manifest, bool uninstall);
 
 /*
@@ -178,9 +172,9 @@ static ALWAYS_INLINE const char* get_driver_type_url(dev_type_t type)
 /*
  * Resolve the drivers socket and send a packet to that port
  */
-ErrorOrPtr driver_send_packet(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
-ErrorOrPtr driver_send_packet_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
-ErrorOrPtr driver_send_packet_ex(struct dev_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t* resp_buffer_size);
+ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
+ErrorOrPtr driver_send_msg_ex(struct dev_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
 
 /*
  * Same as above, but calls the requested function instantly, rather than waiting for the socket to 
@@ -188,7 +182,7 @@ ErrorOrPtr driver_send_packet_ex(struct dev_manifest* driver, driver_control_cod
  *
  * This fails if the socket is not set up yet
  */
-packet_response_t* driver_send_packet_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 
 /*
  * Sends a packet to the target driver and waits a number of scheduler yields for the socket to be ready
@@ -196,7 +190,7 @@ packet_response_t* driver_send_packet_sync(const char* path, driver_control_code
  * 
  * When mto is set to DRIVER_WAIT_UNTIL_READY, we simply wait untill the driver marks itself ready
  */
-packet_response_t* driver_send_packet_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
+ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
 
 extern const char* get_driver_url(struct aniva_driver* handle);
 

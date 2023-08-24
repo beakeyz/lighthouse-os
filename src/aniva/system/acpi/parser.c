@@ -94,14 +94,11 @@ void parser_init_tables(acpi_parser_t* parser) {
 
   ASSERT_MSG(parser->m_rsdp || parser->m_xsdp, "No ACPI pointer found!");
 
-  kmem_debug();
-
   if (parser->m_xsdp) {
     xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), NULL, 0));
     xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, xsdt->base.length, NULL, 0));
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
 
-    println(to_string(tables));
     for (uintptr_t i = 0; i < tables; i++) {
 
       if (!xsdt->tables[i])
@@ -121,9 +118,7 @@ void parser_init_tables(acpi_parser_t* parser) {
     return;
   }
 
-  println(to_string(parser->m_rsdp->rsdt_addr));
   rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), NULL, 0));
-  println(to_string((uintptr_t)rsdt));
   rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, rsdt->base.length, NULL, 0));
   tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
 

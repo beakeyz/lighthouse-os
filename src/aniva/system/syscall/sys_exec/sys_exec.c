@@ -22,7 +22,7 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
       return SYS_INV;
 
   if (strcmp(cmd, "clear") == 0) {
-    Must(driver_send_packet("other/kterm", KTERM_DRV_CLEAR, NULL, NULL));
+    Must(driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL));
   }
 
   return SYS_INV;

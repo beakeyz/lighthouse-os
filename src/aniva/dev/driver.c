@@ -25,6 +25,7 @@ void generic_driver_entry(dev_manifest_t* driver);
 static int driver_fs_msg(vnode_t* node, driver_control_code_t code, void* buffer, size_t size) {
 
   int result;
+  aniva_driver_t* driver;
   mutex_lock(node->m_lock);
 
   if (!node) {
@@ -32,7 +33,6 @@ static int driver_fs_msg(vnode_t* node, driver_control_code_t code, void* buffer
     goto generic_exit;
   }
 
-  node->m_access_count++;
 
   if (!vnode_has_driver(node)) {
     result = -1;
@@ -40,34 +40,16 @@ static int driver_fs_msg(vnode_t* node, driver_control_code_t code, void* buffer
   }
 
   /* Fetch the driver from our node */
-  aniva_driver_t* driver = node->m_drv;
+  driver = node->m_drv;
 
-  /* Find the assigned socket for that driver */
-  threaded_socket_t* socket = find_registered_socket(driver->m_port);
-
-  if (!socket) {
+  if (!driver) {
     result = -1;
     goto generic_exit;
   }
 
-  packet_payload_t payload;
-  packet_response_t* response;
+  node->m_access_count++;
 
-  init_packet_payload(&payload, nullptr, buffer, size, code);
-
-  /* Lock the mutex to ensure we are clear to use all of the drivers resources */
-  mutex_lock(socket->m_packet_mutex);
-
-  result = (int)driver->f_drv_msg(payload, &response);
-
-  mutex_unlock(socket->m_packet_mutex);
-
-  /* When dealing with fs messages, we don't really care about responses */
-  if (response) {
-    destroy_packet_response(response);
-  }
-
-  destroy_packet_payload(&payload);
+  result = driver->f_msg(driver, code, buffer, size, NULL, NULL);
 
 generic_exit:
   mutex_unlock(node->m_lock);
