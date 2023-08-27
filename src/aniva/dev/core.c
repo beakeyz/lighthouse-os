@@ -29,20 +29,50 @@
  * since we enforce these type urls, but everything after that is free to choose
  */
 static hive_t* __installed_driver_manifests = nullptr;
-static hive_t* __loaded_driver_manifests = nullptr;
+//static hive_t* __loaded_driver_manifests = nullptr;
 
 static zone_allocator_t* __dev_manifest_allocator;
 
+/* This lock protects the core driver registry */
+static mutex_t* __core_driver_lock;
+
 const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
+  /* Any driver that interacts with lts */
   [DT_DISK] = "disk",
+  /* Drivers that interact with or implement filesystems */
   [DT_FS] = "fs",
+  /* Drivers that deal with I/O devices (HID, serial, ect.) */
   [DT_IO] = "io",
+  /* Drivers that manage sound devices */
   [DT_SOUND] = "sound",
+  /* Drivers that manage graphics devices */
   [DT_GRAPHICS] = "graphics",
+  /* Drivers that don't really deal with specific types of devices */
   [DT_OTHER] = "other",
+  /* Drivers that gather system diagnostics */
   [DT_DIAGNOSTICS] = "diagnostics",
+  /* Drivers that provide services, either to userspace or kernelspace */
   [DT_SERVICE] = "service",
+  /* Drivers that implement a core platform for other drivers to function */
+  [DT_CORE] = "core",
 };
+
+/*
+ * Core drivers
+ *
+ * Let's create a quick overview of what core drivers are supposed to do for us. As an example, Let's 
+ * imagine ourselves a system that booted from UEFI and got handed a GOP framebuffer from our bootloader.
+ * When this happens, we are all well and happy and we load the efifb driver like a good little kernel. However,
+ * this system also has dedicated graphics hardware and we also want smooth and clean graphics pretty please. For this,
+ * we'll implement a core driver that sits on top of any graphics driver and manages their states. When we try to probe for 
+ * graphics hardware and we find something we can support with a driver, we'll try to load the driver and it will register itself 
+ * at the core graphics driver (core/video). The core driver will then determine if we want to keep the old driver, or replace 
+ * it with this new and more fancy driver (through the use of precedence). 
+ * When it comes to external applications that want to make use of any graphics interface (lwnd, most likely), we also want
+ * it to have an easy time setting up a graphics environment. Any applications that make use of graphics should not have to figure
+ * out which graphics driver is active on the system, but should make their requests through a middleman (core/video) that is aware
+ * of the underlying device structure
+ */
 
 const char* driver_get_type_str(struct dev_manifest* driver)
 {
@@ -63,70 +93,60 @@ const char* driver_get_type_str(struct dev_manifest* driver)
   return nullptr;
 }
 
-dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
+static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
   [DT_DISK] = {
     .type = DT_DISK,
     .max_count = DRV_INFINITE,
     .max_active = DRV_INFINITE,
-    .current_active = 0,
-    .current_count = 0,
-    .active = nullptr,
+    0
   },
   [DT_FS] = {
     .type = DT_FS,
     .max_count = DRV_INFINITE,
     .max_active = DRV_INFINITE,
-    .current_active = 0,
-    .current_count = 0,
-    .active = nullptr,
+    0
   },
   [DT_IO] = {
     .type = DT_IO,
     .max_count = DRV_INFINITE,
     .max_active = DRV_INFINITE,
-    .current_active = 0,
-    .current_count = 0,
-    .active = nullptr,
+    0
   },
   [DT_SOUND] = {
     .type = DT_SOUND,
     .max_count = 10,
     .max_active = 1,
-    .current_active = 0,
-    .current_count = 0,
-    .active = nullptr,
+    0
   },
   [DT_GRAPHICS] = {
     .type = DT_GRAPHICS,
     .max_count = 10,
     .max_active = 1,
-    .current_count = 0,
-    .current_active = 0,
-    .active = nullptr,
+    0
   },
   [DT_OTHER] = {
     .type = DT_OTHER,
     .max_count = DRV_INFINITE,
     .max_active = DRV_INFINITE,
-    .current_active = 0,
-    .current_count = 0,
-    .active = nullptr,
+    0
   },
   [DT_DIAGNOSTICS] = {
     .type = DT_DIAGNOSTICS,
     .max_count = 1,
     .max_active = 1,
-    .current_count = 0,
-    .current_active = 0,
-    .active = nullptr,
+    0
   },
   [DT_SERVICE] = {
     .type = DT_SERVICE,
     .max_count = DRV_SERVICE_MAX,
     .max_active = DRV_SERVICE_MAX,
-    .current_active = 0,
-    .current_count = 0,
-    .active = 0,
+    0
+  },
+  [DT_CORE] = {
+    .type = DT_CORE,
+    .max_count = DRV_INFINITE,
+    .max_active = DRV_INFINITE,
+    0
   },
 };
 
@@ -139,6 +159,10 @@ static bool __load_precompiled_driver(dev_manifest_t* manifest) {
 
   /* Trust that this will be loaded later */
   if (manifest->m_flags & DRV_DEFERRED)
+    return true;
+
+  /* Skip already loaded drivers */
+  if ((manifest->m_flags & DRV_LOADED) == DRV_LOADED)
     return true;
 
   manifest_gather_dependencies(manifest);
@@ -159,12 +183,27 @@ static bool walk_precompiled_drivers_to_load(hive_t* current, void* data) {
 
 
 void init_aniva_driver_registry() {
-  __installed_driver_manifests = create_hive("i_dev");
-  __loaded_driver_manifests = create_hive("l_dev");
-
+  __installed_driver_manifests = create_hive("Devices");
   __dev_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, DEV_MANIFEST_SOFTMAX * sizeof(dev_manifest_t), sizeof(dev_manifest_t), NULL);
-
   __deferred_driver_manifests = init_list();
+  __core_driver_lock = create_mutex(NULL);
+
+  FOREACH_CORE_DRV(ptr) {
+
+    dev_manifest_t* manifest;
+    aniva_driver_t* driver = *ptr;
+
+    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
+
+    manifest = create_dev_manifest(driver);
+
+    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
+
+    Must(install_driver(manifest));
+  }
+
+  /* First load pass */
+  hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
 
   // Install exported drivers
   FOREACH_PCDRV(ptr) {
@@ -186,6 +225,7 @@ void init_aniva_driver_registry() {
     Must(install_driver(manifest));
   }
 
+  /* Second load pass, with the core drivers already loaded */
   hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
 
   FOREACH(i, __deferred_driver_manifests) {
@@ -406,7 +446,6 @@ static void __driver_unregister_presence(dev_type_t type)
  */
 ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
-  ErrorOrPtr result;
   aniva_driver_t* handle;
 
   if (!manifest)
@@ -451,11 +490,7 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     }
   }
 
-  result = hive_add_entry(__loaded_driver_manifests, manifest, manifest->m_url);
-
-  if (IsError(result)) {
-    goto fail_and_exit;
-  }
+  manifest->m_flags |= DRV_LOADED;
 
   __driver_register_presence(handle->m_type);
 
@@ -478,7 +513,7 @@ fail_and_exit:
 ErrorOrPtr unload_driver(dev_url_t url) {
 
   int error;
-  dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, url);
+  dev_manifest_t* manifest = hive_get(__installed_driver_manifests, url);
 
   if (!verify_driver(manifest) || strcmp(url, manifest->m_url) != 0) {
     return Error();
@@ -486,8 +521,8 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 
   mutex_lock(&manifest->m_lock);
 
-  if (IsError(hive_remove(__loaded_driver_manifests, manifest)))
-    return Error();
+  /* Clear the loaded flag */
+  manifest->m_flags &= ~DRV_LOADED;
 
   error = NULL; 
 
@@ -512,16 +547,12 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 
 
 bool is_driver_loaded(dev_manifest_t* manifest) {
-  if (!__loaded_driver_manifests) {
-    return false;
-  }
-
-  return (hive_get(__loaded_driver_manifests, manifest->m_url) != nullptr);
+  return (is_driver_installed(manifest) && (manifest->m_flags & DRV_LOADED) == DRV_LOADED);
 }
 
 
 bool is_driver_installed(dev_manifest_t* manifest) {
-  if (!__loaded_driver_manifests || !__installed_driver_manifests) {
+  if (!__installed_driver_manifests || !manifest) {
     return false;
   }
 
@@ -538,7 +569,7 @@ bool is_driver_installed(dev_manifest_t* manifest) {
  */
 dev_manifest_t* get_driver(dev_url_t url) {
 
-  if (!__installed_driver_manifests)
+  if (!__installed_driver_manifests || !url)
     return nullptr;
 
   /* If we are asking for the current executing driver */
@@ -645,6 +676,95 @@ void replace_active_driver(struct dev_manifest* manifest, bool uninstall)
   kernel_panic("TODO: replace_active_driver");
 }
 
+/*!
+ * @brief Register a core driver for a given type
+ *
+ * Fails if there already is a core driver for this type. Core drivers should abort their 
+ * load when this fails
+ *
+ * @driver: the driver to register as a core driver
+ * @type: the type to register a core driver for
+ */
+int register_core_driver(struct aniva_driver* driver, dev_type_t type)
+{
+  dev_url_t url;
+  dev_manifest_t* manifest;
+  dev_constraint_t* constraint;
+
+  if (!driver || !VALID_DEV_TYPE(type))
+    return -1;
+
+  constraint = &__dev_constraints[type];
+
+  if (constraint->core)
+    return -2;
+
+  url = get_driver_url(driver);
+
+  if (!url)
+    return -3;
+
+  manifest = get_driver(url);
+
+  if (!manifest) {
+    kfree((void*)url);
+    return -4;
+  }
+
+  mutex_lock(__core_driver_lock);
+
+  constraint->core = manifest;
+
+  mutex_unlock(__core_driver_lock);
+  kfree((void*)url);
+  return 0;
+}
+
+/*!
+ * @brief Unregister a driver as a core driver
+ *
+ * Fails if this driver is not a core driver
+ *
+ * @driver: the driver to unregister
+ */
+int unregister_core_driver(struct aniva_driver* driver)
+{
+  dev_url_t url;
+  dev_manifest_t* manifest;
+  dev_constraint_t* constraint;
+
+  if (!driver)
+    return -1;
+
+  url = get_driver_url(driver);
+  manifest = get_driver(url);
+
+  if (!manifest) {
+    kfree((void*)url);
+    return -2;
+  }
+
+  kfree((void*)url);
+
+  /* Lock the mutex to prevent any weirdness */
+  mutex_lock(__core_driver_lock);
+
+  for (uint32_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
+    constraint = &__dev_constraints[i];
+
+    /* Check if this manifest is contained somewhere as a core driver */
+    if (constraint->core == manifest) {
+      constraint->core = nullptr;
+
+      mutex_unlock(__core_driver_lock);
+      return 0;
+    }
+  }
+
+  mutex_unlock(__core_driver_lock);
+  return -3;
+}
+
 dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
 
   dev_url_t path;
@@ -682,9 +802,10 @@ ErrorOrPtr driver_set_ready(const char* path) {
 
   // Fetch from the loaded drivers here, since unloaded
   // Drivers can never accept packets
-  dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, path);
+  dev_manifest_t* manifest = hive_get(__installed_driver_manifests, path);
 
-  if (!manifest)
+  /* Check if the manifest is loaded */
+  if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
     return Error();
 
   manifest->m_flags |= DRV_ACTIVE;
@@ -712,7 +833,10 @@ ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void*
   if (!path)
     return Error();
 
-  manifest = hive_get(__loaded_driver_manifests, path);
+  manifest = hive_get(__installed_driver_manifests, path);
+
+  if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
+    return Error();
 
   return driver_send_msg_ex(manifest, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 }
@@ -765,12 +889,15 @@ ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, vo
 ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto) {
 
   uintptr_t result;
-  dev_manifest_t* manifest = hive_get(__loaded_driver_manifests, path);
+  dev_manifest_t* manifest = hive_get(__installed_driver_manifests, path);
+
+  if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
+    goto exit_fail;
 
   /*
    * Invalid, or our driver can't be reached =/
    */
-  if (!manifest || !manifest->m_handle || !manifest->m_handle->f_msg)
+  if (!manifest->m_handle || !manifest->m_handle->f_msg)
     goto exit_fail;
 
   // TODO: validate checksums and funnie hashes

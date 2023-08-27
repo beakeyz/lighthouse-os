@@ -76,6 +76,56 @@ void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
   }
 }
 
+ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir)
+{
+  switch (dir) {
+    case FORWARDS:
+      {
+        /*
+         * Let's hope we keep this in cache ;-;
+         */
+        for (uintptr_t i = 0; i < this->m_size; i++) {
+          if (this->m_map[i] == 0xff)
+            continue;
+
+          uintptr_t start_idx = BYTES_TO_BITS(i);
+
+          for (uintptr_t j = 0; j < 8; j++) {
+            if (!bitmap_isset(this, start_idx + j))
+              return Success(start_idx + j);
+          }
+        }
+        break;
+      }
+    case BACKWARDS:
+      {
+        for (uintptr_t i = 1; i <= this->m_size; i++) {
+          if (this->m_map[this->m_size - i] == 0xff)
+            continue;
+
+          uintptr_t start_idx = BYTES_TO_BITS(this->m_size - i);
+
+          for (uintptr_t j = 0; j < 8; j++) {
+            if (!bitmap_isset(this, start_idx + j))
+              return Success(start_idx + j);
+          }
+        }
+        break;
+      }
+  }
+
+  return Error();
+}
+
+ErrorOrPtr bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir)
+{
+  kernel_panic("TODO: bitmap_find_free_range_ex");
+}
+ErrorOrPtr bitmap_find_free_range_from_ex(bitmap_t* this, size_t length, uintptr_t start_idx, enum BITMAP_SEARCH_DIR dir)
+{
+  kernel_panic("TODO: bitmap_find_free_range_from_ex");
+}
+
 ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
   /*
    * We can perhaps cache the last found range so the next search 

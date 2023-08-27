@@ -62,6 +62,8 @@ typedef struct aniva_driver {
 #define DRV_HAS_MSG_FUNC          (0x00002000)
 #define DRV_DEFERRED_HNDL         (0x00004000)
 
+#define DRV_CORE                  (0x00008000) /* Is this driver for core functions? */
+#define DRV_LOADED                (0x00010000) /* Is this driver loaded? */
 
 #define DRV_STAT_OK         (0)
 #define DRV_STAT_INVAL      (-1)

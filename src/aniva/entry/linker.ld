@@ -38,6 +38,11 @@ SECTIONS {
     *(.init_array)
     _end_ctors = .;
 
+    /* Precompiled core drivers that are shipped with the kernel at all times */
+    _kernel_core_drvs_start = .;
+    *(.core_drvs*)
+    _kernel_core_drvs_end = .;
+
     /* Precompiled base-drivers that are built into the kernel go here */
     _kernel_pcdrvs_start = .;
     *(.kpcdrvs*)

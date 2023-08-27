@@ -17,6 +17,9 @@ extern uintptr_t kstack_bottom;
 extern struct aniva_driver* _kernel_pcdrvs_start[];
 extern struct aniva_driver* _kernel_pcdrvs_end[];
 
+extern struct aniva_driver* _kernel_core_drvs_start[];
+extern struct aniva_driver* _kernel_core_drvs_end[];
+
 extern pml_entry_t boot_pml4t[512];
 extern pml_entry_t boot_pdpt[512];
 extern pml_entry_t boot_pd0[512];
@@ -24,6 +27,8 @@ extern pml_entry_t boot_pd0_p[512 * 32];
 
 /* TODO: automatic version bumping */
 extern driver_version_t kernel_version;
+
+#define FOREACH_CORE_DRV(i) for (struct aniva_driver** i = _kernel_core_drvs_start; i < _kernel_core_drvs_end; i++)
 
 #define FOREACH_PCDRV(i) for (struct aniva_driver** i = _kernel_pcdrvs_start; i < _kernel_pcdrvs_end; i++)
 

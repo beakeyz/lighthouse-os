@@ -9,7 +9,7 @@ struct aniva_driver;
 struct dev_manifest;
 
 #define DRIVER_URL_SEPERATOR '/'
-#define DRIVER_TYPE_COUNT 8
+#define DRIVER_TYPE_COUNT 9
 #define DRIVER_WAIT_UNTIL_READY (size_t)-1
 
 typedef uint8_t dev_type_t;
@@ -22,7 +22,9 @@ typedef uint8_t dev_type_t;
 #define DT_SERVICE 5
 #define DT_DIAGNOSTICS 6
 #define DT_OTHER 7
-#define DEV_TYPE 8
+#define DT_CORE 8
+
+#define VALID_DEV_TYPE(type) ((type) && (type) < DRIVER_TYPE_COUNT)
 
 typedef enum dev_flags {
   STANDARD = (1 << 0),
@@ -44,6 +46,8 @@ typedef struct dev_constraint {
 
   /* This field should only be used when max_active is 1 and current_active is 1 */
   struct dev_manifest* active;
+  /* The core driver for this driver type */
+  struct dev_manifest* core;
 } dev_constraint_t;
 
 #define DRV_INFINITE            0xFFFFFFFF
@@ -77,7 +81,7 @@ typedef driver_control_code_t           dcc_t;
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
 #define EXPORT_DRIVER_PTR(name) static USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
-
+#define EXPORT_CORE_DRIVER(name) static USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name
 #define EXPORT_DRIVER(name) static USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
 
 /*
@@ -145,6 +149,9 @@ size_t get_driver_type_count(dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);
 
 void replace_active_driver(struct dev_manifest* manifest, bool uninstall);
+
+int register_core_driver(struct aniva_driver* driver, dev_type_t type);
+int unregister_core_driver(struct aniva_driver* driver);
 
 /*
  * This tries to get a driver from the loaded pool. If it is not
