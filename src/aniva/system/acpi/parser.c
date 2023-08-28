@@ -234,6 +234,7 @@ void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t 
     if (memcmp(&header->signature, sig, 4)) {
       if (index == 0) {
 
+        /* NOTE: we know that header is virtual here, since we've mapped it right before adding it to the list */
         if (table_size)
           header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uint64_t)header), table_size, NULL, NULL));
 

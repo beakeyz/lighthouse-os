@@ -23,7 +23,16 @@ typedef struct {          // + 0 bytes
     uint16_t selector;    // + 4 bytes
 
     uint8_t ist;          // + 5 bytes
-    uint8_t flags;        // + 6 bytes
+
+    union {
+      struct {
+        uint8_t type: 4;
+        uint8_t segment: 1;
+        uint8_t dpl: 2;
+        uint8_t present: 1;
+      } attributes;
+      uint8_t flags;        // + 6 bytes
+    };
 
     uint16_t base_mid;    // + 8 bytes
     uint32_t base_high;   // + 12 bytes

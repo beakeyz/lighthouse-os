@@ -52,12 +52,12 @@ typedef struct sched_frame {
 } sched_frame_t;
 
 // --- static fields ---
-static list_t* s_sched_frames;
+static list_t* s_sched_frames = nullptr;
 //static spinlock_t* s_sched_switch_lock;
 //static atomic_ptr_t *s_no_schedule;
-static mutex_t* s_sched_mutex;
-static enum SCHED_MODE s_sched_mode;
-static bool s_has_schedule_request;
+static mutex_t* s_sched_mutex = nullptr;
+static enum SCHED_MODE s_sched_mode = UNINITIALIZED_SCHED;
+static bool s_has_schedule_request = false;
 
 // --- inline functions --- TODO: own file?
 static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads);

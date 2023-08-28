@@ -6,10 +6,9 @@
 static TICK_TYPE s_kernel_tick_type;
 
 void init_timer_system() {
+  s_kernel_tick_type = UNSET;
 
   set_kernel_ticker_type(PIT);
-
-  //register_global_kevent(TIME_UPDATE_EVENT, s_core_timer_callback);
 }
 
 void set_kernel_ticker_type(TICK_TYPE type) {

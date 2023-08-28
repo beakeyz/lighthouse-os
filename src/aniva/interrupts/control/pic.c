@@ -33,8 +33,10 @@ PIC_t* init_pic() {
   out8(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
   PIC_WAIT();
 
+  /* Start PIC1 at idt entry 32 */
   out8(PIC1_DATA, 0x20);
   PIC_WAIT();
+  /* Start PIC2 at idt entry 40 */
   out8(PIC2_DATA, 0x28);
   PIC_WAIT();
 
@@ -76,26 +78,22 @@ void pic_eoi(uint8_t irq_num) {
 }
 
 static void pic_disable_vector(uint8_t vector) {
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
   uint8_t pic_vector_line = 0;
 
   // PIC 2
-  if (vector & 0x8) {
+  if (vector & 8) {
     pic_vector_line = in8(PIC2_DATA);
     pic_vector_line |= (1 << (vector & 7));
     out8(PIC2_DATA, pic_vector_line);
   } else {
     // PIC 1
-    pic_vector_line = in8(PIC2_DATA);
+    pic_vector_line = in8(PIC1_DATA);
     pic_vector_line |= (1 << vector);
-    out8(PIC2_DATA, pic_vector_line);
+    out8(PIC1_DATA, pic_vector_line);
   }
-
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
 static void pic_enable_vector(uint8_t vector) {
-  CHECK_AND_DO_DISABLE_INTERRUPTS();
   uint8_t pic_vector_line = 0;
 
   // PIC 2
@@ -108,6 +106,5 @@ static void pic_enable_vector(uint8_t vector) {
     pic_vector_line = in8(PIC1_DATA) & ~(1 << vector);
     out8(PIC1_DATA, pic_vector_line);
   }
-  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 

@@ -411,7 +411,7 @@ ANIVA_STATUS init_proc_core() {
    */
   __proc_map = create_hashmap(PROC_SOFTMAX, HASHMAP_FLAG_CA);
 
-  Must(create_kevent("proc_terminate", KEVENT_TYPE_CUSTOM, NULL, 8));
+  //Must(create_kevent("proc_terminate", KEVENT_TYPE_CUSTOM, NULL, 8));
 
   init_tspckt();
   init_socket();

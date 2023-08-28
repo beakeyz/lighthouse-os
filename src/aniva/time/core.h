@@ -17,10 +17,11 @@
  * We don't need to upgrade right now, so this is a massive TODO
  */
 
-#define TARGET_TPS 1000 
+/* A good target for fast machines might be 1000 or more */
+#define TARGET_TPS 250 
 
 typedef enum {
-  UNSET,
+  UNSET = 0,
   PIT,
   APIC_TIMER,
   HPET,

@@ -281,7 +281,7 @@ static ErrorOrPtr __quick_int_handler_toggle_vector(uint32_t int_num, bool enabl
   if ((handler->m_flags & QIH_FLAG_REGISTERED) != QIH_FLAG_REGISTERED)
     return Error();
 
-  if (!handler->m_controller)
+  if (!handler->m_controller || !handler->m_controller->fControllerEnableVector || !handler->m_controller->fControllerDisableVector)
     return Error();
 
   if (enabled)
@@ -324,8 +324,6 @@ static quick_interrupthandler_t *__install_quick_int_handler(uint32_t int_num, u
   ret->m_controller = controller;
   ret->fHandler = callback;
 
-  quick_int_handler_enable_vector(int_num);
-
   return ret;
 }
 
@@ -361,8 +359,6 @@ void uninstall_quick_int_handler(uint32_t int_num) {
 void init_interrupts() {
 
   setup_idt(true);
-
-  (void)__exception_8;
 
   register_idt_interrupt_handler(0x00, devision_by_zero_asm_entry);
   register_idt_interrupt_handler(0x01, debug_asm_entry);
@@ -639,7 +635,9 @@ registers_t *interrupt_handler(registers_t *regs) {
   if (handler && (handler->m_flags & QIH_FLAG_REGISTERED) == QIH_FLAG_REGISTERED) {
 
     handler->m_flags |= QIH_FLAG_IN_INTERRUPT;
-    handler->fHandler(regs);
+
+    if (handler->fHandler)
+      handler->fHandler(regs);
 
     /* FIXME: we can probably assert for the presence of a controller */
     if (handler->m_controller) {

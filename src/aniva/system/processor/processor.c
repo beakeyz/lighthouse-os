@@ -16,9 +16,9 @@
 
 extern void _flush_gdt(uintptr_t gdtr);
 
-static ALWAYS_INLINE void processor_late_init(Processor_t *this) __attribute__((used));
+static void processor_late_init(Processor_t *this) __attribute__((used));
 static ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry);
-static ALWAYS_INLINE void init_sse(Processor_t *processor);
+static void init_sse(Processor_t *processor);
 
 static ALWAYS_INLINE void init_smep(processor_info_t* info);
 static ALWAYS_INLINE void init_smap(processor_info_t* info);
@@ -113,7 +113,7 @@ void init_processor(Processor_t *processor, uint32_t cpu_num) {
   wrmsr(MSR_GS_BASE, (uintptr_t)processor);
 }
 
-ALWAYS_INLINE void processor_late_init(Processor_t *this) {
+static void processor_late_init(Processor_t *this) {
 
   this->m_processes = init_list();
   this->m_critical_depth = create_atomic_ptr();
@@ -141,7 +141,7 @@ ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_
   this->m_gdt[index] = entry;
 }
 
-ALWAYS_INLINE void init_sse(Processor_t *processor) {
+static void init_sse(Processor_t *processor) {
   // check for feature
   const uintptr_t orig_cr0 = read_cr0();
   const uintptr_t orig_cr4 = read_cr4();

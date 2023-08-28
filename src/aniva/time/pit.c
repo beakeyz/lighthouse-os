@@ -37,7 +37,10 @@ ANIVA_STATUS set_pit_interrupt_handler() {
   Must(install_quick_int_handler(PIT_TIMER_INT_NUM, QIH_FLAG_REGISTERED, I8259, pit_irq_handler));
   Must(quick_int_handler_enable_vector(PIT_TIMER_INT_NUM));
 
-  return ANIVA_FAIL;
+  /* Ensure disabled */
+  disable_interrupts();
+
+  return ANIVA_SUCCESS;
 }
 
 void set_pit_frequency(size_t freq, bool _enable_interrupts) {
@@ -65,7 +68,7 @@ void set_pit_periodic(bool value) {
 ALWAYS_INLINE void reset_pit (uint8_t mode) {
   if (pit_frequency_capability(TARGET_TPS)) {
     out8(PIT_CTRL, T0_SEL | PIT_WRITE | mode);
-    set_pit_frequency(1000, false);
+    set_pit_frequency(TARGET_TPS, false);
   }
 }
 
@@ -73,7 +76,7 @@ void init_and_install_pit() {
   disable_interrupts();
 
   ANIVA_STATUS status = set_pit_interrupt_handler();
-  if (!status) {
+  if (status != ANIVA_SUCCESS) {
     return;
   }
 

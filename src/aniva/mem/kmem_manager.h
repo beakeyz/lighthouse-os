@@ -58,7 +58,7 @@ void kmem_debug();
 #define KMEM_FLAG_WC            (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_SPEC)
 #define KMEM_FLAG_DMA           (KMEM_FLAG_NOCACHE | KMEM_FLAG_WRITABLE)
 #define KMEM_FLAG_NOEXECUTE     0x20
-#define KMEM_FLAG_GLOBAL        0x21
+#define KMEM_FLAG_GLOBAL        0x40
 
 // Custom mapping flags
 #define KMEM_CUSTOMFLAG_GET_MAKE            0x00000001

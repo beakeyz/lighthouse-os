@@ -143,6 +143,11 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
+  // Initialize an early console
+  init_early_tty(g_system_info.firmware_fb);
+
+  println("Initialized tty");
+
   // we need more memory
   init_zalloc();
 
@@ -158,8 +163,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   /* Initialize hashmap caching */
   init_hashmap();
 
-  /* Initialize the timer system */
-  init_timer_system();
+  println("Did stuff");
 
   /* Initialize the subsystem responsible for managing processes */
   init_proc_core();
@@ -173,7 +177,16 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   /* Initialize the ACPI subsystem */
   init_acpi();
 
+  /* Initialize the timer system */
+  init_timer_system();
+
   init_hid();
+
+  //println("Did stuff");
+
+  //for (;;) {}
+
+  destroy_early_tty();
 
   /* This is where we initialize bus types */
 
@@ -234,8 +247,6 @@ void kthread_entry() {
    * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the 
    * 'userspace stuff' will consist of user tracking, configuration and utility processes. Any windowing will be done by the kernel this driver
    * is an external driver that we will load from the ramfs, since it's not a driver that is an absolute non-trivial piece. When we fail to load
-   * the userspace-supporting drivers, we will resort to the kterm driver, which will supply the user with a kernelmode tty to try and fix any 
-   * underlying issue
    */
   resume_scheduler();
 
