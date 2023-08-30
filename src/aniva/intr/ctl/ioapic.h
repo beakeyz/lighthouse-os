@@ -16,6 +16,7 @@
 
 #define IO_APIC_POLARITY_BIT_MASK 0x2000
 #define IO_APIC_TRIGGER_MODE_BIT_MASK 0x8000
+
 #define TIMER_IRQ 0x00
 #define KEYBOARD_IRQ 0x01
 #define PIT_IRQ 0x02
@@ -46,20 +47,19 @@
 #define IOREDTBL23  0x3E
 
 typedef union io_apic_redirect_entry_t {
-    struct
-    {
-    uint64_t    vector  :8;
-    uint64_t    delivery_mode   :3;
-    uint64_t    destination_mode    :1;
-    uint64_t    delivery_status :1;
-    uint64_t    pin_polarity    :1;
-    uint64_t    remote_irr  :1;
-    uint64_t    trigger_mode    :1;
-    uint64_t    interrupt_mask  :1;
-    uint64_t    reserved    :39;
-    uint64_t    destination_field   :8;
-    };
-    uint64_t raw;
+  struct {
+    uint8_t vector;
+    uint64_t delivery_mode :3;
+    uint64_t destination_mode :1;
+    uint64_t delivery_status :1;
+    uint64_t pin_polarity :1;
+    uint64_t remote_irr :1;
+    uint64_t trigger_mode :1;
+    uint64_t interrupt_mask :1;
+    uint64_t reserved :39;
+    uint8_t destination_field;
+  };
+  uint64_t raw;
 } __attribute__((packed)) io_apic_redirect_entry_t;
 
 #endif

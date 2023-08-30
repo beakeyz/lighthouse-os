@@ -5,7 +5,6 @@
 #include "entry/entry.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
-#include "interrupts/interrupts.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"

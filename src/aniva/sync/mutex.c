@@ -1,6 +1,5 @@
 #include "mutex.h"
 #include "dev/debug/serial.h"
-#include "interrupts/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"

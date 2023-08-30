@@ -1,6 +1,5 @@
 #include "socket_arbiter.h"
 #include "dev/debug/serial.h"
-#include "interrupts/interrupts.h"
 #include "libk/data/queue.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"

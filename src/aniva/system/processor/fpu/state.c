@@ -7,7 +7,7 @@
 FpuState standard_fpu_state;
 
 void save_fpu_state(FpuState* buffer) {
-  Processor_t *current = get_current_processor();
+  processor_t *current = get_current_processor();
 
   bool avx =  processor_has(&current->m_info, X86_FEATURE_XSAVE) && processor_has(&current->m_info, X86_FEATURE_AVX);
 
@@ -21,7 +21,7 @@ void save_fpu_state(FpuState* buffer) {
 }
 
 void store_fpu_state(FpuState* buffer) {
-  Processor_t *current = get_current_processor();
+  processor_t *current = get_current_processor();
 
   bool avx =  processor_has(&current->m_info, X86_FEATURE_XSAVE) && processor_has(&current->m_info, X86_FEATURE_AVX);
 

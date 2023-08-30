@@ -4,7 +4,7 @@
 #ifndef __C_PIC___
 #define __C_PIC___
 
-#include "interrupts/control/interrupt_control.h"
+#include "intr/ctl/ctl.h"
 #include <libk/stddef.h>
 
 #define PIC_EOI_CODE    0x20
@@ -20,7 +20,6 @@
 #define ICW1_INIT       0x10
 
 typedef struct PIC {
-  InterruptController_t* m_controller;
   uint8_t m_pic1_line;
   uint8_t m_pic2_line;
 } PIC_t;
@@ -35,8 +34,11 @@ typedef struct PIC {
 		             "2:"); \
 	} while (0)
 
-PIC_t* init_pic();
-void pic_disable(void* this);
+int_controller_t* get_pic();
+
+void pic_enable(int_controller_t* ctl);
+void pic_disable(int_controller_t* ctl);
+
 void pic_eoi(uint8_t num);
 
 #endif // !__C_PIC___

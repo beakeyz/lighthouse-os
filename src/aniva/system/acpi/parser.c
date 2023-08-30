@@ -14,13 +14,6 @@
 #include <libk/stddef.h>
 #include <libk/string.h>
 
-#define RSDP_SIGNATURE "RSD PTR "
-#define FADT_SIGNATURE "FACP"
-#define DSDT_SIGNATURE "DSDT"
-#define MADT_SIGNATURE "APIC"
-#define SSDT_SIGNATURE "SSDT"
-#define PSDT_SIGNATURE "PSDT"
-
 static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rsdp_method method) {
   const char* name;
   switch (method) {
@@ -79,10 +72,10 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser) {
   return Success(0);
 }
 
-/*
- * NOTE: We don't immediately map the entire table length once we find it. That is only done 
- * once we try to find a table using find_table_idx (which does not find a table index, but 
- * rather a table WITH an index so TODO: fix this naming inconsistency)
+/*!
+ * @brief Find the ACPI tables, map them and reserve their memory
+ *
+ * TODO: should we create a nice system-wide resource entry for every table?
  */
 void parser_init_tables(acpi_parser_t* parser) {
   acpi_xsdt_t* xsdt = nullptr;
@@ -95,10 +88,11 @@ void parser_init_tables(acpi_parser_t* parser) {
   ASSERT_MSG(parser->m_rsdp || parser->m_xsdp, "No ACPI pointer found!");
 
   if (parser->m_xsdp) {
-    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), NULL, 0));
-    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, xsdt->base.length, NULL, 0));
+    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, sizeof(acpi_xsdt_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    xsdt = (acpi_xsdt_t*)Must(__kmem_kernel_alloc(parser->m_xsdp->xsdt_addr, xsdt->base.length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
     tables = (xsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uintptr_t);
 
+    /* Loop over all the tables and reserve their memory ranges */
     for (uintptr_t i = 0; i < tables; i++) {
 
       if (!xsdt->tables[i])
@@ -110,7 +104,11 @@ void parser_init_tables(acpi_parser_t* parser) {
       if (phys && table_entry >= HIGH_MAP_BASE)
         table_entry = phys;
 
-      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, sizeof(acpi_sdt_header_t), NULL, 0));
+      /* First, allocate the default header size */
+      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, sizeof(acpi_sdt_header_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+      /* Then, allocate for the entire table */
+      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, header->length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
       list_append(parser->m_tables, header);
     } 
@@ -118,8 +116,8 @@ void parser_init_tables(acpi_parser_t* parser) {
     return;
   }
 
-  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), NULL, 0));
-  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, rsdt->base.length, NULL, 0));
+  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, sizeof(acpi_rsdt_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+  rsdt = (acpi_rsdt_t*)Must(__kmem_kernel_alloc(parser->m_rsdp->rsdt_addr, rsdt->base.length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
   tables = (rsdt->base.length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
 
   for (uintptr_t i = 0; i < tables; i++) {
@@ -130,13 +128,23 @@ void parser_init_tables(acpi_parser_t* parser) {
       if (phys)
         table_entry = phys;
 
-      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, sizeof(acpi_sdt_header_t), NULL, 0));
+      /* First, allocate the default header size */
+      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, sizeof(acpi_sdt_header_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+      /* Then, allocate for the entire table */
+      header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(table_entry, header->length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
       list_append(parser->m_tables, header);
   } 
 }
 
-void* find_rsdp(acpi_parser_t* parser) {
+/*!
+ * @brief Try a few funky methods to find the RSDP / XSDP
+ *
+ * @parser: the parser object to store our findings
+ */
+void* find_rsdp(acpi_parser_t* parser) 
+{
   // TODO: check other spots
   uintptr_t pointer;
 
@@ -228,25 +236,35 @@ void* find_rsdp(acpi_parser_t* parser) {
   return nullptr;
 }
 
-void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size) {
+/*!
+ * @brief Find an ACPI table at a certain index
+ *
+ * Some ACPI tables (like AML tables) are present more than once. We need to be able to 
+ * find these tables as well
+ */
+void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t index, size_t table_size) 
+{
   FOREACH(i, parser->m_tables) {
     acpi_sdt_header_t* header = i->data;
-    if (memcmp(&header->signature, sig, 4)) {
-      if (index == 0) {
+    if (!memcmp(&header->signature, sig, 4))
+      continue;
 
-        /* NOTE: we know that header is virtual here, since we've mapped it right before adding it to the list */
-        if (table_size)
-          header = (acpi_sdt_header_t*)Must(__kmem_kernel_alloc(kmem_to_phys(nullptr, (uint64_t)header), table_size, NULL, NULL));
+    if (!index)
+      return (void*)header;
 
-        return (void*)header;
-      }
-      index--;
-    }
+    index--;
   }
   return nullptr;
 }
 
-void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t table_size) {
+/*!
+ * @brief Finds the first table that matches the signature
+ *
+ * This should pretty much only be used for tables where there is a 
+ * guarantee that there is only one present on the system
+ */
+void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t table_size) 
+{
   return (void*)acpi_parser_find_table_idx(parser, sig, 0, table_size);
 }
 

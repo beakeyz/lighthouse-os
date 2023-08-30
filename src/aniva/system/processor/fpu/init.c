@@ -7,7 +7,7 @@
 void fpu_generic_init() {
   // FIXME: for now we assume that this only gets called on startup,
   // so current == bsp, but this won't be the case later on...
-  Processor_t* current = get_current_processor();
+  processor_t* current = get_current_processor();
   unsigned long cr0, cr4_msk = 0;
 
   if (processor_has(&current->m_info, X86_FEATURE_FXSR)) {

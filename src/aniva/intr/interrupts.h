@@ -1,7 +1,7 @@
 #ifndef __ANIVA_INTERRUPTS__
 #define __ANIVA_INTERRUPTS__
 
-#include "interrupts/control/interrupt_control.h"
+#include "intr/ctl/ctl.h"
 #include "libk/flow/error.h"
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
@@ -34,7 +34,7 @@ typedef struct quick_interrupt_handler {
   interrupt_callback_t fHandler;
   uint32_t m_int_num;
   uint32_t m_flags;
-  InterruptController_t* m_controller;
+  int_controller_t* m_controller;
 } quick_interrupthandler_t;
 
 /*

@@ -1,6 +1,7 @@
 #include "processor.h"
 #include "dev/debug/serial.h"
-#include "interrupts/idt.h"
+#include "intr/ctl/ctl.h"
+#include "intr/idt.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
 #include "proc/proc.h"
@@ -16,18 +17,17 @@
 
 extern void _flush_gdt(uintptr_t gdtr);
 
-static void processor_late_init(Processor_t *this) __attribute__((used));
-static ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry);
-static void init_sse(Processor_t *processor);
+static ALWAYS_INLINE void write_to_gdt(processor_t *this, uint16_t selector, gdt_entry_t entry);
+static void init_sse(processor_t *processor);
 
 static ALWAYS_INLINE void init_smep(processor_info_t* info);
 static ALWAYS_INLINE void init_smap(processor_info_t* info);
 static ALWAYS_INLINE void init_umip(processor_info_t* info);
 
-Processor_t g_bsp;
+processor_t g_bsp;
 extern FpuState standard_fpu_state;
 
-static ErrorOrPtr __init_syscalls(Processor_t* processor)
+static ErrorOrPtr __init_syscalls(processor_t* processor)
 {
   /* We support the syscall feature */
   processor->m_flags &= ~PROCESSOR_FLAG_INT_SYSCALLS;
@@ -52,8 +52,8 @@ static ErrorOrPtr __init_syscalls(Processor_t* processor)
 }
 
 // Should not be used to initialize bsp
-Processor_t *create_processor(uint32_t num) {
-  Processor_t * ret = kmalloc(sizeof(Processor_t));
+processor_t *create_processor(uint32_t num) {
+  processor_t * ret = kmalloc(sizeof(processor_t));
   ret->m_cpu_num = num;
 
   /* TODO */
@@ -62,7 +62,7 @@ Processor_t *create_processor(uint32_t num) {
   return ret;
 }
 
-void init_processor(Processor_t *processor, uint32_t cpu_num) {
+void init_processor(processor_t *processor, uint32_t cpu_num) {
 
   memset(processor, 0, sizeof(*processor));
 
@@ -70,8 +70,6 @@ void init_processor(Processor_t *processor, uint32_t cpu_num) {
   processor->m_cpu_num = cpu_num;
   processor->m_irq_depth = 0;
   processor->m_prev_irq_depth = 0;
-  processor->fLateInit = processor_late_init;
-
   processor->m_info = gather_processor_info();
 
   init_sse(processor);
@@ -113,7 +111,7 @@ void init_processor(Processor_t *processor, uint32_t cpu_num) {
   wrmsr(MSR_GS_BASE, (uintptr_t)processor);
 }
 
-static void processor_late_init(Processor_t *this) {
+void init_processor_late(processor_t *this) {
 
   this->m_processes = init_list();
   this->m_critical_depth = create_atomic_ptr();
@@ -123,8 +121,8 @@ static void processor_late_init(Processor_t *this) {
 
   // TODO:
   if (is_bsp(this)) {
-    init_int_control_management();
     init_interrupts();
+    init_intr_ctl();
 
     fpu_generic_init();
 
@@ -135,13 +133,13 @@ static void processor_late_init(Processor_t *this) {
   }
 }
 
-ALWAYS_INLINE void write_to_gdt(Processor_t *this, uint16_t selector, gdt_entry_t entry) {
+ALWAYS_INLINE void write_to_gdt(processor_t *this, uint16_t selector, gdt_entry_t entry) {
   const uint16_t index = (selector & 0xfffc) >> 3;
 
   this->m_gdt[index] = entry;
 }
 
-static void init_sse(Processor_t *processor) {
+static void init_sse(processor_t *processor) {
   // check for feature
   const uintptr_t orig_cr0 = read_cr0();
   const uintptr_t orig_cr4 = read_cr4();
@@ -150,7 +148,7 @@ static void init_sse(Processor_t *processor) {
   write_cr4(orig_cr4 | 0x600);
 }
 
-void flush_gdt(Processor_t *processor) {
+void flush_gdt(processor_t *processor) {
   // base
   processor->m_gdtr.base = (uintptr_t)&processor->m_gdt[0];
   // limit
@@ -161,7 +159,7 @@ void flush_gdt(Processor_t *processor) {
   _flush_gdt((uintptr_t)&processor->m_gdtr);
 }
 
-ANIVA_STATUS init_gdt(Processor_t *processor) {
+ANIVA_STATUS init_gdt(processor_t *processor) {
 
   processor->m_gdtr.limit = 0;
   processor->m_gdtr.base = NULL;
@@ -222,7 +220,7 @@ ANIVA_STATUS init_gdt(Processor_t *processor) {
   return ANIVA_SUCCESS;
 }
 
-bool is_bsp(Processor_t *processor) {
+bool is_bsp(processor_t *processor) {
   return (processor->m_cpu_num == 0);
 }
 
@@ -233,7 +231,7 @@ bool is_bsp(Processor_t *processor) {
  */
 void processor_enter_interruption(registers_t* registers, bool irq) {
 
-  Processor_t *current = get_current_processor();
+  processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when entering interruption");
 
   current->m_prev_irq_depth = current->m_irq_depth;
@@ -244,7 +242,7 @@ void processor_enter_interruption(registers_t* registers, bool irq) {
 
 void processor_exit_interruption(registers_t* registers) {
 
-  Processor_t *current = get_current_processor();
+  processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when exiting interruption");
 
   current->m_irq_depth = current->m_prev_irq_depth;

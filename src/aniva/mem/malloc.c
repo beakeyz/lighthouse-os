@@ -1,5 +1,4 @@
 #include "malloc.h"
-#include "interrupts/interrupts.h"
 #include "mem/kmem_manager.h"
 #include "heap.h"
 #include "sched/scheduler.h"

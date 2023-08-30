@@ -64,7 +64,7 @@ void quick_unmap() {
 
 ErrorOrPtr quick_map_ex(paddr_t p, uint32_t page_flags) {
 
-  Processor_t* current_processor;
+  processor_t* current_processor;
   bool map_result;
   size_t pdelta;
   paddr_t aligned_phys;

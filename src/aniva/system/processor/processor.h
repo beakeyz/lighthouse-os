@@ -18,21 +18,17 @@
 #include "dev/debug/serial.h"
 #include "system/resource/context.h"
 #include <aniva/system/asm_specifics.h>
-#include <interrupts/interrupts.h>
+#include <intr/interrupts.h>
 
-struct Processor;
+struct processor;
 struct dev_manifest;
-
-typedef void (*PROCESSOR_LATE_INIT)(
-  struct Processor *this
-);
 
 #define PROCESSOR_FLAG_INT_SYSCALLS     (0x00000001) /* Do we use interrupts for syscalls, or does this CPU have the SYSCALL feature (sysenter/sysexit) */
 #define PROCESSOR_FLAG_XSAVE            (0x00000002) /* Do we have xsave for fpu stuff */
 #define PROCESSOR_FLAG_VIRTUAL          (0x00000004) /* Is this a virtual (emulated) or a physical processor */
 
-typedef struct Processor {
-  struct Processor *m_own_ptr;
+typedef struct processor {
+  struct processor *m_own_ptr;
 
   /* GDT */
   gdt_entry_t m_gdt[7]              __attribute__((aligned(0x10)));
@@ -64,44 +60,42 @@ typedef struct Processor {
 
   proc_t *m_current_proc;
   proc_t *m_kernel_process;
+} processor_t;
 
-  //resource_ctx_stack_t* m_resource_ctx_stack;
-
-  PROCESSOR_LATE_INIT fLateInit;
-} Processor_t;
-
-extern Processor_t g_bsp;
+extern processor_t g_bsp;
 
 /*
  * initialize early aspects of the processor abstraction
  * i.e. interrupts or fields
  */
-void init_processor(Processor_t *processor, uint32_t cpu_num);
+void init_processor(processor_t *processor, uint32_t cpu_num);
+
+void init_processor_late(processor_t* processor);
 
 /*
  * create processor on heap
  */
-Processor_t *create_processor(uint32_t num);
+processor_t *create_processor(uint32_t num);
 
 /*
  * create a GDT for this processor
  */
-ANIVA_STATUS init_gdt(Processor_t *processor);
+ANIVA_STATUS init_gdt(processor_t *processor);
 
 /*
  * check if this is the processor we used to boot
  */
-bool is_bsp(Processor_t *processor);
+bool is_bsp(processor_t *processor);
 
 /*
  * set the ptr to processor we used to boot
  */
-void set_bsp(Processor_t *processor);
+void set_bsp(processor_t *processor);
 
 /*
  * update gdt registers n stuff
  */
-void flush_gdt(Processor_t *processor);
+void flush_gdt(processor_t *processor);
 
 /*
  * called when we enter an interrupt or something as such
@@ -113,18 +107,18 @@ extern void processor_enter_interruption(registers_t* registers, bool irq);
  */
 extern void processor_exit_interruption(registers_t* registers);
 
-ALWAYS_INLINE Processor_t *get_current_processor() {
-  return (Processor_t *) read_gs(GET_OFFSET(Processor_t, m_own_ptr));
+ALWAYS_INLINE processor_t *get_current_processor() {
+  return (processor_t *) read_gs(GET_OFFSET(processor_t, m_own_ptr));
 }
 
-ALWAYS_INLINE void processor_increment_critical_depth(Processor_t *processor) {
+ALWAYS_INLINE void processor_increment_critical_depth(processor_t *processor) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   uintptr_t current_level = atomic_ptr_load(processor->m_critical_depth);
   atomic_ptr_write(processor->m_critical_depth, current_level + 1);
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-ALWAYS_INLINE void processor_decrement_critical_depth(Processor_t *processor) {
+ALWAYS_INLINE void processor_decrement_critical_depth(processor_t *processor) {
   uintptr_t current_level = atomic_ptr_load(processor->m_critical_depth);
 
   ASSERT_MSG(current_level > 0, "Tried to leave a critical processor section while not being in one!");
@@ -144,11 +138,11 @@ ALWAYS_INLINE void processor_decrement_critical_depth(Processor_t *processor) {
 }
 
 static ALWAYS_INLINE uint64_t get_user_stack_offset() {
-  return GET_OFFSET(Processor_t, m_user_stack);
+  return GET_OFFSET(processor_t, m_user_stack);
 }
 
 static ALWAYS_INLINE uint64_t get_kernel_stack_offset() {
-  return GET_OFFSET(Processor_t, m_tss) + GET_OFFSET(tss_entry_t , rsp0l);
+  return GET_OFFSET(processor_t, m_tss) + GET_OFFSET(tss_entry_t , rsp0l);
 }
 
 extern FpuState standard_fpu_state;

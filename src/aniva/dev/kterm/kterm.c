@@ -16,7 +16,6 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
-#include "interrupts/interrupts.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
@@ -143,24 +142,24 @@ void kterm_command_worker() {
 
       if (!strcmp(contents, "acpitables")) {
 
-        acpi_parser_t parser;
+        acpi_parser_t* parser;
 
         get_root_acpi_parser(&parser);
 
         kterm_println("acpi static table info: \n");
         kterm_println("rsdp address: ");
-        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser.m_rsdp)));
+        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_rsdp)));
         kterm_println("\n");
         kterm_println("xsdp address: ");
-        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser.m_xsdp)));
+        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_xsdp)));
         kterm_println("\n");
         kterm_println("is xsdp: ");
-        kterm_println(parser.m_is_xsdp ? "true\n" : "false\n");
+        kterm_println(parser->m_is_xsdp ? "true\n" : "false\n");
         kterm_println("rsdp discovery method: ");
-        kterm_println(parser.m_rsdp_discovery_method.m_name);
+        kterm_println(parser->m_rsdp_discovery_method.m_name);
         kterm_println("\n");
         kterm_println("tables found: ");
-        kterm_println(to_string(parser.m_tables->m_length));
+        kterm_println(to_string(parser->m_tables->m_length));
         kterm_println("\n");
       } else if (!strcmp(contents, "help")) {
         kterm_println("available commands: \n");
@@ -421,7 +420,7 @@ int kterm_init() {
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
   kterm_println("\n");
   kterm_println(" -- Welcome to the aniva kterm driver --\n");
-  Processor_t* processor = get_current_processor();
+  processor_t* processor = get_current_processor();
 
   kterm_println(processor->m_info.m_vendor_id);
   kterm_println("\n");

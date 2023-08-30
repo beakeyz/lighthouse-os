@@ -6,7 +6,6 @@
 #include "libk/string.h"
 #include <sched/scheduler.h>
 #include <system/asm_specifics.h>
-#include "interrupts/interrupts.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_payload.h"

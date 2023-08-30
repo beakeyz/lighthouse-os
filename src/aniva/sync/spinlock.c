@@ -74,7 +74,7 @@ __spinlock_t __init_spinlock() {
 
 void aquire_spinlock(__spinlock_t* lock)
 {
-  Processor_t* current;
+  processor_t* current;
 
   if (!lock)
     return;

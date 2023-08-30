@@ -20,12 +20,12 @@ void init_acpi() {
   // the kernel and boot with legacy PIC
 }
 
-void get_root_acpi_parser(struct acpi_parser* out)
+void get_root_acpi_parser(struct acpi_parser** out)
 {
   if (!out)
     return;
 
-  memcpy(out, &_parser, sizeof(acpi_parser_t));
+  *out = &_parser;
 }
 
 void* find_acpi_table(char* signature, size_t table_size)

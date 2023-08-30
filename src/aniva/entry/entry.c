@@ -39,7 +39,7 @@
 #include "time/core.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
-#include "interrupts/interrupts.h"
+#include "intr/interrupts.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
@@ -154,16 +154,23 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // we need resources
   init_kresources();
 
+  /* Initialize the ACPI subsystem */
+  init_acpi();
+
   // initialize cpu-related things that need the memorymanager and the heap
-  g_bsp.fLateInit(&g_bsp);
+  init_processor_late(&g_bsp);
+
+  /* Initialize the timer system */
+  init_timer_system();
+
+  /* Initialize human interface devices */
+  init_hid();
 
   // Initialize kevent
   init_kevents();
 
   /* Initialize hashmap caching */
   init_hashmap();
-
-  println("Did stuff");
 
   /* Initialize the subsystem responsible for managing processes */
   init_proc_core();
@@ -173,14 +180,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   /* Initialize the filesystem core */
   init_fs_core();
-
-  /* Initialize the ACPI subsystem */
-  init_acpi();
-
-  /* Initialize the timer system */
-  init_timer_system();
-
-  init_hid();
 
   //println("Did stuff");
 

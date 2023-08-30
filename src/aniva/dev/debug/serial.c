@@ -1,7 +1,7 @@
 #include "serial.h"
 #include "dev/debug/early_tty.h"
 #include "entry/entry.h"
-#include "interrupts/control/pic.h"
+#include "intr/ctl/pic.h"
 #include "system/acpi/parser.h"
 #include <libk/io.h>
 #include <libk/stddef.h>

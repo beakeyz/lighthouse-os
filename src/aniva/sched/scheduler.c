@@ -5,7 +5,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/string.h"
-#include "interrupts/interrupts.h"
+#include "intr/interrupts.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/socket.h"
@@ -233,7 +233,7 @@ void scheduler_yield() {
     kernel_panic("TODO: terminate the process which has no threads left!");
   }
 
-  Processor_t *current = get_current_processor();
+  processor_t *current = get_current_processor();
   thread_t *current_thread = get_current_scheduling_thread();
 
   ASSERT_MSG(current_thread != nullptr, "trying to yield the scheduler while not having a current scheduling thread!");
@@ -250,7 +250,7 @@ void scheduler_yield() {
 
 ErrorOrPtr scheduler_try_execute() {
 
-  Processor_t *current = get_current_processor();
+  processor_t *current = get_current_processor();
   ASSERT_MSG(current, "Could not get current processor while trying to calling scheduler");
   ASSERT_MSG(current->m_irq_depth == 0, "Trying to call scheduler while in irq");
 
@@ -697,7 +697,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
 // TODO: sync?
 void set_current_handled_thread(thread_t* thread) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
-  Processor_t *current_processor = get_current_processor();
+  processor_t *current_processor = get_current_processor();
   current_processor->m_current_thread = thread;
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
@@ -712,7 +712,7 @@ void set_sched_frame_idle(sched_frame_t* frame_ptr) {
 static ALWAYS_INLINE void set_current_proc(proc_t* proc) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-  Processor_t *current_processor = get_current_processor();
+  processor_t *current_processor = get_current_processor();
   current_processor->m_current_proc = proc;
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
@@ -721,30 +721,30 @@ static ALWAYS_INLINE void set_current_proc(proc_t* proc) {
 ALWAYS_INLINE void set_previous_thread(thread_t* thread) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   sched_frame_t *frame = list_get(s_sched_frames, 0);
-  Processor_t *current_processor = get_current_processor();
+  processor_t *current_processor = get_current_processor();
   frame->m_proc_to_schedule->m_prev_thread = thread;
   current_processor->m_previous_thread = thread;
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
 thread_t *get_current_scheduling_thread() {
-  return (thread_t*)read_gs(GET_OFFSET(Processor_t , m_current_thread));
+  return (thread_t*)read_gs(GET_OFFSET(processor_t , m_current_thread));
 }
 
 thread_t *get_previous_scheduled_thread() {
-  return (thread_t*)read_gs(GET_OFFSET(Processor_t , m_previous_thread));
+  return (thread_t*)read_gs(GET_OFFSET(processor_t , m_previous_thread));
 }
 
 proc_t* get_current_proc() {
-  return (proc_t*)read_gs(GET_OFFSET(Processor_t , m_current_proc));
+  return (proc_t*)read_gs(GET_OFFSET(processor_t , m_current_proc));
 }
 
 proc_t* sched_get_kernel_proc() {
-  return (proc_t*)read_gs(GET_OFFSET(Processor_t, m_kernel_process));
+  return (proc_t*)read_gs(GET_OFFSET(processor_t, m_kernel_process));
 }
 
 void set_kernel_proc(proc_t* proc) {
-  Processor_t* current = get_current_processor();
+  processor_t* current = get_current_processor();
   if (current->m_kernel_process != nullptr) {
     return;
   }

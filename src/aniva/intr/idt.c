@@ -1,5 +1,5 @@
 #include "idt.h"
-#include "interrupts/interrupts.h"
+#include "intr/interrupts.h"
 #include <mem/heap.h>
 #include <dev/debug/serial.h>
 #include <mem/kmem_manager.h>

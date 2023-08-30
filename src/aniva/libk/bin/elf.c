@@ -3,7 +3,6 @@
 #include "dev/debug/serial.h"
 #include "fs/file.h"
 #include <fs/vobj.h>
-#include "interrupts/interrupts.h"
 #include "libk/bin/elf_types.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"

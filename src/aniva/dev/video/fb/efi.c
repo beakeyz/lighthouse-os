@@ -4,7 +4,6 @@
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
 #include "entry/entry.h"
-#include "interrupts/control/pic.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
 #include "mem/kmem_manager.h"

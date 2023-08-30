@@ -1,6 +1,5 @@
 #include "core.h"
 #include "dev/debug/serial.h"
-#include "interrupts/interrupts.h"
 #include "kevent/kevent.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -53,7 +52,7 @@ static ErrorOrPtr __unregister_proc_by_name(const char* name)
 
 ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
 
-  Processor_t* current;
+  processor_t* current;
   page_dir_t* dir;
   size_t stub_size;
   size_t aligned_size;

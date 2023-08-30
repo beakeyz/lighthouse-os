@@ -23,7 +23,6 @@
 #include "system/processor/processor.h"
 #include "thread.h"
 #include "proc/ipc/tspckt.h"
-#include "interrupts/interrupts.h"
 #include <mem/heap.h>
 
 static zone_allocator_t* __socket_allocator;

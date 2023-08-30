@@ -1,12 +1,11 @@
 #include "interrupts.h"
-#include "interrupts/control/interrupt_control.h"
-#include "interrupts/idt.h"
+#include "intr/ctl/ctl.h"
+#include "intr/idt.h"
 #include "kevent/kevent.h"
 #include "mem/kmem_manager.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include <dev/debug/serial.h>
-#include <interrupts/control/pic.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
 #include "proc/proc.h"
@@ -281,13 +280,13 @@ static ErrorOrPtr __quick_int_handler_toggle_vector(uint32_t int_num, bool enabl
   if ((handler->m_flags & QIH_FLAG_REGISTERED) != QIH_FLAG_REGISTERED)
     return Error();
 
-  if (!handler->m_controller || !handler->m_controller->fControllerEnableVector || !handler->m_controller->fControllerDisableVector)
+  if (!handler->m_controller || !handler->m_controller->ictl_enable_vec || !handler->m_controller->ictl_disable_vec)
     return Error();
 
   if (enabled)
-    handler->m_controller->fControllerEnableVector(int_num);
+    handler->m_controller->ictl_enable_vec(int_num);
   else
-    handler->m_controller->fControllerDisableVector(int_num);
+    handler->m_controller->ictl_disable_vec(int_num);
 
   return Success(0);
 }
@@ -307,7 +306,7 @@ ErrorOrPtr quick_int_handler_disable_vector(uint32_t int_num) {
 static quick_interrupthandler_t *__install_quick_int_handler(uint32_t int_num, uint32_t flags, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
 
   quick_interrupthandler_t *ret;
-  InterruptController_t *controller;
+  int_controller_t *controller;
 
   if (int_num > INTERRUPT_HANDLER_COUNT)
     return nullptr;
@@ -316,7 +315,7 @@ static quick_interrupthandler_t *__install_quick_int_handler(uint32_t int_num, u
 
   controller = get_controller_for_int_number(int_num);
 
-  if (!controller || controller->m_type != type)
+  if (!controller || controller->type != type)
     return nullptr;
 
   ret->m_int_num = int_num;
@@ -641,7 +640,7 @@ registers_t *interrupt_handler(registers_t *regs) {
 
     /* FIXME: we can probably assert for the presence of a controller */
     if (handler->m_controller) {
-      handler->m_controller->fInterruptEOI(regs->isr_no);
+      handler->m_controller->ictl_eoi(regs->isr_no);
       handler->m_flags &= ~QIH_FLAG_IN_INTERRUPT;
     }
 

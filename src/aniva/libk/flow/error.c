@@ -2,7 +2,7 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
-#include "interrupts/interrupts.h"
+#include "intr/interrupts.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"

@@ -1,5 +1,6 @@
 #ifndef __APIC__
 #define __APIC__
+#include "system/acpi/structures.h"
 #include <libk/stddef.h>
 
 #define APIC_BSP_BIT 8
@@ -37,10 +38,6 @@
 #define MASTER_PIC_DATA_PORT 0x21
 #define SLAVE_PIC_DATA_PORT 0xA1
 
-// TODO: look for the address thats (should be) mapped to memory
-// TODO: parse MADT
-// TODO: for all this, we'll need to finish the mm first ;-;
-
-void init_apic();
+int init_bsp_apic(struct acpi_table_madt* table, uintptr_t base);
 
 #endif // !__APIC__

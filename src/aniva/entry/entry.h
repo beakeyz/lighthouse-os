@@ -1,7 +1,6 @@
 #ifndef __KMAIN__
 #define __KMAIN__
 #include "dev/driver.h"
-#include "system/processor/processor.h"
 #include <mem/pg.h>
 #include <libk/stddef.h>
 #include <libk/multiboot.h>
@@ -34,6 +33,7 @@ extern driver_version_t kernel_version;
 
 #define SYSFLAGS_HAS_FRAMEBUFFER    (0x00000001)
 #define SYSFLAGS_HAS_EARLY_TTY      (0x00000002)
+#define SYSFLAGS_NO_INTERRUPTS      (0x00000004)
 
 /*
  * Global system variables, that should be known throughout the 
@@ -61,8 +61,6 @@ typedef struct {
 
   /* Allow for 128 UTF-8 characters of cmd line */
   char cmdline[128];
-  //Processor_t m_bsp_processor;
-  //Processor_t* m_current_core;
 
   uint32_t sys_flags;
   uint32_t kernel_version;

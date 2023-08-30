@@ -13,7 +13,7 @@
  * will know how to clean up their mess every time =D
  */
 
-struct Processor;
+struct processor;
 struct proc;
 struct dev_manifest;
 
@@ -26,7 +26,7 @@ typedef struct resource_context {
   uint32_t res0;
   kresource_bundle_t resource_bundle;
 
-  struct Processor* parent_cpu;
+  struct processor* parent_cpu;
 
   /* The entity this is linked to */
   union {

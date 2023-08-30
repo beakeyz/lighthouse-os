@@ -7,6 +7,13 @@
 #include "structures.h"
 #include "sync/spinlock.h"
 
+#define RSDP_SIGNATURE "RSD PTR "
+#define FADT_SIGNATURE "FACP"
+#define DSDT_SIGNATURE "DSDT"
+#define MADT_SIGNATURE "APIC"
+#define SSDT_SIGNATURE "SSDT"
+#define PSDT_SIGNATURE "PSDT"
+
 typedef struct {
   enum acpi_rsdp_method {
     MULTIBOOT_OLD,

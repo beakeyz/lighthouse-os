@@ -2,8 +2,6 @@
 #include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
 #include "dev/manifest.h"
-#include "interrupts/control/interrupt_control.h"
-#include "interrupts/interrupts.h"
 #include "entry/entry.h"
 #include "kevent/kevent.h"
 #include "libk/data/queue.h"
@@ -275,7 +273,7 @@ extern void thread_enter_context(thread_t *to) {
   ASSERT_MSG(to->m_current_state == RUNNABLE, "thread we switch to is not RUNNABLE!");
 
   // FIXME: remove?
-  Processor_t *current_processor = get_current_processor();
+  processor_t *current_processor = get_current_processor();
   thread_t* previous_thread = get_previous_scheduled_thread();
 
   // TODO: make use of this
