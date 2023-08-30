@@ -17,27 +17,19 @@ void pic_enable(int_controller_t* ctl)
   pic->m_pic2_line = in8(PIC2_DATA);
 
   // cascade init =D
-  out8(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
-  PIC_WAIT();
-  out8(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
-  PIC_WAIT();
+  out8_pic(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+  out8_pic(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
 
   /* Start PIC1 at idt entry 32 */
-  out8(PIC1_DATA, 0x20);
-  PIC_WAIT();
+  out8_pic(PIC1_DATA, 0x20);
   /* Start PIC2 at idt entry 40 */
-  out8(PIC2_DATA, 0x28);
-  PIC_WAIT();
+  out8_pic(PIC2_DATA, 0x28);
 
-  out8(PIC1_DATA, 0x04);
-  PIC_WAIT();
-  out8(PIC2_DATA, 0x02);
-  PIC_WAIT();
+  out8_pic(PIC1_DATA, 0x04);
+  out8_pic(PIC2_DATA, 0x02);
 
-  out8(PIC1_DATA, 0x01);
-  PIC_WAIT();
-  out8(PIC2_DATA, 0x01);
-  PIC_WAIT();
+  out8_pic(PIC1_DATA, 0x01);
+  out8_pic(PIC2_DATA, 0x01);
 
   out8(PIC1_DATA, pic->m_pic1_line);
   out8(PIC2_DATA, pic->m_pic2_line);
@@ -66,7 +58,7 @@ PIC_t pic = {
   .m_pic2_line = 0xFF,
 };
 
-static void pic_disable_vector(uint8_t vector) {
+static void pic_disable_vector(uint16_t vector) {
 
   // PIC 2
   if (vector & 8) {
@@ -79,7 +71,7 @@ static void pic_disable_vector(uint8_t vector) {
   }
 }
 
-static void pic_enable_vector(uint8_t vector) {
+static void pic_enable_vector(uint16_t vector) {
 
   // PIC 2
   if (vector & 8) {

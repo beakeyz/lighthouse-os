@@ -31,7 +31,7 @@ void putch(char c) {
   static int was_cr = false;
   
   while ((in8(COM1 + 5) & 0x20) == 0) {
-      PIC_WAIT();
+    io_delay();
   }
   
   if (c == '\n' && !was_cr)

@@ -5,6 +5,7 @@
 #define __C_PIC___
 
 #include "intr/ctl/ctl.h"
+#include "libk/io.h"
 #include <libk/stddef.h>
 
 #define PIC_EOI_CODE    0x20
@@ -24,15 +25,11 @@ typedef struct PIC {
   uint8_t m_pic2_line;
 } PIC_t;
 
-// credit: toaruos (took this because I was too lazy to write my own io_wait func lmao)
-#define PIC_WAIT() \
-	do { \
-		/* May be fragile */ \
-		asm volatile("jmp 1f\n\t" \
-		             "1:\n\t" \
-		             "    jmp 2f\n\t" \
-		             "2:"); \
-	} while (0)
+static inline void out8_pic(uint16_t port, uint8_t value)
+{
+  out8(port, value);
+  delay(2);
+}
 
 int_controller_t* get_pic();
 

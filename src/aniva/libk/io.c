@@ -38,8 +38,19 @@ void out32(uint16_t port, uint32_t value)
     asm volatile("outl %%eax, %%dx" : : "a"(value), "Nd"(port));
 }
 
+/*!
+ * @brief Roughly 1 us delay
+ *
+ * This is the exact same thing linux uses, so it'll be fine prob
+ */
+void io_delay()
+{
+  const uint16_t delay_port = 0x80;
+  out8(delay_port, 0);
+}
+
 void delay(size_t microseconds)
 {
     for (size_t i = 0; i < microseconds; ++i)
-        in8(0x80);
+      io_delay();
 }

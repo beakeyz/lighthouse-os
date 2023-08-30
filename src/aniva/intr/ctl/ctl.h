@@ -17,9 +17,12 @@ typedef struct int_controller {
   void (*ictl_disable)(struct int_controller*);
   void (*ictl_enable)(struct int_controller*);
 
-  void (*ictl_enable_vec)(uint8_t vec);
-  void (*ictl_disable_vec)(uint8_t vec);
-  // TODO:
+  void (*ictl_enable_vec)(uint16_t vec);
+  void (*ictl_disable_vec)(uint16_t vec);
+
+  void (*ictl_map_vector)(uint16_t vec);
+
+  void (*ictl_reset)(struct int_controller*);
 } int_controller_t;
 
 void init_intr_ctl();
