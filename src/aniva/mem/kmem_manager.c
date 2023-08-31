@@ -40,7 +40,7 @@ static struct {
   size_t m_total_unavail_memory_bytes;
 
   list_t* m_phys_ranges;
-  list_t* m_contiguous_ranges;
+  //list_t* m_contiguous_ranges;
   list_t* m_used_mem_ranges;
 
   pml_entry_t* m_kernel_base_pd;
@@ -51,6 +51,7 @@ static struct {
 
 static void _init_kmem_page_layout();
 static void _init_kmem_page_layout_late();
+static void kmem_init_physical_allocator();
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
@@ -64,7 +65,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap) {
  */
 void init_kmem_manager(uintptr_t* mb_addr) {
 
-  KMEM_DATA.m_contiguous_ranges = kmalloc(sizeof(list_t));
+  //KMEM_DATA.m_contiguous_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_used_mem_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_kmem_flags = 0;
@@ -139,13 +140,11 @@ void parse_mmap() {
   for (uintptr_t i = 0; i < KMEM_DATA.m_mmap_entry_num; i++) {
     multiboot_memory_map_t *map = &KMEM_DATA.m_mmap_entries[i];
 
-    uint64_t addr = map->addr;
-    uint64_t length = map->len;
-    
     // TODO: register physical memory ranges
     phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
-    range->start = addr;
-    range->length = length;
+    range->start = map->addr;
+    range->length = map->len;
+
     switch (map->type) {
       case (MULTIBOOT_MEMORY_AVAILABLE): {
         range->type = PMRT_USABLE;
@@ -184,48 +183,32 @@ void parse_mmap() {
     }
 
     // devide by pagesize
-    KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(length);
+    KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->length);
 
     // hihi data
     print("map entry start addr: ");
-    println(to_string(addr));
+    println(to_string(range->start));
     print("map entry length: ");
-    println(to_string(length));
+    println(to_string(range->length));
 
-    uintptr_t diff = addr % SMALL_PAGE_SIZE;
+    uintptr_t diff = range->start % SMALL_PAGE_SIZE;
     if (diff != 0) {
       println("missaligned region!");
       diff = SMALL_PAGE_SIZE - diff;
-      addr += diff;
-      length -= diff;
+      range->start += diff;
+      range->length -= diff;
     }
-    if ((length % SMALL_PAGE_SIZE) != 0) {
+    if ((range->length % SMALL_PAGE_SIZE) != 0) {
       println("missaligned length!");
-      length -= length % SMALL_PAGE_SIZE;
+      range->length -= range->length % SMALL_PAGE_SIZE;
     }
-    if (length < SMALL_PAGE_SIZE) {
+    if (range->length < SMALL_PAGE_SIZE) {
       println("bruh, bootloader gave us a region smaller than a pagesize ;-;");
     }
 
-    uintptr_t highest_addr = addr + length;
+    uintptr_t highest_addr = range->start + range->length;
     if (highest_addr > KMEM_DATA.m_highest_phys_addr) {
       KMEM_DATA.m_highest_phys_addr = highest_addr;
-    }
-    
-    for (uint64_t page_base = addr; page_base <= (addr + length); page_base += SMALL_PAGE_SIZE) {
-
-      if (page_base >= kernel_range.start && page_base <= kernel_range.start + kernel_range.length) {
-        continue;
-      }
-
-      if (KMEM_DATA.m_contiguous_ranges->end == nullptr || (((contiguous_phys_virt_range_t*)KMEM_DATA.m_contiguous_ranges->end->data)->upper + SMALL_PAGE_SIZE) != page_base) {
-        contiguous_phys_virt_range_t* range = kmalloc(sizeof(contiguous_phys_virt_range_t));
-        range->upper = page_base;
-        range->lower = page_base;
-        list_append(KMEM_DATA.m_contiguous_ranges, range);
-      } else {
-        ((contiguous_phys_virt_range_t*)KMEM_DATA.m_contiguous_ranges->end->data)->upper = page_base;
-      }
     }
   }
 
@@ -237,26 +220,38 @@ void parse_mmap() {
  * Initialize the physical page allocator that keeps track
  * of which physical pages are used and which are free
  */
-void kmem_init_physical_allocator() {
+static void kmem_init_physical_allocator() {
 
   size_t physical_pages_bytes = ALIGN_UP(KMEM_DATA.m_phys_pages_count, 8) >> 3;
 
-  // FIXME: we should probably move the bitmap somewhere else later, since
-  // we need to map the heap to a virtual addressspace eventually. This means
-  // that the heap might get reinitiallised and thus we lose our bitmap...
-  // just keep this in mind
+  /*
+   * new FIXME: we allocate a bitmap for the entire memory page space on the heap, 
+   * which means that on systems with a lot of RAM, we need a biiig heap to contain 
+   * that. That's an issue, because we need to reserve that space right now in the form of 
+   * a static memory space that gets embedded into the kernel binary, because in order
+   * for us to have a dynamic heap like this, we'll need a working physical allocator, 
+   * but for that we also need a dynamic heap... 
+   * The solution would be to map enough memory in the boot stub to try to find a suitable 
+   * location for the bitmap to fit manualy and then initialize the heap after that.
+   */
   KMEM_DATA.m_phys_bitmap = create_bitmap(physical_pages_bytes);
   KMEM_DATA.m_phys_bitmap->m_entries = KMEM_DATA.m_phys_pages_count;
 
-  // Mark the contiguous 'free' ranges as free in our bitmap
-  FOREACH(i, KMEM_DATA.m_contiguous_ranges) {
-    contiguous_phys_virt_range_t* range = i->data;
+  paddr_t base;
+  size_t size;
 
-    paddr_t base = range->lower;
-    size_t size = range->upper - range->lower;
+  // Mark the contiguous 'free' ranges as free in our bitmap
+  FOREACH(i, KMEM_DATA.m_phys_ranges) {
+    const phys_mem_range_t* range = i->data;
+
+    if (range->type != PMRT_USABLE)
+      continue;
+
+    base = range->start;
+    size = range->length;
 
     // should already be page aligned
-    for (uintptr_t i = 0; i < size >> 12; i++) {
+    for (uintptr_t i = 0; i < GET_PAGECOUNT(size); i++) {
       paddr_t addr = base + i * SMALL_PAGE_SIZE;
       uintptr_t phys_page_idx = kmem_get_page_idx(addr);
       kmem_set_phys_page_free(phys_page_idx);
@@ -264,17 +259,20 @@ void kmem_init_physical_allocator() {
   }
 
   // subtract the base of the mapping used while booting
-  paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  paddr_t physical_kernel_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  size_t kernel_size = physical_kernel_end - physical_kernel_start;
-  size_t kernel_page_count = (kernel_size >> 12) + 1;
+  const paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const paddr_t physical_kernel_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const size_t kernel_size = physical_kernel_end - physical_kernel_start;
+  const size_t kernel_page_count = (kernel_size >> 12) + 1;
 
   for (uintptr_t i = 0; i < kernel_page_count; i++) {
-    paddr_t addr = physical_kernel_start + (i * SMALL_PAGE_SIZE);
-    uintptr_t physical_page_index = kmem_get_page_idx(addr);
+    const paddr_t addr = physical_kernel_start + (i * SMALL_PAGE_SIZE);
+    const uintptr_t physical_page_index = kmem_get_page_idx(addr);
 
     kmem_set_phys_page_used(physical_page_index);
   }
+
+  /* Just in case */
+  kmem_set_phys_page_used(0);
 }
 
 /*
@@ -630,12 +628,20 @@ out:
 
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
 
+  size_t page_shift;
+  const bool should_map_2mib = (kmem_flags & KMEM_CUSTOMFLAG_2MIB_MAP) == KMEM_CUSTOMFLAG_2MIB_MAP;
+
   /* Can't map zero pages =( */
   if (!page_count)
     return false;
 
+  page_shift = should_map_2mib ? LARGE_PAGE_SHIFT : PAGE_SHIFT;
+
+  if (should_map_2mib)
+    page_flags |= KMEM_FLAG_SPEC;
+
   for (uintptr_t i = 0; i < page_count; i++) {
-    const uintptr_t offset = i * SMALL_PAGE_SIZE;
+    const uintptr_t offset = i * (1 << page_shift);
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
 
@@ -758,7 +764,6 @@ void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
   pml_entry_set_bit(page, PTE_WRITE_THROUGH, ((flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH));
   pml_entry_set_bit(page, PTE_PAT, ((flags & KMEM_FLAG_SPEC) == KMEM_FLAG_SPEC));
   pml_entry_set_bit(page, PTE_NX, ((flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE));
-
 }
 
 /*!
@@ -1007,7 +1012,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
 
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE) + (2 * Mib);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
   
   /* Map everything before the kernel */
@@ -1030,12 +1035,8 @@ static void _init_kmem_page_layout_late() {
 
   const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
-  const size_t max_page_count = GET_PAGECOUNT(ALIGN_UP(1 * Gib, SMALL_PAGE_SIZE));
 
-  size_t total_pages_to_map = total_pages - kernel_end_idx;
-
-  if (total_pages_to_map > max_page_count)
-    total_pages_to_map = max_page_count;
+  const size_t total_pages_to_map = total_pages - kernel_end_idx;
 
   ASSERT_MSG(
       kmem_map_range(nullptr, kmem_ensure_high_mapping(kernel_physical_end), kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE), 

@@ -148,6 +148,10 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   println("Initialized tty");
 
+  for (;;) {
+    asm volatile ("hlt");
+  }
+
   // we need more memory
   init_zalloc();
 

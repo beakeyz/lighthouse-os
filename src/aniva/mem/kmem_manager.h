@@ -42,7 +42,9 @@ void kmem_debug();
 
 #define PAGE_SIZE               0x200000
 #define PAGE_SHIFT              12
+#define LARGE_PAGE_SHIFT        21
 #define SMALL_PAGE_SIZE         (1 << PAGE_SHIFT) 
+#define LARGE_PAGE_SIZE         (1 << LARGE_PAGE_SHIFT)
 #define PAGE_SIZE_BYTES         0x200000UL
 
 #define PDP_MASK                0x3fffffffUL
@@ -73,6 +75,7 @@ void kmem_debug();
 #define KMEM_CUSTOMFLAG_NO_MARK             0x00000200
 #define KMEM_CUSTOMFLAG_READONLY            0x00000400 /* Temporary */
 #define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000800
+#define KMEM_CUSTOMFLAG_2MIB_MAP            0x00001000
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002
@@ -83,7 +86,8 @@ void kmem_debug();
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
-#define GET_PAGECOUNT(bytes) (ALIGN_UP(bytes, SMALL_PAGE_SIZE) >> 12)
+#define GET_PAGECOUNT_EX(bytes, page_shift) (ALIGN_UP((bytes), (1 << (page_shift))) >> (page_shift))
+#define GET_PAGECOUNT(bytes) (ALIGN_UP((bytes), SMALL_PAGE_SIZE) >> 12)
 
 typedef enum {
   PMRT_USABLE = 1,
@@ -157,11 +161,6 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
  * parse the entire mmap
  */
 void parse_mmap ();
-
-/*
- * initialize the physical pageframe allocator
- */
-void kmem_init_physical_allocator();
 
 void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
 

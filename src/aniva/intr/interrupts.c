@@ -626,7 +626,7 @@ void init_interrupts() {
 // main entrypoint for generinc interrupts (from the asm)
 registers_t *interrupt_handler(registers_t *regs) {
 
-  const uint8_t int_num = regs->isr_no - 32;
+  const uint16_t int_num = regs->isr_no - 32;
 
   /* Do quick interrupt */
   quick_interrupthandler_t *handler = &__interrupt_handlers[int_num];
