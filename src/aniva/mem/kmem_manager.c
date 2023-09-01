@@ -55,7 +55,7 @@ static void kmem_init_physical_allocator();
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) {
-  KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap*)) / mmap->entry_size;
+  KMEM_DATA.m_mmap_entry_num = (mmap->size - sizeof(struct multiboot_tag_mmap)) / mmap->entry_size;
   KMEM_DATA.m_mmap_entries = (struct multiboot_mmap_entry *)mmap->entries;
 }
 
@@ -79,16 +79,7 @@ void init_kmem_manager(uintptr_t* mb_addr) {
   // Perform multiboot finalization
   finalize_multiboot(mb_addr);
 
-  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
-
   _init_kmem_page_layout();
-
-  // FIXME: find out if this address is always valid
-  // NOTE: If we ever decide to change the boottime mappings, this (along with the 
-  // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
-  uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd;
-
-  kmem_load_page_dir(map, true);
 
   _init_kmem_page_layout_late();
 
@@ -119,6 +110,7 @@ void kmem_debug()
 void parse_mmap() {
 
   KMEM_DATA.m_phys_pages_count = 0;
+  KMEM_DATA.m_highest_phys_addr = 0;
 
   // ???
   phys_mem_range_t kernel_range = {
@@ -177,19 +169,19 @@ void parse_mmap() {
         break;
       }
     }
-    
-    if (map->type != MULTIBOOT_MEMORY_AVAILABLE) {
-      continue;
-    }
 
-    // devide by pagesize
-    KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->length);
-
+    print("Type: ");
+    println(to_string(range->type));
     // hihi data
     print("map entry start addr: ");
     println(to_string(range->start));
     print("map entry length: ");
     println(to_string(range->length));
+
+    KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->length);
+    
+    if (map->type != MULTIBOOT_MEMORY_AVAILABLE)
+      continue;
 
     uintptr_t diff = range->start % SMALL_PAGE_SIZE;
     if (diff != 0) {
@@ -262,7 +254,7 @@ static void kmem_init_physical_allocator() {
   const paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const paddr_t physical_kernel_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_size = physical_kernel_end - physical_kernel_start;
-  const size_t kernel_page_count = (kernel_size >> 12) + 1;
+  const size_t kernel_page_count = GET_PAGECOUNT(kernel_size) + 1;
 
   for (uintptr_t i = 0; i < kernel_page_count; i++) {
     const paddr_t addr = physical_kernel_start + (i * SMALL_PAGE_SIZE);
@@ -1022,16 +1014,25 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
 // TODO: make this more dynamic
 static void _init_kmem_page_layout () {
 
+  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
+
   ASSERT_MSG(kmem_get_krnl_dir(), "Tried to init kmem_page_layout without a present krnl dir");
 
   __kmem_map_kernel_range_to_map(nullptr);
 
   println("Done mapping bootstrap ranges");
+
+  // FIXME: find out if this address is always valid
+  // NOTE: If we ever decide to change the boottime mappings, this (along with the 
+  // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
+  uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd;
+
+  kmem_load_page_dir(map, true);
 }
 
 static void _init_kmem_page_layout_late() {
 
-  const size_t total_pages = KMEM_DATA.m_phys_pages_count;
+  const size_t total_pages = GET_PAGECOUNT(KMEM_DATA.m_highest_phys_addr);
 
   const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);

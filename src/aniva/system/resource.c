@@ -253,6 +253,13 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
   return resource_claim_ex("Generic Claim", start, size, type, regions);
 }
 
+/*!
+ * @brief Claim a resource from a pool
+ *
+ * This routine tries to filter out a new resource object and it adds references to 
+ * overlapping resources. @regions needs to be an active object that represents a resource range
+ * (Like a memoryspace or an IRQ range)
+ */
 ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
 {
   kresource_t** curr_resource_slot;

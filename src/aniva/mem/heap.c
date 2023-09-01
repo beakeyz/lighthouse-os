@@ -10,7 +10,7 @@
 #include <entry/entry.h>
 
 // Let's just give our kernel a shitload of initial heapmemory =)
-#define INITIAL_HEAP_TOTAL_SIZE (ALIGN_UP(ALIGN_UP(3 * Mib, SMALL_PAGE_SIZE) + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE)) // IN BYTES
+#define INITIAL_HEAP_TOTAL_SIZE (ALIGN_UP(ALIGN_UP(4 * Mib, SMALL_PAGE_SIZE) + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE)) // IN BYTES
 #define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
 // fuk yea

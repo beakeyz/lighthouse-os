@@ -148,7 +148,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   println("Initialized tty");
 
-  for (;;) {
+  for (;;) 
+  {
     asm volatile ("hlt");
   }
 
