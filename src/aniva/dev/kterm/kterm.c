@@ -300,8 +300,6 @@ void kterm_command_worker() {
         /* Apply the flags to our resource */
         resource_apply_flags(KTERM_FB_ADDR, GET_PAGECOUNT(__kterm_fb_info.size), KRES_FLAG_MEM_KEEP_PHYS, GET_RESOURCE(p->m_resource_bundle, KRES_TYPE_MEM));
 
-        debug_resources(p->m_resource_bundle, KRES_TYPE_MEM);
-
         sched_add_priority_proc(p, true);
 
         await_proc_termination(p);

@@ -374,6 +374,7 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
 
   /* We could install the driver, so we came that far =D */
   ctx->driver->m_manifest->m_driver_file_path = ctx->path;
+  ctx->driver->m_manifest->m_private = ctx->driver;
 
   return load_driver(ctx->driver->m_manifest);
 }
@@ -469,24 +470,21 @@ fail_and_deallocate:
   return nullptr;
 }
 
-/*
- * Calls the drivers exit function
- * Deallocates any created structures and uninstalls the 
- * driver from the global kernel knowlege
+/*!
+ * @brief Deals with the driver memory and resources
+ *
+ * Called from unload_driver after the ->f_exit function has 
+ * been called. At this point we can deallocate the driver and stuff
+ *
+ * The driver manifest will still be installed in the driver tree, so 
+ * TODO: when we try to load an external driver that was already installed,
+ * we can reuse that manifest. When the driver is also uninstalled and after 
+ * that it is loaded AGAIN, we have to create a new manifest for it
  */
 void unload_external_driver(extern_driver_t* driver)
 {
-  ErrorOrPtr result;
-  dev_manifest_t* manifset;
-
   if (!driver)
     return;
-
-  manifset = driver->m_manifest;
-
-  result = unload_driver(manifset->m_url);
-
-  Must(result);
 
   /*
    * the destructor of the external driver will deallocate most if not all

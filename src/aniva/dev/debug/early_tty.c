@@ -44,6 +44,9 @@ void init_early_tty(struct multiboot_tag_framebuffer* fb)
 
 void destroy_early_tty()
 {
+  if ((g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) != SYSFLAGS_HAS_EARLY_TTY)
+    return;
+
   for (uint32_t y = 0; y < framebuffer->common.framebuffer_height; y++) {
     for (uint32_t x = 0; x < framebuffer->common.framebuffer_width; x++) {
       __etty_pixel(x, y, BLACK);

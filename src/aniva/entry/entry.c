@@ -6,6 +6,7 @@
 #include "dev/disk/ramdisk.h"
 #include "dev/driver.h"
 #include "dev/hid/hid.h"
+#include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/usb.h"
@@ -148,11 +149,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   println("Initialized tty");
 
-  for (;;) 
-  {
-    asm volatile ("hlt");
-  }
-
   // we need more memory
   init_zalloc();
 
@@ -167,9 +163,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   /* Initialize the timer system */
   init_timer_system();
-
-  /* Initialize human interface devices */
-  init_hid();
 
   // Initialize kevent
   init_kevents();
@@ -186,13 +179,10 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   /* Initialize the filesystem core */
   init_fs_core();
 
-  //println("Did stuff");
-
-  //for (;;) {}
-
   destroy_early_tty();
 
-  /* This is where we initialize bus types */
+  /* Initialize human interface devices */
+  init_hid();
 
   /* Initialize the PCI subsystem */
   init_pci();
@@ -245,6 +235,14 @@ void kthread_entry() {
    *  - verify the root device
    *  - launch the userspace bootstrap
    */
+
+  ASSERT_MSG(load_external_driver("Root/test.drv"), "Could not load test driver");
+
+  dev_manifest_t* test_driver = get_driver("other/ExternalTest");
+
+  ASSERT_MSG(test_driver, "Could not find the ExternalTest driver");
+
+  uninstall_driver(test_driver);
 
   /*
    * Setup is done: we can start scheduling stuff 

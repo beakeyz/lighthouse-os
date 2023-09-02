@@ -264,6 +264,8 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
 {
   kresource_t** curr_resource_slot;
 
+  println("Claiming stuff");
+
   if (!__resource_mutex || !__resource_allocator || !regions || !(*regions) || !__resource_type_is_valid(type))
     return Error();
 
@@ -642,7 +644,6 @@ void create_resource_bundle(kresource_bundle_t* out)
  */
 static void __bundle_clear_resources(kresource_bundle_t bundle)
 {
-  ErrorOrPtr result;
   kresource_t* start_resource;
   kresource_t* current;
   kresource_t* next;
@@ -671,9 +672,6 @@ static void __bundle_clear_resources(kresource_bundle_t bundle)
           /* Should we dealloc or simply unmap? */
           if ((current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
 
-            /* Preset */
-            result = Error();
-
             /* Try to unmap */
             if (kmem_unmap_range_ex(nullptr, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
 
@@ -681,22 +679,19 @@ static void __bundle_clear_resources(kresource_bundle_t bundle)
               current->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
 
               /* Yay, now release the thing */
-              result = resource_release(start, size, start_resource);
+              resource_release(start, size, start_resource);
             }
 
             break;
           }
 
-          result = __kmem_dealloc_ex(nullptr, bundle, start, size, false, true);
+          println("Deallocing stuff");
+          __kmem_dealloc_ex(nullptr, bundle, start, size, false, true, true);
           break;
         default:
           /* Skip this entry for now */
           break;
       }
-
-      /* If we successfully dealloc, the resource, we cant trust the link anymore. Start over */
-      if (!IsError(result))
-        goto reset;
 
 next_resource:
       if (current->m_next) {
@@ -705,9 +700,6 @@ next_resource:
 
       current = next;
       continue;
-
-reset:
-      current = start_resource;
     }
   }
 }

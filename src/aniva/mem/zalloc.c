@@ -323,7 +323,6 @@ zone_store_t* create_zone_store(size_t initial_capacity) {
 
   // Make sure this zone store is uninitialised
   memset(store->m_zones, 0, initial_capacity * sizeof(zone_t*));
-
   return store;
 }
 
@@ -402,9 +401,8 @@ ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone) {
     return Error();
 
   // More zones than we can handle?
-  if (store->m_zones_count > store->m_capacity) {
+  if (store->m_zones_count > store->m_capacity)
     return Error();
-  }
 
   store->m_zones[store->m_zones_count] = zone;
 

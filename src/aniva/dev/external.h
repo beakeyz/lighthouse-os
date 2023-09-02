@@ -25,9 +25,6 @@ typedef struct extern_driver {
   /* File this driver was loaded from */
   file_t* m_file;
 
-  /* Process that this driver got */
-  proc_t* m_process;
-
   /* This drivers manifest */
   dev_manifest_t* m_manifest;
 } extern_driver_t;

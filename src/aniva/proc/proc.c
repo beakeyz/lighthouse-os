@@ -116,15 +116,12 @@ static void __proc_clear_shared_resources(proc_t* proc)
    *    into neighboring resources
    */
 
-  ErrorOrPtr result;
   kresource_t* start_resource;
   kresource_t* current;
   kresource_t* next;
 
   if (!*proc->m_resource_bundle)
     return;
-
-  debug_resources(proc->m_resource_bundle, KRES_TYPE_MEM);
   
   /*
    * NOTE: We don't always link through the list here, since 
@@ -156,9 +153,6 @@ static void __proc_clear_shared_resources(proc_t* proc)
           /* Should we dealloc or simply unmap? */
           if ((current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
 
-            /* Preset */
-            result = Error();
-
             /* Try to unmap */
             if (kmem_unmap_range_ex(proc->m_root_pd.m_root, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
 
@@ -166,22 +160,18 @@ static void __proc_clear_shared_resources(proc_t* proc)
               current->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
 
               /* Yay, now release the thing */
-              result = resource_release(start, size, start_resource);
+              resource_release(start, size, start_resource);
             }
 
             break;
           }
 
-          result = __kmem_dealloc_ex(proc->m_root_pd.m_root, proc->m_resource_bundle, start, size, false, true);
+          __kmem_dealloc_ex(proc->m_root_pd.m_root, proc->m_resource_bundle, start, size, false, true, true);
           break;
         default:
           /* Skip this entry for now */
           break;
       }
-
-      /* If we successfully dealloc, the resource, we cant trust the link anymore. Start over */
-      if (!IsError(result))
-        goto reset;
 
 next_resource:
       if (current->m_next) {
@@ -190,13 +180,9 @@ next_resource:
 
       current = next;
       continue;
-
-reset:
-      current = start_resource;
     }
   }
 
-  debug_resources(proc->m_resource_bundle, KRES_TYPE_MEM);
   /* Destroy the entire bundle, which deallocates the structures */
   destroy_resource_bundle(proc->m_resource_bundle);
 }

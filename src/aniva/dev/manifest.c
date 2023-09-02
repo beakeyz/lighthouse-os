@@ -164,11 +164,12 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
   return Success(0);
 }
 
+/*!
+ * @brief Destroy a manifest and deallocate it's resources
+ *
+ * This assumes that the underlying driver has already been taken care of
+ */
 void destroy_dev_manifest(dev_manifest_t* manifest) {
-  // TODO: figure out if we need to take the driver handle with us...
-
-  println("Destroying: ");
-  println(manifest->m_url);
 
   clear_mutex(&manifest->m_lock);
   destroy_list(manifest->m_dependency_manifests);

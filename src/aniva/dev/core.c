@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "dev/loader.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
@@ -266,8 +267,6 @@ void free_dmanifest(struct dev_manifest* manifest)
   if (!__dev_manifest_allocator)
     return;
 
-  kernel_panic("Why are we freeing a manifest rn?");
-
   zfree_fixed(__dev_manifest_allocator, manifest);
 }
 
@@ -337,32 +336,34 @@ fail_and_exit:
 }
 
 
-/*
+/*!
+ * @brief Detaches the manifests path from the driver tree and destroys the manifest
+ *
+ * Nothing to add here...
  * TODO: resolve dependencies!
  */
 ErrorOrPtr uninstall_driver(dev_manifest_t* manifest) {
   if (!manifest)
     return Error();
 
-  if (!verify_driver(manifest)) {
+  /* Invalid stuff can't be uninstalled */
+  if (!verify_driver(manifest))
     goto fail_and_exit;
-  }
 
-  if (!is_driver_installed(manifest)) {
+  /* Uninstalled stuff can't be uninstalled */
+  if (!is_driver_installed(manifest))
     goto fail_and_exit;
-  }
 
-  if (is_driver_loaded(manifest)) {
-    if (unload_driver(manifest->m_url).m_status != ANIVA_SUCCESS) {
-      goto fail_and_exit;
-    }
-  }
+  /* When we fail to unload something, thats quite bad lmao */
+  if (is_driver_loaded(manifest) && IsError(unload_driver(manifest->m_url)))
+    goto fail_and_exit;
 
+  /* Remove the manifest from the driver tree */
   if (hive_remove_path(__installed_driver_manifests, manifest->m_url).m_status != ANIVA_SUCCESS)
     goto fail_and_exit;
 
-  // invalidate the manifest 
-  //kfree((void*)driver_url);
+  destroy_dev_manifest(manifest);
+
   return Success(0);
 
 fail_and_exit:
@@ -521,18 +522,22 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 
   mutex_lock(&manifest->m_lock);
 
-  /* Clear the loaded flag */
-  manifest->m_flags &= ~DRV_LOADED;
-
   error = NULL; 
 
   /* Exit */
   if (manifest->m_handle->f_exit)
     error = manifest->m_handle->f_exit();
 
+  /* Clear the loaded flag */
+  manifest->m_flags &= ~DRV_LOADED;
+
   /* Unregister presence before unlocking the manifest */
   __driver_unregister_presence(manifest->m_handle->m_type);
   __driver_unregister_active(manifest->m_handle->m_type); 
+
+  if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL) {
+    unload_external_driver(manifest->m_private);
+  }
 
   mutex_unlock(&manifest->m_lock);
 
@@ -540,8 +545,6 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   if (error)
     return Error();
 
-  //destroy_dev_manifest(manifest);
-  // TODO:
   return Success(0);
 }
 

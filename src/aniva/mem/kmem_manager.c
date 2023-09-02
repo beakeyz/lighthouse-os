@@ -29,8 +29,9 @@
 
 static struct {
   uint32_t m_mmap_entry_num;
+  uint32_t m_kmem_flags;
+
   multiboot_memory_map_t* m_mmap_entries;
-  uint8_t m_reserved_phys_count;
 
   bitmap_t* m_phys_bitmap;
   bitmap_t* m_mapper_bitmap;
@@ -40,12 +41,8 @@ static struct {
   size_t m_total_unavail_memory_bytes;
 
   list_t* m_phys_ranges;
-  //list_t* m_contiguous_ranges;
-  list_t* m_used_mem_ranges;
 
   pml_entry_t* m_kernel_base_pd;
-
-  uint32_t m_kmem_flags;
 
 } KMEM_DATA;
 
@@ -67,7 +64,6 @@ void init_kmem_manager(uintptr_t* mb_addr) {
 
   //KMEM_DATA.m_contiguous_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
-  KMEM_DATA.m_used_mem_ranges = kmalloc(sizeof(list_t));
   KMEM_DATA.m_kmem_flags = 0;
 
   // nested fun
@@ -111,17 +107,6 @@ void parse_mmap() {
 
   KMEM_DATA.m_phys_pages_count = 0;
   KMEM_DATA.m_highest_phys_addr = 0;
-
-  // ???
-  phys_mem_range_t kernel_range = {
-    .type = PMRT_USABLE,
-    .start = (uint64_t)&_kernel_start - HIGH_MAP_BASE,
-    .length = (uint64_t)(&_kernel_end - &_kernel_start)
-  };
-
-  phys_mem_range_t* ptr = kmalloc(sizeof(phys_mem_range_t));
-  memcpy(&kernel_range, ptr, sizeof(phys_mem_range_t));
-  list_append(KMEM_DATA.m_used_mem_ranges, ptr);
 
   // kernel should start at 1 Mib
   print("Kernel start addr: ");
@@ -830,14 +815,18 @@ ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size) {
 
 ErrorOrPtr __kmem_dealloc(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size) {
   /* NOTE: process is nullable, so it does not matter if we are not in a process at this point */
-  return __kmem_dealloc_ex(map, resources, virt_base, size, false, false);
+  return __kmem_dealloc_ex(map, resources, virt_base, size, false, false, false);
 }
 
 ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size) {
-  return __kmem_dealloc_ex(map, resources, virt_base, size, true, false);
+  return __kmem_dealloc_ex(map, resources, virt_base, size, true, false, false);
 }
 
-ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused) {
+/*!
+ * @brief Expanded deallocation function
+ *
+ */
+ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release) {
 
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
@@ -863,7 +852,8 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t resources, uin
     }
   }
 
-  if (resources && IsError(resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, GET_RESOURCE(resources, KRES_TYPE_MEM)))) {
+  /* Only release the resource if we dont want to defer that opperation */
+  if (resources && !defer_res_release && IsError(resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, GET_RESOURCE(resources, KRES_TYPE_MEM)))) {
     return Error();
   }
 
@@ -1004,11 +994,11 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
 
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE) + (2 * Mib);
-  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
+  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
+  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end) + 1;
   
   /* Map everything before the kernel */
-  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, kernel_end_idx, KMEM_CUSTOMFLAG_GET_MAKE, 0), "Failed to mmap pre-kernel memory");
+  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, kernel_end_idx, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK , 0), "Failed to mmap pre-kernel memory");
 }
 
 // TODO: make this more dynamic
@@ -1032,15 +1022,22 @@ static void _init_kmem_page_layout () {
 
 static void _init_kmem_page_layout_late() {
 
-  const size_t total_pages = GET_PAGECOUNT(KMEM_DATA.m_highest_phys_addr);
+  const size_t total_pages = KMEM_DATA.m_phys_pages_count;
 
   const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
   const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
 
-  const size_t total_pages_to_map = total_pages - kernel_end_idx;
+  size_t total_pages_to_map = total_pages - kernel_end_idx;
 
   ASSERT_MSG(
-      kmem_map_range(nullptr, kmem_ensure_high_mapping(kernel_physical_end), kernel_physical_end, total_pages_to_map, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE), 
+      kmem_map_range(
+        nullptr,
+        kmem_ensure_high_mapping(kernel_physical_end),
+        kernel_physical_end,
+        total_pages_to_map,
+        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK,
+        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
+        ), 
       "Could not map the rest of the physical memory space!"
   );
 }
