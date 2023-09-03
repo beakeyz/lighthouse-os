@@ -491,14 +491,14 @@ static int __diskdev_populate_mbr_part_table(disk_dev_t* dev)
 
   /* No valid mbr prob, yikes */
   if (!mbr_table)
-    return false;
+    return -1;
 
   dev->mbr_table = mbr_table;
   dev->m_partition_type = PART_TYPE_MBR; 
   dev->m_partitioned_dev_count = 0;
 
 
-  return -1;
+  return 0;
 }
 
 static int __diskdev_populate_gpt_part_table(disk_dev_t* dev)
@@ -507,7 +507,7 @@ static int __diskdev_populate_gpt_part_table(disk_dev_t* dev)
   gpt_table_t* gpt_table = create_gpt_table(dev);
 
   if (!gpt_table)
-    return false;
+    return -1;
 
   /* Cache the gpt table */
   dev->gpt_table = gpt_table;
