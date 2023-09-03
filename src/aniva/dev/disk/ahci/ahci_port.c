@@ -342,9 +342,6 @@ static bool ahci_port_populate_generic_partition_table(ahci_port_t* port)
 
           partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, part->m_type.m_name, part->m_start_lba, part->m_end_lba, PD_FLAG_ONLY_SYNC);
 
-          println_kterm("Device: ");
-          println_kterm(to_string(port->m_generic.m_partitioned_dev_count));
-
           attach_partitioned_disk_device(&port->m_generic, partitioned_device);
         }
         break;
@@ -441,13 +438,18 @@ fail_and_dealloc:
   return ANIVA_FAIL;
 }
 
+/*!
+ * @brief Handle an IRQ for this port
+ *
+ * Nothing to add here...
+ */
 ANIVA_STATUS ahci_port_handle_int(ahci_port_t* port) {
 
-  // TODO:
-  println("Port could handle AHCI interrupt");
   port->m_awaiting_dma_transfer_complete = false;
 
-  return ANIVA_FAIL;
+  ahci_port_mmio_write32(port, AHCI_REG_PxIS, 0);
+
+  return ANIVA_SUCCESS;
 }
 
 // TODO: check capabilities and crap

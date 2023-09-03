@@ -465,18 +465,6 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 }
 
 
-void thread_set_current_driver(thread_t* t, dev_manifest_t* driver)
-{
-  mutex_lock(t->m_lock);
-  t->m_current_driver = driver;
-  mutex_unlock(t->m_lock);
-}
-
-dev_manifest_t* thread_get_current_driver(thread_t* t)
-{
-  return t->m_current_driver;
-}
-
 void thread_block(thread_t* thread) {
 
   //processor_increment_critical_depth(get_current_processor());

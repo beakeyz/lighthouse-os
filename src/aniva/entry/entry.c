@@ -236,14 +236,6 @@ void kthread_entry() {
    *  - launch the userspace bootstrap
    */
 
-  ASSERT_MSG(load_external_driver("Root/test.drv"), "Could not load test driver");
-
-  dev_manifest_t* test_driver = get_driver("other/ExternalTest");
-
-  ASSERT_MSG(test_driver, "Could not find the ExternalTest driver");
-
-  uninstall_driver(test_driver);
-
   /*
    * Setup is done: we can start scheduling stuff 
    * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the 

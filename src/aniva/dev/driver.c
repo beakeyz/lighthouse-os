@@ -17,7 +17,7 @@
 #include <mem/heap.h>
 #include <libk/string.h>
 
-void generic_driver_entry(dev_manifest_t* driver);
+int generic_driver_entry(dev_manifest_t* driver);
 
 /*
  * We use goto's here to make sure that node->m_lock is unlocked when this function exits
@@ -159,7 +159,7 @@ int drv_write(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
   return result;
 }
 
-void generic_driver_entry(dev_manifest_t* manifest) {
+int generic_driver_entry(dev_manifest_t* manifest) {
 
   /* Just make sure this driver is marked as inactive */
   manifest->m_flags &= ~DRV_ACTIVE;
@@ -173,25 +173,27 @@ void generic_driver_entry(dev_manifest_t* manifest) {
 
       /* Mark the driver as failed */
       manifest->m_flags |= DRV_FAILED;
-      return;
+      return -1;
     }
   }
 
   /* NOTE: The driver can also mark itself as ready */
-  int result = manifest->m_handle->f_init();
+  int error = manifest->m_handle->f_init();
 
-  if (result < 0) {
-    // Unload the driver
-    kernel_panic("Driver failed to init, TODO: implement graceful driver unloading");
+  if (!error) {
+    /* Init finished, the driver is ready for messages */
+    manifest->m_flags |= DRV_ACTIVE;
+  } else {
+    manifest->m_flags |= DRV_FAILED;
   }
 
-  /* Init finished, the driver is ready for messages */
-  manifest->m_flags |= DRV_ACTIVE;
+  /* Get any failures through to the bootstrap */
+  return error;
 }
 
 ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
 
-  dev_manifest_t* previous_driver;
+  int error;
 
   if (!manifest)
     return Error();
@@ -202,17 +204,14 @@ ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
 
   /* Preemptively set the driver to inactive */
   manifest->m_flags &= ~DRV_ACTIVE;
-
-  /* Make sure the current driver is correct */
-  previous_driver = get_current_driver();
-  set_current_driver(manifest);
+  manifest->m_flags &= ~DRV_FAILED;
 
   // NOTE: if the drivers port is not valid, the subsystem will verify 
   // it and provide a new port, so we won't have to wory about that here
-  generic_driver_entry(manifest);
+  error = generic_driver_entry(manifest);
 
-  /* Also make sure it is reset when we are done */
-  set_current_driver(previous_driver);
+  if (error)
+    return Error();
 
   return Success(0);
 }

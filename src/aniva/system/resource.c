@@ -264,8 +264,6 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
 {
   kresource_t** curr_resource_slot;
 
-  println("Claiming stuff");
-
   if (!__resource_mutex || !__resource_allocator || !regions || !(*regions) || !__resource_type_is_valid(type))
     return Error();
 
@@ -685,7 +683,6 @@ static void __bundle_clear_resources(kresource_bundle_t bundle)
             break;
           }
 
-          println("Deallocing stuff");
           __kmem_dealloc_ex(nullptr, bundle, start, size, false, true, true);
           break;
         default:

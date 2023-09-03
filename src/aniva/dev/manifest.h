@@ -7,6 +7,11 @@
 #include "sync/mutex.h"
 #include "system/resource.h"
 
+/*
+ * We let drivers implement a few functions that are mostly meant to
+ * simulate the file opperations like read, write, seek, ect. that some 
+ * linux / unix drivers would implement.
+ */
 typedef struct driver_ops {
   int (*f_write) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
   int (*f_read) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);

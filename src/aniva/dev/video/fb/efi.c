@@ -143,6 +143,13 @@ int fb_driver_init() {
 
 int fb_driver_exit() {
 
+  size_t fb_page_count = GET_PAGECOUNT(info.size);
+  uintptr_t fb_start_idx = kmem_get_page_idx(info.addr);
+
+  /* Mark it free so we can have it's memory back =D */
+  kmem_set_phys_range_free(fb_start_idx, fb_page_count);
+
+  /* Remove the video device */
   unregister_video_device(&vdev);
 
   return 0;

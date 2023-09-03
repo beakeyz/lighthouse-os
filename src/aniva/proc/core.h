@@ -143,13 +143,6 @@ struct thread* find_thread(struct proc* proc, thread_id_t tid);
 ErrorOrPtr proc_register(struct proc* proc);
 ErrorOrPtr proc_unregister(char* name);
 
-/* Mark which driver we are handling for this thread */
-void set_current_driver(struct dev_manifest* manifest);
-/* Reset the current driver for this thread */
-void reset_current_driver();
-/* Get the current driver for this thread */
-struct dev_manifest* get_current_driver();
-
 /*
  * send a data-packet to a port
  * returns a pointer to the response ptr (thus a double pointer)

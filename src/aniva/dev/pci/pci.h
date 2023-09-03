@@ -4,6 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "dev/driver.h"
 #include "proc/proc.h"
+#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
@@ -186,6 +187,9 @@ typedef struct pci_device_address {
 typedef struct pci_device_ops {
   int (*write)(struct pci_device* dev, uint32_t field, uintptr_t value);
   int (*read)(struct pci_device* dev, uint32_t field, uintptr_t* value);
+  int (*read_byte)(struct pci_device* dev, uint32_t field, uint8_t* out);
+  int (*read_word)(struct pci_device* dev, uint32_t field, uint16_t* out);
+  int (*read_dword)(struct pci_device* dev, uint32_t field, uint32_t* out);
 } pci_device_ops_t;
 
 bool init_pci();
@@ -234,6 +238,9 @@ typedef struct pci_device {
 
   uint64_t dma_mask;
 
+  /* Might need to be atomic */
+  uint64_t enabled_count;
+
 } pci_device_t;
 
 void pci_device_register_resource(pci_device_t* device, uint32_t index);
@@ -248,6 +255,11 @@ void enumerate_bridges(pci_callback_t* callback);
 void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback);
 
 bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr);
+
+uint8_t pci_find_cap(pci_device_t* device, uint32_t cap);
+
+int pci_device_enable(pci_device_t* device);
+int pci_device_disable(pci_device_t* device);
 
 #define PCI_DEVID_USE_VENDOR_ID     (1 << 0)
 #define PCI_DEVID_USE_DEVICE_ID     (1 << 1)

@@ -33,7 +33,6 @@ static pci_dev_id_t ahci_id_table[] = {
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device);
-static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value);
 
 static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
 
@@ -82,8 +81,12 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
   return (void*)hba_region;
 }
 
-// TODO: redo this
-static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device) {
+
+/*!
+ * @brief Reset the HBA hardware and scan for ports
+ *
+ */
+static ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
   // get this mofo up and running and disable interrupts
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, 
@@ -171,6 +174,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   uint16_t bus_num = device->m_identifier->address.bus_num;
   uint16_t dev_num = device->m_identifier->address.device_num;
   uint16_t func_num = device->m_identifier->address.func_num;
+
   //pci_set_interrupt_line(&device->m_identifier->address, true);
   //pci_set_bus_mastering(&device->m_identifier->address, true);
   //pci_set_memory(&device->m_identifier->address, true);
@@ -213,28 +217,21 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   return status;
 }
 
-static ALWAYS_INLINE ANIVA_STATUS set_hba_interrupts(ahci_device_t* device, bool value) {
-  if (value) {
-    device->m_hba_region->control_regs.global_host_ctrl |= AHCI_GHC_IE; // 0x02
-  } else {
-    device->m_hba_region->control_regs.global_host_ctrl &= ~AHCI_GHC_IE;
-  }
-  return ANIVA_SUCCESS;
-}
-
 static registers_t* ahci_irq_handler(registers_t *regs) {
 
   ahci_device_t* device = __ahci_devices;
+
   // TODO: handle
-  kernel_panic("Recieved AHCI interrupt!");
+  //kernel_panic("Recieved AHCI interrupt!");
 
   while (device) {
   
-    uint32_t ahci_interrupt_status = device->m_hba_region->control_regs.int_status;
+    uint32_t ahci_interrupt_status = 0;
 
-    if (ahci_interrupt_status == 0) {
+    ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_IS);
+
+    if (ahci_interrupt_status == 0)
       goto next;
-    }
 
     FOREACH(i, device->m_ports) {
       ahci_port_t* port = i->data;
@@ -286,8 +283,14 @@ void destroy_ahci_device(ahci_device_t* device) {
   kfree(device);
 }
 
-static int ahci_probe(pci_device_t* identifier, pci_driver_t* driver) {
-  ahci_device_t* ahci_device = create_ahci_device(identifier);
+static int ahci_probe(pci_device_t* device, pci_driver_t* driver) {
+
+  /* Enable the device first */
+  pci_device_enable(device);
+
+  println("Yay");
+
+  ahci_device_t* ahci_device = create_ahci_device(device);
 
   if (!ahci_device)
     return -1;

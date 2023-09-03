@@ -560,8 +560,8 @@ void init_root_device_probing() {
     /*
      * NOTE: we use this as a last resort. If there is no mention of a root device anywhere,
      * we bruteforce every partition and check if it contains a valid FAT32 filesystem. If
-     * it does, we check if it contains a kconfig file and if it does, we simply take 
-     * that drive and partition as our root.
+     * it does, we check if it contains the files that make up our boot filesystem and if it does, we simply take 
+     * that device and mark as our root.
      */
     while (part) {
 

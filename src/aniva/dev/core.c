@@ -270,7 +270,12 @@ void free_dmanifest(struct dev_manifest* manifest)
   zfree_fixed(__dev_manifest_allocator, manifest);
 }
 
-
+/*!
+ * @brief Verify the validity of a driver and also if it is clear to be loaded
+ *
+ * @returns: false on failure (the driver is invalid or not clear to be loaded) 
+ * true on success (driver is valid)
+ */
 bool verify_driver(dev_manifest_t* manifest) 
 {
   dev_constraint_t* constaint;
@@ -289,7 +294,9 @@ bool verify_driver(dev_manifest_t* manifest)
 
   /* We can't load more of this type of driver, so we mark this as invalid */
   if (constaint->current_count == constaint->max_count) {
-    return false;
+    /* If our new driver has a higher precedence, we can continue loading */
+    if (manifest->m_handle->m_precedence <= constaint->active->m_handle->m_precedence)
+      return false;
   }
 
   return true;
@@ -389,7 +396,18 @@ static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
         }
       case 1:
         {
+          ASSERT_MSG(c_active_manifest && c_active_manifest->m_handle, "No active manifest, wtf!");
+
+          /* In this case, the driver has already registered itself as the active driver */
+          if (c_active_manifest == manifest)
+            break;
+
+          /* If there is a reason to switch, we do */
           if (manifest->m_handle->m_precedence > c_active_manifest->m_handle->m_precedence) {
+
+            /* Unload the current active driver */
+            unload_driver(c_active_manifest->m_url);
+
             constraint->active = manifest;
           }
           break;
@@ -402,7 +420,7 @@ static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
 
   ASSERT_MSG(!c_active_manifest, "active manifest isn't null while we are allowing more than one active drivers!");
 
-  ASSERT_MSG(constraint->current_active != constraint->max_active, "Reached maximum amount of active drivers for this type. TODO: implement error handling here");
+  ASSERT_MSG(constraint->current_active < constraint->max_active, "Exceeded maximum amount of active drivers for this type. TODO: implement error handling here");
 
   constraint->current_active++;
 }
@@ -447,6 +465,7 @@ static void __driver_unregister_presence(dev_type_t type)
  */
 ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
+  ErrorOrPtr result;
   aniva_driver_t* handle;
 
   if (!manifest)
@@ -491,18 +510,19 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
     }
   }
 
-  manifest->m_flags |= DRV_LOADED;
+  result = bootstrap_driver(manifest);
+
+  /* If the manifest says something went wrong, trust that */
+  if (IsError(result) || (manifest->m_flags & DRV_FAILED)) {
+    unload_driver(manifest->m_url);
+    return Error();
+  }
 
   __driver_register_presence(handle->m_type);
 
-  /*
-   * TODO/NOTE: We wrap this bootstrap in a Must(), since we still need 
-   * sufficient handling for drivers that try to pull oopsies
-   * (Like checking if we ACTUALLY need the driver)
-   */
-  Must(bootstrap_driver(manifest));
-
   __driver_register_active(handle->m_type, manifest);
+
+  manifest->m_flags |= DRV_LOADED;
 
   return Success(0);
 
@@ -577,7 +597,8 @@ dev_manifest_t* get_driver(dev_url_t url) {
 
   /* If we are asking for the current executing driver */
   if (url && strcmp(url, "this") == 0) {
-    return get_current_driver();
+    /* TODO */
+    return nullptr;
   }
 
   return hive_get(__installed_driver_manifests, url);
@@ -871,7 +892,7 @@ ErrorOrPtr driver_send_msg_ex(struct dev_manifest* manifest, dcc_t code, void* b
   mutex_unlock(&manifest->m_lock);
 
   if (error)
-    return Error();
+    return ErrorWithVal(error);
 
   return Success(0);
 }

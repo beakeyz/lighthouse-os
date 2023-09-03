@@ -1,5 +1,7 @@
+#include "dev/video/framebuffer.h"
 #include <dev/core.h>
 #include <dev/driver.h>
+#include <dev/video/device.h>
 
 /*
  * Yay, we are weird!
@@ -12,6 +14,11 @@
  */
 int init_window_driver()
 {
+
+  fb_info_t fb_info = { 0 };
+
+  driver_send_msg("core/video", VIDDEV_DCC_GET_FBINFO, &fb_info, sizeof(fb_info));
+
   return 0;
 }
 
@@ -49,6 +56,6 @@ EXPORT_DRIVER(window_driver) = {
   .f_init = init_window_driver,
   .f_exit = exit_window_driver,
   .f_msg = msg_window_driver,
-  .m_dep_count = 0,
-  .m_dependencies = { 0 },
+  .m_dep_count = 1,
+  .m_dependencies = { "core/video" },
 };

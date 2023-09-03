@@ -13,12 +13,14 @@
 void register_video_device(aniva_driver_t* driver, video_device_t* device)
 {
   bool result;
-  dev_manifest_t* manifest = try_driver_get(driver, NULL);
+  dev_manifest_t* manifest;
+
+  manifest = try_driver_get(driver, NULL);
 
   if (!manifest)
     return;
 
-  result = install_private_data(manifest->m_handle, device);
+  result = install_private_data(driver, device);
 
   if (!result)
     return;

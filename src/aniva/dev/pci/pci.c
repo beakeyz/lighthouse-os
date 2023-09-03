@@ -137,16 +137,20 @@ static int __add_pci_driver(pci_driver_t* driver)
   if (*slot)
     return -1;
 
-  /* This takes and releases the drivers lock */
-  if (!__find_fitting_pci_devices(driver))
-    return -1;
-
-  /* We found some devices for this driver, AND a slot in the link! happy day */
+  /* Link the driver before we find a fitting device */
   *slot = kzalloc(sizeof(struct pci_driver_link));
 
   (*slot)->this = driver;
   (*slot)->next = nullptr;
 
+  /* This takes and releases the drivers lock */
+  if (!__find_fitting_pci_devices(driver))
+    return -1;
+
+  /*
+   * If we could find a device, great! otherwise __remove_pci_driver is most likely to be 
+   * called in a bit, so that's why we have the driver linked before finding a driver
+   */
   return 0;
 }
 
@@ -352,7 +356,6 @@ static int pci_dev_write(pci_device_t* device, uint32_t field, uintptr_t __value
 
 static int pci_dev_read(pci_device_t* device, uint32_t field, uintptr_t* __value)
 {
-
   pci_device_address_t* address;
 
   if (!device)
@@ -384,6 +387,42 @@ static int pci_dev_read(pci_device_t* device, uint32_t field, uintptr_t* __value
   return -1;
 }
 
+static int pci_dev_read_byte(pci_device_t* device, uint32_t field, uint8_t* out) 
+{
+  pci_device_address_t* address;
+
+  if (!device)
+    return -1;
+
+  address = &device->address;
+
+  return device->raw_ops.read8(address->bus_num, address->device_num, address->func_num, field, out);
+}
+
+static int pci_dev_read_word(pci_device_t* device, uint32_t field, uint16_t* out) 
+{
+  pci_device_address_t* address;
+
+  if (!device)
+    return -1;
+
+  address = &device->address;
+
+  return device->raw_ops.read16(address->bus_num, address->device_num, address->func_num, field, out);
+}
+
+static int pci_dev_read_dword(pci_device_t* device, uint32_t field, uint32_t* out) 
+{
+  pci_device_address_t* address;
+
+  if (!device)
+    return -1;
+
+  address = &device->address;
+
+  return device->raw_ops.read32(address->bus_num, address->device_num, address->func_num, field, out);
+}
+
 /* PCI enumeration stuff */
 
 void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t bus, uint8_t device, uint8_t func) {
@@ -396,6 +435,7 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
   index = base_addr->index;
 
   pci_device_t identifier = {
+    0,
     .address = {
       .index = index,
       .bus_num = bus,
@@ -406,7 +446,10 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
     .ops = {
       .read = pci_dev_read,
       .write = pci_dev_write,
-    }
+      .read_byte = pci_dev_read_byte,
+      .read_word = pci_dev_read_word,
+      .read_dword = pci_dev_read_dword,
+    },
   };
 
   identifier.raw_ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
@@ -423,6 +466,7 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
   identifier.raw_ops.read8(bus, device, func, INTERRUPT_LINE, &identifier.interrupt_line);
   identifier.raw_ops.read8(bus, device, func, INTERRUPT_PIN, &identifier.interrupt_pin);
   identifier.raw_ops.read8(bus, device, func, BIST, &identifier.BIST);
+  identifier.raw_ops.read8(bus, device, func, CAPABILITIES_POINTER, &identifier.capabilities_ptr);
 
   if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
 
@@ -599,6 +643,115 @@ void pci_device_unregister_resource(pci_device_t* device, uint32_t index)
   kernel_panic("Impl");
 }
 
+static uint8_t __pci_find_cap(pci_device_t* device, uint8_t start, uint32_t cap)
+{
+  uint16_t value;
+  uint8_t pos = start;
+
+  device->ops.read_byte(device, pos, &pos);
+
+  /* NOTE: 48 is the pci cap TTL */
+  for (uintptr_t i = 0; i < 48; i++) {
+    /* pos can't be in the standard header :clown: */
+    if (pos < 0x40)
+      break;
+
+    pos &= ~3;
+
+    device->ops.read_word(device, pos, &value);
+
+    if ((value & 0xff) == 0xff)
+      break;
+
+    if ((value & 0xff) == cap)
+      return pos;
+
+    pos = (value >> 8);
+  }
+
+  return 0;
+}
+
+static uint8_t pci_find_cap_start_offset(pci_device_t* device) 
+{
+  uint16_t status;
+
+  device->ops.read_word(device, STATUS, &status);
+
+  if (!(status & PCI_STATUS_CAP_LIST))
+    return 0;
+
+  switch (device->header_type) {
+    case PCI_HDR_TYPE_NORMAL:
+    case PCI_HDR_TYPE_BRIDGE:
+      return CAPABILITIES_POINTER;
+    case PCI_HDR_TYPE_CARDBUS:
+      /* TODO: support cardbusses */
+      return 0;
+  }
+
+  return 0;
+}
+
+/*!
+ * @brief Walks the capabilities list of a pci device and finds the position of a certain capability in the pci config space
+ *
+ * Nothing to add here...
+ */
+uint8_t pci_find_cap(pci_device_t* device, uint32_t cap)
+{
+  uint8_t start;
+
+  start = pci_find_cap_start_offset(device);
+
+  if (start)
+    start = __pci_find_cap(device, start, cap);
+
+  return start;
+}
+
+
+/*!
+ * @brief Enable PCI device for sw use
+ *
+ * Nothing to add here...
+ */
+int pci_device_enable(pci_device_t* device)
+{
+  /* TODO: power management */
+
+  if (device->enabled_count)
+    return 0;
+
+  /* Set IO and memory to respond */
+  pci_set_memory(&device->address, true);
+  pci_set_io(&device->address, true);
+
+  device->enabled_count++;
+  
+  return 0;
+}
+
+int pci_device_disable(pci_device_t* device)
+{
+  if (!device->enabled_count)
+    return 0;
+
+  device->enabled_count--;
+
+  /* Only disable once we've reached the end here */
+  if (!device->enabled_count) {
+
+    /* Set IO and memory to off */
+    pci_set_memory(&device->address, false);
+    pci_set_io(&device->address, false);
+
+    /* Also interrupts, just in case */
+    pci_set_interrupt_line(&device->address, false);
+  }
+
+  return 0;
+}
 
 // TODO:
 bool test_pci_io_type2() {

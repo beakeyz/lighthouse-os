@@ -30,7 +30,6 @@ int ata_driver_init() {
   println("Initializing generic ATA driver");
 
   register_pci_driver(&ata_pci_driver);
-  //enumerate_registerd_devices(find_ata_controller);
 
   return 0;
 }

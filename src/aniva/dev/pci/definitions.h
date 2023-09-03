@@ -27,6 +27,13 @@ typedef enum pci_status {
   /* There are more, but these are not used for now */
 } PCI_STATUS;
 
+typedef enum pci_hdr_type {
+  PCI_HDR_TYPE_NORMAL = 0,
+  PCI_HDR_TYPE_BRIDGE = 1,
+  PCI_HDR_TYPE_CARDBUS = 2,
+  PCI_HDR_TYPE_MASK = 0x7f,
+} PCI_HDR_TYPE;
+
 #define PCI_BASE_ADDRESS_SPACE      0x01 /* 0 = memory, 1 = I/O */
 #define PCI_BASE_ADDRESS_SPACE_IO   0x01
 #define PCI_BASE_ADDRESS_SPACE_MEM  0x00
