@@ -1,6 +1,7 @@
 #ifndef __ANIVA_GENERIC_DISK_DEV__
 #define __ANIVA_GENERIC_DISK_DEV__
 #include "dev/debug/serial.h"
+#include "dev/disk/partition/mbr.h"
 #include "dev/disk/shared.h"
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
@@ -14,6 +15,9 @@ typedef uint8_t disk_uid_t;
 
 struct disk_dev;
 struct partitioned_disk_dev;
+
+struct gpt_table;
+struct mbr_table;
 
 typedef struct generic_disk_ops {
   int (*f_read) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
@@ -50,6 +54,12 @@ typedef struct disk_dev {
 
   size_t m_partitioned_dev_count;
   struct partitioned_disk_dev* m_devs;
+
+  /* We'll cache the partition structure here, for if we want to make modifications */
+  union {
+    struct gpt_table* gpt_table;
+    struct mbr_table* mbr_table;
+  };
 } disk_dev_t;
 
 #define GDISKDEV_FLAG_SCSI                   (0x00000001) /* Does this device use SCSI */
@@ -73,6 +83,8 @@ typedef struct partitioned_disk_dev {
 
   struct partitioned_disk_dev* m_next;
 } partitioned_disk_dev_t;
+
+void destroy_generic_disk(disk_dev_t* device);
 
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
@@ -99,7 +111,6 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device);
 
 bool gdisk_is_valid(disk_dev_t* device);
 
-uint8_t diskdev_detect_partitioning_type(disk_dev_t* dev);
 int diskdev_populate_partition_table(disk_dev_t* dev);
 
 /*

@@ -38,6 +38,11 @@ static bool gpt_entry_is_used(uint8_t guid[16]) {
   return false;
 }
 
+/*!
+ * @brief Verify if the device has a valid GPT header and copy it if we have it
+ *
+ * Nothing to add here...
+ */
 bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table) {
 
   gpt_partition_header_t* header;
@@ -113,6 +118,13 @@ fail_and_destroy:
 }
 
 void destroy_gpt_table(gpt_table_t* table) {
+
+  FOREACH(i, table->m_partitions) {
+    gpt_partition_t* partition = i->data;
+
+    destroy_gpt_partition(partition);
+  }
+
   destroy_list(table->m_partitions);
   kfree(table);
 }

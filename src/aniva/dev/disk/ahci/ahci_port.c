@@ -4,6 +4,7 @@
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/partition/gpt.h"
+#include "dev/disk/partition/mbr.h"
 #include "dev/disk/shared.h"
 #include "dev/kterm/kterm.h"
 #include "fs/vnode.h"
@@ -227,7 +228,6 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_awaiting_dma_transfer_complete = false;
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
-  ret->m_gpt_table = nullptr;
 
   memset(&ret->m_generic, 0x00, sizeof(disk_dev_t));
 
@@ -311,50 +311,6 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
   return ANIVA_FAIL;
 }
 
-static bool ahci_port_populate_generic_partition_table(ahci_port_t* port)
-{
-  /*
-   * The partition type has preemptively been detected, so we can safely yeet a switch here 
-   */
-  switch (port->m_generic.m_partition_type) {
-    case PART_TYPE_GPT:
-      {
-        /* Lay out partitions (FIXME: should we really do this here?) */
-        gpt_table_t* gpt_table = create_gpt_table(&port->m_generic);
-
-        if (!gpt_table)
-          return false;
-
-        port->m_gpt_table = gpt_table;
-        port->m_generic.m_partitioned_dev_count = 0;
-
-        println(to_string(port->m_gpt_table->m_partition_count));
-
-        /*
-         * TODO ?: should we put every partitioned device in the vfs?
-         * Neh, that whould create the need to implement file opperations
-         * on devices
-         */
-
-        /* Attatch the partition devices to the generic disk device */
-        FOREACH(i, port->m_gpt_table->m_partitions) {
-          gpt_partition_t* part = i->data;
-
-          partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(&port->m_generic, part->m_type.m_name, part->m_start_lba, part->m_end_lba, PD_FLAG_ONLY_SYNC);
-
-          attach_partitioned_disk_device(&port->m_generic, partitioned_device);
-        }
-        break;
-      }
-    case PART_TYPE_MBR:
-    case PART_TYPE_NONE:
-    default:
-      return false;
-  }
-
-  return true;
-}
-
 ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
 
   disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
@@ -423,9 +379,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   port->m_generic.m_device_name = port->m_device_model;
 
   /* Try to detect the partitionig type */
-  port->m_generic.m_partition_type = diskdev_detect_partitioning_type(&port->m_generic);
-
-  ASSERT_MSG(ahci_port_populate_generic_partition_table(port), "Failed to populate partition table!");
+  ASSERT_MSG(diskdev_populate_partition_table(&port->m_generic) == 0, "Failed to populate partition table!");
 
   /* Clean the buffer */
   __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);

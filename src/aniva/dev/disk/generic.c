@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/partition/gpt.h"
 #include "fs/vfs.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include <libk/string.h>
 #include "libk/math/log2.h"
@@ -484,14 +485,76 @@ partitioned_disk_dev_t* find_partition_at(disk_dev_t* diskdev, uint32_t idx) {
   return ret;
 }
 
-uint8_t diskdev_detect_partitioning_type(disk_dev_t* dev)
+static int __diskdev_populate_mbr_part_table(disk_dev_t* dev)
 {
-  if (disk_try_copy_gpt_header(dev, nullptr))
-    return PART_TYPE_GPT;
+  mbr_table_t* mbr_table = create_mbr_table(dev);
 
-  /* TODO: detect mbr */
+  /* No valid mbr prob, yikes */
+  if (!mbr_table)
+    return false;
 
-  return PART_TYPE_NONE;
+  dev->mbr_table = mbr_table;
+  dev->m_partition_type = PART_TYPE_MBR; 
+  dev->m_partitioned_dev_count = 0;
+
+
+  return -1;
+}
+
+static int __diskdev_populate_gpt_part_table(disk_dev_t* dev)
+{
+  /* Lay out partitions (FIXME: should we really do this here?) */
+  gpt_table_t* gpt_table = create_gpt_table(dev);
+
+  if (!gpt_table)
+    return false;
+
+  /* Cache the gpt table */
+  dev->gpt_table = gpt_table;
+  dev->m_partition_type = PART_TYPE_GPT;
+  dev->m_partitioned_dev_count = 0;
+
+  /*
+   * TODO ?: should we put every partitioned device in the vfs?
+   * Neh, that whould create the need to implement file opperations
+   * on devices
+   */
+
+  /* Attatch the partition devices to the generic disk device */
+  FOREACH(i, gpt_table->m_partitions) {
+    gpt_partition_t* part = i->data;
+
+    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(dev, part->m_type.m_name, part->m_start_lba, part->m_end_lba, PD_FLAG_ONLY_SYNC);
+
+    attach_partitioned_disk_device(dev, partitioned_device);
+  }
+  return 0;
+}
+
+/*!
+ * @brief Grab the correct partitioning sceme and populate the partitioned device link
+ *
+ * Nothing to add here...
+ */
+int diskdev_populate_partition_table(disk_dev_t* dev)
+{
+  int error;
+
+  /* Just in case */
+  dev->m_partition_type = PART_TYPE_NONE;
+
+  error = __diskdev_populate_gpt_part_table(dev);
+
+  /* On an error, go next */
+  if (!error)
+    return 0;
+
+  error = __diskdev_populate_mbr_part_table(dev);
+
+  if (!error)
+    return 0;
+
+  return -1;
 }
 
 int ramdisk_read(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
@@ -521,6 +584,39 @@ int ramdisk_read(disk_dev_t* device, void* buffer, size_t size, disk_offset_t of
 
 int ramdisk_write(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
   kernel_panic("TODO: implement ramdisk_write");
+}
+
+/*!
+ * @brief Deallocate any structures or caches owned by the disk device
+ *
+ * Nothing to add here...
+ */
+void destroy_generic_disk(disk_dev_t* device)
+{
+  partitioned_disk_dev_t* itter;
+  partitioned_disk_dev_t* current;
+  
+  switch (device->m_partition_type) {
+    case PART_TYPE_GPT:
+      destroy_gpt_table(device->gpt_table);
+      break;
+    case PART_TYPE_MBR:
+      //destroy_mbr_table(device->mbr_table);
+      break;
+    case PART_TYPE_NONE:
+      break;
+  }
+
+  itter = device->m_devs;
+
+  while (itter) {
+    /* Cache next before we destroy it */
+    current = itter;
+    itter = itter->m_next;
+
+    destroy_partitioned_disk_dev(current);
+  }
+
 }
 
 void register_boot_device() {

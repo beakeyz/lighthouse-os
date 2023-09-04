@@ -32,11 +32,6 @@ typedef struct ahci_port {
 
   uint32_t m_port_index;
 
-  union {
-    gpt_table_t* m_gpt_table;
-    mbr_table_t* m_mbr_table;
-  };
-
   disk_dev_t m_generic;
 } ahci_port_t;
 

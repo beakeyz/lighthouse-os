@@ -79,7 +79,7 @@ typedef struct gpt_partition_header {
     uint32_t crc32_entries_array;
 } __attribute__((packed)) gpt_partition_header_t;
 
-typedef struct {
+typedef struct gpt_table {
   gpt_partition_header_t m_header;
 
   size_t m_partition_count;
