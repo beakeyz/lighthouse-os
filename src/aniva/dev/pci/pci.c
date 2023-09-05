@@ -602,6 +602,90 @@ bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr) {
   return true;
 }
 
+#define PCI_DECODE_ENABLE (PCI_COMMAND_MEM_SPACE | PCI_COMMAND_IO_SPACE | PCI_COMMAND_BUS_MASTER)
+
+/*!
+ * @brief Parse the BAR at the index of @bar and get it's size
+ *
+ * @bar: the index of the BAR
+ */
+static size_t __pci_get_bar_size(pci_device_t* device, uint32_t bar)
+{
+  uintptr_t start32 = 0, size32 = 0;
+  uintptr_t start = 0, size = 0, mask = 0;
+  uintptr_t buffer_cmd;
+
+  device->ops.read(device, COMMAND, &buffer_cmd);
+
+  /* Disable decode to prevent hardware confusion */
+  if (buffer_cmd & PCI_DECODE_ENABLE)
+    device->ops.write(device, COMMAND, buffer_cmd & ~PCI_DECODE_ENABLE);
+
+  device->ops.read(device, bar, &start32);
+  device->ops.write(device, bar, (uintptr_t)~0);
+  device->ops.read(device, bar, &size32);
+  device->ops.write(device, bar, start32);
+
+  /* Check for the correct bits */
+  if (size32 == ~0 || !size32 || (is_bar_mem(bar) && (size32 & 1) == 1) || (is_bar_io(bar) && (size32 & 2) == 2))
+    size32 = 0;
+
+  /* Mask the status bits */
+  if (is_bar_io(bar)) {
+    start = start32 & PCI_BASE_ADDRESS_IO_MASK;
+    size = size32 & PCI_BASE_ADDRESS_IO_MASK;
+    mask = (uint32_t)PCI_BASE_ADDRESS_IO_MASK;
+  } else if (is_bar_mem(bar)) {
+    start = start32 & PCI_BASE_ADDRESS_MEM_MASK;
+    size = size32 & PCI_BASE_ADDRESS_MEM_MASK;
+    mask = (uint32_t)PCI_BASE_ADDRESS_MEM_MASK;
+  }
+
+  if (is_bar_64bit(bar)) {
+    device->ops.read(device, bar + 4, &start32);
+    device->ops.write(device, bar + 4, ~0);
+    device->ops.read(device, bar + 4, &size32);
+    device->ops.write(device, bar + 4, start32);
+
+    start |= ((uintptr_t)start32 << 32);
+    size |= ((uintptr_t)size32 << 32);
+  }
+
+  if (buffer_cmd & PCI_DECODE_ENABLE)
+    device->ops.write(device, COMMAND, buffer_cmd);
+
+  if (!size)
+    return 0;
+
+  uintptr_t final_size = mask & size;
+
+  if (!final_size)
+    return 0;
+
+  final_size = final_size & ~(final_size-1);
+
+  if (start == size && ((start | (final_size - 1)) & mask) != mask)
+    return 0;
+
+  return final_size;
+}
+
+/*!
+ * @brief Get the BAR size at @index
+ *
+ * Nothing to add here...
+ */
+size_t pci_get_bar_size(pci_device_t* device, uint32_t index)
+{
+  uint32_t bar = BAR0 + (index << 2);
+
+  /* Only BAR 0 to 6 */
+  if (bar > ROM_ADDRESS)
+    return 0;
+
+  return __pci_get_bar_size(device, BAR0 + (index << 2));
+}
+
 uintptr_t get_bar_address(uint32_t bar)
 {
   if (is_bar_io(bar)) {

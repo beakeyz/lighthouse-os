@@ -102,8 +102,8 @@ bool pci_register_is_std(pci_register_offset_t offset);
 uintptr_t get_pci_register_size(pci_register_offset_t offset);
 
 /*
- * These functions take the value that is at the 
- * base address of a pci header
+ * These functions take the value that is found at the 
+ * base address of a pci header (BAR)
  */
 uintptr_t get_bar_address(uint32_t bar);
 bool is_bar_io(uint32_t bar);
@@ -112,6 +112,8 @@ uint8_t bar_get_type(uint32_t bar);
 bool is_bar_16bit(uint32_t bar);
 bool is_bar_32bit(uint32_t bar);
 bool is_bar_64bit(uint32_t bar);
+
+size_t pci_get_bar_size(struct pci_device* dev, uint32_t bar);
 
 /*
  * As specified in linux/pci_regs.h, there are 256 bytes of configuration space, of which
