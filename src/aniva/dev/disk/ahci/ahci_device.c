@@ -288,8 +288,6 @@ static int ahci_probe(pci_device_t* device, pci_driver_t* driver) {
   /* Enable the device first */
   pci_device_enable(device);
 
-  println("Yay");
-
   ahci_device_t* ahci_device = create_ahci_device(device);
 
   if (!ahci_device)
@@ -301,6 +299,7 @@ static int ahci_probe(pci_device_t* device, pci_driver_t* driver) {
 pci_driver_t ahci_pci_driver = {
   .id_table = ahci_id_table,
   .f_probe = ahci_probe,
+  .device_flags = NULL,
 };
 
 int ahci_driver_init() {

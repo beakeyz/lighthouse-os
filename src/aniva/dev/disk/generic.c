@@ -1,6 +1,7 @@
 #include "generic.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/partition/gpt.h"
+#include "dev/disk/partition/mbr.h"
 #include "fs/vfs.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
@@ -487,7 +488,7 @@ partitioned_disk_dev_t* find_partition_at(disk_dev_t* diskdev, uint32_t idx) {
 
 static int __diskdev_populate_mbr_part_table(disk_dev_t* dev)
 {
-  mbr_table_t* mbr_table = create_mbr_table(dev);
+  mbr_table_t* mbr_table = create_mbr_table(dev, 0);
 
   /* No valid mbr prob, yikes */
   if (!mbr_table)
@@ -497,6 +498,13 @@ static int __diskdev_populate_mbr_part_table(disk_dev_t* dev)
   dev->m_partition_type = PART_TYPE_MBR; 
   dev->m_partitioned_dev_count = 0;
 
+  FOREACH(i, mbr_table->partitions) {
+    mbr_entry_t* entry = i->data;
+
+    partitioned_disk_dev_t* partitioned_device = create_partitioned_disk_dev(dev, (char*)mbr_partition_names[dev->m_partitioned_dev_count], entry->offset, (entry->offset + entry->length) - 1, PD_FLAG_ONLY_SYNC);
+
+    attach_partitioned_disk_device(dev, partitioned_device);
+  }
 
   return 0;
 }

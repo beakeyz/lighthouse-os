@@ -1,7 +1,9 @@
 #include "pci.h"
 #include "bus.h"
 #include "dev/debug/serial.h"
+#include "dev/kterm/kterm.h"
 #include "dev/pci/definitions.h"
+#include "dev/pci/ids.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
@@ -84,7 +86,7 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
 
   /* If we can't probe, thats kinda cringe tbh */
   if (!driver->f_probe)
-    return -1;
+    return 0;
 
   /* TODO: remove this assert */
   ASSERT(!driver->device_count);
@@ -143,8 +145,16 @@ static int __add_pci_driver(pci_driver_t* driver)
   (*slot)->this = driver;
   (*slot)->next = nullptr;
 
-  /* This takes and releases the drivers lock */
-  if (!__find_fitting_pci_devices(driver))
+  /* A driver may just know of itself that it should not prompt a rescan here */
+  if ((driver->device_flags & PCI_DEV_FLAG_NO_RESCAN) == PCI_DEV_FLAG_NO_RESCAN)
+    return 0;
+
+  /*
+   * This takes and releases the drivers lock 
+   * NOTE: we ignore the 
+   */
+  if (!__find_fitting_pci_devices(driver) &&
+      (driver->device_flags & PCI_DEV_FLAG_VOLATILE_RESCAN) == PCI_DEV_FLAG_VOLATILE_RESCAN)
     return -1;
 
   /*
@@ -235,7 +245,6 @@ static void __register_pci_device(pci_device_t* dev) {
   if (fitting_driver && !probe_error) {
     dev->driver = fitting_driver;
   }
-
   /* Allocate the device */
   _dev = zalloc_fixed(__pci_dev_allocator);
 
@@ -270,10 +279,13 @@ bool is_pci_driver_unused(pci_driver_t* driver)
 }
 
 /*
- * TODO: registering a new pci device should prompt rescan of the bus
- * in order to figure out where we should put this driver
+ * FIXME: should registering a new pci device prompt rescan of the bus
+ * in order to figure out where we should put this driver? Since we already
+ * initialize the PCI bus after we've initialized drivers, we only do probes
+ * after the drivers have been loaded...
  *
  * NOTE: This function may fail when we can't find a device for this driver to govern
+ * and the driver has specified volatile rescans
  */
 int register_pci_driver(struct pci_driver* driver)
 {
@@ -485,7 +497,7 @@ void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bu
   enumerate_function(callback, base_addr, bus, device, 0);
 
   uint8_t cur_header_type;
-  __current_pci_access_impl->read8( bus, device, 0, HEADER_TYPE, &cur_header_type);
+  __current_pci_access_impl->read8(bus, device, 0, HEADER_TYPE, &cur_header_type);
 
   if (!(cur_header_type & 0x80)) {
     return;
@@ -493,6 +505,27 @@ void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bu
 
   for (uint8_t func = 1; func < 8; func++) {
     enumerate_function(callback, base_addr, bus, device, func);
+
+    /* FIXME: does mcfg cover this?
+    uint8_t class, subclass;
+    uint8_t sec_bus;
+
+    __current_pci_access_impl->read8(bus, device, func, CLASS, &class);
+    __current_pci_access_impl->read8(bus, device, func, SUBCLASS, &subclass);
+
+    // TODO: add bridges here to the bus list?
+    if (class == BRIDGE_DEVICE && subclass == PCI_SUBCLASS_BRIDGE_PCI) {
+
+      __current_pci_access_impl->read8(bus, device, func, SECONDARY_BUS, &sec_bus);
+
+      // We've already had this one :clown:
+      if (sec_bus >= base_addr->start_bus || sec_bus <= base_addr->end_bus)
+        continue;
+
+      enumerate_bus(callback, base_addr, sec_bus);
+    }
+
+    */
   }
 }
 
@@ -501,6 +534,7 @@ void enumerate_bus(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus) 
   for (uintptr_t device = 0; device < 32; device++) {
     enumerate_device(callback, base_addr, bus, device);
   }
+  
 }
 
 void enumerate_bridges(pci_callback_t* callback) {
@@ -518,23 +552,6 @@ void enumerate_bridges(pci_callback_t* callback) {
     for (uintptr_t i = bridge->start_bus; i < bridge->end_bus; i++) {
       enumerate_bus(callback, bridge, i);
     }
-/*
-    uint8_t should_enumerate_recusive = pci_io_field_read(0, 0, 0, HEADER_TYPE, PCI_8BIT_PORT_SIZE);
-
-    if ((should_enumerate_recusive & 0x80) != 0) {
-      // FIXME: might we be missing some of the bus? should look into this 
-      for (uint8_t i = 1; i < 8; i++) {
-        uint16_t vendor_id = pci_io_field_read(0, 0, i, VENDOR_ID, PCI_16BIT_PORT_SIZE);
-        uint16_t class = pci_io_field_read(0, 0, i, CLASS, PCI_16BIT_PORT_SIZE);
-
-        if (vendor_id == PCI_NONE_VALUE || class != BRIDGE_DEVICE) {
-          continue;
-        }
-
-        enumerate_bus(bridge, bridge->start_bus + i);
-      }
-    }
-    */
   }
 }
 
@@ -727,6 +744,9 @@ int pci_device_enable(pci_device_t* device)
   pci_set_memory(&device->address, true);
   pci_set_io(&device->address, true);
 
+  /* DMA bus mastering (FIXME: should we always turn this on?) */
+  pci_set_bus_mastering(&device->address, true);
+
   device->enabled_count++;
   
   return 0;
@@ -745,6 +765,9 @@ int pci_device_disable(pci_device_t* device)
     /* Set IO and memory to off */
     pci_set_memory(&device->address, false);
     pci_set_io(&device->address, false);
+
+    /* DMA bus mastering (FIXME: see pci_device_enable) */
+    pci_set_bus_mastering(&device->address, false);
 
     /* Also interrupts, just in case */
     pci_set_interrupt_line(&device->address, false);

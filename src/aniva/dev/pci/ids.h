@@ -1,0 +1,10 @@
+#ifndef __ANIVA_PCI_IDS__
+#define __ANIVA_PCI_IDS__
+
+#define PCI_VENDOR_AMD 0x1002
+
+#define PCI_DEVICE_R200_GL      0x5148
+#define PCI_DEVICE_R200_RAD8500 0x514c
+#define PCI_DEVICE_R200_RAD9100 0x514d
+
+#endif // !__ANIVA_PCI_IDS__

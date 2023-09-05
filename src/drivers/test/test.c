@@ -22,6 +22,7 @@ int test_probe(pci_device_t* dev, pci_driver_t* driver)
 pci_driver_t test_pci_driver = {
   .id_table = test_ids,
   .f_probe = test_probe,
+  .device_flags = NULL,
 };
 
 int test_init() {

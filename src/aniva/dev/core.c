@@ -378,6 +378,7 @@ fail_and_exit:
   return Error();
 }
 
+/*
 static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
 {
   dev_manifest_t* c_active_manifest;
@@ -385,7 +386,7 @@ static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
 
   c_active_manifest = constraint->active;
 
-  /* Easy job yay */
+  // Easy job yay
   if (constraint->max_active == 1) {
     switch (constraint->current_active) {
       case 0:
@@ -398,14 +399,14 @@ static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
         {
           ASSERT_MSG(c_active_manifest && c_active_manifest->m_handle, "No active manifest, wtf!");
 
-          /* In this case, the driver has already registered itself as the active driver */
+          // In this case, the driver has already registered itself as the active driver
           if (c_active_manifest == manifest)
             break;
 
-          /* If there is a reason to switch, we do */
+          // If there is a reason to switch, we do
           if (manifest->m_handle->m_precedence > c_active_manifest->m_handle->m_precedence) {
 
-            /* Unload the current active driver */
+            // Unload the current active driver
             unload_driver(c_active_manifest->m_url);
 
             constraint->active = manifest;
@@ -424,6 +425,7 @@ static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
 
   constraint->current_active++;
 }
+*/
 
 static void __driver_unregister_active(dev_type_t type) 
 {
@@ -520,7 +522,16 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   __driver_register_presence(handle->m_type);
 
-  __driver_register_active(handle->m_type, manifest);
+  /*
+   * TODO: we need to detect when we want to apply the 'activity' and 'precedence' mechanisms
+   * since we always load a bunch of graphics drivers at startup. We need to select one once all the devices should be set up
+   * and then remove all the unused drivers once they are gracefully exited
+   *
+   * Maybe we simply do what linux drm does and have drivers mark themselves as the 'active' driver by removing any lingering
+   * apperature...
+   * 
+   */
+  //__driver_register_active(handle->m_type, manifest);
 
   manifest->m_flags |= DRV_LOADED;
 

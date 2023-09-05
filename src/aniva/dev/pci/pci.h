@@ -277,7 +277,7 @@ int pci_device_disable(pci_device_t* device);
 #define PCI_DEVID_USE_IDS (uint8_t)(PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID | PCI_DEVID_USE_SUB_VENDOR_ID | PCI_DEVID_USE_SUB_DEVICE_ID)
 #define PCI_DEVID_USE_CLASSES (uint8_t)(PCI_DEVID_USE_CLASS | PCI_DEVID_USE_SUBCLASS | PCI_DEVID_USE_PROG_IF)
 
-#define PCI_DEVID_SHOULD(id, bit) ((id & bit) == bit)
+#define PCI_DEVID_SHOULD(id, bit) (((id) & (bit)) == (bit))
 
 typedef struct pci_dev_id {
 
@@ -313,6 +313,8 @@ bool is_end_devid(pci_dev_id_t* dev_id);
   { { vendor, device, sub_vendor, sub_device }, { class, subclass, prog_if }, bits }
 #define PCI_DEVID_END { { 0, }, { 0, }, 0 }
 
+#define PCI_DEV_FLAG_NO_RESCAN          0x01 /* Should we rewalk the found pci devices once this driver is registered? (Handy for internal drivers) */
+#define PCI_DEV_FLAG_VOLATILE_RESCAN    0x02 /* Should the rescan return failure when this pci driver is registered? */ 
 
 /*
  *
@@ -320,6 +322,7 @@ bool is_end_devid(pci_dev_id_t* dev_id);
 typedef struct pci_driver {
   /* Amount of devices this driver is giving service to */
   uint8_t device_count; // NOTE: we are wasting a bunch of space here. For any 8-, 16- or 32 bit numbers place them below here 
+  uint8_t device_flags;
   
   /* Lock that ensures only one opperation at a time on this driver */
   mutex_t* lock;

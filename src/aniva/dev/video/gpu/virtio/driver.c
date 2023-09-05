@@ -36,6 +36,7 @@ int virtio_probe(pci_device_t* device, pci_driver_t* driver) {
 pci_driver_t virtio_pci_drv = {
   .f_probe = virtio_probe,
   .id_table = virtio_id_table,
+  .device_flags = NULL,
 };
 
 /*

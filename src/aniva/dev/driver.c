@@ -161,8 +161,8 @@ int drv_write(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
 
 int generic_driver_entry(dev_manifest_t* manifest) {
 
-  /* Just make sure this driver is marked as inactive */
-  manifest->m_flags &= ~DRV_ACTIVE;
+  if ((manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE)
+    return -1;
 
   FOREACH(i, manifest->m_dependency_manifests) {
     dev_manifest_t* dep_manifest = i->data;

@@ -2,10 +2,15 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
+#include "dev/pci/ids.h"
 #include "dev/pci/pci.h"
 #include "dev/precedence.h"
+#include "libk/flow/error.h"
 
 pci_dev_id_t radeon_id_table[] = {
+  PCI_DEVID_IDS_EX(PCI_VENDOR_AMD, PCI_DEVICE_R200_GL, 0, 0, PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID),
+  PCI_DEVID_IDS_EX(PCI_VENDOR_AMD, PCI_DEVICE_R200_RAD8500, 0, 0, PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID),
+  PCI_DEVID_IDS_EX(PCI_VENDOR_AMD, PCI_DEVICE_R200_RAD9100, 0, 0, PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID),
   PCI_DEVID_END,
 };
 
@@ -18,6 +23,8 @@ int radeon_probe(pci_device_t* device, pci_driver_t* driver);
 pci_driver_t radeon_pci = {
   .f_probe = radeon_probe,
   .id_table = radeon_id_table,
+  /* We are still very internal, so just wait until the pci scan has happend =) */
+  .device_flags = PCI_DEV_FLAG_NO_RESCAN,
 };
 
 aniva_driver_t radeon_driver = {
@@ -37,7 +44,9 @@ int radeon_init()
   /* Setup driver software stuff */
 
   /* Register pci driver */
-  return register_pci_driver(&radeon_pci);
+  register_pci_driver(&radeon_pci);
+
+  return 0;
 }
 
 int radeon_exit()
@@ -66,6 +75,7 @@ uintptr_t radeon_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size
 int radeon_probe(pci_device_t* device, pci_driver_t* driver)
 {
   println("Yay");
+  kernel_panic("Fuck yeaaa");
   return 0;
 }
 
