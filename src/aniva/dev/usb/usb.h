@@ -23,7 +23,7 @@
 #define USB_DEVICE_TYPE_MASS_STORAGE 0x01
 #define USB_DEVICE_TYPE_MISC 0x02
 
-struct usb_hub;
+struct usb_hcd;
 
 typedef struct usb_device {
   /* TODO: how will generic USB devices look? */
@@ -35,7 +35,7 @@ typedef struct usb_device {
   char* manufacturer;
   char* serial;
 
-  struct usb_hub* hub;
+  struct usb_hcd* hcd;
 } usb_device_t;
 
 #define USB_HUB_TYPE_MOCK 0x00 /* Mock hubs are intermediate hubs that act as bridges */
@@ -46,20 +46,46 @@ typedef struct usb_device {
 
 #define USB_HUB_TYPE_MAX (USB_HUB_TYPE_XHCI)
 
-typedef struct usb_hub_mmio_ops {
-  uint32_t (*mmio_read32)(struct usb_hub* hub, uintptr_t offset);
-  void (*mmio_write32)(struct usb_hub* hub, uintptr_t offset, uint32_t value);
+/*
+ * This represents a data transfer (request) over USB
+ */
+typedef struct usb_transfer {
+  void* tx_buffer;
+  uint32_t tx_buffer_len;
 
-  uint16_t (*mmio_read16)(struct usb_hub* hub, uintptr_t offset);
-  void (*mmio_write16)(struct usb_hub* hub, uintptr_t offset, uint16_t value);
+  struct usb_device* device;
+} usb_transfer_t;
 
-  uint8_t (*mmio_read8)(struct usb_hub* hub, uintptr_t offset);
-  void (*mmio_write8)(struct usb_hub* hub, uintptr_t offset, uint8_t value);
+/*
+ * MMIO operations for hcds
+ */
+typedef struct usb_hcd_mmio_ops {
+  uint64_t (*mmio_read64)(struct usb_hcd* hub, uintptr_t offset);
+  void (*mmio_write64)(struct usb_hcd* hub, uintptr_t offset, uint64_t value);
 
-  /* TODO: */
-} usb_hub_mmio_ops_t;
+  uint32_t (*mmio_read32)(struct usb_hcd* hub, uintptr_t offset);
+  void (*mmio_write32)(struct usb_hcd* hub, uintptr_t offset, uint32_t value);
 
-typedef struct usb_hub {
+  uint16_t (*mmio_read16)(struct usb_hcd* hub, uintptr_t offset);
+  void (*mmio_write16)(struct usb_hcd* hub, uintptr_t offset, uint16_t value);
+
+  uint8_t (*mmio_read8)(struct usb_hcd* hub, uintptr_t offset);
+  void (*mmio_write8)(struct usb_hcd* hub, uintptr_t offset, uint8_t value);
+
+  /*
+   * TODO:
+   */
+  int (*mmio_wait_read)(struct usb_hcd* hub, uintptr_t max_timeout, uintptr_t offset, uintptr_t mask, uintptr_t expect);
+} usb_hcd_mmio_ops_t;
+
+typedef struct usb_hcd_io_ops {
+
+} usb_hcd_io_ops;
+
+/*
+ * One host controller driver per controller
+ */
+typedef struct usb_hcd {
   uint8_t hub_type;
 
   /* Name of the hub: can be a custom name */
@@ -69,9 +95,9 @@ typedef struct usb_hub {
 
   /* TODO: is it a given that usb hubs are on the PCI bus? */
   pci_device_t* host_device;
-  usb_hub_mmio_ops_t* mmio_ops;
+  usb_hcd_mmio_ops_t* mmio_ops;
 
-  struct usb_hub* parent;
+  struct usb_hcd* parent;
 
   /*
    * Since a single usb hub is only going to allocate it's registers and some
@@ -81,14 +107,14 @@ typedef struct usb_hub {
 
   list_t* child_hubs;
   list_t* devices;
-} usb_hub_t;
+} usb_hcd_t;
 
 void init_usb();
 
-usb_hub_t* create_usb_hub(pci_device_t* host, char* hub_name, uint8_t type);
-void destroy_usb_hub(usb_hub_t* hub);
+usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type);
+void destroy_usb_hcd(usb_hcd_t* hub);
 
-int register_usb_hub(usb_hub_t* hub);
-int unregister_usb_hub(usb_hub_t* hub);
+int register_usb_hcd(usb_hcd_t* hub);
+int unregister_usb_hcd(usb_hcd_t* hub);
 
 #endif // !__ANIVA_USB_DEF__

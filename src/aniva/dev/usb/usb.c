@@ -5,7 +5,7 @@
 #include "mem/zalloc.h"
 
 zone_allocator_t __usb_hub_allocator;
-usb_hub_t* __root_hub = nullptr;
+usb_hcd_t* __root_hub = nullptr;
 
 static bool is_valid_usb_hub_type(uint8_t type)
 {
@@ -16,9 +16,9 @@ static bool is_valid_usb_hub_type(uint8_t type)
  * @brief Allocate the needed memory for a USB hub structure
  *
  */
-usb_hub_t* create_usb_hub(pci_device_t* host, char* hub_name, uint8_t type)
+usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type)
 {
-  usb_hub_t* ret;
+  usb_hcd_t* ret;
 
   if (!is_valid_usb_hub_type(type))
     return nullptr;
@@ -28,7 +28,7 @@ usb_hub_t* create_usb_hub(pci_device_t* host, char* hub_name, uint8_t type)
   if (!ret)
     return nullptr;
 
-  memset(ret, 0, sizeof(usb_hub_t));
+  memset(ret, 0, sizeof(usb_hcd_t));
 
   ret->devices = init_list();
   ret->child_hubs = init_list();
@@ -44,7 +44,7 @@ usb_hub_t* create_usb_hub(pci_device_t* host, char* hub_name, uint8_t type)
  * @brief Destroy the hubs resources and the hub itself
  *
  */
-void destroy_usb_hub(usb_hub_t* hub)
+void destroy_usb_hcd(usb_hcd_t* hub)
 {
   destroy_list(hub->devices);
   destroy_list(hub->child_hubs);
@@ -55,7 +55,7 @@ void destroy_usb_hub(usb_hub_t* hub)
 /*!
  * @brief Registers a USB hub directly to the root
  */
-int register_usb_hub(usb_hub_t* hub)
+int register_usb_hcd(usb_hcd_t* hub)
 {
   if (!__root_hub)
     return -1;
@@ -72,7 +72,7 @@ int register_usb_hub(usb_hub_t* hub)
  *
  * TODO: more advanced access tracking
  */
-int unregister_usb_hub(usb_hub_t* hub)
+int unregister_usb_hcd(usb_hcd_t* hub)
 {
   ErrorOrPtr result;
   uint32_t our_index;
@@ -97,7 +97,7 @@ int unregister_usb_hub(usb_hub_t* hub)
  */
 void init_usb()
 {
-  Must(init_zone_allocator(&__usb_hub_allocator, 64 * Kib, sizeof(usb_hub_t), NULL));
+  Must(init_zone_allocator(&__usb_hub_allocator, 64 * Kib, sizeof(usb_hcd_t), NULL));
 
-  __root_hub = create_usb_hub(nullptr, "root_usb_hub", USB_HUB_TYPE_MOCK);
+  __root_hub = create_usb_hcd(nullptr, "root_usb_hub", USB_HUB_TYPE_MOCK);
 }

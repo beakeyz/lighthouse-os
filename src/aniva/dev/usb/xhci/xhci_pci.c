@@ -4,12 +4,15 @@
 
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
+#include "dev/kterm/kterm.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xhci/xhci.h"
 #include "libk/flow/error.h"
+#include "libk/io.h"
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "system/asm_specifics.h"
 #include <dev/pci/pci.h>
 #include <dev/pci/definitions.h>
 
@@ -22,7 +25,7 @@ pci_dev_id_t xhci_pci_ids[] = {
   PCI_DEVID_END,
 };
 
-static xhci_hub_t* to_xhci_safe(usb_hub_t* hub)
+static xhci_hub_t* to_xhci_safe(usb_hcd_t* hub)
 {
   xhci_hub_t* ret = hub->private;
   ASSERT_MSG(ret && hub->hub_type == USB_HUB_TYPE_XHCI && ret->register_ptr, "No (valid) XHCI hub attached to this hub!");
@@ -30,43 +33,63 @@ static xhci_hub_t* to_xhci_safe(usb_hub_t* hub)
   return ret;
 }
 
-static uint32_t xhci_read32(usb_hub_t* hub, uintptr_t offset)
+static uint64_t xhci_read64(usb_hcd_t* hub, uintptr_t offset)
+{
+  return *(volatile uint64_t*)(to_xhci_safe(hub)->register_ptr + offset);
+}
+
+static void xhci_write64(usb_hcd_t* hub, uintptr_t offset, uint64_t value)
+{
+  *(volatile uint64_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
+}
+
+static uint32_t xhci_read32(usb_hcd_t* hub, uintptr_t offset)
 {
   return *(volatile uint32_t*)(to_xhci_safe(hub)->register_ptr + offset);
 }
 
-static void xhci_write32(usb_hub_t* hub, uintptr_t offset, uint32_t value)
+static void xhci_write32(usb_hcd_t* hub, uintptr_t offset, uint32_t value)
 {
   *(volatile uint32_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
 }
 
-static uint16_t xhci_read16(usb_hub_t* hub, uintptr_t offset)
+static uint16_t xhci_read16(usb_hcd_t* hub, uintptr_t offset)
 {
   return *(volatile uint16_t*)(to_xhci_safe(hub)->register_ptr + offset);
 }
 
-static void xhci_write16(usb_hub_t* hub, uintptr_t offset, uint16_t value)
+static void xhci_write16(usb_hcd_t* hub, uintptr_t offset, uint16_t value)
 {
   *(volatile uint16_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
 }
 
-static uint8_t xhci_read8(usb_hub_t* hub, uintptr_t offset)
+static uint8_t xhci_read8(usb_hcd_t* hub, uintptr_t offset)
 {
   return *(volatile uint8_t*)(to_xhci_safe(hub)->register_ptr + offset);
 }
 
-static void xhci_write8(usb_hub_t* hub, uintptr_t offset, uint8_t value)
+static void xhci_write8(usb_hcd_t* hub, uintptr_t offset, uint8_t value)
 {
   *(volatile uint8_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
 }
 
-usb_hub_mmio_ops_t xhci_mmio_ops = {
+static int xhci_wait_read(struct usb_hcd* hub, uintptr_t max_timeout, uintptr_t offset, uintptr_t mask, uintptr_t expect)
+{
+  kernel_panic("TODO implement wait read");
+  return 0;
+}
+
+usb_hcd_mmio_ops_t xhci_mmio_ops = {
+  .mmio_read64 = xhci_read64,
+  .mmio_write64 = xhci_write64,
   .mmio_write32 = xhci_write32,
   .mmio_read32 = xhci_read32,
   .mmio_read16 = xhci_read16,
   .mmio_write16 = xhci_write16,
   .mmio_read8 = xhci_read8,
   .mmio_write8 = xhci_write8,
+
+  .mmio_wait_read = xhci_wait_read,
 };
 
 static xhci_hub_t* create_xhci_hub()
@@ -86,7 +109,7 @@ static xhci_hub_t* create_xhci_hub()
 int xhci_probe(pci_device_t* device, pci_driver_t* driver)
 {
   int error;
-  usb_hub_t* hub;
+  usb_hcd_t* hub;
   xhci_hub_t* xhci_hub;
   paddr_t xhci_register_p;
   size_t xhci_register_size;
@@ -94,10 +117,10 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
 
   println("Probing for XHCI");
 
-  hub = create_usb_hub(device, nullptr, USB_HUB_TYPE_XHCI);
+  hub = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
   xhci_hub = create_xhci_hub();
 
-  error = register_usb_hub(hub);
+  error = register_usb_hcd(hub);
 
   /* FUCKK */
   if (error)
@@ -121,6 +144,22 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   xhci_hub->register_ptr = Must(__kmem_kernel_alloc(
       xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
+  xhci_hub->cap_regs_offset = 0;
+  xhci_hub->cap_regs = (xhci_cap_regs_t*)xhci_hub->register_ptr;
+
+  xhci_hub->oper_regs_offset = HC_LENGTH(xhci_read32(hub, 0));
+  xhci_hub->op_regs = (xhci_op_regs_t*)(xhci_hub->register_ptr + XHCI_OP_OF(xhci_hub));
+
+  xhci_hub->runtime_regs_offset = xhci_read32(hub, GET_OFFSET(xhci_cap_regs_t, runtime_regs_offset));
+  xhci_hub->runtime_regs = (xhci_runtime_regs_t*)(xhci_hub->register_ptr + XHCI_RR_OF(xhci_hub));
+
+  uint32_t hc_version = HC_VERSION(mmio_read_dword(&xhci_hub->cap_regs->hc_capbase));
+  uint32_t cap_len = HC_LENGTH(xhci_read32(hub, 0));
+
+  println_kterm("XHCI cap len: ");
+  println_kterm(to_string(cap_len));
+  println_kterm("XHCI version: ");
+  println_kterm(to_string(hc_version));
   kernel_panic(to_string(xhci_register_size));
 
   return 0;

@@ -54,3 +54,49 @@ void delay(size_t microseconds)
     for (size_t i = 0; i < microseconds; ++i)
       io_delay();
 }
+
+/*
+ * Memory IO functions
+ * TODO: memory barriers and fencing
+ */
+
+uint8_t mmio_read_byte(void* address)
+{
+  return *(volatile uint8_t*)(address);
+}
+
+uint16_t mmio_read_word(void* address)
+{
+  return *(volatile uint16_t*)(address);
+}
+
+uint32_t mmio_read_dword(void* address)
+{
+  return *(volatile uint32_t*)(address);
+}
+
+uint64_t mmio_read_qword(void* address)
+{
+  return *(volatile uint64_t*)(address);
+}
+
+void mmio_write_byte(void* address, uint8_t value)
+{
+  *(volatile uint8_t*)(address) = value;
+}
+
+void mmio_write_word(void* address, uint16_t value)
+{
+  *(volatile uint16_t*)(address) = value;
+}
+
+void mmio_write_dword(void* address, uint32_t value)
+{
+  *(volatile uint32_t*)(address) = value;
+}
+
+void mmio_write_qword(void* address, uintptr_t value)
+{
+  *(volatile uintptr_t*)(address) = value;
+}
+
