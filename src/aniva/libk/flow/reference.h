@@ -6,6 +6,11 @@
 #include <libk/stddef.h>
 #include <dev/debug/serial.h>
 
+/*
+ * TODO: refactor the reference handling with atomic 
+ * counters, locks around accesses, advanced reference logic, ect.
+ */
+
 typedef int flat_refc_t;
 
 typedef struct refc {

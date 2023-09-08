@@ -21,6 +21,8 @@ struct usb_hcd;
 #define XHCI_MAX_HC_SLOTS 256
 #define XHCI_MAX_HC_PORTS 127
 
+#define XHCI_HALT_TIMEOUT_US (32 * 1000)
+
 typedef struct xhci_op_regs {
   uint32_t cmd;
   uint32_t status;
@@ -55,6 +57,8 @@ typedef struct xhci_op_regs {
 #define XHCI_CMD_EWE (1 << 10)
 #define XHCI_CMD_PM_INDEX (1 << 11)
 #define XHCI_CMD_ETE (1 << 14)
+
+#define XHCI_IRQS (XHCI_CMD_EIE | XHCI_CMD_HSEIE | XHCI_CMD_EWE)
 
 /*
  * XHCI operation register status bits
@@ -152,6 +156,13 @@ typedef struct xhci_cap_regs {
 
 #define HC_LENGTH(cb) ((cb) & 0x00ff)
 #define HC_VERSION(cb) (((cb) >> 16) & 0xffff)
+
+#define HC_MAX_SLOTS(p) ((p) & 0xFF)
+#define HC_MAX_INTER(p) (((p) >> 8) & 0x7FF)
+#define HC_MAX_PORTS(p) (((p) >> 24) & 0x7F)
+
+/* Weird define because there is a bitchin reserved bit right in the middle of our field =/ */
+#define HC_MAX_SCRTCHPD(p) ((((p) >> 16) & 0x3e0) | (((p) >> 27) & 0x1f))
 
 /*
  * Bits  0 -  7: Endpoint target
@@ -376,15 +387,22 @@ typedef struct xhci_cmd {
   xhci_trb_t* cmd_trb;
 } xhci_cmd_t;
 
-typedef struct xhci_hub {
+/*
+ * Flags to mark the state that the xhc is in
+ */
+#define XHC_FLAG_HALTED 0x00000001
+
+typedef struct xhci_hcd {
   struct usb_hcd* parent;
+
+  uint32_t xhc_flags;
 
   mutex_t* event_lock;
 
   uint8_t sbrn;
   uint16_t hci_version;
   uint8_t max_slots;
-  uint16_t max_interruptors;
+  uint16_t max_interrupters;
   uint8_t max_ports;
   uint8_t isoc_threshold;
 
@@ -398,7 +416,7 @@ typedef struct xhci_hub {
   xhci_op_regs_t* op_regs;
   xhci_runtime_regs_t* runtime_regs;
   xhci_db_array_t* db_arr;
-} xhci_hub_t;
+} xhci_hcd_t;
 
 #define XHCI_CAP_OF(xhci_hub) ((xhci_hub)->cap_regs_offset)
 #define XHCI_RR_OF(xhci_hub) ((xhci_hub)->runtime_regs_offset)

@@ -56,65 +56,24 @@ typedef struct usb_transfer {
   struct usb_device* device;
 } usb_transfer_t;
 
-/*
- * MMIO operations for hcds
- */
-typedef struct usb_hcd_mmio_ops {
-  uint64_t (*mmio_read64)(struct usb_hcd* hub, uintptr_t offset);
-  void (*mmio_write64)(struct usb_hcd* hub, uintptr_t offset, uint64_t value);
-
-  uint32_t (*mmio_read32)(struct usb_hcd* hub, uintptr_t offset);
-  void (*mmio_write32)(struct usb_hcd* hub, uintptr_t offset, uint32_t value);
-
-  uint16_t (*mmio_read16)(struct usb_hcd* hub, uintptr_t offset);
-  void (*mmio_write16)(struct usb_hcd* hub, uintptr_t offset, uint16_t value);
-
-  uint8_t (*mmio_read8)(struct usb_hcd* hub, uintptr_t offset);
-  void (*mmio_write8)(struct usb_hcd* hub, uintptr_t offset, uint8_t value);
-
-  /*
-   * TODO:
-   */
-  int (*mmio_wait_read)(struct usb_hcd* hub, uintptr_t max_timeout, uintptr_t offset, uintptr_t mask, uintptr_t expect);
-} usb_hcd_mmio_ops_t;
-
-typedef struct usb_hcd_io_ops {
-
-} usb_hcd_io_ops;
-
-/*
- * One host controller driver per controller
- */
-typedef struct usb_hcd {
-  uint8_t hub_type;
-
-  /* Name of the hub: can be a custom name */
-  char* hub_name;
-
-  void* private;
-
-  /* TODO: is it a given that usb hubs are on the PCI bus? */
-  pci_device_t* host_device;
-  usb_hcd_mmio_ops_t* mmio_ops;
-
-  struct usb_hcd* parent;
-
-  /*
-   * Since a single usb hub is only going to allocate it's registers and some
-   * random buffers, we can use a resource list here =)
-   */
-  resource_list_t* resources;
-
-  list_t* child_hubs;
-  list_t* devices;
-} usb_hcd_t;
-
 void init_usb();
 
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type);
-void destroy_usb_hcd(usb_hcd_t* hub);
+struct usb_hcd* alloc_usb_hcd();
+void dealloc_usb_hcd(struct usb_hcd* hcd);
 
-int register_usb_hcd(usb_hcd_t* hub);
-int unregister_usb_hcd(usb_hcd_t* hub);
+#define MAX_USB_HCDS 256
+
+/* Refcounting */
+struct usb_hcd* get_usb_hcd(uint8_t index);
+void release_usb_hcd(struct usb_hcd* hcd);
+
+int register_usb_hcd(struct usb_hcd* hub);
+int unregister_usb_hcd(struct usb_hcd* hub);
+
+static inline bool is_valid_usb_hub_type(uint8_t type)
+{
+  return (type <= USB_HUB_TYPE_MAX);
+}
+
 
 #endif // !__ANIVA_USB_DEF__

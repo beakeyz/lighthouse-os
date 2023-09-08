@@ -101,8 +101,14 @@ void* vector_get(vector_t* vec, uint32_t index) {
   return __vector_get_at(vec, index);
 }
 
-ErrorOrPtr vector_add(vector_t* vec, void* data) {
-
+/*!
+ * @brief Add an entry to the end of the vector
+ *
+ * @returns: Error() with no status on failure, Success() with 
+ * the index of the new entry on success
+ */
+ErrorOrPtr vector_add(vector_t* vec, void* data) 
+{
   if (vec->m_length >= vec->m_capacity && !__vector_grow(vec))
     return Error();
 
@@ -114,9 +120,18 @@ ErrorOrPtr vector_add(vector_t* vec, void* data) {
 
   vec->m_length++;
 
-  return Success(0);
+  return Success(vec->m_length-1);
 }
 
+/*!
+ * @brief Remove an entry form the vector
+ *
+ * Find the index in the array and shifts every entry after it 
+ * by back by one index, so the entry to remove gets overwritten
+ *
+ * @returns: Error() on failure, Success() when we could find the 
+ * entry and it was successfully removed
+ */
 ErrorOrPtr vector_remove(vector_t* vec, uint32_t index) {
   if (!vec->m_length || index >= vec->m_length)
     return Error();

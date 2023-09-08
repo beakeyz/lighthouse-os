@@ -1,70 +1,93 @@
 /* Core USB functions */
 #include "usb.h"
+#include "dev/usb/hcd.h"
 #include "libk/data/linkedlist.h"
+#include "libk/data/vector.h"
 #include "libk/flow/error.h"
+#include "libk/flow/reference.h"
 #include "mem/zalloc.h"
+#include "sync/mutex.h"
 
 zone_allocator_t __usb_hub_allocator;
-usb_hcd_t* __root_hub = nullptr;
-
-static bool is_valid_usb_hub_type(uint8_t type)
-{
-  return (type <= USB_HUB_TYPE_MAX);
-}
+vector_t* __usb_hcds;
 
 /*!
- * @brief Allocate the needed memory for a USB hub structure
+ * @brief Allocate memory for a HCD
  *
+ * Nothing to add here...
  */
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type)
+usb_hcd_t* alloc_usb_hcd()
 {
   usb_hcd_t* ret;
 
-  if (!is_valid_usb_hub_type(type))
-    return nullptr;
-
   ret = zalloc_fixed(&__usb_hub_allocator);
 
-  if (!ret)
-    return nullptr;
-
   memset(ret, 0, sizeof(usb_hcd_t));
-
-  ret->devices = init_list();
-  ret->child_hubs = init_list();
-
-  ret->hub_name = hub_name;
-  ret->hub_type = type;
-  ret->host_device = host;
 
   return ret;
 }
 
 /*!
- * @brief Destroy the hubs resources and the hub itself
+ * @brief Deallocate memory of a HCD
  *
+ * Nothing to add here...
  */
-void destroy_usb_hcd(usb_hcd_t* hub)
+void dealloc_usb_hcd(struct usb_hcd* hcd)
 {
-  destroy_list(hub->devices);
-  destroy_list(hub->child_hubs);
+  if (!hcd || !__usb_hcds)
+    return;
 
-  zfree_fixed(&__usb_hub_allocator, hub);
+  zfree_fixed(&__usb_hub_allocator, hcd);
 }
 
 /*!
  * @brief Registers a USB hub directly to the root
+ *
+ * This only makes the hcd available for searches from the root hcd
+ * (which is just a mock bridge) so we know where it is at all times
  */
 int register_usb_hcd(usb_hcd_t* hub)
 {
-  if (!__root_hub)
+  uint8_t hub_idx;
+  ErrorOrPtr result;
+  int error = 0;
+
+  if (!__usb_hcds || !hub->hw_ops || !hub->hw_ops->hcd_start)
     return -1;
 
-  list_append(__root_hub->child_hubs, hub);
+  result = vector_add(__usb_hcds, hub);
 
-  hub->parent = __root_hub;
+  if (IsError(result))
+    return -2;
+
+  hub_idx = Release(result);
+
+  mutex_lock(hub->hcd_lock);
+  hub->hub_idx = hub_idx;
+  mutex_unlock(hub->hcd_lock);
+
+  /*
+   * NOTE: after setup and stuff, there might be stuff we need to deallocate
+   * so FIXME
+   */
+
+  if (hub->hw_ops->hcd_setup) {
+    error = hub->hw_ops->hcd_setup(hub);
+
+    if (error)
+      goto fail_and_unregister;
+  }
+
+  error = hub->hw_ops->hcd_start(hub);
+
+  if (error)
+    goto fail_and_unregister;
 
   return 0;
+
+fail_and_unregister:
+  unregister_usb_hcd(hub);
+  return error;
 }
 
 /*!
@@ -77,19 +100,61 @@ int unregister_usb_hcd(usb_hcd_t* hub)
   ErrorOrPtr result;
   uint32_t our_index;
 
-  if (!__root_hub)
+  if (!__usb_hcds)
     return -1;
 
-  result = list_indexof(__root_hub->child_hubs, hub);
+  result = vector_indexof(__usb_hcds, hub);
 
   if (IsError(result))
     return -2;
 
   our_index = Release(result);
 
-  list_remove(__root_hub->child_hubs, our_index);
+  result = vector_remove(__usb_hcds, our_index);
 
-  return -1;
+  if (IsError(result))
+    return -3;
+
+  mutex_lock(hub->hcd_lock);
+  hub->hub_idx = (uint8_t)-1;
+  mutex_unlock(hub->hcd_lock);
+
+  return 0;
+}
+
+/*!
+ * @brief Get the HCD at a certain index
+ *
+ * Grabs a pointer to the hcd and increments the access counter
+ */
+usb_hcd_t* get_usb_hcd(uint8_t index)
+{
+  usb_hcd_t* ret;
+
+  ret = vector_get(__usb_hcds, index);
+
+  if (!ret)
+    return nullptr;
+
+  flat_ref(&ret->ref);
+
+  return ret;
+}
+
+/*!
+ * @brief Release a reference to the hcd
+ *
+ * For now we only decrement the flat reference counter, but 
+ * reference management is a massive subsytem TODO lol
+ */
+void release_usb_hcd(struct usb_hcd* hcd)
+{
+  flat_unref(&hcd->ref);
+
+  /*
+   * FIXME: do we also destroy the hcd when this hits zero? 
+   * FIXME 2: We REALLY need to rethink our reference management model lmao
+   */
 }
 
 /*!
@@ -99,5 +164,8 @@ void init_usb()
 {
   Must(init_zone_allocator(&__usb_hub_allocator, 64 * Kib, sizeof(usb_hcd_t), NULL));
 
-  __root_hub = create_usb_hcd(nullptr, "root_usb_hub", USB_HUB_TYPE_MOCK);
+  /* Use a vector to store the usb host controller drivers */
+  __usb_hcds = create_vector(MAX_USB_HCDS, sizeof(void*), VEC_FLAG_NO_DUPLICATES);
+
+  ASSERT_MSG(__usb_hcds, "Failed to create vector for hcds");
 }

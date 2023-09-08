@@ -5,6 +5,7 @@
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/kterm/kterm.h"
+#include "dev/usb/hcd.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xhci/xhci.h"
 #include "libk/flow/error.h"
@@ -25,9 +26,9 @@ pci_dev_id_t xhci_pci_ids[] = {
   PCI_DEVID_END,
 };
 
-static xhci_hub_t* to_xhci_safe(usb_hcd_t* hub)
+static xhci_hcd_t* to_xhci_safe(usb_hcd_t* hub)
 {
-  xhci_hub_t* ret = hub->private;
+  xhci_hcd_t* ret = hub->private;
   ASSERT_MSG(ret && hub->hub_type == USB_HUB_TYPE_XHCI && ret->register_ptr, "No (valid) XHCI hub attached to this hub!");
 
   return ret;
@@ -73,10 +74,26 @@ static void xhci_write8(usb_hcd_t* hub, uintptr_t offset, uint8_t value)
   *(volatile uint8_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
 }
 
-static int xhci_wait_read(struct usb_hcd* hub, uintptr_t max_timeout, uintptr_t offset, uintptr_t mask, uintptr_t expect)
+/*!
+ * @brief Read a certain bit (sequence) in a field until we time out or read the correct value
+ *
+ * @returns: 0 on success, -1 on failure
+ */
+static int xhci_wait_read(struct usb_hcd* hub, uintptr_t max_timeout, void* address, uintptr_t mask, uintptr_t expect)
 {
-  kernel_panic("TODO implement wait read");
-  return 0;
+  uint32_t value;
+
+  while (max_timeout) {
+    value = mmio_read_dword(address);
+
+    if ((value & mask) == expect)
+      return 0;
+
+    delay(1);
+    max_timeout--;
+  }
+
+  return -1;
 }
 
 usb_hcd_mmio_ops_t xhci_mmio_ops = {
@@ -92,42 +109,54 @@ usb_hcd_mmio_ops_t xhci_mmio_ops = {
   .mmio_wait_read = xhci_wait_read,
 };
 
-static xhci_hub_t* create_xhci_hub()
+static int xhci_force_halt(usb_hcd_t* hcd)
 {
-  xhci_hub_t* hub;
+  xhci_hcd_t* xhci = hcd->private;
 
-  hub = kmalloc(sizeof(xhci_hub_t));
+  uint32_t is_halted;
+  uint32_t cmd_mask, cmd;
 
-  if (!hub)
-    return nullptr;
+  /* Disable interrupts, engage halt */
+  cmd_mask = ~(XHCI_IRQS);
+  is_halted = mmio_read_dword(&xhci->op_regs->status) & XHCI_STS_HLT;
 
-  memset(hub, 0, sizeof(*hub));
+  /* The host controller is not yet halted, clear the run bit */
+  if (!is_halted) {
+    cmd_mask &= ~(XHCI_CMD_RUN);
+    xhci->xhc_flags &= ~(XHC_FLAG_HALTED);
+  }
 
-  return hub;
+  /* Write our halting command field */
+  cmd = mmio_read_dword(&xhci->op_regs->cmd) & cmd_mask;
+  mmio_write_dword(&xhci->op_regs->cmd, cmd);
+
+  /* Wait for the host to mark itself halted */
+  int error = hcd->mmio_ops->mmio_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, XHCI_STS_HLT);
+
+  if (error)
+    return error;
+
+  /* Mark halted */
+  xhci->xhc_flags |= XHC_FLAG_HALTED;
+
+  return 0;
 }
 
-int xhci_probe(pci_device_t* device, pci_driver_t* driver)
+/*!
+ * @brief Do HW specific host setup 
+ *
+ * allocate buffers, prepare stuff
+ */
+int xhci_setup(usb_hcd_t* hcd)
 {
   int error;
-  usb_hcd_t* hub;
-  xhci_hub_t* xhci_hub;
   paddr_t xhci_register_p;
   size_t xhci_register_size;
   uint32_t bar0 = 0, bar1 = 0;
 
-  println("Probing for XHCI");
-
-  hub = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
-  xhci_hub = create_xhci_hub();
-
-  error = register_usb_hcd(hub);
-
-  /* FUCKK */
-  if (error)
-    return error;
-
-  hub->private = xhci_hub;
-  hub->mmio_ops = &xhci_mmio_ops;
+  /* Device pointers */
+  pci_device_t* device = hcd->host_device;
+  xhci_hcd_t* xhci_hcd = hcd->private;
 
   /* Enable the HC */
   pci_device_enable(device);
@@ -141,26 +170,117 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   if (is_bar_64bit(bar0))
     xhci_register_p |= get_bar_address(bar1) << 32;
 
-  xhci_hub->register_ptr = Must(__kmem_kernel_alloc(
+  /*
+   * Prepare by setting the register offsets 
+   * we can use both the generic mmio functions
+   * or the xhci hcd io functions to access these 
+   * registers
+   */
+  xhci_hcd->register_ptr = Must(__kmem_kernel_alloc(
       xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
-  xhci_hub->cap_regs_offset = 0;
-  xhci_hub->cap_regs = (xhci_cap_regs_t*)xhci_hub->register_ptr;
+  xhci_hcd->cap_regs_offset = 0;
+  xhci_hcd->cap_regs = (xhci_cap_regs_t*)xhci_hcd->register_ptr;
 
-  xhci_hub->oper_regs_offset = HC_LENGTH(xhci_read32(hub, 0));
-  xhci_hub->op_regs = (xhci_op_regs_t*)(xhci_hub->register_ptr + XHCI_OP_OF(xhci_hub));
+  xhci_hcd->oper_regs_offset = HC_LENGTH(xhci_read32(hcd, 0));
+  xhci_hcd->op_regs = (xhci_op_regs_t*)(xhci_hcd->register_ptr + XHCI_OP_OF(xhci_hcd));
 
-  xhci_hub->runtime_regs_offset = xhci_read32(hub, GET_OFFSET(xhci_cap_regs_t, runtime_regs_offset));
-  xhci_hub->runtime_regs = (xhci_runtime_regs_t*)(xhci_hub->register_ptr + XHCI_RR_OF(xhci_hub));
+  xhci_hcd->runtime_regs_offset = xhci_read32(hcd, GET_OFFSET(xhci_cap_regs_t, runtime_regs_offset));
+  xhci_hcd->runtime_regs = (xhci_runtime_regs_t*)(xhci_hcd->register_ptr + XHCI_RR_OF(xhci_hcd));
 
-  uint32_t hc_version = HC_VERSION(mmio_read_dword(&xhci_hub->cap_regs->hc_capbase));
-  uint32_t cap_len = HC_LENGTH(xhci_read32(hub, 0));
+  xhci_hcd->hci_version = HC_VERSION(mmio_read_dword(&xhci_hcd->cap_regs->hc_capbase));
+  xhci_hcd->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci_hcd->cap_regs->hcc_params_1));
+
+  uint32_t cap_len = HC_LENGTH(xhci_read32(hcd, 0));
+
+  error = xhci_force_halt(hcd);
+
+  println_kterm("Success halt: ");
+  println_kterm(to_string(error));
+
+  /*
+   * TODO: support device quirks 
+   *
+   * It seems like no company can make a xhci host controller that is fully compliant 
+   * with the xhci spec. This really powers up the need to support quirck registering 
+   * per device. This is also an extra argument for creating a global device structure
+   * (which was the plan anyways so yay) that can handle common device occurances. 
+   * The device structure itself won't enforce how the quick bits are layed out and will
+   * leave this to the underlying device
+   */
 
   println_kterm("XHCI cap len: ");
   println_kterm(to_string(cap_len));
   println_kterm("XHCI version: ");
-  println_kterm(to_string(hc_version));
+  println_kterm(to_string(xhci_hcd->hci_version));
   kernel_panic(to_string(xhci_register_size));
+
+  return 0;
+}
+
+/*!
+ * @brief Start the hcd so it can handle IO requests
+ *
+ * Nothing to add here...
+ */
+int xhci_start(usb_hcd_t* hcd)
+{
+  kernel_panic("TODO: start xhci hcd");
+  return 0;
+}
+
+/*!
+ * @brief Stop the hcd so IO requests will be rejected
+ *
+ * Nothing to add here...
+ */
+void xhci_stop(usb_hcd_t* hcd)
+{
+  kernel_panic("TODO: stop xhci hcd");
+  (void)hcd;
+}
+
+usb_hcd_hw_ops_t xhci_hw_ops = {
+  .hcd_setup = xhci_setup,
+  .hcd_start = xhci_start,
+  .hcd_stop = xhci_stop,
+};
+
+static xhci_hcd_t* create_xhci_hcd()
+{
+  xhci_hcd_t* hub;
+
+  hub = kmalloc(sizeof(xhci_hcd_t));
+
+  if (!hub)
+    return nullptr;
+
+  memset(hub, 0, sizeof(*hub));
+
+  return hub;
+}
+
+int xhci_probe(pci_device_t* device, pci_driver_t* driver)
+{
+  int error;
+  usb_hcd_t* hcd;
+  xhci_hcd_t* xhci_hcd;
+
+  println("Probing for XHCI");
+
+  hcd = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
+  xhci_hcd = create_xhci_hcd();
+
+  /* Set the hcd methods manually */
+  hcd->private = xhci_hcd;
+  hcd->mmio_ops = &xhci_mmio_ops;
+  hcd->hw_ops = &xhci_hw_ops;
+
+  error = register_usb_hcd(hcd);
+
+  /* FUCKK */
+  if (error)
+    return error;
 
   return 0;
 }
