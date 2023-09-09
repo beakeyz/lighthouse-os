@@ -109,6 +109,46 @@ usb_hcd_mmio_ops_t xhci_mmio_ops = {
   .mmio_wait_read = xhci_wait_read,
 };
 
+static int xhci_reset(usb_hcd_t* hcd)
+{
+  int error;
+  uint32_t status;
+  uint32_t cmd;
+  xhci_hcd_t* xhci= hcd->private;
+
+  status = mmio_read_dword(&xhci->op_regs->status);
+
+  if (status == ~(uint32_t)0)
+    return -1;
+
+  if ((status & XHCI_STS_HLT) == 0)
+    return -2;
+
+  /* Construct the reset command */
+  cmd = mmio_read_dword(&xhci->op_regs->cmd) | XHCI_CMD_RESET;
+
+  /* Set the command */
+  mmio_write_dword(&xhci->op_regs->cmd, cmd);
+
+  /*
+   * Delay 1 ms to support intel controllers 
+   * TODO: detect the subsequent intel controllers
+   */
+  delay(1000);
+
+  /* Wait for cmd to clear */
+  error = hcd->mmio_ops->mmio_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->cmd, XHCI_CMD_RESET, 0);
+
+  if (error) return error;
+
+  /* Wait for cnr to clear */
+  error = hcd->mmio_ops->mmio_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->status, XHCI_STS_CNR, 0);
+
+  if (error) return error;
+
+  return 0;
+}
+
 static int xhci_force_halt(usb_hcd_t* hcd)
 {
   xhci_hcd_t* xhci = hcd->private;
@@ -194,6 +234,11 @@ int xhci_setup(usb_hcd_t* hcd)
   uint32_t cap_len = HC_LENGTH(xhci_read32(hcd, 0));
 
   error = xhci_force_halt(hcd);
+
+  if (error)
+    kernel_panic("Failed to halt the controller");
+
+  error = xhci_reset(hcd);
 
   println_kterm("Success halt: ");
   println_kterm(to_string(error));
