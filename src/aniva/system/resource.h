@@ -62,7 +62,7 @@ void init_kresources();
  */
 typedef struct kresource {
   
-  const char m_name[24];
+  const char* m_name;
 
   /* Function that prompts the resources deletion and releases the physical resource it holds (memory, irqs, io ports) */
   // TODO: implement fully
@@ -79,9 +79,30 @@ typedef struct kresource {
   /* How many shares does this resource have? */
   flat_refc_t m_shared_count;
 
+  /* 
+   * The original owner of the resource 
+   * when the owner is null but the resource is referenced,
+   * we are dealing with an anonymous resource
+   */
+  void* m_owner;
+
   /* Always have resources grouped together */
   struct kresource* m_next;
 } kresource_t;
+
+static inline bool resource_contains(kresource_t* resource, uintptr_t address) 
+{
+  if (!resource)
+    return false;
+
+  return (address >= resource->m_start && address < (resource->m_start + resource->m_size));
+}
+
+
+static inline bool resource_is_anonymous(kresource_t* resource)
+{
+  return (!resource->m_owner && resource->m_shared_count);
+}
 
 void debug_resources(kresource_t** bundle, kresource_type_t type);
 
@@ -105,6 +126,8 @@ void destroy_resource_bundle(kresource_bundle_t bundle);
  */
 void destroy_kresource(kresource_t* resource);
 
+kresource_t** resource_get_kernel_bundle();
+
 /*
  * If the requested resource is already used, we just increment the refcount
  * otherwise we can splice off a new resource and have it fresh
@@ -112,7 +135,8 @@ void destroy_kresource(kresource_t* resource);
  * TODO: integrate flags
  */
 ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions);
-ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
+ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
+ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type);
 
 ErrorOrPtr resource_commit(uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
 
@@ -130,6 +154,8 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
 ErrorOrPtr resource_release_region(kresource_t* previous_region, kresource_t* current_region);
 ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_start);
 
+ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t bundle);
+
 //void destroy_kresource_mirror(kresource_t* mirror);
 
 /*
@@ -138,43 +164,4 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_s
  * claim this region, for instance
  */
 ErrorOrPtr query_unused_resource(size_t size, kresource_type_t type, kresource_t* out, kresource_t** mirrors);
-
-/*
- * The resource shopping cart
- *
- * This struct manages a bunch of (maybe unrelated) resources in a list.
- * The list can be only of one resource type and is sorted from low to big
- * (meaning that low resource addresses go at the start of the link and high
- * addresses go at the end of the link)
- *
- * This struct is mostly used for device drivers that must handel devices which 
- * reserve certain memory ranges
- */
-typedef struct resource_list {
-  char* name;
-  kresource_type_t type;
-
-  uint32_t count;
-
-  /* The first resource (also the smalest) */
-  kresource_t* start;
-  /* The last resource (which has the biggest base address) */
-  kresource_t* end;
-} resource_list_t;
-
-/* TODO:
- */
-
-resource_list_t* create_resource_list(char* name, kresource_type_t type);
-void destroy_resource_list(resource_list_t* list);
-
-ErrorOrPtr resource_add(resource_list_t* list, uintptr_t start, size_t size, kresource_flags_t flags);
-ErrorOrPtr resource_add_ex(resource_list_t* list, kresource_t* resource);
-
-ErrorOrPtr resource_remove(resource_list_t* list, uintptr_t start, size_t size);
-ErrorOrPtr resource_remove_ex(resource_list_t* list, kresource_t* resource);
-
-ErrorOrPtr resource_get(resource_list_t* list, uintptr_t address);
-ErrorOrPtr resource_put(resource_list_t* list, uintptr_t address);
-
 #endif // !__ANIVA_SYS_RESOURCE__

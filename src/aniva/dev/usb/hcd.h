@@ -3,6 +3,7 @@
 
 #include "dev/pci/pci.h"
 #include "libk/flow/reference.h"
+#include "system/resource/list.h"
 #include <libk/stddef.h>
 
 struct usb_hcd;

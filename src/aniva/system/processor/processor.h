@@ -16,7 +16,6 @@
 #include "system/processor/fpu/state.h"
 #include "sched/scheduler.h"
 #include "dev/debug/serial.h"
-#include "system/resource/context.h"
 #include <aniva/system/asm_specifics.h>
 #include <intr/interrupts.h>
 

@@ -65,6 +65,7 @@ void dealloc_usb_hcd(struct usb_hcd* hcd);
 
 /* Refcounting */
 struct usb_hcd* get_usb_hcd(uint8_t index);
+struct usb_hcd* get_hcd_for_pci_device(pci_device_t* device);
 void release_usb_hcd(struct usb_hcd* hcd);
 
 int register_usb_hcd(struct usb_hcd* hub);

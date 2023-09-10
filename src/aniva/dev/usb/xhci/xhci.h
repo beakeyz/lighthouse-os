@@ -18,7 +18,7 @@ struct usb_hcd;
 #define XHCI_PORTLI		2
 #define XHCI_PORTHLPMC	3
 
-#define XHCI_MAX_HC_SLOTS 256
+#define XHCI_MAX_HC_SLOTS 255
 #define XHCI_MAX_HC_PORTS 127
 
 #define XHCI_HALT_TIMEOUT_US (32 * 1000)
@@ -210,7 +210,7 @@ typedef struct xhci_dma_ctx {
   uint32_t type;
   uint32_t size;
   uint8_t* data;
-  uintptr_t dma_addr;
+  paddr_t dma_addr;
 } xhci_input_dma_t;
 
 #define XHCI_DMA_CTX_DEVICE 0x01
@@ -218,7 +218,7 @@ typedef struct xhci_dma_ctx {
 
 typedef struct xhci_dev_ctx_array {
   uint64_t dev_ctx_ptrs[XHCI_MAX_HC_SLOTS];
-  uint64_t dma;
+  paddr_t dma;
 } xhci_dev_ctx_array_t;
 
 /*
@@ -315,7 +315,7 @@ typedef struct xhci_trb {
 typedef struct xhci_segment {
   xhci_trb_t* trbs;
   struct xhci_segment* next;
-  uint64_t dma;
+  paddr_t dma;
   /* Linux has bounce buffers. WTF? */
 } xhci_segment_t;
 
@@ -351,9 +351,16 @@ typedef struct xhci_ring {
   uint32_t ring_type;
 } xhci_ring_t;
 
+/*
+ * Scratchpad store for a xhci hcd
+ *
+ * @array: stores the dma addresses of the buffers
+ * @dma: stores the dma addresss of the scratchpad array
+ * @buffer: store the kernel addresses for the buffers
+ */
 typedef struct xhci_scratchpad {
-  uint64_t* array;
-  uint64_t dma;
+  paddr_t* array;
+  paddr_t dma;
   void** buffers;
 } xhci_scratchpad_t;
 
@@ -367,7 +374,7 @@ typedef struct xhci_erst {
   xhci_erst_entry_t* entries;
   uint32_t entry_count;
   uint32_t erst_size;
-  uint64_t dma;
+  paddr_t dma;
 } xhci_erst_t;
 
 /*
@@ -416,6 +423,13 @@ typedef struct xhci_hcd {
   xhci_op_regs_t* op_regs;
   xhci_runtime_regs_t* runtime_regs;
   xhci_db_array_t* db_arr;
+
+  uint32_t scratchpad_count;
+
+  /* We allocate these things ourselves for the xhci controller */
+  xhci_dev_ctx_array_t* dctx_array_ptr;
+  xhci_ring_t* cmd_ring_ptr;
+  xhci_scratchpad_t* scratchpad_ptr;
 } xhci_hcd_t;
 
 #define XHCI_CAP_OF(xhci_hub) ((xhci_hub)->cap_regs_offset)

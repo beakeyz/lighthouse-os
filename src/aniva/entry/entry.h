@@ -34,6 +34,7 @@ extern driver_version_t kernel_version;
 #define SYSFLAGS_HAS_FRAMEBUFFER    (0x00000001)
 #define SYSFLAGS_HAS_EARLY_TTY      (0x00000002)
 #define SYSFLAGS_NO_INTERRUPTS      (0x00000004)
+#define SYSFLAGS_HAS_RMM            (0x00000008) /* Do we have resource management? */
 
 /*
  * Global system variables, that should be known throughout the 

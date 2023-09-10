@@ -1,5 +1,6 @@
 #include "resource.h"
 #include "dev/debug/serial.h"
+#include "entry/entry.h"
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
@@ -24,17 +25,20 @@
  *  - Make sure only one kernelobject owns a given resource
  *  - Make sure resources are grouped and ordered nicely so we can easly and quickly find them
  */
-//static kresource_t* __resources[3];
-static mutex_t* __resource_mutex;
-static zone_allocator_t* __resource_allocator;
-//static zone_allocator_t* __resource_mirror_allocator;
+static mutex_t* __resource_mutex = nullptr;
+static zone_allocator_t* __resource_allocator = nullptr;
+static kresource_bundle_t __kernel_resource_bundle = { 0 };
 
-static inline bool __resource_contains(kresource_t* resource, uintptr_t address) 
+/*!
+ * @brief Returns a pointer to the start of the kernel bundle
+ */
+kresource_t** resource_get_kernel_bundle()
 {
-  if (!resource)
-    return false;
+  /* Make sure we return null when we are not yet initialized */
+  if (!__resource_mutex || !__resource_allocator)
+    return nullptr;
 
-  return (address >= resource->m_start && address < (resource->m_start + resource->m_size));
+  return __kernel_resource_bundle;
 }
 
 static inline bool __resources_are_mergeable(kresource_t* current, kresource_t* next) 
@@ -67,7 +71,7 @@ static inline ErrorOrPtr __resource_get_low_side_space(uintptr_t start, size_t s
   if (!resource)
     return Error();
 
-  if (!__resource_contains(resource, start))
+  if (!resource_contains(resource, start))
     return Error();
 
   if (resource->m_start >= start)
@@ -85,7 +89,7 @@ static inline ErrorOrPtr __resource_get_high_side_space(uintptr_t start, size_t 
   if (!resource)
     return Error();
 
-  if (!__resource_contains(resource, start + size))
+  if (!resource_contains(resource, start + size))
     return Error();
 
   uintptr_t r_end_addr = resource->m_start + resource->m_size;
@@ -110,22 +114,32 @@ static bool __resource_is_referenced(kresource_t* resource)
   return false;
 }
 
-static void __resource_reference(kresource_t* resource)
+static void __resource_reference(kresource_t* resource, void* owner)
 {
-  /* We will be shared with this reference */
+  /*
+   * Will we be shared with this reference?
+   */
   if (resource->m_shared_count)
     resource->m_flags |= KRES_FLAG_SHARED;
+
+  /* Do we own this resource now? */
+  if (!resource->m_owner)
+    resource->m_owner = owner;
 
   flat_ref(&resource->m_shared_count);
 }
 
 static void __resource_unreference(kresource_t* resource)
 {
+  flat_unref(&resource->m_shared_count);
+
   /* We will be shared with this reference */
   if (resource->m_shared_count <= 1)
     resource->m_flags &= ~KRES_FLAG_SHARED;
-
-  flat_unref(&resource->m_shared_count);
+  
+  /* Remove the owner: we trust that the real resource has been dealt with appropriately */
+  if (!resource->m_shared_count)
+    resource->m_owner = nullptr;
 }
 /*
  * Quick fast-slow linkedlist traverse
@@ -172,7 +186,7 @@ static kresource_t** __find_kresource(uintptr_t address, kresource_type_t type, 
   ret = start;
 
   for (; *ret; ret = &(*ret)->m_next) {
-    if (__resource_contains(*ret, address)) {
+    if (resource_contains(*ret, address)) {
       break;
     }
   }
@@ -188,7 +202,7 @@ static inline bool __kresource_does_collide_with_next(kresource_t* new, kresourc
   if (!new || !old || !old->m_next)
     return false;
 
-  if (!__resource_contains(old, new->m_start))
+  if (!resource_contains(old, new->m_start))
     return false;
 
   return ((new->m_start + new->m_size) > old->m_next->m_start);
@@ -203,7 +217,6 @@ static void __destroy_kresource(kresource_t* resource)
 static kresource_t* __create_kresource_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type) 
 {
   kresource_t* ret;
-  size_t name_len;
 
   /* Allocator should be initialized here */
   if (!__resource_allocator)
@@ -220,13 +233,7 @@ static kresource_t* __create_kresource_ex(const char* name, uintptr_t start, siz
 
   memset(ret, 0, sizeof(kresource_t));
 
-  name_len = strlen(name);
-
-  if (name_len >= sizeof(ret->m_name))
-    name_len = sizeof(ret->m_name) - 1;
-
-  memcpy((uint8_t*)ret->m_name, name, name_len);
-
+  ret->m_name = name;
   ret->m_start = start;
   ret->m_size = size;
   ret->m_type = type;
@@ -238,7 +245,7 @@ static kresource_t* __create_kresource_ex(const char* name, uintptr_t start, siz
 
 static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_type_t type) 
 {
-  return __create_kresource_ex("Generic claim", start, size, type);
+  return __create_kresource_ex("Generic resource", start, size, type);
 }
 
 ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
@@ -250,7 +257,17 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
 
   type = (*regions)->m_type;
   
-  return resource_claim_ex("Generic Claim", start, size, type, regions);
+  return resource_claim_ex("Generic Claim", nullptr, start, size, type, regions);
+}
+
+/*!
+ * @brief Claims a resource for the kernel
+ *
+ * this can be used for any resources that are used by devices and drivers
+ */
+ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type)
+{
+  return resource_claim_ex(name, owner, start, size, type, __kernel_resource_bundle);
 }
 
 /*!
@@ -260,7 +277,7 @@ ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
  * overlapping resources. @regions needs to be an active object that represents a resource range
  * (Like a memoryspace or an IRQ range)
  */
-ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
+ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
 {
   kresource_t** curr_resource_slot;
 
@@ -295,13 +312,6 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
 
   while (*curr_resource_slot && itt_addr < (start + size)) {
 
-    /*
-    if (__resource_is_shared(*resource_slot)) {
-      __resource_reference(*resource_slot);
-      goto cycle;
-    }
-    */
-
     /* If the entire resource is covered by the size, reference and go next */
     if (__covers_entire_resource(itt_addr, itt_size, *curr_resource_slot)) {
       goto mark_and_cycle;
@@ -329,7 +339,7 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
 
       /* We need to reference this resource here since we are trying to claim the entire range */
       if (last_referenced_resource != *curr_resource_slot)
-        __resource_reference(*curr_resource_slot);
+        __resource_reference(*curr_resource_slot, owner);
 
       /* Cache */
       last_referenced_resource = *curr_resource_slot;
@@ -353,7 +363,7 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
     if (result.m_status == ANIVA_SUCCESS) {
 
       if (__resource_is_referenced(*curr_resource_slot) && last_referenced_resource != *curr_resource_slot) {
-        __resource_reference(*curr_resource_slot);
+        __resource_reference(*curr_resource_slot, owner);
         break;
       }
 
@@ -367,7 +377,7 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
 
       /* Make sure we don't mark twice */
       if (last_referenced_resource != *curr_resource_slot)
-        __resource_reference(*curr_resource_slot);
+        __resource_reference(*curr_resource_slot, owner);
 
       split->m_next = (*curr_resource_slot)->m_next;
 
@@ -377,7 +387,7 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
       break;
     }
 
-    if (__resource_is_referenced(*curr_resource_slot) && __resource_contains(*curr_resource_slot, itt_addr)) {
+    if (__resource_is_referenced(*curr_resource_slot) && resource_contains(*curr_resource_slot, itt_addr)) {
       //kernel_panic("referenced entire resource!");
       /* Already marked, just cycle */
       if (last_referenced_resource == *curr_resource_slot)
@@ -391,7 +401,7 @@ ErrorOrPtr resource_claim_ex(const char* name, uintptr_t start, size_t size, kre
     /* We can mark this resource and go next */
 mark_and_cycle:;
     if (last_referenced_resource != *curr_resource_slot) {
-      __resource_reference(*curr_resource_slot);
+      __resource_reference(*curr_resource_slot, owner);
     }
     last_referenced_resource = *curr_resource_slot;
 
@@ -432,7 +442,7 @@ ErrorOrPtr resource_release_region(kresource_t* previous_resource, kresource_t* 
   size_t itter_size = size;
   kresource_t* itter_resource = current_resource;
 
-  while (itter_resource && itter_size && __resource_contains(itter_resource, itter_addr)) {
+  while (itter_resource && itter_size && resource_contains(itter_resource, itter_addr)) {
 
     /* Always unreference this entry */
     __resource_unreference(itter_resource);
@@ -512,7 +522,7 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_s
    * TODO: switch to better algoritm
    */
   while (current) {
-    if (__resource_contains(current, start))
+    if (resource_contains(current, start))
       break;
 
     previous = current;
@@ -632,6 +642,31 @@ void create_resource_bundle(kresource_bundle_t* out)
   }
 }
 
+static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t bundle)
+{
+  uint64_t start = resource->m_start;
+  uint64_t size = resource->m_size;
+  kresource_t* start_resource = GET_RESOURCE(bundle, resource->m_type);
+
+  /* Should we dealloc or simply unmap? */
+  if ((resource->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
+
+    /* Try to unmap */
+    if (kmem_unmap_range_ex(nullptr, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
+
+      /* Pre-emptively remove the flags, just in case this fails */
+      resource->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
+
+      /* Yay, now release the thing */
+      resource_release(start, size, start_resource);
+    }
+
+    return;
+  }
+
+  __kmem_dealloc_ex(nullptr, bundle, start, size, false, true, true);
+}
+
 /*!
  * @brief Loops over the resources in the bundle and cleans them up
  *
@@ -655,7 +690,6 @@ static void __bundle_clear_resources(kresource_bundle_t bundle)
 
       next = current->m_next;
 
-      uintptr_t start = current->m_start;
       size_t size = current->m_size;
 
       /* Skip mirrors with size zero or no references */
@@ -666,24 +700,7 @@ static void __bundle_clear_resources(kresource_bundle_t bundle)
       /* TODO: destry other resource types */
       switch (current->m_type) {
         case KRES_TYPE_MEM:
-
-          /* Should we dealloc or simply unmap? */
-          if ((current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
-
-            /* Try to unmap */
-            if (kmem_unmap_range_ex(nullptr, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
-
-              /* Pre-emptively remove the flags, just in case this fails */
-              current->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
-
-              /* Yay, now release the thing */
-              resource_release(start, size, start_resource);
-            }
-
-            break;
-          }
-
-          __kmem_dealloc_ex(nullptr, bundle, start, size, false, true, true);
+          __clear_mem_resource(current, bundle);
           break;
         default:
           /* Skip this entry for now */
@@ -701,6 +718,35 @@ next_resource:
   }
 }
 
+/*!
+ * @brief Clears all the resources in a bundle that we own
+ * Nothing to add here...
+ */
+ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t bundle)
+{
+  kresource_t* next;
+  kresource_t* current;
+
+  /* We cannot clear anonymus resources with this */
+  if (!owner)
+    return Error();
+
+  next = GET_RESOURCE(bundle, type);
+
+  if (!next)
+    return Error();
+
+  while (next) {
+    current = next;
+    next = next->m_next;
+
+    /* Only clear if we own this resource */
+    if (current->m_owner == owner)
+      __clear_mem_resource(current, bundle);
+  }
+
+  return Success(0);
+}
 
 void destroy_resource_bundle(kresource_bundle_t bundle)
 {
@@ -729,6 +775,8 @@ void init_kresources()
 
   /* Seperate the mirrors from the system kresources */
   __resource_allocator = create_zone_allocator_ex(nullptr, 0, 128 * Kib, sizeof(kresource_t), 0);
-  //__resource_mirror_allocator = create_zone_allocator_ex(nullptr, 0, 128 * Kib, sizeof(kresource_t), 0);
 
+  create_resource_bundle(&__kernel_resource_bundle);
+
+  g_system_info.sys_flags |= SYSFLAGS_HAS_RMM;
 }

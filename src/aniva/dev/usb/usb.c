@@ -1,5 +1,6 @@
 /* Core USB functions */
 #include "usb.h"
+#include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
@@ -139,6 +140,27 @@ usb_hcd_t* get_usb_hcd(uint8_t index)
   flat_ref(&ret->ref);
 
   return ret;
+}
+
+/*!
+ * @brief Get the HCD for a specific pci device
+ *
+ * Nothing to add here...
+ */
+usb_hcd_t* get_hcd_for_pci_device(pci_device_t* device)
+{
+  FOREACH_VEC(__usb_hcds, i) {
+    usb_hcd_t* hcd = *(usb_hcd_t**)i;
+
+    if (hcd->host_device == device) {
+
+      flat_ref(&hcd->ref);
+
+      return hcd;
+    }
+  }
+
+  return nullptr;
 }
 
 /*!

@@ -109,6 +109,131 @@ usb_hcd_mmio_ops_t xhci_mmio_ops = {
   .mmio_wait_read = xhci_wait_read,
 };
 
+/*!
+ * @brief Create and populate scratchpad buffers
+ *
+ * Allocates the memory needed for scratchpads and puts the dma address in the first scratchpad thing in the device context array
+ * requires the dca to be allocated
+ */
+static int xhci_create_scratchpad(xhci_hcd_t* xhci)
+{
+  xhci_scratchpad_t* sp;
+
+  /* Already set =/ */
+  if (xhci->scratchpad_ptr)
+    return -1;
+
+  sp = kmalloc(sizeof(*xhci->scratchpad_ptr));
+
+  if (!sp)
+    return -1;
+
+  memset(sp, 0, sizeof(xhci_scratchpad_t));
+
+  /* Allocate the dma arrray */
+  sp->array = (void*)Must(__kmem_kernel_alloc_range(
+      sizeof(uintptr_t) * xhci->scratchpad_count, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+
+  /* Set the dma (aka physical) address */
+  sp->dma = kmem_to_phys(nullptr, (uintptr_t)sp->array);
+
+  /* Allocate the buffers (aka kernel addresses to the scratchpad buffers) */
+  sp->buffers = kmalloc(sizeof(void*) * xhci->scratchpad_count);
+
+  /* Allocate all the buffers */
+  for (uintptr_t i = 0; i < xhci->scratchpad_count; i++) {
+    vaddr_t buffer_addr = Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    paddr_t dma_addr = kmem_to_phys(nullptr, buffer_addr);
+
+    sp->array[i] = dma_addr;
+    sp->buffers[i] = (void*)buffer_addr;
+  }
+
+  xhci->scratchpad_ptr = sp;
+
+  xhci->dctx_array_ptr->dev_ctx_ptrs[0] = sp->dma;
+  return 0;
+}
+
+static void xhci_destroy_scratchpad(xhci_hcd_t* xhci)
+{
+  xhci_scratchpad_t* scratchpad;
+
+  if (!xhci->scratchpad_ptr)
+    return;
+
+  scratchpad = xhci->scratchpad_ptr;
+
+  /* Deallocate the buffers */
+  for (uintptr_t i = 0; i < xhci->scratchpad_count; i++) {
+    __kmem_kernel_dealloc((vaddr_t)scratchpad->buffers[i], SMALL_PAGE_SIZE);
+  }
+
+  /* Deallocate the dma array */
+  __kmem_kernel_dealloc((vaddr_t)scratchpad->array, sizeof(uintptr_t) * xhci->scratchpad_count);
+
+  /* Free the buffers buffer */
+  kfree(scratchpad->buffers);
+
+  /* Lastly, free the scratchpad struct */
+  kfree(xhci->scratchpad_ptr);
+
+  /* Make sure the xhci structure knows this is gone */
+  xhci->scratchpad_ptr = nullptr;
+
+  /* Also make sure xhci knows its gone */
+  if (xhci->dctx_array_ptr) {
+    xhci->dctx_array_ptr->dev_ctx_ptrs[0] = NULL;
+  }
+}
+
+/*!
+ * @brief Allocate (DMA) buffers that we and the xhci controller needs
+ * 
+ * Things we need to do:
+ * - Program the max slots
+ * - Find out the page size (prob just 4Kib)
+ * - Setup port array
+ *
+ * Things we need to allocate:
+ * - Device context array
+ * - Scratchpads
+ * - Command rings
+ */
+static int xhci_prepare_memory(usb_hcd_t* hcd)
+{
+  int error;
+  uint32_t hcc_params_1;
+  uint32_t hcc_params_2;
+  xhci_hcd_t* xhci = hcd->private;
+
+  hcc_params_1 = mmio_read_dword(&xhci->cap_regs->hcc_params_1);
+  hcc_params_2 = mmio_read_dword(&xhci->cap_regs->hcc_params_2);
+
+  xhci->max_ports = HC_MAX_PORTS(hcc_params_1);
+  xhci->max_slots = HC_MAX_SLOTS(hcc_params_1);
+
+  if (!xhci->max_ports)
+    return -1;
+
+  /* Program the max slots */
+  mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
+
+  xhci->dctx_array_ptr = (void*)Must(__kmem_kernel_alloc_range(sizeof(*xhci->dctx_array_ptr), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+  xhci->dctx_array_ptr->dma = kmem_to_phys(nullptr, (vaddr_t)xhci->dctx_array_ptr);
+
+  mmio_write_qword(&xhci->op_regs->dcbaa_ptr, xhci->dctx_array_ptr->dma);
+
+  xhci->scratchpad_count = HC_MAX_SCRTCHPD(hcc_params_2);
+
+  error = xhci_create_scratchpad(xhci);
+
+  if (error)
+    return -1;
+
+  return 0;
+}
+
 static int xhci_reset(usb_hcd_t* hcd)
 {
   int error;
@@ -145,6 +270,11 @@ static int xhci_reset(usb_hcd_t* hcd)
   error = hcd->mmio_ops->mmio_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->status, XHCI_STS_CNR, 0);
 
   if (error) return error;
+
+  /* Clear interrupts */
+  uint32_t stat = mmio_read_dword(&xhci->op_regs->status);
+  mmio_write_dword(&xhci->op_regs->status, stat);
+  mmio_write_dword(&xhci->op_regs->device_notif, 0);
 
   return 0;
 }
@@ -215,6 +345,9 @@ int xhci_setup(usb_hcd_t* hcd)
    * we can use both the generic mmio functions
    * or the xhci hcd io functions to access these 
    * registers
+   *
+   * TODO: collect allocations by the xhci driver and usb subsystem so we can manage
+   * them better lmao
    */
   xhci_hcd->register_ptr = Must(__kmem_kernel_alloc(
       xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
@@ -236,11 +369,16 @@ int xhci_setup(usb_hcd_t* hcd)
   error = xhci_force_halt(hcd);
 
   if (error)
-    kernel_panic("Failed to halt the controller");
+    return -1;
 
   error = xhci_reset(hcd);
 
   println_kterm("Success halt: ");
+  println_kterm(to_string(error));
+
+  error = xhci_prepare_memory(hcd);
+
+  println_kterm("Memory status: ");
   println_kterm(to_string(error));
 
   /*
@@ -258,7 +396,7 @@ int xhci_setup(usb_hcd_t* hcd)
   println_kterm(to_string(cap_len));
   println_kterm("XHCI version: ");
   println_kterm(to_string(xhci_hcd->hci_version));
-  kernel_panic(to_string(xhci_register_size));
+  //kernel_panic(to_string(xhci_register_size));
 
   return 0;
 }
@@ -311,7 +449,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   usb_hcd_t* hcd;
   xhci_hcd_t* xhci_hcd;
 
-  println("Probing for XHCI");
+  println_kterm("Probing for XHCI");
 
   hcd = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
   xhci_hcd = create_xhci_hcd();
@@ -332,6 +470,23 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
 
 int xhci_remove(pci_device_t* device)
 {
+  pci_driver_t* driver = device->driver;
+
+  /* Huh, thats weird? */
+  if (!driver)
+    return -1;
+
+  usb_hcd_t* hcd = get_hcd_for_pci_device(device);
+
+  if (!hcd)
+    return -1;
+
+  /* TODO: destroy this hcd and unregister it */
+  kernel_panic("TODO: implement xhci_remove");
+
+  xhci_hcd_t* xhci = hcd->private;
+
+  xhci_destroy_scratchpad(xhci);
 
   return 0;
 }
