@@ -123,6 +123,10 @@ static int xhci_create_scratchpad(xhci_hcd_t* xhci)
   if (xhci->scratchpad_ptr)
     return -1;
 
+  /* No scratchpad =( */
+  if (!xhci->scratchpad_count)
+    return 0;
+
   sp = kmalloc(sizeof(*xhci->scratchpad_ptr));
 
   if (!sp)
@@ -219,17 +223,38 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
   /* Program the max slots */
   mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
 
-  xhci->dctx_array_ptr = (void*)Must(__kmem_kernel_alloc_range(sizeof(*xhci->dctx_array_ptr), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+  xhci->dctx_array_ptr = (void*)Must(__kmem_kernel_alloc_range(sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
   xhci->dctx_array_ptr->dma = kmem_to_phys(nullptr, (vaddr_t)xhci->dctx_array_ptr);
+
+  memset(xhci->dctx_array_ptr, 0, sizeof(xhci_dev_ctx_array_t));
 
   mmio_write_qword(&xhci->op_regs->dcbaa_ptr, xhci->dctx_array_ptr->dma);
 
   xhci->scratchpad_count = HC_MAX_SCRTCHPD(hcc_params_2);
 
+  /* NOTE: it is legal for there to be no scratchpad */
   error = xhci_create_scratchpad(xhci);
 
   if (error)
     return -1;
+
+  /* Set the command ring */
+  xhci->cmd_ring_ptr = create_xhci_ring(xhci, XHCI_MAX_COMMANDS, XHCI_RING_TYPE_CMD);
+
+  error = xhci_set_cmd_ring(xhci);
+
+  if (error)
+    return -2;
+
+  xhci->interrupter = create_xhci_interrupter(xhci);
+
+  if (!xhci->interrupter)
+    return -3;
+
+  error = xhci_add_interrupter(xhci, xhci->interrupter, 0);
+
+  if (error)
+    return error;
 
   return 0;
 }
@@ -326,7 +351,7 @@ int xhci_setup(usb_hcd_t* hcd)
 
   /* Device pointers */
   pci_device_t* device = hcd->host_device;
-  xhci_hcd_t* xhci_hcd = hcd->private;
+  xhci_hcd_t* xhci = hcd->private;
 
   /* Enable the HC */
   pci_device_enable(device);
@@ -349,37 +374,51 @@ int xhci_setup(usb_hcd_t* hcd)
    * TODO: collect allocations by the xhci driver and usb subsystem so we can manage
    * them better lmao
    */
-  xhci_hcd->register_ptr = Must(__kmem_kernel_alloc(
+  xhci->register_ptr = Must(__kmem_kernel_alloc(
       xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
-  xhci_hcd->cap_regs_offset = 0;
-  xhci_hcd->cap_regs = (xhci_cap_regs_t*)xhci_hcd->register_ptr;
+  xhci->cap_regs_offset = 0;
+  xhci->cap_regs = (xhci_cap_regs_t*)xhci->register_ptr;
 
-  xhci_hcd->oper_regs_offset = HC_LENGTH(xhci_read32(hcd, 0));
-  xhci_hcd->op_regs = (xhci_op_regs_t*)(xhci_hcd->register_ptr + XHCI_OP_OF(xhci_hcd));
+  xhci->oper_regs_offset = HC_LENGTH(xhci_read32(hcd, 0));
+  xhci->op_regs = (xhci_op_regs_t*)(xhci->register_ptr + XHCI_OP_OF(xhci));
 
-  xhci_hcd->runtime_regs_offset = xhci_read32(hcd, GET_OFFSET(xhci_cap_regs_t, runtime_regs_offset));
-  xhci_hcd->runtime_regs = (xhci_runtime_regs_t*)(xhci_hcd->register_ptr + XHCI_RR_OF(xhci_hcd));
+  xhci->runtime_regs_offset = xhci_read32(hcd, GET_OFFSET(xhci_cap_regs_t, runtime_regs_offset));
+  xhci->runtime_regs = (xhci_runtime_regs_t*)(xhci->register_ptr + XHCI_RR_OF(xhci));
 
-  xhci_hcd->hci_version = HC_VERSION(mmio_read_dword(&xhci_hcd->cap_regs->hc_capbase));
-  xhci_hcd->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci_hcd->cap_regs->hcc_params_1));
+  xhci->hci_version = HC_VERSION(mmio_read_dword(&xhci->cap_regs->hc_capbase));
+  xhci->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci->cap_regs->hcc_params_1));
 
   uint32_t cap_len = HC_LENGTH(xhci_read32(hcd, 0));
+
+  println_kterm("XHCI cap len: ");
+  println_kterm(to_string(cap_len));
+  println_kterm("XHCI version: ");
+  println_kterm(to_string(xhci->hci_version));
 
   error = xhci_force_halt(hcd);
 
   if (error)
     return -1;
 
-  error = xhci_reset(hcd);
-
   println_kterm("Success halt: ");
   println_kterm(to_string(error));
+
+  error = xhci_reset(hcd);
+
+  println_kterm("Success reset: ");
+  println_kterm(to_string(error));
+
+  if (error)
+    return -1;
 
   error = xhci_prepare_memory(hcd);
 
   println_kterm("Memory status: ");
   println_kterm(to_string(error));
+
+  if (error)
+    return -1;
 
   /*
    * TODO: support device quirks 
@@ -392,10 +431,6 @@ int xhci_setup(usb_hcd_t* hcd)
    * leave this to the underlying device
    */
 
-  println_kterm("XHCI cap len: ");
-  println_kterm(to_string(cap_len));
-  println_kterm("XHCI version: ");
-  println_kterm(to_string(xhci_hcd->hci_version));
   //kernel_panic(to_string(xhci_register_size));
 
   return 0;
@@ -408,6 +443,15 @@ int xhci_setup(usb_hcd_t* hcd)
  */
 int xhci_start(usb_hcd_t* hcd)
 {
+  int error;
+  xhci_hcd_t* xhci = hcd->private;
+
+  /* FIXME: dont fuck up the entire cmd register */
+  //mmio_write_dword(&xhci->op_regs->cmd, XHCI_CMD_RUN | XHCI_CMD_HSEIE);
+
+  error = hcd->mmio_ops->mmio_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, 0);
+
+  println_kterm(to_string(error));
   kernel_panic("TODO: start xhci hcd");
   return 0;
 }

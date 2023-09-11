@@ -10,6 +10,7 @@
 #include <libk/stddef.h>
 
 struct usb_hcd;
+struct xhci_hcd;
 
 #define XHCI_PORT_REG_NUM 4
 
@@ -20,6 +21,10 @@ struct usb_hcd;
 
 #define XHCI_MAX_HC_SLOTS 255
 #define XHCI_MAX_HC_PORTS 127
+
+#define XHCI_MAX_EVENTS (16 * 13)
+#define XHCI_MAX_COMMANDS (16)
+#define XHCI_MAX_EPS (32)
 
 #define XHCI_HALT_TIMEOUT_US (32 * 1000)
 
@@ -83,6 +88,11 @@ typedef struct xhci_op_regs {
 #define XHCI_PORT_OC (1 << 3)
 #define XHCI_PORT_RESET	(1 << 4)
 
+#define XHCI_CMD_RING_PAUSED (1 << 1)
+#define XHCI_CMD_RING_ABORT (1 << 2)
+#define XHCI_CMD_RING_RUNNING (1 << 3)
+#define XHCI_CMD_RING_RSVD_BITS	(0x3f)
+
 /*
  * XHCI Port Link state Register bits
  * op_regs->port_link_base
@@ -131,6 +141,9 @@ typedef struct xhci_intr_regs {
   uint64_t erst_base;
   uint64_t erst_dequeue;
 } xhci_intr_regs_t;
+
+#define XHCI_ERST_SIZE_MASK (0xFFFF << 16)
+#define XHCI_ERST_PTR_MASK  (0xf)
 
 typedef struct xhci_runtime_regs {
   uint32_t microframe_idx;
@@ -312,12 +325,23 @@ typedef struct xhci_trb {
 /* Get NEC firmware revision. */
 #define	TRB_NEC_GET_FW 49
 
+/*
+ * Xhci ring segment
+ *
+ * Ring segments allow for non-contiguous rings
+ * These types of rings work by having multiple segments of (most likely) 256 trbs per segment
+ * whith the last trb being a linkt to the start of the next segment.
+ *
+ * TODO: implement lmao
+ */
 typedef struct xhci_segment {
   xhci_trb_t* trbs;
   struct xhci_segment* next;
   paddr_t dma;
   /* Linux has bounce buffers. WTF? */
 } xhci_segment_t;
+
+#define XHCI_TRBS_PER_SEGMENT (256)
 
 /*
  * xhci transfer descriptor
@@ -338,18 +362,38 @@ typedef struct xhci_td {
 #define XHCI_RING_TYPE_CMD 5
 #define XHCI_RING_TYPE_EVENT 6
 
+#define XHCI_RING_TYPE_MAX (XHCI_RING_TYPE_EVENT)
+
 /*
  * The xhci ring is a structure that can be found at 
  * transfer rings and such. We basically keep track of the 
  * start, end, enqueue and dequeue pointers
+ *
+ * Right now any ring consists of only one segment (aka 256 trbs) so 
+ * we need to implement multi-segmenting the trbs together into one scattered
+ * ring. This means: 
+ * @ring_buffer: simply points to the start of our one segment
+ * @ring_dma: our dma (physical, dma mapped) address of the segment
+ * @ring_size: almost always XHCI_TRBS_PER_SEGMENT * sizeof(xhci_trb_t) = SMALL_PAGE_SIZE
+ * @ring_type: our type
  */
 typedef struct xhci_ring {
+  /* Both these pointers are virtual kernel addresses to the trbs */
   xhci_trb_t* enqueue;
   xhci_trb_t* dequeue;
 
+  /* Kernel address to the ring buffer */
+  void* ring_buffer;
+  paddr_t ring_dma;
   uint32_t ring_size;
   uint32_t ring_type;
 } xhci_ring_t;
+
+/* ring.c */
+extern xhci_ring_t* create_xhci_ring(struct xhci_hcd* hcd, uint32_t trb_count, uint32_t type);
+extern void destroy_xhci_ring(xhci_ring_t* ring);
+
+extern int xhci_set_cmd_ring(struct xhci_hcd* hcd);
 
 /*
  * Scratchpad store for a xhci hcd
@@ -394,6 +438,19 @@ typedef struct xhci_cmd {
   xhci_trb_t* cmd_trb;
 } xhci_cmd_t;
 
+typedef struct xhci_interrupter {
+  xhci_ring_t* event_ring;
+  xhci_erst_t erst;
+  xhci_intr_regs_t* ir_regs;
+  uint32_t inter_num;
+} xhci_interrupter_t;
+
+/* ring.c */
+extern xhci_interrupter_t* create_xhci_interrupter(struct xhci_hcd* xhci);
+extern void destory_xhci_interrupter(xhci_interrupter_t* interrupter);
+
+extern int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* interrupter, uint32_t num);
+
 /*
  * Flags to mark the state that the xhc is in
  */
@@ -429,6 +486,7 @@ typedef struct xhci_hcd {
   /* We allocate these things ourselves for the xhci controller */
   xhci_dev_ctx_array_t* dctx_array_ptr;
   xhci_ring_t* cmd_ring_ptr;
+  xhci_interrupter_t* interrupter;
   xhci_scratchpad_t* scratchpad_ptr;
 } xhci_hcd_t;
 

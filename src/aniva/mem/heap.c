@@ -9,7 +9,10 @@
 #include "sync/mutex.h"
 #include <entry/entry.h>
 
-// Let's just give our kernel a shitload of initial heapmemory =)
+/*
+ * FIXME: this REAAALY screws us good. Can we figure some way to work around the fact that we need this 
+ * big of a heap to support systems with big memory profiles?
+ */
 #define INITIAL_HEAP_TOTAL_SIZE (ALIGN_UP(ALIGN_UP(4 * Mib, SMALL_PAGE_SIZE) + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE)) // IN BYTES
 #define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
