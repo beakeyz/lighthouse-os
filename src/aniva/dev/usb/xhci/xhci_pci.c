@@ -7,6 +7,7 @@
 #include "dev/kterm/kterm.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/usb.h"
+#include "dev/usb/xhci/extended.h"
 #include "dev/usb/xhci/xhci.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
@@ -223,7 +224,7 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
   /* Program the max slots */
   mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
 
-  xhci->dctx_array_ptr = (void*)Must(__kmem_kernel_alloc_range(sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+  xhci->dctx_array_ptr = (void*)Must(__kmem_kernel_alloc_range(sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
   xhci->dctx_array_ptr->dma = kmem_to_phys(nullptr, (vaddr_t)xhci->dctx_array_ptr);
 
   memset(xhci->dctx_array_ptr, 0, sizeof(xhci_dev_ctx_array_t));
@@ -282,7 +283,7 @@ static int xhci_reset(usb_hcd_t* hcd)
 
   /*
    * Delay 1 ms to support intel controllers 
-   * TODO: detect the subsequent intel controllers
+   * TODO: detect the these intel controllers
    */
   delay(1000);
 
@@ -302,6 +303,66 @@ static int xhci_reset(usb_hcd_t* hcd)
   mmio_write_dword(&xhci->op_regs->device_notif, 0);
 
   return 0;
+}
+
+/*!
+ * @brief Make sure bios fucks off
+ *
+ * Firmware might screw us over, so here we make sure that we have (semi) full control over
+ * the host controller
+ */
+static void xhci_bios_takeover(usb_hcd_t* hcd)
+{
+  int error;
+  uint32_t cparams;
+  uint32_t offset;
+  uint32_t value, next;
+  void* legacy_offset;
+  xhci_hcd_t* xhci = hcd_to_xhci(hcd);
+
+  cparams = mmio_read_dword(&xhci->cap_regs->hcc_params_1);
+  offset = XHCI_HCC_EXT_CAPS(cparams) << 2;
+
+  do {
+    legacy_offset = (void*)xhci->cap_regs + offset;
+    value = mmio_read_dword(legacy_offset);
+
+    println_kterm("BIOS takeover values: ");
+    println_kterm(to_string(offset));
+    println_kterm(to_string(XHCI_EXT_CAP_GETID(value)));
+
+    if (XHCI_EXT_CAP_GETID(value) != XHCI_EXT_CAPS_LEGACY)
+      goto cycle;
+
+    println_kterm("Found legacy capability!");
+
+    if (value & XHCI_HC_BIOS_OWNED) {
+      /* Tell xhci we own them */
+      mmio_write_dword(legacy_offset, value | XHCI_HC_OS_OWNED);
+
+      error = hcd->mmio_ops->mmio_wait_read(hcd, 50 * 1000, legacy_offset, XHCI_HC_BIOS_OWNED, 0);
+
+      if (error) {
+        /*
+         * Forcefully clear if we fail =) 
+         * FIXME: does hardware like this?
+         */
+        mmio_write_dword(legacy_offset, value & ~(XHCI_HC_BIOS_OWNED));
+      }
+
+    }
+
+    /* Clear SMIs */
+    value = mmio_read_dword(legacy_offset + XHCI_LEGACY_CTL_OFF);
+    value &= XHCI_LEGACY_DISABLE_SMI;
+    value |= XHCI_LEGACY_SMI_EVENTS;
+    mmio_write_dword(legacy_offset + XHCI_LEGACY_CTL_OFF, value);
+    break;
+
+cycle:
+    next = XHCI_EXT_CAP_NEXT(value);
+    offset += next << 2;
+  } while (next);
 }
 
 static int xhci_force_halt(usb_hcd_t* hcd)
@@ -347,7 +408,7 @@ int xhci_setup(usb_hcd_t* hcd)
   int error;
   paddr_t xhci_register_p;
   size_t xhci_register_size;
-  uint32_t bar0 = 0, bar1 = 0;
+  uintptr_t bar0 = 0, bar1 = 0;
 
   /* Device pointers */
   pci_device_t* device = hcd->host_device;
@@ -356,15 +417,18 @@ int xhci_setup(usb_hcd_t* hcd)
   /* Enable the HC */
   pci_device_enable(device);
 
-  device->ops.read_dword(device, BAR0, &bar0);
-  device->ops.read_dword(device, BAR1, &bar1);
+  pci_set_interrupt_line(&hcd->host_device->address, false);
+  pci_set_io(&hcd->host_device->address, false);
+
+  device->ops.read_dword(device, BAR0, (uint32_t*)&bar0);
+  device->ops.read_dword(device, BAR1, (uint32_t*)&bar1);
 
   xhci_register_size = pci_get_bar_size(device, 0);
+
   xhci_register_p = get_bar_address(bar0);
 
   if (is_bar_64bit(bar0))
-    xhci_register_p |= get_bar_address(bar1) << 32;
-
+    xhci_register_p |= ((bar1 & 0xFFFFFFFF) << 32);
   /*
    * Prepare by setting the register offsets 
    * we can use both the generic mmio functions
@@ -375,26 +439,32 @@ int xhci_setup(usb_hcd_t* hcd)
    * them better lmao
    */
   xhci->register_ptr = Must(__kmem_kernel_alloc(
-      xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+      xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
 
   xhci->cap_regs_offset = 0;
   xhci->cap_regs = (xhci_cap_regs_t*)xhci->register_ptr;
 
-  xhci->oper_regs_offset = HC_LENGTH(xhci_read32(hcd, 0));
+  xhci->oper_regs_offset = HC_LENGTH(mmio_read_dword(&xhci->cap_regs->hc_capbase));
   xhci->op_regs = (xhci_op_regs_t*)(xhci->register_ptr + XHCI_OP_OF(xhci));
 
-  xhci->runtime_regs_offset = xhci_read32(hcd, GET_OFFSET(xhci_cap_regs_t, runtime_regs_offset));
+  xhci->runtime_regs_offset = mmio_read_dword(&xhci->cap_regs->runtime_regs_offset) & (~0x1f);
   xhci->runtime_regs = (xhci_runtime_regs_t*)(xhci->register_ptr + XHCI_RR_OF(xhci));
+
+  xhci->doorbell_regs_offset = (mmio_read_dword(&xhci->cap_regs->db_arr_offset) & (~0x3));
 
   xhci->hci_version = HC_VERSION(mmio_read_dword(&xhci->cap_regs->hc_capbase));
   xhci->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci->cap_regs->hcc_params_1));
 
-  uint32_t cap_len = HC_LENGTH(xhci_read32(hcd, 0));
+
+  uint32_t cap_len = HC_LENGTH(mmio_read_dword(&xhci->cap_regs->hc_capbase));
 
   println_kterm("XHCI cap len: ");
   println_kterm(to_string(cap_len));
   println_kterm("XHCI version: ");
   println_kterm(to_string(xhci->hci_version));
+
+  /* Make sure BIOS fucks off before we do shit with the controller */
+  xhci_bios_takeover(hcd);
 
   error = xhci_force_halt(hcd);
 
@@ -444,16 +514,28 @@ int xhci_setup(usb_hcd_t* hcd)
 int xhci_start(usb_hcd_t* hcd)
 {
   int error;
+  uint32_t cmd;
+  xhci_interrupter_t* itr;
   xhci_hcd_t* xhci = hcd->private;
 
-  /* FIXME: dont fuck up the entire cmd register */
-  //mmio_write_dword(&xhci->op_regs->cmd, XHCI_CMD_RUN | XHCI_CMD_HSEIE);
+  cmd = mmio_read_dword(&xhci->op_regs->cmd);
+  cmd |= (XHCI_CMD_EIE);
+  mmio_write_dword(&xhci->op_regs->cmd, cmd);
+
+  itr = xhci->interrupter;
+
+  uint32_t ip = mmio_read_dword(&itr->ir_regs->irq_pending);
+  mmio_write_dword(&itr->ir_regs->irq_pending, XHCI_ER_IRQ_ENABLE(ip));
+
+  cmd = mmio_read_dword(&xhci->op_regs->cmd);
+  cmd |= (XHCI_CMD_RUN);
+  mmio_write_dword(&xhci->op_regs->cmd, cmd);
 
   error = hcd->mmio_ops->mmio_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, 0);
 
-  println_kterm(to_string(error));
+  println_kterm("AAAAAAAAAAAAAAAAAAA");
   kernel_panic("TODO: start xhci hcd");
-  return 0;
+  return error;
 }
 
 /*!

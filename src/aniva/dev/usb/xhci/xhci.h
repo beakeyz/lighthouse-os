@@ -5,6 +5,8 @@
  * xHCI structures and global functions
  */
 
+#include "dev/usb/hcd.h"
+#include "dev/usb/usb.h"
 #include "libk/flow/doorbell.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -145,6 +147,12 @@ typedef struct xhci_intr_regs {
 #define XHCI_ERST_SIZE_MASK (0xFFFF << 16)
 #define XHCI_ERST_PTR_MASK  (0xf)
 
+#define	XHCI_ER_IRQ_PENDING(p)	((p) & 0x1)
+/* Idk man */
+#define	XHCI_ER_IRQ_CLEAR(p)		((p) & 0xfffffffe)
+#define	XHCI_ER_IRQ_ENABLE(p)	((XHCI_ER_IRQ_CLEAR(p)) | 0x2)
+#define	XHCI_ER_IRQ_DISABLE(p)	((XHCI_ER_IRQ_CLEAR(p)) & ~(0x2))
+
 typedef struct xhci_runtime_regs {
   uint32_t microframe_idx;
   uint32_t res[7];
@@ -167,7 +175,7 @@ typedef struct xhci_cap_regs {
   uint32_t hcc_params_2;
 } xhci_cap_regs_t;
 
-#define HC_LENGTH(cb) ((cb) & 0x00ff)
+#define HC_LENGTH(cb) (((cb) >> 00) & 0x00ff)
 #define HC_VERSION(cb) (((cb) >> 16) & 0xffff)
 
 #define HC_MAX_SLOTS(p) ((p) & 0xFF)
@@ -489,6 +497,14 @@ typedef struct xhci_hcd {
   xhci_interrupter_t* interrupter;
   xhci_scratchpad_t* scratchpad_ptr;
 } xhci_hcd_t;
+
+static inline xhci_hcd_t* hcd_to_xhci(usb_hcd_t* hcd)
+{
+  if (hcd->hub_type != USB_HUB_TYPE_XHCI)
+    return nullptr;
+
+  return (xhci_hcd_t*)(hcd->private);
+}
 
 #define XHCI_CAP_OF(xhci_hub) ((xhci_hub)->cap_regs_offset)
 #define XHCI_RR_OF(xhci_hub) ((xhci_hub)->runtime_regs_offset)
