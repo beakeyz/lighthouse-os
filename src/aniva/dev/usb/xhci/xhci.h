@@ -12,7 +12,9 @@
 #include <libk/stddef.h>
 
 struct usb_hcd;
+struct usb_device;
 struct xhci_hcd;
+struct xhci_hub;
 
 #define XHCI_PORT_REG_NUM 4
 
@@ -460,6 +462,29 @@ extern void destory_xhci_interrupter(xhci_interrupter_t* interrupter);
 extern int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* interrupter, uint32_t num);
 
 /*
+ * A xhci port
+ */
+typedef struct xhci_port {
+  void* base_addr;
+  uint32_t port_num;
+  
+  struct xhci_hub* p_hub;
+} xhci_port_t;
+
+/*
+ * A xhci hub
+ */
+typedef struct xhci_hub {
+  xhci_port_t** ports;
+  uint32_t port_count;
+
+  struct usb_hub* phub;
+} xhci_hub_t;
+
+xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address);
+void destroy_xhci_hub(xhci_hub_t* hub);
+
+/*
  * Flags to mark the state that the xhc is in
  */
 #define XHC_FLAG_HALTED 0x00000001
@@ -483,6 +508,9 @@ typedef struct xhci_hcd {
   uint32_t oper_regs_offset;
   uint32_t runtime_regs_offset;
   uint32_t doorbell_regs_offset;
+
+  /* FIXME: seperate 3.0 and 2.0 roothubs */
+  xhci_hub_t* rhub;
 
   xhci_cap_regs_t* cap_regs;
   xhci_op_regs_t* op_regs;

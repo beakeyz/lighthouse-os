@@ -7,6 +7,7 @@
 #include <libk/stddef.h>
 
 struct usb_hcd;
+struct usb_request;
 
 /*
  * MMIO operations for hcds
@@ -28,8 +29,9 @@ typedef struct usb_hcd_mmio_ops {
 } usb_hcd_mmio_ops_t;
 
 typedef struct usb_hcd_io_ops {
-
-} usb_hcd_io_ops;
+  int (*enq_request)(struct usb_hcd* hcd, struct usb_request* request);
+  int (*deq_request)(struct usb_hcd* hcd, struct usb_request* request);
+} usb_hcd_io_ops_t;
 
 typedef struct usb_hcd_hw_ops {
   int (*hcd_setup) (struct usb_hcd* hcd);
@@ -53,7 +55,9 @@ typedef struct usb_hcd {
 
   /* TODO: is it a given that usb hubs are on the PCI bus? */
   pci_device_t* host_device;
+
   usb_hcd_mmio_ops_t* mmio_ops;
+  usb_hcd_io_ops_t* io_ops;
   usb_hcd_hw_ops_t* hw_ops;
 
   struct usb_hcd* parent;

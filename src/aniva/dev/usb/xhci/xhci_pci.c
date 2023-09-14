@@ -14,6 +14,7 @@
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "system/asm_specifics.h"
 #include <dev/pci/pci.h>
 #include <dev/pci/definitions.h>
@@ -109,6 +110,36 @@ usb_hcd_mmio_ops_t xhci_mmio_ops = {
 
   .mmio_wait_read = xhci_wait_read,
 };
+
+/*!
+ * @brief Create a xhci (root) hub
+ *
+ */
+xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
+{
+  xhci_hub_t* hub;
+
+  hub = kzalloc(sizeof(*hub));
+
+  if (!hub)
+    return nullptr;
+
+  memset(hub, 0, sizeof(*hub));
+
+  hub->phub = create_usb_hub(xhci->parent, nullptr, dev_address, 0);
+
+  return hub;
+}
+
+/*!
+ * @brief Deallocate a xhci (root) hub
+ *
+ */
+void destroy_xhci_hub(xhci_hub_t* hub)
+{
+  kernel_panic("TODO: destroy_xhci_hub");
+}
+
 
 /*!
  * @brief Create and populate scratchpad buffers
@@ -327,14 +358,8 @@ static void xhci_bios_takeover(usb_hcd_t* hcd)
     legacy_offset = (void*)xhci->cap_regs + offset;
     value = mmio_read_dword(legacy_offset);
 
-    println_kterm("BIOS takeover values: ");
-    println_kterm(to_string(offset));
-    println_kterm(to_string(XHCI_EXT_CAP_GETID(value)));
-
     if (XHCI_EXT_CAP_GETID(value) != XHCI_EXT_CAPS_LEGACY)
       goto cycle;
-
-    println_kterm("Found legacy capability!");
 
     if (value & XHCI_HC_BIOS_OWNED) {
       /* Tell xhci we own them */
@@ -509,7 +534,11 @@ int xhci_setup(usb_hcd_t* hcd)
 /*!
  * @brief Start the hcd so it can handle IO requests
  *
- * Nothing to add here...
+ * We make sure the hcd is in a running state and when it is, we will enumerate the devices 
+ * and make sure they are all powered up. The roothub can have multiple of its own hubs, so 
+ * we'll detect those and run this 'powerup' sequence recursively. After we have given power 
+ * to a device, we'll also register it to the usb bus (hcd) so we can have easy access to it
+ * and talk to it.
  */
 int xhci_start(usb_hcd_t* hcd)
 {
@@ -533,7 +562,14 @@ int xhci_start(usb_hcd_t* hcd)
 
   error = hcd->mmio_ops->mmio_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, 0);
 
-  println_kterm("AAAAAAAAAAAAAAAAAAA");
+  if (error) {
+    println("XHCI hcd took too long to get out of halt state!");
+    return error;
+  }
+
+  /* Create the xhci roothub and gather device info / power up */
+  xhci->rhub = create_xhci_hub(xhci, 1);
+
   kernel_panic("TODO: start xhci hcd");
   return error;
 }

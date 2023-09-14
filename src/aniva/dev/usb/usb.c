@@ -6,6 +6,7 @@
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
+#include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
 
@@ -40,6 +41,78 @@ void dealloc_usb_hcd(struct usb_hcd* hcd)
 
   zfree_fixed(&__usb_hub_allocator, hcd);
 }
+
+/*!
+ * @brief Allocate and initialize a generic USB device
+ *
+ */
+usb_device_t* create_usb_device(usb_hub_t* hub, uint8_t port_num)
+{
+  usb_device_t* device;
+
+  device = kmalloc(sizeof(*device));
+
+  if (!device)
+    return nullptr;
+
+  memset(device, 0, sizeof(*device));
+
+  device->port_num = port_num;
+  device->hub = hub;
+
+  /* TODO: get the devic descriptor n shit */
+
+  kernel_panic("TODO: gather USB device info");
+
+  return device;
+}
+
+/*!
+ * @brief Deallocate a USB device
+ *
+ */
+void destroy_usb_device(usb_device_t* device)
+{
+  kernel_panic("TODO: destroy_usb_device");
+}
+
+
+/*!
+ * @brief Allocate and initialize a generic USB hub
+ *
+ * TODO: create our own root hub configuration descriptor
+ */
+usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr, uint8_t p_num)
+{
+  usb_hub_t* hub;
+
+  hub = kmalloc(sizeof(*hub));
+
+  if (!hub)
+    return nullptr;
+
+  hub->parent = parent;
+  hub->hcd = hcd;
+  hub->dev_addr = d_addr;
+  hub->device = create_usb_device(hub, p_num);
+
+  if (!hub->device) {
+    kfree(hub);
+    return nullptr;
+  }
+
+  return hub;
+}
+
+/*!
+ * @brief Deallocate a generic USB hub
+ *
+ */
+void destroy_usb_hub(usb_hub_t* hub)
+{
+  kernel_panic("TODO: destroy_usb_hub");
+}
+
 
 /*!
  * @brief Registers a USB hub directly to the root

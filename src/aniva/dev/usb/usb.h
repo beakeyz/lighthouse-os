@@ -14,6 +14,7 @@
  */
 
 #include "dev/pci/pci.h"
+#include "dev/usb/spec.h"
 #include "libk/data/linkedlist.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
@@ -24,9 +25,10 @@
 #define USB_DEVICE_TYPE_MISC 0x02
 
 struct usb_hcd;
+struct usb_hub;
 
 typedef struct usb_device {
-  /* TODO: how will generic USB devices look? */
+  usb_device_descriptor_t desc;
   uint8_t port_num; /* From 0 to 255, which port are we on? */
   uint8_t effective_idx; /* From 0 to 255, what is our index? (nth device found on the hub) */
   uint8_t dev_type;
@@ -35,8 +37,16 @@ typedef struct usb_device {
   char* manufacturer;
   char* serial;
 
-  struct usb_hcd* hcd;
+  uint32_t state;
+  uint32_t speed;
+
+  struct usb_hub* hub;
 } usb_device_t;
+
+usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t port_num);
+void destroy_usb_device(usb_device_t* device);
+
+struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
 
 #define USB_HUB_TYPE_MOCK 0x00 /* Mock hubs are intermediate hubs that act as bridges */
 #define USB_HUB_TYPE_EHCI 0x01
@@ -45,6 +55,22 @@ typedef struct usb_device {
 #define USB_HUB_TYPE_XHCI 0x04
 
 #define USB_HUB_TYPE_MAX (USB_HUB_TYPE_XHCI)
+
+/*
+ * Every hub is a usb device but not every
+ * usb device is a hub. Get it?
+ */
+typedef struct usb_hub {
+  struct usb_device* device;
+
+  uint8_t dev_addr;
+  
+  struct usb_hub* parent;
+  struct usb_hcd* hcd;
+} usb_hub_t;
+
+usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr, uint8_t p_num);
+void destroy_usb_hub(usb_hub_t* hub);
 
 /*
  * This represents a data transfer (request) over USB
