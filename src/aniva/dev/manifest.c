@@ -137,7 +137,6 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
     ret->m_url_length = get_driver_url_length(handle);
     // TODO: concat
     ret->m_url = get_driver_url(handle);
-
   } else {
     ret->m_flags |= DRV_DEFERRED_HNDL;
   }

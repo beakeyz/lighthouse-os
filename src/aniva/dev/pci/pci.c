@@ -212,6 +212,9 @@ static void __register_pci_device(pci_device_t* dev) {
   if (!dev || !__pci_devices || !__pci_dev_allocator)
     return;
 
+  if (dev->driver)
+    return;
+
   fitting_driver = nullptr;
 
   /*

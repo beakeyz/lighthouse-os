@@ -68,6 +68,10 @@ class RamdiskManager(object):
 
             self.add_rd_entry(anivaRamdisk, "system", "/")
             self.add_rd_entry(anivaRamdisk, "out/user/init/init", "/init")
+            self.add_rd_entry(
+                    anivaRamdisk,
+                    "out/drivers/test/test.drv",
+                    "test.drv")
 
     def remove_ramdisk(self) -> bool:
 

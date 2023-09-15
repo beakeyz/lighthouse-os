@@ -202,6 +202,8 @@ static int __check_driver(struct loader_ctx* ctx)
            symtab_sections = 0;
   struct elf64_shdr* shdr;
 
+  println((char*)ctx->hdr->e_ident);
+
   if (!memcmp(ctx->hdr->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
     return -1;
 
@@ -344,6 +346,31 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
   return Success(0);
 }
 
+static ErrorOrPtr __replace_installed_manifest(dev_manifest_t* new_manifest)
+{
+  dev_manifest_t* current;
+
+  current = get_driver(new_manifest->m_url);
+
+  /* Driver is not yet loaded OR installed. Happy day */
+  if (!current)
+    return Success(0);
+
+  /* This is less ideal (TODO: figure out how to safely deal with these) */
+  if (is_driver_loaded(current))
+    return Error();
+
+  /* We already have an internal driver for this or something? this really should not happen */
+  if (!(current->m_flags & DRV_IS_EXTERNAL))
+    return Warning();
+
+  /* Remove the old driver manifest */
+  TRY(_, uninstall_driver(current));
+
+  /* Enplace the new driver manifest */
+  return install_driver(new_manifest);
+}
+
 /*
  * Initializes the internal driver structures and installs
  * the driver in the kernel context. When the driver is put
@@ -362,6 +389,13 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
 
   if (IsError(result))
     return Error();
+
+  /*
+   * If there already is an installed version of this driver, we need to verify
+   * that it's not already loaded (and it thus in an idle installed-only state)
+   * and we can thus load it here
+   */
+  (void)__replace_installed_manifest;
 
   result = __verify_driver_functions(ctx, false);
 
@@ -421,16 +455,17 @@ extern_driver_t* load_external_driver(const char* path)
   if (!file)
     return nullptr;
 
+  println("B");
   out = create_external_driver(NULL);
 
+  println("B");
   if (!out || !out->m_manifest)
     return nullptr;
 
-  /* Make sure we know this is external */
-  out->m_manifest->m_flags |= DRV_IS_EXTERNAL;
-
+  println("A");
   /* Allocate contiguous space for the driver */
-  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, NULL);
+  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+  println("B");
 
   if (IsError(result))
     goto fail_and_deallocate;

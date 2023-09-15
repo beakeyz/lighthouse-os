@@ -34,7 +34,7 @@ typedef enum ZONE_ENTRY_SIZE {
 
 #define ZALLOC_DEFAULT_MEM_SIZE         16 * Kib
 #define ZALLOC_DEFAULT_ALLOC_COUNT      128 /* What is the default amount of an object that we should be able to allocate before we should expand the allocator */
-#define ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON 4 /* How much a allocation may deviate from the size of a allocator in order to still be stored there */
+#define ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON 16 /* How much a allocation may deviate from the size of a allocator in order to still be stored there */
 
 
 /*

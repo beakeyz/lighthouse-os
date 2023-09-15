@@ -236,6 +236,15 @@ void kthread_entry() {
    *  - launch the userspace bootstrap
    */
 
+  println("Loading test.drv");
+  extern_driver_t* d = load_external_driver("Root/test.drv");
+  
+  println("Finished loading test.drv");
+
+  unload_external_driver(d);
+
+  println("Unloaded test.drv");
+
   /*
    * Setup is done: we can start scheduling stuff 
    * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the 

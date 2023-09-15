@@ -463,8 +463,9 @@ int xhci_setup(usb_hcd_t* hcd)
    * TODO: collect allocations by the xhci driver and usb subsystem so we can manage
    * them better lmao
    */
+  xhci->register_size = ALIGN_UP(xhci_register_size, SMALL_PAGE_SIZE);
   xhci->register_ptr = Must(__kmem_kernel_alloc(
-      xhci_register_p, xhci_register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
+      xhci_register_p, xhci->register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
   xhci->cap_regs_offset = 0;
   xhci->cap_regs = (xhci_cap_regs_t*)xhci->register_ptr;
@@ -494,7 +495,7 @@ int xhci_setup(usb_hcd_t* hcd)
   error = xhci_force_halt(hcd);
 
   if (error)
-    return -1;
+    goto fail_and_dealloc;
 
   println_kterm("Success halt: ");
   println_kterm(to_string(error));
@@ -505,7 +506,7 @@ int xhci_setup(usb_hcd_t* hcd)
   println_kterm(to_string(error));
 
   if (error)
-    return -1;
+    goto fail_and_dealloc;
 
   error = xhci_prepare_memory(hcd);
 
@@ -513,7 +514,7 @@ int xhci_setup(usb_hcd_t* hcd)
   println_kterm(to_string(error));
 
   if (error)
-    return -1;
+    goto fail_and_dealloc;
 
   /*
    * TODO: support device quirks 
@@ -529,6 +530,12 @@ int xhci_setup(usb_hcd_t* hcd)
   //kernel_panic(to_string(xhci_register_size));
 
   return 0;
+
+fail_and_dealloc:
+  __kmem_kernel_dealloc(xhci->register_ptr, xhci_register_size);
+
+  pci_device_disable(device);
+  return -1;
 }
 
 /*!
@@ -620,6 +627,8 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   hcd->private = xhci_hcd;
   hcd->mmio_ops = &xhci_mmio_ops;
   hcd->hw_ops = &xhci_hw_ops;
+
+  return 0;
 
   error = register_usb_hcd(hcd);
 

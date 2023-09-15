@@ -1,5 +1,6 @@
 #include "external.h"
 #include "dev/core.h"
+#include "dev/debug/serial.h"
 #include "dev/manifest.h"
 #include "fs/vobj.h"
 #include "mem/zalloc.h"
@@ -20,6 +21,7 @@ extern_driver_t* create_external_driver(uint32_t flags)
   drv->m_flags = flags;
 
   drv->m_manifest = create_dev_manifest(nullptr); 
+  drv->m_manifest->m_flags |= DRV_IS_EXTERNAL;
 
   return drv;
 }

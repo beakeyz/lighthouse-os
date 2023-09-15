@@ -504,6 +504,7 @@ typedef struct xhci_hcd {
   uint8_t isoc_threshold;
 
   uintptr_t register_ptr;
+  size_t register_size;
   uint32_t cap_regs_offset;
   uint32_t oper_regs_offset;
   uint32_t runtime_regs_offset;

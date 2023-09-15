@@ -106,7 +106,8 @@ static zone_allocator_t* __get_allocator_for_size(size_t size)
       break;
 
     /* If we accept this allocation size, break */
-    if ((*current)->m_entry_size == size || ((*current)->m_entry_size - size) <= ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON)
+    if ((*current)->m_entry_size == size ||
+        ((*current)->m_entry_size - size) <= ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON)
       return (*current);
 
     /*
