@@ -20,8 +20,13 @@ void kmem_debug();
 #define RESERVED_VIOLATION      0x8
 #define FETCH_VIOLATION         0x10
 
-// Kernel high virtual base
+#define MAX_VIRT_ADDR           0xffffffffffffffffULL
+// Kernel text high virtual base
 #define HIGH_MAP_BASE           0xffffffff80000000ULL
+// Any custom mappings by the kernel
+#define KERNEL_MAP_BASE         0xffff800000000000ULL
+// Anything IO can be mapped here
+#define IO_MAP_BASE             0xffff000000000000ULL
 // Base for early kernelheap mappings 
 #define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
@@ -169,13 +174,15 @@ uintptr_t kmem_get_page_base (uintptr_t base);
 uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_base);
 uintptr_t kmem_get_page_addr (uintptr_t page_idx);
 
+vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase);
+/* Grab the IO mapping for a given physical address */
+vaddr_t kmem_from_dma(paddr_t addr);
 /*
  * translate a physical address to a virtual address in the
- * kernel pagetables
+ * kernel text mapping
  */
 vaddr_t kmem_ensure_high_mapping (uintptr_t addr);
 
-vaddr_t kmem_from_phys (uintptr_t addr, vaddr_t vbase);
 
 /*
  * translate a virtual address to a physical address in
@@ -243,7 +250,10 @@ ErrorOrPtr kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size);
  * memory using the global physical memory bitmap
  */
 ErrorOrPtr __kmem_kernel_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr __kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_kernel_alloc_range(size_t size, uint32_t custom_flags, uint32_t page_flags);
+
+ErrorOrPtr __kmem_dma_alloc(uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
+ErrorOrPtr __kmem_dma_alloc_range(size_t size, uint32_t custom_flag, uint32_t page_flags);
 
 ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
@@ -253,6 +263,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
 ErrorOrPtr __kmem_dealloc(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size);
 ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size);
 ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
+
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);

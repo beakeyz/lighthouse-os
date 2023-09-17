@@ -8,6 +8,6 @@ physical:
 
 virtual kernelspace:
 
-0xFFFFFFFF80000000 -> ...: kernel-mapped
-0xFFFF800000000000 -> ...: early kernelheap mapped
-0xFFFFFFFF60000000 -> 0xFFFFFFFF60000000 + fb_size: early multiboot frambuffer
+0x0000000000000000 -> 0xFFFF7FFFFFFFFFFF : Unused gap
+0xFFFF800000000000 -> 0xFFFFFFFF7FFFFFFF : Physical mirror
+0xFFFFFFFF80000000 -> 0xFFFFFFFFFFFFFFFF : Kernel-text mapping

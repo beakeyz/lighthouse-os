@@ -283,23 +283,6 @@ void kterm_command_worker() {
         bind_khandle(&p->m_handle_map, &_stdout);
         bind_khandle(&p->m_handle_map, &_stderr);
 
-        /*
-         * Create mapping to ensure this process has access to the framebuffer when doing syscalls 
-         * NOTE: this is probably temporary
-         */
-        Must(__kmem_alloc_ex(
-              p->m_root_pd.m_root,
-              p->m_resource_bundle,
-              (paddr_t)__kterm_fb_info.addr,
-              KTERM_FB_ADDR,
-              __kterm_fb_info.size,
-              KMEM_CUSTOMFLAG_NO_REMAP,
-              KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
-              ));
-
-        /* Apply the flags to our resource */
-        resource_apply_flags(KTERM_FB_ADDR, GET_PAGECOUNT(__kterm_fb_info.size), KRES_FLAG_MEM_KEEP_PHYS, GET_RESOURCE(p->m_resource_bundle, KRES_TYPE_MEM));
-
         sched_add_priority_proc(p, true);
 
         await_proc_termination(p);

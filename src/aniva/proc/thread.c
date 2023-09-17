@@ -78,7 +78,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
         proc->m_resource_bundle,
         HIGH_MAP_BASE,
         DEFAULT_STACK_SIZE,
-        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER,
+        KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
 
   /* Compute the kernel stack top */

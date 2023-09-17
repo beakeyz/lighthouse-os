@@ -454,6 +454,7 @@ int xhci_setup(usb_hcd_t* hcd)
 
   if (is_bar_64bit(bar0))
     xhci_register_p |= ((bar1 & 0xFFFFFFFF) << 32);
+
   /*
    * Prepare by setting the register offsets 
    * we can use both the generic mmio functions
@@ -532,7 +533,8 @@ int xhci_setup(usb_hcd_t* hcd)
   return 0;
 
 fail_and_dealloc:
-  __kmem_kernel_dealloc(xhci->register_ptr, xhci_register_size);
+  /* Since the XHCI registers SHOULD be in a reserved region, this is OK since we are not needing this anymore */
+  __kmem_dealloc_unmap(nullptr, nullptr, xhci->register_ptr, xhci_register_size);
 
   pci_device_disable(device);
   return -1;
@@ -549,6 +551,7 @@ fail_and_dealloc:
  */
 int xhci_start(usb_hcd_t* hcd)
 {
+  return 0;
   int error;
   uint32_t cmd;
   xhci_interrupter_t* itr;
@@ -627,8 +630,6 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   hcd->private = xhci_hcd;
   hcd->mmio_ops = &xhci_mmio_ops;
   hcd->hw_ops = &xhci_hw_ops;
-
-  return 0;
 
   error = register_usb_hcd(hcd);
 
