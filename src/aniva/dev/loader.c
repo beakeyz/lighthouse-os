@@ -346,7 +346,7 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
   return Success(0);
 }
 
-static ErrorOrPtr __replace_installed_manifest(dev_manifest_t* new_manifest)
+static ErrorOrPtr __remove_installed_manifest(dev_manifest_t* new_manifest)
 {
   dev_manifest_t* current;
 
@@ -365,10 +365,7 @@ static ErrorOrPtr __replace_installed_manifest(dev_manifest_t* new_manifest)
     return Warning();
 
   /* Remove the old driver manifest */
-  TRY(_, uninstall_driver(current));
-
-  /* Enplace the new driver manifest */
-  return install_driver(new_manifest);
+  return uninstall_driver(current);
 }
 
 /*
@@ -395,7 +392,10 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
    * that it's not already loaded (and it thus in an idle installed-only state)
    * and we can thus load it here
    */
-  (void)__replace_installed_manifest;
+  result = __remove_installed_manifest(ctx->driver->m_manifest);
+
+  if (IsError(result))
+    return Error();
 
   result = __verify_driver_functions(ctx, false);
 
@@ -455,17 +455,13 @@ extern_driver_t* load_external_driver(const char* path)
   if (!file)
     return nullptr;
 
-  println("B");
   out = create_external_driver(NULL);
 
-  println("B");
   if (!out || !out->m_manifest)
     return nullptr;
 
-  println("A");
-  /* Allocate contiguous space for the driver */
+  /* Allocate contiguous high space for the driver */
   result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
-  println("B");
 
   if (IsError(result))
     goto fail_and_deallocate;

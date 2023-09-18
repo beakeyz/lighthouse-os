@@ -291,6 +291,11 @@ void await_proc_termination(proc_t* proc)
 
   Must(register_kdoor(proc->m_terminate_bell, &terminate_door));
 
+  /*
+   * FIXME: when we try to register a door after the doorbell has already been destroyed
+   * we can create a 'deadlock' here, since we are waiting for our door to be rang while
+   * there is no doorbell at all
+   */
   while (!kdoor_is_rang(&terminate_door))
     scheduler_yield();
 

@@ -31,6 +31,8 @@
 /* TODO ? */
 bool file_contains_driver(file_t* file);
 
+extern_driver_t* install_external_driver(const char* path);
+
 extern_driver_t* load_external_driver(const char* path);
 void unload_external_driver(extern_driver_t* driver);
 

@@ -7,6 +7,7 @@
 #include "dev/disk/ramdisk.h"
 #include "dev/external.h"
 #include "dev/keyboard/ps2_keyboard.h"
+#include "dev/kterm/exec.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/video/device.h"
@@ -19,6 +20,8 @@
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
+#include "libk/data/hashmap.h"
+#include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
@@ -71,14 +74,9 @@ static void kterm_println(const char* msg);
 // This driver depends on ps2, so this is legal for now
 void kterm_on_key(ps2_key_event_t event);
 
-/* Command processing information */
-typedef struct {
-  /* Commands can't be longer than 128 bytes :clown: */
-  char buffer[KTERM_MAX_BUFFER_SIZE];
-} kterm_cmd_t;
-
-mutex_t* __kterm_cmd_lock;
-kterm_cmd_t __kterm_cmd_buffer;
+/* Command buffer */
+static kdoor_t __processor_door;
+static kdoorbell_t* __kterm_cmd_doorbell;
 
 /* Buffer information */
 static uintptr_t __kterm_current_line;
@@ -86,29 +84,8 @@ static uintptr_t __kterm_buffer_ptr;
 static char __kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
 static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
 
-/*
-static uint32_t* __kterm_double_buffer;
-static size_t __kterm_double_buffer_size;
-*/
-
+/* Framebuffer information */
 static fb_info_t __kterm_fb_info;
-
-/*
-static void kterm_doubl_buffer_clear() 
-{
-  memset(__kterm_double_buffer, 0, __kterm_double_buffer_size);
-}
-
-static void kterm_swap()
-{
-  for (uintptr_t x = 0; x < __kterm_fb_info.width; x++) {
-    for (uintptr_t y = 0; y < __kterm_fb_info.height; y++) {
-      uint32_t double_color = *kterm_get_pixel_address(x, y);
-      kterm_draw_pixel_raw(x, y, double_color);
-    }
-  }
-}
-*/
 
 static void kterm_clear_raw()
 {
@@ -130,171 +107,122 @@ static void kterm_clear()
   kterm_draw_cursor();
 }
 
-void kterm_command_worker() {
+void kterm_command_worker() 
+{
+  char processor_buffer[KTERM_MAX_BUFFER_SIZE];
 
-  for (;;) {
+  init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
 
-    if (__kterm_cmd_buffer.buffer[0] != 0) {
-      mutex_lock(__kterm_cmd_lock);
+  Must(register_kdoor(__kterm_cmd_doorbell, &__processor_door));
 
-      /* TODO: process cmd */
-      const char* contents = __kterm_cmd_buffer.buffer;
+  while (true) {
 
-      if (!strcmp(contents, "acpitables")) {
-
-        acpi_parser_t* parser;
-
-        get_root_acpi_parser(&parser);
-
-        kterm_println("acpi static table info: \n");
-        kterm_println("rsdp address: ");
-        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_rsdp)));
-        kterm_println("\n");
-        kterm_println("xsdp address: ");
-        kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_xsdp)));
-        kterm_println("\n");
-        kterm_println("is xsdp: ");
-        kterm_println(parser->m_is_xsdp ? "true\n" : "false\n");
-        kterm_println("rsdp discovery method: ");
-        kterm_println(parser->m_rsdp_discovery_method.m_name);
-        kterm_println("\n");
-        kterm_println("tables found: ");
-        kterm_println(to_string(parser->m_tables->m_length));
-        kterm_println("\n");
-      } else if (!strcmp(contents, "help")) {
-        kterm_println("available commands: \n");
-        kterm_println(" - help: print some helpful info\n");
-        kterm_println(" - acpitables: print the acpi tables present in the system\n");
-        kterm_println(" - ztest: spawn a zone allocator and test it\n");
-        kterm_println(" - testramdisk: spawn a ramdisk and test it\n");
-        kterm_println(" - exit: panic the kernel\n");
-      } else if (!strcmp(contents, "clear")) {
-        kterm_clear();
-      } else if (!strcmp(contents, "exit")) {
-
-        /* NOTE this is just to show that this system works =D */
-        void (*pnc)(char*) = (FuncPtr)get_ksym_address("kernel_panic");
-
-        pnc("TODO: exit/shutdown");
-
-      } else if (!strcmp(contents, "ztest")) {
-        zone_allocator_t* allocator = create_zone_allocator_ex(nullptr, 0, 4 * Kib, sizeof(uintptr_t), 0);
-
-        uintptr_t* test_data = zalloc(allocator, sizeof(uintptr_t));
-        *test_data = 6969;
-
-        kterm_println("Allocated 8 bytes: ");
-        kterm_println(to_string(*test_data));
-
-        uintptr_t* test_data2 = zalloc(allocator, sizeof(uintptr_t));
-        *test_data2 = 420;
-
-        kterm_println("\nAllocated 8 bytes: ");
-        kterm_println(to_string(*test_data2));
-
-        zfree(allocator, test_data, sizeof(uintptr_t));
-
-        kterm_println("\nDeallocated 8 bytes: ");
-        kterm_println(to_string(*test_data));
-
-        zfree(allocator, test_data2, sizeof(uintptr_t));
-
-        kterm_println("\nDeallocated 8 bytes: ");
-        kterm_println(to_string(*test_data2));
-
-        kterm_println("\n Total zone allocator size: ");
-        kterm_println(to_string(allocator->m_total_size));
-
-        kterm_println("\nSuccessfully created Zone!\n");
-
-        destroy_zone_allocator(allocator, true);
-
-        kterm_println("\nSuccessfully destroyed Zone!\n");
-
-      } else if (!strcmp(contents, "testramdisk")) {
-
-        kterm_println("Finding node...\n");
-        vobj_t* obj = vfs_resolve("Root/init");
-
-        ASSERT_MSG(obj, "Could not get vobj from test");
-        ASSERT_MSG(obj->m_type == VOBJ_TYPE_FILE, "Object was not a file!");
-        file_t* file = vobj_get_file(obj);
-        ASSERT_MSG(file, "Could not get file from test");
-
-        kterm_println("File size: ");
-        kterm_println(to_string(file->m_buffer_size));
-        kterm_println("\n");
-
-        println("Trying to make proc");
-        Must(elf_exec_static_64_ex(file, false, false));
-        println("Made proc");
-
-      } else {
-
-        proc_t* p;
-
-        println(contents);
-
-        if (contents[0] == NULL)
-          goto end_processing;
-
-        vobj_t* obj = vfs_resolve(contents);
-
-        if (!obj) {
-          kterm_println("Could not find object!\n");
-          goto end_processing;
-        }
-
-        file_t* file = vobj_get_file(obj);
-
-        if (!file) {
-          kterm_println("Could not execute object!\n");
-          goto end_processing;
-        }
-
-        ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
-
-        if (IsError(result)) {
-          kterm_println("Coult not execute object!\n");
-          vobj_close(obj);
-          goto end_processing;
-        }
-
-        p = (proc_t*)Release(result);
-
-        vobj_close(obj);
-
-        khandle_type_t driver_type = KHNDL_TYPE_DRIVER;
-        dev_manifest_t* kterm_manifest = get_driver("other/kterm");
-
-        khandle_t _stdin;
-        khandle_t _stdout;
-        khandle_t _stderr;
-
-        create_khandle(&_stdin, &driver_type, kterm_manifest);
-        create_khandle(&_stdout, &driver_type, kterm_manifest);
-        create_khandle(&_stderr, &driver_type, kterm_manifest);
-
-        _stdin.flags |= HNDL_FLAG_READACCESS;
-        _stdout.flags |= HNDL_FLAG_WRITEACCESS;
-        _stderr.flags |= HNDL_FLAG_RW;
-
-        bind_khandle(&p->m_handle_map, &_stdin);
-        bind_khandle(&p->m_handle_map, &_stdout);
-        bind_khandle(&p->m_handle_map, &_stderr);
-
-        sched_add_priority_proc(p, true);
-
-        await_proc_termination(p);
-      }
-
-end_processing:
-      memset(&__kterm_cmd_buffer, 0, sizeof(__kterm_cmd_buffer));
-
-      mutex_unlock(__kterm_cmd_lock);
+    if (!kdoor_is_rang(&__processor_door)) {
+      scheduler_yield();
+      continue;
     }
 
-    scheduler_yield();
+    /* TODO: actually process cmd */
+    char* contents = __processor_door.m_buffer;
+    uint32_t buffer_size = __processor_door.m_buffer_size;
+
+    if (!strcmp(contents, "acpitables")) {
+
+      acpi_parser_t* parser;
+
+      get_root_acpi_parser(&parser);
+
+      kterm_println("acpi static table info: \n");
+      kterm_println("rsdp address: ");
+      kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_rsdp)));
+      kterm_println("\n");
+      kterm_println("xsdp address: ");
+      kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_xsdp)));
+      kterm_println("\n");
+      kterm_println("is xsdp: ");
+      kterm_println(parser->m_is_xsdp ? "true\n" : "false\n");
+      kterm_println("rsdp discovery method: ");
+      kterm_println(parser->m_rsdp_discovery_method.m_name);
+      kterm_println("\n");
+      kterm_println("tables found: ");
+      kterm_println(to_string(parser->m_tables->m_length));
+      kterm_println("\n");
+    } else if (!strcmp(contents, "help")) {
+      kterm_println("available commands: \n");
+      kterm_println(" - help: print some helpful info\n");
+      kterm_println(" - acpitables: print the acpi tables present in the system\n");
+      kterm_println(" - ztest: spawn a zone allocator and test it\n");
+      kterm_println(" - testramdisk: spawn a ramdisk and test it\n");
+      kterm_println(" - exit: panic the kernel\n");
+    } else if (!strcmp(contents, "clear")) {
+      kterm_clear();
+    } else if (!strcmp(contents, "exit")) {
+
+      /* NOTE this is just to show that this system works =D */
+      void (*pnc)(char*) = (FuncPtr)get_ksym_address("kernel_panic");
+
+      pnc("TODO: exit/shutdown");
+
+    } else if (!strcmp(contents, "ztest")) {
+      zone_allocator_t* allocator = create_zone_allocator_ex(nullptr, 0, 4 * Kib, sizeof(uintptr_t), 0);
+
+      uintptr_t* test_data = zalloc(allocator, sizeof(uintptr_t));
+      *test_data = 6969;
+
+      kterm_println("Allocated 8 bytes: ");
+      kterm_println(to_string(*test_data));
+
+      uintptr_t* test_data2 = zalloc(allocator, sizeof(uintptr_t));
+      *test_data2 = 420;
+
+      kterm_println("\nAllocated 8 bytes: ");
+      kterm_println(to_string(*test_data2));
+
+      zfree(allocator, test_data, sizeof(uintptr_t));
+
+      kterm_println("\nDeallocated 8 bytes: ");
+      kterm_println(to_string(*test_data));
+
+      zfree(allocator, test_data2, sizeof(uintptr_t));
+
+      kterm_println("\nDeallocated 8 bytes: ");
+      kterm_println(to_string(*test_data2));
+
+      kterm_println("\n Total zone allocator size: ");
+      kterm_println(to_string(allocator->m_total_size));
+
+      kterm_println("\nSuccessfully created Zone!\n");
+
+      destroy_zone_allocator(allocator, true);
+
+      kterm_println("\nSuccessfully destroyed Zone!\n");
+
+    } else if (!strcmp(contents, "testramdisk")) {
+
+      kterm_println("Finding node...\n");
+      vobj_t* obj = vfs_resolve("Root/init");
+
+      ASSERT_MSG(obj, "Could not get vobj from test");
+      ASSERT_MSG(obj->m_type == VOBJ_TYPE_FILE, "Object was not a file!");
+      file_t* file = vobj_get_file(obj);
+      ASSERT_MSG(file, "Could not get file from test");
+
+      kterm_println("File size: ");
+      kterm_println(to_string(file->m_buffer_size));
+      kterm_println("\n");
+
+      println("Trying to make proc");
+      Must(elf_exec_static_64_ex(file, false, false));
+      println("Made proc");
+
+    } else {
+      kterm_try_exec(contents, buffer_size);
+    }
+
+    /* Clear the buffer ourselves */
+    memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
+
+    Must(kdoor_reset(&__processor_door));
   }
 }
 
@@ -358,13 +286,12 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
 int kterm_init() {
 
   __kterm_current_line = 0;
-  __kterm_cmd_lock = create_mutex(0);
+  __kterm_cmd_doorbell = create_doorbell(1, NULL);
 
   ASSERT_MSG(driver_manifest_write(&g_base_kterm_driver, kterm_write), "Failed to manifest kterm write");
   ASSERT_MSG(driver_manifest_read(&g_base_kterm_driver, kterm_read), "Failed to manifest kterm read");
 
   /* Zero out the cmd buffer */
-  memset(&__kterm_cmd_buffer, 0, sizeof(kterm_cmd_t));
   memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
@@ -447,6 +374,10 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
 }
 
 void kterm_on_key(ps2_key_event_t event) {
+
+  if (!doorbell_has_door(__kterm_cmd_doorbell, 0))
+    return;
+
   if (event.m_pressed)
     kterm_write_char(event.m_typed_char);
 }
@@ -473,6 +404,7 @@ static void kterm_write_char(char c) {
       }
       break;
     case (char)0x0A:
+      /* Enter */
       kterm_process_buffer();
       break;
     default:
@@ -485,17 +417,21 @@ static void kterm_write_char(char c) {
   }
 }
 
+/*!
+ * @brief Process an incomming command
+ *
+ * TODO: should we queue incomming commands with a more sophisticated context handeling
+ * system?
+ */
 static void kterm_process_buffer() {
   char buffer[KTERM_MAX_BUFFER_SIZE];
   size_t buffer_size;
 
   /* Copy the buffer localy, so we can clear it early */
-  {
-    const char* contents = kterm_get_buffer_contents();
-    buffer_size = strlen(contents);
+  const char* contents = kterm_get_buffer_contents();
+  buffer_size = strlen(contents);
 
-    memcpy(buffer, contents, buffer_size);
-  }
+  memcpy(buffer, contents, buffer_size);
 
   if (buffer_size >= KTERM_MAX_BUFFER_SIZE) {
     /* Bruh, we cant process this... */
@@ -505,7 +441,8 @@ static void kterm_process_buffer() {
   /* Make sure we add the newline so we also flush the char buffer */
   kterm_println("\n");
 
-  if (mutex_is_locked(__kterm_cmd_lock)) {
+  /* Redirect to the stdin buffer when there is an active command still */
+  if (kdoor_is_rang(&__processor_door)) {
     memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
     memcpy(__kterm_stdin_buffer, buffer, buffer_size);
 
@@ -513,11 +450,9 @@ static void kterm_process_buffer() {
     return;
   }
 
-  mutex_lock(__kterm_cmd_lock);
+  doorbell_write(__kterm_cmd_doorbell, buffer, buffer_size, 0);
 
-  memcpy(__kterm_cmd_buffer.buffer, buffer, buffer_size);
-
-  mutex_unlock(__kterm_cmd_lock);
+  doorbell_ring(__kterm_cmd_doorbell);
 }
 
 static void kterm_draw_cursor() {

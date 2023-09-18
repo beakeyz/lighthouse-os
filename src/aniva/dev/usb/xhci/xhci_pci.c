@@ -6,6 +6,7 @@
 #include "dev/driver.h"
 #include "dev/kterm/kterm.h"
 #include "dev/usb/hcd.h"
+#include "dev/usb/request.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xhci/extended.h"
 #include "dev/usb/xhci/xhci.h"
@@ -140,6 +141,33 @@ void destroy_xhci_hub(xhci_hub_t* hub)
   kernel_panic("TODO: destroy_xhci_hub");
 }
 
+static int xhci_hub_process_request(xhci_hub_t* hub, usb_request_t* req)
+{
+  return 0;
+}
+
+int xhci_enq_request(usb_hcd_t* hcd, usb_request_t* req)
+{
+  xhci_hcd_t* xhci;
+
+  xhci = hcd->private;
+
+  if (req->device == xhci->rhub->phub->device)
+    return xhci_hub_process_request(xhci->rhub, req);
+
+  return 0;
+}
+
+int xhci_deq_request(usb_hcd_t* hcd, usb_request_t* req)
+{
+  kernel_panic("TODO: implement xhci_deq_request");
+  return 0;
+}
+
+usb_hcd_io_ops_t xhci_io_ops = {
+  .enq_request = xhci_enq_request,
+  .deq_request = xhci_deq_request,
+};
 
 /*!
  * @brief Create and populate scratchpad buffers
@@ -630,6 +658,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   hcd->private = xhci_hcd;
   hcd->mmio_ops = &xhci_mmio_ops;
   hcd->hw_ops = &xhci_hw_ops;
+  hcd->io_ops = &xhci_io_ops;
 
   error = register_usb_hcd(hcd);
 
@@ -680,7 +709,8 @@ aniva_driver_t xhci_driver = {
   .f_msg = xhci_msg,
   .m_version = DEF_DRV_VERSION(0, 0, 1),
 };
-EXPORT_DRIVER_PTR(xhci_driver);
+/* TODO: finish this driver so we can actually use it ;-; (I hate USB) */
+//EXPORT_DRIVER_PTR(xhci_driver);
 
 uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {

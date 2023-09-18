@@ -2,8 +2,10 @@
 #include "usb.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
+#include "dev/usb/request.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
+#include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
 #include "mem/heap.h"
@@ -11,6 +13,7 @@
 #include "sync/mutex.h"
 
 zone_allocator_t __usb_hub_allocator;
+zone_allocator_t __usb_request_allocator;
 vector_t* __usb_hcds;
 
 /*!
@@ -57,6 +60,7 @@ usb_device_t* create_usb_device(usb_hub_t* hub, uint8_t port_num)
 
   memset(device, 0, sizeof(*device));
 
+  device->req_doorbell = create_doorbell(255, NULL);
   device->port_num = port_num;
   device->hub = hub;
 
@@ -74,6 +78,8 @@ usb_device_t* create_usb_device(usb_hub_t* hub, uint8_t port_num)
 void destroy_usb_device(usb_device_t* device)
 {
   kernel_panic("TODO: destroy_usb_device");
+  destroy_doorbell(device->req_doorbell);
+  kfree(device);
 }
 
 
@@ -252,12 +258,36 @@ void release_usb_hcd(struct usb_hcd* hcd)
    */
 }
 
+
+usb_request_t* allocate_usb_request()
+{
+  usb_request_t* req;
+
+  req = zalloc_fixed(&__usb_request_allocator);
+
+  if (!req)
+    return nullptr;
+
+  memset(req, 0, sizeof(*req));
+
+  return req;
+}
+
+void deallocate_usb_request(usb_request_t* req)
+{
+  if (!req)
+    return;
+
+  zfree_fixed(&__usb_request_allocator, req);
+}
+
 /*!
  * @brief Common USB subsytem initialization
  */
 void init_usb()
 {
-  Must(init_zone_allocator(&__usb_hub_allocator, 64 * Kib, sizeof(usb_hcd_t), NULL));
+  Must(init_zone_allocator(&__usb_hub_allocator, 16 * Kib, sizeof(usb_hcd_t), NULL));
+  Must(init_zone_allocator(&__usb_request_allocator, 32 * Kib, sizeof(usb_request_t), NULL));
 
   /* Use a vector to store the usb host controller drivers */
   __usb_hcds = create_vector(MAX_USB_HCDS, sizeof(void*), VEC_FLAG_NO_DUPLICATES);

@@ -130,7 +130,6 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
        * TODO: how do we want this to work? 
        * TODO: Create vobj 
        */
-
       switch (current_file.type) {
         case TAR_TYPE_FILE:
           {
@@ -148,7 +147,7 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
           }
         case TAR_TYPE_DIR:
           {
-            
+            break;
           }
         default:
           kernel_panic("cramfs: unsupported fsentry type");
@@ -157,7 +156,6 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
 
     current_offset += apply_tar_alignment(filesize);
   }
-  kernel_panic("Did not find ramfs object =(");
 
   mutex_unlock(node->m_vobj_lock);
   destroy_vobj(file->m_obj);

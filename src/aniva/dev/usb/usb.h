@@ -16,6 +16,7 @@
 #include "dev/pci/pci.h"
 #include "dev/usb/spec.h"
 #include "libk/data/linkedlist.h"
+#include "libk/flow/doorbell.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/stddef.h>
@@ -26,6 +27,7 @@
 
 struct usb_hcd;
 struct usb_hub;
+struct usb_request;
 
 typedef struct usb_device {
   usb_device_descriptor_t desc;
@@ -39,6 +41,8 @@ typedef struct usb_device {
 
   uint32_t state;
   uint32_t speed;
+
+  kdoorbell_t* req_doorbell;
 
   struct usb_hub* hub;
 } usb_device_t;
@@ -102,5 +106,7 @@ static inline bool is_valid_usb_hub_type(uint8_t type)
   return (type <= USB_HUB_TYPE_MAX);
 }
 
+struct usb_request* allocate_usb_request();
+void deallocate_usb_request(struct usb_request* req);
 
 #endif // !__ANIVA_USB_DEF__
