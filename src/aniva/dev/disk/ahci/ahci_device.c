@@ -4,7 +4,6 @@
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
-#include "dev/kterm/kterm.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "intr/ctl/ctl.h"

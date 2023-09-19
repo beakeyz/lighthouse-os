@@ -1,5 +1,4 @@
 #include "elf.h"
-#include <dev/kterm/kterm.h>
 #include "dev/debug/serial.h"
 #include "fs/file.h"
 #include <fs/vobj.h>

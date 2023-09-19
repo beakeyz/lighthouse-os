@@ -5,7 +5,7 @@
  * Utility extention of the aniva kterm to execute elf binaries from a cli
  */
 
-#include "dev/kterm/kterm.h"
+#include "kterm.h"
 
 void kterm_try_exec(char* buffer, uint32_t buffer_size);
 

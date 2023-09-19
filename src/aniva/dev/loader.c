@@ -242,8 +242,11 @@ static int __check_driver(struct loader_ctx* ctx)
         if (strcmp(ctx->section_strings + shdr->sh_name, ".expdrv") == 0) {
           /* TODO: real validation */
 
-          if (shdr->sh_size != sizeof(aniva_driver_t)) {
-            kernel_panic("Size check failed while loading external driver: could it be that dependencies enlarge the sections size?");
+          /*
+           * (NOTE/FIXME): aniva_driver_t has no fixed size due to the way we specify dependencies
+           */
+          if (shdr->sh_size < sizeof(aniva_driver_t)) {
+            kernel_panic("Size check failed while loading external driver");
             return -1;
           }
 
@@ -532,7 +535,7 @@ void unload_external_driver(extern_driver_t* driver)
  *
  * o the file is a valid ELF
  * o the ELF contains a valid (TODO) signature
- * o the ELF contains the .expdrv section which is sizeof(aniva_driver_t)
+ * o the ELF contains the .expdrv section which is sizeof(aniva_driver_t) (plus its dependency strings)
  *
  * This requires us to load the entire file however, so this is kinda kostly =/
  */

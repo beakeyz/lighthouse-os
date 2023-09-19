@@ -1,0 +1,14 @@
+When booting from a USB, we always get passed a ramdisk by the bootloader. When this happens, it gets interpreted by the kernel as its
+root filesystem. When we are installed on a disk partition though, we want that to contain our main filesystem. Both should follow roughly the same 
+layout, with the obvious difference that the filesystem on disk is mutable and can therefore differ in small things.
+
+The main outline will be given here, per directory or vfs entry:
+
+ - /Root: this is where the main filesystem gets mounted on the VFS. this should always be the same so the kernel knows where to find its shit
+ - /Root/System: contains drivers and system-essensial stuff for the kernel (Like the kernel itself)
+ - /Root/Apps: contains the installed applications that are global to the system (i.e. user independant)
+ - /Root/Assets: A place where different assets can be dumped. Apps can request a directory here that they own where they can store their resources
+ - /Root/User: contains the different user-owned directories and different user-related stuff
+    - /Root/Global: contains the global user info
+ 
+ /* ... */

@@ -1,5 +1,4 @@
 #include "core.h"
-#include "dev/kterm/kterm.h"
 #include "fs/vdir.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"

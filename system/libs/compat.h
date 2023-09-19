@@ -1,4 +1,0 @@
-#ifndef __LIGHTENV_LIBC_COMPAT__
-#define __LIGHTENV_LIBC_COMPAT__
-
-#endif // !__LIGHTENV_LIBC_COMPAT__

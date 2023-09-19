@@ -5,6 +5,7 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/driver.h"
+#include "dev/external.h"
 #include "dev/hid/hid.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
@@ -46,8 +47,6 @@
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
 #include <sched/scheduler.h>
-
-#include <dev/kterm/kterm.h>
 
 system_info_t g_system_info;
 
@@ -243,6 +242,10 @@ void kthread_entry() {
    *  - verify the root device
    *  - launch the userspace bootstrap
    */
+
+  extern_driver_t* kterm = load_external_driver("Root/System/kterm.drv");
+
+  ASSERT_MSG(kterm, "Failed to load kterm!");
 
   /*
    * Setup is done: we can start scheduling stuff 

@@ -2,7 +2,6 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
-#include "dev/kterm/kterm.h"
 #include "dev/manifest.h"
 #include "fs/cache.h"
 #include "fs/core.h"

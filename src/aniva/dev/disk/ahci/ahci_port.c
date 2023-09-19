@@ -6,7 +6,6 @@
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/disk/shared.h"
-#include "dev/kterm/kterm.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"

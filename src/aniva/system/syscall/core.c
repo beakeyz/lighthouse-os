@@ -6,7 +6,6 @@
 #include "proc/thread.h"
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
-#include <dev/kterm/kterm.h>
 
 #include "sys_alloc/sys_alloc_mem.h"
 #include "sys_rw/sys_rw.h"

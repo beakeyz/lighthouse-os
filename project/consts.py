@@ -130,7 +130,7 @@ class Consts:
         self.scan_dirs(self.OUT_DIR)
         self.scan_dirs(self.PROJECT_MANAGEMENT_DIR)
 
-        userSrcDir = f"{self.SRC_DIR}/user" 
+        userSrcDir = f"{self.SRC_DIR}/user"
 
         # Scan the entire user source dir
         completeContent = os.listdir(userSrcDir)
@@ -142,7 +142,7 @@ class Consts:
             if isdir(absPath):
                 self.USER_PROJECT_PATHS.append(absPath)
 
-        libSrcDir = f"{self.SRC_DIR}/libs" 
+        libSrcDir = f"{self.SRC_DIR}/libs"
 
         # Scan the entire user source dir
         completeContent = os.listdir(libSrcDir)
@@ -169,7 +169,7 @@ class Consts:
         dirs: list[str] = os.listdir(path)
         manifest: BuildManifest = build.manifest.scan_for_manifest(path)
 
-        if manifest != None:
+        if manifest is not None:
 
             manifest.gather_sourcefiles(self.SRC_FILES)
 

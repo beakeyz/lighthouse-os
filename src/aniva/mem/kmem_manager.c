@@ -1,5 +1,4 @@
 #include "kmem_manager.h"
-#include "dev/kterm/kterm.h"
 #include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include <mem/heap.h>

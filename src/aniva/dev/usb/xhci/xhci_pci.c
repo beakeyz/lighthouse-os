@@ -4,7 +4,6 @@
 
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
-#include "dev/kterm/kterm.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/request.h"
 #include "dev/usb/usb.h"

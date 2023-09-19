@@ -125,7 +125,9 @@ class DepsCallback(CommandCallback):
 
 class RamdiskCreateCallback(CommandCallback):
     def call(self) -> Status:
-        ramdisk = RamdiskManager()
+        c = Consts()
+
+        ramdisk = RamdiskManager(c)
 
         ramdisk.create_ramdisk()
         return Status(StatusCode.Success, "Created ramdisk!")
@@ -133,9 +135,11 @@ class RamdiskCreateCallback(CommandCallback):
 
 class RamdiskRemoveCallback(CommandCallback):
     def call(self) -> Status:
-        ramdisk = RamdiskManager()
+        c = Consts()
 
-        if ramdisk.remove_ramdisk() == True:
+        ramdisk = RamdiskManager(c)
+
+        if ramdisk.remove_ramdisk() is True:
             return Status(StatusCode.Success, "Removed ramdisk!")
 
         return Status(StatusCode.Fail, "Failed to remove ramdisk!")

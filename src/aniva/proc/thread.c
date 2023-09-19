@@ -1,6 +1,5 @@
 #include "thread.h"
 #include "dev/debug/serial.h"
-#include "dev/kterm/kterm.h"
 #include "dev/manifest.h"
 #include "entry/entry.h"
 #include "kevent/kevent.h"

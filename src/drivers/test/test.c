@@ -1,4 +1,3 @@
-#include "dev/kterm/kterm.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include <dev/core.h>

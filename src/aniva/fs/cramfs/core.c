@@ -12,8 +12,6 @@
 #include "sync/mutex.h"
 #include <fs/core.h>
 
-#include <dev/kterm/kterm.h>
-
 int ramfs_init();
 int ramfs_exit();
 
