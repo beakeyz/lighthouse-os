@@ -513,10 +513,10 @@ int xhci_setup(usb_hcd_t* hcd)
 
   uint32_t cap_len = HC_LENGTH(mmio_read_dword(&xhci->cap_regs->hc_capbase));
 
-  println_kterm("XHCI cap len: ");
-  println_kterm(to_string(cap_len));
-  println_kterm("XHCI version: ");
-  println_kterm(to_string(xhci->hci_version));
+  logln("XHCI cap len: ");
+  logln(to_string(cap_len));
+  logln("XHCI version: ");
+  logln(to_string(xhci->hci_version));
 
   /* Make sure BIOS fucks off before we do shit with the controller */
   xhci_bios_takeover(hcd);
@@ -526,21 +526,21 @@ int xhci_setup(usb_hcd_t* hcd)
   if (error)
     goto fail_and_dealloc;
 
-  println_kterm("Success halt: ");
-  println_kterm(to_string(error));
+  logln("Success halt: ");
+  logln(to_string(error));
 
   error = xhci_reset(hcd);
 
-  println_kterm("Success reset: ");
-  println_kterm(to_string(error));
+  logln("Success reset: ");
+  logln(to_string(error));
 
   if (error)
     goto fail_and_dealloc;
 
   error = xhci_prepare_memory(hcd);
 
-  println_kterm("Memory status: ");
-  println_kterm(to_string(error));
+  logln("Memory status: ");
+  logln(to_string(error));
 
   if (error)
     goto fail_and_dealloc;
@@ -649,7 +649,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   usb_hcd_t* hcd;
   xhci_hcd_t* xhci_hcd;
 
-  println_kterm("Probing for XHCI");
+  logln("Probing for XHCI");
 
   hcd = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
   xhci_hcd = create_xhci_hcd();

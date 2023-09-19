@@ -1,5 +1,4 @@
 #include "gdt.h"
-#include "dev/debug/serial.h"
 #include <mem/kmem_manager.h>
 #include <libk/string.h>
 #include <libk/stddef.h>

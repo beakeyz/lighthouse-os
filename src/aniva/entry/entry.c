@@ -21,6 +21,7 @@
 #include "libk/io.h"
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/pg.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
@@ -115,9 +116,13 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
    * them to a file, display them to the current console provider, or beam them over serial or USB
    * connectors =D
    */
-  init_serial();
-
   disable_interrupts();
+
+  // Logging system asap
+  init_early_logging();
+
+  // First logger
+  init_serial();
 
   println("Hi from 64 bit land =D");
   println(to_string((uintptr_t)mb_addr));
@@ -143,6 +148,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
+
+  // Initialize logging right after the memory setup
+  init_logging();
 
   // Initialize an early console
   init_early_tty(g_system_info.firmware_fb);

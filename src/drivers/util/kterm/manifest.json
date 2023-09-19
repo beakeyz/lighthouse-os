@@ -1,0 +1,5 @@
+{
+  "name": "kterm.drv",
+  "linking": "static",
+  "type": "driver"
+}

@@ -1,5 +1,4 @@
 #include "handle.h"
-#include "dev/debug/serial.h"
 #include "fs/file.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"

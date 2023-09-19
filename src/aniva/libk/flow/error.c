@@ -32,16 +32,8 @@ NORETURN void kernel_panic(const char* panic_message) {
 
   has_paniced = true;
 
-  /* TODO: add propper debug/log channels */
-  bool has_serial = true;
-
-  if (has_serial) {
-    print("[KERNEL PANIC] ");
-    println(panic_message);
-  }
-
-  println_kterm("[KERNEL PANIC] ");
-  println_kterm(panic_message);
+  print("[KERNEL PANIC] ");
+  println(panic_message);
 
 skip_diagnostics:
   __kernel_panic();

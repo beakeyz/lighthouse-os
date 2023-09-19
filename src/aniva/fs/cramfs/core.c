@@ -1,6 +1,5 @@
 #include "core.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/cramfs/compression.h"
@@ -201,7 +200,7 @@ static void __tar_create_superblock(vnode_t* node, partitioned_disk_dev_t* devic
  */
 vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
-  println_kterm("Mounting ramfs");
+  logln("Mounting ramfs");
 
   /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
   const disk_dev_t* parent = device->m_parent;

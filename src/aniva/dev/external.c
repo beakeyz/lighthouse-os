@@ -1,6 +1,5 @@
 #include "external.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/manifest.h"
 #include "fs/vobj.h"
 #include "mem/zalloc.h"

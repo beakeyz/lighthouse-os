@@ -1,4 +1,3 @@
-#include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
@@ -15,7 +14,7 @@ pci_dev_id_t test_ids[] = {
 
 int test_probe(pci_device_t* dev, pci_driver_t* driver)
 {
-  println_kterm("Found a potential device!");
+  logln("Found a potential device");
   return 0;
 }
 
@@ -26,7 +25,7 @@ pci_driver_t test_pci_driver = {
 };
 
 int test_init() {
-  println("Initalizing test driver!");
+  logln("Initalizing test driver!");
 
   register_pci_driver(&test_pci_driver);
 
@@ -35,7 +34,7 @@ int test_init() {
 
 int test_exit() {
 
-  println("Exiting test driver!");
+  logln("Exiting test driver!");
 
   return 0;
 }

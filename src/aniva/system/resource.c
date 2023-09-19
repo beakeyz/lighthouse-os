@@ -1,5 +1,4 @@
 #include "resource.h"
-#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"

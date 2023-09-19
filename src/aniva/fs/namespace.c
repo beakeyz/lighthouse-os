@@ -1,5 +1,4 @@
 #include "namespace.h"
-#include "dev/debug/serial.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"

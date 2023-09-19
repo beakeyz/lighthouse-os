@@ -1,5 +1,4 @@
 #include "compression.h"
-#include "dev/debug/serial.h"
 #include "dev/kterm/kterm.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"

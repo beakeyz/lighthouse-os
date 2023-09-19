@@ -21,14 +21,14 @@ void kterm_try_exec(char* buffer, uint32_t buffer_size)
   file_t* file = vobj_get_file(obj);
 
   if (!file) {
-    println_kterm("Could not execute object!");
+    logln("Could not execute object!");
     return;
   }
 
   ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
 
   if (IsError(result)) {
-    println_kterm("Coult not execute object!");
+    logln("Coult not execute object!");
     vobj_close(obj);
     return;
   }

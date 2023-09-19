@@ -27,6 +27,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -69,7 +70,16 @@ static void kterm_draw_cursor();
 static const char* kterm_get_buffer_contents();
 static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y);
 static void kterm_scroll(uintptr_t lines);
-static void kterm_println(const char* msg);
+
+static int kterm_print(const char* msg);
+static int kterm_println(const char* msg);
+
+logger_t kterm_logger = {
+  .title = "kterm",
+  .flags = LOGGER_FLAG_NO_CHAIN,
+  .f_logln = kterm_println,
+  .f_log = kterm_print,
+};
 
 // This driver depends on ps2, so this is legal for now
 void kterm_on_key(ps2_key_event_t event);
@@ -132,28 +142,28 @@ void kterm_command_worker()
 
       get_root_acpi_parser(&parser);
 
-      kterm_println("acpi static table info: \n");
-      kterm_println("rsdp address: ");
-      kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_rsdp)));
-      kterm_println("\n");
-      kterm_println("xsdp address: ");
-      kterm_println(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_xsdp)));
-      kterm_println("\n");
-      kterm_println("is xsdp: ");
-      kterm_println(parser->m_is_xsdp ? "true\n" : "false\n");
-      kterm_println("rsdp discovery method: ");
-      kterm_println(parser->m_rsdp_discovery_method.m_name);
-      kterm_println("\n");
-      kterm_println("tables found: ");
-      kterm_println(to_string(parser->m_tables->m_length));
-      kterm_println("\n");
+      kterm_print("acpi static table info: \n");
+      kterm_print("rsdp address: ");
+      kterm_print(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_rsdp)));
+      kterm_print("\n");
+      kterm_print("xsdp address: ");
+      kterm_print(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_xsdp)));
+      kterm_print("\n");
+      kterm_print("is xsdp: ");
+      kterm_print(parser->m_is_xsdp ? "true\n" : "false\n");
+      kterm_print("rsdp discovery method: ");
+      kterm_print(parser->m_rsdp_discovery_method.m_name);
+      kterm_print("\n");
+      kterm_print("tables found: ");
+      kterm_print(to_string(parser->m_tables->m_length));
+      kterm_print("\n");
     } else if (!strcmp(contents, "help")) {
-      kterm_println("available commands: \n");
-      kterm_println(" - help: print some helpful info\n");
-      kterm_println(" - acpitables: print the acpi tables present in the system\n");
-      kterm_println(" - ztest: spawn a zone allocator and test it\n");
-      kterm_println(" - testramdisk: spawn a ramdisk and test it\n");
-      kterm_println(" - exit: panic the kernel\n");
+      kterm_print("available commands: \n");
+      kterm_print(" - help: print some helpful info\n");
+      kterm_print(" - acpitables: print the acpi tables present in the system\n");
+      kterm_print(" - ztest: spawn a zone allocator and test it\n");
+      kterm_print(" - testramdisk: spawn a ramdisk and test it\n");
+      kterm_print(" - exit: panic the kernel\n");
     } else if (!strcmp(contents, "clear")) {
       kterm_clear();
     } else if (!strcmp(contents, "exit")) {
@@ -169,37 +179,37 @@ void kterm_command_worker()
       uintptr_t* test_data = zalloc(allocator, sizeof(uintptr_t));
       *test_data = 6969;
 
-      kterm_println("Allocated 8 bytes: ");
-      kterm_println(to_string(*test_data));
+      kterm_print("Allocated 8 bytes: ");
+      kterm_print(to_string(*test_data));
 
       uintptr_t* test_data2 = zalloc(allocator, sizeof(uintptr_t));
       *test_data2 = 420;
 
-      kterm_println("\nAllocated 8 bytes: ");
-      kterm_println(to_string(*test_data2));
+      kterm_print("\nAllocated 8 bytes: ");
+      kterm_print(to_string(*test_data2));
 
       zfree(allocator, test_data, sizeof(uintptr_t));
 
-      kterm_println("\nDeallocated 8 bytes: ");
-      kterm_println(to_string(*test_data));
+      kterm_print("\nDeallocated 8 bytes: ");
+      kterm_print(to_string(*test_data));
 
       zfree(allocator, test_data2, sizeof(uintptr_t));
 
-      kterm_println("\nDeallocated 8 bytes: ");
-      kterm_println(to_string(*test_data2));
+      kterm_print("\nDeallocated 8 bytes: ");
+      kterm_print(to_string(*test_data2));
 
-      kterm_println("\n Total zone allocator size: ");
-      kterm_println(to_string(allocator->m_total_size));
+      kterm_print("\n Total zone allocator size: ");
+      kterm_print(to_string(allocator->m_total_size));
 
-      kterm_println("\nSuccessfully created Zone!\n");
+      kterm_print("\nSuccessfully created Zone!\n");
 
       destroy_zone_allocator(allocator, true);
 
-      kterm_println("\nSuccessfully destroyed Zone!\n");
+      kterm_print("\nSuccessfully destroyed Zone!\n");
 
     } else if (!strcmp(contents, "testramdisk")) {
 
-      kterm_println("Finding node...\n");
+      kterm_print("Finding node...\n");
       vobj_t* obj = vfs_resolve("Root/init");
 
       ASSERT_MSG(obj, "Could not get vobj from test");
@@ -207,9 +217,9 @@ void kterm_command_worker()
       file_t* file = vobj_get_file(obj);
       ASSERT_MSG(file, "Could not get file from test");
 
-      kterm_println("File size: ");
-      kterm_println(to_string(file->m_buffer_size));
-      kterm_println("\n");
+      kterm_print("File size: ");
+      kterm_print(to_string(file->m_buffer_size));
+      kterm_print("\n");
 
       println("Trying to make proc");
       Must(elf_exec_static_64_ex(file, false, false));
@@ -247,7 +257,7 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
 
   /* TODO; string.h: char validation */
 
-  kterm_println(str);
+  kterm_print(str);
 
   return DRV_STAT_OK;
 }
@@ -320,23 +330,29 @@ int kterm_init() {
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
 
+  /* Register our logger to the logger subsys */
+  register_logger(&kterm_logger);
+
+  /* Make sure we are the logger with the highest prio */
+  logger_swap_priority(kterm_logger.id, 0);
+
   // flush our terminal buffer
   kterm_flush_buffer();
 
   kterm_draw_cursor();
 
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
-  kterm_println("\n");
-  kterm_println(" -- Welcome to the aniva kterm driver --\n");
+  kterm_print("\n");
+  kterm_print(" -- Welcome to the aniva kterm driver --\n");
   processor_t* processor = get_current_processor();
 
-  kterm_println(processor->m_info.m_vendor_id);
-  kterm_println("\n");
-  kterm_println(processor->m_info.m_model_id);
-  kterm_println("\n");
-  kterm_println("Available cores: ");
-  kterm_println(to_string(processor->m_info.m_max_available_cores));
-  kterm_println("\n");
+  kterm_print(processor->m_info.m_vendor_id);
+  kterm_print("\n");
+  kterm_print(processor->m_info.m_model_id);
+  kterm_print("\n");
+  kterm_print("Available cores: ");
+  kterm_print(to_string(processor->m_info.m_max_available_cores));
+  kterm_print("\n");
 
   return 0;
 }
@@ -360,7 +376,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
           return DRV_STAT_INVAL;
 
         println(str);
-        kterm_println(str);
+        kterm_print(str);
         //kterm_println("\n");
         break;
       }
@@ -439,7 +455,7 @@ static void kterm_process_buffer() {
   }
 
   /* Make sure we add the newline so we also flush the char buffer */
-  kterm_println("\n");
+  kterm_print("\n");
 
   /* Redirect to the stdin buffer when there is an active command still */
   if (kdoor_is_rang(&__processor_door)) {
@@ -493,7 +509,14 @@ static const char* kterm_get_buffer_contents() {
   return &__kterm_char_buffer[index];
 }
 
-static void kterm_println(const char* msg) {
+static int kterm_println(const char* msg) {
+  kterm_print(msg);
+  kterm_print("\n");
+
+  return 0;
+}
+
+static int kterm_print(const char* msg) {
 
   uintptr_t index = 0;
   uintptr_t kterm_buffer_ptr_copy = __kterm_buffer_ptr;
@@ -521,17 +544,21 @@ static void kterm_println(const char* msg) {
     index++;
   }
   __kterm_buffer_ptr = kterm_buffer_ptr_copy;
+
+  return 0;
 }
 
+/*
 void println_kterm(const char* msg) {
 
   if (!driver_is_ready(get_driver("other/kterm"))) {
     return;
   }
 
-  kterm_println(msg);
-  kterm_println("\n");
+  kterm_print(msg);
+  kterm_print("\n");
 }
+*/
 
 // TODO: add a scroll direction (up, down, left, ect)
 // FIXME: scrolling still gives weird artifacts

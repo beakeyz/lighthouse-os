@@ -1,5 +1,4 @@
 #include "core.h"
-#include "dev/debug/serial.h"
 #include <time/pit.h>
 #include <sched/scheduler.h>
 

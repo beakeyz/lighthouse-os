@@ -12,6 +12,6 @@ typedef struct kterm_cmd {
   int (*f_exec)(uint8_t* buffer, uint32_t buffer_size);
 } kterm_cmd_t;
 
-void println_kterm(const char*);
+//void println_kterm(const char*);
 
 #endif // !__ANIVA_KTERM_DRIVER__

@@ -17,7 +17,7 @@ uintptr_t ata_driver_on_packet(aniva_driver_t* this, dcc_t code, void* buffer, s
 
 int ata_probe(pci_device_t* device, pci_driver_t* driver)
 {
-  println_kterm("Found ATA device!");
+  logln("Found ATA device!");
   return 0;
 }
 

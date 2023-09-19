@@ -3,7 +3,6 @@
 #include <system/asm_specifics.h>
 #include "core.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
