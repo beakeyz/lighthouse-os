@@ -138,6 +138,7 @@ int fb_driver_init() {
   /* Register the video device (install it on our manifest) */
   register_video_device(&efifb_driver, &vdev);
 
+  try_activate_video_device(&vdev);
   return 0;
 }
 

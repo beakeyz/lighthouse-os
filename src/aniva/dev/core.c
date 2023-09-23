@@ -94,6 +94,8 @@ const char* driver_get_type_str(struct dev_manifest* driver)
   return nullptr;
 }
 
+static mutex_t* __driver_constraint_lock;
+
 static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
   [DT_DISK] = {
     .type = DT_DISK,
@@ -119,10 +121,21 @@ static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
     .max_active = 1,
     0
   },
+  /*
+   * Most graphics drivers should be external 
+   * This means that When we are booting the kernel we load a local driver for the 
+   * efi framebuffer and then we detect available graphics cards later. When we find
+   * one we have a driver for, we find it in the fs and load it. When loading the graphics 
+   * driver (which is most likely on PCI) we will keep the EFI fb driver intact untill the 
+   * driver reports successful load. We can do this because the external driver scan will happen AFTER we have 
+   * scanned PCI for local drivers, so when we load the external graphics driver, the
+   * load will also probe PCI, which will load the full driver in one go. When this reports
+   * success, we can unload the EFI driver and switch the core to the new external driver
+   */
   [DT_GRAPHICS] = {
     .type = DT_GRAPHICS,
     .max_count = 10,
-    .max_active = 1,
+    .max_active = 2,
     0
   },
   [DT_OTHER] = {
@@ -187,6 +200,8 @@ void init_aniva_driver_registry() {
   __installed_driver_manifests = create_hive("Devices");
   __dev_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, DEV_MANIFEST_SOFTMAX * sizeof(dev_manifest_t), sizeof(dev_manifest_t), NULL);
   __deferred_driver_manifests = init_list();
+
+  __driver_constraint_lock = create_mutex(NULL);
   __core_driver_lock = create_mutex(NULL);
 
   FOREACH_CORE_DRV(ptr) {
@@ -427,16 +442,22 @@ static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
 }
 */
 
-static void __driver_unregister_active(dev_type_t type) 
+static void __driver_unregister_active(dev_type_t type, dev_manifest_t* manifest)
 {
   dev_constraint_t* constraint = &__dev_constraints[type];
 
-  ASSERT_MSG(constraint->current_active, "Tried to unregister active while there are no active drivers!");
+  /* We are not dealing with the current active driver */
+  if (constraint->active != manifest || !constraint->current_active)
+    return;
+
+  mutex_lock(__driver_constraint_lock);
 
   /* Just make sure this is null if we unregister active */
   constraint->active = nullptr;
 
   constraint->current_active--;
+
+  mutex_unlock(__driver_constraint_lock);
 }
 
 static void __driver_register_presence(dev_type_t type) 
@@ -444,7 +465,9 @@ static void __driver_register_presence(dev_type_t type)
   if (type >= DRIVER_TYPE_COUNT)
     return;
 
+  mutex_lock(__driver_constraint_lock);
   __dev_constraints[type].current_count++;
+  mutex_unlock(__driver_constraint_lock);
 }
 
 static void __driver_unregister_presence(dev_type_t type) 
@@ -452,7 +475,9 @@ static void __driver_unregister_presence(dev_type_t type)
   if (type >= DRIVER_TYPE_COUNT || __dev_constraints[type].current_count)
     return;
 
+  mutex_lock(__driver_constraint_lock);
   __dev_constraints[type].current_count--;
+  mutex_unlock(__driver_constraint_lock);
 }
 
 /*
@@ -564,11 +589,10 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 
   /* Unregister presence before unlocking the manifest */
   __driver_unregister_presence(manifest->m_handle->m_type);
-  __driver_unregister_active(manifest->m_handle->m_type); 
+  __driver_unregister_active(manifest->m_handle->m_type, manifest); 
 
-  if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL) {
+  if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
     unload_external_driver(manifest->m_private);
-  }
 
   mutex_unlock(&manifest->m_lock);
 
@@ -624,6 +648,20 @@ struct dev_manifest* get_active_driver_from_type(dev_type_t type)
 {
   dev_constraint_t constraint = __dev_constraints[type];
   return constraint.active;
+}
+
+int set_active_driver(struct dev_manifest* dev, dev_type_t type)
+{
+  dev_constraint_t* constraint = &__dev_constraints[type];
+
+  if (constraint->active)
+    return -1;
+
+  mutex_lock(__driver_constraint_lock);
+  constraint->active = dev;
+  mutex_unlock(__driver_constraint_lock);
+
+  return 0;
 }
 
 /*!

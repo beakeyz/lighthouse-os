@@ -9,6 +9,7 @@
 #include "mem/page_dir.h"
 #include "mem/pg.h"
 #include "proc/handle.h"
+#include "proc/profile/profile.h"
 #include "sync/atomic_ptr.h"
 #include "system/resource.h"
 
@@ -61,28 +62,26 @@ typedef struct proc {
   proc_id_t m_id;
   uint32_t m_flags;
 
+  /* This is used to compare a processes status in relation to other processes */
+  //proc_profile_t m_profile;
+
   page_dir_t m_root_pd;
   khandle_map_t m_handle_map;
-
-  /* Represent the image that this proc stems from (either from disk or in-ram) */
-  struct proc_image m_image;
-
-  // maps?
-  list_t* m_threads;
-
   kresource_bundle_t m_resource_bundle;
 
   struct thread* m_init_thread;
   struct thread* m_idle_thread;
   struct thread* m_prev_thread;
+  list_t* m_threads;
+  atomic_ptr_t* m_thread_count;
 
   kdoorbell_t* m_terminate_bell;
 
   size_t m_ticks_used;
   size_t m_requested_max_threads;
 
-  atomic_ptr_t* m_thread_count;
-
+  /* Represent the image that this proc stems from (either from disk or in-ram) */
+  struct proc_image m_image;
 } proc_t;
 
 /* We will probably find more usages for this */

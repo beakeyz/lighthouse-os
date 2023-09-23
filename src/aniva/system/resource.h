@@ -156,12 +156,5 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_s
 
 ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t bundle);
 
-//void destroy_kresource_mirror(kresource_t* mirror);
-
-/*
- * Looks for a unused virtual region of the specified size we can 
- * Creates a kresource mirror that may be used in order to 
- * claim this region, for instance
- */
-ErrorOrPtr query_unused_resource(size_t size, kresource_type_t type, kresource_t* out, kresource_t** mirrors);
+ErrorOrPtr resource_find_usable_range(kresource_bundle_t bundle, kresource_type_t type, size_t size);
 #endif // !__ANIVA_SYS_RESOURCE__

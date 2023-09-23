@@ -146,6 +146,8 @@ struct dev_manifest* get_active_driver_from_type(dev_type_t type);
 struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
 int get_active_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
+
+int set_active_driver(struct dev_manifest* dev, dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);
 
 void replace_active_driver(struct dev_manifest* manifest, bool uninstall);

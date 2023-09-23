@@ -80,6 +80,7 @@ struct video_device* get_active_video_device();
 int try_activate_video_device(video_device_t* device);
 
 typedef struct video_device_ops {
+  int (*f_remove) (video_device_t* dev);
 } video_device_ops_t;
 
 #endif // !__ANIVA_VID_DEVICE__

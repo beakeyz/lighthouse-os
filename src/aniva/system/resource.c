@@ -591,6 +591,35 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
   return Success(0);
 }
 
+
+/*
+ * Looks for a unused virtual region of the specified size we can 
+ * Creates a kresource mirror that may be used in order to 
+ * claim this region, for instance
+ */
+ErrorOrPtr resource_find_usable_range(kresource_bundle_t bundle, kresource_type_t type, size_t size)
+{
+  kresource_t* current;
+
+  if (!bundle)
+    return Error();
+
+  current = GET_RESOURCE(bundle, type);
+
+  if (!current)
+    return Error();
+
+  do {
+
+    /* Unused resource? */
+    if (!current->m_shared_count && current->m_size >= size)
+      return Success(current->m_start);
+
+  } while ((current = current->m_next) != nullptr);
+
+  return Error();
+}
+
 void debug_resources(kresource_t** bundle, kresource_type_t type)
 {
   uintptr_t index;

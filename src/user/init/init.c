@@ -45,9 +45,10 @@ int main() {
 
   uint32_t* memory = malloc(sizeof(uint32_t));
 
-  *memory = 0x6969;
+  if (memory) {
 
-  printf("Memory thing\n");
+    printf("Memory thing\n");
+  }
 
   char buffer[128];
 

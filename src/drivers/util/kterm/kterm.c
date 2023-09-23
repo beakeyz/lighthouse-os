@@ -242,7 +242,7 @@ EXPORT_DRIVER(base_kterm_driver) = {
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_msg = kterm_on_packet,
-  .m_dependencies = {"graphics/efifb", "io/ps2_kb"},
+  .m_dependencies = {"core/video", "io/ps2_kb"},
   .m_dep_count = 2,
 };
 
@@ -323,8 +323,8 @@ int kterm_init() {
    * the loaded graphics driver is indeed efifb. It might very well be virtio or some other nonsense. 
    * In that case, we need a function that gives us the current graphics driver path
    */
-  driver_send_msg("graphics/efifb", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map));
-  driver_send_msg_a("graphics/efifb", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t));
+  driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map));
+  driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t));
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));

@@ -55,7 +55,6 @@ struct video_device* get_active_video_device()
 {
   /* NOTE: the first graphics driver (also hopefully the only) is always the active driver */
   dev_manifest_t* manifest = get_active_driver_from_type(DT_GRAPHICS);
-  ASSERT(manifest);
 
   if (!manifest)
     return nullptr;
@@ -76,6 +75,7 @@ struct video_device* get_active_video_device()
  */
 int try_activate_video_device(video_device_t* device)
 {
+  dev_manifest_t* c_active_manifest;
   video_device_t* c_active_device;
 
   if (!device)
@@ -83,11 +83,15 @@ int try_activate_video_device(video_device_t* device)
 
   c_active_device = get_active_video_device();
 
-  (void)c_active_device;
-  /* TODO: */
-  kernel_panic("TODO: try_activate_video_device");
+  if (c_active_device) {
+    c_active_manifest = c_active_device->manifest;
 
-  return 0;
+    /* Unload the current active driver to ensure it does not get in our way */
+    unload_driver(c_active_manifest->m_url);
+  }
+
+  /* Set the active driver */
+  return set_active_driver(device->manifest, DT_GRAPHICS);
 }
 
 int destroy_video_device(video_device_t* device)
