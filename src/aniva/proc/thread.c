@@ -5,6 +5,7 @@
 #include "kevent/kevent.h"
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
 #include "mem/zalloc.h"
@@ -218,12 +219,15 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
 
   destroy_mutex(0);
 
+  println("Do a");
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
+  println("Do b");
   if (thread->m_user_stack_bottom) {
     Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
   }
 
+  println("Did a and b");
   kfree(thread);
   return ANIVA_SUCCESS;
 }

@@ -3,11 +3,15 @@
 #include "fs/vfs.h"
 #include "fs/vobj.h"
 #include "libk/bin/elf.h"
+#include "libk/flow/error.h"
+#include "logging/log.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
 void kterm_try_exec(char* buffer, uint32_t buffer_size)
 {
+  proc_id_t id;
   proc_t* p;
 
   if (buffer[0] == NULL)
@@ -56,7 +60,10 @@ void kterm_try_exec(char* buffer, uint32_t buffer_size)
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
 
+  id = p->m_id;
+
+  /* Do an instant rescedule */
   sched_add_priority_proc(p, true);
 
-  await_proc_termination(p);
+  ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
 }

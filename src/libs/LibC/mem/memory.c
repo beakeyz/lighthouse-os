@@ -52,7 +52,7 @@ struct malloc_range {
  */
 struct malloc_bitmap {
   uint32_t entry_count;
-  uint16_t m_words[];
+  uint8_t m_bits[];
 };
 
 static struct malloc_range* __start_range;
@@ -106,7 +106,7 @@ static void __malloc_init_bitmap(struct malloc_range* range)
     entry_count = ALIGN_DOWN(range->m_data_size, range->m_entry_size) / range->m_entry_size;
 
     prev_bitmap_size = bitmap_size;
-    bitmap_size = (entry_count >> 4);
+    bitmap_size = (entry_count >> 3);
 
     range->m_data_size = start_data_size - bitmap_size;
 
@@ -114,7 +114,7 @@ static void __malloc_init_bitmap(struct malloc_range* range)
 
   bitmap->entry_count = entry_count;
 
-  memset(&bitmap->m_words, 0, bitmap_size);
+  memset(&bitmap->m_bits, 0, bitmap_size);
 }
 
 static inline struct malloc_bitmap* malloc_get_bitmap(struct malloc_range* range) 
@@ -157,7 +157,7 @@ static void __add_malloc_size_range(uint32_t total_size, uint32_t entry_size_idx
 
   __malloc_init_bitmap(range);
 
-  range->m_data_start_offset = ALIGN_UP((sizeof(struct malloc_bitmap) + (malloc_get_bitmap(range)->entry_count >> 4)), range->m_entry_size);
+  range->m_data_start_offset = ALIGN_UP((sizeof(struct malloc_bitmap) + (malloc_get_bitmap(range)->entry_count >> 3)), range->m_entry_size);
 
   previous = __malloc_get_privious_size(range->m_entry_size);
 
@@ -233,6 +233,18 @@ static struct malloc_range* malloc_find_range_for_size(size_t size)
   return nullptr;
 }
 
+static bool malloc_range_is_idx_used(struct malloc_range* range, uint32_t index)
+{
+  struct malloc_bitmap* bitmap;
+
+  bitmap = malloc_get_bitmap(range);
+
+  uint32_t index_word = index / 8;
+  uint32_t index_bit = index % 8;
+
+  return (bitmap->m_bits[index_word] & (1 << index_bit)) == (1 << index_bit);
+}
+
 static bool malloc_find_free_offset(struct malloc_range* range, uint32_t* result)
 {
   uint16_t entry;
@@ -244,18 +256,11 @@ static bool malloc_find_free_offset(struct malloc_range* range, uint32_t* result
   bitmap = malloc_get_bitmap(range);
 
   for (uint32_t i = 0; i < bitmap->entry_count; i++) {
-    entry = bitmap->m_words[i];
-
-    if (entry == 0xffff)
+    if (malloc_range_is_idx_used(range, i))
       continue;
 
-    for (uint8_t j = 0; j < 16; j++) {
-      if (!(entry & (1 << j)))
-        continue;
-
-      *result = (i * 16) + j;
-      return true;
-    }
+    *result = i;
+    return true;
   }
 
   return false;
@@ -267,10 +272,10 @@ static void malloc_range_set_free(struct malloc_range* range, uint32_t offset)
 
   bitmap = malloc_get_bitmap(range);
 
-  uint32_t index_word = offset >> 4;
-  uint32_t index_bit = offset % 16;
+  uint32_t index_word = offset / 8;
+  uint32_t index_bit = offset % 8;
 
-  bitmap->m_words[index_word] &= ~(1 << index_bit);
+  bitmap->m_bits[index_word] &= ~(1 << index_bit);
 }
 
 static void malloc_range_set_used(struct malloc_range* range, uint32_t offset)
@@ -279,10 +284,10 @@ static void malloc_range_set_used(struct malloc_range* range, uint32_t offset)
 
   bitmap = malloc_get_bitmap(range);
 
-  uint32_t index_word = offset >> 4;
-  uint32_t index_bit = offset % 16;
+  uint32_t index_word = offset / 8;
+  uint32_t index_bit = offset % 8;
 
-  bitmap->m_words[index_word] |= (1 << index_bit);
+  bitmap->m_bits[index_word] |= (1 << index_bit);
 }
 
 /*
@@ -308,8 +313,6 @@ void __init_memalloc(void)
   for (uint32_t i = 0; i < default_entry_sizes; i++) {
     __add_malloc_size_range(DEFAULT_INITIAL_RANGE_SIZE, i);
   }
-
-  exit(0);
 }
 
 
@@ -330,7 +333,7 @@ void* mem_alloc(size_t size, uint32_t flags)
     if (result) {
       malloc_range_set_used(range, offset);
 
-      return (malloc_range_get_start(range) + offset);
+      return (malloc_range_get_start(range) + (offset * range->m_entry_size));
     }
 
     range = range->m_next;

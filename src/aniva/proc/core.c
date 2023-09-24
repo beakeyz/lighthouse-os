@@ -1,11 +1,14 @@
 #include "core.h"
 #include "dev/debug/serial.h"
 #include "kevent/kevent.h"
+#include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include <libk/data/hashmap.h>
 #include "libk/stddef.h"
+#include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
@@ -16,6 +19,7 @@
 #include "sched/scheduler.h"
 #include "socket.h"
 #include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/processor/processor.h"
 
@@ -26,28 +30,49 @@ static atomic_ptr_t* __next_proc_id;
 static spinlock_t* __core_socket_lock;
 /* FIXME: I don't like the fact that this is a fucking linked list */
 static list_t *__sockets;
-static hashmap_t* __proc_map;
+static vector_t* __proc_vect;
+static mutex_t* __proc_mutex;
 
 static void revalidate_port_cache();
 
 static ErrorOrPtr __register_proc(proc_t* proc)
 {
-  if (!proc || !__proc_map)
+  ErrorOrPtr result;
+
+  if (!proc || !__proc_vect)
     return Error();
 
-  return hashmap_put(__proc_map, proc->m_name, proc);
+  mutex_lock(__proc_mutex);
+
+  result = vector_add(__proc_vect, &proc);
+
+  mutex_unlock(__proc_mutex);
+
+  return result;
 }
 
 static ErrorOrPtr __unregister_proc_by_name(const char* name)
 {
-  hashmap_key_t key;
+  ErrorOrPtr result = Error();
   
-  if (!name || !__proc_map)
+  if (!name || !__proc_vect)
     return Error();
 
-  key = (hashmap_key_t)name;
+  mutex_lock(__proc_mutex);
 
-  return hashmap_remove(__proc_map, key);
+  FOREACH_VEC(__proc_vect, i, j) {
+    proc_t* p = *(proc_t**)i;
+
+    if (strcmp(name, p->m_name) == 0) {
+      vector_remove(__proc_vect, j);
+      result = Success(0);
+      break;
+    }
+  }
+
+  mutex_unlock(__proc_mutex);
+
+  return result;
 }
 
 ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
@@ -66,7 +91,6 @@ ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
 
   current = get_current_processor();
 
-  println("Dealloc");
   if (current->m_page_dir != kmem_get_krnl_dir()) {
     return Error();
   }
@@ -189,30 +213,22 @@ ErrorOrPtr socket_unregister(threaded_socket_t* socket) {
   return Success(0);
 }
 
-static ErrorOrPtr __find_proc_by_id(void* p, uint64_t id)
-{
-  proc_t* proc = (proc_t*)p;
-  proc_id_t pid = (proc_id_t)id;
-
-  /* Yay, found it */
-  if (proc->m_id == pid)
-    return Error();
-
-  return Success(0);
-}
-
 proc_t* find_proc_by_id(proc_id_t id)
 {
   proc_t* ret;
-  ErrorOrPtr result;
 
-  result = hashmap_itterate(__proc_map, __find_proc_by_id, id);
+  mutex_lock(__proc_mutex);
 
-  /* A successful itteration means we didn't find the proc we where looking for */
-  if (!IsError(result))
-    return nullptr;
+  FOREACH_VEC(__proc_vect, data, index) {
+    ret = *(proc_t**) data;
 
-  ret = (proc_t*)Release(result);
+    if (ret->m_id == id)
+      break;
+
+    ret = nullptr;
+  }
+
+  mutex_unlock(__proc_mutex);
 
   return ret;
 }
@@ -235,14 +251,22 @@ struct thread* find_thread_by_fid(full_proc_id_t fid)
 proc_t* find_proc(const char* name) {
 
   proc_t* ret;
-  hashmap_key_t key;
 
-  if (!name || !__proc_map)
+  if (!name || !__proc_vect)
     return nullptr;
 
-  key = (hashmap_key_t)name;
+  mutex_lock(__proc_mutex);
 
-  ret = hashmap_get(__proc_map, key);
+  FOREACH_VEC(__proc_vect, data, index) {
+    ret = *(proc_t**)data;
+
+    if (strcmp(ret->m_name, name) == 0)
+      break;
+
+    ret = nullptr;
+  }
+
+  mutex_unlock(__proc_mutex);
 
   return ret;
 }
@@ -387,7 +411,9 @@ ANIVA_STATUS init_proc_core() {
    * TODO: we can also just store processes in a vector, since we
    * have the PROC_SOFTMAX that limits process creation
    */
-  __proc_map = create_hashmap(PROC_SOFTMAX, HASHMAP_FLAG_CA);
+  __proc_vect = create_vector(PROC_SOFTMAX, sizeof(proc_t*), VEC_FLAG_NO_DUPLICATES);
+
+  __proc_mutex = create_mutex(NULL);
 
   //Must(create_kevent("proc_terminate", KEVENT_TYPE_CUSTOM, NULL, 8));
 

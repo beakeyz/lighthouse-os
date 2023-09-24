@@ -411,7 +411,7 @@ ANIVA_STATUS sched_add_proc(proc_t *proc_ptr) {
 
 ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) {
 
-  /* If the scheduler is busy, we simply fuck off */
+  /* If the scheduler is busy, we simply fuck off (You can't order the scheduler to add a process while its scheduling =) ) */
   if (mutex_is_locked(s_sched_mutex))
     return Error();
 
@@ -430,6 +430,7 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) {
 
     /* We'll have to unlock the mutex here also, to avoid nasty shit */
     mutex_unlock(s_sched_mutex);
+
     scheduler_yield();
 
     return Success(0);

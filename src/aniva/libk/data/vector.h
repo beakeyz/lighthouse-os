@@ -16,7 +16,7 @@ typedef struct vector {
   uint8_t* m_items;
 } vector_t;
 
-#define FOREACH_VEC(vector, i) for (uintptr_t i = (uintptr_t)&(vector)->m_items[0], j = 0; j < (vector)->m_length; j++, i = (uintptr_t)&(vector)->m_items[j * (vector)->m_entry_size])
+#define FOREACH_VEC(vector, data, index) for (uintptr_t data = (uintptr_t)&(vector)->m_items[0], index = 0; index < (vector)->m_length; index++, data = (uintptr_t)&(vector)->m_items[index * (vector)->m_entry_size])
 
 vector_t* create_vector(size_t capacity, uint16_t entry_size, uint32_t flags);
 

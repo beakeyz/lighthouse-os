@@ -8,6 +8,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
 #include "mem/pg.h"
+#include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/profile/profile.h"
 #include "sync/atomic_ptr.h"
@@ -101,7 +102,7 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 proc_t* create_proc_from_path(const char* path);
 
 /* Block until the process has ended execution */
-void await_proc_termination(proc_t* proc);
+int await_proc_termination(proc_id_t id);
 
 /*
  * Murder a proc object with all its threads as well.

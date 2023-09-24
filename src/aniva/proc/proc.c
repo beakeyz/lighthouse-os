@@ -8,6 +8,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/handle.h"
@@ -237,22 +238,27 @@ static void __proc_clear_handles(proc_t* proc)
  */
 void destroy_proc(proc_t* proc) {
 
+  println("A");
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
     destroy_thread(i->data);
   }
 
+  println("B");
   /* Yeet handles */
   __proc_clear_handles(proc);
 
+  println("C");
   /* loop over all the resources of this process and release them by using __kmem_dealloc */
   __proc_clear_shared_resources(proc);
 
+  println("D");
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
   destroy_doorbell(proc->m_terminate_bell);
 
+  println("A");
   destroy_khandle_map(&proc->m_handle_map);
 
   /* 
@@ -265,6 +271,7 @@ void destroy_proc(proc_t* proc) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 
+  println("C");
   kzfree(proc, sizeof(proc_t));
 
   kmem_debug();
@@ -282,13 +289,30 @@ bool proc_can_schedule(proc_t* proc) {
   return true;
 }
 
-void await_proc_termination(proc_t* proc)
+/*!
+ * @brief Wait for a process to be terminated
+ *
+ * 
+ */
+int await_proc_termination(proc_id_t id)
 {
+  proc_t* proc;
   kdoor_t terminate_door;
+
+  proc = find_proc_by_id(id);
+
+  if (!proc)
+    return -1;
+
+  /* Pause the scheduler so we don't get fucked while registering the door */
+  pause_scheduler();
 
   init_kdoor(&terminate_door, NULL, NULL);
 
   Must(register_kdoor(proc->m_terminate_bell, &terminate_door));
+
+  /* Resume the scheduler so we don't die */
+  resume_scheduler();
 
   /*
    * FIXME: when we try to register a door after the doorbell has already been destroyed
@@ -299,6 +323,8 @@ void await_proc_termination(proc_t* proc)
     scheduler_yield();
 
   destroy_kdoor(&terminate_door);
+
+  return 0;
 }
 
 /*

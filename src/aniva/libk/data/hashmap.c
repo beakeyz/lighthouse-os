@@ -114,12 +114,15 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags) {
   if (!ret)
     return nullptr;
 
+  memset(ret, 0, aligned_size);
+
   delta = aligned_size - hashmap_size;
 
   /* We are able to claim this memory just for free entries, so lets take it =D */
-  max_entries += (delta >> 3); // delta / sizeof(hashmap_value_t)
-
-  memset(ret, 0, hashmap_size);
+  if ((flags & HASHMAP_FLAG_CA) == 0)
+    max_entries += (delta / sizeof(hashmap_value_t));
+  else
+    max_entries += (delta / sizeof(hashmap_entry_t));
 
   ret->m_flags = flags;
   ret->m_size = 0;

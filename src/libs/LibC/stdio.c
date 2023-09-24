@@ -46,6 +46,7 @@ void __init_stdio(void)
   /* Create buffers */
   stdin->r_buff = malloc(FILE_BUFSIZE);
   stdout->w_buff = malloc(FILE_BUFSIZE);
+
 }
 
 /*

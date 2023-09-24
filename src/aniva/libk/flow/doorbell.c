@@ -33,6 +33,9 @@ kdoorbell_t* create_doorbell(uint8_t capacity, uint16_t flags)
 
 void destroy_doorbell(kdoorbell_t* db)
 {
+  if (!db)
+    return;
+
   destroy_mutex(db->m_lock);
   kfree(db);
 }
@@ -182,6 +185,7 @@ void init_kdoor(kdoor_t* door, void* buffer, uint32_t buffer_size)
 
 void destroy_kdoor(kdoor_t* door)
 {
+  mutex_lock(door->m_lock);
   destroy_mutex(door->m_lock);
 
   if (door->m_buffer && door->m_buffer_size)

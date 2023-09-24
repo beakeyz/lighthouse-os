@@ -32,7 +32,7 @@ void socket_arbiter_entry()
 
     mutex_lock(&__arbiter_lock);
 
-    FOREACH_VEC(&__port_vector, i) {
+    FOREACH_VEC(&__port_vector, i, j) {
 
       current_port = (uint32_t*)i;
       

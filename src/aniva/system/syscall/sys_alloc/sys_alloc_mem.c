@@ -33,9 +33,6 @@ uint32_t sys_alloc_pages(size_t size, uint32_t flags, void* __user* buffer)
   /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
   first_usable_base = Must(resource_find_usable_range(current_process->m_resource_bundle, KRES_TYPE_MEM, size));
 
-  print("Base: ");
-  println(to_string(first_usable_base));
-
   /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
   base = (void*)Must(__kmem_map_and_alloc_scattered(
         current_process->m_root_pd.m_root,

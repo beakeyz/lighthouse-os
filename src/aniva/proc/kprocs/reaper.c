@@ -35,16 +35,15 @@ static void USED reaper_main() {
 
   /* Simply pass execution through */
   for (;;) {
+    /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
+    mutex_lock(__reaper_lock);
+
     proc_t* proc = queue_dequeue(__reaper_queue);
 
-    if (proc) {
-      /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
-      mutex_lock(__reaper_lock);
-
+    if (proc)
       destroy_proc(proc);
 
-      mutex_unlock(__reaper_lock);
-    }
+    mutex_unlock(__reaper_lock);
 
     scheduler_yield();
   }

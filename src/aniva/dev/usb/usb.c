@@ -228,7 +228,7 @@ usb_hcd_t* get_usb_hcd(uint8_t index)
  */
 usb_hcd_t* get_hcd_for_pci_device(pci_device_t* device)
 {
-  FOREACH_VEC(__usb_hcds, i) {
+  FOREACH_VEC(__usb_hcds, i, j) {
     usb_hcd_t* hcd = *(usb_hcd_t**)i;
 
     if (hcd->host_device == device) {
