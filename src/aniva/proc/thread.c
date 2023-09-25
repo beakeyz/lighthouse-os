@@ -205,7 +205,8 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
 
 // TODO: finish
 // TODO: when this thread has gotten it's own heap, free that aswell
-ANIVA_STATUS destroy_thread(thread_t *thread) {
+ANIVA_STATUS destroy_thread(thread_t *thread) 
+{
   proc_t* parent_proc;
 
   if (!thread)
@@ -219,20 +220,17 @@ ANIVA_STATUS destroy_thread(thread_t *thread) {
 
   destroy_mutex(0);
 
-  println("Do a");
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
-  println("Do b");
-  if (thread->m_user_stack_bottom) {
+  if (thread->m_user_stack_bottom)
     Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
-  }
 
-  println("Did a and b");
   kfree(thread);
   return ANIVA_SUCCESS;
 }
 
-thread_t* get_generic_idle_thread() {
+thread_t* get_generic_idle_thread() 
+{
   ASSERT_MSG(__generic_idle_thread, "Tried to get generic idle thread before it was initialized");
   return __generic_idle_thread;
 }

@@ -7,15 +7,11 @@
 
 #include <stddef.h>
 
-/* Allocate malloc memory */
-#define MEM_MALLOC      (0x00000001)
-
 /*
  * Memory allocation on a byte alignment
  */
 void* mem_alloc(
-  size_t        size,
-  uint32_t      flags
+  size_t        size
 );
 
 /*
@@ -24,16 +20,14 @@ void* mem_alloc(
  */
 void* mem_move_alloc(
   void* ptr,
-  size_t new_size,
-  uint32_t flags
+  size_t new_size
 );
 
 /*
  * Memory deallocation 
  */
 int mem_dealloc(
-  void* addr,
-  uint32_t flags
+  void* addr
 );
 
 #endif // !__LIGHTENV_LIBC_MEMORY__

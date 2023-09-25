@@ -12,7 +12,7 @@
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
-#define DEFAULT_INITIAL_RANGE_SIZE (80 * Kib)
+#define DEFAULT_INITIAL_RANGE_SIZE (128 * Kib)
 
 static uint32_t default_range_entry_sizes[] = {
   [0] = 8,
@@ -25,12 +25,15 @@ static uint32_t default_range_entry_sizes[] = {
   [7] = 188,
   [8] = 256,
   [9] = 512,
-  [10] = 1024,
-  [11] = 2048,
-  [12] = 4096,
-  [13] = 8192,
-  [14] = 16384,
-  [15] = 40960,
+  [10] = Kib,
+  [11] = (2 * Kib),
+  [12] = (4 * Kib),
+  [13] = (8 * Kib),
+  [14] = (16 * Kib),
+  [15] = (40 * Kib),
+  [16] = (64 * Kib),
+  [17] = (96 * Kib),
+  [18] = (128 * Kib)
 };
 
 const static uint32_t default_entry_sizes = sizeof default_range_entry_sizes / sizeof default_range_entry_sizes[0];
@@ -315,8 +318,12 @@ void __init_memalloc(void)
   }
 }
 
-
-void* mem_alloc(size_t size, uint32_t flags)
+/*!
+ * @brief Internal memory allocation routine
+ *
+ * Based on the size
+ */
+void* mem_alloc(size_t size)
 {
   bool result;
   uint32_t offset;
@@ -343,14 +350,64 @@ void* mem_alloc(size_t size, uint32_t flags)
   return nullptr;
 }
 
-void* mem_move_alloc(void* ptr, size_t new_size, uint32_t flags) 
+void* mem_move_alloc(void* addr, size_t new_size) 
 {
-  /* Also nope =) */
-  return nullptr;
+  uint64_t old_index;
+  uint64_t range_start;
+  void* new_allocation;
+  struct malloc_range* range;
+
+  range = malloc_find_containing_range((uint64_t)addr);
+
+  if (!range)
+    return nullptr;
+
+  /* No need to reallocate if the current allocation already satisfies the 'realloc' */
+  if (range->m_entry_size >= new_size)
+    return addr;
+
+  range_start = (uint64_t)malloc_range_get_start(range);
+
+  /* Sanity */
+  if (range_start > (uint64_t)addr)
+    return nullptr;
+
+  new_allocation = mem_alloc(new_size);
+
+  if (!new_allocation)
+    return nullptr;
+
+  /* We where able to allocate the new block, grab the index of the old block */
+  old_index = ALIGN_DOWN((uint64_t)addr - range_start, range->m_entry_size) / range->m_entry_size;
+
+  /* Copy over the old contents */
+  memcpy(new_allocation, addr, range->m_entry_size);
+
+  malloc_range_set_free(range, old_index);
+
+  return new_allocation;
 }
 
-int mem_dealloc(void* addr, uint32_t flags)
+int mem_dealloc(void* addr)
 {
-  /* No */
+  uint64_t index;
+  uint64_t range_start;
+  struct malloc_range* range;
+
+  range = malloc_find_containing_range((uint64_t)addr);
+
+  if (!range)
+    return -1;
+
+  range_start = (uint64_t)malloc_range_get_start(range);
+
+  /* Sanity */
+  if (range_start > (uint64_t)addr)
+    return -2;
+
+  index = ALIGN_DOWN((uint64_t)addr - range_start, range->m_entry_size) / range->m_entry_size;
+
+  malloc_range_set_free(range, index);
+  
   return 0;
 }

@@ -238,27 +238,22 @@ static void __proc_clear_handles(proc_t* proc)
  */
 void destroy_proc(proc_t* proc) {
 
-  println("A");
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
     destroy_thread(i->data);
   }
 
-  println("B");
   /* Yeet handles */
   __proc_clear_handles(proc);
 
-  println("C");
   /* loop over all the resources of this process and release them by using __kmem_dealloc */
   __proc_clear_shared_resources(proc);
 
-  println("D");
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
   destroy_doorbell(proc->m_terminate_bell);
 
-  println("A");
   destroy_khandle_map(&proc->m_handle_map);
 
   /* 
@@ -271,7 +266,6 @@ void destroy_proc(proc_t* proc) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 
-  println("C");
   kzfree(proc, sizeof(proc_t));
 
   kmem_debug();

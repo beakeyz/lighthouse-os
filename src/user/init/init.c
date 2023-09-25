@@ -45,10 +45,10 @@ int main() {
 
   uint32_t* memory = malloc(sizeof(uint32_t));
 
-  if (memory) {
+  if (memory)
+    *memory = 69;
 
-    printf("Memory thing\n");
-  }
+  printf("Yay memory\n");
 
   char buffer[128];
 
