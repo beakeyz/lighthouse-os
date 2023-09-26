@@ -30,6 +30,18 @@ BOOL proc_is_public(
 );
 
 typedef DWORD control_code_t;
+typedef BYTE  privilige_lvl_t;
+
+/*
+ * Checks the privilige level of the process handle
+ *
+ * Fails if the handle or the buffer pointer is invalid or if we have no permission to view the
+ * processes privilige level
+ */
+BOOL proc_get_priv_lvl(
+  __IN__ HANDLE_t handle,
+  __OUT__ privilige_lvl_t* level
+);
 
 /*
  * Try to send a bit of data to the process
@@ -81,7 +93,8 @@ BOOL read_process_memory(
   __IN__    DWORD       flags
 );
 
-#define PROC_ORPHAN   (0x00000001) /* Don't take this process as a child, but rather let it be its own seperate process */
+/* Don't take this process as a child, but rather let it be its own seperate process */
+#define PROC_ORPHAN   (0x00000001) 
 
 BOOL create_process(
   __IN__ const char*    name,

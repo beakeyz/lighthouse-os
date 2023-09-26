@@ -17,3 +17,11 @@ void exit(uintptr_t result) {
   /* We should never reach this point */
   halt();
 }
+
+/*
+ * idk what abort is supposed to do lmao
+ */
+void abort(void)
+{
+  exit(-1);
+}

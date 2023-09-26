@@ -5,6 +5,7 @@
 #include "LibSys/proc/socket.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +46,8 @@ int main() {
 
   uint32_t* memory = malloc(sizeof(uint32_t));
 
+  assert(memory);
+
   if (memory)
     *memory = 69;
 
@@ -59,6 +62,12 @@ int main() {
     printf("Your name is: %s\n", resp);
   else 
     printf("Could not take in that name!\n");
+
+  free(memory);
+
+  memory = nullptr;
+
+  assert(memory);
 
   return handle_2;
 }
