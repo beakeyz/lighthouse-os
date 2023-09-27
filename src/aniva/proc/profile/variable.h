@@ -1,0 +1,63 @@
+#ifndef __ANIVA_VARIABLE__
+#define __ANIVA_VARIABLE__
+
+#include "sync/atomic_ptr.h"
+#include <libk/stddef.h>
+
+struct proc_profile;
+
+enum PROFILE_VAR_TYPE {
+  PROFILE_VAR_TYPE_STRING = 0,
+  PROFILE_VAR_TYPE_BYTE,
+  PROFILE_VAR_TYPE_WORD,
+  PROFILE_VAR_TYPE_DWORD,
+  PROFILE_VAR_TYPE_QWORD,
+};
+
+/* Open for anyone to read */
+#define PVAR_FLAG_GLOBAL (0x01)
+/* Open for anyone to modify */
+#define PVAR_FLAG_MUTABLE (0x02)
+/* Holds data that the system probably needs to function correctly */
+#define PVAR_FLAG_VOLATILE (0x04)
+/* Holds configuration data */
+#define PVAR_FLAG_CONFIG (0x08)
+
+/*
+ * Profile variables
+ *
+ * What are they used for:
+ * We want to use profile variables as a way to dynamically store relevant 
+ * information about the environment to the kernel or to processes. They might 
+ * hold paths to important binaries for certain profiles or perhaps even the
+ * version of the system. Any process can read the open data on any profile,
+ * but only processes of the profile or a higher profile may modify the data.
+ */
+typedef struct profile_var {
+  const char* key;
+  union {
+    const char* str_value;
+    uint64_t qword_value;
+    uint32_t dword_value;
+    uint16_t word_value;
+    uint8_t byte_value;
+  };
+  enum PROFILE_VAR_TYPE type;
+  uint8_t flags;
+  atomic_ptr_t* refc;
+} profile_var_t;
+
+void init_proc_variables(void);
+
+profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, void* value);
+
+profile_var_t* get_profile_var(profile_var_t* var);
+void put_profile_var(profile_var_t* var);
+
+bool profile_var_get_str_value(profile_var_t* var, const char** buffer);
+bool profile_var_get_qword_value(profile_var_t* var, uint64_t* buffer);
+bool profile_var_get_dword_value(profile_var_t* var, uint32_t* buffer);
+bool profile_var_get_word_value(profile_var_t* var, uint16_t* buffer);
+bool profile_var_get_byte_value(profile_var_t* var, uint8_t* buffer);
+
+#endif // !__ANIVA_VARIABLE__

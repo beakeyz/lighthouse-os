@@ -10,6 +10,7 @@
 #include "mem/kmem_manager.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
+#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 
 /*
@@ -36,7 +37,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
     return SYS_NOPERM;
   
   switch (khandle->type) {
-    case KHNDL_TYPE_FILE:
+    case HNDL_TYPE_FILE:
       {
         size_t write_len = length;
         file_t* file = khandle->reference.file;
@@ -57,7 +58,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
         break;
       }
-    case KHNDL_TYPE_DRIVER:
+    case HNDL_TYPE_DRIVER:
       {
         int result;
         size_t buffer_size = length;
@@ -71,8 +72,23 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         kernel_panic("Failed to write to driver");
         return SYS_KERR;
       }
-    case KHNDL_TYPE_PROC:
+    case HNDL_TYPE_PROC:
       {
+
+        break;
+      }
+
+    case HNDL_TYPE_PROFILE:
+      {
+        kernel_panic("TODO: implement writes to process profiles!");
+        break;
+      }
+    case HNDL_TYPE_PVAR:
+      {
+
+        /* TODO: */
+
+        kernel_panic("TODO: implement pvar writes with the appropriate permission checks");
 
         break;
       }
@@ -108,7 +124,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
     return SYS_NOPERM;
 
   switch (khandle->type) {
-    case KHNDL_TYPE_FILE:
+    case HNDL_TYPE_FILE:
       {
         read_len = length;
         file_t* file = khandle->reference.file;
@@ -125,7 +141,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
         break;
       }
-    case KHNDL_TYPE_DRIVER:
+    case HNDL_TYPE_DRIVER:
       {
         int result;
         dev_manifest_t* driver = khandle->reference.driver;
@@ -139,8 +155,13 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
         break;
       }
-    case KHNDL_TYPE_PROC:
+    case HNDL_TYPE_PROC:
       {
+        break;
+      }
+    case HNDL_TYPE_PROFILE:
+      {
+        kernel_panic("TODO: implement reads to process profiles!");
         break;
       }
     default:

@@ -39,15 +39,15 @@ BOOL expand_handle_capacity(
  * Ask the kernel what kind of handle we are dealing with
  */
 BOOL get_handle_type(
-  __IN__ HANDLE_t handle,
-  __OUT__ HANDLE_TYPE_t* type
+  __IN__ HANDLE handle,
+  __OUT__ HANDLE_TYPE* type
 );
 
 /*
  * Close this handle and make the kernel deallocate its resources
  */
 BOOL close_handle(
-  __IN__ HANDLE_t handle
+  __IN__ HANDLE handle
 );
 
 /*
@@ -60,9 +60,9 @@ BOOL close_handle(
  * NOTE: this is the raw function that should really only be called by the api itself, but this 
  * can be used in userspace itself if handled carefully
  */
-HANDLE_t open_handle(
+HANDLE open_handle(
   __IN__ const char* path,
-  __IN__ __OPTIONAL__ HANDLE_TYPE_t type,
+  __IN__ __OPTIONAL__ HANDLE_TYPE type,
   __IN__ DWORD flags,
   __IN__ DWORD mode
 );
@@ -73,16 +73,34 @@ HANDLE_t open_handle(
  * the same object, but its value will be different
  */
 BOOL duplicate_local_handle(
-  __IN__ HANDLE_t src_handle,
-  __OUT__ HANDLE_t* out_handle
+  __IN__ HANDLE src_handle,
+  __OUT__ HANDLE* out_handle
 );
 
 /*
  * Checks to see if the value of this handle has changed for some unforseen reason
  */
 BOOL update_handle(
-  __IN__ HANDLE_t handle,
-  __OUT__ HANDLE_t check_handle
+  __IN__ HANDLE handle,
+  __OUT__ HANDLE check_handle
+);
+
+/*
+ * Perform a read opperation on a handle
+ */
+BOOL handle_read(
+  __IN__ HANDLE handle,
+  __IN__ QWORD buffer_size,
+  __OUT__ VOID* buffer
+);
+
+/*
+ * Perform a write opperation on a handle
+ */
+BOOL handle_write(
+  __IN__ HANDLE handle,
+  __IN__ QWORD buffer_size,
+  __IN__ VOID* buffer
 );
 
 #endif // !__LIGHTENV_HANDLE__

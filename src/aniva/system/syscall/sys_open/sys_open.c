@@ -12,11 +12,12 @@
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 
-HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, uint32_t mode)
+HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint32_t mode)
 {
-  HANDLE_t ret;
+  HANDLE ret;
   khandle_t handle = { 0 };
   ErrorOrPtr result;
   proc_t* current_process;
@@ -72,6 +73,38 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
         create_khandle(&handle, &type, driver);
         break;
       }
+    case HNDL_TYPE_PROFILE:
+      {
+        switch (mode) {
+          case HNDL_MODE_CURRENT_PROFILE:
+            {
+              proc_t* proc = find_proc(path);
+
+              if (!proc)
+                return HNDL_NOT_FOUND;
+
+              create_khandle(&handle, &type, proc->m_profile);
+              break;
+            }
+          case HNDL_MODE_SCAN_PROFILE:
+            {
+              int error;
+              proc_profile_t* profile = nullptr;
+
+              error = profile_find(path, &profile); 
+
+              if (error || !profile)
+                return HNDL_NOT_FOUND;
+
+              create_khandle(&handle, &type, profile);
+              break;
+            }
+          default:
+            break;
+        }
+
+        break;
+      }
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
     case HNDL_TYPE_VOBJ:
@@ -98,25 +131,25 @@ HANDLE_t sys_open(const char* __user path, HANDLE_TYPE_t type, uint16_t flags, u
   return ret;
 }
 
-HANDLE_t sys_open_file(const char* __user path, uint16_t flags, uint32_t mode)
+HANDLE sys_open_file(const char* __user path, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open proc!");
   return HNDL_INVAL;
 }
 
-HANDLE_t sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
+HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open driver!");
   return HNDL_INVAL;
 }
 
-HANDLE_t sys_open_driver(const char* __user name, uint16_t flags, uint32_t mode)
+HANDLE sys_open_driver(const char* __user name, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open file!");
   return HNDL_INVAL;
 }
 
-uintptr_t sys_close(HANDLE_t handle)
+uintptr_t sys_close(HANDLE handle)
 {
   khandle_t* c_handle;
   ErrorOrPtr result;

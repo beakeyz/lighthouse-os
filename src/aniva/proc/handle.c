@@ -19,17 +19,17 @@ static void __on_handle_change(khandle_t* handle, bool bind)
    * so flags are useless in this case lmao
    */
   switch (handle->type) {
-    case KHNDL_TYPE_DRIVER:
-    case KHNDL_TYPE_PROC:
-    case KHNDL_TYPE_FS_ROOT:
-    case KHNDL_TYPE_KOBJ:
+    case HNDL_TYPE_DRIVER:
+    case HNDL_TYPE_PROC:
+    case HNDL_TYPE_FS_ROOT:
+    case HNDL_TYPE_KOBJ:
       break;
-    case KHNDL_TYPE_FILE:
+    case HNDL_TYPE_FILE:
       {
         obj = handle->reference.file->m_obj;
         // fallthrough
       }
-    case KHNDL_TYPE_VOBJ:
+    case HNDL_TYPE_VOBJ:
       {
         if (bind)
           break;
@@ -42,7 +42,7 @@ static void __on_handle_change(khandle_t* handle, bool bind)
         vobj_close(obj);
         break;
       }
-    case KHNDL_TYPE_NONE:
+    case HNDL_TYPE_NONE:
     default:
       break;
   }

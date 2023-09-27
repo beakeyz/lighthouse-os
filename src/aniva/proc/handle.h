@@ -44,24 +44,6 @@ typedef struct kernel_handle {
 #define KHDNL_PROT_LVL_LOW          (50)
 #define KHDNL_PROT_LVL_LOWEST       (0)
 
-#define KHNDL_TYPE_NONE             (0)
-#define KHNDL_TYPE_FILE             (1)
-#define KHNDL_TYPE_DRIVER           (2)
-#define KHNDL_TYPE_PROC             (3)
-#define KHNDL_TYPE_FS_ROOT          (4)
-#define KHNDL_TYPE_VOBJ             (5)
-#define KHNDL_TYPE_KOBJ             (6)
-#define KHNDL_TYPE_THREAD           (7)
-/* These types are still to be implemented */
-/* Any profile that is present on the system */
-#define KHNDL_TYPE_PROFILE          (8)
-/* A raw device attached to the device tree on the vfs at :/Devices/ */
-#define KHNDL_TYPE_DEVICE           (9)
-/* Raw buffer, managed by the kernel */
-#define KHNDL_TYPE_BUFFER           (10)
-/* Inter-process interface */
-#define KHNDL_TYPE_IP_INTERF        (11)
-
 void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref);
 void destroy_khandle(khandle_t* handle);
 

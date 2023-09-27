@@ -27,7 +27,7 @@ int map_process_memory(
  * for mapping in another process, or applying flags to the mapping
  */
 int map_process_memory_av(
-  __IN__ __OPTIONAL__ HANDLE_t handle,
+  __IN__ __OPTIONAL__ HANDLE handle,
   __IN__ __OPTIONAL__ DWORD flags,
   __IN__ QWORD virtual_base,
   __IN__ size_t size,

@@ -41,7 +41,7 @@ void kterm_try_exec(char* buffer, uint32_t buffer_size)
 
   vobj_close(obj);
 
-  khandle_type_t driver_type = KHNDL_TYPE_DRIVER;
+  khandle_type_t driver_type = HNDL_TYPE_DRIVER;
   dev_manifest_t* kterm_manifest = get_driver("other/kterm");
 
   khandle_t _stdin;

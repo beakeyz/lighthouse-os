@@ -15,6 +15,8 @@
 #include "proc/ipc/tspckt.h"
 #include "proc/kprocs/socket_arbiter.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "socket.h"
@@ -35,6 +37,11 @@ static mutex_t* __proc_mutex;
 
 static void revalidate_port_cache();
 
+/*!
+ * @brief Register a process to the process list
+ *
+ * Nothing to add here...
+ */
 static ErrorOrPtr __register_proc(proc_t* proc)
 {
   ErrorOrPtr result;
@@ -51,6 +58,12 @@ static ErrorOrPtr __register_proc(proc_t* proc)
   return result;
 }
 
+/*!
+ * @brief Unregister a process of a given name @name
+ *
+ * @returns: Success(...) with a pointer to the unregistered process on a successful
+ * unregister, otherwise Error()
+ */
 static ErrorOrPtr __unregister_proc_by_name(const char* name)
 {
   ErrorOrPtr result = Error();
@@ -65,7 +78,7 @@ static ErrorOrPtr __unregister_proc_by_name(const char* name)
 
     if (strcmp(name, p->m_name) == 0) {
       vector_remove(__proc_vect, j);
-      result = Success(0);
+      result = Success((uintptr_t)p);
       break;
     }
   }
@@ -289,20 +302,50 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
 }
 
 
-ErrorOrPtr proc_register(struct proc* proc)
+ErrorOrPtr proc_register(proc_t* proc)
 {
   ErrorOrPtr result;
 
   result = __register_proc(proc);
+
+  if (IsError(result))
+    return result;
+
+  /* Register to global if we are from the kernel */
+  if (is_kernel_proc(proc))
+    proc_register_to_global(proc);
+  /*
+   * Little TODO
+   *
+   * When the process is not a kernel process, that means it was probably 
+   * launched by a user, in which case we need to know what profile has 
+   * invoked the process creation and give this process the same profile
+   *
+   * For now we register to global
+   */
+  else
+    proc_register_to_global(proc);
 
   return result;
 }
 
 ErrorOrPtr proc_unregister(char* name) 
 {
+  proc_t* p;
   ErrorOrPtr result;
 
   result = __unregister_proc_by_name(name);
+
+  if (IsError(result))
+    return result;
+
+  p = (proc_t*)Release(result);
+
+  if (!p)
+    return Error();
+
+  /* Make sure the process is removed form its profile */
+  proc_set_profile(p, nullptr);
 
   return result;
 }
@@ -421,6 +464,10 @@ ANIVA_STATUS init_proc_core() {
   init_socket();
   init_packet_payloads();
   init_packet_response();
+
+  init_proc_variables();
+  init_proc_profiles();
+
 
   return ANIVA_SUCCESS;
 }

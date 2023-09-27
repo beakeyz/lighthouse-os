@@ -11,8 +11,14 @@
  * Open a handle to a process which can be used to communicate with this
  * process or use this handle to reference the process to other services
  */
-HANDLE_t open_proc(
+HANDLE open_proc(
   __IN__ const char* name,
+  __IN__ DWORD flags,
+  __IN__ DWORD mode
+);
+
+HANDLE open_proc_ex(
+  __IN__ DWORD procid,
   __IN__ DWORD flags,
   __IN__ DWORD mode
 );
@@ -26,7 +32,7 @@ HANDLE_t open_proc(
  * Returns true otherwise
  */
 BOOL proc_is_public(
-  __IN__ HANDLE_t handle
+  __IN__ HANDLE handle
 );
 
 typedef DWORD control_code_t;
@@ -39,8 +45,16 @@ typedef BYTE  privilige_lvl_t;
  * processes privilige level
  */
 BOOL proc_get_priv_lvl(
-  __IN__ HANDLE_t handle,
+  __IN__ HANDLE handle,
   __OUT__ privilige_lvl_t* level
+);
+
+/*
+ * Grab a handle to the profile of this process
+ */
+BOOL proc_get_profile(
+ __IN__ HANDLE proc_handle,
+ __OUT__ HANDLE* profile_handle
 );
 
 /*
@@ -49,7 +63,7 @@ BOOL proc_get_priv_lvl(
  * of if the handle is invalid
  */
 BOOL proc_send_data(
-  __IN__                    HANDLE_t        handle,
+  __IN__                    HANDLE          handle,
   __IN__                    control_code_t  code,
   __IN__    __OPTIONAL__    VOID*           buffer,
   __INOUT__ __OPTIONAL__    size_t*         buffer_size,
@@ -62,7 +76,7 @@ BOOL proc_send_data(
  * prepared, since the data that was recieved will be copied there
  */
 BOOL proc_await_data(
-  __IN__    HANDLE_t    handle,
+  __IN__    HANDLE      handle,
   __IN__    VOID*       buffer,
   __IN__    size_t      size
 );
@@ -73,7 +87,7 @@ BOOL proc_await_data(
  * or if for any reason the write opperation failed
  */
 BOOL write_process_memory(
-  __IN__    HANDLE_t    handle,
+  __IN__    HANDLE      handle,
   __IN__    VOID*       offset,
   __IN__    VOID*       buffer,
   __INOUT__ size_t*     size,
@@ -86,7 +100,7 @@ BOOL write_process_memory(
  * or if for any reason the read opperation failed
  */
 BOOL read_process_memory(
-  __IN__    HANDLE_t    handle,
+  __IN__    HANDLE      handle,
   __IN__    VOID*       offset,
   __INOUT__ size_t*     size,
   __OUT__   VOID*       buffer,
@@ -105,7 +119,7 @@ BOOL create_process(
 );
 
 BOOL kill_process(
-  __IN__ HANDLE_t   handle,
+  __IN__ HANDLE     handle,
   __IN__ DWORD      flags
 );
 

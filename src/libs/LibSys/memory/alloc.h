@@ -65,7 +65,7 @@ VOID* allocate_pool(
  * Otherwise, the same rules apply as to allocate_pool
  */
 VOID* allocate_pool_av(
-  __IN__                HANDLE_t handle,
+  __IN__                HANDLE handle,
   __IN__ __OPTIONAL__   VOID* pooladdr,
   __INOUT__             size_t* poolsize,
   __IN__                DWORD flags,
@@ -94,7 +94,7 @@ int modify_pool_flags(
  */
 int get_pool_count(
   __OUT__               DWORD* poolcount,
-  __IN__ __OPTIONAL__   HANDLE_t handle
+  __IN__ __OPTIONAL__   HANDLE handle
 );
 
 #endif // !__LIGHTENV_MEM_ALLOC__

@@ -86,7 +86,7 @@ void init_socket_arbiter(proc_t* proc)
   if (!proc || !(proc->m_flags & PROC_KERNEL))
     return;
 
-  ASSERT_MSG(is_kernel_proc(proc), "Can't initialize the socket arbiter in a non-kernel environment!");
+  ASSERT_MSG(is_kernel(proc), "Can't initialize the socket arbiter in a non-kernel environment!");
 
   init_mutex(&__arbiter_lock, NULL);
   init_vector(&__port_vector, 128, sizeof(uint32_t), VEC_FLAG_FLEXIBLE | VEC_FLAG_NO_DUPLICATES);

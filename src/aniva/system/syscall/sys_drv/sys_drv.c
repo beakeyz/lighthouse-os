@@ -12,7 +12,7 @@
 #include <dev/manifest.h>
 
 uintptr_t
-sys_send_ioctl(HANDLE_t handle, driver_control_code_t code, void __user* buffer, size_t size)
+sys_send_ioctl(HANDLE handle, driver_control_code_t code, void __user* buffer, size_t size)
 {
   ErrorOrPtr result;
   khandle_t* c_hndl;
@@ -33,7 +33,7 @@ sys_send_ioctl(HANDLE_t handle, driver_control_code_t code, void __user* buffer,
   result = Success(0);
 
   switch (c_hndl->type) {
-    case KHNDL_TYPE_DRIVER:
+    case HNDL_TYPE_DRIVER:
       {
         dev_manifest_t* driver = c_hndl->reference.driver;
 
@@ -41,7 +41,7 @@ sys_send_ioctl(HANDLE_t handle, driver_control_code_t code, void __user* buffer,
         result = driver_send_msg(driver->m_url, code, buffer, size);
         break;
       }
-    case KHNDL_TYPE_FILE:
+    case HNDL_TYPE_FILE:
       {
         file_t* file = c_hndl->reference.file;
 
@@ -61,7 +61,7 @@ sys_send_ioctl(HANDLE_t handle, driver_control_code_t code, void __user* buffer,
 }
 
 uintptr_t
-sys_get_handle_type(HANDLE_t handle)
+sys_get_handle_type(HANDLE handle)
 {
   khandle_t* c_handle;
   proc_t* c_proc;
@@ -70,23 +70,7 @@ sys_get_handle_type(HANDLE_t handle)
   c_handle = find_khandle(&c_proc->m_handle_map, handle);
 
   if (!c_handle)
-    return SYS_INV;
+    return HNDL_TYPE_NONE;
 
-  switch(c_handle->type) {
-    case KHNDL_TYPE_FILE:
-      return HNDL_TYPE_FILE;
-    case KHNDL_TYPE_VOBJ:
-      return HNDL_TYPE_VOBJ;
-    case KHNDL_TYPE_KOBJ:
-      return HNDL_TYPE_KOBJ;
-    case KHNDL_TYPE_PROC:
-      return HNDL_TYPE_PROC;
-    case KHNDL_TYPE_DRIVER:
-      return HNDL_TYPE_DRIVER;
-    case KHNDL_TYPE_THREAD:
-      return HNDL_TYPE_THREAD;
-    default:
-      break;
-  }
-  return HNDL_TYPE_NONE;
+  return c_handle->type;
 }

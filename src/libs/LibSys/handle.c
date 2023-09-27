@@ -19,21 +19,21 @@ verify_handle(handle_t handle)
 }
 
 BOOL
-get_handle_type(HANDLE_t handle, HANDLE_TYPE_t* type)
+get_handle_type(HANDLE handle, HANDLE_TYPE* type)
 {
   char t = syscall_1(SYSID_GET_HNDL_TYPE, handle);
 
   if (t < 0)
     return FALSE;
 
-  /* NOTE: HANDLE_TYPE_t is unsigned */
+  /* NOTE: HANDLE_TYPE is unsigned */
   *type = t;
 
   return TRUE;
 }
 
 BOOL
-close_handle(HANDLE_t handle)
+close_handle(HANDLE handle)
 {
   QWORD result = syscall_1(SYSID_CLOSE, handle);
 
@@ -46,10 +46,10 @@ close_handle(HANDLE_t handle)
 /*
  * Send a syscall to open a handle
  */
-HANDLE_t
-open_handle(const char* path, HANDLE_TYPE_t type, DWORD flags, DWORD mode)
+HANDLE
+open_handle(const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
 {
-  HANDLE_t ret;
+  HANDLE ret;
 
   if (!path)
     return HNDL_INVAL;
@@ -57,4 +57,32 @@ open_handle(const char* path, HANDLE_TYPE_t type, DWORD flags, DWORD mode)
   ret = syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
 
   return ret;
+}
+
+BOOL 
+handle_read(HANDLE handle, QWORD buffer_size, VOID* buffer)
+{
+  uintptr_t bytes_read;
+
+  /* NOTE: sys read returns the amount of bytes that where successfully read */
+  bytes_read = syscall_3(SYSID_READ, handle, (uintptr_t)buffer, buffer_size);
+
+  if (bytes_read != buffer_size)
+    return FALSE;
+
+  return TRUE;
+}
+
+BOOL 
+handle_write(HANDLE handle, QWORD buffer_size, VOID* buffer)
+{
+  uintptr_t error;
+
+  /* NOTE: sys write returns a syscall statuscode */
+  error = syscall_3(SYSID_WRITE, handle, (uintptr_t)buffer, buffer_size);
+
+  if (error != SYS_OK)
+    return FALSE;
+
+  return TRUE;
 }

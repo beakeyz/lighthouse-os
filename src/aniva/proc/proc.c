@@ -14,8 +14,10 @@
 #include "proc/handle.h"
 #include "proc/kprocs/idle.h"
 #include "proc/kprocs/reaper.h"
+#include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include "thread.h"
@@ -47,7 +49,7 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
   proc->m_thread_count = create_atomic_ptr_with_value(0);
 
   // Only create new page dirs for non-kernel procs
-  if ((flags & PROC_KERNEL) != PROC_KERNEL || (flags & PROC_DRIVER) == PROC_DRIVER) {
+  if (!is_kernel_proc(proc) || is_driver_proc(proc)) {
     proc->m_requested_max_threads = 3;
     proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
   } else {
@@ -208,7 +210,7 @@ static void __proc_clear_handles(proc_t* proc)
       continue;
 
     switch (current_handle->type) {
-      case KHNDL_TYPE_FILE:
+      case HNDL_TYPE_FILE:
         {
           file_t* file = current_handle->reference.file;
 
@@ -223,8 +225,8 @@ static void __proc_clear_handles(proc_t* proc)
 
           break;
         }
-      case KHNDL_TYPE_PROC:
-      case KHNDL_TYPE_NONE:
+      case HNDL_TYPE_PROC:
+      case HNDL_TYPE_NONE:
       default:
         break;
     }
@@ -352,7 +354,27 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
   return Success(0);
 }
 
+/*!
+ * @brief Set the profile of a certain process
+ *
+ * Nothing to add here...
+ */
+void proc_set_profile(proc_t* proc, proc_profile_t* profile)
+{
+  if (!profile && proc->m_profile && proc->m_profile->proc_count)
+    proc->m_profile->proc_count--;
 
+  proc->m_profile = profile;
+
+  if (profile)
+    profile->proc_count++;
+}
+
+/*!
+ * @brief Exit the current process
+ *
+ * Nothing to add here...
+ */
 void proc_exit() 
 {
   try_terminate_process(get_current_proc());

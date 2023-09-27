@@ -1,4 +1,5 @@
 
+#include "LibSys/driver/drv.h"
 #include "LibSys/handle.h"
 #include "LibSys/handle_def.h"
 #include "LibSys/proc/process.h"
@@ -30,17 +31,14 @@ int main() {
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?
    */
-  HANDLE_t handle = open_handle("Root/dummy.txt", HNDL_TYPE_FILE, NULL, NULL);
-
-  printf("open dummy.txt!\n");
 
   /* Open a handle to the binary file of our own process */
-  HANDLE_t handle_1 = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
+  HANDLE handle_1 = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   printf("open Root/init!\n");
 
   /* Open a handle to our own process */
-  HANDLE_t handle_2 = open_handle("init", HNDL_TYPE_PROC, NULL, NULL);
+  HANDLE handle_2 = open_handle("init", HNDL_TYPE_PROC, NULL, NULL);
 
   printf("open init proc!\n");
 
@@ -63,11 +61,23 @@ int main() {
   else 
     printf("Could not take in that name!\n");
 
+  /* Get rid of the dummy.txt handle */
+  //assert(close_handle(handle));
+
+  printf("Could close dummy.txt!\n");
+
+  HANDLE profile_handle = open_handle("init", HNDL_TYPE_PROFILE, HNDL_FLAG_RW, HNDL_MODE_CURRENT_PROFILE);
+
+  assert(verify_handle(profile_handle));
+
+  printf("Could get profile handle!\n");
+
+  uintptr_t test_buffer = NULL;
+
+  assert(handle_read(profile_handle, sizeof(uintptr_t), &test_buffer));
+
+  printf("Read from the profile handle!\n");
+
   free(memory);
-
-  memory = nullptr;
-
-  assert(memory);
-
   return handle_2;
 }

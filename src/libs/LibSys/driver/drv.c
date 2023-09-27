@@ -5,34 +5,43 @@
 #include "LibSys/system.h"
 #include "sys/types.h"
 
-HANDLE_t 
-open_driver(const char* name, DWORD flags, DWORD mode)
+BOOL 
+open_driver(const char* name, DWORD flags, DWORD mode, HANDLE* handle)
 {
   BOOL result;
-  HANDLE_t ret;
-  HANDLE_TYPE_t type = HNDL_TYPE_DRIVER;
+  HANDLE ret;
+  HANDLE_TYPE type = HNDL_TYPE_DRIVER;
+
+  if (!handle || !name || !name[0])
+    return FALSE;
 
   ret = open_handle(name, type, flags, mode);
 
   if (ret == HNDL_INVAL)
-    return ret;
+    goto fail_exit;
 
   result = get_handle_type(ret, &type);
 
   if (!result) {
     close_handle(ret);
-    return HNDL_INVAL;
+    goto fail_exit;
   }
 
-  return ret;
+  *handle = ret;
+
+  return TRUE;
+
+fail_exit:
+  *handle = HNDL_INVAL;
+  return FALSE;
 }
 
 BOOL
-driver_send_msg(HANDLE_t handle, DWORD code, VOID* buffer, size_t size)
+driver_send_msg(HANDLE handle, DWORD code, VOID* buffer, size_t size)
 {
   BOOL ret;
   QWORD sys_status;
-  HANDLE_TYPE_t type = HNDL_TYPE_NONE;
+  HANDLE_TYPE type = HNDL_TYPE_NONE;
 
   /* Can't give either a size but or a buffer */
   if ((!buffer && size) || (buffer && !size))

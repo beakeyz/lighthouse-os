@@ -81,7 +81,7 @@ class Consts:
 
     USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
 
-    LIB_LD_FLAGS = " -shared -fPIC"
+    LIB_LD_FLAGS = " -nostdlib -shared -fPIC"
 
     ELF_EXTENTION = ".elf"
     SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary

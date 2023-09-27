@@ -18,7 +18,7 @@
  * Weird struct ...
  */
 typedef struct _FILE { 
-  HANDLE_t handle;
+  HANDLE handle;
 
   uint8_t* w_buff; 
   uint8_t* r_buff; 

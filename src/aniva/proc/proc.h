@@ -10,12 +10,12 @@
 #include "mem/pg.h"
 #include "proc/core.h"
 #include "proc/handle.h"
-#include "proc/profile/profile.h"
 #include "sync/atomic_ptr.h"
 #include "system/resource.h"
 
 struct thread;
 struct proc_image;
+struct proc_profile;
 struct kresource;
 
 /*
@@ -57,6 +57,8 @@ inline void proc_image_align(proc_image_t* image)
  * This struct may get quite big, so let's make sure to put 
  * frequently used fields close to eachother in order to minimize 
  * cache-misses
+ *
+ * TODO: proc should prob be protected by atleast a few mutexes or spinlocks
  */
 typedef struct proc {
   char m_name[32];
@@ -64,7 +66,7 @@ typedef struct proc {
   uint32_t m_flags;
 
   /* This is used to compare a processes status in relation to other processes */
-  //proc_profile_t m_profile;
+  struct proc_profile* m_profile;
 
   page_dir_t m_root_pd;
   khandle_map_t m_handle_map;
@@ -136,8 +138,20 @@ bool proc_can_schedule(proc_t* proc);
  */
 void stall_process(proc_t* proc);
 
-static ALWAYS_INLINE bool is_kernel_proc(proc_t* proc) {
+static inline bool is_kernel(proc_t* proc) {
   return (proc->m_id == 0);
 }
+
+static inline bool is_kernel_proc(proc_t* proc)
+{
+  return ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL);
+}
+
+static inline bool is_driver_proc(proc_t* proc)
+{
+  return ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
+}
+
+void proc_set_profile(proc_t* proc, struct proc_profile* profile);
 
 #endif // !__ANIVA_PROC__

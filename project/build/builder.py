@@ -362,7 +362,7 @@ class ProjectBuilder(object):
 
                 ld = self.constants.CROSS_LD_DIR
 
-                if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ULF}") != 0:
+                if os.system(f"{ld} {ULF} -o {BIN_OUT} {objFiles}") != 0:
                     return BuilderResult.FAIL
             return BuilderResult.SUCCESS
         elif self.builderMode == BuilderMode.DRIVERS:

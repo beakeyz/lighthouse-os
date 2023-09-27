@@ -4,8 +4,8 @@
 typedef int                 handle_t;
 typedef unsigned char       handle_type_t;
 
-#define HANDLE_t            handle_t
-#define HANDLE_TYPE_t       handle_type_t
+#define HANDLE              handle_t
+#define HANDLE_TYPE         handle_type_t
 
 /*
  * TODO: get rid of KHNDL and make the kernel just 
@@ -20,16 +20,21 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_VOBJ      (5) /* A handle to a virtual object in the vfs */
 #define HNDL_TYPE_KOBJ      (6) /* A handle to a kernel object */
 #define HNDL_TYPE_THREAD    (7)
+/* Any profile that is present on the system */
+#define HNDL_TYPE_PROFILE          (8)
+  #define HNDL_MODE_CURRENT_PROFILE 0
+  #define HNDL_MODE_SCAN_PROFILE    1
+
+/* Profile variable */
+#define HNDL_TYPE_PVAR             (9)
 
 /* These types are still to be implemented */
-/* Any profile that is present on the system */
-#define KHNDL_TYPE_PROFILE          (8)
 /* A raw device attached to the device tree on the vfs at :/Devices/ */
-#define KHNDL_TYPE_DEVICE           (9)
+#define HNDL_TYPE_DEVICE           (10)
 /* Raw buffer, managed by the kernel */
-#define KHNDL_TYPE_BUFFER           (10)
+#define HNDL_TYPE_BUFFER           (11)
 /* Inter-process interface */
-#define KHNDL_TYPE_IP_INTERF        (11)
+#define HNDL_TYPE_IP_INTERF        (12)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */
