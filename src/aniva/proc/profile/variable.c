@@ -1,11 +1,15 @@
 #include "variable.h"
 #include "mem/zalloc.h"
+#include "proc/profile/profile.h"
 #include "sync/atomic_ptr.h"
 
 static zone_allocator_t __var_allocator;
 
 static void destroy_profile_var(profile_var_t* var)
 {
+  if (var->profile)
+    profile_remove_var(var->profile, var->key);
+  
   destroy_atomic_ptr(var->refc);
   zfree_fixed(&__var_allocator, var);
 }
@@ -26,7 +30,12 @@ profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, v
 
   /* Placeholder value set */
   var->qword_value = (uint64_t)value;
-  var->refc = create_atomic_ptr_with_value(0);
+
+  /*
+   * Set the refcount to one in order to preserve the variable for multiple gets
+   * and releases
+   */
+  var->refc = create_atomic_ptr_with_value(1);
 
   return var;
 }
@@ -42,7 +51,7 @@ profile_var_t* get_profile_var(profile_var_t* var)
   return var;
 }
 
-void put_profile_var(profile_var_t* var)
+void release_profile_var(profile_var_t* var)
 {
   uint64_t current_count = atomic_ptr_load(var->refc);
 

@@ -202,8 +202,6 @@ static int __check_driver(struct loader_ctx* ctx)
            symtab_sections = 0;
   struct elf64_shdr* shdr;
 
-  println((char*)ctx->hdr->e_ident);
-
   if (!memcmp(ctx->hdr->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
     return -1;
 

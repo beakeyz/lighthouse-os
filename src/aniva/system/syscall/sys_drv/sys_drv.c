@@ -7,6 +7,7 @@
 #include "mem/kmem_manager.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
+#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include <dev/manifest.h>
@@ -73,4 +74,38 @@ sys_get_handle_type(HANDLE handle)
     return HNDL_TYPE_NONE;
 
   return c_handle->type;
+}
+
+bool 
+sys_get_pvar_type(HANDLE pvar_handle, enum PROFILE_VAR_TYPE __user* type_buffer)
+{
+  profile_var_t* var;
+  khandle_t* handle;
+  proc_t* current_proc;
+
+  current_proc = get_current_proc();
+
+  /* Check the buffer address */
+  if (IsError(kmem_validate_ptr(current_proc, (uint64_t)type_buffer, sizeof(type_buffer))))
+    return false;
+
+  /* Find the khandle */
+  handle = find_khandle(&current_proc->m_handle_map, pvar_handle);
+
+  if (handle->type != HNDL_TYPE_PVAR)
+    return false;
+
+  /* Extract the profile variable */
+  var = handle->reference.pvar;
+
+  if (!var)
+    return false;
+
+  /*
+   * Set the userspace buffer 
+   * TODO: create a kmem routine that handles memory opperations to and from
+   * userspace
+   */
+  *type_buffer = var->type;
+  return true;
 }

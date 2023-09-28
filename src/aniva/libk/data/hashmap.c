@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -275,7 +276,6 @@ static ErrorOrPtr __hashmap_find_middle_entry(hashmap_entry_t* root, hashmap_ent
  */
 static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, uintptr_t key)
 {
-
   hashmap_entry_t* current_end;
   hashmap_entry_t* current_start;
 
@@ -327,7 +327,6 @@ static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, ui
  */
 static ErrorOrPtr __hashmap_put_closed(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 {
-
   __HASHMAP_GET_INDX(map, hashed_key, key, idx);
 
   hashmap_entry_t* entry = (hashmap_entry_t*)map->m_list + idx;

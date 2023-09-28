@@ -10,6 +10,8 @@ struct file;
 struct proc;
 struct thread;
 struct vobj;
+struct profile_var;
+struct proc_profile;
 struct dev_manifest;
 struct virtual_namespace;
 
@@ -34,6 +36,8 @@ typedef struct kernel_handle {
     struct thread* thread;
     struct virtual_namespace* namespace;
     struct vobj* vobj;
+    struct proc_profile* profile;
+    struct profile_var* pvar;
     void* kobj;
   } reference;
 } khandle_t;
@@ -46,6 +50,8 @@ typedef struct kernel_handle {
 
 void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref);
 void destroy_khandle(khandle_t* handle);
+
+void khandle_set_flags(khandle_t* handle, uint16_t flags);
 
 #define KHNDL_MAX_ENTRIES          (1024) /* The current maximum amount of handles (same as linux) */
 #define KHNDL_DEFAULT_ENTRIES      (512)

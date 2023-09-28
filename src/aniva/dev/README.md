@@ -28,6 +28,25 @@ a bigger modularity of functionality.
 
 Most internal drivers are things that we want the kernel to always be able to suport, like filesystems or basic firmware protocols 
 for i.e. graphics (GOP, VESA). External drivers are means for devices that are more of a niche, like specific network adapters, or
-HID devices, et cetera.
+HID devices, et cetera. When we switch into the first process (the kernel core process) after the initialization of most subsystems,
+We load all the precompiled drivers that should be present on every system.
 
-- TODO: work this out further
+NOTE: It is super important that the kernel does not get bloated with precompiled drivers that can also be loaded at a later time. 
+We should keep track of this, since not doing so might enlarge the kernel binary and/or affect boot times.
+
+After the initial load of all the drivers is done, we should conduct a post loading check (plc) to ensure all systems are functioning
+as they should. After that we do a few things to eventually get userspace up and running:
+
+ 1) Check the BASE profile for variables that map out the environment
+ 2) Enumerate those variables to load external drivers for this system
+ 3) Check if the BASE profile wants us to load a driver like kterm for 'userspace'
+  - if yes, load it and we're pretty much up and running from that point
+  - if no, we need to continue loading stuff and find the startup app
+ 4) Find the startup profile from BASE
+ 5) Launch the startup app that is associated with the startup profile under the var STARTUP_APP
+
+After the userspace is running, drivers can be dynamically loaded and unloaded. Some might break the system, some might not but when certain
+drivers are not working as expected, it's important that the option is always available with a minimal amount of volatility.
+
+In the event of an unrecoverable driver failure, we pull a quick windows and confront the user with a beautiful screen that outlines 'exactly'
+what went wrong and asks the user to restart =)

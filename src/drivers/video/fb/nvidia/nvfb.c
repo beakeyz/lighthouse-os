@@ -40,7 +40,7 @@ pci_driver_t nvfb_pci_driver = {
   0,
 };
 
-aniva_driver_t nvfb_driver = {
+EXPORT_DRIVER(nvfb_driver) = {
   .m_name = "nvfb",
   .m_type = DT_GRAPHICS,
   .f_msg = nvfb_msg,
@@ -50,7 +50,6 @@ aniva_driver_t nvfb_driver = {
   .m_dep_count = 0,
   .m_dependencies = { 0 },
 };
-//EXPORT_DRIVER_PTR(nvfb_driver);
 
 int nvfb_probe(pci_device_t* dev, pci_driver_t* driver)
 {

@@ -2,7 +2,6 @@
 #include "bus.h"
 #include "dev/debug/serial.h"
 #include "dev/pci/definitions.h"
-#include "dev/pci/ids.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"

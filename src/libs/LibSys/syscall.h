@@ -36,6 +36,9 @@
 #define SYSID_DESTROY_PROC      15
 #define SYSID_DESTROY_FILE      16
 #define SYSID_GET_HNDL_TYPE     17
+/* Open a profile variable on the handle of a profile */
+#define SYSID_OPEN_PVAR         18
+#define SYSID_GET_PVAR_TYPE     19
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

@@ -1,15 +1,20 @@
 #include "handle.h"
+#include "LibSys/handle_def.h"
 #include "fs/file.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "proc/profile/variable.h"
 #include "sync/mutex.h"
 #include <dev/manifest.h>
 #include <proc/proc.h>
 #include <mem/kmem_manager.h>
 
-/*
- * Called when a handle changes to a new type
+/*!
+ * @brief: Called when a handle changes to a new type
+ *
+ * This handles any state changes on the handles like binding and unbinding. We should
+ * do things like release references and stuff here
  */
 static void __on_handle_change(khandle_t* handle, bool bind)
 {
@@ -40,6 +45,19 @@ static void __on_handle_change(khandle_t* handle, bool bind)
 
         /* Close the object */
         vobj_close(obj);
+        break;
+      }
+    case HNDL_TYPE_PVAR:
+      {
+        profile_var_t* pvar = handle->reference.pvar;
+
+        /*
+         * Make sure to release the reference of the variable 
+         * since we took it when we opened it
+         */
+        if (!bind)
+          release_profile_var(pvar);
+
         break;
       }
     case HNDL_TYPE_NONE:
@@ -75,6 +93,20 @@ void destroy_khandle(khandle_t* handle)
 
   memset(handle, 0, sizeof(khandle_t));
   handle->index = KHNDL_INVALID_INDEX;
+}
+
+/*!
+ * @brief Set the flags of a khandle and mask them
+ *
+ * Nothing to add here...
+ */
+void khandle_set_flags(khandle_t* handle, uint16_t flags)
+{
+  if (!handle)
+    return;
+
+  handle->flags = flags;
+  handle->flags &= ~(HNDL_OPT_MASK);
 }
 
 /*
@@ -188,10 +220,13 @@ static void __bind_khandle(khandle_map_t* map, khandle_t* handle, uint32_t index
   map->count++;
 }
 
-/* NOTE: mutates the handle to fill in the index they are put at */
+/*!
+ * @brief: Copies a handle into the handle map
+ *
+ * NOTE: mutates the handle to fill in the index they are put at 
+ */
 ErrorOrPtr bind_khandle(khandle_map_t* map, khandle_t* handle) 
 {
-
   ErrorOrPtr res;
   uint32_t current_index;
   khandle_t* slot;

@@ -26,7 +26,7 @@ struct proc;
 /* Most basic privilege level */
 #define PRF_PRIV_LVL_USER 16
 
-#define PRF_MAX_VARS 256
+#define PRF_MAX_VARS 1024 
 
 /*
  * Profiles need to be saveable and loadable since they will 
@@ -65,9 +65,16 @@ static inline bool profile_is_valid_priv_level(proc_profile_t* profile)
   return (~(profile->priv_level.check) == profile->priv_level.lvl);
 }
 
-static inline void profile_set_priv_check(proc_profile_t* profile)
+static inline void profile_set_priv_lvl(proc_profile_t* profile, uint8_t lvl)
 {
+  /* Set raw here, so we overwrite garbage bits while setting the check */
+  profile->priv_level.raw = lvl;
   profile->priv_level.check = ~(profile->priv_level.lvl);
+}
+
+static inline uint8_t profile_get_priv_lvl(proc_profile_t* profile)
+{
+  return profile->priv_level.lvl;
 }
 
 void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level);
@@ -85,6 +92,6 @@ int profile_unregister(const char* name);
 int proc_register_to_base(struct proc* p);
 int proc_register_to_global(struct proc* p);
 
-uint16_t get_active_profile_count(); 
+uint16_t get_active_profile_count();
 
 #endif // !__ANIVA_PROC_PROFILE__

@@ -521,7 +521,6 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
     // TODO: check for errors
     if (dep_manifest && !is_driver_loaded(dep_manifest)) {
-
       print("Loading driver: ");
       println(handle->m_name);
       print("Loading dependency: ");

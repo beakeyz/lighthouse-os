@@ -2,6 +2,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "proc/proc.h"
 #include "proc/profile/variable.h"
 #include "sync/mutex.h"
@@ -17,17 +18,16 @@ static mutex_t* profile_mutex;
 
 void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level)
 {
-  if (!profile || !name || (level > 0x0f))
+  if (!profile || !name || (level > PRF_PRIV_LVL_USER))
     return;
 
   memset(profile, 0, sizeof(proc_profile_t));
 
   profile->name = name;
-  profile->priv_level.lvl = level;
   profile->var_map = create_hashmap(PRF_MAX_VARS, HASHMAP_FLAG_SK);
   profile->lock = create_mutex(NULL);
 
-  profile_set_priv_check(profile);
+  profile_set_priv_lvl(profile, level);
 }
 
 void destroy_proc_profile(proc_profile_t* profile)
@@ -121,13 +121,15 @@ int profile_add_var(proc_profile_t* profile, profile_var_t* var)
   if (IsError(result))
     return -3;
 
+  var->profile = profile;
   return 0;
 }
 
 /*!
  * @brief Remove a variable on a profile
  *
- * Nothing to add here...
+ * This leaves the ->profile field on the removed profile_var set
+ * and the caller should handle this
  */
 int profile_remove_var(proc_profile_t* profile, const char* key)
 {
@@ -246,5 +248,5 @@ void init_proc_profiles(void)
 
   profile_var_t* var = create_profile_var("SYSTEM_NAME", PROFILE_VAR_TYPE_STRING, "Aniva");
 
-  profile_add_var(&base_profile, var);
+  profile_add_var(&global_profile, var);
 }

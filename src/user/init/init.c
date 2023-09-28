@@ -3,6 +3,7 @@
 #include "LibSys/handle.h"
 #include "LibSys/handle_def.h"
 #include "LibSys/proc/process.h"
+#include "LibSys/proc/profile.h"
 #include "LibSys/proc/socket.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
@@ -61,22 +62,23 @@ int main() {
   else 
     printf("Could not take in that name!\n");
 
-  /* Get rid of the dummy.txt handle */
-  //assert(close_handle(handle));
-
-  printf("Could close dummy.txt!\n");
-
-  HANDLE profile_handle = open_handle("init", HNDL_TYPE_PROFILE, HNDL_FLAG_RW, HNDL_MODE_CURRENT_PROFILE);
-
+  /* Get a handle to the global profile */
+  HANDLE profile_handle = open_profile("Global", NULL);
   assert(verify_handle(profile_handle));
-
   printf("Could get profile handle!\n");
 
-  uintptr_t test_buffer = NULL;
+  /* Get a handle to a variable on that profile */
+  HANDLE pvar_handle = open_profile_variable("SYSTEM_NAME", profile_handle, HNDL_FLAG_RW);
+  assert(verify_handle(pvar_handle));
+  printf("Could get profile variable handle!\n");
 
-  assert(handle_read(profile_handle, sizeof(uintptr_t), &test_buffer));
+  char test_buffer[128] = { 0 };
 
-  printf("Read from the profile handle!\n");
+  /* Read from that variable */
+  profile_var_read(pvar_handle, sizeof(test_buffer), &test_buffer);
+  printf("Read from the profile variable handle!\n");
+
+  printf("value of variable was %s\n", test_buffer);
 
   free(memory);
   return handle_2;

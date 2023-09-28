@@ -6,6 +6,7 @@
  */
 
 #include "LibSys/handle_def.h"
+#include "LibSys/proc/var_types.h"
 #include "LibSys/system.h"
 #include "sys/types.h"
 
@@ -39,15 +40,24 @@ BOOL profile_get_name(
  * profiles and their variables
  */
 HANDLE open_profile_variable(
- __IN__ char* path
+ __IN__ char* key,
+ __IN__ HANDLE profile_handle,
+ __IN__ uint16_t flags
+);
+
+/*
+ * Grab the type of a certain profile variable
+ */
+BOOL profile_var_get_type(
+ __IN__ HANDLE var_handle,
+ __OUT__ enum PROFILE_VAR_TYPE* type
 );
 
 /*
  * Read from a profile variable
  */
-BOOL profile_read_var(
- __IN__ HANDLE handle,
- __IN__ const char* key,
+BOOL profile_var_read(
+ __IN__ HANDLE var_handle,
  __IN__ QWORD buffer_size,
  __OUT__ void* buffer
 );
@@ -55,9 +65,8 @@ BOOL profile_read_var(
 /*
  * Write to a profile variable
  */
-BOOL profile_write_var(
- __IN__ HANDLE handle,
- __IN__ const char* key,
+BOOL profile_var_write(
+ __IN__ HANDLE var_handle,
  __IN__ QWORD buffer_size,
  __IN__ void* buffer
 );

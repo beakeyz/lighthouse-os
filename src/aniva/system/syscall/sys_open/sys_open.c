@@ -8,11 +8,13 @@
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint32_t mode)
@@ -91,6 +93,8 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
               int error;
               proc_profile_t* profile = nullptr;
 
+              print("Finding ");
+              println(path);
               error = profile_find(path, &profile); 
 
               if (error || !profile)
@@ -119,8 +123,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
   /* TODO: check for permissions and open with the appropriate flags */
 
   /* Clear state bits */
-  handle.flags = flags;
-  handle.flags &= ~HNDL_OPT_MASK;
+  khandle_set_flags(&handle, flags);
 
   /* Copy the handle into the map */
   result = bind_khandle(&current_process->m_handle_map, &handle);
@@ -129,6 +132,70 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
     ret = Release(result);
 
   return ret;
+}
+
+/*!
+ * @brief Open a handle to a profile variable from a certain profile handle
+ *
+ * We don't check for any permissions here, since anyone may recieve a handle to any profile or any profile handle
+ * (except if its hidden or something else prevents the opening of pvars)
+ */
+HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t flags)
+{
+  int error;
+  ErrorOrPtr result;
+  proc_t* current_proc;
+  profile_var_t* pvar;
+  proc_profile_t* current_profile;
+  proc_profile_t* target_profile;
+  khandle_t* profile_khndl;
+  khandle_t pvar_khndl;
+  khandle_type_t type = HNDL_TYPE_PVAR;
+
+  current_proc = get_current_proc();
+
+  /* Validate pointers */
+  if (!current_proc || IsError(kmem_validate_ptr(current_proc, (uint64_t)name, 1)))
+    return HNDL_INVAL;
+
+  /* Grab the kernel handle to the target profile */
+  profile_khndl = find_khandle(&current_proc->m_handle_map, profile_handle);
+
+  if (!profile_khndl || profile_khndl->type != HNDL_TYPE_PROFILE)
+    return HNDL_INVAL;
+
+  /* Extract the actual profile pointers */
+  current_profile = current_proc->m_profile;
+  target_profile = profile_khndl->reference.profile;
+
+  /* Check if there is an actual profile (non-null is just assume yes =) ) */
+  if (!target_profile)
+    return HNDL_INVAL;
+
+  /* Grab the profile variable we want */
+  pvar = nullptr;
+  error = profile_get_var(target_profile, name, &pvar); 
+
+  if (error || !pvar)
+    return HNDL_NOT_FOUND;
+
+  /* Spoof a not-found when the permissions don't match =) */
+  if ((pvar->flags & PVAR_FLAG_HIDDEN) == PVAR_FLAG_HIDDEN && profile_get_priv_lvl(target_profile) > profile_get_priv_lvl(current_profile))
+    return HNDL_NOT_FOUND;
+
+  /* Create a kernel handle */
+  create_khandle(&pvar_khndl, &type, pvar);
+
+  /* Set the flags we want */
+  khandle_set_flags(&pvar_khndl, flags);
+
+  /* Copy the handle into the map */
+  result = bind_khandle(&current_proc->m_handle_map, &pvar_khndl);
+
+  if (!IsError(result))
+    return Release(result);
+
+  return HNDL_INVAL;
 }
 
 HANDLE sys_open_file(const char* __user path, uint16_t flags, uint32_t mode)
