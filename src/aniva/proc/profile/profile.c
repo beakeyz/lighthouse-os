@@ -1,4 +1,6 @@
 #include "profile.h"
+#include "LibSys/proc/var_types.h"
+#include "entry/entry.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
@@ -108,7 +110,7 @@ int profile_add_var(proc_profile_t* profile, profile_var_t* var)
 {
   ErrorOrPtr result;
 
-  if (!profile || !profile->var_map || !var)
+  if (!var || !profile || !profile->var_map)
     return -1;
 
   mutex_lock(profile->lock);
@@ -135,7 +137,7 @@ int profile_remove_var(proc_profile_t* profile, const char* key)
 {
   ErrorOrPtr result;
 
-  if (!profile || !profile->var_map || !key)
+  if (!key || !profile || !profile->var_map)
     return -1;
 
   mutex_lock(profile->lock);
@@ -161,7 +163,7 @@ int profile_get_var(proc_profile_t* profile, const char* key, profile_var_t** va
 {
   profile_var_t* ret;
 
-  if (!profile || !profile->var_map || !var)
+  if (!var || !profile || !profile->var_map)
     return -1;
 
   mutex_lock(profile->lock);
@@ -175,6 +177,67 @@ int profile_get_var(proc_profile_t* profile, const char* key, profile_var_t** va
 
   /* Increase the refcount of the variable */
   *var = get_profile_var(ret); 
+
+  return 0;
+}
+
+/*!
+ * @brief Find a profile-variable pair based on one unified path
+ *
+ * The path is constructed as followed: [profile_name]/[var_name]
+ * If the path does not contain a slash, we will immediately exit the function
+ */
+int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t** var)
+{
+  int error;
+  size_t path_len;
+  char* profile_name;
+  char* var_name;
+  proc_profile_t* profile_ptr;
+  profile_var_t* var_ptr;
+
+  if (!profile || !var)
+    return -1;
+
+  path_len = strlen(path) + 1;
+  char path_buffer[path_len];
+
+  /* Copy everything WITH the null-byte */
+  memcpy(path_buffer, path, path_len);
+
+  var_name = profile_name = &path_buffer[0];
+
+  while (*var_name != '/')
+    var_name++;
+
+  /* No slash found =/ */
+  if (!(*var_name))
+    return -2;
+
+  *var_name = '\0';
+  var_name++;
+
+  /* No var name? seriously? */
+  if (!(*var_name))
+    return -3;
+
+  profile_ptr = NULL;
+  var_ptr = NULL;
+  error = profile_find(profile_name, &profile_ptr);
+
+  /* Copy the profile over after the search */
+  *profile = profile_ptr;
+
+  if (error || !profile_ptr)
+    return -4;
+
+  error = profile_get_var(profile_ptr, var_name, &var_ptr);
+
+  /* Copy the var over after the search */
+  *var = var_ptr;
+
+  if (error || !var_ptr)
+    return -5;
 
   return 0;
 }
@@ -227,12 +290,34 @@ uint16_t get_active_profile_count()
   return active_profiles->m_size;
 }
 
+static void __apply_base_variables()
+{
+  /* TODO: should we store the (encrypted) password of the base profile here? */
+  profile_add_var(&base_profile, create_profile_var("BASE_PASSWRD", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_HIDDEN, NULL));
+}
+
+static void __apply_global_variables()
+{
+  profile_add_var(&global_profile, create_profile_var("SYSTEM_NAME", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, (uintptr_t)"Aniva"));
+  profile_add_var(&global_profile, create_profile_var("VERSION_MAJ", PROFILE_VAR_TYPE_BYTE, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.maj));
+  profile_add_var(&global_profile, create_profile_var("VERSION_MIN", PROFILE_VAR_TYPE_BYTE, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.min));
+  profile_add_var(&global_profile, create_profile_var("VERSION_BUMP", PROFILE_VAR_TYPE_WORD, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.bump));
+  //profile_add_var(&global_profile, create_profile_var("", enum PROFILE_VAR_TYPE type, uintptr_t value))
+}
+
 /*!
  * @brief Initialise the standard profiles present on all systems
  *
  * We initialize the profile BASE for any kernel processes and 
  * Global for any basic global processes. When a user signs up, they
  * create a profile they get to name (Can't be duplicate)
+ *
+ * We need to prevent that this system becomes like the windows registry, since
+ * that's a massive dumpsterfire. We want this to kind of act like environment
+ * variables but more defined, with more responsibility and volatility.
+ *
+ * They can be used to store system data or search paths, like in the windows registry,
+ * but they should not get bloated by apps and highly suprevised by the kernel
  */
 void init_proc_profiles(void)
 {
@@ -246,7 +331,7 @@ void init_proc_profiles(void)
   hashmap_put(active_profiles, (void*)base_profile.name, &base_profile);
   hashmap_put(active_profiles, (void*)global_profile.name, &global_profile);
 
-  profile_var_t* var = create_profile_var("SYSTEM_NAME", PROFILE_VAR_TYPE_STRING, "Aniva");
-
-  profile_add_var(&global_profile, var);
+  /* Apply the default variables onto the default profiles */
+  __apply_base_variables();
+  __apply_global_variables();
 }

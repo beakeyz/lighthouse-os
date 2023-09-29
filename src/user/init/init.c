@@ -62,21 +62,11 @@ int main() {
   else 
     printf("Could not take in that name!\n");
 
-  /* Get a handle to the global profile */
-  HANDLE profile_handle = open_profile("Global", NULL);
-  assert(verify_handle(profile_handle));
-  printf("Could get profile handle!\n");
-
-  /* Get a handle to a variable on that profile */
-  HANDLE pvar_handle = open_profile_variable("SYSTEM_NAME", profile_handle, HNDL_FLAG_RW);
-  assert(verify_handle(pvar_handle));
-  printf("Could get profile variable handle!\n");
-
   char test_buffer[128] = { 0 };
 
-  /* Read from that variable */
-  profile_var_read(pvar_handle, sizeof(test_buffer), &test_buffer);
-  printf("Read from the profile variable handle!\n");
+  BOOL result = profile_var_read_ex("Global", "SYSTEM_NAME", HNDL_FLAG_RW, sizeof(test_buffer), test_buffer);
+
+  printf("Tried to read from the profile variable handle!\n");
 
   printf("value of variable was %s\n", test_buffer);
 

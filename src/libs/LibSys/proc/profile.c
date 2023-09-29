@@ -49,3 +49,75 @@ BOOL profile_var_write(HANDLE handle, QWORD buffer_size, void* buffer)
 
   return handle_write(handle, buffer_size, buffer);
 }
+
+/*
+ * NOTE: we open the profile and the varialbe with the same flags
+ */
+BOOL profile_var_read_ex(char* profile_name, char* var_key, WORD flags, QWORD buffer_size, void* buffer)
+{
+  BOOL result;
+  HANDLE profile_handle;
+  HANDLE var_handle;
+
+  profile_handle = open_profile(profile_name, flags);
+
+  /* Yikes */
+  if (!verify_handle(profile_handle))
+    return FALSE;
+
+  var_handle = open_profile_variable(var_key, profile_handle, flags);
+
+  /* Failed to open a handle to the variable, close the profile and exit */
+  if (!verify_handle(var_handle)) {
+    close_handle(profile_handle);
+    return FALSE;
+  }
+
+  /* Try to read the variable and simply exit with the result value */
+  result = profile_var_read(var_handle, buffer_size, buffer);
+
+  /* Close variable */
+  close_handle(var_handle);
+
+  /* Close profile */
+  close_handle(profile_handle);
+
+  return result;
+}
+
+/*
+ * NOTE: we open the profile and the varialbe with the same flags
+ */
+BOOL profile_var_write_ex(char* profile_name, char* var_key, WORD flags, QWORD buffer_size, void* buffer)
+{
+  BOOL result;
+  HANDLE profile_handle;
+  HANDLE var_handle;
+
+  profile_handle = open_profile(profile_name, flags);
+
+  /* Yikes */
+  if (!verify_handle(profile_handle))
+    return FALSE;
+
+  var_handle = open_profile_variable(var_key, profile_handle, flags);
+
+  /* Failed to open a handle to the variable, close the profile and exit */
+  if (!verify_handle(var_handle)) {
+    close_handle(profile_handle);
+    return FALSE;
+  }
+
+  /* Try to read the variable and simply exit with the result value */
+  result = profile_var_write(var_handle, buffer_size, buffer);
+
+  /* Close variable */
+  close_handle(var_handle);
+
+  /* Close profile */
+  close_handle(profile_handle);
+
+  return result;
+}
+
+

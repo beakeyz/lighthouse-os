@@ -42,7 +42,7 @@ BOOL profile_get_name(
 HANDLE open_profile_variable(
  __IN__ char* key,
  __IN__ HANDLE profile_handle,
- __IN__ uint16_t flags
+ __IN__ WORD flags
 );
 
 /*
@@ -51,6 +51,28 @@ HANDLE open_profile_variable(
 BOOL profile_var_get_type(
  __IN__ HANDLE var_handle,
  __OUT__ enum PROFILE_VAR_TYPE* type
+);
+
+/*
+ * Read from a profile variable in one go
+ */
+BOOL profile_var_read_ex(
+ __IN__ char* profile_name,
+ __IN__ char* var_key,
+ __IN__ WORD flags,
+ __IN__ QWORD buffer_size,
+ __OUT__ void* buffer
+);
+
+/*
+ * Write to a profile variable in one go
+ */
+BOOL profile_var_write_ex(
+ __IN__ char* profile_name,
+ __IN__ char* var_key,
+ __IN__ WORD flags,
+ __IN__ QWORD buffer_size,
+ __OUT__ void* buffer
 );
 
 /*

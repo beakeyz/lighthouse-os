@@ -9,8 +9,8 @@ struct proc_profile;
 
 /* Open for anyone to read */
 #define PVAR_FLAG_GLOBAL (0x01)
-/* Open for anyone to modify */
-#define PVAR_FLAG_MUTABLE (0x02)
+/* Open for anyone to modify? */
+#define PVAR_FLAG_CONSTANT (0x02)
 /* Holds data that the system probably needs to function correctly */
 #define PVAR_FLAG_VOLATILE (0x04)
 /* Holds configuration data */
@@ -46,7 +46,7 @@ typedef struct profile_var {
 
 void init_proc_variables(void);
 
-profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, void* value);
+profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, uint8_t flags, uintptr_t value);
 
 profile_var_t* get_profile_var(profile_var_t* var);
 void release_profile_var(profile_var_t* var);
@@ -56,5 +56,7 @@ bool profile_var_get_qword_value(profile_var_t* var, uint64_t* buffer);
 bool profile_var_get_dword_value(profile_var_t* var, uint32_t* buffer);
 bool profile_var_get_word_value(profile_var_t* var, uint16_t* buffer);
 bool profile_var_get_byte_value(profile_var_t* var, uint8_t* buffer);
+
+bool profile_var_write(profile_var_t* var, uint64_t value);
 
 #endif // !__ANIVA_VARIABLE__

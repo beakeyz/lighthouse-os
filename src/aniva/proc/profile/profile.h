@@ -31,6 +31,8 @@ struct proc;
 /*
  * Profiles need to be saveable and loadable since they will 
  * act as our 'users' AND our 'groups' at the same time
+ *
+ * TODO: find out how to load profiles from files and save profiles to files
  */
 typedef struct proc_profile {
   const char* name;
@@ -86,9 +88,16 @@ int profile_add_var(proc_profile_t* profile, profile_var_t* var);
 int profile_remove_var(proc_profile_t* profile, const char* key);
 int profile_get_var(proc_profile_t* profile, const char* key, profile_var_t** var);
 
+int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t** var);
+
 int profile_register(proc_profile_t* profile);
 int profile_unregister(const char* name);
 
+/*
+ * Functions to bind processes to the default profiles
+ * in order to bind to other profiles, use the function
+ * <proc_set_profile> in proc.c (proc.h)
+ */
 int proc_register_to_base(struct proc* p);
 int proc_register_to_global(struct proc* p);
 
