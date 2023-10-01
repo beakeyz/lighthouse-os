@@ -5,6 +5,7 @@
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "proc/proc.h"
 #include "proc/profile/variable.h"
 #include "sync/mutex.h"
@@ -39,6 +40,12 @@ void destroy_proc_profile(proc_profile_t* profile)
 
   /* Lock the mutex to prevent any async weirdness */
   mutex_lock(profile->lock);
+
+  /* When we loaded a profile from a file, we malloced these strings */
+  if (profile_is_from_file(profile)) {
+    kfree((void*)profile->name);
+    kfree((void*)profile->path);
+  }
 
   destroy_hashmap(profile->var_map);
   destroy_mutex(profile->lock);
@@ -242,6 +249,10 @@ int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t**
   return 0;
 }
 
+/*!
+ * @brief Register a profile to the active list
+ *
+ */
 int profile_register(proc_profile_t* profile)
 {
   ErrorOrPtr result;
@@ -261,6 +272,11 @@ int profile_register(proc_profile_t* profile)
   return 0;
 }
 
+/*!
+ * @brief Remove a profile from the active list
+ *
+ * Nothing to add here...
+ */
 int profile_unregister(const char* name)
 {
   ErrorOrPtr result;
@@ -277,6 +293,47 @@ int profile_unregister(const char* name)
   if (IsError(result))
     return -2;
 
+  return 0;
+}
+
+#define LT_PFB_MAGIC0 'P'
+#define LT_PFB_MAGIC1 'F'
+#define LT_PFB_MAGIC2 'b'
+#define LT_PFB_MAGIC3 '\e'
+#define LT_PFB_MAGIC "PFb\e"
+
+/*
+ * Structure of the file that contains a profile
+ * this buffer starts at offset 0 inside the file
+ *
+ * When saving/loading this struct to/from a file, notice that we are making use of a
+ * string table, just like in the ELF file format. This means that any
+ * char* that we find in the file, are actually offsets into the string-
+ * table
+ */
+struct lt_profile_buffer {
+  char magic[4];
+  /* Version of the kernel this was made for */
+  uint32_t kernel_version;
+  /* Offset from the start of the file to the start of the string table */
+  uint32_t strtab_offset;
+  proc_profile_t profile;
+  profile_var_t vars[];
+} __attribute__((packed));
+
+/*!
+ * @brief Save a profile to a file
+ *
+ * Nothing to add here...
+ */
+int profile_save(proc_profile_t* profile, const char* path)
+{
+  kernel_panic("TODO: profile_save");
+  return 0;
+}
+int profile_load(proc_profile_t** profile, const char* path)
+{
+  kernel_panic("TODO: profile_load");
   return 0;
 }
 

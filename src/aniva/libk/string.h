@@ -6,6 +6,7 @@ size_t strlen(const char* str);
 
 // 1 = 2 ?
 int strcmp (const char* str1, const char* str2);
+int strncmp(const char *s1, const char *s2, size_t n);
 // and then there where two
 char* strcpy (char* dest, const char* src);
 

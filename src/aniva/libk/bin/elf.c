@@ -147,7 +147,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
     proc_flags |= PROC_DRIVER;
   }
 
-  ret = create_proc((char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
+  ret = create_proc(nullptr, (char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
   if (!ret)
     goto error_and_out;

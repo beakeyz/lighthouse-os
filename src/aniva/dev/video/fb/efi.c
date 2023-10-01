@@ -42,6 +42,12 @@ static uint64_t fb_driver_msg(aniva_driver_t* driver, dcc_t code, void* buffer, 
   switch (code) {
     case VIDDEV_DCC_BLT:
       {
+        viddev_blt_t* blt;
+
+        if (size != sizeof(*blt))
+          return -1;
+
+        blt = buffer;
         break;
       }
     case VIDDEV_DCC_MAPFB:

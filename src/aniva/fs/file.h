@@ -69,6 +69,8 @@ typedef struct file {
 
   file_ops_t* m_ops;
 
+  void* m_private;
+
   /* Pointer to the data buffer. TODO: make this easily managable */
   void* m_buffer;
   size_t m_buffer_size;

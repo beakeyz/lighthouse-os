@@ -26,7 +26,8 @@
 #include "core.h"
 #include <mem/heap.h>
 
-proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
+proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
+{
   size_t name_length;
   proc_t *proc;
 
@@ -62,6 +63,7 @@ proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags) {
 
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
+  proc->m_parent = parent;
 
   proc->m_terminate_bell = create_doorbell(5, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
@@ -102,7 +104,7 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
   }
 
   /* TODO: don't limit to one name */
-  return create_proc(PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+  return create_proc(nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
 proc_t* create_proc_from_path(const char* path) {

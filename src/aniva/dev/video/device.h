@@ -41,7 +41,6 @@ typedef struct viddev_mapfb {
 } viddev_mapfb_t;
 
 #define VIDDEV_DCC_GET_FBINFO 102
-#define VIDDEV_DCC_REGISTER_ACTIVE 103
 
 /*
  * Structure for any video devices like gpus or fb devices

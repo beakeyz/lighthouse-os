@@ -68,8 +68,6 @@ int main() {
 
   printf("Tried to read from the profile variable handle!\n");
 
-  printf("value of variable was %s\n", test_buffer);
-
   free(memory);
   return handle_2;
 }

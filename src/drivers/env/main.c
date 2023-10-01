@@ -2,6 +2,11 @@
 #include <dev/core.h>
 #include <dev/driver.h>
 
+int lightenv_init();
+int lightenv_exit();
+
+uint64_t lightenv_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+
 EXPORT_DRIVER(env_driver) = {
   .m_name = "lenv",
   .m_type = DT_SERVICE,
@@ -12,3 +17,25 @@ EXPORT_DRIVER(env_driver) = {
   .m_dep_count = 0,
   .m_dependencies = { 0 },
 };
+
+/*
+ * What is lenvs purpose?
+ *
+ * - manage profile logins
+ * - launch the correct environment (either graphical or terminal)
+ * - 
+ */
+int lightenv_init()
+{
+  return 0;
+}
+
+int lightenv_exit()
+{
+  return 0;
+}
+
+uint64_t lightenv_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
+{
+  return 0;
+}

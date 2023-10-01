@@ -67,6 +67,7 @@ typedef struct proc {
 
   /* This is used to compare a processes status in relation to other processes */
   struct proc_profile* m_profile;
+  struct proc* m_parent;
 
   page_dir_t m_root_pd;
   khandle_map_t m_handle_map;
@@ -99,7 +100,7 @@ typedef struct proc {
 #define PROC_SHOULD_STALL   (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
 #define PROC_NO_SOCKET      (0x00000200)
 
-proc_t* create_proc(char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
+proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 proc_t* create_proc_from_path(const char* path);
 

@@ -37,7 +37,7 @@ struct proc;
 typedef struct proc_profile {
   const char* name;
 
-  /* In the case of a custom profile */
+  /* In the case of a custom profile, loaded from a file */
   const char* path;
 
   /*
@@ -79,6 +79,11 @@ static inline uint8_t profile_get_priv_lvl(proc_profile_t* profile)
   return profile->priv_level.lvl;
 }
 
+static inline bool profile_is_from_file(proc_profile_t* profile)
+{
+  return (profile->path != nullptr);
+}
+
 void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level);
 void destroy_proc_profile(proc_profile_t* profile);
 
@@ -100,6 +105,9 @@ int profile_unregister(const char* name);
  */
 int proc_register_to_base(struct proc* p);
 int proc_register_to_global(struct proc* p);
+
+int profile_save(proc_profile_t* profile, const char* path);
+int profile_load(proc_profile_t** profile, const char* path);
 
 uint16_t get_active_profile_count();
 

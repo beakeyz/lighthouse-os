@@ -3,6 +3,7 @@
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/partition/mbr.h"
 #include "fs/vfs.h"
+#include "fs/vobj.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include <libk/string.h>
@@ -636,6 +637,46 @@ void init_gdisk_dev() {
   s_gdisk_lock = create_mutex(0);
 }
 
+static bool try_mount_root(partitioned_disk_dev_t* device)
+{
+  ErrorOrPtr result;
+  vobj_t* scan_obj;
+  const char* filesystems[] = {
+    "fat32",
+    "ext2",
+  };
+  const uint32_t filesystems_count = sizeof(filesystems) / sizeof(*filesystems);
+
+  for (uint32_t i = 0; i < filesystems_count; i++) {
+    const char* fs = filesystems[i];
+
+    result = vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, fs, device);
+
+    /* Successful mount? try and find aniva.elf */
+    if (!IsError(result)) {
+      scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/aniva.elf");
+
+      if (!scan_obj) {
+        result = Error();
+        continue;
+      }
+
+      /*
+       * We could find the system file! 
+       * TODO: look for more files that only one O.o
+       */
+      vobj_close(scan_obj);
+      break;
+    }
+  }
+
+  /* Failed to scan for filesystem */
+  if (IsError(result))
+    return false;
+
+  return true;
+}
+
 void init_root_device_probing() {
 
   /*
@@ -669,16 +710,8 @@ void init_root_device_probing() {
      */
     while (part) {
 
-      /*
-       * Test for a fat32 filesystem
-       */
-      if (!IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "fat32", part)))
-        break;
-      
-      /*
-       * Also test for ext2 just in case
-       */
-      if (!IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "ext2", part)))
+      /* Try to mount a filesystem and scan for aniva system files */
+      if (try_mount_root(part))
         break;
 
       part = part->m_next;
@@ -695,8 +728,7 @@ cycle_next:
       }
   }
 
-  //kernel_panic("init_root_device_probing test");
-
+  kernel_panic("init_root_device_probing test");
 }
 
 

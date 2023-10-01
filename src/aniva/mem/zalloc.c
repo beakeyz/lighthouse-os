@@ -230,6 +230,8 @@ void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
   //destroy_heap(allocator->m_heap);
 
   kfree(allocator);
+
+  (void)clear_zones;
 }
 
 /*!

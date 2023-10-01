@@ -1,6 +1,7 @@
 #ifndef __ANIVA_GENERIC_FAT__
 #define __ANIVA_GENERIC_FAT__
 #include "dev/disk/shared.h"
+#include "fs/fat/cache.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -35,7 +36,7 @@ struct fat_file_ops;
 /* standard EOF */
 #define EOF_FAT12	0xFFF
 #define EOF_FAT16	0xFFFF
-#define EOF_FAT32	0x0FFFFFFF
+#define EOF_FAT32	0x0FFFFFeF
 
 #define FAT_ENT_FREE	(0)
 #define FAT_ENT_BAD	(BAD_FAT32)
@@ -62,7 +63,7 @@ typedef struct fat_boot_sector {
   uint8_t sectors_per_cluster;
   uint16_t reserved_sectors;
   uint8_t fats;
-  uint16_t dir_entries;
+  uint16_t root_dir_entries;
   uint16_t sectors;
   uint8_t media;
   uint16_t sectors_per_fat;
@@ -169,20 +170,25 @@ typedef struct fat_fs_info {
   uint32_t fat_start;   // The File Allocation Table start sector
   uint32_t fat_len;     // The length of the FAT in sectors
 
-  uint32_t root_dir_cluster;
-  uint32_t max_cluster;
-
-  uint32_t dir_start_cluster;
-  uint32_t dir_entries;
-
-  size_t total_fs_size;
-
   mutex_t* fat_lock;
 
   struct fat_file_ops* m_file_ops;
 
+  uint32_t root_directory_sectors;
+  uint32_t total_reserved_sectors;
+  uint32_t total_usable_sectors;
+  uint32_t cluster_count;
+  uint32_t cluster_size;
+  uintptr_t usable_clusters_start;
+  uint32_t usable_sector_offset;
+
+  /* at-mount copy of the root entry */
+  fat_dir_entry_t root_entry_cpy;
+
   fat_boot_sector_t boot_sector_copy;
   fat_boot_fsinfo_t boot_fs_info;
+
+  fat_sector_cache_t* sector_cache;
 
 } fat_fs_info_t;
 
@@ -204,51 +210,10 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
 }
 
 typedef struct fat_file {
+  struct file* parent;
 
-  int entry;
-  void* clusterchain_buffer;
+  uint32_t* clusterchain_buffer;
   size_t clusterchain_size;
-
-  /* Index into the clusterchain */
-  union {
-    uint8_t* index_ft12[2]; // mostly unused
-    uint16_t* index_ft16; // mostly unused
-    uint32_t* index_ft32;
-  } idx;
-
-  struct vnode* parent_node;
 } fat_file_t;
-
-typedef struct fat_file_ops {
-  int (*get_block_info)(fat_file_t* file, int index, int* offset, uintptr_t* blocknr);
-  int (*get)(fat_file_t* file);
-  int (*put)(fat_file_t* file, int cluster);
-  int (*next_cluster)(fat_file_t* file);
-  int (*seek_index)(fat_file_t* file, int index);
-} fat_file_ops_t;
-
-/*
- * Clear without doing any buffer work
- * TODO: use 
-static void clear_fat_file(fat_file_t* file) 
-{
-  file->parent_node = NULL;
-  file->entry = 0;
-  file->idx.index_ft32 = 0;
-  file->clusterchain_size = 0;
-  file->clusterchain_buffer = nullptr;
-}
-
-static void fat_file_set_entry(fat_file_t* file, int entry)
-{
-  file->entry = entry;
-  file->idx.index_ft32 = NULL;
-}
-*/
-
-extern int fat_prepare_finfo(struct vnode* node);
-
-extern int ffile_read(fat_file_t* f, int e);
-extern int ffile_write(fat_file_t* f, int e);
 
 #endif // !__ANIVA_GENERIC_FAT__

@@ -1,5 +1,6 @@
 #include "variable.h"
 #include "LibSys/proc/var_types.h"
+#include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "proc/profile/profile.h"
 #include "sync/atomic_ptr.h"
@@ -9,8 +10,17 @@ static zone_allocator_t __var_allocator;
 
 static void destroy_profile_var(profile_var_t* var)
 {
-  if (var->profile)
+  if (var->profile) {
+    
+    if (profile_is_from_file(var->profile)) {
+      kfree((void*)var->key);
+
+      if (var->type == PROFILE_VAR_TYPE_STRING)
+        kfree((void*)var->str_value);
+    }
+
     profile_remove_var(var->profile, var->key);
+  }
   
   destroy_atomic_ptr(var->refc);
   zfree_fixed(&__var_allocator, var);

@@ -38,18 +38,15 @@ ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
     return Error();
   }
 
-  if (node->m_ns) {
+  if (node->m_ns)
     /* We don't yet allow multiple mounts, so TODO */
     return Error();
-  }
 
   if (!node->m_ops)
     return Error();
 
-  if (!node->m_ops->f_open || !node->m_ops->f_close)
-    return Error();
-
-  if (!node->m_ops->f_msg)
+  /* These are the essensial opperations for a fs on our system */
+  if (!node->m_ops->f_open || !node->m_ops->f_close || !node->m_ops->f_msg)
     return Error();
 
   // If it ends at a namespace, all good. just attacht the node there
