@@ -464,11 +464,14 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* Set the local pointer to the bootsector */
   boot_sector = &ffi->boot_sector_copy;
 
+  /*
+   * Copy the boot sector cuz why not lol 
+   * NOTE: the only access the boot sector after this point lmao
+   */
+  memcpy(boot_sector, buffer, sizeof(fat_boot_sector_t));
+
   /* Create a cache for our sectors */
   ffi->sector_cache = create_fat_sector_cache(boot_sector->sector_size);
-
-  /* Copy the boot sector cuz why not lol */
-  memcpy(boot_sector, buffer, sizeof(fat_boot_sector_t));
 
   /* Try to parse boot sector */
   int parse_result = parse_fat_bpb(boot_sector, node);
@@ -553,7 +556,7 @@ fail:
 
   if (node) {
     destroy_fat_info(node);
-    destroy_generic_vnode(node);
+    //destroy_generic_vnode(node);
   }
 
   return nullptr;

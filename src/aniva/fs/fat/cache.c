@@ -5,6 +5,8 @@
 #include "fs/file.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
+#include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include <mem/zalloc.h>
@@ -89,29 +91,41 @@ void destroy_fat_sector_cache(fat_sector_cache_t* cache)
  *
  * Nothing to add here...
  */
-static uint8_t fat_sec_cache_get_sector_index(fat_sector_cache_t* cache, disk_offset_t offset)
+static uint8_t fat_sec_cache_get_sector_index(fat_sector_cache_t* cache, uint64_t block)
 {
-  uint8_t lowest_usecount_idx = 0;
-
-  for (uint64_t i = 0; i < MAX_SEC_CACHE_COUNT; i++) {
-    if (!cache->sector_useage_counts[i])
-      continue;
-
-    if (offset >= cache->sector_offsets[i] && offset < cache->sector_offsets[i] + cache->sector_size)
-      return i;
-  }
+  uint8_t lower_count = 0;
+  uint8_t preferred_cache_idx = 0;
+  uint8_t lowest_usecount = 0xFF;
 
   for (uint8_t i = 0; i < MAX_SEC_CACHE_COUNT; i++) {
-    if (cache->sector_useage_counts[i] < lowest_usecount_idx)
-      lowest_usecount_idx = lowest_usecount_idx;
 
-    if (!lowest_usecount_idx)
-      break;
+    /* Free cache? Mark it */
+    if (cache->sector_useage_counts[i] == 0) {
+      preferred_cache_idx = i;
+      continue;
+    }
+
+    /* If there already is a cache with this block, get that one */
+    if (cache->sector_blocks[i] == block) {
+      return i;
+    }
+
+    if (cache->sector_useage_counts[i] < lowest_usecount && !preferred_cache_idx) {
+      lowest_usecount = cache->sector_useage_counts[i];
+      lower_count++;
+      preferred_cache_idx = i;
+    }
   }
 
-  cache->sector_useage_counts[lowest_usecount_idx] = 1;
+  /* If there was a cache with a lowest count, use that */
+  if (lower_count)
+    return preferred_cache_idx;
 
-  return lowest_usecount_idx;
+  preferred_cache_idx = cache->oldest_sector_idx;
+
+  cache->oldest_sector_idx = (cache->oldest_sector_idx + 1) % 7;
+
+  return preferred_cache_idx;
 }
 
 /*!
@@ -119,7 +133,7 @@ static uint8_t fat_sec_cache_get_sector_index(fat_sector_cache_t* cache, disk_of
  *
  * Nothing to add here...
  */
-static void prepare_fat_sector_cache(fat_sector_cache_t* cache, uint8_t index)
+static void checkout_fat_sector_cache(fat_sector_cache_t* cache, uint8_t index)
 {
   void* buffer = cache->buffers[index];
 
@@ -127,6 +141,9 @@ static void prepare_fat_sector_cache(fat_sector_cache_t* cache, uint8_t index)
     cache->buffers[index] = zalloc_fixed(cache->buffer_allocator);
   else
     memset(buffer, 0, cache->sector_size);
+
+  cache->sector_useage_counts[index] = NULL;
+  cache->sector_blocks[index] = NULL;
 }
 
 /*!
@@ -138,23 +155,30 @@ static uint8_t
 __cached_read(vnode_t* node, fat_sector_cache_t* cache, uintptr_t block)
 {
   int error;
+  uint64_t disk_blocks;
   uint8_t cache_idx = fat_sec_cache_get_sector_index(cache, block);
 
   /* Block already in our cache */
-  if (cache->sector_offsets[cache_idx] == block)
+  if (cache->sector_blocks[cache_idx] == block)
     goto success;
 
   /* Ensure we have a buffer here */
-  prepare_fat_sector_cache(cache, cache_idx);
+  checkout_fat_sector_cache(cache, cache_idx);
 
-  /* Read the thing */
-  error = pd_bread(node->m_device, cache->buffers[cache_idx], block);
+  /* How many disk blocks do we need to read until we have read one FAT block? (sector) */
+  disk_blocks = ALIGN_UP(cache->sector_size, node->m_device->m_block_size) / node->m_device->m_block_size;
 
-  if (error)
-    goto out;
+  for (uint64_t i = 0; i < disk_blocks; i++) {
+
+    /* Read the thing */
+    error = pd_bread(node->m_device, cache->buffers[cache_idx] + (i * node->m_device->m_block_size), block + i);
+
+    if (error)
+      goto out;
+  }
 
 success:
-  cache->sector_offsets[cache_idx] = block;
+  cache->sector_blocks[cache_idx] = block;
   cache->sector_useage_counts[cache_idx]++;
 
   return cache_idx;
@@ -176,8 +200,8 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   uint8_t current_cache_idx;
 
   current_offset = 0;
-  lba_size = node->m_device->m_block_size;
   info = VN_FS_DATA(node).m_fs_specific_info;
+  lba_size = info->sector_cache->sector_size;
 
   while (current_offset < size) {
     current_block = (offset + current_offset) / lba_size;

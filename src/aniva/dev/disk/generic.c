@@ -658,6 +658,8 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
 
       if (!scan_obj) {
         result = Error();
+
+        vfs_unmount(VFS_DEFAULT_ROOT_MP);
         continue;
       }
 

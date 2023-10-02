@@ -20,12 +20,13 @@ typedef struct {
   uint64_t dirty_bits;
 
   uint32_t sector_size;
+  uint8_t oldest_sector_idx;
 
   /* Allocator for our buffers */
   zone_allocator_t* buffer_allocator;
 
   uint16_t sector_useage_counts[MAX_SEC_CACHE_COUNT];
-  uint64_t sector_offsets[MAX_SEC_CACHE_COUNT];
+  uint64_t sector_blocks[MAX_SEC_CACHE_COUNT];
   uint8_t* buffers[MAX_SEC_CACHE_COUNT];
 } fat_sector_cache_t;
 
