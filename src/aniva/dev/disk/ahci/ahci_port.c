@@ -14,6 +14,7 @@
 #include "libk/stddef.h"
 #include <mem/heap.h>
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
@@ -22,6 +23,8 @@ static int ahci_port_read(disk_dev_t* port, void* buffer, size_t size, disk_offs
 static int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_write_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+
+static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk);
 
 static void decode_disk_model_number(char* model_number) {
   for (uintptr_t chunk = 0; chunk < 40; chunk+= 2) {
@@ -369,6 +372,8 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   port->m_generic.m_ops.f_write = ahci_port_write;
   port->m_generic.m_ops.f_write_sync = ahci_port_write_sync;
 
+  port->m_generic.m_ops.f_read_blocks = ahci_port_read_blk;
+
   /* Give the device its name */
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
 
@@ -503,44 +508,57 @@ int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t o
   return -1;
 }
 
-int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
-
-  if (size == 0) {
+int ahci_port_read_sync(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset)
+{
+  if (!device || !size || !buffer)
     return -1;
-  }
 
-  ahci_port_t* parent;
+  /* TODO: integrate this with the generic block cache */
+  return device->m_ops.f_read_blocks(device, buffer, size / device->m_logical_sector_size, offset / device->m_logical_sector_size);
+}
+
+static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk)
+{
+  int error;
+  ahci_port_t* port;
   vaddr_t tmp;
   paddr_t phys_tmp;
-  uintptr_t lba;
-  size_t blk_count;
+  size_t buffer_size;
+  ANIVA_STATUS status;
+
+  if (!device || !count || !buffer)
+    return -1;
 
   // Prepare the parent port
-  parent = port->m_parent;
+  port = device->m_parent;
 
-  // Preallocate a buffer 
-  // TODO: is this buffer needed? Can we dump the result straigt into the buffer argument?
-  tmp = Must(__kmem_kernel_alloc_range(size, 0, KMEM_FLAG_DMA));
+  if (!port)
+    return -2;
+
+  /* Calculate buffersize */
+  buffer_size = count * device->m_logical_sector_size;
+
+  /* Preallocate a buffer (TODO: contact a generic disk block cache) */
+  tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
   phys_tmp = kmem_to_phys(nullptr, tmp);
 
-  // TODO: bitshift with the log2() of the sector/block size
-  // for more acurate readings
-  lba = offset / port->m_logical_sector_size;
-  blk_count = size / port->m_logical_sector_size;
+  error = -3;
+  /* Send the AHCI command */
+  status = ahci_port_send_command(port, AHCI_COMMAND_READ_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
 
-  // println("Waiting...");
-  ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_READ_DMA_EXT, phys_tmp, size, false, lba, blk_count);
+  if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
+    goto fail_and_exit;
 
-  if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(parent) == ANIVA_FAIL) {
-    return -1;
-  }
+  /* Copy prebuffer into final buffer */
+  memcpy(buffer, (void*)tmp, buffer_size);
 
-  // Copy prebuffer into final buffer
-  memcpy(buffer, (void*)tmp, size);
+  /* Reset the error value to indicate success */
+  error = 0;
 
-  __kmem_kernel_dealloc(tmp, size);
-
-  return 0;
+fail_and_exit:
+  /* Deallocate the intermediate */
+  __kmem_kernel_dealloc(tmp, buffer_size);
+  return error;
 }
 
 /*

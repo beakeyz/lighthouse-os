@@ -1,7 +1,9 @@
 #include "generic.h"
+#include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/partition/mbr.h"
+#include "dev/driver.h"
 #include "fs/vfs.h"
 #include "fs/vobj.h"
 #include "libk/data/linkedlist.h"
@@ -25,6 +27,11 @@ struct gdisk_store_entry {
 static struct gdisk_store_entry* s_gdisks;
 static struct gdisk_store_entry* s_last_gdisk;
 
+/*!
+ * @brief Generate a new disk uid (duid)
+ *
+ * NOTE: caller should have the s_gdisk_lock held
+ */
 static disk_uid_t generate_new_disk_uid() {
 
   if (!mutex_is_locked_by_current_thread(s_gdisk_lock))
@@ -47,6 +54,11 @@ exit:;
   return ret;
 }
 
+/*!
+ * @brief Get a gdisk store entry for a certain device
+ *
+ * Nothing to add here...
+ */
 struct gdisk_store_entry** get_store_entry(disk_dev_t* device) {
 
   struct gdisk_store_entry** entry = &s_gdisks;
@@ -60,8 +72,22 @@ struct gdisk_store_entry** get_store_entry(disk_dev_t* device) {
   return entry;
 }
 
+/*!
+ * @brief Create a gdisk store entry for @device
+ *
+ * NOTE: the caller of this should have the s_gdisk_lock held, because of the
+ * generate_new_disk_uid call...
+ */
 static struct gdisk_store_entry* create_gdisk_store_entry(disk_dev_t* device) {
-  struct gdisk_store_entry* ret = kmalloc(sizeof(struct gdisk_store_entry));
+  struct gdisk_store_entry* ret;
+
+  if (!device)
+    return nullptr;
+
+  ret = kmalloc(sizeof(struct gdisk_store_entry));
+
+  if (!ret)
+    return nullptr;
 
   memset(ret, 0, sizeof(struct gdisk_store_entry));
 
@@ -73,6 +99,12 @@ static struct gdisk_store_entry* create_gdisk_store_entry(disk_dev_t* device) {
   return ret;
 }
 
+/*!
+ * @brief Remove a gdisk store entry
+ *
+ * Also makes sure that the underlying device gets its uuid removed
+ * (Since -1 is invalid)
+ */
 static void destroy_gdisk_store_entry(struct gdisk_store_entry* entry) {
 
   if (!entry)
@@ -84,8 +116,24 @@ static void destroy_gdisk_store_entry(struct gdisk_store_entry* entry) {
   kfree(entry);
 }
 
-partitioned_disk_dev_t* create_partitioned_disk_dev(disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags) {
-  partitioned_disk_dev_t* ret = kmalloc(sizeof(partitioned_disk_dev_t));
+/*!
+ * @brief Create a partitioned disk device
+ *
+ * Nothing to add here...
+ */
+partitioned_disk_dev_t* create_partitioned_disk_dev(disk_dev_t* parent, char* name, uint64_t start, uint64_t end, uint32_t flags) 
+{
+  partitioned_disk_dev_t* ret;
+
+  if (!name)
+    return nullptr;
+
+  ret = kmalloc(sizeof(partitioned_disk_dev_t));
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(partitioned_disk_dev_t));
   
   ret->m_parent = parent;
   ret->m_name = name;
@@ -104,10 +152,20 @@ partitioned_disk_dev_t* create_partitioned_disk_dev(disk_dev_t* parent, char* na
   return ret;
 }
 
+/*!
+ * @brief Free memory used for a partitioned disk device
+ *
+ * Nothing to add here...
+ */
 void destroy_partitioned_disk_dev(partitioned_disk_dev_t* dev) {
   kfree(dev);
 }
 
+/*!
+ * @brief Attach a partitioned disk device to a regular disk device
+ *
+ * Nothing to add here...
+ */
 void attach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t* dev) {
 
   partitioned_disk_dev_t** device;
@@ -127,10 +185,17 @@ void attach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t*
   }
 }
 
+/*!
+ * @brief Remove a partitioned disk device from its regular device
+ *
+ * Nothing to add here...
+ */
 void detach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t* dev) {
 
-  if (!dev)
+  if (!dev || !generic)
     return;
+
+  ASSERT_MSG(generic->m_partitioned_dev_count, "Tried to detach partitioned disk device when the dev count of the generic disk device was already zero!");
 
   partitioned_disk_dev_t** previous = nullptr;
   partitioned_disk_dev_t** device;
@@ -140,19 +205,22 @@ void detach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t*
       if (previous) {
         (*previous)->m_next = (*device)->m_next;
       }
+
+      generic->m_partitioned_dev_count--;
       break;
     }
 
     previous = device;
   }
-
-  ASSERT_MSG(generic->m_partitioned_dev_count, "Tried to detach partitioned disk device when the dev count of the generic disk device was already zero!");
-
-  generic->m_partitioned_dev_count--;
 }
 
-partitioned_disk_dev_t** fetch_designated_device_for_block(disk_dev_t* generic, uintptr_t block) {
-
+/*!
+ * @brief Scan the generic disk device to find a pdd for @block
+ *
+ * Nothing to add here...
+ */
+partitioned_disk_dev_t** fetch_designated_device_for_block(disk_dev_t* generic, uintptr_t block)
+{
   partitioned_disk_dev_t** device;
   
   for (device = &generic->m_devs; (*device); device = &(*device)->m_next) {
@@ -168,17 +236,23 @@ partitioned_disk_dev_t** fetch_designated_device_for_block(disk_dev_t* generic, 
   return nullptr;
 }
 
-int generic_disk_opperation(disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
+int generic_disk_opperation(disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) 
+{
   return -1;
 }
 
-ErrorOrPtr register_gdisk_dev(disk_dev_t* device) {
-  struct gdisk_store_entry** entry = get_store_entry(device);
+ErrorOrPtr register_gdisk_dev(disk_dev_t* device) 
+{
+  struct gdisk_store_entry** entry;
+
+  if (!device)
+    return Error();
+
+  entry = get_store_entry(device);
 
   /* We need to assert that get_store_entry returned an empty entry */
-  if (*entry) {
+  if (*entry)
     return Error();
-  }
 
   mutex_lock(s_gdisk_lock);
 
@@ -192,10 +266,22 @@ ErrorOrPtr register_gdisk_dev(disk_dev_t* device) {
   return Success(0);
 }
 
-/* TODO: locking */
+/*!
+ * @brief Remove a disk device from our store
+ *
+ * Nothing to add here...
+ */
 ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
-  struct gdisk_store_entry** entry = &s_gdisks;
-  struct gdisk_store_entry** previous_entry = nullptr;
+  struct gdisk_store_entry** entry;
+  struct gdisk_store_entry** previous_entry;
+
+  if (!device)
+    return Error();
+
+  mutex_lock(s_gdisk_lock);
+
+  previous_entry = nullptr;
+  entry = &s_gdisks;
   
   /* First we detacht the entry */
   for (; *entry; entry = &(*entry)->next) {
@@ -220,8 +306,10 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
   }
 
   /* No entry found =/ */
-  if (!*entry)
+  if (!*entry) {
+    mutex_unlock(s_gdisk_lock);
     return Error();
+  }
 
   /* If we remove the only entry, update s_last_gdisk */
   if ((!previous_entry || !*previous_entry) && !(*entry)->next && s_last_gdisk)
@@ -239,9 +327,16 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
   /* Object not needed anymore, destroy it */
   destroy_gdisk_store_entry(*entry);
 
+  mutex_unlock(s_gdisk_lock);
+
   return Success(0);
 }
 
+/*!
+ * @brief Find a disk device by its uid
+ *
+ * Nothing to add here...
+ */
 disk_dev_t* find_gdisk_device(disk_uid_t uid) {
 
   disk_uid_t i = 0; 
@@ -262,8 +357,18 @@ disk_dev_t* find_gdisk_device(disk_uid_t uid) {
   return nullptr;
 }
 
-/* TODO: locking */
-ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid) {
+/*!
+ * @brief Register a gdisk device with a specific uid
+ *
+ * Nothing to add here...
+ */
+ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid) 
+{
+
+  if (!device)
+    return Error();
+
+  mutex_lock(s_gdisk_lock);
 
   if (uid == 0) {
     struct gdisk_store_entry* entry = create_gdisk_store_entry(device);
@@ -312,6 +417,8 @@ ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid) {
     }
   }
 
+  mutex_unlock(s_gdisk_lock);
+
   return Success(0);
 }
 
@@ -321,7 +428,6 @@ int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size
 
   if (!dev || !dev->m_parent)
     return result;
-
 
   const uintptr_t block = offset / dev->m_parent->m_logical_sector_size;
 
@@ -340,38 +446,36 @@ int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t siz
   return 0;
 }
 
-int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
+int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) 
+{
+  int error = -1;
+  uintptr_t abs_block;
 
   if (!dev || !dev->m_parent)
     return -1;
 
-  int result = -1;
-  disk_offset_t offset;
+  if (block > dev->m_end_lba)
+    return -2;
 
-  block = dev->m_start_lba + block;
+  abs_block = dev->m_start_lba + block;
 
-  if (block <= dev->m_end_lba) {
-
-    offset = block * dev->m_parent->m_logical_sector_size;
-
-    if (dev->m_parent->m_ops.f_read_sync) {
-      result = dev->m_parent->m_ops.f_read_sync(dev->m_parent, buffer, size, offset);
-    } else {
-      // Do we have an alternative?
-    }
+  if (dev->m_parent->m_ops.f_read_blocks) {
+    error = dev->m_parent->m_ops.f_read_blocks(dev->m_parent, buffer, count, abs_block);
+  } else {
+    // Do we have an alternative?
   }
 
-  return result;
+  return error;
 }
 
-int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block) {
+int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) {
   kernel_panic("TODO: implement write_sync_partitioned_block");
 }
 
 int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
 {
   if ((dev->m_flags & PD_FLAG_ONLY_SYNC) == PD_FLAG_ONLY_SYNC)
-    return read_sync_partitioned_blocks(dev, buffer, dev->m_block_size, blockn);
+    return read_sync_partitioned_blocks(dev, buffer, 1, blockn);
 
   kernel_panic("TODO: implement async disk IO");
 }
@@ -379,7 +483,7 @@ int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn)
 int pd_bwrite(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
 {
   if ((dev->m_flags & PD_FLAG_ONLY_SYNC) == PD_FLAG_ONLY_SYNC)
-    return write_sync_partitioned_blocks(dev, buffer, dev->m_block_size, blockn);
+    return write_sync_partitioned_blocks(dev, buffer, 1, blockn);
 
   kernel_panic("TODO: implement async disk IO");
 }
@@ -679,8 +783,8 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
   return true;
 }
 
-void init_root_device_probing() {
-
+void init_root_device_probing() 
+{
   /*
    * Init probing for the root device
    */
@@ -725,12 +829,10 @@ cycle_next:
   }
 
   if (!root_device) {
-      if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
-        kernel_panic("Could not find a root device to mount! TODO: fix");
-      }
+    if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
+      kernel_panic("Could not find a root device to mount! TODO: fix");
+    }
   }
-
-  kernel_panic("init_root_device_probing test");
 }
 
 
@@ -744,3 +846,42 @@ bool gdisk_is_valid(disk_dev_t* device)
       device->m_max_blk
       );
 }
+
+/*
+ * TODO: pass driver messages through to the correct driver, given 
+ * a generic disk device / partitioned disk device
+ */
+uint64_t disk_core_msg(aniva_driver_t* this, dcc_t core, void* buffer, size_t size, void* out_buffer, size_t out_size)
+{
+  return 0;
+}
+
+int disk_core_init() 
+{
+  return 0;
+}
+
+int disk_core_exit() 
+{
+  return 0;
+}
+
+/*
+ * The core disk driver
+ *
+ * This driver will pass messages from (mostly) userspace to the appropriate driver and
+ * also the right device. This means userspace can interface with disks directly by opening
+ * a handle to for example /core/disk/device0 and performing actions on that handle like read/
+ * write or diagnostics calls. The core disk driver will then be in charge of managing which device
+ * or which partition userspace gets access to
+ */
+aniva_driver_t core_disk_driver = {
+  .m_name = "disk",
+  .m_type = DT_CORE,
+  .f_init = disk_core_init,
+  .f_exit = disk_core_exit,
+  .f_msg = disk_core_msg,
+  .m_dep_count = 0,
+  .m_dependencies = { 0 },
+};
+EXPORT_DRIVER_PTR(core_disk_driver);

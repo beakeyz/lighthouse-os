@@ -551,12 +551,12 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   node->m_flags |= VN_FLEXIBLE;
 
   return node;
-
 fail:
 
   if (node) {
     destroy_fat_info(node);
-    //destroy_generic_vnode(node);
+    /* NOTE: total vnode destruction is not yet done */
+    destroy_generic_vnode(node);
   }
 
   return nullptr;

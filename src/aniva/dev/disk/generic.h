@@ -24,6 +24,21 @@ typedef struct generic_disk_ops {
   int (*f_write) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
   int (*f_read_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
   int (*f_write_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
+
+  /* Cache functions */
+  int (*f_flush) (struct disk_dev* device);
+  int (*f_discard_cache) (struct disk_dev* device); /* This is kinda scary O.o */
+
+  /* Mass-transfer */
+  int (*f_read_blocks) (struct disk_dev* device, void* buffer, size_t count, uint64_t blk);
+  int (*f_write_blocks) (struct disk_dev* device, void* buffer, size_t count, uint64_t blk);
+
+  /* Grab device information */
+  int (*f_get_stats) (struct disk_dev* device);
+
+  /* PM */
+  int (*f_poweroff) (struct disk_dev* device);
+  int (*f_poweron) (struct disk_dev* device);
 } generic_disk_ops_t;
 
 #define PART_TYPE_NONE              (0)
@@ -84,12 +99,17 @@ typedef struct partitioned_disk_dev {
   struct partitioned_disk_dev* m_next;
 } partitioned_disk_dev_t;
 
+static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
+{
+  return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
+}
+
 void destroy_generic_disk(disk_dev_t* device);
 
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
-int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
-int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t size, uintptr_t block);
+int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block);
+int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block);
 
 /* Read or Write to a partitioned device using a caller-controlled buffer */
 int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn);

@@ -40,7 +40,7 @@ vnode_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_de
 
   ext2_superblock_t* superblock = kmalloc(sizeof(ext2_superblock_t));
 
-  read_sync_partitioned_blocks(device, superblock, sizeof(ext2_superblock_t), 1);
+  read_sync_partitioned_blocks(device, superblock, get_blockcount(device->m_parent, sizeof(ext2_superblock_t)), 1);
 
   // TODO: =)
 

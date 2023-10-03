@@ -16,7 +16,7 @@ const char* mbr_partition_names[] = {
   "mbr_part3",
 };
 
-mbr_table_t* create_mbr_table(disk_dev_t* device, disk_offset_t mbr_offset)
+mbr_table_t* create_mbr_table(disk_dev_t* device, uintptr_t start_lba)
 {
   int error;
   mbr_header_t* header;
@@ -33,7 +33,7 @@ mbr_table_t* create_mbr_table(disk_dev_t* device, disk_offset_t mbr_offset)
     return nullptr;
 
   /* The MBR should always be at offset 0 of a device */
-  error = device->m_ops.f_read_sync(device, buffer, device->m_logical_sector_size, mbr_offset);
+  error = device->m_ops.f_read_blocks(device, buffer, 1, start_lba);
 
   if (error)
     goto dealloc_and_fail;

@@ -50,9 +50,9 @@ bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table) {
   uint32_t gpt_block = 0;
 
   if (device->m_logical_sector_size == 512)
-    gpt_block = 512;
+    gpt_block = 1;
 
-  int result = device->m_ops.f_read_sync(device, buffer, device->m_logical_sector_size, gpt_block);
+  int result = device->m_ops.f_read_blocks(device, buffer, 1, gpt_block);
 
   if (result < 0)
     return false;
@@ -82,13 +82,13 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
 
   const size_t partition_entry_size = ret->m_header.partition_entry_size;
   uintptr_t partition_index = 0;
-  disk_offset_t blk_offset = ret->m_header.partition_array_start_lba * device->m_logical_sector_size;
+  disk_offset_t blk = ret->m_header.partition_array_start_lba;
 
   for (uintptr_t i = 0; i < ret->m_header.entries_count; i++) {
 
     // Let's put the whole block into this buffer
     uint8_t entry_buffer[device->m_logical_sector_size];
-    if (device->m_ops.f_read_sync(device, entry_buffer, device->m_logical_sector_size, blk_offset) < 0) {
+    if (device->m_ops.f_read_blocks(device, entry_buffer, 1, blk) < 0) {
       goto fail_and_destroy;
     }
 
@@ -97,7 +97,7 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
     gpt_partition_entry_t entry = entries[i % (device->m_logical_sector_size / partition_entry_size)];
 
     if (!gpt_entry_is_used(entry.partition_guid)) {
-      blk_offset += partition_entry_size;
+      blk += partition_entry_size;
       continue;
     }
 
@@ -107,7 +107,7 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
     list_append(ret->m_partitions, partition);
 
     partition_index++;
-    blk_offset += partition_entry_size;
+    blk += partition_entry_size;
   }
 
   return ret;

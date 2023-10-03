@@ -52,164 +52,68 @@ void destroy_fat_info(vnode_t* node)
   node->fs_data.m_fs_specific_info = nullptr;
 }
 
-fat_sector_cache_t* create_fat_sector_cache(uint64_t block_size)
+fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size)
 {
-  fat_sector_cache_t* ret;
+  fat_sector_cache_t* cache;
 
-  ret = zalloc_fixed(&__fat_sec_cache_alloc);
-
-  if (!ret)
+  if (!block_size)
     return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
+  cache = zalloc_fixed(&__fat_sec_cache_alloc);
 
-  ret->sector_size = block_size;
-  ret->buffer_allocator = create_zone_allocator(MAX_SEC_CACHE_COUNT * block_size, block_size, NULL);
+  if (!cache)
+    return nullptr;
 
-  return ret;
+  cache->blocksize = block_size;
+  cache->fat_block_buffer = Must(__kmem_kernel_alloc_range(block_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+  return cache;
 }
 
 void destroy_fat_sector_cache(fat_sector_cache_t* cache)
 {
-  void* current_buffer;
+  if (!cache)
+    return;
 
-  for (uint64_t i = 0; i < MAX_SEC_CACHE_COUNT; i++) {
-    current_buffer = cache->buffers[i];
-
-    if (!current_buffer)
-      continue;
-
-    zfree_fixed(cache->buffer_allocator, current_buffer);
-  }
-
-  destroy_zone_allocator(cache->buffer_allocator, false);
+  __kmem_kernel_dealloc(cache->fat_block_buffer, cache->blocksize);
   zfree_fixed(&__fat_sec_cache_alloc, cache);
 }
 
 /*!
- * @brief Get the buffer index for a certain offset into the fat filesystem
+ * @brief: Read a block into the fat block buffer
  *
- * Nothing to add here...
+ * TODO: make use of more advanced caching
+ * (Or put caching in the generic disk core)
  */
-static uint8_t fat_sec_cache_get_sector_index(fat_sector_cache_t* cache, uint64_t block)
+static int 
+__read(vnode_t* node, fat_sector_cache_t* cache, uintptr_t block)
 {
-  uint8_t lower_count = 0;
-  uint8_t preferred_cache_idx = 0;
-  uint8_t lowest_usecount = 0xFF;
-
-  for (uint8_t i = 0; i < MAX_SEC_CACHE_COUNT; i++) {
-
-    /* Free cache? Mark it */
-    if (cache->sector_useage_counts[i] == 0) {
-      preferred_cache_idx = i;
-      continue;
-    }
-
-    /* If there already is a cache with this block, get that one */
-    if (cache->sector_blocks[i] == block) {
-      return i;
-    }
-
-    if (cache->sector_useage_counts[i] < lowest_usecount && !preferred_cache_idx) {
-      lowest_usecount = cache->sector_useage_counts[i];
-      lower_count++;
-      preferred_cache_idx = i;
-    }
-  }
-
-  /* If there was a cache with a lowest count, use that */
-  if (lower_count)
-    return preferred_cache_idx;
-
-  preferred_cache_idx = cache->oldest_sector_idx;
-
-  cache->oldest_sector_idx = (cache->oldest_sector_idx + 1) % 7;
-
-  return preferred_cache_idx;
+  return pd_bread(node->m_device, (void*)cache->fat_block_buffer, block);
 }
 
 /*!
- * @brief Make sure the cache at an index @index is backed by memory
- *
- * Nothing to add here...
- */
-static void checkout_fat_sector_cache(fat_sector_cache_t* cache, uint8_t index)
-{
-  void* buffer = cache->buffers[index];
-
-  if (!buffer)
-    cache->buffers[index] = zalloc_fixed(cache->buffer_allocator);
-  else
-    memset(buffer, 0, cache->sector_size);
-
-  cache->sector_useage_counts[index] = NULL;
-  cache->sector_blocks[index] = NULL;
-}
-
-/*!
- * @brief Gets the cache where we put the block, or puts the block in a new cache
- *
- * Nothing to add here...
- */
-static uint8_t 
-__cached_read(vnode_t* node, fat_sector_cache_t* cache, uintptr_t block)
-{
-  int error;
-  uint64_t disk_blocks;
-  uint8_t cache_idx = fat_sec_cache_get_sector_index(cache, block);
-
-  /* Block already in our cache */
-  if (cache->sector_blocks[cache_idx] == block)
-    goto success;
-
-  /* Ensure we have a buffer here */
-  checkout_fat_sector_cache(cache, cache_idx);
-
-  /* How many disk blocks do we need to read until we have read one FAT block? (sector) */
-  disk_blocks = ALIGN_UP(cache->sector_size, node->m_device->m_block_size) / node->m_device->m_block_size;
-
-  for (uint64_t i = 0; i < disk_blocks; i++) {
-
-    /* Read the thing */
-    error = pd_bread(node->m_device, cache->buffers[cache_idx] + (i * node->m_device->m_block_size), block + i);
-
-    if (error)
-      goto out;
-  }
-
-success:
-  cache->sector_blocks[cache_idx] = block;
-  cache->sector_useage_counts[cache_idx]++;
-
-  return cache_idx;
-
-out:
-  return 0xFF;
-}
-
-/*!
- * @brief Read a 
+ * @brief Read a bit of data from fat
  *
  * Nothing to add here...
  */
 int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
 {
+  int error;
   fat_fs_info_t* info;
   uint64_t current_block, current_offset, current_delta;
   uint64_t lba_size, read_size;
-  uint8_t current_cache_idx;
 
   current_offset = 0;
   info = VN_FS_DATA(node).m_fs_specific_info;
-  lba_size = info->sector_cache->sector_size;
+  lba_size = VN_FS_DATA(node).m_blocksize;
 
   while (current_offset < size) {
     current_block = (offset + current_offset) / lba_size;
     current_delta = (offset + current_offset) % lba_size;
 
-    current_cache_idx = __cached_read(node, info->sector_cache, current_block);
+    error = __read(node, info->sector_cache, current_block);
 
-    if (current_cache_idx == 0xFF)
+    if (error)
       return -1;
 
     read_size = size - current_offset;
@@ -218,7 +122,7 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     if (read_size > lba_size - current_delta)
       read_size = lba_size - current_delta;
 
-    memcpy(buffer + current_offset, &(info->sector_cache->buffers[current_cache_idx])[current_delta], read_size);
+    memcpy(buffer + current_offset, &(((uint8_t*)info->sector_cache->fat_block_buffer)[current_delta]), read_size);
 
     current_offset += read_size;
   }
@@ -233,32 +137,7 @@ int fat_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
 
 int fat_bread(vnode_t* node, void* buffer, size_t count, uint64_t sec)
 {
-  uint8_t index;
-  uintptr_t offset;
-  void* cache_buffer;
-  fat_fs_info_t* info;
-
-  if (!node || !buffer)
-    return -1;
-
-  if (!count)
-    return -2;
-
-  info = VN_FS_DATA(node).m_fs_specific_info;
-
-  for (uintptr_t i = 0; i < count; i++) {
-    offset = (i * info->sector_cache->sector_size);
-    index = __cached_read(node, info->sector_cache, sec + offset);
-
-    if (!info->sector_cache->sector_useage_counts[index])
-      return -3;
-
-    cache_buffer = info->sector_cache->buffers[index];
-
-    memcpy(buffer + offset, cache_buffer, info->sector_cache->sector_size);
-  }
-
-  return 0;
+  kernel_panic("TODO: fat_bread");
 }
 
 int fat_bwrite(vnode_t* node, void* buffer, size_t count, uint64_t sec)

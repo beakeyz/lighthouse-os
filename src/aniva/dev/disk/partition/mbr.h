@@ -55,7 +55,7 @@ typedef struct mbr_table {
   list_t* partitions;
 } mbr_table_t;
 
-mbr_table_t* create_mbr_table(struct disk_dev* device, disk_offset_t start_offset);
+mbr_table_t* create_mbr_table(struct disk_dev* device, uintptr_t start_lba);
 void destroy_mbr_table(mbr_table_t* table);
 
 #endif // !__ANIVA_PARTITION_MBR__
