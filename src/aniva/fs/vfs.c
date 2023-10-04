@@ -11,6 +11,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
@@ -27,16 +28,15 @@ static bool __vfs_path_is_absolute(const char* path)
   return (path[0] == VFS_ABS_PATH_IDENTIFIER);
 }
 
-vnamespace_t*   vfs_get_abs_root() 
+vnamespace_t* vfs_get_abs_root() 
 {
   return hive_get(s_vfs.m_namespaces, VFS_ROOT_ID);
 }
 
-ErrorOrPtr vfs_mount(const char* path, vnode_t* node) {
+static ErrorOrPtr _vfs_mount(const char* path, vnode_t* node) {
 
-  if (!node) {
+  if (!node)
     return Error();
-  }
 
   if (node->m_ns)
     /* We don't yet allow multiple mounts, so TODO */
@@ -92,15 +92,13 @@ ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
   if (!node)
     return Error();
 
-  println("Mounting...");
-  println(path);
-  TRY(mount_result, vfs_mount(path, node));
+  TRY(mount_result, _vfs_mount(path, node));
 
   return Success(mount_result);
 }
 
-ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) {
-
+ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) 
+{
   vnode_t* mountnode = nullptr;
 
   /* Execute fs-specific mount routine */
@@ -110,10 +108,11 @@ ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs
   if (!mountnode)
     return Error();
 
-  /* Mount into our vfs */
-  ErrorOrPtr mount_result = vfs_mount(path, mountnode);
+  /* Make sure that the node knows its filesystem type */
+  mountnode->fs_data.m_type = fs;
 
-  return mount_result;
+  /* Mount into our vfs */
+  return _vfs_mount(path, mountnode);
 }
 
 ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device) {
@@ -128,9 +127,60 @@ ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs
 
 /*
  * Just unmount whatever we find at the end of this path
+ *
+ * NOTE: this path HAS to be absolute
  */
-ErrorOrPtr vfs_unmount(const char* path) {
-  kernel_panic("TODO: implement vfs_unmount");
+ErrorOrPtr vfs_unmount(const char* path) 
+{
+  int error;
+  vnode_t* node;
+  vnamespace_t* namespace;
+  fs_type_t* fs_type;
+
+  if (!path)
+    return Error();
+
+  node = vfs_resolve_node(path);
+
+  if (!node || !node->m_ns)
+    return Error();
+
+  println(path);
+
+  /* Take the node to give any pending processes time to finish their shit */
+  error = vn_take(node, NULL);
+
+  if (error)
+    return Error();
+
+  println(node->m_name);
+
+  /* If this node has a filesystem, it needs to murder itself */
+  fs_type = node->fs_data.m_type;
+  error = 0;
+
+  /* Notify the filesystem we want to unmount */
+  if (fs_type && fs_type->f_unmount)
+    error = fs_type->f_unmount(fs_type, node);
+
+  if (error)
+    return Error();
+
+  /* Grab the namespace */
+  namespace = node->m_ns;
+
+  println("Yay");
+  error = vns_remove_vnode(namespace, node);
+
+  if (error)
+    return Error();
+
+  println("Oompth");
+  /* Try to destroy the vnode */
+  if (IsError(destroy_generic_vnode(node)))
+    return Error();
+
+  kernel_panic("Tried unmount");
 
   /* 0) resolve whatever is at this path */
   /* 1) if its a vnode, good. We can unmount those */

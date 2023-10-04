@@ -10,6 +10,7 @@
 #include "libk/flow/error.h"
 #include <libk/string.h>
 #include "libk/math/log2.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "ramdisk.h"
@@ -763,7 +764,8 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
       if (!scan_obj) {
         result = Error();
 
-        vfs_unmount(VFS_DEFAULT_ROOT_MP);
+        /* NOTE: unmount needs the vfs rootid =) */
+        Must(vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP));
         continue;
       }
 

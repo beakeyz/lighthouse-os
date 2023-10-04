@@ -136,7 +136,7 @@ typedef struct fat_dir_entry {
   uint16_t first_cluster_hi;
   uint16_t time;
   uint16_t date;
-  uint16_t first_clutser_low;
+  uint16_t first_cluster_low;
   uint32_t size;
 } __attribute__((packed)) fat_dir_entry_t;
 

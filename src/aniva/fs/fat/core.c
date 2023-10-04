@@ -72,12 +72,12 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
 /*!
  * @brief Load a singular clusters value
  *
- * fs: the filesystem object to opperate on
- * buffer: the buffer for the clusters value
- * cluster: the 'index' of the cluster on disk
+ * @node: the filesystem object to opperate on
+ * @buffer: the buffer for the clusters value
+ * @cluster: the 'index' of the cluster on disk
  */
 static int
-__fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
+fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
 {
   int error;
   fat_fs_info_t* info;
@@ -95,7 +95,7 @@ __fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
 }
 
 static int
-__fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluster)
+fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluster)
 {
   int error;
   size_t length;
@@ -113,10 +113,9 @@ __fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_clus
   if (file->clusterchain_buffer)
     return -3;
 
-  println("Counting");
   /* Count the clusters */
   while (true) {
-    error = __fat32_load_cluster(node, &buffer, buffer);
+    error = fat32_load_cluster(node, &buffer, buffer);
 
     if (error)
       return error;
@@ -136,12 +135,11 @@ __fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_clus
   /* Set correct lengths */
   file->clusterchain_size = length;
 
-  println("Stroring");
   /* Loop and store the clusters */
   for (uint32_t i = 0; i < length; i++) {
     file->clusterchain_buffer[i] = buffer;
 
-    error = __fat32_load_cluster(node, &buffer, buffer);
+    error = fat32_load_cluster(node, &buffer, buffer);
 
     if (error)
       return error;
@@ -151,7 +149,7 @@ __fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_clus
 }
 
 static int
-__fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t count)
+fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t count)
 {
   int error;
   uintptr_t current_index;
@@ -160,7 +158,6 @@ __fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t st
   uintptr_t current_delta;
   uintptr_t current_cluster_offset;
   uintptr_t index;
-
   fat_fs_info_t* info;
 
   if (!node)
@@ -194,10 +191,9 @@ __fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t st
   return 0;
 }
 
-static int
+static void
 transform_fat_filename(char* dest, const char* src) 
 {
-
   uint32_t i = 0;
   uint32_t src_dot_idx = 0;
 
@@ -209,7 +205,7 @@ transform_fat_filename(char* dest, const char* src)
   while (src[src_dot_idx + i]) {
     // limit exceed
     if (i >= 11 || (i >= 8 && !found_ext)) {
-      return 0;
+      return;
     }
 
     // we have found the '.' =D
@@ -227,12 +223,10 @@ transform_fat_filename(char* dest, const char* src)
       i++;
     }
   }
-
-  return 0;
 }
 
-static int 
-__fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path)
+static int
+fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path)
 {
   int error;
   /* We always use this buffer if we don't support lfn */
@@ -246,7 +240,6 @@ __fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t*
   fat_fs_info_t* p;
   fat_file_t tmp_ffile = { 0 };
 
-  println("A");
   if (!out || !rel_path)
     return -1;
 
@@ -254,35 +247,35 @@ __fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t*
   if ((current->attr & FAT_ATTR_DIR) == 0)
     return -2;
 
-  println("shit");
+  /* Get our filesystem info and cluster number */
   p = VN_FS_DATA(node).m_fs_specific_info;
-  cluster_num = current->first_clutser_low | ((uint32_t)current->first_cluster_hi << 16);
+  cluster_num = current->first_cluster_low | ((uint32_t)current->first_cluster_hi << 16);
 
-  error = __fat32_cache_cluster_chain(node, &tmp_ffile, cluster_num);
+  /* Cache the cluster chain into the temp file */
+  error = fat32_cache_cluster_chain(node, &tmp_ffile, cluster_num);
 
   if (error)
     goto fail_dealloc_cchain;
 
-  println("bro");
+  /* Calculate the size of the data */
   clusters_size = tmp_ffile.clusterchain_size * p->cluster_size;
   dir_entries_count = clusters_size / sizeof(fat_dir_entry_t);
 
+  /* Allocate for that size */
   dir_entries = kmalloc(clusters_size);
 
-  println("L");
-  error = __fat32_load_clusters(node, dir_entries, &tmp_ffile, 0, clusters_size);
+  /* Load all the data into the buffer */
+  error = fat32_load_clusters(node, dir_entries, &tmp_ffile, 0, clusters_size);
 
   if (error)
     goto fail_dealloc_dir_entries;
 
-  println("Dic");
-  error = transform_fat_filename(transformed_buffer, rel_path);
+  /* Everything is going great, now we can transform the pathname for our scan */
+  transform_fat_filename(transformed_buffer, rel_path);
 
   /* Loop over all the directory entries and check if any paths match ours */
   for (uint32_t i = 0; i < dir_entries_count; i++) {
     fat_dir_entry_t entry = dir_entries[i];
-
-    println((char*)entry.name);
 
     /* Space kinda cringe */
     if (entry.name[0] == ' ')
@@ -331,21 +324,18 @@ static vobj_t* fat_open(vnode_t* node, char* path)
   uintptr_t current_idx;
   size_t path_size;
 
-  println("fat_open");
   if (!path)
     return nullptr;
 
   info = VN_FS_DATA(node).m_fs_specific_info;
   ret = create_file(node, NULL, path);
 
-  println("file");
   if (!ret)
     return nullptr;
 
-  println("fat file");
   fat_file = create_fat_file(ret);
 
-  if (!ret)
+  if (!fat_file)
     return nullptr;
 
   /* Complete the link */
@@ -373,7 +363,7 @@ static vobj_t* fat_open(vnode_t* node, char* path)
 
     println(path_buffer);
 
-    error = __fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx]);
+    error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx]);
 
     if (error)
       break;
@@ -384,7 +374,7 @@ static vobj_t* fat_open(vnode_t* node, char* path)
     if ((current.attr & (FAT_ATTR_DIR|FAT_ATTR_VOLUME_ID)) != FAT_ATTR_DIR) {
 
       /* Make sure the file knows about its cluster chain */
-      error = __fat32_cache_cluster_chain(node, fat_file, (current.first_clutser_low | (current.first_cluster_hi << 16)));
+      error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | (current.first_cluster_hi << 16)));
 
       if (error)
         break;
@@ -422,7 +412,7 @@ static int fat_msg(vnode_t* node, dcc_t code, void* buffer, size_t size)
   return 0;
 }
 
-static struct generic_vnode_ops __fat_vnode_ops = {
+static struct generic_vnode_ops fat_vnode_ops = {
   .f_open = fat_open,
   .f_close = fat_close,
   .f_makedir = fat_mkdir,
@@ -522,7 +512,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   ffi->root_entry_cpy = (fat_dir_entry_t) {
     .name = "/",
-    .first_clutser_low = boot_sector->fat32.root_cluster & 0xffff,
+    .first_cluster_low = boot_sector->fat32.root_cluster & 0xffff,
     .first_cluster_hi = (boot_sector->fat32.root_cluster >> 16) & 0xffff,
     .attr = FAT_ATTR_DIR,
     0
@@ -542,7 +532,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
   VN_FS_DATA(node).m_free_blocks = ffi->boot_fs_info.free_clusters;
 
-  node->m_ops = &__fat_vnode_ops;
+  node->m_ops = &fat_vnode_ops;
 
   println("Did fat filesystem!");
 

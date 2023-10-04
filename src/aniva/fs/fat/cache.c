@@ -122,7 +122,7 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     if (read_size > lba_size - current_delta)
       read_size = lba_size - current_delta;
 
-    memcpy(buffer + current_offset, &(((uint8_t*)info->sector_cache->fat_block_buffer)[current_delta]), read_size);
+    memcpy(buffer + current_offset, &((uint8_t*)info->sector_cache->fat_block_buffer)[current_delta], read_size);
 
     current_offset += read_size;
   }

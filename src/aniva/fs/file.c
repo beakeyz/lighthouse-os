@@ -6,6 +6,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
+#include "sync/mutex.h"
 
 file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
@@ -156,7 +157,7 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
     
   ret.m_buffer_size = def_size;
   ret.m_buffer = (void*)new_virt_base;
-  ret.m_offset = file->m_offset;
+  ret.m_buffer_offset = file->m_buffer_offset;
   ret.m_ops = &generic_file_ops;
 
   return ret;
@@ -184,7 +185,41 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) {
   return ret;
 }
 
+void file_set_ops(file_t* file, file_ops_t* ops)
+{
+  if (!file || !ops)
+    return;
+
+  file->m_ops = ops;
+}
+
 void destroy_file(file_t* file) {
   println("Destroyed file object");
   kfree(file);
 }
+
+int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+{
+  int error;
+  vobj_t* file_obj;
+
+  if (!file)
+    return -1;
+
+  file_obj = file->m_obj;
+
+  if (!file_obj)
+    return -2;
+
+  mutex_lock(file_obj->m_lock);
+
+  error = file->m_ops->f_read(file, buffer, size, offset);
+
+  mutex_unlock(file_obj->m_lock);
+
+  return error;
+}
+int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset);
+int file_sync(file_t* file);
+
+int file_close(file_t* file);

@@ -2,6 +2,7 @@
 #define __ANIVA_VNODE__
 
 #include "dev/disk/generic.h"
+#include "fs/core.h"
 #include "fs/file.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
@@ -100,6 +101,8 @@ typedef struct vnode {
   };
   /* This sub-struct contains the fields that tell us stuff about the filesystem */
   struct {
+    fs_type_t* m_type;
+
     uint32_t m_blocksize;
     uint32_t m_flags;
 
@@ -128,6 +131,7 @@ typedef struct vnode {
 #define VN_FS       (0x00000040) /* Is this node a filesystem? */
 #define VN_DIR      (0x00000080) /* Is this node a directory? */
 #define VN_TAKEN    (0x00000100) /* Has someone taken this node? */
+#define VN_NO_WAIT  (0x00000200) /* Never wait for a node to be released */
 
 /* When a flexible node is taken anyway, behaviour should not change */
 #define VN_FLEXIBLE (0x00000200) /* Flexible nodes allow opperations while they are not taken */

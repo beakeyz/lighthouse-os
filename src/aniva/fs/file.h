@@ -46,7 +46,7 @@ typedef struct file_ops {
 #define FILE_ORPHAN         (0x00000002)
 
 /*
- * NOTE: When this object is alive, we assume it (and its vnode) have already already opend
+ * NOTE: When this object is alive, we assume it (and its vnode) have already been opend
  * 
  * Every file has a data buffer that can hold a single piece of contiguous memory that reflects 
  * the files internal data. We can only hold ONE buffer of a single size at a time, so when we
@@ -58,9 +58,6 @@ typedef struct file {
   uint32_t m_flags;
   uint32_t m_res0;
 
-  /* Every file has an 'offset' or 'address' for where it starts */
-  disk_offset_t m_offset;
-
   /* How many 'chunks' this file encapsulates */
   uintptr_t m_scatter_count;
 
@@ -70,6 +67,9 @@ typedef struct file {
   file_ops_t* m_ops;
 
   void* m_private;
+
+  /* Every file has an 'offset' or 'address' for where it starts */
+  disk_offset_t m_buffer_offset;
 
   /* Pointer to the data buffer. TODO: make this easily managable */
   void* m_buffer;
@@ -82,7 +82,12 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path);
 file_t* create_file_from_vobj(struct vobj* obj);
 void destroy_file(file_t* file);
 
-/* TODO: what will the syntax be? */
-ErrorOrPtr file_open();
+void file_set_ops(file_t* file, file_ops_t* ops);
+
+int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
+int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset);
+int file_sync(file_t* file);
+
+int file_close(file_t* file);
 
 #endif // !__ANIVA_FIL_IMPL__

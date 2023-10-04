@@ -60,7 +60,7 @@ void init_vfs();
  *  - ect.
  *
  */
-ErrorOrPtr vfs_mount(const char* path, vnode_t* node);
+//ErrorOrPtr vfs_mount(const char* path, vnode_t* node);
 ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device);
 ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device);
 ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver);

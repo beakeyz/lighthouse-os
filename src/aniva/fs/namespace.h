@@ -69,8 +69,8 @@ ErrorOrPtr vns_assign_vnode(struct vnode* node, vnamespace_t* namespace);
  * we simply send it vnamespace events to signal it has moved location (when this 
  * is necessery) ((TODO))
  */
-ErrorOrPtr vns_commit_mutate(vnamespace_t* ns);
-ErrorOrPtr vns_uncommit_mutate(vnamespace_t* ns);
+int vns_commit_mutate(vnamespace_t* ns);
+int vns_uncommit_mutate(vnamespace_t* ns);
 
 /*
  * Binds a node to a namespace
@@ -79,8 +79,8 @@ ErrorOrPtr vns_uncommit_mutate(vnamespace_t* ns);
 ErrorOrPtr vns_reassign_vnode(struct vnode* node, vnamespace_t* namespace);
 
 struct vnode* vns_find_vnode(vnamespace_t* ns, const char* path);
-
 struct vnode* vns_try_remove_vnode(vnamespace_t* ns, const char* path);
+int vns_remove_vnode(vnamespace_t* ns, struct vnode* node);
 
 bool vns_contains_vnode(vnamespace_t* ns, const char* path);
 

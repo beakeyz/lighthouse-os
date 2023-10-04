@@ -34,6 +34,7 @@ vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
   ns->m_desc = nullptr;
   ns->m_flags = NULL;
   ns->m_parent = parent;
+  ns->m_mutate_lock = create_mutex(0);
 
   ns->m_distance_to_root = 0;
 
@@ -43,10 +44,12 @@ vnamespace_t* create_vnamespace(char* id, vnamespace_t* parent) {
   return ns;
 }
 
-void destroy_vnamespace(vnamespace_t* ns) {
+void destroy_vnamespace(vnamespace_t* ns) 
+{
   if (!ns)
     return;
 
+  destroy_mutex(ns->m_mutate_lock);
   destroy_hive(ns->m_vnodes);
   kfree(ns);
 }
@@ -119,22 +122,57 @@ vnode_t* vns_try_remove_vnode(vnamespace_t* ns, const char* path) {
   return ret;
 }
 
-ErrorOrPtr vns_commit_mutate(vnamespace_t* ns) {
+int vns_remove_vnode(vnamespace_t* ns, struct vnode* node)
+{
+  int error;
+  ErrorOrPtr result;
+
+  if (!ns || !node)
+    return -1;
+
+  if (node->m_ns != ns)
+    return -2;
+
+  if (!vn_is_available(node))
+    return -3;
+
+  error = vns_commit_mutate(ns);
+
+  if (error)
+    return -4;
+
+  result = hive_remove(ns->m_vnodes, node);
+  error = vns_uncommit_mutate(ns);
+
+  if (error || IsError(result))
+    return -5;
+
+  /* Clear the nodes state fields */
+  node->m_ns = nullptr;
+  node->m_id = 0;
+  node->m_flags &= ~VN_MOUNT;
+
+  return 0;
+}
+
+int vns_commit_mutate(vnamespace_t* ns) 
+{
   if (mutex_is_locked(ns->m_mutate_lock))
-    return Error();
+    return -1;
 
   mutex_lock(ns->m_mutate_lock);
 
-  return Success(0);
+  return 0;
 }
 
-ErrorOrPtr vns_uncommit_mutate(vnamespace_t* ns) {
+int vns_uncommit_mutate(vnamespace_t* ns) 
+{
   if (!mutex_is_locked(ns->m_mutate_lock))
-    return Error();
+    return -1;
 
   mutex_unlock(ns->m_mutate_lock);
 
-  return Success(0);
+  return 0;
 }
 
 bool vns_contains_vnode(vnamespace_t* ns, const char* path) {
@@ -168,21 +206,23 @@ static void vns_mutate(vnamespace_t* namespace, vnamespace_t obj) {
   memcpy(namespace, &obj, sizeof(vnamespace_t));
 }
 
-ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path) {
-
+ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path) 
+{
+  int error;
+  ErrorOrPtr result;
+  vnamespace_t* ns;
   if (!ns_p)
     return Error();
-
-  ErrorOrPtr result;
-  vnamespace_t* ns = *ns_p;
+ 
+  ns = *ns_p;
 
   if (!ns)
     return Error();
 
-  result = vns_commit_mutate(ns);
+  error = vns_commit_mutate(ns);
 
-  if (result.m_status == ANIVA_FAIL)
-    return result;
+  if (error)
+    return Error();
 
   /* Remember the size of the seperator */
   size_t full_path_len = strlen(path) + 1 + strlen(ns->m_id);
@@ -204,7 +244,10 @@ ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path) {
   *ns_p = dummy;
 
   /* If, at this point, we fail to uncommit; something has gone very wrong */
-  Must(vns_uncommit_mutate(*ns_p));
+  error = vns_uncommit_mutate(*ns_p);
+
+  if (error)
+    return Warning();
 
   return result;
 }

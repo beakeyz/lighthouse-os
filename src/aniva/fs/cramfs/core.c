@@ -90,6 +90,40 @@ static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset
   return 0;
 }
 
+static int tar_file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+{
+  size_t target_size;
+
+  if (!file || !buffer || !size)
+    return -1;
+
+  if (!(*size))
+    return -2;
+
+  target_size = *size;
+  *size = 0;
+
+  if (offset >= file->m_total_size)
+    return -3;
+
+  /* Make sure we never read outside of the file */
+  if (offset + target_size > file->m_total_size)
+    target_size -= (offset + target_size) - file->m_total_size;
+
+  /* ->m_buffer points to the actual data inside ramfs, so just copy it out of the ro region */
+  memcpy(buffer, file->m_buffer, target_size);
+
+  /* Adjust the read size */
+  *size = target_size;
+
+  return 0;
+}
+
+file_ops_t tar_file_ops = {
+  .f_read = tar_file_read,
+  0,
+};
+
 static vobj_t* ramfs_find(vnode_t* node, char* name) {
 
   tar_file_t current_file = { 0 };
@@ -136,8 +170,11 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
             file->m_buffer = data;
             file->m_buffer_size = filesize;
             file->m_total_size = filesize;
-            file->m_offset = current_file_offset;
+            file->m_buffer_offset = current_file_offset;
             file->m_obj->m_inum = current_file_offset;
+
+            /* Make sure file opperations go through ramfs */
+            file_set_ops(file, &tar_file_ops);
 
             mutex_unlock(node->m_vobj_lock);
             return file->m_obj;
@@ -225,7 +262,10 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
 
     ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
 
-    /* We need to allocate for the decompressed size */
+    /* 
+     * We need to allocate for the decompressed size 
+     * TODO: set this region to read-only after the decompress is done
+     */
     TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
     TAR_SUPERBLOCK(node).m_total_blocks = decompressed_size;
 
