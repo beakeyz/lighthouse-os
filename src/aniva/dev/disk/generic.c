@@ -744,6 +744,9 @@ void init_gdisk_dev() {
 
 static bool try_mount_root(partitioned_disk_dev_t* device)
 {
+
+  return false;
+
   ErrorOrPtr result;
   vobj_t* scan_obj;
   const char* filesystems[] = {

@@ -13,8 +13,9 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
-static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) {
-  return file->m_ops->f_read(file, buffer, size, offset);
+static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
+{
+  return file_read(file, buffer, size, offset);
 }
 
 /*!
@@ -45,7 +46,7 @@ static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_h
   if (!ret)
     return nullptr;
 
-  read_res = elf->m_ops->f_read(elf, ret, &total_size, elf_header->e_phoff);
+  read_res = elf_read(elf, ret, &total_size, elf_header->e_phoff);
 
   if (read_res) {
     kfree(ret);

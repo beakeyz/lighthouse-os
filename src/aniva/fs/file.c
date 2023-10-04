@@ -203,7 +203,7 @@ int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
   int error;
   vobj_t* file_obj;
 
-  if (!file)
+  if (!file || !file->m_ops || !file->m_ops->f_read)
     return -1;
 
   file_obj = file->m_obj;
@@ -219,7 +219,70 @@ int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 
   return error;
 }
-int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset);
-int file_sync(file_t* file);
 
-int file_close(file_t* file);
+int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+{
+  int error;
+  vobj_t* file_obj;
+
+  if (!file || !file->m_ops || !file->m_ops->f_write)
+    return -1;
+
+  file_obj = file->m_obj;
+
+  if (!file_obj)
+    return -2;
+
+  mutex_lock(file_obj->m_lock);
+
+  error = file->m_ops->f_write(file, buffer, size, offset);
+
+  mutex_unlock(file_obj->m_lock);
+
+  return error;
+}
+
+int file_sync(file_t* file)
+{
+  int error;
+  vobj_t* file_obj;
+
+  if (!file || !file->m_ops || !file->m_ops->f_sync)
+    return -1;
+
+  file_obj = file->m_obj;
+
+  if (!file_obj)
+    return -2;
+
+  mutex_lock(file_obj->m_lock);
+
+  error = file->m_ops->f_sync(file);
+
+  mutex_unlock(file_obj->m_lock);
+
+  return error;
+}
+
+int file_close(file_t* file)
+{
+  int error;
+  vobj_t* file_obj;
+
+  if (!file || !file->m_ops || !file->m_ops->f_close)
+    return -1;
+
+  file_obj = file->m_obj;
+
+  if (!file_obj)
+    return -2;
+
+  mutex_lock(file_obj->m_lock);
+
+  /* NOTE: the external close function should never kill the file object, just the internal buffers used by the filesystem */
+  error = file->m_ops->f_close(file);
+
+  mutex_unlock(file_obj->m_lock);
+
+  return error;
+}

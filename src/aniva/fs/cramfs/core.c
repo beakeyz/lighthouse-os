@@ -111,7 +111,7 @@ static int tar_file_read(file_t* file, void* buffer, size_t* size, uintptr_t off
     target_size -= (offset + target_size) - file->m_total_size;
 
   /* ->m_buffer points to the actual data inside ramfs, so just copy it out of the ro region */
-  memcpy(buffer, file->m_buffer, target_size);
+  memcpy(buffer, (void*)((uint64_t)file->m_buffer + offset), target_size);
 
   /* Adjust the read size */
   *size = target_size;
@@ -119,8 +119,21 @@ static int tar_file_read(file_t* file, void* buffer, size_t* size, uintptr_t off
   return 0;
 }
 
+int tar_file_write(file_t* file, void* buffer, size_t* size, uint64_t offset)
+{
+  return -1;
+}
+
+int tar_file_close(file_t* file)
+{
+  /* Nothing to be done */
+  return 0;
+}
+
 file_ops_t tar_file_ops = {
   .f_read = tar_file_read,
+  .f_write = tar_file_write,
+  .f_close = tar_file_close,
   0,
 };
 
