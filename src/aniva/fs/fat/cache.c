@@ -9,6 +9,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "sync/mutex.h"
 #include <mem/zalloc.h>
 
 #define DEFAULT_FAT_INFO_ENTRIES (8)
@@ -30,6 +31,8 @@ ErrorOrPtr create_fat_info(vnode_t* node)
   if (!info)
     return Error();
 
+  info->fat_lock = create_mutex(NULL);
+
   node->fs_data.m_fs_specific_info = info;
 
   return Success(0);
@@ -47,6 +50,7 @@ void destroy_fat_info(vnode_t* node)
   if (info->sector_cache)
     destroy_fat_sector_cache(info->sector_cache);
 
+  destroy_mutex(info->fat_lock);
   zfree_fixed(&__fat_info_cache, info);
 
   node->fs_data.m_fs_specific_info = nullptr;

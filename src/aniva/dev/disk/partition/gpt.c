@@ -3,6 +3,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include <libk/string.h>
 
@@ -68,8 +69,27 @@ bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table) {
   return true;
 }
 
-gpt_table_t* create_gpt_table(disk_dev_t* device) {
-  gpt_table_t* ret = kmalloc(sizeof(gpt_table_t));
+gpt_table_t* create_gpt_table(disk_dev_t* device) 
+{
+  gpt_table_t* ret;
+
+  size_t partition_entry_size;
+  uintptr_t partition_index;
+  uintptr_t blk;
+  uintptr_t offset;
+
+  // Let's put the whole block into this buffer
+  uint8_t entry_buffer[device->m_logical_sector_size];
+
+  if (!device)
+    return nullptr;
+
+  ret = kmalloc(sizeof(gpt_table_t));
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(gpt_table_t));
 
   ret->m_device = device;
   ret->m_partition_count = 0;
@@ -79,27 +99,22 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
     goto fail_and_destroy;
 
   // Check partitions
-
-  const size_t partition_entry_size = ret->m_header.partition_entry_size;
-  uintptr_t partition_index = 0;
-  disk_offset_t blk = ret->m_header.partition_array_start_lba;
+  partition_entry_size = ret->m_header.partition_entry_size;
+  partition_index = 0;
+  blk = ret->m_header.partition_array_start_lba;
+  offset = blk * device->m_logical_sector_size;
 
   for (uintptr_t i = 0; i < ret->m_header.entries_count; i++) {
 
-    // Let's put the whole block into this buffer
-    uint8_t entry_buffer[device->m_logical_sector_size];
-    if (device->m_ops.f_read_blocks(device, entry_buffer, 1, blk) < 0) {
+    if (device->m_ops.f_read_blocks(device, entry_buffer, 1, blk) < 0)
       goto fail_and_destroy;
-    }
 
     gpt_partition_entry_t* entries = (gpt_partition_entry_t*)entry_buffer;
 
     gpt_partition_entry_t entry = entries[i % (device->m_logical_sector_size / partition_entry_size)];
 
-    if (!gpt_entry_is_used(entry.partition_guid)) {
-      blk += partition_entry_size;
-      continue;
-    }
+    if (!gpt_entry_is_used(entry.partition_guid))
+      goto cycle_next;
 
     gpt_partition_t* partition = create_gpt_partition(&entry, partition_index);
 
@@ -107,7 +122,9 @@ gpt_table_t* create_gpt_table(disk_dev_t* device) {
     list_append(ret->m_partitions, partition);
 
     partition_index++;
-    blk += partition_entry_size;
+cycle_next:
+    offset += partition_entry_size;
+    blk = (ALIGN_DOWN(offset, device->m_logical_sector_size) / device->m_logical_sector_size);
   }
 
   return ret;

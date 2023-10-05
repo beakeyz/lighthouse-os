@@ -85,22 +85,62 @@ ErrorOrPtr destroy_vdirs(vdir_t* root, bool destroy_objs)
   /* Loop over every subdir and sibling */
   /* Destroy any vobj if destroy_objs is true */
   /* Destroy the vdir */
+  ErrorOrPtr result;
+  vdir_t* current_subdir = nullptr,
+        * next_subdir = nullptr;
+  vdir_t* current_sibling = nullptr,
+        * next_sibling = nullptr;
+  vobj_t* current_vobj = nullptr,
+        * next_vobj = nullptr;
+  
+  if (!root)
+    return Error();
 
-  /* Loop over every subdir */
-  while (root) {
+  current_sibling = root;
+  current_subdir = current_sibling->m_subdirs;
 
-    for (vdir_t* d = root; d; d = d->m_next_sibling) {
-      for (vobj_t* o = d->m_objects; o; o = o->m_next) {
-        /*
-         * Do something
-         */
-      }
-    }
+  /* Skip this part if we don't need to kill vobjs */
+  if (!destroy_objs)
+    goto destroy_recursive;
 
-    root = root->m_subdirs;
+  current_vobj = root->m_objects;
+
+  while (current_vobj) {
+    next_vobj = current_vobj->m_next;
+
+    destroy_vobj(current_vobj);
+
+    current_vobj = next_vobj;
   }
 
-  kernel_panic("Implement destroy_vdirs");
+destroy_recursive:
+  /*
+   * Loop over the siblings in the root directory
+   */
+  while (current_sibling) {
+    next_sibling = current_sibling->m_next_sibling;
+
+    while (current_subdir) {
+      next_subdir = current_subdir->m_next_sibling;
+
+      result = destroy_vdirs(current_subdir, destroy_objs);
+
+      if (IsError(result))
+        return result;
+
+      current_subdir = next_subdir;
+    }
+
+    /* Break early so we can kill this vdir */
+    if (!next_sibling)
+      break;
+
+    destroy_vdir(current_sibling);
+
+    current_sibling = next_sibling;
+  }
+
+  return Success(0);
 }
 
 vobj_t* vdir_find_vobj(vdir_t* dir, const char* path)
@@ -110,13 +150,16 @@ vobj_t* vdir_find_vobj(vdir_t* dir, const char* path)
   if (!path || !dir)
     return nullptr;
 
-  if (dir->m_ops && dir->m_ops->f_find_obj)
-    return dir->m_ops->f_find_obj(dir, path);
-
   for (ret = dir->m_objects; ret; ret = ret->m_next) {
     if (strcmp(ret->m_path, path) == 0)
       break;
   }
+
+  if (ret)
+    return ret;
+
+  if (dir->m_ops && dir->m_ops->f_find_obj)
+    ret =  dir->m_ops->f_find_obj(dir, path);
 
   return ret;
 }

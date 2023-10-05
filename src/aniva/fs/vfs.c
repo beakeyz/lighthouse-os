@@ -169,30 +169,12 @@ ErrorOrPtr vfs_unmount(const char* path)
   /* Grab the namespace */
   namespace = node->m_ns;
 
-  println("Yay");
   error = vns_remove_vnode(namespace, node);
 
   if (error)
     return Error();
 
-  println("Oompth");
-  /* Try to destroy the vnode */
-  if (IsError(destroy_generic_vnode(node)))
-    return Error();
-
-  kernel_panic("Tried unmount");
-
-  /* 0) resolve whatever is at this path */
-  /* 1) if its a vnode, good. We can unmount those */
-  /* 1.1 -> Release all vobjects that are still open on this vnode */
-  /* 1.2 -> Clean up the vnode */
-  /* 1.3 -> Remove the vnode from the path */
-  /* 2) if its a vobj, good. We can also unmount those but with a little more work */
-  /* 2.1 -> Find the vnode responsible for this vobj */
-  /* 2.2 -> Ask the vnode to unmount the object for us */
-  /* 2.3 -> Clean up the vobj and detach it from its vnode */
-  /* 2.4 -> Clean up the path */
-  return Error();
+  return destroy_generic_vnode(node);
 }
 
 vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, const char* path)

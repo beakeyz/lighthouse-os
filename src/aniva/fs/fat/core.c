@@ -552,6 +552,15 @@ fail:
   return nullptr;
 }
 
+int fat32_unmount(fs_type_t* type, vnode_t* node) 
+{
+  if (!type || !node)
+    return -1;
+
+  destroy_fat_info(node);
+  return 0;
+}
+
 aniva_driver_t fat32_drv = {
   .m_name = "fat32",
   .m_type = DT_FS,
@@ -566,6 +575,7 @@ fs_type_t fat32_type = {
   .m_driver = &fat32_drv,
   .m_name = "fat32",
   .f_mount = fat32_mount,
+  .f_unmount = fat32_unmount,
 };
 
 int fat32_init() {
