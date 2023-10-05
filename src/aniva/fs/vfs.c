@@ -606,6 +606,26 @@ ErrorOrPtr vfs_attach_root_namespace(vnamespace_t* namespace) {
   return Success(res);
 }
 
+/*!
+ * @brief Find the filesystem type of a certain vnode
+ *
+ * Nothing to add here...
+ */
+fs_type_t* vfs_get_fs_at(const char* path)
+{
+  vnode_t* node;
+
+  if (!path)
+    return nullptr;
+
+  node = vfs_resolve_node(path);
+
+  if (!node)
+    return nullptr;
+
+  return node->fs_data.m_type;
+}
+
 void init_vfs(void) {
 
   // Init caches

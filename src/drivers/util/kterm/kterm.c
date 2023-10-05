@@ -11,6 +11,7 @@
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
+#include "drivers/util/kterm/help.h"
 #include "fs/core.h"
 #include "fs/file.h"
 #include "fs/vfs.h"
@@ -97,6 +98,56 @@ static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
 /* Framebuffer information */
 static fb_info_t __kterm_fb_info;
 
+static struct kterm_cmd {
+  char* argv_zero;
+  f_kterm_command_handler_t handler;
+} kterm_commands[] = {
+  {
+    .argv_zero = "help",
+    .handler = kterm_help,
+  },
+
+  /*
+   * NOTE: this is exec and this should always
+   * be placed at the end of this list, otherwise
+   * kterm_grab_handler_for might miss some commands
+   */
+  {
+    .argv_zero = nullptr,
+    .handler = kterm_try_exec,
+  }
+};
+
+static uint32_t kterm_cmd_count = sizeof(kterm_commands) / sizeof(kterm_commands[0]);
+
+/*!
+ * @brief Find a command for @cmd
+ *
+ * If we find no match, we return the handler of kterm_exec
+ */
+static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
+{
+  struct kterm_cmd* current;
+  
+  for (uint32_t i = 0; i < kterm_cmd_count; i++) {
+    current = &kterm_commands[i];
+  
+    /* Reached exec, exit */
+    if (!current->argv_zero)
+      break;
+
+    if (strcmp(cmd, current->argv_zero) == 0)
+      return current->handler;
+  }
+
+  /* Should not happen */
+  if (!current)
+    return nullptr;
+
+  return current->handler;
+}
+
+
 static void kterm_clear_raw()
 {
   for (uintptr_t x = 0; x < __kterm_fb_info.width; x++) {
@@ -104,6 +155,80 @@ static void kterm_clear_raw()
       kterm_draw_pixel_raw(x, y, 00);
     }
   }
+}
+
+static int kterm_get_argument_count(char* cmd_buffer, size_t* count)
+{
+  size_t current_count;
+
+  if (!cmd_buffer || !count)
+    return -1;
+
+  /* Empty string =/ */
+  if (!(*cmd_buffer))
+    return -2;
+
+  current_count = 1;
+
+  while (*cmd_buffer) {
+
+    if (*cmd_buffer == ' ') {
+      current_count++;
+    }
+    
+    cmd_buffer++;
+  }
+
+  *count = current_count;
+
+  return 0;
+}
+
+/*!
+ * @brief Parse a single command buffer
+ *
+ * Generate a argument vector and an argument count
+ * like unix (sorta). The 'command' will be located at
+ * argv[0] with its arguments at argv[1 + n]
+ */
+static int kterm_parse_cmd_buffer(char* cmd_buffer, char** argv_buffer)
+{
+  char previous_char;
+  char* current;
+  size_t current_count;
+  
+  if (!cmd_buffer || !argv_buffer)
+    return -1;
+
+  current = cmd_buffer;
+  current_count = NULL;
+  previous_char = NULL;
+
+  /* Make sure the 'command' is in the argv */
+  argv_buffer[current_count++] = cmd_buffer;
+
+  /*
+   * Loop to see if we find any other arguments
+   */
+  while (*current) {
+  
+    if (*current == ' ' && previous_char != ' ') {
+      argv_buffer[current_count] = current+1;
+
+      current_count++;
+
+      /*
+       * Mutate cmd_buffer and place a null-byte here, in
+       * order to terminate the vector entry 
+       */
+      *current = NULL;
+    }
+    
+    previous_char = *current;
+    current++;
+  }
+
+  return 0;
 }
 
 static void kterm_clear() 
@@ -117,8 +242,23 @@ static void kterm_clear()
   kterm_draw_cursor();
 }
 
+/*!
+ * @brief Clear the cmd buffer and reset the doors
+ *
+ * Called when we are done processing a command
+ */
+static inline void kterm_clear_cmd_buffer()
+{
+  /* Clear the buffer ourselves */
+  memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
+
+  Must(kdoor_reset(&__processor_door));
+}
+
 void kterm_command_worker() 
 {
+  int error;
+  f_kterm_command_handler_t current_handler;
   char processor_buffer[KTERM_MAX_BUFFER_SIZE];
 
   init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
@@ -132,10 +272,50 @@ void kterm_command_worker()
       continue;
     }
 
-    /* TODO: actually process cmd */
+    size_t argument_count = 0;
     char* contents = __processor_door.m_buffer;
-    uint32_t buffer_size = __processor_door.m_buffer_size;
 
+    error = kterm_get_argument_count(contents, &argument_count);
+
+    /* Yikes */
+    if (error || !argument_count) {
+      kterm_clear_cmd_buffer();
+      continue;
+    }
+
+    char* argv[argument_count];
+
+    /* Clear argv */
+    memset(argv, 0, sizeof(char*) * argument_count);
+
+    error = kterm_parse_cmd_buffer(contents, argv);
+
+    if (error)
+      goto exit_cmd_processing;
+
+    /*
+     * We have now indexed our entire command, so we can start matching
+     * the actions against argv[0]
+     */
+    current_handler = kterm_grab_handler_for(argv[0]);
+
+    if (!current_handler)
+      goto exit_cmd_processing;
+
+    error = current_handler((const char**)argv, argument_count);
+
+    if (error) {
+      /* TODO: implement kernel printf / logf lmao */
+      kterm_print("Command failed with code: ");
+      kterm_println(to_string(error));
+    }
+
+exit_cmd_processing:
+    kterm_clear_cmd_buffer();
+  }
+}
+
+/*
     if (!strcmp(contents, "acpitables")) {
 
       acpi_parser_t* parser;
@@ -168,7 +348,6 @@ void kterm_command_worker()
       kterm_clear();
     } else if (!strcmp(contents, "exit")) {
 
-      /* NOTE this is just to show that this system works =D */
       void (*pnc)(char*) = (FuncPtr)get_ksym_address("kernel_panic");
 
       pnc("TODO: exit/shutdown");
@@ -228,13 +407,7 @@ void kterm_command_worker()
     } else {
       kterm_try_exec(contents, buffer_size);
     }
-
-    /* Clear the buffer ourselves */
-    memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
-
-    Must(kdoor_reset(&__processor_door));
-  }
-}
+*/
 
 EXPORT_DRIVER(base_kterm_driver) = {
   .m_name = "kterm",

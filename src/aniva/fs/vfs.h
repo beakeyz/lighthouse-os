@@ -89,11 +89,11 @@ vnamespace_t* vfs_get_abs_root();
  * when its not. Any other case will return nullptr
  */
 vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, struct vdir* dir, const char* path);
-
 vnode_t* vfs_resolve_node(const char* path);
-
 vnamespace_t* vfs_create_path(const char* path);
 
 ErrorOrPtr vfs_attach_root_namespace(vnamespace_t* namespace);
+
+fs_type_t* vfs_get_fs_at(const char* path);
 
 #endif // !__ANIVA_VFS__

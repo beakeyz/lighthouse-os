@@ -7,6 +7,6 @@
 
 #include "kterm.h"
 
-void kterm_try_exec(char* buffer, uint32_t buffer_size);
+uint32_t kterm_try_exec(const char** argv, size_t argc);
 
 #endif // !__ANIVA_KTERM_EXEC__

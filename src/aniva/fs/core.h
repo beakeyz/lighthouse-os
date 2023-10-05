@@ -16,9 +16,9 @@ typedef struct fs_type {
   int (*f_unmount)(struct fs_type*, struct vnode*);
   struct vnode* (*f_mount)(struct fs_type*, const char*, partitioned_disk_dev_t* dev);
 
-  struct fs_type* m_next;
-
   struct aniva_driver* m_driver;
+
+  struct fs_type* m_next;
 } fs_type_t;
 
 #define FST_REQ_DRIVER (0x00000001)

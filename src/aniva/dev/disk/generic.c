@@ -755,11 +755,8 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
   for (uint32_t i = 0; i < filesystems_count; i++) {
     const char* fs = filesystems[i];
 
-    println(fs);
-    println("Mounting...");
     result = vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, fs, device);
 
-    println("Mounted?");
     /* Successful mount? try and find aniva.elf */
     if (!IsError(result)) {
       scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/aniva.elf");
@@ -825,12 +822,10 @@ void init_root_device_probing()
       if (try_mount_root(part))
         break;
 
-    println("Go next v0.2");
       part = part->m_next;
     }
 
 cycle_next:
-    println("Go next");
     device_index++;
     root_device = find_gdisk_device(device_index);
   }

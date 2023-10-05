@@ -165,24 +165,31 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   /* Initialize the ACPI subsystem */
   init_acpi();
 
+  println("[X] Processor...");
   // initialize cpu-related things that need the memorymanager and the heap
   init_processor_late(&g_bsp);
 
+  println("[X] Timer...");
   /* Initialize the timer system */
   init_timer_system();
 
+  println("[X] kevents...");
   // Initialize kevent
   init_kevents();
 
+  println("[X] hashmap...");
   /* Initialize hashmap caching */
   init_hashmap();
 
+  println("[X] proc core...");
   /* Initialize the subsystem responsible for managing processes */
   init_proc_core();
 
+  println("[X] vfs...");
   /* Initialize the VFS */
   init_vfs();
 
+  println("[X] fs core...");
   /* Initialize the filesystem core */
   init_fs_core();
 

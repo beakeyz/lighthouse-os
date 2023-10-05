@@ -9,24 +9,30 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
-void kterm_try_exec(char* buffer, uint32_t buffer_size)
+uint32_t kterm_try_exec(const char** argv, size_t argc)
 {
   proc_id_t id;
   proc_t* p;
+  const char* buffer;
+
+  if (!argv || !argv[0])
+    return 1;
+
+  buffer = argv[0];
 
   if (buffer[0] == NULL)
-    return;
+    return 2;
 
   vobj_t* obj = vfs_resolve(buffer);
 
   if (!obj)
-    return;
+    return 3;
 
   file_t* file = vobj_get_file(obj);
 
   if (!file) {
     logln("Could not execute object!");
-    return;
+    return 4;
   }
 
   ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
@@ -34,7 +40,7 @@ void kterm_try_exec(char* buffer, uint32_t buffer_size)
   if (IsError(result)) {
     logln("Coult not execute object!");
     vobj_close(obj);
-    return;
+    return 5;
   }
 
   p = (proc_t*)Release(result);
@@ -66,4 +72,6 @@ void kterm_try_exec(char* buffer, uint32_t buffer_size)
   sched_add_priority_proc(p, true);
 
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
+
+  return 0;
 }
