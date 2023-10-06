@@ -11,7 +11,7 @@
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "drivers/util/kterm/help.h"
+#include "drivers/util/kterm/util.h"
 #include "fs/core.h"
 #include "fs/file.h"
 #include "fs/vfs.h"
@@ -72,9 +72,6 @@ static const char* kterm_get_buffer_contents();
 static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y);
 static void kterm_scroll(uintptr_t lines);
 
-static int kterm_print(const char* msg);
-static int kterm_println(const char* msg);
-
 logger_t kterm_logger = {
   .title = "kterm",
   .flags = LOGGER_FLAG_NO_CHAIN,
@@ -104,9 +101,20 @@ static struct kterm_cmd {
 } kterm_commands[] = {
   {
     .argv_zero = "help",
-    .handler = kterm_help,
+    .handler = kterm_cmd_help,
   },
-
+  {
+    .argv_zero = "exit",
+    .handler = kterm_cmd_exit,
+  },
+  {
+    .argv_zero = "clear",
+    .handler = kterm_cmd_clear,
+  },
+  {
+    .argv_zero = "sysinfo",
+    .handler = kterm_cmd_sysinfo,
+  },
   /*
    * NOTE: this is exec and this should always
    * be placed at the end of this list, otherwise
@@ -128,6 +136,9 @@ static uint32_t kterm_cmd_count = sizeof(kterm_commands) / sizeof(kterm_commands
 static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
 {
   struct kterm_cmd* current;
+
+  if (!cmd || !(*cmd))
+    return nullptr;
   
   for (uint32_t i = 0; i < kterm_cmd_count; i++) {
     current = &kterm_commands[i];
@@ -231,7 +242,7 @@ static int kterm_parse_cmd_buffer(char* cmd_buffer, char** argv_buffer)
   return 0;
 }
 
-static void kterm_clear() 
+void kterm_clear() 
 {
   //kterm_doubl_buffer_clear();
   //kterm_swap();
@@ -259,7 +270,7 @@ void kterm_command_worker()
 {
   int error;
   f_kterm_command_handler_t current_handler;
-  char processor_buffer[KTERM_MAX_BUFFER_SIZE];
+  char processor_buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
 
   init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
 
@@ -314,100 +325,6 @@ exit_cmd_processing:
     kterm_clear_cmd_buffer();
   }
 }
-
-/*
-    if (!strcmp(contents, "acpitables")) {
-
-      acpi_parser_t* parser;
-
-      get_root_acpi_parser(&parser);
-
-      kterm_print("acpi static table info: \n");
-      kterm_print("rsdp address: ");
-      kterm_print(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_rsdp)));
-      kterm_print("\n");
-      kterm_print("xsdp address: ");
-      kterm_print(to_string(kmem_to_phys(nullptr, (uintptr_t)parser->m_xsdp)));
-      kterm_print("\n");
-      kterm_print("is xsdp: ");
-      kterm_print(parser->m_is_xsdp ? "true\n" : "false\n");
-      kterm_print("rsdp discovery method: ");
-      kterm_print(parser->m_rsdp_discovery_method.m_name);
-      kterm_print("\n");
-      kterm_print("tables found: ");
-      kterm_print(to_string(parser->m_tables->m_length));
-      kterm_print("\n");
-    } else if (!strcmp(contents, "help")) {
-      kterm_print("available commands: \n");
-      kterm_print(" - help: print some helpful info\n");
-      kterm_print(" - acpitables: print the acpi tables present in the system\n");
-      kterm_print(" - ztest: spawn a zone allocator and test it\n");
-      kterm_print(" - testramdisk: spawn a ramdisk and test it\n");
-      kterm_print(" - exit: panic the kernel\n");
-    } else if (!strcmp(contents, "clear")) {
-      kterm_clear();
-    } else if (!strcmp(contents, "exit")) {
-
-      void (*pnc)(char*) = (FuncPtr)get_ksym_address("kernel_panic");
-
-      pnc("TODO: exit/shutdown");
-
-    } else if (!strcmp(contents, "ztest")) {
-      zone_allocator_t* allocator = create_zone_allocator_ex(nullptr, 0, 4 * Kib, sizeof(uintptr_t), 0);
-
-      uintptr_t* test_data = zalloc(allocator, sizeof(uintptr_t));
-      *test_data = 6969;
-
-      kterm_print("Allocated 8 bytes: ");
-      kterm_print(to_string(*test_data));
-
-      uintptr_t* test_data2 = zalloc(allocator, sizeof(uintptr_t));
-      *test_data2 = 420;
-
-      kterm_print("\nAllocated 8 bytes: ");
-      kterm_print(to_string(*test_data2));
-
-      zfree(allocator, test_data, sizeof(uintptr_t));
-
-      kterm_print("\nDeallocated 8 bytes: ");
-      kterm_print(to_string(*test_data));
-
-      zfree(allocator, test_data2, sizeof(uintptr_t));
-
-      kterm_print("\nDeallocated 8 bytes: ");
-      kterm_print(to_string(*test_data2));
-
-      kterm_print("\n Total zone allocator size: ");
-      kterm_print(to_string(allocator->m_total_size));
-
-      kterm_print("\nSuccessfully created Zone!\n");
-
-      destroy_zone_allocator(allocator, true);
-
-      kterm_print("\nSuccessfully destroyed Zone!\n");
-
-    } else if (!strcmp(contents, "testramdisk")) {
-
-      kterm_print("Finding node...\n");
-      vobj_t* obj = vfs_resolve("Root/init");
-
-      ASSERT_MSG(obj, "Could not get vobj from test");
-      ASSERT_MSG(obj->m_type == VOBJ_TYPE_FILE, "Object was not a file!");
-      file_t* file = vobj_get_file(obj);
-      ASSERT_MSG(file, "Could not get file from test");
-
-      kterm_print("File size: ");
-      kterm_print(to_string(file->m_buffer_size));
-      kterm_print("\n");
-
-      println("Trying to make proc");
-      Must(elf_exec_static_64_ex(file, false, false));
-      println("Made proc");
-
-    } else {
-      kterm_try_exec(contents, buffer_size);
-    }
-*/
 
 EXPORT_DRIVER(base_kterm_driver) = {
   .m_name = "kterm",
@@ -530,7 +447,12 @@ int kterm_init() {
 }
 
 int kterm_exit() {
-  // TODO: unmap framebuffer
+  /*
+   * TODO:
+   * - unmap framebuffer
+   * - unregister logger
+   * - ect.
+   */
   kernel_panic("kterm_exit");
   return 0;
 }
@@ -571,10 +493,15 @@ void kterm_on_key(ps2_key_event_t event) {
 }
 
 static void kterm_flush_buffer() {
-  memset(__kterm_char_buffer, 0, sizeof(char) * KTERM_MAX_BUFFER_SIZE);
+  memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
   __kterm_buffer_ptr = 0;
 }
 
+/*!
+ * @brief Handle a keypress pretty much
+ *
+ * FIXME: much like with kterm_print, fix the voodoo shit with KTERM_CURSOR_WIDTH and __kterm_char_buffer
+ */
 static void kterm_write_char(char c) {
   if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
     // time to flush the buffer
@@ -583,12 +510,12 @@ static void kterm_write_char(char c) {
 
   switch (c) {
     case '\b':
-      if (__kterm_buffer_ptr > KTERM_CURSOR_WIDTH) {
+      if (__kterm_buffer_ptr > 0) {
         __kterm_buffer_ptr--;
         __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
-        kterm_draw_char(__kterm_buffer_ptr * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
+        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
       } else {
-        __kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
+        __kterm_buffer_ptr = 0;
       }
       break;
     case (char)0x0A:
@@ -597,7 +524,7 @@ static void kterm_write_char(char c) {
       break;
     default:
       if (c >= 0x20) {
-        kterm_draw_char(__kterm_buffer_ptr * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
+        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
         __kterm_char_buffer[__kterm_buffer_ptr] = c;
         __kterm_buffer_ptr++;
       }
@@ -608,22 +535,24 @@ static void kterm_write_char(char c) {
 /*!
  * @brief Process an incomming command
  *
- * TODO: should we queue incomming commands with a more sophisticated context handeling
- * system?
  */
-static void kterm_process_buffer() {
-  char buffer[KTERM_MAX_BUFFER_SIZE];
-  size_t buffer_size;
+static void kterm_process_buffer() 
+{
+  char buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
+  size_t buffer_size = 0;
 
   /* Copy the buffer localy, so we can clear it early */
   const char* contents = kterm_get_buffer_contents();
-  buffer_size = strlen(contents);
 
-  memcpy(buffer, contents, buffer_size);
+  if (contents) {
+    buffer_size = strlen(contents);
 
-  if (buffer_size >= KTERM_MAX_BUFFER_SIZE) {
-    /* Bruh, we cant process this... */
-    return;
+    if (buffer_size >= KTERM_MAX_BUFFER_SIZE) {
+      /* Bruh, we cant process this... */
+      return;
+    }
+
+    memcpy(buffer, contents, buffer_size);
   }
 
   /* Make sure we add the newline so we also flush the char buffer */
@@ -638,7 +567,7 @@ static void kterm_process_buffer() {
     return;
   }
 
-  doorbell_write(__kterm_cmd_doorbell, buffer, buffer_size, 0);
+  doorbell_write(__kterm_cmd_doorbell, buffer, buffer_size + 1, 0);
 
   doorbell_ring(__kterm_cmd_doorbell);
 }
@@ -671,24 +600,29 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
   }
 }
 
-static const char* kterm_get_buffer_contents() {
-  uintptr_t index = 0;
+static inline const char* kterm_get_buffer_contents() 
+{
+  if (__kterm_char_buffer[0] == NULL)
+    return nullptr;
 
-  while (!__kterm_char_buffer[index]) {
-    index++;
-  }
-
-  return &__kterm_char_buffer[index];
+  return __kterm_char_buffer;
 }
 
-static int kterm_println(const char* msg) {
-  kterm_print(msg);
+int kterm_println(const char* msg) 
+{
+  if (msg)
+    kterm_print(msg);
   kterm_print("\n");
-
   return 0;
 }
 
-static int kterm_print(const char* msg) {
+/*!
+ * @brief Print a string to our terminal
+ *
+ * FIXME: the magic we have with KTERM_CURSOR_WIDTH and kterm_buffer_ptr_copy should get nuked 
+ * and redone xD
+ */
+int kterm_print(const char* msg) {
 
   uintptr_t index = 0;
   uintptr_t kterm_buffer_ptr_copy = __kterm_buffer_ptr;
@@ -703,12 +637,12 @@ static int kterm_print(const char* msg) {
 
       kterm_flush_buffer();
       kterm_draw_cursor();
-      kterm_buffer_ptr_copy = KTERM_CURSOR_WIDTH;
+      kterm_buffer_ptr_copy = NULL;
     } else {
-      kterm_draw_char(kterm_buffer_ptr_copy * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
+      kterm_draw_char((KTERM_CURSOR_WIDTH + kterm_buffer_ptr_copy) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
       kterm_buffer_ptr_copy++;
 
-      if (kterm_buffer_ptr_copy * KTERM_FONT_WIDTH > __kterm_fb_info.width) {
+      if ((KTERM_CURSOR_WIDTH + kterm_buffer_ptr_copy) * KTERM_FONT_WIDTH > __kterm_fb_info.width) {
         __kterm_current_line++;
         kterm_buffer_ptr_copy = 0;
       }
