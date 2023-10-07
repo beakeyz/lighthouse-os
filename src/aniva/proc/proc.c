@@ -271,8 +271,6 @@ void destroy_proc(proc_t* proc) {
   }
 
   kzfree(proc, sizeof(proc_t));
-
-  kmem_debug();
 }
 
 

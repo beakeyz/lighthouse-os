@@ -242,11 +242,13 @@ static int kterm_parse_cmd_buffer(char* cmd_buffer, char** argv_buffer)
   return 0;
 }
 
+/*!
+ * @brief Clear the screen and reset the cursor
+ *
+ * Nothing to add here...
+ */
 void kterm_clear() 
 {
-  //kterm_doubl_buffer_clear();
-  //kterm_swap();
-
   kterm_clear_raw();
 
   __kterm_current_line = 0;

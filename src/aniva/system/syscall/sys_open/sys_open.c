@@ -45,7 +45,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
         if (obj->m_type != VOBJ_TYPE_FILE)
           return HNDL_INVAL;
 
-        create_khandle(&handle, &type, obj->m_child);
+        init_khandle(&handle, &type, obj->m_child);
 
         break;
       }
@@ -61,7 +61,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
           return HNDL_NOT_FOUND;
 
         /* We do allow handles to drivers */
-        create_khandle(&handle, &type, proc);
+        init_khandle(&handle, &type, proc);
 
         break;
       }
@@ -72,7 +72,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
         if (!driver)
           return HNDL_NOT_FOUND;
 
-        create_khandle(&handle, &type, driver);
+        init_khandle(&handle, &type, driver);
         break;
       }
     case HNDL_TYPE_PROFILE:
@@ -85,7 +85,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
               if (!proc)
                 return HNDL_NOT_FOUND;
 
-              create_khandle(&handle, &type, proc->m_profile);
+              init_khandle(&handle, &type, proc->m_profile);
               break;
             }
           case HNDL_MODE_SCAN_PROFILE:
@@ -100,7 +100,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
               if (error || !profile)
                 return HNDL_NOT_FOUND;
 
-              create_khandle(&handle, &type, profile);
+              init_khandle(&handle, &type, profile);
               break;
             }
           default:
@@ -184,7 +184,7 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
     return HNDL_NOT_FOUND;
 
   /* Create a kernel handle */
-  create_khandle(&pvar_khndl, &type, pvar);
+  init_khandle(&pvar_khndl, &type, pvar);
 
   /* Set the flags we want */
   khandle_set_flags(&pvar_khndl, flags);

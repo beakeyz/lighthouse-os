@@ -66,9 +66,8 @@ static void __on_handle_change(khandle_t* handle, bool bind)
   }
 }
 
-void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref)
+void init_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref)
 {
-
   if (!ref)
     return;
 

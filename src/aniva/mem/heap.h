@@ -1,5 +1,6 @@
 #ifndef __ANIVA_HEAP_CORE__
 #define __ANIVA_HEAP_CORE__
+#include "mem/malloc.h"
 #include <libk/stddef.h>
 #include <libk/flow/error.h>
 
@@ -36,10 +37,6 @@ void kfree_sized(void* addr, size_t allocation_size);
  */
 void kheap_ensure_size(size_t size);
 
-/*
- * Allocate and deallocate memory in the current threads heap
-void* allocate_memory(size_t size);
-void deallocate_memory(void* addr, size_t size);
-*/
+int kheap_copy_main_allocator(memory_allocator_t* alloc);
 
 #endif //__ANIVA_HEAP_CORE__

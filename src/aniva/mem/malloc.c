@@ -108,7 +108,8 @@ static heap_node_t* merge_node_with_next (heap_node_buffer_t* buffer, heap_node_
   }
   return nullptr;
 }
-heap_node_t* merge_node_with_prev (heap_node_buffer_t* buffer, heap_node_t* ptr) {
+
+static heap_node_t* merge_node_with_prev (heap_node_buffer_t* buffer, heap_node_t* ptr) {
   if (can_merge(ptr, ptr->prev)) {
     heap_node_t* prev = ptr->prev;
 
@@ -125,7 +126,8 @@ heap_node_t* merge_node_with_prev (heap_node_buffer_t* buffer, heap_node_t* ptr)
   }
   return nullptr;
 }
-heap_node_t* merge_nodes (heap_node_buffer_t* buffer, heap_node_t* ptr1, heap_node_t* ptr2) {
+
+static heap_node_t* merge_nodes (heap_node_buffer_t* buffer, heap_node_t* ptr1, heap_node_t* ptr2) {
   if (can_merge(ptr1, ptr2)) {
     // Because they passed the merge check we can do this =D
     // sm -> ptr1 -> ptr2 -> sm
@@ -139,7 +141,7 @@ heap_node_t* merge_nodes (heap_node_buffer_t* buffer, heap_node_t* ptr1, heap_no
   return nullptr;
 }
 
-ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
+static ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
   ErrorOrPtr result = Error();
   heap_node_t* merged_node;
 
@@ -157,6 +159,18 @@ ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
   }
 
   return result;
+}
+
+static inline void allocator_add_free(memory_allocator_t* allocator, size_t size)
+{
+  allocator->m_free_size += size;
+  allocator->m_used_size -= size;
+}
+
+static inline void allocator_add_used(memory_allocator_t* allocator, size_t size)
+{
+  allocator->m_used_size += size;
+  allocator->m_free_size -= size;
 }
 
 #define MEM_ALLOC_DEFAULT_BUFFERSIZE    (64 * Kib)
@@ -227,7 +241,9 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
    * The free_size field is a bit of a lie, since for every allocation we 
    * miss sizeof(heap_node_t) bytes lmao
    */
-  allocator->m_free_size += data_size;
+  allocator_add_free(allocator, data_size);
+  //allocator->m_free_size += data_size;
+  //allocator->m_used_size -= data_size;
 
   return ret;
 }
@@ -296,8 +312,9 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
     if (node->size - sizeof(heap_node_t) == bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
       node->flags |= MALLOC_NODE_FLAG_USED;
 
-      allocator->m_free_size -= node->size;
-      allocator->m_used_size += node->size;
+      allocator_add_used(allocator, node->size);
+      //allocator->m_free_size -= node->size;
+      //allocator->m_used_size += node->size;
 
       return Success((uintptr_t)node->data);
     }
@@ -319,8 +336,9 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
 
       buffer->m_last_free_node = new_node->next;
       
-      allocator->m_free_size -= new_node->size;
-      allocator->m_used_size += new_node->size;
+      allocator_add_used(allocator, new_node->size);
+      //allocator->m_free_size -= new_node->size;
+      //allocator->m_used_size += new_node->size;
 
       // TODO: edit global shit
       return Success((uintptr_t)new_node->data);
@@ -360,15 +378,14 @@ static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_nod
   if (!heap_buffer_contains(buffer, (uintptr_t)node))
     return Error();
 
+  allocator_add_free(allocator, node->size);
+
   result = try_merge(buffer, node);
 
   if (!IsError(result))
     node = (heap_node_t*)Release(result);
 
   node->flags &= ~MALLOC_NODE_FLAG_USED;
-
-  allocator->m_used_size -= node->size;
-  allocator->m_free_size += node->size;
 
   // FIXME: should we zero freed nodes?
   return Success(0);

@@ -48,7 +48,7 @@ typedef struct kernel_handle {
 #define KHDNL_PROT_LVL_LOW          (50)
 #define KHDNL_PROT_LVL_LOWEST       (0)
 
-void create_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref);
+void init_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref);
 void destroy_khandle(khandle_t* handle);
 
 void khandle_set_flags(khandle_t* handle, uint16_t flags);

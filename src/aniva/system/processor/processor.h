@@ -68,42 +68,25 @@ extern processor_t g_bsp;
  * i.e. interrupts or fields
  */
 void init_processor(processor_t *processor, uint32_t cpu_num);
-
 void init_processor_late(processor_t* processor);
 
-/*
- * create processor on heap
- */
 processor_t *create_processor(uint32_t num);
 
-/*
- * create a GDT for this processor
- */
 ANIVA_STATUS init_gdt(processor_t *processor);
 
-/*
- * check if this is the processor we used to boot
- */
-bool is_bsp(processor_t *processor);
+/* TODO: implement */
+processor_t* processor_get(uint32_t cpu_id);
+/* TODO: implement */
+int processor_sleep(processor_t* processor);
+/* TODO: implement */
+int processor_wake(processor_t* processor);
 
-/*
- * set the ptr to processor we used to boot
- */
+bool is_bsp(processor_t *processor);
 void set_bsp(processor_t *processor);
 
-/*
- * update gdt registers n stuff
- */
 void flush_gdt(processor_t *processor);
 
-/*
- * called when we enter an interrupt or something as such
- */
 extern void processor_enter_interruption(registers_t* registers, bool irq);
-
-/*
- * called when we exit an interrupt or something as such
- */
 extern void processor_exit_interruption(registers_t* registers);
 
 ALWAYS_INLINE processor_t *get_current_processor() {

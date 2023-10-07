@@ -54,9 +54,9 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   khandle_t _stdout;
   khandle_t _stderr;
 
-  create_khandle(&_stdin, &driver_type, kterm_manifest);
-  create_khandle(&_stdout, &driver_type, kterm_manifest);
-  create_khandle(&_stderr, &driver_type, kterm_manifest);
+  init_khandle(&_stdin, &driver_type, kterm_manifest);
+  init_khandle(&_stdout, &driver_type, kterm_manifest);
+  init_khandle(&_stderr, &driver_type, kterm_manifest);
 
   _stdin.flags |= HNDL_FLAG_READACCESS;
   _stdout.flags |= HNDL_FLAG_WRITEACCESS;

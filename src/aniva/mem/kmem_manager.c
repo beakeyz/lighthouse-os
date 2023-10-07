@@ -101,25 +101,27 @@ void init_kmem_manager(uintptr_t* mb_addr) {
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
 
-void kmem_debug()
+int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
 {
-  println(" -- kmem debug -- ");
-
   uint64_t total_used_pages = 0;
+
+  if (!info_buffer)
+    return -1;
   
   for (uint64_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_entries; i++) {
     if (bitmap_isset(KMEM_DATA.m_phys_bitmap, i))
       total_used_pages++;
   }
 
-  print("Total: ");
-  println(to_string(KMEM_DATA.m_phys_pages_count));
-  print("Total used: ");
-  println(to_string(total_used_pages));
-  print("Total free: ");
-  println(to_string(KMEM_DATA.m_phys_pages_count - total_used_pages));
-}
+  memset(info_buffer, 0, sizeof(*info_buffer));
 
+  info_buffer->cpu_id = cpu_id;
+  info_buffer->flags = KMEM_DATA.m_kmem_flags;
+  info_buffer->free_pages = KMEM_DATA.m_phys_pages_count - total_used_pages;
+  info_buffer->used_pages = total_used_pages;
+
+  return 0;
+}
 
 // function inspired by serenityOS
 void parse_mmap() {

@@ -11,7 +11,23 @@
 
 struct proc;
 
-void kmem_debug();
+/*
+ * Recieve information about the current state of a certain kmem_manager 
+ * instance on a CPU
+ */
+typedef struct kmem_info {
+  uint32_t cpu_id;
+  uint32_t flags;
+  uint32_t free_pages;
+  uint32_t used_pages;
+
+  /* TODO: keep track of DMA */
+  uint32_t dma_buffer_count;
+  /* TODO: virtual memory (on-disk memory) */
+  uint32_t swap_page_count;
+} kmem_info_t;
+
+int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 
 // some faultcodes
 #define PRESENT_VIOLATION       0x1

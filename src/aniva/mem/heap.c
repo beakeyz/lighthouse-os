@@ -16,25 +16,28 @@
 #define INITIAL_HEAP_TOTAL_SIZE (ALIGN_UP(ALIGN_UP(4 * Mib, SMALL_PAGE_SIZE) + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE)) // IN BYTES
 #define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
-// fuk yea
-// reserve enough, so we can use kmem_manager later to expand the heap
+/* TODO: GET FUCKING RID OF THIS BULLSHIT */
 SECTION(".heap") static uint8_t init_kmalloc_mem[INITIAL_HEAP_TOTAL_SIZE] __attribute__((aligned(SMALL_PAGE_SIZE)));
 
-// TODO: structure
-static memory_allocator_t s_kernel_allocator;
+static memory_allocator_t __kernel_allocator;
 
+/*!
+ * @brief Manually set up the kernel allocator
+ *
+ * Nothing to add here...
+ */
 void init_kheap() {
 
   heap_node_t* initial_node;
   heap_node_buffer_t* initial_buffer;
 
   /* Initialize the kernel allocator */
-  s_kernel_allocator.m_flags = NULL;
-  s_kernel_allocator.m_free_size = INITIAL_HEAP_TOTAL_SIZE;
-  s_kernel_allocator.m_used_size = NULL;
+  __kernel_allocator.m_flags = NULL;
+  __kernel_allocator.m_free_size = INITIAL_HEAP_TOTAL_SIZE;
+  __kernel_allocator.m_used_size = NULL;
 
   /* Pretty good dummy for the parent dir lmao */
-  s_kernel_allocator.m_parent_dir = (page_dir_t) {
+  __kernel_allocator.m_parent_dir = (page_dir_t) {
     .m_root = nullptr,
     .m_kernel_low = HIGH_MAP_BASE,
     .m_kernel_high = 0xFFFFFFFFFFFFFFFF,
@@ -59,8 +62,16 @@ void init_kheap() {
   initial_node->next = nullptr;
 
   /* Give the buffer to the allocator */
-  s_kernel_allocator.m_buffers = initial_buffer;
+  __kernel_allocator.m_buffers = initial_buffer;
+}
 
+int kheap_copy_main_allocator(memory_allocator_t* alloc)
+{
+  if (!alloc)
+    return -1;
+
+  memcpy(alloc, &__kernel_allocator, sizeof(__kernel_allocator));
+  return 0;
 }
 
 /**
@@ -69,35 +80,18 @@ void init_kheap() {
 
 // our kernel malloc impl
 void* kmalloc (size_t len) {
-  return memory_allocate(&s_kernel_allocator, len);
-  //return kzalloc(len);
+  return memory_allocate(&__kernel_allocator, len);
 }
 
 // our kernel free impl
 void kfree (void* addr) {
-  memory_deallocate(&s_kernel_allocator, addr);
-  //kernel_panic("TODO: phase out memory allocator (it sucks mega balls and needs a big fix)");
+  memory_deallocate(&__kernel_allocator, addr);
 }
 
 void kfree_sized(void* addr, size_t allocation_size) {
-  memory_sized_deallocate(&s_kernel_allocator, addr, allocation_size);
-  //kzfree(addr, allocation_size);
+  memory_sized_deallocate(&__kernel_allocator, addr, allocation_size);
 }
 
 void kheap_ensure_size(size_t size) {
-  memory_try_heap_expand(&s_kernel_allocator, size);
-}
-
-void* allocate_memory(size_t size) {
-  //generic_heap_t* heap = get_current_proc()->m_heap;
-
-  //return allocate_heap_memory(heap, size);
-  kernel_panic("TODO: implement allocate_memory");
-}
-
-void deallocate_memory(void* addr, size_t size) {
-  //generic_heap_t* heap = get_current_proc()->m_heap;
-
-  //deallocate_heap_memory(heap, addr, size);
-  kernel_panic("TODO: implement deallocate_memory");
+  memory_try_heap_expand(&__kernel_allocator, size);
 }
