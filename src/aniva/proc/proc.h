@@ -61,7 +61,7 @@ inline void proc_image_align(proc_image_t* image)
  * TODO: proc should prob be protected by atleast a few mutexes or spinlocks
  */
 typedef struct proc {
-  char m_name[32];
+  const char* m_name;
   proc_id_t m_id;
   uint32_t m_flags;
 
@@ -100,7 +100,7 @@ typedef struct proc {
 #define PROC_SHOULD_STALL   (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
 #define PROC_NO_SOCKET      (0x00000200)
 
-proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
+proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 proc_t* create_proc_from_path(const char* path);
 

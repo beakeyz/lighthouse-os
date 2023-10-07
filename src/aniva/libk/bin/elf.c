@@ -10,6 +10,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/pg.h"
 #include "mem/zalloc.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
@@ -117,13 +118,18 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
   return Success(0);
 }
 
-/*
+/*!
+ * @brief: Tries to prepare a .elf file for execution
+ *
+ * @returns: the proc_id wrapped in Success() on success. Otherwise Error()
+ * 
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
  */
 ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule) {
 
-  proc_t* ret = NULL;
+  proc_id_t id;
+  proc_t* proc = NULL;
   struct elf64_phdr* phdrs = NULL;
   struct elf64_hdr header;
   struct proc_image image;
@@ -148,9 +154,9 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
     proc_flags |= PROC_DRIVER;
   }
 
-  ret = create_proc(nullptr, (char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
+  proc = create_proc(nullptr, &id, (char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
-  if (!ret)
+  if (!proc)
     goto error_and_out;
 
   image.m_total_exe_bytes = file->m_buffer_size;
@@ -167,15 +173,15 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
           size_t phdr_size = phdr.p_memsz;
 
           vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
-                ret->m_root_pd.m_root,
-                ret->m_resource_bundle,
+                proc->m_root_pd.m_root,
+                proc->m_resource_bundle,
                 virtual_phdr_base,
                 phdr_size,
                 KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
                 page_flags
                 ));
 
-          vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, ret->m_root_pd.m_root));
+          vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
 
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */
@@ -202,13 +208,13 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   kfree(phdrs);
 
   /* Copy over the image object */
-  ret->m_image = image;
+  proc->m_image = image;
 
   /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
   if (!defer_schedule)
-    sched_add_priority_proc(ret, true);
+    sched_add_priority_proc(proc, true);
 
-  return Success((uintptr_t)ret);
+  return Success(id);
 
 error_and_out:
   /* TODO: clean more stuff */
@@ -216,8 +222,8 @@ error_and_out:
   if (phdrs)
     kfree(phdrs);
 
-  if (ret)
-    destroy_proc(ret);
+  if (proc)
+    destroy_proc(proc);
 
   return Error();
 

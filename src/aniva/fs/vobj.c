@@ -5,6 +5,7 @@
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
@@ -34,7 +35,11 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
     return nullptr;
   }
 
+  print("Created vobj: ");
+  println(path);
+
   vobj_t* obj = kmalloc(sizeof(vobj_t));
+
   memset(obj, 0, sizeof(vobj_t));
 
   obj->m_lock = create_mutex(0);
@@ -52,9 +57,13 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
   return obj;
 }
 
-void destroy_vobj(vobj_t* obj) {
+void destroy_vobj(vobj_t* obj) 
+{
   if (!obj)
     return;
+
+  print("Destroy vobj: ");
+  println(obj->m_path);
 
   ASSERT_MSG(obj->m_child && obj->m_ops->f_destory_child, "No way to destroy child of vobj!");
   ASSERT_MSG(obj->m_ops->f_destroy, "No way to destroy object!");
@@ -123,7 +132,6 @@ int vobj_unref(vobj_t* obj)
     return 0;
 
   parent = obj->m_parent;
-
   error = parent->m_ops->f_close(parent, obj);
 
   if (error)

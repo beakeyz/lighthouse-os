@@ -26,9 +26,18 @@
 #include "core.h"
 #include <mem/heap.h>
 
-proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
+/*!
+ * @brief Allocate memory for a process and prepare it for execution
+ *
+ * This creates:
+ * - the processes page-map if needed
+ * - a main thread
+ * - some structures to do process housekeeping
+ *
+ * TODO: remove sockets from existing
+ */
+proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
 {
-  size_t name_length;
   proc_t *proc;
 
   if (!name || !entry)
@@ -45,9 +54,15 @@ proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, u
   init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
   create_resource_bundle(&proc->m_resource_bundle);
 
+  /* TODO: move away from the idea of idle threads */
+  proc->m_idle_thread = nullptr;
+  proc->m_parent = parent;
+  proc->m_name = strdup(name);
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
   proc->m_thread_count = create_atomic_ptr_with_value(0);
+  proc->m_terminate_bell = create_doorbell(8, KDOORBELL_FLAG_BUFFERLESS);
+  proc->m_threads = init_list();
 
   // Only create new page dirs for non-kernel procs
   if (!is_kernel_proc(proc) || is_driver_proc(proc)) {
@@ -60,21 +75,6 @@ proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, u
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
-
-  /* TODO: move away from the idea of idle threads */
-  proc->m_idle_thread = nullptr;
-  proc->m_parent = parent;
-
-  proc->m_terminate_bell = create_doorbell(5, KDOORBELL_FLAG_BUFFERLESS);
-  proc->m_threads = init_list();
-
-  name_length = strlen(name);
-
-  if (name_length > 31)
-    name_length = 31;
-
-  memcpy(proc->m_name, name, name_length);
-  proc->m_name[31] = NULL;
 
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
   thread_t* thread;
@@ -90,6 +90,9 @@ proc_t* create_proc(proc_t* parent, char* name, FuncPtr entry, uintptr_t args, u
 
   proc_register(proc);
 
+  if (id_buffer)
+    *id_buffer = proc->m_id;
+
   return proc;
 }
 
@@ -104,7 +107,7 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
   }
 
   /* TODO: don't limit to one name */
-  return create_proc(nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+  return create_proc(nullptr, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
 proc_t* create_proc_from_path(const char* path) {
@@ -211,36 +214,21 @@ static void __proc_clear_handles(proc_t* proc)
     if (!current_handle->reference.kobj || current_handle->index == KHNDL_INVALID_INDEX)
       continue;
 
-    switch (current_handle->type) {
-      case HNDL_TYPE_FILE:
-        {
-          file_t* file = current_handle->reference.file;
-
-          ASSERT_MSG(file, "File handle didn't have a file!");
-
-          vnode_t* node = file->m_obj->m_parent;
-        
-          ASSERT_MSG(node, "File handle vobj didn't have a parent node!");
-
-          /* close the vobj, which decrements its refc */
-          vn_close(node, file->m_obj);
-
-          break;
-        }
-      case HNDL_TYPE_PROC:
-      case HNDL_TYPE_NONE:
-      default:
-        break;
-    }
-
-    //destroy_khandle(current_handle);
+    destroy_khandle(current_handle);
   }
 }
 
 /*
  * Caller should ensure proc != zero
  */
-void destroy_proc(proc_t* proc) {
+void destroy_proc(proc_t* proc) 
+{
+  proc_t* check;
+
+  check = find_proc_by_id(proc->m_id);
+  
+  if (check)
+    proc_unregister((char*)proc->m_name);
 
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
@@ -270,6 +258,7 @@ void destroy_proc(proc_t* proc) {
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 
+  kfree((void*)proc->m_name);
   kzfree(proc, sizeof(proc_t));
 }
 
@@ -297,8 +286,12 @@ int await_proc_termination(proc_id_t id)
 
   proc = find_proc_by_id(id);
 
+  /*
+   * If we can't find the process here, that probably means its already
+   * terminated even before we could make this call
+   */
   if (!proc)
-    return -1;
+    return 0;
 
   /* Pause the scheduler so we don't get fucked while registering the door */
   pause_scheduler();
@@ -346,7 +339,7 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
   /* Register to the reaper */
   TRY(reap_result, reaper_register_process(proc));
 
-  proc_unregister(proc->m_name);
+  proc_unregister((char*)proc->m_name);
 
   /* Resume scheduling */
   resume_scheduler();

@@ -72,9 +72,8 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
     }
 
     if (!ret || reached_end) {
-      kfree(buffer_start);
       buffer = nullptr;
-      continue;
+      break;
     } else {
       /* Decend into the next subdir */
       prev = ret;
@@ -85,11 +84,11 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
     buffer++;
   }
 
-  /* Assert? */
-  if (buffer){
-    kfree(buffer_start);
+  kfree(buffer_start);
+
+  /* Did we reach the end? */
+  if (buffer)
     return nullptr;
-  }
 
   if (ret)
     return ret;
@@ -133,7 +132,6 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     }
 
     if (reached_end) {
-      kfree(buffer_start);
       buffer = nullptr;
       break;
     } 
@@ -151,11 +149,11 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     buffer++;
   }
 
+  kfree(buffer_start);
+
   /* Assert? */
-  if (buffer){
-    kfree(buffer_start);
+  if (buffer)
     return nullptr;
-  }
 
   if (!ret)
     return prev;
@@ -519,6 +517,7 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
   dir = __scan_for_dir_from(node->m_objects, path);
 
   if (!dir) {
+    kfree((void*)path);
     mutex_unlock(node->m_vobj_lock);
     return Error();
   }
@@ -540,10 +539,12 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
 
     node->m_object_count--;
 
+    kfree((void*)path);
     mutex_unlock(node->m_vobj_lock);
     return Success(0);
   }
 
+  kfree((void*)path);
   mutex_unlock(node->m_vobj_lock);
   return Error();
 }

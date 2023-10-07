@@ -365,11 +365,8 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
   while (*__kterm_stdin_buffer == NULL)
     scheduler_yield();
 
-  /* Make sure we don't transfer garbo */
-  memset(buffer, NULL, *buffer_size);
-
   /* Set the buffersize to our string in preperation for the copy */
-  *buffer_size = strlen(__kterm_stdin_buffer);
+  *buffer_size = strlen(__kterm_stdin_buffer) + 1;
 
   /* Yay, copy */
   memcpy(buffer, __kterm_stdin_buffer, *buffer_size);
@@ -577,7 +574,7 @@ static void kterm_process_buffer()
 static void kterm_draw_cursor() {
   kterm_draw_char(0 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
   kterm_draw_char(1 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
-  __kterm_buffer_ptr = KTERM_CURSOR_WIDTH;
+  __kterm_buffer_ptr = 0;
 }
 
 static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {

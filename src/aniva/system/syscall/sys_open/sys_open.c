@@ -93,8 +93,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
               int error;
               proc_profile_t* profile = nullptr;
 
-              print("Finding ");
-              println(path);
               error = profile_find(path, &profile); 
 
               if (error || !profile)

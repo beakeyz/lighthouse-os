@@ -43,6 +43,7 @@ int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
     }
   }
 
+  __write_byte(stream, NULL, NULL);
   /* Return the length of everything we wrote */
   return i;
 }

@@ -5,11 +5,12 @@
 
 // FIXME: the entire capacity concept of queues is not used at the moment, let's use it
 queue_t *create_queue(size_t capacity) {
-  queue_t *queue_ptr = kmalloc(sizeof (queue_t));
+  queue_t *queue_ptr; 
 
-  if (queue_ptr == nullptr) {
+  queue_ptr = kmalloc(sizeof(queue_t));
+
+  if (!queue_ptr)
     return nullptr;
-  }
 
   queue_ptr->m_entries = 0;
   queue_ptr->m_head_ptr = nullptr;
@@ -32,15 +33,15 @@ void initialize_queue(queue_t* queue_ptr, size_t capacity) {
   queue_ptr->m_max_entries = capacity;
 }
 
-ANIVA_STATUS destroy_queue(queue_t* queue, bool eliminate_entries) {
+ANIVA_STATUS destroy_queue(queue_t* queue, bool eliminate_entries) 
+{
   void *entry = queue_dequeue(queue);
-  if (eliminate_entries) {
-    for (; entry != nullptr; entry = queue_dequeue(queue)) {
+
+  for (; entry != nullptr; entry = queue_dequeue(queue)) {
+    if (eliminate_entries)
       kfree(entry);
-    }
-  } else {
-    for (; entry != nullptr; entry = queue_dequeue(queue)) {}
   }
+
   kfree(queue);
   return ANIVA_SUCCESS;
 }

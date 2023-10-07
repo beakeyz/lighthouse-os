@@ -37,15 +37,21 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
 
   ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
 
+  vobj_close(obj);
+
   if (IsError(result)) {
     logln("Coult not execute object!");
-    vobj_close(obj);
     return 5;
   }
 
-  p = (proc_t*)Release(result);
+  id = (proc_id_t)Release(result);
+  p = find_proc_by_id(id);
 
-  vobj_close(obj);
+  /*
+   * Losing this process would be a fatal error because it compromises the entire system 
+   * :clown: this design is peak stupidity
+   */
+  ASSERT_MSG(p, "Could not find process! (Lost to the void)");
 
   khandle_type_t driver_type = HNDL_TYPE_DRIVER;
   dev_manifest_t* kterm_manifest = get_driver("other/kterm");
@@ -65,8 +71,6 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   bind_khandle(&p->m_handle_map, &_stdin);
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
-
-  id = p->m_id;
 
   /* Do an instant rescedule */
   sched_add_priority_proc(p, true);

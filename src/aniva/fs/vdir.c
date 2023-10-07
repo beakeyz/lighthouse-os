@@ -2,6 +2,7 @@
 #include "fs/vnode.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include <mem/zalloc.h>
 
@@ -44,6 +45,9 @@ vdir_t* create_vdir(vnode_t* node, vdir_t* parent, const char* name)
   if (!node || !name)
     return nullptr;
 
+  print("Created vdir: ");
+  println(name);
+
   ret = zalloc_fixed(node->m_vdir_allocator);
 
   memset(ret, 0, sizeof(*ret));
@@ -70,6 +74,11 @@ vdir_t* create_vdir(vnode_t* node, vdir_t* parent, const char* name)
 
 void destroy_vdir(vdir_t* dir)
 {
+  vdir_attr_t* attributes;
+
+  print("Destroyed vdir: ");
+  println(dir->m_name);
+  
   if (dir->m_ops && dir->m_ops->f_destroy)
     dir->m_ops->f_destroy(dir);
 
@@ -77,7 +86,10 @@ void destroy_vdir(vdir_t* dir)
 
   kfree((void*)dir->m_name);
 
-  zfree_fixed(dir->m_attr->m_parent_node->m_vdir_allocator, dir);
+  attributes = dir->m_attr;
+
+  zfree_fixed(attributes->m_parent_node->m_vdir_allocator, dir);
+  zfree_fixed(__vdir_attr_allocator, attributes);
 }
 
 ErrorOrPtr destroy_vdirs(vdir_t* root, bool destroy_objs)
@@ -108,7 +120,7 @@ ErrorOrPtr destroy_vdirs(vdir_t* root, bool destroy_objs)
   while (current_vobj) {
     next_vobj = current_vobj->m_next;
 
-    destroy_vobj(current_vobj);
+    vn_close(current_vobj->m_parent, current_vobj);
 
     current_vobj = next_vobj;
   }

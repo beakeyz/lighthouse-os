@@ -17,8 +17,11 @@
  */
 static void __mutex_handle_unblock(mutex_t* mutex);
 
-mutex_t* create_mutex(uint8_t flags) {
-  mutex_t* ret = kmalloc(sizeof(mutex_t));
+mutex_t* create_mutex(uint8_t flags) 
+{
+  mutex_t* ret;
+
+  ret = kmalloc(sizeof(mutex_t));
 
   ret->m_waiters = create_limitless_queue();
   ret->m_lock = create_spinlock();
@@ -72,11 +75,16 @@ void clear_mutex(mutex_t* mutex)
   }
 
   destroy_queue(mutex->m_waiters, false);
-  destroy_spinlock(mutex->m_lock);
 }
 
-void destroy_mutex(mutex_t* mutex) {
+void destroy_mutex(mutex_t* mutex) 
+{
+  if (!mutex)
+    return;
+
   clear_mutex(mutex);
+
+  destroy_spinlock(mutex->m_lock);
   kfree(mutex);
 }
 

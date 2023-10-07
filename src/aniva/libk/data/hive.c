@@ -380,59 +380,67 @@ ErrorOrPtr hive_remove(hive_t* root, void* data) {
   return hive_remove_path(root, path);
 }
 
-ErrorOrPtr hive_remove_path(hive_t* root, const char* path) {
-  // TODO:
-  path = __hive_prepend_root_part(root, path);
+ErrorOrPtr hive_remove_path(hive_t* root, const char* path)
+{
+  uintptr_t index;
+  size_t part_count;
+  hive_t* current_hive;
 
-  if (__hive_path_is_invalid(path)) {
+  if (!root || !path)
     return Error();
-  }
 
-  if (hive_get(root, path) == nullptr) {
-    return Error();
-  }
+  const char* path_cpy = __hive_prepend_root_part(root, path);
 
-  hive_t* current_hive = root;
-  size_t part_count = __hive_get_part_count(path);
+  kfree((void*)path);
+
+  if (__hive_path_is_invalid(path_cpy))
+    goto exit;
+
+  if (hive_get(root, path_cpy) == nullptr)
+    goto exit;
+
+  index = NULL;
+  part_count = __hive_get_part_count(path_cpy);
+  current_hive = root;
 
   for (uintptr_t i = 1; i < part_count; i++) {
-    hive_url_part_t part = __hive_find_part_at(path, i);
+    hive_url_part_t part = __hive_find_part_at(path_cpy, i);
 
     hive_entry_t* entry = __hive_find_entry(current_hive, part);
     bool is_hole = hive_entry_is_hole(entry);
 
     kfree(part);
 
-    if (!entry) {
-      return Error();
-    }
+    if (!entry)
+      goto exit;
 
     if (i+1 == part_count) {
       kfree(part);
-      if (is_hole && entry->m_hole->m_entries->m_length != 0) {
-        return Error();
-      }
 
-      uintptr_t index = Release(list_indexof(current_hive->m_entries, entry));
+      if (is_hole && entry->m_hole->m_entries->m_length != 0)
+        goto exit;
+
+      index = Release(list_indexof(current_hive->m_entries, entry));
       list_remove(current_hive->m_entries, index);
+
+      destroy_hive_entry(entry);
+
+      kfree((void*)path_cpy);
       return Success(0);
     }
 
-    if (hive_entry_is_hole(entry)) {
+    if (hive_entry_is_hole(entry))
       current_hive = entry->m_hole;
-    }
   }
 
+exit:
+  kfree((void*)path_cpy);
   return Error();
 }
 
 // root.hole.entry
-const char* hive_get_path(hive_t* root, void* data) {
-
-  //if (!hive_contains(root, data)) {
-  //  return nullptr;
-  //}
-
+const char* hive_get_path(hive_t* root, void* data) 
+{
   char* ret = nullptr;
 
   FOREACH(i, root->m_entries) {

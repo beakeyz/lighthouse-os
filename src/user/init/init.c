@@ -33,25 +33,6 @@ int main() {
    * or do we just have one root like linux/unix?
    */
 
-  /* Open a handle to the binary file of our own process */
-  HANDLE handle_1 = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
-
-  printf("open Root/init!\n");
-
-  /* Open a handle to our own process */
-  HANDLE handle_2 = open_handle("init", HNDL_TYPE_PROC, NULL, NULL);
-
-  printf("open init proc!\n");
-
-  uint32_t* memory = malloc(sizeof(uint32_t));
-
-  assert(memory);
-
-  if (memory)
-    *memory = 69;
-
-  printf("Yay memory\n");
-
   char buffer[128];
 
   //scanf("Whats your name: %s", buffer);
@@ -68,6 +49,5 @@ int main() {
 
   printf("Tried to read from the profile variable handle: %s\n", test_buffer);
 
-  free(memory);
-  return handle_2;
+  return 0;
 }

@@ -8,6 +8,13 @@ typedef enum _ANIVA_STATUS {
   ANIVA_FAIL = 0,
   ANIVA_WARNING = 1,
   ANIVA_SUCCESS = 2,
+  ANIVA_NOMEM,
+  ANIVA_NODEV,
+  ANIVA_NOCONN,
+  ANIVA_FULL,
+  ANIVA_EMPTY,
+  ANIVA_BUSY,
+  ANIVA_INVAL,
   // TODO: more types?
 } ANIVA_STATUS;
 
@@ -18,6 +25,11 @@ typedef enum _ANIVA_STATUS {
 #define EOP_NODEV 4
 #define EOP_NOCON 5
 #define EOP_NULL  6
+
+static inline bool status_is_ok(ANIVA_STATUS status)
+{
+  return (status == ANIVA_SUCCESS);
+}
 
 /*
  * FIXME: it seems like adding any more fields here 
@@ -35,7 +47,8 @@ NORETURN void kernel_panic(const char* panic_message);
 #define ASSERT_MSG(condition, msg) do { if (!(condition)) { print("Assertion failed (In: " __FILE__ "): "); kernel_panic(msg); } } while(0)
 
 // TODO: Add error messages
-ALWAYS_INLINE ErrorOrPtr Error() {
+static ALWAYS_INLINE ErrorOrPtr Error() 
+{
   ErrorOrPtr e = {
     .m_ptr = NULL,
     .m_status = ANIVA_FAIL,
@@ -43,7 +56,8 @@ ALWAYS_INLINE ErrorOrPtr Error() {
   return e;
 }
 
-ALWAYS_INLINE ErrorOrPtr ErrorWithVal(uintptr_t val) {
+static ALWAYS_INLINE ErrorOrPtr ErrorWithVal(uintptr_t val) 
+{
   ErrorOrPtr e = {
     .m_ptr = val,
     .m_status = ANIVA_FAIL,
@@ -51,11 +65,13 @@ ALWAYS_INLINE ErrorOrPtr ErrorWithVal(uintptr_t val) {
   return e;
 }
 
-ALWAYS_INLINE bool IsError(ErrorOrPtr e) {
+static ALWAYS_INLINE bool IsError(ErrorOrPtr e) 
+{
   return (e.m_status == ANIVA_FAIL);
 }
 
-ALWAYS_INLINE ErrorOrPtr Warning() {
+static ALWAYS_INLINE ErrorOrPtr Warning() 
+{
   ErrorOrPtr e = {
     .m_ptr = NULL,
     .m_status = ANIVA_WARNING
@@ -63,7 +79,8 @@ ALWAYS_INLINE ErrorOrPtr Warning() {
   return e;
 }
 
-ALWAYS_INLINE ErrorOrPtr Success(uintptr_t value) {
+static ALWAYS_INLINE ErrorOrPtr Success(uintptr_t value) 
+{
   ErrorOrPtr e = {
     .m_ptr = value,
     .m_status = ANIVA_SUCCESS,
@@ -72,18 +89,25 @@ ALWAYS_INLINE ErrorOrPtr Success(uintptr_t value) {
 }
 
 // for lazy people
-ALWAYS_INLINE uintptr_t Release(ErrorOrPtr eop) {
+static ALWAYS_INLINE uintptr_t Release(ErrorOrPtr eop) 
+{
   if (eop.m_status == ANIVA_SUCCESS) {
     return eop.m_ptr;
   }
   return NULL;
 }
 
-ALWAYS_INLINE uintptr_t Must(ErrorOrPtr eop) {
+static ALWAYS_INLINE uintptr_t Must(ErrorOrPtr eop) 
+{
   if (eop.m_status != ANIVA_SUCCESS) {
     kernel_panic("ErrorOrPtr: Must(...) failed!");
   }
   return eop.m_ptr;
+}
+
+static ALWAYS_INLINE ANIVA_STATUS GetStatus(ErrorOrPtr eop)
+{
+  return eop.m_status;
 }
 
 #define TRY(result, err_or_ptr)                 \

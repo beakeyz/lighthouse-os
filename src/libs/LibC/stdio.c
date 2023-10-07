@@ -59,8 +59,8 @@ int __write_byte(FILE* stream, uint64_t* counter, char byte)
 
   stream->w_buff[stream->w_buf_written++] = byte;
 
-  /* Sync the buffer if the max. buffersize is reached, or the byte is a newline char */
-  if (stream->w_buf_written >= stream->w_buf_size || byte == '\n') {
+  /* Sync the buffer if the max. buffersize is reached, or the byte is a null-char */
+  if (stream->w_buf_written >= stream->w_buf_size || byte == '\0') {
     fflush(stream);
   }
 
@@ -77,10 +77,10 @@ int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
 {
   int result = 0;
 
-  for (char* c = bytes; *c; c++) {
+  for (char* c = bytes;; c++) {
     result = __write_byte(stream, counter, *c);
 
-    if (result < 0)
+    if (result < 0 || !(*c))
       break;
   }
 
@@ -303,20 +303,20 @@ int printf(const char* format, ...)
   return result;
 }
 
-char* gets(char* str, size_t size)
+char* gets(char* buffer, size_t size)
 {
-  return fgets(str, size, stdin);
+  return fgets(buffer, size, stdin);
 }
 
-char* fgets(char* str, size_t size, FILE* stream)
+char* fgets(char* buffer, size_t size, FILE* stream)
 {
   int c;
   char* ret;
 
   /* Cache the start of the string */
-  ret = str;
+  ret = buffer;
 
-  memset(str, 0, size);
+  memset(buffer, 0, size);
 
   for (c = fgetc(stream); c && size; c = fgetc(stream)) {
 
@@ -324,7 +324,7 @@ char* fgets(char* str, size_t size, FILE* stream)
       return ret;
 
     size--;
-    *str++ = c;
+    *buffer++ = c;
 
   }
 

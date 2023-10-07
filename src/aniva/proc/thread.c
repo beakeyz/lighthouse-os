@@ -42,8 +42,11 @@ static thread_t* __generic_idle_thread;
  */
 //static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
 
-thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, const char name[32], proc_t* proc, bool kthread) { // make this sucka
-  thread_t *thread = kmalloc(sizeof(thread_t));
+thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, const char name[32], proc_t* proc, bool kthread)
+{ // make this sucka
+  thread_t *thread;
+
+  thread = kmalloc(sizeof(thread_t));
 
   if (!thread)
     return nullptr;
@@ -218,7 +221,7 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
     destroy_threaded_socket(thread->m_socket);
   }
 
-  destroy_mutex(0);
+  destroy_mutex(thread->m_lock);
 
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
