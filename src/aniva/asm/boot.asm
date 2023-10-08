@@ -41,6 +41,10 @@ align 4
 [global boot_pd0]
 [global boot_pd0_p]
 
+; How many bytes do we have mapped at boot?
+; ( When we make the jump into C )
+[global early_map_size]
+
 [extern _start]
 
 [global kstack_top]
@@ -102,9 +106,12 @@ cpuid_support:
   or eax, 0x3
   mov [(boot_hh_pdpt - KERNEL_VIRT_BASE) + 510 * 8], eax
 
+  ; Fill 32 entries of pml2 with addresses into pml1
+  ; this means we can map a total of 32 * 512 * 0x1000 = 64 Mib
+  ; starting from physical address 0
   mov eax, 0 
   mov ebx, boot_pd0_p - KERNEL_VIRT_BASE
-  mov ecx, 32
+  mov ecx, 32 
 
   .fill_directory:
     or ebx, 0x3
@@ -116,12 +123,14 @@ cpuid_support:
     cmp ecx, 0
     jne .fill_directory
 
-  mov ecx, 0x1000
+  ; We will map a total of 0x4000 pages of 0x1000 bytes which will directly
+  ; translate to 64 Mib as described above. This means we can (hopefully) load the
+  ; entire kernel + its ramdisk in one range and also find enough space for a bitmap
+  ; to fit the entire physical memoryspace
+  mov ecx, 0x4000
   mov ebx, 0 
   mov eax, 0 
 
-  ; We are mapping a kernel with a range of 16 Mib, this does not scale for now
-  ; NOTE: if our kernel gets too big (it won't) we're fucked
   .map_kernel:
     or ebx, 0x3
     mov [(boot_pd0_p - KERNEL_VIRT_BASE) + eax], ebx
@@ -196,18 +205,21 @@ mb_ptr:
   dq 0
 
 [section .rodata]
-; gdt
+
+; GDT 
+align 8
 gdtr:
   dw gdt_end - gdt_start - 1
   dq gdt_start - KERNEL_VIRT_BASE
 gdt_start:
   dq 0
-
   dq (1 << 44) | (1 << 47) | (1 << 41) | (1 << 43) | (1 << 53)
-
   dq (1 << 44) | (1 << 47) | (1 << 41)
-
 gdt_end:
+
+; Our effective memory size until kmem_manager takes over
+early_map_size:
+  dq (0x4000 * 0x1000)
 
 [section .pts]
 
@@ -220,7 +232,7 @@ boot_pdpt:
 boot_pd0:
   times 0x1000 db 0
 boot_pd0_p:
-  times 0x80000 db 0
+  times 0x4000 dq 0
 
 boot_hh_pdpt:
   times 0x1000 db 0

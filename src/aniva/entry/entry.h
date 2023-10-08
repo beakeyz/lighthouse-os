@@ -68,6 +68,12 @@ typedef struct {
 
   vaddr_t kernel_start_addr;
   vaddr_t kernel_end_addr;
+  
+  /*
+   * The amount of memory that is reserved directly above the kernel 
+   * Calculated in multiboot.c
+   */
+  vaddr_t post_kernel_reserved_size; 
 } system_info_t;
 
 extern system_info_t g_system_info;

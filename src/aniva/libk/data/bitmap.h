@@ -8,9 +8,6 @@ struct bitmap;
 // 8-bit bitmap
 typedef struct bitmap {
   uint8_t m_default;
-  uint8_t m_res0;
-  uint16_t m_res1;
-  uint32_t m_res2;
   size_t m_size; // size in bytes
   size_t m_entries; // size in bits
   uint8_t m_map[];

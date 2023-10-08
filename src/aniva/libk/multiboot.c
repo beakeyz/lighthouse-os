@@ -3,16 +3,23 @@
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
 
 #define MB_MOD_PROBE_LOOPLIM 32
 #define MB_TAG_PROBE_LOOPLIM 128
 
-ErrorOrPtr init_multiboot(void* addr) {
+ErrorOrPtr init_multiboot(void* addr) 
+{
+  size_t delta;
+  vaddr_t virt_mod_end;
+  struct multiboot_tag_mmap* mb_memmap;
+  struct multiboot_tag_module* mb_current_module;
 
-  // first: find the memorymap 
-  struct multiboot_tag_mmap* mb_memmap = get_mb2_tag(addr, 6);
+  mb_memmap = get_mb2_tag(addr, 6);
+
+  /* This would be mega bad lmao */
   if (!mb_memmap) {
     println("No memorymap found! aborted");
     return Error();
@@ -20,6 +27,31 @@ ErrorOrPtr init_multiboot(void* addr) {
 
   /* NOTE: addr is virtual */
   g_system_info.total_multiboot_size = ALIGN_UP(get_total_mb2_size(addr) + 8, SMALL_PAGE_SIZE);
+  g_system_info.post_kernel_reserved_size = NULL;
+
+  mb_current_module = get_mb2_tag(addr, MULTIBOOT_TAG_TYPE_MODULE);
+
+  while (mb_current_module) {
+    virt_mod_end = kmem_ensure_high_mapping(mb_current_module->mod_end);
+
+    /* If this is above the kernel */
+    if (virt_mod_end > g_system_info.kernel_end_addr) {
+      /* Whats the total size between the kernel end and the module end? */
+      delta = virt_mod_end - g_system_info.kernel_end_addr;
+
+      /* If this difference is more than what we currently have registered, set this */
+      if (delta > g_system_info.post_kernel_reserved_size) {
+        /* Plus a quad word as a buffer =) */
+        g_system_info.post_kernel_reserved_size = ALIGN_UP(delta + 8, 8);
+      }
+    }
+
+    /*
+     * Cycle to the next 'module' (even though we will probably only ever load one, namely the ramdisk which 
+     * won't get particularly big) 
+     */
+    mb_current_module = next_mb2_tag((uint8_t*)ALIGN_UP((uintptr_t)mb_current_module + mb_current_module->size, 8), MULTIBOOT_TAG_TYPE_MODULE);
+  }
 
   return Success(0);
 }

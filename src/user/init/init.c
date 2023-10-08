@@ -32,6 +32,10 @@ int main() {
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?
    */
+  HANDLE h = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
+
+  if (!verify_handle(h)) 
+    return -1;
 
   char buffer[128];
 
