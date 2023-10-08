@@ -13,7 +13,7 @@
  * FIXME: this REAAALY screws us good. Can we figure some way to work around the fact that we need this 
  * big of a heap to support systems with big memory profiles?
  */
-#define INITIAL_HEAP_TOTAL_SIZE (ALIGN_UP(ALIGN_UP(4 * Mib, SMALL_PAGE_SIZE) + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE)) // IN BYTES
+#define INITIAL_HEAP_TOTAL_SIZE (ALIGN_UP(ALIGN_UP(256 * Kib, SMALL_PAGE_SIZE) + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE)) // IN BYTES
 #define INITIAL_KHEAP_VBASE (EARLY_KERNEL_HEAP_BASE) 
 
 /* TODO: GET FUCKING RID OF THIS BULLSHIT */

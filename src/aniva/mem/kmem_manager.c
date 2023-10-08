@@ -223,7 +223,6 @@ void parse_mmap()
  */
 static void kmem_init_physical_allocator() 
 {
-  uint32_t current_range_idx;
   bitmap_t* physical_bitmap;
   vaddr_t bitmap_start_addr;
   vaddr_t bitmap_end_addr;
@@ -233,7 +232,7 @@ static void kmem_init_physical_allocator()
   size_t physical_pages_bytes;
 
   physical_pages_bytes = (ALIGN_UP(KMEM_DATA.m_phys_pages_count, 8) >> 3);
-  physical_bitmap_size = physical_bitmap_size + sizeof(bitmap_t);
+  physical_bitmap_size = physical_pages_bytes + sizeof(bitmap_t);
 
   /* Compute where our bitmap MUST go */
   bitmap_start_addr = g_system_info.kernel_end_addr + g_system_info.post_kernel_reserved_size;
@@ -243,80 +242,13 @@ static void kmem_init_physical_allocator()
   phys_bm_start = (bitmap_start_addr & ~(HIGH_MAP_BASE));
   phys_bm_end = (bitmap_end_addr & ~(HIGH_MAP_BASE));
 
-  current_range_idx = 0;
-
+  /*
   println("KTERM PHYSICAL ALLOCATOR DATA: ");
   println(to_string(physical_pages_bytes));
   println(to_string(phys_bm_start));
   println(to_string(phys_bm_end));
   println(to_string(early_map_size));
-
-  /*
-   * Look through all the physical ranges to see what ranges we need to reserve
-   * in order to ensure that our bitmap does not get overwritten lmao
-   */
-  FOREACH(i, KMEM_DATA.m_phys_ranges) {
-    phys_mem_range_t* range = i->data;
-
-    size_t range_size = NULL;
-    uintptr_t range_end = range->start + range->length;
-
-    /*
-     * This entire range is inside our bitmap :blushing:
-     */
-    if (range->start >= phys_bm_start && range_end <= phys_bm_end) {
-      range->type = PMRT_RESERVED;
-      println("Mid split");
-      goto cycle;
-    }
-
-    if (range->start <= phys_bm_start && range_end > phys_bm_start) {
-      range_size = phys_bm_start - range->start;
-
-      /* Split at the start */
-      if (range_size) {
-        phys_mem_range_t* new_low_range = kmalloc(sizeof(phys_mem_range_t));
-        new_low_range->start = range->start;
-        new_low_range->length = range_size;
-        new_low_range->type = range->type;
-
-        /* Shift the low-side of the range containing our bitmap up */
-        range->start += range_size;
-        range->length -= range_size;
-
-        println("Start split");
-
-        list_append_before(KMEM_DATA.m_phys_ranges, new_low_range, current_range_idx);
-      }
-
-      println("Start split (1.2)");
-
-      /* Only mark this reserved if we are not going to mess with it in the next chec */
-      if (!(range_end > phys_bm_end && range->start < phys_bm_end))
-        range->type = PMRT_RESERVED;
-    }
-
-    /* This range at least partially contains our bitmap */
-    if (range_end > phys_bm_end && range->start < phys_bm_end) {
-
-      phys_mem_range_t* high_range = kmalloc(sizeof(phys_mem_range_t));
-      high_range->start = phys_bm_end;
-      high_range->length = range_end - phys_bm_end; 
-      high_range->type = range->type;
-
-      range->length -= high_range->length;
-      range->type = PMRT_RESERVED;
-
-      println("End split");
-
-      /* After this range we won't find any other to our interest */
-      list_append_after(KMEM_DATA.m_phys_ranges, high_range, current_range_idx);
-      break;
-    }
-
-cycle:
-    current_range_idx++;
-  }
+  */
 
   /*
    * new FIXME: we allocate a bitmap for the entire memory page space on the heap, 
@@ -349,13 +281,6 @@ cycle:
   FOREACH(i, KMEM_DATA.m_phys_ranges) {
     const phys_mem_range_t* range = i->data;
 
-    print("Type: ");
-    println(to_string(range->type));
-    print("map entry start addr: ");
-    println(to_string(range->start));
-    print("map entry length: ");
-    println(to_string(range->length));
-
     if (range->type != PMRT_USABLE)
       continue;
 
@@ -365,7 +290,14 @@ cycle:
     // should already be page aligned
     for (uintptr_t i = 0; i < GET_PAGECOUNT(size); i++) {
       paddr_t addr = base + i * SMALL_PAGE_SIZE;
+
+      /* Keep the bitmap used */
+      if (addr >= ALIGN_DOWN(phys_bm_start, SMALL_PAGE_SIZE) &&
+          addr <= ALIGN_UP(phys_bm_end, SMALL_PAGE_SIZE))
+        continue;
+
       uintptr_t phys_page_idx = kmem_get_page_idx(addr);
+
       kmem_set_phys_page_free(phys_page_idx);
     }
   }
@@ -1169,32 +1101,42 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
   return Success(vbase);
 }
 
+/*!
+ * @brief Fixup the mapping from boot.asm
+ *
+ * boot.asm maps 1 Gib high, starting from address NULL, so we'll do the same 
+ * here to make sure the entire system stays happy after the pagemap switch
+ */
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  const paddr_t kernel_physical_end = ALIGN_UP(g_system_info.kernel_end_addr - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end) + 1;
+  const size_t mapping_end_idx = kmem_get_page_idx(early_map_size);
   
-  /* Map everything before the kernel */
-  ASSERT_MSG(kmem_map_range(map, HIGH_MAP_BASE, 0, kernel_end_idx, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK , 0), "Failed to mmap pre-kernel memory");
+  /* Map everything until what we've already mapped in boot.asm */
+  ASSERT_MSG(
+      kmem_map_range(map, HIGH_MAP_BASE, 0, mapping_end_idx, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK, 0),
+      "Failed to mmap pre-kernel memory"
+      );
 }
 
 // TODO: make this more dynamic
-static void _init_kmem_page_layout () {
+static void _init_kmem_page_layout () 
+{
+  uintptr_t map;
 
-  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)Must(kmem_prepare_new_physical_page());
+  /* Grab the page for our pagemap root */
+  map = Must(kmem_prepare_new_physical_page());
+
+  /* Set the managers data */
+  KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)map;
   KMEM_DATA.m_high_page_base = HIGH_MAP_BASE;
 
+  /* Assert that we got valid shit =) */
   ASSERT_MSG(kmem_get_krnl_dir(), "Tried to init kmem_page_layout without a present krnl dir");
 
+  /* Mimic boot.asm */
   __kmem_map_kernel_range_to_map(nullptr);
 
-  println("Done mapping bootstrap ranges");
-
-  // FIXME: find out if this address is always valid
-  // NOTE: If we ever decide to change the boottime mappings, this (along with the 
-  // kmem_from_phys usages before switching to the new pagemap) will not be valid anymore...
-  uintptr_t map = (uintptr_t)KMEM_DATA.m_kernel_base_pd;
-
+  /* Load the new pagemap baby */
   kmem_load_page_dir(map, true);
 }
 
@@ -1206,33 +1148,7 @@ static void _init_kmem_page_layout () {
  */
 static void _init_kmem_page_layout_late() {
 
-  println("Starting the map!");
   const size_t total_pages = KMEM_DATA.m_phys_pages_count;
-
-  const paddr_t kernel_physical_end = ALIGN_UP(kmem_to_phys(nullptr, g_system_info.kernel_end_addr) + (SMALL_PAGE_SIZE), SMALL_PAGE_SIZE);
-  const size_t kernel_end_idx = kmem_get_page_idx(kernel_physical_end);
-  const size_t max_kernel_high_pages = GET_PAGECOUNT(1 * Gib);
-
-  size_t total_pages_to_map = total_pages - kernel_end_idx;
-
-  if (total_pages_to_map > max_kernel_high_pages)
-    total_pages_to_map = max_kernel_high_pages;
-
-  /*
-   * Here we map a maximum of 1 Gib after the kernel so we can be sure we have enough space
-   * mapped for when we need random pages somewhere
-   */
-  ASSERT_MSG(
-      kmem_map_range(
-        nullptr,
-        kmem_from_phys(kernel_physical_end, HIGH_MAP_BASE),
-        kernel_physical_end,
-        total_pages_to_map,
-        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK,
-        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
-        ), 
-      "Could not map the rest of the physical memory space!"
-  );
 
   println("Starting map 2");
 

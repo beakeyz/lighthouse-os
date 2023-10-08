@@ -106,12 +106,12 @@ cpuid_support:
   or eax, 0x3
   mov [(boot_hh_pdpt - KERNEL_VIRT_BASE) + 510 * 8], eax
 
-  ; Fill 32 entries of pml2 with addresses into pml1
-  ; this means we can map a total of 32 * 512 * 0x1000 = 64 Mib
+  ; Fill 512 entries of pml2 with addresses into pml1
+  ; this means we can map a total of 512 * 512 * 0x1000 = 1 Gib
   ; starting from physical address 0
   mov eax, 0 
   mov ebx, boot_pd0_p - KERNEL_VIRT_BASE
-  mov ecx, 32 
+  mov ecx, 512
 
   .fill_directory:
     or ebx, 0x3
@@ -123,11 +123,11 @@ cpuid_support:
     cmp ecx, 0
     jne .fill_directory
 
-  ; We will map a total of 0x4000 pages of 0x1000 bytes which will directly
-  ; translate to 64 Mib as described above. This means we can (hopefully) load the
+  ; We will map a total of 0x20000 pages of 0x1000 bytes which will directly
+  ; translate to 1 Gib as described above. This means we can (hopefully) load the
   ; entire kernel + its ramdisk in one range and also find enough space for a bitmap
   ; to fit the entire physical memoryspace
-  mov ecx, 0x4000
+  mov ecx, 0x20000
   mov ebx, 0 
   mov eax, 0 
 
@@ -219,7 +219,7 @@ gdt_end:
 
 ; Our effective memory size until kmem_manager takes over
 early_map_size:
-  dq (0x4000 * 0x1000)
+  dq (0x20000 * 0x1000)
 
 [section .pts]
 
@@ -232,7 +232,7 @@ boot_pdpt:
 boot_pd0:
   times 0x1000 db 0
 boot_pd0_p:
-  times 0x4000 dq 0
+  times 0x20000 dq 0
 
 boot_hh_pdpt:
   times 0x1000 db 0
