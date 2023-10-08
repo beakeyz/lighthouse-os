@@ -86,7 +86,6 @@ cpuid_support:
   xor eax, eax
   xor ebx, ebx
 
-
   ; map pdpt for identity
   mov eax, boot_pdpt - KERNEL_VIRT_BASE
   or eax, 0x3
@@ -107,11 +106,11 @@ cpuid_support:
   mov [(boot_hh_pdpt - KERNEL_VIRT_BASE) + 510 * 8], eax
 
   ; Fill 512 entries of pml2 with addresses into pml1
-  ; this means we can map a total of 512 * 512 * 0x1000 = 1 Gib
+  ; this means we can map a total of 256 * 512 * 0x1000 = 1 Gib
   ; starting from physical address 0
   mov eax, 0 
   mov ebx, boot_pd0_p - KERNEL_VIRT_BASE
-  mov ecx, 512
+  mov ecx, 256
 
   .fill_directory:
     or ebx, 0x3
@@ -123,11 +122,11 @@ cpuid_support:
     cmp ecx, 0
     jne .fill_directory
 
-  ; We will map a total of 0x20000 pages of 0x1000 bytes which will directly
-  ; translate to 1 Gib as described above. This means we can (hopefully) load the
+  ; We will map a total of 0x10000 pages of 0x1000 bytes which will directly
+  ; translate to 512 Mib as described above. This means we can (hopefully) load the
   ; entire kernel + its ramdisk in one range and also find enough space for a bitmap
   ; to fit the entire physical memoryspace
-  mov ecx, 0x20000
+  mov ecx, 0x10000
   mov ebx, 0 
   mov eax, 0 
 
@@ -219,27 +218,33 @@ gdt_end:
 
 ; Our effective memory size until kmem_manager takes over
 early_map_size:
-  dq (0x20000 * 0x1000)
+  dq (0x10000 * 0x1000)
 
 [section .pts]
 
 ; Only for 64 bit
 align 4096
 boot_pml4t:
-  times 0x1000 db 0
+  times 512 dq 0
 boot_pdpt:
-  times 0x1000 db 0
+  times 512 dq 0
 boot_pd0:
-  times 0x1000 db 0
-boot_pd0_p:
-  times 0x20000 dq 0
+  times 512 dq 0
 
+; FIXME: can we push this down even further?
+; More than half of the on-disk size is currently comming from the sheer amount
+; of entries we need here. If we could make the system run stable with less initial
+; mappings, that would greatly decrease the size of the kernel binary and thus also
+; improve load times
+boot_pd0_p:
+  times 0x10000 dq 0
 boot_hh_pdpt:
-  times 0x1000 db 0
+  times 512 dq 0
 
 ; hihi small stack =)
 [section .stack]
 
+; TODO: can we use kmem_manager to enlarge the kernel stack?
 kstack_bottom:
   times 32768 db 0
 kstack_top:

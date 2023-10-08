@@ -142,7 +142,15 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   // init bootstrap processor
   init_processor(&g_bsp, 0);
 
-  // bootstrap the kernel heap
+  /*
+   * bootstrap the kernel heap
+   * We're pretty nicely under way to be able to move this call
+   * under init_kmem_manager, since we almost don't need the heap 
+   * in that system anymore. When that happens, we are able to completely
+   * initialize the kheap off of kmem_manager, since we can just 
+   * ask it for bulk memory that we can then create a memory_allocator
+   * from
+   */
   init_kheap();
 
   // we need memory

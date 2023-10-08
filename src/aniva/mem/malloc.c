@@ -39,7 +39,6 @@ static heap_node_t* split_node(heap_node_buffer_t* buffer, heap_node_t *ptr, siz
     return nullptr;
   }
   
-  
   if (has_flag(ptr, MALLOC_NODE_FLAG_USED)) {
     // a node that's completely in use, should not be split
     //println("[kmalloc:split_node] tried to split a node that's in use");
@@ -200,7 +199,7 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
   result = __kmem_alloc_range(
         allocator->m_parent_dir.m_root,
         nullptr,
-        HIGH_MAP_BASE,
+        KERNEL_MAP_BASE,
         total_buffer_size,
         NULL,
         KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL
@@ -241,9 +240,7 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
    * The free_size field is a bit of a lie, since for every allocation we 
    * miss sizeof(heap_node_t) bytes lmao
    */
-  allocator_add_free(allocator, data_size);
-  //allocator->m_free_size += data_size;
-  //allocator->m_used_size -= data_size;
+  allocator->m_free_size += data_size;
 
   return ret;
 }
@@ -309,17 +306,18 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
   while (node) {
     // TODO: should we also allow allocation when len is equal to the nodesize - structsize?
 
-    if (node->size - sizeof(heap_node_t) == bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
+    /*
+     * Perfect fit: yoink
+     */
+    if ((node->size - sizeof(heap_node_t)) == bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
       node->flags |= MALLOC_NODE_FLAG_USED;
 
       allocator_add_used(allocator, node->size);
-      //allocator->m_free_size -= node->size;
-      //allocator->m_used_size += node->size;
 
       return Success((uintptr_t)node->data);
-    }
-
-    if (node->size - sizeof(heap_node_t) > bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
+    } 
+    
+    if ((node->size - sizeof(heap_node_t)) > bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
       // yay, our node works =D
 
       // now split off a node of the correct size
@@ -337,8 +335,6 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
       buffer->m_last_free_node = new_node->next;
       
       allocator_add_used(allocator, new_node->size);
-      //allocator->m_free_size -= new_node->size;
-      //allocator->m_used_size += new_node->size;
 
       // TODO: edit global shit
       return Success((uintptr_t)new_node->data);
