@@ -1,9 +1,13 @@
 #include "dev/video/framebuffer.h"
+#include "libk/flow/error.h"
+#include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <dev/video/device.h>
+#include "window.h"
+#include "LibGfx/include/lgfx.h"
 
 /*
  * Yay, we are weird!
@@ -16,7 +20,6 @@
  */
 int init_window_driver()
 {
-
   fb_info_t fb_info = { 0 };
 
   driver_send_msg("core/video", VIDDEV_DCC_GET_FBINFO, &fb_info, sizeof(fb_info));
@@ -31,10 +34,24 @@ int exit_window_driver()
 
 uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
+  lwindow_t* window;
   proc_t* calling_process;
 
   calling_process = get_current_proc();
 
+  if (!calling_process || size != sizeof(*window))
+    return DRV_STAT_INVAL;
+
+  if (IsError(kmem_validate_ptr(calling_process, (uintptr_t)buffer, size)))
+    return DRV_STAT_INVAL;
+
+  window = buffer;
+
+  switch (code) {
+    case LWND_DCC_CREATE:
+      break;
+
+  }
   /*
    * TODO: 
    * - Check what the process wants to do

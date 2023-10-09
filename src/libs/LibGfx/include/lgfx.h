@@ -23,6 +23,7 @@
 #define LWND_DCC_CREATE 10
 #define LWND_DCC_CLOSE 11
 #define LWND_DCC_MINIMIZE 12
+#define LWND_DCC_RESIZE 13
 
 /*
  * One process can have multiple windows?

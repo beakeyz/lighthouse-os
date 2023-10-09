@@ -64,7 +64,7 @@ static void kterm_write_char(char c);
 static void kterm_process_buffer();
 
 //static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
-static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color);
+static inline void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 
 static void kterm_draw_cursor();
@@ -577,7 +577,7 @@ static void kterm_draw_cursor() {
   __kterm_buffer_ptr = 0;
 }
 
-static void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
+static inline void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
   if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
     return;
 
