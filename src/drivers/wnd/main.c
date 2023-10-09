@@ -1,4 +1,6 @@
 #include "dev/video/framebuffer.h"
+#include "proc/proc.h"
+#include "sched/scheduler.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <dev/video/device.h>
@@ -27,14 +29,20 @@ int exit_window_driver()
   return 0;
 }
 
-#define LWND_DCC_CREATE 10
-#define LWND_DCC_CLOSE 11
-#define LWND_DCC_MINIMIZE 12
-#define LWND_DCC_MOVE 13
-
 uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  return 0;
+  proc_t* calling_process;
+
+  calling_process = get_current_proc();
+
+  /*
+   * TODO: 
+   * - Check what the process wants to do
+   * - Check if the process is clear to do that thing
+   * - do the thing
+   * - fuck off
+   */
+  return DRV_STAT_OK;
 }
 
 /*

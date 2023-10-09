@@ -13,4 +13,34 @@
  *
  */
 
+/* These are the driver control codes implemented by lwnd. This library makes use of these
+ * but userprocesses can also directly interract with lwnd.drv through this
+ */
+#include "LibSys/handle_def.h"
+#include "sys/types.h"
+#include <LibSys/handle.h>
+
+#define LWND_DCC_CREATE 10
+#define LWND_DCC_CLOSE 11
+#define LWND_DCC_MINIMIZE 12
+
+/*
+ * One process can have multiple windows?
+ */
+typedef struct lwindow {
+  DWORD wnd_id;
+  DWORD current_width;
+  DWORD current_height;
+} lwindow_t;
+
+/*
+ * The window manager will keep track of which window comes from which
+ * process by looking at who the request is comming from
+ */
+BOOL
+request_window(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags);
+
+BOOL
+close_window(lwindow_t* wnd);
+
 #endif // !__LIGHTLIB_LGFX__

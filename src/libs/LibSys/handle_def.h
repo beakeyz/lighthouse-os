@@ -35,6 +35,8 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_BUFFER           (11)
 /* Inter-process interface */
 #define HNDL_TYPE_IP_INTERF        (12)
+/* Datastream for contiguous reading / writing of data */
+#define HNDL_TYPE_STREAM           (13)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

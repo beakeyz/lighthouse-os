@@ -1,5 +1,5 @@
 {
-  "name": "LibSys.slb",
+  "name": "LibGfx.slb",
   "linking": "dynamic",
   "type": "library"
 }
