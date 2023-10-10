@@ -43,6 +43,10 @@ typedef void (*FuncPtr)();
 #define true 1
 #define false 0
 
+#define cap false
+#define nocap true
+#define yeet() kernel_panic("yeet")
+
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 #define NOINLINE __attribute__((noinline))
 #define NORETURN __attribute__((noreturn))
