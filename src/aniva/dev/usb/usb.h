@@ -29,8 +29,16 @@ struct usb_hcd;
 struct usb_hub;
 struct usb_request;
 
+/*
+ * Generic USB device structure
+ *
+ * Holds general information about how we can communicate with a particular device
+ * and what its capabilities are
+ */
 typedef struct usb_device {
+  /* When we discover a device, this is the first descriptor we'll get back */
   usb_device_descriptor_t desc;
+
   uint8_t port_num; /* From 0 to 255, which port are we on? */
   uint8_t effective_idx; /* From 0 to 255, what is our index? (nth device found on the hub) */
   uint8_t dev_type;
@@ -42,8 +50,13 @@ typedef struct usb_device {
   uint32_t state;
   uint32_t speed;
 
+  /*
+   * Doorbell that rings on request completion and
+   * throws the response into a buffer
+   */
   kdoorbell_t* req_doorbell;
 
+  /* Parent hub this device is located on */
   struct usb_hub* hub;
 } usb_device_t;
 

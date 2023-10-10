@@ -7,6 +7,8 @@
 #include "sync/mutex.h"
 #include "system/resource.h"
 
+struct extern_driver;
+
 /*
  * We let drivers implement a few functions that are mostly meant to
  * simulate the file opperations like read, write, seek, ect. that some 
@@ -38,6 +40,7 @@ typedef struct dev_manifest {
 
   /* Any data that's specific to the kind of driver this is */
   void* m_private;
+  struct extern_driver* m_external;
 
   driver_ops_t m_ops;
   // timestamp

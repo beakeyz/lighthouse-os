@@ -182,10 +182,6 @@ static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
   if (IsError(__do_driver_relocations(ctx)))
     return Error();
 
-
-  /* Find the driver structure */
-
-
   return Success(0);
 }
 
@@ -408,8 +404,10 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx)
   manifest_gather_dependencies(ctx->driver->m_manifest);
 
   /* We could install the driver, so we came that far =D */
-  ctx->driver->m_manifest->m_driver_file_path = ctx->path;
-  ctx->driver->m_manifest->m_private = ctx->driver;
+  if (!ctx->driver->m_manifest->m_driver_file_path)
+    ctx->driver->m_manifest->m_driver_file_path = strdup(ctx->path);
+
+  ctx->driver->m_manifest->m_external = ctx->driver;
 
   return load_driver(ctx->driver->m_manifest);
 }
@@ -477,7 +475,7 @@ extern_driver_t* load_external_driver(const char* path)
   read_size = file->m_buffer_size;
 
   /* Read the driver into RAM */
-  error = file->m_ops->f_read(file, (void*)out->m_load_base, &read_size, 0);
+  error = file_read(file, (void*)out->m_load_base, &read_size, 0);
 
   if (error < 0)
     goto fail_and_deallocate;
@@ -495,11 +493,94 @@ extern_driver_t* load_external_driver(const char* path)
   return out;
 
 fail_and_deallocate:
+
+  if (out && out->m_manifest) {
+    destroy_dev_manifest(out->m_manifest);
+    out->m_manifest = nullptr;
+  }
+
   if (out)
     destroy_external_driver(out);
 
   /* TODO */
   return nullptr;
+}
+
+/*!
+ * @brief: Loads a installed manifest
+ */
+extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
+{
+  kernel_panic("TODO: fully implement load_external_driver_manifest");
+
+  int error;
+  ErrorOrPtr result;
+  uintptr_t driver_load_base;
+  size_t read_size;
+  vobj_t* file_obj;
+  file_t* file;
+  extern_driver_t* out;
+  struct loader_ctx ctx = { 0 };
+
+  if (!manifest || !manifest->m_driver_file_path)
+    return nullptr;
+
+  if ((manifest->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL)
+    return nullptr;
+
+  file_obj = vfs_resolve(manifest->m_driver_file_path);
+  file = vobj_get_file(file_obj);
+
+  if (!file)
+    return nullptr;
+
+  out = create_external_driver(EX_DRV_OLDMANIFEST);
+
+  if (!out)
+    return nullptr;
+
+  out->m_manifest = manifest;
+
+  /* Allocate contiguous high space for the driver */
+  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+
+  if (IsError(result))
+    goto fail_and_deallocate;
+
+  driver_load_base = Release(result);
+
+  /* Set driver fields */
+  out->m_load_base = driver_load_base;
+  out->m_load_size = ALIGN_UP(file->m_buffer_size, SMALL_PAGE_SIZE);
+  out->m_file = file;
+
+  read_size = file->m_buffer_size;
+
+  /* Read the driver into RAM */
+  error = file_read(file, (void*)out->m_load_base, &read_size, 0);
+
+  if (error < 0)
+    goto fail_and_deallocate;
+
+  ctx.hdr = (struct elf64_hdr*)driver_load_base;
+  ctx.size = read_size;
+  ctx.driver = out;
+  ctx.path = manifest->m_driver_file_path;
+
+  result = __load_ext_driver(&ctx);
+
+  if (IsError(result))
+    goto fail_and_deallocate;
+
+  return out;
+
+fail_and_deallocate:
+  if (out)
+    destroy_external_driver(out);
+
+  /* TODO */
+  return nullptr;
+
 }
 
 /*!

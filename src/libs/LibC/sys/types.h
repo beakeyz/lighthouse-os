@@ -15,7 +15,7 @@
 #ifndef KERNEL
 
 /* Standard posix int definitions */
-#include <stdint.h>
+#include <LibC/stdint.h>
 
 /* -Required */
 typedef int pid_t;

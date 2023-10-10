@@ -1,6 +1,7 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
+#include "libk/data/hive.h"
 #include "libk/flow/error.h"
 #include "proc/ipc/packet_response.h"
 #include <libk/stddef.h>
@@ -147,6 +148,8 @@ struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
 int get_active_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 
+ErrorOrPtr foreach_driver(bool (*callback)(hive_t* h, void* manifset));
+
 int set_active_driver(struct dev_manifest* dev, dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);
 
@@ -202,7 +205,6 @@ ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, vo
 ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
 
 extern const char* get_driver_url(struct aniva_driver* handle);
-
 extern size_t get_driver_url_length(struct aniva_driver* handle);
 
 #define DRIVER_VERSION(major, minor, bmp) {.maj = major, .min = minor, .bump = bmp} 

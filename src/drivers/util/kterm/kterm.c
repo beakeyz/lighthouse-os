@@ -115,6 +115,18 @@ static struct kterm_cmd {
     .argv_zero = "sysinfo",
     .handler = kterm_cmd_sysinfo,
   },
+  {
+    .argv_zero = "drvinfo",
+    .handler = kterm_cmd_drvinfo,
+  },
+  {
+    .argv_zero = "drvld",
+    .handler = kterm_cmd_drvld,
+  },
+  {
+    .argv_zero = "hello",
+    .handler = kterm_cmd_hello,
+  },
   /*
    * NOTE: this is exec and this should always
    * be placed at the end of this list, otherwise
@@ -381,8 +393,8 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
  * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it 
  * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
  */
-int kterm_init() {
-
+int kterm_init() 
+{
   __kterm_current_line = 0;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
 
@@ -395,7 +407,7 @@ int kterm_init() {
 
   /* TODO: when we implement our HID driver, this should be replaced with a event endpoint we can probe */
   // register our keyboard listener
-  driver_send_msg_sync("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t));
+  driver_send_msg("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t));
 
   /* FIXME: integrate video device integration */
   // map our framebuffer

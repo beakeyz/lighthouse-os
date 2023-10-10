@@ -139,10 +139,16 @@ bool proc_can_schedule(proc_t* proc);
  */
 void stall_process(proc_t* proc);
 
+/*!
+ * @brief: Checks if @proc is the process that runs the kernel
+ */
 static inline bool is_kernel(proc_t* proc) {
   return (proc->m_id == 0);
 }
 
+/*!
+ * @brief: Checks if @proc is a process managed by the kernel
+ */
 static inline bool is_kernel_proc(proc_t* proc)
 {
   return ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL);

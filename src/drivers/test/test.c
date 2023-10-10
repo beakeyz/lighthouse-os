@@ -1,3 +1,4 @@
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include <dev/core.h>
@@ -26,14 +27,16 @@ pci_driver_t test_pci_driver = {
 int test_init() {
   logln("Initalizing test driver!");
 
-  register_pci_driver(&test_pci_driver);
+  //ASSERT_MSG(register_pci_driver(&test_pci_driver) == 0, "Failed to register pci dev in test");
 
   return 0;
 }
 
 int test_exit() {
 
-  logln("Exiting test driver!");
+  logln("Exiting test driver! =D");
+
+  //ASSERT_MSG(unregister_pci_driver(&test_pci_driver), "Failed to unregister pci dev in test");
 
   return 0;
 }

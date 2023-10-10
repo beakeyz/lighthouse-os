@@ -79,6 +79,7 @@ static bool __matches_pci_devid(pci_device_t* device, pci_dev_id_t id)
  */
 static int __find_fitting_pci_devices(pci_driver_t* driver)
 {
+  int probe_error;
   pci_device_t* ret;
   pci_dev_id_t* ids;
 
@@ -89,7 +90,6 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
   /* TODO: remove this assert */
   ASSERT(!driver->device_count);
 
-  int probe_error;
   ids = driver->id_table;
   driver->device_count = 0;
 
@@ -172,9 +172,11 @@ static int __remove_pci_driver(pci_driver_t* driver)
   if (*slot) {
     to_remove = *slot;
 
+    to_remove->this = nullptr;
+
     *slot = to_remove->next;
     
-    kzfree(*slot, sizeof(struct pci_driver_link));
+    kzfree(to_remove, sizeof(struct pci_driver_link));
 
     return 0;
   }
@@ -301,6 +303,8 @@ int register_pci_driver(struct pci_driver* driver)
 int unregister_pci_driver(struct pci_driver* driver)
 {
   destroy_mutex(driver->lock);
+
+  driver->device_count = 0;
 
   return __remove_pci_driver(driver);
 }
@@ -903,8 +907,9 @@ void init_pci_drivers()
   enumerate_bridges(&callback);
 }
 
-bool init_pci() {
-
+bool init_pci() 
+{
+  __pci_drivers = nullptr;
   __pci_devices = init_list();
   __pci_bridges = init_list();
 

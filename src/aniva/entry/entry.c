@@ -160,9 +160,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
   init_logging();
 
   // Initialize an early console
-  init_early_tty(g_system_info.firmware_fb);
+  //init_early_tty(g_system_info.firmware_fb);
 
-  println("Initialized tty");
+  //println("Initialized tty");
 
   // we need more memory
   init_zalloc();

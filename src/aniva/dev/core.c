@@ -1,6 +1,7 @@
 #include "core.h"
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
+#include "dev/external.h"
 #include "dev/keyboard/ps2_keyboard.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
@@ -298,7 +299,7 @@ bool verify_driver(dev_manifest_t* manifest)
 
   driver = manifest->m_handle;
 
-  if ((!driver && ((manifest->m_flags & DRV_DEFERRED_HNDL) == 0)) || !driver->f_init) {
+  if (!driver || !driver->f_init) {
     return false;
   }
 
@@ -325,23 +326,23 @@ static bool __should_defer(dev_manifest_t* driver)
 }
 
 
-ErrorOrPtr install_driver(dev_manifest_t* manifest) {
-
+ErrorOrPtr install_driver(dev_manifest_t* manifest) 
+{
   ErrorOrPtr result;
 
-  if (!verify_driver(manifest)) {
+  if (!manifest)
     goto fail_and_exit;
-  }
 
-  if (is_driver_installed(manifest)) {
+  if (!verify_driver(manifest))
     goto fail_and_exit;
-  }
+
+  if (is_driver_installed(manifest))
+    goto fail_and_exit;
 
   result = hive_add_entry(__installed_driver_manifests, manifest, manifest->m_url);
 
-  if (IsError(result)) {
+  if (IsError(result))
     goto fail_and_exit;
-  }
 
   /* Mark this driver as deferred, so that we can delay its loading */
   if (__deferred_driver_manifests && __should_defer(manifest)) {
@@ -364,13 +365,10 @@ fail_and_exit:
  * Nothing to add here...
  * TODO: resolve dependencies!
  */
-ErrorOrPtr uninstall_driver(dev_manifest_t* manifest) {
+ErrorOrPtr uninstall_driver(dev_manifest_t* manifest) 
+{
   if (!manifest)
     return Error();
-
-  /* Invalid stuff can't be uninstalled */
-  if (!verify_driver(manifest))
-    goto fail_and_exit;
 
   /* Uninstalled stuff can't be uninstalled */
   if (!is_driver_installed(manifest))
@@ -381,7 +379,7 @@ ErrorOrPtr uninstall_driver(dev_manifest_t* manifest) {
     goto fail_and_exit;
 
   /* Remove the manifest from the driver tree */
-  if (hive_remove_path(__installed_driver_manifests, manifest->m_url).m_status != ANIVA_SUCCESS)
+  if (IsError(hive_remove_path(__installed_driver_manifests, manifest->m_url)))
     goto fail_and_exit;
 
   destroy_dev_manifest(manifest);
@@ -493,6 +491,7 @@ static void __driver_unregister_presence(dev_type_t type)
 ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   ErrorOrPtr result;
+  extern_driver_t* ext_driver;
   aniva_driver_t* handle;
 
   if (!manifest)
@@ -500,6 +499,31 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
 
   if (!verify_driver(manifest))
     goto fail_and_exit;
+
+  ext_driver = nullptr;
+
+  /* This driver was unloaded before. Check if we can do some cool shit */
+  if ((manifest->m_flags & DRV_WAS_UNLOADED) == DRV_WAS_UNLOADED) {
+
+    /* Clear this flag, since it might fuck us if we don't */
+    manifest->m_flags &= DRV_WAS_UNLOADED;
+
+    if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL && manifest->m_driver_file_path)
+      ext_driver = load_external_driver_manifest(manifest);
+
+    /* If we fail to load the driver from cache, just go through the entire process again... */
+    if (ext_driver)
+      return Success(0);
+
+    /* Make sure to clean up our manifset */
+    if (manifest->m_driver_file_path)
+      kfree((void*)manifest->m_driver_file_path);
+
+    manifest->m_driver_file_path = nullptr;
+    manifest->m_external = nullptr;
+    manifest->m_handle = nullptr;
+    manifest->m_flags &= ~(DRV_IS_EXTERNAL | DRV_LOADED | DRV_HAS_HANDLE);
+  }
 
   handle = manifest->m_handle;
 
@@ -569,11 +593,15 @@ fail_and_exit:
 ErrorOrPtr unload_driver(dev_url_t url) {
 
   int error;
-  dev_manifest_t* manifest = hive_get(__installed_driver_manifests, url);
+  dev_manifest_t* manifest;
 
-  if (!verify_driver(manifest) || strcmp(url, manifest->m_url) != 0) {
+  manifest = hive_get(__installed_driver_manifests, url);
+
+  if (!manifest)
     return Error();
-  }
+
+  if (!verify_driver(manifest))
+    return Error();
 
   mutex_lock(&manifest->m_lock);
 
@@ -590,8 +618,8 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   __driver_unregister_presence(manifest->m_handle->m_type);
   __driver_unregister_active(manifest->m_handle->m_type, manifest); 
 
-  if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
-    unload_external_driver(manifest->m_private);
+  if (manifest->m_external && (manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
+    unload_external_driver(manifest->m_external);
 
   mutex_unlock(&manifest->m_lock);
 
@@ -885,6 +913,11 @@ ErrorOrPtr driver_set_ready(const char* path) {
   return Success(0);
 }
 
+ErrorOrPtr foreach_driver(bool (*callback)(hive_t* h, void* manifset))
+{
+  return hive_walk(__installed_driver_manifests, true, callback);
+}
+
 /*!
  * @brief Send a packet to a driver directly
  *
@@ -898,6 +931,11 @@ ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* b
   return driver_send_msg_a(path, code, buffer, buffer_size, nullptr, NULL);
 }
 
+/*!
+ * @brief: Sends a message to a driver with a response buffer
+ *
+ * Nothing to add here...
+ */
 ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size)
 {
   dev_manifest_t* manifest;
@@ -907,6 +945,9 @@ ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void*
 
   manifest = hive_get(__installed_driver_manifests, path);
 
+  /*
+   * Only loaded drivers can recieve messages
+   */
   if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
     return Error();
 
@@ -996,7 +1037,11 @@ ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_co
     }
   }
 
+  mutex_lock(&manifest->m_lock);
+
   result = manifest->m_handle->f_msg(manifest->m_handle, code, buffer, buffer_size, NULL, NULL);
+
+  mutex_unlock(&manifest->m_lock);
 
   if (result)
     return Error();

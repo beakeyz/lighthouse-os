@@ -243,8 +243,8 @@ invalid_path:
  *
  * The current implementation of hive_t has a lot of unnecessary heap usage, which I want to slowly phase out
  */
-void* hive_get(hive_t* root, const char* path) {
-
+void* hive_get(hive_t* root, const char* path) 
+{
   char* end_ptr;
   char* start_ptr;
   char buffer[strlen(path) + 1];
@@ -382,6 +382,100 @@ ErrorOrPtr hive_remove(hive_t* root, void* data) {
 
 ErrorOrPtr hive_remove_path(hive_t* root, const char* path)
 {
+  uint32_t index;
+  char* end_ptr;
+  char* start_ptr;
+  char buffer[strlen(path) + 1];
+  hive_t* current;
+  hive_entry_t* current_entry;
+  memcpy(buffer, path, strlen(path) + 1);
+
+  start_ptr = buffer;
+  end_ptr = buffer;
+  current = root;
+  current_entry = nullptr;
+
+  /* Loop one, to look for the root pathpart */
+  while (*end_ptr) {
+    if (*end_ptr != HIVE_PART_SEPERATOR) {
+      end_ptr++;
+      continue;
+    }
+
+    /* Preemptive null-terminate */
+    *end_ptr = '\0';
+
+    /* Check if we are indeed in the root */
+    if (strcmp(root->m_url_part, start_ptr) != 0) {
+      /* Nope, let's fix this up */
+      *end_ptr = HIVE_PART_SEPERATOR;
+      start_ptr = end_ptr = buffer;
+      break;
+    }
+    
+    /* We are, make sure that we actually skip this part in the path */
+    end_ptr++;
+    start_ptr = end_ptr;
+    break;
+  }
+
+  /* Loop two, to resolve the rest of the path */
+  while (*end_ptr) {
+
+    if (*end_ptr != HIVE_PART_SEPERATOR)
+      goto cycle;
+
+    /* Temporarily terminate the string */
+    *end_ptr = '\0';
+
+    FOREACH(i, current->m_entries) {
+      current_entry = i->data;
+
+      if (!hive_entry_is_hole(current_entry))
+        continue;
+
+      if (strcmp(current_entry->m_entry_part, start_ptr) == 0) {
+        current = current_entry->m_hole;
+        break;
+      }
+
+      current_entry = nullptr;
+    }
+
+    /* When the linear scan is done, we drop down here */
+    if (!current_entry)
+      return Error();
+
+    *end_ptr = HIVE_PART_SEPERATOR;
+    start_ptr = end_ptr + 1;
+cycle:
+    end_ptr++;
+  }
+
+  if (!current)
+    return Error();
+
+  index = 0;
+
+  FOREACH(i, current->m_entries) {
+    current_entry = i->data;
+
+    /* Found it! */
+    if (strcmp(current_entry->m_entry_part, start_ptr) == 0) {
+
+      list_remove(current->m_entries, index);
+
+      destroy_hive_entry(current_entry);
+
+      return Success(0);
+    }
+
+    index++;
+  }
+
+  return Error();
+
+  /*
   uintptr_t index;
   size_t part_count;
   hive_t* current_hive;
@@ -390,8 +484,6 @@ ErrorOrPtr hive_remove_path(hive_t* root, const char* path)
     return Error();
 
   const char* path_cpy = __hive_prepend_root_part(root, path);
-
-  kfree((void*)path);
 
   if (__hive_path_is_invalid(path_cpy))
     goto exit;
@@ -436,6 +528,7 @@ ErrorOrPtr hive_remove_path(hive_t* root, const char* path)
 exit:
   kfree((void*)path_cpy);
   return Error();
+  */
 }
 
 // root.hole.entry

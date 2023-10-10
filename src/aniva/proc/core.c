@@ -437,6 +437,18 @@ static void revalidate_port_cache() {
   }
 }
 
+/*!
+ * @brief: Check if the current process is the kernel process
+ *
+ * NOTE: this checks wether the current process has the ID of the
+ * kernel process!
+ */
+bool current_proc_is_kernel()
+{
+  proc_t* curr = get_current_proc();
+  return is_kernel(curr);
+}
+
 /*
  * Initialize:
  *  - socket registry

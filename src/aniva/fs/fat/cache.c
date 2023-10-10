@@ -112,8 +112,8 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   lba_size = VN_FS_DATA(node).m_blocksize;
 
   while (current_offset < size) {
-    current_block = (offset + current_offset) / lba_size;
-    current_delta = (offset + current_offset) % lba_size;
+    current_block = ALIGN_DOWN((offset + current_offset), lba_size) / lba_size;
+    current_delta = ALIGN_DOWN((offset + current_offset), lba_size) % lba_size;
 
     error = __read(node, info->sector_cache, current_block);
 

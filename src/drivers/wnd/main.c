@@ -7,7 +7,7 @@
 #include <dev/driver.h>
 #include <dev/video/device.h>
 #include "window.h"
-#include "LibGfx/include/lgfx.h"
+#include "LibGfx/include/driver.h"
 
 /*
  * Yay, we are weird!
@@ -50,7 +50,6 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
   switch (code) {
     case LWND_DCC_CREATE:
       break;
-
   }
   /*
    * TODO: 

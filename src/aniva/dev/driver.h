@@ -29,11 +29,15 @@ typedef struct aniva_driver {
 
   driver_version_t m_version;
 
-  uintptr_t (*f_msg)(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
   int (*f_init)(void);
   int (*f_exit)(void);
 
-  /* Used to try and verify if this driver supports a device */
+  /* TODO: should f_msg get passed the dev_manifest, instead of the raw driver? */
+  uintptr_t (*f_msg)(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+  /*
+   * Used to try and verify if this driver supports a device 
+   * NOTE: until now, this is unused...
+   */
   int (*f_probe)(struct aniva_driver* driver, void* device_info);
 
   dev_type_t m_type;
@@ -64,6 +68,8 @@ typedef struct aniva_driver {
 
 #define DRV_CORE                  (0x00008000) /* Is this driver for core functions? */
 #define DRV_LOADED                (0x00010000) /* Is this driver loaded? */
+/* This driver has been unloaded before. This is nice if we want to reload a driver, since the manifest already knows where its backend is located */
+#define DRV_WAS_UNLOADED          (0x00020000)
 
 #define DRV_STAT_OK         (0)
 #define DRV_STAT_INVAL      (-1)

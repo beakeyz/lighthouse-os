@@ -10,6 +10,7 @@
 #define EX_DRV_LOAD_FAILURE (0x00000001)
 #define EX_DRV_USER         (0x00000002)
 #define EX_DRV_NOPROC       (0x00000004)
+#define EX_DRV_OLDMANIFEST  (0x00000008)
 
 typedef struct extern_driver {
 

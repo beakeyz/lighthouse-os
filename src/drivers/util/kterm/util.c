@@ -1,6 +1,10 @@
 #include "util.h"
+#include "dev/core.h"
+#include "dev/driver.h"
+#include "dev/manifest.h"
 #include "drivers/util/kterm/kterm.h"
 #include "entry/entry.h"
+#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
@@ -9,6 +13,8 @@
 #include "mem/kmem_manager.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
+#include <dev/external.h>
+#include <dev/loader.h>
 
 static const char* __help_str = 
 "Welcome to the Aniva kernel terminal application (kterm)\n"
@@ -92,6 +98,147 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
 
   kterm_print_keyvalue("physical memory free", to_string(__page_count_to_mib(km_info.free_pages)));
   kterm_print_keyvalue("physical memory used", to_string(__page_count_to_mib(km_info.used_pages)));
+
+  return 0;
+}
+
+bool print_drv_info(hive_t* _, void* _manifest)
+{
+  dev_manifest_t* manifest = _manifest;
+
+  if (!manifest)
+    return false;
+
+  kterm_print_keyvalue("Path", manifest->m_url);
+  kterm_print_keyvalue("Binary path", manifest->m_driver_file_path);
+  if (!manifest->m_handle)
+    kterm_print_keyvalue("Name", NULL);
+  else
+    kterm_print_keyvalue("Name", manifest->m_handle->m_name);
+  kterm_print_keyvalue("Loaded", ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
+
+  kterm_println("");
+
+  return true;
+}
+
+/*!
+ * @brief: Print information about the installed and loaded drivers
+ */
+uint32_t kterm_cmd_drvinfo(const char** argv, size_t argc)
+{
+  kterm_println(" - Printing drivers...");
+
+  foreach_driver(print_drv_info);
+
+  return 0;
+}
+
+/*!
+ * @brief: kinda like neofetch, but fun
+ */
+uint32_t kterm_cmd_hello(const char** argv, size_t argc)
+{
+  kterm_println("   ,----,        ");
+  kterm_println("  /  .'  \\       ");
+  kterm_println(" /  ;     \\     ");
+  kterm_println("|  |       \\    ");
+  kterm_println("|  |   /\\   \\   ");
+  kterm_println("|  |  /; \\   \\  ");
+  kterm_println("|  |  |/  \\   \\ ");
+  kterm_println("|  |  | \\  \\ ,' ");
+  kterm_println("|  |  |  '--'   ");
+  kterm_println("|  |  |         ");
+  kterm_println("|  | ,'         ");
+  kterm_println("`--''           ");
+  kterm_println("");
+  kterm_println("(Aniva): Hello to you too =) ");
+
+  return 0;
+}
+
+/*!
+ * @brief: Manage kernel drivers
+ *
+ * Flags:
+ *  -u -> unload the specified driver
+ *  -v -> verbose
+ *  -h -> print help
+ * Usage:
+ * drvld [flags] [path]
+ */
+uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
+{
+  ErrorOrPtr result;
+  extern_driver_t* driver;
+  const char* drv_path = nullptr;
+  bool should_unload = false;
+  bool should_help = false;
+
+  if (!cmd_has_args(argc)) {
+    kterm_println("No arguments found!");
+    return 1;
+  }
+
+  /*
+   * Scan the argument vector
+   */
+  for (uint32_t i = 1; i < argc; i++) {
+    const char* arg = argv[i];
+
+    if (arg[0] != '-' && !drv_path) {
+      drv_path = arg;
+      continue;
+    }
+
+    if (strcmp(arg, "-u") == 0) {
+      should_unload = true;
+      continue;
+    }
+
+    if (strcmp(arg, "-v") == 0) {
+      /*
+       * TODO: when we specify verbose, we should temporarily link kterm
+       * into the standard logging register which makes every log go through
+       * kterm
+       */
+      continue;
+    }
+
+    if (strcmp(arg, "-h") == 0) {
+      should_help = true;
+      continue;
+    }
+  }
+
+  if (should_help) {
+
+    kterm_println("Usage: drvld [flags] [path]");
+    kterm_println("Flags:");
+    kterm_println(" -u -> Unload the specified driver");
+    kterm_println(" -v -> Be more verbose");
+    kterm_println(" -h -> What ur seeing right now");
+
+    return 0;
+  }
+
+  if (should_unload) {
+    result = unload_driver(drv_path);
+
+    if (IsError(result)) {
+      kterm_println("Failed to unload that driver!");
+      return 1;
+    }
+
+    return 0;
+  }
+
+  driver = load_external_driver(drv_path);
+
+  if (!driver) {
+    kterm_println("Failed to load that driver!");
+    return 1;
+  }
 
   return 0;
 }

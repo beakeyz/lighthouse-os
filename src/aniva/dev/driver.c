@@ -159,8 +159,8 @@ int drv_write(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
   return result;
 }
 
-int generic_driver_entry(dev_manifest_t* manifest) {
-
+int generic_driver_entry(dev_manifest_t* manifest)
+{
   if ((manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE)
     return -1;
 
@@ -191,8 +191,8 @@ int generic_driver_entry(dev_manifest_t* manifest) {
   return error;
 }
 
-ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) {
-
+ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) 
+{
   int error;
 
   if (!manifest)

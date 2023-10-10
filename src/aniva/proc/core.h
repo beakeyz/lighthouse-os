@@ -143,6 +143,8 @@ struct thread* find_thread(struct proc* proc, thread_id_t tid);
 ErrorOrPtr proc_register(struct proc* proc);
 ErrorOrPtr proc_unregister(char* name);
 
+bool current_proc_is_kernel();
+
 /*
  * send a data-packet to a port
  * returns a pointer to the response ptr (thus a double pointer)

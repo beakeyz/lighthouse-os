@@ -103,7 +103,11 @@ bool install_private_data(struct aniva_driver* driver, void* data)
 
   kfree((void*)path);
 
-  if (!manifest)
+  /*
+   * If ->m_private has already been set and we're not trying to reset it
+   * by passing NULL for data, just die
+   */
+  if (!manifest || (manifest->m_private && data))
     return false;
 
   mutex_lock(&manifest->m_lock);
@@ -117,9 +121,13 @@ bool install_private_data(struct aniva_driver* driver, void* data)
 
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
 {
-  dev_manifest_t* ret = allocate_dmanifest();
+  dev_manifest_t* ret;
+
+  ret = allocate_dmanifest();
 
   ASSERT(ret);
+
+  memset(ret, 0, sizeof(*ret));
 
   init_mutex(&ret->m_lock, NULL);
 
@@ -168,14 +176,18 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
  *
  * This assumes that the underlying driver has already been taken care of
  */
-void destroy_dev_manifest(dev_manifest_t* manifest) {
-
-  clear_mutex(&manifest->m_lock);
+void destroy_dev_manifest(dev_manifest_t* manifest) 
+{
+  destroy_mutex(&manifest->m_lock);
   destroy_list(manifest->m_dependency_manifests);
 
   destroy_resource_bundle(manifest->m_resources);
 
   kfree((void*)manifest->m_url);
+
+  if (manifest->m_driver_file_path)
+    kfree((void*)manifest->m_driver_file_path);
+
   free_dmanifest(manifest);
 }
 

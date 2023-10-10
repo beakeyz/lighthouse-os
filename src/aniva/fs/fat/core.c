@@ -277,9 +277,7 @@ fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* o
   for (uint32_t i = 0; i < dir_entries_count; i++) {
     fat_dir_entry_t entry = dir_entries[i];
 
-    /* Space kinda cringe */
-    if (entry.name[0] == ' ')
-      continue;
+    println(to_string(entry.attr));
 
     /* End */
     if (entry.name[0] == 0x00) {
@@ -290,16 +288,21 @@ fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* o
     if (entry.attr == FAT_ATTR_LFN) {
       /* TODO: support
        */
+      println("LFN!!");
       error = -4;
       continue;
-    } else {
+    } 
 
-      /* This our file/directory? */
-      if (strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
-        *out = entry;
-        error = 0;
-        break;
-      }
+    if (entry.attr & FAT_ATTR_VOLUME_ID)
+      continue;
+
+    println((char*)entry.name);
+
+    /* This our file/directory? */
+    if (strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
+      *out = entry;
+      error = 0;
+      break;
     }
   }
 
@@ -508,7 +511,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   ffi->cluster_count = ffi->total_usable_sectors / boot_sector->sectors_per_cluster;
   ffi->cluster_size = boot_sector->sectors_per_cluster * boot_sector->sector_size;
   ffi->usable_sector_offset = boot_sector->reserved_sectors * boot_sector->sector_size;
-  ffi->usable_clusters_start = (uint64_t)(boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->sectors_per_fat));
+  ffi->usable_clusters_start = (boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->sectors_per_fat));
 
   ffi->root_entry_cpy = (fat_dir_entry_t) {
     .name = "/",
