@@ -40,6 +40,9 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
   char* buffer;
   char* buffer_start;
 
+  if (!root)
+    return nullptr;
+
   /* Quick copy of the path on the heap ;-; */
   buffer = strdup(path);
   buffer_start = buffer;
@@ -208,6 +211,11 @@ static void* vnode_close_stream(vnode_t* node, void* stream)
 }
 */
   
+/*!
+ * @brief: Default vnode open function
+ *
+ * Tries to find a vobject in the vdir chain
+ */
 static vobj_t* vnode_open(vnode_t* node, char* name) 
 {
 
@@ -288,7 +296,7 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   node->m_vdir_allocator = create_zone_allocator(8 * Kib, sizeof(vdir_t), NULL);
 
   /* Create the root vdir for this node */
-  node->m_objects = create_vdir(node, nullptr, ".");
+  node->m_objects = create_vdir(node, nullptr, name);
 
   vnode_set_type(node, VNODE_NONE);
 
@@ -509,6 +517,7 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
   }
 
   path = strdup(obj->m_path);
+
   __cut_off_filename(path);
 
   mutex_lock(node->m_vobj_lock);
@@ -516,11 +525,8 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
   /* Find the directory we are located in */
   dir = __scan_for_dir_from(node->m_objects, path);
 
-  if (!dir) {
-    kfree((void*)path);
-    mutex_unlock(node->m_vobj_lock);
-    return Error();
-  }
+  if (!dir)
+    goto error_and_exit;
 
   /* Check if it contains our slot */
   for (slot = &dir->m_objects; *slot; slot = &(*slot)->m_next) {
@@ -544,6 +550,7 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
     return Success(0);
   }
 
+error_and_exit:
   kfree((void*)path);
   mutex_unlock(node->m_vobj_lock);
   return Error();

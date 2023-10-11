@@ -217,17 +217,15 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
 
   parent_proc = thread->m_parent_proc;
 
-  if (thread->m_socket) {
+  if (thread->m_socket)
     destroy_threaded_socket(thread->m_socket);
-  }
-
-  destroy_mutex(thread->m_lock);
 
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 
   if (thread->m_user_stack_bottom)
     Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
 
+  destroy_mutex(thread->m_lock);
   kfree(thread);
   return ANIVA_SUCCESS;
 }

@@ -4,6 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "proc/thread.h"

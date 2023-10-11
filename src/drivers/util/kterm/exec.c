@@ -14,6 +14,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   proc_id_t id;
   proc_t* p;
   const char* buffer;
+  ErrorOrPtr result;
 
   if (!argv || !argv[0])
     return 1;
@@ -23,11 +24,13 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   if (buffer[0] == NULL)
     return 2;
 
+  println("Resolve");
   vobj_t* obj = vfs_resolve(buffer);
 
   if (!obj)
     return 3;
 
+  println("Get");
   file_t* file = vobj_get_file(obj);
 
   if (!file) {
@@ -35,8 +38,10 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
     return 4;
   }
 
-  ErrorOrPtr result = elf_exec_static_64_ex(file, false, true);
+  println("Create");
+  result = elf_exec_static_64_ex(file, false, true);
 
+  println("Close");
   vobj_close(obj);
 
   if (IsError(result)) {

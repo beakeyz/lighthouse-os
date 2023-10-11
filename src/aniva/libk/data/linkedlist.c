@@ -23,10 +23,18 @@ list_t create_list() {
 }
 
 void destroy_list(list_t* list) {
-  for (uintptr_t i = 0; i < list->m_length; i++) {
-    list_remove(list, i);
+  node_t* next, *current;
+
+  current = list->head;
+
+  while (current) {
+    next = current->next;
+
+    kfree(current);
+
+    current = next;
   }
-  // yoink list
+
   kfree(list);
 }
 

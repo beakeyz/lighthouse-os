@@ -1,6 +1,7 @@
 #include "string.h"
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include <libk/stddef.h>
 
@@ -65,7 +66,9 @@ char* strdup(const char* str)
   ASSERT_MSG(ret, "Failed to allocate a new string for kernel_strdup");
 
   memset(ret, 0, len + 1);
-  memcpy(ret, str, len);
+  strcpy(ret, str);
+
+  println(ret);
 
   return ret;
 }

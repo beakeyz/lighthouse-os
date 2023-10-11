@@ -1,5 +1,6 @@
 #include "doorbell.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
@@ -185,7 +186,6 @@ void init_kdoor(kdoor_t* door, void* buffer, uint32_t buffer_size)
 
 void destroy_kdoor(kdoor_t* door)
 {
-  mutex_lock(door->m_lock);
   destroy_mutex(door->m_lock);
 
   if (door->m_buffer && door->m_buffer_size)

@@ -39,6 +39,8 @@
 proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
 {
   proc_t *proc;
+  /* NOTE: ->m_init_thread gets set by proc_add_thread */
+  thread_t* init_thread;
 
   if (!name || !entry)
     return nullptr;
@@ -75,18 +77,12 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
-
-  /* NOTE: ->m_init_thread gets set by proc_add_thread */
-  thread_t* thread;
   
-  if ((proc->m_flags & PROC_NO_SOCKET) == PROC_NO_SOCKET || (proc->m_flags & PROC_KERNEL) == PROC_KERNEL)
-    thread = create_thread_for_proc(proc, entry, args, "main");
-  else
-    thread = create_thread_as_socket(proc, entry, args, nullptr, nullptr, "main", NULL);
+  init_thread = create_thread_for_proc(proc, entry, args, "main");
 
-  ASSERT_MSG(thread, "Failed to create main thread for process!");
+  ASSERT_MSG(init_thread, "Failed to create main thread for process!");
 
-  Must(proc_add_thread(proc, thread));
+  Must(proc_add_thread(proc, init_thread));
 
   proc_register(proc);
 
@@ -321,9 +317,10 @@ int await_proc_termination(proc_id_t id)
  * 1) mark it as finished
  * 2) remove it from the scheduler
  * 3) Queue it to the reaper thread so It can be safely be disposed of
+ * 4) Remove it from the global register store, so that the id gets freed
  */
-ErrorOrPtr try_terminate_process(proc_t* proc) {
-
+ErrorOrPtr try_terminate_process(proc_t* proc) 
+{
   /* Pause scheduler: can't yield and mutex is held */
   pause_scheduler();
 
@@ -339,6 +336,7 @@ ErrorOrPtr try_terminate_process(proc_t* proc) {
   /* Register to the reaper */
   TRY(reap_result, reaper_register_process(proc));
 
+  /* Register from the global register store */
   proc_unregister((char*)proc->m_name);
 
   /* Resume scheduling */

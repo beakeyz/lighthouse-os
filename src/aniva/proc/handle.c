@@ -44,7 +44,7 @@ static void __on_handle_change(khandle_t* handle, bool bind)
           obj = handle->reference.vobj;
 
         /* Close the object */
-        vobj_close(obj);
+        ASSERT_MSG(vobj_close(obj) == 0, "Failed to close vobject!");
         break;
       }
     case HNDL_TYPE_PVAR:

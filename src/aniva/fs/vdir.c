@@ -45,9 +45,6 @@ vdir_t* create_vdir(vnode_t* node, vdir_t* parent, const char* name)
   if (!node || !name)
     return nullptr;
 
-  print("Created vdir: ");
-  println(name);
-
   ret = zalloc_fixed(node->m_vdir_allocator);
 
   memset(ret, 0, sizeof(*ret));
@@ -76,9 +73,6 @@ void destroy_vdir(vdir_t* dir)
 {
   vdir_attr_t* attributes;
 
-  print("Destroyed vdir: ");
-  println(dir->m_name);
-  
   if (dir->m_ops && dir->m_ops->f_destroy)
     dir->m_ops->f_destroy(dir);
 

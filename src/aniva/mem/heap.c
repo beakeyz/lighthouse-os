@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "malloc.h"
 #include "mem/kmem_manager.h"
 #include <sched/scheduler.h>

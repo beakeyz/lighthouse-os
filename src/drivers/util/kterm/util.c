@@ -154,6 +154,8 @@ uint32_t kterm_cmd_hello(const char** argv, size_t argc)
   kterm_println("");
   kterm_println("(Aniva): Hello to you too =) ");
 
+  (void)get_driver("other/kterm");
+
   return 0;
 }
 
@@ -162,6 +164,7 @@ uint32_t kterm_cmd_hello(const char** argv, size_t argc)
  *
  * Flags:
  *  -u -> unload the specified driver
+ *  -ui -> uninstalls the specified driver
  *  -v -> verbose
  *  -h -> print help
  * Usage:
@@ -171,8 +174,10 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 {
   ErrorOrPtr result;
   extern_driver_t* driver;
+  dev_manifest_t* manifest;
   const char* drv_path = nullptr;
   bool should_unload = false;
+  bool should_uninstall = false;
   bool should_help = false;
 
   if (!cmd_has_args(argc)) {
@@ -193,6 +198,11 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 
     if (strcmp(arg, "-u") == 0) {
       should_unload = true;
+      continue;
+    }
+
+    if (strcmp(arg, "-ui") == 0) {
+      should_uninstall = true;
       continue;
     }
 
@@ -221,6 +231,25 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 
     return 0;
   }
+
+  if (should_uninstall) {
+
+    manifest = get_driver(drv_path);
+
+    if (!manifest) {
+      kterm_println("Failed to find that driver!");
+      return 1;
+    }
+
+    result = uninstall_driver(manifest);
+
+    if (IsError(result)) {
+      kterm_println("Failed to uninstall that driver!");
+      return 2;
+    }
+
+    return 0;
+  } 
 
   if (should_unload) {
     result = unload_driver(drv_path);

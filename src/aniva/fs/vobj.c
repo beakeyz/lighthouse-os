@@ -10,17 +10,9 @@
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
 
-static void generic_destroy_vobj(vobj_t* obj) {
-
-  destroy_mutex(obj->m_lock);
-
-  kfree((void*)obj->m_path);
-  kfree(obj);
-}
-
 vobj_ops_t generic_ops = {
-  .f_destroy = generic_destroy_vobj,
   .f_create = create_generic_vobj,
+  .f_destroy = nullptr,
   .f_destory_child = nullptr,
 };
 
@@ -34,9 +26,6 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
   if (!vn_is_available(parent)) {
     return nullptr;
   }
-
-  print("Created vobj: ");
-  println(path);
 
   vobj_t* obj = kmalloc(sizeof(vobj_t));
 
@@ -62,11 +51,7 @@ void destroy_vobj(vobj_t* obj)
   if (!obj)
     return;
 
-  print("Destroy vobj: ");
-  println(obj->m_path);
-
   ASSERT_MSG(obj->m_child && obj->m_ops->f_destory_child, "No way to destroy child of vobj!");
-  ASSERT_MSG(obj->m_ops->f_destroy, "No way to destroy object!");
 
   /* Try to detach */
   if (obj->m_parent)
@@ -76,8 +61,13 @@ void destroy_vobj(vobj_t* obj)
   obj->m_ops->f_destory_child(obj->m_child);
 
   /* Murder object */
-  obj->m_ops->f_destroy(obj);
+  if (obj->m_ops && obj->m_ops->f_destroy)
+    obj->m_ops->f_destroy(obj);
 
+  destroy_mutex(obj->m_lock);
+
+  kfree((void*)obj->m_path);
+  kfree(obj);
 }
 
 void vobj_register_child(vobj_t* obj, void* child, VOBJ_TYPE_t type, FuncPtr destroy_fn)

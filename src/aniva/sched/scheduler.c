@@ -57,10 +57,12 @@ static list_t* s_sched_frames = nullptr;
 //static atomic_ptr_t *s_no_schedule;
 static mutex_t* s_sched_mutex = nullptr;
 static enum SCHED_MODE s_sched_mode = UNINITIALIZED_SCHED;
+static uintptr_t s_sched_pause_count;
 static bool s_has_schedule_request = false;
 
 // --- inline functions --- TODO: own file?
 static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads);
+static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame);
 static ALWAYS_INLINE void add_sched_frame(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_ptr);
 static ALWAYS_INLINE ErrorOrPtr remove_sched_frame(sched_frame_t* frame_ptr);
@@ -78,6 +80,7 @@ ANIVA_STATUS init_scheduler() {
   disable_interrupts();
   s_sched_mode = UNINITIALIZED_SCHED;
   s_has_schedule_request = false;
+  s_sched_pause_count = NULL;
 
   s_sched_frames = init_list();
   s_sched_mutex = create_mutex(0);
@@ -146,10 +149,10 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
 
   /* Check if this frame is done */
   while (!proc_can_schedule(frame->m_proc_to_schedule)) {
-    /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
-    //destroy_proc(frame->m_proc_to_schedule);
 
-    remove_sched_frame(frame);
+    /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
+    //sched_remove_proc(frame->m_proc_to_schedule);
+    try_terminate_process(frame->m_proc_to_schedule);
 
     frame = list_get(s_sched_frames, 0);
   }
@@ -183,42 +186,48 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
   return Success(0);
 }
 
-ANIVA_STATUS pause_scheduler() {
+ANIVA_STATUS pause_scheduler() 
+{
+  /* Should not pause if we're already paused */
   if (s_sched_mode == UNINITIALIZED_SCHED)
     return ANIVA_FAIL;
 
   if (!s_sched_mutex)
     return ANIVA_FAIL;
 
+  /* If we are trying to pause inside of a pause, just increment the pause depth */
+  if (s_sched_pause_count)
+    goto skip_mutex;
+
   mutex_lock(s_sched_mutex);
 
   s_sched_mode = PAUSED;
 
-  // FIXME: wtf?
-  // peek first sched frame
-  sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
-
-  if (frame_ptr == nullptr) {
-    // no sched frame yet
-    return ANIVA_FAIL;
-  }
+skip_mutex:
+  s_sched_pause_count++;
 
   return ANIVA_SUCCESS;
 }
 
-void resume_scheduler(void) {
+void resume_scheduler()
+{
   if (!s_sched_mutex)
     return;
 
-  if (s_sched_mode != PAUSED && !mutex_is_locked(s_sched_mutex)) {
+  /* Simply not paused /-/ */
+  if (s_sched_mode != PAUSED && !mutex_is_locked(s_sched_mutex))
     return;
-  }
 
   // make sure the scheduler is in the right state
   s_sched_mode = SCHEDULING;
 
-  // yes, schedule
-  mutex_unlock(s_sched_mutex);
+  /* Only decrement if we can */
+  if (s_sched_pause_count)
+    s_sched_pause_count--;
+
+  /* Only unlock if we just decremented to the last pause level =) */
+  if (!s_sched_pause_count)
+    mutex_unlock(s_sched_mutex);
 }
 
 void scheduler_yield() {
@@ -409,8 +418,8 @@ ANIVA_STATUS sched_add_proc(proc_t *proc_ptr) {
   return ANIVA_SUCCESS;
 }
 
-ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) {
-
+ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) 
+{
   /* If the scheduler is busy, we simply fuck off (You can't order the scheduler to add a process while its scheduling =) ) */
   if (mutex_is_locked(s_sched_mutex))
     return Error();
@@ -464,12 +473,15 @@ ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id) {
   if (remove_sched_frame(frame).m_status != ANIVA_SUCCESS)
     return ANIVA_FAIL;
 
+  destroy_sched_frame(frame);
+
   return ANIVA_SUCCESS;
 }
 
 ANIVA_STATUS sched_remove_thread(thread_t *);
 
-ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads) {
+ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level, size_t hard_max_async_task_threads) 
+{
   sched_frame_t *ptr = kmalloc(sizeof(sched_frame_t));
   ptr->m_fram_usage_lvl = level;
   ptr->m_frame_state = SCHED_FRAME_RUNNING;
@@ -487,6 +499,14 @@ ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_U
   ptr->m_sched_time_left = SCHED_FRAME_DEFAULT_START_TICKS;
   ptr->m_max_ticks = SCHED_FRAME_DEFAULT_START_TICKS;
   return ptr;
+}
+
+/*!
+ * @brief: Deallocate scheduler frame memory
+ */
+static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame)
+{
+  kfree(frame);
 }
 
 ALWAYS_INLINE void add_sched_frame(sched_frame_t* frame_ptr) {

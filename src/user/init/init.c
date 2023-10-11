@@ -32,20 +32,18 @@ int main() {
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?
    */
+  char buffer[128];
   HANDLE h = open_handle("Root/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   if (!verify_handle(h)) 
     return -1;
 
-  char buffer[128];
+  printf("Handle: %d\n", h);
 
-  //scanf("Whats your name: %s", buffer);
   char* resp = gets(buffer, sizeof(buffer));
 
-  if (resp)
-    printf("Your name is: %s\n", resp);
-  else 
-    printf("Could not take in that name!\n");
+  if (resp) printf("Your name is: %s\n", resp);
+  else printf("Could not take in that name!\n");
 
   char test_buffer[128] = { 0 };
 

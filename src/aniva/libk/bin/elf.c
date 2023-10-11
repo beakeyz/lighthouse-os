@@ -149,10 +149,9 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   page_flags = KMEM_FLAG_WRITABLE;
   proc_flags = NULL;
 
-  if (kernel) {
-    /* When executing elf files in 'kernel' mode, they internally run as a driver */
+  /* When executing elf files in 'kernel' mode, they internally run as a driver */
+  if (kernel)
     proc_flags |= PROC_DRIVER;
-  }
 
   proc = create_proc(nullptr, &id, (char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
 
