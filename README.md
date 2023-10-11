@@ -41,7 +41,7 @@ I am so insane at naming shit, holy fuck
 ## Build & Run
 
 Before you can build/run anything, you need to build and install the custom
-toolchain for this kernel. This is done by running the build-toolchain.sh script
+toolchain for this kernel. This is done by running the `build-cross.sh` script
 which will download and extract the sources and then prompt the user a few times
 to get shit up and running. This process can take a while, but there might be prompts
 that need your attention, so leaving it completely alone is not recommended.
