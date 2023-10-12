@@ -83,7 +83,7 @@ typedef struct vnode {
    * Objects can be anything from files to directories to simply kobjects
    * and they should probably be stored in a hashtable here lol
    */
-  struct vdir* m_objects;
+  struct vdir* m_root_vdir;
   size_t m_object_count;
 
   /* 

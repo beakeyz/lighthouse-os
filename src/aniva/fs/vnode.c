@@ -7,6 +7,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/reference.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -50,8 +51,8 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
   ret = root;
   prev = root;
 
+  /* Skip the roots name in the scan */
   if (memcmp(root->m_name, path, root->m_name_len))
-    /* Skip the roots name in the scan */
     buffer += root->m_name_len;
 
   /* Buffer will be freed inside this loop */
@@ -111,8 +112,8 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
   buffer = strdup(path);
   buffer_start = buffer;
   reached_end = false;
-  ret = node->m_objects;
-  prev = ret;
+  ret = node->m_root_vdir->m_subdirs;
+  prev = node->m_root_vdir;
 
   /* Buffer will be freed inside this loop */
   while (buffer && !reached_end) {
@@ -128,7 +129,11 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     /* Set */
     *buffer = NULL;
 
+    println("buffer_start");
+    println(buffer_start);
+
     for (; ret; ret = ret->m_next_sibling) {
+      println(ret->m_name);
       if (memcmp(buffer_start, ret->m_name, ret->m_name_len)) {
         break;
       }
@@ -222,12 +227,12 @@ static vobj_t* vnode_open(vnode_t* node, char* name)
   if (!node || !name)
     return nullptr;
 
-  if (!vn_is_available(node) || !node->m_objects)
+  if (!vn_is_available(node) || !node->m_root_vdir)
     return nullptr;
 
   mutex_lock(node->m_vobj_lock);
 
-  vobj_t* ret = __find_vobject_path(node->m_objects, name);
+  vobj_t* ret = __find_vobject_path(node->m_root_vdir, name);
 
   mutex_unlock(node->m_vobj_lock);
   return ret;
@@ -286,9 +291,7 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   node->m_lock = create_mutex(0);
   node->m_vobj_lock = create_mutex(0);
 
-  node->m_name = kmalloc(strlen(name) + 1);
-  memcpy((void*)node->m_name, name, strlen(name) + 1);
-
+  node->m_name = strdup(name);
   node->m_id = -1;
   node->m_flags = flags;
 
@@ -296,7 +299,7 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
   node->m_vdir_allocator = create_zone_allocator(8 * Kib, sizeof(vdir_t), NULL);
 
   /* Create the root vdir for this node */
-  node->m_objects = create_vdir(node, nullptr, name);
+  node->m_root_vdir = create_vdir(node, NULL, node->m_name);
 
   vnode_set_type(node, VNODE_NONE);
 
@@ -309,6 +312,7 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
 /* TODO: what do we do when we try to destroy a linked node? */
 ErrorOrPtr destroy_generic_vnode(vnode_t* node) 
 {
+  println("Destroying thing");
   if (!node || vn_seems_mounted(*node))
     return Error();
 
@@ -324,8 +328,8 @@ ErrorOrPtr destroy_generic_vnode(vnode_t* node)
   }
 
   /* Kill all the directories and the objects that are attached to them */
-  if (node->m_objects)
-    destroy_vdirs(node->m_objects, true);
+  if (node->m_root_vdir)
+    destroy_vdirs(node->m_root_vdir, true);
 
   if (node->m_vdir_allocator)
     destroy_zone_allocator(node->m_vdir_allocator, true);
@@ -429,7 +433,7 @@ int vn_release(vnode_t* node) {
  */
 ErrorOrPtr vn_attach_object(vnode_t* node, struct vobj* obj) 
 {
-  return vn_attach_object_rel(node, node->m_objects, obj);
+  return vn_attach_object_rel(node, node->m_root_vdir, obj);
 }
 
 /*!
@@ -523,7 +527,7 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
   mutex_lock(node->m_vobj_lock);
 
   /* Find the directory we are located in */
-  dir = __scan_for_dir_from(node->m_objects, path);
+  dir = __scan_for_dir_from(node->m_root_vdir, path);
 
   if (!dir)
     goto error_and_exit;
@@ -559,7 +563,7 @@ error_and_exit:
 ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path) {
 
   /* First find the object without taking the mutex */
-  vobj_t* slot = __find_vobject_path(node->m_objects, path);
+  vobj_t* slot = __find_vobject_path(node->m_root_vdir, path);
 
   if (!slot)
     return Error();
@@ -569,7 +573,7 @@ ErrorOrPtr vn_detach_object_path(vnode_t* node, const char* path) {
 }
 
 bool vn_has_object(vnode_t* node, const char* path) {
-  vobj_t* obj = __find_vobject_path(node->m_objects, path);
+  vobj_t* obj = __find_vobject_path(node->m_root_vdir, path);
 
   return (obj != nullptr);;
 }
@@ -583,7 +587,7 @@ struct vobj* vn_get_object(vnode_t* node, const char* path) {
 
   mutex_lock(node->m_vobj_lock);
 
-  ret = __find_vobject_path(node->m_objects, path);
+  ret = __find_vobject_path(node->m_root_vdir, path);
 
   mutex_unlock(node->m_vobj_lock);
   return ret;

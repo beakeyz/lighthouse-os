@@ -12,15 +12,31 @@ static vdir_ops_t __generic_vdir_ops = {
   0,
 };
 
+/*!
+ * @brief: Add this vdir to the parents subdirectories
+ */
 static void __link_vdir(vdir_t* parent, vdir_t* dir)
 {
   dir->m_next_sibling = parent->m_subdirs;
   parent->m_subdirs = dir;
 }
 
+/*!
+ * @brief: Check if @dir is the root directory of a vdir chain
+ *
+ * On a vnode, the root vdir does not have a ->m_parent_dir
+ */
+static bool vdir_is_root(vdir_t* dir)
+{
+  return (dir->m_parent_dir == nullptr);
+}
+
 static void __try_prepend_parents_name(vdir_t* parent, vdir_t* dir)
 {
   if (!parent || !dir->m_name)
+    return;
+
+  if (vdir_is_root(parent))
     return;
 
   size_t new_len = parent->m_name_len + 1 + dir->m_name_len;
@@ -54,6 +70,7 @@ vdir_t* create_vdir(vnode_t* node, vdir_t* parent, const char* name)
 
   ASSERT_MSG(ret->m_name, "Got a vdir without a name!");
 
+  /* Only prepend parents name if its not the root */
   __try_prepend_parents_name(parent, ret);
 
   ret->m_attr = zalloc_fixed(__vdir_attr_allocator);

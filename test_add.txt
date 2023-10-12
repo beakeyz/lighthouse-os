@@ -1,0 +1,62 @@
+Kmalloc: -104
+Kmalloc: -128
+Kmalloc: -72
+Kmalloc: -64
+Kmalloc: -64
+Kmalloc: -40
+Kmalloc: -48
+Kmalloc: -44
+Kmalloc: -64
+Kmalloc: -64
+Kmalloc: -40
+Kmalloc: -56
+Kmalloc: -51
+Kmalloc: -53
+Kmalloc: -59
+Kmalloc: -56
+Kmalloc: -45
+Kmalloc: -56
+
+Raw:
+
+Kmalloc: -48
+System/test.drv
+Kmalloc: +48
+Kmalloc: -104
+Kmalloc: -128
+Kmalloc: -72
+Kmalloc: -64
+Kmalloc: -64
+Kmalloc: -40
+Kmalloc: -48
+System/test.drv
+System/test.drv
+Kmalloc: -48
+System/test.drv
+Kmalloc: -39
+System
+Kmalloc: +39
+Kmalloc: -44        <--------- (fixed now?)
+Root/System
+Kmalloc: +48
+Kmalloc: -64
+Kmalloc: -64
+Kmalloc: -40
+Kmalloc: -56
+Kmalloc: -51
+Kmalloc: -53
+Root/System/test.drv
+Kmalloc: -38
+Kmalloc: +38
+Kmalloc: -59        <----------
+Kmalloc: -40
+Kmalloc: +40
+Kmalloc: -38
+Kmalloc: +38
+Kmalloc: -45
+Kmalloc: +45
+Kmalloc: -56
+Kmalloc: -38
+Kmalloc: +38
+Kmalloc: -45
+Kmalloc: -56

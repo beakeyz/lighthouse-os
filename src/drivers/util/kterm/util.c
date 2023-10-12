@@ -226,6 +226,7 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     kterm_println("Usage: drvld [flags] [path]");
     kterm_println("Flags:");
     kterm_println(" -u -> Unload the specified driver");
+    kterm_println(" -ui -> Unload and uninstall the specified driver");
     kterm_println(" -v -> Be more verbose");
     kterm_println(" -h -> What ur seeing right now");
 
