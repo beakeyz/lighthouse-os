@@ -1,0 +1,5 @@
+{
+  "name": "radeon.drv",
+  "linking": "static",
+  "type": "driver"
+}

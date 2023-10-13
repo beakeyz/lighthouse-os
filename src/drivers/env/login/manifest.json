@@ -1,0 +1,5 @@
+{
+  "name": "login.drv",
+  "linking": "static",
+  "type": "driver"
+}

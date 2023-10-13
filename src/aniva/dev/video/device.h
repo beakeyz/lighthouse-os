@@ -11,6 +11,7 @@
 
 struct video_device_ops;
 struct aniva_driver;
+struct fb_info;
 
 union fb_color;
 
@@ -24,12 +25,16 @@ union fb_color;
 /* driver controlcodes / ioctl codes */
 #define VIDDEV_DCC_BLT 100 
 
+#define     VIDDEV_BLT_MODE_IMAGE 0
+#define     VIDDEV_BLT_MODE_COLOR 1
+
 /*
  * Structure to be passed into a blt message
  */
 typedef struct viddev_blt {
   uint32_t x, y;
   uint32_t width, height;
+  uint8_t mode;
   union fb_color* buffer;
 } viddev_blt_t;
 
@@ -69,6 +74,7 @@ typedef struct video_device {
   struct video_device_ops* ops;
 } video_device_t;
 
+video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops);
 int destroy_video_device(video_device_t* device);
 
 void register_video_device(struct aniva_driver* driver, struct video_device* device);
@@ -80,6 +86,7 @@ int try_activate_video_device(video_device_t* device);
 
 typedef struct video_device_ops {
   int (*f_remove) (video_device_t* dev);
+  int (*f_get_fb) (video_device_t* dev, struct fb_info* info);
 } video_device_ops_t;
 
 #endif // !__ANIVA_VID_DEVICE__

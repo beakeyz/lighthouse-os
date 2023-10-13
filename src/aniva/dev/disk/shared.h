@@ -1,6 +1,9 @@
 #ifndef __ANIVA_SHARED_DISK_DEFS__
 #define __ANIVA_SHARED_DISK_DEFS__
+
 #include <libk/stddef.h>
+
+#define ATA_COMMAND_IDENTIFY 0xEC
 
 // TODO: found an elaborate version of this structure
 // in the microsoft driver documentation, let's yoink some

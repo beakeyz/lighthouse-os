@@ -2,6 +2,7 @@
 #include "dev/core.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
+#include "mem/heap.h"
 #include "proc/core.h"
 
 /*!
@@ -94,7 +95,51 @@ int try_activate_video_device(video_device_t* device)
   return set_active_driver(device->manifest, DT_GRAPHICS);
 }
 
+video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops)
+{
+  const char* drv_url;
+  video_device_t* ret;
+
+  drv_url = nullptr;
+  ret = nullptr;
+
+  if (!driver || !ops)
+    return nullptr;
+
+  drv_url = get_driver_url(driver);
+
+  if (!drv_url)
+    return nullptr;
+
+  ret = kmalloc(sizeof(*ret));
+
+  if (!ret)
+    goto exit;
+
+  memset(ret, 0, sizeof(*ret));
+
+  ret->manifest = get_driver(drv_url);
+  ret->ops = ops;
+
+exit:
+  if (drv_url)
+    kfree((void*)drv_url);
+
+  /* Could not find this manifest =/ */
+  if (ret && !ret->manifest)
+    kfree(ret);
+
+  return ret;
+}
+
 int destroy_video_device(video_device_t* device)
 {
   kernel_panic("TODO: destroy_video_device");
+
+  if (!device)
+    return -1;
+
+  kfree(device);
+
+  return 0;
 }

@@ -3,8 +3,9 @@
 #include "dev/driver.h"
 #include "dev/pci/pci.h"
 #include "dev/precedence.h"
-#include "drivers/video/gpu/radeon/ids.h"
+#include "dev/video/device.h"
 #include "libk/flow/error.h"
+#include "ids.h"
 
 pci_dev_id_t radeon_id_table[] = {
   PCI_DEVID_IDS_EX(PCI_VENDOR_AMD, PCI_DEVICE_R200_GL, 0, 0, PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID),
@@ -34,6 +35,10 @@ EXPORT_DRIVER(radeon_driver) = {
   .m_version = DEF_DRV_VERSION(1, 0, 0),
   .m_dep_count = 0,
   .m_dependencies = { 0 },
+};
+
+video_device_ops_t radeon_vdev_ops = {
+  0
 };
 
 int radeon_init()
@@ -71,7 +76,14 @@ uintptr_t radeon_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size
  */
 int radeon_probe(pci_device_t* device, pci_driver_t* driver)
 {
-  println("Yay");
-  kernel_panic("Fuck yeaaa");
+  logln("Found radeon yay");
+
+  video_device_t* vdev = create_video_device(&radeon_driver, &radeon_vdev_ops);
+
+  register_video_device(&radeon_driver, vdev);
+
+  try_activate_video_device(vdev);
+
+  kernel_panic("Found a radeon device =)");
   return 0;
 }

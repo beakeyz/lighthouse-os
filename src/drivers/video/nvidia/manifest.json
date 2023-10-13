@@ -1,5 +1,5 @@
 {
-  "name": "lenv.drv",
+  "name": "nvfb.drv",
   "linking": "static",
   "type": "driver"
 }

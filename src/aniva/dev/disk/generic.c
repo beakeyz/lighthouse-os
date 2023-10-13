@@ -853,9 +853,28 @@ bool gdisk_is_valid(disk_dev_t* device)
  * TODO: pass driver messages through to the correct driver, given 
  * a generic disk device / partitioned disk device
  */
-uint64_t disk_core_msg(aniva_driver_t* this, dcc_t core, void* buffer, size_t size, void* out_buffer, size_t out_size)
+uint64_t disk_core_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  return 0;
+  disk_uid_t uid;
+  disk_dev_t* device;
+
+  switch (code) {
+    case DISK_DCC_GET_DEVICE:
+      {
+        if (!buffer || size != sizeof(disk_uid_t*) || !out_buffer || out_size != sizeof(disk_dev_t*))
+          return DRV_STAT_INVAL;
+
+        uid = *(disk_uid_t*)buffer;
+        device = find_gdisk_device(uid);
+
+        if (!device)
+          return DRV_STAT_INVAL;
+
+        memcpy(out_buffer, device, sizeof(*device));
+        break;
+      }
+  }
+  return DRV_STAT_OK;
 }
 
 int disk_core_init() 

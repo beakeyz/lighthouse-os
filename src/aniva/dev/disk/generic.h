@@ -153,4 +153,6 @@ void detach_partitioned_disk_device(disk_dev_t* generic, partitioned_disk_dev_t*
 partitioned_disk_dev_t** fetch_designated_device_for_block(disk_dev_t* generic, uintptr_t block);
 int generic_disk_opperation(disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 
+#define DISK_DCC_GET_DEVICE 10
+
 #endif // !__ANIVA_GENERIC_DISK_DEV__

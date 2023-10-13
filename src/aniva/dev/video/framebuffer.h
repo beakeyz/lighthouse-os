@@ -86,7 +86,9 @@ typedef struct fb_ops {
   /* Draw a simple rectangle */
   int (*f_draw_rect)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t clr);
   /* Draw a glyph from a bitmap */
-  int (*f_draw_glyph)(fb_info_t* info, uint32_t x, uint32_t y, uint8_t* glyph_bm, uint32_t glyph_bm_len, fb_color_t clr);
+  int (*f_draw_glyph)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint8_t* glyph_bm, fb_color_t clr);
+  /* BLT =) */
+  int (*f_blt)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t* image);
 
   /* TODO: create a helper struct for any virtual mapping / tranfer */
   int (*f_mmap)(fb_info_t* info, void* p_buffer, size_t* p_size);
