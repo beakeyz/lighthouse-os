@@ -3,6 +3,8 @@
 
 /*
  * The different types that a profile variable can hold
+ *
+ * FIXME: we should make this naming sceme consistent with PVAR_FLAG___ naming
  */
 enum PROFILE_VAR_TYPE {
   PROFILE_VAR_TYPE_STRING = 0,

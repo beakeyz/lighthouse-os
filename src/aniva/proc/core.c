@@ -111,24 +111,33 @@ ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
   return __kmem_dealloc_unmap(dir->m_root, thread->m_parent_proc->m_resource_bundle, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
 }
 
-ErrorOrPtr spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) {
+thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) 
+{
+  proc_t* current;
+  thread_t* thread;
 
   /* Don't be dumb lol */
   if (!entry)
-    return Error();
+    return nullptr;
 
-  proc_t* current = get_current_proc();
+  current = get_current_proc();
 
   /* No currently scheduling proc means we are fucked lol */
   if (!current)
-    return Error();
+    return nullptr;
 
-  thread_t* thread = create_thread_for_proc(current, entry, arg0, name);
+  thread = create_thread_for_proc(current, entry, arg0, name);
 
   if (!thread)
-    return Error();
+    return nullptr;
 
-  return proc_add_thread(current, thread);
+  if (IsError(proc_add_thread(current, thread))) {
+    /* Sadge */
+    destroy_thread(thread);
+    return nullptr;
+  }
+
+  return thread;
 }
 
 /*

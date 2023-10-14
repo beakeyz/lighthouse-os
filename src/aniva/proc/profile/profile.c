@@ -13,6 +13,9 @@
 
 #define MAX_ACTIVE_PROFILES 512
 
+/* The variable key that holds the password */
+#define PROFILE_PASSWORD_KEY "PASSWORD"
+
 static proc_profile_t base_profile;
 static proc_profile_t global_profile;
 static hashmap_t* active_profiles;
@@ -249,6 +252,14 @@ int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t**
   return 0;
 }
 
+bool profile_can_see_var(proc_profile_t* profile, profile_var_t* var)
+{
+  if (var->flags & PVAR_FLAG_HIDDEN)
+    return false;
+
+  return (profile_get_priv_lvl(profile) >= profile_get_priv_lvl(var->profile));
+}
+
 /*!
  * @brief Register a profile to the active list
  *
@@ -296,6 +307,194 @@ int profile_unregister(const char* name)
   return 0;
 }
 
+/*!
+ * @brief: Try to set a password variable in a profile
+ *
+ * Allocates a direct copy of the password on the kernel heap. It is vital 
+ * that userspace is not able to directly access this thing through some exploit,
+ * since that would be fucky lmao
+ * 
+ * @returns: 0 when we could set a password on this profile
+ */
+int profile_set_password(proc_profile_t* profile, const char* password)
+{
+  int error;
+  char* password_cpy;
+  profile_var_t* password_var;
+
+  if (!profile)
+    return -1;
+
+  mutex_lock(profile->lock);
+  
+  error = NULL;
+  password_var = nullptr;
+  password_cpy = strdup(password);
+
+  /* Do we already have a password variable on this boi? */
+  if (profile_has_password(profile)) {
+    error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &password_var);
+
+    /* Invalid variable on this one */
+    if (error || !password_var || password_var->type != PROFILE_VAR_TYPE_STRING)
+      goto fail_and_exit;
+
+    /* Free the value that was previously on this variable */
+    if (password_var->value)
+      kfree((void*)password_var->value);
+
+    /* Make sure this variable is hidden */
+    password_var->flags |= PVAR_FLAG_HIDDEN;
+    password_var->value = password_cpy;
+
+    goto unlock_and_exit;
+  }
+
+  /* Create a new variable, since this profile didn't have one yet */
+  password_var = create_profile_var(PROFILE_PASSWORD_KEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_HIDDEN, (uint64_t)password_cpy);
+
+  if (!password_var) {
+    error = -1;
+    goto fail_and_exit;
+  }
+
+  error = profile_add_var(profile, password_var);
+
+  /* If we succeeded with adding this profile variable, skip the fail label and unlock the mutex */
+  if (!error)
+    goto unlock_and_exit;
+
+fail_and_exit:
+  if (password_cpy)
+    kfree((void*)password_cpy);
+
+unlock_and_exit:
+  mutex_unlock(profile->lock);
+  return error;
+}
+
+/*!
+ * @brief: Tries to remove the password variable from the profile
+ *
+ * Nothing to add here...
+ */
+int profile_clear_password(proc_profile_t* profile)
+{
+  if (!profile_has_password(profile))
+    return -1;
+
+  return profile_remove_var(profile, PROFILE_PASSWORD_KEY);
+}
+
+/*!
+ * @brief: Computes the length of the current password of a profile
+ *
+ * Fails if the profile does not contain a valid profile variable
+ */
+int profile_get_password_len(proc_profile_t* profile, size_t* size)
+{
+  int error;
+  profile_var_t* var;
+
+  if (!size)
+    return -1;
+  
+  *size = 0;
+
+  if (!profile_has_valid_password_var(profile))
+    return -1;
+
+  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &var);
+
+  if (error || !var)
+    return -2;
+
+  *size = strlen((char*)var->value) + 1;
+
+  return 0;
+}
+
+/*!
+ * @brief: Copies the profiles password into @buffer
+ * 
+ * NOTE: The caller is responsible to make sure that the buffer is the correct size
+ *
+ * @returns: A negative integer on failure, The difference in length between the password and
+ * the buffer on success (positive or zero)
+ */
+int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size)
+{
+  int error;
+  size_t password_len;
+  profile_var_t* var;
+
+  if (!buffer || !size)
+    return -1;
+
+  if (!profile_has_valid_password_var(profile))
+    return -1;
+
+  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &var);
+
+  if (error || !var)
+    return -2;
+
+  password_len = strlen(var->value);
+
+  /* Copy the password */
+  memcpy(buffer, var->value, size);
+
+  if (size > password_len)
+    return (size - password_len);
+
+  return (password_len - size);
+}
+
+/*!
+ * @brief: Checks if @profile contains a password variable
+ *
+ * NOTE: this variable should really be hidden, but this function does not check
+ * for the validity of the variable
+ */
+bool profile_has_password(proc_profile_t* profile)
+{
+  int error;
+  profile_var_t* pswrd_var;
+
+  if (!profile)
+    return false;
+
+  pswrd_var = nullptr;
+  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &pswrd_var);
+
+  if (error || !pswrd_var)
+    return false;
+
+  return true;
+}
+
+/*!
+ * @brief: Checks if @profile has a valid password variable
+ *
+ * A password variable is valid if its hidden and of the string type
+ */
+bool profile_has_valid_password_var(proc_profile_t* profile)
+{
+  int error;
+  profile_var_t* var;
+
+  if (!profile_has_password(profile))
+    return false;
+
+  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &var);
+
+  /* This should not fail if profile has a password lmao */
+  if (error)
+    return false;
+
+  return (var->value && var->type == PROFILE_VAR_TYPE_STRING && (var->flags & PVAR_FLAG_HIDDEN) == PVAR_FLAG_HIDDEN);
+}
+
 #define LT_PFB_MAGIC0 'P'
 #define LT_PFB_MAGIC1 'F'
 #define LT_PFB_MAGIC2 'b'
@@ -326,14 +525,33 @@ struct lt_profile_buffer {
  *
  * Nothing to add here...
  */
-int profile_save(proc_profile_t* profile, const char* path)
+int profile_save(proc_profile_t* profile, file_t* file)
 {
   kernel_panic("TODO: profile_save");
   return 0;
 }
-int profile_load(proc_profile_t** profile, const char* path)
+
+int profile_load(proc_profile_t** profile, file_t* file)
 {
   kernel_panic("TODO: profile_load");
+  return 0;
+}
+
+/*!
+ * @brief: Saves variables from a profile into a file 
+ */
+int profile_save_variables(proc_profile_t* profile, file_t* file)
+{  
+  kernel_panic("TODO: profile_save_variables");
+  return 0;
+}
+
+/*!
+ * @brief: Loads variables from a file into a profile
+ */
+int profile_load_variables(proc_profile_t* profile, file_t* file)
+{
+  kernel_panic("TODO: profile_load_variables");
   return 0;
 }
 
@@ -347,12 +565,32 @@ uint16_t get_active_profile_count()
   return active_profiles->m_size;
 }
 
+/*!
+ * @brief: Fill the BASE profile with default variables
+ *
+ * The BASE profile should store things that are relevant to system processes and contains
+ * most of the variables that are not visible to userspace, like passwords, driver locations,
+ * or general system file locations
+ *
+ * Little TODO, but still: The bootloader can also be aware of the files in the ramdisk when installing
+ * the system to a harddisk partition. When it does, it will put drivers into their correct system directories 
+ * and it can then create entries in the default BASE profile file (which we still need to load)
+ */
 static void __apply_base_variables()
 {
   /* TODO: should we store the (encrypted) password of the base profile here? */
-  profile_add_var(&base_profile, create_profile_var("BASE_PASSWRD", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_HIDDEN, NULL));
+  //profile_add_var(&base_profile, create_profile_var("PASSWRD", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_HIDDEN, NULL));
 }
 
+/*!
+ * @brief: Fill the Global profile with default variables
+ *
+ * These variables tell userspace about:
+ * - the kernel its running on
+ * - where it can find certain system files
+ * - information about firmware
+ * - information about devices (?)
+ */
 static void __apply_global_variables()
 {
   profile_add_var(&global_profile, create_profile_var("SYSTEM_NAME", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, (uintptr_t)"Aniva"));

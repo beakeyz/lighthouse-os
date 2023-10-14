@@ -38,11 +38,11 @@ void unregister_video_device(struct video_device* device)
 {
   dev_manifest_t* manifest = device->manifest;
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   manifest->m_private = nullptr;
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   destroy_video_device(device);
 }

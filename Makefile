@@ -58,28 +58,6 @@ CHARDFLAGS := -std=gnu11          \
 LDHARDFLAGS := -T $(LINK_PATH) 						\
 							 -Map $(OUT)/aniva.map		\
 							 -z max-page-size=0x1000    \
-
-# TODO: this is messy, refactor this.
--include $(DPEND_FILES)
-$(OUT)/%.o: %.c 
-	@$(DIRECTORY_GUARD)
-	@echo "[KERNEL $(ARCH)] (c) $<"
-	@$(CC) $(CHARDFLAGS) -c $< -o $@
-%.h : %.h 
-	@echo "[KERNEL $(ARCH)] (h) $<"
-
-$(OUT)/%.o: %.asm
-	@$(DIRECTORY_GUARD)
-	@echo "[KERNEL $(ARCH)] (asm) $<"
-	@$(NASM) $< -o $@ -f elf64 
-
-# NOTE: instead of taking all the obj vars indevidually, we might just be able to grab them all from the $(OBJ) variable
-.PHONY:$(KERNEL_OUT)
-$(KERNEL_OUT): $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LINK_PATH)
-	@echo "[LINKING $(ARCH)] $@"
-	@$(LD) -o $@ $(COBJFILES) $(CXXOBJFILES) $(ASMOBJFILES) $(LDHARDFLAGS)
-	@echo "Done =D"
-
 # TODO: this just builds and runs the kernel for now, but 
 # I'd like to have actual debugging capabilities in the future
 .PHONY: debug
@@ -93,9 +71,6 @@ clean:
 	@rm -f $(KERNEL_OUT) $(OBJ)
 	@rm -rf $(OUT)
 	@echo [CLEAN] Done!
-
-.PHONY: build
-build: $(KERNEL_OUT)
 
 .PHONY: run
 run:

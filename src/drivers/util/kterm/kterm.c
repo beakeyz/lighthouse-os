@@ -35,6 +35,7 @@
 #include "proc/handle.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/proc.h"
+#include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
@@ -64,7 +65,6 @@ static void kterm_write_char(char c);
 static void kterm_process_buffer();
 
 //static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
-static inline void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
 
 static void kterm_draw_cursor();
@@ -85,6 +85,7 @@ void kterm_on_key(ps2_key_event_t event);
 /* Command buffer */
 static kdoor_t __processor_door;
 static kdoorbell_t* __kterm_cmd_doorbell;
+static thread_t* __kterm_worker_thread;
 
 /* Buffer information */
 static uintptr_t __kterm_current_line;
@@ -94,6 +95,26 @@ static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
 
 /* Framebuffer information */
 static fb_info_t __kterm_fb_info;
+
+static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color) 
+{
+  if (__kterm_fb_info.bpp && x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height)
+    *(uint32_t volatile*)(KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
+}
+
+static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
+{
+  uint32_t current_offset = __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8;
+  const uint32_t increment = (__kterm_fb_info.bpp / 8);
+
+  for (uint32_t i = 0; i < height; i++) {
+    for (uint32_t j = 0; j < width; j++) {
+
+      *(uint32_t volatile*)(KTERM_FB_ADDR + current_offset + j * increment) = color;
+    }
+    current_offset += __kterm_fb_info.pitch;
+  }
+}
 
 static struct kterm_cmd {
   char* argv_zero;
@@ -173,11 +194,7 @@ static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
 
 static void kterm_clear_raw()
 {
-  for (uintptr_t x = 0; x < __kterm_fb_info.width; x++) {
-    for (uintptr_t y = 0; y < __kterm_fb_info.height; y++) {
-      kterm_draw_pixel_raw(x, y, 00);
-    }
-  }
+  kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
 }
 
 static int kterm_get_argument_count(char* cmd_buffer, size_t* count)
@@ -424,11 +441,14 @@ int kterm_init()
    * the loaded graphics driver is indeed efifb. It might very well be virtio or some other nonsense. 
    * In that case, we need a function that gives us the current graphics driver path
    */
-  driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map));
-  driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t));
+  Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
+  Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
-  Must(spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL));
+  __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
+  
+  /* Make sure we create this fucker */
+  ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");
 
   /* Register our logger to the logger subsys */
   register_logger(&kterm_logger);
@@ -462,9 +482,11 @@ int kterm_exit() {
    * TODO:
    * - unmap framebuffer
    * - unregister logger
+   * - wait until the worker thread exists
    * - ect.
    */
   kernel_panic("kterm_exit");
+
   return 0;
 }
 
@@ -522,9 +544,10 @@ static void kterm_write_char(char c) {
   switch (c) {
     case '\b':
       if (__kterm_buffer_ptr > 0) {
+        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
         __kterm_buffer_ptr--;
         __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
-        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
+        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0xFFFFFFFF);
       } else {
         __kterm_buffer_ptr = 0;
       }
@@ -538,6 +561,7 @@ static void kterm_write_char(char c) {
         kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
         __kterm_char_buffer[__kterm_buffer_ptr] = c;
         __kterm_buffer_ptr++;
+        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0xFFFFFFFF);
       }
       break;
   }
@@ -587,15 +611,7 @@ static void kterm_draw_cursor() {
   kterm_draw_char(0 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
   kterm_draw_char(1 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
   __kterm_buffer_ptr = 0;
-}
-
-static inline void kterm_draw_pixel_raw(uintptr_t x, uintptr_t y, uint32_t color) {
-  if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
-    return;
-
-  if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
-    *(uint32_t volatile*)(KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
-  }
+  kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0xFFFFFFFF);
 }
 
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
@@ -640,6 +656,8 @@ int kterm_print(const char* msg) {
   while (msg[index]) {
     char current_char = msg[index];
     if (current_char == '\n') {
+      /* Erase the cursor on the previous line */
+      kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
       __kterm_current_line++;
 
       if (__kterm_current_line * KTERM_FONT_HEIGHT >= __kterm_fb_info.height) {

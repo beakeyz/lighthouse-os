@@ -29,6 +29,7 @@ typedef struct usb_request {
   paddr_t req_dma_addr;
   uint32_t req_size;
   uint32_t req_tranfered_size;
+  uint32_t req_pipe;
 
   struct usb_device* device;
 

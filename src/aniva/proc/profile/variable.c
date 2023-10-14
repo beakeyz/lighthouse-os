@@ -15,7 +15,8 @@ static void destroy_profile_var(profile_var_t* var)
     if (profile_is_from_file(var->profile)) {
       kfree((void*)var->key);
 
-      if (var->type == PROFILE_VAR_TYPE_STRING)
+      /* Just in case this was allocated on the heap (by strdup) */
+      if (var->type == PROFILE_VAR_TYPE_STRING && var->str_value)
         kfree((void*)var->str_value);
     }
 
@@ -26,6 +27,13 @@ static void destroy_profile_var(profile_var_t* var)
   zfree_fixed(&__var_allocator, var);
 }
 
+/*!
+ * @brief: Creates a profile variable
+ *
+ * This allocates the variable inside the variable zone allocator and sets its interlan value
+ * equal to @value. 
+ * NOTE: this does not copy strings and allocate them on the heap!
+ */
 profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, uint8_t flags, uintptr_t value)
 {
   profile_var_t* var;

@@ -1,11 +1,14 @@
 #ifndef __ANIVA_DEV_MANIFEST__
 #define __ANIVA_DEV_MANIFEST__
 
+#include "dev/core.h"
+#include "dev/device.h"
 #include "dev/driver.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
+#include <libk/data/hashmap.h>
 
 struct extern_driver;
 
@@ -29,7 +32,9 @@ typedef struct dev_manifest {
 
   /* Resources that this driver has claimed */
   kresource_bundle_t m_resources;
-  mutex_t m_lock;
+  mutex_t* m_lock;
+  /* A map that contains the devices that this driver manages */
+  hashmap_t* m_devices;
 
   /* Url of the installed driver */
   dev_url_t m_url;
@@ -65,5 +70,9 @@ bool driver_manifest_write(struct aniva_driver* manifest, int(*write_fn)());
 bool driver_manifest_read(struct aniva_driver* manifest, int(*read_fn)());
 
 bool install_private_data(struct aniva_driver* driver, void* data);
+
+int manifest_add_device(device_t* device);
+int manifest_remove_device(device_t* device);
+int manifest_find_device(device_t** dev_buffer, const char* device_name);
 
 #endif // !__ANIVA_DEV_MANIFEST__

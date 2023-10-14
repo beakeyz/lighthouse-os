@@ -40,7 +40,7 @@ int lightenv_init()
   };
 
   /* Send a BLT message to the video driver to clear the screen */
-  driver_send_msg("other/video", VIDDEV_DCC_BLT, &blt, sizeof(blt));
+  driver_send_msg("core/video", VIDDEV_DCC_BLT, &blt, sizeof(blt));
 
   /* ??? */
 

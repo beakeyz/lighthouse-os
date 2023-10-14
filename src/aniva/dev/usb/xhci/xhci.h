@@ -8,6 +8,7 @@
 #include "dev/usb/hcd.h"
 #include "dev/usb/usb.h"
 #include "libk/flow/doorbell.h"
+#include "proc/thread.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -86,6 +87,9 @@ typedef struct xhci_op_regs {
  * XHCI Port Status and Control Register bits 
  * op_regs->port_status_base
  */
+#define	XHCI_PORT_RO ((1<<0) | (1<<3) | (0xf<<10) | (1<<30))
+#define XHCI_PORT_RWS ((0xf<<5) | (1<<9) | (0x3<<14) | (0x7<<25))
+
 #define XHCI_PORT_CONNECT (1 << 0)
 #define XHCI_PORT_PE (1 << 1)
 /* bit 2 reserved and zero */
@@ -196,6 +200,8 @@ typedef struct xhci_cap_regs {
 typedef struct xhci_db_array {
   uint32_t db[256];
 } xhci_db_array_t;
+
+#define DB_VALUE(ep, stream)	((((ep) + 1) & 0xff) | ((stream) << 16))
 
 /*
  * xhci contexts
@@ -463,6 +469,8 @@ extern int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* inter
 
 /*
  * A xhci port
+ *
+ * This represents a USB device connected to a xhci hub
  */
 typedef struct xhci_port {
   void* base_addr;
@@ -473,6 +481,9 @@ typedef struct xhci_port {
 
 /*
  * A xhci hub
+ *
+ * This structure should keep track of the ports that are connected to
+ * it
  */
 typedef struct xhci_hub {
   xhci_port_t** ports;
@@ -495,6 +506,10 @@ typedef struct xhci_hcd {
   uint32_t xhc_flags;
 
   mutex_t* event_lock;
+
+  /* These threads are used to do events and trfs by probing */
+  thread_t* event_thread;
+  thread_t* trf_finish_thread;
 
   uint8_t sbrn;
   uint16_t hci_version;

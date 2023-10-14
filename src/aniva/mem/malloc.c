@@ -163,16 +163,16 @@ static ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
 
 static inline void allocator_add_free(memory_allocator_t* allocator, size_t size)
 {
-  print("Kmalloc: +");
-  println(to_string(size));
+  //print("Kmalloc: +");
+  //println(to_string(size));
   allocator->m_free_size += size;
   allocator->m_used_size -= size;
 }
 
 static inline void allocator_add_used(memory_allocator_t* allocator, size_t size)
 {
-  print("Kmalloc: -");
-  println(to_string(size));
+  //print("Kmalloc: -");
+  //println(to_string(size));
   allocator->m_used_size += size;
   allocator->m_free_size -= size;
 }

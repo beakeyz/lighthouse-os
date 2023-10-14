@@ -603,7 +603,7 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   if (!verify_driver(manifest))
     return Error();
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   error = NULL; 
 
@@ -621,7 +621,7 @@ ErrorOrPtr unload_driver(dev_url_t url) {
   if (manifest->m_external && (manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
     unload_external_driver(manifest->m_external);
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   /* Fuck man */
   if (error)
@@ -973,12 +973,12 @@ ErrorOrPtr driver_send_msg_ex(struct dev_manifest* manifest, dcc_t code, void* b
   if (!driver->f_msg) 
     return Error();
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   /* NOTE: it is the drivers job to verify the buffers. We don't manage shit here */
   error = driver->f_msg(manifest->m_handle, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   if (error)
     return ErrorWithVal(error);
@@ -1037,11 +1037,11 @@ ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_co
     }
   }
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   result = manifest->m_handle->f_msg(manifest->m_handle, code, buffer, buffer_size, NULL, NULL);
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   if (result)
     return Error();

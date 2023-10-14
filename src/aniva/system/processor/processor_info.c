@@ -164,18 +164,45 @@ static void detect_processor_capabilities(processor_info_t* info) {
     read_cpuid(0x8000001f, 0, &cpuid_eax, &cpuid_ebx, &cpuid_ecx, &cpuid_edx);
     info->m_x86_capabilities[CPUID_8000_001F_EAX] = cpuid_eax;
   }
-
-
 }
 
-static void get_processor_model_name(processor_info_t* info) {
-  uint32_t *buffer;
+static void get_processor_model_name(processor_info_t* info) 
+{
+  uint32_t current_index;
+  char current_char;
+  char previous_char;
+  uint8_t buffer[4][4];
 
-  buffer = (uint32_t*)info->m_model_id;
-  read_cpuid(0x80000002, 0, &buffer[0], &buffer[1], &buffer[2], &buffer[3]);
-  read_cpuid(0x80000003, 0, &buffer[4], &buffer[5], &buffer[6], &buffer[7]);
-  read_cpuid(0x80000004, 0, &buffer[8], &buffer[9], &buffer[10], &buffer[11]);
-  info->m_model_id[48] = 0;
+  memset(info->m_model_id, 0, sizeof(info->m_model_id));
+
+  current_index = 0;
+  previous_char = ' ';
+
+  for (uint8_t i = 0; i < 3; i++) {
+      read_cpuid(0x80000002 + i, 0, (uint32_t*)&buffer[0], (uint32_t*)&buffer[1], (uint32_t*)&buffer[2], (uint32_t*)&buffer[3]);
+
+    /* Loop over the 4 dwords */
+    for (uint32_t j = 0; j < 4; j++) {
+
+      /* Loop over the 4 bytes */
+      for (uint32_t k = 0; k < 4; k++) {
+        current_char = (buffer[j][k]) & 0xff;
+
+        if (!current_char || (current_char == ' ' && previous_char == ' '))
+          continue;
+
+        /* Set the previous char for the next copy */
+        previous_char = current_char;
+
+        /* Increase the index on every write */
+        info->m_model_id[current_index++] = current_char;
+      }
+    }
+  }
+
+  //read_cpuid(0x80000003, 0, &buffer[4], &buffer[5], &buffer[6], &buffer[7]);
+  //read_cpuid(0x80000004, 0, &buffer[8], &buffer[9], &buffer[10], &buffer[11]);
+  //info->m_model_id[48] = 0;
 
   // TODO: finalize this string, since it might still have whitespace and stuff
 }

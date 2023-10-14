@@ -15,6 +15,8 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "proc/core.h"
+#include "proc/profile/profile.h"
 #include "system/asm_specifics.h"
 #include <dev/pci/pci.h>
 #include <dev/pci/definitions.h>
@@ -27,6 +29,30 @@ pci_dev_id_t xhci_pci_ids[] = {
   PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_XHCI),
   PCI_DEVID_END,
 };
+
+/*!
+ * @brief: Ring the doorbell of a particular slot, endpoint and stream
+ *
+ * In our case, streamid is most likely going to be 0
+ */
+static void xhci_ring(xhci_hcd_t* hcd, uint32_t slot, uint32_t endpoint, uint32_t streamid)
+{
+  uint32_t* db_addr;
+
+  if (slot > hcd->max_slots)
+    return;
+
+  if (endpoint >= XHCI_MAX_EPS)
+    return;
+
+  db_addr = &hcd->db_arr->db[slot];
+
+  /* Ding, dong */
+  mmio_write_dword(db_addr, DB_VALUE(endpoint, streamid));
+
+  /* Flush that shit */
+  mmio_read_dword(db_addr);
+}
 
 static xhci_hcd_t* to_xhci_safe(usb_hcd_t* hub)
 {
@@ -112,6 +138,29 @@ usb_hcd_mmio_ops_t xhci_mmio_ops = {
 };
 
 /*!
+ * @brief: Set a ports power status
+ */
+static void xhci_port_power(xhci_hcd_t* hcd, xhci_port_t* port, bool status)
+{
+  uint32_t current_stat;
+
+  if (!port || !port->base_addr)
+    return;
+
+  current_stat = mmio_read_dword(port->base_addr);
+
+  /* Reserve RO and status bits */
+  current_stat = (current_stat & XHCI_PORT_RO) | (current_stat & XHCI_PORT_RWS);
+
+  if (status) {
+    mmio_write_dword(port->base_addr, current_stat | XHCI_PORT_POWR);
+    mmio_read_dword(port->base_addr);
+  } else {
+    mmio_write_dword(port->base_addr, current_stat & ~(XHCI_PORT_POWR));
+  }
+}
+
+/*!
  * @brief Create a xhci (root) hub
  *
  */
@@ -128,6 +177,18 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
 
   hub->phub = create_usb_hub(xhci->parent, nullptr, dev_address, 0);
 
+  kernel_panic("TODO: implement create_xhci_hub");
+  /*
+   * TODO: send identification packets to the devices on this hub
+   * and also send setaddress packets to make sure we know where to access a particular device
+   * when we've retrieved the device info, create a device on the usb core driver and
+   * try to find a class driver for it. This means we can both have a driver that's already loaded,
+   * which we will use to driver this device, OR we need to load a driver from disk somewhere. 
+   * In that case we'll need to access the base profile variables to see where the driver of 
+   * a particular USB class is located
+   */
+  xhci_port_power(xhci, nullptr, true);
+
   return hub;
 }
 
@@ -140,20 +201,22 @@ void destroy_xhci_hub(xhci_hub_t* hub)
   kernel_panic("TODO: destroy_xhci_hub");
 }
 
-static int xhci_hub_process_request(xhci_hub_t* hub, usb_request_t* req)
-{
-  return 0;
-}
-
+/*!
+ * @brief: Queue the correct TRBs for this request
+ *
+ * Since USB uses a few different types of packets, we need to construct different TRB structures
+ * based on the type of transfer. Next to that the event thread and transfer finish thread of this
+ * hcd need to know how to correctly handle events and transfer finishes
+ */
 int xhci_enq_request(usb_hcd_t* hcd, usb_request_t* req)
 {
   xhci_hcd_t* xhci;
 
   xhci = hcd->private;
 
-  if (req->device == xhci->rhub->phub->device)
-    return xhci_hub_process_request(xhci->rhub, req);
+  kernel_panic("TODO: xhci_enq_request");
 
+  xhci_ring(xhci, 0, 0, 0);
   return 0;
 }
 
@@ -543,6 +606,10 @@ int xhci_setup(usb_hcd_t* hcd)
 
   if (error)
     goto fail_and_dealloc;
+
+  /* Create the async polling threads */
+  //xhci->event_thread = spawn_thread("xhci_event_thread", nullptr, (uint64_t)xhci);
+  //xhci->trf_finish_thread = spawn_thread("xhci_trf_thread", nullptr, (uint64_t)xhci);
 
   /*
    * TODO: support device quirks 

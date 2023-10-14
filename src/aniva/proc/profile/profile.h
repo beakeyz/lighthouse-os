@@ -1,6 +1,7 @@
 #ifndef __ANIVA_PROC_PROFILE__
 #define __ANIVA_PROC_PROFILE__
 
+#include "fs/file.h"
 #include "libk/data/hashmap.h"
 #include "proc/profile/variable.h"
 #include "sync/mutex.h"
@@ -28,11 +29,19 @@ struct proc;
 
 #define PRF_MAX_VARS 1024 
 
+/* Processes in this profile may load drivers */
+#define PRF_PERM_LOAD_DRV (1 << 0)
+/* Processes in this profile may unload drivers */
+#define PRF_PERM_UNLOAD_DRV (1 << 1)
+
 /*
  * Profiles need to be saveable and loadable since they will 
  * act as our 'users' AND our 'groups' at the same time
  *
  * TODO: find out how to load profiles from files and save profiles to files
+ *
+ * Other things profiles need to be able to do:
+ * - 'logged in' and 'logged out': They need to be able to hold their credentials in a secure way
  */
 typedef struct proc_profile {
   const char* name;
@@ -52,8 +61,10 @@ typedef struct proc_profile {
     uint8_t raw;
   } priv_level;
 
+  /* Profile permission flags */
   uint64_t permission_flags;
-  uint32_t permission_flags2;
+  /* Normal profile flags */
+  uint32_t flags;
   uint32_t proc_count;
 
   mutex_t* lock;
@@ -95,8 +106,17 @@ int profile_get_var(proc_profile_t* profile, const char* key, profile_var_t** va
 
 int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t** var);
 
+bool profile_can_see_var(proc_profile_t* profile, profile_var_t* var);
+
 int profile_register(proc_profile_t* profile);
 int profile_unregister(const char* name);
+
+int profile_set_password(proc_profile_t* profile, const char* password);
+int profile_clear_password(proc_profile_t* profile);
+int profile_get_password_len(proc_profile_t* profile, size_t* size);
+int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size);
+bool profile_has_password(proc_profile_t* profile);
+bool profile_has_valid_password_var(proc_profile_t* profile);
 
 /*
  * Functions to bind processes to the default profiles
@@ -106,8 +126,10 @@ int profile_unregister(const char* name);
 int proc_register_to_base(struct proc* p);
 int proc_register_to_global(struct proc* p);
 
-int profile_save(proc_profile_t* profile, const char* path);
-int profile_load(proc_profile_t** profile, const char* path);
+int profile_save(proc_profile_t* profile, file_t* file);
+int profile_load(proc_profile_t** profile, file_t* file);
+int profile_save_variables(proc_profile_t* profile, file_t* file);
+int profile_load_variables(proc_profile_t* profile, file_t* file);
 
 uint16_t get_active_profile_count();
 

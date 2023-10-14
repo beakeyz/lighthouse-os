@@ -51,11 +51,11 @@ bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)())
 
   kfree((void*)path);
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   manifest->m_ops.f_write = write_fn;
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   return true;
 }
@@ -80,11 +80,11 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
   if (!manifest)
     return false;
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   manifest->m_ops.f_read = read_fn;
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   return true;
 }
@@ -110,11 +110,11 @@ bool install_private_data(struct aniva_driver* driver, void* data)
   if (!manifest || (manifest->m_private && data))
     return false;
 
-  mutex_lock(&manifest->m_lock);
+  mutex_lock(manifest->m_lock);
 
   manifest->m_private = data;
 
-  mutex_unlock(&manifest->m_lock);
+  mutex_unlock(manifest->m_lock);
 
   return true;
 }
@@ -129,8 +129,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
 
   memset(ret, 0, sizeof(*ret));
 
-  init_mutex(&ret->m_lock, NULL);
-
+  ret->m_lock = create_mutex(NULL);
   ret->m_handle = handle;
 
   ret->m_flags = NULL;
@@ -178,7 +177,7 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
  */
 void destroy_dev_manifest(dev_manifest_t* manifest) 
 {
-  destroy_mutex(&manifest->m_lock);
+  destroy_mutex(manifest->m_lock);
   destroy_list(manifest->m_dependency_manifests);
 
   destroy_resource_bundle(manifest->m_resources);
