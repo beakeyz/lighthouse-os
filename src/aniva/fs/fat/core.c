@@ -8,6 +8,7 @@
 #include "fs/core.h"
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
+#include "fs/fat/file.h"
 #include "fs/file.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
@@ -26,11 +27,6 @@ enum FAT_ERRCODES {
   FAT_OK = 0,
   FAT_INVAL = 1,
 };
-
-/* Following ASCII */
-static inline uint8_t fat_to_lower(char c) {
-  return ((c >= 'A') && (c <= 'Z')) ? c+32 : c;
-}
 
 #define TO_UPPERCASE(c) ((c >= 'a' && c <= 'z') ? c - 0x20 : c)
 #define TO_LOWERCASE(c) ((c >= 'A' && c <= 'Z') ? c + 0x20 : c)
@@ -59,7 +55,7 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
     return FAT_INVAL;
   }
 
-  if (bpb->sectors_per_fat == 0 && bpb->fat32.sectors_per_fat == 0) {
+  if (bpb->sectors_per_fat16 == 0 && bpb->fat32.sectors_per_fat == 0) {
     return FAT_INVAL;
   }
 
@@ -83,7 +79,7 @@ fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
   fat_fs_info_t* info;
 
   info = VN_FS_DATA(node).m_fs_specific_info;
-  error = fat_read(node, buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
+  error = fatfs_read(node, buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
 
   if (error)
     return error;
@@ -94,8 +90,12 @@ fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
   return 0;
 }
 
-static int
-fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluster)
+/*!
+ * @brief: Caches the cluster chain for a file
+ *
+ * The file is responsible for managing the buffer after this point
+ */
+static int fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluster)
 {
   int error;
   size_t length;
@@ -133,7 +133,7 @@ fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluste
   file->clusterchain_buffer = kmalloc(length * sizeof(uint32_t));
 
   /* Set correct lengths */
-  file->clusterchain_size = length;
+  file->clusters_num = length;
 
   /* Loop and store the clusters */
   for (uint32_t i = 0; i < length; i++) {
@@ -148,8 +148,7 @@ fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluste
   return 0;
 }
 
-static int
-fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t count)
+int fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t size)
 {
   int error;
   uintptr_t current_index;
@@ -167,12 +166,12 @@ fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t star
 
   index = 0;
 
-  while (index < count) {
+  while (index < size) {
     current_offset = start + index;
     current_index = current_offset / info->cluster_size;
     current_deviation = current_offset % info->cluster_size;
 
-    current_delta = count - index;
+    current_delta = size - index;
 
     /* Limit the delta to the size of a cluster, except if we try to get an unaligned size smaller than 'cluster_size' */
     if (current_delta > info->cluster_size - current_deviation)
@@ -180,7 +179,7 @@ fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t star
 
     current_cluster_offset = (info->usable_clusters_start + (file->clusterchain_buffer[current_index] - 2) * info->boot_sector_copy.sectors_per_cluster) * info->boot_sector_copy.sector_size;
 
-    error = fat_read(node, buffer + index, current_delta, current_cluster_offset + current_deviation);
+    error = fatfs_read(node, buffer + index, current_delta, current_cluster_offset + current_deviation);
 
     if (error)
       return -2;
@@ -258,7 +257,7 @@ fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* o
     goto fail_dealloc_cchain;
 
   /* Calculate the size of the data */
-  clusters_size = tmp_ffile.clusterchain_size * p->cluster_size;
+  clusters_size = tmp_ffile.clusters_num * p->cluster_size;
   dir_entries_count = clusters_size / sizeof(fat_dir_entry_t);
 
   /* Allocate for that size */
@@ -277,8 +276,6 @@ fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* o
   for (uint32_t i = 0; i < dir_entries_count; i++) {
     fat_dir_entry_t entry = dir_entries[i];
 
-    println(to_string(entry.attr));
-
     /* End */
     if (entry.name[0] == 0x00) {
       error = -3;
@@ -288,15 +285,12 @@ fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* o
     if (entry.attr == FAT_ATTR_LFN) {
       /* TODO: support
        */
-      println("LFN!!");
       error = -4;
       continue;
     } 
 
     if (entry.attr & FAT_ATTR_VOLUME_ID)
       continue;
-
-    println((char*)entry.name);
 
     /* This our file/directory? */
     if (strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
@@ -319,6 +313,7 @@ fail_dealloc_cchain:
  */
 static vobj_t* fat_open(vnode_t* node, char* path)
 {
+  println("Trying to open fat");
   int error;
   file_t* ret;
   fat_fs_info_t* info;
@@ -330,13 +325,13 @@ static vobj_t* fat_open(vnode_t* node, char* path)
   if (!path)
     return nullptr;
 
-  info = VN_FS_DATA(node).m_fs_specific_info;
-  ret = create_file(node, NULL, path);
+  info = VN_FS_INFO(node);
+  ret = create_fat_file(info, NULL, path);
 
   if (!ret)
     return nullptr;
 
-  fat_file = create_fat_file(ret);
+  fat_file = ret->m_private;
 
   if (!fat_file)
     return nullptr;
@@ -353,8 +348,6 @@ static vobj_t* fat_open(vnode_t* node, char* path)
 
   memcpy(path_buffer, path, path_size);
 
-  println(path);
-
   for (uintptr_t i = 0; i < path_size; i++) {
 
     /* Stop either at the end, or at any '/' char */
@@ -364,7 +357,8 @@ static vobj_t* fat_open(vnode_t* node, char* path)
     /* Place a null-byte */
     path_buffer[i] = '\0';
 
-    println(path_buffer);
+    println("A");
+    println(&path_buffer[current_idx]);
 
     error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx]);
 
@@ -382,6 +376,11 @@ static vobj_t* fat_open(vnode_t* node, char* path)
       if (error)
         break;
 
+      /* This is quite aggressive, we should prob just clean and return nullptr... */
+      Must(vn_attach_object(node, ret->m_obj));
+
+      ret->m_total_size = get_fat_file_size(fat_file);
+
       return ret->m_obj;
     }
 
@@ -394,7 +393,6 @@ static vobj_t* fat_open(vnode_t* node, char* path)
     path_buffer[i] = '/';
   }
 
-  destroy_fat_file(fat_file);
   /* NOTE: destroy the vobj, which will also destroy the file obj */
   destroy_vobj(ret->m_obj);
   return nullptr;
@@ -402,12 +400,12 @@ static vobj_t* fat_open(vnode_t* node, char* path)
 
 static int fat_close(vnode_t* node, vobj_t* obj)
 {
-  return -1;
+  return 0;
 }
 
 static int fat_mkdir(struct vnode* node, void* dir_entry, void* dir_attr, uint32_t flags)
 {
-  return -1;
+  return 0;
 }
 
 static int fat_msg(vnode_t* node, dcc_t code, void* buffer, size_t size)
@@ -431,7 +429,6 @@ static struct generic_vnode_ops fat_vnode_ops = {
 vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
   /* Get FAT =^) */
-
   fat_fs_info_t* ffi;
   uint8_t buffer[device->m_parent->m_logical_sector_size];
   fat_boot_sector_t* boot_sector;
@@ -444,7 +441,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     return nullptr;
 
   /* Create root vnode */
-  node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT);
+  node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT | VN_FLEXIBLE);
 
   /* Set the vnode device */
   node->m_device = device;
@@ -452,7 +449,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   create_fat_info(node);
 
   /* Cache superblock and fs info */
-  ffi = VN_FS_DATA(node).m_fs_specific_info;
+  ffi = FAT_FS_INFO(node);
 
   /* Set the local pointer to the bootsector */
   boot_sector = &ffi->boot_sector_copy;
@@ -474,7 +471,7 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     goto fail;
 
   /* Check FAT type */
-  if (!boot_sector->sectors_per_fat && boot_sector->fat32.sectors_per_fat) {
+  if (!boot_sector->sectors_per_fat16 && boot_sector->fat32.sectors_per_fat) {
     /* FAT32 */
     ffi->fat_type = FTYPE_FAT32;
   } else {
@@ -497,21 +494,21 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* TODO: move superblock initialization to its own function */
 
   /* Fetch blockcounts */
-  VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.sectors;
+  VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.sector_count_fat16;
 
   if (!VN_FS_DATA(node).m_total_blocks)
-    VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.total_sectors;
+    VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.sector_count_fat32;
 
   VN_FS_DATA(node).m_first_usable_block = ffi->boot_sector_copy.reserved_sectors;
 
-  /* Precompute some useful data */
+  /* Precompute some useful data (TODO: compute based on FAT type)*/
   ffi->root_directory_sectors = (boot_sector->root_dir_entries * 32 + (boot_sector->sector_size - 1)) / boot_sector->sector_size;
-  ffi->total_reserved_sectors = boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->sectors_per_fat) + ffi->root_directory_sectors;
+  ffi->total_reserved_sectors = boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->fat32.sectors_per_fat) + ffi->root_directory_sectors;
   ffi->total_usable_sectors = VN_FS_DATA(node).m_total_blocks - ffi->total_reserved_sectors; 
   ffi->cluster_count = ffi->total_usable_sectors / boot_sector->sectors_per_cluster;
   ffi->cluster_size = boot_sector->sectors_per_cluster * boot_sector->sector_size;
   ffi->usable_sector_offset = boot_sector->reserved_sectors * boot_sector->sector_size;
-  ffi->usable_clusters_start = (boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->sectors_per_fat));
+  ffi->usable_clusters_start = (boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->fat32.sectors_per_fat));
 
   ffi->root_entry_cpy = (fat_dir_entry_t) {
     .name = "/",

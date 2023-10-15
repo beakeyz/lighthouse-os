@@ -158,7 +158,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   if (!proc)
     goto error_and_out;
 
-  image.m_total_exe_bytes = file->m_buffer_size;
+  image.m_total_exe_bytes = file->m_total_size;
   image.m_lowest_addr = (vaddr_t)-1;
   image.m_highest_addr = 0;
 

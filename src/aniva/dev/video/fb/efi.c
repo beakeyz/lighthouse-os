@@ -30,7 +30,8 @@ static int efi_fbmemmap(uintptr_t base, size_t* p_size)
 
   println("Mapping framebuffer");
 
-  Must(__kmem_alloc_ex(nullptr, nullptr, info.addr, base, size, KMEM_CUSTOMFLAG_NO_REMAP, NULL));
+  /* Map the framebuffer to the exact base described by the caller */
+  Must(__kmem_alloc_ex(nullptr, nullptr, info.addr, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_KERNEL | KMEM_FLAG_WC | KMEM_FLAG_WRITABLE));
 
   *p_size = size;
 

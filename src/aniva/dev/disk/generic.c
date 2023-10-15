@@ -782,6 +782,7 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
   if (IsError(result))
     return false;
 
+  println("Yay, mounted root!");
   return true;
 }
 
@@ -790,12 +791,14 @@ void init_root_device_probing()
   /*
    * Init probing for the root device
    */
+  bool found_root_device;
   disk_dev_t* root_device;
   disk_uid_t device_index;
 
   partitioned_disk_dev_t* root_ramdisk;
 
   device_index = 0;
+  found_root_device = false;
   root_ramdisk = nullptr;
   root_device = find_gdisk_device(0);
 
@@ -819,11 +822,14 @@ void init_root_device_probing()
     while (part) {
 
       /* Try to mount a filesystem and scan for aniva system files */
-      if (try_mount_root(part))
+      if ((found_root_device = try_mount_root(part)))
         break;
 
       part = part->m_next;
     }
+
+    if (found_root_device)
+      break;
 
 cycle_next:
     device_index++;

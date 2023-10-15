@@ -48,12 +48,8 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
   buffer = strdup(path);
   buffer_start = buffer;
   reached_end = false;
-  ret = root;
+  ret = root->m_subdirs;
   prev = root;
-
-  /* Skip the roots name in the scan */
-  if (memcmp(root->m_name, path, root->m_name_len))
-    buffer += root->m_name_len;
 
   /* Buffer will be freed inside this loop */
   while (buffer && !reached_end) {
@@ -100,6 +96,13 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
   return prev;
 }
 
+/*!
+ * @brief: Try to create a chain of vobjects based on this path
+ *
+ * If the path ends in a file or vobject, it creates and returns the vdir
+ * that holds it. Otherwise if the path ends in a directory, the path
+ * MUST end in a slash '/'
+ */
 static vdir_t* __create_vobject_path(vnode_t* node, const char* path) 
 {
   vdir_t* ret;
@@ -129,11 +132,7 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     /* Set */
     *buffer = NULL;
 
-    println("buffer_start");
-    println(buffer_start);
-
     for (; ret; ret = ret->m_next_sibling) {
-      println(ret->m_name);
       if (memcmp(buffer_start, ret->m_name, ret->m_name_len)) {
         break;
       }
@@ -147,6 +146,7 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     if (!ret) {
       /* Create a vdir and link it */
       ret = create_vdir(node, prev, buffer_start);
+      println(ret->m_name);
     } else {
       /* Decend into the next subdir */
       prev = ret;
@@ -458,14 +458,17 @@ ErrorOrPtr vn_attach_object_rel(vnode_t* node, struct vdir* dir, struct vobj* ob
     if (obj->m_flags & VOBJ_MOVABLE) {
       kernel_panic("TODO: this vobject is movable. IMPLEMENT");
     }
-    //println("Has parent");
-    return Error();
+
+    if (obj->m_parent != node)
+      return Error();
+
+    /* Already attached */
+    if (obj == vn_get_object(node, obj->m_path))
+      return Success(0);
   }
 
   /* vobject opperations are locked by m_vobj_lock, so we need to take it here */
   mutex_lock(node->m_vobj_lock);
-
-  println(obj->m_path);
 
   /* Look for the thing */
   slot = __create_vobject_path(node, obj->m_path);
@@ -516,9 +519,8 @@ ErrorOrPtr vn_detach_object(vnode_t* node, struct vobj* obj) {
     return Error();
 
   /* Can't detach an object if there are none on the node -_- */
-  if (node->m_object_count == 0) {
+  if (node->m_object_count == 0)
     return Error();
-  }
 
   path = strdup(obj->m_path);
 
@@ -696,6 +698,9 @@ vobj_t* vn_open(vnode_t* node, char* name) {
 
   if (!vn_is_available(node))
     return nullptr;
+
+  print("Trying to find vobject: ");
+  println(name);
 
   /* Look if we have it cached */
   ret = vn_get_object(node, name);

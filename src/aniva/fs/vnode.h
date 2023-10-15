@@ -121,6 +121,7 @@ typedef struct vnode {
 } vnode_t;
 
 #define VN_FS_DATA(node) (node)->fs_data
+#define VN_FS_INFO(node) (node)->fs_data.m_fs_specific_info
 
 #define VN_ROOT     (0x00000001) /* Is this node the root of something? */
 #define VN_SYS      (0x00000002) /* Is this node owned by the system? */

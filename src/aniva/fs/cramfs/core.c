@@ -189,6 +189,9 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
             /* Make sure file opperations go through ramfs */
             file_set_ops(file, &tar_file_ops);
 
+            /* Attach the object once we know that it has been found */
+            Must(vn_attach_object(node, file->m_obj));
+
             mutex_unlock(node->m_vobj_lock);
             return file->m_obj;
           }

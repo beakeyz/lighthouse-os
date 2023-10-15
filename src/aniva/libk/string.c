@@ -68,8 +68,6 @@ char* strdup(const char* str)
   memset(ret, 0, len + 1);
   strcpy(ret, str);
 
-  println(ret);
-
   return ret;
 }
 

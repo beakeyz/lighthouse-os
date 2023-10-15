@@ -7,6 +7,7 @@
 #include <libk/stddef.h>
 
 struct vnode;
+struct fat_file;
 struct fat_file_ops;
 
 #define FAT_SECTOR_SIZE 512
@@ -64,16 +65,15 @@ typedef struct fat_boot_sector {
   uint16_t reserved_sectors;
   uint8_t fats;
   uint16_t root_dir_entries;
-  uint16_t sectors;
+  uint16_t sector_count_fat16;
   uint8_t media;
-  uint16_t sectors_per_fat;
+  uint16_t sectors_per_fat16;
   uint16_t sectors_per_track;
   uint16_t heads;
   uint32_t hidden;
-  uint32_t total_sectors;
+  uint32_t sector_count_fat32;
 
   union {
-
     struct {
       uint8_t drive_num;
       uint8_t state;
@@ -90,7 +90,7 @@ typedef struct fat_boot_sector {
       uint32_t root_cluster;
       uint16_t info_sector;
       uint16_t backup_boot;
-      uint16_t reserved[2];
+      uint8_t reserved[12];
 
       uint8_t drive_num;
       uint8_t state;
@@ -162,6 +162,7 @@ typedef struct {
  * TODO: should this hold caches?
  */
 typedef struct fat_fs_info {
+  struct vnode* node;
 
   uint8_t fats, fat_type; /* FAT count and bits of this FAT fs (12, 16, 32) */
   uint8_t fat_file_shift, has_dirty;
@@ -192,7 +193,7 @@ typedef struct fat_fs_info {
 
 } fat_fs_info_t;
 
-#define FAT_FSINFO(node) ((fat_fs_info_t*)((node)->fs_data.m_fs_specific_info))
+#define FAT_FS_INFO(node) ((fat_fs_info_t*)(VN_FS_INFO(node)))
 
 static inline bool is_fat32(fat_fs_info_t* finfo)
 {
@@ -209,11 +210,6 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
   return (finfo->fat_type == FTYPE_FAT12);
 }
 
-typedef struct fat_file {
-  struct file* parent;
-
-  uint32_t* clusterchain_buffer;
-  size_t clusterchain_size;
-} fat_file_t;
+int fat32_load_clusters(vnode_t* node, void* buffer, struct fat_file* file, uint32_t start, size_t size);
 
 #endif // !__ANIVA_GENERIC_FAT__

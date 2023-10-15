@@ -4,12 +4,14 @@
 #include "dev/driver.h"
 #include "dev/external.h"
 #include "dev/manifest.h"
+#include "fs/file.h"
 #include "fs/vobj.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include <fs/vfs.h>
@@ -448,11 +450,19 @@ extern_driver_t* load_external_driver(const char* path)
   extern_driver_t* out;
   struct loader_ctx ctx = { 0 };
 
+  println("Resolve...");
+
   file_obj = vfs_resolve(path);
+
+  if (!file_obj)
+    return nullptr;
+
   file = vobj_get_file(file_obj);
 
-  if (!file)
+  if (!file || !file->m_total_size)
     return nullptr;
+
+  println("Thing...");
 
   out = create_external_driver(NULL);
 
@@ -460,7 +470,7 @@ extern_driver_t* load_external_driver(const char* path)
     return nullptr;
 
   /* Allocate contiguous high space for the driver */
-  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
   if (IsError(result))
     goto fail_and_deallocate;
@@ -469,13 +479,16 @@ extern_driver_t* load_external_driver(const char* path)
 
   /* Set driver fields */
   out->m_load_base = driver_load_base;
-  out->m_load_size = ALIGN_UP(file->m_buffer_size, SMALL_PAGE_SIZE);
+  out->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
   out->m_file = file;
 
-  read_size = file->m_buffer_size;
+  read_size = file_get_size(file);
+  println(to_string(read_size));
 
   /* Read the driver into RAM */
   error = file_read(file, (void*)out->m_load_base, &read_size, 0);
+
+  println(to_string(read_size));
 
   if (error < 0)
     goto fail_and_deallocate;
@@ -542,7 +555,7 @@ extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
   out->m_manifest = manifest;
 
   /* Allocate contiguous high space for the driver */
-  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
   if (IsError(result))
     goto fail_and_deallocate;
@@ -551,10 +564,10 @@ extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
 
   /* Set driver fields */
   out->m_load_base = driver_load_base;
-  out->m_load_size = ALIGN_UP(file->m_buffer_size, SMALL_PAGE_SIZE);
+  out->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
   out->m_file = file;
 
-  read_size = file->m_buffer_size;
+  read_size = file->m_total_size;
 
   /* Read the driver into RAM */
   error = file_read(file, (void*)out->m_load_base, &read_size, 0);

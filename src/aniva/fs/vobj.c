@@ -23,9 +23,8 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
     return nullptr;
 
   /* A parent that is not taken should not have any object registered to it */
-  if (!vn_is_available(parent)) {
+  if (!vn_is_available(parent))
     return nullptr;
-  }
 
   vobj_t* obj = kmalloc(sizeof(vobj_t));
 
@@ -34,23 +33,30 @@ vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
   obj->m_lock = create_mutex(0);
   obj->m_ops = &generic_ops;
 
-  obj->m_parent = nullptr;
+  obj->m_parent = parent;
   obj->m_child = nullptr;
   obj->m_type = VOBJ_TYPE_EMPTY;
 
   obj->m_path = strdup(path);
 
   /* This is quite aggressive, we should prob just clean and return nullptr... */
-  Must(vn_attach_object(parent, obj));
+  //Must(vn_attach_object(parent, obj));
 
   return obj;
 }
 
+/*!
+ * @brief: Clear the memory used by a vobject
+ *
+ * The caller should not take the objects mutex, since any child destruction function
+ * might try to take the mutex
+ */
 void destroy_vobj(vobj_t* obj) 
 {
   if (!obj)
     return;
 
+  ASSERT_MSG(!mutex_is_locked(obj->m_lock), "Failed to destroy vobject! Its mutex is still held");
   ASSERT_MSG(obj->m_child && obj->m_ops->f_destory_child, "No way to destroy child of vobj!");
 
   /* Try to detach */
@@ -122,11 +128,14 @@ int vobj_unref(vobj_t* obj)
     return 0;
 
   parent = obj->m_parent;
+
+  /* First, make the vnode (most likely filesystem) close the object */
   error = parent->m_ops->f_close(parent, obj);
 
   if (error)
     return error;
 
+  /* Second, kill the object itself */
   destroy_vobj(obj);
 
   return 0;

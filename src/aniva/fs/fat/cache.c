@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "fs/fat/core.h"
+#include "fs/fat/file.h"
 #include "fs/file.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
@@ -32,6 +33,7 @@ ErrorOrPtr create_fat_info(vnode_t* node)
     return Error();
 
   info->fat_lock = create_mutex(NULL);
+  info->node = node;
 
   node->fs_data.m_fs_specific_info = info;
 
@@ -42,10 +44,10 @@ void destroy_fat_info(vnode_t* node)
 {
   fat_fs_info_t* info;
 
-  if (!node || !FAT_FSINFO(node))
+  if (!node || !FAT_FS_INFO(node))
     return;
 
-  info = FAT_FSINFO(node);
+  info = FAT_FS_INFO(node);
 
   if (info->sector_cache)
     destroy_fat_sector_cache(info->sector_cache);
@@ -69,6 +71,7 @@ fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size)
     return nullptr;
 
   cache->blocksize = block_size;
+  cache->current_block = (uintptr_t)-1;
   cache->fat_block_buffer = Must(__kmem_kernel_alloc_range(block_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
   return cache;
@@ -92,6 +95,12 @@ void destroy_fat_sector_cache(fat_sector_cache_t* cache)
 static int 
 __read(vnode_t* node, fat_sector_cache_t* cache, uintptr_t block)
 {
+  /* Already got it */
+  if (cache->current_block == block)
+    return 0;
+
+  cache->current_block = block;
+
   return pd_bread(node->m_device, (void*)cache->fat_block_buffer, block);
 }
 
@@ -100,7 +109,7 @@ __read(vnode_t* node, fat_sector_cache_t* cache, uintptr_t block)
  *
  * Nothing to add here...
  */
-int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
+int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
 {
   int error;
   fat_fs_info_t* info;
@@ -112,8 +121,8 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   lba_size = VN_FS_DATA(node).m_blocksize;
 
   while (current_offset < size) {
-    current_block = ALIGN_DOWN((offset + current_offset), lba_size) / lba_size;
-    current_delta = ALIGN_DOWN((offset + current_offset), lba_size) % lba_size;
+    current_block = (offset + current_offset) / lba_size;
+    current_delta = (offset + current_offset) % lba_size;
 
     error = __read(node, info->sector_cache, current_block);
 
@@ -126,7 +135,7 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     if (read_size > lba_size - current_delta)
       read_size = lba_size - current_delta;
 
-    memcpy(buffer + current_offset, &((uint8_t*)info->sector_cache->fat_block_buffer)[current_delta], read_size);
+    memcpy(buffer + current_offset, &(((uint8_t*)info->sector_cache->fat_block_buffer)[current_delta]), read_size);
 
     current_offset += read_size;
   }
@@ -134,22 +143,10 @@ int fat_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   return 0;
 }
 
-int fat_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
-{
-  kernel_panic("TODO: fat_write");
-}
-
-int fat_bread(vnode_t* node, void* buffer, size_t count, uint64_t sec)
-{
-  kernel_panic("TODO: fat_bread");
-}
-
-int fat_bwrite(vnode_t* node, void* buffer, size_t count, uint64_t sec)
-{
-  kernel_panic("TODO: fat_bwrite");
-}
-
-fat_file_t* create_fat_file(file_t* file)
+/*!
+ * @brief: Allocates memory for a file under the FAT filesystem
+ */
+fat_file_t* allocate_fat_file(file_t* file)
 {
   fat_file_t* ret;
 
@@ -162,14 +159,14 @@ fat_file_t* create_fat_file(file_t* file)
 
   ret->parent = file;
 
+  /* Make sure the file is aware of its private data */
+  file->m_private = ret;
+
   return ret;
 }
 
-void destroy_fat_file(fat_file_t* file)
+void deallocate_fat_file(fat_file_t* file)
 {
-  if (file->clusterchain_buffer)
-    kfree(file->clusterchain_buffer);
-
   zfree_fixed(&__fat_file_cache, file);
 }
 

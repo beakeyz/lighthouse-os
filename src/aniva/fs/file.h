@@ -88,6 +88,22 @@ int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 int file_sync(file_t* file);
 
-int file_close(file_t* file);
+/*!
+ * Gets the total size of the file on its medium
+ * (disk, network, ramdisk, ect.)
+ */
+static inline size_t file_get_size(file_t* file)
+{
+  return file->m_total_size;
+}
+
+/*!
+ * Gets the size of the buffer that this file has between disk and
+ * RAM
+ */
+static inline size_t file_buffer_size(file_t* file)
+{
+  return file->m_buffer_size;
+}
 
 #endif // !__ANIVA_FIL_IMPL__
