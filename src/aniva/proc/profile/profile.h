@@ -55,10 +55,10 @@ typedef struct proc_profile {
    */
   union {
     struct {
-      uint8_t lvl: 4;
-      uint8_t check: 4;
+      uint8_t lvl;
+      uint8_t check;
     };
-    uint8_t raw;
+    uint16_t raw;
   } priv_level;
 
   /* Profile permission flags */
@@ -75,13 +75,13 @@ void init_proc_profiles(void);
 
 static inline bool profile_is_valid_priv_level(proc_profile_t* profile)
 {
-  return (~(profile->priv_level.check) == profile->priv_level.lvl);
+  return (profile->priv_level.check == ~(profile->priv_level.lvl));
 }
 
 static inline void profile_set_priv_lvl(proc_profile_t* profile, uint8_t lvl)
 {
   /* Set raw here, so we overwrite garbage bits while setting the check */
-  profile->priv_level.raw = lvl;
+  profile->priv_level.lvl = lvl;
   profile->priv_level.check = ~(profile->priv_level.lvl);
 }
 

@@ -18,7 +18,7 @@
  */
 
 /* A good target for fast machines might be 1000 or more */
-#define TARGET_TPS 250 
+#define TARGET_TPS 1000
 
 typedef enum {
   UNSET = 0,

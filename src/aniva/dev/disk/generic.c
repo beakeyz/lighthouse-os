@@ -733,22 +733,46 @@ void destroy_generic_disk(disk_dev_t* device)
 
 }
 
-void register_boot_device() {
-  /* We need some concrete way to detirmine boot device */
-  kernel_panic("TODO: implement register_boot_device");
+void init_gdisk_dev() 
+{
+  s_gdisk_lock = create_mutex(0);
 }
 
-void init_gdisk_dev() {
-  s_gdisk_lock = create_mutex(0);
+/*!
+ * @brief: Check the currently mounted root filesystem for our system files
+ *
+ * We need to check for a few file(types) to be present on the system:
+ * - The kernel file
+ * - The kernel BASE variable file, created by the installer
+ * - The base softdrivers that are required for userspace
+ * - Other resource files for the kernel
+ * - ect. (TODO)
+ */
+static bool verify_mount_root()
+{
+  vobj_t* scan_obj;
+
+  scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/aniva.elf");
+
+  if (!scan_obj) {
+    return false;
+  }
+
+  /*
+   * We could find the system file! 
+   * TODO: look for more files that only one O.o
+   */
+  vobj_close(scan_obj);
+  return true;
 }
 
 static bool try_mount_root(partitioned_disk_dev_t* device)
 {
+  bool verify_result;
   ErrorOrPtr result;
-  vobj_t* scan_obj;
   const char* filesystems[] = {
     "fat32",
-    "ext2",
+    //"ext2",
   };
   const uint32_t filesystems_count = sizeof(filesystems) / sizeof(*filesystems);
 
@@ -757,32 +781,26 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
 
     result = vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, fs, device);
 
-    /* Successful mount? try and find aniva.elf */
-    if (!IsError(result)) {
-      scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/aniva.elf");
+    /* Successful mount? try and verify the mount */
+    if (IsError(result))
+      continue;
 
-      if (!scan_obj) {
-        result = Error();
+    verify_result = verify_mount_root();
 
-        /* NOTE: unmount needs the vfs rootid =) */
-        Must(vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP));
-        continue;
-      }
-
-      /*
-       * We could find the system file! 
-       * TODO: look for more files that only one O.o
-       */
-      vobj_close(scan_obj);
+    /* Did we succeed??? =DD */
+    if (verify_result)
       break;
-    }
+
+    /* Reset the result */
+    result = Error();
+
+    Must(vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP));
   }
 
   /* Failed to scan for filesystem */
   if (IsError(result))
     return false;
 
-  println("Yay, mounted root!");
   return true;
 }
 

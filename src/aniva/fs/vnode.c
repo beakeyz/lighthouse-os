@@ -312,7 +312,6 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
 /* TODO: what do we do when we try to destroy a linked node? */
 ErrorOrPtr destroy_generic_vnode(vnode_t* node) 
 {
-  println("Destroying thing");
   if (!node || vn_seems_mounted(*node))
     return Error();
 
@@ -710,9 +709,18 @@ vobj_t* vn_open(vnode_t* node, char* name) {
     return ret;
   }
 
+  /*
+   * There really is no need to lock these mutexes here, since we are not doing anything
+   * to the vobject state of the vnode. We only need to lock the mutexes when we are making
+   * changes to that state, like we do in vn_attach_object or vn_detach_object.
+   */
+  //mutex_lock(node->m_vobj_lock);
+
   ret = node->m_ops->f_open(node, name);
 
   vobj_ref(ret);
+
+  //mutex_unlock(node->m_vobj_lock);
 
   return ret;
 }

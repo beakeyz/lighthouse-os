@@ -552,6 +552,15 @@ fail:
   return nullptr;
 }
 
+/*!
+ * @brief: Unmount the FAT filesystem
+ * 
+ * This simply needs to free up the private structures we created for this vnode
+ * to hold the information about the FAT filesystem. We don't need to wory about fat
+ * files here, since they will be automatically killed when the filesystem is destroyed
+ *
+ * NOTE: An unmount should happen after a total filesystem sync, to prevent loss of data
+ */
 int fat32_unmount(fs_type_t* type, vnode_t* node) 
 {
   if (!type || !node)

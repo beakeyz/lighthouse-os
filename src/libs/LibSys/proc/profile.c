@@ -59,6 +59,9 @@ BOOL profile_var_read_ex(char* profile_name, char* var_key, WORD flags, QWORD bu
   HANDLE profile_handle;
   HANDLE var_handle;
 
+  if (!buffer || !buffer_size)
+    return FALSE;
+
   profile_handle = open_profile(profile_name, flags);
 
   /* Yikes */

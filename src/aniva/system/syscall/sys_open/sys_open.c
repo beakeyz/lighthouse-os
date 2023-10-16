@@ -178,7 +178,7 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
     return HNDL_NOT_FOUND;
 
   /* Spoof a not-found when the permissions don't match =) */
-  if (profile_can_see_var(current_profile, pvar))
+  if (!profile_can_see_var(current_profile, pvar))
     return HNDL_NOT_FOUND;
 
   /* Create a kernel handle */

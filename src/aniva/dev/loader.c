@@ -450,8 +450,6 @@ extern_driver_t* load_external_driver(const char* path)
   extern_driver_t* out;
   struct loader_ctx ctx = { 0 };
 
-  println("Resolve...");
-
   file_obj = vfs_resolve(path);
 
   if (!file_obj)
@@ -461,8 +459,6 @@ extern_driver_t* load_external_driver(const char* path)
 
   if (!file || !file->m_total_size)
     return nullptr;
-
-  println("Thing...");
 
   out = create_external_driver(NULL);
 
@@ -483,12 +479,9 @@ extern_driver_t* load_external_driver(const char* path)
   out->m_file = file;
 
   read_size = file_get_size(file);
-  println(to_string(read_size));
 
   /* Read the driver into RAM */
   error = file_read(file, (void*)out->m_load_base, &read_size, 0);
-
-  println(to_string(read_size));
 
   if (error < 0)
     goto fail_and_deallocate;

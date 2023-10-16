@@ -1,6 +1,7 @@
 #ifndef __KMAIN__
 #define __KMAIN__
 #include "dev/driver.h"
+#include "proc/proc.h"
 #include <mem/pg.h>
 #include <libk/stddef.h>
 #include <libk/multiboot.h>

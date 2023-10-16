@@ -106,8 +106,8 @@ static void register_kernel_data(paddr_t p_mb_addr)
     g_system_info.sys_flags |= SYSFLAGS_HAS_FRAMEBUFFER;
 }
 
-NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
-
+NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) 
+{
   /*
    * TODO: move serial to driver level, have early serial that gets migrated to a driver later 
    * TODO: create a nice logging system, with log clients that connect to a single place to post
@@ -116,6 +116,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
    * connectors =D
    */
   disable_interrupts();
+
+  proc_t* root_proc;
 
   // Logging system asap
   init_early_logging();
@@ -219,20 +221,36 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) {
 
   init_scheduler();
 
-  proc_t* root_proc = create_kernel_proc(kthread_entry, NULL);
+  root_proc = create_kernel_proc(kthread_entry, NULL);
 
+  ASSERT_MSG(root_proc, "Failed to create a root process!");
+
+  /* Create a thread to manage our sockets (TODO: remove) */
   init_socket_arbiter(root_proc);
+
+  /* Create a reaper thread to kill processes through an async pipeline */
   init_reaper(root_proc);
 
+  /* Register our kernel process */
   set_kernel_proc(root_proc);
+
+  /* Add it to the scheduler */
   sched_add_proc(root_proc);
 
+  /* Start the scheduler (Should never return) */
   start_scheduler();
 
   // Verify not reached
   kernel_panic("Somehow came back to the kernel entry function!");
 }
 
+/*!
+ * @brief: Our kernel thread entry point
+ *
+ * This function is not supposed to be called explicitly, but rather it serves as the 
+ * 'third stage' of our kernel, with stage one being our assembly setup and stage two 
+ * being the start of our C code.
+ */
 void kthread_entry() {
 
   /* Make sure the scheduler won't ruin our day */
@@ -270,9 +288,10 @@ void kthread_entry() {
    */
   resume_scheduler();
 
-  for (;;) {
-    asm volatile ("hlt");
+  while (true) {
+    scheduler_yield();
   }
 
+  /* Should not happen lmao */
   kernel_panic("Reached end of start_thread");
 }

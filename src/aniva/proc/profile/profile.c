@@ -254,10 +254,14 @@ int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t**
 
 bool profile_can_see_var(proc_profile_t* profile, profile_var_t* var)
 {
-  if (var->flags & PVAR_FLAG_HIDDEN)
+  if ((var->flags & PVAR_FLAG_HIDDEN) == PVAR_FLAG_HIDDEN)
     return false;
 
-  return (profile_get_priv_lvl(profile) >= profile_get_priv_lvl(var->profile));
+  /* Same profile address, same profile */
+  if (profile == var->profile)
+    return true;
+
+  return (profile_get_priv_lvl(profile) <= profile_get_priv_lvl(var->profile));
 }
 
 /*!

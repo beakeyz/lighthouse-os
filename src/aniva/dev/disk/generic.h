@@ -116,11 +116,6 @@ int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn);
 int pd_bwrite(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn);
 
 int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize);
-/*
- * Find the disk device from which we where booted in
- * order to read config files and load ramdisks
- */
-void register_boot_device();
 
 void init_gdisk_dev();
 void init_root_device_probing();

@@ -145,15 +145,11 @@ ErrorOrPtr vfs_unmount(const char* path)
   if (!node || !node->m_ns)
     return Error();
 
-  println(path);
-
   /* Take the node to give any pending processes time to finish their shit */
   error = vn_take(node, NULL);
 
   if (error)
     return Error();
-
-  println(node->m_name);
 
   /* If this node has a filesystem, it needs to murder itself */
   fs_type = node->fs_data.m_type;
@@ -169,11 +165,13 @@ ErrorOrPtr vfs_unmount(const char* path)
   /* Grab the namespace */
   namespace = node->m_ns;
 
+  /* Remove the vnode from its namespace */
   error = vns_remove_vnode(namespace, node);
 
   if (error)
     return Error();
 
+  /* Death */
   return destroy_generic_vnode(node);
 }
 

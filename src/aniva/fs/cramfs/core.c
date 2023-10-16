@@ -152,8 +152,6 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
   if (!file)
     return nullptr;
 
-  mutex_lock(node->m_vobj_lock);
-
   while (current_offset <= node->fs_data.m_total_blocks) {
     /* Raw read :clown: */
     int result = ramfs_read(node, &current_file, sizeof(tar_file_t), current_offset);
@@ -192,7 +190,6 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
             /* Attach the object once we know that it has been found */
             Must(vn_attach_object(node, file->m_obj));
 
-            mutex_unlock(node->m_vobj_lock);
             return file->m_obj;
           }
         case TAR_TYPE_DIR:
@@ -207,7 +204,6 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
     current_offset += apply_tar_alignment(filesize);
   }
 
-  mutex_unlock(node->m_vobj_lock);
   destroy_vobj(file->m_obj);
   return nullptr;
 }
