@@ -126,14 +126,17 @@ static int fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t s
     length++;
   }
 
+  /* Set correct lengths */
+  file->clusters_num = length;
+
+  if (!length)
+    return 0;
+
   /* Reset buffer */
   buffer = start_cluster;
 
   /* Allocate chain */
   file->clusterchain_buffer = kmalloc(length * sizeof(uint32_t));
-
-  /* Set correct lengths */
-  file->clusters_num = length;
 
   /* Loop and store the clusters */
   for (uint32_t i = 0; i < length; i++) {
@@ -380,6 +383,7 @@ static vobj_t* fat_open(vnode_t* node, char* path)
       Must(vn_attach_object(node, ret->m_obj));
 
       ret->m_total_size = get_fat_file_size(fat_file);
+      ret->m_logical_size = current.size;
 
       return ret->m_obj;
     }

@@ -74,7 +74,10 @@ typedef struct file {
   /* Pointer to the data buffer. TODO: make this easily managable */
   void* m_buffer;
   size_t m_buffer_size;
+  /* Size on disk */
   size_t m_total_size;
+  /* Logical size of the file */
+  size_t m_logical_size;
 
 } __attribute__((aligned(4))) file_t;
 
