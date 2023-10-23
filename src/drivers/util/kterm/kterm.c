@@ -148,6 +148,10 @@ static struct kterm_cmd {
     .argv_zero = "hello",
     .handler = kterm_cmd_hello,
   },
+  {
+    .argv_zero = "diskinfo",
+    .handler = kterm_cmd_diskinfo,
+  },
   /*
    * NOTE: this is exec and this should always
    * be placed at the end of this list, otherwise

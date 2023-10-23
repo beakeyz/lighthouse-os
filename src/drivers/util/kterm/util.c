@@ -1,5 +1,6 @@
 #include "util.h"
 #include "dev/core.h"
+#include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
 #include "drivers/util/kterm/kterm.h"
@@ -268,6 +269,53 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
   if (!driver) {
     kterm_println("Failed to load that driver!");
     return 1;
+  }
+
+  return 0;
+}
+
+uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
+{
+  uint32_t device_index;
+  disk_dev_t* device;
+  partitioned_disk_dev_t* this_part;
+
+  if (argc != 2) {
+    kterm_println("Invalid args!");
+    return 1;
+  }
+
+  if (argv[1][0] < '0' || argv[1][0] > '9') {
+    kterm_println("Invalid argument!");
+    return 1;
+  }
+
+  device_index = argv[1][0] - '0';
+
+  device = find_gdisk_device(device_index);
+
+  if (!device) {
+    kterm_println("Could not find that device!");
+    return 2;
+  }
+
+  kterm_print_keyvalue("Disk name", device->m_device_name);
+  kterm_print_keyvalue("Disk path", device->m_path);
+  kterm_print_keyvalue("Disk logical sector size", to_string(device->m_logical_sector_size));
+  kterm_print_keyvalue("Disk physical sector size", to_string(device->m_physical_sector_size));
+  kterm_print_keyvalue("Disk size", to_string(device->m_max_blk * device->m_logical_sector_size));
+  kterm_print_keyvalue("Disk partition type", device->m_partition_type == PART_TYPE_GPT ? "gpt" : (device->m_partition_type == PART_TYPE_MBR ? "mbr" : "unknown"));
+  kterm_print_keyvalue("Disk partition count", to_string(device->m_partitioned_dev_count));
+
+  this_part = device->m_devs;
+
+  while (this_part) {
+    kterm_print_keyvalue("Partition: ", this_part->m_name);
+    kterm_print_keyvalue("Partition sector size: ", to_string(this_part->m_block_size));
+    kterm_print_keyvalue("Partition start lba: ", to_string(this_part->m_start_lba));
+    kterm_print_keyvalue("Partition end lba: ", to_string(this_part->m_end_lba));
+
+    this_part = this_part->m_next;
   }
 
   return 0;

@@ -86,7 +86,7 @@ iso:
 	cp $(OUT)/anivaRamdisk.igz $(OUT)/isofiles/boot
 	cp ./resources/stage2_eltorito  $(OUT)/isofiles/boot/grub/
 	grub-mkrescue -o $(OUT)/lightos.iso $(OUT)/isofiles
-	genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o $(OUT)/lightos_mbr.iso $(OUT)/isofiles
+	# genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o $(OUT)/lightos_mbr.iso $(OUT)/isofiles
 
 .PHONY: check-multiboot
 check-multiboot:
