@@ -115,6 +115,18 @@ ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs
   return _vfs_mount(path, mountnode);
 }
 
+/*!
+ * @brief: Mount a filesystem vnode on the specified @mountpoint
+ *
+ * TODO: Check if a particular device has already been mounted before somewhere else, 
+ * and let this new mount simply point to the old mount, to prevent double mounting of 
+ * the same filesystem
+ *
+ * @path: The namespace path to follow
+ * @mountpoint: The 'name' that the vnode will have
+ * @fs_name: The filesystem type
+ * @device: The memory space manager that the filesystem will have
+ */
 ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device) {
 
   fs_type_t* type = get_fs_type(fs_name);

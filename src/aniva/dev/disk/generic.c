@@ -824,8 +824,7 @@ void init_root_device_probing()
 
     partitioned_disk_dev_t* part = root_device->m_devs;
 
-    if (root_device->m_flags & GDISKDEV_FLAG_RAM) {
-
+    if ((root_device->m_flags & GDISKDEV_FLAG_RAM) == GDISKDEV_FLAG_RAM) {
       /* We can use this ramdisk as a fallback to mount */
       root_ramdisk = part; 
       goto cycle_next;
@@ -837,7 +836,7 @@ void init_root_device_probing()
      * it does, we check if it contains the files that make up our boot filesystem and if it does, we simply take 
      * that device and mark as our root.
      */
-    while (part) {
+    while (part && !found_root_device) {
 
       /* Try to mount a filesystem and scan for aniva system files */
       if ((found_root_device = try_mount_root(part)))
@@ -846,19 +845,23 @@ void init_root_device_probing()
       part = part->m_next;
     }
 
-    if (found_root_device)
-      break;
-
 cycle_next:
     device_index++;
     root_device = find_gdisk_device(device_index);
   }
 
-  if (!root_device) {
+  if (!found_root_device) {
     if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
       kernel_panic("Could not find a root device to mount! TODO: fix");
     }
+  } 
+
+  /*
+  if (root_ramdisk) {
+    println("Trying to mount ramfs!");
+    Must(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_RAMDISK_MP, "cramfs", root_ramdisk));
   }
+  */
 }
 
 

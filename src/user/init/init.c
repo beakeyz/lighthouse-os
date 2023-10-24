@@ -28,6 +28,7 @@
  *  - Find the vector of further bootstrap applications to run and run them
  */
 int main() {
+
   /*
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?

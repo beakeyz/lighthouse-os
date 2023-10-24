@@ -260,7 +260,7 @@ void destroy_proc(proc_t* proc)
 
 
 bool proc_can_schedule(proc_t* proc) {
-  if (!proc || (proc->m_flags & PROC_FINISHED) || (proc->m_flags & PROC_IDLE))
+  if (!proc || (proc->m_flags & PROC_FINISHED) == PROC_FINISHED || (proc->m_flags & PROC_IDLE) == PROC_IDLE)
     return false;
 
   if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread)
@@ -280,17 +280,19 @@ int await_proc_termination(proc_id_t id)
   proc_t* proc;
   kdoor_t terminate_door;
 
+  /* Pause the scheduler so we don't get fucked while registering the door */
+  pause_scheduler();
+
   proc = find_proc_by_id(id);
 
   /*
    * If we can't find the process here, that probably means its already
    * terminated even before we could make this call
    */
-  if (!proc)
+  if (!proc) {
+    resume_scheduler();
     return 0;
-
-  /* Pause the scheduler so we don't get fucked while registering the door */
-  pause_scheduler();
+  }
 
   init_kdoor(&terminate_door, NULL, NULL);
 
@@ -333,16 +335,14 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
   /* Remove from the scheduler */
   sched_remove_proc(proc);
 
-  /* Register to the reaper */
-  TRY(reap_result, reaper_register_process(proc));
-
   /* Register from the global register store */
   proc_unregister((char*)proc->m_name);
 
   /* Resume scheduling */
   resume_scheduler();
 
-  return Success(0);
+  /* Finally, register to the reaper after the process is fully cleared, so its held memory can be disposed of */
+  return reaper_register_process(proc);
 }
 
 /*!

@@ -19,6 +19,7 @@
 #define VFS_ROOT_ID             ":"
 #define VFS_DEFAULT_DEVICE_MP   "Devices"
 #define VFS_DEFAULT_ROOT_MP     "Root"
+#define VFS_DEFAULT_RAMDISK_MP  "Rd"
 #define VFS_DEFAULT_INIT_MP     "Init"
 
 struct vfs;

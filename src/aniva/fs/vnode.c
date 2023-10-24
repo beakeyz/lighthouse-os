@@ -708,6 +708,7 @@ vobj_t* vn_open(vnode_t* node, char* name) {
     vobj_ref(ret);
     return ret;
   }
+  println("No buenos");
 
   /*
    * There really is no need to lock these mutexes here, since we are not doing anything
