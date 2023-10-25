@@ -113,4 +113,9 @@ static inline bool kdoor_is_rang(kdoor_t* door)
   return ((door->m_flags & KDOOR_FLAG_RANG) == KDOOR_FLAG_RANG && !mutex_is_locked(door->m_lock));
 }
 
+static inline bool kdoor_is_attached(kdoor_t* door) 
+{
+  return (door->m_bell != nullptr);
+}
+
 #endif // !__ANIVA_DOORBELL__

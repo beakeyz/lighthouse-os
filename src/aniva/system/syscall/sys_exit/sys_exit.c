@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -10,7 +11,8 @@
 /*
  * FIXME: what if a sub-thread of a certain process calls exit() ?
  */
-uintptr_t sys_exit_handler(uintptr_t code) {
+uintptr_t sys_exit_handler(uintptr_t code) 
+{
   proc_t* current_proc;
   thread_t* current_thread;
 
@@ -53,7 +55,7 @@ uintptr_t sys_exit_handler(uintptr_t code) {
   }
 
 exit_and_terminate:
-  try_terminate_process(current_proc);
+  Must(try_terminate_process(current_proc));
 
   print("(debug) Process terminated with code: ");
   println(to_string(code));

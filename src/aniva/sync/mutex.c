@@ -89,7 +89,8 @@ void destroy_mutex(mutex_t* mutex)
   kfree(mutex);
 }
 
-void mutex_lock(mutex_t* mutex) {
+void mutex_lock(mutex_t* mutex) 
+{
   ASSERT_MSG(mutex, "Tried to lock a mutex that has not been initialized");
 
   spinlock_lock(mutex->m_lock);
@@ -143,15 +144,14 @@ void mutex_unlock(mutex_t* mutex) {
   ASSERT_MSG(mutex, "Tried to unlock a mutex that has not been initialized");
   //ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
   // ASSERT_MSG(mutex->m_lock_holder != nullptr, "mutex has no holder while trying to unlock!");
-  ASSERT_MSG(mutex->m_lock_depth > 0, "Tried to unlock a mutex while it was already unlocked!");
+  ASSERT_MSG(mutex->m_lock_depth, "Tried to unlock a mutex while it was already unlocked!");
   ASSERT_MSG((mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD), "IS_HELD flag not set while trying to unlock mutex");
 
   spinlock_lock(mutex->m_lock);
 
   mutex->m_lock_depth--;
 
-  if (mutex->m_lock_depth == 0) {
-
+  if (!mutex->m_lock_depth) {
     mutex->m_mutex_flags &= ~MUTEX_FLAG_IS_HELD;
     __mutex_handle_unblock(mutex);
   }
@@ -172,24 +172,30 @@ bool mutex_is_locked_by_current_thread(mutex_t* mutex) {
   return (mutex_is_locked(mutex) && mutex->m_lock_holder == get_current_scheduling_thread());
 }
 
-static void __mutex_handle_unblock(mutex_t* mutex) {
-  // TODO:
+/*!
+ * @brief: Handle the cycling of waiters
+ *
+ * NOTE: the caller must have the mutexes spinlock held
+ */
+static void __mutex_handle_unblock(mutex_t* mutex) 
+{
+  thread_t* current_thread;
+  thread_t* next_holder;
 
-  thread_t* current_thread = get_current_scheduling_thread();
-  thread_t* next_holder = queue_dequeue(mutex->m_waiters);
+  if (!mutex)
+    return;
 
-  if (current_thread == nullptr) {
-    goto reset_holder;
-  }
+  /* Preemptive reset of the holder field */
+  mutex->m_lock_holder = nullptr;
+
+  current_thread = get_current_scheduling_thread();
+  next_holder = queue_dequeue(mutex->m_waiters);
+
+  if (!current_thread || !next_holder)
+    return;
 
   ASSERT_MSG(next_holder != current_thread, "Next thread to hold mutex is also the current thread!");
 
-  if (next_holder) {
-    thread_unblock(next_holder);
-    mutex->m_lock_holder = next_holder;
-    return;
-  }
-
-reset_holder:
-  mutex->m_lock_holder = nullptr;
+  mutex->m_lock_holder = next_holder;
+  thread_unblock(next_holder);
 }

@@ -259,7 +259,8 @@ void destroy_proc(proc_t* proc)
 }
 
 
-bool proc_can_schedule(proc_t* proc) {
+bool proc_can_schedule(proc_t* proc) 
+{
   if (!proc || (proc->m_flags & PROC_FINISHED) == PROC_FINISHED || (proc->m_flags & PROC_IDLE) == PROC_IDLE)
     return false;
 
@@ -323,26 +324,39 @@ int await_proc_termination(proc_id_t id)
  */
 ErrorOrPtr try_terminate_process(proc_t* proc) 
 {
+  ErrorOrPtr result;
+
+  if (!proc)
+    return Error();
+
+  result = Success(0);
+
   /* Pause scheduler: can't yield and mutex is held */
   pause_scheduler();
 
   /* Mark as finished */
   proc->m_flags |= PROC_FINISHED;
 
-  /* Ring the doorbell, so waiters know this process has terminated */
+  /* Ring the doorbell, so waiters know this process has terminated (Do this before we kill process memory) */
   doorbell_ring(proc->m_terminate_bell);
 
   /* Remove from the scheduler */
-  sched_remove_proc(proc);
+  (void)sched_remove_proc(proc);
+
+  /* Register to the reaper */
+  result = reaper_register_process(proc);
+
+  if (IsError(result))
+    goto exit;
 
   /* Register from the global register store */
   proc_unregister((char*)proc->m_name);
 
+exit:
   /* Resume scheduling */
   resume_scheduler();
 
-  /* Finally, register to the reaper after the process is fully cleared, so its held memory can be disposed of */
-  return reaper_register_process(proc);
+  return result;
 }
 
 /*!

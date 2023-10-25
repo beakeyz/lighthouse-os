@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
+#include "logging/log.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
@@ -21,7 +22,9 @@ static queue_t* __reaper_queue;
  * or in reaper_on_packet, where we block untill the process is destroyed AND we're 
  * most likely in an interrupt / critical section
  */
-static void USED reaper_main() {
+static void USED reaper_main() 
+{
+  proc_t* proc;
 
   /* Check if we actually have a queue, otherwise try to create it again */
   if (!__reaper_queue)
@@ -34,19 +37,26 @@ static void USED reaper_main() {
   ASSERT_MSG(__reaper_lock, "Could not start reaper: unable to create mutex");
 
   /* Simply pass execution through */
-  for (;;) {
-    /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
-    mutex_lock(__reaper_lock);
+  while (true) {
 
-    proc_t* proc = queue_dequeue(__reaper_queue);
+    proc = queue_dequeue(__reaper_queue);
 
-    if (proc)
+    if (mutex_is_locked(__reaper_lock))
+      goto yield;
+
+    if (proc) {
+      /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
+      mutex_lock(__reaper_lock);
+
       destroy_proc(proc);
 
-    mutex_unlock(__reaper_lock);
+      mutex_unlock(__reaper_lock);
+    }
 
+yield:
     scheduler_yield();
   }
+
   kernel_panic("Reaper thread isn't supposed to exit its loop!");
 }
 
@@ -82,8 +92,8 @@ static uintptr_t USED reaper_on_packet(packet_payload_t payload, packet_response
   return 0;
 }
 
-ErrorOrPtr reaper_register_process(proc_t* proc) {
-
+ErrorOrPtr reaper_register_process(proc_t* proc) 
+{
   if (!proc || proc_can_schedule(proc))
     return Error();
 

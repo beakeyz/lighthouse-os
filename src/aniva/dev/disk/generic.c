@@ -768,6 +768,7 @@ static bool verify_mount_root()
 
 static bool try_mount_root(partitioned_disk_dev_t* device)
 {
+#if 0
   bool verify_result;
   ErrorOrPtr result;
   const char* filesystems[] = {
@@ -802,6 +803,10 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
     return false;
 
   return true;
+#else 
+  (void)verify_mount_root;
+  return false;
+#endif
 }
 
 void init_root_device_probing() 

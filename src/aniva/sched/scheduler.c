@@ -449,8 +449,10 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule)
   return Success(0);
 }
 
-ANIVA_STATUS sched_remove_proc(proc_t *proc) {
-  if (!proc)
+ANIVA_STATUS sched_remove_proc(proc_t *proc) 
+{
+  /* Should never remove the kernel process lmao */
+  if (!proc || is_kernel(proc))
     return ANIVA_FAIL;
 
   return sched_remove_proc_by_id(proc->m_id);
@@ -460,8 +462,8 @@ ANIVA_STATUS sched_remove_proc(proc_t *proc) {
  * We require the scheduler to be locked by this 
  * point, which generaly means it is paused
  */
-ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id) {
-
+ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id) 
+{
   if (!mutex_is_locked(s_sched_mutex))
     return ANIVA_FAIL;
 
