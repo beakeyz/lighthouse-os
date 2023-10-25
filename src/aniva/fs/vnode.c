@@ -708,12 +708,12 @@ vobj_t* vn_open(vnode_t* node, char* name) {
     vobj_ref(ret);
     return ret;
   }
-  println("No buenos");
 
   /*
    * There really is no need to lock these mutexes here, since we are not doing anything
    * to the vobject state of the vnode. We only need to lock the mutexes when we are making
    * changes to that state, like we do in vn_attach_object or vn_detach_object.
+   * TODO: remove
    */
   //mutex_lock(node->m_vobj_lock);
 

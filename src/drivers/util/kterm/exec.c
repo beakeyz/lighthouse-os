@@ -39,6 +39,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   }
 
   println("Create");
+  /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
   result = elf_exec_static_64_ex(file, false, true);
 
   println("Close");
@@ -77,10 +78,13 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
 
+  println("Yay");
   /* Do an instant rescedule */
-  sched_add_priority_proc(p, true);
+  Must(sched_add_priority_proc(p, true));
 
+  println("Yay");
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
+  println("Yay");
 
   return 0;
 }

@@ -19,6 +19,10 @@ int fb_driver_exit();
 /* Local framebuffer information for the driver */
 fb_info_t info = { 0 };
 
+fb_ops_t fb_ops = {
+  .f_draw_rect = generic_draw_rect,
+};
+
 static int efi_fbmemmap(uintptr_t base, size_t* p_size) 
 {
   size_t size;
@@ -129,12 +133,25 @@ int fb_driver_init() {
   if (!fb)
     return -1;
 
+  memset(&info, 0, sizeof(info));
+
   info.addr = fb->common.framebuffer_addr;
   info.pitch = fb->common.framebuffer_pitch;
   info.bpp = fb->common.framebuffer_bpp;
   info.width = fb->common.framebuffer_width;
   info.height = fb->common.framebuffer_height;
   info.size = info.pitch * info.height;
+  info.kernel_addr = Must(__kmem_kernel_alloc(info.addr, info.size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE));
+
+  info.colors.red.length_bits = fb->framebuffer_red_mask_size;
+  info.colors.green.length_bits = fb->framebuffer_green_mask_size;
+  info.colors.red.length_bits = fb->framebuffer_blue_mask_size;
+
+  info.colors.red.offset_bits = fb->framebuffer_red_field_position;
+  info.colors.green.offset_bits = fb->framebuffer_green_field_position;
+  info.colors.blue.offset_bits = fb->framebuffer_blue_field_position;
+
+  info.ops = &fb_ops;
 
   size_t fb_page_count = GET_PAGECOUNT(info.size);
   uintptr_t fb_start_idx = kmem_get_page_idx(info.addr);

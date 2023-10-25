@@ -6,6 +6,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/string.h"
 #include "intr/interrupts.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/socket.h"
@@ -57,7 +58,7 @@ static list_t* s_sched_frames = nullptr;
 //static atomic_ptr_t *s_no_schedule;
 static mutex_t* s_sched_mutex = nullptr;
 static enum SCHED_MODE s_sched_mode = UNINITIALIZED_SCHED;
-static uintptr_t s_sched_pause_count;
+static uint32_t s_sched_pause_depth;
 static bool s_has_schedule_request = false;
 
 // --- inline functions --- TODO: own file?
@@ -76,11 +77,12 @@ static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
 //static void should_proc_die(proc_t* proc);
 
-ANIVA_STATUS init_scheduler() {
+ANIVA_STATUS init_scheduler() 
+{
   disable_interrupts();
   s_sched_mode = UNINITIALIZED_SCHED;
   s_has_schedule_request = false;
-  s_sched_pause_count = NULL;
+  s_sched_pause_depth = NULL;
 
   s_sched_frames = init_list();
   s_sched_mutex = create_mutex(0);
@@ -92,15 +94,14 @@ ANIVA_STATUS init_scheduler() {
 }
 
 // first scheduler entry
-void start_scheduler(void) {
-
+void start_scheduler(void) 
+{
   proc_t* initial_process;
   thread_t *initial_thread;
   sched_frame_t *frame_ptr = list_get(s_sched_frames, 0);
 
-  if (frame_ptr == nullptr) {
+  if (!frame_ptr)
     return;
-  }
 
   initial_process = frame_ptr->m_proc_to_schedule;
 
@@ -120,7 +121,11 @@ void start_scheduler(void) {
   bootstrap_thread_entries(initial_thread);
 }
 
-static void pick_next_process_scheduler() {
+/*!
+ * @brief: Pick the next process to put in the front of the schedule queue
+ */
+static void pick_next_process_scheduler() 
+{
   uintptr_t idx = 0;
   sched_frame_t* current;
 
@@ -129,9 +134,8 @@ static void pick_next_process_scheduler() {
 
     current = list_get(s_sched_frames, 0);
 
-    if(!(current->m_proc_to_schedule->m_flags & PROC_FINISHED))
+    if(proc_can_schedule(current->m_proc_to_schedule))
       break;
-    
   }
 }
 
@@ -140,20 +144,24 @@ static void pick_next_process_scheduler() {
  * If this current process is in idle mode, we just 
  * schedule the idle thread
  */
-ErrorOrPtr pick_next_thread_scheduler(void) {
+ErrorOrPtr pick_next_thread_scheduler(void) 
+{
   // get first frame (proc)
   sched_frame_t* frame = list_get(s_sched_frames, 0);
 
   if (!frame)
     return Error();
 
-  /* Check if this frame is done */
-  while (!proc_can_schedule(frame->m_proc_to_schedule)) {
+  /* Check if this frame can be scheduled */
+  while (!frame || !proc_can_schedule(frame->m_proc_to_schedule)) {
 
     /* Kill the proc, TODO: do that somewhere async, so it doesn't block the scheduler */
     //sched_remove_proc(frame->m_proc_to_schedule);
-    try_terminate_process(frame->m_proc_to_schedule);
+    send_sched_frame_to_back(0);
 
+    //try_terminate_process(frame->m_proc_to_schedule);
+
+    println("Could not schedule process");
     frame = list_get(s_sched_frames, 0);
   }
 
@@ -175,10 +183,8 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
   thread_t *next_thread = pull_runnable_thread_sched_frame(frame);
 
   /* There are no threads left. We can safely kill this process */
-  if (next_thread == nullptr) {
-    println("No next thread");
+  if (!next_thread)
     return Error();
-  }
 
   set_previous_thread(prev_thread);
   set_current_handled_thread(next_thread);
@@ -186,6 +192,15 @@ ErrorOrPtr pick_next_thread_scheduler(void) {
   return Success(0);
 }
 
+/*!
+ * @brief: Pause the scheduler from scheduling
+ *
+ * This disables interrupts for a moment to make sure we don't get 
+ * interrupted right before we actually pause the scheduler
+ *
+ * When we're already paused, we just increment s_sched_pause_depth and
+ * return
+ */
 ANIVA_STATUS pause_scheduler() 
 {
   /* Should not pause if we're already paused */
@@ -195,8 +210,10 @@ ANIVA_STATUS pause_scheduler()
   if (!s_sched_mutex)
     return ANIVA_FAIL;
 
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
+
   /* If we are trying to pause inside of a pause, just increment the pause depth */
-  if (s_sched_pause_count)
+  if (s_sched_pause_depth)
     goto skip_mutex;
 
   mutex_lock(s_sched_mutex);
@@ -204,39 +221,56 @@ ANIVA_STATUS pause_scheduler()
   s_sched_mode = PAUSED;
 
 skip_mutex:
-  s_sched_pause_count++;
+  s_sched_pause_depth++;
 
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
   return ANIVA_SUCCESS;
 }
 
+/*!
+ * @brief: Unpause the scheduler from scheduling
+ *
+ * This disables interrupts for a moment to make sure we don't get 
+ * interrupted right before we actually resume the scheduler
+ *
+ * Only sets the scheduler back to SCHEDULING once we've reached a 
+ * s_sched_pause_depth of 0
+ */
 void resume_scheduler()
 {
-  if (!s_sched_mutex)
+  if (!s_sched_mutex || s_sched_mode == UNINITIALIZED_SCHED)
     return;
 
   /* Simply not paused /-/ */
-  if (s_sched_mode != PAUSED && !mutex_is_locked(s_sched_mutex))
+  if (!s_sched_pause_depth)
     return;
 
-  // make sure the scheduler is in the right state
-  s_sched_mode = SCHEDULING;
+  CHECK_AND_DO_DISABLE_INTERRUPTS();
 
   /* Only decrement if we can */
-  if (s_sched_pause_count)
-    s_sched_pause_count--;
+  if (s_sched_pause_depth)
+    s_sched_pause_depth--;
 
   /* Only unlock if we just decremented to the last pause level =) */
-  if (!s_sched_pause_count)
+  if (!s_sched_pause_depth) {
+    // make sure the scheduler is in the right state
+    s_sched_mode = SCHEDULING;
+
     mutex_unlock(s_sched_mutex);
+  }
+
+  CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-void scheduler_yield() {
+void scheduler_yield() 
+{
   ASSERT_MSG(s_sched_frames, "Tried to yield to an uninitialized scheduler!");
   ASSERT_MSG(s_sched_mode != UNINITIALIZED_SCHED, "Tried to yield to an unstarted scheduler!");
+  ASSERT_MSG(!s_sched_pause_depth, "Tried to yield to a paused scheduler!");
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
   // invoke the scheduler early
-  scheduler_try_invoke();
+  scheduler_invoke();
   // prepare the next thread
   if (IsError(pick_next_thread_scheduler())) {
     kernel_panic("TODO: terminate the process which has no threads left!");
@@ -257,17 +291,17 @@ void scheduler_yield() {
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-ErrorOrPtr scheduler_try_execute() {
-
+ErrorOrPtr scheduler_try_execute() 
+{
   processor_t *current = get_current_processor();
   ASSERT_MSG(current, "Could not get current processor while trying to calling scheduler");
   ASSERT_MSG(current->m_irq_depth == 0, "Trying to call scheduler while in irq");
 
-  if (atomic_ptr_load(current->m_critical_depth) != 0) {
+  if (atomic_ptr_load(current->m_critical_depth))
     return Error();
-  }
 
-  if (!s_has_schedule_request)
+  /* If we don't want to schedule, or our scheduler is paused, return */
+  if (!s_has_schedule_request || s_sched_pause_depth)
     return Error();
 
   s_has_schedule_request = false;
@@ -282,16 +316,19 @@ ErrorOrPtr scheduler_try_execute() {
   return Success(0);
 }
 
-// TODO: ?
-ErrorOrPtr scheduler_try_invoke() {
+/*!
+ * Notify the scheduler that we want to reschedule
+ */
+void scheduler_invoke() 
+{
   s_has_schedule_request = true;
-  return Success(0);
 }
 
 /*
  * Let's just pagefault is we don't have a process lmao
  */
-void sched_idle_current_process() {
+void sched_idle_current_process() 
+{
   disable_interrupts();
 
   sched_frame_t* current_frame = list_get(s_sched_frames, 0);
@@ -304,7 +341,8 @@ void sched_idle_current_process() {
 /*
  * Let's just pagefault is we don't have a process lmao
  */
-void sched_wake_current_process() {
+void sched_wake_current_process() 
+{
   disable_interrupts();
 
   sched_frame_t* current_frame = list_get(s_sched_frames, 0);
@@ -314,23 +352,26 @@ void sched_wake_current_process() {
   scheduler_yield();
 }
 
-registers_t *sched_tick(registers_t *registers_ptr) {
+registers_t *sched_tick(registers_t *registers_ptr) 
+{
+  sched_frame_t *current_frame;
+  thread_t *current_thread;
 
   if (s_sched_mode == UNINITIALIZED_SCHED)
     return registers_ptr;
 
-  if (mutex_is_locked(s_sched_mutex))
+  if (mutex_is_locked(s_sched_mutex) || s_sched_pause_depth)
     return registers_ptr;
 
   if (!get_current_scheduling_thread())
     return registers_ptr;
 
-  sched_frame_t *current_frame = list_get(s_sched_frames, 0);
+  current_frame = list_get(s_sched_frames, 0);
 
-  if (current_frame->m_proc_to_schedule->m_flags & PROC_IDLE) {
+  if (!proc_can_schedule(current_frame->m_proc_to_schedule)) {
     Must(pick_next_thread_scheduler());
 
-    scheduler_try_invoke();
+    scheduler_invoke();
     return registers_ptr;
   }
 
@@ -366,7 +407,7 @@ registers_t *sched_tick(registers_t *registers_ptr) {
         }
       }
 
-      scheduler_try_invoke();
+      scheduler_invoke();
       return registers_ptr;
     }
     current_frame->m_sched_time_left--;
@@ -374,55 +415,45 @@ registers_t *sched_tick(registers_t *registers_ptr) {
 
   current_frame->m_proc_to_schedule->m_ticks_used++;
 
-  thread_t *current_thread = get_current_scheduling_thread();
-
+  current_thread = get_current_scheduling_thread();
   ASSERT_MSG(current_thread, "No initial thread!");
-  /*
-  if (current_thread == nullptr) {
-    println("no initial thread!");
-    pick_next_thread_scheduler();
-    return registers_ptr;
-  }
-  */
 
   current_thread->m_ticks_elapsed++;
 
   if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
     current_thread->m_ticks_elapsed = 0;
     // we want to schedule a new thread at this point
-    if (pick_next_thread_scheduler().m_status != ANIVA_SUCCESS) {
+    if (IsError(pick_next_thread_scheduler())) {
       // TODO: we might try to spawn another eternal process
       kernel_panic("Could not pick another thread to schedule!");
     }
-    scheduler_try_invoke();
+    scheduler_invoke();
   }
 
   //resume_scheduler();
   return registers_ptr;
 }
 
-ANIVA_STATUS sched_add_proc(proc_t *proc_ptr) {
-
-  /* If the scheduler is busy, we simply fuck off */
-  if (mutex_is_locked(s_sched_mutex))
-    return ANIVA_FAIL;
-
-  /* Yay, we can alter scheduler behaviour */
-  mutex_lock(s_sched_mutex);
+ANIVA_STATUS sched_add_proc(proc_t *proc_ptr) 
+{
+  /* NOTE: this only fails if we try to pause the scheduler before it has been started */
+  pause_scheduler();
 
   sched_frame_t *frame_ptr = create_sched_frame(proc_ptr, LOW, proc_ptr->m_requested_max_threads);
 
   add_sched_frame(frame_ptr);
 
-  mutex_unlock(s_sched_mutex);
+  resume_scheduler();
   return ANIVA_SUCCESS;
 }
 
 ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) 
 {
   /* If the scheduler is busy, we simply fuck off (You can't order the scheduler to add a process while its scheduling =) ) */
-  if (mutex_is_locked(s_sched_mutex))
+  if (mutex_is_locked(s_sched_mutex)) {
+    println(to_string(s_sched_pause_depth));
     return Error();
+  }
 
   /* Yay, we can alter scheduler behaviour */
   mutex_lock(s_sched_mutex);
@@ -464,19 +495,19 @@ ANIVA_STATUS sched_remove_proc(proc_t *proc)
  */
 ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id) 
 {
-  if (!mutex_is_locked(s_sched_mutex))
-    return ANIVA_FAIL;
-
   sched_frame_t* frame = find_sched_frame(id);
 
   if (!frame)
     return ANIVA_FAIL;
 
-  if (remove_sched_frame(frame).m_status != ANIVA_SUCCESS)
-    return ANIVA_FAIL;
+  pause_scheduler();
+
+  /* Just hard force this bitch */
+  Must(remove_sched_frame(frame));
 
   destroy_sched_frame(frame);
 
+  resume_scheduler();
   return ANIVA_SUCCESS;
 }
 
@@ -515,7 +546,8 @@ ALWAYS_INLINE void add_sched_frame(sched_frame_t* frame_ptr) {
   list_append(s_sched_frames, frame_ptr);
 }
 
-ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_ptr) {
+ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_ptr) 
+{
   // Place the new schedframe right behind the first (now running)
   // sched frame, so it is next in line for execution
   list_append_after(s_sched_frames, frame_ptr, 0);
@@ -524,12 +556,8 @@ ALWAYS_INLINE void add_sched_frame_for_next_execute(sched_frame_t* frame_ptr) {
 // difference between add and insert is the fact that
 // insert requires the scheduler to wait with scheduling
 // until we have added the frame
-void insert_sched_frame(sched_frame_t* frame_ptr) {
-
-  if (s_sched_mode == PAUSED) {
-    add_sched_frame(frame_ptr);
-    return;
-  }
+void insert_sched_frame(sched_frame_t* frame_ptr) 
+{
   pause_scheduler();
   add_sched_frame(frame_ptr);
   resume_scheduler();
@@ -561,7 +589,8 @@ ALWAYS_INLINE sched_frame_t pop_sched_frame() {
   return frame;
 }
 
-static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) {
+static ALWAYS_INLINE void send_sched_frame_to_back(uintptr_t idx) 
+{
   if (s_sched_frames->m_length == 0) {
     kernel_panic("no sched frame to send to back!");
   }
@@ -599,18 +628,17 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid) {
  *
  * Returning nullptr means that this thread does not have any threads left. Let's just kill it at that point...
  */
-thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) {
-  const uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
-  proc_t* proc = ptr->m_proc_to_schedule;
-  list_t *thread_list_ptr = proc->m_threads;
-
-  if (thread_list_ptr->m_length == 0) {
-    return nullptr;
-  }
-
+thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) 
+{
+  uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
   uintptr_t cycles = 0;
   uintptr_t current_idx = prev_sched_thread_idx + 1;
   thread_t* next_thread = nullptr;
+  proc_t* proc = ptr->m_proc_to_schedule;
+  list_t *thread_list_ptr = proc->m_threads;
+
+  if (thread_list_ptr->m_length == 0)
+    return nullptr;
 
   /* Clear the flag and run initializer */
   if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {

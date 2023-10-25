@@ -198,7 +198,8 @@ static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
 
 static void kterm_clear_raw()
 {
-  kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
+  __kterm_fb_info.ops->f_draw_rect(&__kterm_fb_info, 0, 0, __kterm_fb_info.width, __kterm_fb_info.height, (fb_color_t){ .raw_clr = 0x00 });
+  //kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
 }
 
 static int kterm_get_argument_count(char* cmd_buffer, size_t* count)

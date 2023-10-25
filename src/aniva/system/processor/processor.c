@@ -229,8 +229,8 @@ bool is_bsp(processor_t *processor) {
  *
  * The current state of the processor, registers and such get stored here
  */
-void processor_enter_interruption(registers_t* registers, bool irq) {
-
+void processor_enter_interruption(registers_t* registers, bool irq)
+{
   processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when entering interruption");
 
@@ -240,8 +240,8 @@ void processor_enter_interruption(registers_t* registers, bool irq) {
   }
 }
 
-void processor_exit_interruption(registers_t* registers) {
-
+void processor_exit_interruption(registers_t* registers) 
+{
   processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when exiting interruption");
 

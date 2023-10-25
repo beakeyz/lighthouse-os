@@ -107,10 +107,7 @@ static inline bool kdoor_is_rang(kdoor_t* door)
   if (!door->m_bell)
     return true;
 
-  if (!door->m_lock)
-    return false;
-
-  return ((door->m_flags & KDOOR_FLAG_RANG) == KDOOR_FLAG_RANG && !mutex_is_locked(door->m_lock));
+  return ((door->m_flags & KDOOR_FLAG_RANG) == KDOOR_FLAG_RANG);
 }
 
 static inline bool kdoor_is_attached(kdoor_t* door) 

@@ -256,6 +256,7 @@ void destroy_proc(proc_t* proc)
 
   kfree((void*)proc->m_name);
   kzfree(proc, sizeof(proc_t));
+
 }
 
 
@@ -307,6 +308,7 @@ int await_proc_termination(proc_id_t id)
    * we can create a 'deadlock' here, since we are waiting for our door to be rang while
    * there is no doorbell at all
    */
+  println("Yielding");
   while (!kdoor_is_rang(&terminate_door))
     scheduler_yield();
 
@@ -317,10 +319,10 @@ int await_proc_termination(proc_id_t id)
 
 /*
  * Terminate the process, which means that we
+ * NOTE: don't remove the scheduler here, but in the reaper
  * 1) mark it as finished
- * 2) remove it from the scheduler
- * 3) Queue it to the reaper thread so It can be safely be disposed of
- * 4) Remove it from the global register store, so that the id gets freed
+ * 2) Queue it to the reaper thread so It can be safely be disposed of
+ * 3) Remove it from the global register store, so that the id gets freed
  */
 ErrorOrPtr try_terminate_process(proc_t* proc) 
 {
@@ -332,7 +334,7 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
   result = Success(0);
 
   /* Pause scheduler: can't yield and mutex is held */
-  pause_scheduler();
+  (void)pause_scheduler();
 
   /* Mark as finished */
   proc->m_flags |= PROC_FINISHED;
@@ -350,7 +352,7 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
     goto exit;
 
   /* Register from the global register store */
-  proc_unregister((char*)proc->m_name);
+  result = proc_unregister((char*)proc->m_name);
 
 exit:
   /* Resume scheduling */

@@ -1,6 +1,10 @@
 #include "dev/video/framebuffer.h"
+#include "drivers/wnd/io.h"
+#include "drivers/wnd/screen.h"
+#include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <dev/core.h>
@@ -8,6 +12,45 @@
 #include <dev/video/device.h>
 #include "window.h"
 #include "LibGfx/include/driver.h"
+
+static fb_info_t _fb_info;
+static lwnd_mouse_t _mouse;
+static lwnd_keyboard_t _keyboard;
+
+static uint32_t _main_screen;
+static vector_t* _screens;
+
+/*!
+ * @brief: Main compositing loop
+ *
+ * A few things need to happen here:
+ * 1) Loop over the windows and draw visible stuff
+ * 2) Queue events to windows that want them
+ */
+static void USED lwnd_main()
+{
+  lwnd_window_t* current_wnd;
+  lwnd_screen_t* current_screen;
+
+  (void)_mouse;
+  (void)_keyboard;
+
+  while (true) {
+    FOREACH_VEC(_screens, data, index) {
+      current_screen = *(lwnd_screen_t**)data;
+
+      for (uint64_t i = 0; i < current_screen->window_count; i++) {
+        current_wnd = current_screen->window_stack[i];
+
+        /* Check if this windows wants to move */
+        /* Clear the old bits in the pixel bitmap (These pixels will be overwritten with whatever is under them)*/
+        /* Set the new bits in the pixel bitmap */
+        /* Draw whatever is visible of the internal window buffer to its new location */
+        (void)current_wnd;
+      }
+    }
+  }
+}
 
 /*
  * Yay, we are weird!
@@ -20,15 +63,38 @@
  */
 int init_window_driver()
 {
-  fb_info_t fb_info = { 0 };
+  lwnd_screen_t* main_screen;
 
-  driver_send_msg("core/video", VIDDEV_DCC_GET_FBINFO, &fb_info, sizeof(fb_info));
+  _main_screen = NULL;
+  memset(&_fb_info, 0, sizeof(_fb_info));
+
+  _screens = create_vector(16, sizeof(lwnd_screen_t*), VEC_FLAG_NO_DUPLICATES);
+
+  if (!_screens)
+    return -1;
+
+  /*
+   * Try and get framebuffer info from the active video device 
+   * TODO: when we implement 2D acceleration, we probably need to do something else here
+   * TODO: implement screens on the drivers side with 'connectors'
+   */
+  driver_send_msg("core/video", VIDDEV_DCC_GET_FBINFO, &_fb_info, sizeof(_fb_info));
+
+  main_screen = create_lwnd_screen(&_fb_info, LWND_SCREEN_MAX_WND_COUNT);
+
+  if (!main_screen)
+    return -1;
+
+  vector_add(_screens, main_screen);
+
+  ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
 
   return 0;
 }
 
 int exit_window_driver()
 {
+  kernel_panic("TODO: exit window driver");
   return 0;
 }
 

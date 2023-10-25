@@ -13,6 +13,9 @@ typedef uint8_t window_type_t;
 #define LWND_TYPE_INFO 0x1
 #define LWND_TYPE_ERROR 0x2
 #define LWND_TYPE_DRIVER 0x3
+#define LWND_TYPE_SYSTEM 0x4
+/* Things like taskbar, menus, etc. that are managed by lwnd */
+#define LWND_TYPE_LWND_OWNED 0x5
 
 /*
  * Kernel-side structure representing a window on the screen

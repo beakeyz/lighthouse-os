@@ -40,6 +40,7 @@ typedef struct fb_info {
 
   /* Generic fb stuff */
   paddr_t addr;
+  vaddr_t kernel_addr;
   size_t size;
   uint32_t width, height, pitch;
   uint8_t bpp;
@@ -49,16 +50,16 @@ typedef struct fb_info {
   /* Layout of the 4 color chanels in the pixels */
   struct {
     struct {
-      uint32_t offset, length;
+      uint32_t offset_bits, length_bits;
     } red;
     struct {
-      uint32_t offset, length;
+      uint32_t offset_bits, length_bits;
     } green;
     struct {
-      uint32_t offset, length;
+      uint32_t offset_bits, length_bits;
     } blue;
     struct {
-      uint32_t offset, length;
+      uint32_t offset_bits, length_bits;
     } alpha;
   } colors;
 
@@ -76,6 +77,8 @@ fb_info_t* create_fb_info(struct video_device* device, size_t priv_data_size);
 
 /* Clear the framebuffer memory, deallocate other shit */
 void destroy_fb_info(fb_info_t* info);
+
+int generic_draw_rect(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t clr);
 
 typedef struct fb_ops {
   int (*f_destroy) (fb_info_t* info);

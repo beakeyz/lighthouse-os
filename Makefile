@@ -83,7 +83,7 @@ iso:
 	cp grub.cfg $(OUT)/isofiles/boot/grub
 	cp $(OUT)/aniva.elf $(OUT)/isofiles/boot
 	cp $(OUT)/aniva.map $(OUT)/isofiles/boot
-	cp $(OUT)/anivaRamdisk.igz $(OUT)/isofiles/boot
+	cp $(OUT)/anivaRamdisk.igz $(OUT)/isofiles/boot/rdisk.igz
 	cp ./resources/stage2_eltorito  $(OUT)/isofiles/boot/grub/
 	grub-mkrescue -o $(OUT)/lightos.iso $(OUT)/isofiles
 	# genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -o $(OUT)/lightos_mbr.iso $(OUT)/isofiles

@@ -39,7 +39,7 @@ void scheduler_yield();
 
 /* die */
 ErrorOrPtr scheduler_try_execute();
-ErrorOrPtr scheduler_try_invoke();
+void scheduler_invoke();
 
 registers_t *sched_tick(registers_t*);
 

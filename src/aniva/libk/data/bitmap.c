@@ -10,14 +10,38 @@
 
 // We leave the calculation of the amount of 
 // bytes for this map to the caller
-bitmap_t* create_bitmap(size_t size) {
-  
+bitmap_t* create_bitmap(size_t size) 
+{
   bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
   map->m_default = (uint8_t)BITMAP_DEFAULT;
   map->m_size = size;
   map->m_entries = size * 8;
 
   memset(map->m_map, map->m_default, size);
+
+  return map;
+}
+
+bitmap_t* create_bitmap_ex(size_t max_entries, uint8_t default_value)
+{
+  size_t bitmap_size;
+  bitmap_t* map;
+
+  bitmap_size = max_entries / 8;
+
+  if (!bitmap_size)
+    return nullptr;
+
+  map = kmalloc(sizeof(*map) + bitmap_size);
+
+  if (!map)
+    return nullptr;
+
+  map->m_default = default_value;
+  map->m_size = bitmap_size;
+  map->m_entries = max_entries;
+
+  memset(map->m_map, default_value, bitmap_size);
 
   return map;
 }

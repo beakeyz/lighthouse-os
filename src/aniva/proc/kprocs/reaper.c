@@ -39,21 +39,16 @@ static void USED reaper_main()
   /* Simply pass execution through */
   while (true) {
 
+    /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
+    mutex_lock(__reaper_lock);
+
     proc = queue_dequeue(__reaper_queue);
 
-    if (mutex_is_locked(__reaper_lock))
-      goto yield;
-
-    if (proc) {
-      /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
-      mutex_lock(__reaper_lock);
-
+    if (proc)
       destroy_proc(proc);
 
-      mutex_unlock(__reaper_lock);
-    }
+    mutex_unlock(__reaper_lock);
 
-yield:
     scheduler_yield();
   }
 
@@ -62,34 +57,6 @@ yield:
 
 static void USED reaper_exit() {
   kernel_panic("Reaper thread isn't supposed to exit!");
-}
-
-/*
- * Let's still allow direct messaging to the reaper socket for now,
- * but let's 
- * TODO: remove socket status if we don't find a use for this soon
- */
-static uintptr_t USED reaper_on_packet(packet_payload_t payload, packet_response_t** respose) {
-
-  proc_t* process = payload.m_data;
-
-  if (!process || payload.m_data_size != sizeof(proc_t*))
-    return -1;
-
-  if (proc_can_schedule(process))
-    return -1;
-
-
-  /*
-   * NOTE: these data structures are non-atomic, so 
-   *       opperations like these are generaly unsafe.
-   *       here, I'll allow it for now, since the way packets
-   *       work right now ensure no scheduling on this CPU,
-   *       since packets work on interrupts
-   */
-  queue_enqueue(__reaper_queue, process);
-
-  return 0;
 }
 
 ErrorOrPtr reaper_register_process(proc_t* proc) 
@@ -128,7 +95,7 @@ ErrorOrPtr init_reaper(proc_t* proc) {
    * perhaps we can even just move packets off of the interrupts,
    * so we can just lock mutexes and crap
    */
-  __reaper_thread = create_thread_as_socket(proc, reaper_main, NULL, reaper_exit, reaper_on_packet, "Reaper", &__reaper_port);
+  __reaper_thread = create_thread_for_proc(proc, reaper_main, NULL, "Reaper");
 
   /* Create the mutex that ensures safety inside the reaper */
   __reaper_lock = create_mutex(NULL);

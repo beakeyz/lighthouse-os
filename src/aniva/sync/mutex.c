@@ -70,7 +70,9 @@ void clear_mutex(mutex_t* mutex)
 
   while (waiter) {
 
-    thread_unblock(waiter);
+    kernel_panic("TODO: figure out what to do with waiter threads on a mutex when the mutex is destroyed");
+    //waiter->m_current_state = DYING;
+    //thread_unblock(waiter);
     
     waiter = queue_dequeue(mutex->m_waiters);
   }

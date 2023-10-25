@@ -24,7 +24,7 @@ enum BITMAP_SEARCH_DIR {
 
 bitmap_t* create_bitmap(size_t size);
 bitmap_t* create_bitmap_with_default(size_t size, uint8_t default_value);
-bitmap_t* create_bitmap_ex(size_t max_entries, uint8_t default_value); // TODO
+bitmap_t* create_bitmap_ex(size_t max_entries, uint8_t default_value);
 void init_bitmap(bitmap_t* bitmap, size_t max_entries, uint8_t default_value); // TODO:
 void destroy_bitmap(bitmap_t* map);
 

@@ -91,15 +91,17 @@ void init_socket_arbiter(proc_t* proc)
   init_mutex(&__arbiter_lock, NULL);
   init_vector(&__port_vector, 128, sizeof(uint32_t), VEC_FLAG_FLEXIBLE | VEC_FLAG_NO_DUPLICATES);
 
-  __arbiter_thread = create_thread_for_proc(proc, socket_arbiter_entry, NULL, "socket_arbiter");
+  (void)socket_arbiter_entry;
+  //__arbiter_thread = create_thread_for_proc(proc, socket_arbiter_entry, NULL, "socket_arbiter");
 
-  ASSERT_MSG(__arbiter_thread, "Failed to create socket arbiter thread!");
+  //ASSERT_MSG(__arbiter_thread, "Failed to create socket arbiter thread!");
 
-  Must(proc_add_thread(proc, __arbiter_thread));
+  //Must(proc_add_thread(proc, __arbiter_thread));
 }
 
 ErrorOrPtr socket_arbiter_register_socket(threaded_socket_t* socket) 
 {
+  kernel_panic("TODO: remove sockets (They are useless rn lmao)");
   ErrorOrPtr result;
 
   if (!socket)
@@ -116,6 +118,7 @@ ErrorOrPtr socket_arbiter_register_socket(threaded_socket_t* socket)
 
 ErrorOrPtr socket_arbiter_remove_socket(threaded_socket_t* socket)
 {
+  kernel_panic("TODO: remove sockets (They are useless rn lmao)");
   ErrorOrPtr status;
 
   if (!socket)
