@@ -4,6 +4,7 @@
 #include "intr/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
+#include "system/processor/processor.h"
 #include "time/core.h"
 #include "sched/scheduler.h"
 #include <system/asm_specifics.h>
@@ -95,8 +96,9 @@ size_t get_pit_ticks() {
   return s_pit_ticks;
 }
 
-registers_t* pit_irq_handler(registers_t* regs) {
-
+registers_t* pit_irq_handler(registers_t* regs) 
+{
+  scheduler_t* this;
   // FIXME: these calls do stuff to the heap. this means that when we get interrupted while
   // in some kind of heap call, a load of stuff can/will go wrong. we need to fix this in the future
   // by making sure there either is a lock on the heap (which might actually be a good idea anyways) or
@@ -112,7 +114,11 @@ registers_t* pit_irq_handler(registers_t* regs) {
 
   s_pit_ticks++;
 
-  sched_tick(regs);
+  /* NOTE: we store the current processor structure in the GS register */
+  this = (scheduler_t*)read_gs(GET_OFFSET(processor_t, m_scheduler));
+
+  if (this && this->f_tick)
+    this->f_tick(regs);
 
   return regs;
 }

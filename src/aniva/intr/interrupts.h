@@ -3,6 +3,7 @@
 
 #include "intr/ctl/ctl.h"
 #include "libk/flow/error.h"
+#include "system/asm_specifics.h"
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
 
@@ -66,9 +67,14 @@ registers_t* interrupt_handler (struct registers* regs);
 void disable_interrupts();
 void enable_interrupts ();
 
+static inline bool interrupts_are_enabled()
+{
+  return ((get_eflags() & 0x200) != 0);
+}
+
 // hopefully this does not get used anywhere else ;-;
 #define CHECK_AND_DO_DISABLE_INTERRUPTS()               \
-  bool ___were_enabled_x = ((get_eflags() & 0x200) != 0); \
+  bool ___were_enabled_x = interrupts_are_enabled(); \
   disable_interrupts()                                 
 
 #define CHECK_AND_TRY_ENABLE_INTERRUPTS()               \

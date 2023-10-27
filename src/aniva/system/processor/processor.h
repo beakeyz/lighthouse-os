@@ -36,8 +36,9 @@ typedef struct processor {
 
   //spinlock_t *m_hard_processor_lock;
   atomic_ptr_t *m_locked_level;
-
   atomic_ptr_t *m_critical_depth;
+
+  scheduler_t* m_scheduler;
 
   uint32_t m_irq_depth;
   uint32_t m_prev_irq_depth;
