@@ -41,10 +41,18 @@ int main() {
 
   printf("Handle: %d\n", h);
 
+  if (stdin->r_buff == stdout->w_buff)
+    printf("How the fuck did that happen?\n");
+
   char* resp = gets(buffer, sizeof(buffer));
 
   if (resp) printf("Your name is: %s\n", resp);
   else printf("Could not take in that name!\n");
+
+  resp = gets(buffer, sizeof(buffer));
+
+  if (resp) printf("Your age is: %s\n", resp);
+  else printf("Could not take in that age!\n");
 
   char test_buffer[128] = { 0 };
 

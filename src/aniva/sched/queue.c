@@ -1,5 +1,7 @@
 #include "queue.h"
+#include <libk/string.h>
 #include "libk/flow/error.h"
+#include "scheduler.h"
 
 /*!
  * @brief: Initialize a scheduler queue
@@ -8,7 +10,11 @@
  */
 ANIVA_STATUS init_scheduler_queue(scheduler_queue_t* out)
 {
-  kernel_panic("TODO: init_scheduler_queue");
+  if (!out)
+    return ANIVA_FAIL;
+
+  memset(out, 0, sizeof(*out));
+  return ANIVA_SUCCESS;
 }
 
 /*!
@@ -30,7 +36,23 @@ ANIVA_STATUS scheduler_queue_clear(scheduler_queue_t* queue)
  */
 ANIVA_STATUS scheduler_queue_enqueue(scheduler_queue_t* queue, struct sched_frame* frame)
 {
-  kernel_panic("TODO: scheduler_queue_enqueue");
+
+  if (!queue || !frame)
+    return ANIVA_FAIL;
+
+  if (queue->enqueue)
+    queue->enqueue->previous = frame;
+
+  frame->previous = nullptr;
+  queue->enqueue = frame;
+
+  /* First entry to go in, also link the dequeue pointer */
+  if (!queue->dequeue)
+    queue->dequeue = frame;
+
+  queue->count++;
+
+  return ANIVA_SUCCESS;
 }
 
 /*!
@@ -38,17 +60,52 @@ ANIVA_STATUS scheduler_queue_enqueue(scheduler_queue_t* queue, struct sched_fram
  */
 ANIVA_STATUS scheduler_queue_enqueue_front(scheduler_queue_t* queue, struct sched_frame* frame)
 {
-  kernel_panic("TODO: scheduler_queue_enqueue_front");
+  if (!queue || !frame)
+    return ANIVA_FAIL;
+
+  frame->previous = queue->dequeue;
+  queue->dequeue = frame;
+
+  if (!queue->enqueue)
+    queue->enqueue = frame;
+  
+  queue->count++;
+
+  return ANIVA_SUCCESS;
 }
 
 /*!
  * @brief: Add a frame right behind a certain @target in the queue
  *
  * After this function, when the target gets dequeued, the @entry will be the new head of the queue
+ * This functions also walks the queue to see if the target exists in it
  */
 ANIVA_STATUS scheduler_queue_enqueue_behind(scheduler_queue_t* queue, struct sched_frame* target, struct sched_frame* entry)
 {
-  kernel_panic("TODO: scheduler_queue_enqueue_behind");
+  struct sched_frame* current;
+
+  if (!queue || !target || !entry)
+    return ANIVA_FAIL;
+
+  current = queue->dequeue;
+
+  /* Try to find the target */
+  while (current && current != target)
+    current = current->previous;
+
+  if (!current)
+    return ANIVA_FAIL;
+
+  /* Make sure that we update ->enqueue when @entry gets put at the back of the queue */
+  if (queue->enqueue == current)
+    queue->enqueue = entry;
+
+  entry->previous = current->previous;
+  current->previous = entry;
+
+  queue->count++;
+
+  return ANIVA_SUCCESS;
 }
 
 /*!
@@ -58,7 +115,19 @@ ANIVA_STATUS scheduler_queue_enqueue_behind(scheduler_queue_t* queue, struct sch
  */
 struct sched_frame* scheduler_queue_dequeue(scheduler_queue_t* queue)
 {
-  kernel_panic("TODO: scheduler_queue_dequeue");
+  struct sched_frame* ret;
+
+  if (!queue || !queue->dequeue)
+    return nullptr;
+
+  ret = queue->dequeue;
+
+  queue->dequeue = ret->previous;
+  ret->previous = nullptr;
+
+  queue->count--;
+
+  return ret;
 }
 
 /*!
@@ -70,7 +139,14 @@ struct sched_frame* scheduler_queue_dequeue(scheduler_queue_t* queue)
  */
 ANIVA_STATUS scheduler_queue_requeue(scheduler_queue_t* queue, struct sched_frame* frame)
 {
-  kernel_panic("TODO: scheduler_queue_requeue");
+  ANIVA_STATUS res;
+
+  res = scheduler_queue_remove(queue, frame);
+
+  if (res != ANIVA_SUCCESS)
+    return res;
+
+  return scheduler_queue_enqueue(queue, frame);
 }
 
 /*!
@@ -78,7 +154,7 @@ ANIVA_STATUS scheduler_queue_requeue(scheduler_queue_t* queue, struct sched_fram
  */
 struct sched_frame* scheduler_queue_peek(scheduler_queue_t* queue)
 {
-  kernel_panic("TODO: scheduler_queue_peek");
+  return queue->dequeue;
 }
 
 /*!
@@ -86,5 +162,33 @@ struct sched_frame* scheduler_queue_peek(scheduler_queue_t* queue)
  */
 ANIVA_STATUS scheduler_queue_remove(scheduler_queue_t* queue, struct sched_frame* frame)
 {
-  kernel_panic("TODO: scheduler_queue_remove");
+  struct sched_frame* current;
+  struct sched_frame* next;
+
+  current = queue->dequeue;
+  next = nullptr;
+
+  /* Try to find the target */
+  while (current && current != frame) {
+    next = current;
+    current = current->previous;
+  }
+
+  if (!current)
+    return ANIVA_FAIL;
+
+  if (next)
+    next->previous = current->previous;
+
+  if (queue->dequeue == current)
+    queue->dequeue = current->previous;
+
+  if (queue->enqueue == current)
+    queue->enqueue = next;
+
+  current->previous = nullptr;
+
+  queue->count--;
+
+  return ANIVA_SUCCESS;
 }

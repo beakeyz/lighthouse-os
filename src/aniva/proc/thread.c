@@ -269,10 +269,9 @@ NAKED void common_thread_entry() {
 }
 
 // TODO: redo?
-extern void thread_enter_context(thread_t *to) {
-
-  // FIXME: uncomment asap
-  ASSERT_MSG(to->m_current_state == RUNNABLE, "thread we switch to is not RUNNABLE!");
+extern void thread_enter_context(thread_t *to) 
+{
+  ASSERT_MSG(to->m_current_state == RUNNABLE, to_string(to->m_current_state));
 
   // FIXME: remove?
   processor_t *current_processor = get_current_processor();
@@ -302,8 +301,8 @@ extern void thread_enter_context(thread_t *to) {
 }
 
 // called when a thread is created and enters the scheduler for the first time
-ANIVA_STATUS thread_prepare_context(thread_t *thread) {
-
+ANIVA_STATUS thread_prepare_context(thread_t *thread) 
+{
   thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_kernel_stack_top;
 
@@ -408,17 +407,16 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   // without saving the context it kinda works,
   // but it keeps running the function all over again.
   // since no state is saved, is just starts all over
+  ASSERT_MSG(from, "Switched from NULL thread!");
 
-  if (from && from->m_current_state == RUNNING) {
+  if (from->m_current_state == RUNNING)
     thread_set_state(from, RUNNABLE);
-  }
 
   ASSERT_MSG(get_previous_scheduled_thread() == from, "get_previous_scheduled_thread() is not the thread we came from!");
 
   tss_entry_t *tss_ptr = &get_current_processor()->m_tss;
 
-  if (from)
-    save_fpu_state(&from->m_fpu_state);
+  save_fpu_state(&from->m_fpu_state);
 
   asm volatile (
     THREAD_PUSH_REGS
@@ -444,6 +442,7 @@ void thread_switch_context(thread_t* from, thread_t* to) {
     "jmp thread_enter_context \n"
     // pick up where we left of
     "1: \n"
+    "cli \n"
     "addq $8, %%rsp \n"
     THREAD_POP_REGS
     :

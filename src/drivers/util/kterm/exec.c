@@ -24,13 +24,11 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   if (buffer[0] == NULL)
     return 2;
 
-  println("Resolve");
   vobj_t* obj = vfs_resolve(buffer);
 
   if (!obj)
     return 3;
 
-  println("Get");
   file_t* file = vobj_get_file(obj);
 
   if (!file) {
@@ -38,11 +36,9 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
     return 4;
   }
 
-  println("Create");
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
   result = elf_exec_static_64_ex(file, false, true);
 
-  println("Close");
   vobj_close(obj);
 
   if (IsError(result)) {
@@ -78,13 +74,10 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
 
-  println("Yay");
   /* Do an instant rescedule */
   Must(sched_add_priority_proc(p, true));
 
-  println("Yay");
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
-  println("Yay");
 
   return 0;
 }

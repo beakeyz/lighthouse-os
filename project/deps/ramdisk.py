@@ -146,6 +146,7 @@ class RamdiskManager(object):
 
             self.add_rd_entry(anivaRamdisk, self.SYSROOT_PATH, "/")
             self.add_rd_entry(anivaRamdisk, "out/user/init/init", "/init")
+            self.add_rd_entry(anivaRamdisk, "out/user/ticktacktoe_port/ticktacktoe_port", "/ttt")
 
     def remove_ramdisk(self) -> bool:
 

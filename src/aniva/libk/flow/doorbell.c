@@ -77,20 +77,20 @@ void doorbell_ring(kdoorbell_t* db)
   for (uint32_t i = 0; i < db->m_door_capacity; i++) {
     current = db->m_doors[i];
 
-    if (current) {
+    if (!current)
+      continue;
 
-      mutex_lock(current->m_lock);
+    mutex_lock(current->m_lock);
 
-      current->m_flags |= KDOOR_FLAG_RANG;
+    current->m_flags |= KDOOR_FLAG_RANG;
 
-      mutex_unlock(current->m_lock);
+    mutex_unlock(current->m_lock);
 
-      ring_count++;
+    ring_count++;
 
-      /* We've got evey door */
-      if (ring_count >= db->m_door_count)
-        break;
-    }
+    /* We've got evey door */
+    if (ring_count >= db->m_door_count)
+      break;
   }
 
   mutex_unlock(db->m_lock);

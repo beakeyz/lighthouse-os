@@ -46,7 +46,6 @@ void __init_stdio(void)
   /* Create buffers */
   stdin->r_buff = malloc(FILE_BUFSIZE);
   stdout->w_buff = malloc(FILE_BUFSIZE);
-
 }
 
 /*
@@ -96,6 +95,8 @@ int __read_byte(FILE* stream, uint8_t* buffer)
 
   /* We have run out of local buffer space. Lets ask for some new */
   if (!stream->r_capacity) {
+
+    memset(stream->r_buff, 0, stream->r_buf_size);
 
     /* Call the kernel deliver a new section of the stream */
     r_size = syscall_3(SYSID_READ, stream->handle, (uint64_t)((void*)stream->r_buff), stream->r_buf_size);
@@ -320,7 +321,10 @@ char* fgets(char* buffer, size_t size, FILE* stream)
 
   for (c = fgetc(stream); c && size; c = fgetc(stream)) {
 
-    if ((uint8_t)c == '\n')
+    if (c < 0)
+      break;
+
+    if (!c || (uint8_t)c == '\n')
       return ret;
 
     size--;
@@ -337,9 +341,9 @@ char* fgets(char* buffer, size_t size, FILE* stream)
 int fgetc(FILE* stream)
 {
   uint8_t buffer;
-  if (fread(&buffer, 1, 1, stream) == NULL) {
+
+  if (!fread(&buffer, 1, 1, stream))
     return -1;
-  }
 
   return buffer;
 }

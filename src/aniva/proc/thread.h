@@ -46,8 +46,9 @@ typedef struct thread {
   char m_name[32];
   thread_id_t m_tid;
   uint32_t m_cpu; // atomic?
-  uint32_t m_ticks_elapsed;
-  uint32_t m_max_ticks;
+
+  uint64_t m_ticks_elapsed;
+  uint64_t m_max_ticks;
   /* The vaddress of the stack bottom, as seen by the kernel */
   vaddr_t m_kernel_stack_bottom;
   vaddr_t m_kernel_stack_top;

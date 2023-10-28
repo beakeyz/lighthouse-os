@@ -308,7 +308,6 @@ int await_proc_termination(proc_id_t id)
    * we can create a 'deadlock' here, since we are waiting for our door to be rang while
    * there is no doorbell at all
    */
-  println("Yielding");
   while (!kdoor_is_rang(&terminate_door))
     scheduler_yield();
 
@@ -319,10 +318,10 @@ int await_proc_termination(proc_id_t id)
 
 /*
  * Terminate the process, which means that we
- * NOTE: don't remove the scheduler here, but in the reaper
- * 1) mark it as finished
+ * 1) Remove it from the global register store, so that the id gets freed
  * 2) Queue it to the reaper thread so It can be safely be disposed of
- * 3) Remove it from the global register store, so that the id gets freed
+ *
+ * NOTE: don't remove from the scheduler here, but in the reaper
  */
 ErrorOrPtr try_terminate_process(proc_t* proc) 
 {
@@ -331,34 +330,14 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
   if (!proc)
     return Error();
 
-  result = Success(0);
-
-  /* Pause scheduler: can't yield and mutex is held */
-  (void)pause_scheduler();
-
-  /* Mark as finished */
-  proc->m_flags |= PROC_FINISHED;
-
-  /* Ring the doorbell, so waiters know this process has terminated (Do this before we kill process memory) */
-  doorbell_ring(proc->m_terminate_bell);
-
-  /* Remove from the scheduler */
-  (void)sched_remove_proc(proc);
-
-  /* Register to the reaper */
-  result = reaper_register_process(proc);
-
-  if (IsError(result))
-    goto exit;
-
   /* Register from the global register store */
   result = proc_unregister((char*)proc->m_name);
 
-exit:
-  /* Resume scheduling */
-  resume_scheduler();
+  if (IsError(result))
+    return result;
 
-  return result;
+  /* Register to the reaper */
+  return reaper_register_process(proc);
 }
 
 /*!
@@ -388,15 +367,17 @@ void proc_exit()
   scheduler_yield();
 }
 
-ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
+ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) 
+{
   if (!thread || !proc)
     return Error();
 
   ErrorOrPtr does_contain = list_indexof(proc->m_threads, thread);
 
-  if (does_contain.m_status == ANIVA_SUCCESS) {
+  if (does_contain.m_status == ANIVA_SUCCESS)
     return Error();
-  }
+
+  pause_scheduler();
 
   /* If this is the first thread, we need to make sure it gets ran first */
   if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
@@ -413,6 +394,8 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) {
   atomic_ptr_write(proc->m_thread_count, current_thread_count+1);
 
   list_append(proc->m_threads, thread);
+  
+  resume_scheduler();
   return Success(0);
 }
 

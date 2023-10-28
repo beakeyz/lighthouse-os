@@ -98,18 +98,14 @@ bool main_menu (gamedata_t* data) {
 
       system("clear");
       printf("Welcome to tick tack toe!\n");
-      char name_buffer[128];
+      char name_buffer[128] = { 0 };
 
       // name
-      printf("Name of player 1: \n");
-      fgets(name_buffer, sizeof(name_buffer), stdin);
-      memcpy((void*)data->one_p->name_p, name_buffer, sizeof(char) * 128);
+      printf("Name of player 1: ");
+      char* resp = gets(name_buffer, sizeof(name_buffer));
 
-
-      // name
-      printf("Name of player 2: \n");
-      fgets(name_buffer, sizeof(name_buffer), stdin);
-      memcpy((void*)data->two_p->name_p, name_buffer, 128);
+      if (resp) memcpy((void*)data->one_p->name_p, resp, strlen(resp) + 1);
+      else printf("Could not take in that name!\n");
 
       // TODO: custom chars
       data->one_p->player_char = 'X';

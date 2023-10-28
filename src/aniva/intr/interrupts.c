@@ -184,13 +184,6 @@ registers_t* pagefault_handler(registers_t *regs) {
   uint32_t error_word = regs->err_code;
 
   println(" --- PAGEFAULT --- ");
-  thread_t* current_thread = get_current_scheduling_thread();
-  proc_t* current_proc = get_current_proc();
-  if (current_proc && current_thread) {
-    print(current_proc->m_name);
-    print(" : ");
-    println(current_thread->m_name);
-  }
   print("error at ring: ");
   println(to_string(cs & 3));
   print("error at addr: ");
@@ -205,6 +198,14 @@ registers_t* pagefault_handler(registers_t *regs) {
   }
 
   println(((error_word & 1) == 1) ? "ProtVi" : "Non-Present");
+
+  thread_t* current_thread = get_current_scheduling_thread();
+  proc_t* current_proc = get_current_proc();
+  if (current_proc && current_thread) {
+    print(current_proc->m_name);
+    print(" : ");
+    println(current_thread->m_name);
+  }
 
   /* NOTE: tmp debug */
   //print_bitmap();

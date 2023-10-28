@@ -186,6 +186,31 @@ bool list_remove(list_t* list, uint32_t index) {
   return false;
 }
 
+bool list_remove_ex(list_t* list, void* item) {
+  
+  FOREACH(i, list) {
+    if (i->data != item)
+      continue;
+
+    if (list->head == i)
+      list->head = i->next;
+
+    if (list->end == i)
+      list->end = i->prev;
+
+    if (i->prev)
+      i->prev->next = i->next;
+
+    if (i->next)
+      i->next->prev = i->prev;
+
+    kfree(i);
+    list->m_length--;
+    return true;
+  }
+  return false;
+}
+
 // hihi linear scan :clown:
 void* list_get(list_t* list, uint32_t index) {
 

@@ -13,6 +13,9 @@
  */
 uintptr_t sys_exit_handler(uintptr_t code) 
 {
+  print("(debug) Thread terminated with code: ");
+  println(to_string(code));
+
   proc_t* current_proc;
   thread_t* current_thread;
 
@@ -56,9 +59,6 @@ uintptr_t sys_exit_handler(uintptr_t code)
 
 exit_and_terminate:
   Must(try_terminate_process(current_proc));
-
-  print("(debug) Process terminated with code: ");
-  println(to_string(code));
 
 exit_and_yield:
   scheduler_yield();

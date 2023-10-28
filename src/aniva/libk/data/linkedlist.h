@@ -18,7 +18,7 @@ typedef struct list {
 
 // hihi
 #define ITTERATE(list) node_t* itterator = (list)->head; \
-                       while (itterator) {
+                       while (itterator)
 
 // deprecated
 #define SKIP_ITTERATION() itterator = itterator->next; \
@@ -38,6 +38,7 @@ void list_prepend(list_t *list, void *data);
 void list_append_before(list_t*, void*, uint32_t);
 void list_append_after(list_t*, void*, uint32_t);
 bool list_remove(list_t*, uint32_t); // I would like to return this entry, but its kinda hard when you need to kfree a bunch of shit
+bool list_remove_ex(list_t*, void*); 
 void* list_get(list_t*, uint32_t);
 ErrorOrPtr list_indexof(list_t* list, void* data);
 

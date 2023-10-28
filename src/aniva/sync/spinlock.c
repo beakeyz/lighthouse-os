@@ -1,5 +1,6 @@
 #include "spinlock.h"
 #include "dev/debug/serial.h"
+#include "libk/flow/error.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"

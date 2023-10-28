@@ -1,5 +1,6 @@
 #include "reaper.h"
 #include "dev/debug/serial.h"
+#include "dev/pci/io.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
 #include "logging/log.h"
@@ -59,9 +60,14 @@ static void USED reaper_exit() {
   kernel_panic("Reaper thread isn't supposed to exit!");
 }
 
+/*!
+ * @brief: Asyncronically destroy a process and remove it from the scheduler
+ *
+ * 
+ */
 ErrorOrPtr reaper_register_process(proc_t* proc) 
 {
-  if (!proc || proc_can_schedule(proc))
+  if (!proc)
     return Error();
 
   if (!__reaper_thread)
@@ -70,10 +76,22 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
   /* TODO: If the reaper thread is idle, wake it up */
   ASSERT_MSG(!(__reaper_thread->m_parent_proc->m_flags & PROC_IDLE), "Kernelprocess seems to be idle!");
   
+  /* Get the reaper lock so we know we can safely queue up the process */
   mutex_lock(__reaper_lock);
 
+  /* Mark as finished, since we know we won't be seeing it again after we return from this call */
+  proc->m_flags |= PROC_FINISHED;
+
+  /* Ring the doorbell, so waiters know this process has terminated (Do this before we kill process memory) */
+  doorbell_ring(proc->m_terminate_bell);
+
+  /* Remove from the scheduler (Pauses it) */
+  (void)sched_remove_proc(proc);
+
+  /* Queue the process to the reaper */
   queue_enqueue(__reaper_queue, proc);
 
+  /* Unlock the mutex. After this we musn't access @proc anymore */
   mutex_unlock(__reaper_lock);
 
   return Success(0);

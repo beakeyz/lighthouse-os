@@ -377,8 +377,8 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
   char* str = (char*)buffer;
 
   /* Make sure the end of the buffer is null-terminated and the start is non-null */
-  if (str[*buffer_size] != NULL || str[0] == NULL)
-    return DRV_STAT_INVAL;
+  //if (IsError(kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
+    //return DRV_STAT_INVAL;
 
   /* TODO; string.h: char validation */
 
@@ -449,12 +449,6 @@ int kterm_init()
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 
-  /* TODO: we should probably have some kind of kernel-managed structure for async work */
-  __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
-  
-  /* Make sure we create this fucker */
-  ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");
-
   /* Register our logger to the logger subsys */
   register_logger(&kterm_logger);
 
@@ -478,6 +472,12 @@ int kterm_init()
   kterm_print("Available cores: ");
   kterm_print(to_string(processor->m_info.m_max_available_cores));
   kterm_print("\n");
+
+  /* TODO: we should probably have some kind of kernel-managed structure for async work */
+  __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
+  
+  /* Make sure we create this fucker */
+  ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");
 
   return 0;
 }

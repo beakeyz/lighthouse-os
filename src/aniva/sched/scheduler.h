@@ -50,8 +50,6 @@ typedef struct sched_frame {
 /* Do we need to reorder the process list? */
 #define SCHEDULER_FLAG_NEED_REORDER     0x00000004
 #define SCHEDULER_FLAG_RUNNING          0x00000008
-/* Did we have interrupts enabled before we paused the scheduler? */
-#define SCHEDULER_FLAG_HAD_INTERRUPTS   0x00000010
 
 /*
  * This is the structure that holds information about a processors 
@@ -62,6 +60,7 @@ typedef struct scheduler {
   scheduler_queue_t processes;
   mutex_t* lock;
   uint32_t pause_depth;
+  uint32_t interrupt_depth;
   uint32_t flags;
 
   registers_t* (*f_tick)(registers_t* regs);
@@ -109,8 +108,10 @@ ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();
 thread_t *get_previous_scheduled_thread();
-scheduler_t* get_current_scheduler();
 proc_t* get_current_proc();
+
+scheduler_t* get_current_scheduler();
+scheduler_t* get_scheduler_for(uint32_t cpu);
 
 void set_current_handled_thread(thread_t* thread);
 

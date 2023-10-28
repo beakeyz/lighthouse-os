@@ -117,6 +117,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
       IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
     return NULL;
 
+  read_len = NULL;
   khandle = find_khandle(&current_proc->m_handle_map, handle);
 
   if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
@@ -151,7 +152,6 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
           return NULL;
 
         khandle->offset += read_len;
-
         break;
       }
     case HNDL_TYPE_PROC:
