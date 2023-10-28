@@ -1,5 +1,6 @@
 #include "processor.h"
 #include "dev/debug/serial.h"
+#include "entry/entry.h"
 #include "intr/ctl/ctl.h"
 #include "intr/idt.h"
 #include "libk/flow/error.h"
@@ -62,8 +63,8 @@ processor_t *create_processor(uint32_t num) {
   return ret;
 }
 
-void init_processor(processor_t *processor, uint32_t cpu_num) {
-
+void init_processor(processor_t *processor, uint32_t cpu_num) 
+{
   memset(processor, 0, sizeof(*processor));
 
   processor->m_own_ptr = processor;
@@ -111,8 +112,29 @@ void init_processor(processor_t *processor, uint32_t cpu_num) {
   wrmsr(MSR_GS_BASE, (uintptr_t)processor);
 }
 
-void init_processor_late(processor_t *this) {
+/*!
+ * @brief: Quickly register a processor to the global processor array (gpa)
+ */
+static bool processor_register(processor_t* p)
+{
+  if (p->m_cpu_num >= SYS_MAX_CPU)
+    return false;
 
+  g_system_info.processors[p->m_cpu_num] = p;
+
+  return true;
+}
+
+/*!
+ * @brief: Sets up late information about a processor
+ *
+ * Creates heap-dependent data structures
+ * Creates interrupt managers for this processor
+ * Initializes FPU/SIMD/SSE
+ * Registers the processor
+ */
+void init_processor_late(processor_t *this) 
+{
   this->m_processes = init_list();
   this->m_critical_depth = create_atomic_ptr();
   this->m_locked_level = create_atomic_ptr();
@@ -131,6 +153,20 @@ void init_processor_late(processor_t *this) {
   } else {
     flush_idt();
   }
+
+  /* Register the processor */
+  processor_register(this);
+}
+
+/*!
+ * @brief: Gets the processor with the @cpu_id
+ */
+processor_t* processor_get(uint32_t cpu_id)
+{
+  if (cpu_id >= SYS_MAX_CPU)
+    return nullptr;
+
+  return g_system_info.processors[cpu_id];
 }
 
 ALWAYS_INLINE void write_to_gdt(processor_t *this, uint16_t selector, gdt_entry_t entry) {

@@ -219,7 +219,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // how big will the role of the vfs be?
   //  * how will processes even interact with the kernel??? * 
 
-  init_scheduler();
+  /* Initialize scheduler on the bsp */
+  init_scheduler(0);
 
   root_proc = create_kernel_proc(kthread_entry, NULL);
 

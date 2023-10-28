@@ -75,7 +75,6 @@ processor_t *create_processor(uint32_t num);
 
 ANIVA_STATUS init_gdt(processor_t *processor);
 
-/* TODO: implement */
 processor_t* processor_get(uint32_t cpu_id);
 /* TODO: implement */
 int processor_sleep(processor_t* processor);

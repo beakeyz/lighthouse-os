@@ -78,8 +78,6 @@ void start_scheduler(void);
 ANIVA_STATUS resume_scheduler(void);
 ANIVA_STATUS pause_scheduler();
 
-bool sched_can_schedule();
-
 /*
  * pick the next thread to run in the current sched frame
  */ 
@@ -111,6 +109,7 @@ ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();
 thread_t *get_previous_scheduled_thread();
+scheduler_t* get_current_scheduler();
 proc_t* get_current_proc();
 
 void set_current_handled_thread(thread_t* thread);

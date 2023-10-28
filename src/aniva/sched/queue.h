@@ -3,6 +3,8 @@
 
 /*
  * This file manages the scheduler process queue
+ *
+ * TODO: implement all these functions
  */
 
 #include "libk/flow/error.h"
@@ -21,6 +23,8 @@ ANIVA_STATUS scheduler_queue_clear(scheduler_queue_t* queue);
 
 ANIVA_STATUS scheduler_queue_enqueue(scheduler_queue_t* queue, struct sched_frame* frame);
 ANIVA_STATUS scheduler_queue_enqueue_front(scheduler_queue_t* queue, struct sched_frame* frame);
+ANIVA_STATUS scheduler_queue_enqueue_behind(scheduler_queue_t* queue, struct sched_frame* target, struct sched_frame* entry);
+
 struct sched_frame* scheduler_queue_dequeue(scheduler_queue_t* queue);
 ANIVA_STATUS scheduler_queue_requeue(scheduler_queue_t* queue, struct sched_frame* frame);
 struct sched_frame* scheduler_queue_peek(scheduler_queue_t* queue);

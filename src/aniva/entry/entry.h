@@ -7,6 +7,7 @@
 #include <libk/multiboot.h>
 
 struct aniva_driver;
+struct processor;
 
 extern uintptr_t _kernel_start;
 extern uintptr_t _kernel_end;
@@ -37,6 +38,9 @@ extern driver_version_t kernel_version;
 #define SYSFLAGS_NO_INTERRUPTS      (0x00000004)
 #define SYSFLAGS_HAS_RMM            (0x00000008) /* Do we have resource management? */
 
+/* What's the maximum amount of processors we support? */
+#define SYS_MAX_CPU                 32
+
 /*
  * Global system variables, that should be known throughout the 
  * entire kernel
@@ -60,6 +64,8 @@ typedef struct {
   struct multiboot_tag_old_acpi* rsdp;
   struct multiboot_tag_framebuffer* firmware_fb;
   struct multiboot_tag_module* ramdisk;
+
+  struct processor* processors[SYS_MAX_CPU];
 
   /* Allow for 128 UTF-8 characters of cmd line */
   char cmdline[128];

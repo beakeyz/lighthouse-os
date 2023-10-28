@@ -67,7 +67,7 @@ registers_t* interrupt_handler (struct registers* regs);
 void disable_interrupts();
 void enable_interrupts ();
 
-static inline bool interrupts_are_enabled()
+inline bool interrupts_are_enabled()
 {
   return ((get_eflags() & 0x200) != 0);
 }
