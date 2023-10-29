@@ -284,6 +284,9 @@ ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
 ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
+ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+
 /*
  * Return a translation of the address provided that is 
  * useable for the kernel

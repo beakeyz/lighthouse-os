@@ -1102,6 +1102,67 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
 }
 
 /*!
+ * @brief: Allocate a scattered bit of memory for a userprocess
+ *
+ */
+ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags)
+{
+  ErrorOrPtr result;
+  uintptr_t first_usable_base;
+
+  if (!p || !size)
+    return Error();
+
+  /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
+  result = resource_find_usable_range(p->m_resource_bundle, KRES_TYPE_MEM, size);
+
+  if (IsError(result))
+    return result;
+
+  first_usable_base = Release(result);
+
+  /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
+  return __kmem_map_and_alloc_scattered(
+        p->m_root_pd.m_root,
+        p->m_resource_bundle,
+        first_usable_base,
+        size,
+        custom_flags | KMEM_CUSTOMFLAG_CREATE_USER,
+        page_flags 
+        );
+}
+
+/*!
+ * @brief: Allocate a block of memory into a userprocess
+ * 
+ */
+ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
+{
+  ErrorOrPtr result;
+  uintptr_t first_usable_base;
+
+  if (!p || !size)
+    return Error();
+
+  /* FIXME: this is not very safe, we need to randomize the start of process data probably lmaoo */
+  result = resource_find_usable_range(p->m_resource_bundle, KRES_TYPE_MEM, size);
+
+  if (IsError(result))
+    return result;
+
+  first_usable_base = Release(result);
+
+  return __kmem_alloc_ex(
+      p->m_root_pd.m_root,
+      p->m_resource_bundle,
+      addr,
+      first_usable_base,
+      size,
+      custom_flags | KMEM_CUSTOMFLAG_CREATE_USER,
+      page_flags);
+}
+
+/*!
  * @brief Fixup the mapping from boot.asm
  *
  * boot.asm maps 1 Gib high, starting from address NULL, so we'll do the same 

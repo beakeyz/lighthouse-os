@@ -44,7 +44,7 @@ void clear_brd (gamedata_t*);
 // other crap
 void put_error_in_buffer (char buffer[], char* err);
 
-int main (int argc, char** argv) {
+int main () {
     // starting
     gamedata_t* data_p = (gamedata_t*)malloc(sizeof(gamedata_t));
     data_p->one_p = (player_t*)malloc(sizeof(player_t));
@@ -105,6 +105,13 @@ bool main_menu (gamedata_t* data) {
       char* resp = gets(name_buffer, sizeof(name_buffer));
 
       if (resp) memcpy((void*)data->one_p->name_p, resp, strlen(resp) + 1);
+      else printf("Could not take in that name!\n");
+
+      // name
+      printf("Name of player 2: ");
+      resp = gets(name_buffer, sizeof(name_buffer));
+
+      if (resp) memcpy((void*)data->two_p->name_p, resp, strlen(resp) + 1);
       else printf("Could not take in that name!\n");
 
       // TODO: custom chars

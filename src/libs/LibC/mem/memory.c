@@ -197,19 +197,21 @@ static bool malloc_range_contains(struct malloc_range* range, uint64_t addr)
  */
 static struct malloc_range* malloc_find_containing_range(uint64_t addr)
 {
+  struct malloc_range* previous;
   struct malloc_range* current;
 
   current = __start_range;
 
   while (current) {
+    previous = current;
 
     if (malloc_range_contains(current, addr))
       return current;
 
-    current = current->m_next;
+    current = previous->m_next;
 
     if (!current)
-      current = current->m_next_size;
+      current = previous->m_next_size;
   }
 
   return nullptr;
@@ -390,7 +392,6 @@ void* mem_move_alloc(void* addr, size_t new_size)
 
 int mem_dealloc(void* addr)
 {
-  uint64_t index;
   uint64_t range_start;
   struct malloc_range* range;
 
@@ -405,9 +406,7 @@ int mem_dealloc(void* addr)
   if (range_start > (uint64_t)addr)
     return -2;
 
-  index = ALIGN_DOWN((uint64_t)addr - range_start, range->m_entry_size) / range->m_entry_size;
-
-  malloc_range_set_free(range, index);
+  malloc_range_set_free(range, ALIGN_DOWN((uint64_t)addr - range_start, range->m_entry_size) / range->m_entry_size);
   
   return 0;
 }

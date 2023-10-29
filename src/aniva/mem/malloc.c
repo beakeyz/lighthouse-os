@@ -177,8 +177,8 @@ static inline void allocator_add_used(memory_allocator_t* allocator, size_t size
   allocator->m_free_size -= size;
 }
 
-#define MEM_ALLOC_DEFAULT_BUFFERSIZE    (64 * Kib)
-#define MEM_ALLOC_MIN_BUFFERSIZE        (16 * Kib) /* 4 Page minimum */
+#define MEM_ALLOC_DEFAULT_BUFFERSIZE    (4 * Mib)
+#define MEM_ALLOC_MIN_BUFFERSIZE        (64 * Kib) /* 16 Page minimum */
 
 #define TO_NODE(addr) (heap_node_t*)((uintptr_t)addr - sizeof(heap_node_t))
 

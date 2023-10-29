@@ -277,10 +277,6 @@ void kthread_entry() {
    *  - launch the userspace bootstrap
    */
 
-  extern_driver_t* kterm = load_external_driver("Root/System/kterm.drv");
-
-  ASSERT_MSG(kterm, "Failed to load kterm!");
-
   /*
    * Setup is done: we can start scheduling stuff 
    * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the 
@@ -288,6 +284,10 @@ void kthread_entry() {
    * is an external driver that we will load from the ramfs, since it's not a driver that is an absolute non-trivial piece. When we fail to load
    */
   resume_scheduler();
+
+  extern_driver_t* kterm = load_external_driver("Root/System/lwnd.drv");
+
+  ASSERT_MSG(kterm, "Failed to load kterm!");
 
   while (true) {
     scheduler_yield();

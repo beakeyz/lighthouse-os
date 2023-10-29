@@ -5,7 +5,7 @@
 #include "dev/core.h"
 #include <libk/stddef.h>
 
-uintptr_t sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t size);
+uintptr_t sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 uintptr_t sys_get_handle_type(HANDLE handle);
 
 bool sys_get_pvar_type(HANDLE pvar_handle, enum PROFILE_VAR_TYPE* type_buffer);

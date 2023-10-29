@@ -213,8 +213,8 @@ ErrorOrPtr bitmap_find_free(bitmap_t* this) {
   return Error();
 }
 
-bool bitmap_isset(bitmap_t* this, uint32_t index) {
-
+bool bitmap_isset(bitmap_t* this, uint32_t index) 
+{
   if (index >= this->m_entries) {
     return true;
   }

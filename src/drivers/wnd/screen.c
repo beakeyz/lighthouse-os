@@ -1,10 +1,19 @@
 #include "screen.h"
+#include "dev/video/framebuffer.h"
+#include "drivers/wnd/alloc.h"
+#include "drivers/wnd/event.h"
 #include "drivers/wnd/window.h"
 #include "libk/data/bitmap.h"
+#include "libk/flow/error.h"
+#include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "sync/mutex.h"
 
-
+/*!
+ * @brief: Allocate memory for a screen
+ */
 lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_window_count)
 {
   lwnd_screen_t* ret;
@@ -16,7 +25,7 @@ lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_window_count)
     max_window_count = LWND_SCREEN_MAX_WND_COUNT;
 
   /* We can simply allocate this fucker on the kernel heap, cuz we're cool like that */
-  ret = kmalloc(sizeof(*ret) + (sizeof(lwnd_window_t*) * max_window_count));
+  ret = allocate_lwnd_screen();
 
   if (!ret)
     return nullptr;
@@ -28,20 +37,223 @@ lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_window_count)
   ret->height = fb->height;
   ret->max_window_count = max_window_count;
 
+  ret->event_lock = create_mutex(NULL);
+  ret->draw_lock = create_mutex(NULL);
+
   /* This can get quite big once the resolution gets bigger */
   ret->pixel_bitmap = create_bitmap_ex(fb->width * fb->height, 0);
   ret->window_stack_size = ALIGN_UP(max_window_count * sizeof(lwnd_window_t*), SMALL_PAGE_SIZE);
   ret->window_stack = (lwnd_window_t**)Must(__kmem_kernel_alloc_range(ret->window_stack_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
+  ASSERT_MSG(ret->pixel_bitmap, "Could not make bitmap!");
+
+  /* Make sure it is cleared */
+  memset(ret->window_stack, 0, ret->window_stack_size);
+
   return ret;
 }
 
+/*!
+ * @brief: Destroy memory owned by the screen
+ */
 void destroy_lwnd_screen(lwnd_screen_t* screen)
 {
   if (!screen)
     return;
 
+  destroy_mutex(screen->draw_lock);
+  destroy_mutex(screen->event_lock);
   destroy_bitmap(screen->pixel_bitmap);
   Must(__kmem_kernel_dealloc((uint64_t)screen->window_stack, screen->window_stack_size));
-  kfree(screen);
+  deallocate_lwnd_screen(screen);
+}
+
+/*!
+ * @brief: Register a window to the screen
+ */
+int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window)
+{
+  window->screen = screen;
+
+  screen->window_stack[screen->window_count] = window;
+  window->id = screen->window_count;
+
+  screen->window_count++;
+
+  return 0;
+}
+
+/*!
+ * @brief: Remove a window from a screen
+ *
+ * This shifts the windows after it back by one and updates the windowids
+ */
+int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
+{
+  int error;
+  lwnd_window_t* current;
+
+  if (window->id == LWND_INVALID_ID)
+    return -1;
+
+  error = 0;
+
+  for (uint32_t i = window->id; i < screen->max_window_count; i++) {
+    current = screen->window_stack[i];
+
+    /* Invalid ID */
+    if (current != window) {
+      error = -1;
+      goto invalidate_and_exit;
+    }
+
+    if (i+1 < screen->max_window_count) {
+      screen->window_stack[i] = screen->window_stack[i + 1];
+      screen->window_stack[i]->id = i;
+    } else 
+      screen->window_stack[i] = nullptr;
+  }
+
+invalidate_and_exit:
+  window->id = LWND_INVALID_ID;
+
+  return error;
+}
+
+/*!
+ * @brief: Draw a windows framebuffer to the screen
+ *
+ * TODO: can we integrate 2D accelleration here to make this at least a little fast?
+ */
+int lwnd_screen_draw_window(lwnd_window_t* window)
+{
+  lwnd_screen_t* this;
+  fb_color_t* current_color;
+
+  if (!window)
+    return -1;
+
+  this = window->screen;
+
+  uint32_t current_offset = this->info->pitch * window->y + window->x * this->info->bpp / 8;
+  const uint32_t bpp = this->info->bpp;
+  const uint32_t increment = (bpp / 8);
+
+  for (uint32_t i = 0; i < window->height; i++) {
+    for (uint32_t j = 0; j < window->width; j++) {
+
+      if (bitmap_isset(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j)))
+        continue;
+
+      current_color = get_color_at(window, j, i);
+
+      if (this->info->colors.alpha.length_bits)
+        *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.alpha.offset_bits / 8)) = current_color->components.a;
+
+      *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.red.offset_bits / 8)) = current_color->components.r;
+      *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.green.offset_bits / 8)) = current_color->components.g;
+      *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.blue.offset_bits / 8)) = current_color->components.b;
+
+      bitmap_mark(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j));
+    }
+    current_offset += this->info->pitch;
+  }
+
+  return 0;
+}
+
+/*!
+ * @brief: Add an lwnd_event to the end of a screens event chain
+ *
+ * Caller musn't take the ->event_lock of @screen
+ */
+int lwnd_screen_add_event(lwnd_screen_t* screen, lwnd_event_t* event)
+{
+  lwnd_event_t** current;
+
+  current = &screen->events;
+
+  mutex_lock(screen->event_lock);
+
+  while (*current) {
+    if (*current == event)
+      break;
+
+    current = &(*current)->next;
+  }
+
+  if (*current) {
+    mutex_unlock(screen->event_lock);
+    return -1;
+  }
+
+  *current = event;
+
+  mutex_unlock(screen->event_lock);
+  return 0;
+}
+
+/*!
+ * @brief: Takes the head event from the screens event chain
+ *
+ * Caller musn't take the ->event_lock of @screen
+ */
+lwnd_event_t* lwnd_screen_take_event(lwnd_screen_t* screen)
+{
+  lwnd_event_t* ret;
+
+  mutex_lock(screen->event_lock);
+
+  ret = screen->events;
+
+  if (!ret) {
+    mutex_unlock(screen->event_lock);
+    return nullptr;
+  }
+
+  screen->events = ret->next;
+
+  mutex_unlock(screen->event_lock);
+  return ret;
+}
+
+/*!
+ * @brief: Handle a single event from the screen
+ */
+void lwnd_screen_handle_event(lwnd_screen_t* screen, lwnd_event_t* event)
+{
+  lwnd_window_t* window;
+
+  switch (event->type) {
+    case LWND_EVENT_TYPE_MOVE:
+      {
+        window = lwnd_screen_get_window(screen, event->window_id);
+
+        if (!window)
+          break;
+
+        lwnd_window_move(window, event->move.new_x, event->move.new_y);
+        break;
+      }
+    default:
+      break;
+  }
+}
+
+/*!
+ * @brief: Handle every event in the screens chain
+ */
+void lwnd_screen_handle_events(lwnd_screen_t* screen)
+{
+  lwnd_event_t* current_event;
+
+  current_event = lwnd_screen_take_event(screen);
+
+  while (current_event) {
+    lwnd_screen_handle_event(screen, current_event);
+
+    destroy_lwnd_event(current_event);
+
+    current_event = lwnd_screen_take_event(screen);
+  }
 }

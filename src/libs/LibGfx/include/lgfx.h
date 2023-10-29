@@ -19,6 +19,8 @@
 #include <LibC/sys/types.h>
 #include "driver.h"
 
+#define LWND_DRV_PATH "service/lwnd"
+
 /*
  * The window manager will keep track of which window comes from which
  * process by looking at who the request is comming from

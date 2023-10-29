@@ -466,33 +466,32 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
 }
 
 
-void thread_block(thread_t* thread) {
-
-  //processor_increment_critical_depth(get_current_processor());
-
-  // TODO: log certain things (i.e. how did we get blocked?)
+void thread_block(thread_t* thread) 
+{
+  pause_scheduler();
 
   thread_set_state(thread, BLOCKED);
 
+  resume_scheduler();
+
   // FIXME: we do allow blocking other threads here, we need to
   // check if that comes with extra complications
-  if (thread == get_current_scheduling_thread()) {
+  if (thread == get_current_scheduling_thread())
     scheduler_yield();
-  }
 
-  //processor_decrement_critical_depth(get_current_processor());
-  //kernel_panic("Unimplemented thread_block");
 }
 
 /*
  * TODO: unblocking means returning to the runnable threadpool
  */
-void thread_unblock(thread_t* thread) {
-
+void thread_unblock(thread_t* thread) 
+{
   ASSERT_MSG(thread->m_current_state == BLOCKED, "Tried to unblock a non-blocking thread!");
 
+  /* We can't unblock ourselves, can we? */
   if (get_current_scheduling_thread() == thread) {
     thread_set_state(thread, RUNNING);
+    kernel_panic("Wait, how did we unblock ourselves?");
     return;
   }
 

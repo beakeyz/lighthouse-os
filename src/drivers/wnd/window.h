@@ -1,13 +1,21 @@
 #ifndef __ANIVA_LWND_WINDOW__
 #define __ANIVA_LWND_WINDOW__
 
+#include "LibGfx/include/driver.h"
+#include "dev/video/framebuffer.h"
 #include "proc/proc.h"
+#include "sync/mutex.h"
 #include <libk/stddef.h>
 #include <dev/manifest.h>
 
+struct lwnd_screen;
+struct lwnd_window_ops;
+
 /* Limit to how many windows one client can have: 255 */
-typedef uint8_t window_id_t;
-typedef uint8_t window_type_t;
+typedef uint16_t window_id_t;
+typedef uint16_t window_type_t;
+
+#define LWND_INVALID_ID 0xFFFF
 
 #define LWND_TYPE_PROCESS 0x0
 #define LWND_TYPE_INFO 0x1
@@ -33,6 +41,13 @@ typedef struct lwnd_window {
   uint32_t x;
   uint32_t y;
 
+  struct lwnd_screen* screen;
+  struct lwnd_window_ops* ops;
+
+  mutex_t* lock;
+
+  const char* label;
+
   /*
    * More things than only processes may open
    * windows
@@ -40,9 +55,11 @@ typedef struct lwnd_window {
   union {
     proc_t* proc;
     dev_manifest_t* driver;
+    void* raw;
   } client;
 
   /* TODO: better framebuffer management */
+  void* user_fb_ptr;
   void* fb_ptr;
   size_t fb_size;
 } lwnd_window_t;
@@ -59,5 +76,49 @@ typedef struct lwnd_window {
 #define LWND_WNDW_HIDE_BTN 0x00000040
 #define LWND_WNDW_DRAGGING 0x00000080
 #define LWND_WNDW_FOCUSSED 0x00000080
+#define LWND_WNDW_NEVER_FOCUS 0x00000100
+#define LWND_WNDW_NEVER_MOVE 0x00000200
+#define LWND_WNDW_NEEDS_SYNC 0x00000400
+#define LWND_WNDW_NEEDS_REPAINT 0x00000800
+
+lwnd_window_t* create_lwnd_window(struct lwnd_screen* screen, uint32_t startx, uint32_t starty, uint32_t width, uint32_t height, uint32_t flags, window_type_t type, void* client);
+void destroy_lwnd_window(lwnd_window_t* window);
+
+int lwnd_request_framebuffer(lwnd_window_t* window);
+
+static inline int lwnd_window_set_ops(lwnd_window_t* window, struct lwnd_window_ops* ops)
+{
+  if (!window)
+    return -1;
+  
+  if (window && window->ops && ops)
+    return -1;
+
+  window->ops = ops;
+  return 0;
+}
+
+typedef struct lwnd_window_ops {
+  int (*f_draw)(lwnd_window_t* window);
+  int (*f_update)(lwnd_window_t* window);
+} lwnd_window_ops_t;
+
+
+int lwnd_draw(lwnd_window_t* window);
+int lwnd_clear(lwnd_window_t* window);
+int lwnd_update(lwnd_window_t* window);
+
+int lwnd_window_move(lwnd_window_t* window, uint32_t new_x, uint32_t new_y);
+int lwnd_window_resize(lwnd_window_t* window, uint32_t new_width, uint32_t new_height);
+int lwnd_window_focus(lwnd_window_t* window);
+int lwnd_window_update(lwnd_window_t* window);
+
+static inline fb_color_t* get_color_at(lwnd_window_t* window, uint32_t x, uint32_t y)
+{
+  if (!window->fb_ptr)
+    return nullptr;
+
+  return ((fb_color_t*)window->fb_ptr + (y * window->width + x));
+}
 
 #endif // !__ANIVA_LWND_WINDOW__

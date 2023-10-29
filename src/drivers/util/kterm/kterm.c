@@ -198,8 +198,8 @@ static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
 
 static void kterm_clear_raw()
 {
-  __kterm_fb_info.ops->f_draw_rect(&__kterm_fb_info, 0, 0, __kterm_fb_info.width, __kterm_fb_info.height, (fb_color_t){ .raw_clr = 0x00 });
-  //kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
+  //__kterm_fb_info.ops->f_draw_rect(&__kterm_fb_info, 0, 0, __kterm_fb_info.width, __kterm_fb_info.height, (fb_color_t){ .raw_clr = 0x00 });
+  kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
 }
 
 static int kterm_get_argument_count(char* cmd_buffer, size_t* count)
@@ -400,7 +400,7 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
     scheduler_yield();
 
   /* Set the buffersize to our string in preperation for the copy */
-  *buffer_size = strlen(__kterm_stdin_buffer) + 1;
+  *buffer_size = strlen(__kterm_stdin_buffer);
 
   /* Yay, copy */
   memcpy(buffer, __kterm_stdin_buffer, *buffer_size);

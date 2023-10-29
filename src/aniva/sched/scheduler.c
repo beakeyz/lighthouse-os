@@ -212,7 +212,7 @@ ErrorOrPtr pick_next_thread_scheduler(void)
 
   next_thread = pull_runnable_thread_sched_frame(frame);
 
-  /* There are no threads left. We can safely kill this process */
+  /* Cycle until we find shit */
   while (!next_thread) {
     pick_next_process_scheduler();
 

@@ -117,7 +117,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
       IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
     return NULL;
 
-  read_len = NULL;
+  read_len = length;
   khandle = find_khandle(&current_proc->m_handle_map, handle);
 
   if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
@@ -126,7 +126,6 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
   switch (khandle->type) {
     case HNDL_TYPE_FILE:
       {
-        read_len = length;
         file_t* file = khandle->reference.file;
 
         if (!file || !file->m_ops || !file->m_ops->f_write)

@@ -95,6 +95,7 @@ void mutex_lock(mutex_t* mutex)
 {
   ASSERT_MSG(mutex, "Tried to lock a mutex that has not been initialized");
 
+retry_lock:
   spinlock_lock(mutex->m_lock);
 
   // NOTE: it's fine to be preempted here, since this value won't change
@@ -124,9 +125,13 @@ void mutex_lock(mutex_t* mutex)
 
       thread_block(current_thread);
 
+      goto retry_lock;
+
+      /*
       spinlock_lock(mutex->m_lock);
 
       ASSERT_MSG(mutex->m_lock_depth == 0, "Mutex was not unlocked after thread got unblocked!");
+      */
     }
   }
 
@@ -142,7 +147,8 @@ void mutex_lock(mutex_t* mutex)
   spinlock_unlock(mutex->m_lock);
 }
 
-void mutex_unlock(mutex_t* mutex) {
+void mutex_unlock(mutex_t* mutex) 
+{
   ASSERT_MSG(mutex, "Tried to unlock a mutex that has not been initialized");
   //ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
   // ASSERT_MSG(mutex->m_lock_holder != nullptr, "mutex has no holder while trying to unlock!");
@@ -155,7 +161,13 @@ void mutex_unlock(mutex_t* mutex) {
 
   if (!mutex->m_lock_depth) {
     mutex->m_mutex_flags &= ~MUTEX_FLAG_IS_HELD;
+
+    /* Unlock the spinlock before we try unblocking */
+    spinlock_unlock(mutex->m_lock);
+
+    /* Unblock */
     __mutex_handle_unblock(mutex);
+    return;
   }
 
   spinlock_unlock(mutex->m_lock);
@@ -196,8 +208,15 @@ static void __mutex_handle_unblock(mutex_t* mutex)
   if (!current_thread || !next_holder)
     return;
 
+  pause_scheduler();
+
   ASSERT_MSG(next_holder != current_thread, "Next thread to hold mutex is also the current thread!");
 
   mutex->m_lock_holder = next_holder;
+
   thread_unblock(next_holder);
+
+  resume_scheduler();
+
+  scheduler_yield();
 }

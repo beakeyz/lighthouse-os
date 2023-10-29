@@ -80,6 +80,14 @@ void destroy_fb_info(fb_info_t* info);
 
 int generic_draw_rect(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t clr);
 
+static inline uint32_t fb_get_fb_color(fb_info_t* info, fb_color_t color)
+{
+  return (((color.components.r >> info->colors.red.offset_bits) & info->colors.red.length_bits) ||
+          ((color.components.g >> info->colors.green.offset_bits) & info->colors.green.length_bits) ||
+          ((color.components.b >> info->colors.blue.offset_bits) & info->colors.blue.length_bits) || 
+          ((color.components.a >> info->colors.alpha.offset_bits) & info->colors.alpha.length_bits));
+}
+
 typedef struct fb_ops {
   int (*f_destroy) (fb_info_t* info);
 

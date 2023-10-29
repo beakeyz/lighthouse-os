@@ -319,17 +319,19 @@ char* fgets(char* buffer, size_t size, FILE* stream)
 
   memset(buffer, 0, size);
 
-  for (c = fgetc(stream); c && size; c = fgetc(stream)) {
+  for (c = fgetc(stream); size; c = fgetc(stream)) {
 
     if (c < 0)
       break;
 
-    if (!c || (uint8_t)c == '\n')
+    if ((uint8_t)c == '\n')
       return ret;
 
     size--;
     *buffer++ = c;
 
+    if (!c)
+      return ret;
   }
 
   if (!size)
@@ -342,7 +344,7 @@ int fgetc(FILE* stream)
 {
   uint8_t buffer;
 
-  if (!fread(&buffer, 1, 1, stream))
+  if (!__read_byte(stream, &buffer))
     return -1;
 
   return buffer;

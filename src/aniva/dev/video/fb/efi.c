@@ -6,6 +6,7 @@
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
@@ -61,16 +62,20 @@ static uint64_t fb_driver_msg(aniva_driver_t* driver, dcc_t code, void* buffer, 
 
         /* Quick size verify */
         if (size != sizeof(viddev_mapfb_t))
-          return -1;
+          return DRV_STAT_INVAL;
 
         mapfb = buffer;
 
         efi_fbmemmap(mapfb->virtual_base, mapfb->size);
+        break;
       }
     case VIDDEV_DCC_GET_FBINFO:
       {
         if (!out_buffer || out_size != sizeof(fb_info_t))
           return -1;
+
+        println("Tried to get EFI info!");
+        println(to_string(info.width));
 
         memcpy(out_buffer, &info, out_size);
         return DRV_STAT_OK;

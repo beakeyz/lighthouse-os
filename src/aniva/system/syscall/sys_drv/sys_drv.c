@@ -13,7 +13,7 @@
 #include <dev/manifest.h>
 
 uintptr_t
-sys_send_ioctl(HANDLE handle, driver_control_code_t code, void __user* buffer, size_t size)
+sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
   ErrorOrPtr result;
   khandle_t* c_hndl;
