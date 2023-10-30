@@ -113,6 +113,12 @@ int lwnd_window_resize(lwnd_window_t* window, uint32_t new_width, uint32_t new_h
 int lwnd_window_focus(lwnd_window_t* window);
 int lwnd_window_update(lwnd_window_t* window);
 
+static inline bool lwnd_window_should_redraw(lwnd_window_t* window)
+{
+  return ((window->flags & LWND_WNDW_NEEDS_SYNC) == LWND_WNDW_NEEDS_SYNC ||
+          (window->flags & LWND_WNDW_NEEDS_REPAINT) == LWND_WNDW_NEEDS_REPAINT);
+}
+
 static inline fb_color_t* get_color_at(lwnd_window_t* window, uint32_t x, uint32_t y)
 {
   if (!window->fb_ptr)

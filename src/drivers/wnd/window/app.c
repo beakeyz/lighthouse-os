@@ -17,6 +17,9 @@ static fb_color_t _app_bar_color = (fb_color_t) { .raw_clr = 0xffffffff };
  */
 int lwnd_app_draw(lwnd_window_t* window)
 {
+
+  memset(window->fb_ptr, 0, window->fb_size);
+
   /* Make sure the app bar is filled in */
   for (uint32_t i = 0; i < APP_BAR_HEIGHT; i++) {
     for (uint32_t j = 0; j < window->width; j++) {
@@ -63,6 +66,9 @@ void create_test_app(lwnd_screen_t* screen)
 window_id_t create_app_lwnd_window(lwnd_screen_t* screen, lwindow_t* uwindow, proc_t* process)
 {
   lwnd_window_t* wnd;
+
+  if (!uwindow ||!process)
+    return LWND_INVALID_ID;
 
   /* Create a generic window with every button on its bar */
   wnd = create_lwnd_window(screen, 0, 0, uwindow->current_width, uwindow->current_height, LWND_WNDW_HIDE_BTN | LWND_WNDW_FULLSCREEN_BTN | LWND_WNDW_CLOSE_BTN, LWND_TYPE_PROCESS, process);

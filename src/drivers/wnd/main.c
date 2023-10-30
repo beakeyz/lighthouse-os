@@ -46,6 +46,9 @@ static void USED lwnd_main()
   (void)_mouse;
   (void)_keyboard;
 
+  /* Launch an app to test our shit */
+  create_test_app(main_screen);
+
   current_screen = main_screen;
 
   while (true) {
@@ -73,10 +76,10 @@ static void USED lwnd_main()
       /* Draw whatever is visible of the internal window buffer to its new location */
 
       /* If a window needs to sync, everything under it also needs to sync */
-      if (recursive_update)
-        recursive_update = (current_wnd->flags & LWND_WNDW_NEEDS_SYNC);
+      if (!recursive_update)
+        recursive_update = lwnd_window_should_redraw(current_wnd);
       else
-        current_wnd->flags |= LWND_WNDW_NEEDS_SYNC;
+        current_wnd->flags |= LWND_WNDW_NEEDS_REPAINT;
 
       /* Funky draw */
       lwnd_draw(current_wnd);
@@ -154,9 +157,6 @@ int init_window_driver()
 
   println("Initializing wallpaper!");
   init_lwnd_wallpaper(main_screen);
-
-  /* Launch an app to test our shit */
-  create_test_app(main_screen);
 
   println("Starting deamon!");
   ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
