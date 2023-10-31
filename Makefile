@@ -4,6 +4,16 @@ SRC_PATHS := src/aniva src/drivers
 CROSS_PATH := ./cross_compiler/bin
 OUT := ./out
 
+KERNEL_SOURCES := src/aniva
+DRIVERS_SOURCES := src/drivers
+USER_SOURCES := src/user
+LIBS_SOURCES := src/libs
+
+KERNEL_OBJECT_PATH := out/aniva
+DRIVERS_OBJECT_PATH := out/drivers
+USER_OBJECT_PATH := out/user
+LIBS_OBJECT_PATH := out/libs
+
 HFILES    := $(shell find $(SRC_PATHS) -type f -name '*.h')
 DPEND_FILES := $(patsubst %.h,$(OUT)/%.d,$(HFILES))
 

@@ -4,6 +4,7 @@ from stats.lines import SourceFile, SourceLanguage
 from build.manifest import BuildManifest, BuildManifestType
 import build.manifest
 
+
 def take_input(string: str) -> str:
     '''
     Generic routine we can use to generate a consistent input prompt
@@ -26,9 +27,13 @@ class Consts:
 
     SRC_DIR_NAME = "src"
     OUT_DIR_NAME = "out"
+    SYSROOT_DIR_NAME = "system"
 
     SRC_DIR = PROJECT_DIR + "/" + SRC_DIR_NAME
     OUT_DIR = PROJECT_DIR + "/" + OUT_DIR_NAME
+    SYSROOT_DIR = PROJECT_DIR + "/" + SYSROOT_DIR_NAME
+    SYSROOT_HEADERS_DIR = SYSROOT_DIR + "System/include"
+    LIBC_SRC_DIR = SRC_DIR + "/libs" + "/LibC"
     LIBS_OUT_DIR = OUT_DIR + "/libs"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
     COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
@@ -64,7 +69,7 @@ class Consts:
 
     # TODO: implement compat with external kernel drivers as modules (which are treated as userspace until they are discovered to be drivers)
     # Default userspace flags (just anything that isn't the kernel basically)
-    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/LibC"
+    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/LibC"
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     # Extention for the userspace CFlags to include kernel headers
@@ -79,12 +84,14 @@ class Consts:
 
     DRIVER_LD_FLAGS_EXT = " -r "
 
-    USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH}"
+    USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH} -E -Bdynamic -L{SYSROOT_DIR}/System/Lib"
 
-    LIB_LD_FLAGS = " -nostdlib -shared -fPIC"
+    LIB_LD_STATIC_FLAGS = " -nostdlib -static -r"
+    LIB_LD_FLAGS = " -nostdlib -nodefaultlibs -shared -E -Bdynamic -L{SYSROOT_DIR}/System/Lib"
 
     ELF_EXTENTION = ".elf"
     SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary
+    STATIC_LIB_EXTENTION = ".lib"
 
     # NOTE: crt files have to be asm files!
     CRT_FILES: list[SourceFile] = []

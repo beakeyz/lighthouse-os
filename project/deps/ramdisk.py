@@ -5,6 +5,15 @@ import build.manifest as m
 from tarfile import TarInfo, TarFile
 
 
+class Header(object):
+    filename: str
+    fullpath: str
+
+    def __init__(self, fn, fp):
+        self.filename = fn
+        self.fullpath = fp
+
+
 class RamdiskManager(object):
 
     OUT_PATH: str = "out/anivaRamdisk.igz"
@@ -21,14 +30,18 @@ class RamdiskManager(object):
     CFG_PATH: str = SYSROOT_PATH + "/kcfg.ini"
 
     c: consts.Consts = None
+    gathered_headers: list[Header]
+    current_header_scan_root: str
 
     def __init__(self, c: consts.Consts) -> None:
         self.c = c
+        self.gathered_headers = None
+        self.current_header_scan_root = None
         pass
 
     def __ensure_existance(self, path: str):
         try:
-            os.mkdir(path)
+            os.makedirs(path, exist_ok=True)
         except Exception:
             pass
 
@@ -60,13 +73,54 @@ class RamdiskManager(object):
         self.__ensure_existance(self.GLOB_USR_PATH)
         return True
 
-    def __copy_headers(self) -> bool:
+    def __gather_headers(self, path: str) -> bool:
         '''
         Tries to find which Libraries must be included in the
         fsroot and copies over the needed headers to the sysroot (system/)
         directory so they can be placed into the ramdisk
         '''
-        return False
+
+        if self.gathered_headers is None:
+            self.gathered_headers = []
+            self.current_header_scan_root = path
+
+        # Scan the path for header files
+        for entry in os.listdir(path):
+            abs_entry = f"{path}/entry"
+
+            if os.path.isdir(abs_entry):
+                self.__copy_headers(abs_entry)
+
+            # Check if this is a header
+            # TODO: have unified file operations to check for filetypes
+            if entry.endswith(".h"):
+                self.gathered_headers.append(Header(entry, abs_entry))
+
+            pass
+        return True
+
+    def __copy_headers(self) -> bool:
+
+        # First, collect all the libc headers
+        self.__gather_headers(self.c.LIBC_SRC_DIR)
+
+        # Second, copy those headers over to the system include directory
+        if self.gathered_headers is None:
+            return False
+
+        for hdr in self.gathered_headers:
+            hdr: Header = hdr
+            # Relative header path
+            hdr_rel: str = hdr.fullpath.strip(self.c.LIBC_SRC_DIR)
+            # Previous strip should have made sure hdr_rel starts with a '/'
+            hdr_new_path: str = self.c.SYSROOT_HEADERS_DIR + hdr_rel
+
+            # Make sure this exists
+            self.__ensure_existance(hdr_new_path)
+
+            os.system(f"cp {hdr.fullpath} {hdr_new_path}")
+
+        return True
 
     def __copy_drivers(self) -> bool:
         '''
@@ -141,12 +195,15 @@ class RamdiskManager(object):
         # Add assets tot the system directory
         self.__copy_assets()
 
+        self.__copy_headers()
+
         with tarfile.open(self.OUT_PATH, "w:gz") as anivaRamdisk:
             # Add the ./system directory as the root for this ramdisk
 
             self.add_rd_entry(anivaRamdisk, self.SYSROOT_PATH, "/")
             self.add_rd_entry(anivaRamdisk, "out/user/init/init", "/init")
             self.add_rd_entry(anivaRamdisk, "out/user/gfx_test/gfx_test", "/gfx")
+            self.add_rd_entry(anivaRamdisk, "out/user/second_test/second_test", "/gfx2")
 
     def remove_ramdisk(self) -> bool:
         return False

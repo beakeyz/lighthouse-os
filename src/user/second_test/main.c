@@ -29,13 +29,13 @@ int main()
     return -2;
 
   /* Draw the smily */
-  lwindow_draw_rect(&window, 10, 10, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
-  lwindow_draw_rect(&window, 50, 10, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+  lwindow_draw_rect(&window, 10, 10, 10, 10, RGBA(0xA5, 0x00, 0, 0xFF));
+  lwindow_draw_rect(&window, 50, 10, 10, 10, RGBA(0xA5, 0x00, 0, 0xFF));
 
-  lwindow_draw_rect(&window, 10, 30, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
-  lwindow_draw_rect(&window, 50, 30, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+  lwindow_draw_rect(&window, 10, 30, 10, 10, RGBA(0xA5, 0x00, 0, 0xFF));
+  lwindow_draw_rect(&window, 50, 30, 10, 10, RGBA(0xA5, 0x00, 0, 0xFF));
 
-  lwindow_draw_rect(&window, 15, 35, 40, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+  lwindow_draw_rect(&window, 15, 35, 40, 10, RGBA(0xA5, 0x00, 0, 0xFF));
 
   /* Yield */
   while (true) {

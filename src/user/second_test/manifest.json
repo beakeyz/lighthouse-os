@@ -1,5 +1,5 @@
 {
-  "name": "gfx_test",
+  "name": "second_test",
   "linking": "static",
   "type": "process",
   "libs": [

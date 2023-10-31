@@ -6,7 +6,7 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/external.h"
-#include "dev/keyboard/ps2_keyboard.h"
+#include "dev/io/ps2/kbd.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/video/device.h"

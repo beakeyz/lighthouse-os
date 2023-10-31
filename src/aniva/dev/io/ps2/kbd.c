@@ -1,4 +1,4 @@
-#include "ps2_keyboard.h"
+#include "kbd.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
@@ -84,7 +84,8 @@ EXPORT_DRIVER_PTR(g_base_ps2_keyboard_driver);
 static list_t* s_kb_event_callbacks;
 static uint16_t s_mod_flags;
 
-int ps2_keyboard_entry() {
+int ps2_keyboard_entry() 
+{
 
   s_kb_event_callbacks = init_list();
   s_mod_flags = NULL;
@@ -98,13 +99,16 @@ int ps2_keyboard_entry() {
   println("initializing ps2 keyboard driver!");
   return 0;
 }
-int ps2_keyboard_exit() {
+
+int ps2_keyboard_exit() 
+{
   destroy_list(s_kb_event_callbacks);
   uninstall_quick_int_handler(PS2_KB_IRQ_VEC);
   return 0;
 }
 
-uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
+uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) 
+{
 
   switch (code) {
     case KB_REGISTER_CALLBACK: {

@@ -6,7 +6,7 @@
 #include "dev/disk/ramdisk.h"
 #include "dev/driver.h"
 #include "dev/external.h"
-#include "dev/hid/hid.h"
+#include "dev/io/hid/hid.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/pci/pci.h"

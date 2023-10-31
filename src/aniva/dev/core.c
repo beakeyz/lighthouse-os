@@ -2,7 +2,6 @@
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
 #include "dev/external.h"
-#include "dev/keyboard/ps2_keyboard.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"

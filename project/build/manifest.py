@@ -16,18 +16,28 @@ class BuildManifestType(enum.Enum):
 class BuildManifest(object):
 
     manifested_name: str
-    type: BuildManifestType = BuildManifestType.UNKNOWN
+    output_path: str
+    link_type: str
     path: str
     sourcefiles: list[stats.lines.SourceFile] = []
+    json_data = None
+    type: BuildManifestType = BuildManifestType.UNKNOWN
 
     def __init__(self, type: BuildManifestType, path: str):
         self.type = type
         self.path = path
+        self.output_path = None
+        self.manifested_name = None
         self.sourcefiles = []
 
         with open(self.path, "r") as manifest_file:
-            manifest_data = json.load(manifest_file)
-            self.manifested_name = manifest_data["name"]
+            self.json_data = json.load(manifest_file)
+            try:
+                self.manifested_name = self.json_data["name"]
+                self.link_type = self.json_data["linking"]
+                self.output_path = self.json_data["path"]
+            except Exception:
+                pass
 
     def gather_sourcefiles(self, sourcefiles: list[stats.lines.SourceFile]):
         dir_path: str = self.path.strip("manifest.json")

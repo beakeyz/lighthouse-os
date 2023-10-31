@@ -36,7 +36,7 @@ lwnd_window_ops_t lwnd_app_ops = {
 };
 
 /*!
- * @brief: Prepare a window that can host the framebuffer of a process
+ * @brief: Prepare a test window that can host the framebuffer of a process
  */
 void create_test_app(lwnd_screen_t* screen)
 {
@@ -53,6 +53,21 @@ void create_test_app(lwnd_screen_t* screen)
     return;
 
   Must(elf_exec_static_64_ex(file, false, false));
+
+  vobj_close(obj);
+
+  obj = vfs_resolve("Root/gfx2");
+
+  ASSERT_MSG(obj, "Could not find gfx test app!");
+
+  file = vobj_get_file(obj);
+
+  if (!file)
+    return;
+
+  Must(elf_exec_static_64_ex(file, false, false));
+
+  vobj_close(obj);
 }
 
 /*!
@@ -66,6 +81,8 @@ window_id_t create_app_lwnd_window(lwnd_screen_t* screen, lwindow_t* uwindow, pr
 
   if (!uwindow ||!process)
     return LWND_INVALID_ID;
+
+  static uint32_t start = 60;
 
   /* Create a generic window with every button on its bar */
   wnd = create_lwnd_window(screen, 0, 0, uwindow->current_width, uwindow->current_height, LWND_WNDW_HIDE_BTN | LWND_WNDW_FULLSCREEN_BTN | LWND_WNDW_CLOSE_BTN, LWND_TYPE_PROCESS, process);
@@ -83,7 +100,9 @@ window_id_t create_app_lwnd_window(lwnd_screen_t* screen, lwindow_t* uwindow, pr
   uwindow->current_height -= APP_BAR_HEIGHT;
 
   /* Prompt a move */
-  lwnd_window_move(wnd, 10, 10);
+  lwnd_window_move(wnd, start, start);
+
+  start -= 50;
 
   return wnd->id;
 }

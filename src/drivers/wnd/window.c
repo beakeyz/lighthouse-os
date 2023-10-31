@@ -185,11 +185,39 @@ int lwnd_clear(lwnd_window_t* window)
   return 0;
 }
 
+static inline void lwnd_window_check_position(lwnd_window_t* window, int* new_x, int* new_y)
+{
+  /* Check x bound */
+  if (*new_x < 0)
+    *new_x = 0;
+  else if (*new_x >= window->screen->width)
+    *new_x = window->screen->width - 1;
+
+  /* Check y bound */
+  if (*new_y < 0)
+    *new_y = 0;
+  else if (*new_y >= window->screen->height)
+    *new_y = window->screen->height - 1;
+}
+
 /*!
  * @brief: Prompt a window move
+ *
+ * FIXME: in stead of always clearing twice, we can check for an intersection
  */
 int lwnd_window_move(lwnd_window_t* window, uint32_t new_x, uint32_t new_y)
 {
+  if (!window || !window->screen)
+    return -1;
+
+  /* Prompt a focus */
+  if (!lwnd_window_is_top_window(window))
+    lwnd_window_focus(window);
+
+  lwnd_window_check_position(window, (int*)&new_x, (int*)&new_y);
+
+  mutex_lock(window->lock);
+
   /* Clear old window pixels */
   lwnd_clear(window);
 
@@ -202,7 +230,35 @@ int lwnd_window_move(lwnd_window_t* window, uint32_t new_x, uint32_t new_y)
 
   /* Mark a repaint, since the window contents didn't change */
   window->flags |= LWND_WNDW_NEEDS_REPAINT;
+
+  mutex_unlock(window->lock);
   return 0;
+}
+
+/*! 
+ * @brief: Reorder a window to be on top of the stack
+ */
+int lwnd_window_focus(lwnd_window_t* window)
+{
+  lwnd_screen_t* s;
+  lwnd_window_t* w;
+
+  if (!window || !window->screen)
+    return -1;
+
+  w = lwnd_screen_get_window(window->screen, window->id);
+
+  if (w != window)
+    return -1;
+
+  s = w->screen;
+
+  /* Completely remove */
+  if (lwnd_screen_unregister_window(s, w))
+    return -1;
+
+  /* Add at the end */
+  return lwnd_screen_register_window(s, w);
 }
 
 int lwnd_window_update(lwnd_window_t* window)

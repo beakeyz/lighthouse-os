@@ -2,5 +2,6 @@
   "name": "ticktacktoe_port",
   "linking": "static",
   "type": "process",
-  "libs": ["LibC"]
+  "libs": [
+  ]
 }

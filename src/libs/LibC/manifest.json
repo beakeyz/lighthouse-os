@@ -1,6 +1,6 @@
 {
-  "name": "LibGfx",
+  "name": "LibCRT",
   "path": "System/Lib",
-  "linking": "dynamic",
+  "linking": "static",
   "type": "library"
 }

@@ -800,7 +800,7 @@ aniva_driver_t xhci_driver = {
   .m_version = DEF_DRV_VERSION(0, 0, 1),
 };
 /* TODO: finish this driver so we can actually use it ;-; (I hate USB) */
-EXPORT_DRIVER_PTR(xhci_driver);
+//EXPORT_DRIVER_PTR(xhci_driver);
 
 uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {

@@ -1,4 +1,4 @@
-#include "dev/keyboard/ps2_keyboard.h"
+#include "dev/io/ps2/kbd.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/wnd/alloc.h"
 #include "drivers/wnd/event.h"
@@ -97,22 +97,25 @@ static void USED lwnd_main()
   }
 }
 
+/* TMP */
+static lwnd_window_t* wnd;
+
 /*!
  * @brief: This is a temporary key handler to test out window event and shit
  */
 void on_key(ps2_key_event_t event) 
 {
-  lwnd_window_t* wnd;
 
   if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
     return;
 
-  wnd = lwnd_screen_get_window(main_screen, 1);
+  if (!wnd)
+    wnd = lwnd_screen_get_window(main_screen, 1);
 
   if (!wnd)
     return;
 
-  lwnd_screen_add_event(main_screen, create_lwnd_move_event(1, wnd->x + 1, wnd->y + 1));
+  lwnd_screen_add_event(main_screen, create_lwnd_move_event(wnd->id, wnd->x - 1, wnd->y - 1));
 }
 
 /*
@@ -130,6 +133,8 @@ int init_window_driver()
 
   int error;
 
+  wnd = nullptr;
+
   memset(&_fb_info, 0, sizeof(_fb_info));
 
   println("Initializing allocators!");
@@ -138,7 +143,6 @@ int init_window_driver()
   if (error)
     return -1;
 
-  println("Getting video info!");
   /*
    * Try and get framebuffer info from the active video device 
    * TODO: when we implement 2D acceleration, we probably need to do something else here
@@ -146,7 +150,7 @@ int init_window_driver()
    */
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_fb_info, sizeof(_fb_info)));
 
-  /* NOTE: temp */
+  /* TODO: register to I/O core */
   driver_send_msg("io/ps2_kb", KB_REGISTER_CALLBACK, on_key, sizeof(uintptr_t));
 
   println("Initializing screen!");
@@ -180,13 +184,13 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
 {
   window_id_t lwnd_id;
   lwnd_window_t* internal_wnd;
-  lwindow_t* window;
+  lwindow_t* uwindow;
   proc_t* calling_process;
 
   calling_process = get_current_proc();
 
   /* Check size */
-  if (!calling_process || size != sizeof(*window))
+  if (!calling_process || size != sizeof(*uwindow))
     return DRV_STAT_INVAL;
 
   /* Check pointer */
@@ -194,43 +198,42 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
     return DRV_STAT_INVAL;
 
   /* Unsafe assignment */
-  window = buffer;
+  uwindow = buffer;
 
   switch (code) {
 
     case LWND_DCC_CREATE:
 
-      mutex_lock(main_screen->draw_lock);
-
-      /* Create the window while we know we aren't drawing anything */
-      lwnd_id = create_app_lwnd_window(main_screen, window, calling_process);
-
-      mutex_unlock(main_screen->draw_lock);
+      /* 
+       * Create the window while we know we aren't drawing anything 
+       * NOTE: This takes the draw lock
+       */
+      lwnd_id = create_app_lwnd_window(main_screen, uwindow, calling_process);
 
       if (lwnd_id == LWND_INVALID_ID)
         return DRV_STAT_INVAL;
 
-      window->wnd_id = lwnd_id;
+      uwindow->wnd_id = lwnd_id;
       break;
 
     case LWND_DCC_REQ_FB:
       mutex_lock(main_screen->draw_lock);
 
       /* Grab the window */
-      internal_wnd = lwnd_screen_get_window(main_screen, window->wnd_id);
+      internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
 
       mutex_unlock(main_screen->draw_lock);
 
       if (!internal_wnd)
         return DRV_STAT_INVAL;
 
-      window->fb = internal_wnd->user_fb_ptr;
+      uwindow->fb = internal_wnd->user_fb_ptr;
       break;
 
     case LWND_DCC_UPDATE_WND:
       mutex_lock(main_screen->draw_lock);
 
-      internal_wnd = lwnd_screen_get_window(main_screen, window->wnd_id);
+      internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
 
       if (!internal_wnd) {
         mutex_unlock(main_screen->draw_lock);

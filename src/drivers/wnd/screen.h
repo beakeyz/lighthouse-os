@@ -54,7 +54,24 @@ typedef struct lwnd_screen {
 lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_wnd_count);
 
 int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window);
+int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window);
 int lwnd_screen_draw_window(lwnd_window_t* window);
+
+/*!
+ * @brief: Check if this window is on the top of the z-stack
+ */
+static inline bool lwnd_window_is_top_window(lwnd_window_t* window)
+{
+  return window->id == (window->screen->window_count-1);
+}
+
+static inline bool lwnd_window_has_valid_index(lwnd_window_t* window)
+{
+  if (!window || !window->screen)
+    return false;
+
+  return (window->id < window->screen->window_count && window == window->screen->window_stack[window->id]);
+}
 
 /*!
  * @brief: Grabs a window by its ID

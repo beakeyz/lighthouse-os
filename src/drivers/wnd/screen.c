@@ -73,6 +73,8 @@ void destroy_lwnd_screen(lwnd_screen_t* screen)
  */
 int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window)
 {
+  mutex_lock(screen->draw_lock);
+
   window->screen = screen;
 
   screen->window_stack[screen->window_count] = window;
@@ -80,6 +82,58 @@ int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window)
 
   screen->window_count++;
 
+  mutex_unlock(screen->draw_lock);
+  return 0;
+}
+
+/*!
+ * @brief: Register a window at a specific id
+ *
+ * We can only register at places where there either already is a window, or 
+ * at the end of the current stack, resulting in a call to lwnd_screen_register_window
+ *
+ * FIXME: do we need to update windows anywhere?
+ */
+int lwnd_screen_register_window_at(lwnd_screen_t* screen, lwnd_window_t* window, window_id_t newid)
+{
+  lwnd_window_t* c, *p;
+
+  if (newid >= screen->window_count)
+    return -1;
+
+  /* Register at the end? Just register */
+  if (newid == screen->window_count-1)
+    return lwnd_screen_register_window(screen, window);
+
+  mutex_lock(screen->draw_lock);
+
+  c = screen->window_stack[newid];
+  p = c;
+
+  /* Set the new window here */
+  screen->window_stack[newid] = window;
+  window->id = newid;
+
+  newid++;
+  c = screen->window_stack[newid];
+
+  while (c) {
+
+    /* Shift the previous window forward */
+    screen->window_stack[newid] = p;
+    screen->window_stack[newid]->id = newid;
+
+    /* Cache the current entry as the previous */
+    p = c;
+
+    /* Cycle to the next window */
+    newid++;
+    c = screen->window_stack[newid];
+  }
+
+  screen->window_count++;
+
+  mutex_unlock(screen->draw_lock);
   return 0;
 }
 
@@ -91,31 +145,40 @@ int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window)
 int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
 {
   int error;
-  lwnd_window_t* current;
+
+  if (!screen || !screen->window_count)
+    return -1;
 
   if (window->id == LWND_INVALID_ID)
     return -1;
 
+  /* Check both range and validity */
+  if (!lwnd_window_has_valid_index(window))
+    return -1;
+
   error = 0;
 
-  for (uint32_t i = window->id; i < screen->max_window_count; i++) {
-    current = screen->window_stack[i];
+  mutex_lock(screen->draw_lock);
 
-    /* Invalid ID */
-    if (current != window) {
-      error = -1;
-      goto invalidate_and_exit;
-    }
+  /* We know window is valid and contained within the stack */
+  for (uint32_t i = window->id; i < screen->window_count; i++) {
 
-    if (i+1 < screen->max_window_count) {
+    if (i+1 < screen->window_count) {
       screen->window_stack[i] = screen->window_stack[i + 1];
-      screen->window_stack[i]->id = i;
+
+      if (screen->window_stack[i]) {
+        screen->window_stack[i]->id = i;
+      }
     } else 
       screen->window_stack[i] = nullptr;
   }
 
-invalidate_and_exit:
   window->id = LWND_INVALID_ID;
+  window->screen = nullptr;
+
+  screen->window_count--;
+
+  mutex_unlock(screen->draw_lock);
 
   return error;
 }
@@ -142,6 +205,9 @@ int lwnd_screen_draw_window(lwnd_window_t* window)
   for (uint32_t i = 0; i < window->height; i++) {
     for (uint32_t j = 0; j < window->width; j++) {
 
+      if (window->x + j >= this->width)
+        break;
+
       if (bitmap_isset(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j)))
         continue;
 
@@ -156,7 +222,12 @@ int lwnd_screen_draw_window(lwnd_window_t* window)
 
       bitmap_mark(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j));
     }
+
+    if (window->y + i >= this->height)
+      break;
+
     current_offset += this->info->pitch;
+
   }
 
   return 0;
@@ -242,18 +313,38 @@ void lwnd_screen_handle_event(lwnd_screen_t* screen, lwnd_event_t* event)
 
 /*!
  * @brief: Handle every event in the screens chain
+ *
+ * TODO: event compositing
  */
 void lwnd_screen_handle_events(lwnd_screen_t* screen)
 {
   lwnd_event_t* current_event;
+  lwnd_event_t* next_event;
+
+  if (!screen || !screen->events)
+    return;
 
   current_event = lwnd_screen_take_event(screen);
 
   while (current_event) {
+    next_event = lwnd_screen_take_event(screen);
+
+    /* Consecutive events acting on the same window? */
+    while (next_event && next_event->type == current_event->type && next_event->window_id == current_event->window_id) {
+      /* Destroy this one preemptively, since it does not really matter to us */
+      destroy_lwnd_event(current_event);
+
+      /* Set the current event to the next one */
+      current_event = next_event;
+
+      /* Cycle further */
+      next_event = lwnd_screen_take_event(screen);
+    }
+
     lwnd_screen_handle_event(screen, current_event);
 
     destroy_lwnd_event(current_event);
 
-    current_event = lwnd_screen_take_event(screen);
+    current_event = next_event;
   }
 }

@@ -51,6 +51,7 @@ aniva_driver_t vid_core = {
   .f_msg = msg_video,
   .m_type = DT_CORE,
 };
+EXPORT_CORE_DRIVER(vid_core);
 
 
 int init_video()
@@ -77,5 +78,3 @@ int exit_video()
   return 0;
 }
 
-
-EXPORT_CORE_DRIVER(vid_core);

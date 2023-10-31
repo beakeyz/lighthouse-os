@@ -1,5 +1,6 @@
 {
-  "name": "LibSys.slb",
+  "name": "LibSys",
+  "path": "System/Lib",
   "linking": "dynamic",
   "type": "library"
 }
