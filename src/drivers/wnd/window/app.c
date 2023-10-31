@@ -8,7 +8,7 @@
 #include "libk/flow/error.h"
 #include "logging/log.h"
 
-#define APP_BAR_HEIGHT 36
+#define APP_BAR_HEIGHT 28
 
 static fb_color_t _app_bar_color = (fb_color_t) { .raw_clr = 0xffffffff };
 
@@ -17,9 +17,6 @@ static fb_color_t _app_bar_color = (fb_color_t) { .raw_clr = 0xffffffff };
  */
 int lwnd_app_draw(lwnd_window_t* window)
 {
-
-  memset(window->fb_ptr, 0, window->fb_size);
-
   /* Make sure the app bar is filled in */
   for (uint32_t i = 0; i < APP_BAR_HEIGHT; i++) {
     for (uint32_t j = 0; j < window->width; j++) {
@@ -80,6 +77,10 @@ window_id_t create_app_lwnd_window(lwnd_screen_t* screen, lwindow_t* uwindow, pr
 
   lwnd_window_set_ops(wnd, &lwnd_app_ops);
   lwnd_request_framebuffer(wnd);
+
+  /* Set the pointer to the user framebuffer to under the appbar */
+  wnd->user_fb_ptr = wnd->user_real_fb_ptr + (APP_BAR_HEIGHT * wnd->width * sizeof(uint32_t));
+  uwindow->current_height -= APP_BAR_HEIGHT;
 
   /* Prompt a move */
   lwnd_window_move(wnd, 10, 10);

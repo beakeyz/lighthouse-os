@@ -12,6 +12,7 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -163,6 +164,9 @@ static void xhci_port_power(xhci_hcd_t* hcd, xhci_port_t* port, bool status)
 /*!
  * @brief Create a xhci (root) hub
  *
+ * TODO: The goals for this function are:
+ *  - to be able to recieve device_descriptors from every port (device) that is attached to this hub and print out the data we recieved
+ *  - to power on the ports we find
  */
 xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
 {
@@ -175,9 +179,14 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
 
   memset(hub, 0, sizeof(*hub));
 
+  /* This creates a generic USB hub and asks the host controller for its data */
   hub->phub = create_usb_hub(xhci->parent, nullptr, dev_address, 0);
 
+  hub->port_count = xhci->max_ports;
+  hub->ports = kmalloc(sizeof(xhci_port_t*) * hub->port_count);
+
   kernel_panic("TODO: implement create_xhci_hub");
+
   /*
    * TODO: send identification packets to the devices on this hub
    * and also send setaddress packets to make sure we know where to access a particular device
@@ -198,7 +207,21 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
  */
 void destroy_xhci_hub(xhci_hub_t* hub)
 {
+  xhci_port_t* c_port;
+
   kernel_panic("TODO: destroy_xhci_hub");
+
+  for (uint32_t i = 0; i < hub->port_count; i++) {
+    c_port = hub->ports[i];
+
+    if (!c_port)
+      continue;
+
+    /* TODO; */
+    //destroy_xhci_port(c_port);
+  }
+
+  kfree(hub->ports);
 }
 
 /*!
@@ -339,8 +362,8 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
   xhci->max_ports = HC_MAX_PORTS(hcc_params_1);
   xhci->max_slots = HC_MAX_SLOTS(hcc_params_1);
 
-  if (!xhci->max_ports)
-    return -1;
+  //if (!xhci->max_ports)
+    //return -1;
 
   /* Program the max slots */
   mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
@@ -354,11 +377,13 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
 
   xhci->scratchpad_count = HC_MAX_SCRTCHPD(hcc_params_2);
 
-  /* NOTE: it is legal for there to be no scratchpad */
-  error = xhci_create_scratchpad(xhci);
+  if (xhci->scratchpad_count) {
+    /* NOTE: it is legal for there to be no scratchpad */
+    error = xhci_create_scratchpad(xhci);
 
-  if (error)
-    return -1;
+    if (error)
+      return -1;
+  }
 
   /* Set the command ring */
   xhci->cmd_ring_ptr = create_xhci_ring(xhci, XHCI_MAX_COMMANDS, XHCI_RING_TYPE_CMD);
@@ -645,7 +670,6 @@ fail_and_dealloc:
  */
 int xhci_start(usb_hcd_t* hcd)
 {
-  return 0;
   int error;
   uint32_t cmd;
   xhci_interrupter_t* itr;
@@ -776,7 +800,7 @@ aniva_driver_t xhci_driver = {
   .m_version = DEF_DRV_VERSION(0, 0, 1),
 };
 /* TODO: finish this driver so we can actually use it ;-; (I hate USB) */
-//EXPORT_DRIVER_PTR(xhci_driver);
+EXPORT_DRIVER_PTR(xhci_driver);
 
 uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {

@@ -63,6 +63,7 @@ static inline int lwnd_allocate_fb_range(lwnd_window_t* window, size_t size)
   client = window->client.proc;
 
   window->user_fb_ptr = nullptr;
+  window->user_real_fb_ptr = nullptr;
   window->fb_ptr = nullptr;
   
   window->fb_ptr = (void*)Must(__kmem_kernel_alloc_range(size, NULL, KMEM_FLAG_WRITABLE));
@@ -71,8 +72,10 @@ static inline int lwnd_allocate_fb_range(lwnd_window_t* window, size_t size)
 
     physical = kmem_to_phys(nullptr, (uintptr_t)window->fb_ptr);
 
-    window->user_fb_ptr = (void*)Must(kmem_user_alloc(client, physical, size, NULL, KMEM_FLAG_WRITABLE));
+    window->user_real_fb_ptr = (void*)Must(kmem_user_alloc(client, physical, size, NULL, KMEM_FLAG_WRITABLE));
   }
+
+  memset(window->fb_ptr, 0, size);
 
   return 0;
 }

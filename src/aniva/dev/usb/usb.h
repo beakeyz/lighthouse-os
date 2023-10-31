@@ -34,6 +34,12 @@ struct usb_request;
  *
  * Holds general information about how we can communicate with a particular device
  * and what its capabilities are
+ *
+ * A usb device lives on a certain port / slot and thus has an address
+ * on the hub we need to keep track of.
+ *
+ * It also has (at least one) endpoint(s) that we also need to track here, so we
+ * can redirect requests/transfers to/from the correct endpoints
  */
 typedef struct usb_device {
   /* When we discover a device, this is the first descriptor we'll get back */

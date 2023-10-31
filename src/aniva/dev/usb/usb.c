@@ -65,7 +65,6 @@ usb_device_t* create_usb_device(usb_hub_t* hub, uint8_t port_num)
   device->hub = hub;
 
   /* TODO: get the devic descriptor n shit */
-
   kernel_panic("TODO: gather USB device info");
 
   return device;
@@ -100,6 +99,7 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr
   hub->parent = parent;
   hub->hcd = hcd;
   hub->dev_addr = d_addr;
+  /* Asks the host controller for a device descriptor */
   hub->device = create_usb_device(hub, p_num);
 
   if (!hub->device) {

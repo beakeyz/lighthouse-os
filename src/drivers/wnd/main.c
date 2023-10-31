@@ -112,7 +112,7 @@ void on_key(ps2_key_event_t event)
   if (!wnd)
     return;
 
-  lwnd_screen_add_event(main_screen, create_lwnd_move_event(1, wnd->x, wnd->y + 1));
+  lwnd_screen_add_event(main_screen, create_lwnd_move_event(1, wnd->x + 1, wnd->y + 1));
 }
 
 /*

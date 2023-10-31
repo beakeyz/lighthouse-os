@@ -28,13 +28,18 @@ int main()
   if (!res)
     return -2;
 
-  //lwindow_draw_rect(&window, 0, 0, window.current_width, window.current_height, RGBA(0xA5, 0xFF, 0, 0xFF));
-
   /* Draw the smily */
-  while (true) {
-  }
+  lwindow_draw_rect(&window, 10, 10, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+  lwindow_draw_rect(&window, 50, 10, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+
+  lwindow_draw_rect(&window, 10, 30, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+  lwindow_draw_rect(&window, 50, 30, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+
+  lwindow_draw_rect(&window, 15, 35, 40, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
 
   /* Yield */
+  while (true) {
+  }
 
   close_window(&window);
   return 0;

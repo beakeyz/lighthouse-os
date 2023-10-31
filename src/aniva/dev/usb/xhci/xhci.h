@@ -234,6 +234,7 @@ typedef struct xhci_ip_ctl_ctx {
 
 /*
  * DMA supporting 'context'
+ * FIXME: size?
  */
 typedef struct xhci_dma_ctx {
   uint32_t type;
@@ -363,7 +364,7 @@ typedef struct xhci_segment {
  * xhci transfer descriptor
  */
 typedef struct xhci_td {
-  /* All the trbs in a td will be contiguous, so we only need one pointer */
+  /* All the trbs in a td will be contiguous (for now), so we only need one pointer */
   xhci_trb_t* trbs;
 
   uint32_t trb_count;
@@ -410,6 +411,8 @@ extern xhci_ring_t* create_xhci_ring(struct xhci_hcd* hcd, uint32_t trb_count, u
 extern void destroy_xhci_ring(xhci_ring_t* ring);
 
 extern int xhci_set_cmd_ring(struct xhci_hcd* hcd);
+
+extern int xhci_cmd_ring_enqueue(struct xhci_hcd* hcd, xhci_trb_t* trb);
 
 /*
  * Scratchpad store for a xhci hcd

@@ -147,8 +147,8 @@ int lwnd_screen_draw_window(lwnd_window_t* window)
 
       current_color = get_color_at(window, j, i);
 
-      if (this->info->colors.alpha.length_bits)
-        *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.alpha.offset_bits / 8)) = current_color->components.a;
+      //if (this->info->colors.alpha.length_bits)
+        //*(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.alpha.offset_bits / 8)) = current_color->components.a;
 
       *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.red.offset_bits / 8)) = current_color->components.r;
       *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.green.offset_bits / 8)) = current_color->components.g;

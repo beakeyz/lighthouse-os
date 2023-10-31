@@ -29,7 +29,7 @@ KERNEL_OUT = $(OUT)/aniva.elf
 
 # TODO: these flags are also too messy, clean this up too
 # usefull flag for tracing: -d trace:handle_cmd_* 
-QEMUFLAGS := -m 1G -machine q35 -usb ./out/lightos.iso -enable-kvm -no-reboot -serial stdio
+QEMUFLAGS := -m 1G -machine q35 -usb ./out/lightos.iso -enable-kvm -no-reboot -serial stdio -device qemu-xhci -device usb-audio
 
 CHARDFLAGS := -std=gnu11          \
 -Wall 							\

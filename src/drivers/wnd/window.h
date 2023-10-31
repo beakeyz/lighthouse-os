@@ -59,6 +59,7 @@ typedef struct lwnd_window {
   } client;
 
   /* TODO: better framebuffer management */
+  void* user_real_fb_ptr;
   void* user_fb_ptr;
   void* fb_ptr;
   size_t fb_size;
