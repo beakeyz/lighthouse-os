@@ -86,10 +86,10 @@ class RamdiskManager(object):
 
         # Scan the path for header files
         for entry in os.listdir(path):
-            abs_entry = f"{path}/entry"
+            abs_entry = f"{path}/{entry}"
 
             if os.path.isdir(abs_entry):
-                self.__copy_headers(abs_entry)
+                self.__gather_headers(abs_entry)
 
             # Check if this is a header
             # TODO: have unified file operations to check for filetypes
@@ -111,12 +111,12 @@ class RamdiskManager(object):
         for hdr in self.gathered_headers:
             hdr: Header = hdr
             # Relative header path
-            hdr_rel: str = hdr.fullpath.strip(self.c.LIBC_SRC_DIR)
+            hdr_rel: str = str(hdr.fullpath).replace(self.c.LIBC_SRC_DIR, "")
             # Previous strip should have made sure hdr_rel starts with a '/'
-            hdr_new_path: str = self.c.SYSROOT_HEADERS_DIR + hdr_rel
+            hdr_new_path: str = self.c.SYSROOT_HEADERS_DIR + "/" + hdr_rel
 
             # Make sure this exists
-            self.__ensure_existance(hdr_new_path)
+            self.__ensure_existance(hdr_new_path.replace(hdr.filename, ""))
 
             os.system(f"cp {hdr.fullpath} {hdr_new_path}")
 

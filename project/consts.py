@@ -32,7 +32,7 @@ class Consts:
     SRC_DIR = PROJECT_DIR + "/" + SRC_DIR_NAME
     OUT_DIR = PROJECT_DIR + "/" + OUT_DIR_NAME
     SYSROOT_DIR = PROJECT_DIR + "/" + SYSROOT_DIR_NAME
-    SYSROOT_HEADERS_DIR = SYSROOT_DIR + "System/include"
+    SYSROOT_HEADERS_DIR = SYSROOT_DIR + "/System/libs"
     LIBC_SRC_DIR = SRC_DIR + "/libs" + "/LibC"
     LIBS_OUT_DIR = OUT_DIR + "/libs"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
@@ -84,10 +84,10 @@ class Consts:
 
     DRIVER_LD_FLAGS_EXT = " -r "
 
-    USERSPACE_LD_FLAGS = f" -T {USERSPACE_DEFAULT_LDSCRPT_PATH} -E -Bdynamic -L{SYSROOT_DIR}/System/Lib"
+    USERSPACE_LD_FLAGS = f"-L{SYSROOT_DIR}/System/Lib"
 
     LIB_LD_STATIC_FLAGS = " -nostdlib -static -r"
-    LIB_LD_FLAGS = " -nostdlib -nodefaultlibs -shared -E -Bdynamic -L{SYSROOT_DIR}/System/Lib"
+    LIB_LD_FLAGS = f" -nostdlib -nodefaultlibs -shared -E -Bdynamic -L{SYSROOT_DIR}/System/Lib"
 
     ELF_EXTENTION = ".elf"
     SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary

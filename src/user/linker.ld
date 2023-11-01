@@ -1,4 +1,5 @@
-ENTRY(__lightapp_startup)
+/* TODO: get rid of this fucking thing lmao */
+ENTRY(_start)
 
 SECTIONS {
 

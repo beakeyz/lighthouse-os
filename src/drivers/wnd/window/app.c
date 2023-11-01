@@ -8,7 +8,7 @@
 #include "libk/flow/error.h"
 #include "logging/log.h"
 
-#define APP_BAR_HEIGHT 28
+#define APP_BAR_HEIGHT 16
 
 static fb_color_t _app_bar_color = (fb_color_t) { .raw_clr = 0xffffffff };
 

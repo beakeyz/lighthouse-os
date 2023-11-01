@@ -138,6 +138,7 @@ log "Configuring binutils"
 cd binutils
 "$BINUTILS_SRC/configure" --target="$TARGET" 	\
         --prefix="$CC_PATH" 	\
+        --with-sysroot="$SYSROOT" \
         --disable-nls 		\
         --disable-werror     \
         --enable-shared       \
@@ -153,8 +154,8 @@ log "Configuring gcc"
 cd gcc
 "$GCC_SRC/configure" --target="$TARGET" \
         --prefix="$CC_PATH" 		\
+        --with-sysroot="$SYSROOT/System" \
         --disable-nls			\
-        --without-headers       \
         --enable-languages=c	\
         --enable-shared \
 

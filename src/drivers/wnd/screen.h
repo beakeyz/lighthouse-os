@@ -6,6 +6,7 @@
  * will be beamed into our eyesockets
  */
 #include "dev/video/framebuffer.h"
+#include "drivers/wnd/dynamics/prop.h"
 #include "drivers/wnd/event.h"
 #include "drivers/wnd/io.h"
 #include "drivers/wnd/window.h"
@@ -44,6 +45,11 @@ typedef struct lwnd_screen {
   mutex_t* draw_lock;
 
   lwnd_event_t* events;
+
+  /* Null if there is no fullscreen window */
+  lwnd_window_t* current_fullscreen;
+  /* All the props on a screen will simply be linked together */
+  lwnd_dynamic_prop_t* props;
 
   /* This bitmap is cleared on every render pass */
   bitmap_t* pixel_bitmap;
@@ -91,6 +97,8 @@ static inline lwnd_window_t* lwnd_screen_get_top_window(lwnd_screen_t* screen)
   /* The windows that's at the 'top' of the window stack is always focussed */
   return (screen->window_stack[screen->window_count-1]);
 }
+
+lwnd_window_t* lwnd_screen_get_window_by_label(lwnd_screen_t* screen, const char* label);
 
 int lwnd_screen_add_event(lwnd_screen_t* screen, lwnd_event_t* event);
 lwnd_event_t* lwnd_screen_take_event(lwnd_screen_t* screen);

@@ -184,6 +184,25 @@ int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
 }
 
 /*!
+ * @brief: Scan the entire window stack to find a window by label
+ */
+lwnd_window_t* lwnd_screen_get_window_by_label(lwnd_screen_t* screen, const char* label)
+{
+  lwnd_window_t* c;
+
+  for (uint32_t i = 0; i < screen->window_count; i++) {
+    c = screen->window_stack[i];
+
+    if (!c || strcmp(c->label, label) == 0)
+      break;
+
+    c = nullptr;
+  }
+
+  return c;
+}
+
+/*!
  * @brief: Draw a windows framebuffer to the screen
  *
  * TODO: can we integrate 2D accelleration here to make this at least a little fast?
