@@ -20,6 +20,9 @@ static inline bool usb_req_is_type_valid(uint8_t type)
 /*
  * Generic USB request structure for the 
  * entire subsystem
+ *
+ * HCD drivers should construct the correct commands based on the request types
+ * sent here.
  */
 typedef struct usb_request {
   flat_refc_t ref;
@@ -29,6 +32,7 @@ typedef struct usb_request {
   paddr_t req_dma_addr;
   uint32_t req_size;
   uint32_t req_tranfered_size;
+  /* What interface do we want to communicate with */
   uint32_t req_pipe;
 
   struct usb_device* device;

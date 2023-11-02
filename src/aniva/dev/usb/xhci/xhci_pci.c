@@ -695,6 +695,8 @@ int xhci_start(usb_hcd_t* hcd)
     return error;
   }
 
+  /* TODO: make sure that we are able to process transfers at this point */
+
   /* Create the xhci roothub and gather device info / power up */
   xhci->rhub = create_xhci_hub(xhci, 1);
 
@@ -741,7 +743,10 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
 
   logln("Probing for XHCI");
 
+  /* Create a generic USB hcd */
   hcd = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
+
+  /* Create our own hcd */
   xhci_hcd = create_xhci_hcd();
 
   /* Set the hcd methods manually */
@@ -750,6 +755,13 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   hcd->hw_ops = &xhci_hw_ops;
   hcd->io_ops = &xhci_io_ops;
 
+  /* 
+   * Register it to:
+   * - Configure the host controller
+   * - Configure the roothub
+   * - Enumerate the devices
+   * - Make it available to the entire system
+   */
   error = register_usb_hcd(hcd);
 
   /* FUCKK */

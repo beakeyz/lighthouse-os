@@ -60,6 +60,7 @@ typedef struct usb_hcd {
   usb_hcd_io_ops_t* io_ops;
   usb_hcd_hw_ops_t* hw_ops;
 
+  /* Can be null */
   struct usb_hcd* parent;
 
   /*
@@ -71,6 +72,7 @@ typedef struct usb_hcd {
   /* Locks access to the hcds fields */
   mutex_t* hcd_lock;
 
+  /* FIXME: replace with something a lil more better =) */
   list_t* child_hubs;
   list_t* devices;
 } usb_hcd_t;

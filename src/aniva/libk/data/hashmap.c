@@ -574,6 +574,8 @@ ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
     entry->m_hash = NULL;
     entry->m_value = NULL;
 
+    map->m_size--;
+
     return Success(0);
   }
 
@@ -608,6 +610,7 @@ ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
   entry->m_hash = NULL;
   entry->m_next = nullptr;
 
+  map->m_size--;
   return Success(0);
 
 }

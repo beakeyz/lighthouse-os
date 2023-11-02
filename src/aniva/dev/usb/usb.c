@@ -151,6 +151,7 @@ int register_usb_hcd(usb_hcd_t* hub)
    * so FIXME
    */
 
+  /* Sets up memory structures and gathers info so we can propperly use this bus */
   if (hub->hw_ops->hcd_setup) {
     error = hub->hw_ops->hcd_setup(hub);
 
@@ -158,6 +159,7 @@ int register_usb_hcd(usb_hcd_t* hub)
       goto fail_and_unregister;
   }
 
+  /* Start the controller: Register the roothub and enumerate/configure its devices */
   error = hub->hw_ops->hcd_start(hub);
 
   if (error)

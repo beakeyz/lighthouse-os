@@ -22,6 +22,12 @@ typedef struct driver_ops {
   int (*f_read) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
 } driver_ops_t;
 
+/*
+ * TODO: rework driver dependencies to make every driver keep track of a list of 
+ * other drivers that depend on them
+ *
+ * TODO: work out device attaching
+ */
 typedef struct dev_manifest {
   aniva_driver_t* m_handle;
   list_t* m_dependency_manifests;
@@ -33,27 +39,23 @@ typedef struct dev_manifest {
   /* Resources that this driver has claimed */
   kresource_bundle_t m_resources;
   mutex_t* m_lock;
-  /* A map that contains the devices that this driver manages */
-  hashmap_t* m_devices;
 
   /* Url of the installed driver */
   dev_url_t m_url;
   size_t m_url_length;
 
-  /* Path to the binary of the driver, only on external drivers */
-  const char* m_driver_file_path;
-
   /* Any data that's specific to the kind of driver this is */
   void* m_private;
+
+  /* Path to the binary of the driver, only on external drivers */
+  const char* m_driver_file_path;
   struct extern_driver* m_external;
 
+  /* Hashmap where we attach devices for this driver */
+  hashmap_t* m_device_map;
+  mutex_t* m_device_lock;
+
   driver_ops_t m_ops;
-  // timestamp
-  // hash
-  // vendor
-  // XML load info
-  // driver handle
-  // binary validator
 } dev_manifest_t;
 
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle);
@@ -71,8 +73,14 @@ bool driver_manifest_read(struct aniva_driver* manifest, int(*read_fn)());
 
 bool install_private_data(struct aniva_driver* driver, void* data);
 
-int manifest_add_device(device_t* device);
-int manifest_remove_device(device_t* device);
-int manifest_find_device(device_t** dev_buffer, const char* device_name);
+static inline bool manifest_is_active(dev_manifest_t* manifest)
+{
+  return (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
+}
+
+int manifest_get_device_count(dev_manifest_t* manifest, uint32_t* count);
+int manifest_add_device(dev_manifest_t* manifest, device_t* device);
+int manifest_remove_device(dev_manifest_t* manifest, const char* device);
+int manifest_find_device(dev_manifest_t* manifest, device_t** dev_buffer, const char* device_name);
 
 #endif // !__ANIVA_DEV_MANIFEST__
