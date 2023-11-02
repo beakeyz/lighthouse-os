@@ -1,4 +1,4 @@
-DISCLAIMER: Most of this code is very old and even more of it is built with lacking knowledge of the underlying systems. If reading this ends up giving you an aneurysm, feel free to open an issue about it, but I am not responsible for any brain damage you might end up getting
+DISCLAIMER: Most of this code is very old and even more of it is built with lacking knowledge of the underlying systems. If reading this ends up giving you an aneurysm, feel free to open an issue about it, but I am not responsible for any brain damage you might end up getting xD
 
 # Lighthouse OS
 
