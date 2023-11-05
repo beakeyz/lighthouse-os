@@ -1,5 +1,7 @@
+#include "dev/usb/hcd.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -55,6 +57,19 @@ void destroy_xhci_ring(xhci_ring_t* ring)
   Must(__kmem_dealloc(nullptr, nullptr, (vaddr_t)ring->ring_buffer, ring->ring_size));
 
   kzfree(ring, sizeof(xhci_ring_t));
+}
+
+int xhci_cmd_ring_enqueue(xhci_hcd_t* xhci, xhci_trb_t* trb)
+{
+  usb_hcd_t* hcd;
+  xhci_ring_t* cmd_ring;
+
+  hcd = xhci->parent;
+  cmd_ring = xhci->cmd_ring_ptr;
+
+  println("Enqueueing a XHCI command!");
+
+  return 0;
 }
 
 /*!
