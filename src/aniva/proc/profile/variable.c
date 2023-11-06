@@ -8,6 +8,29 @@
 
 static zone_allocator_t __var_allocator;
 
+static uint32_t profile_var_get_size_for_type(profile_var_t* var) 
+{
+  if (!var)
+    return 0;
+
+  switch (var->type) {
+    case PROFILE_VAR_TYPE_BYTE:
+      return sizeof(uint8_t);
+    case PROFILE_VAR_TYPE_WORD:
+      return sizeof(uint16_t);
+    case PROFILE_VAR_TYPE_DWORD:
+      return sizeof(uint32_t);
+    case PROFILE_VAR_TYPE_QWORD:
+      return sizeof(uint64_t);
+    case PROFILE_VAR_TYPE_STRING:
+      if (!var->str_value)
+        return 0;
+
+      return strlen(var->str_value) + 1;
+  }
+  return 0;
+} 
+
 static void destroy_profile_var(profile_var_t* var)
 {
   if (var->profile) {
@@ -57,6 +80,8 @@ profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, u
    * and releases
    */
   var->refc = create_atomic_ptr_with_value(1);
+  /* Make sure type and value are already set */
+  var->len = profile_var_get_size_for_type(var);
 
   return var;
 }

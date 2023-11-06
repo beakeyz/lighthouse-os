@@ -1,6 +1,7 @@
 #include "dev/usb/spec.h"
 #include <dev/usb/usb.h>
 
+/*
 static usb_device_descriptor_t _roothub_descriptor = {
   .length = 18,
   .type = USB_DT_DEVICE,
@@ -16,3 +17,4 @@ static usb_device_descriptor_t _roothub_descriptor = {
   .serial_num = 0,
   .config_count = 0,
 };
+*/

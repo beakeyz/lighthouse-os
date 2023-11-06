@@ -22,6 +22,13 @@ static hashmap_t* active_profiles;
 
 static mutex_t* profile_mutex;
 
+/*!
+ * @brief: Initialize memory of a profile
+ *
+ * A single profile can store information about it's permissions and the variables 
+ * that are bound to this profile. These variables are stored in a variable sized 
+ * hashmap, that is not really optimized at all...
+ */
 void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level)
 {
   if (!profile || !name || (level > PRF_PRIV_LVL_USER))
@@ -36,6 +43,9 @@ void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level)
   profile_set_priv_lvl(profile, level);
 }
 
+/*!
+ * @brief: Destroy all the memory of a profile
+ */
 void destroy_proc_profile(proc_profile_t* profile)
 {
   if (!profile)

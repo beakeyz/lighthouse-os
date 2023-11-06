@@ -126,10 +126,11 @@ bool profile_has_valid_password_var(proc_profile_t* profile);
 int proc_register_to_base(struct proc* p);
 int proc_register_to_global(struct proc* p);
 
-int profile_save(proc_profile_t* profile, file_t* file);
-int profile_load(proc_profile_t** profile, file_t* file);
-int profile_save_variables(proc_profile_t* profile, file_t* file);
-int profile_load_variables(proc_profile_t* profile, file_t* file);
+/* loader.c */
+extern int profile_save(proc_profile_t* profile, file_t* file);
+extern int profile_load(proc_profile_t** profile, file_t* file);
+extern int profile_save_variables(proc_profile_t* profile, file_t* file);
+extern int profile_load_variables(proc_profile_t* profile, file_t* file);
 
 uint16_t get_active_profile_count();
 

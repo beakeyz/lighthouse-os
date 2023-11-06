@@ -10,7 +10,8 @@
 
 #define APP_BAR_HEIGHT 16
 
-static fb_color_t _app_bar_color = (fb_color_t) { .raw_clr = 0xffffffff };
+static fb_color_t _app_bar_color = (fb_color_t) { .raw_clr = 0xFF1f1f1f };
+static fb_color_t _app_bar_outline_clr = (fb_color_t) { .raw_clr = 0xff454545 };
 
 /*!
  * @brief: Responsible for drawing the apps framebuffer together with its top bar
@@ -20,7 +21,10 @@ int lwnd_app_draw(lwnd_window_t* window)
   /* Make sure the app bar is filled in */
   for (uint32_t i = 0; i < APP_BAR_HEIGHT; i++) {
     for (uint32_t j = 0; j < window->width; j++) {
-      *((fb_color_t*)window->fb_ptr + (i * window->width) + j) = _app_bar_color;
+      if (!i || !j || i == APP_BAR_HEIGHT-1 || j == window->width-1)
+        *((fb_color_t*)window->fb_ptr + (i * window->width) + j) = _app_bar_outline_clr;
+      else
+        *((fb_color_t*)window->fb_ptr + (i * window->width) + j) = _app_bar_color;
     }
   }
 

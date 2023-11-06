@@ -5,7 +5,7 @@
 #include "LibSys/handle_def.h"
 #include <string.h>
 
-BOOL request_window(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
+BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
 {
   BOOL res;
 
@@ -29,7 +29,7 @@ BOOL request_window(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
   return driver_send_msg(wnd->lwnd_handle, LWND_DCC_CREATE, wnd, sizeof(*wnd));
 }
 
-BOOL close_window(lwindow_t* wnd)
+BOOL close_lwindow(lwindow_t* wnd)
 {
   BOOL res;
   

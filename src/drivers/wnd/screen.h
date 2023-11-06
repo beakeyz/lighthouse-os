@@ -6,7 +6,7 @@
  * will be beamed into our eyesockets
  */
 #include "dev/video/framebuffer.h"
-#include "drivers/wnd/dynamics/prop.h"
+#include "drivers/wnd/props/prop.h"
 #include "drivers/wnd/event.h"
 #include "drivers/wnd/io.h"
 #include "drivers/wnd/window.h"

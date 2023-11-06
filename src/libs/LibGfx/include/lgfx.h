@@ -26,9 +26,9 @@
  * process by looking at who the request is comming from
  */
 BOOL
-request_window(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags);
+request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags);
 
 BOOL
-close_window(lwindow_t* wnd);
+close_lwindow(lwindow_t* wnd);
 
 #endif // !__LIGHTLIB_LGFX__

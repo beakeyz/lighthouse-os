@@ -8,15 +8,15 @@
 struct proc_profile;
 
 /* Open for anyone to read */
-#define PVAR_FLAG_GLOBAL (0x01)
+#define PVAR_FLAG_GLOBAL (0x00000001)
 /* Open for anyone to modify? */
-#define PVAR_FLAG_CONSTANT (0x02)
+#define PVAR_FLAG_CONSTANT (0x00000002)
 /* Holds data that the system probably needs to function correctly */
-#define PVAR_FLAG_VOLATILE (0x04)
+#define PVAR_FLAG_VOLATILE (0x00000004)
 /* Holds configuration data */
-#define PVAR_FLAG_CONFIG (0x08)
+#define PVAR_FLAG_CONFIG (0x00000008)
 /* Hidden to any profiles with lesser permissions */
-#define PVAR_FLAG_HIDDEN (0x10)
+#define PVAR_FLAG_HIDDEN (0x00000010)
 
 /*
  * Profile variables
@@ -40,7 +40,8 @@ typedef struct profile_var {
     void* value;
   };
   enum PROFILE_VAR_TYPE type;
-  uint8_t flags;
+  uint32_t flags;
+  uint32_t len;
   atomic_ptr_t* refc;
 } profile_var_t;
 

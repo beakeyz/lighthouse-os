@@ -68,6 +68,8 @@ int xhci_cmd_ring_enqueue(xhci_hcd_t* xhci, xhci_trb_t* trb)
   cmd_ring = xhci->cmd_ring_ptr;
 
   println("Enqueueing a XHCI command!");
+  (void)hcd;
+  (void)cmd_ring;
 
   return 0;
 }

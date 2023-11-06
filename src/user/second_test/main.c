@@ -18,7 +18,7 @@ int main()
   /* Initialize the graphics API */
 
   /* Connect to the compositor (Create a blank window of 75x75) */
-  res = request_window(&window, 75, 75, NULL);
+  res = request_lwindow(&window, 75, 75, NULL);
 
   if (!res)
     return -1;
@@ -41,6 +41,6 @@ int main()
   while (true) {
   }
 
-  close_window(&window);
+  close_lwindow(&window);
   return 0;
 }
