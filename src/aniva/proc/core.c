@@ -244,7 +244,6 @@ proc_t* find_proc_by_id(proc_id_t id)
   ret = nullptr;
 
   FOREACH_VEC(__proc_vect, data, index) {
-    ret = nullptr;
 
     if (!data)
       break;
@@ -253,6 +252,8 @@ proc_t* find_proc_by_id(proc_id_t id)
 
     if (!ret || ret->m_id == id)
       break;
+
+    ret = nullptr;
   }
 
   mutex_unlock(__proc_mutex);

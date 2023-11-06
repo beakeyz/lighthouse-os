@@ -79,6 +79,9 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
   /* Get the reaper lock so we know we can safely queue up the process */
   mutex_lock(__reaper_lock);
 
+  /* Now we can pause the scheduler, since we know we won't block on the mutex lock */
+  pause_scheduler();
+
   /* Mark as finished, since we know we won't be seeing it again after we return from this call */
   proc->m_flags |= PROC_FINISHED;
 
@@ -90,6 +93,9 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
 
   /* Queue the process to the reaper */
   queue_enqueue(__reaper_queue, proc);
+
+  /* Resume stuff here too */
+  resume_scheduler();
 
   /* Unlock the mutex. After this we musn't access @proc anymore */
   mutex_unlock(__reaper_lock);

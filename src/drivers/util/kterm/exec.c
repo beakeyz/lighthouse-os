@@ -74,10 +74,13 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
 
+  println("Adding to scheduler");
   /* Do an instant rescedule */
   Must(sched_add_priority_proc(p, true));
 
+  println("Waiting for process...");
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
+  println("Oinky");
 
   return 0;
 }

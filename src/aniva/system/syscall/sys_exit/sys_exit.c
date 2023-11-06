@@ -10,6 +10,8 @@
 
 /*
  * FIXME: what if a sub-thread of a certain process calls exit() ?
+ *
+ * NOTE: Refactor to make more readable
  */
 uintptr_t sys_exit_handler(uintptr_t code) 
 {
@@ -58,9 +60,12 @@ uintptr_t sys_exit_handler(uintptr_t code)
   }
 
 exit_and_terminate:
+  println("(debug) Terminate");
   Must(try_terminate_process(current_proc));
+  println("(debug) Terminate done");
 
 exit_and_yield:
+
   scheduler_yield();
 
   kernel_panic("Somehow returned to an exited process?");

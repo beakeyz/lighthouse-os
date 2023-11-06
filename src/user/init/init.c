@@ -59,6 +59,5 @@ int main() {
   BOOL result = profile_var_read_ex("Global", "SYSTEM_NAME", HNDL_FLAG_RW, sizeof(test_buffer), test_buffer);
 
   printf("Tried to read from the profile variable handle: %s\n", test_buffer);
-
   return 0;
 }

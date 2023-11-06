@@ -199,11 +199,6 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
     }
   }
 
-  // TODO: make heap compatible with this shit
-  // ret->m_heap = create_zone_allocator_ex(ret->m_root_pd, ALIGN_UP(image.m_highest_addr, SMALL_PAGE_SIZE), 10 * Kib, 10 * Mib, 0)->m_heap;
-
-  // ASSERT_MSG(ret->m_root_pd.m_root, "No root");
-
   kfree(phdrs);
 
   /* Copy over the image object */

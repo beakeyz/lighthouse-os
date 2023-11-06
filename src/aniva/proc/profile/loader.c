@@ -2,17 +2,30 @@
 #include <libk/stddef.h>
 #include "proc/profile/profile.h"
 
+#define LT_PFB_MAGIC0 'P'
+#define LT_PFB_MAGIC1 'F'
+#define LT_PFB_MAGIC2 'b'
+#define LT_PFB_MAGIC3 '\e'
+#define LT_PFB_MAGIC "PFb\e"
+
 /*
- * Layout for the on-disk version of a proc profile
- * TODO:
+ * Structure of the file that contains a profile
+ * this buffer starts at offset 0 inside the file
+ *
+ * When saving/loading this struct to/from a file, notice that we are making use of a
+ * string table, just like in the ELF file format. This means that any
+ * char* that we find in the file, are actually offsets into the string-
+ * table
  */
-typedef struct proc_profile_file {
-  uint8_t magic[2];
-} __attribute__((packed)) proc_profile_file_t;
-
-struct profile_file_var_entry {
-
-};
+struct lt_profile_buffer {
+  char magic[4];
+  /* Version of the kernel this was made for */
+  uint32_t kernel_version;
+  /* Offset from the start of the file to the start of the string table */
+  uint32_t strtab_offset;
+  proc_profile_t profile;
+  profile_var_t vars[];
+} __attribute__((packed));
 
 /*!
  * @brief: Save @profile to a file
