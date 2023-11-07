@@ -44,6 +44,9 @@ class Consts:
     KERNEL_LINKERSCRIPT_PATH = PROJECT_DIR + "/src/aniva/entry/linker.ld"
     USERSPACE_DEFAULT_LDSCRPT_PATH = PROJECT_DIR + "/src/user/linker.ld"
 
+    LIB_COMMON_DIR_NAME = "common"
+    LIB_COMMON_OUT_DIR = LIBS_OUT_DIR + f"/{LIB_COMMON_DIR_NAME}"
+
     CROSS_GCC_DIR = COMPILER_DIR + "/x86_64-pc-lightos-gcc"
     CROSS_LD_DIR = COMPILER_DIR + "/x86_64-pc-lightos-ld"
     CROSS_NM_DIR = COMPILER_DIR + "/x86_64-pc-lightos-nm"
@@ -79,7 +82,6 @@ class Consts:
     USERSPACE_ASM_FLAGS = " -f elf64"
 
     KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000"
-
     KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH}"
 
     DRIVER_LD_FLAGS_EXT = " -r "
@@ -87,7 +89,8 @@ class Consts:
     USERSPACE_LD_FLAGS = f"-L{SYSROOT_DIR}/System/Lib"
 
     LIB_LD_STATIC_FLAGS = " -nostdlib -static -r"
-    LIB_LD_FLAGS = f" -nostdlib -nodefaultlibs -shared -E -Bdynamic -L{SYSROOT_DIR}/System/Lib"
+    LIB_LD_FLAGS = f" -nostdlib -nodefaultlibs -L{SYSROOT_DIR}/System/Lib "
+    LIB_COMMON_SRC_FILES = ""
 
     ELF_EXTENTION = ".elf"
     SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary

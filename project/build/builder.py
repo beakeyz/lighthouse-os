@@ -318,7 +318,7 @@ class ProjectBuilder(object):
                         for lib_man in self.constants.LIBRARY_MANIFESTS:
                             lib_man: BuildManifest = lib_man
 
-                            if lib_man.manifested_name == "LibCRT":
+                            if lib_man.manifested_name == "LibC":
                                 objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
                             # LibSys is also essensial for every app right now
                             elif lib_man.manifested_name == "LibSys":
@@ -356,6 +356,9 @@ class ProjectBuilder(object):
             manifest_out_path: str = manifest.path.strip("manifest.json").replace(self.constants.SRC_DIR, self.constants.OUT_DIR)
 
             objFiles: str = " "
+            commonObjFiles: str = " "
+
+            print(f"Linking: {manifest.manifested_name}")
 
             # Grab the object files based on the manifest output path
             for objFile in self.constants.OBJ_FILES:
@@ -363,7 +366,11 @@ class ProjectBuilder(object):
 
                 if objFile.find(manifest_out_path) != -1:
                     objFiles += f"{objFile} "
+                # Make sure the common library things are included in the binary
+                elif objFile.find(self.constants.LIB_COMMON_OUT_DIR) != -1 and manifest.manifested_name != "LibC":
+                    commonObjFiles += f"{objFile} "
 
+            # Check if the manifest specifies an output path
             if manifest.output_path is not None:
                 bin_out_path = self.constants.SYSROOT_DIR + "/" + manifest.output_path + "/"
                 # Make sure this directory ectually exists in our sysroot
@@ -375,8 +382,12 @@ class ProjectBuilder(object):
                 ULF = self.constants.LIB_LD_FLAGS
                 ld = self.constants.CROSS_LD_DIR
 
-                if os.system(f"{ld} {ULF} {objFiles} -o {BIN_OUT} ") != 0:
+                if os.system(f"{ld} {ULF} {commonObjFiles} {objFiles} -o {BIN_OUT} ") != 0:
                     return BuilderResult.FAIL
+
+            # Make sure to remove the object file containing the entry for the dynamic library
+            staticOmit: str = f"{manifest_out_path}entry.o"
+            objFiles = objFiles.replace(staticOmit, "")
 
             # Build a static library
             BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + self.constants.STATIC_LIB_EXTENTION

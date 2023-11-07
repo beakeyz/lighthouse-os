@@ -59,9 +59,8 @@ int __write_byte(FILE* stream, uint64_t* counter, char byte)
   stream->w_buff[stream->w_buf_written++] = byte;
 
   /* Sync the buffer if the max. buffersize is reached, or the byte is a null-char */
-  if (stream->w_buf_written >= stream->w_buf_size || byte == '\0') {
+  if (stream->w_buf_written >= stream->w_buf_size || !byte)
     fflush(stream);
-  }
 
   if (counter)
     (*counter)++;
@@ -71,6 +70,8 @@ int __write_byte(FILE* stream, uint64_t* counter, char byte)
 
 /*
  * Write a string of bytes into the buffer of a stream
+ *
+ * Probably unsafe, since it just continues until it finds a null-byte
  */
 int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
 {

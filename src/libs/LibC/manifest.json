@@ -1,5 +1,5 @@
 {
-  "name": "LibCRT",
+  "name": "LibC",
   "path": "System/Lib",
   "linking": "static",
   "type": "library"

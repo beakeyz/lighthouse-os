@@ -1,6 +1,6 @@
 {
   "name": "LibGfx",
   "path": "System/Lib",
-  "linking": "dynamic",
+  "linking": "static",
   "type": "library"
 }
