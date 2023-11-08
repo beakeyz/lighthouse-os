@@ -11,22 +11,24 @@
  * @driver: the driver to register to
  * @device: the device to register
  */
-void register_video_device(aniva_driver_t* driver, video_device_t* device)
+int register_video_device(aniva_driver_t* driver, video_device_t* device)
 {
   bool result;
   dev_manifest_t* manifest;
 
   manifest = try_driver_get(driver, NULL);
 
-  if (!manifest)
-    return;
+  if (!manifest || manifest->m_private)
+    return -1;
 
+  /* NOTE: locks the manifests mutex */
   result = install_private_data(driver, device);
 
   if (!result)
-    return;
+    return -2;
 
   device->manifest = manifest;
+  return 0;
 }
 
 /*!
@@ -48,14 +50,14 @@ void unregister_video_device(struct video_device* device)
 }
 
 /*!
- * @brief Get the current active video device
+ * @brief Get the current main video device
  *
- * Since there can only be one active driver at a time, this is insane lol
+ * Since there should realistically only be one active driver at a time, this is insane lol
  */
-struct video_device* get_active_video_device()
+struct video_device* get_main_video_device()
 {
   /* NOTE: the first graphics driver (also hopefully the only) is always the active driver */
-  dev_manifest_t* manifest = get_active_driver_from_type(DT_GRAPHICS);
+  dev_manifest_t* manifest = get_main_driver_from_type(DT_GRAPHICS);
 
   if (!manifest)
     return nullptr;
@@ -82,7 +84,7 @@ int try_activate_video_device(video_device_t* device)
   if (!device)
     return -1;
 
-  c_active_device = get_active_video_device();
+  c_active_device = get_main_video_device();
 
   if (c_active_device) {
     c_active_manifest = c_active_device->manifest;
@@ -92,7 +94,7 @@ int try_activate_video_device(video_device_t* device)
   }
 
   /* Set the active driver */
-  return set_active_driver(device->manifest, DT_GRAPHICS);
+  return set_main_driver(device->manifest, DT_GRAPHICS);
 }
 
 video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops)

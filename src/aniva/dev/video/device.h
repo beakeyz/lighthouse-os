@@ -2,6 +2,7 @@
 #define __ANIVA_VID_DEVICE__
 
 #include "dev/core.h"
+#include "dev/video/connector.h"
 #include "libk/stddef.h"
 
 #define VIDDEV_FLAG_FB          (0x01)
@@ -11,41 +12,10 @@
 
 struct video_device_ops;
 struct aniva_driver;
+struct vdev_info;
 struct fb_info;
 
 union fb_color;
-
-/*
- * Fun little idea:
- *
- * Force video drivers to implement certain controlcodes, and also enforce certain
- * control-returnvalues to allow the kernel to check availability of the codes at 
- * runtime
- */
-/* driver controlcodes / ioctl codes */
-#define VIDDEV_DCC_BLT 100 
-
-#define     VIDDEV_BLT_MODE_IMAGE 0
-#define     VIDDEV_BLT_MODE_COLOR 1
-
-/*
- * Structure to be passed into a blt message
- */
-typedef struct viddev_blt {
-  uint32_t x, y;
-  uint32_t width, height;
-  uint8_t mode;
-  union fb_color* buffer;
-} viddev_blt_t;
-
-#define VIDDEV_DCC_MAPFB 101
-
-typedef struct viddev_mapfb {
-  vaddr_t virtual_base;
-  size_t* size;
-} viddev_mapfb_t;
-
-#define VIDDEV_DCC_GET_FBINFO 102
 
 /*
  * Structure for any video devices like gpus or fb devices
@@ -71,22 +41,40 @@ typedef struct video_device {
   uint16_t max_connector_count;
   uint16_t current_connector_count;
 
+  void* priv;
+
+  struct vdev_info* info;
   struct video_device_ops* ops;
 } video_device_t;
 
 video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops);
 int destroy_video_device(video_device_t* device);
 
-void register_video_device(struct aniva_driver* driver, struct video_device* device);
+int register_video_device(struct aniva_driver* driver, struct video_device* device);
 void unregister_video_device(struct video_device* device);
 
-struct video_device* get_active_video_device();
+struct video_device* get_main_video_device();
 
 int try_activate_video_device(video_device_t* device);
 
 typedef struct video_device_ops {
   int (*f_remove) (video_device_t* dev);
   int (*f_get_fb) (video_device_t* dev, struct fb_info* info);
+
+  int (*f_enable_engine)(video_device_t* dev);
+  int (*f_disable_engine)(video_device_t* dev);
+
+  int (*f_get_info)(video_device_t* dev, struct vdev_info* info);
 } video_device_ops_t;
+
+/*
+ * Info about a certain video device
+ *
+ * Info itself is ignorant about the device it comes from
+ * Any info is gathered by ->f_get_info, which is provided by the video driver
+ */
+typedef struct vdev_info {
+  vdev_connector_t* connectors[VCONNECTOR_MAX];
+} vdev_info_t;
 
 #endif // !__ANIVA_VID_DEVICE__

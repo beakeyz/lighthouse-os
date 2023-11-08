@@ -44,6 +44,7 @@
 #include "system/resource.h"
 #include <system/processor/processor.h>
 #include <mem/kmem_manager.h>
+#include <dev/video/message.h>
 
 #include "font.h"
 #include "exec.h"

@@ -3,6 +3,7 @@
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
+#include "dev/video/message.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
@@ -14,16 +15,48 @@
 #include "sched/scheduler.h"
 #include <dev/driver.h>
 
+/*
+ * Driver for the EFI framebuffer protocols
+ *
+ * These include GOP and UGA, but we mostly focus on GOP.
+ * The aim of this driver is simply to provide the most basic vdev interface in the system, 
+ * for when there are no more sophisticated drivers available to support more sophisticated
+ * features.
+ *
+ * Here, we (should) simply support the following things:
+ *  - Managing the framebuffer memory
+ *  - Getting information about the framebuffer
+ *  - Simple blt opperations
+ * 
+ * Things we lack are:
+ *  - 2D/3D acceleration, in the form of hardware blt, 3D engines, ect.
+ *  - Advanced video memory management
+ *  - HW cursor
+ */
+
 int fb_driver_init();
 int fb_driver_exit();
 
+/* Our manifest */
+static dev_manifest_t* _this;
 /* Local framebuffer information for the driver */
-fb_info_t info = { 0 };
+static fb_info_t info = { 0 };
 
 fb_ops_t fb_ops = {
   .f_draw_rect = generic_draw_rect,
 };
 
+static int efifb_get_info(video_device_t* dev, vdev_info_t* info)
+{
+  memset(info, 0, sizeof(*info));
+  return 0;
+}
+
+/*!
+ * @brief: Map the framebuffer to a virtual address
+ *
+ * TODO: keep track of all the mappings, so we can keep track of them
+ */
 static int efi_fbmemmap(uintptr_t base, size_t* p_size) 
 {
   size_t size;
@@ -32,8 +65,6 @@ static int efi_fbmemmap(uintptr_t base, size_t* p_size)
     return -1;
 
   size = ALIGN_UP(info.size, SMALL_PAGE_SIZE);
-
-  println("Mapping framebuffer");
 
   /* Map the framebuffer to the exact base described by the caller */
   Must(__kmem_alloc_ex(nullptr, nullptr, info.addr, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_KERNEL | KMEM_FLAG_WC | KMEM_FLAG_WRITABLE));
@@ -83,14 +114,26 @@ static uint64_t fb_driver_msg(aniva_driver_t* driver, dcc_t code, void* buffer, 
   return DRV_STAT_OK;
 }
 
-static video_device_ops_t efi_devops = {
-};
+int efifb_remove(video_device_t* device)
+{
+  size_t fb_page_count;
+  uintptr_t fb_start_idx;
 
-static video_device_t vdev = {
-  .flags = VIDDEV_FLAG_FB | VIDDEV_FLAG_FIRMWARE,
-  .max_connector_count = 0,
-  .current_connector_count = 0,
-  .ops = &efi_devops,
+  /* Calculate things again */
+  fb_page_count = GET_PAGECOUNT(info.size);
+  fb_start_idx = kmem_get_page_idx(info.addr);
+
+  /* TODO: tell underlying hardware to stop its EFI framebuffer engine */
+  kernel_panic("TODO: actual efifb_remove");
+
+  /* Mark the physical range used */
+  kmem_set_phys_range_free(fb_start_idx, fb_page_count);
+  return 0;
+}
+
+static video_device_ops_t efi_devops = {
+  .f_get_info = efifb_get_info,
+  .f_remove = efifb_remove,
 };
 
 // FIXME: this driver only works for the multiboot fb that we get passed
@@ -120,23 +163,34 @@ EXPORT_DRIVER_PTR(efifb_driver);
  * - Make sure we are exported so we can be used
  *
  */
-int fb_driver_init() {
-
+int fb_driver_init() 
+{
+  size_t fb_page_count;
+  uintptr_t fb_start_idx;
+  video_device_t* vdev;
   struct multiboot_tag_framebuffer* fb;
 
-  /* Check the early system logs */
-  if (!(g_system_info.sys_flags & SYSFLAGS_HAS_FRAMEBUFFER))
-    return -1;
+  _this = try_driver_get(&efifb_driver, NULL);
 
-  println("Initialized fb driver!");
+  ASSERT_MSG(_this, "Could not get the efifb driver manifest!");
+
+  /* Check the early system logs. This is okay, but we really do want to get an actual gpu driver running soon lol */
+  if (!(g_system_info.sys_flags & SYSFLAGS_HAS_FRAMEBUFFER))
+    return 0;
 
   fb = g_system_info.firmware_fb;
 
   if (!fb)
     return -1;
 
+  vdev = create_video_device(&efifb_driver, &efi_devops);
+
+  if (!vdev)
+    return -2;
+
   memset(&info, 0, sizeof(info));
 
+  /* Construct fbinfo ourselves */
   info.addr = fb->common.framebuffer_addr;
   info.pitch = fb->common.framebuffer_pitch;
   info.bpp = fb->common.framebuffer_bpp;
@@ -155,25 +209,32 @@ int fb_driver_init() {
 
   info.ops = &fb_ops;
 
-  size_t fb_page_count = GET_PAGECOUNT(info.size);
-  uintptr_t fb_start_idx = kmem_get_page_idx(info.addr);
+  fb_page_count = GET_PAGECOUNT(info.size);
+  fb_start_idx = kmem_get_page_idx(info.addr);
 
   /* Mark the physical range used */
   kmem_set_phys_range_used(fb_start_idx, fb_page_count);
 
   /* Register the video device (install it on our manifest) */
-  register_video_device(&efifb_driver, &vdev);
+  register_video_device(&efifb_driver, vdev);
 
-  try_activate_video_device(&vdev);
+  try_activate_video_device(vdev);
   return 0;
 }
 
-int fb_driver_exit() {
+int fb_driver_exit() 
+{
+  video_device_t* vdev;
 
-  //kmem_set_phys_range_free(fb_start_idx, fb_page_count);
+  if (!_this || !_this->m_private)
+    return -1;
 
-  /* Remove the video device */
-  unregister_video_device(&vdev);
+  vdev = _this->m_private;
 
+  /* Remove the video device from its local register */
+  unregister_video_device(vdev);
+
+  /* Calls ->f_remove */
+  destroy_video_device(vdev);
   return 0;
 }

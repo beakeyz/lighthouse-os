@@ -670,13 +670,13 @@ size_t get_driver_type_count(dev_type_t type)
   return __dev_constraints[type].current_count;
 }
 
-struct dev_manifest* get_active_driver_from_type(dev_type_t type)
+struct dev_manifest* get_main_driver_from_type(dev_type_t type)
 {
   dev_constraint_t constraint = __dev_constraints[type];
   return constraint.active;
 }
 
-int set_active_driver(struct dev_manifest* dev, dev_type_t type)
+int set_main_driver(struct dev_manifest* dev, dev_type_t type)
 {
   dev_constraint_t* constraint = &__dev_constraints[type];
 
@@ -699,7 +699,7 @@ int set_active_driver(struct dev_manifest* dev, dev_type_t type)
  * @buffer: the buffer we copy to
  * @type: the driver type we want to get the path of
  */
-int get_active_driver_path(char buffer[128], dev_type_t type)
+int get_main_driver_path(char buffer[128], dev_type_t type)
 {
   dev_manifest_t* manifest;
   dev_constraint_t* constraint;
@@ -770,7 +770,7 @@ struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
  * @manifest: the manifest to try to activate
  * @uninstall: if true we uninstall the old driver
  */
-void replace_active_driver(struct dev_manifest* manifest, bool uninstall)
+void replace_main_driver(struct dev_manifest* manifest, bool uninstall)
 {
   kernel_panic("TODO: replace_active_driver");
 }

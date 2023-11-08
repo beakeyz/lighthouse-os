@@ -17,6 +17,7 @@
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <dev/video/device.h>
+#include <dev/video/message.h>
 #include "sync/mutex.h"
 #include "window.h"
 #include "LibGfx/include/driver.h"

@@ -16,13 +16,12 @@ extern void __init_stdio(void);
 /*
  * TODO: library initialization for userspace
  */
-void lightapp_startup(MainEntry main) {
-
+void lightapp_startup(MainEntry main) 
+{
   process_result_t result;
 
-  if (!main) {
+  if (!main)
     exit(ERROR);
-  }
 
   __init_memalloc();
   __init_stdio();
@@ -41,10 +40,8 @@ void lightapp_startup(MainEntry main) {
   result = main();
 
   /* 3) Notify the kernel that we have exited so we can be cleaned up */
-
-  /* 4) Yield to the kernel */
-
   exit(result);
 
+  /* 4) Yield */
   halt();
 }

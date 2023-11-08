@@ -20,7 +20,7 @@ uint64_t msg_video(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, 
   mutex_lock(_vid_core_lock);
 
   /* NOTE: by default, we simply pass on any messages for the active graphics driver through here */
-  active = get_active_driver_from_type(DT_GRAPHICS);
+  active = get_main_driver_from_type(DT_GRAPHICS);
 
   switch (code) {
     default:

@@ -21,7 +21,6 @@ FILE __stdout = {
   .handle = 1,
   .w_buf_written = 0,
   .w_buf_size = FILE_BUFSIZE,
-  //.r_buf_size = FILE_BUFSIZE,
 };
 
 /* Initialize this to POSIXefy our userspace =O */
@@ -43,9 +42,29 @@ void __init_stdio(void)
   stdout = &__stdout;
   stderr = &__stderr;
 
+  /* Make sure no junk */
+  memset(stdin, 0, sizeof(*stdin));
+  memset(stdout, 0, sizeof(*stdout));
+  memset(stderr, 0, sizeof(*stderr));
+
+  /* Set stdin */
+  stdin->handle = 0;
+  stdin->r_buf_size = FILE_BUFSIZE;
+
+  /* Set stdout */
+  stdout->handle = 1;
+  stdout->w_buf_size = FILE_BUFSIZE;
+
+  /* Set stderr */
+  stderr->handle = 2;
+
   /* Create buffers */
   stdin->r_buff = malloc(FILE_BUFSIZE);
   stdout->w_buff = malloc(FILE_BUFSIZE);
+
+  /* Make sure they are empty */
+  memset(stdin->r_buff, 0, FILE_BUFSIZE);
+  memset(stdin->w_buff, 0, FILE_BUFSIZE);
 }
 
 /*

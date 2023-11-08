@@ -3,6 +3,7 @@
 #include "dev/video/framebuffer.h"
 #include <dev/core.h>
 #include <dev/driver.h>
+#include <dev/video/message.h>
 
 int lightenv_init();
 int lightenv_exit();

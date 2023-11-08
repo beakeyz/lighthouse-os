@@ -143,17 +143,17 @@ bool is_driver_loaded(struct dev_manifest* handle);
  * Find the handle to a driver through its url
  */
 struct dev_manifest* get_driver(dev_url_t url);
-struct dev_manifest* get_active_driver_from_type(dev_type_t type);
+struct dev_manifest* get_main_driver_from_type(dev_type_t type);
 struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
-int get_active_driver_path(char buffer[128], dev_type_t type);
+int get_main_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 
 ErrorOrPtr foreach_driver(bool (*callback)(hive_t* h, void* manifset));
 
-int set_active_driver(struct dev_manifest* dev, dev_type_t type);
+int set_main_driver(struct dev_manifest* dev, dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);
 
-void replace_active_driver(struct dev_manifest* manifest, bool uninstall);
+void replace_main_driver(struct dev_manifest* manifest, bool uninstall);
 
 int register_core_driver(struct aniva_driver* driver, dev_type_t type);
 int unregister_core_driver(struct aniva_driver* driver);
