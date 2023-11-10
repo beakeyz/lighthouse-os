@@ -1,0 +1,9 @@
+{
+  "name": "minesweeper", 
+  "linking": "static", 
+  "type": "process", 
+  "libs": [
+    "LibC",
+    "LibGfx"
+  ]
+}

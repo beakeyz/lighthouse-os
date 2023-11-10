@@ -122,6 +122,24 @@ int profile_find(const char* name, proc_profile_t** profile)
 }
 
 /*!
+ * @brief: Loop over every profile and call @fn on them
+ *
+ * Simply a wrapper around hashmap_itterate, so it's convention for a hashmap_itterate_fn_t
+ * should be used
+ */
+int profile_foreach(hashmap_itterate_fn_t fn)
+{
+  if (!fn)
+    return -1;
+
+  /* Simply call hashmap_itterate */
+  if (IsError(hashmap_itterate(active_profiles, fn, NULL)))
+    return -2;
+
+  return 0;
+}
+
+/*!
  * @brief Add a variable to a profile
  *
  * Nothing to add here...
@@ -150,26 +168,39 @@ int profile_add_var(proc_profile_t* profile, profile_var_t* var)
 /*!
  * @brief Remove a variable on a profile
  *
- * This leaves the ->profile field on the removed profile_var set
- * and the caller should handle this
+ * This clears the ->profile field on the removed profile_var
+ * and the caller should be thoughtful of this
  */
 int profile_remove_var(proc_profile_t* profile, const char* key)
 {
+  profile_var_t* var;
   ErrorOrPtr result;
 
   if (!key || !profile || !profile->var_map)
     return -1;
 
+  result = Error();
+
   mutex_lock(profile->lock);
 
-  /* Hashmap SHOULD handle duplicates for us correctly =) */
+  var = hashmap_get(profile->var_map, (void*)key);
+
+  /* Can't find this variable, yikes */
+  if (!var)
+    goto unlock;
+
+  /* Make sure this field is cleared */
+  var->profile = nullptr;
+
+  /* This really should not fail, since we've checked for presence already */
   result = hashmap_remove(profile->var_map, (void*)key);
 
+unlock:
   mutex_unlock(profile->lock);
 
   if (IsError(result))
     return -2;
-
+  
   return 0;
 }
 

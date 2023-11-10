@@ -125,7 +125,8 @@ static zone_allocator_t* __get_allocator_for_size(size_t size)
   return nullptr;
 }
 
-void init_zalloc() {
+void init_zalloc() 
+{
   __kernel_allocator_count = 0;
   __kernel_allocators = nullptr;
 
@@ -145,7 +146,8 @@ void init_zalloc() {
 
 #define DEFAULT_ZONE_STORE_CAPACITY ((SMALL_PAGE_SIZE - sizeof(zone_store_t)) >> 3)
 
-ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) {
+ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) 
+{
   return init_zone_allocator_ex(allocator, nullptr, NULL, initial_size, hard_max_entry_size, flags);
 }
 

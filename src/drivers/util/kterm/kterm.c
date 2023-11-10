@@ -117,41 +117,93 @@ static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint3
   }
 }
 
-static struct kterm_cmd {
-  char* argv_zero;
-  f_kterm_command_handler_t handler;
-} kterm_commands[] = {
+struct kterm_cmd kterm_commands[] = {
   {
-    .argv_zero = "help",
-    .handler = kterm_cmd_help,
+    "help",
+    "Display help about kterm and it's commands",
+    kterm_cmd_help,
   },
   {
-    .argv_zero = "exit",
-    .handler = kterm_cmd_exit,
+    "hello",
+    "Say hello",
+    kterm_cmd_hello,
   },
   {
-    .argv_zero = "clear",
-    .handler = kterm_cmd_clear,
+    "exit",
+    "Exit the system and shut down",
+    kterm_cmd_exit,
   },
   {
-    .argv_zero = "sysinfo",
-    .handler = kterm_cmd_sysinfo,
+    "clear",
+    "Clear the command window",
+    kterm_cmd_clear,
   },
   {
-    .argv_zero = "drvinfo",
-    .handler = kterm_cmd_drvinfo,
+    "sysinfo",
+    "Print generic system information",
+    kterm_cmd_sysinfo,
   },
   {
-    .argv_zero = "drvld",
-    .handler = kterm_cmd_drvld,
+    "drvinfo",
+    "Print information about the installed drivers",
+    kterm_cmd_drvinfo,
   },
   {
-    .argv_zero = "hello",
-    .handler = kterm_cmd_hello,
+    "drvld",
+    "Manage drivers",
+    kterm_cmd_drvld,
   },
   {
-    .argv_zero = "diskinfo",
-    .handler = kterm_cmd_diskinfo,
+    "diskinfo",
+    "Print info about a disk device",
+    kterm_cmd_diskinfo,
+  },
+  {
+    "vidinfo",
+    "Print info about the current video device",
+    nullptr,
+  },
+  {
+    "dispinfo",
+    "Print info about the available displays",
+    nullptr,
+  },
+  {
+    "netinfo",
+    "Print info about the current network configuration",
+    nullptr,
+  },
+  {
+    "pwrinfo",
+    "Print info about the current power and thermal status",
+    nullptr,
+  },
+  {
+    "envinfo",
+    "Print info about the current environment (Profiles and variables)",
+    kterm_cmd_envinfo,
+  },
+  {
+    "envset",
+    "Interract with the environment",
+    nullptr,
+  },
+  /* VFS functions */
+  {
+    "ls",
+    "List the current working directory contents",
+    nullptr,
+  },
+  {
+    "cd",
+    "Change the current working directory",
+    nullptr,
+  },
+  {
+    /* Unixes pwd lmao */
+    "cwd",
+    "Print the current working directory",
+    nullptr,
   },
   /*
    * NOTE: this is exec and this should always
@@ -159,12 +211,13 @@ static struct kterm_cmd {
    * kterm_grab_handler_for might miss some commands
    */
   {
-    .argv_zero = nullptr,
-    .handler = kterm_try_exec,
+    nullptr,
+    nullptr,
+    kterm_try_exec,
   }
 };
 
-static uint32_t kterm_cmd_count = sizeof(kterm_commands) / sizeof(kterm_commands[0]);
+uint32_t kterm_cmd_count = sizeof(kterm_commands) / sizeof(kterm_commands[0]);
 
 /*!
  * @brief Find a command for @cmd
@@ -177,6 +230,8 @@ static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
 
   if (!cmd || !(*cmd))
     return nullptr;
+
+  current = nullptr;
   
   for (uint32_t i = 0; i < kterm_cmd_count; i++) {
     current = &kterm_commands[i];
@@ -522,16 +577,16 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
   return DRV_STAT_OK;
 }
 
-void kterm_on_key(ps2_key_event_t event) {
-
-  if (!doorbell_has_door(__kterm_cmd_doorbell, 0))
+void kterm_on_key(ps2_key_event_t event)
+{
+  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !event.m_pressed)
     return;
 
-  if (event.m_pressed)
-    kterm_write_char(event.m_typed_char);
+  kterm_write_char(event.m_typed_char);
 }
 
-static void kterm_flush_buffer() {
+static void kterm_flush_buffer() 
+{
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
   __kterm_buffer_ptr = 0;
 }
@@ -541,7 +596,8 @@ static void kterm_flush_buffer() {
  *
  * FIXME: much like with kterm_print, fix the voodoo shit with KTERM_CURSOR_WIDTH and __kterm_char_buffer
  */
-static void kterm_write_char(char c) {
+static void kterm_write_char(char c) 
+{
   if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
     // time to flush the buffer
     return;
@@ -655,10 +711,10 @@ int kterm_println(const char* msg)
  * FIXME: the magic we have with KTERM_CURSOR_WIDTH and kterm_buffer_ptr_copy should get nuked 
  * and redone xD
  */
-int kterm_print(const char* msg) {
-
+int kterm_print(const char* msg) 
+{
   uintptr_t index = 0;
-  uintptr_t kterm_buffer_ptr_copy = __kterm_buffer_ptr;
+
   while (msg[index]) {
     char current_char = msg[index];
     if (current_char == '\n') {
@@ -672,19 +728,18 @@ int kterm_print(const char* msg) {
 
       kterm_flush_buffer();
       kterm_draw_cursor();
-      kterm_buffer_ptr_copy = NULL;
+      __kterm_buffer_ptr = NULL;
     } else {
-      kterm_draw_char((KTERM_CURSOR_WIDTH + kterm_buffer_ptr_copy) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
-      kterm_buffer_ptr_copy++;
+      kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
+      __kterm_buffer_ptr++;
 
-      if ((KTERM_CURSOR_WIDTH + kterm_buffer_ptr_copy) * KTERM_FONT_WIDTH > __kterm_fb_info.width) {
+      if ((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH > __kterm_fb_info.width) {
         __kterm_current_line++;
-        kterm_buffer_ptr_copy = 0;
+        __kterm_buffer_ptr = 0;
       }
     }
     index++;
   }
-  __kterm_buffer_ptr = kterm_buffer_ptr_copy;
 
   return 0;
 }

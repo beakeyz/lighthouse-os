@@ -22,6 +22,15 @@ BOOL profile_open_from_process(HANDLE process_handle, HANDLE* profile_handle)
   return FALSE;
 }
 
+BOOL create_profile_variable(HANDLE profile_handle, const char* key, enum PROFILE_VAR_TYPE type, DWORD flags, VOID* value)
+{
+  if (!key)
+    return FALSE;
+
+  /* Make sure this is a bool and not something like a qword */
+  return (syscall_5(SYSID_CREATE_PVAR, profile_handle, (uintptr_t)key, type, flags, (uintptr_t)value) == TRUE);
+}
+
 BOOL profile_var_get_type(HANDLE var_handle, enum PROFILE_VAR_TYPE* type)
 {
   if (!type)

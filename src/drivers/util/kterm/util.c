@@ -20,16 +20,32 @@
 static const char* __help_str = 
 "Welcome to the Aniva kernel terminal application (kterm)\n"
 "kterm provides a few internal utilities and a way to execute binaries from the filesystem\n"
-"\nA few commands available directly from kterm are: \n"
-" - help: display this helpful information\n"
-" - exit: exit the kterm driver and (in most cases) exit and shutdown the sytem\n"
-" - clear: clear the screen\n"
-" - sysinfo: dump some interesting system information\n"
-" - ... (TODO: more)";
+"\nA few commands available directly from kterm are: \n";
+
+static ALWAYS_INLINE void kterm_print_keyvalue(const char* key, const char* value)
+{
+  kterm_print(key);
+  kterm_print(": ");
+  if (value)
+    kterm_println(value);
+  else 
+    kterm_println("N/A");
+}
+
 
 uint32_t kterm_cmd_help(const char** argv, size_t argc)
 {
   kterm_println(__help_str);
+
+  for (uint32_t i = 0; i < kterm_cmd_count; i++) {
+    struct kterm_cmd* c = &kterm_commands[i];
+
+    if (!c->argv_zero)
+      continue;
+
+    kterm_print_keyvalue(c->argv_zero, c->desc);
+
+  }
   return 0;
 }
 
@@ -43,16 +59,6 @@ uint32_t kterm_cmd_clear(const char** argv, size_t argc)
 {
   kterm_clear();
   return 0;
-}
-
-static ALWAYS_INLINE void kterm_print_keyvalue(const char* key, const char* value)
-{
-  kterm_print(key);
-  kterm_print(": ");
-  if (value)
-    kterm_println(value);
-  else 
-    kterm_println("N/A");
 }
 
 /*!

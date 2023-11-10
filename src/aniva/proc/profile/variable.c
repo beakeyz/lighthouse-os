@@ -31,20 +31,26 @@ static uint32_t profile_var_get_size_for_type(profile_var_t* var)
   return 0;
 } 
 
+/*!
+ * @brief: Deallocates a variables memory and removes it from its profile if it still has one
+ *
+ * Should not be called directly, but only by release_profile_var once its refcount has dropped to zero.
+ * Variables have lifetimes like this, because we don't want to remove variables that are being used
+ */
 static void destroy_profile_var(profile_var_t* var)
 {
-  if (var->profile) {
-    
-    if (profile_is_from_file(var->profile)) {
-      kfree((void*)var->key);
-
-      /* Just in case this was allocated on the heap (by strdup) */
-      if (var->type == PROFILE_VAR_TYPE_STRING && var->str_value)
-        kfree((void*)var->str_value);
-    }
-
+  if (var->profile)
     profile_remove_var(var->profile, var->key);
-  }
+    
+  /*
+   * Release the key, just in case 
+   * TODO: check if these 'random' kfree calls can be harmful to the system
+   */
+  kfree((void*)var->key);
+
+  /* Just in case this was allocated on the heap (by strdup) */
+  if (var->type == PROFILE_VAR_TYPE_STRING && var->str_value)
+    kfree((void*)var->str_value);
   
   destroy_atomic_ptr(var->refc);
   zfree_fixed(&__var_allocator, var);
@@ -104,7 +110,7 @@ void release_profile_var(profile_var_t* var)
   if (current_count)
     atomic_ptr_write(var->refc, current_count-1);
 
-  if (!current_count)
+  if (!atomic_ptr_load(var->refc))
     destroy_profile_var(var);
 }
 

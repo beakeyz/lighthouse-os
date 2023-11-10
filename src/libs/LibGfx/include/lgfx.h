@@ -19,6 +19,7 @@
 #include <LibC/sys/types.h>
 #include "driver.h"
 
+/* Processes may know this path */
 #define LWND_DRV_PATH "service/lwnd"
 
 /*

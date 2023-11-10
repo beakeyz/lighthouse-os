@@ -5,6 +5,7 @@
 #include "LibSys/proc/process.h"
 #include "LibSys/proc/profile.h"
 #include "LibSys/proc/socket.h"
+#include "LibSys/proc/var_types.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
 #include <assert.h>
@@ -59,5 +60,16 @@ int main() {
   BOOL result = profile_var_read_ex("Global", "SYSTEM_NAME", HNDL_FLAG_RW, sizeof(test_buffer), test_buffer);
 
   printf("Tried to read from the profile variable handle: %s\n", test_buffer);
-  return 0;
+
+  HANDLE profile;
+
+  profile = open_profile("Global", HNDL_FLAG_RW);
+
+  printf("Opened profile\n");
+
+  if (!verify_handle(profile))
+    return -1;
+
+  printf("Create var..\n");
+  return create_profile_variable(profile, "Test", PROFILE_VAR_TYPE_STRING, NULL, "Test string");
 }

@@ -30,6 +30,9 @@ struct loader_ctx {
   uint32_t expdrv_idx, symtab_idx;
 };
 
+/*!
+ * @brief: Make sure there is backing memory for sections that need is
+ */
 static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
 {
   for (uint32_t i = 0; i < ctx->hdr->e_shnum; i++) {
@@ -56,6 +59,11 @@ static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
   return Success(0);
 }
 
+/*!
+ * @brief: Do essensial relocations
+ *
+ * Simply finds relocation section headers and does ELF section relocating
+ */
 static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
 {
   struct elf64_shdr* shdr;
@@ -128,6 +136,11 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
   return Success(0);
 }
 
+/*!
+ * @brief: Loop over the unresolved symbols in the binary and try to match them to kernel symbols
+ *
+ * When we fail to find a symbol, this function fails and returns Error()
+ */
 static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
 {
   struct elf64_shdr* shdr = &ctx->shdrs[ctx->symtab_idx];
@@ -151,7 +164,7 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
 
         current_symbol->st_value = get_ksym_address(sym_name);
 
-        /* Oops, invalid symbol: skip */
+        /* Oops, invalid symbol: bail */
         if (!current_symbol->st_value)
           break;
 
@@ -168,6 +181,14 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
   return Success(0);
 }
 
+/*!
+ * @brief: Do everything to move the driver binary in order to run it
+ *
+ * Does:
+ *  - sheader fixup
+ *  - resolves kernel symbols
+ *  - relocates sections 
+ */
 static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
 {
 

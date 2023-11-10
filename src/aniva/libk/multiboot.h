@@ -74,6 +74,9 @@ void* get_mb2_tag(void* addr, uint32_t type);
 #define MULTIBOOT_TAG_TYPE_EFI64_IH          20
 #define MULTIBOOT_TAG_TYPE_LOAD_BASE_ADDR    21
 
+/* Custom shit */
+#define MULTIBOOT_TAG_TYPE_KFLAGS            22
+
 #define MULTIBOOT_HEADER_TAG_END  0
 #define MULTIBOOT_HEADER_TAG_INFORMATION_REQUEST  1
 #define MULTIBOOT_HEADER_TAG_ADDRESS  2
@@ -421,6 +424,27 @@ struct multiboot_tag_load_base_addr
   multiboot_uint32_t size;
   multiboot_uint32_t load_base_addr;
 };
+
+/*
+ * These are simple kernel options
+ *
+ * For anything that's more complicated, like the number of something or
+ * the path to something, we use the cmdline that was already in multiboot
+ */
+
+/* Log debug messages into a file */
+#define ANIVA_KFLAG_DEBUG           0x0000000000000001ull
+/* Don't launch into the graphical environment, but use kterm in stead */
+#define ANIVA_KFLAG_LAUNCH_KTERM    0x0000000000000002ull
+/* Use the ramdisk as a root device, even if we find our system filesystem */
+#define ANIVA_KFLAG_USE_RD          0x0000000000000004ull
+
+typedef struct multiboot_tag_kflags 
+{
+  multiboot_uint32_t type;
+  multiboot_uint32_t size;
+  multiboot_uint64_t flags;
+} multiboot_tag_kflags_t;
 
 #endif /*  ! ASM_FILE */
 

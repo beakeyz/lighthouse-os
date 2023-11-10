@@ -46,6 +46,20 @@ HANDLE open_profile_variable(
 );
 
 /*
+ * Try to create a variable for a profile
+ *
+ * Fails if the variable already exists
+ * Fails if we don't have permission to create variables on this profile
+ */
+BOOL create_profile_variable(
+ __IN__ HANDLE profile_handle,
+ __IN__ const char* key,
+ __IN__ enum PROFILE_VAR_TYPE type, 
+ __IN__ DWORD flags,
+ __IN__ VOID* value
+);
+
+/*
  * Grab the type of a certain profile variable
  */
 BOOL profile_var_get_type(

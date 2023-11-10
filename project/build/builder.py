@@ -127,7 +127,8 @@ class ProjectBuilder(object):
     # Build the entire userspace
     def buildUserspace(self) -> BuilderResult:
         for userDirectory in self.constants.USER_PROJECT_PATHS:
-            self.buildUserspaceBinary(userDirectory)
+            if self.buildUserspaceBinary(userDirectory) == BuilderResult.FAIL:
+                return BuilderResult.FAIL
 
         return BuilderResult.SUCCESS
 
@@ -378,6 +379,7 @@ class ProjectBuilder(object):
 
             # Build a dynamic library
             if manifest.link_type == "dynamic":
+                # Fuck you, GCC
                 BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + self.constants.SHARED_LIB_EXTENTION
                 ULF = self.constants.LIB_LD_FLAGS
                 ld = self.constants.CROSS_LD_DIR

@@ -752,9 +752,14 @@ static bool verify_mount_root()
 {
   vobj_t* scan_obj;
 
-  scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/aniva.elf");
+  /*
+   * Try to find kterm in the system directory. If it exists, that means there at least 
+   * a somewhat functional system installed on this disk
+   */
+  scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/System/kterm.drv");
 
-  if (!scan_obj) {
+  if (!scan_obj) 
+  {
     return false;
   }
 
@@ -766,9 +771,13 @@ static bool verify_mount_root()
   return true;
 }
 
+/*!
+ * @brief: Check all the available filesystems to see if one is compatible with @device
+ *
+ * Also performs checks on the files inside the filesystem, if the mount call succeeds
+ */
 static bool try_mount_root(partitioned_disk_dev_t* device)
 {
-#if 0
   bool verify_result;
   ErrorOrPtr result;
   const char* filesystems[] = {
@@ -803,10 +812,6 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
     return false;
 
   return true;
-#else 
-  (void)verify_mount_root;
-  return false;
-#endif
 }
 
 void init_root_device_probing() 
@@ -860,13 +865,6 @@ cycle_next:
       kernel_panic("Could not find a root device to mount! TODO: fix");
     }
   } 
-
-  /*
-  if (root_ramdisk) {
-    println("Trying to mount ramfs!");
-    Must(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_RAMDISK_MP, "cramfs", root_ramdisk));
-  }
-  */
 }
 
 

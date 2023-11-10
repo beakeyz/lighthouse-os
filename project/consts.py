@@ -89,11 +89,12 @@ class Consts:
     USERSPACE_LD_FLAGS = f"-L{SYSROOT_DIR}/System/Lib"
 
     LIB_LD_STATIC_FLAGS = " -nostdlib -static -r"
+    # TODO: dynamically add libraries we depend on
     LIB_LD_FLAGS = f" -nostdlib -nodefaultlibs -L{SYSROOT_DIR}/System/Lib "
     LIB_COMMON_SRC_FILES = ""
 
     ELF_EXTENTION = ".elf"
-    SHARED_LIB_EXTENTION = ".slb" # Shared Library Binary
+    SHARED_LIB_EXTENTION = ".slb"  # Shared library binary
     STATIC_LIB_EXTENTION = ".lib"
 
     # NOTE: crt files have to be asm files!

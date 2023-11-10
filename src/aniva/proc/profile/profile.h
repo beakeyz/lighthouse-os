@@ -99,6 +99,7 @@ void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level);
 void destroy_proc_profile(proc_profile_t* profile);
 
 int profile_find(const char* name, proc_profile_t** profile);
+int profile_foreach(hashmap_itterate_fn_t fn);
 
 int profile_add_var(proc_profile_t* profile, profile_var_t* var);
 int profile_remove_var(proc_profile_t* profile, const char* key);

@@ -27,4 +27,13 @@ int kterm_print(const char* msg);
 
 void kterm_clear();
 
+struct kterm_cmd {
+  char* argv_zero;
+  char* desc;
+  f_kterm_command_handler_t handler;
+};
+
+extern struct kterm_cmd kterm_commands[];
+extern uint32_t kterm_cmd_count;
+
 #endif // !__ANIVA_KTERM_DRIVER__

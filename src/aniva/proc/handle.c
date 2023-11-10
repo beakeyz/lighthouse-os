@@ -253,15 +253,20 @@ ErrorOrPtr bind_khandle(khandle_map_t* map, khandle_t* handle)
 
   /* Check if the next free index is valid */
   current_index = map->next_free_index;
-  slot = &map->handles[current_index];
 
-  if (!__is_khandle_bound(slot)) {
+  /* Try to get the next free index */
+  if (current_index != KHNDL_INVALID_INDEX) {
 
-    /* insert into array */
-    __bind_khandle(map, handle, current_index); 
+    slot = &map->handles[current_index];
 
-    map->next_free_index += 1;
-    goto unlock_and_success;
+    if (!__is_khandle_bound(slot)) {
+
+      /* insert into array */
+      __bind_khandle(map, handle, current_index); 
+
+      map->next_free_index += 1;
+      goto unlock_and_success;
+    }
   }
 
   /* Check if we can put it somewhere in a hole */
@@ -307,13 +312,13 @@ ErrorOrPtr unbind_khandle(khandle_map_t* map, khandle_t* handle)
   if (_handle != handle)
     return Error();
 
-  /* Zero out this entry */
-  destroy_khandle(_handle);
-
   map->next_free_index = _handle->index;
 
-  /* Set the correct index */
-  _handle->index = KHNDL_INVALID_INDEX;
+  /* 
+   * Zero out this entry 
+   * NOTE: this sets the index of the handle to KHNDL_INVALID_INDEX
+   */
+  destroy_khandle(_handle);
 
   return Success(0);
 }

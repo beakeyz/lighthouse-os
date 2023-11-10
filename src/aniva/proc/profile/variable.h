@@ -4,19 +4,9 @@
 #include "LibSys/proc/var_types.h"
 #include "sync/atomic_ptr.h"
 #include <libk/stddef.h>
+#include <LibSys/proc/var_types.h>
 
 struct proc_profile;
-
-/* Open for anyone to read */
-#define PVAR_FLAG_GLOBAL (0x00000001)
-/* Open for anyone to modify? */
-#define PVAR_FLAG_CONSTANT (0x00000002)
-/* Holds data that the system probably needs to function correctly */
-#define PVAR_FLAG_VOLATILE (0x00000004)
-/* Holds configuration data */
-#define PVAR_FLAG_CONFIG (0x00000008)
-/* Hidden to any profiles with lesser permissions */
-#define PVAR_FLAG_HIDDEN (0x00000010)
 
 /*
  * Profile variables
@@ -27,6 +17,13 @@ struct proc_profile;
  * hold paths to important binaries for certain profiles or perhaps even the
  * version of the system. Any process can read the open data on any profile,
  * but only processes of the profile or a higher profile may modify the data.
+ *
+ * Variable key conventions:
+ * The key for a variable can be anything pretty much, but we would like to keep the 
+ * character count per key to a minimum. However, it is common for most system-assigned
+ * variables to have keys in all-caps. Processes can make variables like this as well, of 
+ * course, but we will never make assumptions about a variable, based on the capitalisation
+ * of it's key
  */
 typedef struct profile_var {
   struct proc_profile* profile;

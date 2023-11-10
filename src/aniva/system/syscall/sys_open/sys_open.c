@@ -1,5 +1,6 @@
 #include "sys_open.h"
 #include "LibSys/handle_def.h"
+#include "LibSys/proc/var_types.h"
 #include "LibSys/syscall.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
@@ -33,6 +34,13 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
     return HNDL_INVAL;
 
   ret = HNDL_NOT_FOUND;
+
+  /*
+   * TODO: check for permissions and open with the appropriate flags 
+   *
+   * We want to do this by checking the profile that this process is in and checking if processes 
+   * in that profile have access to this resource
+   */
 
   switch (type) {
     case HNDL_TYPE_FILE:
@@ -117,8 +125,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
 
   if (!handle.reference.kobj)
     return HNDL_NOT_FOUND;
-
-  /* TODO: check for permissions and open with the appropriate flags */
 
   /* Clear state bits */
   khandle_set_flags(&handle, flags);
@@ -234,4 +240,63 @@ uintptr_t sys_close(HANDLE handle)
     return SYS_ERR;
   
   return SYS_OK;
+}
+
+/*!
+ * @brief: Syscall entry for the creation of profile variables
+ *
+ * NOTE: this syscall kinda assumes that the caller has permission to create variables on this profile if
+ * it managed to get a handle with write access. This means that permissions need to be managed correctly
+ * by sys_open in that regard. See the TODO comment inside sys_open
+ */
+bool sys_create_pvar(HANDLE profile_handle, const char* __user name, enum PROFILE_VAR_TYPE type, uint32_t flags, void* __user value)
+{
+  proc_t* proc;
+  khandle_t* khandle;
+  proc_profile_t* profile;
+  profile_var_t* var;
+
+  proc = get_current_proc();
+
+  if (IsError(kmem_validate_ptr(proc, (uintptr_t)name, 1)))
+    return false;
+
+  if (IsError(kmem_validate_ptr(proc, (uintptr_t)value, 1)))
+    return false;
+
+  khandle = find_khandle(&proc->m_handle_map, profile_handle);
+
+  /* Invalid handle =/ */
+  if (!khandle || khandle->type != HNDL_TYPE_PROFILE)
+    return false;
+
+  /* Can't write to this handle =/ */
+  if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
+    return false;
+
+  profile = khandle->reference.profile;
+
+  /* FIXME: we need a way to safely copy strings from userspace into kernel space */
+  if (type == PROFILE_VAR_TYPE_STRING)
+    /* FIXME: unsafe strdup call (also we just kinda assume there is a string here wtf: NEVER TRUST USERSPACE) */
+    value = strdup(value);
+
+  /* FIXME: unsafe strdup call (also we just kinda assume there is a string here wtf: NEVER TRUST USERSPACE) */
+  name = strdup(name);
+
+  /* Create a variable */
+  var = create_profile_var(name, type, flags, (uint64_t)value);
+
+  if (!var)
+    return false;
+
+  /* Can we successfully add this var? */
+  if (profile_add_var(profile, var))
+    goto release_and_exit;
+
+  return true;
+
+release_and_exit:
+  release_profile_var(var);
+  return false;
 }

@@ -39,6 +39,7 @@
 /* Open a profile variable on the handle of a profile */
 #define SYSID_OPEN_PVAR         18
 #define SYSID_GET_PVAR_TYPE     19
+#define SYSID_CREATE_PVAR       20
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

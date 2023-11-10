@@ -20,6 +20,7 @@ class BuildManifest(object):
     link_type: str
     path: str
     sourcefiles: list[stats.lines.SourceFile] = []
+    dependantLibs: list = []
     json_data = None
     type: BuildManifestType = BuildManifestType.UNKNOWN
 
@@ -36,6 +37,7 @@ class BuildManifest(object):
                 self.manifested_name = self.json_data["name"]
                 self.link_type = self.json_data["linking"]
                 self.output_path = self.json_data["path"]
+                self.dependantLibs = self.json_data["libs"]
             except Exception:
                 pass
 
