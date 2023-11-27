@@ -2,8 +2,10 @@
 #define __ANIVA_DEV_DEVICE__
 
 #include "dev/core.h"
+#include "sync/mutex.h"
 #include <libk/stddef.h>
 
+struct vobj;
 struct device;
 struct dev_manifest_t;
 
@@ -34,12 +36,26 @@ typedef struct device_ops {
 typedef struct device {
   const char* device_path;
   struct dev_manifest* parent;
+  struct vobj* obj;
 
+  mutex_t* lock;
   device_ops_t* ops;
 } device_t;
 
 device_t* create_device(char* path);
+device_t* create_device_ex(char* path, device_ops_t* ops);
 void destroy_device(device_t* device);
 
+int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset);
+int device_write(device_t* dev, void* buffer, size_t size, uintptr_t offset);
+
+int device_remove(device_t* dev);
+int device_suspend(device_t* dev);
+int device_resume(device_t* dev);
+
+uintptr_t device_message(device_t* dev, dcc_t code);
+uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+
+bool device_is_generic(device_t* device);
 
 #endif // !__ANIVA_DEV_DEVICE__

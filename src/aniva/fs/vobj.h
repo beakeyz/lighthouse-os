@@ -13,6 +13,7 @@
 struct vobj;
 struct vnode;
 struct file;
+struct device;
 
 typedef enum VOBJ_TYPE {
   VOBJ_TYPE_EMPTY = 0,
@@ -40,7 +41,6 @@ typedef uintptr_t vobj_handle_t;
 typedef struct vobj_ops {
   struct vobj* (*f_create)(struct vnode* parent, const char* path);
   void (*f_destroy)(struct vobj* obj);
-  void (*f_destory_child)(void* child_ptr);
 
   /* Try to link this object */
   ErrorOrPtr (*f_link)(struct vobj*, struct vobj*);
@@ -55,8 +55,10 @@ typedef struct vobj {
   flat_refc_t m_refc;
 
   struct vnode* m_parent;
-  vobj_ops_t* m_ops;
   mutex_t* m_lock;
+
+  vobj_ops_t* m_ops;
+  void (*f_destory_child)(void* child_ptr);
 
   struct vdir* m_parent_dir;
 
@@ -105,5 +107,6 @@ ErrorOrPtr vobj_generate_handle(vobj_t* object);
 bool vobj_verify_handle(vobj_t* object);
 
 struct file* vobj_get_file(vobj_t* obj);
+struct device* vobj_get_device(vobj_t* obj);
 
 #endif // !__ANIVA_VFS_VOBJ__

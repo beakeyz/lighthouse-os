@@ -19,6 +19,7 @@ enum VNODE_TYPES {
   VNODE_NONE = 0,
   VNODE_MOUNTPOINT, /* Every mountpoint has a partitioned disk device */
   VNODE_DRIVER,     /* Every driver has a drv object attached */
+  VNODE_SYSTEM,     /* System-required vnode */
 };
 
 /* TODO: clean this up and move functions to their supposed structs */

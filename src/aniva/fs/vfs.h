@@ -1,6 +1,3 @@
-// TODO: move this to src/fs and use certain architecture-specific shit 
-// depending on the arch
-
 #ifndef __ANIVA_VFS__
 #define __ANIVA_VFS__
 
@@ -17,7 +14,7 @@
 
 #define VFS_ROOT                ":/"
 #define VFS_ROOT_ID             ":"
-#define VFS_DEFAULT_DEVICE_MP   "Devices"
+#define VFS_DEFAULT_DEVICE_MP   "Dev"
 #define VFS_DEFAULT_ROOT_MP     "Root"
 #define VFS_DEFAULT_RAMDISK_MP  "Rd"
 #define VFS_DEFAULT_INIT_MP     "Init"
@@ -28,8 +25,8 @@ struct fs_type;
 struct aniva_driver;
 
 /*
- * The VFS consists of namespaces that in turn hold vnodes. Every vnode 
- * Represents a file, socket, FIFO, ect. Kernellevel sockets and vnodes 
+ * The VFS consists of namespaces that in turn hold vnodes. Every vnode is pretty much a 
+ * vobj generator. Every vobj represents a file, socket, FIFO, ect. Kernellevel sockets and vnodes 
  * that act like sockets are related, since under the hood, vnodes make use
  * of kernelsockets. 
  * When a filesystem gets mounted on the VFS, we initially just give it a 
@@ -61,7 +58,7 @@ void init_vfs();
  *  - ect.
  *
  */
-//ErrorOrPtr vfs_mount(const char* path, vnode_t* node);
+ErrorOrPtr vfs_mount_raw(const char* path, vnode_t* node);
 ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device);
 ErrorOrPtr vfs_mount_fs(const char* path, const char* mountpoint, const char* fs_name, partitioned_disk_dev_t* device);
 ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver);

@@ -1,5 +1,6 @@
 #include "vobj.h"
 #include "dev/debug/serial.h"
+#include "dev/device.h"
 #include "fs/file.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
@@ -13,11 +14,10 @@
 vobj_ops_t generic_ops = {
   .f_create = create_generic_vobj,
   .f_destroy = nullptr,
-  .f_destory_child = nullptr,
 };
 
-vobj_t* create_generic_vobj(vnode_t* parent, const char* path) {
-
+vobj_t* create_generic_vobj(vnode_t* parent, const char* path) 
+{
   /* Vobjects can't have empty parents */
   if (!parent)
     return nullptr;
@@ -57,14 +57,15 @@ void destroy_vobj(vobj_t* obj)
     return;
 
   ASSERT_MSG(!mutex_is_locked(obj->m_lock), "Failed to destroy vobject! Its mutex is still held");
-  ASSERT_MSG(obj->m_child && obj->m_ops->f_destory_child, "No way to destroy child of vobj!");
+  ASSERT_MSG(obj->m_child && obj->f_destory_child, "No way to destroy child of vobj!");
 
   /* Try to detach */
   if (obj->m_parent)
     vn_detach_object(obj->m_parent, obj);
 
   /* Murder the child (wtf) */
-  obj->m_ops->f_destory_child(obj->m_child);
+  if (obj->f_destory_child)
+    obj->f_destory_child(obj->m_child);
 
   /* Murder object */
   if (obj->m_ops && obj->m_ops->f_destroy)
@@ -81,10 +82,9 @@ void vobj_register_child(vobj_t* obj, void* child, VOBJ_TYPE_t type, FuncPtr des
   if (!obj)
     return;
 
+  obj->f_destory_child = destroy_fn;
   obj->m_child = child;
   obj->m_type = type;
-
-  obj->m_ops->f_destory_child = destroy_fn;
 }
 
 ErrorOrPtr vobj_generate_handle(vobj_t* object) {
@@ -110,7 +110,9 @@ void vobj_ref(vobj_t* obj)
   if (!obj)
     return;
 
+  mutex_lock(obj->m_lock);
   flat_ref(&obj->m_refc);
+  mutex_unlock(obj->m_lock);
 }
 
 int vobj_unref(vobj_t* obj)
@@ -121,16 +123,25 @@ int vobj_unref(vobj_t* obj)
   if (!obj)
     return -1;
 
+  mutex_lock(obj->m_lock);
   flat_unref(&obj->m_refc);
+  mutex_unlock(obj->m_lock);
 
   /* If the object is still referenced, we need not kill it yet */
   if (obj->m_refc)
     return 0;
 
+  mutex_lock(obj->m_lock);
+
   parent = obj->m_parent;
 
-  /* First, make the vnode (most likely filesystem) close the object */
+  /* 
+   * First, make the vnode (most likely filesystem) close the object 
+   * This may not touch any of the vobj internal fields
+   */
   error = parent->m_ops->f_close(parent, obj);
+
+  mutex_unlock(obj->m_lock);
 
   if (error)
     return error;
@@ -141,8 +152,8 @@ int vobj_unref(vobj_t* obj)
   return 0;
 }
 
-file_t* vobj_get_file(vobj_t* obj) {
-
+file_t* vobj_get_file(vobj_t* obj) 
+{
   if (!obj)
     return nullptr;
 
@@ -150,6 +161,17 @@ file_t* vobj_get_file(vobj_t* obj) {
     return nullptr;
 
   return (file_t*)obj->m_child;
+}
+
+device_t* vobj_get_device(vobj_t* obj) 
+{
+  if (!obj)
+    return nullptr;
+
+  if (obj->m_type != VOBJ_TYPE_DEVICE)
+    return nullptr;
+
+  return (device_t*)obj->m_child;
 }
 
 int vobj_close(vobj_t* obj)

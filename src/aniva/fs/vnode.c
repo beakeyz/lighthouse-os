@@ -277,7 +277,8 @@ static struct generic_vnode_ops __generic_vnode_ops = {
  * FIXME: When creating a vnode, we really should require the caller to also 
  * set a type every time...
  */
-vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
+vnode_t* create_generic_vnode(const char* name, uint32_t flags) 
+{
   vnode_t* node;
 
   if (!name)
@@ -285,7 +286,10 @@ vnode_t* create_generic_vnode(const char* name, uint32_t flags) {
 
   node = kmalloc(sizeof(vnode_t));
 
-  memset(node, 0x00, sizeof(vnode_t));
+  if (!node)
+    return nullptr;
+
+  memset(node, 0, sizeof(vnode_t));
 
   node->m_ops = &__generic_vnode_ops;
   node->m_lock = create_mutex(0);
@@ -415,13 +419,9 @@ int vn_release(vnode_t* node) {
   if (!node || (node->m_flags & VN_TAKEN) == 0 || !mutex_is_locked_by_current_thread(node->m_lock))
     return -1;
 
-  /* TODO: should we destroy vdirs? */
-  //destroy_vdirs(node->m_objects, true);
-
   node->m_flags &= ~VN_TAKEN;
 
   mutex_unlock(node->m_lock);
-
   return 0;
 }
   

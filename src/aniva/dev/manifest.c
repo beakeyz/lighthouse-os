@@ -277,11 +277,8 @@ int manifest_add_device(dev_manifest_t* manifest, device_t* device)
 {
   ErrorOrPtr res;
 
-  if (!manifest || !manifest_is_active(manifest))
+  if (!manifest || !device)
     return -1;
-
-  if (!device)
-    return -2;
 
   mutex_lock(manifest->m_device_lock);
 
@@ -289,7 +286,7 @@ int manifest_add_device(dev_manifest_t* manifest, device_t* device)
 
   mutex_unlock(manifest->m_device_lock);
 
-  return (IsError(res) ? -3 : 0);
+  return (IsError(res) ? -2 : 0);
 }
 
 /*!

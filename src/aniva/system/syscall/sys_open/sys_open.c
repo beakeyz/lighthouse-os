@@ -4,9 +4,12 @@
 #include "LibSys/syscall.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/device.h"
 #include "dev/manifest.h"
+#include "fs/file.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include "logging/log.h"
@@ -45,16 +48,34 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
   switch (type) {
     case HNDL_TYPE_FILE:
       {
+        file_t* file;
         vobj_t* obj = vfs_resolve(path);
 
-        if (!obj || !obj->m_child)
+        if (!obj)
+          return HNDL_NOT_FOUND;
+
+        file = vobj_get_file(obj);
+
+        if (!file)
           return HNDL_INVAL;
 
-        if (obj->m_type != VOBJ_TYPE_FILE)
+        init_khandle(&handle, &type, file);
+        break;
+      }
+    case HNDL_TYPE_DEVICE:
+      {
+        device_t* device;
+        vobj_t* obj = vfs_resolve(path);
+
+        if (!obj)
+          return HNDL_NOT_FOUND;
+
+        device = vobj_get_device(obj);
+
+        if (!device)
           return HNDL_INVAL;
 
-        init_khandle(&handle, &type, obj->m_child);
-
+        init_khandle(&handle, &type, device);
         break;
       }
     case HNDL_TYPE_PROC:

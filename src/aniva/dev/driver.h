@@ -29,6 +29,7 @@ typedef struct aniva_driver {
 
   driver_version_t m_version;
 
+  /* TODO: should we pass the manifest to the f_init function? */
   int (*f_init)(void);
   int (*f_exit)(void);
 

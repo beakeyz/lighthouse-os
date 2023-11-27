@@ -864,14 +864,13 @@ int unregister_core_driver(struct aniva_driver* driver)
   return -3;
 }
 
-dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) {
-
+dev_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) 
+{
   dev_url_t path;
   dev_manifest_t* ret;
 
-  if (!driver) {
+  if (!driver)
     return nullptr;
-  }
 
   path = get_driver_url(driver);
 

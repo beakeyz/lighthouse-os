@@ -15,6 +15,7 @@
 #include "fs/namespace.h"
 #include "fs/vfs.h"
 #include "fs/vnode.h"
+#include <fs/device/core.h>
 #include "kevent/kevent.h"
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
@@ -203,6 +204,10 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* Initialize the filesystem core */
   init_fs_core();
 
+  /* Make sure device access is initialized */
+  init_dev_access();
+
+  /* TMP: remove early dbg tty */
   destroy_early_tty();
 
   /* Initialize human interface devices */

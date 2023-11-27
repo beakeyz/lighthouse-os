@@ -8,6 +8,7 @@
 #include "fs/vdir.h"
 #include "fs/namespace.h"
 #include "fs/vnode.h"
+#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
 #include "libk/string.h"
@@ -33,8 +34,8 @@ vnamespace_t* vfs_get_abs_root()
   return hive_get(s_vfs.m_namespaces, VFS_ROOT_ID);
 }
 
-static ErrorOrPtr _vfs_mount(const char* path, vnode_t* node) {
-
+static ErrorOrPtr _vfs_mount(const char* path, vnode_t* node) 
+{
   if (!node)
     return Error();
 
@@ -52,11 +53,10 @@ static ErrorOrPtr _vfs_mount(const char* path, vnode_t* node) {
   // If it ends at a namespace, all good. just attacht the node there
   vnamespace_t* namespace = vfs_create_path(path);
 
-  if (!namespace) {
+  if (!namespace)
     return Error();
-  }
 
-  /* When we try to mount duplicates, we fail rn */
+  /* When we try to mount duplicates, we die rn */
   Must(hive_add_entry(namespace->m_vnodes, node, node->m_name));
 
   node->m_ns = namespace;
@@ -95,6 +95,15 @@ ErrorOrPtr vfs_mount_driver(const char* path, struct aniva_driver* driver) {
   TRY(mount_result, _vfs_mount(path, node));
 
   return Success(mount_result);
+}
+
+ErrorOrPtr vfs_mount_raw(const char* path, vnode_t* node)
+{
+  /* Prevent vnodes with a filesystem to be mounted at this path */
+  if (!node || node->fs_data.m_type)
+    return Error();
+
+  return _vfs_mount(path, node);
 }
 
 ErrorOrPtr vfs_mount_fs_type(const char* path, const char* mountpoint, struct fs_type* fs, partitioned_disk_dev_t* device) 
@@ -189,6 +198,7 @@ ErrorOrPtr vfs_unmount(const char* path)
 
 vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, const char* path)
 {
+  vobj_t* ret;
   uint32_t i;
   char* obj_id;
   size_t path_size = strlen(path);
@@ -247,7 +257,14 @@ vobj_t* vfs_resolve_relative(vnamespace_t* rel_ns, vnode_t* node, vdir_t* dir, c
   /* Buffer the object id (path) which we have now reached */
   obj_id = &buffer[i + 1];
 
-  return vn_open(node, obj_id);
+  /* No need to check if this is flexible, because resolve needs to be chill here */
+  vn_take(node, NULL);
+
+  ret = vn_open(node, obj_id);
+
+  vn_release(node);
+
+  return ret;
 }
 
 /* TODO: support relative paths */
@@ -362,7 +379,12 @@ vobj_t* vfs_resolve(const char* path) {
   /* Buffer the object id (path) which we have now reached */
   obj_id = &path_copy[i + 1];
 
+  /* No need to check if this is flexible, because resolve needs to be chill here */
+  vn_take(end_vnode, NULL);
+
   ret = vn_open(end_vnode, obj_id);
+
+  vn_release(end_vnode);
 
   return ret;
 }

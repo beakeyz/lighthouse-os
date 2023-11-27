@@ -635,6 +635,48 @@ ErrorOrPtr hashmap_remove(hashmap_t* map, hashmap_key_t key) {
   return __hashmap_remove_open(map, key);
 }
 
+/*!
+ * @brief: Convert a hashmap into an array
+ *
+ * Allocates an array of the hashmaps size and tries to fill it with any valid entries it can find
+ */
+int hashmap_to_array(hashmap_t* map, void** array_ptr, size_t* size_ptr)
+{
+  uint64_t idx;
+  
+  if (!size_ptr || !array_ptr)
+    return -1;
+
+  idx = NULL;
+  *size_ptr = sizeof(void*) * map->m_size;
+
+  /* Currently only works for closed addressing */
+  if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
+    return -2;
+
+  /* Allocate an array to fit our size */
+  *array_ptr = kmalloc(*size_ptr);
+
+  for (uint64_t i = 0; i < map->m_max_entries; i++) {
+    hashmap_entry_t* entry = (hashmap_entry_t*)map->m_list + i;
+
+    while (entry) {
+
+      /*
+       * Let's assume this hashmap does not contain any valid NULL entries 
+       * If there is a next entry, it does not matter, since we know we already put an
+       * entry here
+       */
+      if (entry->m_value || entry->m_next)
+        array_ptr[idx++] = entry->m_value;
+      
+      entry = entry->m_next;
+    }
+  }
+
+  return 0;
+}
+
 void init_hashmap() 
 {
   __hash_entry_allocator = create_zone_allocator_ex(nullptr, NULL, 64 * Kib, sizeof(hashmap_entry_t), 0);
