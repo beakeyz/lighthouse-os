@@ -30,6 +30,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "mem/malloc.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
 #include "proc/handle.h"
@@ -117,6 +118,50 @@ static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint3
   }
 }
 
+/* TODO: remove
+ */
+static ALWAYS_INLINE void kterm_print_keyvalue(const char* key, const char* value)
+{
+  kterm_print(key);
+  kterm_print(": ");
+  if (value)
+    kterm_println(value);
+  else 
+    kterm_println("N/A");
+}
+
+/* TODO: remove
+ */
+static uint32_t __test_hashmap(const char** argv, size_t args)
+{
+  memory_allocator_t kallocator;
+  
+  kheap_copy_main_allocator(&kallocator);
+
+  kterm_print_keyvalue("KHeap space free", to_string(kallocator.m_free_size));
+  kterm_print_keyvalue("KHeap space used", to_string(kallocator.m_used_size));
+
+  hashmap_t* t = create_hashmap(16, NULL);
+
+  kterm_print_keyvalue("hashmap max size", to_string(t->m_max_entries));
+  kterm_print_keyvalue("hashmap size", to_string(t->m_size));
+
+  hashmap_put(t, "yay", (void*)69);
+  hashmap_put(t, "yay^2", (void*)70);
+  hashmap_put(t, "vroom", (void*)70);
+
+  kterm_print_keyvalue("hashmap size", to_string(t->m_size));
+
+  destroy_hashmap(t);
+
+  kheap_copy_main_allocator(&kallocator);
+
+  kterm_print_keyvalue("KHeap space free", to_string(kallocator.m_free_size));
+  kterm_print_keyvalue("KHeap space used", to_string(kallocator.m_used_size));
+
+  return 0;
+}
+
 struct kterm_cmd kterm_commands[] = {
   {
     "help",
@@ -157,6 +202,11 @@ struct kterm_cmd kterm_commands[] = {
     "diskinfo",
     "Print info about a disk device",
     kterm_cmd_diskinfo,
+  },
+  {
+    "testhashmap",
+    "Test the hashmap kernel util",
+    __test_hashmap,
   },
   {
     "vidinfo",

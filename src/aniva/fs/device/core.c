@@ -81,6 +81,8 @@ static vobj_t* dev_access_open(vnode_t* node, char* path)
   device_path = nullptr;
   manifest_path = path_cpy;
 
+  println(path_cpy);
+
   /*
    * Try to parse our path to seperate the part that mentions our
    * driver manifest from the part that mentions the device
@@ -115,7 +117,7 @@ static vobj_t* dev_access_open(vnode_t* node, char* path)
   device = nullptr;
 
   /* Can we find a valid device? */
-  if (manifest_find_device(manifest, &device, device_path))
+  if (manifest_find_device(manifest, &device, device_path) || !device)
     goto dealloc_and_exit;
 
   /* Create a generic vobj to hold our device reference */

@@ -85,7 +85,7 @@ uint32_t elf_find_section(struct elf64_hdr* header, const char* name)
   for (uint32_t i = 1; i < header->e_shnum; i++) {
     struct elf64_shdr* shdr = elf_get_shdr(header, i);
 
-    if ((shdr->sh_flags & SHF_ALLOC) && strcmp(str_start + shdr->sh_name, name) == 0)
+    if ((shdr->sh_flags & SHF_ALLOC) && strcmp(name, str_start + shdr->sh_name) == 0)
       return i;
   }
 

@@ -25,7 +25,7 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
   if (IsError(kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len)))
       return SYS_INV;
 
-  if (strcmp(cmd, "clear") == 0) {
+  if (strcmp("clear", cmd) == 0) {
     driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
   }
 

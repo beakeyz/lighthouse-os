@@ -256,7 +256,7 @@ static int __check_driver(struct loader_ctx* ctx)
 
         /* Validate section */
 
-        if (strcmp(ctx->section_strings + shdr->sh_name, ".expdrv") == 0) {
+        if (strcmp(".expdrv", ctx->section_strings + shdr->sh_name) == 0) {
           /* TODO: real validation */
 
           /*

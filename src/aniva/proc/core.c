@@ -76,7 +76,7 @@ static ErrorOrPtr __unregister_proc_by_name(const char* name)
   FOREACH_VEC(__proc_vect, i, j) {
     proc_t* p = *(proc_t**)i;
 
-    if (strcmp(name, p->m_name) == 0) {
+    if (strcmp(p->m_name, name) == 0) {
       vector_remove(__proc_vect, j);
       result = Success((uintptr_t)p);
       break;

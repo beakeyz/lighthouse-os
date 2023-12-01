@@ -656,12 +656,6 @@ dev_manifest_t* get_driver(dev_url_t url) {
   if (!__installed_driver_manifests || !url)
     return nullptr;
 
-  /* If we are asking for the current executing driver */
-  if (url && strcmp(url, "this") == 0) {
-    /* TODO */
-    return nullptr;
-  }
-
   return hive_get(__installed_driver_manifests, url);
 }
 

@@ -134,6 +134,9 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags) {
   return ret;
 }
 
+/*!
+ * @brief: Make sure that the hashmap does not have lingering entries
+ */
 static void __hashmap_cleanup(hashmap_t* map) 
 {
   hashmap_entry_t* current_entry;

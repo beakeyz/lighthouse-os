@@ -167,7 +167,7 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
     uintptr_t current_file_offset = (uintptr_t)TAR_BLOCK_START(node) + current_offset;
     uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
 
-    if (memcmp(current_file.fn, name, name_len)) {
+    if (strcmp(name, (const char*)current_file.fn) == 0) {
       /*
        * TODO: how do we want this to work? 
        * TODO: Create vobj 

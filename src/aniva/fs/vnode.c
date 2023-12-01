@@ -66,7 +66,7 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
     *buffer = NULL;
 
     for (; ret; ret = ret->m_next_sibling) {
-      if (memcmp(buffer_start, ret->m_name, ret->m_name_len)) {
+      if (strcmp(buffer_start, ret->m_name)) {
         break;
       }
     }
@@ -133,7 +133,7 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     *buffer = NULL;
 
     for (; ret; ret = ret->m_next_sibling) {
-      if (memcmp(buffer_start, ret->m_name, ret->m_name_len)) {
+      if (strcmp(buffer_start, ret->m_name) == 0) {
         break;
       }
     }
@@ -185,7 +185,7 @@ static vobj_t* __find_vobject_path(vdir_t* root, const char* path)
   /* Loop until there is no next object */
   for (ret = dir->m_objects; ret; ret = ret->m_next) {
     /* Check path */
-    if (memcmp(ret->m_path, path, strlen(path)))
+    if (strcmp(ret->m_path, path) == 0)
       break;
   }
 

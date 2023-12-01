@@ -9,13 +9,14 @@ size_t strlen (const char* str) {
     return s;
 }
 
-int strcmp (const char * str1, const char *str2) {
-    while (*str1 == *str2 && (*str1))
-    {
-        str1++;
-        str2++;
-    }
-    return *(const unsigned char *)str1 - *(const unsigned char *)str2;
+int strcmp (const char * str1, const char *str2) 
+{
+  while (*str1 == *str2 && (*str1))
+  {
+    str1++;
+    str2++;
+  }
+  return *(const unsigned char *)str1 - *(const unsigned char *)str2;
 }
 
 char* strcpy (char* dest, const char* src) {
