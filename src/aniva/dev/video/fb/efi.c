@@ -39,6 +39,7 @@ int fb_driver_exit();
 
 /* Our manifest */
 static dev_manifest_t* _this;
+static video_device_t* _vdev;
 /* Local framebuffer information for the driver */
 static fb_info_t info = { 0 };
 
@@ -215,26 +216,19 @@ int fb_driver_init()
   /* Mark the physical range used */
   kmem_set_phys_range_used(fb_start_idx, fb_page_count);
 
-  /* Register the video device (install it on our manifest) */
-  register_video_device(&efifb_driver, vdev);
+  ASSERT(video_deactivate_current_driver() == 0);
 
-  try_activate_video_device(vdev);
+  /* Register the video device (install it on our manifest) */
+  register_video_device(vdev);
+
+  _vdev = vdev;
   return 0;
 }
 
 int fb_driver_exit() 
 {
-  video_device_t* vdev;
+  unregister_video_device(_vdev);
 
-  if (!_this || !_this->m_private)
-    return -1;
-
-  vdev = _this->m_private;
-
-  /* Remove the video device from its local register */
-  unregister_video_device(vdev);
-
-  /* Calls ->f_remove */
-  destroy_video_device(vdev);
+  destroy_video_device(_vdev);
   return 0;
 }

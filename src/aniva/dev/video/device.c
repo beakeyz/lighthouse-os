@@ -1,7 +1,9 @@
 #include "device.h"
 #include "dev/core.h"
+#include "dev/device.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "proc/core.h"
 
@@ -11,24 +13,20 @@
  * @driver: the driver to register to
  * @device: the device to register
  */
-int register_video_device(aniva_driver_t* driver, video_device_t* device)
+int register_video_device(video_device_t* vdev)
 {
-  bool result;
   dev_manifest_t* manifest;
 
-  manifest = try_driver_get(driver, NULL);
-
-  if (!manifest || manifest->m_private)
+  if (!vdev || !vdev->device)
     return -1;
 
-  /* NOTE: locks the manifests mutex */
-  result = install_private_data(driver, device);
+  /* Get the core video driver */
+  manifest = get_core_driver(DT_GRAPHICS);
 
-  if (!result)
-    return -2;
+  if (!manifest)
+    return -1;
 
-  device->manifest = manifest;
-  return 0;
+  return manifest_add_device(manifest, vdev->device);
 }
 
 /*!
@@ -36,17 +34,19 @@ int register_video_device(aniva_driver_t* driver, video_device_t* device)
  *
  * @device: the device to unregister
  */
-void unregister_video_device(struct video_device* device)
+int unregister_video_device(struct video_device* vdev)
 {
-  dev_manifest_t* manifest = device->manifest;
+  device_t* _dev;
 
-  mutex_lock(manifest->m_lock);
+  if (!vdev)
+    return -1;
 
-  manifest->m_private = nullptr;
+  _dev = vdev->device;
 
-  mutex_unlock(manifest->m_lock);
+  if (!_dev)
+    return -1;
 
-  destroy_video_device(device);
+  return manifest_remove_device(_dev->parent, _dev->device_path);
 }
 
 /*!
@@ -57,60 +57,66 @@ void unregister_video_device(struct video_device* device)
 struct video_device* get_main_video_device()
 {
   /* NOTE: the first graphics driver (also hopefully the only) is always the active driver */
-  dev_manifest_t* manifest = get_main_driver_from_type(DT_GRAPHICS);
+  device_t* maindev;
+  dev_manifest_t* manifest = get_core_driver(DT_GRAPHICS);
 
   if (!manifest)
     return nullptr;
 
-  /* The private data SHOULD contain the video device struct lol */
-  return manifest->m_private;
+  maindev = nullptr;
+
+  /* Try to find the main device on the  */
+  if (manifest_find_device(manifest, &maindev, VIDDEV_MAINDEVICE) || !maindev)
+    return nullptr;
+
+  /* 'maindev' may not contain anything other than a video device */
+  return maindev->private;
 }
 
 /*!
- * @brief Try to make us the new active video driver
+ * @brief Try to deactivate the current active video driver
  *
- * Since there can only be one active video driver at a time, we need infrastructure to manage
- * which drivers get to be loaded and which dont. For this we have precedence. Video drivers with
- * a higher precedence than the active video device driver will pass this function. Those who have lower 
- * precedence won't. drivers should call this function as early as possible to avoid unnecessary allocations.
- *
- * @device: the video device to activate
+ * Try to find a 'maindev' device on the core driver and unload its driver
  */
-int try_activate_video_device(video_device_t* device)
+int video_deactivate_current_driver()
 {
-  dev_manifest_t* c_active_manifest;
-  video_device_t* c_active_device;
+  dev_manifest_t* core_manifest;
+  dev_manifest_t* class_manifest;
+  device_t* maindev;
 
-  if (!device)
+  core_manifest = get_core_driver(DT_GRAPHICS);
+
+  if (!core_manifest)
     return -1;
 
-  c_active_device = get_main_video_device();
+  maindev = nullptr;
 
-  if (c_active_device) {
-    c_active_manifest = c_active_device->manifest;
+  /* If we can't find a video device, we're good */
+  if (manifest_find_device(core_manifest, &maindev, VIDDEV_MAINDEVICE) || !maindev)
+    return 0;
 
-    /* Unload the current active driver to ensure it does not get in our way */
-    unload_driver(c_active_manifest->m_url);
-  }
+  class_manifest = maindev->parent;
 
-  /* Set the active driver */
-  return set_main_driver(device->manifest, DT_GRAPHICS);
+  /* FIXME: what to do when this fails? */
+  println("Trying to unload current video driver!");
+  Must(unload_driver(class_manifest->m_url));
+  println(" Unloaded current video driver!");
+
+  return 0;
 }
 
+/*!
+ * @brief: Allocate memory for a video device
+ *
+ * Also allocates a generic device object
+ */
 video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops)
 {
-  const char* drv_url;
   video_device_t* ret;
 
-  drv_url = nullptr;
   ret = nullptr;
 
   if (!driver || !ops)
-    return nullptr;
-
-  drv_url = get_driver_url(driver);
-
-  if (!drv_url)
     return nullptr;
 
   ret = kmalloc(sizeof(*ret));
@@ -120,28 +126,27 @@ video_device_t* create_video_device(struct aniva_driver* driver, struct video_de
 
   memset(ret, 0, sizeof(*ret));
 
-  ret->manifest = get_driver(drv_url);
+  ret->device = create_device(driver, VIDDEV_MAINDEVICE);
   ret->ops = ops;
 
+  ret->device->private = ret;
+
 exit:
-  if (drv_url)
-    kfree((void*)drv_url);
-
-  /* Could not find this manifest =/ */
-  if (ret && !ret->manifest)
-    kfree(ret);
-
   return ret;
 }
 
-int destroy_video_device(video_device_t* device)
+/*!
+ * @brief: Deallocate video device memory
+ */
+int destroy_video_device(video_device_t* vdev)
 {
   kernel_panic("TODO: destroy_video_device");
 
-  if (!device)
+  if (!vdev)
     return -1;
 
-  kfree(device);
+  destroy_device(vdev->device);
+  kfree(vdev);
 
   return 0;
 }

@@ -47,7 +47,7 @@ int test_init()
   ASSERT(manifest);
 
   /* This device should be accessable through :/Dev/other/debug/testdev */
-  our_device = create_device(TEST_DEVICE);
+  our_device = create_device(&extern_test_driver, TEST_DEVICE);
 
   manifest_add_device(manifest, our_device);
 

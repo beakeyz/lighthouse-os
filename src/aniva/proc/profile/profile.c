@@ -174,16 +174,14 @@ int profile_add_var(proc_profile_t* profile, profile_var_t* var)
 int profile_remove_var(proc_profile_t* profile, const char* key)
 {
   profile_var_t* var;
-  ErrorOrPtr result;
 
   if (!key || !profile || !profile->var_map)
     return -1;
 
-  result = Error();
-
   mutex_lock(profile->lock);
 
-  var = hashmap_get(profile->var_map, (void*)key);
+  /* NOTE: remove returns the value it removed and null on error */
+  var = hashmap_remove(profile->var_map, (void*)key);
 
   /* Can't find this variable, yikes */
   if (!var)
@@ -192,13 +190,10 @@ int profile_remove_var(proc_profile_t* profile, const char* key)
   /* Make sure this field is cleared */
   var->profile = nullptr;
 
-  /* This really should not fail, since we've checked for presence already */
-  result = hashmap_remove(profile->var_map, (void*)key);
-
 unlock:
   mutex_unlock(profile->lock);
 
-  if (IsError(result))
+  if (!var)
     return -2;
   
   return 0;
@@ -335,7 +330,7 @@ int profile_register(proc_profile_t* profile)
  */
 int profile_unregister(const char* name)
 {
-  ErrorOrPtr result;
+  proc_profile_t* result;
 
   if (!name || !name[0])
     return -1;
@@ -346,7 +341,7 @@ int profile_unregister(const char* name)
 
   mutex_unlock(profile_mutex);
 
-  if (IsError(result))
+  if (!result)
     return -2;
 
   return 0;

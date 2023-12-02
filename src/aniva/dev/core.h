@@ -145,6 +145,7 @@ bool is_driver_loaded(struct dev_manifest* handle);
 struct dev_manifest* get_driver(dev_url_t url);
 struct dev_manifest* get_main_driver_from_type(dev_type_t type);
 struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
+struct dev_manifest* get_core_driver(dev_type_t type);
 int get_main_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 

@@ -1,4 +1,7 @@
 #include "device.h"
+#include "dev/core.h"
+#include "dev/driver.h"
+#include "dev/manifest.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
@@ -25,9 +28,9 @@ bool device_is_generic(device_t* device)
   return (device->ops == &_generic_dev_ops);
 }
 
-device_t* create_device(char* path)
+device_t* create_device(aniva_driver_t* parent, char* path)
 {
-  return create_device_ex(path, &_generic_dev_ops);
+  return create_device_ex(parent, path, &_generic_dev_ops);
 }
 
 /*!
@@ -38,12 +41,18 @@ device_t* create_device(char* path)
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  */
-device_t* create_device_ex(char* path, device_ops_t* ops)
+device_t* create_device_ex(aniva_driver_t* parent, char* path, device_ops_t* ops)
 {
   device_t* ret;
+  dev_manifest_t* parent_man;
 
   if (!path)
     return nullptr;
+
+  parent_man = nullptr;
+
+  if (parent)
+    parent_man = try_driver_get(parent, NULL);
 
   ret = kmalloc(sizeof(*ret));
 
@@ -58,6 +67,7 @@ device_t* create_device_ex(char* path, device_ops_t* ops)
 
   ret->device_path = strdup(path);
   ret->lock = create_mutex(NULL);
+  ret->parent = parent_man;
   ret->ops = ops;
 
   return ret;
@@ -68,11 +78,17 @@ device_t* create_device_ex(char* path, device_ops_t* ops)
  *
  * Any references to this device must be dealt with before this point, due
  * to the mutex being a bitch
+ *
+ * NOTE: devices don't have ownership of the memory of their parents EVER, thus
+ * we don't destroy device->parent
  */
 void destroy_device(device_t* device)
 {
   destroy_mutex(device->lock);
   kfree((void*)device->device_path);
+
+  memset(device, 0, sizeof(*device));
+
   kfree(device);
 }
 

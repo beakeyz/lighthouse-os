@@ -11,42 +11,51 @@
  * arch specific functions scattered around the codebase =/
  */
 
-size_t strlen (const char* str) 
+size_t strlen(const char* str) 
 {
-    size_t s = 0;
-    while (str[s] != 0)
-        s++;
-    return s;
+  size_t s = 0;
+  while (str[s] != 0)
+      s++;
+  return s;
 }
 
 int strcmp(const char * str1, const char *str2) 
 {
-  while (*str1 == *str2++)
-    if (*str1++ == NULL)
+  while (*str1 == *str2) 
+  {
+    if (*str1 == NULL)
       return 0;
 
-  return *(const unsigned char *)str1 - *(const unsigned char *)--str2;
+    str1++;
+    str2++;
+  }
+
+  return *(const unsigned char *)str1 - *(const unsigned char *)str2;
 }
 
 int strncmp(const char *s1, const char *s2, size_t n) 
 {
-    for (size_t i = 0; i < n; i++) {
-        char c1 = s1[i], c2 = s2[i];
-        if (c1 != c2)
-            return c1 < c2 ? -1 : 1;
-        if (!c1)
-            return 0;
-    }
+  char c1, c2;
 
-    return 0;
+  for (size_t i = 0; i < n; i++) {
+    c1 = s1[i];
+    c2 = s2[i];
+
+    if (c1 != c2)
+      return c1 < c2 ? -1 : 1;
+    if (!c1)
+      return 0;
+  }
+
+  return 0;
 }
 
 char* strcpy (char* dest, const char* src) 
 {
     size_t s = 0;
-    while (src[s] != '\0') {
-        dest[s] = src[s];
-        s++;
+    while (src[s]) {
+      dest[s] = src[s];
+      s++;
     }
     return dest;
 }
@@ -72,7 +81,7 @@ char* strdup(const char* str)
 
 // TODO: dis mofo is broken as fuck, fix it
 // for now, make it x86 specific
-// FIXME: refactor memcpy and memset so they match the archetecture the kernel is being built for
+// FIXME: refactor memcpy and memset so they match the arch the kernel is being built for
 void *memcpy(void * restrict dest, const void * restrict src, size_t length)
 {
     /*uint8_t* d = (void*) dest;

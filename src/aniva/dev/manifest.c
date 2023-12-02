@@ -98,36 +98,6 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
   return true;
 }
 
-bool install_private_data(struct aniva_driver* driver, void* data)
-{
-  dev_url_t path;
-  dev_manifest_t* manifest;
-
-  path = get_driver_url(driver);
-
-  if (!path)
-    return false;
-
-  manifest = get_driver(path);
-
-  kfree((void*)path);
-
-  /*
-   * If ->m_private has already been set and we're not trying to reset it
-   * by passing NULL for data, just die
-   */
-  if (!manifest || (manifest->m_private && data))
-    return false;
-
-  mutex_lock(manifest->m_lock);
-
-  manifest->m_private = data;
-
-  mutex_unlock(manifest->m_lock);
-
-  return true;
-}
-
 dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
 {
   dev_manifest_t* ret;
@@ -286,7 +256,12 @@ int manifest_add_device(dev_manifest_t* manifest, device_t* device)
 
   mutex_unlock(manifest->m_device_lock);
 
-  return (IsError(res) ? -2 : 0);
+  if (IsError(res))
+    return -2;
+
+  device->link = manifest;
+
+  return 0;
 }
 
 /*!
@@ -294,7 +269,7 @@ int manifest_add_device(dev_manifest_t* manifest, device_t* device)
  */
 int manifest_remove_device(dev_manifest_t* manifest, const char* device)
 {
-  ErrorOrPtr res;
+  device_t* dev;
 
   if (!manifest || !manifest_is_active(manifest))
     return -1;
@@ -304,11 +279,15 @@ int manifest_remove_device(dev_manifest_t* manifest, const char* device)
 
   mutex_lock(manifest->m_device_lock);
 
-  res = hashmap_remove(manifest->m_device_map, (hashmap_key_t)device);
+  dev = hashmap_remove(manifest->m_device_map, (hashmap_key_t)device);
 
   mutex_unlock(manifest->m_device_lock);
 
-  return (IsError(res) ? -3 : 0);
+  if (!dev)
+    return -3;
+
+  dev->link = nullptr;
+  return 0;
 }
 
 /*!

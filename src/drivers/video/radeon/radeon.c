@@ -76,13 +76,15 @@ uintptr_t radeon_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size
  */
 int radeon_probe(pci_device_t* device, pci_driver_t* driver)
 {
+  video_device_t* vdev;
+
   logln("Found radeon yay");
 
-  video_device_t* vdev = create_video_device(&radeon_driver, &radeon_vdev_ops);
+  ASSERT(video_deactivate_current_driver() == 0);
 
-  register_video_device(&radeon_driver, vdev);
+  vdev = create_video_device(&radeon_driver, &radeon_vdev_ops);
 
-  try_activate_video_device(vdev);
+  register_video_device(vdev);
 
   kernel_panic("Found a radeon device =)");
   return 0;

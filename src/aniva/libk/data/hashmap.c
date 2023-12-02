@@ -554,8 +554,9 @@ ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 /*
  * Remove a value with closed addressing
  */
-ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
+void* __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
 {
+  void* ret;
   uintptr_t index = 0;
   hashmap_entry_t* prev;
   hashmap_entry_t* entry;
@@ -566,10 +567,11 @@ ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
 
   /* No hash automatically means no entry =/ */
   if (!entry || !entry->m_hash)
-    return Error();
+    return nullptr;
 
   if (entry->m_hash == (uint32_t)hashed_key) {
 
+    ret = entry->m_value;
     /*
      * Reset the hash and value, so the entry essentially
      * gets marked as 'free'
@@ -579,12 +581,12 @@ ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
 
     map->m_size--;
 
-    return Success(0);
+    return ret;
   }
 
   /* No next means we don't have to continue looking xD */
   if (!entry->m_next)
-    return Error();
+    return nullptr;
 
   __HASHMAP_GET_NEW_INDX(map, new_idx, new_hash, idx, hashed_key);
 
@@ -595,7 +597,7 @@ ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
   entry = (hashmap_entry_t*)Release(__hashmap_find_entry(map, entry, new_hash));
 
   if (!entry)
-    return Error();
+    return nullptr;
 
   /* Sad implementation: linear scan to find the entry behind the one we need to remove */
   while (index++ < map->m_size) {
@@ -608,29 +610,33 @@ ErrorOrPtr __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
 
   prev->m_next = entry->m_next;
 
+  ret = entry->m_value;
+
   /* Clean up object */
   entry->m_value = NULL;
   entry->m_hash = NULL;
   entry->m_next = nullptr;
 
   map->m_size--;
-  return Success(0);
-
+  return ret;
 }
 
 /*
  * Remove an entry with open addressing
  */
-ErrorOrPtr __hashmap_remove_open(hashmap_t* map, hashmap_key_t key)
+void* __hashmap_remove_open(hashmap_t* map, hashmap_key_t key)
 {
   kernel_panic("TODO: implement __hashmap_remove_open");
-  return Error();
+  return nullptr;
 }
 
-ErrorOrPtr hashmap_remove(hashmap_t* map, hashmap_key_t key) {
+/*!
+ * @brief: Remove a key-value pair from the hasmap and return the value on success
+ */
+hashmap_value_t hashmap_remove(hashmap_t* map, hashmap_key_t key) {
 
   if (!map || !key)
-    return Error();
+    return nullptr;
 
   if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
     return __hashmap_remove_closed(map, key);

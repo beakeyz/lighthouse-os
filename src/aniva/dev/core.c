@@ -756,6 +756,25 @@ struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
   return nullptr;
 }
 
+/*!
+ * @brief: Get the core device for the driver type @type
+ */
+struct dev_manifest* get_core_driver(dev_type_t type)
+{
+  dev_constraint_t* constaint;
+
+  if (!VALID_DEV_TYPE(type))
+    return nullptr;
+
+  constaint = &__dev_constraints[type];
+
+  /* Sanity, would be weird if this happened */
+  if (!constaint)
+    return nullptr;
+
+  return constaint->core;
+}
+
 /*
  * Replaces the current active driver of this manifests type
  * with the manifests. This unloads the old driver and loads the 

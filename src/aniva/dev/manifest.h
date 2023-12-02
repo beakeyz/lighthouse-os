@@ -45,7 +45,7 @@ typedef struct dev_manifest {
   size_t m_url_length;
 
   /* Any data that's specific to the kind of driver this is */
-  void* m_private;
+  //void* m_private;
 
   /* Path to the binary of the driver, only on external drivers */
   const char* m_driver_file_path;
@@ -70,8 +70,6 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
 
 bool driver_manifest_write(struct aniva_driver* manifest, int(*write_fn)());
 bool driver_manifest_read(struct aniva_driver* manifest, int(*read_fn)());
-
-bool install_private_data(struct aniva_driver* driver, void* data);
 
 static inline bool manifest_is_active(dev_manifest_t* manifest)
 {

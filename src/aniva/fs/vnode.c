@@ -66,7 +66,7 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
     *buffer = NULL;
 
     for (; ret; ret = ret->m_next_sibling) {
-      if (strcmp(buffer_start, ret->m_name)) {
+      if (strcmp(buffer_start, ret->m_name) == 0) {
         break;
       }
     }

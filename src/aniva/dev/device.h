@@ -7,6 +7,7 @@
 
 struct vobj;
 struct device;
+struct aniva_driver;
 struct dev_manifest_t;
 
 typedef struct device_ops {
@@ -35,15 +36,20 @@ typedef struct device_ops {
  */
 typedef struct device {
   const char* device_path;
+  /* Driver that is responsible for management of this device */
   struct dev_manifest* parent;
+  /* Driver this device is linked to. (NOTE: parent and link can be the same, but don't have to be) */
+  struct dev_manifest* link;
   struct vobj* obj;
+
+  void* private;
 
   mutex_t* lock;
   device_ops_t* ops;
 } device_t;
 
-device_t* create_device(char* path);
-device_t* create_device_ex(char* path, device_ops_t* ops);
+device_t* create_device(struct aniva_driver* parent, char* path);
+device_t* create_device_ex(struct aniva_driver* parent, char* path, device_ops_t* ops);
 void destroy_device(device_t* device);
 
 int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset);

@@ -10,8 +10,11 @@
 #define VIDDEV_FLAG_VIRTUAL     (0x04)
 #define VIDDEV_FLAG_FIRMWARE    (0x08)
 
+#define VIDDEV_MAINDEVICE       "maindev"
+
 struct video_device_ops;
 struct aniva_driver;
+struct device;
 struct vdev_info;
 struct fb_info;
 
@@ -35,7 +38,7 @@ union fb_color;
  * 
  */
 typedef struct video_device {
-  struct dev_manifest* manifest;
+  struct device* device;
   
   uint32_t flags;
   uint16_t max_connector_count;
@@ -50,12 +53,12 @@ typedef struct video_device {
 video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops);
 int destroy_video_device(video_device_t* device);
 
-int register_video_device(struct aniva_driver* driver, struct video_device* device);
-void unregister_video_device(struct video_device* device);
+int register_video_device(struct video_device* device);
+int unregister_video_device(struct video_device* device);
 
 struct video_device* get_main_video_device();
 
-int try_activate_video_device(video_device_t* device);
+int video_deactivate_current_driver();
 
 typedef struct video_device_ops {
   int (*f_remove) (video_device_t* dev);

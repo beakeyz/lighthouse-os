@@ -63,13 +63,16 @@ EXPORT_DRIVER(nvfb_driver) = {
  */
 int nvfb_probe(pci_device_t* dev, pci_driver_t* driver)
 {
+  video_device_t* vdev;
   kernel_panic("Found an NVIDIA device!");
 
-  /* TODO: remove standard boot-time video drivers like efi */
-  register_video_device(&nvfb_driver, &nvfb_device);
+  vdev = create_video_device(&nvfb_driver, NULL);
+
+  ASSERT(vdev);
+  ASSERT(video_deactivate_current_driver() == 0);
 
   /* TODO: remove standard boot-time video drivers like efi */
-  try_activate_video_device(&nvfb_device);
+  register_video_device(&nvfb_device);
   return 0;
 }
 
@@ -87,7 +90,7 @@ uint64_t nvfb_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, v
 int nvfb_init() 
 {
   /* We should be active at this point lol */
-  _our_manifest = try_driver_get(&nvfb_driver, DRV_ACTIVE);
+  _our_manifest = try_driver_get(&nvfb_driver, NULL);
 
   if (!_our_manifest)
     return -1;
