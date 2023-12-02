@@ -140,8 +140,6 @@ exit:
  */
 int destroy_video_device(video_device_t* vdev)
 {
-  kernel_panic("TODO: destroy_video_device");
-
   if (!vdev)
     return -1;
 
