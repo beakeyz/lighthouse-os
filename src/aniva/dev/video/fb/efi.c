@@ -225,6 +225,11 @@ int fb_driver_init()
   return 0;
 }
 
+/*!
+ * @brief: Destruct any efi shit
+ *
+ * TODO: make sure any users of this driver are notified of it's destruction
+ */
 int fb_driver_exit() 
 {
   unregister_video_device(_vdev);

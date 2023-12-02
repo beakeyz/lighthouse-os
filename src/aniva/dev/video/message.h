@@ -23,6 +23,9 @@
 
 /*
  * Structure to be passed into a blt message
+ *
+ * Since blt opperations are not anything persistant, we can dispose of 
+ * this memory after we're done with it
  */
 typedef struct viddev_blt {
   uint32_t x, y;
@@ -36,6 +39,9 @@ typedef struct viddev_blt {
 typedef struct viddev_mapfb {
   vaddr_t virtual_base;
   size_t* size;
+
+  /* This field is so we can cache these map requests in a list */
+  struct viddev_mapfb* next;
 } viddev_mapfb_t;
 
 #define VIDDEV_DCC_GET_FBINFO 102

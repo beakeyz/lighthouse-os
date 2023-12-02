@@ -548,9 +548,16 @@ int kterm_init()
   };
 
   /*
-   * This is the wrong way of getting information to the graphics API, because it is not a given that
+   * (old, TODO: remove) This is the wrong way of getting information to the graphics API, because it is not a given that
    * the loaded graphics driver is indeed efifb. It might very well be virtio or some other nonsense. 
    * In that case, we need a function that gives us the current graphics driver path
+   *
+   * Situation has changed since. We now have a core video device that will always be present, regardless of video driver (If 
+   * the current driver is a nice one). As a driver, process, library, ect. relying on this device, we need to be aware of any 
+   * changes that are made to the device. If we grab any dynamic stuff, like the framebuffer, that is prone to change, we need
+   * to always be aware of these changes. This is why we need to subscribe ourselves to the device_driver_change kernel event.
+   * This ensures that we are always up to date on the current situation of our video device, and we are able to remap our framebuffer
+   * so we don't skip a beat
    */
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));

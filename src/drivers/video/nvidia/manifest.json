@@ -1,5 +1,5 @@
 {
-  "name": "nvfb.drv",
+  "name": "nvidia.drv",
   "linking": "static",
   "type": "driver"
 }

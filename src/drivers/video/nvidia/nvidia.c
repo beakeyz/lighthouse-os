@@ -3,6 +3,7 @@
 #include "dev/pci/definitions.h"
 #include "dev/precedence.h"
 #include "dev/video/device.h"
+#include "drivers/video/nvidia/device/device.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include <dev/pci/pci.h>
@@ -10,10 +11,10 @@
 
 static dev_manifest_t* _our_manifest;
 
-int nvfb_init();
-int nvfb_exit();
-uint64_t nvfb_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
-int nvfb_probe(pci_device_t* dev, pci_driver_t* driver);
+int nvidia_init();
+int nvidia_exit();
+uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+int nvidia_probe(pci_device_t* dev, pci_driver_t* driver);
 
 /*
  * A framebuffer driver for nvidia cards, inspiration from 
@@ -39,17 +40,17 @@ static video_device_t nvfb_device = {
 
 pci_driver_t nvfb_pci_driver = {
   .id_table = nv_ids,
-  .f_probe = nvfb_probe,
+  .f_probe = nvidia_probe,
   .device_flags = NULL,
   0,
 };
 
-EXPORT_DRIVER(nvfb_driver) = {
-  .m_name = "nvfb",
+EXPORT_DRIVER(nvidia_driver) = {
+  .m_name = "nvidia",
   .m_type = DT_GRAPHICS,
-  .f_msg = nvfb_msg,
-  .f_init = nvfb_init,
-  .f_exit = nvfb_exit,
+  .f_msg = nvidia_msg,
+  .f_init = nvidia_init,
+  .f_exit = nvidia_exit,
   .m_precedence = DRV_PRECEDENCE_BASIC,
   .m_dep_count = 0,
   .m_dependencies = { 0 },
@@ -61,22 +62,42 @@ EXPORT_DRIVER(nvfb_driver) = {
  * When we detect a nvidia card on the PCI bus, this gets called. Here, we are responsible for asserting that we 
  * support the device we are given to the extent that we say we can to the video core.
  */
-int nvfb_probe(pci_device_t* dev, pci_driver_t* driver)
+int nvidia_probe(pci_device_t* dev, pci_driver_t* driver)
 {
-  video_device_t* vdev;
-  kernel_panic("Found an NVIDIA device!");
+  nv_device_t* nvdev;
 
-  vdev = create_video_device(&nvfb_driver, NULL);
+  logln("Found an NVIDIA device!");
 
-  ASSERT(vdev);
-  ASSERT(video_deactivate_current_driver() == 0);
+  /* Yikes =/ */
+  if (video_deactivate_current_driver())
+    return -1;
+
+  /* Try to create and initialize the card */
+  nvdev = create_nv_device(&nvidia_driver, dev);
+
+  ASSERT(nvdev);
+
+  log("PRI addr: ");
+  logln(to_string((uintptr_t)nvdev->pri));
+  log("PRI size: ");
+  logln(to_string(nvdev->pri_size));
+  log("NV card type: ");
+  logln(to_string(nvdev->card_type));
+  log("NV chipset: ");
+  logln(to_string(nvdev->chipset));
+  log("NV chiprev: ");
+  logln(to_string(nvdev->chiprev));
+  log("NV vendor: ");
+  logln(to_string(nvdev->id.vendor));
+  log("NV device: ");
+  logln(to_string(nvdev->id.device));
 
   /* TODO: remove standard boot-time video drivers like efi */
   register_video_device(&nvfb_device);
   return 0;
 }
 
-uint64_t nvfb_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
+uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
   return 0;
 }
@@ -87,10 +108,10 @@ uint64_t nvfb_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, v
  * We need to expose our manifest to the rest of the driver, since we need it to
  * attach our graphics device
  */
-int nvfb_init() 
+int nvidia_init() 
 {
   /* We should be active at this point lol */
-  _our_manifest = try_driver_get(&nvfb_driver, NULL);
+  _our_manifest = try_driver_get(&nvidia_driver, NULL);
 
   if (!_our_manifest)
     return -1;
@@ -99,7 +120,7 @@ int nvfb_init()
   return 0;
 }
 
-int nvfb_exit()
+int nvidia_exit()
 {
   unregister_pci_driver(&nvfb_pci_driver);
   return 0;

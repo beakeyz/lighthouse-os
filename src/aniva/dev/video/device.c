@@ -98,9 +98,9 @@ int video_deactivate_current_driver()
   class_manifest = maindev->parent;
 
   /* FIXME: what to do when this fails? */
-  println("Trying to unload current video driver!");
+  logln("Trying to unload current video driver!");
   Must(unload_driver(class_manifest->m_url));
-  println(" Unloaded current video driver!");
+  logln(" Unloaded current video driver!");
 
   return 0;
 }
