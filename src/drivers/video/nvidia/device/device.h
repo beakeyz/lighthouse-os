@@ -3,14 +3,19 @@
 
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
+#include "drivers/video/nvidia/device/subdev.h"
 #include "libk/io.h"
 #include <libk/stddef.h>
+
+struct nv_device;
 
 typedef struct nv_pci_device_id {
   uint16_t device;
   uint16_t vendor;
   const char* label;
 } nv_pci_device_id_t;
+
+typedef int (*nv_subsys_entry_t) (struct nv_device* nvdev, enum NV_SUBDEV_TYPE type, void** subdev);
 
 /* Thx, linux =) */
 enum NV_CARD_TYPE {
@@ -36,8 +41,12 @@ typedef struct nv_device {
   pci_device_t* pdevice;
 
   size_t pri_size;
-
   void* pri;
+
+  /* Entrypoints for our subsystems */
+  nv_subsys_entry_t subsys_entries[NV_SUBDEV_COUNT];
+  /* Storage points for our subsystems */
+  nv_subdev_t* subdevices[NV_SUBDEV_COUNT];
 
   enum NV_CARD_TYPE card_type;
   uint32_t chipset;
