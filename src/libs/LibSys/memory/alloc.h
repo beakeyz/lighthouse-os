@@ -51,10 +51,14 @@ enum {
  * Flags indicate the protection level
  */
 VOID* allocate_pool(
-  __IN__ __OPTIONAL__   VOID* pooladdr,
   __INOUT__             size_t* poolsize,
   __IN__                DWORD flags,
   __IN__ __OPTIONAL__   DWORD pooltype
+);
+
+DWORD deallocate_pool(
+  __IN__                VOID* pooladdr,
+  __IN__                size_t poolsize
 );
 
 /*
@@ -66,7 +70,6 @@ VOID* allocate_pool(
  */
 VOID* allocate_pool_av(
   __IN__                HANDLE handle,
-  __IN__ __OPTIONAL__   VOID* pooladdr,
   __INOUT__             size_t* poolsize,
   __IN__                DWORD flags,
   __IN__ __OPTIONAL__   DWORD pooltype

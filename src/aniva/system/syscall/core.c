@@ -12,6 +12,7 @@
 #include "sys_exit/sys_exit.h"
 #include "sys_open/sys_open.h"
 #include "sys_drv/sys_drv.h"
+#include "sys_open/sys_dir.h"
 #include "system/syscall/sys_exec/sys_exec.h"
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
@@ -37,6 +38,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_OPEN_PVAR]         = { 0, SYSID_OPEN_PVAR, (sys_fn_t)sys_open_pvar, },
   [SYSID_GET_PVAR_TYPE]     = { 0, SYSID_GET_PVAR_TYPE, (sys_fn_t)sys_get_pvar_type, },
   [SYSID_CREATE_PVAR]       = { 0, SYSID_CREATE_PVAR, (sys_fn_t)sys_create_pvar, },
+  [SYSID_CREATE_DIR]        = { 0, SYSID_CREATE_DIR, (sys_fn_t)sys_create_dir },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

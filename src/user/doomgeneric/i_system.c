@@ -17,6 +17,7 @@
 
 
 
+#include "LibSys/memory/alloc.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -92,9 +93,10 @@ void I_Tactile(int on, int off, int total)
 // by trying progressively smaller zone sizes until one is found that
 // works.
 
-static byte *AutoAllocMemory(int *size, int default_ram, int min_ram)
+static byte *AutoAllocMemory(size_t *size, int default_ram, int min_ram)
 {
     byte *zonemem;
+    size_t ret_size;
 
     // Allocate the zone memory.  This loop tries progressively smaller
     // zone sizes until a size is found that can be allocated.
@@ -109,14 +111,14 @@ static byte *AutoAllocMemory(int *size, int default_ram, int min_ram)
 
         if (default_ram < min_ram)
         {
-            I_Error("Unable to allocate %i MiB of RAM for zone", default_ram);
+          I_Error("Unable to allocate %i MiB of RAM for zone", default_ram);
         }
 
         // Try to allocate the zone memory.
 
         *size = default_ram * 1024 * 1024;
 
-        zonemem = malloc(*size);
+        zonemem = allocate_pool(size, NULL, NULL);
 
         // Failed to allocate?  Reduce zone size until we reach a size
         // that is acceptable.
@@ -130,7 +132,7 @@ static byte *AutoAllocMemory(int *size, int default_ram, int min_ram)
     return zonemem;
 }
 
-byte *I_ZoneBase (int *size)
+byte *I_ZoneBase (size_t *size)
 {
     byte *zonemem;
     int min_ram, default_ram;
@@ -157,7 +159,7 @@ byte *I_ZoneBase (int *size)
 
     zonemem = AutoAllocMemory(size, default_ram, min_ram);
 
-    printf("zone memory: %p, %x allocated for zone\n", 
+    printf("zone memory: %p, %llx allocated for zone\n", 
            zonemem, *size);
 
     return zonemem;
@@ -365,29 +367,14 @@ void I_Error (char *error, ...)
 
     if (already_quitting)
     {
-        fprintf(stderr, "Warning: recursive call to I_Error detected.\n");
-#if ORIGCODE
-        exit(-1);
-#endif
+        printf("Warning: recursive call to I_Error detected.\n");
     }
     else
     {
         already_quitting = true;
     }
 
-    // Message first.
-    va_start(argptr, error);
-    //fprintf(stderr, "\nError: ");
-    vfprintf(stderr, error, argptr);
-    fprintf(stderr, "\n\n");
-    va_end(argptr);
-    fflush(stderr);
-
-    // Write a copy of the message into buffer.
-    va_start(argptr, error);
-    memset(msgbuf, 0, sizeof(msgbuf));
-    M_vsnprintf(msgbuf, sizeof(msgbuf), error, argptr);
-    va_end(argptr);
+    printf("%s", error);
 
     // Shutdown. Here might be other errors.
 
@@ -403,67 +390,7 @@ void I_Error (char *error, ...)
         entry = entry->next;
     }
 
-    exit_gui_popup = !M_ParmExists("-nogui");
-
-    // Pop up a GUI dialog box to show the error message, if the
-    // game was not run from the console (and the user will
-    // therefore be unable to otherwise see the message).
-    if (exit_gui_popup && !I_ConsoleStdout())
-#ifdef _WIN32
-    {
-        wchar_t wmsgbuf[512];
-
-        MultiByteToWideChar(CP_ACP, 0,
-                            msgbuf, strlen(msgbuf) + 1,
-                            wmsgbuf, sizeof(wmsgbuf));
-
-        MessageBoxW(NULL, wmsgbuf, L"", MB_OK);
-    }
-#elif defined(__MACOSX__)
-    {
-        CFStringRef message;
-	int i;
-
-	// The CoreFoundation message box wraps text lines, so replace
-	// newline characters with spaces so that multiline messages
-	// are continuous.
-
-	for (i = 0; msgbuf[i] != '\0'; ++i)
-        {
-            if (msgbuf[i] == '\n')
-            {
-                msgbuf[i] = ' ';
-            }
-        }
-
-        message = CFStringCreateWithCString(NULL, msgbuf,
-                                            kCFStringEncodingUTF8);
-
-        CFUserNotificationDisplayNotice(0,
-                                        kCFUserNotificationCautionAlertLevel,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        CFSTR(PACKAGE_STRING),
-                                        message,
-                                        NULL);
-    }
-#else
-    {
-        ZenityErrorBox(msgbuf);
-    }
-#endif
-
-    // abort();
-#if ORIGCODE
-    SDL_Quit();
-
     exit(-1);
-#else
-    while (true)
-    {
-    }
-#endif
 }
 
 //

@@ -51,8 +51,6 @@ typedef enum thread_state {
 
 ANIVA_STATUS init_proc_core();
 
-ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread);
-
 /*
  * Register a socket on the kernel socket chain
  */

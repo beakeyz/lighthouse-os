@@ -674,9 +674,9 @@ static default_t	doom_defaults_list[] =
 
 static default_collection_t doom_defaults =
 {
-    doom_defaults_list,
-    arrlen(doom_defaults_list),
-    NULL,
+    .defaults = doom_defaults_list,
+    .numdefaults = sizeof(doom_defaults_list) / sizeof(doom_defaults_list[0]),
+    .filename = NULL,
 };
 
 //! @begin_config_file extended
@@ -1562,10 +1562,11 @@ static default_collection_t extra_defaults =
 
 static default_t *SearchCollection(default_collection_t *collection, char *name)
 {
-    int i;
+    printf("Variable: %s\n", name);
 
-    for (i=0; i<collection->numdefaults; ++i) 
+    for (int i=0; i < collection->numdefaults; i++) 
     {
+        printf("Entry: %s\n", collection->defaults[i].name);
         if (!strcmp(name, collection->defaults[i].name))
         {
             return &collection->defaults[i];
@@ -1604,112 +1605,6 @@ static const int scantokey[128] =
     0,      0,      0,      0,      0,      0,      0,      0,
     0,      0,      0,      0,      0,      0,      KEY_PRTSCR, 0
 };
-
-
-static void SaveDefaultCollection(default_collection_t *collection)
-{
-#if ORIGCODE
-    default_t *defaults;
-    int i, v;
-    FILE *f;
-	
-    f = fopen (collection->filename, "w");
-    if (!f)
-	return; // can't write the file, but don't complain
-
-    defaults = collection->defaults;
-		
-    for (i=0 ; i<collection->numdefaults ; i++)
-    {
-        int chars_written;
-
-        // Ignore unbound variables
-
-        if (!defaults[i].bound)
-        {
-            continue;
-        }
-
-        // Print the name and line up all values at 30 characters
-
-        chars_written = fprintf(f, "%s ", defaults[i].name);
-
-        for (; chars_written < 30; ++chars_written)
-            fprintf(f, " ");
-
-        // Print the value
-
-        switch (defaults[i].type) 
-        {
-            case DEFAULT_KEY:
-
-                // use the untranslated version if we can, to reduce
-                // the possibility of screwing up the user's config
-                // file
-                
-                v = * (int *) defaults[i].location;
-
-                if (v == KEY_RSHIFT)
-                {
-                    // Special case: for shift, force scan code for
-                    // right shift, as this is what Vanilla uses.
-                    // This overrides the change check below, to fix
-                    // configuration files made by old versions that
-                    // mistakenly used the scan code for left shift.
-
-                    v = 54;
-                }
-                else if (defaults[i].untranslated
-                      && v == defaults[i].original_translated)
-                {
-                    // Has not been changed since the last time we
-                    // read the config file.
-
-                    v = defaults[i].untranslated;
-                }
-                else
-                {
-                    // search for a reverse mapping back to a scancode
-                    // in the scantokey table
-
-                    int s;
-
-                    for (s=0; s<128; ++s)
-                    {
-                        if (scantokey[s] == v)
-                        {
-                            v = s;
-                            break;
-                        }
-                    }
-                }
-
-	        fprintf(f, "%i", v);
-                break;
-
-            case DEFAULT_INT:
-	        fprintf(f, "%i", * (int *) defaults[i].location);
-                break;
-
-            case DEFAULT_INT_HEX:
-	        fprintf(f, "0x%x", * (int *) defaults[i].location);
-                break;
-
-            case DEFAULT_FLOAT:
-                fprintf(f, "%f", * (float *) defaults[i].location);
-                break;
-
-            case DEFAULT_STRING:
-	        fprintf(f,"\"%s\"", * (char **) (defaults[i].location));
-                break;
-        }
-
-        fprintf(f, "\n");
-    }
-
-    fclose (f);
-#endif
-}
 
 // Parses integer values in the configuration file
 
@@ -1835,8 +1730,6 @@ static void LoadDefaultCollection(default_collection_t *collection)
 
 void M_SetConfigFilenames(char *main_config, char *extra_config)
 {
-    default_main_config = main_config;
-    default_extra_config = extra_config;
 }
 
 //
@@ -1845,8 +1738,6 @@ void M_SetConfigFilenames(char *main_config, char *extra_config)
 
 void M_SaveDefaults (void)
 {
-    SaveDefaultCollection(&doom_defaults);
-    SaveDefaultCollection(&extra_defaults);
 }
 
 //
@@ -1880,56 +1771,6 @@ void M_SaveDefaultsAlternate(char *main, char *extra)
 
 void M_LoadDefaults (void)
 {
-    int i;
- 
-    // check for a custom default file
-
-    //!
-    // @arg <file>
-    // @vanilla
-    //
-    // Load main configuration from the specified file, instead of the
-    // default.
-    //
-
-    i = M_CheckParmWithArgs("-config", 1);
-
-    if (i)
-    {
-	doom_defaults.filename = myargv[i+1];
-	printf ("	default file: %s\n",doom_defaults.filename);
-    }
-    else
-    {
-        doom_defaults.filename
-            = M_StringJoin(configdir, default_main_config, NULL);
-    }
-
-    printf("saving config in %s\n", doom_defaults.filename);
-
-    //!
-    // @arg <file>
-    //
-    // Load additional configuration from the specified file, instead of
-    // the default.
-    //
-
-    i = M_CheckParmWithArgs("-extraconfig", 1);
-
-    if (i)
-    {
-        extra_defaults.filename = myargv[i+1];
-        printf("        extra configuration file: %s\n", 
-               extra_defaults.filename);
-    }
-    else
-    {
-        extra_defaults.filename
-            = M_StringJoin(configdir, default_extra_config, NULL);
-    }
-
-    LoadDefaultCollection(&doom_defaults);
-    LoadDefaultCollection(&extra_defaults);
 }
 
 // Get a configuration file variable by its name
@@ -1951,7 +1792,7 @@ static default_t *GetDefaultForName(char *name)
 
     if (result == NULL)
     {
-        I_Error("Unknown configuration variable: '%s'", name);
+        I_Error(name);
     }
 
     return result;

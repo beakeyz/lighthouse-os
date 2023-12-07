@@ -57,6 +57,9 @@ static int nv_detect_chip(nv_device_t* nvdev)
   }
 
   /* TODO: With the chipset, we can also determine the functions needed for certain card subsystem management */
+  switch (nvdev->chipset) {
+    case 0x094: nvdev->subsys_entries = nv94_entries;
+  }
   /* TODO: With the entries found, loop over them all and call them */
 
   return 0;

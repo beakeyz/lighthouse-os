@@ -47,20 +47,7 @@ void create_test_app(lwnd_screen_t* screen)
   vobj_t* obj;
   file_t* file;
 
-  obj = vfs_resolve("Root/gfx");
-
-  ASSERT_MSG(obj, "Could not find gfx test app!");
-
-  file = vobj_get_file(obj);
-
-  if (!file)
-    return;
-
-  Must(elf_exec_static_64_ex(file, false, false));
-
-  vobj_close(obj);
-
-  obj = vfs_resolve("Root/gfx2");
+  obj = vfs_resolve("Root/Apps/doom");
 
   ASSERT_MSG(obj, "Could not find gfx test app!");
 

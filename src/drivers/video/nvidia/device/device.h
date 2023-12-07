@@ -44,7 +44,7 @@ typedef struct nv_device {
   void* pri;
 
   /* Entrypoints for our subsystems */
-  nv_subsys_entry_t subsys_entries[NV_SUBDEV_COUNT];
+  nv_subsys_entry_t* subsys_entries;
   /* Storage points for our subsystems */
   nv_subdev_t* subdevices[NV_SUBDEV_COUNT];
 

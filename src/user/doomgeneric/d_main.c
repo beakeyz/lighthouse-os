@@ -1177,6 +1177,7 @@ void D_DoomMain (void)
 
     DEH_printf("Z_Init: Init zone memory allocation daemon. \n");
     Z_Init ();
+    DEH_printf("Z_Init: Done. \n");
 
 #ifdef FEATURE_MULTIPLAYER
     //!
@@ -1355,12 +1356,8 @@ void D_DoomMain (void)
 
     // Load configuration files before initialising other subsystems.
     DEH_printf("M_LoadDefaults: Load system defaults.\n");
-    M_SetConfigFilenames("default.cfg", PROGRAM_PREFIX "doom.cfg");
     D_BindVariables();
     M_LoadDefaults();
-
-    // Save configuration at exit.
-    I_AtExit(M_SaveDefaults, false);
 
     // Find main IWAD file and load it.
     iwadfile = D_FindIWAD(IWAD_MASK_DOOM, &gamemission);

@@ -7,6 +7,8 @@
 #define INFINITY (__builtin_inff())
 
 extern double floor(double x);
+extern double ceil(double x);
+
 extern int abs(int j);
 extern double pow(double x, double y);
 extern double exp(double x);

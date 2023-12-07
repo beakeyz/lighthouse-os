@@ -950,12 +950,10 @@ AM_clipMline
 	    dx = fl->b.x - fl->a.x;
 	    tmp.y = fl->a.y + (dy*(-fl->a.x))/dx;
 	    tmp.x = 0;
-	}
-        else
-        {
-            tmp.x = 0;
-            tmp.y = 0;
-        }
+	} else {
+        tmp.x = 0;
+        tmp.y = 0;
+    }
 
 	if (outside == outcode1)
 	{

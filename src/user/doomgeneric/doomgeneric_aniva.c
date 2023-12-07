@@ -33,10 +33,16 @@ void DG_SetWindowTitle(const char * title)
 {
 }
 
+/* Our own argv and argc vars, since our system does not have those yet =)))) */
+char* argv[] = {
+  "doom"
+};
+const int argc = 1;
+
 /*!
  * @brief: Main entry for this app
  */
-int main(int argc, char **argv)
+int main(/* int argc, char **argv */)
 {
   doomgeneric_Create(argc, argv);
 

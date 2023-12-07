@@ -86,6 +86,7 @@ extern char* gets(char* str, size_t size);
 extern char* fgets(char* str, size_t size, FILE* stream);
 extern int fgetc(FILE* stream);
 extern int fputc(int c, FILE* stream);
+extern int puts(const char* str);
 extern int putchar (int c);
 
 #ifdef __cplusplus

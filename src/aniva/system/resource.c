@@ -674,23 +674,6 @@ static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t bundl
 {
   uint64_t start = resource->m_start;
   uint64_t size = resource->m_size;
-  kresource_t* start_resource = GET_RESOURCE(bundle, resource->m_type);
-
-  /* Should we dealloc or simply unmap? */
-  if ((resource->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
-
-    /* Try to unmap */
-    if (kmem_unmap_range_ex(nullptr, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
-
-      /* Pre-emptively remove the flags, just in case this fails */
-      resource->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
-
-      /* Yay, now release the thing */
-      resource_release(start, size, start_resource);
-    }
-
-    return;
-  }
 
   __kmem_dealloc_ex(nullptr, bundle, start, size, false, true, true);
 }

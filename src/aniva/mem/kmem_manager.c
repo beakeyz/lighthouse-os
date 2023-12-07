@@ -449,7 +449,7 @@ ErrorOrPtr kmem_prepare_new_physical_page() {
   // this, but we might also rewrite this entire thing
   // as to map this sucker before we zero. This would 
   // mean that you can't just get a nice clean page...
-  memset((void*)kmem_from_phys(address, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
+  //memset((void*)kmem_from_phys(address, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
   return Success(address);
 }
@@ -513,6 +513,8 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
+    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
+
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
@@ -530,7 +532,10 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     if (!should_make) {
       return nullptr;
     }
+
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
+
+    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pdp[pdp_idx], page_addr);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
@@ -549,7 +554,10 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     if (!should_make) {
       return nullptr;
     }
+
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
+
+    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pd[pd_idx], page_addr);
     pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
@@ -559,6 +567,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pd[pd_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
     pml_entry_set_bit(&pd[pd_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
     pml_entry_set_bit(&pd[pd_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+
   }
 
   // this just should exist
@@ -598,8 +607,8 @@ void kmem_refresh_tlb() {
   kmem_load_page_dir((uintptr_t)current, false);
 }
 
-bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) {
-
+bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) 
+{
   pml_entry_t* page;
   uintptr_t phys_idx;
   bool should_mark;
@@ -688,8 +697,8 @@ out:
   return result;
 }
 
-bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) {
-
+bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) 
+{
   size_t page_shift;
   const bool should_map_2mib = (kmem_flags & KMEM_CUSTOMFLAG_2MIB_MAP) == KMEM_CUSTOMFLAG_2MIB_MAP;
 
@@ -717,17 +726,17 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
 }
 
 /* Assumes we have a physical address buffer */
-#define DO_PD_CHECK(parent, entry, idx)                     \
-  ({                                                        \
-    for (uintptr_t i = 0; i < 512; i++) {                   \
-      if (pml_entry_is_bit_set(&entry[i], PTE_PRESENT)) {   \
-        return false;                                       \
-      }                                                     \
-    }                                                       \
-    parent[idx].raw_bits = NULL;                            \
-    phys = kmem_to_phys_aligned(table, (vaddr_t)entry);     \
-    kmem_set_phys_page_free(kmem_get_page_idx(phys));       \
-   })
+#define DO_PD_CHECK(parent, entry, idx)                    \
+ do {                                                      \
+   for (uintptr_t i = 0; i < 512; i++) {                   \
+     if (pml_entry_is_bit_set(&entry[i], PTE_PRESENT)) {   \
+       return false;                                       \
+     }                                                     \
+   }                                                       \
+   parent[idx].raw_bits = NULL;                            \
+   phys = kmem_to_phys_aligned(table, (vaddr_t)entry);     \
+   kmem_set_phys_page_free(kmem_get_page_idx(phys));       \
+ } while (0)
 
 static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
 {
@@ -767,8 +776,8 @@ static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
   return true;
 }
 
-bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags) {
-
+bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags) 
+{
   pml_entry_t *page = kmem_get_page(table, virt, custom_flags, 0);
 
   if (!page) {
@@ -1032,7 +1041,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
   const paddr_t addr = kmem_get_page_addr(phys_idx);
 
   const paddr_t phys_base = addr;
-  const vaddr_t virt_base = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
+  const vaddr_t virt_base = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, vbase) : vbase);
 
   /*
    * Mark our pages as used BEFORE we map the range, since map_page
@@ -1043,10 +1052,9 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
-  if (resources) {
+  if (resources)
     resource_claim_ex("kmem alloc range", nullptr, virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(resources, KRES_TYPE_MEM));
 
-  }
   return Success(virt_base);
 }
 
@@ -1174,7 +1182,7 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
   
   /* Map everything until what we've already mapped in boot.asm */
   ASSERT_MSG(
-      kmem_map_range(map, HIGH_MAP_BASE, 0, mapping_end_idx, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK, 0),
+      kmem_map_range(map, HIGH_MAP_BASE, 0, mapping_end_idx, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
       "Failed to mmap pre-kernel memory"
       );
 }
@@ -1186,6 +1194,8 @@ static void _init_kmem_page_layout ()
 
   /* Grab the page for our pagemap root */
   map = Must(kmem_prepare_new_physical_page());
+
+  memset((void*)kmem_from_phys(map, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
   /* Set the managers data */
   KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)map;
@@ -1217,10 +1227,10 @@ static void _init_kmem_page_layout_late() {
   ASSERT_MSG(
       kmem_map_range(
         nullptr,
-        kmem_from_phys(0, KERNEL_MAP_BASE),
+        KERNEL_MAP_BASE,
         0,
         total_pages,
-        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK,
+        KMEM_CUSTOMFLAG_GET_MAKE,
         KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
       "Failed to identity map the addressspace"
   );
@@ -1294,23 +1304,22 @@ ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
 static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
 {
   bool is_present;
-  pml_entry_t kernel_lvl_3;
+  pml_entry_t* kernel_lvl_3;
 
-  const vaddr_t kernel_base = KERNEL_MAP_BASE;
-  const uintptr_t kernel_pml4_idx = (kernel_base >> 39) & ENTRY_MASK;
-  const uintptr_t delta = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK) - kernel_pml4_idx;
+  const uintptr_t kernel_pml4_idx = (KERNEL_MAP_BASE >> 39) & ENTRY_MASK;
+  const uintptr_t end_idx = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK);
 
-  for (uintptr_t i = 0; i <= delta; i++) {
+  for (uintptr_t i = kernel_pml4_idx; i < end_idx; i++) {
     /* Grab the pml entries */
-    kernel_lvl_3 = dir[kernel_pml4_idx + i];
+    kernel_lvl_3 = &dir[i];
 
     /* Check again */
-    is_present = pml_entry_is_bit_set(&kernel_lvl_3, PDE_PRESENT);
+    is_present = pml_entry_is_bit_set(kernel_lvl_3, PDE_PRESENT);
 
     if (!is_present)
       continue;
 
-    dir[kernel_pml4_idx + i].raw_bits = NULL;
+    kernel_lvl_3->raw_bits = NULL;
   }
 
   return Success(0);

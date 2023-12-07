@@ -88,29 +88,6 @@ static ErrorOrPtr __unregister_proc_by_name(const char* name)
   return result;
 }
 
-ErrorOrPtr destroy_relocated_thread_entry_stub(struct thread* thread) {
-
-  processor_t* current;
-  page_dir_t* dir;
-  size_t stub_size;
-  size_t aligned_size;
-  
-  if (!thread)
-    return Error();
-
-  dir = &thread->m_parent_proc->m_root_pd;
-  stub_size = ((uintptr_t)&thread_entry_stub_end - (uintptr_t)&thread_entry_stub);
-  aligned_size = ALIGN_UP(stub_size, SMALL_PAGE_SIZE);
-
-  current = get_current_processor();
-
-  if (current->m_page_dir != kmem_get_krnl_dir()) {
-    return Error();
-  }
-
-  return __kmem_dealloc_unmap(dir->m_root, thread->m_parent_proc->m_resource_bundle, (uintptr_t)thread->f_relocated_entry_stub, aligned_size);
-}
-
 thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) 
 {
   proc_t* current;

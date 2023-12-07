@@ -20,6 +20,7 @@ class RamdiskManager(object):
     SYSROOT_PATH: str = "system"
 
     DRV_BINARIES_PATH: str = "out/drivers"
+    USER_BINARIES_PATH: str = "out/user"
 
     ASSETS_PATH: str = SYSROOT_PATH + "/Assets"
     SYS_PATH: str = SYSROOT_PATH + "/System"
@@ -60,6 +61,9 @@ class RamdiskManager(object):
         '''
 
         self.__ensure_existance(self.APPS_PATH)
+
+        os.system(f"cp {self.USER_BINARIES_PATH}/doomgeneric/doom {self.APPS_PATH}")
+        os.system(f"cp {self.USER_BINARIES_PATH}/init/init {self.APPS_PATH}")
 
         return True
 
@@ -199,11 +203,7 @@ class RamdiskManager(object):
 
         with tarfile.open(self.OUT_PATH, "w:gz") as anivaRamdisk:
             # Add the ./system directory as the root for this ramdisk
-
             self.add_rd_entry(anivaRamdisk, self.SYSROOT_PATH, "/")
-            self.add_rd_entry(anivaRamdisk, "out/user/init/init", "/init")
-            self.add_rd_entry(anivaRamdisk, "out/user/gfx_test/gfx_test", "/gfx")
-            self.add_rd_entry(anivaRamdisk, "out/user/second_test/second_test", "/gfx2")
 
     def remove_ramdisk(self) -> bool:
         return False

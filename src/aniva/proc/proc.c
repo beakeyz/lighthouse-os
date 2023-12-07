@@ -152,23 +152,6 @@ static void __proc_clear_shared_resources(proc_t* proc)
       /* TODO: destry other resource types */
       switch (current->m_type) {
         case KRES_TYPE_MEM:
-
-          /* Should we dealloc or simply unmap? */
-          if ((current->m_flags & KRES_FLAG_MEM_KEEP_PHYS) == KRES_FLAG_MEM_KEEP_PHYS) {
-
-            /* Try to unmap */
-            if (kmem_unmap_range_ex(proc->m_root_pd.m_root, start, GET_PAGECOUNT(size), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP)) {
-
-              /* Pre-emptively remove the flags, just in case this fails */
-              current->m_flags &= ~KRES_FLAG_MEM_KEEP_PHYS;
-
-              /* Yay, now release the thing */
-              resource_release(start, size, start_resource);
-            }
-
-            break;
-          }
-
           __kmem_dealloc_ex(proc->m_root_pd.m_root, proc->m_resource_bundle, start, size, false, true, true);
           break;
         default:

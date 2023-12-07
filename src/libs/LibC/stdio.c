@@ -375,6 +375,13 @@ int fputc(int c, FILE* stream)
   return __write_byte(stream, NULL, c);
 }
 
+int puts(const char* str)
+{
+  __write_bytes(stdout, nullptr, (char*)str);
+  __write_byte(stdout, nullptr, '\n');
+  return 0;
+}
+
 int putchar (int c) 
 {
   return fputc(c, stdout);

@@ -12,7 +12,6 @@
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
-#define DEFAULT_INITIAL_RANGE_SIZE (128 * Kib)
 
 static uint32_t default_range_entry_sizes[] = {
   [0] = 8,
@@ -33,10 +32,12 @@ static uint32_t default_range_entry_sizes[] = {
   [15] = (40 * Kib),
   [16] = (64 * Kib),
   [17] = (96 * Kib),
-  [18] = (128 * Kib)
+  [18] = (128 * Kib),
 };
 
 const static uint32_t default_entry_sizes = sizeof default_range_entry_sizes / sizeof default_range_entry_sizes[0];
+
+#define DEFAULT_INITIAL_RANGE_SIZE (128 * Kib)
 
 /*
  * A range of malloc buckets

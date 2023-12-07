@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "deh_misc.h"
 
@@ -103,7 +104,7 @@ boolean PIT_StompThing (mobj_t* thing)
 		
     blockdist = thing->radius + tmthing->radius;
     
-    if ( abs(thing->x - tmx) >= blockdist
+    if (abs(thing->x - tmx) >= blockdist
 	 || abs(thing->y - tmy) >= blockdist )
     {
 	// didn't hit it

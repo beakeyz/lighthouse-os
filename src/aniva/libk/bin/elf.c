@@ -186,7 +186,9 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
           /* NOTE: we are required to be in the kernel map for this */
           elf_read(file, (void*)v_kernel_phdr_start, &phdr.p_filesz, phdr.p_offset);
           // ???
-          // memset((void*)(virtual_phdr_base + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
+
+          if (phdr.p_memsz > phdr.p_filesz)
+            memset((void*)(v_kernel_phdr_start + phdr.p_filesz), 0, phdr.p_memsz - phdr.p_filesz);
 
           if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = ALIGN_UP(virtual_phdr_base + phdr_size, SMALL_PAGE_SIZE);

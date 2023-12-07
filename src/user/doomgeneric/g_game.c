@@ -1609,6 +1609,8 @@ G_SaveGame
 
 void G_DoSaveGame (void) 
 { 
+/* TODO: support this kind of shit */
+#if 0
     char *savegame_file;
     char *temp_savegame_file;
     char *recovery_savegame_file;
@@ -1681,7 +1683,8 @@ void G_DoSaveGame (void)
     players[consoleplayer].message = DEH_String(GGSAVED);
 
     // draw the pattern into the back screen
-    R_FillBackScreen ();	
+    R_FillBackScreen ();
+#endif
 } 
  
 
