@@ -503,7 +503,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uint32_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
-  pml_entry_t* pml4 = (pml_entry_t*)kmem_from_phys((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root), KMEM_DATA.m_high_page_base);
+  pml_entry_t* pml4 = (pml_entry_t*)kmem_from_phys((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root), HIGH_MAP_BASE);
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
   if (!pml4_entry_exists) {
@@ -513,7 +513,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
+    memset((void*)kmem_from_phys(page_addr, HIGH_MAP_BASE), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
@@ -525,7 +525,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  pml_entry_t* pdp = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits), KMEM_DATA.m_high_page_base);
+  pml_entry_t* pdp = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits), HIGH_MAP_BASE);
   const bool pdp_entry_exists = (pml_entry_is_bit_set((pml_entry_t*)&pdp[pdp_idx], PDE_PRESENT));
 
   if (!pdp_entry_exists) {
@@ -535,7 +535,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
+    memset((void*)kmem_from_phys(page_addr, HIGH_MAP_BASE), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pdp[pdp_idx], page_addr);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
@@ -547,7 +547,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  pml_entry_t* pd = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits), KMEM_DATA.m_high_page_base);
+  pml_entry_t* pd = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits), HIGH_MAP_BASE);
   const bool pd_entry_exists = pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT);
 
   if (!pd_entry_exists) {
@@ -557,7 +557,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
+    memset((void*)kmem_from_phys(page_addr, HIGH_MAP_BASE), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pd[pd_idx], page_addr);
     pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
@@ -571,7 +571,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   }
 
   // this just should exist
-  const pml_entry_t* pt = (const pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), KMEM_DATA.m_high_page_base);
+  const pml_entry_t* pt = (const pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), HIGH_MAP_BASE);
   return (pml_entry_t*)&pt[pt_idx];
 }
 
@@ -649,10 +649,6 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
    */
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
-
-  /* Clear the tlb cache to update the mapping fr */
-  /* NOTE: this has a tendency to crash =/ */
-  //kmem_invalidate_tlb_cache_entry(virt);
 
   /* 
    * If the caller does not specify that they want to defer 
@@ -1297,6 +1293,39 @@ ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map) {
 }
 
 /*!
+ * @brief Copy the high half of pml4 into the page directory root @new_table
+ *
+ * Nothing to add here...
+ */
+ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) 
+{
+  bool is_present;
+  pml_entry_t* kernel_root;
+  pml_entry_t* kernel_lvl_3;
+
+  const uintptr_t kernel_pml4_idx = (KERNEL_MAP_BASE >> 39) & ENTRY_MASK;
+  const uintptr_t end_idx = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK);
+
+  kernel_root = (void*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base);
+
+  for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++) {
+
+    /* Grab the pml entries */
+    kernel_lvl_3 = &kernel_root[i];
+
+    /* Check again (If this exists we'll be fine to copy everything) */
+    is_present = pml_entry_is_bit_set(kernel_lvl_3, PDE_PRESENT);
+
+    if (!is_present)
+      continue;
+
+    new_table[i].raw_bits = kernel_lvl_3->raw_bits;
+  }
+
+  return Success(0);
+}
+
+/*!
  * @brief Clear the shared kernel mappings from a page directory
  *
  * We share everything from pml4 index 256 and above with user processes.
@@ -1309,7 +1338,7 @@ static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
   const uintptr_t kernel_pml4_idx = (KERNEL_MAP_BASE >> 39) & ENTRY_MASK;
   const uintptr_t end_idx = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK);
 
-  for (uintptr_t i = kernel_pml4_idx; i < end_idx; i++) {
+  for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++) {
     /* Grab the pml entries */
     kernel_lvl_3 = &dir[i];
 
@@ -1319,7 +1348,7 @@ static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
     if (!is_present)
       continue;
 
-    kernel_lvl_3->raw_bits = NULL;
+    dir[i].raw_bits = NULL;
   }
 
   return Success(0);
@@ -1422,40 +1451,6 @@ void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts) {
   asm volatile("" : : : "memory");
   asm volatile("movq %0, %%cr3" ::"r"(dir));
   asm volatile("" : : : "memory");
-}
-
-/*!
- * @brief Copy the high half of pml4 into the page directory root @new_table
- *
- * Nothing to add here...
- */
-ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table) 
-{
-  bool is_present;
-  pml_entry_t* kernel_root;
-  pml_entry_t kernel_lvl_3;
-
-  const vaddr_t kernel_base = KERNEL_MAP_BASE;
-  const uintptr_t kernel_pml4_idx = (kernel_base >> 39) & ENTRY_MASK;
-  const uintptr_t delta = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK) - kernel_pml4_idx;
-
-  kernel_root = (void*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base);
-
-  for (uintptr_t i = 0; i <= delta; i++) {
-
-    /* Grab the pml entries */
-    kernel_lvl_3 = kernel_root[kernel_pml4_idx + i];
-
-    /* Check again (If this exists we'll be fine to copy everything) */
-    is_present = pml_entry_is_bit_set(&kernel_lvl_3, PDE_PRESENT);
-
-    if (!is_present)
-      continue;
-
-    new_table[kernel_pml4_idx + i] = kernel_lvl_3;
-  }
-
-  return Success(0);
 }
 
 ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
