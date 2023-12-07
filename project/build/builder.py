@@ -286,60 +286,57 @@ class ProjectBuilder(object):
                 with open(manifestPath, "r") as manifestFile:
                     manifest = json.load(manifestFile)
 
-                    # FIXME: should we do this? (we should allow different program names from directory names lol)
-                    if manifest["name"] == entryName:
+                    programName: str = manifest["name"]
+                    programType: str = manifest["type"]
+                    linkType: str = manifest["linking"]
 
-                        programName: str = manifest["name"]
-                        programType: str = manifest["type"]
-                        linkType: str = manifest["linking"]
+                    libraries: list[str] = None
 
-                        libraries: list[str] = None
+                    try:
+                        libraries: list[str] = manifest["libs"]
+                    except Exception:
+                        pass
 
-                        try:
-                            libraries: list[str] = manifest["libs"]
-                        except Exception:
-                            pass
+                    objFiles: str = " "
+                    print(f"Building process: {entryName}")
+                    print(f"Binary out path: {self.constants.OUT_DIR}/user/{entryName}")
 
-                        objFiles: str = " "
-                        print(f"Building process: {entryName}")
-                        print(f"Binary out path: {self.constants.OUT_DIR}/user/{entryName}")
+                    BIN_OUT_PATH = f"{self.constants.OUT_DIR}/user/{entryName}"
+                    BIN_OUT = BIN_OUT_PATH + "/" + programName
 
-                        BIN_OUT_PATH = f"{self.constants.OUT_DIR}/user/{entryName}"
-                        BIN_OUT = BIN_OUT_PATH + "/" + programName
+                    ulf = self.constants.USERSPACE_LD_FLAGS
 
-                        ulf = self.constants.USERSPACE_LD_FLAGS
+                    for objFile in self.constants.OBJ_FILES:
+                        objFile: str = objFile
 
-                        for objFile in self.constants.OBJ_FILES:
-                            objFile: str = objFile
+                        # Add objectfiles from the processes directory
+                        if objFile.find(BIN_OUT_PATH) != -1:
+                            objFiles += f"{objFile} "
 
-                            # Add objectfiles from the processes directory
-                            if objFile.find(BIN_OUT_PATH) != -1:
-                                objFiles += f"{objFile} "
+                    for lib_man in self.constants.LIBRARY_MANIFESTS:
+                        lib_man: BuildManifest = lib_man
 
-                        for lib_man in self.constants.LIBRARY_MANIFESTS:
-                            lib_man: BuildManifest = lib_man
+                        if lib_man.manifested_name == "LibC":
+                            objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
+                        # LibSys is also essensial for every app right now
+                        elif lib_man.manifested_name == "LibSys":
+                            objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
+                        elif libraries is not None:
+                            for lib in libraries:
+                                if lib == lib_man.manifested_name:
+                                    objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
+                                    break
 
-                            if lib_man.manifested_name == "LibC":
-                                objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
-                            # LibSys is also essensial for every app right now
-                            elif lib_man.manifested_name == "LibSys":
-                                objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
-                            elif libraries is not None:
-                                for lib in libraries:
-                                    if lib == lib_man.manifested_name:
-                                        objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
-                                        break
+                    ld = self.constants.CROSS_LD_DIR
 
-                        ld = self.constants.CROSS_LD_DIR
+                    if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ulf}") != 0:
+                        return BuilderResult.FAIL
 
-                        if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ulf}") != 0:
-                            return BuilderResult.FAIL
-
-                        # TODO: we should check the manifest.json for
-                        # the libraries we need to staticaly link
-                        # with. After that we dump the binary to
-                        # the output directory
-                        # (currently out/user/binaries)
+                    # TODO: we should check the manifest.json for
+                    # the libraries we need to staticaly link
+                    # with. After that we dump the binary to
+                    # the output directory
+                    # (currently out/user/binaries)
             except Exception:
                 continue
 

@@ -1,0 +1,8 @@
+{
+  "name": "doom",
+  "linking": "static",
+  "type": "process",
+  "libs": [
+    "LibGfx"
+  ]
+}
