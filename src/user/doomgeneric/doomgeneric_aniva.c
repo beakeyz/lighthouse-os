@@ -35,9 +35,11 @@ void DG_SetWindowTitle(const char * title)
 
 /* Our own argv and argc vars, since our system does not have those yet =)))) */
 char* argv[] = {
-  "doom"
+  "doom",
+  "-iwad",
+  "Root/Apps/doom1.wad",
 };
-const int argc = 1;
+const int argc = 3;
 
 /*!
  * @brief: Main entry for this app

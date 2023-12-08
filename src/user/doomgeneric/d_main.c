@@ -367,16 +367,6 @@ void D_BindVariables(void)
     M_BindVariable("vanilla_savegame_limit", &vanilla_savegame_limit);
     M_BindVariable("vanilla_demo_limit",     &vanilla_demo_limit);
     M_BindVariable("show_endoom",            &show_endoom);
-
-    // Multiplayer chat macros
-
-    for (i=0; i<10; ++i)
-    {
-        char buf[12];
-
-        M_snprintf(buf, sizeof(buf), "chatmacro%i", i);
-        M_BindVariable(buf, &chat_macros[i]);
-    }
 }
 
 //
@@ -1355,10 +1345,12 @@ void D_DoomMain (void)
     V_Init ();
 
     // Load configuration files before initialising other subsystems.
-    DEH_printf("M_LoadDefaults: Load system defaults.\n");
+    DEH_printf("M_LoadDefaults: Bind system default variables.\n");
     D_BindVariables();
+    DEH_printf("M_LoadDefaults: Load system defaults.\n");
     M_LoadDefaults();
 
+    DEH_printf("D_FindIWAD: Looking for IWAD.\n");
     // Find main IWAD file and load it.
     iwadfile = D_FindIWAD(IWAD_MASK_DOOM, &gamemission);
 

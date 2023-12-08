@@ -37,7 +37,7 @@ int main() {
   char buffer[128];
   HANDLE h = open_handle("Root/Apps/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
-  if (!verify_handle(h)) 
+  if (!handle_verify(h)) 
     return -1;
 
   printf("Handle: %d\n", h);
@@ -67,7 +67,7 @@ int main() {
 
   printf("Opened profile\n");
 
-  if (!verify_handle(profile))
+  if (!handle_verify(profile))
     return -1;
 
   printf("Create var..\n");

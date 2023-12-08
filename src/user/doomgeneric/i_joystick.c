@@ -353,6 +353,7 @@ void I_BindJoystickVariables(void)
     {
         char name[32];
         M_snprintf(name, sizeof(name), "joystick_physical_button%i", i);
+
         M_BindVariable(name, &joystick_physical_buttons[i]);
     }
 }

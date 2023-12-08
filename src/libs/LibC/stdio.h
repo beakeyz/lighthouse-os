@@ -1,6 +1,7 @@
 #ifndef __LIGHTENV_LIBC_STDIO__
 #define __LIGHTENV_LIBC_STDIO__
 
+#include "stdarg.h"
 #include <sys/types.h>
 
 #define SEEK_SET 0
@@ -72,8 +73,9 @@ extern int fprintf(FILE *__restrict stream,
  * Write a formatted string to stdout 
  */
 extern int printf(const char* format, ...);
-extern int sprintf(const char* s,
-    const char* format, ...);
+extern int sprintf(const char* s, const char* format, ...);
+extern int vsprintf(char * buf, const char *fmt, va_list args);
+extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
 extern int vfprintf(FILE* stream, const char* fmt, char*);
 
 extern int scanf (const char *__restrict __format, ...);

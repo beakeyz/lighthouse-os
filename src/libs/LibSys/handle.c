@@ -8,7 +8,7 @@
  * handle gives a valid result
  */
 BOOL
-verify_handle(handle_t handle)
+handle_verify(handle_t handle)
 {
   if (handle < 0)
     return FALSE;

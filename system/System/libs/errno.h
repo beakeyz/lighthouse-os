@@ -127,6 +127,9 @@ extern int errno;
 #define ESTRPIPE 143          /* Streams pipe error */
 #define EWOULDBLOCK EAGAIN    /* Operation would block */
 
+/* Our own shit [Non-posix] */
+#define ENOIMPL 169
+
 #define ERESTARTSYS 512
 
 #endif // !__LIBC_ERRNO__

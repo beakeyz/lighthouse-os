@@ -675,7 +675,7 @@ static default_t	doom_defaults_list[] =
 static default_collection_t doom_defaults =
 {
     .defaults = doom_defaults_list,
-    .numdefaults = sizeof(doom_defaults_list) / sizeof(doom_defaults_list[0]),
+    .numdefaults = arrlen(doom_defaults_list),
     .filename = NULL,
 };
 
@@ -1562,11 +1562,8 @@ static default_collection_t extra_defaults =
 
 static default_t *SearchCollection(default_collection_t *collection, char *name)
 {
-    printf("Variable: %s\n", name);
-
     for (int i=0; i < collection->numdefaults; i++) 
     {
-        printf("Entry: %s\n", collection->defaults[i].name);
         if (!strcmp(name, collection->defaults[i].name))
         {
             return &collection->defaults[i];

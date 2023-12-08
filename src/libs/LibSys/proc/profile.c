@@ -74,13 +74,13 @@ BOOL profile_var_read_ex(char* profile_name, char* var_key, WORD flags, QWORD bu
   profile_handle = open_profile(profile_name, flags);
 
   /* Yikes */
-  if (!verify_handle(profile_handle))
+  if (!handle_verify(profile_handle))
     return FALSE;
 
   var_handle = open_profile_variable(var_key, profile_handle, flags);
 
   /* Failed to open a handle to the variable, close the profile and exit */
-  if (!verify_handle(var_handle)) {
+  if (!handle_verify(var_handle)) {
     close_handle(profile_handle);
     return FALSE;
   }
@@ -109,13 +109,13 @@ BOOL profile_var_write_ex(char* profile_name, char* var_key, WORD flags, QWORD b
   profile_handle = open_profile(profile_name, flags);
 
   /* Yikes */
-  if (!verify_handle(profile_handle))
+  if (!handle_verify(profile_handle))
     return FALSE;
 
   var_handle = open_profile_variable(var_key, profile_handle, flags);
 
   /* Failed to open a handle to the variable, close the profile and exit */
-  if (!verify_handle(var_handle)) {
+  if (!handle_verify(var_handle)) {
     close_handle(profile_handle);
     return FALSE;
   }

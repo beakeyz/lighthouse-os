@@ -20,7 +20,7 @@
 /*
  * Check if a certain handle is actually valid for use
  */
-BOOL verify_handle(
+BOOL handle_verify(
   __IN__ handle_t handle
 );
 

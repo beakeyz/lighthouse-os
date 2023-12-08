@@ -1,8 +1,10 @@
 #include "stdio.h"
+#include "LibSys/handle.h"
 #include "stdarg.h"
 #include "sys/types.h"
 #include <LibSys/system.h>
 #include <LibSys/syscall.h>
+#include <LibSys/handle_def.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -157,19 +159,10 @@ int __read_bytes(FILE* stream, uint8_t* buffer, size_t size)
   return ret;
 }
 
-/*
- * Send the fclose syscall in order to close the 
- * file stream and resources that where attached to it 
- */
-int fclose(FILE* file) {
-
-  if (!file)
-    return -1;
-
-  fflush(file);
-  
-  syscall_1(SYSID_CLOSE, file->handle);
-
+static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
+{
+  *flags = NULL;
+  *mode = NULL;
   return 0;
 }
 
@@ -177,10 +170,59 @@ int fclose(FILE* file) {
  * Open a file at the specified path with the specified modes
  * returns a FILE object that holds a local read- and write buffer
  */
-FILE* fopen(const char* path, const char* modes) {
-  (void)path;
-  (void)modes;
-  return nullptr;
+FILE* fopen(const char* path, const char* modes) 
+{
+  FILE* ret;
+  HANDLE hndl;
+  uint32_t flags;
+  uint32_t mode;
+
+  if (parse_modes(modes, &flags, &mode))
+    return nullptr;
+
+  /* TODO: implement open flags and modes */
+  hndl = open_handle(path, HNDL_TYPE_FILE, flags, mode);
+
+  if (!handle_verify(hndl))
+    return nullptr;
+
+  ret = malloc(sizeof(*ret));
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
+  ret->handle = hndl;
+  ret->w_buff = malloc(FILE_BUFSIZE);
+  ret->w_buf_size = FILE_BUFSIZE;
+  ret->r_buff = malloc(FILE_BUFSIZE);
+  ret->r_buf_size = FILE_BUFSIZE;
+
+  return ret;
+}
+
+/*
+ * Send the fclose syscall in order to close the 
+ * file stream and resources that where attached to it 
+ */
+int fclose(FILE* file) 
+{
+  if (!file)
+    return -1;
+
+  fflush(file);
+  
+  syscall_1(SYSID_CLOSE, file->handle);
+
+  if (file->w_buff)
+    free(file->w_buff);
+  if (file->r_buff)
+    free(file->r_buff);
+
+  free(file);
+
+  return 0;
 }
 
 /*
@@ -191,7 +233,11 @@ int fflush(FILE* file) {
 
   if (!file || !file->w_buff) return -1;
 
-  if (!file->w_buf_written)
+  /*
+   * The syscall should handle empty buffers or invalid handles
+   * but we'll check here just to be safe
+   */
+  if (!file->w_buf_written || file->handle == HNDL_INVAL)
     return 0;
 
   /* Call the kernel to empty our buffer */
@@ -240,6 +286,8 @@ int sscanf (const char* buffer, const char* format, ...)
 int fprintf(FILE* stream, const char* str, ...) {
   (void)stream;
   (void)str;
+
+  exit_noimpl("fprintf");
   return NULL;
 }
 
@@ -277,6 +325,7 @@ int fseek(FILE* file, long offset, int whence) {
   (void)file;
   (void)offset;
   (void)whence;
+  exit_noimpl("fseek");
   return NULL;
 }
 
@@ -285,6 +334,7 @@ int fseek(FILE* file, long offset, int whence) {
  */
 long ftell(FILE* file) {
   (void)file;
+  exit_noimpl("ftell");
   return NULL;
 }
 
@@ -296,6 +346,7 @@ unsigned long long fwrite(const void* buffer, unsigned long long size, unsigned 
   (void)size;
   (void)count;
   (void)file;
+  exit_noimpl("fwrite");
   return NULL;
 }
 
@@ -305,9 +356,12 @@ unsigned long long fwrite(const void* buffer, unsigned long long size, unsigned 
 void setbuf(FILE* file, char* buf) {
   (void)file;
   (void)buf;
+  exit_noimpl("setbuf");
 }
 
-int vfprintf(FILE* out, const char* str, char* f) {
+int vfprintf(FILE* out, const char* str, char* f) 
+{
+  exit_noimpl("vfprintf");
   return NULL;
 }
 
@@ -322,6 +376,18 @@ int printf(const char* format, ...)
   va_end(args);
 
   return result;
+}
+
+int vsnprintf(char * buf, size_t size, const char *fmt, va_list args)
+{
+  FILE out = {
+    .w_buff = (uint8_t*)buf,
+    .w_buf_size = size,
+    .w_buf_written = 0,
+    .handle = HNDL_INVAL,
+  };
+
+  return real_va_sprintf(0, &out, fmt, args);
 }
 
 char* gets(char* buffer, size_t size)

@@ -1460,6 +1460,7 @@ ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
   pml_entry_t* page;
   paddr_t p_address;
   vaddr_t v_kernel_address;
+  vaddr_t v_align_delta;
 
   /* Can't grab from NULL */
   if (!map) 
@@ -1473,6 +1474,9 @@ ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
 
   p_address = kmem_get_page_base(page->raw_bits);
 
+  /* Calculate the delta of the virtual address to its closest page base downwards */
+  v_align_delta = virtual_address - ALIGN_DOWN(virtual_address, SMALL_PAGE_SIZE);
+
   /*
    * FIXME: 'high' mappings have a hard limit in them, so we will have to 
    * create some kind of dynamic mapping for certain types of memory. 
@@ -1481,9 +1485,10 @@ ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
    *  - we map kernel resources at a certain base just for kernel resources
    *  - ect.
    */
-  v_kernel_address = kmem_ensure_high_mapping(p_address);
+  v_kernel_address = kmem_from_phys(p_address, KMEM_DATA.m_high_page_base);
 
-  return Success(v_kernel_address);
+  /* Make sure the return the correctly aligned address */
+  return Success(v_kernel_address + v_align_delta);
 }
 
 // FIXME: macroes?

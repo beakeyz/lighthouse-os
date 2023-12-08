@@ -426,13 +426,5 @@ void I_BindSoundVariables(void)
     M_BindVariable("snd_samplerate",    &snd_samplerate);
     M_BindVariable("snd_cachesize",     &snd_cachesize);
 
-#ifdef FEATURE_SOUND
-    M_BindVariable("use_libsamplerate",   &use_libsamplerate);
-    M_BindVariable("libsamplerate_scale", &libsamplerate_scale);
-#endif
-
-    // Before SDL_mixer version 1.2.11, MIDI music caused the game
-    // to crash when it looped.  If this is an old SDL_mixer version,
-    // disable MIDI.
 }
 

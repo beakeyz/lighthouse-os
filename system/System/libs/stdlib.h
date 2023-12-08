@@ -10,6 +10,9 @@ extern "C" {
 
 extern void exit(uintptr_t result);
 
+/* Non-posix: Exit the app, since it hit a library function that has not yet been implemented */
+extern void exit_noimpl(const char* impl_name);
+
 extern void abort(void);
 extern int atexit(void (*)(void));
 
