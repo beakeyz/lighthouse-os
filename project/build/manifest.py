@@ -19,6 +19,8 @@ class BuildManifest(object):
     output_path: str
     link_type: str
     path: str
+    cflags: str
+    ldflags: str
     sourcefiles: list[stats.lines.SourceFile] = []
     dependantLibs: list = []
     json_data = None
@@ -30,6 +32,8 @@ class BuildManifest(object):
         self.output_path = None
         self.manifested_name = None
         self.sourcefiles = []
+        self.cflags = ""
+        self.ldflags = ""
 
         with open(self.path, "r") as manifest_file:
             self.json_data = json.load(manifest_file)
@@ -38,6 +42,14 @@ class BuildManifest(object):
                 self.link_type = self.json_data["linking"]
                 self.output_path = self.json_data["path"]
                 self.dependantLibs = self.json_data["libs"]
+            except Exception:
+                pass
+            try:
+                self.cflags = self.json_data["cflags"]
+            except Exception:
+                pass
+            try:
+                self.ldflags = self.json_data["ldflags"]
             except Exception:
                 pass
 

@@ -2,7 +2,8 @@
   "name": "doom",
   "linking": "static",
   "type": "process",
+  "cflags": " -ggdb3 -Os -Wall",
+  "ldflags": "--gc-sections",
   "libs": [
-    "LibGfx"
   ]
 }

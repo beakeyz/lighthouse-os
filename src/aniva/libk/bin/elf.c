@@ -6,6 +6,7 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/pg.h"
@@ -181,6 +182,13 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
                 ));
 
           vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
+
+          print("ELF virtual start: ");
+          println(to_string(phdr.p_vaddr));
+          print("ELF file size: ");
+          println(to_string(phdr.p_filesz));
+          print("ELF mem size: ");
+          println(to_string(phdr.p_memsz));
 
           /* Copy elf into the mapped area */
           /* NOTE: we are required to be in the kernel map for this */

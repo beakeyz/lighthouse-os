@@ -493,7 +493,9 @@ pml_entry_t *kmem_get_krnl_dir() {
  * we need a good idea of where we map certain resources and things (i.e. drivers, I/O ranges,
  * generic kernel_resources, ect.)
  */
-pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_flags, uint32_t page_flags) {
+pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_flags, uint32_t page_flags) 
+{
+  addr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
 
   const uintptr_t pml4_idx = (addr >> 39) & ENTRY_MASK;
   const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;

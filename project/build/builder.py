@@ -166,6 +166,14 @@ class ProjectBuilder(object):
                 if manifest["type"] == "driver":
                     userCFlags += self.constants.USERSPACE_C_FLAGS_KRNL_INCLUDE_EXT
 
+                ext_cflags = ""
+
+                # Try to get the cflags, if they are specified
+                try:
+                    ext_cflags = manifest["cflags"]
+                except Exception:
+                    pass
+
                 for srcFile in ourSourceFiles:
                     srcFile: SourceFile = srcFile
                     if self.shouldBuild(srcFile):
@@ -177,7 +185,7 @@ class ProjectBuilder(object):
                         print(f"Building {srcFile.path}...")
                         os.system(f"mkdir -p {srcFile.getOutputDir()}")
 
-                        if os.system(srcFile.getCompileCmd()) != 0:
+                        if os.system(f"{srcFile.getCompileCmd()} {ext_cflags}") != 0:
                             return BuilderResult.FAIL
 
         except Exception:
@@ -289,6 +297,12 @@ class ProjectBuilder(object):
                     programName: str = manifest["name"]
                     programType: str = manifest["type"]
                     linkType: str = manifest["linking"]
+                    ldflags: str = ""
+
+                    try:
+                        ldflags = manifest["ldflags"]
+                    except Exception:
+                        pass
 
                     libraries: list[str] = None
 
@@ -329,7 +343,7 @@ class ProjectBuilder(object):
 
                     ld = self.constants.CROSS_LD_DIR
 
-                    if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ulf}") != 0:
+                    if os.system(f"{ld} -o {BIN_OUT} {objFiles} {ulf} {ldflags}") != 0:
                         return BuilderResult.FAIL
 
                     # TODO: we should check the manifest.json for
