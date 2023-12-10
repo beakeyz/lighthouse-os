@@ -321,7 +321,8 @@ unsigned long long fread(void* buffer, unsigned long long size, unsigned long lo
  * Tell the kernel we want to read and write from a certain offset
  * within a file
  */
-int fseek(FILE* file, long offset, int whence) {
+int fseek(FILE* file, long offset, int whence) 
+{
   (void)file;
   (void)offset;
   (void)whence;
@@ -330,9 +331,10 @@ int fseek(FILE* file, long offset, int whence) {
 }
 
 /*
- * ???
+ * Return the current offset within a file
  */
-long ftell(FILE* file) {
+long ftell(FILE* file) 
+{
   (void)file;
   exit_noimpl("ftell");
   return NULL;

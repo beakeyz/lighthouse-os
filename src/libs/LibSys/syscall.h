@@ -41,6 +41,8 @@
 #define SYSID_GET_PVAR_TYPE     19
 #define SYSID_CREATE_PVAR       20
 #define SYSID_CREATE_DIR        21
+/* Manipulate the R/W offset of a handle */
+#define SYSID_SEEK              22
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

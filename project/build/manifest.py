@@ -92,7 +92,6 @@ def scan_for_manifest(path: str) -> BuildManifest:
     for dir in os.listdir(path):
         if dir == "manifest.json":
             full_path = f"{path}/{dir}"
-            print(full_path)
             with open(full_path, 'r') as manifest_file:
                 manifest_json = json.load(manifest_file)
 
