@@ -427,12 +427,19 @@ void D_DoomLoop (void)
 
     main_loop_started = true;
 
+    printf("Thing\n");
+
     TryRunTics();
 
+    printf("A\n");
     I_SetWindowTitle(gamedescription);
+    printf("B\n");
     I_GraphicsCheckCommandLine();
+    printf("C\n");
     I_SetGrabMouseCallback(D_GrabMouseCallback);
+    printf("D\n");
     I_InitGraphics();
+    printf("E\n");
     I_EnableLoadingDisk();
 
     V_RestoreBuffer();
@@ -1815,11 +1822,15 @@ void D_DoomMain (void)
         return;
     }
 
+    printf("Starting thing\n");
+
     if (startloadgame >= 0)
     {
         M_StringCopy(file, P_SaveGameFile(startloadgame), sizeof(file));
         G_LoadGame(file);
     }
+
+    printf("Starting gameaction thing\n");
 
     if (gameaction != ga_loadgame )
     {
@@ -1828,6 +1839,8 @@ void D_DoomMain (void)
 		else
 			D_StartTitle ();                // start up intro loop
     }
+
+    printf("Entering doomLoop\n");
 
     D_DoomLoop ();
 }
