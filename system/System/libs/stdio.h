@@ -72,8 +72,9 @@ extern int fprintf(FILE *__restrict stream,
 /*
  * Write a formatted string to stdout 
  */
-extern int printf(const char* format, ...);
-extern int sprintf(const char* s, const char* format, ...);
+extern int printf(const char* fmt, ...);
+extern int sprintf(const char* buf, const char* fmt, ...);
+extern int snprintf(char * buf, size_t size, const char * fmt, ...);
 extern int vsprintf(char * buf, const char *fmt, va_list args);
 extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
 extern int vfprintf(FILE* stream, const char* fmt, char*);

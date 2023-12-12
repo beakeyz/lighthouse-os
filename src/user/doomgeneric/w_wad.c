@@ -201,6 +201,8 @@ wad_file_t *W_AddFile (char *filename)
 		length = header.numlumps*sizeof(filelump_t);
 		fileinfo = Z_Malloc(length, PU_STATIC, 0);
 
+        memset(fileinfo, 0, length);
+
         W_Read(wad_file, header.infotableofs, fileinfo, length);
         newnumlumps += header.numlumps;
     }
@@ -266,6 +268,7 @@ int W_CheckNumForName (char* name)
         
         // We do! Excellent.
 
+
         hash = W_LumpNameHash(name) % numlumps;
         
         for (lump_p = lumphash[hash]; lump_p != NULL; lump_p = lump_p->next)
@@ -281,6 +284,7 @@ int W_CheckNumForName (char* name)
         // We don't have a hash table generate yet. Linear search :-(
         // 
         // scan backwards so patch lump files take precedence
+
 
         for (i=numlumps-1; i >= 0; --i)
         {
@@ -311,7 +315,8 @@ int W_GetNumForName (char* name)
 
     if (i < 0)
     {
-        I_Error ("W_GetNumForName: %s not found!", name);
+        printf("W_GetNumForName: %s not found!\n", name);
+        I_Error("Frick\n");
     }
  
     return i;
@@ -357,8 +362,9 @@ void W_ReadLump(unsigned int lump, void *dest)
 
     if (c < l->size)
     {
-	I_Error ("W_ReadLump: only read %i of %i on lump %i",
+	printf("W_ReadLump: only read %i of %i on lump %i\n",
 		 c, l->size, lump);	
+    I_Error("Fuck");
     }
 
     I_EndRead ();

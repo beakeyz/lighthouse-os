@@ -348,6 +348,7 @@ static size_t __file_get_offset(FILE* file, long offset, int whence)
 
   /* Make sure we've reset our local I/O trackers */
   file->r_offset = 0;
+  file->r_capacity = 0;
 
   /* Do the syscall */
   return syscall_3(SYSID_SEEK, file->handle, offset, whence);
@@ -404,13 +405,13 @@ int vfprintf(FILE* out, const char* str, char* f)
   return NULL;
 }
 
-int printf(const char* format, ...) 
+int printf(const char* fmt, ...) 
 {
   int result;
   va_list args;
-  va_start(args, format);
+  va_start(args, fmt);
 
-  result = real_va_sprintf(0, stdout, format, args);
+  result = real_va_sprintf(0, stdout, fmt, args);
 
   va_end(args);
 
@@ -427,6 +428,26 @@ int vsnprintf(char * buf, size_t size, const char *fmt, va_list args)
   };
 
   return real_va_sprintf(0, &out, fmt, args);
+}
+
+int snprintf(char* buf, size_t size, const char * fmt, ...)
+{
+  int result;
+  va_list args;
+  va_start(args, fmt);
+
+  FILE out = {
+    .w_buff = (uint8_t*)buf,
+    .w_buf_size = size,
+    .w_buf_written = 0,
+    .handle = HNDL_INVAL,
+  };
+
+  result = real_va_sprintf(0, &out, fmt, args);
+
+  va_end(args);
+
+  return result;
 }
 
 char* gets(char* buffer, size_t size)

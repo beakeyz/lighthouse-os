@@ -17,6 +17,7 @@
 
 
 #include <ctype.h>
+#include <stdio.h>
 
 #include "doomdef.h"
 #include "doomkeys.h"
@@ -292,9 +293,11 @@ void HU_Init(void)
 
     // load the heads-up font
     j = HU_FONTSTART;
+
     for (i=0;i<HU_FONTSIZE;i++)
     {
 	DEH_snprintf(buffer, 9, "STCFN%.3d", j++);
+
 	hu_font[i] = (patch_t *) W_CacheLumpName(buffer, PU_STATIC);
     }
 
