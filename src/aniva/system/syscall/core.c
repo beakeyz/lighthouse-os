@@ -39,6 +39,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_GET_PVAR_TYPE]     = { 0, SYSID_GET_PVAR_TYPE, (sys_fn_t)sys_get_pvar_type, },
   [SYSID_CREATE_PVAR]       = { 0, SYSID_CREATE_PVAR, (sys_fn_t)sys_create_pvar, },
   [SYSID_CREATE_DIR]        = { 0, SYSID_CREATE_DIR, (sys_fn_t)sys_create_dir },
+  [SYSID_SEEK]              = { 0, SYSID_SEEK, (sys_fn_t)sys_seek },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

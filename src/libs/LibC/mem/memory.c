@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * TODO: I hate this impl: fix it
+ */
 
 #define ALIGN_UP(addr, size) \
     (((addr) % (size) == 0) ? (addr) : (addr) + (size) - ((addr) % (size)))
@@ -33,11 +36,12 @@ static uint32_t default_range_entry_sizes[] = {
   [16] = (64 * Kib),
   [17] = (96 * Kib),
   [18] = (128 * Kib),
+  [19] = (512 * Kib),
 };
 
 const static uint32_t default_entry_sizes = sizeof default_range_entry_sizes / sizeof default_range_entry_sizes[0];
 
-#define DEFAULT_INITIAL_RANGE_SIZE (128 * Kib)
+#define DEFAULT_INITIAL_RANGE_SIZE (512 * Kib)
 
 /*
  * A range of malloc buckets

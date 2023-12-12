@@ -222,3 +222,39 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
   return read_len;
 }
+
+uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
+{
+  khandle_t* khndl;
+  proc_t* curr_prc;
+
+  curr_prc = get_current_proc();
+
+  if (!curr_prc)
+    return SYS_ERR;
+
+  khndl = find_khandle(&curr_prc->m_handle_map, handle);
+
+  if (!khndl)
+    return SYS_INV;
+
+  switch (type) {
+    case 0:
+      khndl->offset = offset;
+      break;
+    case 1:
+      khndl->offset += offset;
+      break;
+    case 2:
+      {
+        switch (khndl->type) {
+          case HNDL_TYPE_FILE:
+            khndl->offset = khndl->reference.file->m_total_size + offset;
+            break;
+        }
+        break;
+      }
+  }
+
+  return khndl->offset;
+}

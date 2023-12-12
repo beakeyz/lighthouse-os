@@ -152,7 +152,7 @@ int __read_bytes(FILE* stream, uint8_t* buffer, size_t size)
     if (!result)
       break;
 
-    ret += result;
+    ret++;
   }
 
   /* Return the amount of bytes read */
@@ -161,8 +161,27 @@ int __read_bytes(FILE* stream, uint8_t* buffer, size_t size)
 
 static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
 {
-  *flags = NULL;
-  *mode = NULL;
+  uint32_t _flags = NULL;
+  uint32_t _mode = NULL;
+
+  for (uint32_t i = 0; i < strlen(modes); i++) {
+    char c = modes[i];
+
+    switch (c) {
+      case 'r':
+      case 'R':
+        _flags |= HNDL_FLAG_READACCESS;
+        break;
+      case 'w':
+      case 'W':
+        _flags |= HNDL_FLAG_WRITEACCESS;
+        break;
+    }
+  }
+
+  *flags = _flags;
+  *mode = _mode;
+
   return 0;
 }
 
@@ -317,17 +336,37 @@ unsigned long long fread(void* buffer, unsigned long long size, unsigned long lo
   return count;
 }
 
+static size_t __file_get_offset(FILE* file, long offset, int whence)
+{
+  uint64_t error;
+
+  if (!file)
+    return -1;
+
+  if (file->w_buf_written)
+    fflush(file);
+
+  /* Make sure we've reset our local I/O trackers */
+  file->r_offset = 0;
+
+  /* Do the syscall */
+  return syscall_3(SYSID_SEEK, file->handle, offset, whence);
+}
+
 /*
  * Tell the kernel we want to read and write from a certain offset
  * within a file
  */
 int fseek(FILE* file, long offset, int whence) 
 {
-  (void)file;
-  (void)offset;
-  (void)whence;
-  exit_noimpl("fseek");
-  return NULL;
+  uint64_t error;
+
+  error = __file_get_offset(file, offset, whence);
+
+  if (error)
+    return error;
+
+  return 0;
 }
 
 /*
@@ -335,9 +374,7 @@ int fseek(FILE* file, long offset, int whence)
  */
 long ftell(FILE* file) 
 {
-  (void)file;
-  exit_noimpl("ftell");
-  return NULL;
+  return __file_get_offset(file, 0, SEEK_CUR);
 }
 
 /*

@@ -58,7 +58,7 @@ typedef struct
 
 // Location of each lump on disk.
 
-lumpinfo_t *lumpinfo;		
+lumpinfo_t *lumpinfo = NULL;		
 unsigned int numlumps = 0;
 
 // Hash table for fast lookups
