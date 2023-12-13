@@ -6,7 +6,9 @@
 #include "fs/vobj.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
+#include "libk/string.h"
 #include "logging/log.h"
+#include "sync/mutex.h"
 
 #define APP_BAR_HEIGHT 16
 
@@ -66,20 +68,23 @@ void create_test_app(lwnd_screen_t* screen)
  *
  * @returns: the window_id of the created window
  */
-window_id_t create_app_lwnd_window(lwnd_screen_t* screen, lwindow_t* uwindow, proc_t* process)
+window_id_t create_app_lwnd_window(lwnd_screen_t* screen, uint32_t startx, uint32_t starty, lwindow_t* uwindow, proc_t* process)
 {
   lwnd_window_t* wnd;
 
   if (!uwindow ||!process)
     return LWND_INVALID_ID;
 
-  static uint32_t start = 60;
+
+  uwindow->current_height += APP_BAR_HEIGHT;
 
   /* Create a generic window with every button on its bar */
   wnd = create_lwnd_window(screen, 0, 0, uwindow->current_width, uwindow->current_height, LWND_WNDW_HIDE_BTN | LWND_WNDW_FULLSCREEN_BTN | LWND_WNDW_CLOSE_BTN, LWND_TYPE_PROCESS, process);
 
   if (!wnd)
     return LWND_INVALID_ID;
+
+  mutex_lock(screen->draw_lock);
 
   wnd->label = process->m_name;
 
@@ -90,10 +95,8 @@ window_id_t create_app_lwnd_window(lwnd_screen_t* screen, lwindow_t* uwindow, pr
   wnd->user_fb_ptr = wnd->user_real_fb_ptr + (APP_BAR_HEIGHT * wnd->width * sizeof(uint32_t));
   uwindow->current_height -= APP_BAR_HEIGHT;
 
-  /* Prompt a move */
-  lwnd_window_move(wnd, start, start);
+  lwnd_window_move(wnd, startx, starty);
 
-  start -= 50;
-
+  mutex_unlock(screen->draw_lock);
   return wnd->id;
 }

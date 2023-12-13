@@ -73,18 +73,23 @@ ALWAYS_INLINE void reset_pit (uint8_t mode) {
   }
 }
 
-void init_and_install_pit() {
+void init_and_install_pit() 
+{
+  ANIVA_STATUS status;
+
   disable_interrupts();
 
-  ANIVA_STATUS status = set_pit_interrupt_handler();
-  if (status != ANIVA_SUCCESS) {
+  s_pit_ticks = NULL;
+  status = set_pit_interrupt_handler();
+
+  if (status != ANIVA_SUCCESS)
     return;
-  }
 
   reset_pit(RATE);
 }
 
-void uninstall_pit() {
+void uninstall_pit()
+{
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
   uninstall_quick_int_handler(PIT_TIMER_INT_NUM);
@@ -92,7 +97,8 @@ void uninstall_pit() {
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
-size_t get_pit_ticks() {
+size_t get_pit_ticks() 
+{
   return s_pit_ticks;
 }
 
@@ -115,7 +121,7 @@ registers_t* pit_irq_handler(registers_t* regs)
   s_pit_ticks++;
 
   /* NOTE: we store the current processor structure in the GS register */
-  this = (scheduler_t*)read_gs(GET_OFFSET(processor_t, m_scheduler));
+  this = get_current_scheduler();
 
   if (this && this->f_tick)
     this->f_tick(regs);

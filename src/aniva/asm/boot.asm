@@ -27,8 +27,8 @@ mb_fb_tag_end:
   dd 8    ;size
 header_end:
 
-KERNEL_VIRT_BASE equ 0xFFFFffff80000000
-KERNEL_PAGE_IDX equ (KERNEL_VIRT_BASE >> 21)
+KERNEL_VIRT_BASE equ 0xFFFFFFFF80000000 
+KERNEL_PAGE_IDX equ (KERNEL_VIRT_BASE >> 21) & 0x1ff
 
 [section .pre_text]
 [bits 32]
@@ -91,15 +91,15 @@ cpuid_support:
   or eax, 0x3
   mov [(boot_pml4t - KERNEL_VIRT_BASE)], eax
 
-  mov eax, boot_pd0 - KERNEL_VIRT_BASE
-  or eax, 0x3
-  mov [(boot_pdpt - KERNEL_VIRT_BASE)], eax
-
   ; map pdpt for high base
   mov eax, boot_hh_pdpt - KERNEL_VIRT_BASE
   or eax, 0x3
   mov [(boot_pml4t - KERNEL_VIRT_BASE) + 511 * 8], eax
-  
+
+  mov eax, boot_pd0 - KERNEL_VIRT_BASE
+  or eax, 0x3
+  mov [(boot_pdpt - KERNEL_VIRT_BASE)], eax
+
   ; map p2 into our p3 for the higher half aswell
   mov eax, boot_pd0 - KERNEL_VIRT_BASE
   or eax, 0x3
@@ -243,7 +243,6 @@ boot_hh_pdpt:
 
 ; hihi small stack =)
 [section .stack]
-
 ; TODO: can we use kmem_manager to enlarge the kernel stack?
 kstack_bottom:
   times 32768 db 0

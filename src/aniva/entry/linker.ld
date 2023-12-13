@@ -10,7 +10,7 @@ PHDRS
 SECTIONS {
   . = 1M;
 
-  _kernel_virt_base_offset = 0xFFFFffff80000000;
+  _kernel_virt_base_offset = 0xFFFFFFFF80000000;
 
   . += _kernel_virt_base_offset;
 

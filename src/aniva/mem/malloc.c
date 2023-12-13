@@ -204,7 +204,7 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
   result = __kmem_alloc_range(
         allocator->m_parent_dir.m_root,
         nullptr,
-        KERNEL_MAP_BASE,
+        HIGH_MAP_BASE,
         total_buffer_size,
         NULL,
         KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL

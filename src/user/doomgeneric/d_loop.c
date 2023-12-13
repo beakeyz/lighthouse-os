@@ -765,9 +765,6 @@ void TryRunTics (void)
 
     // wait for new tics if needed
 
-    printf("Loop A\n");
-
-    /*
     while (!PlayersInGame() || lowtic < gametic/ticdup + counts)
     {
 	NetUpdate ();
@@ -787,9 +784,6 @@ void TryRunTics (void)
 
         I_Sleep(1);
     }
-    */
-
-    printf("Loop B\n");
 
     // run the count * ticdup dics
     while (counts--)

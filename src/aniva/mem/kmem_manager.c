@@ -69,7 +69,6 @@ static struct {
 extern const size_t early_map_size;
 
 static void _init_kmem_page_layout();
-static void _init_kmem_page_layout_late();
 static void kmem_init_physical_allocator();
 
 // first prep the mmap
@@ -99,8 +98,6 @@ void init_kmem_manager(uintptr_t* mb_addr)
   finalize_multiboot(mb_addr);
 
   _init_kmem_page_layout();
-
-  _init_kmem_page_layout_late();
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
@@ -184,7 +181,7 @@ void parse_mmap()
     print("map entry length: ");
     println(to_string(range->length));
 
-    high_range_addr = range->start + range->length;
+    high_range_addr = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
 
     if (high_range_addr > KMEM_DATA.m_highest_phys_addr &&
         (range->type != PMRT_BAD_MEM && range->type != PMRT_RESERVED)) 
@@ -266,9 +263,6 @@ static void kmem_init_physical_allocator()
   physical_bitmap->m_entries = physical_pages_bytes * 8;
   physical_bitmap->m_default = 0xff;
 
-  println(to_string(physical_bitmap->m_size));
-  println(to_string(physical_bitmap->m_entries));
-
   memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
 
   KMEM_DATA.m_phys_bitmap = physical_bitmap;
@@ -309,8 +303,7 @@ static void kmem_init_physical_allocator()
 
   // subtract the base of the mapping used while booting
   const paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const paddr_t physical_kernel_end = ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t kernel_size = physical_kernel_end - physical_kernel_start;
+  const size_t kernel_size = phys_bm_end - physical_kernel_start;
   const size_t kernel_page_count = GET_PAGECOUNT(kernel_size) + 1;
 
   for (uintptr_t i = 0; i < kernel_page_count; i++) {
@@ -505,7 +498,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uint32_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
-  pml_entry_t* pml4 = (pml_entry_t*)kmem_from_phys((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root), HIGH_MAP_BASE);
+  pml_entry_t* pml4 = (pml_entry_t*)kmem_from_phys((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root), KMEM_DATA.m_high_page_base);
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
   if (!pml4_entry_exists) {
@@ -515,7 +508,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    memset((void*)kmem_from_phys(page_addr, HIGH_MAP_BASE), 0x00, SMALL_PAGE_SIZE);
+    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
@@ -527,7 +520,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  pml_entry_t* pdp = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits), HIGH_MAP_BASE);
+  pml_entry_t* pdp = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits), KMEM_DATA.m_high_page_base);
   const bool pdp_entry_exists = (pml_entry_is_bit_set((pml_entry_t*)&pdp[pdp_idx], PDE_PRESENT));
 
   if (!pdp_entry_exists) {
@@ -537,7 +530,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    memset((void*)kmem_from_phys(page_addr, HIGH_MAP_BASE), 0x00, SMALL_PAGE_SIZE);
+    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pdp[pdp_idx], page_addr);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
@@ -549,7 +542,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
     pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
   }
 
-  pml_entry_t* pd = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits), HIGH_MAP_BASE);
+  pml_entry_t* pd = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits), KMEM_DATA.m_high_page_base);
   const bool pd_entry_exists = pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT);
 
   if (!pd_entry_exists) {
@@ -559,7 +552,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
 
     uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
 
-    memset((void*)kmem_from_phys(page_addr, HIGH_MAP_BASE), 0x00, SMALL_PAGE_SIZE);
+    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
     kmem_set_page_base(&pd[pd_idx], page_addr);
     pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
@@ -573,7 +566,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_
   }
 
   // this just should exist
-  const pml_entry_t* pt = (const pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), HIGH_MAP_BASE);
+  const pml_entry_t* pt = (const pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), KMEM_DATA.m_high_page_base);
   return (pml_entry_t*)&pt[pt_idx];
 }
 
@@ -970,7 +963,7 @@ ErrorOrPtr __kmem_kernel_alloc(uintptr_t addr, size_t size, uint32_t custom_flag
  */
 ErrorOrPtr __kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags) 
 {
-  return __kmem_alloc_range(nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
+  return __kmem_alloc_range(nullptr, nullptr, HIGH_MAP_BASE, size, custom_flags, page_flags);
 }
 
 ErrorOrPtr __kmem_dma_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
@@ -985,7 +978,7 @@ ErrorOrPtr __kmem_dma_alloc_range(size_t size, uint32_t custom_flags, uint32_t p
 
 ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags) 
 {
-  return __kmem_alloc_ex(map, resources, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
+  return __kmem_alloc_ex(map, resources, addr, HIGH_MAP_BASE, size, custom_flags, page_flags);
 }
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) 
@@ -1047,6 +1040,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
 
+  /* FIXME: do we need to map here? */
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
@@ -1176,11 +1170,21 @@ ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t c
  */
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  const size_t mapping_end_idx = kmem_get_page_idx(early_map_size);
+  const size_t max_end_idx = kmem_get_page_idx(2ULL * Gib);
+  size_t mapping_end_idx = KMEM_DATA.m_phys_pages_count;
+
+  if (mapping_end_idx > max_end_idx)
+    mapping_end_idx = mapping_end_idx;
   
   /* Map everything until what we've already mapped in boot.asm */
   ASSERT_MSG(
-      kmem_map_range(map, HIGH_MAP_BASE, 0, mapping_end_idx, KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
+      kmem_map_range(
+        map,
+        HIGH_MAP_BASE,
+        0,
+        mapping_end_idx,
+        KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK,
+        KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
       "Failed to mmap pre-kernel memory"
       );
 }
@@ -1193,11 +1197,11 @@ static void _init_kmem_page_layout ()
   /* Grab the page for our pagemap root */
   map = Must(kmem_prepare_new_physical_page());
 
-  memset((void*)kmem_from_phys(map, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
-
   /* Set the managers data */
   KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)map;
   KMEM_DATA.m_high_page_base = HIGH_MAP_BASE;
+
+  memset((void*)kmem_from_phys(map, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
   /* Assert that we got valid shit =) */
   ASSERT_MSG(kmem_get_krnl_dir(), "Tried to init kmem_page_layout without a present krnl dir");
@@ -1209,33 +1213,6 @@ static void _init_kmem_page_layout ()
   kmem_load_page_dir(map, true);
 }
 
-/*!
- * @brief Setup the bigger part of the virtual addressspace
- *
- * After we have mapped the kernel high and we have installed the correct page table on the BSP, we can
- * start mapping the rest of the memory space that we might need for 
- */
-static void _init_kmem_page_layout_late() {
-
-  const size_t total_pages = KMEM_DATA.m_phys_pages_count;
-
-  println("Starting map 2");
-
-  /* Identity map everything after a few page sizes, as to keep NULL throw nice pagefaults */
-  ASSERT_MSG(
-      kmem_map_range(
-        nullptr,
-        KERNEL_MAP_BASE,
-        0,
-        total_pages,
-        KMEM_CUSTOMFLAG_GET_MAKE,
-        KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
-      "Failed to identity map the addressspace"
-  );
-
-  KMEM_DATA.m_high_page_base = KERNEL_MAP_BASE;
-
-}
 
 /*!
  * @brief Create a new empty page directory that shares the kernel mappings
@@ -1305,8 +1282,8 @@ ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table)
   pml_entry_t* kernel_root;
   pml_entry_t* kernel_lvl_3;
 
-  const uintptr_t kernel_pml4_idx = (KERNEL_MAP_BASE >> 39) & ENTRY_MASK;
-  const uintptr_t end_idx = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK);
+  const uintptr_t kernel_pml4_idx = 256;
+  const uintptr_t end_idx = 511;
 
   kernel_root = (void*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base);
 
@@ -1337,8 +1314,8 @@ static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
   bool is_present;
   pml_entry_t* kernel_lvl_3;
 
-  const uintptr_t kernel_pml4_idx = (KERNEL_MAP_BASE >> 39) & ENTRY_MASK;
-  const uintptr_t end_idx = ((MAX_VIRT_ADDR >> 39) & ENTRY_MASK);
+  const uintptr_t kernel_pml4_idx = 256;
+  const uintptr_t end_idx = 511;
 
   for (uintptr_t i = kernel_pml4_idx; i <= end_idx; i++) {
     /* Grab the pml entries */

@@ -3,6 +3,7 @@
 #include "drivers/wnd/alloc.h"
 #include "drivers/wnd/screen.h"
 #include "libk/flow/error.h"
+#include "libk/string.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
@@ -98,7 +99,7 @@ int lwnd_request_framebuffer(lwnd_window_t* window)
   if (!window)
     return -1;
 
-  new_size = ALIGN_UP(window->width * window->height * sizeof(fb_color_t), SMALL_PAGE_SIZE);
+  new_size = ALIGN_UP(window->width * (window->height) * sizeof(fb_color_t), SMALL_PAGE_SIZE);
 
   if (!window->fb_ptr)
     goto create_new_framebuffer;

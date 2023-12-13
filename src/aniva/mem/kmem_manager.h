@@ -38,15 +38,13 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 
 #define MAX_VIRT_ADDR           0xffffffffffffffffULL
 // Kernel text high virtual base
-#define HIGH_MAP_BASE           0xffffffff80000000ULL
-// Any custom mappings by the kernel
-#define KERNEL_MAP_BASE         0xffff800000000000ULL
+#define HIGH_MAP_BASE           0xFFFFFFFF80000000ULL
 // Anything IO can be mapped here
 #define IO_MAP_BASE             0xffff000000000000ULL
 // Base for early kernelheap mappings 
 #define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
-#define EARLY_FB_MAP_BASE       0xFFFFFF1000000000ULL
+#define EARLY_FB_MAP_BASE       0xFFFF800000000000ULL
 // Base for the quickmap engine. We take the pretty much highest possible vaddr
 #define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 

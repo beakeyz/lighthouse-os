@@ -116,7 +116,7 @@ void on_key(ps2_key_event_t event)
   if (!wnd)
     return;
 
-  lwnd_screen_add_event(main_screen, create_lwnd_move_event(wnd->id, wnd->x - 1, wnd->y - 1));
+  lwnd_screen_add_event(main_screen, create_lwnd_move_event(wnd->id, wnd->x + 1, wnd->y + 1));
 }
 
 /*
@@ -209,7 +209,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
        * Create the window while we know we aren't drawing anything 
        * NOTE: This takes the draw lock
        */
-      lwnd_id = create_app_lwnd_window(main_screen, uwindow, calling_process);
+      lwnd_id = create_app_lwnd_window(main_screen, 0, 0, uwindow, calling_process);
 
       if (lwnd_id == LWND_INVALID_ID)
         return DRV_STAT_INVAL;

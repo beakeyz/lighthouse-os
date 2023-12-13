@@ -123,5 +123,10 @@ BOOL kill_process(
   __IN__ DWORD      flags
 );
 
+/*
+ * Find the amount of ticks used by this process
+ */
+size_t get_our_ticks();
+
 
 #endif // !__LIGHTENV_PROCESS__

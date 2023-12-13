@@ -31,3 +31,15 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
 
   return SYS_INV;
 }
+
+uintptr_t sys_getticks()
+{
+  proc_t* curr_prc;
+
+  curr_prc = get_current_proc();
+
+  if (!curr_prc)
+    return SYS_INV;
+
+  return curr_prc->m_ticks_used;
+}

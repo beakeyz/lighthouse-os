@@ -21,3 +21,8 @@ BOOL proc_get_profile(HANDLE proc_handle, HANDLE* profile_handle)
   /* TODO: make a way for us to discover the name of this process through its handle */
   return FALSE;
 }
+
+size_t get_our_ticks()
+{
+  return syscall_0(SYSID_GETTICKS);
+}

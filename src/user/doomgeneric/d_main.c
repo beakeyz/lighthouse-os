@@ -427,19 +427,12 @@ void D_DoomLoop (void)
 
     main_loop_started = true;
 
-    printf("Thing\n");
-
     TryRunTics();
 
-    printf("A\n");
     I_SetWindowTitle(gamedescription);
-    printf("B\n");
     I_GraphicsCheckCommandLine();
-    printf("C\n");
     I_SetGrabMouseCallback(D_GrabMouseCallback);
-    printf("D\n");
     I_InitGraphics();
-    printf("E\n");
     I_EnableLoadingDisk();
 
     V_RestoreBuffer();

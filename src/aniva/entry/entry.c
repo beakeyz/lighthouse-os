@@ -159,23 +159,27 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
+  println("Initialized tty");
   // Initialize logging right after the memory setup
   init_logging();
 
   // Initialize an early console
   //init_early_tty(g_system_info.firmware_fb);
 
-  //println("Initialized tty");
+  println("Initialized tty");
 
   // we need more memory
   init_zalloc();
 
+  println("Initialized tty");
   // we need resources
   init_kresources();
 
+  println("Initialized tty");
   /* Initialize the ACPI subsystem */
   init_acpi();
 
+  println("Initialized tty");
   println("[X] Processor...");
   // initialize cpu-related things that need the memorymanager and the heap
   init_processor_late(&g_bsp);
@@ -290,7 +294,7 @@ void kthread_entry() {
    */
   resume_scheduler();
 
-  extern_driver_t* kterm = load_external_driver("Root/System/kterm.drv");
+  extern_driver_t* kterm = load_external_driver("Root/System/lwnd.drv");
 
   ASSERT_MSG(kterm, "Failed to load kterm!");
 

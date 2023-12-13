@@ -4,7 +4,14 @@
 
 static TICK_TYPE s_kernel_tick_type;
 
-void init_timer_system() {
+/*!
+ * @brief: Initialize the timer subsystem
+ *
+ * This happens before we can load an actual driver to do this kind of shit, so we'll need to make sure
+ * this code is able to be used both before and after we've loaded any timekeeping drivers
+ */
+void init_timer_system() 
+{
   s_kernel_tick_type = UNSET;
 
   set_kernel_ticker_type(PIT);
