@@ -12,31 +12,35 @@ typedef unsigned char       handle_type_t;
  * use these -_-
  */
 
-#define HNDL_TYPE_NONE      (0)
-#define HNDL_TYPE_FILE      (1)
-#define HNDL_TYPE_DRIVER    (2)
-#define HNDL_TYPE_PROC      (3)
-#define HNDL_TYPE_FS_ROOT   (4)
-#define HNDL_TYPE_VOBJ      (5) /* A handle to a virtual object in the vfs */
-#define HNDL_TYPE_KOBJ      (6) /* A handle to a kernel object */
-#define HNDL_TYPE_THREAD    (7)
+#define HNDL_TYPE_NONE              (0)
+#define HNDL_TYPE_FILE              (1)
+#define HNDL_TYPE_DRIVER            (2)
+#define HNDL_TYPE_PROC              (3)
+#define HNDL_TYPE_FS_ROOT           (4)
+#define HNDL_TYPE_VOBJ              (5) /* A handle to a virtual object in the vfs */
+#define HNDL_TYPE_KOBJ              (6) /* A handle to a kernel object */
+#define HNDL_TYPE_THREAD            (7)
 /* Any profile that is present on the system */
-#define HNDL_TYPE_PROFILE          (8)
-  #define HNDL_MODE_CURRENT_PROFILE 0
-  #define HNDL_MODE_SCAN_PROFILE    1
+#define HNDL_TYPE_PROFILE           (8)
+  #define HNDL_MODE_CURRENT_PROFILE (0)
+  #define HNDL_MODE_SCAN_PROFILE    (1)
 
 /* Profile variable */
-#define HNDL_TYPE_PVAR             (9)
+#define HNDL_TYPE_PVAR              (9)
 
 /* These types are still to be implemented */
 /* A raw device attached to the device tree on the vfs at :/Devices/ */
-#define HNDL_TYPE_DEVICE           (10)
+#define HNDL_TYPE_DEVICE            (10)
 /* Raw buffer, managed by the kernel */
-#define HNDL_TYPE_BUFFER           (11)
+#define HNDL_TYPE_BUFFER            (11)
 /* Inter-process interface */
-#define HNDL_TYPE_IP_INTERF        (12)
+#define HNDL_TYPE_IP_INTERF         (12)
 /* Datastream for contiguous reading / writing of data */
-#define HNDL_TYPE_STREAM           (13)
+#define HNDL_TYPE_STREAM            (13)
+/* Single event */
+#define HNDL_TYPE_EVENT             (14)
+/* An eventsubscription */
+#define HNDL_TYPE_EVENTHOOK         (15)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

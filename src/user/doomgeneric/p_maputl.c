@@ -779,7 +779,7 @@ static intercepts_overrun_t intercepts_overrun[] =
 
 // Overwrite a specific memory location with a value.
 
-static void InterceptsMemoryOverrun(int location, int value)
+static void InterceptsMemoryOverrun(int location, uint64_t value)
 {
     int i, offset;
     int index;
@@ -846,7 +846,7 @@ static void InterceptsOverrun(int num_intercepts, intercept_t *intercept)
 
     InterceptsMemoryOverrun(location, intercept->frac);
     InterceptsMemoryOverrun(location + 4, intercept->isaline);
-    InterceptsMemoryOverrun(location + 8, (int) intercept->d.thing);
+    InterceptsMemoryOverrun(location + 8, (int)intercept->d.thing);
 }
 
 

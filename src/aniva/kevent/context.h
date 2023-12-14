@@ -7,6 +7,7 @@
 #define E_CONTEXT_FLAG_CANCELED     (0x00000001)
 #define E_CONTEXT_FLAG_IMMUTABLE    (0x00000002)
 #define E_CONTEXT_FLAG_INVALID      (0x00000004)
+#define E_CONTEXT_FLAG_ERROR        (0x00000008)
 
 /*
  * NOTE: in regular scenarios, kevent_contex should NEVER be
@@ -18,14 +19,9 @@ typedef struct kevent_contex {
   void* m_data;
 } kevent_contex_t;
 
-kevent_contex_t create_clean_context();
-kevent_contex_t create_context(void* data, uint32_t flags);
+#define CTX_OK(ctx) (ctx.m_flags)
 
-void context_set_canceled(kevent_contex_t* context, bool canceled);
+int init_ke_context(kevent_contex_t* context);
 
-/*
- * Check if the context has been altered
- */
-ErrorOrPtr verify_context(kevent_contex_t* context, uint32_t original_crc);
 
 #endif // !__ANIVA_KEVENT_CONTEXT__

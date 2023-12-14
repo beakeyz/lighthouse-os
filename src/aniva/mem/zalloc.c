@@ -161,6 +161,9 @@ ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr
   if (!ret || !initial_size || !hard_max_entry_size)
     return Error();
 
+  new_zone = nullptr;
+  new_zone_store = nullptr;
+
   // Initialize the initial zones
   ret->m_total_size = 0;
   ret->m_grow_size = initial_size;
@@ -196,6 +199,13 @@ ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr
   return Success(0);
 
 fail_and_dealloc:
+
+  if (new_zone)
+    destroy_zone(ret, new_zone);
+
+  if (new_zone_store)
+    destroy_zone_store(ret, new_zone_store);
+
   kfree(ret);
   return Error();
 }
@@ -215,10 +225,8 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
   /* FIXME: as an allocator, we don't want to depend on another allocator to be created */
   ret = kmalloc(sizeof(zone_allocator_t));
 
-  if (IsError(init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags))) {
-    kfree(ret);
+  if (IsError(init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags)))
     return nullptr;
-  }
 
   return ret;
 }

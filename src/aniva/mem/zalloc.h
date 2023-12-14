@@ -4,6 +4,7 @@
 #include <libk/flow/error.h>
 #include "libk/data/bitmap.h"
 #include "mem/pg.h"
+#include "sync/mutex.h"
 
 /*
  * Flags for an indevidual zone
@@ -94,9 +95,9 @@ typedef struct zone_store {
  * physical allocator
  */
 typedef struct zone_allocator {
-  //generic_heap_t* m_heap;
-
   zone_store_t* m_store;
+  mutex_t* m_lock;
+
   size_t m_store_count;
 
   size_t m_grow_size; /* Size we add to the allocator every time we grow */

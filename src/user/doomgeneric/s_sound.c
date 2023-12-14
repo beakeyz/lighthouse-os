@@ -595,7 +595,7 @@ void S_SetSfxVolume(int volume)
 
 void S_StartMusic(int m_id)
 {
-    S_ChangeMusic(m_id, false);
+    //S_ChangeMusic(m_id, false);
 }
 
 void S_ChangeMusic(int musicnum, int looping)

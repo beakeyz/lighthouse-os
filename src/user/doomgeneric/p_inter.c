@@ -38,6 +38,7 @@
 #include "s_sound.h"
 
 #include "p_inter.h"
+#include "stdlib.h"
 
 
 #define BONUSADD	6
@@ -653,6 +654,7 @@ P_TouchSpecialThing
     if (special->flags & MF_COUNTITEM)
 	player->itemcount++;
     P_RemoveMobj (special);
+
     player->bonuscount += BONUSADD;
     if (player == &players[consoleplayer])
 	S_StartSound (NULL, sound);

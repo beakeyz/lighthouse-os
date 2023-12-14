@@ -1,28 +1,45 @@
 #include "pipe.h"
 #include "crypto/k_crc32.h"
+#include "kevent/context.h"
 #include "kevent/kevent.h"
 #include "libk/flow/error.h"
 #include "mem/zalloc.h"
 
-kevent_pipeline_t create_kevent_pipeline(kevent_t* event, kevent_contex_t* context) {
-  kevent_pipeline_t pipe = { 0 };
+uint32_t _dummy_pipe_func(kevent_contex_t context)
+{
+  return 0;
+}
 
-  if (!event || !context)
-    return pipe;
+static kevent_pipe_entry_t _dummy_pipe_entry = {
+  .m_next = nullptr,
+  .f_pipeline_func = _dummy_pipe_func,
+};
 
+int create_kevent_pipeline(kevent_pipeline_t* out, struct kevent* event, kevent_contex_t* context)
+{
+  kevent_pipeline_t pipe;
+
+  if (!out || !event || !context)
+    return -1;
+
+  /*
+   * NOTE: m_exec_head is null until we start an execute
+   */
   pipe = (kevent_pipeline_t) {
-    .m_head = nullptr,
+    .m_exec_head = nullptr,
+    .m_entries = nullptr,
     .m_context = context,
     .m_entry_allocator = create_zone_allocator_ex(nullptr, NULL, sizeof(kevent_pipe_entry_t) * KEVENT_MAX_EVENT_HOOKS, sizeof(kevent_pipe_entry_t), NULL),
   };
 
-  kevent_pipe_entry_t** current_pentry = &pipe.m_head;
+  /* Fill the entries */
+  kevent_pipe_entry_t** current_pentry = &pipe.m_entries;
 
   /* Loop over all the hooks to sort them based on privilege */
   for (uint32_t i = 0; i < KEVENT_PRIVILEGE_COUNT; i++) {
     
     kevent_hook_t** current;
-    kevent_privilege_t priv = i;
+    enum kevent_privilege priv = i;
 
     for (current = &event->m_hooks; *current; current = &(*current)->m_next) {
 
@@ -46,11 +63,13 @@ kevent_pipeline_t create_kevent_pipeline(kevent_t* event, kevent_contex_t* conte
       }
     }
   }
-  
-  return pipe;
+
+  *out = pipe;
+  return 0;
 }
 
-void destroy_kevent_pipeline(kevent_pipeline_t* pipeline) {
+void destroy_kevent_pipeline(kevent_pipeline_t* pipeline) 
+{
   if (!pipeline)
     return;
 
@@ -60,45 +79,42 @@ void destroy_kevent_pipeline(kevent_pipeline_t* pipeline) {
   memset(pipeline, 0, sizeof(kevent_pipeline_t));
 }
 
-ErrorOrPtr kpipeline_execute_next(kevent_pipeline_t* pipeline) {
+/*!
+ * @brief: Get a safe exec head
+ */
+static inline kevent_pipe_entry_t* ke_pipeline_get_exec_head(kevent_pipeline_t* pipeline)
+{
+  if (!pipeline->m_exec_head)
+    return &_dummy_pipe_entry;
 
+  return pipeline->m_exec_head;
+}
+
+int kpipeline_execute_next(kevent_pipeline_t* pipeline)
+{
+  uint32_t flags;
   uint32_t crc_check;
   uint32_t crc_copy;
-  kevent_contex_t* context;
+  kevent_contex_t context;
   kevent_contex_t context_copy;
 
-  if (!pipeline || !pipeline->m_head)
-    return Error();
+  if (!pipeline || !pipeline->m_entries)
+    return -1;
 
-  context = pipeline->m_context;
+  if (!pipeline->m_exec_head)
+    pipeline->m_exec_head = pipeline->m_entries;
 
-  /* Cache the crc */
-  crc_copy = context->m_crc;
-
-  /* Zero the crc and flags */
-  context->m_crc = 0;
-  context->m_flags = 0;
+  context = *pipeline->m_context;
 
   /* Execute the hook */
-  context = pipeline->m_head->f_pipeline_func(context);
+  flags = ke_pipeline_get_exec_head(pipeline)->f_pipeline_func(context);
 
-  /* Cache the context, post-execute */
-  context_copy = *context;
-
-  context_copy.m_crc = 0;
-  context_copy.m_flags = 0;
-
-  crc_check = kcrc32(&context_copy, sizeof(context_copy));
-
-  /* Check if the crc changed inside the execution of the hook */
-  if (crc_copy != crc_check) {
-    context->m_flags |= E_CONTEXT_FLAG_INVALID;
-    return Error();
-  }
+  /* Caller has direct control over the flags of the context */
+  pipeline->m_context->m_flags = flags;
 
   /* Shift the head forward */
-  pipeline->m_head = pipeline->m_head->m_next;
+  pipeline->m_exec_head = pipeline->m_exec_head->m_next;
 
   /* Return the new context */
-  return Success((uintptr_t)context); 
+  return 0; 
 }

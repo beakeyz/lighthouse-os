@@ -62,7 +62,7 @@ uint32_t DG_GetTicksMs()
    * TODO: this is currently just in 'ticks' (AKA scheduler ticks) 
    * but we'll need a way to convert this into milliseconds
    */
-  return get_our_ticks();
+  return get_our_ticks() * 3;
 }
 
 int DG_GetKey(int* pressed, unsigned char* doomKey)
@@ -77,10 +77,11 @@ void DG_SetWindowTitle(const char * title)
 /* Our own argv and argc vars, since our system does not have those yet =)))) */
 char* argv[] = {
   "doom",
+  "-testcontrols",
   "-iwad",
   "Root/Apps/doom1.wad",
 };
-const int argc = 3;
+const int argc = 4;
 
 /*!
  * @brief: Main entry for this app

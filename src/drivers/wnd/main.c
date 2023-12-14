@@ -103,6 +103,8 @@ static lwnd_window_t* wnd;
 
 /*!
  * @brief: This is a temporary key handler to test out window event and shit
+ *
+ * TODO: send the key event over to the focussed window
  */
 void on_key(ps2_key_event_t event) 
 {
@@ -111,7 +113,7 @@ void on_key(ps2_key_event_t event)
     return;
 
   if (!wnd)
-    wnd = lwnd_screen_get_window(main_screen, 1);
+    wnd = lwnd_screen_get_top_window(main_screen);
 
   if (!wnd)
     return;

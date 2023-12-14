@@ -29,6 +29,8 @@
  */
 typedef struct lwindow {
   HANDLE lwnd_handle;
+  /* Handle to the key event */
+  HANDLE key_event_handle;
   uint32_t wnd_id;
   uint32_t wnd_flags;
   uint32_t current_width;
