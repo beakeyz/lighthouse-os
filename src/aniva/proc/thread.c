@@ -2,7 +2,6 @@
 #include "dev/debug/serial.h"
 #include "dev/manifest.h"
 #include "entry/entry.h"
-#include "kevent/kevent.h"
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"

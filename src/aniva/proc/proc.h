@@ -1,7 +1,6 @@
 #ifndef __ANIVA_PROC__
 #define __ANIVA_PROC__
 
-#include "kevent/kevent.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"

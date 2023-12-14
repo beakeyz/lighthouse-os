@@ -1,4 +1,3 @@
-#include "dev/io/ps2/kbd.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/wnd/alloc.h"
 #include "drivers/wnd/event.h"
@@ -6,6 +5,7 @@
 #include "drivers/wnd/screen.h"
 #include "drivers/wnd/window/app.h"
 #include "drivers/wnd/window/wallpaper.h"
+#include "kevent/event.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
@@ -106,19 +106,21 @@ static lwnd_window_t* wnd;
  *
  * TODO: send the key event over to the focussed window
  */
-void on_key(ps2_key_event_t event) 
+int on_key(kevent_ctx_t* ctx) 
 {
-
   if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
-    return;
+    return 0;
 
   if (!wnd)
     wnd = lwnd_screen_get_top_window(main_screen);
 
   if (!wnd)
-    return;
+    return 0;
 
-  lwnd_screen_add_event(main_screen, create_lwnd_move_event(wnd->id, wnd->x + 1, wnd->y + 1));
+  /* TODO: translate this key event to userspace
+   */
+  lwnd_screen_add_event(main_screen, create_lwnd_move_event(wnd->id, wnd->x + 5, wnd->y + 1));
+  return 0;
 }
 
 /*
@@ -154,7 +156,7 @@ int init_window_driver()
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_fb_info, sizeof(_fb_info)));
 
   /* TODO: register to I/O core */
-  driver_send_msg("io/ps2_kb", KB_REGISTER_CALLBACK, on_key, sizeof(uintptr_t));
+  kevent_add_hook("keyboard", "lwnd", on_key);
 
   println("Initializing screen!");
   main_screen = create_lwnd_screen(&_fb_info, LWND_SCREEN_MAX_WND_COUNT);

@@ -1,9 +1,10 @@
-#include "kbd.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
 #include "dev/driver.h"
 #include "intr/interrupts.h"
+#include "kevent/event.h"
+#include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
@@ -81,13 +82,10 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
 };
 EXPORT_DRIVER_PTR(g_base_ps2_keyboard_driver);
 
-static list_t* s_kb_event_callbacks;
 static uint16_t s_mod_flags;
 
 int ps2_keyboard_entry() 
 {
-
-  s_kb_event_callbacks = init_list();
   s_mod_flags = NULL;
 
   ErrorOrPtr result = install_quick_int_handler(PS2_KB_IRQ_VEC, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, I8259, ps2_keyboard_irq_handler);
@@ -102,39 +100,12 @@ int ps2_keyboard_entry()
 
 int ps2_keyboard_exit() 
 {
-  destroy_list(s_kb_event_callbacks);
   uninstall_quick_int_handler(PS2_KB_IRQ_VEC);
   return 0;
 }
 
 uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) 
 {
-
-  switch (code) {
-    case KB_REGISTER_CALLBACK: {
-      if (size != sizeof(ps2_key_callback)) {
-        // response?
-        return -1;
-      }
-      ps2_key_callback callback = (ps2_key_callback)buffer;
-      list_append(s_kb_event_callbacks, callback);
-      break;
-    }
-    case KB_UNREGISTER_CALLBACK: {
-      if (size != sizeof(ps2_key_callback)) {
-        // response?
-        return -1;
-      }
-      ps2_key_callback callback = buffer;
-      ErrorOrPtr index_result = list_indexof(s_kb_event_callbacks, callback);
-      if (index_result.m_status == ANIVA_FAIL) {
-        return -1;
-      }
-      list_remove(s_kb_event_callbacks, index_result.m_ptr);
-      break;
-    }
-  }
-
   return 0;
 }
 
@@ -167,17 +138,13 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
                ? kbd_us_shift_map[key_code]
                : kbd_us_map[key_code];
 
-  FOREACH(i, s_kb_event_callbacks) {
-    ps2_key_callback callback = i->data;
+  kevent_kb_ctx_t kb = {
+    .pressed = pressed,
+    .pressed_char = character,
+    .keycode = key_code,
+  };
 
-    ps2_key_event_t event = {
-      .m_typed_char = character,
-      .m_key_code = key_code,
-      .m_pressed = pressed
-    };
-
-    callback(event);
-  }
+  kevent_fire("keyboard", &kb, sizeof(kb));
 
   return regs;
 }

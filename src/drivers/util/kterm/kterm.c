@@ -6,7 +6,6 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/external.h"
-#include "dev/io/ps2/kbd.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/video/device.h"
@@ -17,6 +16,8 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
+#include "kevent/event.h"
+#include "kevent/types/keyboard.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
@@ -81,8 +82,7 @@ logger_t kterm_logger = {
   .f_log = kterm_print,
 };
 
-// This driver depends on ps2, so this is legal for now
-void kterm_on_key(ps2_key_event_t event);
+int kterm_on_key(kevent_ctx_t* event);
 
 /* Command buffer */
 static kdoor_t __processor_door;
@@ -535,7 +535,8 @@ int kterm_init()
 
   /* TODO: when we implement our HID driver, this should be replaced with a event endpoint we can probe */
   // register our keyboard listener
-  driver_send_msg("io/ps2_kb", KB_REGISTER_CALLBACK, kterm_on_key, sizeof(uintptr_t));
+
+  kevent_add_hook("keyboard", "kterm", kterm_on_key); 
 
   /* FIXME: integrate video device integration */
   // map our framebuffer
@@ -634,12 +635,15 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
   return DRV_STAT_OK;
 }
 
-void kterm_on_key(ps2_key_event_t event)
+int kterm_on_key(kevent_ctx_t* ctx)
 {
-  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !event.m_pressed)
-    return;
+  kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
 
-  kterm_write_char(event.m_typed_char);
+  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !k_event->pressed)
+    return 0;
+
+  kterm_write_char(k_event->pressed_char);
+  return 0;
 }
 
 static void kterm_flush_buffer() 

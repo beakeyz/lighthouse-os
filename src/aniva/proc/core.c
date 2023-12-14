@@ -1,6 +1,5 @@
 #include "core.h"
 #include "dev/debug/serial.h"
-#include "kevent/kevent.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"

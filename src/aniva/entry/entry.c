@@ -16,7 +16,8 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include <fs/device/core.h>
-#include "kevent/kevent.h"
+#include "kevent/event.h"
+#include "kevent/hook.h"
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/data/hashmap.h"

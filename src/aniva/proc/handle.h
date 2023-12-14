@@ -10,6 +10,8 @@ struct file;
 struct proc;
 struct thread;
 struct vobj;
+struct kevent;
+struct kevent_hook;
 struct profile_var;
 struct proc_profile;
 struct dev_manifest;
@@ -38,6 +40,8 @@ typedef struct kernel_handle {
     struct vobj* vobj;
     struct proc_profile* profile;
     struct profile_var* pvar;
+    struct kevent* event;
+    struct kevent_hook* hook;
     void* kobj;
   } reference;
 } khandle_t;

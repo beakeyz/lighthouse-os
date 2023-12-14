@@ -10,6 +10,7 @@
 #include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
+#include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include "logging/log.h"
@@ -136,6 +137,20 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint3
 
         break;
       }
+    case HNDL_TYPE_EVENT:
+      {
+        struct kevent* event;
+
+        event = kevent_get(path);
+
+        if (!event)
+          return HNDL_NOT_FOUND;
+
+        init_khandle(&handle, &type, event);
+        break;
+      }
+    case HNDL_TYPE_EVENTHOOK:
+      break;
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
     case HNDL_TYPE_VOBJ:

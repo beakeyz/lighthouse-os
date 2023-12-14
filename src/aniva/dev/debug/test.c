@@ -1,8 +1,8 @@
 #include "test.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
-#include "dev/io/ps2/kbd.h"
 #include "dev/manifest.h"
+#include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
 #include "libk/string.h"
@@ -18,7 +18,7 @@
 int test_dbg_init();
 int test_dbg_exit();
 
-void kb_callback(ps2_key_event_t event);
+int kb_callback(kevent_ctx_t* ctx);
 
 uintptr_t test_dbg_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
@@ -51,6 +51,8 @@ uintptr_t test_dbg_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t si
   return 0;
 }
 
-void kb_callback(ps2_key_event_t event) {
+int kb_callback(kevent_ctx_t* ctx) 
+{
   println("callback got called =D");
+  return 0;
 }

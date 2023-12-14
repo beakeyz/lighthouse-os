@@ -1,7 +1,6 @@
 #include "interrupts.h"
 #include "intr/ctl/ctl.h"
 #include "intr/idt.h"
-#include "kevent/kevent.h"
 #include "mem/kmem_manager.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
