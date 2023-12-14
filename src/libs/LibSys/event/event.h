@@ -1,6 +1,13 @@
 #ifndef __LIGHTENV_LIBSYS_EVENT__
 #define __LIGHTENV_LIBSYS_EVENT__
 
+enum SYSEVENT_TYPE {
+  SYSEVENT_TYPE_KEY = 0,
+  SYSEVENT_TYPE_MOSUE,
+
+  SYSEVENT_TYPE_COUNT
+};
+
 /*
  * Userspace event interface
  *
@@ -14,5 +21,8 @@
  *  events by calling event_send on its event handle. Since most of the event stuff is handles upstream in the kernel, we
  *  need to call to a handle every time we want updates about our events.
  */
+typedef struct sys_event {
+  enum SYSEVENT_TYPE type;
+} sys_event_t;
 
 #endif // !__LIGHTENV_LIBSYS_EVENT__

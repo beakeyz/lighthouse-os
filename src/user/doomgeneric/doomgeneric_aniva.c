@@ -65,6 +65,9 @@ uint32_t DG_GetTicksMs()
   return get_our_ticks() * 3;
 }
 
+/*!
+ * @brief: Query the system whether there is a pressed key
+ */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
   return 0;

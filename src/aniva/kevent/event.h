@@ -28,16 +28,28 @@ struct kevent_hook;
  * Can be used to identify the type of buffer in the context
  */
 enum KEVENT_TYPE {
- KE_KEY_EVENT = 0,
- KE_MOUSE_EVENT,
- KE_DEVICE_EVENT,
- KE_SW_EVENT,
- KE_GENERIC_EVENT,
- KE_UNKNOWN_EVENT,
- KE_ERROR_EVENT,
- KE_CUSTOM_EVENT,
+  /* Keypresses and releases */
+  KE_KEY_EVENT = 0,
+  /* Any mouse movement */
+  KE_MOUSE_EVENT,
+  /* Device I/O, (dis)connects, ect. */
+  KE_DEVICE_EVENT,
+  /* Anything to do with processes (Crashes, launch, exit, ect.) */
+  KE_PROC_EVENT,
+  /* Anything with threads (Launch, exit, ext.) */
+  KE_THREAD_EVENT,
+  /* Profile events (Create, remove, (un)subscribes, ect.) */
+  KE_PROFILE_EVENT,
+  /* Any random crap */
+  KE_GENERIC_EVENT,
+  /* No clue */
+  KE_UNKNOWN_EVENT,
+  /* Something went wrong lmao */
+  KE_ERROR_EVENT,
+  /* Let us cook */
+  KE_CUSTOM_EVENT,
 
- KE_EVENT_TYPE_COUNT,
+  KE_EVENT_TYPE_COUNT,
 };
 
 /*

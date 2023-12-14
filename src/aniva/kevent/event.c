@@ -14,6 +14,11 @@ static mutex_t* _kevent_lock = NULL;
 
 /*
  * A few default events that are always active on the system
+ *
+ * These just come with the system bootstrap. Drivers may choose wether they use these default events,
+ * or create their own events. They can then put their eventnames inside the profile variables of either
+ * BASE or Global. For a keyboard driver, this might be something like this:
+ * In the Global profile -> 'DEF_KB_EVNTNAME': 'myCoolEvent'
  */
 struct {
   const char* name;
@@ -21,9 +26,13 @@ struct {
   uint32_t flags;
   uint32_t hook_capacity;
 } default_kevents[] = {
-  { "keyboard", KE_KEY_EVENT, NULL, 1024 },
-  { "mouse", KE_MOUSE_EVENT, NULL, 1024 },
-  { "error", KE_ERROR_EVENT, NULL, 512 },
+  { "keyboard", KE_KEY_EVENT,     NULL, 512 },
+  { "mouse",    KE_MOUSE_EVENT,   NULL, 512 },
+  { "error",    KE_ERROR_EVENT,   NULL, 128 },
+  { "proc",     KE_PROC_EVENT,    NULL, 128 },
+  { "thread",   KE_THREAD_EVENT,  NULL, 128 },
+  { "profile",  KE_PROFILE_EVENT, NULL, 128 },
+  { "device",   KE_DEVICE_EVENT,  NULL, 128 },
 };
 static const uint32_t default_kevent_count = sizeof(default_kevents) / sizeof(*default_kevents);
 
