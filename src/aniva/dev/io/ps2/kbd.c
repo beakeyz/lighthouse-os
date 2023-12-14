@@ -86,20 +86,26 @@ static uint16_t s_mod_flags;
 
 int ps2_keyboard_entry() 
 {
+  ErrorOrPtr result;
   s_mod_flags = NULL;
 
-  ErrorOrPtr result = install_quick_int_handler(PS2_KB_IRQ_VEC, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, I8259, ps2_keyboard_irq_handler);
-
-  if (result.m_status == ANIVA_SUCCESS) {
-    quick_int_handler_enable_vector(PS2_KB_IRQ_VEC);
-  }
-
   println("initializing ps2 keyboard driver!");
+
+  result  = install_quick_int_handler(PS2_KB_IRQ_VEC, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, I8259, ps2_keyboard_irq_handler);
+
+  if (!IsError(result))
+    quick_int_handler_enable_vector(PS2_KB_IRQ_VEC);
+
+  /* Make sure the keyboard event isn't frozen */
+  unfreeze_kevent("keyboard");
+
   return 0;
 }
 
 int ps2_keyboard_exit() 
 {
+  /* Make sure that the keyboard event is frozen, since there is no current kb driver */
+  freeze_kevent("keyboard");
   uninstall_quick_int_handler(PS2_KB_IRQ_VEC);
   return 0;
 }
