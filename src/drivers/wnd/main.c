@@ -1,3 +1,4 @@
+#include "LibSys/event/key.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/wnd/alloc.h"
 #include "drivers/wnd/event.h"
@@ -6,6 +7,7 @@
 #include "drivers/wnd/window/app.h"
 #include "drivers/wnd/window/wallpaper.h"
 #include "kevent/event.h"
+#include "kevent/types/keyboard.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
@@ -98,9 +100,6 @@ static void USED lwnd_main()
   }
 }
 
-/* TMP */
-static lwnd_window_t* wnd;
-
 /*!
  * @brief: This is a temporary key handler to test out window event and shit
  *
@@ -108,18 +107,21 @@ static lwnd_window_t* wnd;
  */
 int on_key(kevent_ctx_t* ctx) 
 {
+  lwnd_window_t* wnd;
+  kevent_kb_ctx_t* k_event;
+
   if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
     return 0;
 
-  if (!wnd)
-    wnd = lwnd_screen_get_top_window(main_screen);
+  wnd = lwnd_screen_get_top_window(main_screen);
 
   if (!wnd)
     return 0;
+ 
+  k_event = kevent_ctx_to_kb(ctx);
 
-  /* TODO: translate this key event to userspace
-   */
-  lwnd_screen_add_event(main_screen, create_lwnd_move_event(wnd->id, wnd->x + 5, wnd->y + 1));
+  /* TODO: save this instantly to userspace aswell */
+  lwnd_save_keyevent(wnd, k_event);
   return 0;
 }
 
@@ -137,8 +139,6 @@ int init_window_driver()
   println("Initializing window driver!");
 
   int error;
-
-  wnd = nullptr;
 
   memset(&_fb_info, 0, sizeof(_fb_info));
 
@@ -248,6 +248,32 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
       lwnd_window_update(internal_wnd);
 
       mutex_unlock(main_screen->draw_lock);
+      break;
+    case LWND_DCC_GETKEY:
+      /* Grab the window */
+      internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
+
+      lkey_event_t* u_event;
+      kevent_kb_ctx_t kbd_ctx;
+
+      if (lwnd_load_keyevent(internal_wnd, &kbd_ctx))
+        return DRV_STAT_INVAL;
+
+      /* Grab a buffer entry */
+      u_event = &uwindow->keyevent_buffer[uwindow->keyevent_buffer_write_idx++];
+
+      /* Write the data */
+      u_event->keycode = aniva_scancode_table[kbd_ctx.keycode];
+      u_event->pressed_char = kbd_ctx.pressed_char;
+      u_event->pressed = kbd_ctx.pressed;
+      u_event->mod_flags = NULL;
+
+      println(to_string(u_event->keycode));
+      println(to_string(kbd_ctx.keycode));
+
+      /* Make sure we cycle the index */
+      uwindow->keyevent_buffer_write_idx %= uwindow->keyevent_buffer_capacity;
+
       break;
   }
   /*

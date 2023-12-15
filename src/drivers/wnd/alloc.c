@@ -9,12 +9,12 @@ static zone_allocator_t* _screen_allocator;
 
 int init_lwnd_alloc()
 {
-  _window_allocator = create_zone_allocator(16 * Kib, sizeof(lwnd_window_t), NULL);
+  _window_allocator = create_zone_allocator(64 * Kib, sizeof(lwnd_window_t), NULL);
 
   if (!_screen_allocator)
     return -1;
 
-  _screen_allocator = create_zone_allocator(16 * Kib, sizeof(lwnd_screen_t), NULL);
+  _screen_allocator = create_zone_allocator(64 * Kib, sizeof(lwnd_screen_t), NULL);
 
   if (!_screen_allocator)
     return -1;

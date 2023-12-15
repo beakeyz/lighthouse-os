@@ -3,6 +3,7 @@
 #include "LibSys/driver/drv.h"
 #include "LibSys/handle.h"
 #include "LibSys/handle_def.h"
+#include <stdlib.h>
 #include <string.h>
 
 BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
@@ -18,6 +19,8 @@ BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
   wnd->current_height = height;
   wnd->current_width = width;
   wnd->wnd_flags = flags;
+  wnd->keyevent_buffer_capacity = LWND_DEFAULT_EVENTBUFFER_CAPACITY;
+  wnd->keyevent_buffer = malloc(wnd->keyevent_buffer_capacity * sizeof(lkey_event_t));
 
   /* Open lwnd */
   res = open_driver(LWND_DRV_PATH, NULL, NULL, &wnd->lwnd_handle);
@@ -40,6 +43,13 @@ BOOL close_lwindow(lwindow_t* wnd)
 
   if (!res)
     return FALSE;
+
+  free(wnd->keyevent_buffer);
+
+  wnd->keyevent_buffer = NULL;
+  wnd->keyevent_buffer_capacity = NULL;
+  wnd->keyevent_buffer_read_idx = NULL;
+  wnd->keyevent_buffer_write_idx = NULL;
 
   /* Make sure the handle to the driver gets closed here */
   return close_handle(wnd->lwnd_handle);

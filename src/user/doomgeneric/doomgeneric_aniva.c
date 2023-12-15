@@ -1,6 +1,8 @@
 #include "LibGfx/include/driver.h"
+#include "LibGfx/include/events.h"
 #include "LibGfx/include/lgfx.h"
 #include "LibGfx/include/video.h"
+#include "LibSys/event/key.h"
 #include "LibSys/proc/process.h"
 #include "doomkeys.h"
 #include "m_argv.h"
@@ -44,6 +46,9 @@ void DG_Init()
 void DG_DrawFrame()
 {
   lwindow_draw_buffer(&window, 0, 0, window.current_width, window.current_height, (lcolor_t*)DG_ScreenBuffer);
+
+  /* Get keys from the server */
+  get_key_event(&window, NULL);
 }
 
 /*!
@@ -65,12 +70,33 @@ uint32_t DG_GetTicksMs()
   return get_our_ticks() * 3;
 }
 
+static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
+{
+  switch (keycode) {
+    case ANIVA_SCANCODE_LCTRL:
+      return KEY_FIRE;
+    default:
+      return keycode;
+  }
+}
+
 /*!
  * @brief: Query the system whether there is a pressed key
  */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
-  return 0;
+  BOOL has_event;
+  lkey_event_t keyevent;
+
+  has_event = get_key_event(&window, &keyevent);
+
+  if (!has_event)
+    return 0;
+
+  *pressed = keyevent.pressed;
+  *doomKey = aniva_keycode_to_doomkey(keyevent.keycode);
+
+  return 1;
 }
 
 void DG_SetWindowTitle(const char * title)
