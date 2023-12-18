@@ -69,6 +69,20 @@ enum ANIVA_SCANCODES {
 
   ANIVA_SCANCODE_CAPSLOCK = 57,
 
+  ANIVA_SCANCODE_PRINTSCREEN = 70,
+  ANIVA_SCANCODE_SCROLLLOCK = 71,
+  ANIVA_SCANCODE_PAUSE = 72,
+  ANIVA_SCANCODE_INSERT = 73, 
+  ANIVA_SCANCODE_HOME = 74,
+  ANIVA_SCANCODE_PAGEUP = 75,
+  ANIVA_SCANCODE_DELETE = 76,
+  ANIVA_SCANCODE_END = 77,
+  ANIVA_SCANCODE_PAGEDOWN = 78,
+  ANIVA_SCANCODE_RIGHT = 79,
+  ANIVA_SCANCODE_LEFT = 80,
+  ANIVA_SCANCODE_DOWN = 81,
+  ANIVA_SCANCODE_UP = 82,
+
   ANIVA_SCANCODE_KP_DIVIDE = 84,
   ANIVA_SCANCODE_KP_MULTIPLY = 85,
   ANIVA_SCANCODE_KP_MINUS = 86,
@@ -98,6 +112,9 @@ enum ANIVA_SCANCODES {
 
 /*
  * Maps index to scancode
+ *
+ * It's the job of any keyboard driver to translate it's own native scancodes into
+ * something like this (Or at least a table that is pointed to by the SCANCODE_TRNSLT_TBL variable)
  */
 static enum ANIVA_SCANCODES aniva_scancode_table[512] = {
   ANIVA_SCANCODE_UNKNOWN,
@@ -159,6 +176,10 @@ static enum ANIVA_SCANCODES aniva_scancode_table[512] = {
   ANIVA_SCANCODE_LALT,       
   ANIVA_SCANCODE_SPACE,      
   ANIVA_SCANCODE_CAPSLOCK,
+  [104] = ANIVA_SCANCODE_UP,
+  [107] = ANIVA_SCANCODE_LEFT,
+  [109] = ANIVA_SCANCODE_RIGHT,
+  [112] = ANIVA_SCANCODE_DOWN,
   0
 };
 

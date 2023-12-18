@@ -29,6 +29,11 @@ typedef struct profile_var {
   struct proc_profile* profile;
   const char* key;
   union {
+    /*
+     * NOTE: when passing a string to a profile variable, the ownership of the string memory
+     * is passed to this variable object. This means that on a value-change or variable destruction,
+     * the memory gets freed if it was allocated on the heap.
+     */
     const char* str_value;
     uint64_t qword_value;
     uint32_t dword_value;

@@ -74,7 +74,18 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
 {
   switch (keycode) {
     case ANIVA_SCANCODE_LCTRL:
+    case ANIVA_SCANCODE_RCTRL:
       return KEY_FIRE;
+    case ANIVA_SCANCODE_UP:
+      return KEY_UPARROW;
+    case ANIVA_SCANCODE_DOWN:
+      return KEY_DOWNARROW;
+    case ANIVA_SCANCODE_LEFT:
+      return KEY_LEFTARROW;
+    case ANIVA_SCANCODE_RIGHT:
+      return KEY_RIGHTARROW;
+    case ANIVA_SCANCODE_ESCAPE:
+      return KEY_ESCAPE;
     default:
       return keycode;
   }

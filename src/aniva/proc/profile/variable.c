@@ -221,6 +221,14 @@ bool profile_var_write(profile_var_t* var, uint64_t value)
 
   switch (var->type) {
     case PROFILE_VAR_TYPE_STRING:
+
+      /*
+       * Just in case the old value was strdupd 
+       * If this does not point to a valid heap object, this call is harmless
+       */
+      if (var->str_value)
+        kfree((void*)var->str_value);
+
       var->str_value = (const char*)value;
       break;
     case PROFILE_VAR_TYPE_QWORD:

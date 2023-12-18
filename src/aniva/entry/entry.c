@@ -295,7 +295,7 @@ void kthread_entry() {
    */
   resume_scheduler();
 
-  extern_driver_t* kterm = load_external_driver("Root/System/lwnd.drv");
+  extern_driver_t* kterm = load_external_driver("Root/System/kterm.drv");
 
   ASSERT_MSG(kterm, "Failed to load kterm!");
 

@@ -95,36 +95,9 @@ ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size
  * the mutex is already lock, as to support sending packets in irqs) 
  * and then adds a tspacket to the queue of the socket
  */
-ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) {
-
-  threaded_socket_t *socket = find_registered_socket(port);
-
-  if (socket == nullptr || socket->m_parent == nullptr) {
-    return Error();
-  }
-
-  if (spinlock_is_locked(socket->m_packet_queue.m_lock))
-    return Warning();
-
-  spinlock_lock(socket->m_packet_queue.m_lock);
-
-  tspckt_t *packet = create_tspckt(socket, code, buffer, buffer_size);
-
-  if (!packet)
-    return Error();
-
-  // don't allow buffer restriction violations
-  if (packet->m_packet_size > socket->m_max_size_per_buffer) {
-    destroy_tspckt(packet);
-    spinlock_unlock(socket->m_packet_queue.m_lock);
-    return Error();
-  }
-
-  queue_enqueue(socket->m_packet_queue.m_packets, packet);
-
-  spinlock_unlock(socket->m_packet_queue.m_lock);
-
-  return Success(0);
+ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size) 
+{
+  return Error();
 }
 
 ErrorOrPtr socket_enable(struct thread* socket) {

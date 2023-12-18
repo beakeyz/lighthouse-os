@@ -1,3 +1,4 @@
+#include "LibSys/event/key.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
@@ -9,6 +10,7 @@
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "proc/core.h"
 #include "proc/ipc/packet_response.h"
@@ -35,7 +37,7 @@ char kbd_us_shift_map[256] = {
     '+', 0,      0,    0,   0,   0,   0,   0,   '|', 0,   0,   0,
 };
 
-#define KBD_PORT_DATA
+#define KBD_PORT_DATA 0x60
 #define KBD_PORT_STATUS 0x64
 #define KBD_PORT_COMMAND 0x64
 
@@ -83,11 +85,13 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
 EXPORT_DRIVER_PTR(g_base_ps2_keyboard_driver);
 
 static uint16_t s_mod_flags;
+static uint16_t s_current_scancode;
 
 int ps2_keyboard_entry() 
 {
   ErrorOrPtr result;
   s_mod_flags = NULL;
+  s_current_scancode = NULL;
 
   println("initializing ps2 keyboard driver!");
 
@@ -115,9 +119,18 @@ uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_
   return 0;
 }
 
-registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
+registers_t* ps2_keyboard_irq_handler(registers_t* regs) 
+{
+  char character;
+  uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
 
-  uint16_t scan_code = (uint16_t)in8(0x60);
+  if (scan_code == 0xe0) {
+    /* Extended keycode */
+    s_current_scancode = scan_code;
+    return regs;
+  }
+  
+  s_current_scancode = NULL;
 
   uint16_t key_code = scan_code & 0x7f;
   bool pressed = !(scan_code & 0x80);
@@ -140,14 +153,17 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs) {
     break;
   }
 
-  char character = (s_mod_flags & KBD_MOD_SHIFT)
-               ? kbd_us_shift_map[key_code]
-               : kbd_us_map[key_code];
+  character = NULL;
+
+  if (key_code < 256)
+    character = (s_mod_flags & KBD_MOD_SHIFT)
+                 ? kbd_us_shift_map[key_code]
+                 : kbd_us_map[key_code];
 
   kevent_kb_ctx_t kb = {
     .pressed = pressed,
     .pressed_char = character,
-    .keycode = key_code,
+    .keycode = aniva_scancode_table[key_code],
   };
 
   kevent_fire("keyboard", &kb, sizeof(kb));

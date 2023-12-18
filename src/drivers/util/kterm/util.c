@@ -316,10 +316,10 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
   this_part = device->m_devs;
 
   while (this_part) {
-    kterm_print_keyvalue("Partition: ", this_part->m_name);
-    kterm_print_keyvalue("Partition sector size: ", to_string(this_part->m_block_size));
-    kterm_print_keyvalue("Partition start lba: ", to_string(this_part->m_start_lba));
-    kterm_print_keyvalue("Partition end lba: ", to_string(this_part->m_end_lba));
+    kterm_print_keyvalue("Partition", this_part->m_name);
+    kterm_print_keyvalue("Partition sector size", to_string(this_part->m_block_size));
+    kterm_print_keyvalue("Partition start lba", to_string(this_part->m_start_lba));
+    kterm_print_keyvalue("Partition end lba", to_string(this_part->m_end_lba));
 
     this_part = this_part->m_next;
   }

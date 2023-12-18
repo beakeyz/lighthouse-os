@@ -58,6 +58,72 @@
 #define KTERM_FONT_WIDTH 8
 
 #define KTERM_CURSOR_WIDTH 2
+#define KTERM_MAX_PALLET_ENTRY_COUNT 256
+
+enum kterm_mode {
+  KTERM_MODE_LOADING = 0,
+  KTERM_MODE_TERMINAL,
+  KTERM_MODE_GRAPHICS,
+} mode;
+
+enum KTERM_BASE_CLR {
+  BASE_CLR_RED = 0,
+  BASE_CLR_YELLOW,
+  BASE_CLR_GREEN,
+  BASE_CLR_CYAN,
+  BASE_CLR_BLUE,
+  BASE_CLR_PURPLE,
+  BASE_CLR_PINK,
+
+  BASE_CLR_COUNT
+};
+
+/* 
+ * Single entry in the kterm color pallet
+ */
+struct kterm_terminal_pallet_entry {
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+  uint8_t padding;
+};
+
+struct kterm_terminal_char {
+  uint8_t pallet_idx;
+  uint8_t ch;
+};
+
+/* Grid of caracters on the screen in terminal mode */
+static struct kterm_terminal_char* _characters;
+
+/* Entire kterm color pallet. Maximum 256 colors available in this pallet */
+static struct kterm_terminal_pallet_entry* _clr_pallet;
+
+/* Amound of chars on the x-axis */
+static uint32_t _chars_xres;
+/* Amound of chars on the y-axis */
+static uint32_t _chars_yres;
+
+/* Current x-index of the cursor */
+static uint32_t _chars_cursor_x;
+/* Current y-index of the cursor */
+static uint32_t _chars_cursor_y;
+
+/* Should we print a tag on every newline? */
+static bool _print_newline_tag;
+
+/* Command buffer */
+static kdoor_t __processor_door;
+static kdoorbell_t* __kterm_cmd_doorbell;
+static thread_t* __kterm_worker_thread;
+
+/* Buffer information */
+static uintptr_t __kterm_buffer_ptr;
+static char __kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
+static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
+
+/* Framebuffer information */
+static fb_info_t __kterm_fb_info;
 
 int kterm_init();
 int kterm_exit();
@@ -67,10 +133,16 @@ static void kterm_flush_buffer();
 static void kterm_write_char(char c);
 static void kterm_process_buffer();
 
-//static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
-static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color);
+static void kterm_handle_newline_tag();
+static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32_t y);
 
-static void kterm_draw_cursor();
+static void kterm_cursor_shiftback_x();
+
+//static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
+static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bool defer_update);
+
+static void kterm_enable_newline_tag();
+static void kterm_disable_newline_tag();
 static const char* kterm_get_buffer_contents();
 static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y);
 static void kterm_scroll(uintptr_t lines);
@@ -83,20 +155,6 @@ logger_t kterm_logger = {
 };
 
 int kterm_on_key(kevent_ctx_t* event);
-
-/* Command buffer */
-static kdoor_t __processor_door;
-static kdoorbell_t* __kterm_cmd_doorbell;
-static thread_t* __kterm_worker_thread;
-
-/* Buffer information */
-static uintptr_t __kterm_current_line;
-static uintptr_t __kterm_buffer_ptr;
-static char __kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
-static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
-
-/* Framebuffer information */
-static fb_info_t __kterm_fb_info;
 
 static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color) 
 {
@@ -118,48 +176,133 @@ static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint3
   }
 }
 
-/* TODO: remove
- */
-static ALWAYS_INLINE void kterm_print_keyvalue(const char* key, const char* value)
+static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
 {
-  kterm_print(key);
-  kterm_print(": ");
-  if (value)
-    kterm_println(value);
-  else 
-    kterm_println("N/A");
+  uint32_t clr;
+  struct kterm_terminal_pallet_entry* entry;
+
+  /* Return black */
+  if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
+    return NULL;
+
+  entry = &_clr_pallet[idx];
+  clr = ((uint32_t)entry->red << __kterm_fb_info.colors.red.offset_bits) |
+        ((uint32_t)entry->green << __kterm_fb_info.colors.green.offset_bits) |
+        ((uint32_t)entry->blue << __kterm_fb_info.colors.blue.offset_bits);
+
+  return clr;
 }
 
-/* TODO: remove
- */
-static uint32_t __test_hashmap(const char** argv, size_t args)
+static void kterm_update_term_char(struct kterm_terminal_char* char_start, uint32_t count)
 {
-  memory_allocator_t kallocator;
-  
-  kheap_copy_main_allocator(&kallocator);
+  char* glyph;
+  /* x and y components inside the screen */
+  uintptr_t offset;
+  uint32_t color;
+  uint32_t x;
+  uint32_t y;
 
-  kterm_print_keyvalue("KHeap space free", to_string(kallocator.m_free_size));
-  kterm_print_keyvalue("KHeap space used", to_string(kallocator.m_used_size));
+  if (!count)
+    return;
 
-  hashmap_t* t = create_hashmap(16, NULL);
+  /* Calculate the offset of the starting character */
+  offset = ((uintptr_t)char_start - (uintptr_t)_characters) / sizeof(*char_start);
 
-  kterm_print_keyvalue("hashmap max size", to_string(t->m_max_entries));
-  kterm_print_keyvalue("hashmap size", to_string(t->m_size));
+  do {
+    /* Grab our font */
+    glyph = font8x8_basic[(uint32_t)char_start->ch];
 
-  hashmap_put(t, "yay", (void*)69);
-  hashmap_put(t, "yay^2", (void*)70);
-  hashmap_put(t, "vroom", (void*)70);
+    x = (offset % _chars_xres) * KTERM_FONT_WIDTH;
+    y = (ALIGN_DOWN(offset , _chars_xres) / _chars_xres) * KTERM_FONT_HEIGHT;
 
-  kterm_print_keyvalue("hashmap size", to_string(t->m_size));
+    color = kterm_color_for_pallet_idx(char_start->pallet_idx);
 
-  destroy_hashmap(t);
+    for (uintptr_t _y = 0; _y < KTERM_FONT_HEIGHT; _y++) {
+      for (uintptr_t _x = 0; _x < KTERM_FONT_WIDTH; _x++) {
 
-  kheap_copy_main_allocator(&kallocator);
+        if (glyph[_y] & (1 << _x)) kterm_draw_pixel_raw(x + _x, y + _y, color);
+        /* TODO: draw a background color */
+        else kterm_draw_pixel_raw(x + _x, y + _y, 0x00);
+      }
+    }
 
-  kterm_print_keyvalue("KHeap space free", to_string(kallocator.m_free_size));
-  kterm_print_keyvalue("KHeap space used", to_string(kallocator.m_used_size));
+    count--;
+    char_start++;
+    offset++;
+  } while (count);
+}
 
-  return 0;
+/*!
+ * @brief: Fill the kterm color pallet with the default colors
+ *
+ */
+static void kterm_fill_pallet()
+{
+  struct kterm_terminal_pallet_entry* entry;
+  enum KTERM_BASE_CLR base_clr;
+  uint32_t dimness;
+  uint32_t tint_count;
+
+  _clr_pallet[0] = (struct kterm_terminal_pallet_entry){ 0xff, 0xff, 0xff, 0xff, };
+  _clr_pallet[1] = (struct kterm_terminal_pallet_entry){ 0x00, 0x00, 0x00, 0xff, };
+  _clr_pallet[2] = (struct kterm_terminal_pallet_entry){ 0x21, 0x21, 0x21, 0xff, };
+
+  tint_count = ALIGN_DOWN(KTERM_MAX_PALLET_ENTRY_COUNT - 3, BASE_CLR_COUNT) / BASE_CLR_COUNT;
+
+  /* 
+   * Start at 3
+   * Since 0, 1 and 2 are reserved for white, black and gray
+   * 
+   * The pallet is divided into 7 base colors:
+   *  Red
+   *  Yellow
+   *  Green
+   *  Cyan
+   *  Blue
+   *  Purple
+   *  Pink
+   */
+  for (uint32_t i = 0; i < ALIGN_DOWN(KTERM_MAX_PALLET_ENTRY_COUNT - 3, BASE_CLR_COUNT); i++) {
+    entry = &_clr_pallet[3 + i];
+
+    memset(entry, 0, sizeof(*entry));
+
+    /* This is going to tell us what base color we're working on */
+    base_clr = ALIGN_DOWN(i, tint_count) / tint_count;
+    dimness = (i % tint_count) * 8; 
+
+    /* Compute the amount for the components per base color */
+    switch (base_clr) {
+      /* RGB: these colors only have one component */
+      case BASE_CLR_RED:
+        entry->red = 0xff - dimness;
+        break;
+      case BASE_CLR_GREEN:
+        entry->green = 0xff - dimness;
+        break;
+      case BASE_CLR_BLUE:
+        entry->blue = 0xff - dimness;
+        break;
+      /* Intermediate tints, these tints have two components with one variable */
+      case BASE_CLR_YELLOW:
+        entry->red = 0xff;
+        entry->green = 0xff - dimness;
+        break;
+      case BASE_CLR_CYAN:
+        entry->green = 0xff;
+        entry->blue = 0xff - dimness;
+        break;
+      case BASE_CLR_PURPLE:
+        entry->blue = 0xff;
+        entry->red = 0xff - dimness;
+        break;
+      case BASE_CLR_PINK:
+        entry->blue = 0x7f - dimness;
+        entry->red = 0xff;
+      default:
+        break;
+    }
+  }
 }
 
 struct kterm_cmd kterm_commands[] = {
@@ -202,11 +345,6 @@ struct kterm_cmd kterm_commands[] = {
     "diskinfo",
     "Print info about a disk device",
     kterm_cmd_diskinfo,
-  },
-  {
-    "testhashmap",
-    "Test the hashmap kernel util",
-    __test_hashmap,
   },
   {
     "vidinfo",
@@ -382,6 +520,41 @@ static int kterm_parse_cmd_buffer(char* cmd_buffer, char** argv_buffer)
   return 0;
 }
 
+static void kterm_clear_terminal_chars()
+{
+  struct kterm_terminal_char* ch;
+
+  for (uint32_t i = 0; i < _chars_yres; i++) {
+    for (uint32_t j = 0; j < _chars_xres; j++) {
+
+      ch = kterm_get_term_char(j, i);
+
+      ch->ch = NULL;
+      ch->pallet_idx = 1;
+    }
+  }
+}
+
+/*!
+ * @brief: Redraw the entire terminal screen after a modeswitch for example
+ */
+static void kterm_redraw_terminal_chars()
+{
+  struct kterm_terminal_char* ch;
+
+  for (uint32_t i = 0; i < _chars_yres; i++) {
+    for (uint32_t j = 0; j < _chars_xres; j++) {
+
+      ch = kterm_get_term_char(j, i);
+
+      if (!ch->ch)
+        continue;
+
+      kterm_draw_char(j, i, ch->ch, ch->pallet_idx, false);
+    }
+  }
+}
+
 /*!
  * @brief Clear the screen and reset the cursor
  *
@@ -391,8 +564,13 @@ void kterm_clear()
 {
   kterm_clear_raw();
 
-  __kterm_current_line = 0;
-  kterm_draw_cursor();
+  _chars_cursor_y = 0;
+  _chars_cursor_x = 0;
+
+  /* Clear every terminal character */
+  kterm_clear_terminal_chars();
+
+  kterm_handle_newline_tag();
 }
 
 /*!
@@ -523,7 +701,7 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
  */
 int kterm_init() 
 {
-  __kterm_current_line = 0;
+  kterm_disable_newline_tag();
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
 
   ASSERT_MSG(driver_manifest_write(&base_kterm_driver, kterm_write), "Failed to manifest kterm write");
@@ -563,6 +741,22 @@ int kterm_init()
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 
+  _chars_xres = __kterm_fb_info.width / KTERM_FONT_WIDTH;
+  _chars_yres = __kterm_fb_info.height / KTERM_FONT_HEIGHT;
+
+  _chars_cursor_x = 0;
+  _chars_cursor_y = 0;
+
+  /*
+   * Allocate a range for our characters
+   */
+  _characters = (void*)Must(__kmem_alloc_range(nullptr, nullptr, 0, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+  /* Allocate the color pallet */
+  _clr_pallet = (void*)Must(__kmem_alloc_range(nullptr, nullptr, 0, KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+  kterm_fill_pallet();
+
   /* Register our logger to the logger subsys */
   register_logger(&kterm_logger);
 
@@ -572,7 +766,7 @@ int kterm_init()
   // flush our terminal buffer
   kterm_flush_buffer();
 
-  kterm_draw_cursor();
+  mode = KTERM_MODE_TERMINAL;
 
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
   kterm_print("\n");
@@ -586,6 +780,11 @@ int kterm_init()
   kterm_print("Available cores: ");
   kterm_print(to_string(processor->m_info.m_max_available_cores));
   kterm_print("\n");
+
+  kterm_enable_newline_tag();
+
+  /* Prompt a newline tag draw */
+  kterm_println(NULL);
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
@@ -646,6 +845,9 @@ int kterm_on_key(kevent_ctx_t* ctx)
   return 0;
 }
 
+/*! 
+ * @brief: Make sure there is no garbage in our character buffer
+ */
 static void kterm_flush_buffer() 
 {
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
@@ -659,18 +861,25 @@ static void kterm_flush_buffer()
  */
 static void kterm_write_char(char c) 
 {
+  char msg[2] = { 0 };
+
   if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
     // time to flush the buffer
     return;
   }
 
+  msg[0] = c;
+
   switch (c) {
     case '\b':
       if (__kterm_buffer_ptr > 0) {
-        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, 0, 0x00);
+
+        kterm_cursor_shiftback_x();
+
+        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, 0, 0, false);
         __kterm_buffer_ptr--;
         __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
-        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0xFFFFFFFF);
+        //kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
       } else {
         __kterm_buffer_ptr = 0;
       }
@@ -681,10 +890,10 @@ static void kterm_write_char(char c)
       break;
     default:
       if (c >= 0x20) {
-        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, c, 0xFFFFFFFF);
+        kterm_print(msg);
         __kterm_char_buffer[__kterm_buffer_ptr] = c;
         __kterm_buffer_ptr++;
-        kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0xFFFFFFFF);
+        //kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
       }
       break;
   }
@@ -714,7 +923,7 @@ static void kterm_process_buffer()
   }
 
   /* Make sure we add the newline so we also flush the char buffer */
-  kterm_print("\n");
+  kterm_println(NULL);
 
   /* Redirect to the stdin buffer when there is an active command still */
   if (kdoor_is_rang(&__processor_door)) {
@@ -730,24 +939,62 @@ static void kterm_process_buffer()
   doorbell_ring(__kterm_cmd_doorbell);
 }
 
-static void kterm_draw_cursor() {
-  kterm_draw_char(0 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '>', 0xFFFFFFFF);
-  kterm_draw_char(1 * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
-  __kterm_buffer_ptr = 0;
-  kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0xFFFFFFFF);
+static void kterm_enable_newline_tag()
+{
+  _print_newline_tag = true;
 }
 
-static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uintptr_t color) {
-  char* glyph = font8x8_basic[(uint32_t)c];
-  for (uintptr_t _y = 0; _y < KTERM_FONT_HEIGHT; _y++) {
-    for (uintptr_t _x = 0; _x < KTERM_FONT_WIDTH; _x++) {
-      kterm_draw_pixel_raw(x + _x, y + _y, 0x00);
+static void kterm_disable_newline_tag()
+{
+  _print_newline_tag = false;
+}
 
-      if (glyph[_y] & (1 << _x)) {
-        kterm_draw_pixel_raw(x + _x, y + _y, color);
-      }
-    }
-  }
+/*!
+ * @brief: Print the configured newline tag
+ *
+ * This uses the backend print routines to draw a newline tag
+ * Called by print and println when '_print_newline_tag' is enabled
+ */
+static void kterm_handle_newline_tag()
+{
+  /* Only print newline tags if that is enabled */
+  if (!_print_newline_tag)
+    return;
+
+  /* 
+   * Print a basic newline tag 
+   * TODO: allow for custom tags
+   */
+  kterm_print("> ");
+}
+
+static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32_t y)
+{
+  return &_characters[y * _chars_xres + x];
+}
+
+/*!
+ * @brief: Draw the character @c into the terminal
+ *
+ * Make sure we're in KTERM_MODE_TERMINAL, otherwise this means nothing
+ */
+static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx, bool defer_update)
+{
+  struct kterm_terminal_char* term_chr;
+
+  if (mode != KTERM_MODE_TERMINAL)
+    return;
+
+  /* Grab the terminal character entry */
+  term_chr = kterm_get_term_char(x, y);
+
+  term_chr->ch = c;
+  term_chr->pallet_idx = color_idx;
+
+  if (defer_update)
+    return;
+
+  kterm_update_term_char(term_chr, 1);
 }
 
 static inline const char* kterm_get_buffer_contents() 
@@ -758,11 +1005,63 @@ static inline const char* kterm_get_buffer_contents()
   return __kterm_char_buffer;
 }
 
+/*!
+ * @brief: Shift the cursor forward by one
+ */
+static void kterm_cursor_shift_x()
+{
+  _chars_cursor_x++;
+
+  if (_chars_cursor_x >= _chars_xres) {
+    _chars_cursor_x = 0;
+    _chars_cursor_y++;
+  }
+
+  if (_chars_cursor_y >= _chars_yres) {
+    kernel_panic("TODO: scroll when we reach the end of _chars_yres");
+    kterm_scroll(1);
+  }
+}
+
+/*!
+ * @brief: Shift the cursor x-component back by one
+ *
+ * FIXME: Allow shifting back over the y-axis until we've reached the start of the line where we started
+ * typing. Right now, when the user types until they reach _chars_xres, there is a rollover, which we don't  check for here
+ */
+static void kterm_cursor_shiftback_x()
+{
+  if (_chars_cursor_x)
+    _chars_cursor_x--;
+}
+
+/*!
+ * @brief: Shift the cursor down a line by one and reset it's x-component
+ */
+static void kterm_cursor_shift_y()
+{
+  _chars_cursor_x = 0;
+  _chars_cursor_y ++;
+
+  if (_chars_cursor_y >= _chars_yres) {
+    kernel_panic("TODO: scroll when we reach the end of _chars_yres");
+    kterm_scroll(1);
+  }
+}
+
+/*!
+ * @brief: This prints a line on the kterm and, if _print_newline_tag is enabled, prints a newline tag
+ */
 int kterm_println(const char* msg) 
 {
   if (msg)
     kterm_print(msg);
-  kterm_print("\n");
+
+  /* Flush the buffer on every println */
+  kterm_flush_buffer();
+
+  kterm_cursor_shift_y();
+  kterm_handle_newline_tag();
   return 0;
 }
 
@@ -774,34 +1073,34 @@ int kterm_println(const char* msg)
  */
 int kterm_print(const char* msg) 
 {
-  uintptr_t index = 0;
+  uint32_t idx;
 
-  while (msg[index]) {
-    char current_char = msg[index];
-    if (current_char == '\n') {
-      /* Erase the cursor on the previous line */
-      kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, ' ', 0xFFFFFFFF);
-      __kterm_current_line++;
+  if (!msg)
+    return 0;
 
-      if (__kterm_current_line * KTERM_FONT_HEIGHT >= __kterm_fb_info.height) {
-        kterm_scroll(1);
-      }
+  idx = 0;
 
-      kterm_flush_buffer();
-      kterm_draw_cursor();
-      __kterm_buffer_ptr = NULL;
-    } else {
-      kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, current_char, 0xFFFFFFFF);
-      __kterm_buffer_ptr++;
+  while (msg[idx]) {
 
-      if ((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH > __kterm_fb_info.width) {
-        __kterm_current_line++;
-        __kterm_buffer_ptr = 0;
-      }
+    /*
+     * When we encounter a newline character during a kterm_print, we should simply do the following:
+     * Shift y of the cursor and don't do anything else
+     */
+    if (msg[idx] == '\n') {
+      kterm_cursor_shift_y();
+      goto cycle;
     }
-    index++;
-  }
 
+    /* 
+     * Draw the char 
+     * FIXME: currently we only draw these white, support other colors
+     */
+    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, msg[idx], 0, false);
+    kterm_cursor_shift_x();
+
+cycle:
+    idx++;
+  }
   return 0;
 }
 
@@ -823,7 +1122,6 @@ static void kterm_scroll(uintptr_t lines)
 {
   volatile uint32_t* top = kterm_get_pixel_address(0, 0);
   (void)top;
-  __kterm_current_line -= 3;
   kernel_panic("TODO: implement scrolling");
 }
 

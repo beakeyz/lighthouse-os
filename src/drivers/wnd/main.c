@@ -1,4 +1,3 @@
-#include "LibSys/event/key.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/wnd/alloc.h"
 #include "drivers/wnd/event.h"
@@ -263,12 +262,11 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
       u_event = &uwindow->keyevent_buffer[uwindow->keyevent_buffer_write_idx++];
 
       /* Write the data */
-      u_event->keycode = aniva_scancode_table[kbd_ctx.keycode];
+      u_event->keycode = kbd_ctx.keycode;
       u_event->pressed_char = kbd_ctx.pressed_char;
       u_event->pressed = kbd_ctx.pressed;
       u_event->mod_flags = NULL;
 
-      println(to_string(u_event->keycode));
       println(to_string(kbd_ctx.keycode));
 
       /* Make sure we cycle the index */

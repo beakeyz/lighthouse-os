@@ -8,7 +8,7 @@
 #include "libk/data/queue.h"
 
 #define DEFAULT_STACK_SIZE                      (16 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS                (1)
+#define DEFAULT_THREAD_MAX_TICKS                (4)
 
 #define PROC_DEFAULT_MAX_THREADS                (16)
 #define PROC_CORE_PROCESS_NAME                  "[aniva-core]"

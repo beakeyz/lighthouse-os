@@ -19,7 +19,10 @@
 #include <LibC/sys/types.h>
 #include "driver.h"
 
-/* Processes may know this path */
+/*
+ * Processes may know this path 
+ * FIXME: Should we make this path available through a profile variable? (Like 'LWND_DRV_PATH')
+ */
 #define LWND_DRV_PATH "service/lwnd"
 
 /*
