@@ -8,6 +8,8 @@
 #include "dev/manifest.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
@@ -37,7 +39,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
   if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
     return SYS_NOPERM;
-  
+
   switch (khandle->type) {
     case HNDL_TYPE_FILE:
       {

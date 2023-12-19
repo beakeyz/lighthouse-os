@@ -3,17 +3,29 @@
 #include "LibSys/driver/drv.h"
 #include "LibSys/handle.h"
 #include "LibSys/handle_def.h"
+#include "LibSys/proc/profile.h"
 #include <stdlib.h>
 #include <string.h>
+
+BOOL get_lwnd_drv_path(char* buffer, size_t bufsize)
+{
+  return profile_var_read_ex("Global", LWND_DRV_PATH_VAR, NULL, bufsize, (void*)buffer);
+}
 
 BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
 {
   BOOL res;
+  char lwnd_drv_path[128] = { 0 };
 
   if (!wnd || !width || !height)
     return FALSE;
 
   memset(wnd, 0, sizeof(*wnd));
+
+  res = get_lwnd_drv_path(lwnd_drv_path, sizeof(lwnd_drv_path));
+
+  if (!res || lwnd_drv_path[0] == NULL)
+    return FALSE;
 
   /* Prepare our window object */
   wnd->current_height = height;
@@ -23,7 +35,7 @@ BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)
   wnd->keyevent_buffer = malloc(wnd->keyevent_buffer_capacity * sizeof(lkey_event_t));
 
   /* Open lwnd */
-  res = open_driver(LWND_DRV_PATH, NULL, NULL, &wnd->lwnd_handle);
+  res = open_driver(lwnd_drv_path, NULL, NULL, &wnd->lwnd_handle);
 
   if (!res)
     return FALSE;

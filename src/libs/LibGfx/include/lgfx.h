@@ -23,7 +23,13 @@
  * Processes may know this path 
  * FIXME: Should we make this path available through a profile variable? (Like 'LWND_DRV_PATH')
  */
-#define LWND_DRV_PATH "service/lwnd"
+#define LWND_DRV_PATH_VAR "DFLT_LWND_PATH"
+
+/*!
+ * @brief: Ask the kernel about the value of the variable LWND_DRV_PATH_VAR on the Global profile
+ */
+BOOL
+get_lwnd_drv_path(char* buffer, size_t bufsize);
 
 /*
  * The window manager will keep track of which window comes from which

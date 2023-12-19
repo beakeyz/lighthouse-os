@@ -344,7 +344,7 @@ int I_GetPaletteIndex (int r, int g, int b)
     int i;
     col_t color;
 
-    printf("I_GetPaletteIndex\n");
+    //printf("I_GetPaletteIndex\n");
 
     best = 0;
     best_diff = INT_MAX;

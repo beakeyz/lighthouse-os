@@ -64,20 +64,19 @@ BOOL profile_var_write(HANDLE handle, QWORD buffer_size, void* buffer)
  */
 BOOL profile_var_read_ex(char* profile_name, char* var_key, WORD flags, QWORD buffer_size, void* buffer)
 {
-  BOOL result;
   HANDLE profile_handle;
   HANDLE var_handle;
 
   if (!buffer || !buffer_size)
     return FALSE;
 
-  profile_handle = open_profile(profile_name, flags);
+  profile_handle = open_profile(profile_name, flags | HNDL_FLAG_READACCESS);
 
   /* Yikes */
   if (!handle_verify(profile_handle))
     return FALSE;
 
-  var_handle = open_profile_variable(var_key, profile_handle, flags);
+  var_handle = open_profile_variable(var_key, profile_handle, flags | HNDL_FLAG_READACCESS);
 
   /* Failed to open a handle to the variable, close the profile and exit */
   if (!handle_verify(var_handle)) {
@@ -86,7 +85,7 @@ BOOL profile_var_read_ex(char* profile_name, char* var_key, WORD flags, QWORD bu
   }
 
   /* Try to read the variable and simply exit with the result value */
-  result = profile_var_read(var_handle, buffer_size, buffer);
+  profile_var_read(var_handle, buffer_size, buffer);
 
   /* Close variable */
   close_handle(var_handle);
@@ -94,7 +93,7 @@ BOOL profile_var_read_ex(char* profile_name, char* var_key, WORD flags, QWORD bu
   /* Close profile */
   close_handle(profile_handle);
 
-  return result;
+  return TRUE;
 }
 
 /*
@@ -106,13 +105,13 @@ BOOL profile_var_write_ex(char* profile_name, char* var_key, WORD flags, QWORD b
   HANDLE profile_handle;
   HANDLE var_handle;
 
-  profile_handle = open_profile(profile_name, flags);
+  profile_handle = open_profile(profile_name, flags | HNDL_FLAG_WRITEACCESS);
 
   /* Yikes */
   if (!handle_verify(profile_handle))
     return FALSE;
 
-  var_handle = open_profile_variable(var_key, profile_handle, flags);
+  var_handle = open_profile_variable(var_key, profile_handle, flags | HNDL_FLAG_WRITEACCESS);
 
   /* Failed to open a handle to the variable, close the profile and exit */
   if (!handle_verify(var_handle)) {

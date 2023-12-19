@@ -34,6 +34,8 @@ struct proc;
 /* Processes in this profile may unload drivers */
 #define PRF_PERM_UNLOAD_DRV (1 << 1)
 
+#define PROFILE_STR(str) (uint64_t)(str)
+
 /*
  * Profiles need to be saveable and loadable since they will 
  * act as our 'users' AND our 'groups' at the same time

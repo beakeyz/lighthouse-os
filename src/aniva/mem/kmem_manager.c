@@ -1132,6 +1132,11 @@ ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_fl
         );
 }
 
+ErrorOrPtr kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
+{
+  kernel_panic("TODO: kmem_user_dealloc");
+}
+
 /*!
  * @brief: Allocate a block of memory into a userprocess
  * 
@@ -1228,7 +1233,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
    * For that we'll have to use the kernel allocation feature to instantly map
    * it somewhere for us in kernelspace =D
    */
-  pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_alloc_range(nullptr, nullptr, HIGH_MAP_BASE, SMALL_PAGE_SIZE, 0, 0));
+  pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_alloc_range(nullptr, nullptr, KERNEL_MAP_BASE, SMALL_PAGE_SIZE, 0, 0));
 
   /* Clear root, so we have no random mappings */
   memset(table_root, 0, SMALL_PAGE_SIZE);

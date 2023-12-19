@@ -1,4 +1,5 @@
 #include "kterm.h"
+#include "LibGfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/ahci/ahci_device.h"
@@ -37,6 +38,8 @@
 #include "proc/handle.h"
 #include "proc/ipc/packet_response.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
@@ -93,6 +96,16 @@ struct kterm_terminal_char {
   uint8_t ch;
 };
 
+/*
+ * This is only accessed when mode is KTERM_MODE_GRAPHICS
+ */
+struct {
+  uint32_t* c_fb;
+  size_t fb_size;
+  uint32_t startx, starty;
+  uint32_t width, height;
+} _active_grpx_app;
+
 /* Grid of caracters on the screen in terminal mode */
 static struct kterm_terminal_char* _characters;
 
@@ -108,6 +121,10 @@ static uint32_t _chars_yres;
 static uint32_t _chars_cursor_x;
 /* Current y-index of the cursor */
 static uint32_t _chars_cursor_y;
+/* Current index of the color used for printing */
+static uint32_t _current_color_idx;
+
+static const char* _old_dfld_lwnd_path_value;
 
 /* Should we print a tag on every newline? */
 static bool _print_newline_tag;
@@ -174,6 +191,11 @@ static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint3
     }
     current_offset += __kterm_fb_info.pitch;
   }
+}
+
+static inline void kterm_clear_raw()
+{
+  kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
 }
 
 static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
@@ -303,6 +325,14 @@ static void kterm_fill_pallet()
         break;
     }
   }
+}
+
+static void kterm_set_print_color(uint32_t idx)
+{
+  if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
+    idx = 0;
+
+  _current_color_idx = idx;
 }
 
 struct kterm_cmd kterm_commands[] = {
@@ -439,13 +469,6 @@ static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
   return current->handler;
 }
 
-
-static void kterm_clear_raw()
-{
-  //__kterm_fb_info.ops->f_draw_rect(&__kterm_fb_info, 0, 0, __kterm_fb_info.width, __kterm_fb_info.height, (fb_color_t){ .raw_clr = 0x00 });
-  kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
-}
-
 static int kterm_get_argument_count(char* cmd_buffer, size_t* count)
 {
   size_t current_count;
@@ -529,8 +552,11 @@ static void kterm_clear_terminal_chars()
 
       ch = kterm_get_term_char(j, i);
 
-      ch->ch = NULL;
-      ch->pallet_idx = 1;
+      if (!ch->ch)
+        continue;
+
+      /* Draw null chars */
+      kterm_draw_char(j, i, NULL, 1, false);
     }
   }
 }
@@ -562,8 +588,6 @@ static void kterm_redraw_terminal_chars()
  */
 void kterm_clear() 
 {
-  kterm_clear_raw();
-
   _chars_cursor_y = 0;
   _chars_cursor_x = 0;
 
@@ -695,6 +719,23 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
   return DRV_STAT_OK;
 }
 
+void kterm_init_lwnd_emulation()
+{
+  const char* var_buffer;
+  proc_profile_t* profile;
+  profile_var_t* var;
+
+  ASSERT_MSG(profile_scan_var("Global/DFLT_LWND_PATH", &profile, &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
+
+  profile_var_get_str_value(var, &var_buffer);
+
+  /* Make sure this is owned by us */
+  _old_dfld_lwnd_path_value = strdup(var_buffer);
+
+  /* Make sure the system knows we emulate lwnd */
+  profile_var_write(var, PROFILE_STR("other/kterm"));
+}
+
 /*
  * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it 
  * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
@@ -703,6 +744,7 @@ int kterm_init()
 {
   (void)kterm_redraw_terminal_chars;
   kterm_disable_newline_tag();
+  _old_dfld_lwnd_path_value = NULL;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
 
   ASSERT_MSG(driver_manifest_write(&base_kterm_driver, kterm_write), "Failed to manifest kterm write");
@@ -742,11 +784,19 @@ int kterm_init()
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 
+  /* Initialize our lwnd emulation capabilities */
+  kterm_init_lwnd_emulation();
+
+  /* Make sure there is no garbage on the screen */
+  kterm_clear_raw();
+
   _chars_xres = __kterm_fb_info.width / KTERM_FONT_WIDTH;
   _chars_yres = __kterm_fb_info.height / KTERM_FONT_HEIGHT;
 
   _chars_cursor_x = 0;
   _chars_cursor_y = 0;
+
+  kterm_set_print_color(0);
 
   /*
    * Allocate a range for our characters
@@ -774,13 +824,12 @@ int kterm_init()
   kterm_print(" -- Welcome to the aniva kterm driver --\n");
   processor_t* processor = get_current_processor();
 
-  kterm_print(processor->m_info.m_vendor_id);
-  kterm_print("\n");
+  kterm_print(" CPU: ");
   kterm_print(processor->m_info.m_model_id);
   kterm_print("\n");
-  kterm_print("Available cores: ");
+  kterm_print(" Available cores: ");
   kterm_print(to_string(processor->m_info.m_max_available_cores));
-  kterm_print("\n");
+  kterm_print("\n\n For any information about kterm, type: \'help\'\n");
 
   kterm_enable_newline_tag();
 
@@ -809,7 +858,19 @@ int kterm_exit() {
   return 0;
 }
 
-uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
+/*!
+ * @brief: Our main msg endpoint
+ *
+ * Make sure we support at least the most basic form of LWND emulation
+ */
+uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) 
+{
+  lwindow_t* uwnd = NULL;
+  proc_t* c_proc = get_current_proc();
+
+  /* Check pointer */
+  if (IsError(kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
+    return DRV_STAT_INVAL;
 
   switch (code) {
     case KTERM_DRV_DRAW_STRING: 
@@ -827,14 +888,106 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
         break;
       }
     case KTERM_DRV_CLEAR:
+      kterm_clear();
+      break;
+    case LWND_DCC_CREATE:
+      /* Switch the kterm mode to KTERM_MODE_GRAPHICS and prepare a canvas for the graphical application to run
+       */
+      if (size != sizeof(*uwnd))
+        return DRV_STAT_INVAL;
+
+      uwnd = buffer;
+
+      mode = KTERM_MODE_GRAPHICS;
+
+      /* Clear any shit on the screen */
+      //kterm_clear_raw();
+
+      uwnd->wnd_id = 1;
+      break;
+    case LWND_DCC_CLOSE:
+      /* Free up the memory used by the graphical process and switch the terminal back to KTERM_MODE_TERMINAL
+       * and make sure to restore the old terminal state
+       */
+
+      Must(kmem_user_dealloc(c_proc, (vaddr_t)_active_grpx_app.c_fb, _active_grpx_app.fb_size));
+
+      memset(&_active_grpx_app, 0, sizeof(_active_grpx_app));
+
+      mode = KTERM_MODE_TERMINAL;
+
+      kterm_redraw_terminal_chars();
+      break;
+    case LWND_DCC_MINIMIZE:
+      /* Won't be implemented
+       */
+    case LWND_DCC_RESIZE:
+      /* Won't be implemented
+       */
+      break;
+    case LWND_DCC_REQ_FB:
+      /* Allocate a portion of the framebuffer for the process
+       */
+      if (size != sizeof(*uwnd))
+        return DRV_STAT_INVAL;
+
+      uwnd = buffer;
+
+      /* Clamp width */
+      if (uwnd->current_width > __kterm_fb_info.width)
+        uwnd->current_width = __kterm_fb_info.width;
+
+      /* Clamp height */
+      if (uwnd->current_height > __kterm_fb_info.height)
+        uwnd->current_height = __kterm_fb_info.height;
+
+      _active_grpx_app.width = uwnd->current_width;
+      _active_grpx_app.height = uwnd->current_height;
+
+      /* Compute best startx and starty */
+      _active_grpx_app.startx = (__kterm_fb_info.width >> 1) - (_active_grpx_app.width >> 1);
+      _active_grpx_app.starty = (__kterm_fb_info.height >> 1) - (_active_grpx_app.height >> 1);
+
+      /* Allocate this crap in the userprocess */
+      _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);
+      _active_grpx_app.c_fb = uwnd->fb = (void*)Must(kmem_user_alloc_range(c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
+
+      memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
+
+    case LWND_DCC_UPDATE_WND:
       {
-        kterm_clear();
+        /* Update the windows framebuffer to the frontbuffer
+         */
+
+        uintptr_t current_offset = 0;
+
+        for (uint32_t y = 0; y < _active_grpx_app.height; y++) {
+          for (uint32_t x = 0; x < _active_grpx_app.width; x++) {
+            kterm_draw_pixel_raw(_active_grpx_app.startx + x, _active_grpx_app.starty + y, *(uint32_t*)(_active_grpx_app.c_fb + current_offset));
+
+            current_offset++;
+          }
+        }
+        break;
       }
+    case LWND_DCC_GETKEY:
+      /* Give the graphical process information about any keyevents
+       */
+      kernel_panic("TODO: implement lwnd emulation for kterm (LWND_DCC_GETKEY)");
+      break;
   }
 
   return DRV_STAT_OK;
 }
 
+/*!
+ * @brief: Kterm kevent
+ *
+ * When
+ * KTERM_MODE_TERMINAL: simply pass to kterm
+ * KTERM_MODE_GRAPHICS: pass to the keybuffer of the current active app
+ *                     -> Also check for the graphics mode escape sequence to force-quit the application
+ */
 int kterm_on_key(kevent_ctx_t* ctx)
 {
   kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
@@ -853,6 +1006,11 @@ static void kterm_flush_buffer()
 {
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
   __kterm_buffer_ptr = 0;
+}
+
+static inline void kterm_draw_cursor_glyph()
+{
+  kterm_draw_char(_chars_cursor_x, _chars_cursor_y, KTERM_CURSOR_GLYPH, _current_color_idx, false);
 }
 
 /*!
@@ -875,11 +1033,17 @@ static void kterm_write_char(char c)
     case '\b':
       if (__kterm_buffer_ptr > 0) {
 
+        /* Erase old cursor (NOTE: color does not matter, since we are drawing a null-char) */
+        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, 0, false);
+
         kterm_cursor_shiftback_x();
 
-        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, 0, 0, false);
+        /* Draw new cursor */
+        kterm_draw_cursor_glyph();
+
         __kterm_buffer_ptr--;
         __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
+
         //kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
       } else {
         __kterm_buffer_ptr = 0;
@@ -894,6 +1058,8 @@ static void kterm_write_char(char c)
         kterm_print(msg);
         __kterm_char_buffer[__kterm_buffer_ptr] = c;
         __kterm_buffer_ptr++;
+
+        kterm_draw_cursor_glyph();
         //kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
       }
       break;
@@ -966,7 +1132,11 @@ static void kterm_handle_newline_tag()
    * Print a basic newline tag 
    * TODO: allow for custom tags
    */
-  kterm_print("> ");
+  kterm_set_print_color(127);
+  kterm_print("$> ");
+  kterm_set_print_color(0);
+
+  kterm_draw_cursor_glyph();
 }
 
 static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32_t y)
@@ -1032,8 +1202,14 @@ static void kterm_cursor_shift_x()
  */
 static void kterm_cursor_shiftback_x()
 {
-  if (_chars_cursor_x)
+  if (_chars_cursor_x) {
     _chars_cursor_x--;
+    return;
+  }
+
+  _chars_cursor_x = _chars_xres-1;
+  if (_chars_yres)
+    _chars_yres--;
 }
 
 /*!
@@ -1041,6 +1217,8 @@ static void kterm_cursor_shiftback_x()
  */
 static void kterm_cursor_shift_y()
 {
+  kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, NULL, false);
+
   _chars_cursor_x = 0;
   _chars_cursor_y ++;
 
@@ -1076,7 +1254,7 @@ int kterm_print(const char* msg)
 {
   uint32_t idx;
 
-  if (!msg)
+  if (!msg || mode != KTERM_MODE_TERMINAL)
     return 0;
 
   idx = 0;
@@ -1096,7 +1274,7 @@ int kterm_print(const char* msg)
      * Draw the char 
      * FIXME: currently we only draw these white, support other colors
      */
-    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, msg[idx], 0, false);
+    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, msg[idx], _current_color_idx, false);
     kterm_cursor_shift_x();
 
 cycle:

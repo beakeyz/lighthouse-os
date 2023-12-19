@@ -286,6 +286,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
 
 ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
 ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
 
 /*
  * Return a translation of the address provided that is 

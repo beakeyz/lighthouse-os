@@ -570,14 +570,23 @@ static void __apply_base_variables()
  * - where it can find certain system files
  * - information about firmware
  * - information about devices (?)
+ * - where default events are located
+ * - where utility drivers are located
  */
 static void __apply_global_variables()
 {
-  profile_add_var(&global_profile, create_profile_var("SYSTEM_NAME", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, (uintptr_t)"Aniva"));
+  /* System name: Codename of the kernel that it present in the system */
+  profile_add_var(&global_profile, create_profile_var("SYSTEM_NAME", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, PROFILE_STR("Aniva")));
+  /* Major version number of the kernel */
   profile_add_var(&global_profile, create_profile_var("VERSION_MAJ", PROFILE_VAR_TYPE_BYTE, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.maj));
+  /* Minor version number of the kernel */
   profile_add_var(&global_profile, create_profile_var("VERSION_MIN", PROFILE_VAR_TYPE_BYTE, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.min));
+  /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
   profile_add_var(&global_profile, create_profile_var("VERSION_BUMP", PROFILE_VAR_TYPE_WORD, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.bump));
-  //profile_add_var(&global_profile, create_profile_var("", enum PROFILE_VAR_TYPE type, uintptr_t value))
+  /* Default provider for lwnd services */
+  profile_add_var(&global_profile, create_profile_var("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd")));
+  /* Default eventname for the keyboard event */
+  profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
 }
 
 /*!

@@ -3,9 +3,9 @@
 
 #include "dev/driver.h"
 
-#define KTERM_DRV_DRAW_STRING   10
-#define KTERM_DRV_MAP_FB        11
-#define KTERM_DRV_CLEAR         12
+#define KTERM_DRV_DRAW_STRING   7
+#define KTERM_DRV_MAP_FB        8
+#define KTERM_DRV_CLEAR         9
 
 /*
  * Generic kterm commands 

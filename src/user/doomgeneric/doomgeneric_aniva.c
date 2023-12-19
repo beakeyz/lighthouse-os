@@ -48,7 +48,7 @@ void DG_DrawFrame()
   lwindow_draw_buffer(&window, 0, 0, window.current_width, window.current_height, (lcolor_t*)DG_ScreenBuffer);
 
   /* Get keys from the server */
-  get_key_event(&window, NULL);
+  //get_key_event(&window, NULL);
 }
 
 /*!
@@ -96,6 +96,7 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
  */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
+  /*
   BOOL has_event;
   lkey_event_t keyevent;
 
@@ -107,7 +108,9 @@ int DG_GetKey(int* pressed, unsigned char* doomKey)
   *pressed = keyevent.pressed;
   *doomKey = aniva_keycode_to_doomkey(keyevent.keycode);
 
-  return 1;
+  */
+  //return 1;
+  return 0;
 }
 
 void DG_SetWindowTitle(const char * title)
@@ -130,7 +133,7 @@ int main(/* int argc, char **argv */)
 {
   doomgeneric_Create(argc, argv);
 
-  for (int i = 0; ; i++)
+  for (;;)
   {
       doomgeneric_Tick();
   }
