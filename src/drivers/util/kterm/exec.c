@@ -82,5 +82,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
   println("Oinky");
 
+  logln(NULL);
+
   return 0;
 }

@@ -85,9 +85,9 @@ static vdir_t* __scan_for_dir_from(vdir_t* root, const char* path)
   }
 
   kfree(buffer_start);
-
+  
   /* Did we reach the end? */
-  if (buffer)
+  if (!buffer)
     return nullptr;
 
   if (ret)
@@ -138,6 +138,7 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
       }
     }
 
+    /* We should always reach this */
     if (reached_end) {
       buffer = nullptr;
       break;
@@ -146,7 +147,6 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
     if (!ret) {
       /* Create a vdir and link it */
       ret = create_vdir(node, prev, buffer_start);
-      println(ret->m_name);
     } else {
       /* Decend into the next subdir */
       prev = ret;
@@ -159,7 +159,7 @@ static vdir_t* __create_vobject_path(vnode_t* node, const char* path)
 
   kfree(buffer_start);
 
-  /* Assert? */
+  /* Assert? Make sure we have reached the end of our buffer lmao */
   if (buffer)
     return nullptr;
 

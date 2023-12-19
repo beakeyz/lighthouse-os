@@ -229,8 +229,11 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
   if (!target)
     return;
 
-  msg_len = strlen(msg);
+  msg_len = NULL;
   msg_offset = 0;
+
+  if (msg)
+    msg_len = strlen(msg);
 
   /*
    * Add a lil offset if we are specifying warning or error prefixes
@@ -241,6 +244,7 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
     msg_len += strlen(error_str);
   }
 
+  /* FIXME: heap-alloc? */
   char msg_buffer[msg_len + 1];
   memset(msg_buffer, 0, msg_len + 1);
 
@@ -259,7 +263,8 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
     type = LOG_TYPE_LINE;
   }
 
-  memcpy(&msg_buffer[msg_offset], msg, strlen(msg));
+  if (msg)
+    memcpy(&msg_buffer[msg_offset], msg, strlen(msg));
 
   switch (type) {
     case LOG_TYPE_DEFAULT:

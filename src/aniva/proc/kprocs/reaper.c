@@ -40,16 +40,22 @@ static void USED reaper_main()
   /* Simply pass execution through */
   while (true) {
 
+    proc = queue_peek(__reaper_queue);
+
+    /* Cycle until we are able to take the mutex */
+    if (!proc || mutex_is_locked(__reaper_lock))
+      goto cycle_and_yield;
+
     /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
     mutex_lock(__reaper_lock);
 
-    proc = queue_dequeue(__reaper_queue);
-
-    if (proc)
-      destroy_proc(proc);
+    ASSERT_MSG(queue_dequeue(__reaper_queue), "Dequeue is not equal to the peek into the reaper queue!");
 
     mutex_unlock(__reaper_lock);
 
+    destroy_proc(proc);
+
+cycle_and_yield:
     scheduler_yield();
   }
 

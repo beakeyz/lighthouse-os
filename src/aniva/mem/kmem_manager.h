@@ -39,6 +39,8 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 #define MAX_VIRT_ADDR           0xffffffffffffffffULL
 // Kernel text high virtual base
 #define HIGH_MAP_BASE           0xFFFFFFFF80000000ULL
+// Map base for any new kernel range allocs
+#define KERNEL_MAP_BASE         0xFFFF800000000000ULL
 // Anything IO can be mapped here
 #define IO_MAP_BASE             0xffff000000000000ULL
 // Base for early kernelheap mappings 

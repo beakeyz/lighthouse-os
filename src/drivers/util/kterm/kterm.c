@@ -701,6 +701,7 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
  */
 int kterm_init() 
 {
+  (void)kterm_redraw_terminal_chars;
   kterm_disable_newline_tag();
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
 
@@ -750,10 +751,10 @@ int kterm_init()
   /*
    * Allocate a range for our characters
    */
-  _characters = (void*)Must(__kmem_alloc_range(nullptr, nullptr, 0, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+  _characters = (void*)Must(__kmem_kernel_alloc_range(_chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
   /* Allocate the color pallet */
-  _clr_pallet = (void*)Must(__kmem_alloc_range(nullptr, nullptr, 0, KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), KMEM_CUSTOMFLAG_IDENTITY, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+  _clr_pallet = (void*)Must(__kmem_kernel_alloc_range(KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
   kterm_fill_pallet();
 

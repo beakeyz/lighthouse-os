@@ -963,7 +963,7 @@ ErrorOrPtr __kmem_kernel_alloc(uintptr_t addr, size_t size, uint32_t custom_flag
  */
 ErrorOrPtr __kmem_kernel_alloc_range (size_t size, uint32_t custom_flags, uint32_t page_flags) 
 {
-  return __kmem_alloc_range(nullptr, nullptr, HIGH_MAP_BASE, size, custom_flags, page_flags);
+  return __kmem_alloc_range(nullptr, nullptr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
 }
 
 ErrorOrPtr __kmem_dma_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags)
