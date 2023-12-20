@@ -88,7 +88,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_user_stack_top = 0;
   thread->m_user_stack_bottom = 0;
 
-
   /* Zero memory, since we don't want random shit in our stack */
   memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
@@ -259,7 +258,7 @@ extern NORETURN void thread_end_lifecycle() {
 }
 
 NAKED void common_thread_entry() {
-  asm (
+  asm volatile (
     "popq %rdi \n" // our beautiful thread
     "popq %rsi \n" // ptr to its registers
     //"call thread_exit_init_state \n"
@@ -270,26 +269,12 @@ NAKED void common_thread_entry() {
 // TODO: redo?
 extern void thread_enter_context(thread_t *to) 
 {
+  paddr_t krnl_dir_phys;
+  paddr_t new_dir_phys;
   ASSERT_MSG(to->m_current_state == RUNNABLE, to_string(to->m_current_state));
 
-  // FIXME: remove?
   processor_t *current_processor = get_current_processor();
   thread_t* previous_thread = get_previous_scheduled_thread();
-
-  // TODO: make use of this
-  //struct context_switch_event_hook hook = create_context_switch_event_hook(to);
-  //call_event(CONTEXT_SWITCH_EVENT, &hook);
-
-  // Only switch pagetables if we actually need to interchange between
-  // them, otherwise thats just wasted tlb
-  if (previous_thread->m_context.cr3 != to->m_context.cr3) {
-    if (to->m_context.cr3 == (uintptr_t)kmem_get_krnl_dir()) {
-      /* The exception is the kernel page dir, since it is stored as a physical address */
-      kmem_load_page_dir(to->m_context.cr3, false);
-    } else {
-      kmem_load_page_dir(kmem_to_phys(nullptr, to->m_context.cr3), false);
-    }
-  }
 
   // NOTE: for correction purposes
   to->m_cpu = current_processor->m_cpu_num;
@@ -297,6 +282,19 @@ extern void thread_enter_context(thread_t *to)
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
+
+  // Only switch pagetables if we actually need to interchange between
+  // them, otherwise thats just wasted tlb
+  if (previous_thread->m_context.cr3 == to->m_context.cr3)
+    return;
+
+  krnl_dir_phys = (paddr_t)kmem_get_krnl_dir();
+  new_dir_phys = to->m_context.cr3;
+
+  if (new_dir_phys != krnl_dir_phys)
+    new_dir_phys = kmem_to_phys(nullptr, new_dir_phys);
+
+  kmem_load_page_dir(new_dir_phys, false);
 }
 
 // called when a thread is created and enters the scheduler for the first time

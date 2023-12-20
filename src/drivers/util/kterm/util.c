@@ -12,6 +12,8 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "proc/core.h"
+#include "proc/proc.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include <dev/external.h>
@@ -316,13 +318,30 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
   this_part = device->m_devs;
 
   while (this_part) {
-    kterm_print_keyvalue("Partition", this_part->m_name);
-    kterm_print_keyvalue("Partition sector size", to_string(this_part->m_block_size));
-    kterm_print_keyvalue("Partition start lba", to_string(this_part->m_start_lba));
-    kterm_print_keyvalue("Partition end lba", to_string(this_part->m_end_lba));
+    kterm_print_keyvalue("Partition Name", this_part->m_name);
+    kterm_print_keyvalue("  \\ sector size", to_string(this_part->m_block_size));
+    kterm_print_keyvalue("  \\ Partition start lba", to_string(this_part->m_start_lba));
+    kterm_print_keyvalue("  \\ Partition end lba", to_string(this_part->m_end_lba));
 
     this_part = this_part->m_next;
   }
 
+  return 0;
+}
+
+static bool procinfo_callback(proc_t* proc)
+{
+  kterm_print_keyvalue(proc->m_name, to_string(proc->m_id));
+  return true;
+}
+
+/*!
+ * @brief: Get a list of current processes
+ */
+uint32_t kterm_cmd_procinfo(const char** argv, size_t argc)
+{
+  println("YAY");
+  kterm_print_keyvalue("Active procs", to_string(get_proc_count()));
+  foreach_proc(procinfo_callback);
   return 0;
 }

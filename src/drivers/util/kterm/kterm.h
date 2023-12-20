@@ -7,6 +7,12 @@
 #define KTERM_DRV_MAP_FB        8
 #define KTERM_DRV_CLEAR         9
 
+enum kterm_mode {
+  KTERM_MODE_LOADING = 0,
+  KTERM_MODE_TERMINAL,
+  KTERM_MODE_GRAPHICS,
+};
+
 /*
  * Generic kterm commands 
  * 
@@ -26,6 +32,9 @@ int kterm_println(const char* msg);
 int kterm_print(const char* msg);
 
 void kterm_clear();
+void kterm_switch_to_terminal();
+
+bool kterm_ismode(enum kterm_mode mode);
 
 struct kterm_cmd {
   char* argv_zero;

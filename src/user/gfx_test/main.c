@@ -6,7 +6,10 @@
 #include "LibGfx/include/driver.h"
 #include "LibGfx/include/lgfx.h"
 #include "LibGfx/include/video.h"
+#include "LibSys/driver/drv.h"
 #include "sys/types.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 lwindow_t window;
 lframebuffer_t fb;
@@ -18,7 +21,7 @@ int main()
   /* Initialize the graphics API */
 
   /* Connect to the compositor (Create a blank window of 75x75) */
-  res = request_lwindow(&window, 75, 75, NULL);
+  res = request_lwindow(&window, 640, 400, NULL);
 
   if (!res)
     return -1;
@@ -28,6 +31,8 @@ int main()
   if (!res)
     return -2;
 
+  lwindow_draw_rect(&window, 0, 0, 640, 400, RGBA(0xff, 0xff, 0xff, 0xff));
+
   /* Draw the smily */
   lwindow_draw_rect(&window, 10, 10, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
   lwindow_draw_rect(&window, 50, 10, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
@@ -36,10 +41,6 @@ int main()
   lwindow_draw_rect(&window, 50, 30, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
 
   lwindow_draw_rect(&window, 15, 35, 40, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
-
-  /* Yield */
-  while (true) {
-  }
 
   close_lwindow(&window);
   return 0;

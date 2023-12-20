@@ -80,19 +80,23 @@ int kheap_copy_main_allocator(memory_allocator_t* alloc)
  **/
 
 // our kernel malloc impl
-void* kmalloc (size_t len) {
+void* kmalloc (size_t len) 
+{
   return memory_allocate(&__kernel_allocator, len);
 }
 
 // our kernel free impl
-void kfree (void* addr) {
+void kfree (void* addr) 
+{
   memory_deallocate(&__kernel_allocator, addr);
 }
 
-void kfree_sized(void* addr, size_t allocation_size) {
+void kfree_sized(void* addr, size_t allocation_size) 
+{
   memory_sized_deallocate(&__kernel_allocator, addr, allocation_size);
 }
 
-void kheap_ensure_size(size_t size) {
+void kheap_ensure_size(size_t size) 
+{
   memory_try_heap_expand(&__kernel_allocator, size);
 }

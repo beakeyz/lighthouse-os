@@ -7,7 +7,7 @@
 #include "libk/data/vector.h"
 #include "libk/data/queue.h"
 
-#define DEFAULT_STACK_SIZE                      (16 * Kib)
+#define DEFAULT_STACK_SIZE                      (32 * Kib)
 #define DEFAULT_THREAD_MAX_TICKS                (10)
 
 #define PROC_DEFAULT_MAX_THREADS                (16)
@@ -134,6 +134,9 @@ struct threaded_socket *find_registered_socket(uint32_t port);
 
 struct proc* find_proc_by_id(proc_id_t id);
 struct proc* find_proc(const char* name);
+
+bool foreach_proc(bool (*f_callback)(struct proc*));
+uint32_t get_proc_count();
 
 struct thread* find_thread_by_fid(full_proc_id_t fid);
 struct thread* find_thread(struct proc* proc, thread_id_t tid);

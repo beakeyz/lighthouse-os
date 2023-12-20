@@ -928,16 +928,13 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t resources, uin
     // check if this page is actually used
     const bool was_used = kmem_is_phys_page_used(page_idx);
 
-    if (!was_used && !ignore_unused) {
+    if (!was_used && !ignore_unused)
       return Warning();
-    }
 
     kmem_set_phys_page_free(page_idx);
 
-    if (unmap) {
-      if (!kmem_unmap_page(map, vaddr))
-        return Error();
-    }
+    if (unmap && !kmem_unmap_page(map, vaddr))
+      return Error();
   }
 
   /* Only release the resource if we dont want to defer that opperation */
@@ -1040,7 +1037,6 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, va
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
 
-  /* FIXME: do we need to map here? */
   if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
@@ -1095,7 +1091,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t r
   }
 
   if (resources) {
-    resource_claim_ex("kmem alloc scattered", nullptr, vbase, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(resources, KRES_TYPE_MEM));
+    resource_claim_ex("kmem alloc scattered", nullptr, v_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, &GET_RESOURCE(resources, KRES_TYPE_MEM));
   }
 
   return Success(vbase);
@@ -1437,8 +1433,13 @@ void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts) {
   asm volatile("" : : : "memory");
 }
 
-ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
+ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) 
+{
+  return kmem_get_kernel_address_ex(virtual_address, KMEM_DATA.m_high_page_base, map);
+}
 
+ErrorOrPtr kmem_get_kernel_address_ex(vaddr_t virtual_address, vaddr_t map_base, pml_entry_t* map)
+{
   pml_entry_t* page;
   paddr_t p_address;
   vaddr_t v_kernel_address;
@@ -1467,7 +1468,7 @@ ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* map) {
    *  - we map kernel resources at a certain base just for kernel resources
    *  - ect.
    */
-  v_kernel_address = kmem_from_phys(p_address, KMEM_DATA.m_high_page_base);
+  v_kernel_address = kmem_from_phys(p_address, map_base);
 
   /* Make sure the return the correctly aligned address */
   return Success(v_kernel_address + v_align_delta);

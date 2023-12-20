@@ -88,7 +88,7 @@ ErrorOrPtr pick_next_thread_scheduler(void);
 void scheduler_yield();
 
 /* die */
-ErrorOrPtr scheduler_try_execute();
+int scheduler_try_execute();
 void scheduler_set_request(scheduler_t* s);
 
 

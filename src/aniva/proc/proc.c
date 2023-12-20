@@ -227,6 +227,8 @@ void destroy_proc(proc_t* proc)
 
   destroy_khandle_map(&proc->m_handle_map);
 
+  kfree((void*)proc->m_name);
+
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
    * We already kinda expect this to only be called from kernel context, but 
@@ -237,9 +239,7 @@ void destroy_proc(proc_t* proc)
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 
-  kfree((void*)proc->m_name);
   kzfree(proc, sizeof(proc_t));
-
 }
 
 

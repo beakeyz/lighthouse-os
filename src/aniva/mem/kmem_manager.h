@@ -46,12 +46,12 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 // Base for early kernelheap mappings 
 #define EARLY_KERNEL_HEAP_BASE  ALIGN_UP((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE)
 // Base for early multiboot fb
-#define EARLY_FB_MAP_BASE       0xFFFF800000000000ULL
+#define EARLY_FB_MAP_BASE       0xffffff8000000000ULL
 // Base for the quickmap engine. We take the pretty much highest possible vaddr
 #define QUICKMAP_BASE           0xFFFFffffFFFF0000ULL
 
 /* Bottom of the userstack per process. Every thread gets thread_id * STACK_SIZE as a new base */
-#define HIGH_STACK_BASE         0x0000000080000000ULL
+#define HIGH_STACK_BASE         0x0000000800000000ULL
 
 /* We need to be carefull, because the userstack is placed directly under the kernel */
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
@@ -295,6 +295,7 @@ ErrorOrPtr kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
  * Fails if virtual_address is not mapped into the provided map
  */
 ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* from_map);
+ErrorOrPtr kmem_get_kernel_address_ex(vaddr_t virtual_address, vaddr_t map_base, pml_entry_t* from_map);
 
 ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 

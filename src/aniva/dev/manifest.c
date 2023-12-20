@@ -5,6 +5,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"

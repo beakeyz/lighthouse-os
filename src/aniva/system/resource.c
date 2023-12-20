@@ -4,6 +4,7 @@
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"

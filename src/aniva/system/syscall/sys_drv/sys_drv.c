@@ -22,7 +22,10 @@ sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t s
   c_proc = get_current_proc();
 
   /* Check the buffer(s) if they are given */
-  if (buffer && size && IsError(kmem_validate_ptr(c_proc, (vaddr_t)buffer, size)))
+  if (buffer && IsError(kmem_validate_ptr(c_proc, (vaddr_t)buffer, size)))
+    return SYS_INV;
+
+  if (out_buffer && IsError(kmem_validate_ptr(c_proc, (vaddr_t)out_buffer, size)))
     return SYS_INV;
 
   /* Find the handle */
@@ -39,7 +42,7 @@ sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t s
         dev_manifest_t* driver = c_hndl->reference.driver;
 
         /* NOTE: this call locks the manifest */
-        result = driver_send_msg(driver->m_url, code, buffer, size);
+        result = driver_send_msg_ex(driver, code, buffer, size, out_buffer, out_size);
         break;
       }
     case HNDL_TYPE_FILE:

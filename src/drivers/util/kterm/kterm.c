@@ -54,7 +54,7 @@
 #include "font.h"
 #include "exec.h"
 
-#define KTERM_MAX_BUFFER_SIZE 256
+#define KTERM_MAX_BUFFER_SIZE 512
 
 #define KTERM_FB_ADDR (EARLY_FB_MAP_BASE) 
 #define KTERM_FONT_HEIGHT 8
@@ -62,12 +62,6 @@
 
 #define KTERM_CURSOR_WIDTH 2
 #define KTERM_MAX_PALLET_ENTRY_COUNT 256
-
-enum kterm_mode {
-  KTERM_MODE_LOADING = 0,
-  KTERM_MODE_TERMINAL,
-  KTERM_MODE_GRAPHICS,
-} mode;
 
 enum KTERM_BASE_CLR {
   BASE_CLR_RED = 0,
@@ -104,7 +98,10 @@ struct {
   size_t fb_size;
   uint32_t startx, starty;
   uint32_t width, height;
+  proc_t* client_proc;
 } _active_grpx_app;
+
+static enum kterm_mode mode;
 
 /* Grid of caracters on the screen in terminal mode */
 static struct kterm_terminal_char* _characters;
@@ -397,6 +394,11 @@ struct kterm_cmd kterm_commands[] = {
     nullptr,
   },
   {
+    "procinfo",
+    "Print info about the current running processes",
+    kterm_cmd_procinfo,
+  },
+  {
     "envinfo",
     "Print info about the current environment (Profiles and variables)",
     kterm_cmd_envinfo,
@@ -556,9 +558,11 @@ static void kterm_clear_terminal_chars()
         continue;
 
       /* Draw null chars */
-      kterm_draw_char(j, i, NULL, 1, false);
+      kterm_draw_char(j, i, NULL, 1, true);
     }
   }
+
+  kterm_update_term_char(_characters, _chars_xres * _chars_yres);
 }
 
 /*!
@@ -572,9 +576,6 @@ static void kterm_redraw_terminal_chars()
     for (uint32_t j = 0; j < _chars_xres; j++) {
 
       ch = kterm_get_term_char(j, i);
-
-      if (!ch->ch)
-        continue;
 
       kterm_draw_char(j, i, ch->ch, ch->pallet_idx, false);
     }
@@ -595,6 +596,19 @@ void kterm_clear()
   kterm_clear_terminal_chars();
 
   kterm_handle_newline_tag();
+}
+
+void kterm_switch_to_terminal()
+{
+  if (mode == KTERM_MODE_TERMINAL || !_active_grpx_app.c_fb)
+    return;
+
+  mode = KTERM_MODE_TERMINAL;
+}
+
+bool kterm_ismode(enum kterm_mode _mode)
+{
+  return (mode == _mode);
 }
 
 /*!
@@ -743,9 +757,11 @@ void kterm_init_lwnd_emulation()
 int kterm_init() 
 {
   (void)kterm_redraw_terminal_chars;
-  kterm_disable_newline_tag();
+
   _old_dfld_lwnd_path_value = NULL;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
+
+  kterm_disable_newline_tag();
 
   ASSERT_MSG(driver_manifest_write(&base_kterm_driver, kterm_write), "Failed to manifest kterm write");
   ASSERT_MSG(driver_manifest_read(&base_kterm_driver, kterm_read), "Failed to manifest kterm read");
@@ -754,12 +770,10 @@ int kterm_init()
   memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
-  /* TODO: when we implement our HID driver, this should be replaced with a event endpoint we can probe */
-  // register our keyboard listener
-
+  /* Register ourselves to the keyboard event */
   kevent_add_hook("keyboard", "kterm", kterm_on_key); 
 
-  /* FIXME: integrate video device integration */
+  /* TODO: integrate video device accel */
   // map our framebuffer
   size_t size;
   uintptr_t ptr = KTERM_FB_ADDR;
@@ -769,18 +783,6 @@ int kterm_init()
     .virtual_base = ptr,
   };
 
-  /*
-   * (old, TODO: remove) This is the wrong way of getting information to the graphics API, because it is not a given that
-   * the loaded graphics driver is indeed efifb. It might very well be virtio or some other nonsense. 
-   * In that case, we need a function that gives us the current graphics driver path
-   *
-   * Situation has changed since. We now have a core video device that will always be present, regardless of video driver (If 
-   * the current driver is a nice one). As a driver, process, library, ect. relying on this device, we need to be aware of any 
-   * changes that are made to the device. If we grab any dynamic stuff, like the framebuffer, that is prone to change, we need
-   * to always be aware of these changes. This is why we need to subscribe ourselves to the device_driver_change kernel event.
-   * This ensures that we are always up to date on the current situation of our video device, and we are able to remap our framebuffer
-   * so we don't skip a beat
-   */
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 
@@ -863,13 +865,13 @@ int kterm_exit() {
  *
  * Make sure we support at least the most basic form of LWND emulation
  */
-uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) 
+uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffer, size_t size, void* out_buffer, size_t out_size) 
 {
   lwindow_t* uwnd = NULL;
   proc_t* c_proc = get_current_proc();
 
   /* Check pointer */
-  if (IsError(kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
+  if (buffer && IsError(kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
     return DRV_STAT_INVAL;
 
   switch (code) {
@@ -900,23 +902,13 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
 
       mode = KTERM_MODE_GRAPHICS;
 
-      /* Clear any shit on the screen */
-      //kterm_clear_raw();
-
       uwnd->wnd_id = 1;
       break;
     case LWND_DCC_CLOSE:
-      /* Free up the memory used by the graphical process and switch the terminal back to KTERM_MODE_TERMINAL
-       * and make sure to restore the old terminal state
+      /* Don't do anything: We switch back to terminal mode once the app exits
        */
 
-      Must(kmem_user_dealloc(c_proc, (vaddr_t)_active_grpx_app.c_fb, _active_grpx_app.fb_size));
-
-      memset(&_active_grpx_app, 0, sizeof(_active_grpx_app));
-
-      mode = KTERM_MODE_TERMINAL;
-
-      kterm_redraw_terminal_chars();
+      //Must(kmem_user_dealloc(c_proc, (vaddr_t)_active_grpx_app.c_fb, _active_grpx_app.fb_size));
       break;
     case LWND_DCC_MINIMIZE:
       /* Won't be implemented
@@ -941,6 +933,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size
       if (uwnd->current_height > __kterm_fb_info.height)
         uwnd->current_height = __kterm_fb_info.height;
 
+      _active_grpx_app.client_proc = c_proc;
       _active_grpx_app.width = uwnd->current_width;
       _active_grpx_app.height = uwnd->current_height;
 
@@ -1183,12 +1176,12 @@ static void kterm_cursor_shift_x()
 {
   _chars_cursor_x++;
 
-  if (_chars_cursor_x >= _chars_xres) {
+  if (_chars_cursor_x >= _chars_xres-1) {
     _chars_cursor_x = 0;
     _chars_cursor_y++;
   }
 
-  if (_chars_cursor_y >= _chars_yres) {
+  if (_chars_cursor_y >= _chars_yres-1) {
     kernel_panic("TODO: scroll when we reach the end of _chars_yres");
     kterm_scroll(1);
   }
@@ -1222,7 +1215,7 @@ static void kterm_cursor_shift_y()
   _chars_cursor_x = 0;
   _chars_cursor_y ++;
 
-  if (_chars_cursor_y >= _chars_yres) {
+  if (_chars_cursor_y >= _chars_yres-1) {
     kernel_panic("TODO: scroll when we reach the end of _chars_yres");
     kterm_scroll(1);
   }

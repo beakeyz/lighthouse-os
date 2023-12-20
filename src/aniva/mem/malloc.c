@@ -368,15 +368,15 @@ static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_nod
   ErrorOrPtr result;
   heap_node_t* node = TO_NODE(addr);
 
+  /* Wrong buffer */
+  if (!heap_buffer_contains(buffer, (uintptr_t)node))
+    return Error();
+
   /* Invalid address */
   if (!verify_identity(node))
     return Error();
 
   if (!has_flag(node, MALLOC_NODE_FLAG_USED))
-    return Error();
-
-  /* Wrong buffer */
-  if (!heap_buffer_contains(buffer, (uintptr_t)node))
     return Error();
 
   allocator_add_free(allocator, node->size);

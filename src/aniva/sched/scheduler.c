@@ -396,7 +396,7 @@ void scheduler_yield()
  *
  * NOTE: this requires the scheduler to be paused
  */
-ErrorOrPtr scheduler_try_execute() 
+int scheduler_try_execute() 
 {
   processor_t *p;
   scheduler_t* s;
@@ -408,26 +408,26 @@ ErrorOrPtr scheduler_try_execute()
   ASSERT_MSG(p->m_irq_depth == 0, "Trying to call scheduler while in irq");
 
   if (atomic_ptr_load(p->m_critical_depth))
-    return Error();
+    return -1;
 
   /* If we don't want to schedule, or our scheduler is paused, return */
   if (!scheduler_has_request(s))
-    return Error();
+    return -1;
 
   scheduler_clear_request(s);
 
   thread_t *next_thread = get_current_scheduling_thread();
   thread_t *prev_thread = get_previous_scheduled_thread();
 
-  //thread_try_prepare_userpacket(next_thread);
-
   thread_switch_context(prev_thread, next_thread);
 
-  return Success(0);
+  return 0;
 }
 
 /*!
- * @brief: The 
+ * @brief: The beating heart of the scheduler
+ * 
+ * TODO: refactor
  */
 static registers_t *sched_tick(registers_t *registers_ptr) 
 {

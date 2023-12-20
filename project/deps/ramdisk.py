@@ -64,6 +64,7 @@ class RamdiskManager(object):
 
         os.system(f"cp {self.USER_BINARIES_PATH}/doomgeneric/doom {self.APPS_PATH}")
         os.system(f"cp {self.USER_BINARIES_PATH}/init/init {self.APPS_PATH}")
+        os.system(f"cp {self.USER_BINARIES_PATH}/gfx_test/gfx_test {self.APPS_PATH}")
 
         return True
 

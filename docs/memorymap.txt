@@ -9,5 +9,16 @@ physical:
 virtual kernelspace:
 
 0x0000000000000000 -> 0xFFFF7FFFFFFFFFFF : Unused gap
-0xFFFF800000000000 -> 0xFFFFFFFF7FFFFFFF : Physical mirror
+0xffff000000000000 -> 0xFFFF7FFFFFFFFFFF : I/O mappings
+0xFFFF800000000000 -> 0xFFFFFFFF7FFFFFFF : Generic kernel object mappings
 0xFFFFFFFF80000000 -> 0xFFFFFFFFFFFFFFFF : Kernel-text mapping
+
+virtual memoryspace as per a 64-bit process:
+
+0x0000000000000000 -> 0xFFFF7FFFFFFFFFFF : Free to use by the process and its libraries
+0xFFFF800000000000 -> 0xFFFFFFFFFFFFFFFF : Shared kernel mappings for syscalls
+
+virtual memoryspace as per a 32-bit process (TODO):
+
+0x00000000 -> 0xBFFFFFFF : Free to use by the process and its libraries
+0xC0000000 -> 0xFFFFFFFF : Shared kernel mappings for syscalls

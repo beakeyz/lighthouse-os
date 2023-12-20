@@ -1,5 +1,6 @@
 #include "exec.h"
 #include "dev/manifest.h"
+#include "drivers/util/kterm/kterm.h"
 #include "fs/vfs.h"
 #include "fs/vobj.h"
 #include "libk/bin/elf.h"
@@ -82,7 +83,11 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
   println("Oinky");
 
-  logln(NULL);
+  /* Make sure we're in terminal right after this exit */
+  if (kterm_ismode(KTERM_MODE_GRAPHICS))
+    kterm_switch_to_terminal();
+
+  kterm_println(NULL);
 
   return 0;
 }

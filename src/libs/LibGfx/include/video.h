@@ -21,6 +21,11 @@ typedef lcolor_t volatile* lframebuffer_t;
 BOOL
 lwindow_request_framebuffer(lwindow_t* wnd, lframebuffer_t* fb);
 
+VOID
+lwindow_set_updates_deferred(lwindow_t* wnd);
+VOID
+lwindow_set_updates_immediate(lwindow_t* wnd);
+
 BOOL
 lwindow_update(lwindow_t* wnd);
 

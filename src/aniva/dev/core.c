@@ -11,6 +11,7 @@
 #include <mem/heap.h>
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
@@ -381,80 +382,15 @@ ErrorOrPtr uninstall_driver(dev_manifest_t* manifest)
   if (IsError(hive_remove_path(__installed_driver_manifests, manifest->m_url)))
     goto fail_and_exit;
 
+  println("Destroying");
   destroy_dev_manifest(manifest);
+  println("Yay");
 
   return Success(0);
 
 fail_and_exit:
   //kfree((void*)driver_url);
   return Error();
-}
-
-/*
-static void __driver_register_active(dev_type_t type, dev_manifest_t* manifest)
-{
-  dev_manifest_t* c_active_manifest;
-  dev_constraint_t* constraint = &__dev_constraints[type];
-
-  c_active_manifest = constraint->active;
-
-  // Easy job yay
-  if (constraint->max_active == 1) {
-    switch (constraint->current_active) {
-      case 0:
-        {
-          constraint->active = manifest;
-          constraint->current_active++;
-          break;
-        }
-      case 1:
-        {
-          ASSERT_MSG(c_active_manifest && c_active_manifest->m_handle, "No active manifest, wtf!");
-
-          // In this case, the driver has already registered itself as the active driver
-          if (c_active_manifest == manifest)
-            break;
-
-          // If there is a reason to switch, we do
-          if (manifest->m_handle->m_precedence > c_active_manifest->m_handle->m_precedence) {
-
-            // Unload the current active driver
-            unload_driver(c_active_manifest->m_url);
-
-            constraint->active = manifest;
-          }
-          break;
-        }
-      default:
-        break;
-    }
-    return;
-  }
-
-  ASSERT_MSG(!c_active_manifest, "active manifest isn't null while we are allowing more than one active drivers!");
-
-  ASSERT_MSG(constraint->current_active < constraint->max_active, "Exceeded maximum amount of active drivers for this type. TODO: implement error handling here");
-
-  constraint->current_active++;
-}
-*/
-
-static void __driver_unregister_active(dev_type_t type, dev_manifest_t* manifest)
-{
-  dev_constraint_t* constraint = &__dev_constraints[type];
-
-  /* We are not dealing with the current active driver */
-  if (constraint->active != manifest || !constraint->current_active)
-    return;
-
-  mutex_lock(__driver_constraint_lock);
-
-  /* Just make sure this is null if we unregister active */
-  constraint->active = nullptr;
-
-  constraint->current_active--;
-
-  mutex_unlock(__driver_constraint_lock);
 }
 
 static void __driver_register_presence(dev_type_t type) 
@@ -615,7 +551,6 @@ ErrorOrPtr unload_driver(dev_url_t url) {
 
   /* Unregister presence before unlocking the manifest */
   __driver_unregister_presence(manifest->m_handle->m_type);
-  __driver_unregister_active(manifest->m_handle->m_type, manifest); 
 
   if (manifest->m_external && (manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
     unload_external_driver(manifest->m_external);

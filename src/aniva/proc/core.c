@@ -275,6 +275,40 @@ proc_t* find_proc(const char* name) {
   return ret;
 }
 
+uint32_t get_proc_count()
+{
+  if (!__proc_vect)
+    return NULL;
+
+  return __proc_vect->m_length;
+}
+
+/*!
+ * @brief: Loop over all the current processes and call @f_callback
+ * 
+ * If @f_callback returns false, the loop is broken
+ *
+ * @returns: Wether we were able to walk the entire vector
+ */
+bool foreach_proc(bool (*f_callback)(struct proc*))
+{
+  proc_t* current;
+
+  mutex_lock(__proc_mutex);
+
+  FOREACH_VEC(__proc_vect, data, index) {
+    current = *(proc_t**)data;
+
+    if (!f_callback(current)) {
+      mutex_unlock(__proc_mutex);
+      return false;
+    }
+  }
+
+  mutex_unlock(__proc_mutex);
+  return true;
+}
+
 thread_t* find_thread(proc_t* proc, thread_id_t tid) {
   
   thread_t* ret;

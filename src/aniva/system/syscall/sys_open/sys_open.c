@@ -22,7 +22,7 @@
 #include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 
-HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint32_t mode)
+HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode)
 {
   HANDLE ret;
   khandle_t handle = { 0 };

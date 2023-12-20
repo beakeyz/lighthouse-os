@@ -5,7 +5,7 @@
 #include <libk/stddef.h>
 #include <LibSys/handle_def.h>
 
-HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint16_t flags, uint32_t mode);
+HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode);
 
 HANDLE sys_open_file(const char* __user path, uint16_t flags, uint32_t mode);
 HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode);

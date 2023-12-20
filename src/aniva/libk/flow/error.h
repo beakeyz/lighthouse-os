@@ -4,6 +4,28 @@
 #include <libk/stddef.h>
 #include <logging/log.h>
 
+/*
+ * TODO: remake
+ *
+ * The error object is too big and clunky
+ * We can do a few things:
+ *  - reform to integer codes, like linux
+ *  - use kevents for errors
+ *  - combine
+ * I had a few ideas to make errors in the kernel more streamlined. Most of them have to do with
+ * a concise and system-wide constant way to handle errors, rather than using ErrorOrPtr here, ints there
+ * and bools elsewhere. This is funky and makes for unpredictable kernel behaviour. Firstly, we need 
+ * to look at these things:
+ *  - Must() calls must be replaced with ASSERT
+ *  - kernel_panic must be reserved as a last resort
+ *  - a form of dynamic, recoverable 'assertion' must be looked into
+ *  - Generic error tracking must be emplaced
+ *
+ * When working with errors, we must remember that everything in the kernel stems from a single context. This context 
+ * can be setup in such a way to have consistant and precise tracking of errors, so that they can be recoverable as 
+ * often as possible
+ */
+
 typedef enum _ANIVA_STATUS {
   ANIVA_FAIL = 0,
   ANIVA_WARNING = 1,
