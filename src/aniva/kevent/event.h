@@ -1,6 +1,10 @@
 #ifndef __ANIVA_KEVENT_EVENT__
 #define __ANIVA_KEVENT_EVENT__
 
+#include "proc/core.h"
+#include "proc/proc.h"
+#include "proc/thread.h"
+#include "system/processor/processor.h"
 #include <libk/stddef.h>
 
 /* Are any errors in the event chain fatal? */
@@ -58,8 +62,19 @@ enum KEVENT_TYPE {
 typedef struct kevent_ctx {
   struct kevent* event;
 
+  /* Events with a buffersize of over 4 Gib is unlikely I hope */
+  uint32_t buffer_size;
+
+  struct {
+    bool in_irq:1;
+    bool user_called:1;
+  } flags;
+
+  /* Info about the call origin */
+  processor_t* orig_cpu;
+  fid_t orig_fid;
+
   void* buffer;
-  size_t buffer_size;
 } kevent_ctx_t;
 
 int add_kevent(const char* name, enum KEVENT_TYPE type, uint32_t flags, uint32_t hook_capacity);

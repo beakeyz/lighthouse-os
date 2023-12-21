@@ -26,4 +26,25 @@ static inline kevent_kb_ctx_t* kevent_ctx_to_kb(kevent_ctx_t* ctx)
   return ctx->buffer;
 }
 
+/*
+ * Keybuffer struct to quickly store a stream of key events
+ *
+ * Simple utility to avoid having to write this simple thing again and again
+ * NOTE: this struct has no ownership over its buffer. Any user of this utility 
+ * should handle the buffer memory lifetime themselves
+ */
+struct kevent_kb_keybuffer {
+  size_t capacity;
+  uint32_t w_idx;
+  uint32_t r_idx;
+  kevent_kb_ctx_t* buffer;
+};
+
+int init_kevent_kb_keybuffer(struct kevent_kb_keybuffer* out, kevent_kb_ctx_t* buffer, uint32_t capacity);
+
+int keybuffer_clear(struct kevent_kb_keybuffer* buffer);
+
+kevent_kb_ctx_t* keybuffer_read_key(struct kevent_kb_keybuffer* buffer);
+int keybuffer_write_key(struct kevent_kb_keybuffer* buffer, kevent_kb_ctx_t* event);
+
 #endif // !__ANIVA_KEVENT_KEYBOARD_TYPE__

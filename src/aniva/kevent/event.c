@@ -6,7 +6,12 @@
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "proc/core.h"
+#include "proc/proc.h"
+#include "proc/thread.h"
+#include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include "system/processor/processor.h"
 
 static hashmap_t* _kevent_map = NULL;
 static zone_allocator_t* _kevent_allocator = NULL;
@@ -512,6 +517,9 @@ int kevent_fire(const char* name, void* buffer, size_t size)
 int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
 {
   int error;
+  processor_t* c_cpu;
+  thread_t* c_thread;
+  proc_t* c_proc;
   kevent_ctx_t ctx;
   kevent_hook_t* current_hook;
 
@@ -528,11 +536,39 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
   if (!current_hook)
     return 2;
 
+  /* Create a context (TODO: move to own function) */
   ctx = (kevent_ctx_t){
     .event = event,
     .buffer = buffer,
     .buffer_size = size,
+    0,
   };
+
+  c_cpu = get_current_processor();
+  c_proc = get_current_proc();
+  c_thread = get_current_scheduling_thread();
+
+  if (c_cpu->m_irq_depth)
+    ctx.flags.in_irq = true;
+
+  /* TODO: check if current proc is a userproc
+   */
+
+  /*
+   * Create the original fullid
+   * Why don't we simply pass the pointers to the event context?
+   * well the original process or thread might end while firing this event, making
+   * the pointers invalid. By passing the pid and tid to the context, any eventhook
+   * can know if the process or thread is still active, before trying to access them
+   *
+   * This does raise a few other weird behavioural possibilities that we need to account
+   * for, but these are easier to deal with than with lingering pointers
+   *
+   * (NOTE: perhaps we create a better system to track pointer validities
+   * in which case we probably need to switch kevent contexts back to pointers =D ) 
+   */
+  ctx.orig_cpu = c_cpu;
+  ctx.orig_fid = create_full_procid(c_proc->m_id, c_thread->m_tid);
 
   mutex_lock(event->lock);
 

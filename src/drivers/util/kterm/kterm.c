@@ -55,6 +55,7 @@
 #include "exec.h"
 
 #define KTERM_MAX_BUFFER_SIZE 512
+#define KTERM_KEYBUFFER_CAPACITY 512
 
 #define KTERM_FB_ADDR (EARLY_FB_MAP_BASE) 
 #define KTERM_FONT_HEIGHT 8
@@ -101,6 +102,7 @@ struct {
   proc_t* client_proc;
 } _active_grpx_app;
 
+
 static enum kterm_mode mode;
 
 /* Grid of caracters on the screen in terminal mode */
@@ -108,6 +110,9 @@ static struct kterm_terminal_char* _characters;
 
 /* Entire kterm color pallet. Maximum 256 colors available in this pallet */
 static struct kterm_terminal_pallet_entry* _clr_pallet;
+
+/* Keybuffer for graphical applications */
+struct kevent_kb_keybuffer _keybuffer;
 
 /* Amound of chars on the x-axis */
 static uint32_t _chars_xres;
@@ -786,6 +791,10 @@ int kterm_init()
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 
+  void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
+
+  init_kevent_kb_keybuffer(&_keybuffer, _kb_buffer, KTERM_KEYBUFFER_CAPACITY);
+
   /* Initialize our lwnd emulation capabilities */
   kterm_init_lwnd_emulation();
 
@@ -966,11 +975,59 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
     case LWND_DCC_GETKEY:
       /* Give the graphical process information about any keyevents
        */
-      kernel_panic("TODO: implement lwnd emulation for kterm (LWND_DCC_GETKEY)");
+      if (size != sizeof(*uwnd))
+        return DRV_STAT_INVAL;
+
+      uwnd = buffer;
+
+      lkey_event_t* u_event;
+      kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer);
+
+      if (!event)
+        break;
+
+      /*
+       * TODO: create functions that handle with this reading and writing to user keybuffers
+       */
+
+      /* Grab a buffer entry */
+      u_event = &uwnd->keyevent_buffer[uwnd->keyevent_buffer_write_idx++];
+
+      /* Write the data */
+      u_event->keycode = event->keycode;
+      u_event->pressed_char = event->pressed_char;
+      u_event->pressed = event->pressed;
+      u_event->mod_flags = NULL;
+
+      println(to_string(event->keycode));
+
+      /* Make sure we cycle the index */
+      uwnd->keyevent_buffer_write_idx %= uwnd->keyevent_buffer_capacity;
+
       break;
   }
 
   return DRV_STAT_OK;
+}
+
+int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
+{
+  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !kbd->pressed)
+    return 0;
+
+  kterm_write_char(kbd->pressed_char);
+  return 0;
+}
+
+/*! 
+ * @brief: Handle a keypress in graphics mode
+ *
+ * Simply writes the event into the keybuffer
+ */
+int kterm_handle_graphics_key(kevent_kb_ctx_t* kbd)
+{
+  keybuffer_write_key(&_keybuffer, kbd);
+  return 0;
 }
 
 /*!
@@ -985,10 +1042,15 @@ int kterm_on_key(kevent_ctx_t* ctx)
 {
   kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
 
-  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !k_event->pressed)
-    return 0;
+  switch (mode) {
+    case KTERM_MODE_TERMINAL:
+      return kterm_handle_terminal_key(k_event);
+    case KTERM_MODE_GRAPHICS:
+      return kterm_handle_graphics_key(k_event);
+    default:
+      break;
+  }
 
-  kterm_write_char(k_event->pressed_char);
   return 0;
 }
 
