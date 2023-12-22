@@ -708,7 +708,6 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
     //return DRV_STAT_INVAL;
 
   /* TODO; string.h: char validation */
-
   kterm_print(str);
 
   return DRV_STAT_OK;
@@ -984,7 +983,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer);
 
       if (!event)
-        break;
+        return DRV_STAT_INVAL;
 
       /*
        * TODO: create functions that handle with this reading and writing to user keybuffers
@@ -998,8 +997,6 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       u_event->pressed_char = event->pressed_char;
       u_event->pressed = event->pressed;
       u_event->mod_flags = NULL;
-
-      println(to_string(event->keycode));
 
       /* Make sure we cycle the index */
       uwnd->keyevent_buffer_write_idx %= uwnd->keyevent_buffer_capacity;
@@ -1208,8 +1205,8 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx
 {
   struct kterm_terminal_char* term_chr;
 
-  if (mode != KTERM_MODE_TERMINAL)
-    return;
+  //if (mode != KTERM_MODE_TERMINAL)
+    //return;
 
   /* Grab the terminal character entry */
   term_chr = kterm_get_term_char(x, y);
@@ -1309,7 +1306,7 @@ int kterm_print(const char* msg)
 {
   uint32_t idx;
 
-  if (!msg || mode != KTERM_MODE_TERMINAL)
+  if (!msg /* || mode != KTERM_MODE_TERMINAL */)
     return 0;
 
   idx = 0;

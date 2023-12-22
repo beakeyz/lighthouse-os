@@ -22,7 +22,7 @@ BOOL proc_get_profile(HANDLE proc_handle, HANDLE* profile_handle)
   return FALSE;
 }
 
-size_t get_our_ticks()
+size_t get_process_time()
 {
-  return syscall_0(SYSID_GETTICKS);
+  return syscall_0(SYSID_GET_PROCESSTIME);
 }

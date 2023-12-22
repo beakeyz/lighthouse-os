@@ -10,6 +10,8 @@
 #include <libk/stddef.h>
 
 uintptr_t sys_exec(char __user* cmd, size_t cmd_len);
-uintptr_t sys_getticks();
+
+uintptr_t sys_get_process_time();
+uintptr_t sys_sleep(uintptr_t ms);
 
 #endif // !__ANIVA_SYS_EXEC__

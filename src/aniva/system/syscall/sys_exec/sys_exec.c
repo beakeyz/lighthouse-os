@@ -32,7 +32,11 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
   return SYS_INV;
 }
 
-uintptr_t sys_getticks()
+/*!
+ * @brief: Get the number of ms since a process launch
+ *
+ */
+uintptr_t sys_get_process_time()
 {
   proc_t* curr_prc;
 
@@ -42,4 +46,13 @@ uintptr_t sys_getticks()
     return SYS_INV;
 
   return curr_prc->m_ticks_used;
+}
+
+/*!
+ * @brief: Block a process for @ms milliseconds
+ */
+uintptr_t sys_sleep(uintptr_t ms)
+{
+  scheduler_yield();
+  return 0;
 }

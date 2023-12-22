@@ -537,10 +537,11 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
     return 2;
 
   /* Create a context (TODO: move to own function) */
-  ctx = (kevent_ctx_t){
+  ctx = (kevent_ctx_t) {
     .event = event,
     .buffer = buffer,
     .buffer_size = size,
+    .flags = { 0 },
     0,
   };
 

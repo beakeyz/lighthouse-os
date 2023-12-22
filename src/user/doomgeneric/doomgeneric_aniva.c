@@ -48,7 +48,7 @@ void DG_DrawFrame()
   lwindow_draw_buffer(&window, 0, 0, window.current_width, window.current_height, (lcolor_t*)DG_ScreenBuffer);
 
   /* Get keys from the server */
-  //get_key_event(&window, NULL);
+  get_key_event(&window, NULL);
 }
 
 /*!
@@ -56,6 +56,7 @@ void DG_DrawFrame()
  */
 void DG_SleepMs(uint32_t ms)
 {
+  usleep(ms * 1000);
 }
 
 /*!
@@ -67,7 +68,7 @@ uint32_t DG_GetTicksMs()
    * TODO: this is currently just in 'ticks' (AKA scheduler ticks) 
    * but we'll need a way to convert this into milliseconds
    */
-  return get_our_ticks() * 3;
+  return get_process_time() * 3;
 }
 
 static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
@@ -76,6 +77,14 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
     case ANIVA_SCANCODE_LCTRL:
     case ANIVA_SCANCODE_RCTRL:
       return KEY_FIRE;
+    case ANIVA_SCANCODE_SPACE:
+      return KEY_USE;
+    case ANIVA_SCANCODE_RSHIFT:
+    case ANIVA_SCANCODE_LSHIFT:
+      return KEY_RSHIFT;
+    case ANIVA_SCANCODE_RALT:
+    case ANIVA_SCANCODE_LALT:
+      return KEY_LALT;
     case ANIVA_SCANCODE_UP:
       return KEY_UPARROW;
     case ANIVA_SCANCODE_DOWN:
@@ -86,6 +95,22 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
       return KEY_RIGHTARROW;
     case ANIVA_SCANCODE_ESCAPE:
       return KEY_ESCAPE;
+
+    /* WASD-rebinds */
+    case ANIVA_SCANCODE_A:
+      return KEY_STRAFE_L;
+    case ANIVA_SCANCODE_D:
+      return KEY_STRAFE_R;
+    case ANIVA_SCANCODE_W:
+      return KEY_UPARROW;
+    case ANIVA_SCANCODE_S:
+      return KEY_DOWNARROW;
+    case ANIVA_SCANCODE_Q:
+      return KEY_LEFTARROW;
+    case ANIVA_SCANCODE_E:
+      return KEY_RIGHTARROW;
+    case ANIVA_SCANCODE_EQUALS:
+      return KEY_EQUALS;
     default:
       return keycode;
   }
@@ -96,7 +121,6 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
  */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
-  /*
   BOOL has_event;
   lkey_event_t keyevent;
 
@@ -108,9 +132,7 @@ int DG_GetKey(int* pressed, unsigned char* doomKey)
   *pressed = keyevent.pressed;
   *doomKey = aniva_keycode_to_doomkey(keyevent.keycode);
 
-  */
-  //return 1;
-  return 0;
+  return 1;
 }
 
 void DG_SetWindowTitle(const char * title)

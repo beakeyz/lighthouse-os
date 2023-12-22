@@ -19,6 +19,7 @@
 
 /* -Required */
 typedef int pid_t;
+typedef int time_t;
 
 typedef uintptr_t process_result_t;
 

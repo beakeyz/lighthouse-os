@@ -123,6 +123,9 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs)
 {
   char character;
   uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
+  bool pressed = (!(scan_code & 0x80));
+
+  println(pressed ? "ye" : "no");
 
   if (scan_code == 0xe0) {
     /* Extended keycode */
@@ -133,7 +136,6 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs)
   s_current_scancode = NULL;
 
   uint16_t key_code = scan_code & 0x7f;
-  bool pressed = !(scan_code & 0x80);
 
   switch (key_code) {
     case KBD_SCANCODE_ALT:

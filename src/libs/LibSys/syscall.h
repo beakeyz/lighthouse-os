@@ -43,7 +43,8 @@
 #define SYSID_CREATE_DIR        21
 /* Manipulate the R/W offset of a handle */
 #define SYSID_SEEK              22
-#define SYSID_GETTICKS          23
+#define SYSID_GET_PROCESSTIME   23
+#define SYSID_SLEEP             24
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

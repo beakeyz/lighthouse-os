@@ -280,7 +280,6 @@ void I_GetEvent(void)
     event_t event;
     int pressed;
     unsigned char key;
-
     
 	while (DG_GetKey(&pressed, &key))
     {

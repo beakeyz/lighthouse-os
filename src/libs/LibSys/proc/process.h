@@ -126,7 +126,6 @@ BOOL kill_process(
 /*
  * Find the amount of ticks used by this process
  */
-size_t get_our_ticks();
-
+size_t get_process_time();
 
 #endif // !__LIGHTENV_PROCESS__
