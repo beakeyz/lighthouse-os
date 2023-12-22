@@ -183,6 +183,10 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
 
           vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
 
+          /* Then, zero the rest of the buffer */
+          /* TODO: ??? */
+          memset((void*)(v_kernel_phdr_start), 0, phdr_size);
+
           /*
            * Copy elf into the mapped area 
            * NOTE: we are required to be in the kernel map for this 
@@ -194,10 +198,6 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
                 &phdr.p_memsz :
                 &phdr.p_filesz,
               phdr.p_offset);
-
-          /* Then, zero the rest of the buffer */
-          /* TODO: ??? */
-          //memset((void*)(v_kernel_phdr_start), 0, phdr_size);
 
           if ((virtual_phdr_base + phdr_size) > image.m_highest_addr) {
             image.m_highest_addr = ALIGN_UP(virtual_phdr_base + phdr_size, SMALL_PAGE_SIZE);

@@ -336,7 +336,7 @@ ErrorOrPtr proc_register(proc_t* proc)
   if (IsError(result))
     return result;
 
-  /* Register to global if we are from the kernel */
+  /* Register to global if we are from the kernel (Base?) */
   if (is_kernel_proc(proc))
     proc_register_to_global(proc);
   /*

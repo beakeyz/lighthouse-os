@@ -85,6 +85,8 @@ void destroy_mutex(mutex_t* mutex)
   if (!mutex)
     return;
 
+  thread_unregister_mutex(mutex->m_lock_holder, mutex);
+
   clear_mutex(mutex);
 
   destroy_spinlock(mutex->m_lock);
@@ -93,14 +95,19 @@ void destroy_mutex(mutex_t* mutex)
 
 void mutex_lock(mutex_t* mutex) 
 {
+  thread_t* current_thread;
   ASSERT_MSG(mutex, "Tried to lock a mutex that has not been initialized");
+
+  current_thread = get_current_scheduling_thread();
+
+  thread_register_mutex(current_thread, mutex);
 
 retry_lock:
   spinlock_lock(mutex->m_lock);
 
   // NOTE: it's fine to be preempted here, since this value won't change
   // when we get back
-  thread_t* current_thread = get_current_scheduling_thread();
+  current_thread = get_current_scheduling_thread();
 
   if (mutex->m_lock_depth > 0) {
 
@@ -158,6 +165,8 @@ void mutex_unlock(mutex_t* mutex)
   spinlock_lock(mutex->m_lock);
 
   mutex->m_lock_depth--;
+
+  thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
   if (!mutex->m_lock_depth) {
     mutex->m_mutex_flags &= ~MUTEX_FLAG_IS_HELD;

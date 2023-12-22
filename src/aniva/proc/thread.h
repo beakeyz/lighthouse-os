@@ -38,6 +38,9 @@ typedef struct thread {
 
   struct mutex* m_lock;
 
+  /* TODO: figure out if this is legal */
+  list_t* m_mutex_list;
+
   thread_context_t m_context;
   FpuState m_fpu_state;
 
@@ -131,6 +134,9 @@ ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) {
 
 bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread);
 void thread_try_prepare_userpacket(thread_t* to);
+
+void thread_register_mutex(thread_t* thread, struct mutex* lock);
+void thread_unregister_mutex(thread_t* thread, struct mutex* lock);
 
 /*
  * TODO: blocking means we get ignored by the scheduler

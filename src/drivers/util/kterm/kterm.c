@@ -1,4 +1,5 @@
 #include "kterm.h"
+#include <LibSys/event/key.h>
 #include "LibGfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
@@ -101,6 +102,15 @@ struct {
   uint32_t width, height;
   proc_t* client_proc;
 } _active_grpx_app;
+
+/*
+ * Scancode sequence to forcequit a graphics application
+ */
+static enum ANIVA_SCANCODES _forcequit_sequence[] = {
+  ANIVA_SCANCODE_LALT,
+  ANIVA_SCANCODE_LSHIFT,
+  ANIVA_SCANCODE_Q,
+};
 
 
 static enum kterm_mode mode;
@@ -869,6 +879,18 @@ int kterm_exit() {
 }
 
 /*!
+ * @brief: Check if the current kb context indicates a forcequit command
+ */
+static inline bool is_forcequit_sequence_pressed(kevent_kb_ctx_t* kbd)
+{
+  for (uint32_t i = 0; i < (sizeof(_forcequit_sequence) / sizeof(*_forcequit_sequence)); i++)
+    if (kbd->pressed_keys[i] != _forcequit_sequence[i])
+      return false;
+
+  return true;
+}
+
+/*!
  * @brief: Our main msg endpoint
  *
  * Make sure we support at least the most basic form of LWND emulation
@@ -984,6 +1006,9 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
 
       if (!event)
         return DRV_STAT_INVAL;
+
+      if (is_forcequit_sequence_pressed(event))
+        try_terminate_process(_active_grpx_app.client_proc);
 
       /*
        * TODO: create functions that handle with this reading and writing to user keybuffers

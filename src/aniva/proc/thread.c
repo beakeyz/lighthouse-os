@@ -2,6 +2,7 @@
 #include "dev/debug/serial.h"
 #include "dev/manifest.h"
 #include "entry/entry.h"
+#include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
@@ -62,6 +63,7 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
   thread->m_has_been_scheduled = false;
   thread->m_tid = -1;
+  thread->m_mutex_list = init_list();
 
   thread->f_real_entry = (ThreadEntry)entry;
   thread->f_exit = (FuncPtr)thread_end_lifecycle;
@@ -143,56 +145,6 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, co
   return nullptr;
 }
 
-thread_t *create_thread_as_socket(proc_t *proc, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port) {
-
-  uint32_t _port;
-
-  if (!proc || !entry) {
-    return nullptr;
-  }
-
-  _port = 0;
-
-  if (port)
-    _port = *port;
-
-  threaded_socket_t *socket = create_threaded_socket(nullptr, exit_fn, on_packet_fn, _port, SOCKET_DEFAULT_SOCKET_BUFFER_SIZE);
-
-  // nullptr should mean that no allocation has been done
-  if (socket == nullptr) {
-    return nullptr;
-  }
-
-  const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
-    ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
-
-  thread_t *ret = create_thread(entry, nullptr, arg0, name, proc, is_kernel);
-
-  // failed to create thread
-  if (!ret) {
-    goto dealloc_and_exit;
-  }
-
-  if (thread_prepare_context(ret) != ANIVA_SUCCESS) {
-    goto dealloc_and_exit;
-  }
-
-  ret->m_socket = socket;
-  socket->m_parent = ret;
-
-  if (port)
-    *port = socket->m_port;
-
-  socket_enable(ret);
-
-  return ret;
-
-dealloc_and_exit:
-  destroy_threaded_socket(socket);
-  destroy_thread(ret);
-  return nullptr;
-}
-
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
   contex_set_rip(&ptr->m_context, (uintptr_t)entry, arg0, arg1);
 }
@@ -208,10 +160,24 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
 // TODO: when this thread has gotten it's own heap, free that aswell
 ANIVA_STATUS destroy_thread(thread_t *thread) 
 {
+  list_t* mutex_list;
   proc_t* parent_proc;
 
   if (!thread)
     return ANIVA_FAIL;
+
+  /* Cache the mutex list pointer */
+  mutex_list = thread->m_mutex_list;
+
+  /* Kill the point so registers don't go through from this point */
+  thread->m_mutex_list = nullptr;
+
+  FOREACH(i , mutex_list) {
+    /* Unlock every taken mutex */
+    mutex_unlock(i->data);
+  }
+
+  destroy_list(mutex_list);
 
   parent_proc = thread->m_parent_proc;
 
@@ -226,6 +192,42 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
   destroy_mutex(thread->m_lock);
   kfree(thread);
   return ANIVA_SUCCESS;
+}
+
+/* FIXME: thread-safe? */
+void thread_register_mutex(thread_t* thread, mutex_t* lock)
+{
+  /* If we can't schedule this process, don't count the register */
+  if (!thread || !thread->m_mutex_list)
+    return;
+
+  list_append(thread->m_mutex_list, lock);
+
+  /* Cringe debug
+  print("Register to (");
+  print(thread->m_name);
+  print(":");
+  print(thread->m_parent_proc->m_name);
+  print("): ");
+  println(to_string(thread->m_mutex_list->m_length));
+  */
+}
+
+/* FIXME: thread-safe? */
+void thread_unregister_mutex(thread_t* thread, mutex_t* lock)
+{
+  if (!thread || !thread->m_mutex_list)
+    return;
+
+  list_remove_ex(thread->m_mutex_list, lock);
+  /* More cringe debug
+  print("Unregister from (");
+  print(thread->m_name);
+  print(":");
+  print(thread->m_parent_proc->m_name);
+  print("): ");
+  println(to_string(thread->m_mutex_list->m_length));
+  */
 }
 
 thread_t* get_generic_idle_thread() 

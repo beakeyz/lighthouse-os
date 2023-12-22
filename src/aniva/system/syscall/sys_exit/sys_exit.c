@@ -62,7 +62,6 @@ uintptr_t sys_exit_handler(uintptr_t code)
 exit_and_terminate:
   println("(debug) Terminate");
   Must(try_terminate_process(current_proc));
-  println("(debug) Terminate done");
 
 exit_and_yield:
 

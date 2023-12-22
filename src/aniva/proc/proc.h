@@ -10,6 +10,7 @@
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "sync/atomic_ptr.h"
+#include "sync/lock.h"
 #include "system/resource.h"
 
 struct thread;
@@ -68,6 +69,7 @@ typedef struct proc {
   struct proc_profile* m_profile;
   struct proc* m_parent;
 
+  /* Resource tracking */
   page_dir_t m_root_pd;
   khandle_map_t m_handle_map;
   kresource_bundle_t m_resource_bundle;
@@ -93,7 +95,7 @@ typedef struct proc {
 #define PROC_DRIVER         (0x00000004) /* This process runs with kernel privileges in its own pagemap */
 #define PROC_STALLED        (0x00000008) /* This process ran as either a socket or a shared library and is now waiting detachment or an exit signal of some sort */
 #define PROC_UNRUNNED       (0x00000010) /* V-card still intact */
-#define PROC_FINISHED       (0x00000020) /* Process should be cleaned up by the scheduler (TODO: let cleaning be done by a reaper thread/proc)*/
+#define PROC_FINISHED       (0x00000020) /* Process should be cleaned up by the scheduler */
 #define PROC_REAPER         (0x00000040) /* Process capable of killing other processes and threads */
 #define PROC_HAD_HANDLE     (0x00000080) /* Process is referenced in userspace by a handle */
 #define PROC_SHOULD_STALL   (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */

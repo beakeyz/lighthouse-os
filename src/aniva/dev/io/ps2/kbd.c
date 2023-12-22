@@ -9,6 +9,7 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
+#include "libk/stddef.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -84,14 +85,22 @@ const aniva_driver_t g_base_ps2_keyboard_driver = {
 };
 EXPORT_DRIVER_PTR(g_base_ps2_keyboard_driver);
 
+/*
+ * This is okay right now, but once we create a HID device
+ * for PS2, these variables need to be moved inside a device obj
+ * so this is a FIXME
+ */
 static uint16_t s_mod_flags;
 static uint16_t s_current_scancode;
+static uint16_t s_current_scancodes[7];
 
 int ps2_keyboard_entry() 
 {
   ErrorOrPtr result;
   s_mod_flags = NULL;
   s_current_scancode = NULL;
+
+  memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
 
   println("initializing ps2 keyboard driver!");
 
@@ -119,13 +128,52 @@ uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_
   return 0;
 }
 
+static void ps2_set_keycode_buffer(uint16_t keycode, bool pressed)
+{
+  uint32_t key_idx;
+
+  if (pressed) {
+    for (uint32_t i = 0; i < arrlen(s_current_scancodes); i++) {
+      /* No duplicates */
+      if (s_current_scancodes[i] == keycode)
+        break;
+
+      /* Skip taken scancodes */
+      if (s_current_scancodes[i])
+        continue;
+
+      s_current_scancodes[i] = keycode;
+      break;
+    }
+
+    return;
+  }
+
+  key_idx = 0;
+
+  /* Search for our keycode */
+  for (; key_idx < arrlen(s_current_scancodes); key_idx++)
+    if (s_current_scancodes[key_idx] == keycode)
+      break;
+
+  /* Shift the remaining keys forwards */
+  while (key_idx < arrlen(s_current_scancodes)) {
+
+    /* If we can't, simply put a NULL */
+    if ((key_idx+1) >= arrlen(s_current_scancodes))
+      s_current_scancodes[key_idx] = NULL;
+    else
+      s_current_scancodes[key_idx] = s_current_scancodes[key_idx+1];
+
+    key_idx++;
+  }
+}
+
 registers_t* ps2_keyboard_irq_handler(registers_t* regs) 
 {
   char character;
   uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
   bool pressed = (!(scan_code & 0x80));
-
-  println(pressed ? "ye" : "no");
 
   if (scan_code == 0xe0) {
     /* Extended keycode */
@@ -164,9 +212,20 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs)
 
   kevent_kb_ctx_t kb = {
     .pressed = pressed,
-    .pressed_char = character,
     .keycode = aniva_scancode_table[key_code],
+    .pressed_char = character,
   };
+
+  /* Buffer the keycodes */
+  ps2_set_keycode_buffer(kb.keycode, pressed);
+
+  /* Copy the scancode buffer to the event */
+  memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
+
+  println(to_string(kb.pressed_keys[0]));
+  println(to_string(kb.pressed_keys[1]));
+  println(to_string(kb.pressed_keys[2]));
+  println(to_string(kb.pressed_keys[3]));
 
   kevent_fire("keyboard", &kb, sizeof(kb));
 

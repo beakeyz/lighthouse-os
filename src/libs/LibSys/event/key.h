@@ -116,7 +116,7 @@ enum ANIVA_SCANCODES {
  * It's the job of any keyboard driver to translate it's own native scancodes into
  * something like this (Or at least a table that is pointed to by the SCANCODE_TRNSLT_TBL variable)
  */
-static enum ANIVA_SCANCODES aniva_scancode_table[512] = {
+static enum ANIVA_SCANCODES aniva_scancode_table[512] __attribute__((used)) = {
   ANIVA_SCANCODE_UNKNOWN,
   ANIVA_SCANCODE_ESCAPE,
   ANIVA_SCANCODE_1,

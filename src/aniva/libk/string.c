@@ -112,16 +112,11 @@ bool memcmp(const void *s1, const void *s2, size_t n)
     return true;
 }
 
-// TODO: this is x86 specific. I'll leave it here for now, but when we aventually target other arches, we'll have to refactor this =/
-//void *memset(void *data, int value, size_t length)
-//{
-//    asm volatile ("cld; rep stosb"
-//                  : "=c"((int){0})
-//                  : "rdi"(data), "a"(value), "c"(length)
-//                  : "flags", "memory", "rdi");
-//    return data;
-//}
-
+/*!
+ * @brief: Set a block of memory to a uniform value
+ *
+ * TODO: optimize
+ */
 void * memset(void * dest, int c, size_t n) {
 	size_t i = 0;
 	for ( ; i < n; ++i ) {

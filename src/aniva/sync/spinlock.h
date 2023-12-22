@@ -11,7 +11,7 @@ typedef volatile struct {
   const char* m_func;
 } __spinlock_t;
 
-typedef struct {
+typedef struct spinlock {
   __spinlock_t m_lock;
   struct processor* m_processor;
   union atomic_ptr* m_is_locked;

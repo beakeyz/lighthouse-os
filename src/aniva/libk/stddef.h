@@ -70,6 +70,7 @@ typedef void (*FuncPtr)();
 	 (((ap) = (ap) + __va_argsiz(t)),		          \
 	  *((t*) (void*) ((ap) - __va_argsiz(t))))
 
+#define arrlen(arr) (sizeof(arr) / sizeof(*arr))
 
 #define Kib 1024
 #define Mib Kib * Kib

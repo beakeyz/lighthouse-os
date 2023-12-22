@@ -214,6 +214,7 @@ void destroy_proc(proc_t* proc)
     destroy_thread(i->data);
   }
 
+
   /* Yeet handles */
   __proc_clear_handles(proc);
 
@@ -313,14 +314,27 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
   if (!proc)
     return Error();
 
+  /* Pause the scheduler to make sure we're not fucked while doing this */
+  pause_scheduler();
+
   /* Register from the global register store */
   result = proc_unregister((char*)proc->m_name);
 
   if (IsError(result))
-    return result;
+    goto unpause_and_exit;
 
-  /* Register to the reaper */
-  return reaper_register_process(proc);
+  /* 
+   * Register to the reaper 
+   * NOTE: this also pauses the scheduler
+   */
+  result = reaper_register_process(proc);
+  
+unpause_and_exit:
+  resume_scheduler();
+
+  /* Yield to catch any terminates from within a process */
+  scheduler_yield();
+  return result;
 }
 
 /*!
