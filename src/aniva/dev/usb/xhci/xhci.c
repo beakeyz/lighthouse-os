@@ -118,7 +118,7 @@ static int xhci_wait_read(struct usb_hcd* hub, uintptr_t max_timeout, void* addr
     if ((value & mask) == expect)
       return 0;
 
-    delay(1);
+    udelay(1);
     max_timeout--;
   }
 
@@ -431,7 +431,7 @@ static int xhci_reset(usb_hcd_t* hcd)
    * Delay 1 ms to support intel controllers 
    * TODO: detect the these intel controllers
    */
-  delay(1000);
+  udelay(1000);
 
   /* Wait for cmd to clear */
   error = hcd->mmio_ops->mmio_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->cmd, XHCI_CMD_RESET, 0);

@@ -49,7 +49,7 @@ void io_delay()
   out8(delay_port, 0);
 }
 
-void delay(size_t microseconds)
+void udelay(size_t microseconds)
 {
     for (size_t i = 0; i < microseconds; ++i)
       io_delay();

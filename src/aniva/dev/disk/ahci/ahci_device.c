@@ -189,7 +189,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
     ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC, bohc);
 
     while (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) & (AHCI_BOHC_BOS | AHCI_BOHC_BB)) {
-      delay(100);
+      udelay(100);
     }
   }
 

@@ -1,7 +1,9 @@
 #include "device.h"
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
+#include "drivers/video/nvidia/device/subdev.h"
 #include "drivers/video/nvidia/device/subdev/therm/core.h"
+#include "drivers/video/nvidia/device/subdev/fuse/core.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -10,7 +12,9 @@
  * Entrypoints for a card of the NV94 chipset
  */
 static nv_subsys_entry_t nv94_entries[NV_SUBDEV_COUNT] = {
+  [NV_SUBDEV_FUSE] = nv50_fuse_create,
   [NV_SUBDEV_THERM] = g84_therm_create,
+  0
 };
 
 static int nv_detect_chip(nv_device_t* nvdev)
@@ -91,11 +95,42 @@ static int nv_pci_device_init(nv_device_t* nvdev)
   if (error)
     return error;
 
+  /*
+   * Execute all the subsystem entries
+   */
+  for (uint32_t i = 0; i < NV_SUBDEV_COUNT; i++) {
+    if (!nvdev->subsys_entries[i])
+      continue;
+
+    error = nvdev->subsys_entries[i](nvdev, i, (void**)&nvdev->subdevices[i]);
+
+    if (error)
+      goto dealloc_and_exit;
+  }
+
+  /*
+   * Initialize all subdevices
+   */
+  for (uint32_t i = 0; i < NV_SUBDEV_COUNT; i++) {
+    if (!nvdev->subdevices[i])
+      continue;
+
+    error = nv_subdev_init(nvdev->subdevices[i]);
+
+    /* FIXME: check if the error is fatal */
+    if (error)
+      goto dealloc_and_exit;
+  }
+
   /* Find card type */
   /* Find bios stuff */
   /* Find other stuff... */
 
   return 0;
+
+dealloc_and_exit:
+  /* TODO dealloc */
+  return error;
 }
 
 /*!
@@ -141,3 +176,15 @@ error_and_exit:
 
   return nullptr;
 }
+
+/*!
+ * @brief: Get a specific subdevice for a device @device of a subdev type @type
+ */
+nv_subdev_t* nvdev_get_subdev(nv_device_t* device, enum NV_SUBDEV_TYPE type)
+{
+  if (type == NV_SUBDEV_COUNT)
+    return nullptr;
+
+  return device->subdevices[type];
+}
+

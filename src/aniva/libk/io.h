@@ -11,7 +11,9 @@ void out16(uint16_t port, uint16_t value);
 void out32(uint16_t port, uint32_t value);
 
 void io_delay();
-void delay(size_t microseconds);
+
+void udelay(size_t microseconds);
+#define mdelay(msec) udelay((msec) * 1000)
 
 uint8_t mmio_read_byte(void* address);
 uint16_t mmio_read_word(void* address);

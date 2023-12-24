@@ -28,7 +28,7 @@ typedef struct PIC {
 static inline void out8_pic(uint16_t port, uint8_t value)
 {
   out8(port, value);
-  delay(2);
+  udelay(2);
 }
 
 int_controller_t* get_pic();

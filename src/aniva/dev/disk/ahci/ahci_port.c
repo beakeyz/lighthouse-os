@@ -126,7 +126,7 @@ static ALWAYS_INLINE ANIVA_STATUS ahci_port_await_dma_completion_sync(ahci_port_
         goto timeout;
       }
 
-      delay(1000);
+      udelay(1000);
     }
 
     port->m_is_waiting = false;
@@ -451,7 +451,7 @@ static ALWAYS_INLINE void port_stop_fis_recieving(ahci_port_t* port) {
 static ALWAYS_INLINE void port_set_active(ahci_port_t* port) {
 
   while (ahci_port_mmio_read32(port, AHCI_REG_PxCMD) & AHCI_PxCMD_CR)
-    delay(500);
+    udelay(500);
 
   uint32_t cmd_and_status = ahci_port_mmio_read32(port, AHCI_REG_PxCMD);
   cmd_and_status |= AHCI_PxCMD_ST;

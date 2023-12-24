@@ -4,6 +4,8 @@
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/subdev.h"
+#include "drivers/video/nvidia/device/subdev/fuse/core.h"
+#include "drivers/video/nvidia/device/subdev/therm/core.h"
 #include "libk/io.h"
 #include <libk/stddef.h>
 
@@ -57,6 +59,12 @@ typedef struct nv_device {
 
 nv_device_t* create_nv_device(aniva_driver_t* driver, pci_device_t* pdev);
 
+nv_subdev_t* nvdev_get_subdev(nv_device_t* device, enum NV_SUBDEV_TYPE type);
+
+/* ./subdev/fuse/core.c */
+extern nv_subdev_fuse_t* nvdev_get_fuse(nv_device_t* device);
+/* ./subdev/therm/core.c */
+extern nv_subdev_therm_t* nvdev_get_therm(nv_device_t* device);
 
 /*
  * Nvidia mmio I/O routines
@@ -97,6 +105,17 @@ static inline uint32_t nvd_rd32(nv_device_t* dev, uintptr_t offset)
 static inline void nvd_wr32(nv_device_t* dev, uintptr_t offset, uint32_t value)
 {
   return mmio_write_dword(dev->pri + offset, value);
+}
+
+/*
+ * Mask bits
+ */
+static inline uint32_t nvd_mask(nv_device_t* dev, uint32_t address, uint32_t mask, uint32_t value)
+{
+  uint32_t _temp = nvd_rd32(dev, address);
+  nvd_wr32(dev, address, (_temp & ~(mask)) | value);
+
+  return _temp;
 }
 
 #endif // !__ANIVA_NVD_PCI_DEVICE__
