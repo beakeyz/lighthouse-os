@@ -1,5 +1,5 @@
 import os
-from stats.lines import SourceFile, SourceLanguage
+from build.sourcefiles import SourceFile, SourceLanguage
 from consts import Consts
 
 class KSymbol(object):

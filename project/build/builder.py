@@ -1,5 +1,5 @@
 from enum import Enum
-from stats.lines import SourceFile, SourceLanguage
+from build.sourcefiles import SourceFile, SourceLanguage
 from build.manifest import BuildManifest
 import build.symbols as symb
 import consts
@@ -60,7 +60,7 @@ class ProjectBuilder(object):
         elif file.language == SourceLanguage.ASM:
             file.setBuildFlags(self.constants.KERNEL_ASM_FLAGS)
         else:
-            return -1 
+            return -1
         return os.system(file.getCompileCmd())
 
     def build(self) -> BuilderResult:

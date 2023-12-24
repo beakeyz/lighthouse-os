@@ -1,6 +1,6 @@
 import os
 from os.path import isdir, isfile
-from stats.lines import SourceFile, SourceLanguage
+from build.sourcefiles import SourceFile, SourceLanguage
 from build.manifest import BuildManifest, BuildManifestType
 import build.manifest
 
@@ -25,12 +25,21 @@ class Consts:
     # Path where we can store our configuration
     PROJECT_DATA_DIR = PROJECT_DIR + "/.data"
 
+    # Base directory names of the project
     SRC_DIR_NAME = "src"
     OUT_DIR_NAME = "out"
     SYSROOT_DIR_NAME = "system"
 
+    # Base directories
     SRC_DIR = PROJECT_DIR + "/" + SRC_DIR_NAME
     OUT_DIR = PROJECT_DIR + "/" + OUT_DIR_NAME
+
+    # Source directories of the different subcomponents
+    KERNEL_SRC_DIR = SRC_DIR + "/aniva"
+    DRIVERS_SRC_DIR = SRC_DIR + "/drivers"
+    LIBS_SRC_DIR = SRC_DIR + "/libs"
+    USER_SRC_DIR = SRC_DIR + "/user"
+
     SYSROOT_DIR = PROJECT_DIR + "/" + SYSROOT_DIR_NAME
     SYSROOT_HEADERS_DIR = SYSROOT_DIR + "/System/libs"
     LIBC_SRC_DIR = SRC_DIR + "/libs" + "/LibC"
@@ -113,7 +122,7 @@ class Consts:
 
     TOTAL_LINES = 0
 
-    def __init__(self) -> None:
+    def __init__(self, shouldScan: bool = True) -> None:
 
         # We have to clear the working variables in Consts every time we init, cause of reinit()
         self.SRC_FILES = []
@@ -136,6 +145,9 @@ class Consts:
         self.ensure_path(self.OUT_DIR)
         self.ensure_path(self.SRC_DIR)
         self.ensure_path(self.PROJECT_MANAGEMENT_DIR)
+
+        if shouldScan is False:
+            return
 
         self.scan_dirs(self.SRC_DIR)
         self.scan_dirs(self.OUT_DIR)

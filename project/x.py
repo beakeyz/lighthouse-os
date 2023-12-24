@@ -227,7 +227,7 @@ class GenerateKSymsCallback(CommandCallback):
 
         if write_map_to_source(symbols, c.KERNEL_KSYMS_SRC_PATH, c):
             return Status(StatusCode.Success, "Wrote symbols to asm/ksyms.asm !")
-    
+
         return Status(StatusCode.Fail, "Failed to write symbols")
 
 
@@ -250,7 +250,7 @@ class GenerateUserProcessCallback(CommandCallback):
             "name": processName,
             "linking": linkingType,
             "type": processType,
-            "libs": ["LibC"]
+            "libs": []
         }
 
         js: str = json.dumps(manifest)
@@ -286,21 +286,36 @@ class InstallImageCallback(CommandCallback):
     def call(self) -> Status:
         installer = Installer(InstallerType.IMAGE)
 
-        if (installer.install() == True):
+        if (installer.install() is True):
             return Status(StatusCode.Success, "Installed!")
 
         return Status(StatusCode.Fail, "TODO")
 
-    
+
 # Install bootloader, kernel and ramdisk directly to the device
 class InstallDeviceCallback(CommandCallback):
     def call(self) -> Status:
         installer = Installer(InstallerType.DEVICE)
 
-        if (installer.install() == True):
+        if (installer.install() is True):
             return Status(StatusCode.Success, "Installed!")
 
         return Status(StatusCode.Fail, "TODO")
+
+
+# Clean all build artifacts
+class CleanAllCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts(shouldScan=False)
+
+        exitcode = os.system(f"rm -r {c.OUT_DIR}")
+
+        # Dangerous rm =)
+        if exitcode == -1:
+            return Status(StatusCode.Fail, f"rm command failed ({exitcode})")
+
+        return Status(StatusCode.Success, "Cleaned everything!")
+
 
 # Global todos:
 #   TODO: implement caching of built files, so that we don't have to
@@ -325,16 +340,25 @@ def project_main() -> Status:
 
     cmd_processor.register_cmd(Command("lines", callback=LinesCallback()))
     cmd_processor.register_cmd(Command("deps", callback=DepsCallback()))
-    cmd_processor.register_cmd(Command("ramdisk", args={
-        "create": RamdiskCreateCallback(),
-        "remove": RamdiskRemoveCallback(),
-    }))
+    # cmd_processor.register_cmd(Command("ramdisk", args={
+    #     "create": RamdiskCreateCallback(),
+    #     "remove": RamdiskRemoveCallback(),
+    # }))
+    cmd_processor.register_cmd(Command("ramdisk", callback=RamdiskCreateCallback()))
     cmd_processor.register_cmd(Command("build", args={
         "kernel": BuildsysBuildKernelCallback(),
         "user": BuildsysBuildUserspaceCallback(),
         "lib": BuildsysBuildLibraryCallback(),
         "drivers": BuildsysBuildDriversCallback(),
         "all": BuildsysBuildAllCallback(),
+    }))
+    cmd_processor.register_cmd(Command("clean", args={
+        "all": CleanAllCallback(),
+        "ramdisk": None,
+        "kernel": None,
+        "libraries": None,
+        "drivers": None,
+        "userspace": None,
     }))
     cmd_processor.register_cmd(Command("gen", args={
         "userprocess": GenerateUserProcessCallback(),
@@ -362,10 +386,13 @@ def project_main() -> Status:
 
 
 if __name__ == "__main__":
-    status: Status = project_main()
-    messagePrefix: str = "Success"
+    try:
+        status: Status = project_main()
+        messagePrefix: str = "Success"
 
-    if status.code == StatusCode.Fail:
-        messagePrefix = "Error"
+        if status.code == StatusCode.Fail:
+            messagePrefix = "Error"
 
-    print(f"{messagePrefix}: {status.msg}")
+        print(f"{messagePrefix}: {status.msg}")
+    except KeyboardInterrupt:
+        print("\nExitsequence recieved")

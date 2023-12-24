@@ -1,7 +1,8 @@
 import enum
 import os
 import json
-import stats.lines
+
+from build.sourcefiles import SourceFile
 
 
 class BuildManifestType(enum.Enum):
@@ -21,7 +22,7 @@ class BuildManifest(object):
     path: str
     cflags: str
     ldflags: str
-    sourcefiles: list[stats.lines.SourceFile] = []
+    sourcefiles: list[SourceFile] = []
     dependantLibs: list = []
     json_data = None
     type: BuildManifestType = BuildManifestType.UNKNOWN
@@ -53,11 +54,11 @@ class BuildManifest(object):
             except Exception:
                 pass
 
-    def gather_sourcefiles(self, sourcefiles: list[stats.lines.SourceFile]):
+    def gather_sourcefiles(self, sourcefiles: list[SourceFile]):
         dir_path: str = self.path.strip("manifest.json")
 
         for sourceFile in sourcefiles:
-            sourceFile: stats.lines.SourceFile = sourceFile
+            sourceFile: SourceFile = sourceFile
 
             if sourceFile.path.find(dir_path) != -1:
                 self.sourcefiles.append(sourceFile)
