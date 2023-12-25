@@ -3,6 +3,9 @@
 
 #include "drivers/video/nvidia/device/subdev.h"
 
+#define nv_subdev_therm(subdev) \
+  (struct nv_subdev_therm*)((subdev)->priv)
+
 struct nv_device;
 struct nv_subdev;
 struct nv_therm_ops;
@@ -12,8 +15,8 @@ typedef struct nv_subdev_therm {
   struct nv_subdev* parent;
 } nv_subdev_therm_t;
 
-nv_subdev_therm_t* create_generic_therm_subdev(struct nv_subdev* parent, struct nv_therm_ops* ops);
-void destroy_generic_therm_subdev(nv_subdev_therm_t* therm);
+nv_subdev_therm_t* create_nv_therm_subdev(struct nv_device* device, struct nv_therm_ops* ops);
+void destroy_nv_therm_subdev(nv_subdev_therm_t* therm);
 
 extern int g84_therm_create(struct nv_device* device, enum NV_SUBDEV_TYPE type, void** subdev);
 

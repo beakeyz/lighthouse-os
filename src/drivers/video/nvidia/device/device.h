@@ -74,11 +74,11 @@ extern nv_subdev_therm_t* nvdev_get_therm(nv_device_t* device);
 /*
  * 8-bit I/O routines
  */
-static inline uint8_t nvd_rd8(nv_device_t* dev, uintptr_t offset)
+static inline uint8_t nvdev_rd8(nv_device_t* dev, uintptr_t offset)
 {
   return mmio_read_byte(dev->pri + offset);
 }
-static inline void nvd_wr8(nv_device_t* dev, uintptr_t offset, uint8_t value)
+static inline void nvdev_wr8(nv_device_t* dev, uintptr_t offset, uint8_t value)
 {
   return mmio_write_byte(dev->pri + offset, value);
 }
@@ -86,11 +86,11 @@ static inline void nvd_wr8(nv_device_t* dev, uintptr_t offset, uint8_t value)
 /*
  * 16-bit I/O routines
  */
-static inline uint16_t nvd_rd16(nv_device_t* dev, uintptr_t offset)
+static inline uint16_t nvdev_rd16(nv_device_t* dev, uintptr_t offset)
 {
   return mmio_read_word(dev->pri + offset);
 }
-static inline void nvd_wr16(nv_device_t* dev, uintptr_t offset, uint16_t value)
+static inline void nvdev_wr16(nv_device_t* dev, uintptr_t offset, uint16_t value)
 {
   return mmio_write_word(dev->pri + offset, value);
 }
@@ -98,11 +98,11 @@ static inline void nvd_wr16(nv_device_t* dev, uintptr_t offset, uint16_t value)
 /*
  * 32-bit I/O routines
  */
-static inline uint32_t nvd_rd32(nv_device_t* dev, uintptr_t offset)
+static inline uint32_t nvdev_rd32(nv_device_t* dev, uintptr_t offset)
 {
   return mmio_read_dword(dev->pri + offset);
 }
-static inline void nvd_wr32(nv_device_t* dev, uintptr_t offset, uint32_t value)
+static inline void nvdev_wr32(nv_device_t* dev, uintptr_t offset, uint32_t value)
 {
   return mmio_write_dword(dev->pri + offset, value);
 }
@@ -112,8 +112,8 @@ static inline void nvd_wr32(nv_device_t* dev, uintptr_t offset, uint32_t value)
  */
 static inline uint32_t nvd_mask(nv_device_t* dev, uint32_t address, uint32_t mask, uint32_t value)
 {
-  uint32_t _temp = nvd_rd32(dev, address);
-  nvd_wr32(dev, address, (_temp & ~(mask)) | value);
+  uint32_t _temp = nvdev_rd32(dev, address);
+  nvdev_wr32(dev, address, (_temp & ~(mask)) | value);
 
   return _temp;
 }

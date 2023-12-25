@@ -4,6 +4,9 @@
 #include "drivers/video/nvidia/device/subdev.h"
 #include "sync/mutex.h"
 
+#define nv_subdev_fuse(subdev) \
+  (struct nv_subdev_fuse*)((subdev)->priv)
+
 struct nv_device;
 struct nv_subdev_fuse_ops;
 
@@ -13,8 +16,7 @@ typedef struct nv_subdev_fuse {
   mutex_t* lock;
 } nv_subdev_fuse_t;
 
-nv_subdev_fuse_t* create_nv_fuse_subdev(nv_subdev_t* subdev, struct nv_subdev_fuse_ops* ops);
-void destroy_nv_fuse_subdev(nv_subdev_fuse_t* fuse);
+nv_subdev_fuse_t* create_nv_fuse_subdev(struct nv_device* device, struct nv_subdev_fuse_ops* ops);
 
 uint32_t nv_sd_fuse_read(nv_subdev_fuse_t* fuse, uint32_t addr);
 

@@ -44,8 +44,11 @@ void destroy_nv_subdev(nv_subdev_t* subdev);
  * Default opperations for a subdevice, specific to the subdevtype
  */
 typedef struct nv_subdev_ops {
+  /* Initialize subdev hardware */
   int (*f_init)(nv_subdev_t* subdev);
+  /* Finalize subdev hardware */
   int (*f_fini)(nv_subdev_t* subdev);
+  /* Destroy subdevice memory */
   void (*f_destroy)(nv_subdev_t* subdev);
 } nv_subdev_ops_t;
 

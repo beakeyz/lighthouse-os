@@ -22,7 +22,7 @@ static int nv_detect_chip(nv_device_t* nvdev)
   uint32_t pmc_ident;
 
   /* Read the nvidia identify bits */
-  pmc_ident = nvd_rd32(nvdev, 0x00);
+  pmc_ident = nvdev_rd32(nvdev, 0x00);
 
   if ((pmc_ident & 0x1f000000) > 0) {
     /* Top bits are the chipset */
@@ -95,6 +95,9 @@ static int nv_pci_device_init(nv_device_t* nvdev)
   if (error)
     return error;
 
+  if (!nvdev->subsys_entries)
+    goto skip_subdevices;
+
   /*
    * Execute all the subsystem entries
    */
@@ -121,6 +124,8 @@ static int nv_pci_device_init(nv_device_t* nvdev)
     if (error)
       goto dealloc_and_exit;
   }
+
+skip_subdevices:
 
   /* Find card type */
   /* Find bios stuff */
