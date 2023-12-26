@@ -127,8 +127,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // First logger
   init_serial();
 
-  println("Hi from 64 bit land =D");
-  println(to_string((uintptr_t)mb_addr));
+  printf("Hi from within (%s)\n", "Aniva");
+  printf("Multiboot address from the bootloader is at: %s\n", to_string((uintptr_t)mb_addr));
 
   // Verify magic number
   if (mb_magic != 0x36d76289) {
@@ -160,7 +160,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
-  println("Initialized tty");
   // Initialize logging right after the memory setup
   init_logging();
 
@@ -172,15 +171,12 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // we need more memory
   init_zalloc();
 
-  println("Initialized tty");
   // we need resources
   init_kresources();
 
-  println("Initialized tty");
   /* Initialize the ACPI subsystem */
   init_acpi();
 
-  println("Initialized tty");
   println("[X] Processor...");
   // initialize cpu-related things that need the memorymanager and the heap
   init_processor_late(&g_bsp);
@@ -189,13 +185,13 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* Initialize the timer system */
   init_timer_system();
 
-  println("[X] kevents...");
-  // Initialize kevent
-  init_kevents();
-
   println("[X] hashmap...");
   /* Initialize hashmap caching */
   init_hashmap();
+
+  println("[X] kevents...");
+  // Initialize kevent
+  init_kevents();
 
   println("[X] proc core...");
   /* Initialize the subsystem responsible for managing processes */
@@ -215,7 +211,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* TMP: remove early dbg tty */
   destroy_early_tty();
 
-  /* Initialize human interface devices */
+  /* Initialize HID driver subsystem */
   init_hid();
 
   /* Initialize the PCI subsystem */
@@ -235,9 +231,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   root_proc = create_kernel_proc(kthread_entry, NULL);
 
   ASSERT_MSG(root_proc, "Failed to create a root process!");
-
-  /* Create a thread to manage our sockets (TODO: remove) */
-  init_socket_arbiter(root_proc);
 
   /* Create a reaper thread to kill processes through an async pipeline */
   init_reaper(root_proc);

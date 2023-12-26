@@ -337,7 +337,12 @@ uintptr_t ahci_driver_on_packet(aniva_driver_t* this, dcc_t code, void* buffer, 
   return 0;
 }
 
-
+/*
+ * disk/ahci
+ *
+ * Devices will be attached to 'Dev/disk/ahci/diskdevx'
+ *                          or 'Dev/core/disk/diskdevx'
+ */
 aniva_driver_t base_ahci_driver = {
   .m_name = "ahci",
   .m_type = DT_DISK,

@@ -1,6 +1,7 @@
 #include "log.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "libk/string.h"
 #include <sync/mutex.h>
 
 static mutex_t* __default_mutex;
@@ -333,9 +334,179 @@ int println(const char* msg)
   return print_ex(msg, LOG_TYPE_LINE);
 }
 
+static void _print_hex(uint64_t value)
+{
+  uint32_t idx;
+  char tmp[128];
+  const char hex_chars[17] = "0123456789ABCDEF";
+  uint8_t len = 1;
+
+  memset(tmp, '0', sizeof(tmp));
+
+  uint64_t size_test = value;
+  while (size_test / 16 > 0) {
+    size_test /= 16;
+    len++;
+  }
+
+  idx = 0;
+
+  while (value / 16 > 0) {
+    uint8_t remainder = value % 16;
+    value -= remainder;
+    tmp[len - 1 - idx] = hex_chars[remainder];
+    idx++;
+    value /= 16;
+  }
+  uint8_t last = value % 16;
+  tmp[len - 1 - idx] = hex_chars[last];
+
+  for (uint32_t i = 0; i < len; i++)
+    putch(tmp[i]);
+}
+
+static int _print_decimal(int64_t value, int prec)
+{
+  char tmp[128];
+  uint8_t size = 1;
+
+  memset(tmp, '0', sizeof(tmp));
+
+  /* Test the size of this value */
+  uint64_t size_test = value;
+  while (size_test / 10 > 0) {
+      size_test /= 10;
+      size++;
+  }
+
+  if (size < prec && prec && prec != -1)
+    size = prec;
+
+  uint8_t index = 0;
+  
+  while (value / 10 > 0) {
+      uint8_t remain = value % 10;
+      value /= 10;
+      tmp[size - 1 - index] = remain + '0';
+      index++;
+  }
+  uint8_t remain = value % 10;
+  tmp[size - 1 - index] = remain + '0';
+  //tmp[size] = 0;
+
+  //__write_bytes(stream, counter, tmp);
+
+  /* NOTE: don't use __write_bytes here, since it simply goes until it finds a NULL-byte */
+  for (uint32_t i = 0; i < size; i++) {
+    putch(tmp[i]);
+  }
+
+  return size;
+}
+
+/*!
+ * @brief: Print formated text
+ *
+ * Slow, since it has to make use of our putch thingy
+ * TODO: implement full fmt scema
+ */
 int printf(const char* fmt, ...)
 {
-  kernel_panic("TODO: implement kernel printf");
+  int prec;
+  uint32_t size;
+  va_list args;
+  va_start(args, fmt);
+
+  for (const char* c = fmt; *c; c++) {
+
+    if (*c != '%')
+      goto putch_cycle;
+
+    size = 0;
+    prec = -1;
+    c++;
+
+    if (*c == '.') {
+      prec = 0;
+      c++;
+
+      while (*c >= '0' && *c <= '9') {
+        prec *= 10;
+        prec += *c - '0';
+        c++;
+      }
+    }
+
+    /* Account for size */
+    while (*c == 'l' && size < 2) {
+      size++;
+      c++;
+    }
+
+    switch (*c) {
+      case 'i':
+      case 'd':
+        {
+          int64_t value;
+          switch (size) {
+            case 0:
+              value = va_arg(args, int);
+              break;
+            case 1:
+              value = va_arg(args, long);
+              break;
+            case 2:
+              value = va_arg(args, long long);
+              break;
+            default:
+              value = 0;
+          }
+
+          if (value < 0) {
+            value = -value;
+            putch('-');
+          }
+
+          _print_decimal(value, prec);
+          break;
+        }
+      case 'x':
+        {
+          uint64_t value;
+          switch (size) {
+            case 0:
+              value = va_arg(args, int);
+              break;
+            case 1:
+              value = va_arg(args, long);
+              break;
+            case 2:
+              value = va_arg(args, long long);
+              break;
+            default:
+              value = 0;
+          }
+
+          _print_hex(value);
+          break;
+        }
+      case 's':
+        {
+          const char* str = va_arg(args, char*);
+          print(str);
+          break;
+        }
+    }
+
+    continue;
+
+putch_cycle:
+    putch(*c);
+  }
+
+  va_end(args);
+
+  return 0;
 }
 
 

@@ -1,12 +1,14 @@
 #include "interrupts.h"
 #include "intr/ctl/ctl.h"
 #include "intr/idt.h"
+#include "libk/bin/ksyms.h"
 #include "mem/kmem_manager.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
+#include <stdio.h>
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "stubs.h"
@@ -169,18 +171,50 @@ registers_t* general_protection_handler(registers_t *regs) {
 
 REGISTER_ERROR_HANDLER(14, pagefault);
 
+
+static void generate_traceback(uint64_t ip, uint64_t bp)
+{
+  const char* current_func;
+  uint8_t current_depth = 0,
+          max_depth = 20;
+
+  printf("Traceback:\n");
+
+  /*
+   * TODO: check loaded drivers
+   */
+  while (ip && bp && current_depth < max_depth)
+  {
+    current_func = get_ksym_name(ip);
+
+    if (!current_func)
+      current_func = "Unknown";
+
+    printf("(%d): Function name <%s> at (0x%llx)\n",
+        current_depth,
+        current_func,
+        ip);
+
+    ip = *(uint64_t*)(bp + sizeof(uint64_t));
+    bp = *(uint64_t*)bp;
+    current_depth++;
+  }
+}
+
 /*
  * FIXME: this handler is going to get called a bunch of 
  * different times when running the system, so this and a 
  * few handlers that serve the same fate should get overlapping
  * and rigid handling.
  */
-registers_t* pagefault_handler(registers_t *regs) {
-
+registers_t* pagefault_handler(registers_t *regs) 
+{
   uintptr_t err_addr = read_cr2();
   uintptr_t cs = regs->cs;
   
   uint32_t error_word = regs->err_code;
+
+  generate_traceback(regs->rip, regs->rbp);
 
   println(" --- PAGEFAULT --- ");
   print("error at ring: ");
@@ -230,16 +264,8 @@ registers_t* pagefault_handler(registers_t *regs) {
   if ((current_proc->m_flags & PROC_DRIVER) == PROC_DRIVER)
     goto panic;
 
+  /* NOTE: This yields and exits the interrupt context cleanly */
   Must(try_terminate_process(current_proc));
-
-  kmem_load_page_dir((uintptr_t)kmem_get_krnl_dir(), false);
-
-  println("Yielding...");
-
-  kernel_panic("FIXME: Terminated process");
-
-  scheduler_yield();
-
   return regs;
 
 panic:

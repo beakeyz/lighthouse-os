@@ -18,7 +18,6 @@ typedef long long signed    int     int64_t;
 typedef long long unsigned  int     uint64_t;
 typedef unsigned            int     uint_t;
 
-typedef char*                       va_list;
 typedef uint64_t                    size_t;
 typedef int64_t                     ssize_t;
 typedef uint64_t                    uintptr_t;
@@ -27,6 +26,7 @@ typedef uint8_t                     bool;
 typedef uintptr_t                   vaddr_t;
 typedef uintptr_t                   paddr_t;
 
+typedef __builtin_va_list        va_list;
 
 typedef void (*FuncPtr)();
 
@@ -58,17 +58,14 @@ typedef void (*FuncPtr)();
 #define STATIC_CAST(type, value) ((type)(value))
 #define DYNAMIC_CAST(type, value) (*(type*)&(value))
 
-#define __va_argsiz(t)	                        \
-	(((sizeof(t) + sizeof(int) - 1) / sizeof(int)) * sizeof(int))
+#define va_start(ap, pN)    \
+  __builtin_va_start(ap, pN)
 
-#define va_start(ap, pN)	                      \
-	((ap) = ((va_list) __builtin_next_arg(pN)))
+#define va_end(ap)          \
+  __builtin_va_end(ap)
 
-#define va_end(ap)	((void)0)
-
-#define va_arg(ap, t)					                  \
-	 (((ap) = (ap) + __va_argsiz(t)),		          \
-	  *((t*) (void*) ((ap) - __va_argsiz(t))))
+#define va_arg(ap, t)       \
+  __builtin_va_arg(ap, t)
 
 #define arrlen(arr) (sizeof(arr) / sizeof(*arr))
 

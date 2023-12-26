@@ -10,7 +10,6 @@ typedef enum {
 
 // Represent the irq controller (PIC, IOAPIC, ect.)
 typedef struct int_controller {
-  void* private; // pointer to its parent (SHOULD NOT BE USED OFTEN)
   INTERRUPT_CONTROLLER_TYPE type;
 
   void (*ictl_eoi)(uint8_t vec);
@@ -23,6 +22,8 @@ typedef struct int_controller {
   void (*ictl_map_vector)(uint16_t vec);
 
   void (*ictl_reset)(struct int_controller*);
+
+  void* private; // pointer to its parent (SHOULD NOT BE USED OFTEN)
 } int_controller_t;
 
 void init_intr_ctl();

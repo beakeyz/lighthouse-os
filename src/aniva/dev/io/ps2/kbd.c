@@ -222,11 +222,6 @@ registers_t* ps2_keyboard_irq_handler(registers_t* regs)
   /* Copy the scancode buffer to the event */
   memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
 
-  println(to_string(kb.pressed_keys[0]));
-  println(to_string(kb.pressed_keys[1]));
-  println(to_string(kb.pressed_keys[2]));
-  println(to_string(kb.pressed_keys[3]));
-
   kevent_fire("keyboard", &kb, sizeof(kb));
 
   return regs;

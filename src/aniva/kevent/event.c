@@ -1,6 +1,7 @@
 #include "event.h"
 #include "hook.h"
 #include "kevent/hash.h"
+#include "kevent/types/error/kerror.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
@@ -612,4 +613,6 @@ void init_kevents()
     ) == 0,
     "Failed to create default kevents");
   }
+
+  kevent_add_hook("error", "default", __default_kerror_handler);
 }

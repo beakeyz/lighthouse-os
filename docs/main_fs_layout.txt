@@ -10,5 +10,8 @@ The main outline will be given here, per directory or vfs entry:
  - /Root/Assets: A place where different assets can be dumped. Apps can request a directory here that they own where they can store their resources
  - /Root/User: contains the different user-owned directories and different user-related stuff
     - /Root/Global: contains the global user info
+
+ - /Dev: Will contain device objects. These objects are sorted by the driver paths that they are attached to
+         So when, for example, a device called 'TestDevice' is attached to the driver 'other/TestDriver', The complete path becomes '/Dev/other/TestDriver/TestDevice'
  
  /* ... */

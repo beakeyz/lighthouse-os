@@ -122,6 +122,7 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread);
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);
 
 ErrorOrPtr try_terminate_process(proc_t* proc);
+ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield);
 
 /* Heh? */
 void terminate_process(proc_t* proc);

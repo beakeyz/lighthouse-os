@@ -307,7 +307,12 @@ int await_proc_termination(proc_id_t id)
  *
  * NOTE: don't remove from the scheduler here, but in the reaper
  */
-ErrorOrPtr try_terminate_process(proc_t* proc) 
+ErrorOrPtr try_terminate_process(proc_t* proc)
+{
+  return try_terminate_process_ex(proc, false);
+}
+
+ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
 {
   ErrorOrPtr result;
 
@@ -333,7 +338,8 @@ unpause_and_exit:
   resume_scheduler();
 
   /* Yield to catch any terminates from within a process */
-  scheduler_yield();
+  if (!defer_yield)
+    scheduler_yield();
   return result;
 }
 

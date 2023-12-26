@@ -83,12 +83,9 @@ int real_va_sprintf(uint8_t mode, FILE* stream, const char* fmt, va_list va)
     }
 
     /* This is hilarious */
-    while (*c == 'l') {
+    while (*c == 'l' && decimal_size < 2) {
       decimal_size++;
       c++;
-      /* %ll is the max */
-      if (decimal_size == 2)
-        break;
     }
 
     switch(*c) {

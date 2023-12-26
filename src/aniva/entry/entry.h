@@ -37,9 +37,11 @@ extern driver_version_t kernel_version;
 #define SYSFLAGS_HAS_EARLY_TTY      (0x00000002)
 #define SYSFLAGS_NO_INTERRUPTS      (0x00000004)
 #define SYSFLAGS_HAS_RMM            (0x00000008) /* Do we have resource management? */
+/* If the system is in a volatile state, any thrown error will result in a system panic */
+#define SYSFLAGS_VOLATILE           (0x00000010)
 
 /* What's the maximum amount of processors we support? */
-#define SYS_MAX_CPU                 32
+#define SYS_MAX_CPU                 1
 
 /*
  * Global system variables, that should be known throughout the 
@@ -77,12 +79,13 @@ typedef struct {
   vaddr_t kernel_end_addr;
   
   /*
-   * The amount of memory that is reserved directly above the kernel 
+   * The amount of memory that is reserved directly above the kernel.
    * Calculated in multiboot.c
    */
   vaddr_t post_kernel_reserved_size; 
 } system_info_t;
 
+/* NOTE: this shit is not protected by any lock. Races will occur =( */
 extern system_info_t g_system_info;
 
 #endif // !__KMAIN__
