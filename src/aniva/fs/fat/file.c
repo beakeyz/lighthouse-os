@@ -13,6 +13,13 @@ int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
   if (!size)
     return -1;
 
+  if (offset >= file->m_total_size)
+    return -2;
+
+  /* Trim the size a bit if it happens to overflows */
+  if ((offset + *size) >= file->m_total_size)
+    *size -= ((offset + *size) - file->m_total_size);
+
   return fat32_load_clusters(node, buffer, file->m_private, offset, *size);
 }
 

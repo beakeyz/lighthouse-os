@@ -130,10 +130,10 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
       {
         file_t* file = khandle->reference.file;
 
-        if (!file || !file->m_ops || !file->m_ops->f_write)
+        if (!file || !file->m_ops || !file->m_ops->f_read)
           return NULL;
 
-        result = file->m_ops->f_read(file, buffer, &read_len, khandle->offset);
+        result = file_read(file, buffer, &read_len, khandle->offset);
 
         if (result < 0)
           return NULL;

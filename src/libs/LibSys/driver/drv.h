@@ -4,6 +4,8 @@
 #include "LibSys/system.h"
 #include "LibSys/handle_def.h"
 
+#include "ctl.h"
+
 #define DRV_FLAG_CORE (0x00000001)
 #define DRV_FLAG_HUB (0x00000002)
 #define DRV_FLAG_STORAGE (0x00000004)
@@ -16,20 +18,13 @@
 #define DRV_CLASS_PCI_HUB 3
 #define DRV_CLASS_PCI_DEV 4
 
-typedef struct drv_info {
-  const char* description;
-  const char* type_str;
-  uint32_t flags;
-  uint32_t class;
-} drv_info_t;
-
 /*
  * Get a handle to a driver
  *
  * @returns: FALSE on a fail, TRUE on success
  * @handle: buffer where the handle is placed. Caller should check if this is not HNDL_INVALID
  */
-BOOL open_driver(
+extern BOOL open_driver(
   __IN__ const char* name,
   __IN__ DWORD flags,
   __IN__ DWORD mode,
@@ -44,26 +39,27 @@ BOOL open_driver(
  * @path: path to the driver binary. Should always end in .drv, which
  * is the filetype for driver binaries in the aniva kernel
  */
-BOOL load_driver(
+extern BOOL load_driver(
   __IN__ const char* path,
-  __IN__ DWORD flags
+  __IN__ DWORD flags,
+  __OUT__ __OPTIONAL__ HANDLE* handle
 );
 
 /*
  * Unload a driver. Also closes the handle
  */
-BOOL unload_driver(
+extern BOOL unload_driver(
   __IN__ HANDLE handle
 );
 
-BOOL driver_send_msg(
+extern BOOL driver_send_msg(
  __IN__ HANDLE handle,
  __IN__ DWORD code,
  __IN__ VOID* buffer,
  __IN__ size_t size
 );
 
-BOOL driver_query_info(
+extern BOOL driver_query_info(
  __IN__ HANDLE handle,
  __OUT__ drv_info_t* info_buffer
 );

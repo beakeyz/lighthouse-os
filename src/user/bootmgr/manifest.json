@@ -1,0 +1,6 @@
+{
+  "name": "bootmgr",
+  "linking": "static",
+  "type": "process",
+  "libs": []
+}

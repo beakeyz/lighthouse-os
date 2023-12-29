@@ -367,8 +367,14 @@ class ProjectBuilder(object):
             manifest: BuildManifest = manifest
             manifest_out_path: str = manifest.path.strip("manifest.json").replace(self.constants.SRC_DIR, self.constants.OUT_DIR)
 
+            dynamicDeps: str = " "
             objFiles: str = " "
             commonObjFiles: str = " "
+
+            # Make a string containing all the dependencies of this library
+            for dep in manifest.dependantLibs:
+                dep: str = dep
+                dynamicDeps += f"-l:{dep}{self.constants.SHARED_LIB_EXTENTION} "
 
             print(f"Linking: {manifest.manifested_name}")
 
@@ -388,14 +394,15 @@ class ProjectBuilder(object):
                 # Make sure this directory ectually exists in our sysroot
                 os.makedirs(bin_out_path, exist_ok=True)
 
+            ld = self.constants.CROSS_LD_DIR
+
             # Build a dynamic library
             if manifest.link_type == "dynamic":
                 # Fuck you, GCC
                 BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + self.constants.SHARED_LIB_EXTENTION
                 ULF = self.constants.LIB_LD_FLAGS
-                ld = self.constants.CROSS_LD_DIR
 
-                if os.system(f"{ld} {ULF} {commonObjFiles} {objFiles} -o {BIN_OUT} ") != 0:
+                if os.system(f"{ld} {ULF} {dynamicDeps} {commonObjFiles} {objFiles} -o {BIN_OUT} ") != 0:
                     return BuilderResult.FAIL
 
             # Make sure to remove the object file containing the entry for the dynamic library

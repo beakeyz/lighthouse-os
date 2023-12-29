@@ -52,7 +52,7 @@ driver_send_msg(HANDLE handle, DWORD code, VOID* buffer, size_t size)
   if (!ret || type != HNDL_TYPE_DRIVER)
     return FALSE;
 
-  sys_status = syscall_4(SYSID_SEND_IO_CTL, handle, code, (uintptr_t)buffer, size);
+  sys_status = syscall_4(SYSID_SEND_MSG, handle, code, (uintptr_t)buffer, size);
 
   if (sys_status != SYS_OK)
     return FALSE;
@@ -60,3 +60,20 @@ driver_send_msg(HANDLE handle, DWORD code, VOID* buffer, size_t size)
   return TRUE;
 }
 
+BOOL 
+load_driver(const char* path, DWORD flags, HANDLE* handle)
+{
+  return FALSE;
+}
+
+BOOL 
+unload_driver(HANDLE handle)
+{
+  return FALSE;
+}
+
+BOOL 
+driver_query_info(HANDLE handle, drv_info_t* info_buffer)
+{
+  return FALSE;
+}

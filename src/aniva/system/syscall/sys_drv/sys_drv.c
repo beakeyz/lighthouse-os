@@ -12,8 +12,10 @@
 #include "sync/mutex.h"
 #include <dev/manifest.h>
 
+#include <LibSys/driver/ctl.h>
+
 uintptr_t
-sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
+sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
   ErrorOrPtr result;
   khandle_t* c_hndl;
@@ -61,6 +63,13 @@ sys_send_ioctl(HANDLE handle, driver_control_code_t code, void* buffer, size_t s
   if (IsError(result))
     return SYS_ERR;
 
+  return SYS_OK;
+}
+
+uintptr_t 
+sys_send_drv_ctl(HANDLE handle, enum DRV_CTL_MODE mode)
+{
+  kernel_panic("TODO: sys_send_drv_ctl");
   return SYS_OK;
 }
 

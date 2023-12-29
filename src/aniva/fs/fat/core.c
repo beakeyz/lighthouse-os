@@ -180,7 +180,10 @@ int fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t 
     if (current_delta > info->cluster_size - current_deviation)
       current_delta = info->cluster_size - current_deviation;
 
-    current_cluster_offset = (info->usable_clusters_start + (file->clusterchain_buffer[current_index] - 2) * info->boot_sector_copy.sectors_per_cluster) * info->boot_sector_copy.sector_size;
+    current_cluster_offset =
+      (info->usable_clusters_start + (file->clusterchain_buffer[current_index] - 2)
+      * info->boot_sector_copy.sectors_per_cluster) 
+      * info->boot_sector_copy.sector_size;
 
     error = fatfs_read(node, buffer + index, current_delta, current_cluster_offset + current_deviation);
 
@@ -464,8 +467,11 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
    */
   memcpy(boot_sector, buffer, sizeof(fat_boot_sector_t));
 
-  /* Create a cache for our sectors */
-  ffi->sector_cache = create_fat_sector_cache(boot_sector->sector_size);
+  /*
+   * Create a cache for our sectors 
+   * NOTE: cache_count being NULL means we want the default number of cache entries
+   */
+  ffi->sector_cache = create_fat_sector_cache(boot_sector->sector_size, NULL);
 
   /* Try to parse boot sector */
   int parse_result = parse_fat_bpb(boot_sector, node);

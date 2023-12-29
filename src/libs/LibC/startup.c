@@ -1,11 +1,17 @@
 #include <LibC/mem/memory.h>
 
+#include "LibSys/handle_def.h"
 #include "LibSys/syscall.h"
 #include "LibSys/system.h"
 #include <stdlib.h>
 #include <sys/types.h>
 
+/* Generic process entry. No BS */
 typedef int (*MainEntry)();
+/* Process wants to have a handle to itself */
+typedef int (*MainEntry_ex)(HANDLE this);
+/* Process is run as a unix/POSIX thingy */
+typedef int (*MainEntry_unix)(int argc, char* argv[]);
 
 void lightapp_startup(MainEntry main) __attribute__((used)) ;
 extern void __attribute__((noreturn)) halt(void);

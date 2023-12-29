@@ -15,17 +15,21 @@
 struct fat_file;
 struct file;
 
+struct sec_cache_entry;
+
 typedef struct {
-  uintptr_t fat_block_buffer;
-  uintptr_t current_block;
-  uintptr_t blocksize;
+  uint32_t blocksize;
+  uint32_t cache_count;
+
+  struct sec_cache_entry* entries[];
 } fat_sector_cache_t;
+
 void init_fat_cache(void);
 
 ErrorOrPtr create_fat_info(vnode_t* node);
 void destroy_fat_info(vnode_t* node);
 
-fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size);
+fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache_count);
 void destroy_fat_sector_cache(fat_sector_cache_t* cache);
 
 int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset);

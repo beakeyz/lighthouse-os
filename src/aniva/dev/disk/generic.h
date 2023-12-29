@@ -53,8 +53,6 @@ typedef struct disk_dev {
 
   uint32_t m_flags;
 
-  uint16_t m_reserved;
-
   /* Generic uid that acts as an index into the list of device that are available */
   disk_uid_t m_uid;         // 8 bits
   uint8_t m_partition_type; // 8 bits

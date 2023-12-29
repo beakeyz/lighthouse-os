@@ -202,8 +202,12 @@ class Consts:
                 self.DRIVER_MANIFESTS.append(manifest)
             elif manifest.type == BuildManifestType.U_PROCESS and not self.PROCESS_MANIFESTS.__contains__(manifest):
                 self.PROCESS_MANIFESTS.append(manifest)
-            elif manifest.type == BuildManifestType.U_LIBRARY and not self.PROCESS_MANIFESTS.__contains__(manifest):
+            elif manifest.type == BuildManifestType.U_LIBRARY and not self.LIBRARY_MANIFESTS.__contains__(manifest):
                 self.LIBRARY_MANIFESTS.append(manifest)
+
+                # Make sure libc is at entry 0
+                if manifest.manifested_name == "LibSys":
+                    self.LIBRARY_MANIFESTS.reverse()
 
         for entry in dirs:
             if entry.startswith("."):

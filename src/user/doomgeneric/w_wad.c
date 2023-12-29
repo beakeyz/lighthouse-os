@@ -93,6 +93,7 @@ static void ExtendLumpInfo(int newnumlumps)
 
     if (newlumpinfo == NULL)
     {
+      printf("New lump num: %i, with total size of %lld", newnumlumps, (uintptr_t)(newnumlumps * sizeof(lumpinfo_t)));
 	I_Error ("Couldn't realloc lumpinfo");
     }
 

@@ -14,11 +14,18 @@
 #include <mem/zalloc.h>
 
 #define DEFAULT_FAT_INFO_ENTRIES (8)
-#define DEFAULT_FAT_SECTOR_CACHES (8)
+#define DEFAULT_FAT_SECTOR_CACHES (64)
 
 static zone_allocator_t __fat_info_cache;
 static zone_allocator_t __fat_file_cache;
-static zone_allocator_t __fat_sec_cache_alloc;
+static zone_allocator_t __fat_sec_entry_alloc;
+
+struct sec_cache_entry {
+  bool is_dirty:1;
+  uint32_t useage_count;
+  uintptr_t block_buffer;
+  uintptr_t current_block;
+};
 
 ErrorOrPtr create_fat_info(vnode_t* node)
 {
@@ -58,21 +65,39 @@ void destroy_fat_info(vnode_t* node)
   node->fs_data.m_fs_specific_info = nullptr;
 }
 
-fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size)
+fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache_count)
 {
+  struct sec_cache_entry** c_entry;
   fat_sector_cache_t* cache;
 
   if (!block_size)
     return nullptr;
 
-  cache = zalloc_fixed(&__fat_sec_cache_alloc);
+  if (!cache_count)
+    cache_count = DEFAULT_FAT_SECTOR_CACHES;
+
+  cache = kmalloc(sizeof(*cache) + (cache_count * sizeof(struct sec_cache_entry*)));
 
   if (!cache)
     return nullptr;
 
   cache->blocksize = block_size;
-  cache->current_block = (uintptr_t)-1;
-  cache->fat_block_buffer = Must(__kmem_kernel_alloc_range(block_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+  cache->cache_count = cache_count;
+
+  c_entry = cache->entries;
+
+  /*
+   * Initialize all the cache entries
+   */
+  for (uint32_t i = 0; i < cache_count; i++) {
+    c_entry[i] = zalloc_fixed(&__fat_sec_entry_alloc);
+
+    memset(c_entry[i], 0, sizeof(struct sec_cache_entry));
+
+    c_entry[i]->block_buffer = Must(__kmem_kernel_alloc_range(block_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+    memset((void*)c_entry[i]->block_buffer, 0, block_size);
+  }
 
   return cache;
 }
@@ -82,8 +107,79 @@ void destroy_fat_sector_cache(fat_sector_cache_t* cache)
   if (!cache)
     return;
 
-  __kmem_kernel_dealloc(cache->fat_block_buffer, cache->blocksize);
-  zfree_fixed(&__fat_sec_cache_alloc, cache);
+  for (uint32_t i = 0; i < cache->cache_count; i++) {
+    __kmem_kernel_dealloc(cache->entries[i]->block_buffer, cache->blocksize);
+    zfree_fixed(&__fat_sec_entry_alloc, cache->entries[i]);
+  }
+
+  kfree(cache);
+}
+
+static inline void fat_cache_use_entry(struct sec_cache_entry* index)
+{
+  index->useage_count++;
+}
+
+static void fat_cache_find_least_used(fat_sector_cache_t* cache, struct sec_cache_entry** entry)
+{
+  uint32_t i;
+  struct sec_cache_entry* least_used;
+  struct sec_cache_entry* c_entry;
+
+  i = 1;
+  least_used = cache->entries[0];
+
+  /* Skip any dirty entries */
+  while (least_used->is_dirty)
+    least_used = cache->entries[i++];
+
+  for (; i < cache->cache_count; i++) {
+    c_entry = cache->entries[i];
+
+    /* Skip dirty entries */
+    if (c_entry->is_dirty)
+      continue;
+
+    if (c_entry->useage_count < least_used->useage_count)
+      least_used = c_entry;
+  }
+
+  *entry = least_used;
+}
+
+/*!
+ * @brief: Find a cache entry for a specific block index
+ *
+ * If we don't already have the block cached, it returns a free cache entry
+ * If there are no free entries left, we replace the least used entry
+ */
+static int fat_cache_find_entry(fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
+{
+  struct sec_cache_entry* c_free;
+  struct sec_cache_entry* c_entry;
+
+  c_free = nullptr;
+
+  for (uint32_t i = 0; i < cache->cache_count; i++) {
+    c_entry = cache->entries[i];
+
+    /* If we find the block we're looking for, use this entry */
+    if (c_entry->useage_count && c_entry->current_block == block) {
+      *entry = c_entry;
+      return 0;
+    }
+
+    if (!c_entry->useage_count && !c_free) {
+      c_free = c_entry;
+      continue;
+    }
+  }
+
+  if (!c_free)
+    fat_cache_find_least_used(cache, &c_free);
+
+  *entry = c_free;
+  return 0;
 }
 
 /*!
@@ -93,15 +189,26 @@ void destroy_fat_sector_cache(fat_sector_cache_t* cache)
  * (Or put caching in the generic disk core)
  */
 static int 
-__read(vnode_t* node, fat_sector_cache_t* cache, uintptr_t block)
+__read(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
 {
-  /* Already got it */
-  if (cache->current_block == block)
-    return 0;
+  struct sec_cache_entry* c_entry;
 
-  cache->current_block = block;
+  if (fat_cache_find_entry(cache, &c_entry, block) || !c_entry)
+    return -1;
 
-  return pd_bread(node->m_device, (void*)cache->fat_block_buffer, block);
+  /* Skip the block read if we alread have this block cached */
+  if (c_entry->current_block == block) 
+    goto found_entry;
+
+  if (pd_bread(node->m_device, (void*)c_entry->block_buffer, block))
+    return -2;
+
+found_entry:
+  fat_cache_use_entry(c_entry);
+  c_entry->current_block = block;
+
+  *entry = c_entry;
+  return 0;
 }
 
 /*!
@@ -113,6 +220,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
 {
   int error;
   fat_fs_info_t* info;
+  struct sec_cache_entry* entry;
   uint64_t current_block, current_offset, current_delta;
   uint64_t lba_size, read_size;
 
@@ -124,7 +232,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     current_block = (offset + current_offset) / lba_size;
     current_delta = (offset + current_offset) % lba_size;
 
-    error = __read(node, info->sector_cache, current_block);
+    error = __read(node, info->sector_cache, &entry, current_block);
 
     if (error)
       return -1;
@@ -135,7 +243,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     if (read_size > lba_size - current_delta)
       read_size = lba_size - current_delta;
 
-    memcpy(buffer + current_offset, &(((uint8_t*)info->sector_cache->fat_block_buffer)[current_delta]), read_size);
+    memcpy(buffer + current_offset, &(((uint8_t*)entry->block_buffer)[current_delta]), read_size);
 
     current_offset += read_size;
   }
@@ -189,7 +297,7 @@ void init_fat_cache(void)
   ASSERT_MSG(!IsError(result), "Could not create FAT file cache!");
 
   ASSERT_MSG(
-      !IsError(init_zone_allocator(&__fat_sec_cache_alloc, DEFAULT_FAT_SECTOR_CACHES * sizeof(fat_sector_cache_t), sizeof(fat_sector_cache_t), NULL)),
+      !IsError(init_zone_allocator(&__fat_sec_entry_alloc, DEFAULT_FAT_SECTOR_CACHES * sizeof(struct sec_cache_entry), sizeof(struct sec_cache_entry), NULL)),
       "Failed to create a FAT sector cache allocator!"
       );
 }
