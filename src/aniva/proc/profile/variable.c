@@ -1,5 +1,5 @@
 #include "variable.h"
-#include "LibSys/proc/var_types.h"
+#include "lightos/proc/var_types.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "proc/profile/profile.h"

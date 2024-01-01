@@ -1,6 +1,6 @@
 
-#include "LibSys/syscall.h"
-#include "LibSys/system.h"
+#include "lightos/syscall.h"
+#include "lightos/system.h"
 #include "errno.h"
 #include <stdio.h>
 

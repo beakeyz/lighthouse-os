@@ -106,9 +106,20 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
   return create_proc(nullptr, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
-proc_t* create_proc_from_path(const char* path) {
-  kernel_panic("TODO: create_proc_from_path");
-  return nullptr;
+/*!
+ * @brief: Create a duplicate process
+ *
+ * Make sure that there are no threads in this process that hold any mutexes, since the clone
+ * can't hold these at the same time
+ */
+int proc_clone(proc_t* p, const char* clone_name, proc_t** clone)
+{
+  /* Create new 'clone' process */
+  /* Copy handle map */
+  /* Copy resource list */
+  /* Copy thread state */
+  /* ... */
+  return 0;
 }
 
 static void __proc_clear_shared_resources(proc_t* proc)

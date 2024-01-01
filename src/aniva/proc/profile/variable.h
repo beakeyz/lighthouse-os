@@ -1,10 +1,10 @@
 #ifndef __ANIVA_VARIABLE__
 #define __ANIVA_VARIABLE__
 
-#include "LibSys/proc/var_types.h"
+#include "lightos/proc/var_types.h"
 #include "sync/atomic_ptr.h"
 #include <libk/stddef.h>
-#include <LibSys/proc/var_types.h>
+#include <lightos/proc/var_types.h>
 
 struct proc_profile;
 

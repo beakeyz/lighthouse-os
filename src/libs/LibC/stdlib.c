@@ -1,10 +1,10 @@
 
 #include <ctype.h>
 #include <mem/memory.h>
-#include <LibSys/system.h>
+#include <lightos/system.h>
 #include <stddef.h>
 #include <string.h>
-#include "LibSys/syscall.h"
+#include "lightos/syscall.h"
 #include "stdlib.h"
 
 /*

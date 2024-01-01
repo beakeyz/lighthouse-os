@@ -1,5 +1,5 @@
 #include "handle.h"
-#include "LibSys/handle_def.h"
+#include "lightos/handle_def.h"
 #include "fs/file.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"

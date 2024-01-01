@@ -8,7 +8,6 @@
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
-#include <stdio.h>
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "stubs.h"

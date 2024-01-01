@@ -1,6 +1,6 @@
 #include "include/video.h"
 #include "LibGfx/include/driver.h"
-#include "LibSys/driver/drv.h"
+#include "lightos/driver/drv.h"
 #include "LibGfx/include/lgfx.h"
 
 VOID lwindow_set_updates_deferred(lwindow_t* wnd)

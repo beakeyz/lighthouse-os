@@ -1,5 +1,5 @@
 #include "kterm.h"
-#include <LibSys/event/key.h>
+#include <lightos/event/key.h>
 #include "LibGfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"

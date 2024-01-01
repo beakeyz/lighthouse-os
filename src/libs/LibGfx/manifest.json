@@ -2,5 +2,8 @@
   "name": "LibGfx",
   "path": "System/Lib",
   "linking": "static",
-  "type": "library"
+  "type": "library",
+  "libs": [
+    "LibC"
+  ]
 }

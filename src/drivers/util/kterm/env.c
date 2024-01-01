@@ -1,4 +1,4 @@
-#include "LibSys/proc/var_types.h"
+#include "lightos/proc/var_types.h"
 #include "drivers/util/kterm/kterm.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"

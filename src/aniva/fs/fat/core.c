@@ -120,7 +120,7 @@ static int fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t s
     if (error)
       return error;
 
-    if (buffer < 0x2 || buffer > FAT_ENT_EOF)
+    if (buffer < 0x2 || buffer >= FAT_ENT_EOF)
       break;
 
     length++;
@@ -363,9 +363,6 @@ static vobj_t* fat_open(vnode_t* node, char* path)
     /* Place a null-byte */
     path_buffer[i] = '\0';
 
-    println("A");
-    println(&path_buffer[current_idx]);
-
     error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx]);
 
     if (error)
@@ -385,8 +382,8 @@ static vobj_t* fat_open(vnode_t* node, char* path)
       /* This is quite aggressive, we should prob just clean and return nullptr... */
       Must(vn_attach_object(node, ret->m_obj));
 
-      ret->m_total_size = get_fat_file_size(fat_file);
-      ret->m_logical_size = current.size;
+      ret->m_logical_size = get_fat_file_size(fat_file);
+      ret->m_total_size = current.size;
 
       return ret->m_obj;
     }

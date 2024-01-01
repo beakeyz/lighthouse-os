@@ -1,7 +1,7 @@
 
 #include "memory.h"
-#include "LibSys/syscall.h"
-#include <LibSys/system.h>
+#include "lightos/syscall.h"
+#include <lightos/system.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +35,7 @@ static uint32_t default_range_entry_sizes[] = {
   [15] = (40 * Kib),
   [16] = (64 * Kib),
   [17] = (96 * Kib),
-  [18] = (128 * Kib),
+  [18] = (256 * Kib),
   [19] = (512 * Kib),
 };
 
@@ -133,6 +133,25 @@ static inline struct malloc_bitmap* malloc_get_bitmap(struct malloc_range* range
 static inline uint8_t* malloc_range_get_start(struct malloc_range* range)
 {
   return (&range->m_bytes[range->m_data_start_offset]);
+}
+
+/*!
+ * @brief: Tries to get an index for a specific entrysize
+ *
+ * @returns: The positive index on success, a negative errorcode on error
+ */
+static inline int __malloc_get_idx_for_size(size_t entrysize)
+{
+  uint32_t ret = 0;
+
+  do {
+
+    if (default_range_entry_sizes[ret] == entrysize)
+      return ret;
+
+  } while (ret++ < default_entry_sizes);
+
+  return -1;
 }
 
 /*
@@ -305,8 +324,8 @@ static void malloc_range_set_used(struct malloc_range* range, uint32_t offset)
  * we want to keep libraries using libraries to a
  * minimum. This is because when we statically link 
  * everything together and for example we are using 
- * LibSys here, it gets included in the binary, which itself 
- * does not use any other functionallity of LibSys, so thats 
+ * lightos (Old libsys) here, it gets included in the binary, which itself 
+ * does not use any other functionallity of lightos (Old libsys), so thats 
  * kinda lame imo
  *
  * TODO: check if the process has requested a heap of a specific size
@@ -334,8 +353,10 @@ void* mem_alloc(size_t size)
 {
   bool result;
   uint32_t offset;
+  struct malloc_range* lastrange;
   struct malloc_range* range;
 
+  lastrange = nullptr;
   range = malloc_find_range_for_size(size);
   
   if (!range)
@@ -350,9 +371,38 @@ void* mem_alloc(size_t size)
       return (malloc_range_get_start(range) + (offset * range->m_entry_size));
     }
 
+    lastrange = range;
     range = range->m_next;
   } while(range);
 
+  printf("Tried to allocate: %lld bytes\n", size);
+
+  /*
+   * Add a new range for this size
+   */
+  __add_malloc_size_range(
+      lastrange->m_data_size,
+      __malloc_get_idx_for_size(
+        lastrange->m_entry_size
+      )
+  );
+
+  range = lastrange->m_next;
+
+  if (!range)
+    goto error_and_exit;
+
+  result = malloc_find_free_offset(range, &offset);
+
+  if (!result)
+    goto error_and_exit;
+
+
+  malloc_range_set_used(range, offset);
+
+  return (malloc_range_get_start(range) + (offset * range->m_entry_size));
+
+error_and_exit:
   /* TODO: add a new range and try again */
   return nullptr;
 }

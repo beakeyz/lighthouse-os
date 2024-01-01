@@ -1,5 +1,5 @@
 #include "profile.h"
-#include "LibSys/proc/var_types.h"
+#include "lightos/proc/var_types.h"
 #include "entry/entry.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/vector.h"

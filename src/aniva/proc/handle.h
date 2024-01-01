@@ -1,7 +1,7 @@
 #ifndef __ANIVA_HANDLE__
 #define __ANIVA_HANDLE__
 
-#include "LibSys/handle_def.h"
+#include "lightos/handle_def.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>

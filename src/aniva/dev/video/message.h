@@ -5,7 +5,7 @@
 
 /*
  * Define message structures for userspace to follow
- * FIXME: should these be part of a header in LibSys?
+ * FIXME: should these be part of a header in libc-lightos?
  */
 
 /*

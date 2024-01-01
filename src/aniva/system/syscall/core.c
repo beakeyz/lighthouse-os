@@ -1,5 +1,5 @@
 #include "core.h"
-#include "LibSys/syscall.h"
+#include "lightos/syscall.h"
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"

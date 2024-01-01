@@ -103,10 +103,11 @@ typedef struct proc {
 
 proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
-proc_t* create_proc_from_path(const char* path);
 
 /* Block until the process has ended execution */
 int await_proc_termination(proc_id_t id);
+
+int proc_clone(proc_t* p, const char* clone_name, proc_t** clone);
 
 /*
  * Murder a proc object with all its threads as well.

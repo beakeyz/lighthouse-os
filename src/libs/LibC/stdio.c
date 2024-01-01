@@ -1,10 +1,10 @@
 #include "stdio.h"
-#include "LibSys/handle.h"
+#include "lightos/handle.h"
 #include "stdarg.h"
 #include "sys/types.h"
-#include <LibSys/system.h>
-#include <LibSys/syscall.h>
-#include <LibSys/handle_def.h>
+#include <lightos/system.h>
+#include <lightos/syscall.h>
+#include <lightos/handle_def.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>

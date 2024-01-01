@@ -6,7 +6,7 @@
 #include "LibGfx/include/driver.h"
 #include "LibGfx/include/lgfx.h"
 #include "LibGfx/include/video.h"
-#include "LibSys/driver/drv.h"
+#include "lightos/driver/drv.h"
 #include "sys/types.h"
 #include <stdio.h>
 #include <stdlib.h>

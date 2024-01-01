@@ -1,13 +1,13 @@
 
-#include "LibSys/driver/drv.h"
-#include "LibSys/handle.h"
-#include "LibSys/handle_def.h"
-#include "LibSys/proc/process.h"
-#include "LibSys/proc/profile.h"
-#include "LibSys/proc/socket.h"
-#include "LibSys/proc/var_types.h"
-#include <LibSys/system.h>
-#include <LibSys/syscall.h>
+#include "lightos/driver/drv.h"
+#include "lightos/handle.h"
+#include "lightos/handle_def.h"
+#include "lightos/proc/process.h"
+#include "lightos/proc/profile.h"
+#include "lightos/proc/socket.h"
+#include "lightos/proc/var_types.h"
+#include <lightos/system.h>
+#include <lightos/syscall.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

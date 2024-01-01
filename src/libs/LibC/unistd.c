@@ -1,8 +1,8 @@
 #include "unistd.h"
 #include "stdlib.h"
 #include "time.h"
-#include "LibSys/syscall.h"
-#include "LibSys/system.h"
+#include "lightos/syscall.h"
+#include "lightos/system.h"
 
 uint32_t sleep (uint32_t seconds)
 {

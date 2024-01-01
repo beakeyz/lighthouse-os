@@ -32,13 +32,14 @@ struct {
   uint32_t flags;
   uint32_t hook_capacity;
 } default_kevents[] = {
-  { "keyboard", KE_KEY_EVENT,     NULL, 512 },
-  { "mouse",    KE_MOUSE_EVENT,   NULL, 512 },
-  { "error",    KE_ERROR_EVENT,   NULL, 128 },
-  { "proc",     KE_PROC_EVENT,    NULL, 128 },
-  { "thread",   KE_THREAD_EVENT,  NULL, 128 },
-  { "profile",  KE_PROFILE_EVENT, NULL, 128 },
-  { "device",   KE_DEVICE_EVENT,  NULL, 128 },
+  { "keyboard", KE_KEY_EVENT,       NULL, 512 },
+  { "mouse",    KE_MOUSE_EVENT,     NULL, 512 },
+  { "error",    KE_ERROR_EVENT,     NULL, 128 },
+  { "proc",     KE_PROC_EVENT,      NULL, 128 },
+  { "thread",   KE_THREAD_EVENT,    NULL, 128 },
+  { "profile",  KE_PROFILE_EVENT,   NULL, 128 },
+  { "device",   KE_DEVICE_EVENT,    NULL, 128 },
+  { "shutdown", KE_SHUTDOWN_EVENT,  NULL, 64  },
 };
 static const uint32_t default_kevent_count = sizeof(default_kevents) / sizeof(*default_kevents);
 

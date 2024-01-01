@@ -1,6 +1,6 @@
 #include "sys_drv.h"
-#include "LibSys/handle_def.h"
-#include "LibSys/syscall.h"
+#include "lightos/handle_def.h"
+#include "lightos/syscall.h"
 #include "dev/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
@@ -12,7 +12,7 @@
 #include "sync/mutex.h"
 #include <dev/manifest.h>
 
-#include <LibSys/driver/ctl.h>
+#include <lightos/driver/ctl.h>
 
 uintptr_t
 sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)

@@ -1,9 +1,9 @@
 #ifndef __ANIVA_SYS_OPEN__
 #define __ANIVA_SYS_OPEN__
 
-#include "LibSys/proc/var_types.h"
+#include "lightos/proc/var_types.h"
 #include <libk/stddef.h>
-#include <LibSys/handle_def.h>
+#include <lightos/handle_def.h>
 
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode);
 

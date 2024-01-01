@@ -1,8 +1,8 @@
 #include <LibC/mem/memory.h>
 
-#include "LibSys/handle_def.h"
-#include "LibSys/syscall.h"
-#include "LibSys/system.h"
+#include "lightos/handle_def.h"
+#include "lightos/syscall.h"
+#include "lightos/system.h"
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -19,19 +19,8 @@ extern void __attribute__((noreturn)) halt(void);
 extern void __init_memalloc(void);
 extern void __init_stdio(void);
 
-/*
- * TODO: library initialization for userspace
- */
-void lightapp_startup(MainEntry main) 
+void __init_libc(void)
 {
-  process_result_t result;
-
-  if (!main)
-    exit(ERROR);
-
-  __init_memalloc();
-  __init_stdio();
-
   /* 1) Init userspace libraries */
   /* 1.1 -> init posix standard data streams (stdin, stdout, stderr) */
   /* 1.2 -> init heap for this process (e.g. Ask the kernel for some memory and dump our allocator there) */
@@ -40,6 +29,21 @@ void lightapp_startup(MainEntry main)
   /* 1.4 -> create configuration entries if these don't already exist */
   /* 1.5 -> create indecies for any threads we might create so they can easily be cleaned up */
   /* 1.x -> TODO */
+  __init_memalloc();
+  __init_stdio();
+}
+
+/*!
+ * Binary entry for statically linked apps
+ */
+void lightapp_startup(MainEntry main) 
+{
+  process_result_t result;
+
+  if (!main)
+    exit(ERROR);
+
+  __init_libc();
 
   /* 2) pass appropriate arguments to the program and run it */
 

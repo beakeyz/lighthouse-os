@@ -330,10 +330,9 @@ class ProjectBuilder(object):
                     for lib_man in self.constants.LIBRARY_MANIFESTS:
                         lib_man: BuildManifest = lib_man
 
+                        # LibC is an essensial part of any app and until we
+                        # have dynamic linking, this should be here
                         if lib_man.manifested_name == "LibC":
-                            objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
-                        # LibSys is also essensial for every app right now
-                        elif lib_man.manifested_name == "LibSys":
                             objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
                         elif libraries is not None:
                             for lib in libraries:
@@ -385,7 +384,7 @@ class ProjectBuilder(object):
                 if objFile.find(manifest_out_path) != -1:
                     objFiles += f"{objFile} "
                 # Make sure the common library things are included in the binary
-                elif objFile.find(self.constants.LIB_COMMON_OUT_DIR) != -1 and manifest.manifested_name != "LibC":
+                elif objFile.find(self.constants.LIB_COMMON_OUT_DIR) != -1:
                     commonObjFiles += f"{objFile} "
 
             # Check if the manifest specifies an output path
@@ -402,7 +401,14 @@ class ProjectBuilder(object):
                 BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + self.constants.SHARED_LIB_EXTENTION
                 ULF = self.constants.LIB_LD_FLAGS
 
-                if os.system(f"{ld} {ULF} {dynamicDeps} {commonObjFiles} {objFiles} -o {BIN_OUT} ") != 0:
+                objFilesCpy = objFiles
+
+                # Check if we are dealing with libc
+                if manifest.manifested_name == "LibC":
+                    crt0ObjPath = getCrt0ObjPath(self.constants)
+                    objFilesCpy = objFilesCpy.replace(crt0ObjPath, "")
+
+                if os.system(f"{ld} {ULF} {dynamicDeps} {commonObjFiles} {objFilesCpy} -o {BIN_OUT} ") != 0:
                     return BuilderResult.FAIL
 
             # Make sure to remove the object file containing the entry for the dynamic library
@@ -469,3 +475,15 @@ class ProjectBuilder(object):
                     return False
                 return True
         return False
+
+
+def getCrt0ObjPath(c) -> str:
+    ret: str = ""
+    for src in c.CRT_FILES:
+        src: SourceFile = src
+
+        if src.get_path().find("crt0.S") != -1:
+            ret = f"{src.getOutputDir()}crt0.o"
+            break
+
+    return ret

@@ -1,8 +1,0 @@
-{
-  "name": "LibSys",
-  "path": "System/Lib",
-  "linking": "dynamic",
-  "type": "library",
-  "libs": [
-  ]
-}

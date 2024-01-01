@@ -131,7 +131,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   printf("Multiboot address from the bootloader is at: %s\n", to_string((uintptr_t)mb_addr));
 
   // Verify magic number
-  if (mb_magic != 0x36d76289) {
+  if (mb_magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
     println("big yikes");
     println(to_string(mb_magic));
     kernel_panic("Can't verify multiboot header: invalid magic number");

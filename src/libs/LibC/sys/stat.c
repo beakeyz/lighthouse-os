@@ -1,6 +1,6 @@
 #include "stat.h"
-#include "LibSys/syscall.h"
-#include <LibSys/system.h>
+#include "lightos/syscall.h"
+#include <lightos/system.h>
 
 int mkdir(const char *pathname, mode_t mode)
 {

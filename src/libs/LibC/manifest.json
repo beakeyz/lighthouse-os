@@ -1,9 +1,8 @@
 {
   "name": "LibC",
   "path": "System/Lib",
-  "linking": "static",
+  "linking": "dynamic",
   "type": "library",
   "libs": [
-    "LibSys"
   ]
 }

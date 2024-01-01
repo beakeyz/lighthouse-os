@@ -50,6 +50,12 @@ enum KEVENT_TYPE {
   KE_UNKNOWN_EVENT,
   /* Something went wrong lmao */
   KE_ERROR_EVENT,
+  /* Full system shutdown */
+  KE_SHUTDOWN_EVENT,
+  /* System slumber */
+  KE_SLUMBER_EVENT,
+  /* System sleep */
+  KE_SLEEP_EVENT,
   /* Let us cook */
   KE_CUSTOM_EVENT,
 
