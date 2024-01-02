@@ -22,6 +22,26 @@ enum VNODE_TYPES {
   VNODE_SYSTEM,     /* System-required vnode */
 };
 
+enum VNODE_CREATE_MODE {
+  /* Create a regular datafile */
+  VNODE_CREATE_FILE,
+  /* Create a directory */
+  VNODE_CREATE_DIR,
+  /* Create a link to a vobj, vnode or vnamespace */
+  VNODE_CREATE_LINK,
+  /*
+   * Create a datastream without underlying persistant storage, like a disk
+   * Where unix wants everything to be a file, we differentiate between streams and files,
+   * where files hold persistant data and streams are dynamic data carriers. When accessing a 
+   * network disk for example, we're going to use a stream, since the data we're using is not 'ours'
+   * The same can be done with UNIX files, but being discrete in the naming and concepts invites
+   * consistency and a certain degree of overview
+   */
+  VNODE_CREATE_STREAM,
+  /* Create a raw vobject */
+  VNODE_CREATE_VOBJ,
+};
+
 /* TODO: clean this up and move functions to their supposed structs */
 struct generic_vnode_ops {
   /* Send some data to this node and have whatever is connected do something for you */
@@ -34,7 +54,13 @@ struct generic_vnode_ops {
   int (*f_makedir)(struct vnode*, void* dir_entry, void* dir_attr, uint32_t flags);
   int (*f_rmdir)(struct vnode*, void* dir_entry, uint32_t flags);
 
-  /* Grab or create named data associated with this node */
+  /*
+   * Grab named data associated with this node 
+   * NOTE: this function is assumed to create directories recursively
+   */
+  int (*f_create)(struct vnode*, struct vobj*, const char* path, enum VNODE_CREATE_MODE mode);
+
+  /* Grab named data associated with this node */
   struct vobj* (*f_open) (struct vnode*, char*);
 
   /* Close a vobject that has been opened by this vnode */

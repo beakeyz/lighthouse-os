@@ -3,7 +3,6 @@
 #include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
-#include "fs/cache.h"
 #include "fs/core.h"
 #include "fs/vdir.h"
 #include "fs/namespace.h"
@@ -471,6 +470,23 @@ vnode_t* vfs_resolve_node(const char* path) {
   return ret;
 }
 
+int vfs_copy(const char* from, const char* to)
+{
+  kernel_panic("TODO: vfs_copy");
+  return 0;
+}
+int vfs_remove(const char* path)
+{
+  kernel_panic("TODO: vfs_remove");
+  return 0;
+}
+
+int vfs_create(const char* path, enum VNODE_CREATE_MODE mode)
+{
+  kernel_panic("TODO: vfs_create");
+  return 0;
+}
+
 static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace_t* parent) {
   vnamespace_t* ns = create_vnamespace(id, parent);
 
@@ -659,9 +675,6 @@ fs_type_t* vfs_get_fs_at(const char* path)
 }
 
 void init_vfs(void) {
-
-  // Init caches
-  init_vcache();
 
   s_vfs.m_namespaces = create_hive("vfs_ns");
   s_vfs.m_lock = create_mutex(0);

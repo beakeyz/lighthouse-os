@@ -9,6 +9,7 @@ typedef struct fat_file {
 
   uint32_t* clusterchain_buffer;
   size_t clusters_num;
+  uint32_t clusterchain_offset;
 } fat_file_t;
 
 file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, char* path);

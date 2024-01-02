@@ -371,7 +371,7 @@ static vobj_t* fat_open(vnode_t* node, char* path)
     if ((current.attr & (FAT_ATTR_DIR|FAT_ATTR_VOLUME_ID)) != FAT_ATTR_DIR) {
 
       /* Make sure the file knows about its cluster chain */
-      error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | (current.first_cluster_hi << 16)));
+      error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
 
       if (error)
         break;
@@ -379,8 +379,11 @@ static vobj_t* fat_open(vnode_t* node, char* path)
       /* This is quite aggressive, we should prob just clean and return nullptr... */
       Must(vn_attach_object(node, ret->m_obj));
 
-      ret->m_logical_size = get_fat_file_size(fat_file);
-      ret->m_total_size = current.size;
+      ret->m_total_size = get_fat_file_size(fat_file);
+      ret->m_logical_size = current.size;
+
+      /* Cache the offset of the clusterchain */
+      fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));
 
       return ret->m_obj;
     }
@@ -404,6 +407,37 @@ static int fat_close(vnode_t* node, vobj_t* obj)
   return 0;
 }
 
+/*!
+ * @brief: Create relative from the vnode root 
+ *
+ */
+static inline int fat_create_abs(vnode_t* node, const char* path, enum VNODE_CREATE_MODE mode)
+{
+  return 0;
+}
+
+/*!
+ * @brief: Create relative from the vobj @relative
+ */
+static inline int fat_create_relative(vnode_t* node, vobj_t* relative, const char* path, enum VNODE_CREATE_MODE mode)
+{
+  return 0;
+}
+
+/*!
+ * @brief: Create vnode-related things inside FAT
+ *
+ * NOTE: this function is assumed to create directories where they are expected in the path
+ */
+static int fat_create(vnode_t* node, vobj_t* relative, const char* path, enum VNODE_CREATE_MODE mode)
+{
+  if (relative && relative->m_parent == node)
+    return fat_create_relative(node, relative, path, mode);
+
+  /* Try to create abs if @relative is invalid */
+  return fat_create_abs(node, path, mode);
+}
+
 static int fat_mkdir(struct vnode* node, void* dir_entry, void* dir_attr, uint32_t flags)
 {
   return 0;
@@ -418,6 +452,7 @@ static struct generic_vnode_ops fat_vnode_ops = {
   .f_open = fat_open,
   .f_close = fat_close,
   .f_makedir = fat_mkdir,
+  .f_create = fat_create,
   /* TODO */
   .f_rmdir = nullptr,
   .f_msg = fat_msg,

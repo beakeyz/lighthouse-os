@@ -80,6 +80,10 @@ ErrorOrPtr vfs_link(const char* link_path, const char* linked_path);
  */
 vobj_t* vfs_resolve(const char* path);
 
+int vfs_copy(const char* from, const char* to);
+int vfs_remove(const char* path);
+int vfs_create(const char* path, enum VNODE_CREATE_MODE mode);
+
 vnamespace_t* vfs_get_abs_root();
 
 /*
