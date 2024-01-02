@@ -14,11 +14,16 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "ramdisk.h"
+#include <dev/device.h>
 #include <sync/mutex.h>
+#include <dev/manifest.h>
+
+#define MAX_EFFECTIVE_SECTORCOUNT 512
 
 //static char* s_root_dev_name;
 //static char s_root_dev_name_buffer[64];
 static mutex_t* s_gdisk_lock;
+static dev_manifest_t* _this;
 
 struct gdisk_store_entry {
   disk_dev_t* dev;
@@ -27,6 +32,9 @@ struct gdisk_store_entry {
 
 static struct gdisk_store_entry* s_gdisks;
 static struct gdisk_store_entry* s_last_gdisk;
+
+int disk_core_init();
+int disk_core_exit();
 
 /*!
  * @brief Generate a new disk uid (duid)
@@ -701,6 +709,44 @@ int ramdisk_write(disk_dev_t* device, void* buffer, size_t size, disk_offset_t o
 }
 
 /*!
+ * @brief: Creates a generic disk device
+ *
+ * Also attaches it to the core disk driver
+ */
+disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private)
+{
+  disk_dev_t* ret;
+  device_t* dev;
+
+  if (!path)
+    return nullptr;
+
+  ret = kmalloc(sizeof(*ret));
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
+  ret->m_path = path;
+  ret->m_parent = private;
+
+  dev = create_device(parent, path);
+
+  if (!ret)
+    goto dealloc_and_exit;
+
+  /* Make sure it's added to our manifest */
+  manifest_add_device(_this, dev);
+  
+  return ret;
+
+dealloc_and_exit:
+  kfree(ret);
+  return nullptr;
+}
+
+/*!
  * @brief Deallocate any structures or caches owned by the disk device
  *
  * Nothing to add here...
@@ -731,6 +777,26 @@ void destroy_generic_disk(disk_dev_t* device)
     destroy_partitioned_disk_dev(current);
   }
 
+  /* Try to remove the device */
+  manifest_remove_device(_this, device->m_dev->device_path);
+
+  kfree(device);
+}
+
+/*!
+ * @brief: Set the most effectieve sector size of a diskdevice
+ */
+void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count)
+{
+  ASSERT_MSG(dev->m_logical_sector_size, "Tried to set the effective sectorcount before the logical sectorsize was known");
+
+  if (count > MAX_EFFECTIVE_SECTORCOUNT)
+    count = MAX_EFFECTIVE_SECTORCOUNT;
+  else if (!count)
+    count = 1;
+
+  dev->m_max_sector_transfer_count = count;
+  dev->m_effective_sector_size = count * dev->m_logical_sector_size;
 }
 
 void init_gdisk_dev() 
@@ -907,16 +973,6 @@ uint64_t disk_core_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t si
   return DRV_STAT_OK;
 }
 
-int disk_core_init() 
-{
-  return 0;
-}
-
-int disk_core_exit() 
-{
-  return 0;
-}
-
 /*
  * The core disk driver
  *
@@ -936,3 +992,16 @@ aniva_driver_t core_disk_driver = {
   .m_dependencies = { 0 },
 };
 EXPORT_DRIVER_PTR(core_disk_driver);
+
+int disk_core_init() 
+{
+  _this = try_driver_get(&core_disk_driver, NULL);
+  return 0;
+}
+
+int disk_core_exit() 
+{
+  _this = NULL;
+  return 0;
+}
+

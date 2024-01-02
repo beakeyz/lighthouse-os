@@ -14,7 +14,7 @@
 #include <mem/zalloc.h>
 
 #define DEFAULT_FAT_INFO_ENTRIES (8)
-#define DEFAULT_FAT_SECTOR_CACHES (64)
+#define DEFAULT_FAT_SECTOR_CACHES (8)
 
 static zone_allocator_t __fat_info_cache;
 static zone_allocator_t __fat_file_cache;
@@ -191,16 +191,25 @@ static int fat_cache_find_entry(fat_sector_cache_t* cache, struct sec_cache_entr
 static int 
 __read(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
 {
+  uintptr_t offset;
+  uint32_t logical_block_count;
   struct sec_cache_entry* c_entry;
+
+  offset = block * cache->blocksize;
+
+  /* Convert to device block index */
+  block = offset / node->m_device->m_parent->m_logical_sector_size;
 
   if (fat_cache_find_entry(cache, &c_entry, block) || !c_entry)
     return -1;
 
   /* Skip the block read if we alread have this block cached */
-  if (c_entry->current_block == block) 
+  if (c_entry->useage_count && c_entry->current_block == block) 
     goto found_entry;
 
-  if (pd_bread(node->m_device, (void*)c_entry->block_buffer, block))
+  logical_block_count = cache->blocksize / node->m_device->m_parent->m_logical_sector_size;
+
+  if (read_sync_partitioned_blocks(node->m_device, (void*)c_entry->block_buffer, logical_block_count, block))
     return -2;
 
 found_entry:
@@ -226,7 +235,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
 
   current_offset = 0;
   info = VN_FS_DATA(node).m_fs_specific_info;
-  lba_size = VN_FS_DATA(node).m_blocksize;
+  lba_size = info->sector_cache->blocksize;
 
   while (current_offset < size) {
     current_block = (offset + current_offset) / lba_size;
@@ -235,7 +244,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     error = __read(node, info->sector_cache, &entry, current_block);
 
     if (error)
-      return -1;
+      return error;
 
     read_size = size - current_offset;
 

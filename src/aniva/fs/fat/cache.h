@@ -10,7 +10,7 @@
 #include "mem/zalloc.h"
 
 #define DEFAULT_SEC_CACHE_COUNT  (8)
-#define MAX_SEC_CACHE_COUNT  (64)
+#define MAX_SEC_CACHE_COUNT  (8)
 
 struct fat_file;
 struct file;

@@ -13,7 +13,9 @@
 
 typedef uint8_t disk_uid_t;
 
+struct device;
 struct disk_dev;
+struct aniva_driver;
 struct partitioned_disk_dev;
 
 struct gpt_table;
@@ -46,8 +48,6 @@ typedef struct generic_disk_ops {
 #define PART_TYPE_MBR               (2)
 
 typedef struct disk_dev {
-  void* m_parent;
-
   const char* m_device_name;
   char* m_path;
 
@@ -60,8 +60,15 @@ typedef struct disk_dev {
   uint16_t m_firmware_rev[4]; // 64 bits
 
   uintptr_t m_max_blk;
-  size_t m_logical_sector_size;
-  size_t m_physical_sector_size;
+
+  /*
+   * Let's hope there aren't any disks with blocksizes of 4+ Gib 0.0 
+   */
+  uint32_t m_logical_sector_size;
+  uint32_t m_physical_sector_size;
+  /* Whats the maximum size of block transfers */
+  uint32_t m_effective_sector_size;
+  uint16_t m_max_sector_transfer_count;
 
   generic_disk_ops_t m_ops;
 
@@ -73,6 +80,10 @@ typedef struct disk_dev {
     struct gpt_table* gpt_table;
     struct mbr_table* mbr_table;
   };
+
+  struct device* m_dev;
+
+  void* m_parent;
 } disk_dev_t;
 
 #define GDISKDEV_FLAG_SCSI                   (0x00000001) /* Does this device use SCSI */
@@ -102,7 +113,10 @@ static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
   return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
 }
 
+disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private);
 void destroy_generic_disk(disk_dev_t* device);
+
+void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count);
 
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);
 int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset);

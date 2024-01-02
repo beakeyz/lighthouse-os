@@ -1,6 +1,3 @@
-#ifndef __ANIVA_FS_FAT32__
-#define __ANIVA_FS_FAT32__
-
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
@@ -468,7 +465,8 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
    * Create a cache for our sectors 
    * NOTE: cache_count being NULL means we want the default number of cache entries
    */
-  ffi->sector_cache = create_fat_sector_cache(boot_sector->sector_size, NULL);
+  printf("Device effective sector size: %d (0x%x)\n", device->m_parent->m_effective_sector_size, device->m_parent->m_effective_sector_size);
+  ffi->sector_cache = create_fat_sector_cache(device->m_parent->m_effective_sector_size, NULL);
 
   /* Try to parse boot sector */
   int parse_result = parse_fat_bpb(boot_sector, node);
@@ -619,6 +617,3 @@ int fat32_exit() {
 
   return 0;
 }
-
-
-#endif /* ifndef __ANIVA_FS_FAT32__ */

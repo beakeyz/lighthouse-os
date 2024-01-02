@@ -22,12 +22,16 @@
 #include <mem/kmem_manager.h>
 #include <crypto/k_crc32.h>
 
-static ahci_device_t* __ahci_devices;
+static ahci_device_t* __ahci_devices = nullptr;
+static aniva_driver_t* _p_base_ahci_driver = nullptr;
 
 static pci_dev_id_t ahci_id_table[] = {
   PCI_DEVID_CLASSES(MASS_STORAGE, PCI_SUBCLASS_SATA, PCI_PROGIF_SATA),
   PCI_DEVID_END
 };
+
+int ahci_driver_init();
+int ahci_driver_exit();
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
 static ALWAYS_INLINE ANIVA_STATUS reset_hba(ahci_device_t* device);
@@ -137,7 +141,7 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
       }
 
       /* Register the global disk device */
-      register_gdisk_dev(&port->m_generic);
+      register_gdisk_dev(port->m_generic);
 
       list_append(device->m_ports, port);
 
@@ -260,6 +264,7 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier) {
 
   ahci_device->m_identifier = identifier;
   ahci_device->m_ports = init_list();
+  ahci_device->m_parent = _p_base_ahci_driver;
 
   if (initialize_hba(ahci_device) == ANIVA_FAIL) {
     destroy_ahci_device(ahci_device);
@@ -301,30 +306,6 @@ pci_driver_t ahci_pci_driver = {
   .device_flags = NULL,
 };
 
-int ahci_driver_init() {
-
-  // FIXME: should this driver really take a hold of the scheduler 
-  // here?
-  __ahci_devices = nullptr;
-
-  register_pci_driver(&ahci_pci_driver);
-
-  return 0;
-}
-
-int ahci_driver_exit() {
-  // shutdown ahci device
-
-  println("Shut down ahci driver");
-
-  if (__ahci_devices) {
-    destroy_ahci_device(__ahci_devices);
-  }
-
-  unregister_pci_driver(&ahci_pci_driver);
-
-  return 0;
-}
 
 uintptr_t ahci_driver_on_packet(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) {
 
@@ -357,3 +338,31 @@ aniva_driver_t base_ahci_driver = {
   .m_dep_count = 0
 };
 EXPORT_DRIVER_PTR(base_ahci_driver);
+
+int ahci_driver_init() {
+
+  // FIXME: should this driver really take a hold of the scheduler 
+  // here?
+  __ahci_devices = nullptr;
+  _p_base_ahci_driver = &base_ahci_driver;
+
+  register_pci_driver(&ahci_pci_driver);
+
+  return 0;
+}
+
+int ahci_driver_exit() 
+{
+  // shutdown ahci device
+  println("Shut down ahci driver");
+
+  _p_base_ahci_driver = nullptr;
+
+  if (__ahci_devices) {
+    destroy_ahci_device(__ahci_devices);
+  }
+
+  unregister_pci_driver(&ahci_pci_driver);
+
+  return 0;
+}

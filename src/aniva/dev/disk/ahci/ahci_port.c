@@ -216,8 +216,8 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
-ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) {
-
+ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) 
+{
   ahci_port_t* ret = kmalloc(sizeof(ahci_port_t));
   ret->m_port_index = index;
   ret->m_device = device;
@@ -231,10 +231,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
 
-  memset(&ret->m_generic, 0x00, sizeof(disk_dev_t));
-
-  ret->m_generic.m_parent = ret;
-  ret->m_generic.m_path = create_port_path(ret);
+  ret->m_generic = create_generic_disk(device->m_parent, create_port_path(ret), ret);
 
   // prepare buffers
   ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
@@ -254,7 +251,9 @@ void destroy_ahci_port(ahci_port_t* port) {
   __kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
   destroy_spinlock(port->m_hard_lock);
-  kfree(port->m_generic.m_path);
+  kfree(port->m_generic->m_path);
+
+  destroy_generic_disk(port->m_generic);
   kfree(port);
 }
 
@@ -313,11 +312,11 @@ ANIVA_STATUS initialize_port(ahci_port_t *port) {
   return ANIVA_FAIL;
 }
 
-ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
+ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) 
+{
+  disk_dev_t* device = find_gdisk_device(port->m_generic->m_uid);
 
-  disk_dev_t* device = find_gdisk_device(port->m_generic.m_uid);
-
-  ASSERT_MSG(device == &port->m_generic, "Device to generic port device mismatch (ahci)");
+  ASSERT_MSG(device == port->m_generic, "Device to generic port device mismatch (ahci)");
 
   /* Activate port */
   port_set_active(port);
@@ -340,8 +339,8 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   }
 
   // Default sector size
-  port->m_generic.m_logical_sector_size = 512;
-  port->m_generic.m_physical_sector_size = 512;
+  port->m_generic->m_logical_sector_size = 512;
+  port->m_generic->m_physical_sector_size = 512;
 
   uint16_t psstlss = dev_identify_buffer->physical_sector_size_to_logical_sector_size;
 
@@ -349,30 +348,33 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   if ((psstlss >> 14) == 1) {
     /* Let's use the value disk tells us about */
     if (psstlss & (1 << 12)) {
-      port->m_generic.m_logical_sector_size = dev_identify_buffer->logical_sector_size;
+      port->m_generic->m_logical_sector_size = dev_identify_buffer->logical_sector_size;
     }
     /* Same goes for physical size */
     if (psstlss & (1 << 13)) {
-      port->m_generic.m_physical_sector_size = port->m_generic.m_logical_sector_size << (psstlss & 0xF);
+      port->m_generic->m_physical_sector_size = port->m_generic->m_logical_sector_size << (psstlss & 0xF);
     }
   }
 
+  /* Compute most effective transfer size */
+  disk_set_effective_sector_count(port->m_generic, dev_identify_buffer->maximum_logical_sectors_per_drq);
+
   /* Find how large the disk is */
   if (dev_identify_buffer->commands_and_feature_sets_supported[1] & (1 << 10)) {
-    port->m_generic.m_max_blk = dev_identify_buffer->user_addressable_logical_sectors_count;
+    port->m_generic->m_max_blk = dev_identify_buffer->user_addressable_logical_sectors_count;
   } else {
-    port->m_generic.m_max_blk = dev_identify_buffer->max_28_bit_addressable_logical_sector;
+    port->m_generic->m_max_blk = dev_identify_buffer->max_28_bit_addressable_logical_sector;
   }
 
-  memcpy(port->m_generic.m_firmware_rev, dev_identify_buffer->firmware_revision, sizeof(uint16_t) * 4);
+  memcpy(port->m_generic->m_firmware_rev, dev_identify_buffer->firmware_revision, sizeof(uint16_t) * 4);
 
   /* Prepare generic disk ops */
-  port->m_generic.m_ops.f_read = ahci_port_read;
-  port->m_generic.m_ops.f_read_sync = ahci_port_read_sync;
-  port->m_generic.m_ops.f_write = ahci_port_write;
-  port->m_generic.m_ops.f_write_sync = ahci_port_write_sync;
+  port->m_generic->m_ops.f_read = ahci_port_read;
+  port->m_generic->m_ops.f_read_sync = ahci_port_read_sync;
+  port->m_generic->m_ops.f_write = ahci_port_write;
+  port->m_generic->m_ops.f_write_sync = ahci_port_write_sync;
 
-  port->m_generic.m_ops.f_read_blocks = ahci_port_read_blk;
+  port->m_generic->m_ops.f_read_blocks = ahci_port_read_blk;
 
   /* Give the device its name */
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
@@ -380,10 +382,10 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port) {
   // FIXME: is this specific to AHCI, or a generic ATA thing?
   decode_disk_model_number(port->m_device_model);
 
-  port->m_generic.m_device_name = port->m_device_model;
+  port->m_generic->m_device_name = port->m_device_model;
 
   /* Try to detect the partitionig type */
-  ASSERT_MSG(diskdev_populate_partition_table(&port->m_generic) == 0, "Failed to populate partition table!");
+  ASSERT_MSG(diskdev_populate_partition_table(port->m_generic) == 0, "Failed to populate partition table!");
 
   /* Clean the buffer */
   __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
@@ -517,11 +519,18 @@ int ahci_port_read_sync(disk_dev_t* device, void* buffer, size_t size, disk_offs
   return device->m_ops.f_read_blocks(device, buffer, size / device->m_logical_sector_size, offset / device->m_logical_sector_size);
 }
 
+/*!
+ * @brief: Read a block from our AHCI port
+ *
+ * In de device identify phase, we have retrieved information about how many blocks this device likes to give us at once. This means
+ * we have two 'blocksizes': a logical blocksize (which is how blocks are addressed on disk) and a effective blocksize (which is the
+ * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
+ *
+ * NOTE/FIXME: could we use @buffer directly?
+ */
 static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk)
 {
-  int error;
   ahci_port_t* port;
-  vaddr_t tmp;
   paddr_t phys_tmp;
   size_t buffer_size;
   ANIVA_STATUS status;
@@ -535,30 +544,29 @@ static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, ui
   if (!port)
     return -2;
 
+  /* Won't ever fit lmao */
+  if (blk > device->m_max_blk)
+    return -3;
+
+  /* FIXME: Should we try to fit count into the disk when it overflows? */
+
   /* Calculate buffersize */
   buffer_size = count * device->m_logical_sector_size;
 
   /* Preallocate a buffer (TODO: contact a generic disk block cache) */
-  tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
-  phys_tmp = kmem_to_phys(nullptr, tmp);
+  //tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+  phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
 
-  error = -3;
+  if (phys_tmp == NULL)
+    return -4;
+
   /* Send the AHCI command */
   status = ahci_port_send_command(port, AHCI_COMMAND_READ_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
 
   if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
-    goto fail_and_exit;
+    return -5;
 
-  /* Copy prebuffer into final buffer */
-  memcpy(buffer, (void*)tmp, buffer_size);
-
-  /* Reset the error value to indicate success */
-  error = 0;
-
-fail_and_exit:
-  /* Deallocate the intermediate */
-  __kmem_kernel_dealloc(tmp, buffer_size);
-  return error;
+  return 0;
 }
 
 /*
