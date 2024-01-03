@@ -33,6 +33,8 @@ fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache
 void destroy_fat_sector_cache(fat_sector_cache_t* cache);
 
 int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset);
+int fatfs_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset);
+int fatfs_flush(vnode_t* node);
 
 struct fat_file* allocate_fat_file(struct file* file);
 void deallocate_fat_file(struct fat_file* file);

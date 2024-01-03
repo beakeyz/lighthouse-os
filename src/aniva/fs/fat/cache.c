@@ -182,6 +182,11 @@ static int fat_cache_find_entry(fat_sector_cache_t* cache, struct sec_cache_entr
   return 0;
 }
 
+static inline uint32_t get_logical_block_count(vnode_t* node, fat_sector_cache_t* cache)
+{
+  return cache->blocksize / node->m_device->m_block_size;
+}
+
 /*!
  * @brief: Read a block into the fat block buffer
  *
@@ -198,7 +203,7 @@ __read(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry,
   offset = block * cache->blocksize;
 
   /* Convert to device block index */
-  block = offset / node->m_device->m_parent->m_logical_sector_size;
+  block = offset / node->m_device->m_block_size;
 
   if (fat_cache_find_entry(cache, &c_entry, block) || !c_entry)
     return -1;
@@ -207,7 +212,7 @@ __read(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry,
   if (c_entry->useage_count && c_entry->current_block == block) 
     goto found_entry;
 
-  logical_block_count = cache->blocksize / node->m_device->m_parent->m_logical_sector_size;
+  logical_block_count = get_logical_block_count(node, cache);
 
   if (read_sync_partitioned_blocks(node->m_device, (void*)c_entry->block_buffer, logical_block_count, block))
     return -2;
@@ -258,6 +263,79 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   }
 
   return 0;
+}
+
+int fatfs_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
+{
+  int error;
+  fat_fs_info_t* info;
+  struct sec_cache_entry* entry;
+  uint64_t current_block, current_offset, current_delta;
+  uint64_t lba_size, read_size;
+
+  current_offset = 0;
+  info = VN_FS_DATA(node).m_fs_specific_info;
+  lba_size = info->sector_cache->blocksize;
+
+  while (current_offset < size) {
+    current_block = (offset + current_offset) / lba_size;
+    current_delta = (offset + current_offset) % lba_size;
+
+    error = __read(node, info->sector_cache, &entry, current_block);
+
+    if (error)
+      return error;
+
+    read_size = size - current_offset;
+
+    /* Constantly shave off lba_size */
+    if (read_size > lba_size - current_delta)
+      read_size = lba_size - current_delta;
+
+    memcpy(&(((uint8_t*)entry->block_buffer)[current_delta]), buffer + current_offset, read_size);
+
+    /* Mark the buffer as dirty */
+    entry->is_dirty = true;
+
+    current_offset += read_size;
+  }
+
+  return 0;
+}
+
+int fatfs_flush(vnode_t* node)
+{
+  int error;
+  uint32_t logical_block_count;
+  fat_fs_info_t* info;
+  struct sec_cache_entry* entry;
+  fat_sector_cache_t* cache;
+
+  info = VN_FS_INFO(node);
+
+  if (!info)
+    return -1;
+
+  error = 0;
+
+  cache = info->sector_cache;
+  logical_block_count = get_logical_block_count(node, cache);
+
+  for (uint32_t i = 0; i < cache->cache_count; i++) {
+    entry = cache->entries[i];
+
+    if (!entry->is_dirty)
+      continue;
+
+    if (write_sync_partitioned_blocks(node->m_device, (void*)entry->block_buffer, logical_block_count, entry->current_block)) {
+      error = -1;
+      continue;
+    }
+
+    entry->is_dirty = false;
+  }
+
+  return error;
 }
 
 /*!
