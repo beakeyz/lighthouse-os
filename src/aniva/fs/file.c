@@ -1,5 +1,6 @@
 #include "file.h"
 #include "dev/debug/serial.h"
+#include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
@@ -8,7 +9,7 @@
 #include "mem/page_dir.h"
 #include "sync/mutex.h"
 
-static int file_close(file_t* file);
+static int _file_close(file_t* file);
 file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 /*
@@ -296,7 +297,7 @@ int file_sync(file_t* file)
  * uppon the depletion of the ref. This will automatically call any destruction functions 
  * given up by its children, including this in the case of a vobject with a file attached
  */
-static int file_close(file_t* file)
+static int _file_close(file_t* file)
 {
   int error;
   vobj_t* file_obj;
@@ -317,4 +318,21 @@ static int file_close(file_t* file)
   mutex_unlock(file_obj->m_lock);
 
   return error;
+}
+
+file_t* file_open(const char* path)
+{
+  vobj_t* obj;
+
+  obj = vfs_resolve(path);
+
+  if (!obj)
+    return nullptr;
+
+  return vobj_get_file(obj);
+}
+
+int file_close(file_t* file)
+{
+  return vobj_close(file->m_obj);
 }

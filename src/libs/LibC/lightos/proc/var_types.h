@@ -14,6 +14,8 @@ enum PROFILE_VAR_TYPE {
   PROFILE_VAR_TYPE_WORD,
   PROFILE_VAR_TYPE_DWORD,
   PROFILE_VAR_TYPE_QWORD,
+
+  PROFILE_VAR_TYPE_UNSET = 0xffffffff
 };
 
 /* Open for anyone to read */
@@ -34,15 +36,18 @@ enum PROFILE_VAR_TYPE {
 #define PVR_SIG_0 'P'
 #define PVR_SIG_1 'v'
 #define PVR_SIG_2 'R'
-#define PVR_SIG_3 '\5'
+/* (PVR_SIG_0 + PVR_SIG_1 + PVR_SIG_2 - 1) / 3 */
+#define PVR_SIG_3 ']'
 
-#define PVR_SIG "PvR\5"
+#define PVR_SIG "PvR]"
 
 typedef struct pvr_file_header {
   const char sign[4];
-  uint32_t strtab_offset;
   uint32_t var_count;
-  uint32_t var_start_offset;
+  uint32_t var_capacity;
+  uint32_t kernel_version;
+  uint32_t strtab_offset;
+  uint32_t valtab_offset;
 } pvr_file_header_t;
 
 /*
@@ -57,7 +62,28 @@ typedef struct pvr_file_var {
   enum PROFILE_VAR_TYPE var_type;
 } __attribute__((packed)) pvr_file_var_t;
 
-typedef const char pvr_file_strtab_entry[];
-typedef uint64_t   pvr_file_valtab_entry;
+typedef char pvr_file_strtab_entry[];
+
+#define VALTAB_ENTRY_FLAG_USED 0x01
+
+#define VALTAB_ENTRY_ISUSED(entry) (((entry)->flags & VALTAB_ENTRY_FLAG_USED) == VALTAB_ENTRY_FLAG_USED)
+
+typedef struct pvr_file_valtab_entry {
+  uint8_t flags;
+  uintptr_t value;
+} __attribute__((packed)) pvr_file_valtab_entry_t;
+
+typedef struct pvr_file_strtab {
+  uint32_t next_valtab_off;
+  uint32_t bytecount;
+  /* All entries are combined into a single string and seperated by null-bytes */
+  pvr_file_strtab_entry entries;
+} __attribute__((packed)) pvr_file_strtab_t;
+
+typedef struct pvr_file_valtab {
+  uint32_t next_valtab_off;
+  uint32_t capacity;
+  pvr_file_valtab_entry_t entries[];
+} __attribute__((packed)) pvr_file_valtab_t;
 
 #endif // !__LIGHTENV_SYS_VAR_TYPES__

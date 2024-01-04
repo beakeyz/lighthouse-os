@@ -91,6 +91,9 @@ int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 int file_sync(file_t* file);
 
+file_t* file_open(const char* path);
+int file_close(file_t* file);
+
 /*!
  * Gets the total size of the file on its medium
  * (disk, network, ramdisk, ect.)

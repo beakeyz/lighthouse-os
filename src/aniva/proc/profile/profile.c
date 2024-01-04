@@ -1,4 +1,7 @@
 #include "profile.h"
+#include "fs/file.h"
+#include "fs/vfs.h"
+#include "fs/vobj.h"
 #include "lightos/proc/var_types.h"
 #include "entry/entry.h"
 #include "libk/data/hashmap.h"
@@ -11,10 +14,11 @@
 #include "sync/mutex.h"
 #include <libk/string.h>
 
-#define MAX_ACTIVE_PROFILES 512
+#define SOFTMAX_ACTIVE_PROFILES 4096
 
 /* The variable key that holds the password */
 #define PROFILE_PASSWORD_KEY "PASSWORD"
+#define DEFAULT_GLOBAL_PVR_PATH "Root/Global/global.pvr"
 
 static proc_profile_t base_profile;
 static proc_profile_t global_profile;
@@ -583,10 +587,21 @@ static void __apply_global_variables()
   profile_add_var(&global_profile, create_profile_var("VERSION_MIN", PROFILE_VAR_TYPE_BYTE, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.min));
   /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
   profile_add_var(&global_profile, create_profile_var("VERSION_BUMP", PROFILE_VAR_TYPE_WORD, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.bump));
+
+  file_t* f = file_open(DEFAULT_GLOBAL_PVR_PATH);
+
+  if (f)
+    profile_load_variables(&global_profile, f);
+
+  file_close(f);
+
+  /*
+   * Should be loaded from the default file (Root/Global/global.pvr)
+   */
   /* Default provider for lwnd services */
-  profile_add_var(&global_profile, create_profile_var("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd")));
+  //profile_add_var(&global_profile, create_profile_var("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd")));
   /* Default eventname for the keyboard event */
-  profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
+  //profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
 }
 
 /*!
@@ -610,7 +625,7 @@ void init_proc_profiles(void)
   init_proc_profile(&base_profile, "BASE", PRF_PRIV_LVL_BASE);
   init_proc_profile(&global_profile, "Global", PRF_PRIV_LVL_USER);
 
-  active_profiles = create_hashmap(MAX_ACTIVE_PROFILES, HASHMAP_FLAG_SK);
+  active_profiles = create_hashmap(SOFTMAX_ACTIVE_PROFILES, HASHMAP_FLAG_SK);
 
   hashmap_put(active_profiles, (void*)base_profile.name, &base_profile);
   hashmap_put(active_profiles, (void*)global_profile.name, &global_profile);
