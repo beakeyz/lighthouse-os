@@ -105,7 +105,6 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
  */
 uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 {
-  int result;
   size_t read_len;
   proc_t* current_proc;
   khandle_t* khandle;
@@ -119,7 +118,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
       IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
     return NULL;
 
-  read_len = length;
+  read_len = 0;
   khandle = find_khandle(&current_proc->m_handle_map, handle);
 
   if ((khandle->flags & HNDL_FLAG_READACCESS) != HNDL_FLAG_READACCESS)
@@ -133,13 +132,9 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         if (!file || !file->m_ops || !file->m_ops->f_read)
           return NULL;
 
-        result = file_read(file, buffer, &read_len, khandle->offset);
-
-        if (result < 0)
-          return NULL;
+        read_len = file_read(file, buffer, length, khandle->offset);
 
         khandle->offset += read_len;
-
         break;
       }
     case HNDL_TYPE_DRIVER:
@@ -147,10 +142,12 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         int result;
         dev_manifest_t* driver = khandle->reference.driver;
 
-        result = drv_read(driver, buffer, &read_len, khandle->offset);
+        result = drv_read(driver, buffer, &length, khandle->offset);
 
         if (result != DRV_STAT_OK)
           return NULL;
+
+        read_len = length;
 
         khandle->offset += read_len;
         break;
@@ -193,6 +190,8 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
             break;
           case PROFILE_VAR_TYPE_BYTE:
             data_size = minimal_buffersize = sizeof(uint8_t);
+            break;
+          default:
             break;
         }
 

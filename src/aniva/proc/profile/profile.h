@@ -74,6 +74,7 @@ typedef struct proc_profile {
 } proc_profile_t;
 
 void init_proc_profiles(void);
+void init_profiles_late(void);
 
 static inline bool profile_is_valid_priv_level(proc_profile_t* profile)
 {

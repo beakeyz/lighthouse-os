@@ -588,13 +588,6 @@ static void __apply_global_variables()
   /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
   profile_add_var(&global_profile, create_profile_var("VERSION_BUMP", PROFILE_VAR_TYPE_WORD, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.bump));
 
-  file_t* f = file_open(DEFAULT_GLOBAL_PVR_PATH);
-
-  if (f)
-    profile_load_variables(&global_profile, f);
-
-  file_close(f);
-
   /*
    * Should be loaded from the default file (Root/Global/global.pvr)
    */
@@ -617,6 +610,9 @@ static void __apply_global_variables()
  *
  * They can be used to store system data or search paths, like in the windows registry,
  * but they should not get bloated by apps and highly suprevised by the kernel
+ *
+ * NOTE: this is called before we've completely set up our vfs structure, so we can't yet
+ * load default values from any files. This is done in init_profiles_late
  */
 void init_proc_profiles(void)
 {
@@ -633,4 +629,14 @@ void init_proc_profiles(void)
   /* Apply the default variables onto the default profiles */
   __apply_base_variables();
   __apply_global_variables();
+}
+
+void init_profiles_late(void)
+{
+  file_t* f = file_open(DEFAULT_GLOBAL_PVR_PATH);
+
+  if (f)
+    profile_load_variables(&global_profile, f);
+
+  file_close(f);
 }

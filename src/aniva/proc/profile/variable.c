@@ -1,4 +1,5 @@
 #include "variable.h"
+#include "libk/flow/error.h"
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
@@ -27,6 +28,8 @@ static uint32_t profile_var_get_size_for_type(profile_var_t* var)
         return 0;
 
       return strlen(var->str_value) + 1;
+    default:
+      break;
   }
   return 0;
 } 
@@ -217,6 +220,12 @@ bool profile_var_write(profile_var_t* var, uint64_t value)
   if ((var->flags & PVAR_FLAG_CONSTANT) == PVAR_FLAG_CONSTANT)
     return false;
 
+  /* FIXME: can we infer a type here? */
+  if (var->type == PROFILE_VAR_TYPE_UNSET) {
+    kernel_panic("FIXME: tried to write to an unset variable");
+    return false;
+  }
+
   mutex_lock(var->profile->lock);
 
   switch (var->type) {
@@ -242,6 +251,8 @@ bool profile_var_write(profile_var_t* var, uint64_t value)
       break;
     case PROFILE_VAR_TYPE_BYTE:
       var->byte_value = (uint8_t)value;
+      break;
+    default:
       break;
   }
 

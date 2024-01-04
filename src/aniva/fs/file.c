@@ -206,7 +206,7 @@ void file_set_ops(file_t* file, file_ops_t* ops)
 void destroy_file(file_t* file) 
 {
   /* Try to close the file */
-  (void)file_close(file);
+  (void)_file_close(file);
 
   kfree(file);
 }
@@ -214,26 +214,25 @@ void destroy_file(file_t* file)
 /*!
  * @brief: Read data from a file
  */
-int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-  int error;
   vobj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_read)
-    return -1;
+    return 0;
 
   file_obj = file->m_obj;
 
   if (!file_obj)
-    return -2;
+    return 0;
 
   mutex_lock(file_obj->m_lock);
 
-  error = file->m_ops->f_read(file, buffer, size, offset);
+  file->m_ops->f_read(file, buffer, &size, offset);
 
   mutex_unlock(file_obj->m_lock);
 
-  return error;
+  return size;
 }
 
 /*!
@@ -242,26 +241,25 @@ int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
  * The filesystem may choose if it wants to use buffers that get synced by
  * ->f_sync or if they want to instantly write to disk here
  */
-int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-  int error;
   vobj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_write)
-    return -1;
+    return 0;
 
   file_obj = file->m_obj;
 
   if (!file_obj)
-    return -2;
+    return 0;
 
   mutex_lock(file_obj->m_lock);
 
-  error = file->m_ops->f_write(file, buffer, size, offset);
+  file->m_ops->f_write(file, buffer, &size, offset);
 
   mutex_unlock(file_obj->m_lock);
 
-  return error;
+  return size;
 }
 
 /*!
@@ -334,5 +332,8 @@ file_t* file_open(const char* path)
 
 int file_close(file_t* file)
 {
+  if (!file)
+    return -1;
+
   return vobj_close(file->m_obj);
 }

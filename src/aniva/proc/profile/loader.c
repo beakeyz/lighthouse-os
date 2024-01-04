@@ -1,5 +1,7 @@
 #include <libk/stddef.h>
+#include "fs/file.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "proc/profile/profile.h"
 
 #include <lightos/proc/var_types.h>
@@ -36,6 +38,15 @@ int profile_save_variables(proc_profile_t* profile, file_t* file)
  */
 int profile_load_variables(proc_profile_t* profile, file_t* file)
 {
+  pvr_file_header_t hdr = { 0 };
+
+  file_read(file, &hdr, sizeof(hdr), 0);
+
+  putch(hdr.sign[0]);
+  putch(hdr.sign[1]);
+  putch(hdr.sign[2]);
+  putch(hdr.sign[3]);
+
   kernel_panic("TODO: load variables");
   return 0;
 }

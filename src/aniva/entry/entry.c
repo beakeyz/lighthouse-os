@@ -34,6 +34,7 @@
 #include "proc/kprocs/reaper.h"
 #include "proc/kprocs/socket_arbiter.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
 #include "proc/socket.h"
 #include "proc/thread.h"
 #include "system/acpi/acpi.h"
@@ -274,6 +275,9 @@ void kthread_entry() {
 
   /* Probe for a root device */
   init_root_device_probing();
+
+  /* Do late initialization of the default profiles */
+  init_profiles_late();
 
   /* TODO:  
    *  - verify the root device

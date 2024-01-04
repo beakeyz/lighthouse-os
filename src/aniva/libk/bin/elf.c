@@ -15,9 +15,14 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
-static int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
+static inline int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
 {
-  return file_read(file, buffer, size, offset);
+  *size = file_read(file, buffer, *size, offset);
+
+  if (!(*size))
+    return -1;
+
+  return 0;
 }
 
 /*!

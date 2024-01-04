@@ -461,7 +461,6 @@ static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx)
  */
 extern_driver_t* load_external_driver(const char* path)
 {
-  int error;
   ErrorOrPtr result;
   uintptr_t driver_load_base;
   size_t read_size;
@@ -501,9 +500,9 @@ extern_driver_t* load_external_driver(const char* path)
   read_size = file_get_size(file);
 
   /* Read the driver into RAM */
-  error = file_read(file, (void*)out->m_load_base, &read_size, 0);
+  read_size = file_read(file, (void*)out->m_load_base, read_size, 0);
 
-  if (error < 0)
+  if (!read_size)
     goto fail_and_deallocate;
 
   ctx.hdr = (struct elf64_hdr*)driver_load_base;
@@ -539,7 +538,6 @@ extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
 {
   kernel_panic("TODO: fully implement load_external_driver_manifest");
 
-  int error;
   ErrorOrPtr result;
   uintptr_t driver_load_base;
   size_t read_size;
@@ -583,9 +581,9 @@ extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
   read_size = file->m_total_size;
 
   /* Read the driver into RAM */
-  error = file_read(file, (void*)out->m_load_base, &read_size, 0);
+  read_size = file_read(file, (void*)out->m_load_base, read_size, 0);
 
-  if (error < 0)
+  if (!read_size)
     goto fail_and_deallocate;
 
   ctx.hdr = (struct elf64_hdr*)driver_load_base;

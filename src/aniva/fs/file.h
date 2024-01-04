@@ -87,8 +87,8 @@ void destroy_file(file_t* file);
 
 void file_set_ops(file_t* file, file_ops_t* ops);
 
-int file_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
-int file_write(file_t* file, void* buffer, size_t* size, uintptr_t offset);
+size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset);
+size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset);
 int file_sync(file_t* file);
 
 file_t* file_open(const char* path);
