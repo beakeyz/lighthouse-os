@@ -16,8 +16,6 @@ static uint32_t valtab_buffersize;
 static uint32_t strtab_buffersize;
 
 struct profile_var_template base_defaults[] = {
-  VAR_ENTRY("test", PROFILE_VAR_TYPE_STRING, "Yay", 0),
-  VAR_ENTRY("test_2", PROFILE_VAR_TYPE_BYTE, VAR_NUM(4), 0),
 };
 
 /*
@@ -25,10 +23,10 @@ struct profile_var_template base_defaults[] = {
  * These include mostly just paths to drivers, kobjects, ect.
  */
 struct profile_var_template global_defaults[] = {
-  VAR_ENTRY("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, "service/lwnd", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, "keyboard", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("DFLT_ERR_EVENT", PROFILE_VAR_TYPE_STRING, "error", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("BOOTDISK_PATH", PROFILE_VAR_TYPE_STRING, "unknown", PVAR_FLAG_CONFIG),
+  VAR_ENTRY("DFLT_LWND_PATH",   PROFILE_VAR_TYPE_STRING, "service/lwnd", PVAR_FLAG_CONFIG),
+  VAR_ENTRY("DFLT_KB_EVENT",    PROFILE_VAR_TYPE_STRING, "keyboard", PVAR_FLAG_CONFIG),
+  VAR_ENTRY("DFLT_ERR_EVENT",   PROFILE_VAR_TYPE_STRING, "error", PVAR_FLAG_CONFIG),
+  VAR_ENTRY("BOOTDISK_PATH",    PROFILE_VAR_TYPE_STRING, "unknown", PVAR_FLAG_CONFIG),
 };
 
 static int pvr_file_find_free_strtab_offset(uint32_t* offset)
@@ -108,10 +106,14 @@ static int pvr_file_add_variable(struct profile_var_template* var)
     /* Let's trust that there is a string in ->value =) */
     strcpy(&strtab_buffer->entries[strtab_offset], var->value);
 
+    printf("%s at offset (%d)\n", (const char*)var->value, strtab_offset);
+
     /* Set the value in the valtab to point to our value string */
     pvr_file_set_valtab_entry_used(&valtab_buffer->entries[valtab_offset], strtab_offset);
+    c_var->val_len = strlen(var->value) + 1;
   } else {
     pvr_file_set_valtab_entry_used(&valtab_buffer->entries[valtab_offset], (uint64_t)var->value);
+    c_var->val_len = sizeof(uint64_t);
   }
 
   pvr_file_find_free_strtab_offset(&strtab_offset);
@@ -120,9 +122,10 @@ static int pvr_file_add_variable(struct profile_var_template* var)
 
   /* Set the c_var */
   c_var->var_type = var->type;
-  c_var->str_off = strtab_offset;
-  c_var->value_off = valtab_offset;
+  c_var->key_off = strtab_offset;
+  c_var->value_off = (valtab_offset * sizeof(pvr_file_valtab_entry_t));
   c_var->var_flags = var->flags;
+  c_var->key_len = strlen(var->key) + 1;
 
   pvr_hdr.var_count++;
   return 0;

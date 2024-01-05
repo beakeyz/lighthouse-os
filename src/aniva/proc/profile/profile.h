@@ -51,6 +51,9 @@ typedef struct proc_profile {
   /* In the case of a custom profile, loaded from a file */
   const char* path;
 
+  /* Parent profile of this profile. all variables are inherited */
+  struct proc_profile* parent;
+
   /*
    * Privilege level is checked with
    * the oposite bits of the lvl
@@ -98,7 +101,12 @@ static inline bool profile_is_from_file(proc_profile_t* profile)
   return (profile->path != nullptr);
 }
 
-void init_proc_profile(proc_profile_t* profile, char* name, uint8_t level);
+static inline bool profile_is_default(proc_profile_t* profile)
+{
+  return (profile->parent == NULL);
+}
+
+void init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* name, uint8_t level);
 void destroy_proc_profile(proc_profile_t* profile);
 
 int profile_find(const char* name, proc_profile_t** profile);

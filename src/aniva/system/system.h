@@ -1,20 +1,11 @@
 #ifndef __ANIVA_SYSTEM__
 #define __ANIVA_SYSTEM__
 
-// defines for:
+/*
+ * Header for generic system stuff
+ */
 
-// msr 
-
-// cpuid
-
-// eflags
-
-// gdt
-
-// idt
-
-// TODO:
-
-// other crap =)
+/* ./shutdown.c */
+extern void aniva_shutdown();
 
 #endif // !__ANIVA_SYSTEM__

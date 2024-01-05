@@ -13,6 +13,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "proc/profile/variable.h"
 #include "ramdisk.h"
 #include <dev/device.h>
 #include <sync/mutex.h>
@@ -926,11 +927,12 @@ cycle_next:
     root_device = find_gdisk_device(device_index);
   }
 
-  if (!found_root_device) {
-    if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
-      kernel_panic("Could not find a root device to mount! TODO: fix");
-    }
-  } 
+  if (found_root_device)
+    return;
+
+  if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
+    kernel_panic("Could not find a root device to mount! TODO: fix");
+  }
 }
 
 

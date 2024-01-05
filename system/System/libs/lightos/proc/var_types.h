@@ -56,11 +56,13 @@ typedef struct pvr_file_header {
  * table only holds qword values
  */
 typedef struct pvr_file_var {
-  uint32_t str_off;
+  uint32_t key_off;
   uint32_t value_off;
+  uint32_t key_len;
+  uint32_t val_len;
   uint32_t var_flags;
   enum PROFILE_VAR_TYPE var_type;
-} __attribute__((packed)) pvr_file_var_t;
+} pvr_file_var_t;
 
 typedef char pvr_file_strtab_entry[];
 
@@ -70,20 +72,21 @@ typedef char pvr_file_strtab_entry[];
 
 typedef struct pvr_file_valtab_entry {
   uint8_t flags;
+  uint8_t _res[7];
   uintptr_t value;
-} __attribute__((packed)) pvr_file_valtab_entry_t;
+} pvr_file_valtab_entry_t;
 
 typedef struct pvr_file_strtab {
   uint32_t next_valtab_off;
   uint32_t bytecount;
   /* All entries are combined into a single string and seperated by null-bytes */
   pvr_file_strtab_entry entries;
-} __attribute__((packed)) pvr_file_strtab_t;
+} pvr_file_strtab_t;
 
 typedef struct pvr_file_valtab {
   uint32_t next_valtab_off;
   uint32_t capacity;
   pvr_file_valtab_entry_t entries[];
-} __attribute__((packed)) pvr_file_valtab_t;
+} pvr_file_valtab_t;
 
 #endif // !__LIGHTENV_SYS_VAR_TYPES__

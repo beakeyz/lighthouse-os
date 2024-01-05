@@ -590,10 +590,13 @@ static void __apply_global_variables()
   /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
   profile_add_var(&global_profile, create_profile_var("VERSION_BUMP", PROFILE_VAR_TYPE_WORD, PVAR_FLAG_CONSTANT | PVAR_FLAG_GLOBAL, kernel_version.bump));
 
+  /*
+   * Should be loaded from the default file (Root/Global/global.pvr)
+   */
   /* Default provider for lwnd services */
-  profile_add_var(&global_profile, create_profile_var("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd")));
+  //profile_add_var(&global_profile, create_profile_var("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd")));
   /* Default eventname for the keyboard event */
-  profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
+  //profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
 }
 
 /*!
