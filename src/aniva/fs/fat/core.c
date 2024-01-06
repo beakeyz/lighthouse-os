@@ -88,6 +88,31 @@ fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
 }
 
 /*!
+ * @brief: Set a singular clusters value
+ *
+ * @node: the filesystem object to opperate on
+ * @buffer: the buffer for the clusters value
+ * @cluster: the 'index' of the cluster on disk
+ */
+/* static */ int
+fat32_set_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
+{
+  int error;
+  fat_fs_info_t* info;
+
+  /* Mask any fucky bits to comply with FAT32 standards */
+  *buffer &= 0x0fffffff;
+
+  info = VN_FS_DATA(node).m_fs_specific_info;
+  error = fatfs_write(node, buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
+
+  if (error)
+    return error;
+
+  return 0;
+}
+
+/*!
  * @brief: Caches the cluster chain for a file
  *
  * The file is responsible for managing the buffer after this point

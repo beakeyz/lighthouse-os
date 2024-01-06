@@ -130,7 +130,7 @@ static void fat_cache_find_least_used(fat_sector_cache_t* cache, struct sec_cach
   least_used = cache->entries[0];
 
   /* Skip any dirty entries */
-  while (least_used->is_dirty)
+  while (least_used->is_dirty && i < cache->cache_count)
     least_used = cache->entries[i++];
 
   for (; i < cache->cache_count; i++) {
@@ -162,6 +162,9 @@ static int fat_cache_find_entry(fat_sector_cache_t* cache, struct sec_cache_entr
 
   for (uint32_t i = 0; i < cache->cache_count; i++) {
     c_entry = cache->entries[i];
+
+    if (c_entry->is_dirty)
+      continue;
 
     /* If we find the block we're looking for, use this entry */
     if (c_entry->useage_count && c_entry->current_block == block) {
@@ -300,6 +303,23 @@ int fatfs_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
     current_offset += read_size;
   }
 
+  return 0;
+}
+
+static int fatfs_sync_cache_entry(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry* entry)
+{
+  uint32_t logical_block_count;
+
+  if (!entry->is_dirty)
+    return -1;
+
+  logical_block_count = get_logical_block_count(node, cache);
+
+  if (write_sync_partitioned_blocks(node->m_device, (void*)entry->block_buffer, logical_block_count, entry->current_block)) {
+    return -1;
+  }
+
+  entry->is_dirty = false;
   return 0;
 }
 

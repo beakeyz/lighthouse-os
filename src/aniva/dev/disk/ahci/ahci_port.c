@@ -24,6 +24,7 @@ static int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_off
 static int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_write_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 
+static int ahci_port_write_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk);
 static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk);
 
 static void decode_disk_model_number(char* model_number) {
@@ -375,6 +376,7 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
   port->m_generic->m_ops.f_write_sync = ahci_port_write_sync;
 
   port->m_generic->m_ops.f_read_blocks = ahci_port_read_blk;
+  port->m_generic->m_ops.f_write_blocks = ahci_port_write_blk;
 
   /* Give the device its name */
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
@@ -517,6 +519,57 @@ int ahci_port_read_sync(disk_dev_t* device, void* buffer, size_t size, disk_offs
 
   /* TODO: integrate this with the generic block cache */
   return device->m_ops.f_read_blocks(device, buffer, size / device->m_logical_sector_size, offset / device->m_logical_sector_size);
+}
+
+/*!
+ * @brief: Write a block to our AHCI port
+ *
+ * In de device identify phase, we have retrieved information about how many blocks this device likes to give us at once. This means
+ * we have two 'blocksizes': a logical blocksize (which is how blocks are addressed on disk) and a effective blocksize (which is the
+ * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
+ *
+ */
+static int ahci_port_write_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk)
+{
+  ahci_port_t* port;
+  paddr_t phys_tmp;
+  size_t buffer_size;
+  ANIVA_STATUS status;
+
+  kernel_panic("TODO: verify ahci_port_write_blk works");
+
+  if (!device || !count || !buffer)
+    return -1;
+
+  // Prepare the parent port
+  port = device->m_parent;
+
+  if (!port)
+    return -2;
+
+  /* Won't ever fit lmao */
+  if (blk > device->m_max_blk)
+    return -3;
+
+  /* FIXME: Should we try to fit count into the disk when it overflows? */
+
+  /* Calculate buffersize */
+  buffer_size = count * device->m_logical_sector_size;
+
+  /* Preallocate a buffer (TODO: contact a generic disk block cache) */
+  //tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+  phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
+
+  if (phys_tmp == NULL)
+    return -4;
+
+  /* Send the AHCI command */
+  status = ahci_port_send_command(port, AHCI_COMMAND_WRITE_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
+
+  if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
+    return -5;
+
+  return 0;
 }
 
 /*!

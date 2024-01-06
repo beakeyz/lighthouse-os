@@ -478,8 +478,26 @@ int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size
   return error;
 }
 
-int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) {
-  kernel_panic("TODO: implement write_sync_partitioned_block");
+int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) 
+{
+  int error = -1;
+  uintptr_t abs_block;
+
+  if (!dev || !dev->m_parent)
+    return -1;
+
+  if (block > dev->m_end_lba)
+    return -2;
+
+  abs_block = dev->m_start_lba + block;
+
+  if (dev->m_parent->m_ops.f_write_blocks) {
+    error = dev->m_parent->m_ops.f_write_blocks(dev->m_parent, buffer, count, abs_block);
+  } else {
+    // Do we have an alternative?
+  }
+
+  return error;
 }
 
 int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
