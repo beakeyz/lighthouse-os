@@ -30,3 +30,21 @@ void aniva_shutdown()
 
   /* TODO: shutdown =) */
 }
+
+/*!
+ * @brief: Starts a full system reboot
+ *
+ * This initiates the same events as a shutdown, but instead of doing a powerdown, we try to do a
+ * graceful reboot, through ACPI. If that does not work, we can always do a 'non-graceful' shutdown, by
+ * letting the system tripplefault or something, which will trigger a reboot on most systems. In this case
+ * it will be intentional, so any shutdown jobs will be done
+ */
+void aniva_reboot()
+{
+  kernel_panic("TODO: reboot");
+}
+
+void aniva_suspend()
+{
+  kernel_panic("TODO: suspend");
+}

@@ -27,7 +27,7 @@ struct proc;
 /* Most basic privilege level */
 #define PRF_PRIV_LVL_USER 16
 
-#define PRF_MAX_VARS 1024 
+#define PRF_MAX_VARS 4096
 
 /* Processes in this profile may load drivers */
 #define PRF_PERM_LOAD_DRV (1 << 0)
@@ -106,7 +106,8 @@ static inline bool profile_is_default(proc_profile_t* profile)
   return (profile->parent == NULL);
 }
 
-void init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* name, uint8_t level);
+int init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* name, uint8_t level);
+proc_profile_t* create_proc_profile(proc_profile_t* parent, char* name, uint8_t level);
 void destroy_proc_profile(proc_profile_t* profile);
 
 int profile_find(const char* name, proc_profile_t** profile);
@@ -125,8 +126,7 @@ int profile_unregister(const char* name);
 
 int profile_set_password(proc_profile_t* profile, const char* password);
 int profile_clear_password(proc_profile_t* profile);
-int profile_get_password_len(proc_profile_t* profile, size_t* size);
-int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size);
+int profile_match_password(proc_profile_t* profile, const char* match);
 bool profile_has_password(proc_profile_t* profile);
 bool profile_has_valid_password_var(proc_profile_t* profile);
 
@@ -143,7 +143,9 @@ extern int profile_save(proc_profile_t* profile, file_t* file);
 extern int profile_load(proc_profile_t** profile, file_t* file);
 extern int profile_save_variables(proc_profile_t* profile, file_t* file);
 extern int profile_load_variables(proc_profile_t* profile, file_t* file);
+extern int profile_save_var(proc_profile_t* profile, profile_var_t* var, file_t* file);
+extern int profile_load_var(proc_profile_t* profile, const char* key, file_t* file);
 
-uint16_t get_active_profile_count();
+uint64_t get_active_profile_count();
 
 #endif // !__ANIVA_PROC_PROFILE__

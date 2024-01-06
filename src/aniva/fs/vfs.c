@@ -19,6 +19,8 @@
 
 static vfs_t s_vfs;
 
+static vnamespace_t* vfs_create_path(const char* path);
+
 /*
  * Check if a path starts with the absolute character sequence,
  * which means we will have to search from the absolute root
@@ -495,7 +497,7 @@ static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace
   return ns;
 }
 
-vnamespace_t* vfs_create_path(const char* path) {
+static vnamespace_t* vfs_create_path(const char* path) {
   vnamespace_t* current_parent = nullptr;
   vnamespace_t* result = nullptr;
   uintptr_t previous_index = NULL;

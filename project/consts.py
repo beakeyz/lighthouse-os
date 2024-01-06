@@ -109,6 +109,7 @@ class Consts:
     # NOTE: crt files have to be asm files!
     CRT_FILES: list[SourceFile] = []
     SRC_FILES: list[SourceFile] = []
+    DEP_FILES: list[str] = []
     OBJ_FILES = []
     KERNEL_OBJ_FILES = []
     SRC_LINES: list[int] = []
@@ -125,16 +126,17 @@ class Consts:
     def __init__(self, shouldScan: bool = True) -> None:
 
         # We have to clear the working variables in Consts every time we init, cause of reinit()
-        self.SRC_FILES = []
+        self.SRC_FILES: list[SourceFile] = []
         self.OBJ_FILES = []
+        self.DEP_FILES: list[str] = []
         self.KERNEL_OBJ_FILES = []
         self.SRC_LINES = []
         self.CRT_FILES = []
-        self.PROCESS_MANIFESTS = []
-        self.DRIVER_MANIFESTS = []
-        self.LIBRARY_MANIFESTS = []
-        self.USER_PROJECT_PATHS = []
-        self.LIBS_PROJECT_PATHS = []
+        self.PROCESS_MANIFESTS: list[BuildManifest] = []
+        self.DRIVER_MANIFESTS: list[BuildManifest] = []
+        self.LIBRARY_MANIFESTS: list[BuildManifest] = []
+        self.USER_PROJECT_PATHS: list[str] = []
+        self.LIBS_PROJECT_PATHS: list[str] = []
 
         self.TOTAL_LINES = 0
 
@@ -152,6 +154,12 @@ class Consts:
         self.scan_dirs(self.SRC_DIR)
         self.scan_dirs(self.OUT_DIR)
         self.scan_dirs(self.PROJECT_MANAGEMENT_DIR)
+
+        # Scan the project for dependencyfiles
+        for srcFile in self.SRC_FILES:
+            if srcFile.path.find(".c") == -1:
+                continue
+            self.DEP_FILES.append(srcFile.path.replace(".c", ".d"))
 
         userSrcDir = f"{self.SRC_DIR}/user"
 

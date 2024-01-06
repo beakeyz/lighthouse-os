@@ -30,6 +30,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
 #include "libk/string.h"
+#include "lightos/proc/var_types.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -136,7 +137,7 @@ static uint32_t _chars_cursor_y;
 /* Current index of the color used for printing */
 static uint32_t _current_color_idx;
 
-static const char* _old_dfld_lwnd_path_value;
+static const char* _old_dflt_lwnd_path_value;
 
 /* Should we print a tag on every newline? */
 static bool _print_newline_tag;
@@ -150,6 +151,16 @@ static thread_t* __kterm_worker_thread;
 static uintptr_t __kterm_buffer_ptr;
 static char __kterm_char_buffer[KTERM_MAX_BUFFER_SIZE];
 static char __kterm_stdin_buffer[KTERM_MAX_BUFFER_SIZE];
+
+/* Prompt information */
+static char* _c_prompt_buffer;
+static size_t _c_prompt_buffersize;
+static size_t _c_prompt_idx;
+static bool _c_prompt_hide_input;
+static bool _c_prompt_is_submitted;
+
+/* Login stuff */
+static kterm_login_t _c_login;
 
 /* Framebuffer information */
 static fb_info_t __kterm_fb_info;
@@ -347,6 +358,61 @@ static void kterm_set_print_color(uint32_t idx)
   _current_color_idx = idx;
 }
 
+static inline uint32_t _dirty_pow(uint32_t a, uint32_t b)
+{
+  if (!b)
+    return 1;
+
+  for (uint32_t i = 0; i < (b-1); i++)
+    a *= a;
+
+  return a;
+}
+
+static inline void _print_pallet_preview(uint32_t idx)
+{
+  kterm_set_print_color(idx);
+
+  kterm_print("Color of pallet idx: ");
+  kterm_println(to_string(idx));
+
+  kterm_set_print_color(_current_color_idx);
+}
+
+static uint32_t kterm_cmd_palletinfo(const char** argv, size_t argc)
+{
+  switch (argc) {
+    case 1:
+      for (uint32_t i = 10; i <= 250; i+=10)
+        _print_pallet_preview(i);
+
+      break;
+    case 2:
+      {
+        uint8_t i;
+        uint16_t buffer = 0;
+        const char* count = argv[1];
+
+        /* Too long */
+        if (strlen(count) > 3 || !strlen(count))
+          return 2;
+
+        /* Check for numbers */
+        for (i = 0; i < strlen(count); i++) {
+          if (count[i] < '0' || count[i] > '9')
+            return 3;
+
+          buffer += (count[i] - '0') * _dirty_pow(10, strlen(count) - 1 - i);
+        }
+
+        _print_pallet_preview(buffer);
+
+        break;
+      }
+  }
+  return 0;
+}
+
 struct kterm_cmd kterm_commands[] = {
   {
     "help",
@@ -439,6 +505,11 @@ struct kterm_cmd kterm_commands[] = {
     "cwd",
     "Print the current working directory",
     nullptr,
+  },
+  {
+    "palletinfo",
+    "Info about kterms color pallet",
+    kterm_cmd_palletinfo,
   },
   /*
    * NOTE: this is exec and this should always
@@ -626,6 +697,47 @@ bool kterm_ismode(enum kterm_mode _mode)
   return (mode == _mode);
 }
 
+bool kterm_is_logged_in()
+{
+  return (_c_login.profile != nullptr);
+}
+
+int kterm_set_login(struct proc_profile* profile)
+{
+  //vobj_t* cwd_obj;
+  profile_var_t* login_msg_var;
+  const char* login_msg;
+
+  _c_login.profile = profile;
+
+  if (profile) {
+    /* FIXME: make sure the cwd never exceeds this size */
+    _c_login.cwd = kmalloc(2048);
+    concat("Root/User/", (char*)profile->name, _c_login.cwd);
+
+    //cwd_obj = vfs_resolve(_c_login.cwd);
+
+    //if (!cwd_obj)
+      //create_profile_working_directory(_c_login.cwd);
+
+    /* Profiles don't have to have a login msg */
+    if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))
+      return 0;
+
+    if (profile_var_get_str_value(login_msg_var, &login_msg) == false)
+      return 0;
+
+    kterm_println(login_msg);
+    return 0;
+  }
+
+  if (!_c_login.cwd)
+    return -1;
+
+  kfree((void*)_c_login.cwd);
+  return 0;
+}
+
 /*!
  * @brief Clear the cmd buffer and reset the doors
  *
@@ -747,7 +859,7 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
   return DRV_STAT_OK;
 }
 
-void kterm_init_lwnd_emulation()
+static inline void kterm_init_lwnd_emulation()
 {
   const char* var_buffer;
   proc_profile_t* profile;
@@ -758,10 +870,30 @@ void kterm_init_lwnd_emulation()
   profile_var_get_str_value(var, &var_buffer);
 
   /* Make sure this is owned by us */
-  _old_dfld_lwnd_path_value = strdup(var_buffer);
+  _old_dflt_lwnd_path_value = strdup(var_buffer);
 
   /* Make sure the system knows we emulate lwnd */
   profile_var_write(var, PROFILE_STR("other/kterm"));
+}
+
+static inline void kterm_fini_lwnd_emulation()
+{
+  proc_profile_t* profile;
+  profile_var_t* var;
+
+  ASSERT_MSG(profile_scan_var("Global/DFLT_LWND_PATH", &profile, &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
+
+  /* Set the default back to the old default */
+  profile_var_write(var, PROFILE_STR(_old_dflt_lwnd_path_value));
+}
+
+static void kterm_reset_prompt_vars()
+{
+  _c_prompt_buffer = NULL;
+  _c_prompt_buffersize = NULL;
+  _c_prompt_idx = NULL;
+  _c_prompt_hide_input = false;
+  _c_prompt_is_submitted = false;
 }
 
 /*
@@ -772,8 +904,12 @@ int kterm_init()
 {
   (void)kterm_redraw_terminal_chars;
 
-  _old_dfld_lwnd_path_value = NULL;
+  _old_dflt_lwnd_path_value = NULL;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
+
+  memset(&_c_login, 0, sizeof(_c_login));
+
+  kterm_reset_prompt_vars();
 
   kterm_disable_newline_tag();
 
@@ -816,6 +952,7 @@ int kterm_init()
   _chars_cursor_x = 0;
   _chars_cursor_y = 0;
 
+  /* Make sure we print white */
   kterm_set_print_color(0);
 
   /*
@@ -856,6 +993,8 @@ int kterm_init()
   /* Prompt a newline tag draw */
   kterm_println(NULL);
 
+  kterm_handle_login();
+
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
   
@@ -874,6 +1013,8 @@ int kterm_exit() {
    * - ect.
    */
   kernel_panic("kterm_exit");
+
+  kterm_fini_lwnd_emulation();
 
   return 0;
 }
@@ -1052,6 +1193,66 @@ int kterm_handle_graphics_key(kevent_kb_ctx_t* kbd)
   return 0;
 }
 
+static bool _kterm_has_prompt()
+{
+  return (_c_prompt_buffer != NULL && _c_prompt_buffersize != NULL);
+}
+
+static void kterm_prompt_write(char c)
+{
+  char msg[] = { c, 0 };
+
+  /* The last byte must always be zero and it may thus not be overwritten */
+  if (_c_prompt_idx >= (_c_prompt_buffersize-1))
+    return;
+
+  if (!_c_prompt_hide_input)
+    kterm_print(msg);
+
+  if (c)
+    _c_prompt_buffer[_c_prompt_idx++] = c;
+  else if (_c_prompt_idx) {
+    _c_prompt_idx--;
+    _c_prompt_buffer[_c_prompt_idx] = c;
+  }
+}
+
+/*!
+ * @brief: Submit the current active prompt
+ *
+ * Clears the current prompt variables and calls the prompt submit callback
+ */
+static void kterm_submit_prompt()
+{
+  kterm_reset_prompt_vars();
+
+  _c_prompt_is_submitted = true;
+  kterm_println(NULL);
+}
+
+int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
+{
+  if (!kbd->pressed)
+    return 0;
+
+  switch (kbd->pressed_char) {
+    case '\b':
+      kterm_prompt_write(NULL);
+      break;
+    case (char)0x0A:
+      /* Enter */
+      kterm_submit_prompt();
+      break;
+    default:
+      if (kbd->pressed_char >= 0x20) {
+        kterm_prompt_write(kbd->pressed_char);
+      }
+      break;
+  }
+
+  return 0;
+}
+
 /*!
  * @brief: Kterm kevent
  *
@@ -1064,6 +1265,10 @@ int kterm_on_key(kevent_ctx_t* ctx)
 {
   kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
 
+  /* Prompts intercept any input */
+  if (_kterm_has_prompt())
+    return kterm_handle_prompt_key(k_event);
+
   switch (mode) {
     case KTERM_MODE_TERMINAL:
       return kterm_handle_terminal_key(k_event);
@@ -1073,6 +1278,29 @@ int kterm_on_key(kevent_ctx_t* ctx)
       break;
   }
 
+  return 0;
+}
+
+int kterm_create_prompt(const char* prompt, char* buffer, size_t buffersize, bool hide_input)
+{
+  if (!buffer || !buffersize)
+    return -1;
+
+  if (prompt)
+    kterm_print(prompt);
+
+  memset(buffer, NULL, buffersize);
+
+  _c_prompt_buffersize = buffersize;
+  _c_prompt_buffer = buffer;
+  _c_prompt_idx = NULL;
+  _c_prompt_hide_input = hide_input;
+  _c_prompt_is_submitted = false;
+
+  while (!_c_prompt_is_submitted)
+    scheduler_yield();
+
+  _c_prompt_is_submitted = false;
   return 0;
 }
 

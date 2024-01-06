@@ -58,6 +58,7 @@ typedef enum TAR_TYPE {
 #define TAR_BLOCK_START(node) (((node)->fs_data.m_fs_specific_info))
 
 #define TAR_USTAR_ALIGNMENT 512
+#define TAR_USTAR_SIG       "ustar"
 
 static uintptr_t decode_tar_ascii(uint8_t* str, size_t length) {
   
@@ -160,9 +161,8 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
       break;
 
     /* Invalid TAR archive file */
-    if (!memcmp(current_file.ustar, "ustar", 5)) {
+    if (!memcmp(current_file.ustar, TAR_USTAR_SIG, 5))
       break;
-    }
 
     uintptr_t current_file_offset = (uintptr_t)TAR_BLOCK_START(node) + current_offset;
     uintptr_t filesize = decode_tar_ascii(current_file.size, 11);

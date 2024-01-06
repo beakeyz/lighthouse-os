@@ -15,6 +15,10 @@ static uint32_t fvar_buffersize;
 static uint32_t valtab_buffersize;
 static uint32_t strtab_buffersize;
 
+/*
+ * NOTE: we can't store a default password here, since they have to be hashed by the kernel
+ * when they are stored
+ */
 struct profile_var_template base_defaults[] = {
 };
 
@@ -27,6 +31,7 @@ struct profile_var_template global_defaults[] = {
   VAR_ENTRY("DFLT_KB_EVENT",    PROFILE_VAR_TYPE_STRING, "keyboard", PVAR_FLAG_CONFIG),
   VAR_ENTRY("DFLT_ERR_EVENT",   PROFILE_VAR_TYPE_STRING, "error", PVAR_FLAG_CONFIG),
   VAR_ENTRY("BOOTDISK_PATH",    PROFILE_VAR_TYPE_STRING, "unknown", PVAR_FLAG_CONFIG),
+  VAR_ENTRY("LOGIN_MSG",        PROFILE_VAR_TYPE_STRING, "Welcome to LightOS!", PVAR_FLAG_GLOBAL),
 };
 
 static int pvr_file_find_free_strtab_offset(uint32_t* offset)

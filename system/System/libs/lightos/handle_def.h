@@ -41,6 +41,7 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_EVENT             (14)
 /* An eventsubscription */
 #define HNDL_TYPE_EVENTHOOK         (15)
+#define HNDL_TYPE_RESOURCE          (16)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */
@@ -54,6 +55,8 @@ typedef unsigned char       handle_type_t;
 #define HNDL_FLAG_LOCKED            (0x0004) /* khandle is locked by the kernel and can't be opperated by userspace (think of shared libraries and stuff) */
 #define HNDL_FLAG_READACCESS        (0x0008)
 #define HNDL_FLAG_WRITEACCESS       (0x0010)
+#define HNDL_FLAG_R                 (HNDL_FLAG_READACCESS)
+#define HNDL_FLAG_W                 (HNDL_FLAG_WRITEACCESS)
 #define HNDL_FLAG_RW                (HNDL_FLAG_READACCESS | HNDL_FLAG_WRITEACCESS)
 #define HNDL_FLAG_INVALID           (0x8000) /* khandle is not pointing to anything and any accesses to it should be regarded as disbehaviour */
 

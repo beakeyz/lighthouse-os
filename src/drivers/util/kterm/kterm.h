@@ -7,11 +7,18 @@
 #define KTERM_DRV_MAP_FB        8
 #define KTERM_DRV_CLEAR         9
 
+struct proc_profile;
+
 enum kterm_mode {
   KTERM_MODE_LOADING = 0,
   KTERM_MODE_TERMINAL,
   KTERM_MODE_GRAPHICS,
 };
+
+typedef struct kterm_login {
+  struct proc_profile* profile;
+  char* cwd;
+} kterm_login_t;
 
 /*
  * Generic kterm commands 
@@ -34,6 +41,9 @@ int kterm_print(const char* msg);
 void kterm_clear();
 void kterm_switch_to_terminal();
 
+bool kterm_is_logged_in();
+int kterm_set_login(struct proc_profile* profile);
+
 bool kterm_ismode(enum kterm_mode mode);
 
 struct kterm_cmd {
@@ -41,6 +51,10 @@ struct kterm_cmd {
   char* desc;
   f_kterm_command_handler_t handler;
 };
+
+int kterm_create_prompt(const char* prompt, char* buffer, size_t buffersize, bool hide_input);
+
+extern int kterm_handle_login();
 
 extern struct kterm_cmd kterm_commands[];
 extern uint32_t kterm_cmd_count;

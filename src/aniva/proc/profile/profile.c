@@ -17,7 +17,11 @@
 
 #define SOFTMAX_ACTIVE_PROFILES 4096
 
-/* The variable key that holds the password */
+/* 
+ * The variable key that holds the password 
+ * FIXME: currently any driver has unlimited access to this variable. We should lock
+ * access to this behind some service
+ */
 #define PROFILE_PASSWORD_KEY "PASSWORD"
 #define DEFAULT_GLOBAL_PVR_PATH "Root/Global/global.pvr"
 
@@ -34,10 +38,10 @@ static mutex_t* profile_mutex;
  * that are bound to this profile. These variables are stored in a variable sized 
  * hashmap, that is not really optimized at all...
  */
-void init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* name, uint8_t level)
+int init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* name, uint8_t level)
 {
   if (!profile || !name || (level > PRF_PRIV_LVL_USER))
-    return;
+    return -1;
 
   memset(profile, 0, sizeof(proc_profile_t));
 
@@ -47,10 +51,28 @@ void init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* na
   profile->lock = create_mutex(NULL);
 
   profile_set_priv_lvl(profile, level);
+
+  return 0;
+}
+
+proc_profile_t* create_proc_profile(proc_profile_t* parent, char* name, uint8_t level)
+{
+  proc_profile_t* ret;
+
+  ret = kmalloc(sizeof(*ret));
+
+  if (init_proc_profile(ret, parent, name, level)) {
+    kfree(ret);
+    return nullptr;
+  }
+
+  return ret;
 }
 
 /*!
  * @brief: Destroy all the memory of a profile
+ *
+ * FIXME: what do we do with all the variables of this profile
  */
 void destroy_proc_profile(proc_profile_t* profile)
 {
@@ -68,6 +90,9 @@ void destroy_proc_profile(proc_profile_t* profile)
 
   destroy_hashmap(profile->var_map);
   destroy_mutex(profile->lock);
+
+  /* Profile might be allocated on the heap */
+  kfree(profile);
 }
 
 /*!
@@ -437,7 +462,7 @@ int profile_clear_password(proc_profile_t* profile)
  *
  * Fails if the profile does not contain a valid profile variable
  */
-int profile_get_password_len(proc_profile_t* profile, size_t* size)
+static int profile_get_password_len(proc_profile_t* profile, size_t* size)
 {
   int error;
   profile_var_t* var;
@@ -464,11 +489,13 @@ int profile_get_password_len(proc_profile_t* profile, size_t* size)
  * @brief: Copies the profiles password into @buffer
  * 
  * NOTE: The caller is responsible to make sure that the buffer is the correct size
+ * 
+ * NOTE: The 'password' that's stored here should probably be hashed in some way
  *
  * @returns: A negative integer on failure, The difference in length between the password and
  * the buffer on success (positive or zero)
  */
-int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size)
+static int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size)
 {
   int error;
   size_t password_len;
@@ -494,6 +521,42 @@ int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size)
     return (size - password_len);
 
   return (password_len - size);
+}
+
+int profile_match_password(proc_profile_t* profile, const char* match)
+{
+  int error;
+  size_t pwd_len;
+  uint8_t* pwd_buffer;
+
+  error = profile_get_password_len(profile, &pwd_len);
+
+  if (error)
+    return error;
+
+  pwd_buffer = kmalloc(pwd_len+1);
+
+  if (!pwd_buffer)
+    return -1;
+
+  memset(pwd_buffer, 0, pwd_len+1);
+
+  error = profile_get_password(profile, pwd_buffer, pwd_len);
+
+  if (error)
+    return error;
+
+  /*
+   * There is security involved here. Before we implement this, we should first read up on how
+   * to tackle security in an OS
+   */
+  kernel_panic("TODO: profile_match_password");
+
+  error = strcmp(match, (char*)pwd_buffer);
+
+  kfree(pwd_buffer);
+
+  return error;
 }
 
 /*!
@@ -546,7 +609,7 @@ bool profile_has_valid_password_var(proc_profile_t* profile)
  *
  * Nothing to add here...
  */
-uint16_t get_active_profile_count()
+uint64_t get_active_profile_count()
 {
   return active_profiles->m_size;
 }

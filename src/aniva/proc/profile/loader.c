@@ -8,6 +8,14 @@
 
 #include <lightos/proc/var_types.h>
 
+/*
+ * profile variable loader for Aniva
+ *
+ * A few things TODO:
+ *  - Implement hashing into these files. This speeds up search times when there are a lot of linked
+ *    tables in a single .pvr file. NOTE: We can also cache the save location of all variables.
+ */
+
 static inline bool is_header_valid(pvr_file_header_t* hdr)
 {
   return (
@@ -47,13 +55,30 @@ int profile_load(proc_profile_t** profile, file_t* file)
   return 0;
 }
 
+static inline bool can_save_to_file(file_t* file)
+{
+  return (
+      file && 
+      file->m_ops && 
+      file->m_ops->f_write && 
+      (file->m_flags & FILE_READONLY) != FILE_READONLY
+  );
+}
+
 /*!
  * @brief: Save the variables of @profile
  *
  * TODO: implement
+ *
+ * Before we do anything, we need to check if we can actually write to this file
+ * If the file already contains a valid .pvr context, we need to try to keep as much intact as we can
+ * If the file is empty or invalid, just clear it and create a new context
  */
 int profile_save_variables(proc_profile_t* profile, file_t* file)
 {
+  if (!can_save_to_file(file))
+    return -1;
+
   kernel_panic("TODO: profile_save_variables");
   return 0;
 }
@@ -131,5 +156,20 @@ cycle:
     c_var_offset += sizeof(c_var);
   }
 
+  return 0;
+}
+
+/*!
+ * @brief: Try to find a free spot in the vartab, strtab and valtab and save this var there
+ * 
+ * If there is no space left in one of these tables, we create a new one and link them into the tables
+ */
+int profile_save_var(proc_profile_t* profile, profile_var_t* var, file_t* file)
+{
+  return 0;
+}
+
+int profile_load_var(proc_profile_t* profile, const char* key, file_t* file)
+{
   return 0;
 }

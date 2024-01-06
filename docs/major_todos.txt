@@ -1,5 +1,6 @@
 [ ] : Fix the FAT32 filesystem implementation
-[ ] : Implement profile var loading and saving to files
+[ ] : Create a convenient API to manipulate the vfs (File creation, dir creation, file copy, file move, ect.)
+[1/2] : Implement profile var loading and saving to files
 [ ] : Implement user-based fs access
 [ ] : Implement service processes (Processes that are attached to the BASE profile and are allowed to run in the background)
 [ ] : Implement dynamic linking

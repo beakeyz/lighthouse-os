@@ -48,6 +48,8 @@
 
 /* TODO: */
 #define SYSID_LOAD_DRV          25
+#define SYSID_CREATE_PROFILE    26
+#define SYSID_DESTROY_PROFILE   27
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

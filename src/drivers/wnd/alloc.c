@@ -11,7 +11,7 @@ int init_lwnd_alloc()
 {
   _window_allocator = create_zone_allocator(64 * Kib, sizeof(lwnd_window_t), NULL);
 
-  if (!_screen_allocator)
+  if (!_window_allocator)
     return -1;
 
   _screen_allocator = create_zone_allocator(64 * Kib, sizeof(lwnd_screen_t), NULL);

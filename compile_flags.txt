@@ -11,3 +11,5 @@
 ./src/libs/LibC
 
 -nostdlib
+-Wall
+-Werror

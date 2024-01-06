@@ -5,7 +5,9 @@
  * Header for generic system stuff
  */
 
-/* ./shutdown.c */
+/* ./power.c */
 extern void aniva_shutdown();
+extern void aniva_reboot();
+extern void aniva_suspend();
 
 #endif // !__ANIVA_SYSTEM__
