@@ -68,5 +68,6 @@ int putch(char c);
 int print(const char* msg);
 int println(const char* msg);
 int printf(const char* fmt, ...);
+int vprintf(const char* fmt, va_list args);
 
 #endif // !__ANIVA_LOGGING__

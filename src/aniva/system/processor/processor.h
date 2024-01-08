@@ -95,13 +95,13 @@ ALWAYS_INLINE processor_t *get_current_processor() {
 
 ALWAYS_INLINE void processor_increment_critical_depth(processor_t *processor) {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
-  uintptr_t current_level = atomic_ptr_load(processor->m_critical_depth);
+  uintptr_t current_level = atomic_ptr_read(processor->m_critical_depth);
   atomic_ptr_write(processor->m_critical_depth, current_level + 1);
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
 
 ALWAYS_INLINE void processor_decrement_critical_depth(processor_t *processor) {
-  uintptr_t current_level = atomic_ptr_load(processor->m_critical_depth);
+  uintptr_t current_level = atomic_ptr_read(processor->m_critical_depth);
 
   ASSERT_MSG(current_level > 0, "Tried to leave a critical processor section while not being in one!");
 

@@ -209,7 +209,6 @@ static void vns_mutate(vnamespace_t* namespace, vnamespace_t obj) {
 ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path) 
 {
   int error;
-  ErrorOrPtr result;
   vnamespace_t* ns;
   if (!ns_p)
     return Error();
@@ -230,7 +229,7 @@ ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path)
   char full_path[full_path_len + 1];
 
   /* Move the namespace */
-  vnamespace_t* dummy = vfs_create_path(full_path);
+  vnamespace_t* dummy = vfs_create_ns_path(full_path);
 
   if (!dummy)
     return Error();
@@ -249,6 +248,6 @@ ErrorOrPtr vns_try_move(vnamespace_t** ns_p, const char* path)
   if (error)
     return Warning();
 
-  return result;
+  return Success(0);
 }
 

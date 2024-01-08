@@ -60,6 +60,22 @@ char* strcpy (char* dest, const char* src)
     return dest;
 }
 
+char* strncpy (char* dest, const char* src, size_t len)
+{
+  char * out = dest;
+
+  while (len > 0) {
+    *out = (*src != NULL) ?
+      *src :
+      '\0';
+    ++out;
+    ++src;
+    --len;
+  }
+
+  return out;
+}
+
 char* strdup(const char* str)
 {
   char* ret;
@@ -77,6 +93,49 @@ char* strdup(const char* str)
   strcpy(ret, str);
 
   return ret;
+}
+
+char* strcat (char* dest, const char* s)
+{
+  char * end = dest;
+
+  while (*end != '\0')
+    ++end;
+
+  while (*s) {
+    *end = *s;
+    end++;
+    s++;
+  }
+
+  *end = '\0';
+
+  return dest;
+}
+
+char* strncat (char* dest, const char* src, size_t len)
+{
+  char * end = dest;
+
+  while (*end != '\0')
+    ++end;
+
+  size_t i = 0;
+
+  while (*src && i < len) {
+    *end = *src;
+    end++;
+    src++;
+    i++;
+  }
+
+  *end = '\0';
+  return dest;
+}
+
+char *strstr(const char * h, const char * n)
+{
+  kernel_panic("TODO: strstr");
 }
 
 // TODO: dis mofo is broken as fuck, fix it
@@ -185,4 +244,62 @@ const char* to_string(uint64_t val) {
     to_str_buff[size - index] = remain + '0';
     to_str_buff[size + 1] = 0;
     return to_str_buff;
+}
+
+static inline bool _isxdigit(char c)
+{
+  return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+}
+
+static const char* parse_base(const char* s, uint32_t* base)
+{
+  if (!*base) {
+    if (s[0] != '0')
+      *base = 10;
+    else {
+      if ((s[1] == 'x' || s[1] == 'X') && _isxdigit(s[2]))
+        *base = 16;
+      else
+        *base = 8;
+    }
+  }
+
+  if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X') && _isxdigit(s[2]))
+    s+=2;
+
+  return s;
+}
+
+/*!
+ * @brief: Quick and dirty strtoul (strtoull)
+ */
+uint64_t dirty_strtoul(const char *cp, char **endp, unsigned int base)
+{
+  uint64_t result = 0ULL;
+
+  cp = parse_base(cp, &base);
+
+  /* Check for numbers */
+  while (*cp && _isxdigit(*cp)) {
+
+    uint32_t c_val;
+
+    if (*cp >= '0' && *cp <= '9')
+      c_val = *cp - '0';
+    else if ((*cp >= 'a' && *cp <= 'f'))
+      c_val = *cp - 'a' + 10;
+    else if ((*cp >= 'A' && *cp <= 'F'))
+      c_val = *cp - 'A' + 10;
+    else break;
+
+    if (c_val > base) break;
+
+    result = result * base + c_val;
+    cp++;
+  }
+
+  if (endp)
+    *endp = (char*)cp;
+
+  return result;
 }

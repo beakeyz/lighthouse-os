@@ -36,7 +36,7 @@ uintptr_t sys_exit_handler(uintptr_t code)
   } 
 
   /* There are more threads in this process */
-  if (atomic_ptr_load(current_proc->m_thread_count) > 1) {
+  if (atomic_ptr_read(current_proc->m_thread_count) > 1) {
     /* Identify if this thread */
     bool should_thread_die = (!thread_is_socket(current_thread)); 
 

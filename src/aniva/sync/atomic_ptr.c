@@ -3,29 +3,41 @@
 #include <mem/heap.h>
 #include <mem/heap.h>
 
-union atomic_ptr {
-  volatile _Atomic uintptr_t __lock;
-};
-
-atomic_ptr_t* create_atomic_ptr() {
-  return kmalloc(sizeof(atomic_ptr_t));
+int init_atomic_ptr(atomic_ptr_t* ptr, uintptr_t value)
+{
+  atomic_ptr_write(ptr, value);
+  return 0;
 }
 
-atomic_ptr_t *create_atomic_ptr_with_value(uintptr_t initial_value) {
-  atomic_ptr_t *ret = create_atomic_ptr();
-  atomic_ptr_write(ret, initial_value);
-  return ret;
+atomic_ptr_t* create_atomic_ptr() 
+{
+  return create_atomic_ptr_ex(NULL);
 }
 
-void destroy_atomic_ptr(atomic_ptr_t* ptr) {
-  kfree(ptr);
+atomic_ptr_t *create_atomic_ptr_ex(uintptr_t initial_value)
+{
+  atomic_ptr_t* ptr;
+
+  ptr = kmalloc(sizeof(*ptr));
+
+  if (!ptr)
+    return nullptr;
+
+  init_atomic_ptr(ptr, initial_value);
+  return ptr;
 }
 
-uintptr_t atomic_ptr_load(atomic_ptr_t* ptr) {
-  uintptr_t ret = atomicLoad_alt((volatile uintptr_t *) &ptr->__lock);
-  return ret;
+void destroy_atomic_ptr(atomic_ptr_t* ptr) 
+{
+  kfree((void*)ptr);
 }
 
-void atomic_ptr_write(atomic_ptr_t* ptr, uintptr_t value) {
-  atomicStore_alt((volatile uintptr_t *) &ptr->__lock, value);
+uintptr_t atomic_ptr_read(atomic_ptr_t* ptr) 
+{
+  return atomicLoad_alt((volatile uintptr_t *) &ptr->__val);
+}
+
+void atomic_ptr_write(atomic_ptr_t* ptr, uintptr_t value) 
+{
+  atomicStore_alt((volatile uintptr_t *) &ptr->__val, value);
 }

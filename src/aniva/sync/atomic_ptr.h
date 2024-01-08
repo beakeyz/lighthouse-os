@@ -1,22 +1,19 @@
 #ifndef __ANIVA_ATOMIC_PTR__
 #define __ANIVA_ATOMIC_PTR__
+
+#include "libk/atomic.h"
 #include <libk/stddef.h>
 
-typedef union atomic_ptr atomic_ptr_t;
+typedef struct {
+  volatile _Atomic uintptr_t __val; 
+} atomic_ptr_t ;
 
-/*
- * create an empty atomic_ptr
- */
+int init_atomic_ptr(atomic_ptr_t* ptr, uintptr_t value);
 atomic_ptr_t* create_atomic_ptr();
-
+atomic_ptr_t* create_atomic_ptr_ex(uintptr_t initial_value);
 void destroy_atomic_ptr(atomic_ptr_t* ptr);
 
-/*
- * above function, but with an initial value
- */
-atomic_ptr_t* create_atomic_ptr_with_value(uintptr_t initial_value);
-
-uintptr_t atomic_ptr_load(atomic_ptr_t* ptr);
+uintptr_t atomic_ptr_read(atomic_ptr_t* ptr);
 void atomic_ptr_write(atomic_ptr_t* ptr, uintptr_t value);
 
 #endif // !__ANIVA_ATOMIC_PTR__

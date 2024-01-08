@@ -184,7 +184,6 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bo
 static void kterm_enable_newline_tag();
 static void kterm_disable_newline_tag();
 static const char* kterm_get_buffer_contents();
-static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y);
 static void kterm_scroll(uintptr_t lines);
 
 logger_t kterm_logger = {
@@ -1494,7 +1493,6 @@ static void kterm_cursor_shift_x()
   }
 
   if (_chars_cursor_y >= _chars_yres-1) {
-    kernel_panic("TODO: scroll when we reach the end of _chars_yres");
     kterm_scroll(1);
   }
 }
@@ -1528,7 +1526,6 @@ static void kterm_cursor_shift_y()
   _chars_cursor_y ++;
 
   if (_chars_cursor_y >= _chars_yres-1) {
-    kernel_panic("TODO: scroll when we reach the end of _chars_yres");
     kterm_scroll(1);
   }
 }
@@ -1588,34 +1585,40 @@ cycle:
   return 0;
 }
 
-/*
-void println_kterm(const char* msg) {
-
-  if (!driver_is_ready(get_driver("other/kterm"))) {
-    return;
-  }
-
-  kterm_print(msg);
-  kterm_print("\n");
-}
-*/
-
 // TODO: add a scroll direction (up, down, left, ect)
-// FIXME: scrolling still gives weird artifacts
 static void kterm_scroll(uintptr_t lines) 
 {
-  volatile uint32_t* top = kterm_get_pixel_address(0, 0);
-  (void)top;
-  kernel_panic("TODO: implement scrolling");
-}
+  uint32_t new_y;
+  struct kterm_terminal_char* c_char, *n_char;
 
-static uint32_t volatile* kterm_get_pixel_address(uintptr_t x, uintptr_t y) {
-  if (__kterm_fb_info.pitch == 0 || __kterm_fb_info.bpp == 0)
-    return 0;
+  if (!lines)
+    return;
 
-  if (x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height) {
-    return (uint32_t volatile*)((vaddr_t)KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8);
+  /* We'll always begin drawing at zero */
+  new_y = 0;
+
+  for (uint32_t y = lines; y < (_chars_yres-lines); y++) {
+    for (uint32_t x = 0; x < _chars_xres; x++) {
+      c_char = kterm_get_term_char(x, y);
+      n_char = kterm_get_term_char(x, y-lines);
+
+      /* Skip identical chars */
+      if (c_char->ch == n_char->ch &&
+          c_char->pallet_idx == n_char->pallet_idx)
+        continue;
+
+      kterm_draw_char(x, y-lines, c_char->ch, c_char->pallet_idx, false);
+    }
+
+    new_y++;
   }
-  return 0;
-}
 
+  while (new_y < _chars_yres) {
+    
+    for (uint32_t x = 0; x < _chars_xres; x++)
+      kterm_draw_char(x, new_y, NULL, 1, false);
+    new_y++;
+  }
+
+  _chars_cursor_y--;
+}

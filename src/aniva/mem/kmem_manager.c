@@ -14,7 +14,6 @@
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "system/acpi/opcodes.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include <mem/heap.h>
@@ -342,8 +341,8 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr) {
  * Translate a virtual address to a physical address that is
  * page-aligned
  */
-uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) {
-
+uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) 
+{
   pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
 
   if (page == nullptr) {
@@ -975,7 +974,7 @@ ErrorOrPtr __kmem_dma_alloc_range(size_t size, uint32_t custom_flags, uint32_t p
 
 ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags) 
 {
-  return __kmem_alloc_ex(map, resources, addr, HIGH_MAP_BASE, size, custom_flags, page_flags);
+  return __kmem_alloc_ex(map, resources, addr, KERNEL_MAP_BASE, size, custom_flags, page_flags);
 }
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) 
@@ -1175,7 +1174,7 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
   size_t mapping_end_idx = KMEM_DATA.m_phys_pages_count;
 
   if (mapping_end_idx > max_end_idx)
-    mapping_end_idx = mapping_end_idx;
+    mapping_end_idx = max_end_idx;
   
   /* Map everything until what we've already mapped in boot.asm */
   ASSERT_MSG(

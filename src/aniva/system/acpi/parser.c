@@ -9,7 +9,6 @@
 #include "mem/pg.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "system/acpi/opcodes.h"
 #include "system/acpi/structures.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -77,7 +76,8 @@ ErrorOrPtr create_acpi_parser(acpi_parser_t* parser) {
  *
  * TODO: should we create a nice system-wide resource entry for every table?
  */
-void parser_init_tables(acpi_parser_t* parser) {
+void parser_init_tables(acpi_parser_t* parser) 
+{
   acpi_xsdt_t* xsdt = nullptr;
   acpi_rsdt_t* rsdt = nullptr;
   acpi_sdt_header_t* header;
@@ -205,15 +205,15 @@ void* find_rsdp(acpi_parser_t* parser)
   }
 
   const list_t* phys_ranges = kmem_get_phys_ranges_list();
+
   FOREACH(i, phys_ranges) {
 
     phys_mem_range_t *range = i->data;
 
-    if (range->type != PMRT_ACPI_NVS || range->type != PMRT_ACPI_RECLAIM) {
+    if (range->type != PMRT_ACPI_NVS && range->type != PMRT_ACPI_RECLAIM)
       continue;
-    }
 
-    uintptr_t start = range->start;
+    uintptr_t start = kmem_ensure_high_mapping(range->start);
     uintptr_t length = range->length;
 
     for (uintptr_t i = start; i < (start + length); i += 16) {

@@ -7,6 +7,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
@@ -100,6 +101,9 @@ void mutex_lock(mutex_t* mutex)
 
   current_thread = get_current_scheduling_thread();
 
+  if (!current_thread)
+    return;
+
   thread_register_mutex(current_thread, mutex);
 
 retry_lock:
@@ -107,7 +111,7 @@ retry_lock:
 
   // NOTE: it's fine to be preempted here, since this value won't change
   // when we get back
-  current_thread = get_current_scheduling_thread();
+  //current_thread = get_current_scheduling_thread();
 
   if (mutex->m_lock_depth > 0) {
 
@@ -156,11 +160,21 @@ retry_lock:
 
 void mutex_unlock(mutex_t* mutex) 
 {
+  thread_t* c_thread;
+
+  c_thread = get_current_scheduling_thread();
+
+  if (!c_thread)
+    return;
+
   ASSERT_MSG(mutex, "Tried to unlock a mutex that has not been initialized");
   //ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
   // ASSERT_MSG(mutex->m_lock_holder != nullptr, "mutex has no holder while trying to unlock!");
   ASSERT_MSG(mutex->m_lock_depth, "Tried to unlock a mutex while it was already unlocked!");
   ASSERT_MSG((mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD), "IS_HELD flag not set while trying to unlock mutex");
+
+  /* This assert triggers unwillingly when we unlock locked mutexes on thread exit */
+  //ASSERT_MSG(mutex->m_lock_holder == c_thread, "Tried to unlock a mutex that wasn't locked by this thread");
 
   spinlock_lock(mutex->m_lock);
 

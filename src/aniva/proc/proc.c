@@ -62,7 +62,7 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
   proc->m_name = strdup(name);
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
-  proc->m_thread_count = create_atomic_ptr_with_value(0);
+  proc->m_thread_count = create_atomic_ptr_ex(0);
   proc->m_terminate_bell = create_doorbell(8, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
 
@@ -400,7 +400,7 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
     proc->m_flags |= PROC_UNRUNNED;
   }
 
-  uintptr_t current_thread_count = atomic_ptr_load(proc->m_thread_count);
+  uintptr_t current_thread_count = atomic_ptr_read(proc->m_thread_count);
 
   /* TODO: thread locking */
   thread->m_tid = current_thread_count;

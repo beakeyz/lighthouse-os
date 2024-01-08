@@ -404,18 +404,14 @@ static int _print_decimal(int64_t value, int prec)
   return size;
 }
 
-/*!
- * @brief: Print formated text
- *
- * Slow, since it has to make use of our putch thingy
- * TODO: implement full fmt scema
- */
-int printf(const char* fmt, ...)
+int vprintf(const char* fmt, va_list args)
 {
+  println(fmt);
+
+  return 0;
+
   int prec;
   uint32_t size;
-  va_list args;
-  va_start(args, fmt);
 
   for (const char* c = fmt; *c; c++) {
 
@@ -470,7 +466,9 @@ int printf(const char* fmt, ...)
           _print_decimal(value, prec);
           break;
         }
+      case 'p':
       case 'x':
+      case 'X':
         {
           uint64_t value;
           switch (size) {
@@ -496,6 +494,11 @@ int printf(const char* fmt, ...)
           print(str);
           break;
         }
+      default:
+        {
+          putch(*c);
+          break;
+        }
     }
 
     continue;
@@ -504,9 +507,27 @@ putch_cycle:
     putch(*c);
   }
 
+  return 0;
+}
+
+/*!
+ * @brief: Print formated text
+ *
+ * Slow, since it has to make use of our putch thingy
+ * TODO: implement full fmt scema
+ */
+int printf(const char* fmt, ...)
+{
+  int error;
+
+  va_list args;
+  va_start(args, fmt);
+
+  error = vprintf(fmt, args);
+
   va_end(args);
 
-  return 0;
+  return error;
 }
 
 

@@ -3,8 +3,8 @@
 #include <libk/stddef.h>
 #include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
-#include "structures.h"
 #include "sync/spinlock.h"
+#include "system/acpi/structures.h"
 
 #define RSDP_SIGNATURE "RSD PTR "
 #define FADT_SIGNATURE "FACP"

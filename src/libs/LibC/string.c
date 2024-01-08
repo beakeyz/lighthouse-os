@@ -135,12 +135,12 @@ char* strncpy (char* dest, const char* src, uint32_t len)
   char * out = dest;
 
   while (len > 0) {
-      *out = (*src != NULL) ?
-        *src :
-        '\0';
-      ++out;
-      ++src;
-      --len;
+    *out = (*src != NULL) ?
+      *src :
+      '\0';
+    ++out;
+    ++src;
+    --len;
   }
 
   return out;

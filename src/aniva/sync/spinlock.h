@@ -1,9 +1,9 @@
 #ifndef __ANIVA_SPINLOCK__
 #define __ANIVA_SPINLOCK__
+#include "sync/atomic_ptr.h"
 #include <libk/stddef.h>
 
 struct processor;
-union atomic_ptr;
 
 typedef volatile struct {
   volatile int m_latch[1];
@@ -14,7 +14,7 @@ typedef volatile struct {
 typedef struct spinlock {
   __spinlock_t m_lock;
   struct processor* m_processor;
-  union atomic_ptr* m_is_locked;
+  atomic_ptr_t* m_is_locked;
   // TODO:
 } spinlock_t;
 

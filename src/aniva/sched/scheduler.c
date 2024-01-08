@@ -385,7 +385,7 @@ void scheduler_yield()
 
   // in this case we don't have to wait for us to exit a
   // critical CPU section, since we are not being interrupted at all
-  if (current->m_irq_depth == 0 && atomic_ptr_load(current->m_critical_depth) == 0)
+  if (current->m_irq_depth == 0 && atomic_ptr_read(current->m_critical_depth) == 0)
     scheduler_try_execute();
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
@@ -407,7 +407,7 @@ int scheduler_try_execute()
   ASSERT_MSG(p && s, "Could not get current processor while trying to calling scheduler");
   ASSERT_MSG(p->m_irq_depth == 0, "Trying to call scheduler while in irq");
 
-  if (atomic_ptr_load(p->m_critical_depth))
+  if (atomic_ptr_read(p->m_critical_depth))
     return -1;
 
   /* If we don't want to schedule, or our scheduler is paused, return */

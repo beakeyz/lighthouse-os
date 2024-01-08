@@ -124,7 +124,7 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
  * in our bitmap.
  */
 ErrorOrPtr generate_new_proc_id() {
-  uintptr_t next = atomic_ptr_load(__next_proc_id);
+  uintptr_t next = atomic_ptr_read(__next_proc_id);
 
   /* Limit exceeded, since a proc_id is always 32-bit here (for now) */
   if (next > (uint64_t)0xFFFFFFFF) {
@@ -485,7 +485,7 @@ ANIVA_STATUS init_proc_core() {
 
   __sockets = init_list();
   __core_socket_lock = create_spinlock();
-  __next_proc_id = create_atomic_ptr_with_value(0);
+  __next_proc_id = create_atomic_ptr_ex(0);
 
   /*
    * TODO: we can also just store processes in a vector, since we

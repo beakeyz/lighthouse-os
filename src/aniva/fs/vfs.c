@@ -19,8 +19,6 @@
 
 static vfs_t s_vfs;
 
-static vnamespace_t* vfs_create_path(const char* path);
-
 /*
  * Check if a path starts with the absolute character sequence,
  * which means we will have to search from the absolute root
@@ -52,7 +50,7 @@ static ErrorOrPtr _vfs_mount(const char* path, vnode_t* node)
     return Error();
 
   // If it ends at a namespace, all good. just attacht the node there
-  vnamespace_t* namespace = vfs_create_path(path);
+  vnamespace_t* namespace = vfs_create_ns_path(path);
 
   if (!namespace)
     return Error();
@@ -497,7 +495,8 @@ static vnamespace_t* vfs_insert_namespace(const char* path, char* id, vnamespace
   return ns;
 }
 
-static vnamespace_t* vfs_create_path(const char* path) {
+vnamespace_t* vfs_create_ns_path(const char* path) 
+{
   vnamespace_t* current_parent = nullptr;
   vnamespace_t* result = nullptr;
   uintptr_t previous_index = NULL;

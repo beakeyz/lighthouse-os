@@ -88,7 +88,7 @@ profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, u
    * Set the refcount to one in order to preserve the variable for multiple gets
    * and releases
    */
-  var->refc = create_atomic_ptr_with_value(1);
+  var->refc = create_atomic_ptr_ex(1);
   /* Make sure type and value are already set */
   var->len = profile_var_get_size_for_type(var);
 
@@ -100,7 +100,7 @@ profile_var_t* get_profile_var(profile_var_t* var)
   if (!var)
     return nullptr;
 
-  uint64_t current_count = atomic_ptr_load(var->refc);
+  uint64_t current_count = atomic_ptr_read(var->refc);
   atomic_ptr_write(var->refc, current_count+1);
 
   return var;
@@ -108,12 +108,12 @@ profile_var_t* get_profile_var(profile_var_t* var)
 
 void release_profile_var(profile_var_t* var)
 {
-  uint64_t current_count = atomic_ptr_load(var->refc);
+  uint64_t current_count = atomic_ptr_read(var->refc);
 
   if (current_count)
     atomic_ptr_write(var->refc, current_count-1);
 
-  if (!atomic_ptr_load(var->refc))
+  if (!atomic_ptr_read(var->refc))
     destroy_profile_var(var);
 }
 

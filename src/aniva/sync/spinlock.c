@@ -1,6 +1,7 @@
 #include "spinlock.h"
 #include "dev/debug/serial.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "system/processor/processor.h"
@@ -16,7 +17,7 @@ static void release_spinlock(__spinlock_t* lock);
 spinlock_t* create_spinlock() {
   spinlock_t* lock = kmalloc(sizeof(spinlock_t));
 
-  lock->m_is_locked = create_atomic_ptr_with_value(false);
+  lock->m_is_locked = create_atomic_ptr_ex(false);
   //lock->m_thread = get_current_processor()->m_root_thread;
   //lock->m_proc = get_current_processor()->m_root_thread->m_parent_proc;
 
@@ -35,18 +36,40 @@ void destroy_spinlock(spinlock_t* lock) {
  * FIXME: should we limit spinlock usage in IRQs? 
  * could they pose a risk for potential deadlocks?
  */
-void spinlock_lock(spinlock_t* lock) {
+void spinlock_lock(spinlock_t* lock) 
+{
+  processor_t* c_cpu;
+  
+  if (!lock)
+    return;
+
+  c_cpu = get_current_processor();
+
+  if (!c_cpu->m_locked_level)
+    return;
+
   aquire_spinlock(&lock->m_lock);
 
-  lock->m_processor = get_current_processor();
+  lock->m_processor = c_cpu;
 
-  uintptr_t j = atomic_ptr_load(lock->m_processor->m_locked_level);
+  uintptr_t j = atomic_ptr_read(lock->m_processor->m_locked_level);
   atomic_ptr_write(lock->m_processor->m_locked_level, j+1);
   atomic_ptr_write(lock->m_is_locked, true);
 }
 
-void spinlock_unlock(spinlock_t* lock) {
-  uintptr_t j = atomic_ptr_load(lock->m_processor->m_locked_level);
+void spinlock_unlock(spinlock_t* lock) 
+{
+  processor_t* c_cpu;
+
+  if (!lock)
+    return;
+
+  c_cpu = get_current_processor();
+
+  if (!c_cpu->m_locked_level)
+    return;
+
+  uintptr_t j = atomic_ptr_read(lock->m_processor->m_locked_level);
   ASSERT_MSG(j > 0, "unlocking spinlock while having a m_locked_level of 0!");
 
   atomic_ptr_write(lock->m_processor->m_locked_level, j-1);
@@ -58,7 +81,7 @@ void spinlock_unlock(spinlock_t* lock) {
 }
 
 bool spinlock_is_locked(spinlock_t* lock) {
-  return atomic_ptr_load(lock->m_is_locked) == true;
+  return atomic_ptr_read(lock->m_is_locked) == true;
 }
 
 /* __spinlock_t */
@@ -82,7 +105,6 @@ void aquire_spinlock(__spinlock_t* lock)
   current = get_current_processor();
 
   while (__sync_lock_test_and_set(lock->m_latch, 0x01)) {
-
     ASSERT_MSG(current->m_irq_depth == 0, "Can't block on a spinlock from within an IRQ!");
     /* FIXME: should we? */
     scheduler_yield();
