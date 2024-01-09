@@ -152,6 +152,8 @@
 #include "acpi.h"
 #include "accommon.h"
 #include "actables.h"
+#include "libk/string.h"
+#include "logging/log.h"
 
 #define _COMPONENT          ACPI_TABLES
         ACPI_MODULE_NAME    ("tbutils")
@@ -442,6 +444,8 @@ AcpiTbParseRootTable (
 
     /* Map the RSDT/XSDT table header to get the full table length */
 
+    println(to_string(Address));
+
     Table = AcpiOsMapMemory (Address, sizeof (ACPI_TABLE_HEADER));
     if (!Table)
     {
@@ -450,11 +454,14 @@ AcpiTbParseRootTable (
 
     AcpiTbPrintTableHeader (Address, Table);
 
+    println("Trying to access ->Length");
+
     /*
      * Validate length of the table, and map entire table.
      * Minimum length table must contain at least one entry.
      */
     Length = Table->Length;
+    println(" access ->Length");
     AcpiOsUnmapMemory (Table, sizeof (ACPI_TABLE_HEADER));
 
     if (Length < (sizeof (ACPI_TABLE_HEADER) + TableEntrySize))

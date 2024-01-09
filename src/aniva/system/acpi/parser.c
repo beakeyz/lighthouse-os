@@ -151,6 +151,8 @@ void* find_rsdp(acpi_parser_t* parser)
   parser->m_is_xsdp = false;
   parser->m_xsdp = nullptr;
   parser->m_rsdp = nullptr;
+  parser->m_rsdp_phys = NULL;
+  parser->m_xsdp_phys = NULL;
   parser->m_rsdp_discovery_method = create_rsdp_method_state(NONE);
 
   // check multiboot header
@@ -165,6 +167,7 @@ void* find_rsdp(acpi_parser_t* parser)
 
     parser->m_is_xsdp = true;
     parser->m_xsdp = (acpi_xsdp_t*)pointer;
+    parser->m_xsdp_phys = kmem_to_phys(nullptr, pointer);
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
     return parser->m_xsdp;
   }
@@ -178,9 +181,12 @@ void* find_rsdp(acpi_parser_t* parser)
     print("Multiboot has rsdp: ");
     println(to_string(pointer));
     parser->m_rsdp = (acpi_rsdp_t*)pointer;
+    parser->m_rsdp_phys = kmem_to_phys(nullptr, pointer);
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
     return parser->m_rsdp;
   }
+
+  kernel_panic("TODO: check ACPI root table scanning methods!");
 
   // check bios mem
   uintptr_t bios_start_addr = 0xe0000;

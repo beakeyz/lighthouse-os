@@ -154,6 +154,7 @@
 #include "acnamesp.h"
 #include "actables.h"
 #include "acevents.h"
+#include "logging/log.h"
 
 #define _COMPONENT          ACPI_TABLES
         ACPI_MODULE_NAME    ("tbdata")
@@ -792,7 +793,6 @@ AcpiTbResizeRootTableList (
 
 
     ACPI_FUNCTION_TRACE (TbResizeRootTableList);
-
 
     /* AllowResize flag is a parameter to AcpiInitializeTables */
 

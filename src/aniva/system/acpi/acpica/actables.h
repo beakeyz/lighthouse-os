@@ -153,6 +153,9 @@
 #define __ACTABLES_H__
 
 
+#include "system/acpi/acpica/aclocal.h"
+#include "system/acpi/acpica/actbl.h"
+#include "system/acpi/acpica/actypes.h"
 ACPI_STATUS
 AcpiAllocateRootTable (
     UINT32                  InitialTableCount);

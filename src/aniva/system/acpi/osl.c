@@ -62,26 +62,30 @@ ACPI_STATUS AcpiOsTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_TABLE_HEA
 
 ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_PHYSICAL_ADDRESS *NewAddress, UINT32 *NewTableLength)
 {
-  kernel_panic("TODO: AcpiOsPhysicalTableOverride");
+  *NewAddress = NULL;
+  *NewTableLength = NULL;
   return AE_OK;
 }
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
-  uintptr_t p_delta;
   vaddr_t vaddr;
+
+  println("Calling: AcpiOsMapMemory");
 
   Length = ALIGN_UP(Length, SMALL_PAGE_SIZE);
 
   vaddr = Must(__kmem_kernel_alloc(PhysicalAddress, Length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
-  p_delta = PhysicalAddress - ALIGN_DOWN(PhysicalAddress, SMALL_PAGE_SIZE);
 
-  return (void*)(vaddr + p_delta);
+  println("Called: AcpiOsMapMemory");
+  return (void*)(vaddr);
 }
 
 void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 {
+  println("Calling: AcpiOsUnmapMemory");
   __kmem_kernel_dealloc((vaddr_t)where, length);
+  println("Called: AcpiOsUnmapMemory");
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)
@@ -283,7 +287,7 @@ ACPI_THREAD_ID AcpiOsGetThreadId()
   c = get_current_scheduling_thread();
 
   if (!c)
-    return NULL;
+    return 0xFFFFFFFF;
 
   return c->m_tid;
 }

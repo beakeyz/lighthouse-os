@@ -154,6 +154,7 @@
 #include "actables.h"
 #include "acdisasm.h"
 #include "acutils.h"
+#include "logging/log.h"
 
 #define _COMPONENT          ACPI_TABLES
         ACPI_MODULE_NAME    ("tbprint")
@@ -254,6 +255,9 @@ AcpiTbPrintTableHeader (
 {
     ACPI_TABLE_HEADER       LocalHeader;
 
+    println("Early return from AcpiTbPrintTableHeader");
+
+    return;
 
     if (ACPI_COMPARE_NAMESEG (Header->Signature, ACPI_SIG_FACS))
     {
@@ -293,4 +297,6 @@ AcpiTbPrintTableHeader (
             LocalHeader.OemTableId, LocalHeader.OemRevision,
             LocalHeader.AslCompilerId, LocalHeader.AslCompilerRevision));
     }
+
+    println("Yay");
 }

@@ -30,6 +30,9 @@ typedef struct {
 typedef struct acpi_parser {
   acpi_rsdp_t* m_rsdp;
   acpi_xsdp_t* m_xsdp;
+  paddr_t m_rsdp_phys;
+  paddr_t m_xsdp_phys;
+  
   bool m_is_xsdp;
 
   list_t* m_tables;

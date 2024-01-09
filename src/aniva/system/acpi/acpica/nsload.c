@@ -155,6 +155,7 @@
 #include "acdispat.h"
 #include "actables.h"
 #include "acinterp.h"
+#include "system/acpi/acpica/acoutput.h"
 
 
 #define _COMPONENT          ACPI_NAMESPACE
@@ -214,6 +215,7 @@ AcpiNsLoadTable (
         goto Unlock;
     }
 
+    ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Parsing table\n"));
     /*
      * Parse the table and load the namespace with all named
      * objects found within. Control methods are NOT parsed
@@ -246,6 +248,7 @@ AcpiNsLoadTable (
         return_ACPI_STATUS (Status);
     }
 
+    ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Parsed table\n"));
 Unlock:
     if (ACPI_FAILURE (Status))
     {

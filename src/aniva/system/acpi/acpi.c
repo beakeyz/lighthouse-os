@@ -37,12 +37,12 @@ void get_root_acpi_parser(struct acpi_parser** out)
   *out = &_parser;
 }
 
-uintptr_t find_acpi_root_ptr()
+paddr_t find_acpi_root_ptr()
 {
-  if (_parser.m_xsdp)
-    return _parser.m_xsdp->xsdt_addr;
+  if (_parser.m_xsdp_phys)
+    return _parser.m_xsdp_phys;
 
-  return _parser.m_rsdp->rsdt_addr;
+  return _parser.m_rsdp_phys;
 }
 
 void* find_acpi_table(char* signature, size_t table_size)
