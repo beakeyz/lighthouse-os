@@ -13,6 +13,10 @@ typedef struct ksym {
 
 size_t get_total_ksym_area_size();
 const char* get_ksym_name(uintptr_t address);
+const char* get_best_ksym_name(uintptr_t address);
 uintptr_t get_ksym_address(char* name);
+
+
+#define FOREACH_KSYM()
 
 #endif

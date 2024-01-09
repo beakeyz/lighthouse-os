@@ -141,9 +141,7 @@ void init_processor_late(processor_t *this)
   atomic_ptr_write(this->m_critical_depth, 0);
   atomic_ptr_write(this->m_locked_level, 0);
 
-  // TODO:
   if (is_bsp(this)) {
-    init_interrupts();
     init_intr_ctl();
 
     fpu_generic_init();

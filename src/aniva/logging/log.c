@@ -2,6 +2,7 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include <libk/ctype.h>
 #include <sync/mutex.h>
 
 static mutex_t* __default_mutex;
@@ -406,10 +407,8 @@ static int _print_decimal(int64_t value, int prec)
 
 int vprintf(const char* fmt, va_list args)
 {
+  print("Format string: ");
   println(fmt);
-
-  return 0;
-
   int prec;
   uint32_t size;
 
@@ -421,6 +420,10 @@ int vprintf(const char* fmt, va_list args)
     size = 0;
     prec = -1;
     c++;
+
+    /* FIXME: Register digits at the start */
+    while (isdigit(*c))
+      c++;
 
     if (*c == '.') {
       prec = 0;

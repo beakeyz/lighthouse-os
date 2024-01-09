@@ -39,19 +39,32 @@ static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rs
   };
 }
 
-ErrorOrPtr create_acpi_parser(acpi_parser_t* parser) {
+int init_acpi_parser_early(acpi_parser_t* parser)
+{
+  if (!parser)
+    return -1;
+
+  if (find_rsdp(parser) == NULL)
+    return -2;
+
+  if (acpi_parser_get_rsdp_method(parser) == NONE)
+    return -3;
+
+  return 0;
+}
+
+/*!
+ * @brief: 'Late' init of the native ACPI parser
+ *
+ * At this point acpica is initialized, so if it's enabled, we can use it's methods
+ *
+ * TODO: use acpica
+ */
+ErrorOrPtr init_acpi_parser(acpi_parser_t* parser) 
+{
   println("Starting ACPI parser");
 
   parser->m_tables = init_list();
-
-  ASSERT(find_rsdp(parser));
-
-  if (parser->m_rsdp_discovery_method.m_method == NONE) {
-    // FIXME: we're fucked lol
-    // kernel_panic("no rsdt found =(");
-    //return Error();
-    return Error();
-  }
 
   /*
    * Use the r/xsdp in order to find all the tables, 

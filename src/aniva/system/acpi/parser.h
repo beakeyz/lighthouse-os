@@ -46,7 +46,13 @@ typedef struct acpi_parser {
 
 } acpi_parser_t;
 
-ErrorOrPtr create_acpi_parser(acpi_parser_t* parser);
+int init_acpi_parser_early(acpi_parser_t* parser);
+ErrorOrPtr init_acpi_parser(acpi_parser_t* parser);
+
+static inline enum acpi_rsdp_method acpi_parser_get_rsdp_method(acpi_parser_t* p)
+{
+  return p->m_rsdp_discovery_method.m_method;
+}
 
 void init_acpi_parser_aml(acpi_parser_t* parser);
 

@@ -93,17 +93,31 @@ ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS
   if (!PhysicalAddress)
     return AE_BAD_PARAMETER;
 
+  println("Calling: AcpiOsGetPhysicalAddress");
   *PhysicalAddress = kmem_to_phys(nullptr, (vaddr_t)LogicalAddress);
+  println("Called: AcpiOsGetPhysicalAddress");
   return AE_OK;
 }
 
 void *AcpiOsAllocate(ACPI_SIZE Size)
 {
-  return kmalloc(Size);
+  void* ret;
+
+  println("Called AcpiOsAllocate");
+  ASSERT_MSG(Size, "ACPICA gave bogus size to allocate!");
+  ret = kmalloc(Size);
+
+  ASSERT_MSG(ret, "Could not allocate this shit!");
+
+  printf("Allocation: 0x%p\n", ret);
+
+  return ret;
 }
 
 void AcpiOsFree(void *Memory)
 {
+  println("Called AcpiOsFree");
+  ASSERT_MSG(Memory, "ACPICA gave bogus memory to free!");
   kfree(Memory);
 }
 
@@ -170,6 +184,7 @@ BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 
 ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT32 Width)
 {
+  println("Calling AcpiOsReadMemory");
   void* vaddr = (void*)kmem_from_phys(Address, KERNEL_MAP_BASE);
 
   switch (Width) {
@@ -186,11 +201,14 @@ ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT3
       kernel_panic("AcpiOsReadMemory: unsupported width!");
       return AE_SUPPORT;
   }
+
+  println("Called AcpiOsReadMemory");
   return AE_OK;
 }
 
 ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT32 Width)
 {
+  println("Calling AcpiOsWriteMemory");
   void* vaddr = (void*)kmem_from_phys(Address, KERNEL_MAP_BASE);
 
   switch (Width) {
@@ -210,11 +228,13 @@ ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT3
       kernel_panic("AcpiOsWriteMemory: unsupported width!");
       return AE_SUPPORT;
   }
+  println("Called AcpiOsWriteMemory");
   return AE_OK;
 }
 
 ACPI_STATUS AcpiOsReadPort(ACPI_IO_ADDRESS Address, UINT32 *Value, UINT32 Width)
 {
+  println("AcpiOsReadPort");
   switch (Width) {
     case 0 ... 8:
       *Value = in8(Address);
@@ -229,11 +249,13 @@ ACPI_STATUS AcpiOsReadPort(ACPI_IO_ADDRESS Address, UINT32 *Value, UINT32 Width)
       kernel_panic("AcpiOsReadPort: unsupported width!");
       return AE_SUPPORT;
   }
+  println("End: AcpiOsReadPort");
   return AE_OK;
 }
 
 ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 {
+  println("AcpiOsWritePort");
   switch (Width) {
     case 0 ... 8:
       out8(Address, Value);
@@ -248,6 +270,7 @@ ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
       kernel_panic("AcpiOsWriteMemory: unsupported width!");
       return AE_SUPPORT;
   }
+  println("End: AcpiOsWritePort");
   return AE_OK;
 }
 
@@ -335,6 +358,8 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
 {
   mutex_t* m;
 
+  println("Mut take");
+
   m = (mutex_t*)Handle;
 
   if (!m)
@@ -344,6 +369,7 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
     return AE_NOT_ACQUIRED;
 
   mutex_lock(m);
+  println("Mut take done");
   return AE_OK;
 }
 
@@ -355,7 +381,9 @@ void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 
   ASSERT_MSG(m, "ACPICA gave us an invalid mutex!");
 
+  println("Mut rel");
   mutex_unlock(m);
+  println("Mut rel done");
 }
 
 /*
@@ -379,7 +407,9 @@ ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Time
   if (Units > 1)
     return AE_SUPPORT;
 
+  println("sem wait");
   sem_wait(Handle, NULL);
+  println("sem wait donej:warn("");");
   return AE_OK;
 }
 
@@ -388,7 +418,9 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
   if (Units > 1)
     return AE_SUPPORT;
 
+  println("sem post");
   sem_post(Handle);
+  println("sem post done");
   return AE_OK;
 }
 
@@ -409,14 +441,18 @@ void AcpiOsDeleteLock(ACPI_SPINLOCK Handle)
 
 ACPI_CPU_FLAGS AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
 {
+  println("AcpiOsAcquireLock");
   spinlock_lock(Handle);
+  println("AcpiOsAcquireLock done");
   return 0;
 }
 
 void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
+  println("AcpiOsReleaseLock");
   (void)Flags;
   spinlock_unlock(Handle);
+  println("AcpiOsReleaseLock done");
 }
 
 /*

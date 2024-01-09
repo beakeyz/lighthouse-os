@@ -170,6 +170,10 @@ registers_t* general_protection_handler(registers_t *regs) {
 
 REGISTER_ERROR_HANDLER(14, pagefault);
 
+static const char* find_symbol(uintptr_t ip)
+{
+  
+}
 
 static void generate_traceback(uint64_t ip, uint64_t bp)
 {
@@ -184,7 +188,7 @@ static void generate_traceback(uint64_t ip, uint64_t bp)
    */
   while (ip && bp && current_depth < max_depth)
   {
-    current_func = get_ksym_name(ip);
+    current_func = find_symbol(ip);
 
     if (!current_func)
       current_func = "Unknown";

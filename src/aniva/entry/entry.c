@@ -175,6 +175,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // we need resources
   init_kresources();
 
+  // Setup interrupts (Fault handlers and IRQ request framework)
+  init_interrupts();
+
   /* Initialize the ACPI subsystem */
   init_acpi();
 
