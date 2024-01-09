@@ -168,6 +168,8 @@
  * file. Useful because they make it more difficult to inadvertently type in
  * the wrong signature.
  */
+#include "system/acpi/acpica/actypes.h"
+
 #define ACPI_SIG_AEST           "AEST"      /* Arm Error Source Table */
 #define ACPI_SIG_ASF            "ASF!"      /* Alert Standard Format table */
 #define ACPI_SIG_ASPT           "ASPT"      /* AMD Secure Processor Table */
