@@ -154,6 +154,7 @@
 #include "acparser.h"
 #include "amlcode.h"
 #include "acconvert.h"
+#include "logging/log.h"
 
 #define _COMPONENT          ACPI_PARSER
         ACPI_MODULE_NAME    ("pstree")

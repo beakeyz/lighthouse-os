@@ -363,9 +363,8 @@ uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
   pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
 
   /* Address is not mapped */
-  if (page == nullptr) {
+  if (page == nullptr)
     return NULL;
-  }
 
   paddr_t aligned_base = kmem_get_page_base(page->raw_bits);
 

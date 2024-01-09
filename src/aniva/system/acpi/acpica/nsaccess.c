@@ -386,13 +386,11 @@ AcpiNsRootInitialize (
 
             /* Store pointer to value descriptor in the Node */
 
-            println("Attaching node to Namespace root");
             Status = AcpiNsAttachObject (NewNode, ObjDesc,
                 ObjDesc->Common.Type);
 
             /* Remove local reference to the object */
 
-            println("Removing reference");
             AcpiUtRemoveReference (ObjDesc);
         }
     }

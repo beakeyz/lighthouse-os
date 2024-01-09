@@ -2,6 +2,13 @@
 #include "dev/debug/serial.h"
 #include <libk/string.h>
 
+/*
+ * Kernel symbol manager
+ *
+ * The opperations that happen here are quite CPU heavy, since some require us to scan the entire
+ * symbol table. We should implement some kind of caching system to make these lookups faster
+ */
+
 extern char* _start_ksyms[];
 extern char* _end_ksyms[];
 
@@ -23,6 +30,37 @@ const char* get_ksym_name(uintptr_t address)
   }
 
   return nullptr;
+}
+
+const char* get_best_ksym_name(uintptr_t address)
+{
+  uint8_t* i = &__ksyms_table;
+  ksym_t* c_symbol = (ksym_t*)i;
+  ksym_t* best_symbol = nullptr;
+  size_t best_addr = 0;
+
+  while (c_symbol->sym_len) {
+    c_symbol = (ksym_t*)i;
+
+    /* Check if the address is inside this function */
+    if (c_symbol->address > address)
+      goto cycle_next;
+
+    /* Check if this delta is better than the current best delta */
+    if (c_symbol->address < best_addr)
+      goto cycle_next;
+
+    best_addr = c_symbol->address;
+    best_symbol = c_symbol;
+    
+cycle_next:
+    i += c_symbol->sym_len;
+  }
+
+  if (!best_symbol)
+    return nullptr;
+
+  return best_symbol->name;
 }
 
 uintptr_t get_ksym_address(char* name)

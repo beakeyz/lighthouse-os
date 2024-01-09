@@ -170,14 +170,11 @@ registers_t* general_protection_handler(registers_t *regs) {
 
 REGISTER_ERROR_HANDLER(14, pagefault);
 
-static const char* find_symbol(uintptr_t ip)
-{
-  
-}
-
 static void generate_traceback(uint64_t ip, uint64_t bp)
 {
-  const char* current_func;
+  const char* c_func;
+  uint64_t c_offset;
+  uint64_t sym_start;
   uint8_t current_depth = 0,
           max_depth = 20;
 
@@ -188,14 +185,24 @@ static void generate_traceback(uint64_t ip, uint64_t bp)
    */
   while (ip && bp && current_depth < max_depth)
   {
-    current_func = find_symbol(ip);
+    c_offset = 0;
+    sym_start = 0;
+    c_func = get_best_ksym_name(ip);
 
-    if (!current_func)
-      current_func = "Unknown";
+    if (!c_func)
+      c_func = "Unknown";
 
-    printf("(%d): Function name <%s> at (0x%llx)\n",
+    if (c_func)
+      sym_start = get_ksym_address((char*)c_func);
+
+    /* Check if we got sym_start */
+    if (sym_start && ip > sym_start)
+      c_offset = ip - sym_start;
+
+    printf("(%d): Function name <%s+0x%llx> at (0x%llx)\n",
         current_depth,
-        current_func,
+        c_func,
+        c_offset,
         ip);
 
     ip = *(uint64_t*)(bp + sizeof(uint64_t));

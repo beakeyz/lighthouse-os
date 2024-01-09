@@ -407,8 +407,6 @@ static int _print_decimal(int64_t value, int prec)
 
 int vprintf(const char* fmt, va_list args)
 {
-  print("Format string: ");
-  println(fmt);
   int prec;
   uint32_t size;
 

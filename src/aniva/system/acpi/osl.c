@@ -71,21 +71,24 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
   vaddr_t vaddr;
 
-  println("Calling: AcpiOsMapMemory");
+  //println("Calling: AcpiOsMapMemory");
 
   Length = ALIGN_UP(Length, SMALL_PAGE_SIZE);
 
   vaddr = Must(__kmem_kernel_alloc(PhysicalAddress, Length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-  println("Called: AcpiOsMapMemory");
+  /* FIXME: does this fuck us? */
+  //memset((void*)vaddr, 0, Length);
+
+  //println("Called: AcpiOsMapMemory");
   return (void*)(vaddr);
 }
 
 void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 {
-  println("Calling: AcpiOsUnmapMemory");
+  //println("Calling: AcpiOsUnmapMemory");
   __kmem_kernel_dealloc((vaddr_t)where, length);
-  println("Called: AcpiOsUnmapMemory");
+  //println("Called: AcpiOsUnmapMemory");
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)
@@ -93,9 +96,9 @@ ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS
   if (!PhysicalAddress)
     return AE_BAD_PARAMETER;
 
-  println("Calling: AcpiOsGetPhysicalAddress");
+  //println("Calling: AcpiOsGetPhysicalAddress");
   *PhysicalAddress = kmem_to_phys(nullptr, (vaddr_t)LogicalAddress);
-  println("Called: AcpiOsGetPhysicalAddress");
+  //println("Called: AcpiOsGetPhysicalAddress");
   return AE_OK;
 }
 
@@ -103,21 +106,27 @@ void *AcpiOsAllocate(ACPI_SIZE Size)
 {
   void* ret;
 
-  println("Called AcpiOsAllocate");
-  ASSERT_MSG(Size, "ACPICA gave bogus size to allocate!");
+  //println("Called AcpiOsAllocate");
+
+  if (!Size)
+    return NULL;
+
   ret = kmalloc(Size);
 
-  ASSERT_MSG(ret, "Could not allocate this shit!");
+  ASSERT_MSG(ret, "ACPI osl: Could not allocate this shit!");
 
-  printf("Allocation: 0x%p\n", ret);
+  //printf("Allocation: 0x%p\n", ret);
+
+  memset(ret, 0, Size);
 
   return ret;
 }
 
 void AcpiOsFree(void *Memory)
 {
-  println("Called AcpiOsFree");
+  //println("Called AcpiOsFree");
   ASSERT_MSG(Memory, "ACPICA gave bogus memory to free!");
+
   kfree(Memory);
 }
 
@@ -161,7 +170,17 @@ ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
  */
 void* AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 {
-  return zalloc_fixed(Cache);
+  void* ret;
+
+  //println("AcpiOsAcquireObject");
+
+  ret = zalloc_fixed(Cache);
+
+  //printf("done AcpiOsAcquireObject (0x%p)\n", ret);
+
+  memset(ret, 0, Cache->m_entry_size);
+
+  return ret;
 }
 
 ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
@@ -184,7 +203,7 @@ BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 
 ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT32 Width)
 {
-  println("Calling AcpiOsReadMemory");
+  //println("Calling AcpiOsReadMemory");
   void* vaddr = (void*)kmem_from_phys(Address, KERNEL_MAP_BASE);
 
   switch (Width) {
@@ -202,13 +221,13 @@ ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT3
       return AE_SUPPORT;
   }
 
-  println("Called AcpiOsReadMemory");
+  //println("Called AcpiOsReadMemory");
   return AE_OK;
 }
 
 ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT32 Width)
 {
-  println("Calling AcpiOsWriteMemory");
+  //println("Calling AcpiOsWriteMemory");
   void* vaddr = (void*)kmem_from_phys(Address, KERNEL_MAP_BASE);
 
   switch (Width) {
@@ -228,13 +247,13 @@ ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT3
       kernel_panic("AcpiOsWriteMemory: unsupported width!");
       return AE_SUPPORT;
   }
-  println("Called AcpiOsWriteMemory");
+  //println("Called AcpiOsWriteMemory");
   return AE_OK;
 }
 
 ACPI_STATUS AcpiOsReadPort(ACPI_IO_ADDRESS Address, UINT32 *Value, UINT32 Width)
 {
-  println("AcpiOsReadPort");
+  //println("AcpiOsReadPort");
   switch (Width) {
     case 0 ... 8:
       *Value = in8(Address);
@@ -249,13 +268,13 @@ ACPI_STATUS AcpiOsReadPort(ACPI_IO_ADDRESS Address, UINT32 *Value, UINT32 Width)
       kernel_panic("AcpiOsReadPort: unsupported width!");
       return AE_SUPPORT;
   }
-  println("End: AcpiOsReadPort");
+  //println("End: AcpiOsReadPort");
   return AE_OK;
 }
 
 ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 {
-  println("AcpiOsWritePort");
+  //println("AcpiOsWritePort");
   switch (Width) {
     case 0 ... 8:
       out8(Address, Value);
@@ -270,7 +289,7 @@ ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
       kernel_panic("AcpiOsWriteMemory: unsupported width!");
       return AE_SUPPORT;
   }
-  println("End: AcpiOsWritePort");
+  //println("End: AcpiOsWritePort");
   return AE_OK;
 }
 
@@ -346,6 +365,8 @@ ACPI_STATUS AcpiOsEnterSleep(UINT8 SleepState, UINT32 RegaValue, UINT32 RegbValu
 ACPI_STATUS AcpiOsCreateMutex(ACPI_MUTEX *OutHandle)
 {
   *OutHandle = create_mutex(NULL);
+
+  ASSERT_MSG(*OutHandle, __func__);
   return AE_OK;
 }
 
@@ -358,7 +379,7 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
 {
   mutex_t* m;
 
-  println("Mut take");
+  //println("Mut take");
 
   m = (mutex_t*)Handle;
 
@@ -369,7 +390,7 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
     return AE_NOT_ACQUIRED;
 
   mutex_lock(m);
-  println("Mut take done");
+  //println("Mut take done");
   return AE_OK;
 }
 
@@ -381,9 +402,9 @@ void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 
   ASSERT_MSG(m, "ACPICA gave us an invalid mutex!");
 
-  println("Mut rel");
+  //println("Mut rel");
   mutex_unlock(m);
-  println("Mut rel done");
+ // println("Mut rel done");
 }
 
 /*
@@ -393,6 +414,8 @@ void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE *OutHandle)
 {
   *OutHandle = create_semaphore(MaxUnits, InitialUnits, 1);
+
+  ASSERT_MSG(*OutHandle, __func__);
   return AE_OK;
 }
 
@@ -407,9 +430,9 @@ ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Time
   if (Units > 1)
     return AE_SUPPORT;
 
-  println("sem wait");
+  //println("sem wait");
   sem_wait(Handle, NULL);
-  println("sem wait donej:warn("");");
+  //println("sem wait donej:warn("");");
   return AE_OK;
 }
 
@@ -418,9 +441,9 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
   if (Units > 1)
     return AE_SUPPORT;
 
-  println("sem post");
+  //println("sem post");
   sem_post(Handle);
-  println("sem post done");
+  //println("sem post done");
   return AE_OK;
 }
 
@@ -431,6 +454,8 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *OutHandle)
 {
   *OutHandle = create_spinlock();
+
+  ASSERT_MSG(*OutHandle, __func__);
   return AE_OK;
 }
 
@@ -441,18 +466,18 @@ void AcpiOsDeleteLock(ACPI_SPINLOCK Handle)
 
 ACPI_CPU_FLAGS AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
 {
-  println("AcpiOsAcquireLock");
+  //println("AcpiOsAcquireLock");
   spinlock_lock(Handle);
-  println("AcpiOsAcquireLock done");
+  //println("AcpiOsAcquireLock done");
   return 0;
 }
 
 void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
-  println("AcpiOsReleaseLock");
+  //println("AcpiOsReleaseLock");
   (void)Flags;
   spinlock_unlock(Handle);
-  println("AcpiOsReleaseLock done");
+  //println("AcpiOsReleaseLock done");
 }
 
 /*

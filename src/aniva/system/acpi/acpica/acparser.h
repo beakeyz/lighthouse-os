@@ -153,6 +153,10 @@
 #define __ACPARSER_H__
 
 
+#include "system/acpi/acpica/aclocal.h"
+#include "system/acpi/acpica/acobject.h"
+#include "system/acpi/acpica/acstruct.h"
+#include "system/acpi/acpica/actypes.h"
 #define OP_HAS_RETURN_VALUE             1
 
 /* Variable number of arguments. This field must be 32 bits */

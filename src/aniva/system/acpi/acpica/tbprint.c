@@ -255,10 +255,6 @@ AcpiTbPrintTableHeader (
 {
     ACPI_TABLE_HEADER       LocalHeader;
 
-    println("Early return from AcpiTbPrintTableHeader");
-
-    return;
-
     if (ACPI_COMPARE_NAMESEG (Header->Signature, ACPI_SIG_FACS))
     {
         /* FACS only has signature and length fields */
@@ -297,6 +293,4 @@ AcpiTbPrintTableHeader (
             LocalHeader.OemTableId, LocalHeader.OemRevision,
             LocalHeader.AslCompilerId, LocalHeader.AslCompilerRevision));
     }
-
-    println("Yay");
 }
