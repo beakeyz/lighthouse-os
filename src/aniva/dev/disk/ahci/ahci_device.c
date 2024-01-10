@@ -6,8 +6,8 @@
 #include "dev/disk/generic.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
-#include "intr/ctl/ctl.h"
-#include "intr/interrupts.h"
+#include "irq/ctl/ctl.h"
+#include "irq/interrupts.h"
 #include "libk/atomic.h"
 #include "libk/flow/error.h"
 #include "libk/data/hive.h"
@@ -203,7 +203,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
     return status;
 
   // HBA has been reset, enable its interrupts and claim this line
-  ErrorOrPtr result = install_quick_int_handler(interrupt_line, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, I8259, ahci_irq_handler);
+  ErrorOrPtr result = install_quick_int_handler(interrupt_line, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, LEAGACY_DUAL_PIC, ahci_irq_handler);
 
   if (result.m_status == ANIVA_SUCCESS)
     quick_int_handler_enable_vector(interrupt_line);

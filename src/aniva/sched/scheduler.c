@@ -5,7 +5,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/string.h"
-#include "intr/interrupts.h"
+#include "irq/interrupts.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"

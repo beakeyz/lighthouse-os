@@ -1,5 +1,5 @@
 #include "apic.h"
-#include "intr/ctl/ctl.h"
+#include "irq/ctl/ctl.h"
 #include <system/msr.h>
 
 uint32_t apic_base_address;

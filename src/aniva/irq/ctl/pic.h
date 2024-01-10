@@ -4,7 +4,7 @@
 #ifndef __C_PIC___
 #define __C_PIC___
 
-#include "intr/ctl/ctl.h"
+#include "irq/ctl/ctl.h"
 #include "libk/io.h"
 #include <libk/stddef.h>
 
@@ -24,12 +24,6 @@ typedef struct PIC {
   uint8_t m_pic1_line;
   uint8_t m_pic2_line;
 } PIC_t;
-
-static inline void out8_pic(uint16_t port, uint8_t value)
-{
-  out8(port, value);
-  udelay(2);
-}
 
 int_controller_t* get_pic();
 

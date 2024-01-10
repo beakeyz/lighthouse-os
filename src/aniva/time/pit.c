@@ -1,7 +1,7 @@
 #include "pit.h"
 #include "dev/debug/serial.h"
-#include "intr/ctl/ctl.h"
-#include "intr/interrupts.h"
+#include "irq/ctl/ctl.h"
+#include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "system/processor/processor.h"
@@ -35,7 +35,7 @@ static size_t s_pit_ticks;
 
 ANIVA_STATUS set_pit_interrupt_handler() {
 
-  Must(install_quick_int_handler(PIT_TIMER_INT_NUM, QIH_FLAG_REGISTERED, I8259, pit_irq_handler));
+  Must(install_quick_int_handler(PIT_TIMER_INT_NUM, QIH_FLAG_REGISTERED, LEAGACY_DUAL_PIC, pit_irq_handler));
   Must(quick_int_handler_enable_vector(PIT_TIMER_INT_NUM));
 
   /* Ensure disabled */

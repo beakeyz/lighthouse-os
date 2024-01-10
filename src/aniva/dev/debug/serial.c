@@ -1,7 +1,7 @@
 #include "serial.h"
 #include "dev/debug/early_tty.h"
 #include "entry/entry.h"
-#include "intr/ctl/pic.h"
+#include "irq/ctl/pic.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "system/acpi/parser.h"

@@ -1,10 +1,12 @@
 [bits 64]
 [section .text]
 
-extern interrupt_handler
+extern irq_handler
+extern exception_handler
 extern processor_enter_interruption
 extern processor_exit_interruption
 
+; Macro to define a regulare IRQ interrupt handler
 %macro interrupt_asm_entry 1
 [global interrupt_asm_entry_%1]
 interrupt_asm_entry_%1:
@@ -35,7 +37,80 @@ interrupt_asm_entry_%1:
   call processor_enter_interruption
 
   mov rdi, rsp
-  call interrupt_handler
+  call irq_handler
+  mov rsp, rax
+
+  jmp asm_common_irq_exit
+%endmacro
+
+; Define a regular exception entry
+%macro interrupt_excp_asm_entry 1
+[global interrupt_excp_asm_entry_%1]
+interrupt_excp_asm_entry_%1:
+
+  push 0x00
+
+  push r15
+  push r14
+  push r13
+  push r12
+  push r11
+  push r10
+  push r9
+  push r8
+  push rax
+  push rbx
+  push rcx
+  push rdx
+  push rbp
+  push rsi
+  push rdi
+
+  cld
+
+  mov rdi, rsp
+  mov rsi, 0x01
+  call processor_enter_interruption
+
+  mov rdi, rsp
+  call exception_handler
+  mov rsp, rax
+
+  jmp asm_common_irq_exit
+%endmacro
+
+; Define a regular exception entry, which does not push it's errorcode onto the stack
+%macro interrupt_excp_nocode_asm_entry 1
+[global interrupt_excp_asm_entry_%1]
+interrupt_excp_asm_entry_%1:
+
+  push %1
+  push 0x00
+
+  push r15
+  push r14
+  push r13
+  push r12
+  push r11
+  push r10
+  push r9
+  push r8
+  push rax
+  push rbx
+  push rcx
+  push rdx
+  push rbp
+  push rsi
+  push rdi
+
+  cld
+
+  mov rdi, rsp
+  mov rsi, 0x01
+  call processor_enter_interruption
+
+  mov rdi, rsp
+  call exception_handler
   mov rsp, rax
 
   jmp asm_common_irq_exit
@@ -65,6 +140,66 @@ asm_common_irq_exit:
   add rsp, 16
 
   iretq
+
+; Devision by zero
+interrupt_excp_nocode_asm_entry 0
+; Debug trap (User?)
+interrupt_excp_nocode_asm_entry 1
+; Unknown error (NMI, or non-maskable interrupt)
+interrupt_excp_nocode_asm_entry 2
+; Breakpoint stuff (User?)
+interrupt_excp_nocode_asm_entry 3
+; Overflow
+interrupt_excp_nocode_asm_entry 4
+; Bounds range exceeded
+interrupt_excp_nocode_asm_entry 5
+; Illegal instruction
+interrupt_excp_nocode_asm_entry 6
+; FPU error
+interrupt_excp_nocode_asm_entry 7
+; Double fault
+interrupt_excp_asm_entry 8
+; Segment overrrun
+interrupt_excp_nocode_asm_entry 9
+; Invalid TSS
+interrupt_excp_asm_entry 10
+; Segment not present
+interrupt_excp_asm_entry 11
+; Stack segment fault
+interrupt_excp_asm_entry 12
+; GPF
+interrupt_excp_asm_entry 13
+; Page fault
+interrupt_excp_asm_entry 14
+; Reserved
+interrupt_excp_nocode_asm_entry 15
+; x87 FPU exception
+interrupt_excp_nocode_asm_entry 16
+; Alignment failure
+interrupt_excp_asm_entry 17
+; Machine check
+interrupt_excp_nocode_asm_entry 18
+; SIMD fpu exception 
+interrupt_excp_nocode_asm_entry 19
+; Virtualization
+interrupt_excp_nocode_asm_entry 20
+; Control protection
+interrupt_excp_asm_entry 21
+; Reserved
+interrupt_excp_nocode_asm_entry 22
+interrupt_excp_nocode_asm_entry 23
+interrupt_excp_nocode_asm_entry 24
+interrupt_excp_nocode_asm_entry 25
+interrupt_excp_nocode_asm_entry 26
+interrupt_excp_nocode_asm_entry 27
+; Hypervisor injection
+interrupt_excp_nocode_asm_entry 28
+; VMM communication
+interrupt_excp_asm_entry 29
+; Security
+interrupt_excp_asm_entry 30
+; Reserved
+interrupt_excp_nocode_asm_entry 31
 
 interrupt_asm_entry 32
 interrupt_asm_entry 33

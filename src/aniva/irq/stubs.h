@@ -2,6 +2,39 @@
 #define __ANIVA_INTERRUPT_STUBS__
 #include <system/processor/registers.h>
 
+extern registers_t* interrupt_excp_asm_entry_0(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_1(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_2(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_3(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_4(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_5(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_6(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_7(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_8(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_9(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_10(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_11(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_12(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_13(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_14(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_15(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_16(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_17(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_18(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_19(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_20(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_21(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_22(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_23(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_24(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_25(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_26(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_27(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_28(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_29(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_30(registers_t*);
+extern registers_t* interrupt_excp_asm_entry_31(registers_t*);
+
 // uhm, these are prob all just void (*)() -_-
 extern registers_t* interrupt_asm_entry_32(registers_t*);
 extern registers_t* interrupt_asm_entry_33(registers_t*);

@@ -45,7 +45,7 @@
 #include "time/core.h"
 #include "libk/string.h"
 #include "proc/ipc/tspckt.h"
-#include "intr/interrupts.h"
+#include "irq/interrupts.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>

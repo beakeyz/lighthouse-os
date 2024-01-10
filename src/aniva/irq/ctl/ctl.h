@@ -4,8 +4,8 @@
 #include <libk/stddef.h>
 
 typedef enum {
-  I8259 = 1,    /* INTEL DUAL PIC */
-  I82093AA = 2, /* INTEL I/O APIC */ 
+  LEAGACY_DUAL_PIC = 1,    /* INTEL DUAL PIC */
+  APIC = 2, /* INTEL I/O APIC */ 
 } INTERRUPT_CONTROLLER_TYPE;
 
 // Represent the irq controller (PIC, IOAPIC, ect.)

@@ -1,7 +1,7 @@
 #include "error.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
-#include "intr/interrupts.h"
+#include "irq/interrupts.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"

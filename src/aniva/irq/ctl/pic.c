@@ -1,13 +1,19 @@
 #include "pic.h"
-#include "intr/ctl/ctl.h"
-#include "intr/interrupts.h"
-#include "intr/ctl/ctl.h"
+#include "irq/ctl/ctl.h"
+#include "irq/interrupts.h"
+#include "irq/ctl/ctl.h"
 #include "libk/string.h"
 #include <mem/heap.h>
 #include <dev/debug/serial.h>
 #include <libk/io.h>
 #include <system/asm_specifics.h>
 #include <libk/stddef.h>
+
+static inline void out8_pic(uint16_t port, uint8_t value)
+{
+  out8(port, value);
+  udelay(2);
+}
 
 void pic_enable(int_controller_t* ctl)
 {
@@ -90,7 +96,7 @@ int_controller_t pic_controller = {
   .ictl_disable = pic_disable,
   .ictl_enable = pic_enable,
   .ictl_eoi = pic_eoi,
-  .type = I8259,
+  .type = LEAGACY_DUAL_PIC,
   .private = &pic,
 };
 

@@ -1,6 +1,7 @@
 #include "interrupts.h"
-#include "intr/ctl/ctl.h"
-#include "intr/idt.h"
+#include "irq/ctl/ctl.h"
+#include "irq/ctl/pic.h"
+#include "irq/idt.h"
 #include "libk/bin/ksyms.h"
 #include "mem/kmem_manager.h"
 #include "libk/flow/error.h"
@@ -25,284 +26,6 @@ static quick_interrupthandler_t __interrupt_handlers[INTERRUPT_HANDLER_COUNT] = 
 #define INTERRUPTS_EXTRA_HOOKS_C        5
 #define INTERRUPTS_EVENT_MAX_HOOK_C     (INTERRUPTS_DEFAULT_HOOKS_C + INTERRUPTS_EXTRA_HOOKS_C) 
 
-// inspired by serenityOS
-#define REGISTER_ERROR_HANDLER(code, title)                            \
-extern void title##_asm_entry();                                       \
-extern registers_t* title##_handler(registers_t*) __attribute__((used));       \
-__attribute__((naked)) void title##_asm_entry() {                      \
-  asm volatile (                                                       \
-    "    pushq $0x00\n"                                                \
-    "    pushq %r15\n"                                                 \
-    "    pushq %r14\n"                                                 \
-    "    pushq %r13\n"                                                 \
-    "    pushq %r12\n"                                                 \
-    "    pushq %r11\n"                                                 \
-    "    pushq %r10\n"                                                 \
-    "    pushq %r9\n"                                                  \
-    "    pushq %r8\n"                                                  \
-    "    pushq %rax\n"                                                 \
-    "    pushq %rbx\n"                                                 \
-    "    pushq %rcx\n"                                                 \
-    "    pushq %rdx\n"                                                 \
-    "    pushq %rbp\n"                                                 \
-    "    pushq %rsi\n"                                                 \
-    "    pushq %rdi\n"                                                 \
-    "    cld\n"                                                        \
-    "    movq %rsp, %rdi\n"                                            \
-    "    call " #title "_handler\n"                                    \
-    "    movq %rax, %rsp\n"                                            \
-    "    jmp asm_common_irq_exit\n"                                    \
-  );                                                                   \
-}
-
-// extra stackpush in order to fix up the registers_t structure
-#define REGISTER_ERROR_HANDLER_NO_CODE(code, title)                    \
-extern void title##_asm_entry();                                       \
-extern void title##_handler(registers_t*) __attribute__((used));       \
-__attribute__((naked)) void title##_asm_entry() {                      \
-  asm volatile (                                                       \
-    "    pushq $0x00\n"                                                \
-    "    pushq $0x00\n"                                                \
-    "    pushq %r15\n"                                                 \
-    "    pushq %r14\n"                                                 \
-    "    pushq %r13\n"                                                 \
-    "    pushq %r12\n"                                                 \
-    "    pushq %r11\n"                                                 \
-    "    pushq %r10\n"                                                 \
-    "    pushq %r9\n"                                                  \
-    "    pushq %r8\n"                                                  \
-    "    pushq %rax\n"                                                 \
-    "    pushq %rbx\n"                                                 \
-    "    pushq %rcx\n"                                                 \
-    "    pushq %rdx\n"                                                 \
-    "    pushq %rbp\n"                                                 \
-    "    pushq %rsi\n"                                                 \
-    "    pushq %rdi\n"                                                 \
-    "    cld\n"                                                        \
-    "    movq %rsp, %rdi\n"                                            \
-    "    call " #title "_handler\n"                                    \
-    "    movq %rax, %rsp\n"                                            \
-    "    popq %rdi\n"                                                  \
-    "    popq %rsi\n"                                                  \
-    "    popq %rbp\n"                                                  \
-    "    popq %rdx\n"                                                  \
-    "    popq %rcx\n"                                                  \
-    "    popq %rbx\n"                                                  \
-    "    popq %rax\n"                                                  \
-    "    popq %r8\n"                                                   \
-    "    popq %r9\n"                                                   \
-    "    popq %r10\n"                                                  \
-    "    popq %r11\n"                                                  \
-    "    popq %r12\n"                                                  \
-    "    popq %r13\n"                                                  \
-    "    popq %r14\n"                                                  \
-    "    popq %r15\n"                                                  \
-    "    addq $16, %rsp\n" /* undo alignment */                        \
-    "    iretq"                                                        \
-  );                                                                   \
-}
-
-// TODO: more info on the processor state
-#define EXCEPTION(number, error)           \
-static void __exception_##number() {       \
-  kernel_panic(error);                    \
-}                                         \
-
-/*
-    EXCEPTION stubs
-    TODO: move to seperate file?
-*/
-
-REGISTER_ERROR_HANDLER_NO_CODE(0, devision_by_zero);
-
-void devision_by_zero_handler(registers_t *regs) {
-  kernel_panic("devision by zero!");
-}
-
-// TODO: debug user-entry
-REGISTER_ERROR_HANDLER_NO_CODE(1, debug);
-void debug_handler(registers_t* regs) {
-  println("debug trap triggered");
-  print("cs: ");
-  println(to_string(regs->cs));
-  print("eflags: ");
-  println(to_string(regs->rflags));
-  if ((regs->cs & 3) == 0) {
-    kernel_panic("yeet");
-  }
-}
-
-EXCEPTION(2, "Unknown error (non-maskable interrupt)");
-
-// TODO: breakpoint user-entry
-
-EXCEPTION(4, "Overflow");
-
-EXCEPTION(5, "Bounds range exceeded");
-
-REGISTER_ERROR_HANDLER_NO_CODE(6, illegal_instruction);
-
-void illegal_instruction_handler(registers_t *regs) {
-  kernel_panic("illegal_instruction_handler");
-}
-
-REGISTER_ERROR_HANDLER_NO_CODE(7, fpu);
-
-void fpu_handler(registers_t *regs) {
-  kernel_panic("fpu_handler");
-}
-
-EXCEPTION(8, "Double fault");
-
-EXCEPTION(9, "Segment overrun");
-
-EXCEPTION(10, "Invalid TSS");
-
-EXCEPTION(11, "Segment not present");
-
-EXCEPTION(12, "Stack segment fault");
-
-REGISTER_ERROR_HANDLER(13, general_protection);
-
-registers_t* general_protection_handler(registers_t *regs) {
-  kernel_panic("General protection fault (TODO: more info)");
-}
-
-REGISTER_ERROR_HANDLER(14, pagefault);
-
-static void generate_traceback(uint64_t ip, uint64_t bp)
-{
-  const char* c_func;
-  uint64_t c_offset;
-  uint64_t sym_start;
-  uint8_t current_depth = 0,
-          max_depth = 20;
-
-  printf("Traceback:\n");
-
-  /*
-   * TODO: check loaded drivers
-   */
-  while (ip && bp && current_depth < max_depth)
-  {
-    c_offset = 0;
-    sym_start = 0;
-    c_func = get_best_ksym_name(ip);
-
-    if (!c_func)
-      c_func = "Unknown";
-
-    if (c_func)
-      sym_start = get_ksym_address((char*)c_func);
-
-    /* Check if we got sym_start */
-    if (sym_start && ip > sym_start)
-      c_offset = ip - sym_start;
-
-    printf("(%d): Function name <%s+0x%llx> at (0x%llx)\n",
-        current_depth,
-        c_func,
-        c_offset,
-        ip);
-
-    ip = *(uint64_t*)(bp + sizeof(uint64_t));
-    bp = *(uint64_t*)bp;
-    current_depth++;
-  }
-}
-
-/*
- * FIXME: this handler is going to get called a bunch of 
- * different times when running the system, so this and a 
- * few handlers that serve the same fate should get overlapping
- * and rigid handling.
- */
-registers_t* pagefault_handler(registers_t *regs) 
-{
-  uintptr_t err_addr = read_cr2();
-  uintptr_t cs = regs->cs;
-  
-  uint32_t error_word = regs->err_code;
-
-  generate_traceback(regs->rip, regs->rbp);
-
-  println(" --- PAGEFAULT --- ");
-  print("error at ring: ");
-  println(to_string(cs & 3));
-  print("error at addr: ");
-  println(to_string(err_addr));
-  if (error_word & 8) {
-    println("Reserved!");
-  }
-  if (error_word & 2) {
-    println("write");
-  } else {
-    println("read");
-  }
-
-  println(((error_word & 1) == 1) ? "ProtVi" : "Non-Present");
-
-  thread_t* current_thread = get_current_scheduling_thread();
-  proc_t* current_proc = get_current_proc();
-  if (current_proc && current_thread) {
-    print(current_proc->m_name);
-    print(" : ");
-    println(current_thread->m_name);
-  }
-
-  /* NOTE: tmp debug */
-  //print_bitmap();
-
-  if (!current_thread)
-    goto panic;
-
-  if (!current_proc)
-    goto panic;
-
-  if (thread_is_socket(current_thread) &&
-      thread_try_revert_userpacket_context(regs, current_thread)) {
-
-    /* If this succeeded it means that we successfuly returned from the userpacket handler, and we can now simply return */
-    return regs;
-  }
-
-  /* Drivers and other kernel processes should get insta-nuked */
-  /* FIXME: a driver can be a non-kernel process. Should user drivers meet the same fate as kernel drivers? */
-  if ((current_proc->m_flags & PROC_KERNEL) == PROC_KERNEL)
-    goto panic;
-
-  if ((current_proc->m_flags & PROC_DRIVER) == PROC_DRIVER)
-    goto panic;
-
-  /* NOTE: This yields and exits the interrupt context cleanly */
-  Must(try_terminate_process(current_proc));
-  return regs;
-
-panic:
-  kernel_panic("pagefault! (TODO: more info)");
-}
-
-EXCEPTION(15, "Unknown error (Reserved)");
-EXCEPTION(16, "X87 fp exception");
-EXCEPTION(17, "Alignment check failed");
-
-EXCEPTION(18, "Machine check exception");
-
-EXCEPTION(19, "SIMD floating point exception");
-
-EXCEPTION(20, "Virtualization exception");
-
-EXCEPTION(21, "Control Protection exception");
-
-EXCEPTION(28, "Hypervisor injection exception");
-
-EXCEPTION(29, "VMM Communication exception");
-
-EXCEPTION(30, "Security exception");
-
-static void __unimplemented_EXCEPTION() {
-  kernel_panic("Unimplemented EXCEPTION");
-}
 
 static ErrorOrPtr __quick_int_handler_toggle_vector(uint32_t int_num, bool enabled) {
 
@@ -388,46 +111,47 @@ void uninstall_quick_int_handler(uint32_t int_num) {
   memset(handler, 0, sizeof(quick_interrupthandler_t));
 }
 
-/*
- * TODO: migrate irqs to the eventhandler (kevent system)?
- */
-void init_interrupts() {
+#define REGISTER_IDT_EXCEPTION_ENTRY(num) \
+  register_idt_interrupt_handler((num), (FuncPtr)(interrupt_excp_asm_entry_##num))
 
-  setup_idt(true);
+static inline void install_exception_stubs()
+{
+  REGISTER_IDT_EXCEPTION_ENTRY(0);
+  REGISTER_IDT_EXCEPTION_ENTRY(1);
+  REGISTER_IDT_EXCEPTION_ENTRY(2);
+  REGISTER_IDT_EXCEPTION_ENTRY(3);
+  REGISTER_IDT_EXCEPTION_ENTRY(4);
+  REGISTER_IDT_EXCEPTION_ENTRY(5);
+  REGISTER_IDT_EXCEPTION_ENTRY(6);
+  REGISTER_IDT_EXCEPTION_ENTRY(7);
+  REGISTER_IDT_EXCEPTION_ENTRY(8);
+  REGISTER_IDT_EXCEPTION_ENTRY(9);
+  REGISTER_IDT_EXCEPTION_ENTRY(10);
+  REGISTER_IDT_EXCEPTION_ENTRY(11);
+  REGISTER_IDT_EXCEPTION_ENTRY(12);
+  REGISTER_IDT_EXCEPTION_ENTRY(13);
+  REGISTER_IDT_EXCEPTION_ENTRY(14);
+  REGISTER_IDT_EXCEPTION_ENTRY(15);
+  REGISTER_IDT_EXCEPTION_ENTRY(16);
+  REGISTER_IDT_EXCEPTION_ENTRY(17);
+  REGISTER_IDT_EXCEPTION_ENTRY(18);
+  REGISTER_IDT_EXCEPTION_ENTRY(19);
+  REGISTER_IDT_EXCEPTION_ENTRY(20);
+  REGISTER_IDT_EXCEPTION_ENTRY(21);
+  REGISTER_IDT_EXCEPTION_ENTRY(22);
+  REGISTER_IDT_EXCEPTION_ENTRY(23);
+  REGISTER_IDT_EXCEPTION_ENTRY(24);
+  REGISTER_IDT_EXCEPTION_ENTRY(25);
+  REGISTER_IDT_EXCEPTION_ENTRY(26);
+  REGISTER_IDT_EXCEPTION_ENTRY(27);
+  REGISTER_IDT_EXCEPTION_ENTRY(28);
+  REGISTER_IDT_EXCEPTION_ENTRY(29);
+  REGISTER_IDT_EXCEPTION_ENTRY(30);
+  REGISTER_IDT_EXCEPTION_ENTRY(31);
+}
 
-  register_idt_interrupt_handler(0x00, devision_by_zero_asm_entry);
-  register_idt_interrupt_handler(0x01, debug_asm_entry);
-  register_idt_interrupt_handler(0x02, __exception_2);
-  register_idt_interrupt_handler(0x03, __unimplemented_EXCEPTION);
-  register_idt_interrupt_handler(0x04, __exception_4);
-  register_idt_interrupt_handler(0x05, __exception_5);
-  register_idt_interrupt_handler(0x06, illegal_instruction_asm_entry);
-  register_idt_interrupt_handler(0x07, fpu_asm_entry);
-  register_idt_interrupt_handler(0x08, __exception_8);
-  register_idt_interrupt_handler(0x09, __exception_9);
-  register_idt_interrupt_handler(0x0a, __exception_10);
-  register_idt_interrupt_handler(0x0b, __exception_11);
-  register_idt_interrupt_handler(0x0c, __exception_12);
-  register_idt_interrupt_handler(0x0d, general_protection_asm_entry);
-  register_idt_interrupt_handler(0x0e, pagefault_asm_entry);
-  register_idt_interrupt_handler(0x0f, __exception_15);
-  register_idt_interrupt_handler(0x10, __exception_16);
-  register_idt_interrupt_handler(0x11, __exception_17);
-  register_idt_interrupt_handler(0x12, __exception_18);
-  register_idt_interrupt_handler(0x13, __exception_19);
-  register_idt_interrupt_handler(0x14, __exception_20);
-  register_idt_interrupt_handler(0x15, __exception_21);
-
-  for (uint8_t i = 0x16; i <= 0x1B; i++) {
-    register_idt_interrupt_handler(i, __unimplemented_EXCEPTION);
-  }
-
-  register_idt_interrupt_handler(0x1C, __exception_28);
-  register_idt_interrupt_handler(0x1D, __exception_29);
-  register_idt_interrupt_handler(0x1E, __exception_30);
-
-  register_idt_interrupt_handler(0x1F, __unimplemented_EXCEPTION);
-
+static inline void install_regular_stubs()
+{
   register_idt_interrupt_handler(0x20, (FuncPtr) interrupt_asm_entry_32);
   register_idt_interrupt_handler(0x21, (FuncPtr) interrupt_asm_entry_33);
   register_idt_interrupt_handler(0x22, (FuncPtr) interrupt_asm_entry_34);
@@ -652,17 +376,48 @@ void init_interrupts() {
   register_idt_interrupt_handler(0xfd, (FuncPtr) interrupt_asm_entry_253);
   register_idt_interrupt_handler(0xfe, (FuncPtr) interrupt_asm_entry_254);
   register_idt_interrupt_handler(0xff, (FuncPtr) interrupt_asm_entry_255);
+}
+
+/*
+ * TODO: migrate irqs to the eventhandler (kevent system)?
+ */
+void init_interrupts() 
+{
+  /* Setup the IDT structure */
+  setup_idt(true);
+
+  /* Install stubs for exceptions */
+  install_exception_stubs();
+
+  /* Install the regular IRQ stubs */
+  install_regular_stubs();
 
   // prepare all waiting handlers
   memset(&__interrupt_handlers, 0x00, sizeof(__interrupt_handlers));
 
+  /* Load the complete IDT */
   flush_idt();
 }
 
-// main entrypoint for generinc interrupts (from the asm)
-registers_t *interrupt_handler(registers_t *regs) {
+static inline uint8_t _get_irq_vector(uintptr_t isr_num)
+{
+  if (isr_num > 0xffULL)
+    return 0xff;
 
-  const uint16_t int_num = regs->isr_no - 32;
+  if (isr_num < 32)
+    return 0xff;
+
+  return isr_num - 32;
+}
+
+/*!
+ * @brief: main entrypoint for generinc interrupts (from the asm)
+ *
+ * FIXME: don't return registers, its kinda unsafe lmao
+ */
+registers_t *irq_handler(registers_t *regs) 
+{
+  const uint16_t int_num = _get_irq_vector(regs->isr_no);
 
   /* Do quick interrupt */
   quick_interrupthandler_t *handler = &__interrupt_handlers[int_num];
@@ -687,6 +442,25 @@ registers_t *interrupt_handler(registers_t *regs) {
 
   /* TODO: event */
 
+  return regs;
+}
+
+/*!
+ * @brief: Main exception handler
+ *
+ * Looks at the isr_no and determines the appropriate handler to run
+ * If it's (For some reason) a fault it doesn't know, it throws a fatal
+ * kernel error
+ *
+ * NOTE: I want to handle interrupt exceptions and kernel errors differently. When something
+ * like an essential memory allocation fails, it needs to eventually land on the same result as
+ * a fatal exception: our version of the 'bluescreen' which gives the user some info on what went
+ * wrong. The question is just how do we mix those different scenarios together.
+ */
+registers_t* exception_handler (struct registers* regs)
+{
+  printf("Got exception number: %lld\n", regs->isr_no);
+  kernel_panic("FUCK got an exception!");
   return regs;
 }
 

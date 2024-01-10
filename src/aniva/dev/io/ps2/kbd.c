@@ -3,7 +3,7 @@
 #include "dev/debug/serial.h"
 #include "dev/debug/test.h"
 #include "dev/driver.h"
-#include "intr/interrupts.h"
+#include "irq/interrupts.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
@@ -104,7 +104,7 @@ int ps2_keyboard_entry()
 
   println("initializing ps2 keyboard driver!");
 
-  result  = install_quick_int_handler(PS2_KB_IRQ_VEC, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, I8259, ps2_keyboard_irq_handler);
+  result  = install_quick_int_handler(PS2_KB_IRQ_VEC, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, LEAGACY_DUAL_PIC, ps2_keyboard_irq_handler);
 
   if (!IsError(result))
     quick_int_handler_enable_vector(PS2_KB_IRQ_VEC);

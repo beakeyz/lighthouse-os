@@ -1,7 +1,7 @@
 #ifndef __ANIVA_INTERRUPTS__
 #define __ANIVA_INTERRUPTS__
 
-#include "intr/ctl/ctl.h"
+#include "irq/ctl/ctl.h"
 #include "libk/flow/error.h"
 #include "system/asm_specifics.h"
 #include "system/processor/registers.h"
@@ -58,9 +58,6 @@ size_t interrupts_get_handler_count(uint32_t int_num);
  */
 void init_interrupts();
 
-// main entrypoint
-registers_t* interrupt_handler (struct registers* regs);
-
 // ack (this should prob be specific to the chip we use lol)
 // extern void interupt_acknowledge (int num);
 
@@ -81,6 +78,13 @@ inline bool interrupts_are_enabled()
   if (___were_enabled_x) {                              \
     enable_interrupts();                               \
   }
+
+/*
+ * Entrypoints for any interrupts
+ */
+
+registers_t* irq_handler (struct registers* regs);
+registers_t* exception_handler (struct registers* regs);
 
 #endif // !__ANIVA_INTERRUPTS__
 
