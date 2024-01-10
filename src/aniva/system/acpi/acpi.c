@@ -18,9 +18,9 @@ void init_acpi()
   init_acpi_parser_early(&_parser);
 
   /* Init acpica */
-  init_acpi_early();
+  //init_acpi_early();
 
-  kernel_panic(")/ o.o)/ : How the fuck did we exit early ACPI init?");
+  //kernel_panic(")/ o.o)/ : How the fuck did we exit early ACPI init?");
 
   Must(init_acpi_parser(&_parser));
 

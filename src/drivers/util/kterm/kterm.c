@@ -177,6 +177,8 @@ static void kterm_handle_newline_tag();
 static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32_t y);
 
 static void kterm_cursor_shiftback_x();
+static void kterm_cursor_shift_x();
+static void kterm_cursor_shift_y();
 
 //static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bool defer_update);
@@ -1197,23 +1199,45 @@ static bool _kterm_has_prompt()
   return (_c_prompt_buffer != NULL && _c_prompt_buffersize != NULL);
 }
 
+static inline void _kterm_draw_prompt_char(char c)
+{
+  /* Manual kterm_print */
+  if (!_c_prompt_hide_input) {
+    /* Draw the char */
+    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, c, _current_color_idx, false);
+  }
+}
+
 static void kterm_prompt_write(char c)
 {
-  char msg[] = { c, 0 };
-
   /* The last byte must always be zero and it may thus not be overwritten */
   if (_c_prompt_idx >= (_c_prompt_buffersize-1))
     return;
 
-  if (!_c_prompt_hide_input)
-    kterm_print(msg);
+  /* Check if we want to input a new char */
+  if (c) {
+    /* Draw it first */
+    _kterm_draw_prompt_char(c);
 
-  if (c)
+    /* Then increment the 'cursor' */
     _c_prompt_buffer[_c_prompt_idx++] = c;
-  else if (_c_prompt_idx) {
-    _c_prompt_idx--;
-    _c_prompt_buffer[_c_prompt_idx] = c;
+    kterm_cursor_shift_x();
+
+    /* We're done */
+    return;
   }
+
+  /* We can't backspace in this case! */
+  if (!_c_prompt_idx)
+    return;
+
+  /* First decrement the 'cursor' */
+  _c_prompt_idx--;
+  _c_prompt_buffer[_c_prompt_idx] = c;
+  kterm_cursor_shiftback_x();
+
+  /* Then draw the null-char (Which paints the terminal_char the background color) */
+  _kterm_draw_prompt_char(c);
 }
 
 /*!
@@ -1481,23 +1505,6 @@ static inline const char* kterm_get_buffer_contents()
 }
 
 /*!
- * @brief: Shift the cursor forward by one
- */
-static void kterm_cursor_shift_x()
-{
-  _chars_cursor_x++;
-
-  if (_chars_cursor_x >= _chars_xres-1) {
-    _chars_cursor_x = 0;
-    _chars_cursor_y++;
-  }
-
-  if (_chars_cursor_y >= _chars_yres-1) {
-    kterm_scroll(1);
-  }
-}
-
-/*!
  * @brief: Shift the cursor x-component back by one
  *
  * FIXME: Allow shifting back over the y-axis until we've reached the start of the line where we started
@@ -1514,6 +1521,24 @@ static void kterm_cursor_shiftback_x()
   if (_chars_yres)
     _chars_yres--;
 }
+
+/*!
+ * @brief: Shift the cursor forward by one
+ */
+static void kterm_cursor_shift_x()
+{
+  _chars_cursor_x++;
+
+  if (_chars_cursor_x >= _chars_xres-1) {
+    _chars_cursor_x = 0;
+    _chars_cursor_y++;
+  }
+
+  if (_chars_cursor_y >= _chars_yres-1) {
+    kterm_scroll(1);
+  }
+}
+
 
 /*!
  * @brief: Shift the cursor down a line by one and reset it's x-component
