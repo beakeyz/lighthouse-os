@@ -15,5 +15,5 @@ int init_bsp_apic(struct acpi_table_madt* table, uintptr_t base)
   return -1;
 }
 
-int_controller_t apic_controller = {
+irq_chip_t apic_controller = {
 };

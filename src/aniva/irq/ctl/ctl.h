@@ -1,32 +1,53 @@
 #ifndef __ANIVA_INTERRUPT_CONTROL__
 #define __ANIVA_INTERRUPT_CONTROL__
-#include "libk/data/linkedlist.h"
+
 #include <libk/stddef.h>
 
-typedef enum {
-  LEAGACY_DUAL_PIC = 1,    /* INTEL DUAL PIC */
-  APIC = 2, /* INTEL I/O APIC */ 
-} INTERRUPT_CONTROLLER_TYPE;
+struct irq;
+struct irq_chip;
 
-// Represent the irq controller (PIC, IOAPIC, ect.)
-typedef struct int_controller {
-  INTERRUPT_CONTROLLER_TYPE type;
+typedef struct irq_chip_ops {
+  /* Acknowledge an IRQ */
+  void (*ictl_eoi)(struct irq_chip*, uint32_t vec);
 
-  void (*ictl_eoi)(uint8_t vec);
-  void (*ictl_disable)(struct int_controller*);
-  void (*ictl_enable)(struct int_controller*);
+  /* Enable/disable the chip (This is handy when we switch from the legacy PIC to the APIC) */
+  void (*ictl_disable)(struct irq_chip*);
+  void (*ictl_enable)(struct irq_chip*);
 
-  void (*ictl_enable_vec)(uint16_t vec);
-  void (*ictl_disable_vec)(uint16_t vec);
+  /* Mask vectors */
+  int (*f_unmask_vec)(struct irq_chip*, uint32_t vec);
+  int (*f_mask_vec)(struct irq_chip*, uint32_t vec);
+  int (*f_mask_all)(struct irq_chip*);
 
-  void (*ictl_map_vector)(uint16_t vec);
+  /* ??? */
+  void (*ictl_map_vector)(struct irq_chip*, uint16_t vec);
 
-  void (*ictl_reset)(struct int_controller*);
+  /* Quick reset of the management hardware */
+  void (*ictl_reset)(struct irq_chip*);
+} irq_chip_ops_t;
 
-  void* private; // pointer to its parent (SHOULD NOT BE USED OFTEN)
-} int_controller_t;
+/*
+ * Basic representation of a interrupt controller
+ * i.e. PIC, APIC, ect.
+ * 
+ * In the case of most X86 systems we pretty much always deal with PIC (emulation) and APIC
+ */
+typedef struct irq_chip {
+  irq_chip_ops_t* ops;
+  /* Implemented by the anonymous chip drivers */
+  void* private;
+} irq_chip_t;
 
 void init_intr_ctl();
-int_controller_t* get_controller_for_int_number(uint16_t int_num);
+
+int get_active_irq_chip(irq_chip_t* chip);
+
+int irq_chip_ack(irq_chip_t* chip, struct irq* irq);
+int irq_chip_enable(irq_chip_t* chip);
+int irq_chip_disable(irq_chip_t* chip);
+
+int irq_chip_mask(irq_chip_t* chip, uint32_t vec);
+int irq_chip_unmask(irq_chip_t* chip, uint32_t vec);
+int irq_chip_mask_all(irq_chip_t* chip);
 
 #endif // !__ANIVA_INTERRUPT_CONTROL__

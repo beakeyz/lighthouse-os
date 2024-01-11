@@ -96,7 +96,7 @@ static uint16_t s_current_scancodes[7];
 
 int ps2_keyboard_entry() 
 {
-  ErrorOrPtr result;
+  int error;
   s_mod_flags = NULL;
   s_current_scancode = NULL;
 
@@ -104,10 +104,11 @@ int ps2_keyboard_entry()
 
   println("initializing ps2 keyboard driver!");
 
-  result  = install_quick_int_handler(PS2_KB_IRQ_VEC, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, LEAGACY_DUAL_PIC, ps2_keyboard_irq_handler);
+  /* Try to allocate an IRQ */
+  error = irq_allocate(PS2_KB_IRQ_VEC, NULL, ps2_keyboard_irq_handler, NULL, "PS/2 keyboard");
 
-  if (!IsError(result))
-    quick_int_handler_enable_vector(PS2_KB_IRQ_VEC);
+  if (error)
+    return -1;
 
   /* Make sure the keyboard event isn't frozen */
   unfreeze_kevent("keyboard");
@@ -117,10 +118,14 @@ int ps2_keyboard_entry()
 
 int ps2_keyboard_exit() 
 {
+  int error;
+
   /* Make sure that the keyboard event is frozen, since there is no current kb driver */
   freeze_kevent("keyboard");
-  uninstall_quick_int_handler(PS2_KB_IRQ_VEC);
-  return 0;
+
+  error = irq_deallocate(PS2_KB_IRQ_VEC);
+
+  return error;
 }
 
 uintptr_t ps2_keyboard_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size) 

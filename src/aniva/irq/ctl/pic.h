@@ -25,11 +25,6 @@ typedef struct PIC {
   uint8_t m_pic2_line;
 } PIC_t;
 
-int_controller_t* get_pic();
-
-void pic_enable(int_controller_t* ctl);
-void pic_disable(int_controller_t* ctl);
-
-void pic_eoi(uint8_t num);
+irq_chip_t* get_pic();
 
 #endif // !__C_PIC___

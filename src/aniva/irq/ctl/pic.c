@@ -15,7 +15,7 @@ static inline void out8_pic(uint16_t port, uint8_t value)
   udelay(2);
 }
 
-void pic_enable(int_controller_t* ctl)
+void pic_enable(irq_chip_t* ctl)
 {
   PIC_t* pic = ctl->private;
 
@@ -43,14 +43,15 @@ void pic_enable(int_controller_t* ctl)
 
 
 
-void pic_disable(int_controller_t* this) {
+void pic_disable(irq_chip_t* this) {
 
   // send funnie
   out8(PIC1_DATA, 0xFF);
   out8(PIC2_DATA, 0xFF);
 }
 
-void pic_eoi(uint8_t irq_num) {
+void pic_eoi(irq_chip_t* chip, uint32_t irq_num) 
+{
   // irq from pic2 :clown:, so send for both
   if (irq_num >= 8)
     out8(PIC2_COMMAND, PIC_EOI_CODE);
@@ -64,8 +65,8 @@ PIC_t pic = {
   .m_pic2_line = 0xFF,
 };
 
-static void pic_disable_vector(uint16_t vector) {
-
+static int pic_disable_vector(irq_chip_t* chip, uint32_t vector) 
+{
   // PIC 2
   if (vector & 8) {
     pic.m_pic2_line = in8(PIC2_DATA) | (1 << (vector & 7));
@@ -75,10 +76,11 @@ static void pic_disable_vector(uint16_t vector) {
     pic.m_pic1_line = in8(PIC1_DATA) | (1 << vector);
     out8(PIC1_DATA, pic.m_pic1_line);
   }
+  return 0;
 }
 
-static void pic_enable_vector(uint16_t vector) {
-
+static int pic_enable_vector(irq_chip_t* chip, uint32_t vector) 
+{
   // PIC 2
   if (vector & 8) {
     pic.m_pic2_line = in8(PIC2_DATA) & ~(1 << (vector & 7));
@@ -88,19 +90,23 @@ static void pic_enable_vector(uint16_t vector) {
     pic.m_pic1_line = in8(PIC1_DATA) & ~(1 << vector);
     out8(PIC1_DATA, pic.m_pic1_line);
   }
+  return 0;
 }
 
-int_controller_t pic_controller = {
-  .ictl_disable_vec = pic_disable_vector,
-  .ictl_enable_vec = pic_enable_vector,
+irq_chip_ops_t _pic_ops = {
+  .f_mask_vec = pic_disable_vector,
+  .f_unmask_vec = pic_enable_vector,
   .ictl_disable = pic_disable,
   .ictl_enable = pic_enable,
   .ictl_eoi = pic_eoi,
-  .type = LEAGACY_DUAL_PIC,
+};
+
+irq_chip_t pic_controller = {
+  .ops = &_pic_ops,
   .private = &pic,
 };
 
-int_controller_t* get_pic()
+irq_chip_t* get_pic()
 {
   return &pic_controller;
 }

@@ -12,104 +12,108 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "stubs.h"
+#include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
 
-// TODO: linked list for dynamic handler loading?
-//static spinlock_t* __interrupt_handler_spinlock = nullptr;
-static quick_interrupthandler_t __interrupt_handlers[INTERRUPT_HANDLER_COUNT] = { NULL };
+static mutex_t* _irq_lock;
+static irq_t _irq_list[IRQ_COUNT] = { 0 };
 
-#define INTERRUPTS_EVENT_NAME           "k_interrupts"
-#define INTERRUPTS_DEFAULT_HOOKS_C      (256 - IRQ_VEC_BASE)
-#define INTERRUPTS_EXTRA_HOOKS_C        5
-#define INTERRUPTS_EVENT_MAX_HOOK_C     (INTERRUPTS_DEFAULT_HOOKS_C + INTERRUPTS_EXTRA_HOOKS_C) 
+int irq_get(uint32_t vec, irq_t** irq)
+{
+  if (!irq)
+    return -1;
 
+  if (vec >= IRQ_COUNT)
+    return -2;
 
-static ErrorOrPtr __quick_int_handler_toggle_vector(uint32_t int_num, bool enabled) {
-
-  quick_interrupthandler_t* handler;
-
-  if (int_num > INTERRUPT_HANDLER_COUNT)
-    return Error();
-
-  handler = &__interrupt_handlers[int_num];
-
-  if ((handler->m_flags & QIH_FLAG_REGISTERED) != QIH_FLAG_REGISTERED)
-    return Error();
-
-  if (!handler->m_controller || !handler->m_controller->ictl_enable_vec || !handler->m_controller->ictl_disable_vec)
-    return Error();
-
-  if (enabled)
-    handler->m_controller->ictl_enable_vec(int_num);
-  else
-    handler->m_controller->ictl_disable_vec(int_num);
-
-  return Success(0);
+  *irq = &_irq_list[vec];
+  return 0;
 }
 
-ErrorOrPtr quick_int_handler_enable_vector(uint32_t int_num) {
-  return __quick_int_handler_toggle_vector(int_num, true);
+static inline bool irq_is_allocated(irq_t* irq)
+{
+  return ((irq->flags & IRQ_FLAG_ALLOCATED) == IRQ_FLAG_ALLOCATED);
 }
 
-ErrorOrPtr quick_int_handler_disable_vector(uint32_t int_num) {
-  return __quick_int_handler_toggle_vector(int_num, false);
+static inline bool irq_should_debug(irq_t* irq)
+{
+  return ((irq->flags & IRQ_FLAG_SHOULD_DBG) == IRQ_FLAG_SHOULD_DBG);
 }
 
-/*
- * Quick interrupt handlers are for interrupts that only need one handler. If we need to
- * manage more, we use kevents. These are more bulky, but also more robust
+/*!
+ * @brief: Scan the entire irq list to find a free entry
+ * 
+ * Should not be called from inside an IRQ handler
  */
-static quick_interrupthandler_t *__install_quick_int_handler(uint32_t int_num, uint32_t flags, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
+static inline int irq_get_free_vector(irq_t** irq, uint32_t* vector)
+{
+  irq_t* c_irq;
 
-  quick_interrupthandler_t *ret;
-  int_controller_t *controller;
+  mutex_lock(_irq_lock);
 
-  if (int_num > INTERRUPT_HANDLER_COUNT)
-    return nullptr;
+  for (uint32_t i = 0; i < IRQ_COUNT; i++) {
+    c_irq = &_irq_list[i];
 
-  ret = &__interrupt_handlers[int_num];
+    if (irq_is_allocated(c_irq))
+      continue;
 
-  controller = get_controller_for_int_number(int_num);
+    *irq = c_irq;
+    *vector = i;
+    mutex_unlock(_irq_lock);
+    return 0;
+  }
 
-  if (!controller || controller->type != type)
-    return nullptr;
-
-  ret->m_int_num = int_num;
-  ret->m_flags = flags;
-  ret->m_controller = controller;
-  ret->fHandler = callback;
-
-  return ret;
+  mutex_unlock(_irq_lock);
+  return -1;
 }
 
-ErrorOrPtr install_quick_int_handler(uint32_t int_num, uint32_t flags, INTERRUPT_CONTROLLER_TYPE type, interrupt_callback_t callback) {
+/*!
+ * @brief: Allocate an IRQ on the vector @vec
+ *
+ * NOTE: Also unmasks the vector in the current active interrupt chip if the IRQ_FLAG_MASKED flag
+ * isn't given through @flags
+ *
+ * 
+ */
+int irq_allocate(uint32_t vec, uint32_t flags, void* handler, void* ctx, const char* desc)
+{
+  int error;
+  irq_t* i;
 
-  if (__install_quick_int_handler(int_num, flags, type, callback))
-    return Success(0);
+  error = irq_get(vec, &i);
 
-  return Error();
+  if (error)
+    return error;
+
+  if ((i->flags & IRQ_FLAG_ALLOCATED) != IRQ_FLAG_ALLOCATED)
+    goto direct_allocate;
+
+  /* If the caller specified we can't reallocate the IRQ, just bail */
+  if ((flags & IRQ_FLAG_STURDY_VEC) == IRQ_FLAG_STURDY_VEC)
+    return -1;
+
+  /* Try to find an unallocated vector */
+  error = irq_get_free_vector(&i, &vec);
+
+  if (error)
+    return error;
+
+direct_allocate:
+  i->vec = vec;
+  i->flags = IRQ_FLAG_ALLOCATED | flags;
+  i->ctx = ctx;
+  i->desc = desc;
+  i->f_handle = handler;
+
+  return 0;
 }
+int irq_deallocate(uint32_t vec);
 
-void uninstall_quick_int_handler(uint32_t int_num) {
-
-  if (int_num > INTERRUPT_HANDLER_COUNT)
-    return;
-
-  quick_interrupthandler_t* handler = &__interrupt_handlers[int_num];
-
-  /* Not registerd, lets ignore it */
-  if ((handler->m_flags & QIH_FLAG_REGISTERED) != QIH_FLAG_REGISTERED)
-    return;
-
-  if (handler->m_controller)
-    quick_int_handler_disable_vector(int_num);
-
-  /* Zero out only that handler */
-  memset(handler, 0, sizeof(quick_interrupthandler_t));
-}
+int irq_mask(uint32_t vec);
+int irq_unmask(uint32_t vec);
 
 #define REGISTER_IDT_EXCEPTION_ENTRY(num) \
   register_idt_interrupt_handler((num), (FuncPtr)(interrupt_excp_asm_entry_##num))
@@ -386,14 +390,13 @@ void init_interrupts()
   /* Setup the IDT structure */
   setup_idt(true);
 
+  _irq_lock = create_mutex(NULL);
+
   /* Install stubs for exceptions */
   install_exception_stubs();
 
   /* Install the regular IRQ stubs */
   install_regular_stubs();
-
-  // prepare all waiting handlers
-  memset(&__interrupt_handlers, 0x00, sizeof(__interrupt_handlers));
 
   /* Load the complete IDT */
   flush_idt();
@@ -407,7 +410,24 @@ static inline uint8_t _get_irq_vector(uintptr_t isr_num)
   if (isr_num < 32)
     return 0xff;
 
-  return isr_num - 32;
+  return isr_num - IRQ_VEC_BASE;
+}
+
+static inline void irq_debug(irq_t* irq, int handler_error)
+{
+  (void)irq;
+  (void)handler_error;
+  kernel_panic("TODO: debug irqs");
+}
+
+/*!
+ * @brief: Tell the active irq management chip we are done with this interrupt
+ *
+ * Figures out the current IRQ chip and orders it to ACK
+ */
+static void irq_ack(irq_t* irq)
+{
+  kernel_panic("TODO: irq_ack");
 }
 
 /*!
@@ -417,31 +437,33 @@ static inline uint8_t _get_irq_vector(uintptr_t isr_num)
  */
 registers_t *irq_handler(registers_t *regs) 
 {
-  const uint16_t int_num = _get_irq_vector(regs->isr_no);
+  int error;
+  irq_t* irq;
+  uint32_t irq_vec;
 
-  /* Do quick interrupt */
-  quick_interrupthandler_t *handler = &__interrupt_handlers[int_num];
+  irq_vec = _get_irq_vector(regs->isr_no);
 
-  if (handler && (handler->m_flags & QIH_FLAG_REGISTERED) == QIH_FLAG_REGISTERED) {
+  /* Bail (FIXME: should we report this?) */
+  if (irq_vec == 0xff)
+    return regs;
 
-    handler->m_flags |= QIH_FLAG_IN_INTERRUPT;
+  if (irq_get(irq_vec, &irq))
+    return regs;
 
-    if (handler->fHandler)
-      handler->fHandler(regs);
+  /* 
+   * Unused irq should not be called (But how is it unmasked?) 
+   * FIXME: report loose irqs
+   */
+  if (!irq_is_allocated(irq) || !irq->f_handle)
+    return regs;
 
-    /* FIXME: we can probably assert for the presence of a controller */
-    if (handler->m_controller) {
-      handler->m_controller->ictl_eoi(regs->isr_no);
-      handler->m_flags &= ~QIH_FLAG_IN_INTERRUPT;
-    }
+  error = irq->f_handle(irq, regs);
 
-    /* Quick handler wants to ignore events */
-    if (handler->m_flags & QIH_FLAG_BLOCK_EVENTS)
-      return regs;
-  }
+  if (irq_should_debug(irq))
+    irq_debug(irq, error);
 
-  /* TODO: event */
-
+  /* Acknowlege the IRQ to our management chip so we can recieve another IRQ */
+  irq_ack(irq);
   return regs;
 }
 
