@@ -16,6 +16,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "mem/pg.h"
 #include "mem/zalloc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -163,7 +164,7 @@ ACPI_STATUS AcpiOsDeleteCache(ACPI_CACHE_T *Cache)
 
 ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
 {
-  kernel_panic("TODO: AcpiOsPurgeCache");
+  zone_allocator_clear(Cache);
   return AE_OK;
 }
 
@@ -193,14 +194,46 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 
 BOOLEAN AcpiOsReadable(void *Memory, ACPI_SIZE Length)
 {
-  kernel_panic("TODO: AcpiOsReadable");
-  return FALSE;
+  size_t page_count;
+  pml_entry_t* page;
+
+  page_count = ALIGN_UP(Length, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+
+  for (uint64_t i = 0; i < page_count; i++) {
+    page = kmem_get_page(nullptr, (uint64_t)Memory + i * SMALL_PAGE_SIZE, NULL, NULL);
+
+    /* If the page isn't found, we obviously can't read it :clown */
+    if (!page)
+      return FALSE;
+  }
+
+  return TRUE;
 }
 
 BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 {
-  kernel_panic("TODO: AcpiOsWritable");
-  return FALSE;
+  size_t page_count;
+  pml_entry_t* page;
+
+  page_count = ALIGN_UP(Length, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+
+  for (uint64_t i = 0; i < page_count; i++) {
+    /*
+     * NOTE: kmem_get_page will align down the memory address to the first page-aligned boundry
+     * so we don't have to worry about the alignment here
+     */
+    page = kmem_get_page(nullptr, (uint64_t)Memory + i * SMALL_PAGE_SIZE, NULL, NULL);
+
+    /* If the page isn't found, we obviously can't read it :clown */
+    if (!page)
+      return FALSE;
+
+    /* Check for the writable bit, which indicates whether we can write to this page (LOL) */
+    if (!pml_entry_is_bit_set(page, PTE_WRITABLE))
+      return FALSE;
+  }
+
+  return TRUE;
 }
 
 ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT32 Width)

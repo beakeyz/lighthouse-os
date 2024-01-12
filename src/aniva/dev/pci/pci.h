@@ -6,7 +6,7 @@
 #include "proc/proc.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
-#include "system/acpi/structures.h"
+#include "system/acpi/tables.h"
 #include <libk/stddef.h>
 #include <system/resource.h>
 
@@ -256,7 +256,7 @@ void enumerate_bus(pci_callback_t* callback, struct pci_bus* base_addr, uint8_t 
 void enumerate_bridges(pci_callback_t* callback);
 void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback);
 
-bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr);
+bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr);
 
 uint8_t pci_find_cap(pci_device_t* device, uint32_t cap);
 

@@ -89,10 +89,8 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
   if (parser) {
     kterm_print_keyvalue("ACPI table count", to_string(parser->m_tables->m_length));
 
-    kterm_print_keyvalue("ACPI rsdp paddr", to_string(
-          parser->m_rsdp ? kmem_to_phys(nullptr, (uint64_t)parser->m_rsdp) : 0));
-    kterm_print_keyvalue("ACPI xsdp paddr", to_string(
-          parser->m_xsdp ? kmem_to_phys(nullptr, (uint64_t)parser->m_xsdp) : 0));
+    kterm_print_keyvalue("ACPI rsdp paddr", to_string(parser->m_rsdp_phys));
+    kterm_print_keyvalue("ACPI xsdp paddr", to_string(parser->m_xsdp_phys));
 
     kterm_print_keyvalue("ACPI revision", to_string((uint64_t)parser->m_acpi_rev));
     kterm_print_keyvalue("ACPI method", parser->m_rsdp_discovery_method.m_name);

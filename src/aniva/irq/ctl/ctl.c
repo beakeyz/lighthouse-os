@@ -11,7 +11,6 @@
 #include "sched/scheduler.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
-#include "system/acpi/structures.h"
 #include "system/processor/processor.h"
 #include "system/processor/processor_info.h"
 

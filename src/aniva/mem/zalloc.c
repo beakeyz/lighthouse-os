@@ -22,7 +22,6 @@ static const enum ZONE_ENTRY_SIZE __default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_
   [2] = ZALLOC_32BYTES,
   [3] = ZALLOC_64BYTES,
   [4] = ZALLOC_128BYTES,
-  //
   [5] = ZALLOC_256BYTES,
   [6] = ZALLOC_512BYTES,
   [7] = ZALLOC_1024BYTES,
@@ -242,6 +241,29 @@ void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
   kfree(allocator);
 
   (void)clear_zones;
+}
+
+/*!
+ * @brief: Clear all the allocations inside the zone allocator
+ * 
+ * NOTE: this does not erase the data inside the zones, so calling zalloc always
+ * requires the caller to do a memset
+ */
+void zone_allocator_clear(zone_allocator_t* allocator)
+{
+  zone_store_t* c_store;
+
+  c_store = allocator->m_store;
+
+  /* Loop over all the stores in this allocator */
+  while (c_store) {
+
+    /* Clear all the zones inside this store */
+    for (uint32_t i = 0; i < c_store->m_zones_count; i++)
+      bitmap_unmark_range(&c_store->m_zones[i]->m_entries, 0, c_store->m_zones[i]->m_entries.m_entries);
+
+    c_store = c_store->m_next;
+  }
 }
 
 /*!

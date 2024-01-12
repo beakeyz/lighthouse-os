@@ -9,7 +9,7 @@ uint64_t apic_hh_base_address;
  * @brief Initialize the BSP local apic
  *
  */
-int init_bsp_apic(struct acpi_table_madt* table, uintptr_t base)
+int init_bsp_apic(acpi_tbl_madt_t* table, uintptr_t base)
 {
   /* For now, return error to enable dual PIC as a fallback */
   return -1;

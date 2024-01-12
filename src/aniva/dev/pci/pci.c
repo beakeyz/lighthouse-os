@@ -12,7 +12,6 @@
 #include "sync/mutex.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
-#include "system/acpi/structures.h"
 #include "io.h"
 #include "system/resource.h"
 #include <libk/io.h>
@@ -573,24 +572,32 @@ void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
   }
 }
 
-bool register_pci_bridges_from_mcfg(acpi_mcfg_t* mcfg_ptr) {
+bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr) 
+{
+  acpi_parser_t* parser;
+  acpi_mcfg_entry_t* c_entry;
+  acpi_std_hdr_t* header = &mcfg_ptr->Header;
 
-  acpi_sdt_header_t* header = &mcfg_ptr->header;
+  get_root_acpi_parser(&parser);
 
-  uint32_t length = header->length;
+  uint32_t length = header->Length;
   
-  if (length == sizeof(acpi_sdt_header_t)) {
+  if (length == sizeof(acpi_std_hdr_t))
     return false;
-  }
 
   length = ALIGN_UP(length + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
 
-  uint32_t entries = (header->length - sizeof(acpi_mcfg_t)) / sizeof(PCI_Device_Descriptor_t);
+  uint32_t entries = (header->Length - sizeof(acpi_tbl_mcfg_t)) / sizeof(acpi_mcfg_entry_t);
 
   for (uint32_t i = 0; i < entries; i++) {
-    uint8_t start = mcfg_ptr->descriptors[i].start_bus;
-    uint8_t end = mcfg_ptr->descriptors[i].end_bus;
-    uint32_t base = mcfg_ptr->descriptors[i].base_addr;
+
+    c_entry = acpi_parser_find_table_idx(parser, ACPI_SIG_MCFG, i, sizeof(acpi_mcfg_entry_t));
+
+    uint8_t start = c_entry->StartBusNumber;
+    uint8_t end = c_entry->EndBusNumber;
+    uint32_t base = c_entry->Address;
+
+    printf("Found PCI bridge (%d -> %d) at 0x%x\n", start, end, base);
   
     // add to pci bridge list
     pci_bus_t* bridge = kmalloc(sizeof(pci_bus_t));
@@ -915,7 +922,7 @@ bool init_pci()
 
   __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
 
-  acpi_mcfg_t* mcfg = find_acpi_table("MCFG", sizeof(acpi_mcfg_t));
+  acpi_tbl_mcfg_t* mcfg = find_acpi_table(ACPI_SIG_MCFG, sizeof(acpi_tbl_mcfg_t));
 
   if (!mcfg) {
     kernel_panic("no mcfg found!");

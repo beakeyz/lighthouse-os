@@ -180,6 +180,8 @@ static bool __load_precompiled_driver(dev_manifest_t* manifest) {
   if ((manifest->m_flags & DRV_LOADED) == DRV_LOADED)
     return true;
 
+  printf("Loading driver %s\n", manifest->m_url);
+
   manifest_gather_dependencies(manifest);
 
   /*

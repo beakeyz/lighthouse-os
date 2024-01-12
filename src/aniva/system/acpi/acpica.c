@@ -125,5 +125,5 @@ void init_acpi_early()
     return;
   }
 
-  printf("Acpica done!");
+  printf("Acpica done!\n");
 }

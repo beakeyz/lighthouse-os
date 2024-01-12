@@ -1,6 +1,6 @@
 #ifndef __APIC__
 #define __APIC__
-#include "system/acpi/structures.h"
+#include "system/acpi/tables.h"
 #include <libk/stddef.h>
 
 #define APIC_BSP_BIT 8
@@ -38,6 +38,6 @@
 #define MASTER_PIC_DATA_PORT 0x21
 #define SLAVE_PIC_DATA_PORT 0xA1
 
-int init_bsp_apic(struct acpi_table_madt* table, uintptr_t base);
+int init_bsp_apic(acpi_tbl_madt_t* table, uintptr_t base);
 
 #endif // !__APIC__

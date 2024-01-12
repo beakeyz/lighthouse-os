@@ -198,6 +198,7 @@ int fb_driver_init()
   info.width = fb->common.framebuffer_width;
   info.height = fb->common.framebuffer_height;
   info.size = info.pitch * info.height;
+  printf("Trying to allocate: 0x%llx", info.addr);
   info.kernel_addr = Must(__kmem_kernel_alloc(info.addr, info.size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE));
 
   info.colors.red.length_bits = fb->framebuffer_red_mask_size;

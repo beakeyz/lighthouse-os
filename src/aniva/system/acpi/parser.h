@@ -4,7 +4,7 @@
 #include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
 #include "sync/spinlock.h"
-#include "system/acpi/structures.h"
+#include "tables.h"
 
 #define RSDP_SIGNATURE "RSD PTR "
 #define FADT_SIGNATURE "FACP"
@@ -25,25 +25,29 @@ typedef struct {
   const char* m_name;
 } acpi_parser_rsdp_discovery_method_t;
 
-// TODO: fill structure
-// TODO: should the acpi parser have its own heap?
+/*
+ * Our own local ACPI parser
+ *
+ * This is a little layer between aniva and ACPICA. When anything in the system wants to know
+ * about acpi tables, evaluate AML, do anything ACPI, it goes here and then the parser queries
+ * ACPICA
+ */
 typedef struct acpi_parser {
-  acpi_rsdp_t* m_rsdp;
-  acpi_xsdp_t* m_xsdp;
+  acpi_tbl_rsdp_t* m_rsdp_table;
+  acpi_tbl_rsdt_t* m_rsdt;
   paddr_t m_rsdp_phys;
   paddr_t m_xsdp_phys;
+  paddr_t m_rsdt_phys;
   
-  bool m_is_xsdp;
-
-  list_t* m_tables;
-
-  acpi_fadt_t *m_fadt;
-  //uintptr_t m_multiboot_addr;
-
-  acpi_parser_rsdp_discovery_method_t m_rsdp_discovery_method;
-
+  bool m_is_xsdp:1;
+  bool m_is_acpi_enabled:1;
   int m_acpi_rev;
 
+  /* Local cache for the static ACPI tables */
+  list_t* m_tables;
+
+  /* How did we find the R/Xsdp */
+  acpi_parser_rsdp_discovery_method_t m_rsdp_discovery_method;
 } acpi_parser_t;
 
 int init_acpi_parser_early(acpi_parser_t* parser);
