@@ -3,6 +3,7 @@
 #include "irq/ctl/pic.h"
 #include "irq/idt.h"
 #include "libk/bin/ksyms.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
@@ -33,6 +34,27 @@ int irq_get(uint32_t vec, irq_t** irq)
   return 0;
 }
 
+/*!
+ * @brief: Take the _irq_lock
+ * 
+ * Used if externals want to interact with interrupts (Like PCI)
+ */
+int irq_lock()
+{
+  mutex_lock(_irq_lock);
+  return 0;
+}
+
+/*!
+ * @brief: Release the _irq_lock
+ * Used if externals want to interact with interrupts (Like PCI)
+ */
+int irq_unlock()
+{
+  mutex_unlock(_irq_lock);
+  return 0;
+}
+
 static inline bool irq_is_allocated(irq_t* irq)
 {
   return ((irq->flags & IRQ_FLAG_ALLOCATED) == IRQ_FLAG_ALLOCATED);
@@ -46,13 +68,12 @@ static inline bool irq_should_debug(irq_t* irq)
 /*!
  * @brief: Scan the entire irq list to find a free entry
  * 
- * Should not be called from inside an IRQ handler
+ * Should not be called from inside an IRQ handler and should
+ * always be called with _irq_lock taken
  */
 static inline int irq_get_free_vector(irq_t** irq, uint32_t* vector)
 {
   irq_t* c_irq;
-
-  mutex_lock(_irq_lock);
 
   for (uint32_t i = 0; i < IRQ_COUNT; i++) {
     c_irq = &_irq_list[i];
@@ -62,11 +83,9 @@ static inline int irq_get_free_vector(irq_t** irq, uint32_t* vector)
 
     *irq = c_irq;
     *vector = i;
-    mutex_unlock(_irq_lock);
     return 0;
   }
 
-  mutex_unlock(_irq_lock);
   return -1;
 }
 
@@ -88,18 +107,24 @@ int irq_allocate(uint32_t vec, uint32_t flags, void* handler, void* ctx, const c
   if (error)
     return error;
 
+  mutex_lock(_irq_lock);
+
   if ((i->flags & IRQ_FLAG_ALLOCATED) != IRQ_FLAG_ALLOCATED)
     goto direct_allocate;
 
+  /* Preemptively set error, just in case IRQ_FLAG_STURDY_VEC is given */
+  error = -1;
+
   /* If the caller specified we can't reallocate the IRQ, just bail */
   if ((flags & IRQ_FLAG_STURDY_VEC) == IRQ_FLAG_STURDY_VEC)
-    return -1;
+    goto alloc_exit;
 
   /* Try to find an unallocated vector */
   error = irq_get_free_vector(&i, &vec);
 
+  /* Yikes */
   if (error)
-    return error;
+    goto alloc_exit;
 
 direct_allocate:
   i->vec = vec;
@@ -108,12 +133,113 @@ direct_allocate:
   i->desc = desc;
   i->f_handle = handler;
 
+  if ((flags & IRQ_FLAG_MASKED) == IRQ_FLAG_MASKED)
+    goto alloc_exit;
+
+  error = irq_unmask(i);
+
+alloc_exit:
+  mutex_unlock(_irq_lock);
+  return error;
+}
+
+/*!
+ * @brief: Little routine for if irt_t ever owns its own memory at some point
+ */
+static inline void destroy_irq(irq_t* irq)
+{
+  /* TODO: If there is any memory that @irq gets ownership of, destroy it here */
+  memset(irq, 0, sizeof(*irq));
+}
+
+int irq_deallocate(uint32_t vec)
+{
+  int error;
+  irq_t* irq;
+
+  error = irq_get(vec, &irq);
+
+  if (error)
+    return -1;
+
+  /* Make sure no one fucks us */
+  mutex_lock(_irq_lock);
+
+  /* Mask the irq so we don't catch any accidental interrupts */
+  irq_mask(irq);
+
+  /* Clear out the entire irq */
+  destroy_irq(irq);
+
+  /* We're done =) */
+  mutex_unlock(_irq_lock);
   return 0;
 }
-int irq_deallocate(uint32_t vec);
 
-int irq_mask(uint32_t vec);
-int irq_unmask(uint32_t vec);
+int irq_unmask_pending()
+{
+  irq_t* c_irq;
+
+  for (uint32_t i = 0; i < IRQ_COUNT; i++) {
+    irq_get(i, &c_irq);
+
+    if ((c_irq->flags & IRQ_FLAG_PENDING_UNMASK) != IRQ_FLAG_PENDING_UNMASK)
+      continue;
+
+    irq_unmask(c_irq);
+  }
+
+  return 0;
+}
+
+/*! 
+ * @brief: Mask a singulare IRQ vector
+ *
+ * Contacts the current active irq management chip to ask it to mask the vector
+ * this makes the system ignore any IRQ fires of this vector after the mask
+ *
+ * _irq_lock should be taken when this is called
+ */
+int irq_mask(irq_t* irq)
+{
+  irq_chip_t* c;
+
+  if (get_active_irq_chip(&c))
+    return -1;
+
+  /*
+   * Clear this just in case. When an IRQ is masked, it shouldn't 
+   * randomly get unmasked again lmao
+   */
+  irq->flags &= ~IRQ_FLAG_PENDING_UNMASK;
+  /* Make sure we know this bitch is masked */
+  irq->flags |= IRQ_FLAG_MASKED;
+
+  return irq_chip_mask(c, irq->vec);
+}
+
+/*! 
+ * @brief: Unmask a singulare IRQ vector
+ *
+ * Contacts the current active irq management chip to ask it to unmask the vector
+ * this makes the system accept any IRQ fires of this vector after the unmask
+ *
+ * _irq_lock should be taken when this is called
+ */
+int irq_unmask(irq_t* irq)
+{
+  irq_chip_t* c;
+
+  if (get_active_irq_chip(&c))
+    return -1;
+
+  /* Clear this just in case */
+  irq->flags &= ~IRQ_FLAG_PENDING_UNMASK;
+  /* Make sure we know this bitch is masked */
+  irq->flags &= ~IRQ_FLAG_MASKED;
+
+  return irq_chip_unmask(c, irq->vec);
+}
 
 #define REGISTER_IDT_EXCEPTION_ENTRY(num) \
   register_idt_interrupt_handler((num), (FuncPtr)(interrupt_excp_asm_entry_##num))
@@ -425,9 +551,22 @@ static inline void irq_debug(irq_t* irq, int handler_error)
  *
  * Figures out the current IRQ chip and orders it to ACK
  */
-static void irq_ack(irq_t* irq)
+static inline void irq_ack(irq_t* irq)
 {
-  kernel_panic("TODO: irq_ack");
+  irq_chip_t* chip;
+
+  if (get_active_irq_chip(&chip))
+    return;
+
+  irq_chip_ack(chip, irq);
+}
+
+static inline int irq_handle(irq_t* irq, registers_t* regs)
+{
+  if ((irq->flags & IRQ_FLAG_DIRECT_CALL) == IRQ_FLAG_DIRECT_CALL)
+    return irq->f_handle_direct(irq->ctx);
+
+  return irq->f_handle(irq, regs);
 }
 
 /*!
@@ -443,25 +582,24 @@ registers_t *irq_handler(registers_t *regs)
 
   irq_vec = _get_irq_vector(regs->isr_no);
 
-  /* Bail (FIXME: should we report this?) */
-  if (irq_vec == 0xff)
-    return regs;
-
-  if (irq_get(irq_vec, &irq))
-    return regs;
+  /* We can assert here yay */
+  ASSERT_MSG(irq_get(irq_vec, &irq) == 0, "Recieved an interrupt with an invalid IRQ vector!");
 
   /* 
    * Unused irq should not be called (But how is it unmasked?) 
    * FIXME: report loose irqs
    */
   if (!irq_is_allocated(irq) || !irq->f_handle)
-    return regs;
+    goto acknowlege;
 
-  error = irq->f_handle(irq, regs);
+  /* Try to handle the IRQ in the requested way */
+  error = irq_handle(irq, regs);
 
+  /* Only debug if that's asked of us */
   if (irq_should_debug(irq))
     irq_debug(irq, error);
 
+acknowlege:
   /* Acknowlege the IRQ to our management chip so we can recieve another IRQ */
   irq_ack(irq);
   return regs;

@@ -81,6 +81,23 @@ void init_intr_ctl()
 
   irq_chip_enable(_c_active);
 
+  irq_chip_mask_all(_c_active);
+
+  irq_unmask_pending();
+}
+
+/*!
+ * @brief: QID way to get the current irq chip
+ * 
+ * No locking, no nothing. Just plain unsafe C doodoo code right in the heart of the kernel =)
+ */
+int get_active_irq_chip(irq_chip_t** chip)
+{
+  if (!chip)
+    return -1;
+
+  *chip = _c_active;
+  return 0;
 }
 
 #define VERIFY_CHIP(chip, chip_op)   \

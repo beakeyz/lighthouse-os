@@ -33,10 +33,13 @@ registers_t* pit_irq_handler (registers_t*);
 ALWAYS_INLINE void reset_pit (uint8_t mode);
 static size_t s_pit_ticks;
 
-ANIVA_STATUS set_pit_interrupt_handler() {
+ANIVA_STATUS set_pit_interrupt_handler() 
+{
+  int error;
 
-  Must(install_quick_int_handler(PIT_TIMER_INT_NUM, QIH_FLAG_REGISTERED, LEAGACY_DUAL_PIC, pit_irq_handler));
-  Must(quick_int_handler_enable_vector(PIT_TIMER_INT_NUM));
+  error = irq_allocate(PIT_TIMER_INT_NUM, NULL, pit_irq_handler, NULL, "Legacy PIT timer");
+
+  ASSERT_MSG(error == 0, "Failed to allocate IRQ for the PIT timer =(");
 
   /* Ensure disabled */
   disable_interrupts();
@@ -92,7 +95,7 @@ void uninstall_pit()
 {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-  uninstall_quick_int_handler(PIT_TIMER_INT_NUM);
+  irq_deallocate(PIT_TIMER_INT_NUM);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }

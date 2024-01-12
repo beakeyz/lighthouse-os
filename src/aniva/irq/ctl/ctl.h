@@ -40,7 +40,7 @@ typedef struct irq_chip {
 
 void init_intr_ctl();
 
-int get_active_irq_chip(irq_chip_t* chip);
+int get_active_irq_chip(irq_chip_t** chip);
 
 int irq_chip_ack(irq_chip_t* chip, struct irq* irq);
 int irq_chip_enable(irq_chip_t* chip);

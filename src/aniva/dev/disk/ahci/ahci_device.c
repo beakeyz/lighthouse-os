@@ -203,10 +203,11 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
     return status;
 
   // HBA has been reset, enable its interrupts and claim this line
-  ErrorOrPtr result = install_quick_int_handler(interrupt_line, QIH_FLAG_REGISTERED | QIH_FLAG_BLOCK_EVENTS, LEAGACY_DUAL_PIC, ahci_irq_handler);
+  /* TODO: notify PCI of any interrupt line changes */
+  int error = irq_allocate(interrupt_line, NULL, ahci_irq_handler, NULL, "AHCI controller");
 
-  if (result.m_status == ANIVA_SUCCESS)
-    quick_int_handler_enable_vector(interrupt_line);
+  /* TODO: handle this propperly =)))) */
+  ASSERT_MSG(error == NULL, "Failed to allocate an IRQ for this AHCI device!");
 
   uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);

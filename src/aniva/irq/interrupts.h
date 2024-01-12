@@ -22,7 +22,10 @@ void init_interrupts();
 void disable_interrupts();
 void enable_interrupts();
 
-static inline bool interrupts_are_enabled()
+/*
+ * NOTE: Can't be static
+ */
+inline bool interrupts_are_enabled()
 {
   return ((get_eflags() & 0x200) != 0);
 }
@@ -50,6 +53,15 @@ registers_t* exception_handler (struct registers* regs);
 /* This flag set means that the vector of this IRQ can't change */
 #define IRQ_FLAG_STURDY_VEC 0x00000008
 #define IRQ_FLAG_SHOULD_DBG 0x00000010
+/* The handler isn't passed any irq or register information, only the ctx */
+#define IRQ_FLAG_DIRECT_CALL 0x00000020
+/* 
+ * The handler is currently masked, but we would like to unmask it =) 
+ * There are certain times in the boot process that we scan the IRQs in order to find
+ * irqs with this flag. This mostly happens when we're doing stuff with irq chips right
+ * after they where disabled or something
+ */
+#define IRQ_FLAG_PENDING_UNMASK 0x00000040
 /* TODO: define flags */
 
 /*
@@ -71,16 +83,24 @@ typedef struct irq {
   const char* desc;
 
   /* Handler to be called when the IRQ fires */
-  int (*f_handle)(struct irq*, registers_t*);
+  union {
+    int (*f_handle)(struct irq*, registers_t*);
+    int (*f_handle_direct)(void* ctx);
+  };
 } irq_t;
 
 int irq_allocate(uint32_t vec, uint32_t flags, void* handler, void* ctx, const char* desc);
 int irq_deallocate(uint32_t vec);
 
-int irq_mask(uint32_t vec);
-int irq_unmask(uint32_t vec);
+int irq_mask(irq_t* vec);
+int irq_unmask(irq_t* vec);
+
+int irq_unmask_pending();
 
 int irq_get(uint32_t vec, irq_t** irq);
+
+int irq_lock();
+int irq_unlock();
 
 #endif // !__ANIVA_INTERRUPTS__
 

@@ -3,6 +3,7 @@
 #include "irq/interrupts.h"
 #include "irq/ctl/ctl.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include <mem/heap.h>
 #include <dev/debug/serial.h>
 #include <libk/io.h>
@@ -76,6 +77,7 @@ static int pic_disable_vector(irq_chip_t* chip, uint32_t vector)
     pic.m_pic1_line = in8(PIC1_DATA) | (1 << vector);
     out8(PIC1_DATA, pic.m_pic1_line);
   }
+
   return 0;
 }
 
@@ -90,6 +92,20 @@ static int pic_enable_vector(irq_chip_t* chip, uint32_t vector)
     pic.m_pic1_line = in8(PIC1_DATA) & ~(1 << vector);
     out8(PIC1_DATA, pic.m_pic1_line);
   }
+
+  return 0;
+}
+
+/*!
+ * @brief: Mask all the vectors
+ *
+ * PIC only supports 16 active vectors at a time, so this is very easy
+ */
+static int pic_mask_all(irq_chip_t* chip)
+{
+  for (uint32_t i = 0; i < 16; i++) 
+    pic_disable_vector(chip, i);
+
   return 0;
 }
 
@@ -99,6 +115,7 @@ irq_chip_ops_t _pic_ops = {
   .ictl_disable = pic_disable,
   .ictl_enable = pic_enable,
   .ictl_eoi = pic_eoi,
+  .f_mask_all = pic_mask_all,
 };
 
 irq_chip_t pic_controller = {

@@ -9,6 +9,7 @@
  */
 
 #include "acpica/acpi.h"
+#include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
@@ -27,6 +28,7 @@
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/acpica/platform/acaniva.h"
 #include "system/acpi/acpica/platform/acenv.h"
+#include "system/processor/registers.h"
 
 void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char *Format, ...)
 {
@@ -486,7 +488,10 @@ void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 
 ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void *Context)
 {
-  kernel_panic("TODO: AcpiOsInstallInterruptHandler");
+  /* ACPI requires a direct call */
+  if (irq_allocate(InterruptLevel, IRQ_FLAG_STURDY_VEC | IRQ_FLAG_DIRECT_CALL | IRQ_FLAG_MASKED | IRQ_FLAG_PENDING_UNMASK, Handler, Context, "ACPI osl alloc"))
+    return AE_NOT_ACQUIRED;
+
   return AE_OK;
 }
 
