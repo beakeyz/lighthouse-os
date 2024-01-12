@@ -26,7 +26,7 @@
 #include "libk/flow/error.h"
 
 ErrorOrPtr init_multiboot(void* addr);
-ErrorOrPtr finalize_multiboot(void* addr);
+ErrorOrPtr finalize_multiboot();
 
 size_t get_total_mb2_size(void* start_addr);
 void* next_mb2_tag(void* cur, uint32_t type);

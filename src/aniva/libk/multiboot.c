@@ -61,11 +61,13 @@ ErrorOrPtr init_multiboot(void* addr)
  * allocator here. This function will preserve any essensial multiboot memory so that
  * it does not get overwritten by any allocations
  */
-ErrorOrPtr finalize_multiboot(void* addr) {
+ErrorOrPtr finalize_multiboot() {
 
   const size_t mb_pagecount = GET_PAGECOUNT(g_system_info.total_multiboot_size);
-  const paddr_t aligned_mb_start = ALIGN_DOWN((uintptr_t)addr, SMALL_PAGE_SIZE);
+  const paddr_t aligned_mb_start = ALIGN_DOWN(g_system_info.phys_multiboot_addr, SMALL_PAGE_SIZE);
   const uintptr_t mb_start_idx = kmem_get_page_idx(aligned_mb_start); 
+
+  printf("Setting multiboot range used at idx %lld with a size of %llx\n", mb_start_idx, mb_pagecount);
 
   /* Reserve multiboot memory */
   kmem_set_phys_range_used(mb_start_idx, mb_pagecount);
@@ -103,7 +105,6 @@ size_t get_total_mb2_size(void* start_addr) {
   struct multiboot_tag* tag = idxPtr;
   // loop through the tags to find the right type
   while (true) {
-    //if (tag->type == MULTIBOOT_TAG_TYPE_ACPI_NEW) break;
     if (tag->type == 0) break;
 
     ret += tag->size;

@@ -53,6 +53,8 @@ void init_acpi_early()
     return;
   }
 
+  return;
+
   println("D");
 
   /* Initialize system interrupt controller (1 = APIC, 0 = PIC) */

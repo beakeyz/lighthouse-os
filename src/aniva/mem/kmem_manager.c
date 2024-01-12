@@ -94,7 +94,7 @@ void init_kmem_manager(uintptr_t* mb_addr)
   kmem_init_physical_allocator();
 
   // Perform multiboot finalization
-  finalize_multiboot(mb_addr);
+  finalize_multiboot();
 
   _init_kmem_page_layout();
 
