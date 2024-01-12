@@ -126,7 +126,8 @@ void parser_init_tables(acpi_parser_t* parser)
 void* find_rsdp(acpi_parser_t* parser) 
 {
   // TODO: check other spots
-  uintptr_t pointer;
+  uintptr_t* pointer;
+  paddr_t rsdp_addr;
 
   parser->m_is_xsdp = false;
   parser->m_rsdp_table = nullptr;
@@ -139,16 +140,16 @@ void* find_rsdp(acpi_parser_t* parser)
   struct multiboot_tag_new_acpi* new_ptr = g_system_info.xsdp;
 
   if (new_ptr) {
-    /* check if ->rsdp is a virtual or physical address */
-    pointer = (uintptr_t)new_ptr->rsdp;
+    /* FIXME: check if ->rsdp is a virtual or physical address? */
+    pointer = (uintptr_t*)new_ptr->rsdp;
+    rsdp_addr = *pointer;
 
-    print("Multiboot has xsdp: ");
-    println(to_string(pointer));
+    printf("Multiboot has xsdp: 0x%llx\n", rsdp_addr);
 
     parser->m_is_xsdp = true;
-    parser->m_rsdp_table = (acpi_tbl_rsdp_t*)pointer;
+    parser->m_xsdp_phys = rsdp_addr;
+    parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL));
     parser->m_rsdt_phys = parser->m_rsdp_table->XsdtPhysicalAddress;
-    parser->m_xsdp_phys = kmem_to_phys(nullptr, pointer);
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
     return parser->m_rsdp_table;
   }
@@ -156,13 +157,13 @@ void* find_rsdp(acpi_parser_t* parser)
   struct multiboot_tag_old_acpi* old_ptr = g_system_info.rsdp;
 
   if (old_ptr) {
+    pointer = (uintptr_t*)old_ptr->rsdp;
+    rsdp_addr = *pointer;
 
-    pointer = (uintptr_t)old_ptr->rsdp;
+    printf("Multiboot has rsdp: 0x%llx\n", rsdp_addr);
 
-    print("Multiboot has rsdp: ");
-    println(to_string(pointer));
-    parser->m_rsdp_table = (acpi_tbl_rsdp_t*)pointer;
-    parser->m_rsdp_phys = kmem_to_phys(nullptr, pointer);
+    parser->m_rsdp_phys = rsdp_addr;
+    parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL));
     parser->m_rsdt_phys = parser->m_rsdp_table->RsdtPhysicalAddress;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
     return parser->m_rsdp_table;

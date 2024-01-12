@@ -179,6 +179,9 @@ void parse_mmap()
     println(to_string(range->start));
     print("map entry length: ");
     println(to_string(range->length));
+    
+    if (range->type != PMRT_USABLE)
+      continue;
 
     high_range_addr = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
 
@@ -186,11 +189,8 @@ void parse_mmap()
         (range->type != PMRT_BAD_MEM && range->type != PMRT_RESERVED)) 
     {
       KMEM_DATA.m_highest_phys_addr = high_range_addr;
-      KMEM_DATA.m_phys_pages_count = GET_PAGECOUNT(high_range_addr);
+      KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->length);
     }
-    
-    if (range->type != PMRT_USABLE)
-      continue;
 
     uintptr_t diff = range->start % SMALL_PAGE_SIZE;
 
@@ -704,6 +704,9 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     const uintptr_t offset = i * (1 << page_shift);
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
+
+    if (kmem_get_page_idx(pbase) == 622)
+      printf("Mapped multiboot!\n");
 
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
     if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags)) {
