@@ -705,9 +705,6 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
 
-    if (kmem_get_page_idx(pbase) == 622)
-      printf("Mapped multiboot!\n");
-
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
     if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags)) {
       return false;

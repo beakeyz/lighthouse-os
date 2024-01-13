@@ -5,7 +5,12 @@
 
 #define LOGGER_MAX_COUNT 255
 
-#define LOGGER_FLAG_NO_CHAIN 0x01 /* This logger should not be chained by print calls */
+/* Does this logger display debug info? */
+#define LOGGER_FLAG_DEBUG 0x01
+/* Does this logger display regular info? */
+#define LOGGER_FLAG_INFO 0x02
+/* Does this logger display warnings? */
+#define LOGGER_FLAG_WARNINGS 0x04
 
 typedef uint8_t logger_id_t;
 
@@ -28,7 +33,6 @@ typedef struct {
   int (*f_logc)(char c);
   int (*f_log)(const char* str);
   int (*f_logln)(const char* str);
-  int (*f_logf)(const char* fmt, ...);
 } logger_t;
 
 void init_early_logging();
@@ -62,12 +66,35 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type);
 
 /*
  * Functions that perform a print to the kernels 'stdio'
+ * 
+ * TODO: rename to kprintf, kprintln, ect.
+ *
+ * These prints only send to info loggers
  */
-
-int putch(char c);
+int kputch(char c);
 int print(const char* msg);
 int println(const char* msg);
 int printf(const char* fmt, ...);
 int vprintf(const char* fmt, va_list args);
+
+/* 
+ * Debug print routines
+ *
+ * These prints only send to debug loggers
+ */
+int kdbgf(const char* fmt, ...);
+int kdbgln(const char* msg);
+int kdbg(const char* msg);
+int kdbgc(char c);
+
+/* 
+ * Warning print routines
+ *
+ * These prints only send to warning loggers
+ */
+int kwarnf(const char* fmt, ...);
+int kwarnln(const char* msg);
+int kwarn(const char* msg);
+int kwarnc(char c);
 
 #endif // !__ANIVA_LOGGING__

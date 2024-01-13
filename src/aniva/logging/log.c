@@ -299,7 +299,7 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
  *
  * Nothing to add here...
  */
-static int print_ex(const char* msg, uint8_t type)
+static int print_ex(uint8_t flags, const char* msg, uint8_t type)
 {
   logger_t* current;
 
@@ -307,8 +307,8 @@ static int print_ex(const char* msg, uint8_t type)
 
     current = __loggers[i];
 
-    /* Skip these loggers */
-    if ((current->flags & LOGGER_FLAG_NO_CHAIN))
+    /* Only print to loggers that have matching flags */
+    if ((current->flags & flags) != flags)
       continue;
 
     log_ex(i, msg, nullptr, type);
@@ -317,25 +317,30 @@ static int print_ex(const char* msg, uint8_t type)
   return 0;
 }
 
-int putch(char c) 
+static inline int _kputch(uint8_t typeflags, char c)
 {
   char buff[2] = { 0 };
   buff[0] = c;
 
-  return print_ex(buff, LOG_TYPE_CHAR);
+  return print_ex(typeflags, buff, LOG_TYPE_CHAR);
+}
+
+int kputch(char c) 
+{
+  return _kputch(LOGGER_FLAG_INFO, c);
 }
 
 int print(const char* msg)
 {
-  return print_ex(msg, LOG_TYPE_DEFAULT);
+  return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_DEFAULT);
 }
 
 int println(const char* msg)
 {
-  return print_ex(msg, LOG_TYPE_LINE);
+  return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_LINE);
 }
 
-static void _print_hex(uint64_t value)
+static inline void _print_hex(uint8_t typeflags, uint64_t value)
 {
   uint32_t idx;
   char tmp[128];
@@ -363,10 +368,10 @@ static void _print_hex(uint64_t value)
   tmp[len - 1 - idx] = hex_chars[last];
 
   for (uint32_t i = 0; i < len; i++)
-    putch(tmp[i]);
+    _kputch(typeflags, tmp[i]);
 }
 
-static int _print_decimal(int64_t value, int prec)
+static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec)
 {
   char tmp[128];
   uint8_t size = 1;
@@ -393,19 +398,14 @@ static int _print_decimal(int64_t value, int prec)
   }
   uint8_t remain = value % 10;
   tmp[size - 1 - index] = remain + '0';
-  //tmp[size] = 0;
 
-  //__write_bytes(stream, counter, tmp);
-
-  /* NOTE: don't use __write_bytes here, since it simply goes until it finds a NULL-byte */
-  for (uint32_t i = 0; i < size; i++) {
-    putch(tmp[i]);
-  }
+  for (uint32_t i = 0; i < size; i++)
+    _kputch(typeflags, tmp[i]);
 
   return size;
 }
 
-int vprintf(const char* fmt, va_list args)
+static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
 {
   int prec;
   uint32_t size;
@@ -413,7 +413,7 @@ int vprintf(const char* fmt, va_list args)
   for (const char* c = fmt; *c; c++) {
 
     if (*c != '%')
-      goto putch_cycle;
+      goto kputch_cycle;
 
     size = 0;
     prec = -1;
@@ -461,10 +461,10 @@ int vprintf(const char* fmt, va_list args)
 
           if (value < 0) {
             value = -value;
-            putch('-');
+            _kputch(typeflags, '-');
           }
 
-          _print_decimal(value, prec);
+          _print_decimal(typeflags, value, prec);
           break;
         }
       case 'p':
@@ -486,35 +486,44 @@ int vprintf(const char* fmt, va_list args)
               value = 0;
           }
 
-          _print_hex(value);
+          _print_hex(typeflags, value);
           break;
         }
       case 's':
         {
           const char* str = va_arg(args, char*);
-          print(str);
+          print_ex(typeflags, str, LOG_TYPE_DEFAULT);
           break;
         }
       default:
         {
-          putch(*c);
+          _kputch(typeflags, *c);
           break;
         }
     }
 
     continue;
 
-putch_cycle:
-    putch(*c);
+kputch_cycle:
+    _kputch(typeflags, *c);
   }
 
   return 0;
 }
 
+int vprintf(const char* fmt, va_list args)
+{
+  /*
+   * These kinds of prints should only go to loggers that are marked
+   * as supporting info
+   */
+  return _vprintf(LOGGER_FLAG_INFO, fmt, args);
+}
+
 /*!
  * @brief: Print formated text
  *
- * Slow, since it has to make use of our putch thingy
+ * Slow, since it has to make use of our kputch thingy
  * TODO: implement full fmt scema
  */
 int printf(const char* fmt, ...)
@@ -531,6 +540,63 @@ int printf(const char* fmt, ...)
   return error;
 }
 
+int kdbgf(const char* fmt, ...)
+{
+  int error;
+
+  va_list args;
+  va_start(args, fmt);
+
+  error = _vprintf(LOGGER_FLAG_DEBUG, fmt, args);
+
+  va_end(args);
+
+  return error;
+}
+
+int kdbgln(const char* msg)
+{
+  return print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_LINE);
+}
+
+int kdbg(const char* msg)
+{
+  return print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_DEFAULT);
+}
+
+int kdbgc(char c)
+{
+  return _kputch(LOGGER_FLAG_DEBUG, c);
+}
+
+int kwarnf(const char* fmt, ...)
+{
+  int error;
+
+  va_list args;
+  va_start(args, fmt);
+
+  error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args);
+
+  va_end(args);
+
+  return error;
+}
+
+int kwarnln(const char* msg)
+{
+  return print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_LINE);
+}
+
+int kwarn(const char* msg)
+{
+  return print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_DEFAULT);
+}
+
+int kwarnc(char c)
+{
+  return _kputch(LOGGER_FLAG_WARNINGS, c);
+}
 
 /*!
  * @brief Init the logging system in its early form

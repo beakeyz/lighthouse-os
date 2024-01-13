@@ -39,6 +39,7 @@ extern driver_version_t kernel_version;
 #define SYSFLAGS_HAS_RMM            (0x00000008) /* Do we have resource management? */
 /* If the system is in a volatile state, any thrown error will result in a system panic */
 #define SYSFLAGS_VOLATILE           (0x00000010)
+#define SYSFLAGS_DISABLE_ETTY       (0x00000020)
 
 /* What's the maximum amount of processors we support? */
 #define SYS_MAX_CPU                 1

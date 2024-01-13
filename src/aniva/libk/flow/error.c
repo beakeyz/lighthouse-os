@@ -2,6 +2,7 @@
 #include "dev/core.h"
 #include "dev/debug/serial.h"
 #include "irq/interrupts.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -31,8 +32,7 @@ NORETURN void kernel_panic(const char* panic_message) {
 
   has_paniced = true;
 
-  log("[KERNEL PANIC] ");
-  logln(panic_message);
+  kwarnf("[KERNEL PANIC] %s\n", panic_message);
 
 skip_diagnostics:
   __kernel_panic();

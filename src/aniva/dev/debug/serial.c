@@ -18,11 +18,11 @@ int serial_printf(const char *fmt, ...);
 
 static logger_t serial_logger = {
   .title = "qemu_serial",
-  .flags = NULL,
+  /* Let everything pass through serial */
+  .flags = LOGGER_FLAG_DEBUG | LOGGER_FLAG_INFO | LOGGER_FLAG_WARNINGS,
   .f_logc = serial_putch,
   .f_log = serial_print,
   .f_logln = serial_println,
-  .f_logf = serial_printf,
 };
 
 /*!
@@ -74,10 +74,6 @@ int serial_print(const char* str) {
       serial_putch(str[x++]);
   }
 
-  if (g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) {
-    etty_print((char*)str);
-  }
-
   return 0;
 }
 
@@ -89,16 +85,5 @@ int serial_println(const char* str) {
   if (str[x-1] != '\n') {
       serial_putch('\n');
   }
-
-  if (g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) {
-    etty_println((char*)str);
-  }
-
-  return 0;
-}
-
-int serial_printf(const char *fmt, ...)
-{
-  kernel_panic("TODO: kernel printf");
   return 0;
 }

@@ -165,7 +165,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   init_logging();
 
   // Initialize an early console
-  //init_early_tty(g_system_info.firmware_fb);
+  init_early_tty();
 
   println("Initialized tty");
 
@@ -211,9 +211,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
 
   /* Make sure device access is initialized */
   init_dev_access();
-
-  /* TMP: remove early dbg tty */
-  destroy_early_tty();
 
   /* Initialize HID driver subsystem */
   init_hid();
@@ -286,6 +283,12 @@ void kthread_entry() {
    *  - verify the root device
    *  - launch the userspace bootstrap
    */
+
+  /* 
+   * Remove the early TTY right before we finish low-level system setup. After
+   * this point we're able to support our own debug capabilities
+   */
+  destroy_early_tty();
 
   /*
    * Setup is done: we can start scheduling stuff 

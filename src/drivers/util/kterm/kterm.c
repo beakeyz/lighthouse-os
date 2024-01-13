@@ -190,7 +190,8 @@ static void kterm_scroll(uintptr_t lines);
 
 logger_t kterm_logger = {
   .title = "kterm",
-  .flags = LOGGER_FLAG_NO_CHAIN,
+  /* Only let warnings through */
+  .flags = LOGGER_FLAG_WARNINGS,
   .f_logln = kterm_println,
   .f_log = kterm_print,
 };
@@ -1645,5 +1646,5 @@ static void kterm_scroll(uintptr_t lines)
     new_y++;
   }
 
-  _chars_cursor_y--;
+  _chars_cursor_y -= lines;
 }

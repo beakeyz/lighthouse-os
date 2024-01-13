@@ -3,41 +3,130 @@
 #include "entry/entry.h"
 #include "libk/gfx/font.h"
 #include "libk/string.h"
+#include "logging/log.h"
+#include "mem/heap.h"
 #include "mem/kmem_manager.h"
+
+/*
+ * Aniva early debug tty
+ *
+ * This is a framebuffer-based 'console' (Not even, there is no userinput possible) that catches every type of
+ * system log. This is enabled standard and can be disabled either in the bootloader (TODO) or by the user (TODO)
+ */
+
+struct simple_char {
+  char c;
+  uint32_t clr;
+};
 
 static struct multiboot_tag_framebuffer* framebuffer;
 static uintptr_t vid_buffer;
 static uintptr_t y_idx;
 static uintptr_t x_idx;
+static uint32_t char_xres;
+static uint32_t char_yres;
 static aniva_font_t* etty_font;
+static size_t _char_list_size;
+static struct simple_char* _char_list;
 
 static uint32_t WHITE = 0xFFFFFFFF;
 static uint32_t BLACK = 0x00000000;
 
-static void __etty_pixel(uint32_t x, uint32_t y, uint32_t clr)
+static int etty_putch(char c);
+static int etty_print(const char* str);
+static int etty_println(const char* str);
+
+logger_t early_logger = {
+  .title = "early_tty",
+  .flags = LOGGER_FLAG_INFO | LOGGER_FLAG_DEBUG | LOGGER_FLAG_WARNINGS,
+  .f_log = etty_print,
+  .f_logln = etty_println,
+  .f_logc = etty_putch,
+};
+
+static ALWAYS_INLINE void __etty_pixel(uint32_t x, uint32_t y, uint32_t clr)
 {
   /* Unsafe poke into video memory */
   *(uint32_t volatile*)(vid_buffer + framebuffer->common.framebuffer_pitch * y + x * framebuffer->common.framebuffer_bpp / 8) = clr;
 }
 
-void init_early_tty(struct multiboot_tag_framebuffer* fb)
+static inline int get_simple_char_at(uint32_t x, uint32_t y, struct simple_char** c)
 {
+  *c = &_char_list[y * char_xres + x];
+  return 0;
+}
+
+static inline int etty_draw_char(uint32_t x, uint32_t y, char c, uint32_t clr)
+{
+  struct simple_char* s_char;
+  uint32_t char_xstart, char_ystart;
+  uint8_t* glyph;
+
+  get_simple_char_at(x, y, &s_char);
+
+  /* No need to do anything lol */
+  if (s_char->c == c && s_char->clr == clr)
+    return 0;
+
+  char_xstart = x * etty_font->width;
+  char_ystart = y * etty_font->height;
+
+  if (get_glyph_for_char(etty_font, c, &glyph))
+    return -1;
+
+  s_char->clr = clr;
+  s_char->c = c;
+
+  for (uint32_t i = 0; i < etty_font->height; i++) {
+    for (uint32_t j = 0; j < etty_font->width; j++) {
+      if (glyph[i] & (1 << j))
+        __etty_pixel(char_xstart + j, char_ystart + i, clr);
+      else 
+        __etty_pixel(char_xstart + j, char_ystart + i, BLACK);
+    }
+  }
+
+  return 0;
+}
+
+static inline void etty_clear()
+{
+  for (uint32_t y = 0; y < char_yres; y++) {
+    for (uint32_t x = 0; x < char_xres; x++) {
+      etty_draw_char(x, y, NULL, BLACK);
+    }
+  }
+}
+
+void init_early_tty()
+{
+  struct multiboot_tag_framebuffer* fb;
+
   get_default_font(&etty_font);
+
+  fb = g_system_info.firmware_fb;
 
   framebuffer = fb;
   y_idx = 0;
   x_idx = 0;
 
-  println(to_string((uint64_t)fb));
-  println(to_string((uint64_t)fb->common.framebuffer_addr));
+  char_xres = fb->common.framebuffer_width / etty_font->width;
+  char_yres = fb->common.framebuffer_height / etty_font->height;
 
   vid_buffer = Must(__kmem_kernel_alloc(fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-  for (uint32_t y = 0; y < framebuffer->common.framebuffer_height; y++) {
-    for (uint32_t x = 0; x < framebuffer->common.framebuffer_width; x++) {
-      __etty_pixel(x, y, BLACK);
-    }
-  }
+  /*
+   * Allocate a range for our characters
+   */
+  _char_list_size = char_xres * char_yres * sizeof(struct simple_char);
+  _char_list = (void*)Must(__kmem_kernel_alloc_range(_char_list_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+  memset(_char_list, 0, _char_list_size);
+
+  etty_clear();
+
+  /* Make sure we're installed */
+  register_logger(&early_logger);
 
   g_system_info.sys_flags |= SYSFLAGS_HAS_EARLY_TTY;
 }
@@ -47,50 +136,111 @@ void destroy_early_tty()
   if ((g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) != SYSFLAGS_HAS_EARLY_TTY)
     return;
 
-  for (uint32_t y = 0; y < framebuffer->common.framebuffer_height; y++) {
-    for (uint32_t x = 0; x < framebuffer->common.framebuffer_width; x++) {
-      __etty_pixel(x, y, BLACK);
-    }
-  }
+  unregister_logger(&early_logger);
+
+  etty_clear();
 
   g_system_info.sys_flags &= ~SYSFLAGS_HAS_EARLY_TTY;
+
+  /* Deallocate the char list */
+  __kmem_kernel_dealloc((vaddr_t)_char_list, _char_list_size);
 }
 
-void etty_print(char* str)
+static inline void etty_scroll(uint32_t lines)
 {
-  int error;
-  uint8_t* glyph;
+  uint32_t new_y;
+  struct simple_char* c_char, *n_char;
 
+  if (!lines)
+    return;
+
+  /* We'll always begin drawing at zero */
+  new_y = 0;
+
+  for (uint32_t y = lines; y < (char_yres-lines); y++) {
+    for (uint32_t x = 0; x < char_xres; x++) {
+      get_simple_char_at(x, y, &c_char);
+      get_simple_char_at(x, y-lines, &n_char);
+
+      etty_draw_char(x, y-lines, c_char->c, c_char->clr);
+    }
+
+    new_y++;
+  }
+
+  /* FIXME: this seems broken lmaoooo */
+  /*
+  while (new_y < char_yres) {
+    
+    for (uint32_t x = 0; x < char_xres; x++)
+      etty_draw_char(x, new_y, NULL, BLACK);
+    new_y++;
+  }
+  */
+
+  y_idx -= lines;
+  (void)new_y;
+}
+
+static inline int _etty_shift_x_idx()
+{
+  x_idx++;
+  
+  if (x_idx >= char_xres) {
+    x_idx = 0;
+    y_idx++;
+  }
+
+  if (y_idx >= char_yres) {
+    etty_scroll(1);
+  }
+
+  return 0;
+}
+
+int etty_putch(char c)
+{
+  if (c == '\n') {
+    y_idx++;
+    x_idx = 0;
+
+    if (y_idx >= char_yres)
+      etty_scroll(1);
+  } else {
+    etty_draw_char(x_idx, y_idx, c, WHITE);
+    _etty_shift_x_idx();
+  }
+
+  return 0;
+}
+
+int etty_print(const char* str)
+{
   while (*str) {
 
     if (*str == '\n') {
       x_idx = 0;
-      y_idx += etty_font->height;
+      y_idx++;
+
+      if (y_idx >= char_yres)
+        etty_scroll(1);
+
       goto next;
     }
 
-    error = get_glyph_for_char(etty_font, *str, &glyph);
+    etty_draw_char(x_idx, y_idx, *str, WHITE);
 
-    if (error)
-      return;
+    _etty_shift_x_idx();
 
-    for (uintptr_t y = 0; y < etty_font->height; y++) {
-      for (uintptr_t x = 0; x < etty_font->width; x++) {
-        if (glyph[y] & (1 << x))
-          __etty_pixel(x_idx + x, y_idx + y, WHITE);
-        else 
-          __etty_pixel(x_idx + x, y_idx + y, BLACK);
-      }
-    }
-
-    x_idx += etty_font->width;
 next:
     str++;
   }
+
+  return 0;
 }
 
-void etty_println(char* str)
+int etty_println(const char* str)
 {
   etty_print(str);
-  etty_print("\n");
+  return etty_print("\n");
 }
