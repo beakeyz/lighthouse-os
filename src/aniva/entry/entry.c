@@ -165,7 +165,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   init_logging();
 
   // Initialize an early console
-  //init_early_tty();
+  init_early_tty();
 
   println("Initialized tty");
 

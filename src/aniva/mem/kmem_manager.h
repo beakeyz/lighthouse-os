@@ -113,6 +113,7 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 typedef enum {
   PMRT_USABLE = 1,
   PMRT_RESERVED,
+  PMRT_KERNEL_RESERVED,
   PMRT_ACPI_RECLAIM,
   PMRT_ACPI_NVS,
   PMRT_BAD_MEM,

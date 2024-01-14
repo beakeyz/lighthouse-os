@@ -88,8 +88,7 @@ void prep_mmap(struct multiboot_tag_mmap *mmap)
  */
 void init_kmem_manager(uintptr_t* mb_addr) 
 {
-  //KMEM_DATA.m_contiguous_ranges = kmalloc(sizeof(list_t));
-  KMEM_DATA.m_phys_ranges = kmalloc(sizeof(list_t));
+  KMEM_DATA.m_phys_ranges = init_list();
   KMEM_DATA.m_kmem_flags = 0;
 
   // nested fun
@@ -104,6 +103,16 @@ void init_kmem_manager(uintptr_t* mb_addr)
   _init_kmem_page_layout();
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
+
+  uint32_t idx = 0;
+
+  FOREACH(i, KMEM_DATA.m_phys_ranges) {
+    phys_mem_range_t* range = i->data;
+
+    printf("Memory range (%d) starting at 0x%llx with 0x%llx bytes and type=%d\n", idx, range->start, range->length, range->type);
+
+    idx++;
+  }
 }
 
 int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
@@ -131,10 +140,19 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
 // function inspired by serenityOS
 void parse_mmap() 
 {
-  uintptr_t high_range_addr;
+  bool found_kernel;
+  paddr_t p_kernel_start;
+  paddr_t p_kernel_end;
+  uintptr_t p_range_end;
+  phys_mem_range_t* new_range;
 
   KMEM_DATA.m_phys_pages_count = 0;
   KMEM_DATA.m_highest_phys_addr = 0;
+
+  p_kernel_start = (uintptr_t)&_kernel_start & ~HIGH_MAP_BASE;
+  p_kernel_end = ((uintptr_t)&_kernel_end & ~HIGH_MAP_BASE) + g_system_info.post_kernel_reserved_size;
+  new_range = nullptr;
+  found_kernel = false;
 
   for (uintptr_t i = 0; i < KMEM_DATA.m_mmap_entry_num; i++) {
     multiboot_memory_map_t *map = &KMEM_DATA.m_mmap_entries[i];
@@ -188,30 +206,73 @@ void parse_mmap()
     if (range->type != PMRT_USABLE)
       continue;
 
-    high_range_addr = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
+    p_range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
 
-    if (high_range_addr > KMEM_DATA.m_highest_phys_addr &&
+    if (p_range_end > KMEM_DATA.m_highest_phys_addr &&
         (range->type != PMRT_BAD_MEM && range->type != PMRT_RESERVED)) 
     {
-      KMEM_DATA.m_highest_phys_addr = high_range_addr;
+      KMEM_DATA.m_highest_phys_addr = p_range_end;
       KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->length);
     }
 
-    uintptr_t diff = range->start % SMALL_PAGE_SIZE;
+    range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
+    range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
 
-    if (diff != 0) {
-      diff = SMALL_PAGE_SIZE - diff;
-      range->start += diff;
-      range->length -= diff;
+    if (found_kernel)
+      continue;
+
+    /* Parse out the kernel range */
+    if (range->start <= p_kernel_start && p_range_end >= p_kernel_end) {
+      /* Kernel is completely placed somewhere inside this range */
+      new_range = kmalloc(sizeof(*new_range));
+      new_range->start = ALIGN_DOWN(p_kernel_start, SMALL_PAGE_SIZE);
+      new_range->length = ALIGN_UP(p_kernel_end - p_kernel_start, SMALL_PAGE_SIZE);
+      new_range->type = PMRT_KERNEL_RESERVED;
+
+      list_append(KMEM_DATA.m_phys_ranges, new_range);
+
+      /* Shorten the range that's currently here */
+      range->length = ALIGN_UP(p_kernel_start - range->start, SMALL_PAGE_SIZE);
+
+      /* Append another range to fix the higher part of the range we are fucking with */
+      new_range = kmalloc(sizeof(*new_range));
+      new_range->start = ALIGN_DOWN(p_kernel_end, SMALL_PAGE_SIZE);
+      new_range->length = ALIGN_UP(p_range_end - p_kernel_end, SMALL_PAGE_SIZE);
+      new_range->type = PMRT_USABLE;
+
+      /* Only append if there is room still above the kernel in this range */
+      if (!new_range->length)
+        kfree(new_range);
+      else
+        list_append(KMEM_DATA.m_phys_ranges, new_range);
+      
+      found_kernel = true;
+    } else if (range->start <= p_kernel_start && p_range_end > p_kernel_start) {
+      /* Only the first part of the kernel is inside this range */
+      new_range = kmalloc(sizeof(*new_range));
+      new_range->start = p_kernel_start;
+      new_range->length = p_range_end - p_kernel_start;
+      new_range->type = PMRT_KERNEL_RESERVED;
+
+      list_append(KMEM_DATA.m_phys_ranges, new_range);
+
+      /* Only length changes in this case */
+      range->length -= new_range->length;
+    } else if (p_range_end >= p_kernel_end && range->start < p_kernel_end) {
+      /* Only the last part of the kernel is inside this range */
+      new_range = kmalloc(sizeof(*new_range));
+      new_range->start = range->start;
+      new_range->length = p_kernel_end - range->start;
+      new_range->type = PMRT_KERNEL_RESERVED;
+
+      list_append(KMEM_DATA.m_phys_ranges, new_range);
+
+      range->start += new_range->length;
+      range->length -= new_range->length;
+    } else if (range->start > p_kernel_start && p_range_end < p_kernel_end) {
+      /* (For some reason) This range is completely inside the kernel (WTF?) */
+      range->type = PMRT_KERNEL_RESERVED;
     }
-
-    if ((range->length % SMALL_PAGE_SIZE) != 0) {
-      range->length -= range->length % SMALL_PAGE_SIZE;
-    }
-
-    //if (range->length < SMALL_PAGE_SIZE) {
-      //println("bruh, bootloader gave us a region smaller than a pagesize ;-;");
-    //}
   }
 
   print("Total contiguous pages: ");
@@ -386,8 +447,6 @@ static void kmem_init_physical_allocator()
 
   /* Just in case */
   kmem_set_phys_page_used(0);
-
-  kernel_panic("TEST");
 }
 
 /*
