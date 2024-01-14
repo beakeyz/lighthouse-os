@@ -161,7 +161,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
-  // Initialize logging right after the memory setup
+  // Fully initialize logging right after the memory setup
   init_logging();
 
   // Initialize an early console

@@ -31,7 +31,6 @@
  */
 
 #define STANDARD_PD_ENTRIES 512
-#define MAX_RETRIES_FOR_PAGE_MAPPING 5
 
 /*
  * Why is this a struct?
@@ -49,7 +48,6 @@ static struct {
   multiboot_memory_map_t* m_mmap_entries;
 
   bitmap_t* m_phys_bitmap;
-  bitmap_t* m_mapper_bitmap;
   uintptr_t m_highest_phys_addr;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
@@ -257,6 +255,9 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
     if (c_range->length < size)
       continue;
 
+    /* Assume we're mapped */
+    mapped_size = c_range->length;
+
     /* If the range is only partially mapped, we need to figure out if we can fit into the mapped part */
     if ((c_range->start + c_range->length) > early_map_size)
       mapped_size = early_map_size - c_range->start;
@@ -292,6 +293,7 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
  */
 static void kmem_init_physical_allocator() 
 {
+  phys_mem_range_t bm_range;
   bitmap_t* physical_bitmap;
   vaddr_t bitmap_start_addr;
   paddr_t phys_bm_start;
@@ -302,8 +304,6 @@ static void kmem_init_physical_allocator()
   physical_pages_bytes = (ALIGN_UP(KMEM_DATA.m_phys_pages_count, 8) >> 3);
   physical_bitmap_size = physical_pages_bytes + sizeof(bitmap_t);
 
-  phys_mem_range_t bm_range;
-
   /* Find a bitmap. This is crucial */
   ASSERT_MSG(_allocate_free_physical_range(&bm_range, physical_bitmap_size) == NULL, "Failed to find a physical range for our physmem bitmap!");
 
@@ -312,7 +312,7 @@ static void kmem_init_physical_allocator()
 
   /* Use the fields from the physical range struct */
   phys_bm_start = bm_range.start;
-  phys_bm_end = bm_range.length;
+  phys_bm_end = phys_bm_start + bm_range.length;
 
   /*
    * new FIXME: we allocate a bitmap for the entire memory page space on the heap, 
@@ -391,7 +391,8 @@ static void kmem_init_physical_allocator()
 /*
  * Transform a physical address to an arbitrary virtual base
  */
-vaddr_t kmem_from_phys(uintptr_t addr, vaddr_t vbase) {
+vaddr_t kmem_from_phys(uintptr_t addr, vaddr_t vbase) 
+{
   return (vaddr_t)(vbase | addr);
 }
 
@@ -404,7 +405,8 @@ vaddr_t kmem_from_dma(paddr_t addr)
  * Transform a physical address to an address that is mapped to the 
  * high kernel range
  */
-vaddr_t kmem_ensure_high_mapping(uintptr_t addr) { 
+vaddr_t kmem_ensure_high_mapping(uintptr_t addr) 
+{
   return kmem_from_phys(addr, HIGH_MAP_BASE);
 }
 
