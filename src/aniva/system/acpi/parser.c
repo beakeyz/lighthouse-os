@@ -126,7 +126,6 @@ void parser_init_tables(acpi_parser_t* parser)
 void* find_rsdp(acpi_parser_t* parser) 
 {
   // TODO: check other spots
-  uintptr_t* pointer;
   paddr_t rsdp_addr;
 
   parser->m_is_xsdp = false;
@@ -141,8 +140,7 @@ void* find_rsdp(acpi_parser_t* parser)
 
   if (new_ptr) {
     /* FIXME: check if ->rsdp is a virtual or physical address? */
-    pointer = (uintptr_t*)new_ptr->rsdp;
-    rsdp_addr = *pointer;
+    rsdp_addr = *(uintptr_t*)new_ptr->rsdp;
 
     printf("Multiboot has xsdp: 0x%llx\n", rsdp_addr);
 
@@ -151,14 +149,15 @@ void* find_rsdp(acpi_parser_t* parser)
     parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL));
     parser->m_rsdt_phys = parser->m_rsdp_table->XsdtPhysicalAddress;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
+
+    printf("Mapped xsdp to 0x%p", parser->m_rsdp_table);
     return parser->m_rsdp_table;
   }
 
   struct multiboot_tag_old_acpi* old_ptr = g_system_info.rsdp;
 
   if (old_ptr) {
-    pointer = (uintptr_t*)old_ptr->rsdp;
-    rsdp_addr = *pointer;
+    rsdp_addr = *(uintptr_t*)old_ptr->rsdp;
 
     printf("Multiboot has rsdp: 0x%llx\n", rsdp_addr);
 

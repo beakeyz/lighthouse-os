@@ -23,6 +23,13 @@
 #include <dev/driver.h>
 #include <dev/manifest.h>
 
+/*
+ * Aniva kernel memory manager
+ *
+ * This file is a big mess. There is unused code, long and unreadable code, stuff that's half broken and
+ * stuff that just really likes to break for some reason. This file needs a big dust-off ASAP
+ */
+
 #define STANDARD_PD_ENTRIES 512
 #define MAX_RETRIES_FOR_PAGE_MAPPING 5
 
@@ -213,6 +220,72 @@ void parse_mmap()
   println(to_string(KMEM_DATA.m_phys_pages_count));
 }
 
+/*!
+ * @brief: Finds a free physical range that fits @size bytes
+ *
+ * When a usable range is found, we truncate the range in the physical range list and return a
+ * dummy range. This range won't be included in the total physical range list, but that won't be
+ * needed, as we will only look at ranges marked as usable. This means we can get away with only 
+ * resizing the range we steal bytes from
+ */
+static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
+{
+  size_t mapped_size;
+  phys_mem_range_t* c_range;
+  phys_mem_range_t* selected_range;
+
+  mapped_size = NULL;
+  selected_range = NULL;
+
+  /* Make sure we're allocating on page boundries */
+  size = ALIGN_UP(size, SMALL_PAGE_SIZE);
+
+  printf("Looking for %lld bytes\n", size);
+  printf("We already have %lld bytes mapped\n", early_map_size);
+
+  FOREACH(i, KMEM_DATA.m_phys_ranges) {
+    c_range = i->data;
+
+    /* Only look for usable ranges */
+    if (c_range->type != PMRT_USABLE)
+      continue;
+
+    /* Can't use any ranges that aren't mapped */
+    if (c_range->start >= early_map_size)
+      continue;
+
+    if (c_range->length < size)
+      continue;
+
+    /* If the range is only partially mapped, we need to figure out if we can fit into the mapped part */
+    if ((c_range->start + c_range->length) > early_map_size)
+      mapped_size = early_map_size - c_range->start;
+
+    /* Get the stuff we need */
+    selected_range = c_range;
+
+    /* Check if we fit */
+    if (size < mapped_size)
+      break;
+
+    /* Fuck, reset and go next */
+    selected_range = NULL;
+  }
+
+  if (!selected_range)
+    return -1;
+
+  /* Create a new dummy range */
+  range->start = selected_range->start;
+  range->length = size;
+  range->type = PMRT_RESERVED;
+
+  selected_range->start += size;
+  selected_range->length -= size;
+
+  return 0;
+}
+
 /*
  * Initialize the physical page allocator that keeps track
  * of which physical pages are used and which are free
@@ -221,7 +294,6 @@ static void kmem_init_physical_allocator()
 {
   bitmap_t* physical_bitmap;
   vaddr_t bitmap_start_addr;
-  vaddr_t bitmap_end_addr;
   paddr_t phys_bm_start;
   paddr_t phys_bm_end;
   size_t physical_bitmap_size;
@@ -230,21 +302,17 @@ static void kmem_init_physical_allocator()
   physical_pages_bytes = (ALIGN_UP(KMEM_DATA.m_phys_pages_count, 8) >> 3);
   physical_bitmap_size = physical_pages_bytes + sizeof(bitmap_t);
 
+  phys_mem_range_t bm_range;
+
+  /* Find a bitmap. This is crucial */
+  ASSERT_MSG(_allocate_free_physical_range(&bm_range, physical_bitmap_size) == NULL, "Failed to find a physical range for our physmem bitmap!");
+
   /* Compute where our bitmap MUST go */
-  bitmap_start_addr = g_system_info.kernel_end_addr + g_system_info.post_kernel_reserved_size;
-  bitmap_end_addr = bitmap_start_addr + physical_bitmap_size;
+  bitmap_start_addr = kmem_ensure_high_mapping(bm_range.start);
 
-  /* Clear the page table indexing bits in the virtual address to get the physical address */
-  phys_bm_start = (bitmap_start_addr & ~(HIGH_MAP_BASE));
-  phys_bm_end = (bitmap_end_addr & ~(HIGH_MAP_BASE));
-
-  /*
-  println("KTERM PHYSICAL ALLOCATOR DATA: ");
-  println(to_string(physical_pages_bytes));
-  println(to_string(phys_bm_start));
-  println(to_string(phys_bm_end));
-  println(to_string(early_map_size));
-  */
+  /* Use the fields from the physical range struct */
+  phys_bm_start = bm_range.start;
+  phys_bm_end = bm_range.length;
 
   /*
    * new FIXME: we allocate a bitmap for the entire memory page space on the heap, 
@@ -262,10 +330,11 @@ static void kmem_init_physical_allocator()
   physical_bitmap->m_entries = physical_pages_bytes * 8;
   physical_bitmap->m_default = 0xff;
 
+  printf("Trying to initialize our bitmap with %lld entries\n", physical_bitmap->m_entries);
+
   memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
 
   KMEM_DATA.m_phys_bitmap = physical_bitmap;
-  KMEM_DATA.m_phys_bitmap->m_entries = KMEM_DATA.m_phys_pages_count;
 
   paddr_t base;
   size_t size;
@@ -302,8 +371,11 @@ static void kmem_init_physical_allocator()
 
   // subtract the base of the mapping used while booting
   const paddr_t physical_kernel_start = ALIGN_DOWN((uintptr_t)&_kernel_start - HIGH_MAP_BASE, SMALL_PAGE_SIZE);
-  const size_t kernel_size = phys_bm_end - physical_kernel_start;
+  const paddr_t physical_kernel_end = (ALIGN_UP((uintptr_t)&_kernel_end - HIGH_MAP_BASE, SMALL_PAGE_SIZE)) + g_system_info.post_kernel_reserved_size;
+  const size_t kernel_size = physical_kernel_end - physical_kernel_start;
   const size_t kernel_page_count = GET_PAGECOUNT(kernel_size) + 1;
+
+  printf("Trying to preserve %lld kernel pages (%lld bytes)\n", kernel_page_count, kernel_size);
 
   for (uintptr_t i = 0; i < kernel_page_count; i++) {
     const paddr_t addr = physical_kernel_start + (i * SMALL_PAGE_SIZE);
@@ -484,7 +556,7 @@ pml_entry_t *kmem_get_krnl_dir() {
  * we need a good idea of where we map certain resources and things (i.e. drivers, I/O ranges,
  * generic kernel_resources, ect.)
  */
-pml_entry_t *kmem_get_page(pml_entry_t* root, uintptr_t addr, unsigned int kmem_flags, uint32_t page_flags) 
+pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_flags, uint32_t page_flags) 
 {
   addr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
 
@@ -706,9 +778,8 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     const uintptr_t pbase = phys_base + offset;
 
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
-    if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags)) {
+    if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags))
       return false;
-    }
   }
 
   return true;

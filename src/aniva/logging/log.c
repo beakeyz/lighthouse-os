@@ -468,6 +468,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
           break;
         }
       case 'p':
+        size = 2;
       case 'x':
       case 'X':
         {

@@ -41,7 +41,7 @@ void get_root_acpi_parser(struct acpi_parser** out)
 
 paddr_t find_acpi_root_ptr()
 {
-  if (_parser.m_xsdp_phys)
+  if (_parser.m_is_xsdp)
     return _parser.m_xsdp_phys;
 
   return _parser.m_rsdp_phys;

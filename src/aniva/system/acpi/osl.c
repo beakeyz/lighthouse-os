@@ -72,26 +72,25 @@ ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_P
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
-  vaddr_t vaddr;
-
-  //println("Calling: AcpiOsMapMemory");
-
-  Length = ALIGN_UP(Length, SMALL_PAGE_SIZE);
-
-  vaddr = Must(__kmem_kernel_alloc(PhysicalAddress, Length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
-
-  /* FIXME: does this fuck us? */
-  //memset((void*)vaddr, 0, Length);
-
-  //println("Called: AcpiOsMapMemory");
-  return (void*)(vaddr);
+  return (void*)Must(__kmem_alloc_ex(
+        nullptr, 
+        nullptr, 
+        PhysicalAddress, 
+        HIGH_MAP_BASE, 
+        Length, 
+        NULL, 
+        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
+        )
+      );
 }
 
 void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 {
   //println("Calling: AcpiOsUnmapMemory");
-  __kmem_kernel_dealloc((vaddr_t)where, length);
+  //__kmem_kernel_dealloc((vaddr_t)where, length);
   //println("Called: AcpiOsUnmapMemory");
+  //kmem_unmap_range(nullptr, (vaddr_t)where, GET_PAGECOUNT(length));
+  __kmem_dealloc_unmap(nullptr, nullptr, (vaddr_t)where, length);
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)
@@ -101,6 +100,9 @@ ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS
 
   //println("Calling: AcpiOsGetPhysicalAddress");
   *PhysicalAddress = kmem_to_phys(nullptr, (vaddr_t)LogicalAddress);
+
+  if (!(*PhysicalAddress))
+    return AE_NOT_FOUND;
   //println("Called: AcpiOsGetPhysicalAddress");
   return AE_OK;
 }
@@ -179,6 +181,8 @@ void* AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 
   ret = zalloc_fixed(Cache);
 
+  if (!ret)
+    return nullptr;
   //printf("done AcpiOsAcquireObject (0x%p)\n", ret);
 
   memset(ret, 0, Cache->m_entry_size);
@@ -357,6 +361,10 @@ ACPI_STATUS AcpiOsNotifyCommandComplete()
   return AE_OK;
 }
 
+/*!
+ * 
+ * FIXME: Should this return a fid?
+ */
 ACPI_THREAD_ID AcpiOsGetThreadId()
 {
   thread_t* c;
@@ -364,7 +372,7 @@ ACPI_THREAD_ID AcpiOsGetThreadId()
   c = get_current_scheduling_thread();
 
   if (!c)
-    return 0xFFFFFFFF;
+    return 1;
 
   return c->m_tid;
 }
