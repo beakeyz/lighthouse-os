@@ -11,8 +11,8 @@ extern processor_exit_interruption
 [global interrupt_asm_entry_%1]
 interrupt_asm_entry_%1:
 
-  push %1
   push 0x00
+  push %1
 
   push r15
   push r14
@@ -48,7 +48,7 @@ interrupt_asm_entry_%1:
 [global interrupt_excp_asm_entry_%1]
 interrupt_excp_asm_entry_%1:
 
-  push 0x00
+  push %1
 
   push r15
   push r14
@@ -84,8 +84,8 @@ interrupt_excp_asm_entry_%1:
 [global interrupt_excp_asm_entry_%1]
 interrupt_excp_asm_entry_%1:
 
+  push 0
   push %1
-  push 0x00
 
   push r15
   push r14

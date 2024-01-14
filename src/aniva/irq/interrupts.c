@@ -1,6 +1,7 @@
 #include "interrupts.h"
 #include "irq/ctl/ctl.h"
 #include "irq/ctl/pic.h"
+#include "irq/faults/faults.h"
 #include "irq/idt.h"
 #include "libk/bin/ksyms.h"
 #include "logging/log.h"
@@ -619,8 +620,33 @@ acknowlege:
  */
 registers_t* exception_handler (struct registers* regs)
 {
-  printf("Got exception number: %lld\n", regs->isr_no);
-  kernel_panic("FUCK got an exception!");
+  enum FAULT_RESULT result;
+  aniva_fault_t fault;
+  uint32_t exc_num;
+  proc_t* c_proc;
+
+  exc_num = regs->isr_no;
+
+  kwarnf("Got isr no (%lld) and err no (%lld)\n", regs->isr_no, regs->err_code);
+
+  if (get_fault(exc_num, &fault))
+    kernel_panic("Got an exception but failed to get the fault handler!");
+
+  c_proc = get_current_proc();
+
+  result = try_handle_fault(&fault, regs);
+
+  switch (result) {
+    case FR_KILL_PROC:
+      Must(try_terminate_process(c_proc));
+      break;
+    case FR_FATAL:
+      kernel_panic("Failed to handle fatal fault!");
+    default:
+      break;
+  }
+
+  /* Fault should have been handled! */
   return regs;
 }
 

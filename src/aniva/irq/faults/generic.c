@@ -4,7 +4,90 @@
 #include "libk/stddef.h"
 #include <logging/log.h>
 
+/*
+ * These generic fault should be handler right here and most of the
+ * time they should just continue execution
+ */
+
+/* Div by zero, no assess */
 static enum FAULT_RESULT div_by_zero_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Debug trap, no assess */
+static enum FAULT_RESULT debug_trap_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Breakpoint, no assess */
+static enum FAULT_RESULT breakpoint_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Illegal instruction, no assess */
+static enum FAULT_RESULT illegal_instr_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Invalid TSS */
+static enum FAULT_RESULT tss_err_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Segment not present */
+static enum FAULT_RESULT seg_not_present_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Stack seg fault */
+static enum FAULT_RESULT stack_seg_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Reserved */
+static enum FAULT_RESULT reserved_irq_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/*
+ * Security faults mostly just kill the current process
+ */
+
+/* Machine check */
+extern enum FAULT_RESULT machine_chk_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Virtualization */
+extern enum FAULT_RESULT virt_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Control protection */
+extern enum FAULT_RESULT control_prot_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Hypervisor injection */
+extern enum FAULT_RESULT hyprv_inj_handler(const aniva_fault_t* fault, registers_t* regs);
+/* VMM communication */
+extern enum FAULT_RESULT vmm_com_handler(const aniva_fault_t* fault, registers_t* regs);
+/* Security */
+extern enum FAULT_RESULT security_fault_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* FPU error, no assess */
+extern enum FAULT_RESULT fpu_err_handler(const aniva_fault_t* fault, registers_t* regs);
+/* x87 FPU */
+extern enum FAULT_RESULT x87_fpu_err_handler(const aniva_fault_t* fault, registers_t* regs);
+/* SIMD FPU */
+extern enum FAULT_RESULT simd_fpu_err_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/*
+ * Memory faults
+ */
+
+/* Alignment failure */
+extern enum FAULT_RESULT alignment_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* Segment overrun */
+extern enum FAULT_RESULT seg_overrun_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* Bounds range */
+extern enum FAULT_RESULT boundrange_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* Overflow */
+extern enum FAULT_RESULT overflow_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/*
+ * (Probably) fatal faults
+ */
+
+/* Double fault */
+extern enum FAULT_RESULT doublefault_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* NMI, no assess */
+extern enum FAULT_RESULT unknown_err_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* PF */
+extern enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/* GPF */
+extern enum FAULT_RESULT gpf_handler(const aniva_fault_t* fault, registers_t* regs);
+
+/*
+static enum FAULT_RESULT generic_skip_debug_asses(const aniva_fault_t* fault, registers_t* regs)
+{
+  return FR_SKIP_DEBUG;
+}
+*/
 
 static const aniva_fault_t _static_faults[] = {
   {
@@ -12,23 +95,226 @@ static const aniva_fault_t _static_faults[] = {
     0,
     FT_DEVIDE_BY_ZERO,
     "Devide by zero",
-    NULL,
     div_by_zero_handler,
   },
   {
-    0,
+    1,
     0,
     FT_DEBUG,
     "Debug trap",
-    NULL,
-    NULL,
+    debug_trap_handler,
+  },
+  {
+    2,
+    0,
+    FT_FATAL,
+    "Unknown error (NMI)",
+    unknown_err_handler,
+  },
+  {
+    3,
+    0,
+    FT_DEBUG,
+    "Breakpoint",
+    breakpoint_handler,
+  },
+  {
+    4,
+    0,
+    FT_SECURITY,
+    "Overflow",
+    overflow_handler
+  },
+  {
+    5,
+    0,
+    FT_MEMORY,
+    "Bounds range exceeded",
+    boundrange_handler,
+  },
+  {
+    6,
+    0,
+    FT_SECURITY,
+    "Illegal instruction",
+    illegal_instr_handler,
+  },
+  {
+    7,
+    0,
+    FT_FPU,
+    "Generic FPU error",
+    fpu_err_handler,
+  },
+  {
+    8,
+    0,
+    FT_FATAL,
+    "Double fault",
+    doublefault_handler,
+  },
+  {
+    9,
+    0,
+    FT_MEMORY,
+    "Segment overrun",
+    seg_overrun_handler,
+  },
+  {
+    10,
+    0,
+    FT_MEMORY,
+    "Invalid TSS",
+    tss_err_handler,
+  },
+  {
+    11,
+    0,
+    FT_MEMORY,
+    "Segment not present",
+    seg_not_present_handler,
+  },
+  {
+    12,
+    0,
+    FT_MEMORY,
+    "Stack segment fault",
+    stack_seg_handler,
+  },
+  {
+    13,
+    0,
+    FT_GPF,
+    "General protection fault",
+    gpf_handler,
+  },
+  {
+    14,
+    FAULT_FLAG_PRINT_DEBUG | FAULT_FLAG_TRACEBACK,
+    FT_PAGEFAULT,
+    "Pagefault",
+    pagefault_handler,
+  },
+  {
+    15,
+    0,
+    FT_RESERVED,
+    "Reserved 0",
+    reserved_irq_handler,
+  },
+  {
+    16,
+    0,
+    FT_FPU,
+    "x87 FPU fault",
+    x87_fpu_err_handler,
+  },
+  {
+    17,
+    0,
+    FT_MEMORY,
+    "Alignment fault",
+    alignment_handler,
+  },
+  {
+    18,
+    0,
+    FT_SECURITY,
+    "Machine check",
+    machine_chk_handler,
+  },
+  {
+    19,
+    0,
+    FT_FPU,
+    "SIMD FPU fault",
+    simd_fpu_err_handler,
+  },
+  {
+    20,
+    0,
+    FT_SECURITY,
+    "Virtualization",
+    virt_handler,
+  },
+  {
+    21,
+    0,
+    FT_SECURITY,
+    "Control protection",
+    control_prot_handler,
+  },
+  {
+    22,
+    0,
+    FT_RESERVED,
+    "Reserved 1",
+    reserved_irq_handler,
+  },
+  {
+    23,
+    0,
+    FT_RESERVED,
+    "Reserved 2",
+    reserved_irq_handler,
+  },
+  {
+    24,
+    0,
+    FT_RESERVED,
+    "Reserved 3",
+    reserved_irq_handler,
+  },
+  {
+    25,
+    0,
+    FT_RESERVED,
+    "Reserved 4",
+    reserved_irq_handler,
+  },
+  {
+    26,
+    0,
+    FT_RESERVED,
+    "Reserved 5",
+    reserved_irq_handler,
+  },
+  {
+    27,
+    0,
+    FT_RESERVED,
+    "Reserved 6",
+    reserved_irq_handler,
+  },
+  {
+    28,
+    0,
+    FT_SECURITY,
+    "Hypervisor injection",
+    hyprv_inj_handler,
+  },
+  {
+    29,
+    FAULT_FLAG_PRINT_DEBUG | FAULT_FLAG_TRACEBACK,
+    FT_SECURITY,
+    "VMM communication",
+    vmm_com_handler,
+  },
+  {
+    30,
+    0,
+    FT_SECURITY,
+    "Security fault",
+    security_fault_handler,
+  },
+  {
+    31,
+    0,
+    FT_RESERVED,
+    "Reserved 7",
+    reserved_irq_handler,
   }
 };
-
-static enum FAULT_RESULT div_by_zero_handler(const aniva_fault_t* fault, registers_t* regs)
-{
-  kernel_panic("TODO: figure out what to do here");
-}
 
 /*!
  * @brief: Prints a quick stackdump to the default kernel output
@@ -92,6 +378,11 @@ int get_fault(uint32_t irq_num, aniva_fault_t* out)
     return -1;
 
   *out = _static_faults[irq_num];
+
+  /* ->type should never be zero (FT_UNIMPLEMENTED) */
+  if (out->type == FT_UNIMPLEMENTED)
+    return -2;
+
   return 0;
 }
 
@@ -125,23 +416,8 @@ extern enum FAULT_RESULT try_handle_fault(aniva_fault_t* fault, registers_t* ctx
 
   result = FR_FATAL;
 
-  /* Try to assess */
-  if (fault->f_assess)
-    result = fault->f_assess(fault, ctx);
-
-  if (result == FR_FATAL)
-    return FR_FATAL;
-
-  /* We can quickly fix this issue, skip debug */
-  if (result == FR_SKIP_DEBUG)
-    goto try_handle;
-
   if ((fault->flags & FAULT_FLAG_PRINT_DEBUG) == FAULT_FLAG_PRINT_DEBUG)
     _fault_print_debug(fault, ctx);
-
-  /* Skip only the heavy part of the debug */
-  if (result == FR_DO_PARTIAL_DEBUG)
-    goto try_handle;
 
   /* Should we do a traceback? */
   if ((fault->flags & FAULT_FLAG_TRACEBACK) == FAULT_FLAG_TRACEBACK)
@@ -151,7 +427,6 @@ extern enum FAULT_RESULT try_handle_fault(aniva_fault_t* fault, registers_t* ctx
   if ((fault->flags & FAULT_FLAG_DEBUG_DUMP) == FAULT_FLAG_DEBUG_DUMP)
     kernel_panic("TODO: perform a complete system dump");
 
-try_handle:
   if (fault->f_handle)
     /* Try to handle the fault */
     result = fault->f_handle(fault, ctx);
@@ -170,3 +445,42 @@ try_handle:
   return result;
 }
 
+static enum FAULT_RESULT div_by_zero_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Div by zero): figure out what to do here");
+}
+
+static enum FAULT_RESULT debug_trap_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Debug trap): figure out what to do here");
+}
+
+static enum FAULT_RESULT breakpoint_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Breakpoint): figure out what to do here");
+}
+
+static enum FAULT_RESULT illegal_instr_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Illegal instruction): figure out what to do here");
+}
+
+static enum FAULT_RESULT tss_err_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Invalid TSS): figure out what to do here");
+}
+
+static enum FAULT_RESULT seg_not_present_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Seg not present): figure out what to do here");
+}
+
+static enum FAULT_RESULT stack_seg_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Stack seg): figure out what to do here");
+}
+
+static enum FAULT_RESULT reserved_irq_handler(const aniva_fault_t* fault, registers_t* regs)
+{
+  kernel_panic("TODO (Reserved): figure out what to do here");
+}

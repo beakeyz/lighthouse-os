@@ -591,7 +591,7 @@ bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr)
 
   for (uint32_t i = 0; i < entries; i++) {
 
-    c_entry = acpi_parser_find_table_idx(parser, ACPI_SIG_MCFG, i, sizeof(acpi_mcfg_entry_t));
+    c_entry = &mcfg_ptr->Allocations[i];
 
     uint8_t start = c_entry->StartBusNumber;
     uint8_t end = c_entry->EndBusNumber;

@@ -1,4 +1,5 @@
 #include "irq/faults/faults.h"
+#include "libk/flow/error.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "proc/thread.h"

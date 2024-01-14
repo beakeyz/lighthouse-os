@@ -1667,14 +1667,6 @@ typedef struct acpi_madt_oem_data
  *
  ******************************************************************************/
 
-typedef struct acpi_table_mcfg
-{
-    ACPI_TABLE_HEADER       Header;             /* Common ACPI table header */
-    UINT8                   Reserved[8];
-
-} ACPI_TABLE_MCFG;
-
-
 /* Subtable */
 
 typedef struct acpi_mcfg_allocation
@@ -1686,6 +1678,16 @@ typedef struct acpi_mcfg_allocation
     UINT32                  Reserved;
 
 } ACPI_MCFG_ALLOCATION;
+
+typedef struct acpi_table_mcfg
+{
+    ACPI_TABLE_HEADER       Header;             /* Common ACPI table header */
+    UINT8                   Reserved[8];
+    /* NOTE: aniva addition */
+    ACPI_MCFG_ALLOCATION    Allocations[];
+
+} ACPI_TABLE_MCFG;
+
 
 
 /*******************************************************************************

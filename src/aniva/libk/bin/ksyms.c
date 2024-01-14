@@ -1,5 +1,6 @@
 #include "ksyms.h"
 #include "dev/debug/serial.h"
+#include "mem/kmem_manager.h"
 #include <libk/string.h>
 
 /*
@@ -38,6 +39,10 @@ const char* get_best_ksym_name(uintptr_t address)
   ksym_t* c_symbol = (ksym_t*)i;
   ksym_t* best_symbol = nullptr;
   size_t best_addr = 0;
+
+  /* No kernel address, fuck off */
+  if (address < KERNEL_MAP_BASE)
+    return nullptr;
 
   while (c_symbol->sym_len) {
     c_symbol = (ksym_t*)i;

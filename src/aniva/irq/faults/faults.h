@@ -30,12 +30,14 @@ enum FAULT_RESULT {
  * all brought under their own categories
  */
 enum FAULT_TYPE {
-  FT_PAGEFAULT = 0,
+  FT_UNIMPLEMENTED = 0,
+  FT_PAGEFAULT,
   FT_GPF,
   FT_DEVIDE_BY_ZERO,
-  FT_FLOATING_POINT,
   FT_MEMORY,
   FT_SECURITY,
+  FT_FPU,
+  FT_RESERVED,
   FT_FATAL,
   FT_DEBUG,
   FT_GENERIC,
@@ -63,8 +65,6 @@ typedef struct aniva_fault {
 
   const char* name;
 
-  /* Assess the damage */
-  enum FAULT_RESULT (*f_assess)(const struct aniva_fault*, registers_t* ctx);
   /* Handle the fault */
   enum FAULT_RESULT (*f_handle)(const struct aniva_fault*, registers_t* ctx);
 } aniva_fault_t;
