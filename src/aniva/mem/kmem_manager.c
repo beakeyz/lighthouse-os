@@ -386,6 +386,8 @@ static void kmem_init_physical_allocator()
 
   /* Just in case */
   kmem_set_phys_page_used(0);
+
+  kernel_panic("TEST");
 }
 
 /*
@@ -1283,6 +1285,11 @@ static void _init_kmem_page_layout ()
 
   /* Load the new pagemap baby */
   kmem_load_page_dir(map, true);
+
+  /* Free up old pagemaps */
+  __kmem_kernel_dealloc((vaddr_t)boot_pml4t, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc((vaddr_t)boot_pdpt, SMALL_PAGE_SIZE);
+  __kmem_kernel_dealloc((vaddr_t)boot_pd0, SMALL_PAGE_SIZE);
 }
 
 
