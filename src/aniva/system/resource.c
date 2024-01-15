@@ -27,19 +27,7 @@
  */
 static mutex_t* __resource_mutex = nullptr;
 static zone_allocator_t* __resource_allocator = nullptr;
-static kresource_bundle_t __kernel_resource_bundle = { 0 };
-
-/*!
- * @brief Returns a pointer to the start of the kernel bundle
- */
-kresource_t** resource_get_kernel_bundle()
-{
-  /* Make sure we return null when we are not yet initialized */
-  if (!__resource_mutex || !__resource_allocator)
-    return nullptr;
-
-  return __kernel_resource_bundle;
-}
+static kresource_bundle_t* __kernel_resource_bundle = NULL;
 
 static inline bool __resources_are_mergeable(kresource_t* current, kresource_t* next) 
 {
@@ -47,6 +35,7 @@ static inline bool __resources_are_mergeable(kresource_t* current, kresource_t* 
   return (current && next && current->m_next == next && current->m_shared_count == next->m_shared_count);
 }
 
+/*
 static inline bool __resource_fits_inside(uintptr_t start, size_t size, kresource_t* resource)
 {
   if (!resource)
@@ -54,6 +43,7 @@ static inline bool __resource_fits_inside(uintptr_t start, size_t size, kresourc
 
   return (start >= resource->m_start && (start + size) <= (resource->m_start + resource->m_size));
 }
+*/
 
 static inline bool __covers_entire_resource(uintptr_t start, size_t size, kresource_t* resource)
 {
@@ -196,7 +186,6 @@ static kresource_t** __find_kresource(uintptr_t address, kresource_type_t type, 
 
 /*
  * Check if a resource is colliding with another resource AND the next
- */
 static inline bool __kresource_does_collide_with_next(kresource_t* new, kresource_t* old) 
 {
   if (!new || !old || !old->m_next)
@@ -207,6 +196,7 @@ static inline bool __kresource_does_collide_with_next(kresource_t* new, kresourc
 
   return ((new->m_start + new->m_size) > old->m_next->m_start);
 }
+ */
 
 static void __destroy_kresource(kresource_t* resource)
 {
@@ -248,18 +238,6 @@ static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_t
   return __create_kresource_ex("Generic resource", start, size, type);
 }
 
-ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions)
-{
-  kresource_type_t type;
-
-  if (!regions || !(*regions))
-    return Error();
-
-  type = (*regions)->m_type;
-  
-  return resource_claim_ex("Generic Claim", nullptr, start, size, type, regions);
-}
-
 /*!
  * @brief Claims a resource for the kernel
  *
@@ -277,20 +255,17 @@ ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start,
  * overlapping resources. @regions needs to be an active object that represents a resource range
  * (Like a memoryspace or an IRQ range)
  */
-ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions)
+ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* regions)
 {
   kresource_t** curr_resource_slot;
 
-  if (!__resource_mutex || !__resource_allocator || !regions || !(*regions) || !__resource_type_is_valid(type))
-    return Error();
-
-  if ((*regions)->m_type != type)
+  if (!__resource_mutex || !__resource_allocator || !regions || !__resource_type_is_valid(type))
     return Error();
 
   mutex_lock(__resource_mutex);
 
   /* Find the lowest resource that collides with this range */
-  curr_resource_slot = __find_kresource(start, type, regions);
+  curr_resource_slot = __find_kresource(start, type, &regions->resources[type]);
 
   if (!(*curr_resource_slot)) {
     mutex_unlock(__resource_mutex);
@@ -598,14 +573,14 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
  * Creates a kresource mirror that may be used in order to 
  * claim this region, for instance
  */
-ErrorOrPtr resource_find_usable_range(kresource_bundle_t bundle, kresource_type_t type, size_t size)
+ErrorOrPtr resource_find_usable_range(kresource_bundle_t* bundle, kresource_type_t type, size_t size)
 {
   kresource_t* current;
 
   if (!bundle)
     return Error();
 
-  current = GET_RESOURCE(bundle, type);
+  current = bundle->resources[type];
 
   if (!current)
     return Error();
@@ -621,44 +596,21 @@ ErrorOrPtr resource_find_usable_range(kresource_bundle_t bundle, kresource_type_
   return Error();
 }
 
-void debug_resources(kresource_t** bundle, kresource_type_t type)
-{
-  uintptr_t index;
-  kresource_t* list;
-
-  if (!__resource_type_is_valid(type))
-    return;
-
-  list = bundle[type];
-  index = 0;
-
-  println("Debugging resources: ");
-
-  if (!__resource_mutex || !list || !__resource_allocator)
-    return;
-
-  for (; list; list = list->m_next) {
-    print("Resource (");
-    print(to_string(index));
-    print(") : { ");
-    print(to_string(list->m_start));
-    print(" (");
-    print(to_string(list->m_size));
-    print(" bytes) references: ");
-    print(to_string(list->m_shared_count));
-    println(" } ");
-    index ++;
-  }
-}
-
 void destroy_kresource(kresource_t* resource)
 {
   memset(resource, 0, sizeof(kresource_t));
   zfree_fixed(__resource_allocator, resource);
 }
 
-void create_resource_bundle(kresource_bundle_t* out)
+kresource_bundle_t* create_resource_bundle(page_dir_t* dir)
 {
+  kresource_bundle_t* ret;
+
+  ret = kmalloc(sizeof(*ret));
+
+  if (!ret)
+    return nullptr;
+
   /*
    * Create a base-resource for every resource type that starts
    * at 0 and ends at 64bit_max. Every subsequent resource shall 
@@ -667,16 +619,20 @@ void create_resource_bundle(kresource_bundle_t* out)
   for (kresource_type_t type = KRES_MIN_TYPE; type <= KRES_MAX_TYPE; type++) {
     kresource_t* start_resource = __create_kresource(0, 0xFFFFFFFFFFFFFFFF, type);
 
-    (*out)[type] = start_resource;
+    ret->resources[type] = start_resource;
   }
+
+  ret->page_dir = dir;
+
+  return ret;
 }
 
-static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t bundle)
+static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t* bundle)
 {
   uint64_t start = resource->m_start;
   uint64_t size = resource->m_size;
 
-  __kmem_dealloc_ex(nullptr, bundle, start, size, false, true, true);
+  __kmem_dealloc_ex(bundle->page_dir ? bundle->page_dir->m_root : NULL, bundle, start, size, false, true, true);
 }
 
 /*!
@@ -687,7 +643,7 @@ static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t bundl
  * managing their teardown themselves, since we can simply give them a fuction pointer to
  * a function that knows how to destroy and cleanup that type of resource (like kmalloc, vs __kmem_kernel_alloc)
  */
-static void __bundle_clear_resources(kresource_bundle_t bundle)
+static void __bundle_clear_resources(kresource_bundle_t* bundle)
 {
   kresource_t* start_resource;
   kresource_t* current;
@@ -696,7 +652,7 @@ static void __bundle_clear_resources(kresource_bundle_t bundle)
   for (kresource_type_t type = 0; type < KRES_MAX_TYPE; type++) {
 
     /* Find the first resource of this type */
-    current = start_resource = bundle[type];
+    current = start_resource = bundle->resources[type];
 
     while (current) {
 
@@ -734,7 +690,7 @@ next_resource:
  * @brief Clears all the resources in a bundle that we own
  * Nothing to add here...
  */
-ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t bundle)
+ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t* bundle)
 {
   kresource_t* next;
   kresource_t* current;
@@ -760,7 +716,7 @@ ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bu
   return Success(0);
 }
 
-void destroy_resource_bundle(kresource_bundle_t bundle)
+void destroy_resource_bundle(kresource_bundle_t* bundle)
 {
   kresource_t* current;
 
@@ -768,7 +724,7 @@ void destroy_resource_bundle(kresource_bundle_t bundle)
   
   for (kresource_type_t type = KRES_MIN_TYPE; type <= KRES_MAX_TYPE; type++) {
     
-    current = bundle[type];
+    current = bundle->resources[type];
 
     while (current) {
 
@@ -779,6 +735,8 @@ void destroy_resource_bundle(kresource_bundle_t bundle)
       current = next;
     }
   }
+
+  kfree(bundle);
 }
 
 void init_kresources() 
@@ -788,7 +746,7 @@ void init_kresources()
   /* Seperate the mirrors from the system kresources */
   __resource_allocator = create_zone_allocator_ex(nullptr, 0, 128 * Kib, sizeof(kresource_t), 0);
 
-  create_resource_bundle(&__kernel_resource_bundle);
+  __kernel_resource_bundle = create_resource_bundle(NULL);
 
   g_system_info.sys_flags |= SYSFLAGS_HAS_RMM;
 }

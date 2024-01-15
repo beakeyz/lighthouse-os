@@ -272,18 +272,18 @@ ErrorOrPtr __kmem_kernel_alloc_range(size_t size, uint32_t custom_flags, uint32_
 ErrorOrPtr __kmem_dma_alloc(uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
 ErrorOrPtr __kmem_dma_alloc_range(size_t size, uint32_t custom_flag, uint32_t page_flags);
 
-ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
+ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
 
-ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-ErrorOrPtr __kmem_dealloc(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size);
-ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size);
-ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
+ErrorOrPtr __kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
+ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
+ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
 
 ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
-ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
 ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
 ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);

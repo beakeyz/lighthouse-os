@@ -130,7 +130,12 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
     ret->m_flags |= DRV_DEFERRED_HNDL;
   }
 
-  create_resource_bundle(&ret->m_resources);
+  /* 
+   * NOTE: drivers use the kernels page dir, which is why we can pass NULL 
+   * This might be SUPER DUPER dumb but like idc and it's extra work to isolate
+   * drivers from the kernel, so yea fuckoff
+   */
+  ret->m_resources = create_resource_bundle(NULL);
 
   return ret;
 }

@@ -4,6 +4,7 @@
 #include "dev/driver.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
+#include "mem/page_dir.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -104,21 +105,23 @@ static inline bool resource_is_anonymous(kresource_t* resource)
   return (!resource->m_owner && resource->m_shared_count);
 }
 
-void debug_resources(kresource_t** bundle, kresource_type_t type);
-
 /*
- * Bundle containing every resource type
+ * Bundle containing every resource type and information that is shared between
+ * all resource entries
  */
-typedef kresource_t* kresource_bundle_t[3];
+typedef struct kresource_bundle { 
+  page_dir_t* page_dir;
+  kresource_t* resources[3];
+} kresource_bundle_t;
 
-void create_resource_bundle(kresource_bundle_t* out);
+kresource_bundle_t* create_resource_bundle(page_dir_t* dir);
 
 /*
  * Destroy every kresource in the bundle
  */
-void destroy_resource_bundle(kresource_bundle_t bundle);
+void destroy_resource_bundle(kresource_bundle_t* bundle);
 
-#define GET_RESOURCE(bundle, type) (bundle[type])
+#define GET_RESOURCE(bundle, type) (bundle->resources[type])
 
 /*
  * Flat out free the memory for this resource. No fixing the 
@@ -126,19 +129,16 @@ void destroy_resource_bundle(kresource_bundle_t bundle);
  */
 void destroy_kresource(kresource_t* resource);
 
-kresource_t** resource_get_kernel_bundle();
-
 /*
  * If the requested resource is already used, we just increment the refcount
  * otherwise we can splice off a new resource and have it fresh
  * when regions is null we will use the default system list
  * TODO: integrate flags
  */
-ErrorOrPtr resource_claim(uintptr_t start, size_t size, kresource_t** regions);
-ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
+ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* bundle);
 ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type);
 
-ErrorOrPtr resource_commit(uintptr_t start, size_t size, kresource_type_t type, kresource_t** regions);
+ErrorOrPtr resource_commit(uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* bundle);
 
 ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t flags, kresource_t* resources_start);
 
@@ -154,7 +154,7 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
 ErrorOrPtr resource_release_region(kresource_t* previous_region, kresource_t* current_region);
 ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_start);
 
-ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t bundle);
+ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t* bundle);
 
-ErrorOrPtr resource_find_usable_range(kresource_bundle_t bundle, kresource_type_t type, size_t size);
+ErrorOrPtr resource_find_usable_range(kresource_bundle_t* bundle, kresource_type_t type, size_t size);
 #endif // !__ANIVA_SYS_RESOURCE__

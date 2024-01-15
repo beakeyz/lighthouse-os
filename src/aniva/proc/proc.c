@@ -54,7 +54,6 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
   memset(proc, 0, sizeof(proc_t));
 
   init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
-  create_resource_bundle(&proc->m_resource_bundle);
 
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
@@ -77,6 +76,9 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
   }
+
+  /* Okay to pass a reference, since resource bundles should NEVER own this memory */
+  proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
   
   init_thread = create_thread_for_proc(proc, entry, args, "main");
 
@@ -130,55 +132,8 @@ static void __proc_clear_shared_resources(proc_t* proc)
    *    into neighboring resources
    */
 
-  kresource_t* start_resource;
-  kresource_t* current;
-  kresource_t* next;
-
-  if (!*proc->m_resource_bundle)
+  if (!proc->m_resource_bundle)
     return;
-  
-  /*
-   * NOTE: We don't always link through the list here, since 
-   * __kmem_dealloc calls resource_release which will place 
-   * the address of the next resource in ->m_resources
-   */
-
-  for (kresource_type_t type = 0; type < KRES_MAX_TYPE; type++) {
-
-    /* Find the first resource of this type */
-    current = start_resource = proc->m_resource_bundle[type];
-
-    while (current) {
-
-      next = current->m_next;
-
-      uintptr_t start = current->m_start;
-      size_t size = current->m_size;
-
-      /* Skip mirrors with size zero or no references */
-      if (!size || !current->m_shared_count) {
-        goto next_resource;
-      }
-
-      /* TODO: destry other resource types */
-      switch (current->m_type) {
-        case KRES_TYPE_MEM:
-          __kmem_dealloc_ex(proc->m_root_pd.m_root, proc->m_resource_bundle, start, size, false, true, true);
-          break;
-        default:
-          /* Skip this entry for now */
-          break;
-      }
-
-next_resource:
-      if (current->m_next) {
-        ASSERT_MSG(current->m_type == current->m_next->m_type, "Found type mismatch while cleaning process resources");
-      }
-
-      current = next;
-      continue;
-    }
-  }
 
   /* Destroy the entire bundle, which deallocates the structures */
   destroy_resource_bundle(proc->m_resource_bundle);

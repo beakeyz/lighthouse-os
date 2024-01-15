@@ -37,7 +37,7 @@ typedef struct dev_manifest {
   driver_version_t m_check_version;
 
   /* Resources that this driver has claimed */
-  kresource_bundle_t m_resources;
+  kresource_bundle_t* m_resources;
   mutex_t* m_lock;
 
   /* Url of the installed driver */

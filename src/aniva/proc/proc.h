@@ -72,7 +72,7 @@ typedef struct proc {
   /* Resource tracking */
   page_dir_t m_root_pd;
   khandle_map_t m_handle_map;
-  kresource_bundle_t m_resource_bundle;
+  kresource_bundle_t* m_resource_bundle;
 
   struct thread* m_init_thread;
   struct thread* m_idle_thread;
