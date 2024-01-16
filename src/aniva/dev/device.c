@@ -30,7 +30,7 @@ bool device_is_generic(device_t* device)
 
 device_t* create_device(aniva_driver_t* parent, char* path)
 {
-  return create_device_ex(parent, path, &_generic_dev_ops);
+  return create_device_ex(parent, path, NULL, &_generic_dev_ops);
 }
 
 /*!
@@ -41,7 +41,7 @@ device_t* create_device(aniva_driver_t* parent, char* path)
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  */
-device_t* create_device_ex(aniva_driver_t* parent, char* path, device_ops_t* ops)
+device_t* create_device_ex(struct aniva_driver* parent, char* path, uint32_t flags, device_ops_t* ops)
 {
   device_t* ret;
   dev_manifest_t* parent_man;
@@ -69,6 +69,7 @@ device_t* create_device_ex(aniva_driver_t* parent, char* path, device_ops_t* ops
   ret->lock = create_mutex(NULL);
   ret->parent = parent_man;
   ret->ops = ops;
+  ret->flags = flags;
 
   return ret;
 }

@@ -8,7 +8,6 @@
  * spoof success. Linux does this as well
  */
 
-#include "acpica/acpi.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
@@ -29,7 +28,6 @@
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/acpica/platform/acaniva.h"
 #include "system/acpi/acpica/platform/acenv.h"
-#include "system/processor/registers.h"
 
 void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char *Format, ...)
 {
@@ -72,16 +70,22 @@ ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_P
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
-  return (void*)Must(__kmem_alloc_ex(
+  void* ret;
+
+  ret = (void*)Must(__kmem_alloc_ex(
         nullptr, 
         nullptr, 
         PhysicalAddress, 
-        HIGH_MAP_BASE, 
+        KERNEL_MAP_BASE, 
         Length, 
         NULL, 
         KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
         )
       );
+
+  printf("AcpiOsMapMemory: paddr=0x%llx len=%lld vaddr=0x%p\n", PhysicalAddress, Length, ret);
+
+  return ret;
 }
 
 void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)

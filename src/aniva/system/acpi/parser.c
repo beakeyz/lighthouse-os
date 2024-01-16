@@ -1,13 +1,9 @@
 #include "parser.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
-#include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
 #include "libk/multiboot.h"
-#include "libk/flow/reference.h"
 #include "logging/log.h"
-#include "mem/pg.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -146,7 +142,7 @@ void* find_rsdp(acpi_parser_t* parser)
 
     parser->m_is_xsdp = true;
     parser->m_xsdp_phys = rsdp_addr;
-    parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL));
+    parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
     parser->m_rsdt_phys = parser->m_rsdp_table->XsdtPhysicalAddress;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
 
@@ -162,7 +158,7 @@ void* find_rsdp(acpi_parser_t* parser)
     printf("Multiboot has rsdp: 0x%llx\n", rsdp_addr);
 
     parser->m_rsdp_phys = rsdp_addr;
-    parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL));
+    parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
     parser->m_rsdt_phys = parser->m_rsdp_table->RsdtPhysicalAddress;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
     return parser->m_rsdp_table;

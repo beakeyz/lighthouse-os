@@ -1,5 +1,4 @@
 #include "kmem_manager.h"
-#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include <mem/heap.h>
 #include "logging/log.h"
@@ -9,11 +8,8 @@
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
-#include "mem/quickmapper.h"
-#include "mem/zalloc.h"
 #include "proc/core.h"
 #include "proc/proc.h"
-#include "sched/scheduler.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include <mem/heap.h>
