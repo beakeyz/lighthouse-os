@@ -1,9 +1,7 @@
 #ifndef __ANIVA_ACPI_PARSER__ 
 #define __ANIVA_ACPI_PARSER__
 #include <libk/stddef.h>
-#include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
-#include "sync/spinlock.h"
 #include "tables.h"
 
 #define RSDP_SIGNATURE "RSD PTR "
