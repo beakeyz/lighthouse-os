@@ -152,9 +152,6 @@
 #include "acpi.h"
 #include "accommon.h"
 #include "actables.h"
-#include "acdisasm.h"
-#include "acutils.h"
-#include "logging/log.h"
 
 #define _COMPONENT          ACPI_TABLES
         ACPI_MODULE_NAME    ("tbprint")
@@ -285,7 +282,6 @@ AcpiTbPrintTableHeader (
 
         AcpiTbCleanupTableHeader (&LocalHeader, Header);
 
-        /*
         ACPI_INFO ((
             "%-4.4s 0x%8.8X%8.8X"
             " %06X (v%.2d %-6.6s %-8.8s %08X %-4.4s %08X)",
@@ -293,10 +289,6 @@ AcpiTbPrintTableHeader (
             LocalHeader.Length, LocalHeader.Revision, LocalHeader.OemId,
             LocalHeader.OemTableId, LocalHeader.OemRevision,
             LocalHeader.AslCompilerId, LocalHeader.AslCompilerRevision));
-            */
 
-        char b[5] = {0};
-        memcpy(b, Header->Signature, 4);
-        printf("Found table %s with addr=0x%llx, size=%d\n", b, Address, Header->Length);
     }
 }

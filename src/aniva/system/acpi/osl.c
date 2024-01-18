@@ -83,7 +83,7 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
         )
       );
 
-  printf("AcpiOsMapMemory: paddr=0x%llx len=%lld vaddr=0x%p\n", PhysicalAddress, Length, ret);
+  //printf("AcpiOsMapMemory: paddr=0x%llx len=%lld vaddr=0x%p\n", PhysicalAddress, Length, ret);
 
   return ret;
 }

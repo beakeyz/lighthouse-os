@@ -1,7 +1,6 @@
 #include "log.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
 #include <libk/ctype.h>
 #include <sync/mutex.h>
 
@@ -340,7 +339,7 @@ int println(const char* msg)
   return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_LINE);
 }
 
-static inline void _print_hex(uint8_t typeflags, uint64_t value)
+static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec)
 {
   uint32_t idx;
   char tmp[128];
@@ -354,6 +353,9 @@ static inline void _print_hex(uint8_t typeflags, uint64_t value)
     size_test /= 16;
     len++;
   }
+
+  if (len < prec && prec && prec != -1)
+    len = prec;
 
   idx = 0;
 
@@ -408,20 +410,27 @@ static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec)
 static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
 {
   int prec;
-  uint32_t size;
+  uint32_t integer_width;
+  uint32_t max_length;
 
   for (const char* c = fmt; *c; c++) {
 
     if (*c != '%')
       goto kputch_cycle;
 
-    size = 0;
+    integer_width = 0;
+    max_length = 0;
     prec = -1;
     c++;
 
-    /* FIXME: Register digits at the start */
-    while (isdigit(*c))
+    if (*c == '-')
       c++;
+
+    /* FIXME: Register digits at the start */
+    while (isdigit(*c)) {
+      max_length = (max_length * 10) + ((*c) - '0');
+      c++;
+    }
 
     if (*c == '.') {
       prec = 0;
@@ -435,8 +444,8 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
     }
 
     /* Account for size */
-    while (*c == 'l' && size < 2) {
-      size++;
+    while (*c == 'l' && integer_width < 2) {
+      integer_width++;
       c++;
     }
 
@@ -445,7 +454,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
       case 'd':
         {
           int64_t value;
-          switch (size) {
+          switch (integer_width) {
             case 0:
               value = va_arg(args, int);
               break;
@@ -468,12 +477,12 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
           break;
         }
       case 'p':
-        size = 2;
+        integer_width = 2;
       case 'x':
       case 'X':
         {
           uint64_t value;
-          switch (size) {
+          switch (integer_width) {
             case 0:
               value = va_arg(args, int);
               break;
@@ -487,13 +496,22 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
               value = 0;
           }
 
-          _print_hex(typeflags, value);
+          _print_hex(typeflags, value, prec);
           break;
         }
       case 's':
         {
           const char* str = va_arg(args, char*);
-          print_ex(typeflags, str, LOG_TYPE_DEFAULT);
+
+          if (!max_length)
+            print_ex(typeflags, str, LOG_TYPE_DEFAULT);
+          else
+            while (max_length--)
+              if (*str)
+                _kputch(typeflags, *str++);
+              else
+                _kputch(typeflags, ' ');
+
           break;
         }
       default:

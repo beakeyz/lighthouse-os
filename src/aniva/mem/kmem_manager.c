@@ -1029,8 +1029,6 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, ui
 {
   const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
-  printf("__kmem_dealloc_ex: addr=0x%llx size=%lld pages=%lld\n", virt_base, size, pages_needed);
-
   for (uintptr_t i = 0; i < pages_needed; i++) {
     // get the virtual address of the current page
     const vaddr_t vaddr = virt_base + (i * SMALL_PAGE_SIZE);
