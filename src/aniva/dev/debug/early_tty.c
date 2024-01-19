@@ -1,10 +1,8 @@
 #include "early_tty.h"
-#include "dev/debug/serial.h"
 #include "entry/entry.h"
+#include "libk/flow/error.h"
 #include "libk/gfx/font.h"
-#include "libk/string.h"
 #include "logging/log.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 
 /*
@@ -50,22 +48,21 @@ static ALWAYS_INLINE void __etty_pixel(uint32_t x, uint32_t y, uint32_t clr)
   *(uint32_t volatile*)(vid_buffer + framebuffer->common.framebuffer_pitch * y + x * framebuffer->common.framebuffer_bpp / 8) = clr;
 }
 
-static inline int get_simple_char_at(uint32_t x, uint32_t y, struct simple_char** c)
+static inline struct simple_char* get_simple_char_at(uint32_t x, uint32_t y)
 {
-  *c = &_char_list[y * char_xres + x];
-  return 0;
+  return &_char_list[y * char_xres + x];
 }
 
-static inline int etty_draw_char(uint32_t x, uint32_t y, char c, uint32_t clr)
+static int etty_draw_char_ex(uint32_t x, uint32_t y, char c, uint32_t clr, bool force_update)
 {
   struct simple_char* s_char;
   uint32_t char_xstart, char_ystart;
   uint8_t* glyph;
 
-  get_simple_char_at(x, y, &s_char);
+  s_char = get_simple_char_at(x, y);
 
-  /* No need to do anything lol */
-  if (s_char->c == c && s_char->clr == clr)
+  /* If we force this update then it's all good */
+  if (s_char->c == c && s_char->clr == clr && !force_update)
     return 0;
 
   char_xstart = x * etty_font->width;
@@ -89,11 +86,16 @@ static inline int etty_draw_char(uint32_t x, uint32_t y, char c, uint32_t clr)
   return 0;
 }
 
+static inline int etty_draw_char(uint32_t x, uint32_t y, char c, uint32_t clr)
+{
+  return etty_draw_char_ex(x, y, c, clr, false);
+}
+
 static inline void etty_clear()
 {
   for (uint32_t y = 0; y < char_yres; y++) {
     for (uint32_t x = 0; x < char_xres; x++) {
-      etty_draw_char(x, y, NULL, BLACK);
+      etty_draw_char_ex(x, y, NULL, BLACK, true);
     }
   }
 }
@@ -146,43 +148,29 @@ void destroy_early_tty()
   __kmem_kernel_dealloc((vaddr_t)_char_list, _char_list_size);
 }
 
-static inline void etty_scroll(uint32_t lines)
+static void etty_scroll(uint32_t lines)
 {
-  uint32_t new_y;
-  struct simple_char* c_char, *n_char;
+  struct simple_char* c_char;
 
   if (!lines)
     return;
 
-  /* We'll always begin drawing at zero */
-  new_y = 0;
-
-  for (uint32_t y = lines; y < (char_yres-lines); y++) {
+  for (uint32_t y = lines; y < char_yres; y++) {
     for (uint32_t x = 0; x < char_xres; x++) {
-      get_simple_char_at(x, y, &c_char);
-      get_simple_char_at(x, y-lines, &n_char);
+      c_char = get_simple_char_at(x, y);
 
-      etty_draw_char(x, y-lines, c_char->c, c_char->clr);
+      etty_draw_char_ex(x, y-lines, c_char->c, c_char->clr, true);
     }
-
-    new_y++;
   }
 
-  /* FIXME: this seems broken lmaoooo */
-  /*
-  while (new_y < char_yres) {
-    
+  for (uint32_t y = (char_yres - lines); y < char_yres; y++)
     for (uint32_t x = 0; x < char_xres; x++)
-      etty_draw_char(x, new_y, NULL, BLACK);
-    new_y++;
-  }
-  */
+      etty_draw_char_ex(x, y, NULL, BLACK, true);
 
   y_idx -= lines;
-  (void)new_y;
 }
 
-static inline int _etty_shift_x_idx()
+static int _etty_shift_x_idx()
 {
   x_idx++;
   
@@ -201,8 +189,8 @@ static inline int _etty_shift_x_idx()
 int etty_putch(char c)
 {
   if (c == '\n') {
-    y_idx++;
     x_idx = 0;
+    y_idx++;
 
     if (y_idx >= char_yres)
       etty_scroll(1);
