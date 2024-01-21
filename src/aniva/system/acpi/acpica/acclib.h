@@ -160,6 +160,9 @@
 
 /* is* functions. The AcpiGbl_Ctypes array is defined in utclib.c */
 
+
+#include "system/acpi/acpica/actypes.h"
+
 extern const UINT8 AcpiGbl_Ctypes[];
 
 #define _ACPI_XA     0x00    /* extra alphabetic - not supported */

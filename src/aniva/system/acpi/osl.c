@@ -72,29 +72,20 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
   void* ret;
 
-  ret = (void*)Must(__kmem_alloc_ex(
-        nullptr, 
-        nullptr, 
+  ret = (void*)Must(__kmem_kernel_alloc(
         PhysicalAddress, 
-        KERNEL_MAP_BASE, 
         Length, 
         NULL, 
-        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
+        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE | KMEM_FLAG_WC
         )
       );
-
-  //printf("AcpiOsMapMemory: paddr=0x%llx len=%lld vaddr=0x%p\n", PhysicalAddress, Length, ret);
 
   return ret;
 }
 
 void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 {
-  //println("Calling: AcpiOsUnmapMemory");
-  //__kmem_kernel_dealloc((vaddr_t)where, length);
-  //println("Called: AcpiOsUnmapMemory");
-  //kmem_unmap_range(nullptr, (vaddr_t)where, GET_PAGECOUNT(length));
-  __kmem_dealloc_unmap(nullptr, nullptr, (vaddr_t)where, length);
+  kmem_unmap_range_ex(nullptr, (vaddr_t)where, GET_PAGECOUNT(length), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP);
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)

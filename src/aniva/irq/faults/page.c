@@ -22,8 +22,7 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
   println(" --- PAGEFAULT --- ");
   print("error at ring: ");
   println(to_string(cs & 3));
-  print("error at addr: ");
-  println(to_string(err_addr));
+  printf("error at addr: 0x%llx\n", err_addr);
   if (error_word & 8) {
     println("Reserved!");
   }

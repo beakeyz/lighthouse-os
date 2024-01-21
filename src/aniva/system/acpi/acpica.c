@@ -1,5 +1,4 @@
 #include "acpi.h"
-#include "acpica/acpi.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "system/acpi/acpica/acexcep.h"
@@ -35,7 +34,7 @@ void init_acpi_early()
 
   println("B");
 
-  stat = AcpiInitializeTables(NULL, 0, true);
+  stat = AcpiInitializeTables(NULL, 16, true);
 
   if (ACPI_FAILURE(stat))
   {
