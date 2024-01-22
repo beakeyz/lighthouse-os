@@ -161,6 +161,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // Setup interrupts (Fault handlers and IRQ request framework)
   init_interrupts();
 
+  // Make sure we know how to access the PCI configuration space at this point
+  init_pci_early();
+
   /* Initialize the ACPI subsystem */
   init_acpi();
 

@@ -1,20 +1,15 @@
 #include "scheduler.h"
-#include "entry/entry.h"
-#include "dev/debug/serial.h"
 #include <mem/heap.h>
+#include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
-#include "libk/string.h"
 #include "irq/interrupts.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
 #include "proc/proc.h"
-#include "proc/socket.h"
 #include "proc/thread.h"
 #include "sched/queue.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
-#include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
 #include <mem/heap.h>
@@ -121,6 +116,7 @@ void start_scheduler(void)
   set_previous_thread(nullptr);
 
   sched->flags |= SCHEDULER_FLAG_RUNNING;
+  g_system_info.sys_flags |= SYSFLAGS_HAS_MULTITHREADING;
 
   bootstrap_thread_entries(initial_thread);
 }

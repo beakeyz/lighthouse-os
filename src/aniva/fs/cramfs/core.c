@@ -1,4 +1,3 @@
-#include "core.h"
 #include "dev/core.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
@@ -7,9 +6,7 @@
 #include "fs/vnode.h"
 #include "fs/vobj.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "mem/kmem_manager.h"
-#include "sync/mutex.h"
 #include <fs/core.h>
 
 int ramfs_init();
@@ -287,7 +284,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     ASSERT_MSG(TAR_BLOCK_START(node) != nullptr, "decompressing resulted in NULL");
 
     /* Free the pages of the compressed ramdisk */
-    Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(TAR_SUPERBLOCK(node).m_free_blocks)));
+    Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node).m_free_blocks)));
 
     device->m_start_lba = (uintptr_t)TAR_BLOCK_START(node);
     device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + partition_size;

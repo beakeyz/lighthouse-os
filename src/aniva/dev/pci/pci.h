@@ -194,6 +194,7 @@ typedef struct pci_device_ops {
   int (*read_dword)(struct pci_device* dev, uint32_t field, uint32_t* out);
 } pci_device_ops_t;
 
+void init_pci_early();
 bool init_pci();
 void init_pci_drivers();
 
@@ -361,13 +362,13 @@ pci_accessmode_t get_current_addressing_mode();
 
 struct pci_bus* get_bridge_by_index(uint32_t bridge_index);
 
-void pci_write_32(pci_device_address_t* address, uint32_t field, uint32_t value);
-void pci_write_16(pci_device_address_t* address, uint32_t field, uint16_t value);
-void pci_write_8(pci_device_address_t* address, uint32_t field, uint8_t value);
+int pci_read32(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint32_t *value);
+int pci_read16(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint16_t *value);
+int pci_read8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint8_t *value);
 
-uint32_t pci_read_32(pci_device_address_t* address, uint32_t field);
-uint16_t pci_read_16(pci_device_address_t* address, uint32_t field);
-uint8_t pci_read_8(pci_device_address_t* address, uint32_t field);
+int pci_write32(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint32_t value);
+int pci_write16(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint16_t value);
+int pci_write8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint8_t value);
 
 bool test_pci_io_type1();
 bool test_pci_io_type2();

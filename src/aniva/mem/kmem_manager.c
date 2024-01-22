@@ -208,7 +208,7 @@ void parse_mmap()
         (range->type != PMRT_BAD_MEM && range->type != PMRT_RESERVED)) 
     {
       KMEM_DATA.m_highest_phys_addr = p_range_end;
-      KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->length);
+      KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->start, range->length);
     }
 
     range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
@@ -401,7 +401,7 @@ static void kmem_init_physical_allocator()
     size = range->length;
 
     // should already be page aligned
-    for (uintptr_t i = 0; i < GET_PAGECOUNT(size); i++) {
+    for (uintptr_t i = 0; i < GET_PAGECOUNT(base, size); i++) {
       paddr_t addr = base + i * SMALL_PAGE_SIZE;
 
       uintptr_t phys_page_idx = kmem_get_page_idx(addr);
@@ -413,7 +413,7 @@ static void kmem_init_physical_allocator()
   /* Reserve the bottom megabyte of physical memory */
   const size_t low_reserve = 64 * Kib;
 
-  kmem_set_phys_range_used(0, GET_PAGECOUNT(low_reserve));
+  kmem_set_phys_range_used(0, GET_PAGECOUNT(0, low_reserve));
 }
 
 /*
@@ -447,9 +447,8 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr)
 {
   pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
 
-  if (page == nullptr) {
+  if (page == nullptr)
     return NULL;
-  }
 
   return kmem_get_page_base(page->raw_bits);
 }
@@ -600,7 +599,8 @@ pml_entry_t *kmem_get_krnl_dir() {
  */
 pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_flags, uint32_t page_flags) 
 {
-  addr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
+  /* Make sure the virtual address is not fucking us in our ass */
+  addr = addr & PDE_SIZE_MASK;
 
   const uintptr_t pml4_idx = (addr >> 39) & ENTRY_MASK;
   const uintptr_t pdp_idx = (addr >> 30) & ENTRY_MASK;
@@ -624,6 +624,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
 
     kmem_set_page_base(&pml4[pml4_idx], page_addr);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
+    pml_entry_set_bit(&pml4[pml4_idx], PDE_PAT, true);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_WRITABLE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
     pml_entry_set_bit(&pml4[pml4_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
@@ -646,6 +647,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
 
     kmem_set_page_base(&pdp[pdp_idx], page_addr);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
+    pml_entry_set_bit(&pdp[pdp_idx], PDE_PAT, true);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_WRITABLE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
     pml_entry_set_bit(&pdp[pdp_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
@@ -668,6 +670,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
 
     kmem_set_page_base(&pd[pd_idx], page_addr);
     pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
+    pml_entry_set_bit(&pd[pd_idx], PDE_PAT, true);
     pml_entry_set_bit(&pd[pd_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
     pml_entry_set_bit(&pd[pd_idx], PDE_WRITABLE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
     pml_entry_set_bit(&pd[pd_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
@@ -882,9 +885,8 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
 {
   pml_entry_t *page = kmem_get_page(table, virt, custom_flags, 0);
 
-  if (!page) {
+  if (!page)
     return false;
-  }
 
   page->raw_bits = NULL;
 
@@ -907,13 +909,14 @@ bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count) {
 
 bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, uint32_t custom_flags)
 {
+  virt = ALIGN_DOWN(virt, SMALL_PAGE_SIZE);
+
   for (uintptr_t i = 0; i < page_count; i++) {
 
-    vaddr_t virtual_offset = virt + (i * SMALL_PAGE_SIZE);
-
-    if (!kmem_unmap_page_ex(table, virtual_offset, custom_flags)) {
+    if (!kmem_unmap_page_ex(table, virt, custom_flags))
       return false;
-    }
+
+    virt += SMALL_PAGE_SIZE;
   }
 
   return true;
@@ -925,10 +928,11 @@ bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, 
  *
  * NOTE: this also always sets the PRESENT bit to true
  */
-void kmem_set_page_flags(pml_entry_t *page, unsigned int flags) {
-
-  //uintptr_t base = kmem_request_physical_page().m_ptr;
-  //kmem_set_page_base(page, base);
+void kmem_set_page_flags(pml_entry_t *page, uint32_t flags) 
+{
+  /* Make sure PAT is enabled if we want different caching options */
+  if ((flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE || (flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH)
+    flags |= KMEM_FLAG_SPEC;
 
   pml_entry_set_bit(page, PTE_PRESENT, true);
   pml_entry_set_bit(page, PTE_USER, ((flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL));
@@ -981,7 +985,7 @@ ErrorOrPtr kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size)
   vaddr_t vaddr;
   size_t page_count;
 
-  page_count = GET_PAGECOUNT(size);
+  page_count = GET_PAGECOUNT(base, size);
 
   for (uint64_t i = 0; i < page_count; i++) {
 
@@ -1027,7 +1031,7 @@ ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources,
  */
 ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release) 
 {
-  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = GET_PAGECOUNT(virt_base, size);
 
   for (uintptr_t i = 0; i < pages_needed; i++) {
     // get the virtual address of the current page
@@ -1049,9 +1053,8 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, ui
   }
 
   /* Only release the resource if we dont want to defer that opperation */
-  if (resources && !defer_res_release && IsError(resource_release(virt_base, pages_needed * SMALL_PAGE_SIZE, GET_RESOURCE(resources, KRES_TYPE_MEM)))) {
+  if (resources && !defer_res_release && IsError(resource_release(virt_base, size, GET_RESOURCE(resources, KRES_TYPE_MEM))))
     return Error();
-  }
 
   return Success(0);
 }
@@ -1091,12 +1094,12 @@ ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t* resources, paddr_t
 
 ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags) 
 {
-  const size_t pages_needed = GET_PAGECOUNT(size);
-
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
   const paddr_t phys_base = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
+  const size_t pages_needed = GET_PAGECOUNT(addr, size);
+
   const vaddr_t virt_base = should_identity_map ? phys_base : (should_remap ? kmem_from_phys(phys_base, vbase) : vbase);
 
   /* Compute return value since we align the parameter */
@@ -1607,36 +1610,7 @@ ErrorOrPtr kmem_get_kernel_address_ex(vaddr_t virtual_address, vaddr_t map_base,
   return Success(v_kernel_address + v_align_delta);
 }
 
-// FIXME: macroes?
-uintptr_t kmem_get_page_idx (uintptr_t page_addr) {
-  return (page_addr >> 12);
-}
-uintptr_t kmem_get_page_addr (uintptr_t page_idx) {
-  return (page_idx << 12);
-}
-
-uintptr_t kmem_get_page_base (uintptr_t base) {
-  return (base & ~(0xffful));
-}
-
-uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_base) {
-  entry->raw_bits &= 0x8000000000000fffULL;
-  entry->raw_bits |= kmem_get_page_base(page_base);
-  return entry->raw_bits;
-}
-
-// deprecated
-pml_entry_t create_pagetable(uintptr_t paddr, bool writable) {
-  pml_entry_t table = {
-    .raw_bits = paddr
-  };
-
-  pml_entry_set_bit(&table, PDE_PRESENT, true);
-  pml_entry_set_bit(&table, PDE_WRITABLE, writable);
-
-  return table;
-}
-
-list_t const* kmem_get_phys_ranges_list() {
+list_t const* kmem_get_phys_ranges_list() 
+{
   return KMEM_DATA.m_phys_ranges;
 }

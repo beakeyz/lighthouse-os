@@ -4,8 +4,8 @@
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
+#include <libk/string.h>
 #include "mem/heap.h"
-#include "proc/core.h"
 
 /*!
  * @brief Register a video device with its underlying aniva_driver

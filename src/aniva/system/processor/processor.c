@@ -1,19 +1,14 @@
 #include "processor.h"
-#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "irq/ctl/ctl.h"
 #include "irq/idt.h"
 #include "libk/flow/error.h"
-#include "libk/data/queue.h"
-#include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "sync/mutex.h"
-#include "sync/spinlock.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
 #include <mem/heap.h>
-#include "libk/string.h"
 #include "system/processor/fpu/init.h"
+#include "system/processor/processor_info.h"
 #include <system/syscall/core.h>
 
 extern void _flush_gdt(uintptr_t gdtr);
@@ -79,13 +74,13 @@ void init_processor(processor_t *processor, uint32_t cpu_num)
   init_smap(&processor->m_info);
   init_umip(&processor->m_info);
 
-  if (processor_has(&processor->m_info, X86_FEATURE_PGE)) {
-    write_cr4(read_cr4() | 0x80);
-  }
+  ASSERT_MSG(processor_has(&processor->m_info, X86_FEATURE_PAT), "Processor does not support PAT!");
 
-  if (processor_has(&processor->m_info, X86_FEATURE_FSGSBASE)) {
+  if (processor_has(&processor->m_info, X86_FEATURE_PGE))
+    write_cr4(read_cr4() | 0x80);
+
+  if (processor_has(&processor->m_info, X86_FEATURE_FSGSBASE))
     write_cr4(read_cr4() & ~(0x10000));
-  }
 
   if (processor_has(&processor->m_info, X86_FEATURE_XSAVE)) {
     write_cr4(read_cr4() | 0x40000);

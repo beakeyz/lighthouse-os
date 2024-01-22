@@ -3,6 +3,7 @@
 
 #include <libk/multiboot.h>
 #include <libk/stddef.h>
+#include <libk/string.h>
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "mem/page_dir.h"
@@ -57,9 +58,10 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 #define THREAD_ENTRY_BASE       0xFFFFFFFF00000000ULL
 
 // paging masks
-#define PAGE_SIZE_MASK          0xFFFFffffFFFFf000UL
-#define PAGE_LOW_MASK           0xFFFUL
-#define ENTRY_MASK              0x1FFUL
+#define PDE_SIZE_MASK           0xFFFFffffFFFFF000ULL
+#define PAGE_LOW_MASK           0xFFFULL
+#define PML_ENTRY_MASK          0x8000000000000fffULL
+#define ENTRY_MASK              0x1FFULL
 
 #define PAGE_SIZE               0x200000
 #define PAGE_SHIFT              12
@@ -107,8 +109,34 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
-#define GET_PAGECOUNT_EX(bytes, page_shift) (ALIGN_UP((bytes), (1 << (page_shift))) >> (page_shift))
-#define GET_PAGECOUNT(bytes) (ALIGN_UP((bytes), SMALL_PAGE_SIZE) >> 12)
+//#define GET_PAGECOUNT_EX(bytes, page_shift) (ALIGN_UP((bytes), (1 << (page_shift))) >> (page_shift))
+//#define GET_PAGECOUNT(bytes) (ALIGN_UP((bytes), SMALL_PAGE_SIZE) >> 12)
+
+#define GET_PAGECOUNT_EX(start, len, page_shift) ((ALIGN_UP((start) + (len), SMALL_PAGE_SIZE) - ALIGN_DOWN((start), SMALL_PAGE_SIZE)) >> (page_shift))
+#define GET_PAGECOUNT(start, len) GET_PAGECOUNT_EX(start, len, PAGE_SHIFT)
+
+static inline uintptr_t kmem_get_page_idx (uintptr_t page_addr) 
+{
+  return (page_addr >> PAGE_SHIFT);
+}
+
+static inline uintptr_t kmem_get_page_addr (uintptr_t page_idx) 
+{
+  return (page_idx << PAGE_SHIFT);
+}
+
+static inline uintptr_t kmem_get_page_base (uintptr_t base) 
+{
+  return (base & ~(PML_ENTRY_MASK));
+}
+
+static inline uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_base) 
+{
+  entry->raw_bits &= PML_ENTRY_MASK;
+  entry->raw_bits |= kmem_get_page_base(page_base);
+  return entry->raw_bits;
+}
+
 
 typedef enum {
   PMRT_USABLE = 1,

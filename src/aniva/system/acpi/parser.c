@@ -106,9 +106,7 @@ void parser_init_tables(acpi_parser_t* parser)
     if (stat == AE_ERROR)
       break;
 
-    char c[5] = { 0 };
-    memcpy(c, hdr->Signature, 4);
-    printf("Found ACPI table: %s\n", c);
+    printf("Found ACPI table: %-4.4s\n", hdr->Signature);
 
     list_append(parser->m_tables, hdr);
   }
@@ -146,7 +144,7 @@ void* find_rsdp(acpi_parser_t* parser)
     parser->m_rsdt_phys = parser->m_rsdp_table->XsdtPhysicalAddress;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
 
-    printf("Mapped xsdp to 0x%p", parser->m_rsdp_table);
+    printf("Mapped xsdp to 0x%llx", (vaddr_t)parser->m_rsdp_table);
     return parser->m_rsdp_table;
   }
 

@@ -1,5 +1,4 @@
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
@@ -7,12 +6,8 @@
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
-#include "proc/ipc/packet_response.h"
-#include "sched/scheduler.h"
 #include <dev/driver.h>
 
 /*
@@ -121,7 +116,7 @@ int efifb_remove(video_device_t* device)
   uintptr_t fb_start_idx;
 
   /* Calculate things again */
-  fb_page_count = GET_PAGECOUNT(info.size);
+  fb_page_count = GET_PAGECOUNT(info.addr, info.size);
   fb_start_idx = kmem_get_page_idx(info.addr);
 
   /* TODO: tell underlying hardware to stop its EFI framebuffer engine */
@@ -166,8 +161,6 @@ EXPORT_DRIVER_PTR(efifb_driver);
  */
 int fb_driver_init() 
 {
-  size_t fb_page_count;
-  uintptr_t fb_start_idx;
   video_device_t* vdev;
   struct multiboot_tag_framebuffer* fb;
 
@@ -210,11 +203,11 @@ int fb_driver_init()
 
   info.ops = &fb_ops;
 
-  fb_page_count = GET_PAGECOUNT(info.size);
-  fb_start_idx = kmem_get_page_idx(info.addr);
+  //fb_page_count = GET_PAGECOUNT(info.kernel_addr, info.size);
+  //fb_start_idx = kmem_get_page_idx(info.addr);
 
   /* Mark the physical range used */
-  kmem_set_phys_range_used(fb_start_idx, fb_page_count);
+  //kmem_set_phys_range_used(fb_start_idx, fb_page_count);
 
   ASSERT(video_deactivate_current_driver() == 0);
 

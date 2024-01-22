@@ -2,6 +2,7 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
+#include <libk/string.h>
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"

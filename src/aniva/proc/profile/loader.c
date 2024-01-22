@@ -2,7 +2,6 @@
 #include "entry/entry.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "proc/profile/profile.h"
 #include "proc/profile/variable.h"
 

@@ -1,4 +1,5 @@
 #include "log.h"
+#include <libk/string.h>
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include <libk/ctype.h>

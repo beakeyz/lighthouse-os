@@ -1,8 +1,8 @@
 #ifndef __KMAIN__
 #define __KMAIN__
 #include "dev/driver.h"
-#include "proc/proc.h"
 #include <mem/pg.h>
+#include <libk/string.h>
 #include <libk/stddef.h>
 #include <libk/multiboot.h>
 
@@ -40,6 +40,7 @@ extern driver_version_t kernel_version;
 /* If the system is in a volatile state, any thrown error will result in a system panic */
 #define SYSFLAGS_VOLATILE           (0x00000010)
 #define SYSFLAGS_DISABLE_ETTY       (0x00000020)
+#define SYSFLAGS_HAS_MULTITHREADING (0x00000040)
 
 /* What's the maximum amount of processors we support? */
 #define SYS_MAX_CPU                 1
@@ -88,5 +89,10 @@ typedef struct {
 
 /* NOTE: this shit is not protected by any lock. Races will occur =( */
 extern system_info_t g_system_info;
+
+static inline bool system_has_multithreading()
+{
+  return ((g_system_info.sys_flags & SYSFLAGS_HAS_MULTITHREADING) == SYSFLAGS_HAS_MULTITHREADING);
+}
 
 #endif // !__KMAIN__

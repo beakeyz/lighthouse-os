@@ -10,6 +10,7 @@
 #include <sync/spinlock.h>
 #include <mem/zalloc.h>
 #include <libk/ctype.h>
+#include <libk/string.h>
 #include "system/asm_specifics.h"
 
 /* Common ACPICA configuration */

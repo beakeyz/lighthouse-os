@@ -154,6 +154,7 @@
 #include "actables.h"
 #include "libk/string.h"
 #include "logging/log.h"
+#include "system/acpi/acpica/acpiosxf.h"
 
 #define _COMPONENT          ACPI_TABLES
         ACPI_MODULE_NAME    ("tbutils")

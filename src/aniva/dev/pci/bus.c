@@ -1,11 +1,18 @@
 #include "bus.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "pci.h"
 #include "io.h"
 #include <mem/kmem_manager.h>
 #include <libk/string.h>
+
+/*
+ * FIXME (And TODO): This shit is broken af
+ * We need to get right how this PCI bus is being provided to us by the firmware (ACPI)
+ * This means the bus might only be accessable through the IO configuration space, but there
+ * might also be an I/O memory mapped ECAM region. Acpi should know about it, so we should
+ * probably ask them
+ */
 
 #define MAX_FUNC_PER_DEV 8
 #define MAX_DEV_PER_BUS 32

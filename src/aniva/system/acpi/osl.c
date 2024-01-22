@@ -8,6 +8,8 @@
  * spoof success. Linux does this as well
  */
 
+#include "dev/pci/pci.h"
+#include "entry/entry.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
@@ -52,40 +54,46 @@ ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer()
 ACPI_STATUS AcpiOsPredefinedOverride(const ACPI_PREDEFINED_NAMES *PredefinedObject, ACPI_STRING *NewValue)
 {
   *NewValue = NULL;
-  return AE_OK;
+  return AE_SUPPORT;
 }
 
 ACPI_STATUS AcpiOsTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_TABLE_HEADER **NewTable)
 {
   *NewTable = NULL;
-  return AE_OK;
+  return AE_SUPPORT;
 }
 
 ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_PHYSICAL_ADDRESS *NewAddress, UINT32 *NewTableLength)
 {
   *NewAddress = NULL;
   *NewTableLength = NULL;
-  return AE_OK;
+  return AE_SUPPORT;
 }
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
   void* ret;
 
+  //printf("Trying to map OS memory addr=%llx len=%llx\n", PhysicalAddress, Length);
   ret = (void*)Must(__kmem_kernel_alloc(
         PhysicalAddress, 
         Length, 
         NULL, 
-        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE | KMEM_FLAG_WC
+        KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
         )
       );
 
+  //printf("Mapped OS memory\n");
   return ret;
 }
 
 void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 {
-  kmem_unmap_range_ex(nullptr, (vaddr_t)where, GET_PAGECOUNT(length), KMEM_CUSTOMFLAG_RECURSIVE_UNMAP);
+  /*
+   * NOTE: We might need to deallocate over overlapping chunks, which means we might need
+   * to deallocate a physical frame marked as unused
+   */
+  Must(__kmem_dealloc_ex(nullptr, nullptr, (vaddr_t)where, length, false, true, false));
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)
@@ -329,14 +337,46 @@ ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 
 ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *Value, UINT32 Width)
 {
-  kernel_panic("TODO: AcpiOsReadPciConfiguration");
-  return AE_OK;
+  int error = -1;
+
+  switch (Width) {
+    case 0 ... 8:
+      error = pci_read8(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, (uint8_t*)Value);
+      break;
+    case 9 ... 16:
+      error = pci_read16(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, (uint16_t*)Value);
+      break;
+    case 17 ... 32:
+      error = pci_read32(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, (uint32_t*)Value);
+      break;
+  }
+
+  if (!error)
+    return AE_OK;
+
+  return AE_ERROR;
 }
 
 ACPI_STATUS AcpiOsWritePciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 Value, UINT32 Width)
 {
-  kernel_panic("TODO: AcpiOsWritePciConfiguration");
-  return AE_OK;
+  int error = -1;
+
+  switch (Width) {
+    case 0 ... 8:
+      error = pci_write8(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, (uint8_t)Value);
+      break;
+    case 9 ... 16:
+      error = pci_write16(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, (uint16_t)Value);
+      break;
+    case 17 ... 32:
+      error = pci_write32(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, (uint32_t)Value);
+      break;
+  }
+
+  if (!error)
+    return AE_OK;
+
+  return AE_ERROR;
 }
 
 void AcpiOsWaitEventsComplete(void)
@@ -421,6 +461,9 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
 
   m = (mutex_t*)Handle;
 
+  if (!system_has_multithreading())
+    return AE_OK;
+
   if (!m)
     return AE_BAD_PARAMETER;
 
@@ -435,6 +478,9 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
 void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 {
   mutex_t* m;
+
+  if (!system_has_multithreading())
+    return;
 
   m = (mutex_t*)Handle;
 
@@ -465,6 +511,9 @@ ACPI_STATUS AcpiOsDeleteSemaphore(ACPI_SEMAPHORE Handle)
 
 ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Timeout)
 {
+  if (!system_has_multithreading())
+    return AE_OK;
+
   if (Units > 1)
     return AE_SUPPORT;
 
@@ -476,6 +525,9 @@ ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Time
 
 ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 {
+  if (!system_has_multithreading())
+    return AE_OK;
+
   if (Units > 1)
     return AE_SUPPORT;
 
@@ -504,6 +556,9 @@ void AcpiOsDeleteLock(ACPI_SPINLOCK Handle)
 
 ACPI_CPU_FLAGS AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
 {
+  if (!system_has_multithreading())
+    return 0;
+
   //println("AcpiOsAcquireLock");
   spinlock_lock(Handle);
   //println("AcpiOsAcquireLock done");
@@ -512,6 +567,9 @@ ACPI_CPU_FLAGS AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
 
 void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
+  if (!system_has_multithreading())
+    return;
+
   //println("AcpiOsReleaseLock");
   (void)Flags;
   spinlock_unlock(Handle);
@@ -543,7 +601,8 @@ ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLE
 
 UINT64 AcpiOsGetTimer()
 {
-  kernel_panic("TODO: AcpiOsGetTimer");
+  //kernel_panic("TODO: AcpiOsGetTimer");
+  printf("Called AcpiOsGetTimer! Returned zero\n");
   return 0;
 }
 

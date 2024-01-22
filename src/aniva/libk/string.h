@@ -1,5 +1,6 @@
 #ifndef __ANIVA_STRING__
 #define __ANIVA_STRING__
+
 #include <libk/stddef.h>
 
 size_t strlen(const char* str);

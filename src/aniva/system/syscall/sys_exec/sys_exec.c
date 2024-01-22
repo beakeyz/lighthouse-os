@@ -1,10 +1,10 @@
-
 #include "sys_exec.h"
 #include "lightos/syscall.h"
 #include "dev/core.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
+#include <libk/string.h>
 #include "sched/scheduler.h"
 
 #include "drivers/util/kterm/kterm.h"

@@ -1,8 +1,6 @@
 #include "multiboot.h" 
-#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
@@ -61,9 +59,9 @@ ErrorOrPtr init_multiboot(void* addr)
  * allocator here. This function will preserve any essensial multiboot memory so that
  * it does not get overwritten by any allocations
  */
-ErrorOrPtr finalize_multiboot() {
-
-  const size_t mb_pagecount = GET_PAGECOUNT(g_system_info.total_multiboot_size);
+ErrorOrPtr finalize_multiboot() 
+{
+  const size_t mb_pagecount = GET_PAGECOUNT(g_system_info.phys_multiboot_addr, g_system_info.total_multiboot_size);
   const paddr_t aligned_mb_start = ALIGN_DOWN(g_system_info.phys_multiboot_addr, SMALL_PAGE_SIZE);
   const uintptr_t mb_start_idx = kmem_get_page_idx(aligned_mb_start); 
 

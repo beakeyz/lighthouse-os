@@ -1,11 +1,9 @@
 #include "pci.h"
 #include "bus.h"
-#include "dev/debug/serial.h"
 #include "dev/pci/definitions.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
 #include <mem/heap.h>
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -13,11 +11,10 @@
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include "io.h"
-#include "system/resource.h"
 #include <libk/io.h>
 
-static pci_accessmode_t __current_addressing_mode;
-static pci_device_ops_io_t* __current_pci_access_impl;
+static pci_accessmode_t __current_addressing_mode = PCI_UNKNOWN_ACCESS;
+static pci_device_ops_io_t* __current_pci_access_impl = NULL;
 static list_t* __pci_bridges;
 static list_t* __pci_devices;
 
@@ -914,22 +911,8 @@ void init_pci_drivers()
   enumerate_bridges(&callback);
 }
 
-bool init_pci() 
+void init_pci_early()
 {
-  __pci_drivers = nullptr;
-  __pci_devices = init_list();
-  __pci_bridges = init_list();
-
-  __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
-
-  acpi_tbl_mcfg_t* mcfg = find_acpi_table(ACPI_SIG_MCFG, sizeof(acpi_tbl_mcfg_t));
-
-  if (!mcfg) {
-    kernel_panic("no mcfg found!");
-  }
-
-  bool success = register_pci_bridges_from_mcfg(mcfg);
-
   if (test_pci_io_type1()) {
     __current_addressing_mode = PCI_IOPORT_ACCESS;
     __current_pci_access_impl = &g_pci_type1_impl;
@@ -940,9 +923,23 @@ bool init_pci()
     kernel_panic("No viable pci access method found");
   }
 
-  if (!success) {
-    kernel_panic("Unable to register pci bridges from mcfg! (ACPI)");
-  }
+}
+
+bool init_pci() 
+{
+  __pci_drivers = nullptr;
+  __pci_devices = init_list();
+  __pci_bridges = init_list();
+
+  __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
+
+  acpi_tbl_mcfg_t* mcfg = find_acpi_table(ACPI_SIG_MCFG, sizeof(acpi_tbl_mcfg_t));
+
+  if (!mcfg)
+    kernel_panic("no mcfg found!");
+
+  ASSERT_MSG(register_pci_bridges_from_mcfg(mcfg), "Unable to register pci bridges from mcfg! (ACPI)");
+
   return true;
 }
 
@@ -961,86 +958,68 @@ pci_bus_t* get_bridge_by_index(uint32_t bridge_index) {
 }
 
 /*
- * TODO: these functions only seem to work in qemu, real hardware has some different method to get these 
- * fields memory mapped... let's figure out what the heck
+ * Pci configuration routines
+ *
+ * TODO: Since the type 1 legacy access mode does not support segment groups, we don't do anything
+ * with that right now, but we should be able to detect wether or not we're using ECAM as our configuration-
+ * space handler. We should look into adding that as a pci_access impl
+ *
+ * Also __current_addressing_mode is kinda weird, since it's different per PCI device/function.
  */
-void pci_write_32(pci_device_address_t* address, uint32_t field, uint32_t value) {
-  pci_bus_t* bridge = get_bridge_by_index(address->index);
-  if (bridge == nullptr) {
-    return;
-  }
-  const uint8_t bus = address->bus_num;
-  const uint8_t device = address->device_num;
-  const uint8_t func = address->func_num;
-  
-  write_field32(bridge, bus, device, func, field, value);
+
+int pci_read32(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint32_t *value)
+{
+  if (!__current_pci_access_impl)
+    return -1;
+
+  return __current_pci_access_impl->read32(bus, device, func, reg, value);
 }
 
-void pci_write_16(pci_device_address_t* address, uint32_t field, uint16_t value) {
-  pci_bus_t* bridge = get_bridge_by_index(address->index);
-  if (bridge == nullptr) {
-    return;
-  }
-  const uint8_t bus = address->bus_num;
-  const uint8_t device = address->device_num;
-  const uint8_t func = address->func_num;
-  
-  write_field16(bridge, bus, device, func, field, value);
+int pci_read16(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint16_t *value)
+{
+  if (!__current_pci_access_impl)
+    return -1;
+
+  return __current_pci_access_impl->read16(bus, device, func, reg, value);
 }
 
-void pci_write_8(pci_device_address_t* address, uint32_t field, uint8_t value) {
-  pci_bus_t* bridge = get_bridge_by_index(address->index);
-  if (bridge == nullptr) {
-    return;
-  }
-  const uint8_t bus = address->bus_num;
-  const uint8_t device = address->device_num;
-  const uint8_t func = address->func_num;
-  
-  write_field8(bridge, bus, device, func, field, value);
+int pci_read8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint8_t *value)
+{
+  if (!__current_pci_access_impl)
+    return -1;
+
+  return __current_pci_access_impl->read8(bus, device, func, reg, value);
 }
 
-uint32_t pci_read_32(pci_device_address_t* address, uint32_t field) {
-  pci_bus_t* bridge = get_bridge_by_index(address->index);
-  if (bridge == nullptr) {
-    return NULL;
-  }
-  const uint8_t bus = address->bus_num;
-  const uint8_t device = address->device_num;
-  const uint8_t func = address->func_num;
-  
-  return read_field32(bridge, bus, device, func, field);
+int pci_write32(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint32_t value)
+{
+  if (!__current_pci_access_impl)
+    return -1;
+
+  return __current_pci_access_impl->write32(bus, device, func, reg, value);
 }
 
-uint16_t pci_read_16(pci_device_address_t* address, uint32_t field) {
-  pci_bus_t* bridge = get_bridge_by_index(address->index);
-  if (bridge == nullptr) {
-    return NULL;
-  }
-  uint8_t bus = address->bus_num;
-  uint8_t device = address->device_num;
-  uint8_t func = address->func_num;
-  
-  uint16_t result = read_field16(bridge, bus, device, func, field);
-  return result;
+int pci_write16(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint16_t value)
+{
+  if (!__current_pci_access_impl)
+    return -1;
+
+  return __current_pci_access_impl->write16(bus, device, func, reg, value);
 }
 
-uint8_t pci_read_8(pci_device_address_t* address, uint32_t field) {
-  pci_bus_t* bridge = get_bridge_by_index(address->index);
-  if (bridge == nullptr) {
-    return NULL;
-  }
-  const uint8_t bus = address->bus_num;
-  const uint8_t device = address->device_num;
-  const uint8_t func = address->func_num;
-  
-  return read_field8(bridge, bus, device, func, field);
+int pci_write8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint8_t value)
+{
+  if (!__current_pci_access_impl)
+    return -1;
+
+  return __current_pci_access_impl->write8(bus, device, func, reg, value);
 }
 
 /* PCI READ/WRITE WRAPPERS */
 // TODO
 
-static ALWAYS_INLINE void pci_send_command(pci_device_address_t* address, bool or_and, uint32_t shift) {
+static ALWAYS_INLINE void pci_send_command(pci_device_address_t* address, bool or_and, uint32_t shift) 
+{
   uint16_t placeback;
   __current_pci_access_impl->read16(address->bus_num, address->device_num, address->func_num, COMMAND, &placeback);
 
@@ -1051,19 +1030,23 @@ static ALWAYS_INLINE void pci_send_command(pci_device_address_t* address, bool o
   }
 }
 
-void pci_set_io(pci_device_address_t* address, bool value) {
+void pci_set_io(pci_device_address_t* address, bool value)
+{
   pci_send_command(address, value, PCI_COMMAND_IO_SPACE);
 }
 
-void pci_set_memory(pci_device_address_t* address, bool value) {
+void pci_set_memory(pci_device_address_t* address, bool value)
+{
   pci_send_command(address, value, PCI_COMMAND_MEM_SPACE);
 }
 
-void pci_set_interrupt_line(pci_device_address_t* address, bool value) {
+void pci_set_interrupt_line(pci_device_address_t* address, bool value) 
+{
   pci_send_command(address, !value, PCI_COMMAND_INT_DISABLE);
 }
 
-void pci_set_bus_mastering(pci_device_address_t* address, bool value) {
+void pci_set_bus_mastering(pci_device_address_t* address, bool value) 
+{
   pci_send_command(address, value, PCI_COMMAND_BUS_MASTER);
 }
 

@@ -1,4 +1,5 @@
 #include "variable.h"
+#include <libk/string.h>
 #include "libk/flow/error.h"
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
