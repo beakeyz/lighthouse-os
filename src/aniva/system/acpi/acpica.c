@@ -1,6 +1,5 @@
 #include "acpi.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acpixf.h"
 #include "system/acpi/acpica/actypes.h"
@@ -21,8 +20,6 @@ void init_acpi_early()
   ACPI_OBJECT_LIST param;
   ACPI_STATUS stat;
 
-  println("A");
-
   stat = AcpiInitializeSubsystem();
 
   if (ACPI_FAILURE(stat))
@@ -32,8 +29,6 @@ void init_acpi_early()
     return;
   }
 
-  println("B");
-
   stat = AcpiInitializeTables(NULL, 16, true);
 
   if (ACPI_FAILURE(stat))
@@ -42,8 +37,6 @@ void init_acpi_early()
     return;
   }
 
-  println("C");
-
   stat = AcpiLoadTables();
 
   if (ACPI_FAILURE(stat))
@@ -51,8 +44,6 @@ void init_acpi_early()
     printf("Failed to load ACPI tables\n");
     return;
   }
-
-  println("D");
 
   /* Initialize system interrupt controller (1 = APIC, 0 = PIC) */
   arg.Integer.Type = ACPI_TYPE_INTEGER;
@@ -64,8 +55,6 @@ void init_acpi_early()
   /* Ignore status */
   AcpiEvaluateObject(NULL, (ACPI_STRING)"\\_PIC", &param, NULL);
 
-  println("E");
-
   stat = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
 
   if (ACPI_FAILURE(stat))
@@ -73,8 +62,6 @@ void init_acpi_early()
     printf("Failed to enable ACPI\n");
     return;
   }
-
-  println("F");
   
   stat = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
 
@@ -84,8 +71,6 @@ void init_acpi_early()
     return;
   }
 
-  println("G");
-
   stat = AcpiInstallGlobalEventHandler(generic_global_event_handler, NULL);
 
   if (ACPI_FAILURE(stat))
@@ -93,8 +78,6 @@ void init_acpi_early()
     printf("Failed to install ACPI global event handler\n");
     return;
   }
-
-  println("H");
 
   stat = AcpiInstallNotifyHandler(ACPI_ROOT_OBJECT, ACPI_ALL_NOTIFY, generic_glob_notif_handler, NULL);
 
@@ -104,8 +87,6 @@ void init_acpi_early()
     return;
   }
 
-  println("I");
-
   stat = AcpiEnableAllRuntimeGpes();
 
   if (ACPI_FAILURE(stat))
@@ -113,8 +94,6 @@ void init_acpi_early()
     printf("Failed to enable ACPI runtime GPEs\n");
     return;
   }
-
-  println("J");
 
   stat = AcpiUpdateAllGpes();
 

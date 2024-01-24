@@ -602,7 +602,7 @@ ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLE
 UINT64 AcpiOsGetTimer()
 {
   //kernel_panic("TODO: AcpiOsGetTimer");
-  printf("Called AcpiOsGetTimer! Returned zero\n");
+  //printf("Called AcpiOsGetTimer! Returned zero\n");
   return 0;
 }
 

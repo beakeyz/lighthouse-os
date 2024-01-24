@@ -1,14 +1,20 @@
 [ ] : Fix the FAT32 filesystem implementation
 [ ] : Create a convenient API to manipulate the vfs (File creation, dir creation, file copy, file move, ect.)
 [1/2] : Implement profile var loading and saving to files
+[ ] : Implement oss
+[ ] : Implement ACPI-based device enumeration
+[ ] : Implement support for advanced power management with ACPI
 [ ] : Implement user-based fs access
 [ ] : Implement service processes (Processes that are attached to the BASE profile and are allowed to run in the background)
 [ ] : Implement dynamic linking
 [ ] : Implement shared memory / IPC for userspace
-[ ] : Make kterm better
+[X] : Make kterm better
 [ ] : Fix performance issues in lwnd
     \--> Investigate if we should step off the idea that the window server should 100% be a driver?
 [ ] : Create a bootmgr process for userspace startup
 [ ] : Implement multithreading in userprocesses
 [ ] : Implement more filesystem drivers (Only the mainstream filesystems, i.e. FAT, extX, tarfs, ect. should be in-kernel, the rest can be external)
 [ ] : Finish the lightos website for documentation and general information
+
+Misc:
+[ ] : Migrate the build system back to make

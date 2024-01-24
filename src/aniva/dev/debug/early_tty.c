@@ -159,13 +159,13 @@ static void etty_scroll(uint32_t lines)
     for (uint32_t x = 0; x < char_xres; x++) {
       c_char = get_simple_char_at(x, y);
 
-      etty_draw_char_ex(x, y-lines, c_char->c, c_char->clr, true);
+      etty_draw_char_ex(x, y-lines, c_char->c, c_char->clr, false);
     }
   }
 
   for (uint32_t y = (char_yres - lines); y < char_yres; y++)
     for (uint32_t x = 0; x < char_xres; x++)
-      etty_draw_char_ex(x, y, NULL, BLACK, true);
+      etty_draw_char_ex(x, y, NULL, BLACK, false);
 
   y_idx -= lines;
 }
