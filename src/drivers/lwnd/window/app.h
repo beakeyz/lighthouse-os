@@ -2,8 +2,8 @@
 #define __ANIVA_LWND_APP_WINDOW__
 
 #include "LibGfx/include/driver.h"
-#include "drivers/wnd/screen.h"
-#include "drivers/wnd/window.h"
+#include "drivers/lwnd/screen.h"
+#include "drivers/lwnd/window.h"
 #include "proc/proc.h"
 
 void create_test_app(lwnd_screen_t* screen);

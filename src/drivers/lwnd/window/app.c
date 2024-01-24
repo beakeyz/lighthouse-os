@@ -1,6 +1,6 @@
 #include "app.h"
 #include "dev/video/framebuffer.h"
-#include "drivers/wnd/window.h"
+#include "drivers/lwnd/window.h"
 #include "fs/file.h"
 #include "fs/vfs.h"
 #include "fs/vobj.h"

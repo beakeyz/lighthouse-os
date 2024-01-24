@@ -1,8 +1,8 @@
 #ifndef __ANIVA_LWND_ALLOC__
 #define __ANIVA_LWND_ALLOC__
 
-#include "drivers/wnd/screen.h"
-#include "drivers/wnd/window.h"
+#include "drivers/lwnd/screen.h"
+#include "drivers/lwnd/window.h"
 
 int init_lwnd_alloc();
 

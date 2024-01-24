@@ -1,7 +1,7 @@
 #ifndef __ANIVA_LWND_EVENT__
 #define __ANIVA_LWND_EVENT__
 
-#include "drivers/wnd/window.h"
+#include "drivers/lwnd/window.h"
 #include <libk/stddef.h>
 
 struct lwnd_screen;

@@ -324,8 +324,12 @@ def direct_exec(args: list[str]) -> Status:
 
         if builder.linkKernel() == BuilderResult.SUCCESS:
             return Status(StatusCode.Success, "Linked the kernel =D")
+    elif (args[1] == "ramdisk"):
+        # TODO: implement robust ramdisk generation
+        # FIXME: Should really we let the project manager create the ramdisk???
+        pass
 
-    return Status(StatusCode.Fail, "Yikes, linking went wrong?")
+    return Status(StatusCode.Fail, "Yikes, direct exec went wrong?")
 
 # Global todos:
 #   TODO: implement caching of built files, so that we don't have to

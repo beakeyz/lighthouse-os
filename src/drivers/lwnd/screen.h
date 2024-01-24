@@ -6,10 +6,10 @@
  * will be beamed into our eyesockets
  */
 #include "dev/video/framebuffer.h"
-#include "drivers/wnd/props/prop.h"
-#include "drivers/wnd/event.h"
-#include "drivers/wnd/io.h"
-#include "drivers/wnd/window.h"
+#include "drivers/lwnd/props/prop.h"
+#include "drivers/lwnd/event.h"
+#include "drivers/lwnd/io.h"
+#include "drivers/lwnd/window.h"
 #include "libk/data/bitmap.h"
 #include "libk/data/linkedlist.h"
 #include "sync/mutex.h"

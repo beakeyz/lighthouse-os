@@ -1,6 +1,7 @@
 [ ] : Fix the FAT32 filesystem implementation
 [ ] : Create a convenient API to manipulate the vfs (File creation, dir creation, file copy, file move, ect.)
 [1/2] : Implement profile var loading and saving to files
+[ ] : Implement driver installing from files (Currently we can only directly load from a file)
 [ ] : Implement oss
 [ ] : Implement ACPI-based device enumeration
 [ ] : Implement support for advanced power management with ACPI

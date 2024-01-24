@@ -129,7 +129,7 @@ class RamdiskManager(object):
 
     def __copy_drivers(self) -> bool:
         '''
-        Try to copy over all the external driver that the kerne might
+        Try to copy over all the external driver that the kernel might
         need to the ./system directory before they get compacted to
         the archive
         '''

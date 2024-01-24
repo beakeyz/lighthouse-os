@@ -1,7 +1,7 @@
 
 #include "alloc.h"
-#include "drivers/wnd/screen.h"
-#include "drivers/wnd/window.h"
+#include "drivers/lwnd/screen.h"
+#include "drivers/lwnd/window.h"
 #include "mem/zalloc.h"
 
 static zone_allocator_t* _window_allocator;

@@ -16,6 +16,9 @@ export OUT=$(WORKING_DIR)/out
 export SRC=$(WORKING_DIR)/src
 export PROJECT_DIR=$(WORKING_DIR)/project
 export TOOLS_DIR=$(WORKING_DIR)/tools
+export SYSROOT_DIR=$(WORKING_DIR)/system
+
+export LIBRARY_BIN_PATH=$(WORKING_DIR)/out/libs
 
 export CC=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-gcc
 export LD=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-ld
@@ -25,33 +28,53 @@ export NM=$(CROSSCOMPILER_BIN_DIR)/x86_64-pc-lightos-nm
 export ASM=nasm
 
 export KERNEL_NAME=aniva
-export RAMDISK_NAME=rdisk
+export RAMDISK_NAME=anivaRamdisk
 export KERNEL_FILENAME=$(KERNEL_NAME).elf
 export RAMDISK_FILENAME=$(RAMDISK_NAME).igz
+
+export KERNEL_CFLAGS := \
+	-std=gnu11 -Werror -Wall -nostdlib -O2 -mno-sse -mno-sse2 -static \
+	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
+	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
+	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs \
+	-I$(SRC)/libs/LibC -D'KERNEL'
+
+export USER_INCLUDE_CFLAGS := \
+	-I$(SRC)/libs -I$(SRC)/libs/LibC
+
+export KERNEL_LDFLAGS := \
+	-T ${KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000
 
 help: ## Prints help for targets with comments
 	@cat $(MAKEFILE_LIST) | grep -E '^[a-zA-Z_-]+:.*?## .*$$' | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: aniva
+#
+# Currently these targets only invoke build targets, but idealy we
+# also want to be able to invoke other targets, like clean, install, ect.
+#
+
 aniva: ## Build the kernel binary
-	make -C ./src/aniva build
+	@make -C ./src/aniva build
 
-.PHONY: drivers
 drivers: ## Build on-disk drivers
-	@echo -e $(CC) 
+	@make -C ./src/drivers build
 
-.PHONY: libs
 libs: ## Build system libraries
-	@echo -e "TODO: build libs"
+	@make -C ./src/libs build
 
-.PHONY: user
 user: ## Build userspace stuff
-	@echo -e "TODO: build userspace"
+	@make -C ./src/user build
 
-.PHONY: ramdisk
 ramdisk: ## Create the system ramdisk
 	@echo -e "TODO: create ramdisk"
+	@cd $(PROJECT_DIR)/.. && python3 $(PROJECT_DIR)/x.py ramdisk
 
-.PHONY: clean
-clean: ## Remove any objectfiles
-	@echo -e "TODO: clean"
+clean: ## Remove any build artifacts
+	@echo -e "Trying to clean build artifacts..."
+	@rm -r $(OUT)
+	@echo -e "Cleaned build artifacts!"
+
+all: aniva drivers libs user ramdisk
+	@echo Built the entire project =D
+
+.PHONY: aniva drivers libs user ramdisk clean all
