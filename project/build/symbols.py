@@ -2,6 +2,7 @@ import os
 from build.sourcefiles import SourceFile, SourceLanguage
 from consts import Consts
 
+
 class KSymbol(object):
 
     name: str = ""
@@ -27,7 +28,7 @@ def read_map(map_path: str) -> list[KSymbol]:
         while values:
 
             values = values.split(" ")
-            
+
             # Grab the underlying data
             address = values[0]
             ktype = values[1]

@@ -317,6 +317,16 @@ class CleanAllCallback(CommandCallback):
         return Status(StatusCode.Success, "Cleaned everything!")
 
 
+def direct_exec(args: list[str]) -> Status:
+    if (args[1] == "link"):
+        c = Consts()
+        builder = ProjectBuilder(BuilderMode.KERNEL, c)
+
+        if builder.linkKernel() == BuilderResult.SUCCESS:
+            return Status(StatusCode.Success, "Linked the kernel =D")
+
+    return Status(StatusCode.Fail, "Yikes, linking went wrong?")
+
 # Global todos:
 #   TODO: implement caching of built files, so that we don't have to
 #         rebuild the project every time we change one thing
@@ -331,10 +341,8 @@ def project_main() -> Status:
     SCRIPT_LOGO += "/____/\_,_/_//__/_,_/___/\_, /___/                        \n"
     SCRIPT_LOGO += "                        /___/                             \n"
 
-    commands: list[str] = argv
-
-    # Remove the command used to execute x.py
-    commands.pop(0)
+    if len(argv) > 1:
+        return direct_exec(argv)
 
     cmd_processor = CommandProcessor()
 
