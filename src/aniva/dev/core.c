@@ -1,6 +1,4 @@
 #include "core.h"
-#include "dev/debug/serial.h"
-#include "dev/debug/test.h"
 #include "dev/external.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
@@ -10,19 +8,13 @@
 #include "driver.h"
 #include <mem/heap.h>
 #include "libk/stddef.h"
-#include "libk/string.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
-#include "proc/ipc/packet_payload.h"
-#include "proc/ipc/packet_response.h"
-#include "proc/proc.h"
-#include "proc/socket.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
-#include "system/asm_specifics.h"
+#include "sys/types.h"
 #include "system/processor/processor.h"
 #include <entry/entry.h>
 
@@ -167,8 +159,8 @@ static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
 
 static list_t* __deferred_driver_manifests;
 
-static bool __load_precompiled_driver(dev_manifest_t* manifest) {
-
+static bool __load_precompiled_driver(dev_manifest_t* manifest)
+{
   if (!manifest)
     return false;
 
@@ -179,8 +171,6 @@ static bool __load_precompiled_driver(dev_manifest_t* manifest) {
   /* Skip already loaded drivers */
   if ((manifest->m_flags & DRV_LOADED) == DRV_LOADED)
     return true;
-
-  printf("Loading driver %s\n", manifest->m_url);
 
   manifest_gather_dependencies(manifest);
 
@@ -194,12 +184,14 @@ static bool __load_precompiled_driver(dev_manifest_t* manifest) {
 }
 
 
-static bool walk_precompiled_drivers_to_load(hive_t* current, void* data) {
+static bool walk_precompiled_drivers_to_load(hive_t* current, void* data) 
+{
   return __load_precompiled_driver(data);
 }
 
 
-void init_aniva_driver_registry() {
+void init_aniva_driver_registry() 
+{
   __installed_driver_manifests = create_hive("Devices");
   __dev_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, DEV_MANIFEST_SOFTMAX * sizeof(dev_manifest_t), sizeof(dev_manifest_t), NULL);
   __deferred_driver_manifests = init_list();
@@ -384,9 +376,10 @@ ErrorOrPtr uninstall_driver(dev_manifest_t* manifest)
   if (IsError(hive_remove_path(__installed_driver_manifests, manifest->m_url)))
     goto fail_and_exit;
 
-  println("Destroying");
+  if (manifest->m_external)
+    destroy_external_driver(manifest->m_external);
+
   destroy_dev_manifest(manifest);
-  println("Yay");
 
   return Success(0);
 
@@ -415,6 +408,21 @@ static void __driver_unregister_presence(dev_type_t type)
   mutex_unlock(__driver_constraint_lock);
 }
 
+static int _try_load_external_driver(dev_manifest_t* manifest)
+{
+  if ((manifest->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL || !manifest->m_driver_file_path)
+    return -1;
+
+  /* Don't load it if it already has an */
+  if (manifest->m_external)
+    return -1;
+
+  if (load_external_driver_manifest(manifest) == nullptr)
+    return -1;
+
+  return 0;
+}
+
 /*
  * Steps to load a driver into our registry
  * 1: Resolve the url in the manifest
@@ -425,10 +433,9 @@ static void __driver_unregister_presence(dev_type_t type)
  * We also might want to create a kernel-process for each driver
  * TODO: better security
  */
-ErrorOrPtr load_driver(dev_manifest_t* manifest) {
-
+ErrorOrPtr load_driver(dev_manifest_t* manifest) 
+{
   ErrorOrPtr result;
-  extern_driver_t* ext_driver;
   aniva_driver_t* handle;
 
   if (!manifest)
@@ -437,44 +444,25 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest) {
   if (!verify_driver(manifest))
     goto fail_and_exit;
 
-  ext_driver = nullptr;
+  /* Just load the external driver if we can */
+  if (!_try_load_external_driver(manifest))
+    return Success(0);
 
-  /* This driver was unloaded before. Check if we can do some cool shit */
-  if ((manifest->m_flags & DRV_WAS_UNLOADED) == DRV_WAS_UNLOADED) {
-
-    /* Clear this flag, since it might fuck us if we don't */
-    manifest->m_flags &= DRV_WAS_UNLOADED;
-
-    if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL && manifest->m_driver_file_path)
-      ext_driver = load_external_driver_manifest(manifest);
-
-    /* If we fail to load the driver from cache, just go through the entire process again... */
-    if (ext_driver)
-      return Success(0);
-
-    /* Make sure to clean up our manifset */
-    if (manifest->m_driver_file_path)
-      kfree((void*)manifest->m_driver_file_path);
-
-    manifest->m_driver_file_path = nullptr;
-    manifest->m_external = nullptr;
-    manifest->m_handle = nullptr;
-    manifest->m_flags &= ~(DRV_IS_EXTERNAL | DRV_LOADED | DRV_HAS_HANDLE);
-  }
+  /* Make sure to clean up our manifset */
+  if (manifest->m_driver_file_path)
+    kfree((void*)manifest->m_driver_file_path);
 
   handle = manifest->m_handle;
+
+  /* Can't load if it's already loaded lmao */
+  if (is_driver_loaded(manifest))
+    goto fail_and_exit;
 
   // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
   // where we say result == ANIVA_FAIL
   // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
   // need to be replaced with result != ANIVA_SUCCESS
-  if (!is_driver_installed(manifest)) {
-    if (IsError(install_driver(manifest))) {
-      goto fail_and_exit;
-    }
-  }
-
-  if (is_driver_loaded(manifest))
+  if (!is_driver_installed(manifest) && IsError(install_driver(manifest)))
     goto fail_and_exit;
 
   FOREACH(i, manifest->m_dependency_manifests) {

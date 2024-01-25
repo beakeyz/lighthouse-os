@@ -69,8 +69,6 @@ typedef struct aniva_driver {
 
 #define DRV_CORE                  (0x00008000) /* Is this driver for core functions? */
 #define DRV_LOADED                (0x00010000) /* Is this driver loaded? */
-/* This driver has been unloaded before. This is nice if we want to reload a driver, since the manifest already knows where its backend is located */
-#define DRV_WAS_UNLOADED          (0x00020000)
 
 #define DRV_STAT_OK         (0)
 #define DRV_STAT_INVAL      (-1)

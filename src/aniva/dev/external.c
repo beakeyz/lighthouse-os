@@ -1,12 +1,8 @@
 #include "external.h"
-#include "dev/core.h"
 #include "dev/manifest.h"
 #include "fs/vobj.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
-#include "sync/mutex.h"
-#include "system/resource.h"
 
 extern_driver_t* create_external_driver(uint32_t flags)
 {
@@ -53,8 +49,6 @@ void destroy_external_driver(extern_driver_t* driver)
     manifset->m_external = nullptr;
 
     manifset->m_flags &= ~DRV_HAS_HANDLE;
-    /* Tell the driver that it has been unloaded and that any reloads can first go through the cached info of the previous load */
-    manifset->m_flags |= DRV_WAS_UNLOADED;
 
     /* Make sure we also deallocate our load base, just in case */
     if (driver->m_load_size)

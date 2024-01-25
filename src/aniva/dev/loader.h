@@ -26,12 +26,11 @@
 
 #include "dev/external.h"
 #include "fs/file.h"
-#include "libk/flow/error.h"
 
 /* TODO ? */
 bool file_contains_driver(file_t* file);
 
-extern_driver_t* install_external_driver(const char* path);
+int install_external_driver(const char* path);
 
 extern_driver_t* load_external_driver(const char* path);
 extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest);

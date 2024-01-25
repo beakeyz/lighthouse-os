@@ -1,21 +1,27 @@
-[ ] : Fix the FAT32 filesystem implementation
-[ ] : Create a convenient API to manipulate the vfs (File creation, dir creation, file copy, file move, ect.)
+
+ ! TODOs that can be done in any order
+
 [1/2] : Implement profile var loading and saving to files
-[ ] : Implement driver installing from files (Currently we can only directly load from a file)
-[ ] : Implement oss
-[ ] : Implement ACPI-based device enumeration
-[ ] : Implement support for advanced power management with ACPI
-[ ] : Implement user-based fs access
 [ ] : Implement service processes (Processes that are attached to the BASE profile and are allowed to run in the background)
-[ ] : Implement dynamic linking
 [ ] : Implement shared memory / IPC for userspace
 [X] : Make kterm better
 [ ] : Fix performance issues in lwnd
     \--> Investigate if we should step off the idea that the window server should 100% be a driver?
 [ ] : Create a bootmgr process for userspace startup
 [ ] : Implement multithreading in userprocesses
-[ ] : Implement more filesystem drivers (Only the mainstream filesystems, i.e. FAT, extX, tarfs, ect. should be in-kernel, the rest can be external)
 [ ] : Finish the lightos website for documentation and general information
 
-Misc:
-[ ] : Migrate the build system back to make
+ ! TODOS in the order in which they (probably) should be implemented from top to bottom
+
+- (1) Smooth out our filesystem and object management systems - 
+[ ] : Implement oss
+  [ ] : Finish the migration from the current vfs to the new oss (Which we build from the ground up seperate from VFS)
+  [ ] : Create a convenient API to manipulate the vfs/oss (File creation, dir creation, file copy, file move, ect.)
+[ ] : Fix the FAT32 filesystem implementation
+[ ] : Implement user-based fs access
+[ ] : Implement more filesystem drivers (Only the mainstream filesystems, i.e. FAT, extX, tarfs, ect. should be in-kernel, the rest can be external)
+[ ] : Implement dynamic linking
+
+- (2) Now that FS and OSS structures are in place, work further with hardware support (Drivers, ACPI, PWM, ect.) - 
+[ ] : Implement ACPI-based device enumeration
+[ ] : Implement support for advanced power management with ACPI

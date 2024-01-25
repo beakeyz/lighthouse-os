@@ -5,9 +5,7 @@
 #include "dev/manifest.h"
 #include "drivers/util/kterm/kterm.h"
 #include "entry/entry.h"
-#include "fs/vobj.h"
 #include "libk/flow/error.h"
-#include "libk/io.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -185,6 +183,7 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
   const char* drv_path = nullptr;
   bool should_unload = false;
   bool should_uninstall = false;
+  bool should_install = false;
   bool should_help = false;
 
   if (!cmd_has_args(argc)) {
@@ -210,6 +209,11 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 
     if (strcmp(arg, "-ui") == 0) {
       should_uninstall = true;
+      continue;
+    }
+
+    if (strcmp(arg, "-i") == 0) {
+      should_install = true;
       continue;
     }
 
@@ -240,9 +244,9 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     return 0;
   }
 
-  if (should_uninstall) {
+  manifest = get_driver(drv_path);
 
-    manifest = get_driver(drv_path);
+  if (should_uninstall) {
 
     if (!manifest) {
       kterm_println("Failed to find that driver!");
@@ -270,6 +274,22 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     return 0;
   }
 
+  if (should_install) {
+    if (!install_external_driver(drv_path)) {
+      kterm_println("Successfully installed driver!");
+      return 0;
+    }
+
+    return 1;
+  }
+
+  /* If this path it to a valid installed manifest, load that */
+  if (manifest && !IsError(load_driver(manifest))) {
+    kterm_println("Successfully loaded driver!");
+    return 0;
+  }
+
+  /* Finally, try to load an external driver */
   driver = load_external_driver(drv_path);
 
   if (!driver) {
@@ -277,6 +297,7 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     return 1;
   }
 
+  kterm_println("Successfully loaded external driver!");
   return 0;
 }
 
