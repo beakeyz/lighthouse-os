@@ -19,21 +19,25 @@
  * of all that shit. (4) OSS will verify that the returned oss node is OK and it will continue to attach it where
  * it needs to go. (5) Let's say that the filesystem gets attached to
  * ':/Root'
- * And there is a subsystem that calls the oss API to resolve a vobj at the path:
+ * And there is a subsystem that calls the oss API to resolve a oss_obj at the path:
  * ':/Root/Some/file.txt'
- * When OSS recieves this call it will bump into the oss_node at :/Root and it discovers that it's a vobj-generator.
- * At this point it can call the oss_node opperation to resolve a vobj and it returns the vobj to the calling subsystem
+ * When OSS recieves this call it will bump into the oss_node at :/Root and it discovers that it's a oss_obj-generator.
+ * At this point it can call the oss_node opperation to resolve a oss_obj and it returns the oss_obj to the calling subsystem
  */
 
+struct oss_obj;
+struct oss_node;
+
 void init_oss();
+void oss_test();
 
-int oss_resolve();
-int oss_close();
-int oss_move();
-int oss_remove();
+int oss_create_path(struct oss_node* node, const char* path);
+int oss_attach_node(const char* path, struct oss_node* node);
+int oss_attach_obj(const char* path, struct oss_obj* obj);
 
-int oss_attach_node();
-int oss_detach_node();
-int oss_rename_node();
+int oss_resolve_node(const char* path, struct oss_node** out);
+
+int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj** out);
+int oss_resolve_obj(const char* path, struct oss_obj** out);
 
 #endif // !__ANIVA_OSS_CORE__

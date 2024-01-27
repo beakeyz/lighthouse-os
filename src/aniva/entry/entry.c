@@ -19,6 +19,7 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/zalloc.h"
+#include "oss/core.h"
 #include "proc/core.h"
 #include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
@@ -191,6 +192,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* Initialize the VFS */
   init_vfs();
 
+  /* Initialize OSS */
+  init_oss();
+
   println("[X] fs core...");
   /* Initialize the filesystem core */
   init_fs_core();
@@ -255,6 +259,10 @@ void kthread_entry() {
 
   /* Scan for pci devices and initialize any matching drivers */
   init_pci_drivers();
+
+  oss_test();
+
+  kernel_panic("OSS test");
 
   /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk();

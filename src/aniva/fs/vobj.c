@@ -1,12 +1,9 @@
 #include "vobj.h"
-#include "dev/debug/serial.h"
 #include "dev/device.h"
 #include "fs/file.h"
-#include "fs/vfs.h"
 #include "fs/vnode.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
