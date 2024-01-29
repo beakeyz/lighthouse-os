@@ -26,7 +26,7 @@ build-dynamic: $(ASM_OBJ) $(C_OBJ)
 		$(USER_DYNAMIC_LDFLAGS)
 
 build-static: $(ASM_OBJ) $(C_OBJ)
-	$(LD) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) \
+	@$(LD) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) \
 		$(USER_STATIC_LDFLAGS)
 
 build:

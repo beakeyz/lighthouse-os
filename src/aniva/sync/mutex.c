@@ -1,13 +1,7 @@
 #include "mutex.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
-#include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
-#include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
@@ -113,6 +107,11 @@ retry_lock:
   // when we get back
   //current_thread = get_current_scheduling_thread();
 
+  if (current_thread == mutex->m_lock_holder) {
+    mutex->m_lock_depth++;
+    goto exit_mutex_locking;
+  }
+
   if (mutex->m_lock_depth > 0) {
 
     ASSERT_MSG(mutex->m_lock_holder != nullptr, "Mutex is locked, but had no holder!");
@@ -148,13 +147,14 @@ retry_lock:
 
   // take lock
   // FIXME: remove this assert and propperly support multi-depth mutex locking
-  ASSERT_MSG(mutex->m_lock_depth == 0, "Tried to take a mutex while it has a locked depth greater than 0!");
+  //ASSERT_MSG(mutex->m_lock_depth == 0, "Tried to take a mutex while it has a locked depth greater than 0!");
 
   mutex->m_mutex_flags |= MUTEX_FLAG_IS_HELD;
   mutex->m_lock_holder = current_thread;
 
   mutex->m_lock_depth++;
 
+exit_mutex_locking:
   spinlock_unlock(mutex->m_lock);
 }
 
@@ -180,10 +180,11 @@ void mutex_unlock(mutex_t* mutex)
 
   mutex->m_lock_depth--;
 
-  thread_unregister_mutex(mutex->m_lock_holder, mutex);
-
   if (!mutex->m_lock_depth) {
+
     mutex->m_mutex_flags &= ~MUTEX_FLAG_IS_HELD;
+
+    thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
     /* Unlock the spinlock before we try unblocking */
     spinlock_unlock(mutex->m_lock);

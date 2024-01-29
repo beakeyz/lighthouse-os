@@ -1,16 +1,11 @@
 #include "elf.h"
-#include "dev/debug/serial.h"
 #include "fs/file.h"
-#include <fs/vobj.h>
 #include "libk/bin/elf_types.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "mem/pg.h"
-#include "mem/zalloc.h"
+#include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
@@ -159,7 +154,7 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   if (kernel)
     proc_flags |= PROC_DRIVER;
 
-  proc = create_proc(nullptr, &id, (char*)file->m_obj->m_path, (void*)header.e_entry, 0, proc_flags);
+  proc = create_proc(nullptr, &id, (char*)file->m_obj->name, (void*)header.e_entry, 0, proc_flags);
 
   if (!proc)
     goto error_and_out;

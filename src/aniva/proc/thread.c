@@ -1,28 +1,17 @@
 #include "thread.h"
-#include "dev/debug/serial.h"
-#include "dev/manifest.h"
-#include "entry/entry.h"
 #include "libk/data/linkedlist.h"
-#include "libk/data/queue.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
-#include "mem/zalloc.h"
 #include "proc/context.h"
-#include "proc/ipc/tspckt.h"
-#include "proc/kprocs/idle.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
 #include "sched/scheduler.h"
 #include "socket.h"
 #include <libk/string.h>
 #include "core.h"
-#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
-#include "system/resource.h"
-#include "time/pit.h"
 #include <mem/heap.h>
 
 extern void first_ctx_init(thread_t *from, thread_t *to, registers_t *regs) __attribute__((used));
@@ -173,8 +162,9 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
   thread->m_mutex_list = nullptr;
 
   FOREACH(i , mutex_list) {
-    /* Unlock every taken mutex */
-    mutex_unlock(i->data);
+    /* Drain every taken mutex */
+    while (mutex_is_locked(i->data))
+      mutex_unlock(i->data);
   }
 
   destroy_list(mutex_list);

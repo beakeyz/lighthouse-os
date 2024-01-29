@@ -2,8 +2,8 @@
 #define __ANIVA_LWND_IO__
 
 #include "libk/data/bitmap.h"
+#include "oss/obj.h"
 #include <libk/stddef.h>
-#include <fs/vobj.h>
 
 #define LWND_MOUSE_LEFT_BTN     0x0001
 #define LWND_MOUSE_RIGHT_BTN    0x0002
@@ -34,7 +34,7 @@ typedef struct lwnd_mouse {
   enum LWND_SPRITE_TYPE sprite_type;
 
   union {
-    vobj_t* file;
+    oss_obj_t* file;
     bitmap_t* bitmap;
   } sprite;
 } lwnd_mouse_t;

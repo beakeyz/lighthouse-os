@@ -54,6 +54,7 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
   /* TODO: Allow the hashmap to be resized */
   ret->obj_map = create_hashmap(SOFT_OSS_NODE_OBJ_MAX, NULL);
 
+  printf(" => Creating node: %s\n", ret->name);
   return ret;
 }
 
@@ -65,6 +66,11 @@ void destroy_oss_node(oss_node_t* node)
   if (!node)
     return;
 
+  /* Make sure there are no lingering objects */
+  oss_node_clean_objects(node);
+
+  printf(" <= Destroying node: %s\n", node->name);
+
   kfree((void*)node->name);
 
   destroy_mutex(node->lock);
@@ -74,9 +80,33 @@ void destroy_oss_node(oss_node_t* node)
 }
 
 /*!
+ * @brief: Find the private entry for a given node
+ *
+ * When @node does not have it's own private field, we walk the parent list
+ * until we find a useable field
+ */
+void* oss_node_unwrap(oss_node_t* node)
+{
+  if (node->priv)
+    return node->priv;
+
+  if (!node->parent)
+    return nullptr;
+
+  do {
+    node = node->parent;
+  } while (node && !node->priv);
+
+  if (!node)
+    return nullptr;
+
+  return node->priv;
+}
+
+/*!
  * @brief: Check if there are any invalid chars in the name
  */
-static inline bool _valid_entry_name(const char* name)
+static bool _valid_entry_name(const char* name)
 {
   while (*name) {
 
@@ -279,6 +309,47 @@ int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
   return (*obj_out ? 0 : -1);
 }
 
+/*!
+ * @brief: Walks the object map of @node recursively and destroys every object if finds
+ */
+int oss_node_clean_objects(oss_node_t* node)
+{
+  int error;
+  uintptr_t* array;
+  size_t size;
+  size_t entry_count;
+
+  mutex_lock(node->lock);
+
+  error = hashmap_to_array(node->obj_map, &array, &size);
+
+  if (error)
+    goto unlock_and_exit;
+
+  entry_count = size / (sizeof(*array));
+
+  for (uintptr_t i = 0; i < entry_count; i++) {
+    oss_node_entry_t* entry = (oss_node_entry_t*)((uintptr_t)array[i]);
+
+    switch (entry->type) {
+      case OSS_ENTRY_NESTED_NODE:
+        destroy_oss_node(entry->node);
+        break;
+      case OSS_ENTRY_OBJECT:
+        destroy_oss_obj(entry->obj);
+        break;
+    }
+
+    destroy_oss_node_entry(entry);
+  }
+
+  kfree(array);
+
+unlock_and_exit:
+  mutex_unlock(node->lock);
+  return error;
+}
+
 oss_node_entry_t* create_oss_node_entry(enum OSS_ENTRY_TYPE type, void* obj)
 {
   oss_node_entry_t* ret;
@@ -300,3 +371,4 @@ void destroy_oss_node_entry(oss_node_entry_t* entry)
 {
   zfree_fixed(_entry_allocator, entry);
 }
+

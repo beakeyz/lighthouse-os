@@ -1,12 +1,6 @@
 #include "error.h"
-#include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "irq/interrupts.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
-#include "proc/proc.h"
-#include "proc/thread.h"
-#include "sched/scheduler.h"
 #include <mem/heap.h>
 #include <libk/string.h>
 
@@ -33,6 +27,10 @@ NORETURN void kernel_panic(const char* panic_message) {
   has_paniced = true;
 
   kwarnf("[KERNEL PANIC] %s\n", panic_message);
+
+  /* TMP: hack to generate ez stacktrace xD */
+  uint64_t a = 0;
+  *(uint64_t*)(a) = 0;
 
 skip_diagnostics:
   __kernel_panic();

@@ -3,9 +3,9 @@
 
 #include <libk/stddef.h>
 
+struct oss_node;
+struct oss_obj;
 struct dir;
-struct vobj;
-struct vnode;
 
 typedef struct dir_ops {
   int (*f_create_child)(struct dir*, const char* name);
@@ -14,7 +14,7 @@ typedef struct dir_ops {
 
 typedef struct dir {
   struct dir_ops* ops;
-  struct vobj* obj;
+  struct oss_obj* obj;
 
   const char* name;
 
@@ -30,7 +30,7 @@ typedef struct dir {
   void* priv;
 } dir_t;
 
-dir_t* create_dir(struct vnode* parent, uint32_t flags, const char* name);
+dir_t* create_dir(struct oss_node* parent, uint32_t flags, const char* name);
 void destroy_dir(dir_t* dir);
 
 int dir_create_child(dir_t* dir, const char* name);

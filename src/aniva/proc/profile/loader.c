@@ -1,7 +1,8 @@
 #include <libk/stddef.h>
-#include "entry/entry.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "mem/heap.h"
+#include <libk/string.h>
 #include "proc/profile/profile.h"
 #include "proc/profile/variable.h"
 

@@ -1,8 +1,8 @@
 #include "external.h"
 #include "dev/manifest.h"
-#include "fs/vobj.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "oss/obj.h"
 
 extern_driver_t* create_external_driver(uint32_t flags)
 {
@@ -37,7 +37,7 @@ void destroy_external_driver(extern_driver_t* driver)
 
   /* We can now close the file if it has one */
   if (driver->m_file)
-    vobj_close(driver->m_file->m_obj);
+    oss_obj_close(driver->m_file->m_obj);
 
   manifset = driver->m_manifest;
 

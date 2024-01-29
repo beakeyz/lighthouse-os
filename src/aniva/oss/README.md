@@ -7,10 +7,10 @@ NOTE: this is a concept, it's not yet ready to replace the current classic vfs
 ## System layout
 
 During system runtime it is possible to register oss_nodes that function as the root for a specific type of object. Where a 
-typical vfs consisted of vnodes that 'generate' vobjects, we will take a little different approach here.
+typical vfs consisted of nodes that 'generate' vobjects, we will take a little different approach here.
 
 Take the user-available filesystem for example. The oss core will now expose an api similar to vfs_resolve (Which would simply walk
-the vfs tree until it found a vnode it could query for a vobj) which walks the oss nodes. We want to easily support relative paths,
+the vfs tree until it found a node it could query for a vobj) which walks the oss nodes. We want to easily support relative paths,
 so we'll make sure that there is a good API for that. When dealing with absolute paths the following rules apply:
 
 Consider a path that points to a random file on disk. It would look something like this:

@@ -1,11 +1,9 @@
 #include "kterm.h"
-#include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
 
 /*!
  * @brief: Log into a profile

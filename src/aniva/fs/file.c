@@ -1,13 +1,11 @@
 #include "file.h"
-#include "dev/debug/serial.h"
-#include "fs/vfs.h"
-#include "fs/vnode.h"
-#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
-#include "sync/mutex.h"
+#include "oss/core.h"
+#include "oss/node.h"
+#include "oss/obj.h"
 
 static int _file_close(file_t* file);
 file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
@@ -76,8 +74,8 @@ int f_resize(file_t* file, size_t new_size) {
 int generic_f_sync(file_t* file) {
 
   int result;
-  vobj_t* object;
-  vnode_t* parent_node;
+  oss_obj_t* object;
+  oss_node_t* parent_node;
 
   if (!file)
     return -1;
@@ -87,22 +85,16 @@ int generic_f_sync(file_t* file) {
   if (!object)
     return -1;
 
-  parent_node = object->m_parent;
+  parent_node = object->parent;
 
-  if (!parent_node || !parent_node->m_ops || !parent_node->m_ops->f_force_sync_once)
+  if (!parent_node || !parent_node->ops || !parent_node->ops->f_force_obj_sync)
     return -1;
 
   /* Just force the node to sync this object */
-  result = parent_node->m_ops->f_force_sync_once(parent_node, file->m_obj);
+  result = parent_node->ops->f_force_obj_sync(file->m_obj);
 
   if (result) {
     kernel_panic("FIXME: Could not sync file! (Implement handler)");
-  }
-
-  result = parent_node->m_ops->f_force_sync(parent_node);
-
-  if (result) {
-    kernel_panic("FIXME: Failed to force sync! (Implement handler)");
   }
 
   return result;
@@ -165,24 +157,37 @@ file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags,
  * This also creates a vobject, which is responsible for managing the lifetime
  * of the files memory
  */
-file_t* create_file(struct vnode* parent, uint32_t flags, const char* path) 
+file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path) 
 {
-  file_t* ret = kmalloc(sizeof(file_t));
+  const char* name;
+  file_t* ret;
+
+  ret = kmalloc(sizeof(file_t));
+
+  if (!ret)
+    return nullptr;
+
+  name = oss_get_objname(path);
+
+  if (!name)
+    goto exit_and_dealloc;
+
+  printf("GOT OBJNAME: %s from path \'%s\'\n", name, path);
 
   ret->m_flags = flags;
-  ret->m_obj = create_generic_vobj(parent, path);
+  ret->m_obj = create_oss_obj(name);
 
-  if (!ret->m_obj) {
-    kfree(ret);
-    return nullptr;
-  }
+  kfree((void*)name);
+
+  if (!ret->m_obj)
+    goto exit_and_dealloc;
 
   /*
    * Register this file to its child object 
    * When the object gets closed, destroy_file will be called, 
    * which will be responsible for calling its own private destroy callback 
    */
-  vobj_register_child(ret->m_obj, ret, VOBJ_TYPE_FILE, destroy_file);
+  oss_obj_register_child(ret->m_obj, ret, OSS_OBJ_TYPE_FILE, destroy_file);
 
   ret->m_ops = &generic_file_ops;
 
@@ -190,6 +195,11 @@ file_t* create_file(struct vnode* parent, uint32_t flags, const char* path)
   ret->m_buffer_size = 0;
 
   return ret;
+
+exit_and_dealloc:
+  kfree(ret);
+
+  return nullptr;
 }
 
 void file_set_ops(file_t* file, file_ops_t* ops)
@@ -216,7 +226,7 @@ void destroy_file(file_t* file)
  */
 size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-  vobj_t* file_obj;
+  oss_obj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_read)
     return 0;
@@ -226,11 +236,11 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
   if (!file_obj)
     return 0;
 
-  mutex_lock(file_obj->m_lock);
+  mutex_lock(file_obj->lock);
 
   file->m_ops->f_read(file, buffer, &size, offset);
 
-  mutex_unlock(file_obj->m_lock);
+  mutex_unlock(file_obj->lock);
 
   return size;
 }
@@ -243,7 +253,7 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
  */
 size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
-  vobj_t* file_obj;
+  oss_obj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_write)
     return 0;
@@ -253,11 +263,11 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
   if (!file_obj)
     return 0;
 
-  mutex_lock(file_obj->m_lock);
+  mutex_lock(file_obj->lock);
 
   file->m_ops->f_write(file, buffer, &size, offset);
 
-  mutex_unlock(file_obj->m_lock);
+  mutex_unlock(file_obj->lock);
 
   return size;
 }
@@ -268,7 +278,7 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 int file_sync(file_t* file)
 {
   int error;
-  vobj_t* file_obj;
+  oss_obj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_sync)
     return -1;
@@ -278,11 +288,11 @@ int file_sync(file_t* file)
   if (!file_obj)
     return -2;
 
-  mutex_lock(file_obj->m_lock);
+  mutex_lock(file_obj->lock);
 
   error = file->m_ops->f_sync(file);
 
-  mutex_unlock(file_obj->m_lock);
+  mutex_unlock(file_obj->lock);
 
   return error;
 }
@@ -298,7 +308,7 @@ int file_sync(file_t* file)
 static int _file_close(file_t* file)
 {
   int error;
-  vobj_t* file_obj;
+  oss_obj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_close)
     return -1;
@@ -308,26 +318,31 @@ static int _file_close(file_t* file)
   if (!file_obj)
     return -2;
 
-  mutex_lock(file_obj->m_lock);
+  mutex_lock(file_obj->lock);
 
   /* NOTE: the external close function should never kill the file object, just the internal buffers used by the filesystem */
   error = file->m_ops->f_close(file);
 
-  mutex_unlock(file_obj->m_lock);
+  mutex_unlock(file_obj->lock);
 
   return error;
 }
 
 file_t* file_open(const char* path)
 {
-  vobj_t* obj;
+  int error;
+  oss_obj_t* obj;
 
-  obj = vfs_resolve(path);
+  /*
+   * File gets created by the filesystem driver
+   */
+  error = oss_resolve_obj(path, &obj);
 
-  if (!obj)
+  if (error || !obj)
     return nullptr;
 
-  return vobj_get_file(obj);
+  /* Try to recieve the file created by the fs */
+  return oss_obj_get_file(obj);
 }
 
 int file_close(file_t* file)
@@ -335,5 +350,5 @@ int file_close(file_t* file)
   if (!file)
     return -1;
 
-  return vobj_close(file->m_obj);
+  return oss_obj_close(file->m_obj);
 }

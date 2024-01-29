@@ -12,7 +12,7 @@ typedef struct fat_file {
   uint32_t clusterchain_offset;
 } fat_file_t;
 
-file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, char* path);
+file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path);
 void destroy_fat_file(fat_file_t* file);
 
 size_t get_fat_file_size(fat_file_t* file); 

@@ -6,6 +6,8 @@
 
 struct oss_obj;
 struct oss_node;
+struct file;
+struct device;
 
 typedef struct oss_obj_ops {
   void (*f_destory_priv)(void* obj);
@@ -30,7 +32,7 @@ enum OSS_OBJ_TYPE {
 #define OSS_OBJ_CONFIG     0x00000002 /* Does this object point to configuration? */
 #define OSS_OBJ_SYS        0x00000004 /* Is this object owned by the system? */
 #define OSS_OBJ_ETERNAL    0x00000008 /* Does this oss_obj ever get cleaned? */
-#define OSS_OBJ_MOVABLE    0x00000010 /* Can this object be moved to different vnodes? */
+#define OSS_OBJ_MOVABLE    0x00000010 /* Can this object be moved to different nodes? */
 #define OSS_OBJ_REF        0x00000020 /* Does this object reference another object? */
 
 typedef struct oss_obj {
@@ -53,8 +55,26 @@ void destroy_oss_obj(oss_obj_t* obj);
 void oss_obj_ref(oss_obj_t* obj);
 int oss_obj_unref(oss_obj_t* obj);
 
+int oss_obj_close(oss_obj_t* obj);
+
 const char* oss_obj_get_fullpath(oss_obj_t* obj);
 
 void oss_obj_register_child(oss_obj_t* obj, void* child, enum OSS_OBJ_TYPE type, FuncPtr destroy_fn);
+
+static inline struct file* oss_obj_get_file(oss_obj_t* obj)
+{
+  if (obj->type != OSS_OBJ_TYPE_FILE)
+    return nullptr;
+
+  return oss_obj_unwrap(obj, struct file);
+}
+
+static inline struct device* oss_obj_get_device(oss_obj_t* obj)
+{
+  if (obj->type != OSS_OBJ_TYPE_DEVICE)
+    return nullptr;
+
+  return oss_obj_unwrap(obj, struct device);
+}
 
 #endif // !__ANIVA_OSS_OBJ__

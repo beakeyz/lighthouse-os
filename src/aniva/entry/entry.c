@@ -10,7 +10,6 @@
 #include "dev/pci/pci.h"
 #include "dev/usb/usb.h"
 #include "fs/core.h"
-#include "fs/vfs.h"
 #include <fs/device/core.h>
 #include "kevent/event.h"
 #include "libk/flow/error.h"
@@ -188,10 +187,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* Initialize the subsystem responsible for managing processes */
   init_proc_core();
 
-  println("[X] vfs...");
-  /* Initialize the VFS */
-  init_vfs();
-
+  println("[X] oss...");
   /* Initialize OSS */
   init_oss();
 
@@ -260,10 +256,6 @@ void kthread_entry() {
   /* Scan for pci devices and initialize any matching drivers */
   init_pci_drivers();
 
-  oss_test();
-
-  kernel_panic("OSS test");
-
   /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk();
 
@@ -292,7 +284,7 @@ void kthread_entry() {
    */
   resume_scheduler();
 
-  extern_driver_t* kterm = load_external_driver("Root/System/kterm.drv");
+  extern_driver_t* kterm = load_external_driver(":/Root/System/kterm.drv");
 
   ASSERT_MSG(kterm, "Failed to load kterm!");
 

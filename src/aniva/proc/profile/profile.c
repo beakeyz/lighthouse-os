@@ -1,13 +1,9 @@
 #include "profile.h"
 #include "fs/file.h"
-#include "fs/vfs.h"
-#include "fs/vobj.h"
 #include "lightos/proc/var_types.h"
 #include "entry/entry.h"
 #include "libk/data/hashmap.h"
-#include "libk/data/vector.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "proc/proc.h"
 #include "proc/profile/variable.h"
@@ -23,7 +19,7 @@
  * access to this behind some service
  */
 #define PROFILE_PASSWORD_KEY "PASSWORD"
-#define DEFAULT_GLOBAL_PVR_PATH "Root/Global/global.pvr"
+#define DEFAULT_GLOBAL_PVR_PATH ":/Root/Global/global.pvr"
 
 static proc_profile_t base_profile;
 static proc_profile_t global_profile;

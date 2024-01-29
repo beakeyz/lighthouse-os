@@ -1,12 +1,12 @@
 #ifndef __ANIVA_GENERIC_FAT__
 #define __ANIVA_GENERIC_FAT__
 #include "dev/disk/shared.h"
+#include <fs/core.h>
 #include "fs/fat/cache.h"
-#include "mem/heap.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
-struct vnode;
+struct oss_node;
 struct fat_file;
 struct fat_file_ops;
 
@@ -162,7 +162,7 @@ typedef struct {
  * TODO: should this hold caches?
  */
 typedef struct fat_fs_info {
-  struct vnode* node;
+  struct oss_node* node;
 
   uint8_t fats, fat_type; /* FAT count and bits of this FAT fs (12, 16, 32) */
   uint8_t fat_file_shift, has_dirty;
@@ -193,7 +193,7 @@ typedef struct fat_fs_info {
 
 } fat_fs_info_t;
 
-#define FAT_FS_INFO(node) ((fat_fs_info_t*)(VN_FS_INFO(node)))
+#define GET_FAT_FSINFO(node) ((fat_fs_info_t*)(oss_node_getfs((node))->m_fs_priv))
 
 static inline bool is_fat32(fat_fs_info_t* finfo)
 {
@@ -210,6 +210,6 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
   return (finfo->fat_type == FTYPE_FAT12);
 }
 
-int fat32_load_clusters(vnode_t* node, void* buffer, struct fat_file* file, uint32_t start, size_t size);
+int fat32_load_clusters(oss_node_t* node, void* buffer, struct fat_file* file, uint32_t start, size_t size);
 
 #endif // !__ANIVA_GENERIC_FAT__

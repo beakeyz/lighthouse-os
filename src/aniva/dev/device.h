@@ -5,7 +5,7 @@
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
-struct vobj;
+struct oss_obj;
 struct device;
 struct aniva_driver;
 struct dev_manifest_t;
@@ -51,7 +51,7 @@ typedef struct device {
   struct dev_manifest* parent;
   /* Driver this device is linked to. (NOTE: parent and link can be the same, but don't have to be) */
   struct dev_manifest* link;
-  struct vobj* obj;
+  struct oss_obj* obj;
 
   uint32_t flags;
 

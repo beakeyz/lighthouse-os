@@ -2,13 +2,13 @@
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/file.h"
-#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 
 int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 {
-  vnode_t* node = file->m_obj->m_parent;
+  oss_node_t* node = file->m_obj->parent;
 
   if (!size)
     return -1;
@@ -53,7 +53,7 @@ file_ops_t fat_file_ops = {
   .f_sync = fat_sync,
 };
 
-file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, char* path)
+file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
 {
   file_t* ret;
   fat_file_t* ffile;
@@ -80,7 +80,7 @@ file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, char* path)
 
   return ret;
 fail_and_exit:
-  destroy_vobj(ret->m_obj);
+  destroy_oss_obj(ret->m_obj);
   return nullptr;
 }
 
@@ -101,16 +101,17 @@ void destroy_fat_file(fat_file_t* file)
  */
 size_t get_fat_file_size(fat_file_t* file)
 {
-  vnode_t* parent;
+  oss_node_t* parent;
   
   if (!file || !file->parent || !file->parent->m_obj)
     return NULL;
 
-  parent = file->parent->m_obj->m_parent;
+  /* FIXME: this points to a random node that represents the previous entry in the files full path, but we need the actual obj-generator, which serves as the root of the filesystem */
+  parent = file->parent->m_obj->parent;
 
   if (!parent)
     return NULL;
 
   uint32_t file_cluster_count = (file->clusters_num);
-  return file_cluster_count * FAT_FS_INFO(parent)->cluster_size;
+  return file_cluster_count * GET_FAT_FSINFO(parent)->cluster_size;
 }

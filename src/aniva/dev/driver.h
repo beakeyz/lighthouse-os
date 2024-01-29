@@ -3,10 +3,8 @@
 #include <libk/stddef.h>
 #include "core.h"
 #include "dev/precedence.h"
-#include "libk/flow/reference.h"
-#include "proc/socket.h"
 
-struct vnode;
+struct oss_obj;
 struct dev_manifest;
 
 /*
@@ -92,12 +90,7 @@ void destroy_driver(aniva_driver_t* driver);
 
 #define driver_is_deferred(manifest) ((manifest->m_flags & DRV_DEFERRED) == DRV_DEFERRED)
 
-struct vnode* create_fs_driver(struct dev_manifest* manifest);
-
-void detach_fs_driver(struct vnode* node);
-
 bool driver_is_ready(struct dev_manifest* manifest);
-
 bool driver_is_busy(struct dev_manifest* manifest);
 
 int drv_read(struct dev_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);

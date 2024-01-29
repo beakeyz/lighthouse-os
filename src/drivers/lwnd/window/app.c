@@ -2,12 +2,8 @@
 #include "dev/video/framebuffer.h"
 #include "drivers/lwnd/window.h"
 #include "fs/file.h"
-#include "fs/vfs.h"
-#include "fs/vobj.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "sync/mutex.h"
 
 #define APP_BAR_HEIGHT 16
@@ -46,21 +42,16 @@ lwnd_window_ops_t lwnd_app_ops = {
  */
 void create_test_app(lwnd_screen_t* screen)
 {
-  vobj_t* obj;
   file_t* file;
 
-  obj = vfs_resolve("Root/Apps/doom");
-
-  ASSERT_MSG(obj, "Could not find gfx test app!");
-
-  file = vobj_get_file(obj);
+  file = file_open("Root/Apps/doom");
 
   if (!file)
     return;
 
   Must(elf_exec_static_64_ex(file, false, false));
 
-  vobj_close(obj);
+  oss_obj_close(file->m_obj);
 }
 
 /*!

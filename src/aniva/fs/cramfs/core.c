@@ -3,10 +3,10 @@
 #include "dev/driver.h"
 #include "fs/cramfs/compression.h"
 #include "fs/file.h"
-#include "fs/vnode.h"
-#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
+#include "oss/core.h"
+#include "oss/node.h"
 #include <fs/core.h>
 
 int ramfs_init();
@@ -50,9 +50,8 @@ typedef enum TAR_TYPE {
   TAR_TYPE_FIFO = '6',
 } TAR_TYPE_t;
 
-#define TAR_SUPERBLOCK(node) (node)->fs_data
-
-#define TAR_BLOCK_START(node) (((node)->fs_data.m_fs_specific_info))
+#define TAR_SUPERBLOCK(node) ((fs_oss_node_t*)oss_node_unwrap(node)) 
+#define TAR_BLOCK_START(node) (TAR_SUPERBLOCK(node)->m_fs_priv)
 
 #define TAR_USTAR_ALIGNMENT 512
 #define TAR_USTAR_SIG       "ustar"
@@ -76,7 +75,7 @@ static uintptr_t apply_tar_alignment(uintptr_t val) {
   return (((val + TAR_USTAR_ALIGNMENT - 1) / TAR_USTAR_ALIGNMENT) + 1) * TAR_USTAR_ALIGNMENT;
 }
 
-static int ramfs_read(vnode_t* node, void* buffer, size_t size, uintptr_t offset) {
+static int ramfs_read(oss_node_t* node, void* buffer, size_t size, uintptr_t offset) {
 
   if (!node || !buffer || !size)
     return -1;
@@ -135,22 +134,25 @@ file_ops_t tar_file_ops = {
   0,
 };
 
-static vobj_t* ramfs_find(vnode_t* node, char* name) {
+static oss_obj_t* ramfs_find(oss_node_t* node, const char* name) {
 
   tar_file_t current_file = { 0 };
+  fs_oss_node_t* fsnode;
   uintptr_t current_offset = 0;
   size_t name_len = strlen(name);
 
   if (!name || !name_len)
     return nullptr;
 
-  /* Create file early to catch vnode grabbing issues early */
+  fsnode = oss_node_unwrap(node);
+
+  /* Create file early to catch node grabbing issues early */
   file_t* file = create_file(node, FILE_READONLY, name);
 
   if (!file)
     return nullptr;
 
-  while (current_offset <= node->fs_data.m_total_blocks) {
+  while (current_offset <= fsnode->m_total_blocks) {
     /* Raw read :clown: */
     int result = ramfs_read(node, &current_file, sizeof(tar_file_t), current_offset);
 
@@ -179,13 +181,12 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
             file->m_buffer_size = filesize;
             file->m_total_size = filesize;
             file->m_buffer_offset = current_file_offset;
-            file->m_obj->m_inum = current_file_offset;
 
             /* Make sure file opperations go through ramfs */
             file_set_ops(file, &tar_file_ops);
 
             /* Attach the object once we know that it has been found */
-            Must(vn_attach_object(node, file->m_obj));
+            ASSERT_MSG(!oss_attach_obj_rel(node, name, file->m_obj), "Failed to add object to oss node while trying to find ramfs file!");
 
             return file->m_obj;
           }
@@ -201,48 +202,56 @@ static vobj_t* ramfs_find(vnode_t* node, char* name) {
     current_offset += apply_tar_alignment(filesize);
   }
 
-  destroy_vobj(file->m_obj);
+  destroy_oss_obj(file->m_obj);
   return nullptr;
 }
 
-int ramfs_close(vnode_t* node, vobj_t* obj)
+int ramfs_close(oss_node_t* node, oss_obj_t* obj)
 {
   return 0;
 }
 
-int ramfs_msg(vnode_t* node, driver_control_code_t code, void* buffer, size_t size)
+int ramfs_msg(oss_node_t* node, driver_control_code_t code, void* buffer, size_t size)
 {
   return 0;
 }
 
-static struct generic_vnode_ops ramfs_vnode_ops = {
+int ramfs_destroy(oss_node_t* node)
+{
+  return 0;
+}
+
+static struct oss_node_ops ramfs_node_ops = {
   .f_open = ramfs_find,
   .f_close = ramfs_close,
   .f_msg = ramfs_msg,
+  .f_destroy = ramfs_destroy,
 };
 
-static void __tar_create_superblock(vnode_t* node, partitioned_disk_dev_t* device)
+static void __tar_create_superblock(oss_node_t* node, partitioned_disk_dev_t* device)
 {
 
   if (!node)
     return;
 
-  TAR_SUPERBLOCK(node).m_first_usable_block = device->m_start_lba;
-  TAR_SUPERBLOCK(node).m_blocksize = 1;
+  TAR_SUPERBLOCK(node)->m_device = device;
+  TAR_SUPERBLOCK(node)->m_first_usable_block = device->m_start_lba;
+  TAR_SUPERBLOCK(node)->m_blocksize = 1;
   /* free_blocks holds the aligned compressed size */
-  TAR_SUPERBLOCK(node).m_free_blocks = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
-  TAR_SUPERBLOCK(node).m_total_blocks = TAR_SUPERBLOCK(node).m_free_blocks;
+  TAR_SUPERBLOCK(node)->m_free_blocks = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
+  TAR_SUPERBLOCK(node)->m_total_blocks = TAR_SUPERBLOCK(node)->m_free_blocks;
   /* TODO */
-  TAR_SUPERBLOCK(node).m_dirty_blocks = 0;
-  TAR_SUPERBLOCK(node).m_max_filesize = -1;
-  TAR_SUPERBLOCK(node).m_faulty_blocks = 0;
+  TAR_SUPERBLOCK(node)->m_dirty_blocks = 0;
+  TAR_SUPERBLOCK(node)->m_max_filesize = -1;
+  TAR_SUPERBLOCK(node)->m_faulty_blocks = 0;
 }
 
 /*
  * We get passed the addressspace of the ramdisk through the partitioned_disk_dev_t
  * which holds the boundaries for our disk
  */
-vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
+oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) 
+{
 
   logln("Mounting ramfs");
 
@@ -259,9 +268,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     return nullptr;
 
   const size_t partition_size = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
-  vnode_t* node = create_generic_vnode(mountpoint, VN_MOUNT | VN_FS);
-
-  node->m_device = device;
+  oss_node_t* node = create_fs_oss_node(mountpoint, &ramfs_node_ops);
 
   __tar_create_superblock(node, device);
 
@@ -276,7 +283,7 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
      * TODO: set this region to read-only after the decompress is done
      */
     TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
-    TAR_SUPERBLOCK(node).m_total_blocks = decompressed_size;
+    TAR_SUPERBLOCK(node)->m_total_blocks = decompressed_size;
 
     /* Is enforcing success here a good idea? */
     Must(cram_decompress(device, TAR_BLOCK_START(node)));
@@ -284,16 +291,11 @@ vnode_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_d
     ASSERT_MSG(TAR_BLOCK_START(node) != nullptr, "decompressing resulted in NULL");
 
     /* Free the pages of the compressed ramdisk */
-    Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node).m_free_blocks)));
+    Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node)->m_free_blocks)));
 
     device->m_start_lba = (uintptr_t)TAR_BLOCK_START(node);
     device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + partition_size;
   }
-
-  node->m_ops = &ramfs_vnode_ops;
-
-  /* cramfs is a flexible fs */
-  node->m_flags |= VN_FLEXIBLE;
 
   return node;
 }
@@ -309,6 +311,8 @@ EXPORT_DRIVER_PTR(ramfs);
 fs_type_t cramfs = {
   .m_name = "cramfs",
   .f_mount = mount_ramfs,
+  /* Oh no */
+  .f_unmount = nullptr,
   .m_driver = &ramfs,
   .m_flags = FST_REQ_DRIVER
 };

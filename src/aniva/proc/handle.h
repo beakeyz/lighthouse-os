@@ -1,7 +1,6 @@
 #ifndef __ANIVA_HANDLE__
 #define __ANIVA_HANDLE__
 
-#include "lightos/handle_def.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -9,7 +8,7 @@
 struct file;
 struct proc;
 struct thread;
-struct vobj;
+struct oss_obj;
 struct kevent;
 struct kevent_hook;
 struct profile_var;
@@ -37,7 +36,7 @@ typedef struct kernel_handle {
     struct proc* process;
     struct thread* thread;
     struct virtual_namespace* namespace;
-    struct vobj* vobj;
+    struct oss_obj* oss_obj;
     struct proc_profile* profile;
     struct profile_var* pvar;
     struct kevent* event;

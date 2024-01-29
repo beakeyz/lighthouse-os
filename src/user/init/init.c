@@ -1,15 +1,10 @@
 
-#include "lightos/driver/drv.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
-#include "lightos/proc/process.h"
 #include "lightos/proc/profile.h"
-#include "lightos/proc/socket.h"
 #include "lightos/proc/var_types.h"
 #include <lightos/system.h>
 #include <lightos/syscall.h>
-#include <assert.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -35,7 +30,7 @@ int main() {
    * or do we just have one root like linux/unix?
    */
   char buffer[128];
-  HANDLE h = open_handle("Root/Apps/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
+  HANDLE h = open_handle(":/Root/Apps/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   if (!handle_verify(h)) 
     return -1;
@@ -57,7 +52,7 @@ int main() {
 
   char test_buffer[128] = { 0 };
 
-  BOOL result = profile_var_read_ex("Global", "SYSTEM_NAME", HNDL_FLAG_RW, sizeof(test_buffer), test_buffer);
+  profile_var_read_ex("Global", "SYSTEM_NAME", HNDL_FLAG_RW, sizeof(test_buffer), test_buffer);
 
   printf("Tried to read from the profile variable handle: %s\n", test_buffer);
 

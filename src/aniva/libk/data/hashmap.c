@@ -1,8 +1,5 @@
 #include "hashmap.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -649,7 +646,7 @@ hashmap_value_t hashmap_remove(hashmap_t* map, hashmap_key_t key) {
  *
  * Allocates an array of the hashmaps size and tries to fill it with any valid entries it can find
  */
-int hashmap_to_array(hashmap_t* map, void** array_ptr, size_t* size_ptr)
+int hashmap_to_array(hashmap_t* map, uintptr_t** array_ptr, size_t* size_ptr)
 {
   uint64_t idx;
   
@@ -657,7 +654,11 @@ int hashmap_to_array(hashmap_t* map, void** array_ptr, size_t* size_ptr)
     return -1;
 
   idx = NULL;
-  *size_ptr = sizeof(void*) * map->m_size;
+  *size_ptr = sizeof(uintptr_t*) * map->m_size;
+
+  /* No entries in the list =/ */
+  if (!map->m_size)
+    return -1;
 
   /* Currently only works for closed addressing */
   if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
@@ -672,7 +673,7 @@ int hashmap_to_array(hashmap_t* map, void** array_ptr, size_t* size_ptr)
     while (entry) {
 
       /*
-       * Let's assume this hashmap does not contain any valid NULL entries 
+       * Let's assume this hashmap does not contain any valid NULL entries.
        * If there is a next entry, it does not matter, since we know we already put an
        * entry here
        */

@@ -27,17 +27,27 @@
 
 struct oss_obj;
 struct oss_node;
+struct partitioned_disk_dev;
 
 void init_oss();
 void oss_test();
 
-int oss_create_path(struct oss_node* node, const char* path);
+struct oss_node* oss_create_path(struct oss_node* node, const char* path);
+struct oss_node* oss_create_path_abs(const char* path);
+
 int oss_attach_node(const char* path, struct oss_node* node);
 int oss_attach_obj(const char* path, struct oss_obj* obj);
+int oss_attach_obj_rel(struct oss_node* rel, const char* path, struct oss_obj* obj);
+int oss_attach_fs(const char* path, const char* rootname, const char* fs, struct partitioned_disk_dev* device);
 
+int oss_detach_fs(const char* path, struct oss_node** out);
+
+int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node** out);
 int oss_resolve_node(const char* path, struct oss_node** out);
 
 int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj** out);
 int oss_resolve_obj(const char* path, struct oss_obj** out);
+
+const char* oss_get_objname(const char* path);
 
 #endif // !__ANIVA_OSS_CORE__

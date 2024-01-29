@@ -1,19 +1,19 @@
 #include "generic.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/driver.h"
-#include "fs/vfs.h"
-#include "fs/vobj.h"
+#include "fs/core.h"
+#include <oss/node.h>
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include <libk/string.h>
 #include "libk/math/log2.h"
-#include "logging/log.h"
+#include "libk/stddef.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "proc/profile/variable.h"
+#include "oss/core.h"
+#include "oss/obj.h"
 #include "ramdisk.h"
 #include <dev/device.h>
 #include <sync/mutex.h>
@@ -835,24 +835,23 @@ void init_gdisk_dev()
  */
 static bool verify_mount_root()
 {
-  vobj_t* scan_obj;
+  oss_obj_t* scan_obj;
 
   /*
    * Try to find kterm in the system directory. If it exists, that means there at least 
    * a somewhat functional system installed on this disk
    */
-  scan_obj = vfs_resolve(VFS_DEFAULT_ROOT_MP"/System/kterm.drv");
+  if (oss_resolve_obj_rel(nullptr, FS_DEFAULT_ROOT_MP"/System/kterm.drv", &scan_obj))
+    return false;
 
   if (!scan_obj) 
-  {
     return false;
-  }
 
   /*
    * We could find the system file! 
    * TODO: look for more files that only one O.o
    */
-  vobj_close(scan_obj);
+  oss_obj_close(scan_obj);
   return true;
 }
 
@@ -863,8 +862,9 @@ static bool verify_mount_root()
  */
 static bool try_mount_root(partitioned_disk_dev_t* device)
 {
+  int error;
   bool verify_result;
-  ErrorOrPtr result;
+  oss_node_t* c_node;
   const char* filesystems[] = {
     "fat32",
     //"ext2",
@@ -874,10 +874,10 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
   for (uint32_t i = 0; i < filesystems_count; i++) {
     const char* fs = filesystems[i];
 
-    result = vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, fs, device);
+    error = oss_attach_fs(":", FS_DEFAULT_ROOT_MP, fs, device);
 
     /* Successful mount? try and verify the mount */
-    if (IsError(result))
+    if (error)
       continue;
 
     verify_result = verify_mount_root();
@@ -887,13 +887,18 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
       break;
 
     /* Reset the result */
-    result = Error();
+    error = -1;
 
-    Must(vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP));
+    //vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP);
+    /* Detach the node first */
+    oss_detach_fs(":/"FS_DEFAULT_ROOT_MP, &c_node);
+
+    /* Then destroy it */
+    destroy_oss_node(c_node);
   }
 
   /* Failed to scan for filesystem */
-  if (IsError(result))
+  if (error)
     return false;
 
   return true;
@@ -948,7 +953,7 @@ cycle_next:
   if (found_root_device)
     return;
 
-  if (!root_ramdisk || IsError(vfs_mount_fs(VFS_ROOT, VFS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk))) {
+  if (!root_ramdisk || oss_attach_fs(":", FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk)) {
     kernel_panic("Could not find a root device to mount! TODO: fix");
   }
 }

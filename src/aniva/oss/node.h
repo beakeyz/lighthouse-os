@@ -11,7 +11,7 @@ struct oss_node_entry;
 struct oss_node_ops;
 
 enum OSS_NODE_TYPE {
-  /* This node generates oss_objects through a filesystem */
+  /* This node generates oss_objects through a filesystem (TODO: rename to OSS_FS_NODE ?) */
   OSS_OBJ_GEN_NODE,
   /* This node holds objects */
   OSS_OBJ_STORE_NODE,
@@ -35,10 +35,14 @@ typedef struct oss_node {
 
   mutex_t* lock;
   hashmap_t* obj_map;
+
+  void* priv;
 } oss_node_t;
 
 oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct oss_node_ops* ops, struct oss_node* parent);
 void destroy_oss_node(oss_node_t* node);
+
+void* oss_node_unwrap(oss_node_t* node);
 
 enum OSS_ENTRY_TYPE {
   OSS_ENTRY_NESTED_NODE,
@@ -51,6 +55,8 @@ int oss_node_remove_entry(oss_node_t* node, const char* name, struct oss_node_en
 
 int oss_node_find(oss_node_t* node, const char* name, struct oss_node_entry** entry_out);
 int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out);
+
+int oss_node_clean_objects(oss_node_t* node);
 
 /*
  * Entries inside the object map
@@ -91,10 +97,14 @@ static inline const char* oss_node_entry_getname(oss_node_entry_t* entry)
 typedef struct oss_node_ops {
   /* Send some data to this node and have whatever is connected do something for you */
   int (*f_msg) (struct oss_node*, driver_control_code_t code, void* buffer, size_t size);
+  /* Force an object to be synced */
+  int (*f_force_obj_sync)(struct oss_obj*);
   /* Grab named data associated with this node */
   struct oss_obj* (*f_open) (struct oss_node*, const char*);
-  /* Close a oss_object that has been opened by this vnode */
+  /* Close a oss_object that has been opened by this node */
   int (*f_close)(struct oss_node*, struct oss_obj*); 
+  /* Destroy an oss node */
+  int (*f_destroy)(struct oss_node*);
 } oss_node_ops_t;
 
 #endif // !__ANIVA_OSS_NODE__

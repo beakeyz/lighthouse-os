@@ -44,7 +44,7 @@ ErrorOrPtr hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
 hashmap_value_t hashmap_remove(hashmap_t* map, hashmap_key_t key);
 hashmap_value_t hashmap_get(hashmap_t* map, hashmap_key_t key);
-int hashmap_to_array(hashmap_t* map, void** array_ptr, size_t* size_ptr);
+int hashmap_to_array(hashmap_t* map, uintptr_t** array_ptr, size_t* size_ptr);
 
 static inline bool hashmap_has(hashmap_t* map, hashmap_key_t key) {
   return (hashmap_get(map, key) != nullptr);

@@ -4,7 +4,6 @@
 #include "dev/external.h"
 #include "dev/manifest.h"
 #include "fs/file.h"
-#include "fs/vobj.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
@@ -12,7 +11,6 @@
 #include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "system/resource.h"
-#include <fs/vfs.h>
 
 struct loader_ctx {
   const char* path;
@@ -470,17 +468,11 @@ extern_driver_t* load_external_driver(const char* path)
   ErrorOrPtr result;
   uintptr_t driver_load_base;
   size_t read_size;
-  vobj_t* file_obj;
   file_t* file;
   extern_driver_t* out;
   struct loader_ctx ctx = { 0 };
 
-  file_obj = vfs_resolve(path);
-
-  if (!file_obj)
-    return nullptr;
-
-  file = vobj_get_file(file_obj);
+  file = file_open(path);
 
   if (!file || !file->m_total_size)
     return nullptr;
@@ -550,18 +542,12 @@ int install_external_driver(const char* path)
   ErrorOrPtr result;
   uintptr_t driver_load_base;
   size_t read_size;
-  vobj_t* file_obj;
   file_t* file;
   dev_manifest_t* manifest;
   extern_driver_t* ext_drv;
   struct loader_ctx ctx = { 0 };
 
-  file_obj = vfs_resolve(path);
-
-  if (!file_obj)
-    return -1;
-
-  file = vobj_get_file(file_obj);
+  file = file_open(path);
 
   if (!file || !file->m_total_size)
     return -1;
@@ -648,7 +634,6 @@ extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
   ErrorOrPtr result;
   uintptr_t driver_load_base;
   size_t read_size;
-  vobj_t* file_obj;
   file_t* file;
   extern_driver_t* out;
   struct loader_ctx ctx = { 0 };
@@ -659,8 +644,7 @@ extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
   if ((manifest->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL)
     return nullptr;
 
-  file_obj = vfs_resolve(manifest->m_driver_file_path);
-  file = vobj_get_file(file_obj);
+  file = file_open(manifest->m_driver_file_path);
 
   if (!file)
     return nullptr;

@@ -17,7 +17,7 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_DRIVER            (2)
 #define HNDL_TYPE_PROC              (3)
 #define HNDL_TYPE_FS_ROOT           (4)
-#define HNDL_TYPE_VOBJ              (5) /* A handle to a virtual object in the vfs */
+#define HNDL_TYPE_OSS_OBJ           (5) /* A handle to a virtual object in the vfs */
 #define HNDL_TYPE_KOBJ              (6) /* A handle to a kernel object */
 #define HNDL_TYPE_THREAD            (7)
 /* Any profile that is present on the system */

@@ -1,9 +1,8 @@
 #include "handle.h"
-#include "lightos/handle_def.h"
 #include "fs/file.h"
-#include "fs/vobj.h"
+#include "lightos/handle_def.h"
 #include "libk/flow/error.h"
-#include "mem/heap.h"
+#include "oss/obj.h"
 #include "proc/profile/variable.h"
 #include "sync/mutex.h"
 #include <dev/manifest.h>
@@ -18,7 +17,7 @@
  */
 static void __on_handle_change(khandle_t* handle, bool bind)
 {
-  vobj_t* obj = nullptr;
+  oss_obj_t* obj = nullptr;
   /*
    * FIXME: drivers, processes, ect. can have more than one handle, 
    * so flags are useless in this case lmao
@@ -34,17 +33,17 @@ static void __on_handle_change(khandle_t* handle, bool bind)
         obj = handle->reference.file->m_obj;
         // fallthrough
       }
-    case HNDL_TYPE_VOBJ:
+    case HNDL_TYPE_OSS_OBJ:
       {
         if (bind)
           break;
 
         /* Check if the object was already set */
         if (!obj)
-          obj = handle->reference.vobj;
+          obj = handle->reference.oss_obj;
 
         /* Close the object */
-        ASSERT_MSG(vobj_close(obj) == 0, "Failed to close vobject!");
+        ASSERT_MSG(oss_obj_close(obj) == 0, "Failed to close vobject!");
         break;
       }
     case HNDL_TYPE_PVAR:

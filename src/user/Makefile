@@ -3,7 +3,8 @@ USER_SRC=$(SRC)/user
 
 # Define where the drivers are located
 USER_PATHS := \
-	./init
+	./init \
+	./doomgeneric
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=

@@ -1,11 +1,8 @@
 #ifndef __ANIVA_GENERIC_DISK_DEV__
 #define __ANIVA_GENERIC_DISK_DEV__
-#include "dev/debug/serial.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/disk/shared.h"
 #include "libk/flow/error.h"
-#include "libk/math/log2.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
 

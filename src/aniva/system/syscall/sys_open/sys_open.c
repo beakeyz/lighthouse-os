@@ -3,18 +3,15 @@
 #include "lightos/proc/var_types.h"
 #include "lightos/syscall.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/device.h"
 #include "dev/manifest.h"
 #include "fs/file.h"
-#include "fs/vfs.h"
-#include "fs/vnode.h"
-#include "fs/vobj.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "oss/core.h"
+#include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
@@ -50,12 +47,8 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     case HNDL_TYPE_FILE:
       {
         file_t* file;
-        vobj_t* obj = vfs_resolve(path);
 
-        if (!obj)
-          return HNDL_NOT_FOUND;
-
-        file = vobj_get_file(obj);
+        file = file_open(path);
 
         if (!file)
           return HNDL_INVAL;
@@ -66,12 +59,15 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     case HNDL_TYPE_DEVICE:
       {
         device_t* device;
-        vobj_t* obj = vfs_resolve(path);
+        oss_obj_t* obj;
+
+        if (oss_resolve_obj(path, &obj))
+          return HNDL_NOT_FOUND;
 
         if (!obj)
           return HNDL_NOT_FOUND;
 
-        device = vobj_get_device(obj);
+        device = oss_obj_get_device(obj);
 
         if (!device)
           return HNDL_INVAL;
@@ -153,7 +149,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       break;
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
-    case HNDL_TYPE_VOBJ:
+    case HNDL_TYPE_OSS_OBJ:
     case HNDL_TYPE_NONE:
       kernel_panic("Tried to open unimplemented handle!");
       break;

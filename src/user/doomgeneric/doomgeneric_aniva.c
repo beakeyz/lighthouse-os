@@ -5,7 +5,6 @@
 #include "lightos/event/key.h"
 #include "lightos/proc/process.h"
 #include "doomkeys.h"
-#include "m_argv.h"
 #include "doomgeneric.h"
 
 #include <stdio.h>
@@ -144,7 +143,7 @@ char* argv[] = {
   "doom",
   "-testcontrols",
   "-iwad",
-  "Root/Apps/doom1.wad",
+  ":/Root/Apps/doom1.wad",
 };
 const int argc = 4;
 

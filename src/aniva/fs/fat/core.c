@@ -1,5 +1,4 @@
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/core.h"
@@ -7,13 +6,10 @@
 #include "fs/fat/core.h"
 #include "fs/fat/file.h"
 #include "fs/file.h"
-#include "fs/namespace.h"
-#include "fs/vnode.h"
-#include "fs/vobj.h"
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
-#include "libk/string.h"
 #include "logging/log.h"
+#include "oss/core.h"
 #include <libk/stddef.h>
 
 /* Driver predefinitions */
@@ -34,8 +30,8 @@ typedef uintptr_t fat_offset_t;
 //static int fat_parse_lfn(void* dir, fat_offset_t* offset);
 //static int fat_parse_short_fn(fat_dir_entry_t* dir, const char* name);
 
-static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
-
+static int parse_fat_bpb(fat_boot_sector_t* bpb, oss_node_t* block) 
+{
   if (!fat_valid_bs(bpb)) {
     return FAT_INVAL;
   }
@@ -57,7 +53,7 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
   }
 
   /* TODO: fill data in superblock with useful data */
-  block->fs_data.m_blocksize = bpb->sector_size;
+  oss_node_getfs(block)->m_blocksize = bpb->sector_size;
 
   return FAT_OK;
 }
@@ -70,12 +66,12 @@ static int parse_fat_bpb(fat_boot_sector_t* bpb, vnode_t* block) {
  * @cluster: the 'index' of the cluster on disk
  */
 static int
-fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
+fat32_load_cluster(oss_node_t* node, uint32_t* buffer, uint32_t cluster)
 {
   int error;
   fat_fs_info_t* info;
 
-  info = VN_FS_DATA(node).m_fs_specific_info;
+  info = GET_FAT_FSINFO(node);
   error = fatfs_read(node, buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
 
   if (error)
@@ -95,7 +91,7 @@ fat32_load_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
  * @cluster: the 'index' of the cluster on disk
  */
 /* static */ int
-fat32_set_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
+fat32_set_cluster(oss_node_t* node, uint32_t* buffer, uint32_t cluster)
 {
   int error;
   fat_fs_info_t* info;
@@ -103,7 +99,7 @@ fat32_set_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
   /* Mask any fucky bits to comply with FAT32 standards */
   *buffer &= 0x0fffffff;
 
-  info = VN_FS_DATA(node).m_fs_specific_info;
+  info = GET_FAT_FSINFO(node);
   error = fatfs_write(node, buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
 
   if (error)
@@ -117,7 +113,7 @@ fat32_set_cluster(vnode_t* node, uint32_t* buffer, uint32_t cluster)
  *
  * The file is responsible for managing the buffer after this point
  */
-static int fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t start_cluster)
+static int fat32_cache_cluster_chain(oss_node_t* node, fat_file_t* file, uint32_t start_cluster)
 {
   int error;
   size_t length;
@@ -173,7 +169,7 @@ static int fat32_cache_cluster_chain(vnode_t* node, fat_file_t* file, uint32_t s
   return 0;
 }
 
-int fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t size)
+int fat32_load_clusters(oss_node_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t size)
 {
   int error;
   uintptr_t current_index;
@@ -187,7 +183,7 @@ int fat32_load_clusters(vnode_t* node, void* buffer, fat_file_t* file, uint32_t 
   if (!node)
     return -1;
 
-  info = VN_FS_DATA(node).m_fs_specific_info;
+  info = GET_FAT_FSINFO(node);
 
   index = 0;
 
@@ -253,7 +249,7 @@ transform_fat_filename(char* dest, const char* src)
 }
 
 static int
-fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path)
+fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path)
 {
   int error;
   /* We always use this buffer if we don't support lfn */
@@ -275,7 +271,7 @@ fat32_open_dir_entry(vnode_t* node, fat_dir_entry_t* current, fat_dir_entry_t* o
     return -2;
 
   /* Get our filesystem info and cluster number */
-  p = VN_FS_DATA(node).m_fs_specific_info;
+  p = GET_FAT_FSINFO(node);
   cluster_num = current->first_cluster_low | ((uint32_t)current->first_cluster_hi << 16);
 
   /* Cache the cluster chain into the temp file */
@@ -339,9 +335,9 @@ fail_dealloc_cchain:
  * If this path does not resolve to a file, but does end in a directory, 
  * we should make this file
  */
-static vobj_t* fat_open(vnode_t* node, char* path)
+static oss_obj_t* fat_open(oss_node_t* node, const char* path)
 {
-  println("Trying to open fat");
+  printf("Trying to open fat: %s\n", path);
   int error;
   file_t* ret;
   fat_fs_info_t* info;
@@ -353,7 +349,7 @@ static vobj_t* fat_open(vnode_t* node, char* path)
   if (!path)
     return nullptr;
 
-  info = VN_FS_INFO(node);
+  info = GET_FAT_FSINFO(node);
   ret = create_fat_file(info, NULL, path);
 
   if (!ret)
@@ -402,7 +398,7 @@ static vobj_t* fat_open(vnode_t* node, char* path)
         break;
 
       /* This is quite aggressive, we should prob just clean and return nullptr... */
-      Must(vn_attach_object(node, ret->m_obj));
+      ASSERT_MSG(!oss_attach_obj_rel(node, path, ret->m_obj), "Failed to attach FAT object");
 
       ret->m_total_size = get_fat_file_size(fat_file);
       ret->m_logical_size = current.size;
@@ -423,94 +419,61 @@ static vobj_t* fat_open(vnode_t* node, char* path)
   }
 
   /* NOTE: destroy the vobj, which will also destroy the file obj */
-  destroy_vobj(ret->m_obj);
+  destroy_oss_obj(ret->m_obj);
   return nullptr;
 }
 
-static int fat_close(vnode_t* node, vobj_t* obj)
+static int fat_close(oss_node_t* node, oss_obj_t* obj)
 {
   return 0;
 }
 
-/*!
- * @brief: Create relative from the vnode root 
- *
- */
-static inline int fat_create_abs(vnode_t* node, const char* path, enum VNODE_CREATE_MODE mode)
+static int fat_msg(oss_node_t* node, dcc_t code, void* buffer, size_t size)
 {
   return 0;
 }
 
-/*!
- * @brief: Create relative from the vobj @relative
- */
-static inline int fat_create_relative(vnode_t* node, vobj_t* relative, const char* path, enum VNODE_CREATE_MODE mode)
+static int fat_destroy(oss_node_t* node)
 {
+  kernel_panic("TODO: fat_destroy");
   return 0;
 }
 
-/*!
- * @brief: Create vnode-related things inside FAT
- *
- * NOTE: this function is assumed to create directories where they are expected in the path
- */
-static int fat_create(vnode_t* node, vobj_t* relative, const char* path, enum VNODE_CREATE_MODE mode)
-{
-  if (relative && relative->m_parent == node)
-    return fat_create_relative(node, relative, path, mode);
-
-  /* Try to create abs if @relative is invalid */
-  return fat_create_abs(node, path, mode);
-}
-
-static int fat_mkdir(struct vnode* node, void* dir_entry, void* dir_attr, uint32_t flags)
-{
-  return 0;
-}
-
-static int fat_msg(vnode_t* node, dcc_t code, void* buffer, size_t size)
-{
-  return 0;
-}
-
-static struct generic_vnode_ops fat_vnode_ops = {
+static struct oss_node_ops fat_node_ops = {
+  .f_msg = fat_msg,
   .f_open = fat_open,
   .f_close = fat_close,
-  .f_makedir = fat_mkdir,
-  .f_create = fat_create,
-  /* TODO */
-  .f_rmdir = nullptr,
-  .f_msg = fat_msg,
+  .f_destroy = fat_destroy,
 };
 
 /*
  * FAT will keep a list of vobjects that have been given away by the system, in order to map
  * vobjects to disk-locations and FATs easier.
  */
-vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
+oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
   /* Get FAT =^) */
   fat_fs_info_t* ffi;
   uint8_t buffer[device->m_parent->m_logical_sector_size];
   fat_boot_sector_t* boot_sector;
   fat_boot_fsinfo_t* internal_fs_info;
-  vnode_t* node;
+  oss_node_t* node;
 
   int read_result = pd_bread(device, buffer, 0);
 
   if (read_result < 0)
     return nullptr;
 
-  /* Create root vnode */
-  node = create_generic_vnode(mountpoint, VN_FS | VN_ROOT | VN_FLEXIBLE);
+  /* Create root node */
+  node = create_fs_oss_node(mountpoint, &fat_node_ops);
 
-  /* Set the vnode device */
-  node->m_device = device;
+  ASSERT_MSG(node, "Failed to create fs oss node for FAT fs");
 
-  create_fat_info(node);
+  /* Initialize the fs private info */
+  create_fat_info(node, device);
 
   /* Cache superblock and fs info */
-  ffi = FAT_FS_INFO(node);
+  ffi = GET_FAT_FSINFO(node);
 
   /* Set the local pointer to the bootsector */
   boot_sector = &ffi->boot_sector_copy;
@@ -546,9 +509,9 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   }
 
   /* Attempt to reset the blocksize for the partitioned device */
-  if (device->m_parent->m_logical_sector_size > VN_FS_DATA(node).m_blocksize) {
+  if (device->m_parent->m_logical_sector_size > oss_node_getfs(node)->m_blocksize) {
 
-    if (!pd_set_blocksize(device, VN_FS_DATA(node).m_blocksize)) {
+    if (!pd_set_blocksize(device, oss_node_getfs(node)->m_blocksize)) {
       kernel_panic("Failed to set blocksize! abort");
     }
   }
@@ -559,17 +522,17 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* TODO: move superblock initialization to its own function */
 
   /* Fetch blockcounts */
-  VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.sector_count_fat16;
+  oss_node_getfs(node)->m_total_blocks = ffi->boot_sector_copy.sector_count_fat16;
 
-  if (!VN_FS_DATA(node).m_total_blocks)
-    VN_FS_DATA(node).m_total_blocks = ffi->boot_sector_copy.sector_count_fat32;
+  if (!oss_node_getfs(node)->m_total_blocks)
+    oss_node_getfs(node)->m_total_blocks = ffi->boot_sector_copy.sector_count_fat32;
 
-  VN_FS_DATA(node).m_first_usable_block = ffi->boot_sector_copy.reserved_sectors;
+  oss_node_getfs(node)->m_first_usable_block = ffi->boot_sector_copy.reserved_sectors;
 
   /* Precompute some useful data (TODO: compute based on FAT type)*/
   ffi->root_directory_sectors = (boot_sector->root_dir_entries * 32 + (boot_sector->sector_size - 1)) / boot_sector->sector_size;
   ffi->total_reserved_sectors = boot_sector->reserved_sectors + (boot_sector->fats * boot_sector->fat32.sectors_per_fat) + ffi->root_directory_sectors;
-  ffi->total_usable_sectors = VN_FS_DATA(node).m_total_blocks - ffi->total_reserved_sectors; 
+  ffi->total_usable_sectors = oss_node_getfs(node)->m_total_blocks - ffi->total_reserved_sectors; 
   ffi->cluster_count = ffi->total_usable_sectors / boot_sector->sectors_per_cluster;
   ffi->cluster_size = boot_sector->sectors_per_cluster * boot_sector->sector_size;
   ffi->usable_sector_offset = boot_sector->reserved_sectors * boot_sector->sector_size;
@@ -595,23 +558,17 @@ vnode_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_d
   /* Copy the boot fsinfo to the ffi structure */
   memcpy(internal_fs_info, buffer, sizeof(fat_boot_fsinfo_t));
 
-  VN_FS_DATA(node).m_free_blocks = ffi->boot_fs_info.free_clusters;
-
-  node->m_ops = &fat_vnode_ops;
+  oss_node_getfs(node)->m_free_blocks = ffi->boot_fs_info.free_clusters;
 
   println("Did fat filesystem!");
-
-  //kernel_panic("Test");
-
-  node->m_flags |= VN_FLEXIBLE;
 
   return node;
 fail:
 
   if (node) {
     destroy_fat_info(node);
-    /* NOTE: total vnode destruction is not yet done */
-    destroy_generic_vnode(node);
+    /* NOTE: total node destruction is not yet done */
+    destroy_fs_oss_node(node);
   }
 
   return nullptr;
@@ -620,13 +577,13 @@ fail:
 /*!
  * @brief: Unmount the FAT filesystem
  * 
- * This simply needs to free up the private structures we created for this vnode
+ * This simply needs to free up the private structures we created for this node
  * to hold the information about the FAT filesystem. We don't need to wory about fat
  * files here, since they will be automatically killed when the filesystem is destroyed
  *
  * NOTE: An unmount should happen after a total filesystem sync, to prevent loss of data
  */
-int fat32_unmount(fs_type_t* type, vnode_t* node) 
+int fat32_unmount(fs_type_t* type, oss_node_t* node) 
 {
   if (!type || !node)
     return -1;

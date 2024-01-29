@@ -1,14 +1,12 @@
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/ext2/core.h"
-#include "mem/heap.h"
+#include "oss/node.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
 #include <libk/flow/error.h>
 #include <fs/core.h>
-#include <fs/vnode.h>
 
 int ext2_init();
 int ext2_exit();
@@ -34,7 +32,7 @@ struct ext2 {
 
 struct ext2_superblock* fetch_superblock();
 
-vnode_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
+oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
 
   ASSERT_MSG(device, "Can't initialize ext2 fs without a disk device");
 

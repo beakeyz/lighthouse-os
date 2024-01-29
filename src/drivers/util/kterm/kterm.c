@@ -686,7 +686,7 @@ int kterm_set_login(struct proc_profile* profile)
   if (profile) {
     /* FIXME: make sure the cwd never exceeds this size */
     _c_login.cwd = kmalloc(2048);
-    concat("Root/User/", (char*)profile->name, _c_login.cwd);
+    concat(":/Root/User/", (char*)profile->name, _c_login.cwd);
 
     //cwd_obj = vfs_resolve(_c_login.cwd);
 

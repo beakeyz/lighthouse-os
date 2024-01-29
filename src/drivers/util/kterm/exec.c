@@ -1,11 +1,11 @@
 #include "exec.h"
 #include "dev/manifest.h"
 #include "drivers/util/kterm/kterm.h"
-#include "fs/vfs.h"
-#include "fs/vobj.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
+#include "lightos/handle_def.h"
 #include "logging/log.h"
+#include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
@@ -25,12 +25,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   if (buffer[0] == NULL)
     return 2;
 
-  vobj_t* obj = vfs_resolve(buffer);
-
-  if (!obj)
-    return 3;
-
-  file_t* file = vobj_get_file(obj);
+  file_t* file = file_open(buffer);
 
   if (!file) {
     logln("Could not execute object!");
@@ -40,7 +35,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
   result = elf_exec_static_64_ex(file, false, true);
 
-  vobj_close(obj);
+  oss_obj_close(file->m_obj);
 
   if (IsError(result)) {
     logln("Coult not execute object!");

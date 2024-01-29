@@ -1,13 +1,10 @@
 #include "cache.h"
-#include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
+#include "fs/core.h"
 #include "fs/fat/core.h"
 #include "fs/fat/file.h"
 #include "fs/file.h"
-#include "fs/vnode.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
@@ -27,12 +24,15 @@ struct sec_cache_entry {
   uintptr_t current_block;
 };
 
-ErrorOrPtr create_fat_info(vnode_t* node)
+ErrorOrPtr create_fat_info(oss_node_t* node, partitioned_disk_dev_t *device)
 {
+  fs_oss_node_t* fsnode;
   fat_fs_info_t* info;
 
   if (!node)
     return Error();
+
+  fsnode = oss_node_getfs(node);
 
   info = zalloc_fixed(&__fat_info_cache);
 
@@ -42,19 +42,23 @@ ErrorOrPtr create_fat_info(vnode_t* node)
   info->fat_lock = create_mutex(NULL);
   info->node = node;
 
-  node->fs_data.m_fs_specific_info = info;
+  fsnode->m_device = device;
+
+  fsnode->m_fs_priv = info;
 
   return Success(0);
 }
 
-void destroy_fat_info(vnode_t* node)
+void destroy_fat_info(oss_node_t* node)
 {
+  fs_oss_node_t* fsnode;
   fat_fs_info_t* info;
 
-  if (!node || !FAT_FS_INFO(node))
+  if (!node || !GET_FAT_FSINFO(node))
     return;
 
-  info = FAT_FS_INFO(node);
+  fsnode = oss_node_getfs(node);
+  info = GET_FAT_FSINFO(node);
 
   if (info->sector_cache)
     destroy_fat_sector_cache(info->sector_cache);
@@ -62,7 +66,7 @@ void destroy_fat_info(vnode_t* node)
   destroy_mutex(info->fat_lock);
   zfree_fixed(&__fat_info_cache, info);
 
-  node->fs_data.m_fs_specific_info = nullptr;
+  fsnode->m_fs_priv = nullptr;
 }
 
 fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache_count)
@@ -120,12 +124,16 @@ static inline void fat_cache_use_entry(struct sec_cache_entry* index)
   index->useage_count++;
 }
 
-static inline int fatfs_sync_cache_entry_ex(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry* entry, uint32_t logical_block_count)
+static inline int fatfs_sync_cache_entry_ex(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry* entry, uint32_t logical_block_count)
 {
+  fs_oss_node_t* fsnode;
+
   if (!entry->is_dirty)
     return -1;
 
-  if (write_sync_partitioned_blocks(node->m_device, (void*)entry->block_buffer, logical_block_count, entry->current_block))
+  fsnode = oss_node_getfs(node);
+
+  if (write_sync_partitioned_blocks(fsnode->m_device, (void*)entry->block_buffer, logical_block_count, entry->current_block))
     return -1;
 
   entry->is_dirty = false;
@@ -133,20 +141,21 @@ static inline int fatfs_sync_cache_entry_ex(vnode_t* node, fat_sector_cache_t* c
 }
 
 
-static inline uint32_t get_logical_block_count(vnode_t* node, fat_sector_cache_t* cache)
+static inline uint32_t get_logical_block_count(oss_node_t* node, fat_sector_cache_t* cache)
 {
-  return cache->blocksize / node->m_device->m_block_size;
+  fs_oss_node_t* fsnode = oss_node_getfs(node);
+  return cache->blocksize / fsnode->m_device->m_block_size;
 }
 
 
-static inline int fatfs_sync_cache_entry(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry* entry)
+static inline int fatfs_sync_cache_entry(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry* entry)
 {
   uint32_t lbc = get_logical_block_count(node, cache);
 
   return fatfs_sync_cache_entry_ex(node, cache, entry, lbc);
 }
 
-static void fat_cache_find_least_used(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry)
+static void fat_cache_find_least_used(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry)
 {
   uint32_t i;
   struct sec_cache_entry* least_used;
@@ -178,7 +187,7 @@ static void fat_cache_find_least_used(vnode_t* node, fat_sector_cache_t* cache, 
  * If we don't already have the block cached, it returns a free cache entry
  * If there are no free entries left, we replace the least used entry
  */
-static int fat_cache_find_entry(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
+static int fat_cache_find_entry(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
 {
   struct sec_cache_entry* c_free;
   struct sec_cache_entry* c_entry;
@@ -214,16 +223,18 @@ static int fat_cache_find_entry(vnode_t* node, fat_sector_cache_t* cache, struct
  * (Or put caching in the generic disk core)
  */
 static int 
-__read(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
+__read(oss_node_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry, uintptr_t block)
 {
   uintptr_t offset;
   uint32_t logical_block_count;
+  fs_oss_node_t* fsnode;
   struct sec_cache_entry* c_entry;
 
+  fsnode = oss_node_getfs(node);
   offset = block * cache->blocksize;
 
   /* Convert to device block index */
-  block = offset / node->m_device->m_block_size;
+  block = offset / fsnode->m_device->m_block_size;
 
   if (fat_cache_find_entry(node, cache, &c_entry, block) || !c_entry)
     return -1;
@@ -234,7 +245,7 @@ __read(vnode_t* node, fat_sector_cache_t* cache, struct sec_cache_entry** entry,
 
   logical_block_count = get_logical_block_count(node, cache);
 
-  if (read_sync_partitioned_blocks(node->m_device, (void*)c_entry->block_buffer, logical_block_count, block))
+  if (read_sync_partitioned_blocks(fsnode->m_device, (void*)c_entry->block_buffer, logical_block_count, block))
     return -2;
 
 found_entry:
@@ -250,7 +261,7 @@ found_entry:
  *
  * Nothing to add here...
  */
-int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
+int fatfs_read(oss_node_t* node, void* buffer, size_t size, disk_offset_t offset)
 {
   int error;
   fat_fs_info_t* info;
@@ -259,7 +270,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   uint64_t lba_size, read_size;
 
   current_offset = 0;
-  info = VN_FS_DATA(node).m_fs_specific_info;
+  info = GET_FAT_FSINFO(node);
   lba_size = info->sector_cache->blocksize;
 
   while (current_offset < size) {
@@ -285,7 +296,7 @@ int fatfs_read(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   return 0;
 }
 
-int fatfs_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
+int fatfs_write(oss_node_t* node, void* buffer, size_t size, disk_offset_t offset)
 {
   int error;
   fat_fs_info_t* info;
@@ -294,7 +305,7 @@ int fatfs_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   uint64_t lba_size, read_size;
 
   current_offset = 0;
-  info = VN_FS_DATA(node).m_fs_specific_info;
+  info = GET_FAT_FSINFO(node);
   lba_size = info->sector_cache->blocksize;
 
   while (current_offset < size) {
@@ -323,7 +334,7 @@ int fatfs_write(vnode_t* node, void* buffer, size_t size, disk_offset_t offset)
   return 0;
 }
 
-int fatfs_flush(vnode_t* node)
+int fatfs_flush(oss_node_t* node)
 {
   int error;
   uint32_t logical_block_count;
@@ -331,7 +342,7 @@ int fatfs_flush(vnode_t* node)
   struct sec_cache_entry* entry;
   fat_sector_cache_t* cache;
 
-  info = VN_FS_INFO(node);
+  info = GET_FAT_FSINFO(node);
 
   if (!info)
     return -1;

@@ -24,6 +24,8 @@ oss_obj_t* create_oss_obj(const char* name)
   ret->parent = nullptr;
   ret->lock = create_mutex(NULL);
 
+  printf(" -> Creating object: %s\n", ret->name);
+
   return ret;
 }
 
@@ -43,6 +45,8 @@ void destroy_oss_obj(oss_obj_t* obj)
     obj->ops.f_destory_priv(obj->priv);
 
   destroy_mutex(obj->lock);
+
+  printf(" <- Destroying object: %s\n", obj->name);
 
   kfree((void*)obj->name);
   kfree(obj);
@@ -69,6 +73,29 @@ const char* oss_obj_get_fullpath(oss_obj_t* obj)
 
 void oss_obj_ref(oss_obj_t* obj);
 int oss_obj_unref(oss_obj_t* obj);
+
+/*!
+ * @brief: Close a base object
+ *
+ * Called when any oss object is closed, regardless of underlying type. When the object
+ * is not referenced anymore (TODO) it is automatically disposed of
+ *
+ * In the case of devices, drivers and such more permanent objects, they need to be present on
+ * the oss tree regardless of if they are referenced or not. To combat their preemptive destruction,
+ * we initialize them with a reference_count of one, to indicate they are 'referenced' by their
+ * respective subsystem. When we want to destroy for example a device that has an oss_object attached
+ * to it, the subsystem asks oss to dispose of the object, but if the object has a referencecount of > 1
+ * the entire destruction opperation must fail, since persistent oss residents are essential to the 
+ * function of the system.
+ */
+int oss_obj_close(oss_obj_t* obj)
+{
+  printf("Trying to close obj: %s\n", obj->name);
+  //kernel_panic("TODO: oss_obj_close");
+
+  destroy_oss_obj(obj);
+  return 0;
+}
 
 void oss_obj_register_child(oss_obj_t* obj, void* child, enum OSS_OBJ_TYPE type, FuncPtr destroy_fn)
 {
