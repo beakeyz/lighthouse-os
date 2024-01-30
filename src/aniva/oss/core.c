@@ -4,6 +4,7 @@
 #include <libk/string.h>
 #include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "mem/malloc.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
@@ -13,28 +14,35 @@ static mutex_t* _core_lock = nullptr;
 static oss_node_t* _local_root = nullptr;
 static const char* _local_root_name = ":";
 
-void oss_test() {
+/*!
+ * @brief: Quick routine to test the capabilities and integrity of OSS
+ *
+ * Confirmations:
+ *  - oss_resolve can creatre memory leak
+ *  - leak is not in any string duplications, since changing the path does not change the 
+ *    amount of bytes leaked
+ */
+void oss_test()
+{
+  oss_obj_t* init_obj;
+  memory_allocator_t alloc;
 
-  oss_obj_t* out;
+  kheap_copy_main_allocator(&alloc);
+  printf(" (1) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
 
-  printf("Creating path\n");
-  /* Create a path */
-  oss_create_path(nullptr, "Root/Test/Fuck");
+  oss_resolve_obj_rel(nullptr, "Root/System/test.drv", &init_obj);
+  destroy_oss_obj(init_obj);
 
-  printf("Adding obj\n");
-  /* Attach an object to that path */
-  oss_attach_obj(":/Root/Test/Fuck", create_oss_obj("test"));
+  kheap_copy_main_allocator(&alloc);
+  printf(" (2) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
 
-  printf("Resolving obj\n");
-  oss_resolve_obj(":/Root/Test/Fuck/test", &out);
+  oss_resolve_obj_rel(nullptr, "Root/System/test.drv", &init_obj);
+  destroy_oss_obj(init_obj);
 
-  printf("Got oss_obj: %s\n", out ? out->name : "NULL");
+  kheap_copy_main_allocator(&alloc);
+  printf(" (3) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
 
-  destroy_oss_obj(out);
-
-  oss_resolve_obj(":/Root/Test/Fuck/test", &out);
-
-  printf("Got oss_obj: %s\n", out ? out->name : "NULL");
+  kernel_panic("End of oss_test");
 }
 
 /*!
