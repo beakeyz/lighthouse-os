@@ -15,6 +15,19 @@ static oss_node_t* _local_root = nullptr;
 static const char* _local_root_name = ":";
 
 /*!
+ * @brief: Quick routine to log the current state of the kernel heap
+ *
+ * TEMP: (TODO) remove this shit
+ */
+static inline void _oss_test_mem()
+{
+  memory_allocator_t alloc;
+
+  kheap_copy_main_allocator(&alloc);
+  printf(" (*) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
+}
+
+/*!
  * @brief: Quick routine to test the capabilities and integrity of OSS
  *
  * Confirmations:
@@ -25,22 +38,18 @@ static const char* _local_root_name = ":";
 void oss_test()
 {
   oss_obj_t* init_obj;
-  memory_allocator_t alloc;
 
-  kheap_copy_main_allocator(&alloc);
-  printf(" (1) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
+  _oss_test_mem();
 
   oss_resolve_obj_rel(nullptr, "Root/System/test.drv", &init_obj);
   destroy_oss_obj(init_obj);
 
-  kheap_copy_main_allocator(&alloc);
-  printf(" (2) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
+  _oss_test_mem();
 
   oss_resolve_obj_rel(nullptr, "Root/System/test.drv", &init_obj);
   destroy_oss_obj(init_obj);
 
-  kheap_copy_main_allocator(&alloc);
-  printf(" (3) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
+  _oss_test_mem();
 
   kernel_panic("End of oss_test");
 }

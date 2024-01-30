@@ -270,8 +270,6 @@ void kthread_entry() {
    *  - launch the userspace bootstrap
    */
 
-  oss_test();
-
   /* 
    * Remove the early TTY right before we finish low-level system setup. After
    * this point we're able to support our own debug capabilities

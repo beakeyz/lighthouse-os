@@ -98,8 +98,6 @@ void mutex_lock(mutex_t* mutex)
   if (!current_thread)
     return;
 
-  thread_register_mutex(current_thread, mutex);
-
 retry_lock:
   spinlock_lock(mutex->m_lock);
 
@@ -148,6 +146,8 @@ retry_lock:
   // take lock
   // FIXME: remove this assert and propperly support multi-depth mutex locking
   //ASSERT_MSG(mutex->m_lock_depth == 0, "Tried to take a mutex while it has a locked depth greater than 0!");
+  
+  thread_register_mutex(current_thread, mutex);
 
   mutex->m_mutex_flags |= MUTEX_FLAG_IS_HELD;
   mutex->m_lock_holder = current_thread;
