@@ -14,6 +14,12 @@ static mutex_t* _core_lock = nullptr;
 static oss_node_t* _local_root = nullptr;
 static const char* _local_root_name = ":";
 
+static struct oss_node* _oss_create_path_abs_locked(const char* path);
+static struct oss_node* _oss_create_path_locked(struct oss_node* node, const char* path);
+static int _oss_resolve_node_locked(const char* path, oss_node_t** out);
+static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, struct oss_node** out);
+static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, struct oss_obj** out);
+
 /*!
  * @brief: Quick routine to log the current state of the kernel heap
  *
@@ -127,12 +133,7 @@ static oss_node_t* _get_rootnode(const char* name)
   return hashmap_get(_rootnode_map, (hashmap_key_t)name);
 }
 
-/*!
- * @brief: Resolve a oss_object relative from an oss_node
- *
- * If @rel is null, we default to _local_root
- */
-int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj** out)
+static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, struct oss_obj** out)
 {
   int error;
   const char* this_name;
@@ -145,11 +146,11 @@ int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj**
   if (!rel)
     rel = _local_root;
 
+  ASSERT_MSG(mutex_is_locked(_core_lock), "Tried to call _oss_resolve_obj_rel_locked without having locked oss");
+
   c_node = rel;
   c_idx = 0;
   obj_gen = nullptr;
-
-  mutex_lock(_core_lock);
 
   while ((this_name = _find_path_subentry_at(path, c_idx++))) {
 
@@ -176,13 +177,31 @@ int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj**
   if (obj_gen && !c_entry) {
     const char* rel_path = _get_pathentry_at_idx(path, obj_gen_path_idx);
 
+    /* Query the generation node for an object */
     error = oss_node_query(obj_gen, rel_path, out);
   }
 
   if (c_entry)
     *out = c_entry->obj;
 
+  return error;
+}
+
+/*!
+ * @brief: Resolve a oss_object relative from an oss_node
+ *
+ * If @rel is null, we default to _local_root
+ */
+int oss_resolve_obj_rel(struct oss_node* rel, const char* path, struct oss_obj** out)
+{
+  int error;
+
+  mutex_lock(_core_lock);
+
+  error = _oss_resolve_obj_rel_locked(rel, path, out);
+
   mutex_unlock(_core_lock);
+
   return error;
 }
 
@@ -228,14 +247,14 @@ int oss_resolve_obj(const char* path, oss_obj_t** out)
       break;
   }
 
-  error = oss_resolve_obj_rel(c_node, rel_path, out);
+  error = _oss_resolve_obj_rel_locked(c_node, rel_path, out);
 
 unlock_and_error:
   mutex_unlock(_core_lock);
   return error;
 }
 
-int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node** out)
+static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, struct oss_node** out)
 {
   oss_node_t* c_node;
   oss_node_entry_t* c_entry;
@@ -244,8 +263,6 @@ int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node
 
   if (!rel)
     rel = _local_root;
-
-  mutex_lock(_core_lock);
 
   c_node = rel;
   c_idx = 0;
@@ -256,27 +273,32 @@ int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node
     kfree((void*)this_name);
 
     if (!c_entry || c_entry->type != OSS_ENTRY_NESTED_NODE)
-      goto unlock_and_error;
+      return -1;
 
     c_node = c_entry->node;
   }
 
   *out = c_node;
 
-  mutex_unlock(_core_lock);
   return 0;
-
-unlock_and_error:
-  mutex_unlock(_core_lock);
-  return -1;
 }
 
-/*!
- * @brief: Looks through the registered nodes and tries to resolve a node out of @path
- */
-int oss_resolve_node(const char* path, oss_node_t** out)
+
+int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node** out)
 {
   int error;
+
+  mutex_lock(_core_lock);
+
+  error = _oss_resolve_node_rel_locked(rel, path, out);
+
+  mutex_unlock(_core_lock);
+
+  return error;
+}
+
+static int _oss_resolve_node_locked(const char* path, oss_node_t** out)
+{
   const char* this_name;
   const char* rel_path;
   oss_node_t* c_node;
@@ -285,8 +307,6 @@ int oss_resolve_node(const char* path, oss_node_t** out)
     return -1;
 
   *out = NULL;
-
-  mutex_lock(_core_lock);
 
   /* Find the root node name */
   this_name = _find_path_subentry_at(path, 0);
@@ -298,11 +318,9 @@ int oss_resolve_node(const char* path, oss_node_t** out)
   if (this_name)
     kfree((void*)this_name);
 
-  error = -1;
-
   /* Invalid path =/ */
   if (!c_node)
-    goto unlock_and_error;
+    return -1;
 
   rel_path = path;
 
@@ -311,19 +329,27 @@ int oss_resolve_node(const char* path, oss_node_t** out)
       break;
   }
 
-  error = oss_resolve_node_rel(c_node, rel_path, out);
+  return _oss_resolve_node_rel_locked(c_node, rel_path, out);
+}
 
-unlock_and_error:
+
+/*!
+ * @brief: Looks through the registered nodes and tries to resolve a node out of @path
+ */
+int oss_resolve_node(const char* path, oss_node_t** out)
+{
+  int error;
+
+  mutex_lock(_core_lock);
+
+  error = _oss_resolve_node_locked(path, out);
+
   mutex_unlock(_core_lock);
+
   return error;
 }
 
-/*!
- * @brief: Creates a chain of nodes for @path
- *
- * @returns: The last node it created
- */
-struct oss_node* oss_create_path(struct oss_node* node, const char* path)
+static struct oss_node* _oss_create_path_locked(struct oss_node* node, const char* path)
 {
   int error;
   uint32_t idx;
@@ -338,8 +364,6 @@ struct oss_node* oss_create_path(struct oss_node* node, const char* path)
   idx = 0;
   c_node = node;
   new_node = nullptr;
-
-  mutex_lock(_core_lock);
 
   while (*path && (this_name = _find_path_subentry_at(path, idx++))) {
 
@@ -380,19 +404,35 @@ free_and_exit:
       destroy_oss_node(new_node);
 
     kfree((void*)this_name);
-    mutex_unlock(_core_lock);
     return nullptr;
   }
 
-  mutex_unlock(_core_lock);
   /* If we gracefully exit the loop, the creation succeeded */
   return c_node;
 }
 
 /*!
- * @brief: Creates an absolute path
+ * @brief: Creates a chain of nodes for @path
+ *
+ * @returns: The last node it created
  */
-struct oss_node* oss_create_path_abs(const char* path)
+struct oss_node* oss_create_path(struct oss_node* node, const char* path)
+{
+  oss_node_t* ret;
+
+  mutex_lock(_core_lock);
+
+  ret = _oss_create_path_locked(node, path);
+
+  mutex_unlock(_core_lock);
+
+  return ret;
+}
+
+/*!
+ * @brief: Internal function to call when the core lock is locked
+ */
+static struct oss_node* _oss_create_path_abs_locked(const char* path)
 {
   const char* this_name;
   const char* rel_path;
@@ -400,8 +440,6 @@ struct oss_node* oss_create_path_abs(const char* path)
 
   if (!path)
     return nullptr;
-
-  mutex_lock(_core_lock);
 
   /* Find the root node name */
   this_name = _find_path_subentry_at(path, 0);
@@ -415,7 +453,7 @@ struct oss_node* oss_create_path_abs(const char* path)
 
   /* Invalid path =/ */
   if (!c_node)
-    goto unlock_and_error;
+    return nullptr;
 
   rel_path = path;
 
@@ -424,11 +462,23 @@ struct oss_node* oss_create_path_abs(const char* path)
       break;
   }
 
-  c_node = oss_create_path(c_node, rel_path);
+  return _oss_create_path_locked(c_node, rel_path);
+}
 
-unlock_and_error:
+/*!
+ * @brief: Creates an absolute path
+ */
+struct oss_node* oss_create_path_abs(const char* path)
+{
+  oss_node_t* ret;
+  
+  mutex_lock(_core_lock);
+
+  ret = _oss_create_path_abs_locked(path);
+
   mutex_unlock(_core_lock);
-  return c_node;
+
+  return ret;
 }
 
 
@@ -485,6 +535,9 @@ static int _try_path_remove_obj_name(char* path, const char* name)
   return 0;
 }
 
+/*!
+ * @brief: Attach an object relative of another node
+ */
 int oss_attach_obj_rel(struct oss_node* rel, const char* path, struct oss_obj* obj)
 {
   int error;
@@ -561,7 +614,7 @@ int oss_attach_fs(const char* path, const char* rootname, const char* fs, partit
 
   error = -1;
   /* Create a path to mount on */
-  mountpoint_node = oss_create_path_abs(path);
+  mountpoint_node = _oss_create_path_abs_locked(path);
 
   if (!mountpoint_node)
     goto unmount_and_error;
@@ -601,7 +654,7 @@ int oss_detach_fs(const char* path, struct oss_node** out)
   mutex_lock(_core_lock);
 
   /* Find the node we want to detach */
-  error = oss_resolve_node(path, &node);
+  error = _oss_resolve_node_locked(path, &node);
 
   if (error)
     goto exit_and_unlock;
@@ -623,7 +676,7 @@ int oss_detach_fs(const char* path, struct oss_node** out)
     *out = node;
 
 exit_and_unlock:
-  mutex_lock(_core_lock);
+  mutex_unlock(_core_lock);
   return error;
 }
 

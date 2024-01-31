@@ -1,6 +1,4 @@
-#include "core.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"

@@ -331,6 +331,7 @@ static int _file_close(file_t* file)
 file_t* file_open(const char* path)
 {
   int error;
+  file_t* ret;
   oss_obj_t* obj;
 
   /*
@@ -342,7 +343,12 @@ file_t* file_open(const char* path)
     return nullptr;
 
   /* Try to recieve the file created by the fs */
-  return oss_obj_get_file(obj);
+  ret = oss_obj_get_file(obj);
+
+  if (!ret)
+    destroy_oss_obj(obj);
+
+  return ret;
 }
 
 int file_close(file_t* file)

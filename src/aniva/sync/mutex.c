@@ -105,56 +105,54 @@ retry_lock:
   // when we get back
   //current_thread = get_current_scheduling_thread();
 
+  /*
   if (current_thread == mutex->m_lock_holder) {
     mutex->m_lock_depth++;
     goto exit_mutex_locking;
   }
+  */
 
-  if (mutex->m_lock_depth > 0) {
 
-    ASSERT_MSG(mutex->m_lock_holder != nullptr, "Mutex is locked, but had no holder!");
+  if (!mutex->m_lock_holder)
+    goto do_lock;
 
-    /* 
-     * This also works outside the scheduler context, since we won't block threads ever 
-     * if they are null 
-     */
-    if (current_thread != mutex->m_lock_holder) {
+  /* 
+   * This also works outside the scheduler context, since we won't block threads ever 
+   * if they are null 
+   */
+  //ASSERT_MSG(current_thread != mutex->m_lock_holder, "Tried to lock the same mutex twice!");
+  if (current_thread == mutex->m_lock_holder)
+    goto skip_lock_register;
 
-      /* We may lock a mutex from within a irq, but we cant block on it */
-      ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't block on a mutex from within an IRQ!");
+  /* We may lock a mutex from within a irq, but we cant block on it */
+  ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't block on a mutex from within an IRQ!");
 
-      // block current thread
-      queue_enqueue(mutex->m_waiters, current_thread);
+  // block current thread
+  queue_enqueue(mutex->m_waiters, current_thread);
 
-      // NOTE: when we block this thread, it returns executing here after it gets unblocked by mutex_unlock,
-      // since we just yield to the scheduler when we're blocked
+  // NOTE: when we block this thread, it returns executing here after it gets unblocked by mutex_unlock,
+  // since we just yield to the scheduler when we're blocked
 
-      spinlock_unlock(mutex->m_lock);
+  spinlock_unlock(mutex->m_lock);
 
-      thread_block(current_thread);
+  thread_block(current_thread);
 
-      goto retry_lock;
+  goto retry_lock;
 
-      /*
-      spinlock_lock(mutex->m_lock);
+  /*
+  spinlock_lock(mutex->m_lock);
 
-      ASSERT_MSG(mutex->m_lock_depth == 0, "Mutex was not unlocked after thread got unblocked!");
-      */
-    }
-  }
+  ASSERT_MSG(mutex->m_lock_depth == 0, "Mutex was not unlocked after thread got unblocked!");
+  */
 
-  // take lock
-  // FIXME: remove this assert and propperly support multi-depth mutex locking
-  //ASSERT_MSG(mutex->m_lock_depth == 0, "Tried to take a mutex while it has a locked depth greater than 0!");
-  
+do_lock:
   thread_register_mutex(current_thread, mutex);
 
   mutex->m_mutex_flags |= MUTEX_FLAG_IS_HELD;
   mutex->m_lock_holder = current_thread;
 
+skip_lock_register:
   mutex->m_lock_depth++;
-
-exit_mutex_locking:
   spinlock_unlock(mutex->m_lock);
 }
 
@@ -191,6 +189,7 @@ void mutex_unlock(mutex_t* mutex)
 
     /* Unblock */
     __mutex_handle_unblock(mutex);
+
     return;
   }
 
@@ -198,15 +197,17 @@ void mutex_unlock(mutex_t* mutex)
 }
 
 // FIXME: inline?
-bool mutex_is_locked(mutex_t* mutex) {
+bool mutex_is_locked(mutex_t* mutex) 
+{
   // No mutex means no lock =/
   if (!mutex)
     return false;
-  return (mutex->m_lock_depth > 0 && (mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD));
+  return (mutex->m_lock_holder && (mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD));
 }
 
 // FIXME: inline?
-bool mutex_is_locked_by_current_thread(mutex_t* mutex) {
+bool mutex_is_locked_by_current_thread(mutex_t* mutex) 
+{
   return (mutex_is_locked(mutex) && mutex->m_lock_holder == get_current_scheduling_thread());
 }
 

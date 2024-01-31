@@ -68,7 +68,7 @@ static oss_node_t* create_device_access_node()
 {
   oss_node_t* ret;
 
-  ret = create_oss_node("Device", OSS_OBJ_STORE_NODE, &_das_node_ops, NULL);
+  ret = create_oss_node("Device", OSS_OBJ_GEN_NODE, &_das_node_ops, NULL);
 
   if (!ret)
     return nullptr;

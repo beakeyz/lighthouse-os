@@ -134,8 +134,8 @@ file_ops_t tar_file_ops = {
   0,
 };
 
-static oss_obj_t* ramfs_find(oss_node_t* node, const char* name) {
-
+static oss_obj_t* ramfs_find(oss_node_t* node, const char* name) 
+{
   tar_file_t current_file = { 0 };
   fs_oss_node_t* fsnode;
   uintptr_t current_offset = 0;
@@ -143,6 +143,8 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name) {
 
   if (!name || !name_len)
     return nullptr;
+
+  printf("Trying to find: %s on \'%s\'\n", name, node->name);
 
   fsnode = oss_node_unwrap(node);
 
@@ -184,6 +186,8 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name) {
 
             /* Make sure file opperations go through ramfs */
             file_set_ops(file, &tar_file_ops);
+            
+            printf("Found: %s on \'%s\'!\n", name, node->name);
 
             /* Attach the object once we know that it has been found */
             ASSERT_MSG(!oss_attach_obj_rel(node, name, file->m_obj), "Failed to add object to oss node while trying to find ramfs file!");

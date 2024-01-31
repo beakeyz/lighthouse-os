@@ -19,7 +19,7 @@
 
 typedef struct mutex {
   uint8_t m_mutex_flags;
-  size_t m_lock_depth;
+  uint32_t m_lock_depth;
 
   thread_t* m_lock_holder;
 
