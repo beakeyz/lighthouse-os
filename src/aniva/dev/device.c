@@ -5,7 +5,11 @@
 #include <libk/string.h>
 #include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "oss/core.h"
+#include "oss/node.h"
 #include "sync/mutex.h"
+
+static oss_node_t* _device_node;
 
 /*
  * TODO: how do we shape a 'generic' device?
@@ -92,6 +96,33 @@ void destroy_device(device_t* device)
   memset(device, 0, sizeof(*device));
 
   kfree(device);
+}
+
+static oss_obj_t* _device_open(oss_node_t* node, const char* path)
+{
+  return nullptr;
+}
+
+/*
+ * Standard opperations for the device node
+ */
+static oss_node_ops_t _device_node_ops = {
+  .f_open = _device_open,
+  nullptr,
+};
+
+/*!
+ * @brief: Initialize the device subsystem
+ *
+ * The main job of the device subsystem is to allow for quick and easy device storage and access.
+ * This is done through the oss, on the path ':/Device'.
+ */
+void init_device()
+{
+  /* Initialize an OSS endpoint for device access and storage */
+  _device_node = create_oss_node("Device", OSS_OBJ_GEN_NODE, &_device_node_ops, NULL);
+
+  ASSERT_MSG(oss_attach_node(":", _device_node) == 0, "Failed to attach device node");
 }
 
 /*

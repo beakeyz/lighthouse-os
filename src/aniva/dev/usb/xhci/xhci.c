@@ -2,7 +2,6 @@
  * The pci driver for the xHCI host controller
  */
 
-#include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/request.h"
@@ -16,9 +15,6 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
-#include "proc/core.h"
-#include "proc/profile/profile.h"
-#include "system/asm_specifics.h"
 #include <dev/pci/pci.h>
 #include <dev/pci/definitions.h>
 
@@ -456,6 +452,11 @@ static int xhci_reset(usb_hcd_t* hcd)
  *
  * Firmware might screw us over, so here we make sure that we have (semi) full control over
  * the host controller
+ *
+ * We now know that the system might still be in compat mode when we init xhci. If ACPI is enabled
+ * and we have successfully initialized ACPICA and it's subcomponents before loading the USB and XHCI
+ * hc drivers then this call might not really be needed. Might still be a good idea to call it anyways,
+ * since it does not seem to hurt anything
  */
 static void xhci_bios_takeover(usb_hcd_t* hcd)
 {
