@@ -48,10 +48,14 @@
 
 struct oss_obj;
 struct device;
+struct device_endpoint;
 struct aniva_driver;
 struct dev_manifest_t;
 
 typedef struct device_ops {
+  /* Called once when the driver creates a device as the result of a probe of some sort */
+  int (*f_create)(struct device* device);
+
   int (*d_read)(struct device* device, void* buffer, size_t size, uintptr_t offset);
   int (*d_write)(struct device* device, void* buffer, size_t size, uintptr_t offset);
 
@@ -94,12 +98,18 @@ typedef struct device {
   struct dev_manifest* link;
   struct oss_obj* obj;
 
-  uint32_t flags;
-
   void* private;
-
   mutex_t* lock;
+  
+  /* Generic device ops */
   device_ops_t* ops;
+
+  uint32_t flags;
+  /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
+  uint32_t endpoint_count;
+  struct device_endpoint** endpoints;
+  struct device* next_child;
+  struct device* next_sibling;
 } device_t;
 
 void init_device();
@@ -119,5 +129,10 @@ uintptr_t device_message(device_t* dev, dcc_t code);
 uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
 bool device_is_generic(device_t* device);
+
+/* TODO: */
+int device_register(device_t* dev, const char* path);
+int device_unregister();
+int device_get();
 
 #endif // !__ANIVA_DEV_DEVICE__

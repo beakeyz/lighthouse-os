@@ -16,4 +16,8 @@
  * that when driver want to use other driver or devices they also interact with user.h
  */
 
+typedef struct device_endpoint {
+
+} device_ep_t;
+
 #endif // !__ANIVA_DEVICE_ENDPOINT__
