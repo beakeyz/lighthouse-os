@@ -88,10 +88,6 @@ else
     warn "binaries are already in PATH variable"
 fi
 
-# step -1: check for certain things i.e, is there already a build ready, and do some setup
-bash ./scripts/sysroot.sh
-
-
 if [[ -d $CC_PATH ]]
 then
     panic "It seems like the crosscompiler suite has already been installed. To reinstall, remove the 'cross_compiler' directory from the project"
