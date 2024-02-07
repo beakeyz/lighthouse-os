@@ -10,6 +10,7 @@
 #include "system/resource.h"
 #include <libk/data/hashmap.h>
 
+struct oss_obj;
 struct extern_driver;
 
 /*
@@ -44,6 +45,7 @@ typedef struct dev_manifest {
   dev_url_t m_url;
   size_t m_url_length;
 
+  struct oss_obj* m_obj;
   /* Any data that's specific to the kind of driver this is */
   //void* m_private;
 

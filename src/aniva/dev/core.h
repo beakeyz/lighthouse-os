@@ -6,6 +6,8 @@
 #include "proc/ipc/packet_response.h"
 #include <libk/stddef.h>
 
+struct oss_obj;
+struct oss_node;
 struct aniva_driver;
 struct dev_manifest;
 
@@ -149,7 +151,7 @@ struct dev_manifest* get_core_driver(dev_type_t type);
 int get_main_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 
-ErrorOrPtr foreach_driver(bool (*callback)(hive_t* h, void* manifset));
+ErrorOrPtr foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj));
 
 int set_main_driver(struct dev_manifest* dev, dev_type_t type);
 bool verify_driver(struct dev_manifest* manifest);

@@ -10,6 +10,8 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "oss/node.h"
+#include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "system/acpi/acpi.h"
@@ -107,11 +109,11 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
   return 0;
 }
 
-bool print_drv_info(hive_t* _, void* _manifest)
+bool print_drv_info(oss_node_t* _, oss_obj_t* obj)
 {
-  dev_manifest_t* manifest = _manifest;
+  dev_manifest_t* manifest = oss_obj_unwrap(obj, dev_manifest_t);
 
-  if (!manifest)
+  if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
     return false;
 
   kterm_print_keyvalue("Path", manifest->m_url);

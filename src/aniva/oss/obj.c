@@ -31,6 +31,7 @@ oss_obj_t* create_oss_obj(const char* name)
 
 void destroy_oss_obj(oss_obj_t* obj)
 {
+  void* priv;
   oss_node_entry_t* entry = NULL;
 
   /* If we are still attached, might as well remove ourselves */
@@ -41,8 +42,12 @@ void destroy_oss_obj(oss_obj_t* obj)
   if (entry)
     destroy_oss_node_entry(entry);
 
+  /* Cache the private attachment */
+  priv = obj->priv;
+  obj->priv = nullptr;
+
   if (obj->ops.f_destory_priv)
-    obj->ops.f_destory_priv(obj->priv);
+    obj->ops.f_destory_priv(priv);
 
   destroy_mutex(obj->lock);
 

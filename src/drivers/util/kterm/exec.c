@@ -5,6 +5,7 @@
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
 #include "logging/log.h"
+#include "oss/core.h"
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
@@ -25,10 +26,20 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   if (buffer[0] == NULL)
     return 2;
 
-  file_t* file = file_open(buffer);
+  oss_obj_t* obj;
+
+  if (oss_resolve_obj(buffer, &obj) || !obj) {
+    logln("Could not find that object!");
+    return 3;
+  }
+
+  /* Try to grab the file */
+  file_t* file = oss_obj_get_file(obj);
 
   if (!file) {
     logln("Could not execute object!");
+
+    destroy_oss_obj(obj);
     return 4;
   }
 

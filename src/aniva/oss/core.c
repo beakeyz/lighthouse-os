@@ -481,6 +481,20 @@ struct oss_node* oss_create_path_abs(const char* path)
   return ret;
 }
 
+int oss_attach_rootnode(struct oss_node* node)
+{
+  int error;
+
+  if (!node)
+    return -1;
+
+  mutex_lock(_core_lock);
+
+  error = IsError(hashmap_put(_rootnode_map, (hashmap_key_t)node->name, node));
+
+  mutex_unlock(_core_lock);
+  return error;
+}
 
 /*!
  * @brief: Attach @node to @path
@@ -491,6 +505,9 @@ int oss_attach_node(const char* path, struct oss_node* node)
 {
   int error;
   oss_node_t* c_node;
+
+  if (!path)
+    return -1;
 
   error = oss_resolve_node(path, &c_node);
 
@@ -678,6 +695,22 @@ int oss_detach_fs(const char* path, struct oss_node** out)
 exit_and_unlock:
   mutex_unlock(_core_lock);
   return error;
+}
+
+/*!
+ * @brief: Remove an object from it's path
+ */
+int oss_detach_obj(const char* path, struct oss_obj** out)
+{
+  kernel_panic("TODO: oss_detach_obj");
+}
+
+/*!
+ * @brief: Remove an object from it's path, relative from @rel
+ */
+int oss_detach_obj_rel(struct oss_node* rel, const char* path, struct oss_obj** out)
+{
+  kernel_panic("TODO: oss_detach_obj_rel");
 }
 
 const char* oss_get_objname(const char* path)

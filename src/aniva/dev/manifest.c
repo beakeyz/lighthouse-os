@@ -4,6 +4,8 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "mem/heap.h"
+#include "oss/node.h"
+#include "oss/obj.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/string.h>
@@ -122,6 +124,11 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
     ret->m_url_length = get_driver_url_length(handle);
     // TODO: concat
     ret->m_url = get_driver_url(handle);
+
+    ret->m_obj = create_oss_obj(handle->m_name);
+
+    /* Make sure our object knows about us */
+    oss_obj_register_child(ret->m_obj, ret, OSS_OBJ_TYPE_DRIVER, destroy_dev_manifest);
   } else {
     ret->m_flags |= DRV_DEFERRED_HNDL;
   }
@@ -141,6 +148,8 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
   if (manifest->m_handle || !(manifest->m_flags & DRV_DEFERRED_HNDL))
     return Error();
 
+  ASSERT_MSG(manifest->m_obj == nullptr, "Tried to emplace a handle on a manifest which already has an object");
+
   /* Mark the manifest as non-deferred */
   manifest->m_flags &= ~DRV_DEFERRED_HNDL;
 
@@ -150,6 +159,10 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
   manifest->m_url_length = get_driver_url_length(handle);
   manifest->m_url = get_driver_url(handle);
 
+  manifest->m_obj = create_oss_obj(handle->m_name);
+
+  /* Make sure our object knows about us */
+  oss_obj_register_child(manifest->m_obj, manifest, OSS_OBJ_TYPE_DRIVER, destroy_dev_manifest);
   return Success(0);
 }
 
@@ -164,6 +177,20 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
  */
 void destroy_dev_manifest(dev_manifest_t* manifest) 
 {
+  /*
+   * An attached driver can be destroyed in two ways:
+   * 1) Using this function directly. In this case we need to check if we are still attached to OSS and if we are
+   * that means we need to destroy ourselves through that mechanism
+   * 2) Through OSS. When we're attached to OSS, we have our own oss object that is attached to an oss node. When
+   * the manifest was created we registered our destruction method there, which means that all dev_manifest memory
+   * is owned by the oss_object
+   */
+  if (manifest->m_obj && manifest->m_obj->priv == manifest) {
+    /* Calls destroy_dev_manifest again with ->priv cleared */
+    destroy_oss_obj(manifest->m_obj);
+    return;
+  }
+
   destroy_mutex(manifest->m_lock);
   destroy_mutex(manifest->m_device_lock);
 

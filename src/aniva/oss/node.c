@@ -309,6 +309,50 @@ int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
   return (*obj_out ? 0 : -1);
 }
 
+static ErrorOrPtr _node_itter(void* v, uint64_t arg)
+{
+  int error;
+  oss_node_entry_t* entry = v;
+  oss_node_t* node;
+  oss_obj_t* obj;
+  bool (*f_itter)(oss_node_t* node, struct oss_obj* obj) = (void*)arg;
+
+  if (!entry)
+    return Success(0);
+
+  error = 0;
+
+  switch (entry->type) {
+    /* In case of an object, simply call it in the itteration */
+    case OSS_ENTRY_OBJECT:
+      obj = entry->obj;
+      node = obj->parent;
+
+      if (!f_itter(node, obj))
+        return Error();
+      break;
+    /* Itterate over nodes recursively */
+    case OSS_ENTRY_NESTED_NODE:
+      node = entry->node;
+
+      error = oss_node_itterate(node, f_itter);
+      break;
+    default:
+      break;
+  }
+
+  return error ? Error() : Success(0);
+}
+
+/*!
+ * @brief: Walk all the child objects under @node
+ */
+int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj))
+{
+  printf("Itterating: %s \n", node->name);
+  return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter));
+}
+
 /*!
  * @brief: Walks the object map of @node recursively and destroys every object if finds
  */
