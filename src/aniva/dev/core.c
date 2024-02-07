@@ -177,8 +177,6 @@ static bool __load_precompiled_driver(dev_manifest_t* manifest)
 
   manifest_gather_dependencies(manifest);
 
-  printf("Loading %s\n", manifest->m_url);
-
   /*
    * NOTE: this fails if the driver is already loaded, but we ignore this
    * since we also load drivers preemptively if they are needed as a dependency
@@ -193,7 +191,6 @@ static bool walk_precompiled_drivers_to_load(oss_node_t* node, oss_obj_t* data)
 {
   dev_manifest_t* manifest = oss_obj_unwrap(data, dev_manifest_t);
 
-  println("Loading precompiled driver");
   return __load_precompiled_driver(manifest);
 }
 
@@ -374,7 +371,7 @@ fail_and_exit:
 /*!
  * @brief Detaches the manifests path from the driver tree and destroys the manifest
  *
- * Nothing to add here...
+ * NOTE: We don't detach the obj here, since that's done in destroy_dev_manifest
  * TODO: resolve dependencies!
  */
 ErrorOrPtr uninstall_driver(dev_manifest_t* manifest) 
@@ -388,10 +385,6 @@ ErrorOrPtr uninstall_driver(dev_manifest_t* manifest)
 
   /* When we fail to unload something, thats quite bad lmao */
   if (is_driver_loaded(manifest) && IsError(unload_driver(manifest->m_url)))
-    goto fail_and_exit;
-
-  /* Remove the manifest from the driver tree */
-  if (oss_detach_obj_rel(__driver_node, manifest->m_url, NULL))
     goto fail_and_exit;
 
   if (manifest->m_external)
@@ -503,8 +496,6 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest)
     }
   }
 
-  println("Doing bootstrap");
-
   result = bootstrap_driver(manifest);
 
   /* If the manifest says something went wrong, trust that */
@@ -513,7 +504,6 @@ ErrorOrPtr load_driver(dev_manifest_t* manifest)
     return Error();
   }
 
-  println("Thing");
   __driver_register_presence(handle->m_type);
 
   /*
