@@ -906,6 +906,15 @@ int kterm_init()
     .virtual_base = ptr,
   };
 
+  /*
+   * TODO: Call the kernel video interface instead of invoking the core video driver
+   *
+   * The kernel video interface should figure out which device to use and the device is managed by a single video/graphics driver
+   * which will make the process of preparing a framebuffer waaaay less ambiguous. The video device should for example be able to
+   * keep track of which framebuffers it has (cached) so we don't lose graphics data. We also may want to make the video device
+   * ready for 2D (or 3D) accelerated rendering, vblank interrupts, ect.
+   * Through this API we can also easily access PWM through ACPI, without having to do weird funky shit with driver messages
+   */
   Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
 

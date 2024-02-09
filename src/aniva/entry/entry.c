@@ -1,6 +1,7 @@
 #include "entry.h"
 #include "dev/core.h"
 #include "dev/debug/early_tty.h"
+#include "dev/device.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/driver.h"
@@ -10,7 +11,6 @@
 #include "dev/pci/pci.h"
 #include "dev/usb/usb.h"
 #include "fs/core.h"
-#include <fs/device/core.h>
 #include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "libk/data/hashmap.h"
@@ -195,8 +195,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* Initialize the filesystem core */
   init_fs_core();
 
-  /* Make sure device access is initialized */
-  init_dev_access();
+  /* Init the kernel device subsystem */
+  init_devices();
 
   /* Initialize HID driver subsystem */
   init_hid();
@@ -206,11 +206,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
 
   /* Initialize the USB subsystem */
   init_usb();
-
-  // FIXME
-  // are we going micro, mono or perhaps even exo?
-  // how big will the role of the vfs be?
-  //  * how will processes even interact with the kernel??? * 
 
   /* Initialize scheduler on the bsp */
   init_scheduler(0);

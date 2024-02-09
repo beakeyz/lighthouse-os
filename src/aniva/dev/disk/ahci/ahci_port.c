@@ -13,6 +13,8 @@
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
 
+#define PORT_DEVICE_PREFIX "drive"
+
 static int ahci_port_read(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
 static int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
@@ -49,9 +51,9 @@ static void decode_disk_model_number(char* model_number) {
   }
 }
 
-static char* create_port_path(ahci_port_t* port) {
-
-  const char* prefix = "prt";
+static char* create_port_path(ahci_port_t* port) 
+{
+  const char* prefix = PORT_DEVICE_PREFIX;
   const size_t index_len = strlen(to_string(port->m_port_index));
   const size_t total_len = strlen(prefix) + index_len + 1;
   char* ret = kmalloc(total_len);

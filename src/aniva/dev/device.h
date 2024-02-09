@@ -2,6 +2,7 @@
 #define __ANIVA_DEV_DEVICE__
 
 #include "dev/core.h"
+#include "dev/group.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -77,6 +78,8 @@ typedef struct device_ops {
  * This needs to also get checked) 
  */
 #define DEV_FLAG_POWERED 0x00000004
+/* A bus device can have multiple devices that it manages */
+#define DEV_FLAG_BUS 0x00000008
 /* TODO: more device flags */
 
 /*
@@ -89,6 +92,27 @@ typedef struct device_ops {
  * and making them available through a path system. Drivers themselves are able to register
  * devices to themselves, which makes every device 'access' in userspace (or even
  * kernelspace for that matter) go through their respective driver.
+ *
+ * Device registering:
+ * What happens when we attach a PCI bus device but we also want to register it's children?
+ * well, we can simply attach the children to a grouped 'bridge node' which acts as a collector
+ * of the children of the actual bus device. Let's suppose a PCI bus device is called 'sick_pci_bridge'.
+ * Accessing this bridge as a device is easy, it will just be attached to 'Dev/sick_pci_bridge'. What happens
+ * if it turns out it has children though? These can be grouped under the 'pci_bus' node. The bus device will
+ * be given a bus number, which we can use to access the correct bus group under 'Dev/pci_bus'. For this example,
+ * let's say there is a device, 'epic_dev' on the pci bus and the bus number is 3. The total path to access the
+ * device on the bus will then become:
+ *
+ * 'Dev/pci_bus/3/epic_dev'
+ * 
+ * This way we can easily distinguish devices from eachother. What happens when there are nested bus devices inside 
+ * a bus? They just get a new bus number, together with a new node to match that number. So let's say there is a
+ * nested bus on 'sick_pci_bridge' which is called 'nested_bridge'. It is the only other bridge/bus device here, so
+ * it get's bus number 0. There are now three entries on the group node for 'sick_pci_bridge'. They are:
+ *
+ * 'Dev/pci_bus/3/epic_dev'
+ * 'Dev/pci_bus/3/nested_bridge'
+ * 'Dev/pci_bus/3/0'
  */
 typedef struct device {
   const char* device_path;
@@ -97,6 +121,8 @@ typedef struct device {
   /* Driver this device is linked to. (NOTE: parent and link can be the same, but don't have to be) */
   struct dev_manifest* link;
   struct oss_obj* obj;
+  /* If this device is a bus, this node contains it's children */
+  struct oss_node* bus_node;
 
   void* private;
   mutex_t* lock;
@@ -108,11 +134,13 @@ typedef struct device {
   /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
   uint32_t endpoint_count;
   struct device_endpoint** endpoints;
+
+  /* These must be null if the device is not a bus device */
   struct device* next_child;
   struct device* next_sibling;
 } device_t;
 
-void init_device();
+void init_devices();
 
 device_t* create_device(struct aniva_driver* parent, char* path);
 device_t* create_device_ex(struct aniva_driver* parent, char* path, uint32_t flags, device_ops_t* ops);
@@ -134,5 +162,7 @@ bool device_is_generic(device_t* device);
 int device_register(device_t* dev, const char* path);
 int device_unregister();
 int device_get();
+
+int device_add_group(dgroup_t* group);
 
 #endif // !__ANIVA_DEV_DEVICE__

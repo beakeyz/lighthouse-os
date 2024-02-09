@@ -320,10 +320,7 @@ uintptr_t ahci_driver_on_packet(aniva_driver_t* this, dcc_t code, void* buffer, 
 }
 
 /*
- * disk/ahci
- *
- * Devices will be attached to 'Dev/disk/ahci/diskdevx'
- *                          or 'Dev/core/disk/diskdevx'
+ * Drv/disk/ahci
  */
 aniva_driver_t base_ahci_driver = {
   .m_name = "ahci",
@@ -340,14 +337,25 @@ aniva_driver_t base_ahci_driver = {
 };
 EXPORT_DRIVER_PTR(base_ahci_driver);
 
-int ahci_driver_init() {
-
-  // FIXME: should this driver really take a hold of the scheduler 
-  // here?
+/*!
+ * @brief: Initialize the AHCI bus+device driver
+ *
+ * TODO: refactor filenames to something logical lmao
+ *       ahci_device -> ahci_bus
+ *       ahci_port -> ahci_device (Something like this?)
+ *
+ * Here we register our PCI driver (So we are in line to recieve the ACHI controllers PCI device once the 
+ * PCI bus driver is initialized) and we register our own bus group. The group will simply be called 'ahci' which is
+ * where all the ahci controllers and devices we find will be attached.
+ */
+int ahci_driver_init() 
+{
   __ahci_devices = nullptr;
   _p_base_ahci_driver = &base_ahci_driver;
 
   register_pci_driver(&ahci_pci_driver);
+
+  register_bus_group("ahci");
 
   return 0;
 }

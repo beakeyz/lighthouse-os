@@ -23,9 +23,10 @@
 
 //static char* s_root_dev_name;
 //static char s_root_dev_name_buffer[64];
-static mutex_t* s_gdisk_lock;
+static mutex_t* _gdisk_lock;
 static dev_manifest_t* _this;
 
+/* This is so dumb */
 struct gdisk_store_entry {
   disk_dev_t* dev;
   struct gdisk_store_entry* next;
@@ -44,7 +45,7 @@ int disk_core_exit();
  */
 static disk_uid_t generate_new_disk_uid() {
 
-  if (!mutex_is_locked_by_current_thread(s_gdisk_lock))
+  if (!mutex_is_locked_by_current_thread(_gdisk_lock))
     return -1;
 
   struct gdisk_store_entry* entry = s_last_gdisk;
@@ -264,14 +265,14 @@ ErrorOrPtr register_gdisk_dev(disk_dev_t* device)
   if (*entry)
     return Error();
 
-  mutex_lock(s_gdisk_lock);
+  mutex_lock(_gdisk_lock);
 
   *entry = create_gdisk_store_entry(device);
 
   /* Then update the tail pointer */
   s_last_gdisk = *entry;
 
-  mutex_unlock(s_gdisk_lock);
+  mutex_unlock(_gdisk_lock);
 
   return Success(0);
 }
@@ -288,7 +289,7 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
   if (!device)
     return Error();
 
-  mutex_lock(s_gdisk_lock);
+  mutex_lock(_gdisk_lock);
 
   previous_entry = nullptr;
   entry = &s_gdisks;
@@ -317,7 +318,7 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
 
   /* No entry found =/ */
   if (!*entry) {
-    mutex_unlock(s_gdisk_lock);
+    mutex_unlock(_gdisk_lock);
     return Error();
   }
 
@@ -337,7 +338,7 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device) {
   /* Object not needed anymore, destroy it */
   destroy_gdisk_store_entry(*entry);
 
-  mutex_unlock(s_gdisk_lock);
+  mutex_unlock(_gdisk_lock);
 
   return Success(0);
 }
@@ -378,7 +379,7 @@ ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
   if (!device)
     return Error();
 
-  mutex_lock(s_gdisk_lock);
+  mutex_lock(_gdisk_lock);
 
   if (uid == 0) {
     struct gdisk_store_entry* entry = create_gdisk_store_entry(device);
@@ -427,7 +428,7 @@ ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
     }
   }
 
-  mutex_unlock(s_gdisk_lock);
+  mutex_unlock(_gdisk_lock);
 
   return Success(0);
 }
@@ -818,9 +819,20 @@ void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count)
   dev->m_effective_sector_size = count * dev->m_logical_sector_size;
 }
 
+/*!
+ * @brief: Initialize the aniva disk subsystem
+ *
+ * This is the part of aniva that is responsible for managing (Async) access to external
+ * containers of semi-permanent data (Hard disks, SSDs, NVME drives, USB drives, 
+ * floppies (yuck), ect.). This should happen in sync and ideally distributed.
+ *
+ * Major TODO: refactor this a bit so device access is less ambiguous (There currently are
+ * a fuck ton of different ways to read bytes off of a disk, and they all pretty much do
+ * the same thing -_-).
+ */
 void init_gdisk_dev() 
 {
-  s_gdisk_lock = create_mutex(0);
+  _gdisk_lock = create_mutex(0);
 }
 
 /*!

@@ -44,6 +44,7 @@ typedef struct aniva_driver {
   uint16_t res0;
   uint32_t m_port;
 
+  /* TODO: migrate dependencies to something more managable and trustable */
   size_t m_dep_count;
   dev_url_t m_dependencies[];
 } aniva_driver_t;

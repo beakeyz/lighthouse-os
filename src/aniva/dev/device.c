@@ -98,6 +98,17 @@ void destroy_device(device_t* device)
   kfree(device);
 }
 
+/*!
+ * @brief: Add a new dgroup to the device node
+ */
+int device_add_group(dgroup_t* group)
+{
+  if (!group || !group->node)
+    return -1;
+
+  return oss_node_add_node(_device_node, group->node);
+}
+
 static oss_obj_t* _device_open(oss_node_t* node, const char* path)
 {
   return nullptr;
@@ -115,14 +126,19 @@ static oss_node_ops_t _device_node_ops = {
  * @brief: Initialize the device subsystem
  *
  * The main job of the device subsystem is to allow for quick and easy device storage and access.
- * This is done through the oss, on the path ':/Device'.
+ * This is done through the oss, on the path 'Dev'.
+ *
+ * The first devices to be attached here are bus devices, firmware controllers, chipset/motherboard devices 
+ * (PIC, PIT, CMOS, RTC, APIC, ect.)
  */
-void init_device()
+void init_devices()
 {
   /* Initialize an OSS endpoint for device access and storage */
-  _device_node = create_oss_node("Device", OSS_OBJ_GEN_NODE, &_device_node_ops, NULL);
+  _device_node = create_oss_node("Dev", OSS_OBJ_GEN_NODE, &_device_node_ops, NULL);
 
-  ASSERT_MSG(oss_attach_node(":", _device_node) == 0, "Failed to attach device node");
+  ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
+
+  /* Enumerate devices */
 }
 
 /*
