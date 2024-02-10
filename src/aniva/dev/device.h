@@ -2,6 +2,7 @@
 #define __ANIVA_DEV_DEVICE__
 
 #include "dev/core.h"
+#include "dev/endpoint.h"
 #include "dev/group.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -49,25 +50,10 @@
 
 struct oss_obj;
 struct device;
+struct dgroup;
 struct device_endpoint;
 struct aniva_driver;
 struct dev_manifest_t;
-
-typedef struct device_ops {
-  /* Called once when the driver creates a device as the result of a probe of some sort */
-  int (*f_create)(struct device* device);
-
-  int (*d_read)(struct device* device, void* buffer, size_t size, uintptr_t offset);
-  int (*d_write)(struct device* device, void* buffer, size_t size, uintptr_t offset);
-
-  /* 'pm' opperations which are purely software, except if we support actual PM */
-  int (*d_remove)(struct device* device);
-  int (*d_suspend)(struct device* device);
-  int (*d_resume)(struct device* device);
-
-  uintptr_t (*d_msg)(struct device* device, dcc_t code);
-  uintptr_t (*d_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
-} device_ops_t;
 
 /* Device that is managed and backed entirely by software */
 #define DEV_FLAG_SOFTDEV 0x00000001
@@ -122,28 +108,46 @@ typedef struct device {
   struct dev_manifest* link;
   struct oss_obj* obj;
   /* If this device is a bus, this node contains it's children */
-  struct oss_node* bus_node;
+  struct dgroup* bus_group;
 
   void* private;
   mutex_t* lock;
-  
-  /* Generic device ops */
-  device_ops_t* ops;
 
   uint32_t flags;
   /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
   uint32_t endpoint_count;
-  struct device_endpoint** endpoints;
-
-  /* These must be null if the device is not a bus device */
-  struct device* next_child;
-  struct device* next_sibling;
+  struct device_endpoint* endpoints;
 } device_t;
+
+static inline bool dev_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
+{
+  if (!device->endpoints)
+    return false;
+
+  for (uint32_t i = 0; i < device->endpoint_count; i++)
+    if (device->endpoints[i].type == type)
+      return true;
+
+  return false;
+}
+
+static inline struct device_endpoint* dev_get_endpoint(device_t* device, enum ENDPOINT_TYPE type)
+{
+  if (!device->endpoints)
+    return nullptr; 
+
+  for (uint32_t i = 0; i < device->endpoint_count; i++) {
+    if (device->endpoints[i].type == type)
+      return &device->endpoints[i];
+  }
+
+  return nullptr;
+}
 
 void init_devices();
 
 device_t* create_device(struct aniva_driver* parent, char* path);
-device_t* create_device_ex(struct aniva_driver* parent, char* path, uint32_t flags, device_ops_t* ops);
+device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count);
 void destroy_device(device_t* device);
 
 int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset);
@@ -163,6 +167,6 @@ int device_register(device_t* dev, const char* path);
 int device_unregister();
 int device_get();
 
-int device_add_group(dgroup_t* group);
+int device_add_group(dgroup_t* group, struct oss_node* node);
 
 #endif // !__ANIVA_DEV_DEVICE__

@@ -1,8 +1,10 @@
 #include "ahci_port.h"
 #include "ahci_device.h"
+#include "dev/device.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
+#include "dev/endpoint.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
@@ -15,13 +17,12 @@
 
 #define PORT_DEVICE_PREFIX "drive"
 
-static int ahci_port_read(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
-static int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
-static int ahci_port_read_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
-static int ahci_port_write_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset);
+static int ahci_port_read(device_t* port, void* buffer, disk_offset_t offset, size_t size);
+static int ahci_port_write(device_t* port, void* buffer, disk_offset_t offset, size_t size);
+static int ahci_port_flush(device_t* device);
 
-static int ahci_port_write_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk);
-static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk);
+static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, size_t count);
+static int ahci_port_read_blk(device_t* device, void* buffer, uintptr_t blk, size_t count);
 
 static void decode_disk_model_number(char* model_number) {
   for (uintptr_t chunk = 0; chunk < 40; chunk+= 2) {
@@ -213,6 +214,18 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
+static struct device_disk_endpoint _ahci_disk_ep = {
+  .f_read = ahci_port_read,
+  .f_write = ahci_port_write,
+  .f_bread = ahci_port_read_blk,
+  .f_bwrite = ahci_port_write_blk,
+  .f_flush = ahci_port_flush,
+};
+
+static device_ep_t _ahci_eps[] = {
+  { ENDPOINT_TYPE_DISK, sizeof(_ahci_disk_ep), { &_ahci_disk_ep } }
+};
+
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) 
 {
   ahci_port_t* ret = kmalloc(sizeof(ahci_port_t));
@@ -228,7 +241,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
 
-  ret->m_generic = create_generic_disk(device->m_parent, create_port_path(ret), ret);
+  ret->m_generic = create_generic_disk(device->m_parent, create_port_path(ret), ret, _ahci_eps, arrlen(_ahci_eps));
 
   // prepare buffers
   ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
@@ -365,15 +378,6 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
 
   memcpy(port->m_generic->m_firmware_rev, dev_identify_buffer->firmware_revision, sizeof(uint16_t) * 4);
 
-  /* Prepare generic disk ops */
-  port->m_generic->m_ops.f_read = ahci_port_read;
-  port->m_generic->m_ops.f_read_sync = ahci_port_read_sync;
-  port->m_generic->m_ops.f_write = ahci_port_write;
-  port->m_generic->m_ops.f_write_sync = ahci_port_write_sync;
-
-  port->m_generic->m_ops.f_read_blocks = ahci_port_read_blk;
-  port->m_generic->m_ops.f_write_blocks = ahci_port_write_blk;
-
   /* Give the device its name */
   memcpy(port->m_device_model, dev_identify_buffer->model_number, 40);
 
@@ -494,27 +498,23 @@ static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port) {
  * TODO: implement
  */
 
-int ahci_port_read(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+int ahci_port_read(device_t* port, void* buffer, disk_offset_t offset, size_t size) {
 
   kernel_panic("TODO: implement async ahci read");
 
   return -1;
 }
 
-int ahci_port_write(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
+int ahci_port_write(device_t* port, void* buffer, disk_offset_t offset, size_t size) {
 
   kernel_panic("TODO: implement async ahci write");
 
   return -1;
 }
 
-int ahci_port_read_sync(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset)
+static int ahci_port_flush(device_t* device)
 {
-  if (!device || !size || !buffer)
-    return -1;
-
-  /* TODO: integrate this with the generic block cache */
-  return device->m_ops.f_read_blocks(device, buffer, size / device->m_logical_sector_size, offset / device->m_logical_sector_size);
+  kernel_panic("TODO: ahci_port_flush");
 }
 
 /*!
@@ -525,9 +525,10 @@ int ahci_port_read_sync(disk_dev_t* device, void* buffer, size_t size, disk_offs
  * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
  *
  */
-static int ahci_port_write_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk)
+static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, size_t count)
 {
   ahci_port_t* port;
+  disk_dev_t* disk_dev;
   paddr_t phys_tmp;
   size_t buffer_size;
   ANIVA_STATUS status;
@@ -537,20 +538,25 @@ static int ahci_port_write_blk(disk_dev_t* device, void* buffer, size_t count, u
   if (!device || !count || !buffer)
     return -1;
 
+  disk_dev = device->private;
+
+  if (!disk_dev)
+    return -2;
+
   // Prepare the parent port
-  port = device->m_parent;
+  port = disk_dev->m_parent;
 
   if (!port)
     return -2;
 
   /* Won't ever fit lmao */
-  if (blk > device->m_max_blk)
+  if (blk > disk_dev->m_max_blk)
     return -3;
 
   /* FIXME: Should we try to fit count into the disk when it overflows? */
 
   /* Calculate buffersize */
-  buffer_size = count * device->m_logical_sector_size;
+  buffer_size = count * disk_dev->m_logical_sector_size;
 
   /* Preallocate a buffer (TODO: contact a generic disk block cache) */
   //tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
@@ -577,9 +583,10 @@ static int ahci_port_write_blk(disk_dev_t* device, void* buffer, size_t count, u
  *
  * NOTE/FIXME: could we use @buffer directly?
  */
-static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, uintptr_t blk)
+static int ahci_port_read_blk(device_t* device, void* buffer, uintptr_t blk, size_t count)
 {
   ahci_port_t* port;
+  disk_dev_t* disk_dev;
   paddr_t phys_tmp;
   size_t buffer_size;
   ANIVA_STATUS status;
@@ -588,19 +595,24 @@ static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, ui
     return -1;
 
   // Prepare the parent port
-  port = device->m_parent;
+  disk_dev = device->private;
+
+  if (!disk_dev)
+    return -2;
+
+  port = disk_dev->m_parent;
 
   if (!port)
     return -2;
 
   /* Won't ever fit lmao */
-  if (blk > device->m_max_blk)
+  if (blk > disk_dev->m_max_blk)
     return -3;
 
   /* FIXME: Should we try to fit count into the disk when it overflows? */
 
   /* Calculate buffersize */
-  buffer_size = count * device->m_logical_sector_size;
+  buffer_size = count * disk_dev->m_logical_sector_size;
 
   /* Preallocate a buffer (TODO: contact a generic disk block cache) */
   //tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
@@ -617,32 +629,3 @@ static int ahci_port_read_blk(disk_dev_t* device, void* buffer, size_t count, ui
 
   return 0;
 }
-
-/*
- * It's the job of the caller to ensure that the buffer
- * is actually in a physical address
- */
-int ahci_port_write_sync(disk_dev_t* port, void* buffer, size_t size, disk_offset_t offset) {
-
-  kernel_panic("TODO: implement safe write functions");
-
-  if (!port || !port->m_parent) 
-    return -1;
-
-  if (!buffer || !size)
-    return -1;
-
-  /* TODO: log2() */
-  ahci_port_t* parent = port->m_parent;
-  uintptr_t lba = offset / port->m_logical_sector_size;
-  size_t blk_count = size / port->m_logical_sector_size;
-
-  ANIVA_STATUS status = ahci_port_send_command(parent, AHCI_COMMAND_WRITE_DMA_EXT, (paddr_t)buffer, size, true, lba, blk_count);
-
-  if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(parent)) {
-    return -1;
-  }
-
-  return 0;
-}
-

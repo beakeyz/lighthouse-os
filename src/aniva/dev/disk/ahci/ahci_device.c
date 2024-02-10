@@ -4,6 +4,7 @@
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
+#include "dev/group.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "irq/ctl/ctl.h"
@@ -24,6 +25,7 @@
 
 static ahci_device_t* __ahci_devices = nullptr;
 static aniva_driver_t* _p_base_ahci_driver = nullptr;
+static dgroup_t* _ahci_group;
 
 static pci_dev_id_t ahci_id_table[] = {
   PCI_DEVID_CLASSES(MASS_STORAGE, PCI_SUBCLASS_SATA, PCI_PROGIF_SATA),
@@ -255,8 +257,14 @@ next:
   return regs;
 }
 
-// TODO:
-ahci_device_t* create_ahci_device(pci_device_t* identifier) {
+/*
+ * @brief: Create a new AHCI device
+ *
+ * ahci devices are devices for the controllers that we find on the PCI bus.
+ * This means that this device needs to be attached to the group of that bus.
+ */
+ahci_device_t* create_ahci_device(pci_device_t* identifier) 
+{
   ahci_device_t* ahci_device = kmalloc(sizeof(ahci_device_t));
 
   memset(ahci_device, 0, sizeof(ahci_device_t));
@@ -288,12 +296,14 @@ void destroy_ahci_device(ahci_device_t* device) {
   kfree(device);
 }
 
-static int ahci_probe(pci_device_t* device, pci_driver_t* driver) {
+static int ahci_probe(pci_device_t* device, pci_driver_t* driver) 
+{
+  ahci_device_t* ahci_device;
 
   /* Enable the device first */
   pci_device_enable(device);
 
-  ahci_device_t* ahci_device = create_ahci_device(device);
+  ahci_device = create_ahci_device(device);
 
   if (!ahci_device)
     return -1;
@@ -352,10 +362,9 @@ int ahci_driver_init()
 {
   __ahci_devices = nullptr;
   _p_base_ahci_driver = &base_ahci_driver;
+  _ahci_group = register_dev_group(DGROUP_TYPE_AHCI, "ahci", NULL, NULL);
 
   register_pci_driver(&ahci_pci_driver);
-
-  register_bus_group("ahci");
 
   return 0;
 }
@@ -365,13 +374,13 @@ int ahci_driver_exit()
   // shutdown ahci device
   println("Shut down ahci driver");
 
-  _p_base_ahci_driver = nullptr;
-
-  if (__ahci_devices) {
-    destroy_ahci_device(__ahci_devices);
-  }
-
   unregister_pci_driver(&ahci_pci_driver);
 
+  unregister_dev_group(_ahci_group);
+
+  if (__ahci_devices)
+    destroy_ahci_device(__ahci_devices);
+
+  _p_base_ahci_driver = nullptr;
   return 0;
 }

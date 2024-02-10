@@ -1,4 +1,5 @@
 #include "dev/core.h"
+#include "dev/endpoint.h"
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
@@ -42,8 +43,9 @@ fb_ops_t fb_ops = {
   .f_draw_rect = generic_draw_rect,
 };
 
-static int efifb_get_info(video_device_t* dev, vdev_info_t* info)
+static int efifb_get_info(device_t* dev, vdev_info_t* info)
 {
+  /* TODO: */
   memset(info, 0, sizeof(*info));
   return 0;
 }
@@ -127,9 +129,12 @@ int efifb_remove(video_device_t* device)
   return 0;
 }
 
-static video_device_ops_t efi_devops = {
+static struct device_video_endpoint _efi_vdev_ep = {
   .f_get_info = efifb_get_info,
-  .f_remove = efifb_remove,
+};
+
+static device_ep_t _efi_endpoints[] = {
+  { ENDPOINT_TYPE_VIDEO, sizeof(_efi_vdev_ep), { &_efi_vdev_ep } },
 };
 
 // FIXME: this driver only works for the multiboot fb that we get passed
@@ -177,7 +182,7 @@ int fb_driver_init()
   if (!fb)
     return -1;
 
-  vdev = create_video_device(&efifb_driver, &efi_devops);
+  vdev = create_video_device(&efifb_driver, _efi_endpoints, arrlen(_efi_endpoints));
 
   if (!vdev)
     return -2;

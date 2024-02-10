@@ -108,13 +108,11 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
   memset(ret, 0, sizeof(*ret));
 
   ret->m_lock = create_mutex(NULL);
-  ret->m_device_lock = create_mutex(NULL);
   ret->m_handle = handle;
 
   ret->m_flags = NULL;
   ret->m_dep_count = NULL;
   ret->m_dependency_manifests = init_list();
-  ret->m_device_map = create_hashmap(DM_MAX_DEVICES, HASHMAP_FLAG_SK | HASHMAP_FLAG_FS);
 
   /* Reset the manifest opperations */
   memset(&ret->m_ops, 0, sizeof(ret->m_ops));
@@ -192,9 +190,6 @@ void destroy_dev_manifest(dev_manifest_t* manifest)
   }
 
   destroy_mutex(manifest->m_lock);
-  destroy_mutex(manifest->m_device_lock);
-
-  destroy_hashmap(manifest->m_device_map);
   destroy_list(manifest->m_dependency_manifests);
 
   destroy_resource_bundle(manifest->m_resources);
@@ -252,97 +247,4 @@ void manifest_gather_dependencies(dev_manifest_t* manifest)
 bool ensure_dependencies(dev_manifest_t* manifest)
 {
   return (manifest->m_handle && manifest->m_dep_count == manifest->m_handle->m_dep_count);
-}
-
-/*!
- * @brief: Get the amount of driver that are attached on this manifest
- */
-int manifest_get_device_count(dev_manifest_t* manifest, uint32_t* count)
-{
-  if (!manifest || !manifest_is_active(manifest))
-    return -1;
-
-  if (!count)
-    return -2;
-
-  *count = manifest->m_device_map->m_size;
-  return 0;
-}
-
-/*!
- * @brief: Add a device to this manifest
- */
-int manifest_add_device(dev_manifest_t* manifest, device_t* device)
-{
-  ErrorOrPtr res;
-
-  if (!manifest || !device)
-    return -1;
-
-  mutex_lock(manifest->m_device_lock);
-
-  res = hashmap_put(manifest->m_device_map, (hashmap_key_t)device->device_path, device);
-
-  mutex_unlock(manifest->m_device_lock);
-
-  if (IsError(res))
-    return -2;
-
-  device->link = manifest;
-
-  return 0;
-}
-
-/*!
- * @brief: Remove a device from this manifest
- */
-int manifest_remove_device(dev_manifest_t* manifest, const char* device)
-{
-  device_t* dev;
-
-  if (!manifest || !manifest_is_active(manifest))
-    return -1;
-
-  if (!device)
-    return -2;
-
-  mutex_lock(manifest->m_device_lock);
-
-  dev = hashmap_remove(manifest->m_device_map, (hashmap_key_t)device);
-
-  mutex_unlock(manifest->m_device_lock);
-
-  if (!dev)
-    return -3;
-
-  dev->link = nullptr;
-  return 0;
-}
-
-/*!
- * @brief: Get a device from the manifest
- *
- * Caller needs to verify @dev_buffer
- */
-int manifest_find_device(dev_manifest_t* manifest, device_t** dev_buffer, const char* device_name)
-{
-  device_t* t;
-
-  if (!manifest || !manifest_is_active(manifest))
-    return -1;
-
-  if (!dev_buffer || !device_name)
-    return -2;
-
-  mutex_lock(manifest->m_device_lock);
-
-  t = hashmap_get(manifest->m_device_map, (hashmap_key_t)device_name);
-
-  mutex_unlock(manifest->m_device_lock);
-
-  if (!t)
-    return -3;
-
-  *dev_buffer = t;
-  return 0;
 }

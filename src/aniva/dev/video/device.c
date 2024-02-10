@@ -1,11 +1,15 @@
 #include "device.h"
 #include "dev/core.h"
 #include "dev/device.h"
+#include "dev/endpoint.h"
+#include "dev/group.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include <libk/string.h>
 #include "mem/heap.h"
+
+static dgroup_t* _video_group;
 
 /*!
  * @brief Register a video device with its underlying aniva_driver
@@ -15,18 +19,14 @@
  */
 int register_video_device(video_device_t* vdev)
 {
-  dev_manifest_t* manifest;
-
   if (!vdev || !vdev->device)
     return -1;
 
-  /* Get the core video driver */
-  manifest = get_core_driver(DT_GRAPHICS);
+  if (!dev_has_endpoint(vdev->device, ENDPOINT_TYPE_VIDEO))
+    return -2;
 
-  if (!manifest)
-    return -1;
-
-  return manifest_add_device(manifest, vdev->device);
+  /* Try to add the device to our video group */
+  return dev_group_add_device(_video_group, vdev->device);
 }
 
 /*!
@@ -36,17 +36,7 @@ int register_video_device(video_device_t* vdev)
  */
 int unregister_video_device(struct video_device* vdev)
 {
-  device_t* _dev;
-
-  if (!vdev)
-    return -1;
-
-  _dev = vdev->device;
-
-  if (!_dev)
-    return -1;
-
-  return manifest_remove_device(_dev->parent, _dev->device_path);
+  return dev_group_remove_device(_video_group, vdev->device);
 }
 
 /*!
@@ -54,19 +44,16 @@ int unregister_video_device(struct video_device* vdev)
  *
  * Since there should realistically only be one active driver at a time, this is insane lol
  */
-struct video_device* get_main_video_device()
+struct video_device* get_active_vdev()
 {
   /* NOTE: the first graphics driver (also hopefully the only) is always the active driver */
+  int error;
   device_t* maindev;
-  dev_manifest_t* manifest = get_core_driver(DT_GRAPHICS);
 
-  if (!manifest)
-    return nullptr;
+  error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
-  maindev = nullptr;
-
-  /* Try to find the main device on the  */
-  if (manifest_find_device(manifest, &maindev, VIDDEV_MAINDEVICE) || !maindev)
+  /* If the device does not have an video endpoint we're fucked lmao */
+  if (error || !maindev || !dev_has_endpoint(maindev, ENDPOINT_TYPE_VIDEO))
     return nullptr;
 
   /* 'maindev' may not contain anything other than a video device */
@@ -76,23 +63,23 @@ struct video_device* get_main_video_device()
 /*!
  * @brief Try to deactivate the current active video driver
  *
- * Try to find a 'maindev' device on the core driver and unload its driver
+ * Try to find a 'maindev' device on the video group and unload its driver
+ * This *should* have the side-effect that the current video device gets removed,
+ * if the driver is well behaved. If not, that could just be very fucky, so 
+ * FIXME/TODO: check if this is a potential bug and fix it if it is
  */
 int video_deactivate_current_driver()
 {
-  dev_manifest_t* core_manifest;
-  dev_manifest_t* class_manifest;
+  int error;
   device_t* maindev;
+  dev_manifest_t* class_manifest;
 
-  core_manifest = get_core_driver(DT_GRAPHICS);
+  kernel_panic("TODO: video_deactivate_current_driver");
 
-  if (!core_manifest)
-    return -1;
+  error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
-  maindev = nullptr;
-
-  /* If we can't find a video device, we're good */
-  if (manifest_find_device(core_manifest, &maindev, VIDDEV_MAINDEVICE) || !maindev)
+  /* No main device = no current driver =) */
+  if (error)
     return 0;
 
   class_manifest = maindev->parent;
@@ -101,8 +88,21 @@ int video_deactivate_current_driver()
   logln("Trying to unload current video driver!");
   Must(unload_driver(class_manifest->m_url));
   logln(" Unloaded current video driver!");
-
   return 0;
+}
+
+/*!
+ * @brief: Check if a collection of endpoints contains a video endpoint
+ */
+static inline bool _has_video_endpoint(struct device_endpoint* eps, uint32_t ep_count)
+{
+  for (uint32_t i = 0; i < ep_count; i++) {
+
+    if (eps[i].type == ENDPOINT_TYPE_VIDEO)
+      return true;
+  }
+
+  return false;
 }
 
 /*!
@@ -110,13 +110,17 @@ int video_deactivate_current_driver()
  *
  * Also allocates a generic device object
  */
-video_device_t* create_video_device(struct aniva_driver* driver, struct video_device_ops* ops)
+video_device_t* create_video_device(struct aniva_driver* driver, struct device_endpoint* eps, uint32_t ep_count)
 {
   video_device_t* ret;
 
   ret = nullptr;
 
-  if (!driver || !ops)
+  if (!driver || !eps)
+    return nullptr;
+
+  /* This would suck big time lmao */
+  if (!_has_video_endpoint(eps, ep_count))
     return nullptr;
 
   ret = kmalloc(sizeof(*ret));
@@ -126,8 +130,8 @@ video_device_t* create_video_device(struct aniva_driver* driver, struct video_de
 
   memset(ret, 0, sizeof(*ret));
 
-  ret->device = create_device(driver, VIDDEV_MAINDEVICE);
-  ret->ops = ops;
+  /* Create a device with our own endpoints */
+  ret->device = create_device_ex(driver, VIDDEV_MAINDEVICE, NULL, eps, ep_count);
 
   ret->device->private = ret;
 
@@ -147,4 +151,14 @@ int destroy_video_device(video_device_t* vdev)
   kfree(vdev);
 
   return 0;
+}
+
+/*!
+ * @brief: Initialize the videodevice management code
+ */
+void init_vdevice()
+{
+  _video_group = register_dev_group(DGROUP_TYPE_VIDEO, "video", NULL, NULL);
+
+  ASSERT_MSG(_video_group, "Failed to create video group!");
 }

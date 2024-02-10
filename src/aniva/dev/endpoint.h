@@ -16,8 +16,70 @@
  * that when driver want to use other driver or devices they also interact with user.h
  */
 
-typedef struct device_endpoint {
+#include "dev/core.h"
+#include <libk/stddef.h>
 
+enum ENDPOINT_TYPE {
+  ENDOINT_TYPE_INVALID = NULL,
+  ENDPOINT_TYPE_GENERIC,
+  ENDPOINT_TYPE_DISK,
+  ENDPOINT_TYPE_VIDEO,
+  ENDOPINT_TYPE_PWM,
+};
+
+struct device;
+struct device_generic_endpoint;
+struct device_disk_endpoint;
+/* Defined in video/device.h */
+struct device_video_endpoint;
+struct device_pwm_endpoint;
+
+/*
+ * Fully static struct
+ *
+ * This should never be allocated on the heap or any other form
+ * of dynamic memory
+ */
+typedef struct device_endpoint {
+  enum ENDPOINT_TYPE type;
+  uint32_t size;
+  union {
+    void* priv;
+    struct device_generic_endpoint* generic;
+    struct device_disk_endpoint* disk;
+    struct device_video_endpoint* video;
+    struct device_pwm_endpoint* pwm;
+  } impl;
 } device_ep_t;
+
+static inline bool dev_is_valid_endpoint(device_ep_t* ep)
+{
+  return (ep && ep->impl.priv && ep->size);
+}
+
+struct device_generic_endpoint {
+  /* Called once when the driver creates a device as the result of a probe of some sort */
+  int (*f_create)(struct device* device);
+
+  uintptr_t (*d_msg)(struct device* device, dcc_t code);
+  uintptr_t (*d_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+};
+
+struct device_disk_endpoint {
+  int (*f_read)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
+  int (*f_write)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
+
+  int (*f_bread)(struct device* dev, void* buffer, uintptr_t lba, size_t count);
+  int (*f_bwrite)(struct device* dev, void* buffer, uintptr_t lba, size_t count);
+
+  int (*f_flush)(struct device* dev);
+};
+
+struct device_pwm_endpoint {
+  /* 'pm' opperations which are purely software, except if we support actual PM */
+  int (*f_remove)(struct device* device);
+  int (*f_suspend)(struct device* device);
+  int (*f_resume)(struct device* device);
+};
 
 #endif // !__ANIVA_DEVICE_ENDPOINT__

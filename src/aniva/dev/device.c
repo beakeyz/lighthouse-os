@@ -1,8 +1,10 @@
 #include "device.h"
 #include "dev/core.h"
 #include "dev/driver.h"
+#include "dev/endpoint.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
+#include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "oss/core.h"
@@ -18,24 +20,19 @@ static oss_node_t* _device_node;
  * device is not aware of it's own resources but it only serves as an intermediate / abstraction
  * to make communication with drivers (and thus hardware) easier
  */
-static device_ops_t _generic_dev_ops = {
-  .d_read = nullptr,
-  .d_write = nullptr,
-  .d_msg = nullptr,
-  .d_msg_ex = nullptr,
-  .d_remove = nullptr,
-  .d_resume = nullptr,
-  .d_suspend = nullptr,
+static struct device_endpoint _generic_dev_eps[] = {
+  { ENDPOINT_TYPE_GENERIC, NULL, { NULL } },
+  { NULL }
 };
 
 bool device_is_generic(device_t* device)
 {
-  return (device->ops == &_generic_dev_ops);
+  return (device->endpoints == _generic_dev_eps);
 }
 
 device_t* create_device(aniva_driver_t* parent, char* path)
 {
-  return create_device_ex(parent, path, NULL, &_generic_dev_ops);
+  return create_device_ex(parent, path, nullptr, NULL, _generic_dev_eps, 0);
 }
 
 /*!
@@ -46,10 +43,11 @@ device_t* create_device(aniva_driver_t* parent, char* path)
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  */
-device_t* create_device_ex(struct aniva_driver* parent, char* path, uint32_t flags, device_ops_t* ops)
+device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count)
 {
   device_t* ret;
   dev_manifest_t* parent_man;
+  struct device_endpoint* g_ep;
 
   if (!path)
     return nullptr;
@@ -67,14 +65,22 @@ device_t* create_device_ex(struct aniva_driver* parent, char* path, uint32_t fla
   memset(ret, 0, sizeof(*ret));
 
   /* Make sure that a device always has generic opperations */
-  if (!ops)
-    ops = &_generic_dev_ops;
+  if (!eps)
+    eps = _generic_dev_eps;
 
   ret->device_path = strdup(path);
   ret->lock = create_mutex(NULL);
   ret->parent = parent_man;
-  ret->ops = ops;
   ret->flags = flags;
+  ret->private = priv;
+  ret->endpoints = eps;
+  ret->endpoint_count = ep_count;
+
+  g_ep = dev_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
+
+  /* Call the private device constructor */
+  if (dev_is_valid_endpoint(g_ep) && g_ep->impl.generic->f_create)
+    g_ep->impl.generic->f_create(ret);
 
   return ret;
 }
@@ -101,10 +107,13 @@ void destroy_device(device_t* device)
 /*!
  * @brief: Add a new dgroup to the device node
  */
-int device_add_group(dgroup_t* group)
+int device_add_group(dgroup_t* group, struct oss_node* node)
 {
   if (!group || !group->node)
     return -1;
+
+  if (!node)
+    node = _device_node;
 
   return oss_node_add_node(_device_node, group->node);
 }

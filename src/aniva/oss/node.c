@@ -63,8 +63,19 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
  */
 void destroy_oss_node(oss_node_t* node)
 {
+  oss_node_entry_t* entry;
+
   if (!node)
     return;
+
+  entry = nullptr;
+
+  /* Remove ourselves if we're still attached */
+  if (node->parent)
+    oss_node_remove_entry(node->parent, node->name, &entry);
+
+  if (entry)
+    destroy_oss_node_entry(entry);
 
   /* Make sure there are no lingering objects */
   oss_node_clean_objects(node);
@@ -215,6 +226,18 @@ unlock_and_exit:
   return error;
 }
 
+static inline void _entry_on_detach(oss_node_entry_t* entry)
+{
+  switch (entry->type) {
+    case OSS_ENTRY_OBJECT:
+      entry->obj->parent = nullptr;
+      break;
+    case OSS_ENTRY_NESTED_NODE:
+      entry->node->parent = nullptr;
+      break;
+  }
+}
+
 /*!
  * @brief: Remove an entry from @node
  *
@@ -247,6 +270,8 @@ int oss_node_remove_entry(oss_node_t* node, const char* name, struct oss_node_en
   if (entry_out)
     *entry_out = entry;
 
+  /* Make sure we tell the entry it's detached */
+  _entry_on_detach(entry);
   error = 0;
 unlock_and_exit:
   mutex_unlock(node->lock);

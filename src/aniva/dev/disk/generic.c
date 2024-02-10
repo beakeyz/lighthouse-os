@@ -3,6 +3,7 @@
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/driver.h"
+#include "dev/endpoint.h"
 #include "fs/core.h"
 #include <oss/node.h>
 #include "libk/data/linkedlist.h"
@@ -733,7 +734,7 @@ int ramdisk_write(disk_dev_t* device, void* buffer, size_t size, disk_offset_t o
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private)
+disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private, device_ep_t* eps, uint32_t ep_count)
 {
   disk_dev_t* ret;
   device_t* dev;
@@ -751,7 +752,8 @@ disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* p
   ret->m_path = path;
   ret->m_parent = private;
 
-  dev = create_device(parent, path);
+  dev = create_device_ex(parent, path, NULL, eps, ep_count);
+  dev->private = ret;
 
   if (!ret)
     goto dealloc_and_exit;

@@ -13,32 +13,11 @@ typedef uint8_t disk_uid_t;
 struct device;
 struct disk_dev;
 struct aniva_driver;
+struct device_endpoint;
 struct partitioned_disk_dev;
 
 struct gpt_table;
 struct mbr_table;
-
-typedef struct generic_disk_ops {
-  int (*f_read) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-  int (*f_write) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-  int (*f_read_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-  int (*f_write_sync) (struct disk_dev* parent, void* buffer, size_t size, disk_offset_t offset);
-
-  /* Cache functions */
-  int (*f_flush) (struct disk_dev* device);
-  int (*f_discard_cache) (struct disk_dev* device); /* This is kinda scary O.o */
-
-  /* Mass-transfer */
-  int (*f_read_blocks) (struct disk_dev* device, void* buffer, size_t count, uint64_t blk);
-  int (*f_write_blocks) (struct disk_dev* device, void* buffer, size_t count, uint64_t blk);
-
-  /* Grab device information */
-  int (*f_get_stats) (struct disk_dev* device);
-
-  /* PM */
-  int (*f_poweroff) (struct disk_dev* device);
-  int (*f_poweron) (struct disk_dev* device);
-} generic_disk_ops_t;
 
 #define PART_TYPE_NONE              (0)
 #define PART_TYPE_GPT               (1)
@@ -66,8 +45,6 @@ typedef struct disk_dev {
   /* Whats the maximum size of block transfers */
   uint32_t m_effective_sector_size;
   uint16_t m_max_sector_transfer_count;
-
-  generic_disk_ops_t m_ops;
 
   size_t m_partitioned_dev_count;
   struct partitioned_disk_dev* m_devs;
@@ -110,7 +87,7 @@ static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
   return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
 }
 
-disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private);
+disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private, struct device_endpoint* eps, uint32_t ep_count);
 void destroy_generic_disk(disk_dev_t* device);
 
 void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count);

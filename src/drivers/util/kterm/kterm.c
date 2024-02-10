@@ -898,13 +898,6 @@ int kterm_init()
 
   /* TODO: integrate video device accel */
   // map our framebuffer
-  size_t size;
-  uintptr_t ptr = KTERM_FB_ADDR;
-
-  viddev_mapfb_t fb_map = {
-    .size = &size,
-    .virtual_base = ptr,
-  };
 
   /*
    * TODO: Call the kernel video interface instead of invoking the core video driver
@@ -915,8 +908,11 @@ int kterm_init()
    * ready for 2D (or 3D) accelerated rendering, vblank interrupts, ect.
    * Through this API we can also easily access PWM through ACPI, without having to do weird funky shit with driver messages
    */
-  Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
-  Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
+  //Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
+  //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
+  kernel_panic("TODO: redo video API and device interface");
+
+  //fb = video_request_fb();
 
   void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
 

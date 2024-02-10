@@ -57,6 +57,7 @@ struct pci_device_address;
 struct pci_bus;
 struct pci_driver;
 struct pci_device;
+struct device;
 struct raw_pci_impls;
 
 typedef enum pci_accessmode {
@@ -227,6 +228,7 @@ typedef struct pci_device {
 
   struct pci_bus *bus;
   struct pci_driver *driver;
+  struct device *dev;
 
   // inline enum?? :thinking:
   enum {
@@ -243,7 +245,6 @@ typedef struct pci_device {
 
   /* Might need to be atomic */
   uint64_t enabled_count;
-
 } pci_device_t;
 
 void pci_device_register_resource(pci_device_t* device, uint32_t index);

@@ -10,6 +10,7 @@
 #include "dev/loader.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/usb.h"
+#include "dev/video/core.h"
 #include "fs/core.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
@@ -197,6 +198,9 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
 
   /* Init the kernel device subsystem */
   init_devices();
+
+  /* Initialize the video subsystem */
+  init_video();
 
   /* Initialize HID driver subsystem */
   init_hid();

@@ -1,10 +1,15 @@
 #include "bus.h"
+#include "dev/device.h"
+#include "dev/group.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "mem/heap.h"
 #include "pci.h"
 #include "io.h"
 #include <mem/kmem_manager.h>
 #include <libk/string.h>
+
+static dgroup_t* _pci_group;
 
 /*
  * FIXME (And TODO): This shit is broken af
@@ -16,8 +21,53 @@
 
 #define MAX_FUNC_PER_DEV 8
 #define MAX_DEV_PER_BUS 32
-
 #define MEM_SIZE_PER_BUS (SMALL_PAGE_SIZE * MAX_FUNC_PER_DEV * MAX_DEV_PER_BUS)
+
+static const char* _create_bus_name(uint32_t busnum) 
+{
+  const char* prefix = "bus";
+  const size_t index_len = strlen(to_string(busnum));
+  const size_t total_len = strlen(prefix) + index_len + 1;
+  char* ret = kmalloc(total_len);
+
+  memset(ret, 0, total_len);
+  memcpy(ret, prefix, strlen(prefix));
+  memcpy(ret + strlen(prefix), to_string(busnum), index_len);
+
+  return ret;
+}
+
+pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t busnum, pci_bus_t* parent)
+{
+  pci_bus_t* bus;
+  dgroup_t* parent_group;
+  const char* busname;
+
+  bus = kmalloc(sizeof(*bus));
+
+  if (!bus)
+    return nullptr;
+
+  if (!parent)
+    parent_group = _pci_group;
+  else
+    parent_group = parent->dev->bus_group;
+
+  bus->base_addr = base;
+  bus->mapped_base = nullptr;
+  bus->is_mapped = false;
+
+  bus->index = busnum;
+  bus->start_bus = start;
+  bus->end_bus = end;
+
+  busname = _create_bus_name(busnum);
+
+  bus->dev = create_device_ex(NULL, (char*)busname, bus, NULL, NULL, NULL);
+  bus->dev->bus_group = register_dev_group(DGROUP_TYPE_PCI, to_string(busnum), NULL, parent_group->node);
+
+  return bus;
+}
 
 void* map_bus(pci_bus_t* this, uint8_t bus_num) {
   uintptr_t bus_base_addr = this->base_addr + (MEM_SIZE_PER_BUS * (bus_num - this->start_bus));
@@ -96,4 +146,9 @@ uint8_t read_field8(pci_bus_t* this, uint8_t bus, uint8_t device, uint8_t functi
       return 0;
   }
   return 0;
+}
+
+void init_pci_bus()
+{
+  _pci_group = register_dev_group(DGROUP_TYPE_PCI, "pci", NULL, NULL); 
 }

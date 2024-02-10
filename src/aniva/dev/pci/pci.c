@@ -463,6 +463,7 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
       .read_word = pci_dev_read_word,
       .read_dword = pci_dev_read_dword,
     },
+    .bus = base_addr,
   };
 
   identifier.raw_ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
@@ -571,6 +572,7 @@ void enumerate_registerd_devices(PCI_FUNC_ENUMERATE_CALLBACK callback) {
 
 bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr) 
 {
+  pci_bus_t* bridge;
   acpi_parser_t* parser;
   acpi_mcfg_entry_t* c_entry;
   acpi_std_hdr_t* header = &mcfg_ptr->Header;
@@ -597,13 +599,10 @@ bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr)
     printf("Found PCI bridge (%d -> %d) at 0x%x\n", start, end, base);
   
     // add to pci bridge list
-    pci_bus_t* bridge = kmalloc(sizeof(pci_bus_t));
-    bridge->base_addr = base;
-    bridge->start_bus = start;
-    bridge->end_bus = end;
-    bridge->index = i;
-    bridge->is_mapped = false;
-    bridge->mapped_base = nullptr;
+    bridge = create_pci_bus(base, start, end, i, NULL);
+
+    ASSERT_MSG(bridge, "Failed to create PCI bus!");
+
     list_append(__pci_bridges, bridge);
   }
 
@@ -933,6 +932,8 @@ bool init_pci()
 
   __pci_dev_allocator = create_zone_allocator(28 * Kib, sizeof(pci_device_t), NULL);
 
+  init_pci_bus();
+
   acpi_tbl_mcfg_t* mcfg = find_acpi_table(ACPI_SIG_MCFG, sizeof(acpi_tbl_mcfg_t));
 
   if (!mcfg)
@@ -943,7 +944,8 @@ bool init_pci()
   return true;
 }
 
-pci_device_t create_pci_device(struct pci_bus* bus) {
+pci_device_t create_pci_device(struct pci_bus* bus) 
+{
   kernel_panic("Impl: create_pci_device");
 }
 
