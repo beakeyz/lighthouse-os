@@ -169,6 +169,24 @@ int dev_group_get_device(dgroup_t* group, const char* path, struct device** dev)
   return 0;
 }
 
+int dev_group_add_device(dgroup_t* group, struct device* dev)
+{
+  if (!group || !dev)
+    return -1;
+
+  return oss_node_add_obj(group->node, dev->obj);
+}
+
+int dev_group_remove_device(dgroup_t* group, struct device* dev)
+{
+  oss_node_entry_t* entry;
+
+  if (oss_node_remove_entry(group->node, dev->obj->name, &entry) || !entry)
+    return -1;
+
+  destroy_oss_node_entry(entry);
+  return 0;
+}
 
 /*!
  * @brief: Initialize the device groups subsystem

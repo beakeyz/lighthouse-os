@@ -1,5 +1,6 @@
 #include "pci.h"
 #include "bus.h"
+#include "dev/group.h"
 #include "dev/pci/definitions.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"

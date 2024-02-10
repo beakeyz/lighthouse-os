@@ -14,6 +14,7 @@ struct device;
 struct disk_dev;
 struct aniva_driver;
 struct device_endpoint;
+struct device_disk_endpoint;
 struct partitioned_disk_dev;
 
 struct gpt_table;
@@ -37,6 +38,8 @@ typedef struct disk_dev {
 
   uintptr_t m_max_blk;
 
+  struct device_disk_endpoint* m_ops;
+
   /*
    * Let's hope there aren't any disks with blocksizes of 4+ Gib 0.0 
    */
@@ -57,6 +60,7 @@ typedef struct disk_dev {
 
   struct device* m_dev;
 
+  /* FIXME: this is private data, so make the name match that */
   void* m_parent;
 } disk_dev_t;
 

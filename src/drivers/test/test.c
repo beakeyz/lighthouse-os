@@ -46,11 +46,6 @@ int test_init()
 
   ASSERT(manifest);
 
-  /* This device should be accessable through :/Dev/other/debug/testdev */
-  our_device = create_device(&extern_test_driver, TEST_DEVICE);
-
-  manifest_add_device(manifest, our_device);
-
   return 0;
 }
 
@@ -64,9 +59,6 @@ int test_init()
 int test_exit() 
 {
   logln("Exiting test driver! =D");
-
-  /* First, remove the device from our manifest */
-  manifest_remove_device(manifest, TEST_DEVICE);
 
   /* Destroy this device */
   destroy_device(our_device);

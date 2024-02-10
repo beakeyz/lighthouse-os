@@ -74,8 +74,6 @@ int video_deactivate_current_driver()
   device_t* maindev;
   dev_manifest_t* class_manifest;
 
-  kernel_panic("TODO: video_deactivate_current_driver");
-
   error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
   /* No main device = no current driver =) */
@@ -131,9 +129,7 @@ video_device_t* create_video_device(struct aniva_driver* driver, struct device_e
   memset(ret, 0, sizeof(*ret));
 
   /* Create a device with our own endpoints */
-  ret->device = create_device_ex(driver, VIDDEV_MAINDEVICE, NULL, eps, ep_count);
-
-  ret->device->private = ret;
+  ret->device = create_device_ex(driver, VIDDEV_MAINDEVICE, ret, NULL, eps, ep_count);
 
 exit:
   return ret;

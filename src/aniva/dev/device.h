@@ -162,8 +162,10 @@ uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size
 
 bool device_is_generic(device_t* device);
 
+void devices_debug();
+
 /* TODO: */
-int device_register(device_t* dev, const char* path);
+int device_register(device_t* dev);
 int device_unregister();
 int device_get();
 

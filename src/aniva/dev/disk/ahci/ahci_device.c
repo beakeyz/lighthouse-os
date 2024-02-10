@@ -1,12 +1,14 @@
 #include "ahci_device.h"
 #include "dev/core.h"
 #include "dev/debug/serial.h"
+#include "dev/device.h"
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
 #include "dev/group.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
+#include "dev/pci/bus.h"
 #include "irq/ctl/ctl.h"
 #include "irq/interrupts.h"
 #include "libk/atomic.h"
@@ -19,10 +21,12 @@
 #include "dev/pci/io.h"
 #include "proc/ipc/packet_response.h"
 #include "sched/scheduler.h"
+#include <oss/obj.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
 #include <crypto/k_crc32.h>
 
+static uint32_t _ahci_dev_count;
 static ahci_device_t* __ahci_devices = nullptr;
 static aniva_driver_t* _p_base_ahci_driver = nullptr;
 static dgroup_t* _ahci_group;
@@ -43,6 +47,7 @@ static ALWAYS_INLINE registers_t* ahci_irq_handler(registers_t *regs);
 
 static void __register_ahci_device(ahci_device_t* device)
 {
+  device->m_idx = _ahci_dev_count++;
   device->m_next = __ahci_devices;
   __ahci_devices = device;
 }
@@ -84,6 +89,11 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
   uintptr_t hba_region = (uintptr_t)Must(__kmem_kernel_alloc(bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
   return (void*)hba_region;
+}
+
+static inline dgroup_t* _get_bus_group(ahci_device_t* device)
+{
+  return device->m_identifier->dev->bus_group;
 }
 
 
@@ -142,8 +152,15 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
         continue;
       }
 
+      /*
+       * FIXME: Simplefy these 3 statements below
+       */
+
       /* Register the global disk device */
       register_gdisk_dev(port->m_generic);
+
+      /* Add the device to our bus */
+      dev_group_add_device(_get_bus_group(device), port->m_generic->m_dev);
 
       list_append(device->m_ports, port);
 
@@ -275,10 +292,21 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
   ahci_device->m_ports = init_list();
   ahci_device->m_parent = _p_base_ahci_driver;
 
+  char buffer[strlen("ahci") + strlen(to_string(ahci_device->m_idx)) + 1];
+  concat("ahci", (char*)to_string(ahci_device->m_idx), buffer);
+
+  /* Our device */
+  ahci_device->m_identifier->dev = create_device_ex(_p_base_ahci_driver, buffer, ahci_device, NULL, NULL, NULL);
+  /* Our own bus (FIXME: should this just be 'Dev' like in linux?)*/
+  ahci_device->m_identifier->dev->bus_group = _ahci_group;
+
   if (initialize_hba(ahci_device) == ANIVA_FAIL) {
     destroy_ahci_device(ahci_device);
     return nullptr;
   }
+
+  /* Add this ahci device to it's bus device */
+  dev_group_add_device(ahci_device->m_identifier->bus->dev->bus_group, ahci_device->m_identifier->dev);
 
   return ahci_device;
 }
@@ -361,6 +389,7 @@ EXPORT_DRIVER_PTR(base_ahci_driver);
 int ahci_driver_init() 
 {
   __ahci_devices = nullptr;
+  _ahci_dev_count = NULL;
   _p_base_ahci_driver = &base_ahci_driver;
   _ahci_group = register_dev_group(DGROUP_TYPE_AHCI, "ahci", NULL, NULL);
 

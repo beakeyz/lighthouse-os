@@ -9,6 +9,7 @@
 
 struct ahci_port;
 struct aniva_driver;
+struct dgroup;
 
 typedef struct ahci_device {
   pci_device_t* m_identifier;
@@ -16,6 +17,7 @@ typedef struct ahci_device {
   volatile HBA* m_hba_region;
   list_t* m_ports;
 
+  uint32_t m_idx;
   uint32_t m_used_ports;
   uint32_t m_available_ports;
 

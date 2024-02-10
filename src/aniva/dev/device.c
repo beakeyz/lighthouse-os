@@ -2,6 +2,7 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/endpoint.h"
+#include "dev/group.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
 #include "dev/video/device.h"
@@ -9,6 +10,7 @@
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"
+#include "oss/obj.h"
 #include "sync/mutex.h"
 
 static oss_node_t* _device_node;
@@ -70,6 +72,7 @@ device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, 
 
   ret->device_path = strdup(path);
   ret->lock = create_mutex(NULL);
+  ret->obj = create_oss_obj(ret->device_path);
   ret->parent = parent_man;
   ret->flags = flags;
   ret->private = priv;
@@ -96,6 +99,11 @@ device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, 
  */
 void destroy_device(device_t* device)
 {
+  if (device->obj && device->obj->priv == device) {
+    destroy_oss_obj(device->obj);
+    return;
+  }
+
   destroy_mutex(device->lock);
   kfree((void*)device->device_path);
 
@@ -115,7 +123,12 @@ int device_add_group(dgroup_t* group, struct oss_node* node)
   if (!node)
     node = _device_node;
 
-  return oss_node_add_node(_device_node, group->node);
+  return oss_node_add_node(node, group->node);
+}
+
+int device_register(device_t* dev)
+{
+  return oss_node_add_obj(_device_node, dev->obj);
 }
 
 static oss_obj_t* _device_open(oss_node_t* node, const char* path)
@@ -146,6 +159,8 @@ void init_devices()
   _device_node = create_oss_node("Dev", OSS_OBJ_GEN_NODE, &_device_node_ops, NULL);
 
   ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
+
+  init_dgroups();
 
   /* Enumerate devices */
 }
@@ -224,4 +239,29 @@ uintptr_t device_message(device_t* dev, dcc_t code)
 uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
   kernel_panic("TODO: device_message_ex");
+}
+
+static void print_obj_path(oss_node_t* node) 
+{
+  if (node) {
+    print_obj_path(node->parent);
+    printf("/%s", node->name);
+  }
+}
+
+static bool _itter(oss_node_t* node, oss_obj_t* obj)
+{
+  if (obj) {
+    print_obj_path(obj->parent);
+    printf("/%s\n", obj->name);
+  }
+
+  return true;
+}
+
+void devices_debug()
+{
+  oss_node_itterate(_device_node, _itter);
+
+  kernel_panic("devices_debug");
 }

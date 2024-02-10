@@ -6,6 +6,7 @@
 #include "mem/heap.h"
 #include "pci.h"
 #include "io.h"
+#include <oss/node.h>
 #include <mem/kmem_manager.h>
 #include <libk/string.h>
 
@@ -48,6 +49,8 @@ pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t bu
   if (!bus)
     return nullptr;
 
+  memset(bus, 0, sizeof(*bus));
+
   if (!parent)
     parent_group = _pci_group;
   else
@@ -63,8 +66,11 @@ pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t bu
 
   busname = _create_bus_name(busnum);
 
+  /* Create the device for this bus */
   bus->dev = create_device_ex(NULL, (char*)busname, bus, NULL, NULL, NULL);
   bus->dev->bus_group = register_dev_group(DGROUP_TYPE_PCI, to_string(busnum), NULL, parent_group->node);
+
+  dev_group_add_device(parent_group, bus->dev);
 
   return bus;
 }

@@ -31,11 +31,12 @@ static pci_dev_id_t nv_ids[] = {
   PCI_DEVID_END,
 };
 
+/* ???
+ */
 static video_device_t nvfb_device = {
   .flags = VIDDEV_FLAG_FB,
   .max_connector_count = 1,
   .current_connector_count = 0,
-  .ops = NULL,
 };
 
 pci_driver_t nvfb_pci_driver = {

@@ -4,6 +4,7 @@
 #include "dev/disk/partition/mbr.h"
 #include "dev/driver.h"
 #include "dev/endpoint.h"
+#include "dev/group.h"
 #include "fs/core.h"
 #include <oss/node.h>
 #include "libk/data/linkedlist.h"
@@ -434,19 +435,21 @@ ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
   return Success(0);
 }
 
-int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
-
+int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) 
+{
+  device_ep_t* ep;
   int result = -1;
 
   if (!dev || !dev->m_parent)
     return result;
 
   const uintptr_t block = offset / dev->m_parent->m_logical_sector_size;
+  ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
   if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
 
-    if (dev->m_parent->m_ops.f_read_sync)
-      result = dev->m_parent->m_ops.f_read_sync(dev->m_parent, buffer, size, offset);
+    if (ep->impl.disk->f_read)
+      result = ep->impl.disk->f_read(dev->m_parent->m_dev, buffer, offset, size);
 
   }
 
@@ -460,46 +463,46 @@ int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t siz
 
 int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) 
 {
-  int error = -1;
+  device_ep_t* ep;
   uintptr_t abs_block;
+  int result = -1;
 
   if (!dev || !dev->m_parent)
-    return -1;
-
-  if (block > dev->m_end_lba)
-    return -2;
+    return result;
 
   abs_block = dev->m_start_lba + block;
+  ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
-  if (dev->m_parent->m_ops.f_read_blocks) {
-    error = dev->m_parent->m_ops.f_read_blocks(dev->m_parent, buffer, count, abs_block);
-  } else {
-    // Do we have an alternative?
+  if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
+
+    if (ep->impl.disk->f_bread)
+      result = ep->impl.disk->f_bread(dev->m_parent->m_dev, buffer, abs_block, count);
+
   }
 
-  return error;
+  return result;
 }
 
 int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) 
 {
-  int error = -1;
+  device_ep_t* ep;
   uintptr_t abs_block;
+  int result = -1;
 
   if (!dev || !dev->m_parent)
-    return -1;
-
-  if (block > dev->m_end_lba)
-    return -2;
+    return result;
 
   abs_block = dev->m_start_lba + block;
+  ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
-  if (dev->m_parent->m_ops.f_write_blocks) {
-    error = dev->m_parent->m_ops.f_write_blocks(dev->m_parent, buffer, count, abs_block);
-  } else {
-    // Do we have an alternative?
+  if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
+
+    if (ep->impl.disk->f_bwrite)
+      result = ep->impl.disk->f_bwrite(dev->m_parent->m_dev, buffer, abs_block, count);
+
   }
 
-  return error;
+  return result;
 }
 
 int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
@@ -541,32 +544,47 @@ disk_dev_t* create_generic_ramdev(size_t size) {
   return dev;
 }
 
+static struct device_disk_endpoint _rd_disk_ep = {
+  .f_read = ramdisk_read,
+  .f_write = ramdisk_write,
+};
+
+static device_ep_t _rd_eps[] = {
+  { ENDPOINT_TYPE_DISK, sizeof(_rd_disk_ep), { &_rd_disk_ep} },
+};
+
 /*
  * We leave it to the caller to map the addressspace
  * TODO: maybe we could pass an addressspace object that
  * enforces mappings...
  */
-disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) {
+disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size) 
+{
   /* Trolle xD */
+  disk_dev_t* dev;
+  partitioned_disk_dev_t* partdev;
   const size_t ramdisk_blksize = sizeof(uint8_t);
 
-  disk_dev_t* dev = kmalloc(sizeof(disk_dev_t));
-  memset(dev, 0x00, sizeof(disk_dev_t));
+  if (!size)
+    return nullptr;
 
-  dev->m_flags |= GDISKDEV_FLAG_RAM;
-  dev->m_parent = nullptr;
-  dev->m_ops.f_read_sync = ramdisk_read;
-  dev->m_ops.f_write_sync = ramdisk_write;
+  dev = create_generic_disk(NULL, "ramdev", NULL, _rd_eps, arrlen(_rd_eps));
+
+  if (!dev)
+    return nullptr;
+
   dev->m_logical_sector_size = ramdisk_blksize;
   dev->m_physical_sector_size = ramdisk_blksize;
-  dev->m_device_name = "ramdev"; /* Should we create a unique name? */
   dev->m_max_blk = size;
+  dev->m_flags |= GDISKDEV_FLAG_RAM;
 
   /* A ramdisk can't use async IO by definition */
-  partitioned_disk_dev_t* partdev = create_partitioned_disk_dev(dev, "rampart0", address, address + size, PD_FLAG_ONLY_SYNC);
+  partdev = create_partitioned_disk_dev(dev, "rampart0", address, address + size, PD_FLAG_ONLY_SYNC);
   
   attach_partitioned_disk_device(dev, partdev);
 
+  /* Attach the ramdisk to the root of the device tree */
+  device_register(dev->m_dev);
   return dev;
 
 }
@@ -700,7 +718,14 @@ int diskdev_populate_partition_table(disk_dev_t* dev)
   return -1;
 }
 
-int ramdisk_read(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
+int ramdisk_read(device_t* _dev, void* buffer, disk_offset_t offset, size_t size) 
+{
+  disk_dev_t* device;
+
+  if (!_dev)
+    return -1;
+
+  device = _dev->private;
 
   if (!device || !device->m_devs || !device->m_physical_sector_size)
     return -1;
@@ -725,7 +750,8 @@ int ramdisk_read(disk_dev_t* device, void* buffer, size_t size, disk_offset_t of
   return 0;
 }
 
-int ramdisk_write(disk_dev_t* device, void* buffer, size_t size, disk_offset_t offset) {
+int ramdisk_write(device_t* device, void* buffer, disk_offset_t offset, size_t size) 
+{
   kernel_panic("TODO: implement ramdisk_write");
 }
 
@@ -737,7 +763,6 @@ int ramdisk_write(disk_dev_t* device, void* buffer, size_t size, disk_offset_t o
 disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private, device_ep_t* eps, uint32_t ep_count)
 {
   disk_dev_t* ret;
-  device_t* dev;
 
   if (!path)
     return nullptr;
@@ -751,15 +776,12 @@ disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* p
 
   ret->m_path = path;
   ret->m_parent = private;
+  ret->m_dev = create_device_ex(parent, path, ret, NULL, eps, ep_count);
 
-  dev = create_device_ex(parent, path, NULL, eps, ep_count);
-  dev->private = ret;
-
-  if (!ret)
+  if (!ret || !dev_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
     goto dealloc_and_exit;
 
-  /* Make sure it's added to our manifest */
-  manifest_add_device(_this, dev);
+  ret->m_ops = dev_get_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK)->impl.disk;
   
   return ret;
 
@@ -798,9 +820,6 @@ void destroy_generic_disk(disk_dev_t* device)
 
     destroy_partitioned_disk_dev(current);
   }
-
-  /* Try to remove the device */
-  manifest_remove_device(_this, device->m_dev->device_path);
 
   kfree(device);
 }
@@ -979,7 +998,6 @@ bool gdisk_is_valid(disk_dev_t* device)
       device &&
       device->m_devs &&
       device->m_path &&
-      (device->m_ops.f_read || device->m_ops.f_read_sync) &&
       device->m_max_blk
       );
 }

@@ -162,7 +162,7 @@ nv_device_t* create_nv_device(aniva_driver_t* driver, pci_device_t* pdev)
   nvd->id.vendor = pdev->vendor_id;
 
   /* TODO: nvidia video ops */
-  nvd->vdev = create_video_device(driver, NULL);
+  nvd->vdev = create_video_device(driver, NULL, NULL);
   nvd->pdevice = pdev;
 
   /* Perform main device initialization */

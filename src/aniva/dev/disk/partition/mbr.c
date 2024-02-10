@@ -1,4 +1,5 @@
 #include "mbr.h"
+#include <dev/endpoint.h>
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
 #include "libk/data/linkedlist.h"
@@ -33,7 +34,7 @@ mbr_table_t* create_mbr_table(disk_dev_t* device, uintptr_t start_lba)
     return nullptr;
 
   /* The MBR should always be at offset 0 of a device */
-  error = device->m_ops.f_read_blocks(device, buffer, 1, start_lba);
+  error = device->m_ops->f_bread(device->m_dev, buffer, start_lba, 1);
 
   if (error)
     goto dealloc_and_fail;

@@ -374,7 +374,6 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg)
  */
 int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj))
 {
-  printf("Itterating: %s \n", node->name);
   return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter));
 }
 

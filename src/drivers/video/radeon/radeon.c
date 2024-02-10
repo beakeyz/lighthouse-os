@@ -37,10 +37,6 @@ EXPORT_DRIVER(radeon_driver) = {
   .m_dependencies = { 0 },
 };
 
-video_device_ops_t radeon_vdev_ops = {
-  0
-};
-
 int radeon_init()
 {
   /* Setup driver software stuff */
@@ -82,7 +78,7 @@ int radeon_probe(pci_device_t* device, pci_driver_t* driver)
 
   ASSERT(video_deactivate_current_driver() == 0);
 
-  vdev = create_video_device(&radeon_driver, &radeon_vdev_ops);
+  vdev = create_video_device(&radeon_driver, NULL, NULL);
 
   register_video_device(vdev);
 
