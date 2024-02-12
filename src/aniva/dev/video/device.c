@@ -1,9 +1,11 @@
+#include "core.h"
 #include "device.h"
 #include "dev/core.h"
 #include "dev/device.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
 #include "dev/manifest.h"
+#include "dev/video/framebuffer.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include <libk/string.h>
@@ -135,6 +137,37 @@ exit:
   return ret;
 }
 
+int vdev_init_fb_helper(video_device_t* device, uint32_t fb_capacity, struct fb_helper_ops* ops)
+{
+  fb_helper_t* helper;
+
+  if (!device || !fb_capacity)
+    return -1;
+
+  helper = kmalloc(sizeof(*helper));
+
+  if (!helper)
+    return -2;
+
+  helper->ops = ops;
+  helper->main_fb = NULL;
+  helper->fb_capacity = fb_capacity;
+  helper->framebuffers = kmalloc(sizeof(fb_info_t) * fb_capacity);
+
+  memset(helper->framebuffers, 0, sizeof(fb_info_t) * fb_capacity);
+
+  device->fb_helper = helper;
+  return 0;
+}
+
+fb_info_t* fb_helper_get(fb_helper_t* helper, fb_handle_t fb)
+{
+  if (fb >= helper->fb_capacity)
+    return nullptr;
+
+  return &helper->framebuffers[fb];
+}
+
 /*!
  * @brief: Deallocate video device memory
  */
@@ -147,6 +180,100 @@ int destroy_video_device(video_device_t* vdev)
   kfree(vdev);
 
   return 0;
+}
+
+/*!
+ * @brief: Grab the main framebuffer handle from a videodevice
+ */
+int vdev_get_mainfb(struct device* device, fb_handle_t* fb)
+{
+  video_device_t* dev;
+
+  if (!device || !dev_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
+    return -1;
+
+  dev = device->private;
+
+  if (!dev || !dev->fb_helper || !dev->fb_helper->ops || !dev->fb_helper->ops->f_get_main_fb)
+    return -1;
+
+  return dev->fb_helper->ops->f_get_main_fb(device, fb);
+}
+
+static inline fb_info_t* _get_fb_info(device_t* device, fb_handle_t fb)
+{
+  video_device_t* dev;
+
+  if (!device || !dev_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
+    return nullptr;
+
+  dev = device->private;
+
+  if (!dev || !dev->fb_helper)
+    return nullptr;
+
+  return fb_helper_get(dev->fb_helper, fb);
+}
+
+#define DEF_VDEV_GET_FB_(type, thing) \
+type vdev_get_fb_##thing(struct device* device, fb_handle_t fb)   \
+{                                                                   \
+  fb_info_t* info = _get_fb_info(device, fb);                       \
+  if (!info)                                                        \
+    return 0;                                                       \
+  return info->thing;                                               \
+}                                                                   \
+
+#define DEF_VDEV_GET_FB_CLR(type, color) \
+type vdev_get_fb_##color##_offset(struct device* device, fb_handle_t fb)   \
+{                                                                   \
+  fb_info_t* info = _get_fb_info(device, fb);                       \
+  if (!info)                                                        \
+    return 0;                                                       \
+  return info->colors.color.offset_bits;                            \
+}                                                                   \
+type vdev_get_fb_##color##_length(struct device* device, fb_handle_t fb)   \
+{                                                                   \
+  fb_info_t* info = _get_fb_info(device, fb);                       \
+  if (!info)                                                        \
+    return 0;                                                       \
+  return info->colors.color.length_bits;                            \
+}                                                                   \
+
+/*
+ * This is where all the fields of fb_info_t
+ * are exposed
+ */
+
+DEF_VDEV_GET_FB_(uint32_t, width);
+DEF_VDEV_GET_FB_(uint32_t, height);
+DEF_VDEV_GET_FB_(uint32_t, pitch);
+DEF_VDEV_GET_FB_(uint8_t, bpp);
+DEF_VDEV_GET_FB_(size_t, size);
+
+DEF_VDEV_GET_FB_CLR(uint32_t, red);
+DEF_VDEV_GET_FB_CLR(uint32_t, green);
+DEF_VDEV_GET_FB_CLR(uint32_t, blue);
+
+ssize_t vdev_map_fb(struct device* device, fb_handle_t fb, vaddr_t base)
+{
+  video_device_t* vdev;
+  fb_helper_t* helper;
+
+  if (!device || !base)
+    return -1;
+
+  vdev = device->private;
+
+  if (!vdev)
+    return -2;
+
+  helper = vdev->fb_helper;
+
+  if (!helper || !helper->ops || !helper->ops->f_map)
+    return -3;
+
+  return helper->ops->f_map(device, fb, NULL, NULL, NULL, NULL, base);
 }
 
 /*!

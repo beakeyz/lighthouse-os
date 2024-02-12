@@ -3,7 +3,6 @@
 #include "dev/video/framebuffer.h"
 #include <dev/core.h>
 #include <dev/driver.h>
-#include <dev/video/message.h>
 
 int lightenv_init();
 int lightenv_exit();
@@ -28,23 +27,7 @@ EXPORT_DRIVER(env_driver) = {
  */
 int lightenv_init()
 {
-  fb_color_t color = {
-    .raw_clr = RGBA32(0, 0, 0, 0xff),
-  };
-  viddev_blt_t blt = {
-    .x = 0,
-    .y = 0,
-    .width = (uint32_t)-1,
-    .height = (uint32_t)-1,
-    .mode = VIDDEV_BLT_MODE_COLOR,
-    .buffer = &color
-  };
-
-  /* Send a BLT message to the video driver to clear the screen */
-  driver_send_msg("core/video", VIDDEV_DCC_BLT, &blt, sizeof(blt));
-
   /* ??? */
-
   return 0;
 }
 

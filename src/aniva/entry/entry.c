@@ -269,7 +269,7 @@ void kthread_entry() {
    *  - launch the userspace bootstrap
    */
 
-  devices_debug();
+  //devices_debug();
 
   /* 
    * Remove the early TTY right before we finish low-level system setup. After

@@ -3,7 +3,6 @@
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "dev/video/message.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
@@ -37,11 +36,8 @@ int fb_driver_exit();
 static dev_manifest_t* _this;
 static video_device_t* _vdev;
 /* Local framebuffer information for the driver */
-static fb_info_t info = { 0 };
+static fb_info_t* _main_info = nullptr;
 
-fb_ops_t fb_ops = {
-  .f_draw_rect = generic_draw_rect,
-};
 
 static int efifb_get_info(device_t* dev, vdev_info_t* info)
 {
@@ -55,60 +51,41 @@ static int efifb_get_info(device_t* dev, vdev_info_t* info)
  *
  * TODO: keep track of all the mappings, so we can keep track of them
  */
-static int efi_fbmemmap(uintptr_t base, size_t* p_size) 
+static ssize_t efifb_map(device_t* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, vaddr_t base) 
 {
-  size_t size;
+  ssize_t size;
+  fb_info_t* info;
+  video_device_t* vdev;
+  fb_helper_t* helper;
 
-  if (!base || !p_size)
+  if (!base)
     return -1;
 
-  size = ALIGN_UP(info.size, SMALL_PAGE_SIZE);
+  vdev = dev->private;
+  helper = vdev->fb_helper;
 
-  /* Map the framebuffer to the exact base described by the caller */
-  Must(__kmem_alloc_ex(nullptr, nullptr, info.addr, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_KERNEL | KMEM_FLAG_WC | KMEM_FLAG_WRITABLE));
+  if (!helper)
+    return -2;
 
-  *p_size = size;
+  /* Grab the right info */
+  info = fb_helper_get(helper, fb);
+  size = 0;
 
-  return 0;
+  if (!width && !height)
+    size = ALIGN_UP(info->size, SMALL_PAGE_SIZE);
+
+  if (size)
+    /* Map the framebuffer to the exact base described by the caller */
+    Must(__kmem_alloc_ex(nullptr, nullptr, info->addr + x * BYTES_PER_PIXEL(info->bpp) + y * info->pitch, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_WC | KMEM_FLAG_WRITABLE));
+  else
+    kernel_panic("TODO: handle size = 0 (efifb_map)");
+
+  return size;
 }
 
 static uint64_t fb_driver_msg(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  switch (code) {
-    case VIDDEV_DCC_BLT:
-      {
-        viddev_blt_t* blt;
-
-        if (size != sizeof(*blt))
-          return -1;
-
-        blt = buffer;
-        break;
-      }
-    case VIDDEV_DCC_MAPFB:
-      {
-        viddev_mapfb_t* mapfb;
-
-        /* Quick size verify */
-        if (size != sizeof(viddev_mapfb_t))
-          return DRV_STAT_INVAL;
-
-        mapfb = buffer;
-
-        efi_fbmemmap(mapfb->virtual_base, mapfb->size);
-        break;
-      }
-    case VIDDEV_DCC_GET_FBINFO:
-      {
-        if (!out_buffer || out_size != sizeof(fb_info_t))
-          return -1;
-
-        memcpy(out_buffer, &info, out_size);
-        return DRV_STAT_OK;
-      }
-    default:
-      return -1;
-  }
+  kernel_panic("TODO: (efi) fb_driver_msg");
   return DRV_STAT_OK;
 }
 
@@ -118,8 +95,8 @@ int efifb_remove(video_device_t* device)
   uintptr_t fb_start_idx;
 
   /* Calculate things again */
-  fb_page_count = GET_PAGECOUNT(info.addr, info.size);
-  fb_start_idx = kmem_get_page_idx(info.addr);
+  fb_page_count = GET_PAGECOUNT(_main_info->addr, _main_info->size);
+  fb_start_idx = kmem_get_page_idx(_main_info->addr);
 
   /* TODO: tell underlying hardware to stop its EFI framebuffer engine */
   kernel_panic("TODO: actual efifb_remove");
@@ -128,6 +105,47 @@ int efifb_remove(video_device_t* device)
   kmem_set_phys_range_free(fb_start_idx, fb_page_count);
   return 0;
 }
+
+static int efifb_get_fb(device_t* dev, fb_handle_t* handle)
+{
+  video_device_t* vdev;
+
+  if (!dev || !handle)
+    return -1;
+
+  vdev = dev->private;
+
+  if (!vdev || !vdev->fb_helper)
+    return -2;
+
+  *handle = vdev->fb_helper->main_fb;
+  return 0;
+}
+
+static int efifb_set_fb(device_t* dev, fb_handle_t fb)
+{
+  video_device_t* vdev;
+
+  if (!dev)
+    return -1;
+
+  vdev = dev->private;
+
+  if (!vdev || !vdev->fb_helper)
+    return -2;
+
+  if (fb >= vdev->fb_helper->fb_capacity)
+    return -3;
+
+  vdev->fb_helper->main_fb = fb;
+  return 0;
+}
+
+fb_helper_ops_t _efifb_helper_ops = {
+  .f_get_main_fb = efifb_get_fb,
+  .f_set_main_fb = efifb_set_fb,
+  .f_map = efifb_map,
+};
 
 static struct device_video_endpoint _efi_vdev_ep = {
   .f_get_info = efifb_get_info,
@@ -150,6 +168,26 @@ aniva_driver_t efifb_driver = {
   .f_msg = fb_driver_msg,
 };
 EXPORT_DRIVER_PTR(efifb_driver);
+
+static inline void _init_main_info(struct multiboot_tag_framebuffer* fb)
+{
+  /* Construct fbinfo ourselves */
+  _main_info->addr = fb->common.framebuffer_addr;
+  _main_info->pitch = fb->common.framebuffer_pitch;
+  _main_info->bpp = fb->common.framebuffer_bpp;
+  _main_info->width = fb->common.framebuffer_width;
+  _main_info->height = fb->common.framebuffer_height;
+  _main_info->size = _main_info->pitch * _main_info->height;
+  _main_info->kernel_addr = Must(__kmem_kernel_alloc(_main_info->addr, _main_info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE));
+
+  _main_info->colors.red.length_bits = fb->framebuffer_red_mask_size;
+  _main_info->colors.green.length_bits = fb->framebuffer_green_mask_size;
+  _main_info->colors.red.length_bits = fb->framebuffer_blue_mask_size;
+
+  _main_info->colors.red.offset_bits = fb->framebuffer_red_field_position;
+  _main_info->colors.green.offset_bits = fb->framebuffer_green_field_position;
+  _main_info->colors.blue.offset_bits = fb->framebuffer_blue_field_position;
+}
 
 /*
  * Generic EFI GOP framebuffer driver lmao
@@ -187,32 +225,14 @@ int fb_driver_init()
   if (!vdev)
     return -2;
 
-  memset(&info, 0, sizeof(info));
+  /* Initialize a framebuffer helper for a single framebuffer */
+  vdev_init_fb_helper(vdev, 1, &_efifb_helper_ops);
 
-  /* Construct fbinfo ourselves */
-  info.addr = fb->common.framebuffer_addr;
-  info.pitch = fb->common.framebuffer_pitch;
-  info.bpp = fb->common.framebuffer_bpp;
-  info.width = fb->common.framebuffer_width;
-  info.height = fb->common.framebuffer_height;
-  info.size = info.pitch * info.height;
-  info.kernel_addr = Must(__kmem_kernel_alloc(info.addr, info.size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE));
+  /* Grab the info */
+  _main_info = fb_helper_get(vdev->fb_helper, 0);
 
-  info.colors.red.length_bits = fb->framebuffer_red_mask_size;
-  info.colors.green.length_bits = fb->framebuffer_green_mask_size;
-  info.colors.red.length_bits = fb->framebuffer_blue_mask_size;
-
-  info.colors.red.offset_bits = fb->framebuffer_red_field_position;
-  info.colors.green.offset_bits = fb->framebuffer_green_field_position;
-  info.colors.blue.offset_bits = fb->framebuffer_blue_field_position;
-
-  info.ops = &fb_ops;
-
-  //fb_page_count = GET_PAGECOUNT(info.kernel_addr, info.size);
-  //fb_start_idx = kmem_get_page_idx(info.addr);
-
-  /* Mark the physical range used */
-  //kmem_set_phys_range_used(fb_start_idx, fb_page_count);
+  /* Initialize it's fields */
+  _init_main_info(fb);
 
   ASSERT(video_deactivate_current_driver() == 0);
 

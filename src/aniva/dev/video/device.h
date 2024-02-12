@@ -14,19 +14,23 @@
 
 struct device;
 struct fb_info;
+struct fb_helper;
 struct vdev_info;
 struct aniva_driver;
+struct fb_helper_ops;
 struct device_endpoint;
 
 union fb_color;
 
 typedef struct device_video_endpoint {
-  int (*f_get_fb) (struct device* dev, struct fb_info* info);
 
   int (*f_enable_engine)(struct device* dev);
   int (*f_disable_engine)(struct device* dev);
 
   int (*f_get_info)(struct device* dev, struct vdev_info* info);
+
+  int (*f_await_vblank)(struct device* dev);
+
 } device_video_endpoint_t;
 
 
@@ -56,6 +60,7 @@ typedef struct video_device {
 
   void* priv;
 
+  struct fb_helper* fb_helper;
   struct vdev_info* info;
 } video_device_t;
 
@@ -64,11 +69,12 @@ void init_vdevice();
 video_device_t* create_video_device(struct aniva_driver* driver, struct device_endpoint* eps, uint32_t ep_count);
 int destroy_video_device(video_device_t* device);
 
+int vdev_init_fb_helper(video_device_t* device, uint32_t fb_capacity, struct fb_helper_ops* ops);
+
 int register_video_device(struct video_device* device);
 int unregister_video_device(struct video_device* device);
 
 struct video_device* get_active_vdev();
-
 int video_deactivate_current_driver();
 
 /*

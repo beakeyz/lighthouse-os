@@ -3,6 +3,8 @@
 #include "LibGfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/manifest.h"
+#include "dev/video/core.h"
+#include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/util/kterm/util.h"
 #include "kevent/event.h"
@@ -22,7 +24,6 @@
 #include "sched/scheduler.h"
 #include <system/processor/processor.h>
 #include <mem/kmem_manager.h>
-#include <dev/video/message.h>
 
 #include "font.h"
 #include "exec.h"
@@ -133,8 +134,13 @@ static bool _c_prompt_is_submitted;
 /* Login stuff */
 static kterm_login_t _c_login;
 
-/* Framebuffer information */
-static fb_info_t __kterm_fb_info;
+/* Stuff we need to get pixels on the screen */
+static fb_handle_t _kterm_fb_handle;
+static uint32_t _kterm_fb_width;
+static uint32_t _kterm_fb_height;
+static uint32_t _kterm_fb_pitch;
+static uint8_t _kterm_fb_bpp;
+static video_device_t* _kterm_vdev;
 
 int kterm_init();
 int kterm_exit();
@@ -171,27 +177,27 @@ int kterm_on_key(kevent_ctx_t* event);
 
 static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color) 
 {
-  if (__kterm_fb_info.bpp && x >= 0 && y >= 0 && x < __kterm_fb_info.width && y < __kterm_fb_info.height)
-    *(uint32_t volatile*)(KTERM_FB_ADDR + __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8) = color;
+  if (_kterm_fb_bpp && x >= 0 && y >= 0 && x < _kterm_fb_width && y < _kterm_fb_height)
+    *(uint32_t volatile*)(KTERM_FB_ADDR + _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8) = color;
 }
 
 static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
-  uint32_t current_offset = __kterm_fb_info.pitch * y + x * __kterm_fb_info.bpp / 8;
-  const uint32_t increment = (__kterm_fb_info.bpp / 8);
+  uint32_t current_offset = _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8;
+  const uint32_t increment = (_kterm_fb_bpp / 8);
 
   for (uint32_t i = 0; i < height; i++) {
     for (uint32_t j = 0; j < width; j++) {
 
       *(uint32_t volatile*)(KTERM_FB_ADDR + current_offset + j * increment) = color;
     }
-    current_offset += __kterm_fb_info.pitch;
+    current_offset += _kterm_fb_pitch;
   }
 }
 
 static inline void kterm_clear_raw()
 {
-  kterm_draw_rect(0, 0, __kterm_fb_info.width, __kterm_fb_info.height, 0x00);
+  kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, 0x00);
 }
 
 static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
@@ -204,9 +210,9 @@ static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
     return NULL;
 
   entry = &_clr_pallet[idx];
-  clr = ((uint32_t)entry->red << __kterm_fb_info.colors.red.offset_bits) |
-        ((uint32_t)entry->green << __kterm_fb_info.colors.green.offset_bits) |
-        ((uint32_t)entry->blue << __kterm_fb_info.colors.blue.offset_bits);
+  clr = ((uint32_t)entry->red << vdev_get_fb_red_offset(_kterm_vdev->device, _kterm_fb_handle)) |
+        ((uint32_t)entry->green << vdev_get_fb_green_offset(_kterm_vdev->device, _kterm_fb_handle)) |
+        ((uint32_t)entry->blue << vdev_get_fb_blue_offset(_kterm_vdev->device, _kterm_fb_handle));
 
   return clr;
 }
@@ -879,6 +885,9 @@ int kterm_init()
 
   _old_dflt_lwnd_path_value = NULL;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
+  _kterm_vdev = get_active_vdev();
+
+  ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
 
   memset(&_c_login, 0, sizeof(_c_login));
 
@@ -909,10 +918,21 @@ int kterm_init()
    * Through this API we can also easily access PWM through ACPI, without having to do weird funky shit with driver messages
    */
   //Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
-  //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &__kterm_fb_info, sizeof(fb_info_t)));
-  kernel_panic("TODO: redo video API and device interface");
+  //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_kterm_fb_ sizeof(fb_info_t)));
 
-  //fb = video_request_fb();
+  printf("Getting main\n");
+  /* Initialize framebuffer and video stuff */
+  ASSERT_MSG(vdev_get_mainfb(_kterm_vdev->device, &_kterm_fb_handle) == 0, "kterm: Failed to get main fb handle!");
+
+  printf("Mapping main\n");
+  /* Map the framebuffer to our base */
+  vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
+
+  printf("Getting stuff\n");
+  _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
+  _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
+  _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);
+  _kterm_fb_bpp = vdev_get_fb_bpp(_kterm_vdev->device, _kterm_fb_handle);
 
   void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
 
@@ -924,8 +944,8 @@ int kterm_init()
   /* Make sure there is no garbage on the screen */
   kterm_clear_raw();
 
-  _chars_xres = __kterm_fb_info.width / KTERM_FONT_WIDTH;
-  _chars_yres = __kterm_fb_info.height / KTERM_FONT_HEIGHT;
+  _chars_xres = _kterm_fb_width / KTERM_FONT_WIDTH;
+  _chars_yres = _kterm_fb_height / KTERM_FONT_HEIGHT;
 
   _chars_cursor_x = 0;
   _chars_cursor_y = 0;
@@ -1075,20 +1095,20 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       uwnd = buffer;
 
       /* Clamp width */
-      if (uwnd->current_width > __kterm_fb_info.width)
-        uwnd->current_width = __kterm_fb_info.width;
+      if (uwnd->current_width > _kterm_fb_width)
+        uwnd->current_width = _kterm_fb_width;
 
       /* Clamp height */
-      if (uwnd->current_height > __kterm_fb_info.height)
-        uwnd->current_height = __kterm_fb_info.height;
+      if (uwnd->current_height > _kterm_fb_height)
+        uwnd->current_height = _kterm_fb_height;
 
       _active_grpx_app.client_proc = c_proc;
       _active_grpx_app.width = uwnd->current_width;
       _active_grpx_app.height = uwnd->current_height;
 
       /* Compute best startx and starty */
-      _active_grpx_app.startx = (__kterm_fb_info.width >> 1) - (_active_grpx_app.width >> 1);
-      _active_grpx_app.starty = (__kterm_fb_info.height >> 1) - (_active_grpx_app.height >> 1);
+      _active_grpx_app.startx = (_kterm_fb_width >> 1) - (_active_grpx_app.width >> 1);
+      _active_grpx_app.starty = (_kterm_fb_height >> 1) - (_active_grpx_app.height >> 1);
 
       /* Allocate this crap in the userprocess */
       _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);

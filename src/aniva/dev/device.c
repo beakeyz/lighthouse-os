@@ -79,6 +79,9 @@ device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, 
   ret->endpoints = eps;
   ret->endpoint_count = ep_count;
 
+  /* Make sure the object knows about us */
+  oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, destroy_device);
+
   g_ep = dev_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
 
   /* Call the private device constructor */

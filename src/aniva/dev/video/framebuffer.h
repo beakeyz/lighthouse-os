@@ -4,7 +4,7 @@
 #include "libk/flow/reference.h"
 #include "libk/stddef.h"
 
-struct fb_ops;
+struct device;
 struct vdfb_ops;
 struct video_device;
 
@@ -22,6 +22,8 @@ struct video_device;
 #define TO_BLUE(rgba)   (((rgba) >> 8)  & 0xFF)
 #define TO_ALPHA(rgba)  ((rgba)         & 0xFF)
 
+#define BYTES_PER_PIXEL(bpp) ((bpp) >> 3)
+
 typedef union fb_color {
   struct {
     uint8_t b;
@@ -32,12 +34,13 @@ typedef union fb_color {
   uint32_t raw_clr;
 } fb_color_t;
 
+typedef uint32_t fb_handle_t;
+
 /*
  * The fb_info struct for in-kernel tracking of the attributes of 
  * a framebuffer device
  */
 typedef struct fb_info {
-
   /* Generic fb stuff */
   paddr_t addr;
   vaddr_t kernel_addr;
@@ -63,11 +66,10 @@ typedef struct fb_info {
     } alpha;
   } colors;
 
+  fb_handle_t handle;
+
   /* The parent device */
   struct video_device* parent;
-
-  /* Opperations defined by the video device */
-  struct fb_ops* ops;
 
   /* video devices private data */
   uint8_t priv_data[];
@@ -88,59 +90,49 @@ static inline uint32_t fb_get_fb_color(fb_info_t* info, fb_color_t color)
           ((color.components.a >> info->colors.alpha.offset_bits) & info->colors.alpha.length_bits));
 }
 
-typedef struct fb_ops {
-  int (*f_destroy) (fb_info_t* info);
+typedef struct fb_helper_ops {
+  int (*f_destroy)(struct device* dev, fb_handle_t fb);
 
-  /* Transforms the standard framebuffer color into a packed DWORD for the framebuffer */
-  uint32_t (*f_clr_transform) (fb_color_t clr);
+  int (*f_get_main_fb)(struct device* dev, fb_handle_t* fb);
+  int (*f_set_main_fb)(struct device* dev, fb_handle_t fb);
+  int (*f_pagefilp)(struct device* dev);
+
+  /* 
+   * x, y, width and height being NULL means we map the entire framebuffer 
+   * Returns: The positive size of the mapped (part of the) framebuffer when the mapping is
+   *          successful, otherwise a negative error code
+   */
+  ssize_t (*f_map)(struct device* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, vaddr_t base);
+  ssize_t (*f_unmap)(struct device* dev, fb_handle_t fb, vaddr_t base);
+
+
+  /* 
+   * Transforms the standard framebuffer color into a packed DWORD for the framebuffer 
+   * This assumes that the framebuffer is <= 32 bpp
+   */
+  uint32_t (*f_clr_transform)(struct device* dev, fb_handle_t fb, fb_color_t clr);
 
   /* Draw a simple rectangle */
-  int (*f_draw_rect)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t clr);
+  int (*f_draw_rect)(struct device* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t clr);
   /* Draw a glyph from a bitmap */
-  int (*f_draw_glyph)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint8_t* glyph_bm, fb_color_t clr);
+  int (*f_draw_glyph)(struct device* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint8_t* glyph_bm, fb_color_t clr);
   /* BLT =) */
-  int (*f_blt)(fb_info_t* info, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t* image);
-
-  /* TODO: create a helper struct for any virtual mapping / tranfer */
-  int (*f_mmap)(fb_info_t* info, void* p_buffer, size_t* p_size);
-  /* ... */
-} fb_ops_t;
+  int (*f_blt)(struct device* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t* image);
+} fb_helper_ops_t;
 
 /*
- * The vd_framebuffer is for external 'users' of the video device to 
- * perform rendering in a more orchestrated way. This is less technical 
- * than fb_info, since that contains information about how framebuffer memory
- * is structured
+ * Optional extention to a video device that handles framebuffer creation,
+ * access, manipulation, ect.
  */
-typedef struct vd_framebuffer {
-  struct video_device* device;
-  struct vdfb_ops* ops;
+typedef struct fb_helper {
+  uint32_t fb_capacity;
+  /* This is zero most of the time */
+  fb_handle_t main_fb;
 
-  refc_t ref;
+  fb_info_t* framebuffers;
+  fb_helper_ops_t* ops;
+} fb_helper_t;
 
-  uint32_t pitch;
-
-  /*
-   * Logical width and height of the framebuffer
-   */
-  uint32_t width, height;
-
-  /*
-   * link into the ->framebuffers list in video_device
-   */
-  struct vd_framebuffer* next;
-
-  vaddr_t dma_buffer;
-
-} vd_framebuffer_t;
-
-vd_framebuffer_t* create_vdfb(struct video_device* device);
-void destroy_vdfb(vd_framebuffer_t* framebuffer);
-void release_vdfb(vd_framebuffer_t* framebuffer);
-
-typedef struct vdfb_ops {
-  vd_framebuffer_t* (*f_create)(struct video_device* device);
-  void (*f_destroy)(vd_framebuffer_t* buffer);
-} vdfb_ops_t;
+extern fb_info_t* fb_helper_get(fb_helper_t* helper, fb_handle_t fb);
 
 #endif // !__ANIVA_VID_DEV_FRAMEBUFFER__

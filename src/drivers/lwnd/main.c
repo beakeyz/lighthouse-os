@@ -16,7 +16,6 @@
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <dev/video/device.h>
-#include <dev/video/message.h>
 #include "sync/mutex.h"
 #include "window.h"
 #include "LibGfx/include/driver.h"
@@ -150,7 +149,8 @@ int init_window_driver()
    * TODO: when we implement 2D acceleration, we probably need to do something else here
    * TODO: implement screens on the drivers side with 'connectors'
    */
-  Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_fb_info, sizeof(_fb_info)));
+  //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_fb_info, sizeof(_fb_info)));
+  kernel_panic("TODO: fix lwnd");
 
   /* TODO: register to I/O core */
   kevent_add_hook("keyboard", "lwnd", on_key);
