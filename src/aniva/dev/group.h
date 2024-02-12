@@ -49,10 +49,10 @@ enum DGROUP_TYPE {
 typedef struct dgroup {
   const char* name;
 
-  enum DGROUP_TYPE type;
-  struct oss_node* node;
-
   uint32_t flags;
+  enum DGROUP_TYPE type;
+
+  struct oss_node* node;
 } dgroup_t;
 
 void init_dgroups();
