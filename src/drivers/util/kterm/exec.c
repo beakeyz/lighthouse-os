@@ -39,7 +39,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   if (!file) {
     logln("Could not execute object!");
 
-    destroy_oss_obj(obj);
+    oss_obj_close(obj);
     return 4;
   }
 

@@ -15,7 +15,6 @@
 #define TEST_DEVICE "testdev"
 
 dev_manifest_t* manifest;
-device_t* our_device;
 
 int test_init();
 int test_exit();
@@ -59,8 +58,5 @@ int test_init()
 int test_exit() 
 {
   logln("Exiting test driver! =D");
-
-  /* Destroy this device */
-  destroy_device(our_device);
   return 0;
 }

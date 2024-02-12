@@ -1,6 +1,7 @@
 #ifndef __ANIVA_OSS_OBJ__
 #define __ANIVA_OSS_OBJ__
 
+#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
@@ -37,6 +38,9 @@ enum OSS_OBJ_TYPE {
 
 typedef struct oss_obj {
   const char* name;
+
+  atomic_ptr_t refc;
+
   uint32_t flags;
   enum OSS_OBJ_TYPE type;
 
@@ -53,7 +57,7 @@ oss_obj_t* create_oss_obj(const char* name);
 void destroy_oss_obj(oss_obj_t* obj);
 
 void oss_obj_ref(oss_obj_t* obj);
-int oss_obj_unref(oss_obj_t* obj);
+void oss_obj_unref(oss_obj_t* obj);
 
 int oss_obj_close(oss_obj_t* obj);
 

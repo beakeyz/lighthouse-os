@@ -2,6 +2,7 @@
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "oss/node.h"
+#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
 
@@ -23,6 +24,8 @@ oss_obj_t* create_oss_obj(const char* name)
   ret->name = strdup(name);
   ret->parent = nullptr;
   ret->lock = create_mutex(NULL);
+
+  init_atomic_ptr(&ret->refc, 1);
 
   printf(" -> Creating object: %s\n", ret->name);
 
@@ -76,8 +79,38 @@ const char* oss_obj_get_fullpath(oss_obj_t* obj)
   kernel_panic("TODO: oss_obj_get_fullpath");
 }
 
-void oss_obj_ref(oss_obj_t* obj);
-int oss_obj_unref(oss_obj_t* obj);
+void oss_obj_ref(oss_obj_t* obj)
+{
+  uint64_t val;
+
+  mutex_lock(obj->lock);
+
+  val = atomic_ptr_read(&obj->refc);
+  atomic_ptr_write(&obj->refc, val+1);
+
+  mutex_unlock(obj->lock);
+}
+
+void oss_obj_unref(oss_obj_t* obj)
+{
+  uint64_t val;
+
+  mutex_lock(obj->lock);
+
+  val = atomic_ptr_read(&obj->refc) - 1;
+
+  /* No need to write if  */
+  if (!val)
+    goto destroy_obj;
+
+  atomic_ptr_write(&obj->refc, val);
+
+  mutex_unlock(obj->lock);
+  return;
+
+destroy_obj:
+  destroy_oss_obj(obj);
+}
 
 /*!
  * @brief: Close a base object
@@ -96,9 +129,8 @@ int oss_obj_unref(oss_obj_t* obj);
 int oss_obj_close(oss_obj_t* obj)
 {
   printf("Trying to close obj: %s\n", obj->name);
-  //kernel_panic("TODO: oss_obj_close");
 
-  destroy_oss_obj(obj);
+  oss_obj_unref(obj);
   return 0;
 }
 

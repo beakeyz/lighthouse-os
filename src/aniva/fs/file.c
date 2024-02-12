@@ -346,7 +346,7 @@ file_t* file_open(const char* path)
   ret = oss_obj_get_file(obj);
 
   if (!ret)
-    destroy_oss_obj(obj);
+    oss_obj_close(obj);
 
   return ret;
 }

@@ -181,9 +181,15 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
     error = oss_node_query(obj_gen, rel_path, out);
   }
 
-  if (c_entry)
-    *out = c_entry->obj;
+  /* Did we find an entry? */
+  if (!c_entry)
+    return error;
 
+  /* Add a reference to the object */
+  oss_obj_ref(c_entry->obj);
+
+  /* Export the reference */
+  *out = c_entry->obj;
   return error;
 }
 
