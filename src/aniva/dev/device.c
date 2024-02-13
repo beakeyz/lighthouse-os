@@ -32,9 +32,9 @@ bool device_is_generic(device_t* device)
   return (device->endpoints == _generic_dev_eps);
 }
 
-device_t* create_device(aniva_driver_t* parent, char* path)
+device_t* create_device(aniva_driver_t* parent, char* name)
 {
-  return create_device_ex(parent, path, nullptr, NULL, _generic_dev_eps, 0);
+  return create_device_ex(parent, name, nullptr, NULL, _generic_dev_eps, 0);
 }
 
 /*!
@@ -45,13 +45,13 @@ device_t* create_device(aniva_driver_t* parent, char* path)
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  */
-device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count)
+device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count)
 {
   device_t* ret;
   dev_manifest_t* parent_man;
   struct device_endpoint* g_ep;
 
-  if (!path)
+  if (!name)
     return nullptr;
 
   parent_man = nullptr;
@@ -70,9 +70,9 @@ device_t* create_device_ex(struct aniva_driver* parent, char* path, void* priv, 
   if (!eps)
     eps = _generic_dev_eps;
 
-  ret->device_path = strdup(path);
+  ret->name = strdup(name);
   ret->lock = create_mutex(NULL);
-  ret->obj = create_oss_obj(ret->device_path);
+  ret->obj = create_oss_obj(ret->name);
   ret->parent = parent_man;
   ret->flags = flags;
   ret->private = priv;
@@ -108,7 +108,7 @@ void destroy_device(device_t* device)
   }
 
   destroy_mutex(device->lock);
-  kfree((void*)device->device_path);
+  kfree((void*)device->name);
 
   memset(device, 0, sizeof(*device));
 
@@ -129,23 +129,54 @@ int device_add_group(dgroup_t* group, struct oss_node* node)
   return oss_node_add_node(node, group->node);
 }
 
+/*!
+ * @brief: Registers a device to the root device node, without any grouping
+ *
+ * This is a very crude function and should only be used in specific situations
+ */
 int device_register(device_t* dev)
 {
   return oss_node_add_obj(_device_node, dev->obj);
 }
 
-static oss_obj_t* _device_open(oss_node_t* node, const char* path)
+/*!
+ * @brief: Open a device from oss
+ *
+ * We enforce devices to be attached to the device root
+ */
+device_t* open_device(const char* path)
 {
-  return nullptr;
+  int error;
+  oss_node_t* obj_rootnode;
+  oss_obj_t* obj;
+  device_t* ret;
+
+  error = oss_resolve_obj(path, &obj);
+
+  if (error || !obj)
+    return nullptr;
+
+  obj_rootnode = oss_obj_get_root_parent(obj);
+
+  ASSERT_MSG(obj_rootnode, "open_device: Somehow we found an object without a root parent which was still attached to the oss???");
+
+  ret = oss_obj_get_device(obj);
+
+  /* If the object is invalid we have to close it */
+  if (!ret || obj_rootnode != _device_node) {
+    oss_obj_close(obj);
+    /* Make sure we return NULL no matter what */
+    ret = nullptr;
+  }
+
+  return ret;
 }
 
-/*
- * Standard opperations for the device node
- */
-static oss_node_ops_t _device_node_ops = {
-  .f_open = _device_open,
-  nullptr,
-};
+int close_device(device_t* dev)
+{
+  /* TODO: ... */
+  return oss_obj_close(dev->obj);
+}
 
 /*!
  * @brief: Initialize the device subsystem
@@ -159,7 +190,7 @@ static oss_node_ops_t _device_node_ops = {
 void init_devices()
 {
   /* Initialize an OSS endpoint for device access and storage */
-  _device_node = create_oss_node("Dev", OSS_OBJ_GEN_NODE, &_device_node_ops, NULL);
+  _device_node = create_oss_node("Dev", OSS_OBJ_STORE_NODE, NULL, NULL);
 
   ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
 

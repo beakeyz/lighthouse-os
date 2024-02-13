@@ -134,6 +134,28 @@ int oss_obj_close(oss_obj_t* obj)
   return 0;
 }
 
+/*!
+ * @brief: Walk the parent chain of an object to find the root node
+ */
+struct oss_node* oss_obj_get_root_parent(oss_obj_t* obj)
+{
+  oss_node_t* c_node;
+
+  c_node = obj->parent;
+
+  while (c_node) {
+    
+    /* If there is no parent on an attached object, we have reached the root */
+    if (!c_node->parent)
+      return c_node;
+
+    c_node = c_node->parent;
+  }
+
+  /* This should never happen lmao */
+  return nullptr;
+}
+
 void oss_obj_register_child(oss_obj_t* obj, void* child, enum OSS_OBJ_TYPE type, FuncPtr destroy_fn)
 {
   if (!obj)

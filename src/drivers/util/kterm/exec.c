@@ -11,6 +11,12 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 
+/*!
+ * @brief: Try to execute anything that is the first entry of @argv
+ *
+ * TODO: Search in respect to the PATH profile variable (Both of the global profile
+ * and the currently logged in profile.)
+ */
 uint32_t kterm_try_exec(const char** argv, size_t argc)
 {
   proc_id_t id;

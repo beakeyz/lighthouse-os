@@ -12,13 +12,15 @@
 static hashmap_t* _rootnode_map = nullptr;
 static mutex_t* _core_lock = nullptr;
 static oss_node_t* _local_root = nullptr;
-static const char* _local_root_name = ":";
 
 static struct oss_node* _oss_create_path_abs_locked(const char* path);
 static struct oss_node* _oss_create_path_locked(struct oss_node* node, const char* path);
 static int _oss_resolve_node_locked(const char* path, oss_node_t** out);
 static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, struct oss_node** out);
 static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, struct oss_obj** out);
+
+static inline int _oss_attach_rootnode_locked(struct oss_node* node);
+static inline int _oss_detach_rootnode_locked(struct oss_node* node);
 
 /*!
  * @brief: Quick routine to log the current state of the kernel heap
@@ -487,6 +489,11 @@ struct oss_node* oss_create_path_abs(const char* path)
   return ret;
 }
 
+static inline int _oss_attach_rootnode_locked(struct oss_node* node)
+{
+  return IsError(hashmap_put(_rootnode_map, (hashmap_key_t)node->name, node));
+}
+
 int oss_attach_rootnode(struct oss_node* node)
 {
   int error;
@@ -496,7 +503,27 @@ int oss_attach_rootnode(struct oss_node* node)
 
   mutex_lock(_core_lock);
 
-  error = IsError(hashmap_put(_rootnode_map, (hashmap_key_t)node->name, node));
+  error = _oss_attach_rootnode_locked(node);
+
+  mutex_unlock(_core_lock);
+  return error;
+}
+
+static inline int _oss_detach_rootnode_locked(struct oss_node* node)
+{
+  return hashmap_remove(_rootnode_map, (hashmap_key_t)node->name) == nullptr ? -1 : 0;
+}
+
+int oss_detach_rootnode(struct oss_node* node)
+{
+  int error;
+
+  if (!node)
+    return -1;
+
+  mutex_lock(_core_lock);
+
+  error = _oss_detach_rootnode_locked(node);
 
   mutex_unlock(_core_lock);
   return error;
@@ -639,11 +666,12 @@ int oss_attach_fs(const char* path, const char* rootname, const char* fs, partit
   /* Create a path to mount on */
   mountpoint_node = _oss_create_path_abs_locked(path);
 
+  /* No mountpoint node means we mount as a rootnode */
   if (!mountpoint_node)
-    goto unmount_and_error;
-
-  /* Add the generated node into the oss tree */
-  error = oss_node_add_node(mountpoint_node, node);
+    error = _oss_attach_rootnode_locked(node);
+  else
+    /* Add the generated node into the oss tree */
+    error = oss_node_add_node(mountpoint_node, node);
 
   if (error)
     goto unmount_and_error;
@@ -687,10 +715,11 @@ int oss_detach_fs(const char* path, struct oss_node** out)
 
   parent = node->parent;
 
-  ASSERT_MSG(parent, "TODO: oss_detach_fs -> parent==null thingy");
-
-  /* Remove the node from it's parent */
-  error = oss_node_remove_entry(parent, node->name, NULL);
+  if (!parent)
+    error = _oss_detach_rootnode_locked(node);
+  else
+    /* Remove the node from it's parent */
+    error = oss_node_remove_entry(parent, node->name, NULL);
 
   if (error)
     goto exit_and_unlock;
@@ -749,11 +778,5 @@ void init_oss()
   _rootnode_map = create_hashmap(128, NULL);
 
   init_oss_nodes();
-
-  /* Create the local root */
-  _local_root = create_oss_node(_local_root_name, OSS_OBJ_STORE_NODE, NULL, NULL);
-
-  /* First rootnode in our map */
-  hashmap_put(_rootnode_map, (hashmap_key_t)_local_root_name, _local_root);
 }
 

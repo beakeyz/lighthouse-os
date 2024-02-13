@@ -6,6 +6,7 @@
 #include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
+#include "drivers/util/kterm/fs.h"
 #include "drivers/util/kterm/util.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
@@ -171,6 +172,7 @@ logger_t kterm_logger = {
   .flags = LOGGER_FLAG_WARNINGS,
   .f_logln = kterm_println,
   .f_log = kterm_print,
+  .f_logc = kterm_putc,
 };
 
 int kterm_on_key(kevent_ctx_t* event);
@@ -429,6 +431,11 @@ struct kterm_cmd kterm_commands[] = {
     kterm_cmd_drvld,
   },
   {
+    "devinfo",
+    "Print info about a particular device",
+    kterm_cmd_devinfo, 
+  },
+  {
     "diskinfo",
     "Print info about a disk device",
     kterm_cmd_diskinfo,
@@ -483,7 +490,7 @@ struct kterm_cmd kterm_commands[] = {
     /* Unixes pwd lmao */
     "cwd",
     "Print the current working directory",
-    nullptr,
+    kterm_fs_print_working_dir,
   },
   {
     "palletinfo",
@@ -692,7 +699,7 @@ int kterm_set_login(struct proc_profile* profile)
   if (profile) {
     /* FIXME: make sure the cwd never exceeds this size */
     _c_login.cwd = kmalloc(2048);
-    concat(":/Root/User/", (char*)profile->name, _c_login.cwd);
+    concat("Root/User/", (char*)profile->name, _c_login.cwd);
 
     //cwd_obj = vfs_resolve(_c_login.cwd);
 
@@ -890,6 +897,8 @@ int kterm_init()
   ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
 
   memset(&_c_login, 0, sizeof(_c_login));
+
+  kterm_init_fs(&_c_login);
 
   kterm_reset_prompt_vars();
 
@@ -1566,6 +1575,13 @@ int kterm_println(const char* msg)
   kterm_cursor_shift_y();
   kterm_handle_newline_tag();
   return 0;
+}
+
+int kterm_putc(char msg)
+{
+  char b[2] = { msg, 0 };
+
+  return kterm_print(b);
 }
 
 /*!

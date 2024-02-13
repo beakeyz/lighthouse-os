@@ -1,5 +1,6 @@
 #include "util.h"
 #include "dev/core.h"
+#include "dev/device.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
@@ -329,7 +330,7 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
   }
 
   kterm_print_keyvalue("Disk name", device->m_device_name);
-  kterm_print_keyvalue("Disk path", device->m_path);
+  kterm_print_keyvalue("Disk path", device->m_dev->name);
   kterm_print_keyvalue("Disk logical sector size", to_string(device->m_logical_sector_size));
   kterm_print_keyvalue("Disk physical sector size", to_string(device->m_physical_sector_size));
   kterm_print_keyvalue("Disk size", to_string(device->m_max_blk * device->m_logical_sector_size));
@@ -364,5 +365,30 @@ uint32_t kterm_cmd_procinfo(const char** argv, size_t argc)
   println("YAY");
   kterm_print_keyvalue("Active procs", to_string(get_proc_count()));
   foreach_proc(procinfo_callback);
+  return 0;
+}
+
+uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
+{
+  const char* dev_path;
+  device_t* dev;
+
+  if (argc != 2)
+    return 1;
+
+  dev_path = argv[1];
+
+  if (!dev_path || !dev_path[0])
+    return 2;
+
+  dev = open_device(dev_path);
+
+  if (!dev)
+    return 3;
+
+  kwarnf("Found device: %s\n", dev->name);
+  kwarnf(" \\ Implements %d endpoint%s", dev->endpoint_count, (dev->endpoint_count == 1) ? "\n" : "s\n");
+
+  kterm_println("");
   return 0;
 }

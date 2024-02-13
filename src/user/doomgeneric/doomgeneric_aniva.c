@@ -143,7 +143,7 @@ char* argv[] = {
   "doom",
   "-testcontrols",
   "-iwad",
-  ":/Root/Apps/doom1.wad",
+  "Root/Apps/doom1.wad",
 };
 const int argc = 4;
 

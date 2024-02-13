@@ -30,7 +30,7 @@ int main() {
    * or do we just have one root like linux/unix?
    */
   char buffer[128];
-  HANDLE h = open_handle(":/Root/Apps/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
+  HANDLE h = open_handle("Root/Apps/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   if (!handle_verify(h)) 
     return -1;

@@ -22,4 +22,6 @@ typedef ACPI_TABLE_MADT acpi_tbl_madt_t;
 typedef ACPI_TABLE_MCFG acpi_tbl_mcfg_t;
 typedef ACPI_MCFG_ALLOCATION acpi_mcfg_entry_t;
 
+typedef ACPI_HANDLE acpi_handle_t;
+
 #endif // !__ANIVA_ACPI_TABLES__

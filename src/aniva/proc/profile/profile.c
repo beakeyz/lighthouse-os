@@ -19,7 +19,7 @@
  * access to this behind some service
  */
 #define PROFILE_PASSWORD_KEY "PASSWORD"
-#define DEFAULT_GLOBAL_PVR_PATH ":/Root/Global/global.pvr"
+#define DEFAULT_GLOBAL_PVR_PATH "Root/Global/global.pvr"
 
 static proc_profile_t base_profile;
 static proc_profile_t global_profile;
@@ -653,6 +653,8 @@ static void __apply_global_variables()
   profile_add_var(&global_profile, create_profile_var("DFLT_LWND_PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd")));
   /* Default eventname for the keyboard event */
   profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
+  /* Path variable to indicate default locations for executables */
+  profile_add_var(&global_profile, create_profile_var("PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/Global/Apps")));
 }
 
 /*!

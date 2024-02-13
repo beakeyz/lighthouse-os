@@ -760,11 +760,11 @@ int ramdisk_write(device_t* device, void* buffer, disk_offset_t offset, size_t s
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* private, device_ep_t* eps, uint32_t ep_count)
+disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* private, device_ep_t* eps, uint32_t ep_count)
 {
   disk_dev_t* ret;
 
-  if (!path)
+  if (!name)
     return nullptr;
 
   ret = kmalloc(sizeof(*ret));
@@ -774,9 +774,8 @@ disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* path, void* p
 
   memset(ret, 0, sizeof(*ret));
 
-  ret->m_path = path;
   ret->m_parent = private;
-  ret->m_dev = create_device_ex(parent, path, ret, NULL, eps, ep_count);
+  ret->m_dev = create_device_ex(parent, name, ret, NULL, eps, ep_count);
 
   if (!ret || !dev_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
     goto dealloc_and_exit;
@@ -820,6 +819,9 @@ void destroy_generic_disk(disk_dev_t* device)
 
     destroy_partitioned_disk_dev(current);
   }
+
+  /* Drop our device ref */
+  close_device(device->m_dev);
 
   kfree(device);
 }
@@ -907,7 +909,7 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
   for (uint32_t i = 0; i < filesystems_count; i++) {
     const char* fs = filesystems[i];
 
-    error = oss_attach_fs(":", FS_DEFAULT_ROOT_MP, fs, device);
+    error = oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, fs, device);
 
     /* Successful mount? try and verify the mount */
     if (error)
@@ -924,7 +926,7 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
 
     //vfs_unmount(VFS_ROOT_ID"/"VFS_DEFAULT_ROOT_MP);
     /* Detach the node first */
-    oss_detach_fs(":/"FS_DEFAULT_ROOT_MP, &c_node);
+    oss_detach_fs(FS_DEFAULT_ROOT_MP, &c_node);
 
     /* Then destroy it */
     destroy_oss_node(c_node);
@@ -986,7 +988,7 @@ cycle_next:
   if (found_root_device)
     return;
 
-  if (!root_ramdisk || oss_attach_fs(":", FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk)) {
+  if (!root_ramdisk || oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk)) {
     kernel_panic("Could not find a root device to mount! TODO: fix");
   }
 }
@@ -997,7 +999,7 @@ bool gdisk_is_valid(disk_dev_t* device)
   return (
       device &&
       device->m_devs &&
-      device->m_path &&
+      device->m_dev->name &&
       device->m_max_blk
       );
 }

@@ -261,9 +261,9 @@ void destroy_ahci_port(ahci_port_t* port) {
   __kmem_kernel_dealloc(port->m_cmd_table_buffer, SMALL_PAGE_SIZE);
 
   destroy_spinlock(port->m_hard_lock);
-  kfree(port->m_generic->m_path);
 
   destroy_generic_disk(port->m_generic);
+
   kfree(port);
 }
 
