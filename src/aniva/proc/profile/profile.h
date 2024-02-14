@@ -34,6 +34,9 @@ struct proc;
 /* Processes in this profile may unload drivers */
 #define PRF_PERM_UNLOAD_DRV (1 << 1)
 
+/* This profile has a password in the hash */
+#define PROFILE_FLAG_HAS_PASSWD 0x00000001
+
 #define PROFILE_STR(str) (uint64_t)(str)
 
 /*
@@ -71,6 +74,13 @@ typedef struct proc_profile {
   /* Normal profile flags */
   uint32_t flags;
   uint32_t proc_count;
+
+  /* 
+   * Hash for the profiles password 
+   * The current algorithm is crc32, but we need something more
+   * secure lmaoooo
+   */
+  uint64_t passwd_hash[2];
 
   mutex_t* lock;
   hashmap_t* var_map;
@@ -128,7 +138,6 @@ int profile_set_password(proc_profile_t* profile, const char* password);
 int profile_clear_password(proc_profile_t* profile);
 int profile_match_password(proc_profile_t* profile, const char* match);
 bool profile_has_password(proc_profile_t* profile);
-bool profile_has_valid_password_var(proc_profile_t* profile);
 
 /*
  * Functions to bind processes to the default profiles

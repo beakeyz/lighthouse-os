@@ -9,7 +9,7 @@
  * @brief: Log into a profile
  *
  * This will make kterm act from the perspective of this profile
- * (It's current working directory wil become Root/Users/<profile name> for example)
+ * (It's current working directory wil become Root/User/<profile name> for example)
  */
 int kterm_do_login(proc_profile_t* profile)
 {
@@ -88,7 +88,7 @@ int kterm_handle_login()
       break;
 
     /* Funky delay */
-    mdelay(2000);
+    mdelay(200);
 
     kterm_print("That was not quite correct. ");
     kterm_print(to_string(passwd_retries-1));

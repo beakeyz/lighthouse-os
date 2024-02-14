@@ -1,4 +1,5 @@
 #include "profile.h"
+#include "crypto/k_crc32.h"
 #include "fs/file.h"
 #include "lightos/proc/var_types.h"
 #include "entry/entry.h"
@@ -12,13 +13,6 @@
 #include <kevent/event.h>
 
 #define SOFTMAX_ACTIVE_PROFILES 4096
-
-/* 
- * The variable key that holds the password 
- * FIXME: currently any driver has unlimited access to this variable. We should lock
- * access to this behind some service
- */
-#define PROFILE_PASSWORD_KEY "PASSWORD"
 #define DEFAULT_GLOBAL_PVR_PATH "Root/Global/global.pvr"
 
 static proc_profile_t base_profile;
@@ -374,6 +368,20 @@ int profile_unregister(const char* name)
   return 0;
 }
 
+static int _generate_passwd_hash(const char* passwd, uint64_t* buffer)
+{
+  uint32_t crc;
+
+  if (!passwd || !buffer)
+    return -1;
+
+  crc = kcrc32((uint8_t*)passwd, strlen(passwd));
+
+  /* Set the thing lmao */
+  buffer[0] = crc;
+  return 0;
+}
+
 /*!
  * @brief: Try to set a password variable in a profile
  *
@@ -386,58 +394,14 @@ int profile_unregister(const char* name)
 int profile_set_password(proc_profile_t* profile, const char* password)
 {
   int error;
-  char* password_cpy;
-  profile_var_t* password_var;
 
-  if (!profile)
-    return -1;
+  error = _generate_passwd_hash(password, profile->passwd_hash);
 
-  mutex_lock(profile->lock);
-  
-  error = NULL;
-  password_var = nullptr;
-  password_cpy = strdup(password);
+  if (error)
+    return error;
 
-  /* Do we already have a password variable on this boi? */
-  if (profile_has_password(profile)) {
-    error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &password_var);
-
-    /* Invalid variable on this one */
-    if (error || !password_var || password_var->type != PROFILE_VAR_TYPE_STRING)
-      goto fail_and_exit;
-
-    /* Free the value that was previously on this variable */
-    if (password_var->value)
-      kfree((void*)password_var->value);
-
-    /* Make sure this variable is hidden */
-    password_var->flags |= PVAR_FLAG_HIDDEN;
-    password_var->value = password_cpy;
-
-    goto unlock_and_exit;
-  }
-
-  /* Create a new variable, since this profile didn't have one yet */
-  password_var = create_profile_var(PROFILE_PASSWORD_KEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_HIDDEN, (uint64_t)password_cpy);
-
-  if (!password_var) {
-    error = -1;
-    goto fail_and_exit;
-  }
-
-  error = profile_add_var(profile, password_var);
-
-  /* If we succeeded with adding this profile variable, skip the fail label and unlock the mutex */
-  if (!error)
-    goto unlock_and_exit;
-
-fail_and_exit:
-  if (password_cpy)
-    kfree((void*)password_cpy);
-
-unlock_and_exit:
-  mutex_unlock(profile->lock);
-  return error;
+  profile->flags |= PROFILE_FLAG_HAS_PASSWD;
+  return  0;
 }
 
 /*!
@@ -447,112 +411,25 @@ unlock_and_exit:
  */
 int profile_clear_password(proc_profile_t* profile)
 {
-  if (!profile_has_password(profile))
-    return -1;
-
-  return profile_remove_var(profile, PROFILE_PASSWORD_KEY);
-}
-
-/*!
- * @brief: Computes the length of the current password of a profile
- *
- * Fails if the profile does not contain a valid profile variable
- */
-static int profile_get_password_len(proc_profile_t* profile, size_t* size)
-{
-  int error;
-  profile_var_t* var;
-
-  if (!size)
-    return -1;
-  
-  *size = 0;
-
-  if (!profile_has_valid_password_var(profile))
-    return -1;
-
-  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &var);
-
-  if (error || !var)
-    return -2;
-
-  *size = strlen((char*)var->value) + 1;
-
+  memset(profile->passwd_hash, 0, sizeof(profile->passwd_hash));
+  profile->flags &= ~PROFILE_FLAG_HAS_PASSWD;
   return 0;
-}
-
-/*!
- * @brief: Copies the profiles password into @buffer
- * 
- * NOTE: The caller is responsible to make sure that the buffer is the correct size
- * 
- * NOTE: The 'password' that's stored here should probably be hashed in some way
- *
- * @returns: A negative integer on failure, The difference in length between the password and
- * the buffer on success (positive or zero)
- */
-static int profile_get_password(proc_profile_t* profile, uint8_t* buffer, size_t size)
-{
-  int error;
-  size_t password_len;
-  profile_var_t* var;
-
-  if (!buffer || !size)
-    return -1;
-
-  if (!profile_has_valid_password_var(profile))
-    return -1;
-
-  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &var);
-
-  if (error || !var)
-    return -2;
-
-  password_len = strlen(var->value);
-
-  /* Copy the password */
-  memcpy(buffer, var->value, size);
-
-  if (size > password_len)
-    return (size - password_len);
-
-  return (password_len - size);
 }
 
 int profile_match_password(proc_profile_t* profile, const char* match)
 {
   int error;
-  size_t pwd_len;
-  uint8_t* pwd_buffer;
+  uint64_t match_hash;
 
-  error = profile_get_password_len(profile, &pwd_len);
-
-  if (error)
-    return error;
-
-  pwd_buffer = kmalloc(pwd_len+1);
-
-  if (!pwd_buffer)
-    return -1;
-
-  memset(pwd_buffer, 0, pwd_len+1);
-
-  error = profile_get_password(profile, pwd_buffer, pwd_len);
+  error = _generate_passwd_hash(match, &match_hash);
 
   if (error)
     return error;
 
-  /*
-   * There is security involved here. Before we implement this, we should first read up on how
-   * to tackle security in an OS
-   */
-  kernel_panic("TODO: profile_match_password");
+  if (profile->passwd_hash[0] == match_hash)
+    return 0;
 
-  error = strcmp(match, (char*)pwd_buffer);
-
-  kfree(pwd_buffer);
-
-  return error;
+  return -1;
 }
 
 /*!
@@ -563,41 +440,7 @@ int profile_match_password(proc_profile_t* profile, const char* match)
  */
 bool profile_has_password(proc_profile_t* profile)
 {
-  int error;
-  profile_var_t* pswrd_var;
-
-  if (!profile)
-    return false;
-
-  pswrd_var = nullptr;
-  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &pswrd_var);
-
-  if (error || !pswrd_var)
-    return false;
-
-  return true;
-}
-
-/*!
- * @brief: Checks if @profile has a valid password variable
- *
- * A password variable is valid if its hidden and of the string type
- */
-bool profile_has_valid_password_var(proc_profile_t* profile)
-{
-  int error;
-  profile_var_t* var;
-
-  if (!profile_has_password(profile))
-    return false;
-
-  error = profile_get_var(profile, PROFILE_PASSWORD_KEY, &var);
-
-  /* This should not fail if profile has a password lmao */
-  if (error)
-    return false;
-
-  return (var->value && var->type == PROFILE_VAR_TYPE_STRING && (var->flags & PVAR_FLAG_HIDDEN) == PVAR_FLAG_HIDDEN);
+  return (profile->flags & PROFILE_FLAG_HAS_PASSWD) == PROFILE_FLAG_HAS_PASSWD;
 }
 
 /*!
@@ -654,7 +497,7 @@ static void __apply_global_variables()
   /* Default eventname for the keyboard event */
   profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
   /* Path variable to indicate default locations for executables */
-  profile_add_var(&global_profile, create_profile_var("PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/Global/Apps")));
+  profile_add_var(&global_profile, create_profile_var("PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/User/Global/Apps")));
 }
 
 /*!
@@ -738,4 +581,7 @@ void init_profiles_late(void)
 
   /* Create an eventhook on shutdown */
   kevent_add_hook("shutdown", "save default profiles", save_default_profiles);
+
+  /* TMP: TODO remove */
+  profile_set_password(&base_profile, "admin");
 }
