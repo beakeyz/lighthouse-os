@@ -467,7 +467,7 @@ uint64_t get_active_profile_count()
 static void __apply_base_variables()
 {
   /* TODO: should we store the (encrypted) password of the base profile here? */
-  //profile_add_var(&base_profile, create_profile_var("PASSWRD", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_HIDDEN, NULL));
+  profile_add_var(&base_profile, create_profile_var("KTERM_LOC", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv")));
 }
 
 /*!

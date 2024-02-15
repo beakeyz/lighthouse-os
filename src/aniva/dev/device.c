@@ -3,10 +3,12 @@
 #include "dev/driver.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
+#include "dev/io/hid/hid.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -174,24 +176,28 @@ int close_device(device_t* dev)
 }
 
 /*!
- * @brief: Initialize the device subsystem
+ * @brief: Get the group of a certain device
  *
- * The main job of the device subsystem is to allow for quick and easy device storage and access.
- * This is done through the oss, on the path 'Dev'.
+ * @dev: The device we want to know the group of
+ * @group_out: The output buffer for the group we find
  *
- * The first devices to be attached here are bus devices, firmware controllers, chipset/motherboard devices 
- * (PIC, PIT, CMOS, RTC, APIC, ect.)
+ * @returns: 0 on success, errorcode otherwise
  */
-void init_devices()
+int device_get_group(device_t* dev, struct dgroup** group_out)
 {
-  /* Initialize an OSS endpoint for device access and storage */
-  _device_node = create_oss_node("Dev", OSS_OBJ_STORE_NODE, NULL, NULL);
+  oss_node_t* dev_parent_node;
 
-  ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
+  if (!dev || !group_out)
+    return -1;
 
-  init_dgroups();
+  dev_parent_node = dev->obj->parent;
 
-  /* Enumerate devices */
+  if (dev_parent_node->type != OSS_GROUP_NODE)
+    return -2;
+
+  /* This node is of type group node, so we may assume it's private field is a devicegroup */
+  *group_out = dev_parent_node->priv;
+  return 0;
 }
 
 /*
@@ -209,10 +215,38 @@ void init_devices()
  *
  * Should only be implemented on device types where it makes sense. Read opperations should
  * be documented in such a way that there is no ambiguity
+ *
+ * Currently there are these endpoints that implement read opperations:
+ *  - ENDPOINT_TYPE_DISK
+ *
+ * If a device has more than 1 of these endpoints, we panic the entire kernel (cuz why not)
  */
-int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset)
+int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
-  kernel_panic("TODO: device_read");
+  device_ep_t* ep;
+  enum ENDPOINT_TYPE supported_types[] = {
+    ENDPOINT_TYPE_DISK,
+    ENDPOINT_TYPE_HID
+  };
+
+  /* Loop over all the endpoint types that have read ops */
+  for (uintptr_t i = 0; i < arrlen(supported_types); i++) {
+    ep = dev_get_endpoint(dev, supported_types[i]);
+
+    if (!ep)
+      continue;
+
+    switch (supported_types[i]) {
+      case ENDPOINT_TYPE_DISK:
+        return ep->impl.disk->f_read(dev, buffer, offset, size);
+      case ENDPOINT_TYPE_HID:
+        return ep->impl.hid->f_read(dev, buffer, offset, size);
+      default:
+        break;
+    }
+  }
+
+  return -1;
 }
 
 /*!
@@ -221,9 +255,44 @@ int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset)
  * Should only be implemented on device types where it makes sense. Write opperations should
  * be documented in such a way that there is no ambiguity
  */
-int device_write(device_t* dev, void* buffer, size_t size, uintptr_t offset)
+int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
-  kernel_panic("TODO: device_write");
+  device_ep_t* ep;
+  enum ENDPOINT_TYPE supported_types[] = {
+    ENDPOINT_TYPE_DISK,
+    ENDPOINT_TYPE_HID
+  };
+
+  /* Loop over all the endpoint types that have write ops */
+  for (uintptr_t i = 0; i < arrlen(supported_types); i++) {
+    ep = dev_get_endpoint(dev, supported_types[i]);
+
+    if (!ep)
+      continue;
+
+    switch (supported_types[i]) {
+      case ENDPOINT_TYPE_DISK:
+        return ep->impl.disk->f_write(dev, buffer, offset, size);
+      case ENDPOINT_TYPE_HID:
+        return ep->impl.hid->f_write(dev, buffer, offset, size);
+      default:
+        break;
+    }
+  }
+
+  return -1;
+}
+
+int device_power_on(device_t* dev)
+{
+  device_ep_t* pwm_ep;
+
+  pwm_ep = dev_get_endpoint(dev, ENDPOINT_TYPE_PWM);
+
+  if (!pwm_ep)
+    return -1;
+
+  return pwm_ep->impl.pwm->f_power_on(dev);
 }
 
 /*!
@@ -233,9 +302,16 @@ int device_write(device_t* dev, void* buffer, size_t size, uintptr_t offset)
  * when we want to remove a device from our register, called from hardware when a device
  * is hotplugged for example
  */
-int device_remove(device_t* dev)
+int device_on_remove(device_t* dev)
 {
-  kernel_panic("TODO: device_remove");
+  device_ep_t* pwm_ep;
+
+  pwm_ep = dev_get_endpoint(dev, ENDPOINT_TYPE_PWM);
+
+  if (!pwm_ep)
+    return -1;
+
+  return pwm_ep->impl.pwm->f_remove(dev);
 }
 
 /*!
@@ -293,4 +369,26 @@ void devices_debug()
   oss_node_itterate(_device_node, _itter);
 
   kernel_panic("devices_debug");
+}
+
+
+/*!
+ * @brief: Initialize the device subsystem
+ *
+ * The main job of the device subsystem is to allow for quick and easy device storage and access.
+ * This is done through the oss, on the path 'Dev'.
+ *
+ * The first devices to be attached here are bus devices, firmware controllers, chipset/motherboard devices 
+ * (PIC, PIT, CMOS, RTC, APIC, ect.)
+ */
+void init_devices()
+{
+  /* Initialize an OSS endpoint for device access and storage */
+  _device_node = create_oss_node("Dev", OSS_OBJ_STORE_NODE, NULL, NULL);
+
+  ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
+
+  init_dgroups();
+
+  /* Enumerate devices */
 }

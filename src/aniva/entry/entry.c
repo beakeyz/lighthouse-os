@@ -240,6 +240,10 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
  * This function is not supposed to be called explicitly, but rather it serves as the 
  * 'third stage' of our kernel, with stage one being our assembly setup and stage two 
  * being the start of our C code.
+ *
+ * FIXME: We need to rationalize why we jump from the kernel boot context into this thread context. We do it to support
+ * kernel subsystems that require async stuff (like USB drivers or some crap). Right now the order in which stuff happens 
+ * in this file seems kind of arbitrary, so we need to revisit this =/
  */
 void kthread_entry() {
 
@@ -249,7 +253,11 @@ void kthread_entry() {
   /* Initialize global disk device registers */
   init_gdisk_dev();
 
-  /* Install and load initial drivers */
+  /*
+   * Install and load initial drivers 
+   * TODO: seperate the driver stuff to support driver loading and device creation for
+   * arch specific devices like APIC, PIT, RTC, etc.
+   */
   init_aniva_driver_registry();
 
   /* Scan for pci devices and initialize any matching drivers */
@@ -263,11 +271,6 @@ void kthread_entry() {
 
   /* Do late initialization of the default profiles */
   init_profiles_late();
-
-  /* TODO:  
-   *  - verify the root device
-   *  - launch the userspace bootstrap
-   */
 
   //devices_debug();
 

@@ -24,7 +24,8 @@ enum ENDPOINT_TYPE {
   ENDPOINT_TYPE_GENERIC,
   ENDPOINT_TYPE_DISK,
   ENDPOINT_TYPE_VIDEO,
-  ENDOPINT_TYPE_PWM,
+  ENDPOINT_TYPE_HID,
+  ENDPOINT_TYPE_PWM,
 };
 
 struct device;
@@ -32,6 +33,8 @@ struct device_generic_endpoint;
 struct device_disk_endpoint;
 /* Defined in video/device.h */
 struct device_video_endpoint;
+/* Defined in hid/hid.h */
+struct device_hid_endpoint;
 struct device_pwm_endpoint;
 
 /*
@@ -48,6 +51,7 @@ typedef struct device_endpoint {
     struct device_generic_endpoint* generic;
     struct device_disk_endpoint* disk;
     struct device_video_endpoint* video;
+    struct device_hid_endpoint* hid;
     struct device_pwm_endpoint* pwm;
   } impl;
 } device_ep_t;
@@ -61,8 +65,8 @@ struct device_generic_endpoint {
   /* Called once when the driver creates a device as the result of a probe of some sort */
   int (*f_create)(struct device* device);
 
-  uintptr_t (*d_msg)(struct device* device, dcc_t code);
-  uintptr_t (*d_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+  uintptr_t (*f_msg)(struct device* device, dcc_t code);
+  uintptr_t (*f_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 };
 
 struct device_disk_endpoint {
@@ -77,6 +81,7 @@ struct device_disk_endpoint {
 
 struct device_pwm_endpoint {
   /* 'pm' opperations which are purely software, except if we support actual PM */
+  int (*f_power_on)(struct device* device);
   int (*f_remove)(struct device* device);
   int (*f_suspend)(struct device* device);
   int (*f_resume)(struct device* device);

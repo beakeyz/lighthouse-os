@@ -147,22 +147,33 @@ static inline struct device_endpoint* dev_get_endpoint(device_t* device, enum EN
   return nullptr;
 }
 
+/*!
+ * @brief: Check if this device has a bus group linked to it
+ */
+static inline bool dev_is_bus(device_t *dev)
+{
+  return dev->bus_group != nullptr;
+}
+
+
 void init_devices();
 
 device_t* create_device(struct aniva_driver* parent, char* name);
 device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count);
 void destroy_device(device_t* device);
 
-int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset);
-int device_write(device_t* dev, void* buffer, size_t size, uintptr_t offset);
+int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);
+int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size);
 
-int device_remove(device_t* dev);
 int device_power_on(device_t* dev);
+int device_on_remove(device_t* dev);
 int device_suspend(device_t* dev);
 int device_resume(device_t* dev);
 
 uintptr_t device_message(device_t* dev, dcc_t code);
 uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+
+int device_get_group(device_t* dev, struct dgroup** group);
 
 void devices_debug();
 

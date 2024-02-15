@@ -1,6 +1,9 @@
 #ifndef __ANIVA_PRISM_SYNTAX__
 #define __ANIVA_PRISM_SYNTAX__
 
+enum PRISM_KEYWORDS {
+  PRISM_KEYWORD_IF,
+};
 
 
 #endif // !__ANIVA_PRISM_SYNTAX__

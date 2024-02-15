@@ -2,8 +2,13 @@
 #define __ANIVA_HID_CORE__
 
 #include <libk/stddef.h>
-#include <dev/device.h>
 
+/*
+ * The Aniva HID subsystem
+ */
+
+struct device;
+struct hid_event;
 struct hid_device;
 
 enum HID_EVENT_TYPE {
@@ -20,6 +25,20 @@ enum HID_EVENT_TYPE {
 #define HID_MOUSE_FLAG_LBTN_PRESSED 0x0001
 #define HID_MOUSE_FLAG_RBTN_PRESSED 0x0002
 #define HID_MOUSE_FLAG_MBTN_PRESSED 0x0004
+
+/*
+ * Opperations that most if not all HID devices
+ * will be able to implement
+ */
+struct device_hid_endpoint {
+  /* Check if there is a HID event from this device */
+  int (*f_poll)(struct device* dev, struct hid_event* event);
+
+  /* Raw r/w routines */
+  int (*f_read)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
+  int (*f_write)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
+};
+
 
 /*
  * Event that a HID device can generate
@@ -57,7 +76,7 @@ typedef struct hid_device {
   /* TODO: how will HID devices look? */
 
   /* Generic device */
-  device_t* dev;
+  struct device* dev;
   enum HID_BUS_TYPE btype;
 
   /*
@@ -66,16 +85,6 @@ typedef struct hid_device {
    */
   hid_event_t* device_events;
 } hid_device_t;
-
-#define HID_DCC_REGISTER_KB_LISTENER 20
-#define HID_DCC_UNREGISTER_KB_LISTENER 21
-#define HID_DCC_REGISTER_MOUSE_LISTENER 22
-#define HID_DCC_UNREGISTER_MOUSE_LISTENER 23
-
-/* Multiplier for mouse change */
-#define HID_DCC_SET_MOUSE_SENS 24
-/* How rapid are key repeats, when a key is kept pressed? */
-#define HID_DCC_SET_KEY_SENS 24
 
 void init_hid();
 
