@@ -67,6 +67,21 @@ static void __unregister_ahci_device(ahci_device_t* device)
   }
 }
 
+static inline dgroup_t* _get_bus_group(ahci_device_t* device)
+{
+  return device->m_identifier->dev->bus_group;
+}
+
+/*!
+ * @brief: Register a new AHCI port entry
+ */
+static inline void _register_ahci_port(ahci_device_t* dev, disk_dev_t* port)
+{
+  register_gdisk_dev(port);
+
+  dev_group_add_device(_get_bus_group(dev), port->m_dev);
+}
+
 uint32_t ahci_mmio_read32(uintptr_t base, uintptr_t offset) {
   return *(volatile uint32_t*)(base + offset);
 }
@@ -90,12 +105,6 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device) {
 
   return (void*)hba_region;
 }
-
-static inline dgroup_t* _get_bus_group(ahci_device_t* device)
-{
-  return device->m_identifier->dev->bus_group;
-}
-
 
 /*!
  * @brief Reset the HBA hardware and scan for ports
@@ -128,7 +137,7 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
         case 0xeb140101:
           println("ATAPI (CD, DVD)");
           break;
-        case 0x00000101:
+        case AHCI_PxSIG_ATA:
           println("AHCI: hard drive");
           valid = true;
           break;
@@ -156,11 +165,7 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
        * FIXME: Simplefy these 3 statements below
        */
 
-      /* Register the global disk device */
-      register_gdisk_dev(port->m_generic);
-
-      /* Add the device to our bus */
-      dev_group_add_device(_get_bus_group(device), port->m_generic->m_dev);
+      _register_ahci_port(device, port->m_generic);
 
       list_append(device->m_ports, port);
 

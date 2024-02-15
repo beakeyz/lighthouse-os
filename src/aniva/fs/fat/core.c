@@ -459,6 +459,8 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
   fat_boot_fsinfo_t* internal_fs_info;
   oss_node_t* node;
 
+  printf("Trying to mount FAT32\n");
+
   int read_result = pd_bread(device, buffer, 0);
 
   if (read_result < 0)

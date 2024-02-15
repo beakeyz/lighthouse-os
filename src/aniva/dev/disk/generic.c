@@ -22,6 +22,7 @@
 #include <dev/manifest.h>
 
 #define MAX_EFFECTIVE_SECTORCOUNT 512
+#define DISK_DEVICE_NAME_PREFIX "drive"
 
 //static char* s_root_dev_name;
 //static char s_root_dev_name_buffer[64];
@@ -36,6 +37,7 @@ struct gdisk_store_entry {
 
 static struct gdisk_store_entry* s_gdisks;
 static struct gdisk_store_entry* s_last_gdisk;
+static size_t _c_drive_idx;
 
 int disk_core_init();
 int disk_core_exit();
@@ -461,6 +463,11 @@ int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t siz
   return 0;
 }
 
+/*
+ * A bunch of block ops
+ * We need to make these functions less fucking weird lmao
+ */
+
 int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block) 
 {
   device_ep_t* ep;
@@ -473,12 +480,11 @@ int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size
   abs_block = dev->m_start_lba + block;
   ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
-  if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
+  if (abs_block < dev->m_start_lba || abs_block > dev->m_end_lba)
+    return result;
 
-    if (ep->impl.disk->f_bread)
-      result = ep->impl.disk->f_bread(dev->m_parent->m_dev, buffer, abs_block, count);
-
-  }
+  if (ep->impl.disk->f_bread)
+    result = ep->impl.disk->f_bread(dev->m_parent->m_dev, buffer, abs_block, count);
 
   return result;
 }
@@ -495,30 +501,23 @@ int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, siz
   abs_block = dev->m_start_lba + block;
   ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
-  if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
+  if (abs_block < dev->m_start_lba || abs_block > dev->m_end_lba)
+    return result;
 
-    if (ep->impl.disk->f_bwrite)
-      result = ep->impl.disk->f_bwrite(dev->m_parent->m_dev, buffer, abs_block, count);
-
-  }
+  if (ep->impl.disk->f_bwrite)
+    result = ep->impl.disk->f_bwrite(dev->m_parent->m_dev, buffer, abs_block, count);
 
   return result;
 }
 
 int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
 {
-  if ((dev->m_flags & PD_FLAG_ONLY_SYNC) == PD_FLAG_ONLY_SYNC)
-    return read_sync_partitioned_blocks(dev, buffer, 1, blockn);
-
-  kernel_panic("TODO: implement async disk IO");
+  return read_sync_partitioned_blocks(dev, buffer, 1, blockn);
 }
 
 int pd_bwrite(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn) 
 {
-  if ((dev->m_flags & PD_FLAG_ONLY_SYNC) == PD_FLAG_ONLY_SYNC)
-    return write_sync_partitioned_blocks(dev, buffer, 1, blockn);
-
-  kernel_panic("TODO: implement async disk IO");
+  return write_sync_partitioned_blocks(dev, buffer, 1, blockn);
 }
 
 int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize)
@@ -568,7 +567,8 @@ disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size)
   if (!size)
     return nullptr;
 
-  dev = create_generic_disk(NULL, "ramdev", NULL, _rd_eps, arrlen(_rd_eps));
+  /* NOTE: ideally, we want this to be the first 'drive' we create, so we claim the first entry */
+  dev = create_generic_disk(NULL, "ramdisk", NULL, _rd_eps, arrlen(_rd_eps));
 
   if (!dev)
     return nullptr;
@@ -755,6 +755,26 @@ int ramdisk_write(device_t* device, void* buffer, disk_offset_t offset, size_t s
   kernel_panic("TODO: implement ramdisk_write");
 }
 
+static inline char* _construct_dev_name()
+{
+  char* ret;
+  size_t len;
+  char* prefix = DISK_DEVICE_NAME_PREFIX;
+  char* suffix = (char*)to_string(_c_drive_idx++);
+
+  len = strlen(prefix) + strlen(suffix) + 1;
+
+  ret = kmalloc(len);
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, len);
+  concat(prefix, suffix, ret);
+
+  return ret;
+}
+
 /*!
  * @brief: Creates a generic disk device
  *
@@ -762,30 +782,41 @@ int ramdisk_write(device_t* device, void* buffer, disk_offset_t offset, size_t s
  */
 disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* private, device_ep_t* eps, uint32_t ep_count)
 {
-  disk_dev_t* ret;
+  disk_dev_t* ret = nullptr;
+  char* dev_name = nullptr;
 
-  if (!name)
+  /* Duplicate name so we can simply free dev_name when we're done */
+  if (name)
+    dev_name = strdup(name);
+  else
+    dev_name = _construct_dev_name();
+
+  if (!dev_name)
     return nullptr;
 
   ret = kmalloc(sizeof(*ret));
 
   if (!ret)
-    return nullptr;
+    goto dealloc_and_exit;
 
   memset(ret, 0, sizeof(*ret));
 
   ret->m_parent = private;
-  ret->m_dev = create_device_ex(parent, name, ret, NULL, eps, ep_count);
+  ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, eps, ep_count);
 
   if (!ret || !dev_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
     goto dealloc_and_exit;
 
   ret->m_ops = dev_get_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK)->impl.disk;
   
+  kfree((void*)dev_name);
   return ret;
 
 dealloc_and_exit:
-  kfree(ret);
+  if (dev_name)
+    kfree((void*)dev_name);
+  if (ret)
+    kfree(ret);
   return nullptr;
 }
 
@@ -855,6 +886,7 @@ void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count)
  */
 void init_gdisk_dev() 
 {
+  _c_drive_idx = 0;
   _gdisk_lock = create_mutex(0);
 }
 
@@ -875,6 +907,8 @@ static bool verify_mount_root()
   /*
    * Try to find kterm in the system directory. If it exists, that means there at least 
    * a somewhat functional system installed on this disk
+   *
+   * FIXME: Put the locations of essential drivers in the profile variables of BASE
    */
   if (oss_resolve_obj_rel(nullptr, FS_DEFAULT_ROOT_MP"/System/kterm.drv", &scan_obj))
     return false;
@@ -945,12 +979,13 @@ void init_root_device_probing()
    * Init probing for the root device
    */
   bool found_root_device;
+  const char* initrd_mp;
   disk_dev_t* root_device;
   disk_uid_t device_index;
 
   partitioned_disk_dev_t* root_ramdisk;
 
-  device_index = 0;
+  device_index = 1;
   found_root_device = false;
   root_ramdisk = nullptr;
   root_device = find_gdisk_device(0);
@@ -981,14 +1016,16 @@ void init_root_device_probing()
     }
 
 cycle_next:
-    device_index++;
-    root_device = find_gdisk_device(device_index);
+    root_device = find_gdisk_device(device_index++);
   }
 
-  if (found_root_device)
-    return;
+  initrd_mp = FS_INITRD_MP;
 
-  if (!root_ramdisk || oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk)) {
+  /* If there was no root device, use the initrd as a rootdevice */
+  if (!found_root_device)
+    initrd_mp = FS_DEFAULT_ROOT_MP;
+
+  if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk)) {
     kernel_panic("Could not find a root device to mount! TODO: fix");
   }
 }

@@ -5,7 +5,8 @@
 #include <libk/flow/error.h>
 #include <dev/disk/generic.h>
 
-#define FS_DEFAULT_ROOT_MP "Root"
+#define FS_DEFAULT_ROOT_MP  "Root"
+#define FS_INITRD_MP        "Initrd"
 
 struct oss_node;
 struct oss_node_ops;

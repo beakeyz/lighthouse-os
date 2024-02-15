@@ -15,8 +15,6 @@
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
 
-#define PORT_DEVICE_PREFIX "drive"
-
 static int ahci_port_read(device_t* port, void* buffer, disk_offset_t offset, size_t size);
 static int ahci_port_write(device_t* port, void* buffer, disk_offset_t offset, size_t size);
 static int ahci_port_flush(device_t* device);
@@ -51,21 +49,6 @@ static void decode_disk_model_number(char* model_number) {
     prev = model_number[i];
   }
 }
-
-static char* create_port_path(ahci_port_t* port) 
-{
-  const char* prefix = PORT_DEVICE_PREFIX;
-  const size_t index_len = strlen(to_string(port->m_port_index));
-  const size_t total_len = strlen(prefix) + index_len + 1;
-  char* ret = kmalloc(total_len);
-
-  memset(ret, 0, total_len);
-  memcpy(ret, prefix, strlen(prefix));
-  memcpy(ret + strlen(prefix), to_string(port->m_port_index), index_len);
-
-  return ret;
-}
-
 
 static ALWAYS_INLINE uint32_t ahci_port_mmio_read32(ahci_port_t* port, uintptr_t offset) {
   volatile uint32_t* data = (volatile uint32_t*)(port->m_port_offset + offset);
@@ -241,7 +224,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
 
-  ret->m_generic = create_generic_disk(device->m_parent, create_port_path(ret), ret, _ahci_eps, arrlen(_ahci_eps));
+  ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, _ahci_eps, arrlen(_ahci_eps));
 
   // prepare buffers
   ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));

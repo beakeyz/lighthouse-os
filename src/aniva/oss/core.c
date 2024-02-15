@@ -11,7 +11,6 @@
 
 static hashmap_t* _rootnode_map = nullptr;
 static mutex_t* _core_lock = nullptr;
-static oss_node_t* _local_root = nullptr;
 
 static struct oss_node* _oss_create_path_abs_locked(const char* path);
 static struct oss_node* _oss_create_path_locked(struct oss_node* node, const char* path);
@@ -130,9 +129,27 @@ free_and_exit:
 static oss_node_t* _get_rootnode(const char* name)
 {
   if (!name)
-    return _local_root;
+    return nullptr;
 
   return hashmap_get(_rootnode_map, (hashmap_key_t)name);
+}
+
+static inline oss_node_t* _get_rootnode_from_path(const char* path, uint32_t* idx)
+{
+  oss_node_t* ret;
+  const char* this_name = _find_path_subentry_at(path, 0);
+
+  if (!this_name)
+    return nullptr;
+
+  ret = _get_rootnode(this_name);
+
+  kfree((void*)this_name);
+
+  if (ret)
+    (*idx)++;
+
+  return ret;
 }
 
 static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, struct oss_obj** out)
@@ -145,14 +162,18 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
   uint32_t c_idx;
   uint32_t obj_gen_path_idx;
 
-  if (!rel)
-    rel = _local_root;
-
   ASSERT_MSG(mutex_is_locked(_core_lock), "Tried to call _oss_resolve_obj_rel_locked without having locked oss");
 
   c_node = rel;
   c_idx = 0;
   obj_gen = nullptr;
+
+  /* No relative node. Fetch the rootnode */
+  if (!c_node) {
+    c_node = _get_rootnode_from_path(path, &c_idx);
+
+    if (!c_node) return -1;
+  }
 
   while ((this_name = _find_path_subentry_at(path, c_idx++))) {
 
@@ -269,11 +290,14 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
   const char* this_name;
   uint32_t c_idx;
 
-  if (!rel)
-    rel = _local_root;
-
   c_node = rel;
   c_idx = 0;
+
+  if (!c_node) {
+    c_node = _get_rootnode_from_path(path, &c_idx);
+
+    if (!c_node) return -1;
+  }
 
   while (*path && (this_name = _find_path_subentry_at(path, c_idx++))) {
     oss_node_find(c_node, this_name, &c_entry);
@@ -360,20 +384,24 @@ int oss_resolve_node(const char* path, oss_node_t** out)
 static struct oss_node* _oss_create_path_locked(struct oss_node* node, const char* path)
 {
   int error;
-  uint32_t idx;
+  uint32_t c_idx;
   oss_node_t* c_node;
   oss_node_t* new_node;
   oss_node_entry_t* c_entry;
   const char* this_name;
 
-  if (!node)
-    node = _local_root;
-
-  idx = 0;
+  c_idx = 0;
   c_node = node;
   new_node = nullptr;
+  
+  if (!c_node) {
+    c_node = _get_rootnode_from_path(path, &c_idx);
 
-  while (*path && (this_name = _find_path_subentry_at(path, idx++))) {
+    if (!c_node) return nullptr;
+  }
+
+
+  while (*path && (this_name = _find_path_subentry_at(path, c_idx++))) {
 
     /* Find this entry */
     error = oss_node_find(c_node, this_name, &c_entry);
@@ -593,9 +621,6 @@ int oss_attach_obj_rel(struct oss_node* rel, const char* path, struct oss_obj* o
   int error;
   oss_node_t* target_node;
   char* path_cpy;
-
-  if (!rel)
-    rel = _local_root;
 
   error = -1;
   /* Copy the path */

@@ -57,16 +57,17 @@ struct aniva_driver;
 struct dev_manifest_t;
 
 /* Device that is managed and backed entirely by software */
-#define DEV_FLAG_SOFTDEV 0x00000001
+#define DEV_FLAG_SOFTDEV    0x00000001
 /* Device that controlls other devices (Think AHCI controller or EHCI, OHCI or XHCI stuff) */
 #define DEV_FLAG_CONTROLLER 0x00000002
 /*
  * Is this device powered on? (When powered on, the device can still be in sleep mode for example. 
  * This needs to also get checked) 
  */
-#define DEV_FLAG_POWERED 0x00000004
+#define DEV_FLAG_POWERED    0x00000004
 /* A bus device can have multiple devices that it manages */
-#define DEV_FLAG_BUS 0x00000008
+#define DEV_FLAG_BUS        0x00000008
+#define DEV_FLAG_ERROR      0x00000010
 /* TODO: more device flags */
 
 /*
@@ -156,13 +157,12 @@ int device_read(device_t* dev, void* buffer, size_t size, uintptr_t offset);
 int device_write(device_t* dev, void* buffer, size_t size, uintptr_t offset);
 
 int device_remove(device_t* dev);
+int device_power_on(device_t* dev);
 int device_suspend(device_t* dev);
 int device_resume(device_t* dev);
 
 uintptr_t device_message(device_t* dev, dcc_t code);
 uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
-
-bool device_is_generic(device_t* device);
 
 void devices_debug();
 

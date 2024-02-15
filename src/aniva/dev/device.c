@@ -27,11 +27,6 @@ static struct device_endpoint _generic_dev_eps[] = {
   { NULL }
 };
 
-bool device_is_generic(device_t* device)
-{
-  return (device->endpoints == _generic_dev_eps);
-}
-
 device_t* create_device(aniva_driver_t* parent, char* name)
 {
   return create_device_ex(parent, name, nullptr, NULL, _generic_dev_eps, 0);
