@@ -15,6 +15,9 @@ typedef struct usb_pipe {
   enum USB_PIPE_TYPE type;
   uint32_t bandwidth;
   uint32_t transfer_type;
+
+  uint32_t dev_addr;
+  uint32_t endpoint_addr;
 } usb_pipe_t;
 
 #endif // !__ANIVA_USB_PIPE__

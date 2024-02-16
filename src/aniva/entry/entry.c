@@ -45,8 +45,8 @@ driver_version_t kernel_version = DEF_DRV_VERSION(0, 1, 0);
 /*
  * NOTE: has to be run after driver initialization
  */
-ErrorOrPtr __init try_fetch_initramdisk() {
-
+ErrorOrPtr __init try_fetch_initramdisk() 
+{
   struct multiboot_tag_module* mod = g_system_info.ramdisk;
 
   if (!mod)
@@ -93,7 +93,10 @@ static void register_kernel_data(paddr_t p_mb_addr)
     g_system_info.sys_flags |= SYSFLAGS_HAS_FRAMEBUFFER;
 }
 
-NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) 
+/*!
+ * @brief: Start the absolute foundation of the kernel
+ */
+static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic)
 {
   /*
    * TODO: move serial to driver level, have early serial that gets migrated to a driver later 
@@ -102,9 +105,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
    * them to a file, display them to the current console provider, or beam them over serial or USB
    * connectors =D
    */
-  disable_interrupts();
-
-  proc_t* root_proc;
 
   // Logging system asap
   init_early_logging();
@@ -112,19 +112,31 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   // First logger
   init_serial();
 
+  /* Our fist hello to serial */
   printf("Hi from within (%s)\n", "Aniva");
-  printf("Multiboot address from the bootloader is at: %s\n", to_string((uintptr_t)mb_addr));
 
   // Verify magic number
   if (mb_magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-    println("big yikes");
-    println(to_string(mb_magic));
-    kernel_panic("Can't verify multiboot header: invalid magic number");
+    printf("ERROR: Expected magic bootloader number to be %x, but got %x =(\n", MULTIBOOT2_BOOTLOADER_MAGIC, mb_magic);
+    return -KERR_INVAL;
   }
 
-  // Make sure the initial system info is setup
+  /* Quick bootloader interface info */
+  printf("Multiboot address from the bootloader is at: %s\n", to_string((uintptr_t)mb_addr));
+
+  /* Prepare for stage 1 */
   register_kernel_data((paddr_t)mb_addr);
 
+  return KERR_NONE;
+}
+
+/*!
+ * @brief: Stage one of kernel initialization
+ *
+ * Here we setup the essentials to get a basic interface to the user and say our first hello =)
+ */
+static kerror_t _start_system_management()
+{
   // parse multiboot
   init_multiboot((void*)g_system_info.virt_multiboot_addr);
 
@@ -153,51 +165,45 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
 
   println("Initialized tty");
 
+  return KERR_NONE;
+}
+
+/*!
+ * @brief: Stage 2 of system init
+ *
+ * Init more advanced memory management and subsystems
+ */
+static kerror_t _start_subsystems()
+{
   // we need more memory
   init_zalloc();
 
   // we need resources
   init_kresources();
 
-  // Setup interrupts (Fault handlers and IRQ request framework)
-  init_interrupts();
+  /* Initialize hashmap caching */
+  init_hashmap();
+
+  // Initialize kevent
+  init_kevents();
 
   // Make sure we know how to access the PCI configuration space at this point
   init_pci_early();
 
-  /* Initialize the ACPI subsystem */
-  init_acpi();
+  // Setup interrupts (Fault handlers and IRQ request framework)
+  init_interrupts();
 
-  println("[X] Processor...");
-  // initialize cpu-related things that need the memorymanager and the heap
-  init_processor_late(&g_bsp);
-
-  println("[X] Timer...");
-  /* Initialize the timer system */
-  init_timer_system();
-
-  println("[X] hashmap...");
-  /* Initialize hashmap caching */
-  init_hashmap();
-
-  println("[X] kevents...");
-  // Initialize kevent
-  init_kevents();
-
-  println("[X] proc core...");
-  /* Initialize the subsystem responsible for managing processes */
-  init_proc_core();
-
-  println("[X] oss...");
   /* Initialize OSS */
   init_oss();
 
-  println("[X] fs core...");
   /* Initialize the filesystem core */
   init_fs_core();
 
   /* Init the kernel device subsystem */
   init_devices();
+
+  /* Initialize global disk device subsystem */
+  init_gdisk_dev();
 
   /* Initialize the video subsystem */
   init_video();
@@ -205,11 +211,67 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
   /* Initialize HID driver subsystem */
   init_hid();
 
-  /* Initialize the PCI subsystem */
-  init_pci();
-
   /* Initialize the USB subsystem */
   init_usb();
+
+  return KERR_NONE;
+}
+
+/*!
+ * @brief: Main start routine of Aniva
+ *
+ * This is the order in which everything is initialized:
+ * 1: Gather system info from the bootloader in the form of multiboot2
+ * 2: Initialize system memory management
+ * 3: Create a simple graphical interface with the user
+ * 4: Initialize the kernels different subsystem to support devices, drivers, processes, ect.
+ * 5: Initialize the process core, which enables process/thread creation and termination
+ * 6: Initialize the system drivers, which in turn generate a device tree inside the OSS (under 'Dev/')
+ * 7: ...
+ */
+NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) 
+{
+  kerror_t kinit_err;
+  proc_t* root_proc;
+
+  disable_interrupts();
+
+  /*
+   * Stage 0: Start most basic shit
+   */
+  kinit_err = _start_early_if(mb_addr, mb_magic);
+
+  ASSERT_MSG(kinit_err == KERR_NONE, "Stage 0 of the kernel init failed for some reason =(");
+
+  /*
+   * Stage 1: Start basic memory management and a firmware-hosted 
+   * terminal interface to the user
+   */
+  kinit_err = _start_system_management();
+
+  ASSERT_MSG(kinit_err == KERR_NONE, "Stage 1 of the kernel init failed for some reason =(");
+
+  /*
+   * Stage 2: Start the system subsystems
+   */
+  kinit_err = _start_subsystems();
+
+  ASSERT_MSG(kinit_err == KERR_NONE, "Stage 2 of the kernel init failed for some reason =(");
+
+  /* Initialize the ACPI subsystem */
+  init_acpi();
+
+  /* Initialize the PCI subsystem after ACPI */
+  init_pci();
+
+  // initialize cpu-related things that need the memorymanager and the heap
+  init_processor_late(&g_bsp);
+
+  /* Initialize the timer system */
+  init_timer_system();
+
+  /* Initialize the subsystem responsible for managing processes */
+  init_proc_core();
 
   /* Initialize scheduler on the bsp */
   init_scheduler(0);
@@ -250,13 +312,11 @@ void kthread_entry() {
   /* Make sure the scheduler won't ruin our day */
   pause_scheduler();
 
-  /* Initialize global disk device registers */
-  init_gdisk_dev();
-
   /*
    * Install and load initial drivers 
-   * TODO: seperate the driver stuff to support driver loading and device creation for
-   * arch specific devices like APIC, PIT, RTC, etc.
+   * NOTE: arch specific devices like APIC, PIT, RTC, etc. are initialized 
+   * by the core system and thus the device objects accociated with these devices 
+   * will look like they have no driver that manages them
    */
   init_aniva_driver_registry();
 

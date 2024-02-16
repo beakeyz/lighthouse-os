@@ -68,6 +68,8 @@ struct dev_manifest_t;
 /* A bus device can have multiple devices that it manages */
 #define DEV_FLAG_BUS        0x00000008
 #define DEV_FLAG_ERROR      0x00000010
+/* Device without driver attached and managed by the system core */
+#define DEV_FLAG_CORE       0x00000020
 /* TODO: more device flags */
 
 /*

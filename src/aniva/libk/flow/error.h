@@ -26,6 +26,13 @@
  * often as possible
  */
 
+/* This is the refined version of kernel error handling */
+typedef int kerror_t;
+
+#define KERR_FATAL_BIT (0x80000000UL)
+#define KERR_NONE 0
+#define KERR_INVAL 1
+
 typedef enum _ANIVA_STATUS {
   ANIVA_FAIL = 0,
   ANIVA_WARNING = 1,

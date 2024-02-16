@@ -24,6 +24,9 @@ void init_acpi()
 
   Must(init_acpi_parser(&_parser));
 
+  /* Init devices through ACPI */
+  init_acpi_devices();
+
   // TODO: check FADT table for irq shit and verify that the parser booted up nicely
   // TODO: the purpose of this stub is to verify what the parser did while booting 
   // and making sure the rest of the boot happens correctly, based on what the parser

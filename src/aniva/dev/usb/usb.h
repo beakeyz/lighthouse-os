@@ -27,6 +27,7 @@
 
 struct usb_hcd;
 struct usb_hub;
+struct device;
 struct usb_request;
 
 /*
@@ -63,6 +64,7 @@ typedef struct usb_device {
   kdoorbell_t* req_doorbell;
 
   /* Parent hub this device is located on */
+  struct device* device;
   struct usb_hub* hub;
 } usb_device_t;
 
