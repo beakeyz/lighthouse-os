@@ -105,15 +105,3 @@ void init_acpi_early()
 
   printf("Acpica done!\n");
 }
-
-extern void _init_acpi_btns();
-
-/*!
- * @brief: Initialize typical ACPI devices
- * 
- * Called after ACPICA is initialized
- */
-void init_acpi_devices()
-{
-  _init_acpi_btns();
-}

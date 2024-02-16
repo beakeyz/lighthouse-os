@@ -32,8 +32,9 @@ export RAMDISK_NAME=anivaRamdisk
 export KERNEL_FILENAME=$(KERNEL_NAME).elf
 export RAMDISK_FILENAME=$(RAMDISK_NAME).igz
 
+# NOTE: we've removed -Wall, since it does not play nice with ACPICA
 export KERNEL_CFLAGS := \
-	-std=gnu11 -Werror -Wall -nostdlib -O2 -mno-sse -mno-sse2 -static \
+	-std=gnu11 -Werror -nostdlib -O2 -mno-sse -mno-sse2 -static \
 	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
 	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs \

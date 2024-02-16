@@ -342,7 +342,13 @@
  * These macros are used for both the debug and non-debug versions of the code.
  */
 #define ACPI_INFO(plist)                AcpiInfo plist
-#define ACPI_WARNING(plist)             AcpiWarning plist
+
+#ifdef ACPI_SUPRESS_WARNINGS
+  #define ACPI_WARNING(plist)
+#else
+  #define ACPI_WARNING(plist)             AcpiWarning plist
+#endif // DEBUG
+
 #define ACPI_EXCEPTION(plist)           AcpiException plist
 #define ACPI_ERROR(plist)               AcpiError plist
 #define ACPI_BIOS_WARNING(plist)        AcpiBiosWarning plist

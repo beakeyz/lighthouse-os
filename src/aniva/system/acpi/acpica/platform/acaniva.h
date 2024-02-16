@@ -30,6 +30,8 @@
 #define ACPI_DEBUGGER
 #define ACPI_DEBUG_OUTPUT
 
+#define ACPI_SUPRESS_WARNINGS
+
 #ifdef CONFIG_ACPI_DEBUG
 #define ACPI_MUTEX_DEBUG
 #endif
@@ -39,7 +41,7 @@
 /* Use a specific bugging default separate from ACPICA */
  
 #undef ACPI_DEBUG_DEFAULT
-#define ACPI_DEBUG_DEFAULT          (ACPI_LV_INFO | ACPI_LV_REPAIR)
+#define ACPI_DEBUG_DEFAULT          (ACPI_LV_REPAIR)
 
 /* Host-dependent types and defines for in-kernel ACPICA */
 

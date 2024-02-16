@@ -228,6 +228,17 @@ static kerror_t _start_subsystems()
  * 5: Initialize the process core, which enables process/thread creation and termination
  * 6: Initialize the system drivers, which in turn generate a device tree inside the OSS (under 'Dev/')
  * 7: ...
+ *
+ * NOTE / TODO: We parse ACPI before we setup driver shit, while we do discover devices through ACPI. This
+ * is an issue, since we want all device management to be streamlined through our driver model. A way to get
+ * around this is to package ACPI in a same sort of system that we currently have for PCI, but a little bit more
+ * standardized and streamlined. It works as followed: We walk the 'bus' which contains devices before
+ * we load any drivers and we simply register all devices we find (OSS). Then, when we need to load drivers,
+ * we can walk the centralized location where all the devices are registered, which ensures we don't load too
+ * many useless drivers for devices that the system does not have. So we need to implement this two-step process
+ * like this:
+ * 1) Walk busses and register devices
+ * 2) Walk the registerd devices and load drivers for them
  */
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) 
 {
