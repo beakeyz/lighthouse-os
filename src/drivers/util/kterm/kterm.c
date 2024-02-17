@@ -799,7 +799,6 @@ exit_cmd_processing:
 }
 
 EXPORT_DEPENDENCIES(_deps) = {
-  DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Root/System/test.drv"),
   DRV_DEP_END,
 };
 
