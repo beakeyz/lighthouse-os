@@ -14,10 +14,14 @@
 
 #define TEST_DEVICE "testdev"
 
-dev_manifest_t* manifest;
+drv_manifest_t* manifest;
 
 int test_init();
 int test_exit();
+
+EXPORT_DEPENDENCIES(deps) = {
+  DRV_DEP_END,
+};
 
 EXPORT_DRIVER(extern_test_driver) = {
   .m_name = DRIVER_NAME,
@@ -26,7 +30,6 @@ EXPORT_DRIVER(extern_test_driver) = {
   .m_type = DT_OTHER,
   .f_init = test_init,
   .f_exit = test_exit,
-  .m_dep_count = 0,
 };
 
 
@@ -40,10 +43,6 @@ EXPORT_DRIVER(extern_test_driver) = {
 int test_init() 
 {
   logln("Initalizing test driver!");
-
-  manifest = try_driver_get(&extern_test_driver, NULL);
-
-  ASSERT(manifest);
 
   return 0;
 }

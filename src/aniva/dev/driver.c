@@ -7,16 +7,16 @@
 #include <mem/heap.h>
 #include <libk/string.h>
 
-int generic_driver_entry(dev_manifest_t* driver);
+int generic_driver_entry(drv_manifest_t* driver);
 
-bool driver_is_ready(dev_manifest_t* manifest) 
+bool driver_is_ready(drv_manifest_t* manifest) 
 {
   const bool active_flag = (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
 
   return active_flag && !mutex_is_locked(manifest->m_lock);
 }
 
-bool driver_is_busy(dev_manifest_t* manifest)
+bool driver_is_busy(drv_manifest_t* manifest)
 {
   if (!manifest)
     return false;
@@ -27,7 +27,7 @@ bool driver_is_busy(dev_manifest_t* manifest)
 /*
  * Quick TODO: create a way to validate pointer origin
  */
-int drv_read(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintptr_t offset)
+int drv_read(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   int result;
   aniva_driver_t* driver;
@@ -52,7 +52,7 @@ int drv_read(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintpt
   return result;
 }
 
-int drv_write(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintptr_t offset)
+int drv_write(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
   int result;
   aniva_driver_t* driver;
@@ -77,23 +77,10 @@ int drv_write(dev_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
   return result;
 }
 
-int generic_driver_entry(dev_manifest_t* manifest)
+int generic_driver_entry(drv_manifest_t* manifest)
 {
   if ((manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE)
     return -1;
-
-  FOREACH(i, manifest->m_dependency_manifests) {
-    dev_manifest_t* dep_manifest = i->data;
-
-    if (!dep_manifest || !is_driver_loaded(dep_manifest)) {
-      /* TODO: check if the dependencies allow for dynamic loading and if so, load them anyway */
-      kernel_panic("dependencies are not loaded!");
-
-      /* Mark the driver as failed */
-      manifest->m_flags |= DRV_FAILED;
-      return -1;
-    }
-  }
 
   /* NOTE: The driver can also mark itself as ready */
   int error = manifest->m_handle->f_init();
@@ -109,7 +96,7 @@ int generic_driver_entry(dev_manifest_t* manifest)
   return error;
 }
 
-ErrorOrPtr bootstrap_driver(dev_manifest_t* manifest) 
+ErrorOrPtr bootstrap_driver(drv_manifest_t* manifest) 
 {
   int error;
 

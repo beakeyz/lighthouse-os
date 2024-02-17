@@ -13,7 +13,7 @@ struct kevent;
 struct kevent_hook;
 struct profile_var;
 struct proc_profile;
-struct dev_manifest;
+struct drv_manifest;
 struct virtual_namespace;
 
 typedef uint8_t khandle_type_t;
@@ -32,7 +32,7 @@ typedef struct kernel_handle {
   uintptr_t offset;
   union {
     struct file* file;
-    struct dev_manifest* driver;
+    struct drv_manifest* driver;
     struct proc* process;
     struct thread* thread;
     struct virtual_namespace* namespace;

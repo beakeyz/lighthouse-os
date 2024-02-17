@@ -4,7 +4,9 @@
 #include "dev/core.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
+#include "libk/flow/error.h"
 #include "sync/mutex.h"
+#include "system/acpi/device.h"
 #include "system/acpi/tables.h"
 #include <libk/stddef.h>
 
@@ -54,7 +56,7 @@ struct device;
 struct dgroup;
 struct device_endpoint;
 struct aniva_driver;
-struct dev_manifest_t;
+struct drv_manifest;
 
 /* Device that is managed and backed entirely by software */
 #define DEV_FLAG_SOFTDEV    0x00000001
@@ -71,6 +73,8 @@ struct dev_manifest_t;
 /* Device without driver attached and managed by the system core */
 #define DEV_FLAG_CORE       0x00000020
 /* TODO: more device flags */
+
+typedef bool (*DEVICE_ITTERATE)(struct device* dev);
 
 /*
  * The device
@@ -107,7 +111,7 @@ struct dev_manifest_t;
 typedef struct device {
   const char* name;
   /* Driver that is responsible for management of this device */
-  struct dev_manifest* parent;
+  struct drv_manifest* driver;
   struct oss_obj* obj;
   /* If this device is a bus, this node contains it's children */
   struct dgroup* bus_group;
@@ -116,7 +120,7 @@ typedef struct device {
   mutex_t* lock;
 
   /* Handle to the ACPI stuff if this device has that */
-  acpi_handle_t acpi_dev;
+  acpi_device_t* acpi_dev;
 
   uint32_t flags;
   /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
@@ -124,7 +128,7 @@ typedef struct device {
   struct device_endpoint* endpoints;
 } device_t;
 
-static inline bool dev_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
+static inline bool device_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
 {
   if (!device->endpoints)
     return false;
@@ -136,7 +140,7 @@ static inline bool dev_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
   return false;
 }
 
-static inline struct device_endpoint* dev_get_endpoint(device_t* device, enum ENDPOINT_TYPE type)
+static inline struct device_endpoint* device_get_endpoint(device_t* device, enum ENDPOINT_TYPE type)
 {
   if (!device->endpoints)
     return nullptr; 
@@ -152,40 +156,46 @@ static inline struct device_endpoint* dev_get_endpoint(device_t* device, enum EN
 /*!
  * @brief: Check if this device has a bus group linked to it
  */
-static inline bool dev_is_bus(device_t *dev)
+static inline bool device_is_bus(device_t *dev)
 {
   return dev->bus_group != nullptr;
 }
 
-
+/* Subsystem */
 void init_devices();
+void debug_devices();
 
+/* Object management */
 device_t* create_device(struct aniva_driver* parent, char* name);
 device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count);
+
 void destroy_device(device_t* device);
 
+int device_register(device_t* dev, struct dgroup* group);
+int device_register_to_bus(device_t* dev, device_t* busdev);
+int device_unregister(device_t* dev);
+
+int device_get_group(device_t* dev, struct dgroup** group);
+int device_node_add_group(struct oss_node* node, struct dgroup* group);
+
+int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback);
+
+device_t* device_open(const char* path);
+int device_close(device_t* dev);
+
+kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver);
+
+/* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size);
-
-int device_power_on(device_t* dev);
-int device_on_remove(device_t* dev);
-int device_suspend(device_t* dev);
-int device_resume(device_t* dev);
 
 uintptr_t device_message(device_t* dev, dcc_t code);
 uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
-int device_get_group(device_t* dev, struct dgroup** group);
-
-void devices_debug();
-
-int device_register(device_t* dev);
-/* TODO: */
-int device_unregister();
-
-device_t* open_device(const char* path);
-int close_device(device_t* dev);
-
-int device_add_group(dgroup_t* group, struct oss_node* node);
+/* Power management */
+int device_power_on(device_t* dev);
+int device_on_remove(device_t* dev);
+int device_suspend(device_t* dev);
+int device_resume(device_t* dev);
 
 #endif // !__ANIVA_DEV_DEVICE__

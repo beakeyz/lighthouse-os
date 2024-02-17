@@ -62,7 +62,7 @@ typedef struct lwnd_window {
    */
   union {
     proc_t* proc;
-    dev_manifest_t* driver;
+    drv_manifest_t* driver;
     void* raw;
   } client;
 

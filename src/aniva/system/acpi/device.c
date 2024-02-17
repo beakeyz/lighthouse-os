@@ -48,7 +48,7 @@ void init_acpi_devices()
   ACPI_STATUS stat;
   acpi_handle_t sysbus_hndl;
 
-  stat = AcpiGetHandle(NULL, "\\_SB", &sysbus_hndl);
+  stat = AcpiGetHandle(NULL, ACPI_NS_ROOT_PATH, &sysbus_hndl);
 
   if (!ACPI_SUCCESS(stat))
     return;
@@ -58,5 +58,4 @@ void init_acpi_devices()
   if (!ACPI_SUCCESS(stat))
     return;
 
-  kernel_panic("TMP: did apci device thing");
 }

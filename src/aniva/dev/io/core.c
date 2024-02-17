@@ -15,7 +15,7 @@ aniva_driver_t io_core = {
   .f_init = io_core_init,
   .f_exit = io_core_exit,
   .f_msg = io_core_msg,
-  .m_version = DEF_DRV_VERSION(0, 0, 1),
+  .m_version = DRIVER_VERSION(0, 0, 1),
 };
 EXPORT_CORE_DRIVER(io_core);
 

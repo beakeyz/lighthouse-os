@@ -810,7 +810,7 @@ aniva_driver_t xhci_driver = {
   .f_init = xhci_init,
   .f_exit = xhci_exit,
   .f_msg = xhci_msg,
-  .m_version = DEF_DRV_VERSION(0, 0, 1),
+  .m_version = DRIVER_VERSION(0, 0, 1),
 };
 /* TODO: finish this driver so we can actually use it ;-; (I hate USB) */
 //EXPORT_DRIVER_PTR(xhci_driver);

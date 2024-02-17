@@ -311,7 +311,7 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
   }
 
   /* Add this ahci device to it's bus device */
-  dev_group_add_device(ahci_device->m_identifier->bus->dev->bus_group, ahci_device->m_identifier->dev);
+  device_register_to_bus(ahci_device->m_identifier->dev, ahci_device->m_identifier->bus->dev);
 
   return ahci_device;
 }
@@ -372,11 +372,6 @@ aniva_driver_t base_ahci_driver = {
   .f_init = ahci_driver_init,
   .f_exit = ahci_driver_exit,
   .f_msg = ahci_driver_on_packet,
-  /*
-   * FIXME: when we insert a dependency here that is deferred (a socket), we completely die, since this 
-   * non-socket driver will fail to load as it realizes that it is unable to load its dependency...
-   */
-  .m_dep_count = 0
 };
 EXPORT_DRIVER_PTR(base_ahci_driver);
 

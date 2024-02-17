@@ -41,7 +41,7 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
   switch (c_hndl->type) {
     case HNDL_TYPE_DRIVER:
       {
-        dev_manifest_t* driver = c_hndl->reference.driver;
+        drv_manifest_t* driver = c_hndl->reference.driver;
 
         /* NOTE: this call locks the manifest */
         result = driver_send_msg_ex(driver, code, buffer, size, out_buffer, out_size);

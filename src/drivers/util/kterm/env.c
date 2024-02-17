@@ -13,7 +13,7 @@
  *
  * TODO: use @arg0 to communicate flags to the Itterate function
  */
-static ErrorOrPtr print_profile_variable(void* _variable, uintptr_t arg0)
+static ErrorOrPtr print_profile_variable(void* _variable, uintptr_t arg0, uint64_t arg1)
 {
   profile_var_t* var;
 
@@ -39,7 +39,7 @@ static ErrorOrPtr print_profile_variable(void* _variable, uintptr_t arg0)
   return Success(0);
 }
 
-static ErrorOrPtr print_profiles(void* _profile, uintptr_t arg0)
+static ErrorOrPtr print_profiles(void* _profile, uintptr_t arg0, uint64_t arg1)
 {
   proc_profile_t* profile;
 
@@ -84,7 +84,7 @@ uint32_t kterm_cmd_envinfo(const char** argv, size_t argc)
         return 2;
 
       /* Print every variable */
-      hashmap_itterate(profile->var_map, print_profile_variable, NULL);
+      hashmap_itterate(profile->var_map, print_profile_variable, NULL, NULL);
       break;
     default:
       return 1;

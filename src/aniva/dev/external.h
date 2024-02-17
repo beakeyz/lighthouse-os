@@ -20,11 +20,8 @@ typedef struct extern_driver {
   /* How many kernelsymbols does this driver use */
   size_t m_ksymbol_count;
 
-  /* File this driver was loaded from */
-  file_t* m_file;
-
   /* This drivers manifest */
-  dev_manifest_t* m_manifest;
+  drv_manifest_t* m_manifest;
 } extern_driver_t;
 
 extern_driver_t* create_external_driver(uint32_t flags);

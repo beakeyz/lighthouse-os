@@ -176,8 +176,8 @@ void destroy_hashmap(hashmap_t* map) {
   kfree(map);
 }
 
-ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg1) {
-
+ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1)
+{
   ErrorOrPtr result;
 
   if (!map || !fn)
@@ -190,7 +190,7 @@ ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t a
 
       while (entry) {
 
-        result = fn(entry->m_value, arg1);
+        result = fn(entry->m_value, arg0, arg1);
 
         if (IsError(result))
           return ErrorWithVal((uint64_t)entry->m_value);
@@ -208,7 +208,7 @@ ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t a
     if (!v)
       continue;
     
-    result = fn(v, arg1);
+    result = fn(v, arg0, arg1);
 
     /* On error, return the value that caused it */
     if (IsError(result))

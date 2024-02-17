@@ -1,11 +1,13 @@
 #ifndef __ANIVA_DRIVER__
 #define __ANIVA_DRIVER__
+
 #include <libk/stddef.h>
 #include "core.h"
 #include "dev/precedence.h"
 
 struct oss_obj;
-struct dev_manifest;
+struct device;
+struct drv_manifest;
 
 /*
  * Every type of driver has a version
@@ -19,34 +21,70 @@ typedef union driver_version {
   uint32_t version;
 } driver_version_t;
 
-#define DEF_DRV_VERSION(maj, min, bump) {{ (maj), (min), (bump) }}
+/*
+ * Different types of dependencies
+ */
+enum DRV_DEPTYPE {
+  DRV_DEPTYPE_URL,
+  DRV_DEPTYPE_PATH,
+  DRV_DEPTYPE_PROC,
+};
 
+#define DRV_DEP_FLAG_ABS_PATH 0x00000001
+#define DRV_DEP_FLAG_OPTIONAL 0x00000002
+
+/*
+ * A single driver dependency entry
+ *
+ * These are provided by the driver and injected through the aniva_driver struct
+ */
+typedef struct drv_dependency {
+  enum DRV_DEPTYPE type;
+  uint32_t flags;
+  const char* location;
+} drv_dependency_t;
+
+#define DRV_DEP(_type, _flags, _location) { .type = (_type), .flags = (_flags), .location = (_location), }
+#define DRV_DEP_END { NULL, NULL, NULL }
+
+static inline bool drv_dep_is_driver(drv_dependency_t* dep)
+{
+  return (
+      dep->type == DRV_DEPTYPE_PATH ||
+      dep->type == DRV_DEPTYPE_URL
+  );
+}
+
+static inline bool drv_dep_is_optional(drv_dependency_t* dep)
+{
+  return ((dep->flags & DRV_DEP_FLAG_OPTIONAL) == DRV_DEP_FLAG_OPTIONAL);
+}
+
+/*
+ * Main struct to define the outline of a system driver
+ *
+ */
 typedef struct aniva_driver {
   const char m_name[MAX_DRIVER_NAME_LENGTH];
   const char m_descriptor[MAX_DRIVER_DESCRIPTOR_LENGTH];
 
   driver_version_t m_version;
+  dev_type_t m_type;
+  drv_precedence_t m_precedence;
 
   /* TODO: should we pass the manifest to the f_init function? */
   int (*f_init)(void);
   int (*f_exit)(void);
 
-  /* TODO: should f_msg get passed the dev_manifest, instead of the raw driver? */
+  /* TODO: should f_msg get passed the drv_manifest, instead of the raw driver? */
   uintptr_t (*f_msg)(struct aniva_driver* driver, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
   /*
    * Used to try and verify if this driver supports a device 
    * NOTE: until now, this is unused...
    */
-  int (*f_probe)(struct aniva_driver* driver, void* device_info);
+  int (*f_probe)(struct aniva_driver* driver, struct device* device);
 
-  dev_type_t m_type;
-  drv_precedence_t m_precedence;
-  uint16_t res0;
-  uint32_t m_port;
-
-  /* TODO: migrate dependencies to something more managable and trustable */
-  size_t m_dep_count;
-  dev_url_t m_dependencies[];
+  struct drv_dependency* m_deps;
 } aniva_driver_t;
 
 #define DRV_FS                    (0x00000001) /* Should be mounted inside the vfs */
@@ -74,33 +112,18 @@ typedef struct aniva_driver {
 #define DRV_STAT_NOMAN      (-2)
 #define DRV_STAT_BUSY       (-3)
 
-/*
-aniva_driver_t* create_driver(
-  const char* name,
-  const char* descriptor,
-  driver_version_t version,
-  ANIVA_DRIVER_INIT init,
-  ANIVA_DRIVER_EXIT exit,
-  SocketOnPacket drv_msg,
-  DEV_TYPE type
-  );
-
-
-void destroy_driver(aniva_driver_t* driver);
-*/
-
 #define driver_is_deferred(manifest) ((manifest->m_flags & DRV_DEFERRED) == DRV_DEFERRED)
 
-bool driver_is_ready(struct dev_manifest* manifest);
-bool driver_is_busy(struct dev_manifest* manifest);
+bool driver_is_ready(struct drv_manifest* manifest);
+bool driver_is_busy(struct drv_manifest* manifest);
 
-int drv_read(struct dev_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
-int drv_write(struct dev_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
+int drv_read(struct drv_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
+int drv_write(struct drv_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
 
 /*
  * Create a thread for this driver in the kernel process
  * and run the entry
  */
-ErrorOrPtr bootstrap_driver(struct dev_manifest* manifest);
+ErrorOrPtr bootstrap_driver(struct drv_manifest* manifest);
 
 #endif //__ANIVA_DRIVER__

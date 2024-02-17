@@ -154,7 +154,7 @@ int profile_foreach(hashmap_itterate_fn_t fn)
     return -1;
 
   /* Simply call hashmap_itterate */
-  if (IsError(hashmap_itterate(active_profiles, fn, NULL)))
+  if (IsError(hashmap_itterate(active_profiles, fn, NULL, NULL)))
     return -2;
 
   return 0;
@@ -466,8 +466,8 @@ uint64_t get_active_profile_count()
  */
 static void __apply_base_variables()
 {
-  /* TODO: should we store the (encrypted) password of the base profile here? */
   profile_add_var(&base_profile, create_profile_var("KTERM_LOC", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv")));
+  profile_add_var(&base_profile, create_profile_var("DRIVERS_LOC", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/")));
 }
 
 /*!

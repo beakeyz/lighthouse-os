@@ -47,9 +47,6 @@ const aniva_driver_t g_base_ata_driver = {
   .f_init = ata_driver_init,
   .f_exit = ata_driver_exit,
   .f_msg = ata_driver_on_packet,
-  .m_port = 6,
-  .m_dependencies = {},
-  .m_dep_count = 0,
 };
 EXPORT_DRIVER_PTR(g_base_ata_driver);
 

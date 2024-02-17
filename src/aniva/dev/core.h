@@ -9,7 +9,7 @@
 struct oss_obj;
 struct oss_node;
 struct aniva_driver;
-struct dev_manifest;
+struct drv_manifest;
 
 #define DRIVER_URL_SEPERATOR '/'
 #define DRIVER_TYPE_COUNT 9
@@ -48,14 +48,14 @@ typedef struct dev_constraint {
   uint32_t res2;
 
   /* This field should only be used when max_active is 1 and current_active is 1 */
-  struct dev_manifest* active;
+  struct drv_manifest* active;
   /* The core driver for this driver type */
-  struct dev_manifest* core;
+  struct drv_manifest* core;
 } dev_constraint_t;
 
 #define DRV_INFINITE            0xFFFFFFFF
 #define DRV_SERVICE_MAX         0x100
-#define DEV_MANIFEST_SOFTMAX    512
+#define drv_manifest_SOFTMAX    512
 
 /* Defined in dev/core.c */
 extern const char* dev_type_urls[DRIVER_TYPE_COUNT];
@@ -86,6 +86,7 @@ typedef driver_control_code_t           dcc_t;
 #define EXPORT_DRIVER_PTR(name) static USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
 #define EXPORT_CORE_DRIVER(name) static USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name
 #define EXPORT_DRIVER(name) static USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
+#define EXPORT_DEPENDENCIES(deps) static USED SECTION(".deps") ALIGN(8) drv_dependency_t (deps)[]
 
 /*
 #define DRIVER_NAME(name) static const char* SECTION(".drv_name") __exported_drv_name USED = (const char*)(name)
@@ -107,24 +108,24 @@ void init_aniva_driver_registry();
 
 // TODO: load driver from file
 
-struct dev_manifest* allocate_dmanifest();
+struct drv_manifest* allocate_dmanifest();
 
-void free_dmanifest(struct dev_manifest* manifest);
+void free_dmanifest(struct drv_manifest* manifest);
 
 /*
  * Registers the driver so it can be loaded
  */
-ErrorOrPtr install_driver(struct dev_manifest* driver);
+ErrorOrPtr install_driver(struct drv_manifest* driver);
 
 /*
  * Unregisters the driver and also unloads it if it is still loaded
  */
-ErrorOrPtr uninstall_driver(struct dev_manifest* handle);
+ErrorOrPtr uninstall_driver(struct drv_manifest* handle);
 
 /*
  * load a driver from its structure in RAM
  */
-ErrorOrPtr load_driver(struct dev_manifest* manifest);
+ErrorOrPtr load_driver(struct drv_manifest* manifest);
 
 /*
  * unload a driver from its structure in RAM
@@ -134,29 +135,29 @@ ErrorOrPtr unload_driver(dev_url_t url);
 /*
  * Check if the driver is installed into the grid
  */
-bool is_driver_installed(struct dev_manifest* handle);
+bool is_driver_installed(struct drv_manifest* handle);
 
 /*
  * Check if the driver is loaded and currently active
  */
-bool is_driver_loaded(struct dev_manifest* handle);
+bool is_driver_loaded(struct drv_manifest* handle);
 
 /*
  * Find the handle to a driver through its url
  */
-struct dev_manifest* get_driver(dev_url_t url);
-struct dev_manifest* get_main_driver_from_type(dev_type_t type);
-struct dev_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
-struct dev_manifest* get_core_driver(dev_type_t type);
+struct drv_manifest* get_driver(dev_url_t url);
+struct drv_manifest* get_main_driver_from_type(dev_type_t type);
+struct drv_manifest* get_driver_from_type(dev_type_t type, uint32_t index);
+struct drv_manifest* get_core_driver(dev_type_t type);
 int get_main_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 
-ErrorOrPtr foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj));
+ErrorOrPtr foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj, void* arg), void* arg);
 
-int set_main_driver(struct dev_manifest* dev, dev_type_t type);
-bool verify_driver(struct dev_manifest* manifest);
+int set_main_driver(struct drv_manifest* dev, dev_type_t type);
+bool verify_driver(struct drv_manifest* manifest);
 
-void replace_main_driver(struct dev_manifest* manifest, bool uninstall);
+void replace_main_driver(struct drv_manifest* manifest, bool uninstall);
 
 int register_core_driver(struct aniva_driver* driver, dev_type_t type);
 int unregister_core_driver(struct aniva_driver* driver);
@@ -167,14 +168,14 @@ int unregister_core_driver(struct aniva_driver* driver);
  * loading. If the DRV_ALLOW_DYNAMIC_LOADING bit is set in both
  * the driver and the method, we try to load the driver anyway
  */
-struct dev_manifest* try_driver_get(struct aniva_driver* driver, uint32_t flags);
+struct drv_manifest* try_driver_get(struct aniva_driver* driver, uint32_t flags);
 
 /*
  * Marks the driver as ready to recieve packets preemptively
  */
 ErrorOrPtr driver_set_ready(const char* path);
 
-const char* driver_get_type_str(struct dev_manifest* driver);
+const char* driver_get_type_str(struct drv_manifest* driver);
 
 /*
  * Find the url for a certain dev_type
@@ -189,7 +190,7 @@ static ALWAYS_INLINE const char* get_driver_type_url(dev_type_t type)
  */
 ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
-ErrorOrPtr driver_send_msg_ex(struct dev_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
+ErrorOrPtr driver_send_msg_ex(struct drv_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
 
 /*
  * Same as above, but calls the requested function instantly, rather than waiting for the socket to 

@@ -33,7 +33,7 @@ int fb_driver_init();
 int fb_driver_exit();
 
 /* Our manifest */
-static dev_manifest_t* _this;
+static drv_manifest_t* _this;
 static video_device_t* _vdev;
 /* Local framebuffer information for the driver */
 static fb_info_t* _main_info = nullptr;

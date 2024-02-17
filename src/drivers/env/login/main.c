@@ -9,6 +9,10 @@ int lightenv_exit();
 
 uint64_t lightenv_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
+EXPORT_DEPENDENCIES(deps) = {
+  DRV_DEP_END,
+};
+
 EXPORT_DRIVER(env_driver) = {
   .m_name = "login",
   .m_type = DT_SERVICE,
@@ -16,8 +20,6 @@ EXPORT_DRIVER(env_driver) = {
   .f_init = nullptr,
   .f_exit = nullptr,
   .f_msg = nullptr,
-  .m_dep_count = 0,
-  .m_dependencies = { 0 },
 };
 
 /*

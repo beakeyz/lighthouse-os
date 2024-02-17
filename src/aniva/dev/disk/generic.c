@@ -27,7 +27,7 @@
 //static char* s_root_dev_name;
 //static char s_root_dev_name_buffer[64];
 static mutex_t* _gdisk_lock;
-static dev_manifest_t* _this;
+static drv_manifest_t* _this;
 
 /* This is so dumb */
 struct gdisk_store_entry {
@@ -446,7 +446,7 @@ int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size
     return result;
 
   const uintptr_t block = offset / dev->m_parent->m_logical_sector_size;
-  ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
+  ep = device_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
   if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
 
@@ -478,7 +478,7 @@ int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size
     return result;
 
   abs_block = dev->m_start_lba + block;
-  ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
+  ep = device_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
   if (abs_block < dev->m_start_lba || abs_block > dev->m_end_lba)
     return result;
@@ -499,7 +499,7 @@ int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, siz
     return result;
 
   abs_block = dev->m_start_lba + block;
-  ep = dev_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
+  ep = device_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
   if (abs_block < dev->m_start_lba || abs_block > dev->m_end_lba)
     return result;
@@ -584,7 +584,7 @@ disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size)
   attach_partitioned_disk_device(dev, partdev);
 
   /* Attach the ramdisk to the root of the device tree */
-  device_register(dev->m_dev);
+  device_register(dev->m_dev, NULL);
   return dev;
 
 }
@@ -804,10 +804,10 @@ disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* p
   ret->m_parent = private;
   ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, eps, ep_count);
 
-  if (!ret || !dev_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
+  if (!ret || !device_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
     goto dealloc_and_exit;
 
-  ret->m_ops = dev_get_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK)->impl.disk;
+  ret->m_ops = device_get_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK)->impl.disk;
   
   kfree((void*)dev_name);
   return ret;
@@ -852,7 +852,7 @@ void destroy_generic_disk(disk_dev_t* device)
   }
 
   /* Drop our device ref */
-  close_device(device->m_dev);
+  device_close(device->m_dev);
 
   kfree(device);
 }
@@ -1084,8 +1084,6 @@ aniva_driver_t core_disk_driver = {
   .f_init = disk_core_init,
   .f_exit = disk_core_exit,
   .f_msg = disk_core_msg,
-  .m_dep_count = 0,
-  .m_dependencies = { 0 },
 };
 EXPORT_DRIVER_PTR(core_disk_driver);
 

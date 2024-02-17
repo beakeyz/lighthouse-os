@@ -2,6 +2,7 @@
 #include <lightos/event/key.h>
 #include "LibGfx/include/driver.h"
 #include "dev/core.h"
+#include "dev/driver.h"
 #include "dev/manifest.h"
 #include "dev/video/core.h"
 #include "dev/video/device.h"
@@ -797,14 +798,17 @@ exit_cmd_processing:
   }
 }
 
+EXPORT_DEPENDENCIES(_deps) = {
+  DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Root/System/test.drv"),
+  DRV_DEP_END,
+};
+
 EXPORT_DRIVER(base_kterm_driver) = {
   .m_name = "kterm",
   .m_type = DT_OTHER,
   .f_init = kterm_init,
   .f_exit = kterm_exit,
   .f_msg = kterm_on_packet,
-  .m_dependencies = {"core/video", "io/ps2_kb"},
-  .m_dep_count = 2,
 };
 
 static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)

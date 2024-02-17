@@ -25,6 +25,10 @@ pci_driver_t radeon_pci = {
   .device_flags = NULL,
 };
 
+EXPORT_DEPENDENCIES(deps) = {
+  DRV_DEP_END,
+};
+
 EXPORT_DRIVER(radeon_driver) = {
   .m_name = "radeon",
   .m_type = DT_GRAPHICS,
@@ -32,9 +36,7 @@ EXPORT_DRIVER(radeon_driver) = {
   .f_exit = radeon_exit,
   .f_msg = radeon_msg,
   .m_precedence = DRV_PRECEDENCE_HIGH,
-  .m_version = DEF_DRV_VERSION(1, 0, 0),
-  .m_dep_count = 0,
-  .m_dependencies = { 0 },
+  .m_version = DRIVER_VERSION(1, 0, 0),
 };
 
 int radeon_init()

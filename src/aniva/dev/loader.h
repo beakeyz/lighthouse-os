@@ -30,10 +30,9 @@
 /* TODO ? */
 bool file_contains_driver(file_t* file);
 
-int install_external_driver(const char* path);
+drv_manifest_t* install_external_driver(const char* path);
 
 extern_driver_t* load_external_driver(const char* path);
-extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest);
 void unload_external_driver(extern_driver_t* driver);
 
 #endif // !__ANIVA_DRV_LOADER__

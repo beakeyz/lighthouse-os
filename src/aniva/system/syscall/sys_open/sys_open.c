@@ -93,7 +93,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_DRIVER:
       {
-        dev_manifest_t* driver = get_driver(path);
+        drv_manifest_t* driver = get_driver(path);
 
         if (!driver)
           return HNDL_NOT_FOUND;

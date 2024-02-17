@@ -1,6 +1,9 @@
 #include "manifest.h"
 #include "dev/core.h"
+#include "dev/driver.h"
+#include "dev/loader.h"
 #include "libk/data/hashmap.h"
+#include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "mem/heap.h"
@@ -42,7 +45,7 @@ const char* get_driver_url(aniva_driver_t* handle)
 bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)())
 {
   dev_url_t path;
-  dev_manifest_t* manifest;
+  drv_manifest_t* manifest;
 
   if (!driver || !write_fn)
     return false;
@@ -71,7 +74,7 @@ bool driver_manifest_write(aniva_driver_t* driver, int(*write_fn)())
 bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
 {
   dev_url_t path;
-  dev_manifest_t* manifest;
+  drv_manifest_t* manifest;
 
   if (!driver || !read_fn)
     return false;
@@ -97,9 +100,9 @@ bool driver_manifest_read(aniva_driver_t* driver, int(*read_fn)())
   return true;
 }
 
-dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
+drv_manifest_t* create_drv_manifest(aniva_driver_t* handle)
 {
-  dev_manifest_t* ret;
+  drv_manifest_t* ret;
 
   ret = allocate_dmanifest();
 
@@ -112,7 +115,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
 
   ret->m_flags = NULL;
   ret->m_dep_count = NULL;
-  ret->m_dependency_manifests = init_list();
+  ret->m_dep_list = NULL;
 
   /* Reset the manifest opperations */
   memset(&ret->m_ops, 0, sizeof(ret->m_ops));
@@ -126,7 +129,7 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
     ret->m_obj = create_oss_obj(handle->m_name);
 
     /* Make sure our object knows about us */
-    oss_obj_register_child(ret->m_obj, ret, OSS_OBJ_TYPE_DRIVER, destroy_dev_manifest);
+    oss_obj_register_child(ret->m_obj, ret, OSS_OBJ_TYPE_DRIVER, destroy_drv_manifest);
   } else {
     ret->m_flags |= DRV_DEFERRED_HNDL;
   }
@@ -141,15 +144,16 @@ dev_manifest_t* create_dev_manifest(aniva_driver_t* handle)
   return ret;
 }
 
-ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* handle)
+ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* handle)
 {
-  if (manifest->m_handle || !(manifest->m_flags & DRV_DEFERRED_HNDL))
+  if (manifest->m_handle || (manifest->m_flags & DRV_DEFERRED_HNDL) != DRV_DEFERRED_HNDL)
     return Error();
 
-  ASSERT_MSG(manifest->m_obj == nullptr, "Tried to emplace a handle on a manifest which already has an object");
+  ASSERT_MSG(manifest->m_obj == nullptr || strcmp(manifest->m_obj->name, handle->m_name) == 0, "Tried to emplace a handle on a manifest which already has an object");
 
   /* Mark the manifest as non-deferred */
   manifest->m_flags &= ~DRV_DEFERRED_HNDL;
+  manifest->m_flags |= DRV_HAS_HANDLE;
 
   /* Emplace the handle and its data */
   manifest->m_handle = handle;
@@ -157,10 +161,12 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
   manifest->m_url_length = get_driver_url_length(handle);
   manifest->m_url = get_driver_url(handle);
 
-  manifest->m_obj = create_oss_obj(handle->m_name);
+  if (!manifest->m_obj) {
+    manifest->m_obj = create_oss_obj(handle->m_name);
 
-  /* Make sure our object knows about us */
-  oss_obj_register_child(manifest->m_obj, manifest, OSS_OBJ_TYPE_DRIVER, destroy_dev_manifest);
+    /* Make sure our object knows about us */
+    oss_obj_register_child(manifest->m_obj, manifest, OSS_OBJ_TYPE_DRIVER, destroy_drv_manifest);
+  }
   return Success(0);
 }
 
@@ -173,24 +179,27 @@ ErrorOrPtr manifest_emplace_handle(dev_manifest_t* manifest, aniva_driver_t* han
  * done. The driver behind this manifest needs to implement functions that handle the propper 
  * destruction of the devices, since it is the one who owns this memory
  */
-void destroy_dev_manifest(dev_manifest_t* manifest) 
+void destroy_drv_manifest(drv_manifest_t* manifest) 
 {
   /*
    * An attached driver can be destroyed in two ways:
    * 1) Using this function directly. In this case we need to check if we are still attached to OSS and if we are
    * that means we need to destroy ourselves through that mechanism
    * 2) Through OSS. When we're attached to OSS, we have our own oss object that is attached to an oss node. When
-   * the manifest was created we registered our destruction method there, which means that all dev_manifest memory
+   * the manifest was created we registered our destruction method there, which means that all drv_manifest memory
    * is owned by the oss_object
    */
   if (manifest->m_obj && manifest->m_obj->priv == manifest) {
-    /* Calls destroy_dev_manifest again with ->priv cleared */
+    /* Calls destroy_drv_manifest again with ->priv cleared */
     destroy_oss_obj(manifest->m_obj);
     return;
   }
 
   destroy_mutex(manifest->m_lock);
-  destroy_list(manifest->m_dependency_manifests);
+
+  /* A manifest might exist without any dependencies */
+  if (manifest->m_dep_list)
+    destroy_vector(manifest->m_dep_list);
 
   destroy_resource_bundle(manifest->m_resources);
 
@@ -205,46 +214,70 @@ void destroy_dev_manifest(dev_manifest_t* manifest)
 /*!
  * @brief: 'serialize' the given driver paths into the manifest
  *
- * TODO: redo this once the dependency rework has gone through
+ * This ONLY gathers the dependencies. It does not do any driver loading
  */
-void manifest_gather_dependencies(dev_manifest_t* manifest)
+int manifest_gather_dependencies(drv_manifest_t* manifest)
 {
+  manifest_dependency_t man_dep;
   aniva_driver_t* handle = manifest->m_handle;
 
   /* We should not have any dependencies on the manifest at this point */
   ASSERT(!manifest->m_dep_count);
-  ASSERT(manifest->m_dependency_manifests);
+  ASSERT(!manifest->m_dep_list);
+
+  if (!handle->m_deps || !handle->m_deps->location)
+    return KERR_INVAL;
+
+  /* Count the dependencies */
+  while (handle->m_deps[manifest->m_dep_count].location)
+    manifest->m_dep_count++;
+
+  if (!manifest->m_dep_count)
+    return KERR_INVAL;
+
+  manifest->m_dep_list = create_vector(manifest->m_dep_count, sizeof(manifest_dependency_t), NULL);
 
   /*
    * We kinda trust too much in the fact that m_dep_count is 
    * correct...
    */
-  for (uintptr_t i = 0; i < handle->m_dep_count; i++) {
+  for (uintptr_t i = 0; i < manifest->m_dep_count; i++) {
 
     /* TODO: we can check if this address is located in a 
      used resource in oder to validate it */
-    dev_url_t url = handle->m_dependencies[i];
-    
-    if (!url)
-      continue;
+    drv_dependency_t* drv_dep = &handle->m_deps[i];
 
-    /*
-     * Get the driver from the installed pool
-     */
-    dev_manifest_t* dep_manifest = get_driver(url);
+    if (!drv_dep->location)
+      return -KERR_INVAL;
 
-    // if we can't load this drivers dependencies, we just terminate this entire thing
-    if (!dep_manifest) {
-      return;
+    /* Clear */
+    memset(&man_dep, 0, sizeof(man_dep));
+
+    /* Copy over the raw driver dependency */
+    memcpy(&man_dep.dep, drv_dep, sizeof(*drv_dep));
+
+    /* Try to resolve the dependency */
+    switch (drv_dep->type) {
+      case DRV_DEPTYPE_URL:
+        man_dep.obj.drv = get_driver(drv_dep->location);
+        break;
+      case DRV_DEPTYPE_PATH:
+        man_dep.obj.drv = install_external_driver(drv_dep->location);
+
+        /* If this was an essential dependency, we bail */
+        if (!man_dep.obj.drv && !drv_dep_is_optional(drv_dep))
+          return -KERR_INVAL;
+
+        break;
+      default:
+        printf("Got dependency type: %d with location %s\n", drv_dep->type, drv_dep->location);
+        kernel_panic("TODO: implement driver dependency type");
+        break;
     }
 
-    list_append(manifest->m_dependency_manifests, dep_manifest);
-
-    manifest->m_dep_count++;
+    /* Copy the dependency into the vector */
+    vector_add(manifest->m_dep_list, &man_dep);
   }
-}
 
-bool ensure_dependencies(dev_manifest_t* manifest)
-{
-  return (manifest->m_handle && manifest->m_dep_count == manifest->m_handle->m_dep_count);
+  return 0;
 }

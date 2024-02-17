@@ -301,6 +301,8 @@ EXPORT_DRIVER(window_driver) = {
   .f_init = init_window_driver,
   .f_exit = exit_window_driver,
   .f_msg = msg_window_driver,
-  .m_dep_count = 1,
-  .m_dependencies = { "core/video" },
+};
+
+EXPORT_DEPENDENCIES(deps) = {
+  DRV_DEP_END,
 };

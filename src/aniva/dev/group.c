@@ -71,7 +71,7 @@ dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t f
   mutex_unlock(_group_lock);
 
   /* Register the group on the OSS endpoint */
-  device_add_group(group, parent);
+  device_node_add_group(parent, group);
   return group;
 }
 

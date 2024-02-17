@@ -16,7 +16,7 @@ struct proc;
 struct thread;
 struct mutex;
 struct threaded_socket;
-struct dev_manifest;
+struct drv_manifest;
 
 typedef int (*ThreadEntry) (
   uintptr_t arg

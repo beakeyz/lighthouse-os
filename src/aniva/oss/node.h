@@ -57,7 +57,7 @@ int oss_node_remove_entry(oss_node_t* node, const char* name, struct oss_node_en
 int oss_node_find(oss_node_t* node, const char* name, struct oss_node_entry** entry_out);
 int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out);
 
-int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj));
+int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param);
 
 int oss_node_clean_objects(oss_node_t* node);
 

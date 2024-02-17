@@ -110,9 +110,9 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
   return 0;
 }
 
-bool print_drv_info(oss_node_t* _, oss_obj_t* obj)
+bool print_drv_info(oss_node_t* _, oss_obj_t* obj, void* arg0)
 {
-  dev_manifest_t* manifest = oss_obj_unwrap(obj, dev_manifest_t);
+  drv_manifest_t* manifest = oss_obj_unwrap(obj, drv_manifest_t);
 
   if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
     return false;
@@ -137,7 +137,7 @@ uint32_t kterm_cmd_drvinfo(const char** argv, size_t argc)
 {
   kterm_println(" - Printing drivers...");
 
-  foreach_driver(print_drv_info);
+  foreach_driver(print_drv_info, NULL);
 
   return 0;
 }
@@ -182,7 +182,7 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 {
   ErrorOrPtr result;
   extern_driver_t* driver;
-  dev_manifest_t* manifest;
+  drv_manifest_t* manifest;
   const char* drv_path = nullptr;
   bool should_unload = false;
   bool should_uninstall = false;
@@ -381,7 +381,7 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
   if (!dev_path || !dev_path[0])
     return 2;
 
-  dev = open_device(dev_path);
+  dev = device_open(dev_path);
 
   if (!dev)
     return 3;

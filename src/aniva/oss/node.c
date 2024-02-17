@@ -334,13 +334,19 @@ int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
   return (*obj_out ? 0 : -1);
 }
 
-static ErrorOrPtr _node_itter(void* v, uint64_t arg)
+/*!
+ * @brief: The intermediate callback for oss_node_itterate
+ *
+ * @arg0: The itteration callback for _node_itter
+ * @arg1: The suplementary argument for the itteration
+ */
+static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
 {
   int error;
   oss_node_entry_t* entry = v;
   oss_node_t* node;
   oss_obj_t* obj;
-  bool (*f_itter)(oss_node_t* node, struct oss_obj* obj) = (void*)arg;
+  bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* arg0) = (void*)arg0;
 
   if (!entry)
     return Success(0);
@@ -353,14 +359,14 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg)
       obj = entry->obj;
       node = obj->parent;
 
-      if (!f_itter(node, obj))
+      if (!f_itter(node, obj, (void*)arg1))
         return Error();
       break;
     /* Itterate over nodes recursively */
     case OSS_ENTRY_NESTED_NODE:
       node = entry->node;
 
-      error = oss_node_itterate(node, f_itter);
+      error = oss_node_itterate(node, f_itter, (void*)arg1);
       break;
     default:
       break;
@@ -372,9 +378,9 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg)
 /*!
  * @brief: Walk all the child objects under @node
  */
-int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj))
+int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param)
 {
-  return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter));
+  return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter, (uint64_t)param));
 }
 
 /*!

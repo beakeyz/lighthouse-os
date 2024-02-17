@@ -69,7 +69,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   ASSERT_MSG(p, "Could not find process! (Lost to the void)");
 
   khandle_type_t driver_type = HNDL_TYPE_DRIVER;
-  dev_manifest_t* kterm_manifest = get_driver("other/kterm");
+  drv_manifest_t* kterm_manifest = get_driver("other/kterm");
 
   khandle_t _stdin;
   khandle_t _stdout;

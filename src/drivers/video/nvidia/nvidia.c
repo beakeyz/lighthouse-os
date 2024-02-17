@@ -9,7 +9,7 @@
 #include <dev/pci/pci.h>
 #include <dev/manifest.h>
 
-static dev_manifest_t* _our_manifest;
+static drv_manifest_t* _our_manifest;
 
 int nvidia_init();
 int nvidia_exit();
@@ -46,6 +46,10 @@ pci_driver_t nvfb_pci_driver = {
   0,
 };
 
+EXPORT_DEPENDENCIES(deps) = {
+  DRV_DEP_END,
+};
+
 EXPORT_DRIVER(nvidia_driver) = {
   .m_name = "nvidia",
   .m_type = DT_GRAPHICS,
@@ -53,8 +57,6 @@ EXPORT_DRIVER(nvidia_driver) = {
   .f_init = nvidia_init,
   .f_exit = nvidia_exit,
   .m_precedence = DRV_PRECEDENCE_BASIC,
-  .m_dep_count = 0,
-  .m_dependencies = { 0 },
 };
 
 /*!

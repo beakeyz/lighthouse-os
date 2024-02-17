@@ -33,7 +33,7 @@ extern char thread_entry_stub_end[];
 struct proc;
 struct thread;
 struct tspckt;
-struct dev_manifest;
+struct drv_manifest;
 struct threaded_socket;
 struct packet_response;
 

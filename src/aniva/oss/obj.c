@@ -27,8 +27,6 @@ oss_obj_t* create_oss_obj(const char* name)
 
   init_atomic_ptr(&ret->refc, 1);
 
-  printf(" -> Creating object: %s\n", ret->name);
-
   return ret;
 }
 
@@ -53,8 +51,6 @@ void destroy_oss_obj(oss_obj_t* obj)
     obj->ops.f_destory_priv(priv);
 
   destroy_mutex(obj->lock);
-
-  printf(" <- Destroying object: %s\n", obj->name);
 
   kfree((void*)obj->name);
   kfree(obj);
@@ -128,8 +124,6 @@ destroy_obj:
  */
 int oss_obj_close(oss_obj_t* obj)
 {
-  printf("Trying to close obj: %s\n", obj->name);
-
   oss_obj_unref(obj);
   return 0;
 }

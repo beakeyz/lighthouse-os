@@ -24,7 +24,7 @@ int register_video_device(video_device_t* vdev)
   if (!vdev || !vdev->device)
     return -1;
 
-  if (!dev_has_endpoint(vdev->device, ENDPOINT_TYPE_VIDEO))
+  if (!device_has_endpoint(vdev->device, ENDPOINT_TYPE_VIDEO))
     return -2;
 
   /* Try to add the device to our video group */
@@ -55,7 +55,7 @@ struct video_device* get_active_vdev()
   error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
   /* If the device does not have an video endpoint we're fucked lmao */
-  if (error || !maindev || !dev_has_endpoint(maindev, ENDPOINT_TYPE_VIDEO))
+  if (error || !maindev || !device_has_endpoint(maindev, ENDPOINT_TYPE_VIDEO))
     return nullptr;
 
   /* 'maindev' may not contain anything other than a video device */
@@ -74,7 +74,7 @@ int video_deactivate_current_driver()
 {
   int error;
   device_t* maindev;
-  dev_manifest_t* class_manifest;
+  drv_manifest_t* class_manifest;
 
   error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
@@ -82,7 +82,7 @@ int video_deactivate_current_driver()
   if (error)
     return 0;
 
-  class_manifest = maindev->parent;
+  class_manifest = maindev->driver;
 
   /* FIXME: what to do when this fails? */
   logln("Trying to unload current video driver!");
@@ -189,7 +189,7 @@ int vdev_get_mainfb(struct device* device, fb_handle_t* fb)
 {
   video_device_t* dev;
 
-  if (!device || !dev_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
+  if (!device || !device_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
     return -1;
 
   dev = device->private;
@@ -204,7 +204,7 @@ static inline fb_info_t* _get_fb_info(device_t* device, fb_handle_t fb)
 {
   video_device_t* dev;
 
-  if (!device || !dev_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
+  if (!device || !device_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
     return nullptr;
 
   dev = device->private;

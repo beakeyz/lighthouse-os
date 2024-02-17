@@ -54,8 +54,6 @@ aniva_driver_t ext2_drv = {
   .m_type = DT_FS,
   .f_init = ext2_init,
   .f_exit = ext2_exit,
-  .m_dependencies = {"disk/ahci"},
-  .m_dep_count = 1,
 };
 EXPORT_DRIVER_PTR(ext2_drv);
 

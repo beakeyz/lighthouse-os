@@ -599,8 +599,6 @@ aniva_driver_t fat32_drv = {
   .m_type = DT_FS,
   .f_init = fat32_init,
   .f_exit = fat32_exit,
-  .m_dependencies = {"disk/ahci"},
-  .m_dep_count = 1,
 };
 EXPORT_DRIVER_PTR(fat32_drv);
 

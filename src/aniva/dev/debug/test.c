@@ -29,7 +29,6 @@ const aniva_driver_t g_test_dbg_driver = {
   .f_init = test_dbg_init,
   .f_exit = test_dbg_exit,
   .f_msg = test_dbg_msg,
-  .m_port = 1,
 };
 
 int test_dbg_init() {

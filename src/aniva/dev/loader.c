@@ -9,7 +9,9 @@
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "oss/obj.h"
 #include "system/resource.h"
 
 struct loader_ctx {
@@ -23,7 +25,7 @@ struct loader_ctx {
   size_t size;
   size_t sym_count;
 
-  uint32_t expdrv_idx, symtab_idx;
+  uint32_t expdrv_idx, deps_idx, symtab_idx;
 };
 
 /*!
@@ -157,7 +159,6 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
 
     switch (current_symbol->st_shndx) {
       case SHN_UNDEF:
-
         current_symbol->st_value = get_ksym_address(sym_name);
 
         /* Oops, invalid symbol: bail */
@@ -192,10 +193,8 @@ static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
   if (IsError(__fixup_section_headers(ctx)))
     return Error();
 
-
   if (IsError(__resolve_kernel_symbols(ctx)))
     return Error();
-
 
   /* Then handle any pending relocations */
   if (IsError(__do_driver_relocations(ctx)))
@@ -214,6 +213,7 @@ static int __check_driver(struct loader_ctx* ctx)
 {
   uint32_t i;
   uint32_t expdrv_sections = 0,
+           deps_sections = 0,
            symtab_sections = 0;
   struct elf64_shdr* shdr;
 
@@ -254,10 +254,7 @@ static int __check_driver(struct loader_ctx* ctx)
         if (strcmp(".expdrv", ctx->section_strings + shdr->sh_name) == 0) {
           /* TODO: real validation */
 
-          /*
-           * (NOTE/FIXME): aniva_driver_t has no fixed size due to the way we specify dependencies
-           */
-          if (shdr->sh_size < sizeof(aniva_driver_t)) {
+          if (shdr->sh_size != sizeof(aniva_driver_t)) {
             kernel_panic("Size check failed while loading external driver");
             return -1;
           }
@@ -265,11 +262,21 @@ static int __check_driver(struct loader_ctx* ctx)
           expdrv_sections++;
           ctx->expdrv_idx = i;
         }
+
+        if (strcmp(".deps", ctx->section_strings + shdr->sh_name) == 0) {
+          /* TODO: real validation */
+          deps_sections++;
+          ctx->deps_idx = i;
+        }
         break;
     }
   }
 
-  if (expdrv_sections != 1 || symtab_sections != 1)
+  /* 
+   * All these sections are a must-have for external drivers so
+   * they must explicitly export both a driver AND a dependency table
+   */
+  if (expdrv_sections != 1 || symtab_sections != 1 || deps_sections != 1)
     return -1;
 
   return 0;
@@ -285,7 +292,7 @@ static int __check_driver(struct loader_ctx* ctx)
  * o ...
  *
  */
-static void __detect_driver_attributes(dev_manifest_t* manifest)
+static void __detect_driver_attributes(drv_manifest_t* manifest)
 {
   /* TODO: */
   (void)manifest;
@@ -308,7 +315,7 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
   size_t function_count;
   struct elf64_shdr* symtab_shdr;
   struct elf64_sym* sym_table_start;
-  dev_manifest_t* manifest = ctx->driver->m_manifest;
+  drv_manifest_t* manifest = ctx->driver->m_manifest;
 
   void* driver_functions[] = {
     manifest->m_handle->f_init,
@@ -361,9 +368,9 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
   return Success(0);
 }
 
-static ErrorOrPtr __remove_installed_manifest(dev_manifest_t* new_manifest)
+static ErrorOrPtr __remove_installed_manifest(drv_manifest_t* new_manifest)
 {
-  dev_manifest_t* current;
+  drv_manifest_t* current;
 
   current = get_driver(new_manifest->m_url);
 
@@ -383,6 +390,14 @@ static ErrorOrPtr __remove_installed_manifest(dev_manifest_t* new_manifest)
   return uninstall_driver(current);
 }
 
+static inline void _ctx_prepare_manifest(struct loader_ctx* ctx)
+{
+  if (!ctx->driver->m_manifest->m_driver_file_path)
+    ctx->driver->m_manifest->m_driver_file_path = strdup(ctx->path);
+
+  ctx->driver->m_manifest->m_external = ctx->driver;
+}
+
 /*
  * Initializes the internal driver structures and installs
  * the driver in the kernel context. When the driver is put
@@ -392,11 +407,16 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
 {
   ErrorOrPtr result;
   struct elf64_shdr* driver_header;
+  struct elf64_shdr* deps_header;
   aniva_driver_t* driver_data;
 
   driver_header = &ctx->shdrs[ctx->expdrv_idx];
-  driver_data = (aniva_driver_t*)driver_header->sh_addr;
+  deps_header = &ctx->shdrs[ctx->deps_idx];
 
+  driver_data = (aniva_driver_t*)driver_header->sh_addr;
+  driver_data->m_deps = (drv_dependency_t*)deps_header->sh_addr;
+
+  printf("Emplace\n");
   result = manifest_emplace_handle(ctx->driver->m_manifest, driver_data);
 
   if (IsError(result))
@@ -419,23 +439,22 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
 
   __detect_driver_attributes(ctx->driver->m_manifest);
 
-  manifest_gather_dependencies(ctx->driver->m_manifest);
+  /* When loading a new driver, we need to have valid dependencies */
+  if (manifest_gather_dependencies(ctx->driver->m_manifest) < 0)
+    return Error();
 
   if (install) {
     result = install_driver(ctx->driver->m_manifest);
-    goto skip_load;
+
+    _ctx_prepare_manifest(ctx);
+
+    return result;
   }
 
-  result = load_driver(ctx->driver->m_manifest);
+  _ctx_prepare_manifest(ctx);
 
-skip_load:
   /* We could install the driver, so we came that far =D */
-  if (!ctx->driver->m_manifest->m_driver_file_path)
-    ctx->driver->m_manifest->m_driver_file_path = strdup(ctx->path);
-
-  ctx->driver->m_manifest->m_external = ctx->driver;
-
-  return result;
+  return load_driver(ctx->driver->m_manifest);
 }
 
 /*
@@ -443,12 +462,8 @@ skip_load:
  */
 static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx, bool install)
 {
-  int error;
-
   /* TODO: implement + check signatures */
-  error = __check_driver(ctx);
-
-  if (error)
+  if (__check_driver(ctx))
     return Error();
 
   if (IsError(__move_driver(ctx)))
@@ -480,7 +495,7 @@ extern_driver_t* load_external_driver(const char* path)
   out = create_external_driver(NULL);
 
   if (!out || !out->m_manifest)
-    return nullptr;
+    goto fail_and_deallocate;
 
   /* Allocate contiguous high space for the driver */
   result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
@@ -493,7 +508,6 @@ extern_driver_t* load_external_driver(const char* path)
   /* Set driver fields */
   out->m_load_base = driver_load_base;
   out->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
-  out->m_file = file;
 
   read_size = file_get_size(file);
 
@@ -506,24 +520,30 @@ extern_driver_t* load_external_driver(const char* path)
   ctx.hdr = (struct elf64_hdr*)driver_load_base;
   ctx.size = read_size;
   ctx.driver = out;
-  ctx.path = path;
+  ctx.path = strdup(path);
 
   result = __load_ext_driver(&ctx, false);
+
+  kfree((void*)ctx.path);
 
   if (IsError(result))
     goto fail_and_deallocate;
 
+  file_close(file);
   return out;
 
 fail_and_deallocate:
 
   if (out && out->m_manifest) {
-    destroy_dev_manifest(out->m_manifest);
+    destroy_drv_manifest(out->m_manifest);
     out->m_manifest = nullptr;
   }
 
   if (out)
     destroy_external_driver(out);
+
+  if (file)
+    file_close(file);
 
   /* TODO */
   return nullptr;
@@ -537,26 +557,27 @@ fail_and_deallocate:
  * will result in the file being loaded from disk and the manifest being overwritten
  *
  */
-int install_external_driver(const char* path)
+drv_manifest_t* install_external_driver(const char* path)
 {
   ErrorOrPtr result;
   uintptr_t driver_load_base;
   size_t read_size;
   file_t* file;
-  dev_manifest_t* manifest;
+  drv_manifest_t* manifest;
   extern_driver_t* ext_drv;
   struct loader_ctx ctx = { 0 };
 
+  manifest = nullptr;
   file = file_open(path);
 
   if (!file || !file->m_total_size)
-    return -1;
+    return nullptr;
 
   /* Create an external driver so we can  */
   ext_drv = create_external_driver(NULL);
 
   if (!ext_drv || !ext_drv->m_manifest)
-    return -1;
+    goto fail_and_deallocate;
 
   manifest = ext_drv->m_manifest;
 
@@ -569,7 +590,6 @@ int install_external_driver(const char* path)
   /* Set driver fields */
   ext_drv->m_load_base = driver_load_base;
   ext_drv->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
-  ext_drv->m_file = file;
 
   /* Only check failure here (unlikely failure) */
   if (IsError(result))
@@ -602,6 +622,7 @@ int install_external_driver(const char* path)
    *
    * All of this is done by destroying the temporary ext. driver
    */
+  file_close(file);
 
   /* Destroy the temporary external driver */
   destroy_external_driver(ext_drv);
@@ -612,7 +633,7 @@ int install_external_driver(const char* path)
   /* Give the manifest a clean resource bundle */
   manifest->m_resources = create_resource_bundle(NULL);
 
-  return 0;
+  return manifest;
 
 fail_and_deallocate:
 
@@ -620,83 +641,13 @@ fail_and_deallocate:
     destroy_external_driver(ext_drv);
 
   if (manifest)
-    destroy_dev_manifest(manifest);
+    destroy_drv_manifest(manifest);
 
-  /* TODO */
-  return -1;
-}
-
-/*!
- * @brief: Loads a installed manifest
- */
-extern_driver_t* load_external_driver_manifest(dev_manifest_t* manifest)
-{
-  ErrorOrPtr result;
-  uintptr_t driver_load_base;
-  size_t read_size;
-  file_t* file;
-  extern_driver_t* out;
-  struct loader_ctx ctx = { 0 };
-
-  if (!manifest || !manifest->m_driver_file_path)
-    return nullptr;
-
-  if ((manifest->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL)
-    return nullptr;
-
-  file = file_open(manifest->m_driver_file_path);
-
-  if (!file)
-    return nullptr;
-
-  /* Mark this driver as using an old manifest to prevent the creation of a new one */
-  out = create_external_driver(EX_DRV_OLDMANIFEST);
-
-  if (!out)
-    return nullptr;
-
-  out->m_manifest = manifest;
-
-  /* Allocate contiguous high space for the driver */
-  result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
-
-  if (IsError(result))
-    goto fail_and_deallocate;
-
-  driver_load_base = Release(result);
-
-  /* Set driver fields */
-  out->m_load_base = driver_load_base;
-  out->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
-  out->m_file = file;
-
-  read_size = file->m_total_size;
-
-  /* Read the driver into RAM */
-  read_size = file_read(file, (void*)out->m_load_base, read_size, 0);
-
-  if (!read_size)
-    goto fail_and_deallocate;
-
-  ctx.hdr = (struct elf64_hdr*)driver_load_base;
-  ctx.size = read_size;
-  ctx.driver = out;
-  ctx.path = manifest->m_driver_file_path;
-
-  result = __load_ext_driver(&ctx, false);
-
-  if (IsError(result))
-    goto fail_and_deallocate;
-
-  return out;
-
-fail_and_deallocate:
-  if (out)
-    destroy_external_driver(out);
+  if (file)
+    file_close(file);
 
   /* TODO */
   return nullptr;
-
 }
 
 /*!

@@ -45,7 +45,7 @@ device_t* create_device(aniva_driver_t* parent, char* name)
 device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count)
 {
   device_t* ret;
-  dev_manifest_t* parent_man;
+  drv_manifest_t* parent_man;
   struct device_endpoint* g_ep;
 
   if (!name)
@@ -70,7 +70,7 @@ device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, 
   ret->name = strdup(name);
   ret->lock = create_mutex(NULL);
   ret->obj = create_oss_obj(ret->name);
-  ret->parent = parent_man;
+  ret->driver = parent_man;
   ret->flags = flags;
   ret->private = priv;
   ret->endpoints = eps;
@@ -79,7 +79,7 @@ device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, 
   /* Make sure the object knows about us */
   oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, destroy_device);
 
-  g_ep = dev_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
+  g_ep = device_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
 
   /* Call the private device constructor */
   if (dev_is_valid_endpoint(g_ep) && g_ep->impl.generic->f_create)
@@ -115,7 +115,7 @@ void destroy_device(device_t* device)
 /*!
  * @brief: Add a new dgroup to the device node
  */
-int device_add_group(dgroup_t* group, struct oss_node* node)
+int device_node_add_group(struct oss_node* node, dgroup_t* group)
 {
   if (!group || !group->node)
     return -1;
@@ -127,13 +127,82 @@ int device_add_group(dgroup_t* group, struct oss_node* node)
 }
 
 /*!
- * @brief: Registers a device to the root device node, without any grouping
+ * @brief: Registers a device to the device tree
  *
- * This is a very crude function and should only be used in specific situations
+ * This assumes @group is already registered
  */
-int device_register(device_t* dev)
+int device_register(device_t* dev, dgroup_t* group)
 {
-  return oss_node_add_obj(_device_node, dev->obj);
+  oss_node_t* node;
+
+  node = _device_node;
+
+  if (group)
+    node = group->node;
+
+  return oss_node_add_obj(node, dev->obj);
+}
+
+/*!
+ * @brief: Register a device to another devices which is a bus
+ */
+int device_register_to_bus(device_t* dev, device_t* busdev)
+{
+  dgroup_t* grp;
+
+  if (!device_is_bus(busdev))
+    return -KERR_INVAL;
+
+  grp = busdev->bus_group;
+
+  return device_register(dev, grp);
+}
+
+int device_unregister(device_t* dev)
+{
+  int error;
+  dgroup_t* dgroup;
+  oss_node_entry_t* entry;
+
+  error = device_get_group(dev, &dgroup);
+
+  if (error)
+    return error;
+
+  error = oss_node_remove_entry(dgroup->node, dev->obj->name, &entry);
+
+  if (error)
+    return error;
+
+  destroy_oss_node_entry(entry);
+  return 0;
+}
+
+static bool __device_itterate(oss_node_t* node, oss_obj_t* obj, void* arg)
+{
+  DEVICE_ITTERATE ittr = arg;
+
+  /* If we have an object, we hope for it to be a device */
+  if (obj && obj->type == OSS_OBJ_TYPE_DEVICE)
+    return ittr(oss_obj_unwrap(obj, device_t));
+
+  return false;
+}
+
+int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
+{
+  oss_node_t* this;
+
+  if (!callback)
+    return -KERR_INVAL;
+
+  /* Start itteration from the device root if there is no itteration root given through @root */
+  this = _device_node;
+
+  if (root)
+    this = root->node;
+
+  return oss_node_itterate(this, __device_itterate, callback);
 }
 
 /*!
@@ -141,7 +210,7 @@ int device_register(device_t* dev)
  *
  * We enforce devices to be attached to the device root
  */
-device_t* open_device(const char* path)
+device_t* device_open(const char* path)
 {
   int error;
   oss_node_t* obj_rootnode;
@@ -155,7 +224,7 @@ device_t* open_device(const char* path)
 
   obj_rootnode = oss_obj_get_root_parent(obj);
 
-  ASSERT_MSG(obj_rootnode, "open_device: Somehow we found an object without a root parent which was still attached to the oss???");
+  ASSERT_MSG(obj_rootnode, "device_open: Somehow we found an object without a root parent which was still attached to the oss???");
 
   ret = oss_obj_get_device(obj);
 
@@ -169,10 +238,22 @@ device_t* open_device(const char* path)
   return ret;
 }
 
-int close_device(device_t* dev)
+int device_close(device_t* dev)
 {
   /* TODO: ... */
   return oss_obj_close(dev->obj);
+}
+
+kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver)
+{
+  if (dev->driver)
+    return -KERR_INVAL;
+
+  mutex_lock(dev->lock);
+  dev->driver = driver;
+  mutex_unlock(dev->lock);
+
+  return KERR_NONE;
 }
 
 /*!
@@ -231,7 +312,7 @@ int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 
   /* Loop over all the endpoint types that have read ops */
   for (uintptr_t i = 0; i < arrlen(supported_types); i++) {
-    ep = dev_get_endpoint(dev, supported_types[i]);
+    ep = device_get_endpoint(dev, supported_types[i]);
 
     if (!ep)
       continue;
@@ -265,7 +346,7 @@ int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 
   /* Loop over all the endpoint types that have write ops */
   for (uintptr_t i = 0; i < arrlen(supported_types); i++) {
-    ep = dev_get_endpoint(dev, supported_types[i]);
+    ep = device_get_endpoint(dev, supported_types[i]);
 
     if (!ep)
       continue;
@@ -287,7 +368,7 @@ int device_power_on(device_t* dev)
 {
   device_ep_t* pwm_ep;
 
-  pwm_ep = dev_get_endpoint(dev, ENDPOINT_TYPE_PWM);
+  pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
 
   if (!pwm_ep)
     return -1;
@@ -306,7 +387,7 @@ int device_on_remove(device_t* dev)
 {
   device_ep_t* pwm_ep;
 
-  pwm_ep = dev_get_endpoint(dev, ENDPOINT_TYPE_PWM);
+  pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
 
   if (!pwm_ep)
     return -1;
@@ -354,8 +435,10 @@ static void print_obj_path(oss_node_t* node)
   }
 }
 
-static bool _itter(oss_node_t* node, oss_obj_t* obj)
+static bool _itter(device_t* dev)
 {
+  oss_obj_t* obj = dev->obj;
+
   if (obj) {
     print_obj_path(obj->parent);
     printf("/%s\n", obj->name);
@@ -364,11 +447,11 @@ static bool _itter(oss_node_t* node, oss_obj_t* obj)
   return true;
 }
 
-void devices_debug()
+void debug_devices()
 {
-  oss_node_itterate(_device_node, _itter);
+  device_for_each(NULL, _itter);
 
-  kernel_panic("devices_debug");
+  kernel_panic("debug_devices");
 }
 
 
