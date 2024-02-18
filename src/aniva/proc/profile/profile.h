@@ -30,12 +30,12 @@ struct proc;
 #define PRF_MAX_VARS 4096
 
 /* Processes in this profile may load drivers */
-#define PRF_PERM_LOAD_DRV (1 << 0)
+#define PRF_PERM_LOAD_DRV (1ULL << 0)
 /* Processes in this profile may unload drivers */
-#define PRF_PERM_UNLOAD_DRV (1 << 1)
+#define PRF_PERM_UNLOAD_DRV (1ULL << 1)
 
 /* This profile has a password in the hash */
-#define PROFILE_FLAG_HAS_PASSWD 0x00000001
+#define PROFILE_FLAG_HAS_PASSWD 0x00000001UL
 
 #define PROFILE_STR(str) (uint64_t)(str)
 

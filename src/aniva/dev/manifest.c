@@ -323,3 +323,20 @@ int manifest_gather_dependencies(drv_manifest_t* manifest)
 
   return 0;
 }
+
+void manifest_add_dev(struct drv_manifest* driver)
+{
+  mutex_lock(driver->m_lock);
+  driver->m_dev_count++;
+  mutex_unlock(driver->m_lock);
+}
+
+void manifest_remove_dev(struct drv_manifest* driver)
+{
+  if (!driver->m_dev_count)
+    return;
+
+  mutex_lock(driver->m_lock);
+  driver->m_dev_count--;
+  mutex_unlock(driver->m_lock);
+}

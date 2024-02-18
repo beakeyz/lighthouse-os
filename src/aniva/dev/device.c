@@ -85,6 +85,10 @@ device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, 
   if (dev_is_valid_endpoint(g_ep) && g_ep->impl.generic->f_create)
     g_ep->impl.generic->f_create(ret);
 
+  /* Make sure we register ourselves to the driver */
+  if (ret->driver)
+    manifest_add_dev(ret->driver);
+
   return ret;
 }
 
@@ -103,6 +107,10 @@ void destroy_device(device_t* device)
     destroy_oss_obj(device->obj);
     return;
   }
+
+  /* Let the system know that there was a driver removed */
+  if (device->driver)
+    manifest_remove_dev(device->driver);
 
   destroy_mutex(device->lock);
   kfree((void*)device->name);

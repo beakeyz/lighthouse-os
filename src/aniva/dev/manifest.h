@@ -43,7 +43,8 @@ typedef struct drv_manifest {
   aniva_driver_t* m_handle;
 
   vector_t* m_dep_list;
-  size_t m_dep_count;
+  uint32_t m_dep_count;
+  uint32_t m_dev_count;
 
   uint32_t m_flags;
   driver_version_t m_check_version;
@@ -78,6 +79,9 @@ ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* han
 
 bool driver_manifest_write(struct aniva_driver* manifest, int(*write_fn)());
 bool driver_manifest_read(struct aniva_driver* manifest, int(*read_fn)());
+
+void manifest_add_dev(struct drv_manifest* driver);
+void manifest_remove_dev(struct drv_manifest* driver);
 
 static inline bool manifest_is_active(drv_manifest_t* manifest)
 {
