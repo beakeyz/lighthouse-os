@@ -9,6 +9,8 @@
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "oss/obj.h"
+#include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/string.h>
@@ -211,6 +213,46 @@ void destroy_drv_manifest(drv_manifest_t* manifest)
   free_dmanifest(manifest);
 }
 
+static drv_manifest_t* _get_dependency_from_path(drv_dependency_t* dep)
+{
+  kerror_t error;
+  char* abs_path;
+  size_t abs_path_len;
+  const char* relative_path;
+  profile_var_t* drv_root;
+  drv_manifest_t* ret;
+
+  if (dep->type != DRV_DEPTYPE_PATH)
+    return nullptr;
+
+  if ((dep->flags & DRVDEP_FLAG_RELPATH) != DRVDEP_FLAG_RELPATH)
+    return install_external_driver(dep->location);
+
+  error = profile_scan_var(DRIVERS_LOC_VAR_PATH, NULL, &drv_root);
+
+  if (error)
+    return nullptr;
+
+  /* NOTE: This is suddenly a bool :clown: */
+  if (!profile_var_get_str_value(drv_root, &relative_path))
+    return nullptr;
+
+  abs_path_len = strlen(relative_path) + strlen(dep->location) + 1;
+  abs_path = kmalloc(abs_path_len);
+
+  /* Construct the full path */
+  memset(abs_path, 0, abs_path_len);
+  concat((char*)relative_path, (char*)dep->location, abs_path);
+
+  /* Try to find the driver */
+  ret = install_external_driver(abs_path);
+
+  /* Clear the path */
+  kfree((void*)abs_path);
+
+  return ret;
+}
+
 /*!
  * @brief: 'serialize' the given driver paths into the manifest
  *
@@ -262,7 +304,7 @@ int manifest_gather_dependencies(drv_manifest_t* manifest)
         man_dep.obj.drv = get_driver(drv_dep->location);
         break;
       case DRV_DEPTYPE_PATH:
-        man_dep.obj.drv = install_external_driver(drv_dep->location);
+        man_dep.obj.drv = _get_dependency_from_path(drv_dep);
 
         /* If this was an essential dependency, we bail */
         if (!man_dep.obj.drv && !drv_dep_is_optional(drv_dep))

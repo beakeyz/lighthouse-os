@@ -1,14 +1,19 @@
 DRIVER_OUT=$(OUT)/drivers
 DRIVER_SRC=$(SRC)/drivers
 
+INPUT_DRIVERS := \
+	./input/i8042
+
 # Define where the drivers are located
 DRIVER_PATHS := \
 	./env/login \
-	./util/kterm \
+	./env/kterm \
+	./env/lwnd \
 	./video/nvidia \
 	./video/radeon \
-	./test \
-	./lwnd
+	./debug/test \
+	$(INPUT_DRIVERS)
+
 
 build: $(DRIVER_PATHS)
 

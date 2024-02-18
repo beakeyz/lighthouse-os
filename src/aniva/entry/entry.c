@@ -328,6 +328,13 @@ void kthread_entry() {
    * NOTE: arch specific devices like APIC, PIT, RTC, etc. are initialized 
    * by the core system and thus the device objects accociated with these devices 
    * will look like they have no driver that manages them
+   *
+   * This loads the in-kernel drivers that we need for further boot (FS, Bus, ect.). Most drivers for devices
+   * and other shit are found in Root/System/<driver name>.drv
+   * 
+   * TODO: We want to change the boot sequence to the following:
+   * Load in-kernel drivers -> Mount ramdisk -> Load device drivers from Root/System -> Load disk devices and find our rootdevice
+   * -> Move the ramdisk to Initrd/ -> Mount the rootdevice to Root/ -> Lock system parts of the rootdevice -> Load userspace
    */
   init_aniva_driver_registry();
 

@@ -263,9 +263,6 @@ int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t**
   proc_profile_t* profile_ptr;
   profile_var_t* var_ptr;
 
-  if (!profile || !var)
-    return -1;
-
   path_len = strlen(path) + 1;
   char path_buffer[path_len];
 
@@ -293,7 +290,8 @@ int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t**
   error = profile_find(profile_name, &profile_ptr);
 
   /* Copy the profile over after the search */
-  *profile = profile_ptr;
+  if (profile)
+    *profile = profile_ptr;
 
   if (error || !profile_ptr)
     return -4;
@@ -301,7 +299,8 @@ int profile_scan_var(const char* path, proc_profile_t** profile, profile_var_t**
   error = profile_get_var(profile_ptr, var_name, &var_ptr);
 
   /* Copy the var over after the search */
-  *var = var_ptr;
+  if (var)
+    *var = var_ptr;
 
   if (error || !var_ptr)
     return -5;
@@ -468,6 +467,17 @@ static void __apply_base_variables()
 {
   profile_add_var(&base_profile, create_profile_var("KTERM_LOC", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv")));
   profile_add_var(&base_profile, create_profile_var("DRIVERS_LOC", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/")));
+
+  /* 
+   * These variables are to store the boot parameters. When we've initialized all devices we need and we're
+   * ready to load our bootdevice, we will look in "BASE/BOOT_DEVICE" to find the path to our bootdevice, after 
+   * which we will verify that it has remained unchanged by checking if "BASE/BOOT_DEVICE_NAME" and "BASE/BOOT_DEVICE_SIZE"
+   * are still valid.
+   */
+  profile_add_var(&base_profile, create_profile_var("BOOT_DEVICE", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR(NULL)));
+  profile_add_var(&base_profile, create_profile_var("BOOT_DEVICE_SIZE", PROFILE_VAR_TYPE_QWORD, PVAR_FLAG_VOLATILE, NULL));
+  profile_add_var(&base_profile, create_profile_var("BOOT_DEVICE_NAME", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR(NULL)));
+
 }
 
 /*!

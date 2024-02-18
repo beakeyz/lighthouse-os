@@ -30,8 +30,8 @@ enum DRV_DEPTYPE {
   DRV_DEPTYPE_PROC,
 };
 
-#define DRV_DEP_FLAG_ABS_PATH 0x00000001
-#define DRV_DEP_FLAG_OPTIONAL 0x00000002
+#define DRVDEP_FLAG_RELPATH  0x00000001
+#define DRVDEP_FLAG_OPTIONAL 0x00000002
 
 /*
  * A single driver dependency entry
@@ -57,7 +57,7 @@ static inline bool drv_dep_is_driver(drv_dependency_t* dep)
 
 static inline bool drv_dep_is_optional(drv_dependency_t* dep)
 {
-  return ((dep->flags & DRV_DEP_FLAG_OPTIONAL) == DRV_DEP_FLAG_OPTIONAL);
+  return ((dep->flags & DRVDEP_FLAG_OPTIONAL) == DRVDEP_FLAG_OPTIONAL);
 }
 
 /*

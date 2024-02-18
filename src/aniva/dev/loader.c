@@ -416,7 +416,6 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
   driver_data = (aniva_driver_t*)driver_header->sh_addr;
   driver_data->m_deps = (drv_dependency_t*)deps_header->sh_addr;
 
-  printf("Emplace\n");
   result = manifest_emplace_handle(ctx->driver->m_manifest, driver_data);
 
   if (IsError(result))

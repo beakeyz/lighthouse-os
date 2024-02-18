@@ -39,6 +39,16 @@ struct proc;
 
 #define PROFILE_STR(str) (uint64_t)(str)
 
+#define DRIVERS_LOC_VARKEY "DRIVERS_LOC"
+#define BOOT_DEVICE_VARKEY "BOOT_DEVICE"
+#define BOOT_DEVICE_SIZE_VARKEY "BOOT_DEVICE_SIZE"
+#define BOOT_DEVICE_NAME_VARKEY "BOOT_DEVICE_NAME"
+
+#define DRIVERS_LOC_VAR_PATH "BASE/"DRIVERS_LOC_VARKEY
+#define BOOT_DEVICE_VAR_PATH "BASE/"BOOT_DEVICE_VARKEY
+#define BOOT_DEVICE_SIZE_VAR_PATH "BASE/"BOOT_DEVICE_SIZE_VARKEY
+#define BOOT_DEVICE_NAME_VAR_PATH "BASE/"BOOT_DEVICE_NAME_VARKEY
+
 /*
  * Profiles need to be saveable and loadable since they will 
  * act as our 'users' AND our 'groups' at the same time

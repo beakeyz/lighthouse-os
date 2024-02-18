@@ -7,7 +7,7 @@
 #include <libk/string.h>
 #include "sched/scheduler.h"
 
-#include "drivers/util/kterm/kterm.h"
+#include "drivers/env/kterm/kterm.h"
 
 /*
  * TODO: this function should be redone, since the existance of kterm is not a given

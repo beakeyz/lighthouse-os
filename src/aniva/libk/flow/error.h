@@ -30,8 +30,57 @@
 typedef int kerror_t;
 
 #define KERR_FATAL_BIT (0x80000000UL)
+/* No error */
 #define KERR_NONE 0
+/* Invalid arguments/results */
 #define KERR_INVAL 1
+/* I/O error */
+#define KERR_IO 2
+/* No memory */
+#define KERR_NOMEM 3
+/* Memory error */
+#define KERR_MEM 4
+/* No device */
+#define KERR_NODEV 5
+/* Device error */
+#define KERR_DEV 6
+/* No driver */
+#define KERR_NODRV 7
+/* Driver error */
+#define KERR_DRV 8
+/* No connection (to absolutely whatever) */
+#define KERR_NOCON 9
+#define KERR_NOT_FOUND 10
+#define KERR_SIZE_MISMATCH 11
+#define KERR_NULL 12
+
+/*
+ * Single frame in an error chain
+ */
+typedef struct kerror_frame {
+  kerror_t code;
+  const char* ctx;
+
+  struct kerror_frame* prev;
+} kerror_frame_t;
+
+void init_kerror();
+
+kerror_t push_kerror(kerror_t err, const char* ctx);
+kerror_t pop_kerror(kerror_frame_t* frame);
+
+void drain_kerrors();
+
+static inline bool kerror_is_fatal(kerror_t err)
+{
+  return (err & KERR_FATAL_BIT) == KERR_FATAL_BIT;
+}
+
+
+/* ***************************************
+ *  Old libk error code
+ * ***************************************
+ */
 
 typedef enum _ANIVA_STATUS {
   ANIVA_FAIL = 0,

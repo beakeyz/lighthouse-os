@@ -50,8 +50,6 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
   [DT_DIAGNOSTICS] = "diagnostics",
   /* Drivers that provide services, either to userspace or kernelspace */
   [DT_SERVICE] = "service",
-  /* Drivers that implement a core platform for other drivers to function */
-  [DT_CORE] = "core",
 };
 
 /*
@@ -152,12 +150,6 @@ static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
     .max_active = DRV_SERVICE_MAX,
     0
   },
-  [DT_CORE] = {
-    .type = DT_CORE,
-    .max_count = DRV_INFINITE,
-    .max_active = DRV_INFINITE,
-    0
-  },
 };
 
 static list_t* __deferred_driver_manifests;
@@ -192,82 +184,6 @@ static bool walk_precompiled_drivers_to_load(oss_node_t* node, oss_obj_t* data, 
   drv_manifest_t* manifest = oss_obj_unwrap(data, drv_manifest_t);
 
   return __load_precompiled_driver(manifest);
-}
-
-
-void init_aniva_driver_registry() 
-{
-  //__installed_driver_manifests = create_hive("Devices");
-  __driver_node = create_oss_node("Drv", OSS_OBJ_STORE_NODE, NULL, NULL);
-  __drv_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, drv_manifest_SOFTMAX * sizeof(drv_manifest_t), sizeof(drv_manifest_t), NULL);
-  __deferred_driver_manifests = init_list();
-
-  __driver_constraint_lock = create_mutex(NULL);
-  __core_driver_lock = create_mutex(NULL);
-
-  /*
-   * Attach the node to the rootmap 
-   * Access is now granted through Drv/<type>/<name>
-   */
-  oss_attach_rootnode(__driver_node);
-
-  FOREACH_CORE_DRV(ptr) {
-
-    drv_manifest_t* manifest;
-    aniva_driver_t* driver = *ptr;
-
-    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
-
-    manifest = create_drv_manifest(driver);
-
-    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
-
-    Must(install_driver(manifest));
-  }
-
-  /* First load pass */
-  //hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
-  oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
-
-  // Install exported drivers
-  FOREACH_PCDRV(ptr) {
-
-    drv_manifest_t* manifest;
-    aniva_driver_t* driver = *ptr;
-
-    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
-
-    manifest = create_drv_manifest(driver);
-
-    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
-
-    // NOTE: we should just let errors happen here,
-    // since It could happen that a driver is already
-    // loaded as a dependency. This means that this call
-    // will always fail in that case, since we try to load
-    // a driver that has already been loaded
-    Must(install_driver(manifest));
-  }
-
-  /* Second load pass, with the core drivers already loaded */
-  //hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
-  oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
-
-  FOREACH(i, __deferred_driver_manifests) {
-    drv_manifest_t* manifest = i->data;
-
-    /* Skip invalid drivers, as a sanity check */
-    if (!verify_driver(manifest))
-      continue;
-
-    /* Clear the deferred flag */
-    manifest->m_flags &= ~DRV_DEFERRED;
-  
-    ASSERT_MSG(__load_precompiled_driver(manifest), "Failed to load deferred precompiled driver!");
-  }
-
-  destroy_list(__deferred_driver_manifests);
-  __deferred_driver_manifests = nullptr;
 }
 
 
@@ -470,8 +386,6 @@ ErrorOrPtr load_driver(drv_manifest_t* manifest)
 
   if (error < 0)
     return Error();
-
-  println("try Loaded ext driver");
 
   handle = manifest->m_handle;
 
@@ -1033,4 +947,100 @@ ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_co
 
 exit_fail:
   return Error();
+}
+
+/*!
+ * @brief: Initializes the in-kernel drivers
+ */
+void init_aniva_driver_registry() 
+{
+  //__installed_driver_manifests = create_hive("Devices");
+  __driver_node = create_oss_node("Drv", OSS_OBJ_STORE_NODE, NULL, NULL);
+  __drv_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, drv_manifest_SOFTMAX * sizeof(drv_manifest_t), sizeof(drv_manifest_t), NULL);
+  __deferred_driver_manifests = init_list();
+
+  __driver_constraint_lock = create_mutex(NULL);
+  __core_driver_lock = create_mutex(NULL);
+
+  /*
+   * Attach the node to the rootmap 
+   * Access is now granted through Drv/<type>/<name>
+   */
+  oss_attach_rootnode(__driver_node);
+
+  FOREACH_CORE_DRV(ptr) {
+
+    drv_manifest_t* manifest;
+    aniva_driver_t* driver = *ptr;
+
+    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
+
+    manifest = create_drv_manifest(driver);
+
+    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
+
+    Must(install_driver(manifest));
+  }
+
+  /* First load pass */
+  //hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
+  oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
+
+  // Install exported drivers
+  FOREACH_PCDRV(ptr) {
+
+    drv_manifest_t* manifest;
+    aniva_driver_t* driver = *ptr;
+
+    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
+
+    manifest = create_drv_manifest(driver);
+
+    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
+
+    // NOTE: we should just let errors happen here,
+    // since It could happen that a driver is already
+    // loaded as a dependency. This means that this call
+    // will always fail in that case, since we try to load
+    // a driver that has already been loaded
+    Must(install_driver(manifest));
+  }
+
+  /* Second load pass, with the core drivers already loaded */
+  //hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
+  oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
+
+  FOREACH(i, __deferred_driver_manifests) {
+    drv_manifest_t* manifest = i->data;
+
+    /* Skip invalid drivers, as a sanity check */
+    if (!verify_driver(manifest))
+      continue;
+
+    /* Clear the deferred flag */
+    manifest->m_flags &= ~DRV_DEFERRED;
+  
+    ASSERT_MSG(__load_precompiled_driver(manifest), "Failed to load deferred precompiled driver!");
+  }
+
+  destroy_list(__deferred_driver_manifests);
+  __deferred_driver_manifests = nullptr;
+}
+
+/*!
+ * @brief: Load all drivers we need to put the system in a read-state
+ *
+ * Here we walk the device tree where we try to match them to any aniva_drivers using ->f_probe
+ * Some devices may be supported by a driver that we have on disk. We still need to find a way
+ * to match devices to their drivers on disk (TODO)
+ * 
+ * At this point, the ramdisk is still mounted at Root/, so we can also have the disk initialization happen here =D
+ * On system installation, we may actually regenerate the ramdisk to only include drivers that we actually need for
+ * boot (?). When we put all the driver we have in the ramdisk, it might become quite large =/
+ * This is kinda why we want to put most drivers on disk, because they can get so large that it is more logical to have
+ * them on a medium seperate from the kernel, to save space. 
+ */
+void init_drivers()
+{
+
 }

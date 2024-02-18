@@ -25,7 +25,6 @@ typedef uint8_t dev_type_t;
 #define DT_SERVICE 5
 #define DT_DIAGNOSTICS 6
 #define DT_OTHER 7
-#define DT_CORE 8
 
 #define VALID_DEV_TYPE(type) ((type) && (type) < DRIVER_TYPE_COUNT)
 
@@ -105,6 +104,7 @@ typedef driver_control_code_t           dcc_t;
  * with the kernel
  */
 void init_aniva_driver_registry();
+void init_drivers();
 
 // TODO: load driver from file
 

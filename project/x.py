@@ -270,6 +270,43 @@ class GenerateUserProcessCallback(CommandCallback):
         return Status(StatusCode.Success, "Created thing!")
 
 
+class GenerateDriverStubCallback(CommandCallback):
+    def call(self) -> Status:
+        c = Consts()
+        driverName: str = take_input("Enter driver name")
+        _driverDir: str = take_input("Enter driver dir path (relative from src/drivers/)")
+
+        # Make sure it ends with a slash
+        if not _driverDir.endswith("/") and len(_driverDir) > 0:
+            _driverDir += "/"
+
+        linkingType: str = take_input("Entry linking type { static, dynamic }")
+
+        if linkingType != "static" and linkingType != "dynamic":
+            print("Invalid linking type")
+            return self.call()
+
+        manifest: dict = {
+            "name": driverName + ".drv",
+            "linking": linkingType,
+            "type": "driver"
+        }
+
+        js: str = json.dumps(manifest)
+        driverDir: str = c.SRC_DIR + "/drivers" + "/" + _driverDir
+        thisProcDir: str = f"{driverDir}{driverName}"
+
+        try:
+            os.makedirs(thisProcDir)
+        except FileExistsError as e:
+            print(e)
+
+        with open(f"{thisProcDir}/manifest.json", "w") as file:
+            file.write(js)
+
+        return Status(StatusCode.Success, "Created thing!")
+
+
 class InstallSysrootCallback(CommandCallback):
     def call(self) -> Status:
 
@@ -374,6 +411,7 @@ def project_main() -> Status:
     }))
     cmd_processor.register_cmd(Command("gen", args={
         "userprocess": GenerateUserProcessCallback(),
+        "driver": GenerateDriverStubCallback(),
         "ksyms": GenerateKSymsCallback(),
     }))
     cmd_processor.register_cmd(Command("install", args={

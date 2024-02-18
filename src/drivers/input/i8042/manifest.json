@@ -1,0 +1,5 @@
+{
+  "name": "i8042.drv",
+  "linking": "static",
+  "type": "driver"
+}

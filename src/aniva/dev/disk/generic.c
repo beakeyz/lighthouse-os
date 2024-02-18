@@ -27,7 +27,6 @@
 //static char* s_root_dev_name;
 //static char s_root_dev_name_buffer[64];
 static mutex_t* _gdisk_lock;
-static drv_manifest_t* _this;
 
 /* This is so dumb */
 struct gdisk_store_entry {
@@ -1068,34 +1067,3 @@ uint64_t disk_core_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t si
   }
   return DRV_STAT_OK;
 }
-
-/*
- * The core disk driver
- *
- * This driver will pass messages from (mostly) userspace to the appropriate driver and
- * also the right device. This means userspace can interface with disks directly by opening
- * a handle to for example /core/disk/device0 and performing actions on that handle like read/
- * write or diagnostics calls. The core disk driver will then be in charge of managing which device
- * or which partition userspace gets access to
- */
-aniva_driver_t core_disk_driver = {
-  .m_name = "disk",
-  .m_type = DT_CORE,
-  .f_init = disk_core_init,
-  .f_exit = disk_core_exit,
-  .f_msg = disk_core_msg,
-};
-EXPORT_DRIVER_PTR(core_disk_driver);
-
-int disk_core_init() 
-{
-  _this = try_driver_get(&core_disk_driver, NULL);
-  return 0;
-}
-
-int disk_core_exit() 
-{
-  _this = NULL;
-  return 0;
-}
-
