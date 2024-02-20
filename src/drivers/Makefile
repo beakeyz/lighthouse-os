@@ -4,6 +4,9 @@ DRIVER_SRC=$(SRC)/drivers
 INPUT_DRIVERS := \
 	./input/i8042
 
+ACPI_DRIVERS := \
+	./acpi/acpicore
+
 # Define where the drivers are located
 DRIVER_PATHS := \
 	./env/login \
@@ -12,7 +15,8 @@ DRIVER_PATHS := \
 	./video/nvidia \
 	./video/radeon \
 	./debug/test \
-	$(INPUT_DRIVERS)
+	$(INPUT_DRIVERS) \
+	$(ACPI_DRIVERS)
 
 
 build: $(DRIVER_PATHS)

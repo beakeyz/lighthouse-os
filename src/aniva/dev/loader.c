@@ -10,8 +10,11 @@
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
+#include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "system/resource.h"
 
 struct loader_ctx {
@@ -672,6 +675,67 @@ void unload_external_driver(extern_driver_t* driver)
    * the context and gets tracked, so that we can clean it up nicely when the context is destroyed
    */
   destroy_external_driver(driver);
+}
+
+/*!
+ * @brief: Read the driver base path from the BASE profile
+ *
+ * TODO: cache this value and register a profile_var change kevent
+ */
+static const char* _get_driver_path()
+{
+  const char* ret;
+  profile_var_t* var;
+
+  if (profile_scan_var(DRIVERS_LOC_VAR_PATH, NULL, &var))
+    return nullptr;
+
+  if (!profile_var_get_str_value(var, &ret))
+    return nullptr;
+
+  release_profile_var(var);
+
+  return ret;
+}
+
+extern_driver_t* load_external_driver_from_var(const char* varpath)
+{
+  kerror_t error;
+  const char* driver_filename;
+  const char* driver_rootpath;
+  char* driver_path;
+  size_t driver_path_len;
+  profile_var_t* var;
+  extern_driver_t* ret;
+
+  error = profile_scan_var(varpath, NULL, &var);
+  if (error)
+    return nullptr;
+
+  if (!profile_var_get_str_value(var, &driver_filename))
+    return nullptr;
+
+  release_profile_var(var);
+
+  driver_rootpath = _get_driver_path();
+
+  if (!driver_rootpath || driver_rootpath[strlen(driver_rootpath)-1] != '/')
+    return nullptr;
+
+  driver_path_len = strlen(driver_rootpath) + strlen(driver_filename) + 1;
+  driver_path = kmalloc(driver_path_len);
+
+  if (!driver_path)
+    return nullptr;
+
+  memset(driver_path, 0, driver_path_len);
+  concat((void*)driver_rootpath, (void*)driver_filename, driver_path);
+
+  ret = load_external_driver(driver_path);
+
+  kfree((void*)driver_path);
+
+  return ret;
 }
 
 /*

@@ -717,10 +717,13 @@ unmount_and_error:
  * @brief: Detach a filesystem node from @path
  *
  * This does not destroy the oss node nor it's attached children
+ *
+ * FIXME: is this foolproof?
  */
 int oss_detach_fs(const char* path, struct oss_node** out)
 {
   int error;
+  fs_oss_node_t* fs;
   oss_node_t* node;
   oss_node_t* parent;
 
@@ -737,6 +740,13 @@ int oss_detach_fs(const char* path, struct oss_node** out)
 
   if (node->type != OSS_OBJ_GEN_NODE)
     goto exit_and_unlock;
+
+  fs = oss_node_getfs(node); 
+
+  /* Make sure the fs driver unmounts our bby */
+  error = fs->m_type->f_unmount(fs->m_type, node);
+
+  ASSERT_MSG(error == KERR_NONE, " ->f_unmount call failed");
 
   parent = node->parent;
 

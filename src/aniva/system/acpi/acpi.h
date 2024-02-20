@@ -6,6 +6,7 @@
 struct acpi_parser;
 
 void init_acpi();
+void init_acpi_core();
 bool is_acpi_init();
 
 void get_root_acpi_parser(struct acpi_parser** out);

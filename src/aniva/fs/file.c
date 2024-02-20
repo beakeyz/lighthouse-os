@@ -335,6 +335,7 @@ file_t* file_open(const char* path)
   file_t* ret;
   oss_obj_t* obj;
 
+  printf("Openfile: %s\n", path);
   /*
    * File gets created by the filesystem driver
    */

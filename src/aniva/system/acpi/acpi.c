@@ -1,6 +1,8 @@
 #include "acpi.h"
 #include "dev/debug/serial.h"
+#include "dev/loader.h"
 #include "libk/flow/error.h"
+#include "proc/profile/profile.h"
 #include "system/acpi/parser.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
@@ -32,6 +34,11 @@ void init_acpi()
   // and making sure the rest of the boot happens correctly, based on what the parser
   // is able to find and use. For example, if it does not find an MADT, we should inform
   // the kernel and boot with legacy PIC
+}
+
+void init_acpi_core()
+{
+  ASSERT(load_external_driver_from_var(ACPICORE_DRV_VAR_PATH));
 }
 
 void get_root_acpi_parser(struct acpi_parser** out)

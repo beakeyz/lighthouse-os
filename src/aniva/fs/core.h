@@ -55,7 +55,7 @@ typedef struct fs_oss_node {
 
 #define oss_node_getfs(node) ((fs_oss_node_t*)oss_node_unwrap((node)))
 
-struct oss_node* create_fs_oss_node(const char* name, struct oss_node_ops* ops);
+struct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, struct oss_node_ops* ops);
 void destroy_fs_oss_node(struct oss_node* node);
 
 #endif // !__ANIVA_FS_CORE__

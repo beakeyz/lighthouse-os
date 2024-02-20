@@ -338,11 +338,17 @@ void kthread_entry() {
    */
   init_aniva_driver_registry();
 
-  /* Scan for pci devices and initialize any matching drivers */
-  init_pci_drivers();
-
   /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk();
+
+  /* Initialize the ramdisk as our initial root */
+  init_root_ramdev();
+
+  /* Initialized the ACPI core driver */
+  init_acpi_core();
+
+  /* Scan for pci devices and initialize any matching drivers */
+  init_pci_drivers();
 
   /* Probe for a root device */
   init_root_device_probing();

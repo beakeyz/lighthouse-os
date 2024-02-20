@@ -467,7 +467,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
     return nullptr;
 
   /* Create root node */
-  node = create_fs_oss_node(mountpoint, &fat_node_ops);
+  node = create_fs_oss_node(mountpoint, type, &fat_node_ops);
 
   ASSERT_MSG(node, "Failed to create fs oss node for FAT fs");
 

@@ -981,6 +981,7 @@ void init_root_device_probing()
   const char* initrd_mp;
   disk_dev_t* root_device;
   disk_uid_t device_index;
+  oss_node_t* initial_ramfs_node;
 
   partitioned_disk_dev_t* root_ramdisk;
 
@@ -988,6 +989,11 @@ void init_root_device_probing()
   found_root_device = false;
   root_ramdisk = nullptr;
   root_device = find_gdisk_device(0);
+
+  oss_detach_fs(FS_DEFAULT_ROOT_MP, &initial_ramfs_node);
+
+  if (initial_ramfs_node)
+    destroy_oss_node(initial_ramfs_node);
 
   while (root_device) {
 
@@ -1029,6 +1035,29 @@ cycle_next:
   }
 }
 
+/*!
+ * @brief: Fetch the ramdisk and attach it at Root
+ */
+void init_root_ramdev()
+{
+  disk_dev_t* root_device;
+  disk_uid_t device_index;
+  partitioned_disk_dev_t* root_ramdisk;
+
+  device_index = 1;
+  root_ramdisk = nullptr;
+  root_device = find_gdisk_device(0);
+
+  while (root_device && (root_device->m_flags & GDISKDEV_FLAG_RAM) != GDISKDEV_FLAG_RAM)
+    root_device = find_gdisk_device(device_index++);
+
+  /* We can use this ramdisk as a fallback to mount */
+  root_ramdisk = root_device->m_devs; 
+
+  if (!root_ramdisk || oss_attach_fs(nullptr, FS_DEFAULT_ROOT_MP, "cramfs", root_ramdisk)) {
+    kernel_panic("Could not find a root device to mount! TODO: fix");
+  }
+}
 
 bool gdisk_is_valid(disk_dev_t* device)
 {

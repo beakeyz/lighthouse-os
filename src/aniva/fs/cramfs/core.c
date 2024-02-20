@@ -244,10 +244,22 @@ static void __tar_create_superblock(oss_node_t* node, partitioned_disk_dev_t* de
   /* free_blocks holds the aligned compressed size */
   TAR_SUPERBLOCK(node)->m_free_blocks = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
   TAR_SUPERBLOCK(node)->m_total_blocks = TAR_SUPERBLOCK(node)->m_free_blocks;
-  /* TODO */
   TAR_SUPERBLOCK(node)->m_dirty_blocks = 0;
   TAR_SUPERBLOCK(node)->m_max_filesize = -1;
   TAR_SUPERBLOCK(node)->m_faulty_blocks = 0;
+}
+
+int unmount_ramfs(fs_type_t* type, oss_node_t* node)
+{
+  partitioned_disk_dev_t* device;
+  fs_oss_node_t* fs;
+
+  fs = oss_node_getfs(node);
+
+  device = fs->m_device;
+
+  device->m_parent->m_flags |= GDISKDEV_FLAG_WAS_MOUNTED;
+  return 0;
 }
 
 /*
@@ -272,11 +284,12 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
     return nullptr;
 
   const size_t partition_size = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
-  oss_node_t* node = create_fs_oss_node(mountpoint, &ramfs_node_ops);
+  oss_node_t* node = create_fs_oss_node(mountpoint, type, &ramfs_node_ops);
 
   __tar_create_superblock(node, device);
 
-  if (parent->m_flags & GDISKDEV_FLAG_RAM_COMPRESSED) {
+  if ((parent->m_flags & GDISKDEV_FLAG_RAM_COMPRESSED) == GDISKDEV_FLAG_RAM_COMPRESSED &&
+      (parent->m_flags & GDISKDEV_FLAG_WAS_MOUNTED) != GDISKDEV_FLAG_WAS_MOUNTED) {
 
     size_t decompressed_size = cram_find_decompressed_size(device);
 
@@ -316,7 +329,7 @@ fs_type_t cramfs = {
   .m_name = "cramfs",
   .f_mount = mount_ramfs,
   /* Oh no */
-  .f_unmount = nullptr,
+  .f_unmount = unmount_ramfs,
   .m_driver = &ramfs,
   .m_flags = FST_REQ_DRIVER
 };

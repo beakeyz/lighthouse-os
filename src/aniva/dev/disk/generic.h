@@ -69,6 +69,8 @@ typedef struct disk_dev {
 #define GDISKDEV_FLAG_RO                     (0x00000008)
 #define GDISKDEV_FLAG_NO_PART                (0x00000010)
 #define GDISKDEV_FLAG_LEGACY                 (0x00000020)
+/* Optional flag to mark that this device was mounted earlier */
+#define GDISKDEV_FLAG_WAS_MOUNTED            (0x00000040)
 
 #define PD_FLAG_ONLY_SYNC                    (0x00000001) /* This partitioned device can't use async IO */
 
@@ -108,6 +110,7 @@ int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize);
 
 void init_gdisk_dev();
 void init_root_device_probing();
+void init_root_ramdev();
 
 ErrorOrPtr register_gdisk_dev(disk_dev_t* device);
 ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid);

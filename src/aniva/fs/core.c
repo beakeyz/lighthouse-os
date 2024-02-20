@@ -108,7 +108,7 @@ fs_type_t* get_fs_type(const char* name)
   return ret;
 }
 
-oss_node_t* create_fs_oss_node(const char* name, oss_node_ops_t* ops)
+struct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, struct oss_node_ops* ops)
 {
   oss_node_t* node;
   fs_oss_node_t* fsnode;
@@ -133,9 +133,12 @@ oss_node_t* create_fs_oss_node(const char* name, oss_node_ops_t* ops)
   if (!fsnode)
     goto dealloc_and_fail;
 
+  memset(fsnode, 0, sizeof(*fsnode));
+
+  fsnode->m_type = type;
+
   node->priv = fsnode;
 
-  memset(fsnode, 0, sizeof(*fsnode));
   return node;
 
 dealloc_and_fail:
