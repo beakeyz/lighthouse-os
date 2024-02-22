@@ -5,7 +5,8 @@ INPUT_DRIVERS := \
 	./input/i8042
 
 ACPI_DRIVERS := \
-	./acpi/acpicore
+	./acpi/acpicore \
+	./acpi/acpidev
 
 # Define where the drivers are located
 DRIVER_PATHS := \

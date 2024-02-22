@@ -25,6 +25,7 @@ typedef uint8_t dev_type_t;
 #define DT_SERVICE 5
 #define DT_DIAGNOSTICS 6
 #define DT_OTHER 7
+#define DT_FIRMWARE 8
 
 #define VALID_DEV_TYPE(type) ((type) && (type) < DRIVER_TYPE_COUNT)
 

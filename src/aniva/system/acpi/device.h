@@ -28,4 +28,6 @@ typedef struct apci_device {
   const char* hid;
 } acpi_device_t;
 
+kerror_t acpi_add_device(acpi_handle_t handle, int type);
+
 #endif // !__ANIVA_ACPI_DEVICE__

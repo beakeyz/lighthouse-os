@@ -50,6 +50,7 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
   [DT_DIAGNOSTICS] = "diagnostics",
   /* Drivers that provide services, either to userspace or kernelspace */
   [DT_SERVICE] = "service",
+  [DT_FIRMWARE] = "fw",
 };
 
 /*
@@ -150,6 +151,12 @@ static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
     .max_active = DRV_SERVICE_MAX,
     0
   },
+  [DT_FIRMWARE] = {
+    .type = DT_FIRMWARE,
+    .max_count = DRV_INFINITE,
+    .max_active = DRV_INFINITE,
+    0
+  }
 };
 
 static list_t* __deferred_driver_manifests;

@@ -117,15 +117,7 @@ bool print_drv_info(oss_node_t* _, oss_obj_t* obj, void* arg0)
   if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
     return false;
 
-  kterm_print_keyvalue("Path", manifest->m_url);
-  kterm_print_keyvalue("Binary path", manifest->m_driver_file_path);
-  if (!manifest->m_handle)
-    kterm_print_keyvalue("Name", NULL);
-  else
-    kterm_print_keyvalue("Name", manifest->m_handle->m_name);
-  kterm_print_keyvalue("Loaded", ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
-
-  kterm_println("");
+  kwarnf("%16.16s: %32.32s (Loaded: %s)\n", manifest->m_url, (manifest->m_driver_file_path == nullptr) ? "Internal" : manifest->m_driver_file_path, ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
 
   return true;
 }
@@ -136,9 +128,11 @@ bool print_drv_info(oss_node_t* _, oss_obj_t* obj, void* arg0)
 uint32_t kterm_cmd_drvinfo(const char** argv, size_t argc)
 {
   kterm_println(" - Printing drivers...");
+  kwarnf("\n");
 
   foreach_driver(print_drv_info, NULL);
 
+  kterm_println("");
   return 0;
 }
 
