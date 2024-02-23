@@ -948,7 +948,9 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
     if (error)
       continue;
 
-    verify_result = verify_mount_root();
+    //verify_result = verify_mount_root();
+    (void)verify_mount_root;
+    verify_result = false;
 
     /* Did we succeed??? =DD */
     if (verify_result)

@@ -184,6 +184,9 @@ int oss_node_add_obj(oss_node_t* node, struct oss_obj* obj)
     obj->parent = node;
   
 unlock_and_exit:
+  if (error)
+    destroy_oss_node_entry(entry);
+
   mutex_unlock(node->lock);
   return error;
 }

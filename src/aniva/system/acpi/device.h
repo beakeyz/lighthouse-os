@@ -5,6 +5,8 @@
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/tables.h"
 
+struct device_endpoint;
+
 typedef struct acpi_power_state {
   list_t* resources;
 } acpi_power_state_t;
@@ -28,6 +30,6 @@ typedef struct apci_device {
   const char* hid;
 } acpi_device_t;
 
-kerror_t acpi_add_device(acpi_handle_t handle, int type);
+kerror_t acpi_add_device(acpi_handle_t handle, int type, struct device_endpoint* eps, uint32_t ep_count);
 
 #endif // !__ANIVA_ACPI_DEVICE__

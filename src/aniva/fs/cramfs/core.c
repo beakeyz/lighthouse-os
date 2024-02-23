@@ -234,7 +234,6 @@ static struct oss_node_ops ramfs_node_ops = {
 
 static void __tar_create_superblock(oss_node_t* node, partitioned_disk_dev_t* device)
 {
-
   if (!node)
     return;
 
@@ -247,6 +246,8 @@ static void __tar_create_superblock(oss_node_t* node, partitioned_disk_dev_t* de
   TAR_SUPERBLOCK(node)->m_dirty_blocks = 0;
   TAR_SUPERBLOCK(node)->m_max_filesize = -1;
   TAR_SUPERBLOCK(node)->m_faulty_blocks = 0;
+  /* Tell the fs node where we might start (this works because we register a blocksize of 1 byte) */
+  TAR_BLOCK_START(node) = (void*)device->m_start_lba;
 }
 
 int unmount_ramfs(fs_type_t* type, oss_node_t* node)
@@ -283,7 +284,6 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
   if ((parent->m_flags & GDISKDEV_FLAG_RAM) == 0)
     return nullptr;
 
-  const size_t partition_size = ALIGN_UP(device->m_end_lba - device->m_start_lba, SMALL_PAGE_SIZE);
   oss_node_t* node = create_fs_oss_node(mountpoint, type, &ramfs_node_ops);
 
   __tar_create_superblock(node, device);
@@ -311,7 +311,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
     Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node)->m_free_blocks)));
 
     device->m_start_lba = (uintptr_t)TAR_BLOCK_START(node);
-    device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + partition_size;
+    device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + decompressed_size;
   }
 
   return node;

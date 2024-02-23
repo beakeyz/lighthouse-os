@@ -1,3 +1,5 @@
+#include "dev/device.h"
+#include "dev/endpoint.h"
 #include "mem/heap.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acnames.h"
@@ -7,6 +9,26 @@
 #include "system/acpi/tables.h"
 #include <dev/core.h>
 #include <dev/driver.h>
+
+static uint64_t _acpi_dev_msg(device_t* device, dcc_t code)
+{
+  return KERR_NONE;
+}
+
+struct device_generic_endpoint _acpi_generic_dep = {
+  .f_msg = _acpi_dev_msg,
+  NULL,
+};
+
+/*
+ * Endpoint table for the acpi device driver
+ *
+ * Here we define the endpoints our devices adhere to. These will mostly be power management
+ * opperations, since that is kinda what ACPI is meant for lmao
+ */
+static device_ep_t _acpi_eps[] = {
+  { ENDPOINT_TYPE_GENERIC, sizeof(struct device_generic_endpoint), { &_acpi_generic_dep } },
+};
 
 ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, void** ret)
 {
@@ -23,7 +45,8 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   if (ACPI_FAILURE(AcpiGetType(dev, &obj_type)))
     return AE_OK;
 
-  if (ACPI_FAILURE(AcpiGetHandle(dev, "_HID", &tmp)) || ACPI_FAILURE(AcpiGetHandle(dev, "_ADR", &tmp)))
+  /* FIXME: Check device dependencies and do correct things */
+  if (ACPI_FAILURE(AcpiGetHandle(dev, "_HID", &tmp)) || ACPI_SUCCESS(AcpiGetHandle(dev, "_CRS", &tmp)))
     return AE_OK;
 
   /* Get the full path of this device and print it */
@@ -36,7 +59,7 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   switch (obj_type) {
     case ACPI_TYPE_DEVICE:
     case ACPI_TYPE_ANY:
-      error = acpi_add_device(dev, obj_type);
+      error = acpi_add_device(dev, obj_type, _acpi_eps, arrlen(_acpi_eps));
       /* FIXME: Ignore these failures? */
       if (error)
         return AE_OK;

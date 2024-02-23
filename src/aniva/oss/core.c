@@ -205,7 +205,7 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
   }
 
   /* Did we find an entry? */
-  if (!c_entry)
+  if (!c_entry || c_entry->type != OSS_ENTRY_OBJECT)
     return error;
 
   /* Add a reference to the object */
