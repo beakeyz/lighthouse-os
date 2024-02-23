@@ -354,12 +354,9 @@ static int _try_load_external_driver(drv_manifest_t* manifest)
   if (manifest->m_external)
     return 1;
 
-  printf("We need to load an external driver for %s\n", manifest->m_driver_file_path);
-
   if (load_external_driver(manifest->m_driver_file_path) == nullptr)
     return -1;
 
-  printf("Loaded thing\n");
   return 0;
 }
 
@@ -774,9 +771,6 @@ drv_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags)
     return nullptr;
 
   path = get_driver_url(driver);
-
-  printf("try_driver_get got path: %s\n", path);
-
   ret = get_driver(path);
 
   kfree((void*)path);

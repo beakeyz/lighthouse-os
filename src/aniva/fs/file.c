@@ -173,8 +173,6 @@ file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path)
   if (!name)
     goto exit_and_dealloc;
 
-  printf("GOT OBJNAME: %s from path \'%s\'\n", name, path);
-
   ret->m_flags = flags;
   ret->m_obj = create_oss_obj(name);
 
@@ -335,7 +333,6 @@ file_t* file_open(const char* path)
   file_t* ret;
   oss_obj_t* obj;
 
-  printf("Openfile: %s\n", path);
   /*
    * File gets created by the filesystem driver
    */

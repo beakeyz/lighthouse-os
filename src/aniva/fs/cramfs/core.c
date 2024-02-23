@@ -56,7 +56,8 @@ typedef enum TAR_TYPE {
 #define TAR_USTAR_ALIGNMENT 512
 #define TAR_USTAR_SIG       "ustar"
 
-static uintptr_t decode_tar_ascii(uint8_t* str, size_t length) {
+static uintptr_t decode_tar_ascii(uint8_t* str, size_t length)
+{
   
   uintptr_t ret = 0;
   uint8_t* c = str;
@@ -71,12 +72,13 @@ static uintptr_t decode_tar_ascii(uint8_t* str, size_t length) {
   return ret;
 }
 
-static uintptr_t apply_tar_alignment(uintptr_t val) {
+static uintptr_t apply_tar_alignment(uintptr_t val)
+{
   return (((val + TAR_USTAR_ALIGNMENT - 1) / TAR_USTAR_ALIGNMENT) + 1) * TAR_USTAR_ALIGNMENT;
 }
 
-static int ramfs_read(oss_node_t* node, void* buffer, size_t size, uintptr_t offset) {
-
+static int ramfs_read(oss_node_t* node, void* buffer, size_t size, uintptr_t offset)
+{
   if (!node || !buffer || !size)
     return -1;
 
@@ -144,7 +146,7 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
   if (!name || !name_len)
     return nullptr;
 
-  printf("Trying to find: %s on \'%s\'\n", name, node->name);
+  kwarnf("Trying to find: %s on \'%s\'\n", name, node->name);
 
   fsnode = oss_node_unwrap(node);
 
@@ -187,7 +189,7 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
             /* Make sure file opperations go through ramfs */
             file_set_ops(file, &tar_file_ops);
             
-            printf("Found: %s on \'%s\'!\n", name, node->name);
+            kwarnf("Found: %s on \'%s\'!\n", name, node->name);
 
             /* Attach the object once we know that it has been found */
             ASSERT_MSG(!oss_attach_obj_rel(node, name, file->m_obj), "Failed to add object to oss node while trying to find ramfs file!");

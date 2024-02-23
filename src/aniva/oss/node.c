@@ -54,7 +54,6 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
   /* TODO: Allow the hashmap to be resized */
   ret->obj_map = create_hashmap(SOFT_OSS_NODE_OBJ_MAX, NULL);
 
-  printf(" => Creating node: %s\n", ret->name);
   return ret;
 }
 
@@ -79,8 +78,6 @@ void destroy_oss_node(oss_node_t* node)
 
   /* Make sure there are no lingering objects */
   oss_node_clean_objects(node);
-
-  printf(" <= Destroying node: %s\n", node->name);
 
   kfree((void*)node->name);
 
