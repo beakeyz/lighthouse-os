@@ -16,3 +16,5 @@ cross_compiler/
 **/**/ksyms.asm
 */**/ksyms.asm
 /**/ksyms.asm
+
+./zig/aniva_abi.zig
