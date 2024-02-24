@@ -481,7 +481,7 @@ struct kterm_cmd kterm_commands[] = {
   {
     "ls",
     "List the current working directory contents",
-    nullptr,
+    kterm_cmd_ls,
   },
   {
     "cd",

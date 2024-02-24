@@ -11,6 +11,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "proc/core.h"
@@ -357,7 +358,6 @@ static bool procinfo_callback(proc_t* proc)
  */
 uint32_t kterm_cmd_procinfo(const char** argv, size_t argc)
 {
-  println("YAY");
   kterm_print_keyvalue("Active procs", to_string(get_proc_count()));
   foreach_proc(procinfo_callback);
   return 0;
@@ -383,12 +383,33 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
 
   kwarnf("Found device: %s\n", dev->name);
   kwarnf(" \\ Implements %d endpoint%s", dev->endpoint_count, (dev->endpoint_count == 1) ? "\n" : "s\n");
+  kwarnf(" \\ Device is powered %s\n", (dev->flags & DEV_FLAG_POWERED) == DEV_FLAG_POWERED ? "on" : "off");
 
   kterm_println("");
   return 0;
 }
 
+static bool _kterm_ls_itterate(oss_node_t* node, oss_obj_t* obj, void* _)
+{
+  if (node)
+    kwarnf("%s/\n", node->name);
+
+  if (obj)
+    kwarnf("%s\n", obj->name);
+
+  return true;
+}
+
 uint32_t kterm_cmd_ls(const char** argv, size_t argc)
 {
+  oss_node_t* node;
+
+  if (argc != 2)
+    return 1;
+
+  if (oss_resolve_node(argv[1], &node))
+    return 2;
+
+  oss_node_itterate(node, _kterm_ls_itterate, NULL);
   return 0;
 }

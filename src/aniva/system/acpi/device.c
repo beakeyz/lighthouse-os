@@ -52,7 +52,7 @@ static const char* _generate_acpi_device_name(acpi_device_t* device, ACPI_DEVICE
  */
 static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO* info, device_ep_t* eps, uint32_t ep_count)
 {
-  device_t* super;
+  device_t* device;
   acpi_device_t* ret;
   const char* device_name;
 
@@ -72,15 +72,17 @@ static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO
     goto dealloc_and_exit;
 
   /* Create the generic device */
-  super = create_device_ex(NULL, (char*)device_name, ret, NULL, eps, ep_count);
+  device = create_device_ex(NULL, (char*)device_name, ret, NULL, eps, ep_count);
 
   /* Make this shit fuck off */
   kfree((void*)device_name);
 
-  if (!super)
+  if (!device)
     goto dealloc_and_exit;
 
-  device_register(super, _acpi_group);
+  device_power_on(device);
+
+  device_register(device, _acpi_group);
   return ret;
 dealloc_and_exit:
   kfree((void*)ret->hid);

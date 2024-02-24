@@ -3,12 +3,10 @@
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
-#include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
 #include "driver.h"
 #include <mem/heap.h>
 #include "libk/stddef.h"
-#include "logging/log.h"
 #include "mem/zalloc.h"
 #include "oss/core.h"
 #include "oss/obj.h"

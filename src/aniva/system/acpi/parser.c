@@ -9,6 +9,7 @@
 #include <libk/string.h>
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acpixf.h"
+#include "system/acpi/acpica/actypes.h"
 #include "tables.h"
 
 static acpi_parser_rsdp_discovery_method_t create_rsdp_method_state(enum acpi_rsdp_method method) {
@@ -273,3 +274,23 @@ void print_tables(acpi_parser_t* parser) {
   println(tables);
 }
 
+ACPI_STATUS acpi_eval_int(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, size_t* ret)
+{
+  ACPI_STATUS status;
+  ACPI_OBJECT obj;
+  ACPI_BUFFER buf;
+
+  buf.Length = sizeof(obj);
+  buf.Pointer = &obj;
+
+  status = AcpiEvaluateObject(handle, string, args, &buf);
+
+  if (ACPI_FAILURE(status))
+    return status;
+
+  if (obj.Type != ACPI_TYPE_INTEGER)
+    return AE_BAD_DATA;
+
+  *ret = obj.Integer.Value;
+  return AE_OK;
+}

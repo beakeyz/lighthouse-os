@@ -343,14 +343,22 @@ int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 
 int device_power_on(device_t* dev)
 {
+  kerror_t error;
   device_ep_t* pwm_ep;
 
   pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
 
-  if (!pwm_ep)
+  if (!pwm_ep || !pwm_ep->impl.pwm->f_power_on)
     return -1;
 
-  return pwm_ep->impl.pwm->f_power_on(dev);
+  /* Call endpoint */
+  error = pwm_ep->impl.pwm->f_power_on(dev);
+
+  if (error)
+    return error;
+
+  dev->flags |= DEV_FLAG_POWERED;
+  return 0;
 }
 
 /*!

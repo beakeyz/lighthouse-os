@@ -10,6 +10,8 @@
 #include <dev/core.h>
 #include <dev/driver.h>
 
+#include "acpidev.h"
+
 static uint64_t _acpi_dev_msg(device_t* device, dcc_t code)
 {
   return KERR_NONE;
@@ -34,10 +36,7 @@ static kerror_t _acpi_dev_power_on(device_t* device)
 
   acpi_dev = device->private;
 
-  (void)acpi_dev;
-
-  kernel_panic("TODO: (acpidev.drv) _acpi_dev_power_on");
-  return KERR_NONE;
+  return acpi_device_set_pwrstate(acpi_dev, ACPI_STATE_D0);
 }
 
 struct device_pwm_endpoint _acpi_pwm_dep = {

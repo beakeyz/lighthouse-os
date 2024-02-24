@@ -2,6 +2,7 @@
 #define __ANIVA_ACPI_PARSER__
 #include <libk/stddef.h>
 #include "libk/data/linkedlist.h"
+#include "system/acpi/acpica/actypes.h"
 #include "tables.h"
 
 #define RSDP_SIGNATURE "RSD PTR "
@@ -71,6 +72,8 @@ void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t tabl
 void print_tables(acpi_parser_t* parser);
 
 const int parser_get_acpi_tables(acpi_parser_t* parser, char* out);
+
+ACPI_STATUS acpi_eval_int(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, size_t* ret);
 
 /*
  * TODO: redo aml
