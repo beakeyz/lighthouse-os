@@ -8,8 +8,9 @@
 struct file;
 struct proc;
 struct thread;
-struct oss_obj;
 struct kevent;
+struct device;
+struct oss_obj;
 struct kevent_hook;
 struct profile_var;
 struct proc_profile;
@@ -32,6 +33,7 @@ typedef struct kernel_handle {
   uintptr_t offset;
   union {
     struct file* file;
+    struct device* device;
     struct drv_manifest* driver;
     struct proc* process;
     struct thread* thread;

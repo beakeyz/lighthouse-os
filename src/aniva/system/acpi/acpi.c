@@ -1,5 +1,4 @@
 #include "acpi.h"
-#include "dev/debug/serial.h"
 #include "dev/loader.h"
 #include "libk/flow/error.h"
 #include "proc/profile/profile.h"

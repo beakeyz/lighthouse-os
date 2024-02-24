@@ -438,26 +438,21 @@ ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
 
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) 
 {
-  device_ep_t* ep;
-  int result = -1;
+  uintptr_t block;
 
   if (!dev || !dev->m_parent)
-    return result;
+    return -KERR_INVAL;
 
-  const uintptr_t block = offset / dev->m_parent->m_logical_sector_size;
-  ep = device_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
+  block = offset / dev->m_parent->m_logical_sector_size;
 
-  if (block >= dev->m_start_lba && block <= dev->m_end_lba) {
+  if (block < dev->m_start_lba || block > dev->m_end_lba)
+    return -KERR_INVAL;
 
-    if (ep->impl.disk->f_read)
-      result = ep->impl.disk->f_read(dev->m_parent->m_dev, buffer, offset, size);
-
-  }
-
-  return result;
+  return device_read(dev->m_parent->m_dev, buffer, offset, size);
 }
 
-int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset) {
+int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset)
+{
   kernel_panic("TODO: implement write_sync_partitioned");
   return 0;
 }
@@ -542,12 +537,22 @@ disk_dev_t* create_generic_ramdev(size_t size) {
   return dev;
 }
 
+/*
+ * This is okay since ramdisks have a 'blocksize' of one byte lmao
+ * We need to implement this endpoint to classify as 'diskdevice'
+ */
 static struct device_disk_endpoint _rd_disk_ep = {
+  .f_bread = ramdisk_read,
+  .f_bwrite = ramdisk_write,
+};
+
+static struct device_generic_endpoint _rd_gen_ep = {
   .f_read = ramdisk_read,
   .f_write = ramdisk_write,
 };
 
 static device_ep_t _rd_eps[] = {
+  { ENDPOINT_TYPE_GENERIC, sizeof(_rd_gen_ep), { &_rd_gen_ep} },
   { ENDPOINT_TYPE_DISK, sizeof(_rd_disk_ep), { &_rd_disk_ep} },
 };
 

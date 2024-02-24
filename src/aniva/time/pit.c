@@ -1,10 +1,7 @@
 #include "pit.h"
-#include "dev/debug/serial.h"
-#include "irq/ctl/ctl.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
-#include "system/processor/processor.h"
 #include "time/core.h"
 #include "sched/scheduler.h"
 #include <system/asm_specifics.h>

@@ -9,7 +9,6 @@
 #include "proc/proc.h"
 #include "proc/profile/variable.h"
 #include "sched/scheduler.h"
-#include "sync/mutex.h"
 #include <dev/manifest.h>
 
 #include <lightos/driver/ctl.h>

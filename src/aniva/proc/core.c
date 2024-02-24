@@ -1,13 +1,9 @@
 #include "core.h"
-#include "dev/debug/serial.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
-#include "libk/data/queue.h"
 #include <libk/data/hashmap.h>
 #include "libk/stddef.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/ipc/packet_payload.h"
 #include "proc/ipc/packet_response.h"
@@ -22,7 +18,6 @@
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
-#include "system/processor/processor.h"
 
 static uint32_t s_highest_port_cache;
 // TODO: fix this mechanism, it sucks
@@ -338,7 +333,7 @@ ErrorOrPtr proc_register(proc_t* proc)
 
   /* Register to global if we are from the kernel (Base?) */
   if (is_kernel_proc(proc))
-    proc_register_to_global(proc);
+    proc_register_to_base(proc);
   /*
    * Little TODO
    *

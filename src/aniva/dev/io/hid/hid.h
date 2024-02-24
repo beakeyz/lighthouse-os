@@ -33,10 +33,6 @@ enum HID_EVENT_TYPE {
 struct device_hid_endpoint {
   /* Check if there is a HID event from this device */
   int (*f_poll)(struct device* dev, struct hid_event* event);
-
-  /* Raw r/w routines */
-  int (*f_read)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
-  int (*f_write)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
 };
 
 

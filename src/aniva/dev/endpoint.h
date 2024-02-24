@@ -67,12 +67,12 @@ struct device_generic_endpoint {
 
   uintptr_t (*f_msg)(struct device* device, dcc_t code);
   uintptr_t (*f_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+
+  int (*f_read)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
+  int (*f_write)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
 };
 
 struct device_disk_endpoint {
-  int (*f_read)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
-  int (*f_write)(struct device* dev, void* buffer, uintptr_t offset, size_t size);
-
   int (*f_bread)(struct device* dev, void* buffer, uintptr_t lba, size_t count);
   int (*f_bwrite)(struct device* dev, void* buffer, uintptr_t lba, size_t count);
 

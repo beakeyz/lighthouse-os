@@ -3,7 +3,6 @@
 #include "dev/driver.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
-#include "dev/io/hid/hid.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
 #include "dev/video/device.h"
@@ -313,29 +312,14 @@ int device_get_group(device_t* dev, struct dgroup** group_out)
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
   device_ep_t* ep;
-  enum ENDPOINT_TYPE supported_types[] = {
-    ENDPOINT_TYPE_DISK,
-    ENDPOINT_TYPE_HID
-  };
 
-  /* Loop over all the endpoint types that have read ops */
-  for (uintptr_t i = 0; i < arrlen(supported_types); i++) {
-    ep = device_get_endpoint(dev, supported_types[i]);
+  ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-    if (!ep)
-      continue;
+  /* This would all be very bad news */
+  if (!ep || !ep->impl.generic || !ep->impl.generic->f_read)
+    return -KERR_NULL;
 
-    switch (supported_types[i]) {
-      case ENDPOINT_TYPE_DISK:
-        return ep->impl.disk->f_read(dev, buffer, offset, size);
-      case ENDPOINT_TYPE_HID:
-        return ep->impl.hid->f_read(dev, buffer, offset, size);
-      default:
-        break;
-    }
-  }
-
-  return -1;
+  return ep->impl.generic->f_read(dev, buffer, offset, size);
 }
 
 /*!
@@ -347,29 +331,14 @@ int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
   device_ep_t* ep;
-  enum ENDPOINT_TYPE supported_types[] = {
-    ENDPOINT_TYPE_DISK,
-    ENDPOINT_TYPE_HID
-  };
 
-  /* Loop over all the endpoint types that have write ops */
-  for (uintptr_t i = 0; i < arrlen(supported_types); i++) {
-    ep = device_get_endpoint(dev, supported_types[i]);
+  ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-    if (!ep)
-      continue;
+  /* This would all be very bad news */
+  if (!ep || !ep->impl.generic || !ep->impl.generic->f_write)
+    return -KERR_NULL;
 
-    switch (supported_types[i]) {
-      case ENDPOINT_TYPE_DISK:
-        return ep->impl.disk->f_write(dev, buffer, offset, size);
-      case ENDPOINT_TYPE_HID:
-        return ep->impl.hid->f_write(dev, buffer, offset, size);
-      default:
-        break;
-    }
-  }
-
-  return -1;
+  return ep->impl.generic->f_write(dev, buffer, offset, size);
 }
 
 int device_power_on(device_t* dev)

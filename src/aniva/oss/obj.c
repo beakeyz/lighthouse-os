@@ -2,11 +2,50 @@
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "oss/node.h"
+#include "proc/proc.h"
+#include "proc/profile/profile.h"
+#include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
 
+void init_oss_obj(oss_obj_t* obj, uint32_t priv_lvl)
+{
+  uint8_t obj_priv_lvl;
+  proc_t* create_proc;
+
+  create_proc = get_current_proc();
+
+  /* Preemptive set to the biggest level */
+  obj_priv_lvl = PRF_PRIV_LVL_BASE;
+
+  /* If the caller specifies a desired privilege level, set it to that */
+  if (priv_lvl < PRF_PRIV_LVL_NONE)
+    obj_priv_lvl = priv_lvl;
+  else if (create_proc)
+    obj_priv_lvl = profile_get_priv_lvl(create_proc->m_profile);
+  
+  obj->access_priv_lvl = obj_priv_lvl;
+  obj->read_priv_lvl = obj_priv_lvl;
+  obj->write_priv_lvl = obj_priv_lvl;
+}
+
+/*!
+ * @brief: Default object creation funciton
+ */
 oss_obj_t* create_oss_obj(const char* name)
+{
+  return create_oss_obj_ex(name, PRF_PRIV_LVL_NONE);
+}
+
+/*!
+ * @brief: Extended object creation function
+ *
+ * It's the job of the object generator to ensure that the privilege level is correct. The
+ * security responsibility lays there. This means for any userspace oss_obj access bugs, we first
+ * need to look there
+ */
+oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl)
 {
   oss_obj_t* ret;
 
@@ -25,8 +64,9 @@ oss_obj_t* create_oss_obj(const char* name)
   ret->parent = nullptr;
   ret->lock = create_mutex(NULL);
 
-  init_atomic_ptr(&ret->refc, 1);
+  init_oss_obj(ret, priv_lvl);
 
+  init_atomic_ptr(&ret->refc, 1);
   return ret;
 }
 

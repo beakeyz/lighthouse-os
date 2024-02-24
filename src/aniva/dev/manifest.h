@@ -4,7 +4,7 @@
 #include "dev/core.h"
 #include "dev/device.h"
 #include "dev/driver.h"
-#include "libk/data/linkedlist.h"
+#include "libk/data/vector.h"
 #include "libk/stddef.h"
 #include "sync/mutex.h"
 #include "system/resource.h"

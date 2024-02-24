@@ -1,24 +1,16 @@
 #include "interrupts.h"
-#include "irq/ctl/ctl.h"
-#include "irq/ctl/pic.h"
+#include "irq/ctl/irqchip.h"
 #include "irq/faults/faults.h"
 #include "irq/idt.h"
-#include "libk/bin/ksyms.h"
 #include "logging/log.h"
-#include "mem/kmem_manager.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
 #include <mem/heap.h>
 #include "proc/proc.h"
-#include "proc/thread.h"
 #include "stubs.h"
 #include "sync/mutex.h"
-#include "sync/spinlock.h"
-#include "system/asm_specifics.h"
 #include "sched/scheduler.h"
-#include "system/processor/processor.h"
 
 static mutex_t* _irq_lock;
 static irq_t _irq_list[IRQ_COUNT] = { 0 };
@@ -509,8 +501,11 @@ static inline void install_regular_stubs()
   register_idt_interrupt_handler(0xff, (FuncPtr) interrupt_asm_entry_255);
 }
 
-/*
- * TODO: migrate irqs to the eventhandler (kevent system)?
+/*!
+ * @brief: Initialize the interrupt subsystem + x86 arch specifics
+ *
+ * We don't enable interrupts here. The IRQ chip(s) get initialized during late processor
+ * initialization
  */
 void init_interrupts() 
 {

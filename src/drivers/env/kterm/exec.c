@@ -9,6 +9,7 @@
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 
 /*!
@@ -23,6 +24,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   proc_t* p;
   const char* buffer;
   ErrorOrPtr result;
+  proc_profile_t* login_profile;
 
   if (!argv || !argv[0])
     return 1;
@@ -61,6 +63,10 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
 
   id = (proc_id_t)Release(result);
   p = find_proc_by_id(id);
+
+  /* Make sure the profile has the correct rights */
+  kterm_get_login(&login_profile);
+  proc_set_profile(p, login_profile);
 
   /*
    * Losing this process would be a fatal error because it compromises the entire system 

@@ -41,6 +41,13 @@ typedef struct oss_obj {
 
   atomic_ptr_t refc;
 
+  /* Required privilge level to access this object */
+  uint8_t access_priv_lvl;
+  /* Required privilge level to read from this object */
+  uint8_t read_priv_lvl;
+  /* Required privilge level to write to this object */
+  uint8_t write_priv_lvl;
+
   uint32_t flags;
   enum OSS_OBJ_TYPE type;
 
@@ -53,7 +60,13 @@ typedef struct oss_obj {
 
 #define oss_obj_unwrap(obj, type) (type*)(obj->priv)
 
+#define __oss_obj_can_proc(obj, p, thing) (profile_get_priv_lvl(p->m_profile) >= obj->thing##_priv_lvl)
+#define oss_obj_can_proc_access(obj, p) __oss_obj_can_proc(obj, p, access)
+#define oss_obj_can_proc_read(obj, p) __oss_obj_can_proc(obj, p, read)
+#define oss_obj_can_proc_write(obj, p) __oss_obj_can_proc(obj, p, write)
+
 oss_obj_t* create_oss_obj(const char* name);
+oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl);
 void destroy_oss_obj(oss_obj_t* obj);
 
 void oss_obj_ref(oss_obj_t* obj);

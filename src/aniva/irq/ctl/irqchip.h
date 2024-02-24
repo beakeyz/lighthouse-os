@@ -38,7 +38,7 @@ typedef struct irq_chip {
   void* private;
 } irq_chip_t;
 
-void init_intr_ctl();
+void init_irq_chips();
 
 int get_active_irq_chip(irq_chip_t** chip);
 

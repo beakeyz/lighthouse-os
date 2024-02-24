@@ -1,4 +1,5 @@
 #include "acpi.h"
+#include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acpixf.h"
@@ -47,7 +48,7 @@ void init_acpi_early()
 
   /* Initialize system interrupt controller (1 = APIC, 0 = PIC) */
   arg.Integer.Type = ACPI_TYPE_INTEGER;
-  arg.Integer.Value = 0;
+  arg.Integer.Value = g_system_info.irq_chip_type;
 
   param.Count = 1;
   param.Pointer = &arg;

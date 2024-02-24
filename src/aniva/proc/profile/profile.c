@@ -30,7 +30,7 @@ static mutex_t* profile_mutex;
  */
 int init_proc_profile(proc_profile_t* profile, proc_profile_t* parent, char* name, uint8_t level)
 {
-  if (!profile || !name || (level > PRF_PRIV_LVL_USER))
+  if (!profile || !name || (level > PRF_PRIV_LVL_BASE))
     return -1;
 
   memset(profile, 0, sizeof(proc_profile_t));
@@ -98,7 +98,6 @@ int proc_register_to_base(proc_t* p)
     return -1;
 
   proc_set_profile(p, &base_profile);
-
   return 0;
 }
 
@@ -317,7 +316,12 @@ bool profile_can_see_var(proc_profile_t* profile, profile_var_t* var)
   if (profile == var->profile)
     return true;
 
-  return (profile_get_priv_lvl(profile) <= profile_get_priv_lvl(var->profile));
+  /*
+   * When the priv_lvl of @profile is higher than that of the profile of @var, this
+   * means that @profile 'supervises' the variables profile. This gives it access to
+   * it's variables
+   */
+  return (profile_get_priv_lvl(profile) >= profile_get_priv_lvl(var->profile));
 }
 
 /*!

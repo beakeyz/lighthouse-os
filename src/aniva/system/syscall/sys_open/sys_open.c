@@ -67,10 +67,18 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         if (!obj)
           return HNDL_NOT_FOUND;
 
+        /* Yikes */
+        if (!oss_obj_can_proc_access(obj, current_process)) {
+          oss_obj_unref(obj);
+          return HNDL_NO_PERM;
+        }
+
         device = oss_obj_get_device(obj);
 
-        if (!device)
+        if (!device) {
+          oss_obj_unref(obj);
           return HNDL_INVAL;
+        }
 
         init_khandle(&handle, &type, device);
         break;

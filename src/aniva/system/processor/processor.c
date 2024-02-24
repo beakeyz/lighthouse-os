@@ -1,6 +1,6 @@
 #include "processor.h"
 #include "entry/entry.h"
-#include "irq/ctl/ctl.h"
+#include "irq/ctl/irqchip.h"
 #include "irq/idt.h"
 #include "libk/flow/error.h"
 #include "sched/scheduler.h"
@@ -137,7 +137,7 @@ void init_processor_late(processor_t *this)
   atomic_ptr_write(this->m_locked_level, 0);
 
   if (is_bsp(this)) {
-    init_intr_ctl();
+    init_irq_chips();
 
     fpu_generic_init();
 

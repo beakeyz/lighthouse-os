@@ -1,6 +1,6 @@
 #include "dev/device.h"
 #include "dev/endpoint.h"
-#include "mem/heap.h"
+#include "libk/flow/error.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acnames.h"
 #include "system/acpi/acpica/acnamesp.h"
@@ -20,6 +20,30 @@ struct device_generic_endpoint _acpi_generic_dep = {
   NULL,
 };
 
+/*!
+ * @brief: ...
+ *
+ * TODO: how the fuck do we do a device power-on through ACPI?
+ */
+static kerror_t _acpi_dev_power_on(device_t* device)
+{
+  acpi_device_t* acpi_dev;
+
+  if (!device || !device->private)
+    return -KERR_INVAL;
+
+  acpi_dev = device->private;
+
+  (void)acpi_dev;
+
+  kernel_panic("TODO: (acpidev.drv) _acpi_dev_power_on");
+  return KERR_NONE;
+}
+
+struct device_pwm_endpoint _acpi_pwm_dep = {
+  .f_power_on = _acpi_dev_power_on,
+};
+
 /*
  * Endpoint table for the acpi device driver
  *
@@ -28,6 +52,7 @@ struct device_generic_endpoint _acpi_generic_dep = {
  */
 static device_ep_t _acpi_eps[] = {
   { ENDPOINT_TYPE_GENERIC, sizeof(struct device_generic_endpoint), { &_acpi_generic_dep } },
+  { ENDPOINT_TYPE_PWM, sizeof(struct device_pwm_endpoint), { &_acpi_pwm_dep, } },
 };
 
 ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, void** ret)

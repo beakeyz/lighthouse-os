@@ -2,7 +2,6 @@
 #define __ANIVA_EXTERNAL_DRIVER__
 
 #include "dev/manifest.h"
-#include "fs/file.h"
 
 #define EX_DRV_LOAD_FAILURE (0x00000001)
 #define EX_DRV_USER         (0x00000002)

@@ -4,8 +4,6 @@
 #include "dev/core.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "libk/data/vector.h"
-#include "libk/data/queue.h"
 
 #define DEFAULT_STACK_SIZE                      (32 * Kib)
 #define DEFAULT_THREAD_MAX_TICKS                (10)

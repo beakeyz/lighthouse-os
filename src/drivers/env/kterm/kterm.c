@@ -115,6 +115,7 @@ static const char* _old_dflt_lwnd_path_value;
 
 /* Should we print a tag on every newline? */
 static bool _print_newline_tag;
+static bool _clear_cursor_char;
 
 /* Command buffer */
 static kdoor_t __processor_door;
@@ -725,6 +726,15 @@ int kterm_set_login(struct proc_profile* profile)
   return 0;
 }
 
+int kterm_get_login(struct proc_profile** profile)
+{
+  if (!profile || !_c_login.profile)
+    return -1;
+
+  *profile = _c_login.profile;
+  return 0;
+}
+
 /*!
  * @brief Clear the cmd buffer and reset the doors
  *
@@ -736,6 +746,25 @@ static inline void kterm_clear_cmd_buffer()
   memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
 
   Must(kdoor_reset(&__processor_door));
+}
+
+/*!
+ * @brief: Routine that runs when a command is finished in the cmd worker thread
+ */
+static inline void kterm_cmd_worker_finish_loop()
+{
+  /* Clear the cmd buffer for the next loop */
+  kterm_clear_cmd_buffer();
+
+  /* Enable drawing the newline tag */
+  kterm_enable_newline_tag();
+
+  /* Hacky shit to draw a newline tag correctly */
+  if (_chars_cursor_y)
+    _chars_cursor_y--;
+  _clear_cursor_char = false;
+  kterm_println(NULL);
+  _clear_cursor_char = true;
 }
 
 void kterm_command_worker() 
@@ -762,7 +791,9 @@ void kterm_command_worker()
 
     /* Yikes */
     if (error || !argument_count) {
-      kterm_clear_cmd_buffer();
+      /* Need to duplicate the shit under the 'exit_cmd_processing' label 
+       Since we can't do a goto above a variable stack array =/ */
+      kterm_cmd_worker_finish_loop();
       continue;
     }
 
@@ -775,6 +806,7 @@ void kterm_command_worker()
 
     if (error)
       goto exit_cmd_processing;
+
 
     /*
      * We have now indexed our entire command, so we can start matching
@@ -794,7 +826,7 @@ void kterm_command_worker()
     }
 
 exit_cmd_processing:
-    kterm_clear_cmd_buffer();
+    kterm_cmd_worker_finish_loop();
   }
 }
 
@@ -898,6 +930,8 @@ int kterm_init()
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
   _kterm_vdev = get_active_vdev();
 
+  _clear_cursor_char = true;
+
   ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
 
   memset(&_c_login, 0, sizeof(_c_login));
@@ -995,7 +1029,7 @@ int kterm_init()
   kterm_print(" CPU: ");
   kterm_print(processor->m_info.m_model_id);
   kterm_print("\n");
-  kterm_print(" Available cores: ");
+  kterm_print(" Max available cores: ");
   kterm_print(to_string(processor->m_info.m_max_available_cores));
   kterm_print("\n\n For any information about kterm, type: \'help\'\n");
 
@@ -1427,6 +1461,8 @@ static void kterm_process_buffer()
     memcpy(buffer, contents, buffer_size);
   }
 
+  kterm_disable_newline_tag();
+
   /* Make sure we add the newline so we also flush the char buffer */
   kterm_println(NULL);
 
@@ -1549,13 +1585,13 @@ static void kterm_cursor_shift_x()
   }
 }
 
-
 /*!
  * @brief: Shift the cursor down a line by one and reset it's x-component
  */
 static void kterm_cursor_shift_y()
 {
-  kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, NULL, false);
+  if (_clear_cursor_char)
+    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, NULL, false);
 
   _chars_cursor_x = 0;
   _chars_cursor_y ++;

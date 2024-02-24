@@ -9,7 +9,7 @@
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "dev/pci/bus.h"
-#include "irq/ctl/ctl.h"
+#include "irq/ctl/irqchip.h"
 #include "irq/interrupts.h"
 #include "libk/atomic.h"
 #include "libk/flow/error.h"

@@ -1,6 +1,5 @@
 #include "file.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"

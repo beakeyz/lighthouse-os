@@ -387,3 +387,8 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
   kterm_println("");
   return 0;
 }
+
+uint32_t kterm_cmd_ls(const char** argv, size_t argc)
+{
+  return 0;
+}

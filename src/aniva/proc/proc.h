@@ -6,11 +6,9 @@
 #include "libk/data/linkedlist.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
-#include "mem/pg.h"
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "sync/atomic_ptr.h"
-#include "sync/lock.h"
 #include "system/resource.h"
 
 struct thread;

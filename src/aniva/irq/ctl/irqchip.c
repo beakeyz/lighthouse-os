@@ -1,4 +1,4 @@
-#include "ctl.h"
+#include "irqchip.h"
 #include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "irq/ctl/apic.h"
@@ -74,7 +74,7 @@ static irq_chip_t* _c_active;
  *
  * Currently this only initializes a DUAL PIC controller
  */
-void init_intr_ctl()
+void init_irq_chips()
 {
   _c_active = get_pic();
 

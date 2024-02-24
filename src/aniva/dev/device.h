@@ -7,7 +7,6 @@
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
 #include "system/acpi/device.h"
-#include "system/acpi/tables.h"
 #include <libk/stddef.h>
 
 /*
@@ -77,6 +76,21 @@ struct drv_manifest;
 typedef bool (*DEVICE_ITTERATE)(struct device* dev);
 
 /*
+ * Types to specify devices
+ * TODO: use
+ */
+enum DEVICE_TYPE {
+  DEVICE_TYPE_GENERIC = 0,
+  DEVICE_TYPE_ACPI,
+  DEVICE_TYPE_DISK,
+  DEVICE_TYPE_VIDEO,
+  DEVICE_TYPE_HID,
+  DEVICE_TYPE_PCI,
+  DEVICE_TYPE_USBCLASS,
+  DEVICE_TYPE_USBHCD,
+};
+
+/*
  * The device
  *
  * (TODO)
@@ -127,6 +141,11 @@ typedef struct device {
   uint32_t endpoint_count;
   struct device_endpoint* endpoints;
 } device_t;
+
+static inline void* device_unwrap(device_t* device)
+{
+  return device->private;
+}
 
 static inline bool device_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
 {

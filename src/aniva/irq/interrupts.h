@@ -1,8 +1,7 @@
 #ifndef __ANIVA_INTERRUPTS__
 #define __ANIVA_INTERRUPTS__
 
-#include "irq/ctl/ctl.h"
-#include "libk/flow/error.h"
+#include "irq/ctl/irqchip.h"
 #include "system/asm_specifics.h"
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
@@ -13,6 +12,9 @@
 #define IRQ_VEC_BASE 32
 /* How many available IRQ vectors there are */
 #define IRQ_COUNT (255 - IRQ_VEC_BASE)
+
+#define IRQ_CHIPTYPE_PIT 0
+#define IRQ_CHIPTYPE_APIC 1
 
 /*
  * Initialize the interrupt subsystem

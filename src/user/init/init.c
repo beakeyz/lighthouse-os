@@ -1,4 +1,3 @@
-
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/profile.h"
@@ -30,15 +29,12 @@ int main() {
    * or do we just have one root like linux/unix?
    */
   char buffer[128];
-  HANDLE h = open_handle("Root/Apps/init", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
-
-  if (!handle_verify(h)) 
-    return -1;
+  HANDLE h = open_handle("Dev/ramdisk", HNDL_TYPE_DEVICE, HNDL_FLAG_RW, NULL);
 
   printf("Handle: %d\n", h);
 
-  if (stdin->r_buff == stdout->w_buff)
-    printf("How the fuck did that happen?\n");
+  if (!handle_verify(h)) 
+    return -1;
 
   char* resp = gets(buffer, sizeof(buffer));
 

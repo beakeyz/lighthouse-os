@@ -22,10 +22,12 @@ struct proc;
  */
 
 /* Most powerful privilege level */
-#define PRF_PRIV_LVL_BASE 0
-#define PRF_PRIV_LVL_ADMIN 3
+#define PRF_PRIV_LVL_BASE 0xFF
 /* Most basic privilege level */
-#define PRF_PRIV_LVL_USER 16
+#define PRF_PRIV_LVL_USER 0
+/* Just an invalid value that does not fit in the field
+ NOTE: BE CAREFUL WITH THIS */
+#define PRF_PRIV_LVL_NONE 0x100
 
 #define PRF_MAX_VARS 4096
 
@@ -70,17 +72,7 @@ typedef struct proc_profile {
   /* Parent profile of this profile. all variables are inherited */
   struct proc_profile* parent;
 
-  /*
-   * Privilege level is checked with
-   * the oposite bits of the lvl
-   */
-  union {
-    struct {
-      uint8_t lvl;
-      uint8_t check;
-    };
-    uint16_t raw;
-  } priv_level;
+  uint8_t priv_level;
 
   /* Profile permission flags */
   uint64_t permission_flags;
@@ -102,21 +94,15 @@ typedef struct proc_profile {
 void init_proc_profiles(void);
 void init_profiles_late(void);
 
-static inline bool profile_is_valid_priv_level(proc_profile_t* profile)
-{
-  return (profile->priv_level.check == ~(profile->priv_level.lvl));
-}
-
 static inline void profile_set_priv_lvl(proc_profile_t* profile, uint8_t lvl)
 {
   /* Set raw here, so we overwrite garbage bits while setting the check */
-  profile->priv_level.lvl = lvl;
-  profile->priv_level.check = ~(profile->priv_level.lvl);
+  profile->priv_level = lvl;
 }
 
 static inline uint8_t profile_get_priv_lvl(proc_profile_t* profile)
 {
-  return profile->priv_level.lvl;
+  return profile->priv_level;
 }
 
 static inline bool profile_is_from_file(proc_profile_t* profile)

@@ -1,16 +1,15 @@
 
 #include "sys_rw.h"
+#include "dev/device.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/var_types.h"
 #include "lightos/syscall.h"
-#include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "oss/obj.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include <proc/profile/profile.h>
@@ -100,8 +99,12 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
   return SYS_OK;
 }
 
-/*
- * sys_read returns the amount of bytes read
+/*!
+ * @brief: sys_read returns the amount of bytes read
+ *
+ * NOTE: Device reads and file reads exibit the same behaviour regarding their offset (Meaning they are
+ * both treaded like data-streams by the kernel). It's up to the underlying libc to abstract devices and
+ * files further.
  */
 uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 {
@@ -137,6 +140,21 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         khandle->offset += read_len;
         break;
       }
+    case HNDL_TYPE_DEVICE:
+      {
+        device_t* device = khandle->reference.device;
+
+        if (!device || !oss_obj_can_proc_read(device->obj, current_proc))
+          return NULL;
+
+        read_len = 0;
+
+        if (device_read(device, buffer, khandle->offset, length) == KERR_NONE) {
+          khandle->offset += length;
+          read_len = length;
+        }
+        break;
+      }
     case HNDL_TYPE_DRIVER:
       {
         int result;
@@ -166,11 +184,10 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         size_t data_size = NULL;
         size_t minimal_buffersize = 1;
         profile_var_t* var = khandle->reference.pvar;
-        proc_profile_t* target_profile = var->profile;
         proc_profile_t* current_profile = current_proc->m_profile;
 
         /* Check if the current profile actualy has permission to read from this var */
-        if ((var->flags & PVAR_FLAG_HIDDEN) == PVAR_FLAG_HIDDEN && profile_get_priv_lvl(target_profile) > profile_get_priv_lvl(current_profile))
+        if (!profile_can_see_var(current_profile, var))
           return NULL;
 
         switch (var->type) {

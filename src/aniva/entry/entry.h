@@ -47,8 +47,11 @@ extern driver_version_t kernel_version;
 
 /*
  * Global system variables, that should be known throughout the 
- * entire kernel
- * TODO: find a better place for all this stuff
+ * entire kernel. This has no lock on it, because there should only be one instance of
+ * this field throughout the systems lifetime, which becomes constant after system init
+ * finishes
+ *
+ * TODO: Find a better place for all this stuff
  */
 typedef struct {
   /* The physical multiboot address gets set very early during boot */
@@ -60,6 +63,9 @@ typedef struct {
    * is reserved after the final kernel pagemap is created 
    */
   size_t total_multiboot_size;
+
+  /* From interrupts.h */
+  uint8_t irq_chip_type;
 
   /*
    * The multiboot tags that we want to cache and use

@@ -1,9 +1,6 @@
 #include "pic.h"
-#include "irq/ctl/ctl.h"
-#include "irq/interrupts.h"
-#include "irq/ctl/ctl.h"
-#include "libk/string.h"
-#include "logging/log.h"
+#include "irq/ctl/irqchip.h"
+#include "irq/ctl/irqchip.h"
 #include <mem/heap.h>
 #include <dev/debug/serial.h>
 #include <libk/io.h>

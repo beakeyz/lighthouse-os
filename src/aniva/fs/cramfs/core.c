@@ -146,8 +146,6 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
   if (!name || !name_len)
     return nullptr;
 
-  kwarnf("Trying to find: %s on \'%s\'\n", name, node->name);
-
   fsnode = oss_node_unwrap(node);
 
   /* Create file early to catch node grabbing issues early */
@@ -188,8 +186,6 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
 
             /* Make sure file opperations go through ramfs */
             file_set_ops(file, &tar_file_ops);
-            
-            kwarnf("Found: %s on \'%s\'!\n", name, node->name);
 
             /* Attach the object once we know that it has been found */
             ASSERT_MSG(!oss_attach_obj_rel(node, name, file->m_obj), "Failed to add object to oss node while trying to find ramfs file!");

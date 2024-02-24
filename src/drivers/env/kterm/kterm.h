@@ -1,7 +1,7 @@
 #ifndef __ANIVA_KTERM_DRIVER__
 #define __ANIVA_KTERM_DRIVER__
 
-#include "dev/driver.h"
+#include <libk/stddef.h>
 
 #define KTERM_DRV_DRAW_STRING   7
 #define KTERM_DRV_MAP_FB        8
@@ -44,6 +44,7 @@ void kterm_switch_to_terminal();
 
 bool kterm_is_logged_in();
 int kterm_set_login(struct proc_profile* profile);
+int kterm_get_login(struct proc_profile** profile);
 
 bool kterm_ismode(enum kterm_mode mode);
 

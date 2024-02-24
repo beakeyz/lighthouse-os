@@ -76,6 +76,12 @@ ErrorOrPtr __init try_fetch_initramdisk()
 
 static void register_kernel_data(paddr_t p_mb_addr) 
 {
+  memset(&g_system_info, 0, sizeof(g_system_info));
+
+  /* Register our desire to use legacy PIT early */
+  g_system_info.irq_chip_type = IRQ_CHIPTYPE_PIT;
+
+  /* Kernel image info */
   g_system_info.sys_flags = NULL;
   g_system_info.kernel_start_addr = (vaddr_t)&_kernel_start;
   g_system_info.kernel_end_addr = (vaddr_t)&_kernel_end;

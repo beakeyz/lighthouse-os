@@ -4,7 +4,7 @@
 #ifndef __C_PIC___
 #define __C_PIC___
 
-#include "irq/ctl/ctl.h"
+#include "irq/ctl/irqchip.h"
 #include "libk/io.h"
 #include <libk/stddef.h>
 

@@ -9,7 +9,6 @@
 #include "libk/io.h"
 #include "libk/stddef.h"
 #include <mem/heap.h>
-#include "libk/string.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
@@ -197,15 +196,19 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
-static struct device_disk_endpoint _ahci_disk_ep = {
+static struct device_generic_endpoint _ahci_gen_ep = {
   .f_read = ahci_port_read,
   .f_write = ahci_port_write,
+};
+
+static struct device_disk_endpoint _ahci_disk_ep = {
   .f_bread = ahci_port_read_blk,
   .f_bwrite = ahci_port_write_blk,
   .f_flush = ahci_port_flush,
 };
 
 static device_ep_t _ahci_eps[] = {
+  { ENDPOINT_TYPE_GENERIC, sizeof(_ahci_gen_ep), { &_ahci_gen_ep } },
   { ENDPOINT_TYPE_DISK, sizeof(_ahci_disk_ep), { &_ahci_disk_ep } }
 };
 
