@@ -53,7 +53,7 @@ static int kterm_prompt_password(proc_profile_t* target)
   char* prompt_buffer = kmalloc(prompt_size);
 
   /* Prompt for a password */
-  kterm_create_prompt("Please enter the passowrd: ", prompt_buffer, prompt_size, true);
+  kterm_create_prompt("Please enter the password: ", prompt_buffer, prompt_size, true);
 
   return profile_match_password(target, prompt_buffer);
 }
