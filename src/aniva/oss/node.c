@@ -357,16 +357,16 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
     /* In case of an object, simply call it in the itteration */
     case OSS_ENTRY_OBJECT:
       obj = entry->obj;
-      node = obj->parent;
 
-      if (!f_itter(node, obj, (void*)arg1))
+      if (!f_itter(nullptr, obj, (void*)arg1))
         return Error();
       break;
     /* Itterate over nodes recursively */
     case OSS_ENTRY_NESTED_NODE:
       node = entry->node;
 
-      error = oss_node_itterate(node, f_itter, (void*)arg1);
+      if (!f_itter(node, nullptr, (void*)arg1))
+        return Error();
       break;
     default:
       break;

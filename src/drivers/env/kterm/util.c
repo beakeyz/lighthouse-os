@@ -111,9 +111,14 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
   return 0;
 }
 
-bool print_drv_info(oss_node_t* _, oss_obj_t* obj, void* arg0)
+bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
 {
-  drv_manifest_t* manifest = oss_obj_unwrap(obj, drv_manifest_t);
+  drv_manifest_t* manifest;
+
+  if (node)
+    return !oss_node_itterate(node, print_drv_info, arg0);
+
+  manifest = oss_obj_unwrap(obj, drv_manifest_t);
 
   if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
     return false;

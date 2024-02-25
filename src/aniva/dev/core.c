@@ -186,7 +186,13 @@ static bool __load_precompiled_driver(drv_manifest_t* manifest)
 
 static bool walk_precompiled_drivers_to_load(oss_node_t* node, oss_obj_t* data, void* arg) 
 {
-  drv_manifest_t* manifest = oss_obj_unwrap(data, drv_manifest_t);
+  drv_manifest_t* manifest;
+
+  /* Walk recursively */
+  if (node)
+    return !oss_node_itterate(node, walk_precompiled_drivers_to_load, arg);
+
+  manifest = oss_obj_unwrap(data, drv_manifest_t);
 
   return __load_precompiled_driver(manifest);
 }

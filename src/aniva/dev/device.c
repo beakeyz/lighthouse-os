@@ -193,7 +193,7 @@ static bool __device_itterate(oss_node_t* node, oss_obj_t* obj, void* arg)
   if (obj && obj->type == OSS_OBJ_TYPE_DEVICE)
     return ittr(oss_obj_unwrap(obj, device_t));
 
-  return false;
+  return true;
 }
 
 int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
