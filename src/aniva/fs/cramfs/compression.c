@@ -1,8 +1,6 @@
 #include "compression.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
 
 /*
  * This file implements the DEFLATE algorithm for decompression of data.
@@ -228,6 +226,7 @@ static ErrorOrPtr handle_non_compressed(decompress_ctx_t* ctx) {
 
   /* Check validety */
   if (check_len != check_nlen) {
+    printf("%d <-> %d ykes\n", check_len, check_nlen);
     return Error();
   }
 
@@ -405,7 +404,27 @@ ErrorOrPtr generic_inflate(decompress_ctx_t* ctx) {
 #define GZIP_FLAG_NAME 0x08
 #define GZIP_FLAG_COMM 0x10
 
-ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) {
+bool cram_is_compressed_library(partitioned_disk_dev_t* device)
+{
+  decompress_ctx_t ctx = {
+    .m_end_addr = device->m_end_lba,
+    .m_current = (uint8_t*)device->m_start_lba,
+  };
+
+  if (c_read(&ctx) != GZIP_MAGIC_BYTE0)
+    return false;
+
+  if (c_read(&ctx) != GZIP_MAGIC_BYTE1)
+    return false;
+
+  if (c_read(&ctx) != GZIP_DEFLATE_CM)
+    return false;
+
+  return true;
+}
+
+ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
+{
 
   decompress_ctx_t ctx = {
     .m_start_addr = device->m_start_lba,
@@ -436,9 +455,8 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) 
   header.os = c_read(&ctx);
 
   /* Can't compress blocks with this that aren't encoded with DEFLATE */
-  if (header.compression_method != GZIP_DEFLATE_CM) {
+  if (header.compression_method != GZIP_DEFLATE_CM)
     return Error();
-  }
 
   /* Extra bytes we can discard */
   if (header.flags & GZIP_FLAG_EXTR) {
@@ -482,8 +500,8 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer) 
   return result;
 }
 
-size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) {
-
+size_t cram_find_decompressed_size(partitioned_disk_dev_t* device) 
+{
   decompress_ctx_t dummy_ctx = { 0 };
 
   dummy_ctx.m_current = (uint8_t*)device->m_end_lba - 8;

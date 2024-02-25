@@ -1,1 +1,5 @@
-{"name": "xhci.drv", "linking": "static", "type": "driver"}
+{
+  "name": "xhci.drv", 
+  "linking": "static", 
+  "type": "driver"
+}

@@ -151,16 +151,13 @@ partitioned_disk_dev_t* create_partitioned_disk_dev(disk_dev_t* parent, char* na
   
   ret->m_parent = parent;
   ret->m_name = name;
+  ret->m_flags = flags;
 
-  /* FIXME: Should we align these? */
   ret->m_start_lba = start;
   ret->m_end_lba = end;
 
   /* TODO: check for range */
   ret->m_block_size = parent->m_logical_sector_size;
-
-  ret->m_flags = flags;
-
   ret->m_next = nullptr;
 
   return ret;

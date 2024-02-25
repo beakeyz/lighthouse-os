@@ -26,9 +26,19 @@ static kerror_t _acpi_exp_pm_setstate(acpi_device_t* device, int state)
   return 0;
 }
 
+/*!
+ * @brief: Attempt to set a devices powerstate
+ */
 kerror_t acpi_device_set_pwrstate(acpi_device_t* device, int state)
 {
+  int c_state;
   kerror_t error;
+
+  error = _acpi_exp_pm_getstate(device, &c_state);
+  
+  /* Only change power state if we can eval _PSC and we're not already on */
+  if (error || c_state == ACPI_STATE_D0)
+    goto exit;
 
   error = _acpi_exp_pm_setstate(device, state);
 
@@ -36,6 +46,8 @@ kerror_t acpi_device_set_pwrstate(acpi_device_t* device, int state)
     return error;
 
   device->pwr.c_state = state;
+
+exit:
   return 0;
 }
 

@@ -1,5 +1,5 @@
 
-#include "dev/usb/xhci/xhci.h"
+#include "xhci.h"
 #include "libk/flow/error.h"
 
 /*!

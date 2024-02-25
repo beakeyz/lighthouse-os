@@ -14,6 +14,22 @@
 /* Raw ACPI devgroup to store the devices we find on early enumerate */
 static dgroup_t* _acpi_group;
 
+static uint64_t _cpy_ascii_str(char* dst, const char* src, size_t len)
+{
+  uint64_t c_dst_idx = 0;
+  for (size_t i = 0; i < len; i++) {
+    if ((src[i] < 'A' || src[i] > 'Z') && 
+        (src[i] < 'a' || src[i] > 'z') &&
+        (src[i] < '0' || src[i] > '9') &&
+        (src[i] != ' '))
+      continue;
+
+    dst[c_dst_idx++] = src[i];
+  }
+
+  return c_dst_idx;
+}
+
 /*!
  * @brief: Do some magic to generate a unique device name per acpi device
  */
@@ -22,11 +38,13 @@ static const char* _generate_acpi_device_name(acpi_device_t* device, ACPI_DEVICE
   size_t ret_len;
   size_t dhid_len;
   size_t uuid_len;
+  uint32_t c_name_idx;
   char* ret;
 
   if (!info->UniqueId.Length)
     return device->hid;
 
+  c_name_idx = 0;
   dhid_len = strlen(device->hid);
   uuid_len = strlen(info->UniqueId.String);
 
@@ -39,11 +57,12 @@ static const char* _generate_acpi_device_name(acpi_device_t* device, ACPI_DEVICE
     return nullptr;
 
   memset(ret, 0, ret_len);
-  memcpy(ret, device->hid, dhid_len);
 
-  ret[dhid_len] = '_';
+  c_name_idx += _cpy_ascii_str(ret, device->hid, dhid_len);
 
-  memcpy(ret + dhid_len + 1, info->UniqueId.String, uuid_len);
+  ret[c_name_idx++] = '_';
+
+  _cpy_ascii_str(&ret[c_name_idx], info->UniqueId.String, uuid_len);
   return ret;
 }
 

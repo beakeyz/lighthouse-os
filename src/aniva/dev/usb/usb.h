@@ -15,10 +15,7 @@
 
 #include "dev/pci/pci.h"
 #include "dev/usb/spec.h"
-#include "libk/data/linkedlist.h"
 #include "libk/flow/doorbell.h"
-#include "sync/mutex.h"
-#include "system/resource.h"
 #include <libk/stddef.h>
 
 #define USB_DEVICE_TYPE_HID 0x00
@@ -108,6 +105,7 @@ typedef struct usb_transfer {
 } usb_transfer_t;
 
 void init_usb();
+void init_usb_drivers();
 
 struct usb_hcd* alloc_usb_hcd();
 void dealloc_usb_hcd(struct usb_hcd* hcd);
@@ -115,7 +113,6 @@ void dealloc_usb_hcd(struct usb_hcd* hcd);
 #define MAX_USB_HCDS 256
 
 /* Refcounting */
-struct usb_hcd* get_usb_hcd(uint8_t index);
 struct usb_hcd* get_hcd_for_pci_device(pci_device_t* device);
 void release_usb_hcd(struct usb_hcd* hcd);
 

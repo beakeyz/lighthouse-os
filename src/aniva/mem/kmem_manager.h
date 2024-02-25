@@ -112,7 +112,7 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 //#define GET_PAGECOUNT_EX(bytes, page_shift) (ALIGN_UP((bytes), (1 << (page_shift))) >> (page_shift))
 //#define GET_PAGECOUNT(bytes) (ALIGN_UP((bytes), SMALL_PAGE_SIZE) >> 12)
 
-#define GET_PAGECOUNT_EX(start, len, page_shift) ((ALIGN_UP((start) + (len), SMALL_PAGE_SIZE) - ALIGN_DOWN((start), SMALL_PAGE_SIZE)) >> (page_shift))
+#define GET_PAGECOUNT_EX(start, len, page_shift) ((ALIGN_UP((start) + (len), (1 << (page_shift))) - ALIGN_DOWN((start), (1 << (page_shift)))) >> (page_shift))
 #define GET_PAGECOUNT(start, len) GET_PAGECOUNT_EX(start, len, PAGE_SHIFT)
 
 static inline uintptr_t kmem_get_page_idx (uintptr_t page_addr) 

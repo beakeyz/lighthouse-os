@@ -70,7 +70,7 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
     return AE_OK;
 
   /* FIXME: Check device dependencies and do correct things */
-  if (ACPI_FAILURE(AcpiGetHandle(dev, "_HID", &tmp)) || ACPI_SUCCESS(AcpiGetHandle(dev, "_CRS", &tmp)))
+  if (ACPI_FAILURE(AcpiGetHandle(dev, "_HID", &tmp)))
     return AE_OK;
 
   /* Get the full path of this device and print it */

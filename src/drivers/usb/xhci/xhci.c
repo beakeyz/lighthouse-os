@@ -2,12 +2,11 @@
  * The pci driver for the xHCI host controller
  */
 
+#include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/request.h"
 #include "dev/usb/usb.h"
-#include "dev/usb/xhci/extended.h"
-#include "dev/usb/xhci/xhci.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
@@ -17,6 +16,9 @@
 #include "mem/zalloc.h"
 #include <dev/pci/pci.h>
 #include <dev/pci/definitions.h>
+
+#include "extended.h"
+#include "xhci.h"
 
 int xhci_init();
 int xhci_exit();
@@ -177,11 +179,9 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
 
   /* This creates a generic USB hub and asks the host controller for its data */
   hub->phub = create_usb_hub(xhci->parent, nullptr, dev_address, 0);
+  hub->port_count = 0;
 
-  hub->port_count = xhci->max_ports;
-  hub->ports = kmalloc(sizeof(xhci_port_t*) * hub->port_count);
-
-  kernel_panic("TODO: implement create_xhci_hub");
+  hub->ports = kmalloc(sizeof(xhci_port_t*) * xhci->max_ports);
 
   /*
    * TODO: send identification packets to the devices on this hub
@@ -192,7 +192,12 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
    * In that case we'll need to access the base profile variables to see where the driver of 
    * a particular USB class is located
    */
-  xhci_port_power(xhci, nullptr, true);
+
+  /* Before doing any port/device enumeration, let's first register our own roothub
+   * to see if that system at least works */
+  for (uint64_t i = 0; i < xhci->max_ports; i++) {
+    //xhci_port_power(xhci, nullptr, true);
+  }
 
   return hub;
 }
@@ -552,14 +557,14 @@ int xhci_setup(usb_hcd_t* hcd)
   uintptr_t bar0 = 0, bar1 = 0;
 
   /* Device pointers */
-  pci_device_t* device = hcd->host_device;
+  pci_device_t* device = hcd->pci_device;
   xhci_hcd_t* xhci = hcd->private;
 
   /* Enable the HC */
   pci_device_enable(device);
 
-  pci_set_interrupt_line(&hcd->host_device->address, false);
-  pci_set_io(&hcd->host_device->address, false);
+  pci_set_interrupt_line(&hcd->pci_device->address, false);
+  pci_set_io(&hcd->pci_device->address, false);
 
   device->ops.read_dword(device, BAR0, (uint32_t*)&bar0);
   device->ops.read_dword(device, BAR1, (uint32_t*)&bar1);
@@ -696,12 +701,14 @@ int xhci_start(usb_hcd_t* hcd)
     return error;
   }
 
-  /* TODO: make sure that we are able to process transfers at this point */
+  /* 
+   * At this point the HCD should be ON and it can accept and process commands.
+   * Now we can do a complete enumeration of the ports to find attached devices
+   */
 
   /* Create the xhci roothub and gather device info / power up */
   xhci->rhub = create_xhci_hub(xhci, 1);
 
-  kernel_panic("TODO: start xhci hcd");
   return error;
 }
 
@@ -745,7 +752,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   logln("Probing for XHCI");
 
   /* Create a generic USB hcd */
-  hcd = create_usb_hcd(device, nullptr, USB_HUB_TYPE_XHCI);
+  hcd = create_usb_hcd(device, "xhci", USB_HUB_TYPE_XHCI, NULL, NULL);
 
   /* Create our own hcd */
   xhci_hcd = create_xhci_hcd();
@@ -805,15 +812,20 @@ pci_driver_t xhci_pci_driver = {
   .device_flags = NULL,
 };
 
-aniva_driver_t xhci_driver = {
+/* TODO: finish this driver so we can actually use it ;-; (I hate USB) */
+EXPORT_DRIVER(xhci_driver) = {
   .m_name = "xhci",
+  .m_descriptor = "XHCI host controller driver",
+  .m_type = DT_IO,
+  .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = xhci_init,
   .f_exit = xhci_exit,
   .f_msg = xhci_msg,
-  .m_version = DRIVER_VERSION(0, 0, 1),
 };
-/* TODO: finish this driver so we can actually use it ;-; (I hate USB) */
-//EXPORT_DRIVER_PTR(xhci_driver);
+
+EXPORT_DEPENDENCIES(deps) = {
+  DRV_DEP_END,
+};
 
 uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {

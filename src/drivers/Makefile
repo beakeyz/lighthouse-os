@@ -8,6 +8,10 @@ ACPI_DRIVERS := \
 	./acpi/acpicore \
 	./acpi/acpidev
 
+USB_DRIVERS := \
+	./usb/usbcore \
+	./usb/xhci 
+
 # Define where the drivers are located
 DRIVER_PATHS := \
 	./env/login \
@@ -16,6 +20,7 @@ DRIVER_PATHS := \
 	./video/nvidia \
 	./video/radeon \
 	./debug/test \
+	$(USB_DRIVERS) \
 	$(INPUT_DRIVERS) \
 	$(ACPI_DRIVERS)
 

@@ -74,6 +74,7 @@ void print_tables(acpi_parser_t* parser);
 const int parser_get_acpi_tables(acpi_parser_t* parser, char* out);
 
 ACPI_STATUS acpi_eval_int(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, size_t* ret);
+ACPI_STATUS acpi_eval_string(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, const char** ret);
 
 /*
  * TODO: redo aml

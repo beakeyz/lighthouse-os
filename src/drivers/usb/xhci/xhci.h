@@ -13,6 +13,7 @@
 #include <libk/stddef.h>
 
 struct usb_hcd;
+struct usb_port;
 struct usb_device;
 struct xhci_hcd;
 struct xhci_hub;
@@ -44,11 +45,15 @@ typedef struct xhci_op_regs {
   uintptr_t dcbaa_ptr; // Device Context Base Address Array
   uint32_t config_reg;
   uint32_t res2[241];
-  uint32_t port_status_base;
-  uint32_t port_pwr_base;
-  uint32_t port_link_base;
-  uint32_t res3;
-  uint32_t res4[XHCI_PORT_REG_NUM*254];
+  union {
+    struct {
+      uint32_t port_status_base;
+      uint32_t port_pwr_base;
+      uint32_t port_link_base;
+      uint32_t res3;
+    } ports[255];
+    uint32_t res4[XHCI_PORT_REG_NUM*255];
+  };
 } xhci_op_regs_t;
 
 /*
@@ -479,8 +484,11 @@ typedef struct xhci_port {
   void* base_addr;
   uint32_t port_num;
   
+  struct usb_port* usb_port;
   struct xhci_hub* p_hub;
 } xhci_port_t;
+
+extern xhci_port_t* create_xhci_port(void* base_addr, uint32_t num);
 
 /*
  * A xhci hub

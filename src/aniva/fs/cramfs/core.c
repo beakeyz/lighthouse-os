@@ -289,6 +289,8 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
   if ((parent->m_flags & GDISKDEV_FLAG_RAM_COMPRESSED) == GDISKDEV_FLAG_RAM_COMPRESSED &&
       (parent->m_flags & GDISKDEV_FLAG_WAS_MOUNTED) != GDISKDEV_FLAG_WAS_MOUNTED) {
 
+    ASSERT_MSG(cram_is_compressed_library(device), "Library marked as a compressed library, but check failed!");
+
     size_t decompressed_size = cram_find_decompressed_size(device);
 
     ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
@@ -297,6 +299,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
      * We need to allocate for the decompressed size 
      * TODO: set this region to read-only after the decompress is done
      */
+    printf("Allocating %lld bytes\n", decompressed_size);
     TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
     TAR_SUPERBLOCK(node)->m_total_blocks = decompressed_size;
 

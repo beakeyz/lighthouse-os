@@ -1,6 +1,7 @@
 #ifndef __ANIVA_USB_HCD__
 #define __ANIVA_USB_HCD__
 
+#include "dev/device.h"
 #include "dev/pci/pci.h"
 #include "libk/flow/reference.h"
 #include "system/resource/list.h"
@@ -44,7 +45,6 @@ typedef struct usb_hcd_hw_ops {
  */
 typedef struct usb_hcd {
   uint8_t hub_type;
-  uint8_t hub_idx;
 
   flat_refc_t ref;
 
@@ -54,7 +54,7 @@ typedef struct usb_hcd {
   void* private;
 
   /* TODO: is it a given that usb hubs are on the PCI bus? */
-  pci_device_t* host_device;
+  pci_device_t* pci_device;
 
   usb_hcd_mmio_ops_t* mmio_ops;
   usb_hcd_io_ops_t* io_ops;
@@ -77,7 +77,7 @@ typedef struct usb_hcd {
   list_t* devices;
 } usb_hcd_t;
 
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type);
+usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps, uint32_t ep_count);
 void destroy_usb_hcd(usb_hcd_t* hub);
 
 bool hcd_is_accessed(struct usb_hcd* hcd);

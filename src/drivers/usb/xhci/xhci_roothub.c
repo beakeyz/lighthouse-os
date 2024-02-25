@@ -1,4 +1,3 @@
-#include "dev/usb/spec.h"
 #include <dev/usb/usb.h>
 
 /*

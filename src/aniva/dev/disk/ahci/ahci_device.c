@@ -1,6 +1,5 @@
 #include "ahci_device.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/device.h"
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
@@ -9,18 +8,13 @@
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "dev/pci/bus.h"
-#include "irq/ctl/irqchip.h"
 #include "irq/interrupts.h"
-#include "libk/atomic.h"
 #include "libk/flow/error.h"
-#include "libk/data/hive.h"
 #include "libk/io.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "dev/pci/io.h"
-#include "proc/ipc/packet_response.h"
-#include "sched/scheduler.h"
 #include <oss/obj.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>

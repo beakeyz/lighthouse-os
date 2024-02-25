@@ -31,6 +31,8 @@ typedef struct {
 
 ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer);
 
+bool cram_is_compressed_library(partitioned_disk_dev_t* device);
+
 size_t cram_find_decompressed_size(partitioned_disk_dev_t* device);
 
 #endif // !__ANIVA_CRAMFS_DECOMPRESSION__

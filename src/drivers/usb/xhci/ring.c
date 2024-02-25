@@ -2,7 +2,6 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "logging/log.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "xhci.h"

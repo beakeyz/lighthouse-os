@@ -294,3 +294,24 @@ ACPI_STATUS acpi_eval_int(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_
   *ret = obj.Integer.Value;
   return AE_OK;
 }
+
+ACPI_STATUS acpi_eval_string(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, const char** ret)
+{
+  ACPI_STATUS status;
+  ACPI_OBJECT obj;
+  ACPI_BUFFER buf;
+
+  buf.Length = sizeof(obj);
+  buf.Pointer = &obj;
+
+  status = AcpiEvaluateObject(handle, string, args, &buf);
+
+  if (ACPI_FAILURE(status))
+    return status;
+
+  if (obj.Type != ACPI_TYPE_STRING)
+    return AE_BAD_DATA;
+
+  *ret = obj.String.Pointer;
+  return AE_OK;
+}

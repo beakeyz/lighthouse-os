@@ -59,7 +59,7 @@ ErrorOrPtr __init try_fetch_initramdisk()
   const size_t cramdisk_size = module_end - module_start;
 
   /* Map user pages */
-  const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+  const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
 
   /* Create ramdisk object */
   disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
@@ -355,6 +355,9 @@ void kthread_entry() {
 
   /* Scan for pci devices and initialize any matching drivers */
   init_pci_drivers();
+
+  /* Load the USB drivers on our system */
+  init_usb_drivers();
 
   /* Probe for a root device */
   init_root_device_probing();

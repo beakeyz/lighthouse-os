@@ -473,11 +473,11 @@ static void __apply_base_variables()
   profile_add_var(&base_profile, create_profile_var(DRIVERS_LOC_VARKEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/")));
 
   /* Core drivers which perform high level scanning and load low level drivers */
-  profile_add_var(&base_profile, create_profile_var("USB_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv")));
+  profile_add_var(&base_profile, create_profile_var(USBCORE_DRV_VARKEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv")));
   profile_add_var(&base_profile, create_profile_var("DISK_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv")));
   profile_add_var(&base_profile, create_profile_var("INPUT_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv")));
   profile_add_var(&base_profile, create_profile_var("VIDEO_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv")));
-  profile_add_var(&base_profile, create_profile_var("ACPI_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv")));
+  profile_add_var(&base_profile, create_profile_var(ACPICORE_DRV_VARKEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv")));
 
   /* 
    * These variables are to store the boot parameters. When we've initialized all devices we need and we're
