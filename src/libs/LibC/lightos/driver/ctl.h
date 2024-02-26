@@ -1,7 +1,6 @@
 #ifndef __LIGHTENV_LIBSYS_DRIVER_CTL__
 #define __LIGHTENV_LIBSYS_DRIVER_CTL__
 
-#include "lightos/handle_def.h"
 #include <sys/types.h>
 
 /*

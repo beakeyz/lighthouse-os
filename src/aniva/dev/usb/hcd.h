@@ -30,8 +30,7 @@ typedef struct usb_hcd_mmio_ops {
 } usb_hcd_mmio_ops_t;
 
 typedef struct usb_hcd_io_ops {
-  int (*enq_request)(struct usb_hcd* hcd, struct usb_request* request);
-  int (*deq_request)(struct usb_hcd* hcd, struct usb_request* request);
+  int (*enq_request)(struct usb_hcd* hcd, uint8_t usb_req, void* buffer, size_t bsize);
 } usb_hcd_io_ops_t;
 
 typedef struct usb_hcd_hw_ops {

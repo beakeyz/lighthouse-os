@@ -95,11 +95,19 @@ typedef struct xhci_op_regs {
 #define	XHCI_PORT_RO ((1<<0) | (1<<3) | (0xf<<10) | (1<<30))
 #define XHCI_PORT_RWS ((0xf<<5) | (1<<9) | (0x3<<14) | (0x7<<25))
 
-#define XHCI_PORT_CONNECT (1 << 0)
-#define XHCI_PORT_PE (1 << 1)
+#define XHCI_PORT_CCS (1 << 0)
+#define XHCI_PORT_PED (1 << 1)
 /* bit 2 reserved and zero */
-#define XHCI_PORT_OC (1 << 3)
+#define XHCI_PORT_OCA (1 << 3)
 #define XHCI_PORT_RESET	(1 << 4)
+#define XHCI_PORT_POWR (1 << 9)
+
+#define XHCI_PORT_LWS (1 << 16)
+#define XHCI_PORT_CST (1 << 17)
+#define XHCI_PORT_PEC (1 << 18)
+#define XHCI_PORT_WRX (1 << 19)
+#define XHCI_PORT_OCC (1 << 20)
+#define XHCI_PORT_RC  (1 << 21)
 
 #define XHCI_CMD_RING_PAUSED (1 << 1)
 #define XHCI_CMD_RING_ABORT (1 << 2)
@@ -125,8 +133,6 @@ typedef struct xhci_op_regs {
 #define XHCI_XDEV_TEST_MODE (0xb << 5)
 #define XHCI_XDEV_RESUME (0xf << 5)
 
-#define XHCI_PORT_POWR (1 << 9)
-
 #define XHCI_DEV_SPEED_MASK	(0xf << 10)
 #define XHCI_XDEV_FS (0x1 << 10)
 #define XHCI_XDEV_LS (0x2 << 10)
@@ -139,12 +145,6 @@ typedef struct xhci_op_regs {
 #define	XHCI_SLOT_SPEED_HS (XHCI_XDEV_HS << 10)
 #define	XHCI_SLOT_SPEED_SS (XHCI_XDEV_SS << 10)
 #define	XHCI_SLOT_SPEED_SSP (XHCI_XDEV_SSP << 10)
-
-#define XHCI_PORT_CST (1 << 17)
-#define XHCI_PORT_PEC (1 << 18)
-#define XHCI_PORT_WRX (1 << 19)
-#define XHCI_PORT_OCC (1 << 20)
-#define XHCI_PORT_RC  (1 << 21)
 
 typedef struct xhci_intr_regs {
   uint32_t irq_pending;

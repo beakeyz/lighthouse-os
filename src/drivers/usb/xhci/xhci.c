@@ -232,13 +232,11 @@ void destroy_xhci_hub(xhci_hub_t* hub)
  * based on the type of transfer. Next to that the event thread and transfer finish thread of this
  * hcd need to know how to correctly handle events and transfer finishes
  */
-int xhci_enq_request(usb_hcd_t* hcd, usb_request_t* req)
+int xhci_enq_request(usb_hcd_t* hcd, uint8_t usb_request, void* buffer, size_t bsize)
 {
   xhci_hcd_t* xhci;
 
   xhci = hcd->private;
-
-  kernel_panic("TODO: xhci_enq_request");
 
   xhci_ring(xhci, 0, 0, 0);
   return 0;
@@ -252,7 +250,6 @@ int xhci_deq_request(usb_hcd_t* hcd, usb_request_t* req)
 
 usb_hcd_io_ops_t xhci_io_ops = {
   .enq_request = xhci_enq_request,
-  .deq_request = xhci_deq_request,
 };
 
 /*!

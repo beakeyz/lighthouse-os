@@ -51,6 +51,16 @@
 #define SYSID_CREATE_PROFILE    26
 #define SYSID_DESTROY_PROFILE   27
 
+/* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
+
+#define SYSID_DEV_READ          28
+#define SYSID_DEV_WRITE         29
+/* HID dev interfacing */
+#define SYSID_HIDDEV_POLL       100
+/* Disk dev interfacing */
+#define SYSID_DISKDEV_BREAD     200
+#define SYSID_DISKDEV_BWRITE    201
+
 #define SYS_OK              (0)
 #define SYS_INV             (-1)
 #define SYS_KERR            (-2)

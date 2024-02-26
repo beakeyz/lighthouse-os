@@ -1,10 +1,6 @@
 #include "core.h"
 #include "lightos/syscall.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
-#include "proc/thread.h"
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
 

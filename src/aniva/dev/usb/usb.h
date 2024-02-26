@@ -27,6 +27,13 @@ struct usb_hub;
 struct device;
 struct usb_request;
 
+enum USB_SPEED {
+  USB_LOWSPEED,
+  USB_FULLSPEED,
+  USB_HIGHSPEED,
+  USB_SUPERSPEED
+};
+
 /*
  * Generic USB device structure
  *
