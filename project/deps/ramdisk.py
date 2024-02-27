@@ -68,6 +68,9 @@ class RamdiskManager(object):
 
         return True
 
+    def __copy_libs(self) -> bool:
+        pass
+
     def __prepare_user_dir(self) -> bool:
         '''
         Prepare the user directories of the ramdisk
@@ -193,6 +196,7 @@ class RamdiskManager(object):
 
         self.__prepare_user_dir()
 
+        self.__copy_libs()
         self.__copy_apps()
 
         # Add driver binaries to the system directory

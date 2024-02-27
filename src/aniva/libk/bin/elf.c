@@ -105,7 +105,7 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
 
   error = elf_read(file, header, &read_size, 0);
 
-  if (error < 0)
+  if (error)
     return Error();
 
   /* No elf? */
@@ -140,12 +140,14 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   if (IsError(elf_grab_sheaders(file, &header)))
     return Error();
 
+  printf("Execing (%s): %d\n", file->m_obj->name, header.e_type);
+  if (header.e_type != ET_EXEC)
+    return Error();
+
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)
     return Error();
-
-  /* TODO: */
 
   page_flags = KMEM_FLAG_WRITABLE;
   proc_flags = NULL;

@@ -1,5 +1,4 @@
 #include "request.h"
-#include "dev/usb/hcd.h"
 #include "dev/usb/usb.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
@@ -61,28 +60,7 @@ void release_usb_req(usb_request_t* req)
  */
 void usb_post_request(usb_request_t* req, uint8_t type)
 {
-  usb_hub_t* hub;
-  usb_hcd_t* hcd;
-
-  if (!req->device || !usb_req_is_type_valid(type))
-    return;
-
-  hub = req->device->hub;
-
-  if (!hub)
-    return;
-
-  hcd = hub->hcd;
-
-  if (!hcd)
-    return;
-
-  req->req_type = type;
-
-  /* Register the door to be able to await request completion */
-  Must(register_kdoor(req->device->req_doorbell, req->req_door));
-
-  hcd->io_ops->enq_request(hcd, req);
+  kernel_panic("TODO: usb_post_request");
 }
 
 /*!
