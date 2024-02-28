@@ -48,6 +48,7 @@ xhci_ring_t* create_xhci_ring(xhci_hcd_t* hcd, uint32_t trb_count, uint32_t type
     last->addr = ret->ring_dma;
   }
 
+  ret->last_trb = last;
   return ret;
 }
 
@@ -60,15 +61,25 @@ void destroy_xhci_ring(xhci_ring_t* ring)
 
 int xhci_cmd_ring_enqueue(xhci_hcd_t* xhci, xhci_trb_t* trb)
 {
-  usb_hcd_t* hcd;
   xhci_ring_t* cmd_ring;
 
-  hcd = xhci->parent;
   cmd_ring = xhci->cmd_ring_ptr;
 
-  println("Enqueueing a XHCI command!");
-  (void)hcd;
-  (void)cmd_ring;
+  trb->control &= ~1;
+  trb->control |= xhci->cmd_queue_cycle;
+
+  memcpy(cmd_ring->enqueue, trb, sizeof(*trb));
+
+  cmd_ring->enqueue++;
+
+  if (cmd_ring->enqueue == cmd_ring->last_trb) {
+    cmd_ring->enqueue->control ^= 1;
+
+    if (cmd_ring->enqueue->control & (1 < 1))
+      xhci->cmd_queue_cycle ^= 1;
+
+    cmd_ring->enqueue = cmd_ring->ring_buffer;
+  }
 
   return 0;
 }

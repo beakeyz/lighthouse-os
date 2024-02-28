@@ -10,7 +10,13 @@
 
 /* Extended capability ids */
 #define XHCI_EXT_CAPS_LEGACY 1
-#define XHCI_EXT_CAPS_PROTOCOL 2
+
+#define XHCI_EXT_CAPS_PROTOCOLS 2
+#define XHCI_EXT_CAPS_PROTOCOLS_0_MINOR(x)	(((x) >> 16) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(x)	(((x) >> 24) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_1_COUNT(x)	(((x) >> 8) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_1_OFFSET(x)	(((x) >> 0) & 0xff)
+
 #define XHCI_EXT_CAPS_PM 3
 #define XHCI_EXT_CAPS_VIRT 4
 #define XHCI_EXT_CAPS_ROUTE 5

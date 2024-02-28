@@ -191,7 +191,7 @@ typedef struct xhci_cap_regs {
 
 #define HC_MAX_SLOTS(p) ((p) & 0xFF)
 #define HC_MAX_INTER(p) (((p) >> 8) & 0x7FF)
-#define HC_MAX_PORTS(p) (((p) >> 24) & 0x7F)
+#define HC_MAX_PORTS(p) (((p) >> 24) & 0xFF)
 
 /* Weird define because there is a bitchin reserved bit right in the middle of our field =/ */
 #define HC_MAX_SCRTCHPD(p) ((((p) >> 16) & 0x3e0) | (((p) >> 27) & 0x1f))
@@ -404,6 +404,8 @@ typedef struct xhci_ring {
   xhci_trb_t* enqueue;
   xhci_trb_t* dequeue;
 
+  xhci_trb_t* last_trb;
+
   /* Kernel address to the ring buffer */
   void* ring_buffer;
   paddr_t ring_dma;
@@ -523,6 +525,7 @@ typedef struct xhci_hcd {
   thread_t* trf_finish_thread;
 
   uint8_t sbrn;
+  uint8_t cmd_queue_cycle;
   uint16_t hci_version;
   uint8_t max_slots;
   uint16_t max_interrupters;

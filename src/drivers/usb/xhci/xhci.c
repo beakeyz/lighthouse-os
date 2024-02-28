@@ -7,6 +7,7 @@
 #include "dev/usb/hcd.h"
 #include "dev/usb/request.h"
 #include "dev/usb/usb.h"
+#include "dev/usb/port.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/string.h"
@@ -136,6 +137,29 @@ usb_hcd_mmio_ops_t xhci_mmio_ops = {
   .mmio_wait_read = xhci_wait_read,
 };
 
+static kerror_t xhci_submit_cmd(xhci_hcd_t* xhci, uint64_t trb_addr, uint32_t trb_status, uint32_t trb_control)
+{
+  xhci_ring_t* ring;
+
+  ring = xhci->cmd_ring_ptr;
+
+  if (!ring)
+    return -KERR_INVAL;
+
+  xhci_trb_t trb = {
+    .addr = trb_addr,
+    .status = trb_status,
+    .control = trb_control
+  };
+
+  /* Put the shit in the ring */
+  xhci_cmd_ring_enqueue(xhci, &trb);
+
+  /* boob */
+  xhci_ring(xhci, 0, 0, 0);
+  return 0;
+}
+
 /*!
  * @brief: Set a ports power status
  */
@@ -168,6 +192,9 @@ static void xhci_port_power(xhci_hcd_t* hcd, xhci_port_t* port, bool status)
  */
 xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
 {
+  uint32_t eec;
+  uint32_t eecp;
+  uint32_t hcc_params;
   xhci_hub_t* hub;
 
   hub = kzalloc(sizeof(*hub));
@@ -193,10 +220,38 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
    * a particular USB class is located
    */
 
+  /* Gather port protocols */
+  eec = 0xFFFFFFFF;
+  hcc_params = mmio_read_dword(&xhci->cap_regs->hcc_params_1);
+  eecp = XHCI_HCC_EXT_CAPS(hcc_params) << 2;
+
+  for (; eecp && XHCI_EXT_CAP_NEXT(eec) && hub->port_count < xhci->max_ports; eecp += (XHCI_EXT_CAP_NEXT(eec) << 2)) {
+    eec = xhci_cap_read(xhci, eecp);
+
+    if (XHCI_EXT_CAP_GETID(eec) != XHCI_EXT_CAPS_PROTOCOLS)
+      continue;
+
+    if (XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(eec) > 3)
+      continue;
+
+    /* Get this protocol info */
+    uint32_t temp =     xhci_cap_read(xhci, eecp + 8);
+    uint32_t offset =   XHCI_EXT_CAPS_PROTOCOLS_1_OFFSET(temp);
+    uint32_t count =    XHCI_EXT_CAPS_PROTOCOLS_1_COUNT(temp);
+
+    if (!offset || !count)
+      continue;
+
+    for (uint32_t i = offset-1; i < offset + count; i++) {
+      kdbgf("speed for port %d is %s\n", i,
+          XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(eec) == 0x3 ? "super" : "high");
+    }
+    hub->port_count += count;
+  }
+
   /* Before doing any port/device enumeration, let's first register our own roothub
    * to see if that system at least works */
   for (uint64_t i = 0; i < xhci->max_ports; i++) {
-    //xhci_port_power(xhci, nullptr, true);
   }
 
   return hub;
@@ -350,18 +405,18 @@ static void xhci_destroy_scratchpad(xhci_hcd_t* xhci)
 static int xhci_prepare_memory(usb_hcd_t* hcd)
 {
   int error;
-  uint32_t hcc_params_1;
-  uint32_t hcc_params_2;
+  uint32_t hcs_params_1;
+  uint32_t hcs_params_2;
   xhci_hcd_t* xhci = hcd->private;
 
-  hcc_params_1 = mmio_read_dword(&xhci->cap_regs->hcc_params_1);
-  hcc_params_2 = mmio_read_dword(&xhci->cap_regs->hcc_params_2);
+  hcs_params_1 = mmio_read_dword(&xhci->cap_regs->hcs_params_1);
+  hcs_params_2 = mmio_read_dword(&xhci->cap_regs->hcs_params_2);
 
-  xhci->max_ports = HC_MAX_PORTS(hcc_params_1);
-  xhci->max_slots = HC_MAX_SLOTS(hcc_params_1);
+  xhci->max_ports = HC_MAX_PORTS(hcs_params_1);
+  xhci->max_slots = HC_MAX_SLOTS(hcs_params_1);
 
-  //if (!xhci->max_ports)
-    //return -1;
+  if (!xhci->max_ports)
+    return -1;
 
   /* Program the max slots */
   mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
@@ -373,7 +428,7 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
 
   mmio_write_qword(&xhci->op_regs->dcbaa_ptr, xhci->dctx_array_ptr->dma);
 
-  xhci->scratchpad_count = HC_MAX_SCRTCHPD(hcc_params_2);
+  xhci->scratchpad_count = HC_MAX_SCRTCHPD(hcs_params_2);
 
   if (xhci->scratchpad_count) {
     /* NOTE: it is legal for there to be no scratchpad */
@@ -492,7 +547,6 @@ static void xhci_bios_takeover(usb_hcd_t* hcd)
          */
         mmio_write_dword(legacy_offset, value & ~(XHCI_HC_BIOS_OWNED));
       }
-
     }
 
     /* Clear SMIs */
@@ -598,15 +652,11 @@ int xhci_setup(usb_hcd_t* hcd)
   xhci->doorbell_regs_offset = (mmio_read_dword(&xhci->cap_regs->db_arr_offset) & (~0x3));
 
   xhci->hci_version = HC_VERSION(mmio_read_dword(&xhci->cap_regs->hc_capbase));
-  xhci->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci->cap_regs->hcc_params_1));
+  xhci->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci->cap_regs->hcs_params_1));
 
+  xhci->cmd_queue_cycle = 1;
 
   uint32_t cap_len = HC_LENGTH(mmio_read_dword(&xhci->cap_regs->hc_capbase));
-
-  logln("XHCI cap len: ");
-  logln(to_string(cap_len));
-  logln("XHCI version: ");
-  logln(to_string(xhci->hci_version));
 
   /* Make sure BIOS fucks off before we do shit with the controller */
   xhci_bios_takeover(hcd);
@@ -616,21 +666,12 @@ int xhci_setup(usb_hcd_t* hcd)
   if (error)
     goto fail_and_dealloc;
 
-  logln("Success halt: ");
-  logln(to_string(error));
-
   error = xhci_reset(hcd);
-
-  logln("Success reset: ");
-  logln(to_string(error));
 
   if (error)
     goto fail_and_dealloc;
 
   error = xhci_prepare_memory(hcd);
-
-  logln("Memory status: ");
-  logln(to_string(error));
 
   if (error)
     goto fail_and_dealloc;
@@ -652,6 +693,12 @@ int xhci_setup(usb_hcd_t* hcd)
 
   //kernel_panic(to_string(xhci_register_size));
 
+  kdbgf("XHCI cap len: %d\n", cap_len);
+  kdbgf("XHCI version: %d\n", xhci->hci_version);
+
+  kdbgf("XHCI max ports: %d\n", xhci->max_ports);
+  kdbgf("XHCI max slots: %d\n", xhci->max_slots);
+  kdbgf("XHCI max interrupters: %d\n", xhci->max_interrupters);
   return 0;
 
 fail_and_dealloc:
@@ -726,7 +773,7 @@ usb_hcd_hw_ops_t xhci_hw_ops = {
   .hcd_stop = xhci_stop,
 };
 
-static xhci_hcd_t* create_xhci_hcd()
+static xhci_hcd_t* create_xhci_hcd(usb_hcd_t* parent)
 {
   xhci_hcd_t* hub;
 
@@ -736,6 +783,8 @@ static xhci_hcd_t* create_xhci_hcd()
     return nullptr;
 
   memset(hub, 0, sizeof(*hub));
+
+  hub->parent = parent;
 
   return hub;
 }
@@ -752,7 +801,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   hcd = create_usb_hcd(device, "xhci", USB_HUB_TYPE_XHCI, NULL, NULL);
 
   /* Create our own hcd */
-  xhci_hcd = create_xhci_hcd();
+  xhci_hcd = create_xhci_hcd(hcd);
 
   /* Set the hcd methods manually */
   hcd->private = xhci_hcd;
