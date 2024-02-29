@@ -149,6 +149,13 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   if (!phdrs)
     return Error();
 
+  for (uintptr_t i = 0; i < header.e_phnum; i++) {
+    /* If there is an interpreter specified, we assume a dynamically linked binary */
+    if (phdrs[i].p_type == PT_INTERP) {
+      kernel_panic("TODO: implement PT_INTERP");
+    }
+  }
+
   page_flags = KMEM_FLAG_WRITABLE;
   proc_flags = NULL;
 

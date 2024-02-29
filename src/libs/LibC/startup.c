@@ -1,8 +1,6 @@
 #include <LibC/mem/memory.h>
 
 #include "lightos/handle_def.h"
-#include "lightos/syscall.h"
-#include "lightos/system.h"
 #include <stdlib.h>
 #include <sys/types.h>
 

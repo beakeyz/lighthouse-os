@@ -12,7 +12,7 @@ S_SRC := $(shell find $(THIS_SRC) -type f -name '*.S')
 
 C_OBJ := $(patsubst %.c,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(C_SRC)))
 ASM_OBJ := $(patsubst %.asm,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(ASM_SRC)))
-S_OBJ := $(patsubst %.S,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(S_SRC)))
+S_OBJ ?= $(patsubst %.S,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(S_SRC)))
 
 override HEADER_DEPS := $(patsubst %.o,%.d,$(C_OBJ))
 
@@ -30,7 +30,7 @@ $(THIS_OUT)/%.o: $(THIS_SRC)/%.asm
 $(THIS_OUT)/%.o: $(THIS_SRC)/%.S
 	@echo -e - Building [S]: $@
 	@$(DIRECTORY_GUARD)
-	@$(CC) -c $< -o $@
+	@$(CC) $(LIBRARY_CFLAGS) -c $< -o $@
 
 $(LIBRARY_OUT)/%.o: $(LIBRARY_SRC)/%.asm
 	@echo -e - Building common lib component [ASM]: $@
@@ -42,6 +42,9 @@ $(LIBRARY_OUT)/%.o: $(LIBRARY_SRC)/%.asm
 # So change -o $(THIS_OUT)/... -> -o $(LIBRARY_BIN_PATH)/...
 #
 
+build-libc-shared: $(ASM_OBJ) $(C_OBJ) $(COMMON_LIB_OBJS)
+	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
+
 build-shared: $(ASM_OBJ) $(C_OBJ) $(COMMON_LIB_OBJS)
 	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
 
@@ -51,9 +54,13 @@ build-static: $(ASM_OBJ) $(C_OBJ) $(S_OBJ)
 
 build:
 ifeq ($(CAN_BE_SHARED), yes)
+ifeq ($(LIBRARY_NAME), LibC)
+	@$(MAKE) build-libc-shared
+else
 	@$(MAKE) build-shared
+endif
 endif
 	@$(MAKE) build-static
 	@echo "Built lib: " $(LIBRARY_NAME)
 
-.PHONY: build-shared build-static
+.PHONY: build-shared build-libc-shared build-static

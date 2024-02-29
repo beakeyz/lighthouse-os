@@ -22,8 +22,9 @@ $(THIS_OUT)/%.o: $(THIS_SRC)/%.asm
 # TODO: Shared libraries go into the flags, create a variable that creates a flags
 # entry for every shared library that the process specifies
 build-dynamic: $(ASM_OBJ) $(C_OBJ)
-	@$(LD) $^ -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) \
-		$(USER_DYNAMIC_LDFLAGS)
+	@echo $^
+	@$(LD) $^ -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) $(USER_DYNAMIC_LDFLAGS) $(LIBRARIES) \
+		
 
 build-static: $(ASM_OBJ) $(C_OBJ)
 	@$(LD) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) \

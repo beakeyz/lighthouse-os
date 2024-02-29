@@ -12,7 +12,7 @@ export PROCESS_EXT=
 export USER_CFLAGS=-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding $(USER_INCLUDE_CFLAGS)
 export USER_LDFLAGS=
 export USER_STATIC_LDFLAGS=
-export USER_DYNAMIC_LDFLAGS=-L{SYSROOT_DIR}/System/Lib
+export USER_DYNAMIC_LDFLAGS=-L$(SYSROOT_DIR)/System/Lib -Idynldr.drv
 
 build: $(USER_PATHS)
 

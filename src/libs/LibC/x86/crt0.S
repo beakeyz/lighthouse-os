@@ -1,5 +1,6 @@
 .section .text
-.global _start 
+.globl _start 
+.type _start, @function
 
 .extern main
 .extern lightapp_startup
