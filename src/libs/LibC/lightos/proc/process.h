@@ -11,13 +11,13 @@
  * Open a handle to a process which can be used to communicate with this
  * process or use this handle to reference the process to other services
  */
-HANDLE open_proc(
+extern HANDLE open_proc(
   __IN__ const char* name,
   __IN__ DWORD flags,
   __IN__ DWORD mode
 );
 
-HANDLE open_proc_ex(
+extern HANDLE open_proc_ex(
   __IN__ DWORD procid,
   __IN__ DWORD flags,
   __IN__ DWORD mode
@@ -31,7 +31,7 @@ HANDLE open_proc_ex(
  *
  * Returns true otherwise
  */
-BOOL proc_is_public(
+extern BOOL proc_is_public(
   __IN__ HANDLE handle
 );
 
@@ -44,7 +44,7 @@ typedef BYTE  privilige_lvl_t;
  * Fails if the handle or the buffer pointer is invalid or if we have no permission to view the
  * processes privilige level
  */
-BOOL proc_get_priv_lvl(
+extern BOOL proc_get_priv_lvl(
   __IN__ HANDLE handle,
   __OUT__ privilige_lvl_t* level
 );
@@ -52,7 +52,7 @@ BOOL proc_get_priv_lvl(
 /*
  * Grab a handle to the profile of this process
  */
-BOOL proc_get_profile(
+extern BOOL proc_get_profile(
  __IN__ HANDLE proc_handle,
  __OUT__ HANDLE* profile_handle
 );
@@ -62,7 +62,7 @@ BOOL proc_get_profile(
  * Fails if the process is not open for communication, busy 
  * of if the handle is invalid
  */
-BOOL proc_send_data(
+extern BOOL proc_send_data(
   __IN__                    HANDLE          handle,
   __IN__                    control_code_t  code,
   __IN__    __OPTIONAL__    VOID*           buffer,
@@ -75,7 +75,7 @@ BOOL proc_send_data(
  * The buffer should specify a region for data that the caller has 
  * prepared, since the data that was recieved will be copied there
  */
-BOOL proc_await_data(
+extern BOOL proc_await_data(
   __IN__    HANDLE      handle,
   __IN__    VOID*       buffer,
   __IN__    size_t      size
@@ -86,7 +86,7 @@ BOOL proc_await_data(
  * Fails if we don't have permission, if the handle is invalid
  * or if for any reason the write opperation failed
  */
-BOOL write_process_memory(
+extern BOOL write_process_memory(
   __IN__    HANDLE      handle,
   __IN__    VOID*       offset,
   __IN__    VOID*       buffer,
@@ -99,7 +99,7 @@ BOOL write_process_memory(
  * Fails if we don't have permission, if the handle is invalid
  * or if for any reason the read opperation failed
  */
-BOOL read_process_memory(
+extern BOOL read_process_memory(
   __IN__    HANDLE      handle,
   __IN__    VOID*       offset,
   __INOUT__ size_t*     size,
@@ -110,7 +110,7 @@ BOOL read_process_memory(
 /* Don't take this process as a child, but rather let it be its own seperate process */
 #define PROC_ORPHAN   (0x00000001) 
 
-BOOL create_process(
+extern BOOL create_process(
   __IN__ const char*    name,
   __IN__ FuncPtr        entry,
   __IN__ const char*    args,
@@ -118,7 +118,7 @@ BOOL create_process(
   __IN__ DWORD          flags
 );
 
-BOOL kill_process(
+extern BOOL kill_process(
   __IN__ HANDLE     handle,
   __IN__ DWORD      flags
 );
@@ -126,6 +126,6 @@ BOOL kill_process(
 /*
  * Find the amount of ticks used by this process
  */
-size_t get_process_time();
+extern size_t get_process_time();
 
 #endif // !__LIGHTENV_PROCESS__

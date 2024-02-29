@@ -4,7 +4,6 @@
 #include "kevent/types/error/kerror.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"

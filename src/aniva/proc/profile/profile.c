@@ -478,6 +478,7 @@ static void __apply_base_variables()
   profile_add_var(&base_profile, create_profile_var("INPUT_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv")));
   profile_add_var(&base_profile, create_profile_var("VIDEO_CORE_DRV", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv")));
   profile_add_var(&base_profile, create_profile_var(ACPICORE_DRV_VARKEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv")));
+  profile_add_var(&base_profile, create_profile_var(DYNLOADER_DRV_VARKEY, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv")));
 
   /* 
    * These variables are to store the boot parameters. When we've initialized all devices we need and we're

@@ -26,6 +26,7 @@ class RamdiskManager(object):
     SYS_PATH: str = SYSROOT_PATH + "/System"
     APPS_PATH: str = SYSROOT_PATH + "/Apps"
     USER_PATH: str = SYSROOT_PATH + "/User"
+    LIBS_BIN_PATH: str = SYS_PATH + "/Lib"
     GLOB_USR_PATH: str = USER_PATH + "/Global"
 
     CFG_PATH: str = SYSROOT_PATH + "/kcfg.ini"
@@ -69,6 +70,15 @@ class RamdiskManager(object):
         return True
 
     def __copy_libs(self) -> bool:
+
+        for manifest in self.c.LIBRARY_MANIFESTS:
+            path: str = manifest.path.replace("/src/libs", "/out/libs")
+            path = path.replace("manifest.json", f"{manifest.manifested_name}")
+
+            os.system(f"cp {path}{self.c.STATIC_LIB_EXTENTION} {self.LIBS_BIN_PATH}")
+            os.system(f"cp {path}{self.c.SHARED_LIB_EXTENTION} {self.LIBS_BIN_PATH}")
+            manifest.manifested_name
+            pass
         pass
 
     def __prepare_user_dir(self) -> bool:
