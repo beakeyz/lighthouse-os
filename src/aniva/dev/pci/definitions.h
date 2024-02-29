@@ -1,7 +1,6 @@
 #ifndef __ANIVA_PCI_DEFINITIONS__
 #define __ANIVA_PCI_DEFINITIONS__
 
-#include "libk/io.h"
 typedef enum pci_commands {
   PCI_COMMAND_IO_SPACE = (1 << 0),
   PCI_COMMAND_MEM_SPACE = (1 << 1),

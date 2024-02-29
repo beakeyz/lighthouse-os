@@ -13,7 +13,6 @@
 #include <libk/stddef.h>
 
 struct usb_hcd;
-struct usb_port;
 struct usb_device;
 struct xhci_hcd;
 struct xhci_hub;
@@ -483,14 +482,26 @@ extern int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* inter
  * This represents a USB device connected to a xhci hub
  */
 typedef struct xhci_port {
+  /* Base register address */
   void* base_addr;
-  uint32_t port_num;
+  void* dcba_entry_addr;
+  void* device_context;
+
+  uint8_t port_num;
+  uint8_t device_slot;
   
-  struct usb_port* usb_port;
+  enum USB_SPEED speed;
   struct xhci_hub* p_hub;
 } xhci_port_t;
 
-extern xhci_port_t* create_xhci_port(void* base_addr, uint32_t num);
+extern xhci_port_t* create_xhci_port(struct xhci_hub* hub, enum USB_SPEED speed);
+extern void destroy_xhci_port(struct xhci_port* port);
+extern void init_xhci_port(xhci_port_t* port, void* base_addr, void* dcba_entry_addr, void* device_ctx, uint8_t port_num, uint8_t slot);
+
+static inline bool __is_active_xhci_port(xhci_port_t* port)
+{
+  return (port->base_addr != nullptr);
+}
 
 /*
  * A xhci hub
@@ -501,6 +512,7 @@ extern xhci_port_t* create_xhci_port(void* base_addr, uint32_t num);
 typedef struct xhci_hub {
   xhci_port_t** ports;
   uint32_t port_count;
+  uint32_t port_arr_size;
 
   struct usb_hub* phub;
 } xhci_hub_t;
@@ -555,6 +567,8 @@ typedef struct xhci_hcd {
   xhci_interrupter_t* interrupter;
   xhci_scratchpad_t* scratchpad_ptr;
 } xhci_hcd_t;
+
+extern void _xhci_event_poll(xhci_hcd_t* xhci);
 
 static inline xhci_hcd_t* hcd_to_xhci(usb_hcd_t* hcd)
 {

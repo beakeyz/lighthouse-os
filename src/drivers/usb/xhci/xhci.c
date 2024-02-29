@@ -7,10 +7,8 @@
 #include "dev/usb/hcd.h"
 #include "dev/usb/request.h"
 #include "dev/usb/usb.h"
-#include "dev/usb/port.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
-#include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -172,6 +170,10 @@ static void xhci_port_power(xhci_hcd_t* hcd, xhci_port_t* port, bool status)
 
   current_stat = mmio_read_dword(port->base_addr);
 
+  /* Port not enabled */
+  if ((current_stat & XHCI_PORT_CCS) != XHCI_PORT_CCS)
+    return;
+
   /* Reserve RO and status bits */
   current_stat = (current_stat & XHCI_PORT_RO) | (current_stat & XHCI_PORT_RWS);
 
@@ -204,11 +206,13 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
 
   memset(hub, 0, sizeof(*hub));
 
+  hub->port_count = 0;
+  hub->port_arr_size = sizeof(xhci_port_t*) * xhci->max_ports;
   /* This creates a generic USB hub and asks the host controller for its data */
   hub->phub = create_usb_hub(xhci->parent, nullptr, dev_address, 0);
-  hub->port_count = 0;
 
-  hub->ports = kmalloc(sizeof(xhci_port_t*) * xhci->max_ports);
+  hub->ports = kmalloc(hub->port_arr_size);
+  memset(hub->ports, 0, hub->port_arr_size);
 
   /*
    * TODO: send identification packets to the devices on this hub
@@ -225,7 +229,7 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
   hcc_params = mmio_read_dword(&xhci->cap_regs->hcc_params_1);
   eecp = XHCI_HCC_EXT_CAPS(hcc_params) << 2;
 
-  for (; eecp && XHCI_EXT_CAP_NEXT(eec) && hub->port_count < xhci->max_ports; eecp += (XHCI_EXT_CAP_NEXT(eec) << 2)) {
+  for (; eecp && XHCI_EXT_CAP_NEXT(eec) && hub->port_count <= xhci->max_ports; eecp += (XHCI_EXT_CAP_NEXT(eec) << 2)) {
     eec = xhci_cap_read(xhci, eecp);
 
     if (XHCI_EXT_CAP_GETID(eec) != XHCI_EXT_CAPS_PROTOCOLS)
@@ -242,16 +246,27 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
     if (!offset || !count)
       continue;
 
-    for (uint32_t i = offset-1; i < offset + count; i++) {
+    for (uint32_t i = offset-1; i < offset + count - 1; i++) {
       kdbgf("speed for port %d is %s\n", i,
           XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(eec) == 0x3 ? "super" : "high");
+
+      enum USB_SPEED speed = XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(eec) == 0x3 ? USB_SUPERSPEED : USB_HIGHSPEED;
+
+      if (hub->ports[i])
+        hub->ports[i]->speed = speed;
+      else
+        hub->ports[i] = create_xhci_port(hub, speed);
+
+      hub->port_count++;
     }
-    hub->port_count += count;
   }
 
   /* Before doing any port/device enumeration, let's first register our own roothub
    * to see if that system at least works */
-  for (uint64_t i = 0; i < xhci->max_ports; i++) {
+  for (uint64_t i = 0; i < hub->port_count; i++) {
+    init_xhci_port(hub->ports[i], &xhci->op_regs->ports[i], nullptr, nullptr, i, NULL);
+
+    xhci_port_power(xhci, hub->ports[i], true);
   }
 
   return hub;
@@ -676,8 +691,8 @@ int xhci_setup(usb_hcd_t* hcd)
   if (error)
     goto fail_and_dealloc;
 
-  /* Create the async polling threads */
-  //xhci->event_thread = spawn_thread("xhci_event_thread", nullptr, (uint64_t)xhci);
+  /* Create the async polling threads (TODO: only when it's configured to use this) */
+  //xhci->event_thread = spawn_thread("xhci_event", _xhci_event_poll, (uint64_t)xhci);
   //xhci->trf_finish_thread = spawn_thread("xhci_trf_thread", nullptr, (uint64_t)xhci);
 
   /*

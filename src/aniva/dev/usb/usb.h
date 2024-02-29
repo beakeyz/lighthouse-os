@@ -53,13 +53,15 @@ typedef struct usb_device {
   uint8_t port_num; /* From 0 to 255, which port are we on? */
   uint8_t effective_idx; /* From 0 to 255, what is our index? (nth device found on the hub) */
   uint8_t dev_type;
+  uint8_t slot;
+  uint8_t ep_count;
 
   char* product;
   char* manufacturer;
   char* serial;
 
   uint32_t state;
-  uint32_t speed;
+  enum USB_SPEED speed;
 
   /*
    * Doorbell that rings on request completion and
