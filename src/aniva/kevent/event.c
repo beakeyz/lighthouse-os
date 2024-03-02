@@ -507,6 +507,10 @@ int kevent_fire(const char* name, void* buffer, size_t size)
   if (!event)
     return -1;
 
+  /* No need to even do jackshit */
+  if (!event->hook_count)
+    return 0;
+
   return kevent_fire_ex(event, buffer, size);
 }
 

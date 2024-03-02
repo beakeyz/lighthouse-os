@@ -42,6 +42,7 @@ typedef unsigned char       handle_type_t;
 /* An eventsubscription */
 #define HNDL_TYPE_EVENTHOOK         (15)
 #define HNDL_TYPE_RESOURCE          (16)
+#define HNDL_TYPE_SHARED_LIB        (17)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

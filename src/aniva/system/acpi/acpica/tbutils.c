@@ -494,8 +494,6 @@ AcpiTbParseRootTable (
     {
         /* Get the table physical address (32-bit for RSDT, 64-bit for XSDT) */
 
-        printf("Getting root table entry: %p\n", TableEntry);
-
         Address = AcpiTbGetRootTableEntry (TableEntry, TableEntrySize);
 
         /* Skip NULL entries in RSDT/XSDT */
@@ -504,8 +502,6 @@ AcpiTbParseRootTable (
         {
             goto NextTable;
         }
-
-        printf("Trying to install standard table: %llx\n", Address);
 
         Status = AcpiTbInstallStandardTable (Address,
             ACPI_TABLE_ORIGIN_INTERNAL_PHYSICAL, NULL, FALSE, TRUE,

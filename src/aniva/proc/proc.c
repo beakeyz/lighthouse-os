@@ -54,7 +54,7 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
   proc->m_name = strdup(name);
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
-  proc->m_thread_count = create_atomic_ptr_ex(0);
+  proc->m_thread_count = create_atomic_ptr_ex(1);
   proc->m_terminate_bell = create_doorbell(8, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
 

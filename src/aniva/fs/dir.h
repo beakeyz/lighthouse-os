@@ -1,6 +1,7 @@
 #ifndef __ANIVA_FS_DIR__
 #define __ANIVA_FS_DIR__
 
+#include "libk/flow/error.h"
 #include <libk/stddef.h>
 
 struct oss_node;
@@ -14,7 +15,7 @@ typedef struct dir_ops {
 
 typedef struct dir {
   struct dir_ops* ops;
-  struct oss_obj* obj;
+  struct oss_node* node;
 
   const char* name;
 
@@ -34,5 +35,8 @@ dir_t* create_dir(struct oss_node* parent, uint32_t flags, const char* name);
 void destroy_dir(dir_t* dir);
 
 int dir_create_child(dir_t* dir, const char* name);
+
+dir_t* dir_open(const char* path);
+kerror_t dir_close(dir_t* dir);
 
 #endif // !__ANIVA_FS_DIR__

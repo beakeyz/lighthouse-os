@@ -44,6 +44,24 @@ typedef struct file_ops {
 #define FILE_ORPHAN         (0x00000002)
 
 /*
+ * TODO: Use this shit
+ */
+enum FILE_TYPE {
+  /* Simple app */
+  APP_FILE,
+  /* Static library */
+  LIB_FILE,
+  /* Shared library */
+  SLB_FILE,
+  /* Driver file */
+  DRV_FILE,
+  /* Profile variable file */
+  PVR_FILE,
+  /* Header file */
+  C_HDR_FILE,
+};
+
+/*
  * NOTE: When this object is alive, we assume it (and its node) have already been opend
  * 
  * Every file has a data buffer that can hold a single piece of contiguous memory that reflects 
@@ -71,13 +89,13 @@ typedef struct file {
 
   /* Pointer to the data buffer. TODO: make this easily managable */
   void* m_buffer;
+
   size_t m_buffer_size;
   /* Size on disk */
   size_t m_total_size;
   /* Logical size of the file */
   size_t m_logical_size;
-
-} __attribute__((aligned(4))) file_t;
+} file_t;
 
 file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path);
 void destroy_file(file_t* file);

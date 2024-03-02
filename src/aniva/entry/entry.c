@@ -5,7 +5,6 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/driver.h"
-#include "dev/external.h"
 #include "dev/io/hid/hid.h"
 #include "dev/loader.h"
 #include "dev/pci/pci.h"
@@ -13,8 +12,9 @@
 #include "dev/video/core.h"
 #include "fs/core.h"
 #include "kevent/event.h"
+#include "libk/cmdline/parser.h"
 #include "libk/flow/error.h"
-#include "libk/data/hashmap.h"
+#include "libk/lib.h"
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
@@ -28,7 +28,6 @@
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include "time/core.h"
-#include "libk/string.h"
 #include "irq/interrupts.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
@@ -94,6 +93,7 @@ static void register_kernel_data(paddr_t p_mb_addr)
   g_system_info.xsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
   g_system_info.firmware_fb = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
   g_system_info.ramdisk = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
+  g_system_info.cmdline = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_CMDLINE);
 
   if (g_system_info.firmware_fb)
     g_system_info.sys_flags |= SYSFLAGS_HAS_FRAMEBUFFER;
@@ -128,7 +128,7 @@ static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic
   }
 
   /* Quick bootloader interface info */
-  printf("Multiboot address from the bootloader is at: %s\n", to_string((uintptr_t)mb_addr));
+  printf("Multiboot address from the bootloader is at: %p\n", mb_addr);
 
   /* Prepare for stage 1 */
   register_kernel_data((paddr_t)mb_addr);
@@ -187,8 +187,8 @@ static kerror_t _start_subsystems()
   // we need resources
   init_kresources();
 
-  /* Initialize hashmap caching */
-  init_hashmap();
+  // Initialize libk
+  init_libk();
 
   // Initialize kevent
   init_kevents();
@@ -380,9 +380,10 @@ void kthread_entry() {
   //resume_scheduler();
 
   /* Will be attached to Drv/other/kterm */
-  extern_driver_t* kterm = load_external_driver("Root/System/kterm.drv");
-
-  ASSERT_MSG(kterm, "Failed to load kterm!");
+  if (opt_parser_get_bool("use_kterm"))
+    ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+  else 
+    ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
   while (true) {
     scheduler_yield();

@@ -467,8 +467,8 @@ ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
   if (!m)
     return AE_BAD_PARAMETER;
 
-  if (!Timeout && mutex_is_locked(m))
-    return AE_NOT_ACQUIRED;
+  if (Timeout != (uint16_t)-1 && mutex_is_locked(m))
+    return AE_TIME;
 
   mutex_lock(m);
   //println("Mut take done");

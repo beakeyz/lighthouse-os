@@ -41,6 +41,7 @@ extern driver_version_t kernel_version;
 #define SYSFLAGS_VOLATILE           (0x00000010)
 #define SYSFLAGS_DISABLE_ETTY       (0x00000020)
 #define SYSFLAGS_HAS_MULTITHREADING (0x00000040)
+#define SYSFLAGS_HAS_CMDLINE        (0x00000080)
 
 /* What's the maximum amount of processors we support? */
 #define SYS_MAX_CPU                 1
@@ -74,11 +75,9 @@ typedef struct {
   struct multiboot_tag_old_acpi* rsdp;
   struct multiboot_tag_framebuffer* firmware_fb;
   struct multiboot_tag_module* ramdisk;
+  struct multiboot_tag_string* cmdline;
 
   struct processor* processors[SYS_MAX_CPU];
-
-  /* Allow for 128 UTF-8 characters of cmd line */
-  char cmdline[128];
 
   uint32_t sys_flags;
   uint32_t kernel_version;

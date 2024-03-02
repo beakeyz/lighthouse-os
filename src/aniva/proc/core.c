@@ -1,4 +1,6 @@
 #include "core.h"
+#include "kevent/event.h"
+#include "kevent/types/proc.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -18,6 +20,7 @@
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "sync/spinlock.h"
+#include "system/processor/processor.h"
 
 static uint32_t s_highest_port_cache;
 // TODO: fix this mechanism, it sucks
@@ -321,10 +324,14 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
   return nullptr;
 }
 
-
+/*!
+ * @brief: Register a process to the kernel
+ */
 ErrorOrPtr proc_register(proc_t* proc)
 {
   ErrorOrPtr result;
+  processor_t* cpu;
+  kevent_proc_ctx_t ctx;
 
   result = __register_proc(proc);
 
@@ -346,12 +353,27 @@ ErrorOrPtr proc_register(proc_t* proc)
   else
     proc_register_to_global(proc);
 
+  cpu = get_current_processor();
+
+  ctx.process = proc;
+  ctx.type = PROC_EVENTTYPE_CREATE;
+  ctx.new_cpuid = cpu->m_cpu_num;
+  ctx.old_cpuid = cpu->m_cpu_num;
+
+  /* Fire a funky kernel event */
+  kevent_fire("proc", &ctx, sizeof(ctx));
+
   return result;
 }
 
+/*!
+ * @brief: Unregister a process from the kernel
+ */
 ErrorOrPtr proc_unregister(char* name) 
 {
   proc_t* p;
+  processor_t* cpu;
+  kevent_proc_ctx_t ctx;
   ErrorOrPtr result;
 
   result = __unregister_proc_by_name(name);
@@ -366,6 +388,15 @@ ErrorOrPtr proc_unregister(char* name)
 
   /* Make sure the process is removed form its profile */
   proc_set_profile(p, nullptr);
+
+  cpu = get_current_processor();
+
+  ctx.process = p;
+  ctx.type = PROC_EVENTTYPE_DESTROY;
+  ctx.new_cpuid = cpu->m_cpu_num;
+  ctx.old_cpuid = cpu->m_cpu_num;
+
+  kevent_fire("proc", &ctx, sizeof(ctx));
 
   return result;
 }

@@ -2,8 +2,6 @@
 #define __ANIVA_KEVENT_EVENT__
 
 #include "proc/core.h"
-#include "proc/proc.h"
-#include "proc/thread.h"
 #include "system/processor/processor.h"
 #include <libk/stddef.h>
 
