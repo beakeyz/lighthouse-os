@@ -346,8 +346,6 @@ void kthread_entry() {
    */
   init_aniva_driver_registry();
 
-  debug_kmem();
-
   /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk();
 

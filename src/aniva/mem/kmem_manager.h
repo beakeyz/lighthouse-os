@@ -157,8 +157,8 @@ typedef struct {
 } phys_mem_range_t;
 
 typedef struct {
-  uint64_t upper;
-  uint64_t lower;
+  uint64_t start;
+  uint64_t end;
 } contiguous_phys_virt_range_t; 
 
 /*

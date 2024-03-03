@@ -38,10 +38,9 @@ ErrorOrPtr init_multiboot(void* addr)
       delta = virt_mod_end - g_system_info.kernel_end_addr;
 
       /* If this difference is more than what we currently have registered, set this */
-      if (delta > g_system_info.post_kernel_reserved_size) {
-        /* Plus a quad word as a buffer =) */
-        g_system_info.post_kernel_reserved_size = ALIGN_UP(delta + 8, 8);
-      }
+      if (delta > g_system_info.post_kernel_reserved_size)
+        /* Plus a page as a buffer =) */
+        g_system_info.post_kernel_reserved_size = ALIGN_UP(delta, SMALL_PAGE_SIZE);
     }
 
     /*
