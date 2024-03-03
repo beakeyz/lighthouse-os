@@ -1,7 +1,6 @@
 #ifndef __ANIVA_VID_DEV_FRAMEBUFFER__
 #define __ANIVA_VID_DEV_FRAMEBUFFER__
 
-#include "libk/flow/reference.h"
 #include "libk/stddef.h"
 
 struct device;

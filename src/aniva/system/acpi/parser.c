@@ -145,7 +145,7 @@ void* find_rsdp(acpi_parser_t* parser)
     parser->m_rsdt_phys = parser->m_rsdp_table->XsdtPhysicalAddress;
     parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
 
-    printf("Mapped xsdp to 0x%llx", (vaddr_t)parser->m_rsdp_table);
+    printf("Mapped xsdp to 0x%llx\n", (vaddr_t)parser->m_rsdp_table);
     return parser->m_rsdp_table;
   }
 

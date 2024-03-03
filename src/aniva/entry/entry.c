@@ -54,6 +54,8 @@ ErrorOrPtr __init try_fetch_initramdisk()
   const paddr_t module_start = mod->mod_start;
   const paddr_t module_end = mod->mod_end;
 
+  printf("Ramdisk: from %llx to %llx\n", module_start, module_end);
+
   /* Prefetch data */
   const size_t cramdisk_size = module_end - module_start;
 
@@ -344,6 +346,8 @@ void kthread_entry() {
    */
   init_aniva_driver_registry();
 
+  debug_kmem();
+
   /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk();
 
@@ -351,7 +355,7 @@ void kthread_entry() {
   init_root_ramdev();
 
   /* Initialized the ACPI core driver */
-  init_acpi_core();
+  //init_acpi_core();
 
   /* Scan for pci devices and initialize any matching drivers */
   init_pci_drivers();

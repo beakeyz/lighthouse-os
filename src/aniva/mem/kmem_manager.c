@@ -99,7 +99,10 @@ void init_kmem_manager(uintptr_t* mb_addr)
   _init_kmem_page_layout();
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
+}
 
+void debug_kmem()
+{
   uint32_t idx = 0;
 
   FOREACH(i, KMEM_DATA.m_phys_ranges) {

@@ -1,3 +1,4 @@
+#include "dev/video/core.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/alloc.h"
 #include "drivers/env/lwnd/io.h"
@@ -7,7 +8,6 @@
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
@@ -23,6 +23,9 @@
 static fb_info_t _fb_info;
 static lwnd_mouse_t _mouse;
 static lwnd_keyboard_t _keyboard;
+
+static video_device_t* _lwnd_vdev;
+static fb_handle_t _lwnd_fb_handle;
 
 //static uint32_t _main_screen;
 //static vector_t* _screens;
@@ -46,7 +49,7 @@ static void USED lwnd_main()
   (void)_keyboard;
 
   /* Launch an app to test our shit */
-  create_test_app(main_screen);
+  //create_test_app(main_screen);
 
   current_screen = main_screen;
 
@@ -144,13 +147,32 @@ int init_window_driver()
   if (error)
     return -1;
 
+  _lwnd_vdev = get_active_vdev();
   /*
    * Try and get framebuffer info from the active video device 
    * TODO: when we implement 2D acceleration, we probably need to do something else here
    * TODO: implement screens on the drivers side with 'connectors'
    */
   //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_fb_info, sizeof(_fb_info)));
-  kernel_panic("TODO: fix lwnd");
+  vdev_get_mainfb(_lwnd_vdev->device, &_lwnd_fb_handle);
+
+  /* Fill our framebuffer info struct */
+  _fb_info.size = vdev_get_fb_size(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.bpp = vdev_get_fb_bpp(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.pitch = vdev_get_fb_pitch(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.width = vdev_get_fb_width(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.height = vdev_get_fb_height(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.colors.red.offset_bits = vdev_get_fb_red_offset(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.colors.red.length_bits = vdev_get_fb_red_length(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.colors.green.offset_bits = vdev_get_fb_green_offset(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.colors.green.offset_bits = vdev_get_fb_green_offset(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.colors.blue.length_bits = vdev_get_fb_blue_length(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.colors.blue.length_bits = vdev_get_fb_blue_length(_lwnd_vdev->device, _lwnd_fb_handle);
+  _fb_info.addr = EARLY_FB_MAP_BASE;
+  _fb_info.kernel_addr = EARLY_FB_MAP_BASE;
+
+  /* Map the thing */
+  vdev_map_fb(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE);
 
   /* TODO: register to I/O core */
   kevent_add_hook("keyboard", "lwnd", on_key);
@@ -264,8 +286,6 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
       u_event->pressed_char = kbd_ctx.pressed_char;
       u_event->pressed = kbd_ctx.pressed;
       u_event->mod_flags = NULL;
-
-      println(to_string(kbd_ctx.keycode));
 
       /* Make sure we cycle the index */
       uwindow->keyevent_buffer_write_idx %= uwindow->keyevent_buffer_capacity;

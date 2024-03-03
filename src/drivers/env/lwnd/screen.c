@@ -5,9 +5,6 @@
 #include "drivers/env/lwnd/window.h"
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
 

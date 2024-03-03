@@ -30,6 +30,8 @@ typedef struct kmem_info {
 
 int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id);
 
+void debug_kmem();
+
 // some faultcodes
 #define PRESENT_VIOLATION       0x1
 #define WRITE_VIOLATION         0x2

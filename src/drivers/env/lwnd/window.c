@@ -3,10 +3,7 @@
 #include "drivers/env/lwnd/alloc.h"
 #include "drivers/env/lwnd/screen.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "proc/core.h"
 #include "sync/mutex.h"
 
 /*!
