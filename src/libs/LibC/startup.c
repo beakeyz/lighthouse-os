@@ -1,6 +1,7 @@
 #include <LibC/mem/memory.h>
 
 #include "lightos/handle_def.h"
+#include "lightos/lib/shared.h"
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -12,6 +13,7 @@ typedef int (*MainEntry_ex)(HANDLE this);
 typedef int (*MainEntry_unix)(int argc, char* argv[]);
 
 void lightapp_startup(MainEntry main) __attribute__((used)) ;
+void _start(MainEntry main) __attribute__((used));
 extern void __attribute__((noreturn)) halt(void);
 
 extern void __init_memalloc(void);
@@ -52,4 +54,15 @@ void lightapp_startup(MainEntry main)
 
   /* 4) Yield */
   halt();
+}
+
+/*!
+ * @brief: Dynamic entrypoint for the c runtime library
+ */
+LIGHTENTRY int libentry()
+{
+  /* Initialize libc things */
+  __init_libc();
+
+  return 0;
 }

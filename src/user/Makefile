@@ -2,9 +2,10 @@ USER_OUT=$(OUT)/user
 USER_SRC=$(SRC)/user
 
 # Define where the drivers are located
-USER_PATHS := \
-	./init \
-	./doomgeneric
+USER_PATHS := 		\
+	./init 			\
+	./doomgeneric	\
+	./gfx_test
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=
@@ -12,7 +13,7 @@ export PROCESS_EXT=
 export USER_CFLAGS=-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding $(USER_INCLUDE_CFLAGS)
 export USER_LDFLAGS=
 export USER_STATIC_LDFLAGS=
-export USER_DYNAMIC_LDFLAGS=-L$(SYSROOT_DIR)/System/Lib -Idynldr.drv
+export USER_DYNAMIC_LDFLAGS=-rpath-link $(SYSROOT_DIR)/System/Lib -L$(SYSROOT_DIR)/System/Lib -Idynldr.drv -e main 
 
 build: $(USER_PATHS)
 

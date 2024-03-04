@@ -23,12 +23,10 @@ $(THIS_OUT)/%.o: $(THIS_SRC)/%.asm
 # entry for every shared library that the process specifies
 build-dynamic: $(ASM_OBJ) $(C_OBJ)
 	@echo $^
-	@$(LD) $^ -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) $(USER_DYNAMIC_LDFLAGS) $(LIBRARIES) \
-		
+	@$(LD) $(USER_DYNAMIC_LDFLAGS) $(LIBRARIES) $^ -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT)
 
 build-static: $(ASM_OBJ) $(C_OBJ)
-	@$(LD) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) \
-		$(USER_STATIC_LDFLAGS)
+	@$(LD) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) $(USER_STATIC_LDFLAGS)
 
 build:
 ifeq ($(LINK_TYPE), dynamic)

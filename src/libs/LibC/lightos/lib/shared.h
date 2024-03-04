@@ -1,7 +1,7 @@
 #ifndef __ANIVA_LIBENV_SHAREDLIB__
 #define __ANIVA_LIBENV_SHAREDLIB__
 
-#define LIGHTENTRY __attribute__((section(".lightentry")))
-#define LIGHTEXIT __attribute__((section(".lightexit")))
+#define LIGHTENTRY static __attribute__((noinline, used, section(".lightentry")))
+#define LIGHTEXIT static __attribute__((noinline, used, section(".lightexit")))
 
 #endif // !__ANIVA_LIBENV_SHAREDLIB__

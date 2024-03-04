@@ -1,6 +1,6 @@
 {
   "name": "gfx_test",
-  "linking": "static",
+  "linking": "dynamic",
   "type": "process",
   "libs": [
     "LibGfx"
