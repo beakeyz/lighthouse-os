@@ -19,8 +19,9 @@ struct proc;
 typedef struct kmem_info {
   uint32_t cpu_id;
   uint32_t flags;
-  uint32_t free_pages;
-  uint32_t used_pages;
+  uint64_t free_pages;
+  uint64_t used_pages;
+  size_t memsize;
 
   /* TODO: keep track of DMA */
   uint32_t dma_buffer_count;

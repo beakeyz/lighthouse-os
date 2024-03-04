@@ -91,16 +91,16 @@ fat32_load_cluster(oss_node_t* node, uint32_t* buffer, uint32_t cluster)
  * @cluster: the 'index' of the cluster on disk
  */
 /* static */ int
-fat32_set_cluster(oss_node_t* node, uint32_t* buffer, uint32_t cluster)
+fat32_set_cluster(oss_node_t* node, uint32_t buffer, uint32_t cluster)
 {
   int error;
   fat_fs_info_t* info;
 
   /* Mask any fucky bits to comply with FAT32 standards */
-  *buffer &= 0x0fffffff;
+  buffer &= 0x0fffffff;
 
   info = GET_FAT_FSINFO(node);
-  error = fatfs_write(node, buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
+  error = fatfs_write(node, &buffer, sizeof(uint32_t), info->usable_sector_offset + (cluster * sizeof(uint32_t)));
 
   if (error)
     return error;
@@ -169,7 +169,36 @@ static int fat32_cache_cluster_chain(oss_node_t* node, fat_file_t* file, uint32_
   return 0;
 }
 
-int fat32_load_clusters(oss_node_t* node, void* buffer, fat_file_t* file, uint32_t start, size_t size)
+/*!
+ * @brief: Write one entrie cluster to disk
+ * 
+ * The size of @buffer must be at least ->cluster_size 
+ * this size is assumed
+ */
+static int
+__fat32_write_cluster(oss_node_t* node, void* buffer, uint32_t cluster)
+{
+  int error;
+  fs_oss_node_t* fsnode;
+  fat_fs_info_t* info;
+  uintptr_t current_cluster_offset;
+
+  fsnode = oss_node_getfs(node);
+
+  if (!fsnode || !fsnode->m_fs_priv || cluster < 2)
+    return -1;
+
+  info = fsnode->m_fs_priv;
+  current_cluster_offset = (info->usable_clusters_start + (cluster - 2) * info->boot_sector_copy.sectors_per_cluster) * info->boot_sector_copy.sector_size;
+  error = fatfs_write(node, buffer, info->cluster_size, current_cluster_offset);
+
+  if (error)
+    return -2;
+
+  return 0;
+}
+
+int fat32_read_clusters(oss_node_t* node, uint8_t* buffer, fat_file_t* file, uint32_t start, size_t size)
 {
   int error;
   uintptr_t current_index;
@@ -214,6 +243,255 @@ int fat32_load_clusters(oss_node_t* node, void* buffer, fat_file_t* file, uint32
   return 0;
 }
 
+/*!
+ * @brief: Finds the index of a free cluster
+ *
+ * @returns: 0 on success, anything else on failure (TODO: real ierror API)
+ * @buffer: buffer where the index gets put into
+ */
+static int
+__fat32_find_free_cluster(oss_node_t* node, uint32_t* buffer)
+{
+  int error;
+  uint32_t current_index;
+  uint32_t cluster_buff;
+  fs_oss_node_t* fsnode;
+  fat_fs_info_t* info;
+
+  fsnode = oss_node_getfs(node);
+
+  if (!fsnode)
+    return -KERR_INVAL;
+
+  info = fsnode->m_fs_priv;
+
+  /* Start at index 2, cuz the first 2 clusters are weird lol */
+  current_index = 2;
+  cluster_buff = 0;
+
+  while (current_index < info->cluster_count) {
+
+    /* Try to load the value of the cluster at our current index into the value buffer */
+    error = fat32_load_cluster(node, &cluster_buff, current_index);
+
+    if (error)
+      return error;
+
+    /* Zero in a cluster index means its free / unused */
+    if (cluster_buff == 0)
+      break;
+
+    current_index++;
+  }
+
+  /* Could not find a free cluster, WTF */
+  if (current_index >= info->cluster_count)
+    return -1;
+
+  /* Place the index into the buffer */
+  *buffer = current_index;
+
+  return 0;
+}
+
+static uint32_t __fat32_dir_entry_get_start_cluster(fat_dir_entry_t* e)
+{
+  return ((uint32_t)e->first_cluster_low & 0xffff) | ((uint32_t)e->first_cluster_hi << 16);
+}
+
+/*!
+ * @brief: Get the first cluster entry from a file
+ */
+static inline uint32_t __fat32_file_get_start_cluster_entry(fat_file_t* ff)
+{
+  if (!ff->clusterchain_buffer)
+    return 0;
+
+  return ff->clusterchain_buffer[0];
+}
+
+/*!
+ * @brief: Find the last cluster of a fat directory entry
+ *
+ * @returns: 0 on success, anything else on failure
+ */
+static int 
+__fat32_find_end_cluster(oss_node_t* node, uint32_t start_cluster, uint32_t* buffer)
+{
+  int error;
+  uint32_t previous_value;
+  uint32_t value_buffer;
+
+  value_buffer = start_cluster;
+  previous_value = value_buffer;
+
+  while (true) {
+    /* Load one cluster */
+    error = fat32_load_cluster(node, &value_buffer, value_buffer);
+
+    if (error)
+      return error;
+
+    /* Reached end? */
+    if (value_buffer < 0x2 || value_buffer >= BAD_FAT32)
+      break;
+
+    previous_value = value_buffer;
+  }
+
+  /* previous_value holds the index to the last cluster at this point. Ez pz */
+  *buffer = previous_value;
+
+  return 0;
+}
+
+int fat32_write_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size)
+{
+  int error;
+  bool did_overflow;
+  uint32_t max_offset;
+  uint32_t overflow_delta;
+  uint32_t overflow_clusters;
+  uint32_t write_clusters;
+  uint32_t write_start_cluster;
+  uint32_t start_cluster_index;
+  uint32_t cluster_internal_offset;
+  uint32_t file_start_cluster;
+  uint32_t file_end_cluster;
+  fs_oss_node_t* fs_node;
+  fat_fs_info_t* fs_info;
+  file_t* file;
+
+  if (!size)
+    return -KERR_INVAL;
+
+  file = ffile->parent;
+
+  if (!file)
+    return -1;
+
+  fs_node = oss_node_getfs(file->m_obj->parent);
+  fs_info = fs_node->m_fs_priv;
+  max_offset = ffile->clusters_num * fs_info->cluster_size - 1;
+  overflow_delta = 0;
+
+  if (offset + size > max_offset)
+    overflow_delta = (offset + size) - max_offset;
+
+  did_overflow = false;
+
+  /* Calculate how many clusters we might need to allocate extra */
+  overflow_clusters = ALIGN_UP(overflow_delta, fs_info->cluster_size) / fs_info->cluster_size;
+  /* Calculate in how many clusters we need to write */
+  write_clusters = ALIGN_UP(size, fs_info->cluster_size) / fs_info->cluster_size;
+  /* Calculate the first cluster where we need to write */
+  write_start_cluster = ALIGN_DOWN(offset, fs_info->cluster_size) / fs_info->cluster_size;
+  /* Calculate the start offset within the first cluster */
+  cluster_internal_offset = offset % fs_info->cluster_size;
+  /* Find the starting cluster */
+  file_start_cluster = __fat32_file_get_start_cluster_entry(ffile);
+
+  /* Find the last cluster of this file */
+  error = __fat32_find_end_cluster(node, file_start_cluster, &file_end_cluster);
+
+  if (error)
+    return error;
+
+  uint32_t next_free_cluster;
+
+  /* Allocate the overflow clusters */
+  while (overflow_clusters) {
+    next_free_cluster = NULL;
+
+    /* Find a free cluster */
+    error = __fat32_find_free_cluster(node, &next_free_cluster);
+
+    if (error)
+      return error;
+
+    /* Add this cluster to the end of this files chain */
+    fat32_set_cluster(node, next_free_cluster, file_end_cluster);
+    fat32_set_cluster(node, EOF_FAT32, next_free_cluster);
+
+    did_overflow = true;
+    file_end_cluster = next_free_cluster;
+    overflow_clusters--;
+  }
+
+  /* Only re-cache the cluster chain if we made changes to the clusters */
+  if (did_overflow) {
+    /* Reset cluster_chain data for this file */
+    kfree(ffile->clusterchain_buffer);
+    ffile->clusterchain_buffer = NULL;
+    ffile->clusters_num = NULL;
+
+    /* Re-cache the cluster chain */
+    error = fat32_cache_cluster_chain(node, ffile, file_start_cluster);
+
+    if (error)
+      return error;
+
+    file->m_total_size = ffile->clusters_num * fs_info->cluster_size;
+  }
+
+  /*
+   * We can now perform a nice write opperation on this files data
+   */
+  start_cluster_index = write_start_cluster / ffile->clusters_num;
+  uint8_t* cluster_buffer = kmalloc(fs_info->cluster_size);
+
+  /* Current offset: the offset into the current cluster */
+  uint32_t current_offset = cluster_internal_offset;
+  /* Current delta: how much have we already written */
+  uint32_t current_delta = 0;
+  /* Write size: how many bytes are in this write */
+  uint32_t write_size;
+  
+  /* FIXME: this is prob slow asf. We could be smarter about our I/O */
+  for (uint32_t i = 0; i < write_clusters; i++) {
+
+    if (current_delta >= size)
+      break;
+
+    /* This is the cluster we need to write shit to */
+    uint32_t this_cluster = ffile->clusterchain_buffer[start_cluster_index+i];
+
+    /* Figure out the write size */
+    write_size = size - current_delta;
+
+    /* Write size exceeds the size of our clusters */
+    if (write_size > fs_info->cluster_size - current_offset)
+      write_size = fs_info->cluster_size - current_offset;
+
+    /* Read the current content into our buffer here */
+    fat32_read_clusters(node, cluster_buffer, ffile, this_cluster, 1);
+
+    /* Copy the bytes over */
+    memcpy(&cluster_buffer[current_offset], &buffer[current_delta], write_size);
+
+    /* And write back the changes we've made */
+    __fat32_write_cluster(node, cluster_buffer, this_cluster);
+
+    current_delta += write_size;
+    /* After the first write, any subsequent write will always start at the start of a cluster */
+    current_offset = 0;
+  }
+
+  fat_dir_entry_t* dir_entry = (fat_dir_entry_t*)((uintptr_t)cluster_buffer + ffile->direntry_offset);
+
+  if (fat32_read_clusters(node, cluster_buffer, ffile, ffile->direntry_cluster, 1))
+    goto free_and_exit;
+
+  /* Add the size to this file */
+  dir_entry->size += size;
+
+  __fat32_write_cluster(node, cluster_buffer, ffile->direntry_cluster);
+
+free_and_exit:
+  kfree(cluster_buffer);
+  return 0;
+}
+
 static void
 transform_fat_filename(char* dest, const char* src) 
 {
@@ -249,7 +527,7 @@ transform_fat_filename(char* dest, const char* src)
 }
 
 static int
-fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path)
+fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path, uint32_t* diroffset)
 {
   int error;
   /* We always use this buffer if we don't support lfn */
@@ -288,7 +566,7 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
   dir_entries = kmalloc(clusters_size);
 
   /* Load all the data into the buffer */
-  error = fat32_load_clusters(node, dir_entries, &tmp_ffile, 0, clusters_size);
+  error = fat32_read_clusters(node, (uint8_t*)dir_entries, &tmp_ffile, 0, clusters_size);
 
   if (error)
     goto fail_dealloc_dir_entries;
@@ -319,6 +597,11 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
     /* This our file/directory? */
     if (strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
       *out = entry;
+
+      /* Give out where we found this bitch */
+      if (diroffset)
+        *diroffset = i * sizeof(fat_dir_entry_t);
+
       error = 0;
       break;
     }
@@ -381,7 +664,15 @@ static oss_obj_t* fat_open(oss_node_t* node, const char* path)
     /* Place a null-byte */
     path_buffer[i] = '\0';
 
-    error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx]);
+    /* Pre-cache the starting offset of the direntry we're searching in */
+    fat_file->direntry_cluster = __fat32_dir_entry_get_start_cluster(&current);
+
+    /* Find the directory entry */
+    error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx], &fat_file->direntry_offset);
+
+    /* A single directory may have entries spanning over multiple clusters */
+    fat_file->direntry_cluster += fat_file->direntry_offset / info->cluster_size;
+    fat_file->direntry_offset %= info->cluster_size;
 
     if (error)
       break;

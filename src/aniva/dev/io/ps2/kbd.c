@@ -1,20 +1,12 @@
 #include "lightos/event/key.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
-#include "dev/debug/test.h"
 #include "dev/driver.h"
 #include "irq/interrupts.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
-#include "libk/flow/error.h"
 #include "libk/io.h"
-#include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
 #include "logging/log.h"
-#include "mem/heap.h"
-#include "proc/core.h"
-#include "proc/ipc/packet_response.h"
 
 #define PS2_KB_IRQ_VEC 1
 

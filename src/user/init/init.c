@@ -28,23 +28,26 @@ int main() {
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?
    */
+  BOOL res;
   char buffer[128];
-  HANDLE h = open_handle("Dev/ramdisk", HNDL_TYPE_DEVICE, HNDL_FLAG_RW, NULL);
+  HANDLE h = open_handle("Root/User/Global/kcfg.ini", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   printf("Handle: %d\n", h);
 
   if (!handle_verify(h)) 
     return -1;
 
+  res = false;
   char* resp = gets(buffer, sizeof(buffer));
 
   if (resp) printf("Your name is: %s\n", resp);
   else printf("Could not take in that name!\n");
 
-  resp = gets(buffer, sizeof(buffer));
+  /* Write the thing */
+  if (resp)
+    res = handle_write(h, sizeof(buffer), buffer);
 
-  if (resp) printf("Your age is: %s\n", resp);
-  else printf("Could not take in that age!\n");
+  printf(res ? "Successfully wrote to file!\n" : "Could not read to file!\n");
 
   char test_buffer[128] = { 0 };
 

@@ -1,7 +1,7 @@
 {
   "name": "LibGfx",
   "path": "System/Lib",
-  "linking": "static",
+  "linking": "shared",
   "type": "library",
   "libs": [
     "LibC"

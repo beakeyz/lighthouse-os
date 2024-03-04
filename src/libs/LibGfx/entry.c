@@ -1,8 +1,10 @@
+#include <lightos/lib/shared.h>
+#include <lightos/handle_def.h>
 
 /*!
  * @brief: Entry for shared library
  */
-int lib_entry(void)
+LIGHTENTRY int gfx_entry(HANDLE handle)
 {
   return 0;
 }

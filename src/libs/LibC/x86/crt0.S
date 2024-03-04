@@ -1,5 +1,7 @@
 .section .text
-.globl _start 
+
+.global _start
+.extern _start
 .type _start, @function
 
 .extern main
@@ -15,3 +17,5 @@ _start:
   andq $0xFFFFFFFFFFFFFFF0, %rsp
 
   call lightapp_startup
+
+.size _start, . - _start

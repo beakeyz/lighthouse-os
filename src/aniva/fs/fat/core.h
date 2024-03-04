@@ -210,6 +210,7 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
   return (finfo->fat_type == FTYPE_FAT12);
 }
 
-int fat32_load_clusters(oss_node_t* node, void* buffer, struct fat_file* file, uint32_t start, size_t size);
+int fat32_read_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* file, uint32_t start, size_t size);
+int fat32_write_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size);
 
 #endif // !__ANIVA_GENERIC_FAT__

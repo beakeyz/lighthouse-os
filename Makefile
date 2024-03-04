@@ -78,4 +78,9 @@ clean: ## Remove any build artifacts
 all: aniva drivers libs user ramdisk
 	@echo Built the entire project =D
 
-.PHONY: aniva drivers libs user ramdisk clean all
+install-gcc-hdrs:
+	@$(MAKE) -C ./cross_compiler/build/binutils install
+	@$(MAKE) -C ./cross_compiler/build/gcc install-gcc
+	@$(MAKE) -C ./cross_compiler/build/gcc install-target-libgcc
+
+.PHONY: aniva drivers libs user ramdisk clean all install-gcc-hdrs

@@ -22,7 +22,6 @@
  */
 uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 {
-  int result;
   proc_t* current_proc;
   khandle_t* khandle;
 
@@ -52,13 +51,12 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         if (file->m_flags & FILE_READONLY)
           return SYS_INV;
 
-        result = file->m_ops->f_write(file, buffer, &write_len, khandle->offset);
+        write_len = file_write(file, buffer, write_len, khandle->offset);
 
-        if (result < 0)
+        if (!write_len)
           return SYS_KERR;
 
         khandle->offset += write_len;
-
         break;
       }
     case HNDL_TYPE_DRIVER:
@@ -136,6 +134,9 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
           return NULL;
 
         read_len = file_read(file, buffer, length, khandle->offset);
+
+        if (!read_len)
+          return -SYS_KERR;
 
         khandle->offset += read_len;
         break;

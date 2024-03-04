@@ -2,11 +2,10 @@
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/file.h"
-#include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 
-int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+static int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 {
   oss_node_t* node = file->m_obj->parent;
 
@@ -20,22 +19,26 @@ int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
   if ((offset + *size) >= file->m_total_size)
     *size -= ((offset + *size) - file->m_total_size);
 
-  return fat32_load_clusters(node, buffer, file->m_private, offset, *size);
+  return fat32_read_clusters(node, buffer, file->m_private, offset, *size);
 }
 
-int fat_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
+static int fat_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 {
-  kernel_panic("TODO: fat_write");
-  return 0;
+  if (!file || !file->m_obj)
+    return -KERR_INVAL;
+
+  return fat32_write_clusters(file->m_obj->parent, buffer, file->m_private, offset, *size);
 }
 
-int fat_sync(file_t* file)
+static int fat_sync(file_t* file)
 {
-  kernel_panic("TODO: fat_sync");
-  return 0;
+  if (!file || !file->m_obj)
+    return -KERR_INVAL;
+
+  return fatfs_flush(file->m_obj->parent);
 }
 
-int fat_close(file_t* file)
+static int fat_close(file_t* file)
 {
   fat_file_t* fat_file;
 

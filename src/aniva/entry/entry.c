@@ -359,7 +359,7 @@ void kthread_entry() {
   init_pci_drivers();
 
   /* Load the USB drivers on our system */
-  init_usb_drivers();
+  //init_usb_drivers();
 
   /* Probe for a root device */
   init_root_device_probing();

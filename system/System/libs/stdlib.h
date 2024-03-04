@@ -2,7 +2,6 @@
 #define __LIGHTENV_LIBC_STDLIB__
 
 #include <stdint.h>
-#include <math.h>
 
 #ifdef __cplusplus
 extern "C" {

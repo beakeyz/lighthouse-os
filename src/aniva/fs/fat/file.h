@@ -9,6 +9,9 @@ typedef struct fat_file {
 
   uint32_t* clusterchain_buffer;
   size_t clusters_num;
+
+  uint32_t direntry_cluster;
+  uint32_t direntry_offset;
   uint32_t clusterchain_offset;
 } fat_file_t;
 

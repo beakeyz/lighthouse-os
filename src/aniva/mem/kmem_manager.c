@@ -132,6 +132,7 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
 
   info_buffer->cpu_id = cpu_id;
   info_buffer->flags = KMEM_DATA.m_kmem_flags;
+  info_buffer->memsize = KMEM_DATA.m_total_avail_memory_bytes;
   info_buffer->free_pages = KMEM_DATA.m_phys_pages_count - total_used_pages;
   info_buffer->used_pages = total_used_pages;
 
@@ -280,20 +281,24 @@ void parse_mmap()
     if (range->type != PMRT_USABLE)
       continue;
 
+    range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
+    range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
+
     p_range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
 
     if (p_range_end > KMEM_DATA.m_highest_phys_addr)
       KMEM_DATA.m_highest_phys_addr = p_range_end;
 
-    KMEM_DATA.m_phys_pages_count += GET_PAGECOUNT(range->start, range->length);
-
-    range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
-    range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
+    printf("Adding %lld bytes to %lld\n", range->length, KMEM_DATA.m_total_avail_memory_bytes);
+    KMEM_DATA.m_total_avail_memory_bytes += range->length;
+    printf("We now have %lld\n", KMEM_DATA.m_total_avail_memory_bytes);
 
     for (uint32_t i = 0; i < arrlen(reserved_ranges); i++)
       _carve_out_range(range, &reserved_ranges[i]);
 
   }
+
+  KMEM_DATA.m_phys_pages_count = GET_PAGECOUNT(0, KMEM_DATA.m_total_avail_memory_bytes);
 
   print("Total contiguous pages: ");
   println(to_string(KMEM_DATA.m_phys_pages_count));

@@ -224,6 +224,7 @@ void destroy_file(file_t* file)
  */
 size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
+  kerror_t error;
   oss_obj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_read)
@@ -236,9 +237,12 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
 
   mutex_lock(file_obj->lock);
 
-  file->m_ops->f_read(file, buffer, &size, offset);
+  error = file->m_ops->f_read(file, buffer, &size, offset);
 
   mutex_unlock(file_obj->lock);
+
+  if (error)
+    return 0;
 
   return size;
 }
@@ -251,6 +255,7 @@ size_t file_read(file_t* file, void* buffer, size_t size, uintptr_t offset)
  */
 size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 {
+  kerror_t error;
   oss_obj_t* file_obj;
 
   if (!file || !file->m_ops || !file->m_ops->f_write)
@@ -263,9 +268,12 @@ size_t file_write(file_t* file, void* buffer, size_t size, uintptr_t offset)
 
   mutex_lock(file_obj->lock);
 
-  file->m_ops->f_write(file, buffer, &size, offset);
+  error = file->m_ops->f_write(file, buffer, &size, offset);
 
   mutex_unlock(file_obj->lock);
+
+  if (error)
+    return 0;
 
   return size;
 }
