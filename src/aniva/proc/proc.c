@@ -12,6 +12,7 @@
 #include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
+#include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include "thread.h"
@@ -99,6 +100,19 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
 
   /* TODO: don't limit to one name */
   return create_proc(nullptr, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+}
+
+kerror_t proc_set_entry(proc_t* p, FuncPtr entry)
+{
+  if (!p || !p->m_init_thread)
+    return -KERR_INVAL;
+
+  mutex_lock(p->m_init_thread->m_lock);
+
+  p->m_init_thread->f_real_entry = (ThreadEntry)entry;
+
+  mutex_unlock(p->m_init_thread->m_lock);
+  return KERR_NONE;
 }
 
 /*!

@@ -107,6 +107,8 @@ int await_proc_termination(proc_id_t id);
 
 int proc_clone(proc_t* p, const char* clone_name, proc_t** clone);
 
+kerror_t proc_set_entry(proc_t* p, FuncPtr entry);
+
 /*
  * Murder a proc object with all its threads as well.
  * TODO: we need to verify that these cleanups happen

@@ -2,7 +2,6 @@
 #include <ctype.h>
 #include <mem/memory.h>
 #include <lightos/system.h>
-#include <stddef.h>
 #include <string.h>
 #include "lightos/syscall.h"
 #include "stdlib.h"

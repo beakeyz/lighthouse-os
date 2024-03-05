@@ -31,7 +31,7 @@ static thread_t* __generic_idle_thread;
  */
 //static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
 
-thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr_t data, const char name[32], proc_t* proc, bool kthread)
+thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc_t* proc, bool kthread)
 { // make this sucka
   thread_t *thread;
 
@@ -56,10 +56,6 @@ thread_t *create_thread(FuncPtr entry, ThreadEntryWrapper entry_wrapper, uintptr
 
   thread->f_real_entry = (ThreadEntry)entry;
   thread->f_exit = (FuncPtr)thread_end_lifecycle;
-
-  if (entry_wrapper) {
-    thread->f_entry_wrapper = entry_wrapper;
-  }
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
   strcpy(thread->m_name, name);
@@ -127,7 +123,7 @@ thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, co
   const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
     ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 
-  thread_t *t = create_thread(entry, NULL, args, name, proc, is_kernel);
+  thread_t *t = create_thread(entry, args, name, proc, is_kernel);
   if (thread_prepare_context(t) == ANIVA_SUCCESS) {
     return t;
   }

@@ -2,12 +2,10 @@
 #define __ANIVA_THREAD__
 
 #include "libk/flow/error.h"
-#include "mem/pg.h"
 #include "proc/context.h"
 #include "proc/socket.h"
 #include <sync/atomic_ptr.h>
 #include "system/processor/fpu/state.h"
-#include "system/processor/gdt.h"
 #include <system/processor/registers.h>
 #include <libk/stddef.h>
 #include "core.h"
@@ -22,18 +20,11 @@ typedef int (*ThreadEntry) (
   uintptr_t arg
 );
 
-typedef void (*ThreadEntryWrapper) (
-  uintptr_t args,
-  struct thread* thread
-);
-
-
 // TODO: thread uid?
 typedef struct thread {
   struct thread* m_self;
 
   ThreadEntry f_real_entry;
-  ThreadEntryWrapper f_entry_wrapper;
   FuncPtr f_exit;
 
   struct mutex* m_lock;
@@ -76,7 +67,7 @@ typedef struct thread {
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default
  */
-thread_t *create_thread(FuncPtr, ThreadEntryWrapper, uintptr_t, const char[32], struct proc*, bool); // make this sucka
+thread_t *create_thread(FuncPtr, uintptr_t, const char[32], struct proc*, bool); // make this sucka
 
 /*
  * create a thread that is supposed to execute code for a process

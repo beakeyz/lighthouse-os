@@ -6,6 +6,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "priv.h"
+#include "proc/proc.h"
 
 loaded_app_t* create_loaded_app(file_t* file)
 {
@@ -62,4 +63,31 @@ void destroy_loaded_app(loaded_app_t* app)
 
   kfree(app->elf_phdrs);
   kfree(app->proc);
+}
+
+kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
+{
+  proc_t* proc;
+  vaddr_t trampoline_uaddr;
+  vaddr_t trampoline_kaddr;
+
+  /* The trampoline has a memory limit of one page (Idk why but it does lmao) */
+  if (((uint64_t)&_app_trampoline_end - (uint64_t)&_app_trampoline) > SMALL_PAGE_SIZE)
+    return -KERR_MEM;
+
+  /* This would be fucked */
+  if ((vaddr_t)&_app_trampoline % SMALL_PAGE_SIZE != 0)
+    return -KERR_MEM;
+
+  proc = app->proc;
+
+  /* Allocates a contiguous range */
+  trampoline_uaddr = Must(kmem_user_alloc_range(proc, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
+  trampoline_kaddr = Must(kmem_get_kernel_address(trampoline_uaddr, proc->m_root_pd.m_root));
+
+  /* Copy the entire page */
+  memcpy((void*)trampoline_kaddr, &_app_trampoline, SMALL_PAGE_SIZE);
+
+  proc_set_entry(proc, (FuncPtr)trampoline_uaddr);
+  return 0;
 }
