@@ -20,7 +20,6 @@ extern void thread_exit_init_state(thread_t *from, registers_t* regs) __attribut
 extern NORETURN void thread_end_lifecycle();
 
 static __attribute__((naked)) void common_thread_entry(void) __attribute__((used));
-static ALWAYS_INLINE void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
 static thread_t* __generic_idle_thread;
 
@@ -54,7 +53,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   thread->m_tid = -1;
   thread->m_mutex_list = init_list();
 
-  thread->f_real_entry = (ThreadEntry)entry;
+  thread->f_entry = (ThreadEntry)entry;
   thread->f_exit = (FuncPtr)thread_end_lifecycle;
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
@@ -111,26 +110,44 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   }
 
   /* Set the entrypoint last */
-  thread_set_entrypoint(thread, (FuncPtr)thread->f_real_entry, data, 0);
+  thread_set_entrypoint(thread, (FuncPtr)thread->f_entry, data, 0);
   return thread;
 }
 
-thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, const char name[32]) {
-  if (proc == nullptr || entry == nullptr) {
+thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, const char name[32]) 
+{
+  thread_t *t;
+
+  if (proc == nullptr)
     return nullptr;
-  }
 
   const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
     ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 
-  thread_t *t = create_thread(entry, args, name, proc, is_kernel);
-  if (thread_prepare_context(t) == ANIVA_SUCCESS) {
-    return t;
-  }
+  t = create_thread(entry, args, name, proc, is_kernel);
+
+  if (!t)
+    return nullptr;
+
+  /* Failed to set context, destroy the thread and return */
+  if (thread_prepare_context(t) == ANIVA_FAIL)
+    goto dealloc_and_exit;
+
+  return t;
+
+dealloc_and_exit:
+  destroy_thread(t);
   return nullptr;
 }
 
-void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1) {
+/*!
+ * @brief: Set the 
+ */
+void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1) 
+{
+  if (ptr->m_current_state != NO_CONTEXT)
+    return;
+
   contex_set_rip(&ptr->m_context, (uintptr_t)entry, arg0, arg1);
 }
 
@@ -288,7 +305,6 @@ extern void thread_enter_context(thread_t *to)
 // called when a thread is created and enters the scheduler for the first time
 ANIVA_STATUS thread_prepare_context(thread_t *thread) 
 {
-  thread_set_state(thread, RUNNABLE);
   uintptr_t rsp = thread->m_kernel_stack_top;
 
   /* 
@@ -337,6 +353,8 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread)
   thread->m_context.rsp = rsp;
   thread->m_context.rsp0 = thread->m_kernel_stack_top;
   thread->m_context.cs = GDT_KERNEL_CODE;
+
+  thread_set_state(thread, RUNNABLE);
   return ANIVA_SUCCESS;
 }
 

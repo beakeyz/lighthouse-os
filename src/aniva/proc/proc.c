@@ -36,7 +36,7 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
   thread_t* init_thread;
 
-  if (!name || !entry)
+  if (!name)
     return nullptr;
 
   /* TODO: create proc cache */
@@ -102,14 +102,16 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
   return create_proc(nullptr, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
-kerror_t proc_set_entry(proc_t* p, FuncPtr entry)
+kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1)
 {
   if (!p || !p->m_init_thread)
     return -KERR_INVAL;
 
   mutex_lock(p->m_init_thread->m_lock);
 
-  p->m_init_thread->f_real_entry = (ThreadEntry)entry;
+  p->m_init_thread->f_entry = (ThreadEntry)entry;
+
+  thread_set_entrypoint(p->m_init_thread, entry, arg0, arg1);
 
   mutex_unlock(p->m_init_thread->m_lock);
   return KERR_NONE;
@@ -222,7 +224,7 @@ bool proc_can_schedule(proc_t* proc)
   if (!proc || (proc->m_flags & PROC_FINISHED) == PROC_FINISHED || (proc->m_flags & PROC_IDLE) == PROC_IDLE)
     return false;
 
-  if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread)
+  if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread || !proc->m_init_thread->f_entry)
     return false;
 
   /* If none of the conditions above are met, it seems like we can schedule */

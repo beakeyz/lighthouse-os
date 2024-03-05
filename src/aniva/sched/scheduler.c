@@ -472,7 +472,7 @@ static registers_t *sched_tick(registers_t *registers_ptr)
       /* Debug */
       //println(get_current_proc()->m_name);
       //println(get_current_scheduling_thread()->m_name);
-      //println(to_string((uintptr_t)get_current_scheduling_thread()->f_real_entry));
+      //println(to_string((uintptr_t)get_current_scheduling_thread()->f_entry));
 
       scheduler_set_request(this);
       return registers_ptr;

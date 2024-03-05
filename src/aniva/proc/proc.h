@@ -107,7 +107,7 @@ int await_proc_termination(proc_id_t id);
 
 int proc_clone(proc_t* p, const char* clone_name, proc_t** clone);
 
-kerror_t proc_set_entry(proc_t* p, FuncPtr entry);
+kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
 /*
  * Murder a proc object with all its threads as well.

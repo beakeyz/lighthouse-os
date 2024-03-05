@@ -3,6 +3,7 @@
 
 #include "libk/bin/elf_types.h"
 #include "libk/data/hashmap.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
 #include <libk/stddef.h>
@@ -25,12 +26,17 @@ typedef struct dynamic_library {
 
   /* Reference the loaded app to get access to environment info */
   struct loaded_app* app;
+  DYNLIB_ENTRY_t entry;
 
   void* image;
   size_t image_size;
+
+  hashmap_t* dyn_symbols;
+  list_t* dependencies;
 } dynamic_library_t;
 
 extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app);
+extern kerror_t load_dependant_lib(const char* path, dynamic_library_t* library);
 extern kerror_t reload_dynamic_lib(dynamic_library_t* lib, struct loaded_app* target_app);
 extern kerror_t unload_dynamic_lib(dynamic_library_t* lib);
 
@@ -47,7 +53,11 @@ typedef struct loaded_app {
   struct elf64_phdr* elf_phdrs;
   struct elf64_dyn* elf_dyntbl;
 
-  /* What is the base of the program in user memory */
+  size_t elf_dyntbl_mapsize;
+
+  DYNAPP_ENTRY_t entry;
+
+  /* What is the base of the program in user memory. May be NULL */
   void* image_base;
   /* Where did we load the kernel file buffer */
   void* file_buffer;
@@ -70,6 +80,7 @@ static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
   return app->lib_map->m_size;
 }
 
+extern void* loaded_app_map_into_kernel(loaded_app_t* app, vaddr_t uaddr, size_t size);
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 
 #endif // !__ANIVA_DYN_LOADER_PRIV__

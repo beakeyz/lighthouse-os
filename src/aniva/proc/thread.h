@@ -24,7 +24,7 @@ typedef int (*ThreadEntry) (
 typedef struct thread {
   struct thread* m_self;
 
-  ThreadEntry f_real_entry;
+  ThreadEntry f_entry;
   FuncPtr f_exit;
 
   struct mutex* m_lock;
@@ -68,6 +68,7 @@ typedef struct thread {
  * when passing NULL to ThreadEntryWrapper, we use the default
  */
 thread_t *create_thread(FuncPtr, uintptr_t, const char[32], struct proc*, bool); // make this sucka
+void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
 /*
  * create a thread that is supposed to execute code for a process
