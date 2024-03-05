@@ -11,6 +11,8 @@
 enum DYNLDR_MSG_CODE {
   /* Ask the loader to load an entire app with all it's shared libraries */
   DYN_LDR_LOAD_APP = 150,
+  /* Same as DYN_LDR_LOAD_APP but we pass a file obj */
+  DYN_LDR_LOAD_APPFILE,
   /* Called from a process to ask the loader to load a library at runtime */
   DYN_LDR_LOAD_LIB,
   /*
@@ -27,5 +29,9 @@ enum DYNLDR_MSG_CODE {
    */
   DYN_LDR_GET_LIB,
 };
+
+//typedef int (*DYNAPP_ENTRY_t)(int argc, char** argv, char* envp);
+typedef int (*DYNAPP_ENTRY_t)();
+typedef int (*DYNLIB_ENTRY_t)();
 
 #endif // !__ANIVA_DRV_APP_LOADER_API__

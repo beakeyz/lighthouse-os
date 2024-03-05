@@ -42,6 +42,7 @@ extern driver_version_t kernel_version;
 #define SYSFLAGS_DISABLE_ETTY       (0x00000020)
 #define SYSFLAGS_HAS_MULTITHREADING (0x00000040)
 #define SYSFLAGS_HAS_CMDLINE        (0x00000080)
+#define SYSFLAGS_NO_DYNLDR          (0x00000100)
 
 /* What's the maximum amount of processors we support? */
 #define SYS_MAX_CPU                 1

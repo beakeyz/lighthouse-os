@@ -1,9 +1,7 @@
 #ifndef __ANIVA_KDEV_CORE__
 #define __ANIVA_KDEV_CORE__
 
-#include "libk/data/hive.h"
 #include "libk/flow/error.h"
-#include "proc/ipc/packet_response.h"
 #include <libk/stddef.h>
 
 struct oss_obj;

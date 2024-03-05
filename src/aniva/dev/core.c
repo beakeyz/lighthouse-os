@@ -872,7 +872,7 @@ ErrorOrPtr driver_send_msg_ex(struct drv_manifest* manifest, dcc_t code, void* b
 
   driver = manifest->m_handle;
 
-  if (!driver->f_msg) 
+  if (!driver || !driver->f_msg) 
     return Error();
 
   mutex_lock(manifest->m_lock);

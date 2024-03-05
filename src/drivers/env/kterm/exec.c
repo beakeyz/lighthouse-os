@@ -52,7 +52,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   }
 
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
-  result = elf_exec_static_64_ex(file, false, true);
+  result = elf_exec_64(file, false, true);
 
   oss_obj_close(file->m_obj);
 

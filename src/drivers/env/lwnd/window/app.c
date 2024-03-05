@@ -49,7 +49,7 @@ void create_test_app(lwnd_screen_t* screen)
   if (!file)
     return;
 
-  Must(elf_exec_static_64_ex(file, false, false));
+  Must(elf_exec_64(file, false, false));
 
   oss_obj_close(file->m_obj);
 }

@@ -60,6 +60,14 @@ typedef int64_t     Elf64_Sxword;
 #define DT_JMPREL   0x00000017
 #define DT_ENCODING 0x00000020
 
+typedef struct elf64_dyn {
+	Elf64_Sxword d_tag;
+	union {
+		Elf64_Xword d_val;
+		Elf64_Addr  d_ptr;
+	} d_un;
+} Elf64_Dyn;
+
 #define ABI_SYSV     0x00
 #define ARCH_X86_64  0x3e
 #define ARCH_X86_32  0x03

@@ -111,14 +111,51 @@ static int _loader_exit()
   return 0;
 }
 
-static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)
+/*!
+ * @brief: Load a dynamically linked program directly from @file
+ */
+static kerror_t _loader_ld_appfile(file_t* file)
+{
+  kerror_t error;
+  loaded_app_t* app;
+
+  /* We've found the file, let's try to load this fucker */
+  error = load_app(file, &app);
+
+  if (error || !app)
+    return -DRV_STAT_INVAL;
+
+  /* Everything went good, register it to ourself */
+  register_app(app);
+
+  return KERR_NONE;
+}
+
+/*!
+ * @brief: Open @path and load the app that in the resulting file
+ */
+static kerror_t _loader_ld_app(const char* path, size_t pathlen)
 {
   kerror_t error;
   file_t* file;
-  loaded_app_t* app;
-  const char* in_path;
 
-  in_path = nullptr;
+  /* Try to find the file (TODO: make this not just gobble up the input buffer) */
+  file = file_open(path);
+
+  if (!file)
+    return -DRV_STAT_INVAL;
+
+  error = _loader_ld_appfile(file);
+
+  file_close(file);
+
+  return error;
+}
+
+static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)
+{
+  file_t* in_file;
+  const char* in_path;
 
   switch (code) {
     /* 
@@ -129,35 +166,40 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
       in_path = in_buf;
 
       if (!in_path)
-        return -DRV_STAT_INVAL;
+        return DRV_STAT_INVAL;
 
-      /* Try to find the file (TODO: make this not just gobble up the input buffer) */
-      file = file_open(in_path);
+      /* FIXME: Safety here lmao */
+      if (_loader_ld_app(in_path, in_bsize))
+        return DRV_STAT_INVAL;
 
-      if (!file)
-        return -DRV_STAT_INVAL;
+      break;
+    case DYN_LDR_LOAD_APPFILE:
+      in_file = in_buf;
 
-      /* We've found the file, let's try to load this fucker */
-      error = load_app(file, &app);
+      /* This would be kinda cringe */
+      if (!in_file || in_bsize != sizeof(*in_file))
+        return DRV_STAT_INVAL;
 
-      /* Preemptive close */
-      file_close(file);
+      /* 
+       * Try to load this mofo directly.
+       * NOTE: File ownership is in the hands of the caller, 
+       *       so we can't touch file lifetime
+       */
+      if (_loader_ld_appfile(in_file))
+        return DRV_STAT_INVAL;
 
-      if (error || !app)
-        return -DRV_STAT_INVAL;
-
-      register_app(app);
       break;
     /* Look through the loaded libraries of the current process to find the specified library */
     case DYN_LDR_GET_LIB:
 
       /* Can't give out a handle */
       if (out_bsize != sizeof(HANDLE))
-        return -DRV_STAT_INVAL;
+        return DRV_STAT_INVAL;
 
+      kernel_panic("TODO: DYN_LDR_GET_LIB");
       break;
     default:
-      return -DRV_STAT_INVAL;
+      return DRV_STAT_INVAL;
   }
 
   return DRV_STAT_OK;

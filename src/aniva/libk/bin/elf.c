@@ -1,16 +1,22 @@
 #include "elf.h"
+#include "dev/core.h"
+#include "dev/loader.h"
+#include "dev/manifest.h"
+#include "entry/entry.h"
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "lightos/driver/loader.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 
-static inline int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
+int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
 {
   *size = file_read(file, buffer, *size, offset);
 
@@ -29,8 +35,8 @@ static inline int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t o
  */
 //static int elf_read_into_user_range(pml_entry_t* root, file_t* file, vaddr_t user_start, size_t size, uintptr_t offset);
 
-static struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_header) {
-
+struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_header) 
+{
   struct elf64_phdr* ret;
   int read_res;
   size_t total_size;
@@ -93,6 +99,23 @@ uint32_t elf_find_section(struct elf64_hdr* header, const char* name)
   return 0;
 }
 
+bool elf_verify_header(struct elf64_hdr* header)
+{
+  /* No elf? */
+  if (!memcmp(header->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
+    return false;
+
+  /* No 64 bit binary =( */
+  if (header->e_ident[EI_CLASS] != ELF_CLASS_64)
+    return false;
+
+  /* Fuck off then oy */
+  if (header->e_type != ET_EXEC)
+    return false;
+
+  return true;
+}
+
 ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
 {
   int error;
@@ -108,15 +131,34 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
   if (error)
     return Error();
 
-  /* No elf? */
-  if (!memcmp(header->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
-    return Error();
-
-  /* No 64 bit binary =( */
-  if (header->e_ident[EI_CLASS] != ELF_CLASS_64)
+  if (!elf_verify_header(header))
     return Error();
 
   return Success(0);
+}
+
+/*!
+ * @brief: Hahah
+ * 
+ * 1) Ensure the dynamic loader is loaded
+ * 2) Ask it to load our shit
+ * 3) Profit
+ */
+static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel, bool defer_schedule)
+{
+  drv_manifest_t* driver;
+
+  if (!file)
+    return Error();
+
+  driver = get_driver(DYN_LDR_URL);
+
+  /* No dynamic capabilities at the moment =( */
+  if (!driver)
+    return Error();
+
+  /* Simply ask the driver to load our shit */
+  return driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), NULL, NULL);
 }
 
 /*!
@@ -127,7 +169,7 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
  */
-ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule) {
+ErrorOrPtr elf_exec_64(file_t* file, bool kernel, bool defer_schedule) {
 
   proc_id_t id;
   proc_t* proc = NULL;
@@ -140,10 +182,6 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   if (IsError(elf_grab_sheaders(file, &header)))
     return Error();
 
-  printf("Execing (%s): %d\n", file->m_obj->name, header.e_type);
-  if (header.e_type != ET_EXEC)
-    return Error();
-
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)
@@ -152,7 +190,10 @@ ErrorOrPtr elf_exec_static_64_ex(file_t* file, bool kernel, bool defer_schedule)
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     /* If there is an interpreter specified, we assume a dynamically linked binary */
     if (phdrs[i].p_type == PT_INTERP) {
-      kernel_panic("TODO: implement PT_INTERP");
+      kfree(phdrs);
+
+      /* We need a dynamic loader, go go gadget */
+      return __elf_exec_dynamic_64(file, kernel, defer_schedule);
     }
   }
 
@@ -241,4 +282,19 @@ error_and_out:
 
   return Error();
 
+}
+
+/*!
+ * @brief: Try to load the dynamic executable driver
+ */
+void init_dynamic_loader()
+{
+  extern_driver_t* driver;
+
+  /* Load the driver which is pointed to by the DYN_LDR_DRV variable */
+  driver = load_external_driver_from_var(DYNLOADER_DRV_VAR_PATH);
+
+  /* Quickly mark our system as lacking of a dynamic loader */
+  if (driver == NULL)
+    g_system_info.sys_flags |= SYSFLAGS_NO_DYNLDR;
 }
