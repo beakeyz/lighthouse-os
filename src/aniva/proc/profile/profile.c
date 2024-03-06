@@ -520,6 +520,7 @@ static void __apply_global_variables()
   profile_add_var(&global_profile, create_profile_var("DFLT_KB_EVENT", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("keyboard")));
   /* Path variable to indicate default locations for executables */
   profile_add_var(&global_profile, create_profile_var("PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/User/Global/Apps")));
+  profile_add_var(&global_profile, create_profile_var(LIBSPATH_VAR, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib")));
 }
 
 /*!

@@ -59,6 +59,9 @@ struct proc;
 #define BOOT_DEVICE_SIZE_VAR_PATH "BASE/"BOOT_DEVICE_SIZE_VARKEY
 #define BOOT_DEVICE_NAME_VAR_PATH "BASE/"BOOT_DEVICE_NAME_VARKEY
 
+#define LIBSPATH_VAR "LIBSPATH"
+#define LIBSPATH_VARPATH "Global/"LIBSPATH_VAR
+
 /*
  * Profiles need to be saveable and loadable since they will 
  * act as our 'users' AND our 'groups' at the same time

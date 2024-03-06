@@ -1,3 +1,4 @@
+#include "fs/file.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/data/hashmap.h"
@@ -6,10 +7,12 @@
 #include "mem/heap.h"
 #include "priv.h"
 #include "proc/proc.h"
+#include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 #include <oss/obj.h>
 
-static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent)
+static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent, const char* name, const char* path)
 {
   dynamic_library_t* ret;
 
@@ -21,6 +24,8 @@ static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent)
   memset(ret, 0, sizeof(*ret));
 
   ret->app = parent;
+  ret->name = strdup(name);
+  ret->path = strdup(path);
   ret->dependencies = init_list();
 
   return ret;
@@ -32,7 +37,33 @@ static void _destroy_dynamic_lib(dynamic_library_t* lib)
     destroy_hashmap(lib->dyn_symbols);
 
   destroy_list(lib->dependencies);
+  kfree((void*)lib->name);
+  kfree((void*)lib->path);
   kfree(lib);
+}
+
+static inline const char* _append_path_to_searchdir(const char* search_dir, const char* path)
+{
+  char* search_path;
+  size_t search_path_len;
+
+  search_path_len = strlen(search_dir) + 1 + strlen(path) + 1;
+  search_path = kmalloc(search_path_len);
+
+  if (!search_path)
+    return nullptr;
+
+  /* Clear */
+  memset(search_path, 0, search_path_len);
+
+  /* Copy search dir */
+  strncpy(search_path, search_dir, strlen(search_dir));
+  /* Set the path seperator */
+  search_path[strlen(search_dir)] = '/';
+  /* Copy the lib path */
+  strncpy(&search_path[strlen(search_dir)+1], path, strlen(path));
+
+  return search_path;
 }
 
 /*!
@@ -43,8 +74,46 @@ static void _destroy_dynamic_lib(dynamic_library_t* lib)
  */
 kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
 {
-  printf("Trying to load dynamic library %s\n", path);
+  const char* search_path;
+  const char* search_dir;
+  file_t* lib_file;
+  dynamic_library_t* lib;
+  profile_var_t* libs_var;
+
+  profile_scan_var(LIBSPATH_VARPATH, NULL, &libs_var);
+  profile_var_get_str_value(libs_var, &search_dir);
+
+  lib = nullptr;
+  search_path = _append_path_to_searchdir(search_dir, path);
+
+  if (!search_path)
+    return -KERR_NOMEM;
+
+  /* First, try to create a library object */
+  lib = _create_dynamic_lib(target_app, path, search_path);
+
+  kfree((void*)search_path);
+
+  if (!lib)
+    return -KERR_INVAL;
+
+  /* Then try to open the target file */
+  lib_file = file_open(lib->path);
+
+  if (!lib_file)
+    goto dealloc_and_exit;
+
+  /*
+   * Now we do epic loading or some shit idk
+   */
+  printf("Trying to load dynamic library %s\n", lib_file->m_obj->name);
   kernel_panic("TODO: load_dynamic_lib");
+
+dealloc_and_exit:
+  if (lib)
+    _destroy_dynamic_lib(lib);
+
+  return -KERR_INVAL;
 }
 
 kerror_t reload_dynamic_lib(dynamic_library_t* lib, struct loaded_app* target_app)
