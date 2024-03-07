@@ -17,6 +17,24 @@ extern char _app_trampoline_end[];
 
 typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
 
+typedef struct elf_image {
+  struct proc* proc;
+
+  /* ELF header/object stuff */
+  struct elf64_hdr* elf_hdr;
+  struct elf64_phdr* elf_phdrs;
+  struct elf64_dyn* elf_dyntbl;
+
+  size_t elf_dyntbl_mapsize;
+
+  void* kernel_image;
+  void* user_base;
+  size_t image_size;
+} elf_image_t;
+
+extern kerror_t load_elf_image(elf_image_t* image, struct proc* proc, file_t* file);
+extern void destroy_elf_image(elf_image_t* image);
+
 /*
  * A dynamic library that has been loaded as support for a dynamic app
  */
@@ -24,12 +42,11 @@ typedef struct dynamic_library {
   const char* name;
   const char* path;
 
+  elf_image_t image;
+
   /* Reference the loaded app to get access to environment info */
   struct loaded_app* app;
   DYNLIB_ENTRY_t entry;
-
-  void* image;
-  size_t image_size;
 
   hashmap_t* dyn_symbols;
   list_t* dependencies;
@@ -49,24 +66,14 @@ typedef struct loaded_app {
   struct proc* proc;
 
   /* ELF stuff */
-  struct elf64_hdr* elf_hdr;
-  struct elf64_phdr* elf_phdrs;
-  struct elf64_dyn* elf_dyntbl;
-
-  size_t elf_dyntbl_mapsize;
+  elf_image_t image;
 
   DYNAPP_ENTRY_t entry;
-
-  /* What is the base of the program in user memory. May be NULL */
-  void* image_base;
-  /* Where did we load the kernel file buffer */
-  void* file_buffer;
-  size_t file_size;
   
-  hashmap_t* lib_map;
+  list_t* library_list;
 } loaded_app_t;
 
-extern loaded_app_t* create_loaded_app(file_t* file);
+extern loaded_app_t* create_loaded_app(file_t* file, struct proc* proc);
 extern void destroy_loaded_app(loaded_app_t* app);
 
 extern kerror_t load_app(file_t* file, loaded_app_t** out_app);
@@ -77,10 +84,13 @@ extern kerror_t unregister_app(loaded_app_t* app);
 
 static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
 {
-  return app->lib_map->m_size;
+  return app->library_list->m_length;
 }
 
-extern void* loaded_app_map_into_kernel(loaded_app_t* app, vaddr_t uaddr, size_t size);
+extern void* proc_map_into_kernel(struct proc* proc, vaddr_t uaddr, size_t size);
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
+
+extern kerror_t _elf_load_phdrs(elf_image_t* image);
+extern kerror_t _elf_do_relocations(elf_image_t* image);
 
 #endif // !__ANIVA_DYN_LOADER_PRIV__

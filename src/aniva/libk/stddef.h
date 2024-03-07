@@ -43,6 +43,11 @@ typedef void (*FuncPtr)();
 #define true 1
 #define false 0
 
+/* Support macros to help label owned and unowned pointers 
+   Use it not enforced, rather strongly recommended */
+#define OWNED
+#define UNOWNED
+
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 #define NOINLINE __attribute__((noinline))
 #define NORETURN __attribute__((noreturn))

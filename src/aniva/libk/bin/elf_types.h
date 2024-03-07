@@ -256,6 +256,7 @@ typedef struct elf64_sym {
 #define R_X86_64_PC16		13	/* 16 bit sign extended pc relative */
 #define R_X86_64_8		    14	/* Direct 8 bit sign extended  */
 #define R_X86_64_PC8		15	/* 8 bit sign extended pc relative */
+#define R_X86_64_TPOFF64    18
 #define R_X86_64_PC64		24	/* Place relative 64-bit signed */
 
 typedef struct elf64_rel {

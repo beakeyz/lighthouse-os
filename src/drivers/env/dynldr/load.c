@@ -5,12 +5,25 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "mem/kmem_manager.h"
 #include "priv.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
 #include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 #include <oss/obj.h>
+
+/*
+ * Load procedures for the dynamic loader
+ *
+ * How to create a local API that can be scalable
+ * We want to load both apps and libraries the same way, but they are handled internally differently. For example,
+ * the order in which the things are actually loaded is different, but how it's done under the hood is the same. Our
+ * internal API should reflect this. Routines to do with handling ELF components, like relocating, resolving symbols, ect.
+ * should be independent of wether the ELF stuff is part of the loaded app or simply a supporting library.
+ *
+ * TODO: Should we make a elf_object struct that is shared between the loaded_app and dynamic_library structs?
+ */
 
 #define SYMFLAG_ORIG_APP 0x01
 #define SYMFLAG_ORIG_LIB 0x02
@@ -20,7 +33,8 @@
  * A single symbol that we have loaded in a context
  */
 typedef struct loaded_sym {
-  const char* symname;
+  const char* name;
+  vaddr_t uaddr;
   uint8_t flags;
   union {
     loaded_app_t* app;
@@ -37,8 +51,36 @@ typedef struct loaded_sym {
  * Never allocated on the heap
  */
 typedef struct load_ctx {
+  uint32_t cur_libcount;
 
+  UNOWNED const char* appname;
+  OWNED list_t* loaded_symbols;
+  OWNED hashmap_t* exported_symbols;
 } load_ctx_t;
+
+void init_load_ctx(load_ctx_t* ctx)
+{
+  memset(ctx, 0, sizeof(*ctx));
+
+  /*
+   * Create a variable-size hashmap to store all the symbols we find exported.
+   * There might be a fuck ton of symbols lmao
+   */
+  ctx->exported_symbols = create_hashmap(0x1000, HASHMAP_FLAG_SK);
+  ctx->loaded_symbols = init_list();
+}
+
+void destroy_load_ctx(load_ctx_t* ctx)
+{
+  FOREACH(n, ctx->loaded_symbols) {
+    loaded_sym_t* sym = n->data;
+
+    kfree(sym);
+  }
+
+  destroy_list(ctx->loaded_symbols);
+  destroy_hashmap(ctx->exported_symbols);
+}
 
 static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent, const char* name, const char* path)
 {
@@ -64,10 +106,18 @@ static void _destroy_dynamic_lib(dynamic_library_t* lib)
   if (lib->dyn_symbols)
     destroy_hashmap(lib->dyn_symbols);
 
+  destroy_elf_image(&lib->image);
+
   destroy_list(lib->dependencies);
   kfree((void*)lib->name);
   kfree((void*)lib->path);
   kfree(lib);
+}
+
+static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
+{
+  load_elf_image(&lib->image, lib->app->proc, file);
+  return 0;
 }
 
 static inline const char* _append_path_to_searchdir(const char* search_dir, const char* path)
@@ -94,92 +144,15 @@ static inline const char* _append_path_to_searchdir(const char* search_dir, cons
   return search_path;
 }
 
-
-/*!
- * @brief: Do essensial relocations
- *
- * Simply finds relocation section headers and does ELF section relocating
- */
-static kerror_t _do_relocations(struct elf64_hdr* hdr)
-{
-  struct elf64_shdr* shdr;
-  struct elf64_rela* table;
-  struct elf64_shdr* target_shdr;
-  struct elf64_sym* symtable_start;
-  size_t rela_count;
-
-  /* Walk the section headers */
-  for (uint32_t i = 0; i < hdr->e_shnum; i++) {
-    shdr = elf_get_shdr(hdr, i);
-
-    if (shdr->sh_type != SHT_RELA)
-      continue;
-
-    /* Get the rel table of this section */
-    table = (struct elf64_rela*)shdr->sh_addr;
-
-    /* Get the target section to apply these reallocacions to */
-    target_shdr = elf_get_shdr(hdr, shdr->sh_info);
-
-    /* Get the start of the symbol table */
-    symtable_start = (struct elf64_sym*)elf_get_shdr(hdr, shdr->sh_link)->sh_addr;
-
-    /* Compute the amount of relocations */
-    rela_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_rela)) / sizeof(struct elf64_rela);
-
-    for (uint32_t i = 0; i < rela_count; i++) {
-      struct elf64_rela* current = &table[i];
-
-      /* Where we are going to change stuff */
-      vaddr_t P = target_shdr->sh_addr + current->r_offset;
-
-      /* The value of the symbol we are referring to */
-      vaddr_t S = symtable_start[ELF64_R_SYM(table[i].r_info)].st_value;
-      vaddr_t A = current->r_addend;
-
-      size_t size = 0;
-      vaddr_t val = S + A;
-
-      switch (ELF64_R_TYPE(current->r_info)) {
-        case R_X86_64_64:
-          size = 8;
-          break;
-        case R_X86_64_32S:
-        case R_X86_64_32:
-          size = 4;
-          break;
-        case R_X86_64_PC32:
-        case R_X86_64_PLT32:
-          val -= P;
-          size = 4;
-          break;
-        case R_X86_64_PC64:
-          val -= P;
-          size = 8;
-          break;
-        default:
-          size = 0;
-          break;
-      }
-
-      if (!size)
-        return -KERR_INVAL;
-
-      memcpy((void*)P, &val, size);
-    }
-  }
-
-  return KERR_NONE;
-}
-
 /*!
  * @brief: Scan the symbols in a given elf header and grab/resolve it's symbols
  *
  * When we fail to find a symbol, this function fails and returns -KERR_INVAL
  */
-static kerror_t _do_symbols(struct elf64_hdr* hdr, uint32_t symhdr_idx)
+static kerror_t _do_symbols(load_ctx_t* ctx, struct elf64_hdr* hdr, uint32_t symhdr_idx)
 {
   uint32_t sym_count;
+  loaded_sym_t* sym;
   struct elf64_shdr* shdr = elf_get_shdr(hdr, symhdr_idx);
 
   /* Grab the symbol count */
@@ -202,15 +175,15 @@ static kerror_t _do_symbols(struct elf64_hdr* hdr, uint32_t symhdr_idx)
          * Need to look for this symbol in an earlier loaded binary =/ 
          * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
          */
+        printf("%s\n", sym_name);
         kernel_panic("TODO: found an unresolved symbol!");
-        break;
-      default:
-        {
-          struct elf64_shdr* _hdr = elf_get_shdr(hdr, current_symbol->st_shndx);
-          current_symbol->st_value += _hdr->sh_addr;
 
-          break;
-        }
+        sym = hashmap_get(ctx->exported_symbols, sym_name);
+        
+        if (sym)
+          current_symbol->st_value = sym->uaddr;
+
+        break;
     }
   }
 
@@ -225,6 +198,7 @@ static kerror_t _do_symbols(struct elf64_hdr* hdr, uint32_t symhdr_idx)
  */
 kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
 {
+  kerror_t error;
   const char* search_path;
   const char* search_dir;
   file_t* lib_file;
@@ -260,7 +234,14 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
   printf("Trying to load dynamic library %s\n", lib_file->m_obj->name);
   kernel_panic("TODO: load_dynamic_lib");
 
+  error = _dynlib_load_image(lib_file, lib);
   
+  file_close(lib_file);
+
+  if (error)
+    goto dealloc_and_exit;
+
+
 
 dealloc_and_exit:
   if (lib)
@@ -280,67 +261,6 @@ kerror_t unload_dynamic_lib(dynamic_library_t* lib)
 }
 
 /*!
- * @brief: Itterate the program headers and load shit we need
- *
- * NOTE: We assume PT_INTERP is correct
- */
-static kerror_t _load_phdrs(file_t* file, loaded_app_t* app)
-{
-  proc_t* proc;
-  struct elf64_phdr* c_phdr;
-
-  proc = app->proc;
-
-  for (uint32_t i = 0; i < app->elf_hdr->e_phnum; i++) {
-    c_phdr = &app->elf_phdrs[i];
-
-    switch (c_phdr->p_type) {
-      case PT_LOAD:
-        {
-          vaddr_t virtual_phdr_base = (vaddr_t)app->image_base + c_phdr->p_vaddr;
-          size_t phdr_size = c_phdr->p_memsz;
-
-          vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
-                proc->m_root_pd.m_root,
-                proc->m_resource_bundle,
-                virtual_phdr_base,
-                phdr_size,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
-                KMEM_FLAG_WRITABLE
-                ));
-
-
-          vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
-
-          /* Then, zero the rest of the buffer */
-          /* TODO: ??? */
-          memset((void*)(v_kernel_phdr_start), 0, phdr_size);
-
-          /*
-           * Copy elf into the mapped area 
-           */
-          elf_read(
-              file,
-              (void*)v_kernel_phdr_start,
-              c_phdr->p_filesz > c_phdr->p_memsz ?
-                &c_phdr->p_memsz :
-                &c_phdr->p_filesz,
-              c_phdr->p_offset);
-        }
-        break;
-      case PT_DYNAMIC:
-        /* Remap to the kernel */
-        app->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
-        app->elf_dyntbl = loaded_app_map_into_kernel(app, (vaddr_t)(app->image_base + c_phdr->p_vaddr), app->elf_dyntbl_mapsize);
-        break;
-    }
-  }
-
-  /* Suck my dick */
-  return KERR_NONE;
-}
-
-/*!
  * @brief: Cache info about the dynamic sections
  *
  * Loop over the dynamic sections
@@ -351,7 +271,7 @@ static kerror_t _load_dyn_sections(file_t* file, loaded_app_t* app)
   struct elf64_dyn* dyns_entry;
 
   strtab = nullptr;
-  dyns_entry = (struct elf64_dyn*)Must(kmem_get_kernel_address((vaddr_t)app->elf_dyntbl, app->proc->m_root_pd.m_root));
+  dyns_entry = (struct elf64_dyn*)Must(kmem_get_kernel_address((vaddr_t)app->image.elf_dyntbl, app->proc->m_root_pd.m_root));
 
   /* The dynamic section table is null-terminated xD */
   while (dyns_entry->d_tag) {
@@ -360,7 +280,7 @@ static kerror_t _load_dyn_sections(file_t* file, loaded_app_t* app)
     switch (dyns_entry->d_tag) {
       case DT_STRTAB:
         /* We can do this, since we have assured a kernel mapping through loading this pheader beforehand */
-        strtab = (char*)Must(kmem_get_kernel_address((vaddr_t)app->image_base + dyns_entry->d_un.d_ptr, app->proc->m_root_pd.m_root));
+        strtab = (char*)Must(kmem_get_kernel_address((vaddr_t)app->image.user_base + dyns_entry->d_un.d_ptr, app->proc->m_root_pd.m_root));
         break;
       case DT_SYMTAB:
         break;
@@ -379,7 +299,7 @@ static kerror_t _load_dyn_sections(file_t* file, loaded_app_t* app)
     return -KERR_INVAL;
 
   /* Reset the itterator */
-  dyns_entry = app->elf_dyntbl;
+  dyns_entry = app->image.elf_dyntbl;
 
   while (dyns_entry->d_tag) {
 
@@ -396,18 +316,52 @@ cycle:
   return KERR_NONE;
 }
 
+static kerror_t _load_phdrs(file_t* file, loaded_app_t* app)
+{
+  return _elf_load_phdrs(&app->image);
+}
+
+/*!
+ * @brief: Clean up temporary data generated by the load
+ */
+static void _finalise_load(load_ctx_t* ctx)
+{
+  /* Murder the context */
+  destroy_load_ctx(ctx);
+}
+
 static kerror_t _do_load(file_t* file, loaded_app_t* app)
 {
-  /* Read the program headers */
+  load_ctx_t ctx;
+
+  /* Get a clean context to store load info */
+  init_load_ctx(&ctx);
+
+  /* 
+   * Read the program headers to find basic binary info about the
+   * app we are currently trying to load
+   */
   _load_phdrs(file, app);
 
-  printf("Trying to load app yay\n");
+  /*
+   * Load the dynamic sections that are included in the binary we are trying to
+   * load. Here we also cache any libraries and libraries of the libraries, ect.
+   */
   _load_dyn_sections(file, app);
-  //_gather_deps();
 
+  /*
+   * Do the actual chainload in the correct order to load all the libraries needed. This
+   * includes doing their relocations
+   */
   //_load_deps();
 
-  //_finalise_load();
+  /*
+   * Do all the relocations in the binary of the loaded app
+   */
+  //_relocate_app();
+
+  /* Clean up our mess */
+  _finalise_load(&ctx);
   return KERR_NONE;
 }
 
@@ -428,18 +382,19 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app)
   if (!out_app || !file)
     return -KERR_INVAL;
 
-  /* This gathers the needed ELF info */
-  app = create_loaded_app(file);
-
-  /* Assume no memory */
-  if (!app)
-    return -KERR_NOMEM;
-
   /* Create an addressspsace for this bitch */
   cur_proc = get_current_proc();
   proc = create_proc(cur_proc, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
 
-  app->proc = proc;
+  if (!proc)
+    return -KERR_NOMEM;
+
+  /* This gathers the needed ELF info */
+  app = create_loaded_app(file, proc);
+
+  /* Assume no memory */
+  if (!app)
+    return -KERR_NOMEM;
 
   /*
    * We've loaded the main object. Now, let's:

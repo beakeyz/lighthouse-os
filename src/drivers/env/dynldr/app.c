@@ -1,6 +1,4 @@
 #include "fs/file.h"
-#include "libk/bin/elf.h"
-#include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
 #include <libk/string.h>
 #include "mem/heap.h"
@@ -8,7 +6,7 @@
 #include "priv.h"
 #include "proc/proc.h"
 
-loaded_app_t* create_loaded_app(file_t* file)
+loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
 {
   loaded_app_t* ret;
 
@@ -22,36 +20,20 @@ loaded_app_t* create_loaded_app(file_t* file)
 
   memset(ret, 0, sizeof(*ret));
 
-  /*
-   * We set this explicitly to NULL. Ideally we would like an app to have it's base at the start of the memory space
-   * but this may not always work...
-   */
-  ret->image_base = NULL;
   /* Allocate the entire file (temporarily), so we can use section scanning routines */
-  ret->file_size = file->m_total_size;
-  ret->file_buffer = (void*)Must(__kmem_kernel_alloc_range(ret->file_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+  if (!KERR_OK(load_elf_image(&ret->image, proc, file)))
+      goto dealloc_and_exit;
 
-  /* Read the file */
-  if (!file_read(file, ret->file_buffer, ret->file_size, 0))
-    goto dealloc_and_exit;
-
-  ret->elf_hdr = ret->file_buffer;
-  ret->entry = (DYNAPP_ENTRY_t)ret->elf_hdr->e_entry;
-
-  if (!elf_verify_header(ret->elf_hdr))
-    goto dealloc_and_exit;
-
-  ret->elf_phdrs = elf_load_phdrs_64(file, ret->elf_hdr);
+  ret->proc = proc;
+  ret->library_list = init_list();
+  ret->entry = (DYNAPP_ENTRY_t)ret->image.elf_hdr->e_entry;
 
   return ret;
 
 dealloc_and_exit:
 
-  if (ret->file_buffer)
-    __kmem_kernel_dealloc((vaddr_t)ret->file_buffer, ret->file_size);
-
-  if (ret->elf_dyntbl)
-    __kmem_kernel_dealloc((vaddr_t)ret->elf_dyntbl, ret->elf_dyntbl_mapsize);
+  if (ret->image.elf_dyntbl)
+    __kmem_kernel_dealloc((vaddr_t)ret->image.elf_dyntbl, ret->image.elf_dyntbl_mapsize);
 
   kfree(ret);
   return nullptr;
@@ -69,25 +51,21 @@ void destroy_loaded_app(loaded_app_t* app)
   kernel_panic("TODO: fix destroy_loaded_app");
 
   /* FIXME: Murder all libraries in this app? */
-  destroy_hashmap(app->lib_map);
+  destroy_list(app->library_list);
 
   /* Deallocate the file buffer if we still have that */
-  if (app->file_buffer)
-    __kmem_kernel_dealloc((vaddr_t)app->file_buffer, app->file_size);
-
-  kfree(app->elf_phdrs);
-  kfree(app->proc);
+  destroy_elf_image(&app->image);
 }
 
-void* loaded_app_map_into_kernel(loaded_app_t* app, vaddr_t uaddr, size_t size)
+void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
 {
-  if (!app || !app->proc)
+  if (!proc)
     return nullptr;
 
   return (void*)Must(__kmem_kernel_alloc(
         /* Physical address */
         kmem_to_phys(
-          app->proc->m_root_pd.m_root,
+          proc->m_root_pd.m_root,
           uaddr
         ),
         /* Our size */
