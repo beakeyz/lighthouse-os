@@ -120,6 +120,49 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   return KERR_NONE;
 }
 
+
+/*!
+ * @brief: Cache info about the dynamic sections
+ *
+ * Loop over the dynamic sections
+ */
+kerror_t _elf_load_dyn_sections(elf_image_t* image)
+{
+  char* strtab;
+  struct elf64_dyn* dyns_entry;
+
+  strtab = nullptr;
+  dyns_entry = (struct elf64_dyn*)Must(kmem_get_kernel_address((vaddr_t)image->elf_dyntbl, image->proc->m_root_pd.m_root));
+
+  /* The dynamic section table is null-terminated xD */
+  while (dyns_entry->d_tag) {
+
+    /* First look for anything that isn't the DT_NEEDED type */
+    switch (dyns_entry->d_tag) {
+      case DT_STRTAB:
+        /* We can do this, since we have assured a kernel mapping through loading this pheader beforehand */
+        strtab = (char*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root));
+        break;
+      case DT_SYMTAB:
+        break;
+      case DT_PLTGOT:
+      case DT_PLTREL:
+      case DT_PLTRELSZ:
+        break;
+    }
+
+    /* Next */
+    dyns_entry++;
+  }
+
+  /* Didn't find the needed dynamic sections */
+  if (!strtab)
+    return -KERR_INVAL;
+
+  image->elf_strtab = strtab;
+  return KERR_NONE;
+}
+
 /*!
  * @brief: Do essensial relocations
  *

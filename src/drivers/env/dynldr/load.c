@@ -5,7 +5,6 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
 #include "priv.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
@@ -36,6 +35,7 @@ typedef struct loaded_sym {
   const char* name;
   vaddr_t uaddr;
   uint8_t flags;
+  uint32_t usecount;
   union {
     loaded_app_t* app;
     dynamic_library_t* lib;
@@ -149,11 +149,15 @@ static inline const char* _append_path_to_searchdir(const char* search_dir, cons
  *
  * When we fail to find a symbol, this function fails and returns -KERR_INVAL
  */
-static kerror_t _do_symbols(load_ctx_t* ctx, struct elf64_hdr* hdr, uint32_t symhdr_idx)
+static kerror_t _do_symbols(load_ctx_t* ctx, elf_image_t* image)
 {
   uint32_t sym_count;
   loaded_sym_t* sym;
-  struct elf64_shdr* shdr = elf_get_shdr(hdr, symhdr_idx);
+  struct elf64_hdr* hdr;
+  struct elf64_shdr* shdr;
+
+  hdr = image->elf_hdr;
+  shdr = elf_get_shdr(hdr, image->elf_symtbl_idx);
 
   /* Grab the symbol count */
   sym_count = shdr->sh_size / sizeof(struct elf64_sym);
@@ -180,9 +184,13 @@ static kerror_t _do_symbols(load_ctx_t* ctx, struct elf64_hdr* hdr, uint32_t sym
 
         sym = hashmap_get(ctx->exported_symbols, sym_name);
         
-        if (sym)
-          current_symbol->st_value = sym->uaddr;
+        if (!sym) 
+          break;
 
+        current_symbol->st_value = sym->uaddr;
+        sym->usecount++;
+        break;
+      default:
         break;
     }
   }
@@ -260,42 +268,12 @@ kerror_t unload_dynamic_lib(dynamic_library_t* lib)
   kernel_panic("TODO: unload_dynamic_lib");
 }
 
-/*!
- * @brief: Cache info about the dynamic sections
- *
- * Loop over the dynamic sections
- */
-static kerror_t _load_dyn_sections(file_t* file, loaded_app_t* app)
+static kerror_t load_app_dyn_sections(loaded_app_t* app)
 {
-  char* strtab;
   struct elf64_dyn* dyns_entry;
 
-  strtab = nullptr;
-  dyns_entry = (struct elf64_dyn*)Must(kmem_get_kernel_address((vaddr_t)app->image.elf_dyntbl, app->proc->m_root_pd.m_root));
-
-  /* The dynamic section table is null-terminated xD */
-  while (dyns_entry->d_tag) {
-
-    /* First look for anything that isn't the DT_NEEDED type */
-    switch (dyns_entry->d_tag) {
-      case DT_STRTAB:
-        /* We can do this, since we have assured a kernel mapping through loading this pheader beforehand */
-        strtab = (char*)Must(kmem_get_kernel_address((vaddr_t)app->image.user_base + dyns_entry->d_un.d_ptr, app->proc->m_root_pd.m_root));
-        break;
-      case DT_SYMTAB:
-        break;
-      case DT_PLTGOT:
-      case DT_PLTREL:
-      case DT_PLTRELSZ:
-        break;
-    }
-
-    /* Next */
-    dyns_entry++;
-  }
-
-  /* Didn't find the needed dynamic sections */
-  if (!strtab)
+  /* Do the generic section load */
+  if (!KERR_OK(_elf_load_dyn_sections(&app->image)))
     return -KERR_INVAL;
 
   /* Reset the itterator */
@@ -307,7 +285,7 @@ static kerror_t _load_dyn_sections(file_t* file, loaded_app_t* app)
       goto cycle;
 
     /* Load the library */
-    load_dynamic_lib((const char*)(strtab + dyns_entry->d_un.d_val), app);
+    load_dynamic_lib((const char*)(app->image.elf_strtab + dyns_entry->d_un.d_val), app);
 
 cycle:
     dyns_entry++;
@@ -347,7 +325,7 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
    * Load the dynamic sections that are included in the binary we are trying to
    * load. Here we also cache any libraries and libraries of the libraries, ect.
    */
-  _load_dyn_sections(file, app);
+  load_app_dyn_sections(app);
 
   /*
    * Do the actual chainload in the correct order to load all the libraries needed. This

@@ -26,6 +26,10 @@ typedef struct elf_image {
   struct elf64_dyn* elf_dyntbl;
 
   size_t elf_dyntbl_mapsize;
+  uint32_t elf_symtbl_idx;
+  uint32_t elf_dynsym_idx;
+
+  const char* elf_strtab;
 
   void* kernel_image;
   void* user_base;
@@ -92,5 +96,6 @@ extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 
 extern kerror_t _elf_load_phdrs(elf_image_t* image);
 extern kerror_t _elf_do_relocations(elf_image_t* image);
+extern kerror_t _elf_load_dyn_sections(elf_image_t* image);
 
 #endif // !__ANIVA_DYN_LOADER_PRIV__
