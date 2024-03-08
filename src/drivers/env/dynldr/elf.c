@@ -161,6 +161,10 @@ kerror_t _elf_do_headers(elf_image_t* image)
     struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
 
     switch (shdr->sh_type) {
+      case SHT_SYMTAB:
+        /* We also care about the default symbol header */
+        image->elf_symtbl_hdr = shdr;
+        break;
       case SHT_NOBITS:
         {
           if (!shdr->sh_size)
@@ -184,7 +188,7 @@ kerror_t _elf_do_headers(elf_image_t* image)
  *
  * When we fail to find a symbol, this function fails and returns -KERR_INVAL
  */
-kerror_t _elf_do_symbols(hashmap_t* exported_symbol_map, elf_image_t* image)
+kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, elf_image_t* image)
 {
   uint32_t sym_count;
   loaded_sym_t* sym;
@@ -192,7 +196,10 @@ kerror_t _elf_do_symbols(hashmap_t* exported_symbol_map, elf_image_t* image)
   struct elf64_shdr* shdr;
 
   hdr = image->elf_hdr;
-  shdr = elf_get_shdr(hdr, image->elf_symtbl_idx);
+  shdr = image->elf_symtbl_hdr;
+
+  if (!shdr)
+    return -KERR_INVAL;
 
   /* Grab the symbol count */
   sym_count = shdr->sh_size / sizeof(struct elf64_sym);
@@ -207,6 +214,13 @@ kerror_t _elf_do_symbols(hashmap_t* exported_symbol_map, elf_image_t* image)
   for (uint32_t i = 0; i < sym_count; i++) {
     struct elf64_sym* current_symbol = &sym_table_start[i];
     char* sym_name = names + current_symbol->st_name;
+
+    /* Debug print lmao */
+    printf("Found a symbol (\'%s\'). type=0x%x info=0x%x\n", sym_name, current_symbol->st_other, current_symbol->st_info);
+
+    /* We only care about functions */
+    if (current_symbol->st_other != STT_FUNC)
+      continue;
 
     switch (current_symbol->st_shndx) {
       case SHN_UNDEF:
@@ -238,17 +252,14 @@ kerror_t _elf_do_symbols(hashmap_t* exported_symbol_map, elf_image_t* image)
   return 0;
 }
 
-/*!
- * @brief: Cache info about the dynamic sections
- *
- * Loop over the dynamic sections
- */
-kerror_t _elf_load_dyn_sections(elf_image_t* image)
+static kerror_t __elf_get_dynsect_info(elf_image_t* image)
 {
   char* strtab;
+  struct elf64_sym* dyn_syms;
   struct elf64_dyn* dyns_entry;
 
   strtab = nullptr;
+  dyn_syms = nullptr;
   dyns_entry = (struct elf64_dyn*)Must(kmem_get_kernel_address((vaddr_t)image->elf_dyntbl, image->proc->m_root_pd.m_root));
 
   /* The dynamic section table is null-terminated xD */
@@ -261,6 +272,7 @@ kerror_t _elf_load_dyn_sections(elf_image_t* image)
         strtab = (char*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root));
         break;
       case DT_SYMTAB:
+        dyn_syms = (struct elf64_sym*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root));
         break;
       case DT_PLTGOT:
       case DT_PLTREL:
@@ -276,8 +288,61 @@ kerror_t _elf_load_dyn_sections(elf_image_t* image)
   if (!strtab)
     return -KERR_INVAL;
 
-  image->elf_strtab = strtab;
+  image->elf_dynsym = dyn_syms;
+  /* This would be the stringtable for dynamic stuff */
+  image->elf_dynstrtab = strtab;
   return KERR_NONE;
+}
+
+static kerror_t __elf_process_dynsect_info(elf_image_t* image, loaded_app_t* app)
+{
+  kerror_t error;
+  struct elf64_dyn* dyns_entry;
+
+  /* Reset the itterator */
+  dyns_entry = image->elf_dyntbl;
+
+  while (dyns_entry->d_tag) {
+
+    if (dyns_entry->d_tag != DT_NEEDED)
+      goto cycle;
+
+    /* Load the library */
+    error = load_dynamic_lib((const char*)(image->elf_strtab + dyns_entry->d_un.d_val), app);
+
+    if (!KERR_OK(error) && kerror_is_fatal(error))
+      break;
+
+cycle:
+    dyns_entry++;
+  }
+
+  return error;
+}
+
+/*!
+ * @brief: Cache info about the dynamic sections
+ *
+ * Loop over the dynamic sections.
+ * This function has two stages:
+ * 1) Collect information about what is actually inside the dynamic section header
+ * 2) act on the data that's inside (Load aditional libraries, fix offsets, ect.)
+ */
+kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app)
+{
+  kerror_t error;
+
+  if (!image)
+    return -KERR_INVAL;
+
+  /* Gather info on the dynamic part of this image */
+  error = __elf_get_dynsect_info(image);
+
+  if (error)
+    return error;
+
+  /* Do meaningful shit */
+  return __elf_process_dynsect_info(image, app);
 }
 
 /*!

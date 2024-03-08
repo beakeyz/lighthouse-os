@@ -1,4 +1,6 @@
 #include "fs/file.h"
+#include "libk/data/hashmap.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include <libk/string.h>
 #include "mem/heap.h"
@@ -26,6 +28,9 @@ loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
 
   ret->proc = proc;
   ret->library_list = init_list();
+  ret->symbol_list = init_list();
+  /* Variable size hashmap for the exported symbols */
+  ret->exported_symbols = create_hashmap(0x1000, HASHMAP_FLAG_SK);
   ret->entry = (DYNAPP_ENTRY_t)ret->image.elf_hdr->e_entry;
 
   return ret;
@@ -50,8 +55,16 @@ void destroy_loaded_app(loaded_app_t* app)
 
   kernel_panic("TODO: fix destroy_loaded_app");
 
+  FOREACH(n, app->symbol_list) {
+    loaded_sym_t* sym = n->data;
+
+    kfree(sym);
+  }
+
   /* FIXME: Murder all libraries in this app? */
   destroy_list(app->library_list);
+  destroy_list(app->symbol_list);
+  destroy_hashmap(app->exported_symbols);
 
   /* Deallocate the file buffer if we still have that */
   destroy_elf_image(&app->image);

@@ -27,9 +27,10 @@ typedef struct elf_image {
   struct elf64_dyn* elf_dyntbl;
 
   size_t elf_dyntbl_mapsize;
-  uint32_t elf_symtbl_idx;
-  uint32_t elf_dynsym_idx;
+  struct elf64_shdr* elf_symtbl_hdr;
+  struct elf64_sym* elf_dynsym;
 
+  const char* elf_dynstrtab;
   const char* elf_strtab;
 
   /* Size of the kerne-allocated buffer of the file */
@@ -78,6 +79,10 @@ typedef struct loaded_app {
 
   DYNAPP_ENTRY_t entry;
   
+  hashmap_t* exported_symbols;
+  /* This list contains all the symbols we find throughout the load process of a single app. 
+   * The list also owns every single loaded_sym object. */
+  list_t* symbol_list;
   list_t* library_list;
 } loaded_app_t;
 
@@ -101,8 +106,15 @@ extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 extern kerror_t _elf_load_phdrs(elf_image_t* image);
 extern kerror_t _elf_do_headers(elf_image_t* image);
 extern kerror_t _elf_do_relocations(elf_image_t* image);
-extern kerror_t _elf_do_symbols(hashmap_t* exported_symbol_map, elf_image_t* image);
-extern kerror_t _elf_load_dyn_sections(elf_image_t* image);
+/*
+ * This is the only step that is dependent on high level dynldr abstractions =/ 
+ * We are currently forced to pass this crap (@app) because this function might chainload
+ * other libraries and it needs to know what app these libraries are going to be a part of lmao
+ * 
+ * FIXME: Make this independant of this crap?
+ */
+extern kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app);
+extern kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, elf_image_t* image);
 
 /*
  * A single symbol that we have loaded in a context
