@@ -101,6 +101,7 @@ uint32_t elf_find_section(struct elf64_hdr* header, const char* name)
 
 bool elf_verify_header(struct elf64_hdr* header)
 {
+
   /* No elf? */
   if (!memcmp(header->e_ident, ELF_MAGIC, ELF_MAGIC_LEN))
     return false;
@@ -110,7 +111,7 @@ bool elf_verify_header(struct elf64_hdr* header)
     return false;
 
   /* Fuck off then oy */
-  if (header->e_type != ET_EXEC)
+  if (header->e_type != ET_EXEC && header->e_type != ET_DYN)
     return false;
 
   return true;

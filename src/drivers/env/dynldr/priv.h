@@ -17,6 +17,7 @@ extern char _app_trampoline_end[];
 
 typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
 
+
 typedef struct elf_image {
   struct proc* proc;
 
@@ -31,9 +32,12 @@ typedef struct elf_image {
 
   const char* elf_strtab;
 
+  /* Size of the kerne-allocated buffer of the file */
+  size_t kernel_image_size;
   void* kernel_image;
+  /* Size of the buffer allocated inside the user memoryspace */
+  size_t user_image_size;
   void* user_base;
-  size_t image_size;
 } elf_image_t;
 
 extern kerror_t load_elf_image(elf_image_t* image, struct proc* proc, file_t* file);
@@ -95,7 +99,24 @@ extern void* proc_map_into_kernel(struct proc* proc, vaddr_t uaddr, size_t size)
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 
 extern kerror_t _elf_load_phdrs(elf_image_t* image);
+extern kerror_t _elf_do_headers(elf_image_t* image);
 extern kerror_t _elf_do_relocations(elf_image_t* image);
+extern kerror_t _elf_do_symbols(hashmap_t* exported_symbol_map, elf_image_t* image);
 extern kerror_t _elf_load_dyn_sections(elf_image_t* image);
+
+/*
+ * A single symbol that we have loaded in a context
+ */
+typedef struct loaded_sym {
+  const char* name;
+  vaddr_t uaddr;
+  uint8_t flags;
+  uint32_t usecount;
+  union {
+    loaded_app_t* app;
+    dynamic_library_t* lib;
+  };
+} loaded_sym_t;
+
 
 #endif // !__ANIVA_DYN_LOADER_PRIV__

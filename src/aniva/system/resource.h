@@ -1,12 +1,9 @@
 #ifndef __ANIVA_SYS_RESOURCE__
 #define __ANIVA_SYS_RESOURCE__
 
-#include "dev/driver.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
 #include "mem/page_dir.h"
-#include "sync/atomic_ptr.h"
-#include "sync/mutex.h"
 #include <libk/stddef.h>
 
 /*

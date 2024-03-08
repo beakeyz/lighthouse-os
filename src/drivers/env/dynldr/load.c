@@ -1,5 +1,4 @@
 #include "fs/file.h"
-#include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
@@ -27,20 +26,6 @@
 #define SYMFLAG_ORIG_APP 0x01
 #define SYMFLAG_ORIG_LIB 0x02
 #define SYMFLAG_EXPORTED 0x04
-
-/*
- * A single symbol that we have loaded in a context
- */
-typedef struct loaded_sym {
-  const char* name;
-  vaddr_t uaddr;
-  uint8_t flags;
-  uint32_t usecount;
-  union {
-    loaded_app_t* app;
-    dynamic_library_t* lib;
-  };
-} loaded_sym_t;
 
 /*
  * Context of the current load state
@@ -114,9 +99,25 @@ static void _destroy_dynamic_lib(dynamic_library_t* lib)
   kfree(lib);
 }
 
+/*!
+ * @brief: Load the complete image of a dynamic library
+ */
 static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
 {
-  load_elf_image(&lib->image, lib->app->proc, file);
+  kerror_t error;
+
+  printf("A\n");
+  error = load_elf_image(&lib->image, lib->app->proc, file);
+
+  if (!KERR_OK(error))
+    return error;
+
+  printf("B\n");
+  error = _elf_load_phdrs(&lib->image);
+
+  if (!KERR_OK(error))
+    return error;
+
   return 0;
 }
 
@@ -142,60 +143,6 @@ static inline const char* _append_path_to_searchdir(const char* search_dir, cons
   strncpy(&search_path[strlen(search_dir)+1], path, strlen(path));
 
   return search_path;
-}
-
-/*!
- * @brief: Scan the symbols in a given elf header and grab/resolve it's symbols
- *
- * When we fail to find a symbol, this function fails and returns -KERR_INVAL
- */
-static kerror_t _do_symbols(load_ctx_t* ctx, elf_image_t* image)
-{
-  uint32_t sym_count;
-  loaded_sym_t* sym;
-  struct elf64_hdr* hdr;
-  struct elf64_shdr* shdr;
-
-  hdr = image->elf_hdr;
-  shdr = elf_get_shdr(hdr, image->elf_symtbl_idx);
-
-  /* Grab the symbol count */
-  sym_count = shdr->sh_size / sizeof(struct elf64_sym);
-
-  /* Grab the start of the symbol name table */
-  char* names = (char*)elf_get_shdr(hdr, shdr->sh_link)->sh_addr;
-
-  /* Grab the start of the symbol table */
-  struct elf64_sym* sym_table_start = (struct elf64_sym*)shdr->sh_addr;
-
-  /* Walk the table and resolve any symbols */
-  for (uint32_t i = 0; i < sym_count; i++) {
-    struct elf64_sym* current_symbol = &sym_table_start[i];
-    char* sym_name = names + current_symbol->st_name;
-
-    switch (current_symbol->st_shndx) {
-      case SHN_UNDEF:
-        /*
-         * Need to look for this symbol in an earlier loaded binary =/ 
-         * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
-         */
-        printf("%s\n", sym_name);
-        kernel_panic("TODO: found an unresolved symbol!");
-
-        sym = hashmap_get(ctx->exported_symbols, sym_name);
-        
-        if (!sym) 
-          break;
-
-        current_symbol->st_value = sym->uaddr;
-        sym->usecount++;
-        break;
-      default:
-        break;
-    }
-  }
-
-  return 0;
 }
 
 /*!
@@ -236,11 +183,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
   if (!lib_file)
     goto dealloc_and_exit;
 
-  /*
-   * Now we do epic loading or some shit idk
-   */
   printf("Trying to load dynamic library %s\n", lib_file->m_obj->name);
-  kernel_panic("TODO: load_dynamic_lib");
 
   error = _dynlib_load_image(lib_file, lib);
   
@@ -249,7 +192,10 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
   if (error)
     goto dealloc_and_exit;
 
-
+  /*
+   * Now we do epic loading or some shit idk
+   */
+  kernel_panic("TODO: load_dynamic_lib");
 
 dealloc_and_exit:
   if (lib)
@@ -270,6 +216,7 @@ kerror_t unload_dynamic_lib(dynamic_library_t* lib)
 
 static kerror_t load_app_dyn_sections(loaded_app_t* app)
 {
+  kerror_t error;
   struct elf64_dyn* dyns_entry;
 
   /* Do the generic section load */
@@ -285,13 +232,16 @@ static kerror_t load_app_dyn_sections(loaded_app_t* app)
       goto cycle;
 
     /* Load the library */
-    load_dynamic_lib((const char*)(app->image.elf_strtab + dyns_entry->d_un.d_val), app);
+    error = load_dynamic_lib((const char*)(app->image.elf_strtab + dyns_entry->d_un.d_val), app);
+
+    if (!KERR_OK(error) && kerror_is_fatal(error))
+      break;
 
 cycle:
     dyns_entry++;
   }
 
-  return KERR_NONE;
+  return error;
 }
 
 static kerror_t _load_phdrs(file_t* file, loaded_app_t* app)
@@ -319,13 +269,15 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
    * Read the program headers to find basic binary info about the
    * app we are currently trying to load
    */
-  _load_phdrs(file, app);
+  if (_load_phdrs(file, app))
+    return -KERR_INVAL;
 
   /*
    * Load the dynamic sections that are included in the binary we are trying to
    * load. Here we also cache any libraries and libraries of the libraries, ect.
    */
-  load_app_dyn_sections(app);
+  if (load_app_dyn_sections(app))
+    return -KERR_INVAL;
 
   /*
    * Do the actual chainload in the correct order to load all the libraries needed. This
@@ -389,7 +341,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app)
 
 //dealloc_and_exit:
   //kernel_panic("load_app failed!");
-  return KERR_NONE;
+  return error;
 }
 
 kerror_t unload_app(loaded_app_t* app)

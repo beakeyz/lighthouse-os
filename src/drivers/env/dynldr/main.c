@@ -125,6 +125,7 @@ static kerror_t _loader_ld_appfile(file_t* file)
   if (error || !app)
     return -DRV_STAT_INVAL;
 
+  printf("Ayay\n");
   /* Everything went good, register it to ourself */
   register_app(app);
 
