@@ -79,7 +79,12 @@ static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
 
   error = _elf_load_dyn_sections(&lib->image, lib->app);
 
-  return 0;
+  if (!KERR_OK(error))
+    return error;
+
+  error = _elf_do_symbols(lib->app->symbol_list, lib->app->exported_symbols, &lib->image);
+
+  return error;
 }
 
 static inline const char* _append_path_to_searchdir(const char* search_dir, const char* path)

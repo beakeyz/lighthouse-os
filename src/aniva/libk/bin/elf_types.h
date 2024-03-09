@@ -197,6 +197,12 @@ typedef struct elf64_shdr {
 #define STT_LOPROC  13
 #define STT_HIPROC  15
 
+#define STB_LOCAL   0
+#define STB_GLOBAL  1
+#define STB_WEAK    2
+#define STB_LOPROC  13
+#define STB_HIPROC  15
+
 #define SHN_UNDEF       0
 #define SHN_LORESERVE	0xff00
 #define SHN_LOPROC      0xFF00
@@ -232,6 +238,10 @@ typedef struct elf64_sym {
   Elf64_Addr    st_value;
   Elf64_Xword   st_size;
 } Elf64_Sym;
+
+#define ELF64_ST_BIND(i)    ((i)>>4)
+#define ELF64_ST_TYPE(i)    ((i)&0xf)
+#define ELF64_ST_INFO(b,t)  (((b)<<4)+((t)&0xf))
 
 #define ELF64_R_SYM(i)      ((i) >> 32)
 #define ELF64_R_TYPE(i)     ((i) & 0xFFFFFFFFL)

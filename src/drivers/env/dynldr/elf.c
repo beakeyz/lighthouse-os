@@ -7,6 +7,8 @@
 #include "drivers/env/dynldr/priv.h"
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
+#include "libk/data/hashmap.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
@@ -157,25 +159,37 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 
 kerror_t _elf_do_headers(elf_image_t* image)
 {
+  /* First pass: Fix all the addresses of the section headers */
   for (uint32_t i = 0; i < image->elf_hdr->e_shnum; i++) {
+    struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
+
+    switch (shdr->sh_type) {
+      case SHT_NOBITS:
+        if (!shdr->sh_size)
+          break;
+
+        /* Just give any NOBITS sections a bit of memory */
+        shdr->sh_addr = Must(kmem_user_alloc_range(image->proc, shdr->sh_size, NULL, NULL));
+        break;
+      default:
+        shdr->sh_addr += (uint64_t)image->user_base;
+        if (shdr->sh_addralign)
+          shdr->sh_addr = ALIGN_UP(shdr->sh_addr, shdr->sh_addralign);
+        break;
+    }
+  }
+
+  image->elf_symtbl_hdr = nullptr;
+
+  /* Second pass: Find the symbol table
+   * FIXME: Do we need to check the name of this shared header? */
+  for (uint32_t i = 0; i < image->elf_hdr->e_shnum && !image->elf_symtbl_hdr; i++) {
     struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
 
     switch (shdr->sh_type) {
       case SHT_SYMTAB:
         /* We also care about the default symbol header */
         image->elf_symtbl_hdr = shdr;
-        break;
-      case SHT_NOBITS:
-        {
-          if (!shdr->sh_size)
-            break;
-
-          /* Just give any NOBITS sections a bit of memory */
-          shdr->sh_addr = Must(kmem_user_alloc_range(image->proc, shdr->sh_size, NULL, NULL));
-          break;
-        }
-      default:
-        shdr->sh_addr = (uint64_t)image->user_base + shdr->sh_offset;
         break;
     }
   }
@@ -192,11 +206,15 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
 {
   uint32_t sym_count;
   loaded_sym_t* sym;
-  struct elf64_hdr* hdr;
+  pml_entry_t* root_pd;
+  const char* names;
   struct elf64_shdr* shdr;
 
-  hdr = image->elf_hdr;
+  printf("--- LOOKING FOR SYMS\n");
+
   shdr = image->elf_symtbl_hdr;
+  root_pd = image->proc->m_root_pd.m_root;
+  names = image->elf_dynstrtab;
 
   if (!shdr)
     return -KERR_INVAL;
@@ -204,26 +222,37 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
   /* Grab the symbol count */
   sym_count = shdr->sh_size / sizeof(struct elf64_sym);
 
-  /* Grab the start of the symbol name table */
-  char* names = (char*)elf_get_shdr(hdr, shdr->sh_link)->sh_addr;
-
   /* Grab the start of the symbol table */
-  struct elf64_sym* sym_table_start = (struct elf64_sym*)shdr->sh_addr;
+  struct elf64_sym* sym_table_start = (struct elf64_sym*)Must(kmem_get_kernel_address(shdr->sh_addr, root_pd));
 
   /* Walk the table and resolve any symbols */
   for (uint32_t i = 0; i < sym_count; i++) {
     struct elf64_sym* current_symbol = &sym_table_start[i];
-    char* sym_name = names + current_symbol->st_name;
+    const char* sym_name = (const char*)((uint64_t)names + current_symbol->st_name);
+
+    /* We only care about functions or objects */
+    if (ELF64_ST_TYPE(current_symbol->st_info) != STT_FUNC &&
+        ELF64_ST_TYPE(current_symbol->st_info) != STT_NOTYPE &&
+        ELF64_ST_TYPE(current_symbol->st_info) != STT_OBJECT)
+      continue;
+
+    if (!current_symbol->st_info)
+      continue;
 
     /* Debug print lmao */
-    printf("Found a symbol (\'%s\'). type=0x%x info=0x%x\n", sym_name, current_symbol->st_other, current_symbol->st_info);
-
-    /* We only care about functions */
-    if (current_symbol->st_other != STT_FUNC)
-      continue;
+    printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
 
     switch (current_symbol->st_shndx) {
       case SHN_UNDEF:
+
+        /* Don't do weird symbols */
+        if (!strlen(sym_name))
+          break;
+
+        /* Only resolve global symbols */
+        if (ELF64_ST_BIND(current_symbol->st_info) != STB_GLOBAL)
+          break;
+
         /*
          * Need to look for this symbol in an earlier loaded binary =/ 
          * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
@@ -231,7 +260,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
         printf("%s\n", sym_name);
         kernel_panic("TODO: found an unresolved symbol!");
 
-        sym = hashmap_get(exported_symbol_map, sym_name);
+        sym = hashmap_get(exported_symbol_map, (hashmap_key_t)sym_name);
         
         if (!sym) 
           break;
@@ -241,9 +270,25 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
         break;
       default:
         {
-          /* We assume headers have already been fixed */
-          struct elf64_shdr* hdr = elf_get_shdr(image->elf_hdr, current_symbol->st_shndx);
-          current_symbol->st_value += hdr->sh_addr;
+          current_symbol->st_value += (vaddr_t)image->user_base;
+
+          /* Don't add weird symbols */
+          if (!strlen(sym_name))
+            break;
+
+          /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
+          loaded_sym_t* sym = kmalloc(sizeof(loaded_sym_t*));
+
+          if (!sym)
+            return -KERR_NOMEM;
+
+          sym->usecount = NULL;
+          sym->name = sym_name;
+          sym->uaddr = current_symbol->st_value;
+
+          /* Add both to the symbol map for easy lookup and the list for easy cleanup */
+          hashmap_put(exported_symbol_map, (hashmap_key_t)sym_name, sym);
+          list_append(symbol_list, sym);
         }
         break;
     }
@@ -308,16 +353,16 @@ static kerror_t __elf_process_dynsect_info(elf_image_t* image, loaded_app_t* app
       goto cycle;
 
     /* Load the library */
-    error = load_dynamic_lib((const char*)(image->elf_strtab + dyns_entry->d_un.d_val), app);
+    error = load_dynamic_lib((const char*)(image->elf_dynstrtab + dyns_entry->d_un.d_val), app);
 
     if (!KERR_OK(error) && kerror_is_fatal(error))
-      break;
+      return error;
 
 cycle:
     dyns_entry++;
   }
 
-  return error;
+  return 0;
 }
 
 /*!

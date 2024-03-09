@@ -5,7 +5,7 @@
 /*!
  * @brief: Entry for shared library
  */
-LIGHTENTRY int libentry()
+LIGHTENTRY int gfxlibentry()
 {
   printf("Initialized libgfx!\n");
   return 0;

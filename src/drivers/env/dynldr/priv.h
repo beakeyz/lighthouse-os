@@ -31,7 +31,6 @@ typedef struct elf_image {
   struct elf64_sym* elf_dynsym;
 
   const char* elf_dynstrtab;
-  const char* elf_strtab;
 
   /* Size of the kerne-allocated buffer of the file */
   size_t kernel_image_size;
@@ -122,12 +121,7 @@ extern kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_
 typedef struct loaded_sym {
   const char* name;
   vaddr_t uaddr;
-  uint8_t flags;
   uint32_t usecount;
-  union {
-    loaded_app_t* app;
-    dynamic_library_t* lib;
-  };
 } loaded_sym_t;
 
 
