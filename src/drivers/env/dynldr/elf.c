@@ -35,6 +35,7 @@ kerror_t load_elf_image(elf_image_t* image, proc_t* proc, file_t* file)
     goto error_and_exit;
 
   image->elf_phdrs = elf_load_phdrs_64(file, image->elf_hdr);
+  image->elf_strtables = init_list();
 
   return 0;
 error_and_exit:
@@ -53,6 +54,7 @@ void destroy_elf_image(elf_image_t* image)
   if (image->elf_dyntbl)
     __kmem_kernel_dealloc((vaddr_t)image->elf_dyntbl, image->elf_dyntbl_mapsize);
 
+  destroy_list(image->elf_strtables);
   kfree(image->elf_phdrs);
 }
 
@@ -157,8 +159,34 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   return KERR_NONE;
 }
 
+
+static bool _elf_strcmp(elf_image_t* image, uint64_t nameoff, const char* cmp)
+{
+  const char* c_str;
+
+  FOREACH(i, image->elf_strtables) {
+    c_str = i->data + nameoff;
+
+    printf("%s -> %s\n", c_str, cmp);
+
+    /* Check if yay */
+    if (strncmp(cmp, c_str, strlen(cmp)) == 0)
+      return true;
+  }
+
+  return false;
+}
+
+/*!
+ * @brief: Do preperations on the ELF section headers
+ *
+ * 1) Fix header offset and ensure backing ram
+ * 2) Cache certain interesting tables
+ */
 kerror_t _elf_do_headers(elf_image_t* image)
 {
+  void* strtab_buffer;
+
   /* First pass: Fix all the addresses of the section headers */
   for (uint32_t i = 0; i < image->elf_hdr->e_shnum; i++) {
     struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
@@ -173,8 +201,6 @@ kerror_t _elf_do_headers(elf_image_t* image)
         break;
       default:
         shdr->sh_addr += (uint64_t)image->user_base;
-        if (shdr->sh_addralign)
-          shdr->sh_addr = ALIGN_UP(shdr->sh_addr, shdr->sh_addralign);
         break;
     }
   }
@@ -183,16 +209,33 @@ kerror_t _elf_do_headers(elf_image_t* image)
 
   /* Second pass: Find the symbol table
    * FIXME: Do we need to check the name of this shared header? */
-  for (uint32_t i = 0; i < image->elf_hdr->e_shnum && !image->elf_symtbl_hdr; i++) {
+  for (uint32_t i = 0; i < image->elf_hdr->e_shnum; i++) {
     struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
 
     switch (shdr->sh_type) {
       case SHT_SYMTAB:
-        /* We also care about the default symbol header */
-        image->elf_symtbl_hdr = shdr;
+        /* Idk if there can be more than one, but in most cases there should be only one of these guys. */
+        if (!image->elf_symtbl_hdr)
+          image->elf_symtbl_hdr = shdr;
+        break;
+      case SHT_STRTAB:
+        strtab_buffer = (void*)Must(kmem_get_kernel_address(shdr->sh_addr, image->proc->m_root_pd.m_root));
+
+        /* Add the stringtable to the table cache */
+        list_append(image->elf_strtables, strtab_buffer);
+
+        printf("Found string table.\n");
+
+        if (_elf_strcmp(image, shdr->sh_name, ".strtab")) {
+          image->elf_strtab = strtab_buffer;
+          printf("YAY It's the global string table!\n");
+        }
         break;
     }
   }
+
+  /* There must be at least a generic '.strtab' shdr in every ELF file */
+  ASSERT(image->elf_strtab);
 
   return 0;
 }
@@ -212,9 +255,11 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
 
   printf("--- LOOKING FOR SYMS\n");
 
+  /* NOTE: Since we're working with the global symbol table (And not the dynamic symbol table) 
+     we need to use the coresponding GLOBAL string table */
+  names = image->elf_strtab;
   shdr = image->elf_symtbl_hdr;
   root_pd = image->proc->m_root_pd.m_root;
-  names = image->elf_dynstrtab;
 
   if (!shdr)
     return -KERR_INVAL;
