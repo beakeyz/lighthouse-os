@@ -284,8 +284,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
          * Need to look for this symbol in an earlier loaded binary =/ 
          * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
          */
-        printf("%s\n", sym_name);
-        kernel_panic("TODO: found an unresolved symbol!");
+        printf("Resolving: %s\n", sym_name);
 
         sym = hashmap_get(exported_symbol_map, (hashmap_key_t)sym_name);
         
@@ -309,7 +308,8 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
           if (!sym)
             return -KERR_NOMEM;
 
-          sym->usecount = NULL;
+          memset(sym, 0, sizeof (*sym));
+
           sym->name = sym_name;
           sym->uaddr = current_symbol->st_value;
 
@@ -317,6 +317,71 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
           hashmap_put(exported_symbol_map, (hashmap_key_t)sym_name, sym);
           list_append(symbol_list, sym);
         }
+        break;
+    }
+  }
+
+  /* Now grab copy relocations
+     This loop looks ugly as hell, but just deal with it sucker */
+  for (uint64_t i = 0; i < image->elf_hdr->e_shnum; i++) {
+    struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
+    struct elf64_rel* rel;
+    struct elf64_rela* rela;
+    uint32_t symbol;
+    size_t entry_count;
+    char * symname;
+    struct elf64_sym* sym;
+    loaded_sym_t* loaded_sym;
+
+    switch (shdr->sh_type) {
+      case SHT_REL:
+        rel = (struct elf64_rel*)_elf_get_shdr_kaddr(image, shdr);
+
+        /* Calculate the table size */
+        entry_count = shdr->sh_size / sizeof(*rel);
+
+        for (uint64_t i = 0; i < entry_count; i++) {
+          if (ELF64_R_TYPE(rel[i].r_info) != R_X86_64_COPY)
+            continue;
+
+          symbol  = ELF64_R_SYM(rel[i].r_info);
+          sym     = &image->elf_dynsym[symbol];
+          symname = (char *)((uintptr_t)image->elf_dynstrtab + sym->st_name);
+
+          loaded_sym = hashmap_get(exported_symbol_map, symname);
+
+          if (!loaded_sym)
+            break;
+
+          loaded_sym->offset = rel[i].r_offset;
+          loaded_sym->flags |= LDSYM_FLAG_IS_CPY;
+
+        }
+        break;
+      case SHT_RELA:
+        rela = (struct elf64_rela*)_elf_get_shdr_kaddr(image, shdr);
+
+        /* Calculate the table size */
+        entry_count = shdr->sh_size / sizeof(*rela);
+
+        for (uint64_t i = 0; i < entry_count; i++) {
+          if (ELF64_R_TYPE(rela[i].r_info) != R_X86_64_COPY)
+            continue;
+
+          symbol  = ELF64_R_SYM(rela[i].r_info);
+          sym     = &image->elf_dynsym[symbol];
+          symname = (char *)((uintptr_t)image->elf_dynstrtab + sym->st_name);
+
+          loaded_sym = hashmap_get(exported_symbol_map, symname);
+
+          if (loaded_sym)
+            break;
+
+          loaded_sym->offset = rela[i].r_offset;
+          loaded_sym->flags |= LDSYM_FLAG_IS_CPY;
+        }
+        break;
+      default:
         break;
     }
   }
@@ -425,13 +490,13 @@ kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app)
  * NOTE: This assumes to be called with @hdr being at the start of the image buffer. This means 
  * we assume that the entire binary file is loaded into a buffer, with hdr = image_base
  */
-kerror_t _elf_do_relocations(elf_image_t* image)
+kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap)
 {
   struct elf64_hdr* hdr;
   struct elf64_shdr* shdr;
   struct elf64_rela* table;
-  struct elf64_shdr* target_shdr;
   struct elf64_sym* symtable_start;
+  loaded_sym_t* c_ldsym;
   size_t rela_count;
 
   hdr = image->elf_hdr;
@@ -446,9 +511,6 @@ kerror_t _elf_do_relocations(elf_image_t* image)
     /* Get the rel table of this section */
     table = (struct elf64_rela*)_elf_get_shdr_kaddr(image, shdr);
 
-    /* Get the target section to apply these reallocacions to */
-    target_shdr = elf_get_shdr(hdr, shdr->sh_info);
-
     /* Get the start of the symbol table */
     symtable_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, elf_get_shdr(hdr, shdr->sh_link));
 
@@ -458,16 +520,24 @@ kerror_t _elf_do_relocations(elf_image_t* image)
     for (uint32_t i = 0; i < rela_count; i++) {
       struct elf64_rela* current = &table[i];
       struct elf64_sym* sym = &symtable_start[ELF64_R_SYM(table[i].r_info)];
+      const char* symname = image->elf_dynstrtab + sym->st_name;
+
+      printf("Need to relocate symbol %s\n", symname);
 
       /* Where we are going to change stuff */
-      const vaddr_t P = (vaddr_t)_elf_get_shdr_kaddr(image, target_shdr) + current->r_offset;
+      const vaddr_t P = Must(kmem_get_kernel_address((vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root));
 
       /* The value of the symbol we are referring to */
-      vaddr_t S = sym->st_value;
       vaddr_t A = current->r_addend;
 
       size_t size = 0;
-      vaddr_t val = S;
+      vaddr_t val = sym->st_value;
+
+      /* Try to get this symbol */
+      c_ldsym = hashmap_get(symmap, (hashmap_key_t)symname);
+
+      if (c_ldsym)
+        val = (c_ldsym->flags & LDSYM_FLAG_IS_CPY) == LDSYM_FLAG_IS_CPY ? c_ldsym->offset : c_ldsym->uaddr;
 
       /* Copy is special snowflake lmao */
       if (ELF64_R_TYPE(current->r_info) == R_X86_64_COPY) {
@@ -502,12 +572,13 @@ kerror_t _elf_do_relocations(elf_image_t* image)
           break;
         case R_X86_64_GLOB_DAT:
         case R_X86_64_JUMP_SLOT:
+          size = sizeof(uintptr_t);
           break;
         case R_X86_64_TPOFF64:
-          kernel_panic("TODO: implement R_X86_64_TPOFF64 relocation type");
-          break;
         default:
           size = 0;
+          printf("Unsuported relocation type %lld!\n", ELF64_R_TYPE(current->r_info));
+          kernel_panic("yikes");
           break;
       }
 

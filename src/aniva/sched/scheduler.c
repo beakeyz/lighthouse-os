@@ -460,19 +460,11 @@ static registers_t *sched_tick(registers_t *registers_ptr)
     if (current_frame->m_sched_ticks_left <= 0) {
       current_frame->m_sched_ticks_left = current_frame->m_max_ticks;
 
-      // switch_frames
-      //println("Should have switched frames!");
-
       /* Pick a next process */
       pick_next_process_scheduler();
 
       /* Pick a next thread */
       Must(pick_next_thread_scheduler());
-
-      /* Debug */
-      //println(get_current_proc()->m_name);
-      //println(get_current_scheduling_thread()->m_name);
-      //println(to_string((uintptr_t)get_current_scheduling_thread()->f_entry));
 
       scheduler_set_request(this);
       return registers_ptr;
@@ -520,6 +512,9 @@ ANIVA_STATUS sched_add_proc(proc_t *proc)
   /* NOTE: this only fails if we try to pause the scheduler before it has been started */
   pause_scheduler();
 
+  /* Make sure our thread is ready *.* */
+  thread_prepare_context(proc->m_init_thread);
+
   frame = create_sched_frame(proc, LOW);
 
   scheduler_queue_enqueue(&s->processes, frame);
@@ -539,6 +534,9 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule)
     return Error();
 
   pause_scheduler();
+
+  /* Make sure our thread is ready *.* */
+  thread_prepare_context(proc->m_init_thread);
 
   frame = create_sched_frame(proc, LOW);
 
@@ -746,13 +744,14 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 
     switch (next_thread->m_current_state) {
       case INVALID:
-      case NO_CONTEXT:
       case STOPPED:
+      case NO_CONTEXT:
         // TODO: let's figure out how to handle blocked threads (so waiting on IO or some shit)
         // since we don't have any real IO yet this is kind of a placeholder lmao
       case BLOCKED:
         // TODO: there is an invalid thread in the pool, handle it.
         break;
+      /* NOTE: Threads without a context are considered to be runnable */
       case SLEEPING:
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here

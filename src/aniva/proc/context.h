@@ -69,7 +69,8 @@ ALWAYS_INLINE thread_context_t setup_regs(bool kernel, pml_entry_t* root_table, 
 
 // TODO: user regs
 
-ALWAYS_INLINE void contex_set_rip(thread_context_t* ctx, uintptr_t rip, uintptr_t arg0, uintptr_t arg1) {
+ALWAYS_INLINE void contex_set_rip(thread_context_t* ctx, uintptr_t rip, uintptr_t arg0, uintptr_t arg1) 
+{
   ctx->rip = rip;
   ctx->rdi = arg0;
   ctx->rsi = arg1;

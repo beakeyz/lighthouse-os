@@ -102,9 +102,16 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
   return create_proc(nullptr, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
+/*!
+ * @brief: Try to set the entry of a process
+ */
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1)
 {
   if (!p || !p->m_init_thread)
+    return -KERR_INVAL;
+
+  /* Can't set the entry of a process that has already been scheduled */
+  if (p->m_init_thread->m_ticks_elapsed)
     return -KERR_INVAL;
 
   mutex_lock(p->m_init_thread->m_lock);
@@ -372,6 +379,16 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
   atomic_ptr_write(proc->m_thread_count, current_thread_count+1);
 
   list_append(proc->m_threads, thread);
+
+  /*
+   * Only prepare the context here if we're not trying to add the init thread 
+   * 
+   * When adding a seperate thread to a process, we have time to alter the thread between creating it and
+   * adding it. We don't have this time with the initial thread, which has it's context prepared right before it
+   * is scheduled for the first time
+   */
+  if (proc->m_init_thread != thread)
+    thread_prepare_context(thread);
   
   resume_scheduler();
   return Success(0);

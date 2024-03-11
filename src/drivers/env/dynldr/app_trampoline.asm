@@ -3,6 +3,10 @@
 [global _app_trampoline]
 [global _app_trampoline_end]
 
+[global __app_entrypoint]
+[global __lib_entrypoints]
+[global __lib_entrycount]
+
 ;
 ; App entry trampoline
 ; 
@@ -13,7 +17,19 @@
 ; TODO: Test this bitch lmao
 ;
 align 4096
-_app_trampoline: ; (rdi=(DYNAPP_ENTRY_t) app_entry, rsi=(DYNLIB_ENTRY_t*) lib_entries, rdx=(uint32_t) lib_entry_count)
+_app_trampoline:
+  jmp __real_start
+
+; (rdi=(DYNAPP_ENTRY_t) app_entry, rsi=(DYNLIB_ENTRY_t*) lib_entries, rdx=(uint32_t) lib_entry_count)
+__app_entrypoint:
+  dq 0
+__lib_entrypoints:
+  dq 0
+__lib_entrycount:
+  dq 0
+
+; Where execution actually starts xD
+__real_start:
   push rcx
 
   mov rcx, rdx

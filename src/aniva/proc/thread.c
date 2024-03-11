@@ -58,7 +58,6 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
   strcpy(thread->m_name, name);
-  thread_set_state(thread, NO_CONTEXT);
 
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
@@ -109,6 +108,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
     thread->m_context.rsp = thread->m_user_stack_top;
   }
 
+  thread_set_state(thread, NO_CONTEXT);
   /* Set the entrypoint last */
   thread_set_entrypoint(thread, (FuncPtr)thread->f_entry, data, 0);
   return thread;
@@ -116,28 +116,13 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
 
 thread_t *create_thread_for_proc(proc_t *proc, FuncPtr entry, uintptr_t args, const char name[32]) 
 {
-  thread_t *t;
-
   if (proc == nullptr)
     return nullptr;
 
   const bool is_kernel = ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL) ||
     ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 
-  t = create_thread(entry, args, name, proc, is_kernel);
-
-  if (!t)
-    return nullptr;
-
-  /* Failed to set context, destroy the thread and return */
-  if (thread_prepare_context(t) == ANIVA_FAIL)
-    goto dealloc_and_exit;
-
-  return t;
-
-dealloc_and_exit:
-  destroy_thread(t);
-  return nullptr;
+  return create_thread(entry, args, name, proc, is_kernel);
 }
 
 /*!
@@ -266,31 +251,39 @@ NAKED void common_thread_entry() {
   asm volatile (
     "popq %rdi \n" // our beautiful thread
     "popq %rsi \n" // ptr to its registers
-    //"call thread_exit_init_state \n"
+    //"call thread_exit_init_state \n" // Call this to get bread
+    // Go to the portal that might just take us to userland
     "jmp asm_common_irq_exit \n"
     );
 }
 
-// TODO: redo?
+/*!
+ * @brief: Called every context switch
+ */
 extern void thread_enter_context(thread_t *to) 
 {
   paddr_t krnl_dir_phys;
   paddr_t new_dir_phys;
+  processor_t *cur_cpu;
+  thread_t* prev_thread;
+
+  /* Check that we are legal */
   ASSERT_MSG(to->m_current_state == RUNNABLE, to_string(to->m_current_state));
 
-  processor_t *current_processor = get_current_processor();
-  thread_t* previous_thread = get_previous_scheduled_thread();
+  cur_cpu = get_current_processor();
+  prev_thread = get_previous_scheduled_thread();
 
   // NOTE: for correction purposes
-  to->m_cpu = current_processor->m_cpu_num;
+  to->m_cpu = cur_cpu->m_cpu_num;
 
+  /* Gib floats */
   store_fpu_state(&to->m_fpu_state);
 
   thread_set_state(to, RUNNING);
 
   // Only switch pagetables if we actually need to interchange between
   // them, otherwise thats just wasted tlb
-  if (previous_thread->m_context.cr3 == to->m_context.cr3)
+  if (prev_thread->m_context.cr3 == to->m_context.cr3)
     return;
 
   krnl_dir_phys = (paddr_t)kmem_get_krnl_dir();
@@ -302,10 +295,15 @@ extern void thread_enter_context(thread_t *to)
   kmem_load_page_dir(new_dir_phys, false);
 }
 
-// called when a thread is created and enters the scheduler for the first time
+/*!
+ * @brief: Called when a thread is created and is added to the scheduler for the first time
+ */
 ANIVA_STATUS thread_prepare_context(thread_t *thread) 
 {
   uintptr_t rsp = thread->m_kernel_stack_top;
+
+  if (thread->m_current_state != NO_CONTEXT)
+    return ANIVA_FAIL;
 
   /* 
    * Stitch the exit function at the end of the thread stack 
@@ -360,11 +358,14 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread)
 
 // used to bootstrap the iret stub created in thread_prepare_context
 // only on the first context switch
-void bootstrap_thread_entries(thread_t* thread) {
-
+void bootstrap_thread_entries(thread_t* thread) 
+{
   thread->m_has_been_scheduled = true;
 
-  ASSERT(thread->m_current_state != NO_CONTEXT);
+  /* Prepare that bitch */
+  if (thread->m_current_state == NO_CONTEXT)
+    thread_prepare_context(thread);
+
   ASSERT(get_current_scheduling_thread() == thread);
   thread_set_state(thread, RUNNING);
 
@@ -464,8 +465,12 @@ void thread_switch_context(thread_t* from, thread_t* to) {
   );
 }
 
-// TODO: this thing
-extern void thread_exit_init_state(thread_t *from, registers_t* regs) {
+/*!
+ * @brief: (NOTE: Not used atm) Called once right before we jump to the thread entry
+ *
+ */
+void thread_exit_init_state(thread_t *from, registers_t* regs) 
+{
 }
 
 

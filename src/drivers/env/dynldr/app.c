@@ -91,6 +91,49 @@ void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
   );
 }
 
+/* These values should get set before we copy and reset after we've copied */
+extern uintptr_t* __app_entrypoint;
+extern uintptr_t* __lib_entrypoints;
+extern size_t*    __lib_entrycount;
+
+static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entrycount)
+{
+  size_t libcount;
+  size_t lib_idx;
+  uintptr_t uaddr;
+  node_t* c_liblist_node;
+  DYNLIB_ENTRY_t c_entry;
+  DYNLIB_ENTRY_t* kaddr;
+
+  libcount = loaded_app_get_lib_count(app);
+
+  *entrycount = libcount;
+
+  if (!libcount)
+    return NULL;
+
+  uaddr = Must(kmem_user_alloc_range(app->proc, libcount * sizeof(uintptr_t), NULL, NULL));
+  kaddr = proc_map_into_kernel(app->proc, uaddr, libcount * sizeof(uintptr_t));
+
+  lib_idx = NULL;
+  c_liblist_node = app->library_list->end;
+
+  /* Cycle through the libraries in reverse */
+  do {
+    /* Get the entry */
+    c_entry = ((dynamic_library_t*)c_liblist_node->data)->entry;
+
+    /* Only add if this library has an entry */
+    if (c_entry)
+      kaddr[lib_idx++] = c_entry;
+    
+    c_liblist_node = c_liblist_node->prev;
+  } while (c_liblist_node);
+
+  kernel_panic("FUCKKKKKKK fix alloc order");
+  return uaddr;
+}
+
 /*!
  * @brief: Copy the app entry trampoline code into the apps userspace
  *
@@ -118,11 +161,18 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
   trampoline_paddr = kmem_to_phys(nullptr, trampoline_kaddr);
   trampoline_uaddr = Must(kmem_user_alloc(proc, trampoline_paddr, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_READONLY, NULL));
 
+  *__app_entrypoint = (uintptr_t)app->entry;
+  *__lib_entrypoints = allocate_lib_entrypoint_vec(app, __lib_entrycount);
+
   /* Copy the entire page */
   memcpy((void*)trampoline_kaddr, &_app_trampoline, SMALL_PAGE_SIZE);
 
   /* Don't need the kernel address anymore */
   kmem_unmap_page(nullptr, trampoline_kaddr);
+
+  *__app_entrypoint = NULL;
+  *__lib_entrypoints = NULL;
+  *__lib_entrycount = NULL;
 
   /* FIXME: args? */
   proc_set_entry(proc, (FuncPtr)trampoline_uaddr, NULL, NULL);

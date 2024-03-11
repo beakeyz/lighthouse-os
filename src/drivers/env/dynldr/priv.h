@@ -106,7 +106,7 @@ extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 
 extern kerror_t _elf_load_phdrs(elf_image_t* image);
 extern kerror_t _elf_do_headers(elf_image_t* image);
-extern kerror_t _elf_do_relocations(elf_image_t* image);
+extern kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap);
 /*
  * This is the only step that is dependent on high level dynldr abstractions =/ 
  * We are currently forced to pass this crap (@app) because this function might chainload
@@ -117,13 +117,17 @@ extern kerror_t _elf_do_relocations(elf_image_t* image);
 extern kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app);
 extern kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, elf_image_t* image);
 
+#define LDSYM_FLAG_IS_CPY 0x00000001
+
 /*
  * A single symbol that we have loaded in a context
  */
 typedef struct loaded_sym {
   const char* name;
   vaddr_t uaddr;
+  vaddr_t offset;
   uint32_t usecount;
+  uint32_t flags;
 } loaded_sym_t;
 
 
