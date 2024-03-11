@@ -30,8 +30,8 @@ typedef struct elf_image {
   struct elf64_shdr* elf_symtbl_hdr;
   struct elf64_sym* elf_dynsym;
 
-  list_t* elf_strtables;
   const char* elf_strtab;
+  const char* elf_shstrtab;
   const char* elf_dynstrtab;
 
   /* Size of the kerne-allocated buffer of the file */

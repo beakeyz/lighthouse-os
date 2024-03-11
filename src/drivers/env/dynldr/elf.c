@@ -11,6 +11,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "proc/proc.h"
 #include "system/resource.h"
 
@@ -35,7 +36,6 @@ kerror_t load_elf_image(elf_image_t* image, proc_t* proc, file_t* file)
     goto error_and_exit;
 
   image->elf_phdrs = elf_load_phdrs_64(file, image->elf_hdr);
-  image->elf_strtables = init_list();
 
   return 0;
 error_and_exit:
@@ -54,8 +54,15 @@ void destroy_elf_image(elf_image_t* image)
   if (image->elf_dyntbl)
     __kmem_kernel_dealloc((vaddr_t)image->elf_dyntbl, image->elf_dyntbl_mapsize);
 
-  destroy_list(image->elf_strtables);
   kfree(image->elf_phdrs);
+}
+
+static inline void* _elf_get_shdr_kaddr(elf_image_t* image, struct elf64_shdr* hdr)
+{
+  if (!image)
+    return nullptr;
+
+  return image->kernel_image + hdr->sh_offset;
 }
 
 /*!
@@ -159,24 +166,6 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   return KERR_NONE;
 }
 
-
-static bool _elf_strcmp(elf_image_t* image, uint64_t nameoff, const char* cmp)
-{
-  const char* c_str;
-
-  FOREACH(i, image->elf_strtables) {
-    c_str = i->data + nameoff;
-
-    printf("%s -> %s\n", c_str, cmp);
-
-    /* Check if yay */
-    if (strncmp(cmp, c_str, strlen(cmp)) == 0)
-      return true;
-  }
-
-  return false;
-}
-
 /*!
  * @brief: Do preperations on the ELF section headers
  *
@@ -185,8 +174,6 @@ static bool _elf_strcmp(elf_image_t* image, uint64_t nameoff, const char* cmp)
  */
 kerror_t _elf_do_headers(elf_image_t* image)
 {
-  void* strtab_buffer;
-
   /* First pass: Fix all the addresses of the section headers */
   for (uint32_t i = 0; i < image->elf_hdr->e_shnum; i++) {
     struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
@@ -206,6 +193,8 @@ kerror_t _elf_do_headers(elf_image_t* image)
   }
 
   image->elf_symtbl_hdr = nullptr;
+  /* Cache the section string table */
+  image->elf_shstrtab = _elf_get_shdr_kaddr(image, elf_get_shdr(image->elf_hdr, image->elf_hdr->e_shstrndx));
 
   /* Second pass: Find the symbol table
    * FIXME: Do we need to check the name of this shared header? */
@@ -219,15 +208,10 @@ kerror_t _elf_do_headers(elf_image_t* image)
           image->elf_symtbl_hdr = shdr;
         break;
       case SHT_STRTAB:
-        strtab_buffer = (void*)Must(kmem_get_kernel_address(shdr->sh_addr, image->proc->m_root_pd.m_root));
+        printf("Found string table. (%s)\n", image->elf_shstrtab + shdr->sh_name);
 
-        /* Add the stringtable to the table cache */
-        list_append(image->elf_strtables, strtab_buffer);
-
-        printf("Found string table.\n");
-
-        if (_elf_strcmp(image, shdr->sh_name, ".strtab")) {
-          image->elf_strtab = strtab_buffer;
+        if (strncmp(".strtab", image->elf_shstrtab + shdr->sh_name, strlen(".strtab")) == 0) {
+          image->elf_strtab = _elf_get_shdr_kaddr(image, shdr);
           printf("YAY It's the global string table!\n");
         }
         break;
@@ -249,7 +233,6 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
 {
   uint32_t sym_count;
   loaded_sym_t* sym;
-  pml_entry_t* root_pd;
   const char* names;
   struct elf64_shdr* shdr;
 
@@ -259,7 +242,6 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
      we need to use the coresponding GLOBAL string table */
   names = image->elf_strtab;
   shdr = image->elf_symtbl_hdr;
-  root_pd = image->proc->m_root_pd.m_root;
 
   if (!shdr)
     return -KERR_INVAL;
@@ -268,7 +250,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
   sym_count = shdr->sh_size / sizeof(struct elf64_sym);
 
   /* Grab the start of the symbol table */
-  struct elf64_sym* sym_table_start = (struct elf64_sym*)Must(kmem_get_kernel_address(shdr->sh_addr, root_pd));
+  struct elf64_sym* sym_table_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, shdr);
 
   /* Walk the table and resolve any symbols */
   for (uint32_t i = 0; i < sym_count; i++) {
@@ -322,7 +304,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
             break;
 
           /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
-          loaded_sym_t* sym = kmalloc(sizeof(loaded_sym_t*));
+          loaded_sym_t* sym = kzalloc(sizeof(loaded_sym_t*));
 
           if (!sym)
             return -KERR_NOMEM;
@@ -445,19 +427,14 @@ kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app)
  */
 kerror_t _elf_do_relocations(elf_image_t* image)
 {
-  proc_t* proc;
   struct elf64_hdr* hdr;
   struct elf64_shdr* shdr;
   struct elf64_rela* table;
   struct elf64_shdr* target_shdr;
   struct elf64_sym* symtable_start;
-  pml_entry_t* pml_root;
   size_t rela_count;
 
-  proc = image->proc;
   hdr = image->elf_hdr;
-
-  pml_root = proc->m_root_pd.m_root;
 
   /* Walk the section headers */
   for (uint32_t i = 0; i < hdr->e_shnum; i++) {
@@ -467,13 +444,13 @@ kerror_t _elf_do_relocations(elf_image_t* image)
       continue;
 
     /* Get the rel table of this section */
-    table = (struct elf64_rela*)Must(kmem_get_kernel_address(shdr->sh_addr, pml_root));
+    table = (struct elf64_rela*)_elf_get_shdr_kaddr(image, shdr);
 
     /* Get the target section to apply these reallocacions to */
     target_shdr = elf_get_shdr(hdr, shdr->sh_info);
 
     /* Get the start of the symbol table */
-    symtable_start = (struct elf64_sym*)Must(kmem_get_kernel_address(elf_get_shdr(hdr, shdr->sh_link)->sh_addr, pml_root));
+    symtable_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, elf_get_shdr(hdr, shdr->sh_link));
 
     /* Compute the amount of relocations */
     rela_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_rela)) / sizeof(struct elf64_rela);
@@ -483,7 +460,7 @@ kerror_t _elf_do_relocations(elf_image_t* image)
       struct elf64_sym* sym = &symtable_start[ELF64_R_SYM(table[i].r_info)];
 
       /* Where we are going to change stuff */
-      const vaddr_t P = Must(kmem_get_kernel_address(target_shdr->sh_addr + current->r_offset, proc->m_root_pd.m_root));
+      const vaddr_t P = (vaddr_t)_elf_get_shdr_kaddr(image, target_shdr) + current->r_offset;
 
       /* The value of the symbol we are referring to */
       vaddr_t S = sym->st_value;

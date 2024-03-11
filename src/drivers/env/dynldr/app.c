@@ -5,6 +5,7 @@
 #include <libk/string.h>
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "priv.h"
 #include "proc/proc.h"
 
@@ -58,7 +59,7 @@ void destroy_loaded_app(loaded_app_t* app)
   FOREACH(n, app->symbol_list) {
     loaded_sym_t* sym = n->data;
 
-    kfree(sym);
+    kzfree(sym, sizeof(*sym));
   }
 
   /* FIXME: Murder all libraries in this app? */

@@ -3,10 +3,8 @@
 
 #ifndef __ANIVA_MALLOC__
 #define __ANIVA_MALLOC__
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "mem/page_dir.h"
-#include "mem/pg.h"
 #include <libk/stddef.h>
 
 typedef enum MALLOC_NODE_FLAGS {

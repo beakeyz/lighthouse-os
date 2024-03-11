@@ -1,9 +1,6 @@
 #include "malloc.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "heap.h"
-#include "sched/scheduler.h"
-#include "system/asm_specifics.h"
 #include <libk/string.h>
 #include <dev/debug/serial.h>
 #include <libk/stddef.h>
