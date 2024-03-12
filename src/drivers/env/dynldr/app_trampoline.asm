@@ -7,6 +7,12 @@
 [global __lib_entrypoints]
 [global __lib_entrycount]
 
+[global __real_start]
+[global __init_lib]
+[global __exit_error]
+[global __exit_loop]
+
+
 ;
 ; App entry trampoline
 ; 
@@ -30,8 +36,16 @@ __lib_entrycount:
 
 ; Where execution actually starts xD
 __real_start:
+  ; Save our shit
+  push rdi
+  push rsi
+  push rdx
   push rcx
 
+  ; Move the pointers for the inits into registers
+  mov rdi, [__app_entrypoint]
+  mov rsi, [__lib_entrypoints]
+  mov rdx, [__lib_entrycount]
   mov rcx, rdx
 
 __init_lib:
@@ -66,9 +80,14 @@ __init_lib:
   cmp rcx, 0
   je __init_lib
 
+  ; Restore the registers which contain the actual
+  ; parameters for our userspace application
   pop rcx
+  pop rdx
+  pop rsi
+  pop rdi
 
-  ; Call the app entrty
+  ; Call the app entry
   call rdi
 
 __exit_error:

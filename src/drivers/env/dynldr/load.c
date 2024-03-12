@@ -1,10 +1,8 @@
 #include "fs/file.h"
-#include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/lib/shared.h"
 #include "mem/heap.h"
 #include "priv.h"
 #include "proc/proc.h"
@@ -126,10 +124,8 @@ static inline const char* _append_path_to_searchdir(const char* search_dir, cons
 kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
 {
   kerror_t error;
-  uint32_t entry_sect_idx;
   const char* search_path;
   const char* search_dir;
-  struct elf64_shdr* lightentry_hdr;
   file_t* lib_file;
   dynamic_library_t* lib;
   profile_var_t* libs_var;
@@ -167,13 +163,14 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app)
   if (error)
     goto dealloc_and_exit;
 
-  /* Find the section index for the lightos library entrypoint */
-  entry_sect_idx = elf_find_section(lib->image.elf_hdr, LIGHTENTRY_SECTION_NAME);
-
   /* Set the entry */
-  if ((lightentry_hdr = elf_get_shdr(lib->image.elf_hdr, entry_sect_idx)) != nullptr)
-    lib->entry = (DYNLIB_ENTRY_t)lightentry_hdr->sh_addr;
+  if (lib->image.elf_lightentry_hdr)
+    lib->entry = (DYNLIB_ENTRY_t)lib->image.elf_lightentry_hdr->sh_addr;
+  
+  /* Register ourselves to the app */
+  list_append(target_app->library_list, lib);
 
+  printf("Successfully loaded %s (entry=0x%p)\n", lib->name, lib->entry);
   return 0;
 dealloc_and_exit:
   if (lib)
@@ -210,6 +207,10 @@ static inline kerror_t _load_phdrs(file_t* file, loaded_app_t* app)
 static inline void _finalise_load(loaded_app_t* app)
 {
   loaded_app_set_entry_tramp(app);
+
+  sched_add_priority_proc(app->proc, true);
+
+  kernel_panic("REturned lmao");
 }
 
 static kerror_t _do_load(file_t* file, loaded_app_t* app)
@@ -228,16 +229,7 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
   if (load_app_dyn_sections(app))
     return -KERR_INVAL;
 
-  /*
-   * Do the actual chainload in the correct order to load all the libraries needed. This
-   * includes doing their relocations
-   */
-  //_load_deps();
-
-  /*
-   * Do all the relocations in the binary of the loaded app
-   */
-  //_relocate_app();
+  printf("Finishing up...\n");
 
   /* Clean up our mess */
   _finalise_load(app);

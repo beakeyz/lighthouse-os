@@ -23,7 +23,7 @@ ASM_OBJ := $(patsubst %.asm,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(ASM_SRC)))
 override HEADER_DEPS := $(patsubst %.o,%.d,$(C_OBJ))
 
 # Make sure we define the buildflags
-override DRIVER_CFLAGS=$(KERNEL_CFLAGS)
+override DRIVER_CFLAGS=$(KERNEL_CFLAGS) -fPIC
 override DRIVER_LDFLAGS= -r
 
 -include $(HEADER_DEPS)

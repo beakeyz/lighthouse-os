@@ -10,6 +10,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/lib/shared.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/proc.h"
@@ -208,12 +209,14 @@ kerror_t _elf_do_headers(elf_image_t* image)
           image->elf_symtbl_hdr = shdr;
         break;
       case SHT_STRTAB:
-        printf("Found string table. (%s)\n", image->elf_shstrtab + shdr->sh_name);
-
-        if (strncmp(".strtab", image->elf_shstrtab + shdr->sh_name, strlen(".strtab")) == 0) {
+        if (strncmp(".strtab", image->elf_shstrtab + shdr->sh_name, strlen(".strtab")) == 0)
           image->elf_strtab = _elf_get_shdr_kaddr(image, shdr);
-          printf("YAY It's the global string table!\n");
-        }
+
+        break;
+      case SHT_PROGBITS:
+        if (strncmp(LIGHTENTRY_SECTION_NAME, image->elf_shstrtab + shdr->sh_name, strlen(LIGHTENTRY_SECTION_NAME)) == 0)
+          image->elf_lightentry_hdr = shdr;
+
         break;
     }
   }
@@ -235,8 +238,6 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
   loaded_sym_t* sym;
   const char* names;
   struct elf64_shdr* shdr;
-
-  printf("--- LOOKING FOR SYMS\n");
 
   /* NOTE: Since we're working with the global symbol table (And not the dynamic symbol table) 
      we need to use the coresponding GLOBAL string table */
@@ -267,7 +268,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
       continue;
 
     /* Debug print lmao */
-    printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
+    //printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
 
     switch (current_symbol->st_shndx) {
       case SHN_UNDEF:
@@ -284,7 +285,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
          * Need to look for this symbol in an earlier loaded binary =/ 
          * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
          */
-        printf("Resolving: %s\n", sym_name);
+        //printf("Resolving: %s\n", sym_name);
 
         sym = hashmap_get(exported_symbol_map, (hashmap_key_t)sym_name);
         
@@ -522,7 +523,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap)
       struct elf64_sym* sym = &symtable_start[ELF64_R_SYM(table[i].r_info)];
       const char* symname = image->elf_dynstrtab + sym->st_name;
 
-      printf("Need to relocate symbol %s\n", symname);
+      //printf("Need to relocate symbol %s\n", symname);
 
       /* Where we are going to change stuff */
       const vaddr_t P = Must(kmem_get_kernel_address((vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root));

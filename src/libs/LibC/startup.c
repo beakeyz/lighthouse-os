@@ -61,6 +61,9 @@ void lightapp_startup(MainEntry main)
  */
 LIGHTENTRY int libentry()
 {
+  /* Let's see if this dies */
+  exit_noimpl("Dynamic libentry =)");
+
   /* Initialize libc things */
   __init_libc();
 
