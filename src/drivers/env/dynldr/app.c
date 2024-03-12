@@ -91,11 +91,6 @@ void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
   );
 }
 
-/* These values should get set before we copy and reset after we've copied */
-extern uintptr_t __app_entrypoint;
-extern uintptr_t __lib_entrypoints;
-extern size_t    __lib_entrycount;
-
 static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entrycount)
 {
   size_t libcount;
@@ -106,16 +101,17 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   DYNLIB_ENTRY_t c_entry;
   DYNLIB_ENTRY_t* kaddr;
 
+  *entrycount = NULL;
   libcount = loaded_app_get_lib_count(app);
   libarr_size = ALIGN_UP(libcount * sizeof(uintptr_t), SMALL_PAGE_SIZE);
-
-  *entrycount = libcount;
 
   if (!libcount)
     return NULL;
 
   uaddr = Must(kmem_user_alloc_range(app->proc, libarr_size, NULL, NULL));
   kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
+
+  memset(kaddr, 0, libarr_size);
 
   lib_idx = NULL;
   c_liblist_node = app->library_list->head;
@@ -133,13 +129,44 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   } while (c_liblist_node);
 
   /* Weird info lmao */
-  printf("Got buffer at 0x%llx<->0x%p with %lld libs\n", uaddr, kaddr, libcount);
+  printf("Got buffer at 0x%llx<->0x%p with %lld libs\n", uaddr, kaddr, lib_idx);
   printf("First library to load is %s at 0x%p\n", ((dynamic_library_t*)app->library_list->head->data)->name, kaddr[0]);
+
+  /* NOTE: at this point lib_idx will represent the amount of libraries that have entries we need to call */
+  *entrycount = lib_idx;
 
   /* Don't need the kernel address anymore */
   kmem_unmap_range(nullptr, (vaddr_t)kaddr, GET_PAGECOUNT((vaddr_t)kaddr, libarr_size));
 
   return uaddr;
+}
+
+/*!
+ * @brief: Dirty routine to get the hardcoded symbols we need to install the app trampoline
+ */
+static inline kerror_t _get_librt_symbols(loaded_app_t* app, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp)
+{
+  *appentry = (loaded_sym_t*)hashmap_get(app->exported_symbols, "__app_entrypoint");
+
+  if (!(*appentry))
+    return -KERR_INVAL;
+  
+  *libentries = (loaded_sym_t*)hashmap_get(app->exported_symbols, "__lib_entrypoints");
+
+  if (!(*libentries))
+    return -KERR_INVAL;
+
+  *libcount = (loaded_sym_t*)hashmap_get(app->exported_symbols, "__lib_entrycount");
+
+  if (!(*libcount))
+    return -KERR_INVAL;
+
+  *apptramp = (loaded_sym_t*)hashmap_get(app->exported_symbols, "___app_trampoline");
+
+  if (!(*apptramp))
+    return -KERR_INVAL;
+
+  return 0;
 }
 
 /*!
@@ -149,42 +176,48 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
  */
 kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
 {
+  /* Kernel addresses */
+  uint64_t* app_entrypoint_kaddr;
+  uint64_t* lib_entrypoints_kaddr;
+  uint64_t* lib_entrycount_kaddr;
+  /* Internal symbols of the app */
+  loaded_sym_t* app_entrypoint_sym;
+  loaded_sym_t* lib_entrypoints_sym;
+  loaded_sym_t* lib_entrycount_sym;
+  loaded_sym_t* tramp_start_sym;
   proc_t* proc;
-  vaddr_t trampoline_uaddr;
-  paddr_t trampoline_paddr;
-  vaddr_t trampoline_kaddr;
-
-  /* The trampoline has a memory limit of one page (Idk why but it does lmao) */
-  if (((uint64_t)&_app_trampoline_end - (uint64_t)&_app_trampoline) > SMALL_PAGE_SIZE)
-    return -KERR_MEM;
-
-  /* This would be fucked */
-  if ((vaddr_t)&_app_trampoline % SMALL_PAGE_SIZE != 0)
-    return -KERR_MEM;
+  dynamic_library_t* librt;
 
   proc = app->proc;
 
-  /* Doing the allocations this way ensures the kernel always knows where the memory is located */
-  trampoline_kaddr = Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
-  trampoline_paddr = kmem_to_phys(nullptr, trampoline_kaddr);
-  trampoline_uaddr = Must(kmem_user_alloc(proc, trampoline_paddr, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_READONLY, NULL));
+  /* Try to load the runtime library for this app */
+  if (!KERR_OK(load_dynamic_lib("librt.slb", app, &librt)))
+    return -KERR_INVAL;
 
-  __app_entrypoint = (uintptr_t)app->entry;
-  __lib_entrypoints = allocate_lib_entrypoint_vec(app, &__lib_entrycount);
+  /* Get the symbols we need to prepare the trampoline */
+  if (!KERR_OK(_get_librt_symbols(app, 
+          &app_entrypoint_sym,
+          &lib_entrypoints_sym,
+          &lib_entrycount_sym,
+          &tramp_start_sym
+          ))) {
+    return -KERR_INVAL;
+  }
 
-  /* Copy the entire page */
-  memcpy((void*)trampoline_kaddr, &_app_trampoline, SMALL_PAGE_SIZE);
+  /* We got the symbols, let's find map them into the kernel and place the correct values */
+  app_entrypoint_kaddr = proc_map_into_kernel(proc, app_entrypoint_sym->uaddr, sizeof(uint64_t));
+  lib_entrypoints_kaddr = proc_map_into_kernel(proc, lib_entrypoints_sym->uaddr, sizeof(uint64_t));
+  lib_entrycount_kaddr = proc_map_into_kernel(proc, lib_entrycount_sym->uaddr, sizeof(uint64_t));
 
-  /* Don't need the kernel address anymore */
-  kmem_unmap_page(nullptr, trampoline_kaddr);
+  *app_entrypoint_kaddr = (uint64_t)app->entry;
+  *lib_entrypoints_kaddr = allocate_lib_entrypoint_vec(app, lib_entrycount_kaddr);
 
-  __app_entrypoint = NULL;
-  __lib_entrypoints = NULL;
-  __lib_entrycount = NULL;
-
-  printf("Real entry addr=0x%llx\n", trampoline_uaddr);
+  /* Unmap from the kernel (These addresses might just all be in the same page (highly likely)) */
+  kmem_unmap_page(nullptr, (vaddr_t)app_entrypoint_kaddr);
+  kmem_unmap_page(nullptr, (vaddr_t)lib_entrypoints_kaddr);
+  kmem_unmap_page(nullptr, (vaddr_t)lib_entrycount_kaddr);
 
   /* FIXME: args? */
-  proc_set_entry(proc, (FuncPtr)trampoline_uaddr, NULL, NULL);
+  proc_set_entry(proc, (FuncPtr)tramp_start_sym->uaddr, NULL, NULL);
   return 0;
 }

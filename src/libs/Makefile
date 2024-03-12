@@ -2,6 +2,7 @@ export LIBRARY_OUT=$(OUT)/libs
 export LIBRARY_SRC=$(SRC)/libs
 
 LIBRARY_PATHS := \
+	./librt \
 	./LibC \
 	./LibGfx
 

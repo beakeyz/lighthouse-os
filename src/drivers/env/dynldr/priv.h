@@ -12,11 +12,7 @@
 struct proc;
 struct loaded_app;
 
-extern char _app_trampoline[];
-extern char _app_trampoline_end[];
-
 typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
-
 
 typedef struct elf_image {
   struct proc* proc;
@@ -64,7 +60,7 @@ typedef struct dynamic_library {
   list_t* dependencies;
 } dynamic_library_t;
 
-extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app);
+extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynamic_library_t** blib);
 extern kerror_t load_dependant_lib(const char* path, dynamic_library_t* library);
 extern kerror_t reload_dynamic_lib(dynamic_library_t* lib, struct loaded_app* target_app);
 extern kerror_t unload_dynamic_lib(dynamic_library_t* lib);

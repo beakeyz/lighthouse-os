@@ -125,6 +125,8 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
           break;
       }
 
+      //printf("Relocation (%d/%lld) type=%lld size=0x%llx\n", i, rela_count, ELF64_R_TYPE(current->r_info), size);
+
       if (!size)
         return Error();
 
@@ -462,13 +464,16 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
  */
 static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx, bool install)
 {
+  printf("Checking ...\n");
   /* TODO: implement + check signatures */
   if (__check_driver(ctx))
     return Error();
 
+  printf("Moving ...\n");
   if (IsError(__move_driver(ctx)))
     return Error();
 
+  printf("Initing ...\n");
   return __init_driver(ctx, install);
 }
 

@@ -1,5 +1,5 @@
 
 LIBRARY_NAME=LibGfx
-CAN_BE_SHARED=yes
+LINKTYPE=dynamic
 
 include ../library.mk

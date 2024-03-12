@@ -1,9 +1,5 @@
 DIRECTORY_GUARD=mkdir -p $(@D)
 
-# Gather the common source and objects
-COMMON_LIB_SRC := $(shell find $(LIBRARY_SRC)/common -type f -name '*.asm')
-COMMON_LIB_OBJS := $(patsubst %.asm,%.o,$(subst $(LIBRARY_SRC),$(LIBRARY_OUT),$(COMMON_LIB_SRC)))
-
 C_SRC := $(shell find $(THIS_SRC) -type f -name '*.c')
 ASM_SRC := $(shell find $(THIS_SRC) -type f -name '*.asm')
 # Libraries may have assembly in the intel syntax
@@ -42,25 +38,28 @@ $(LIBRARY_OUT)/%.o: $(LIBRARY_SRC)/%.asm
 # So change -o $(THIS_OUT)/... -> -o $(LIBRARY_BIN_PATH)/...
 #
 
-build-libc-shared: $(ASM_OBJ) $(C_OBJ) $(COMMON_LIB_OBJS)
+build-shared: $(ASM_OBJ) $(C_OBJ)
+ifeq ($(LIBRARY_NAME), LibC)
 	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
-
-build-shared: $(ASM_OBJ) $(C_OBJ) $(COMMON_LIB_OBJS)
+else
 	@$(LD) $(LIBRARY_SHARED_LDFLAGS) -l:LibC.slb $(DEPS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
+endif
 
 build-static: $(ASM_OBJ) $(C_OBJ) $(S_OBJ)
 	@$(LD) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_STATIC_FILE_EXT) \
 		$(LIBRARY_STATIC_LDFLAGS)
 
 build:
-ifeq ($(CAN_BE_SHARED), yes)
-ifeq ($(LIBRARY_NAME), LibC)
-	@$(MAKE) build-libc-shared
-else
+ifeq ($(LINKTYPE), dynamic)
+	@$(MAKE) build-static
 	@$(MAKE) build-shared
 endif
-endif
+ifeq ($(LINKTYPE), static)
 	@$(MAKE) build-static
+endif
+ifeq ($(LINKTYPE), shared)
+	@$(MAKE) build-shared
+endif
 	@echo "Built lib: " $(LIBRARY_NAME)
 
 .PHONY: build-shared build-libc-shared build-static

@@ -446,7 +446,7 @@ static kerror_t __elf_process_dynsect_info(elf_image_t* image, loaded_app_t* app
       goto cycle;
 
     /* Load the library */
-    error = load_dynamic_lib((const char*)(image->elf_dynstrtab + dyns_entry->d_un.d_val), app);
+    error = load_dynamic_lib((const char*)(image->elf_dynstrtab + dyns_entry->d_un.d_val), app, NULL);
 
     if (!KERR_OK(error) && kerror_is_fatal(error))
       return error;
@@ -523,7 +523,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap)
       struct elf64_sym* sym = &symtable_start[ELF64_R_SYM(table[i].r_info)];
       const char* symname = image->elf_dynstrtab + sym->st_name;
 
-      //printf("Need to relocate symbol %s\n", symname);
+      printf("Need to relocate symbol %s\n", symname);
 
       /* Where we are going to change stuff */
       const vaddr_t P = Must(kmem_get_kernel_address((vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root));

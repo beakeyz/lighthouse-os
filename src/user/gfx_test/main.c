@@ -16,6 +16,9 @@ lframebuffer_t fb;
 
 int main() 
 {
+  /* Test */
+  return 5557;
+
   BOOL res;
 
   /* Initialize the graphics API */

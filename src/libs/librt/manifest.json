@@ -1,9 +1,8 @@
 {
-  "name": "LibGfx",
+  "name": "librt",
   "path": "System/Lib",
   "linking": "dynamic",
   "type": "library",
   "libs": [
-    "LibC"
   ]
 }

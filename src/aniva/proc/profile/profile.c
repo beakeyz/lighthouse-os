@@ -521,6 +521,8 @@ static void __apply_global_variables()
   /* Path variable to indicate default locations for executables */
   profile_add_var(&global_profile, create_profile_var("PATH", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/User/Global/Apps")));
   profile_add_var(&global_profile, create_profile_var(LIBSPATH_VAR, PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib")));
+  /* Name of the runtime library */
+  profile_add_var(&global_profile, create_profile_var("LIBRT_NAME", PROFILE_VAR_TYPE_STRING, PVAR_FLAG_GLOBAL, PROFILE_STR("librt.slb")));
 }
 
 /*!

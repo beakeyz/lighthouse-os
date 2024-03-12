@@ -1,7 +1,6 @@
 [section .text]
 
-[global _app_trampoline]
-[global _app_trampoline_end]
+[global ___app_trampoline]
 
 [global __app_entrypoint]
 [global __lib_entrypoints]
@@ -23,19 +22,7 @@
 ; TODO: Test this bitch lmao
 ;
 align 4096
-_app_trampoline:
-  jmp __real_start
-
-; (rdi=(DYNAPP_ENTRY_t) app_entry, rsi=(DYNLIB_ENTRY_t*) lib_entries, rdx=(uint32_t) lib_entry_count)
-__app_entrypoint:
-  dq 0
-__lib_entrypoints:
-  dq 0
-__lib_entrycount:
-  dq 0
-
-; Where execution actually starts xD
-__real_start:
+___app_trampoline:
   ; Save our shit
   push rdi
   push rsi
@@ -43,14 +30,24 @@ __real_start:
   push rcx
 
   ; Move the pointers for the inits into registers
-  mov rdi, [__app_entrypoint]
-  mov rsi, [__lib_entrypoints]
-  mov rdx, [__lib_entrycount]
+  lea rdi, [rel __app_entrypoint]
+  lea rsi, [rel __lib_entrypoints]
+  lea rdx, [rel __lib_entrycount]
   mov rcx, rdx
 
+  ; Now move the actual values at those addresses into the pointers
+  mov rdi, [rdi]
+  mov rsi, [rsi]
+  mov rdx, [rdx]
+
 __init_lib:
+  ; Check our counter
+  cmp rcx, 0
+  ; No libraries to init at this point, let's go to the main entry yay
+  je __libinit_end
 
   ; Preserve the sys-v registers
+  push rcx
   push rdi
   push rsi
   push rdx
@@ -59,14 +56,17 @@ __init_lib:
   mov rdi, 0
   mov rsi, 0
   mov rdx, 0
+  mov rcx, 0
 
   ; Call the library entry
-  call [rsp+8]
+  mov rax, [rsp+8]
+  call [rax]
 
   ; Restore the registers
   pop rdx
   pop rsi
   pop rdi
+  pop rcx
 
   ; Check if the library call failed
   cmp rax, 0
@@ -75,10 +75,13 @@ __init_lib:
   ; Move to the next library entry
   add rsi, 8
 
-  ; Do an itteration
+  ; Decrement our counter and itterate
   dec rcx
-  cmp rcx, 0
-  je __init_lib
+  jmp __init_lib
+__libinit_end:
+
+  ; Move the app entry to rax for safekeeping
+  mov rax, rdi
 
   ; Restore the registers which contain the actual
   ; parameters for our userspace application
@@ -88,7 +91,7 @@ __init_lib:
   pop rdi
 
   ; Call the app entry
-  call rdi
+  call rax
 
 __exit_error:
   ; Prepare the SYSID_EXIT syscall
@@ -106,7 +109,10 @@ __exit_error:
 __exit_loop:
   jmp __exit_loop;
 
-_app_trampoline_end:
-
-; Fill the rest of the page
-times (4096 - (_app_trampoline_end - _app_trampoline)) db 0
+; (rdi=(DYNAPP_ENTRY_t) app_entry, rsi=(DYNLIB_ENTRY_t*) lib_entries, rdx=(size_t) lib_entry_count)
+__app_entrypoint:
+  dq 0
+__lib_entrypoints:
+  dq 0
+__lib_entrycount:
+  dq 0
