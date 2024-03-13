@@ -22,8 +22,8 @@
  *    if so, run the installer (which creates the partition, installs the fs and the system)
  *  - Find the vector of further bootstrap applications to run and run them
  */
-int main() {
-
+int main() 
+{
   /*
    * FIXME: are we going to give every path root a letter like windows, 
    * or do we just have one root like linux/unix?

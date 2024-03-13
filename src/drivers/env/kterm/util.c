@@ -70,7 +70,7 @@ uint32_t kterm_cmd_clear(const char** argv, size_t argc)
  *
  * Nothing to add here...
  */
-static inline uint32_t __page_count_to_mib(uint32_t page_count)
+static inline uint64_t __page_count_to_mib(uint64_t page_count)
 {
   return ((page_count * SMALL_PAGE_SIZE) / (Mib));
 }

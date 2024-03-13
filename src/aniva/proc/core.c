@@ -121,7 +121,8 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
  * of 1024 processes we would need 16 qwords or 16 * 8 = 128 bytes
  * in our bitmap.
  */
-ErrorOrPtr generate_new_proc_id() {
+ErrorOrPtr generate_new_proc_id() 
+{
   uintptr_t next = atomic_ptr_read(__next_proc_id);
 
   /* Limit exceeded, since a proc_id is always 32-bit here (for now) */

@@ -104,6 +104,8 @@ static int _loader_init()
 
 /*!
  * @brief: Destruct the drivers structures
+ *
+ * TODO: Kill any processes that are still registered
  */
 static int _loader_exit()
 {

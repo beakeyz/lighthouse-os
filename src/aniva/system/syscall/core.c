@@ -130,24 +130,26 @@ typedef struct syscall_args {
   uint64_t arg2;
   uint64_t arg3;
   uint64_t arg4;
-  uint64_t syscall_id;
+  enum SYSID syscall_id;
 } syscall_args_t;
 
-static syscall_args_t __syscall_parse_args(registers_t* regs)
+static int __syscall_parse_args(registers_t* regs, syscall_args_t* args)
 {
   /* Caller should handle this */
   if (!regs)
-    return (syscall_args_t) { 0 };
+    return -1;
 
   /* Here, our beautiful calling convention */
-  return (syscall_args_t) {
-    .syscall_id = regs->rax,
+  *args = (syscall_args_t) {
     .arg0 = regs->rbx,
     .arg1 = regs->rdx,
     .arg2 = regs->rdi,
     .arg3 = regs->rsi,
     .arg4 = regs->r8,
+    .syscall_id = (enum SYSID)regs->rax,
   };
+
+  return 0;
 }
 
 static void __syscall_set_retval(registers_t* regs, uintptr_t ret)
@@ -155,7 +157,7 @@ static void __syscall_set_retval(registers_t* regs, uintptr_t ret)
   regs->rax = ret;
 }
 
-static bool __syscall_verify_sysid(syscall_id_t id)
+static bool __syscall_verify_sysid(enum SYSID id)
 {
   if (id >= __static_syscall_count)
     return false;
@@ -173,11 +175,13 @@ void sys_handler(registers_t* regs) {
 
   ASSERT_MSG(regs, "Somehow we got no registers from the syscall entry!");
 
-  args = __syscall_parse_args(regs);
+  /* Should not fail lmao */
+  ASSERT(__syscall_parse_args(regs, &args) == 0);
 
   /* Verify that this syscall id is valid and has a valid handler */
   if (!__syscall_verify_sysid(args.syscall_id)) {
     /* TODO: murder the disbehaving process */
+    printf("Tried to call %d\n", args.syscall_id);
     kernel_panic("Tried to call an invalid syscall!");
   }
 

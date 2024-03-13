@@ -1,9 +1,9 @@
 #ifndef __ANIVA_SYSCALL_CORE__
 #define __ANIVA_SYSCALL_CORE__
 #include <libk/stddef.h>
+#include "lightos/syscall.h"
 #include "system/processor/registers.h"
 #include "system/processor/processor_info.h"
-#include "proc/thread.h"
 
 /*
  * This header represents the core of the kernel syscall system
@@ -11,8 +11,6 @@
  * by giving them these functions that we then call in to when the syscall
  * is invoked.
  */
-
-typedef uint32_t syscall_id_t;
 
 typedef uint64_t (*sys_fn_t)(
     uint64_t arg0,
@@ -33,7 +31,7 @@ typedef uint64_t (*sys_fn_t)(
  */
 typedef struct syscall {
   uint32_t m_flags;
-  syscall_id_t m_id;
+  enum SYSID m_id;
   sys_fn_t m_handler;
 } syscall_t;
 

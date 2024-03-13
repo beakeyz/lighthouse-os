@@ -322,7 +322,7 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
   selected_range = NULL;
 
   /* Make sure we're allocating on page boundries */
-  size = ALIGN_UP(size, SMALL_PAGE_SIZE);
+  size = ALIGN_UP(size + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
 
   printf("Looking for %lld bytes\n", size);
   printf("We already have %lld bytes mapped\n", early_map_size);
@@ -363,7 +363,7 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
     return -1;
 
   /* Create a new dummy range */
-  range->start = selected_range->start;
+  range->start = ALIGN_DOWN(selected_range->start, SMALL_PAGE_SIZE);
   range->length = size;
   range->type = PMRT_RESERVED;
 
@@ -410,7 +410,7 @@ static void kmem_init_physical_allocator()
   physical_bitmap->m_entries = physical_pages_bytes * 8;
   physical_bitmap->m_default = 0xff;
 
-  printf("Trying to initialize our bitmap with %lld entries\n", physical_bitmap->m_entries);
+  printf("Trying to initialize our bitmap at 0x%llx with %lld entries\n", bitmap_start_addr, physical_bitmap->m_entries);
 
   memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
 
@@ -429,15 +429,16 @@ static void kmem_init_physical_allocator()
     base = range->start;
     size = range->length;
 
-    // should already be page aligned
-    for (uintptr_t i = 0; i < GET_PAGECOUNT(base, size); i++) {
-      paddr_t addr = base + i * SMALL_PAGE_SIZE;
-
-      uintptr_t phys_page_idx = kmem_get_page_idx(addr);
-
-      kmem_set_phys_page_free(phys_page_idx);
-    }
+    /* Base and size should already be page-aligned */
+    kmem_set_phys_range_free(
+        kmem_get_page_idx(base),
+        GET_PAGECOUNT(base, size));
   }
+  
+  /* Make sure this is safe */
+  kmem_set_phys_range_used(
+      kmem_get_page_idx(bm_range.start),
+      GET_PAGECOUNT(bm_range.start, bm_range.length));
 
   /* Reserve the bottom megabyte of physical memory */
   const size_t low_reserve = 64 * Kib;
@@ -474,7 +475,7 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr)
  */
 uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) 
 {
-  pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
+  pml_entry_t *page = kmem_get_page(root, ALIGN_DOWN(addr, SMALL_PAGE_SIZE), 0, 0);
 
   if (page == nullptr)
     return NULL;
@@ -1075,6 +1076,10 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, ui
     if (!was_used && !ignore_unused)
       return Warning();
 
+    if (!paddr) {
+      printf("vaddr: %llx \n", vaddr);
+      kernel_panic("???");
+    }
     kmem_set_phys_page_free(page_idx);
 
     if (unmap && !kmem_unmap_page(map, vaddr))
@@ -1150,7 +1155,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, padd
      * allocated internally. This is because otherwise we won't be able to find this resource again if we 
      * try to release it
      */
-    resource_claim_ex("kmem alloc", nullptr, ret, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
+    resource_claim_ex("kmem alloc", nullptr, ALIGN_DOWN(ret, SMALL_PAGE_SIZE), pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
   }
 
   return Success(ret);
@@ -1159,14 +1164,20 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, padd
 ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags) 
 {
   ErrorOrPtr result;
-  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = GET_PAGECOUNT(vbase, size);
   const bool should_identity_map = (custom_flags & KMEM_CUSTOMFLAG_IDENTITY)  == KMEM_CUSTOMFLAG_IDENTITY;
   const bool should_remap = (custom_flags & KMEM_CUSTOMFLAG_NO_REMAP) != KMEM_CUSTOMFLAG_NO_REMAP;
 
   result = bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, pages_needed);
 
-  if (IsError(result))
+  if (IsError(result)) {
+    printf("WTFFFFFF asking for %lld bytes, bitmap entries=%lld\n", size, KMEM_DATA.m_phys_bitmap->m_entries);
+
+    for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_entries; i++) {
+      printf("%d", bitmap_isset(KMEM_DATA.m_phys_bitmap, i));
+    }
     return result;
+  }
 
   const uintptr_t phys_idx = Release(result);
   const paddr_t addr = kmem_get_page_addr(phys_idx);
@@ -1184,7 +1195,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t* resources, v
     return Error();
 
   if (resources)
-    resource_claim_ex("kmem alloc range", nullptr, virt_base, pages_needed * SMALL_PAGE_SIZE, KRES_TYPE_MEM, resources);
+    resource_claim_ex("kmem alloc range", nullptr, ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE), (pages_needed * SMALL_PAGE_SIZE), KRES_TYPE_MEM, resources);
 
   return Success(virt_base);
 }
@@ -1200,7 +1211,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t* 
   vaddr_t v_addr;
 
   const vaddr_t v_base = ALIGN_DOWN(vbase, SMALL_PAGE_SIZE);
-  const size_t pages_needed = ALIGN_UP(size, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
+  const size_t pages_needed = GET_PAGECOUNT(vbase, size);
 
   /*
    * 1) Loop for as many times as we need pages
@@ -1372,7 +1383,9 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
    * For that we'll have to use the kernel allocation feature to instantly map
    * it somewhere for us in kernelspace =D
    */
-  pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_alloc_range(nullptr, nullptr, KERNEL_MAP_BASE, SMALL_PAGE_SIZE, 0, 0));
+  pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, 0));
+
+  printf("Creating a new page dir: 0x%p\n", table_root);
 
   /* Clear root, so we have no random mappings */
   memset(table_root, 0, SMALL_PAGE_SIZE);
@@ -1487,8 +1500,8 @@ static ErrorOrPtr __clear_shared_kernel_mapping(pml_entry_t* dir)
  * NOTE: Keep this function in mind, it might be really buggy, indicated by the comments above written
  * by me from 1 year ago or something lmao
  */
-ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) {
-
+ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir) 
+{
   //if (__is_current_pagemap(dir))
   //  return Error();
 

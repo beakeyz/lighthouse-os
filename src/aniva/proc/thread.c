@@ -63,13 +63,13 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         proc->m_resource_bundle,
-        HIGH_MAP_BASE,
+        KERNEL_MAP_BASE,
         DEFAULT_STACK_SIZE,
         KMEM_CUSTOMFLAG_CREATE_USER,
         KMEM_FLAG_WRITABLE));
 
   /* Compute the kernel stack top */
-  thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE, 16);
+  thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
   thread->m_user_stack_top = 0;
   thread->m_user_stack_bottom = 0;
 
@@ -97,7 +97,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
         KMEM_FLAG_WRITABLE));
 
     /* TODO: subtract random offset */
-    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE, 16);
+    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
 
     memset(
         (void*)Must(kmem_get_kernel_address(thread->m_user_stack_bottom, proc->m_root_pd.m_root))

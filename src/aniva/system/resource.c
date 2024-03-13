@@ -1,10 +1,7 @@
 #include "resource.h"
 #include "entry/entry.h"
-#include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -261,7 +258,7 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
 
   if (!__resource_mutex || !__resource_allocator || !regions || !__resource_type_is_valid(type))
     return Error();
-
+  
   mutex_lock(__resource_mutex);
 
   /* Find the lowest resource that collides with this range */
@@ -632,7 +629,10 @@ static void __clear_mem_resource(kresource_t* resource, kresource_bundle_t* bund
   uint64_t start = resource->m_start;
   uint64_t size = resource->m_size;
 
+  //printf("(%s) Start: 0x%llx, Size: 0x%llx, dir: %p\n", resource->m_name, start, resource->m_size, bundle->page_dir);
+
   __kmem_dealloc_ex(bundle->page_dir ? bundle->page_dir->m_root : NULL, bundle, start, size, false, true, true);
+
 }
 
 /*!
@@ -661,9 +661,8 @@ static void __bundle_clear_resources(kresource_bundle_t* bundle)
       size_t size = current->m_size;
 
       /* Skip mirrors with size zero or no references */
-      if (!size || !current->m_shared_count) {
+      if (!size || !current->m_shared_count)
         goto next_resource;
-      }
 
       /* TODO: destry other resource types */
       switch (current->m_type) {

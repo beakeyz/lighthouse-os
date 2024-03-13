@@ -5,8 +5,8 @@
  * Define constants for the dyn_ldr driver
  */
 
-#define DYN_LDR_NAME "dyn_ldr"
-#define DYN_LDR_URL "other/dyn_ldr"
+#define DYN_LDR_NAME "dynldr"
+#define DYN_LDR_URL "other/dynldr"
 
 enum DYNLDR_MSG_CODE {
   /* Ask the loader to load an entire app with all it's shared libraries */

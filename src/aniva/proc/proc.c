@@ -196,7 +196,6 @@ void destroy_proc(proc_t* proc)
     destroy_thread(i->data);
   }
 
-
   /* Yeet handles */
   __proc_clear_handles(proc);
 
