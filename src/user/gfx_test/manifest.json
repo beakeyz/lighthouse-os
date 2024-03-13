@@ -3,6 +3,5 @@
   "linking": "dynamic",
   "type": "process",
   "libs": [
-    "LibGfx"
   ]
 }

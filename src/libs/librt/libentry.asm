@@ -33,12 +33,13 @@ ___app_trampoline:
   lea rdi, [rel __app_entrypoint]
   lea rsi, [rel __lib_entrypoints]
   lea rdx, [rel __lib_entrycount]
-  mov rcx, rdx
 
   ; Now move the actual values at those addresses into the pointers
   mov rdi, [rdi]
   mov rsi, [rsi]
   mov rdx, [rdx]
+
+  mov rcx, rdx
 
 __init_lib:
   ; Check our counter

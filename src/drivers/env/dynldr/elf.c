@@ -93,13 +93,11 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 
     switch (c_phdr->p_type) {
       case PT_LOAD:
-        {
-          /* Find the low and high ends */
-          if (c_phdr->p_vaddr < user_low)
-              user_low = c_phdr->p_vaddr;
-          if (c_phdr->p_memsz + c_phdr->p_vaddr > user_high)
-              user_high = c_phdr->p_memsz + c_phdr->p_vaddr;
-        }
+        /* Find the low and high ends */
+        if (c_phdr->p_vaddr < user_low)
+            user_low = c_phdr->p_vaddr;
+        if (c_phdr->p_memsz + c_phdr->p_vaddr > user_high)
+            user_high = c_phdr->p_memsz + c_phdr->p_vaddr;
         break;
     }
   }
@@ -107,7 +105,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   /* Simple delta */
   image->user_image_size = user_high - user_low;
   /* With this we can find the user base */
-  image->user_base = (void*)ALIGN_DOWN(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, ALIGN_UP(image->user_image_size + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE))), SMALL_PAGE_SIZE);
+  image->user_base = (void*)ALIGN_UP(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, ALIGN_UP(image->user_image_size + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE))), SMALL_PAGE_SIZE);
 
   printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 

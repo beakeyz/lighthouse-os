@@ -1,6 +1,5 @@
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
-#include "libk/data/bitmap.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"

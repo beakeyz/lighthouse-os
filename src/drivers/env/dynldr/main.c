@@ -83,6 +83,8 @@ static int _dyn_loader_proc_hook(kevent_ctx_t* _ctx)
    * event handler, continue to destory the process and THEN call the deferred handler, right after
    * we've already gotter rid of the process...
    */
+  printf("Process: %s\n", ctx->process->m_name);
+  kernel_panic("Hit dynamic process destroy hook");
 
   return 0;
 }
