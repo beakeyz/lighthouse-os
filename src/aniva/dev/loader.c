@@ -464,16 +464,13 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
  */
 static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx, bool install)
 {
-  printf("Checking ...\n");
   /* TODO: implement + check signatures */
   if (__check_driver(ctx))
     return Error();
 
-  printf("Moving ...\n");
   if (IsError(__move_driver(ctx)))
     return Error();
 
-  printf("Initing ...\n");
   return __init_driver(ctx, install);
 }
 

@@ -967,15 +967,12 @@ int kterm_init()
   //Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_kterm_fb_ sizeof(fb_info_t)));
 
-  printf("Getting main\n");
   /* Initialize framebuffer and video stuff */
   ASSERT_MSG(vdev_get_mainfb(_kterm_vdev->device, &_kterm_fb_handle) == 0, "kterm: Failed to get main fb handle!");
 
-  printf("Mapping main\n");
   /* Map the framebuffer to our base */
   vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
 
-  printf("Getting stuff\n");
   _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
   _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
   _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);

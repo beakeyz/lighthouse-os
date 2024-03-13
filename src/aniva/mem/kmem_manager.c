@@ -1076,10 +1076,6 @@ ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, ui
     if (!was_used && !ignore_unused)
       return Warning();
 
-    if (!paddr) {
-      printf("vaddr: %llx \n", vaddr);
-      kernel_panic("???");
-    }
     kmem_set_phys_page_free(page_idx);
 
     if (unmap && !kmem_unmap_page(map, vaddr))
@@ -1170,14 +1166,8 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t* resources, v
 
   result = bitmap_find_free_range(KMEM_DATA.m_phys_bitmap, pages_needed);
 
-  if (IsError(result)) {
-    printf("WTFFFFFF asking for %lld bytes, bitmap entries=%lld\n", size, KMEM_DATA.m_phys_bitmap->m_entries);
-
-    for (uintptr_t i = 0; i < KMEM_DATA.m_phys_bitmap->m_entries; i++) {
-      printf("%d", bitmap_isset(KMEM_DATA.m_phys_bitmap, i));
-    }
+  if (IsError(result))
     return result;
-  }
 
   const uintptr_t phys_idx = Release(result);
   const paddr_t addr = kmem_get_page_addr(phys_idx);
@@ -1384,8 +1374,6 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
    * it somewhere for us in kernelspace =D
    */
   pml_entry_t* table_root = (pml_entry_t*)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, 0));
-
-  printf("Creating a new page dir: 0x%p\n", table_root);
 
   /* Clear root, so we have no random mappings */
   memset(table_root, 0, SMALL_PAGE_SIZE);
