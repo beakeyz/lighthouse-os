@@ -247,11 +247,13 @@ static inline void _finalise_load(loaded_app_t* app)
 {
   loaded_app_set_entry_tramp(app);
 
+  /*
   printf("Trying to enter: 0x%llx\n", app->proc->m_init_thread->m_context.rip);
 
   sched_add_priority_proc(app->proc, true);
 
   for (;;) {scheduler_yield();}
+  */
 }
 
 static kerror_t _do_load(file_t* file, loaded_app_t* app)
@@ -283,7 +285,7 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
  * This will result in a new process wrapped inside a loaded_app struct when 
  * the returnvalue is KERR_NONE
  */
-kerror_t load_app(file_t* file, loaded_app_t** out_app)
+kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
 {
   kerror_t error;
   proc_id_t pid;
@@ -321,10 +323,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app)
   /* Idk */
   ASSERT(KERR_OK(error));
 
-  kernel_panic("FIXME: finish load");
-
-//dealloc_and_exit:
-  //kernel_panic("load_app failed!");
+  *bpid = pid;
   return error;
 }
 

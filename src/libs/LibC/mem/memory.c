@@ -1,9 +1,8 @@
-
 #include "memory.h"
-#include "lightos/syscall.h"
+#include "lightos/memory/alloc.h"
+#include "lightos/memory/memflags.h"
+#include <assert.h>
 #include <lightos/system.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 /*
@@ -15,309 +14,243 @@
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
+#define POOLENTRY_USED_BIT 0x8000000000000000ULL
+/*
+ * A single entry inside the pool
+ */
+struct malloc_pool_entry {
+  uintptr_t attr;
 
-static uint32_t default_range_entry_sizes[] = {
-  [0] = 8,
-  [1] = 16,
-  [2] = 24,
-  [3] = 32,
-  [4] = 64,
-  [5] = 88,
-  [6] = 128,
-  [7] = 188,
-  [8] = 256,
-  [9] = 512,
-  [10] = Kib,
-  [11] = (2 * Kib),
-  [12] = (4 * Kib),
-  [13] = (8 * Kib),
-  [14] = (16 * Kib),
-  [15] = (40 * Kib),
-  [16] = (64 * Kib),
-  [17] = (96 * Kib),
-  [18] = (256 * Kib),
-  [19] = (512 * Kib),
+  uint8_t data[];
 };
 
-const static uint32_t default_entry_sizes = sizeof default_range_entry_sizes / sizeof default_range_entry_sizes[0];
+static inline void* _poolentry_get_data(struct malloc_pool_entry* entry)
+{
+  return entry->data;
+}
 
-#define DEFAULT_INITIAL_RANGE_SIZE (512 * Kib)
+static inline struct malloc_pool_entry* _data_get_malloc_pool_entry(void* data)
+{
+  return (struct malloc_pool_entry*)((uintptr_t)data - sizeof(struct malloc_pool_entry));
+}
+
+static inline uintptr_t _poolentry_get_next_free(struct malloc_pool_entry* entry)
+{
+  return (uintptr_t)(entry->attr & ~(POOLENTRY_USED_BIT));
+}
+
+static inline void _poolentry_set_next_free(struct malloc_pool_entry* entry, uintptr_t next)
+{
+  /* This should really never happen xD */
+  assert((next & POOLENTRY_USED_BIT) != POOLENTRY_USED_BIT);
+
+  entry->attr &= POOLENTRY_USED_BIT;
+  entry->attr |= next;
+}
 
 /*
- * A range of malloc buckets
+ * A pool of dynamic memory
+ *
+ * Pools are organised as followed: We order pools based on their entry_size field. We group pools together with
+ * the same entry_sizes in a linked list. 
  */
-struct malloc_range {
-  struct malloc_range* m_next_size;
-  struct malloc_range* m_next;
-  uint32_t m_data_size;
-  uint32_t m_entry_size;
-  uint32_t m_data_start_offset;
-  uint8_t m_bytes[];
+struct malloc_pool {
+  struct malloc_pool* m_next_size;
+  struct malloc_pool* m_next_sibling;
+  size_t m_data_size;
+  size_t m_entry_size;
+  uint8_t m_poolentries[];
 };
 
-/*
- * The bitmap is used for keeping track of the allocations per malloc range
- */
-struct malloc_bitmap {
-  uint32_t entry_count;
-  uint8_t m_bits[];
-};
-
-static struct malloc_range* __start_range;
-
-static struct malloc_range* __malloc_get_privious_size(uint32_t entry_size)
+static inline size_t _get_total_entrysize(size_t entrysize)
 {
-  struct malloc_range* ittr;
-  struct malloc_range* prev;
-
-  ittr = __start_range;
-  prev = nullptr;
-
-  while (ittr) {
-
-    /* This size already exists: just stick it below it */
-    if (ittr->m_entry_size == entry_size)
-      return ittr;
-
-    /* We reached the end: stick it at tbitmap->entry_count << ohe end */
-    if (ittr->m_entry_size < entry_size && !ittr->m_next_size)
-      return ittr;
-
-    /* We've just passed it: return the previous one */
-    if (ittr->m_entry_size > entry_size)
-      return prev;
-
-    prev = ittr;
-    ittr = ittr->m_next_size;
-  }
-
-  return nullptr;
+  return entrysize + sizeof(struct malloc_pool_entry);
 }
 
-/*
- * Make a bitmap that optimizes the amount of entries we can hold
- */
-static void __malloc_init_bitmap(struct malloc_range* range)
+static inline struct malloc_pool_entry* _pool_get_entry(struct malloc_pool* pool, uintptr_t idx)
 {
-  uint32_t prev_bitmap_size;
-  uint32_t start_data_size;
-  uint32_t entry_count;
-  uint32_t bitmap_size;
-  struct malloc_bitmap* bitmap;
+  idx *= _get_total_entrysize(pool->m_entry_size);
 
-  entry_count = NULL;
-  bitmap_size = NULL;
-  start_data_size = range->m_data_size;
-  bitmap = (struct malloc_bitmap*)&range->m_bytes[0];
-
-  do {
-    entry_count = ALIGN_DOWN(range->m_data_size, range->m_entry_size) / range->m_entry_size;
-
-    prev_bitmap_size = bitmap_size;
-    bitmap_size = (entry_count >> 3);
-
-    range->m_data_size = start_data_size - bitmap_size;
-
-  } while (prev_bitmap_size != bitmap_size);
-
-  bitmap->entry_count = entry_count;
-
-  memset(&bitmap->m_bits, 0, bitmap_size);
-}
-
-static inline struct malloc_bitmap* malloc_get_bitmap(struct malloc_range* range) 
-{
-  return (struct malloc_bitmap*)(&range->m_bytes[0]);
-}
-
-static inline uint8_t* malloc_range_get_start(struct malloc_range* range)
-{
-  return (&range->m_bytes[range->m_data_start_offset]);
-}
-
-/*!
- * @brief: Tries to get an index for a specific entrysize
- *
- * @returns: The positive index on success, a negative errorcode on error
- */
-static inline int __malloc_get_idx_for_size(size_t entrysize)
-{
-  uint32_t ret = 0;
-
-  do {
-
-    if (default_range_entry_sizes[ret] == entrysize)
-      return ret;
-
-  } while (ret++ < default_entry_sizes);
-
-  return -1;
-}
-
-/*
- * Add a range of a pagealigned size
- */
-static void __add_malloc_size_range(uint32_t total_size, uint32_t entry_size_idx)
-{
-  void* buffer;
-  uint32_t data_size;
-  uint32_t bitmap_size;
-  struct malloc_range* previous;
-  struct malloc_range* range;
-  syscall_result_t result;
-
-  if (!total_size)
-    return;
-
-  result = syscall_3(SYSID_ALLOCATE_PAGES, total_size, NULL, (uint64_t)&buffer);
-
-  if (result != SYS_OK)
-    return;
-
-  range = (struct malloc_range*)buffer;
-
-  memset(range, 0, sizeof(struct malloc_range));
-
-  /* Point this range to the previous first range */
-  range->m_data_size = total_size - sizeof(struct malloc_range) - sizeof(struct malloc_bitmap);
-  range->m_entry_size = default_range_entry_sizes[entry_size_idx];
-
-  __malloc_init_bitmap(range);
-
-  range->m_data_start_offset = ALIGN_UP((sizeof(struct malloc_bitmap) + (malloc_get_bitmap(range)->entry_count >> 3)), range->m_entry_size);
-
-  previous = __malloc_get_privious_size(range->m_entry_size);
-
-  if (!previous) {
-    __start_range = range;
-    return;
-  }
-
-  range->m_next_size = previous->m_next_size;
-
-  if (previous->m_entry_size == range->m_entry_size) {
-    range->m_next = previous->m_next;
-    previous->m_next = range;
-  } else {
-    previous->m_next_size = range;
-  }
-}
-
-/*!
- * @brief Check if a malloc range contains an address
- *
- * Nothing to add here...
- */
-static bool malloc_range_contains(struct malloc_range* range, uint64_t addr)
-{
-  uint64_t start = (uint64_t)malloc_range_get_start(range);
-  return (addr >= start && addr < start + range->m_data_size);
-}
-
-/*!
- * @brief Find the range that contains an address
- *
- * Nothing to add here...
- */
-static struct malloc_range* malloc_find_containing_range(uint64_t addr)
-{
-  struct malloc_range* previous;
-  struct malloc_range* current;
-
-  current = __start_range;
-
-  while (current) {
-    previous = current;
-
-    if (malloc_range_contains(current, addr))
-      return current;
-
-    current = previous->m_next;
-
-    if (!current)
-      current = previous->m_next_size;
-  }
-
-  return nullptr;
-}
-
-static struct malloc_range* malloc_find_range_for_size(size_t size)
-{
-  struct malloc_range* current;
-
-  if (!size || size > default_range_entry_sizes[default_entry_sizes-1])
+  if (idx >= pool->m_data_size)
     return nullptr;
 
-  current = __start_range;
-
-  do {
-
-    /* Just use the first range that fits the size */
-    if (size <= current->m_entry_size)
-      return current;
-
-    current = current->m_next_size;
-  } while(current);
-
-  return nullptr;
+  return (struct malloc_pool_entry*)&pool->m_poolentries[idx];
 }
 
-static bool malloc_range_is_idx_used(struct malloc_range* range, uint32_t index)
+static inline bool _pool_is_valid_pointer(struct malloc_pool* pool, void* data)
 {
-  struct malloc_bitmap* bitmap;
+  struct malloc_pool_entry* entry;
 
-  bitmap = malloc_get_bitmap(range);
-
-  uint32_t index_word = index / 8;
-  uint32_t index_bit = index % 8;
-
-  return (bitmap->m_bits[index_word] & (1 << index_bit)) == (1 << index_bit);
-}
-
-static bool malloc_find_free_offset(struct malloc_range* range, uint32_t* result)
-{
-  uint16_t entry;
-  struct malloc_bitmap* bitmap;
-
-  if (!result)
+  if (!data)
     return false;
 
-  bitmap = malloc_get_bitmap(range);
+  entry = _data_get_malloc_pool_entry(data);
 
-  for (uint32_t i = 0; i < bitmap->entry_count; i++) {
-    if (malloc_range_is_idx_used(range, i))
-      continue;
-
-    *result = i;
-    return true;
-  }
-
+  /* TODO: Verify the entries hash */
+  (void)entry;
   return false;
 }
 
-static void malloc_range_set_free(struct malloc_range* range, uint32_t offset)
+static struct malloc_pool* __start_range;
+
+/*!
+ * @brief: Find a pool which supports our allocationsize
+ *
+ * This only finds the top size pool. This should be the head of the sibling chain
+ */
+static struct malloc_pool* _find_malloc_pool(size_t entrysize)
 {
-  struct malloc_bitmap* bitmap;
+  struct malloc_pool* walker;
 
-  bitmap = malloc_get_bitmap(range);
+  walker = __start_range;
 
-  uint32_t index_word = offset / 8;
-  uint32_t index_bit = offset % 8;
+  while (walker) {
+    if (walker->m_entry_size == entrysize)
+      return walker;
 
-  bitmap->m_bits[index_word] &= ~(1 << index_bit);
+    walker = walker->m_next_size;
+  }
+
+  return nullptr;
 }
 
-static void malloc_range_set_used(struct malloc_range* range, uint32_t offset)
+static struct malloc_pool* _create_malloc_pool(size_t entrysize)
 {
-  struct malloc_bitmap* bitmap;
+  size_t poolsize;
+  struct malloc_pool* ret;
 
-  bitmap = malloc_get_bitmap(range);
+  poolsize = entrysize * 16;
 
-  uint32_t index_word = offset / 8;
-  uint32_t index_bit = offset % 8;
+  /* Allocate a memorypool where we can put our malloc pool */
+  ret = allocate_pool(&poolsize, MEMPOOL_FLAG_RW, MEMPOOL_TYPE_DEFAULT);
 
-  bitmap->m_bits[index_word] |= (1 << index_bit);
+  /* Syscall memory for us */
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
+  ret->m_entry_size = entrysize;
+  ret->m_data_size = ALIGN_DOWN(poolsize - sizeof(*ret), _get_total_entrysize(ret->m_entry_size));
+  ret->m_next_sibling = NULL;
+  ret->m_next_size = NULL;
+
+  memset(ret->m_poolentries, 0, ret->m_data_size);
+
+  return ret;
 }
+
+static inline int _pool_append_size(struct malloc_pool* pool, struct malloc_pool* to_append) 
+{
+  /* Inherit the next size */
+  to_append->m_next_size = pool->m_next_size;
+
+  /* Walk the entire sibling chain to update the links */
+  while (pool) {
+    pool->m_next_size = to_append;
+
+    /* Cycle through the siblings */
+    pool = pool->m_next_sibling;
+  }
+
+  return 0;
+}
+
+static inline int _pool_append_sibling(struct malloc_pool* pool, struct malloc_pool* to_append)
+{
+  struct malloc_pool** slot;
+
+  /* Inherit the next size */
+  to_append->m_next_size = pool->m_next_size;
+
+  slot = &pool;
+
+  while (*slot)
+    slot = &(*slot)->m_next_sibling;
+
+  /* Finally place the pool into it's slot */
+  *slot = to_append;
+
+  return 0;
+}
+
+static int _register_malloc_pool(struct malloc_pool* pool)
+{
+  struct malloc_pool* walker;
+
+  if (!__start_range) {
+    __start_range = pool;
+    return 0;
+  }
+
+  walker = __start_range;
+
+  do {
+    if (pool->m_entry_size > walker->m_entry_size)
+      /*
+       * If we either reached the end of the chain, meaning the pool we're adding is the largest pool yet,
+       * or if this pools entrysize is in between that of the walkers entrysize and it's next entrysize, we
+       * can append it
+       */
+      if (!walker->m_next_size || walker->m_next_size->m_entry_size > pool->m_entry_size)
+        return _pool_append_size(walker, pool);
+
+    if (walker->m_entry_size == pool->m_entry_size)
+      return _pool_append_sibling(walker, pool);
+
+    walker = walker->m_next_size;
+  } while (walker);
+
+  /* Could not append for some reason */
+  return -1;
+}
+
+/*!
+ * @brief: Try to yoink a pool entry
+ */
+static void* _pool_allocate(struct malloc_pool* pool)
+{
+  /* TODO: */
+  return nullptr;
+}
+
+/*!
+ * @brief Internal memory allocation routine
+ *
+ * Based on the size, we'll see if we can find a pool to allocate in. If we can't find
+ * anything, we'll simply create a new one
+ */
+void* mem_alloc(size_t size)
+{
+  struct malloc_pool* pool;
+
+  pool = _find_malloc_pool(size);
+
+  if (!pool) {
+    pool = _create_malloc_pool(size);
+
+    /* No memory left I guess? */
+    if (!pool)
+      return nullptr;
+
+    /* This is very stoopid */
+    if (_register_malloc_pool(pool) != 0)
+      return nullptr;
+  }
+
+  return _pool_allocate(pool);
+}
+
+void* mem_move_alloc(void* addr, size_t new_size) 
+{
+  return nullptr;
+}
+
+int mem_dealloc(void* addr)
+{
+  return 0;
+}
+
 
 /*
  * Until we have dynamic loading of libraries,
@@ -336,132 +269,5 @@ void __init_memalloc(void)
   /* Ask for a memory region from the kernel */
   /* Use the initial memory we get to initialize the allocator further */
   /* Mark readiness */
-
-  __start_range = NULL;
-
-  for (uint32_t i = 0; i < default_entry_sizes; i++) {
-    __add_malloc_size_range(DEFAULT_INITIAL_RANGE_SIZE, i);
-  }
-}
-
-/*!
- * @brief Internal memory allocation routine
- *
- * Based on the size
- */
-void* mem_alloc(size_t size)
-{
-  bool result;
-  uint32_t offset;
-  struct malloc_range* lastrange;
-  struct malloc_range* range;
-
-  lastrange = nullptr;
-  range = malloc_find_range_for_size(size);
-  
-  if (!range)
-    return nullptr;
-
-  do {
-    result = malloc_find_free_offset(range, &offset);
-
-    if (result) {
-      malloc_range_set_used(range, offset);
-
-      return (malloc_range_get_start(range) + (offset * range->m_entry_size));
-    }
-
-    lastrange = range;
-    range = range->m_next;
-  } while(range);
-
-  printf("Tried to allocate: %lld bytes\n", size);
-
-  /*
-   * Add a new range for this size
-   */
-  __add_malloc_size_range(
-      lastrange->m_data_size,
-      __malloc_get_idx_for_size(
-        lastrange->m_entry_size
-      )
-  );
-
-  range = lastrange->m_next;
-
-  if (!range)
-    goto error_and_exit;
-
-  result = malloc_find_free_offset(range, &offset);
-
-  if (!result)
-    goto error_and_exit;
-
-
-  malloc_range_set_used(range, offset);
-
-  return (malloc_range_get_start(range) + (offset * range->m_entry_size));
-
-error_and_exit:
-  /* TODO: add a new range and try again */
-  return nullptr;
-}
-
-void* mem_move_alloc(void* addr, size_t new_size) 
-{
-  uint64_t old_index;
-  uint64_t range_start;
-  void* new_allocation;
-  struct malloc_range* range;
-
-  range = malloc_find_containing_range((uint64_t)addr);
-
-  if (!range)
-    return nullptr;
-
-  /* No need to reallocate if the current allocation already satisfies the 'realloc' */
-  if (range->m_entry_size >= new_size)
-    return addr;
-
-  range_start = (uint64_t)malloc_range_get_start(range);
-
-  /* Sanity */
-  if (range_start > (uint64_t)addr)
-    return nullptr;
-
-  new_allocation = mem_alloc(new_size);
-
-  if (!new_allocation)
-    return nullptr;
-
-  /* We where able to allocate the new block, grab the index of the old block */
-  old_index = ALIGN_DOWN((uint64_t)addr - range_start, range->m_entry_size) / range->m_entry_size;
-
-  /* Copy over the old contents */
-  memcpy(new_allocation, addr, range->m_entry_size);
-
-  malloc_range_set_free(range, old_index);
-
-  return new_allocation;
-}
-
-int mem_dealloc(void* addr)
-{
-  uint64_t range_start;
-  struct malloc_range* range;
-
-  range = malloc_find_containing_range((uint64_t)addr);
-
-  if (!range)
-    return -1;
-
-  range_start = (uint64_t)malloc_range_get_start(range);
-
-  /* Sanity */
-  if (range_start > (uint64_t)addr)
-    return -2;
-
-  malloc_range_set_free(range, ALIGN_DOWN((uint64_t)addr - range_start, range->m_entry_size) / range->m_entry_size);
-  
-  return 0;
+  __start_range = nullptr;
 }

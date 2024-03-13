@@ -11,55 +11,53 @@
  * status codes are prefixed with   SYS_
  */
 
-#define SYSID_EXIT              0 /* Exit the process */
-#define SYSID_CLOSE             1 /* Close a handle */
-#define SYSID_READ              2 /* Read from a handle */
-#define SYSID_WRITE             3 /* Write to a handle */
-#define SYSID_OPEN              4
-#define SYSID_OPEN_FILE         5 /* Open a handle to a file */
-#define SYSID_OPEN_PROC         6
-#define SYSID_OPEN_DRIVER       7
-#define SYSID_SEND_MSG          8
-#define SYSID_CREATE_THREAD     9
-#define SYSID_CREATE_PROC       10
-#define SYSID_CREATE_FILE       11
+enum SYSID {
+  SYSID_EXIT = 0, /* Exit the process */
+  SYSID_CLOSE, /* Close a handle */
+  SYSID_READ, /* Read from a handle */
+  SYSID_WRITE, /* Write to a handle */
+  SYSID_OPEN,
+  SYSID_OPEN_FILE, /* Open a handle to a file */
+  SYSID_OPEN_PROC,
+  SYSID_OPEN_DRIVER,
+  SYSID_SEND_MSG,
+  SYSID_CREATE_THREAD,
+  SYSID_CREATE_PROC,
+  SYSID_CREATE_FILE,
 
-#define SYSID_ALLOCATE_PAGES    12
+  SYSID_ALLOC_PAGE_RANGE,
+  SYSID_DEALLOC_PAGE_RANGE,
 
-/* This is used by libc malloc */
-#define F_MEM_MALLOC            (0x00000001)
-/* Protect this region from external I/O */
-#define F_MEM_PROTECT           (0x00000002)
+  SYSID_SYSEXEC, /* Ask the system to do stuff for us */
+  SYSID_DESTROY_THREAD,
+  SYSID_DESTROY_PROC,
+  SYSID_DESTROY_FILE,
+  SYSID_GET_HNDL_TYPE,
+  /* Open a profile variable on the handle of a profile */
+  SYSID_OPEN_PVAR,
+  SYSID_GET_PVAR_TYPE,
+  SYSID_CREATE_PVAR,
+  SYSID_CREATE_DIR,
+  /* Manipulate the R/W offset of a handle */
+  SYSID_SEEK,
+  SYSID_GET_PROCESSTIME,
+  SYSID_SLEEP,
 
-#define SYSID_SYSEXEC           13 /* Ask the system to do stuff for us */
-#define SYSID_DESTROY_THREAD    14
-#define SYSID_DESTROY_PROC      15
-#define SYSID_DESTROY_FILE      16
-#define SYSID_GET_HNDL_TYPE     17
-/* Open a profile variable on the handle of a profile */
-#define SYSID_OPEN_PVAR         18
-#define SYSID_GET_PVAR_TYPE     19
-#define SYSID_CREATE_PVAR       20
-#define SYSID_CREATE_DIR        21
-/* Manipulate the R/W offset of a handle */
-#define SYSID_SEEK              22
-#define SYSID_GET_PROCESSTIME   23
-#define SYSID_SLEEP             24
+  /* TODO: */
+  SYSID_LOAD_DRV,
+  SYSID_CREATE_PROFILE,
+  SYSID_DESTROY_PROFILE,
 
-/* TODO: */
-#define SYSID_LOAD_DRV          25
-#define SYSID_CREATE_PROFILE    26
-#define SYSID_DESTROY_PROFILE   27
+  /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
 
-/* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
-
-#define SYSID_DEV_READ          28
-#define SYSID_DEV_WRITE         29
-/* HID dev interfacing */
-#define SYSID_HIDDEV_POLL       100
-/* Disk dev interfacing */
-#define SYSID_DISKDEV_BREAD     200
-#define SYSID_DISKDEV_BWRITE    201
+  SYSID_DEV_READ,
+  SYSID_DEV_WRITE,
+  /* HID dev interfacing */
+  SYSID_HIDDEV_POLL = 100,
+  /* Disk dev interfacing */
+  SYSID_DISKDEV_BREAD = 200,
+  SYSID_DISKDEV_BWRITE = 201,
+};
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

@@ -7,8 +7,11 @@
 //lwindow_t window;
 //lframebuffer_t fb;
 
+#include <stdio.h>
+
 int main() 
 {
+  printf("Test\n");
   /* Test */
   return 5557;
 

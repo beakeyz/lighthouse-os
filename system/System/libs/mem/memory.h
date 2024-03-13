@@ -5,7 +5,7 @@
  * Initialize the memory allocation submodule
  */
 
-#include <stddef.h>
+#include <stdint.h>
 
 /*
  * Memory allocation on a byte alignment

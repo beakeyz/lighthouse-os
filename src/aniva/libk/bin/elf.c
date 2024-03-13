@@ -15,6 +15,7 @@
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
 #include "sched/scheduler.h"
+#include "sys/types.h"
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
 {
@@ -147,6 +148,8 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
  */
 static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel, bool defer_schedule)
 {
+  ErrorOrPtr result;
+  proc_id_t pid;
   drv_manifest_t* driver;
 
   if (!file)
@@ -159,7 +162,12 @@ static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel, bool defer_sc
     return Error();
 
   /* Simply ask the driver to load our shit */
-  return driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), NULL, NULL);
+  result = driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), &pid, sizeof(pid));
+
+  if (IsError(result))
+    return result;
+
+  return Success(pid);
 }
 
 /*!

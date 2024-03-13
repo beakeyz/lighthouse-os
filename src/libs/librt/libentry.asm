@@ -41,27 +41,28 @@ ___app_trampoline:
 
   mov rcx, rdx
 
-__init_lib:
-  ; Check our counter
+  ; Check if we have any libraries
   cmp rcx, 0
   ; No libraries to init at this point, let's go to the main entry yay
   je __libinit_end
 
+__init_lib:
   ; Preserve the sys-v registers
   push rcx
   push rdi
   push rsi
   push rdx
+  
+  ; Save our buddy
+  mov rcx, rsi
 
   ; Zero them for library execution
   mov rdi, 0
   mov rsi, 0
   mov rdx, 0
-  mov rcx, 0
 
   ; Call the library entry
-  mov rax, [rsp+8]
-  call [rax]
+  call [rcx]
 
   ; Restore the registers
   pop rdx
@@ -72,15 +73,16 @@ __init_lib:
   ; Check if the library call failed
   cmp rax, 0
   jne __exit_error
-
+  
   ; Move to the next library entry
   add rsi, 8
 
   ; Decrement our counter and itterate
+  cmp rcx, 0
   dec rcx
-  jmp __init_lib
-__libinit_end:
+  jne __init_lib
 
+__libinit_end:
   ; Move the app entry to rax for safekeeping
   mov rax, rdi
 

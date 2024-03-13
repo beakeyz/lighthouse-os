@@ -1,4 +1,5 @@
 #include "alloc.h"
+#include "lightos/memory/memflags.h"
 #include "lightos/syscall.h"
 #include "lightos/system.h"
 
@@ -7,6 +8,9 @@
 
 #define ALIGN_DOWN(addr, size) ((addr) - ((addr) % (size)))
 
+/*!
+ * @brief: Simply asks the kernel for memory
+ */
 VOID* allocate_pool(size_t* poolsize, DWORD flags, DWORD pooltype)
 {
   VOID* buffer;
@@ -17,14 +21,15 @@ VOID* allocate_pool(size_t* poolsize, DWORD flags, DWORD pooltype)
     return NULL;
 
   buffer = NULL;
-  size = ALIGN_UP(*poolsize, 0x1000);
+  size = ALIGN_UP(*poolsize, MEMPOOL_ALIGN);
 
   /* Request memory from the system */
-  result = syscall_3(SYSID_ALLOCATE_PAGES, size, NULL, (uint64_t)&buffer);
+  result = syscall_3(SYSID_ALLOC_PAGE_RANGE, size, flags, (uint64_t)&buffer);
 
   if (result != SYS_OK || !buffer)
     return NULL;
 
+  *poolsize = size;
   return buffer;
 }
 

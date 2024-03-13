@@ -6,6 +6,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
+#include "proc/core.h"
 #include <libk/stddef.h>
 #include <fs/file.h>
 
@@ -88,7 +89,7 @@ typedef struct loaded_app {
 extern loaded_app_t* create_loaded_app(file_t* file, struct proc* proc);
 extern void destroy_loaded_app(loaded_app_t* app);
 
-extern kerror_t load_app(file_t* file, loaded_app_t** out_app);
+extern kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* pid);
 extern kerror_t unload_app(loaded_app_t* app);
 
 extern kerror_t register_app(loaded_app_t* app);

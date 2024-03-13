@@ -5,6 +5,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
+#include "proc/core.h"
 #include "sync/mutex.h"
 #include <lightos/handle_def.h>
 #include <dev/core.h>
@@ -116,13 +117,13 @@ static int _loader_exit()
 /*!
  * @brief: Load a dynamically linked program directly from @file
  */
-static kerror_t _loader_ld_appfile(file_t* file)
+static kerror_t _loader_ld_appfile(file_t* file, proc_id_t* pid)
 {
   kerror_t error;
   loaded_app_t* app;
 
   /* We've found the file, let's try to load this fucker */
-  error = load_app(file, &app);
+  error = load_app(file, &app, pid);
 
   if (error || !app)
     return -DRV_STAT_INVAL;
@@ -137,7 +138,7 @@ static kerror_t _loader_ld_appfile(file_t* file)
 /*!
  * @brief: Open @path and load the app that in the resulting file
  */
-static kerror_t _loader_ld_app(const char* path, size_t pathlen)
+static kerror_t _loader_ld_app(const char* path, size_t pathlen, proc_id_t* pid)
 {
   kerror_t error;
   file_t* file;
@@ -148,7 +149,7 @@ static kerror_t _loader_ld_app(const char* path, size_t pathlen)
   if (!file)
     return -DRV_STAT_INVAL;
 
-  error = _loader_ld_appfile(file);
+  error = _loader_ld_appfile(file, pid);
 
   file_close(file);
 
@@ -158,6 +159,7 @@ static kerror_t _loader_ld_app(const char* path, size_t pathlen)
 static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)
 {
   file_t* in_file;
+  proc_id_t pid;
   const char* in_path;
 
   switch (code) {
@@ -172,9 +174,11 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
         return DRV_STAT_INVAL;
 
       /* FIXME: Safety here lmao */
-      if (_loader_ld_app(in_path, in_bsize))
+      if (_loader_ld_app(in_path, in_bsize, &pid))
         return DRV_STAT_INVAL;
 
+      if (out_buf && out_bsize == sizeof(pid))
+        memcpy(out_buf, &pid, sizeof(pid));
       break;
     case DYN_LDR_LOAD_APPFILE:
       in_file = in_buf;
@@ -188,9 +192,11 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
        * NOTE: File ownership is in the hands of the caller, 
        *       so we can't touch file lifetime
        */
-      if (_loader_ld_appfile(in_file))
+      if (_loader_ld_appfile(in_file, &pid))
         return DRV_STAT_INVAL;
 
+      if (out_buf && out_bsize == sizeof(pid))
+        memcpy(out_buf, &pid, sizeof(pid));
       break;
     /* Look through the loaded libraries of the current process to find the specified library */
     case DYN_LDR_GET_LIB:

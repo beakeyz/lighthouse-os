@@ -1,5 +1,7 @@
 #include "stdio.h"
 #include "lightos/handle.h"
+#include "lightos/memory/alloc.h"
+#include "lightos/memory/memflags.h"
 #include "stdarg.h"
 #include "sys/types.h"
 #include <lightos/system.h>
@@ -61,12 +63,12 @@ void __init_stdio(void)
   stderr->handle = 2;
 
   /* Create buffers */
-  stdin->r_buff = malloc(FILE_BUFSIZE);
-  stdout->w_buff = malloc(FILE_BUFSIZE);
+  stdin->r_buff = allocate_pool(&stdin->r_buf_size, MEMPOOL_FLAG_RW, NULL);
+  stdout->w_buff = allocate_pool(&stdout->w_buf_size, MEMPOOL_FLAG_RW, NULL);
 
   /* Make sure they are empty */
   memset(stdin->r_buff, 0, FILE_BUFSIZE);
-  memset(stdin->w_buff, 0, FILE_BUFSIZE);
+  memset(stdout->w_buff, 0, FILE_BUFSIZE);
 }
 
 /*
