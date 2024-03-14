@@ -1,6 +1,5 @@
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
-#include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
@@ -37,19 +36,14 @@ static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent, const char* 
   ret->app = parent;
   ret->name = strdup(name);
   ret->path = strdup(path);
-  ret->dependencies = init_list();
 
   return ret;
 }
 
 static void _destroy_dynamic_lib(dynamic_library_t* lib)
 {
-  if (lib->dyn_symbols)
-    destroy_hashmap(lib->dyn_symbols);
-
   destroy_elf_image(&lib->image);
 
-  destroy_list(lib->dependencies);
   kfree((void*)lib->name);
   kfree((void*)lib->path);
   kfree(lib);
@@ -209,7 +203,8 @@ kerror_t reload_dynamic_lib(dynamic_library_t* lib, struct loaded_app* target_ap
 
 kerror_t unload_dynamic_lib(dynamic_library_t* lib)
 {
-  kernel_panic("TODO: unload_dynamic_lib");
+  _destroy_dynamic_lib(lib);
+  return 0;
 }
 
 static inline kerror_t load_app_generic_headers(file_t* file, loaded_app_t* app)
@@ -296,8 +291,16 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
   if (!out_app || !file)
     return -KERR_INVAL;
 
-  /* Create an addressspsace for this bitch */
+  *out_app = NULL;
+
+  /*
+   * Grab the current process as a parent 
+   * Any lucky processes that get executed by the kernel will get the kernel process as their parent.
+   * This doe not mean they get to inherit any of it's privileges though =)
+   */
   cur_proc = get_current_proc();
+
+  /* Create an addressspsace for this bitch */
   proc = create_proc(cur_proc, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
 
   if (!proc)
@@ -320,10 +323,11 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
 
   error = _do_load(file, app);
 
-  /* Idk */
-  ASSERT(KERR_OK(error));
+  /* TODO: Do actual cleanup here */
+  ASSERT_MSG(KERR_OK(error), "FUCK: Failed to do a dynamic app load =(");
 
   *bpid = pid;
+  *out_app = app;
   return error;
 }
 

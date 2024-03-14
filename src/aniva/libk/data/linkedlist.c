@@ -1,5 +1,4 @@
 #include "linkedlist.h"
-#include "mem/kmem_manager.h"
 #include "libk/stddef.h"
 #include <mem/heap.h>
 #include <dev/debug/serial.h>

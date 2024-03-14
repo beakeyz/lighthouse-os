@@ -1,8 +1,5 @@
 #include "dev/device.h"
 #include "dev/manifest.h"
-#include "libk/flow/error.h"
-#include "libk/string.h"
-#include "mem/kmem_manager.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
@@ -14,6 +11,7 @@
 
 #define TEST_DEVICE "testdev"
 
+device_t* device;
 drv_manifest_t* manifest;
 
 int test_init();
@@ -32,6 +30,13 @@ EXPORT_DRIVER(extern_test_driver) = {
   .f_exit = test_exit,
 };
 
+struct device_generic_endpoint generic = {
+  NULL,
+};
+
+device_ep_t eps[] = {
+  { ENDPOINT_TYPE_GENERIC, sizeof(generic), { &generic, } },
+};
 
 /*
  * This driver will be used to test kernel subsystems targeting drivers. Here is a list of things that
@@ -42,6 +47,11 @@ EXPORT_DRIVER(extern_test_driver) = {
  */
 int test_init() 
 {
+  device = create_device_ex(&extern_test_driver, TEST_DEVICE, NULL, NULL, eps, arrlen(eps));
+
+  /* Register to the devicegroup root */
+  device_register(device, NULL);
+
   logln("Initalizing test driver!");
 
   return 0;
@@ -56,6 +66,8 @@ int test_init()
  */
 int test_exit() 
 {
+  device_unregister(device);
+  destroy_device(device);
   logln("Exiting test driver! =D");
   return 0;
 }

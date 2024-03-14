@@ -60,10 +60,28 @@ kerror_t unregister_app(loaded_app_t* app)
 }
 
 /*!
+ * @brief: Find a loaded app from a process object
+ */
+static loaded_app_t* _get_app_from_proc(proc_t* proc)
+{
+  loaded_app_t* ret;
+
+  FOREACH(i, _loaded_apps) {
+    ret = i->data;
+
+    if (ret->proc == proc)
+      return ret;
+  }
+
+  return nullptr;
+}
+
+/*!
  * @brief: Hook for any process events
  */
 static int _dyn_loader_proc_hook(kevent_ctx_t* _ctx)
 {
+  loaded_app_t* app;
   kevent_proc_ctx_t* ctx;
 
   if (_ctx->buffer_size != sizeof(*ctx))
@@ -84,9 +102,18 @@ static int _dyn_loader_proc_hook(kevent_ctx_t* _ctx)
    * event handler, continue to destory the process and THEN call the deferred handler, right after
    * we've already gotter rid of the process...
    */
-  printf("Process: %s\n", ctx->process->m_name);
-  kernel_panic("Hit dynamic process destroy hook");
 
+  app = _get_app_from_proc(ctx->process);
+
+  /* OK, we're not interrested */
+  if (!app)
+    return 0;
+
+  printf("Removing process: %s\n", ctx->process->m_name);
+
+  unregister_app(app);
+
+  destroy_loaded_app(app);
   return 0;
 }
 
@@ -130,7 +157,6 @@ static kerror_t _loader_ld_appfile(file_t* file, proc_id_t* pid)
   if (error || !app)
     return -DRV_STAT_INVAL;
 
-  printf("Ayay\n");
   /* Everything went good, register it to ourself */
   register_app(app);
 

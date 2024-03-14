@@ -37,10 +37,6 @@ loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
   return ret;
 
 dealloc_and_exit:
-
-  if (ret->image.elf_dyntbl)
-    __kmem_kernel_dealloc((vaddr_t)ret->image.elf_dyntbl, ret->image.elf_dyntbl_mapsize);
-
   kfree(ret);
   return nullptr;
 }
@@ -52,9 +48,15 @@ dealloc_and_exit:
  */
 void destroy_loaded_app(loaded_app_t* app)
 {
-  app->proc = nullptr;
+  /* Murder all libraries in this app */
+  FOREACH(i, app->library_list) {
+    dynamic_library_t* lib = i->data;
 
-  kernel_panic("TODO: fix destroy_loaded_app");
+    unload_dynamic_lib(lib);
+  }
+
+  /* Deallocate the file buffer if we still have that */
+  destroy_elf_image(&app->image);
 
   FOREACH(n, app->symbol_list) {
     loaded_sym_t* sym = n->data;
@@ -62,26 +64,33 @@ void destroy_loaded_app(loaded_app_t* app)
     kzfree(sym, sizeof(*sym));
   }
 
-  /* FIXME: Murder all libraries in this app? */
   destroy_list(app->library_list);
   destroy_list(app->symbol_list);
   destroy_hashmap(app->exported_symbols);
 
-  /* Deallocate the file buffer if we still have that */
-  destroy_elf_image(&app->image);
+  kfree(app);
+
+  app->proc = nullptr;
 }
 
 void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
 {
+  paddr_t paddr;
+
   if (!proc)
+    return nullptr;
+
+  paddr = kmem_to_phys(
+    proc->m_root_pd.m_root,
+    uaddr
+  );
+
+  if (!paddr)
     return nullptr;
 
   return (void*)Must(__kmem_kernel_alloc(
         /* Physical address */
-        kmem_to_phys(
-          proc->m_root_pd.m_root,
-          uaddr
-        ),
+        paddr,
         /* Our size */
         size,
         NULL,
@@ -111,6 +120,9 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   uaddr = Must(kmem_user_alloc_range(app->proc, libarr_size, NULL, NULL));
   kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
 
+  if (!kaddr)
+    return NULL;
+
   memset(kaddr, 0, libarr_size);
 
   lib_idx = NULL;
@@ -127,10 +139,6 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
     
     c_liblist_node = c_liblist_node->next;
   } while (c_liblist_node);
-
-  /* Weird info lmao */
-  printf("Got buffer at 0x%llx<->0x%p with %lld libs\n", uaddr, kaddr, lib_idx);
-  printf("First library to load is %s at 0x%p\n", ((dynamic_library_t*)app->library_list->head->data)->name, kaddr[0]);
 
   /* NOTE: at this point lib_idx will represent the amount of libraries that have entries we need to call */
   *entrycount = lib_idx;

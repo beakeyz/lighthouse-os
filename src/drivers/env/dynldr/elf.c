@@ -396,7 +396,7 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
 
   strtab = nullptr;
   dyn_syms = nullptr;
-  dyns_entry = (struct elf64_dyn*)Must(kmem_get_kernel_address((vaddr_t)image->elf_dyntbl, image->proc->m_root_pd.m_root));
+  dyns_entry = image->elf_dyntbl;
 
   /* The dynamic section table is null-terminated xD */
   while (dyns_entry->d_tag) {
@@ -521,7 +521,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap)
       struct elf64_sym* sym = &symtable_start[ELF64_R_SYM(table[i].r_info)];
       const char* symname = image->elf_dynstrtab + sym->st_name;
 
-      printf("Need to relocate symbol %s\n", symname);
+      //printf("Need to relocate symbol %s\n", symname);
 
       /* Where we are going to change stuff */
       const vaddr_t P = Must(kmem_get_kernel_address((vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root));

@@ -56,9 +56,6 @@ typedef struct dynamic_library {
   /* Reference the loaded app to get access to environment info */
   struct loaded_app* app;
   DYNLIB_ENTRY_t entry;
-
-  hashmap_t* dyn_symbols;
-  list_t* dependencies;
 } dynamic_library_t;
 
 extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynamic_library_t** blib);
