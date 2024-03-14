@@ -10,6 +10,9 @@
 
 /*!
  * @brief: Simply asks the kernel for memory
+ *
+ * NOTE: These allocations might give nullptrs, but for this reason we can
+ * check the @poolsize buffer to see if that is non-null
  */
 VOID* allocate_pool(size_t* poolsize, DWORD flags, DWORD pooltype)
 {
@@ -23,10 +26,12 @@ VOID* allocate_pool(size_t* poolsize, DWORD flags, DWORD pooltype)
   buffer = NULL;
   size = ALIGN_UP(*poolsize, MEMPOOL_ALIGN);
 
+  *poolsize = NULL;
+
   /* Request memory from the system */
   result = syscall_3(SYSID_ALLOC_PAGE_RANGE, size, flags, (uint64_t)&buffer);
 
-  if (result != SYS_OK || !buffer)
+  if (result != SYS_OK)
     return NULL;
 
   *poolsize = size;

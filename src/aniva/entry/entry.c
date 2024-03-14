@@ -38,14 +38,14 @@
 system_info_t g_system_info;
 
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
-void kthread_entry();
+void kthread_entry(void);
 
 driver_version_t kernel_version = DRIVER_VERSION(0, 1, 0);
 
 /*
  * NOTE: has to be run after driver initialization
  */
-ErrorOrPtr __init try_fetch_initramdisk() 
+ErrorOrPtr __init try_fetch_initramdisk(void) 
 {
   struct multiboot_tag_module* mod = g_system_info.ramdisk;
 
@@ -131,7 +131,7 @@ static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic
   }
 
   /* Quick bootloader interface info */
-  printf("Multiboot address from the bootloader is at: %p\n", mb_addr);
+  printf("Multiboot address from the bootloader is at: %p\n", (void*)mb_addr);
 
   /* Prepare for stage 1 */
   register_kernel_data((paddr_t)mb_addr);
@@ -144,7 +144,7 @@ static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic
  *
  * Here we setup the essentials to get a basic interface to the user and say our first hello =)
  */
-static kerror_t _start_system_management()
+static kerror_t _start_system_management(void)
 {
   // parse multiboot
   init_multiboot((void*)g_system_info.virt_multiboot_addr);
@@ -182,7 +182,7 @@ static kerror_t _start_system_management()
  *
  * Init more advanced memory management and subsystems
  */
-static kerror_t _start_subsystems()
+static kerror_t _start_subsystems(void)
 {
   // we need more memory
   init_zalloc();
@@ -327,7 +327,7 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
  * kernel subsystems that require async stuff (like USB drivers or some crap). Right now the order in which stuff happens 
  * in this file seems kind of arbitrary, so we need to revisit this =/
  */
-void kthread_entry() {
+void kthread_entry(void) {
 
   /* Make sure the scheduler won't ruin our day */
   //pause_scheduler();

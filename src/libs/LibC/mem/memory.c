@@ -3,6 +3,7 @@
 #include "lightos/memory/memflags.h"
 #include <assert.h>
 #include <lightos/system.h>
+#include <stdio.h>
 #include <string.h>
 
 /*
@@ -62,14 +63,14 @@ struct malloc_pool {
   uint8_t m_poolentries[];
 };
 
-static inline size_t _get_total_entrysize(size_t entrysize)
+static inline size_t _get_real_entrysize(size_t entrysize)
 {
   return entrysize + sizeof(struct malloc_pool_entry);
 }
 
 static inline struct malloc_pool_entry* _pool_get_entry(struct malloc_pool* pool, uintptr_t idx)
 {
-  idx *= _get_total_entrysize(pool->m_entry_size);
+  idx *= _get_real_entrysize(pool->m_entry_size);
 
   if (idx >= pool->m_data_size)
     return nullptr;
@@ -77,18 +78,23 @@ static inline struct malloc_pool_entry* _pool_get_entry(struct malloc_pool* pool
   return (struct malloc_pool_entry*)&pool->m_poolentries[idx];
 }
 
-static inline bool _pool_is_valid_pointer(struct malloc_pool* pool, void* data)
+static inline bool _pool_is_valid_pointer(struct malloc_pool* pool, void* data, struct malloc_pool_entry** bentry)
 {
   struct malloc_pool_entry* entry;
 
   if (!data)
     return false;
 
+  /* Data lays outside of the pools valid range */
+  if (data < (void*)pool->m_poolentries || data >= (void*)(pool->m_poolentries + pool->m_data_size))
+    return false;
+
   entry = _data_get_malloc_pool_entry(data);
 
   /* TODO: Verify the entries hash */
-  (void)entry;
-  return false;
+  if (bentry)
+    *bentry = entry;
+  return true;
 }
 
 static struct malloc_pool* __start_range;
@@ -125,13 +131,13 @@ static struct malloc_pool* _create_malloc_pool(size_t entrysize)
   ret = allocate_pool(&poolsize, MEMPOOL_FLAG_RW, MEMPOOL_TYPE_DEFAULT);
 
   /* Syscall memory for us */
-  if (!ret)
+  if (!poolsize)
     return nullptr;
 
   memset(ret, 0, sizeof(*ret));
 
   ret->m_entry_size = entrysize;
-  ret->m_data_size = ALIGN_DOWN(poolsize - sizeof(*ret), _get_total_entrysize(ret->m_entry_size));
+  ret->m_data_size = ALIGN_DOWN(poolsize - sizeof(*ret), _get_real_entrysize(ret->m_entry_size));
   ret->m_next_sibling = NULL;
   ret->m_next_size = NULL;
 
@@ -207,10 +213,34 @@ static int _register_malloc_pool(struct malloc_pool* pool)
 
 /*!
  * @brief: Try to yoink a pool entry
+ *
+ * TODO: optimize
  */
 static void* _pool_allocate(struct malloc_pool* pool)
 {
-  /* TODO: */
+  size_t entrysize;
+  size_t entrycount;
+  struct malloc_pool_entry* entry;
+
+  entrysize = _get_real_entrysize(pool->m_entry_size);
+  entrycount = pool->m_data_size / entrysize;
+
+  /*
+   * Simple linear scan to get this fucking shit done right now lmao
+   */
+  for (uint64_t i = 0; i < entrycount; i++) {
+    entry = (struct malloc_pool_entry*)&pool->m_poolentries[i*entrysize];
+
+    if ((entry->attr & POOLENTRY_USED_BIT) == POOLENTRY_USED_BIT)
+      continue;
+
+    entry->attr |= POOLENTRY_USED_BIT;
+
+    memset(entry->data, 0, pool->m_entry_size);
+
+    return _poolentry_get_data(entry);
+  }
+
   return nullptr;
 }
 
@@ -246,8 +276,56 @@ void* mem_move_alloc(void* addr, size_t new_size)
   return nullptr;
 }
 
+/*!
+ * @brief: Find the pool and entry that correspond to a given address @addr
+ */
+static int _resolve_pool_entry(void* addr, struct malloc_pool** bpool, struct malloc_pool_entry** bentry)
+{
+  struct malloc_pool* walker;
+  struct malloc_pool* sibling_walker;
+
+  /* Null is always invalid */
+  if (!addr)
+    return -1;
+
+  walker = __start_range;
+
+  /* Walk the top-level pool chain */
+  while (walker) {
+    sibling_walker = walker;
+
+    /* Walk the sibling chain */
+    do {
+
+      if (_pool_is_valid_pointer(sibling_walker, addr, bentry))
+        break;
+  
+      sibling_walker = sibling_walker->m_next_sibling;
+    } while (sibling_walker);
+
+    walker = walker->m_next_size;
+  }
+
+  /* Could not find a valid pool */
+  if (!sibling_walker)
+    return -1;
+
+  /* Set the pool buffer. _pool_is_valid_pointer already populates @bentry */
+  if (bpool)
+    *bpool = sibling_walker;
+
+  return 0;
+}
+
 int mem_dealloc(void* addr)
 {
+  struct malloc_pool* pool;
+  struct malloc_pool_entry* entry;
+
+  if (_resolve_pool_entry(addr, &pool, &entry))
+    return -1;
+
+  entry->attr &= ~POOLENTRY_USED_BIT;
   return 0;
 }
 
@@ -270,4 +348,6 @@ void __init_memalloc(void)
   /* Use the initial memory we get to initialize the allocator further */
   /* Mark readiness */
   __start_range = nullptr;
+
+
 }

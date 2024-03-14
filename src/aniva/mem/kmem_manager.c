@@ -68,8 +68,8 @@ static struct {
 /* Variable from boot.asm */
 extern const size_t early_map_size;
 
-static void _init_kmem_page_layout();
-static void kmem_init_physical_allocator();
+static void _init_kmem_page_layout(void);
+static void kmem_init_physical_allocator(void);
 
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) 
@@ -101,7 +101,7 @@ void init_kmem_manager(uintptr_t* mb_addr)
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 }
 
-void debug_kmem()
+void debug_kmem(void)
 {
   uint32_t idx = 0;
 
@@ -210,7 +210,7 @@ static void _carve_out_range(phys_mem_range_t* range, contiguous_phys_virt_range
 }
 
 // function inspired by serenityOS
-void parse_mmap() 
+void parse_mmap(void) 
 {
   paddr_t _p_kernel_start;
   paddr_t _p_kernel_end;
@@ -377,7 +377,7 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
  * Initialize the physical page allocator that keeps track
  * of which physical pages are used and which are free
  */
-static void kmem_init_physical_allocator() 
+static void kmem_init_physical_allocator(void) 
 {
   phys_mem_range_t bm_range;
   bitmap_t* physical_bitmap;
@@ -544,7 +544,7 @@ void kmem_set_phys_page(uintptr_t idx, bool value) {
  * Try to find a free physical page, using the bitmap that was 
  * setup by the physical page allocator
  */
-ErrorOrPtr kmem_request_physical_page() {
+ErrorOrPtr kmem_request_physical_page(void) {
 
   TRY(index, bitmap_find_free(KMEM_DATA.m_phys_bitmap));
 
@@ -558,7 +558,7 @@ ErrorOrPtr kmem_request_physical_page() {
  * FIXME: we might grab a page that is located at kernel_end + 1 Gib which won't be 
  * mapped to our kernel HIGH map extention. When this happens, we want to have
  */
-ErrorOrPtr kmem_prepare_new_physical_page() 
+ErrorOrPtr kmem_prepare_new_physical_page(void) 
 {
   paddr_t address;
   paddr_t p_page_idx;
@@ -611,7 +611,7 @@ ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
 /*
  * Find the kernel root page directory
  */
-pml_entry_t *kmem_get_krnl_dir() {
+pml_entry_t *kmem_get_krnl_dir(void) {
   /* NOTE: this is a physical address :clown: */
   return KMEM_DATA.m_kernel_base_pd;
 }
@@ -739,7 +739,7 @@ void kmem_invalidate_tlb_cache_range(uintptr_t vaddr, size_t size) {
   }
 }
 
-void kmem_refresh_tlb() {
+void kmem_refresh_tlb(void) {
   /* FIXME: is this always up to date? */
   pml_entry_t* current = get_current_processor()->m_page_dir;
 
@@ -1335,7 +1335,7 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
 }
 
 // TODO: make this more dynamic
-static void _init_kmem_page_layout () 
+static void _init_kmem_page_layout (void) 
 {
   uintptr_t map;
 
@@ -1640,7 +1640,7 @@ ErrorOrPtr kmem_get_kernel_address_ex(vaddr_t virtual_address, vaddr_t map_base,
   return Success(v_kernel_address + v_align_delta);
 }
 
-list_t const* kmem_get_phys_ranges_list() 
+list_t const* kmem_get_phys_ranges_list(void) 
 {
   return KMEM_DATA.m_phys_ranges;
 }

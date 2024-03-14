@@ -96,7 +96,7 @@ typedef struct {
 /* NOTE: this shit is not protected by any lock. Races will occur =( */
 extern system_info_t g_system_info;
 
-static inline bool system_has_multithreading()
+static inline bool system_has_multithreading(void)
 {
   return ((g_system_info.sys_flags & SYSFLAGS_HAS_MULTITHREADING) == SYSFLAGS_HAS_MULTITHREADING);
 }
