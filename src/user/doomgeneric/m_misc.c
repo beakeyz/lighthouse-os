@@ -449,6 +449,7 @@ char *M_StringJoin(const char *s, ...)
 
     if (result == NULL)
     {
+        printf("%lld\n", result_len);
         I_Error("M_StringJoin: Failed to allocate new string.");
         return NULL;
     }

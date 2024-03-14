@@ -10,6 +10,7 @@
 /* Minimum of 4 Kib in order to save pool integrity */
 #define MIN_POOLSIZE            (0x1000)
 #define MEMPOOL_ALIGN           (0x1000)
+#define MEMPOOL_ENTSZ_ALIGN     (8)
 
 enum MEMPOOL_TYPE {
   MEMPOOL_TYPE_DEFAULT      = 0,

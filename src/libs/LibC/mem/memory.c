@@ -1,10 +1,10 @@
-#include "memory.h"
-#include "lightos/memory/alloc.h"
-#include "lightos/memory/memflags.h"
-#include <assert.h>
-#include <lightos/system.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
+#include "memory.h"
+#include <lightos/system.h>
+#include "lightos/memory/alloc.h"
+#include "lightos/memory/memflags.h"
 
 /*
  * TODO: I hate this impl: fix it
@@ -111,7 +111,7 @@ static struct malloc_pool* _find_malloc_pool(size_t entrysize)
   walker = __start_range;
 
   while (walker) {
-    if (walker->m_entry_size == entrysize)
+    if (walker->m_entry_size == ALIGN_UP(entrysize, MEMPOOL_ALIGN))
       return walker;
 
     walker = walker->m_next_size;
@@ -120,12 +120,36 @@ static struct malloc_pool* _find_malloc_pool(size_t entrysize)
   return nullptr;
 }
 
+/*!
+ * @brief: Calculate what the max entrycount is going to be for a given entrysize
+ *
+ * 'calculate'
+ */
+static inline size_t _calculate_poolsize(size_t entrysize)
+{
+  size_t coefficient;
+
+  /*
+   * AHHHHH MY EYESOCKETS
+   */
+  if (entrysize <= (16 * Kib))
+    coefficient = 32;
+  else if (entrysize <= (64 * Kib))
+    coefficient = 8;
+  else
+    coefficient = 1;
+
+  return _get_real_entrysize(entrysize) * coefficient;
+}
+
 static struct malloc_pool* _create_malloc_pool(size_t entrysize)
 {
   size_t poolsize;
   struct malloc_pool* ret;
 
-  poolsize = entrysize * 16;
+  entrysize = ALIGN_UP(entrysize, MEMPOOL_ENTSZ_ALIGN);
+
+  poolsize = _calculate_poolsize(entrysize) + sizeof(*ret);
 
   /* Allocate a memorypool where we can put our malloc pool */
   ret = allocate_pool(&poolsize, MEMPOOL_FLAG_RW, MEMPOOL_TYPE_DEFAULT);
@@ -150,6 +174,7 @@ static inline int _pool_append_size(struct malloc_pool* pool, struct malloc_pool
 {
   /* Inherit the next size */
   to_append->m_next_size = pool->m_next_size;
+  to_append->m_next_sibling = NULL;
 
   /* Walk the entire sibling chain to update the links */
   while (pool) {
@@ -168,6 +193,7 @@ static inline int _pool_append_sibling(struct malloc_pool* pool, struct malloc_p
 
   /* Inherit the next size */
   to_append->m_next_size = pool->m_next_size;
+  to_append->m_next_sibling = NULL;
 
   slot = &pool;
 
@@ -184,14 +210,12 @@ static int _register_malloc_pool(struct malloc_pool* pool)
 {
   struct malloc_pool* walker;
 
-  if (!__start_range) {
-    __start_range = pool;
-    return 0;
-  }
-
   walker = __start_range;
 
   do {
+    if (walker->m_entry_size == pool->m_entry_size)
+      return _pool_append_sibling(walker, pool);
+
     if (pool->m_entry_size > walker->m_entry_size)
       /*
        * If we either reached the end of the chain, meaning the pool we're adding is the largest pool yet,
@@ -201,9 +225,6 @@ static int _register_malloc_pool(struct malloc_pool* pool)
       if (!walker->m_next_size || walker->m_next_size->m_entry_size > pool->m_entry_size)
         return _pool_append_size(walker, pool);
 
-    if (walker->m_entry_size == pool->m_entry_size)
-      return _pool_append_sibling(walker, pool);
-
     walker = walker->m_next_size;
   } while (walker);
 
@@ -211,12 +232,7 @@ static int _register_malloc_pool(struct malloc_pool* pool)
   return -1;
 }
 
-/*!
- * @brief: Try to yoink a pool entry
- *
- * TODO: optimize
- */
-static void* _pool_allocate(struct malloc_pool* pool)
+static void* _try_pool_allocate(struct malloc_pool* pool)
 {
   size_t entrysize;
   size_t entrycount;
@@ -245,6 +261,39 @@ static void* _pool_allocate(struct malloc_pool* pool)
 }
 
 /*!
+ * @brief: Try to yoink a pool entry
+ *
+ * TODO: optimize
+ */
+static void* _pool_allocate(struct malloc_pool* pool)
+{
+  void* ret;
+  struct malloc_pool* extra_pool;
+
+  /* Try to allocate in every pool that we have */
+  do {
+    ret = _try_pool_allocate(pool);
+
+    if (ret)
+      return ret;
+
+    pool = pool->m_next_sibling;
+  } while (pool);
+
+  /* Create and extra pool */
+  extra_pool = _create_malloc_pool(pool->m_entry_size);
+
+  /* Try to see if we can allocate inside of a new pool =/ */
+  _pool_append_sibling(
+      pool,
+      extra_pool
+  );
+
+  /* Try to allocate here */
+  return _try_pool_allocate(extra_pool);
+}
+
+/*!
  * @brief Internal memory allocation routine
  *
  * Based on the size, we'll see if we can find a pool to allocate in. If we can't find
@@ -253,6 +302,9 @@ static void* _pool_allocate(struct malloc_pool* pool)
 void* mem_alloc(size_t size)
 {
   struct malloc_pool* pool;
+
+  /* Make sure the size is aligned right */
+  size = ALIGN_UP(size, MEMPOOL_ENTSZ_ALIGN);
 
   pool = _find_malloc_pool(size);
 
@@ -288,6 +340,7 @@ static int _resolve_pool_entry(void* addr, struct malloc_pool** bpool, struct ma
   if (!addr)
     return -1;
 
+  sibling_walker = nullptr;
   walker = __start_range;
 
   /* Walk the top-level pool chain */
@@ -347,7 +400,5 @@ void __init_memalloc(void)
   /* Ask for a memory region from the kernel */
   /* Use the initial memory we get to initialize the allocator further */
   /* Mark readiness */
-  __start_range = nullptr;
-
-
+  __start_range = _create_malloc_pool(1);
 }

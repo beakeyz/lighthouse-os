@@ -2,10 +2,12 @@
 #include "lightos/handle_def.h"
 #include "lightos/proc/profile.h"
 #include "lightos/proc/var_types.h"
+#include <assert.h>
 #include <lightos/system.h>
 #include <lightos/syscall.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * What should the init process do?
@@ -36,6 +38,8 @@ int main()
 
   if (!handle_verify(h)) 
     return -1;
+
+  assert(malloc(8));
 
   res = false;
   char* resp = gets(buffer, sizeof(buffer));

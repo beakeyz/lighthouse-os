@@ -18,11 +18,10 @@
 
 
 #include "lightos/memory/alloc.h"
+#include "lightos/memory/memflags.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <stdarg.h>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -37,26 +36,17 @@
 
 #include "config.h"
 
-#include "deh_str.h"
 #include "doomtype.h"
 #include "m_argv.h"
-#include "m_config.h"
 #include "m_misc.h"
-#include "i_joystick.h"
-#include "i_sound.h"
-#include "i_timer.h"
-#include "i_video.h"
 
 #include "i_system.h"
-
-#include "w_wad.h"
-#include "z_zone.h"
 
 #ifdef __MACOSX__
 #include <CoreFoundation/CFUserNotification.h>
 #endif
 
-#define DEFAULT_RAM 6 /* MiB */
+#define DEFAULT_RAM 16 /* MiB */
 #define MIN_RAM     6  /* MiB */
 
 
@@ -96,7 +86,6 @@ void I_Tactile(int on, int off, int total)
 static byte *AutoAllocMemory(size_t *size, int default_ram, int min_ram)
 {
     byte *zonemem;
-    size_t ret_size;
 
     // Allocate the zone memory.  This loop tries progressively smaller
     // zone sizes until a size is found that can be allocated.
@@ -118,7 +107,7 @@ static byte *AutoAllocMemory(size_t *size, int default_ram, int min_ram)
 
         *size = default_ram * 1024 * 1024;
 
-        zonemem = allocate_pool(size, NULL, NULL);
+        zonemem = allocate_pool(size, MEMPOOL_FLAG_RW, NULL);
 
         // Failed to allocate?  Reduce zone size until we reach a size
         // that is acceptable.
@@ -159,8 +148,8 @@ byte *I_ZoneBase (size_t *size)
 
     zonemem = AutoAllocMemory(size, default_ram, min_ram);
 
-    printf("zone memory: %p, %llx allocated for zone\n", 
-           zonemem, *size);
+    printf("zone memory: %lld, %lld allocated for zone\n", 
+           (uint64_t)zonemem, *size);
 
     return zonemem;
 }
@@ -360,10 +349,7 @@ static boolean already_quitting = false;
 
 void I_Error (char *error, ...)
 {
-    char msgbuf[512];
-    va_list argptr;
     atexit_listentry_t *entry;
-    boolean exit_gui_popup;
 
     if (already_quitting)
     {
