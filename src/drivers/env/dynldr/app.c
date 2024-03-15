@@ -31,7 +31,7 @@ loaded_app_t* create_loaded_app(file_t* file, proc_t* proc)
   ret->library_list = init_list();
   ret->symbol_list = init_list();
   /* Variable size hashmap for the exported symbols */
-  ret->exported_symbols = create_hashmap(0x1000, HASHMAP_FLAG_SK);
+  ret->exported_symbols = create_hashmap(1 * Mib, HASHMAP_FLAG_SK);
   ret->entry = (DYNAPP_ENTRY_t)ret->image.elf_hdr->e_entry;
 
   return ret;
@@ -114,31 +114,37 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   libcount = loaded_app_get_lib_count(app);
   libarr_size = ALIGN_UP(libcount * sizeof(uintptr_t), SMALL_PAGE_SIZE);
 
+  printf("A");
+
   if (!libcount)
     return NULL;
 
   uaddr = Must(kmem_user_alloc_range(app->proc, libarr_size, NULL, NULL));
   kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
 
+  printf("B");
   if (!kaddr)
     return NULL;
+  printf("C\n");
 
   memset(kaddr, 0, libarr_size);
 
   lib_idx = NULL;
-  c_liblist_node = app->library_list->head;
+  c_liblist_node = app->library_list->end;
 
-  /* Cycle through the libraries */
-  do {
+  /* Cycle through the libraries in reverse */
+  while (c_liblist_node) {
     /* Get the entry */
     c_entry = ((dynamic_library_t*)c_liblist_node->data)->entry;
 
     /* Only add if this library has an entry */
     if (c_entry)
       kaddr[lib_idx++] = c_entry;
+
+    printf("Got entry: %p\n", c_entry);
     
-    c_liblist_node = c_liblist_node->next;
-  } while (c_liblist_node);
+    c_liblist_node = c_liblist_node->prev;
+  }
 
   /* NOTE: at this point lib_idx will represent the amount of libraries that have entries we need to call */
   *entrycount = lib_idx;
@@ -149,27 +155,46 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   return uaddr;
 }
 
+loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
+{
+  loaded_sym_t* ret;
+  dynamic_library_t* c_lib;
+
+  FOREACH(i, app->library_list) {
+    c_lib = i->data;
+
+    ret = hashmap_get(c_lib->symbol_map, (hashmap_key_t)symname);
+
+    if (ret) {
+      //printf("Found %s at %llx in %s\n", symname, ret->uaddr, c_lib->name);
+      return ret;
+    }
+  }
+
+  return hashmap_get(app->exported_symbols, (hashmap_key_t)symname);
+}
+
 /*!
  * @brief: Dirty routine to get the hardcoded symbols we need to install the app trampoline
  */
-static inline kerror_t _get_librt_symbols(loaded_app_t* app, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp)
+static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp)
 {
-  *appentry = (loaded_sym_t*)hashmap_get(app->exported_symbols, "__app_entrypoint");
+  *appentry = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__app_entrypoint");
 
   if (!(*appentry))
     return -KERR_INVAL;
   
-  *libentries = (loaded_sym_t*)hashmap_get(app->exported_symbols, "__lib_entrypoints");
+  *libentries = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__lib_entrypoints");
 
   if (!(*libentries))
     return -KERR_INVAL;
 
-  *libcount = (loaded_sym_t*)hashmap_get(app->exported_symbols, "__lib_entrycount");
+  *libcount = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__lib_entrycount");
 
   if (!(*libcount))
     return -KERR_INVAL;
 
-  *apptramp = (loaded_sym_t*)hashmap_get(app->exported_symbols, "___app_trampoline");
+  *apptramp = (loaded_sym_t*)hashmap_get(librt->symbol_map, "___app_trampoline");
 
   if (!(*apptramp))
     return -KERR_INVAL;
@@ -198,12 +223,16 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
 
   proc = app->proc;
 
+  printf("A\n");
+
   /* Try to load the runtime library for this app */
   if (!KERR_OK(load_dynamic_lib("librt.slb", app, &librt)))
     return -KERR_INVAL;
 
+  printf("B\n");
+
   /* Get the symbols we need to prepare the trampoline */
-  if (!KERR_OK(_get_librt_symbols(app, 
+  if (!KERR_OK(_get_librt_symbols(librt, 
           &app_entrypoint_sym,
           &lib_entrypoints_sym,
           &lib_entrycount_sym,

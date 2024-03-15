@@ -1,5 +1,6 @@
 #include <LibGfx/include/lgfx.h>
 #include <LibGfx/include/video.h>
+#include <stdio.h>
 
 /*
  * This is a demo app that should utilise the compositor and the 

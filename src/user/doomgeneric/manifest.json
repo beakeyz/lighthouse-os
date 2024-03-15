@@ -1,10 +1,7 @@
 {
   "name": "doom",
-  "linking": "static",
+  "linking": "dynamic",
   "type": "process",
-  "cflags": " -Os -Wall",
-  "ldflags": "",
   "libs": [
-    "LibGfx"
   ]
 }

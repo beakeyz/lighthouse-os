@@ -230,7 +230,7 @@ kerror_t _elf_do_headers(elf_image_t* image)
  *
  * When we fail to find a symbol, this function fails and returns -KERR_INVAL
  */
-kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, elf_image_t* image)
+kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, loaded_app_t* app, elf_image_t* image)
 {
   uint32_t sym_count;
   loaded_sym_t* sym;
@@ -285,7 +285,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
          */
         //printf("Resolving: %s\n", sym_name);
 
-        sym = hashmap_get(exported_symbol_map, (hashmap_key_t)sym_name);
+        sym = loaded_app_find_symbol(app, (hashmap_key_t)sym_name);
         
         if (!sym) 
           break;
@@ -347,7 +347,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
           sym     = &image->elf_dynsym[symbol];
           symname = (char *)((uintptr_t)image->elf_dynstrtab + sym->st_name);
 
-          loaded_sym = hashmap_get(exported_symbol_map, symname);
+          loaded_sym = loaded_app_find_symbol(app, symname);
 
           if (!loaded_sym)
             break;
@@ -371,7 +371,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, el
           sym     = &image->elf_dynsym[symbol];
           symname = (char *)((uintptr_t)image->elf_dynstrtab + sym->st_name);
 
-          loaded_sym = hashmap_get(exported_symbol_map, symname);
+          loaded_sym = loaded_app_find_symbol(app, symname);
 
           if (loaded_sym)
             break;
@@ -489,7 +489,7 @@ kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app)
  * NOTE: This assumes to be called with @hdr being at the start of the image buffer. This means 
  * we assume that the entire binary file is loaded into a buffer, with hdr = image_base
  */
-kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap)
+kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
 {
   struct elf64_hdr* hdr;
   struct elf64_shdr* shdr;
@@ -533,7 +533,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap)
       vaddr_t val = sym->st_value;
 
       /* Try to get this symbol */
-      c_ldsym = hashmap_get(symmap, (hashmap_key_t)symname);
+      c_ldsym = loaded_app_find_symbol(app, (hashmap_key_t)symname);
 
       if (c_ldsym)
         val = (c_ldsym->flags & LDSYM_FLAG_IS_CPY) == LDSYM_FLAG_IS_CPY ? c_ldsym->offset : c_ldsym->uaddr;

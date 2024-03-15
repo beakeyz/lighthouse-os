@@ -1,8 +1,10 @@
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
+#include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "mem/zalloc.h"
 #include "priv.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
@@ -36,6 +38,8 @@ static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent, const char* 
   ret->app = parent;
   ret->name = strdup(name);
   ret->path = strdup(path);
+  ret->symbol_map = create_hashmap(0x1000, HASHMAP_FLAG_SK);
+  ret->symbol_list = init_list();
 
   return ret;
 }
@@ -43,6 +47,15 @@ static dynamic_library_t* _create_dynamic_lib(loaded_app_t* parent, const char* 
 static void _destroy_dynamic_lib(dynamic_library_t* lib)
 {
   destroy_elf_image(&lib->image);
+
+  FOREACH(n, lib->symbol_list) {
+    loaded_sym_t* sym = n->data;
+
+    kzfree(sym, sizeof(*sym));
+  }
+
+  destroy_hashmap(lib->symbol_map);
+  destroy_list(lib->symbol_list);
 
   kfree((void*)lib->name);
   kfree((void*)lib->path);
@@ -72,17 +85,18 @@ static kerror_t _dynlib_load_image(file_t* file, dynamic_library_t* lib)
   if (!KERR_OK(error))
     return error;
 
+  /* Might load more libraries */
   error = _elf_load_dyn_sections(&lib->image, lib->app);
 
   if (!KERR_OK(error))
     return error;
 
-  error = _elf_do_symbols(lib->app->symbol_list, lib->app->exported_symbols, &lib->image);
+  error = _elf_do_symbols(lib->symbol_list, lib->symbol_map, lib->app, &lib->image);
 
   if (!KERR_OK(error))
     return error;
 
-  return _elf_do_relocations(&lib->image, lib->app->exported_symbols);
+  return _elf_do_relocations(&lib->image, lib->app);
 }
 
 static inline const char* _append_path_to_searchdir(const char* search_dir, const char* path)
@@ -161,6 +175,9 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
   if (!lib)
     return -KERR_INVAL;
 
+  /* Register ourselves preemptively to the app */
+  list_append(target_app->library_list, lib);
+
   /* Then try to open the target file */
   lib_file = file_open(lib->path);
 
@@ -180,9 +197,6 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
   /* Set the entry */
   if (lib->image.elf_lightentry_hdr)
     lib->entry = (DYNLIB_ENTRY_t)lib->image.elf_lightentry_hdr->sh_addr;
-  
-  /* Register ourselves to the app */
-  list_append(target_app->library_list, lib);
 
   if (blib)
     *blib = lib;
@@ -190,6 +204,8 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
   printf("Successfully loaded %s (entry=0x%p)\n", lib->name, lib->entry);
   return 0;
 dealloc_and_exit:
+  list_remove_ex(target_app->library_list, lib);
+
   if (lib)
     _destroy_dynamic_lib(lib);
 
@@ -223,10 +239,10 @@ static inline kerror_t load_app_dyn_sections(loaded_app_t* app)
   if (_elf_load_dyn_sections(&app->image, app))
     return -KERR_INVAL;
 
-  if (_elf_do_symbols(app->symbol_list, app->exported_symbols, &app->image))
+  if (_elf_do_symbols(app->symbol_list, app->exported_symbols, app, &app->image))
     return -KERR_INVAL;
 
-  if (_elf_do_relocations(&app->image, app->exported_symbols))
+  if (_elf_do_relocations(&app->image, app))
     return -KERR_INVAL;
 
   return 0;

@@ -12,6 +12,7 @@
 
 struct proc;
 struct loaded_app;
+struct loaded_sym;
 
 typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
 
@@ -55,6 +56,8 @@ typedef struct dynamic_library {
 
   /* Reference the loaded app to get access to environment info */
   struct loaded_app* app;
+  hashmap_t* symbol_map;
+  list_t* symbol_list;
   DYNLIB_ENTRY_t entry;
 } dynamic_library_t;
 
@@ -97,12 +100,14 @@ static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
   return app->library_list->m_length;
 }
 
+extern struct loaded_sym* loaded_app_find_symbol(loaded_app_t* app, const char* symname);
+
 extern void* proc_map_into_kernel(struct proc* proc, vaddr_t uaddr, size_t size);
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);
 
 extern kerror_t _elf_load_phdrs(elf_image_t* image);
 extern kerror_t _elf_do_headers(elf_image_t* image);
-extern kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap);
+extern kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app);
 /*
  * This is the only step that is dependent on high level dynldr abstractions =/ 
  * We are currently forced to pass this crap (@app) because this function might chainload
@@ -111,7 +116,7 @@ extern kerror_t _elf_do_relocations(elf_image_t* image, hashmap_t* symmap);
  * FIXME: Make this independant of this crap?
  */
 extern kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app);
-extern kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, elf_image_t* image);
+extern kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, loaded_app_t* app, elf_image_t* image);
 
 #define LDSYM_FLAG_IS_CPY 0x00000001
 

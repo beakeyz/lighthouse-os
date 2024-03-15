@@ -1,8 +1,10 @@
 
 PROCESS_NAME=doom
-LINK_TYPE=static
+LINK_TYPE=dynamic
+#LIBRARIES := \
+#	$(LIBRARY_BIN_PATH)/LibC/LibC.lib \
+#	$(LIBRARY_BIN_PATH)/LibGfx/LibGfx.lib
 LIBRARIES := \
-	$(LIBRARY_BIN_PATH)/LibC/LibC.lib \
-	$(LIBRARY_BIN_PATH)/LibGfx/LibGfx.lib
+			 -l:LibGfx.slb
 
 include ../user.mk
