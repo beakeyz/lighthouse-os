@@ -19,9 +19,9 @@ struct hashmap_entry;
 #define HASHMAP_FLAG_FS         (0x00000004) /* Is this hashmap fixed in size? */
 
 typedef struct __hashmap {
-
   size_t m_max_entries;
   size_t m_size;
+  size_t m_total_size;
 
   uintptr_t (*f_hash_func)(hashmap_key_t data);
 

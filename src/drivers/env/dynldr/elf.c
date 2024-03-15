@@ -52,9 +52,6 @@ void destroy_elf_image(elf_image_t* image)
 {
   __kmem_kernel_dealloc((vaddr_t)image->kernel_image, image->kernel_image_size);
 
-  if (image->elf_dyntbl)
-    __kmem_kernel_dealloc((vaddr_t)image->elf_dyntbl, image->elf_dyntbl_mapsize);
-
   kfree(image->elf_phdrs);
 }
 
@@ -154,7 +151,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
       case PT_DYNAMIC:
         /* Remap to the kernel */
         image->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
-        image->elf_dyntbl = proc_map_into_kernel(proc, (vaddr_t)image->user_base + c_phdr->p_vaddr, image->elf_dyntbl_mapsize);
+        image->elf_dyntbl = (void*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root));
 
         printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
         break;

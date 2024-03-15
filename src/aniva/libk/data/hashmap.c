@@ -124,6 +124,7 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags) {
 
   ret->m_flags = flags;
   ret->m_size = 0;
+  ret->m_total_size = aligned_size;
   ret->m_max_entries = max_entries;
 
   ret->f_hash_func = __hashmap_hash_str;
@@ -170,10 +171,7 @@ void destroy_hashmap(hashmap_t* map) {
     return;
 
   __hashmap_cleanup(map);
-
-  memset(map, 0, __get_hashmap_size(map->m_max_entries, map->m_flags));
-
-  kfree(map);
+  __kmem_kernel_dealloc((vaddr_t)map, map->m_total_size);
 }
 
 ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1)
@@ -689,7 +687,7 @@ int hashmap_to_array(hashmap_t* map, uintptr_t** array_ptr, size_t* size_ptr)
 
 void init_hashmap() 
 {
-  __hash_entry_allocator = create_zone_allocator_ex(nullptr, NULL, 64 * Kib, sizeof(hashmap_entry_t), 0);
+  __hash_entry_allocator = create_zone_allocator_ex(nullptr, NULL, 1 * Mib, sizeof(hashmap_entry_t), 0);
 
   ASSERT_MSG(__hash_entry_allocator, "Failed to create hashentry allocator!");
 }
