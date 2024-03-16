@@ -2,6 +2,8 @@
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "proc/proc.h"
+#include "sched/scheduler.h"
 #include <logging/log.h>
 
 /*
@@ -316,6 +318,21 @@ static const aniva_fault_t _static_faults[] = {
   }
 };
 
+static const char* _get_best_symname(uint64_t ip, bool* ksym)
+{
+  const char* ret;
+
+  *ksym = true;
+
+  ret = get_best_ksym_name(ip);
+
+  if (ret)
+    return ret;
+
+  *ksym = false;
+  return proc_try_get_symname(get_current_proc(), ip);
+}
+
 /*!
  * @brief: Prints a quick stackdump to the default kernel output
  */
@@ -327,10 +344,12 @@ int generate_traceback(registers_t* regs)
   uint64_t ip, bp;
   uint8_t current_depth = 0,
           max_depth = 20;
+  bool is_ksym;
 
   if (!regs)
     return -1;
 
+  is_ksym = true;
   ip = regs->rip;
   bp = regs->rbp;
 
@@ -343,7 +362,7 @@ int generate_traceback(registers_t* regs)
   {
     c_offset = 0;
     sym_start = 0;
-    c_func = get_best_ksym_name(ip);
+    c_func = _get_best_symname(ip, &is_ksym);
 
     if (!c_func)
       c_func = "Unknown";
@@ -355,8 +374,9 @@ int generate_traceback(registers_t* regs)
     if (sym_start && ip > sym_start)
       c_offset = ip - sym_start;
 
-    printf("(%d): Function name <%s+0x%llx> at (0x%llx)\n",
+    printf("(%d): [%s] Function: <%s+0x%llx> at (0x%llx)\n",
         current_depth,
+        is_ksym ? "K" : "U",
         c_func,
         c_offset,
         ip);

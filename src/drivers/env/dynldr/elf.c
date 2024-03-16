@@ -344,7 +344,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
           sym     = &image->elf_dynsym[symbol];
           symname = (char *)((uintptr_t)image->elf_dynstrtab + sym->st_name);
 
-          loaded_sym = loaded_app_find_symbol(app, symname);
+          loaded_sym = hashmap_get(exported_symbol_map, symname);
 
           if (!loaded_sym)
             break;
@@ -368,7 +368,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
           sym     = &image->elf_dynsym[symbol];
           symname = (char *)((uintptr_t)image->elf_dynstrtab + sym->st_name);
 
-          loaded_sym = loaded_app_find_symbol(app, symname);
+          loaded_sym = hashmap_get(exported_symbol_map, symname);
 
           if (loaded_sym)
             break;

@@ -101,6 +101,7 @@ static inline uint32_t loaded_app_get_lib_count(loaded_app_t* app)
 }
 
 extern struct loaded_sym* loaded_app_find_symbol(loaded_app_t* app, const char* symname);
+extern struct loaded_sym* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr);
 
 extern void* proc_map_into_kernel(struct proc* proc, vaddr_t uaddr, size_t size);
 extern kerror_t loaded_app_set_entry_tramp(loaded_app_t* app);

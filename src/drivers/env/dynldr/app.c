@@ -122,10 +122,8 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   uaddr = Must(kmem_user_alloc_range(app->proc, libarr_size, NULL, NULL));
   kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
 
-  printf("B");
   if (!kaddr)
     return NULL;
-  printf("C\n");
 
   memset(kaddr, 0, libarr_size);
 
@@ -155,6 +153,67 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   return uaddr;
 }
 
+loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
+{
+  loaded_sym_t* c_sym;
+  loaded_sym_t* ret;
+  uintptr_t c_delta;
+  uintptr_t best_delta;
+  dynamic_library_t* c_lib;
+
+  c_sym = ret = nullptr;
+  c_delta = best_delta = NULL;
+
+  /* Address inside of the app image? */
+  if (addr >= app->image.user_base && addr < (app->image.user_base + app->image.user_image_size)) {
+
+    /* Address is inside the apps image, scan the symbol list */
+    FOREACH(j, app->symbol_list) {
+      c_sym = j->data;
+
+      /* Address can't be part of this symbol */
+      if (addr < (void*)c_sym->uaddr)
+        continue;
+
+      c_delta = (vaddr_t)addr - c_sym->uaddr;
+
+      if (c_delta < best_delta)
+        continue;
+
+      best_delta = c_delta;
+      ret = c_sym;
+    }
+
+    return ret;
+  }
+
+  FOREACH(i, app->library_list) {
+    c_lib = i->data;
+
+    /* Address is outside of the library image =/ */
+    if (addr < c_lib->image.user_base || addr > (c_lib->image.user_base + c_lib->image.user_image_size))
+      continue;
+
+    FOREACH(j, c_lib->symbol_list) {
+      c_sym = j->data;
+
+      /* Address can't be part of this symbol */
+      if (addr < (void*)c_sym->uaddr)
+        continue;
+
+      c_delta = (vaddr_t)addr - c_sym->uaddr;
+
+      if (c_delta < best_delta)
+        continue;
+
+      best_delta = c_delta;
+      ret = c_sym;
+    }
+  }
+
+  return ret;
+}
+
 loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
 {
   loaded_sym_t* ret;
@@ -166,7 +225,7 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
     ret = hashmap_get(c_lib->symbol_map, (hashmap_key_t)symname);
 
     if (ret) {
-      //printf("Found %s at %llx in %s\n", symname, ret->uaddr, c_lib->name);
+      printf("Found %s at %llx in %s\n", symname, ret->uaddr, c_lib->name);
       return ret;
     }
   }
@@ -223,13 +282,9 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
 
   proc = app->proc;
 
-  printf("A\n");
-
   /* Try to load the runtime library for this app */
   if (!KERR_OK(load_dynamic_lib("librt.slb", app, &librt)))
     return -KERR_INVAL;
-
-  printf("B\n");
 
   /* Get the symbols we need to prepare the trampoline */
   if (!KERR_OK(_get_librt_symbols(librt, 

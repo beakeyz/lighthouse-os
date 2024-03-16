@@ -187,8 +187,8 @@ static kerror_t _loader_ld_app(const char* path, size_t pathlen, proc_id_t* pid)
 static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)
 {
   file_t* in_file;
-  proc_id_t pid;
   const char* in_path;
+  proc_id_t pid;
 
   switch (code) {
     /* 
@@ -235,6 +235,39 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
 
       kernel_panic("TODO: DYN_LDR_GET_LIB");
       break;
+    case DYN_LDR_GET_FUNC_NAME:
+      {
+        proc_t* target_proc;
+        loaded_app_t* target_app;
+        loaded_sym_t* sym;
+        dynldr_getfuncname_msg_t* msgblock;
+
+        if (in_bsize != sizeof(*msgblock) || !out_buf || out_bsize != sizeof(char**))
+          return DRV_STAT_INVAL;
+
+        msgblock = in_buf;
+
+        /* Find the process we need to check */
+        target_proc = find_proc_by_id(msgblock->pid);
+
+        if (!target_proc)
+          return DRV_STAT_INVAL;
+
+        /* Check if we have a loaded app for this lmao */
+        target_app = _get_app_from_proc(target_proc);
+
+        if (!target_app)
+          return DRV_STAT_INVAL;
+
+        sym = loaded_app_find_symbol_by_addr(target_app, msgblock->func_addr);
+
+        if (!sym || !sym->name)
+          return DRV_STAT_INVAL;
+
+        /* Found a symbol yay */
+        *(const char**)out_buf = sym->name;
+        break;
+      }
     default:
       return DRV_STAT_INVAL;
   }

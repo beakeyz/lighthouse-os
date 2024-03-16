@@ -184,6 +184,9 @@ static kerror_t _start_system_management(void)
  */
 static kerror_t _start_subsystems(void)
 {
+  // initialize cpu-related things that need the memorymanager and the heap
+  init_processor_late(&g_bsp);
+
   // we need more memory
   init_zalloc();
 
@@ -283,9 +286,6 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
 
   /* Initialize the PCI subsystem after ACPI */
   init_pci();
-
-  // initialize cpu-related things that need the memorymanager and the heap
-  init_processor_late(&g_bsp);
 
   /* Initialize the timer system */
   init_timer_system();

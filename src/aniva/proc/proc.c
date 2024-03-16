@@ -1,10 +1,12 @@
 #include "proc.h"
 #include <mem/heap.h>
+#include "dev/core.h"
 #include "entry/entry.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
+#include "lightos/driver/loader.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/handle.h"
@@ -397,4 +399,28 @@ void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {
   // TODO: generate new unique name
   //list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
   kernel_panic("TODO: implement async task threads");
+}
+
+const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
+{
+  const char* buffer;
+
+  if (!proc || !addr)
+    return nullptr;
+
+  dynldr_getfuncname_msg_t msg_block = {
+    .pid = proc->m_id,
+    .func_addr = (void*)addr,
+  };
+
+  if (IsError(driver_send_msg_a(
+          DYN_LDR_URL,
+          DYN_LDR_GET_FUNC_NAME,
+          &msg_block,
+          sizeof(msg_block),
+          &buffer,
+          sizeof(char*))) || !buffer || !strlen(buffer))
+    return nullptr;
+
+  return buffer;
 }

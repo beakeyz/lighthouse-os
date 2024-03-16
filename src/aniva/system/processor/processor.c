@@ -64,9 +64,43 @@ void init_processor(processor_t *processor, uint32_t cpu_num)
 
   processor->m_own_ptr = processor;
   processor->m_cpu_num = cpu_num;
-  processor->m_irq_depth = 0;
-  processor->m_prev_irq_depth = 0;
+
+  init_gdt(processor);
+
+  // set msr base
+  wrmsr(MSR_GS_BASE, (uintptr_t)processor);
+}
+
+/*!
+ * @brief: Quickly register a processor to the global processor array (gpa)
+ */
+static bool processor_register(processor_t* p)
+{
+  if (p->m_cpu_num >= SYS_MAX_CPU)
+    return false;
+
+  g_system_info.processors[p->m_cpu_num] = p;
+
+  return true;
+}
+
+/*!
+ * @brief: Sets up late information about a processor
+ *
+ * Creates heap-dependent data structures
+ * Creates interrupt managers for this processor
+ * Initializes FPU/SIMD/SSE
+ * Registers the processor
+ */
+void init_processor_late(processor_t *processor) 
+{
+  processor->m_processes = init_list();
+  processor->m_critical_depth = create_atomic_ptr();
+  processor->m_locked_level = create_atomic_ptr();
   processor->m_info = gather_processor_info();
+
+  atomic_ptr_write(processor->m_critical_depth, 0);
+  atomic_ptr_write(processor->m_locked_level, 0);
 
   init_sse(processor);
 
@@ -101,42 +135,7 @@ void init_processor(processor_t *processor, uint32_t cpu_num)
     ASSERT_MSG(__init_syscalls(processor).m_status == ANIVA_SUCCESS, "Failed to initialize syscalls");
   }
 
-  init_gdt(processor);
-
-  // set msr base
-  wrmsr(MSR_GS_BASE, (uintptr_t)processor);
-}
-
-/*!
- * @brief: Quickly register a processor to the global processor array (gpa)
- */
-static bool processor_register(processor_t* p)
-{
-  if (p->m_cpu_num >= SYS_MAX_CPU)
-    return false;
-
-  g_system_info.processors[p->m_cpu_num] = p;
-
-  return true;
-}
-
-/*!
- * @brief: Sets up late information about a processor
- *
- * Creates heap-dependent data structures
- * Creates interrupt managers for this processor
- * Initializes FPU/SIMD/SSE
- * Registers the processor
- */
-void init_processor_late(processor_t *this) 
-{
-  this->m_processes = init_list();
-  this->m_critical_depth = create_atomic_ptr();
-  this->m_locked_level = create_atomic_ptr();
-  atomic_ptr_write(this->m_critical_depth, 0);
-  atomic_ptr_write(this->m_locked_level, 0);
-
-  if (is_bsp(this)) {
+  if (is_bsp(processor)) {
     init_irq_chips();
 
     fpu_generic_init();
@@ -148,7 +147,7 @@ void init_processor_late(processor_t *this)
   }
 
   /* Register the processor */
-  processor_register(this);
+  processor_register(processor);
 }
 
 /*!
