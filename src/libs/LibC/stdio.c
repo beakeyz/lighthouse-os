@@ -1,7 +1,5 @@
 #include "stdio.h"
 #include "lightos/handle.h"
-#include "lightos/memory/alloc.h"
-#include "lightos/memory/memflags.h"
 #include "stdarg.h"
 #include "sys/types.h"
 #include <lightos/system.h>
@@ -340,8 +338,6 @@ unsigned long long fread(void* buffer, unsigned long long size, unsigned long lo
 
 static size_t __file_get_offset(FILE* file, long offset, int whence)
 {
-  uint64_t error;
-
   if (!file)
     return -1;
 

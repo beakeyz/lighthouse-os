@@ -191,6 +191,9 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel, bool defer_schedule) {
   if (IsError(elf_grab_sheaders(file, &header)))
     return Error();
 
+  if (header.e_type != ET_EXEC)
+    return Error();
+
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)

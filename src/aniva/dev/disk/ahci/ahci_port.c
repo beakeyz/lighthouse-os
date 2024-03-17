@@ -568,6 +568,9 @@ static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, si
  * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
  *
  * NOTE/FIXME: could we use @buffer directly?
+ * Another NOTE: Yes we prob. could do that, IF we build another framework around the diskdevice interface, which makes sure
+ * that @buffer is allocated with KMEM_FLAG_DMA. This would be coupled with persistent disk caches in a centralised place, much
+ * like we have in the bootloader (Which has a better disk-interface than us lmaooo)
  */
 static int ahci_port_read_blk(device_t* device, void* buffer, uintptr_t blk, size_t count)
 {

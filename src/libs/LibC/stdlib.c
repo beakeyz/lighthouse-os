@@ -1,5 +1,6 @@
 
 #include <ctype.h>
+#include <math.h>
 #include <mem/memory.h>
 #include <lightos/system.h>
 #include <string.h>

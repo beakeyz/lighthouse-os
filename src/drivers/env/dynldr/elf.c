@@ -100,9 +100,9 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   }
 
   /* Simple delta */
-  image->user_image_size = user_high - user_low;
+  image->user_image_size = ALIGN_UP((user_high - user_low) + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
   /* With this we can find the user base */
-  image->user_base = (void*)ALIGN_UP(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, ALIGN_UP(image->user_image_size + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE))), SMALL_PAGE_SIZE);
+  image->user_base = (void*)ALIGN_UP(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE);
 
   printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
@@ -170,9 +170,12 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
  */
 kerror_t _elf_do_headers(elf_image_t* image)
 {
+  void* kaddr;
+  struct elf64_shdr* shdr;
+
   /* First pass: Fix all the addresses of the section headers */
   for (uint32_t i = 0; i < image->elf_hdr->e_shnum; i++) {
-    struct elf64_shdr* shdr = elf_get_shdr(image->elf_hdr, i);
+    shdr = elf_get_shdr(image->elf_hdr, i);
 
     switch (shdr->sh_type) {
       case SHT_NOBITS:
@@ -181,6 +184,13 @@ kerror_t _elf_do_headers(elf_image_t* image)
 
         /* Just give any NOBITS sections a bit of memory */
         shdr->sh_addr = Must(kmem_user_alloc_range(image->proc, shdr->sh_size, NULL, NULL));
+
+        /* Zero the scattered range (FIXME: How do we assure that we don't reach memory we haven't mapped to the kernel?) */
+        for (uint64_t i = 0; i < GET_PAGECOUNT(shdr->sh_addr, shdr->sh_size); i++) {
+          kaddr = (void*)Must(kmem_get_kernel_address(shdr->sh_addr + kmem_get_page_addr(i), image->proc->m_root_pd.m_root));
+
+          memset(kaddr, 0, SMALL_PAGE_SIZE);
+        }
         break;
       default:
         shdr->sh_addr += (uint64_t)image->user_base;
@@ -222,6 +232,69 @@ kerror_t _elf_do_headers(elf_image_t* image)
   return 0;
 }
 
+static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symlist, hashmap_t* symmap, elf_image_t* image, struct elf64_shdr* shdr, const char* strtab)
+{
+  size_t sym_count;
+  loaded_sym_t* sym;
+
+  /* Grab the symbol count */
+  sym_count = shdr->sh_size / sizeof(struct elf64_sym);
+
+  /* Grab the start of the symbol table */
+  struct elf64_sym* sym_table_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, shdr);
+
+  /* Walk the table and resolve any symbols */
+  for (uint32_t i = 0; i < sym_count; i++) {
+    struct elf64_sym* current_symbol = &sym_table_start[i];
+    const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
+
+    /* Debug print lmao */
+    //printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
+
+    current_symbol->st_value += (vaddr_t)image->user_base;
+
+    switch (current_symbol->st_shndx) {
+      case SHN_UNDEF:
+        /*
+         * Need to look for this symbol in an earlier loaded binary =/ 
+         * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
+         */
+        //printf("Resolving: %s\n", sym_name);
+
+        sym = loaded_app_find_symbol(app, (hashmap_key_t)sym_name);
+        
+        if (!sym)
+          break;
+
+        current_symbol->st_value = sym->uaddr;
+        sym->usecount++;
+        break;
+      default:
+
+        /* Don't add weird symbols */
+        if (!strlen(sym_name))
+          break;
+
+        /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
+        sym = kzalloc(sizeof(loaded_sym_t*));
+
+        if (!sym)
+          return -KERR_NOMEM;
+
+        memset(sym, 0, sizeof (*sym));
+
+        sym->name = sym_name;
+        sym->uaddr = current_symbol->st_value;
+
+        /* Add both to the symbol map for easy lookup and the list for easy cleanup */
+        hashmap_put(symmap, (hashmap_key_t)sym_name, sym);
+        list_append(symlist, sym);
+        break;
+    }
+  }
+  return 0;
+}
+
 /*!
  * @brief: Scan the symbols in a given elf header and grab/resolve it's symbols
  *
@@ -229,8 +302,6 @@ kerror_t _elf_do_headers(elf_image_t* image)
  */
 kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, loaded_app_t* app, elf_image_t* image)
 {
-  uint32_t sym_count;
-  loaded_sym_t* sym;
   const char* names;
   struct elf64_shdr* shdr;
 
@@ -242,80 +313,8 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
   if (!shdr)
     return -KERR_INVAL;
 
-  /* Grab the symbol count */
-  sym_count = shdr->sh_size / sizeof(struct elf64_sym);
-
-  /* Grab the start of the symbol table */
-  struct elf64_sym* sym_table_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, shdr);
-
-  /* Walk the table and resolve any symbols */
-  for (uint32_t i = 0; i < sym_count; i++) {
-    struct elf64_sym* current_symbol = &sym_table_start[i];
-    const char* sym_name = (const char*)((uint64_t)names + current_symbol->st_name);
-
-    /* We only care about functions or objects */
-    if (ELF64_ST_TYPE(current_symbol->st_info) != STT_FUNC &&
-        ELF64_ST_TYPE(current_symbol->st_info) != STT_NOTYPE &&
-        ELF64_ST_TYPE(current_symbol->st_info) != STT_OBJECT)
-      continue;
-
-    if (!current_symbol->st_info)
-      continue;
-
-    /* Debug print lmao */
-    //printf("Found a symbol (\'%s\'). info=0x%x\n", sym_name, current_symbol->st_info);
-
-    switch (current_symbol->st_shndx) {
-      case SHN_UNDEF:
-
-        /* Don't do weird symbols */
-        if (!strlen(sym_name))
-          break;
-
-        /* Only resolve global symbols */
-        if (ELF64_ST_BIND(current_symbol->st_info) != STB_GLOBAL)
-          break;
-
-        /*
-         * Need to look for this symbol in an earlier loaded binary =/ 
-         * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
-         */
-        //printf("Resolving: %s\n", sym_name);
-
-        sym = loaded_app_find_symbol(app, (hashmap_key_t)sym_name);
-        
-        if (!sym) 
-          break;
-
-        current_symbol->st_value = sym->uaddr;
-        sym->usecount++;
-        break;
-      default:
-        {
-          current_symbol->st_value += (vaddr_t)image->user_base;
-
-          /* Don't add weird symbols */
-          if (!strlen(sym_name))
-            break;
-
-          /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
-          loaded_sym_t* sym = kzalloc(sizeof(loaded_sym_t*));
-
-          if (!sym)
-            return -KERR_NOMEM;
-
-          memset(sym, 0, sizeof (*sym));
-
-          sym->name = sym_name;
-          sym->uaddr = current_symbol->st_value;
-
-          /* Add both to the symbol map for easy lookup and the list for easy cleanup */
-          hashmap_put(exported_symbol_map, (hashmap_key_t)sym_name, sym);
-          list_append(symbol_list, sym);
-        }
-        break;
-    }
-  }
+  if (__elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, shdr, names))
+    return -KERR_INVAL;
 
   /* Now grab copy relocations
      This loop looks ugly as hell, but just deal with it sucker */
@@ -527,13 +526,13 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
       vaddr_t A = current->r_addend;
 
       size_t size = 0;
-      vaddr_t val = sym->st_value;
+      vaddr_t val = 0x00;
 
       /* Try to get this symbol */
       c_ldsym = loaded_app_find_symbol(app, (hashmap_key_t)symname);
 
       if (c_ldsym)
-        val = (c_ldsym->flags & LDSYM_FLAG_IS_CPY) == LDSYM_FLAG_IS_CPY ? c_ldsym->offset : c_ldsym->uaddr;
+        val = c_ldsym->uaddr;
 
       /* Copy is special snowflake lmao */
       if (ELF64_R_TYPE(current->r_info) == R_X86_64_COPY) {
@@ -567,6 +566,8 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
           val = (uint64_t)hdr + A;
           break;
         case R_X86_64_GLOB_DAT:
+          if (c_ldsym && (c_ldsym->flags & LDSYM_FLAG_IS_CPY) == LDSYM_FLAG_IS_CPY)
+            val = c_ldsym->offset;
         case R_X86_64_JUMP_SLOT:
           size = sizeof(uintptr_t);
           break;

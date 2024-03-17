@@ -59,6 +59,7 @@ wad_file_t *W_OpenFile(char *path)
     // Use the OS's virtual memory subsystem to map WAD files
     // directly into memory.
     //
+    printf("Trying to open : %s\n", path);
 
     if (!M_CheckParm("-mmap"))
     {

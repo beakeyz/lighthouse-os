@@ -583,12 +583,6 @@ ErrorOrPtr resource_find_usable_range(kresource_bundle_t* bundle, kresource_type
     return Error();
 
   do {
-    printf("Start=0x%llx End=0x%llx UseCount=%d\n", current->m_start, current->m_start + current->m_size, current->m_shared_count);
-  } while ((current = current->m_next) != nullptr);
-
-  current = bundle->resources[type];
-
-  do {
     /* Unused resource? */
     if (!current->m_shared_count && current->m_size >= size)
       return Success(current->m_start);

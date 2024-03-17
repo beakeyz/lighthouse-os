@@ -133,9 +133,9 @@ static inline size_t _calculate_poolsize(size_t entrysize)
    * AHHHHH MY EYESOCKETS
    */
   if (entrysize <= (16 * Kib))
-    coefficient = 32;
+    coefficient = 64;
   else if (entrysize <= (64 * Kib))
-    coefficient = 8;
+    coefficient = 16;
   else
     coefficient = 1;
 

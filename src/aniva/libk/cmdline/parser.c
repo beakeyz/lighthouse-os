@@ -110,6 +110,8 @@ void destroy_cmdline_parser()
 {
   hashmap_itterate(_opt_map, _destroy_opts, NULL, NULL);
   destroy_hashmap(_opt_map);
+
+  _opt_map = nullptr;
 }
 
 #define __SCAN_TOKEN(c) \

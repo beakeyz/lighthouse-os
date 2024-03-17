@@ -224,10 +224,8 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
 
     ret = hashmap_get(c_lib->symbol_map, (hashmap_key_t)symname);
 
-    if (ret) {
-      printf("Found %s at %llx in %s\n", symname, ret->uaddr, c_lib->name);
+    if (ret)
       return ret;
-    }
   }
 
   return hashmap_get(app->exported_symbols, (hashmap_key_t)symname);
@@ -241,22 +239,22 @@ static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t
   *appentry = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__app_entrypoint");
 
   if (!(*appentry))
-    return -KERR_INVAL;
+    return -KERR_NULL;
   
   *libentries = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__lib_entrypoints");
 
   if (!(*libentries))
-    return -KERR_INVAL;
+    return -KERR_NULL;
 
   *libcount = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__lib_entrycount");
 
   if (!(*libcount))
-    return -KERR_INVAL;
+    return -KERR_NULL;
 
   *apptramp = (loaded_sym_t*)hashmap_get(librt->symbol_map, "___app_trampoline");
 
   if (!(*apptramp))
-    return -KERR_INVAL;
+    return -KERR_NULL;
 
   return 0;
 }

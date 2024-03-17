@@ -117,10 +117,8 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags) {
   delta = aligned_size - hashmap_size;
 
   /* We are able to claim this memory just for free entries, so lets take it =D */
-  if ((flags & HASHMAP_FLAG_CA) == 0)
-    max_entries += (delta / sizeof(hashmap_value_t));
-  else
-    max_entries += (delta / sizeof(hashmap_entry_t));
+  if ((flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA) max_entries += (delta / sizeof(hashmap_entry_t));
+  else max_entries += (delta / sizeof(hashmap_value_t));
 
   ret->m_flags = flags;
   ret->m_size = 0;
