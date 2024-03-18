@@ -510,14 +510,12 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
     symtable_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, elf_get_shdr(hdr, shdr->sh_link));
 
     /* Compute the amount of relocations */
-    rela_count = ALIGN_UP(shdr->sh_size, sizeof(struct elf64_rela)) / sizeof(struct elf64_rela);
+    rela_count = shdr->sh_size / sizeof(struct elf64_rela);
 
     for (uint32_t i = 0; i < rela_count; i++) {
       struct elf64_rela* current = &table[i];
       struct elf64_sym* sym = &symtable_start[ELF64_R_SYM(table[i].r_info)];
       const char* symname = image->elf_dynstrtab + sym->st_name;
-
-      //printf("Need to relocate symbol %s\n", symname);
 
       /* Where we are going to change stuff */
       const vaddr_t P = Must(kmem_get_kernel_address((vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root));
@@ -533,6 +531,8 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
 
       if (c_ldsym)
         val = c_ldsym->uaddr;
+
+      printf("Need to relocate symbol %s\n", c_ldsym->name);
 
       /* Copy is special snowflake lmao */
       if (ELF64_R_TYPE(current->r_info) == R_X86_64_COPY) {

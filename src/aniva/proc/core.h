@@ -5,7 +5,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 
-#define DEFAULT_STACK_SIZE                      (32 * Kib)
+#define DEFAULT_STACK_SIZE                      (64 * Kib)
 #define DEFAULT_THREAD_MAX_TICKS                (10)
 
 #define PROC_DEFAULT_MAX_THREADS                (16)

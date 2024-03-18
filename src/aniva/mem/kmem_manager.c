@@ -472,6 +472,8 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr)
 /*
  * Translate a virtual address to a physical address that is
  * page-aligned
+ *
+ * TODO: change this function so errors are communicated clearly
  */
 uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) 
 {

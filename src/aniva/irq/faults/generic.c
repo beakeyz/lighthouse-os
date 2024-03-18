@@ -2,6 +2,7 @@
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "mem/kmem_manager.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <logging/log.h>
@@ -185,7 +186,7 @@ static const aniva_fault_t _static_faults[] = {
   },
   {
     13,
-    0,
+    FAULT_FLAG_PRINT_DEBUG | FAULT_FLAG_TRACEBACK,
     FT_GPF,
     "General protection fault",
     gpf_handler,
@@ -338,6 +339,7 @@ static const char* _get_best_symname(uint64_t ip, bool* ksym)
  */
 int generate_traceback(registers_t* regs)
 {
+  proc_t* c_proc;
   const char* c_func;
   uint64_t c_offset;
   uint64_t sym_start;
@@ -349,6 +351,7 @@ int generate_traceback(registers_t* regs)
   if (!regs)
     return -1;
 
+  c_proc = get_current_proc();
   is_ksym = true;
   ip = regs->rip;
   bp = regs->rbp;
@@ -380,6 +383,10 @@ int generate_traceback(registers_t* regs)
         c_func,
         c_offset,
         ip);
+
+    /* Don't continue if the instruction pointer points to invalid shit */
+    if (IsError(kmem_validate_ptr(c_proc, ip, sizeof(ip))))
+      break;
 
     ip = *(uint64_t*)(bp + sizeof(uint64_t));
     bp = *(uint64_t*)bp;
