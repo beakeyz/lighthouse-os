@@ -504,6 +504,11 @@ static enum FAULT_RESULT seg_not_present_handler(const aniva_fault_t* fault, reg
 
 static enum FAULT_RESULT stack_seg_handler(const aniva_fault_t* fault, registers_t* regs)
 {
+  proc_t* c_proc;
+
+  c_proc = get_current_proc();
+
+  printf("Stack segment fault in process %s\n", c_proc->m_name);
   kernel_panic("TODO (Stack seg): figure out what to do here");
 }
 

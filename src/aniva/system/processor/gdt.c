@@ -1,4 +1,3 @@
-#include "gdt.h"
 #include <mem/kmem_manager.h>
 #include <libk/string.h>
 #include <libk/stddef.h>

@@ -206,16 +206,16 @@ ANIVA_STATUS init_gdt(processor_t *processor) {
     .low = 0x0000ffff,
     .high = 0x00af9200,
   };
-  gdt_entry_t ring3_data = {
-    .low = 0x0000ffff,
-    .high = 0x008ff200,
-  };
   gdt_entry_t ring3_code = {
     .low = 0x0000ffff,
     .high = 0x00affa00,
   };
+  gdt_entry_t ring3_data = {
+    .low = 0x0000ffff,
+    .high = 0x00aff200,
+  };
     
-  write_to_gdt(processor, 0x0000, null);
+  write_to_gdt(processor, 0x00, null);
   write_to_gdt(processor, GDT_KERNEL_CODE, ring0_code);
   write_to_gdt(processor, GDT_KERNEL_DATA, ring0_data);
   write_to_gdt(processor, GDT_USER_DATA, ring3_data);
@@ -230,8 +230,8 @@ ANIVA_STATUS init_gdt(processor_t *processor) {
   tss.structured.segment_present = 1;
   tss.structured.descriptor_type = 0;
   tss.structured.available = 0;
-  tss.structured.op_size64 = 0;
-  tss.structured.op_size32 = 1;
+  tss.structured.op_size64 = 1;
+  tss.structured.op_size32 = 0;
   tss.structured.granularity = 0;
   tss.structured.type = AVAILABLE_TSS;
   write_to_gdt(processor, GDT_TSS_SEL, tss);
