@@ -71,7 +71,6 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 {
   proc_t* proc;
   size_t user_high;
-  size_t user_low;
   struct elf64_hdr* hdr;
   struct elf64_phdr* phdr_list;
   struct elf64_phdr* c_phdr;
@@ -80,7 +79,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   hdr = image->elf_hdr;
   phdr_list = image->elf_phdrs;
 
-  user_low = user_high = NULL;
+  user_high = NULL;
 
   /* First, we calculate the size of this image */
   for (uint32_t i = 0; i < hdr->e_phnum; i++) {
@@ -88,9 +87,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 
     switch (c_phdr->p_type) {
       case PT_LOAD:
-        /* Find the low and high ends */
-        if (c_phdr->p_vaddr < user_low)
-            user_low = c_phdr->p_vaddr;
+        /* Find the high end */
         if (c_phdr->p_memsz + c_phdr->p_vaddr > user_high)
             user_high = c_phdr->p_memsz + c_phdr->p_vaddr;
         break;
@@ -98,7 +95,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   }
 
   /* Simple delta */
-  image->user_image_size = ALIGN_UP((user_high - user_low) + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
+  image->user_image_size = ALIGN_UP((user_high) + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
   /* With this we can find the user base */
   image->user_base = (void*)(ALIGN_UP(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE));
 
@@ -274,7 +271,7 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
           break;
 
         /* Allocate the symbol manually. This gets freed when the loaded_app is destroyed */
-        sym = kzalloc(sizeof(loaded_sym_t*));
+        sym = kzalloc(sizeof(loaded_sym_t));
 
         if (!sym)
           return -KERR_NOMEM;
@@ -530,7 +527,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
       if (c_ldsym)
         val = c_ldsym->uaddr;
 
-      printf("Need to relocate symbol %s\n", c_ldsym->name);
+      //printf("Need to relocate symbol %s\n", c_ldsym->name);
 
       /* Copy is special snowflake lmao */
       if (ELF64_R_TYPE(current->r_info) == R_X86_64_COPY) {
