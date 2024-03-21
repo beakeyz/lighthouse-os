@@ -114,57 +114,57 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
   uintptr_t internal_index = 0;
   for (uint32_t i = 0; i < MAX_HBA_PORT_AMOUNT; i++) {
-    if (pi & (1 << i)) {
+    if ((pi & (1ULL << i)) != (1ULL << i))
+      continue;
 
-      uintptr_t port_offset = 0x100 + i * 0x80;
+    uintptr_t port_offset = 0x100 + i * 0x80;
 
 
-      volatile HBA_port_registers_t* port_regs = ((volatile HBA_port_registers_t*)&device->m_hba_region->ports[i]);
+    volatile HBA_port_registers_t* port_regs = ((volatile HBA_port_registers_t*)&device->m_hba_region->ports[i]);
 
-      uint32_t sig = ahci_mmio_read32((uintptr_t)device->m_hba_region + port_offset, AHCI_REG_PxSIG);
+    uint32_t sig = ahci_mmio_read32((uintptr_t)device->m_hba_region + port_offset, AHCI_REG_PxSIG);
 
-      bool valid = false;
+    bool valid = false;
 
-      // TODO: take these sigs out of this 
-      // function scope and into a macro
-      switch(sig) {
-        case 0xeb140101:
-          println("ATAPI (CD, DVD)");
-          break;
-        case AHCI_PxSIG_ATA:
-          println("AHCI: hard drive");
-          valid = true;
-          break;
-        case 0xffff0101:
-          println("AHCI: no dev");
-          break;
-        default:
-          print("ACHI: unsupported signature ");
-          println(to_string(port_regs->signature));
-          break;
-      }
-
-      if (!valid) {
-        continue;
-      }
-
-      ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, internal_index);
-      if (initialize_port(port) == ANIVA_FAIL) {
-        println("Failed! killing port...");
-        destroy_ahci_port(port);
-        continue;
-      }
-
-      /*
-       * FIXME: Simplefy these 3 statements below
-       */
-
-      _register_ahci_port(device, port->m_generic);
-
-      list_append(device->m_ports, port);
-
-      internal_index++;
+    // TODO: take these sigs out of this 
+    // function scope and into a macro
+    switch(sig) {
+      case 0xeb140101:
+        println("ATAPI (CD, DVD)");
+        break;
+      case AHCI_PxSIG_ATA:
+        println("AHCI: hard drive");
+        valid = true;
+        break;
+      case 0xffff0101:
+        println("AHCI: no dev");
+        break;
+      default:
+        print("ACHI: unsupported signature ");
+        println(to_string(port_regs->signature));
+        break;
     }
+
+    if (!valid) {
+      continue;
+    }
+
+    ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, internal_index);
+    if (initialize_port(port) == ANIVA_FAIL) {
+      println("Failed! killing port...");
+      destroy_ahci_port(port);
+      continue;
+    }
+
+    /*
+     * FIXME: Simplefy these 3 statements below
+     */
+
+    _register_ahci_port(device, port->m_generic);
+
+    list_append(device->m_ports, port);
+
+    internal_index++;
   }
 
   return ANIVA_SUCCESS;

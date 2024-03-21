@@ -5,6 +5,7 @@
 #include "system/acpi/acpica/acnames.h"
 #include "system/acpi/acpica/acnamesp.h"
 #include "system/acpi/acpica/acpixf.h"
+#include "system/acpi/acpica/actypes.h"
 #include "system/acpi/device.h"
 #include "system/acpi/tables.h"
 #include <dev/core.h>
@@ -17,7 +18,13 @@ static uint64_t _acpi_dev_msg(device_t* device, dcc_t code)
   return KERR_NONE;
 }
 
+static int _acpi_dev_create(device_t* device)
+{
+  return 0;
+}
+
 struct device_generic_endpoint _acpi_generic_dep = {
+  .f_create = _acpi_dev_create,
   .f_msg = _acpi_dev_msg,
   NULL,
 };
@@ -69,8 +76,12 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   if (ACPI_FAILURE(AcpiGetType(dev, &obj_type)))
     return AE_OK;
 
-  /* FIXME: Check device dependencies and do correct things */
+  /* Temporary check */
   if (ACPI_FAILURE(AcpiGetHandle(dev, "_HID", &tmp)))
+    return AE_OK;
+
+  /* FIXME: Check device dependencies and do correct things */
+  if (ACPI_SUCCESS(AcpiGetHandle(dev, "_DEP", &tmp)))
     return AE_OK;
 
   /* Get the full path of this device and print it */

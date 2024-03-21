@@ -410,6 +410,7 @@ typedef struct xhci_ring {
   paddr_t ring_dma;
   uint32_t ring_size;
   uint32_t ring_type;
+  uint32_t ring_cycle;
 } xhci_ring_t;
 
 /* ring.c */
@@ -419,6 +420,8 @@ extern void destroy_xhci_ring(xhci_ring_t* ring);
 extern int xhci_set_cmd_ring(struct xhci_hcd* hcd);
 
 extern int xhci_cmd_ring_enqueue(struct xhci_hcd* hcd, xhci_trb_t* trb);
+extern int xhci_ring_enqueue(struct xhci_hcd* hcd, xhci_ring_t* ring, xhci_trb_t* trb);
+extern int xhci_ring_dequeue(struct xhci_hcd* hcd, xhci_ring_t* ring, xhci_trb_t* b_trb);
 
 /*
  * Scratchpad store for a xhci hcd

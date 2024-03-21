@@ -122,6 +122,9 @@ static int xhci_wait_read(struct usb_hcd* hub, uintptr_t max_timeout, void* addr
   return -1;
 }
 
+/*
+ * This looks so fucking useless
+ */
 usb_hcd_mmio_ops_t xhci_mmio_ops = {
   .mmio_read64 = xhci_read64,
   .mmio_write64 = xhci_write64,
@@ -692,7 +695,7 @@ int xhci_setup(usb_hcd_t* hcd)
     goto fail_and_dealloc;
 
   /* Create the async polling threads (TODO: only when it's configured to use this) */
-  //xhci->event_thread = spawn_thread("xhci_event", _xhci_event_poll, (uint64_t)xhci);
+  xhci->event_thread = spawn_thread("xhci_event", _xhci_event_poll, (uint64_t)xhci);
   //xhci->trf_finish_thread = spawn_thread("xhci_trf_thread", nullptr, (uint64_t)xhci);
 
   /*

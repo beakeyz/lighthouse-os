@@ -15,7 +15,7 @@
 
 - (1) Smooth out our filesystem and object management systems - 
 [X] : Implement oss
-  [ ] : Finish the migration from the current vfs to the new oss (Which we build from the ground up seperate from VFS)
+  [X] : Finish the migration from the current vfs to the new oss (Which we build from the ground up seperate from VFS)
   [ ] : Create a convenient API to manipulate the vfs/oss (File creation, dir creation, file copy, file move, ect.)
 [ ] : Refactor the entire device architecure under ANIVA to move towards a device-tree like structure
       (We need devices to be solid for our ACPI to not die on us)

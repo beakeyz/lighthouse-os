@@ -519,8 +519,6 @@ static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, si
   size_t buffer_size;
   ANIVA_STATUS status;
 
-  kernel_panic("TODO: verify ahci_port_write_blk works");
-
   if (!device || !count || !buffer)
     return -1;
 

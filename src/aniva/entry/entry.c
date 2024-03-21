@@ -355,14 +355,13 @@ void kthread_entry(void) {
 
   /* Initialized the ACPI core driver */
   // Comented until we implement actual system-wide ACPI integration
-  //init_acpi_core();
+  init_acpi_core();
 
   /* Scan for pci devices and initialize any matching drivers */
   init_pci_drivers();
 
   /* Load the USB drivers on our system */
-  // Commented until we can actually do useful stuff with USB lmao
-  //init_usb_drivers();
+  init_usb_drivers();
 
   /* (libk/bin/elf.c): Load the driver for dynamic executables */
   init_dynamic_loader();

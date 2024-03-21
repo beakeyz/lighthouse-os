@@ -1,7 +1,5 @@
-#include "dev/usb/hcd.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "xhci.h"
@@ -57,6 +55,19 @@ void destroy_xhci_ring(xhci_ring_t* ring)
   Must(__kmem_dealloc(nullptr, nullptr, (vaddr_t)ring->ring_buffer, ring->ring_size));
 
   kzfree(ring, sizeof(xhci_ring_t));
+}
+
+/*!
+ * @brief: Add a trb to the xhci ring
+ */
+int xhci_ring_enqueue(struct xhci_hcd* hcd, xhci_ring_t* ring, xhci_trb_t* trb)
+{
+  kernel_panic("TODO: xhci_ring_enqueue");
+}
+
+extern int xhci_ring_dequeue(struct xhci_hcd* hcd, xhci_ring_t* ring, xhci_trb_t* b_trb)
+{
+  kernel_panic("TODO: xhci_ring_dequeue");
 }
 
 int xhci_cmd_ring_enqueue(xhci_hcd_t* xhci, xhci_trb_t* trb)
@@ -191,6 +202,9 @@ int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* intr, uint32
   deq |= (intr->event_ring->ring_dma & (uint64_t) ~(XHCI_ERST_PTR_MASK));
 
   mmio_write_qword(&intr->ir_regs->erst_dequeue, deq);
+
+  /* Set the interrupt rate (~4000 irq/s) */
+  mmio_write_dword(&intr->ir_regs->irq_ctl, 0x000003f8);
 
   return 0;
 }
