@@ -272,6 +272,8 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
     xhci_port_power(xhci, hub->ports[i], true);
   }
 
+  xhci_submit_cmd(xhci, NULL, NULL, (XHCI_TRB_TYPE(TRB_FORCE_EVENT)));
+
   return hub;
 }
 
@@ -668,6 +670,7 @@ int xhci_setup(usb_hcd_t* hcd)
   xhci->runtime_regs = (xhci_runtime_regs_t*)(xhci->register_ptr + XHCI_RR_OF(xhci));
 
   xhci->doorbell_regs_offset = (mmio_read_dword(&xhci->cap_regs->db_arr_offset) & (~0x3));
+  xhci->db_arr = (xhci_db_array_t*)(xhci->register_ptr + xhci->doorbell_regs_offset);
 
   xhci->hci_version = HC_VERSION(mmio_read_dword(&xhci->cap_regs->hc_capbase));
   xhci->max_interrupters = HC_MAX_INTER(mmio_read_dword(&xhci->cap_regs->hcs_params_1));

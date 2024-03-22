@@ -8,19 +8,23 @@
  */
 void _xhci_event_poll(xhci_hcd_t* xhci)
 {
-  xhci_trb_t event_trb;
-  xhci_ring_t* evnt_ring;
+  uint32_t type;
+  xhci_ring_t* event_ring;
 
-  evnt_ring = xhci->interrupter->event_ring;
+  event_ring = xhci->interrupter->event_ring;
 
-  xhci->interrupter->erst.dma
+  event_ring->ring_cycle = 1;
 
   /* Loop forever and check the event status bits on the hcd */
   do {
-  
-    if (xhci_ring_dequeue(xhci, evnt_ring, &event_trb))
+    if ((event_ring->dequeue->control & 1) != event_ring->ring_cycle) {
       scheduler_yield();
+      continue;
+    }
 
+    type = XHCI_TRB_FIELD_TO_TYPE(event_ring->dequeue->control);
+  
+    printf("TYpe=%d\n", type);
     kernel_panic("Got an event!");
   } while (true);
 }
