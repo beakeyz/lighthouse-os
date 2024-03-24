@@ -119,6 +119,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);
 void destroy_proc(proc_t*);
 
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread);
+kerror_t proc_remove_thread(proc_t* proc, struct thread* thread);
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);
 
 ErrorOrPtr try_terminate_process(proc_t* proc);

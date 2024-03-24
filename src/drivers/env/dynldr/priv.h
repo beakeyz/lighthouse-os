@@ -25,6 +25,7 @@ typedef struct elf_image {
   struct elf64_dyn* elf_dyntbl;
 
   size_t elf_dyntbl_mapsize;
+  size_t elf_dynsym_count;
   struct elf64_shdr* elf_symtbl_hdr;
   struct elf64_shdr* elf_lightentry_hdr;
   struct elf64_shdr* elf_lightexit_hdr;
@@ -58,6 +59,7 @@ typedef struct dynamic_library {
   struct loaded_app* app;
   hashmap_t* symbol_map;
   list_t* symbol_list;
+  thread_t* lib_init_thread;
   DYNLIB_ENTRY_t entry;
 } dynamic_library_t;
 
@@ -65,6 +67,8 @@ extern kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app
 extern kerror_t load_dependant_lib(const char* path, dynamic_library_t* library);
 extern kerror_t reload_dynamic_lib(dynamic_library_t* lib, struct loaded_app* target_app);
 extern kerror_t unload_dynamic_lib(dynamic_library_t* lib);
+
+extern kerror_t await_lib_init(dynamic_library_t* lib);
 
 /*
  * A single loaded app
@@ -78,6 +82,7 @@ typedef struct loaded_app {
   elf_image_t image;
 
   DYNAPP_ENTRY_t entry;
+  FuncPtr exit;
   
   hashmap_t* exported_symbols;
   /* This list contains all the symbols we find throughout the load process of a single app. 
@@ -120,6 +125,7 @@ extern kerror_t _elf_load_dyn_sections(elf_image_t* image, loaded_app_t* app);
 extern kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, loaded_app_t* app, elf_image_t* image);
 
 #define LDSYM_FLAG_IS_CPY 0x00000001
+#define LDSYM_FLAG_EXPORT 0x00000002
 
 /*
  * A single symbol that we have loaded in a context

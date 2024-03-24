@@ -43,6 +43,7 @@ typedef struct kernel_handle {
     struct profile_var* pvar;
     struct kevent* event;
     struct kevent_hook* hook;
+    struct dynamic_library* dynlib;
     void* kobj;
   } reference;
 } khandle_t;

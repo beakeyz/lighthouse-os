@@ -3,7 +3,6 @@
 
 #include "dev/core.h"
 #include "dev/video/connector.h"
-#include "libk/stddef.h"
 
 #define VIDDEV_FLAG_FB          (0x01)
 #define VIDDEV_FLAG_GPU         (0x02)

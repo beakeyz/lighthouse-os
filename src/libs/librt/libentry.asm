@@ -5,6 +5,7 @@
 [global __app_entrypoint]
 [global __lib_entrypoints]
 [global __lib_entrycount]
+[global __quick_exit]
 
 [global __real_start]
 [global __init_lib]
@@ -111,6 +112,14 @@ __exit_error:
   ;ret
 __exit_loop:
   jmp __exit_loop;
+
+__quick_exit:
+  mov rbx, 0
+  mov rax, 0
+
+  syscall
+
+  jmp __exit_loop
 
 ; (rdi=(DYNAPP_ENTRY_t) app_entry, rsi=(DYNLIB_ENTRY_t*) lib_entries, rdx=(size_t) lib_entry_count)
 __app_entrypoint:

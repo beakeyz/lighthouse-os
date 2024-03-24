@@ -1,4 +1,5 @@
 #include "sys_open.h"
+#include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/var_types.h"
 #include "lightos/syscall.h"
@@ -155,6 +156,17 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_EVENTHOOK:
       break;
+    case HNDL_TYPE_SHARED_LIB:
+      {
+        /* We (the kernel) does not need to know about how dynamic_library memory is ordered */
+        dynamic_library_t* lib_addr = NULL;
+
+        if (IsError(driver_send_msg_a(DYN_LDR_URL, DYN_LDR_LOAD_LIB, (void*)path, sizeof(path), &lib_addr, sizeof(void*))) || !lib_addr)
+          return HNDL_NOT_FOUND;
+
+        init_khandle(&handle, &type, lib_addr);
+        break;
+      }
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
     case HNDL_TYPE_OSS_OBJ:
@@ -176,6 +188,26 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     ret = Release(result);
 
   return ret;
+}
+
+vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path)
+{
+  proc_t* c_proc;
+  vaddr_t out;
+
+  c_proc = get_current_proc();
+
+  if (IsError(kmem_validate_ptr(c_proc, (vaddr_t)path, 1)))
+    return NULL;
+
+  /* NOTE: Dangerous */
+  if (!strlen(path))
+    return NULL;
+
+  if (IsError(driver_send_msg_a(DYN_LDR_URL, DYN_LDR_GET_FUNC_ADDR, (void*)path, sizeof(path), &out, sizeof(out))))
+    return NULL;
+
+  return out;
 }
 
 /*!

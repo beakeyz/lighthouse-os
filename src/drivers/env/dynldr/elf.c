@@ -227,16 +227,12 @@ kerror_t _elf_do_headers(elf_image_t* image)
   return 0;
 }
 
-static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symlist, hashmap_t* symmap, elf_image_t* image, struct elf64_shdr* shdr, const char* strtab)
+static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symlist, hashmap_t* symmap, elf_image_t* image, struct elf64_sym* symtable, size_t sym_count, const char* strtab)
 {
-  size_t sym_count;
   loaded_sym_t* sym;
 
-  /* Grab the symbol count */
-  sym_count = shdr->sh_size / sizeof(struct elf64_sym);
-
   /* Grab the start of the symbol table */
-  struct elf64_sym* sym_table_start = (struct elf64_sym*)_elf_get_shdr_kaddr(image, shdr);
+  struct elf64_sym* sym_table_start = symtable;
 
   /* Walk the table and resolve any symbols */
   for (uint32_t i = 0; i < sym_count; i++) {
@@ -250,12 +246,11 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
 
     switch (current_symbol->st_shndx) {
       case SHN_UNDEF:
-        /*
-         * Need to look for this symbol in an earlier loaded binary =/ 
-         * TODO: Create a load context that keeps track of symbol addresses, origins, ect.
-         */
         //printf("Resolving: %s\n", sym_name);
 
+        /*
+         * Need to look for this symbol in an earlier loaded binary =/ 
+         */
         sym = loaded_app_find_symbol(app, (hashmap_key_t)sym_name);
         
         if (!sym)
@@ -290,6 +285,45 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
   return 0;
 }
 
+static inline void _elf_mark_exported_symbols(loaded_app_t* app)
+{
+  loaded_sym_t* sym;
+  elf_image_t* image;
+  size_t sym_count;
+  const char* strtab;
+  struct elf64_sym* sym_table_start;
+
+  image = &app->image;
+
+  if (!image->elf_dynsym || !image->elf_dynsym_count || !image->elf_dynstrtab)
+    return;
+
+
+  /* Grab the start of the symbol table */
+  sym_table_start = image->elf_dynsym;
+  sym_count = image->elf_dynsym_count;
+  strtab = image->elf_dynstrtab;
+
+  /* Walk the table and resolve any symbols */
+  for (uint32_t i = 0; i < sym_count; i++) {
+    struct elf64_sym* current_symbol = &sym_table_start[i];
+    const char* sym_name = (const char*)((uint64_t)strtab + current_symbol->st_name);
+
+    if (current_symbol->st_shndx == SHN_UNDEF)
+      continue;
+
+    /* Don't add weird symbols */
+    if (!strlen(sym_name))
+      continue;
+
+    sym = loaded_app_find_symbol(app, sym_name);
+
+    /* Mark this symbol as exported lololol */
+    if (sym)
+      sym->flags |= LDSYM_FLAG_EXPORT;
+  }
+}
+
 /*!
  * @brief: Scan the symbols in a given elf header and grab/resolve it's symbols
  *
@@ -298,18 +332,22 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
 kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, loaded_app_t* app, elf_image_t* image)
 {
   const char* names;
-  struct elf64_shdr* shdr;
+  size_t symcount;
+  struct elf64_sym* syms;
 
   /* NOTE: Since we're working with the global symbol table (And not the dynamic symbol table) 
      we need to use the coresponding GLOBAL string table */
   names = image->elf_strtab;
-  shdr = image->elf_symtbl_hdr;
+  symcount = image->elf_symtbl_hdr->sh_size / sizeof(struct elf64_sym);
+  syms = (struct elf64_sym*)_elf_get_shdr_kaddr(image, image->elf_symtbl_hdr);
 
-  if (!shdr)
+  if (!syms)
     return -KERR_INVAL;
 
-  if (__elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, shdr, names))
+  if (__elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, syms, symcount, names))
     return -KERR_INVAL;
+
+  _elf_mark_exported_symbols(app);
 
   /* Now grab copy relocations
      This loop looks ugly as hell, but just deal with it sucker */
@@ -401,6 +439,9 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
       case DT_SYMTAB:
         dyn_syms = (struct elf64_sym*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root));
         break;
+      case DT_HASH:
+        image->elf_dynsym_count = ((Elf64_Word*)(Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root))))[1];
+        break;
       case DT_PLTGOT:
       case DT_PLTREL:
       case DT_PLTRELSZ:
@@ -418,6 +459,8 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
   image->elf_dynsym = dyn_syms;
   /* This would be the stringtable for dynamic stuff */
   image->elf_dynstrtab = strtab;
+
+  printf("Image elf dynstrtab: %p\n", strtab);
   return KERR_NONE;
 }
 

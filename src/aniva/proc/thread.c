@@ -56,6 +56,10 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   thread->f_entry = (ThreadEntry)entry;
   thread->f_exit = (FuncPtr)thread_end_lifecycle;
 
+  /* TODO: thread locking */
+  thread->m_tid = atomic_ptr_read(proc->m_thread_count);
+  atomic_ptr_write(proc->m_thread_count, thread->m_tid+1);
+
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
   strcpy(thread->m_name, name);
 
@@ -86,7 +90,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
    * or we try to somehow let every thread share one stack (which like how tf would that work lol)
    */
   if (!kthread) {
-    thread->m_user_stack_bottom = HIGH_STACK_BASE;
+    thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->m_tid * DEFAULT_STACK_SIZE);
 
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,

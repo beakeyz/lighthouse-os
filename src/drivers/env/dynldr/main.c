@@ -1,3 +1,4 @@
+#include "kevent/types/thread.h"
 #include "priv.h"
 #include "fs/file.h"
 #include "kevent/event.h"
@@ -6,6 +7,7 @@
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
 #include "proc/core.h"
+#include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include <lightos/handle_def.h>
 #include <dev/core.h>
@@ -187,8 +189,11 @@ static kerror_t _loader_ld_app(const char* path, size_t pathlen, proc_id_t* pid)
 static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)
 {
   file_t* in_file;
+  proc_t* c_proc;
   const char* in_path;
   proc_id_t pid;
+
+  c_proc = get_current_proc();
 
   switch (code) {
     /* 
@@ -235,6 +240,53 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
 
       kernel_panic("TODO: DYN_LDR_GET_LIB");
       break;
+    case DYN_LDR_LOAD_LIB:
+      {
+        loaded_app_t* target_app;
+        dynamic_library_t* lib;
+
+        if (!in_bsize || !in_buf || !out_bsize || !out_buf)
+          return DRV_STAT_INVAL;
+
+        target_app = _get_app_from_proc(c_proc);
+
+        if (!target_app)
+          return DRV_STAT_INVAL;
+
+        if (load_dynamic_lib((const char*)in_buf, target_app, &lib))
+          return DRV_STAT_INVAL;
+
+        /* Wait for the libraries entry function to finish */
+        await_lib_init(lib);
+
+        *(dynamic_library_t**)out_buf = lib;
+        break;
+      }
+    case DYN_LDR_GET_FUNC_ADDR:
+      {
+        loaded_app_t* target_app;
+        loaded_sym_t* target_sym;
+        const char* dyn_func;
+
+        if (in_bsize != sizeof(const char*) || !in_buf || out_bsize != sizeof(vaddr_t*) || !out_buf)
+          return DRV_STAT_INVAL;
+
+        /* Yay, unsafe cast :clown: */
+        dyn_func = (const char*)in_buf;
+
+        target_app = _get_app_from_proc(c_proc);
+
+        if (!target_app)
+          return DRV_STAT_INVAL;
+
+        target_sym = loaded_app_find_symbol(target_app, dyn_func);
+
+        if ((target_sym->flags & LDSYM_FLAG_EXPORT) != LDSYM_FLAG_EXPORT)
+          return DRV_STAT_INVAL;
+
+        *(vaddr_t*)out_buf = target_sym->uaddr;
+        break;
+      }
     case DYN_LDR_GET_FUNC_NAME:
       {
         proc_t* target_proc;
@@ -288,3 +340,43 @@ EXPORT_DRIVER(_dynamic_loader) = {
 EXPORT_DEPENDENCIES(deps) = {
   DRV_DEP_END,
 };
+
+static int __libinit_thread_eventhook(kevent_ctx_t* _ctx)
+{
+  kevent_thread_ctx_t* ctx;
+
+  /* Kinda weird lmao */
+  if (_ctx->buffer_size != sizeof(*ctx))
+    return 0;
+
+  ctx = _ctx->buffer;
+
+  kernel_panic("Got thread event!");
+  return 0;
+}
+
+kerror_t await_lib_init(dynamic_library_t* lib)
+{
+  proc_t* target_proc;
+  thread_t* lib_entry_thread;
+
+  target_proc = lib->app->proc;
+
+  if (!target_proc)
+    return -KERR_NULL;
+
+  lib_entry_thread = create_thread_for_proc(target_proc, (FuncPtr)lib->entry, NULL, lib->name);
+
+  if (!lib_entry_thread)
+    return -KERR_NULL;
+
+  lib->lib_init_thread = lib_entry_thread;
+
+  /* Add the eventhook for the thread termination */
+  kevent_add_hook("thread", lib->name, __libinit_thread_eventhook);
+
+  proc_add_thread(target_proc, lib_entry_thread);
+
+  while (true)
+    scheduler_yield();
+}

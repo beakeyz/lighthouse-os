@@ -1,6 +1,6 @@
 {
   "name": "init",
-  "linking": "static",
+  "linking": "dynamic",
   "type": "process",
   "libs": [
   ]

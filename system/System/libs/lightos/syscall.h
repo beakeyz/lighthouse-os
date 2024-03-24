@@ -48,6 +48,9 @@ enum SYSID {
   SYSID_CREATE_PROFILE,
   SYSID_DESTROY_PROFILE,
 
+  /* Dynamic loader-specific syscalls */
+  SYSID_GET_FUNCADDR,
+
   /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
 
   SYSID_DEV_READ,

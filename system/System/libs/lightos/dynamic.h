@@ -16,6 +16,7 @@ extern BOOL unload_library(
 
 extern BOOL get_func_address(
   __IN__    HANDLE      lib_handle,
+  __IN__    const char* func,
   __OUT__   VOID**      faddr
 );
 

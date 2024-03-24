@@ -1,3 +1,4 @@
+#include "lightos/dynamic.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/profile.h"
@@ -32,6 +33,7 @@ int main()
    */
   BOOL res;
   char buffer[128];
+  HANDLE gfx;
   HANDLE h = open_handle("Root/User/Global/kcfg.ini", HNDL_TYPE_FILE, HNDL_FLAG_RW, NULL);
 
   printf("Handle: %d\n", h);
@@ -40,6 +42,8 @@ int main()
     return -1;
 
   assert(malloc(8));
+
+  assert(load_library("LibGfx.slb", &gfx));
 
   res = false;
   char* resp = gets(buffer, sizeof(buffer));

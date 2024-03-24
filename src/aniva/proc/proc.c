@@ -2,6 +2,8 @@
 #include <mem/heap.h>
 #include "dev/core.h"
 #include "entry/entry.h"
+#include "kevent/event.h"
+#include "kevent/types/thread.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -355,6 +357,8 @@ void proc_exit()
 
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) 
 {
+  kevent_thread_ctx_t thread_ctx = { 0 };
+
   if (!thread || !proc)
     return Error();
 
@@ -362,6 +366,15 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
 
   if (does_contain.m_status == ANIVA_SUCCESS)
     return Error();
+
+  thread_ctx.thread = thread;
+  thread_ctx.type = THREAD_EVENTTYPE_CREATE;
+  /* TODO: smp */
+  thread_ctx.new_cpu_id = 0;
+  thread_ctx.old_cpu_id = 0;
+
+  /* Fire the create event */
+  kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
   pause_scheduler();
 
@@ -371,14 +384,8 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
     /* Ensure the schedulers picks up on this fact */
     proc->m_flags |= PROC_UNRUNNED;
   }
-
-  uintptr_t current_thread_count = atomic_ptr_read(proc->m_thread_count);
-
-  /* TODO: thread locking */
-  thread->m_tid = current_thread_count;
-
-  atomic_ptr_write(proc->m_thread_count, current_thread_count+1);
-
+  
+  /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
   list_append(proc->m_threads, thread);
 
   /*
@@ -393,6 +400,32 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
   
   resume_scheduler();
   return Success(0);
+}
+
+/*!
+ * @brief: Remove a thread from the process
+ */
+kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
+{
+  kevent_thread_ctx_t thread_ctx = { 0 };
+
+  if (!list_remove_ex(proc->m_threads, thread))
+    return -KERR_INVAL;
+
+  atomic_ptr_write(proc->m_thread_count, 
+    atomic_ptr_read(proc->m_thread_count) - 1
+  );
+
+  thread_ctx.thread = thread;
+  thread_ctx.type = THREAD_EVENTTYPE_DESTROY;
+  /* TODO: smp */
+  thread_ctx.new_cpu_id = 0;
+  thread_ctx.old_cpu_id = 0;
+
+  /* Fire the create event */
+  kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
+
+  return 0;
 }
 
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {

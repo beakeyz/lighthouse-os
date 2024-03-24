@@ -5,7 +5,6 @@
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/device.h"
 #include "libk/flow/error.h"
-#include "mem/heap.h"
 #include <dev/pci/pci.h>
 #include <dev/manifest.h>
 

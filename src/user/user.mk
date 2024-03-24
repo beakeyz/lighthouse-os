@@ -22,7 +22,6 @@ $(THIS_OUT)/%.o: $(THIS_SRC)/%.asm
 # TODO: Shared libraries go into the flags, create a variable that creates a flags
 # entry for every shared library that the process specifies
 build-dynamic: $(ASM_OBJ) $(C_OBJ)
-	@echo $^
 	@$(LD) $(USER_DYNAMIC_LDFLAGS) $(LIBRARIES) -l:LibC.slb $^ -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT)
 
 build-static: $(ASM_OBJ) $(C_OBJ)
@@ -34,6 +33,6 @@ ifeq ($(LINK_TYPE), dynamic)
 else
 	@$(MAKE) build-static
 endif
-	@echo -e "Built process: " $(PROCESS_NAME)
+	@echo -e "Built process: " $(PROCESS_NAME) " with type " $(LINK_TYPE)
 
 .PHONY: build-dynamic build-static

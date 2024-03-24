@@ -6,6 +6,7 @@
 #include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "priv.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
 #include "proc/profile/variable.h"
@@ -256,6 +257,9 @@ static inline kerror_t load_app_dyn_sections(loaded_app_t* app)
  */
 static inline void _finalise_load(loaded_app_t* app)
 {
+  printf("Pre entry=%p base=%p\n", app->entry, app->image.user_base);
+  app->entry = (DYNAPP_ENTRY_t)((vaddr_t)app->image.elf_hdr->e_entry + (vaddr_t)app->image.user_base);
+  printf("Post entry=%p\n", app->entry);
   loaded_app_set_entry_tramp(app);
 
   /*

@@ -234,7 +234,7 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
 /*!
  * @brief: Dirty routine to get the hardcoded symbols we need to install the app trampoline
  */
-static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp)
+static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp, loaded_sym_t** quick_exit)
 {
   *appentry = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__app_entrypoint");
 
@@ -256,6 +256,11 @@ static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t
   if (!(*apptramp))
     return -KERR_NULL;
 
+  *quick_exit = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__quick_exit");
+
+  if (!(*quick_exit))
+    return -KERR_NULL;
+
   return 0;
 }
 
@@ -275,6 +280,7 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
   loaded_sym_t* lib_entrypoints_sym;
   loaded_sym_t* lib_entrycount_sym;
   loaded_sym_t* tramp_start_sym;
+  loaded_sym_t* quick_exit_sym;
   proc_t* proc;
   dynamic_library_t* librt;
 
@@ -289,7 +295,8 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
           &app_entrypoint_sym,
           &lib_entrypoints_sym,
           &lib_entrycount_sym,
-          &tramp_start_sym
+          &tramp_start_sym,
+          &quick_exit_sym
           ))) {
     return -KERR_INVAL;
   }
@@ -306,6 +313,9 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
   kmem_unmap_page(nullptr, (vaddr_t)app_entrypoint_kaddr);
   kmem_unmap_page(nullptr, (vaddr_t)lib_entrypoints_kaddr);
   kmem_unmap_page(nullptr, (vaddr_t)lib_entrycount_kaddr);
+
+  /* Set the exit on the app */
+  app->exit = (FuncPtr)quick_exit_sym->uaddr;
 
   /* FIXME: args? */
   proc_set_entry(proc, (FuncPtr)tramp_start_sym->uaddr, NULL, NULL);
