@@ -16,6 +16,8 @@ struct loaded_sym;
 
 typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
 
+extern void __lib_trampoline(FuncPtr realentry);
+
 typedef struct elf_image {
   struct proc* proc;
 

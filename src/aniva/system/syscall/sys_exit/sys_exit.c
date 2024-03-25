@@ -1,5 +1,4 @@
 #include "sys_exit.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
 #include "logging/log.h"
@@ -37,11 +36,9 @@ uintptr_t sys_exit_handler(uintptr_t code)
 
   /* There are more threads in this process */
   if (atomic_ptr_read(current_proc->m_thread_count) > 1) {
-    /* Identify if this thread */
-    bool should_thread_die = (!thread_is_socket(current_thread)); 
+    thread_set_state(current_thread, DYING);
 
-    thread_set_state(current_thread, should_thread_die ? DYING : BLOCKED);
-
+    kernel_panic("Got a fucked thread");
     goto exit_and_yield;
   }
 

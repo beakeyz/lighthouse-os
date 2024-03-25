@@ -1,4 +1,5 @@
 #include "kevent/types/thread.h"
+#include "mem/kmem_manager.h"
 #include "priv.h"
 #include "fs/file.h"
 #include "kevent/event.h"
@@ -9,6 +10,7 @@
 #include "proc/core.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include "system/resource.h"
 #include <lightos/handle_def.h>
 #include <dev/core.h>
 #include <dev/driver.h>
@@ -351,6 +353,9 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx)
 
   ctx = _ctx->buffer;
 
+  if (ctx->type != THREAD_EVENTTYPE_DESTROY)
+    return 0;
+
   kernel_panic("Got thread event!");
   return 0;
 }
@@ -359,13 +364,25 @@ kerror_t await_lib_init(dynamic_library_t* lib)
 {
   proc_t* target_proc;
   thread_t* lib_entry_thread;
+  paddr_t libtramp_phys;
+  vaddr_t libtramp_uvirt;
 
   target_proc = lib->app->proc;
 
   if (!target_proc)
     return -KERR_NULL;
 
-  lib_entry_thread = create_thread_for_proc(target_proc, (FuncPtr)lib->entry, NULL, lib->name);
+  libtramp_phys = kmem_to_phys(nullptr, (uintptr_t)__lib_trampoline);
+
+  libtramp_uvirt = Must(resource_find_usable_range(target_proc->m_resource_bundle, KRES_TYPE_MEM, SMALL_PAGE_SIZE));
+
+  /* Allocate libtramp */
+  libtramp_uvirt = Must(__kmem_alloc_ex(target_proc->m_root_pd.m_root, target_proc->m_resource_bundle, libtramp_phys, libtramp_uvirt, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP, NULL));
+
+  /* Make sure it knows to leave physical memory alone */
+  resource_apply_flags(libtramp_uvirt, SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, target_proc->m_resource_bundle->resources[KRES_TYPE_MEM]);
+
+  lib_entry_thread = create_thread_for_proc(target_proc, (FuncPtr)libtramp_uvirt, (uintptr_t)lib->entry, lib->name);
 
   if (!lib_entry_thread)
     return -KERR_NULL;

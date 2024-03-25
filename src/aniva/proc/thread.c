@@ -54,7 +54,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   thread->m_mutex_list = init_list();
 
   thread->f_entry = (ThreadEntry)entry;
-  thread->f_exit = (FuncPtr)thread_end_lifecycle;
+  thread->f_exit = (FuncPtr)0;
 
   /* TODO: thread locking */
   thread->m_tid = atomic_ptr_read(proc->m_thread_count);
