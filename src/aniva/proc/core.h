@@ -41,7 +41,6 @@ typedef enum thread_state {
   RUNNABLE,         // can be executed by the scheduler
   NO_CONTEXT,       // Runnable, but needs to recieve a context
   DYING,            // waiting to be cleaned up
-  DEAD,             // thread is destroyed, the scheduler can remove it from the pool
   STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
   BLOCKED,          // performing blocking operation
   SLEEPING,         // waiting for anything to happen (i.e. signals, data)

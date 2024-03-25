@@ -163,16 +163,21 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
   /* Kill the point so registers don't go through from this point */
   thread->m_mutex_list = nullptr;
 
+  parent_proc = thread->m_parent_proc;
+
   FOREACH(i , mutex_list) {
     /* Drain every taken mutex */
     while (mutex_is_locked(i->data))
       mutex_unlock(i->data);
   }
 
+  /* Get rid of the mutex list */
   destroy_list(mutex_list);
 
-  parent_proc = thread->m_parent_proc;
+  /* Make sure we remove the thread from the processes queue */
+  proc_remove_thread(parent_proc, thread);
 
+  /* Sockets don't really exist anymore lmao */
   if (thread->m_socket)
     destroy_threaded_socket(thread->m_socket);
 

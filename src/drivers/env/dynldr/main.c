@@ -8,6 +8,7 @@
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
 #include "proc/core.h"
+#include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
@@ -283,6 +284,9 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
 
         target_sym = loaded_app_find_symbol(target_app, dyn_func);
 
+        if (!target_sym)
+          return DRV_STAT_INVAL;
+
         if ((target_sym->flags & LDSYM_FLAG_EXPORT) != LDSYM_FLAG_EXPORT)
           return DRV_STAT_INVAL;
 
@@ -343,8 +347,17 @@ EXPORT_DEPENDENCIES(deps) = {
   DRV_DEP_END,
 };
 
+/*!
+ * @brief: Event handler for catching library initialize events
+ *
+ * When an app wants to load a library at runtime, we first need to initialize that lib, so for that
+ * we create an extra thread in the target process that does the library initialization. When this thread
+ * is finished, we join with the main thread and continue execution
+ */
 static int __libinit_thread_eventhook(kevent_ctx_t* _ctx)
 {
+  loaded_app_t* app;
+  dynamic_library_t* lib;
   kevent_thread_ctx_t* ctx;
 
   /* Kinda weird lmao */
@@ -356,28 +369,57 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx)
   if (ctx->type != THREAD_EVENTTYPE_DESTROY)
     return 0;
 
-  kernel_panic("Got thread event!");
+  app = _get_app_from_proc(ctx->thread->m_parent_proc);
+
+  if (!app)
+    return 0;
+
+  FOREACH(i, app->library_list) {
+    lib = i->data;
+
+    if (lib->lib_init_thread != ctx->thread)
+      continue;
+
+    ASSERT_MSG(lib->lib_wait_thread, "FUCK: got a library initialize thread, but no thread waiting for this initialize!");
+
+    thread_unblock(lib->lib_wait_thread);
+
+    lib->lib_init_thread = nullptr;
+    lib->lib_wait_thread = nullptr;
+    break;
+  }
+
   return 0;
 }
 
+/*!
+ * @brief: Initialize a dynamic library and wait for it's entry function to finish
+ *
+ * TODO: Create a timeout for libraries that take too long to init?
+ * TODO: Let the loading app specify if they want to be able to run in paralel to the initialization thread?
+ *
+ * Called when loading a library inside an already running app
+ */
 kerror_t await_lib_init(dynamic_library_t* lib)
 {
   proc_t* target_proc;
   thread_t* lib_entry_thread;
-  paddr_t libtramp_phys;
+  thread_t* lib_wait_thread;
   vaddr_t libtramp_uvirt;
+  vaddr_t libtramp_kvirt;
 
   target_proc = lib->app->proc;
+  lib_wait_thread = get_current_scheduling_thread();
 
   if (!target_proc)
     return -KERR_NULL;
 
-  libtramp_phys = kmem_to_phys(nullptr, (uintptr_t)__lib_trampoline);
+  /* Allocate a page for the trampoline code inside the process */
+  libtramp_uvirt = Must(kmem_user_alloc_range(target_proc, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_READONLY, NULL));
+  libtramp_kvirt = Must(kmem_get_kernel_address(libtramp_uvirt, target_proc->m_root_pd.m_root));
 
-  libtramp_uvirt = Must(resource_find_usable_range(target_proc->m_resource_bundle, KRES_TYPE_MEM, SMALL_PAGE_SIZE));
-
-  /* Allocate libtramp */
-  libtramp_uvirt = Must(__kmem_alloc_ex(target_proc->m_root_pd.m_root, target_proc->m_resource_bundle, libtramp_phys, libtramp_uvirt, SMALL_PAGE_SIZE, KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP, NULL));
+  /* Copy the code into the process */
+  memcpy((void*)libtramp_kvirt, __lib_trampoline, SMALL_PAGE_SIZE);
 
   /* Make sure it knows to leave physical memory alone */
   resource_apply_flags(libtramp_uvirt, SMALL_PAGE_SIZE, KRES_FLAG_MEM_KEEP_PHYS, target_proc->m_resource_bundle->resources[KRES_TYPE_MEM]);
@@ -387,13 +429,24 @@ kerror_t await_lib_init(dynamic_library_t* lib)
   if (!lib_entry_thread)
     return -KERR_NULL;
 
+  /* Mark which thread is waiting on this sucker */
+  lib->lib_wait_thread = lib_wait_thread;
   lib->lib_init_thread = lib_entry_thread;
 
   /* Add the eventhook for the thread termination */
   kevent_add_hook("thread", lib->name, __libinit_thread_eventhook);
 
+  /* Add the thread to the process */
   proc_add_thread(target_proc, lib_entry_thread);
 
-  while (true)
-    scheduler_yield();
+  /* Block until we get the thread death event for the lib entry thread */
+  thread_block(lib_wait_thread);
+
+  /* Remove the hook when we're done */
+  kevent_remove_hook("thread", lib->name);
+
+  /* Remove the weird memory */
+  kmem_user_dealloc(target_proc, libtramp_uvirt, SMALL_PAGE_SIZE);
+
+  return 0;
 }

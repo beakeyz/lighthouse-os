@@ -114,8 +114,6 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   libcount = loaded_app_get_lib_count(app);
   libarr_size = ALIGN_UP(libcount * sizeof(uintptr_t), SMALL_PAGE_SIZE);
 
-  printf("A");
-
   if (!libcount)
     return NULL;
 
@@ -139,8 +137,6 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
     if (c_entry)
       kaddr[lib_idx++] = c_entry;
 
-    printf("Got entry: %p\n", c_entry);
-    
     c_liblist_node = c_liblist_node->prev;
   }
 
@@ -236,27 +232,27 @@ loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)
  */
 static inline kerror_t _get_librt_symbols(dynamic_library_t* librt, loaded_sym_t** appentry, loaded_sym_t** libentries, loaded_sym_t** libcount, loaded_sym_t** apptramp, loaded_sym_t** quick_exit)
 {
-  *appentry = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__app_entrypoint");
+  *appentry = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_APP_ENTRY_SYMNAME);
 
   if (!(*appentry))
     return -KERR_NULL;
   
-  *libentries = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__lib_entrypoints");
+  *libentries = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_LIB_ENTRIES_SYMNAME);
 
   if (!(*libentries))
     return -KERR_NULL;
 
-  *libcount = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__lib_entrycount");
+  *libcount = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_LIB_ENTRYCOUNT_SYMNAME);
 
   if (!(*libcount))
     return -KERR_NULL;
 
-  *apptramp = (loaded_sym_t*)hashmap_get(librt->symbol_map, "___app_trampoline");
+  *apptramp = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_APP_TRAMP_SYMNAME);
 
   if (!(*apptramp))
     return -KERR_NULL;
 
-  *quick_exit = (loaded_sym_t*)hashmap_get(librt->symbol_map, "__quick_exit");
+  *quick_exit = (loaded_sym_t*)hashmap_get(librt->symbol_map, RUNTIMELIB_QUICK_EXIT_SYMNAME);
 
   if (!(*quick_exit))
     return -KERR_NULL;
@@ -286,8 +282,12 @@ kerror_t loaded_app_set_entry_tramp(loaded_app_t* app)
 
   proc = app->proc;
 
-  /* Try to load the runtime library for this app */
-  if (!KERR_OK(load_dynamic_lib("librt.slb", app, &librt)))
+  /* 
+   * Try to load the runtime library for this app 
+   * FIXME: Did we want the name of the runtime lib inside a profile variable? Hardcoding 
+   * the name of the library here seems kind of fucked...
+   */
+  if (!KERR_OK(load_dynamic_lib(RUNTIMELIB_NAME, app, &librt)))
     return -KERR_INVAL;
 
   /* Get the symbols we need to prepare the trampoline */

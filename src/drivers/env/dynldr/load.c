@@ -257,18 +257,9 @@ static inline kerror_t load_app_dyn_sections(loaded_app_t* app)
  */
 static inline void _finalise_load(loaded_app_t* app)
 {
-  printf("Pre entry=%p base=%p\n", app->entry, app->image.user_base);
   app->entry = (DYNAPP_ENTRY_t)((vaddr_t)app->image.elf_hdr->e_entry + (vaddr_t)app->image.user_base);
-  printf("Post entry=%p\n", app->entry);
+
   loaded_app_set_entry_tramp(app);
-
-  /*
-  printf("Trying to enter: 0x%llx\n", app->proc->m_init_thread->m_context.rip);
-
-  sched_add_priority_proc(app->proc, true);
-
-  for (;;) {scheduler_yield();}
-  */
 }
 
 static kerror_t _do_load(file_t* file, loaded_app_t* app)

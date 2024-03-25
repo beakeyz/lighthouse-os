@@ -1274,9 +1274,33 @@ ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_fl
         );
 }
 
+/*!
+ * @brief: Deallocate userpages
+ */
 ErrorOrPtr kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size)
 {
-  kernel_panic("TODO: kmem_user_dealloc");
+  paddr_t c_phys_base;
+  uintptr_t c_phys_idx;
+  const size_t page_count = GET_PAGECOUNT(vaddr, size);
+
+  for (uintptr_t i = 0; i < page_count; i++) {
+    /* Grab the aligned physical base of this virtual address */
+    c_phys_base = kmem_to_phys_aligned(p->m_root_pd.m_root, vaddr);
+
+    /* Grab it's physical page index */
+    c_phys_idx = kmem_get_page_idx(c_phys_base);
+
+    /* Free that page */
+    kmem_set_phys_page_free(c_phys_idx);
+
+    /* Unmap from the process */
+    kmem_unmap_page(p->m_root_pd.m_root, vaddr);
+
+    /* Next page */
+    vaddr += SMALL_PAGE_SIZE;
+  }
+
+  return Success(0);
 }
 
 /*!

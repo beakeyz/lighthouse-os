@@ -2,8 +2,8 @@
 #include "LibGfx/include/driver.h"
 #include "lightos/driver/drv.h"
 #include "lightos/handle.h"
-#include "lightos/handle_def.h"
 #include "lightos/proc/profile.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

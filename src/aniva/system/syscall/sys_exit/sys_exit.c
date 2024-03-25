@@ -38,7 +38,6 @@ uintptr_t sys_exit_handler(uintptr_t code)
   if (atomic_ptr_read(current_proc->m_thread_count) > 1) {
     thread_set_state(current_thread, DYING);
 
-    kernel_panic("Got a fucked thread");
     goto exit_and_yield;
   }
 

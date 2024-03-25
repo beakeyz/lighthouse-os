@@ -1,3 +1,4 @@
+#include "LibGfx/include/driver.h"
 #include "lightos/dynamic.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
@@ -44,6 +45,16 @@ int main()
   assert(malloc(8));
 
   assert(load_library("LibGfx.slb", &gfx));
+
+  bool (*get) (char* buf, size_t bufsize) = NULL;
+
+  assert(get_func_address(gfx, "get_lwnd_drv_path", (void**)&get));
+
+  printf("Trying to get...\n");
+
+  assert(get(buffer, sizeof(buffer)));
+
+  printf("Got buffer: %s\n", buffer);
 
   res = false;
   char* resp = gets(buffer, sizeof(buffer));

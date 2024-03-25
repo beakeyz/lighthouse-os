@@ -39,6 +39,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_SEEK]              = { 0, SYSID_SEEK, (sys_fn_t)sys_seek },
   [SYSID_GET_PROCESSTIME]   = { 0, SYSID_GET_PROCESSTIME, (sys_fn_t)sys_get_process_time, },
   [SYSID_SLEEP]             = { 0, SYSID_SLEEP, (sys_fn_t)sys_sleep, },
+  [SYSID_GET_FUNCADDR]      = { 0, SYSID_GET_FUNCADDR, (sys_fn_t)sys_get_funcaddr, },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

@@ -14,6 +14,13 @@ struct proc;
 struct loaded_app;
 struct loaded_sym;
 
+#define RUNTIMELIB_NAME                     "librt.slb"
+#define RUNTIMELIB_APP_ENTRY_SYMNAME        "__app_entrypoint"
+#define RUNTIMELIB_APP_TRAMP_SYMNAME        "___app_trampoline"
+#define RUNTIMELIB_LIB_ENTRIES_SYMNAME      "__lib_entrypoints"
+#define RUNTIMELIB_LIB_ENTRYCOUNT_SYMNAME   "__lib_entrycount"
+#define RUNTIMELIB_QUICK_EXIT_SYMNAME       "__quick_exit"
+
 typedef int (*APP_ENTRY_TRAMPOLINE_t)(DYNAPP_ENTRY_t main_entry, DYNLIB_ENTRY_t* lib_entries, uint32_t lib_entry_count);
 
 extern void __lib_trampoline(FuncPtr realentry);
@@ -61,6 +68,7 @@ typedef struct dynamic_library {
   struct loaded_app* app;
   hashmap_t* symbol_map;
   list_t* symbol_list;
+  thread_t* lib_wait_thread;
   thread_t* lib_init_thread;
   DYNLIB_ENTRY_t entry;
 } dynamic_library_t;

@@ -759,10 +759,6 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
         found = true;
         break;
       case DYING:
-        // TODO: this is an intermediate solution, we need actual thread death procedures
-        thread_set_state(next_thread, DEAD);
-        break;
-      case DEAD:
         destroy_thread(next_thread);
         list_remove_ex(thread_list_ptr, next_thread);
 

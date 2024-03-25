@@ -99,7 +99,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   /* With this we can find the user base */
   image->user_base = (void*)(ALIGN_UP(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE));
 
-  printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
+  //printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
   /* Now we can actually start to load the headers */
   for (uint32_t i = 0; i < hdr->e_phnum; i++) {
@@ -127,7 +127,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
            */
           vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
 
-          printf("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
+          //printf("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
 
           /* Then, zero the rest of the buffer */
           /* TODO: ??? */
@@ -148,7 +148,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
         image->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
         image->elf_dyntbl = (void*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root));
 
-        printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
+        //printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
         break;
     }
   }
@@ -285,19 +285,15 @@ static inline kerror_t __elf_parse_symbol_table(loaded_app_t* app, list_t* symli
   return 0;
 }
 
-static inline void _elf_mark_exported_symbols(loaded_app_t* app)
+static inline void _elf_mark_exported_symbols(loaded_app_t* app, elf_image_t* image)
 {
   loaded_sym_t* sym;
-  elf_image_t* image;
   size_t sym_count;
   const char* strtab;
   struct elf64_sym* sym_table_start;
 
-  image = &app->image;
-
   if (!image->elf_dynsym || !image->elf_dynsym_count || !image->elf_dynstrtab)
     return;
-
 
   /* Grab the start of the symbol table */
   sym_table_start = image->elf_dynsym;
@@ -347,7 +343,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
   if (__elf_parse_symbol_table(app, symbol_list, exported_symbol_map, image, syms, symcount, names))
     return -KERR_INVAL;
 
-  _elf_mark_exported_symbols(app);
+  _elf_mark_exported_symbols(app, image);
 
   /* Now grab copy relocations
      This loop looks ugly as hell, but just deal with it sucker */
@@ -460,7 +456,7 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
   /* This would be the stringtable for dynamic stuff */
   image->elf_dynstrtab = strtab;
 
-  printf("Image elf dynstrtab: %p\n", strtab);
+  //printf("Image elf dynstrtab: %p\n", strtab);
   return KERR_NONE;
 }
 
