@@ -426,6 +426,7 @@ AcpiUtAcquireMutex (
             "Thread %u acquired Mutex [%s]\n",
             (UINT32) ThisThreadId, AcpiUtGetMutexName (MutexId)));
 
+
         AcpiGbl_MutexInfo[MutexId].UseCount++;
         AcpiGbl_MutexInfo[MutexId].ThreadId = ThisThreadId;
     }

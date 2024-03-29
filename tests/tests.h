@@ -4,8 +4,6 @@
 
 #ifndef __LIGHTHOUSE_OS_TESTS__
 #define __LIGHTHOUSE_OS_TESTS__
-#include <stddef.h>
-#include <stdint.h>
 
 #define test_count 1
 

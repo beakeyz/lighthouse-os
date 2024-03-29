@@ -312,6 +312,7 @@ ACPI_STATUS acpi_eval_string(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJE
   if (obj.Type != ACPI_TYPE_STRING)
     return AE_BAD_DATA;
 
+
   *ret = obj.String.Pointer;
   return AE_OK;
 }

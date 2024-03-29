@@ -353,21 +353,21 @@ void kthread_entry(void) {
   /* Initialize the ramdisk as our initial root */
   init_root_ramdev();
 
-  /* Initialized the ACPI core driver */
-  // Comented until we implement actual system-wide ACPI integration
-  init_acpi_core();
+  /* Initialize hardware (device.c) */
+  init_hw();
 
   /* Scan for pci devices and initialize any matching drivers */
   init_pci_drivers();
 
-  /* Load the USB drivers on our system */
-  init_usb_drivers();
+  /* Probe for a root device */
+  init_root_device_probing();
+
+  /*
+   * Late environment stuff right before we are done bootstrapping kernel systems
+   */
 
   /* (libk/bin/elf.c): Load the driver for dynamic executables */
   init_dynamic_loader();
-
-  /* Probe for a root device */
-  init_root_device_probing();
 
   /* Do late initialization of the default profiles */
   init_profiles_late();

@@ -3,6 +3,7 @@
 #include "dev/driver.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
+#include "dev/loader.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
 #include "dev/video/device.h"
@@ -13,6 +14,7 @@
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
+#include "system/acpi/acpi.h"
 
 static oss_node_t* _device_node;
 
@@ -459,4 +461,19 @@ void init_devices()
   init_dgroups();
 
   /* Enumerate devices */
+}
+
+/*!
+ * @brief: Initialize hardware stuff
+ */
+void init_hw()
+{
+  /* Initialized the ACPI core driver */
+  // Comented until we implement actual system-wide ACPI integration
+  init_acpi_core();
+
+  /* Load the USB drivers on our system */
+  //init_usb_drivers();
+
+  ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
 }

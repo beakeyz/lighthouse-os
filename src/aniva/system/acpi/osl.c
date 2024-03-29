@@ -19,6 +19,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/pg.h"
 #include "mem/zalloc.h"
+#include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
@@ -409,7 +410,7 @@ ACPI_THREAD_ID AcpiOsGetThreadId()
   if (!c)
     return 1;
 
-  return c->m_tid;
+  return create_full_procid(c->m_parent_proc->m_id, c->m_tid);
 }
 
 ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void *Context)

@@ -1,10 +1,7 @@
 #ifndef __ANIVA_PCI__
 #define __ANIVA_PCI__
 #include "dev/pci/io.h"
-#include "libk/data/linkedlist.h"
 #include "dev/driver.h"
-#include "proc/proc.h"
-#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "system/acpi/tables.h"
 #include <libk/stddef.h>
@@ -370,6 +367,14 @@ int pci_read8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, ui
 int pci_write32(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint32_t value);
 int pci_write16(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint16_t value);
 int pci_write8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, uint32_t reg, uint8_t value);
+
+int pci_device_read32(pci_device_address_t* address, uint32_t reg, uint32_t *value);
+int pci_device_read16(pci_device_address_t* address, uint32_t reg, uint16_t *value);
+int pci_device_read8(pci_device_address_t* address, uint32_t reg, uint8_t *value);
+
+int pci_device_write32(pci_device_address_t* address, uint32_t reg, uint32_t value);
+int pci_device_write16(pci_device_address_t* address, uint32_t reg, uint16_t value);
+int pci_device_write8(pci_device_address_t* address, uint32_t reg, uint8_t value);
 
 bool test_pci_io_type1();
 bool test_pci_io_type2();

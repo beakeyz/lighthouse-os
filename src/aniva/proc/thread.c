@@ -67,9 +67,9 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         proc->m_resource_bundle,
-        KERNEL_MAP_BASE,
+        HIGH_MAP_BASE,
         DEFAULT_STACK_SIZE,
-        KMEM_CUSTOMFLAG_CREATE_USER,
+        NULL,
         KMEM_FLAG_WRITABLE));
 
   /* Compute the kernel stack top */

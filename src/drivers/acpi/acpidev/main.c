@@ -67,21 +67,12 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   ACPI_STATUS Status;
   ACPI_OBJECT_TYPE obj_type;
   ACPI_BUFFER Path;
-  acpi_handle_t tmp;
   char Buffer[256];
 
   Path.Length = sizeof (Buffer);
   Path.Pointer = Buffer;
 
   if (ACPI_FAILURE(AcpiGetType(dev, &obj_type)))
-    return AE_OK;
-
-  /* Temporary check */
-  if (ACPI_FAILURE(AcpiGetHandle(dev, "_HID", &tmp)))
-    return AE_OK;
-
-  /* FIXME: Check device dependencies and do correct things */
-  if (ACPI_SUCCESS(AcpiGetHandle(dev, "_DEP", &tmp)))
     return AE_OK;
 
   /* Get the full path of this device and print it */
@@ -94,7 +85,7 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   switch (obj_type) {
     case ACPI_TYPE_DEVICE:
     case ACPI_TYPE_ANY:
-      error = acpi_add_device(dev, obj_type, _acpi_eps, arrlen(_acpi_eps));
+      error = acpi_add_device(dev, obj_type, _acpi_eps, arrlen(_acpi_eps), Path.Pointer);
       /* FIXME: Ignore these failures? */
       if (error)
         return AE_OK;

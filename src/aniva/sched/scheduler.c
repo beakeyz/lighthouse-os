@@ -415,6 +415,8 @@ int scheduler_try_execute()
   thread_t *next_thread = get_current_scheduling_thread();
   thread_t *prev_thread = get_previous_scheduled_thread();
 
+  //printf("Trying to switch context! (%s -> %s)\n", prev_thread->m_name, next_thread->m_name);
+
   thread_switch_context(prev_thread, next_thread);
 
   return 0;
@@ -725,6 +727,10 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
        * from this point onwards until it gets woken up
        */
       next_thread = ptr->m_proc_to_schedule->m_idle_thread;
+
+      printf("Failed to get a thread from the process: %s\n", proc->m_name);
+      printf("Init thread: %s\n", proc->m_init_thread ? proc->m_init_thread->m_name : "null");
+      printf("First thread: %s\n", ((thread_t*)list_get(thread_list_ptr, 0))->m_name);
 
       kernel_panic("TODO: the scheduler failed to pull a thread from the process so we should do sm about it!");
 

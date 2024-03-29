@@ -2,6 +2,7 @@ DRIVER_OUT=$(OUT)/drivers
 DRIVER_SRC=$(SRC)/drivers
 
 INPUT_DRIVERS := \
+	./input/inptcore \
 	./input/i8042
 
 ACPI_DRIVERS := \

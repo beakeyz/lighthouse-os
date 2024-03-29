@@ -182,6 +182,7 @@ static inline bool device_is_bus(device_t *dev)
 
 /* Subsystem */
 void init_devices();
+void init_hw();
 void debug_devices();
 
 /* Object management */
@@ -203,6 +204,17 @@ device_t* device_open(const char* path);
 int device_close(device_t* dev);
 
 kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver);
+
+
+kerror_t device_alloc_memory(device_t* dev, uintptr_t start, size_t size);
+kerror_t device_alloc_memory_range(device_t* dev, size_t size, void** b_out);
+kerror_t device_alloc_irq(device_t* dev, uint32_t vec, uint32_t flags, void* handler, void* ctx, const char* name);
+kerror_t device_alloc_io(device_t* dev, uint32_t start, uint32_t size);
+
+kerror_t device_dealloc_memory(device_t* dev, uintptr_t start, size_t size);
+kerror_t device_dealloc_irq(device_t* dev, uint32_t vec);
+kerror_t device_dealloc_io(device_t* dev, uint32_t start, uint32_t size);
+
 
 /* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);

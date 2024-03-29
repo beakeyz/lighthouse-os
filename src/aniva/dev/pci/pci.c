@@ -445,25 +445,26 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t b
   if (!callback)
     return;
   
+  /* Segment (?) */
   index = base_addr->index;
 
   pci_device_t identifier = {
     0,
     .address = {
-      .index = index,
-      .bus_num = bus,
+      .index =      index,
+      .bus_num =    bus,
       .device_num = device,
-      .func_num = func
+      .func_num =   func
     },
-    .raw_ops = *__current_pci_access_impl,
+    .raw_ops =      *__current_pci_access_impl,
     .ops = {
-      .read = pci_dev_read,
-      .write = pci_dev_write,
-      .read_byte = pci_dev_read_byte,
-      .read_word = pci_dev_read_word,
+      .read =       pci_dev_read,
+      .write =      pci_dev_write,
+      .read_byte =  pci_dev_read_byte,
+      .read_word =  pci_dev_read_word,
       .read_dword = pci_dev_read_dword,
     },
-    .bus = base_addr,
+    .bus =          base_addr,
   };
 
   identifier.raw_ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
