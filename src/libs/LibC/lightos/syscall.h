@@ -38,7 +38,10 @@ enum SYSID {
   SYSID_OPEN_PVAR,
   SYSID_GET_PVAR_TYPE,
   SYSID_CREATE_PVAR,
+  /* Directory syscalls */
   SYSID_CREATE_DIR,
+  SYSID_DIR_READ,
+  SYSID_DIR_FIND,
   /* Manipulate the R/W offset of a handle */
   SYSID_SEEK,
   SYSID_GET_PROCESSTIME,

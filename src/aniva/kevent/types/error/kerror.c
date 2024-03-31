@@ -1,6 +1,6 @@
 #include "kerror.h"
 #include "kevent/event.h"
-#include "sched/scheduler.h"
+#include "libk/flow/error.h"
 
 /*!
  * @brief: Called when a kerror happens
@@ -35,5 +35,5 @@ int __default_kerror_handler(kevent_ctx_t* ctx)
       break;
   }
 
-  while (1) {}
+  kernel_panic("Reached __default_kerror_handler");
 }

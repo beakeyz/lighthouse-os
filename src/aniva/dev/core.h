@@ -86,15 +86,6 @@ typedef driver_control_code_t           dcc_t;
 #define EXPORT_DRIVER(name) static USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
 #define EXPORT_DEPENDENCIES(deps) static USED SECTION(".deps") ALIGN(8) drv_dependency_t (deps)[]
 
-/*
-#define DRIVER_NAME(name) static const char* SECTION(".drv_name") __exported_drv_name USED = (const char*)(name)
-
-#define DRIVER_FLAGS(flags) static const uint32_t SECTION(".drv_flags") __exported_drv_flags USED = (uint32_t)(flags)
-#define DRIVER_MSG(msg_fn) static FuncPtr SECTION(".drv_msg") __exported_msg_fn USED = (FuncPtr)(msg_fn)
-#define DRIVER_INIT(init_fn) static FuncPtr SECTION(".drv_init") __exported_init_fn USED = (FuncPtr)(init_fn)
-#define DRIVER_EXIT(exit_fn) static FuncPtr SECTION(".drv_exit")__exported_exit_fn USED = (FuncPtr)(exit_fn)
-*/
-
 #define NO_MANIFEST NULL
 
 /*

@@ -12,7 +12,7 @@
  * for PS2, these variables need to be moved inside a device obj
  * so this is a FIXME
  */
-//static device_t* s_i8042_device;
+//static hid_device_t* s_i8042_device;
 static uint16_t s_mod_flags;
 static uint16_t s_current_scancode;
 static uint16_t s_current_scancodes[7];
@@ -27,6 +27,9 @@ static int _init_i8042()
   s_mod_flags = NULL;
   s_current_scancode = NULL;
 
+  //s_i8042_device = create_hid_device("i8042", HID_BUS_TYPE_PS2, NULL, NULL);
+  //register_hid_device(s_i8042_device);
+
   memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
 
   /* Try to allocate an IRQ */
@@ -34,6 +37,12 @@ static int _init_i8042()
 
   if (error)
     return -1;
+
+  /* Interface enable */
+  i8042_write_cmd(0xAE);
+
+  /* Quick flush */
+  (void)i8042_read_status();
 
   /* Make sure the keyboard event isn't frozen */
   unfreeze_kevent("keyboard");

@@ -1,4 +1,5 @@
 #include "sys_open.h"
+#include "fs/dir.h"
 #include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/var_types.h"
@@ -55,6 +56,18 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
           return HNDL_INVAL;
 
         init_khandle(&handle, &type, file);
+        break;
+      }
+    case HNDL_TYPE_DIR:
+      {
+        dir_t* dir;
+
+        dir = dir_open(path);
+
+        if (!dir)
+          return HNDL_INVAL;
+
+        init_khandle(&handle, &type, dir);
         break;
       }
     case HNDL_TYPE_DEVICE:
@@ -171,6 +184,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     case HNDL_TYPE_KOBJ:
     case HNDL_TYPE_OSS_OBJ:
     case HNDL_TYPE_NONE:
+    default:
       kernel_panic("Tried to open unimplemented handle!");
       break;
   }

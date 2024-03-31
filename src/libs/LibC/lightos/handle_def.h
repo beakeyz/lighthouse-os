@@ -14,35 +14,36 @@ typedef unsigned char       handle_type_t;
 
 #define HNDL_TYPE_NONE              (0)
 #define HNDL_TYPE_FILE              (1)
-#define HNDL_TYPE_DRIVER            (2)
-#define HNDL_TYPE_PROC              (3)
-#define HNDL_TYPE_FS_ROOT           (4)
-#define HNDL_TYPE_OSS_OBJ           (5) /* A handle to a virtual object in the vfs */
-#define HNDL_TYPE_KOBJ              (6) /* A handle to a kernel object */
-#define HNDL_TYPE_THREAD            (7)
+#define HNDL_TYPE_DIR               (2)
+#define HNDL_TYPE_DRIVER            (3)
+#define HNDL_TYPE_PROC              (4)
+#define HNDL_TYPE_FS_ROOT           (5)
+#define HNDL_TYPE_OSS_OBJ           (6) /* A handle to a virtual object in the vfs */
+#define HNDL_TYPE_KOBJ              (7) /* A handle to a kernel object */
+#define HNDL_TYPE_THREAD            (8)
 /* Any profile that is present on the system */
-#define HNDL_TYPE_PROFILE           (8)
+#define HNDL_TYPE_PROFILE           (9)
   #define HNDL_MODE_CURRENT_PROFILE (0)
   #define HNDL_MODE_SCAN_PROFILE    (1)
 
 /* Profile variable */
-#define HNDL_TYPE_PVAR              (9)
+#define HNDL_TYPE_PVAR              (10)
 
 /* These types are still to be implemented */
 /* A raw device attached to the device tree on the vfs at :/Devices/ */
-#define HNDL_TYPE_DEVICE            (10)
+#define HNDL_TYPE_DEVICE            (11)
 /* Raw buffer, managed by the kernel */
-#define HNDL_TYPE_BUFFER            (11)
+#define HNDL_TYPE_BUFFER            (12)
 /* Inter-process interface */
-#define HNDL_TYPE_IP_INTERF         (12)
+#define HNDL_TYPE_IP_INTERF         (13)
 /* Datastream for contiguous reading / writing of data */
-#define HNDL_TYPE_STREAM            (13)
+#define HNDL_TYPE_STREAM            (14)
 /* Single event */
-#define HNDL_TYPE_EVENT             (14)
+#define HNDL_TYPE_EVENT             (15)
 /* An eventsubscription */
-#define HNDL_TYPE_EVENTHOOK         (15)
-#define HNDL_TYPE_RESOURCE          (16)
-#define HNDL_TYPE_SHARED_LIB        (17)
+#define HNDL_TYPE_EVENTHOOK         (16)
+#define HNDL_TYPE_RESOURCE          (17)
+#define HNDL_TYPE_SHARED_LIB        (18)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

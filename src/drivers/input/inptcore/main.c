@@ -1,5 +1,7 @@
 #include "dev/core.h"
 #include "dev/group.h"
+#include "dev/loader.h"
+#include "kevent/event.h"
 #include <dev/driver.h>
 #include <dev/device.h>
 
@@ -10,6 +12,12 @@
  * 
  */
 
+static bool __check_input_device(device_t* device)
+{
+  /* TODO: Check if we have drivers which can handle the given device */
+  return true;
+}
+
 /*!
  * @brief: Input core init
  *
@@ -19,9 +27,18 @@
  */
 static int _init_input_core()
 {
+  dgroup_t* usb_grp;
+
   logln("Initalizing input driver!");
 
-  dev_group_get("usb", NULL);
+  if (!KERR_OK(dev_group_get("usb", &usb_grp)))
+    return -1;
+
+  device_for_each(usb_grp, __check_input_device);
+
+  if (kevent_flag_isset(kevent_get("keyboard"), KEVENT_FLAG_FROZEN))
+    ASSERT_MSG(load_external_driver("Root/System/i8042.drv"), "Failed to load fallback input driver");
+
   return 0;
 }
 
@@ -51,6 +68,5 @@ EXPORT_DRIVER(i8042) = {
 };
 
 EXPORT_DEPENDENCIES(deps) = {
-  DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Root/System/i8042.drv"),
   DRV_DEP_END,
 };

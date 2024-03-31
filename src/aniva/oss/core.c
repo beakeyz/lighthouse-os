@@ -286,11 +286,16 @@ unlock_and_error:
 static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, struct oss_node** out)
 {
   oss_node_t* c_node;
+  oss_node_t* gen_node;
   oss_node_entry_t* c_entry;
   const char* this_name;
+  const char* rel_path;
   uint32_t c_idx;
+  uint32_t gen_path_idx;
 
   c_node = rel;
+  gen_node = nullptr;
+  gen_path_idx = 0;
   c_idx = 0;
 
   if (!c_node) {
@@ -300,19 +305,36 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
   }
 
   while (*path && (this_name = _find_path_subentry_at(path, c_idx++))) {
+
+    if (c_node->type == OSS_OBJ_GEN_NODE && !gen_node) {
+      gen_node = c_node;
+      gen_path_idx = c_idx-1;
+    }
+
     oss_node_find(c_node, this_name, &c_entry);
 
     kfree((void*)this_name);
 
     if (!c_entry || c_entry->type != OSS_ENTRY_NESTED_NODE)
-      return -1;
+      break;
 
     c_node = c_entry->node;
   }
 
-  *out = c_node;
+  if (!c_entry && !gen_node)
+    return -1;
 
-  return 0;
+  if (!gen_node && c_node) {
+    *out = c_node;
+    return 0;
+  }
+
+  rel_path = _get_pathentry_at_idx(path, gen_path_idx);
+
+  if (!rel_path)
+    return -1;
+
+  return oss_node_query_node(gen_node, rel_path, out);
 }
 
 

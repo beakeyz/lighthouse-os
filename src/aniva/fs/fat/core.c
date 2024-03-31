@@ -2,6 +2,7 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/core.h"
+#include "fs/dir.h"
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/fat/file.h"
@@ -714,6 +715,101 @@ static oss_obj_t* fat_open(oss_node_t* node, const char* path)
   return nullptr;
 }
 
+static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
+{
+  printf("Trying to open fat dir: %s\n", path);
+  int error;
+  dir_t* ret;
+  fat_fs_info_t* info;
+  fat_file_t* fat_file;
+  fat_dir_entry_t current;
+  uintptr_t current_idx;
+  size_t path_size;
+
+  if (!path)
+    return nullptr;
+
+  info = GET_FAT_FSINFO(node);
+  ret = create_fat_dir(info, NULL, path);
+
+  if (!ret)
+    return nullptr;
+
+  fat_file = ret->priv;
+
+  if (!fat_file)
+    return nullptr;
+
+  /* Complete the link */
+  ret->priv = fat_file;
+
+  /* Copy the root entry copy =D */
+  current = info->root_entry_cpy;
+  current_idx = 0;
+
+  path_size = strlen(path) + 1;
+  char path_buffer[path_size];
+
+  memcpy(path_buffer, path, path_size);
+
+  for (uintptr_t i = 0; i < path_size; i++) {
+
+    /* Stop either at the end, or at any '/' char */
+    if (path_buffer[i] != '/' && path_buffer[i] != '\0')
+      continue;
+
+    /* Place a null-byte */
+    path_buffer[i] = '\0';
+
+    /* Pre-cache the starting offset of the direntry we're searching in */
+    fat_file->direntry_cluster = __fat32_dir_entry_get_start_cluster(&current);
+
+    /* Find the directory entry */
+    error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx], &fat_file->direntry_offset);
+
+    /* A single directory may have entries spanning over multiple clusters */
+    fat_file->direntry_cluster += fat_file->direntry_offset / info->cluster_size;
+    fat_file->direntry_offset %= info->cluster_size;
+
+    if (error)
+      break;
+
+    /*
+     * If we found our file (its not a directory) we can populate the file object and return it
+     */
+    if ((current.attr & (FAT_ATTR_DIR)) == FAT_ATTR_DIR) {
+
+      /* Make sure the file knows about its cluster chain */
+      error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
+
+      if (error)
+        break;
+
+      /* This is quite aggressive, we should prob just clean and return nullptr... */
+      //ASSERT_MSG(!oss_attach_node(path, ret->node), "Failed to attach FAT node");
+
+      ret->size = get_fat_file_size(fat_file);
+      ret->child_capacity = ret->size / sizeof(fat_dir_entry_t);
+
+      /* Cache the offset of the clusterchain */
+      fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));
+
+      return ret->node;
+    }
+
+    /* Set the current index if we have successfuly 'switched' directories */
+    current_idx = i + 1;
+
+    /*
+     * Place back the slash
+     */
+    path_buffer[i] = '/';
+  }
+
+  destroy_dir(ret);
+  return nullptr;
+}
+
 static int fat_close(oss_node_t* node, oss_obj_t* obj)
 {
   return 0;
@@ -733,6 +829,7 @@ static int fat_destroy(oss_node_t* node)
 static struct oss_node_ops fat_node_ops = {
   .f_msg = fat_msg,
   .f_open = fat_open,
+  .f_open_node = fat_open_dir,
   .f_close = fat_close,
   .f_destroy = fat_destroy,
 };

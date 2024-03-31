@@ -38,9 +38,13 @@ $(LIBRARY_OUT)/%.o: $(LIBRARY_SRC)/%.asm
 # So change -o $(THIS_OUT)/... -> -o $(LIBRARY_BIN_PATH)/...
 #
 
+LIB_INSTALL_DIR := $(SYSROOT_DIR)/System/Lib
+SHARED_BIN := $(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
+SHARED_BIN_OUT := $(THIS_OUT)/$(SHARED_BIN)
+
 build-shared: $(ASM_OBJ) $(C_OBJ)
 ifeq ($(LIBRARY_NAME), LibC)
-	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
+	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(SHARED_BIN_OUT) 
 else
 	@$(LD) $(LIBRARY_SHARED_LDFLAGS) -l:LibC.slb $(DEPS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
 endif
@@ -60,6 +64,7 @@ endif
 ifeq ($(LINKTYPE), shared)
 	@$(MAKE) build-shared
 endif
+	@cp $(SHARED_BIN_OUT) $(LIB_INSTALL_DIR)/$(SHARED_BIN)
 	@echo "Built lib: " $(LIBRARY_NAME)
 
 .PHONY: build-shared build-libc-shared build-static

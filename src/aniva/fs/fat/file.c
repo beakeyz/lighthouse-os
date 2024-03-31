@@ -1,9 +1,12 @@
 #include "file.h"
+#include "fs/dir.h"
 #include "fs/fat/cache.h"
 #include "fs/fat/core.h"
 #include "fs/file.h"
+#include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/heap.h"
+#include "oss/obj.h"
 
 static int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 {
@@ -56,6 +59,45 @@ file_ops_t fat_file_ops = {
   .f_sync = fat_sync,
 };
 
+int fat_dir_destroy(dir_t* dir)
+{
+  kernel_panic("TODO: fat_dir_destroy");
+}
+
+int fat_dir_create_child(dir_t* dir, const char* name)
+{
+  kernel_panic("TODO: fat_dir_create_child");
+}
+
+int fat_dir_remove_child(dir_t* dir, const char* name)
+{
+  kernel_panic("TODO: fat_dir_remove_child");
+}
+
+oss_obj_t* fat_dir_read(dir_t* dir, uint64_t idx)
+{
+  kernel_panic("TODO: fat_dir_read");
+  return nullptr;
+}
+
+oss_obj_t* fat_dir_find(dir_t* dir, const char* path)
+{
+  kernel_panic("TODO: fat_dir_find");
+  return nullptr;
+}
+
+dir_ops_t fat_dir_ops = {
+  .f_destroy = fat_dir_destroy,
+  .f_create_child = fat_dir_create_child,
+  .f_remove_child = fat_dir_remove_child,
+  .f_read = fat_dir_read,
+  .f_find = fat_dir_find,
+};
+
+/*!
+ * @brief: Create a file that adheres to the FAT fs
+ *
+ */
 file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
 {
   file_t* ret;
@@ -74,7 +116,7 @@ file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
     return nullptr;
 
   /* This will make both the fat file and the regular file aware of each other */
-  ffile = allocate_fat_file(ret);
+  ffile = allocate_fat_file(ret, FFILE_TYPE_FILE);
 
   if (!ffile)
     goto fail_and_exit;
@@ -84,6 +126,30 @@ file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
   return ret;
 fail_and_exit:
   destroy_oss_obj(ret->m_obj);
+  return nullptr;
+}
+
+/*!
+ * @brief: Create a directory object that adheres to the FAT fs
+ */
+dir_t* create_fat_dir(fat_fs_info_t* info, uint32_t flags, const char* path)
+{
+  dir_t* ret;
+  fat_file_t* ffile;
+
+  ret = create_dir(info->node, path, &fat_dir_ops, NULL, NULL);
+
+  if (!ret)
+    return nullptr;
+
+  ffile = allocate_fat_file(ret, FFILE_TYPE_DIR);
+
+  if (!ffile)
+    goto dealloc_and_exit;
+
+  return ret;
+dealloc_and_exit:
+  destroy_dir(ret);
   return nullptr;
 }
 
@@ -105,16 +171,18 @@ void destroy_fat_file(fat_file_t* file)
 size_t get_fat_file_size(fat_file_t* file)
 {
   oss_node_t* parent;
-  
-  if (!file || !file->parent || !file->parent->m_obj)
+
+  if (!file || !file->parent)
     return NULL;
 
-  /* FIXME: this points to a random node that represents the previous entry in the files full path, but we need the actual obj-generator, which serves as the root of the filesystem */
-  parent = file->parent->m_obj->parent;
+  switch (file->type) {
+    case FFILE_TYPE_FILE:
+      parent = file->file_parent->m_obj->parent;
+      break;
+    case FFILE_TYPE_DIR:
+      parent = file->dir_parent->node;
+      break;
+  }
 
-  if (!parent)
-    return NULL;
-
-  uint32_t file_cluster_count = (file->clusters_num);
-  return file_cluster_count * GET_FAT_FSINFO(parent)->cluster_size;
+  return file->clusters_num * GET_FAT_FSINFO(parent)->cluster_size;
 }

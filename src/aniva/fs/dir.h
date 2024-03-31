@@ -9,13 +9,16 @@ struct oss_obj;
 struct dir;
 
 typedef struct dir_ops {
-  int (*f_create_child)(struct dir*, const char* name);
-  int (*f_close) (struct dir*);
+  int               (*f_destroy) (struct dir*);
+  int               (*f_create_child)(struct dir*, const char* name);
+  int               (*f_remove_child)(struct dir*, const char* name);
+  struct oss_obj*   (*f_find)(struct dir*, const char* path);
+  struct oss_obj*   (*f_read)(struct dir*, uint64_t idx);
 } dir_ops_t;
 
 typedef struct dir {
-  struct dir_ops* ops;
   struct oss_node* node;
+  struct dir_ops* ops;
 
   const char* name;
 
@@ -23,18 +26,21 @@ typedef struct dir {
   size_t ctime;
   size_t atime;
 
-  uint32_t children;
+  uint32_t child_capacity;
   uint32_t flags;
   uint32_t size;
 
-  uint32_t priv_size;
   void* priv;
 } dir_t;
 
-dir_t* create_dir(struct oss_node* parent, uint32_t flags, const char* name);
+dir_t* create_dir(struct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
 void destroy_dir(dir_t* dir);
 
 int dir_create_child(dir_t* dir, const char* name);
+int dir_remove_child(dir_t* dir, const char* name);
+
+struct oss_obj* dir_find(dir_t* dir, const char* path);
+struct oss_obj* dir_read(dir_t* dir, uint64_t idx);
 
 dir_t* dir_open(const char* path);
 kerror_t dir_close(dir_t* dir);

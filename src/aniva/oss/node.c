@@ -319,7 +319,7 @@ unlock_and_exit:
 
 int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
 {
-  if (!obj_out || !node || !node->ops)
+  if (!obj_out || !node || !node->ops || !node->ops->f_open)
     return -1;
 
   /* Can't query on a non-gen node =/ */
@@ -332,6 +332,23 @@ int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
 
   mutex_unlock(node->lock);
   return (*obj_out ? 0 : -1);
+}
+
+int oss_node_query_node(oss_node_t* node, const char* path, struct oss_node** node_out)
+{
+  if (!node_out || !node || !node->ops || !node->ops->f_open_node)
+    return -1;
+
+  /* Can't query on a non-gen node =/ */
+  if (node->type != OSS_OBJ_GEN_NODE)
+    return -2;
+
+  mutex_lock(node->lock);
+
+  *node_out = node->ops->f_open_node(node, path);
+
+  mutex_unlock(node->lock);
+  return (*node_out ? 0 : -1);
 }
 
 /*!

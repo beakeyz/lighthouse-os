@@ -15,6 +15,7 @@
 
 struct fat_file;
 struct file;
+enum FAT_FILE_TYPE;
 
 struct sec_cache_entry;
 
@@ -37,7 +38,7 @@ int fatfs_read(oss_node_t* node, void* buffer, size_t size, disk_offset_t offset
 int fatfs_write(oss_node_t* node, void* buffer, size_t size, disk_offset_t offset);
 int fatfs_flush(oss_node_t* node);
 
-struct fat_file* allocate_fat_file(struct file* file);
+struct fat_file* allocate_fat_file(void* parent, enum FAT_FILE_TYPE type);
 void deallocate_fat_file(struct fat_file* file);
 
 #endif // !__ANIVA_FAT_CACHE__

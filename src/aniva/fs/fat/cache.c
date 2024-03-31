@@ -367,7 +367,7 @@ int fatfs_flush(oss_node_t* node)
 /*!
  * @brief: Allocates memory for a file under the FAT filesystem
  */
-fat_file_t* allocate_fat_file(file_t* file)
+fat_file_t* allocate_fat_file(void* parent, enum FAT_FILE_TYPE type)
 {
   fat_file_t* ret;
 
@@ -378,10 +378,18 @@ fat_file_t* allocate_fat_file(file_t* file)
 
   memset(ret, 0, sizeof(*ret));
 
-  ret->parent = file;
+  ret->parent = parent;
+  ret->type = type;
 
   /* Make sure the file is aware of its private data */
-  file->m_private = ret;
+  switch (type) {
+    case FFILE_TYPE_FILE:
+      ret->file_parent->m_private = ret;
+      break;
+    case FFILE_TYPE_DIR:
+      ret->dir_parent->priv = ret;
+      break;
+  }
 
   return ret;
 }

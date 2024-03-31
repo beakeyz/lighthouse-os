@@ -171,25 +171,23 @@ int device_unregister(device_t* dev)
 {
   int error;
   dgroup_t* dgroup;
-  oss_node_entry_t* entry;
 
   error = device_get_group(dev, &dgroup);
 
   if (error)
     return error;
 
-  error = oss_node_remove_entry(dgroup->node, dev->obj->name, &entry);
-
-  if (error)
-    return error;
-
-  destroy_oss_node_entry(entry);
-  return 0;
+  return dev_group_remove_device(dgroup, dev);
 }
 
 static bool __device_itterate(oss_node_t* node, oss_obj_t* obj, void* arg)
 {
-  DEVICE_ITTERATE ittr = arg;
+  DEVICE_ITTERATE ittr;
+
+  if (!arg)
+    return false;
+
+  ittr = arg;
 
   /* If we have an object, we hope for it to be a device */
   if (obj && obj->type == OSS_OBJ_TYPE_DEVICE)

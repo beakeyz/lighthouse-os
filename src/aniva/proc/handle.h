@@ -6,6 +6,7 @@
 #include <libk/stddef.h>
 
 struct file;
+struct dir;
 struct proc;
 struct thread;
 struct kevent;
@@ -33,6 +34,7 @@ typedef struct kernel_handle {
   uintptr_t offset;
   union {
     struct file* file;
+    struct dir* dir;
     struct device* device;
     struct drv_manifest* driver;
     struct proc* process;
