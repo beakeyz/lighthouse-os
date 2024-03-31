@@ -26,3 +26,8 @@ size_t get_process_time()
 {
   return syscall_0(SYSID_GET_PROCESSTIME);
 }
+
+const char* get_runtime_ctx()
+{
+  return (const char*)syscall_0(SYSID_GET_RUNTIME_CTX);
+}

@@ -107,6 +107,41 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
 }
 
 /*!
+ * @brief: Install a runtime context into a process
+ *
+ * NOTE: This can only be done once
+ */
+kerror_t proc_install_runtime(proc_t* proc, const char* rt)
+{
+  if (!proc || !rt)
+    return -KERR_INVAL;
+
+  if (proc->m_runtime_ctx)
+    return -KERR_INVAL;
+
+  proc->m_runtime_ctx = strdup(rt);
+  return 0;
+}
+
+/*!
+ * @brief: Try to grab the runtime context of a process
+ *
+ * NOTE: This can only be called once for a given process. This is called
+ * in the SYSID_GET_RUNTIME_CTX syscall handler by the lightos user library (libc)
+ */
+kerror_t proc_get_runtime(proc_t* proc, const char** rt)
+{
+  if (!proc || !rt)
+    return -KERR_INVAL;
+
+  if (!proc->m_runtime_ctx || (proc->m_flags & PROC_DID_REQUEST_RT) == PROC_DID_REQUEST_RT)
+    return -KERR_INVAL;
+
+  *rt = proc->m_runtime_ctx;
+  return 0;
+}
+
+/*!
  * @brief: Try to set the entry of a process
  */
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1)
@@ -214,6 +249,9 @@ void destroy_proc(proc_t* proc)
   destroy_khandle_map(&proc->m_handle_map);
 
   kfree((void*)proc->m_name);
+
+  if (proc->m_runtime_ctx)
+    kfree((void*)proc->m_runtime_ctx);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 

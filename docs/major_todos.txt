@@ -17,14 +17,14 @@
 [X] : Implement oss
   [X] : Finish the migration from the current vfs to the new oss (Which we build from the ground up seperate from VFS)
   [ ] : Create a convenient API to manipulate the vfs/oss (File creation, dir creation, file copy, file move, ect.)
-[ ] : Refactor the entire device architecure under ANIVA to move towards a device-tree like structure
+[X] : Refactor the entire device architecure under ANIVA to move towards a device-tree like structure
       (We need devices to be solid for our ACPI to not die on us)
 
 - (1+1/2) Misc. TODOs which would make our lives easier before trying ACPI and PWM
 [ ] : Fix the FAT32 filesystem implementation
 [ ] : Implement user-based fs access
 [ ] : Implement more filesystem drivers (Only the mainstream filesystems, i.e. FAT, extX, tarfs, ect. should be in-kernel, the rest can be external)
-[ ] : Implement dynamic linking
+[X] : Implement dynamic linking
 
 - (2) Now that FS and OSS structures are in place, work further with hardware support (Drivers, ACPI, PWM, ect.) - 
 [ ] : Implement ACPI-based device enumeration

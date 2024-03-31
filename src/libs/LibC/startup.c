@@ -2,6 +2,7 @@
 
 #include "lightos/handle_def.h"
 #include "lightos/lib/shared.h"
+#include "lightos/proc/process.h"
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -14,8 +15,10 @@ typedef int (*MainEntry_unix)(int argc, char* argv[]);
 
 void lightapp_startup(MainEntry main) __attribute__((used)) ;
 void _start(MainEntry main) __attribute__((used));
-extern void __attribute__((noreturn)) halt(void);
 
+static const char* ___rt_ctx;
+
+extern void __attribute__((noreturn)) halt(void);
 extern void __init_memalloc(void);
 extern void __init_stdio(void);
 
@@ -31,6 +34,8 @@ void __init_libc(void)
   /* 1.x -> TODO */
   __init_memalloc();
   __init_stdio();
+
+  ___rt_ctx = get_runtime_ctx();
 }
 
 /*!

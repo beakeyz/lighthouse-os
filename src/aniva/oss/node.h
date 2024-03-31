@@ -17,7 +17,10 @@ enum OSS_NODE_TYPE {
   OSS_OBJ_STORE_NODE,
   /* (TODO) This node holds a link to another node */
   OSS_LINK_NODE,
+  /* (TODO) This node holds a groep for devices */
   OSS_GROUP_NODE,
+  /* (TODO) This node holds a directory */
+  OSS_DIR_NODE,
 };
 
 void init_oss_nodes();

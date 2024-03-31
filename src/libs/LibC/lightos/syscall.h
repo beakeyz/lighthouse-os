@@ -13,6 +13,7 @@
 
 enum SYSID {
   SYSID_EXIT, /* Exit the process */
+  SYSID_GET_RUNTIME_CTX,
   SYSID_CLOSE, /* Close a handle */
   SYSID_READ, /* Read from a handle */
   SYSID_WRITE, /* Write to a handle */

@@ -1,4 +1,5 @@
 #include "dev/core.h"
+#include "dev/group.h"
 #include <dev/driver.h>
 #include <dev/device.h>
 
@@ -9,9 +10,18 @@
  * 
  */
 
+/*!
+ * @brief: Input core init
+ *
+ * Walk a few bus devices to see if there are any inputdevices connected.
+ * The usb hc driver should have enumerated it's ports and slots and it will identify any
+ * input devices which are connected to its bus. 
+ */
 static int _init_input_core()
 {
   logln("Initalizing input driver!");
+
+  dev_group_get("usb", NULL);
   return 0;
 }
 

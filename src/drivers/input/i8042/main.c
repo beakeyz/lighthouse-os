@@ -29,8 +29,6 @@ static int _init_i8042()
 
   memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
 
-  println("initializing ps2 keyboard driver!");
-
   /* Try to allocate an IRQ */
   error = irq_allocate(PS2_KB_IRQ_VEC, NULL, i8042_irq_handler, NULL, "PS/2 keyboard");
 

@@ -38,7 +38,7 @@
 #define SYS_MAXARGS         (5)
 
 typedef uintptr_t syscall_id_t;
-typedef int syscall_result_t;
+typedef unsigned long long syscall_result_t;
 
 extern syscall_result_t syscall_0(syscall_id_t id);
 extern syscall_result_t syscall_1(syscall_id_t id, uintptr_t arg0);

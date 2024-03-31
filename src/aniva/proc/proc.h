@@ -60,6 +60,8 @@ inline void proc_image_align(proc_image_t* image)
  */
 typedef struct proc {
   const char* m_name;
+  /* ASCII String which contains the runtime context of the process (aka the runtime parameters) */
+  const char* m_runtime_ctx;
   proc_id_t m_id;
   uint32_t m_flags;
 
@@ -98,9 +100,13 @@ typedef struct proc {
 #define PROC_HAD_HANDLE     (0x00000080) /* Process is referenced in userspace by a handle */
 #define PROC_SHOULD_STALL   (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
 #define PROC_NO_SOCKET      (0x00000200)
+#define PROC_DID_REQUEST_RT (0x00000400)
 
 proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
+
+kerror_t proc_install_runtime(proc_t* proc, const char* rt);
+kerror_t proc_get_runtime(proc_t* proc, const char** rt);
 
 /* Block until the process has ended execution */
 int await_proc_termination(proc_id_t id);
