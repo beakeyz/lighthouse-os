@@ -20,7 +20,7 @@ int main()
 {
   uint32_t idx;
   DirEntry* entry;
-  Directory* apps = open_dir("Root/Apps", HNDL_FLAG_R, NULL);
+  Directory* apps = open_dir("Root/System", HNDL_FLAG_R, NULL);
 
   if (!apps)
     return -1;
@@ -31,8 +31,10 @@ int main()
     entry = dir_read_entry(apps, idx++);
 
     if (entry)
-      printf(" %s\n", entry->name);
+      printf("(0x%lld) %s\n", (uintptr_t)entry, entry->name);
+
   } while (entry);
 
+  close_dir(apps);
   return 0;
 }

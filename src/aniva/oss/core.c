@@ -201,7 +201,7 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
     const char* rel_path = _get_pathentry_at_idx(path, obj_gen_path_idx);
 
     /* Query the generation node for an object */
-    error = oss_node_query(obj_gen, rel_path, out);
+    return oss_node_query(obj_gen, rel_path, out);
   }
 
   /* Did we find an entry? */
@@ -321,20 +321,20 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
     c_node = c_entry->node;
   }
 
-  if (!c_entry && !gen_node)
-    return -1;
+  if (!c_entry && gen_node) {
+    rel_path = _get_pathentry_at_idx(path, gen_path_idx);
 
-  if (!gen_node && c_node) {
-    *out = c_node;
-    return 0;
+    if (!rel_path)
+      return -1;
+
+    return oss_node_query_node(gen_node, rel_path, out);
   }
 
-  rel_path = _get_pathentry_at_idx(path, gen_path_idx);
-
-  if (!rel_path)
+  if (!c_entry || !c_node)
     return -1;
 
-  return oss_node_query_node(gen_node, rel_path, out);
+  *out = c_node;
+  return 0;
 }
 
 

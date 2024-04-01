@@ -10,6 +10,7 @@
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "oss/core.h"
 #include <libk/stddef.h>
 
@@ -493,6 +494,45 @@ free_and_exit:
   return 0;
 }
 
+/*!
+ * @brief: Reads a dir entry from a directory at index @idx
+ */
+int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out, uint32_t idx, uint32_t* diroffset)
+{
+  size_t dir_entries_count;
+  size_t clusters_size;
+  //fat_dir_entry_t* dir_entries;
+
+  fat_fs_info_t* p;
+
+  if (!out)
+    return -1;
+
+  if (dir->type != FFILE_TYPE_DIR)
+    return -KERR_INVAL;
+
+  if (!dir->clusters_num || !dir->clusterchain_buffer || !dir->dir_entries)
+    return -KERR_INVAL;
+
+  /* Get our filesystem info and cluster number */
+  p = GET_FAT_FSINFO(node);
+
+  /* Calculate the size of the data */
+  clusters_size = dir->clusters_num * p->cluster_size;
+  dir_entries_count = clusters_size / sizeof(fat_dir_entry_t);
+
+  /* Outside the range =/ */
+  if (idx >= dir_entries_count)
+    return -KERR_INVAL;
+
+  *out = dir->dir_entries[idx];
+  if (diroffset)
+    *diroffset = idx * sizeof(fat_dir_entry_t);
+
+  return 0;
+}
+
+
 static void
 transform_fat_filename(char* dest, const char* src) 
 {
@@ -788,8 +828,16 @@ static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
       /* This is quite aggressive, we should prob just clean and return nullptr... */
       //ASSERT_MSG(!oss_attach_node(path, ret->node), "Failed to attach FAT node");
 
+      /* Update the directory entries for this directory file */
+      error = fat_file_update_dir_entries(fat_file);
+
+      if (error)
+        break;
+
       ret->size = get_fat_file_size(fat_file);
       ret->child_capacity = ret->size / sizeof(fat_dir_entry_t);
+
+      printf("Opening FAT dir object: %p (size=%d, child_capacity=%d)\n", ret, ret->size, ret->child_capacity);
 
       /* Cache the offset of the clusterchain */
       fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));

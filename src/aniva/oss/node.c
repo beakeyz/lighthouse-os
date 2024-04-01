@@ -1,4 +1,5 @@
 #include "node.h"
+#include "fs/dir.h"
 #include "libk/flow/error.h"
 #include "obj.h"
 #include "libk/data/hashmap.h"
@@ -109,6 +110,61 @@ void* oss_node_unwrap(oss_node_t* node)
     return nullptr;
 
   return node->priv;
+}
+
+/*!
+ * @brief: Add a directory helper struct to a oss node
+ */
+kerror_t oss_node_attach_dir(oss_node_t* node, dir_t* dir)
+{
+  if (!node || !dir)
+    return -KERR_NULL;
+
+  if (node->dir)
+    return -KERR_INVAL;
+
+  mutex_lock(node->lock);
+
+  node->dir = dir;
+  dir->node = node;
+
+  mutex_unlock(node->lock);
+  return 0;
+}
+
+/*!
+ * @brief: Same as oss_node_attach_dir, but ignores the exsisting directory
+ */
+kerror_t oss_node_replace_dir(oss_node_t* node, struct dir* dir)
+{
+  if (!node || !dir)
+    return -KERR_NULL;
+
+  mutex_lock(node->lock);
+
+  /* Detach */
+  if (node->dir)
+    node->dir->node = nullptr;
+
+  node->dir = dir;
+  dir->node = node;
+
+  mutex_unlock(node->lock);
+  return 0;
+}
+
+kerror_t oss_node_detach_dir(oss_node_t* node)
+{
+  if (!node || !node->dir)
+    return -KERR_NULL;
+
+  mutex_lock(node->lock);
+
+  node->dir->node = nullptr;
+  node->dir = nullptr;
+
+  mutex_unlock(node->lock);
+  return 0;
 }
 
 /*!

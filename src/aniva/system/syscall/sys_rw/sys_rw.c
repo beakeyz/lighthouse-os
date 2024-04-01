@@ -1,6 +1,7 @@
 
 #include "sys_rw.h"
 #include "dev/device.h"
+#include "fs/dir.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/var_types.h"
 #include "lightos/syscall.h"
@@ -13,6 +14,7 @@
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include <proc/profile/profile.h>
+#include <libk/string.h>
 #include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 
@@ -276,4 +278,73 @@ uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
   }
 
   return khndl->offset;
+}
+
+/*!
+ * @brief: Read from a directory at index @idx
+ */
+uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, size_t blen)
+{
+  dir_t* target_dir;
+  direntry_t target_entry;
+  const char* target_name;
+  proc_t* c_proc;
+  khandle_t* khandle;
+
+  c_proc = get_current_proc();
+
+  if (IsError(kmem_validate_ptr(c_proc, (vaddr_t)namebuffer, 1)))
+    return SYS_INV;
+
+  /* Don't want to go poking in kernel memory */
+  if ((vaddr_t)namebuffer >= KERNEL_MAP_BASE)
+    return SYS_INV;
+
+  khandle = find_khandle(&c_proc->m_handle_map, handle);
+
+  if (!khandle || !khandle->reference.kobj)
+    return SYS_INV;
+
+  if (khandle->type != HNDL_TYPE_DIR)
+    return SYS_INV;
+
+  target_dir = khandle->reference.dir;
+
+  if (idx >= target_dir->child_capacity)
+    return SYS_INV;
+
+  /* Read into the entry */
+  if (!KERR_OK(dir_read(target_dir, idx, &target_entry)))
+    return SYS_INV;
+
+  /* Clear the buffer */
+  memset(namebuffer, 0, blen);
+
+  switch (target_entry.type) {
+    case DIRENT_TYPE_DIR:
+      target_name = target_entry.dir->name;
+      break;
+    case DIRENT_TYPE_FILE:
+      target_name = target_entry.file->m_obj->name;
+      break;
+    default:
+      target_name = nullptr;
+  }
+
+  if (!target_name)
+    goto close_and_fail;
+
+  /* Truncate the length */
+  if (strlen(target_name) < blen)
+    blen = strlen(target_name);
+
+  /* Copy */
+  strncpy(namebuffer, target_name, blen);
+
+  close_direntry(&target_entry);
+  return SYS_OK;
+
+close_and_fail:
+  close_direntry(&target_entry);
+  return SYS_INV;
 }

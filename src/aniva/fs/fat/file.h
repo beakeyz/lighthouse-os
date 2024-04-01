@@ -17,6 +17,11 @@ typedef struct fat_file {
     void* parent;
   };
 
+  /*
+   * Cached array of directory entries, if this file is a directory 
+   * This should get reallocated every time the directory content changes
+   */
+  fat_dir_entry_t* dir_entries;
   uint32_t* clusterchain_buffer;
   size_t clusters_num;
 
@@ -32,5 +37,7 @@ dir_t* create_fat_dir(fat_fs_info_t* info, uint32_t flags, const char* path);
 void destroy_fat_file(fat_file_t* file);
 
 size_t get_fat_file_size(fat_file_t* file); 
+
+kerror_t fat_file_update_dir_entries(fat_file_t* file);
 
 #endif // !__ANIVA_FS_FATFILE__

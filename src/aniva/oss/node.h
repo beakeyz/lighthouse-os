@@ -1,11 +1,13 @@
 #ifndef __ANIVA_OSS_NODE__
 #define __ANIVA_OSS_NODE__
 
+#include "libk/flow/error.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 #include <libk/data/hashmap.h>
 
+struct dir;
 struct oss_obj;
 struct oss_node_entry;
 struct oss_node_ops;
@@ -19,8 +21,6 @@ enum OSS_NODE_TYPE {
   OSS_LINK_NODE,
   /* (TODO) This node holds a groep for devices */
   OSS_GROUP_NODE,
-  /* (TODO) This node holds a directory */
-  OSS_DIR_NODE,
 };
 
 void init_oss_nodes();
@@ -29,6 +29,8 @@ void init_oss_nodes();
  * Base struct for oss nodes
  *
  * oss nodes are either oss_obj storage containers or vobj generators
+ *
+ * Every node can have a directory attached
  */
 typedef struct oss_node {
   const char* name;
@@ -40,6 +42,7 @@ typedef struct oss_node {
   mutex_t* lock;
   hashmap_t* obj_map;
 
+  struct dir* dir;
   void* priv;
 } oss_node_t;
 
@@ -47,6 +50,10 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
 void destroy_oss_node(oss_node_t* node);
 
 void* oss_node_unwrap(oss_node_t* node);
+
+kerror_t oss_node_attach_dir(oss_node_t* node, struct dir* dir);
+kerror_t oss_node_replace_dir(oss_node_t* node, struct dir* dir);
+kerror_t oss_node_detach_dir(oss_node_t* node);
 
 enum OSS_ENTRY_TYPE {
   OSS_ENTRY_NESTED_NODE,

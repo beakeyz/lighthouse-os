@@ -64,6 +64,7 @@ static DirEntry* _dir_read_entry(Directory* dir, uint32_t idx)
     if (walker->idx > idx)
       break;
 
+    walker = walker->next;
   } while (walker);
 
   return nullptr;

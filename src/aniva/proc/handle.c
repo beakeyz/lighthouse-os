@@ -1,4 +1,5 @@
 #include "handle.h"
+#include "fs/dir.h"
 #include "fs/file.h"
 #include "lightos/handle_def.h"
 #include "libk/flow/error.h"
@@ -27,6 +28,12 @@ static void __on_handle_change(khandle_t* handle, bool bind)
     case HNDL_TYPE_PROC:
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
+      break;
+    case HNDL_TYPE_DIR:
+      if (bind)
+        break;
+
+      dir_close(handle->reference.dir);
       break;
     case HNDL_TYPE_FILE:
       {
