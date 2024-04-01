@@ -65,6 +65,7 @@ int oss_node_add_node(oss_node_t* node, struct oss_node* obj);
 int oss_node_remove_entry(oss_node_t* node, const char* name, struct oss_node_entry** entry_out);
 
 int oss_node_find(oss_node_t* node, const char* name, struct oss_node_entry** entry_out);
+int oss_node_find_at(oss_node_t* node, uint64_t idx, struct oss_node_entry** entry_out);
 int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out);
 int oss_node_query_node(oss_node_t* node, const char* path, struct oss_node** node_out);
 
@@ -109,17 +110,29 @@ static inline const char* oss_node_entry_getname(oss_node_entry_t* entry)
  * TODO: Make complete
  */
 typedef struct oss_node_ops {
-  /* Send some data to this node and have whatever is connected do something for you */
+  /*
+   * Send some data to this node and have whatever is connected do something for you 
+   */
   int (*f_msg) (struct oss_node*, driver_control_code_t code, void* buffer, size_t size);
-  /* Force an object to be synced */
+  /*
+   * Force an object to be synced 
+   */
   int (*f_force_obj_sync)(struct oss_obj*);
-  /* Grab named data associated with this node */
+  /*
+   * Grab named data associated with this node 
+   */
   struct oss_obj* (*f_open) (struct oss_node*, const char*);
-  /* Grab a nested node from a parent node */
+  /*
+   * Grab a nested node from a parent node 
+   */
   struct oss_node* (*f_open_node) (struct oss_node*, const char*);
-  /* Close a oss_object that has been opened by this node */
+  /*
+   * Close a oss_object that has been opened by this node 
+   */
   int (*f_close)(struct oss_node*, struct oss_obj*); 
-  /* Destroy an oss node */
+  /*
+   * Destroy an oss node 
+   */
   int (*f_destroy)(struct oss_node*);
 } oss_node_ops_t;
 

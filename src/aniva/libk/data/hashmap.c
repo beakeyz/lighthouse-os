@@ -642,7 +642,7 @@ hashmap_value_t hashmap_remove(hashmap_t* map, hashmap_key_t key) {
  *
  * Allocates an array of the hashmaps size and tries to fill it with any valid entries it can find
  */
-int hashmap_to_array(hashmap_t* map, uintptr_t** array_ptr, size_t* size_ptr)
+int hashmap_to_array(hashmap_t* map, void*** array_ptr, size_t* size_ptr)
 {
   uint64_t idx;
   
@@ -650,14 +650,14 @@ int hashmap_to_array(hashmap_t* map, uintptr_t** array_ptr, size_t* size_ptr)
     return -1;
 
   idx = NULL;
-  *size_ptr = sizeof(uintptr_t*) * map->m_size;
+  *size_ptr = sizeof(void*) * map->m_size;
 
   /* No entries in the list =/ */
   if (!map->m_size)
     return -1;
 
   /* Currently only works for closed addressing */
-  if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
+  if ((map->m_flags & HASHMAP_FLAG_CA) != HASHMAP_FLAG_CA)
     return -2;
 
   /* Allocate an array to fit our size */
@@ -674,7 +674,7 @@ int hashmap_to_array(hashmap_t* map, uintptr_t** array_ptr, size_t* size_ptr)
        * entry here
        */
       if (entry->m_value || entry->m_next)
-        array_ptr[idx++] = entry->m_value;
+        (*array_ptr)[idx++] = (void*)entry->m_value;
       
       entry = entry->m_next;
     }

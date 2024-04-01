@@ -69,6 +69,7 @@ static const char* _get_pathentry_at_idx(const char* fullpath, uint32_t idx)
   const char* path_idx = fullpath;
   const char* c_subentry_start = fullpath;
 
+  // System/ 
   while (*path_idx) {
 
     if (*path_idx != '/')
@@ -93,6 +94,9 @@ cycle:
 
   /* If we haven't reached the end yet, something went wrong */
   if (idx)
+    return nullptr;
+
+  if (!(*c_subentry_start))
     return nullptr;
 
   return c_subentry_start;
@@ -421,7 +425,6 @@ static struct oss_node* _oss_create_path_locked(struct oss_node* node, const cha
 
     if (!c_node) return nullptr;
   }
-
 
   while (*path && (this_name = _find_path_subentry_at(path, c_idx++))) {
 

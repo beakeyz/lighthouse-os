@@ -20,7 +20,7 @@ int main()
 {
   uint32_t idx;
   DirEntry* entry;
-  Directory* apps = open_dir("Root/System", HNDL_FLAG_R, NULL);
+  Directory* apps = open_dir("Root/System/Lib", HNDL_FLAG_R, NULL);
 
   if (!apps)
     return -1;

@@ -6,13 +6,64 @@
 #include "oss/core.h"
 #include "oss/node.h"
 #include "libk/string.h"
+#include "oss/obj.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
+
+static int _generic_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
+{
+  int error;
+  dir_t* new_dir;
+  oss_node_t* node;
+  /* NOTE: We don't own this pointer */
+  oss_node_entry_t* entry;
+
+  node = dir->node;
+
+  if (!node)
+    return -KERR_NULL;
+
+  error = oss_node_find_at(node, idx, &entry);
+
+  if (error)
+    return error;
+
+  switch (entry->type) {
+    case OSS_ENTRY_OBJECT:
+      oss_obj_ref(entry->obj);
+
+      init_direntry(bentry, entry->obj, DIRENT_TYPE_OBJ);
+      break;
+    case OSS_ENTRY_NESTED_NODE:
+
+      new_dir = entry->node->dir;
+
+      if (!new_dir)
+        /* Don't give a path, as to signal we want to create this dir onto the specified node */
+        new_dir = create_dir(entry->node, NULL, NULL, NULL, NULL);
+
+      /* Reference the new directory */
+      dir_ref(new_dir);
+
+      /* Init that bitch */
+      init_direntry(bentry, new_dir, DIRENT_TYPE_DIR);
+      break;
+  }
+
+  return 0;
+}
+
+static dir_ops_t _generic_dir_ops = {
+  .f_destroy = NULL,
+  .f_read = _generic_dir_read,
+};
 
 /*!
  * @brief: Create a directory at the end of @path
  *
  * Fails if there is already a directory attached to the target node
+ *
+ * NOTE: If there is a root specified, but not a path, we assume dir should be created onto @root
  *
  * @root: The root node of the filesystem this directory comes from
  * @path: The path relative from @root
@@ -20,13 +71,28 @@
 dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags)
 {
   dir_t* dir;
-  const char* name;
+  oss_node_t* node = root;
+  const char* name = NULL;
 
-  /* NOTE: This allocates @name on the heap */
-  name = oss_get_objname(path);
-
-  if (!name)
+  /* This would be bad lmao */
+  if (!root && !path)
     return nullptr;
+
+  if (path) {
+    /* NOTE: This allocates @name on the heap */
+    name = oss_get_objname(path);
+
+    if (!name)
+      return nullptr;
+
+    printf("Path: %s, Name: %s\n", path, name);
+
+    /* We have a path, but we might not have a root, no biggie */
+    node = oss_create_path(root, path);
+
+  } else
+    /* We know we have a root at this point, steal it's name */
+    name = strdup(node->name);
 
   dir = kmalloc(sizeof(*dir));
 
@@ -35,11 +101,16 @@ dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void*
 
   memset(dir, 0, sizeof(*dir));
 
-  dir->node = oss_create_path(root, path);
+  if (!ops)
+    ops = &_generic_dir_ops;
+
+  dir->node = node;
   dir->name = name;
   dir->ops = ops;
   dir->priv = priv;
   dir->flags = flags;
+  dir->child_capacity = 0xFFFFFFFF;
+  dir->size = 0xFFFFFFFF;
   dir->lock = create_mutex(NULL);
 
   init_atomic_ptr(&dir->ref, 0);
@@ -55,7 +126,7 @@ dealloc_and_fail:
   return nullptr;
 }
 
-static void dir_ref(dir_t* dir)
+void dir_ref(dir_t* dir)
 {
   if (!dir)
     return;
@@ -70,7 +141,7 @@ static void dir_ref(dir_t* dir)
   mutex_unlock(dir->lock);
 }
 
-static void dir_unref(dir_t* dir)
+void dir_unref(dir_t* dir)
 {
   uint32_t refc;
 
@@ -171,39 +242,42 @@ dir_t* dir_open(const char* path)
   ret = node->dir;
 
   /* This node does not have a directory, so we'll probably have to query the gen node */
-  if (!ret) {
-    do {
-      node = node->parent;
-    } while (node && node->type != OSS_OBJ_GEN_NODE);
+  if (ret)
+    goto ref_and_exit;
 
-    if (!node)
-      return nullptr;
+  do {
+    node = node->parent;
+  } while (node && node->type != OSS_OBJ_GEN_NODE);
 
-    uintptr_t idx = 0;
-    const char* rel_path = nullptr;
+  /* No object generation node somewhere downstream, just create a new generic dir */
+  if (!node)
+    return create_dir(NULL, path, NULL, NULL, NULL);
 
-    while (path[idx]) {
-      /* We've found the node name in our path yay */
-      if (strncmp(&path[idx], node->name, strlen(node->name)) == 0) {
-        rel_path = &path[idx + strlen(node->name) + 1];
-        break;
-      }
+  uintptr_t idx = 0;
+  const char* rel_path = nullptr;
 
-      idx++;
+  while (path[idx]) {
+    /* We've found the node name in our path yay */
+    if (strncmp(&path[idx], node->name, strlen(node->name)) == 0) {
+      rel_path = &path[idx + strlen(node->name) + 1];
+      break;
     }
 
-    /* Scan failed */
-    if (!rel_path)
-      return nullptr;
-
-    if (!KERR_OK(oss_node_query_node(node, rel_path, &node)))
-      return nullptr;
-
-    ret = node->dir;
+    idx++;
   }
 
-  dir_ref(ret);
+  /* Scan failed */
+  if (!rel_path)
+    return nullptr;
 
+  /* In this case there should be a filesystem driver which initializes the dir struct correctly for us */
+  if (!KERR_OK(oss_node_query_node(node, rel_path, &node)))
+    return nullptr;
+
+  ret = node->dir;
+
+ref_and_exit:
+  dir_ref(ret);
   return ret;
 }
 
@@ -243,6 +317,9 @@ kerror_t close_direntry(direntry_t* entry)
       break;
     case DIRENT_TYPE_DIR:
       dir_close(entry->dir);
+      break;
+    case DIRENT_TYPE_OBJ:
+      oss_obj_close(entry->obj);
       break;
     default:
       kernel_panic("TODO: unhandled direntry type in close_direntry");

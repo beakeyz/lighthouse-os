@@ -45,6 +45,7 @@ typedef struct dir {
 enum DIRENT_TYPE {
   DIRENT_TYPE_FILE,
   DIRENT_TYPE_DIR,
+  DIRENT_TYPE_OBJ,
 };
 
 dir_t* create_dir(struct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
@@ -52,6 +53,9 @@ void destroy_dir(dir_t* dir);
 
 int dir_create_child(dir_t* dir, const char* name);
 int dir_remove_child(dir_t* dir, const char* name);
+
+void dir_ref(dir_t* dir);
+void dir_unref(dir_t* dir);
 
 struct oss_obj* dir_find(dir_t* dir, const char* path);
 int dir_read(dir_t* dir, uint64_t idx, struct direntry* bentry);
@@ -69,6 +73,7 @@ typedef struct direntry {
   union {
     struct file* file;
     struct dir* dir;
+    struct oss_obj* obj;
     void* _entry;
   };
   enum DIRENT_TYPE type;

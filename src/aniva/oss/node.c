@@ -373,6 +373,38 @@ unlock_and_exit:
   return -3;
 }
 
+/*!
+ * @brief: Find the node entry at a specific index
+ *
+ * This is a heavy opperation. We need to convert the entire hashmap into an array and get the
+ * index into that. Use this only when you really need to!
+ */
+int oss_node_find_at(oss_node_t* node, uint64_t idx, struct oss_node_entry** entry_out)
+{
+  int error;
+  size_t size;
+  oss_node_entry_t** array;
+
+  size = NULL;
+  array = NULL;
+
+  if (!node || !node->obj_map || idx >= node->obj_map->m_size)
+    return -KERR_INVAL;
+
+  error = hashmap_to_array(node->obj_map, (void***)&array, &size);
+
+  if (!KERR_OK(error))
+    return error;
+
+  if (!array || !size)
+    return -KERR_NULL;
+
+  *entry_out = array[idx];
+
+  kfree(array);
+  return 0;
+}
+
 int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
 {
   if (!obj_out || !node || !node->ops || !node->ops->f_open)
@@ -462,21 +494,21 @@ int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct 
 int oss_node_clean_objects(oss_node_t* node)
 {
   int error;
-  uintptr_t* array;
+  oss_node_entry_t** array;
   size_t size;
   size_t entry_count;
 
   mutex_lock(node->lock);
 
-  error = hashmap_to_array(node->obj_map, &array, &size);
+  error = hashmap_to_array(node->obj_map, (void***)&array, &size);
 
   if (error)
     goto unlock_and_exit;
 
-  entry_count = size / (sizeof(*array));
+  entry_count = size / (sizeof(oss_node_entry_t*));
 
   for (uintptr_t i = 0; i < entry_count; i++) {
-    oss_node_entry_t* entry = (oss_node_entry_t*)((uintptr_t)array[i]);
+    oss_node_entry_t* entry = array[i];
 
     switch (entry->type) {
       case OSS_ENTRY_NESTED_NODE:

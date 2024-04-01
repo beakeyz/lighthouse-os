@@ -327,6 +327,9 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, si
     case DIRENT_TYPE_FILE:
       target_name = target_entry.file->m_obj->name;
       break;
+    case DIRENT_TYPE_OBJ:
+      target_name = target_entry.obj->name;
+      break;
     default:
       target_name = nullptr;
   }

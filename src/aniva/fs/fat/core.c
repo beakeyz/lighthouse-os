@@ -501,7 +501,6 @@ int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out
 {
   size_t dir_entries_count;
   size_t clusters_size;
-  //fat_dir_entry_t* dir_entries;
 
   fat_fs_info_t* p;
 
@@ -526,6 +525,7 @@ int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out
     return -KERR_INVAL;
 
   *out = dir->dir_entries[idx];
+
   if (diroffset)
     *diroffset = idx * sizeof(fat_dir_entry_t);
 
@@ -814,10 +814,13 @@ static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
     if (error)
       break;
 
+    /* Set the current index if we have successfuly 'switched' directories */
+    current_idx = i + 1;
+
     /*
      * If we found our file (its not a directory) we can populate the file object and return it
      */
-    if ((current.attr & (FAT_ATTR_DIR)) == FAT_ATTR_DIR) {
+    if ((current.attr & (FAT_ATTR_DIR)) == FAT_ATTR_DIR && (current_idx >= path_size || path_buffer[current_idx] == NULL)) {
 
       /* Make sure the file knows about its cluster chain */
       error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
@@ -844,9 +847,6 @@ static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
 
       return ret->node;
     }
-
-    /* Set the current index if we have successfuly 'switched' directories */
-    current_idx = i + 1;
 
     /*
      * Place back the slash
