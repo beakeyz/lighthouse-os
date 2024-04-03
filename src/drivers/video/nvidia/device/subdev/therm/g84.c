@@ -4,8 +4,6 @@
 #include "drivers/video/nvidia/device/subdev/fuse/core.h"
 #include "libk/io.h"
 #include "libk/string.h"
-#include "logging/log.h"
-#include "mem/heap.h"
 
 /*!
  * @brief: Enable temp readings n shit
@@ -19,8 +17,8 @@ void g84_init_therm(nv_subdev_therm_t* therm)
   fuse = nvdev_get_fuse(nvdev);
   temp_ok = nv_sd_fuse_read(fuse, 0x1a8);
 
-  log("TempOK: ");
-  logln(to_string(temp_ok));
+  print("TempOK: ");
+  println(to_string(temp_ok));
 
   if (temp_ok == 1) {
     nvd_mask(nvdev, 0x20008, 0x80008000, 0x80000000);

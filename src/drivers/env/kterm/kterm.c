@@ -6,6 +6,7 @@
 #include "dev/manifest.h"
 #include "dev/video/core.h"
 #include "dev/video/device.h"
+#include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
@@ -181,7 +182,7 @@ int kterm_on_key(kevent_ctx_t* event);
 
 static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color) 
 {
-  if (_kterm_fb_bpp && x >= 0 && y >= 0 && x < _kterm_fb_width && y < _kterm_fb_height)
+  if (_kterm_vdev && _kterm_fb_bpp && x >= 0 && y >= 0 && x < _kterm_fb_width && y < _kterm_fb_height)
     *(uint32_t volatile*)(KTERM_FB_ADDR + _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8) = color;
 }
 
@@ -201,6 +202,9 @@ static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint3
 
 static inline void kterm_clear_raw()
 {
+  if (!_kterm_vdev)
+    return;
+
   kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, 0x00);
 }
 
@@ -208,6 +212,9 @@ static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
 {
   uint32_t clr;
   struct kterm_terminal_pallet_entry* entry;
+
+  if (!_kterm_vdev)
+    return NULL;
 
   /* Return black */
   if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
@@ -918,6 +925,56 @@ static void kterm_reset_prompt_vars()
   _c_prompt_is_submitted = false;
 }
 
+static void _kterm_set_fb_props()
+{
+  if (!_kterm_vdev)
+    return;
+
+  /* Initialize framebuffer and video stuff */
+  ASSERT_MSG(vdev_get_mainfb(_kterm_vdev->device, &_kterm_fb_handle) == 0, "kterm: Failed to get main fb handle!");
+
+  /* Map the framebuffer to our base */
+  vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
+
+  _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
+  _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
+  _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);
+  _kterm_fb_bpp = vdev_get_fb_bpp(_kterm_vdev->device, _kterm_fb_handle);
+}
+
+/*!
+ * @brief: The vdev event handler for kterm
+ *
+ * When things change on the video device, we need to act accordingly
+ */
+static int _kterm_vdev_event_hook(kevent_ctx_t* _ctx)
+{
+  vdev_event_ctx_t* ctx;
+
+  ctx = _ctx->buffer;
+
+  switch (ctx->type) {
+    case VDEV_EVENT_REMOVE:
+
+      kterm_clear_raw();
+
+      vdev_unmap_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
+      _kterm_vdev = nullptr;
+      break;
+    case VDEV_EVENT_REGISTER:
+      if (!_kterm_vdev) {
+        _kterm_vdev = ctx->device;
+
+        _kterm_set_fb_props();
+      }
+      break;
+    case VDEV_EVENT_VBLANK:
+      break;
+  }
+
+  return 0;
+}
+
 /*
  * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it 
  * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
@@ -926,15 +983,15 @@ int kterm_init()
 {
   (void)kterm_redraw_terminal_chars;
 
+  memset(&_c_login, 0, sizeof(_c_login));
+  _clear_cursor_char = true;
   _old_dflt_lwnd_path_value = NULL;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
   _kterm_vdev = get_active_vdev();
 
-  _clear_cursor_char = true;
+  kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook);
 
   ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
-
-  memset(&_c_login, 0, sizeof(_c_login));
 
   kterm_init_fs(&_c_login);
 
@@ -967,16 +1024,8 @@ int kterm_init()
   //Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
   //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_kterm_fb_ sizeof(fb_info_t)));
 
-  /* Initialize framebuffer and video stuff */
-  ASSERT_MSG(vdev_get_mainfb(_kterm_vdev->device, &_kterm_fb_handle) == 0, "kterm: Failed to get main fb handle!");
-
-  /* Map the framebuffer to our base */
-  vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
-
-  _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
-  _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
-  _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);
-  _kterm_fb_bpp = vdev_get_fb_bpp(_kterm_vdev->device, _kterm_fb_handle);
+  /* Update video shit */
+  _kterm_set_fb_props();
 
   void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
 

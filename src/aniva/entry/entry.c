@@ -372,6 +372,9 @@ void kthread_entry(void) {
   /* Do late initialization of the default profiles */
   init_profiles_late();
 
+  ASSERT_MSG(load_external_driver("Root/System/nvidia.drv"), "Failed to load nvidia kernel driver!");
+
+  kernel_panic("NVIDIA TEST");
   /* 
    * Remove the early TTY right before we finish low-level system setup. After
    * this point we're able to support our own debug capabilities

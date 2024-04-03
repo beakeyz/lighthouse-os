@@ -68,7 +68,7 @@ int nvidia_probe(pci_device_t* dev, pci_driver_t* driver)
 {
   nv_device_t* nvdev;
 
-  logln("Found an NVIDIA device!");
+  println("Found an NVIDIA device!");
 
   /* Yikes =/ */
   if (video_deactivate_current_driver())
@@ -79,20 +79,20 @@ int nvidia_probe(pci_device_t* dev, pci_driver_t* driver)
 
   ASSERT(nvdev);
 
-  log("PRI addr: ");
-  logln(to_string((uintptr_t)nvdev->pri));
-  log("PRI size: ");
-  logln(to_string(nvdev->pri_size));
-  log("NV card type: ");
-  logln(to_string(nvdev->card_type));
-  log("NV chipset: ");
-  logln(to_string(nvdev->chipset));
-  log("NV chiprev: ");
-  logln(to_string(nvdev->chiprev));
-  log("NV vendor: ");
-  logln(to_string(nvdev->id.vendor));
-  log("NV device: ");
-  logln(to_string(nvdev->id.device));
+  print("PRI addr: ");
+  println(to_string((uintptr_t)nvdev->pri));
+  print("PRI size: ");
+  println(to_string(nvdev->pri_size));
+  print("NV card type: ");
+  println(to_string(nvdev->card_type));
+  print("NV chipset: ");
+  println(to_string(nvdev->chipset));
+  print("NV chiprev: ");
+  println(to_string(nvdev->chiprev));
+  print("NV vendor: ");
+  println(to_string(nvdev->id.vendor));
+  print("NV device: ");
+  println(to_string(nvdev->id.device));
 
   /* TODO: remove standard boot-time video drivers like efi */
   register_video_device(&nvfb_device);
@@ -112,12 +112,14 @@ uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size,
  */
 int nvidia_init() 
 {
+  println("Initializing nvidia driver!");
   /* We should be active at this point lol */
   _our_manifest = try_driver_get(&nvidia_driver, NULL);
 
   if (!_our_manifest)
     return -1;
 
+  println("Registered nvidia PCI driver!");
   register_pci_driver(&nvfb_pci_driver);
   return 0;
 }

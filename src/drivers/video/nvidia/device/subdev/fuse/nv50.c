@@ -2,7 +2,6 @@
 #include "drivers/video/nvidia/device/device.h"
 #include "drivers/video/nvidia/device/subdev.h"
 #include "drivers/video/nvidia/device/subdev/fuse/internal.h"
-#include "libk/flow/error.h"
 #include "sync/mutex.h"
 
 uint32_t nv50_fuse_read(nv_subdev_fuse_t* fuse, uint32_t addr)

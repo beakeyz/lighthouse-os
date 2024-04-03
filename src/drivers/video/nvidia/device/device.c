@@ -17,6 +17,11 @@ static nv_subsys_entry_t nv94_entries[NV_SUBDEV_COUNT] = {
   0
 };
 
+static nv_subsys_entry_t nv41_entries[NV_SUBDEV_COUNT] = {
+  [NV_SUBDEV_THERM] = nv40_therm_create,
+  0
+};
+
 static int nv_detect_chip(nv_device_t* nvdev)
 {
   uint32_t pmc_ident;
@@ -62,7 +67,12 @@ static int nv_detect_chip(nv_device_t* nvdev)
 
   /* TODO: With the chipset, we can also determine the functions needed for certain card subsystem management */
   switch (nvdev->chipset) {
-    case 0x094: nvdev->subsys_entries = nv94_entries;
+    case 0x041: 
+      nvdev->subsys_entries = nv41_entries; 
+      break;
+    case 0x094: 
+      nvdev->subsys_entries = nv94_entries; 
+      break;
   }
   /* TODO: With the entries found, loop over them all and call them */
 

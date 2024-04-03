@@ -49,7 +49,7 @@ static int efifb_get_info(device_t* dev, vdev_info_t* info)
 /*!
  * @brief: Map the framebuffer to a virtual address
  *
- * TODO: keep track of all the mappings, so we can keep track of them
+ * TODO: keep track of all the mappings
  */
 static ssize_t efifb_map(device_t* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, vaddr_t base) 
 {
@@ -58,7 +58,8 @@ static ssize_t efifb_map(device_t* dev, fb_handle_t fb, uint32_t x, uint32_t y, 
   video_device_t* vdev;
   fb_helper_t* helper;
 
-  if (!base)
+  /* base should be page aligned */
+  if (!base || ALIGN_DOWN(base, SMALL_PAGE_SIZE) != base)
     return -1;
 
   vdev = dev->private;
@@ -79,6 +80,40 @@ static ssize_t efifb_map(device_t* dev, fb_handle_t fb, uint32_t x, uint32_t y, 
     Must(__kmem_alloc_ex(nullptr, nullptr, info->addr + x * BYTES_PER_PIXEL(info->bpp) + y * info->pitch, base, size, KMEM_CUSTOMFLAG_NO_REMAP, KMEM_FLAG_WC | KMEM_FLAG_WRITABLE));
   else
     kernel_panic("TODO: handle size = 0 (efifb_map)");
+
+  /* Make sure we can get the mapping */
+  fb_helper_add_mapping(helper, x, y, width, height, size, base);
+
+  return size;
+}
+
+static ssize_t efifb_unmap(device_t* dev, fb_handle_t fb, vaddr_t base) 
+{
+  ssize_t size;
+  video_device_t* vdev;
+  fb_helper_t* helper;
+  fb_mapping_t* mapping;
+
+  if (!base)
+    return -1;
+
+  vdev = dev->private;
+  helper = vdev->fb_helper;
+  mapping = NULL;
+
+  if (!helper)
+    return -2;
+
+  if (fb_helper_get_mapping(helper, base, &mapping) || !mapping)
+    return -3;
+
+  /* Unmap the page range */
+  kmem_unmap_range(nullptr, base, mapping->size);
+
+  size = mapping->size;
+
+  /* This really can't fail lmao */
+  ASSERT(KERR_OK(fb_helper_remove_mapping(helper, base)));
 
   return size;
 }
@@ -145,6 +180,7 @@ fb_helper_ops_t _efifb_helper_ops = {
   .f_get_main_fb = efifb_get_fb,
   .f_set_main_fb = efifb_set_fb,
   .f_map = efifb_map,
+  .f_unmap = efifb_unmap,
 };
 
 static struct device_video_endpoint _efi_vdev_ep = {

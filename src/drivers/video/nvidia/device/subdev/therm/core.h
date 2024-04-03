@@ -19,6 +19,7 @@ nv_subdev_therm_t* create_nv_therm_subdev(struct nv_device* device, struct nv_th
 void destroy_nv_therm_subdev(nv_subdev_therm_t* therm);
 
 extern int g84_therm_create(struct nv_device* device, enum NV_SUBDEV_TYPE type, void** subdev);
+extern int nv40_therm_create(struct nv_device* device, enum NV_SUBDEV_TYPE type, void** subdev);
 
 typedef struct nv_therm_ops {
   void (*f_init)(struct nv_subdev_therm*);

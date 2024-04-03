@@ -5,7 +5,9 @@
 #include "dev/endpoint.h"
 #include "dev/group.h"
 #include "dev/manifest.h"
+#include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
+#include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include <libk/string.h>
@@ -27,6 +29,13 @@ int register_video_device(video_device_t* vdev)
   if (!device_has_endpoint(vdev->device, ENDPOINT_TYPE_VIDEO))
     return -2;
 
+  vdev_event_ctx_t vdev_ctx = {
+    .type = VDEV_EVENT_REGISTER,
+    .device = vdev,
+  };
+
+  kevent_fire(VDEV_EVENTNAME, &vdev_ctx, sizeof(vdev_ctx));
+
   /* Try to add the device to our video group */
   return dev_group_add_device(_video_group, vdev->device);
 }
@@ -38,6 +47,13 @@ int register_video_device(video_device_t* vdev)
  */
 int unregister_video_device(struct video_device* vdev)
 {
+  vdev_event_ctx_t vdev_ctx = {
+    .type = VDEV_EVENT_REMOVE,
+    .device = vdev,
+  };
+
+  kevent_fire(VDEV_EVENTNAME, &vdev_ctx, sizeof(vdev_ctx));
+  
   return dev_group_remove_device(_video_group, vdev->device);
 }
 
@@ -148,6 +164,8 @@ int vdev_init_fb_helper(video_device_t* device, uint32_t fb_capacity, struct fb_
 
   if (!helper)
     return -2;
+
+  memset(helper, 0, sizeof(*helper));
 
   helper->ops = ops;
   helper->main_fb = NULL;
@@ -274,6 +292,27 @@ ssize_t vdev_map_fb(struct device* device, fb_handle_t fb, vaddr_t base)
     return -3;
 
   return helper->ops->f_map(device, fb, NULL, NULL, NULL, NULL, base);
+}
+
+int vdev_unmap_fb(struct device* device, fb_handle_t fb, vaddr_t base)
+{
+  video_device_t* vdev;
+  fb_helper_t* helper;
+
+  if (!device || !base)
+    return -1;
+
+  vdev = device->private;
+
+  if (!vdev)
+    return -2;
+
+  helper = vdev->fb_helper;
+
+  if (!helper || !helper->ops || !helper->ops->f_unmap)
+    return -3;
+
+  return helper->ops->f_unmap(device, fb, base);
 }
 
 /*!

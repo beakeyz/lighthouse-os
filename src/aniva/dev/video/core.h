@@ -6,6 +6,8 @@
 
 struct device;
 
+#define VDEV_EVENTNAME "vdev"
+
 void init_video();
 
 bool dev_is_vdev(struct device* device);

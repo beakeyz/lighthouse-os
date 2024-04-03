@@ -1,6 +1,7 @@
 #include <sys/types.h>
-#include <stdio.h>
 #include <lightos/fs/dir.h>
+#include <stdio.h>
+
 /*
  * What should the init process do?
  *  - Verify system integrity before bootstrapping further
@@ -20,7 +21,7 @@ int main()
 {
   uint32_t idx;
   DirEntry* entry;
-  Directory* apps = open_dir("Root/System/Lib", HNDL_FLAG_R, NULL);
+  Directory* apps = open_dir("Dev/haha", HNDL_FLAG_R, NULL);
 
   if (!apps)
     return -1;

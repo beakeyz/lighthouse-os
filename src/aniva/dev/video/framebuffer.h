@@ -119,6 +119,17 @@ typedef struct fb_helper_ops {
   int (*f_blt)(struct device* dev, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, fb_color_t* image);
 } fb_helper_ops_t;
 
+typedef struct fb_mapping {
+  uint32_t width;
+  uint32_t height;
+  uint32_t x;
+  uint32_t y;
+  size_t size;
+  vaddr_t base;
+
+  struct fb_mapping* next;
+} fb_mapping_t;
+
 /*
  * Optional extention to a video device that handles framebuffer creation,
  * access, manipulation, ect.
@@ -128,9 +139,14 @@ typedef struct fb_helper {
   /* This is zero most of the time */
   fb_handle_t main_fb;
 
+  fb_mapping_t* fb_mappings;
   fb_info_t* framebuffers;
   fb_helper_ops_t* ops;
 } fb_helper_t;
+
+int fb_helper_add_mapping(fb_helper_t* helper, uint32_t x, uint32_t y, uint32_t width, uint32_t height, size_t size, vaddr_t base);
+int fb_helper_remove_mapping(fb_helper_t* helper, vaddr_t base);
+int fb_helper_get_mapping(fb_helper_t* helper, vaddr_t base, fb_mapping_t** bmapping);
 
 extern fb_info_t* fb_helper_get(fb_helper_t* helper, fb_handle_t fb);
 
