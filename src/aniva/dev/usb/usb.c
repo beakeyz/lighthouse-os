@@ -106,7 +106,6 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr
 
   hub->parent = parent;
   hub->hcd = hcd;
-  hub->dev_addr = d_addr;
   /* Asks the host controller for a device descriptor */
   hub->device = create_usb_device(hub, p_num);
 
@@ -137,14 +136,14 @@ void destroy_usb_hub(usb_hub_t* hub)
  * This only makes the hcd available for searches from the root hcd
  * (which is just a mock bridge) so we know where it is at all times
  */
-int register_usb_hcd(usb_hcd_t* hub)
+int register_usb_hcd(usb_hcd_t* hcd)
 {
   int error = 0;
 
-  if (!_root_usbhub_group || !hub->hw_ops || !hub->hw_ops->hcd_start)
+  if (!_root_usbhub_group || !hcd->hw_ops || !hcd->hw_ops->hcd_start)
     return -1;
 
-  error = device_register(hub->pci_device->dev, _root_usbhub_group);
+  error = device_register(hcd->pci_device->dev, _root_usbhub_group);
 
   if (error)
     return error;
@@ -155,15 +154,15 @@ int register_usb_hcd(usb_hcd_t* hub)
    */
 
   /* Sets up memory structures and gathers info so we can propperly use this bus */
-  if (hub->hw_ops->hcd_setup) {
-    error = hub->hw_ops->hcd_setup(hub);
+  if (hcd->hw_ops->hcd_setup) {
+    error = hcd->hw_ops->hcd_setup(hcd);
 
     if (error)
       goto fail_and_unregister;
   }
 
   /* Start the controller: Register the roothub and enumerate/configure its devices */
-  error = hub->hw_ops->hcd_start(hub);
+  error = hcd->hw_ops->hcd_start(hcd);
 
   if (error)
     goto fail_and_unregister;
@@ -171,7 +170,7 @@ int register_usb_hcd(usb_hcd_t* hub)
   return 0;
 
 fail_and_unregister:
-  unregister_usb_hcd(hub);
+  unregister_usb_hcd(hcd);
   return error;
 }
 

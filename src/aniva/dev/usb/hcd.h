@@ -1,14 +1,14 @@
 #ifndef __ANIVA_USB_HCD__
 #define __ANIVA_USB_HCD__
 
-#include "dev/device.h"
 #include "dev/pci/pci.h"
 #include "libk/flow/reference.h"
-#include "system/resource/list.h"
 #include <libk/stddef.h>
 
+struct device;
 struct usb_hcd;
 struct usb_request;
+struct device_endpoint;
 
 /*
  * MMIO operations for hcds
@@ -59,22 +59,14 @@ typedef struct usb_hcd {
   usb_hcd_io_ops_t* io_ops;
   usb_hcd_hw_ops_t* hw_ops;
 
-  /* Can be null */
-  struct usb_hcd* parent;
-
-  /*
-   * Since a single usb hub is only going to allocate it's registers and some
-   * random buffers, we can use a resource list here =)
-   */
-  resource_list_t* resources;
-
   /* Locks access to the hcds fields */
   mutex_t* hcd_lock;
-
-  /* FIXME: replace with something a lil more better =) */
-  list_t* child_hubs;
-  list_t* devices;
 } usb_hcd_t;
+
+static inline struct device* usb_hcd_get_device(usb_hcd_t* hcd)
+{
+  return hcd->pci_device->dev;
+}
 
 usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps, uint32_t ep_count);
 void destroy_usb_hcd(usb_hcd_t* hub);

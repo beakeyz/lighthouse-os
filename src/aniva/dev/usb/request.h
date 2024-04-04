@@ -1,6 +1,13 @@
 #ifndef __ANIVA_USB_REQUEST__
 #define __ANIVA_USB_REQUEST__
 
+/*
+ * High level USB request
+ *
+ * Requests simply get posted to the USB subsystem, which passes it to the correct devices
+ * based on the information inside the request object
+ */
+
 #include "libk/flow/doorbell.h"
 #include "libk/flow/reference.h"
 #include <libk/stddef.h>

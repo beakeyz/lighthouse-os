@@ -1576,7 +1576,7 @@ static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32
  *
  * Make sure we're in KTERM_MODE_TERMINAL, otherwise this means nothing
  */
-static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx, bool defer_update)
+static inline void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx, bool defer_update)
 {
   struct kterm_terminal_char* term_chr;
 
@@ -1585,6 +1585,9 @@ static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx
 
   /* Grab the terminal character entry */
   term_chr = kterm_get_term_char(x, y);
+
+  if (term_chr->ch == c && term_chr->pallet_idx == color_idx)
+    return;
 
   term_chr->ch = c;
   term_chr->pallet_idx = color_idx;
@@ -1720,7 +1723,7 @@ cycle:
 static void kterm_scroll(uintptr_t lines) 
 {
   uint32_t new_y;
-  struct kterm_terminal_char* c_char, *n_char;
+  struct kterm_terminal_char* c_char;
 
   if (!lines)
     return;
@@ -1731,12 +1734,6 @@ static void kterm_scroll(uintptr_t lines)
   for (uint32_t y = lines; y < (_chars_yres-lines); y++) {
     for (uint32_t x = 0; x < _chars_xres; x++) {
       c_char = kterm_get_term_char(x, y);
-      n_char = kterm_get_term_char(x, y-lines);
-
-      /* Skip identical chars */
-      if (c_char->ch == n_char->ch &&
-          c_char->pallet_idx == n_char->pallet_idx)
-        continue;
 
       kterm_draw_char(x, y-lines, c_char->ch, c_char->pallet_idx, false);
     }

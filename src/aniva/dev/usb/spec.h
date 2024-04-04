@@ -52,6 +52,9 @@
 #define USB_TYPE_VENDOR			(0x02 << 5)
 #define USB_TYPE_RESERVED		(0x03 << 5)
 
+/*
+ * Simple structure of a usb control request
+ */
 typedef struct usb_ctlreq {
   uint8_t request_type;
   uint8_t request;

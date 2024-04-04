@@ -11,9 +11,6 @@ usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, stru
 {
   usb_hcd_t* ret;
 
-  if (!is_valid_usb_hub_type(type))
-    return nullptr;
-
   ret = alloc_usb_hcd();
 
   if (!ret)
@@ -32,8 +29,6 @@ usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, stru
   if (!ret->pci_device->dev)
     goto dealloc_and_exit;
 
-  ret->devices = init_list();
-  ret->child_hubs = init_list();
   ret->hcd_lock = create_mutex(NULL);
 
   return ret;
@@ -49,13 +44,8 @@ dealloc_and_exit:
  */
 void destroy_usb_hcd(usb_hcd_t* hub)
 {
-  destroy_list(hub->devices);
-  destroy_list(hub->child_hubs);
-
   destroy_device(hub->pci_device->dev);
-
   destroy_mutex(hub->hcd_lock);
-
   dealloc_usb_hcd(hub);
 }
 

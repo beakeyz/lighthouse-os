@@ -71,8 +71,8 @@ int nvidia_probe(pci_device_t* dev, pci_driver_t* driver)
   println("Found an NVIDIA device!");
 
   /* Yikes =/ */
-  if (video_deactivate_current_driver())
-    return -1;
+  //if (video_deactivate_current_driver())
+   // return -1;
 
   /* Try to create and initialize the card */
   nvdev = create_nv_device(&nvidia_driver, dev);
@@ -93,6 +93,8 @@ int nvidia_probe(pci_device_t* dev, pci_driver_t* driver)
   println(to_string(nvdev->id.vendor));
   print("NV device: ");
   println(to_string(nvdev->id.device));
+
+  kernel_panic("TODO: nvidia driver =)");
 
   /* TODO: remove standard boot-time video drivers like efi */
   register_video_device(&nvfb_device);
