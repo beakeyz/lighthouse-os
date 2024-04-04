@@ -34,6 +34,7 @@ typedef struct {
 typedef struct acpi_parser {
   acpi_tbl_rsdp_t* m_rsdp_table;
   acpi_tbl_rsdt_t* m_rsdt;
+  acpi_tbl_fadt_t* m_fadt;
   paddr_t m_rsdp_phys;
   paddr_t m_xsdp_phys;
   paddr_t m_rsdt_phys;
@@ -50,16 +51,13 @@ typedef struct acpi_parser {
 } acpi_parser_t;
 
 int init_acpi_parser_early(acpi_parser_t* parser);
+void parser_init_tables(acpi_parser_t* parser);
 ErrorOrPtr init_acpi_parser(acpi_parser_t* parser);
 
 static inline enum acpi_rsdp_method acpi_parser_get_rsdp_method(acpi_parser_t* p)
 {
   return p->m_rsdp_discovery_method.m_method;
 }
-
-void init_acpi_parser_aml(acpi_parser_t* parser);
-
-void parser_init_tables(acpi_parser_t* parser);
 
 // find rsdt and (if available) xsdt
 void* find_rsdp(acpi_parser_t* parser);
@@ -70,8 +68,10 @@ void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t tabl
 
 // just for funzies
 void print_tables(acpi_parser_t* parser);
-
 const int parser_get_acpi_tables(acpi_parser_t* parser, char* out);
+
+bool acpi_parser_is_fadt_flag(acpi_parser_t* parser, uint32_t flag);
+bool acpi_parser_is_fadt_bootflag(acpi_parser_t* parser, uint32_t flag);
 
 ACPI_STATUS acpi_eval_int(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, size_t* ret);
 ACPI_STATUS acpi_eval_string(acpi_handle_t handle, ACPI_STRING string, ACPI_OBJECT_LIST* args, const char** ret);

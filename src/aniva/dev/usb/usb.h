@@ -93,6 +93,7 @@ struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
  */
 typedef struct usb_hub {
   struct usb_device* device;
+  struct dgroup* devgroup;
 
   uint8_t dev_addr;
   

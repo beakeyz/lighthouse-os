@@ -86,6 +86,9 @@ typedef driver_control_code_t           dcc_t;
 #define EXPORT_DRIVER(name) static USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
 #define EXPORT_DEPENDENCIES(deps) static USED SECTION(".deps") ALIGN(8) drv_dependency_t (deps)[]
 
+#define EXPSYM_SHDR_NAME ".expsym"
+#define EXPORT_DRVSYM USED SECTION(EXPSYM_SHDR_NAME)
+
 #define NO_MANIFEST NULL
 
 /*
@@ -94,7 +97,7 @@ typedef driver_control_code_t           dcc_t;
  * with the kernel
  */
 void init_aniva_driver_registry();
-void init_drivers();
+void init_driver_subsys();
 
 // TODO: load driver from file
 

@@ -6,6 +6,7 @@
 #include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/request.h"
+#include "libk/cmdline/parser.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
@@ -15,7 +16,7 @@
 
 zone_allocator_t __usb_hub_allocator;
 zone_allocator_t __usb_request_allocator;
-dgroup_t* _usb_hcd_group;
+dgroup_t* _root_usbhub_group;
 
 /*!
  * @brief Allocate memory for a HCD
@@ -90,12 +91,18 @@ void destroy_usb_device(usb_device_t* device)
  */
 usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr, uint8_t p_num)
 {
+  dgroup_t* parent_group;
   usb_hub_t* hub;
 
   hub = kmalloc(sizeof(*hub));
 
   if (!hub)
     return nullptr;
+
+  parent_group = _root_usbhub_group;
+
+  if (parent)
+    parent_group = parent->devgroup;
 
   hub->parent = parent;
   hub->hcd = hcd;
@@ -107,6 +114,9 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr
     kfree(hub);
     return nullptr;
   }
+
+  /* Register a dev group for this hub */
+  hub->devgroup = register_dev_group(DGROUP_TYPE_USB, "???", DGROUP_FLAG_BUS, parent_group->node);
 
   return hub;
 }
@@ -131,10 +141,10 @@ int register_usb_hcd(usb_hcd_t* hub)
 {
   int error = 0;
 
-  if (!_usb_hcd_group || !hub->hw_ops || !hub->hw_ops->hcd_start)
+  if (!_root_usbhub_group || !hub->hw_ops || !hub->hw_ops->hcd_start)
     return -1;
 
-  error = device_register(hub->pci_device->dev, _usb_hcd_group);
+  error = device_register(hub->pci_device->dev, _root_usbhub_group);
 
   if (error)
     return error;
@@ -174,7 +184,7 @@ int unregister_usb_hcd(usb_hcd_t* hub)
 {
   kerror_t error;
 
-  if (!_usb_hcd_group)
+  if (!_root_usbhub_group)
     return -1;
 
   error = device_unregister(hub->pci_device->dev);
@@ -198,7 +208,7 @@ usb_hcd_t* get_hcd_for_pci_device(pci_device_t* device)
     return nullptr;
 
   /* If we can find the device in our hcd group, it must contain a HCD struct in it's private field */
-  if (dev_group_get_device(_usb_hcd_group, device->dev->name, &usb_hcd_device) || !usb_hcd_device)
+  if (dev_group_get_device(_root_usbhub_group, device->dev->name, &usb_hcd_device) || !usb_hcd_device)
     return nullptr;
 
   return device_unwrap(usb_hcd_device);
@@ -250,6 +260,12 @@ void deallocate_usb_request(usb_request_t* req)
  */
 void init_usb_drivers()
 {
+  if (opt_parser_get_bool(KOPT_NO_USB))
+    return;
+
+  /*
+   * Load the core driver for the USB subsytem 
+   */
   ASSERT_MSG(!!load_external_driver_from_var(USBCORE_DRV_VAR_PATH), "Failed to load USB drivers");
 }
 
@@ -261,7 +277,7 @@ void init_usb()
   Must(init_zone_allocator(&__usb_hub_allocator, 16 * Kib, sizeof(usb_hcd_t), NULL));
   Must(init_zone_allocator(&__usb_request_allocator, 32 * Kib, sizeof(usb_request_t), NULL));
 
-  _usb_hcd_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
+  _root_usbhub_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
 
-  ASSERT_MSG(_usb_hcd_group, "Failed to create vector for hcds");
+  ASSERT_MSG(_root_usbhub_group, "Failed to create vector for hcds");
 }

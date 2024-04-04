@@ -10,6 +10,13 @@ enum KOPT_TYPE {
   KOPT_TYPE_STR,
 };
 
+#define KOPT_USE_KTERM  "use_kterm"
+#define KOPT_FORCE_RD   "force_rd"
+#define KOPT_FORCE_PIT  "force_pit"
+#define KOPT_KRNL_DBG   "krnl_dbg"
+#define KOPT_NO_ACPICA  "no_acpica"
+#define KOPT_NO_USB     "no_usb"
+
 /*
  * These objects are the tokens that the parser generates from a single cmdline given to us
  * by the bootloader

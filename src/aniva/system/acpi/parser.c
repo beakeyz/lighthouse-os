@@ -72,6 +72,8 @@ ErrorOrPtr init_acpi_parser(acpi_parser_t* parser)
    */
   parser_init_tables(parser);
 
+  /* Cache the fadt */
+  parser->m_fadt = acpi_parser_find_table(parser, ACPI_SIG_FADT, sizeof(acpi_tbl_fadt_t));
   //hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
   println("Started");
@@ -245,6 +247,44 @@ void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t 
 void* acpi_parser_find_table(acpi_parser_t *parser, const char* sig, size_t table_size) 
 {
   return (void*)acpi_parser_find_table_idx(parser, sig, 0, table_size);
+}
+
+/*!
+ * @brief: Check tha cached FADT if @flag is set
+ *
+ * 
+ */
+bool acpi_parser_is_fadt_flag(acpi_parser_t* parser, uint32_t flag)
+{
+  acpi_tbl_fadt_t* fadt;
+
+  if (!parser)
+    return false;
+
+  fadt = parser->m_fadt;
+
+  if (!fadt)
+    return false;
+
+  return ((fadt->Flags & flag) == flag);
+}
+
+/*!
+ * @brief: Check the cached FADT if @flag is set in the bootflags
+ */
+bool acpi_parser_is_fadt_bootflag(acpi_parser_t* parser, uint32_t flag)
+{
+  acpi_tbl_fadt_t* fadt;
+
+  if (!parser)
+    return false;
+
+  fadt = parser->m_fadt;
+
+  if (!fadt)
+    return false;
+
+  return ((fadt->BootFlags & flag) == flag);
 }
 
 const int parser_get_acpi_tables(acpi_parser_t* parser, char* names) 

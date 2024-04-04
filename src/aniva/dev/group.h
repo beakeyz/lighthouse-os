@@ -48,11 +48,13 @@ enum DGROUP_TYPE {
  * Locking is done through ->node
  */
 typedef struct dgroup {
+  /* Pointer to ->node->name (TODO: remove) */
   const char* name;
 
   uint32_t flags;
   enum DGROUP_TYPE type;
 
+  void* priv;
   struct oss_node* node;
 } dgroup_t;
 

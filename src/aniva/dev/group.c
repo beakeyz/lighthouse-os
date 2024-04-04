@@ -2,7 +2,6 @@
 #include "dev/device.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -35,7 +34,8 @@ static dgroup_t* _create_dgroup()
 
 static void _destroy_dgroup(dgroup_t* group)
 {
-  destroy_oss_node(group->node);
+  if (group->node)
+    destroy_oss_node(group->node);
   kfree(group);
 }
 
@@ -56,23 +56,31 @@ dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t f
   if (!group)
     return nullptr;
 
-  group->name = strdup(name);
-  group->type = type;
-  group->flags = flags;
   /* Create the node that houses this group */
   group->node = create_oss_node(name, OSS_GROUP_NODE, NULL, NULL);
+
+  if (!group->node)
+    goto dealloc_and_fail;
+
   group->node->priv = group;
+  group->name = group->node->name;
+  group->type = type;
+  group->flags = flags;
 
   mutex_lock(_group_lock);
 
   /* Add to our general group map */
-  hashmap_put(_group_map, (hashmap_key_t)name, group);
+  Must(hashmap_put(_group_map, (hashmap_key_t)name, group));
 
   mutex_unlock(_group_lock);
 
   /* Register the group on the OSS endpoint */
   device_node_add_group(parent, group);
   return group;
+
+dealloc_and_fail:
+  _destroy_dgroup(group);
+  return nullptr;
 }
 
 int unregister_dev_group(dgroup_t* group)

@@ -21,6 +21,8 @@ enum HID_EVENT_TYPE {
  HID_EVENT_DISCONNECT,
 };
 
+#define HID_EVENTNAME "hid"
+
 #define HID_EVENT_KEY_FLAG_PRESSED  0x0001
 #define HID_EVENT_KEY_FLAG_RESET    0x0002
 
@@ -92,5 +94,19 @@ void destroy_hid_device(hid_device_t* device);
 kerror_t register_hid_device(hid_device_t* device);
 kerror_t unregister_hid_device(hid_device_t* device);
 hid_device_t* get_hid_device(const char* name);
+
+/*
+ * event.c
+ *
+ * Code that manages HID events. Since there can be a lot of hid event fires, we'll queue them up
+ * and let them be collected on demand.
+ */
+
+extern kerror_t queue_hid_event(hid_event_t* event);
+extern kerror_t poll_hid_event(hid_event_t** event);
+extern kerror_t flush_hid_events();
+extern ssize_t hid_events_since_last_poll();
+extern kerror_t hid_events_pause();
+extern kerror_t hid_events_resume();
 
 #endif // !__ANIVA_HID_CORE__

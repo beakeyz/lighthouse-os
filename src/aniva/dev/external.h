@@ -19,11 +19,19 @@ typedef struct extern_driver {
   /* How many kernelsymbols does this driver use */
   size_t m_ksymbol_count;
 
+  /* Symbols exported by this driver */
+  hashmap_t* m_exp_symmap;
+
   /* This drivers manifest */
   drv_manifest_t* m_manifest;
 } extern_driver_t;
 
+void init_external_drivers();
+
 extern_driver_t* create_external_driver(uint32_t flags);
 void destroy_external_driver(extern_driver_t* driver);
+
+void set_exported_drvsym(extern_driver_t* driver, char* name, vaddr_t addr);
+vaddr_t get_exported_drvsym(char* name);
 
 #endif // !__ANIVA_EXTERNAL_DRIVER__

@@ -1,5 +1,6 @@
 #include "dev/device.h"
 #include "dev/manifest.h"
+#include "drivers/env/kterm/kterm.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>

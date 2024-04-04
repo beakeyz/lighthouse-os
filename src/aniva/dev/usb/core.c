@@ -1,4 +1,3 @@
-
 #include "dev/driver.h"
 
 int usb_generic_init();

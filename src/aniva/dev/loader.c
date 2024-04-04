@@ -26,7 +26,7 @@ struct loader_ctx {
   size_t size;
   size_t sym_count;
 
-  uint32_t expdrv_idx, deps_idx, symtab_idx;
+  uint32_t expdrv_idx, deps_idx, expsym_idx, symtab_idx;
 };
 
 /*!
@@ -137,6 +137,21 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
   return Success(0);
 }
 
+static inline vaddr_t __get_symbol_address(char* name)
+{
+  vaddr_t ret;
+
+  if (!name)
+    return NULL;
+
+  ret = get_ksym_address(name);
+
+  if (ret)
+    return ret;
+
+  return get_exported_drvsym(name);
+}
+
 /*!
  * @brief: Loop over the unresolved symbols in the binary and try to match them to kernel symbols
  *
@@ -162,7 +177,7 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
 
     switch (current_symbol->st_shndx) {
       case SHN_UNDEF:
-        current_symbol->st_value = get_ksym_address(sym_name);
+        current_symbol->st_value = __get_symbol_address(sym_name);
 
         /* Oops, invalid symbol: bail */
         if (!current_symbol->st_value)
@@ -174,6 +189,14 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
         {
           struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
           current_symbol->st_value += hdr->sh_addr;
+
+          if (!ctx->expsym_idx)
+            break;
+
+          if (ELF64_ST_TYPE(current_symbol->st_info) != STT_FUNC || current_symbol->st_shndx != ctx->expsym_idx)
+            break;
+
+          set_exported_drvsym(ctx->driver, sym_name, current_symbol->st_value);
         }
     }
   }
@@ -216,6 +239,7 @@ static int __check_driver(struct loader_ctx* ctx)
 {
   uint32_t i;
   uint32_t expdrv_sections = 0,
+           expsym_sections = 0,
            deps_sections = 0,
            symtab_sections = 0;
   struct elf64_shdr* shdr;
@@ -265,11 +289,14 @@ static int __check_driver(struct loader_ctx* ctx)
           expdrv_sections++;
           ctx->expdrv_idx = i;
         }
-
-        if (strcmp(".deps", ctx->section_strings + shdr->sh_name) == 0) {
+        else if (strcmp(".deps", ctx->section_strings + shdr->sh_name) == 0) {
           /* TODO: real validation */
           deps_sections++;
           ctx->deps_idx = i;
+        }
+        else if (strncmp(EXPSYM_SHDR_NAME, ctx->section_strings + shdr->sh_name, strlen(EXPSYM_SHDR_NAME)) == 0) {
+          expsym_sections++;
+          ctx->expsym_idx = i;
         }
         break;
     }
@@ -281,6 +308,10 @@ static int __check_driver(struct loader_ctx* ctx)
    */
   if (expdrv_sections != 1 || symtab_sections != 1 || deps_sections != 1)
     return -1;
+
+  /* Can't have more than one exported symbol sections */
+  if (expsym_sections > 1)
+    return -2;
 
   return 0;
 }

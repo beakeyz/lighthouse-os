@@ -1033,19 +1033,9 @@ void init_aniva_driver_registry()
 }
 
 /*!
- * @brief: Load all drivers we need to put the system in a read-state
- *
- * Here we walk the device tree where we try to match them to any aniva_drivers using ->f_probe
- * Some devices may be supported by a driver that we have on disk. We still need to find a way
- * to match devices to their drivers on disk (TODO)
- * 
- * At this point, the ramdisk is still mounted at Root/, so we can also have the disk initialization happen here =D
- * On system installation, we may actually regenerate the ramdisk to only include drivers that we actually need for
- * boot (?). When we put all the driver we have in the ramdisk, it might become quite large =/
- * This is kinda why we want to put most drivers on disk, because they can get so large that it is more logical to have
- * them on a medium seperate from the kernel, to save space. 
+ * @brief: Start up the driver subsystem
  */
-void init_drivers()
+void init_driver_subsys()
 {
-
+  init_external_drivers();
 }

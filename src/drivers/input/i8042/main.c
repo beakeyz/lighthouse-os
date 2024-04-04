@@ -3,7 +3,11 @@
 #include "irq/interrupts.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
+#include "libk/flow/error.h"
 #include "lightos/event/key.h"
+#include "system/acpi/acpi.h"
+#include "system/acpi/acpica/actbl.h"
+#include "system/acpi/parser.h"
 #include <dev/driver.h>
 #include <dev/device.h>
 
@@ -21,7 +25,18 @@ registers_t* i8042_irq_handler(registers_t* regs);
 
 static int _init_i8042()
 {
+  acpi_parser_t* parser = NULL;
+
   logln("Initalizing i8042 driver!");
+
+  get_root_acpi_parser(&parser);
+
+  if (!parser)
+    return -KERR_NODEV;
+
+  if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
+    //return -KERR_NODEV;
+    kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
 
   int error;
   s_mod_flags = NULL;
@@ -37,9 +52,6 @@ static int _init_i8042()
 
   if (error)
     return -1;
-
-  /* Interface enable */
-  i8042_write_cmd(0xAE);
 
   /* Quick flush */
   (void)i8042_read_status();
