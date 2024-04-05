@@ -7,7 +7,7 @@
  * @brief Allocate the needed memory for a USB hub structure
  *
  */
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps, uint32_t ep_count)
+usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps)
 {
   usb_hcd_t* ret;
 
@@ -24,7 +24,7 @@ usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, stru
   /* Start with a reference of one */
   ret->ref = 1;
   ret->pci_device = host;
-  ret->pci_device->dev = create_device_ex(NULL, hub_name, ret, NULL, eps, ep_count);
+  ret->pci_device->dev = create_device_ex(NULL, hub_name, ret, NULL, eps);
 
   if (!ret->pci_device->dev)
     goto dealloc_and_exit;

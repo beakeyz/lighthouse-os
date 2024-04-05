@@ -551,6 +551,7 @@ static struct device_generic_endpoint _rd_gen_ep = {
 static device_ep_t _rd_eps[] = {
   { ENDPOINT_TYPE_GENERIC, sizeof(_rd_gen_ep), { &_rd_gen_ep} },
   { ENDPOINT_TYPE_DISK, sizeof(_rd_disk_ep), { &_rd_disk_ep} },
+  { NULL, },
 };
 
 /*
@@ -569,7 +570,7 @@ disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size)
     return nullptr;
 
   /* NOTE: ideally, we want this to be the first 'drive' we create, so we claim the first entry */
-  dev = create_generic_disk(NULL, "ramdisk", NULL, _rd_eps, arrlen(_rd_eps));
+  dev = create_generic_disk(NULL, "ramdisk", NULL, _rd_eps);
 
   if (!dev)
     return nullptr;
@@ -781,7 +782,7 @@ static inline char* _construct_dev_name()
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* private, device_ep_t* eps, uint32_t ep_count)
+disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* private, device_ep_t* eps)
 {
   disk_dev_t* ret = nullptr;
   char* dev_name = nullptr;
@@ -803,7 +804,7 @@ disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* p
   memset(ret, 0, sizeof(*ret));
 
   ret->m_parent = private;
-  ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, eps, ep_count);
+  ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, eps);
 
   if (!ret || !device_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
     goto dealloc_and_exit;

@@ -295,7 +295,7 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
   concat("ahci", (char*)to_string(ahci_device->m_idx), buffer);
 
   /* Our device */
-  ahci_device->m_identifier->dev = create_device_ex(_p_base_ahci_driver, buffer, ahci_device, NULL, NULL, NULL);
+  ahci_device->m_identifier->dev = create_device_ex(_p_base_ahci_driver, buffer, ahci_device, NULL, NULL);
   /* Our own bus (FIXME: should this just be 'Dev' like in linux?)*/
   ahci_device->m_identifier->dev->bus_group = _ahci_group;
 

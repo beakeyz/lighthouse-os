@@ -59,6 +59,7 @@ struct device_pwm_endpoint _acpi_pwm_dep = {
 static device_ep_t _acpi_eps[] = {
   { ENDPOINT_TYPE_GENERIC, sizeof(struct device_generic_endpoint), { &_acpi_generic_dep } },
   { ENDPOINT_TYPE_PWM, sizeof(struct device_pwm_endpoint), { &_acpi_pwm_dep, } },
+  { NULL, },
 };
 
 ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, void** ret)
@@ -85,7 +86,7 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   switch (obj_type) {
     case ACPI_TYPE_DEVICE:
     case ACPI_TYPE_ANY:
-      error = acpi_add_device(dev, obj_type, _acpi_eps, arrlen(_acpi_eps), Path.Pointer);
+      error = acpi_add_device(dev, obj_type, _acpi_eps, Path.Pointer);
       /* FIXME: Ignore these failures? */
       if (error)
         return AE_OK;

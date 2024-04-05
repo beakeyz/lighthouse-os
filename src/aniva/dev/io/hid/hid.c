@@ -21,7 +21,7 @@ void init_hid()
 /*!
  * @brief: Create a simple human input device struct
  */
-hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps, uint32_t ep_count)
+hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps)
 {
   device_t* device;
   hid_device_t* hiddev;
@@ -31,9 +31,15 @@ hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struc
   if (!hiddev)
     return nullptr;
 
-  device = create_device_ex(NULL, (char*)name, hiddev, NULL, eps, ep_count);
+  device = create_device_ex(NULL, (char*)name, hiddev, NULL, eps);
 
-  if (!device || !device_has_endpoint(device, ENDPOINT_TYPE_HID)) {
+  if (!device) {
+    kfree(hiddev);
+    return nullptr;
+  }
+
+  if (!device_has_endpoint(device, ENDPOINT_TYPE_HID)) {
+    destroy_device(device);
     kfree(hiddev);
     return nullptr;
   }

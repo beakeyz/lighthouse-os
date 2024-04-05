@@ -73,7 +73,7 @@ typedef struct aniva_driver {
   drv_precedence_t m_precedence;
 
   /* TODO: should we pass the manifest to the f_init function? */
-  int (*f_init)(void);
+  int (*f_init)(struct drv_manifest* this);
   int (*f_exit)(void);
 
   /* TODO: should f_msg get passed the drv_manifest, instead of the raw driver? */

@@ -1,4 +1,5 @@
 #include "device.h"
+#include "dev/endpoint.h"
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/subdev.h"
@@ -148,6 +149,22 @@ dealloc_and_exit:
   return error;
 }
 
+/*
+ * TODO: Figure out how we're going to manage these generic video device 
+ * opperations for every type of device
+ */
+static device_video_endpoint_t _nv_vid_ep = {
+  .f_get_info = NULL,
+  .f_await_vblank = NULL,
+  .f_enable_engine = NULL,
+  .f_disable_engine = NULL,
+};
+
+static device_ep_t _nv_eps[] = {
+  { ENDPOINT_TYPE_VIDEO, sizeof(_nv_vid_ep), { &_nv_vid_ep, }, },
+  { NULL },
+};
+
 /*!
  * @brief: Do main nvidia device allocation
  *
@@ -171,8 +188,8 @@ nv_device_t* create_nv_device(aniva_driver_t* driver, pci_device_t* pdev)
   nvd->id.device = pdev->dev_id;
   nvd->id.vendor = pdev->vendor_id;
 
-  /* TODO: nvidia video ops */
-  nvd->vdev = create_video_device(driver, NULL, NULL);
+  /* Create the nvidia video device object */
+  nvd->vdev = create_video_device(driver, VIDDEV_MAINDEVICE, _nv_eps);
   nvd->pdevice = pdev;
 
   /* Perform main device initialization */

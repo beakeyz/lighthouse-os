@@ -18,21 +18,9 @@
 
 static oss_node_t* _device_node;
 
-/*
- * TODO: how do we shape a 'generic' device?
- *
- * These functions all rely on an underlying driver that manages resources, because a 
- * device is not aware of it's own resources but it only serves as an intermediate / abstraction
- * to make communication with drivers (and thus hardware) easier
- */
-static struct device_endpoint _generic_dev_eps[] = {
-  { ENDPOINT_TYPE_GENERIC, NULL, { NULL } },
-  { NULL }
-};
-
-device_t* create_device(aniva_driver_t* parent, char* name)
+device_t* create_device(aniva_driver_t* parent, char* name, void* priv)
 {
-  return create_device_ex(parent, name, nullptr, NULL, _generic_dev_eps, 0);
+  return create_device_ex(parent, name, priv, NULL, NULL);
 }
 
 /*!
@@ -42,8 +30,9 @@ device_t* create_device(aniva_driver_t* parent, char* name)
  * device (de)allocation
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
+ * NOTE: @eps needs to be an array of endpoints, with a terminating entry with ->type = ENDPOINT_TYPE_INVALID
  */
-device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count)
+device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps)
 {
   device_t* ret;
   drv_manifest_t* parent_man;
@@ -64,22 +53,26 @@ device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, 
 
   memset(ret, 0, sizeof(*ret));
 
-  /* Make sure that a device always has generic opperations */
-  if (!eps)
-    eps = _generic_dev_eps;
-
   ret->name = strdup(name);
   ret->lock = create_mutex(NULL);
+  ret->ep_lock = create_mutex(NULL);
   ret->obj = create_oss_obj(ret->name);
   ret->driver = parent_man;
   ret->flags = flags;
   ret->private = priv;
-  ret->endpoints = eps;
-  ret->endpoint_count = ep_count;
+  ret->endpoints = NULL;
+  ret->endpoint_count = NULL;
+
+  /* Implement all the specified endpoints */
+  while (eps && eps->type != ENDPOINT_TYPE_INVALID) {
+    device_implement_endpoint(ret, eps->type, eps->impl.priv, eps->size);
+    eps++;
+  }
 
   /* Make sure the object knows about us */
   oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, destroy_device);
 
+  /* Try to call f_create in the generic endpoint */
   g_ep = device_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
 
   /* Call the private device constructor */
@@ -114,6 +107,7 @@ void destroy_device(device_t* device)
     manifest_remove_dev(device->driver);
 
   destroy_mutex(device->lock);
+  destroy_mutex(device->ep_lock);
   kfree((void*)device->name);
 
   memset(device, 0, sizeof(*device));

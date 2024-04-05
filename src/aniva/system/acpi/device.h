@@ -31,7 +31,7 @@ typedef struct apci_device {
   const char* hid;
 } acpi_device_t;
 
-kerror_t acpi_add_device(acpi_handle_t handle, int type, struct device_endpoint* eps, uint32_t ep_count, const char* acpi_path);
+kerror_t acpi_add_device(acpi_handle_t handle, int type, struct device_endpoint* eps, const char* acpi_path);
 
 kerror_t acpi_device_get_pci_addr(acpi_device_t* device, pci_device_address_t* address);
 

@@ -20,7 +20,7 @@
 #include <libk/stddef.h>
 
 enum ENDPOINT_TYPE {
-  ENDOINT_TYPE_INVALID = NULL,
+  ENDPOINT_TYPE_INVALID = NULL,
   ENDPOINT_TYPE_GENERIC,
   ENDPOINT_TYPE_DISK,
   ENDPOINT_TYPE_VIDEO,
@@ -54,6 +54,8 @@ typedef struct device_endpoint {
     struct device_hid_endpoint* hid;
     struct device_pwm_endpoint* pwm;
   } impl;
+
+  struct device_endpoint* next;
 } device_ep_t;
 
 static inline bool dev_is_valid_endpoint(device_ep_t* ep)

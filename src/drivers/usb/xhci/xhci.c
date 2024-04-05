@@ -819,7 +819,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   logln("Probing for XHCI");
 
   /* Create a generic USB hcd */
-  hcd = create_usb_hcd(device, "xhci", USB_HUB_TYPE_XHCI, NULL, NULL);
+  hcd = create_usb_hcd(device, "xhci", USB_HUB_TYPE_XHCI, NULL);
 
   /* Create our own hcd */
   xhci_hcd = create_xhci_hcd(hcd);

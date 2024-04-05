@@ -34,9 +34,9 @@ static int _init_i8042()
   if (!parser)
     return -KERR_NODEV;
 
-  if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
+  //if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
     //return -KERR_NODEV;
-    kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
+    //kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
 
   int error;
   s_mod_flags = NULL;

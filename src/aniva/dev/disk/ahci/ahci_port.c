@@ -209,7 +209,8 @@ static struct device_disk_endpoint _ahci_disk_ep = {
 
 static device_ep_t _ahci_eps[] = {
   { ENDPOINT_TYPE_GENERIC, sizeof(_ahci_gen_ep), { &_ahci_gen_ep } },
-  { ENDPOINT_TYPE_DISK, sizeof(_ahci_disk_ep), { &_ahci_disk_ep } }
+  { ENDPOINT_TYPE_DISK, sizeof(_ahci_disk_ep), { &_ahci_disk_ep } },
+  { NULL, },
 };
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index) 
@@ -227,7 +228,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
   ret->m_transfer_failed = false;
   ret->m_is_waiting = false;
 
-  ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, _ahci_eps, arrlen(_ahci_eps));
+  ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, _ahci_eps);
 
   // prepare buffers
   ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));

@@ -68,7 +68,7 @@ static inline struct device* usb_hcd_get_device(usb_hcd_t* hcd)
   return hcd->pci_device->dev;
 }
 
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps, uint32_t ep_count);
+usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps);
 void destroy_usb_hcd(usb_hcd_t* hub);
 
 bool hcd_is_accessed(struct usb_hcd* hcd);

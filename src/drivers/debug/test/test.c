@@ -1,6 +1,5 @@
 #include "dev/device.h"
 #include "dev/manifest.h"
-#include "drivers/env/kterm/kterm.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
@@ -37,6 +36,7 @@ struct device_generic_endpoint generic = {
 
 device_ep_t eps[] = {
   { ENDPOINT_TYPE_GENERIC, sizeof(generic), { &generic, } },
+  { NULL },
 };
 
 /*
@@ -48,7 +48,7 @@ device_ep_t eps[] = {
  */
 int test_init() 
 {
-  device = create_device_ex(&extern_test_driver, TEST_DEVICE, NULL, NULL, eps, arrlen(eps));
+  device = create_device_ex(&extern_test_driver, TEST_DEVICE, NULL, NULL, eps);
 
   /* Register to the devicegroup root */
   device_register(device, NULL);

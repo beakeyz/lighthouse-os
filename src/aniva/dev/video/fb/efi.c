@@ -189,6 +189,7 @@ static struct device_video_endpoint _efi_vdev_ep = {
 
 static device_ep_t _efi_endpoints[] = {
   { ENDPOINT_TYPE_VIDEO, sizeof(_efi_vdev_ep), { &_efi_vdev_ep } },
+  { NULL, },
 };
 
 // FIXME: this driver only works for the multiboot fb that we get passed
@@ -256,7 +257,7 @@ int fb_driver_init()
   if (!fb)
     return -1;
 
-  vdev = create_video_device(&efifb_driver, _efi_endpoints, arrlen(_efi_endpoints));
+  vdev = create_video_device(&efifb_driver, VIDDEV_MAINDEVICE, _efi_endpoints);
 
   if (!vdev)
     return -2;

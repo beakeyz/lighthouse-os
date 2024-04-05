@@ -1,8 +1,6 @@
 #include "driver.h"
-#include "dev/core.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
-#include "libk/data/linkedlist.h"
 #include "sync/mutex.h"
 #include <mem/heap.h>
 #include <libk/string.h>
@@ -83,7 +81,7 @@ int generic_driver_entry(drv_manifest_t* manifest)
     return -1;
 
   /* NOTE: The driver can also mark itself as ready */
-  int error = manifest->m_handle->f_init();
+  int error = manifest->m_handle->f_init(manifest);
 
   if (!error) {
     /* Init finished, the driver is ready for messages */

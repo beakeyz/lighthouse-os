@@ -51,8 +51,9 @@ void dealloc_usb_hcd(struct usb_hcd* hcd)
  * @brief Allocate and initialize a generic USB device
  *
  */
-usb_device_t* create_usb_device(usb_hub_t* hub, uint8_t port_num)
+usb_device_t* create_usb_device(struct usb_hub* hub, const char* name, uint8_t port_num)
 {
+  dgroup_t* group;
   usb_device_t* device;
 
   device = kmalloc(sizeof(*device));
@@ -65,9 +66,17 @@ usb_device_t* create_usb_device(usb_hub_t* hub, uint8_t port_num)
   device->req_doorbell = create_doorbell(255, NULL);
   device->port_num = port_num;
   device->hub = hub;
+  device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
 
   /* TODO: get the devic descriptor n shit */
   //kernel_panic("TODO: gather USB device info");
+
+  group = _root_usbhub_group;
+
+  if (hub)
+    group = hub->devgroup;
+
+  device_register(device->device, group);
 
   return device;
 }
@@ -107,7 +116,7 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr
   hub->parent = parent;
   hub->hcd = hcd;
   /* Asks the host controller for a device descriptor */
-  hub->device = create_usb_device(hub, p_num);
+  hub->device = create_usb_device(hub, "hub", p_num);
 
   if (!hub->device) {
     kfree(hub);

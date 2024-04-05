@@ -132,6 +132,7 @@ typedef struct device {
 
   void* private;
   mutex_t* lock;
+  mutex_t* ep_lock;
 
   /* Handle to the ACPI stuff if this device has that */
   acpi_device_t* acpi_dev;
@@ -147,29 +148,16 @@ static inline void* device_unwrap(device_t* device)
   return device->private;
 }
 
+/*
+ * endpoint.c
+ */
+extern struct device_endpoint* device_get_endpoint(device_t* device, enum ENDPOINT_TYPE type);
+extern kerror_t device_unimplement_endpoint(device_t* device, enum ENDPOINT_TYPE type);
+extern kerror_t device_implement_endpoint(device_t* device, enum ENDPOINT_TYPE type, void* ep, size_t ep_size);
+
 static inline bool device_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
 {
-  if (!device->endpoints)
-    return false;
-
-  for (uint32_t i = 0; i < device->endpoint_count; i++)
-    if (device->endpoints[i].type == type)
-      return true;
-
-  return false;
-}
-
-static inline struct device_endpoint* device_get_endpoint(device_t* device, enum ENDPOINT_TYPE type)
-{
-  if (!device->endpoints)
-    return nullptr; 
-
-  for (uint32_t i = 0; i < device->endpoint_count; i++) {
-    if (device->endpoints[i].type == type)
-      return &device->endpoints[i];
-  }
-
-  return nullptr;
+  return (device_get_endpoint(device, type) != nullptr);
 }
 
 /*!
@@ -186,8 +174,8 @@ void init_hw();
 void debug_devices();
 
 /* Object management */
-device_t* create_device(struct aniva_driver* parent, char* name);
-device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps, uint32_t ep_count);
+device_t* create_device(struct aniva_driver* parent, char* name, void* priv);
+device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps);
 
 void destroy_device(device_t* device);
 

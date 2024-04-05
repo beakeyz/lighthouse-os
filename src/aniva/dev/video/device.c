@@ -110,12 +110,15 @@ int video_deactivate_current_driver()
 /*!
  * @brief: Check if a collection of endpoints contains a video endpoint
  */
-static inline bool _has_video_endpoint(struct device_endpoint* eps, uint32_t ep_count)
+static inline bool _has_video_endpoint(struct device_endpoint* eps)
 {
-  for (uint32_t i = 0; i < ep_count; i++) {
+  while (eps && eps->type != ENDPOINT_TYPE_INVALID) {
 
-    if (eps[i].type == ENDPOINT_TYPE_VIDEO)
+    if (eps->type == ENDPOINT_TYPE_VIDEO)
       return true;
+
+    /* Next */
+    eps++;
   }
 
   return false;
@@ -126,7 +129,7 @@ static inline bool _has_video_endpoint(struct device_endpoint* eps, uint32_t ep_
  *
  * Also allocates a generic device object
  */
-video_device_t* create_video_device(struct aniva_driver* driver, struct device_endpoint* eps, uint32_t ep_count)
+video_device_t* create_video_device(struct aniva_driver* driver, const char* name, struct device_endpoint* eps)
 {
   video_device_t* ret;
 
@@ -136,7 +139,7 @@ video_device_t* create_video_device(struct aniva_driver* driver, struct device_e
     return nullptr;
 
   /* This would suck big time lmao */
-  if (!_has_video_endpoint(eps, ep_count))
+  if (!_has_video_endpoint(eps))
     return nullptr;
 
   ret = kmalloc(sizeof(*ret));
@@ -147,7 +150,7 @@ video_device_t* create_video_device(struct aniva_driver* driver, struct device_e
   memset(ret, 0, sizeof(*ret));
 
   /* Create a device with our own endpoints */
-  ret->device = create_device_ex(driver, VIDDEV_MAINDEVICE, ret, NULL, eps, ep_count);
+  ret->device = create_device_ex(driver, (char*)name, ret, NULL, eps);
 
 exit:
   return ret;

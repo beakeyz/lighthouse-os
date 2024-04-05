@@ -76,7 +76,7 @@ static inline const char* _generate_acpi_device_name(acpi_device_t* device, ACPI
 /*!
  * @brief: Allocate memory for an acpi device and its generic device parent
  */
-static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO* info, device_ep_t* eps, uint32_t ep_count, const char* acpi_path)
+static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO* info, device_ep_t* eps, const char* acpi_path)
 {
   device_t* device;
   acpi_device_t* ret;
@@ -104,7 +104,7 @@ static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO
   }
 
   /* Create the generic device */
-  device = create_device_ex(NULL, (char*)device_name, ret, NULL, eps, ep_count);
+  device = create_device_ex(NULL, (char*)device_name, ret, NULL, eps);
 
   /* Make this shit fuck off if we needed to process the hardware id field */
   if (info->HardwareId.Length)
@@ -163,7 +163,7 @@ static inline kerror_t _get_acpidev_info(acpi_handle_t handle, ACPI_DEVICE_INFO*
   return 0;
 }
 
-kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ep_t* eps, uint32_t ep_count, const char* acpi_path)
+kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ep_t* eps, const char* acpi_path)
 {
   acpi_device_t* device;
   ACPI_DEVICE_INFO info = { 0 };
@@ -178,7 +178,7 @@ kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ep_t* eps, uint3
 
   _get_acpidev_info(handle, &info);
 
-  device = _create_acpi_device(handle, &info, eps, ep_count, acpi_path);
+  device = _create_acpi_device(handle, &info, eps, acpi_path);
 
   if (!device)
     return -KERR_NOMEM;
