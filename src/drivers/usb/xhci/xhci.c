@@ -5,7 +5,7 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/usb/hcd.h"
-#include "dev/usb/request.h"
+#include "dev/usb/xfer.h"
 #include "dev/usb/usb.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
@@ -307,17 +307,19 @@ void destroy_xhci_hub(xhci_hub_t* hub)
  * based on the type of transfer. Next to that the event thread and transfer finish thread of this
  * hcd need to know how to correctly handle events and transfer finishes
  */
-int xhci_enq_request(usb_hcd_t* hcd, uint8_t usb_request, void* buffer, size_t bsize)
+int xhci_enq_request(usb_hcd_t* hcd, usb_xfer_t* req)
 {
   xhci_hcd_t* xhci;
 
   xhci = hcd->private;
 
+  kernel_panic("TODO: implement xhci_enq_request");
+
   xhci_ring(xhci, 0, 0, 0);
   return 0;
 }
 
-int xhci_deq_request(usb_hcd_t* hcd, usb_request_t* req)
+int xhci_deq_request(usb_hcd_t* hcd, usb_xfer_t* req)
 {
   kernel_panic("TODO: implement xhci_deq_request");
   return 0;
@@ -325,6 +327,7 @@ int xhci_deq_request(usb_hcd_t* hcd, usb_request_t* req)
 
 usb_hcd_io_ops_t xhci_io_ops = {
   .enq_request = xhci_enq_request,
+  .deq_request = xhci_deq_request,
 };
 
 /*!

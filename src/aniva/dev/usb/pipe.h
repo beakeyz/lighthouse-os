@@ -7,7 +7,7 @@
 
 struct usb_pipe_ops;
 struct usb_hcd;
-struct usb_request;
+struct usb_xfer;
 
 enum USB_PIPE_TYPE {
   USB_PIPE_TYPE_CONTROL = 0,
@@ -60,7 +60,7 @@ void destroy_usb_pipe(usb_pipe_t* pipe);
 
 typedef struct usb_pipe_ops {
   /* Tries to submit a request to a pipe @pipe. Fails if the request type and the pipe type mismatch */
-  kerror_t (*f_enqueue)(usb_pipe_t* pipe, struct usb_request* request);
+  kerror_t (*f_enqueue)(usb_pipe_t* pipe, struct usb_xfer* request);
 
   kerror_t (*f_destroy)(usb_pipe_t* pipe);
 } usb_pipe_ops_t;

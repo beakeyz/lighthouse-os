@@ -15,13 +15,14 @@
 
 #include "dev/pci/pci.h"
 #include "dev/usb/spec.h"
+#include "libk/data/bitmap.h"
 #include "libk/flow/doorbell.h"
 #include <libk/stddef.h>
 
 struct usb_hcd;
 struct usb_hub;
 struct device;
-struct usb_request;
+struct usb_xfer;
 
 enum USB_SPEED {
   USB_LOWSPEED,
@@ -98,6 +99,9 @@ typedef struct usb_hub {
   struct dgroup* devgroup;
 
   enum USB_HUB_TYPE type;
+
+  /* Bitmap to manager device address allocation */
+  bitmap_t* devaddr_bitmap;
   
   struct usb_hub* parent;
   struct usb_hcd* hcd;
@@ -105,6 +109,13 @@ typedef struct usb_hub {
 
 usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr, uint8_t p_num);
 void destroy_usb_hub(usb_hub_t* hub);
+
+int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr);
+int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr);
+
+/*
+ * HCD stuff
+ */
 
 struct usb_hcd* alloc_usb_hcd();
 void dealloc_usb_hcd(struct usb_hcd* hcd);
@@ -116,7 +127,20 @@ void release_usb_hcd(struct usb_hcd* hcd);
 int register_usb_hcd(struct usb_hcd* hub);
 int unregister_usb_hcd(struct usb_hcd* hub);
 
-struct usb_request* allocate_usb_request();
-void deallocate_usb_request(struct usb_request* req);
+/* Transfer stuff */
+struct usb_xfer* allocate_usb_xfer();
+void deallocate_usb_xfer(struct usb_xfer* req);
+
+/*
+ * TODO: usb drivers
+ *
+ * These things can get registerd by class drivers which want to identify usb devices which they know
+ * how to communicate with
+ */
+typedef struct usb_driver {
+  int (*f_probe)(struct usb_driver* driver, usb_device_t* device);
+
+  uint32_t flags;
+} usb_driver_t;
 
 #endif // !__ANIVA_USB_DEF__

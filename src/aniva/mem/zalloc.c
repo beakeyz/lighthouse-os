@@ -1,10 +1,8 @@
 #include "zalloc.h"
 #include "heap.h"
 #include "kmem_manager.h"
-#include "dev/debug/serial.h"
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 
 /* Only the sized list needs to know what its end is */
 
@@ -183,7 +181,7 @@ ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr
   /* Calculate how big this zone needs to be */
   entries_for_this_zone = (initial_size / hard_max_entry_size);
 
-  new_zone = create_zone(hard_max_entry_size, entries_for_this_zone);
+  new_zone = create_zone(ret, hard_max_entry_size, entries_for_this_zone);
 
   if (!new_zone)
     goto fail_and_dealloc;
@@ -294,7 +292,7 @@ static ErrorOrPtr grow_zone_allocator(zone_allocator_t* allocator) {
   /* FIXME: integer devision */
   size_t entries_for_this_zone = (grow_size / entry_size);
 
-  new_zone = create_zone(allocator->m_entry_size, entries_for_this_zone);
+  new_zone = create_zone(allocator, allocator->m_entry_size, entries_for_this_zone);
 
   /* Failed to create zone: probably out of physical memory */
   if (!new_zone)
@@ -502,9 +500,11 @@ void destroy_zone(zone_allocator_t* allocator, zone_t* zone)
  * TODO: we can add some random padding between the zone_t struct
  * and where the actual memory storage starts
  */
-zone_t* create_zone(const size_t entry_size, size_t max_entries) {
+zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t max_entries)
+{
   ASSERT_MSG(entry_size != 0 && max_entries != 0, "create_zone: expected non-null parameters!");
 
+  uint32_t kmem_flags = NULL;
   size_t bitmap_bytes = BITS_TO_BYTES(max_entries);
   size_t total_entries_bytes = entry_size * max_entries;
 
@@ -532,16 +532,20 @@ zone_t* create_zone(const size_t entry_size, size_t max_entries) {
 
     extra_bitmap_bytes = BITS_TO_BYTES(extra_entries);
 
-    if (previous_extra_bytes == extra_bitmap_bytes) {
+    /* Check if we have reached a maximum */
+    if (previous_extra_bytes == extra_bitmap_bytes)
       break;
-    }
   }
 
   max_entries += extra_entries;
   bitmap_bytes += extra_bitmap_bytes;
 
+  /* Make sure the zone has the correct memory flags */
+  if ((allocator->m_flags & ZALLOC_FLAG_DMA) == ZALLOC_FLAG_DMA)
+    kmem_flags |= KMEM_FLAG_DMA;
+
   zone_t* zone;
-  ErrorOrPtr result = __kmem_kernel_alloc_range(aligned_size, 0, 0);
+  ErrorOrPtr result = __kmem_kernel_alloc_range(aligned_size, 0, kmem_flags);
 
   if (IsError(result))
     return nullptr;

@@ -1018,6 +1018,78 @@ int pci_write8(uint32_t segment, uint32_t bus, uint32_t device, uint32_t func, u
   return __current_pci_access_impl->write8(bus, device, func, reg, value);
 }
 
+int pci_device_read32(pci_device_t* device, uint32_t reg, uint32_t *value)
+{
+  pci_device_address_t* address;
+
+  if (!device || !value)
+    return -KERR_INVAL;
+
+  address = &device->address;
+
+  return device->raw_ops.read32(address->bus_num, address->device_num, address->func_num, reg, value);
+}
+
+int pci_device_read16(pci_device_t* device, uint32_t reg, uint16_t *value)
+{
+  pci_device_address_t* address;
+
+  if (!device || !value)
+    return -KERR_INVAL;
+
+  address = &device->address;
+
+  return device->raw_ops.read16(address->bus_num, address->device_num, address->func_num, reg, value);
+}
+
+int pci_device_read8(pci_device_t* device, uint32_t reg, uint8_t *value)
+{
+  pci_device_address_t* address;
+
+  if (!device || !value)
+    return -KERR_INVAL;
+
+  address = &device->address;
+
+  return device->raw_ops.read8(address->bus_num, address->device_num, address->func_num, reg, value);
+}
+
+int pci_device_write32(pci_device_t* device, uint32_t reg, uint32_t value)
+{
+  pci_device_address_t* address;
+
+  if (!device || !value)
+    return -KERR_INVAL;
+
+  address = &device->address;
+
+  return device->raw_ops.write32(address->bus_num, address->device_num, address->func_num, reg, value);
+}
+
+int pci_device_write16(pci_device_t* device, uint32_t reg, uint16_t value)
+{
+  pci_device_address_t* address;
+
+  if (!device || !value)
+    return -KERR_INVAL;
+
+  address = &device->address;
+
+  return device->raw_ops.write16(address->bus_num, address->device_num, address->func_num, reg, value);
+}
+
+int pci_device_write8(pci_device_t* device, uint32_t reg, uint8_t value)
+{
+  pci_device_address_t* address;
+
+  if (!device || !value)
+    return -KERR_INVAL;
+
+  address = &device->address;
+
+  return device->raw_ops.write8(address->bus_num, address->device_num, address->func_num, reg, value);
+}
+
 /* PCI READ/WRITE WRAPPERS */
 // TODO
 

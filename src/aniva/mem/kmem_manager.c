@@ -1116,7 +1116,7 @@ ErrorOrPtr __kmem_dma_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, 
 
 ErrorOrPtr __kmem_dma_alloc_range(size_t size, uint32_t custom_flags, uint32_t page_flags)
 {
-  return __kmem_alloc_range(nullptr, nullptr, IO_MAP_BASE, size, custom_flags, page_flags);
+  return __kmem_alloc_range(nullptr, nullptr, IO_MAP_BASE, size, custom_flags, page_flags | KMEM_FLAG_DMA);
 }
 
 ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags) 

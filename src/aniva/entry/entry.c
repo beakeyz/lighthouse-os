@@ -184,12 +184,15 @@ static kerror_t _start_system_management(void)
  */
 static kerror_t _start_subsystems(void)
 {
+  println("A");
   // initialize cpu-related things that need the memorymanager and the heap
   init_processor_late(&g_bsp);
 
+  println("B");
   // we need more memory
   init_zalloc();
 
+  println("C");
   // we need resources
   init_kresources();
 

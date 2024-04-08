@@ -32,6 +32,8 @@ typedef enum ZONE_ENTRY_SIZE {
 
 /* Create a zone allocator that fits dynamicly sized object */
 #define ZALLOC_FLAG_KERNEL              (0x00000001)
+/* Allocate DMA regions */
+#define ZALLOC_FLAG_DMA                 (0x00000002)
 
 #define ZALLOC_DEFAULT_MEM_SIZE         16 * Kib
 #define ZALLOC_DEFAULT_ALLOC_COUNT      128 /* What is the default amount of an object that we should be able to allocate before we should expand the allocator */
@@ -158,7 +160,7 @@ ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone);
  * max_entries gets rounded up in order to fit 
  * the amount of pages allocated
  */
-zone_t* create_zone(const size_t entry_size, size_t max_entries);
+zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t max_entries);
 
 void destroy_zone(zone_allocator_t* allocator, zone_t* zone);
 

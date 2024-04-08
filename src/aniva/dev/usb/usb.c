@@ -5,8 +5,9 @@
 #include "dev/loader.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
-#include "dev/usb/request.h"
+#include "dev/usb/xfer.h"
 #include "libk/cmdline/parser.h"
+#include "libk/data/bitmap.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
@@ -15,7 +16,7 @@
 #include "proc/profile/profile.h"
 
 zone_allocator_t __usb_hub_allocator;
-zone_allocator_t __usb_request_allocator;
+zone_allocator_t __usb_xfer_allocator;
 dgroup_t* _root_usbhub_group;
 
 /*!
@@ -125,6 +126,7 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr
 
   /* Register a dev group for this hub */
   hub->devgroup = register_dev_group(DGROUP_TYPE_USB, "???", DGROUP_FLAG_BUS, parent_group->node);
+  hub->devaddr_bitmap = create_bitmap_ex(128, 0x00);
 
   return hub;
 }
@@ -138,6 +140,47 @@ void destroy_usb_hub(usb_hub_t* hub)
   kernel_panic("TODO: destroy_usb_hub");
 }
 
+/*!
+ * @brief: Allocate a deviceaddress for a usb device
+ */
+int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr)
+{
+  uint64_t addr;
+  ErrorOrPtr res;
+
+  res = bitmap_find_free(hub->devaddr_bitmap);
+
+  if (IsError(res))
+    return -1;
+
+  addr = Release(res);
+
+  /* Outside of the device address range */
+  if (addr >= 128)
+    return -1;
+
+  /* Mark as used */
+  bitmap_mark(hub->devaddr_bitmap, addr);
+
+  /* Export the address */
+  *paddr = (uint8_t)addr;
+
+  return 0;
+}
+
+/*!
+ * @brief: Deallocate a device address from a hub
+ *
+ * Called when a device is removed from the hub
+ */
+int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr)
+{
+  if (!bitmap_isset(hub->devaddr_bitmap, addr))
+    return -1;
+
+  bitmap_unmark(hub->devaddr_bitmap, addr);
+  return 0;
+}
 
 /*!
  * @brief Registers a USB hub directly to the root
@@ -239,11 +282,11 @@ void release_usb_hcd(struct usb_hcd* hcd)
 }
 
 
-usb_request_t* allocate_usb_request()
+usb_xfer_t* allocate_usb_xfer()
 {
-  usb_request_t* req;
+  usb_xfer_t* req;
 
-  req = zalloc_fixed(&__usb_request_allocator);
+  req = zalloc_fixed(&__usb_xfer_allocator);
 
   if (!req)
     return nullptr;
@@ -253,12 +296,12 @@ usb_request_t* allocate_usb_request()
   return req;
 }
 
-void deallocate_usb_request(usb_request_t* req)
+void deallocate_usb_xfer(usb_xfer_t* req)
 {
   if (!req)
     return;
 
-  zfree_fixed(&__usb_request_allocator, req);
+  zfree_fixed(&__usb_xfer_allocator, req);
 }
 
 /*!
@@ -283,7 +326,7 @@ void init_usb_drivers()
 void init_usb()
 {
   Must(init_zone_allocator(&__usb_hub_allocator, 16 * Kib, sizeof(usb_hcd_t), NULL));
-  Must(init_zone_allocator(&__usb_request_allocator, 32 * Kib, sizeof(usb_request_t), NULL));
+  Must(init_zone_allocator(&__usb_xfer_allocator, 32 * Kib, sizeof(usb_xfer_t), NULL));
 
   _root_usbhub_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
 

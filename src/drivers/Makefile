@@ -11,6 +11,7 @@ ACPI_DRIVERS := \
 
 USB_DRIVERS := \
 	./usb/usbcore \
+	./usb/ehci \
 	./usb/xhci 
 
 # Define where the drivers are located
