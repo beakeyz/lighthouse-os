@@ -317,8 +317,9 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
   return 0;
 }
 
-static inline int _kputch(uint8_t typeflags, char c)
+static inline int _kputch(uint8_t typeflags, char c, char** out)
 {
+  (void)out;
   char buff[2] = { 0 };
   buff[0] = c;
 
@@ -327,7 +328,7 @@ static inline int _kputch(uint8_t typeflags, char c)
 
 int kputch(char c) 
 {
-  return _kputch(LOGGER_FLAG_INFO, c);
+  return _kputch(LOGGER_FLAG_INFO, c, NULL);
 }
 
 int print(const char* msg)
@@ -340,7 +341,7 @@ int println(const char* msg)
   return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_LINE);
 }
 
-static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec)
+static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
   uint32_t idx;
   char tmp[128];
@@ -371,10 +372,10 @@ static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec)
   tmp[len - 1 - idx] = hex_chars[last];
 
   for (uint32_t i = 0; i < len; i++)
-    _kputch(typeflags, tmp[i]);
+    output_cb(typeflags, tmp[i], out);
 }
 
-static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec)
+static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
   char tmp[128];
   uint8_t size = 1;
@@ -403,12 +404,12 @@ static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec)
   tmp[size - 1 - index] = remain + '0';
 
   for (uint32_t i = 0; i < size; i++)
-    _kputch(typeflags, tmp[i]);
+    output_cb(typeflags, tmp[i], out);
 
   return size;
 }
 
-static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
+static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
   int prec;
   uint32_t integer_width;
@@ -471,10 +472,10 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
 
           if (value < 0) {
             value = -value;
-            _kputch(typeflags, '-');
+            output_cb(typeflags, '-', out);
           }
 
-          _print_decimal(typeflags, value, prec);
+          _print_decimal(typeflags, value, prec, output_cb, out);
           break;
         }
       case 'p':
@@ -497,7 +498,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
               value = 0;
           }
 
-          _print_hex(typeflags, value, prec);
+          _print_hex(typeflags, value, prec, output_cb, out);
           break;
         }
       case 's':
@@ -505,19 +506,20 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
           const char* str = va_arg(args, char*);
 
           if (!max_length)
-            print_ex(typeflags, str, LOG_TYPE_DEFAULT);
+            while (*str)
+              output_cb(typeflags, *str++, out);
           else
             while (max_length--)
               if (*str)
-                _kputch(typeflags, *str++);
+                output_cb(typeflags, *str++, out);
               else
-                _kputch(typeflags, ' ');
+                output_cb(typeflags, ' ', out);
 
           break;
         }
       default:
         {
-          _kputch(typeflags, *c);
+          output_cb(typeflags, *c, out);
           break;
         }
     }
@@ -525,7 +527,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args)
     continue;
 
 kputch_cycle:
-    _kputch(typeflags, *c);
+    output_cb(typeflags, *c, out);
   }
 
   return 0;
@@ -537,7 +539,7 @@ int vprintf(const char* fmt, va_list args)
    * These kinds of prints should only go to loggers that are marked
    * as supporting info
    */
-  return _vprintf(LOGGER_FLAG_INFO, fmt, args);
+  return _vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
 }
 
 /*!
@@ -560,6 +562,27 @@ int printf(const char* fmt, ...)
   return error;
 }
 
+static int __bufout(uint8_t typeflags, char c, char** out)
+{
+  **out = c;
+  (*out)++;
+  return 0;
+}
+
+int sfmt(char* buf, const char* fmt, ...)
+{
+  int error;
+
+  va_list args;
+  va_start(args, fmt);
+
+  error = _vprintf(LOGGER_FLAG_INFO, fmt, args, __bufout, &buf);
+
+  va_end(args);
+
+  return error;
+}
+
 int kdbgf(const char* fmt, ...)
 {
   int error;
@@ -567,7 +590,7 @@ int kdbgf(const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  error = _vprintf(LOGGER_FLAG_DEBUG, fmt, args);
+  error = _vprintf(LOGGER_FLAG_DEBUG, fmt, args, _kputch, NULL);
 
   va_end(args);
 
@@ -586,7 +609,7 @@ int kdbg(const char* msg)
 
 int kdbgc(char c)
 {
-  return _kputch(LOGGER_FLAG_DEBUG, c);
+  return _kputch(LOGGER_FLAG_DEBUG, c, NULL);
 }
 
 int kwarnf(const char* fmt, ...)
@@ -596,7 +619,7 @@ int kwarnf(const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args);
+  error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
 
   va_end(args);
 
@@ -615,7 +638,7 @@ int kwarn(const char* msg)
 
 int kwarnc(char c)
 {
-  return _kputch(LOGGER_FLAG_WARNINGS, c);
+  return _kputch(LOGGER_FLAG_WARNINGS, c, NULL);
 }
 
 /*!

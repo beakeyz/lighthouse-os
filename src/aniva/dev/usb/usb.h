@@ -50,7 +50,7 @@ typedef struct usb_device {
   /* When we discover a device, this is the first descriptor we'll get back */
   usb_device_descriptor_t desc;
 
-  uint8_t effective_idx; /* From 0 to 255, what is our index? (nth device found on the hub) */
+  uint8_t hub_port; /* From 0 to 255, what is our index? (nth device found on the hub) */
   uint8_t dev_addr;
   uint8_t slot;
   uint8_t ep_count;
@@ -73,9 +73,11 @@ typedef struct usb_device {
   struct usb_hub* hub;
 } usb_device_t;
 
-usb_device_t* create_usb_device(struct usb_hub* hub, const char* name);
+usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t hub_port, const char* name);
 void destroy_usb_device(usb_device_t* device);
 struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
+
+int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 
 /*
  * TODO: Define the functions for handling transfers to specific endpoints on a device
@@ -104,20 +106,19 @@ typedef struct usb_hub {
 
   /* Bitmap to manager device address allocation */
   bitmap_t* devaddr_bitmap;
-
-  /* Routine with which we can short-circuit transfer enqueues to a local hub */
-  int (*f_process_hub_xfer)(struct usb_hub* hub, struct usb_xfer* xfer);
   
   struct usb_hub* parent;
   struct usb_hcd* hcd;
 } usb_hub_t;
 
-usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr, uint32_t portcount);
+usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount);
+int init_usb_device(usb_device_t* device);
 void destroy_usb_hub(usb_hub_t* hub);
 
 int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr);
 int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr);
 
+int usb_hub_submit_default_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_submit_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_enumerate(usb_hub_t* hub);
 /*

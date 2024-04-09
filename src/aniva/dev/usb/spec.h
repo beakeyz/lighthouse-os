@@ -137,4 +137,18 @@ typedef struct usb_port_status {
   uint16_t change;
 } usb_port_status_t;
 
+/* USB Feature requests */
+#define USB_FEATURE_PORT_CONNECTION				0
+#define USB_FEATURE_PORT_ENABLE					1
+#define USB_FEATURE_PORT_SUSPEND				2
+#define USB_FEATURE_PORT_OVER_CURRENT			3
+#define USB_FEATURE_PORT_RESET					4
+#define USB_FEATURE_PORT_POWER					8
+#define USB_FEATURE_PORT_LOW_SPEED				9
+#define USB_FEATURE_C_PORT_CONNECTION			16
+#define USB_FEATURE_C_PORT_ENABLE				17
+#define USB_FEATURE_C_PORT_SUSPEND				18
+#define USB_FEATURE_C_PORT_OVER_CURRENT			19
+#define USB_FEATURE_C_PORT_RESET				20
+
 #endif // !__ANIVA_USB_SPECIFICATION__

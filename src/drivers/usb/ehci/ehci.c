@@ -75,6 +75,42 @@ int ehci_get_port_sts(ehci_hcd_t* ehci, uint32_t port, usb_port_status_t* status
   return 0;
 }
 
+int ehci_set_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
+{
+  kernel_panic("TODO: ehci_set_port_feature");
+}
+
+int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
+{
+  uint32_t port_sts;
+
+  if (port >= ehci->portcount)
+    return -KERR_INVAL;
+
+  port_sts = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)));
+
+  switch (feature) {
+    case USB_FEATURE_PORT_ENABLE:
+      port_sts &= ~(EHCI_PORTSC_ENABLE);
+      break;
+    case USB_FEATURE_PORT_POWER:
+      port_sts &= ~(EHCI_PORTSC_PORT_POWER);
+      break;
+    case USB_FEATURE_C_PORT_ENABLE:
+      port_sts |= EHCI_PORTSC_ENABLE_CHANGE;
+      break;
+    case USB_FEATURE_C_PORT_CONNECTION:
+      port_sts |= EHCI_PORTSC_CONNECT_CHANGE;
+      break;
+    case USB_FEATURE_C_PORT_OVER_CURRENT:
+      port_sts |= EHCI_PORTSC_OVERCURRENT_CHANGE;
+      break;
+  }
+
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)), port_sts);
+  return 0;
+}
+
 static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 {
   uint32_t usbsts;
@@ -367,8 +403,7 @@ static int ehci_start(usb_hcd_t* hcd)
   mdelay(5);
 
   /* Create this roothub */
-  hcd->roothub = create_usb_hub(hcd, nullptr, 0, ehci->portcount);
-  hcd->roothub->f_process_hub_xfer = ehci_process_hub_xfer;
+  hcd->roothub = create_usb_hub(hcd, nullptr, 0, 0, ehci->portcount);
 
   /* Enumerate the hub */
   usb_hub_enumerate(hcd->roothub);
@@ -392,10 +427,16 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 {
   usb_hub_t* roothub;
 
+  /*
+   * This may happen when we're trying to create the EHCI roothub for this hcd. Should be okay
+   */
+  if (!hcd->roothub)
+    return -1;
+
   roothub = hcd->roothub;
 
-  if (xfer->req_devaddr == roothub->device->dev_addr && roothub->f_process_hub_xfer)
-    return hcd->roothub->f_process_hub_xfer(roothub, xfer);
+  if (xfer->req_devaddr == roothub->device->dev_addr)
+    return ehci_process_hub_xfer(roothub, xfer);
 
   /* TODO: Process the EHCI transfer */
   kernel_panic("ehci_enqueue_transfer");

@@ -64,6 +64,9 @@ void logf(const char* fmt, ...);
 void logln(const char* msg);
 void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type);
 
+/* Format strings */
+int sfmt(char* buf, const char* fmt, ...);
+
 /*
  * Functions that perform a print to the kernels 'stdio'
  * 

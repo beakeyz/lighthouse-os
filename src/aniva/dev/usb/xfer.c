@@ -44,6 +44,36 @@ static void destroy_usb_req(usb_xfer_t* req)
   deallocate_usb_xfer(req);
 }
 
+/*!
+ * @brief: Allocate an prepare a control transfer to @devaddr and @hubport
+ */
+int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, uint8_t devaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+{
+  kdoorbell_t* db = create_doorbell(1, NULL);
+  usb_xfer_t* xfer = create_usb_xfer(NULL, db, NULL, NULL);
+
+  *ctl = (usb_ctlreq_t) {
+    .request_type = reqtype,
+    .request = req,
+    .value = value,
+    .index = idx,
+    .length = len,
+  };
+
+  xfer->resp_buffer = respbuf;
+  xfer->resp_size = respbuf_len;
+  xfer->req_type = USB_CTL_XFER;
+  xfer->req_buffer = ctl;
+  xfer->req_size = sizeof(*ctl);
+  xfer->req_devaddr = devaddr;
+  xfer->req_hubaddr = hubport;
+  xfer->req_endpoint = 0;
+
+  *pxfer = xfer;
+  *pdb = db;
+  return 0;
+}
+
 /* 
  * Manage the existance of the request object with a reference counter 
  */
@@ -74,6 +104,12 @@ int usb_xfer_complete(usb_xfer_t* xfer)
 int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hub* hub)
 {
   int error; 
+
+  if (!hub || !hub->hcd)
+    return -KERR_INVAL;
+
+  if (!hub->hcd->io_ops || !hub->hcd->io_ops->enq_request)
+    return -KERR_INVAL;
 
   mutex_lock(hub->hcd->hcd_lock);
 

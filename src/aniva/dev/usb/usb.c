@@ -13,6 +13,7 @@
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "proc/profile/profile.h"
@@ -51,13 +52,55 @@ void dealloc_usb_hcd(struct usb_hcd* hcd)
 }
 
 /*!
+ * @brief: Send the appropriate control requests to teh HCD to initialize @device
+ */
+int init_usb_device(usb_device_t* device)
+{
+  int tries;
+  int error;
+
+  tries = 4;
+
+  printf("Trying to set device %s addresss to %d\n", device->device->name, device->dev_addr);
+
+  do {
+    /* Send  */
+    error = usb_hub_submit_default_ctl(device->hub, USB_TYPE_STANDARD, USB_REQ_SET_ADDRESS, device->dev_addr, 0, NULL, NULL, NULL);
+
+    /* Wait a bit for hardware to catch up */
+    mdelay(500);
+  } while (tries-- > 0 && error);
+
+  printf("Trying to get device descriptor\n");
+
+  error = usb_device_submit_ctl(device, USB_TYPE_STANDARD, USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8, 0, 8, &device->desc, 8);
+  
+  if (error)
+    return -1;
+
+  printf("Got device descriptor!\n");
+  printf("len: %d\n", device->desc.length);
+  printf("type: %d\n", device->desc.type);
+  printf("usb version: %d\n", device->desc.bcd_usb);
+  
+  return 0;
+}
+
+/*!
  * @brief Allocate and initialize a generic USB device
  *
  */
-usb_device_t* create_usb_device(struct usb_hub* hub, const char* name)
+usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t hub_port, const char* name)
 {
   dgroup_t* group;
   usb_device_t* device;
+
+  if (!hub)
+    return nullptr;
+
+  /* Can't have this shit right */
+  if (hub_port >= hub->portcount)
+    return nullptr;
 
   device = kmalloc(sizeof(*device));
 
@@ -68,13 +111,11 @@ usb_device_t* create_usb_device(struct usb_hub* hub, const char* name)
 
   device->req_doorbell = create_doorbell(255, NULL);
   device->hub = hub;
+  device->hub_port = hub_port;
   device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
 
   /* Give ourselves a device address */
   usb_hub_alloc_devaddr(hub, &device->dev_addr);
-
-  /* TODO: get the devic descriptor n shit */
-  //kernel_panic("TODO: gather USB device info");
 
   group = _root_usbhub_group;
 
@@ -97,16 +138,59 @@ void destroy_usb_device(usb_device_t* device)
   kfree(device);
 }
 
+static inline int _usb_submit_ctl(usb_hub_t* hub, uint8_t devaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+{
+  int error;
+  usb_xfer_t* xfer;
+  kdoorbell_t* db;
+  usb_ctlreq_t ctl;
+
+  /* Initialize the control transfer */
+  init_ctl_xfer(&xfer, &db, &ctl, devaddr, hubport,
+      reqtype, req, value, idx, len, respbuf, respbuf_len);
+
+  error = usb_xfer_enqueue(xfer, hub);
+
+  if (error)
+    goto dealloc_and_exit;
+
+  usb_await_xfer_complete(xfer, NULL);
+
+dealloc_and_exit:
+  destroy_doorbell(db);
+  release_usb_xfer(xfer);
+  return error;
+}
+
+/*!
+ * @brief: Submit a control transfer to the control pipe of @device
+ *
+ * TODO: We should get lower control over transfers
+ */
+int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+{
+  /* Can't send transfers to a device which is not on a hub */
+  if (!device || !device->hub)
+    return -1;
+
+  return _usb_submit_ctl(device->hub, device->dev_addr, device->hub_port,
+      reqtype, req, value, idx, len, respbuf, respbuf_len);
+}
 
 /*!
  * @brief Allocate and initialize a generic USB hub
  *
  * TODO: create our own root hub configuration descriptor
  */
-usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr, uint32_t portcount)
+usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount)
 {
   dgroup_t* parent_group;
   usb_hub_t* hub;
+  char hubname[8] = { NULL };
+
+  /* If the format fails we're screwed lol */
+  if (sfmt(hubname, "hub%d", hubidx))
+    return nullptr;
 
   hub = kmalloc(sizeof(*hub));
 
@@ -124,20 +208,34 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t d_addr
   hub->hcd = hcd;
   hub->portcount = portcount;
   hub->devaddr_bitmap = create_bitmap_ex(128, 0x00);
+
+  if (!hub->devaddr_bitmap)
+    goto destroy_and_exit;
+
   /* Register a dev group for this hub */
   hub->devgroup = register_dev_group(DGROUP_TYPE_USB, "???", DGROUP_FLAG_BUS, parent_group->node);
-  /* Asks the host controller for a device descriptor */
-  hub->device = create_usb_device(hub, "hub");
 
-  if (!hub->device) {
-    kfree(hub);
-    return nullptr;
-  }
+  if (!hub->devgroup)
+    goto destroy_and_exit;
 
   hub->ports = kmalloc(portcount * sizeof(usb_port_t));
+
+  if (!hub->ports)
+    goto destroy_and_exit;
+
   memset(hub->ports, 0, portcount * sizeof(usb_port_t));
 
+  /* Asks the host controller for a device descriptor */
+  hub->device = create_usb_device(hub, hubidx, hubname);
+
+  if (!hub->device)
+    goto destroy_and_exit;
+
   return hub;
+
+destroy_and_exit:
+  destroy_usb_hub(hub);
+  return nullptr;
 }
 
 /*!
@@ -157,6 +255,9 @@ int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr)
   uint64_t addr;
   ErrorOrPtr res;
 
+  if (!hub)
+    return -1;
+
   res = bitmap_find_free(hub->devaddr_bitmap);
 
   if (IsError(res))
@@ -172,7 +273,7 @@ int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr)
   bitmap_mark(hub->devaddr_bitmap, addr);
 
   /* Export the address */
-  *paddr = (uint8_t)addr;
+  *paddr = (uint8_t)(addr+1);
 
   return 0;
 }
@@ -184,6 +285,9 @@ int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr)
  */
 int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr)
 {
+  if (!addr--)
+    return -1;
+
   if (!bitmap_isset(hub->devaddr_bitmap, addr))
     return -1;
 
@@ -194,48 +298,67 @@ int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr)
 /*!
  * @brief: Submit a control transfer to @hub
  */
+int usb_hub_submit_default_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+{
+  return _usb_submit_ctl(hub, 0, hub->device->hub_port,
+      reqtype, req, value, idx, len, respbuf, respbuf_len);
+}
+
 int usb_hub_submit_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
-  int error;
-  usb_xfer_t* xfer;
-  kdoorbell_t* db;
-  usb_ctlreq_t ctl;
-
-  db = create_doorbell(1, NULL);
-  xfer = create_usb_xfer(NULL, db, NULL, NULL);
-
-  ctl = (usb_ctlreq_t) {
-    .request_type = reqtype,
-    .request = req,
-    .value = value,
-    .index = idx,
-    .length = len,
-  };
-
-  xfer->resp_buffer = respbuf;
-  xfer->resp_size = respbuf_len;
-  xfer->req_type = USB_CTL_XFER;
-  xfer->req_buffer = &ctl;
-  xfer->req_size = sizeof(ctl);
-  xfer->req_devaddr = 0;
-  xfer->req_hubaddr = 0;
-  xfer->req_endpoint = 0;
-
-  error = usb_xfer_enqueue(xfer, hub);
-
-  if (error)
-    goto dealloc_and_exit;
-
-  usb_await_xfer_complete(xfer, NULL);
-
-dealloc_and_exit:
-  destroy_doorbell(db);
-  return error;
+  return _usb_submit_ctl(hub, hub->device->dev_addr, hub->device->hub_port,
+      reqtype, req, value, idx, len, respbuf, respbuf_len);
 }
 
 static int usb_hub_get_portsts(usb_hub_t* hub, uint32_t i, usb_port_status_t* status)
 {
   return usb_hub_submit_ctl(hub, USB_TYPE_CLASS, USB_REQ_GET_STATUS, 0, i+1, sizeof(usb_port_status_t), status, sizeof(usb_port_status_t));
+}
+
+static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
+{
+  usb_port_t* port;
+  char namebuf[11] = { NULL };
+
+  if (i >= hub->portcount)
+    return -1;
+
+  port = &hub->ports[i];
+
+  /* Format the device name */
+  sfmt(namebuf, "usbdev%d", i); 
+
+  port->device = create_usb_device(hub, i, namebuf);
+
+  /* Bruh */
+  if (!port->device)
+    return -1;
+
+  /* Try and get the device address to the HCD and get the descriptor from it */
+  init_usb_device(port->device);
+
+  return 0;
+}
+
+static inline int _handle_device_disconnect(usb_hub_t* hub, uint32_t i)
+{
+  return 0;
+}
+
+/*!
+ * @brief: Called when we encounter a connected device during hub enumeration
+ *
+ * When there is not yet a device at this port, we create it
+ */
+static inline int _handle_port_connection(usb_hub_t* hub, uint32_t i)
+{
+  /* Clear the connected change status */
+  usb_hub_submit_ctl(hub, USB_TYPE_CLASS, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION, i+1, NULL, NULL, NULL);
+
+  if (usb_port_is_connected(&hub->ports[i]))
+    return _handle_device_connect(hub, i);
+
+  return _handle_device_disconnect(hub, i);
 }
 
 /*!
@@ -244,20 +367,25 @@ static int usb_hub_get_portsts(usb_hub_t* hub, uint32_t i, usb_port_status_t* st
 int usb_hub_enumerate(usb_hub_t* hub)
 {
   int error;
+  usb_port_t* c_port;
 
   for (uint32_t i = 0; i < hub->portcount; i++) {
     printf("%s: Trying to reset port %d\n", hub->device->device->name, i);
+    c_port = &hub->ports[i];
 
-    error = usb_hub_get_portsts(hub, i, &hub->ports[i].status);
+    error = usb_hub_get_portsts(hub, i, &c_port->status);
 
     if (error)
       continue;
 
     printf("Got port status:\n\tenabled: %s\n\tconnected: %s\n\tpower: %s\n", 
-        (hub->ports[i].status.status & USB_PORT_STATUS_ENABLE) ? "yes" : "no",
-        (hub->ports[i].status.status & USB_PORT_STATUS_CONNECTION) ? "yes" : "no",
-        (hub->ports[i].status.status & USB_PORT_STATUS_POWER) ? "yes" : "no"
+        (c_port->status.status & USB_PORT_STATUS_ENABLE) ? "yes" : "no",
+        (c_port->status.status & USB_PORT_STATUS_CONNECTION) ? "yes" : "no",
+        (c_port->status.status & USB_PORT_STATUS_POWER) ? "yes" : "no"
         );
+
+    if (usb_port_is_uninitialised(c_port) || usb_port_has_connchange(c_port))
+      error = _handle_port_connection(hub, i);
   }
 
   kernel_panic("Did enumerate");

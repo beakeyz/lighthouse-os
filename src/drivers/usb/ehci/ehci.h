@@ -42,5 +42,7 @@ typedef struct ehci_hcd {
 extern int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer);
 
 extern int ehci_get_port_sts(ehci_hcd_t* ehci, uint32_t port, usb_port_status_t* status);
+extern int ehci_set_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature);
+extern int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature);
 
 #endif // !__ANIVA_USB_EHCI_HCD__

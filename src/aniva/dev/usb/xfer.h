@@ -14,6 +14,7 @@
 
 struct usb_hub;
 struct usb_device;
+struct usb_ctlreq;
 
 enum USB_XFER_TYPE {
   USB_CTL_XFER,
@@ -55,6 +56,8 @@ typedef struct usb_xfer {
 } usb_xfer_t;
 
 usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, void* buffer, uint32_t buffer_size);
+
+int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, struct usb_ctlreq* ctl, uint8_t devaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 
 /* Manage the existance of the request object with a reference counter */
 void get_usb_xfer(usb_xfer_t* req);

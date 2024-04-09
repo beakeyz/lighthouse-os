@@ -212,7 +212,7 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
   hub->port_count = 0;
   hub->port_arr_size = sizeof(xhci_port_t*) * xhci->max_ports;
   /* This creates a generic USB hub and asks the host controller for its data */
-  hub->phub = create_usb_hub(xhci->parent, nullptr, dev_address, 0);
+  hub->phub = create_usb_hub(xhci->parent, nullptr, 0, dev_address, 0);
 
   hub->ports = kmalloc(hub->port_arr_size);
   memset(hub->ports, 0, hub->port_arr_size);
