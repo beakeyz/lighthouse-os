@@ -3,6 +3,7 @@
 #include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/usb.h"
+#include "dev/usb/xfer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
@@ -26,11 +27,93 @@ static pci_dev_id_t ehci_pci_ids[] = {
   PCI_DEVID_END,
 };
 
+enum EHCI_INTERRUPT_STS {
+  USBINT = 0,
+  USBERRINT,
+  PORTCHANGE,
+  FLROLLOVER,
+  HOSTSYSERR,
+  INTONAA,
+};
+
+int ehci_get_port_sts(ehci_hcd_t* ehci, uint32_t port, usb_port_status_t* status)
+{
+  uint32_t portsts;
+
+  if (port >= ehci->portcount)
+    return -1;
+
+  portsts = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)));
+
+  memset(status, 0, sizeof(*status));
+
+  /* Now we need to translate EHCI status to generic USB status =/ */
+  if (portsts & EHCI_PORTSC_CONNECT)
+    status->status |= USB_PORT_STATUS_CONNECTION;
+  if (portsts & EHCI_PORTSC_ENABLE)
+    status->status |= (USB_PORT_STATUS_ENABLE | USB_PORT_STATUS_HIGH_SPEED);
+  if (portsts & EHCI_PORTSC_OVERCURRENT)
+    status->status |= USB_PORT_STATUS_OVER_CURRENT;
+  if (portsts & EHCI_PORTSC_RESET)
+    status->status |= USB_PORT_STATUS_RESET;
+  if (portsts & EHCI_PORTSC_PORT_POWER)
+    status->status |= USB_PORT_STATUS_POWER;
+  if (portsts & EHCI_PORTSC_SUSPEND)
+    status->status |= USB_PORT_STATUS_SUSPEND;
+  if (portsts & EHCI_PORTSC_DMINUS_LINESTAT)
+    status->status |= USB_PORT_STATUS_LOW_SPEED;
+
+  if ((portsts & EHCI_PORTSC_CONNECT_CHANGE) == EHCI_PORTSC_CONNECT_CHANGE)
+    status->change |= USB_PORT_STATUS_CONNECTION;
+  if ((portsts & EHCI_PORTSC_ENABLE_CHANGE) == EHCI_PORTSC_ENABLE_CHANGE)
+    status->change |= USB_PORT_STATUS_ENABLE;
+  if ((portsts & EHCI_PORTSC_OVERCURRENT_CHANGE) == EHCI_PORTSC_OVERCURRENT_CHANGE)
+    status->change |= USB_PORT_STATUS_OVER_CURRENT;
+
+  /* TODO: Reset change and suspend change */
+
+  return 0;
+}
+
 static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 {
+  uint32_t usbsts;
   printf("EHCI: entered the ehci polling routine\n");
 
-  while (true) {
+  while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
+    usbsts = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS) & 0x3f;
+
+    for (uint32_t i = 0; i < 6; i++) {
+      if ((usbsts & (1 << i)) != (1 << i))
+        continue;
+
+      switch (i) {
+        case USBINT:
+          printf("EHCI: Finished a transfer!\n");
+          break;
+        case USBERRINT:
+          printf("EHCI: Got a transfer error!\n");
+          break;
+        case PORTCHANGE:
+          printf("EHCI: Port change occured!\n");
+          break;
+        case FLROLLOVER:
+          printf("EHCI: Frame List rollover!\n");
+          break;
+        case HOSTSYSERR:
+          printf("EHCI: Host system error (yikes)!\n");
+          break;
+        case INTONAA:
+          printf("EHCI: Advanced the async qh!\n");
+          break;
+      }
+
+      /* Clear the bit */
+      //usbsts &= ~(1 << i);
+    }
+
+    mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
+
     scheduler_yield();
   }
   return 0;
@@ -283,6 +366,13 @@ static int ehci_start(usb_hcd_t* hcd)
   c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
   mdelay(5);
 
+  /* Create this roothub */
+  hcd->roothub = create_usb_hub(hcd, nullptr, 0, ehci->portcount);
+  hcd->roothub->f_process_hub_xfer = ehci_process_hub_xfer;
+
+  /* Enumerate the hub */
+  usb_hub_enumerate(hcd->roothub);
+
   printf("Started the EHCI controller\n");
   return 0;
 }
@@ -298,8 +388,22 @@ usb_hcd_hw_ops_t ehci_hw_ops = {
   .hcd_stop = ehci_stop,
 };
 
+int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
+{
+  usb_hub_t* roothub;
+
+  roothub = hcd->roothub;
+
+  if (xfer->req_devaddr == roothub->device->dev_addr && roothub->f_process_hub_xfer)
+    return hcd->roothub->f_process_hub_xfer(roothub, xfer);
+
+  /* TODO: Process the EHCI transfer */
+  kernel_panic("ehci_enqueue_transfer");
+  return 0;
+}
+
 usb_hcd_io_ops_t ehci_io_ops = {
-  NULL,
+  .enq_request = ehci_enqueue_transfer,
 };
 
 static ehci_hcd_t* create_ehci_hcd(usb_hcd_t* hcd)
@@ -349,8 +453,6 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
     goto dealloc_and_exit;
 
   register_usb_hcd(hcd);
-
-  kernel_panic("EHCI");
   return 0;
 
 dealloc_and_exit:

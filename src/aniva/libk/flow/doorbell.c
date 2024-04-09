@@ -1,8 +1,6 @@
 #include "doorbell.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
-#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
 

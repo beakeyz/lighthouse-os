@@ -113,4 +113,28 @@ typedef struct usb_device_descriptor {
   uint8_t config_count;
 } __attribute__((packed)) usb_device_descriptor_t;
 
+/*
+ * Port status
+ */
+#define USB_PORT_STATUS_CONNECTION		0x0001
+#define USB_PORT_STATUS_ENABLE			0x0002
+#define USB_PORT_STATUS_SUSPEND			0x0004
+#define USB_PORT_STATUS_OVER_CURRENT	0x0008
+#define USB_PORT_STATUS_RESET			0x0010
+#define USB_PORT_STATUS_L1				0x0020
+#define USB_PORT_STATUS_POWER			0x0100
+#define USB_PORT_STATUS_LOW_SPEED		0x0200
+#define USB_PORT_STATUS_HIGH_SPEED		0x0400
+#define USB_PORT_STATUS_TEST			0x0800
+#define USB_PORT_STATUS_INDICATOR		0x1000
+
+#define USB_PORT_STATUS_SS_LINK_STATE	0x01e0
+#define USB_PORT_STATUS_SS_POWER		0x0200
+#define USB_PORT_STATUS_SS_SPEED		0x1c00
+
+typedef struct usb_port_status {
+  uint16_t status;
+  uint16_t change;
+} usb_port_status_t;
+
 #endif // !__ANIVA_USB_SPECIFICATION__

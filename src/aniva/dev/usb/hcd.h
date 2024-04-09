@@ -7,6 +7,7 @@
 
 struct device;
 struct usb_hcd;
+struct usb_hub;
 struct usb_xfer;
 struct device_endpoint;
 
@@ -55,6 +56,7 @@ typedef struct usb_hcd {
 
   /* TODO: is it a given that usb hubs are on the PCI bus? */
   pci_device_t* pci_device;
+  struct usb_hub* roothub;
 
   usb_hcd_mmio_ops_t* mmio_ops;
   usb_hcd_io_ops_t* io_ops;
