@@ -12,6 +12,7 @@
 #include "mem/zalloc.h"
 #include "proc/core.h"
 #include "sched/scheduler.h"
+#include "sync/mutex.h"
 #include <dev/core.h>
 #include <dev/manifest.h>
 
@@ -259,6 +260,19 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
   /* Write the thing lmao */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_PERIODICLISTBASE, ehci->periodic_dma);
 
+  ehci->async = create_ehci_qh(ehci, NULL);
+
+  ehci->async->hw_next = ehci->async->qh_dma;
+  ehci->async->next = ehci->async;
+  ehci->async->prev = ehci->async;
+  
+  ehci->async->hw_info_0 = EHCI_QH_HIGH_SPEED | EHCI_QH_HEAD;
+  ehci->async->hw_info_1 = EHCI_QH_MULT_VAL(1);
+  ehci->async->hw_qtd_next = EHCI_FLLP_TYPE_END;
+
+  /* Set the async pointer */
+  mmio_write_dword(ehci->opregs + EHCI_OPREGS_ASYNCLISTADDR, ehci->async->qh_dma);
+
   return 0;
 }
 
@@ -366,11 +380,12 @@ static int ehci_start(usb_hcd_t* hcd)
   ehci = hcd->private;
 
   c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
-  c_tmp &= ~(EHCI_OPREG_USBCMD_INTER_CTL | EHCI_OPREG_USBCMD_HC_RESET | EHCI_OPREG_USBCMD_LHC_RESET);
-  c_tmp &= ~(EHCI_OPREG_USBCMD_ASYNC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE);
+  c_tmp &= ~(EHCI_OPREG_USBCMD_INTER_CTL | EHCI_OPREG_USBCMD_HC_RESET |
+      EHCI_OPREG_USBCMD_LHC_RESET);
 
   mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, 
-      c_tmp | EHCI_OPREG_USBCMD_RS | EHCI_OPREG_USBCMD_ASPM_ENABLE |
+      c_tmp | EHCI_OPREG_USBCMD_RS |
+      EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_ASYNC_SCHEDULE_ENABLE |
       /* NOTE: Interrupt configuration */
       (1 << 16)
       );
@@ -424,9 +439,28 @@ usb_hcd_hw_ops_t ehci_hw_ops = {
   .hcd_stop = ehci_stop,
 };
 
+static int _ehci_add_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
+{
+  //mutex_lock(ehci->queue_lock);
+
+  qh->hw_next = ehci->async->qh_dma;
+  qh->next= ehci->async;
+  qh->prev = ehci->async->prev;
+
+  ehci->async->prev = qh;
+
+  qh->prev->next = qh;
+  qh->prev->hw_next = qh->qh_dma;
+
+  //mutex_unlock(ehci->queue_lock);
+  return 0;
+}
+
 int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 {
+  int error;
   ehci_qh_t* qh;
+  ehci_hcd_t* ehci;
   usb_hub_t* roothub;
 
   /*
@@ -435,17 +469,38 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
   if (!hcd->roothub)
     return -1;
 
+  ehci = hcd->private;
+
   roothub = hcd->roothub;
 
   if (xfer->req_devaddr == roothub->device->dev_addr)
     return ehci_process_hub_xfer(roothub, xfer);
 
-  qh = create_ehci_qh(hcd->private, xfer->device);
+  /* Process the EHCI transfer */
+  qh = create_ehci_qh(ehci, xfer);
 
-  (void)qh;
-  /* TODO: Process the EHCI transfer */
-  kernel_panic("ehci_enqueue_transfer");
+  switch(xfer->req_type) {
+    case USB_CTL_XFER:
+      error = ehci_init_ctl_queue(ehci, xfer, qh);
+      break;
+    default:
+      error = ehci_init_data_queue(ehci, xfer, qh);
+      break;
+  }
+
+  if (error)
+    goto destroy_and_exit;
+
+  error = _ehci_add_qh(ehci, qh);
+
+  if (error)
+    goto destroy_and_exit;
+
   return 0;
+
+destroy_and_exit:
+  destroy_ehci_qh(ehci, qh);
+  return error;
 }
 
 usb_hcd_io_ops_t ehci_io_ops = {

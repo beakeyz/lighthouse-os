@@ -62,6 +62,7 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_
 
   xfer->resp_buffer = respbuf;
   xfer->resp_size = respbuf_len;
+  xfer->req_direction = USB_DIRECTION_HOST_TO_DEVICE;
   xfer->req_type = USB_CTL_XFER;
   xfer->req_buffer = ctl;
   xfer->req_size = sizeof(*ctl);

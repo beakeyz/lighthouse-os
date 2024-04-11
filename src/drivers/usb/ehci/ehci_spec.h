@@ -141,11 +141,11 @@ enum EHCI_USBCMD_INTERRUPT_THRESHOLD_CTL {
 /*
  * ECHI Frame List link pointers
  */
-#define EHCI_FLLP_TYPE_END      ((1 << 0) & 0x07) /* T-bit */
-#define EHCI_FLLP_TYPE_ITD      ((0 << 1) & 0x07)
-#define EHCI_FLLP_TYPE_QH       ((1 << 1) & 0x07)
-#define EHCI_FLLP_TYPE_SITD     ((2 << 1) & 0x07)
-#define EHCI_FLLP_TYPE_FSTN     ((3 << 1) & 0x07)
+#define EHCI_FLLP_TYPE_END      ((1 << 0)) /* T-bit */
+#define EHCI_FLLP_TYPE_ITD      ((0 << 1))
+#define EHCI_FLLP_TYPE_QH       ((1 << 1))
+#define EHCI_FLLP_TYPE_SITD     ((2 << 1))
+#define EHCI_FLLP_TYPE_FSTN     ((3 << 1))
 
 #define EHCI_QTD_DATA_TOGGLE	(1U << 31)
 #define EHCI_QTD_BYTES_SHIFT	16
@@ -188,7 +188,8 @@ typedef struct ehci_qtd {
   /* Soft side */
   paddr_t qtd_dma_addr;
   struct ehci_qtd* next;
-  struct ehci_qhd* prev;
+  struct ehci_qtd* prev;
+  struct ehci_qtd* alt_next;
   void* buffer;
   size_t len;
 } __attribute__((packed, aligned(32))) ehci_qtd_t;
@@ -202,18 +203,26 @@ typedef struct ehci_qtd {
 #define	EHCI_QH_FULL_SPEED	(0 << 12)
 #define	EHCI_QH_INACTIVATE	(1 << 7)	/* Inactivate on next transaction */
 
+#define EHCI_QH_MPL(p) (((p) << 16))
+#define EHCI_QH_RLC(p) (((p) << 28))
+#define EHCI_QH_EP_NUM(p) (((p) << 8))
+#define EHCI_QH_DEVADDR(p) (((p) << 0))
+
 /* qh info 1 */
 #define	EHCI_QH_SMASK	0x000000ff
 #define	EHCI_QH_CMASK	0x0000ff00
-#define	EHCI_QH_HUBADDR	0x007f0000
-#define	EHCI_QH_HUBPORT	0x3f800000
+#define	EHCI_QH_HUBADDR_MASK	0x007f0000
+#define EHCI_QH_HUBADDR(p) ((p) << 16)
+#define	EHCI_QH_HUBPORT_MASK	0x3f800000
+#define EHCI_QH_HUBPORT(p) ((p) << 23)
 #define	EHCI_QH_MULT    0xc0000000
+#define EHCI_QH_MULT_VAL(p) (((p) << 30))
 
 typedef struct ehci_qh {
   uint32_t hw_next;
   uint32_t hw_info_0;
   uint32_t hw_info_1;
-  uint32_t hw_cur;
+  uint32_t hw_cur_qtd;
 
   /* ehci_qtd hardware side */
   uint32_t hw_qtd_next;
@@ -227,6 +236,8 @@ typedef struct ehci_qh {
   struct ehci_qh* next;
   struct ehci_qh* prev;
   struct ehci_qtd* qtd_link;
+  struct ehci_qtd* qtd_alt;
+  struct ehci_qtd* qtd_last;
 
 } __attribute__((packed, aligned(32))) ehci_qh_t;
 

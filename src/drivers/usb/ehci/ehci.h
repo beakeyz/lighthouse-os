@@ -5,6 +5,7 @@
 #include "dev/usb/xfer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "mem/zalloc.h"
+#include "sync/mutex.h"
 #include <libk/stddef.h>
 
 struct usb_hcd;
@@ -43,6 +44,7 @@ typedef struct ehci_hcd {
   ehci_qh_t* async;
 
   thread_t* interrupt_polling_thread;
+  mutex_t* queue_lock;
 } ehci_hcd_t;
 
 extern int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer);
@@ -53,8 +55,12 @@ extern int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t fea
 
 /* transfer.c */
 extern ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer);
+extern void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer);
 extern void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
 
 extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
+
+extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
+extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 
 #endif // !__ANIVA_USB_EHCI_HCD__

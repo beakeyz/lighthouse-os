@@ -23,6 +23,11 @@ enum USB_XFER_TYPE {
   USB_ISO_XFER,
 };
 
+enum USB_XFER_DIRECTION {
+  USB_DIRECTION_HOST_TO_DEVICE,
+  USB_DIRECTION_DEVICE_TO_HOST,
+};
+
 /*
  * Generic USB request structure for the 
  * entire subsystem
@@ -33,6 +38,7 @@ enum USB_XFER_TYPE {
 typedef struct usb_xfer {
   flat_refc_t ref;
   enum USB_XFER_TYPE req_type;
+  enum USB_XFER_DIRECTION req_direction;
 
   void* resp_buffer;
   void* req_buffer;
