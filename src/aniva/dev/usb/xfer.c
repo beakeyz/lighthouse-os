@@ -47,10 +47,10 @@ static void destroy_usb_req(usb_xfer_t* req)
 /*!
  * @brief: Allocate an prepare a control transfer to @devaddr and @hubport
  */
-int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, uint8_t devaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_device_t* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
   kdoorbell_t* db = create_doorbell(1, NULL);
-  usb_xfer_t* xfer = create_usb_xfer(NULL, db, NULL, NULL);
+  usb_xfer_t* xfer = create_usb_xfer(target, db, NULL, NULL);
 
   *ctl = (usb_ctlreq_t) {
     .request_type = reqtype,
@@ -66,8 +66,10 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, uint
   xfer->req_buffer = ctl;
   xfer->req_size = sizeof(*ctl);
   xfer->req_devaddr = devaddr;
-  xfer->req_hubaddr = hubport;
+  xfer->req_hubaddr = hubaddr;
+  xfer->req_hubport = hubport;
   xfer->req_endpoint = 0;
+  xfer->req_max_packet_size = 8;
 
   *pxfer = xfer;
   *pdb = db;
@@ -118,6 +120,61 @@ int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hub* hub)
   mutex_unlock(hub->hcd->hcd_lock);
 
   return error;
+}
+
+static inline int _usb_get_ctl_packet_size(usb_device_t* udev, size_t* bsize)
+{
+  switch (udev->speed) {
+    case USB_LOWSPEED:
+      *bsize = 8;
+      break;
+    case USB_HIGHSPEED:
+      *bsize = 64;
+      break;
+    case USB_FULLSPEED:
+      *bsize = 512;
+      break;
+    default:
+      break;
+  }
+  return 0;
+}
+
+static inline int _usb_get_bulk_packet_size(usb_device_t* udev, size_t* bsize)
+{
+  switch (udev->speed) {
+    case USB_HIGHSPEED:
+      *bsize = 512;
+      break;
+    case USB_FULLSPEED:
+      *bsize = 1024;
+      break;
+    default:
+      break;
+  }
+  return 0;
+}
+
+int usb_xfer_get_max_packet_size(usb_xfer_t* xfer, size_t* bsize)
+{
+  size_t size = xfer->req_max_packet_size;
+
+  if (!xfer || !xfer->device || !bsize)
+    return -1;
+
+  switch (xfer->req_type) {
+    case USB_CTL_XFER:
+      _usb_get_ctl_packet_size(xfer->device, &size);
+      break;
+    case USB_BULK_XFER:
+      _usb_get_bulk_packet_size(xfer->device, &size);
+      break;
+    default:
+      break;
+  }
+
+  *bsize = size;
+  return 0;
 }
 
 /*!

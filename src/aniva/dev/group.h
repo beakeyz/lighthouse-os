@@ -63,7 +63,7 @@ void init_dgroups();
 dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t flags, struct oss_node* parent);
 int unregister_dev_group(dgroup_t* group);
 
-int dev_group_get(const char* name, dgroup_t** out);
+int dev_group_get(const char* path, dgroup_t** out);
 int dev_group_getbus(dgroup_t* group, int busnum);
 
 dgroup_t* dev_group_get_parent(dgroup_t* group);

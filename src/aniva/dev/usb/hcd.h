@@ -62,6 +62,9 @@ typedef struct usb_hcd {
   usb_hcd_io_ops_t* io_ops;
   usb_hcd_hw_ops_t* hw_ops;
 
+  /* Bitmap to manage device address allocation */
+  bitmap_t* devaddr_bitmap;
+
   /* Locks access to the hcds fields */
   mutex_t* hcd_lock;
 } usb_hcd_t;
@@ -73,6 +76,9 @@ static inline struct device* usb_hcd_get_device(usb_hcd_t* hcd)
 
 usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps);
 void destroy_usb_hcd(usb_hcd_t* hub);
+
+int usb_hcd_alloc_devaddr(usb_hcd_t* hub, uint8_t* paddr);
+int usb_hcd_dealloc_devaddr(usb_hcd_t* hub, uint8_t addr);
 
 bool hcd_is_accessed(struct usb_hcd* hcd);
 

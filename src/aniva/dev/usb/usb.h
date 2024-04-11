@@ -103,9 +103,6 @@ typedef struct usb_hub {
 
   uint32_t portcount;
   struct usb_port* ports;
-
-  /* Bitmap to manager device address allocation */
-  bitmap_t* devaddr_bitmap;
   
   struct usb_hub* parent;
   struct usb_hcd* hcd;
@@ -115,12 +112,10 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx
 int init_usb_device(usb_device_t* device);
 void destroy_usb_hub(usb_hub_t* hub);
 
-int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr);
-int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr);
-
 int usb_hub_submit_default_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_submit_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_enumerate(usb_hub_t* hub);
+
 /*
  * HCD stuff
  */

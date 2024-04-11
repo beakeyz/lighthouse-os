@@ -415,6 +415,7 @@ static int ehci_start(usb_hcd_t* hcd)
 static void ehci_stop(usb_hcd_t* hcd)
 {
   (void)hcd;
+  kernel_panic("ehci_stop");
 }
 
 usb_hcd_hw_ops_t ehci_hw_ops = {
@@ -425,6 +426,7 @@ usb_hcd_hw_ops_t ehci_hw_ops = {
 
 int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 {
+  ehci_qh_t* qh;
   usb_hub_t* roothub;
 
   /*
@@ -438,6 +440,9 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
   if (xfer->req_devaddr == roothub->device->dev_addr)
     return ehci_process_hub_xfer(roothub, xfer);
 
+  qh = create_ehci_qh(hcd->private, xfer->device);
+
+  (void)qh;
   /* TODO: Process the EHCI transfer */
   kernel_panic("ehci_enqueue_transfer");
   return 0;

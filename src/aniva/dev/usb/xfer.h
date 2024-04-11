@@ -48,6 +48,8 @@ typedef struct usb_xfer {
   uint32_t req_endpoint;
   uint32_t req_devaddr;
   uint32_t req_hubaddr;
+  uint32_t req_hubport;
+  uint32_t req_max_packet_size;
 
   struct usb_device* device;
 
@@ -57,15 +59,15 @@ typedef struct usb_xfer {
 
 usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, void* buffer, uint32_t buffer_size);
 
-int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, struct usb_ctlreq* ctl, uint8_t devaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
+int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, struct usb_ctlreq* ctl, struct usb_device* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 
 /* Manage the existance of the request object with a reference counter */
 void get_usb_xfer(usb_xfer_t* req);
 void release_usb_xfer(usb_xfer_t* req);
 
 int usb_xfer_complete(usb_xfer_t* xfer);
-
 int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hub* hub);
+int usb_xfer_get_max_packet_size(usb_xfer_t* xfer, size_t* bsize);
 
 void usb_post_xfer(usb_xfer_t* req, uint8_t type);
 void usb_cancel_xfer(usb_xfer_t* req);

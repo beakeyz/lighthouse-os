@@ -31,7 +31,7 @@ static int _init_input_core()
 
   logln("Initalizing input driver!");
 
-  if (!KERR_OK(dev_group_get("usb", &usb_grp)))
+  if (!KERR_OK(dev_group_get("Dev/usb", &usb_grp)))
     return -1;
 
   device_for_each(usb_grp, __check_input_device);

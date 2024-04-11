@@ -9,7 +9,6 @@
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
 #include "libk/cmdline/parser.h"
-#include "libk/data/bitmap.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
@@ -115,7 +114,7 @@ usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t hub_port, const cha
   device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
 
   /* Give ourselves a device address */
-  usb_hub_alloc_devaddr(hub, &device->dev_addr);
+  usb_hcd_alloc_devaddr(hub->hcd, &device->dev_addr);
 
   group = _root_usbhub_group;
 
@@ -138,7 +137,7 @@ void destroy_usb_device(usb_device_t* device)
   kfree(device);
 }
 
-static inline int _usb_submit_ctl(usb_hub_t* hub, uint8_t devaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+static inline int _usb_submit_ctl(usb_hub_t* hub, usb_device_t* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
   int error;
   usb_xfer_t* xfer;
@@ -146,7 +145,7 @@ static inline int _usb_submit_ctl(usb_hub_t* hub, uint8_t devaddr, uint8_t hubpo
   usb_ctlreq_t ctl;
 
   /* Initialize the control transfer */
-  init_ctl_xfer(&xfer, &db, &ctl, devaddr, hubport,
+  init_ctl_xfer(&xfer, &db, &ctl, target, devaddr, hubaddr, hubport,
       reqtype, req, value, idx, len, respbuf, respbuf_len);
 
   error = usb_xfer_enqueue(xfer, hub);
@@ -173,7 +172,7 @@ int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, ui
   if (!device || !device->hub)
     return -1;
 
-  return _usb_submit_ctl(device->hub, device->dev_addr, device->hub_port,
+  return _usb_submit_ctl(device->hub, device, device->dev_addr, device->hub->device->dev_addr, device->hub_port,
       reqtype, req, value, idx, len, respbuf, respbuf_len);
 }
 
@@ -187,9 +186,13 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx
   dgroup_t* parent_group;
   usb_hub_t* hub;
   char hubname[8] = { NULL };
+  char hubgroupname[4] = { NULL};
 
   /* If the format fails we're screwed lol */
   if (sfmt(hubname, "hub%d", hubidx))
+    return nullptr;
+
+  if (sfmt(hubgroupname, "%d", hubidx))
     return nullptr;
 
   hub = kmalloc(sizeof(*hub));
@@ -207,13 +210,9 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx
   hub->parent = parent;
   hub->hcd = hcd;
   hub->portcount = portcount;
-  hub->devaddr_bitmap = create_bitmap_ex(128, 0x00);
-
-  if (!hub->devaddr_bitmap)
-    goto destroy_and_exit;
 
   /* Register a dev group for this hub */
-  hub->devgroup = register_dev_group(DGROUP_TYPE_USB, "???", DGROUP_FLAG_BUS, parent_group->node);
+  hub->devgroup = register_dev_group(DGROUP_TYPE_USB, hubgroupname, DGROUP_FLAG_BUS, parent_group->node);
 
   if (!hub->devgroup)
     goto destroy_and_exit;
@@ -247,66 +246,18 @@ void destroy_usb_hub(usb_hub_t* hub)
   kernel_panic("TODO: destroy_usb_hub");
 }
 
-/*!
- * @brief: Allocate a deviceaddress for a usb device
- */
-int usb_hub_alloc_devaddr(usb_hub_t* hub, uint8_t* paddr)
+int usb_hub_submit_default_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
-  uint64_t addr;
-  ErrorOrPtr res;
-
-  if (!hub)
-    return -1;
-
-  res = bitmap_find_free(hub->devaddr_bitmap);
-
-  if (IsError(res))
-    return -1;
-
-  addr = Release(res);
-
-  /* Outside of the device address range */
-  if (addr >= 128)
-    return -1;
-
-  /* Mark as used */
-  bitmap_mark(hub->devaddr_bitmap, addr);
-
-  /* Export the address */
-  *paddr = (uint8_t)(addr+1);
-
-  return 0;
-}
-
-/*!
- * @brief: Deallocate a device address from a hub
- *
- * Called when a device is removed from the hub
- */
-int usb_hub_dealloc_devaddr(usb_hub_t* hub, uint8_t addr)
-{
-  if (!addr--)
-    return -1;
-
-  if (!bitmap_isset(hub->devaddr_bitmap, addr))
-    return -1;
-
-  bitmap_unmark(hub->devaddr_bitmap, addr);
-  return 0;
+  return _usb_submit_ctl(hub, hub->device, 0, hub->device->dev_addr, hub->device->hub_port,
+      reqtype, req, value, idx, len, respbuf, respbuf_len);
 }
 
 /*!
  * @brief: Submit a control transfer to @hub
  */
-int usb_hub_submit_default_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
-{
-  return _usb_submit_ctl(hub, 0, hub->device->hub_port,
-      reqtype, req, value, idx, len, respbuf, respbuf_len);
-}
-
 int usb_hub_submit_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
-  return _usb_submit_ctl(hub, hub->device->dev_addr, hub->device->hub_port,
+  return _usb_submit_ctl(hub, hub->device, hub->device->dev_addr, hub->parent ? hub->parent->device->dev_addr : 0, hub->device->hub_port,
       reqtype, req, value, idx, len, respbuf, respbuf_len);
 }
 

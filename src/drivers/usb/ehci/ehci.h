@@ -3,10 +3,13 @@
 
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
+#include "drivers/usb/ehci/ehci_spec.h"
 #include "mem/zalloc.h"
 #include <libk/stddef.h>
 
 struct usb_hcd;
+struct usb_device;
+struct usb_xfer;
 
 #define EHCI_SPINUP_LIMIT 16
 
@@ -36,6 +39,9 @@ typedef struct ehci_hcd {
   zone_allocator_t* itd_pool;
   zone_allocator_t* sitd_pool;
 
+  /* Asynchronous thingy */
+  ehci_qh_t* async;
+
   thread_t* interrupt_polling_thread;
 } ehci_hcd_t;
 
@@ -44,5 +50,11 @@ extern int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer);
 extern int ehci_get_port_sts(ehci_hcd_t* ehci, uint32_t port, usb_port_status_t* status);
 extern int ehci_set_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature);
 extern int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature);
+
+/* transfer.c */
+extern ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer);
+extern void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
+
+extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 
 #endif // !__ANIVA_USB_EHCI_HCD__

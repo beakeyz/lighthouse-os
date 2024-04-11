@@ -1,23 +1,10 @@
 #include "group.h"
 #include "dev/device.h"
-#include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"
-#include "sync/mutex.h"
-
-static hashmap_t* _group_map;
-static mutex_t* _group_lock;
-
-static inline size_t _get_group_capacity()
-{
-  if (!_group_map)
-    return NULL;
-
-  return _group_map->m_max_entries;
-}
 
 static dgroup_t* _create_dgroup()
 {
@@ -34,6 +21,7 @@ static dgroup_t* _create_dgroup()
 
 static void _destroy_dgroup(dgroup_t* group)
 {
+  /* This is a dangerous call, since all downstream objects just get nuked */
   if (group->node)
     destroy_oss_node(group->node);
   kfree(group);
@@ -47,9 +35,6 @@ static void _destroy_dgroup(dgroup_t* group)
 dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t flags, struct oss_node* parent)
 {
   dgroup_t* group;
-
-  if (_group_map->m_size >= _get_group_capacity())
-    return nullptr;
 
   group = _create_dgroup();
 
@@ -67,13 +52,6 @@ dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t f
   group->type = type;
   group->flags = flags;
 
-  mutex_lock(_group_lock);
-
-  /* Add to our general group map */
-  Must(hashmap_put(_group_map, (hashmap_key_t)name, group));
-
-  mutex_unlock(_group_lock);
-
   /* Register the group on the OSS endpoint */
   device_node_add_group(parent, group);
   return group;
@@ -85,24 +63,6 @@ dealloc_and_fail:
 
 int unregister_dev_group(dgroup_t* group)
 {
-  dgroup_t* check;
-
-  if (!group)
-    return -1;
-
-  mutex_lock(_group_lock);
-
-  /* Remove from our general group map */
-  check = hashmap_remove(_group_map, (hashmap_key_t)group->name);
-
-  mutex_unlock(_group_lock);
-
-  ASSERT_MSG(check == group, "Encountered a mismatch in unregister_dev_group");
-
-  /* This would fucking suck lmao */
-  if (check != group)
-    return -1;
-
   _destroy_dgroup(group);
   return 0;
 }
@@ -131,17 +91,25 @@ dgroup_t* dev_group_get_parent(dgroup_t* group)
  *
  * 
  */
-int dev_group_get(const char* name, dgroup_t** out)
+int dev_group_get(const char* path, dgroup_t** out)
 {
-  if (!out || !name)
+  int error;
+  oss_node_t* node;
+  
+  if (!out || !path)
     return -1;
 
-  mutex_lock(_group_lock);
+  error = oss_resolve_node(path, &node);
 
-  *out = hashmap_get(_group_map, (hashmap_key_t)name);
+  if (error)
+    return error;
 
-  mutex_unlock(_group_lock);
-  return (*out) == nullptr ? -1 : 0;
+  if (!node || node->type != OSS_GROUP_NODE || !node->priv)
+    return -KERR_INVAL;
+
+  /* Found the bastard */
+  *out = node->priv;
+  return 0;
 }
 
 /*!
@@ -201,9 +169,10 @@ int dev_group_remove_device(dgroup_t* group, struct device* dev)
  *
  * Make sure we're able to create, destroy, register, ect. device groups without
  * issues
+ *
+ * Currently no Initialize needed for dgroup, keeping this here just in case though
  */
 void init_dgroups()
 {
-  _group_map = create_hashmap(128, HASHMAP_FLAG_SK);
-  _group_lock = create_mutex(NULL);
+  (void)0;
 }

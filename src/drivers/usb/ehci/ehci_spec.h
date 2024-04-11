@@ -141,11 +141,38 @@ enum EHCI_USBCMD_INTERRUPT_THRESHOLD_CTL {
 /*
  * ECHI Frame List link pointers
  */
-#define EHCI_FLLP_TYPE_END  ((1 << 0) & 0x07) /* T-bit */
-#define EHCI_FLLP_TYPE_ITD  ((0 << 1) & 0x07)
-#define EHCI_FLLP_TYPE_QH   ((1 << 1) & 0x07)
-#define EHCI_FLLP_TYPE_SITD ((2 << 1) & 0x07)
-#define EHCI_FLLP_TYPE_FSTN ((3 << 1) & 0x07)
+#define EHCI_FLLP_TYPE_END      ((1 << 0) & 0x07) /* T-bit */
+#define EHCI_FLLP_TYPE_ITD      ((0 << 1) & 0x07)
+#define EHCI_FLLP_TYPE_QH       ((1 << 1) & 0x07)
+#define EHCI_FLLP_TYPE_SITD     ((2 << 1) & 0x07)
+#define EHCI_FLLP_TYPE_FSTN     ((3 << 1) & 0x07)
+
+#define EHCI_QTD_DATA_TOGGLE	(1U << 31)
+#define EHCI_QTD_BYTES_SHIFT	16
+#define EHCI_QTD_BYTES_MASK		0x7fff
+#define EHCI_QTD_IOC			(1 << 15)
+#define EHCI_QTD_CPAGE_SHIFT	12
+#define EHCI_QTD_CPAGE_MASK		0x07
+#define EHCI_QTD_ERRCOUNT_SHIFT	10
+#define EHCI_QTD_ERRCOUNT_MASK	0x03
+#define EHCI_QTD_PID_SHIFT		8
+#define EHCI_QTD_PID_MASK		0x03
+#define EHCI_QTD_PID_OUT		0x00
+#define EHCI_QTD_PID_IN			0x01
+#define EHCI_QTD_PID_SETUP		0x02
+#define EHCI_QTD_STATUS_SHIFT	0
+#define EHCI_QTD_STATUS_MASK	0x7f
+#define EHCI_QTD_STATUS_ERRMASK	0x50
+#define EHCI_QTD_STATUS_ACTIVE	(1 << 7)
+#define EHCI_QTD_STATUS_HALTED	(1 << 6)
+#define EHCI_QTD_STATUS_BUFFER	(1 << 5)
+#define EHCI_QTD_STATUS_BABBLE	(1 << 4)
+#define EHCI_QTD_STATUS_TERROR	(1 << 3)
+#define EHCI_QTD_STATUS_MISSED	(1 << 2)
+#define EHCI_QTD_STATUS_SPLIT	(1 << 1)
+#define EHCI_QTD_STATUS_PING	(1 << 0)
+#define EHCI_QTD_STATUS_LS_ERR	(1 << 0)
+#define EHCI_QTD_PAGE_MASK		0xfffff000
 
 /*
  * EHCI Queue transfer descriptor
@@ -154,7 +181,7 @@ typedef struct ehci_qtd {
   /* Hard side */
   uint32_t hw_next;
   uint32_t hw_alt_next;
-  uint32_t token;
+  uint32_t hw_token;
   uint32_t hw_buffer[5];
   uint32_t hw_buffer_hi[5];
 
@@ -162,7 +189,7 @@ typedef struct ehci_qtd {
   paddr_t qtd_dma_addr;
   struct ehci_qtd* next;
   struct ehci_qhd* prev;
-
+  void* buffer;
   size_t len;
 } __attribute__((packed, aligned(32))) ehci_qtd_t;
 
@@ -190,16 +217,18 @@ typedef struct ehci_qh {
 
   /* ehci_qtd hardware side */
   uint32_t hw_qtd_next;
-  uint32_t hw_alt_next;
-  uint32_t hw_token;
-  uint32_t hw_buffer[5];
-  uint32_t hw_buffer_hi[5];
+  uint32_t hw_qtd_alt_next;
+  uint32_t hw_qtd_token;
+  uint32_t hw_qtd_buffer[5];
+  uint32_t hw_qtd_buffer_hi[5];
 
   /* ehci_qh softside */
   paddr_t qh_dma;
   struct ehci_qh* next;
   struct ehci_qh* prev;
-} ehci_qh_t;
+  struct ehci_qtd* qtd_link;
+
+} __attribute__((packed, aligned(32))) ehci_qh_t;
 
 typedef struct ehci_itd {
   uint32_t hw_next;
@@ -214,8 +243,7 @@ typedef struct ehci_itd {
   size_t bufsize;
 
   /* Need size to be aligned to 32 bytes */
-  uint8_t padding[28];
-} __attribute__((packed)) ehci_itd_t;
+} __attribute__((packed, aligned(32))) ehci_itd_t;
 
 typedef struct ehci_sitd {
   uint32_t hw_next;
@@ -238,9 +266,6 @@ typedef struct ehci_sitd {
   paddr_t sitd_dma;
   size_t bufsize;
   vaddr_t buf;
-
-  /* Need size to be aligned to 32 bytes */
-  uint8_t padding[18];
-} __attribute__((packed)) ehci_sitd_t;
+} __attribute__((packed, aligned(32))) ehci_sitd_t;
 
 #endif // !__ANIVA_USB_EHCI_SPEC__
