@@ -43,7 +43,10 @@ typedef struct ehci_hcd {
   /* Asynchronous thingy */
   ehci_qh_t* async;
 
+  list_t* transfer_list;
+
   thread_t* interrupt_polling_thread;
+  thread_t* transfer_finish_thread;
   mutex_t* queue_lock;
 } ehci_hcd_t;
 
@@ -62,5 +65,16 @@ extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci
 
 extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
+
+typedef struct ehci_xfer {
+  struct usb_xfer* xfer;
+  struct ehci_qh* qh;
+} ehci_xfer_t;
+
+extern ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh);
+extern void destroy_ehci_xfer(ehci_xfer_t* xfer);
+
+extern int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
+extern int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 
 #endif // !__ANIVA_USB_EHCI_HCD__

@@ -52,52 +52,44 @@ static void xhci_ring(xhci_hcd_t* hcd, uint32_t slot, uint32_t endpoint, uint32_
   mmio_read_dword(db_addr);
 }
 
-static xhci_hcd_t* to_xhci_safe(usb_hcd_t* hub)
-{
-  xhci_hcd_t* ret = hub->private;
-  ASSERT_MSG(ret && hub->hub_type == USB_HUB_TYPE_XHCI && ret->register_ptr, "No (valid) XHCI hub attached to this hub!");
-
-  return ret;
-}
-
 static uint64_t xhci_read64(usb_hcd_t* hub, uintptr_t offset)
 {
-  return *(volatile uint64_t*)(to_xhci_safe(hub)->register_ptr + offset);
+  return *(volatile uint64_t*)(hcd_to_xhci(hub)->register_ptr + offset);
 }
 
 static void xhci_write64(usb_hcd_t* hub, uintptr_t offset, uint64_t value)
 {
-  *(volatile uint64_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
+  *(volatile uint64_t*)(hcd_to_xhci(hub)->register_ptr + offset) = value;
 }
 
 static uint32_t xhci_read32(usb_hcd_t* hub, uintptr_t offset)
 {
-  return *(volatile uint32_t*)(to_xhci_safe(hub)->register_ptr + offset);
+  return *(volatile uint32_t*)(hcd_to_xhci(hub)->register_ptr + offset);
 }
 
 static void xhci_write32(usb_hcd_t* hub, uintptr_t offset, uint32_t value)
 {
-  *(volatile uint32_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
+  *(volatile uint32_t*)(hcd_to_xhci(hub)->register_ptr + offset) = value;
 }
 
 static uint16_t xhci_read16(usb_hcd_t* hub, uintptr_t offset)
 {
-  return *(volatile uint16_t*)(to_xhci_safe(hub)->register_ptr + offset);
+  return *(volatile uint16_t*)(hcd_to_xhci(hub)->register_ptr + offset);
 }
 
 static void xhci_write16(usb_hcd_t* hub, uintptr_t offset, uint16_t value)
 {
-  *(volatile uint16_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
+  *(volatile uint16_t*)(hcd_to_xhci(hub)->register_ptr + offset) = value;
 }
 
 static uint8_t xhci_read8(usb_hcd_t* hub, uintptr_t offset)
 {
-  return *(volatile uint8_t*)(to_xhci_safe(hub)->register_ptr + offset);
+  return *(volatile uint8_t*)(hcd_to_xhci(hub)->register_ptr + offset);
 }
 
 static void xhci_write8(usb_hcd_t* hub, uintptr_t offset, uint8_t value)
 {
-  *(volatile uint8_t*)(to_xhci_safe(hub)->register_ptr + offset) = value;
+  *(volatile uint8_t*)(hcd_to_xhci(hub)->register_ptr + offset) = value;
 }
 
 /*!
@@ -212,7 +204,7 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
   hub->port_count = 0;
   hub->port_arr_size = sizeof(xhci_port_t*) * xhci->max_ports;
   /* This creates a generic USB hub and asks the host controller for its data */
-  hub->phub = create_usb_hub(xhci->parent, nullptr, 0, dev_address, 0);
+  hub->phub = create_usb_hub(xhci->parent, USB_HUB_TYPE_XHCI, nullptr, 0, dev_address, 0);
 
   hub->ports = kmalloc(hub->port_arr_size);
   memset(hub->ports, 0, hub->port_arr_size);
@@ -822,7 +814,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   logln("Probing for XHCI");
 
   /* Create a generic USB hcd */
-  hcd = create_usb_hcd(device, "xhci", USB_HUB_TYPE_XHCI, NULL);
+  hcd = create_usb_hcd(device, "xhci", NULL);
 
   /* Create our own hcd */
   xhci_hcd = create_xhci_hcd(hcd);

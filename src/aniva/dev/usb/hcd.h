@@ -45,12 +45,7 @@ typedef struct usb_hcd_hw_ops {
  * One host controller driver per controller
  */
 typedef struct usb_hcd {
-  uint8_t hub_type;
-
   flat_refc_t ref;
-
-  /* Name of the hub: can be a custom name */
-  char* hub_name;
 
   void* private;
 
@@ -74,7 +69,7 @@ static inline struct device* usb_hcd_get_device(usb_hcd_t* hcd)
   return hcd->pci_device->dev;
 }
 
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, uint8_t type, struct device_endpoint *eps);
+usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, struct device_endpoint *eps);
 void destroy_usb_hcd(usb_hcd_t* hub);
 
 int usb_hcd_alloc_devaddr(usb_hcd_t* hub, uint8_t* paddr);

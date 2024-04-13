@@ -5,6 +5,7 @@
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "mem/heap.h"
@@ -12,7 +13,6 @@
 #include "mem/zalloc.h"
 #include "proc/core.h"
 #include "sched/scheduler.h"
-#include "sync/mutex.h"
 #include <dev/core.h>
 #include <dev/manifest.h>
 
@@ -156,6 +156,33 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
   return 0;
 }
 
+static int ehci_transfer_finish(ehci_hcd_t* ehci)
+{
+  ehci_qtd_t* c_qtd;
+  ehci_xfer_t* c_xfer;
+
+  printf("Started the ehci_transfer_finish thread!\n");
+
+  while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
+    FOREACH(i, ehci->transfer_list) {
+      c_xfer = i->data;
+      c_qtd = c_xfer->qh->qtd_link;
+
+      do {
+        if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)
+          break;
+
+        printf("QTD 0x%x inactive!\n", c_qtd->hw_token);
+        c_qtd = c_qtd->next;
+      } while(c_qtd);
+    }
+
+    scheduler_yield();
+  }
+
+  return 0;
+}
+
 static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
 {
   uint32_t legsup;
@@ -200,6 +227,31 @@ static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
 
   if ((legsup & EHCI_LEGSUP_OSOWNED) == 1)
     return 0;
+
+  return -1;
+}
+
+static int ehci_halt(ehci_hcd_t* ehci)
+{
+  uint32_t tmp;
+
+  /* Make sure we don't generate shit */
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, 0);
+
+  tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
+  tmp &= ~(EHCI_OPREG_USBCMD_RS | EHCI_OPREG_USBCMD_INT_ON_ASYNC_ADVANCE_DB);
+
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, tmp);
+
+  /* Wait a bit until the ehci is halted */
+  for (uint32_t i = 0; i < 16; i++) {
+    tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS);
+
+    if ((tmp & EHCI_OPREG_USBSTS_HCHALTED) == EHCI_OPREG_USBSTS_HCHALTED)
+      return 0;
+
+    mdelay(125);
+  }
 
   return -1;
 }
@@ -266,12 +318,12 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
   ehci->async->next = ehci->async;
   ehci->async->prev = ehci->async;
   
-  ehci->async->hw_info_0 = EHCI_QH_HIGH_SPEED | EHCI_QH_HEAD;
-  ehci->async->hw_info_1 = EHCI_QH_MULT_VAL(1);
+  ehci->async->hw_info_0 = EHCI_QH_HIGH_SPEED | EHCI_QH_HEAD | EHCI_QH_INACTIVATE;
+  ehci->async->hw_qtd_token = EHCI_QTD_STATUS_HALTED;
   ehci->async->hw_qtd_next = EHCI_FLLP_TYPE_END;
 
   /* Set the async pointer */
-  mmio_write_dword(ehci->opregs + EHCI_OPREGS_ASYNCLISTADDR, ehci->async->qh_dma);
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_ASYNCLISTADDR, ehci->async->qh_dma);
 
   return 0;
 }
@@ -283,14 +335,7 @@ static int ehci_init_interrupts(ehci_hcd_t* ehci)
 
   ASSERT_MSG(ehci->interrupt_polling_thread, "Failed to spawn the EHCI Polling thread!");
 
-  ehci->cur_interrupt_state = 
-      EHCI_USBINTR_HOSTSYSERR | EHCI_USBINTR_USBERRINT |
-      EHCI_USBINTR_INTONAA | EHCI_USBINTR_PORTCHANGE | 
-      EHCI_USBINTR_USBINT;
-
-  /* Write the things to the HC */
-  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
-
+  /* Interrupts are enabled in ehci_start */
   return 0;
 }
 
@@ -304,7 +349,7 @@ static int ehci_setup(usb_hcd_t* hcd)
   hcd->pci_device->ops.read_dword(hcd->pci_device, BAR0, (uint32_t*)&bar0);
 
   ehci->register_size = pci_get_bar_size(hcd->pci_device, 0);
-  ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, NULL));
+  ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
 
   printf("Setup EHCI registerspace (addr=0x%p, size=0x%llx)\n", ehci->capregs, ehci->register_size);
 
@@ -333,8 +378,10 @@ static int ehci_setup(usb_hcd_t* hcd)
   if (error)
     return error;
 
-  /* Make sure we don't generate shit */
-  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, 0);
+  error = ehci_halt(ehci);
+
+  if (error)
+    return error;
 
   printf("Reseting EHCI\n");
 
@@ -366,6 +413,9 @@ static int ehci_setup(usb_hcd_t* hcd)
   if (error)
     return error;
 
+  ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish, (uintptr_t)ehci);
+  ehci->transfer_list = init_list();
+
   printf("Done with EHCI initialization\n");
   return 0;
 }
@@ -380,21 +430,18 @@ static int ehci_start(usb_hcd_t* hcd)
   ehci = hcd->private;
 
   c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
-  c_tmp &= ~(EHCI_OPREG_USBCMD_INTER_CTL | EHCI_OPREG_USBCMD_HC_RESET |
-      EHCI_OPREG_USBCMD_LHC_RESET);
+  c_tmp &= ~(
+      EHCI_OPREG_USBCMD_HC_RESET | EHCI_OPREG_USBCMD_INT_ON_ASYNC_ADVANCE_DB | 
+      EHCI_OPREG_USBCMD_LHC_RESET | EHCI_OPREG_USBCMD_ASYNC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE);
+  c_tmp |= EHCI_OPREG_USBCMD_RS;
 
-  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, 
-      c_tmp | EHCI_OPREG_USBCMD_RS |
-      EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_ASYNC_SCHEDULE_ENABLE |
-      /* NOTE: Interrupt configuration */
-      (1 << 16)
-      );
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, c_tmp);
 
   /* Wait for the spinup to finish */
   for (c_hcstart_spin = 0; c_hcstart_spin < EHCI_SPINUP_LIMIT; c_hcstart_spin++) {
     c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS);
 
-    if ((c_tmp & EHCI_OPREG_USBSTS_HCHALTED) != EHCI_OPREG_USBSTS_HCHALTED)
+    if ((c_tmp & EHCI_OPREG_USBSTS_HCHALTED) == 0)
       break;
 
     mdelay(500);
@@ -406,10 +453,20 @@ static int ehci_start(usb_hcd_t* hcd)
     return -1;
   }
 
+  c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
+  /* Clear interrupt ctl */
+  c_tmp &= ~(EHCI_OPREG_USBCMD_INTER_CTL(EHCI_OPREG_USBCMD_INTER_CTL_MASK) | EHCI_OPREG_USBCMD_PPCEE);
+  /* Program framelist size */
+  c_tmp |= EHCI_OPREG_USBCMD_FRAMELIST_SIZE(((c_tmp >> EHCI_OPREG_USBCMD_FRAMELIST_SIZE_SHIFT) & EHCI_OPREG_USBCMD_FRAMELIST_SIZE_MASK)));
+  /* Program interrupt ctl */
+  c_tmp |= (1 << EHCI_OPREG_USBCMD_INTER_CTL_SHIFT);
+
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, c_tmp);
   /* 
    * Route ports to us from any companion controller(s)
    * NOTE/FIXME: These controllers may be in the middle of a port reset. This 
    * may cause some issues...
+   * See: https://github.com/torvalds/linux/blob/master/drivers/usb/host/ehci-hcd.c#L573
    */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_CONFIGFLAG, 1);
 
@@ -417,8 +474,17 @@ static int ehci_start(usb_hcd_t* hcd)
   c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
   mdelay(5);
 
+  ehci->cur_interrupt_state = 
+      EHCI_USBINTR_HOSTSYSERR | EHCI_USBINTR_USBERRINT |
+      EHCI_USBINTR_INTONAA | EHCI_USBINTR_PORTCHANGE | 
+      EHCI_USBINTR_USBINT;
+
+  /* Write the things to the HC */
+  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
+
+
   /* Create this roothub */
-  hcd->roothub = create_usb_hub(hcd, nullptr, 0, 0, ehci->portcount);
+  hcd->roothub = create_usb_hub(hcd, USB_HUB_TYPE_EHCI, nullptr, 0, 0, ehci->portcount);
 
   /* Enumerate the hub */
   usb_hub_enumerate(hcd->roothub);
@@ -439,7 +505,29 @@ usb_hcd_hw_ops_t ehci_hw_ops = {
   .hcd_stop = ehci_stop,
 };
 
-static int _ehci_add_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
+static inline void _ehci_try_enable_async(ehci_hcd_t* ehci)
+{
+  uint32_t cmd;
+  uint32_t sts;
+
+  sts = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS);
+
+  /* Already enabled */
+  if ((sts & EHCI_OPREG_USBSTS_ASSTATUS) == EHCI_OPREG_USBSTS_ASSTATUS)
+    return;
+
+  cmd = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
+
+  cmd |= EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_INT_ON_ASYNC_ADVANCE_DB;
+  mmio_write_dword(ehci->opregs, cmd);
+}
+
+/*!
+ * @brief: Add a qh to the async list
+ *
+ * Places the new qh right before the current ehci->async
+ */
+static int _ehci_add_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
 {
   //mutex_lock(ehci->queue_lock);
 
@@ -452,6 +540,9 @@ static int _ehci_add_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
   qh->prev->next = qh;
   qh->prev->hw_next = qh->qh_dma;
 
+  /* Maybe enable */
+  _ehci_try_enable_async(ehci);
+
   //mutex_unlock(ehci->queue_lock);
   return 0;
 }
@@ -461,6 +552,7 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
   int error;
   ehci_qh_t* qh;
   ehci_hcd_t* ehci;
+  ehci_xfer_t* e_xfer;
   usb_hub_t* roothub;
 
   /*
@@ -488,10 +580,18 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
       break;
   }
 
+  e_xfer = create_ehci_xfer(xfer, qh);
+
+  if (!e_xfer)
+    goto destroy_and_exit;
+
+  /* Enqueue */
+  ehci_enq_xfer(ehci, e_xfer);
+
   if (error)
     goto destroy_and_exit;
 
-  error = _ehci_add_qh(ehci, qh);
+  error = _ehci_add_async_qh(ehci, qh);
 
   if (error)
     goto destroy_and_exit;
@@ -542,7 +642,7 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
   /* Enable the PCI device */
   pci_device_enable(device);
 
-  hcd = create_usb_hcd(device, "ehci_hcd", USB_HUB_TYPE_EHCI, NULL);
+  hcd = create_usb_hcd(device, "ehci_hcd", NULL);
 
   if (!hcd)
     return -KERR_NOMEM;

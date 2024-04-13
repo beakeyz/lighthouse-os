@@ -15,7 +15,6 @@
 
 #include "dev/pci/pci.h"
 #include "dev/usb/spec.h"
-#include "libk/data/bitmap.h"
 #include "libk/flow/doorbell.h"
 #include <libk/stddef.h>
 
@@ -73,7 +72,7 @@ typedef struct usb_device {
   struct usb_hub* hub;
 } usb_device_t;
 
-usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t hub_port, const char* name);
+usb_device_t* create_usb_device(struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name);
 void destroy_usb_device(usb_device_t* device);
 struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
 
@@ -108,7 +107,7 @@ typedef struct usb_hub {
   struct usb_hcd* hcd;
 } usb_hub_t;
 
-usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount);
+usb_hub_t* create_usb_hub(struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount);
 int init_usb_device(usb_device_t* device);
 void destroy_usb_hub(usb_hub_t* hub);
 

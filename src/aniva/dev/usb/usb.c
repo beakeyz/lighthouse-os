@@ -89,7 +89,7 @@ int init_usb_device(usb_device_t* device)
  * @brief Allocate and initialize a generic USB device
  *
  */
-usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t hub_port, const char* name)
+usb_device_t* create_usb_device(struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name)
 {
   dgroup_t* group;
   usb_device_t* device;
@@ -110,6 +110,7 @@ usb_device_t* create_usb_device(struct usb_hub* hub, uint8_t hub_port, const cha
 
   device->req_doorbell = create_doorbell(255, NULL);
   device->hub = hub;
+  device->speed = speed;
   device->hub_port = hub_port;
   device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
 
@@ -181,7 +182,7 @@ int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, ui
  *
  * TODO: create our own root hub configuration descriptor
  */
-usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount)
+usb_hub_t* create_usb_hub(struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount)
 {
   dgroup_t* parent_group;
   usb_hub_t* hub;
@@ -209,6 +210,7 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx
 
   hub->parent = parent;
   hub->hcd = hcd;
+  hub->type = type;
   hub->portcount = portcount;
 
   /* Register a dev group for this hub */
@@ -225,7 +227,7 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, usb_hub_t* parent, uint8_t hubidx
   memset(hub->ports, 0, portcount * sizeof(usb_port_t));
 
   /* Asks the host controller for a device descriptor */
-  hub->device = create_usb_device(hub, hubidx, hubname);
+  hub->device = create_usb_device(hub, USB_HIGHSPEED, hubidx, hubname);
 
   if (!hub->device)
     goto destroy_and_exit;
@@ -266,9 +268,25 @@ static int usb_hub_get_portsts(usb_hub_t* hub, uint32_t i, usb_port_status_t* st
   return usb_hub_submit_ctl(hub, USB_TYPE_CLASS, USB_REQ_GET_STATUS, 0, i+1, sizeof(usb_port_status_t), status, sizeof(usb_port_status_t));
 }
 
+static inline void _get_usb_speed(usb_hub_t* hub, usb_port_t* port, enum USB_SPEED *speed)
+{
+  if ((port->status.status & USB_PORT_STATUS_POWER) == 0) {
+    *speed = hub->device->speed;
+    return;
+  }
+
+  if (port->status.status & USB_PORT_STATUS_LOW_SPEED)
+    *speed = USB_LOWSPEED;
+  else if (port->status.status & USB_PORT_STATUS_HIGH_SPEED)
+    *speed = USB_HIGHSPEED;
+  else
+    *speed = USB_FULLSPEED;
+}
+
 static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 {
   usb_port_t* port;
+  enum USB_SPEED speed;
   char namebuf[11] = { NULL };
 
   if (i >= hub->portcount)
@@ -276,10 +294,12 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 
   port = &hub->ports[i];
 
+  _get_usb_speed(hub, port, &speed);
+
   /* Format the device name */
   sfmt(namebuf, "usbdev%d", i); 
 
-  port->device = create_usb_device(hub, i, namebuf);
+  port->device = create_usb_device(hub, speed, i, namebuf);
 
   /* Bruh */
   if (!port->device)

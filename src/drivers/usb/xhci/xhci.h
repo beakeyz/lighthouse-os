@@ -575,9 +575,6 @@ extern void _xhci_event_poll(xhci_hcd_t* xhci);
 
 static inline xhci_hcd_t* hcd_to_xhci(usb_hcd_t* hcd)
 {
-  if (hcd->hub_type != USB_HUB_TYPE_XHCI)
-    return nullptr;
-
   return (xhci_hcd_t*)(hcd->private);
 }
 
