@@ -1,7 +1,6 @@
 #ifndef __ANIVA_LWND_WINDOW__
 #define __ANIVA_LWND_WINDOW__
 
-#include "LibGfx/include/driver.h"
 #include "dev/video/framebuffer.h"
 #include "kevent/types/keyboard.h"
 #include "proc/proc.h"

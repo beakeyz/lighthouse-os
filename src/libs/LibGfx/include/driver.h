@@ -5,7 +5,7 @@
  * Driver controlcodes to interact with the windowing driver
  */
 #include "lightos/handle_def.h"
-#include <stddef.h>
+#include <stdint.h>
 
 #define LWND_DCC_CREATE 10
 #define LWND_DCC_CLOSE 11
@@ -38,11 +38,12 @@ typedef struct lkey_event {
  */
 
 /* Should this window have a top bar */
-#define LWND_FLAG_NO_BAR 0x00000001;
-#define LWND_FLAG_NO_CLOSE_BTN 0x00000002;
-#define LWND_FLAG_NO_HIDE_BTN 0x00000004;
+#define LWND_FLAG_NO_BAR            0x00000001;
+#define LWND_FLAG_NO_CLOSE_BTN      0x00000002;
+#define LWND_FLAG_NO_HIDE_BTN       0x00000004;
 #define LWND_FLAG_NO_FULLSCREEN_BTN 0x00000008;
-#define LWND_FLAG_DEFER_UPDATE 0x00000010
+#define LWND_FLAG_DEFER_UPDATE      0x00000010
+#define LWND_FLAG_CENTERED          0x00000020
 
 #define LWND_DEFAULT_EVENTBUFFER_CAPACITY 512
 

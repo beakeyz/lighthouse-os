@@ -376,7 +376,7 @@ void I_Error (char *error, ...)
         entry = entry->next;
     }
 
-    exit(-1);
+    exit(1);
 }
 
 //

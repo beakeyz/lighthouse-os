@@ -1,6 +1,7 @@
 #ifndef __ANIVA_KEVENT_KEYBOARD_TYPE__
 #define __ANIVA_KEVENT_KEYBOARD_TYPE__
 #include "kevent/event.h"
+#include "lightos/event/key.h"
 #include <libk/stddef.h>
 
 typedef struct kevent_kb_ctx {
@@ -24,6 +25,19 @@ static inline kevent_kb_ctx_t* kevent_ctx_to_kb(kevent_ctx_t* ctx)
     return nullptr;
 
   return ctx->buffer;
+}
+
+static inline bool kevent_is_keycombination_pressed(kevent_kb_ctx_t* ctx, enum ANIVA_SCANCODES* keys, uint32_t len)
+{
+  for (uint32_t i = 0; i < arrlen(ctx->pressed_keys) && len; i++) {
+    /* Mismatch, return false */
+    if (ctx->pressed_keys[i] != keys[i])
+      return false;
+
+    len--;
+  }
+
+  return true;
 }
 
 /*

@@ -1139,18 +1139,6 @@ int kterm_exit() {
 }
 
 /*!
- * @brief: Check if the current kb context indicates a forcequit command
- */
-static inline bool is_forcequit_sequence_pressed(kevent_kb_ctx_t* kbd)
-{
-  for (uint32_t i = 0; i < (sizeof(_forcequit_sequence) / sizeof(*_forcequit_sequence)); i++)
-    if (kbd->pressed_keys[i] != _forcequit_sequence[i])
-      return false;
-
-  return true;
-}
-
-/*!
  * @brief: Our main msg endpoint
  *
  * Make sure we support at least the most basic form of LWND emulation
@@ -1267,7 +1255,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       if (!event)
         return DRV_STAT_INVAL;
 
-      if (is_forcequit_sequence_pressed(event))
+      if (kevent_is_keycombination_pressed(event, _forcequit_sequence, arrlen(_forcequit_sequence)))
         try_terminate_process(_active_grpx_app.client_proc);
 
       /*

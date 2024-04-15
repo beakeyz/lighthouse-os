@@ -15,8 +15,6 @@
 /* Standard posix int definitions */
 #include <stdint.h>
 
-typedef uint8_t bool;
-
 /* -Required */
 typedef int pid_t;
 typedef int time_t;

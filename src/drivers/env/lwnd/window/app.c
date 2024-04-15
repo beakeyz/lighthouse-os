@@ -1,9 +1,7 @@
 #include "app.h"
+#include "LibGfx/include/driver.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/window.h"
-#include "fs/file.h"
-#include "libk/bin/elf.h"
-#include "libk/flow/error.h"
 #include "sync/mutex.h"
 
 #define APP_BAR_HEIGHT 16
@@ -38,23 +36,6 @@ lwnd_window_ops_t lwnd_app_ops = {
 };
 
 /*!
- * @brief: Prepare a test window that can host the framebuffer of a process
- */
-void create_test_app(lwnd_screen_t* screen)
-{
-  file_t* file;
-
-  file = file_open("Root/Apps/doom");
-
-  if (!file)
-    return;
-
-  Must(elf_exec_64(file, false, false));
-
-  oss_obj_close(file->m_obj);
-}
-
-/*!
  * @brief: Creates and registers a window for a process
  *
  * @returns: the window_id of the created window
@@ -66,11 +47,15 @@ window_id_t create_app_lwnd_window(lwnd_screen_t* screen, uint32_t startx, uint3
   if (!uwindow ||!process)
     return LWND_INVALID_ID;
 
-
   uwindow->current_height += APP_BAR_HEIGHT;
 
+  if (uwindow->wnd_flags & LWND_FLAG_CENTERED) {
+    startx = (screen->width >> 1) - (uwindow->current_width >> 1);
+    starty = (screen->height >> 1) - (uwindow->current_height >> 1);
+  }
+
   /* Create a generic window with every button on its bar */
-  wnd = create_lwnd_window(screen, 0, 0, uwindow->current_width, uwindow->current_height, LWND_WNDW_HIDE_BTN | LWND_WNDW_FULLSCREEN_BTN | LWND_WNDW_CLOSE_BTN, LWND_TYPE_PROCESS, process);
+  wnd = create_lwnd_window(screen, startx, starty, uwindow->current_width, uwindow->current_height, LWND_WNDW_HIDE_BTN | LWND_WNDW_FULLSCREEN_BTN | LWND_WNDW_CLOSE_BTN, LWND_TYPE_PROCESS, process);
 
   if (!wnd)
     return LWND_INVALID_ID;

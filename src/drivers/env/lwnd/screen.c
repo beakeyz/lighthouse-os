@@ -157,6 +157,9 @@ int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
 
   mutex_lock(screen->draw_lock);
 
+  /* Make sure the window area is cleared for draw */
+  lwnd_clear(window);
+
   /* We know window is valid and contained within the stack */
   for (uint32_t i = window->id; i < screen->window_count; i++) {
 

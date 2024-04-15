@@ -69,7 +69,8 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
     proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
   } else {
     /* FIXME: should kernel processes just get the kernel page dir? prolly not lol */
-    proc->m_root_pd.m_root = kmem_get_krnl_dir();
+    proc->m_root_pd.m_root = nullptr;
+    proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
     proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
     proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;

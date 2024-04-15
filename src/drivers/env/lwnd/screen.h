@@ -11,7 +11,6 @@
 #include "drivers/env/lwnd/io.h"
 #include "drivers/env/lwnd/window.h"
 #include "libk/data/bitmap.h"
-#include "libk/data/linkedlist.h"
 #include "sync/mutex.h"
 
 #include <libk/stddef.h>
@@ -53,6 +52,8 @@ typedef struct lwnd_screen {
 
   /* This bitmap is cleared on every render pass */
   bitmap_t* pixel_bitmap;
+  /* List with window ids that have recently been freed */
+  list_t* window_stack_freelist;
   /* We consider every kind of 'widget' on the screen a window. This means that even the taskbar is a 'window' =) */
   lwnd_window_t** window_stack;
 } lwnd_screen_t;

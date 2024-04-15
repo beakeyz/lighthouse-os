@@ -1,6 +1,5 @@
 #include <LibGfx/include/lgfx.h>
 #include <LibGfx/include/video.h>
-#include <stdio.h>
 
 /*
  * This is a demo app that should utilise the compositor and the 
@@ -17,7 +16,7 @@ int main()
   /* Initialize the graphics API */
 
   /* Connect to the compositor (Create a blank window of 75x75) */
-  res = request_lwindow(&window, 640, 400, NULL);
+  res = request_lwindow(&window, 640, 400, LWND_FLAG_CENTERED);
 
   if (!res)
     return -1;

@@ -81,7 +81,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
 
   /* Do context before we assign the userstack */
-  thread->m_context = setup_regs(kthread, proc->m_root_pd.m_root, thread->m_kernel_stack_top);
+  thread->m_context = setup_regs(kthread, (pml_entry_t*)proc->m_root_pd.m_phys_root, thread->m_kernel_stack_top);
 
   /*
    * FIXME: right now, we try to remap the stack every time a thread is created,
@@ -271,8 +271,6 @@ NAKED void common_thread_entry() {
  */
 extern void thread_enter_context(thread_t *to) 
 {
-  paddr_t krnl_dir_phys;
-  paddr_t new_dir_phys;
   processor_t *cur_cpu;
   thread_t* prev_thread;
 
@@ -295,13 +293,7 @@ extern void thread_enter_context(thread_t *to)
   if (prev_thread->m_context.cr3 == to->m_context.cr3)
     return;
 
-  krnl_dir_phys = (paddr_t)kmem_get_krnl_dir();
-  new_dir_phys = to->m_context.cr3;
-
-  if (new_dir_phys != krnl_dir_phys)
-    new_dir_phys = kmem_to_phys(nullptr, new_dir_phys);
-
-  kmem_load_page_dir(new_dir_phys, false);
+  kmem_load_page_dir(to->m_context.cr3, false);
 }
 
 /*!

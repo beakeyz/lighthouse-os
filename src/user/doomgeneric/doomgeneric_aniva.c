@@ -31,12 +31,12 @@ void DG_Init()
   res = request_lwindow(&window, DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
 
   if (!res)
-    I_Error("Could not request window!");
+    exit(1);
 
   res = lwindow_request_framebuffer(&window, &fb);
 
   if (!res)
-    I_Error("Could not request framebuffer!");
+    exit(2);
 }
 
 /*!

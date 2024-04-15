@@ -5,8 +5,10 @@
 #include "drivers/env/lwnd/screen.h"
 #include "drivers/env/lwnd/window/app.h"
 #include "drivers/env/lwnd/window/wallpaper.h"
+#include "fs/file.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
+#include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
@@ -18,7 +20,6 @@
 #include <dev/video/device.h>
 #include "sync/mutex.h"
 #include "window.h"
-#include "LibGfx/include/driver.h"
 
 static fb_info_t _fb_info;
 static lwnd_mouse_t _mouse;
@@ -31,6 +32,11 @@ static fb_handle_t _lwnd_fb_handle;
 //static vector_t* _screens;
 static lwnd_screen_t* main_screen;
 
+static enum ANIVA_SCANCODES _forcequit_sequence[] = {
+  ANIVA_SCANCODE_LALT,
+  ANIVA_SCANCODE_LSHIFT,
+  ANIVA_SCANCODE_Q,
+};
 
 /*!
  * @brief: Main compositing loop
@@ -102,7 +108,7 @@ static void USED lwnd_main()
 /*!
  * @brief: This is a temporary key handler to test out window event and shit
  *
- * TODO: send the key event over to the focussed window
+ * Sends the key event over to the focussed window if there isn't a special key combination pressed
  */
 int on_key(kevent_ctx_t* ctx) 
 {
@@ -112,12 +118,23 @@ int on_key(kevent_ctx_t* ctx)
   if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
     return 0;
 
+  k_event = kevent_ctx_to_kb(ctx);
+
+  if (!k_event)
+    return 0;
+
   wnd = lwnd_screen_get_top_window(main_screen);
 
   if (!wnd)
     return 0;
  
-  k_event = kevent_ctx_to_kb(ctx);
+  if (kevent_is_keycombination_pressed(k_event, _forcequit_sequence, arrlen(_forcequit_sequence))) {
+    switch (wnd->type) {
+      case LWND_TYPE_PROCESS:
+        try_terminate_process(wnd->client.proc);
+        break;
+    }
+  }
 
   /* TODO: save this instantly to userspace aswell */
   lwnd_save_keyevent(wnd, k_event);
@@ -189,6 +206,38 @@ int init_window_driver()
   println("Starting deamon!");
   ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
 
+  file_t* test_f = file_open("Root/Apps/gfx_test");
+
+  if (!test_f)
+    return 0;
+
+  uint32_t test_pid = Must(elf_exec_64(test_f, false, false));
+
+  file_close(test_f);
+
+  proc_t* test_p = find_proc_by_id(test_pid); 
+
+  if (!test_p)
+    return 0;
+
+  sched_add_priority_proc(test_p, true);
+
+  file_t* doom_f = file_open("Root/Apps/doom");
+
+  if (!doom_f)
+    return 0;
+
+  uint32_t pid = Must(elf_exec_64(doom_f, false, false));
+
+  file_close(doom_f);
+
+  proc_t* doom_p = find_proc_by_id(pid); 
+
+  if (!doom_p)
+    return 0;
+
+  sched_add_priority_proc(doom_p, true);
+
   return 0;
 }
 
@@ -240,6 +289,16 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
       uwindow->wnd_id = lwnd_id;
       break;
 
+    case LWND_DCC_CLOSE:
+      internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
+
+      if (!internal_wnd)
+        return DRV_STAT_INVAL;
+
+      lwnd_screen_unregister_window(main_screen, internal_wnd);
+
+      destroy_lwnd_window(internal_wnd);
+      break;
     case LWND_DCC_REQ_FB:
       mutex_lock(main_screen->draw_lock);
 

@@ -11,24 +11,7 @@
 
 #define FILE_BUFSIZE    (0x2000)
 
-FILE __stdin = {
-  .handle = 0,
-  .r_buf_size = FILE_BUFSIZE,
-  .r_offset = 0,
-  .r_buff = NULL,
-  .r_capacity = NULL,
-};
-
-FILE __stdout = {
-  .handle = 1,
-  .w_buf_written = 0,
-  .w_buf_size = FILE_BUFSIZE,
-};
-
-/* Initialize this to POSIXefy our userspace =O */
-FILE __stderr = {
-  0
-};
+FILE __std_files[3] = { NULL };
 
 FILE* stdin;
 FILE* stdout;
@@ -40,9 +23,9 @@ extern int real_va_sscanf(const char* buffer, const char* fmt, va_list args);
 
 void __init_stdio(void)
 {
-  stdin = &__stdin;
-  stdout = &__stdout;
-  stderr = &__stderr;
+  stdin = &__std_files[0];
+  stdout = &__std_files[1];
+  stderr = &__std_files[2];
 
   /* Make sure no junk */
   memset(stdin, 0, sizeof(*stdin));
@@ -52,21 +35,30 @@ void __init_stdio(void)
   /* Set stdin */
   stdin->handle = 0;
   stdin->r_buf_size = FILE_BUFSIZE;
+  /* Create buffer */
+  stdin->r_buff = malloc(FILE_BUFSIZE);
+  /* Make sure the buffer is empty empty */
+  memset(stdin->r_buff, 0, FILE_BUFSIZE);
 
   /* Set stdout */
   stdout->handle = 1;
   stdout->w_buf_size = FILE_BUFSIZE;
+  /* Create buffer */
+  stdout->w_buff = malloc(FILE_BUFSIZE);
+  /* Make sure the buffer is empty empty */
+  memset(stdout->w_buff, 0, FILE_BUFSIZE);
 
   /* Set stderr */
   stderr->handle = 2;
 
-  /* Create buffers */
-  stdin->r_buff = malloc(FILE_BUFSIZE);
-  stdout->w_buff = malloc(FILE_BUFSIZE);
+  if (!handle_verify(stdin->handle))
+    stdin->handle = HNDL_INVAL;
 
-  /* Make sure they are empty */
-  memset(stdin->r_buff, 0, FILE_BUFSIZE);
-  memset(stdout->w_buff, 0, FILE_BUFSIZE);
+  if (!handle_verify(stdout->handle))
+    stdout->handle = HNDL_INVAL;
+
+  if (!handle_verify(stderr->handle))
+    stderr->handle = HNDL_INVAL;
 }
 
 /*
@@ -112,7 +104,7 @@ int __read_byte(FILE* stream, uint8_t* buffer)
 {
   size_t r_size;
 
-  if (!buffer)
+  if (!buffer || !stream->r_buff)
     return NULL;
 
   /* We have run out of local buffer space. Lets ask for some new */

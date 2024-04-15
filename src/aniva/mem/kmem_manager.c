@@ -613,7 +613,8 @@ ErrorOrPtr kmem_return_physical_page(paddr_t page_base) {
 /*
  * Find the kernel root page directory
  */
-pml_entry_t *kmem_get_krnl_dir(void) {
+pml_entry_t *kmem_get_krnl_dir(void) 
+{
   /* NOTE: this is a physical address :clown: */
   return KMEM_DATA.m_kernel_base_pd;
 }
@@ -642,7 +643,9 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
   const bool should_make_user = ((kmem_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER);
   const uint32_t page_creation_flags = (should_make_user ? 0 : KMEM_FLAG_KERNEL) | page_flags;
 
-  pml_entry_t* pml4 = (pml_entry_t*)kmem_from_phys((uintptr_t)(root == nullptr ? kmem_get_krnl_dir() : root), KMEM_DATA.m_high_page_base);
+  pml_entry_t* pml4 = (root == nullptr) ?
+    (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_krnl_dir(), KMEM_DATA.m_high_page_base) :
+    root;
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
   if (!pml4_entry_exists) {
@@ -1411,6 +1414,7 @@ page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_mapping_si
   const vaddr_t kernel_end = ALIGN_DOWN((uintptr_t)&_kernel_end, SMALL_PAGE_SIZE);
 
   ret.m_root = table_root;
+  ret.m_phys_root = kmem_to_phys(nullptr, (vaddr_t)table_root);
   ret.m_kernel_low = kernel_start;
   ret.m_kernel_high = kernel_end;
 

@@ -2,6 +2,7 @@
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/alloc.h"
 #include "drivers/env/lwnd/screen.h"
+#include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
@@ -43,8 +44,9 @@ lwnd_window_t* create_lwnd_window(struct lwnd_screen* screen, uint32_t startx, u
  */
 void destroy_lwnd_window(lwnd_window_t* window)
 {
-  /* TODO: remove framebuffer if we have it */
-  kernel_panic("TODO: propperly destroy lwnd window");
+  ASSERT_MSG(!window->screen, "Tried to destroy a window which is still registered");
+
+  Must(__kmem_kernel_dealloc((vaddr_t)window->fb_ptr, window->fb_size));
 
   destroy_mutex(window->lock);
   deallocate_lwnd_window(window);
@@ -189,7 +191,7 @@ int lwnd_clear(lwnd_window_t* window)
 {
   lwnd_screen_t* this;
 
-  if (!window)
+  if (!window || !window->screen)
     return -1;
 
   this = window->screen;

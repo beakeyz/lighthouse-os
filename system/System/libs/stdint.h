@@ -17,4 +17,6 @@ typedef uint64_t                    uintptr_t;
 typedef uintptr_t                   vaddr_t;
 typedef uintptr_t                   paddr_t;
 
+typedef uint8_t bool;
+
 #endif // !__LIBENV_STDINT__
