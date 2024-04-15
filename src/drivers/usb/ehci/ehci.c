@@ -13,6 +13,7 @@
 #include "mem/zalloc.h"
 #include "proc/core.h"
 #include "sched/scheduler.h"
+#include "sync/mutex.h"
 #include <dev/core.h>
 #include <dev/manifest.h>
 
@@ -161,9 +162,16 @@ static int ehci_transfer_finish(ehci_hcd_t* ehci)
   ehci_qtd_t* c_qtd;
   ehci_xfer_t* c_xfer;
 
-  printf("Started the ehci_transfer_finish thread!\n");
+  printf("EHCI: entered the ehci transfer finish routine\n");
 
   while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
+
+    /* Spin until there are transfers to process */
+    while (ehci->transfer_list->m_length == 0)
+      scheduler_yield();
+
+    mutex_lock(ehci->transfer_lock);
+
     FOREACH(i, ehci->transfer_list) {
       c_xfer = i->data;
       c_qtd = c_xfer->qh->qtd_link;
@@ -176,6 +184,8 @@ static int ehci_transfer_finish(ehci_hcd_t* ehci)
         c_qtd = c_qtd->next;
       } while(c_qtd);
     }
+
+    mutex_unlock(ehci->transfer_lock);
 
     scheduler_yield();
   }
@@ -318,9 +328,11 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
   ehci->async->next = ehci->async;
   ehci->async->prev = ehci->async;
   
-  ehci->async->hw_info_0 = EHCI_QH_HIGH_SPEED | EHCI_QH_HEAD | EHCI_QH_INACTIVATE;
+  ehci->async->hw_info_0 = EHCI_QH_HEAD | EHCI_QH_INACTIVATE;
   ehci->async->hw_qtd_token = EHCI_QTD_STATUS_HALTED;
   ehci->async->hw_qtd_next = EHCI_FLLP_TYPE_END;
+
+  printf("Writing async list addr: %llx\n", ehci->async->qh_dma);
 
   /* Set the async pointer */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_ASYNCLISTADDR, ehci->async->qh_dma);
@@ -348,8 +360,7 @@ static int ehci_setup(usb_hcd_t* hcd)
 
   hcd->pci_device->ops.read_dword(hcd->pci_device, BAR0, (uint32_t*)&bar0);
 
-  ehci->register_size = pci_get_bar_size(hcd->pci_device, 0);
-  ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
+  ehci->register_size = pci_get_bar_size(hcd->pci_device, 0); ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
 
   printf("Setup EHCI registerspace (addr=0x%p, size=0x%llx)\n", ehci->capregs, ehci->register_size);
 
@@ -378,11 +389,6 @@ static int ehci_setup(usb_hcd_t* hcd)
   if (error)
     return error;
 
-  error = ehci_halt(ehci);
-
-  if (error)
-    return error;
-
   printf("Reseting EHCI\n");
 
   /* Reset ourselves */
@@ -393,9 +399,6 @@ static int ehci_setup(usb_hcd_t* hcd)
 
   /* Spec wants us to set the segment register */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_CTRLDSSEGMENT, 0);
-
-  /* TODO: Further init following the EHCI spec
-   */
 
   printf("Doing EHCI memory\n");
 
@@ -413,8 +416,14 @@ static int ehci_setup(usb_hcd_t* hcd)
   if (error)
     return error;
 
-  ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish, (uintptr_t)ehci);
+  error = ehci_halt(ehci);
+
+  if (error)
+    return error;
+
   ehci->transfer_list = init_list();
+  ehci->transfer_lock = create_mutex(NULL);
+  ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish, (uintptr_t)ehci);
 
   printf("Done with EHCI initialization\n");
   return 0;
@@ -462,6 +471,7 @@ static int ehci_start(usb_hcd_t* hcd)
   c_tmp |= (1 << EHCI_OPREG_USBCMD_INTER_CTL_SHIFT);
 
   mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, c_tmp);
+
   /* 
    * Route ports to us from any companion controller(s)
    * NOTE/FIXME: These controllers may be in the middle of a port reset. This 
@@ -481,7 +491,6 @@ static int ehci_start(usb_hcd_t* hcd)
 
   /* Write the things to the HC */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
-
 
   /* Create this roothub */
   hcd->roothub = create_usb_hub(hcd, USB_HUB_TYPE_EHCI, nullptr, 0, 0, ehci->portcount);
@@ -597,7 +606,6 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
     goto destroy_and_exit;
 
   return 0;
-
 destroy_and_exit:
   destroy_ehci_qh(ehci, qh);
   return error;

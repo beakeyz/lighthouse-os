@@ -8,6 +8,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "sync/mutex.h"
 
 ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh)
 {
@@ -33,21 +34,37 @@ void destroy_ehci_xfer(ehci_xfer_t* xfer)
 
 int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
-  /* TODO: locking */
+  mutex_lock(ehci->transfer_lock);
+
   list_append(ehci->transfer_list, xfer);
+
+  mutex_unlock(ehci->transfer_lock);
   return 0;
 }
 
+/*!
+ * @brief: Remove a transfer from the ehci hcds queue
+ */
 int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
-  /* TODO: locking */
-  if (!list_remove_ex(ehci->transfer_list, xfer))
-    return -1;
-  return 0;
+  bool remove_success;
+
+  mutex_lock(ehci->transfer_lock);
+
+  remove_success = list_remove_ex(ehci->transfer_list, xfer);
+
+  mutex_unlock(ehci->transfer_lock);
+
+  if (remove_success)
+    return 0;
+
+  return -1;
 }
 
 static inline int _ehci_qh_link_qtd(ehci_qh_t* qh, ehci_qtd_t* a, bool do_alt)
 {
+  a->prev = qh->qtd_last;
+
   if (!qh->qtd_last) {
     qh->qtd_link = a;
     qh->qtd_last = a;
@@ -63,7 +80,6 @@ static inline int _ehci_qh_link_qtd(ehci_qh_t* qh, ehci_qtd_t* a, bool do_alt)
   qh->qtd_last->hw_alt_next = do_alt ? qh->qtd_alt->qtd_dma_addr : EHCI_FLLP_TYPE_END;
 
   qh->qtd_last = a;
-
   return 0;
 }
 
@@ -106,14 +122,14 @@ static inline void _try_allocate_qtd_buffer(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
   c_phys = kmem_to_phys(nullptr, (vaddr_t)qtd->buffer);
 
   for (uint32_t i = 0; i < 5; i++) {
-    qtd->hw_buffer[i] = c_phys;
+    qtd->hw_buffer[i] = i ? (c_phys & EHCI_QTD_PAGE_MASK) : c_phys;
     qtd->hw_buffer_hi[i] = NULL;
 
     c_phys += SMALL_PAGE_SIZE;
   }
 }
 
-static inline ehci_qtd_t* _create_ehci_qtd_raw(ehci_hcd_t* ehci, size_t bsize, uint8_t pid)
+static ehci_qtd_t* _create_ehci_qtd_raw(ehci_hcd_t* ehci, size_t bsize, uint8_t pid)
 {
   paddr_t this_dma;
   ehci_qtd_t* ret;
@@ -169,9 +185,9 @@ void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer)
   (void)usb_xfer_get_max_packet_size(xfer, &max_pckt_size);
 
   qh->hw_info_0 |= (
-      EHCI_QH_MPL(max_pckt_size) |
-      EHCI_QH_EP_NUM(xfer->req_endpoint) |
       EHCI_QH_DEVADDR(xfer->req_devaddr) |
+      EHCI_QH_EP_NUM(xfer->req_endpoint) |
+      EHCI_QH_MPL(8) |
       EHCI_QH_TOGGLE_CTL);
   qh->hw_info_1 = EHCI_QH_MULT_VAL(1);
 
@@ -194,10 +210,10 @@ ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer)
   if (!qh)
     return nullptr;
 
-  /* Sanity */
-  ASSERT_MSG(ALIGN_UP((uint64_t)qh, 32) == (uint64_t)qh, "EHCI: Got an unaligned qh!");
-
   this_dma = kmem_to_phys(nullptr, (vaddr_t)qh);
+
+  /* Sanity */
+  ASSERT_MSG(ALIGN_UP((uint64_t)this_dma, 32) == (uint64_t)this_dma, "EHCI: Got an unaligned qh!");
 
   /* Zero the thing, just to be sure */
   memset(qh, 0, sizeof(*qh));

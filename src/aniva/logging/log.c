@@ -5,7 +5,7 @@
 #include <libk/ctype.h>
 #include <sync/mutex.h>
 
-static mutex_t* __default_mutex;
+static mutex_t* __default_mutex = NULL;
 static logger_t* __loggers[LOGGER_MAX_COUNT];
 static size_t __loggers_count;
 
@@ -312,6 +312,7 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
       continue;
 
     log_ex(i, msg, nullptr, type);
+
   }
 
   return 0;
@@ -535,11 +536,19 @@ kputch_cycle:
 
 int vprintf(const char* fmt, va_list args)
 {
+  int error;
+
+  try_lock();
+
   /*
    * These kinds of prints should only go to loggers that are marked
    * as supporting info
    */
-  return _vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
+  error = _vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
+
+  try_unlock();
+
+  return error;
 }
 
 /*!
@@ -576,7 +585,11 @@ int sfmt(char* buf, const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
+  try_lock();
+
   error = _vprintf(LOGGER_FLAG_INFO, fmt, args, __bufout, &buf);
+
+  try_unlock();
 
   va_end(args);
 
@@ -590,7 +603,11 @@ int kdbgf(const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
+  try_lock();
+
   error = _vprintf(LOGGER_FLAG_DEBUG, fmt, args, _kputch, NULL);
+
+  try_unlock();
 
   va_end(args);
 
@@ -599,17 +616,41 @@ int kdbgf(const char* fmt, ...)
 
 int kdbgln(const char* msg)
 {
-  return print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_LINE);
+  int error;
+
+  try_lock();
+
+  error = print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_LINE);
+
+  try_unlock();
+
+  return error;
 }
 
 int kdbg(const char* msg)
 {
-  return print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_DEFAULT);
+  int error;
+
+  try_lock();
+
+  error = print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_DEFAULT);
+
+  try_unlock();
+
+  return error;
 }
 
 int kdbgc(char c)
 {
-  return _kputch(LOGGER_FLAG_DEBUG, c, NULL);
+  int error;
+
+  try_lock();
+
+  error = _kputch(LOGGER_FLAG_DEBUG, c, NULL);
+
+  try_unlock();
+
+  return error;
 }
 
 int kwarnf(const char* fmt, ...)
@@ -619,7 +660,11 @@ int kwarnf(const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
+  try_lock();
+
   error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
+
+  try_unlock();
 
   va_end(args);
 
@@ -628,17 +673,41 @@ int kwarnf(const char* fmt, ...)
 
 int kwarnln(const char* msg)
 {
-  return print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_LINE);
+  int error;
+
+  try_lock();
+
+  error = print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_LINE);
+
+  try_unlock();
+
+  return error;
 }
 
 int kwarn(const char* msg)
 {
-  return print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_DEFAULT);
+  int error;
+
+  try_lock();
+
+  error = print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_DEFAULT);
+
+  try_unlock();
+
+  return error;
 }
 
 int kwarnc(char c)
 {
-  return _kputch(LOGGER_FLAG_WARNINGS, c, NULL);
+  int error;
+
+  try_lock();
+
+  error = _kputch(LOGGER_FLAG_WARNINGS, c, NULL);
+
+  try_unlock();
+
+  return error;
 }
 
 /*!

@@ -4,6 +4,7 @@
 #include "mem/heap.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
+#include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include "system/processor/processor.h"
 
@@ -11,7 +12,7 @@
  * Wrapper that unblocks the threads that tried to 
  * take the mutex while it was locked
  */
-static void __mutex_handle_unblock(mutex_t* mutex);
+static int __mutex_handle_unblock(mutex_t* mutex);
 
 mutex_t* create_mutex(uint8_t flags) 
 {
@@ -22,14 +23,8 @@ mutex_t* create_mutex(uint8_t flags)
   ret->m_waiters = create_limitless_queue();
   ret->m_lock = create_spinlock();
   ret->m_lock_holder = nullptr;
-  ret->m_mutex_flags = flags;
-  ret->m_lock_depth = 0;
 
-  if (flags & MUTEX_FLAG_IS_HELD) {
-    flags &= ~MUTEX_FLAG_IS_HELD;
-
-    mutex_lock(ret);
-  }
+  init_atomic_ptr(&ret->m_lock_depth, 0);
 
   return ret;
 }
@@ -39,14 +34,8 @@ void init_mutex(mutex_t* lock, uint8_t flags)
   lock->m_waiters = create_limitless_queue();
   lock->m_lock = create_spinlock();
   lock->m_lock_holder = nullptr;
-  lock->m_mutex_flags = flags;
-  lock->m_lock_depth = 0;
 
-  if (flags & MUTEX_FLAG_IS_HELD) {
-    flags &= ~MUTEX_FLAG_IS_HELD;
-
-    mutex_lock(lock);
-  }
+  init_atomic_ptr(&lock->m_lock_depth, 0);
 }
 
 void clear_mutex(mutex_t* mutex)
@@ -101,18 +90,6 @@ void mutex_lock(mutex_t* mutex)
 retry_lock:
   spinlock_lock(mutex->m_lock);
 
-  // NOTE: it's fine to be preempted here, since this value won't change
-  // when we get back
-  //current_thread = get_current_scheduling_thread();
-
-  /*
-  if (current_thread == mutex->m_lock_holder) {
-    mutex->m_lock_depth++;
-    goto exit_mutex_locking;
-  }
-  */
-
-
   if (!mutex->m_lock_holder)
     goto do_lock;
 
@@ -148,16 +125,18 @@ retry_lock:
 do_lock:
   thread_register_mutex(current_thread, mutex);
 
-  mutex->m_mutex_flags |= MUTEX_FLAG_IS_HELD;
   mutex->m_lock_holder = current_thread;
 
 skip_lock_register:
-  mutex->m_lock_depth++;
+  atomic_ptr_write(&mutex->m_lock_depth, 
+    atomic_ptr_read(&mutex->m_lock_depth) + 1
+  );
   spinlock_unlock(mutex->m_lock);
 }
 
 void mutex_unlock(mutex_t* mutex) 
 {
+  uint64_t c_depth;
   thread_t* c_thread;
 
   c_thread = get_current_scheduling_thread();
@@ -165,32 +144,25 @@ void mutex_unlock(mutex_t* mutex)
   if (!c_thread)
     return;
 
-  ASSERT_MSG(mutex, "Tried to unlock a mutex that has not been initialized");
-  //ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't lock a mutex from within an IRQ!");
-  // ASSERT_MSG(mutex->m_lock_holder != nullptr, "mutex has no holder while trying to unlock!");
-  ASSERT_MSG(mutex->m_lock_depth, "Tried to unlock a mutex while it was already unlocked!");
-  ASSERT_MSG((mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD), "IS_HELD flag not set while trying to unlock mutex");
-
-  /* This assert triggers unwillingly when we unlock locked mutexes on thread exit */
-  //ASSERT_MSG(mutex->m_lock_holder == c_thread, "Tried to unlock a mutex that wasn't locked by this thread");
+  ASSERT_MSG(mutex && mutex->m_lock, "Tried to unlock a mutex that has not been initialized");
 
   spinlock_lock(mutex->m_lock);
 
-  mutex->m_lock_depth--;
+  c_depth = atomic_ptr_read(&mutex->m_lock_depth);
 
-  if (!mutex->m_lock_depth) {
+  ASSERT_MSG(c_depth, "Tried to unlock a mutex while it was already unlocked!");
 
-    mutex->m_mutex_flags &= ~MUTEX_FLAG_IS_HELD;
+  c_depth--;
+
+  atomic_ptr_write(&mutex->m_lock_depth, c_depth);
+
+  if (!c_depth) {
 
     thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
-    /* Unlock the spinlock before we try unblocking */
-    spinlock_unlock(mutex->m_lock);
-
     /* Unblock */
-    __mutex_handle_unblock(mutex);
-
-    return;
+    if (__mutex_handle_unblock(mutex) == 0)
+      return;
   }
 
   spinlock_unlock(mutex->m_lock);
@@ -202,7 +174,8 @@ bool mutex_is_locked(mutex_t* mutex)
   // No mutex means no lock =/
   if (!mutex)
     return false;
-  return (mutex->m_lock_holder && (mutex->m_mutex_flags & MUTEX_FLAG_IS_HELD));
+
+  return (mutex->m_lock_holder && (atomic_ptr_read(&mutex->m_lock_depth) != NULL));
 }
 
 // FIXME: inline?
@@ -216,13 +189,13 @@ bool mutex_is_locked_by_current_thread(mutex_t* mutex)
  *
  * NOTE: the caller must have the mutexes spinlock held
  */
-static void __mutex_handle_unblock(mutex_t* mutex) 
+static int __mutex_handle_unblock(mutex_t* mutex) 
 {
   thread_t* current_thread;
   thread_t* next_holder;
 
   if (!mutex)
-    return;
+    return -1;
 
   /* Preemptive reset of the holder field */
   mutex->m_lock_holder = nullptr;
@@ -231,17 +204,26 @@ static void __mutex_handle_unblock(mutex_t* mutex)
   next_holder = queue_dequeue(mutex->m_waiters);
 
   if (!current_thread || !next_holder)
-    return;
+    return -1;
 
   pause_scheduler();
 
   ASSERT_MSG(next_holder != current_thread, "Next thread to hold mutex is also the current thread!");
 
+  /* Set the next holder */
   mutex->m_lock_holder = next_holder;
 
+  /* Release the mutext */
+  spinlock_unlock(mutex->m_lock);
+
+  /* Mark the thread unblocked */
   thread_unblock(next_holder);
 
+  /* Release the scheduler */
   resume_scheduler();
 
+  /* Yield to the scheduler */
   scheduler_yield();
+
+  return 0;
 }

@@ -2,24 +2,12 @@
 #define __ANIVA_SYNC_MUTEX__
 #include "libk/data/queue.h"
 #include "proc/thread.h"
+#include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include <libk/stddef.h>
 
-/*
- * When passing this flag to the mutex on creation, 
- * we imply that the mutex immediately gets locked after 
- * creation
- */
-#define MUTEX_FLAG_IS_HELD                  0x01
-
-/*
- * TODO: implement
- */
-#define MUTEX_FLAG_IS_SHARED                0x02
-
 typedef struct mutex {
-  uint8_t m_mutex_flags;
-  uint32_t m_lock_depth;
+  atomic_ptr_t m_lock_depth;
 
   thread_t* m_lock_holder;
 
