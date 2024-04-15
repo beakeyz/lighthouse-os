@@ -12,10 +12,10 @@
  * come when they are ready
  */
 
-#ifndef KERNEL
-
 /* Standard posix int definitions */
 #include <stdint.h>
+
+typedef uint8_t bool;
 
 /* -Required */
 typedef int pid_t;
@@ -72,7 +72,5 @@ typedef void (*FuncPtr)();
  */
 #define SUCCESS         (0)
 #define ERROR           (-1)
-
-#endif // !KERNEL
 
 #endif // !__LIGHTENV_LIBC_TYPES__

@@ -15,7 +15,6 @@
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
 #include "sched/scheduler.h"
-#include "sys/types.h"
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
 {

@@ -14,7 +14,6 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
-#include "sys/types.h"
 #include "system/processor/processor.h"
 #include <entry/entry.h>
 #include <oss/node.h>

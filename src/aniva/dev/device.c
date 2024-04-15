@@ -466,7 +466,7 @@ void init_hw()
   //init_acpi_core();
 
   /* Load the USB drivers on our system */
-  init_usb_drivers();
+  //init_usb_drivers();
 
   ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
 }

@@ -113,7 +113,7 @@ index c81bc8a7..d58b7321 100644
  case "${target}" in
  
 +*-*-lightos*)
-+  NATIVE_LIB_DIRS='/libs/'
++  NATIVE_LIB_DIRS='/Lib/'
 +  ;;
 +
  *-*-dragonfly*)

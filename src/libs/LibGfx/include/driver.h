@@ -5,7 +5,7 @@
  * Driver controlcodes to interact with the windowing driver
  */
 #include "lightos/handle_def.h"
-#include <LibC/stdint.h>
+#include <stddef.h>
 
 #define LWND_DCC_CREATE 10
 #define LWND_DCC_CLOSE 11

@@ -111,6 +111,7 @@ static uint32_t _chars_cursor_x;
 static uint32_t _chars_cursor_y;
 /* Current index of the color used for printing */
 static uint32_t _current_color_idx;
+static uint32_t _current_background_idx;
 
 static const char* _old_dflt_lwnd_path_value;
 
@@ -200,15 +201,7 @@ static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint3
   }
 }
 
-static inline void kterm_clear_raw()
-{
-  if (!_kterm_vdev)
-    return;
-
-  kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, 0x00);
-}
-
-static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
+static inline uint32_t kterm_color_for_pallet_idx(uint32_t idx)
 {
   uint32_t clr;
   struct kterm_terminal_pallet_entry* entry;
@@ -228,17 +221,30 @@ static uint32_t kterm_color_for_pallet_idx(uint32_t idx)
   return clr;
 }
 
-static void kterm_update_term_char(struct kterm_terminal_char* char_start, uint32_t count)
+static inline void kterm_clear_raw()
+{
+  if (!_kterm_vdev)
+    return;
+
+  kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, kterm_color_for_pallet_idx(_current_background_idx));
+}
+
+
+static inline void kterm_update_term_char(struct kterm_terminal_char* char_start, uint32_t count)
 {
   char* glyph;
   /* x and y components inside the screen */
   uintptr_t offset;
   uint32_t color;
+  uint32_t background_clr;
   uint32_t x;
   uint32_t y;
 
   if (!count)
     return;
+
+  /* Find the background color */
+  background_clr = kterm_color_for_pallet_idx(_current_background_idx);
 
   /* Calculate the offset of the starting character */
   offset = ((uintptr_t)char_start - (uintptr_t)_characters) / sizeof(*char_start);
@@ -257,7 +263,7 @@ static void kterm_update_term_char(struct kterm_terminal_char* char_start, uint3
 
         if (glyph[_y] & (1 << _x)) kterm_draw_pixel_raw(x + _x, y + _y, color);
         /* TODO: draw a background color */
-        else kterm_draw_pixel_raw(x + _x, y + _y, 0x00);
+        else kterm_draw_pixel_raw(x + _x, y + _y, background_clr);
       }
     }
 
@@ -338,6 +344,14 @@ static void kterm_fill_pallet()
         break;
     }
   }
+}
+
+static void kterm_set_background_color(uint32_t idx)
+{
+  if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
+    idx = 0;
+
+  _current_background_idx = idx;
 }
 
 static void kterm_set_print_color(uint32_t idx)
@@ -1034,17 +1048,21 @@ int kterm_init()
   /* Initialize our lwnd emulation capabilities */
   kterm_init_lwnd_emulation();
 
-  /* Make sure there is no garbage on the screen */
-  kterm_clear_raw();
-
   _chars_xres = _kterm_fb_width / KTERM_FONT_WIDTH;
   _chars_yres = _kterm_fb_height / KTERM_FONT_HEIGHT;
 
   _chars_cursor_x = 0;
   _chars_cursor_y = 0;
+  
+  /*
+   * TODO: Set these variables based on the profile settings
+   * KTERM_PRINT_CLR_IDX and KTERM_BACKGROUND_CLR_IDX
+   */
 
   /* Make sure we print white */
   kterm_set_print_color(0);
+  /* Set the background color */
+  kterm_set_background_color(2);
 
   /*
    * Allocate a range for our characters
@@ -1055,6 +1073,9 @@ int kterm_init()
   _clr_pallet = (void*)Must(__kmem_kernel_alloc_range(KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
   kterm_fill_pallet();
+
+  /* Make sure there is no garbage on the screen */
+  kterm_clear_raw();
 
   /* Register our logger to the logger subsys */
   register_logger(&kterm_logger);

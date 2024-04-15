@@ -13,7 +13,6 @@ typedef long long unsigned  int     uint64_t;
 typedef uint64_t                    size_t;
 typedef int64_t                     ssize_t;
 typedef uint64_t                    uintptr_t;
-typedef uint8_t                     bool;
 
 typedef uintptr_t                   vaddr_t;
 typedef uintptr_t                   paddr_t;

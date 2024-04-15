@@ -3,6 +3,7 @@
 
 #include "stdarg.h"
 #include <sys/types.h>
+#include <stddef.h>
 
 #define SEEK_SET 0
 #define _STDIO_H
@@ -62,6 +63,10 @@ extern int fseek(FILE*, long, int);
 extern long ftell(FILE*);
 extern unsigned long long fwrite(const void*, unsigned long long, unsigned long long, FILE*);
 extern void setbuf(FILE*, char*);
+
+extern int clearerr(FILE* stream);
+extern int ferror(FILE* stream);
+extern int feof(FILE* stream);
 
 /*
  * Write a formatted string to the stream

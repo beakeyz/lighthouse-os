@@ -397,6 +397,27 @@ void setbuf(FILE* file, char* buf) {
   exit_noimpl("setbuf");
 }
 
+int clearerr(FILE* stream)
+{
+  (void)stream;
+  exit_noimpl("clearerr");
+  return 0;
+}
+
+int ferror(FILE* stream)
+{
+  (void)stream;
+  exit_noimpl("ferror");
+  return 0;
+}
+
+int feof(FILE* stream)
+{
+  (void)stream;
+  exit_noimpl("feof");
+  return 0;
+}
+
 int vfprintf(FILE* out, const char* str, char* f) 
 {
   exit_noimpl("vfprintf");

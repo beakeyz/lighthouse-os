@@ -25,7 +25,7 @@ export TARGET="x86_64-pc-lightos"
 #           i686-elf            (32 bit mode (?))
 #           x86_64-pc-lightos   (patched 64 bit mode)
 #           i686-pc-lightos     (?)
-export SYSROOT="$PWD/system"
+export SYSROOT="$PWD/system/System"
 
 patch_path="$PWD/resources/"
 
@@ -150,9 +150,9 @@ log "Configuring gcc"
 cd gcc
 "$GCC_SRC/configure" --target="$TARGET" \
         --prefix="$CC_PATH" 		\
-        --with-sysroot="$SYSROOT/System" \
+        --with-sysroot="$SYSROOT" \
         --disable-nls			\
-        --enable-languages=c	\
+        --enable-languages=c,go \
         --enable-shared \
 
 log "Making gcc . . ."

@@ -69,6 +69,38 @@ class RamdiskManager(object):
 
         return True
 
+    def __copy_crt_components(self) -> bool:
+
+        libcManifest: m.BuildManifest = None
+
+        for manifest in self.c.LIBRARY_MANIFESTS:
+            # FIXME: Name of libc should be easily changeable
+            if manifest.manifested_name == "LibC":
+                libcManifest = manifest
+                break
+
+        if libcManifest is None:
+            return False
+
+        path: str = libcManifest.path.replace(
+            "/src/libs",
+            "/out/libs"
+        )
+
+        path = path.replace("manifest.json", "")
+
+        components: list[str] = [
+            "crt0.o",
+            "crti.o",
+            "crtn.o",
+        ]
+
+        # Copy over the components
+        for c in components:
+            os.system(f"cp {path}/x86/{c} {self.c.SYSROOT_HEADERS_DIR}")
+
+        return True
+
     def __copy_libs(self) -> bool:
 
         for manifest in self.c.LIBRARY_MANIFESTS:
@@ -79,7 +111,8 @@ class RamdiskManager(object):
             os.system(f"cp {path}{self.c.SHARED_LIB_EXTENTION} {self.LIBS_BIN_PATH}")
             manifest.manifested_name
             pass
-        pass
+
+        return self.__copy_crt_components()
 
     def __prepare_user_dir(self) -> bool:
         '''
