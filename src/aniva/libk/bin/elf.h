@@ -10,8 +10,8 @@
  * Create a process that starts execution at the entrypoint of the elf file
  * and imidiately yield to it
  */
-ErrorOrPtr elf_exec_64(file_t* file, bool kernel, bool defer_schedule);
-ErrorOrPtr elf_exec_32(file_t* file, bool kernel, bool defer_schedule);
+ErrorOrPtr elf_exec_64(file_t* file, bool kernel);
+ErrorOrPtr elf_exec_32(file_t* file, bool kernel);
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 bool elf_verify_header(struct elf64_hdr* header);

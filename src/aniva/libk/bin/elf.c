@@ -14,7 +14,6 @@
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
-#include "sched/scheduler.h"
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
 {
@@ -145,7 +144,7 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
  * 2) Ask it to load our shit
  * 3) Profit
  */
-static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel, bool defer_schedule)
+static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel)
 {
   ErrorOrPtr result;
   proc_id_t pid;
@@ -177,7 +176,7 @@ static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel, bool defer_sc
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
  */
-ErrorOrPtr elf_exec_64(file_t* file, bool kernel, bool defer_schedule) {
+ErrorOrPtr elf_exec_64(file_t* file, bool kernel) {
 
   proc_id_t id;
   proc_t* proc = NULL;
@@ -204,7 +203,7 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel, bool defer_schedule) {
       kfree(phdrs);
 
       /* We need a dynamic loader, go go gadget */
-      return __elf_exec_dynamic_64(file, kernel, defer_schedule);
+      return __elf_exec_dynamic_64(file, kernel);
     }
   }
 
@@ -275,10 +274,6 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel, bool defer_schedule) {
 
   /* Copy over the image object */
   proc->m_image = image;
-
-  /* NOTE: we can reschedule here, since the scheduler will give us our original pagemap back automatically */
-  if (!defer_schedule)
-    sched_add_priority_proc(proc, true);
 
   return Success(id);
 

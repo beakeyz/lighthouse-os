@@ -14,7 +14,7 @@
 #include <mem/heap.h>
 
 // --- inline functions ---
-static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc);
+static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHEDULER_PRIORITY prio);
 static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame);
 static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t proc);
 static thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
@@ -164,15 +164,17 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
   thread_t *next_thread;
   thread_t *cur_thread;
 
-  /* Check if this frame can be scheduled */
-  while (!proc_can_schedule(frame->m_proc) || frame->m_frame_ticks >= frame->m_max_ticks) {
-    force = true;
+  if (!force) {
+    /* Check if this frame can be scheduled */
+    while (!proc_can_schedule(frame->m_proc) || frame->m_frame_ticks >= frame->m_max_ticks) {
+      force = true;
 
-    /* Reset the elapsed ticks in both cases */
-    frame->m_frame_ticks = 0;
+      /* Reset the elapsed ticks in both cases */
+      frame->m_frame_ticks = 0;
 
-    /* Pick next */
-    frame = pick_next_process_scheduler(sched);
+      /* Pick next */
+      frame = pick_next_process_scheduler(sched);
+    }
   }
 
   frame->m_proc->m_ticks_elapsed++;
@@ -459,7 +461,7 @@ static registers_t *sched_tick(registers_t *registers_ptr)
 /*!
  * @brief: Add a process to the current scheduler queue
  */
-ANIVA_STATUS sched_add_proc(proc_t *proc) 
+ANIVA_STATUS sched_add_proc(proc_t *proc, enum SCHEDULER_PRIORITY prio)
 {
   scheduler_t* s;
   sched_frame_t* frame;
@@ -478,7 +480,7 @@ ANIVA_STATUS sched_add_proc(proc_t *proc)
   /* Make sure our thread is ready *.* */
   thread_prepare_context(proc->m_init_thread);
 
-  frame = create_sched_frame(proc);
+  frame = create_sched_frame(proc, prio);
 
   scheduler_queue_enqueue(&s->processes, frame);
 
@@ -486,7 +488,7 @@ ANIVA_STATUS sched_add_proc(proc_t *proc)
   return ANIVA_SUCCESS;
 }
 
-ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule) 
+ErrorOrPtr sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, bool reschedule) 
 {
   scheduler_t* s;
   sched_frame_t* frame;
@@ -501,7 +503,7 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule)
   /* Make sure our thread is ready *.* */
   thread_prepare_context(proc->m_init_thread);
 
-  frame = create_sched_frame(proc);
+  frame = create_sched_frame(proc, prio);
 
   scheduler_queue_enqueue_behind(&s->processes, s->processes.dequeue, frame);
 
@@ -568,7 +570,7 @@ ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id)
 /*!
  * @brief: Allocate memory for a scheduler frame
  */
-ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc) 
+ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHEDULER_PRIORITY prio)
 {
   sched_frame_t *ptr;
 
@@ -581,7 +583,10 @@ ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc)
 
   ptr->m_scheduled_thread_index = 0;
   ptr->m_proc = proc;
-  ptr->m_max_ticks = SCHED_FRAME_DEFAULT_START_TICKS;
+  ptr->m_max_ticks = prio;
+
+  if (ptr->m_max_ticks > SCHED_PRIO_HIGHEST)
+    ptr->m_max_ticks = SCHED_PRIO_LOW;
 
   return ptr;
 }

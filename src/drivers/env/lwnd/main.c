@@ -211,7 +211,7 @@ int init_window_driver()
   if (!test_f)
     return 0;
 
-  uint32_t test_pid = Must(elf_exec_64(test_f, false, false));
+  uint32_t test_pid = Must(elf_exec_64(test_f, false));
 
   file_close(test_f);
 
@@ -220,14 +220,14 @@ int init_window_driver()
   if (!test_p)
     return 0;
 
-  sched_add_priority_proc(test_p, true);
+  sched_add_priority_proc(test_p, SCHED_PRIO_LOW, true);
 
   file_t* doom_f = file_open("Root/Apps/doom");
 
   if (!doom_f)
     return 0;
 
-  uint32_t pid = Must(elf_exec_64(doom_f, false, false));
+  uint32_t pid = Must(elf_exec_64(doom_f, false));
 
   file_close(doom_f);
 
@@ -236,7 +236,7 @@ int init_window_driver()
   if (!doom_p)
     return 0;
 
-  sched_add_priority_proc(doom_p, true);
+  sched_add_priority_proc(doom_p, SCHED_PRIO_HIGHEST, true);
 
   return 0;
 }

@@ -8,6 +8,7 @@
 #include "sched/scheduler.h"
 
 #include "drivers/env/kterm/kterm.h"
+#include "time/core.h"
 
 /*
  * TODO: this function should be redone, since the existance of kterm is not a given
@@ -25,11 +26,10 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
   if (IsError(kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len)))
       return SYS_INV;
 
-  if (strcmp("clear", cmd) == 0) {
+  if (strcmp("clear", cmd) == 0)
     driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
-  }
 
-  return SYS_INV;
+  return SYS_OK;
 }
 
 /*!
@@ -45,7 +45,7 @@ uintptr_t sys_get_process_time()
   if (!curr_prc)
     return SYS_INV;
 
-  return curr_prc->m_ticks_elapsed;
+  return get_system_ticks();
 }
 
 /*!

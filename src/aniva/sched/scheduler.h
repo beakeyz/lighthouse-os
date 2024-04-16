@@ -14,8 +14,6 @@
  * (TODO)
  */
 
-#define SCHED_FRAME_DEFAULT_START_TICKS 32
-
 #define SCHED_FRAME_FLAG_RUNNABLE 0x00000001
 #define SCHED_FRAME_FLAG_RUNNING 0x00000002
 #define SCHED_FRAME_FLAG_BLOCKED 0x00000004
@@ -23,10 +21,10 @@
 #define SCHED_FRAME_FLAG_MUST_RESCEDULE 0x00000008
 
 enum SCHEDULER_PRIORITY {
-  SCHED_PRIO_LOW = 4,
-  SCHED_PRIO_MID = 8,
-  SCHED_PRIO_HIGH = 16,
-  SCHED_PRIO_HIGHEST = 32,
+  SCHED_PRIO_LOW = 15,
+  SCHED_PRIO_MID = 30,
+  SCHED_PRIO_HIGH = 60,
+  SCHED_PRIO_HIGHEST = 120,
 };
 
 typedef struct sched_frame {
@@ -94,8 +92,8 @@ void scheduler_set_request(scheduler_t* s);
  * process selection or simply puts itself behind the current 
  * running process to be scheduled next, based on the reschedule param
  */
-ErrorOrPtr sched_add_priority_proc(proc_t*, bool reschedule);
-ANIVA_STATUS sched_add_proc(proc_t*);
+ErrorOrPtr sched_add_priority_proc(proc_t*, enum SCHEDULER_PRIORITY prio, bool reschedule);
+ANIVA_STATUS sched_add_proc(proc_t*, enum SCHEDULER_PRIORITY prio);
 
 ANIVA_STATUS sched_remove_proc(proc_t*);
 ANIVA_STATUS sched_remove_proc_by_id(proc_id_t);

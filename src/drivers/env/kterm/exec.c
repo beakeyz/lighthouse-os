@@ -52,7 +52,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   }
 
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
-  result = elf_exec_64(file, false, true);
+  result = elf_exec_64(file, false);
 
   oss_obj_close(file->m_obj);
 
@@ -95,7 +95,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
 
   println("Adding to scheduler");
   /* Do an instant rescedule */
-  Must(sched_add_priority_proc(p, true));
+  Must(sched_add_priority_proc(p, SCHED_PRIO_MID, true));
 
   println("Waiting for process...");
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
