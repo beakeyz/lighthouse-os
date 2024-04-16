@@ -6,7 +6,7 @@
 #include "libk/flow/error.h"
 
 #define DEFAULT_STACK_SIZE                      (64 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS                (10)
+#define DEFAULT_THREAD_MAX_TICKS                (8)
 
 #define PROC_DEFAULT_MAX_THREADS                (16)
 #define PROC_CORE_PROCESS_NAME                  "[aniva-core]"

@@ -45,7 +45,7 @@ uintptr_t sys_get_process_time()
   if (!curr_prc)
     return SYS_INV;
 
-  return curr_prc->m_ticks_used;
+  return curr_prc->m_ticks_elapsed;
 }
 
 /*!

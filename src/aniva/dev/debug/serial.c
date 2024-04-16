@@ -1,20 +1,10 @@
 #include "serial.h"
-#include "dev/debug/early_tty.h"
-#include "entry/entry.h"
-#include "irq/ctl/pic.h"
-#include "libk/flow/error.h"
 #include "logging/log.h"
-#include "system/acpi/parser.h"
 #include <libk/io.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
 
 static bool has_serial = false;
-
-int serial_putch(char c);
-int serial_print(const char* str);
-int serial_println(const char* str);
-int serial_printf(const char *fmt, ...);
 
 static logger_t serial_logger = {
   .title = "qemu_serial",

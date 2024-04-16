@@ -4,7 +4,6 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "irq/interrupts.h"
-#include "logging/log.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/queue.h"
@@ -15,10 +14,10 @@
 #include <mem/heap.h>
 
 // --- inline functions ---
-static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level);
+static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc);
 static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame);
 static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t proc);
-static USED thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
+static thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
 
@@ -102,7 +101,7 @@ void start_scheduler(void)
   if (!frame_ptr)
     return;
 
-  initial_process = frame_ptr->m_proc_to_schedule;
+  initial_process = frame_ptr->m_proc;
 
   ASSERT_MSG((initial_process->m_flags & PROC_KERNEL) == PROC_KERNEL, "FATAL: initial process was not a kernel process");
 
@@ -111,7 +110,7 @@ void start_scheduler(void)
   initial_thread = initial_process->m_init_thread;
 
   /* Set some processor state */
-  set_current_proc(frame_ptr->m_proc_to_schedule);
+  set_current_proc(frame_ptr->m_proc);
   set_current_handled_thread(initial_thread);
   set_previous_thread(nullptr);
 
@@ -122,28 +121,16 @@ void start_scheduler(void)
 }
 
 /*!
- * @brief: Checks if we really want to schedule a process
- */
-static bool scheduler_should_schedule(scheduler_t* s, sched_frame_t* frame)
-{
-  /* TODO: */
-  return true;
-}
-
-/*!
  * @brief: Pick the next process to put in the front of the schedule queue
  *
  * This requeues the current first process and cycles untill it finds one it likes
  */
-static void pick_next_process_scheduler() 
+static sched_frame_t* pick_next_process_scheduler(scheduler_t* s) 
 {
-  scheduler_t* s;
   sched_frame_t* current;
 
-  s = get_current_scheduler();
-
   if (!s)
-    return;
+    return nullptr;
 
   /* Find the first process in the queue */
   current = scheduler_queue_peek(&s->processes);
@@ -154,73 +141,80 @@ static void pick_next_process_scheduler()
     current = scheduler_queue_peek(&s->processes);
 
     /* Valid? */
-    if(!proc_can_schedule(current->m_proc_to_schedule))
-      continue;
-
-    /* Do we like this process? */
-    if (scheduler_should_schedule(s, current))
+    if(proc_can_schedule(current->m_proc))
       break;
   }
+
+  /* Set the current proc, just to be safe */
+  if (current)
+    set_current_proc(current->m_proc);
+
+  return current;
 }
 
-/*
+/*!
  * Try to fetch another thread for us to schedule.
  * If this current process is in idle mode, we just 
  * schedule the idle thread
+ *
+ * @returns: true if we should reschedule, false otherwise
  */
-ErrorOrPtr pick_next_thread_scheduler(void) 
+bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
 {
-  scheduler_t* s;
-  sched_frame_t* frame;
   thread_t *next_thread;
-
-  s = get_current_scheduler();
-
-  if (!s)
-    return Error();
-
-  frame = scheduler_queue_peek(&s->processes);
-
-  if (!frame)
-    return Error();
+  thread_t *cur_thread;
 
   /* Check if this frame can be scheduled */
-  if (!proc_can_schedule(frame->m_proc_to_schedule))
-    pick_next_process_scheduler();
+  while (!proc_can_schedule(frame->m_proc) || frame->m_frame_ticks >= frame->m_max_ticks) {
+    force = true;
 
-  /* Reset frame */
-  frame = scheduler_queue_peek(&s->processes);
+    /* Reset the elapsed ticks in both cases */
+    frame->m_frame_ticks = 0;
 
-  set_current_proc(frame->m_proc_to_schedule);
-
-  // we should now either be in the kernel boot context, or in this mfs context
-  thread_t *prev_thread = get_current_scheduling_thread();
-
-  if (frame->m_proc_to_schedule->m_flags & PROC_IDLE) {
-    kernel_panic("FIXME: Trying to set idlethread");
-
-    println(prev_thread->m_name);
-    //set_previous_thread(frame->m_proc_to_schedule->m_idle_thread);
-    set_current_handled_thread(frame->m_proc_to_schedule->m_idle_thread);
-
-    return Success(0);
+    /* Pick next */
+    frame = pick_next_process_scheduler(sched);
   }
 
+  frame->m_proc->m_ticks_elapsed++;
+  frame->m_frame_ticks++;
+
+  /* Shit */
+  ASSERT_MSG(frame && (frame->m_proc->m_flags & PROC_IDLE) != PROC_IDLE, "FUCK, got an idle proc");
+
+  /* we should now either be in the kernel boot context, or in this mfs context */
+  cur_thread = get_current_scheduling_thread();
+
+  /* Reset the threads ticks when we've exceeded the maximum amount of ticks */
+  if (cur_thread->m_ticks_elapsed++ >= cur_thread->m_max_ticks)
+    cur_thread->m_ticks_elapsed = 0;
+  /* Otherwise check if we want to force a reschedule and otherwise we don't need to do shit */
+  else if (!force)
+    return false;
+
+  /* Pull the next thread */
   next_thread = pull_runnable_thread_sched_frame(frame);
 
-  /* Cycle until we find shit */
-  while (!next_thread) {
-    pick_next_process_scheduler();
+  /* If this is the only thread, just give this */
+  if (cur_thread == next_thread && frame->m_proc->m_threads->m_length == 1)
+    return false;
 
-    frame = scheduler_queue_peek(&s->processes);
+  /* Cycle until we find shit */
+  while (!next_thread || (force && next_thread == cur_thread && sched->processes.count > 1)) {
+    frame = pick_next_process_scheduler(sched);
 
     next_thread = pull_runnable_thread_sched_frame(frame);
   }
 
-  set_previous_thread(prev_thread);
+  if (next_thread == cur_thread && sched->processes.count > 1)
+    return false;
+
+  set_current_proc(frame->m_proc);
+  set_previous_thread(cur_thread);
   set_current_handled_thread(next_thread);
 
-  return Success(0);
+  /* Set this here too, just to be safe */
+  next_thread->m_ticks_elapsed = 0;
+  return true;
 }
 
 /*!
@@ -356,6 +350,7 @@ void scheduler_set_request(scheduler_t* s)
 void scheduler_yield() 
 {
   scheduler_t* s;
+  sched_frame_t* frame;
   processor_t *current;
   thread_t *current_thread;
 
@@ -367,12 +362,13 @@ void scheduler_yield()
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-  // invoke the scheduler early
-  scheduler_set_request(s);
+  frame = scheduler_queue_peek(&s->processes);
+
+  ASSERT_MSG(frame, "Could not yield on an NULL schedframe");
 
   // prepare the next thread
-  if (IsError(pick_next_thread_scheduler()))
-    kernel_panic("TODO: terminate the process which has no threads left!");
+  if (try_do_schedule(s, frame, true))
+    scheduler_set_request(s);
 
   current = get_current_processor();
   current_thread = get_current_scheduling_thread();
@@ -415,11 +411,18 @@ int scheduler_try_execute()
   thread_t *next_thread = get_current_scheduling_thread();
   thread_t *prev_thread = get_previous_scheduled_thread();
 
-  //printf("Trying to switch context! (%s -> %s)\n", prev_thread->m_name, next_thread->m_name);
-
   thread_switch_context(prev_thread, next_thread);
 
   return 0;
+}
+
+static registers_t* schedframe_tick(scheduler_t* sched, sched_frame_t* frame, registers_t* regs)
+{
+  /* Don't force the reschedule */
+  if (try_do_schedule(sched, frame, false))
+    scheduler_set_request(sched);
+
+  return regs;
 }
 
 /*!
@@ -431,7 +434,6 @@ static registers_t *sched_tick(registers_t *registers_ptr)
 {
   scheduler_t* this;
   sched_frame_t *current_frame;
-  thread_t *current_thread;
 
   this = get_current_scheduler();
 
@@ -441,7 +443,7 @@ static registers_t *sched_tick(registers_t *registers_ptr)
   if ((this->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
     return registers_ptr;
 
-  if (mutex_is_locked(this->lock) || this->pause_depth)
+  if (this->pause_depth || mutex_is_locked(this->lock))
     return registers_ptr;
 
   if (!get_current_scheduling_thread())
@@ -449,50 +451,9 @@ static registers_t *sched_tick(registers_t *registers_ptr)
 
   current_frame = scheduler_queue_peek(&this->processes);
 
-  if (!proc_can_schedule(current_frame->m_proc_to_schedule)) {
-    Must(pick_next_thread_scheduler());
+  ASSERT_MSG(current_frame, "Failed to get the current scheduler frame!");
 
-    scheduler_set_request(this);
-    return registers_ptr;
-  }
-
-  if (this->processes.count > 1) {
-
-    // FIXME: switch timings seem to be wonky
-    if (current_frame->m_sched_ticks_left <= 0) {
-      current_frame->m_sched_ticks_left = current_frame->m_max_ticks;
-
-      /* Pick a next process */
-      pick_next_process_scheduler();
-
-      /* Pick a next thread */
-      Must(pick_next_thread_scheduler());
-
-      scheduler_set_request(this);
-      return registers_ptr;
-    }
-    current_frame->m_sched_ticks_left--;
-  }
-
-  current_frame->m_proc_to_schedule->m_ticks_used++;
-
-  current_thread = get_current_scheduling_thread();
-  ASSERT_MSG(current_thread, "No initial thread!");
-
-  current_thread->m_ticks_elapsed++;
-
-  if (current_thread->m_ticks_elapsed >= current_thread->m_max_ticks) {
-    current_thread->m_ticks_elapsed = 0;
-    // we want to schedule a new thread at this point
-    if (IsError(pick_next_thread_scheduler())) {
-      // TODO: we might try to spawn another eternal process
-      kernel_panic("Could not pick another thread to schedule!");
-    }
-    scheduler_set_request(this);
-  }
-
-  //resume_scheduler();
-  return registers_ptr;
+  return schedframe_tick(this, current_frame, registers_ptr);
 }
 
 /*!
@@ -517,7 +478,7 @@ ANIVA_STATUS sched_add_proc(proc_t *proc)
   /* Make sure our thread is ready *.* */
   thread_prepare_context(proc->m_init_thread);
 
-  frame = create_sched_frame(proc, LOW);
+  frame = create_sched_frame(proc);
 
   scheduler_queue_enqueue(&s->processes, frame);
 
@@ -540,7 +501,7 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule)
   /* Make sure our thread is ready *.* */
   thread_prepare_context(proc->m_init_thread);
 
-  frame = create_sched_frame(proc, LOW);
+  frame = create_sched_frame(proc);
 
   scheduler_queue_enqueue_behind(&s->processes, s->processes.dequeue, frame);
 
@@ -548,7 +509,7 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, bool reschedule)
     frame = scheduler_queue_peek(&s->processes);
 
     // Drain time left, so it gets rescheduled on the next tick
-    frame->m_sched_ticks_left = 0;
+    frame->m_frame_ticks = frame->m_max_ticks;
 
     /* We'll have to unlock the mutex here also, to avoid nasty shit */
     resume_scheduler();
@@ -607,7 +568,7 @@ ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id)
 /*!
  * @brief: Allocate memory for a scheduler frame
  */
-ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_USAGE_LEVEL level) 
+ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc) 
 {
   sched_frame_t *ptr;
 
@@ -618,10 +579,8 @@ ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHED_FRAME_U
 
   memset(ptr, 0, sizeof(*ptr));
 
-  ptr->m_fram_usage_lvl = level;
   ptr->m_scheduled_thread_index = 0;
-  ptr->m_proc_to_schedule = proc;
-  ptr->m_sched_ticks_left = SCHED_FRAME_DEFAULT_START_TICKS;
+  ptr->m_proc = proc;
   ptr->m_max_ticks = SCHED_FRAME_DEFAULT_START_TICKS;
 
   return ptr;
@@ -653,7 +612,7 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid)
 
   for (frame = s->processes.dequeue; frame; frame = frame->previous) {
 
-    if (frame->m_proc_to_schedule->m_id == procid)
+    if (frame->m_proc->m_id == procid)
       break;
   }
 
@@ -671,19 +630,13 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid)
  */
 thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr) 
 {
-  uint32_t prev_sched_thread_idx = ptr->m_scheduled_thread_index;
-  uintptr_t cycles = 0;
-  bool found;
-  uintptr_t current_idx = prev_sched_thread_idx + 1;
+  uint32_t c_idx;
   thread_t* next_thread = nullptr;
-  proc_t* proc = ptr->m_proc_to_schedule;
-  list_t *thread_list_ptr = proc->m_threads;
+  uint32_t start_idx = ptr->m_scheduled_thread_index + 1;
+  proc_t* proc = ptr->m_proc;
 
-  if (thread_list_ptr->m_length == 0)
+  if (!proc->m_threads->m_length)
     return nullptr;
-
-  if (current_idx >= thread_list_ptr->m_length)
-    current_idx = 0;
 
   /* Clear the flag and run initializer */
   if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {
@@ -695,42 +648,26 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
     return proc->m_init_thread;
   }
 
-  /* Only one entry. Just kinda run it ig */
-  if (thread_list_ptr->m_length == 1) {
-    thread_t* core_thread = thread_list_ptr->head->data;
+  c_idx = start_idx;
 
-    if (core_thread->m_current_state == RUNNABLE)
-      return core_thread;
+  do {
+    next_thread = list_get(proc->m_threads, (start_idx + c_idx) % proc->m_threads->m_length);
 
-    if (core_thread->m_current_state == RUNNING) {
-      thread_set_state(core_thread, RUNNABLE);
+    if (!next_thread) {
 
-      return core_thread;
-    }
-
-    /* Only thread of this process isn't runnable, just fuck off and go next lmao */
-    return nullptr;
-  }
-
-  while (true) {
-
-    next_thread = list_get(thread_list_ptr, current_idx);
-
-    if (!next_thread && cycles > SCHED_MAX_PULL_CYCLES) {
       /* If there are no threads left, this process is just dead */
-      if (thread_list_ptr->m_length == 0) {
+      if (!proc->m_threads->m_length)
         return nullptr;
-      }
 
       /*
        * FIXME: in stead of switching to an idle thread, we should mark the process as idle, and skip it 
        * from this point onwards until it gets woken up
        */
-      next_thread = ptr->m_proc_to_schedule->m_idle_thread;
+      next_thread = ptr->m_proc->m_idle_thread;
 
       printf("Failed to get a thread from the process: %s\n", proc->m_name);
       printf("Init thread: %s\n", proc->m_init_thread ? proc->m_init_thread->m_name : "null");
-      printf("First thread: %s\n", ((thread_t*)list_get(thread_list_ptr, 0))->m_name);
+      printf("First thread: %s\n", ((thread_t*)list_get(proc->m_threads, 0))->m_name);
 
       kernel_panic("TODO: the scheduler failed to pull a thread from the process so we should do sm about it!");
 
@@ -740,33 +677,19 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
       break;
     } 
 
-    if (!next_thread) {
-      current_idx = 0;
-      cycles++;
-      continue;
-    }
-
-    found = false;
-
     switch (next_thread->m_current_state) {
-      case INVALID:
-      case STOPPED:
-      case NO_CONTEXT:
-        // TODO: let's figure out how to handle blocked threads (so waiting on IO or some shit)
-        // since we don't have any real IO yet this is kind of a placeholder lmao
-      case BLOCKED:
-        // TODO: there is an invalid thread in the pool, handle it.
-        break;
-      /* NOTE: Threads without a context are considered to be runnable */
-      case SLEEPING:
+      case RUNNING:
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
         // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
-        found = true;
-        break;
+        ptr->m_scheduled_thread_index = c_idx;
+
+        next_thread->m_current_state = RUNNABLE;
+
+        return next_thread;
       case DYING:
+        list_remove_ex(proc->m_threads, next_thread);
         destroy_thread(next_thread);
-        list_remove_ex(thread_list_ptr, next_thread);
 
         /* Let's recurse here, in order to update our loop */
         return pull_runnable_thread_sched_frame(ptr);
@@ -774,18 +697,11 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
         break;
     }
 
-    if (found)
-      break;
+    c_idx++;
+    /* Loop until we've completely scanned the entire scan list once */
+  } while (c_idx < proc->m_threads->m_length);
 
-    current_idx++;
-  }
-
-  ASSERT_MSG(next_thread, "FATAL: Tried to pick a null-thread to schedule!");
-
-  // update the scheduler
-  ptr->m_scheduled_thread_index = current_idx;
-
-  return next_thread;
+  return nullptr;
 }
 
 /*!
@@ -847,7 +763,7 @@ ALWAYS_INLINE void set_previous_thread(thread_t* thread)
   scheduler_try_disable_interrupts(s);
 
   frame = scheduler_queue_peek(&s->processes);
-  frame->m_proc_to_schedule->m_prev_thread = thread;
+  frame->m_proc->m_prev_thread = thread;
   current_processor->m_previous_thread = thread;
 
   scheduler_try_enable_interrupts(s);

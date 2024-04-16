@@ -19,12 +19,12 @@ int main()
   res = request_lwindow(&window, 640, 400, LWND_FLAG_CENTERED);
 
   if (!res)
-    return -1;
+    return 1;
 
   res = lwindow_request_framebuffer(&window, &fb);
 
   if (!res)
-    return -2;
+    return 2;
 
   lwindow_draw_rect(&window, 0, 0, 640, 400, RGBA(0xff, 0xff, 0xff, 0xff));
 
@@ -37,6 +37,8 @@ int main()
   lwindow_draw_rect(&window, 50, 30, 10, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
 
   lwindow_draw_rect(&window, 15, 35, 40, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
+
+  while (true) {}
 
   close_lwindow(&window);
   return 0;

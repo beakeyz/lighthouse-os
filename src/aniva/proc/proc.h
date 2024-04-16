@@ -82,7 +82,7 @@ typedef struct proc {
 
   kdoorbell_t* m_terminate_bell;
 
-  size_t m_ticks_used;
+  size_t m_ticks_elapsed;
   size_t m_requested_max_threads;
 
   /* Represent the image that this proc stems from (either from disk or in-ram) */

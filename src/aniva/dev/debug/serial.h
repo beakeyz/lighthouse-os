@@ -6,4 +6,8 @@
 
 void init_serial();
 
+int serial_putch(char c);
+int serial_print(const char* str);
+int serial_println(const char* str);
+
 #endif // !__SERIAL__

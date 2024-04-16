@@ -14,7 +14,7 @@
  * (TODO)
  */
 
-#define SCHED_FRAME_DEFAULT_START_TICKS 2
+#define SCHED_FRAME_DEFAULT_START_TICKS 32
 
 #define SCHED_FRAME_FLAG_RUNNABLE 0x00000001
 #define SCHED_FRAME_FLAG_RUNNING 0x00000002
@@ -22,24 +22,19 @@
 /* TODO: this useful? */
 #define SCHED_FRAME_FLAG_MUST_RESCEDULE 0x00000008
 
-// how long this process takes to do it's shit
-enum SCHED_FRAME_USAGE_LEVEL {
-  SUPER_LOW = 0,
-  LOW,
-  MID,
-  HIGH,
-  SEVERE,
-  MIGHT_BE_DEAD
+enum SCHEDULER_PRIORITY {
+  SCHED_PRIO_LOW = 4,
+  SCHED_PRIO_MID = 8,
+  SCHED_PRIO_HIGH = 16,
+  SCHED_PRIO_HIGHEST = 32,
 };
 
 typedef struct sched_frame {
-  proc_t* m_proc_to_schedule;
-  size_t m_sched_ticks_left;
+  proc_t* m_proc;
+  size_t m_frame_ticks;
   size_t m_max_ticks;
   uint32_t m_scheduled_thread_index;
   uint32_t m_flags;
-
-  enum SCHED_FRAME_USAGE_LEVEL m_fram_usage_lvl;
 
   /* Item after us in the queue */
   struct sched_frame* previous;
@@ -80,7 +75,7 @@ ANIVA_STATUS pause_scheduler();
 /*
  * pick the next thread to run in the current sched frame
  */ 
-ErrorOrPtr pick_next_thread_scheduler(void);
+bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force);
 
 /*
  * yield to the scheduler and let it switch to a new thread

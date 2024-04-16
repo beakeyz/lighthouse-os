@@ -333,7 +333,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
  * kernel subsystems that require async stuff (like USB drivers or some crap). Right now the order in which stuff happens 
  * in this file seems kind of arbitrary, so we need to revisit this =/
  */
-void kthread_entry(void) {
+void kthread_entry(void) 
+{
 
   /* Make sure the scheduler won't ruin our day */
   //pause_scheduler();
@@ -396,10 +397,10 @@ void kthread_entry(void) {
   //resume_scheduler();
 
   /* Will be attached to Drv/other/kterm */
-  if (opt_parser_get_bool("use_kterm"))
-    ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
-  else 
-    ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
+  //if (opt_parser_get_bool("use_kterm"))
+    //ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+  //else 
+  ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
   while (true) {
     scheduler_yield();
