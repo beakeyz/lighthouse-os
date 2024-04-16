@@ -1,5 +1,6 @@
 #include "scheduler.h"
 #include <mem/heap.h>
+#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -145,10 +146,6 @@ static sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
       break;
   }
 
-  /* Set the current proc, just to be safe */
-  if (current)
-    set_current_proc(current->m_proc);
-
   return current;
 }
 
@@ -156,58 +153,70 @@ static sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
  * Try to fetch another thread for us to schedule.
  * If this current process is in idle mode, we just 
  * schedule the idle thread
+ * @force: Tells the routine wether or not to force a reschedule. This is set when the scheduler
+ * yields, which means the calling thread wants to drain it's tick count and move execution to the next
+ * available thread
  *
  * @returns: true if we should reschedule, false otherwise
  */
 bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
 {
+  static uint32_t reschedule_limit = 8;
+  uint32_t reschedule_count;
   thread_t *next_thread;
   thread_t *cur_thread;
-
-  if (!force) {
-    /* Check if this frame can be scheduled */
-    while (!proc_can_schedule(frame->m_proc) || frame->m_frame_ticks >= frame->m_max_ticks) {
-      force = true;
-
-      /* Reset the elapsed ticks in both cases */
-      frame->m_frame_ticks = 0;
-
-      /* Pick next */
-      frame = pick_next_process_scheduler(sched);
-    }
-  }
-
-  frame->m_proc->m_ticks_elapsed++;
-  frame->m_frame_ticks++;
-
-  /* Shit */
-  ASSERT_MSG(frame && (frame->m_proc->m_flags & PROC_IDLE) != PROC_IDLE, "FUCK, got an idle proc");
 
   /* we should now either be in the kernel boot context, or in this mfs context */
   cur_thread = get_current_scheduling_thread();
 
-  /* Reset the threads ticks when we've exceeded the maximum amount of ticks */
-  if (cur_thread->m_ticks_elapsed++ >= cur_thread->m_max_ticks)
-    cur_thread->m_ticks_elapsed = 0;
-  /* Otherwise check if we want to force a reschedule and otherwise we don't need to do shit */
-  else if (!force)
-    return false;
+  if (force) {
+    reschedule_count = 0;
+    
+    do {
+      frame = pick_next_process_scheduler(sched);
 
-  /* Pull the next thread */
-  next_thread = pull_runnable_thread_sched_frame(frame);
+      next_thread = pull_runnable_thread_sched_frame(frame);
+    } while (reschedule_count++ < reschedule_limit && (!next_thread || next_thread == cur_thread));
 
-  /* If this is the only thread, just give this */
-  if (cur_thread == next_thread && frame->m_proc->m_threads->m_length == 1)
-    return false;
-
-  /* Cycle until we find shit */
-  while (!next_thread || (force && next_thread == cur_thread && sched->processes.count > 1)) {
-    frame = pick_next_process_scheduler(sched);
-
-    next_thread = pull_runnable_thread_sched_frame(frame);
+    goto do_schedule;
   }
 
-  if (next_thread == cur_thread && sched->processes.count > 1)
+  if (cur_thread->m_ticks_elapsed++ < cur_thread->m_max_ticks)
+    return false;
+
+  /* Increase the elapsed ticks */
+  frame->m_proc->m_ticks_elapsed++;
+  frame->m_frame_ticks++;
+
+  /* Check if this frame can be scheduled */
+  while (!proc_can_schedule(frame->m_proc) || frame->m_frame_ticks >= frame->m_max_ticks) {
+    /* Reset the elapsed ticks in both cases */
+    frame->m_frame_ticks = 0;
+
+    /* Pick next */
+    frame = pick_next_process_scheduler(sched);
+  }
+
+  /* Shit */
+  ASSERT_MSG(frame && proc_can_schedule(frame->m_proc), "FUCK, got an invalid proc");
+
+  /* Set the count */
+  reschedule_count = 0;
+
+  do {
+    /* Pull the next thread */
+    next_thread = pull_runnable_thread_sched_frame(frame);
+
+    /* If we don't force a reschedule, the threads may be the same */
+    if (next_thread && (next_thread != cur_thread))
+      break;
+
+    frame = pick_next_process_scheduler(sched);
+  } while (reschedule_count++ < reschedule_limit);
+
+do_schedule:
+  /* If we can't seem to get a new thread, when there is only one process, just don't do shit */
+  if (next_thread == cur_thread)
     return false;
 
   set_current_proc(frame->m_proc);
@@ -429,8 +438,6 @@ static registers_t* schedframe_tick(scheduler_t* sched, sched_frame_t* frame, re
 
 /*!
  * @brief: The beating heart of the scheduler
- * 
- * TODO: refactor
  */
 static registers_t *sched_tick(registers_t *registers_ptr) 
 {
@@ -446,9 +453,6 @@ static registers_t *sched_tick(registers_t *registers_ptr)
     return registers_ptr;
 
   if (this->pause_depth || mutex_is_locked(this->lock))
-    return registers_ptr;
-
-  if (!get_current_scheduling_thread())
     return registers_ptr;
 
   current_frame = scheduler_queue_peek(&this->processes);
@@ -693,7 +697,10 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 
         return next_thread;
       case DYING:
-        list_remove_ex(proc->m_threads, next_thread);
+        /* TODO: What to do when this fails */
+        ASSERT_MSG(KERR_OK(proc_remove_thread(proc, next_thread)), "Failed to remove dying thread from process");
+
+        /* Murder that bitch */
         destroy_thread(next_thread);
 
         /* Let's recurse here, in order to update our loop */

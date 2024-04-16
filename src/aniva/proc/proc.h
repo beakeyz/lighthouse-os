@@ -139,7 +139,17 @@ void terminate_process(proc_t* proc);
  */
 void proc_exit();
 
-bool proc_can_schedule(proc_t* proc);
+static inline bool proc_can_schedule(proc_t* proc) 
+{
+  if (!proc || (proc->m_flags & PROC_FINISHED) == PROC_FINISHED || (proc->m_flags & PROC_IDLE) == PROC_IDLE)
+    return false;
+
+  if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread || !proc->m_init_thread->f_entry)
+    return false;
+
+  /* If none of the conditions above are met, it seems like we can schedule */
+  return true;
+}
 
 /*
  * This means that the process will be removed from the scheduler queue

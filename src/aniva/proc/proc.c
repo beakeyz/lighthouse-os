@@ -267,19 +267,6 @@ void destroy_proc(proc_t* proc)
   kzfree(proc, sizeof(proc_t));
 }
 
-
-bool proc_can_schedule(proc_t* proc) 
-{
-  if (!proc || (proc->m_flags & PROC_FINISHED) == PROC_FINISHED || (proc->m_flags & PROC_IDLE) == PROC_IDLE)
-    return false;
-
-  if (!proc->m_threads || !proc->m_thread_count || !proc->m_init_thread || !proc->m_init_thread->f_entry)
-    return false;
-
-  /* If none of the conditions above are met, it seems like we can schedule */
-  return true;
-}
-
 /*!
  * @brief Wait for a process to be terminated
  *
