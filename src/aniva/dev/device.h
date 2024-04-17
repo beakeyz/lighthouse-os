@@ -71,6 +71,7 @@ struct drv_manifest;
 #define DEV_FLAG_ERROR      0x00000010
 /* Device without driver attached and managed by the system core */
 #define DEV_FLAG_CORE       0x00000020
+#define DEV_FLAG_ENABLED    0x00000040
 /* TODO: more device flags */
 
 typedef bool (*DEVICE_ITTERATE)(struct device* dev);
@@ -216,5 +217,17 @@ int device_power_on(device_t* dev);
 int device_on_remove(device_t* dev);
 int device_suspend(device_t* dev);
 int device_resume(device_t* dev);
+
+/* Device state management */
+int device_enable(device_t* dev);
+int device_disable(device_t* dev);
+
+static inline bool device_is_enabled(device_t* dev)
+{
+  if (!dev)
+    return false;
+
+  return ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED);
+}
 
 #endif // !__ANIVA_DEV_DEVICE__

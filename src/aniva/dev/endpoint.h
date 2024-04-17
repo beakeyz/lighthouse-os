@@ -58,6 +58,8 @@ typedef struct device_endpoint {
   struct device_endpoint* next;
 } device_ep_t;
 
+#define DEVICE_ENDPOINT(type, impl) { (type), sizeof((impl)), { &(impl) } }
+
 static inline bool dev_is_valid_endpoint(device_ep_t* ep)
 {
   return (ep && ep->impl.priv && ep->size);
@@ -66,6 +68,10 @@ static inline bool dev_is_valid_endpoint(device_ep_t* ep)
 struct device_generic_endpoint {
   /* Called once when the driver creates a device as the result of a probe of some sort */
   int (*f_create)(struct device* device);
+  int (*f_destroy)(struct device* device);
+
+  int (*f_disable)(struct device* device);
+  int (*f_enable)(struct device* device);
 
   uintptr_t (*f_msg)(struct device* device, dcc_t code);
   uintptr_t (*f_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);

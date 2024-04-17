@@ -6,7 +6,6 @@
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
-#include "dev/usb/usb.h"
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -15,7 +14,6 @@
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
-#include "system/acpi/acpi.h"
 
 static oss_node_t* _device_node;
 
@@ -389,6 +387,77 @@ int device_suspend(device_t* dev)
 int device_resume(device_t* dev)
 {
   kernel_panic("TODO: device_resume");
+}
+
+/*!
+ * @brief: Enables the device @dev
+ *
+ * This does no immediate power state management, but the device driver may choose to implement
+ * this in the generic device endpoint
+ *
+ * TODO: Make enabled/disabled state a atomic counter?
+ */
+int device_enable(device_t* dev)
+{
+  int error;
+  struct device_endpoint* generic;
+
+  if ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED)
+    return 0;
+
+  mutex_lock(dev->lock);
+
+  /* Set the device flag */
+  dev->flags |= DEV_FLAG_ENABLED;
+
+  error = 0;
+  generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+
+  if (!generic || !generic->impl.generic || !generic->impl.generic->f_enable)
+    goto unlock_and_exit;
+
+  /* Call the device endpoint for a enable, if it has it */
+  error = generic->impl.generic->f_enable(dev);
+
+unlock_and_exit:
+  mutex_unlock(dev->lock);
+  return error;
+}
+
+/*!
+ * @brief: Disables the device @dev
+ *
+ * This does no immediate power state management, but the device driver may choose to implement
+ * this in the generic device endpoint
+ *
+ * TODO: Make enabled/disabled state a atomic counter?
+ */
+int device_disable(device_t* dev)
+{
+  int error;
+  struct device_endpoint* generic;
+
+  /* Device already disabled? */
+  if ((dev->flags & DEV_FLAG_ENABLED) != DEV_FLAG_ENABLED)
+    return 0;
+
+  mutex_lock(dev->lock);
+
+  /* Set the device flag */
+  dev->flags &= ~DEV_FLAG_ENABLED;
+
+  error = 0;
+  generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+
+  if (!generic || !generic->impl.generic || !generic->impl.generic->f_disable)
+    goto unlock_and_exit;
+
+  /* Call the device endpoint for a enable, if it has it */
+  error = generic->impl.generic->f_disable(dev);
+
+unlock_and_exit:
+  mutex_unlock(dev->lock);
+  return error;
 }
 
 /*!

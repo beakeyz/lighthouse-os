@@ -38,7 +38,7 @@ int main()
 
   lwindow_draw_rect(&window, 15, 35, 40, 10, RGBA(0xA5, 0xFF, 0, 0xFF));
 
-  while (true) {}
+  //while (true) {}
 
   close_lwindow(&window);
   return 0;

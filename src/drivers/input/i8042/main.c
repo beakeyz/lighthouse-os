@@ -1,4 +1,5 @@
 #include "dev/core.h"
+#include "dev/endpoint.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
 #include "kevent/event.h"
@@ -6,22 +7,38 @@
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
 #include "system/acpi/acpi.h"
-#include "system/acpi/acpica/actbl.h"
 #include "system/acpi/parser.h"
 #include <dev/driver.h>
 #include <dev/device.h>
+#include <dev/io/hid/hid.h>
 
 /*
  * This is okay right now, but once we create a HID device
  * for PS2, these variables need to be moved inside a device obj
  * so this is a FIXME
  */
-//static hid_device_t* s_i8042_device;
+static hid_device_t* s_i8042_device;
 static uint16_t s_mod_flags;
 static uint16_t s_current_scancode;
 static uint16_t s_current_scancodes[7];
 
 registers_t* i8042_irq_handler(registers_t* regs);
+
+struct device_hid_endpoint _i8042_hid_ep = {
+  .f_poll = NULL
+};
+
+/*
+struct device_generic_endpoint _i8042_generic_ep = {
+  NULL
+};
+*/
+
+device_ep_t i8042_eps[] = {
+  DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _i8042_hid_ep),
+  //DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _i8042_generic_ep),
+  { NULL },
+};
 
 static int _init_i8042()
 {
@@ -42,9 +59,17 @@ static int _init_i8042()
   s_mod_flags = NULL;
   s_current_scancode = NULL;
 
-  //s_i8042_device = create_hid_device("i8042", HID_BUS_TYPE_PS2, NULL, NULL);
-  //register_hid_device(s_i8042_device);
+  /* Create a HID device for this bitch */
+  s_i8042_device = create_hid_device("i8042", HID_BUS_TYPE_PS2, i8042_eps);
 
+  /* Register it */
+  if (!KERR_OK(register_hid_device(s_i8042_device)))
+    return -1;
+
+  /* Enable the device */
+  device_enable(s_i8042_device->dev);
+
+  /* Zero scancode buffer */
   memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
 
   /* Try to allocate an IRQ */
@@ -68,6 +93,19 @@ static int _exit_i8042()
 
   /* Make sure that the keyboard event is frozen, since there is no current kb driver */
   freeze_kevent("keyboard");
+
+  if (s_i8042_device) {
+    /*
+     * Remove the device 
+     * FIXME: What happens to any handles that are held to a device? What do we do when the device is
+     * being accessed while we want to destroy it?
+     */
+    unregister_hid_device(s_i8042_device);
+
+    destroy_hid_device(s_i8042_device);
+
+    kernel_panic("FIXME: Remove i8042 HID device");
+  }
 
   error = irq_deallocate(PS2_KB_IRQ_VEC);
 
@@ -141,7 +179,11 @@ registers_t* i8042_irq_handler(registers_t* regs)
   uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
   bool pressed = (!(scan_code & 0x80));
 
-  if (scan_code == 0xe0) {
+  /* Don't do anything if the device is not enabled */
+  if (!device_is_enabled(s_i8042_device->dev))
+    return nullptr;
+
+  if (scan_code == 0x00e0) {
     /* Extended keycode */
     s_current_scancode = scan_code;
     return regs;

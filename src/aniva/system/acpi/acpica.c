@@ -46,6 +46,8 @@ void init_acpi_early()
     return;
   }
 
+  //return;
+
   /* Initialize system interrupt controller (1 = APIC, 0 = PIC) */
   arg.Integer.Type = ACPI_TYPE_INTEGER;
   arg.Integer.Value = g_system_info.irq_chip_type;
