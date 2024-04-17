@@ -189,15 +189,19 @@ static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color)
 
 static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
+  uint32_t volatile* addr;
   uint32_t current_offset = _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8;
   const uint32_t increment = (_kterm_fb_bpp / 8);
 
+  addr = (uint32_t volatile*)(KTERM_FB_ADDR + current_offset);
+
   for (uint32_t i = 0; i < height; i++) {
     for (uint32_t j = 0; j < width; j++) {
-
-      *(uint32_t volatile*)(KTERM_FB_ADDR + current_offset + j * increment) = color;
+      *addr = color;
+      
+      addr += increment;
     }
-    current_offset += _kterm_fb_pitch;
+    addr += _kterm_fb_pitch;
   }
 }
 
