@@ -3,9 +3,11 @@
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
+#include "devacs/shared.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "libk/stddef.h"
 #include <dev/driver.h>
@@ -187,8 +189,26 @@ static struct device_video_endpoint _efi_vdev_ep = {
   .f_get_info = efifb_get_info,
 };
 
+static int efifb_get_devinfo(device_t* device, DEVINFO* binfo)
+{
+  memset(binfo, 0, sizeof(*binfo));
+
+  sfmt((char*)binfo->devicename, "UEFI Framebuffer");
+  sfmt((char*)binfo->manufacturer, "UEFI");
+
+  binfo->ctype = DEVICE_CTYPE_SOFTDEV;
+
+  return 0;
+}
+
+static struct device_generic_endpoint _efi_generic_ep = {
+  .f_get_devinfo = efifb_get_devinfo,
+  NULL
+};
+
 static device_ep_t _efi_endpoints[] = {
-  { ENDPOINT_TYPE_VIDEO, sizeof(_efi_vdev_ep), { &_efi_vdev_ep } },
+  DEVICE_ENDPOINT(ENDPOINT_TYPE_VIDEO, _efi_vdev_ep),
+  DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _efi_generic_ep),
   { NULL, },
 };
 

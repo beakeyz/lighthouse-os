@@ -803,7 +803,7 @@ disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* p
 
   memset(ret, 0, sizeof(*ret));
 
-  ret->m_parent = private;
+  ret->m_priv = private;
   ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, eps);
 
   if (!ret || !device_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))

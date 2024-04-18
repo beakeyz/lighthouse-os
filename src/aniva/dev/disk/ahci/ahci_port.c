@@ -5,6 +5,7 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
 #include "dev/endpoint.h"
+#include "devacs/shared.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
@@ -196,9 +197,28 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
+static int ahci_get_devinfo(device_t* device, DEVINFO* binfo)
+{
+  disk_dev_t* diskdev;
+
+  memset(binfo, 0, sizeof(*binfo));
+
+  diskdev = device->private;
+
+  if (!diskdev)
+    return -1;
+
+  sfmt((char*)binfo->devicename, "%s", diskdev->m_device_name);
+
+  binfo->ctype = DEVICE_CTYPE_AHCI;
+
+  return 0;
+}
+
 static struct device_generic_endpoint _ahci_gen_ep = {
   .f_read = ahci_port_read,
   .f_write = ahci_port_write,
+  .f_get_devinfo = ahci_get_devinfo,
 };
 
 static struct device_disk_endpoint _ahci_disk_ep = {
@@ -208,8 +228,8 @@ static struct device_disk_endpoint _ahci_disk_ep = {
 };
 
 static device_ep_t _ahci_eps[] = {
-  { ENDPOINT_TYPE_GENERIC, sizeof(_ahci_gen_ep), { &_ahci_gen_ep } },
-  { ENDPOINT_TYPE_DISK, sizeof(_ahci_disk_ep), { &_ahci_disk_ep } },
+  DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _ahci_gen_ep),
+  DEVICE_ENDPOINT(ENDPOINT_TYPE_DISK, _ahci_disk_ep),
   { NULL, },
 };
 
@@ -529,7 +549,7 @@ static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, si
     return -2;
 
   // Prepare the parent port
-  port = disk_dev->m_parent;
+  port = disk_dev->m_priv;
 
   if (!port)
     return -2;
@@ -588,7 +608,7 @@ static int ahci_port_read_blk(device_t* device, void* buffer, uintptr_t blk, siz
   if (!disk_dev)
     return -2;
 
-  port = disk_dev->m_parent;
+  port = disk_dev->m_priv;
 
   if (!port)
     return -2;

@@ -1,11 +1,8 @@
 #ifndef __ANIVA_AHCIPORT__
 #define __ANIVA_AHCIPORT__
 
-#include "dev/disk/ahci/definitions.h"
 #include <sync/spinlock.h>
 #include "dev/disk/generic.h"
-#include "dev/disk/partition/gpt.h"
-#include "dev/disk/partition/mbr.h"
 #include "libk/flow/error.h"
 
 struct ahci_device;

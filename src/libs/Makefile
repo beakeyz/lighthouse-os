@@ -4,7 +4,8 @@ export LIBRARY_SRC=$(SRC)/libs
 LIBRARY_PATHS := \
 	./librt \
 	./LibC \
-	./LibGfx
+	./LibGfx \
+	./devacs
 
 export LIBRARY_SHARED_FILE_EXT := .slb
 export LIBRARY_STATIC_FILE_EXT := .lib

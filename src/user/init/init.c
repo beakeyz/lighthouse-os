@@ -1,3 +1,5 @@
+#include "devacs/device.h"
+#include "lightos/handle.h"
 #include <sys/types.h>
 #include <lightos/fs/dir.h>
 #include <stdio.h>
@@ -19,23 +21,28 @@
  */
 int main() 
 {
-  uint32_t idx;
-  DirEntry* entry;
-  Directory* apps = open_dir("Dev", HNDL_FLAG_R, NULL);
+  DEVINFO info;
+  DEV_HANDLE handle;
 
-  if (!apps)
+  const char* device = "Dev/ahci/drive0";
+
+  printf("Querying: %s\n", device);
+
+  handle = open_device(device, NULL);
+
+  if (!handle_verify(handle))
     return -1;
 
-  idx = 0;
+  if (!device_query_info(handle, &info))
+    goto close_and_end;
 
-  do {
-    entry = dir_read_entry(apps, idx++);
+  printf("Name: %s\n", info.devicename);
+  printf("Vendor ID: %d\n", info.vendorid);
+  printf("Device ID: %d\n", info.deviceid);
+  printf("Class: %d\n", info.class);
+  printf("Subclass: %d\n", info.subclass);
 
-    if (entry)
-      printf("(0x%lld) %s\n", (uintptr_t)entry, entry->name);
-
-  } while (entry);
-
-  close_dir(apps);
+close_and_end:
+  close_device(handle);
   return 0;
 }

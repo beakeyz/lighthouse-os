@@ -9,6 +9,7 @@
 #include "sys_exit/sys_exit.h"
 #include "sys_open/sys_open.h"
 #include "sys_drv/sys_drv.h"
+#include "sys_dev/sys_dev.h"
 #include "sys_open/sys_dir.h"
 #include "system/syscall/sys_exec/sys_exec.h"
 #include "sys_proc/sys_proc.h"
@@ -43,6 +44,7 @@ static syscall_t __static_syscalls[] = {
   [SYSID_GET_PROCESSTIME]   = { 0, SYSID_GET_PROCESSTIME, (sys_fn_t)sys_get_process_time, },
   [SYSID_SLEEP]             = { 0, SYSID_SLEEP, (sys_fn_t)sys_sleep, },
   [SYSID_GET_FUNCADDR]      = { 0, SYSID_GET_FUNCADDR, (sys_fn_t)sys_get_funcaddr, },
+  [SYSID_GET_DEVINFO]       = { 0, SYSID_GET_DEVINFO, (sys_fn_t)sys_get_devinfo, },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

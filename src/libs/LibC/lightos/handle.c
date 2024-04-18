@@ -1,6 +1,7 @@
 #include "handle.h"
 #include "lightos/syscall.h"
 #include "lightos/system.h"
+#include <stdio.h>
 
 /*
  * Use the value of the handle to detirmine if it might be 
@@ -49,14 +50,43 @@ close_handle(HANDLE handle)
 HANDLE
 open_handle(const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
 {
-  HANDLE ret;
-
   if (!path)
     return HNDL_INVAL;
 
-  ret = syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
+  return syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
+}
 
-  return ret;
+BOOL 
+handle_set_offset(HANDLE handle, QWORD offset)
+{
+  QWORD result;
+
+  if (!handle_verify(handle))
+    return FALSE;
+
+  result = syscall_3(SYSID_SEEK, handle, offset, SEEK_SET);
+
+  if (result != SYS_OK)
+    return FALSE;
+
+  return TRUE;
+}
+
+BOOL 
+handle_get_offset(HANDLE handle, QWORD* boffset)
+{
+  QWORD value;
+
+  if (!boffset || !handle_verify(handle))
+    return FALSE;
+
+  value = syscall_3(SYSID_SEEK, handle, NULL, SEEK_CUR);
+
+  if (value == SYS_INV)
+    return FALSE;
+
+  *boffset = value;
+  return TRUE;
 }
 
 BOOL 

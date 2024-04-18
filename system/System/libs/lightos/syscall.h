@@ -56,9 +56,8 @@ enum SYSID {
   SYSID_GET_FUNCADDR,
 
   /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
+  SYSID_GET_DEVINFO,
 
-  SYSID_DEV_READ,
-  SYSID_DEV_WRITE,
   /* HID dev interfacing */
   SYSID_HIDDEV_POLL = 100,
   /* Disk dev interfacing */

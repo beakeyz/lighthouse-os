@@ -204,6 +204,7 @@ kerror_t device_dealloc_memory(device_t* dev, uintptr_t start, size_t size);
 kerror_t device_dealloc_irq(device_t* dev, uint32_t vec);
 kerror_t device_dealloc_io(device_t* dev, uint32_t start, uint32_t size);
 
+int device_getinfo(device_t* dev, DEVINFO* binfo);
 
 /* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);

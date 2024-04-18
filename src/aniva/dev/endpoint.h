@@ -17,6 +17,7 @@
  */
 
 #include "dev/core.h"
+#include "devacs/shared.h"
 #include <libk/stddef.h>
 
 enum ENDPOINT_TYPE {
@@ -72,6 +73,8 @@ struct device_generic_endpoint {
 
   int (*f_disable)(struct device* device);
   int (*f_enable)(struct device* device);
+
+  int (*f_get_devinfo)(struct device* device, DEVINFO* binfo);
 
   uintptr_t (*f_msg)(struct device* device, dcc_t code);
   uintptr_t (*f_msg_ex)(struct device* device, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);

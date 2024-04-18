@@ -60,7 +60,7 @@ typedef struct disk_dev {
   struct device* m_dev;
 
   /* FIXME: this is private data, so make the name match that */
-  void* m_parent;
+  void* m_priv;
 } disk_dev_t;
 
 #define GDISKDEV_FLAG_SCSI                   (0x00000001) /* Does this device use SCSI */

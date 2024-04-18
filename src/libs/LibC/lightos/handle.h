@@ -82,7 +82,31 @@ BOOL duplicate_local_handle(
  */
 BOOL update_handle(
   __IN__ HANDLE handle,
-  __OUT__ HANDLE check_handle
+  __OUT__ HANDLE* check_handle
+);
+
+/*!
+ * @brief: Set the internal offset of a handle
+ * @handle: The handle to set the offset of
+ * @offset: The offset to set
+ *
+ * @returns: Wether the offset was successfully set to the desired value
+ */
+BOOL handle_set_offset(
+  __IN__ HANDLE handle,
+  __IN__ QWORD offset
+);
+
+/*!
+ * @brief: Get the current offset of a handle
+ * @handle: The handle to get the offset of
+ * @boffset: The buffer where the offset will be placed
+ *
+ * @returns: True if we could get the offset successfully, false otherwise
+ */
+BOOL handle_get_offset(
+  __IN__ HANDLE handle,
+  __OUT__ QWORD* boffset
 );
 
 /*

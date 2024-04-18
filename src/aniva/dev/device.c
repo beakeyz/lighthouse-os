@@ -334,6 +334,18 @@ int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
   return ep->impl.generic->f_write(dev, buffer, offset, size);
 }
 
+int device_getinfo(device_t* dev, DEVINFO* binfo)
+{
+  device_ep_t* ep;
+
+  ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+
+  if (!ep || !ep->impl.generic->f_get_devinfo)
+    return -KERR_NODEV;
+
+  return ep->impl.generic->f_get_devinfo(dev, binfo);
+}
+
 int device_power_on(device_t* dev)
 {
   kerror_t error;
