@@ -210,7 +210,8 @@ int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
 
   /* Solve weird shit */
   for (uint32_t i = window->stack_idx; i < screen->highest_wnd_idx; i++) {
-    screen->window_stack[i+1]->stack_idx = i;
+    if (screen->window_stack[i+1])
+      screen->window_stack[i+1]->stack_idx = i;
     screen->window_stack[i] = screen->window_stack[i+1];
   }
 

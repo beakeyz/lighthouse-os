@@ -1,5 +1,4 @@
 #include "bitmap.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include <mem/heap.h>
 #include <libk/string.h>
@@ -66,38 +65,32 @@ void destroy_bitmap(bitmap_t *map) {
   kfree(map);
 }
 
-void bitmap_mark(bitmap_t* this, uint32_t index) {
-  if (index >= this->m_entries) {
+void bitmap_mark(bitmap_t* this, uint32_t index) 
+{
+  bitmap_mark_range(this, index, 1);
+}
+
+void bitmap_unmark(bitmap_t* this, uint32_t index) 
+{
+  bitmap_unmark_range(this, index, 1);
+}
+
+void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) 
+{
+  if (index >= this->m_entries)
     return;
-  }
 
-  const uint32_t index_byte = index / 8;
-  const uint32_t index_bit = index % 8;
-
-  this->m_map[index_byte] |= (1 << index_bit);
+  for (uint32_t i = 0; i < length; i++)
+    this->m_map[(index + i) >> 3] &= ~(1 << ((index + i) % 8));
 }
 
-void bitmap_unmark(bitmap_t* this, uint32_t index) {
-  if (index >= this->m_entries) {
+void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length)
+{
+  if (index >= this->m_entries)
     return;
-  }
 
-  const uint32_t index_byte = index / 8;
-  const uint32_t index_bit = index % 8;
-
-  this->m_map[index_byte] &= ~(1 << index_bit);
-}
-
-void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length) {
-  for (uintptr_t i = index; i < index + length; i++) {
-    bitmap_mark(this, i);
-  }
-}
-
-void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) {
-  for (uintptr_t i = index; i < index + length; i++) {
-    bitmap_unmark(this, i);
-  }
+  for (uint32_t i = 0; i < length; i++)
+    this->m_map[(index + i) >> 3] |= (1 << ((index + i) % 8));
 }
 
 ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir)

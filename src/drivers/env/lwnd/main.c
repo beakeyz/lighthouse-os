@@ -25,6 +25,8 @@
 static fb_info_t _fb_info;
 static lwnd_mouse_t _mouse;
 static lwnd_keyboard_t _keyboard;
+static kevent_kb_ctx_t* _lwnd_key_ctx_buffer;
+static struct kevent_kb_keybuffer _lwnd_keybuffer;
 
 static video_device_t* _lwnd_vdev;
 static fb_handle_t _lwnd_fb_handle;
@@ -39,6 +41,8 @@ static enum ANIVA_SCANCODES _forcequit_sequence[] = {
   ANIVA_SCANCODE_Q,
 };
 
+static int lwnd_on_key(kevent_kb_ctx_t* ctx);
+
 /*!
  * @brief: Main compositing loop
  *
@@ -51,6 +55,7 @@ static void USED lwnd_main()
   bool recursive_update;
   lwnd_window_t* current_wnd;
   lwnd_screen_t* current_screen;
+  kevent_kb_ctx_t* c_kb_ctx;
 
   (void)_mouse;
   (void)_keyboard;
@@ -91,7 +96,7 @@ static void USED lwnd_main()
         current_wnd->flags |= LWND_WNDW_NEEDS_REPAINT;
 
       /* Funky draw */
-      lwnd_draw(current_wnd);
+      (void)lwnd_draw(current_wnd);
 
       /* Unlock this window */
       mutex_unlock(current_wnd->lock);
@@ -102,6 +107,11 @@ static void USED lwnd_main()
 
     mutex_unlock(current_screen->draw_lock);
 
+    c_kb_ctx = keybuffer_read_key(&_lwnd_keybuffer);
+
+    if (c_kb_ctx)
+      (void)lwnd_on_key(c_kb_ctx);
+
     scheduler_yield();
   }
 }
@@ -111,17 +121,11 @@ static void USED lwnd_main()
  *
  * Sends the key event over to the focussed window if there isn't a special key combination pressed
  */
-int on_key(kevent_ctx_t* ctx) 
+int lwnd_on_key(kevent_kb_ctx_t* ctx)
 {
   lwnd_window_t* wnd;
-  kevent_kb_ctx_t* k_event;
 
   if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
-    return 0;
-
-  k_event = kevent_ctx_to_kb(ctx);
-
-  if (!k_event)
     return 0;
 
   wnd = lwnd_screen_get_top_window(main_screen);
@@ -131,7 +135,7 @@ int on_key(kevent_ctx_t* ctx)
 
   enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_Q };
  
-  if (kevent_is_keycombination_pressed(k_event, _forcequit_sequence, arrlen(_forcequit_sequence))) {
+  if (kevent_is_keycombination_pressed(ctx, _forcequit_sequence, arrlen(_forcequit_sequence))) {
     switch (wnd->type) {
       case LWND_TYPE_PROCESS:
         try_terminate_process(wnd->client.proc);
@@ -141,7 +145,7 @@ int on_key(kevent_ctx_t* ctx)
     return 0;
   }
 
-  if (kevent_is_keycombination_pressed(k_event, keys, 1)) {
+  if (kevent_is_keycombination_pressed(ctx, keys, 1)) {
     file_t* doom_f = file_open("Root/Apps/doom");
 
     if (!doom_f)
@@ -160,7 +164,7 @@ int on_key(kevent_ctx_t* ctx)
   }
 
   /* TODO: save this instantly to userspace aswell */
-  lwnd_save_keyevent(wnd, k_event);
+  lwnd_save_keyevent(wnd, ctx);
   return 0;
 }
 
@@ -215,6 +219,16 @@ static int on_proc(kevent_ctx_t* _ctx)
   return 0;
 }
 
+static int __on_key(kevent_ctx_t* ctx)
+{
+  if (!ctx->buffer || ctx->buffer_size != sizeof(kevent_kb_ctx_t))
+    return 0;
+
+  /* Save the keypress */
+  keybuffer_write_key(&_lwnd_keybuffer, ctx->buffer);
+  return 0;
+}
+
 /*
  * Yay, we are weird!
  * We will try to manage window creation, movement, minimalisation, ect. directly from kernelspace.
@@ -237,6 +251,10 @@ int init_window_driver()
 
   if (error)
     return -1;
+
+  /* Initialize the lwnd keybuffer */
+  _lwnd_key_ctx_buffer = kmalloc(sizeof(*_lwnd_key_ctx_buffer) * 32);
+  init_kevent_kb_keybuffer(&_lwnd_keybuffer, _lwnd_key_ctx_buffer, 32);
 
   _lwnd_vdev = get_active_vdev();
   /*
@@ -266,7 +284,7 @@ int init_window_driver()
   vdev_map_fb(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE);
 
   /* TODO: register to I/O core */
-  kevent_add_hook("keyboard", "lwnd", on_key);
+  kevent_add_hook("keyboard", "lwnd", __on_key);
   kevent_add_hook("proc", "lwnd", on_proc);
 
   println("Initializing screen!");

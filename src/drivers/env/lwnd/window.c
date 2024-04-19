@@ -196,11 +196,8 @@ int lwnd_clear(lwnd_window_t* window)
 
   this = window->screen;
 
-  for (uint32_t i = 0; i < window->height; i++) {
-    for (uint32_t j = 0; j < window->width; j++) {
-      bitmap_unmark(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j));
-    }
-  }
+  for (uint32_t i = 0; i < window->height; i++)
+    bitmap_unmark_range(this->pixel_bitmap, (window->y + i) * this->width + window->x, this->width);
 
   return 0;
 }

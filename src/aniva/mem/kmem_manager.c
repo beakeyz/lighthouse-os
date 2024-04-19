@@ -1,4 +1,5 @@
 #include "kmem_manager.h"
+#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include <mem/heap.h>
 #include "logging/log.h"
@@ -10,6 +11,7 @@
 #include "libk/data/linkedlist.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "system/resource.h"
 #include <mem/heap.h>
@@ -71,6 +73,8 @@ extern const size_t early_map_size;
 static void _init_kmem_page_layout(void);
 static void kmem_init_physical_allocator(void);
 
+static mutex_t* _kmem_lock;
+
 // first prep the mmap
 void prep_mmap(struct multiboot_tag_mmap *mmap) 
 {
@@ -99,6 +103,9 @@ void init_kmem_manager(uintptr_t* mb_addr)
   _init_kmem_page_layout();
 
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
+
+  /* Create our mutex */
+  _kmem_lock = create_mutex(NULL);
 }
 
 void debug_kmem(void)
@@ -505,12 +512,14 @@ uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
 }
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
-void kmem_set_phys_page_used(uintptr_t idx) {
+void kmem_set_phys_page_used(uintptr_t idx) 
+{
   bitmap_mark(KMEM_DATA.m_phys_bitmap, idx);
 }
 
 // flip a bit to 0 as to mark a pageframe as free in our bitmap
-void kmem_set_phys_page_free(uintptr_t idx) {
+void kmem_set_phys_page_free(uintptr_t idx) 
+{
   //printf("kmem_set_phys_page_free %lld\n", idx);
   bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
 }
@@ -527,7 +536,8 @@ void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count) {
   }
 }
 
-bool kmem_is_phys_page_used (uintptr_t idx) {
+bool kmem_is_phys_page_used (uintptr_t idx) 
+{
   return bitmap_isset(KMEM_DATA.m_phys_bitmap, idx);
 }
 
@@ -619,6 +629,25 @@ pml_entry_t *kmem_get_krnl_dir(void)
   return KMEM_DATA.m_kernel_base_pd;
 }
 
+static inline void _allocate_pde(pml_entry_t* pde, uint32_t page_flags)
+{
+  vaddr_t page_addr = Must(kmem_prepare_new_physical_page());
+
+  kmem_set_page_base(pde, page_addr);
+  pml_entry_set_bit(pde, PDE_PRESENT, true);
+  pml_entry_set_bit(pde, PDE_PAT, (page_flags & KMEM_FLAG_SPEC) == KMEM_FLAG_SPEC);
+  pml_entry_set_bit(pde, PDE_USER, (page_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
+  pml_entry_set_bit(pde, PDE_WRITABLE, (page_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
+  pml_entry_set_bit(pde, PDE_WRITE_THROUGH, (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
+  pml_entry_set_bit(pde, PDE_GLOBAL, (page_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
+  pml_entry_set_bit(pde, PDE_NO_CACHE, (page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
+  pml_entry_set_bit(pde, PDE_NX, (page_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+
+  serial_print(to_string(page_addr));
+  memset((void*)kmem_ensure_high_mapping(page_addr), 0x00, SMALL_PAGE_SIZE);
+  serial_print("B");
+}
+
 /*
  * This function is to be used after the bootstrap pagemap has been 
  * discarded. When we create a new mapping, we pull a page from a 
@@ -649,70 +678,30 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
   const bool pml4_entry_exists = (pml_entry_is_bit_set(&pml4[pml4_idx], PDE_PRESENT));
 
   if (!pml4_entry_exists) {
-    if (!should_make) {
+    if (!should_make)
       return nullptr;
-    }
 
-    uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
-
-    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
-
-    kmem_set_page_base(&pml4[pml4_idx], page_addr);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_PRESENT, true);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_PAT, true);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_WRITABLE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
-    pml_entry_set_bit(&pml4[pml4_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+    _allocate_pde(&pml4[pml4_idx], page_creation_flags);
   }
 
   pml_entry_t* pdp = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pml4[pml4_idx].raw_bits), KMEM_DATA.m_high_page_base);
   const bool pdp_entry_exists = (pml_entry_is_bit_set((pml_entry_t*)&pdp[pdp_idx], PDE_PRESENT));
 
   if (!pdp_entry_exists) {
-    if (!should_make) {
+    if (!should_make)
       return nullptr;
-    }
 
-    uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
-
-    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
-
-    kmem_set_page_base(&pdp[pdp_idx], page_addr);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_PRESENT, true);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_PAT, true);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_WRITABLE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
-    pml_entry_set_bit(&pdp[pdp_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+    _allocate_pde(&pdp[pdp_idx], page_creation_flags);
   }
 
   pml_entry_t* pd = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pdp[pdp_idx].raw_bits), KMEM_DATA.m_high_page_base);
   const bool pd_entry_exists = pml_entry_is_bit_set(&pd[pd_idx], PDE_PRESENT);
 
   if (!pd_entry_exists) {
-    if (!should_make) {
+    if (!should_make)
       return nullptr;
-    }
 
-    uintptr_t page_addr = Must(kmem_prepare_new_physical_page());
-
-    memset((void*)kmem_from_phys(page_addr, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
-
-    kmem_set_page_base(&pd[pd_idx], page_addr);
-    pml_entry_set_bit(&pd[pd_idx], PDE_PRESENT, true);
-    pml_entry_set_bit(&pd[pd_idx], PDE_PAT, true);
-    pml_entry_set_bit(&pd[pd_idx], PDE_USER, (page_creation_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
-    pml_entry_set_bit(&pd[pd_idx], PDE_WRITABLE, (page_creation_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(&pd[pd_idx], PDE_WRITE_THROUGH, (page_creation_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
-    pml_entry_set_bit(&pd[pd_idx], PDE_GLOBAL, (page_creation_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(&pd[pd_idx], PDE_NO_CACHE, (page_creation_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
-    pml_entry_set_bit(&pd[pd_idx], PDE_NX, (page_creation_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
-
+    _allocate_pde(&pd[pd_idx], page_creation_flags);
   }
 
   // this just should exist

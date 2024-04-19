@@ -5,10 +5,6 @@
 #include "system/processor/processor.h"
 #include <libk/stddef.h>
 
-/* Are any errors in the event chain fatal? */
-#define KEVENT_FLAG_ERROR_FATAL (0x00000001)
-/* This event is blocked from firing */
-#define KEVENT_FLAG_FROZEN      (0x00000002)
 /* 
  * Can't be removed 
  * NOTE: it's the job of the kernel to check wether a user- or driver created event
@@ -16,7 +12,11 @@
  * setting of this flag
  * (TODO: create this subsystem manager (SSM))
  */
-#define KEVENT_FLAG_DEFAULT     (0x00000004)
+#define KEVENT_FLAG_DEFAULT     (0x00000001)
+/* Are any errors in the event chain fatal? */
+#define KEVENT_FLAG_ERROR_FATAL (0x00000002)
+/* This event is blocked from firing */
+#define KEVENT_FLAG_FROZEN      (0x00000004)
 
 /* Maximum amount of different events that may be present on a system */
 #define KEVENT_SOFTMAX_COUNT 4096
