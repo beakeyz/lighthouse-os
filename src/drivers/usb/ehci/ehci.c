@@ -162,8 +162,6 @@ static int ehci_transfer_finish(ehci_hcd_t* ehci)
   ehci_qtd_t* c_qtd;
   ehci_xfer_t* c_xfer;
 
-  printf("EHCI: entered the ehci transfer finish routine\n");
-
   while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
 
     /* Spin until there are transfers to process */
@@ -175,6 +173,7 @@ static int ehci_transfer_finish(ehci_hcd_t* ehci)
     FOREACH(i, ehci->transfer_list) {
       c_xfer = i->data;
       c_qtd = c_xfer->qh->qtd_link;
+      //printf("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
 
       do {
         if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)

@@ -30,6 +30,11 @@ int main()
 
   handle = open_device(device, NULL);
 
+  if (handle == HNDL_NO_PERM) {
+    printf("Could not open this handle! (No permission)\n");
+    return -1;
+  }
+
   if (!handle_verify(handle))
     return -1;
 
@@ -41,6 +46,7 @@ int main()
   printf("Device ID: %d\n", info.deviceid);
   printf("Class: %d\n", info.class);
   printf("Subclass: %d\n", info.subclass);
+  printf("Device state: %s\n", device_enable(handle) ? "Enabled" : "Disabled");
 
 close_and_end:
   close_device(handle);

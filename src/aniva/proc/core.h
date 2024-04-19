@@ -139,7 +139,7 @@ struct thread* find_thread_by_fid(full_proc_id_t fid);
 struct thread* find_thread(struct proc* proc, thread_id_t tid);
 
 ErrorOrPtr proc_register(struct proc* proc);
-ErrorOrPtr proc_unregister(char* name);
+kerror_t proc_unregister(proc_id_t id);
 
 bool current_proc_is_kernel();
 

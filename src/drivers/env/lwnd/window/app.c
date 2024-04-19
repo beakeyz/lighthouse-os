@@ -74,5 +74,5 @@ window_id_t create_app_lwnd_window(lwnd_screen_t* screen, uint32_t startx, uint3
   lwnd_window_move(wnd, startx, starty);
 
   mutex_unlock(screen->draw_lock);
-  return wnd->id;
+  return wnd->uid;
 }

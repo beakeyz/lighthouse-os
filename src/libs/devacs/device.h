@@ -1,6 +1,7 @@
 #ifndef __LIGHTOS_DEVACS_DEVICE__
 #define __LIGHTOS_DEVACS_DEVICE__
 
+#include "lightos/system.h"
 #include <lightos/handle.h>
 #include <devacs/shared.h>
 
@@ -73,6 +74,42 @@ size_t device_write(
   __IN__ VOID*      buf,
   __IN__ size_t     bsize,
   __IN__ QWORD      offset
+);
+
+/*!
+ * @brief: Enable a device
+ * @handle: Handle to the device to enable
+ * 
+ * @returns: True if the device was successfully enabled, or if it 
+ * already was enabled. False otherwise
+ */
+BOOL device_enable(
+  __IN__ DEV_HANDLE handle
+);
+
+/*!
+ * @brief: Disable a device
+ * @handle: Handle to the device to disable
+ * 
+ * @returns: True if the device was successfully disabled, or if it 
+ * already was disabled. False otherwise
+ */
+BOOL device_disable(
+  __IN__ DEV_HANDLE handle
+);
+
+/*!
+ * @brief: Send a control message to a device
+ * @handle: The handle to the device to message
+ * @dcc: The device control code
+ * @buf: The buffer to send
+ * @bsize: The size of the buffer
+ */
+BOOL device_msg(
+  __IN__ DEV_HANDLE handle,
+  __IN__ DWORD dcc,
+  __IN__ __OPTIONAL__ VOID* buf,
+  __IN__ __OPTIONAL__ size_t bsize
 );
 
 /*!

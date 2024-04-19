@@ -61,28 +61,30 @@ static ErrorOrPtr __register_proc(proc_t* proc)
  * @returns: Success(...) with a pointer to the unregistered process on a successful
  * unregister, otherwise Error()
  */
-static ErrorOrPtr __unregister_proc_by_name(const char* name)
+static proc_t* __unregister_proc_by_id(proc_id_t id)
 {
-  ErrorOrPtr result = Error();
+  proc_t* ret;
   
-  if (!name || !__proc_vect)
-    return Error();
+  if (!__proc_vect)
+    return NULL;
+
+  ret = NULL;
 
   mutex_lock(__proc_mutex);
 
   FOREACH_VEC(__proc_vect, i, j) {
     proc_t* p = *(proc_t**)i;
 
-    if (strcmp(p->m_name, name) == 0) {
-      vector_remove(__proc_vect, j);
-      result = Success((uintptr_t)p);
-      break;
-    }
+    if (p->m_id != id)
+      continue;
+
+    vector_remove(__proc_vect, j);
+    ret = p;
+    break;
   }
 
   mutex_unlock(__proc_mutex);
-
-  return result;
+  return ret;
 }
 
 thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) 
@@ -370,22 +372,16 @@ ErrorOrPtr proc_register(proc_t* proc)
 /*!
  * @brief: Unregister a process from the kernel
  */
-ErrorOrPtr proc_unregister(char* name) 
+kerror_t proc_unregister(proc_id_t id)
 {
   proc_t* p;
   processor_t* cpu;
   kevent_proc_ctx_t ctx;
-  ErrorOrPtr result;
 
-  result = __unregister_proc_by_name(name);
-
-  if (IsError(result))
-    return result;
-
-  p = (proc_t*)Release(result);
+  p = __unregister_proc_by_id(id);
 
   if (!p)
-    return Error();
+    return -1;
 
   /* Make sure the process is removed form its profile */
   proc_set_profile(p, nullptr);
@@ -399,7 +395,7 @@ ErrorOrPtr proc_unregister(char* name)
 
   kevent_fire("proc", &ctx, sizeof(ctx));
 
-  return result;
+  return 0;
 }
 
 threaded_socket_t *find_registered_socket(uint32_t port) {

@@ -288,12 +288,24 @@ extern void thread_enter_context(thread_t *to)
 
   thread_set_state(to, RUNNING);
 
-  //printf("Switching from %s:%s (%lld) to %s:%s (%lld)\n", prev_thread->m_parent_proc->m_name, prev_thread->m_name, prev_thread->m_context.cr3, to->m_parent_proc->m_name, to->m_name, to->m_context.cr3);
 
   // Only switch pagetables if we actually need to interchange between
   // them, otherwise thats just wasted tlb
   if (prev_thread->m_context.cr3 == to->m_context.cr3)
     return;
+
+  printf("Switching from %s:%s (%d-%d) (%lld) to %s:%s (%d-%d) (%lld)\n",
+      prev_thread->m_parent_proc->m_name, 
+      prev_thread->m_name,
+      prev_thread->m_parent_proc->m_id,
+      prev_thread->m_tid,
+      prev_thread->m_context.cr3,
+      to->m_parent_proc->m_name,
+      to->m_name, 
+      to->m_parent_proc->m_id,
+      to->m_tid,
+      to->m_context.cr3
+      );
 
   kmem_load_page_dir(to->m_context.cr3, false);
 }

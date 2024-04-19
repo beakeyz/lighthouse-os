@@ -3,6 +3,7 @@
 #include "irq/ctl/irqchip.h"
 #include "irq/idt.h"
 #include "libk/flow/error.h"
+#include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"

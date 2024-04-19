@@ -31,7 +31,8 @@ typedef uint16_t window_type_t;
  * Kernel-side structure representing a window on the screen
  */
 typedef struct lwnd_window {
-  window_id_t id;
+  window_id_t uid;
+  window_id_t stack_idx;
   window_type_t type;
   uint32_t flags;
 
@@ -116,12 +117,11 @@ int lwnd_load_keyevent(lwnd_window_t* window, kevent_kb_ctx_t* ctx);
 
 int lwnd_draw(lwnd_window_t* window);
 int lwnd_clear(lwnd_window_t* window);
-int lwnd_update(lwnd_window_t* window);
 
 int lwnd_window_move(lwnd_window_t* window, uint32_t new_x, uint32_t new_y);
 int lwnd_window_resize(lwnd_window_t* window, uint32_t new_width, uint32_t new_height);
 int lwnd_window_focus(lwnd_window_t* window);
-int lwnd_window_update(lwnd_window_t* window);
+int lwnd_window_update(lwnd_window_t* window, bool should_clear);
 
 static inline bool lwnd_window_should_redraw(lwnd_window_t* window)
 {

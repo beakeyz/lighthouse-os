@@ -6,6 +6,7 @@
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
+#include "dev/usb/usb.h"
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -431,6 +432,10 @@ int device_enable(device_t* dev)
   /* Call the device endpoint for a enable, if it has it */
   error = generic->impl.generic->f_enable(dev);
 
+  /* Yikes */
+  if (error)
+    dev->flags &= ~DEV_FLAG_ENABLED;
+
 unlock_and_exit:
   mutex_unlock(dev->lock);
   return error;
@@ -466,6 +471,10 @@ int device_disable(device_t* dev)
 
   /* Call the device endpoint for a enable, if it has it */
   error = generic->impl.generic->f_disable(dev);
+
+  /* Yikes v2 */
+  if (error)
+    dev->flags |= DEV_FLAG_ENABLED;
 
 unlock_and_exit:
   mutex_unlock(dev->lock);

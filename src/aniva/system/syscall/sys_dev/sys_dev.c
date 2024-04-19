@@ -42,3 +42,37 @@ uintptr_t sys_get_devinfo(HANDLE handle, DEVINFO* binfo)
 
   return SYS_OK;
 }
+
+uintptr_t sys_enable_device(HANDLE handle, bool enable)
+{
+  kerror_t error;
+  proc_t* c_proc;
+  khandle_t* khandle;
+  device_t* device;
+
+  c_proc = get_current_proc();
+
+  /* Check if we're not getting trolled v2 */
+  khandle = find_khandle(&c_proc->m_handle_map, handle);
+
+  if (!khandle || khandle->type != HNDL_TYPE_DEVICE)
+    return SYS_INV;
+
+  device = khandle->reference.device;
+
+  /* Check validity (even though the process should never get a hold of a 
+   * handle to a device when it does not have the privilege)
+   */
+  if (!device || !oss_obj_can_proc_access(device->obj, c_proc))
+    return SYS_INV;
+
+  error = (enable ? 
+    device_enable(device) :
+    device_disable(device)
+  );
+
+  if (error)
+    return SYS_ERR;
+
+  return SYS_OK;
+}

@@ -57,6 +57,8 @@ enum SYSID {
 
   /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
   SYSID_GET_DEVINFO,
+  /* Enable/Disable device */
+  SYSID_DEV_ENABLE,
 
   /* HID dev interfacing */
   SYSID_HIDDEV_POLL = 100,

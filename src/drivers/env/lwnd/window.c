@@ -266,7 +266,7 @@ int lwnd_window_focus(lwnd_window_t* window)
   if (!window || !window->screen)
     return -1;
 
-  w = lwnd_screen_get_window(window->screen, window->id);
+  w = lwnd_screen_get_window(window->screen, window->uid);
 
   if (w != window)
     return -1;
@@ -281,9 +281,13 @@ int lwnd_window_focus(lwnd_window_t* window)
   return lwnd_screen_register_window(s, w);
 }
 
-int lwnd_window_update(lwnd_window_t* window)
+int lwnd_window_update(lwnd_window_t* window, bool should_clear)
 {
-  lwnd_clear(window);
+  if (!window)
+    return -1;
+
+  if (should_clear)
+    lwnd_clear(window);
   window->flags |= LWND_WNDW_NEEDS_SYNC;
   return 0;
 }

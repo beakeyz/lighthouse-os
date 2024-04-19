@@ -35,13 +35,17 @@ BOOL lwindow_request_framebuffer(lwindow_t* wnd, lframebuffer_t* fb)
 
 BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, uint32_t height, lcolor_t clr)
 {
+  lframebuffer_t fb;
+
   if (!wnd || !wnd->fb)
     return FALSE;
 
+  fb = (lframebuffer_t)wnd->fb + y * wnd->current_width + x;
+
   for (uint32_t i = 0; i < height; i++) {
-    for (uint32_t j = 0; j < width; j++) {
-      *((lframebuffer_t)wnd->fb + (y + i) * wnd->current_width + (x + j)) = clr;
-    }
+    for (uint32_t j = 0; j < width; j++)
+      *(fb + j) = clr;
+    fb += wnd->current_width;
   }
 
   if ((wnd->wnd_flags & LWND_FLAG_DEFER_UPDATE) == LWND_FLAG_DEFER_UPDATE)
@@ -52,15 +56,17 @@ BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, u
 
 BOOL lwindow_draw_buffer(lwindow_t* wnd, uint32_t startx, uint32_t starty, uint32_t width, uint32_t height, lcolor_t* buffer)
 {
+  lframebuffer_t fb;
+
   if (!wnd || !wnd->fb)
     return FALSE;
 
-  for (uint32_t i = 0; i < height; i++) {
-    for (uint32_t j = 0; j < width; j++) {
-      *((lframebuffer_t)wnd->fb + (starty + i) * wnd->current_width + (startx + j)) = *buffer;
+  fb = (lframebuffer_t)wnd->fb + starty * wnd->current_width + startx;
 
-      buffer++;
-    }
+  for (uint32_t i = 0; i < height; i++) {
+    for (uint32_t j = 0; j < width; j++)
+      *(fb + j) = *buffer++;
+    fb += wnd->current_width;
   }
 
   if ((wnd->wnd_flags & LWND_FLAG_DEFER_UPDATE) == LWND_FLAG_DEFER_UPDATE)

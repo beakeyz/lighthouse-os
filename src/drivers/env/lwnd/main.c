@@ -8,6 +8,7 @@
 #include "fs/file.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
+#include "kevent/types/proc.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "logging/log.h"
@@ -127,6 +128,8 @@ int on_key(kevent_ctx_t* ctx)
 
   if (!wnd)
     return 0;
+
+  enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_Q };
  
   if (kevent_is_keycombination_pressed(k_event, _forcequit_sequence, arrlen(_forcequit_sequence))) {
     switch (wnd->type) {
@@ -134,10 +137,81 @@ int on_key(kevent_ctx_t* ctx)
         try_terminate_process(wnd->client.proc);
         break;
     }
+
+    return 0;
+  }
+
+  if (kevent_is_keycombination_pressed(k_event, keys, 1)) {
+    file_t* doom_f = file_open("Root/Apps/doom");
+
+    if (!doom_f)
+      return 0;
+
+    uint32_t pid = Must(elf_exec_64(doom_f, false));
+
+    file_close(doom_f);
+
+    proc_t* doom_p = find_proc_by_id(pid); 
+
+    if (!doom_p)
+      return 0;
+
+    sched_add_priority_proc(doom_p, SCHED_PRIO_LOW, true);
   }
 
   /* TODO: save this instantly to userspace aswell */
   lwnd_save_keyevent(wnd, k_event);
+  return 0;
+}
+
+static int on_proc(kevent_ctx_t* _ctx)
+{
+  uint32_t wnd_count, wnd_idx;
+  lwnd_window_t* c_wnd;
+  lwnd_screen_t* c_screen;
+  kevent_proc_ctx_t* ctx;
+
+  if (_ctx->buffer_size != sizeof(*ctx))
+    return 0;
+
+  wnd_idx = 0;
+  wnd_count = 0;
+  c_screen = main_screen;
+  ctx = _ctx->buffer;
+
+  switch (ctx->type) {
+    case PROC_EVENTTYPE_DESTROY:
+
+      /*
+       * When a process gets destroyed, we need to check if it had windows open with us.
+       * Right now we just itterate all the windows, which is fine if we don't have that many windows.
+       *
+       * FIXME: We probably also need to itterate the screens, but since we only have one screen rn, that should be fine
+       * TODO: Cache the windows per process, so we don't have to do weird itterations when processes die
+       */
+      do {
+        c_wnd = c_screen->window_stack[wnd_idx++];
+
+        if (!c_wnd)
+          continue;
+
+        wnd_count++;
+
+        if (c_wnd->type != LWND_TYPE_PROCESS)
+          continue;
+
+        /* Skip windows that are not from this process */
+        if (c_wnd->client.proc->m_id != ctx->process->m_id)
+          continue;
+        
+        lwnd_screen_unregister_window(c_screen, c_wnd);
+
+        destroy_lwnd_window(c_wnd);
+      } while (wnd_count < c_screen->window_count);
+      break;
+    default: break;
+  }
+
   return 0;
 }
 
@@ -193,6 +267,7 @@ int init_window_driver()
 
   /* TODO: register to I/O core */
   kevent_add_hook("keyboard", "lwnd", on_key);
+  kevent_add_hook("proc", "lwnd", on_proc);
 
   println("Initializing screen!");
   main_screen = create_lwnd_screen(&_fb_info, LWND_SCREEN_MAX_WND_COUNT);
@@ -221,22 +296,6 @@ int init_window_driver()
     return 0;
 
   sched_add_priority_proc(test_p, SCHED_PRIO_LOW, true);
-
-  file_t* doom_f = file_open("Root/Apps/doom");
-
-  if (!doom_f)
-    return 0;
-
-  uint32_t pid = Must(elf_exec_64(doom_f, false));
-
-  file_close(doom_f);
-
-  proc_t* doom_p = find_proc_by_id(pid); 
-
-  if (!doom_p)
-    return 0;
-
-  sched_add_priority_proc(doom_p, SCHED_PRIO_HIGHEST, true);
 
   return 0;
 }
@@ -273,19 +332,21 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
   /* Unsafe assignment */
   uwindow = buffer;
 
+  static size_t offset_yay = 0;
+
   switch (code) {
 
     case LWND_DCC_CREATE:
-
       /* 
        * Create the window while we know we aren't drawing anything 
        * NOTE: This takes the draw lock
        */
-      lwnd_id = create_app_lwnd_window(main_screen, 0, 0, uwindow, calling_process);
+      lwnd_id = create_app_lwnd_window(main_screen, offset_yay, offset_yay, uwindow, calling_process);
 
       if (lwnd_id == LWND_INVALID_ID)
         return DRV_STAT_INVAL;
 
+      offset_yay += 20;
       uwindow->wnd_id = lwnd_id;
       break;
 
@@ -323,7 +384,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         return DRV_STAT_INVAL;
       }
 
-      lwnd_window_update(internal_wnd);
+      lwnd_window_update(internal_wnd, true);
 
       mutex_unlock(main_screen->draw_lock);
       break;

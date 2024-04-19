@@ -1,6 +1,8 @@
 
 #include "lightos/lib/shared.h"
 
+extern int init_devices();
+
 /*!
  * @brief: Entrypoint of the library
  *
@@ -9,5 +11,9 @@
  */
 LIGHTENTRY int devacs_init()
 {
-  return 0;
+  int error;
+
+  error = init_devices();
+
+  return error;
 }

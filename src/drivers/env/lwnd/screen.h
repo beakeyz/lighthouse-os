@@ -37,6 +37,8 @@ typedef struct lwnd_screen {
   uint32_t height;
   size_t window_stack_size;
 
+  uint32_t highest_wnd_idx;
+
   lwnd_mouse_t* mouse;
   fb_info_t* info;
 
@@ -52,8 +54,7 @@ typedef struct lwnd_screen {
 
   /* This bitmap is cleared on every render pass */
   bitmap_t* pixel_bitmap;
-  /* List with window ids that have recently been freed */
-  list_t* window_stack_freelist;
+  bitmap_t* uid_bitmap;
   /* We consider every kind of 'widget' on the screen a window. This means that even the taskbar is a 'window' =) */
   lwnd_window_t** window_stack;
 } lwnd_screen_t;
@@ -69,7 +70,7 @@ int lwnd_screen_draw_window(lwnd_window_t* window);
  */
 static inline bool lwnd_window_is_top_window(lwnd_window_t* window)
 {
-  return window->id == (window->screen->window_count-1);
+  return window->stack_idx == (window->screen->window_count-1);
 }
 
 static inline bool lwnd_window_has_valid_index(lwnd_window_t* window)
@@ -77,7 +78,7 @@ static inline bool lwnd_window_has_valid_index(lwnd_window_t* window)
   if (!window || !window->screen)
     return false;
 
-  return (window->id < window->screen->window_count && window == window->screen->window_stack[window->id]);
+  return (window->stack_idx < window->screen->highest_wnd_idx && window == window->screen->window_stack[window->stack_idx]);
 }
 
 /*!
@@ -87,16 +88,17 @@ static inline bool lwnd_window_has_valid_index(lwnd_window_t* window)
  */
 static inline lwnd_window_t* lwnd_screen_get_window(lwnd_screen_t* screen, window_id_t id)
 {
-  if (id >= screen->window_count)
-    return nullptr;
+  for (window_id_t i = 0; i < screen->highest_wnd_idx; i++)
+    if (screen->window_stack[i] && screen->window_stack[i]->uid == id)
+      return screen->window_stack[i];
 
-  return screen->window_stack[id];
+  return nullptr;
 }
 
 static inline lwnd_window_t* lwnd_screen_get_top_window(lwnd_screen_t* screen)
 {
   /* The windows that's at the 'top' of the window stack is always focussed */
-  return (screen->window_stack[screen->window_count-1]);
+  return (screen->window_stack[screen->highest_wnd_idx-1]);
 }
 
 lwnd_window_t* lwnd_screen_get_window_by_label(lwnd_screen_t* screen, const char* label);

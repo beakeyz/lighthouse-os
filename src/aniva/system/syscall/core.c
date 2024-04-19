@@ -45,6 +45,8 @@ static syscall_t __static_syscalls[] = {
   [SYSID_SLEEP]             = { 0, SYSID_SLEEP, (sys_fn_t)sys_sleep, },
   [SYSID_GET_FUNCADDR]      = { 0, SYSID_GET_FUNCADDR, (sys_fn_t)sys_get_funcaddr, },
   [SYSID_GET_DEVINFO]       = { 0, SYSID_GET_DEVINFO, (sys_fn_t)sys_get_devinfo, },
+  [SYSID_DEV_ENABLE]        = { 0, SYSID_DEV_ENABLE, (sys_fn_t)sys_enable_device, },
+  { NULL },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
@@ -167,6 +169,7 @@ static bool __syscall_verify_sysid(enum SYSID id)
 {
   if (id >= __static_syscall_count)
     return false;
+  /* Let's hope uninitialised entries are zeroed =) */
   if (!__static_syscalls[id].m_handler)
     return false;
 

@@ -1,6 +1,5 @@
 #include "scheduler.h"
 #include <mem/heap.h>
-#include "dev/debug/serial.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -136,6 +135,10 @@ static sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
   /* Find the first process in the queue */
   current = scheduler_queue_peek(&s->processes);
 
+  /* Short when there is only one process running */
+  if (s->processes.count == 1)
+    return current;
+
   while (current) {
     scheduler_queue_requeue(&s->processes, current);
 
@@ -169,19 +172,7 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
   /* we should now either be in the kernel boot context, or in this mfs context */
   cur_thread = get_current_scheduling_thread();
 
-  if (force) {
-    reschedule_count = 0;
-    
-    do {
-      frame = pick_next_process_scheduler(sched);
-
-      next_thread = pull_runnable_thread_sched_frame(frame);
-    } while (reschedule_count++ < reschedule_limit && (!next_thread || next_thread == cur_thread));
-
-    goto do_schedule;
-  }
-
-  if (cur_thread->m_ticks_elapsed++ < cur_thread->m_max_ticks)
+  if (!force && cur_thread->m_ticks_elapsed++ < cur_thread->m_max_ticks)
     return false;
 
   /* Increase the elapsed ticks */
@@ -193,7 +184,6 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
     /* Reset the elapsed ticks in both cases */
     frame->m_frame_ticks = 0;
 
-    /* Pick next */
     frame = pick_next_process_scheduler(sched);
   }
 
@@ -208,13 +198,12 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
     next_thread = pull_runnable_thread_sched_frame(frame);
 
     /* If we don't force a reschedule, the threads may be the same */
-    if (next_thread && (next_thread != cur_thread))
+    if (next_thread)
       break;
 
     frame = pick_next_process_scheduler(sched);
   } while (reschedule_count++ < reschedule_limit);
 
-do_schedule:
   /* If we can't seem to get a new thread, when there is only one process, just don't do shit */
   if (next_thread == cur_thread)
     return false;
@@ -657,7 +646,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
     return proc->m_init_thread;
   }
 
-  c_idx = start_idx;
+  c_idx = 0;
 
   do {
     next_thread = list_get(proc->m_threads, (start_idx + c_idx) % proc->m_threads->m_length);
@@ -687,11 +676,10 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
     } 
 
     switch (next_thread->m_current_state) {
-      case RUNNING:
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
         // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
-        ptr->m_scheduled_thread_index = c_idx;
+        ptr->m_scheduled_thread_index = (start_idx + c_idx) % proc->m_threads->m_length;
 
         next_thread->m_current_state = RUNNABLE;
 

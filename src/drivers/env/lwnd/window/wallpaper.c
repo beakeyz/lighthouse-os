@@ -2,9 +2,6 @@
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/screen.h"
 #include "drivers/env/lwnd/window.h"
-#include "libk/data/bitmap.h"
-#include "libk/string.h"
-#include "logging/log.h"
 
 static int lwnd_wallpaper_draw(lwnd_window_t* window) 
 {

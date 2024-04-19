@@ -39,6 +39,7 @@ lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_window_count)
 
   /* This can get quite big once the resolution gets bigger */
   ret->pixel_bitmap = create_bitmap_ex(fb->width * fb->height, 0);
+  ret->uid_bitmap = create_bitmap_ex(0xffff, 0);
   ret->window_stack_size = ALIGN_UP(max_window_count * sizeof(lwnd_window_t*), SMALL_PAGE_SIZE);
   ret->window_stack = (lwnd_window_t**)Must(__kmem_kernel_alloc_range(ret->window_stack_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
@@ -61,8 +62,34 @@ void destroy_lwnd_screen(lwnd_screen_t* screen)
   destroy_mutex(screen->draw_lock);
   destroy_mutex(screen->event_lock);
   destroy_bitmap(screen->pixel_bitmap);
+  destroy_bitmap(screen->uid_bitmap);
   Must(__kmem_kernel_dealloc((uint64_t)screen->window_stack, screen->window_stack_size));
   deallocate_lwnd_screen(screen);
+}
+
+static int _generate_window_uid(lwnd_screen_t* screen, window_id_t* uid)
+{
+  ErrorOrPtr result;
+  window_id_t id;
+
+  result = bitmap_find_free(screen->uid_bitmap);
+
+  /* Could not find free entry */
+  if (IsError(result))
+    return -1;
+
+  id = Release(result);
+
+  /* Mark this bitch */
+  bitmap_mark(screen->uid_bitmap, id);
+
+  *uid = id;
+  return 0;
+}
+
+static inline void _free_window_uid(lwnd_screen_t* screen, window_id_t uid)
+{
+  bitmap_unmark(screen->uid_bitmap, uid);
 }
 
 /*!
@@ -70,17 +97,26 @@ void destroy_lwnd_screen(lwnd_screen_t* screen)
  */
 int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window)
 {
+  int error;
+
   mutex_lock(screen->draw_lock);
+
+  error = _generate_window_uid(screen, &window->uid);
+
+  if (error)
+    goto unlock_and_exit;
 
   window->screen = screen;
 
-  screen->window_stack[screen->window_count] = window;
-  window->id = screen->window_count;
+  screen->window_stack[screen->highest_wnd_idx] = window;
+  window->stack_idx = screen->highest_wnd_idx;
 
   screen->window_count++;
+  screen->highest_wnd_idx++;
 
+unlock_and_exit:
   mutex_unlock(screen->draw_lock);
-  return 0;
+  return error;
 }
 
 /*!
@@ -93,23 +129,25 @@ int lwnd_screen_register_window(lwnd_screen_t* screen, lwnd_window_t* window)
  */
 int lwnd_screen_register_window_at(lwnd_screen_t* screen, lwnd_window_t* window, window_id_t newid)
 {
+  window_id_t uid;
   lwnd_window_t* c, *p;
 
-  if (newid >= screen->window_count)
-    return -1;
-
-  /* Register at the end? Just register */
-  if (newid == screen->window_count-1)
-    return lwnd_screen_register_window(screen, window);
-
   mutex_lock(screen->draw_lock);
+
+  if (_generate_window_uid(screen, &uid))
+    goto unlock_and_exit;
 
   c = screen->window_stack[newid];
   p = c;
 
   /* Set the new window here */
   screen->window_stack[newid] = window;
-  window->id = newid;
+  window->uid = uid;
+  window->stack_idx = newid;
+
+  /* Update highest_wnd_idx */
+  if (newid > screen->highest_wnd_idx)
+    screen->highest_wnd_idx = newid;
 
   newid++;
   c = screen->window_stack[newid];
@@ -118,7 +156,7 @@ int lwnd_screen_register_window_at(lwnd_screen_t* screen, lwnd_window_t* window,
 
     /* Shift the previous window forward */
     screen->window_stack[newid] = p;
-    screen->window_stack[newid]->id = newid;
+    screen->window_stack[newid]->stack_idx = newid;
 
     /* Cache the current entry as the previous */
     p = c;
@@ -130,6 +168,7 @@ int lwnd_screen_register_window_at(lwnd_screen_t* screen, lwnd_window_t* window,
 
   screen->window_count++;
 
+unlock_and_exit:
   mutex_unlock(screen->draw_lock);
   return 0;
 }
@@ -146,7 +185,7 @@ int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
   if (!screen || !screen->window_count)
     return -1;
 
-  if (window->id == LWND_INVALID_ID)
+  if (window->stack_idx == LWND_INVALID_ID)
     return -1;
 
   /* Check both range and validity */
@@ -160,20 +199,28 @@ int lwnd_screen_unregister_window(lwnd_screen_t* screen, lwnd_window_t* window)
   /* Make sure the window area is cleared for draw */
   lwnd_clear(window);
 
+  for (uint32_t i = 0; i < window->stack_idx; i++)
+    lwnd_window_update(screen->window_stack[i], false);
+
+  /* Free up this uid */
+  _free_window_uid(screen, window->uid);
+
   /* We know window is valid and contained within the stack */
-  for (uint32_t i = window->id; i < screen->window_count; i++) {
+  screen->window_stack[window->stack_idx] = nullptr;
 
-    if (i+1 < screen->window_count) {
-      screen->window_stack[i] = screen->window_stack[i + 1];
-
-      if (screen->window_stack[i]) {
-        screen->window_stack[i]->id = i;
-      }
-    } else 
-      screen->window_stack[i] = nullptr;
+  /* Solve weird shit */
+  for (uint32_t i = window->stack_idx; i < screen->highest_wnd_idx; i++) {
+    screen->window_stack[i+1]->stack_idx = i;
+    screen->window_stack[i] = screen->window_stack[i+1];
   }
 
-  window->id = LWND_INVALID_ID;
+  if ((window->stack_idx+1) == screen->highest_wnd_idx)
+    /* Scan down the stack */
+    while (screen->highest_wnd_idx && !screen->window_stack[screen->highest_wnd_idx-1])
+      screen->highest_wnd_idx--;
+
+  window->stack_idx = LWND_INVALID_ID;
+  window->uid = LWND_INVALID_ID;
   window->screen = nullptr;
 
   screen->window_count--;
@@ -190,7 +237,7 @@ lwnd_window_t* lwnd_screen_get_window_by_label(lwnd_screen_t* screen, const char
 {
   lwnd_window_t* c;
 
-  for (uint32_t i = 0; i < screen->window_count; i++) {
+  for (uint32_t i = 0; i < screen->highest_wnd_idx; i++) {
     c = screen->window_stack[i];
 
     if (!c || strcmp(c->label, label) == 0)

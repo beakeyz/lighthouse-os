@@ -217,10 +217,6 @@ void logln(const char* msg)
  */
 void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
 {
-  static const char* waring_str = "[Warning]: ";
-  static const char* error_str = "[ERROR]: ";
-  size_t msg_len;
-  size_t msg_offset;
   logger_t* target;
 
   if (!valid_logger_id(id))
@@ -231,61 +227,24 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
   if (!target)
     return;
 
-  msg_len = NULL;
-  msg_offset = 0;
-
-  if (msg)
-    msg_len = strlen(msg);
-
-  /*
-   * Add a lil offset if we are specifying warning or error prefixes
-   */
-  if (type == LOG_TYPE_WARNING) {
-    msg_len += strlen(waring_str);
-  } else if (type == LOG_TYPE_ERROR) {
-    msg_len += strlen(error_str);
-  }
-
-  /* FIXME: heap-alloc? */
-  char msg_buffer[msg_len + 1];
-  memset(msg_buffer, 0, msg_len + 1);
-
-  /*
-   * Very ugly bit of type intercepting
-   */
-  if (type == LOG_TYPE_WARNING) {
-    memcpy(&msg_buffer[0], waring_str, strlen(waring_str));
-    msg_offset += strlen(waring_str);
-
-    type = LOG_TYPE_LINE;
-  } else if (type == LOG_TYPE_ERROR) {
-    memcpy(&msg_buffer[0], error_str, strlen(error_str));
-    msg_offset += strlen(error_str);
-
-    type = LOG_TYPE_LINE;
-  }
-
-  if (msg)
-    memcpy(&msg_buffer[msg_offset], msg, strlen(msg));
-
   switch (type) {
     case LOG_TYPE_DEFAULT:
       {
         if (target->f_log)
-          target->f_log(msg_buffer);
+          target->f_log(msg);
         break;
       }
     case LOG_TYPE_CHAR:
       {
         if (target->f_logc)
-          target->f_logc(msg_buffer[0]);
+          target->f_logc(msg[0]);
 
         break;
       }
     case LOG_TYPE_LINE:
       {
         if (target->f_logln)
-          target->f_logln(msg_buffer);
+          target->f_logln(msg);
         break;
       }
     default:
@@ -303,8 +262,6 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
 {
   logger_t* current;
 
-  try_lock();
-
   for (uint16_t i = 0; i < __loggers_count; i++) {
 
     current = __loggers[i];
@@ -316,18 +273,12 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
     log_ex(i, msg, nullptr, type);
   }
 
-  try_unlock();
-
   return 0;
 }
 
 static inline int _kputch(uint8_t typeflags, char c, char** out)
 {
-  (void)out;
-  char buff[2] = { 0 };
-  buff[0] = c;
-
-  return print_ex(typeflags, buff, LOG_TYPE_CHAR);
+  return print_ex(typeflags, &c, LOG_TYPE_CHAR);
 }
 
 int kputch(char c) 

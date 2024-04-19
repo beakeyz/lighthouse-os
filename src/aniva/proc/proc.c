@@ -224,12 +224,7 @@ static void __proc_clear_handles(proc_t* proc)
  */
 void destroy_proc(proc_t* proc) 
 {
-  proc_t* check;
-
-  check = find_proc_by_id(proc->m_id);
-  
-  if (check)
-    proc_unregister((char*)proc->m_name);
+  proc_unregister(proc->m_id);
 
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
@@ -333,10 +328,10 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
   /* Pause the scheduler to make sure we're not fucked while doing this */
   pause_scheduler();
 
-  /* Register from the global register store */
-  result = proc_unregister((char*)proc->m_name);
+  result = Error();
 
-  if (IsError(result))
+  /* Register from the global register store */
+  if (proc_unregister(proc->m_id))
     goto unpause_and_exit;
 
   /* 
