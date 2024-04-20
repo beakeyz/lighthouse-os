@@ -13,3 +13,4 @@
 -nostdlib
 -Wall
 -Werror
+-ffreestanding 
