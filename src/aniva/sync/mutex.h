@@ -7,13 +7,11 @@
 #include <libk/stddef.h>
 
 typedef struct mutex {
+  const char* m_name;
   atomic_ptr_t m_lock_depth;
-
-  thread_t* m_lock_holder;
-
-  queue_t* m_waiters;
-
   spinlock_t* m_lock;
+  queue_t* m_waiters;
+  thread_t* m_lock_holder;
 } mutex_t;
 
 /*

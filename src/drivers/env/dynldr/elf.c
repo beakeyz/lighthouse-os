@@ -97,7 +97,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   /* Simple delta */
   image->user_image_size = ALIGN_UP((user_high) + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
   /* With this we can find the user base */
-  image->user_base = (void*)(ALIGN_UP(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE));
+  image->user_base = (void*)(ALIGN_DOWN(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE));
 
   //printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 

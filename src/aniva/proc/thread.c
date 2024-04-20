@@ -67,7 +67,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,
         proc->m_resource_bundle,
-        HIGH_MAP_BASE,
+        KERNEL_MAP_BASE,
         DEFAULT_STACK_SIZE,
         NULL,
         KMEM_FLAG_WRITABLE));
@@ -294,6 +294,7 @@ extern void thread_enter_context(thread_t *to)
   if (prev_thread->m_context.cr3 == to->m_context.cr3)
     return;
 
+  /*
   printf("Switching from %s:%s (%d-%d) (%lld) to %s:%s (%d-%d) (%lld)\n",
       prev_thread->m_parent_proc->m_name, 
       prev_thread->m_name,
@@ -306,6 +307,7 @@ extern void thread_enter_context(thread_t *to)
       to->m_tid,
       to->m_context.cr3
       );
+      */
 
   kmem_load_page_dir(to->m_context.cr3, false);
 }

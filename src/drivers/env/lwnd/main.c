@@ -75,7 +75,7 @@ static void USED lwnd_main()
     mutex_lock(current_screen->draw_lock);
 
     /* Loop over the stack from top to bottom */
-    for (uint32_t i = current_screen->window_count-1;; i--) {
+    for (uint32_t i = current_screen->highest_wnd_idx-1;; i--) {
       current_wnd = current_screen->window_stack[i];
 
       if (!current_wnd)
