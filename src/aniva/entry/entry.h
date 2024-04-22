@@ -24,7 +24,6 @@ extern struct aniva_driver* _kernel_core_drvs_end[];
 extern pml_entry_t boot_pml4t[512];
 extern pml_entry_t boot_pdpt[512];
 extern pml_entry_t boot_pd0[512];
-extern pml_entry_t boot_pd0_p[512 * 32];
 
 /* TODO: automatic version bumping */
 extern driver_version_t kernel_version;

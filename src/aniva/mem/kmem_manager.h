@@ -63,7 +63,7 @@ void debug_kmem(void);
 // paging masks
 #define PDE_SIZE_MASK           0xFFFFffffFFFFF000ULL
 #define PAGE_LOW_MASK           0xFFFULL
-#define PML_ENTRY_MASK          0x8000000000000fffULL
+#define PTE_PAGE_MASK           0x8000000000000fffULL
 #define ENTRY_MASK              0x1FFULL
 
 #define PAGE_SIZE               0x200000
@@ -91,15 +91,13 @@ void debug_kmem(void);
 // Custom mapping flags
 #define KMEM_CUSTOMFLAG_GET_MAKE            0x00000001
 #define KMEM_CUSTOMFLAG_CREATE_USER         0x00000002
-#define KMEM_CUSTOMFLAG_PERSISTANT_ALLOCATE 0x00000004
-#define KMEM_CUSTOMFLAG_IDENTITY            0x00000008
-#define KMEM_CUSTOMFLAG_NO_REMAP            0x00000010
-#define KMEM_CUSTOMFLAG_GIVE_PHYS           0x00000020
-#define KMEM_CUSTOMFLAG_USE_QUICKMAP        0x00000040
-#define KMEM_CUSTOMFLAG_UNMAP               0x00000080
-#define KMEM_CUSTOMFLAG_NO_PHYS_REALIGN     0x00000100
-#define KMEM_CUSTOMFLAG_READONLY            0x00000200 /* Temporary */
-#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000400
+#define KMEM_CUSTOMFLAG_IDENTITY            0x00000004
+#define KMEM_CUSTOMFLAG_NO_REMAP            0x00000008
+#define KMEM_CUSTOMFLAG_GIVE_PHYS           0x00000010
+#define KMEM_CUSTOMFLAG_NO_PHYS_REALIGN     0x00000020
+#define KMEM_CUSTOMFLAG_READONLY            0x00000040 /* Temporary */
+#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000080
+#define KMEM_CUSTOMFLAG_GET_PDE             0x00000100
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002
@@ -128,12 +126,14 @@ static inline uintptr_t kmem_get_page_addr (uintptr_t page_idx)
 
 static inline uintptr_t kmem_get_page_base (uintptr_t base) 
 {
-  return (base & ~(PML_ENTRY_MASK));
+  return (base & ~(PTE_PAGE_MASK));
 }
 
 static inline uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_base) 
 {
-  entry->raw_bits &= PML_ENTRY_MASK;
+  /* Clear the previous address */
+  entry->raw_bits &= PTE_PAGE_MASK;
+  /* Write the new address */
   entry->raw_bits |= kmem_get_page_base(page_base);
   return entry->raw_bits;
 }

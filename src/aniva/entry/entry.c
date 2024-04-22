@@ -163,6 +163,12 @@ static kerror_t _start_system_management(void)
    */
   init_kheap();
 
+  // initialize cpu-related things that need the memorymanager and the heap
+  init_processor_late(&g_bsp);
+
+  // Setup interrupts (Fault handlers and IRQ request framework)
+  init_interrupts();
+
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
@@ -186,9 +192,6 @@ static kerror_t _start_system_management(void)
  */
 static kerror_t _start_subsystems(void)
 {
-  // initialize cpu-related things that need the memorymanager and the heap
-  init_processor_late(&g_bsp);
-
   // we need more memory
   init_zalloc();
 
@@ -203,9 +206,6 @@ static kerror_t _start_subsystems(void)
 
   // Make sure we know how to access the PCI configuration space at this point
   init_pci_early();
-
-  // Setup interrupts (Fault handlers and IRQ request framework)
-  init_interrupts();
 
   /* Initialize OSS */
   init_oss();

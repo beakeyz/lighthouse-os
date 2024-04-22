@@ -198,17 +198,17 @@ static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
   println(to_string(range->start));
   print("map entry length: ");
   println(to_string(range->length));
+
+  range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
+
+  if (range_end > KMEM_DATA.m_highest_phys_page_base)
+    KMEM_DATA.m_highest_phys_page_base = range_end;
   
   if (range->type != MEMTYPE_USABLE)
     goto exit_and_return;
 
   range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
   range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
-
-  range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
-
-  if (range_end > KMEM_DATA.m_highest_phys_page_base)
-    KMEM_DATA.m_highest_phys_page_base = range_end;
 
   printf("Adding %lld bytes to %lld\n", range->length, KMEM_DATA.m_total_avail_memory_bytes);
   KMEM_DATA.m_total_avail_memory_bytes += range->length;
@@ -243,7 +243,7 @@ static bool _kmem_ranges_overlap(kmem_range_t* range1, kmem_range_t* range2)
       /* @range2 ends inside @range1 */
       ((range2->start + range2->length) > range1->start && (range2->start + range2->length) <= (range1->start + range1->length)) ||
       /* @range2 starts inside @range2 */
-      (range2->start >= range1->start && (range2->start + range2->length) >= (range1->start + range1->length))
+      (range2->start >= range1->start && range2->start < (range1->start + range1->length) && (range2->start + range2->length) >= (range1->start + range1->length))
   );
 }
 
@@ -620,8 +620,6 @@ ErrorOrPtr kmem_request_physical_page(void)
 {
   TRY(index, bitmap_find_free(KMEM_DATA.m_phys_bitmap));
 
-  printf("Found free physical page at idx: %lld\n", index);
-
   return Success(index);
 }
 
@@ -771,7 +769,7 @@ kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, 
   }
 
   // this just should exist
-  const pml_entry_t* pt = (const pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), KMEM_DATA.m_high_page_base);
+  pml_entry_t* pt = (pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), KMEM_DATA.m_high_page_base);
 
   if (bentry)
     *bentry = (pml_entry_t*)&pt[pt_idx];
@@ -1386,43 +1384,22 @@ ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t c
  */
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  kmem_range_t* range;
-  size_t current_size;
-  const size_t max_end_base = ALIGN_DOWN((1ULL * Gib), SMALL_PAGE_SIZE);
+  const size_t max_end_idx = kmem_get_page_idx(2ULL * Gib);
+  size_t mapping_end_idx = KMEM_DATA.m_phys_pages_count - 1;
 
-  printf("Mapping kernel text\n");
+  if (mapping_end_idx > max_end_idx)
+    mapping_end_idx = max_end_idx;
 
   debug_kmem();
 
-  FOREACH(i, KMEM_DATA.m_phys_ranges) {
-    range = i->data;
-
-    if ((range->type != MEMTYPE_USABLE && range->type != MEMTYPE_KERNEL) || !range->length)
-      continue;
-
-    if (range->start >= max_end_base)
-      continue;
-
-    current_size = (range->start + range->length) > max_end_base ?
-      (max_end_base - range->start) :
-      range->length;
-
-    printf("Mapping range: start=0x%llx, rangesize=0x%llx, mapsize=0x%llx\n", range->start, range->length, current_size);
-
-    /* Map everything until what we've already mapped in boot.asm */
-    ASSERT_MSG(
-        kmem_map_range(
-          map,
-          HIGH_MAP_BASE,
-          ALIGN_DOWN(range->start, SMALL_PAGE_SIZE),
-          current_size,
-          KMEM_CUSTOMFLAG_GET_MAKE,
-          KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
-        "Failed to mmap pre-kernel memory"
-        );
-
-  }
-
+  kmem_map_range(
+    map,
+    HIGH_MAP_BASE, 
+    0,
+    mapping_end_idx,
+    KMEM_CUSTOMFLAG_GET_MAKE,
+    KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
+  );
 
   printf("Mapped kernel text\n");
 }
@@ -1679,7 +1656,8 @@ ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir)
  * NOTE: caller needs to ensure that they pass a physical address
  * as page map. CR3 only takes physical addresses
  */
-void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts) {
+void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts) 
+{
   if (__disable_interrupts) 
     disable_interrupts();
 

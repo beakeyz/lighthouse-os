@@ -3,7 +3,6 @@
 #include "irq/ctl/irqchip.h"
 #include "irq/idt.h"
 #include "libk/flow/error.h"
-#include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
 #include "system/asm_specifics.h"
 #include "system/msr.h"
@@ -95,6 +94,8 @@ static bool processor_register(processor_t* p)
  */
 void init_processor_late(processor_t *processor) 
 {
+  uint64_t cr4;
+
   processor->m_processes = init_list();
   processor->m_critical_depth = create_atomic_ptr();
   processor->m_locked_level = create_atomic_ptr();
@@ -111,17 +112,23 @@ void init_processor_late(processor_t *processor)
 
   ASSERT_MSG(processor_has(&processor->m_info, X86_FEATURE_PAT), "Processor does not support PAT!");
 
+  cr4 = read_cr4();
+
   if (processor_has(&processor->m_info, X86_FEATURE_PGE))
-    write_cr4(read_cr4() | 0x80);
+    cr4 |= 0x80;
+
+  if (processor_has(&processor->m_info, X86_FEATURE_PSE))
+    cr4 |= 0x10;
 
   if (processor_has(&processor->m_info, X86_FEATURE_FSGSBASE))
-    write_cr4(read_cr4() & ~(0x10000));
+    cr4 &= ~(0x10000);
 
   if (processor_has(&processor->m_info, X86_FEATURE_XSAVE)) {
-    write_cr4(read_cr4() | 0x40000);
+    cr4 |= 0x40000;
 
     // TODO: xcr0?
     write_xcr0(0x1);
+    write_cr4(cr4);
 
     if (processor_has(&processor->m_info, X86_FEATURE_AVX)) {
       write_xcr0(read_xcr0() | (AVX | SSE | X87));

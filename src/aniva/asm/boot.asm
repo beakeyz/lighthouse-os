@@ -114,7 +114,7 @@ cpuid_support:
 
   .fill_directory:
     or ebx, 0x3
-    mov dword[(boot_pd0 - KERNEL_VIRT_BASE) + eax], ebx
+    mov [(boot_pd0 - KERNEL_VIRT_BASE) + eax], ebx
     add ebx, 0x1000
     add eax, 8
 
@@ -152,13 +152,13 @@ cpuid_support:
   ; set the long mode bit
   mov ecx, 0xC0000080
   rdmsr
-  or eax, 1 << 8
+  or eax, (1 << 8)
   wrmsr
 
   ; enable paging
   mov eax, cr0
-  or eax, 1 << 31
-  or eax, 1 << 16
+  or eax, (1 << 31)
+  or eax, (1 << 16)
   mov cr0, eax
 
   lgdt [gdtr - KERNEL_VIRT_BASE]
@@ -218,7 +218,7 @@ gdt_end:
 
 ; Our effective memory size until kmem_manager takes over
 early_map_size:
-  dq (0x10000 * 0x1000)
+  dq (0x40000 * 0x1000)
 
 [section .pts]
 
