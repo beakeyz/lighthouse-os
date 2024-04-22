@@ -192,9 +192,9 @@ void* find_rsdp(acpi_parser_t* parser)
 
   FOREACH(i, phys_ranges) {
 
-    phys_mem_range_t *range = i->data;
+    kmem_range_t *range = i->data;
 
-    if (range->type != PMRT_ACPI_NVS && range->type != PMRT_ACPI_RECLAIM)
+    if (range->type != MEMTYPE_ACPI_NVS && range->type != MEMTYPE_ACPI_RECLAIM)
       continue;
 
     uintptr_t start = kmem_ensure_high_mapping(range->start);

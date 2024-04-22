@@ -41,15 +41,14 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
     );
     p_addr = kmem_to_phys(current_proc->m_root_pd.m_root, err_addr);
 
-    page = kmem_get_page(current_proc->m_root_pd.m_root, err_addr, NULL, NULL);
-
-    printf("Physical address: 0x%llx with flags: (%s%s%s%s)\n",
-        p_addr,
-        pml_entry_is_bit_set(page, PTE_PRESENT) ? "-Present-" : "-",
-        pml_entry_is_bit_set(page, PTE_USER) ? "-User-" : "-",
-        pml_entry_is_bit_set(page, PTE_WRITABLE) ? "-W-" : "-RO-",
-        pml_entry_is_bit_set(page, PTE_NO_CACHE) ? "-" : "-C-"
-    );
+    if (KERR_OK(kmem_get_page(&page, current_proc->m_root_pd.m_root, err_addr, NULL, NULL)))
+      printf("Physical address: 0x%llx with flags: (%s%s%s%s)\n",
+          p_addr,
+          pml_entry_is_bit_set(page, PTE_PRESENT) ? "-Present-" : "-",
+          pml_entry_is_bit_set(page, PTE_USER) ? "-User-" : "-",
+          pml_entry_is_bit_set(page, PTE_WRITABLE) ? "-W-" : "-RO-",
+          pml_entry_is_bit_set(page, PTE_NO_CACHE) ? "-" : "-C-"
+      );
   } else
     printf("Fault occured during kernel boot (Yikes)\n");
 

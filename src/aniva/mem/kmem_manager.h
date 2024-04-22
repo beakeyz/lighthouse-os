@@ -98,9 +98,8 @@ void debug_kmem(void);
 #define KMEM_CUSTOMFLAG_USE_QUICKMAP        0x00000040
 #define KMEM_CUSTOMFLAG_UNMAP               0x00000080
 #define KMEM_CUSTOMFLAG_NO_PHYS_REALIGN     0x00000100
-#define KMEM_CUSTOMFLAG_NO_MARK             0x00000200
-#define KMEM_CUSTOMFLAG_READONLY            0x00000400 /* Temporary */
-#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000800
+#define KMEM_CUSTOMFLAG_READONLY            0x00000200 /* Temporary */
+#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000400
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002
@@ -140,60 +139,22 @@ static inline uintptr_t kmem_set_page_base(pml_entry_t* entry, uintptr_t page_ba
 }
 
 
-typedef enum {
-  PMRT_USABLE = 1,
-  PMRT_RESERVED,
-  PMRT_KERNEL_RESERVED,
-  PMRT_ACPI_RECLAIM,
-  PMRT_ACPI_NVS,
-  PMRT_BAD_MEM,
-  PMRT_UNKNOWN,
-} PhysMemRangeType_t;
+enum KMEM_MEMORY_TYPE {
+  MEMTYPE_USABLE = 1,
+  MEMTYPE_RESERVED,
+  MEMTYPE_KERNEL_RESERVED,
+  MEMTYPE_KERNEL,
+  MEMTYPE_ACPI_RECLAIM,
+  MEMTYPE_ACPI_NVS,
+  MEMTYPE_BAD_MEM,
+  MEMTYPE_UNKNOWN,
+};
 
 typedef struct {
-  PhysMemRangeType_t type;
-  uint64_t start;
+  enum KMEM_MEMORY_TYPE type;
+  paddr_t start;
   size_t length;
-} phys_mem_range_t;
-
-typedef struct {
-  uint64_t start;
-  uint64_t end;
-} contiguous_phys_virt_range_t; 
-
-/*
- * TODO: encorperate some system that ensures safety with 
- * this structure, like only allowing the owner pointer
- * to destroy this structure and zeroing all the other 
- * m_references when it eventually does
- */
-struct kmem_region {
-  size_t m_page_count;
-  bool m_contiguous;
-  page_dir_t* m_dir;
-  
-  void** m_references;
-};
-typedef struct kmem_region kregion_t;
-typedef struct kmem_region* kregion;
-
-/*
- * This struct represents a page that was gathered from a specific 
- * page dir. We can trace back and verify the pbase if we walk the 
- * page dir with the p0-3 and optionally p4 if we use 5-level paging
- */
-struct kmem_page {
-  uintptr_t p0, p1, p2, p3, p4;
-  vaddr_t vbase;
-  paddr_t pbase;
-  page_dir_t* dir;
-};
-
-typedef struct kmem_mapping {
-  size_t m_size;
-  vaddr_t m_vbase;
-  paddr_t m_pbase;
-} kmapping_t;
+} kmem_range_t;
 
 /*
  * initialize kernel pagetables and physical allocator
@@ -212,7 +173,7 @@ void prep_mmap (struct multiboot_tag_mmap* mmap);
 /*
  * parse the entire mmap
  */
-void parse_mmap ();
+void kmem_parse_mmap ();
 
 void kmem_load_page_dir(uintptr_t dir, bool __disable_interrupts);
 
@@ -244,7 +205,6 @@ void kmem_set_phys_page_free (uintptr_t idx);
 void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count);
 void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count);
 
-void kmem_set_phys_page (uintptr_t idx, bool value);
 bool kmem_is_phys_page_used (uintptr_t idx);
 
 /*
@@ -264,7 +224,7 @@ ErrorOrPtr kmem_prepare_new_physical_page();
 ErrorOrPtr kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir();
 
-pml_entry_t* kmem_get_page(pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
+kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
 pml_entry_t* kmem_get_page_with_quickmap(pml_entry_t* table, vaddr_t virt, uint32_t kmem_flags, uint32_t page_flags);
 
 /* TODO: implement */

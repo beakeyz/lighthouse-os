@@ -105,12 +105,12 @@ cpuid_support:
   or eax, 0x3
   mov [(boot_hh_pdpt - KERNEL_VIRT_BASE) + 510 * 8], eax
 
-  ; Fill 512 entries of pml2 with addresses into pml1
-  ; this means we can map a total of 256 * 512 * 0x1000 = 1 Gib
+  ; Fill 128 entries of pml2 with addresses into pml1
+  ; this means we can map a total of 128 * 512 * 0x1000 = 256 Mib 
   ; starting from physical address 0
   mov eax, 0 
   mov ebx, boot_pd0_p - KERNEL_VIRT_BASE
-  mov ecx, 256
+  mov ecx, 512
 
   .fill_directory:
     or ebx, 0x3
@@ -123,10 +123,10 @@ cpuid_support:
     jne .fill_directory
 
   ; We will map a total of 0x10000 pages of 0x1000 bytes which will directly
-  ; translate to 512 Mib as described above. This means we can (hopefully) load the
+  ; translate to 256 Mib as described above. This means we can (hopefully) load the
   ; entire kernel + its ramdisk in one range and also find enough space for a bitmap
   ; to fit the entire physical memoryspace
-  mov ecx, 0x10000
+  mov ecx, 0x40000
   mov ebx, 0 
   mov eax, 0 
 
@@ -228,6 +228,8 @@ boot_pml4t:
   times 512 dq 0
 boot_pdpt:
   times 512 dq 0
+boot_hh_pdpt:
+  times 512 dq 0
 boot_pd0:
   times 512 dq 0
 
@@ -237,9 +239,7 @@ boot_pd0:
 ; mappings, that would greatly decrease the size of the kernel binary and thus also
 ; improve load times
 boot_pd0_p:
-  times 0x10000 dq 0
-boot_hh_pdpt:
-  times 512 dq 0
+  times 0x40000 dq 0
 
 ; hihi small stack =)
 [section .stack]

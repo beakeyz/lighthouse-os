@@ -1,7 +1,7 @@
 #include "file.h"
 #include "libk/flow/error.h"
+#include "libk/string.h"
 #include "mem/heap.h"
-#include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -114,41 +114,9 @@ file_ops_t generic_file_ops = {
  * NOTE: mapping a file means the mappings get the same flags, both
  * in the kernel map, and in the new map
  */
-file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags) {
-  
-  file_t ret = {
-    0
-  };
-
-  /*
-   * FIXME: this function returns the right stuff, but works 
-   * in an incorrect way.
-   */
-
+file_t f_kmap(file_t* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags) 
+{
   kernel_panic("TODO: fix f_kmap");
-
-  const size_t def_size = ALIGN_UP(size, SMALL_PAGE_SIZE);
-  const size_t page_count = kmem_get_page_idx(def_size);
-
-  /* NOTE: aggressive Must() */
-  vaddr_t alloc_result = Must(__kmem_kernel_alloc_range(def_size, custom_flags, page_flags));
-
-  paddr_t physical_base = kmem_to_phys(nullptr, alloc_result);
-
-  if (!physical_base) {
-    kernel_panic("Potential bug: kmem_to_phys returned NULL");
-    return ret;
-  }
-
-  vaddr_t new_virt_base = kmem_map_range(dir->m_root, kmem_ensure_high_mapping(physical_base), physical_base, page_count, custom_flags, page_flags);
-    
-  ret.m_buffer_size = def_size;
-  ret.m_total_size = def_size;
-  ret.m_buffer = (void*)new_virt_base;
-  ret.m_buffer_offset = file->m_buffer_offset;
-  ret.m_ops = &generic_file_ops;
-
-  return ret;
 }
 
 /*!

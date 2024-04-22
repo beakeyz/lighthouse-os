@@ -88,9 +88,10 @@ ErrorOrPtr finalize_multiboot()
   /* Mark the framebuffer memory as used */
   if (fbuffer && fbuffer->common.framebuffer_addr) {
 
-    println("Marking framebuffer as used!");
     uintptr_t phys_fb_start_idx = kmem_get_page_idx(ALIGN_DOWN(fbuffer->common.framebuffer_addr, SMALL_PAGE_SIZE));
     uintptr_t phys_fb_page_count = kmem_get_page_idx(ALIGN_UP(fbuffer->common.framebuffer_pitch * fbuffer->common.framebuffer_height, SMALL_PAGE_SIZE));
+
+    printf("Marking framebuffer as used! (start_page: 0x%llx, page_count: 0x%llx)\n", phys_fb_start_idx, phys_fb_page_count);
 
     kmem_set_phys_range_used(phys_fb_start_idx, phys_fb_page_count);
   }

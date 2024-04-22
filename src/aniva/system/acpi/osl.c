@@ -208,10 +208,8 @@ BOOLEAN AcpiOsReadable(void *Memory, ACPI_SIZE Length)
   page_count = ALIGN_UP(Length, SMALL_PAGE_SIZE) / SMALL_PAGE_SIZE;
 
   for (uint64_t i = 0; i < page_count; i++) {
-    page = kmem_get_page(nullptr, (uint64_t)Memory + i * SMALL_PAGE_SIZE, NULL, NULL);
-
     /* If the page isn't found, we obviously can't read it :clown */
-    if (!page)
+    if (kmem_get_page(&page, nullptr, (uint64_t)Memory + i * SMALL_PAGE_SIZE, NULL, NULL))
       return FALSE;
   }
 
@@ -230,10 +228,7 @@ BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
      * NOTE: kmem_get_page will align down the memory address to the first page-aligned boundry
      * so we don't have to worry about the alignment here
      */
-    page = kmem_get_page(nullptr, (uint64_t)Memory + i * SMALL_PAGE_SIZE, NULL, NULL);
-
-    /* If the page isn't found, we obviously can't read it :clown */
-    if (!page)
+    if (kmem_get_page(&page, nullptr, (uint64_t)Memory + i * SMALL_PAGE_SIZE, NULL, NULL))
       return FALSE;
 
     /* Check for the writable bit, which indicates whether we can write to this page (LOL) */

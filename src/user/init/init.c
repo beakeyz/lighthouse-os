@@ -1,6 +1,8 @@
 #include "devacs/device.h"
 #include "lightos/handle.h"
+#include "lightos/memory/memflags.h"
 #include <sys/types.h>
+#include <lightos/memory/alloc.h>
 #include <lightos/fs/dir.h>
 #include <stdio.h>
 
@@ -47,6 +49,15 @@ int main()
   printf("Class: %d\n", info.class);
   printf("Subclass: %d\n", info.subclass);
   printf("Device state: %s\n", device_enable(handle) ? "Enabled" : "Disabled");
+
+  size_t size = 0x800000000;
+
+  //for (uint32_t i = 0; i < 0xffffffff; i++) {
+    //printf("Allocating %lld bytes\n", size);
+    //allocate_pool(&size, MEMPOOL_FLAG_RW, MEMPOOL_TYPE_BUFFER);
+  //}
+
+  allocate_pool(&size, MEMPOOL_FLAG_RW, MEMPOOL_TYPE_BUFFER);
 
 close_and_end:
   close_device(handle);

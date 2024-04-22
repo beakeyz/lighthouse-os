@@ -45,7 +45,7 @@ static struct {
   multiboot_memory_map_t* m_mmap_entries;
 
   bitmap_t* m_phys_bitmap;
-  uintptr_t m_highest_phys_addr;
+  uintptr_t m_highest_phys_page_base;
   size_t m_phys_pages_count;
   size_t m_total_avail_memory_bytes;
   size_t m_total_unavail_memory_bytes;
@@ -97,7 +97,7 @@ void init_kmem_manager(uintptr_t* mb_addr)
 
   // nested fun
   prep_mmap(get_mb2_tag((void *)mb_addr, 6));
-  parse_mmap();
+  kmem_parse_mmap();
 
   kmem_init_physical_allocator();
 
@@ -115,7 +115,7 @@ void debug_kmem(void)
   uint32_t idx = 0;
 
   FOREACH(i, KMEM_DATA.m_phys_ranges) {
-    phys_mem_range_t* range = i->data;
+    kmem_range_t* range = i->data;
 
     printf("Memory range (%d) starting at 0x%llx with 0x%llx bytes and type=%d\n", idx, range->start, range->length, range->type);
 
@@ -148,85 +148,202 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
   return 0;
 }
 
-/*!
- * @brief: Try to carve out @targetrange out from @range
- */
-static void _carve_out_range(phys_mem_range_t* range, contiguous_phys_virt_range_t* targetrange)
+static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
 {
-  phys_mem_range_t* new_range;
-  uint64_t p_range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
-  uint64_t p_targetrange_end = ALIGN_DOWN(targetrange->end, SMALL_PAGE_SIZE);
+  paddr_t range_end;
+  kmem_range_t* range;
 
-  /* The target range is entirely above @range */
-  if (targetrange->start > p_range_end)
-    return;
+  range = kmalloc(sizeof(kmem_range_t));
 
-  /* The target range is entirely below @range */
-  if (range->start > p_targetrange_end)
-    return;
+  /* Unlikely */
+  if (!range)
+    return nullptr;
 
-  /* Parse out the target range */
-  if (range->start <= targetrange->start && p_range_end >= targetrange->end) {
-    /* target is completely placed somewhere inside this range */
-    new_range = kmalloc(sizeof(*new_range));
-    new_range->start = ALIGN_DOWN(targetrange->start, SMALL_PAGE_SIZE);
-    new_range->length = ALIGN_UP(targetrange->end - targetrange->start, SMALL_PAGE_SIZE);
-    new_range->type = PMRT_KERNEL_RESERVED;
+  range->start = mb_mmap_entry->addr;
+  range->length = mb_mmap_entry->len;
 
-    list_append(KMEM_DATA.m_phys_ranges, new_range);
-
-    /* Shorten the range that's currently here */
-    range->length = ALIGN_UP(targetrange->start - range->start, SMALL_PAGE_SIZE);
-
-    /* Append another range to fix the higher part of the range we are fucking with */
-    new_range = kmalloc(sizeof(*new_range));
-    new_range->start = ALIGN_UP(targetrange->end, SMALL_PAGE_SIZE);
-    new_range->length = ALIGN_UP(p_range_end - targetrange->end, SMALL_PAGE_SIZE);
-    new_range->type = PMRT_USABLE;
-
-    /* Only append if there is room still above the kernel in this range */
-    if (!new_range->length)
-      kfree(new_range);
-    else
-      list_append(KMEM_DATA.m_phys_ranges, new_range);
-
-  } else if (range->start <= targetrange->start && p_range_end > targetrange->start) {
-    /* Only the first part of the kernel is inside this range */
-    new_range = kmalloc(sizeof(*new_range));
-    new_range->start = targetrange->start;
-    new_range->length = p_range_end - targetrange->start;
-    new_range->type = PMRT_KERNEL_RESERVED;
-
-    list_append(KMEM_DATA.m_phys_ranges, new_range);
-
-    /* Only length changes in this case */
-    range->length -= new_range->length;
-  } else if (p_range_end >= targetrange->end && range->start < targetrange->end) {
-    /* Only the last part of the kernel is inside this range */
-    new_range = kmalloc(sizeof(*new_range));
-    new_range->start = range->start;
-    new_range->length = targetrange->end - range->start;
-    new_range->type = PMRT_KERNEL_RESERVED;
-
-    list_append(KMEM_DATA.m_phys_ranges, new_range);
-
-    range->start += new_range->length;
-    range->length -= new_range->length;
-  } else if (range->start > targetrange->start && p_range_end < targetrange->end) {
-    /* (For some reason) This range is completely inside the kernel (WTF?) */
-    range->type = PMRT_KERNEL_RESERVED;
+  switch (mb_mmap_entry->type) {
+    case (MULTIBOOT_MEMORY_AVAILABLE): {
+      range->type = MEMTYPE_USABLE;
+      break;
+    }
+    case (MULTIBOOT_MEMORY_ACPI_RECLAIMABLE): {
+      range->type = MEMTYPE_ACPI_RECLAIM;
+      break;
+    }
+    case (MULTIBOOT_MEMORY_NVS): {
+      range->type = MEMTYPE_ACPI_NVS;
+      break;
+    }
+    case (MULTIBOOT_MEMORY_RESERVED): {
+      range->type = MEMTYPE_RESERVED;
+      break;
+    }
+    case (MULTIBOOT_MEMORY_BADRAM): {
+      range->type = MEMTYPE_BAD_MEM;
+      break;
+    }
+    default: {
+      range->type = MEMTYPE_UNKNOWN;
+      break;
+    }
   }
+
+  list_append(KMEM_DATA.m_phys_ranges, range);
+
+  /* DEBUG */
+  print("Type: ");
+  println(to_string(range->type));
+  print("map entry start addr: ");
+  println(to_string(range->start));
+  print("map entry length: ");
+  println(to_string(range->length));
+  
+  if (range->type != MEMTYPE_USABLE)
+    goto exit_and_return;
+
+  range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
+  range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
+
+  range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
+
+  if (range_end > KMEM_DATA.m_highest_phys_page_base)
+    KMEM_DATA.m_highest_phys_page_base = range_end;
+
+  printf("Adding %lld bytes to %lld\n", range->length, KMEM_DATA.m_total_avail_memory_bytes);
+  KMEM_DATA.m_total_avail_memory_bytes += range->length;
+  printf("We now have %lld\n", KMEM_DATA.m_total_avail_memory_bytes);
+
+exit_and_return:
+  return range;
 }
 
-// function inspired by serenityOS
-void parse_mmap(void) 
+static kmem_range_t* _create_kmem_range_raw(enum KMEM_MEMORY_TYPE type, paddr_t start, size_t length)
+{
+  kmem_range_t* range;
+
+  range = kmalloc(sizeof(*range));
+
+  if (!range)
+    return nullptr;
+
+  range->type = type;
+  range->start = start;
+  range->length = length;
+
+  return range;
+}
+
+static bool _kmem_ranges_overlap(kmem_range_t* range1, kmem_range_t* range2)
+{
+  if (!range1 || !range2)
+    return false;
+
+  return (
+      /* @range2 ends inside @range1 */
+      ((range2->start + range2->length) > range1->start && (range2->start + range2->length) <= (range1->start + range1->length)) ||
+      /* @range2 starts inside @range2 */
+      (range2->start >= range1->start && (range2->start + range2->length) >= (range1->start + range1->length))
+  );
+}
+
+static inline void _kmem_create_and_add_range(list_t* list, enum KMEM_MEMORY_TYPE type, paddr_t start, size_t length)
+{
+  kmem_range_t* range = _create_kmem_range_raw(
+    type,
+    start,
+    length
+  );
+
+  list_append(list, range);
+}
+
+static void _kmem_merge_ranges(kmem_range_t* reserved)
+{
+  list_t* new_list;
+  kmem_range_t* c_range;
+  paddr_t new_start;
+  size_t new_length;
+  enum KMEM_MEMORY_TYPE new_type;
+
+  new_list = init_list();
+
+  FOREACH(i, KMEM_DATA.m_phys_ranges) {
+    c_range = i->data;
+
+    /*
+     * Now we only have to figure out what part of the current range we need to add to the new list
+     */
+
+    new_type = c_range->type;
+    new_start = c_range->start;
+    new_length = c_range->length;
+
+    if (!_kmem_ranges_overlap(c_range, reserved)) {
+      _kmem_create_and_add_range(
+          new_list,
+          new_type,
+          new_start,
+          new_length);
+      continue;
+    }
+
+    /* We have a conflicting reserved region, fuck */
+
+    /* Reserved range starts inside this range */
+    if (reserved->start > new_start) {
+      new_length = (reserved->start - new_start);
+
+      _kmem_create_and_add_range(
+          new_list,
+          new_type,
+          new_start,
+          new_length);
+    }
+
+    new_start = reserved->start;
+    new_length = (reserved->start + reserved->length) < (c_range->start + c_range->length) ?
+      reserved->length :
+      (c_range->start + c_range->length) - reserved->start;
+    new_type = reserved->type;
+
+    if (new_length)
+      _kmem_create_and_add_range(
+          new_list,
+          new_type,
+          new_start,
+          new_length);
+
+    new_start = reserved->start + reserved->length;
+    new_length = (reserved->start + reserved->length) < (c_range->start + c_range->length) ?
+      (c_range->start + c_range->length) - new_start :
+      0;
+    new_type = c_range->type;
+
+    if (!new_length)
+      continue;
+
+    _kmem_create_and_add_range(
+        new_list,
+        new_type,
+        new_start,
+        new_length);
+  }
+
+  FOREACH(i, KMEM_DATA.m_phys_ranges) {
+    kfree(i->data);
+  }
+
+  destroy_list(KMEM_DATA.m_phys_ranges);
+
+  KMEM_DATA.m_phys_ranges = new_list;
+}
+
+void kmem_parse_mmap(void) 
 {
   paddr_t _p_kernel_start;
   paddr_t _p_kernel_end;
-  uintptr_t p_range_end;
-
-  KMEM_DATA.m_phys_pages_count = 0;
-  KMEM_DATA.m_highest_phys_addr = 0;
+  kmem_range_t* range;
 
   _p_kernel_start = (uintptr_t)&_kernel_start & ~HIGH_MAP_BASE;
   _p_kernel_end = ((uintptr_t)&_kernel_end & ~HIGH_MAP_BASE) + g_system_info.post_kernel_reserved_size;
@@ -234,78 +351,28 @@ void parse_mmap(void)
   /*
    * These are the static memory regions that we need to reserve in order for the system to boot
    */
-  contiguous_phys_virt_range_t reserved_ranges[] = {
-    { _p_kernel_start, _p_kernel_end },
+  kmem_range_t reserved_ranges[] = {
+    { MEMTYPE_KERNEL_RESERVED, 0, 1 * Mib },
+    { MEMTYPE_KERNEL, _p_kernel_start, _p_kernel_end },
   };
+
+  KMEM_DATA.m_phys_pages_count = 0;
+  KMEM_DATA.m_highest_phys_page_base = 0;
 
   for (uintptr_t i = 0; i < KMEM_DATA.m_mmap_entry_num; i++) {
     multiboot_memory_map_t *map = &KMEM_DATA.m_mmap_entries[i];
 
-    // TODO: register physical memory ranges
-    phys_mem_range_t* range = kmalloc(sizeof(phys_mem_range_t));
-    range->start = map->addr;
-    range->length = map->len;
+    range = _create_kmem_range(map);
 
-    switch (map->type) {
-      case (MULTIBOOT_MEMORY_AVAILABLE): {
-        range->type = PMRT_USABLE;
-        list_append(KMEM_DATA.m_phys_ranges, range);
-        break;
-      }
-      case (MULTIBOOT_MEMORY_ACPI_RECLAIMABLE): {
-        range->type = PMRT_ACPI_RECLAIM;
-        list_append(KMEM_DATA.m_phys_ranges, range);
-        break;
-      }
-      case (MULTIBOOT_MEMORY_NVS): {
-        range->type = PMRT_ACPI_NVS;
-        list_append(KMEM_DATA.m_phys_ranges, range);
-        break;
-      }
-      case (MULTIBOOT_MEMORY_RESERVED): {
-        range->type = PMRT_RESERVED;
-        list_append(KMEM_DATA.m_phys_ranges, range);
-        break;
-      }
-      case (MULTIBOOT_MEMORY_BADRAM): {
-        range->type = PMRT_BAD_MEM;
-        list_append(KMEM_DATA.m_phys_ranges, range);
-        break;
-      }
-      default: {
-        range->type = PMRT_UNKNOWN;
-        list_append(KMEM_DATA.m_phys_ranges, range);
-        break;
-      }
-    }
+    ASSERT_MSG(range, "Failed to create kmem range!");
 
-    /* DEBUG */
-    print("Type: ");
-    println(to_string(range->type));
-    print("map entry start addr: ");
-    println(to_string(range->start));
-    print("map entry length: ");
-    println(to_string(range->length));
-    
-    if (range->type != PMRT_USABLE)
+    /* At this point skip non-usable ranges */
+    if (range->type != MEMTYPE_USABLE)
       continue;
-
-    range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
-    range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
-
-    p_range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
-
-    if (p_range_end > KMEM_DATA.m_highest_phys_addr)
-      KMEM_DATA.m_highest_phys_addr = p_range_end;
-
-    printf("Adding %lld bytes to %lld\n", range->length, KMEM_DATA.m_total_avail_memory_bytes);
-    KMEM_DATA.m_total_avail_memory_bytes += range->length;
-    printf("We now have %lld\n", KMEM_DATA.m_total_avail_memory_bytes);
-
-    for (uint32_t i = 0; i < arrlen(reserved_ranges); i++)
-      _carve_out_range(range, &reserved_ranges[i]);
-
   }
+
+  for (uint32_t i = 0; i < arrlen(reserved_ranges); i++)
+    _kmem_merge_ranges(&reserved_ranges[i]);
 
   KMEM_DATA.m_phys_pages_count = GET_PAGECOUNT(0, KMEM_DATA.m_total_avail_memory_bytes);
 
@@ -321,11 +388,11 @@ void parse_mmap(void)
  * needed, as we will only look at ranges marked as usable. This means we can get away with only 
  * resizing the range we steal bytes from
  */
-static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
+static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
 {
   size_t mapped_size;
-  phys_mem_range_t* c_range;
-  phys_mem_range_t* selected_range;
+  kmem_range_t* c_range;
+  kmem_range_t* selected_range;
 
   mapped_size = NULL;
   selected_range = NULL;
@@ -340,7 +407,7 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
     c_range = i->data;
 
     /* Only look for usable ranges */
-    if (c_range->type != PMRT_USABLE)
+    if (c_range->type != MEMTYPE_USABLE)
       continue;
 
     /* Can't use any ranges that aren't mapped */
@@ -374,7 +441,7 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
   /* Create a new dummy range */
   range->start = ALIGN_DOWN(selected_range->start, SMALL_PAGE_SIZE);
   range->length = size;
-  range->type = PMRT_RESERVED;
+  range->type = MEMTYPE_RESERVED;
 
   selected_range->start += size;
   selected_range->length -= size;
@@ -388,13 +455,15 @@ static int _allocate_free_physical_range(phys_mem_range_t* range, size_t size)
  */
 static void kmem_init_physical_allocator(void) 
 {
-  phys_mem_range_t bm_range;
+  kmem_range_t bm_range;
   bitmap_t* physical_bitmap;
   vaddr_t bitmap_start_addr;
   size_t physical_bitmap_size;
+  size_t physical_pages;
   size_t physical_pages_bytes;
 
-  physical_pages_bytes = (ALIGN_UP(KMEM_DATA.m_phys_pages_count, 8) >> 3);
+  physical_pages = kmem_get_page_idx(KMEM_DATA.m_highest_phys_page_base) + 1;
+  physical_pages_bytes = (ALIGN_UP(physical_pages, 8) >> 3);
   physical_bitmap_size = physical_pages_bytes + sizeof(bitmap_t);
 
   /* Find a bitmap. This is crucial */
@@ -430,9 +499,9 @@ static void kmem_init_physical_allocator(void)
 
   // Mark the contiguous 'free' ranges as free in our bitmap
   FOREACH(i, KMEM_DATA.m_phys_ranges) {
-    const phys_mem_range_t* range = i->data;
+    const kmem_range_t* range = i->data;
 
-    if (range->type != PMRT_USABLE)
+    if (range->type != MEMTYPE_USABLE)
       continue;
 
     base = range->start;
@@ -486,9 +555,9 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr)
  */
 uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) 
 {
-  pml_entry_t *page = kmem_get_page(root, ALIGN_DOWN(addr, SMALL_PAGE_SIZE), 0, 0);
+  pml_entry_t *page;
 
-  if (page == nullptr)
+  if (kmem_get_page(&page, root, ALIGN_DOWN(addr, SMALL_PAGE_SIZE), 0, 0))
     return NULL;
 
   return kmem_get_page_base(page->raw_bits);
@@ -497,15 +566,14 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr)
 /*
  * Same as the function above, but this one also keeps the alignment in mind
  */
-uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) {
-
+uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) 
+{
+  pml_entry_t *page;
   vaddr_t aligned_vaddr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
   size_t delta = addr - aligned_vaddr;
 
-  pml_entry_t *page = kmem_get_page(root, addr, 0, 0);
-
   /* Address is not mapped */
-  if (page == nullptr)
+  if (kmem_get_page(&page, root, addr, 0, 0))
     return NULL;
 
   paddr_t aligned_base = kmem_get_page_base(page->raw_bits);
@@ -522,17 +590,18 @@ void kmem_set_phys_page_used(uintptr_t idx)
 // flip a bit to 0 as to mark a pageframe as free in our bitmap
 void kmem_set_phys_page_free(uintptr_t idx) 
 {
-  //printf("kmem_set_phys_page_free %lld\n", idx);
   bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
 }
 
-void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count) {
+void kmem_set_phys_range_used(uintptr_t start_idx, size_t page_count) 
+{
   for (uintptr_t i = 0; i < page_count; i++) {
     kmem_set_phys_page_used(start_idx + i);
   }
 }
 
-void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count) {
+void kmem_set_phys_range_free(uintptr_t start_idx, size_t page_count) 
+{
   for (uintptr_t i = 0; i < page_count; i++) {
     kmem_set_phys_page_free(start_idx + i);
   }
@@ -543,17 +612,6 @@ bool kmem_is_phys_page_used (uintptr_t idx)
   return bitmap_isset(KMEM_DATA.m_phys_bitmap, idx);
 }
 
-// combination of the above two
-// value = true -> marks
-// value = false -> unmarks
-void kmem_set_phys_page(uintptr_t idx, bool value) {
-  if (value) {
-    bitmap_mark(KMEM_DATA.m_phys_bitmap, idx);
-  } else {
-    bitmap_unmark(KMEM_DATA.m_phys_bitmap, idx);
-  }
-}
-
 /*
  * Try to find a free physical page, using the bitmap that was 
  * setup by the physical page allocator
@@ -562,7 +620,8 @@ ErrorOrPtr kmem_request_physical_page(void)
 {
   TRY(index, bitmap_find_free(KMEM_DATA.m_phys_bitmap));
 
-  serial_println(to_string(index));
+  printf("Found free physical page at idx: %lld\n", index);
+
   return Success(index);
 }
 
@@ -602,7 +661,7 @@ ErrorOrPtr kmem_prepare_new_physical_page(void)
   // this, but we might also rewrite this entire thing
   // as to map this sucker before we zero. This would 
   // mean that you can't just get a nice clean page...
-  //memset((void*)kmem_from_phys(address, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
+  memset((void*)kmem_from_phys(address, KMEM_DATA.m_high_page_base), 0x00, SMALL_PAGE_SIZE);
 
   mutex_unlock(_kmem_phys_lock);
 
@@ -644,16 +703,15 @@ static inline void _allocate_pde(pml_entry_t* pde, uint32_t page_flags)
   kmem_set_page_base(pde, page_addr);
   pml_entry_set_bit(pde, PDE_PRESENT, true);
   pml_entry_set_bit(pde, PDE_PAT, true);
+  pml_entry_set_bit(pde, PDE_HUGE_PAGE, false);
+  pml_entry_set_bit(pde, PDE_ACCESSED, false);
+  pml_entry_set_bit(pde, PDE_DIRTY, false);
   pml_entry_set_bit(pde, PDE_USER, (page_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
   pml_entry_set_bit(pde, PDE_WRITABLE, (page_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
   pml_entry_set_bit(pde, PDE_WRITE_THROUGH, (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
   pml_entry_set_bit(pde, PDE_GLOBAL, (page_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
   pml_entry_set_bit(pde, PDE_NO_CACHE, (page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
   pml_entry_set_bit(pde, PDE_NX, (page_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
-
-  //serial_print(to_string(page_addr));
-  memset((void*)kmem_ensure_high_mapping(page_addr), 0x00, SMALL_PAGE_SIZE);
-  //serial_print("B");
 }
 
 /*
@@ -667,7 +725,7 @@ static inline void _allocate_pde(pml_entry_t* pde, uint32_t page_flags)
  * we need a good idea of where we map certain resources and things (i.e. drivers, I/O ranges,
  * generic kernel_resources, ect.)
  */
-pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_flags, uint32_t page_flags) 
+kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags)
 {
   /* Make sure the virtual address is not fucking us in our ass */
   addr = addr & PDE_SIZE_MASK;
@@ -687,7 +745,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
 
   if (!pml4_entry_exists) {
     if (!should_make)
-      return nullptr;
+      return -KERR_NOMEM;
 
     _allocate_pde(&pml4[pml4_idx], page_creation_flags);
   }
@@ -697,7 +755,7 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
 
   if (!pdp_entry_exists) {
     if (!should_make)
-      return nullptr;
+      return -KERR_NOMEM;
 
     _allocate_pde(&pdp[pdp_idx], page_creation_flags);
   }
@@ -707,14 +765,18 @@ pml_entry_t *kmem_get_page(pml_entry_t* root, vaddr_t addr, unsigned int kmem_fl
 
   if (!pd_entry_exists) {
     if (!should_make)
-      return nullptr;
+      return -KERR_NOMEM;
 
     _allocate_pde(&pd[pd_idx], page_creation_flags);
   }
 
   // this just should exist
   const pml_entry_t* pt = (const pml_entry_t*)kmem_from_phys((uintptr_t)kmem_get_page_base(pd[pd_idx].raw_bits), KMEM_DATA.m_high_page_base);
-  return (pml_entry_t*)&pt[pt_idx];
+
+  if (bentry)
+    *bentry = (pml_entry_t*)&pt[pt_idx];
+
+  return KERR_NONE;
 }
 
 /*
@@ -752,12 +814,9 @@ void kmem_refresh_tlb(void)
   kmem_load_page_dir((uintptr_t)current, false);
 }
 
-bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) 
+bool kmem_map_page(pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) 
 {
   pml_entry_t* page;
-  uintptr_t phys_idx;
-  bool should_mark;
-  bool was_used;
 
   mutex_lock(_kmem_map_lock);
 
@@ -771,22 +830,7 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
   if (page_flags == 0 && !(kmem_flags & KMEM_CUSTOMFLAG_READONLY))
     page_flags = KMEM_FLAG_WRITABLE;
 
-  phys_idx = kmem_get_page_idx(phys);
-
-  /* Does the caller specify we should not mark? */
-  should_mark = ((kmem_flags & KMEM_CUSTOMFLAG_NO_MARK) != KMEM_CUSTOMFLAG_NO_MARK);
-  was_used = kmem_is_phys_page_used(phys_idx);
-  
-  /*
-   * Set the physical page as used here to prevent 
-   * kmem_get_page from grabbing it 
-   */
-  if (should_mark)
-    kmem_set_phys_page_used(phys_idx);
-
-  page = kmem_get_page(table, virt, kmem_flags, page_flags);
-  
-  if (!page) {
+  if (kmem_get_page(&page, table, virt, kmem_flags, page_flags)) {
     mutex_unlock(_kmem_map_lock);
     return false;
   }
@@ -798,13 +842,6 @@ bool kmem_map_page (pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kme
    */
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
-
-  /* 
-   * If the caller does not specify that they want to defer 
-   * freeing the physical page, we just do it now
-   */
-  if (should_mark && !was_used)
-    kmem_set_phys_page_free(phys_idx);
 
   mutex_unlock(_kmem_map_lock);
   return true;
@@ -919,9 +956,9 @@ static bool __kmem_do_recursive_unmap(pml_entry_t* table, uintptr_t virt)
 
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags) 
 {
-  pml_entry_t *page = kmem_get_page(table, virt, custom_flags, 0);
+  pml_entry_t *page;
 
-  if (!page)
+  if (kmem_get_page(&page, table, virt, custom_flags, 0))
     return false;
 
   page->raw_bits = NULL;
@@ -935,7 +972,8 @@ bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flag
 }
 
 // FIXME: free higher level pts as well
-bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt) {
+bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt) 
+{
   return kmem_unmap_page_ex(table, virt, 0);
 }
 
@@ -1001,10 +1039,11 @@ ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t siz
     if (v_offset >= HIGH_MAP_BASE)
       return Error();
 
-    page = kmem_get_page(root, v_offset, NULL, NULL);
+    if (kmem_get_page(&page, root, v_offset, NULL, NULL))
+      return Error();
 
     /* Should be mapped AND should be mapped as user */
-    if (!page || !pml_entry_is_bit_set(page, PTE_USER | PTE_PRESENT)) 
+    if (!pml_entry_is_bit_set(page, PTE_USER | PTE_PRESENT)) 
       return Error();
 
     /* TODO: check if the physical address is within a reserved range */
@@ -1027,9 +1066,7 @@ ErrorOrPtr kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size)
 
     vaddr = base + (i * SMALL_PAGE_SIZE);
 
-    page = kmem_get_page(table, vaddr, NULL, NULL);
-
-    if (!page)
+    if (!KERR_OK(kmem_get_page(&page, table, vaddr, NULL, NULL)))
       return Error();
   }
 
@@ -1141,6 +1178,10 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, padd
   /* Compute return value since we align the parameter */
   const vaddr_t ret = should_identity_map ? addr : (should_remap ? kmem_from_phys(addr, vbase) : vbase);
 
+  printf("Phys: base=%llx addr=%llx\n", phys_base, addr);
+  printf("Virt: base=%llx addr=%llx\n", virt_base, vbase);
+  printf("Size: size=%llx pages=%llx\n", size, pages_needed);
+
   /*
    * Mark our pages as used BEFORE we map the range, since map_page
    * sometimes yoinks pages for itself 
@@ -1148,7 +1189,7 @@ ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, padd
   kmem_set_phys_range_used(kmem_get_page_idx(phys_base), pages_needed);
 
   /* Don't mark, since we have already done that */
-  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
   if (resources) {
@@ -1187,7 +1228,7 @@ ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t* resources, v
    */
   kmem_set_phys_range_used(phys_idx, pages_needed);
 
-  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_NO_MARK | KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
+  if (!kmem_map_range(map, virt_base, phys_base, pages_needed, KMEM_CUSTOMFLAG_GET_MAKE | custom_flags, page_flags))
     return Error();
 
   if (resources)
@@ -1233,7 +1274,7 @@ ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t* 
           map,
           v_addr,
           p_addr,
-          KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_NO_MARK |
+          KMEM_CUSTOMFLAG_GET_MAKE | 
           KMEM_CUSTOMFLAG_NO_PHYS_REALIGN | custom_flags,
           page_flags)) {
       return Error();
@@ -1345,23 +1386,45 @@ ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t c
  */
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
-  const size_t max_end_idx = kmem_get_page_idx(2ULL * Gib);
-  size_t mapping_end_idx = KMEM_DATA.m_phys_pages_count - 1;
+  kmem_range_t* range;
+  size_t current_size;
+  const size_t max_end_base = ALIGN_DOWN((1ULL * Gib), SMALL_PAGE_SIZE);
 
-  if (mapping_end_idx > max_end_idx)
-    mapping_end_idx = max_end_idx;
+  printf("Mapping kernel text\n");
 
-  /* Map everything until what we've already mapped in boot.asm */
-  ASSERT_MSG(
-      kmem_map_range(
-        map,
-        HIGH_MAP_BASE,
-        0,
-        mapping_end_idx,
-        KMEM_CUSTOMFLAG_GET_MAKE,
-        KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
-      "Failed to mmap pre-kernel memory"
-      );
+  debug_kmem();
+
+  FOREACH(i, KMEM_DATA.m_phys_ranges) {
+    range = i->data;
+
+    if ((range->type != MEMTYPE_USABLE && range->type != MEMTYPE_KERNEL) || !range->length)
+      continue;
+
+    if (range->start >= max_end_base)
+      continue;
+
+    current_size = (range->start + range->length) > max_end_base ?
+      (max_end_base - range->start) :
+      range->length;
+
+    printf("Mapping range: start=0x%llx, rangesize=0x%llx, mapsize=0x%llx\n", range->start, range->length, current_size);
+
+    /* Map everything until what we've already mapped in boot.asm */
+    ASSERT_MSG(
+        kmem_map_range(
+          map,
+          HIGH_MAP_BASE,
+          ALIGN_DOWN(range->start, SMALL_PAGE_SIZE),
+          current_size,
+          KMEM_CUSTOMFLAG_GET_MAKE,
+          KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL),
+        "Failed to mmap pre-kernel memory"
+        );
+
+  }
+
+
+  printf("Mapped kernel text\n");
 }
 
 // TODO: make this more dynamic
@@ -1647,9 +1710,7 @@ ErrorOrPtr kmem_get_kernel_address_ex(vaddr_t virtual_address, vaddr_t map_base,
     return Error();
 
   /* Make sure we don't make a new page here */
-  page = kmem_get_page(map, virtual_address, 0, 0);
-
-  if (!page)
+  if (kmem_get_page(&page, map, virtual_address, 0, 0))
     return Error();
 
   p_address = kmem_get_page_base(page->raw_bits);

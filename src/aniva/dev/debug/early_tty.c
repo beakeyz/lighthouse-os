@@ -117,6 +117,8 @@ void init_early_tty()
 
   vid_buffer = Must(__kmem_kernel_alloc(fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
+  printf("Framebuffer: 0x%llx\n", vid_buffer);
+
   /*
    * Allocate a range for our characters
    */

@@ -77,8 +77,11 @@ void bitmap_unmark(bitmap_t* this, uint32_t index)
 
 void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) 
 {
-  if (index >= this->m_entries)
+  if (index >= this->m_entries) {
+    //printf("bitmap_unmark_range: index: %d, entries: %lld, length: %lld\n", index, this->m_entries, length);
     return;
+    //kernel_panic("Huh");
+  }
 
   for (uint32_t i = 0; i < length; i++)
     this->m_map[(index + i) >> 3] &= ~(1 << ((index + i) % 8));
@@ -86,8 +89,10 @@ void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length)
 
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length)
 {
-  if (index >= this->m_entries)
+  if (index >= this->m_entries) {
+    //printf("bitmap_mark_range: index: %d, entries: %lld, length: %lld\n", index, this->m_entries, length);
     return;
+  }
 
   for (uint32_t i = 0; i < length; i++)
     this->m_map[(index + i) >> 3] |= (1 << ((index + i) % 8));
