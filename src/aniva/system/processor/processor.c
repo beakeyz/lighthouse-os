@@ -114,11 +114,13 @@ void init_processor_late(processor_t *processor)
 
   cr4 = read_cr4();
 
+  /*
   if (processor_has(&processor->m_info, X86_FEATURE_PGE))
     cr4 |= 0x80;
 
   if (processor_has(&processor->m_info, X86_FEATURE_PSE))
     cr4 |= 0x10;
+  */
 
   if (processor_has(&processor->m_info, X86_FEATURE_FSGSBASE))
     cr4 &= ~(0x10000);
