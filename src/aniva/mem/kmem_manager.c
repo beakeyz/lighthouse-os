@@ -106,6 +106,8 @@ void init_kmem_manager(uintptr_t* mb_addr)
 
   _init_kmem_page_layout();
 
+  for (;;) {}
+
   KMEM_DATA.m_kmem_flags |= KMEM_STATUS_FLAG_DONE_INIT;
 
 }
@@ -142,7 +144,7 @@ int kmem_get_info(kmem_info_t* info_buffer, uint32_t cpu_id)
   info_buffer->cpu_id = cpu_id;
   info_buffer->flags = KMEM_DATA.m_kmem_flags;
   info_buffer->memsize = KMEM_DATA.m_total_avail_memory_bytes;
-  info_buffer->free_pages = KMEM_DATA.m_phys_pages_count - total_used_pages;
+  info_buffer->free_pages = KMEM_DATA.m_phys_bitmap->m_entries - total_used_pages;
   info_buffer->used_pages = total_used_pages;
 
   return 0;
@@ -398,7 +400,7 @@ static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
   selected_range = NULL;
 
   /* Make sure we're allocating on page boundries */
-  size = ALIGN_UP(size + SMALL_PAGE_SIZE, SMALL_PAGE_SIZE);
+  size = ALIGN_UP(size, SMALL_PAGE_SIZE);
 
   printf("Looking for %lld bytes\n", size);
   printf("We already have %lld bytes mapped\n", early_map_size);
@@ -439,9 +441,9 @@ static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
     return -1;
 
   /* Create a new dummy range */
-  range->start = ALIGN_DOWN(selected_range->start, SMALL_PAGE_SIZE);
+  range->start = selected_range->start;
   range->length = size;
-  range->type = MEMTYPE_RESERVED;
+  range->type = MEMTYPE_KERNEL_RESERVED;
 
   selected_range->start += size;
   selected_range->length -= size;
@@ -485,7 +487,7 @@ static void kmem_init_physical_allocator(void)
   physical_bitmap = (bitmap_t*)(bitmap_start_addr);
 
   physical_bitmap->m_size = physical_pages_bytes;
-  physical_bitmap->m_entries = physical_pages_bytes * 8;
+  physical_bitmap->m_entries = physical_pages;
   physical_bitmap->m_default = 0xff;
 
   printf("Trying to initialize our bitmap at 0x%llx with %lld entries\n", bitmap_start_addr, physical_bitmap->m_entries);
@@ -507,21 +509,13 @@ static void kmem_init_physical_allocator(void)
     base = range->start;
     size = range->length;
 
+    printf("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
+
     /* Base and size should already be page-aligned */
     kmem_set_phys_range_free(
         kmem_get_page_idx(base),
         GET_PAGECOUNT(base, size));
   }
-  
-  /* Make sure this is safe */
-  kmem_set_phys_range_used(
-      kmem_get_page_idx(bm_range.start),
-      GET_PAGECOUNT(bm_range.start, bm_range.length));
-
-  /* Reserve the bottom megabyte of physical memory */
-  const size_t low_reserve = 64 * Kib;
-
-  kmem_set_phys_range_used(0, GET_PAGECOUNT(0, low_reserve));
 }
 
 /*
@@ -529,7 +523,7 @@ static void kmem_init_physical_allocator(void)
  */
 vaddr_t kmem_from_phys(uintptr_t addr, vaddr_t vbase) 
 {
-  return (vaddr_t)(vbase | addr);
+  return (vaddr_t)(vbase + addr);
 }
 
 vaddr_t kmem_from_dma(paddr_t addr)
@@ -663,6 +657,7 @@ ErrorOrPtr kmem_prepare_new_physical_page(void)
 
   mutex_unlock(_kmem_phys_lock);
 
+  printf(" Grabbing physical page: 0x%llx\n", address);
   return Success(address);
 }
 
@@ -833,6 +828,8 @@ bool kmem_map_page(pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem
     return false;
   }
 
+  printf("Mapping %llx to %llx (0x%p)\n", phys, virt, page);
+
   /*
    * FIXME: we are doing something very dangerous here. We don't give a fuck about the
    * current state of this page and we simply overwrite whats currently there with our
@@ -840,6 +837,8 @@ bool kmem_map_page(pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem
    */
   kmem_set_page_base(page, phys);
   kmem_set_page_flags(page, page_flags);
+
+  printf("F\n");
 
   mutex_unlock(_kmem_map_lock);
   return true;
@@ -892,6 +891,8 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     const uintptr_t offset = (i << page_shift);
     const uintptr_t vbase = virt_base + offset;
     const uintptr_t pbase = phys_base + offset;
+
+    //printf("Mapping page 0x%llx to 0x%llx\n", pbase, vbase);
 
     /* Make sure we don't mark in kmem_map_page, since we already pre-mark the range */
     if (!kmem_map_page(table, vbase, pbase, kmem_flags, page_flags))
@@ -1385,10 +1386,6 @@ ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t c
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
   const size_t max_end_idx = kmem_get_page_idx(2ULL * Gib);
-  size_t mapping_end_idx = KMEM_DATA.m_phys_pages_count - 1;
-
-  if (mapping_end_idx > max_end_idx)
-    mapping_end_idx = max_end_idx;
 
   debug_kmem();
 
@@ -1396,7 +1393,7 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
     map,
     HIGH_MAP_BASE, 
     0,
-    mapping_end_idx,
+    max_end_idx,
     KMEM_CUSTOMFLAG_GET_MAKE,
     KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE
   );

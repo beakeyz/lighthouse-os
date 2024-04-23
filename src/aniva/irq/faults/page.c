@@ -6,6 +6,7 @@
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "system/asm_specifics.h"
+#include "system/processor/processor.h"
 
 /*
  * FIXME: this handler is going to get called a bunch of 
@@ -19,10 +20,12 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
   uintptr_t cs = regs->cs;
   paddr_t p_addr;
   pml_entry_t* page;
+  kmem_info_t kmem_info;
   uint32_t error_word = regs->err_code;
 
   thread_t* current_thread = get_current_scheduling_thread();
   proc_t* current_proc = get_current_proc();
+  processor_t* c_cpu = get_current_processor();
 
   println(" ----- PAGEFAULT ----- (O.o) ");
   printf("Error at ring: %lld\n", (cs & 3));
@@ -30,6 +33,12 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
   printf("Error type: %s\n", ((error_word & 1) == 1) ? "ProtVi" : "Non-Present");
   printf("Tried to %s memory\n", (error_word & 2) == 2 ? "write into" : "read from");
 
+  kmem_get_info(&kmem_info, c_cpu->m_cpu_num);
+
+  printf(" - kmem info -\n");
+  printf(" Total memory size: 0x%llx\n", kmem_info.memsize);
+  printf(" Free pages: %lld\n", kmem_info.free_pages);
+  printf(" Used pages: %lld\n", kmem_info.used_pages);
 
   if (current_proc && current_thread) {
     printf("fault occured in: %s:%s pid-tid: (%d-%d) (cr3: 0x%llx)\n",
