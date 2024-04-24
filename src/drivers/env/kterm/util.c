@@ -105,7 +105,7 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
 
   kmem_get_info(&km_info, 0);
 
-  kterm_print_keyvalue("physical memory free", to_string(__page_count_to_mib(km_info.free_pages)));
+  kterm_print_keyvalue("physical memory free", to_string(__page_count_to_mib(km_info.total_pages - km_info.used_pages)));
   kterm_print_keyvalue("physical memory used", to_string(__page_count_to_mib(km_info.used_pages)));
 
   return 0;

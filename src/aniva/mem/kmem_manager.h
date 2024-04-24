@@ -19,9 +19,8 @@ struct proc;
 typedef struct kmem_info {
   uint32_t cpu_id;
   uint32_t flags;
-  uint64_t free_pages;
   uint64_t used_pages;
-  size_t memsize;
+  size_t   total_pages;
 
   /* TODO: keep track of DMA */
   uint32_t dma_buffer_count;
@@ -95,9 +94,8 @@ void debug_kmem(void);
 #define KMEM_CUSTOMFLAG_NO_REMAP            0x00000008
 #define KMEM_CUSTOMFLAG_GIVE_PHYS           0x00000010
 #define KMEM_CUSTOMFLAG_NO_PHYS_REALIGN     0x00000020
-#define KMEM_CUSTOMFLAG_READONLY            0x00000040 /* Temporary */
-#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000080
-#define KMEM_CUSTOMFLAG_GET_PDE             0x00000100
+#define KMEM_CUSTOMFLAG_RECURSIVE_UNMAP     0x00000040
+#define KMEM_CUSTOMFLAG_GET_PDE             0x00000080
 
 #define KMEM_STATUS_FLAG_DONE_INIT          0x00000001
 #define KMEM_STATUS_FLAG_HAS_QUICKMAP       0x00000002

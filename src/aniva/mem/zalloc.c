@@ -504,7 +504,7 @@ zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t
 {
   ASSERT_MSG(entry_size != 0 && max_entries != 0, "create_zone: expected non-null parameters!");
 
-  uint32_t kmem_flags = NULL;
+  uint32_t kmem_flags = KMEM_FLAG_WRITABLE;
   size_t bitmap_bytes = BITS_TO_BYTES(max_entries);
   size_t total_entries_bytes = entry_size * max_entries;
 

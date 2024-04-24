@@ -44,7 +44,7 @@ static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
             break;
 
           /* Just give any NOBITS sections a bit of memory */
-          TRY(result, __kmem_alloc_range(nullptr, ctx->driver->m_manifest->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, NULL));
+          TRY(result, __kmem_alloc_range(nullptr, ctx->driver->m_manifest->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
           shdr->sh_addr = result;
           break;

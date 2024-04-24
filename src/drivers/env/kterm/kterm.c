@@ -1105,7 +1105,7 @@ int kterm_init()
       processor->m_info.m_l4.m_cache_size);
 
   kwarnf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
-  kwarnf(" Total memory: %lld bytes\n", ((info.free_pages + info.used_pages) * SMALL_PAGE_SIZE));
+  kwarnf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
   kterm_print("\n\n For any information about kterm, type: \'help\'\n");
 
   kterm_enable_newline_tag();

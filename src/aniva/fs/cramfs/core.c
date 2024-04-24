@@ -300,7 +300,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
      * TODO: set this region to read-only after the decompress is done
      */
     printf("Allocating %lld bytes\n", decompressed_size);
-    TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, 0));
+    TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
     TAR_SUPERBLOCK(node)->m_total_blocks = decompressed_size;
 
     /* Is enforcing success here a good idea? */

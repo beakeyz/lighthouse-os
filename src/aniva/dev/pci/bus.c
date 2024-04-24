@@ -79,7 +79,7 @@ void* map_bus(pci_bus_t* this, uint8_t bus_num) {
   uintptr_t bus_base_addr = this->base_addr + (MEM_SIZE_PER_BUS * (bus_num - this->start_bus));
 
   if (!this->is_mapped || this->mapped_base == nullptr) {
-    void* mapped_bus_base = (void*)Must(__kmem_kernel_alloc(bus_base_addr, MEM_SIZE_PER_BUS, 0, 0));
+    void* mapped_bus_base = (void*)Must(__kmem_kernel_alloc(bus_base_addr, MEM_SIZE_PER_BUS, 0, KMEM_FLAG_WRITABLE));
 
     this->mapped_base = mapped_bus_base;
     this->is_mapped = true;

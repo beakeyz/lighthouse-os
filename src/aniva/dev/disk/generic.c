@@ -527,7 +527,7 @@ int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize)
 disk_dev_t* create_generic_ramdev(size_t size) {
 
   size = ALIGN_UP(size, SMALL_PAGE_SIZE);
-  uintptr_t start_addr = Must(__kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_CREATE_USER, 0));
+  uintptr_t start_addr = Must(__kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
   disk_dev_t* dev = create_generic_ramdev_at(start_addr, size);
 

@@ -28,7 +28,6 @@ mb_fb_tag_end:
 header_end:
 
 KERNEL_VIRT_BASE equ 0xFFFFFFFF80000000 
-KERNEL_PAGE_IDX equ (KERNEL_VIRT_BASE >> 21) & 0x1ff
 
 [section .pre_text]
 [bits 32]
@@ -183,11 +182,12 @@ long_start:
   mov fs, ax  ; extra segment register
   mov gs, ax  ; extra segment register
 
+  ; Grab new stack
   mov rsp, kstack_top
+  ; Grab new entrypoint
+  lea rbx, _start
 
-  lea rbx, [rel _start]
-  add rbx, KERNEL_VIRT_BASE
-
+  ; Do fancy jump
   push 0x08
   push rbx
   retq

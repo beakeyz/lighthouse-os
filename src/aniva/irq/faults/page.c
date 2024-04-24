@@ -36,8 +36,8 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
   kmem_get_info(&kmem_info, c_cpu->m_cpu_num);
 
   printf(" - kmem info -\n");
-  printf(" Total memory size: 0x%llx\n", kmem_info.memsize);
-  printf(" Free pages: %lld\n", kmem_info.free_pages);
+  printf(" Total memory size: 0x%llx\n", kmem_info.total_pages << PAGE_SHIFT);
+  printf(" Free pages: %lld\n", kmem_info.total_pages - kmem_info.used_pages);
   printf(" Used pages: %lld\n", kmem_info.used_pages);
 
   if (current_proc && current_thread) {

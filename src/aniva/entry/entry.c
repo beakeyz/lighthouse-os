@@ -178,8 +178,6 @@ static kerror_t _start_system_management(void)
   // Initialize an early console
   init_early_tty();
 
-  kernel_panic("Yay");
-
   println("Initialized tty");
 
   return KERR_NONE;

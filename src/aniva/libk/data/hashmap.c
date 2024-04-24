@@ -107,7 +107,7 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags) {
   hashmap_size = __get_hashmap_size(max_entries, flags);
   aligned_size = ALIGN_UP(hashmap_size, SMALL_PAGE_SIZE);
 
-  ret = (hashmap_t*)Must(__kmem_kernel_alloc_range(aligned_size, 0, 0));
+  ret = (hashmap_t*)Must(__kmem_kernel_alloc_range(aligned_size, 0, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
   if (!ret)
     return nullptr;

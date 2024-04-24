@@ -153,12 +153,9 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
 {
   loaded_sym_t* c_sym;
   loaded_sym_t* ret;
-  uintptr_t c_delta;
-  uintptr_t best_delta;
   dynamic_library_t* c_lib;
 
   c_sym = ret = nullptr;
-  c_delta = best_delta = NULL;
 
   /* Address inside of the app image? */
   if (addr >= app->image.user_base && addr < (app->image.user_base + app->image.user_image_size)) {
@@ -167,16 +164,16 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
     FOREACH(j, app->symbol_list) {
       c_sym = j->data;
 
+      if (!ret)
+        ret = c_sym;
+
       /* Address can't be part of this symbol */
-      if (addr < (void*)c_sym->uaddr)
+      if ((void*)c_sym->uaddr > addr)
         continue;
 
-      c_delta = (vaddr_t)addr - c_sym->uaddr;
-
-      if (c_delta < best_delta)
+      if (c_sym->uaddr > ret->uaddr)
         continue;
 
-      best_delta = c_delta;
       ret = c_sym;
     }
 
@@ -193,21 +190,23 @@ loaded_sym_t* loaded_app_find_symbol_by_addr(loaded_app_t* app, void* addr)
     FOREACH(j, c_lib->symbol_list) {
       c_sym = j->data;
 
+      if (!ret)
+        ret = c_sym;
+
       /* Address can't be part of this symbol */
-      if (addr < (void*)c_sym->uaddr)
+      if ((void*)c_sym->uaddr > addr)
         continue;
 
-      c_delta = (vaddr_t)addr - c_sym->uaddr;
-
-      if (c_delta < best_delta)
+      if (c_sym->uaddr > ret->uaddr)
         continue;
 
-      best_delta = c_delta;
       ret = c_sym;
     }
+
+    return ret;
   }
 
-  return ret;
+  return nullptr;
 }
 
 loaded_sym_t* loaded_app_find_symbol(loaded_app_t* app, const char* symname)

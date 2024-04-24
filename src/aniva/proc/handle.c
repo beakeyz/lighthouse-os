@@ -136,7 +136,7 @@ void init_khandle_map(khandle_map_t* ret, uint32_t max_count)
   ret->lock = create_mutex(0);
 
   /* Ensure we can create this list that provides a maximum of 1024 handles */
-  ret->handles = (khandle_t*)Must(__kmem_kernel_alloc_range(max_count * sizeof(khandle_t), NULL, NULL));
+  ret->handles = (khandle_t*)Must(__kmem_kernel_alloc_range(max_count * sizeof(khandle_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
   /* Zero */
   memset(ret->handles, 0, SMALL_PAGE_SIZE);
@@ -194,7 +194,7 @@ static ErrorOrPtr __try_reallocate_handles(khandle_map_t* map, size_t new_max_co
     return Error();
 
   /* Allocate new space */
-  TRY(reallocate_result, __kmem_kernel_alloc_range(new_max_count * sizeof(khandle_t), NULL, NULL));
+  TRY(reallocate_result, __kmem_kernel_alloc_range(new_max_count * sizeof(khandle_t), NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
   /* Set the pointer */
   new_list = (khandle_t*)reallocate_result;

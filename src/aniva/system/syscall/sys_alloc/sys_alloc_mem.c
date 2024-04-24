@@ -11,11 +11,8 @@ static inline void _apply_memory_flags(uint32_t userflags, uint32_t* customflags
   *customflags = NULL;
   *kmem_flags = NULL;
 
-  if ((userflags & MEMPOOL_FLAG_W) != MEMPOOL_FLAG_W) {
-    *customflags |= KMEM_CUSTOMFLAG_READONLY;
-  } else {
+  if ((userflags & MEMPOOL_FLAG_W) == MEMPOOL_FLAG_W)
     *kmem_flags |= KMEM_FLAG_WRITABLE;
-  }
 }
 
 /*
@@ -43,6 +40,8 @@ uint32_t sys_alloc_page_range(size_t size, uint32_t flags, void* __user* buffer)
 
   /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
   *buffer = (void*)Must(kmem_user_alloc_range(current_process, size, customflags, kmem_flags));
+
+  printf("Allocated: %p\n", *buffer);
 
   return SYS_OK;
 }
