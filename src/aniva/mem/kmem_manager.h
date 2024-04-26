@@ -237,7 +237,6 @@ void kmem_set_page_flags(pml_entry_t* page,  uint32_t flags);
  */
 bool kmem_map_page (pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
 bool kmem_map_range (pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
-ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags);
 ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table);
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);

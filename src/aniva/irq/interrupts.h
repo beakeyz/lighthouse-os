@@ -6,6 +6,9 @@
 #include "system/processor/registers.h"
 #include <libk/stddef.h>
 
+struct irq;
+struct irq_handler;
+
 // NOTE: this file CAN NOT include idt.h, because of an include loop =/
 
 /* idt entry 0 -> 0x20 are reserved by exceptions */
@@ -48,23 +51,45 @@ inline bool interrupts_are_enabled()
 registers_t* irq_handler (struct registers* regs);
 registers_t* exception_handler (struct registers* regs);
 
+/* The handler isn't passed any irq or register information, only the ctx */
+#define IRQHANDLER_FLAG_DIRECT_CALL 0x00000001
+/* offload the IRQ to the irq thread to be called asynchronously */
+#define IRQHANDLER_FLAG_THREADED    0x00000002
+
+typedef struct irq_handler {
+  /* Handler to be called when the IRQ fires */
+  union {
+    int (*f_handle)(struct irq*, registers_t*);
+    int (*f_handle_direct)(void* ctx);
+  };
+
+  /*
+   * IRQ context. determined by the caller of irq_allocate and also owned by that caller 
+   * This means that ->ctx should never be memory managed by IRQ code
+   */
+  void* ctx;
+  const char* desc;
+
+  uint32_t flags;
+  struct irq_handler* next;
+} irq_handler_t;
+
+/*
+ * Flags for irq entries
+ */
 #define IRQ_FLAG_ALLOCATED  0x00000001
 /* Do we mean to use MSI with this vector? */
 #define IRQ_FLAG_MSI        0x00000002
 #define IRQ_FLAG_MASKED     0x00000004
-/* This flag set means that the vector of this IRQ can't change */
-#define IRQ_FLAG_STURDY_VEC 0x00000008
-#define IRQ_FLAG_SHOULD_DBG 0x00000010
-/* The handler isn't passed any irq or register information, only the ctx */
-#define IRQ_FLAG_DIRECT_CALL 0x00000020
+#define IRQ_FLAG_SHOULD_DBG 0x00000008
 /* 
  * The handler is currently masked, but we would like to unmask it =) 
  * There are certain times in the boot process that we scan the IRQs in order to find
  * irqs with this flag. This mostly happens when we're doing stuff with irq chips right
  * after they where disabled or something
  */
-#define IRQ_FLAG_PENDING_UNMASK 0x00000040
-/* TODO: define flags */
+#define IRQ_FLAG_PENDING_UNMASK 0x00000010
+#define IRQ_FLAG_SHARED         0x00000020
 
 /*
  * IRQ template
@@ -77,22 +102,12 @@ typedef struct irq {
   uint32_t vec;
   uint32_t flags;
 
-  /*
-   * IRQ context. determined by the caller of irq_allocate and also owned by that caller 
-   * This means that ->ctx should never be memory managed by IRQ code
-   */
-  void* ctx;
-  const char* desc;
-
-  /* Handler to be called when the IRQ fires */
-  union {
-    int (*f_handle)(struct irq*, registers_t*);
-    int (*f_handle_direct)(void* ctx);
-  };
+  /* The funky handlers */
+  irq_handler_t* handlers;
 } irq_t;
 
-int irq_allocate(uint32_t vec, uint32_t flags, void* handler, void* ctx, const char* desc);
-int irq_deallocate(uint32_t vec);
+int irq_allocate(uint32_t vec, uint32_t irq_flags, uint32_t handler_flags, void* handler, void* ctx, const char* desc);
+int irq_deallocate(uint32_t vec, void* handler);
 
 int irq_mask(irq_t* vec);
 int irq_unmask(irq_t* vec);

@@ -34,7 +34,7 @@ ANIVA_STATUS set_pit_interrupt_handler()
 {
   int error;
 
-  error = irq_allocate(PIT_TIMER_INT_NUM, NULL, pit_irq_handler, NULL, "Legacy PIT timer");
+  error = irq_allocate(PIT_TIMER_INT_NUM, NULL, NULL, pit_irq_handler, NULL, "Legacy PIT timer");
 
   ASSERT_MSG(error == 0, "Failed to allocate IRQ for the PIT timer =(");
 
@@ -92,7 +92,7 @@ void uninstall_pit()
 {
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
-  irq_deallocate(PIT_TIMER_INT_NUM);
+  irq_deallocate(PIT_TIMER_INT_NUM, pit_irq_handler);
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }

@@ -222,7 +222,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
 
   // HBA has been reset, enable its interrupts and claim this line
   /* TODO: notify PCI of any interrupt line changes */
-  int error = irq_allocate(interrupt_line, NULL, ahci_irq_handler, NULL, "AHCI controller");
+  int error = irq_allocate(interrupt_line, NULL, NULL, ahci_irq_handler, NULL, "AHCI controller");
 
   /* TODO: handle this propperly =)))) */
   ASSERT_MSG(error == NULL, "Failed to allocate an IRQ for this AHCI device!");

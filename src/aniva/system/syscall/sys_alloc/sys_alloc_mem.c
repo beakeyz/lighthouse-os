@@ -36,6 +36,7 @@ uint32_t sys_alloc_page_range(size_t size, uint32_t flags, void* __user* buffer)
   if (!current_process || IsError(kmem_validate_ptr(current_process, (uintptr_t)buffer, 1)))
     return SYS_INV;
 
+  /* Translate user flags into kernel flags */
   _apply_memory_flags(flags, &customflags, &kmem_flags);
 
   /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */

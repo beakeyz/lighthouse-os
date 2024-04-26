@@ -1063,7 +1063,7 @@ int kterm_init()
   /* Make sure we print white */
   kterm_set_print_color(0);
   /* Set the background color */
-  kterm_set_background_color(2);
+  kterm_set_background_color(1);
 
   /*
    * Allocate a range for our characters

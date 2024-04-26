@@ -58,28 +58,29 @@ static inline bool irq_should_debug(irq_t* irq)
   return ((irq->flags & IRQ_FLAG_SHOULD_DBG) == IRQ_FLAG_SHOULD_DBG);
 }
 
-/*!
- * @brief: Scan the entire irq list to find a free entry
- * 
- * Should not be called from inside an IRQ handler and should
- * always be called with _irq_lock taken
- */
-static inline int irq_get_free_vector(irq_t** irq, uint32_t* vector)
+static int _irq_allocate(irq_t* irq, uint32_t flags, void* handler, void* ctx, const char* desc)
 {
-  irq_t* c_irq;
+  irq_handler_t* n_handler;
 
-  for (uint32_t i = 0; i < IRQ_COUNT; i++) {
-    c_irq = &_irq_list[i];
+  n_handler = kmalloc(sizeof(*n_handler));
 
-    if (irq_is_allocated(c_irq))
-      continue;
+  if (!n_handler)
+    return -1;
 
-    *irq = c_irq;
-    *vector = i;
-    return 0;
-  }
+  memset(n_handler, 0, sizeof(*n_handler));
 
-  return -1;
+  n_handler->flags = flags;
+  n_handler->f_handle = handler;
+  n_handler->ctx = ctx;
+  n_handler->desc = desc;
+
+  /* Link */
+  n_handler->next = irq->handlers;
+
+  /* Put ourselves in the front */
+  irq->handlers = n_handler;
+
+  return 0;
 }
 
 /*!
@@ -90,43 +91,37 @@ static inline int irq_get_free_vector(irq_t** irq, uint32_t* vector)
  *
  * 
  */
-int irq_allocate(uint32_t vec, uint32_t flags, void* handler, void* ctx, const char* desc)
+int irq_allocate(uint32_t vec, uint32_t irq_flags, uint32_t handler_flags, void* handler, void* ctx, const char* desc)
 {
   int error;
   irq_t* i;
 
+  mutex_lock(_irq_lock);
+
   error = irq_get(vec, &i);
 
   if (error)
-    return error;
-
-  mutex_lock(_irq_lock);
-
-  if ((i->flags & IRQ_FLAG_ALLOCATED) != IRQ_FLAG_ALLOCATED)
-    goto direct_allocate;
-
-  /* Preemptively set error, just in case IRQ_FLAG_STURDY_VEC is given */
-  error = -1;
-
-  /* If the caller specified we can't reallocate the IRQ, just bail */
-  if ((flags & IRQ_FLAG_STURDY_VEC) == IRQ_FLAG_STURDY_VEC)
     goto alloc_exit;
 
-  /* Try to find an unallocated vector */
-  error = irq_get_free_vector(&i, &vec);
+  error = -1;
 
-  /* Yikes */
+  /* If not shared and allocated, we can't allocate, yikes */
+  if ((i->flags & IRQ_FLAG_SHARED) != IRQ_FLAG_SHARED && irq_is_allocated(i))
+    goto alloc_exit;
+
+  /* Actually allocate */
+  error = _irq_allocate(i, handler_flags, handler, ctx, desc);
+
   if (error)
     goto alloc_exit;
 
-direct_allocate:
   i->vec = vec;
-  i->flags = IRQ_FLAG_ALLOCATED | flags;
-  i->ctx = ctx;
-  i->desc = desc;
-  i->f_handle = handler;
 
-  if ((flags & IRQ_FLAG_MASKED) == IRQ_FLAG_MASKED)
+  /* Only update the flags if this IRQ is not yet allocated */
+  if (!irq_is_allocated(i))
+    i->flags = IRQ_FLAG_ALLOCATED | irq_flags;
+
+  if ((irq_flags & IRQ_FLAG_MASKED) == IRQ_FLAG_MASKED)
     goto alloc_exit;
 
   error = irq_unmask(i);
@@ -141,14 +136,27 @@ alloc_exit:
  */
 static inline void destroy_irq(irq_t* irq)
 {
+  irq_handler_t* c_handler;
+
+  c_handler = irq->handlers;
+
+  while (c_handler) {
+    void* handler = c_handler;
+    c_handler = c_handler->next;
+
+    kfree(handler);
+  }
+
   /* TODO: If there is any memory that @irq gets ownership of, destroy it here */
   memset(irq, 0, sizeof(*irq));
 }
 
-int irq_deallocate(uint32_t vec)
+int irq_deallocate(uint32_t vec, void* handler)
 {
   int error;
   irq_t* irq;
+  irq_handler_t* target_handler;
+  irq_handler_t** c_handler;
 
   error = irq_get(vec, &irq);
 
@@ -162,11 +170,33 @@ int irq_deallocate(uint32_t vec)
   irq_mask(irq);
 
   /* Clear out the entire irq */
-  destroy_irq(irq);
+  if (!irq->handlers || !irq->handlers->next)
+    destroy_irq(irq);
+  else {
+    c_handler = &irq->handlers;
+    target_handler = nullptr;
+
+    do {
+      /* We looking for this handler? */
+      if ((*c_handler)->f_handle != handler)
+        goto cycle;
+      
+      target_handler = *c_handler;
+      *c_handler = (*c_handler)->next;
+
+      kfree(target_handler);
+      break;
+cycle:
+      c_handler = &(*c_handler)->next;
+    } while(*c_handler);
+
+    if (!target_handler)
+      error = -KERR_INVAL;
+  }
 
   /* We're done =) */
   mutex_unlock(_irq_lock);
-  return 0;
+  return error;
 }
 
 int irq_unmask_pending()
@@ -557,12 +587,35 @@ static inline void irq_ack(irq_t* irq)
   irq_chip_ack(chip, irq);
 }
 
+static inline int _irq_handle(irq_t* irq, irq_handler_t* handler, registers_t* regs)
+{
+  if ((handler->flags & IRQHANDLER_FLAG_THREADED) == IRQHANDLER_FLAG_THREADED)
+    kernel_panic("TODO: Threaded IRQs");
+
+  if ((handler->flags & IRQHANDLER_FLAG_DIRECT_CALL) == IRQHANDLER_FLAG_DIRECT_CALL)
+    return handler->f_handle_direct(handler->ctx);
+
+  return handler->f_handle(irq, regs);
+}
+
 static inline int irq_handle(irq_t* irq, registers_t* regs)
 {
-  if ((irq->flags & IRQ_FLAG_DIRECT_CALL) == IRQ_FLAG_DIRECT_CALL)
-    return irq->f_handle_direct(irq->ctx);
+  int error;
+  irq_handler_t* c_handler;
 
-  return irq->f_handle(irq, regs);
+  c_handler = irq->handlers;
+  
+  do {
+    /* Do the actual handling */
+    error = _irq_handle(irq, c_handler, regs);
+
+    if (error)
+      break;
+
+    c_handler = c_handler->next;
+  } while (c_handler);
+
+  return error;
 }
 
 /*!
@@ -585,7 +638,7 @@ registers_t *irq_handler(registers_t *regs)
    * Unused irq should not be called (But how is it unmasked?) 
    * FIXME: report loose irqs
    */
-  if (!irq_is_allocated(irq) || !irq->f_handle)
+  if (!irq_is_allocated(irq) || !irq->handlers)
     goto acknowlege;
 
   /* Try to handle the IRQ in the requested way */

@@ -73,7 +73,7 @@ static int _init_i8042()
   memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
 
   /* Try to allocate an IRQ */
-  error = irq_allocate(PS2_KB_IRQ_VEC, NULL, i8042_irq_handler, NULL, "PS/2 keyboard");
+  error = irq_allocate(PS2_KB_IRQ_VEC, NULL, NULL, i8042_irq_handler, NULL, "PS/2 keyboard");
 
   if (error)
     return -1;
@@ -107,7 +107,7 @@ static int _exit_i8042()
     kernel_panic("FIXME: Remove i8042 HID device");
   }
 
-  error = irq_deallocate(PS2_KB_IRQ_VEC);
+  error = irq_deallocate(PS2_KB_IRQ_VEC, i8042_irq_handler);
 
   return error;
 }

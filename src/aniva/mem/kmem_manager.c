@@ -545,7 +545,7 @@ vaddr_t kmem_ensure_high_mapping(uintptr_t addr)
  *
  * TODO: change this function so errors are communicated clearly
  */
-uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr) 
+uintptr_t kmem_to_phys_aligned(pml_entry_t* root, vaddr_t addr) 
 {
   pml_entry_t *page;
 
@@ -558,19 +558,18 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, uintptr_t addr)
 /*
  * Same as the function above, but this one also keeps the alignment in mind
  */
-uintptr_t kmem_to_phys(pml_entry_t *root, uintptr_t addr) 
+uintptr_t kmem_to_phys(pml_entry_t *root, vaddr_t addr) 
 {
+  size_t delta;
   pml_entry_t *page;
-  vaddr_t aligned_vaddr = ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
-  size_t delta = addr - aligned_vaddr;
 
   /* Address is not mapped */
   if (kmem_get_page(&page, root, addr, 0, 0))
     return NULL;
 
-  paddr_t aligned_base = kmem_get_page_base(page->raw_bits);
+  delta = addr - ALIGN_DOWN(addr, SMALL_PAGE_SIZE);
 
-  return aligned_base + delta;
+  return kmem_get_page_base(page->raw_bits) + delta;
 }
 
 // flip a bit to 1 as to mark a pageframe as used in our bitmap
@@ -699,10 +698,10 @@ static inline kerror_t _allocate_pde(pml_entry_t* pde, uint32_t custom_flags, ui
     kmem_set_page_base(pde, page_addr);
     pml_entry_set_bit(pde, PDE_PRESENT, true);
     pml_entry_set_bit(pde, PDE_WRITABLE, (page_flags & KMEM_FLAG_WRITABLE) == KMEM_FLAG_WRITABLE);
-    pml_entry_set_bit(pde, PDE_WRITE_THROUGH, (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
     pml_entry_set_bit(pde, PDE_GLOBAL, (page_flags & KMEM_FLAG_GLOBAL) == KMEM_FLAG_GLOBAL);
-    pml_entry_set_bit(pde, PDE_NO_CACHE, (page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
     pml_entry_set_bit(pde, PDE_NX, (page_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
+    pml_entry_set_bit(pde, PDE_WRITE_THROUGH, (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
+    pml_entry_set_bit(pde, PDE_NO_CACHE, (page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
   }
 
   pml_entry_set_bit(pde, PDE_USER,
@@ -807,39 +806,6 @@ void kmem_refresh_tlb(void)
 bool kmem_map_page(pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem_flags, uint32_t page_flags) 
 {
   return kmem_map_range(table, virt, phys, 1, kmem_flags, page_flags);
-}
-
-ErrorOrPtr kmem_map_into(pml_entry_t* table, vaddr_t old, vaddr_t new, size_t size, uint32_t kmem_flags, uint32_t page_flags) {
-
-  /* Let's return a default of Error if the caller tries to map a size of zero */
-  ErrorOrPtr result = Error();
-  size_t page_count;
-
-  if (size == 0)
-    goto out;
-  
-  page_count = kmem_get_page_idx(ALIGN_UP(size, SMALL_PAGE_SIZE));
-
-  for (uintptr_t i = 0; i < page_count; i++) {
-    vaddr_t old_vbase = old + (i * SMALL_PAGE_SIZE);
-    vaddr_t new_vbase = new + (i * SMALL_PAGE_SIZE);
-
-    paddr_t old_phys = kmem_to_phys_aligned(nullptr, old_vbase);
-
-    if (!old_phys) {
-      return Error();
-    }
-
-    if (!kmem_map_page(table, new_vbase, old_phys, kmem_flags, page_flags)) {
-      result = Error();
-      break;
-    }
-
-    result = Success(new);
-  } 
-
-out:
-  return result;
 }
 
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) 
@@ -1359,7 +1325,7 @@ ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t c
 static void __kmem_map_kernel_range_to_map(pml_entry_t* map) 
 {
   pml_entry_t* page;
-  const size_t max_end_idx = kmem_get_page_idx(1ULL * Gib);
+  const size_t max_end_idx = kmem_get_page_idx(2ULL * Gib);
 
   debug_kmem();
 
@@ -1374,7 +1340,41 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
   printf("Mapped kernel text\n");
 }
 
-// TODO: make this more dynamic
+static void __kmem_free_old_pagemaps()
+{
+  paddr_t p_base;
+  size_t page_count;
+
+  struct {
+    vaddr_t base;
+    size_t entry_count;
+  } map_entries[] = {
+    { (vaddr_t)boot_pml4t, 512 },
+    { (vaddr_t)boot_pdpt, 512 },
+    { (vaddr_t)boot_hh_pdpt, 512 },
+    { (vaddr_t)boot_pd0, 512 },
+    { (vaddr_t)boot_pd0_p, 0x40000 },
+  };
+
+  for (uintptr_t i = 0; i < arrlen(map_entries); i++) {
+    p_base = map_entries[i].base & ~HIGH_MAP_BASE;
+    page_count = map_entries[i].entry_count >> 9;
+
+    printf("Setting old pagemap (vbase: 0x%llx, pbase: 0x%llx, pagecount: %lld) free\n", 
+        map_entries[i].base,
+        p_base,
+        page_count);
+
+    kmem_set_phys_range_free(
+      kmem_get_page_idx(p_base),
+      page_count
+    );
+  }
+}
+
+/*!
+ * @brief: Create a new pagetable layout for the kernel and destroy the old one
+ */
 static void _init_kmem_page_layout (void) 
 {
   uintptr_t map;
@@ -1386,6 +1386,7 @@ static void _init_kmem_page_layout (void)
   KMEM_DATA.m_kernel_base_pd = (pml_entry_t*)map;
   KMEM_DATA.m_high_page_base = HIGH_MAP_BASE;
 
+  /* NOTE: boot.asm also mapped identity */
   memset((void*)map, 0x00, SMALL_PAGE_SIZE);
 
   /* Assert that we got valid shit =) */
@@ -1396,6 +1397,9 @@ static void _init_kmem_page_layout (void)
 
   /* Load the new pagemap baby */
   kmem_load_page_dir(map, true);
+
+  /* Return the old pagemap to the physical pool */
+  __kmem_free_old_pagemaps();
 }
 
 

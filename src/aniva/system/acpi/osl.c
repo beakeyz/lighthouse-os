@@ -579,7 +579,7 @@ void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void *Context)
 {
   /* ACPI requires a direct call */
-  if (irq_allocate(InterruptLevel, IRQ_FLAG_STURDY_VEC | IRQ_FLAG_DIRECT_CALL | IRQ_FLAG_MASKED | IRQ_FLAG_PENDING_UNMASK, Handler, Context, "ACPI osl alloc"))
+  if (irq_allocate(InterruptLevel, IRQ_FLAG_MASKED | IRQ_FLAG_PENDING_UNMASK, IRQHANDLER_FLAG_DIRECT_CALL, Handler, Context, "ACPI osl alloc"))
     return AE_NOT_ACQUIRED;
 
   return AE_OK;

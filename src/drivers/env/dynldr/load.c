@@ -278,8 +278,6 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
   if (load_app_dyn_sections(app))
     return -KERR_INVAL;
 
-  printf("Finishing up...\n");
-
   /* Clean up our mess */
   _finalise_load(app);
   return KERR_NONE;

@@ -37,6 +37,7 @@ align 4
 
 [global boot_pml4t]
 [global boot_pdpt]
+[global boot_hh_pdpt]
 [global boot_pd0]
 [global boot_pd0_p]
 
