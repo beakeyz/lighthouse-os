@@ -217,7 +217,6 @@ static device_ep_t _efi_endpoints[] = {
 // GPU
 aniva_driver_t efifb_driver = {
   .m_name = "efifb",
-  .m_precedence = DRV_PRECEDENCE_BASIC,
   .m_type = DT_GRAPHICS,
   .m_version = DRIVER_VERSION(0, 0, 1),
   .f_init = fb_driver_init,

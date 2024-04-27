@@ -1,7 +1,6 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/pci/definitions.h"
-#include "dev/precedence.h"
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/device.h"
 #include "libk/flow/error.h"
@@ -55,7 +54,6 @@ EXPORT_DRIVER(nvidia_driver) = {
   .f_msg = nvidia_msg,
   .f_init = nvidia_init,
   .f_exit = nvidia_exit,
-  .m_precedence = DRV_PRECEDENCE_BASIC,
 };
 
 /*!

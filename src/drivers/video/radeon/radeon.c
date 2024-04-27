@@ -1,8 +1,6 @@
 #include "dev/core.h"
-#include "dev/debug/serial.h"
 #include "dev/driver.h"
 #include "dev/pci/pci.h"
-#include "dev/precedence.h"
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "ids.h"
@@ -35,7 +33,6 @@ EXPORT_DRIVER(radeon_driver) = {
   .f_init = radeon_init,
   .f_exit = radeon_exit,
   .f_msg = radeon_msg,
-  .m_precedence = DRV_PRECEDENCE_HIGH,
   .m_version = DRIVER_VERSION(1, 0, 0),
 };
 

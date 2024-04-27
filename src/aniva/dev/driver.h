@@ -3,7 +3,6 @@
 
 #include <libk/stddef.h>
 #include "core.h"
-#include "dev/precedence.h"
 
 struct oss_obj;
 struct device;
@@ -70,7 +69,6 @@ typedef struct aniva_driver {
 
   driver_version_t m_version;
   dev_type_t m_type;
-  drv_precedence_t m_precedence;
 
   /* TODO: should we pass the manifest to the f_init function? */
   int (*f_init)(struct drv_manifest* this);

@@ -246,11 +246,8 @@ bool verify_driver(drv_manifest_t* manifest)
   constaint = &__dev_constraints[driver->m_type];
 
   /* We can't load more of this type of driver, so we mark this as invalid */
-  if (constaint->current_count == constaint->max_count) {
-    /* If our new driver has a higher precedence, we can continue loading */
-    if (manifest->m_handle->m_precedence <= constaint->active->m_handle->m_precedence)
-      return false;
-  }
+  if (constaint->current_count == constaint->max_count)
+    return false;
 
   return true;
 }
