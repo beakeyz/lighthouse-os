@@ -816,6 +816,15 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
   virt_base = ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE);
   phys_base = ALIGN_DOWN(phys_base, SMALL_PAGE_SIZE);
 
+  /*
+  if (!page_flags)
+    kernel_panic("Mapped page with page_flags=NULL");
+  */
+
+  /* Make sure PAT is enabled if we want different caching options */
+  if ((page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE || (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH)
+    page_flags |= KMEM_FLAG_SPEC;
+
   mutex_lock(_kmem_map_lock);
 
   for (uintptr_t i = 0; i < page_count; i++) {
@@ -826,10 +835,6 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
 
     /* Do the actual mapping */
     kmem_set_page_base(page, phys_base + (i << PAGE_SHIFT));
-
-    /* Make sure PAT is enabled if we want different caching options */
-    if ((page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE || (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH)
-      page_flags |= KMEM_FLAG_SPEC;
 
     /* Set regular bits */
     pml_entry_set_bit(page, PTE_PRESENT, true);

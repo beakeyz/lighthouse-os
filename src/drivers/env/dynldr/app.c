@@ -117,6 +117,7 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
   if (!libcount)
     return NULL;
 
+  /* This has to be readonly */
   uaddr = Must(kmem_user_alloc_range(app->proc, libarr_size, NULL, NULL));
   kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
 

@@ -178,7 +178,7 @@ kerror_t _elf_do_headers(elf_image_t* image)
           break;
 
         /* Just give any NOBITS sections a bit of memory */
-        shdr->sh_addr = Must(kmem_user_alloc_range(image->proc, shdr->sh_size, NULL, NULL));
+        shdr->sh_addr = Must(kmem_user_alloc_range(image->proc, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE));
 
         /* Zero the scattered range (FIXME: How do we assure that we don't reach memory we haven't mapped to the kernel?) */
         for (uint64_t i = 0; i < GET_PAGECOUNT(shdr->sh_addr, shdr->sh_size); i++) {
