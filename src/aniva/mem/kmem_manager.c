@@ -702,12 +702,13 @@ static inline kerror_t _allocate_pde(pml_entry_t* pde, uint32_t custom_flags, ui
     pml_entry_set_bit(pde, PDE_NX, (page_flags & KMEM_FLAG_NOEXECUTE) == KMEM_FLAG_NOEXECUTE);
     pml_entry_set_bit(pde, PDE_WRITE_THROUGH, (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH);
     pml_entry_set_bit(pde, PDE_NO_CACHE, (page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE);
+
+    pml_entry_set_bit(pde, PDE_USER,
+      (custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER ? 
+      true :
+      (page_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
   }
 
-  pml_entry_set_bit(pde, PDE_USER,
-    (custom_flags & KMEM_CUSTOMFLAG_CREATE_USER) == KMEM_CUSTOMFLAG_CREATE_USER ? 
-    true :
-    (page_flags & KMEM_FLAG_KERNEL) != KMEM_FLAG_KERNEL);
 
   return 0;
 }
@@ -811,6 +812,9 @@ bool kmem_map_page(pml_entry_t* table, vaddr_t virt, paddr_t phys, uint32_t kmem
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags) 
 {
   pml_entry_t* page;
+
+  virt_base = ALIGN_DOWN(virt_base, SMALL_PAGE_SIZE);
+  phys_base = ALIGN_DOWN(phys_base, SMALL_PAGE_SIZE);
 
   mutex_lock(_kmem_map_lock);
 
