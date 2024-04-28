@@ -29,6 +29,9 @@ typedef struct ehci_hcd {
   uint32_t portcount;
   uint32_t cur_interrupt_state;
 
+  /* Bitfield that tells us which ports have been reset */
+  uint32_t port_reset_bits;
+
   /* Periodic table stuffskis */
   uint32_t periodic_size;
   uint32_t* periodic_table;

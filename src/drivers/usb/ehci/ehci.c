@@ -2,6 +2,7 @@
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
+#include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
@@ -38,6 +39,11 @@ enum EHCI_INTERRUPT_STS {
   INTONAA,
 };
 
+static inline uint32_t _ehci_get_portsts(void* portreg)
+{
+  return mmio_read_dword(portreg) & EHCI_PORTSC_DATAMASK;
+}
+
 int ehci_get_port_sts(ehci_hcd_t* ehci, uint32_t port, usb_port_status_t* status)
 {
   uint32_t portsts;
@@ -72,14 +78,78 @@ int ehci_get_port_sts(ehci_hcd_t* ehci, uint32_t port, usb_port_status_t* status
   if ((portsts & EHCI_PORTSC_OVERCURRENT_CHANGE) == EHCI_PORTSC_OVERCURRENT_CHANGE)
     status->change |= USB_PORT_STATUS_OVER_CURRENT;
 
-  /* TODO: Reset change and suspend change */
+  if (ehci->port_reset_bits & (1 << port))
+    status->change |= USB_PORT_STATUS_RESET;
 
+  /* TODO: Reset suspend change */
+
+  return 0;
+}
+
+/*!
+ * @brief: Reset the EHCI port. This will enable the port
+ */
+static int ehci_reset_port(ehci_hcd_t* ehci, uint32_t port)
+{
+  void* port_reg;
+  uint32_t port_sts;
+  bool lowspeed_device;
+
+  printf("[EHCI] Resetting port %d\n", port);
+
+  port_reg = ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)) ;
+  port_sts = _ehci_get_portsts(port_reg);
+
+  lowspeed_device = (port_sts & EHCI_PORTSC_DMINUS_LINESTAT) == EHCI_PORTSC_DMINUS_LINESTAT;
+
+  if (lowspeed_device)
+    goto giveup_maybe_and_exit;
+
+  /* Do the reset */
+  port_sts &= ~EHCI_PORTSC_ENABLE;
+  port_sts |= EHCI_PORTSC_RESET;
+  mmio_write_dword(port_reg, port_sts);
+
+  /* Wait for hardware */
+  mdelay(500);
+
+  /* Update */
+  port_sts = _ehci_get_portsts(port_reg) & ~EHCI_PORTSC_RESET;
+  mmio_write_dword(port_reg, port_sts);
+
+  /* Wait for hardware v2 */
+  mdelay(200);
+
+  port_sts = _ehci_get_portsts(port_reg);
+
+  /* Did we successfully reset? */
+  if ((port_sts & EHCI_PORTSC_RESET) == EHCI_PORTSC_RESET)
+    return -1;
+
+giveup_maybe_and_exit:
+  if (lowspeed_device || (port_sts & EHCI_PORTSC_ENABLE) == 0)
+    mmio_write_dword(port_reg, port_sts | EHCI_PORTSC_PORT_OWNER);
+
+  ehci->port_reset_bits |= (1 << port);
   return 0;
 }
 
 int ehci_set_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
 {
-  kernel_panic("TODO: ehci_set_port_feature");
+  int error;
+
+  if (port >= ehci->portcount)
+    return -KERR_INVAL;
+
+  switch (feature) {
+    case USB_FEATURE_PORT_RESET:
+      error = ehci_reset_port(ehci, port);
+      break;
+    default:
+      error = -KERR_INVAL;
+  }
+
+  return error;
 }
 
 int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
@@ -359,7 +429,8 @@ static int ehci_setup(usb_hcd_t* hcd)
 
   hcd->pci_device->ops.read_dword(hcd->pci_device, BAR0, (uint32_t*)&bar0);
 
-  ehci->register_size = pci_get_bar_size(hcd->pci_device, 0); ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
+  ehci->register_size = pci_get_bar_size(hcd->pci_device, 0); 
+  ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
 
   printf("Setup EHCI registerspace (addr=0x%p, size=0x%llx)\n", ehci->capregs, ehci->register_size);
 

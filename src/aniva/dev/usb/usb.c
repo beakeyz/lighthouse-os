@@ -12,6 +12,7 @@
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
+#include "libk/io.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
@@ -275,16 +276,58 @@ static inline void _get_usb_speed(usb_hub_t* hub, usb_port_t* port, enum USB_SPE
     return;
   }
 
-  if (port->status.status & USB_PORT_STATUS_LOW_SPEED)
+  if (port->status.status & USB_PORT_STATUS_LOW_SPEED) {
     *speed = USB_LOWSPEED;
-  else if (port->status.status & USB_PORT_STATUS_HIGH_SPEED)
+    printf("Lowspeed device\n");
+  } else if (port->status.status & USB_PORT_STATUS_HIGH_SPEED) {
     *speed = USB_HIGHSPEED;
-  else
+    printf("Highspeed device\n");
+  } else {
     *speed = USB_FULLSPEED;
+    printf("Fullspeed device\n");
+  }
+}
+
+static inline int _reset_port(usb_hub_t* hub, uint32_t i)
+{
+  int error;
+  usb_port_t* port;
+
+  error = usb_hub_submit_ctl(hub, USB_TYPE_CLASS, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_RESET, i+1, NULL, NULL, NULL);
+
+  if (error)
+    return error;
+
+  port = &hub->ports[i];
+
+  for (uint32_t i = 0; i < 16; i++) {
+    error = usb_hub_get_portsts(hub, i, &port->status);
+
+    if (error)
+      return error;
+
+    if ((port->status.change & USB_PORT_STATUS_RESET) == USB_PORT_STATUS_RESET || (port->status.status & USB_PORT_STATUS_RESET) == 0)
+      break;
+
+    error = -KERR_NODEV;
+  }
+
+  if (error)
+    return error;
+
+  error = usb_hub_submit_ctl(hub, USB_TYPE_CLASS, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET, i+1, NULL, NULL, NULL);
+
+  if (error)
+    return error;
+
+  /* Delay a bit to give hardware time to chill */
+  mdelay(250);
+  return 0;
 }
 
 static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 {
+  int error;
   usb_port_t* port;
   enum USB_SPEED speed;
   char namebuf[11] = { NULL };
@@ -294,11 +337,22 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 
   port = &hub->ports[i];
 
+  /* Reset the port */
+  error = _reset_port(hub, i);
+
+  if (error)
+    return error;
+
+  /* Update the status after the reset */
+  usb_hub_get_portsts(hub, i, &port->status);
+
+  /* Get the device speed */
   _get_usb_speed(hub, port, &speed);
 
   /* Format the device name */
   sfmt(namebuf, "usbdev%d", i); 
 
+  /* Create the device backend structs */
   port->device = create_usb_device(hub, speed, i, namebuf);
 
   /* Bruh */
@@ -341,7 +395,7 @@ int usb_hub_enumerate(usb_hub_t* hub)
   usb_port_t* c_port;
 
   for (uint32_t i = 0; i < hub->portcount; i++) {
-    printf("%s: Trying to reset port %d\n", hub->device->device->name, i);
+    printf("%s: Scanning port %d...\n", hub->device->device->name, i);
     c_port = &hub->ports[i];
 
     error = usb_hub_get_portsts(hub, i, &c_port->status);

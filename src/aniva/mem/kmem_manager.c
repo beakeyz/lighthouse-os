@@ -821,10 +821,6 @@ bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base
     kernel_panic("Mapped page with page_flags=NULL");
   */
 
-  /* Make sure PAT is enabled if we want different caching options */
-  if ((page_flags & KMEM_FLAG_NOCACHE) == KMEM_FLAG_NOCACHE || (page_flags & KMEM_FLAG_WRITETHROUGH) == KMEM_FLAG_WRITETHROUGH)
-    page_flags |= KMEM_FLAG_SPEC;
-
   mutex_lock(_kmem_map_lock);
 
   for (uintptr_t i = 0; i < page_count; i++) {

@@ -51,6 +51,12 @@ int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
 
       error = ehci_clear_port_feature(ehci, usbctl->index-1, usbctl->value);
       break;
+    case USB_REQ_SET_FEATURE:
+      if (!usbctl->index)
+        break;
+
+      error = ehci_set_port_feature(ehci, usbctl->index-1, usbctl->value);
+      break;
     default:
       break;
   }
