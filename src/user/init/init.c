@@ -1,4 +1,5 @@
 #include "devacs/device.h"
+#include "lightos/dynamic.h"
 #include "lightos/handle.h"
 #include "lightos/memory/memflags.h"
 #include <sys/types.h>
@@ -28,6 +29,36 @@ int main()
 
   const char* device = "Dev/ahci/drive0";
 
+  if (!load_library("LibGfx.slb", &handle))
+    goto query;
+
+  BOOL (*req)(void* wnd, uint32_t width, uint32_t height, uint32_t flags);
+  BOOL (*req_fb)(void* wnd, void* fb);
+  BOOL (*draw_rect)(void* wnd, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t clr);
+
+  get_func_address(handle, "request_lwindow", (void**)&req);
+  get_func_address(handle, "lwindow_request_framebuffer", (void**)&req_fb);
+  get_func_address(handle, "lwindow_draw_rect", (void**)&draw_rect);
+
+  char dummy_wnd[56];
+  void* fb;
+
+  printf("Creating window\n");
+
+  req(&dummy_wnd, 600, 400, NULL);
+
+  printf("Creating framebuffer\n");
+
+  req_fb(&dummy_wnd, &fb);
+
+  printf("Drawing rect\n");
+
+  draw_rect(&dummy_wnd, 0, 0, 600, 400, 0xffffffff);
+
+  printf("looping\n");
+  for (;;) {}
+
+query:
   printf("Querying: %s\n", device);
 
   handle = open_device(device, NULL);
