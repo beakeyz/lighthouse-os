@@ -525,6 +525,8 @@ static int __bufout(uint8_t typeflags, char c, char** out)
 {
   **out = c;
   (*out)++;
+  /* Null terminate */
+  **out = '\0';
   return 0;
 }
 

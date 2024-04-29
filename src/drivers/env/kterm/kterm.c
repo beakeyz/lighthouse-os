@@ -1181,6 +1181,9 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
 
       mode = KTERM_MODE_GRAPHICS;
 
+      _keybuffer.r_idx = 0;
+      _keybuffer.w_idx = 0;
+
       uwnd->wnd_id = 1;
       break;
     case LWND_DCC_CLOSE:
@@ -1256,9 +1259,6 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       if (!event)
         return DRV_STAT_INVAL;
 
-      if (kevent_is_keycombination_pressed(event, _forcequit_sequence, arrlen(_forcequit_sequence)))
-        try_terminate_process(_active_grpx_app.client_proc);
-
       /*
        * TODO: create functions that handle with this reading and writing to user keybuffers
        */
@@ -1297,6 +1297,9 @@ int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
  */
 int kterm_handle_graphics_key(kevent_kb_ctx_t* kbd)
 {
+  if (kevent_is_keycombination_pressed(kbd, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
+    try_terminate_process(_active_grpx_app.client_proc);
+
   keybuffer_write_key(&_keybuffer, kbd);
   return 0;
 }

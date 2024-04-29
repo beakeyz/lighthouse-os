@@ -22,54 +22,36 @@ static bool has_flag(heap_node_t* node, uint8_t flag) {
   return (node->flags & flag) == flag;
 }
 
-static heap_node_t* split_node(heap_node_buffer_t* buffer, heap_node_t *ptr, size_t size) {
-  // trying to split a node into a bigger size than it itself is xD
-  if (ptr->size <= size) {
-    // this is just dumb
-    println("[kmalloc:split_node] size is invalid");
+/*!
+ * @brief: Try to split a node into two
+ *
+ * We need @node to have enough room for both data of size @size AND two more heap_node_t structs.
+ * This is because we want to keep the ability to split nodes.
+ */
+static heap_node_t* split_node(heap_node_buffer_t* buffer, heap_node_t *node, size_t size) 
+{
+  heap_node_t* ret;
+
+  /* Can't split used nodes */
+  if ((node->flags & MALLOC_NODE_FLAG_USED) == MALLOC_NODE_FLAG_USED)
     return nullptr;
-  }
 
-  const size_t node_free_size = ptr->size - sizeof(heap_node_t);
-  const size_t extra_size = size + sizeof(heap_node_t);
-  if (node_free_size < extra_size) {
-    //println("[kmalloc:split_node] node too small!");
+  /* Check if this node has room for @size + 2 * sizeof(*ret) */
+  if (node->size < (size + (sizeof(*ret) * 2)))
     return nullptr;
-  }
-  
-  if (has_flag(ptr, MALLOC_NODE_FLAG_USED)) {
-    // a node that's completely in use, should not be split
-    //println("[kmalloc:split_node] tried to split a node that's in use");
-    return nullptr;
-  }
 
-  // TODO: handle this correctly
-  ASSERT_MSG(verify_identity(ptr), "Tried to split a unidentified node!");
+  ret = (heap_node_t*)((uint64_t)&node->data[0] + node->size - (size + sizeof(*ret)));
 
-  // the new node for the allocation
-  heap_node_t* new_first_node = ptr;
-  // the old free node
-  heap_node_t* new_second_node = (heap_node_t*)((uintptr_t)ptr + size + sizeof(heap_node_t));
-  new_first_node->identifier = MALLOC_NODE_IDENTIFIER;
-  new_second_node->identifier = MALLOC_NODE_IDENTIFIER;
-  // now copy the data of the (big) free node over to its smaller counterpart
-  new_second_node->size = new_first_node->size - size - sizeof(heap_node_t);
-  // This should just be free, but we'll just copy it over anyway
-  new_second_node->flags = new_first_node->flags;
+  memset(ret, 0, sizeof(*ret));
 
-  // pointer resolve
+  ret->size = size;
+  ret->next = node->next;
+  ret->prev = node;
 
-  new_second_node->prev = new_first_node;
-  new_second_node->next = new_first_node->next;
+  node->next = ret;
+  node->size -= (size + sizeof(*ret));
 
-  // now init the data of our new used node
-  new_first_node->next = new_second_node;
-
-  new_first_node->size = size + sizeof(heap_node_t);
-
-  buffer->m_node_count++;
-
-  return new_first_node;
+  return ret;
 }
 
 static bool can_merge(heap_node_t *node1, heap_node_t *node2) {
@@ -89,56 +71,38 @@ static bool can_merge(heap_node_t *node1, heap_node_t *node2) {
 
 // we check for mergeability again, just for sanity =/
 // I'd love to make this more efficient (and readable), but I'm also too lazy xD
-static heap_node_t* merge_node_with_next (heap_node_buffer_t* buffer, heap_node_t* ptr) {
-  if (can_merge(ptr, ptr->next)) {
-    ptr->size += ptr->next->size;
-    heap_node_t* next_next = ptr->next->next;
-    memset(ptr->next, 0, sizeof(heap_node_t));
+static inline heap_node_t* merge_node_with_next (heap_node_buffer_t* buffer, heap_node_t* ptr) 
+{
+  if (!can_merge(ptr, ptr->next))
+    return nullptr;
 
-    if (next_next) {
-      next_next->prev = ptr;
-    } 
-    ptr->next = next_next;
+  ptr->size += ptr->next->size + sizeof(heap_node_t);
+  ptr->next = ptr->next->next;
 
-    buffer->m_node_count--;
-    return ptr;
-  }
-  return nullptr;
-}
+  if (ptr->next)
+    ptr->next->prev = ptr;
 
-static heap_node_t* merge_node_with_prev (heap_node_buffer_t* buffer, heap_node_t* ptr) {
-  if (can_merge(ptr, ptr->prev)) {
-    heap_node_t* prev = ptr->prev;
-
-    prev->size += ptr->size;
-
-    ptr->next->prev = prev;
-    prev->next = ptr->next;
-
-    memset(ptr, 0, sizeof(heap_node_t));
-
-    buffer->m_node_count--;
-
-    return prev;
-  }
-  return nullptr;
+  buffer->m_node_count--;
+  return ptr;
 }
 
 static heap_node_t* merge_nodes (heap_node_buffer_t* buffer, heap_node_t* ptr1, heap_node_t* ptr2) {
-  if (can_merge(ptr1, ptr2)) {
-    // Because they passed the merge check we can do this =D
-    // sm -> ptr1 -> ptr2 -> sm
-    
-    if (ptr1->next == ptr2) {
-      return merge_node_with_next(buffer,ptr1);
-    }
-    // ptr2 -> ptr1 -> sm
-    return merge_node_with_prev(buffer,ptr1);
-  }
-  return nullptr;
+  if (!can_merge(ptr1, ptr2))
+    return nullptr;
+
+  // Because they passed the merge check we can do this =D
+  // sm -> ptr1 -> ptr2 -> sm
+  
+  if (ptr1->next == ptr2)
+    return merge_node_with_next(buffer,ptr1);
+
+  // TODO: Check if this ever happens loll
+  // ptr2 -> ptr1 -> sm
+  return merge_node_with_next(buffer,ptr2);
 }
 
-static ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node) {
+static ErrorOrPtr try_merge(heap_node_buffer_t* buffer, heap_node_t *node)
+{
   ErrorOrPtr result = Error();
   heap_node_t* merged_node;
 
@@ -214,18 +178,18 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
   ret = (heap_node_buffer_t*)Release(result);
 
   /* Total size of the available data */
-  data_size = total_buffer_size - sizeof(heap_node_buffer_t);
+  data_size = total_buffer_size - sizeof(heap_node_buffer_t) - sizeof(heap_node_t);
 
   memset(ret, 0, sizeof(heap_node_buffer_t));
 
   ret->m_buffer_size = total_buffer_size;
   ret->m_node_count = 1;
 
-  start_node = ret->m_start_node;
+  start_node = &ret->m_start_node[0];
 
   memset(start_node, 0, sizeof(heap_node_t));
 
-  /* The size of the node includes both the size of the node struct and the data region */
+  /* The size of the node includes only the size of the data region */
   start_node->size = data_size;
   start_node->next = nullptr;
   start_node->prev = nullptr;
@@ -302,16 +266,21 @@ heap_node_t* memory_get_heapnode_at(heap_node_buffer_t* buffer, uint32_t index)
 
 static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_node_buffer_t* buffer, heap_node_t* node, size_t bytes)
 {
+  heap_node_t* new_node;
+
   if (!allocator || !buffer || !bytes)
     return Error();
 
   while (node) {
     // TODO: should we also allow allocation when len is equal to the nodesize - structsize?
 
+    if (has_flag(node, MALLOC_NODE_FLAG_USED))
+      goto cycle;
+
     /*
      * Perfect fit: yoink
      */
-    if ((node->size - sizeof(heap_node_t)) == bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
+    if ((node->size) == bytes) {
       node->flags |= MALLOC_NODE_FLAG_USED;
 
       allocator_add_used(allocator, node->size);
@@ -319,11 +288,12 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
       return Success((uintptr_t)node->data);
     } 
     
-    if ((node->size - sizeof(heap_node_t)) > bytes && !has_flag(node, MALLOC_NODE_FLAG_USED)) {
+    /* We need enough bytes to store the data + the heap node struct */
+    if ((node->size) > (bytes + sizeof(heap_node_t))) {
       // yay, our node works =D
 
       // now split off a node of the correct size
-      heap_node_t* new_node = split_node(buffer, node, bytes);
+      new_node = split_node(buffer, node, bytes);
 
       if (!new_node)
         goto cycle;
@@ -331,10 +301,6 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
       // for sanity
       new_node->identifier = MALLOC_NODE_IDENTIFIER;
       new_node->flags |= MALLOC_NODE_FLAG_USED;
-
-      ASSERT_MSG((new_node->next->flags & MALLOC_NODE_FLAG_USED) == 0, "Next node was not free, something went wront while allocating memory!");
-
-      buffer->m_last_free_node = new_node->next;
       
       allocator_add_used(allocator, new_node->size);
 
@@ -426,6 +392,8 @@ void* memory_allocate(memory_allocator_t * allocator, size_t bytes) {
   if (!allocator || !bytes)
     return nullptr;
 
+  /* Ensure alignment */
+  bytes = ALIGN_UP(bytes, 8);
   current_buffer = allocator->m_buffers;
 
   /*

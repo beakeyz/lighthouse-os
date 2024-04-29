@@ -1,13 +1,7 @@
 #include "heap.h"
-#include "dev/debug/serial.h"
-#include "libk/flow/error.h"
-#include "libk/string.h"
-#include "logging/log.h"
 #include "malloc.h"
 #include "mem/kmem_manager.h"
 #include <sched/scheduler.h>
-#include "mem/zalloc.h"
-#include "sync/mutex.h"
 #include <entry/entry.h>
 
 /*
@@ -50,7 +44,6 @@ void init_kheap() {
   /* Set up the buffer */
   initial_buffer->m_node_count = 1;
   initial_buffer->m_buffer_size = INITIAL_HEAP_TOTAL_SIZE;
-  initial_buffer->m_last_free_node = nullptr;
   initial_buffer->m_next = nullptr;
 
   /* Set up the initial node */
@@ -58,7 +51,7 @@ void init_kheap() {
 
   initial_node->flags = NULL;
   initial_node->identifier = MALLOC_NODE_IDENTIFIER;
-  initial_node->size = INITIAL_HEAP_TOTAL_SIZE - sizeof(heap_node_buffer_t);
+  initial_node->size = INITIAL_HEAP_TOTAL_SIZE - sizeof(heap_node_buffer_t) - sizeof(*initial_node);
   initial_node->prev = nullptr;
   initial_node->next = nullptr;
 

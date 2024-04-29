@@ -5,12 +5,92 @@
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
 #include "logging/log.h"
+#include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/profile/profile.h"
+#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
+
+static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
+{
+  int error;
+  char* fullpath_buf;
+  char* c_path;
+  char* full_buffer;
+  size_t c_path_len;
+  size_t path_len;
+  size_t total_len;
+  profile_var_t* path_var;
+  proc_profile_t* logged_profile;
+
+  error = oss_resolve_obj(path, bobj);
+
+  if (!error)
+    return 0;
+
+  logged_profile = nullptr;
+
+  if (kterm_get_login(&logged_profile))
+    profile_find("Global", &logged_profile);
+
+  /* This would be pretty bad lmao */
+  if (!logged_profile)
+    return -1;
+
+  /* Try to find the path variable */
+  if (profile_get_var(logged_profile, "PATH", &path_var))
+    return -1;
+
+  /* Get the string value here */
+  if (!profile_var_get_str_value(path_var, (const char**)&fullpath_buf))
+    return -1;
+
+  /* Duplicate the string */
+  fullpath_buf = strdup(fullpath_buf);
+  c_path = fullpath_buf;
+  path_len = strlen(path);
+
+  /* Filter on the path seperator */
+  for (uint32_t i = 0; i < (strlen(fullpath_buf) + 1); i++) {
+    char* c_char = fullpath_buf + i;
+
+    /* Cut off the seperator char */
+    if (*c_char != PATH_SEPERATOR_CHAR && *c_char)
+      continue;
+
+    *c_char = '\0';
+    c_path_len = strlen(c_path);
+    total_len = c_path_len + 1 + path_len + 2;
+
+    /* Allocate for the full path */
+    full_buffer = kmalloc(total_len);
+
+    /* Clear the buffer */
+    memset(full_buffer, 0, total_len);
+
+    /* Format yay */
+    sfmt(full_buffer, "%s/%s", c_path, path);
+
+    /* Try to search the object */
+    error = oss_resolve_obj(full_buffer, bobj);
+
+    /* Free up the buffer */
+    kfree(full_buffer);
+
+    /* We found an object here! exit */
+    if (!error)
+      break;
+
+    /* Next path */
+    c_path = c_char + 1;
+  }
+
+  kfree(fullpath_buf);
+  return error;
+}
 
 /*!
  * @brief: Try to execute anything that is the first entry of @argv
@@ -36,8 +116,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
 
   oss_obj_t* obj;
 
-  if (oss_resolve_obj(buffer, &obj) || !obj) {
-    logln("Could not find that object!");
+  if (_kterm_exec_find_obj(buffer, &obj)) {
+    logln("Could not find object!");
     return 3;
   }
 

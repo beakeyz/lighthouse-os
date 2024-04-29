@@ -3,7 +3,6 @@
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
-#include "logging/log.h"
 #include "util.h"
 #include <proc/profile/profile.h>
 #include <proc/profile/variable.h>

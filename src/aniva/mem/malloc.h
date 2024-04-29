@@ -45,8 +45,6 @@ typedef struct heap_node_buffer {
   /* Link through all the buffers with this */
   struct heap_node_buffer* m_next;
 
-  heap_node_t* m_last_free_node;
-
   /* This list is kinda scetchy, since we cant index it regularly, because not every node has the same size */
   heap_node_t m_start_node[];
 } heap_node_buffer_t;

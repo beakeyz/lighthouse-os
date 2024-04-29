@@ -163,15 +163,19 @@ static kerror_t _start_system_management(void)
    */
   init_kheap();
 
+  printf("A\n");
   // initialize cpu-related things that need the memorymanager and the heap
   init_processor_late(&g_bsp);
 
+  printf("A\n");
   // Setup interrupts (Fault handlers and IRQ request framework)
   init_interrupts();
 
+  printf("A\n");
   // we need memory
   init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
+  printf("A\n");
   // Fully initialize logging right after the memory setup
   init_logging();
 

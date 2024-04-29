@@ -62,6 +62,8 @@ struct proc;
 #define LIBSPATH_VAR "LIBSPATH"
 #define LIBSPATH_VARPATH "Global/"LIBSPATH_VAR
 
+#define PATH_SEPERATOR_CHAR ':'
+
 /*
  * Profiles need to be saveable and loadable since they will 
  * act as our 'users' AND our 'groups' at the same time
