@@ -1,10 +1,12 @@
 #include "pci.h"
 #include "bus.h"
+#include "dev/device.h"
 #include "dev/pci/definitions.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include <mem/heap.h>
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
@@ -203,7 +205,6 @@ static void __register_pci_device(pci_device_t* dev) {
 
   int probe_error;
   pci_driver_t* fitting_driver;
-  pci_device_t* _dev;
 
   if (!dev || !__pci_devices || !__pci_dev_allocator)
     return;
@@ -244,12 +245,9 @@ static void __register_pci_device(pci_device_t* dev) {
   if (fitting_driver && !probe_error) {
     dev->driver = fitting_driver;
   }
-  /* Allocate the device */
-  _dev = zalloc_fixed(__pci_dev_allocator);
 
-  memcpy(_dev, dev, sizeof(pci_device_t));
-
-  list_append(__pci_devices, _dev);
+  /* Add the device */
+  list_append(__pci_devices, dev);
 }
 
 /* Default PCI callbacks */
@@ -436,56 +434,87 @@ static int pci_dev_read_dword(pci_device_t* device, uint32_t field, uint32_t* ou
   return device->raw_ops.read32(address->bus_num, address->device_num, address->func_num, field, out);
 }
 
+static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t* bus)
+{
+  pci_device_t* ret;
+  char pci_name[64];
+
+  if (!address || !bus)
+    return nullptr;
+
+  ret = zalloc_fixed(__pci_dev_allocator);
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
+  /* Format the pci name */
+  sfmt(pci_name, "pdev.%x.%x.%x", address->bus_num, address->device_num, address->func_num);
+
+  ret->address = *address;
+  ret->raw_ops = *__current_pci_access_impl;
+  ret->ops = (pci_device_ops_t) {
+    .read = pci_dev_read,
+    .write = pci_dev_write,
+    .read_byte = pci_dev_read_byte,
+    .read_word =  pci_dev_read_word,
+    .read_dword = pci_dev_read_dword,
+  };
+  ret->dev = create_device(NULL, pci_name, NULL);
+  ret->bus = bus;
+
+  /* Register the pci device to its bus */
+  device_register_to_bus(ret->dev, bus->dev);
+  device_bind_pci(ret->dev, ret);
+
+  /* Cache the devices PCI standard header fields */
+  ret->raw_ops.read16(address->bus_num, address->device_num, address->func_num, DEVICE_ID, &ret->dev_id);
+  ret->raw_ops.read16(address->bus_num, address->device_num, address->func_num, VENDOR_ID, &ret->vendor_id);
+  ret->raw_ops.read16(address->bus_num, address->device_num, address->func_num, COMMAND, &ret->command);
+  ret->raw_ops.read16(address->bus_num, address->device_num, address->func_num, STATUS, &ret->status);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, HEADER_TYPE, &ret->header_type);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, CLASS, &ret->class);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, SUBCLASS, &ret->subclass);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, PROG_IF, &ret->prog_if);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, CACHE_LINE_SIZE, &ret->cachelinesize);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, LATENCY_TIMER, &ret->latency_timer);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, REVISION_ID, &ret->revision_id);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, INTERRUPT_LINE, &ret->interrupt_line);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, INTERRUPT_PIN, &ret->interrupt_pin);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, BIST, &ret->BIST);
+  ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, CAPABILITIES_POINTER, &ret->capabilities_ptr);
+
+  return ret;
+}
+
 /* PCI enumeration stuff */
 
-void enumerate_function(pci_callback_t* callback, pci_bus_t* base_addr,uint8_t bus, uint8_t device, uint8_t func) {
-
-  uint32_t index;
+void enumerate_function(pci_callback_t* callback, pci_bus_t* bus,uint8_t bus_num, uint8_t device_num, uint8_t func_num) 
+{
+  pci_device_t* device;
+  pci_device_address_t addr;
+  uint16_t devid;
 
   if (!callback)
     return;
-  
-  /* Segment (?) */
-  index = base_addr->index;
 
-  pci_device_t identifier = {
-    0,
-    .address = {
-      .index =      index,
-      .bus_num =    bus,
-      .device_num = device,
-      .func_num =   func
-    },
-    .raw_ops =      *__current_pci_access_impl,
-    .ops = {
-      .read =       pci_dev_read,
-      .write =      pci_dev_write,
-      .read_byte =  pci_dev_read_byte,
-      .read_word =  pci_dev_read_word,
-      .read_dword = pci_dev_read_dword,
-    },
-    .bus =          base_addr,
-  };
+  pci_read16(bus->index, bus_num, device_num, func_num, DEVICE_ID, &devid);
 
-  identifier.raw_ops.read16(bus, device, func, DEVICE_ID, &identifier.dev_id);
-  identifier.raw_ops.read16(bus, device, func, VENDOR_ID, &identifier.vendor_id);
-  identifier.raw_ops.read16(bus, device, func, COMMAND, &identifier.command);
-  identifier.raw_ops.read16(bus, device, func, STATUS, &identifier.status);
-  identifier.raw_ops.read8(bus, device, func, HEADER_TYPE, &identifier.header_type);
-  identifier.raw_ops.read8(bus, device, func, CLASS, &identifier.class);
-  identifier.raw_ops.read8(bus, device, func, SUBCLASS, &identifier.subclass);
-  identifier.raw_ops.read8(bus, device, func, PROG_IF, &identifier.prog_if);
-  identifier.raw_ops.read8(bus, device, func, CACHE_LINE_SIZE, &identifier.cachelinesize);
-  identifier.raw_ops.read8(bus, device, func, LATENCY_TIMER, &identifier.latency_timer);
-  identifier.raw_ops.read8(bus, device, func, REVISION_ID, &identifier.revision_id);
-  identifier.raw_ops.read8(bus, device, func, INTERRUPT_LINE, &identifier.interrupt_line);
-  identifier.raw_ops.read8(bus, device, func, INTERRUPT_PIN, &identifier.interrupt_pin);
-  identifier.raw_ops.read8(bus, device, func, BIST, &identifier.BIST);
-  identifier.raw_ops.read8(bus, device, func, CAPABILITIES_POINTER, &identifier.capabilities_ptr);
+  if (devid == 0 || devid == PCI_NONE_VALUE) 
+    return;
 
-  if (identifier.dev_id == 0 || identifier.dev_id == PCI_NONE_VALUE) return;
+  addr.index = bus->index;
+  addr.bus_num = bus_num;
+  addr.device_num = device_num;
+  addr.func_num = func_num;
 
-  callback->callback(&identifier);
+  device = create_pci_device(&addr, bus);
+
+  if (!device)
+    return;
+
+  callback->callback(device);
 }
 
 void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus, uint8_t device) {
@@ -830,7 +859,7 @@ int pci_device_enable(pci_device_t* device)
 {
   /* TODO: power management */
 
-  if (device->enabled_count)
+  if (device->enabled_count++)
     return 0;
 
   /* Set IO and memory to respond */
@@ -840,7 +869,8 @@ int pci_device_enable(pci_device_t* device)
   /* DMA bus mastering (FIXME: should we always turn this on?) */
   pci_set_bus_mastering(&device->address, true);
 
-  device->enabled_count++;
+  /* Enable the device in our subsystem */
+  device_enable(device->dev);
   
   return 0;
 }
@@ -943,11 +973,6 @@ bool init_pci()
   ASSERT_MSG(register_pci_bridges_from_mcfg(mcfg), "Unable to register pci bridges from mcfg! (ACPI)");
 
   return true;
-}
-
-pci_device_t create_pci_device(struct pci_bus* bus) 
-{
-  kernel_panic("Impl: create_pci_device");
 }
 
 pci_bus_t* get_bridge_by_index(uint32_t bridge_index) {

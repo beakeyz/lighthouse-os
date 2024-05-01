@@ -172,10 +172,10 @@ void mutex_unlock(mutex_t* mutex)
 bool mutex_is_locked(mutex_t* mutex) 
 {
   // No mutex means no lock =/
-  if (!mutex)
+  if (!mutex || !mutex->m_lock_holder || !mutex->m_lock)
     return false;
 
-  return (mutex->m_lock_holder && (atomic_ptr_read(&mutex->m_lock_depth) != NULL));
+  return (atomic_ptr_read(&mutex->m_lock_depth) > 0);
 }
 
 // FIXME: inline?

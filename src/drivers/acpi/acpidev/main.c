@@ -85,7 +85,7 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
   /* TODO: what to do on different types? */
   switch (obj_type) {
     case ACPI_TYPE_DEVICE:
-    case ACPI_TYPE_ANY:
+    //case ACPI_TYPE_ANY:
       error = acpi_add_device(dev, obj_type, _acpi_eps, Path.Pointer);
       /* FIXME: Ignore these failures? */
       if (error)

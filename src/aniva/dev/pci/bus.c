@@ -3,6 +3,7 @@
 #include "dev/group.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "pci.h"
 #include "io.h"
@@ -26,16 +27,16 @@ static dgroup_t* _pci_group;
 
 static const char* _create_bus_name(uint32_t busnum) 
 {
-  const char* prefix = "bus";
-  const size_t index_len = strlen(to_string(busnum));
-  const size_t total_len = strlen(prefix) + index_len + 1;
-  char* ret = kmalloc(total_len);
+  char* buffer = kmalloc(16);
 
-  memset(ret, 0, total_len);
-  memcpy(ret, prefix, strlen(prefix));
-  memcpy(ret + strlen(prefix), to_string(busnum), index_len);
+  memset(buffer, 0, 16);
 
-  return ret;
+  if (sfmt(buffer, "bus%d", busnum)) {
+    kfree(buffer);
+    return nullptr;
+  }
+
+  return buffer;
 }
 
 pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t busnum, pci_bus_t* parent)

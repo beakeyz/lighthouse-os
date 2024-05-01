@@ -5,6 +5,7 @@
 #include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"
+#include <libk/string.h>
 
 static dgroup_t* _create_dgroup()
 {

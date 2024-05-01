@@ -6,7 +6,6 @@
 #include "dev/group.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
-#include "system/acpi/device.h"
 #include <libk/stddef.h>
 
 /*
@@ -53,6 +52,8 @@
 struct oss_obj;
 struct device;
 struct dgroup;
+struct pci_device;
+struct acpi_device;
 struct device_endpoint;
 struct aniva_driver;
 struct drv_manifest;
@@ -131,12 +132,15 @@ typedef struct device {
   /* If this device is a bus, this node contains it's children */
   struct dgroup* bus_group;
 
+  /* Private field for drivers to use */
   void* private;
+
   mutex_t* lock;
   mutex_t* ep_lock;
 
   /* Handle to the ACPI stuff if this device has that */
-  acpi_device_t* acpi_dev;
+  struct acpi_device* acpi_dev;
+  struct pci_device* pci_dev;
 
   uint32_t flags;
   /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
@@ -155,6 +159,7 @@ static inline void* device_unwrap(device_t* device)
 extern struct device_endpoint* device_get_endpoint(device_t* device, enum ENDPOINT_TYPE type);
 extern kerror_t device_unimplement_endpoint(device_t* device, enum ENDPOINT_TYPE type);
 extern kerror_t device_implement_endpoint(device_t* device, enum ENDPOINT_TYPE type, void* ep, size_t ep_size);
+extern kerror_t device_implement_endpoints(device_t* device, struct device_endpoint* endpoints);
 
 static inline bool device_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
 {
@@ -177,24 +182,21 @@ void debug_devices();
 /* Object management */
 device_t* create_device(struct aniva_driver* parent, char* name, void* priv);
 device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps);
-
 void destroy_device(device_t* device);
 
+/* Device registering */
 int device_register(device_t* dev, struct dgroup* group);
 int device_register_to_bus(device_t* dev, device_t* busdev);
 int device_unregister(device_t* dev);
+int device_move(device_t* dev, struct dgroup* newgroup);
+int device_move_to_bus(device_t* dev, device_t* newbus);
 
+/* Device-group interfacing */
 int device_get_group(device_t* dev, struct dgroup** group);
 int device_node_add_group(struct oss_node* node, struct dgroup* group);
-
 int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback);
 
-device_t* device_open(const char* path);
-int device_close(device_t* dev);
-
-kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver);
-
-
+/* DRV-API functions */
 kerror_t device_alloc_memory(device_t* dev, uintptr_t start, size_t size);
 kerror_t device_alloc_memory_range(device_t* dev, size_t size, void** b_out);
 kerror_t device_alloc_irq(device_t* dev, uint32_t vec, uint32_t flags, void* handler, void* ctx, const char* name);
@@ -204,7 +206,16 @@ kerror_t device_dealloc_memory(device_t* dev, uintptr_t start, size_t size);
 kerror_t device_dealloc_irq(device_t* dev, uint32_t vec);
 kerror_t device_dealloc_io(device_t* dev, uint32_t start, uint32_t size);
 
+kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver);
+kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev);
+kerror_t device_bind_pci(device_t* dev, struct pci_device* pcidev);
+kerror_t device_rename(device_t* dev, const char* newname);
+
+/* Misc */
+device_t* device_open(const char* path);
+int device_close(device_t* dev);
 int device_getinfo(device_t* dev, DEVINFO* binfo);
+
 
 /* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);

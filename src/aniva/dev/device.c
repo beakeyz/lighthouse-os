@@ -15,6 +15,7 @@
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
+#include "system/acpi/acpi.h"
 
 static oss_node_t* _device_node;
 
@@ -63,11 +64,8 @@ device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, 
   ret->endpoints = NULL;
   ret->endpoint_count = NULL;
 
-  /* Implement all the specified endpoints */
-  while (eps && eps->type != ENDPOINT_TYPE_INVALID) {
-    device_implement_endpoint(ret, eps->type, eps->impl.priv, eps->size);
-    eps++;
-  }
+  /* Implement the device endpoints */
+  (void)device_implement_endpoints(ret, eps);
 
   /* Make sure the object knows about us */
   oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, destroy_device);
@@ -174,6 +172,49 @@ int device_unregister(device_t* dev)
   return dev_group_remove_device(dgroup, dev);
 }
 
+/*!
+ * @brief: Moves a device to a new devicegroup
+ *
+ * Takes the devices lock
+ */
+int device_move(device_t* dev, struct dgroup* newgroup)
+{
+  int error;
+  dgroup_t* oldgroup;
+
+  if (!dev || !newgroup)
+    return -KERR_INVAL;
+
+  mutex_lock(dev->lock);
+
+  error = device_get_group(dev, &oldgroup);
+
+  if (error)
+    goto unlock_and_exit;
+
+  error = dev_group_remove_device(oldgroup, dev);
+
+  if (error)
+    goto unlock_and_exit;
+
+  error = dev_group_add_device(newgroup, dev);
+
+unlock_and_exit:
+  mutex_unlock(dev->lock);
+  return error;
+}
+
+int device_move_to_bus(device_t* dev, device_t* newbus)
+{
+  if (!newbus)
+    return -KERR_INVAL;
+
+  if (!device_is_bus(newbus))
+    return -KERR_INVAL;
+
+  return device_move(dev, newbus->bus_group);
+}
+
 static bool __device_itterate(oss_node_t* node, oss_obj_t* obj, void* arg)
 {
   DEVICE_ITTERATE ittr;
@@ -247,12 +288,65 @@ int device_close(device_t* dev)
 
 kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver)
 {
-  if (dev->driver)
+  if (dev->driver && driver)
     return -KERR_INVAL;
 
   mutex_lock(dev->lock);
   dev->driver = driver;
   mutex_unlock(dev->lock);
+
+  return KERR_NONE;
+}
+
+kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev)
+{
+  if (dev->acpi_dev && acpidev)
+    return -KERR_INVAL;
+
+  mutex_lock(dev->lock);
+  dev->acpi_dev = acpidev;
+  mutex_unlock(dev->lock);
+
+  return KERR_NONE;
+}
+
+kerror_t device_bind_pci(device_t* dev, struct pci_device* pcidev)
+{
+  if (dev->pci_dev && pcidev)
+    return -KERR_INVAL;
+
+  mutex_lock(dev->lock);
+  dev->pci_dev = pcidev;
+  mutex_unlock(dev->lock);
+
+  return KERR_NONE;
+
+}
+
+/*!
+ * @brief: Rename a device
+ *
+ * Caller should have taken the devices lock
+ */
+kerror_t device_rename(device_t* dev, const char* newname)
+{
+  kerror_t error;
+
+  if (!dev || !newname)
+    return -KERR_INVAL;
+
+  /* Rename the object */
+  error = oss_obj_rename(dev->obj, newname);
+
+  /* This would be bad lololololol */
+  if (error)
+    return error;
+
+  if (dev->name)
+    kfree((void*)dev->name);
+
+  /* Do our own rename */
+  dev->name = strdup(newname);
 
   return KERR_NONE;
 }
@@ -553,7 +647,7 @@ void init_hw()
 {
   /* Initialized the ACPI core driver */
   // Comented until we implement actual system-wide ACPI integration
-  //init_acpi_core();
+  init_acpi_core();
 
   /* Load the USB drivers on our system */
   //init_usb_drivers();

@@ -15,6 +15,8 @@
 #include "libk/stddef.h"
 #include "libk/string.h"
 #include "dev/pci/io.h"
+#include "logging/log.h"
+#include "sync/mutex.h"
 #include <oss/obj.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
@@ -281,31 +283,44 @@ next:
  */
 ahci_device_t* create_ahci_device(pci_device_t* identifier) 
 {
+  device_t* dev;
   ahci_device_t* ahci_device = kmalloc(sizeof(ahci_device_t));
+  char buffer[16];
 
   memset(ahci_device, 0, sizeof(ahci_device_t));
-
-  __register_ahci_device(ahci_device);
+  memset(buffer, 0, sizeof(buffer));
 
   ahci_device->m_identifier = identifier;
   ahci_device->m_ports = init_list();
   ahci_device->m_parent = _p_base_ahci_driver;
 
-  char buffer[strlen("ahci") + strlen(to_string(ahci_device->m_idx)) + 1];
-  concat("ahci", (char*)to_string(ahci_device->m_idx), buffer);
+  /* Register ourselves */
+  __register_ahci_device(ahci_device);
 
-  /* Our device */
-  ahci_device->m_identifier->dev = create_device_ex(_p_base_ahci_driver, buffer, ahci_device, NULL, NULL);
-  /* Our own bus (FIXME: should this just be 'Dev' like in linux?)*/
-  ahci_device->m_identifier->dev->bus_group = _ahci_group;
+  /* Format */
+  sfmt(buffer, "ahci%d", ahci_device->m_idx);
+
+  dev = identifier->dev;
+
+  mutex_lock(dev->lock);
+
+  device_rename(dev, buffer);
+  device_bind_driver(dev, 
+    try_driver_get(_p_base_ahci_driver, NULL)
+  );
+
+  dev->bus_group = _ahci_group;
+  dev->private = ahci_device;
+
+  /* Move this ahci device to the correct bus device */
+  device_move_to_bus(dev, identifier->bus->dev);
+
+  mutex_unlock(dev->lock);
 
   if (initialize_hba(ahci_device) == ANIVA_FAIL) {
     destroy_ahci_device(ahci_device);
     return nullptr;
   }
-
-  /* Add this ahci device to it's bus device */
-  device_register_to_bus(ahci_device->m_identifier->dev, ahci_device->m_identifier->bus->dev);
 
   return ahci_device;
 }
@@ -314,9 +329,8 @@ void destroy_ahci_device(ahci_device_t* device) {
 
   __unregister_ahci_device(device);
 
-  FOREACH(i, device->m_ports) {
+  FOREACH(i, device->m_ports)
     destroy_ahci_port(i->data);
-  }
 
   destroy_list(device->m_ports);
 

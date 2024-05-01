@@ -55,6 +55,7 @@ typedef int kerror_t;
 #define KERR_NULL 12
 
 #define KERR_OK(err) ((err) == KERR_NONE)
+#define KERR_ERR(err) ((kerror_t)(err) < KERR_NONE)
 
 /*
  * Single frame in an error chain

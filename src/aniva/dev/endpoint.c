@@ -2,6 +2,7 @@
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include "endpoint.h"
+#include <libk/string.h>
 
 static device_ep_t* _create_device_ep(enum ENDPOINT_TYPE type, void* ep, size_t size)
 {
@@ -123,4 +124,38 @@ kerror_t device_implement_endpoint(device_t* device, enum ENDPOINT_TYPE type, vo
   mutex_unlock(device->ep_lock);
 
   return KERR_NONE;
+}
+
+/*!
+ * @brief: Implements an array of endpoints
+ *
+ * @returns: The amount of endpoints implemented on success, a negative error code otherwise
+ */
+kerror_t device_implement_endpoints(device_t* device, struct device_endpoint* endpoints)
+{
+  kerror_t error;
+  int impl_count;
+  device_ep_t* eps;
+
+  if (!device || !endpoints)
+    return -KERR_INVAL;
+
+  error = 0;
+  impl_count = 0;
+  eps = endpoints;
+
+  /* Implement all the specified endpoints */
+  while (eps && eps->type != ENDPOINT_TYPE_INVALID) {
+    error = device_implement_endpoint(device, eps->type, eps->impl.priv, eps->size);
+    
+    if (KERR_OK(error))
+      impl_count++;
+    
+    eps++;
+  }
+
+  if (!impl_count)
+    return -KERR_INVAL;
+
+  return impl_count;
 }

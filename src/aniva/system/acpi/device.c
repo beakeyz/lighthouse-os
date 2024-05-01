@@ -183,7 +183,7 @@ kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ep_t* eps, const
   if (!device)
     return -KERR_NOMEM;
 
-  printf (" HID: %s, Name: %s\n", device->hid, info.UniqueId.String);
+  printf (" HID: %s\n", device->hid);
 
   return KERR_NONE;
 }

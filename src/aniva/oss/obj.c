@@ -169,6 +169,57 @@ int oss_obj_close(oss_obj_t* obj)
 }
 
 /*!
+ * @brief: Rename an object
+ */
+int oss_obj_rename(oss_obj_t* obj, const char* newname)
+{
+  int error;
+  oss_node_t* parent;
+  oss_node_entry_t* entry;
+
+  /* We simply can't have objects without a name lol */
+  if (!obj->name)
+    return -KERR_INVAL;
+
+  mutex_lock(obj->lock);
+
+  /* Object is not yet attached, no need to do weird things */
+  if (!obj->parent) {
+    kfree((void*)obj->name);
+
+    obj->name = strdup(newname);
+
+    mutex_unlock(obj->lock);
+    return 0;
+  }
+
+  /* Cache the parent */
+  parent = obj->parent;
+
+  /* Remove this object */
+  error = oss_node_remove_entry(parent, obj->name, &entry);
+
+  if (error)
+    goto unlock_and_exit;
+
+  /* Kill the entry wrapper */
+  destroy_oss_node_entry(entry);
+
+  /* Kill the current name */
+  kfree((void*)obj->name);
+
+  /* Set the new name */
+  obj->name = strdup(newname);
+
+  /* Add the object again */
+  error = oss_node_add_obj(parent, obj);
+
+unlock_and_exit:
+  mutex_unlock(obj->lock);
+  return error;
+}
+
+/*!
  * @brief: Walk the parent chain of an object to find the root node
  */
 struct oss_node* oss_obj_get_root_parent(oss_obj_t* obj)

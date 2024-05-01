@@ -11,6 +11,10 @@
 usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, struct device_endpoint *eps)
 {
   usb_hcd_t* ret;
+  device_t* device;
+
+  if (!host || !host->dev)
+    return nullptr;
 
   ret = alloc_usb_hcd();
 
@@ -22,10 +26,24 @@ usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, struct device_endp
   /* Start with a reference of one */
   ret->ref = 1;
   ret->pci_device = host;
-  ret->pci_device->dev = create_device_ex(NULL, hub_name, ret, NULL, eps);
 
-  if (!ret->pci_device->dev)
-    goto dealloc_and_exit;
+  device = host->dev;
+
+  mutex_lock(device->lock);
+
+  /* Try to rename the device */
+  (void)device_rename(device, hub_name);
+
+  /* Move the bus */
+  (void)device_move_to_bus(device, host->dev);
+
+  /* Implement the needed endpoints */
+  (void)device_implement_endpoints(device, eps);
+
+  /* Install ourselves */
+  device->private = ret;
+
+  mutex_unlock(device->lock);
 
   ret->devaddr_bitmap = create_bitmap_ex(128, 0x00);
 

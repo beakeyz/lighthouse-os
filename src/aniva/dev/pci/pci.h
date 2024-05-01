@@ -247,8 +247,6 @@ typedef struct pci_device {
 void pci_device_register_resource(pci_device_t* device, uint32_t index);
 void pci_device_unregister_resource(pci_device_t* device, uint32_t index);
 
-pci_device_t create_pci_device(struct pci_bus* bus);
-
 void enumerate_function(pci_callback_t* callback, struct pci_bus* base_addr, uint8_t bus, uint8_t device, uint8_t func);
 void enumerate_device(pci_callback_t* callback, struct pci_bus* base_addr, uint8_t bus, uint8_t device);
 void enumerate_bus(pci_callback_t* callback, struct pci_bus* base_addr, uint8_t bus);

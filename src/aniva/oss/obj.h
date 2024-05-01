@@ -74,6 +74,8 @@ void oss_obj_unref(oss_obj_t* obj);
 
 int oss_obj_close(oss_obj_t* obj);
 
+int oss_obj_rename(oss_obj_t* obj, const char* newname);
+
 const char* oss_obj_get_fullpath(oss_obj_t* obj);
 void oss_obj_register_child(oss_obj_t* obj, void* child, enum OSS_OBJ_TYPE type, FuncPtr destroy_fn);
 
