@@ -40,7 +40,7 @@ system_info_t g_system_info;
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 void kthread_entry(void);
 
-driver_version_t kernel_version = DRIVER_VERSION(0, 1, 0);
+driver_version_t kernel_version = DRIVER_VERSION(0, 0, 1);
 
 /*
  * NOTE: has to be run after driver initialization
