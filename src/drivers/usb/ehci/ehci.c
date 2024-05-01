@@ -25,6 +25,7 @@
  * 1) This driver does not take into account the endianness of the HC
  */
 
+static drv_manifest_t* _ehci_driver;
 static pci_dev_id_t ehci_pci_ids[] = {
   PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_EHCI),
   PCI_DEVID_END,
@@ -720,7 +721,7 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
   /* Enable the PCI device */
   pci_device_enable(device);
 
-  hcd = create_usb_hcd(device, "ehci_hcd", NULL);
+  hcd = create_usb_hcd(_ehci_driver, device, "ehci_hcd", NULL);
 
   if (!hcd)
     return -KERR_NOMEM;
@@ -756,6 +757,7 @@ pci_driver_t ehci_pci_driver = {
 
 int ehci_init(drv_manifest_t* this)
 {
+  _ehci_driver = this;
   register_pci_driver(&ehci_pci_driver);
   return 0;
 }

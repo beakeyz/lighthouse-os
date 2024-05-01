@@ -31,7 +31,7 @@
  *  - HW cursor
  */
 
-int fb_driver_init();
+int fb_driver_init(drv_manifest_t* driver);
 int fb_driver_exit();
 
 /* Our manifest */
@@ -258,12 +258,12 @@ static inline void _init_main_info(struct multiboot_tag_framebuffer* fb)
  * - Make sure we are exported so we can be used
  *
  */
-int fb_driver_init() 
+int fb_driver_init(drv_manifest_t* driver) 
 {
   video_device_t* vdev;
   struct multiboot_tag_framebuffer* fb;
 
-  _this = try_driver_get(&efifb_driver, NULL);
+  _this = driver;
 
   ASSERT_MSG(_this, "Could not get the efifb driver manifest!");
 
@@ -276,7 +276,7 @@ int fb_driver_init()
   if (!fb)
     return -1;
 
-  vdev = create_video_device(&efifb_driver, VIDDEV_MAINDEVICE, _efi_endpoints);
+  vdev = create_video_device(_this, VIDDEV_MAINDEVICE, _efi_endpoints);
 
   if (!vdev)
     return -2;

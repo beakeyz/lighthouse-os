@@ -19,7 +19,7 @@
 
 static oss_node_t* _device_node;
 
-device_t* create_device(aniva_driver_t* parent, char* name, void* priv)
+device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
 {
   return create_device_ex(parent, name, priv, NULL, NULL);
 }
@@ -33,19 +33,13 @@ device_t* create_device(aniva_driver_t* parent, char* name, void* priv)
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  * NOTE: @eps needs to be an array of endpoints, with a terminating entry with ->type = ENDPOINT_TYPE_INVALID
  */
-device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps)
+device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps)
 {
   device_t* ret;
-  drv_manifest_t* parent_man;
   struct device_endpoint* g_ep;
 
   if (!name)
     return nullptr;
-
-  parent_man = nullptr;
-
-  if (parent)
-    parent_man = try_driver_get(parent, NULL);
 
   ret = kmalloc(sizeof(*ret));
 
@@ -58,7 +52,7 @@ device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, 
   ret->lock = create_mutex(NULL);
   ret->ep_lock = create_mutex(NULL);
   ret->obj = create_oss_obj(ret->name);
-  ret->driver = parent_man;
+  ret->driver = parent;
   ret->flags = flags;
   ret->private = priv;
   ret->endpoints = NULL;
@@ -175,7 +169,9 @@ int device_unregister(device_t* dev)
 /*!
  * @brief: Moves a device to a new devicegroup
  *
- * Takes the devices lock
+ * Takes the devices lock.
+ * NOTE: It is important that this is done BEFORE binding a driver
+ * to this device.
  */
 int device_move(device_t* dev, struct dgroup* newgroup)
 {
@@ -185,7 +181,13 @@ int device_move(device_t* dev, struct dgroup* newgroup)
   if (!dev || !newgroup)
     return -KERR_INVAL;
 
+  error = -1;
+
   mutex_lock(dev->lock);
+
+  /* Check if the device has a driver attached */
+  if (device_has_driver(dev))
+    goto unlock_and_exit;
 
   error = device_get_group(dev, &oldgroup);
 
@@ -296,6 +298,14 @@ kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver)
   mutex_unlock(dev->lock);
 
   return KERR_NONE;
+}
+
+/*!
+ * @brief: Check if @dev has a driver attached
+ */
+bool device_has_driver(device_t* dev)
+{
+  return (dev->driver != nullptr);
 }
 
 kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev)
@@ -647,7 +657,7 @@ void init_hw()
 {
   /* Initialized the ACPI core driver */
   // Comented until we implement actual system-wide ACPI integration
-  init_acpi_core();
+  //init_acpi_core();
 
   /* Load the USB drivers on our system */
   //init_usb_drivers();

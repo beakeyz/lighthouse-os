@@ -1,19 +1,7 @@
 #include "test.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
-#include "dev/manifest.h"
 #include "kevent/event.h"
-#include "libk/flow/error.h"
-#include "libk/data/queue.h"
 #include "libk/string.h"
-#include "mem/heap.h"
-#include "mem/kmem_manager.h"
-#include "proc/core.h"
-#include "proc/ipc/packet_payload.h"
-#include "proc/ipc/packet_response.h"
-#include "proc/ipc/tspckt.h"
-#include "sync/mutex.h"
-#include "sync/spinlock.h"
 
 int test_dbg_init();
 int test_dbg_exit();

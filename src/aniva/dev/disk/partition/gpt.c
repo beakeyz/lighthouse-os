@@ -1,28 +1,27 @@
 #include "gpt.h"
 #include <dev/endpoint.h>
 #include <dev/disk/generic.h>
-#include "dev/debug/serial.h"
-#include "libk/flow/error.h"
-#include "libk/data/hive.h"
 #include "libk/data/linkedlist.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include <libk/string.h>
 
-static char* gpt_partition_create_path(gpt_partition_t* partition) {
-  const char* prefix = "part";
-  const size_t index_len = strlen(to_string(partition->m_index));
-  const size_t total_len = strlen(prefix) + index_len + 1;
-  char* ret = kmalloc(total_len);
+static char* gpt_partition_create_path(gpt_partition_t* partition)
+{
+  char* ret = kmalloc(16);
 
-  memset(ret, 0x00, total_len);
-  memcpy(ret, "part", 4);
-  memcpy(ret + 4, to_string(partition->m_index), index_len);
+  memset(ret, 0, 16);
+
+  if (KERR_ERR(sfmt(ret, "part%d", partition->m_index))) {
+    kfree(ret);
+    return nullptr;
+  }
+
   return ret;
 }
 
-static bool gpt_header_is_valid(gpt_partition_header_t* header) {
-
+static bool gpt_header_is_valid(gpt_partition_header_t* header) 
+{
   if (header->sig[0] != GPT_SIG_0 || header->sig[1] != GPT_SIG_1)
     return false;
 

@@ -4,6 +4,7 @@
 
 #include "dev/core.h"
 #include "dev/driver.h"
+#include "dev/manifest.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/xfer.h"
 #include "dev/usb/usb.h"
@@ -19,10 +20,11 @@
 #include "extended.h"
 #include "xhci.h"
 
-int xhci_init();
+int xhci_init(drv_manifest_t* driver);
 int xhci_exit();
 uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
+static drv_manifest_t* _xhci_driver;
 pci_dev_id_t xhci_pci_ids[] = {
   PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_XHCI),
   PCI_DEVID_END,
@@ -814,7 +816,7 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
   logln("Probing for XHCI");
 
   /* Create a generic USB hcd */
-  hcd = create_usb_hcd(device, "xhci", NULL);
+  hcd = create_usb_hcd(_xhci_driver, device, "xhci", NULL);
 
   /* Create our own hcd */
   xhci_hcd = create_xhci_hcd(hcd);
@@ -894,10 +896,11 @@ uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, 
   return 0;
 }
 
-int xhci_init()
+int xhci_init(drv_manifest_t* driver)
 {
-  register_pci_driver(&xhci_pci_driver);
+  _xhci_driver = driver;
 
+  register_pci_driver(&xhci_pci_driver);
   return 0;
 }
 

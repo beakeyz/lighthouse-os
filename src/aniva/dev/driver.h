@@ -6,6 +6,7 @@
 
 struct oss_obj;
 struct device;
+struct dgroup;
 struct drv_manifest;
 
 /*
@@ -117,6 +118,8 @@ bool driver_is_busy(struct drv_manifest* manifest);
 
 int drv_read(struct drv_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
 int drv_write(struct drv_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
+
+int driver_takeover_device(struct drv_manifest* manifest, struct device* device, const char* newname, struct dgroup* newgroup, void* dev_priv);
 
 /*
  * Create a thread for this driver in the kernel process

@@ -7,9 +7,9 @@
 #include <dev/pci/pci.h>
 #include <dev/manifest.h>
 
-static drv_manifest_t* _our_manifest;
+static drv_manifest_t* _nv_driver;
 
-int nvidia_init();
+int nvidia_init(drv_manifest_t* driver);
 int nvidia_exit();
 uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 int nvidia_probe(pci_device_t* dev, pci_driver_t* driver);
@@ -73,7 +73,7 @@ int nvidia_probe(pci_device_t* dev, pci_driver_t* driver)
    // return -1;
 
   /* Try to create and initialize the card */
-  nvdev = create_nv_device(&nvidia_driver, dev);
+  nvdev = create_nv_device(_nv_driver, dev);
 
   ASSERT(nvdev);
 
@@ -110,13 +110,13 @@ uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size,
  * We need to expose our manifest to the rest of the driver, since we need it to
  * attach our graphics device
  */
-int nvidia_init() 
+int nvidia_init(drv_manifest_t* driver) 
 {
   println("Initializing nvidia driver!");
   /* We should be active at this point lol */
-  _our_manifest = try_driver_get(&nvidia_driver, NULL);
+  _nv_driver = driver;
 
-  if (!_our_manifest)
+  if (!_nv_driver)
     return -1;
 
   println("Registered nvidia PCI driver!");

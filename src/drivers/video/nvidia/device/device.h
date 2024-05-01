@@ -1,6 +1,7 @@
 #ifndef __ANIVA_NVD_PCI_DEVICE__
 #define __ANIVA_NVD_PCI_DEVICE__
 
+#include "dev/manifest.h"
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/subdev.h"
@@ -57,7 +58,7 @@ typedef struct nv_device {
   video_device_t* vdev;
 } nv_device_t;
 
-nv_device_t* create_nv_device(aniva_driver_t* driver, pci_device_t* pdev);
+nv_device_t* create_nv_device(drv_manifest_t* driver, pci_device_t* pdev);
 
 nv_subdev_t* nvdev_get_subdev(nv_device_t* device, enum NV_SUBDEV_TYPE type);
 

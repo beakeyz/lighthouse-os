@@ -1,9 +1,12 @@
 #include "dev/core.h"
 #include "dev/driver.h"
+#include "dev/manifest.h"
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "ids.h"
+
+static drv_manifest_t* _rad_driver;
 
 pci_dev_id_t radeon_id_table[] = {
   PCI_DEVID_IDS_EX(PCI_VENDOR_AMD, PCI_DEVICE_R200_GL, 0, 0, PCI_DEVID_USE_VENDOR_ID | PCI_DEVID_USE_DEVICE_ID),
@@ -12,7 +15,7 @@ pci_dev_id_t radeon_id_table[] = {
   PCI_DEVID_END,
 };
 
-int radeon_init();
+int radeon_init(drv_manifest_t* driver);
 int radeon_exit();
 uintptr_t radeon_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 int radeon_probe(pci_device_t* device, pci_driver_t* driver);
@@ -36,8 +39,9 @@ EXPORT_DRIVER(radeon_driver) = {
   .m_version = DRIVER_VERSION(1, 0, 0),
 };
 
-int radeon_init()
+int radeon_init(drv_manifest_t* driver)
 {
+  _rad_driver = driver;
   /* Setup driver software stuff */
 
   /* Register pci driver */
@@ -77,7 +81,7 @@ int radeon_probe(pci_device_t* device, pci_driver_t* driver)
 
   ASSERT(video_deactivate_current_driver() == 0);
 
-  vdev = create_video_device(&radeon_driver, NULL, NULL);
+  vdev = create_video_device(_rad_driver, NULL, NULL);
 
   register_video_device(vdev);
 

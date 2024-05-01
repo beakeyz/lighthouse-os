@@ -180,8 +180,8 @@ void init_hw();
 void debug_devices();
 
 /* Object management */
-device_t* create_device(struct aniva_driver* parent, char* name, void* priv);
-device_t* create_device_ex(struct aniva_driver* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps);
+device_t* create_device(struct drv_manifest* parent, char* name, void* priv);
+device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps);
 void destroy_device(device_t* device);
 
 /* Device registering */
@@ -207,6 +207,7 @@ kerror_t device_dealloc_irq(device_t* dev, uint32_t vec);
 kerror_t device_dealloc_io(device_t* dev, uint32_t start, uint32_t size);
 
 kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver);
+bool device_has_driver(device_t* dev);
 kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev);
 kerror_t device_bind_pci(device_t* dev, struct pci_device* pcidev);
 kerror_t device_rename(device_t* dev, const char* newname);

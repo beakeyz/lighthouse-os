@@ -1,5 +1,6 @@
 #include "hcd.h"
 #include "dev/device.h"
+#include "dev/driver.h"
 #include "dev/usb/usb.h"
 #include "libk/data/bitmap.h"
 #include "sync/mutex.h"
@@ -8,7 +9,7 @@
  * @brief Allocate the needed memory for a USB hub structure
  *
  */
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, struct device_endpoint *eps)
+usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, struct device_endpoint *eps)
 {
   usb_hcd_t* ret;
   device_t* device;
@@ -25,23 +26,17 @@ usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, struct device_endp
 
   /* Start with a reference of one */
   ret->ref = 1;
+  ret->driver = driver;
   ret->pci_device = host;
 
   device = host->dev;
 
   mutex_lock(device->lock);
 
-  /* Try to rename the device */
-  (void)device_rename(device, hub_name);
-
-  /* Move the bus */
-  (void)device_move_to_bus(device, host->dev);
+  driver_takeover_device(driver, device, hub_name, NULL, ret);
 
   /* Implement the needed endpoints */
   (void)device_implement_endpoints(device, eps);
-
-  /* Install ourselves */
-  device->private = ret;
 
   mutex_unlock(device->lock);
 

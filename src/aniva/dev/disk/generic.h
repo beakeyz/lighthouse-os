@@ -12,7 +12,7 @@ typedef uint8_t disk_uid_t;
 
 struct device;
 struct disk_dev;
-struct aniva_driver;
+struct drv_manifest;
 struct device_endpoint;
 struct device_disk_endpoint;
 struct partitioned_disk_dev;
@@ -92,7 +92,7 @@ static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
   return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
 }
 
-disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* private, struct device_endpoint* eps);
+disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, struct device_endpoint* eps);
 void destroy_generic_disk(disk_dev_t* device);
 
 void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count);

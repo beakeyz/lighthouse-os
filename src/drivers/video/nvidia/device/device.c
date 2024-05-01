@@ -171,7 +171,7 @@ static device_ep_t _nv_eps[] = {
  * This shit simply sets up a few allocations so we can have an interface to the aniva video core
  * and so we have a baseline device foundation to build forward from
  */
-nv_device_t* create_nv_device(aniva_driver_t* driver, pci_device_t* pdev)
+nv_device_t* create_nv_device(drv_manifest_t* driver, pci_device_t* pdev)
 {
   int error;
   nv_device_t* nvd;

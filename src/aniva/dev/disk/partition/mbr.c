@@ -1,7 +1,6 @@
 #include "mbr.h"
 #include <dev/endpoint.h>
 #include "dev/disk/generic.h"
-#include "dev/disk/shared.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"

@@ -129,7 +129,7 @@ static inline bool _has_video_endpoint(struct device_endpoint* eps)
  *
  * Also allocates a generic device object
  */
-video_device_t* create_video_device(struct aniva_driver* driver, const char* name, struct device_endpoint* eps)
+video_device_t* create_video_device(struct drv_manifest* driver, const char* name, struct device_endpoint* eps)
 {
   video_device_t* ret;
 

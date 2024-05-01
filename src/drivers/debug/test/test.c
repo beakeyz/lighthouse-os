@@ -14,7 +14,7 @@
 device_t* device;
 drv_manifest_t* manifest;
 
-int test_init();
+int test_init(drv_manifest_t* driver);
 int test_exit();
 
 EXPORT_DEPENDENCIES(deps) = {
@@ -46,9 +46,9 @@ device_ep_t eps[] = {
  * And here is a list of things that are currently being tested:
  *  - Driver-bound devices
  */
-int test_init() 
+int test_init(drv_manifest_t* driver) 
 {
-  device = create_device_ex(&extern_test_driver, TEST_DEVICE, NULL, NULL, eps);
+  device = create_device_ex(driver, TEST_DEVICE, NULL, NULL, eps);
 
   /* Register to the devicegroup root */
   device_register(device, NULL);

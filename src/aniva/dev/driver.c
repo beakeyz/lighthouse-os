@@ -1,4 +1,5 @@
 #include "driver.h"
+#include "dev/device.h"
 #include "dev/manifest.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
@@ -73,6 +74,48 @@ int drv_write(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
   mutex_unlock(manifest->m_lock);
 
   return result;
+}
+
+/*!
+ * @brief: Take over a device which has no driver yet
+ */
+int driver_takeover_device(struct drv_manifest* manifest, struct device* device, const char* newname, struct dgroup* newgroup, void* dev_priv)
+{
+  int error;
+
+  if (!manifest || !device || !newname)
+    return -KERR_INVAL;
+
+  if (device_has_driver(device))
+    return -KERR_DRV;
+
+  mutex_lock(device->lock);
+
+  error = device_rename(device, newname);
+
+  if (error)
+    goto unlock_and_exit;
+
+  /* Move this ahci device to the correct bus device */
+  if (newgroup) {
+    error = device_move(device, newgroup);
+
+    if (error)
+      goto unlock_and_exit;
+  }
+
+  /* Now bind the driver */
+  error = device_bind_driver(device, manifest);
+
+  if (error)
+    goto unlock_and_exit;
+
+  /* Set the devices private field */
+  device->private = dev_priv;
+
+unlock_and_exit:
+  mutex_unlock(device->lock);
+  return error;
 }
 
 int generic_driver_entry(drv_manifest_t* manifest)

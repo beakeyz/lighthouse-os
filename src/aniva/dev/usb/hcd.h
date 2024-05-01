@@ -9,6 +9,7 @@ struct device;
 struct usb_hcd;
 struct usb_hub;
 struct usb_xfer;
+struct drv_manifest;
 struct device_endpoint;
 
 /*
@@ -52,6 +53,7 @@ typedef struct usb_hcd {
   /* TODO: is it a given that usb hubs are on the PCI bus? */
   pci_device_t* pci_device;
   struct usb_hub* roothub;
+  struct drv_manifest* driver;
 
   usb_hcd_mmio_ops_t* mmio_ops;
   usb_hcd_io_ops_t* io_ops;
@@ -69,7 +71,7 @@ static inline struct device* usb_hcd_get_device(usb_hcd_t* hcd)
   return hcd->pci_device->dev;
 }
 
-usb_hcd_t* create_usb_hcd(pci_device_t* host, char* hub_name, struct device_endpoint *eps);
+usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, struct device_endpoint *eps);
 void destroy_usb_hcd(usb_hcd_t* hub);
 
 int usb_hcd_alloc_devaddr(usb_hcd_t* hub, uint8_t* paddr);

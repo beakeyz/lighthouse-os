@@ -1,14 +1,13 @@
 #ifndef __ANIVA_AHCI_CONTROLLER__
 #define __ANIVA_AHCI_CONTROLLER__
 #include "dev/disk/ahci/definitions.h"
-#include "dev/disk/shared.h"
 #include "dev/driver.h"
 #include "libk/data/linkedlist.h"
 #include <dev/pci/pci.h>
 #include <libk/data/hive.h>
 
 struct ahci_port;
-struct aniva_driver;
+struct drv_manifest;
 struct dgroup;
 
 typedef struct ahci_device {
@@ -21,7 +20,7 @@ typedef struct ahci_device {
   uint32_t m_used_ports;
   uint32_t m_available_ports;
 
-  struct aniva_driver* m_parent;
+  struct drv_manifest* m_parent;
   struct ahci_device* m_next;
 } ahci_device_t;
 

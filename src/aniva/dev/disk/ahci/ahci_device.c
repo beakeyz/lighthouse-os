@@ -4,7 +4,9 @@
 #include "dev/disk/ahci/ahci_port.h"
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
+#include "dev/driver.h"
 #include "dev/group.h"
+#include "dev/manifest.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "dev/pci/bus.h"
@@ -24,7 +26,7 @@
 
 static uint32_t _ahci_dev_count;
 static ahci_device_t* __ahci_devices = nullptr;
-static aniva_driver_t* _p_base_ahci_driver = nullptr;
+static drv_manifest_t* _ahci_driver;
 static dgroup_t* _ahci_group;
 
 static pci_dev_id_t ahci_id_table[] = {
@@ -32,7 +34,7 @@ static pci_dev_id_t ahci_id_table[] = {
   PCI_DEVID_END
 };
 
-int ahci_driver_init();
+int ahci_driver_init(drv_manifest_t* driver);
 int ahci_driver_exit();
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
@@ -292,7 +294,7 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
 
   ahci_device->m_identifier = identifier;
   ahci_device->m_ports = init_list();
-  ahci_device->m_parent = _p_base_ahci_driver;
+  ahci_device->m_parent = _ahci_driver;
 
   /* Register ourselves */
   __register_ahci_device(ahci_device);
@@ -304,16 +306,11 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
 
   mutex_lock(dev->lock);
 
-  device_rename(dev, buffer);
-  device_bind_driver(dev, 
-    try_driver_get(_p_base_ahci_driver, NULL)
-  );
+  /* Take the device from PCI */
+  (void)driver_takeover_device(_ahci_driver, dev, buffer, NULL, ahci_device);
 
+  /* Set the bus group */
   dev->bus_group = _ahci_group;
-  dev->private = ahci_device;
-
-  /* Move this ahci device to the correct bus device */
-  device_move_to_bus(dev, identifier->bus->dev);
 
   mutex_unlock(dev->lock);
 
@@ -394,11 +391,11 @@ EXPORT_DRIVER_PTR(base_ahci_driver);
  * PCI bus driver is initialized) and we register our own bus group. The group will simply be called 'ahci' which is
  * where all the ahci controllers and devices we find will be attached.
  */
-int ahci_driver_init() 
+int ahci_driver_init(drv_manifest_t* driver)
 {
   __ahci_devices = nullptr;
   _ahci_dev_count = NULL;
-  _p_base_ahci_driver = &base_ahci_driver;
+  _ahci_driver = driver;
   _ahci_group = register_dev_group(DGROUP_TYPE_AHCI, "ahci", NULL, NULL);
 
   register_pci_driver(&ahci_pci_driver);
@@ -418,6 +415,5 @@ int ahci_driver_exit()
   if (__ahci_devices)
     destroy_ahci_device(__ahci_devices);
 
-  _p_base_ahci_driver = nullptr;
   return 0;
 }

@@ -782,7 +782,7 @@ static inline char* _construct_dev_name()
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct aniva_driver* parent, char* name, void* private, device_ep_t* eps)
+disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, device_ep_t* eps)
 {
   disk_dev_t* ret = nullptr;
   char* dev_name = nullptr;
