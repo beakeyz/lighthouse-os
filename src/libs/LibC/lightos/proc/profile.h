@@ -107,4 +107,11 @@ BOOL profile_var_write(
  __IN__ void* buffer
 );
 
+/*!
+ * @brief: Gets the commandline of the current process
+ */
+BOOL profile_get_cmdline(
+  __OUT__ const char** b_cmdline
+);
+
 #endif // !__LIGHTENV_LIBSYS_PROFILE__

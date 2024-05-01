@@ -1,0 +1,6 @@
+{
+  "name": "ls",
+  "linking": "dynamic",
+  "type": "process",
+  "libs": []
+}

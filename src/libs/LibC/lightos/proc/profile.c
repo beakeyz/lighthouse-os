@@ -131,4 +131,7 @@ BOOL profile_var_write_ex(char* profile_name, char* var_key, WORD flags, QWORD b
   return result;
 }
 
-
+BOOL profile_get_cmdline(const char** b_cmdline)
+{
+  return TRUE;
+}

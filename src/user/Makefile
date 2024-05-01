@@ -5,7 +5,8 @@ USER_SRC=$(SRC)/user
 USER_PATHS := 		\
 	./init 			\
 	./doomgeneric	\
-	./gfx_test
+	./gfx_test		\
+	./ls
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=
