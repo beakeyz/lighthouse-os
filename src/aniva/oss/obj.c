@@ -3,11 +3,11 @@
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "proc/proc.h"
-#include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
+#include <proc/env.h>
 
 void init_oss_obj(oss_obj_t* obj, uint32_t priv_lvl)
 {
@@ -17,13 +17,13 @@ void init_oss_obj(oss_obj_t* obj, uint32_t priv_lvl)
   create_proc = get_current_proc();
 
   /* Preemptive set to the biggest level */
-  obj_priv_lvl = PRF_PRIV_LVL_BASE;
+  obj_priv_lvl = PRIV_LVL_ADMIN;
 
   /* If the caller specifies a desired privilege level, set it to that */
-  if (priv_lvl < PRF_PRIV_LVL_NONE)
+  if (priv_lvl < PRIV_LVL_NONE)
     obj_priv_lvl = priv_lvl;
   else if (create_proc)
-    obj_priv_lvl = profile_get_priv_lvl(create_proc->m_profile);
+    obj_priv_lvl = create_proc->m_env->priv_level;
   
   obj->access_priv_lvl = obj_priv_lvl;
   obj->read_priv_lvl = obj_priv_lvl;
@@ -35,7 +35,7 @@ void init_oss_obj(oss_obj_t* obj, uint32_t priv_lvl)
  */
 oss_obj_t* create_oss_obj(const char* name)
 {
-  return create_oss_obj_ex(name, PRF_PRIV_LVL_NONE);
+  return create_oss_obj_ex(name, PRIV_LVL_NONE);
 }
 
 /*!

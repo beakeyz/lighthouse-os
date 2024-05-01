@@ -13,10 +13,11 @@
 #include "oss/obj.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
-#include <proc/profile/profile.h>
 #include <libk/string.h>
-#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
+#include "system/sysvar/map.h"
+#include "system/sysvar/var.h"
+#include <proc/env.h>
 
 /*
  * When writing to a handle (filediscriptor in unix terms) we have to 
@@ -86,7 +87,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         kernel_panic("TODO: implement writes to process profiles!");
         break;
       }
-    case HNDL_TYPE_PVAR:
+    case HNDL_TYPE_SYSVAR:
       {
         /* TODO: */
         kernel_panic("TODO: implement pvar writes with the appropriate permission checks");
@@ -182,33 +183,33 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         kernel_panic("TODO: implement reads to process profiles!");
         break;
       }
-    case HNDL_TYPE_PVAR:
+    case HNDL_TYPE_SYSVAR:
       {
         size_t data_size = NULL;
         size_t minimal_buffersize = 1;
-        profile_var_t* var = khandle->reference.pvar;
-        proc_profile_t* current_profile = current_proc->m_profile;
+        sysvar_t* var = khandle->reference.pvar;
+        penv_t* c_env = current_proc->m_env;
 
         /* Check if the current profile actualy has permission to read from this var */
-        if (!profile_can_see_var(current_profile, var))
+        if (!sysvar_map_can_access(var->map, c_env->priv_level))
           return NULL;
 
         switch (var->type) {
-          case PROFILE_VAR_TYPE_STRING:
+          case SYSVAR_TYPE_STRING:
             /* We need at least the null-byte */
             minimal_buffersize = 1;
             data_size = strlen(var->str_value) + 1;
             break;
-          case PROFILE_VAR_TYPE_QWORD:
+          case SYSVAR_TYPE_QWORD:
             data_size = minimal_buffersize = sizeof(uint64_t);
             break;
-          case PROFILE_VAR_TYPE_DWORD:
+          case SYSVAR_TYPE_DWORD:
             data_size = minimal_buffersize = sizeof(uint32_t);
             break;
-          case PROFILE_VAR_TYPE_WORD:
+          case SYSVAR_TYPE_WORD:
             data_size = minimal_buffersize = sizeof(uint16_t);
             break;
-          case PROFILE_VAR_TYPE_BYTE:
+          case SYSVAR_TYPE_BYTE:
             data_size = minimal_buffersize = sizeof(uint8_t);
             break;
           default:
@@ -231,7 +232,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         
         memcpy(buffer, var->value, data_size);
 
-        if (var->type == PROFILE_VAR_TYPE_STRING)
+        if (var->type == SYSVAR_TYPE_STRING)
           memset(&buffer[data_size-1], 0, 1);
 
         read_len = data_size;

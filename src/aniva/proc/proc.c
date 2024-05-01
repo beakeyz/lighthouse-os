@@ -11,9 +11,9 @@
 #include "lightos/driver/loader.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
-#include "proc/profile/profile.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
@@ -23,6 +23,20 @@
 #include <libk/string.h>
 #include "core.h"
 #include <mem/heap.h>
+
+static void _proc_init_pagemap(proc_t* proc)
+{
+  // Only create new page dirs for non-kernel procs
+  if (!is_kernel_proc(proc) && !is_driver_proc(proc)) {
+    proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
+    return;
+  }
+
+  proc->m_root_pd.m_root = nullptr;
+  proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
+  proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
+  proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
+}
 
 /*!
  * @brief Allocate memory for a process and prepare it for execution
@@ -51,8 +65,6 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
 
   memset(proc, 0, sizeof(proc_t));
 
-  init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
-
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
   proc->m_parent = parent;
@@ -63,18 +75,11 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
   proc->m_terminate_bell = create_doorbell(8, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
 
-  // Only create new page dirs for non-kernel procs
-  if (!is_kernel_proc(proc) || is_driver_proc(proc)) {
-    proc->m_requested_max_threads = 3;
-    proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
-  } else {
-    /* FIXME: should kernel processes just get the kernel page dir? prolly not lol */
-    proc->m_root_pd.m_root = nullptr;
-    proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
-    proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
-    proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
-    proc->m_requested_max_threads = PROC_DEFAULT_MAX_THREADS;
-  }
+  /* Create a pagemap */
+  _proc_init_pagemap(proc);
+
+  /* Create a handle map */
+  init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
 
   /* Okay to pass a reference, since resource bundles should NEVER own this memory */
   proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
@@ -350,19 +355,16 @@ unpause_and_exit:
 }
 
 /*!
- * @brief Set the profile of a certain process
+ * @brief Set the environment of a certain process
  *
- * Nothing to add here...
+ * Does not check for any privileges
  */
-void proc_set_profile(proc_t* proc, proc_profile_t* profile)
+void proc_set_env(proc_t* proc, penv_t* env)
 {
-  if (!profile && proc->m_profile && proc->m_profile->proc_count)
-    proc->m_profile->proc_count--;
+  if (proc->m_env)
+    penv_remove_proc(proc->m_env, proc);
 
-  proc->m_profile = profile;
-
-  if (profile)
-    profile->proc_count++;
+  penv_add_proc(env, proc);
 }
 
 /*!

@@ -1,5 +1,4 @@
 #include "vector.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include <mem/heap.h>
 #include <libk/string.h>

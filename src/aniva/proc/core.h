@@ -1,8 +1,6 @@
 #ifndef __ANIVA_PROC_CORE__
 #define __ANIVA_PROC_CORE__
 
-#include "dev/core.h"
-#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 
 #define DEFAULT_STACK_SIZE                      (64 * Kib)
@@ -29,11 +27,11 @@ extern char thread_entry_stub[];
 extern char thread_entry_stub_end[];
 
 struct proc;
+struct penv;
 struct thread;
-struct tspckt;
 struct drv_manifest;
-struct threaded_socket;
-struct packet_response;
+
+enum SCHEDULER_PRIORITY;
 
 typedef enum thread_state {
   INVALID = 0,      // not initialized
@@ -45,19 +43,6 @@ typedef enum thread_state {
   BLOCKED,          // performing blocking operation
   SLEEPING,         // waiting for anything to happen (i.e. signals, data)
 } thread_state_t;
-
-ANIVA_STATUS init_proc_core();
-
-/*
- * Register a socket on the kernel socket chain
- */
-ErrorOrPtr socket_register(struct threaded_socket* socket);
-
-/*
- * unregister a socket from the kernel socket chain
- */
-ErrorOrPtr socket_unregister(struct threaded_socket* socket);
-
 
 typedef int thread_id_t;
 typedef int proc_id_t;
@@ -106,28 +91,15 @@ static inline proc_id_t full_procid_get_pid(full_proc_id_t fprocid)
   return u_id.proc_id;
 }
 
+ANIVA_STATUS init_proc_core();
 
-/*
- * Try to grab a new proc_id
- */
 ErrorOrPtr generate_new_proc_id();
-
-/*
- * return a pointer to the socket register
- */
-list_t get_registered_sockets();
 
 /*
  * Spawn a thread for the current running process. Does not
  * care about if we are in usermode or kernelland
  */
 struct thread* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
-
-/*
- * find a socket based on its port
- * TODO: validate port based on checksum?
- */
-struct threaded_socket *find_registered_socket(uint32_t port);
 
 struct proc* find_proc_by_id(proc_id_t id);
 struct proc* find_proc(const char* name);
@@ -142,27 +114,5 @@ ErrorOrPtr proc_register(struct proc* proc);
 kerror_t proc_unregister(proc_id_t id);
 
 bool current_proc_is_kernel();
-
-/*
- * send a data-packet to a port
- * returns a pointer to the response ptr (thus a double pointer)
- * if all goes well, otherwise a nullptr
- */
-extern ErrorOrPtr send_packet_to_socket(uint32_t port, void* buffer, size_t buffer_size); // socket.c
-
-/*
- * Send a packet to the socket and discard the response buffer
- */
-extern ErrorOrPtr send_packet_to_socket_ex(uint32_t port, driver_control_code_t code, void* buffer, size_t buffer_size); // socket.c
-
-/*
- * validata a tspckt based on its identifier (checksum, hash, idk man)
- */
-extern bool validate_tspckt(struct tspckt* packet); // tspctk.c
-
-/*
- * Utilises CRC32 to generate a 32-bit checksum, based on the packet struct, its buffer, and its sender thread
- */
-extern ErrorOrPtr generate_tspckt_identifier(struct tspckt* packet); // tspckt.c
 
 #endif //__LIGHTHOUSE_OS_CORE__

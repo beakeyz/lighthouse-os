@@ -4,18 +4,14 @@
 #include <libk/stddef.h>
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
-#include "libk/data/queue.h"
 #include "mem/pg.h"
-#include "proc/socket.h"
 #include "proc/thread.h"
 #include "processor_info.h"
 #include "gdt.h"
 #include "sync/atomic_ptr.h"
-#include "sync/mutex.h"
 #include "sync/spinlock.h"
 #include "system/processor/fpu/state.h"
 #include "sched/scheduler.h"
-#include "dev/debug/serial.h"
 #include <aniva/system/asm_specifics.h>
 #include <irq/interrupts.h>
 

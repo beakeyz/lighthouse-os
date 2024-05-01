@@ -4,6 +4,7 @@
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
+#include <system/profile/profile.h>
 
 struct oss_obj;
 struct oss_node;
@@ -60,7 +61,7 @@ typedef struct oss_obj {
 
 #define oss_obj_unwrap(obj, type) (type*)(obj->priv)
 
-#define __oss_obj_can_proc(obj, p, thing) (profile_get_priv_lvl(p->m_profile) >= obj->thing##_priv_lvl)
+#define __oss_obj_can_proc(obj, p, thing) ((p)->m_env->priv_level >= (obj)->thing##_priv_lvl)
 #define oss_obj_can_proc_access(obj, p) __oss_obj_can_proc(obj, p, access)
 #define oss_obj_can_proc_read(obj, p) __oss_obj_can_proc(obj, p, read)
 #define oss_obj_can_proc_write(obj, p) __oss_obj_can_proc(obj, p, write)

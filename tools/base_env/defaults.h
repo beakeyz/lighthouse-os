@@ -6,7 +6,7 @@
 
 struct profile_var_template {
   const char* key;
-  enum PROFILE_VAR_TYPE type;
+  enum SYSVAR_TYPE type;
   void* value;
   uint32_t flags;
 };

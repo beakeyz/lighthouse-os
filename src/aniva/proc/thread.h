@@ -1,9 +1,9 @@
 #ifndef __ANIVA_THREAD__
 #define __ANIVA_THREAD__
 
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "proc/context.h"
-#include "proc/socket.h"
 #include <sync/atomic_ptr.h>
 #include "system/processor/fpu/state.h"
 #include <system/processor/registers.h>
@@ -54,13 +54,6 @@ typedef struct thread {
 
   // allow nested context switches
   struct proc *m_parent_proc; // nullable?
-
-  /* The virtual address of the relocated entry. nullptr if there isn't one */
-  void (*f_relocated_entry_stub) (FuncPtr real_entry);
-
-  // every thread should have the capability to be a socket,
-  // but not every thread should be treated as one
-  struct threaded_socket* m_socket;
 } thread_t;
 
 /*
@@ -74,12 +67,6 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr
  * create a thread that is supposed to execute code for a process
  */
 thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, const char[32]);
-
-/*
- * create a thread that is supposed to act as a socket for itc and ipc
- * NOTE: this mutates the port value to something which is always available
- */
-thread_t *create_thread_as_socket(struct proc* process, FuncPtr entry, uintptr_t arg0, FuncPtr exit_fn, SocketOnPacket on_packet_fn, char name[32], uint32_t* port);
 
 /*
  * set up the thread and prepare to switch context
@@ -114,13 +101,8 @@ ANIVA_STATUS destroy_thread(thread_t *);
  */
 thread_t* get_generic_idle_thread();
 
-#define T_SOCKET(t) (t->m_socket)
-
-// wrappers =D
-ALWAYS_INLINE bool thread_is_socket(thread_t* t) {
-  return (t->m_socket != nullptr);
-}
-ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) {
+ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) 
+{
   return t->m_has_been_scheduled;
 }
 

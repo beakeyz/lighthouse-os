@@ -2,7 +2,6 @@
 #define __ANIVA_VECTOR__
 #include <libk/stddef.h>
 #include <libk/flow/error.h>
-#include "linkedlist.h"
 
 #define VEC_FLAG_FLEXIBLE       (0x0001)
 #define VEC_FLAG_NO_DUPLICATES  (0x0002)

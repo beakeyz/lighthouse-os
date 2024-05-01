@@ -1,6 +1,7 @@
 #ifndef __ANIVA_OSS_NODE__
 #define __ANIVA_OSS_NODE__
 
+#include "dev/core.h"
 #include "libk/flow/error.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"

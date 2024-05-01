@@ -13,7 +13,7 @@
 
 struct thread;
 struct proc_image;
-struct proc_profile;
+struct penv;
 struct kresource;
 
 /*
@@ -60,13 +60,14 @@ inline void proc_image_align(proc_image_t* image)
  */
 typedef struct proc {
   const char* m_name;
+  const char* m_identifier;
   /* ASCII String which contains the runtime context of the process (aka the runtime parameters) */
   const char* m_runtime_ctx;
   proc_id_t m_id;
   uint32_t m_flags;
 
   /* This is used to compare a processes status in relation to other processes */
-  struct proc_profile* m_profile;
+  struct penv* m_env;
   struct proc* m_parent;
 
   /* Resource tracking */
@@ -83,7 +84,6 @@ typedef struct proc {
   kdoorbell_t* m_terminate_bell;
 
   size_t m_ticks_elapsed;
-  size_t m_requested_max_threads;
 
   /* Represent the image that this proc stems from (either from disk or in-ram) */
   struct proc_image m_image;
@@ -133,11 +133,9 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield);
 
 /* Heh? */
 void terminate_process(proc_t* proc);
-
-/*
- * Exit the current process
- */
 void proc_exit();
+
+void proc_set_env(proc_t* proc, struct penv* env);
 
 static inline bool proc_can_schedule(proc_t* proc) 
 {
@@ -177,7 +175,5 @@ static inline bool is_driver_proc(proc_t* proc)
 {
   return ((proc->m_flags & PROC_DRIVER) == PROC_DRIVER);
 }
-
-void proc_set_profile(proc_t* proc, struct proc_profile* profile);
 
 #endif // !__ANIVA_PROC__

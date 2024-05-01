@@ -54,7 +54,7 @@ HANDLE open_profile_variable(
 BOOL create_profile_variable(
  __IN__ HANDLE profile_handle,
  __IN__ const char* key,
- __IN__ enum PROFILE_VAR_TYPE type, 
+ __IN__ enum SYSVAR_TYPE type, 
  __IN__ DWORD flags,
  __IN__ VOID* value
 );
@@ -64,7 +64,7 @@ BOOL create_profile_variable(
  */
 BOOL profile_var_get_type(
  __IN__ HANDLE var_handle,
- __OUT__ enum PROFILE_VAR_TYPE* type
+ __OUT__ enum SYSVAR_TYPE* type
 );
 
 /*

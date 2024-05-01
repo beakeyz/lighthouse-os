@@ -7,7 +7,6 @@
 #include "proc/proc.h"
 #include "libk/stack.h"
 #include "sched/scheduler.h"
-#include "socket.h"
 #include <libk/string.h>
 #include "core.h"
 #include "sync/mutex.h"
@@ -176,10 +175,6 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
 
   /* Make sure we remove the thread from the processes queue */
   proc_remove_thread(parent_proc, thread);
-
-  /* Sockets don't really exist anymore lmao */
-  if (thread->m_socket)
-    destroy_threaded_socket(thread->m_socket);
 
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 

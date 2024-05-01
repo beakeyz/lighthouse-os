@@ -1,12 +1,13 @@
 #ifndef __ANIVA_VARIABLE__
 #define __ANIVA_VARIABLE__
 
-#include "lightos/proc/var_types.h"
-#include "sync/atomic_ptr.h"
 #include <libk/stddef.h>
+#include <sync/atomic_ptr.h>
+#include <lightos/proc/var_types.h>
 #include <lightos/proc/var_types.h>
 
-struct proc_profile;
+struct user_profile;
+struct sysvar_map;
 
 /*
  * Profile variables
@@ -25,8 +26,8 @@ struct proc_profile;
  * course, but we will never make assumptions about a variable, based on the capitalisation
  * of it's key
  */
-typedef struct profile_var {
-  struct proc_profile* profile;
+typedef struct sysvar {
+  struct sysvar_map* map;
   const char* key;
   union {
     /*
@@ -41,25 +42,25 @@ typedef struct profile_var {
     uint8_t byte_value;
     void* value;
   };
-  enum PROFILE_VAR_TYPE type;
+  enum SYSVAR_TYPE type;
   uint32_t flags;
   uint32_t len;
   atomic_ptr_t* refc;
-} profile_var_t;
+} sysvar_t;
 
-void init_proc_variables(void);
+void init_sysvars(void);
 
-profile_var_t* create_profile_var(const char* key, enum PROFILE_VAR_TYPE type, uint8_t flags, uintptr_t value);
+sysvar_t* create_sysvar(const char* key, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
 
-profile_var_t* get_profile_var(profile_var_t* var);
-void release_profile_var(profile_var_t* var);
+sysvar_t* get_sysvar(sysvar_t* var);
+void release_sysvar(sysvar_t* var);
 
-bool profile_var_get_str_value(profile_var_t* var, const char** buffer);
-bool profile_var_get_qword_value(profile_var_t* var, uint64_t* buffer);
-bool profile_var_get_dword_value(profile_var_t* var, uint32_t* buffer);
-bool profile_var_get_word_value(profile_var_t* var, uint16_t* buffer);
-bool profile_var_get_byte_value(profile_var_t* var, uint8_t* buffer);
+bool sysvar_get_str_value(sysvar_t* var, const char** buffer);
+bool sysvar_get_qword_value(sysvar_t* var, uint64_t* buffer);
+bool sysvar_get_dword_value(sysvar_t* var, uint32_t* buffer);
+bool sysvar_get_word_value(sysvar_t* var, uint16_t* buffer);
+bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer);
 
-bool profile_var_write(profile_var_t* var, uint64_t value);
+bool sysvar_write(sysvar_t* var, uint64_t value);
 
 #endif // !__ANIVA_VARIABLE__

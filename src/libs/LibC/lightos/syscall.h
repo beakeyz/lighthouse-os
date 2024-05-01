@@ -18,7 +18,6 @@ enum SYSID {
   SYSID_READ, /* Read from a handle */
   SYSID_WRITE, /* Write to a handle */
   SYSID_OPEN,
-  SYSID_OPEN_FILE, /* Open a handle to a file */
   SYSID_OPEN_PROC,
   SYSID_OPEN_DRIVER,
   SYSID_SEND_MSG,

@@ -53,6 +53,7 @@ typedef int kerror_t;
 #define KERR_NOT_FOUND 10
 #define KERR_SIZE_MISMATCH 11
 #define KERR_NULL 12
+#define KERR_DUPLICATE 13
 
 #define KERR_OK(err) ((err) == KERR_NONE)
 #define KERR_ERR(err) ((kerror_t)(err) < KERR_NONE)

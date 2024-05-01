@@ -8,13 +8,14 @@
 struct file;
 struct dir;
 struct proc;
+struct penv;
 struct thread;
 struct kevent;
 struct device;
 struct oss_obj;
 struct kevent_hook;
-struct profile_var;
-struct proc_profile;
+struct sysvar;
+struct user_profile;
 struct drv_manifest;
 struct virtual_namespace;
 
@@ -41,8 +42,9 @@ typedef struct kernel_handle {
     struct thread* thread;
     struct virtual_namespace* namespace;
     struct oss_obj* oss_obj;
-    struct proc_profile* profile;
-    struct profile_var* pvar;
+    struct user_profile* profile;
+    struct sysvar* pvar;
+    struct penv* penv;
     struct kevent* event;
     struct kevent_hook* hook;
     struct dynamic_library* dynlib;

@@ -8,14 +8,14 @@
  *
  * FIXME: we should make this naming sceme consistent with PVAR_FLAG___ naming
  */
-enum PROFILE_VAR_TYPE {
-  PROFILE_VAR_TYPE_STRING = 0,
-  PROFILE_VAR_TYPE_BYTE,
-  PROFILE_VAR_TYPE_WORD,
-  PROFILE_VAR_TYPE_DWORD,
-  PROFILE_VAR_TYPE_QWORD,
+enum SYSVAR_TYPE {
+  SYSVAR_TYPE_STRING = 0,
+  SYSVAR_TYPE_BYTE,
+  SYSVAR_TYPE_WORD,
+  SYSVAR_TYPE_DWORD,
+  SYSVAR_TYPE_QWORD,
 
-  PROFILE_VAR_TYPE_UNSET = 0xffffffff
+  SYSVAR_TYPE_UNSET = 0xffffffff
 };
 
 /* Open for anyone to read */
@@ -61,7 +61,7 @@ typedef struct pvr_file_var {
   uint32_t key_len;
   uint32_t val_len;
   uint32_t var_flags;
-  enum PROFILE_VAR_TYPE var_type;
+  enum SYSVAR_TYPE var_type;
 } pvr_file_var_t;
 
 typedef char pvr_file_strtab_entry[];

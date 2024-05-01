@@ -27,11 +27,11 @@ struct profile_var_template base_defaults[] = {
  * These include mostly just paths to drivers, kobjects, ect.
  */
 struct profile_var_template global_defaults[] = {
-  VAR_ENTRY("DFLT_LWND_PATH",   PROFILE_VAR_TYPE_STRING, "service/lwnd", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("DFLT_KB_EVENT",    PROFILE_VAR_TYPE_STRING, "keyboard", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("DFLT_ERR_EVENT",   PROFILE_VAR_TYPE_STRING, "error", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("BOOTDISK_PATH",    PROFILE_VAR_TYPE_STRING, "unknown", PVAR_FLAG_CONFIG),
-  VAR_ENTRY("LOGIN_MSG",        PROFILE_VAR_TYPE_STRING, "Welcome to LightOS!", PVAR_FLAG_GLOBAL),
+  VAR_ENTRY("DFLT_LWND_PATH",   SYSVAR_TYPE_STRING, "service/lwnd", SYSVAR_FLAG_CONFIG),
+  VAR_ENTRY("DFLT_KB_EVENT",    SYSVAR_TYPE_STRING, "keyboard", SYSVAR_FLAG_CONFIG),
+  VAR_ENTRY("DFLT_ERR_EVENT",   SYSVAR_TYPE_STRING, "error", SYSVAR_FLAG_CONFIG),
+  VAR_ENTRY("BOOTDISK_PATH",    SYSVAR_TYPE_STRING, "unknown", SYSVAR_FLAG_CONFIG),
+  VAR_ENTRY("LOGIN_MSG",        SYSVAR_TYPE_STRING, "Welcome to LightOS!", SYSVAR_FLAG_GLOBAL),
 };
 
 static int pvr_file_find_free_strtab_offset(uint32_t* offset)
@@ -92,7 +92,7 @@ static int pvr_file_add_variable(struct profile_var_template* var)
   /* Find an unused var */
   while ((buffer_bounds_respected = (buffersize + sizeof(*c_var)) < fvar_buffersize)) {
 
-    if (c_var->var_type == PROFILE_VAR_TYPE_UNSET)
+    if (c_var->var_type == SYSVAR_TYPE_UNSET)
       break;
 
     c_var++;
@@ -105,7 +105,7 @@ static int pvr_file_add_variable(struct profile_var_template* var)
 
   pvr_file_find_free_valtab_offset(&valtab_offset);
 
-  if (var->type == PROFILE_VAR_TYPE_STRING) {
+  if (var->type == SYSVAR_TYPE_STRING) {
     pvr_file_find_free_strtab_offset(&strtab_offset);
 
     /* Let's trust that there is a string in ->value =) */
@@ -153,7 +153,7 @@ static void init_fvar_buffer(uint32_t buffersize)
   for (uint32_t i = 0; i < pvr_hdr.var_capacity; i++) {
     c_var = &fvar_buffer[i];
 
-    c_var->var_type = PROFILE_VAR_TYPE_UNSET;
+    c_var->var_type = SYSVAR_TYPE_UNSET;
   }
 }
 
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
   printf("Welcome to the base_env manager\n");
 
   memset(&pvr_hdr, 0, sizeof(pvr_hdr));
-  memcpy((void*)&pvr_hdr.sign, PVR_SIG, 4);
+  memcpy((void*)&pvr_hdr.sign, SYSVAR_SIG, 4);
 
   init_fvar_buffer(sizeof(pvr_file_var_t) * DEFAULT_VAR_CAPACITY);
   init_valtab_buffer(sizeof(pvr_file_valtab_entry_t) * DEFAULT_VALTAB_CAPACITY);

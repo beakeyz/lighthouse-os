@@ -7,8 +7,8 @@
 #include "mem/kmem_manager.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
-#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
+#include "system/sysvar/var.h"
 #include <dev/manifest.h>
 
 #include <lightos/driver/ctl.h>
@@ -88,9 +88,9 @@ sys_get_handle_type(HANDLE handle)
 }
 
 bool 
-sys_get_pvar_type(HANDLE pvar_handle, enum PROFILE_VAR_TYPE __user* type_buffer)
+sys_get_pvar_type(HANDLE pvar_handle, enum SYSVAR_TYPE __user* type_buffer)
 {
-  profile_var_t* var;
+  sysvar_t* var;
   khandle_t* handle;
   proc_t* current_proc;
 
@@ -103,7 +103,7 @@ sys_get_pvar_type(HANDLE pvar_handle, enum PROFILE_VAR_TYPE __user* type_buffer)
   /* Find the khandle */
   handle = find_khandle(&current_proc->m_handle_map, pvar_handle);
 
-  if (handle->type != HNDL_TYPE_PVAR)
+  if (handle->type != HNDL_TYPE_SYSVAR)
     return false;
 
   /* Extract the profile variable */

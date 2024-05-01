@@ -17,9 +17,10 @@
 #include "proc/core.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
-#include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
+#include <proc/env.h>
 #include "sched/scheduler.h"
+#include "system/profile/profile.h"
+#include "system/sysvar/map.h"
 
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode)
 {
@@ -110,7 +111,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
 
         /* We do allow handles to drivers */
         init_khandle(&handle, &type, proc);
-
         break;
       }
     case HNDL_TYPE_DRIVER:
@@ -133,17 +133,19 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
               if (!proc)
                 return HNDL_NOT_FOUND;
 
-              init_khandle(&handle, &type, proc->m_profile);
+              init_khandle(&handle, &type, proc->m_env->profile);
               break;
             }
           case HNDL_MODE_SCAN_PROFILE:
             {
-              int error;
-              proc_profile_t* profile = nullptr;
+              user_profile_t* profile = nullptr;
 
-              error = profile_find(path, &profile); 
+              if (strncmp(path, "User", strlen("User")))
+                profile = get_user_profile();
+              else if (strncmp(path, "Admin", strlen("Admin")))
+                profile = get_admin_profile();
 
-              if (error || !profile)
+              if (!profile)
                 return HNDL_NOT_FOUND;
 
               init_khandle(&handle, &type, profile);
@@ -235,12 +237,12 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
   int error;
   ErrorOrPtr result;
   proc_t* current_proc;
-  profile_var_t* pvar;
-  proc_profile_t* current_profile;
-  proc_profile_t* target_profile;
-  khandle_t* profile_khndl;
+  sysvar_t* pvar;
+  penv_t* current_env;
+  user_profile_t* target_profile;
+  khandle_t* khndl;
   khandle_t pvar_khndl;
-  khandle_type_t type = HNDL_TYPE_PVAR;
+  khandle_type_t type = HNDL_TYPE_SYSVAR;
 
   current_proc = get_current_proc();
 
@@ -249,60 +251,50 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
     return HNDL_INVAL;
 
   /* Grab the kernel handle to the target profile */
-  profile_khndl = find_khandle(&current_proc->m_handle_map, profile_handle);
+  khndl = find_khandle(&current_proc->m_handle_map, profile_handle);
 
-  if (!profile_khndl || profile_khndl->type != HNDL_TYPE_PROFILE)
+  if (!khndl)
     return HNDL_INVAL;
 
-  /* Extract the actual profile pointers */
-  current_profile = current_proc->m_profile;
-  target_profile = profile_khndl->reference.profile;
+  switch (khndl->type) {
+    case HNDL_TYPE_PROFILE:
+      /* Extract the actual profile pointers */
+      current_env = current_proc->m_env;
+      target_profile = khndl->reference.profile;
 
-  /* Check if there is an actual profile (non-null is just assume yes =) ) */
-  if (!target_profile)
-    return HNDL_INVAL;
+      /* Check if there is an actual profile (non-null is just assume yes =) ) */
+      if (!target_profile)
+        return HNDL_INVAL;
 
-  /* Grab the profile variable we want */
-  pvar = nullptr;
-  error = profile_get_var(target_profile, name, &pvar); 
+      if (sysvar_map_can_access(target_profile->vars, current_env->priv_level))
+        return HNDL_NOT_FOUND;
 
-  if (error || !pvar)
-    return HNDL_NOT_FOUND;
+      /* Grab the profile variable we want */
+      pvar = sysvar_map_get(target_profile->vars, name);
 
-  /* Spoof a not-found when the permissions don't match =) */
-  if (!profile_can_see_var(current_profile, pvar))
-    return HNDL_NOT_FOUND;
+      if (!pvar)
+        return HNDL_NOT_FOUND;
 
-  /* Create a kernel handle */
-  init_khandle(&pvar_khndl, &type, pvar);
+      /* Create a kernel handle */
+      init_khandle(&pvar_khndl, &type, pvar);
 
-  /* Set the flags we want */
-  khandle_set_flags(&pvar_khndl, flags);
+      /* Set the flags we want */
+      khandle_set_flags(&pvar_khndl, flags);
 
-  /* Copy the handle into the map */
-  result = bind_khandle(&current_proc->m_handle_map, &pvar_khndl);
+      /* Copy the handle into the map */
+      result = bind_khandle(&current_proc->m_handle_map, &pvar_khndl);
 
-  if (!IsError(result))
-    return Release(result);
+      if (!IsError(result))
+        return Release(result);
 
-  return HNDL_INVAL;
-}
+  }
 
-HANDLE sys_open_file(const char* __user path, uint16_t flags, uint32_t mode)
-{
-  kernel_panic("Tried to open proc!");
   return HNDL_INVAL;
 }
 
 HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
 {
   kernel_panic("Tried to open driver!");
-  return HNDL_INVAL;
-}
-
-HANDLE sys_open_driver(const char* __user name, uint16_t flags, uint32_t mode)
-{
-  kernel_panic("Tried to open file!");
   return HNDL_INVAL;
 }
 
@@ -335,7 +327,7 @@ uintptr_t sys_close(HANDLE handle)
  * it managed to get a handle with write access. This means that permissions need to be managed correctly
  * by sys_open in that regard. See the TODO comment inside sys_open
  */
-bool sys_create_pvar(HANDLE profile_handle, const char* __user name, enum PROFILE_VAR_TYPE type, uint32_t flags, void* __user value)
+bool sys_create_pvar(HANDLE profile_handle, const char* __user name, enum SYSVAR_TYPE type, uint32_t flags, void* __user value)
 {
   proc_t* proc;
   khandle_t* khandle;

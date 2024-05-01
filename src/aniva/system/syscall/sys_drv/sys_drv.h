@@ -11,7 +11,7 @@ uintptr_t sys_send_message(HANDLE handle, driver_control_code_t code, void* buff
 
 uintptr_t sys_send_drv_ctl(HANDLE handle, enum DRV_CTL_MODE mode);
 
-bool sys_get_pvar_type(HANDLE pvar_handle, enum PROFILE_VAR_TYPE* type_buffer);
+bool sys_get_pvar_type(HANDLE pvar_handle, enum SYSVAR_TYPE* type_buffer);
 uintptr_t sys_get_handle_type(HANDLE handle);
 
 #endif // !__ANIVA_SYS_IOCTL__
