@@ -7,6 +7,7 @@
 #include <libk/stddef.h>
 
 struct proc;
+struct oss_node;
 
 /*
  * Aniva user (profile) management
@@ -49,17 +50,17 @@ struct proc;
 #define USBCORE_DRV_VARKEY "USB_CORE_DRV"
 #define DYNLOADER_DRV_VARKEY "DYN_LDR_DRV"
 
-#define ACPICORE_DRV_VAR_PATH "BASE/"ACPICORE_DRV_VARKEY
-#define USBCORE_DRV_VAR_PATH "BASE/"USBCORE_DRV_VARKEY
-#define DYNLOADER_DRV_VAR_PATH "BASE/"DYNLOADER_DRV_VARKEY
+#define ACPICORE_DRV_VAR_PATH "Admin/"ACPICORE_DRV_VARKEY
+#define USBCORE_DRV_VAR_PATH "Admin/"USBCORE_DRV_VARKEY
+#define DYNLOADER_DRV_VAR_PATH "Admin/"DYNLOADER_DRV_VARKEY
 
-#define DRIVERS_LOC_VAR_PATH "BASE/"DRIVERS_LOC_VARKEY
-#define BOOT_DEVICE_VAR_PATH "BASE/"BOOT_DEVICE_VARKEY
-#define BOOT_DEVICE_SIZE_VAR_PATH "BASE/"BOOT_DEVICE_SIZE_VARKEY
-#define BOOT_DEVICE_NAME_VAR_PATH "BASE/"BOOT_DEVICE_NAME_VARKEY
+#define DRIVERS_LOC_VAR_PATH "Admin/"DRIVERS_LOC_VARKEY
+#define BOOT_DEVICE_VAR_PATH "Admin/"BOOT_DEVICE_VARKEY
+#define BOOT_DEVICE_SIZE_VAR_PATH "Admin/"BOOT_DEVICE_SIZE_VARKEY
+#define BOOT_DEVICE_NAME_VAR_PATH "Admin/"BOOT_DEVICE_NAME_VARKEY
 
 #define LIBSPATH_VAR "LIBSPATH"
-#define LIBSPATH_VARPATH "Global/"LIBSPATH_VAR
+#define LIBSPATH_VARPATH "User/"LIBSPATH_VAR
 
 #define PATH_SEPERATOR_CHAR ':'
 
@@ -74,9 +75,10 @@ struct proc;
  */
 typedef struct user_profile {
   const char* name;
-
   /* In the case of a custom profile, loaded from a file */
   const char* path;
+  /* This node holds both the environments of this profile AND the variables local to the profile */
+  struct oss_node* node;
 
   uint16_t priv_level;
   /* Normal profile flags */
@@ -91,9 +93,6 @@ typedef struct user_profile {
   uint64_t passwd_hash[2];
 
   mutex_t* lock;
-
-  sysvar_map_t* vars;
-  hashmap_t* env_map;
 } user_profile_t;
 
 void init_user_profiles(void);
@@ -117,6 +116,8 @@ void destroy_proc_profile(user_profile_t* profile);
 user_profile_t* get_user_profile();
 user_profile_t* get_admin_profile();
 
+int profile_find_var(const char* path, struct sysvar** var);
+int profile_get_var(user_profile_t* profile, const char* key, struct sysvar** var);
 int profile_add_penv(user_profile_t* profile, struct penv* env);
 int profile_remove_penv(user_profile_t* profile, struct penv* env);
 

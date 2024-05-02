@@ -1,8 +1,8 @@
 #include "acpi.h"
 #include "dev/loader.h"
 #include "libk/flow/error.h"
-#include "proc/profile/profile.h"
 #include "system/acpi/parser.h"
+#include "system/profile/profile.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
 

@@ -8,8 +8,6 @@
 #include "priv.h"
 #include "proc/core.h"
 #include "proc/proc.h"
-#include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
 #include <oss/obj.h>
 
@@ -154,13 +152,13 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
   const char* search_dir;
   file_t* lib_file;
   dynamic_library_t* lib;
-  profile_var_t* libs_var;
+  sysvar_t* libs_var;
 
   if (app_has_lib(target_app, path))
     return KERR_INVAL;
 
-  profile_scan_var(LIBSPATH_VARPATH, NULL, &libs_var);
-  profile_var_get_str_value(libs_var, &search_dir);
+  profile_find_var(LIBSPATH_VARPATH, &libs_var);
+  sysvar_get_str_value(libs_var, &search_dir);
 
   lib = nullptr;
   search_path = _append_path_to_searchdir(search_dir, path);

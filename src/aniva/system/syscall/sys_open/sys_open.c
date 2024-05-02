@@ -10,9 +10,9 @@
 #include "fs/file.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
+#include "oss/node.h"
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/handle.h"
@@ -100,6 +100,8 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_PROC:
       {
+        /* TODO: search through oss */
+        kernel_panic("TODO: search through oss");
         proc_t* proc = find_proc(path);
 
         if (!proc)
@@ -125,37 +127,29 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_PROFILE:
       {
+        kernel_panic("TODO: open a profile type");
         switch (mode) {
           case HNDL_MODE_CURRENT_PROFILE:
-            {
-              proc_t* proc = find_proc(path);
-
-              if (!proc)
-                return HNDL_NOT_FOUND;
-
-              init_khandle(&handle, &type, proc->m_env->profile);
-              break;
-            }
           case HNDL_MODE_SCAN_PROFILE:
-            {
-              user_profile_t* profile = nullptr;
-
-              if (strncmp(path, "User", strlen("User")))
-                profile = get_user_profile();
-              else if (strncmp(path, "Admin", strlen("Admin")))
-                profile = get_admin_profile();
-
-              if (!profile)
-                return HNDL_NOT_FOUND;
-
-              init_khandle(&handle, &type, profile);
-              break;
-            }
           default:
             break;
         }
-
         break;
+      }
+    case HNDL_TYPE_PROC_ENV:
+      {
+        penv_t* env;
+        oss_node_t* env_node;
+
+        if (KERR_ERR(oss_resolve_node(path, &env_node)))
+          return HNDL_NOT_FOUND;
+
+        if (env_node->type != OSS_PROC_ENV_NODE || !env_node->priv)
+          return HNDL_INVAL;
+
+        env = env_node->priv;
+
+        init_khandle(&handle, &type, env);
       }
     case HNDL_TYPE_EVENT:
       {
@@ -234,12 +228,10 @@ vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path)
  */
 HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t flags)
 {
-  int error;
   ErrorOrPtr result;
   proc_t* current_proc;
-  sysvar_t* pvar;
-  penv_t* current_env;
-  user_profile_t* target_profile;
+  sysvar_t* svar;
+  oss_node_t* target_node;
   khandle_t* khndl;
   khandle_t pvar_khndl;
   khandle_type_t type = HNDL_TYPE_SYSVAR;
@@ -256,38 +248,41 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
   if (!khndl)
     return HNDL_INVAL;
 
+  target_node = nullptr;
+
   switch (khndl->type) {
     case HNDL_TYPE_PROFILE:
-      /* Extract the actual profile pointers */
-      current_env = current_proc->m_env;
-      target_profile = khndl->reference.profile;
-
-      /* Check if there is an actual profile (non-null is just assume yes =) ) */
-      if (!target_profile)
-        return HNDL_INVAL;
-
-      if (sysvar_map_can_access(target_profile->vars, current_env->priv_level))
-        return HNDL_NOT_FOUND;
-
-      /* Grab the profile variable we want */
-      pvar = sysvar_map_get(target_profile->vars, name);
-
-      if (!pvar)
-        return HNDL_NOT_FOUND;
-
-      /* Create a kernel handle */
-      init_khandle(&pvar_khndl, &type, pvar);
-
-      /* Set the flags we want */
-      khandle_set_flags(&pvar_khndl, flags);
-
-      /* Copy the handle into the map */
-      result = bind_khandle(&current_proc->m_handle_map, &pvar_khndl);
-
-      if (!IsError(result))
-        return Release(result);
-
+      target_node = khndl->reference.profile->node;
+      break;
+    case HNDL_TYPE_PROC_ENV:
+      target_node = khndl->reference.penv->node;
+      break;
+    default:
+      break;
   }
+
+  if (!target_node)
+    return HNDL_NOT_FOUND;
+
+  svar = sysvar_get(target_node, name);
+
+  if (!svar)
+    return HNDL_NOT_FOUND;
+
+  if (!oss_obj_can_proc_access(svar->obj, current_proc))
+    return HNDL_NOT_FOUND;
+
+  /* Create a kernel handle */
+  init_khandle(&pvar_khndl, &type, svar);
+
+  /* Set the flags we want */
+  khandle_set_flags(&pvar_khndl, flags);
+
+  /* Copy the handle into the map */
+  result = bind_khandle(&current_proc->m_handle_map, &pvar_khndl);
+
+  if (!IsError(result))
+    return Release(result);
 
   return HNDL_INVAL;
 }
@@ -327,12 +322,12 @@ uintptr_t sys_close(HANDLE handle)
  * it managed to get a handle with write access. This means that permissions need to be managed correctly
  * by sys_open in that regard. See the TODO comment inside sys_open
  */
-bool sys_create_pvar(HANDLE profile_handle, const char* __user name, enum SYSVAR_TYPE type, uint32_t flags, void* __user value)
+bool sys_create_pvar(HANDLE handle, const char* __user name, enum SYSVAR_TYPE type, uint32_t flags, void* __user value)
 {
   proc_t* proc;
   khandle_t* khandle;
-  proc_profile_t* profile;
-  profile_var_t* var;
+  uint16_t target_prv_lvl;
+  oss_node_t* target_node;
 
   proc = get_current_proc();
 
@@ -342,39 +337,35 @@ bool sys_create_pvar(HANDLE profile_handle, const char* __user name, enum SYSVAR
   if (IsError(kmem_validate_ptr(proc, (uintptr_t)value, 1)))
     return false;
 
-  khandle = find_khandle(&proc->m_handle_map, profile_handle);
+  khandle = find_khandle(&proc->m_handle_map, handle);
 
   /* Invalid handle =/ */
-  if (!khandle || khandle->type != HNDL_TYPE_PROFILE)
+  if (!khandle)
+    return false;
+
+  switch (khandle->type) {
+    case HNDL_TYPE_PROFILE:
+      target_node = khandle->reference.profile->node;
+      target_prv_lvl = khandle->reference.profile->priv_level;
+      break;
+    case HNDL_TYPE_PROC_ENV:
+      target_node = khandle->reference.penv->node;
+      target_prv_lvl = khandle->reference.penv->priv_level;
+      break;
+    default:
+      target_node = nullptr;
+      break;
+  }
+
+  if (!target_node)
     return false;
 
   /* Can't write to this handle =/ */
   if ((khandle->flags & HNDL_FLAG_WRITEACCESS) != HNDL_FLAG_WRITEACCESS)
     return false;
 
-  profile = khandle->reference.profile;
-
-  /* FIXME: we need a way to safely copy strings from userspace into kernel space */
-  if (type == PROFILE_VAR_TYPE_STRING)
-    /* FIXME: unsafe strdup call (also we just kinda assume there is a string here wtf: NEVER TRUST USERSPACE) */
-    value = strdup(value);
-
-  /* FIXME: unsafe strdup call (also we just kinda assume there is a string here wtf: NEVER TRUST USERSPACE) */
-  name = strdup(name);
-
-  /* Create a variable */
-  var = create_profile_var(name, type, flags, (uint64_t)value);
-
-  if (!var)
+  if (KERR_ERR(sysvar_attach(target_node, name, target_prv_lvl, type, flags, (uintptr_t)value)))
     return false;
 
-  /* Can we successfully add this var? */
-  if (profile_add_var(profile, var))
-    goto release_and_exit;
-
   return true;
-
-release_and_exit:
-  release_profile_var(var);
-  return false;
 }

@@ -11,6 +11,7 @@
 #include "lightos/driver/loader.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
+#include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
@@ -74,6 +75,10 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
   proc->m_thread_count = create_atomic_ptr_ex(1);
   proc->m_terminate_bell = create_doorbell(8, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
+  proc->obj = create_oss_obj(name);
+
+  /* Register ourselves */
+  oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, destroy_proc);
 
   /* Create a pagemap */
   _proc_init_pagemap(proc);
@@ -229,6 +234,8 @@ static void __proc_clear_handles(proc_t* proc)
  */
 void destroy_proc(proc_t* proc) 
 {
+  oss_obj_do_destroy_reroute(proc);
+
   proc_unregister(proc->m_id);
 
   FOREACH(i, proc->m_threads) {

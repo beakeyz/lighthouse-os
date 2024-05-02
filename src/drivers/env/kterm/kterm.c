@@ -19,10 +19,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
-#include "proc/handle.h"
 #include "proc/proc.h"
-#include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include <system/processor/processor.h>
@@ -30,6 +27,8 @@
 
 #include "font.h"
 #include "exec.h"
+#include "system/profile/profile.h"
+#include "system/sysvar/var.h"
 
 #define KTERM_MAX_BUFFER_SIZE 512
 #define KTERM_KEYBUFFER_CAPACITY 512
@@ -712,10 +711,10 @@ bool kterm_is_logged_in()
   return (_c_login.profile != nullptr);
 }
 
-int kterm_set_login(struct proc_profile* profile)
+int kterm_set_login(user_profile_t* profile)
 {
   //vobj_t* cwd_obj;
-  profile_var_t* login_msg_var;
+  sysvar_t* login_msg_var;
   const char* login_msg;
 
   _c_login.profile = profile;
@@ -734,7 +733,7 @@ int kterm_set_login(struct proc_profile* profile)
     if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))
       return 0;
 
-    if (profile_var_get_str_value(login_msg_var, &login_msg) == false)
+    if (sysvar_get_str_value(login_msg_var, &login_msg) == false)
       return 0;
 
     kterm_println(login_msg);
@@ -748,7 +747,7 @@ int kterm_set_login(struct proc_profile* profile)
   return 0;
 }
 
-int kterm_get_login(struct proc_profile** profile)
+int kterm_get_login(struct user_profile** profile)
 {
   if (!profile || !_c_login.profile)
     return -1;
@@ -906,29 +905,27 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
 static inline void kterm_init_lwnd_emulation()
 {
   const char* var_buffer;
-  proc_profile_t* profile;
-  profile_var_t* var;
+  sysvar_t* var;
 
-  ASSERT_MSG(profile_scan_var("Global/DFLT_LWND_PATH", &profile, &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
+  ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
 
-  profile_var_get_str_value(var, &var_buffer);
+  sysvar_get_str_value(var, &var_buffer);
 
   /* Make sure this is owned by us */
   _old_dflt_lwnd_path_value = strdup(var_buffer);
 
   /* Make sure the system knows we emulate lwnd */
-  profile_var_write(var, PROFILE_STR("other/kterm"));
+  sysvar_write(var, PROFILE_STR("other/kterm"));
 }
 
 static inline void kterm_fini_lwnd_emulation()
 {
-  proc_profile_t* profile;
-  profile_var_t* var;
+  sysvar_t* var;
 
-  ASSERT_MSG(profile_scan_var("Global/DFLT_LWND_PATH", &profile, &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
+  ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
 
   /* Set the default back to the old default */
-  profile_var_write(var, PROFILE_STR(_old_dflt_lwnd_path_value));
+  sysvar_write(var, PROFILE_STR(_old_dflt_lwnd_path_value));
 }
 
 static void kterm_reset_prompt_vars()

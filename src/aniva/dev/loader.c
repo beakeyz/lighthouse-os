@@ -11,9 +11,9 @@
 #include "libk/string.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
+#include "system/profile/profile.h"
 #include "system/resource.h"
+#include "system/sysvar/var.h"
 
 struct loader_ctx {
   const char* path;
@@ -716,15 +716,16 @@ void unload_external_driver(extern_driver_t* driver)
 static const char* _get_driver_path()
 {
   const char* ret;
-  profile_var_t* var;
+  sysvar_t* var;
 
-  if (profile_scan_var(DRIVERS_LOC_VAR_PATH, NULL, &var))
+  if (profile_find_var(DRIVERS_LOC_VAR_PATH, &var))
     return nullptr;
 
-  if (!profile_var_get_str_value(var, &ret))
+  if (!sysvar_get_str_value(var, &ret))
     return nullptr;
 
-  release_profile_var(var);
+  /* Release the reference made by profile_find_var */
+  release_sysvar(var);
 
   return ret;
 }
@@ -736,17 +737,17 @@ extern_driver_t* load_external_driver_from_var(const char* varpath)
   const char* driver_rootpath;
   char* driver_path;
   size_t driver_path_len;
-  profile_var_t* var;
+  sysvar_t* var;
   extern_driver_t* ret;
 
-  error = profile_scan_var(varpath, NULL, &var);
+  error = profile_find_var(varpath, &var);
   if (error)
     return nullptr;
 
-  if (!profile_var_get_str_value(var, &driver_filename))
+  if (!sysvar_get_str_value(var, &driver_filename))
     return nullptr;
 
-  release_profile_var(var);
+  release_sysvar(var);
 
   driver_rootpath = _get_driver_path();
 

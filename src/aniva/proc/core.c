@@ -259,7 +259,13 @@ static int _assign_penv(proc_t* proc)
     return -1;
 
   /* Create a environment in the user profile */
-  env = create_penv(env_label_buf, PRIV_LVL_USER, NULL, get_user_profile());
+  env = create_penv(env_label_buf, PRIV_LVL_USER, NULL);
+
+  if (!env)
+    return -1;
+
+  /* Add to the profile */
+  profile_add_penv(get_user_profile(), env);
 
   return penv_add_proc(env, proc);
 }

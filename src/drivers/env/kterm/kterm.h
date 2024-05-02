@@ -7,7 +7,7 @@
 #define KTERM_DRV_MAP_FB        8
 #define KTERM_DRV_CLEAR         9
 
-struct proc_profile;
+struct user_profile;
 
 enum kterm_mode {
   KTERM_MODE_LOADING = 0,
@@ -16,7 +16,7 @@ enum kterm_mode {
 };
 
 typedef struct kterm_login {
-  struct proc_profile* profile;
+  struct user_profile* profile;
   char* cwd;
 } kterm_login_t;
 
@@ -43,8 +43,8 @@ void kterm_clear();
 void kterm_switch_to_terminal();
 
 bool kterm_is_logged_in();
-int kterm_set_login(struct proc_profile* profile);
-int kterm_get_login(struct proc_profile** profile);
+int kterm_set_login(struct user_profile* profile);
+int kterm_get_login(struct user_profile** profile);
 
 bool kterm_ismode(enum kterm_mode mode);
 

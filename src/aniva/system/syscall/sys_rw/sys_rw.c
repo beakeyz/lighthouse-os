@@ -15,7 +15,6 @@
 #include "proc/proc.h"
 #include <libk/string.h>
 #include "sched/scheduler.h"
-#include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 #include <proc/env.h>
 
@@ -190,8 +189,8 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         sysvar_t* var = khandle->reference.pvar;
         penv_t* c_env = current_proc->m_env;
 
-        /* Check if the current profile actualy has permission to read from this var */
-        if (!sysvar_map_can_access(var->map, c_env->priv_level))
+        /* Check if the current environment actualy has permission to read from this var */
+        if (var->obj->read_priv_lvl > c_env->priv_level)
           return NULL;
 
         switch (var->type) {

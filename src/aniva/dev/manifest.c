@@ -2,15 +2,10 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/loader.h"
-#include "libk/data/hashmap.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
-#include "libk/data/linkedlist.h"
-#include "mem/heap.h"
 #include "oss/node.h"
 #include "oss/obj.h"
-#include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/string.h>
@@ -219,7 +214,7 @@ static drv_manifest_t* _get_dependency_from_path(drv_dependency_t* dep)
   char* abs_path;
   size_t abs_path_len;
   const char* relative_path;
-  profile_var_t* drv_root;
+  sysvar_t* drv_root;
   drv_manifest_t* ret;
 
   if (dep->type != DRV_DEPTYPE_PATH)
@@ -228,13 +223,13 @@ static drv_manifest_t* _get_dependency_from_path(drv_dependency_t* dep)
   if ((dep->flags & DRVDEP_FLAG_RELPATH) != DRVDEP_FLAG_RELPATH)
     return install_external_driver(dep->location);
 
-  error = profile_scan_var(DRIVERS_LOC_VAR_PATH, NULL, &drv_root);
+  error = profile_find_var(DRIVERS_LOC_VAR_PATH, &drv_root);
 
   if (error)
     return nullptr;
 
   /* NOTE: This is suddenly a bool :clown: */
-  if (!profile_var_get_str_value(drv_root, &relative_path))
+  if (!sysvar_get_str_value(drv_root, &relative_path))
     return nullptr;
 
   abs_path_len = strlen(relative_path) + strlen(dep->location) + 1;

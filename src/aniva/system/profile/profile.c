@@ -2,11 +2,13 @@
 #include "crypto/k_crc32.h"
 #include "entry/entry.h"
 #include "fs/file.h"
-#include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
 #include <system/sysvar/var.h>
+#include "oss/core.h"
+#include "oss/node.h"
+#include "oss/obj.h"
 #include "proc/env.h"
 #include "sync/mutex.h"
 #include "system/sysvar/loader.h"
@@ -19,6 +21,7 @@
 
 static user_profile_t _admin_profile;
 static user_profile_t _user_profile;
+static oss_node_t* _runtime_node;
 
 static mutex_t* profile_mutex;
 
@@ -37,9 +40,14 @@ int init_proc_profile(user_profile_t* profile, char* name, uint32_t level)
   memset(profile, 0, sizeof(user_profile_t));
 
   profile->name = name;
-  profile->vars = create_sysvar_map(MAX_VARS, &profile->priv_level);
   profile->lock = create_mutex(NULL);
-  profile->env_map = create_hashmap(PROC_SOFTMAX, NULL);
+  profile->node = create_oss_node(name, OSS_PROFILE_NODE, NULL, NULL);
+
+  /* FIXME: Error handle */
+  (void)oss_attach_node("Runtime", profile->node);
+
+  /* Set the private field */
+  profile->node->priv = profile;
 
   profile_set_priv_lvl(profile, level);
 
@@ -73,14 +81,15 @@ void destroy_proc_profile(user_profile_t* profile)
   /* Lock the mutex to prevent any async weirdness */
   mutex_lock(profile->lock);
 
+  /* First off, murder the node */
+  destroy_oss_node(profile->node);
+
   /* When we loaded a profile from a file, we malloced these strings */
   if (profile_is_from_file(profile)) {
     kfree((void*)profile->name);
     kfree((void*)profile->path);
   }
 
-  destroy_sysvar_map(profile->vars);
-  destroy_hashmap(profile->env_map);
   destroy_mutex(profile->lock);
 
   /* Profile might be allocated on the heap */
@@ -98,16 +107,86 @@ user_profile_t* get_admin_profile()
 }
 
 /*!
+ * @brief: Find a variable relative to the runtime node
+ *
+ * @path: The oss path relative to 'Runtime/'
+ * @bvar: Buffer where the sysvar pointer will be put into on success
+ */
+int profile_find_var(const char* path, sysvar_t** bvar)
+{
+  int error;
+  sysvar_t* var;
+  oss_obj_t* obj;
+
+  error = oss_resolve_obj_rel(_runtime_node, path, &obj);
+
+  if (error)
+    return error;
+
+  if (obj->type != OSS_OBJ_TYPE_VAR || !obj->priv)
+    return -KERR_INVAL;
+
+  var = oss_obj_unwrap(obj, sysvar_t);
+
+  /* Reference the variable */
+  if (bvar)
+    *bvar = get_sysvar(var);
+
+  return KERR_NONE;
+}
+
+/*!
+ * @brief: Get a sysvar relative to @profile
+ */
+int profile_get_var(user_profile_t* profile, const char* key, sysvar_t** bvar)
+{
+  int error;
+  sysvar_t* var;
+  oss_obj_t* obj;
+  oss_node_entry_t* entry;
+
+  error = oss_node_find(profile->node, key, &entry);
+
+  if (error)
+    return error;
+
+  if (entry->type != OSS_ENTRY_OBJECT)
+    return -KERR_INVAL;
+
+  obj = entry->obj;
+
+  if (obj->type != OSS_OBJ_TYPE_VAR || !obj->priv)
+    return -KERR_INVAL;
+
+  var = oss_obj_unwrap(obj, sysvar_t);
+
+  if (bvar)
+    *bvar = get_sysvar(var);
+
+  return 0;
+}
+
+/*!
  * @brief: Add an environment to a user profile
  *
  * @returns: Negative error code on failure, new envid on success
  */
 int profile_add_penv(user_profile_t* profile, struct penv* env)
 {
-  if (IsError(hashmap_put(profile->env_map, (hashmap_key_t)env->label, env)))
-    return -KERR_DUPLICATE;
+  int error;
 
-  return 0;
+  if (!profile || !env)
+    return -KERR_INVAL;
+
+  if (env->profile)
+    profile_remove_penv(env->profile, env);
+
+  error = oss_node_add_node(profile->node, env->node);
+
+  if (!error)
+    env->profile = profile;
+
+  return error;
 }
 
 /*!
@@ -115,10 +194,20 @@ int profile_add_penv(user_profile_t* profile, struct penv* env)
  */
 int profile_remove_penv(user_profile_t* profile, struct penv* env)
 {
-  if (!hashmap_remove(profile->env_map, (hashmap_key_t)env->label))
-    return -KERR_NOT_FOUND;
+  int error;
+  oss_node_entry_t* entry = NULL;
 
-  return 0;
+  if (!profile || !env)
+    return -KERR_INVAL;
+
+  error = oss_node_remove_entry(profile->node, env->node->name, &entry);
+
+  if (!error && entry) {
+    destroy_oss_node_entry(entry);
+    env->profile = nullptr;
+  }
+
+  return error;
 }
 
 static int _generate_passwd_hash(const char* passwd, uint64_t* buffer)
@@ -209,16 +298,16 @@ bool profile_has_password(user_profile_t* profile)
  */
 static void __apply_admin_variables()
 {
-  sysvar_map_put(_admin_profile.vars, "KTERM_LOC", SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"));
-  sysvar_map_put(_admin_profile.vars, DRIVERS_LOC_VARKEY, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"));
+  sysvar_attach(_admin_profile.node, "KTERM_LOC", PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/kterm.drv"));
+  sysvar_attach(_admin_profile.node, DRIVERS_LOC_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("Root/System/"));
 
   /* Core drivers which perform high level scanning and load low level drivers */
-  sysvar_map_put(_admin_profile.vars, USBCORE_DRV_VARKEY, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"));
-  sysvar_map_put(_admin_profile.vars, "DISK_CORE_DRV", SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv"));
-  sysvar_map_put(_admin_profile.vars, "INPUT_CORE_DRV", SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv"));
-  sysvar_map_put(_admin_profile.vars, "VIDEO_CORE_DRV", SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv"));
-  sysvar_map_put(_admin_profile.vars, ACPICORE_DRV_VARKEY, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv"));
-  sysvar_map_put(_admin_profile.vars, DYNLOADER_DRV_VARKEY, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv"));
+  sysvar_attach(_admin_profile.node, USBCORE_DRV_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("usbcore.drv"));
+  sysvar_attach(_admin_profile.node, "DISK_CORE_DRV", PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("diskcore.drv"));
+  sysvar_attach(_admin_profile.node, "INPUT_CORE_DRV", PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("inptcore.drv"));
+  sysvar_attach(_admin_profile.node, "VIDEO_CORE_DRV", PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("vidcore.drv"));
+  sysvar_attach(_admin_profile.node, ACPICORE_DRV_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("acpicore.drv"));
+  sysvar_attach(_admin_profile.node, DYNLOADER_DRV_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR("dynldr.drv"));
 
   /* 
    * These variables are to store the boot parameters. When we've initialized all devices we need and we're
@@ -226,9 +315,9 @@ static void __apply_admin_variables()
    * which we will verify that it has remained unchanged by checking if "BASE/BOOT_DEVICE_NAME" and "BASE/BOOT_DEVICE_SIZE"
    * are still valid.
    */
-  sysvar_map_put(_admin_profile.vars, BOOT_DEVICE_VARKEY, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL));
-  sysvar_map_put(_admin_profile.vars, BOOT_DEVICE_SIZE_VARKEY, SYSVAR_TYPE_QWORD, SYSVAR_FLAG_VOLATILE, NULL);
-  sysvar_map_put(_admin_profile.vars, BOOT_DEVICE_NAME_VARKEY, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL));
+  sysvar_attach(_admin_profile.node, BOOT_DEVICE_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL));
+  sysvar_attach(_admin_profile.node, BOOT_DEVICE_SIZE_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_QWORD, SYSVAR_FLAG_VOLATILE, NULL);
+  sysvar_attach(_admin_profile.node, BOOT_DEVICE_NAME_VARKEY, PRIV_LVL_ADMIN, SYSVAR_TYPE_STRING, SYSVAR_FLAG_VOLATILE, PROFILE_STR(NULL));
 
 }
 
@@ -246,23 +335,23 @@ static void __apply_admin_variables()
 static void __apply_user_variables()
 {
   /* System name: Codename of the kernel that it present in the system */
-  sysvar_map_put(_user_profile.vars, "SYSTEM_NAME", SYSVAR_TYPE_STRING, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, PROFILE_STR("Aniva"));
+  sysvar_attach(_user_profile.node, "SYSTEM_NAME", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, PROFILE_STR("Aniva"));
   /* Major version number of the kernel */
-  sysvar_map_put(_user_profile.vars, "VERSION_MAJ", SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.maj);
+  sysvar_attach(_user_profile.node, "VERSION_MAJ", PRIV_LVL_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.maj);
   /* Minor version number of the kernel */
-  sysvar_map_put(_user_profile.vars, "VERSION_MIN", SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.min);
+  sysvar_attach(_user_profile.node, "VERSION_MIN", PRIV_LVL_USER, SYSVAR_TYPE_BYTE, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.min);
   /* Bump version number of the kernel. This is used to indicate small changes in between different builds of the kernel */
-  sysvar_map_put(_user_profile.vars, "VERSION_BUMP", SYSVAR_TYPE_WORD, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.bump);
+  sysvar_attach(_user_profile.node, "VERSION_BUMP", PRIV_LVL_USER, SYSVAR_TYPE_WORD, SYSVAR_FLAG_CONSTANT | SYSVAR_FLAG_GLOBAL, kernel_version.bump);
 
   /* Default provider for lwnd services */
-  sysvar_map_put(_user_profile.vars, "DFLT_LWND_PATH", SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"));
+  sysvar_attach(_user_profile.node, "DFLT_LWND_PATH", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"));
   /* Default eventname for the keyboard event */
-  sysvar_map_put(_user_profile.vars, "DFLT_KB_EVENT", SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("keyboard"));
+  sysvar_attach(_user_profile.node, "DFLT_KB_EVENT", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("keyboard"));
   /* Path variable to indicate default locations for executables */
-  sysvar_map_put(_user_profile.vars, "PATH", SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/User/Global/Apps"));
-  sysvar_map_put(_user_profile.vars, LIBSPATH_VAR, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"));
+  sysvar_attach(_user_profile.node, "PATH", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/User/Apps"));
+  sysvar_attach(_user_profile.node, LIBSPATH_VAR, PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"));
   /* Name of the runtime library */
-  sysvar_map_put(_user_profile.vars, "LIBRT_NAME", SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.slb"));
+  sysvar_attach(_user_profile.node, "LIBRT_NAME", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.slb"));
 }
 
 /*!
@@ -285,6 +374,9 @@ static void __apply_user_variables()
 void init_user_profiles(void)
 {
   profile_mutex = create_mutex(NULL);
+  _runtime_node = create_oss_node("Runtime", OSS_OBJ_STORE_NODE, NULL, NULL);
+
+  ASSERT_MSG(KERR_OK(oss_attach_rootnode(_runtime_node)), "Failed to attach Runtime node to root!");
 
   init_proc_profile(&_admin_profile, "Admin", PRIV_LVL_ADMIN);
   init_proc_profile(&_user_profile, "User", PRIV_LVL_USER);
@@ -332,7 +424,7 @@ void init_profiles_late(void)
   file_t* f = file_open(DEFAULT_GLOBAL_PVR_PATH);
 
   if (f)
-    error = sysvarldr_load_variables(_user_profile.vars, f);
+    error = sysvarldr_load_variables(_user_profile.node, _user_profile.priv_level, f);
 
   file_close(f);
 

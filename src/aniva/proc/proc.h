@@ -11,10 +11,11 @@
 #include "sync/atomic_ptr.h"
 #include "system/resource.h"
 
-struct thread;
-struct proc_image;
 struct penv;
+struct thread;
+struct oss_obj;
 struct kresource;
+struct proc_image;
 
 /*
  * proc.h
@@ -60,7 +61,7 @@ inline void proc_image_align(proc_image_t* image)
  */
 typedef struct proc {
   const char* m_name;
-  const char* m_identifier;
+  struct oss_obj* obj;
   /* ASCII String which contains the runtime context of the process (aka the runtime parameters) */
   const char* m_runtime_ctx;
   proc_id_t m_id;

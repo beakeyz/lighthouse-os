@@ -13,7 +13,6 @@
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
-#include "proc/profile/profile.h"
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
 {

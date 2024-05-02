@@ -20,8 +20,12 @@ enum OSS_NODE_TYPE {
   OSS_OBJ_STORE_NODE,
   /* (TODO) This node holds a link to another node */
   OSS_LINK_NODE,
-  /* (TODO) This node holds a groep for devices */
+  /* This node holds a groep for devices */
   OSS_GROUP_NODE,
+  /* User Profiles stored in a node */
+  OSS_PROFILE_NODE,
+  /* Node that holds an environment */
+  OSS_PROC_ENV_NODE,
 };
 
 void init_oss_nodes();

@@ -14,7 +14,7 @@ HANDLE open_profile_variable(char* key, HANDLE profile_handle, uint16_t flags)
   if (!key)
     return HNDL_INVAL;
 
-  return syscall_3(SYSID_OPEN_PVAR, (uint64_t)key, profile_handle, flags);
+  return syscall_3(SYSID_OPEN_SYSVAR, (uint64_t)key, profile_handle, flags);
 }
 
 BOOL profile_open_from_process(HANDLE process_handle, HANDLE* profile_handle)
@@ -22,28 +22,28 @@ BOOL profile_open_from_process(HANDLE process_handle, HANDLE* profile_handle)
   return FALSE;
 }
 
-BOOL create_profile_variable(HANDLE profile_handle, const char* key, enum PROFILE_VAR_TYPE type, DWORD flags, VOID* value)
+BOOL create_profile_variable(HANDLE profile_handle, const char* key, enum SYSVAR_TYPE type, DWORD flags, VOID* value)
 {
   if (!key)
     return FALSE;
 
   /* Make sure this is a bool and not something like a qword */
-  return (syscall_5(SYSID_CREATE_PVAR, profile_handle, (uintptr_t)key, type, flags, (uintptr_t)value) == TRUE);
+  return (syscall_5(SYSID_CREATE_SYSVAR, profile_handle, (uintptr_t)key, type, flags, (uintptr_t)value) == TRUE);
 }
 
-BOOL profile_var_get_type(HANDLE var_handle, enum PROFILE_VAR_TYPE* type)
+BOOL profile_var_get_type(HANDLE var_handle, enum SYSVAR_TYPE* type)
 {
   if (!type)
     return FALSE;
 
-  return syscall_2(SYSID_GET_PVAR_TYPE, var_handle, (uint64_t)type);
+  return syscall_2(SYSID_GET_SYSVAR_TYPE, var_handle, (uint64_t)type);
 }
 
 BOOL profile_var_read(HANDLE handle, QWORD buffer_size, void* buffer)
 {
   HANDLE_TYPE type;
 
-  if (!get_handle_type(handle, &type) || type != HNDL_TYPE_PVAR)
+  if (!get_handle_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
     return FALSE;
 
   return handle_read(handle, buffer_size, buffer);
@@ -53,7 +53,7 @@ BOOL profile_var_write(HANDLE handle, QWORD buffer_size, void* buffer)
 {
   HANDLE_TYPE type;
 
-  if (!get_handle_type(handle, &type) || type != HNDL_TYPE_PVAR)
+  if (!get_handle_type(handle, &type) || type != HNDL_TYPE_SYSVAR)
     return FALSE;
 
   return handle_write(handle, buffer_size, buffer);

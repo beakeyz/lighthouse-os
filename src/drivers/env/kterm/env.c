@@ -1,58 +1,59 @@
 #include "lightos/proc/var_types.h"
 #include "drivers/env/kterm/kterm.h"
-#include "libk/data/hashmap.h"
-#include "libk/flow/error.h"
 #include "libk/string.h"
+#include "oss/core.h"
+#include "oss/node.h"
+#include "oss/obj.h"
+#include "system/profile/profile.h"
+#include "system/sysvar/var.h"
 #include "util.h"
-#include <proc/profile/profile.h>
-#include <proc/profile/variable.h>
 
 /*!
  * @brief: Itterate function for the variables of a profile
  *
  * TODO: use @arg0 to communicate flags to the Itterate function
  */
-static ErrorOrPtr print_profile_variable(void* _variable, uintptr_t arg0, uint64_t arg1)
+static bool print_profile_variable(oss_node_t* node, oss_obj_t* obj, void* param)
 {
-  profile_var_t* var;
+  sysvar_t* var;
 
-  if (!_variable)
-    return Success(0);
+  if (!obj)
+    return true;
 
-  var = (profile_var_t*)_variable;
+  var = (sysvar_t*)obj->priv;
 
-  if ((var->flags & PVAR_FLAG_HIDDEN) == PVAR_FLAG_HIDDEN)
-    return Success(0);
+  if ((var->flags & SYSVAR_FLAG_HIDDEN) == SYSVAR_FLAG_HIDDEN)
+    return true;
 
   kterm_print(var->key);
   kterm_print(": ");
 
   switch (var->type) {
-    case PROFILE_VAR_TYPE_STRING:
+    case SYSVAR_TYPE_STRING:
       kterm_println(var->str_value);
       break;
     default:
       kterm_println(to_string(var->qword_value));
   }
 
-  return Success(0);
+  return true;
 }
 
-static ErrorOrPtr print_profiles(void* _profile, uintptr_t arg0, uint64_t arg1)
+static bool print_profiles(oss_node_t* node, oss_obj_t* obj, void* param)
 {
-  proc_profile_t* profile;
+  user_profile_t* profile;
 
-  if (!_profile)
-    return Success(0);
+  if (!node || node->type != OSS_PROFILE_NODE)
+    return true;
 
-  profile = _profile;
+  profile = node->priv;
 
   if (!profile->name)
-    return Error();
+    return false;
 
   kterm_println(profile->name);
 
-  return Success(0);
+  return true;
 }
 
 /*!
@@ -64,26 +65,32 @@ static ErrorOrPtr print_profiles(void* _profile, uintptr_t arg0, uint64_t arg1)
 uint32_t kterm_cmd_envinfo(const char** argv, size_t argc)
 {
   int error;
-  proc_profile_t* profile;
-
-  profile = nullptr;
+  oss_node_t* node;
 
   switch (argc) {
     case 1:
-      error = profile_foreach(print_profiles);
+      error = oss_resolve_node("Runtime", &node);
+
+      if (error)
+        return 3;
+
+      error = oss_node_itterate(node, print_profiles, NULL);
 
       if (error)
         return 3;
 
       break;
     case 2:
-      error = profile_find(argv[1], &profile);
+      error = oss_resolve_node(argv[1], &node);
 
-      if (error || !profile)
+      if (error || !node)
         return 2;
 
+      if (node->type != OSS_PROFILE_NODE)
+        return 3;
+
       /* Print every variable */
-      hashmap_itterate(profile->var_map, print_profile_variable, NULL, NULL);
+      oss_node_itterate(node, print_profile_variable, NULL);
       break;
     default:
       return 1;

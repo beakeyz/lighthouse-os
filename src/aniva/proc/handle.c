@@ -4,7 +4,6 @@
 #include "lightos/handle_def.h"
 #include "libk/flow/error.h"
 #include "oss/obj.h"
-#include "proc/profile/variable.h"
 #include "sync/mutex.h"
 #include <dev/manifest.h>
 #include <proc/proc.h>
@@ -53,16 +52,16 @@ static void __on_handle_change(khandle_t* handle, bool bind)
         ASSERT_MSG(oss_obj_close(obj) == 0, "Failed to close vobject!");
         break;
       }
-    case HNDL_TYPE_PVAR:
+    case HNDL_TYPE_SYSVAR:
       {
-        profile_var_t* pvar = handle->reference.pvar;
+        sysvar_t* pvar = handle->reference.pvar;
 
         /*
          * Make sure to release the reference of the variable 
          * since we took it when we opened it
          */
         if (!bind)
-          release_profile_var(pvar);
+          release_sysvar(pvar);
 
         break;
       }

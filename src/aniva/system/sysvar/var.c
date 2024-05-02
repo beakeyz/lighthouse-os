@@ -4,9 +4,8 @@
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
+#include "oss/obj.h"
 #include "sync/atomic_ptr.h"
-#include "sync/mutex.h"
-#include "system/sysvar/map.h"
 
 static zone_allocator_t __var_allocator;
 
@@ -43,8 +42,11 @@ static uint32_t profile_var_get_size_for_type(sysvar_t* var)
  */
 static void destroy_sysvar(sysvar_t* var)
 {
-  if (var->map)
-    sysvar_map_remove(var->map, var->key, NULL);
+  /* destroy_oss_obj clears obj->priv before calling it's child destructor */
+  if (var->obj && var->obj->priv) {
+    destroy_oss_obj(var->obj);
+    return;
+  }
     
   /* Release strduped key */
   kfree((void*)var->key);
@@ -64,7 +66,7 @@ static void destroy_sysvar(sysvar_t* var)
  * equal to @value. 
  * NOTE: this does not copy strings and allocate them on the heap!
  */
-sysvar_t* create_sysvar(const char* key, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
+sysvar_t* create_sysvar(const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
 {
   sysvar_t* var;
 
@@ -89,6 +91,10 @@ sysvar_t* create_sysvar(const char* key, enum SYSVAR_TYPE type, uint8_t flags, u
   var->refc = create_atomic_ptr_ex(1);
   /* Make sure type and value are already set */
   var->len = profile_var_get_size_for_type(var);
+  var->obj = create_oss_obj_ex(key, priv_lvl);
+
+  /* Register this sysvar to its object */
+  oss_obj_register_child(var->obj, var, OSS_OBJ_TYPE_VAR, destroy_sysvar);
 
   return var;
 }
@@ -120,15 +126,7 @@ bool sysvar_get_str_value(sysvar_t* var, const char** buffer)
   if (!buffer || !var || var->type != SYSVAR_TYPE_STRING)
     return false;
 
-  if (!var->map)
-    return false;
-
-  mutex_lock(var->map->lock);
-
   *buffer = var->str_value;
-
-  mutex_unlock(var->map->lock);
-
   return true;
 }
 
@@ -137,15 +135,7 @@ bool sysvar_get_qword_value(sysvar_t* var, uint64_t* buffer)
   if (!buffer || !var || var->type != SYSVAR_TYPE_QWORD)
     return false;
 
-  if (!var->map)
-    return false;
-
-  mutex_lock(var->map->lock);
-
   *buffer = var->qword_value;
-
-  mutex_unlock(var->map->lock);
-
   return true;
 }
 
@@ -154,15 +144,7 @@ bool sysvar_get_dword_value(sysvar_t* var, uint32_t* buffer)
   if (!buffer || !var || var->type != SYSVAR_TYPE_DWORD)
     return false;
 
-  if (!var->map)
-    return false;
-
-  mutex_lock(var->map->lock);
-
   *buffer = var->dword_value;
-
-  mutex_unlock(var->map->lock);
-
   return true;
 }
 
@@ -171,15 +153,7 @@ bool sysvar_get_word_value(sysvar_t* var, uint16_t* buffer)
   if (!buffer || !var || var->type != SYSVAR_TYPE_WORD)
     return false;
 
-  if (!var->map)
-    return false;
-
-  mutex_lock(var->map->lock);
-
   *buffer = var->word_value;
-
-  mutex_unlock(var->map->lock);
-
   return true;
 }
 
@@ -188,15 +162,7 @@ bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer)
   if (!buffer || !var || var->type != SYSVAR_TYPE_BYTE)
     return false;
 
-  if (!var->map)
-    return false;
-
-  mutex_lock(var->map->lock);
-
   *buffer = var->byte_value;
-
-  mutex_unlock(var->map->lock);
-
   return true;
 }
 
@@ -211,7 +177,7 @@ bool sysvar_get_byte_value(sysvar_t* var, uint8_t* buffer)
  */
 bool sysvar_write(sysvar_t* var, uint64_t value)
 {
-  if (!var || !var->map)
+  if (!var)
     return false;
 
   /* Yikes */
@@ -223,8 +189,6 @@ bool sysvar_write(sysvar_t* var, uint64_t value)
     kernel_panic("FIXME: tried to write to an unset variable");
     return false;
   }
-
-  mutex_lock(var->map->lock);
 
   switch (var->type) {
     case SYSVAR_TYPE_STRING:
@@ -253,8 +217,6 @@ bool sysvar_write(sysvar_t* var, uint64_t value)
     default:
       break;
   }
-
-  mutex_unlock(var->map->lock);
 
   return true;
 }

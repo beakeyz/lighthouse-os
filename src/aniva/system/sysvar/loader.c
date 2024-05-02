@@ -2,6 +2,7 @@
 #include "fs/file.h"
 #include "mem/heap.h"
 #include <libk/string.h>
+#include "oss/node.h"
 #include "sync/mutex.h"
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
@@ -27,7 +28,7 @@ static inline uintptr_t get_abs_valtab_entry_offset(pvr_file_header_t* hdr, uint
 }
 
 
-int sysvarldr_load_variables(sysvar_map_t* map, file_t* file)
+int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct file* file)
 {
   const char* c_key;
   uintptr_t c_val;
@@ -44,7 +45,7 @@ int sysvarldr_load_variables(sysvar_map_t* map, file_t* file)
   c_var_offset = sizeof(hdr);
 
   /* Fully lock the map during this opperation */
-  mutex_lock(map->lock);
+  mutex_lock(node->lock);
 
   for (uint32_t i = 0; i < hdr.var_count; i++) {
     file_read(file, &c_var, sizeof(c_var), c_var_offset);
@@ -78,7 +79,7 @@ int sysvarldr_load_variables(sysvar_map_t* map, file_t* file)
     else
       memcpy(&c_val, val_buffer, c_var.val_len);
 
-    loaded_var = sysvar_map_get(map, c_key);
+    loaded_var = sysvar_get(node, c_key);
 
     /* Do we already have this variable? */
     if (loaded_var != nullptr) {
@@ -91,8 +92,9 @@ int sysvarldr_load_variables(sysvar_map_t* map, file_t* file)
     }
 
     /* Put the variable */
-    (void)sysvar_map_put(map,
+    (void)sysvar_attach(node,
         c_key, 
+        priv_lvl,
         c_var.var_type, 
         c_var.var_flags, 
         c_val);
@@ -103,6 +105,6 @@ cycle:
     c_var_offset += sizeof(c_var);
   }
 
-  mutex_unlock(map->lock);
+  mutex_unlock(node->lock);
   return 0;
 }

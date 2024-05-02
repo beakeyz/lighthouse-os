@@ -1,9 +1,10 @@
 #include "kterm.h"
 #include "libk/io.h"
 #include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
-#include "proc/profile/profile.h"
+#include "oss/core.h"
+#include "oss/node.h"
+#include "system/profile/profile.h"
 
 /*!
  * @brief: Log into a profile
@@ -11,43 +12,38 @@
  * This will make kterm act from the perspective of this profile
  * (It's current working directory wil become Root/User/<profile name> for example)
  */
-int kterm_do_login(proc_profile_t* profile)
+int kterm_do_login(user_profile_t* profile)
 {
   kterm_set_login(profile);
   return 0;
 }
 
-int kterm_find_target_profile(proc_profile_t** target)
+int kterm_find_target_profile(user_profile_t** target)
 {
   int error;
-  proc_profile_t* l_target;
+  oss_node_t* node;
+  user_profile_t* l_target;
   const uint32_t prompt_size = 256;
   char* prompt_buffer = kmalloc(prompt_size);
 
   do {
     kterm_create_prompt("Select a profile to login: ", prompt_buffer, prompt_size, false);
 
-    error = profile_find(prompt_buffer, &l_target);
+    error = oss_resolve_node(prompt_buffer, &node);
 
     /* Invald? */
-    if (error)
+    if (error || node->type != OSS_PROFILE_NODE)
       continue;
 
-    /* We can only log into default profiles */
-    if (!profile_is_default(l_target)) {
-      println("Can't log into that profile!");
-      error = -1;
-      continue;
-    }
-
-  } while (error);
+    l_target = node->priv;
+  } while (error && !l_target);
 
   *target = l_target;
   kfree(prompt_buffer);
   return error;
 }
 
-static int kterm_prompt_password(proc_profile_t* target)
+static int kterm_prompt_password(user_profile_t* target)
 {
   const uint32_t prompt_size = 512;
   char* prompt_buffer = kmalloc(prompt_size);
@@ -68,7 +64,7 @@ int kterm_handle_login()
 {
   int error;
   uint32_t passwd_retries;
-  proc_profile_t* target_profile = NULL;
+  user_profile_t* target_profile = NULL;
 
   error = kterm_find_target_profile(&target_profile);
 

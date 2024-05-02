@@ -7,7 +7,7 @@
 #include <lightos/proc/var_types.h>
 
 struct user_profile;
-struct sysvar_map;
+struct oss_obj;
 
 /*
  * Profile variables
@@ -27,7 +27,7 @@ struct sysvar_map;
  * of it's key
  */
 typedef struct sysvar {
-  struct sysvar_map* map;
+  struct oss_obj* obj;
   const char* key;
   union {
     /*
@@ -50,7 +50,7 @@ typedef struct sysvar {
 
 void init_sysvars(void);
 
-sysvar_t* create_sysvar(const char* key, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
+sysvar_t* create_sysvar(const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
 
 sysvar_t* get_sysvar(sysvar_t* var);
 void release_sysvar(sysvar_t* var);

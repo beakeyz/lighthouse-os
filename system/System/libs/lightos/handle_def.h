@@ -27,7 +27,7 @@ typedef unsigned char       handle_type_t;
   #define HNDL_MODE_SCAN_PROFILE    (1)
 
 /* Profile variable */
-#define HNDL_TYPE_PVAR              (10)
+#define HNDL_TYPE_SYSVAR            (10)
 
 /* These types are still to be implemented */
 /* A raw device attached to the device tree on the vfs at :/Devices/ */
@@ -42,8 +42,12 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_EVENT             (15)
 /* An eventsubscription */
 #define HNDL_TYPE_EVENTHOOK         (16)
+/* ??? */
 #define HNDL_TYPE_RESOURCE          (17)
+/* Shared library when there is a dynamic loaded driver loaded */
 #define HNDL_TYPE_SHARED_LIB        (18)
+/* An entire process environment */
+#define HNDL_TYPE_PROC_ENV          (19)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

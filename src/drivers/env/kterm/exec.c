@@ -10,9 +10,8 @@
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
-#include "proc/profile/profile.h"
-#include "proc/profile/variable.h"
 #include "sched/scheduler.h"
+#include "system/profile/profile.h"
 
 static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 {
@@ -23,8 +22,8 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
   size_t c_path_len;
   size_t path_len;
   size_t total_len;
-  profile_var_t* path_var;
-  proc_profile_t* logged_profile;
+  sysvar_t* path_var;
+  user_profile_t* logged_profile;
 
   error = oss_resolve_obj(path, bobj);
 
@@ -34,7 +33,7 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
   logged_profile = nullptr;
 
   if (kterm_get_login(&logged_profile))
-    profile_find("Global", &logged_profile);
+    logged_profile = get_user_profile();
 
   /* This would be pretty bad lmao */
   if (!logged_profile)
@@ -45,7 +44,7 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
     return -1;
 
   /* Get the string value here */
-  if (!profile_var_get_str_value(path_var, (const char**)&fullpath_buf))
+  if (!sysvar_get_str_value(path_var, (const char**)&fullpath_buf))
     return -1;
 
   /* Duplicate the string */
@@ -104,7 +103,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   proc_t* p;
   const char* buffer;
   ErrorOrPtr result;
-  proc_profile_t* login_profile;
+  user_profile_t* login_profile;
 
   if (!argv || !argv[0])
     return 1;
@@ -146,7 +145,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
 
   /* Make sure the profile has the correct rights */
   kterm_get_login(&login_profile);
-  proc_set_profile(p, login_profile);
+
+  profile_add_penv(login_profile, p->m_env);
 
   /*
    * Losing this process would be a fatal error because it compromises the entire system 

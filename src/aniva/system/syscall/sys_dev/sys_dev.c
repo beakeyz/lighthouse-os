@@ -8,7 +8,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include <dev/device.h>
-#include <proc/profile/profile.h>
+#include <proc/env.h>
 
 uintptr_t sys_get_devinfo(HANDLE handle, DEVINFO* binfo)
 {

@@ -1,38 +1,20 @@
 #ifndef __ANIVA_SYSVAR_MAP__
 #define __ANIVA_SYSVAR_MAP__
 
-#include "libk/data/hashmap.h"
 #include "lightos/proc/var_types.h"
-#include "sync/mutex.h"
+#include <libk/stddef.h>
 
 struct sysvar;
+struct oss_node;
 
 /*
- * Wrapper around a hashmap that stores sysvars
- *
- * Meant to be load- and saveable
+ * Variables are mapped using the oss. They are either attached to OSS_PROFILE_NODE and OSS_PROC_ENV_NODE nodes.
  */
-typedef struct sysvar_map {
-  hashmap_t* map;
-  mutex_t* lock;
-  uint16_t* p_priv_lvl;
-} sysvar_map_t;
 
-sysvar_map_t* create_sysvar_map(uint32_t capacity, uint16_t* p_priv_lvl);
-void destroy_sysvar_map(sysvar_map_t* map);
+bool oss_node_can_contain_sysvar(struct oss_node* node);
 
-struct sysvar* sysvar_map_get(sysvar_map_t* map, const char* key);
-int sysvar_map_put(sysvar_map_t* map, const char* key, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
-int sysvar_map_remove(sysvar_map_t* map, const char* key, struct sysvar** bout);
-
-static inline bool sysvar_map_can_access(sysvar_map_t* map, uint16_t prv_lvl)
-{
-  /* lol */
-  if (!map->p_priv_lvl)
-    return true;
-
-  /* Can access if the map has a lower privilege level */
-  return (prv_lvl >= *map->p_priv_lvl);
-}
+struct sysvar* sysvar_get(struct oss_node* node, const char* key);
+int sysvar_attach(struct oss_node* node, const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value);
+int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** var);
 
 #endif // !__ANIVA_SYSVAR_MAP__

@@ -1,7 +1,5 @@
 #include "queue.h"
 #include <mem/heap.h>
-#include "dev/debug/serial.h"
-#include "proc/ipc/tspckt.h"
 
 // FIXME: the entire capacity concept of queues is not used at the moment, let's use it
 queue_t *create_queue(size_t capacity) {

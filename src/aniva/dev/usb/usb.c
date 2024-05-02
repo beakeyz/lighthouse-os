@@ -16,7 +16,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
-#include "proc/profile/profile.h"
+#include "system/profile/profile.h"
 
 zone_allocator_t __usb_hub_allocator;
 zone_allocator_t __usb_xfer_allocator;

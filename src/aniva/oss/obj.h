@@ -26,6 +26,10 @@ enum OSS_OBJ_TYPE {
   OSS_OBJ_TYPE_DEVICE,
   /* When we obtain a driver */
   OSS_OBJ_TYPE_DRIVER,
+  /* System variables (Objects with this type always have CAPITAL names) */
+  OSS_OBJ_TYPE_VAR,
+  /* Processes */
+  OSS_OBJ_TYPE_PROC,
   /* This boi links to another oss_obj */
   OSS_OBJ_TYPE_LINK,
 };
@@ -65,6 +69,14 @@ typedef struct oss_obj {
 #define oss_obj_can_proc_access(obj, p) __oss_obj_can_proc(obj, p, access)
 #define oss_obj_can_proc_read(obj, p) __oss_obj_can_proc(obj, p, read)
 #define oss_obj_can_proc_write(obj, p) __oss_obj_can_proc(obj, p, write)
+
+#define oss_obj_do_destroy_reroute(c) \
+  do {                                \
+    if ((c)->obj && (c)->obj->priv) { \
+      destroy_oss_obj((c)->obj);      \
+      return;                         \
+    }                                 \
+  } while (0)                       
 
 oss_obj_t* create_oss_obj(const char* name);
 oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl);

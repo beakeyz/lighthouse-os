@@ -34,9 +34,9 @@ enum SYSID {
   SYSID_DESTROY_FILE,
   SYSID_GET_HNDL_TYPE,
   /* Open a profile variable on the handle of a profile */
-  SYSID_OPEN_PVAR,
-  SYSID_GET_PVAR_TYPE,
-  SYSID_CREATE_PVAR,
+  SYSID_OPEN_SYSVAR,
+  SYSID_GET_SYSVAR_TYPE,
+  SYSID_CREATE_SYSVAR,
   /* Directory syscalls */
   SYSID_CREATE_DIR,
   SYSID_DIR_READ,

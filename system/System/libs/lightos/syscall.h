@@ -18,7 +18,6 @@ enum SYSID {
   SYSID_READ, /* Read from a handle */
   SYSID_WRITE, /* Write to a handle */
   SYSID_OPEN,
-  SYSID_OPEN_FILE, /* Open a handle to a file */
   SYSID_OPEN_PROC,
   SYSID_OPEN_DRIVER,
   SYSID_SEND_MSG,
@@ -35,9 +34,9 @@ enum SYSID {
   SYSID_DESTROY_FILE,
   SYSID_GET_HNDL_TYPE,
   /* Open a profile variable on the handle of a profile */
-  SYSID_OPEN_PVAR,
-  SYSID_GET_PVAR_TYPE,
-  SYSID_CREATE_PVAR,
+  SYSID_OPEN_SYSVAR,
+  SYSID_GET_SYSVAR_TYPE,
+  SYSID_CREATE_SYSVAR,
   /* Directory syscalls */
   SYSID_CREATE_DIR,
   SYSID_DIR_READ,
