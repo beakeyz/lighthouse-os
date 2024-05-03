@@ -25,7 +25,7 @@ typedef struct kterm_login {
  * 
  * NOTE: every command handler should retern POSITIVE error codes
  */
-typedef uint32_t (*f_kterm_command_handler_t) (const char** argv, size_t argc);
+typedef uint32_t (*f_kterm_command_handler_t) (const char** argv, size_t argc, const char* cmdline);
 
 /*
  * I expose kterm_println here for internal driver useage (to ensure that 

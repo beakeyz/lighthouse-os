@@ -8,7 +8,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
-#include "lightos/lib/shared.h"
+#include "lightos/lib/lightos.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/proc.h"

@@ -2,8 +2,6 @@
 #include "libk/io.h"
 #include "libk/string.h"
 #include "mem/heap.h"
-#include "oss/core.h"
-#include "oss/node.h"
 #include "system/profile/profile.h"
 
 /*!
@@ -21,7 +19,6 @@ int kterm_do_login(user_profile_t* profile)
 int kterm_find_target_profile(user_profile_t** target)
 {
   int error;
-  oss_node_t* node;
   user_profile_t* l_target;
   const uint32_t prompt_size = 256;
   char* prompt_buffer = kmalloc(prompt_size);
@@ -29,14 +26,11 @@ int kterm_find_target_profile(user_profile_t** target)
   do {
     kterm_create_prompt("Select a profile to login: ", prompt_buffer, prompt_size, false);
 
-    error = oss_resolve_node(prompt_buffer, &node);
+    l_target = NULL;
 
-    /* Invald? */
-    if (error || node->type != OSS_PROFILE_NODE)
-      continue;
+    error = profile_find(prompt_buffer, &l_target);
 
-    l_target = node->priv;
-  } while (error && !l_target);
+  } while (KERR_ERR(error) && !l_target);
 
   *target = l_target;
   kfree(prompt_buffer);

@@ -106,6 +106,34 @@ user_profile_t* get_admin_profile()
   return &_admin_profile;
 }
 
+int profile_find(const char* name, user_profile_t** bprofile)
+{
+  int error;
+  user_profile_t* profile;
+  oss_node_t* node;
+  oss_node_entry_t* entry;
+
+  error = oss_node_find(_runtime_node, name, &entry);
+
+  if (error)
+    return error;
+
+  if (entry->type != OSS_ENTRY_NESTED_NODE || !entry->node)
+    return -KERR_NOT_FOUND;
+
+  node = entry->node;
+
+  if (node->type != OSS_PROFILE_NODE || !node->priv)
+    return -KERR_NOT_FOUND;
+
+  profile = node->priv;
+
+  if (bprofile)
+    *bprofile = profile;
+
+  return 0;
+}
+
 /*!
  * @brief: Find a variable relative to the runtime node
  *

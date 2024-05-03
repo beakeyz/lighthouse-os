@@ -25,8 +25,6 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc);
 uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc);
 uint32_t kterm_cmd_procinfo(const char** argv, size_t argc);
 
-uint32_t kterm_cmd_ls(const char** argv, size_t argc);
-
 extern uint32_t kterm_cmd_envinfo(const char** argv, size_t argc);
 
 #endif // !__ANIVA_KTERM_HELP__

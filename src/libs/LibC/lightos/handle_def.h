@@ -48,6 +48,8 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_SHARED_LIB        (18)
 /* An entire process environment */
 #define HNDL_TYPE_PROC_ENV          (19)
+  #define HNDL_MODE_CURRENT_ENV     (0)
+  #define HNDL_MODE_SCAN_ENV        (1)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */

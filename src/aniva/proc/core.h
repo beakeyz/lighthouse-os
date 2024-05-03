@@ -7,7 +7,7 @@
 #define DEFAULT_THREAD_MAX_TICKS                (8)
 
 #define PROC_DEFAULT_MAX_THREADS                (16)
-#define PROC_CORE_PROCESS_NAME                  "[aniva-core]"
+#define PROC_CORE_PROCESS_NAME                  "not_the_kernel"
 #define PROC_MAX_TICKS                          (20)
 
 #define PROC_SOFTMAX                            (0x1000)
@@ -102,7 +102,7 @@ ErrorOrPtr generate_new_proc_id();
 struct thread* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
 
 struct proc* find_proc_by_id(proc_id_t id);
-struct proc* find_proc(const char* name);
+struct proc* find_proc(const char* path);
 
 bool foreach_proc(bool (*f_callback)(struct proc*));
 uint32_t get_proc_count();

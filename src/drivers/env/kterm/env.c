@@ -65,6 +65,7 @@ static bool print_profiles(oss_node_t* node, oss_obj_t* obj, void* param)
 uint32_t kterm_cmd_envinfo(const char** argv, size_t argc)
 {
   int error;
+  user_profile_t* profile;
   oss_node_t* node;
 
   switch (argc) {
@@ -81,16 +82,13 @@ uint32_t kterm_cmd_envinfo(const char** argv, size_t argc)
 
       break;
     case 2:
-      error = oss_resolve_node(argv[1], &node);
+      error = profile_find(argv[1], &profile);
 
-      if (error || !node)
+      if (error || !profile)
         return 2;
 
-      if (node->type != OSS_PROFILE_NODE)
-        return 3;
-
       /* Print every variable */
-      oss_node_itterate(node, print_profile_variable, NULL);
+      oss_node_itterate(profile->node, print_profile_variable, NULL);
       break;
     default:
       return 1;

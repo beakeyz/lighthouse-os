@@ -421,47 +421,47 @@ struct kterm_cmd kterm_commands[] = {
   {
     "help",
     "Display help about kterm and it's commands",
-    kterm_cmd_help,
+    (f_kterm_command_handler_t)kterm_cmd_help,
   },
   {
     "hello",
     "Say hello",
-    kterm_cmd_hello,
+    (f_kterm_command_handler_t)kterm_cmd_hello,
   },
   {
     "exit",
     "Exit the system and shut down",
-    kterm_cmd_exit,
+    (f_kterm_command_handler_t)kterm_cmd_exit,
   },
   {
     "clear",
     "Clear the command window",
-    kterm_cmd_clear,
+    (f_kterm_command_handler_t)kterm_cmd_clear,
   },
   {
     "sysinfo",
     "Print generic system information",
-    kterm_cmd_sysinfo,
+    (f_kterm_command_handler_t)kterm_cmd_sysinfo,
   },
   {
     "drvinfo",
     "Print information about the installed drivers",
-    kterm_cmd_drvinfo,
+    (f_kterm_command_handler_t)kterm_cmd_drvinfo,
   },
   {
     "drvld",
     "Manage drivers",
-    kterm_cmd_drvld,
+    (f_kterm_command_handler_t)kterm_cmd_drvld,
   },
   {
     "devinfo",
     "Print info about a particular device",
-    kterm_cmd_devinfo, 
+    (f_kterm_command_handler_t)kterm_cmd_devinfo, 
   },
   {
     "diskinfo",
     "Print info about a disk device",
-    kterm_cmd_diskinfo,
+    (f_kterm_command_handler_t)kterm_cmd_diskinfo,
   },
   {
     "vidinfo",
@@ -486,12 +486,12 @@ struct kterm_cmd kterm_commands[] = {
   {
     "procinfo",
     "Print info about the current running processes",
-    kterm_cmd_procinfo,
+    (f_kterm_command_handler_t)kterm_cmd_procinfo,
   },
   {
     "envinfo",
     "Print info about the current environment (Profiles and variables)",
-    kterm_cmd_envinfo,
+    (f_kterm_command_handler_t)kterm_cmd_envinfo,
   },
   {
     "envset",
@@ -499,11 +499,6 @@ struct kterm_cmd kterm_commands[] = {
     nullptr,
   },
   /* VFS functions */
-  {
-    "ls",
-    "List the current working directory contents",
-    kterm_cmd_ls,
-  },
   {
     "cd",
     "Change the current working directory",
@@ -518,7 +513,7 @@ struct kterm_cmd kterm_commands[] = {
   {
     "palletinfo",
     "Info about kterms color pallet",
-    kterm_cmd_palletinfo,
+    (f_kterm_command_handler_t)kterm_cmd_palletinfo,
   },
   /*
    * NOTE: this is exec and this should always
@@ -792,6 +787,8 @@ void kterm_command_worker()
 {
   int error;
   f_kterm_command_handler_t current_handler;
+  size_t argument_count;
+  char* contents_cpy;
   char processor_buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
 
   init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
@@ -805,8 +802,9 @@ void kterm_command_worker()
       continue;
     }
 
-    size_t argument_count = 0;
     char* contents = __processor_door.m_buffer;
+    contents_cpy = strdup(contents);
+    argument_count = 0;
 
     error = kterm_get_argument_count(contents, &argument_count);
 
@@ -815,6 +813,7 @@ void kterm_command_worker()
       /* Need to duplicate the shit under the 'exit_cmd_processing' label 
        Since we can't do a goto above a variable stack array =/ */
       kterm_cmd_worker_finish_loop();
+      kfree(contents_cpy);
       continue;
     }
 
@@ -823,6 +822,7 @@ void kterm_command_worker()
     /* Clear argv */
     memset(argv, 0, sizeof(char*) * argument_count);
 
+    /* Parse the contents into an argument vector */
     error = kterm_parse_cmd_buffer(contents, argv);
 
     if (error)
@@ -838,7 +838,8 @@ void kterm_command_worker()
     if (!current_handler)
       goto exit_cmd_processing;
 
-    error = current_handler((const char**)argv, argument_count);
+    /* Call the selected handler */
+    error = current_handler((const char**)argv, argument_count, contents_cpy);
 
     if (error) {
       /* TODO: implement kernel printf / logf lmao */
@@ -848,6 +849,7 @@ void kterm_command_worker()
 
 exit_cmd_processing:
     kterm_cmd_worker_finish_loop();
+    kfree(contents_cpy);
   }
 }
 

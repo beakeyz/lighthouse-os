@@ -1,5 +1,5 @@
 
-#include "lightos/lib/shared.h"
+#include "lightos/lib/lightos.h"
 
 extern int init_devices();
 

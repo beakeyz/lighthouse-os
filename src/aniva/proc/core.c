@@ -8,13 +8,14 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "oss/core.h"
+#include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
-#include "sync/spinlock.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
@@ -22,7 +23,6 @@
 // TODO: fix this mechanism, it sucks
 static atomic_ptr_t* __next_proc_id;
 
-static spinlock_t* __core_socket_lock;
 static vector_t* __proc_vect;
 static mutex_t* __proc_mutex;
 
@@ -128,6 +128,12 @@ ErrorOrPtr generate_new_proc_id()
   return Success((uint32_t)next);
 }
 
+/*!
+ * @brief: Find a process through its ID
+ *
+ * Look through the entire process vector to find the one with the ID we're looking for
+ * TODO: Optimize
+ */
 proc_t* find_proc_by_id(proc_id_t id)
 {
   proc_t* ret;
@@ -169,26 +175,38 @@ struct thread* find_thread_by_fid(full_proc_id_t fid)
   return find_thread(p, __id.thread_id);
 }
 
-proc_t* find_proc(const char* name) {
-
+/*!
+ * @brief: Find a process through oss
+ *
+ * Processes get attached to oss at the Runtime/ rootnode, under the node of the 
+ * userprofile they where created under, and inside the process environment they 
+ * have for themselves. Environment have the name of the process that created them
+ * and are suffixed with the process_id of that process, in order to avoid duplicate
+ * environment names
+ */
+proc_t* find_proc(const char* path) 
+{
   proc_t* ret;
+  oss_obj_t* obj;
 
-  if (!name || !__proc_vect)
+  if (!path)
     return nullptr;
+
+  ret = nullptr;
+  obj = nullptr;
 
   mutex_lock(__proc_mutex);
 
-  FOREACH_VEC(__proc_vect, data, index) {
-    ret = *(proc_t**)data;
+  if (KERR_ERR(oss_resolve_obj(path, &obj)))
+    goto unlock_and_exit;
 
-    if (strcmp(ret->m_name, name) == 0)
-      break;
+  if (!obj || obj->type != OSS_OBJ_TYPE_PROC)
+    goto unlock_and_exit;
 
-    ret = nullptr;
-  }
-
+  /* Yay this object contains our thing =D */
+  ret = oss_obj_unwrap(obj, proc_t);
+unlock_and_exit:
   mutex_unlock(__proc_mutex);
-
   return ret;
 }
 
@@ -349,9 +367,8 @@ bool current_proc_is_kernel()
  *  - tspacket caching
  *  - TODO: process caching with its own zone allocator
  */
-ANIVA_STATUS init_proc_core() {
-
-  __core_socket_lock = create_spinlock();
+ANIVA_STATUS init_proc_core() 
+{
   __next_proc_id = create_atomic_ptr_ex(0);
 
   /*
@@ -359,7 +376,6 @@ ANIVA_STATUS init_proc_core() {
    * have the PROC_SOFTMAX that limits process creation
    */
   __proc_vect = create_vector(PROC_SOFTMAX, sizeof(proc_t*), VEC_FLAG_NO_DUPLICATES);
-
   __proc_mutex = create_mutex(NULL);
 
   //Must(create_kevent("proc_terminate", KEVENT_TYPE_CUSTOM, NULL, 8));

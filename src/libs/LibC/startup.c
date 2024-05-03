@@ -1,7 +1,7 @@
 #include <LibC/mem/memory.h>
 
 #include "lightos/handle_def.h"
-#include "lightos/lib/shared.h"
+#include "lightos/lib/lightos.h"
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -22,16 +22,12 @@ extern void __init_stdio(void);
 void __init_libc(void)
 {
   /* 1) Init userspace libraries */
-  /* 1.1 -> init posix standard data streams (stdin, stdout, stderr) */
-  /* 1.2 -> init heap for this process (e.g. Ask the kernel for some memory and dump our allocator there) */
-  /* 1.2.1 -> we could allow for custom heap creation, which could mean that every process may choose which kind of heap they would like to use */
-  /* 1.3 -> attach ourselves to certain events we might need */
-  /* 1.4 -> create configuration entries if these don't already exist */
-  /* 1.5 -> create indecies for any threads we might create so they can easily be cleaned up */
-  /* 1.x -> TODO */
+  /* 1.1 -> init heap for this process (e.g. Ask the kernel for some memory and dump our allocator there) */
   __init_memalloc();
+  /* 1.2 -> init posix standard data streams (stdin, stdout, stderr) */
   __init_stdio();
-
+  /* 1.3 -> lightos userlib initialization */
+  __init_lightos();
 }
 
 /*!

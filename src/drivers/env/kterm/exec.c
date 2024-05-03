@@ -10,8 +10,10 @@
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include <proc/env.h>
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
+#include "system/sysvar/map.h"
 
 static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 {
@@ -97,13 +99,18 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
  * TODO: Search in respect to the PATH profile variable (Both of the global profile
  * and the currently logged in profile.)
  */
-uint32_t kterm_try_exec(const char** argv, size_t argc)
+uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 {
-  proc_id_t id;
-  proc_t* p;
-  const char* buffer;
   ErrorOrPtr result;
+
+  proc_t* p;
+  proc_id_t id;
+  const char* buffer;
   user_profile_t* login_profile;
+
+  khandle_t _stdin;
+  khandle_t _stdout;
+  khandle_t _stderr;
 
   if (!argv || !argv[0])
     return 1;
@@ -143,23 +150,22 @@ uint32_t kterm_try_exec(const char** argv, size_t argc)
   id = (proc_id_t)Release(result);
   p = find_proc_by_id(id);
 
-  /* Make sure the profile has the correct rights */
-  kterm_get_login(&login_profile);
-
-  profile_add_penv(login_profile, p->m_env);
-
   /*
    * Losing this process would be a fatal error because it compromises the entire system 
    * :clown: this design is peak stupidity
    */
   ASSERT_MSG(p, "Could not find process! (Lost to the void)");
 
+  /* Make sure the profile has the correct rights */
+  kterm_get_login(&login_profile);
+
+  profile_add_penv(login_profile, p->m_env);
+
+  /* Attach the commandline variable to the profile */
+  sysvar_attach(p->m_env->node, "CMDLINE", 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
+
   khandle_type_t driver_type = HNDL_TYPE_DRIVER;
   drv_manifest_t* kterm_manifest = get_driver("other/kterm");
-
-  khandle_t _stdin;
-  khandle_t _stdout;
-  khandle_t _stderr;
 
   init_khandle(&_stdin, &driver_type, kterm_manifest);
   init_khandle(&_stdout, &driver_type, kterm_manifest);

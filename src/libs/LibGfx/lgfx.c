@@ -9,7 +9,7 @@
 
 BOOL get_lwnd_drv_path(char* buffer, size_t bufsize)
 {
-  return profile_var_read_ex("Global", LWND_DRV_PATH_VAR, NULL, bufsize, (void*)buffer);
+  return profile_var_read_ex("User", LWND_DRV_PATH_VAR, NULL, bufsize, (void*)buffer);
 }
 
 BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)

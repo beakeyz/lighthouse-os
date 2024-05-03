@@ -1,4 +1,4 @@
-#include <lightos/lib/shared.h>
+#include <lightos/lib/lightos.h>
 #include <stdio.h>
 
 /*!

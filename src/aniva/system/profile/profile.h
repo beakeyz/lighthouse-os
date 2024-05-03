@@ -116,6 +116,7 @@ void destroy_proc_profile(user_profile_t* profile);
 user_profile_t* get_user_profile();
 user_profile_t* get_admin_profile();
 
+int profile_find(const char* name, user_profile_t** bprofile);
 int profile_find_var(const char* path, struct sysvar** var);
 int profile_get_var(user_profile_t* profile, const char* key, struct sysvar** var);
 int profile_add_penv(user_profile_t* profile, struct penv* env);

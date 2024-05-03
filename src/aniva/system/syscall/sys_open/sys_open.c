@@ -22,19 +22,21 @@
 #include "system/profile/profile.h"
 #include "system/sysvar/map.h"
 
+/*
+ * Generic open syscall
+ *
+ * TODO: Refactor
+ */
 HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint32_t mode)
 {
   HANDLE ret;
   khandle_t handle = { 0 };
   ErrorOrPtr result;
-  proc_t* current_process;
+  proc_t* c_proc;
 
-  if (!path)
-    return HNDL_INVAL;
+  c_proc = get_current_proc();
 
-  current_process = get_current_proc();
-
-  if (!current_process || IsError(kmem_validate_ptr(current_process, (uintptr_t)path, 1)))
+  if (!c_proc || (path && IsError(kmem_validate_ptr(c_proc, (uintptr_t)path, 1))))
     return HNDL_INVAL;
 
   ret = HNDL_NOT_FOUND;
@@ -51,10 +53,13 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       {
         file_t* file;
 
+        if (!path)
+          return HNDL_INVAL;
+
         file = file_open(path);
 
         if (!file)
-          return HNDL_INVAL;
+          return HNDL_NOT_FOUND;
 
         init_khandle(&handle, &type, file);
         break;
@@ -63,10 +68,13 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       {
         dir_t* dir;
 
+        if (!path)
+          return HNDL_INVAL;
+
         dir = dir_open(path);
 
         if (!dir)
-          return HNDL_INVAL;
+          return HNDL_NOT_FOUND;
 
         init_khandle(&handle, &type, dir);
         break;
@@ -83,7 +91,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
           return HNDL_NOT_FOUND;
 
         /* Yikes */
-        if (!oss_obj_can_proc_access(obj, current_process)) {
+        if (!oss_obj_can_proc_access(obj, c_proc)) {
           oss_obj_unref(obj);
           return HNDL_NO_PERM;
         }
@@ -100,15 +108,14 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_PROC:
       {
-        /* TODO: search through oss */
-        kernel_panic("TODO: search through oss");
+        /* Search through oss */
         proc_t* proc = find_proc(path);
 
         if (!proc)
           return HNDL_NOT_FOUND;
 
-        /* Pretend we didn't find this one xD */
-        if (proc->m_flags & PROC_KERNEL)
+        /* Pretend we didn't find this one xD (If we're not admin) */
+        if ((proc->m_flags & PROC_KERNEL) == PROC_KERNEL && c_proc->m_env->priv_level < PRIV_LVL_ADMIN)
           return HNDL_NOT_FOUND;
 
         /* We do allow handles to drivers */
@@ -127,13 +134,24 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_PROFILE:
       {
-        kernel_panic("TODO: open a profile type");
+        user_profile_t* profile;
+
+        profile = nullptr;
+
         switch (mode) {
           case HNDL_MODE_CURRENT_PROFILE:
+            profile = c_proc->m_env->profile;
+            break;
           case HNDL_MODE_SCAN_PROFILE:
-          default:
+            if (KERR_ERR(profile_find(path, &profile)))
+              return HNDL_NOT_FOUND;
             break;
         }
+
+        if (!profile)
+          return HNDL_NOT_FOUND;
+
+        init_khandle(&handle, &type, profile);
         break;
       }
     case HNDL_TYPE_PROC_ENV:
@@ -141,15 +159,29 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         penv_t* env;
         oss_node_t* env_node;
 
-        if (KERR_ERR(oss_resolve_node(path, &env_node)))
-          return HNDL_NOT_FOUND;
+        env = nullptr;
 
-        if (env_node->type != OSS_PROC_ENV_NODE || !env_node->priv)
-          return HNDL_INVAL;
+        switch (mode) {
+          case HNDL_MODE_CURRENT_PROFILE:
+            env = c_proc->m_env;
+            break;
+          case HNDL_MODE_SCAN_PROFILE:
+            /*
+             * TODO/FIXME: Should we extract this code into a routine inside
+             * proc/env.c?
+             */
+            if (KERR_ERR(oss_resolve_node(path, &env_node)))
+              return HNDL_NOT_FOUND;
 
-        env = env_node->priv;
+            if (env_node->type != OSS_PROC_ENV_NODE || !env_node->priv)
+              return HNDL_INVAL;
+
+            env = env_node->priv;
+            break;
+        }
 
         init_khandle(&handle, &type, env);
+        break;
       }
     case HNDL_TYPE_EVENT:
       {
@@ -178,7 +210,17 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
       }
     case HNDL_TYPE_FS_ROOT:
     case HNDL_TYPE_KOBJ:
+      break;
     case HNDL_TYPE_OSS_OBJ:
+      {
+        oss_obj_t* obj = NULL;
+
+        if (KERR_ERR(oss_resolve_obj(path, &obj)) || !obj)
+          return HNDL_NOT_FOUND;
+
+        init_khandle(&handle, &type, obj);
+        break;
+      }
     case HNDL_TYPE_NONE:
     default:
       kernel_panic("Tried to open unimplemented handle!");
@@ -192,7 +234,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
   khandle_set_flags(&handle, flags);
 
   /* Copy the handle into the map */
-  result = bind_khandle(&current_process->m_handle_map, &handle);
+  result = bind_khandle(&c_proc->m_handle_map, &handle);
 
   if (!IsError(result))
     ret = Release(result);
