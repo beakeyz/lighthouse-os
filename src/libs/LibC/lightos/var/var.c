@@ -1,9 +1,10 @@
 #include "var.h"
 #include "lightos/handle.h"
+#include "lightos/handle_def.h"
 #include "lightos/proc/profile.h"
 #include "lightos/syscall.h"
 
-HANDLE open_sysvar(HANDLE handle, char* key, uint16_t flags)
+HANDLE open_sysvar_ex(HANDLE handle, char* key, uint16_t flags)
 {
   if (!key)
     return HNDL_INVAL;
@@ -11,6 +12,13 @@ HANDLE open_sysvar(HANDLE handle, char* key, uint16_t flags)
   return syscall_3(SYSID_OPEN_SYSVAR, (uint64_t)key, handle, flags);
 }
 
+HANDLE open_sysvar(char* key, uint16_t flags)
+{
+  if (!key)
+    return HNDL_INVAL;
+
+  return open_handle(key, HNDL_TYPE_SYSVAR, flags, 0);
+}
 
 BOOL create_sysvar(HANDLE handle, const char* key, enum SYSVAR_TYPE type, DWORD flags, VOID* value)
 {
@@ -66,7 +74,7 @@ BOOL sysvar_read_from_profile(char* profile_name, char* var_key, WORD flags, QWO
   if (!handle_verify(profile_handle))
     return FALSE;
 
-  var_handle = open_sysvar(profile_handle, var_key, flags | HNDL_FLAG_READACCESS);
+  var_handle = open_sysvar_ex(profile_handle, var_key, flags | HNDL_FLAG_READACCESS);
 
   /* Failed to open a handle to the variable, close the profile and exit */
   if (!handle_verify(var_handle)) {
@@ -101,7 +109,7 @@ BOOL sysvar_write_from_profile(char* profile_name, char* var_key, WORD flags, QW
   if (!handle_verify(profile_handle))
     return FALSE;
 
-  var_handle = open_sysvar(profile_handle, var_key, flags | HNDL_FLAG_WRITEACCESS);
+  var_handle = open_sysvar_ex(profile_handle, var_key, flags | HNDL_FLAG_WRITEACCESS);
 
   /* Failed to open a handle to the variable, close the profile and exit */
   if (!handle_verify(var_handle)) {

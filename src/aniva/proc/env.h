@@ -19,6 +19,7 @@ typedef struct penv {
   uint16_t flags;
   /* This goes from 0x00 to 0xff. Anything beyond that is considered invalid */
   uint16_t priv_level;
+  uint32_t proc_count;
 
   mutex_t* lock;
 

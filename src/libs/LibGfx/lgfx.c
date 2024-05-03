@@ -2,14 +2,14 @@
 #include "LibGfx/include/driver.h"
 #include "lightos/driver/drv.h"
 #include "lightos/handle.h"
-#include "lightos/proc/profile.h"
+#include "lightos/var/var.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 BOOL get_lwnd_drv_path(char* buffer, size_t bufsize)
 {
-  return profile_var_read_ex("User", LWND_DRV_PATH_VAR, NULL, bufsize, (void*)buffer);
+  return sysvar_read_from_profile("User", LWND_DRV_PATH_VAR, NULL, bufsize, (void*)buffer);
 }
 
 BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags)

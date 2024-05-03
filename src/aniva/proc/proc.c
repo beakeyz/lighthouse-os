@@ -19,6 +19,7 @@
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
+#include "system/profile/profile.h"
 #include "system/resource.h"
 #include "thread.h"
 #include <libk/string.h>
@@ -49,7 +50,7 @@ static void _proc_init_pagemap(proc_t* proc)
  *
  * TODO: remove sockets from existing
  */
-proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
+proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
 {
   proc_t *proc;
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
@@ -95,7 +96,7 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
 
   Must(proc_add_thread(proc, init_thread));
 
-  proc_register(proc);
+  proc_register(proc, profile);
 
   if (id_buffer)
     *id_buffer = proc->m_id;
@@ -106,15 +107,19 @@ proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr en
 /* This should probably be done by kmem_manager lmao */
 #define IS_KERNEL_FUNC(func) true
 
-proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) {
+proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) 
+{
+  user_profile_t* admin;
 
   /* TODO: check */
-  if (!IS_KERNEL_FUNC(entry)) {
+  if (!IS_KERNEL_FUNC(entry))
     return nullptr;
-  }
+
+  /* Kernel processes always run inside the admin profile */
+  admin = get_admin_profile();
 
   /* TODO: don't limit to one name */
-  return create_proc(nullptr, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+  return create_proc(nullptr, admin, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
 /*!

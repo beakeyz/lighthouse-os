@@ -9,6 +9,7 @@
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "system/profile/profile.h"
 #include <oss/obj.h>
 
 /*
@@ -292,7 +293,8 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
   kerror_t error;
   proc_id_t pid;
   proc_t* proc;
-  proc_t* cur_proc;
+  proc_t* parent_proc;
+  user_profile_t* user;
   loaded_app_t* app;
 
   if (!out_app || !file)
@@ -305,10 +307,16 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
    * Any lucky processes that get executed by the kernel will get the kernel process as their parent.
    * This doe not mean they get to inherit any of it's privileges though =)
    */
-  cur_proc = get_current_proc();
+  parent_proc = get_current_proc();
+
+  /* Grab the default user profile */
+  user = get_user_profile();
+
+  if (is_kernel_proc(parent_proc))
+    parent_proc = nullptr;
 
   /* Create an addressspsace for this bitch */
-  proc = create_proc(cur_proc, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
+  proc = create_proc(parent_proc, user, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
 
   if (!proc)
     return -KERR_NOMEM;

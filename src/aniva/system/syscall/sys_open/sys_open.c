@@ -183,6 +183,26 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         init_khandle(&handle, &type, env);
         break;
       }
+    case HNDL_TYPE_SYSVAR:
+      {
+        user_profile_t* c_profile;
+        penv_t* c_env;
+        sysvar_t* c_var;
+
+        c_env = c_proc->m_env;
+        c_profile = c_env->profile;
+
+        c_var = sysvar_get(c_env->node, path);
+
+        if (!c_var)
+          c_var = sysvar_get(c_profile->node, path);
+
+        if (!c_var)
+          return HNDL_NOT_FOUND;
+
+        init_khandle(&handle, &type, c_var);
+        break;
+      }
     case HNDL_TYPE_EVENT:
       {
         struct kevent* event;

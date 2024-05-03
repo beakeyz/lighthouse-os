@@ -2,7 +2,6 @@
 #define __ANIVA_FS_DIR__
 
 #include "libk/flow/error.h"
-#include "libk/flow/reference.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>

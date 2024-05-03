@@ -51,7 +51,7 @@ HANDLE
 open_handle(const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
 {
   if (!path)
-    return HNDL_INVAL;
+    path = "\0";
 
   return syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
 }

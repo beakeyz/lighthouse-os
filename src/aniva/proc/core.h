@@ -30,6 +30,7 @@ struct proc;
 struct penv;
 struct thread;
 struct drv_manifest;
+struct user_profile;
 
 enum SCHEDULER_PRIORITY;
 
@@ -110,7 +111,7 @@ uint32_t get_proc_count();
 struct thread* find_thread_by_fid(full_proc_id_t fid);
 struct thread* find_thread(struct proc* proc, thread_id_t tid);
 
-ErrorOrPtr proc_register(struct proc* proc);
+ErrorOrPtr proc_register(struct proc* proc, struct user_profile* profile);
 kerror_t proc_unregister(proc_id_t id);
 
 bool current_proc_is_kernel();

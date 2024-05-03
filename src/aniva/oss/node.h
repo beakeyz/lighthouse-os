@@ -92,6 +92,11 @@ typedef struct oss_node_entry {
   };
 } oss_node_entry_t;
 
+static inline bool oss_node_entry_has_node(oss_node_entry_t* entry)
+{
+  return (entry && entry->type == OSS_ENTRY_NESTED_NODE);
+}
+
 oss_node_entry_t* create_oss_node_entry(enum OSS_ENTRY_TYPE type, void* obj);
 void destroy_oss_node_entry(oss_node_entry_t* entry);
 

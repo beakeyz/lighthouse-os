@@ -315,17 +315,23 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
       gen_path_idx = c_idx-1;
     }
 
+    /* Try to find a node */
     oss_node_find(c_node, this_name, &c_entry);
 
+    /* Free the name */
     kfree((void*)this_name);
 
-    if (!c_entry || c_entry->type != OSS_ENTRY_NESTED_NODE)
+    /* Clear the current node just in case we break here */
+    c_node = nullptr;
+
+    if (!oss_node_entry_has_node(c_entry))
       break;
 
+    /* Set the node again */
     c_node = c_entry->node;
   }
 
-  if (!c_entry && gen_node) {
+  if (!c_node && gen_node) {
     rel_path = _get_pathentry_at_idx(path, gen_path_idx);
 
     if (!rel_path)
@@ -334,7 +340,7 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
     return oss_node_query_node(gen_node, rel_path, out);
   }
 
-  if (!c_entry || !c_node)
+  if (!c_node)
     return -1;
 
   *out = c_node;

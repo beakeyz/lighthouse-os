@@ -103,7 +103,7 @@ typedef struct proc {
 #define PROC_NO_SOCKET      (0x00000200)
 #define PROC_DID_REQUEST_RT (0x00000400)
 
-proc_t* create_proc(proc_t* parent, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
+proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 
 kerror_t proc_install_runtime(proc_t* proc, const char* rt);

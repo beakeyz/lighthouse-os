@@ -232,7 +232,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
         memcpy(buffer, var->value, data_size);
 
         if (var->type == SYSVAR_TYPE_STRING)
-          memset(&buffer[data_size-1], 0, 1);
+          buffer[length-1] = '\0';
 
         read_len = data_size;
         break;

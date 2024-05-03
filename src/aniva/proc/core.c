@@ -1,6 +1,7 @@
 #include "core.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
+#include "libk/data/queue.h"
 #include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
@@ -21,7 +22,8 @@
 #include "system/sysvar/var.h"
 
 // TODO: fix this mechanism, it sucks
-static atomic_ptr_t* __next_proc_id;
+static atomic_ptr_t* __next_procid;
+static queue_t* __free_procid_queue;
 
 static vector_t* __proc_vect;
 static mutex_t* __proc_mutex;
@@ -47,6 +49,11 @@ static ErrorOrPtr __register_proc(proc_t* proc)
   return result;
 }
 
+static void _free_procid(proc_id_t id)
+{
+  queue_enqueue(__free_procid_queue, (void*)((uint64_t)id));
+}
+
 /*!
  * @brief Unregister a process of a given name @name
  *
@@ -70,7 +77,11 @@ static proc_t* __unregister_proc_by_id(proc_id_t id)
     if (p->m_id != id)
       continue;
 
+    /* Remove the process */
     vector_remove(__proc_vect, j);
+    
+    /* Register the freed up id */
+    _free_procid(id);
     ret = p;
     break;
   }
@@ -108,6 +119,17 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
   return thread;
 }
 
+/*!
+ * @brief: Dequeue a free procid, if it's available
+ *
+ * Since procids can't be zero (because that id is reserved by the kernel proc), this function
+ * returning 0 indicates that there is no free procid to take
+ */
+static uint64_t _dequeue_free_procid()
+{
+  return (uint64_t)queue_dequeue(__free_procid_queue);
+}
+
 /*
  * TODO: have process ids be contained inside a bitmap.
  * This gives us more dynamic procid taking and releasing,
@@ -117,14 +139,19 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
  */
 ErrorOrPtr generate_new_proc_id() 
 {
-  uintptr_t next = atomic_ptr_read(__next_proc_id);
+  uintptr_t next;
 
-  /* Limit exceeded, since a proc_id is always 32-bit here (for now) */
-  if (next > (uint64_t)0xFFFFFFFF) {
-    return Error();
+  next = _dequeue_free_procid();
+
+  if (!next) {
+    next = atomic_ptr_read(__next_procid);
+    atomic_ptr_write(__next_procid, next + 1);
   }
 
-  atomic_ptr_write(__next_proc_id, next + 1);
+  /* Limit exceeded, since a proc_id is always 32-bit here (for now) */
+  if (next > 0xFFFFFFFF)
+    return Error();
+
   return Success((uint32_t)next);
 }
 
@@ -261,7 +288,7 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
   return nullptr;
 }
 
-static int _assign_penv(proc_t* proc)
+static int _assign_penv(proc_t* proc, user_profile_t* profile)
 {
   penv_t* env;
   char env_label_buf[strlen(proc->m_name) + 14];
@@ -283,7 +310,7 @@ static int _assign_penv(proc_t* proc)
     return -1;
 
   /* Add to the profile */
-  profile_add_penv(get_user_profile(), env);
+  profile_add_penv(profile, env);
 
   return penv_add_proc(env, proc);
 }
@@ -291,7 +318,7 @@ static int _assign_penv(proc_t* proc)
 /*!
  * @brief: Register a process to the kernel
  */
-ErrorOrPtr proc_register(proc_t* proc)
+ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
 {
   ErrorOrPtr result;
   processor_t* cpu;
@@ -303,7 +330,7 @@ ErrorOrPtr proc_register(proc_t* proc)
     return result;
 
   /* Try to assign a process environment */
-  if (KERR_ERR(_assign_penv(proc)))
+  if (KERR_ERR(_assign_penv(proc, profile)))
     return Error(); 
 
   cpu = get_current_processor();
@@ -369,7 +396,8 @@ bool current_proc_is_kernel()
  */
 ANIVA_STATUS init_proc_core() 
 {
-  __next_proc_id = create_atomic_ptr_ex(0);
+  __next_procid = create_atomic_ptr_ex(0);
+  __free_procid_queue = create_limitless_queue();
 
   /*
    * TODO: we can also just store processes in a vector, since we

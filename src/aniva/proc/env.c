@@ -40,6 +40,8 @@ void destroy_penv(penv_t* env)
   if (env->profile)
     profile_remove_penv(env->profile, env);
 
+  destroy_oss_node(env->node);
+
   kfree((void*)env->label);
   kfree(env);
 }
@@ -66,10 +68,15 @@ int penv_add_proc(penv_t* env, proc_t* p)
   /* Add to the node */
   error = oss_node_add_obj(env->node, p->obj);
 
-  if (KERR_OK(error))
-    p->m_env = env;
+  if (KERR_ERR(error))
+    return error;
 
-  return error;
+  p->m_env = env;
+  env->proc_count++;
+
+  printf("Added proc (%s) to env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+
+  return 0;
 }
 
 int penv_remove_proc(penv_t* env, struct proc* p)
@@ -87,6 +94,15 @@ int penv_remove_proc(penv_t* env, struct proc* p)
 
   if (error)
     return -KERR_NOT_FOUND;
+
+  printf("Removing proc (%s) from env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+  /* Just to be safe, check bounds */
+  if (env->proc_count)
+    env->proc_count--;
+
+  /* Empty environment, yeet it */
+  if (!env->proc_count)
+    destroy_penv(env);
 
   return 0;
 }

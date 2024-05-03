@@ -67,10 +67,10 @@ void queue_enqueue(queue_t *queue, void* data) {
 
 }
 
-void* queue_dequeue(queue_t *queue) {
-  if (queue->m_head_ptr == nullptr) {
+void* queue_dequeue(queue_t *queue)
+{
+  if (queue->m_head_ptr == nullptr)
     return nullptr;
-  }
 
   queue_entry_t *entry_to_remove = queue->m_head_ptr;
   void *ret = entry_to_remove->m_data;
