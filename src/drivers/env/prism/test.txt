@@ -1,0 +1,9 @@
+mode driver;
+
+import lightos.io.log;
+
+func start[a:int, b:int] <- (int)
+{
+  log("Yellow from Prism\n");
+  <- 0;
+}

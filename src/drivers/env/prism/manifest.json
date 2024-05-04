@@ -1,0 +1,5 @@
+{
+  "name": "prism.drv",
+  "linking": "static",
+  "type": "driver"
+}

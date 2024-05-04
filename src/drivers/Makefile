@@ -20,6 +20,7 @@ DRIVER_PATHS := \
 	./env/kterm \
 	./env/lwnd \
 	./env/dynldr \
+	./env/prism \
 	./video/nvidia \
 	./video/radeon \
 	./debug/test \

@@ -81,10 +81,10 @@ typedef driver_control_code_t           dcc_t;
 
 #define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
 
-#define EXPORT_DRIVER_PTR(name) static USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
-#define EXPORT_CORE_DRIVER(name) static USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name
-#define EXPORT_DRIVER(name) static USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
-#define EXPORT_DEPENDENCIES(deps) static USED SECTION(".deps") ALIGN(8) drv_dependency_t (deps)[]
+#define EXPORT_DRIVER_PTR(name) USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
+#define EXPORT_CORE_DRIVER(name) USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name
+#define EXPORT_DRIVER(name) USED SECTION(".expdrv") ALIGN(8) aniva_driver_t name
+#define EXPORT_DEPENDENCIES(deps) USED SECTION(".deps") ALIGN(8) drv_dependency_t (deps)[]
 
 #define EXPSYM_SHDR_NAME ".expsym"
 #define EXPORT_DRVSYM USED SECTION(EXPSYM_SHDR_NAME)
