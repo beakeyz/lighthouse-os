@@ -46,6 +46,15 @@
 #define USB_REQ_GET_VDM			23
 #define USB_REQ_SEND_VDM		24
 
+#define USB_TYPE_DEV_IN         (0x80)
+#define USB_TYPE_DEV_OUT        (0x00)
+#define USB_TYPE_IF_IN          (0x81)
+#define USB_TYPE_IF_OUT         (0x01)
+#define USB_TYPE_EP_IN          (0x82)
+#define USB_TYPE_EP_OUT         (0x02)
+#define USB_TYPE_OTHER_IN       (0x83)
+#define USB_TYPE_OTHER_OUT      (0x03)
+
 #define USB_TYPE_MASK			(0x03 << 5)
 #define USB_TYPE_STANDARD		(0x00 << 5)
 #define USB_TYPE_CLASS			(0x01 << 5)

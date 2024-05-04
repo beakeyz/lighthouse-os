@@ -657,10 +657,10 @@ void init_hw()
 {
   /* Initialized the ACPI core driver */
   // Comented until we implement actual system-wide ACPI integration
-  //init_acpi_core();
+  init_acpi_core();
 
   /* Load the USB drivers on our system */
-  //init_usb_drivers();
+  init_usb_drivers();
 
   ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
 }

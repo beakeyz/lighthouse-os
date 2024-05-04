@@ -8,6 +8,8 @@
 
 struct device_endpoint;
 
+typedef char acpi_busid_t[8];
+
 typedef struct acpi_power_state {
   list_t* resources;
 } acpi_power_state_t;
@@ -26,6 +28,9 @@ typedef struct acpi_device_power {
 typedef struct apci_device {
   acpi_handle_t handle;
   acpi_device_power_t pwr;
+
+  int device_type;
+  acpi_busid_t busid;
 
   const char* acpi_path;
   const char* hid;

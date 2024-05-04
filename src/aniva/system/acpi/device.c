@@ -8,6 +8,7 @@
 #include "system/acpi/acpica/aclocal.h"
 #include "system/acpi/acpica/acnamesp.h"
 #include "system/acpi/acpica/acpiosxf.h"
+#include "system/acpi/acpica/acpixf.h"
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/acpica/acutils.h"
 #include "system/acpi/device.h"
@@ -73,14 +74,23 @@ static inline const char* _generate_acpi_device_name(acpi_device_t* device, ACPI
   return ret;
 }
 
+static void acpi_device_init_busid(acpi_device_t* dev)
+{
+  char busid[5] = { '?', '?', '?', '?', '\0' };
+  ACPI_BUFFER buffer = { sizeof(busid), busid, };
+
+  AcpiGetName(dev->handle, ACPI_SINGLE_NAME, &buffer);
+
+  strcpy(dev->busid, busid);
+}
+
 /*!
  * @brief: Allocate memory for an acpi device and its generic device parent
  */
-static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO* info, device_ep_t* eps, const char* acpi_path)
+static acpi_device_t* _create_acpi_device(acpi_handle_t handle, int type, device_ep_t* eps, const char* acpi_path)
 {
   device_t* device;
   acpi_device_t* ret;
-  const char* device_name;
 
   ret = kmalloc(sizeof(*ret));
 
@@ -90,30 +100,20 @@ static acpi_device_t* _create_acpi_device(acpi_handle_t handle, ACPI_DEVICE_INFO
   memset(ret, 0, sizeof(*ret));
 
   ret->handle = handle;
-  ret->hid = info->HardwareId.Length ? kmalloc(info->HardwareId.Length) : strdup(acpi_path);
+  ret->device_type = type;
+  ret->acpi_path = strdup(acpi_path);
 
-  device_name = acpi_path;
+  acpi_device_init_busid(ret);
 
-  if (info->HardwareId.Length) {
-    _cpy_ascii_str((char*)ret->hid, info->HardwareId.String, info->HardwareId.Length);
-
-    device_name = _generate_acpi_device_name(ret, info);
-
-    if (!device_name)
-      goto dealloc_and_exit;
-  }
+  printf("Name: %s\n", ret->busid);
 
   /* Create the generic device */
-  device = create_device_ex(NULL, (char*)device_name, ret, NULL, eps);
-
-  /* Make this shit fuck off if we needed to process the hardware id field */
-  if (info->HardwareId.Length)
-    kfree((void*)device_name);
+  device = create_device_ex(NULL, (char*)ret->busid, ret, NULL, eps);
 
   if (!device)
     goto dealloc_and_exit;
 
-  device_power_on(device);
+  //device_power_on(device);
 
   device_register(device, _acpi_group);
   return ret;
@@ -166,24 +166,11 @@ static inline kerror_t _get_acpidev_info(acpi_handle_t handle, ACPI_DEVICE_INFO*
 kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ep_t* eps, const char* acpi_path)
 {
   acpi_device_t* device;
-  ACPI_DEVICE_INFO info = { 0 };
 
-  /*
-   * (NOTE/FIXME): We manually parse methods on the device, since AcpiGetObjectInfo gives us trouble
-   * on real metal =/
-   *
-   * Also FIXME: We're leaking memory through _get_acpidev_info allocating hid and (sometimes) uid strings
-   * which we never free
-   */
-
-  _get_acpidev_info(handle, &info);
-
-  device = _create_acpi_device(handle, &info, eps, acpi_path);
+  device = _create_acpi_device(handle, type, eps, acpi_path);
 
   if (!device)
     return -KERR_NOMEM;
-
-  printf (" HID: %s\n", device->hid);
 
   return KERR_NONE;
 }

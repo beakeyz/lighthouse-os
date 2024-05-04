@@ -28,12 +28,22 @@ enum USB_XFER_DIRECTION {
   USB_DIRECTION_DEVICE_TO_HOST,
 };
 
-/*
+#define USB_XFER_FLAG_DONE 0x0001
+#define USB_XFER_FLAG_CANCELED 0x0002
+#define USB_XFER_FLAG_ERROR 0x0004
+
+/*!
  * Generic USB request structure for the 
  * entire subsystem
  *
  * HCD drivers should construct the correct commands based on the request types
  * sent here.
+ *
+ * @req_buffer: The buffer that contains information relevant to the request
+ * @resp_buffer: The buffer that will be sent next to the request buffer. Most of the
+ * time this will be used to put the response of the transfer in, but it could also be
+ * used as a generic data transfer buffer (In the case of a bulk transfer to the USB
+ * device)
  */
 typedef struct usb_xfer {
   flat_refc_t ref;
@@ -55,13 +65,20 @@ typedef struct usb_xfer {
   uint32_t req_devaddr;
   uint32_t req_hubaddr;
   uint32_t req_hubport;
-  uint32_t req_max_packet_size;
+  uint16_t req_max_packet_size;
+
+  uint16_t xfer_flags;
 
   struct usb_device* device;
 
   /* Doorbell for async status reports */
   kdoor_t* req_door;
 } usb_xfer_t;
+
+static inline bool usb_xfer_is_done(usb_xfer_t* xfer)
+{
+  return ((xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE);
+}
 
 usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, void* buffer, uint32_t buffer_size);
 

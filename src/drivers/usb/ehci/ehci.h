@@ -69,6 +69,13 @@ extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci
 extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 
+/*
+ * Simple wrapper for binding our system-wide usb_xfer struct with an EHCI qh
+ * This struct does not own any of the pointers it holds, which means that is
+ * for the owner of this struct to manage. Here is a simple overview of the ownership:
+ * 1) xfer: Owned by the submitter of the transfer
+ * 2) qh: Owned by the EHCI hcd
+ */
 typedef struct ehci_xfer {
   struct usb_xfer* xfer;
   struct ehci_qh* qh;
@@ -76,6 +83,8 @@ typedef struct ehci_xfer {
 
 extern ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh);
 extern void destroy_ehci_xfer(ehci_xfer_t* xfer);
+
+extern int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 
 extern int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 extern int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);

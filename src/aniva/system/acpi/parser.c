@@ -230,6 +230,8 @@ void* acpi_parser_find_table_idx(acpi_parser_t *parser, const char* sig, size_t 
   ACPI_STATUS stat;
   ACPI_TABLE_HEADER* hdr;
 
+  (void)table_size;
+
   stat = AcpiGetTable((ACPI_STRING)sig, index, &hdr);
 
   if (stat == AE_ERROR)

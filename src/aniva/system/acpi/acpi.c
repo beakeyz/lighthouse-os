@@ -1,6 +1,7 @@
 #include "acpi.h"
 #include "dev/loader.h"
 #include "libk/flow/error.h"
+#include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/parser.h"
 #include "system/profile/profile.h"
 #include <libk/stddef.h>
@@ -19,7 +20,8 @@ void init_acpi()
   init_acpi_parser_early(&_parser);
 
   /* Init acpica */
-  init_acpi_early();
+  if (ACPI_FAILURE(init_acpi_early()))
+    kernel_panic("Failed to init acpi!");
 
   //kernel_panic(")/ o.o)/ : How the fuck did we exit early ACPI init?");
 

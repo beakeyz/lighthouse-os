@@ -15,7 +15,7 @@ static void generic_glob_notif_handler(ACPI_HANDLE dev, UINT32 value, void* ctx)
   kernel_panic("TODO: handle global notifications");
 }
 
-void init_acpi_early()
+ACPI_STATUS init_acpi_early()
 {
   ACPI_OBJECT arg;
   ACPI_OBJECT_LIST param;
@@ -27,7 +27,7 @@ void init_acpi_early()
   {
     printf("Failed to initialize ACPI subsystem\n");
     /* TODO: again, let the system know */
-    return;
+    return stat;
   }
 
   stat = AcpiInitializeTables(NULL, 16, true);
@@ -35,7 +35,7 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to initailize ACPI tables\n");
-    return;
+    return stat;
   }
 
   stat = AcpiLoadTables();
@@ -43,10 +43,8 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to load ACPI tables\n");
-    return;
+    return stat;
   }
-
-  //return;
 
   /* Initialize system interrupt controller (1 = APIC, 0 = PIC) */
   arg.Integer.Type = ACPI_TYPE_INTEGER;
@@ -63,7 +61,7 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to enable ACPI\n");
-    return;
+    return stat;
   }
   
   stat = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
@@ -71,7 +69,7 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to initialize ACPI objects\n");
-    return;
+    return stat;
   }
 
   stat = AcpiInstallGlobalEventHandler(generic_global_event_handler, NULL);
@@ -79,7 +77,7 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to install ACPI global event handler\n");
-    return;
+    return stat;
   }
 
   stat = AcpiInstallNotifyHandler(ACPI_ROOT_OBJECT, ACPI_ALL_NOTIFY, generic_glob_notif_handler, NULL);
@@ -87,7 +85,7 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to install ACPI global notifier\n");
-    return;
+    return stat;
   }
 
   stat = AcpiEnableAllRuntimeGpes();
@@ -95,7 +93,7 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to enable ACPI runtime GPEs\n");
-    return;
+    return stat;
   }
 
   stat = AcpiUpdateAllGpes();
@@ -103,8 +101,9 @@ void init_acpi_early()
   if (ACPI_FAILURE(stat))
   {
     printf("Failed to update ACPI runtime GPEs\n");
-    return;
+    return stat;
   }
 
   printf("Acpica done!\n");
+  return AE_OK;
 }

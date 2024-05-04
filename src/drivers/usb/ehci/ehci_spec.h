@@ -244,7 +244,6 @@ typedef struct ehci_qh {
   struct ehci_qh* prev;
   struct ehci_qtd* qtd_link;
   struct ehci_qtd* qtd_alt;
-  struct ehci_qtd* qtd_last;
 
 } __attribute__((packed, aligned(32))) ehci_qh_t;
 

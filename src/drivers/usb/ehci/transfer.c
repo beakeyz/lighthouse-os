@@ -61,54 +61,6 @@ int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
   return -1;
 }
 
-static inline int _ehci_qh_link_qtd(ehci_qh_t* qh, ehci_qtd_t* a, bool do_alt)
-{
-  a->prev = qh->qtd_last;
-
-  if (!qh->qtd_last) {
-    qh->qtd_link = a;
-    qh->qtd_last = a;
-    qh->hw_qtd_next = a->qtd_dma_addr;
-    qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
-
-    return 0;
-  }
-
-  qh->qtd_last->next = a;
-  qh->qtd_last->hw_next = a->qtd_dma_addr;
-  qh->qtd_last->alt_next = do_alt ? qh->qtd_alt : NULL;
-  qh->qtd_last->hw_alt_next = do_alt ? qh->qtd_alt->qtd_dma_addr : EHCI_FLLP_TYPE_END;
-
-  qh->qtd_last = a;
-  return 0;
-}
-
-static inline void _ehci_qh_sanitize_queue(ehci_qh_t* qh)
-{
-  ehci_qtd_t* qtd;
-
-  qtd = qh->qtd_link;
-
-  if (!qtd)
-    return;
-
-  do {
-    /* Make sure the end bit is cleared */
-    if (qtd->alt_next)
-      qtd->hw_alt_next &= ~EHCI_FLLP_TYPE_END;
-    else
-      qtd->hw_alt_next = EHCI_FLLP_TYPE_END;
-    
-    /* Make sure the end bit is cleared again */
-    if (qtd->next)
-      qtd->hw_next &= ~EHCI_FLLP_TYPE_END;
-    else
-      qtd->hw_next = EHCI_FLLP_TYPE_END;
-
-    qtd = qtd->next;
-  } while (qtd);
-}
-
 static inline void _try_allocate_qtd_buffer(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
 {
   paddr_t c_phys;
@@ -187,7 +139,7 @@ void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer)
   qh->hw_info_0 |= (
       EHCI_QH_DEVADDR(xfer->req_devaddr) |
       EHCI_QH_EP_NUM(xfer->req_endpoint) |
-      EHCI_QH_MPL(8) |
+      EHCI_QH_MPL(max_pckt_size) |
       EHCI_QH_TOGGLE_CTL);
   qh->hw_info_1 = EHCI_QH_MULT_VAL(1);
 
@@ -203,6 +155,7 @@ void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer)
 ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer)
 {
   paddr_t this_dma;
+  ehci_qtd_t* qtd;
   ehci_qh_t* qh;
 
   qh = zalloc_fixed(ehci->qh_pool);
@@ -219,30 +172,30 @@ ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer)
   memset(qh, 0, sizeof(*qh));
 
   /* Try to create the initial qtd for this qh */
-  qh->qtd_alt = _create_ehci_qtd_raw(ehci, NULL, NULL);
+  qtd = _create_ehci_qtd_raw(ehci, NULL, NULL);
 
-  if (!qh->qtd_alt) {
+  if (!qtd) {
     zfree_fixed(ehci->qh_pool, qh);
     return nullptr;
   }
 
   /* This is not an active qtd */
-  qh->qtd_alt->hw_token &= ~EHCI_QTD_STATUS_ACTIVE;
+  qtd->hw_token &= ~EHCI_QTD_STATUS_ACTIVE;
 
   /* Hardware init for the qh */
   qh->hw_cur_qtd = NULL;
   qh->hw_next = EHCI_FLLP_TYPE_END;
 
   /* Hardware init for the qtd overlay thingy */
-  qh->hw_qtd_next = qh->qtd_alt->qtd_dma_addr;
+  qh->hw_qtd_next = qtd->qtd_dma_addr;
   qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
 
   /* Software init */
   qh->qh_dma = this_dma | EHCI_FLLP_TYPE_QH;
   qh->next = nullptr;
   qh->prev = nullptr;
-  qh->qtd_link = nullptr;
-  qh->qtd_last = nullptr;
+  qh->qtd_link = qtd;
+  qh->qtd_alt = qtd;
 
   if (xfer)
     ehci_init_qh(qh, xfer);
@@ -297,6 +250,18 @@ static size_t _ehci_write_qtd_chain(ehci_hcd_t* ehci, ehci_qtd_t* qtd, ehci_qtd_
   return written_size;
 }
 
+static void _ehci_link_qtds(ehci_qtd_t* a, ehci_qtd_t* b, ehci_qtd_t* alt)
+{
+  a->next = b;
+  a->hw_next = b->qtd_dma_addr;
+
+  printf("Linked qtd!\n");
+
+  /* Set alt descriptor */
+  a->alt_next =     (alt ? alt : NULL);
+  a->hw_alt_next =  (alt ? alt->qtd_dma_addr : EHCI_FLLP_TYPE_END);
+}
+
 int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
 {
   ehci_qtd_t* setup_desc, *stat_desc;
@@ -311,12 +276,23 @@ int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
   if (_ehci_write_qtd_chain(ehci, setup_desc, NULL, ctl, sizeof(*ctl)) != sizeof(*ctl))
     goto dealloc_and_exit;
 
-  /* Link the descriptors */
-  _ehci_qh_link_qtd(qh, setup_desc, true);
-  _ehci_qh_link_qtd(qh, stat_desc, true);
+  stat_desc->hw_token |= EHCI_QTD_IOC | EHCI_QTD_DATA_TOGGLE;
 
-  /* Clean this bitch */
-  _ehci_qh_sanitize_queue(qh);
+  if (xfer->resp_buffer) {
+    // Bind more descriptors to include the data
+    ehci_qtd_t* b = _create_ehci_qtd_raw(ehci, xfer->resp_size, xfer->req_direction == USB_DIRECTION_DEVICE_TO_HOST ? EHCI_QTD_PID_IN : EHCI_QTD_PID_OUT);
+
+    stat_desc->hw_token |= EHCI_QTD_DATA_TOGGLE;
+
+    _ehci_link_qtds(setup_desc, b, stat_desc);
+    _ehci_link_qtds(b, stat_desc, stat_desc);
+  } else
+    _ehci_link_qtds(setup_desc, stat_desc, qh->qtd_alt);
+
+  printf("Did setup!\n");
+  qh->qtd_link = setup_desc;
+  qh->hw_qtd_next = setup_desc->qtd_dma_addr;
+  qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
   return 0;
 
 dealloc_and_exit:
@@ -329,3 +305,11 @@ int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
   kernel_panic("TODO: ehci_init_data_queue");
 }
 
+/*!
+ * @brief: Called right before the usb_xfer is marked completed
+ */
+int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
+{
+  // TODO:
+  return 0;
+}

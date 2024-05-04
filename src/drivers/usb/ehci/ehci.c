@@ -31,14 +31,7 @@ static pci_dev_id_t ehci_pci_ids[] = {
   PCI_DEVID_END,
 };
 
-enum EHCI_INTERRUPT_STS {
-  USBINT = 0,
-  USBERRINT,
-  PORTCHANGE,
-  FLROLLOVER,
-  HOSTSYSERR,
-  INTONAA,
-};
+static int _ehci_remove_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
 
 static inline uint32_t _ehci_get_portsts(void* portreg)
 {
@@ -160,7 +153,7 @@ int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
   if (port >= ehci->portcount)
     return -KERR_INVAL;
 
-  port_sts = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)));
+  port_sts = _ehci_get_portsts(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)));
 
   switch (feature) {
     case USB_FEATURE_PORT_ENABLE:
@@ -178,6 +171,9 @@ int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
     case USB_FEATURE_C_PORT_OVER_CURRENT:
       port_sts |= EHCI_PORTSC_OVERCURRENT_CHANGE;
       break;
+    case USB_FEATURE_C_PORT_RESET:
+      ehci->port_reset_bits &= ~(1 << port);
+      return 0;
   }
 
   mmio_write_dword(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)), port_sts);
@@ -190,73 +186,119 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
   printf("EHCI: entered the ehci polling routine\n");
 
   while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
+
+    if (ehci->transfer_list->m_length == 0)
+      goto yield_and_cycle;
+
     usbsts = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS) & 0x3f;
 
-    for (uint32_t i = 0; i < 6; i++) {
-      if ((usbsts & (1 << i)) != (1 << i))
-        continue;
+    if (usbsts & EHCI_OPREG_USBSTS_USBINT) {
+      printf("EHCI: Finished a transfer!\n");
+    }
 
-      switch (i) {
-        case USBINT:
-          printf("EHCI: Finished a transfer!\n");
-          break;
-        case USBERRINT:
-          printf("EHCI: Got a transfer error!\n");
-          break;
-        case PORTCHANGE:
-          printf("EHCI: Port change occured!\n");
-          break;
-        case FLROLLOVER:
-          printf("EHCI: Frame List rollover!\n");
-          break;
-        case HOSTSYSERR:
-          printf("EHCI: Host system error (yikes)!\n");
-          break;
-        case INTONAA:
-          printf("EHCI: Advanced the async qh!\n");
-          break;
-      }
+    if (usbsts & EHCI_OPREG_USBSTS_USBERRINT) {
+      printf("EHCI: Got a transfer error!\n");
+    }
+    
+    if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE) {
+      printf("EHCI: Port change occured!\n");
+    }
 
-      /* Clear the bit */
-      //usbsts &= ~(1 << i);
+    if (usbsts & EHCI_OPREG_USBSTS_FLROLLOVER) {
+      printf("EHCI: Frame List rollover!\n");
+    }
+
+    if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR) {
+      printf("EHCI: Host system error (yikes)!\n");
+    }
+
+    if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
+      printf("EHCI: Advanced the async qh!\n");
     }
 
     mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
 
+yield_and_cycle:
     scheduler_yield();
   }
   return 0;
 }
 
-static int ehci_transfer_finish(ehci_hcd_t* ehci)
+static void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 {
   ehci_qtd_t* c_qtd;
+
+  c_qtd = xfer->qh->qtd_link;
+
+  //printf("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
+
+  /* Loop over the descriptors to check the status of the transfer */
+  do {
+    /* Still busy */
+    if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)
+      break;
+
+    /* Error occured in the transfer! Yikes */
+    if (c_qtd->hw_token & EHCI_QTD_STATUS_ERRMASK) {
+      xfer->xfer->xfer_flags |= (USB_XFER_FLAG_ERROR | USB_XFER_FLAG_DONE);
+      break;
+    }
+
+    /* Reached the end, transfer done */
+    if (c_qtd->hw_next == EHCI_FLLP_TYPE_END) {
+      xfer->xfer->xfer_flags |= USB_XFER_FLAG_DONE;
+      break;
+    }
+
+    c_qtd = c_qtd->next;
+  } while(c_qtd);
+}
+
+static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
+{
   ehci_xfer_t* c_xfer;
 
   while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
 
     /* Spin until there are transfers to process */
     while (ehci->transfer_list->m_length == 0)
-      scheduler_yield();
+      goto yield;
 
     mutex_lock(ehci->transfer_lock);
 
     FOREACH(i, ehci->transfer_list) {
       c_xfer = i->data;
-      c_qtd = c_xfer->qh->qtd_link;
-      //printf("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
 
-      do {
-        if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)
-          break;
+      /* Check how the transfer is going */
+      _ehci_check_xfer_status(c_xfer);
 
-        printf("QTD 0x%x inactive!\n", c_qtd->hw_token);
-        c_qtd = c_qtd->next;
-      } while(c_qtd);
+      /* Not done yet, continue */
+      if ((c_xfer->xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE)
+        break;
     }
 
-    mutex_unlock(ehci->transfer_lock);
+    /* No finished transfers, cycle */
+    if (!c_xfer || !usb_xfer_is_done(c_xfer->xfer))
+      goto unlock_and_yield;
 
+    /* Remove from the local transfer list */
+    list_remove_ex(ehci->transfer_list, c_xfer);
+
+    printf("EHCI: Finished a transfer\n");
+    ehci_xfer_finalise(ehci, c_xfer);
+
+    /* Transmit the transfer complete */
+    (void)usb_xfer_complete(c_xfer->xfer);
+
+    /* Remove from the async link */
+    _ehci_remove_async_qh(ehci, c_xfer->qh);
+
+    /* Destroy our local transfer struct */
+    destroy_ehci_xfer(c_xfer);
+
+unlock_and_yield:
+    mutex_unlock(ehci->transfer_lock);
+yield:
     scheduler_yield();
   }
 
@@ -302,7 +344,7 @@ static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
     if ((legsup & EHCI_LEGSUP_BIOSOWNED) == 0)
       return 0;
 
-    mdelay(50000);
+    mdelay(500);
   } while (takeover_tries++ < 16);
 
   if ((legsup & EHCI_LEGSUP_OSOWNED) == 1)
@@ -494,7 +536,7 @@ static int ehci_setup(usb_hcd_t* hcd)
 
   ehci->transfer_list = init_list();
   ehci->transfer_lock = create_mutex(NULL);
-  ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish, (uintptr_t)ehci);
+  ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
 
   printf("Done with EHCI initialization\n");
   return 0;
@@ -585,20 +627,39 @@ usb_hcd_hw_ops_t ehci_hw_ops = {
   .hcd_stop = ehci_stop,
 };
 
+static int _ehci_remove_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
+{
+  /* Solve the back of the queuehead */
+  if (qh->prev) {
+    qh->prev->next = qh->next;
+    qh->prev->hw_next = qh->hw_next;
+  }
+
+  /* And the front */
+  if (qh->next)
+    qh->next->prev = qh->prev;
+
+  /* Full unlink */
+  qh->next = nullptr;
+  qh->prev = nullptr;
+
+  return 0;
+}
+
+
 static inline void _ehci_try_enable_async(ehci_hcd_t* ehci)
 {
   uint32_t cmd;
   uint32_t sts;
 
   sts = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS);
+  cmd = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
 
   /* Already enabled */
   if ((sts & EHCI_OPREG_USBSTS_ASSTATUS) == EHCI_OPREG_USBSTS_ASSTATUS)
     return;
 
-  cmd = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
-
-  cmd |= EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_INT_ON_ASYNC_ADVANCE_DB;
+  cmd |= EHCI_OPREG_USBCMD_ASYNC_SCHEDULE_ENABLE | EHCI_OPREG_USBCMD_INT_ON_ASYNC_ADVANCE_DB;
   mmio_write_dword(ehci->opregs, cmd);
 }
 
@@ -647,6 +708,8 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 
   if (xfer->req_devaddr == roothub->device->dev_addr)
     return ehci_process_hub_xfer(roothub, xfer);
+
+  printf("EHCI: Recieved transfer %d!\n", xfer->req_direction);
 
   /* Process the EHCI transfer */
   qh = create_ehci_qh(ehci, xfer);
