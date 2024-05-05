@@ -76,7 +76,7 @@ static inline void _try_allocate_qtd_buffer(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
   c_phys = kmem_to_phys(nullptr, (vaddr_t)qtd->buffer);
 
   for (uint32_t i = 0; i < 5; i++) {
-    qtd->hw_buffer[i] = i ? (c_phys & EHCI_QTD_PAGE_MASK) : c_phys;
+    qtd->hw_buffer[i] = (c_phys & EHCI_QTD_PAGE_MASK);
     qtd->hw_buffer_hi[i] = NULL;
 
     c_phys += SMALL_PAGE_SIZE;
@@ -107,9 +107,6 @@ static ehci_qtd_t* _create_ehci_qtd_raw(ehci_hcd_t* ehci, size_t bsize, uint8_t 
     EHCI_QTD_STATUS_ACTIVE;
 
   ret->qtd_dma_addr = this_dma;
-  ret->prev = nullptr;
-  ret->next = nullptr;
-  ret->buffer = nullptr;
   ret->len = bsize;
 
   _try_allocate_qtd_buffer(ehci, ret);

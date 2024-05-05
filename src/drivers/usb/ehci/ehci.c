@@ -205,6 +205,24 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
     
     if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE) {
       printf("EHCI: Port change occured!\n");
+
+      for (uint32_t i = 0; i < ehci->portcount; i++) {
+        uint32_t port = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (i * sizeof(uint32_t)));
+
+        if ((port & EHCI_PORTSC_CONNECT_CHANGE) != EHCI_PORTSC_CONNECT_CHANGE)
+          continue;
+
+        if ((port & EHCI_PORTSC_CONNECT) != EHCI_PORTSC_CONNECT)
+          continue;
+
+        /* TODO: Check if we're actually up and running */
+        //char name_buf[16] = { NULL };
+
+        //sfmt(name_buf, "usbdev%d", port);
+
+        /* Create a USB device on port connect */
+        //(void)create_usb_device(ehci->hcd->roothub, USB_HIGHSPEED, port, name_buf);
+      }
     }
 
     if (usbsts & EHCI_OPREG_USBSTS_FLROLLOVER) {

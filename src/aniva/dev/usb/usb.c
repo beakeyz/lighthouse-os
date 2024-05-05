@@ -417,7 +417,6 @@ int usb_hub_enumerate(usb_hub_t* hub)
       error = _handle_port_connection(hub, i);
   }
 
-  kernel_panic("Did enumerate");
   return 0;
 }
 
