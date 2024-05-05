@@ -74,9 +74,9 @@ int init_usb_device(usb_device_t* device)
 
   error = usb_device_submit_ctl(device, USB_TYPE_STANDARD | USB_TYPE_DEV_IN, USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8, 0, 8, &device->desc, 8);
   
-  printf("Trying to got device descriptor\n");
   if (error)
-    return -1;
+    kernel_panic("Failed to get descriptor?");
+    // return error;
 
   printf("Got device descriptor!\n");
   printf("len: %d\n", device->desc.length);

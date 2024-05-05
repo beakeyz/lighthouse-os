@@ -153,6 +153,12 @@ int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
   if (port >= ehci->portcount)
     return -KERR_INVAL;
 
+  switch (feature) {
+    case USB_FEATURE_C_PORT_RESET:
+      ehci->port_reset_bits &= ~(1 << port);
+      return 0;
+  }
+
   port_sts = _ehci_get_portsts(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)));
 
   switch (feature) {
@@ -171,9 +177,6 @@ int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
     case USB_FEATURE_C_PORT_OVER_CURRENT:
       port_sts |= EHCI_PORTSC_OVERCURRENT_CHANGE;
       break;
-    case USB_FEATURE_C_PORT_RESET:
-      ehci->port_reset_bits &= ~(1 << port);
-      return 0;
   }
 
   mmio_write_dword(ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)), port_sts);
@@ -206,6 +209,15 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 
     if (usbsts & EHCI_OPREG_USBSTS_FLROLLOVER) {
       printf("EHCI: Frame List rollover!\n");
+
+      ehci_qh_t* epic;
+
+      epic = ehci->async;
+
+      do {
+        printf("Async 0x%llx thing (alt: 0x%llx, next: 0x%llx)\n", epic->qh_dma, epic->hw_qtd_alt_next, epic->hw_next);
+        epic = epic->next;
+      } while (epic && epic != ehci->async);
     }
 
     if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR) {
@@ -230,10 +242,10 @@ static void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 
   c_qtd = xfer->qh->qtd_link;
 
-  //printf("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
-
   /* Loop over the descriptors to check the status of the transfer */
   do {
+    //printf("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
+
     /* Still busy */
     if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)
       break;
@@ -536,6 +548,7 @@ static int ehci_setup(usb_hcd_t* hcd)
 
   ehci->transfer_list = init_list();
   ehci->transfer_lock = create_mutex(NULL);
+  ehci->async_lock = create_mutex(NULL);
   ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
 
   printf("Done with EHCI initialization\n");
@@ -629,6 +642,8 @@ usb_hcd_hw_ops_t ehci_hw_ops = {
 
 static int _ehci_remove_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
 {
+  mutex_lock(ehci->async_lock);
+
   /* Solve the back of the queuehead */
   if (qh->prev) {
     qh->prev->next = qh->next;
@@ -642,7 +657,9 @@ static int _ehci_remove_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
   /* Full unlink */
   qh->next = nullptr;
   qh->prev = nullptr;
+  qh->hw_next = ehci->async->qh_dma;
 
+  mutex_unlock(ehci->async_lock);
   return 0;
 }
 
@@ -670,7 +687,7 @@ static inline void _ehci_try_enable_async(ehci_hcd_t* ehci)
  */
 static int _ehci_add_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
 {
-  //mutex_lock(ehci->queue_lock);
+  mutex_lock(ehci->async_lock);
 
   qh->hw_next = ehci->async->qh_dma;
   qh->next= ehci->async;
@@ -684,7 +701,7 @@ static int _ehci_add_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
   /* Maybe enable */
   _ehci_try_enable_async(ehci);
 
-  //mutex_unlock(ehci->queue_lock);
+  mutex_unlock(ehci->async_lock);
   return 0;
 }
 

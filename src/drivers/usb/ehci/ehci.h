@@ -51,6 +51,7 @@ typedef struct ehci_hcd {
   thread_t* interrupt_polling_thread;
   thread_t* transfer_finish_thread;
   mutex_t* transfer_lock;
+  mutex_t* async_lock;
 } ehci_hcd_t;
 
 extern int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer);
