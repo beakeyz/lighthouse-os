@@ -31,6 +31,7 @@ enum USB_XFER_DIRECTION {
 #define USB_XFER_FLAG_DONE 0x0001
 #define USB_XFER_FLAG_CANCELED 0x0002
 #define USB_XFER_FLAG_ERROR 0x0004
+#define USB_XFER_FLAG_DATA_TGL 0x0008
 
 /*!
  * Generic USB request structure for the 
@@ -80,7 +81,7 @@ static inline bool usb_xfer_is_done(usb_xfer_t* xfer)
   return ((xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE);
 }
 
-usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, void* buffer, uint32_t buffer_size);
+usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, enum USB_XFER_TYPE type, enum USB_XFER_DIRECTION direction, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint32_t endpoint, void* req_buf, uint32_t req_bsize, void* resp_buf, uint32_t resp_bsize);
 
 int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, struct usb_ctlreq* ctl, struct usb_device* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 

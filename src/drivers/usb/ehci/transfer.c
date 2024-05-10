@@ -10,7 +10,9 @@
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
 
-ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh)
+#define EHCI_MAX_PACKETSIZE (4 * SMALL_PAGE_SIZE)
+
+ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh, ehci_qtd_t* data_qtd)
 {
   ehci_xfer_t* e_xfer;
 
@@ -23,6 +25,7 @@ ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh)
 
   e_xfer->xfer = xfer;
   e_xfer->qh = qh;
+  e_xfer->data_qtd = data_qtd;
 
   return e_xfer;
 }
@@ -261,18 +264,42 @@ static void _ehci_link_qtds(ehci_qtd_t* a, ehci_qtd_t* b, ehci_qtd_t* alt)
   a->hw_alt_next =  (alt ? alt->qtd_dma_addr : EHCI_FLLP_TYPE_END);
 }
 
-static void _ehci_xfer_attach_data_qtds(ehci_hcd_t* ehci, size_t bsize, enum USB_XFER_DIRECTION direction, ehci_qtd_t** start, ehci_qtd_t** end)
+static void _ehci_xfer_attach_data_qtds(ehci_hcd_t* ehci, ehci_qtd_t* alt, size_t bsize, enum USB_XFER_DIRECTION direction, ehci_qtd_t** start, ehci_qtd_t** end)
 {
   // Bind more descriptors to include the data
-  ehci_qtd_t* b = _create_ehci_qtd_raw(ehci, bsize, direction == USB_DIRECTION_DEVICE_TO_HOST ? EHCI_QTD_PID_IN : EHCI_QTD_PID_OUT);
+  ehci_qtd_t* b;
+  ehci_qtd_t* _start;
+  ehci_qtd_t* _end;
+  size_t packet_count;
+  size_t c_packet_size;
 
-  b->hw_token |= EHCI_QTD_DATA_TOGGLE;
+  _start = NULL;
+  _end = NULL;
+  packet_count = ALIGN_UP(bsize, EHCI_MAX_PACKETSIZE) / EHCI_MAX_PACKETSIZE;
 
-  *start = b;
-  *end = b;
+  for (size_t i = 0; i < packet_count; i++) {
+    c_packet_size = (bsize - i * EHCI_MAX_PACKETSIZE) % EHCI_MAX_PACKETSIZE;
+
+    printf("Filled a EHCI packet of size: 0x%llx\n", c_packet_size);
+
+    b = _create_ehci_qtd_raw(ehci, c_packet_size, direction == USB_DIRECTION_DEVICE_TO_HOST ? EHCI_QTD_PID_IN : EHCI_QTD_PID_OUT);
+
+    if (!_start)
+      _start = b;
+
+    b->hw_token |= EHCI_QTD_DATA_TOGGLE;
+
+    if (_end)
+      _ehci_link_qtds(_end, b, alt);
+
+    _end = b;
+  }
+
+  *start = _start;
+  *end = _end;
 }
 
-int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
+int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_xfer_t** e_xfer, ehci_qh_t* qh)
 {
   ehci_qtd_t* setup_desc, *stat_desc;
   ehci_qtd_t* data_start, *data_end;
@@ -292,8 +319,9 @@ int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
 
   stat_desc->hw_token |= EHCI_QTD_IOC | EHCI_QTD_DATA_TOGGLE;
 
+  /* If there is a buffer, create a data segment in the packet chain */
   if (xfer->resp_buffer)
-    _ehci_xfer_attach_data_qtds(ehci, xfer->resp_size, xfer->req_direction, &data_start, &data_end);
+    _ehci_xfer_attach_data_qtds(ehci, stat_desc, xfer->resp_size, xfer->req_direction, &data_start, &data_end);
 
   if (data_start != setup_desc)
     _ehci_link_qtds(setup_desc, data_start, qh->qtd_alt);
@@ -304,6 +332,9 @@ int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
   qh->qtd_link = setup_desc;
   qh->hw_qtd_next = setup_desc->qtd_dma_addr;
   qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
+
+  /* Create the EHCI transfer */
+  *e_xfer = create_ehci_xfer(xfer, qh, (data_start != setup_desc) ? data_start : NULL);
   return 0;
 
 dealloc_and_exit:
@@ -311,7 +342,7 @@ dealloc_and_exit:
   return -1;
 }
 
-int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
+int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xfer** e_xfer, ehci_qh_t* qh)
 {
   kernel_panic("TODO: ehci_init_data_queue");
 }
@@ -321,32 +352,51 @@ int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh)
  */
 int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
+  uintptr_t c_buffer_offset;
+  uintptr_t c_read_size;
+  uintptr_t c_total_read_size;
   ehci_qtd_t* c_qtd;
   usb_xfer_t* usb_xfer;
 
+  c_buffer_offset = NULL;
+  c_read_size = NULL;
+  c_total_read_size = NULL;
   usb_xfer = xfer->xfer;
 
   switch (usb_xfer->req_direction) {
     /* Device might have given us info, populate the response buffer */
     case USB_DIRECTION_DEVICE_TO_HOST:
-      c_qtd = xfer->qh->qtd_link;
+      c_qtd = xfer->data_qtd;
       
-      do {
+      while (c_qtd && c_qtd->buffer) {
+        /* Get the buffer size of this descriptor */
+        c_read_size = c_qtd->len - (c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK;
 
-        if (c_qtd->buffer) {
-          usb_device_descriptor_t* desc = c_qtd->buffer;
+        /* Clamp */
+        if ((c_total_read_size + c_read_size) > xfer->xfer->resp_size)
+          c_read_size = (c_total_read_size + c_read_size) - xfer->xfer->resp_size;
 
-          printf("desc len: %d\n", desc->length);
-          printf("desc type: %d\n", desc->type);
+        /* Copy to the response buffer */
+        memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
 
-          kernel_panic("Got a buffer??");
-        }
+        printf("Copied %lld bytes into the buffer!\n", c_read_size);
+
+        /* Update the offsets */
+        c_total_read_size += c_read_size;
+        c_buffer_offset += c_read_size;
+
+        /* Buffer overrun! yikes */
+        if (c_buffer_offset >= xfer->xfer->resp_size)
+          break;
+
+        if (c_qtd->hw_next == EHCI_FLLP_TYPE_END)
+          break;
 
         c_qtd = c_qtd->next;
-      } while (c_qtd);
+      }
 
       break;
-    /* We might have info to the device, check status */
+    /* We have sent info to the device, check status */
     case USB_DIRECTION_HOST_TO_DEVICE:
       break;
   }

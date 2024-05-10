@@ -82,6 +82,10 @@ int init_usb_device(usb_device_t* device)
   printf("len: %d\n", device->desc.length);
   printf("type: %d\n", device->desc.type);
   printf("usb version: %d\n", device->desc.bcd_usb);
+  printf("usb device class: %d\n", device->desc.dev_class);
+  printf("usb device subclass: %d\n", device->desc.dev_subclass);
+  printf("usb device protocol: %d\n", device->desc.dev_prot);
+  printf("usb max packet size: %d\n", device->desc.max_pckt_size);
   
   kernel_panic("hihi");
   return 0;
@@ -162,8 +166,8 @@ static inline int _usb_submit_ctl(usb_hub_t* hub, usb_device_t* target, uint8_t 
     error = -KERR_DEV;
 
 dealloc_and_exit:
-  destroy_doorbell(db);
   release_usb_xfer(xfer);
+  destroy_doorbell(db);
   return error;
 }
 

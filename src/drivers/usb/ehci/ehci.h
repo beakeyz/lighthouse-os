@@ -67,9 +67,6 @@ extern void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
 
 extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 
-extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
-extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
-
 /*
  * Simple wrapper for binding our system-wide usb_xfer struct with an EHCI qh
  * This struct does not own any of the pointers it holds, which means that is
@@ -80,9 +77,13 @@ extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh
 typedef struct ehci_xfer {
   struct usb_xfer* xfer;
   struct ehci_qh* qh;
+  struct ehci_qtd* data_qtd;
 } ehci_xfer_t;
 
-extern ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh);
+extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xfer** e_xfer, ehci_qh_t* qh);
+extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xfer** e_xfer, ehci_qh_t* qh);
+
+extern ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh, ehci_qtd_t* data_qtd);
 extern void destroy_ehci_xfer(ehci_xfer_t* xfer);
 
 extern int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer);

@@ -14,7 +14,20 @@
  *
  * Nothing to add here...
  */
-usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, void* buffer, uint32_t buffer_size)
+usb_xfer_t* create_usb_xfer(
+    struct usb_device* device,
+    kdoorbell_t* completion_db,
+    enum USB_XFER_TYPE type,
+    enum USB_XFER_DIRECTION direction,
+    uint8_t devaddr,
+    uint8_t hubaddr,
+    uint8_t hubport,
+    uint32_t endpoint,
+    void* req_buf,
+    uint32_t req_bsize,
+    void* resp_buf,
+    uint32_t resp_bsize
+)
 {
   usb_xfer_t* request;
 
@@ -26,8 +39,18 @@ usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_d
 
   request->ref = 1;
   request->device = device;
-  request->req_buffer = buffer;
-  request->req_size = buffer_size;
+  request->req_direction = direction;
+  request->req_type = type;
+
+  request->req_devaddr = devaddr;
+  request->req_hubaddr = hubaddr;
+  request->req_hubport = hubport;
+  request->req_endpoint = endpoint;
+
+  request->req_buffer = req_buf;
+  request->req_size = req_bsize;
+  request->resp_buffer = resp_buf;
+  request->resp_size = resp_bsize;
   request->req_door = kmalloc(sizeof(kdoor_t));
 
   /* Initialize the door */
@@ -41,6 +64,9 @@ usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_d
 
 static void destroy_usb_req(usb_xfer_t* req)
 {
+  if (req->req_door && req->req_door->m_bell)
+    unregister_kdoor(req->req_door->m_bell, req->req_door);
+
   kfree(req->req_door);
   deallocate_usb_xfer(req);
 }
@@ -50,8 +76,15 @@ static void destroy_usb_req(usb_xfer_t* req)
  */
 int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_device_t* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
-  kdoorbell_t* db = create_doorbell(1, NULL);
-  usb_xfer_t* xfer = create_usb_xfer(target, db, NULL, NULL);
+  enum USB_XFER_DIRECTION dir;
+  kdoorbell_t* db;
+  usb_xfer_t* xfer;
+
+  dir = USB_DIRECTION_HOST_TO_DEVICE;
+
+  /* Detect the transfer direction */
+  if ((reqtype & USB_TYPE_DEV_IN) == USB_TYPE_DEV_IN)
+    dir = USB_DIRECTION_DEVICE_TO_HOST;
 
   *ctl = (usb_ctlreq_t) {
     .request_type = reqtype,
@@ -61,21 +94,9 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_
     .length = len,
   };
 
-  xfer->resp_buffer = respbuf;
-  xfer->resp_size = respbuf_len;
-  xfer->req_direction = USB_DIRECTION_HOST_TO_DEVICE;
+  db = create_doorbell(1, NULL);
+  xfer = create_usb_xfer(target, db, USB_CTL_XFER, dir, devaddr, hubaddr, hubport, 0, ctl, sizeof(*ctl), respbuf, respbuf_len);
 
-  /* Detect the transfer direction */
-  if ((reqtype & USB_TYPE_DEV_IN) == USB_TYPE_DEV_IN)
-    xfer->req_direction = USB_DIRECTION_DEVICE_TO_HOST;
-
-  xfer->req_type = USB_CTL_XFER;
-  xfer->req_buffer = ctl;
-  xfer->req_size = sizeof(*ctl);
-  xfer->req_devaddr = devaddr;
-  xfer->req_hubaddr = hubaddr;
-  xfer->req_hubport = hubport;
-  xfer->req_endpoint = 0;
   xfer->req_max_packet_size = 8;
 
   *pxfer = xfer;

@@ -751,20 +751,18 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 
   switch(xfer->req_type) {
     case USB_CTL_XFER:
-      error = ehci_init_ctl_queue(ehci, xfer, qh);
+      error = ehci_init_ctl_queue(ehci, xfer, &e_xfer, qh);
       break;
     default:
-      error = ehci_init_data_queue(ehci, xfer, qh);
+      error = ehci_init_data_queue(ehci, xfer, &e_xfer, qh);
       break;
   }
 
-  e_xfer = create_ehci_xfer(xfer, qh);
-
-  if (!e_xfer)
+  if (error || !e_xfer)
     goto destroy_and_exit;
 
   /* Enqueue */
-  ehci_enq_xfer(ehci, e_xfer);
+  error = ehci_enq_xfer(ehci, e_xfer);
 
   if (error)
     goto destroy_and_exit;
