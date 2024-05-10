@@ -3,6 +3,23 @@
 #include "ehci.h"
 #include <dev/usb/hcd.h>
 
+static usb_device_descriptor_t __ehci_rh_descriptor = {
+  .type = USB_DT_DEVICE,
+  .length = sizeof(usb_device_descriptor_t),
+  .bcd_usb = 0x200,
+  .dev_class = 0x9,
+  .dev_subclass = 0,
+  .dev_prot = 0,
+  .max_pckt_size = 64,
+  .vendor_id = 0,
+  .product_id = 0,
+  .bcd_device = 0x200,
+  .manufacturer = 1,
+  .product = 2,
+  .serial_num = 0,
+  .config_count = 1,
+};
+
 int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
 {
   int error;
@@ -56,6 +73,24 @@ int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
         break;
 
       error = ehci_set_port_feature(ehci, usbctl->index-1, usbctl->value);
+      break;
+    case USB_REQ_GET_DESCRIPTOR:
+      if (!xfer->resp_buffer || !xfer->resp_size)
+        break;
+
+      uint32_t cpy_size = xfer->resp_size;
+
+      switch (usbctl->value >> 8) {
+        case USB_DT_DEVICE:
+          if (cpy_size > sizeof(__ehci_rh_descriptor))
+            cpy_size = sizeof(__ehci_rh_descriptor);
+
+          /* Copy the descriptor */
+          memcpy(xfer->resp_buffer, &__ehci_rh_descriptor, cpy_size);
+          error = 0;
+          break;
+
+      }
       break;
     default:
       break;

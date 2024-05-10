@@ -72,6 +72,11 @@ typedef struct usb_device {
   struct usb_hub* hub;
 } usb_device_t;
 
+static inline bool usb_device_is_hub(usb_device_t* device)
+{
+  return device->desc.dev_class == 0x9;
+}
+
 usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name);
 void destroy_usb_device(usb_device_t* device);
 struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
@@ -97,6 +102,7 @@ enum USB_HUB_TYPE {
 typedef struct usb_hub {
   struct usb_device* device;
   struct dgroup* devgroup;
+  struct usb_hub_descriptor hubdesc;
 
   enum USB_HUB_TYPE type;
 
