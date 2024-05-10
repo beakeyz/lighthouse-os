@@ -58,6 +58,7 @@ int init_usb_device(usb_device_t* device)
 {
   int tries;
   int error;
+  uint32_t hubidx;
 
   tries = 4;
 
@@ -87,7 +88,16 @@ int init_usb_device(usb_device_t* device)
   printf("usb device protocol: %d\n", device->desc.dev_prot);
   printf("usb max packet size: %d\n", device->desc.max_pckt_size);
   
-  kernel_panic("hihi");
+  /* Regular device, yay */
+  if (!usb_device_is_hub(device))
+    return 0;
+
+  hubidx = 0;
+
+  /* Hub, shit */
+  usb_hub_t* hub = create_usb_hub(device->hub->hcd, device->hub->type, device->hub, hubidx, device->dev_addr, 0);
+
+  device_register(hub->device->device, hub->parent->devgroup); 
   return 0;
 }
 
@@ -193,8 +203,9 @@ int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, ui
  */
 usb_hub_t* create_usb_hub(struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount)
 {
-  dgroup_t* parent_group;
+  int error;
   usb_hub_t* hub;
+  dgroup_t* parent_group;
   char hubname[8] = { NULL };
   char hubgroupname[4] = { NULL};
 
@@ -240,6 +251,23 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t
 
   if (!hub->device)
     goto destroy_and_exit;
+
+  error = usb_device_submit_ctl(
+      hub->device,
+      USB_REQ_GET_DESCRIPTOR,
+      0,
+      USB_DT_HUB << 8,
+      0,
+      sizeof(hub->hubdesc),
+      &hub->hubdesc,
+      sizeof(hub->hubdesc)
+    );
+
+  if (error)
+    goto destroy_and_exit;
+
+  if (!portcount)
+    hub->portcount = hub->hubdesc.portcount;
 
   return hub;
 

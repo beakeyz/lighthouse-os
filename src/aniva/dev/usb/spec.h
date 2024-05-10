@@ -96,6 +96,7 @@ typedef struct usb_ctlreq {
 #define USB_DT_RPIPE 0x22
 #define USB_DT_CS_RADIO_CONTROL	0x23
 #define USB_DT_PIPE_USAGE 0x24
+#define USB_DT_HUB 0x29
 #define	USB_DT_SS_ENDPOINT_COMP	0x30
 #define	USB_DT_SSP_ISOC_ENDPOINT_COMP 0x31
 
@@ -122,6 +123,36 @@ typedef struct usb_device_descriptor {
   uint8_t config_count;
 } __attribute__((packed)) usb_device_descriptor_t;
 
+typedef struct usb_device_qualifier_descriptor {
+  usb_descriptor_hdr_t hdr;
+  uint16_t bcd_usb;
+  uint8_t dev_class;
+  uint8_t dev_subclass;
+  uint8_t dev_prot;
+  uint8_t max_pckt_size;
+  uint8_t config_count;
+  uint8_t reserved;
+} __attribute__((packed)) usb_device_qualifier_descriptor_t;
+
+typedef struct usb_configuration_descriptor {
+  usb_descriptor_hdr_t hdr;
+  uint16_t total_len;
+  uint8_t if_num;
+  uint8_t config_value;
+  uint8_t config_index;
+  uint8_t bm_attr;
+  uint8_t max_power_mA;
+} __attribute__((packed)) usb_configuration_descriptor_t;
+
+struct usb_hub_descriptor {
+  usb_descriptor_hdr_t hdr;
+  uint8_t portcount;
+  uint16_t characteristics;
+  uint8_t power_on_to_power_good;
+  uint8_t max_power_mA;
+  uint8_t removeable;
+  uint8_t power_ctl_mask;
+} __attribute__((packed)) usb_hub_descriptor_t;
 /*
  * Port status
  */
