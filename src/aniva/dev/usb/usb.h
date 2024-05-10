@@ -72,7 +72,7 @@ typedef struct usb_device {
   struct usb_hub* hub;
 } usb_device_t;
 
-usb_device_t* create_usb_device(struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name);
+usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name);
 void destroy_usb_device(usb_device_t* device);
 struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
 

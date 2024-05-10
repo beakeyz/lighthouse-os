@@ -87,7 +87,6 @@ int init_usb_device(usb_device_t* device)
   printf("usb device protocol: %d\n", device->desc.dev_prot);
   printf("usb max packet size: %d\n", device->desc.max_pckt_size);
   
-  kernel_panic("hihi");
   return 0;
 }
 
@@ -95,16 +94,16 @@ int init_usb_device(usb_device_t* device)
  * @brief Allocate and initialize a generic USB device
  *
  */
-usb_device_t* create_usb_device(struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name)
+usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name)
 {
   dgroup_t* group;
   usb_device_t* device;
 
-  if (!hub)
+  if (!hcd)
     return nullptr;
 
   /* Can't have this shit right */
-  if (hub_port >= hub->portcount)
+  if (hub && hub_port >= hub->portcount)
     return nullptr;
 
   device = kmalloc(sizeof(*device));
@@ -120,8 +119,11 @@ usb_device_t* create_usb_device(struct usb_hub* hub, enum USB_SPEED speed, uint8
   device->hub_port = hub_port;
   device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
 
-  /* Give ourselves a device address */
-  usb_hcd_alloc_devaddr(hub->hcd, &device->dev_addr);
+  /* 
+   * Give ourselves a device address if we are on a hub, otherwise
+   * we're at device address zero (we assume we are the roothub device in this case)
+   */
+  usb_hcd_alloc_devaddr(hcd, &device->dev_addr);
 
   group = _root_usbhub_group;
 
@@ -236,7 +238,7 @@ usb_hub_t* create_usb_hub(struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t
   memset(hub->ports, 0, portcount * sizeof(usb_port_t));
 
   /* Asks the host controller for a device descriptor */
-  hub->device = create_usb_device(hub, USB_HIGHSPEED, hubidx, hubname);
+  hub->device = create_usb_device(hcd, parent, USB_HIGHSPEED, hubidx, hubname);
 
   if (!hub->device)
     goto destroy_and_exit;
@@ -361,7 +363,7 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
   sfmt(namebuf, "usbdev%d", i); 
 
   /* Create the device backend structs */
-  port->device = create_usb_device(hub, speed, i, namebuf);
+  port->device = create_usb_device(hub->hcd, hub, speed, i, namebuf);
 
   /* Bruh */
   if (!port->device)

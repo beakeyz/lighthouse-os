@@ -6,7 +6,8 @@ CMDLINE line;
 
 static const char* _ls_get_target_path()
 {
-  return "Runtime/User";
+  //return "Runtime/User";
+  return "Dev/usb/0";
 }
 
 static void _ls_print_direntry(DirEntry* entry)
