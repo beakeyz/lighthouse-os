@@ -1,5 +1,6 @@
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
+#include "drivers/usb/ehci/ehci_spec.h"
 #include "ehci.h"
 #include <dev/usb/hcd.h>
 
@@ -20,9 +21,23 @@ static usb_device_descriptor_t __ehci_rh_descriptor = {
   .config_count = 1,
 };
 
+static usb_hub_descriptor_t __ehci_rh_hub_descriptor = {
+  .hdr = {
+    .type = USB_DT_HUB,
+    .length = sizeof(__ehci_rh_hub_descriptor)
+  },
+  .portcount = 16,
+  .characteristics = 0,
+  .power_stabilize_delay_2ms = 0,
+  .max_power_mA = 0,
+  .removeable = 0,
+  .power_ctl_mask = 0xff,
+};
+
 int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
 {
   int error;
+  uint32_t idx;
   ehci_hcd_t* ehci;
   usb_ctlreq_t* usbctl;
 
@@ -43,6 +58,10 @@ int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
   /* Fail by default */
   error = -KERR_INVAL;
 
+  idx = (usbctl->index-1) & 0xff;
+  if (idx >= EHCI_HCD_PORTSMAX)
+    idx = 0;
+
   printf("Got EHCI Roothub transfer of type %d\n", usbctl->request);
 
   switch (usbctl->request) {
@@ -59,20 +78,20 @@ int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
       error = KERR_NONE;
 
       if (usbctl->index)
-        error = ehci_get_port_sts(ehci, usbctl->index-1, xfer->resp_buffer);
+        error = ehci_get_port_sts(ehci, idx, xfer->resp_buffer);
 
       break;
     case USB_REQ_CLEAR_FEATURE:
       if (!usbctl->index)
         break;
 
-      error = ehci_clear_port_feature(ehci, usbctl->index-1, usbctl->value);
+      error = ehci_clear_port_feature(ehci, idx, usbctl->value);
       break;
     case USB_REQ_SET_FEATURE:
       if (!usbctl->index)
         break;
 
-      error = ehci_set_port_feature(ehci, usbctl->index-1, usbctl->value);
+      error = ehci_set_port_feature(ehci, idx, usbctl->value);
       break;
     case USB_REQ_GET_DESCRIPTOR:
       if (!xfer->resp_buffer || !xfer->resp_size)
@@ -89,7 +108,17 @@ int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer)
           memcpy(xfer->resp_buffer, &__ehci_rh_descriptor, cpy_size);
           error = 0;
           break;
+        case USB_DT_HUB:
+          if (cpy_size > sizeof(__ehci_rh_hub_descriptor))
+            cpy_size = sizeof(__ehci_rh_hub_descriptor);
 
+          /* Update the portcount */
+          __ehci_rh_hub_descriptor.portcount = ehci->portcount;
+
+          /* Copy the descriptor */
+          memcpy(xfer->resp_buffer, &__ehci_rh_hub_descriptor, cpy_size);
+          error = 0;
+          break;
       }
       break;
     default:

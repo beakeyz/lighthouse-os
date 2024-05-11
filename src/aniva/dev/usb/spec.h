@@ -144,11 +144,11 @@ typedef struct usb_configuration_descriptor {
   uint8_t max_power_mA;
 } __attribute__((packed)) usb_configuration_descriptor_t;
 
-struct usb_hub_descriptor {
+typedef struct usb_hub_descriptor {
   usb_descriptor_hdr_t hdr;
   uint8_t portcount;
   uint16_t characteristics;
-  uint8_t power_on_to_power_good;
+  uint8_t power_stabilize_delay_2ms;
   uint8_t max_power_mA;
   uint8_t removeable;
   uint8_t power_ctl_mask;

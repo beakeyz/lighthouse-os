@@ -69,6 +69,7 @@ typedef struct usb_device {
 
   /* Parent hub this device is located on */
   struct device* device;
+  struct usb_hcd* hcd;
   struct usb_hub* hub;
 } usb_device_t;
 
@@ -80,6 +81,7 @@ static inline bool usb_device_is_hub(usb_device_t* device)
 usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name);
 void destroy_usb_device(usb_device_t* device);
 struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
+int usb_device_get_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize);
 
 int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 
@@ -94,6 +96,10 @@ enum USB_HUB_TYPE {
   USB_HUB_TYPE_UHCI,
   USB_HUB_TYPE_XHCI,
 };
+
+#define USB_HC_PORT 0
+/* This is the port of our roothub */
+#define USB_ROOTHUB_PORT 1
 
 /*
  * Every hub is a usb device but not every
@@ -113,12 +119,11 @@ typedef struct usb_hub {
   struct usb_hcd* hcd;
 } usb_hub_t;
 
-usb_hub_t* create_usb_hub(struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, uint8_t hubidx, uint8_t d_addr, uint32_t portcount);
+int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, usb_device_t* device, uint32_t portcount);
 int init_usb_device(usb_device_t* device);
 void destroy_usb_hub(usb_hub_t* hub);
 
-int usb_hub_submit_default_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
-int usb_hub_submit_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
+int usb_hub_submit_hc_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_enumerate(usb_hub_t* hub);
 
 /*

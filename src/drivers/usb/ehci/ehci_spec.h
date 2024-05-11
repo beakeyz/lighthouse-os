@@ -3,6 +3,8 @@
 
 #include <libk/stddef.h>
 
+#define EHCI_HCD_PORTSMAX 15
+
 /* The EHCI USBBASE is on BAR0 */
 #define EHCI_PCI_USBBASE_BARNUM 0
 

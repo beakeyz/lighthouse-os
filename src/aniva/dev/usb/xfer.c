@@ -94,6 +94,11 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_
     .length = len,
   };
 
+  if (target->speed == USB_HIGHSPEED || target->speed == USB_SUPERSPEED) {
+    hubaddr = target->dev_addr;
+    hubport = target->hub_port + 1;
+  }
+
   db = create_doorbell(1, NULL);
   xfer = create_usb_xfer(target, db, USB_CTL_XFER, dir, devaddr, hubaddr, hubport, 0, ctl, sizeof(*ctl), respbuf, respbuf_len);
 
@@ -131,21 +136,21 @@ int usb_xfer_complete(usb_xfer_t* xfer)
  *
  * This assumes the fields in @xfer are setup correctly
  */
-int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hub* hub)
+int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hcd* hcd)
 {
   int error; 
 
-  if (!hub || !hub->hcd)
+  if (!hcd)
     return -KERR_INVAL;
 
-  if (!hub->hcd->io_ops || !hub->hcd->io_ops->enq_request)
+  if (!hcd->io_ops || !hcd->io_ops->enq_request)
     return -KERR_INVAL;
 
-  mutex_lock(hub->hcd->hcd_lock);
+  mutex_lock(hcd->hcd_lock);
 
-  error = hub->hcd->io_ops->enq_request(hub->hcd, xfer);
+  error = hcd->io_ops->enq_request(hcd, xfer);
 
-  mutex_unlock(hub->hcd->hcd_lock);
+  mutex_unlock(hcd->hcd_lock);
 
   return error;
 }

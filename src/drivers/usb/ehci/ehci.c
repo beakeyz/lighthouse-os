@@ -9,6 +9,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
@@ -25,6 +26,7 @@
  * 1) This driver does not take into account the endianness of the HC
  */
 
+static uint32_t _ehci_hcd_count;
 static drv_manifest_t* _ehci_driver;
 static pci_dev_id_t ehci_pci_ids[] = {
   PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_EHCI),
@@ -578,7 +580,14 @@ static int ehci_start(usb_hcd_t* hcd)
   uint32_t c_hcstart_spin;
   uint32_t c_tmp;
   ehci_hcd_t* ehci;
+  usb_device_t* ehci_rh_device;
   printf("Starting ECHI controller!\n");
+
+  ehci_rh_device = create_usb_device(hcd, nullptr, USB_HIGHSPEED, 0, "ehci_rh");
+
+  /* Fuckkk */
+  if (!ehci_rh_device)
+    return -1;
 
   ehci = hcd->private;
 
@@ -603,6 +612,8 @@ static int ehci_start(usb_hcd_t* hcd)
   if (c_hcstart_spin == EHCI_SPINUP_LIMIT) {
     /* Failed to start, yikes */
     printf("EHCI: Failed to start\n");
+
+    destroy_usb_device(ehci_rh_device);
     return -1;
   }
 
@@ -637,7 +648,10 @@ static int ehci_start(usb_hcd_t* hcd)
   mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
 
   /* Create this roothub */
-  hcd->roothub = create_usb_hub(hcd, USB_HUB_TYPE_EHCI, nullptr, 0, 0, ehci->portcount);
+  if (create_usb_hub(&hcd->roothub, hcd, USB_HUB_TYPE_EHCI, nullptr, ehci_rh_device, ehci->portcount))
+    /* No need to destroy the usb device here, since the usb hub owns that memory now and
+       create_usb_hub will clean up any memory if it fails */
+    return -1;
 
   /* Enumerate the hub */
   usb_hub_enumerate(hcd->roothub);
@@ -731,6 +745,8 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
   ehci_xfer_t* e_xfer;
   usb_hub_t* roothub;
 
+  printf("EHCI: Recieved transfer %d!\n", xfer->req_direction);
+
   /*
    * This may happen when we're trying to create the EHCI roothub for this hcd. Should be okay
    */
@@ -743,8 +759,6 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 
   if (xfer->req_devaddr == roothub->device->dev_addr)
     return ehci_process_hub_xfer(roothub, xfer);
-
-  printf("EHCI: Recieved transfer %d!\n", xfer->req_direction);
 
   /* Process the EHCI transfer */
   qh = create_ehci_qh(ehci, xfer);
@@ -811,13 +825,18 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
 {
   ehci_hcd_t* ehci;
   usb_hcd_t* hcd;
+  char hcd_name[16] = { 0 };
+
+  /* Huh */
+  if (sfmt(hcd_name, "ehci_hcd%d", _ehci_hcd_count++))
+    return -1;
 
   printf("Found a EHCI device! {\n\tvendorid=0x%x,\n\tdevid=0x%x,\n\tclass=0x%x,\n\tsubclass=0x%x\n}\n", device->vendor_id, device->dev_id, device->class, device->subclass);
 
   /* Enable the PCI device */
   pci_device_enable(device);
 
-  hcd = create_usb_hcd(_ehci_driver, device, "ehci_hcd", NULL);
+  hcd = create_usb_hcd(_ehci_driver, device, hcd_name, NULL);
 
   if (!hcd)
     return -KERR_NOMEM;
@@ -853,6 +872,7 @@ pci_driver_t ehci_pci_driver = {
 
 int ehci_init(drv_manifest_t* this)
 {
+  _ehci_hcd_count = 0;
   _ehci_driver = this;
   register_pci_driver(&ehci_pci_driver);
   return 0;
@@ -860,6 +880,7 @@ int ehci_init(drv_manifest_t* this)
 
 int ehci_exit()
 {
+  kernel_panic("TODO: Remove all the child devices created by this driver");
   unregister_pci_driver(&ehci_pci_driver);
   return 0;
 }
