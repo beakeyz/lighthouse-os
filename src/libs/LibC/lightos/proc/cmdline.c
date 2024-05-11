@@ -85,6 +85,20 @@ close_handles_and_exit:
   return error;
 }
 
+int __prepare_argv()
+{
+  __this_cmdline.argc = 1;
+
+  for (uint32_t i = 1; i < strlen(__this_cmdline.raw); i++) {
+    if (__this_cmdline.raw[i] == ' ' && __this_cmdline.raw[i-1] != ' ')
+      __this_cmdline.argc++;
+  }
+
+  __this_cmdline.argv = malloc(sizeof(char*) * __this_cmdline.argc);
+
+  return 0;
+}
+
 /*!
  * @brief: Parse the raw commandline
  *
@@ -92,6 +106,51 @@ close_handles_and_exit:
  */
 int __parse_cmdline()
 {
+  uint32_t char_idx, arg_idx;
+  size_t line_len;
+  size_t c_arg_len;
+  const char* prev_arg;
+  const char* c_arg;
+
+  /* Count the arguments and allocate argv */
+  (void)__prepare_argv();
+
+  line_len = strlen(__this_cmdline.raw);
+
+  if (!line_len)
+    return -2;
+  
+  arg_idx = 0;
+  char_idx = 1;
+  c_arg = prev_arg = __this_cmdline.raw;
+
+  do {
+    /* Skip non-spaces */
+    if (c_arg[char_idx] != ' ' && c_arg[char_idx])
+      continue;
+
+    /* If we just landed on a space, pull the prev_arg pointer forwards */
+    if (c_arg[char_idx-1] == ' ') {
+      prev_arg++;
+      continue;
+    }
+
+    /* Found a space! yay */
+    c_arg_len = &c_arg[char_idx] - prev_arg;
+
+    /* Allocate this vector entry */
+    __this_cmdline.argv[arg_idx] = malloc(c_arg_len + 1);
+    /* Zero the buffer */
+    memset(__this_cmdline.argv[arg_idx], 0, c_arg_len + 1);
+    /* Copy the string */
+    strncpy(__this_cmdline.argv[arg_idx], prev_arg, c_arg_len);
+
+    /* Goto next argument */
+    arg_idx++;
+
+    /* Set the prev_arg pointer */
+    prev_arg = &c_arg[char_idx+1];
+  } while (c_arg[char_idx++]);
 
   return 0;
 }

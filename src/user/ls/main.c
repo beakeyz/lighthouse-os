@@ -6,8 +6,17 @@ CMDLINE line;
 
 static const char* _ls_get_target_path()
 {
-  //return "Runtime/User";
-  return "Dev/usb/0";
+  for (uint32_t i = 1; i < line.argc; i++) {
+    if (!line.argv[i])
+      continue;
+
+    if (line.argv[i][0] == '-')
+      continue;
+
+    return line.argv[i];
+  }
+
+  return "Dev/usb"; 
 }
 
 static void _ls_print_direntry(DirEntry* entry)
@@ -34,6 +43,8 @@ int main()
 
   if (error)
     return error;
+
+  printf("CMDLINE: %s\n", line.raw);
 
   path = _ls_get_target_path();
 
