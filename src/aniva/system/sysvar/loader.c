@@ -1,5 +1,6 @@
 #include "loader.h"
 #include "fs/file.h"
+#include "lightos/proc/var_types.h"
 #include "mem/heap.h"
 #include <libk/string.h>
 #include "oss/node.h"
@@ -33,6 +34,7 @@ int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct fi
   const char* c_key;
   uintptr_t c_val;
   uintptr_t c_var_offset;
+  uintptr_t c_var_count;
   sysvar_t* loaded_var;
   pvr_file_var_t c_var = { 0 };
   pvr_file_header_t hdr = { 0 };
@@ -42,13 +44,21 @@ int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct fi
   if (!is_header_valid(&hdr))
     return -1;
 
+  /* Init the variable count */
+  c_var_count = 0;
+
+  /* Var buffer starts directly after the header */
   c_var_offset = sizeof(hdr);
 
   /* Fully lock the map during this opperation */
   mutex_lock(node->lock);
 
-  for (uint32_t i = 0; i < hdr.var_count; i++) {
+  for (uint32_t i = 0; c_var_count < hdr.var_count && i < hdr.var_capacity; i++) {
     file_read(file, &c_var, sizeof(c_var), c_var_offset);
+
+    /* Skip unset variables */
+    if (c_var.var_type == SYSVAR_TYPE_UNSET)
+      continue;
 
     pvr_file_valtab_entry_t c_val_entry;
     uint8_t* key_buffer = kmalloc(c_var.key_len);
@@ -99,6 +109,8 @@ int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct fi
         c_var.var_flags, 
         c_val);
 
+    /* Found a variable */
+    c_var_count++;
 cycle:
     kfree(val_buffer);
     kfree(key_buffer);

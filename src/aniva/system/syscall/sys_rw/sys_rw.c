@@ -342,6 +342,7 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, si
     blen = strlen(target_name);
 
   /* Copy */
+  sfmt(namebuffer, "%s%s", target_name, (target_entry.type == DIRENT_TYPE_DIR) ? "/" : "\0");
   strncpy(namebuffer, target_name, blen);
 
   close_direntry(&target_entry);

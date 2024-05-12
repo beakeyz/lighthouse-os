@@ -3,6 +3,7 @@
 
 #include "lightos/handle_def.h"
 #include "lightos/system.h"
+#include <string.h>
 
 typedef struct _DirEntry {
   char name[500];
@@ -11,6 +12,11 @@ typedef struct _DirEntry {
 
   struct _DirEntry* next;
 } DirEntry;
+
+static inline bool direntry_is_dir(DirEntry* dentry)
+{
+  return ((dentry)->name[strlen((dentry)->name)] == '/');
+}
 
 typedef struct {
   HANDLE handle;

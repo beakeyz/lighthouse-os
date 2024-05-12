@@ -12,8 +12,7 @@
  */
 int kterm_do_login(user_profile_t* profile)
 {
-  kterm_set_login(profile);
-  return 0;
+  return kterm_set_login(profile);
 }
 
 int kterm_find_target_profile(user_profile_t** target)
@@ -60,35 +59,34 @@ int kterm_handle_login()
   uint32_t passwd_retries;
   user_profile_t* target_profile = NULL;
 
-  error = kterm_find_target_profile(&target_profile);
-
-  if (error)
-    return error;
-
-  /* If this profile has no password, we can simply login */
-  if (!profile_has_password(target_profile))
-    return kterm_do_login(target_profile);
-
-  passwd_retries = 3;
-
   do {
-    error = kterm_prompt_password(target_profile);
+    error = kterm_find_target_profile(&target_profile);
 
-    if (!error)
-      break;
+    if (error)
+      return error;
 
-    /* Funky delay */
-    mdelay(200);
+    /* If this profile has no password, we can simply login */
+    if (!profile_has_password(target_profile))
+      return kterm_do_login(target_profile);
 
-    kterm_print("That was not quite correct. ");
-    kterm_print(to_string(passwd_retries-1));
-    kterm_println(" tries left!");
+    passwd_retries = 3;
 
-    passwd_retries--;
-  } while (passwd_retries);
+    do {
+      error = kterm_prompt_password(target_profile);
 
-  if (error)
-    return error;
+      if (!error)
+        break;
+
+      /* Funky delay */
+      mdelay(200);
+
+      kterm_print("That was not quite correct. ");
+      kterm_print(to_string(passwd_retries-1));
+      kterm_println(" tries left!");
+
+      passwd_retries--;
+    } while (passwd_retries);
+  } while (error);
 
   return kterm_do_login(target_profile);
 }

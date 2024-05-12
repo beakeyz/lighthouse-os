@@ -17,7 +17,7 @@
 #include <kevent/event.h>
 
 #define SOFTMAX_ACTIVE_PROFILES 4096
-#define DEFAULT_GLOBAL_PVR_PATH "Root/User/global.pvr"
+#define DEFAULT_USER_PVR_PATH "Root/Users/User/user.pvr"
 
 static user_profile_t _admin_profile;
 static user_profile_t _user_profile;
@@ -376,7 +376,7 @@ static void __apply_user_variables()
   /* Default eventname for the keyboard event */
   sysvar_attach(_user_profile.node, "DFLT_KB_EVENT", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("keyboard"));
   /* Path variable to indicate default locations for executables */
-  sysvar_attach(_user_profile.node, "PATH", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/User/Apps"));
+  sysvar_attach(_user_profile.node, "PATH", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"));
   sysvar_attach(_user_profile.node, LIBSPATH_VAR, PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"));
   /* Name of the runtime library */
   sysvar_attach(_user_profile.node, "LIBRT_NAME", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.slb"));
@@ -449,7 +449,7 @@ static int save_default_profiles(kevent_ctx_t* ctx)
 void init_profiles_late(void)
 {
   int error = -1;
-  file_t* f = file_open(DEFAULT_GLOBAL_PVR_PATH);
+  file_t* f = file_open(DEFAULT_USER_PVR_PATH);
 
   if (f)
     error = sysvarldr_load_variables(_user_profile.node, _user_profile.priv_level, f);
@@ -457,7 +457,7 @@ void init_profiles_late(void)
   file_close(f);
 
   if (!error)
-    _user_profile.path = DEFAULT_GLOBAL_PVR_PATH;
+    _user_profile.path = DEFAULT_USER_PVR_PATH;
 
   /* Create an eventhook on shutdown */
   kevent_add_hook("shutdown", "save default profiles", save_default_profiles);

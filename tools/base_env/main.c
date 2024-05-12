@@ -26,7 +26,7 @@ struct profile_var_template base_defaults[] = {
  * Default values for the global profile
  * These include mostly just paths to drivers, kobjects, ect.
  */
-struct profile_var_template global_defaults[] = {
+struct profile_var_template user_defaults[] = {
   VAR_ENTRY("DFLT_LWND_PATH",   SYSVAR_TYPE_STRING, "service/lwnd", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("DFLT_KB_EVENT",    SYSVAR_TYPE_STRING, "keyboard", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("DFLT_ERR_EVENT",   SYSVAR_TYPE_STRING, "error", SYSVAR_FLAG_CONFIG),
@@ -177,6 +177,18 @@ static void init_strtab_buffer(uint32_t buffersize)
   strtab_buffer->bytecount = buffersize - sizeof(*strtab_buffer);
 }
 
+static const char* _get_output_file(int argc, char** argv)
+{
+  for (uint32_t i = 0; i < argc; i++) {
+    if (strncmp(argv[i], "-o", 2) != 0)
+      continue;
+
+    return argv[i+1];
+  }
+
+  return NULL;
+}
+
 /*!
  * @brief: Tool to create .pvr files for lightos 
  *
@@ -208,8 +220,14 @@ static void init_strtab_buffer(uint32_t buffersize)
  */
 int main(int argc, char** argv)
 {
+  const char* output_file;
   size_t cur_offset;
   printf("Welcome to the base_env manager\n");
+
+  output_file = _get_output_file(argc, argv);
+
+  if (!output_file)
+    output_file = "out.pvr";
 
   memset(&pvr_hdr, 0, sizeof(pvr_hdr));
   memcpy((void*)&pvr_hdr.sign, SYSVAR_SIG, 4);
@@ -218,13 +236,13 @@ int main(int argc, char** argv)
   init_valtab_buffer(sizeof(pvr_file_valtab_entry_t) * DEFAULT_VALTAB_CAPACITY);
   init_strtab_buffer(sizeof(pvr_file_strtab_t) + DEFAULT_STRTAB_BYTECOUNT);
 
-  FILE* f = fopen("./test.pvr", "w");
+  FILE* f = fopen(output_file, "w");
 
   if (!f)
     return -1;
 
-  for (uint32_t i = 0; i < (sizeof global_defaults / sizeof global_defaults[0]); i++)
-    pvr_file_add_variable(&global_defaults[i]);
+  for (uint32_t i = 0; i < (sizeof user_defaults / sizeof user_defaults[0]); i++)
+    pvr_file_add_variable(&user_defaults[i]);
 
   /*
    * Write the entire thing to disk
