@@ -48,6 +48,7 @@ enum DIRENT_TYPE {
 };
 
 dir_t* create_dir(struct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
+dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags);
 void destroy_dir(dir_t* dir);
 
 int dir_create_child(dir_t* dir, const char* name);

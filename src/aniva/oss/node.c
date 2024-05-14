@@ -259,36 +259,36 @@ unlock_and_exit:
  *
  * This function does not add entries recursively
  */
-int oss_node_add_node(oss_node_t* node, struct oss_node* obj)
+int oss_node_add_node(oss_node_t* target, struct oss_node* node)
 {
   int error;
   oss_node_entry_t* entry;
 
-  if (!node || !obj)
+  if (!target || !node)
     return -1;
 
-  if (!_valid_entry_name(obj->name))
+  if (!_valid_entry_name(node->name))
     return -2;
 
-  entry = create_oss_node_entry(OSS_ENTRY_NESTED_NODE, obj);
+  entry = create_oss_node_entry(OSS_ENTRY_NESTED_NODE, node);
 
   if (!entry)
     return -3;
 
-  mutex_lock(node->lock);
+  mutex_lock(target->lock);
 
   error = -1;
 
-  if (_node_contains_entry(node, entry))
+  if (_node_contains_entry(target, entry))
     goto unlock_and_exit;
 
-  error = IsError(hashmap_put(node->obj_map, (hashmap_key_t)obj->name, entry));
+  error = IsError(hashmap_put(target->obj_map, (hashmap_key_t)node->name, entry));
 
   if (!error)
-    obj->parent = node;
+    node->parent = target;
   
 unlock_and_exit:
-  mutex_unlock(node->lock);
+  mutex_unlock(target->lock);
   return error;
 }
 
@@ -510,8 +510,6 @@ int oss_node_clean_objects(oss_node_t* node)
 
   mutex_lock(node->lock);
 
-  printf(" ---- Trying to clean objects\n");
-
   error = hashmap_to_array(node->obj_map, (void***)&array, &size);
 
   if (error)
@@ -519,7 +517,6 @@ int oss_node_clean_objects(oss_node_t* node)
 
   entry_count = size / (sizeof(oss_node_entry_t*));
 
-  printf(" ---- Did thing %lld\n", entry_count);
   for (uintptr_t i = 0; i < entry_count; i++) {
     oss_node_entry_t* entry = array[i];
 

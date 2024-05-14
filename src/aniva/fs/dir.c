@@ -126,6 +126,36 @@ dealloc_and_fail:
   return nullptr;
 }
 
+dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags)
+{
+  dir_t* ret;
+
+  ret = kmalloc(sizeof(*ret));
+
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
+  if (!ops)
+    ops = &_generic_dir_ops;
+
+  ret->name = strdup(node->name);
+  ret->node = node;
+  ret->ops = ops;
+  ret->priv = priv;
+  ret->flags = flags;
+  ret->child_capacity = 0xFFFFFFFF;
+  ret->size = 0xFFFFFFFF;
+  ret->lock = create_mutex(NULL);
+
+  init_atomic_ptr(&ret->ref, 0);
+
+  oss_node_attach_dir(node, ret);
+
+  return ret;
+}
+
 void dir_ref(dir_t* dir)
 {
   if (!dir)
@@ -172,24 +202,17 @@ void destroy_dir(dir_t* dir)
   if (!dir)
     return;
 
+  if (dir->ops && dir->ops->f_destroy)
+    dir->ops->f_destroy(dir);
+
   /* Detach first */
   if (dir->node) {
-    /* Lock */
-    mutex_lock(dir->node->lock);
-
     if (oss_node_is_empty(dir->node))
       /* Destroy the thing if it's unused */
       destroy_oss_node(dir->node);
-    else {
+    else
       oss_node_detach_dir(dir->node);
-
-      /* Unlock if we didn't have to destroy this bitch */
-      mutex_unlock(dir->node->lock);
-    }
   }
-
-  if (dir->ops && dir->ops->f_destroy)
-    dir->ops->f_destroy(dir);
 
   destroy_mutex(dir->lock);
 
@@ -244,6 +267,7 @@ int dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
 dir_t* dir_open(const char* path)
 {
   dir_t* ret;
+  oss_node_t* orig_node;
   oss_node_t* node = NULL;
 
   oss_resolve_node(path, &node);
@@ -257,13 +281,15 @@ dir_t* dir_open(const char* path)
   if (ret)
     goto ref_and_exit;
 
+  orig_node = node;
+
   do {
     node = node->parent;
   } while (node && node->type != OSS_OBJ_GEN_NODE);
 
   /* No object generation node somewhere downstream, just create a new generic dir */
   if (!node)
-    return create_dir(NULL, path, NULL, NULL, NULL);
+    return create_dir_on_node(orig_node, NULL, NULL, NULL);
 
   uintptr_t idx = 0;
   const char* rel_path = nullptr;

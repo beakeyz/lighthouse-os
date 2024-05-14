@@ -1,6 +1,5 @@
 #include "core.h"
 #include "fs/core.h"
-#include "libk/data/hashmap.h"
 #include <libk/string.h>
 #include "libk/flow/error.h"
 #include "mem/heap.h"
@@ -9,7 +8,7 @@
 #include "oss/obj.h"
 #include "sync/mutex.h"
 
-static hashmap_t* _rootnode_map = nullptr;
+static oss_node_t* _rootnode = nullptr;
 static mutex_t* _core_lock = nullptr;
 
 static struct oss_node* _oss_create_path_abs_locked(const char* path);
@@ -104,6 +103,7 @@ cycle:
 
 static const char* _find_path_subentry_at(const char* path, uint32_t idx)
 {
+  uint32_t i;
   const char* ret = nullptr;
   char* path_cpy = strdup(path);
   char* tmp;
@@ -116,12 +116,15 @@ static const char* _find_path_subentry_at(const char* path, uint32_t idx)
     goto free_and_exit;
 
   /* Trim off the next pathentry spacer */
-  for (uint32_t i = 0; tmp[i]; i++) {
+  for (i = 0; tmp[i]; i++) {
     if (tmp[i] == '/') {
       tmp[i] = NULL;
       break;
     }
   }
+
+  if (!i)
+    goto free_and_exit;
 
   ret = strdup(tmp);
 
@@ -132,10 +135,20 @@ free_and_exit:
 
 static oss_node_t* _get_rootnode(const char* name)
 {
+  oss_node_entry_t* entry;
+
   if (!name)
     return nullptr;
 
-  return hashmap_get(_rootnode_map, (hashmap_key_t)name);
+  entry = nullptr;
+
+  if (oss_node_find(_rootnode, name, &entry))
+    return nullptr;
+
+  if (!entry || entry->type != OSS_ENTRY_NESTED_NODE)
+    return nullptr;
+
+  return entry->node;
 }
 
 static inline oss_node_t* _get_rootnode_from_path(const char* path, uint32_t* idx)
@@ -180,6 +193,19 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
   }
 
   while ((this_name = _find_path_subentry_at(path, c_idx++))) {
+
+    if (strncmp(this_name, "..", 2) == 0) {
+      if (c_node)
+        c_node = c_node->parent;
+
+      kfree((void*)this_name);
+      continue;
+    }
+
+    if (strncmp(this_name, ".", 1) == 0) {
+      kfree((void*)this_name);
+      continue;
+    }
 
     /* Save the object generation node */
     if (c_node->type == OSS_OBJ_GEN_NODE && !obj_gen) {
@@ -310,6 +336,21 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
 
   while (*path && (this_name = _find_path_subentry_at(path, c_idx++))) {
 
+    /* Also check this mofo */
+    if (strncmp(this_name, "..", 2) == 0) {
+      if (c_node)
+        c_node = c_node->parent;
+
+      kfree((void*)this_name);
+      continue;
+    }
+
+    /* Check this mofo */
+    if (strncmp(this_name, ".", 1) == 0) {
+      kfree((void*)this_name);
+      continue;
+    }
+
     if (c_node->type == OSS_OBJ_GEN_NODE && !gen_node) {
       gen_node = c_node;
       gen_path_idx = c_idx-1;
@@ -363,37 +404,12 @@ int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node
 
 static int _oss_resolve_node_locked(const char* path, oss_node_t** out)
 {
-  const char* this_name;
-  const char* rel_path;
-  oss_node_t* c_node;
-
   if (!out || !path)
     return -1;
 
   *out = NULL;
 
-  /* Find the root node name */
-  this_name = _find_path_subentry_at(path, 0);
-
-  /* Try to fetch the rootnode */
-  c_node = _get_rootnode(this_name);
-
-  /* Clean up */
-  if (this_name)
-    kfree((void*)this_name);
-
-  /* Invalid path =/ */
-  if (!c_node)
-    return -1;
-
-  rel_path = path;
-
-  while (*rel_path) {
-    if (*rel_path++ == '/')
-      break;
-  }
-
-  return _oss_resolve_node_rel_locked(c_node, rel_path, out);
+  return _oss_resolve_node_rel_locked(_rootnode, path, out);
 }
 
 
@@ -550,7 +566,7 @@ struct oss_node* oss_create_path_abs(const char* path)
 
 static inline int _oss_attach_rootnode_locked(struct oss_node* node)
 {
-  return IsError(hashmap_put(_rootnode_map, (hashmap_key_t)node->name, node));
+  return oss_node_add_node(_rootnode, node);
 }
 
 int oss_attach_rootnode(struct oss_node* node)
@@ -570,7 +586,13 @@ int oss_attach_rootnode(struct oss_node* node)
 
 static inline int _oss_detach_rootnode_locked(struct oss_node* node)
 {
-  return hashmap_remove(_rootnode_map, (hashmap_key_t)node->name) == nullptr ? -1 : 0;
+  oss_node_entry_t* entry;
+
+  if (oss_node_remove_entry(_rootnode, node->name, &entry))
+    return -1;
+
+  destroy_oss_node_entry(entry);
+  return 0;
 }
 
 int oss_detach_rootnode(struct oss_node* node)
@@ -840,9 +862,9 @@ const char* oss_get_objname(const char* path)
  */
 void init_oss()
 {
-  _core_lock = create_mutex(NULL);
-  _rootnode_map = create_hashmap(128, NULL);
-
   init_oss_nodes();
+
+  _core_lock = create_mutex(NULL);
+  _rootnode = create_oss_node("%", OSS_OBJ_STORE_NODE, nullptr, nullptr);
 }
 
