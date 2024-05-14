@@ -173,8 +173,20 @@ void destroy_dir(dir_t* dir)
     return;
 
   /* Detach first */
-  if (dir->node)
-    oss_node_detach_dir(dir->node);
+  if (dir->node) {
+    /* Lock */
+    mutex_lock(dir->node->lock);
+
+    if (oss_node_is_empty(dir->node))
+      /* Destroy the thing if it's unused */
+      destroy_oss_node(dir->node);
+    else {
+      oss_node_detach_dir(dir->node);
+
+      /* Unlock if we didn't have to destroy this bitch */
+      mutex_unlock(dir->node->lock);
+    }
+  }
 
   if (dir->ops && dir->ops->f_destroy)
     dir->ops->f_destroy(dir);

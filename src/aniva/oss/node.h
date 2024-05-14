@@ -60,6 +60,8 @@ kerror_t oss_node_attach_dir(oss_node_t* node, struct dir* dir);
 kerror_t oss_node_replace_dir(oss_node_t* node, struct dir* dir);
 kerror_t oss_node_detach_dir(oss_node_t* node);
 
+bool oss_node_is_empty(oss_node_t* node);
+
 enum OSS_ENTRY_TYPE {
   OSS_ENTRY_NESTED_NODE,
   OSS_ENTRY_OBJECT,

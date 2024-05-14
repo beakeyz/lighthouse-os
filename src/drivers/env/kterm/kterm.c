@@ -12,6 +12,7 @@
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
+#include "kevent/types/profile.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
@@ -711,6 +712,15 @@ int kterm_set_login(user_profile_t* profile)
   //vobj_t* cwd_obj;
   sysvar_t* login_msg_var;
   const char* login_msg;
+
+  kevent_profile_ctx_t ctx;
+
+  ctx.type = KEVENT_PROFILE_CHANGE;
+  ctx.old = _c_login.profile;
+  ctx.new = profile; 
+
+  /* Fire the profile event */
+  kevent_fire("profile", &ctx, sizeof(ctx));
 
   _c_login.profile = profile;
 

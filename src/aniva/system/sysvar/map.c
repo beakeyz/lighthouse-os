@@ -1,4 +1,5 @@
 #include "map.h"
+#include "mem/heap.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/atomic_ptr.h"
@@ -41,6 +42,104 @@ sysvar_t* sysvar_get(oss_node_t* node, const char* key)
 
   /* Return with a taken reference */
   return get_sysvar(ret);
+}
+
+/*!
+ * @brief: Itterator function for counting the amount of variables for sysvar_dump
+ *
+ * @node: Null if the current item is not a node, otherwise current item
+ * @obj: Null if the current item is not an obj, otherwise current item
+ * @param: pointer to the size variable
+ */
+static bool sysvar_node__count_itter(oss_node_t* node, oss_obj_t* obj, void* param)
+{
+  if (!obj)
+    return true;
+
+  if (obj->type != OSS_OBJ_TYPE_VAR)
+    return true;
+
+  /* Increase the node count */
+  (*(size_t*)param)++;
+  return true;
+}
+
+/*!
+ * @brief: Itterator function for adding variables to a list
+ *
+ * @node: Null if the current item is not a node, otherwise current item
+ * @obj: Null if the current item is not an obj, otherwise current item
+ * @param: pointer to the variable list
+ */
+static bool sysvar_node__add_itter(oss_node_t* node, oss_obj_t* obj, void* param)
+{
+  sysvar_t*** p_arr;
+
+  if (!obj)
+    return true;
+
+  if (obj->type != OSS_OBJ_TYPE_VAR)
+    return true;
+
+  p_arr = param;
+
+  /* Set this entry */
+  **p_arr = obj->priv;
+
+  /* Move the pointer 'head' */
+  (*p_arr)++;
+
+  /* Go next */
+  return true;
+}
+
+/*!
+ * @brief: Dump all the variables on @node
+ *
+ * Leaks weak references to the variables. This function expects @node to be locked
+ */
+int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
+{
+  int error;
+  sysvar_t** var_arr_start;
+  sysvar_t** var_arr;
+  
+  if (!node || !barr || !bsize)
+    return -1;
+
+  /* Quick reset */
+  *bsize = NULL;
+
+  /* First, count the variables on this node */
+  error = oss_node_itterate(node, sysvar_node__count_itter, bsize);
+
+  if (error)
+    return error;
+
+  if (!(*bsize))
+    return -KERR_NOT_FOUND;
+
+  /* Allocate the list */
+  var_arr = kmalloc(sizeof(sysvar_t*) * (*bsize));
+
+  if (!(*barr))
+    return -KERR_NOMEM;
+
+  /* Keep the beginning of the array here, since var_arr will get mutated */
+  var_arr_start = var_arr;
+  
+  /* Try to itterate */
+  error = oss_node_itterate(node, sysvar_node__add_itter, var_arr);
+
+  /* Yikes */
+  if (error) {
+    kfree(var_arr_start);
+    return error;
+  }
+
+  /* Set the param */
+  *barr = var_arr_start;
+  return 0;
 }
 
 /*!

@@ -2,6 +2,7 @@
 #include "crypto/k_crc32.h"
 #include "entry/entry.h"
 #include "fs/file.h"
+#include "kevent/types/profile.h"
 #include "libk/flow/error.h"
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
@@ -424,6 +425,7 @@ void init_user_profiles(void)
  */
 static int save_default_profiles(kevent_ctx_t* ctx)
 {
+  int error;
   file_t* global_prf_save_file;
   (void)ctx;
 
@@ -434,9 +436,33 @@ static int save_default_profiles(kevent_ctx_t* ctx)
   if (!global_prf_save_file)
     return 0;
 
-  kernel_panic("TODO: save_default_profiles");
+  /* Do the save */
+  error = sysvarldr_save_variables(_user_profile.node, 0, global_prf_save_file);
 
   file_close(global_prf_save_file);
+  return error;
+}
+
+/*!
+ * @brief: Default handler for generic profile events
+ *
+ * TODO: handle
+ */
+static int default_profile_handler(kevent_ctx_t* _ctx)
+{
+  kevent_profile_ctx_t* ctx;
+
+  if (_ctx->buffer_size != sizeof(*ctx))
+    return 0;
+
+  ctx = _ctx->buffer;
+
+  switch (ctx->type) {
+    case KEVENT_PROFILE_CHANGE:
+    case KEVENT_PROFILE_PRIV_CHANGE:
+      break;
+  }
+
   return 0;
 }
 
@@ -459,8 +485,9 @@ void init_profiles_late(void)
   if (!error)
     _user_profile.path = DEFAULT_USER_PVR_PATH;
 
-  /* Create an eventhook on shutdown */
+  /* Create an eventhook for shutdown */
   kevent_add_hook("shutdown", "save default profiles", save_default_profiles);
+  kevent_add_hook("profile", "default profile handler", default_profile_handler);
 
   /* TMP: TODO remove */
   profile_set_password(&_admin_profile, "admin");

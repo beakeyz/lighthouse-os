@@ -6,47 +6,54 @@
 
 /* Buffers that get placed into the file */
 pvr_file_header_t pvr_hdr;
-static pvr_file_var_t* fvar_buffer;
-static pvr_file_valtab_t* valtab_buffer;
+static pvr_file_var_buffer_t* var_buffer;
 static pvr_file_strtab_t* strtab_buffer;
 
 /* Sizes for this buffer */
-static uint32_t fvar_buffersize;
-static uint32_t valtab_buffersize;
+static uint32_t var_buffersize;
 static uint32_t strtab_buffersize;
 
 /*
  * NOTE: we can't store a default password here, since they have to be hashed by the kernel
  * when they are stored
  */
-struct profile_var_template base_defaults[] = {
+struct sysvar_template base_defaults[] = {
 };
 
 /*
  * Default values for the global profile
  * These include mostly just paths to drivers, kobjects, ect.
  */
-struct profile_var_template user_defaults[] = {
+struct sysvar_template user_defaults[] = {
   VAR_ENTRY("DFLT_LWND_PATH",   SYSVAR_TYPE_STRING, "service/lwnd", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("DFLT_KB_EVENT",    SYSVAR_TYPE_STRING, "keyboard", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("DFLT_ERR_EVENT",   SYSVAR_TYPE_STRING, "error", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("BOOTDISK_PATH",    SYSVAR_TYPE_STRING, "unknown", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("LOGIN_MSG",        SYSVAR_TYPE_STRING, "Welcome to LightOS!", SYSVAR_FLAG_GLOBAL),
+  VAR_ENTRY("EPIC_TEST",        SYSVAR_TYPE_WORD,   69, 0),
 };
+
+static inline pvr_file_strtab_entry_t* pvr_file_get_strtab_entry(uint32_t offset)
+{
+  return (pvr_file_strtab_entry_t*)((void*)strtab_buffer->entries + offset);
+}
 
 static int pvr_file_find_free_strtab_offset(uint32_t* offset)
 {
   uint32_t i;
+  pvr_file_strtab_entry_t* c_entry;
 
-  if (strtab_buffer->entries[0] == '\0') {
-    *offset = 0;
-    return 0;
-  }
+  i = 0;
 
-  for (i = 1; i < strtab_buffer->bytecount; i++) {
-    if (strtab_buffer->entries[i] == '\0' && strtab_buffer->entries[i-1] == '\0')
+  do {
+    c_entry = pvr_file_get_strtab_entry(i);
+
+    if (!c_entry->len)
       break;
-  }
+
+    /* Go to next entry */
+    i += sizeof(*c_entry) + c_entry->len;
+  } while (i < strtab_buffer->bytecount);
 
   if (i >= strtab_buffer->bytecount)
     return -1;
@@ -59,38 +66,33 @@ static int pvr_file_find_free_valtab_offset(uint32_t* offset)
 {
   uint32_t i;
 
-  for (i = 0; i < valtab_buffer->capacity; i++) {
-    if (!VALTAB_ENTRY_ISUSED(&valtab_buffer->entries[i]))
+  for (i = 0; i < var_buffer->var_capacity; i++) {
+    if (!PVR_VAR_ISUSED(&var_buffer->variables[i]))
       break;
   }
 
-  if (i >= valtab_buffer->capacity)
+  if (i >= var_buffer->var_capacity)
     return -1;
 
   *offset = i;
   return 0;
 }
 
-static inline void pvr_file_set_valtab_entry_used(pvr_file_valtab_entry_t* entry, uint64_t value)
-{
-  entry->flags |= VALTAB_ENTRY_FLAG_USED;
-  entry->value = value;
-}
-
-static int pvr_file_add_variable(struct profile_var_template* var)
+static int pvr_file_add_variable(struct sysvar_template* var)
 {
   uint8_t buffer_bounds_respected;
   uint32_t valtab_offset;
   uint32_t strtab_offset;
   size_t buffersize;
   pvr_file_var_t* c_var;
+  pvr_file_strtab_entry_t* c_str;
 
-  c_var = fvar_buffer;
+  c_var = &var_buffer->variables[0];
   buffersize = 0;
   valtab_offset = strtab_offset = 0;
 
   /* Find an unused var */
-  while ((buffer_bounds_respected = (buffersize + sizeof(*c_var)) < fvar_buffersize)) {
+  while ((buffer_bounds_respected = (buffersize + sizeof(*c_var)) < var_buffersize)) {
 
     if (c_var->var_type == SYSVAR_TYPE_UNSET)
       break;
@@ -108,31 +110,42 @@ static int pvr_file_add_variable(struct profile_var_template* var)
   if (var->type == SYSVAR_TYPE_STRING) {
     pvr_file_find_free_strtab_offset(&strtab_offset);
 
+    c_str = pvr_file_get_strtab_entry(strtab_offset);
+    c_str->len = strlen(var->value);
+
     /* Let's trust that there is a string in ->value =) */
-    strcpy(&strtab_buffer->entries[strtab_offset], var->value);
+    strncpy(
+      c_str->str,
+      var->value,
+      c_str->len
+    );
 
     printf("%s at offset (%d)\n", (const char*)var->value, strtab_offset);
 
-    /* Set the value in the valtab to point to our value string */
-    pvr_file_set_valtab_entry_used(&valtab_buffer->entries[valtab_offset], strtab_offset);
-    c_var->val_len = strlen(var->value) + 1;
+    /* Set the offset */
+    c_var->var_value = strtab_offset;
   } else {
-    pvr_file_set_valtab_entry_used(&valtab_buffer->entries[valtab_offset], (uint64_t)var->value);
-    c_var->val_len = sizeof(uint64_t);
+    c_var->var_value = (uintptr_t)var->value;
   }
 
   pvr_file_find_free_strtab_offset(&strtab_offset);
 
-  strcpy(&strtab_buffer->entries[strtab_offset], var->key);
+  c_str = pvr_file_get_strtab_entry(strtab_offset);
+  c_str->len = strlen(var->key);
+
+  /* Let's trust that there is a string in ->value =) */
+  strncpy(
+    c_str->str,
+    var->key,
+    c_str->len
+  );
 
   /* Set the c_var */
-  c_var->var_type = var->type;
   c_var->key_off = strtab_offset;
-  c_var->value_off = (valtab_offset * sizeof(pvr_file_valtab_entry_t));
+  c_var->var_type = var->type;
   c_var->var_flags = var->flags;
-  c_var->key_len = strlen(var->key) + 1;
 
-  pvr_hdr.var_count++;
+  var_buffer->var_count++;
   return 0;
 }
 
@@ -141,30 +154,14 @@ static void init_fvar_buffer(uint32_t buffersize)
   pvr_file_var_t* c_var;
   size_t current_size;
 
-  fvar_buffersize = buffersize;
-  fvar_buffer = malloc(buffersize);
+  var_buffersize = buffersize;
+  var_buffer = malloc(buffersize);
 
   /* Clear the buffer */
-  memset((void*)fvar_buffer, 0, buffersize);
+  memset((void*)var_buffer, 0, buffersize);
 
   /* Set our capacity */
-  pvr_hdr.var_capacity = (buffersize) / sizeof(pvr_file_var_t);
-
-  for (uint32_t i = 0; i < pvr_hdr.var_capacity; i++) {
-    c_var = &fvar_buffer[i];
-
-    c_var->var_type = SYSVAR_TYPE_UNSET;
-  }
-}
-
-static void init_valtab_buffer(uint32_t buffersize)
-{
-  valtab_buffersize = buffersize;
-  valtab_buffer = malloc(buffersize);
-
-  memset((void*)valtab_buffer, 0, buffersize);
-
-  valtab_buffer->capacity = (buffersize - sizeof(*valtab_buffer)) / sizeof(pvr_file_valtab_entry_t);
+  var_buffer->var_capacity = (buffersize) / sizeof(pvr_file_var_t);
 }
 
 static void init_strtab_buffer(uint32_t buffersize)
@@ -233,7 +230,6 @@ int main(int argc, char** argv)
   memcpy((void*)&pvr_hdr.sign, SYSVAR_SIG, 4);
 
   init_fvar_buffer(sizeof(pvr_file_var_t) * DEFAULT_VAR_CAPACITY);
-  init_valtab_buffer(sizeof(pvr_file_valtab_entry_t) * DEFAULT_VALTAB_CAPACITY);
   init_strtab_buffer(sizeof(pvr_file_strtab_t) + DEFAULT_STRTAB_BYTECOUNT);
 
   FILE* f = fopen(output_file, "w");
@@ -248,18 +244,21 @@ int main(int argc, char** argv)
    * Write the entire thing to disk
    */
   {
-
+    /* Start by writing the variables */
     fseek(f, sizeof(pvr_hdr), SEEK_SET);
     cur_offset = sizeof(pvr_hdr);
 
-    cur_offset += fvar_buffersize;
-    fwrite(fvar_buffer, fvar_buffersize, 1, f);
+    /* Set the offset of the first variable buffer */
+    pvr_hdr.varbuf_offset = cur_offset;
 
-    pvr_hdr.valtab_offset = cur_offset;
-    cur_offset += valtab_buffersize;
-    fwrite(valtab_buffer, valtab_buffersize, 1, f);
+    /* Write the entire buffer to the file */
+    cur_offset += var_buffersize;
+    fwrite(var_buffer, var_buffersize, 1, f);
 
+    /* Set the offset of the first string table */
     pvr_hdr.strtab_offset = cur_offset;
+
+    /* Write the entire thing to file */
     cur_offset += strtab_buffersize;
     fwrite(strtab_buffer, strtab_buffersize, 1, f);
 

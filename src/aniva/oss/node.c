@@ -168,6 +168,16 @@ kerror_t oss_node_detach_dir(oss_node_t* node)
 }
 
 /*!
+ * @brief: Checks if the node has attached objects
+ *
+ * Caller should take node->lock when calling this function
+ */
+bool oss_node_is_empty(oss_node_t* node)
+{
+  return node->obj_map->m_size == 0;
+}
+
+/*!
  * @brief: Check if there are any invalid chars in the name
  */
 static bool _valid_entry_name(const char* name)

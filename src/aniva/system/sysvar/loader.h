@@ -7,5 +7,6 @@ struct file;
 struct oss_node;
 
 int sysvarldr_load_variables(struct oss_node* node, uint16_t priv_lvl, struct file* file);
+int sysvarldr_save_variables(struct oss_node* node, uint16_t priv_lvl, struct file* file);
 
 #endif // !__ANIVA_SYSVAR_LOADER__

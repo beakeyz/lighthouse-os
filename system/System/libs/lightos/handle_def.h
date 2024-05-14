@@ -23,8 +23,6 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_THREAD            (8)
 /* Any profile that is present on the system */
 #define HNDL_TYPE_PROFILE           (9)
-  #define HNDL_MODE_CURRENT_PROFILE (0)
-  #define HNDL_MODE_SCAN_PROFILE    (1)
 
 /* Profile variable */
 #define HNDL_TYPE_SYSVAR            (10)
@@ -48,8 +46,6 @@ typedef unsigned char       handle_type_t;
 #define HNDL_TYPE_SHARED_LIB        (18)
 /* An entire process environment */
 #define HNDL_TYPE_PROC_ENV          (19)
-  #define HNDL_MODE_CURRENT_ENV     (0)
-  #define HNDL_MODE_SCAN_ENV        (1)
 
 #define HNDL_INVAL          (-1) /* Tried to get a handle from an invalid source */
 #define HNDL_NOT_FOUND      (-2) /* Could not resolve the handle on the kernel side */
@@ -75,5 +71,16 @@ typedef unsigned char       handle_type_t;
  */
 #define HNDL_OPT_MASK               (HNDL_FLAG_BUSY | HNDL_FLAG_LOCKED | HNDL_FLAG_WAITING | HNDL_FLAG_INVALID)
 
+/*
+ * Handle modes
+ */
+enum HNDL_MODE {
+  HNDL_MODE_NORMAL,
+  HNDL_MODE_CREATE,
+  HNDL_MODE_CURRENT_PROFILE,
+  HNDL_MODE_SCAN_PROFILE,
+  HNDL_MODE_CURRENT_ENV,
+  HNDL_MODE_SCAN_ENV,
+};
 
 #endif // !__LIGHTENV_HANDLE_DEF__

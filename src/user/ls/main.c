@@ -140,7 +140,7 @@ int main()
 
   if (!dir) {
     printf("Invalid path (Not a directory?)\n");
-    goto close_and_exit;
+    return 0;
   }
 
   do {
