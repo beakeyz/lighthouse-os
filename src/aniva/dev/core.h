@@ -178,20 +178,17 @@ static ALWAYS_INLINE const char* get_driver_type_url(dev_type_t type)
   return dev_type_urls[type];
 }
 
-/*
- * Resolve the drivers socket and send a packet to that port
- */
 ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
 ErrorOrPtr driver_send_msg_ex(struct drv_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
-
-/*
- * Same as above, but calls the requested function instantly, rather than waiting for the socket to 
- * Be scheduled so it can handle our packet.
- *
- * This fails if the socket is not set up yet
- */
 ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+
+int driver_map(struct drv_manifest* driver, void* base, size_t size, uint32_t page_flags);
+int driver_unmap(struct drv_manifest* driver, void* base, size_t size);
+void* driver_allocate(struct drv_manifest* driver, size_t size, uint32_t page_flags);
+int driver_deallocate(struct drv_manifest* driver, void* base);
+void* driver_kmalloc(struct drv_manifest* driver, size_t size);
+int driver_kfree(struct drv_manifest* driver, void*);
 
 /*
  * Sends a packet to the target driver and waits a number of scheduler yields for the socket to be ready

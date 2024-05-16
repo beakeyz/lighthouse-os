@@ -4,8 +4,10 @@
 #include "dev/core.h"
 #include "dev/device.h"
 #include "dev/driver.h"
+#include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
 #include "libk/stddef.h"
+#include "mem/zalloc.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/data/hashmap.h>
@@ -32,6 +34,28 @@ typedef struct manifest_dependency {
     struct proc* proc;
   } obj;
 } manifest_dependency_t;
+
+/*
+ * Bundle that tracks most of the resource useage for a particular driver
+ *
+ * Meant to catch any leaking memory when a driver is destroyed. The driver API for
+ * allocating with this struct in mind are located in src/dev/core.h (core.c)
+ *
+ * TODO: Implement
+ */
+typedef struct driver_resources {
+  /* Resources for mapped and kmem_alloced regions */
+  kresource_bundle_t* raw_resources;
+  /* Allocator on wich common objects will be allocated */
+  zone_allocator_t* zallocator;
+  /* List that keeps track of the syscalls that have been allocated by this driver */
+  list_t* syscall_list;
+  /* List that keeps track of the non-persistent oss_objs created by this driver */
+  list_t* oss_obj_list;
+
+  size_t leaked_bytes;
+  size_t total_allocated_bytes;
+} driver_resources_t;
 
 /*
  * TODO: rework driver dependencies to make every driver keep track of a list of 
