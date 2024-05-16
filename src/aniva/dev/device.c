@@ -6,7 +6,6 @@
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include <libk/string.h>
-#include "dev/usb/usb.h"
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"

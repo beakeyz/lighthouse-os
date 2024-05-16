@@ -16,6 +16,7 @@ enum kterm_mode {
 };
 
 typedef struct kterm_login {
+  uint32_t profile_lock_key;
   struct user_profile* profile;
   char* cwd;
 } kterm_login_t;

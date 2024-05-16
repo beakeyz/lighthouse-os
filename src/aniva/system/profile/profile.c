@@ -4,6 +4,7 @@
 #include "fs/file.h"
 #include "kevent/types/profile.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
 #include <system/sysvar/var.h>
@@ -20,11 +21,13 @@
 #define SOFTMAX_ACTIVE_PROFILES 4096
 #define DEFAULT_USER_PVR_PATH "Root/Users/User/user.pvr"
 
-static user_profile_t _admin_profile;
-static user_profile_t _user_profile;
-static oss_node_t* _runtime_node;
+static mutex_t*         _profile_mutex;
 
-static mutex_t* profile_mutex;
+static uint32_t         _active_profile_locked;
+static user_profile_t*  _active_profile;
+static user_profile_t   _admin_profile;
+static user_profile_t   _user_profile;
+static oss_node_t*      _runtime_node;
 
 /*!
  * @brief: Initialize memory of a profile
@@ -105,6 +108,108 @@ user_profile_t* get_user_profile()
 user_profile_t* get_admin_profile()
 {
   return &_admin_profile;
+}
+
+user_profile_t* get_active_profile()
+{
+  user_profile_t* ret;
+
+  /* Just in case someone is fucking us here lolol */
+  mutex_lock(_profile_mutex);
+
+  ret = _active_profile;
+
+  /* Be nice and unlock */
+  mutex_unlock(_profile_mutex);
+
+  /* If the active profile gets changes right as we return, i'm very sad
+   * TODO: Add a refcount to userprofiles, so we know when its safe to change 
+   * profile activity
+   */
+  return ret;
+}
+
+static inline bool _is_profile_activation_locked()
+{
+  return _active_profile_locked > 0;
+}
+
+/*!
+ * @brief: Try to set an activated profile
+ *
+ * This tries to set an activated profile, if activation isn't locked
+ */
+int profile_set_activated(user_profile_t* profile)
+{
+  int error = -1;
+  kevent_profile_ctx_t ctx;
+
+  mutex_lock(_profile_mutex);
+
+  if (_is_profile_activation_locked())
+    goto unlock_and_exit;
+
+  ctx.new = profile;
+  ctx.old = _active_profile;
+  ctx.type = KEVENT_PROFILE_CHANGE;
+
+  /* Fire the profile change event */
+  (void)kevent_fire("profile", &ctx, sizeof(ctx));
+
+  /* Set the new profile */
+  _active_profile = profile;
+  error = 0;
+
+unlock_and_exit:
+  mutex_unlock(_profile_mutex);
+  return error;
+}
+
+/*!
+ * @brief: Lock profile activation
+ *
+ * Loads a random, non-null value into @key, which can then be used to unlock profile
+ * activation again
+ */
+int profiles_lock_activation(uint32_t* key)
+{
+  if (!key || _is_profile_activation_locked())
+    return -1;
+
+  /* TODO: Randomness */
+  mutex_lock(_profile_mutex);
+
+  /* Just pretend this is random 0.0 */
+  _active_profile_locked = 0x100;
+
+  /* Set the key */
+  *key = _active_profile_locked;
+
+  mutex_unlock(_profile_mutex);
+  return 0;
+}
+
+/*!
+ * @brief: Unlock profile activation
+ *
+ * Checks if @key is equal to _active_profile_locked and resets this field
+ * to zero if it is, in order to unlock profile activation
+ */
+int profiles_unlock_activation(uint32_t key)
+{
+  mutex_lock(_profile_mutex);
+
+  /* Yikes bro, mismatch =/ */
+  if (_is_profile_activation_locked() && key != _active_profile_locked) {
+    mutex_unlock(_profile_mutex);
+    return -1;
+  }
+
+  /* Reset =) */
+  _active_profile_locked = NULL;
+
+  mutex_unlock(_profile_mutex);
+  return 0;
 }
 
 int profile_find(const char* name, user_profile_t** bprofile)
@@ -402,10 +507,14 @@ static void __apply_user_variables()
  */
 void init_user_profiles(void)
 {
-  profile_mutex = create_mutex(NULL);
+  _profile_mutex = create_mutex(NULL);
   _runtime_node = create_oss_node("Runtime", OSS_OBJ_STORE_NODE, NULL, NULL);
 
   ASSERT_MSG(KERR_OK(oss_attach_rootnode(_runtime_node)), "Failed to attach Runtime node to root!");
+
+  /* No active profile to start with */
+  _active_profile_locked = 0;
+  _active_profile = nullptr;
 
   init_proc_profile(&_admin_profile, "Admin", PRIV_LVL_ADMIN);
   init_proc_profile(&_user_profile, "User", PRIV_LVL_USER);

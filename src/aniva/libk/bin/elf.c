@@ -13,6 +13,7 @@
 #include "oss/obj.h"
 #include "proc/core.h"
 #include "proc/proc.h"
+#include "sys/types.h"
 #include "system/profile/profile.h"
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset) 
@@ -185,7 +186,6 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel)
   struct proc_image image;
   uintptr_t proc_flags;
   uint32_t page_flags;
-  user_profile_t* user;
    
   if (IsError(elf_grab_sheaders(file, &header)))
     return Error();
@@ -215,10 +215,7 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel)
   if (kernel)
     proc_flags |= PROC_DRIVER;
 
-  /* Grab the user profile */
-  user = get_user_profile();
-
-  proc = create_proc(nullptr, user, &id, (char*)file->m_obj->name, (void*)header.e_entry, 0, proc_flags);
+  proc = create_proc(nullptr, nullptr, &id, (char*)file->m_obj->name, (void*)header.e_entry, 0, proc_flags);
 
   if (!proc)
     goto error_and_out;

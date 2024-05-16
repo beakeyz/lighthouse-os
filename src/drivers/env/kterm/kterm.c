@@ -12,7 +12,6 @@
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
 #include "kevent/types/keyboard.h"
-#include "kevent/types/profile.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
@@ -709,22 +708,24 @@ bool kterm_is_logged_in()
 
 int kterm_set_login(user_profile_t* profile)
 {
+  int error;
   //vobj_t* cwd_obj;
   sysvar_t* login_msg_var;
   const char* login_msg;
 
-  kevent_profile_ctx_t ctx;
-
-  ctx.type = KEVENT_PROFILE_CHANGE;
-  ctx.old = _c_login.profile;
-  ctx.new = profile; 
-
-  /* Fire the profile event */
-  kevent_fire("profile", &ctx, sizeof(ctx));
-
   _c_login.profile = profile;
 
   if (profile) {
+    /* Set this profile as the current activated profile */
+    error = profile_set_activated(profile);
+
+    /* Fuck bro */
+    if (error)
+      return error;
+
+    /* Lock profile activation, since we don't want anything weird to happen lololol */
+    profiles_lock_activation(&_c_login.profile_lock_key);
+
     /* FIXME: make sure the cwd never exceeds this size */
     _c_login.cwd = kmalloc(2048);
 

@@ -115,6 +115,11 @@ void destroy_proc_profile(user_profile_t* profile);
 
 user_profile_t* get_user_profile();
 user_profile_t* get_admin_profile();
+user_profile_t* get_active_profile();
+
+int profile_set_activated(user_profile_t* profile);
+int profiles_lock_activation(uint32_t* key);
+int profiles_unlock_activation(uint32_t key);
 
 int profile_find(const char* name, user_profile_t** bprofile);
 int profile_find_var(const char* path, struct sysvar** var);

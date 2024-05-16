@@ -1,6 +1,5 @@
 #include "devacs/device.h"
 #include "lightos/handle.h"
-#include "lightos/memory/memflags.h"
 #include <sys/types.h>
 #include <lightos/memory/alloc.h>
 #include <lightos/fs/dir.h>

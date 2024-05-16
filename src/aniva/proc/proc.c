@@ -59,6 +59,9 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   if (!name)
     return nullptr;
 
+  if (!profile)
+    profile = get_active_profile();
+
   /* TODO: create proc cache */
   proc = kzalloc(sizeof(proc_t));
 

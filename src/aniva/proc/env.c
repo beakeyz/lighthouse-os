@@ -23,6 +23,7 @@ penv_t* create_penv(const char* label, uint32_t priv_level, uint32_t flags)
   memset(env, 0, sizeof(*env));
 
   env->flags = flags;
+  env->priv_level = priv_level;
   env->label = strdup(label);
   env->lock = create_mutex(NULL);
   env->node = create_oss_node(label, OSS_PROC_ENV_NODE, NULL, NULL);

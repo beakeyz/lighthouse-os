@@ -5,6 +5,8 @@
  * Kernel utility: kernel doors and doorbells
  *
  * Provide a simple API to signal data to multiple points
+ *
+ * TODO: Transfer this functionality to kevents
  */
 
 #include "libk/flow/error.h"

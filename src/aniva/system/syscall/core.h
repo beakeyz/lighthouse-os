@@ -1,9 +1,8 @@
 #ifndef __ANIVA_SYSCALL_CORE__
 #define __ANIVA_SYSCALL_CORE__
 #include <libk/stddef.h>
+#include "libk/flow/error.h"
 #include "lightos/syscall.h"
-#include "system/processor/registers.h"
-#include "system/processor/processor_info.h"
 
 /*
  * This header represents the core of the kernel syscall system
@@ -35,10 +34,11 @@ typedef struct syscall {
   sys_fn_t m_handler;
 } syscall_t;
 
-extern void sys_handler(registers_t* regs);
-extern NAKED void sys_entry();
+void sys_entry();
 
-bool test_syscall_capabilities(processor_info_t* info);
+kerror_t install_syscall(uint32_t id, sys_fn_t handler);
+kerror_t uninstall_syscall(uint32_t id);
 
+uintptr_t call_syscall(uint32_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4);
 
 #endif //__ANIVA_SYSCALL_CORE__

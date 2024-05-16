@@ -293,6 +293,10 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
   penv_t* env;
   char env_label_buf[strlen(proc->m_name) + 14];
 
+  /* If at this point we don't have a profile, default to user */
+  if (!profile)
+    profile = get_user_profile();
+
   /* If there is a parent, use that environment */
   if (proc->m_parent) {
     penv_add_proc(proc->m_parent->m_env, proc);
@@ -304,7 +308,7 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
     return -1;
 
   /* Create a environment in the user profile */
-  env = create_penv(env_label_buf, PRIV_LVL_USER, NULL);
+  env = create_penv(env_label_buf, profile->priv_level, NULL);
 
   if (!env)
     return -1;

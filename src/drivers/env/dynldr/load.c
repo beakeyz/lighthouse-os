@@ -3,6 +3,7 @@
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "mem/heap.h"
 #include "mem/zalloc.h"
 #include "priv.h"
@@ -294,7 +295,6 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
   proc_id_t pid;
   proc_t* proc;
   proc_t* parent_proc;
-  user_profile_t* user;
   loaded_app_t* app;
 
   if (!out_app || !file)
@@ -309,14 +309,11 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
    */
   parent_proc = get_current_proc();
 
-  /* Grab the default user profile */
-  user = get_user_profile();
-
   if (is_kernel_proc(parent_proc))
     parent_proc = nullptr;
 
   /* Create an addressspsace for this bitch */
-  proc = create_proc(parent_proc, user, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
+  proc = create_proc(parent_proc, nullptr, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
 
   if (!proc)
     return -KERR_NOMEM;

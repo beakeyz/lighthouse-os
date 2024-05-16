@@ -17,6 +17,8 @@
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
 
+static USED void sys_handler(registers_t* regs);
+
 /*
  * TODO: instead of having a weird-ass static list, we
  * could dynamically register syscalls by using linker sections
@@ -33,9 +35,9 @@ static syscall_t __static_syscalls[] = {
   [SYSID_ALLOC_PAGE_RANGE]  = { 0, SYSID_ALLOC_PAGE_RANGE, (sys_fn_t)sys_alloc_page_range, },
   [SYSID_SYSEXEC]           = { 0, SYSID_SYSEXEC, (sys_fn_t)sys_exec, },
   [SYSID_GET_HNDL_TYPE]     = { 0, SYSID_GET_HNDL_TYPE, (sys_fn_t)sys_get_handle_type, },
-  [SYSID_OPEN_SYSVAR]         = { 0, SYSID_OPEN_SYSVAR, (sys_fn_t)sys_open_pvar, },
-  [SYSID_GET_SYSVAR_TYPE]     = { 0, SYSID_GET_SYSVAR_TYPE, (sys_fn_t)sys_get_pvar_type, },
-  [SYSID_CREATE_SYSVAR]       = { 0, SYSID_CREATE_SYSVAR, (sys_fn_t)sys_create_pvar, },
+  [SYSID_OPEN_SYSVAR]       = { 0, SYSID_OPEN_SYSVAR, (sys_fn_t)sys_open_pvar, },
+  [SYSID_GET_SYSVAR_TYPE]   = { 0, SYSID_GET_SYSVAR_TYPE, (sys_fn_t)sys_get_pvar_type, },
+  [SYSID_CREATE_SYSVAR]     = { 0, SYSID_CREATE_SYSVAR, (sys_fn_t)sys_create_pvar, },
   [SYSID_CREATE_DIR]        = { 0, SYSID_CREATE_DIR, (sys_fn_t)sys_create_dir, },
   [SYSID_DIR_READ]          = { 0, SYSID_DIR_READ, (sys_fn_t)sys_dir_read, },
   [SYSID_SEEK]              = { 0, SYSID_SEEK, (sys_fn_t)sys_seek },
@@ -44,7 +46,6 @@ static syscall_t __static_syscalls[] = {
   [SYSID_GET_FUNCADDR]      = { 0, SYSID_GET_FUNCADDR, (sys_fn_t)sys_get_funcaddr, },
   [SYSID_GET_DEVINFO]       = { 0, SYSID_GET_DEVINFO, (sys_fn_t)sys_get_devinfo, },
   [SYSID_DEV_ENABLE]        = { 0, SYSID_DEV_ENABLE, (sys_fn_t)sys_enable_device, },
-  { NULL },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));
@@ -62,7 +63,6 @@ NAKED NOINLINE void sys_entry() {
     // userspace still isn't up and running. Should we use kernel values here?
     // FIXME: we are pushing r11 and rcx twice here, and we already know they
     // contain predetirmined values. What should we do with them?
-    // FIXME: can we add some fancy logic here to allow syscalls from ring 0?
     "pushq %[user_ss]                       \n"
     "pushq %%gs:%c[usr_stck_offset]         \n"
     "pushq %%r11                            \n"
@@ -139,7 +139,7 @@ typedef struct syscall_args {
   enum SYSID syscall_id;
 } syscall_args_t;
 
-static int __syscall_parse_args(registers_t* regs, syscall_args_t* args)
+static inline int __syscall_parse_args(registers_t* regs, syscall_args_t* args)
 {
   /* Caller should handle this */
   if (!regs)
@@ -158,15 +158,21 @@ static int __syscall_parse_args(registers_t* regs, syscall_args_t* args)
   return 0;
 }
 
-static void __syscall_set_retval(registers_t* regs, uintptr_t ret)
+static inline void __syscall_set_retval(registers_t* regs, uintptr_t ret)
 {
   regs->rax = ret;
 }
 
-static bool __syscall_verify_sysid(enum SYSID id)
+static inline bool __is_static_syscall(enum SYSID id)
 {
-  if (id >= __static_syscall_count)
+  return id < __static_syscall_count;
+}
+
+static inline bool __syscall_verify_sysid(enum SYSID id)
+{
+  if (!__is_static_syscall(id))
     return false;
+
   /* Let's hope uninitialised entries are zeroed =) */
   if (!__static_syscalls[id].m_handler)
     return false;
@@ -174,7 +180,7 @@ static bool __syscall_verify_sysid(enum SYSID id)
   return true;
 }
 
-void sys_handler(registers_t* regs) {
+static void sys_handler(registers_t* regs) {
 
   uintptr_t result;
   syscall_t call;
@@ -208,4 +214,45 @@ void sys_handler(registers_t* regs) {
    */
 
   __syscall_set_retval(regs, result);
+}
+
+typedef struct dynamic_syscall {
+  syscall_t* p_syscall;
+  /*  */
+} dynamic_syscall_t;
+
+/*!
+ * @brief: Add a dynamic syscall
+ */
+kerror_t install_syscall(uint32_t id, sys_fn_t handler)
+{
+  return 0;
+}
+
+kerror_t uninstall_syscall(uint32_t id)
+{
+  return 0;
+}
+
+/*!
+ * @brief: Call a syscall from outside of a user process
+ *
+ * Idk why you would want to do this, but probably handy for debugging stuff
+ */
+uintptr_t call_syscall(uint32_t id, uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4)
+{
+  registers_t dummy_regs = { 0 };
+
+  /* Prepare a dummy register structure */
+  dummy_regs.rax = id;
+  dummy_regs.rbx = arg0;
+  dummy_regs.rdx = arg1;
+  dummy_regs.rdi = arg2;
+  dummy_regs.rsi = arg3;
+  dummy_regs.r8 = arg4;
+  
+  sys_handler(&dummy_regs);
+
+  /* sys_handler will put the syscall result in %rax */
+  return dummy_regs.rax;
 }
