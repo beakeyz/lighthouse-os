@@ -87,9 +87,6 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
   /* Mark as finished, since we know we won't be seeing it again after we return from this call */
   proc->m_flags |= PROC_FINISHED;
 
-  /* Ring the doorbell, so waiters know this process has terminated (Do this before we kill process memory) */
-  doorbell_ring(proc->m_terminate_bell);
-
   /* Remove from the scheduler (Pauses it) */
   (void)sched_remove_proc(proc);
 

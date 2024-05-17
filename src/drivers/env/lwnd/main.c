@@ -168,7 +168,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
   return 0;
 }
 
-static int on_proc(kevent_ctx_t* _ctx)
+static int on_proc(kevent_ctx_t* _ctx, void* param)
 {
   uint32_t wnd_count, wnd_idx;
   lwnd_window_t* c_wnd;
@@ -219,7 +219,7 @@ static int on_proc(kevent_ctx_t* _ctx)
   return 0;
 }
 
-static int __on_key(kevent_ctx_t* ctx)
+static int __on_key(kevent_ctx_t* ctx, void* param)
 {
   if (!ctx->buffer || ctx->buffer_size != sizeof(kevent_kb_ctx_t))
     return 0;
@@ -284,8 +284,8 @@ int init_window_driver()
   vdev_map_fb(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE);
 
   /* TODO: register to I/O core */
-  kevent_add_hook("keyboard", "lwnd", __on_key);
-  kevent_add_hook("proc", "lwnd", on_proc);
+  kevent_add_hook("keyboard", "lwnd", __on_key, NULL);
+  kevent_add_hook("proc", "lwnd", on_proc, NULL);
 
   println("Initializing screen!");
   main_screen = create_lwnd_screen(&_fb_info, LWND_SCREEN_MAX_WND_COUNT);

@@ -415,7 +415,6 @@ ANIVA_STATUS init_proc_core()
   init_sysvars();
   init_user_profiles();
 
-
   return ANIVA_SUCCESS;
 }
 

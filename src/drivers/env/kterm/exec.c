@@ -180,12 +180,12 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
   bind_khandle(&p->m_handle_map, &_stderr);
 
   println("Adding to scheduler");
+
   /* Do an instant rescedule */
   Must(sched_add_priority_proc(p, SCHED_PRIO_MID, true));
 
-  println("Waiting for process...");
+  /* Wait for process termination */
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
-  println("Oinky");
 
   /* Make sure we're in terminal right after this exit */
   if (kterm_ismode(KTERM_MODE_GRAPHICS))

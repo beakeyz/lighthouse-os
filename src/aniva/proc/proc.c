@@ -3,12 +3,13 @@
 #include "dev/core.h"
 #include "entry/entry.h"
 #include "kevent/event.h"
+#include "kevent/types/proc.h"
 #include "kevent/types/thread.h"
-#include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "lightos/driver/loader.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "oss/obj.h"
@@ -77,7 +78,6 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
   proc->m_thread_count = create_atomic_ptr_ex(1);
-  proc->m_terminate_bell = create_doorbell(8, KDOORBELL_FLAG_BUFFERLESS);
   proc->m_threads = init_list();
   proc->obj = create_oss_obj(name);
 
@@ -260,7 +260,6 @@ void destroy_proc(proc_t* proc)
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
-  destroy_doorbell(proc->m_terminate_bell);
 
   destroy_khandle_map(&proc->m_handle_map);
 
@@ -282,6 +281,24 @@ void destroy_proc(proc_t* proc)
   kzfree(proc, sizeof(proc_t));
 }
 
+static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
+{
+  proc_t* param_proc = param;
+  kevent_proc_ctx_t* proc_ctx;
+
+  if (ctx->buffer_size != sizeof(*proc_ctx))
+    return false;
+
+  proc_ctx = ctx->buffer;
+
+  /* Check if this is our process */
+  if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process->m_id != param_proc->m_id)
+    return false;
+
+  /* Yes! Fire the hook */
+  return true;
+}
+
 /*!
  * @brief Wait for a process to be terminated
  *
@@ -290,7 +307,7 @@ void destroy_proc(proc_t* proc)
 int await_proc_termination(proc_id_t id)
 {
   proc_t* proc;
-  kdoor_t terminate_door;
+  char hook_name[32] = { 0 };
 
   /* Pause the scheduler so we don't get fucked while registering the door */
   pause_scheduler();
@@ -306,24 +323,15 @@ int await_proc_termination(proc_id_t id)
     return 0;
   }
 
-  init_kdoor(&terminate_door, NULL, NULL);
+  sfmt(hook_name, "await_proc_termination_%d", id);
 
-  Must(register_kdoor(proc->m_terminate_bell, &terminate_door));
+  kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
 
   /* Resume the scheduler so we don't die */
   resume_scheduler();
 
-  /*
-   * FIXME: when we try to register a door after the doorbell has already been destroyed
-   * we can create a 'deadlock' here, since we are waiting for our door to be rang while
-   * there is no doorbell at all
-   */
-  while (!kdoor_is_rang(&terminate_door))
-    scheduler_yield();
-
-  destroy_kdoor(&terminate_door);
-
-  return 0;
+  /* Wait for the process to be bopped */
+  return kevent_await_hook_fire("proc", hook_name, NULL, NULL);
 }
 
 /*

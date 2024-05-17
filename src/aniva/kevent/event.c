@@ -339,7 +339,7 @@ static void kevent_unlink_hook(kevent_t* event, kevent_hook_t* hook)
  *
  * 
  */
-int kevent_add_hook(const char* event_name, const char* hook_name, int (*f_hook)(kevent_ctx_t*))
+int kevent_add_hook(const char* event_name, const char* hook_name, int (*f_hook)(kevent_ctx_t*, void*), void* param)
 {
   kevent_t* event;
 
@@ -351,15 +351,34 @@ int kevent_add_hook(const char* event_name, const char* hook_name, int (*f_hook)
   if (!event)
     return -2;
 
-  return kevent_add_hook_ex(event, hook_name, f_hook);
+  return kevent_add_hook_ex(event, hook_name, (FuncPtr)f_hook, KEVENT_HOOKTYPE_FUNC, NULL);
 }
 
-int kevent_add_hook_ex(struct kevent *event, const char *hook_name, int (*f_hook)(kevent_ctx_t *))
+int kevent_add_poll_hook(const char* event_name, const char* hook_name, bool (*f_hook_should_fire)(kevent_ctx_t*, void*), void* param)
+{
+  kevent_t* event;
+
+  if (!event_name)
+    return -1;
+
+  event = kevent_get(event_name);
+
+  if (!event)
+    return -2;
+
+  return kevent_add_hook_ex(event, hook_name, (FuncPtr)f_hook_should_fire, KEVENT_HOOKTYPE_POLLABLE, param);
+}
+
+int kevent_add_hook_ex(struct kevent* event, const char* hook_name, FuncPtr f_hook, uint8_t hooktype, void* param)
 {
   kevent_hook_t* hook;
 
-  if (!event || !hook_name || !f_hook)
+  if (!event || !hook_name)
     return -1;
+
+  /* Fuck */
+  if (hooktype == KEVENT_HOOKTYPE_FUNC && !f_hook)
+    return -KERR_INVAL;
 
   mutex_lock(event->lock);
 
@@ -377,7 +396,7 @@ int kevent_add_hook_ex(struct kevent *event, const char *hook_name, int (*f_hook
     goto fail_and_exit;
 
   /* Yay, we found a spot */
-  if (init_keventhook(hook, hook_name, f_hook) < 0)
+  if (init_keventhook(hook, hook_name, hooktype, f_hook, param) < 0)
     goto fail_and_exit;
 
   kevent_link_hook(event, hook);
@@ -592,6 +611,61 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
   return error;
 }
 
+/*!
+ * @brief: Wait for a pollable keventhook to fire
+ *
+ * 
+ */
+int kevent_await_hook_fire(const char* event_name, const char* hook_name, uint64_t timeout, struct kevent_hook_poll_block** pblock)
+{
+  int error;
+  kevent_t* event;
+  kevent_hook_t* hook;
+  kevent_hook_poll_block_t* block;
+
+  if (!event_name || !hook_name)
+    return -KERR_INVAL;
+
+  /* Grab the event we want to wait for */
+  event = kevent_get(event_name);
+
+  if (!event)
+    return -KERR_NOT_FOUND;
+
+  /* Grab the hook we're interested in */
+  hook = kevent_get_hook(event, hook_name);
+
+  if (!hook)
+    return -KERR_NOT_FOUND;
+
+  do {
+    /* Fuck bro */
+    scheduler_yield();
+
+    /* Zero this bitch real quick */
+    block = NULL;
+
+    /* Try to dequeue a poll block */
+    error = keventhook_dequeue_poll_block(hook, &block);
+
+    if (timeout)
+      if (timeout-- == 0)
+        break;
+
+  } while (error);
+
+  if (error)
+    return error;
+
+  if (!block)
+    return -KERR_NULL;
+
+  /* Export the block to the caller if it wants it. Otherwise just kill it lmao */
+  if (pblock) *pblock = block;
+  else destroy_keventhook_poll_block(block);
+
+  return 0;
+}
 
 enum KEVENT_TYPE kevent_get_type(struct kevent* event)
 {
@@ -618,5 +692,5 @@ void init_kevents()
     "Failed to create default kevents");
   }
 
-  kevent_add_hook("error", "default", __default_kerror_handler);
+  kevent_add_hook("error", "default", __default_kerror_handler, NULL);
 }

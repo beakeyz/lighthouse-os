@@ -178,7 +178,7 @@ logger_t kterm_logger = {
   .f_logc = kterm_putc,
 };
 
-int kterm_on_key(kevent_ctx_t* event);
+int kterm_on_key(kevent_ctx_t* event, void* param);
 
 static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color) 
 {
@@ -973,7 +973,7 @@ static void _kterm_set_fb_props()
  *
  * When things change on the video device, we need to act accordingly
  */
-static int _kterm_vdev_event_hook(kevent_ctx_t* _ctx)
+static int _kterm_vdev_event_hook(kevent_ctx_t* _ctx, void* param)
 {
   vdev_event_ctx_t* ctx;
 
@@ -1015,7 +1015,7 @@ int kterm_init()
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
   _kterm_vdev = get_active_vdev();
 
-  kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook);
+  kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook, NULL);
 
   ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
 
@@ -1033,7 +1033,7 @@ int kterm_init()
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
   /* Register ourselves to the keyboard event */
-  kevent_add_hook("keyboard", "kterm", kterm_on_key); 
+  kevent_add_hook("keyboard", "kterm", kterm_on_key, NULL); 
 
   /* TODO: integrate video device accel */
   // map our framebuffer
@@ -1405,7 +1405,7 @@ int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
  * KTERM_MODE_GRAPHICS: pass to the keybuffer of the current active app
  *                     -> Also check for the graphics mode escape sequence to force-quit the application
  */
-int kterm_on_key(kevent_ctx_t* ctx)
+int kterm_on_key(kevent_ctx_t* ctx, void* param)
 {
   kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
 

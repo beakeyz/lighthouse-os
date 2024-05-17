@@ -24,7 +24,7 @@ void throw_kerror(registers_t* cpu_state, enum KERROR_TYPE type, int code)
  * If this is a recoverable error in a process, the process should be ended and the kernel
  * should be able to recover
  */
-int __default_kerror_handler(kevent_ctx_t* ctx)
+int __default_kerror_handler(kevent_ctx_t* ctx, void* param)
 {
   kevent_error_ctx_t* error;
 

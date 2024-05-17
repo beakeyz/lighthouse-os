@@ -1,7 +1,6 @@
 #ifndef __ANIVA_PROC__
 #define __ANIVA_PROC__
 
-#include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "mem/kmem_manager.h"
@@ -81,8 +80,6 @@ typedef struct proc {
   struct thread* m_prev_thread;
   list_t* m_threads;
   atomic_ptr_t* m_thread_count;
-
-  kdoorbell_t* m_terminate_bell;
 
   size_t m_ticks_elapsed;
 

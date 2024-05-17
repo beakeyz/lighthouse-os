@@ -532,7 +532,7 @@ void init_user_profiles(void)
  * save any variables, since the system is in a read-only state. In order to save the variables, we'll
  * need to dynamically remount a filesystem with write capabilities.
  */
-static int save_default_profiles(kevent_ctx_t* ctx)
+static int save_default_profiles(kevent_ctx_t* ctx, void* param)
 {
   int error;
   file_t* global_prf_save_file;
@@ -557,7 +557,7 @@ static int save_default_profiles(kevent_ctx_t* ctx)
  *
  * TODO: handle
  */
-static int default_profile_handler(kevent_ctx_t* _ctx)
+static int default_profile_handler(kevent_ctx_t* _ctx, void* param)
 {
   kevent_profile_ctx_t* ctx;
 
@@ -595,8 +595,8 @@ void init_profiles_late(void)
     _user_profile.path = DEFAULT_USER_PVR_PATH;
 
   /* Create an eventhook for shutdown */
-  kevent_add_hook("shutdown", "save default profiles", save_default_profiles);
-  kevent_add_hook("profile", "default profile handler", default_profile_handler);
+  kevent_add_hook("shutdown", "save default profiles", save_default_profiles, NULL);
+  kevent_add_hook("profile", "default profile handler", default_profile_handler, NULL);
 
   /* TMP: TODO remove */
   profile_set_password(&_admin_profile, "admin");

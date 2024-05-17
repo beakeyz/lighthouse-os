@@ -48,5 +48,5 @@ typedef struct kevent_error_ctx {
 
 void throw_kerror(registers_t* cpu_state, enum KERROR_TYPE type, int code);
 
-extern int NORETURN __default_kerror_handler(struct kevent_ctx* ctx);
+extern int NORETURN __default_kerror_handler(struct kevent_ctx* ctx, void* param);
 #endif // !__ANIVA_KEVENT_KERROR__

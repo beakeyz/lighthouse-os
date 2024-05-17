@@ -84,7 +84,7 @@ static loaded_app_t* _get_app_from_proc(proc_t* proc)
 /*!
  * @brief: Hook for any process events
  */
-static int _dyn_loader_proc_hook(kevent_ctx_t* _ctx)
+static int _dyn_loader_proc_hook(kevent_ctx_t* _ctx, void* param)
 {
   loaded_app_t* app;
   kevent_proc_ctx_t* ctx;
@@ -130,7 +130,7 @@ static int _loader_init()
   _loaded_apps = init_list();
   _dynld_lock = create_mutex(NULL);
 
-  ASSERT(KERR_OK(kevent_add_hook("proc", DYN_LDR_NAME, _dyn_loader_proc_hook)));
+  ASSERT(KERR_OK(kevent_add_hook("proc", DYN_LDR_NAME, _dyn_loader_proc_hook, NULL)));
   return 0;
 }
 
@@ -354,7 +354,7 @@ EXPORT_DEPENDENCIES(deps) = {
  * we create an extra thread in the target process that does the library initialization. When this thread
  * is finished, we join with the main thread and continue execution
  */
-static int __libinit_thread_eventhook(kevent_ctx_t* _ctx)
+static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
 {
   loaded_app_t* app;
   dynamic_library_t* lib;
@@ -434,7 +434,7 @@ kerror_t await_lib_init(dynamic_library_t* lib)
   lib->lib_init_thread = lib_entry_thread;
 
   /* Add the eventhook for the thread termination */
-  kevent_add_hook("thread", lib->name, __libinit_thread_eventhook);
+  kevent_add_hook("thread", lib->name, __libinit_thread_eventhook, NULL);
 
   /* Add the thread to the process */
   proc_add_thread(target_proc, lib_entry_thread);

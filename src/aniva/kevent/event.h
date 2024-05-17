@@ -24,6 +24,7 @@
 
 struct kevent;
 struct kevent_hook;
+struct kevent_hook_poll_block;
 
 /*
  * The type of event we're dealing with
@@ -96,10 +97,11 @@ struct kevent* kevent_get(const char* name);
 
 enum KEVENT_TYPE kevent_get_type(struct kevent* event);
 
-int kevent_add_hook(const char* event_name, const char* hook_name, int (*f_hook)(kevent_ctx_t*));
+int kevent_add_hook(const char* event_name, const char* hook_name, int (*f_hook)(kevent_ctx_t*, void*), void* param);
+int kevent_add_poll_hook(const char* event_name, const char* hook_name, bool (*f_hook_should_fire)(kevent_ctx_t*, void*), void* param);
 int kevent_remove_hook(const char* event_name, const char* hook_name);
 
-int kevent_add_hook_ex(struct kevent* event, const char* hook_name, int (*f_hook)(kevent_ctx_t*));
+int kevent_add_hook_ex(struct kevent* event, const char* hook_name, FuncPtr f_hook, uint8_t hooktype, void* param);
 int kevent_remove_hook_ex(struct kevent* event, const char* hook_name);
 
 struct kevent_hook* kevent_get_hook(struct kevent* event, const char* name);
@@ -107,6 +109,8 @@ struct kevent_hook* kevent_scan_hook(struct kevent* event, const char* name);
 
 int kevent_fire(const char* name, void* buffer, size_t size);
 int kevent_fire_ex(struct kevent* event, void* buffer, size_t size);
+
+int kevent_await_hook_fire(const char* event_name, const char* hook_name, uint64_t timeout, struct kevent_hook_poll_block** pblock);
 
 /* Kevent flag manipulation */
 void kevent_flag_set(struct kevent* event, uint32_t flags);
