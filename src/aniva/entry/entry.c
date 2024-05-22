@@ -394,9 +394,9 @@ void kthread_entry(void)
   //resume_scheduler();
 
   /* Will be attached to Drv/other/kterm */
-  //if (opt_parser_get_bool("use_kterm"))
-  //  ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
- // else 
+  if (opt_parser_get_bool("use_kterm"))
+    ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+  else 
     ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
   while (true) {

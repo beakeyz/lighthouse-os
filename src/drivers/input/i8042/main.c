@@ -18,6 +18,8 @@
  * so this is a FIXME
  */
 static hid_device_t* s_i8042_device;
+static hid_device_t* s_i8042_key_device;
+static hid_device_t* s_i8042_mouse_device;
 static uint16_t s_mod_flags;
 static uint16_t s_current_scancode;
 static uint16_t s_current_scancodes[7];
@@ -222,9 +224,10 @@ registers_t* i8042_irq_handler(registers_t* regs)
     .pressed = pressed,
     .keycode = aniva_scancode_table[key_code],
     .pressed_char = character,
+    .src_device = s_i8042_device,
   };
 
-  printf("Got a keypress (key_code: 0x%x, scan_code: 0x%x, char: %1.1s)!\n", key_code, scan_code, &character);
+  //printf("Got a keypress (key_code: 0x%x, scan_code: 0x%x, char: %1.1s)!\n", key_code, scan_code, &character);
 
   /* Buffer the keycodes */
   ps2_set_keycode_buffer(kb.keycode, pressed);

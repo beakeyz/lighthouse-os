@@ -4,6 +4,8 @@
 #include "lightos/event/key.h"
 #include <libk/stddef.h>
 
+struct hid_device;
+
 typedef struct kevent_kb_ctx {
   /* Is the current key pressed or released? */
   uint8_t pressed:1;
@@ -17,6 +19,9 @@ typedef struct kevent_kb_ctx {
    * pressed_keys[6] being the last key pressed
    */
   uint16_t pressed_keys[7];
+
+  /* Human input device where this keyevent is comming from */
+  struct hid_device* src_device;
 } kevent_kb_ctx_t;
 
 static inline kevent_kb_ctx_t* kevent_ctx_to_kb(kevent_ctx_t* ctx)

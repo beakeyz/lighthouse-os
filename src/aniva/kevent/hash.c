@@ -1,7 +1,6 @@
 #include "hash.h"
 #include <libk/string.h>
 
-
 static inline uint32_t ke_keygen_get_seed()
 {
   /* TODO: randomize this seed */
