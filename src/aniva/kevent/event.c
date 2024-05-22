@@ -7,7 +7,6 @@
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "proc/core.h"
-#include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
@@ -543,7 +542,6 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
   int error;
   processor_t* c_cpu;
   thread_t* c_thread;
-  proc_t* c_proc;
   kevent_ctx_t ctx;
   kevent_hook_t* current_hook;
 
@@ -568,7 +566,6 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
   };
 
   c_cpu = get_current_processor();
-  c_proc = get_current_proc();
   c_thread = get_current_scheduling_thread();
 
   if (c_cpu->m_irq_depth)
@@ -591,7 +588,7 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
    * in which case we probably need to switch kevent contexts back to pointers =D ) 
    */
   ctx.orig_cpu = c_cpu;
-  ctx.orig_fid = create_full_procid(c_proc->m_id, c_thread->m_tid);
+  ctx.orig_fid = c_thread->fid.id;
 
   do {
 

@@ -34,7 +34,7 @@ struct user_profile;
 
 enum SCHEDULER_PRIORITY;
 
-typedef enum thread_state {
+typedef enum THREAD_STATE {
   INVALID = 0,      // not initialized
   RUNNING,          // executing
   RUNNABLE,         // can be executed by the scheduler
@@ -43,7 +43,7 @@ typedef enum thread_state {
   STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
   BLOCKED,          // performing blocking operation
   SLEEPING,         // waiting for anything to happen (i.e. signals, data)
-} thread_state_t;
+} THREAD_STATE_t;
 
 typedef int thread_id_t;
 typedef int proc_id_t;
@@ -100,7 +100,7 @@ ErrorOrPtr generate_new_proc_id();
  * Spawn a thread for the current running process. Does not
  * care about if we are in usermode or kernelland
  */
-struct thread* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
+struct thread* spawn_thread(char* name, FuncPtr entry, uint64_t arg0);
 
 struct proc* find_proc_by_id(proc_id_t id);
 struct proc* find_proc(const char* path);

@@ -72,7 +72,7 @@ void destroy_mutex(mutex_t* mutex)
   if (!mutex)
     return;
 
-  thread_unregister_mutex(mutex->m_lock_holder, mutex);
+  //thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
   clear_mutex(mutex);
 
@@ -126,7 +126,7 @@ retry_lock:
   */
 
 do_lock:
-  thread_register_mutex(current_thread, mutex);
+  //thread_register_mutex(current_thread, mutex);
 
   mutex->m_lock_holder = current_thread;
 
@@ -152,7 +152,7 @@ void mutex_unlock(mutex_t* mutex)
 
   if (!mutex->m_lock_depth) {
 
-    thread_unregister_mutex(mutex->m_lock_holder, mutex);
+    //thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
     /* Unblock */
     if (__mutex_handle_unblock(mutex) == 0)

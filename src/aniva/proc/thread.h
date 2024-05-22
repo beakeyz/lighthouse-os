@@ -1,7 +1,6 @@
 #ifndef __ANIVA_THREAD__
 #define __ANIVA_THREAD__
 
-#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "proc/context.h"
 #include <sync/atomic_ptr.h>
@@ -20,29 +19,52 @@ typedef int (*ThreadEntry) (
   uintptr_t arg
 );
 
-// TODO: thread uid?
-typedef struct thread {
-  struct thread* m_self;
+typedef struct thread_rt {
+  /* Register context for a thread */
+  thread_context_t registers;
+  /* FPU/SSE register state */
+  FpuState fpu_state;
+} thread_rt_t;
 
+typedef struct thread_state_stack {
+  THREAD_STATE_t* stack;
+  THREAD_STATE_t base_state;
+  uint32_t current_state_idx;
+  uint32_t stack_capacity;
+} __attribute__((packed)) thread_state_stack_t;
+
+int init_thread_state_stack(thread_state_stack_t* stack, uint32_t capacity);
+void destroy_thread_state_stack(thread_state_stack_t* stack);
+
+int thread_state_stack_push(thread_state_stack_t* stac, THREAD_STATE_t state);
+int thread_state_stack_pop(thread_state_stack_t* stac, THREAD_STATE_t* state);
+int thread_state_stack_peek(thread_state_stack_t* stac, THREAD_STATE_t* state);
+
+/*
+ *
+ */
+typedef struct thread {
+  const char* m_name;
+  /* Pointer to the function which serves as the thread context */
   ThreadEntry f_entry;
+  /* (TODO: Use) Exit function to be called when the thread exits */
   FuncPtr f_exit;
 
+  /* Lock that protects the threads internal data */
   struct mutex* m_lock;
 
-  /* TODO: figure out if this is legal */
-  list_t* m_mutex_list;
+  /* Storage for the thread runtime when switching away from this thread */
+  thread_rt_t m_runtime_state;
 
-  thread_context_t m_context;
-  FpuState m_fpu_state;
+  u_fid_t fid;
 
-  bool m_has_been_scheduled;
-
-  char m_name[32];
-  thread_id_t m_tid;
-  uint32_t m_cpu; // atomic?
+  /* Stack to store thread state */
+  thread_state_stack_t state;
+  uint32_t m_cpu;
 
   uint64_t m_ticks_elapsed;
   uint64_t m_max_ticks;
+
   /* The vaddress of the stack bottom, as seen by the kernel */
   vaddr_t m_kernel_stack_bottom;
   vaddr_t m_kernel_stack_top;
@@ -50,23 +72,20 @@ typedef struct thread {
   uintptr_t m_user_stack_bottom;
   uintptr_t m_user_stack_top;
 
-  thread_state_t m_current_state;
-
-  // allow nested context switches
-  struct proc *m_parent_proc; // nullable?
+  uintptr_t param0;
 } thread_t;
 
 /*
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default
  */
-thread_t *create_thread(FuncPtr, uintptr_t, const char[32], struct proc*, bool); // make this sucka
+thread_t *create_thread(FuncPtr, uintptr_t, const char*, bool); // make this sucka
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 
 /*
  * create a thread that is supposed to execute code for a process
  */
-thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, const char[32]);
+thread_t *create_thread_for_proc(struct proc *, FuncPtr, uintptr_t, const char*);
 
 /*
  * set up the thread and prepare to switch context
@@ -85,10 +104,10 @@ void thread_switch_context(thread_t* from, thread_t* to);
  */
 ANIVA_STATUS thread_prepare_context(thread_t *);
 
-/*
- * set the current state of a thread
- */
-void thread_set_state(thread_t *, thread_state_t);
+void thread_set_state(thread_t* thread, THREAD_STATE_t state);
+void thread_get_state(thread_t* thread, THREAD_STATE_t* state);
+void thread_push_state(thread_t* thread, THREAD_STATE_t state);
+void thread_pop_state(thread_t* thread, THREAD_STATE_t* state);
 
 /*
  * Cleans up any resources used by this thread
@@ -100,17 +119,6 @@ ANIVA_STATUS destroy_thread(thread_t *);
  * need any special idle behaviour
  */
 thread_t* get_generic_idle_thread();
-
-ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) 
-{
-  return t->m_has_been_scheduled;
-}
-
-bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread);
-void thread_try_prepare_userpacket(thread_t* to);
-
-void thread_register_mutex(thread_t* thread, struct mutex* lock);
-void thread_unregister_mutex(thread_t* thread, struct mutex* lock);
 
 /*
  * TODO: blocking means we get ignored by the scheduler

@@ -2,7 +2,6 @@
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
 #include "logging/log.h"
-#include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -31,6 +30,26 @@ static void USED reaper_main()
   
   ASSERT_MSG(__reaper_queue, "Could not start reaper: unable to create queue");
   ASSERT_MSG(__reaper_lock, "Could not start reaper: unable to create mutex");
+
+  /*
+  while (true) {
+
+    mutex_lock(__reaper_lock);
+
+    proc = queue_dequeue(__reaper_queue);
+
+    while (proc) {
+
+      destroy_proc(proc);
+
+      proc = queue_dequeue(__reaper_queue);
+    }
+
+    mutex_unlock(__reaper_lock);
+
+    thread_sleep(__reaper_thread);
+  }
+  */
 
   /* Simply pass execution through */
   while (true) {
@@ -70,9 +89,6 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
 
   if (!__reaper_thread)
     return Error();
-
-  /* TODO: If the reaper thread is idle, wake it up */
-  ASSERT_MSG(!(__reaper_thread->m_parent_proc->m_flags & PROC_IDLE), "Kernelprocess seems to be idle!");
   
   /* Get the reaper lock so we know we can safely queue up the process */
   mutex_lock(__reaper_lock);
@@ -125,4 +141,10 @@ ErrorOrPtr init_reaper(proc_t* proc) {
   proc_add_thread(proc, __reaper_thread);
 
   return Success(0);
+}
+
+int reaper_wake()
+{
+  // TODO:
+  return 0;
 }

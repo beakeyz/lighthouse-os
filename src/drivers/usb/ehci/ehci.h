@@ -4,6 +4,7 @@
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
+#include "libk/data/linkedlist.h"
 #include "mem/zalloc.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>

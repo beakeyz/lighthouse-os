@@ -17,4 +17,6 @@ ErrorOrPtr init_reaper(proc_t* proc);
  */
 ErrorOrPtr reaper_register_process(proc_t* proc);
 
+int reaper_wake();
+
 #endif // !__ANIVA_REAPER_THREAD__

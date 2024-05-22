@@ -4,6 +4,7 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "irq/interrupts.h"
+#include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/queue.h"
@@ -268,7 +269,7 @@ ANIVA_STATUS pause_scheduler()
 
   s = get_current_scheduler();
 
-  if (!s)
+  if (!s || (s->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
     return ANIVA_FAIL;
 
   scheduler_try_disable_interrupts(s);
@@ -303,7 +304,7 @@ ANIVA_STATUS resume_scheduler()
 
   s = get_current_scheduler();
 
-  if (!s)
+  if (!s || (s->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
     return ANIVA_FAIL;
 
   /* Simply not paused /-/ */
@@ -617,6 +618,19 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid)
   return frame;
 }
 
+static inline bool _scheduler_may_touch_thread(thread_t* thread, THREAD_STATE_t state)
+{
+  /*
+   * NOTE: This check means a thread may never lock itself, otherwise 
+   * if won't get rescheduled ever agiain
+   */
+  return (!mutex_is_locked(thread->m_lock) &&
+      (state == RUNNABLE ||
+       state == RUNNING || 
+       state == DYING)
+  );
+}
+
 #define SCHED_MAX_PULL_CYCLES 3
 
 /*
@@ -630,6 +644,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 {
   uint32_t c_idx;
   thread_t* next_thread = nullptr;
+  THREAD_STATE_t c_thread_state;
   uint32_t start_idx = ptr->m_scheduled_thread_index + 1;
   proc_t* proc = ptr->m_proc;
 
@@ -663,6 +678,8 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
        */
       next_thread = ptr->m_proc->m_idle_thread;
 
+      thread_get_state(next_thread, &c_thread_state);
+
       printf("Failed to get a thread from the process: %s\n", proc->m_name);
       printf("Init thread: %s\n", proc->m_init_thread ? proc->m_init_thread->m_name : "null");
       printf("First thread: %s\n", ((thread_t*)list_get(proc->m_threads, 0))->m_name);
@@ -671,18 +688,24 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 
       /* FIXME: we can prob allow this, because we can just kill the process */
       ASSERT_MSG(next_thread, "FATAL: Tried to idle a process without it having an idle-thread");
-      ASSERT_MSG(next_thread->m_current_state == RUNNABLE, "FATAL: the idle thread has not been marked runnable for some reason");
+      ASSERT_MSG(c_thread_state == RUNNABLE, "FATAL: the idle thread has not been marked runnable for some reason");
       break;
-    } 
+    }
 
-    switch (next_thread->m_current_state) {
+    thread_get_state(next_thread, &c_thread_state);
+
+    /*
+     * Completely skip this thread if there is something happening with it we may
+     * Srew up lol
+     */
+    if (!_scheduler_may_touch_thread(next_thread, c_thread_state))
+      goto cycle;
+
+    switch (c_thread_state) {
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
         // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
         ptr->m_scheduled_thread_index = (start_idx + c_idx) % proc->m_threads->m_length;
-
-        next_thread->m_current_state = RUNNABLE;
-
         return next_thread;
       case DYING:
         /* TODO: What to do when this fails */
@@ -697,6 +720,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
         break;
     }
 
+cycle:
     c_idx++;
     /* Loop until we've completely scanned the entire scan list once */
   } while (c_idx < proc->m_threads->m_length);

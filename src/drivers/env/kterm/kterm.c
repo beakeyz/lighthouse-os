@@ -1474,11 +1474,6 @@ static void kterm_write_char(char c)
 {
   char msg[2] = { 0 };
 
-  if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
-    // time to flush the buffer
-    return;
-  }
-
   msg[0] = c;
 
   switch (c) {
@@ -1506,6 +1501,10 @@ static void kterm_write_char(char c)
       kterm_process_buffer();
       break;
     default:
+      if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
+        // time to flush the buffer
+        break;
+      }
       if (c >= 0x20) {
         kterm_print(msg);
         __kterm_char_buffer[__kterm_buffer_ptr] = c;

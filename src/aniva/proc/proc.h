@@ -12,6 +12,7 @@
 
 struct penv;
 struct thread;
+struct mutex;
 struct oss_obj;
 struct kresource;
 struct proc_image;
@@ -60,6 +61,7 @@ inline void proc_image_align(proc_image_t* image)
  */
 typedef struct proc {
   const char* m_name;
+  struct mutex* lock;
   struct oss_obj* obj;
   /* ASCII String which contains the runtime context of the process (aka the runtime parameters) */
   const char* m_runtime_ctx;
@@ -122,7 +124,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);
  */
 void destroy_proc(proc_t*);
 
-ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread);
+kerror_t proc_add_thread(proc_t* proc, struct thread* thread);
 kerror_t proc_remove_thread(proc_t* proc, struct thread* thread);
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args);
 

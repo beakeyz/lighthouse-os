@@ -332,9 +332,8 @@ NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic)
  */
 void kthread_entry(void) 
 {
-
   /* Make sure the scheduler won't ruin our day */
-  //pause_scheduler();
+  pause_scheduler();
 
   /*
    * Install and load initial drivers 
@@ -391,7 +390,7 @@ void kthread_entry(void)
    * 'userspace stuff' will consist of user tracking, configuration and utility processes. Any windowing will be done by the kernel this driver
    * is an external driver that we will load from the ramfs, since it's not a driver that is an absolute non-trivial piece. When we fail to load
    */
-  //resume_scheduler();
+  resume_scheduler();
 
   /* Will be attached to Drv/other/kterm */
   if (opt_parser_get_bool("use_kterm"))

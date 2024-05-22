@@ -77,8 +77,9 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   proc->m_name = strdup(name);
   proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
-  proc->m_thread_count = create_atomic_ptr_ex(1);
+  proc->m_thread_count = create_atomic_ptr_ex(0);
   proc->m_threads = init_list();
+  proc->lock = create_mutex(NULL);
   proc->obj = create_oss_obj(name);
 
   /* Register ourselves */
@@ -96,8 +97,6 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   init_thread = create_thread_for_proc(proc, entry, args, "main");
 
   ASSERT_MSG(init_thread, "Failed to create main thread for process!");
-
-  Must(proc_add_thread(proc, init_thread));
 
   proc_register(proc, profile);
 
@@ -281,6 +280,9 @@ void destroy_proc(proc_t* proc)
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 
+  /* Murder the lock */
+  destroy_mutex(proc->lock);
+
   kzfree(proc, sizeof(proc_t));
 }
 
@@ -404,17 +406,98 @@ void proc_exit()
   scheduler_yield();
 }
 
-ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) 
+/*!
+ * @brief: Initialize a thread for execution on @proc
+ *
+ * Called with @proc locked and the scheduler paused (?)
+ */
+static inline void _thread_init_for_proc(thread_t* thread, proc_t* proc)
+{
+  bool kthread;
+  uint64_t tcount;
+
+  if (!thread || !proc)
+    return;
+
+  kthread = is_kernel_proc(proc);
+
+  /* Read the thread count */
+  tcount = atomic_ptr_read(proc->m_thread_count);
+
+  /* Initialize the threads fid */
+  thread->fid.id = create_full_procid(proc->m_id, tcount++);
+
+  /* Write back the correct thread count */
+  atomic_ptr_write(proc->m_thread_count, tcount);
+
+  /* Allocate kernel memory for the stack */
+  thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
+        proc->m_root_pd.m_root,
+        proc->m_resource_bundle,
+        KERNEL_MAP_BASE,
+        DEFAULT_STACK_SIZE,
+        NULL,
+        KMEM_FLAG_WRITABLE));
+
+  /* Compute the kernel stack top */
+  thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
+  thread->m_user_stack_top = 0;
+  thread->m_user_stack_bottom = 0;
+
+  /* Zero memory, since we don't want random shit in our stack */
+  memset((void *)thread->m_kernel_stack_bottom, 0x00, DEFAULT_STACK_SIZE);
+
+  /* Do context before we assign the userstack */
+  thread->m_runtime_state.registers = setup_regs(
+    kthread,
+    (pml_entry_t*)proc->m_root_pd.m_phys_root,
+    thread->m_kernel_stack_top
+  );
+
+  /*
+   * FIXME: right now, we try to remap the stack every time a thread is created,
+   * this means that the stack of the previous thread (if there is one) of this
+   * process gets corrupted, so we either need to give every thread its own stack,
+   * or we try to somehow let every thread share one stack (which like how tf would that work lol)
+   */
+  if (!kthread) {
+    thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->fid.thread_id * DEFAULT_STACK_SIZE);
+
+    thread->m_user_stack_bottom = Must(__kmem_alloc_range(
+        proc->m_root_pd.m_root,
+        proc->m_resource_bundle,
+        thread->m_user_stack_bottom, 
+        DEFAULT_STACK_SIZE, 
+        KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
+        KMEM_FLAG_WRITABLE));
+
+    /* TODO: subtract random offset */
+    thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
+
+    memset(
+        (void*)Must(kmem_get_kernel_address(thread->m_user_stack_bottom, proc->m_root_pd.m_root))
+        , 0
+        , DEFAULT_STACK_SIZE);
+
+    /* We don't touch rsp when the thread is not a kthread */
+    thread->m_runtime_state.registers.rsp = thread->m_user_stack_top;
+  }
+
+  /* Set the entrypoint last */
+  thread_set_entrypoint(thread, (FuncPtr)thread->f_entry, thread->param0, 0);
+}
+
+kerror_t proc_add_thread(proc_t* proc, thread_t* thread)
 {
   kevent_thread_ctx_t thread_ctx = { 0 };
 
   if (!thread || !proc)
-    return Error();
+    return -KERR_INVAL;
 
   ErrorOrPtr does_contain = list_indexof(proc->m_threads, thread);
 
   if (does_contain.m_status == ANIVA_SUCCESS)
-    return Error();
+    return -KERR_INVAL;
 
   thread_ctx.thread = thread;
   thread_ctx.type = THREAD_EVENTTYPE_CREATE;
@@ -437,6 +520,9 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
   /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
   list_append(proc->m_threads, thread);
 
+  /* Initialize the threads internal structures for execution */
+  _thread_init_for_proc(thread, proc);
+
   /*
    * Only prepare the context here if we're not trying to add the init thread 
    * 
@@ -448,7 +534,7 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
     thread_prepare_context(thread);
   
   resume_scheduler();
-  return Success(0);
+  return 0;
 }
 
 /*!

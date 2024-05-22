@@ -405,7 +405,7 @@ ACPI_THREAD_ID AcpiOsGetThreadId()
   if (!c)
     return 1;
 
-  return create_full_procid(c->m_parent_proc->m_id, c->m_tid);
+  return c->fid.id;
 }
 
 ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void *Context)

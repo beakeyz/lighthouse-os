@@ -90,10 +90,9 @@ static proc_t* __unregister_proc_by_id(proc_id_t id)
   return ret;
 }
 
-thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) 
+thread_t* spawn_thread(char* name, FuncPtr entry, uint64_t arg0) 
 {
   proc_t* current;
-  thread_t* thread;
 
   /* Don't be dumb lol */
   if (!entry)
@@ -105,18 +104,7 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
   if (!current)
     return nullptr;
 
-  thread = create_thread_for_proc(current, entry, arg0, name);
-
-  if (!thread)
-    return nullptr;
-
-  if (IsError(proc_add_thread(current, thread))) {
-    /* Sadge */
-    destroy_thread(thread);
-    return nullptr;
-  }
-
-  return thread;
+  return create_thread_for_proc(current, entry, arg0, name);
 }
 
 /*!
@@ -281,7 +269,7 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
   FOREACH(i, proc->m_threads) {
     ret = i->data;
 
-    if (ret->m_tid == tid)
+    if (ret->fid.thread_id == tid)
       return ret;
   }
 

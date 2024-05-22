@@ -40,11 +40,11 @@ void mutex_unlock(mutex_t* mutex);
 /*
  * Checks whether the mutex is held
  */
-//bool mutex_is_locked(mutex_t* mutex);
+bool mutex_is_locked(mutex_t* mutex);
 
 /*
  * Checks whether the mutex is held by the current thread
  */
-//bool mutex_is_locked_by_current_thread(mutex_t* mutex);
+bool mutex_is_locked_by_current_thread(mutex_t* mutex);
 
 #endif // !__ANIVA_SYNC_MUTEX__

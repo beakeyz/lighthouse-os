@@ -359,6 +359,7 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
   loaded_app_t* app;
   dynamic_library_t* lib;
   kevent_thread_ctx_t* ctx;
+  proc_t* parent;
 
   /* Kinda weird lmao */
   if (_ctx->buffer_size != sizeof(*ctx))
@@ -369,7 +370,14 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
   if (ctx->type != THREAD_EVENTTYPE_DESTROY)
     return 0;
 
-  app = _get_app_from_proc(ctx->thread->m_parent_proc);
+  parent = find_proc_by_id(ctx->thread->fid.proc_id);
+
+  /* This would be bad lol */
+  //if (!parent)
+    //return 0;
+  ASSERT_MSG(parent, "DYNLDR: Failed to find the parent of thread when handling thread death");
+
+  app = _get_app_from_proc(parent);
 
   if (!app)
     return 0;
