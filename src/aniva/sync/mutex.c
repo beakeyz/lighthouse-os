@@ -1,10 +1,10 @@
 #include "mutex.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
+#include "libk/stddef.h"
 #include "mem/heap.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
-#include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include "system/processor/processor.h"
 
@@ -20,22 +20,25 @@ mutex_t* create_mutex(uint8_t flags)
 
   ret = kmalloc(sizeof(mutex_t));
 
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
   ret->m_waiters = create_limitless_queue();
   ret->m_lock = create_spinlock();
   ret->m_lock_holder = nullptr;
-
-  init_atomic_ptr(&ret->m_lock_depth, 0);
 
   return ret;
 }
 
 void init_mutex(mutex_t* lock, uint8_t flags)
 {
+  memset(lock, 0, sizeof(*lock));
+
   lock->m_waiters = create_limitless_queue();
   lock->m_lock = create_spinlock();
   lock->m_lock_holder = nullptr;
-
-  init_atomic_ptr(&lock->m_lock_depth, 0);
 }
 
 void clear_mutex(mutex_t* mutex)
@@ -128,15 +131,12 @@ do_lock:
   mutex->m_lock_holder = current_thread;
 
 skip_lock_register:
-  atomic_ptr_write(&mutex->m_lock_depth, 
-    atomic_ptr_read(&mutex->m_lock_depth) + 1
-  );
+  mutex->m_lock_depth++;
   spinlock_unlock(mutex->m_lock);
 }
 
 void mutex_unlock(mutex_t* mutex) 
 {
-  uint64_t c_depth;
   thread_t* c_thread;
 
   c_thread = get_current_scheduling_thread();
@@ -148,15 +148,9 @@ void mutex_unlock(mutex_t* mutex)
 
   spinlock_lock(mutex->m_lock);
 
-  c_depth = atomic_ptr_read(&mutex->m_lock_depth);
+  ASSERT_MSG(mutex->m_lock_depth--, "Tried to unlock a mutex while it was already unlocked!");
 
-  ASSERT_MSG(c_depth, "Tried to unlock a mutex while it was already unlocked!");
-
-  c_depth--;
-
-  atomic_ptr_write(&mutex->m_lock_depth, c_depth);
-
-  if (!c_depth) {
+  if (!mutex->m_lock_depth) {
 
     thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
@@ -171,17 +165,13 @@ void mutex_unlock(mutex_t* mutex)
 // FIXME: inline?
 bool mutex_is_locked(mutex_t* mutex) 
 {
-  // No mutex means no lock =/
-  if (!mutex || !mutex->m_lock_holder || !mutex->m_lock)
-    return false;
-
-  return (atomic_ptr_read(&mutex->m_lock_depth) > 0);
+  return (mutex && mutex->m_lock_holder);
 }
 
 // FIXME: inline?
 bool mutex_is_locked_by_current_thread(mutex_t* mutex) 
 {
-  return (mutex_is_locked(mutex) && mutex->m_lock_holder == get_current_scheduling_thread());
+  return (mutex && mutex->m_lock_holder == get_current_scheduling_thread());
 }
 
 /*!

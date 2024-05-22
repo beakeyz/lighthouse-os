@@ -10,17 +10,7 @@ int generic_driver_entry(drv_manifest_t* driver);
 
 bool driver_is_ready(drv_manifest_t* manifest) 
 {
-  const bool active_flag = (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
-
-  return active_flag && !mutex_is_locked(manifest->m_lock);
-}
-
-bool driver_is_busy(drv_manifest_t* manifest)
-{
-  if (!manifest)
-    return false;
-
-  return (mutex_is_locked(manifest->m_lock));
+  return (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
 }
 
 /*
@@ -39,7 +29,7 @@ int drv_read(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintpt
   if (!driver || !manifest->m_ops.f_read)
     return DRV_STAT_NOMAN;
 
-  if (driver_is_busy(manifest))
+  if (!driver_is_ready(manifest))
     return DRV_STAT_BUSY;
 
   mutex_lock(manifest->m_lock);
@@ -64,14 +54,10 @@ int drv_write(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
   if (!driver || !manifest->m_ops.f_write)
     return DRV_STAT_NOMAN;
 
-  if (driver_is_busy(manifest))
+  if (!driver_is_ready(manifest))
     return DRV_STAT_BUSY;
 
-  mutex_lock(manifest->m_lock);
-
   result = manifest->m_ops.f_write(driver, buffer, buffer_size, offset);
-
-  mutex_unlock(manifest->m_lock);
 
   return result;
 }

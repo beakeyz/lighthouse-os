@@ -224,6 +224,8 @@ registers_t* i8042_irq_handler(registers_t* regs)
     .pressed_char = character,
   };
 
+  printf("Got a keypress (key_code: 0x%x, scan_code: 0x%x, char: %1.1s)!\n", key_code, scan_code, &character);
+
   /* Buffer the keycodes */
   ps2_set_keycode_buffer(kb.keycode, pressed);
 

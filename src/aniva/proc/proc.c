@@ -237,8 +237,11 @@ static void __proc_clear_handles(proc_t* proc)
   }
 }
 
-/*
- * Caller should ensure proc != zero
+/*!
+ * @brief: Murders a process
+ *
+ * Process must be out of the scheduler at this point, so this is not a
+ * critical section.
  */
 void destroy_proc(proc_t* proc) 
 {

@@ -46,11 +46,8 @@ int disk_core_exit();
  *
  * NOTE: caller should have the s_gdisk_lock held
  */
-static disk_uid_t generate_new_disk_uid() {
-
-  if (!mutex_is_locked_by_current_thread(_gdisk_lock))
-    return -1;
-
+static disk_uid_t generate_new_disk_uid() 
+{
   struct gdisk_store_entry* entry = s_last_gdisk;
 
   disk_uid_t ret;

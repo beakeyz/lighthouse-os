@@ -11,6 +11,7 @@
 #include "kevent/types/proc.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
+#include "lightos/event/key.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
@@ -125,7 +126,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
 {
   lwnd_window_t* wnd;
 
-  if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
+  if (!main_screen || !main_screen->event_lock || main_screen->event_lock->m_lock_holder)
     return 0;
 
   wnd = lwnd_screen_get_top_window(main_screen);
@@ -133,7 +134,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
   if (!wnd)
     return 0;
 
-  enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_Q };
+  enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_LALT, ANIVA_SCANCODE_D };
  
   if (kevent_is_keycombination_pressed(ctx, _forcequit_sequence, arrlen(_forcequit_sequence))) {
     switch (wnd->type) {
@@ -145,7 +146,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
     return 0;
   }
 
-  if (kevent_is_keycombination_pressed(ctx, keys, 1)) {
+  if (kevent_is_keycombination_pressed(ctx, keys, 2)) {
     file_t* doom_f = file_open("Root/Apps/doom");
 
     if (!doom_f)

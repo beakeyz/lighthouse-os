@@ -547,9 +547,7 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
   kevent_ctx_t ctx;
   kevent_hook_t* current_hook;
 
-  /* FIXME: add this buffer to a 'missed-events' list or something */
-  if (mutex_is_locked(event->lock))
-    return -1;
+  mutex_lock(event->lock);
 
   /* This event has been frozen. Skip this fire =/ */
   if (kevent_flag_isset(event, KEVENT_FLAG_FROZEN))
@@ -594,8 +592,6 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
    */
   ctx.orig_cpu = c_cpu;
   ctx.orig_fid = create_full_procid(c_proc->m_id, c_thread->m_tid);
-
-  mutex_lock(event->lock);
 
   do {
 

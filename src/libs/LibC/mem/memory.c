@@ -63,14 +63,14 @@ struct malloc_pool {
   uint8_t m_poolentries[];
 };
 
-static inline size_t _get_real_entrysize(size_t entrysize)
+static inline size_t _get_total_entrysize(size_t entrysize)
 {
   return entrysize + sizeof(struct malloc_pool_entry);
 }
 
 static inline struct malloc_pool_entry* _pool_get_entry(struct malloc_pool* pool, uintptr_t idx)
 {
-  idx *= _get_real_entrysize(pool->m_entry_size);
+  idx *= _get_total_entrysize(pool->m_entry_size);
 
   if (idx >= pool->m_data_size)
     return nullptr;
@@ -133,13 +133,13 @@ static inline size_t _calculate_poolsize(size_t entrysize)
    * AHHHHH MY EYESOCKETS
    */
   if (entrysize <= (16 * Kib))
-    coefficient = 64;
+    coefficient = 128;
   else if (entrysize <= (64 * Kib))
-    coefficient = 16;
+    coefficient = 64;
   else
-    coefficient = 1;
+    coefficient = 4;
 
-  return _get_real_entrysize(entrysize) * coefficient;
+  return _get_total_entrysize(entrysize) * coefficient;
 }
 
 static struct malloc_pool* _create_malloc_pool(size_t entrysize)
@@ -161,7 +161,7 @@ static struct malloc_pool* _create_malloc_pool(size_t entrysize)
   memset(ret, 0, sizeof(*ret));
 
   ret->m_entry_size = entrysize;
-  ret->m_data_size = ALIGN_DOWN(poolsize - sizeof(*ret), _get_real_entrysize(ret->m_entry_size));
+  ret->m_data_size = ALIGN_DOWN(poolsize - sizeof(*ret), _get_total_entrysize(ret->m_entry_size));
   ret->m_next_sibling = NULL;
   ret->m_next_size = NULL;
 
@@ -238,7 +238,7 @@ static void* _try_pool_allocate(struct malloc_pool* pool)
   size_t entrycount;
   struct malloc_pool_entry* entry;
 
-  entrysize = _get_real_entrysize(pool->m_entry_size);
+  entrysize = _get_total_entrysize(pool->m_entry_size);
   entrycount = pool->m_data_size / entrysize;
 
   /*

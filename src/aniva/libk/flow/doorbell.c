@@ -143,9 +143,6 @@ int doorbell_write(kdoorbell_t* db, void* buffer, size_t buffer_size, uint32_t i
 
   door = db->m_doors[index];
 
-  if (mutex_is_locked(door->m_lock))
-    return -1;
-
   if (!door->m_buffer || !door->m_buffer_size)
     return -1;
 
@@ -153,12 +150,8 @@ int doorbell_write(kdoorbell_t* db, void* buffer, size_t buffer_size, uint32_t i
   if (buffer_size > door->m_buffer_size)
     return -2;
 
-  mutex_lock(door->m_lock);
-
   /* All checsk passed. We can safely write to the buffer */
   memcpy(door->m_buffer, buffer, buffer_size);
-
-  mutex_unlock(door->m_lock);
   return 0;
 }
 

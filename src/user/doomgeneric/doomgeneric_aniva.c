@@ -94,6 +94,8 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
       return KEY_RIGHTARROW;
     case ANIVA_SCANCODE_ESCAPE:
       return KEY_ESCAPE;
+    case ANIVA_SCANCODE_RETURN:
+      return KEY_ENTER;
 
     /* WASD-rebinds */
     case ANIVA_SCANCODE_A:
@@ -131,6 +133,8 @@ int DG_GetKey(int* pressed, unsigned char* doomKey)
   *pressed = keyevent.pressed;
   *doomKey = aniva_keycode_to_doomkey(keyevent.keycode);
 
+  printf("Got key: %d\n", keyevent.keycode);
+
   return 1;
 }
 
@@ -141,7 +145,7 @@ void DG_SetWindowTitle(const char * title)
 /* Our own argv and argc vars, since our system does not have those yet =)))) */
 char* argv[] = {
   "doom",
-  "-testcontrols",
+  //"-testcontrols",
   "-iwad",
   "Root/Apps/doom1.wad",
 };

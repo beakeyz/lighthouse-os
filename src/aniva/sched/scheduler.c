@@ -441,7 +441,7 @@ static registers_t *sched_tick(registers_t *registers_ptr)
   if ((this->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
     return registers_ptr;
 
-  if (this->pause_depth || mutex_is_locked(this->lock))
+  if (this->pause_depth)
     return registers_ptr;
 
   current_frame = scheduler_queue_peek(&this->processes);

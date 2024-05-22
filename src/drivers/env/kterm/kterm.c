@@ -163,6 +163,7 @@ static void kterm_cursor_shift_y();
 
 //static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bool defer_update);
+static int kterm_print_n(const char* msg, size_t len);
 
 static void kterm_enable_newline_tag();
 static void kterm_disable_newline_tag();
@@ -880,14 +881,16 @@ EXPORT_DRIVER(base_kterm_driver) = {
 
 static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
+  size_t len;
   char* str = (char*)buffer;
+  
+  if (!buffer_size || !(*buffer_size))
+    return DRV_STAT_INVAL;
 
-  /* Make sure the end of the buffer is null-terminated and the start is non-null */
-  //if (IsError(kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
-    //return DRV_STAT_INVAL;
+  len = *buffer_size;
 
   /* TODO; string.h: char validation */
-  kterm_print(str);
+  kterm_print_n(str, len);
 
   return DRV_STAT_OK;
 }
@@ -1697,20 +1700,7 @@ int kterm_println(const char* msg)
   return 0;
 }
 
-int kterm_putc(char msg)
-{
-  char b[2] = { msg, 0 };
-
-  return kterm_print(b);
-}
-
-/*!
- * @brief Print a string to our terminal
- *
- * FIXME: the magic we have with KTERM_CURSOR_WIDTH and kterm_buffer_ptr_copy should get nuked 
- * and redone xD
- */
-int kterm_print(const char* msg) 
+static int kterm_print_n(const char* msg, size_t len)
 {
   uint32_t idx;
 
@@ -1719,7 +1709,7 @@ int kterm_print(const char* msg)
 
   idx = 0;
 
-  while (msg[idx]) {
+  while (len--) {
 
     /*
      * When we encounter a newline character during a kterm_print, we should simply do the following:
@@ -1741,6 +1731,22 @@ cycle:
     idx++;
   }
   return 0;
+}
+
+int kterm_putc(char msg)
+{
+  return kterm_print_n(&msg, 1);
+}
+
+/*!
+ * @brief Print a string to our terminal
+ *
+ * FIXME: the magic we have with KTERM_CURSOR_WIDTH and kterm_buffer_ptr_copy should get nuked 
+ * and redone xD
+ */
+int kterm_print(const char* msg) 
+{
+  return kterm_print_n(msg, strlen(msg));
 }
 
 // TODO: add a scroll direction (up, down, left, ect)

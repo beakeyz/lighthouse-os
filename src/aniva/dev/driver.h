@@ -114,7 +114,6 @@ typedef struct aniva_driver {
 #define driver_is_deferred(manifest) ((manifest->m_flags & DRV_DEFERRED) == DRV_DEFERRED)
 
 bool driver_is_ready(struct drv_manifest* manifest);
-bool driver_is_busy(struct drv_manifest* manifest);
 
 int drv_read(struct drv_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);
 int drv_write(struct drv_manifest* manifest, void* buffer, size_t* buffer_size, uintptr_t offset);

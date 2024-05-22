@@ -150,6 +150,7 @@ void thread_set_state(thread_t *thread, thread_state_t state) {
 // TODO: when this thread has gotten it's own heap, free that aswell
 ANIVA_STATUS destroy_thread(thread_t *thread) 
 {
+  mutex_t* c_mtx;
   list_t* mutex_list;
   proc_t* parent_proc;
 
@@ -164,9 +165,11 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
 
   parent_proc = thread->m_parent_proc;
 
-  FOREACH(i , mutex_list) {
+  FOREACH(i, mutex_list) {
+    c_mtx = i->data;
+
     /* Drain every taken mutex */
-    while (mutex_is_locked(i->data))
+    while (c_mtx->m_lock_holder == thread)
       mutex_unlock(i->data);
   }
 
