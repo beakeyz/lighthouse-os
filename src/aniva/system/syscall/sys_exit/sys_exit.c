@@ -17,8 +17,13 @@ uintptr_t sys_exit_handler(uintptr_t code)
   print("(debug) Thread terminated with code: ");
   println(to_string(code));
 
+  scheduler_t* s;
   proc_t* current_proc;
   thread_t* current_thread;
+
+  s = get_current_scheduler();
+
+  printf("Schduler pause state: %d\n", s->pause_depth);
 
   current_proc = get_current_proc();
 
@@ -61,6 +66,9 @@ exit_and_terminate:
 
 exit_and_yield:
 
+  resume_scheduler();
+
+  printf("Schduler pause state (?): %d\n", s->pause_depth);
   scheduler_yield();
 
   kernel_panic("Somehow returned to an exited process?");

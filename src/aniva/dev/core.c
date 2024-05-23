@@ -953,7 +953,7 @@ exit_fail:
 /*!
  * @brief: Initializes the in-kernel drivers
  */
-void init_aniva_driver_registry() 
+void init_driver_registry() 
 {
   //__installed_driver_manifests = create_hive("Devices");
   __driver_node = create_oss_node("Drv", OSS_OBJ_STORE_NODE, NULL, NULL);
@@ -1026,6 +1026,22 @@ void init_aniva_driver_registry()
 
   destroy_list(__deferred_driver_manifests);
   __deferred_driver_manifests = nullptr;
+}
+
+/*!
+ * @brief: Load drivers specified by the kernel commandline
+ */
+void init_drivers_late()
+{
+  //kerror_t error;
+  //const char* drivers_str;
+
+  //error = opt_parser_get_str("drivers", &drivers_str);
+
+  //if (error)
+    //return;
+
+  /* Parse the string to try and load drivers */
 }
 
 /*!

@@ -43,6 +43,7 @@ typedef enum THREAD_STATE {
   STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
   BLOCKED,          // performing blocking operation
   SLEEPING,         // waiting for anything to happen (i.e. signals, data)
+  SYSCALLING,       // Thread is currently in a syscall
 } THREAD_STATE_t;
 
 typedef int thread_id_t;

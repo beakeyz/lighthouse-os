@@ -23,7 +23,7 @@ static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
 
 /* Default scheduler tick function */
-static registers_t *sched_tick(registers_t *registers_ptr);
+static registers_t *sched_tick(scheduler_t* this, registers_t *registers_ptr);
 
 /*!
  * @brief: Initialize a scheduler on cpu @cpu
@@ -165,7 +165,7 @@ static sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
  */
 bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
 {
-  static uint32_t reschedule_limit = 8;
+  uint32_t reschedule_limit;
   uint32_t reschedule_count;
   thread_t *next_thread;
   thread_t *cur_thread;
@@ -176,6 +176,8 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
   if (!force && cur_thread->m_ticks_elapsed++ < cur_thread->m_max_ticks)
     return false;
 
+  cur_thread->m_max_ticks = 0;
+
   /* Increase the elapsed ticks */
   frame->m_proc->m_ticks_elapsed++;
   frame->m_frame_ticks++;
@@ -185,14 +187,21 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
     /* Reset the elapsed ticks in both cases */
     frame->m_frame_ticks = 0;
 
+    /* Yoink a new scheduler frame */
     frame = pick_next_process_scheduler(sched);
   }
 
-  /* Shit */
+  /*
+   * Shit
+   * TODO: Have a fallback idle process that can always be scheduled, just in case
+   */
   ASSERT_MSG(frame && proc_can_schedule(frame->m_proc), "FUCK, got an invalid proc");
 
   /* Set the count */
   reschedule_count = 0;
+  reschedule_limit = sched->processes.count;
+
+  //serial_println(to_string(mutex_is_locked(frame->m_proc->m_init_thread->m_lock)));
 
   do {
     /* Pull the next thread */
@@ -207,6 +216,12 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
 
   /* If we can't seem to get a new thread, when there is only one process, just don't do shit */
   if (next_thread == cur_thread)
+    return false;
+
+  //serial_println(frame->m_proc->m_name);
+  //ASSERT_MSG(next_thread, mutex_is_locked(cur_thread->m_lock) ? "Yes" : "No");
+
+  if (!next_thread)
     return false;
 
   set_current_proc(frame->m_proc);
@@ -272,8 +287,6 @@ ANIVA_STATUS pause_scheduler()
   if (!s || (s->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
     return ANIVA_FAIL;
 
-  scheduler_try_disable_interrupts(s);
-
   /* If we are trying to pause inside of a pause, just increment the pause depth */
   if (s->pause_depth)
     goto skip_mutex;
@@ -285,7 +298,6 @@ ANIVA_STATUS pause_scheduler()
 skip_mutex:
   s->pause_depth++;
 
-  scheduler_try_enable_interrupts(s);
   return ANIVA_SUCCESS;
 }
 
@@ -311,8 +323,6 @@ ANIVA_STATUS resume_scheduler()
   if (!s->pause_depth)
     return ANIVA_FAIL;
 
-  scheduler_try_disable_interrupts(s);
-
   /* Only decrement if we can */
   if (s->pause_depth)
     s->pause_depth--;
@@ -325,8 +335,6 @@ ANIVA_STATUS resume_scheduler()
     /* Unlock the mutex */
     mutex_unlock(s->lock);
   }
-
-  scheduler_try_enable_interrupts(s);
   return ANIVA_SUCCESS;
 }
 
@@ -400,6 +408,10 @@ int scheduler_try_execute()
   ASSERT_MSG(p && s, "Could not get current processor while trying to calling scheduler");
   ASSERT_MSG(p->m_irq_depth == 0, "Trying to call scheduler while in irq");
 
+  /* Fuck */
+  if (mutex_is_locked(s->lock))
+    return 0;
+
   if (atomic_ptr_read(p->m_critical_depth))
     return -1;
 
@@ -429,12 +441,9 @@ static registers_t* schedframe_tick(scheduler_t* sched, sched_frame_t* frame, re
 /*!
  * @brief: The beating heart of the scheduler
  */
-static registers_t *sched_tick(registers_t *registers_ptr) 
+static registers_t *sched_tick(scheduler_t* this, registers_t *registers_ptr) 
 {
-  scheduler_t* this;
   sched_frame_t *current_frame;
-
-  this = get_current_scheduler();
 
   if (!this)
     return registers_ptr;
@@ -618,19 +627,6 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid)
   return frame;
 }
 
-static inline bool _scheduler_may_touch_thread(thread_t* thread, THREAD_STATE_t state)
-{
-  /*
-   * NOTE: This check means a thread may never lock itself, otherwise 
-   * if won't get rescheduled ever agiain
-   */
-  return (!mutex_is_locked(thread->m_lock) &&
-      (state == RUNNABLE ||
-       state == RUNNING || 
-       state == DYING)
-  );
-}
-
 #define SCHED_MAX_PULL_CYCLES 3
 
 /*
@@ -698,7 +694,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
      * Completely skip this thread if there is something happening with it we may
      * Srew up lol
      */
-    if (!_scheduler_may_touch_thread(next_thread, c_thread_state))
+    if (mutex_is_locked(next_thread->m_lock))
       goto cycle;
 
     switch (c_thread_state) {
@@ -706,6 +702,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
         // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
         ptr->m_scheduled_thread_index = (start_idx + c_idx) % proc->m_threads->m_length;
+        
         return next_thread;
       case DYING:
         /* TODO: What to do when this fails */

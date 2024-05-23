@@ -180,8 +180,8 @@ static inline bool __syscall_verify_sysid(enum SYSID id)
   return true;
 }
 
-static void sys_handler(registers_t* regs) {
-
+static void sys_handler(registers_t* regs) 
+{
   uintptr_t result;
   syscall_t call;
   syscall_args_t args;

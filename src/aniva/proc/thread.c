@@ -476,10 +476,22 @@ void thread_exit_init_state(thread_t *from, registers_t* regs)
 void thread_block(thread_t* thread) 
 {
   thread_t* this;
+  THREAD_STATE_t state;
 
   this = get_current_scheduling_thread();
 
+  mutex_lock(thread->m_lock);
+
+  thread_get_state(thread, &state);
+
+  /* Update the thread state to avoid weird behaviour on unblock */
+  if (state == RUNNING)
+    thread_set_state(thread, RUNNABLE);
+
+  /* Push a blocked state onto the thread stack */
   thread_push_state(thread, BLOCKED);
+
+  mutex_unlock(thread->m_lock);
 
   // FIXME: we do allow blocking other threads here, we need to
   // check if that comes with extra complications
@@ -510,7 +522,7 @@ void thread_unblock(thread_t* thread)
   thread_pop_state(thread, NULL);
 
   /* Unlock so the scheduler can fuck us again */
-  mutex_lock(thread->m_lock);
+  mutex_unlock(thread->m_lock);
 }
 
 /*!
@@ -521,10 +533,21 @@ void thread_unblock(thread_t* thread)
 void thread_sleep(thread_t* thread) 
 {
   thread_t* this;
+  THREAD_STATE_t state;
 
   this = get_current_scheduling_thread();
 
+  mutex_lock(thread->m_lock);
+
+  thread_get_state(thread, &state);
+
+  /* Update the thread state to avoid weird behaviour on wake */
+  if (state == RUNNING)
+    thread_set_state(thread, RUNNABLE);
+
   thread_push_state(thread, SLEEPING);
+
+  mutex_unlock(thread->m_lock);
 
   if (thread == this)
     scheduler_yield();

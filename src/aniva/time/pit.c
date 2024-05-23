@@ -124,7 +124,7 @@ registers_t* pit_irq_handler(registers_t* regs)
   this = get_current_scheduler();
 
   if (this && this->f_tick)
-    this->f_tick(regs);
+    this->f_tick(this, regs);
 
   return regs;
 }

@@ -508,7 +508,11 @@ int oss_node_clean_objects(oss_node_t* node)
   size_t size;
   size_t entry_count;
 
+  printf("Trying to clean...\n");
+
   mutex_lock(node->lock);
+
+  printf("Cleaning\n");
 
   error = hashmap_to_array(node->obj_map, (void***)&array, &size);
 

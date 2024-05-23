@@ -102,7 +102,7 @@ retry_lock:
    */
   //ASSERT_MSG(current_thread != mutex->m_lock_holder, "Tried to lock the same mutex twice!");
   if (current_thread == mutex->m_lock_holder)
-    goto skip_lock_register;
+    goto do_lock;
 
   /* We may lock a mutex from within a irq, but we cant block on it */
   ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't block on a mutex from within an IRQ!");
@@ -126,11 +126,7 @@ retry_lock:
   */
 
 do_lock:
-  //thread_register_mutex(current_thread, mutex);
-
   mutex->m_lock_holder = current_thread;
-
-skip_lock_register:
   mutex->m_lock_depth++;
   spinlock_unlock(mutex->m_lock);
 }
@@ -196,8 +192,6 @@ static int __mutex_handle_unblock(mutex_t* mutex)
   if (!current_thread || !next_holder)
     return -1;
 
-  pause_scheduler();
-
   ASSERT_MSG(next_holder != current_thread, "Next thread to hold mutex is also the current thread!");
 
   /* Set the next holder */
@@ -208,9 +202,6 @@ static int __mutex_handle_unblock(mutex_t* mutex)
 
   /* Mark the thread unblocked */
   thread_unblock(next_holder);
-
-  /* Release the scheduler */
-  resume_scheduler();
 
   /* Yield to the scheduler */
   scheduler_yield();

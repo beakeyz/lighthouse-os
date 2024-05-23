@@ -96,7 +96,8 @@ typedef driver_control_code_t           dcc_t;
  * Also bootstraps any drivers that came precompiled 
  * with the kernel
  */
-void init_aniva_driver_registry();
+void init_driver_registry();
+void init_drivers_late();
 void init_driver_subsys();
 
 // TODO: load driver from file

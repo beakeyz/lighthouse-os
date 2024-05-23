@@ -1,3 +1,4 @@
+#include "dev/manifest.h"
 #include "dev/video/core.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/alloc.h"
@@ -239,7 +240,7 @@ static int __on_key(kevent_ctx_t* ctx, void* param)
  * will send an IOCTL through a syscall with which it contacts the lwnd driver. This driver knows all 
  * about the current active video driver, so all we need to do is keep track of the pixels, and the windows.
  */
-int init_window_driver()
+int init_window_driver(drv_manifest_t* this)
 {
   println("Initializing window driver!");
 

@@ -56,7 +56,7 @@ typedef struct scheduler {
   uint32_t interrupt_depth;
   uint32_t flags;
 
-  registers_t* (*f_tick)(registers_t* regs);
+  registers_t* (*f_tick)(struct scheduler* s, registers_t* regs);
 } scheduler_t;
 
 /*

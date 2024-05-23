@@ -348,7 +348,7 @@ void kthread_entry(void)
    * Load in-kernel drivers -> Mount ramdisk -> Load device drivers from Root/System -> Load disk devices and find our rootdevice
    * -> Move the ramdisk to Initrd/ -> Mount the rootdevice to Root/ -> Lock system parts of the rootdevice -> Load userspace
    */
-  init_aniva_driver_registry();
+  init_driver_registry();
 
   /* Try to fetch the initrd which we can mount initial root to */
   try_fetch_initramdisk();
@@ -375,9 +375,9 @@ void kthread_entry(void)
   /* Do late initialization of the default profiles */
   init_profiles_late();
 
-  //ASSERT_MSG(load_external_driver("Root/System/nvidia.drv"), "Failed to load nvidia kernel driver!");
+  /* Do late driver initialization */
+  init_drivers_late();
 
-  //kernel_panic("NVIDIA TEST");
   /* 
    * Remove the early TTY right before we finish low-level system setup. After
    * this point we're able to support our own debug capabilities
@@ -393,9 +393,9 @@ void kthread_entry(void)
   resume_scheduler();
 
   /* Will be attached to Drv/other/kterm */
-  if (opt_parser_get_bool("use_kterm"))
-    ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
-  else 
+  //if (opt_parser_get_bool("use_kterm"))
+    //ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+  //else 
     ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
   while (true) {
