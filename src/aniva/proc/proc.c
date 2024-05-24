@@ -3,13 +3,11 @@
 #include "dev/core.h"
 #include "entry/entry.h"
 #include "kevent/event.h"
-#include "kevent/types/proc.h"
 #include "kevent/types/thread.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "lightos/driver/loader.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc.h"
 #include "oss/obj.h"
@@ -281,59 +279,6 @@ void destroy_proc(proc_t* proc)
   }
 
   kzfree(proc, sizeof(proc_t));
-}
-
-static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
-{
-  proc_t* param_proc = param;
-  kevent_proc_ctx_t* proc_ctx;
-
-  if (ctx->buffer_size != sizeof(*proc_ctx))
-    return false;
-
-  proc_ctx = ctx->buffer;
-
-  /* Check if this is our process */
-  if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process->m_id != param_proc->m_id)
-    return false;
-
-  /* Yes! Fire the hook */
-  return true;
-}
-
-/*!
- * @brief Wait for a process to be terminated
- *
- * 
- */
-int await_proc_termination(proc_id_t id)
-{
-  proc_t* proc;
-  char hook_name[64] = { 0 };
-
-  /* Pause the scheduler so we don't get fucked while registering the door */
-  pause_scheduler();
-
-  proc = find_proc_by_id(id);
-
-  /*
-   * If we can't find the process here, that probably means its already
-   * terminated even before we could make this call
-   */
-  if (!proc) {
-    resume_scheduler();
-    return 0;
-  }
-
-  sfmt(hook_name, "await_proc_termination_%d", id);
-
-  kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
-
-  /* Resume the scheduler so we don't die */
-  resume_scheduler();
-
-  /* Wait for the process to be bopped */
-  return kevent_await_hook_fire("proc", hook_name, NULL, NULL);
 }
 
 /*

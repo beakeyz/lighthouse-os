@@ -188,11 +188,7 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
   println("Adding to scheduler");
 
-  /* Do an instant rescedule */
-  Must(sched_add_priority_proc(p, SCHED_PRIO_MID, false));
-
-  /* Wait for process termination */
-  ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
+  ASSERT_MSG(sched_add_proc_sync(p, SCHED_PRIO_MID) == 0, "Process scheduling failed");
 
   /* Make sure we're in terminal right after this exit */
   kterm_switch_to_terminal();

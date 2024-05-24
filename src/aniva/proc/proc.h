@@ -109,7 +109,6 @@ kerror_t proc_install_runtime(proc_t* proc, const char* rt);
 kerror_t proc_get_runtime(proc_t* proc, const char** rt);
 
 /* Block until the process has ended execution */
-int await_proc_termination(proc_id_t id);
 int proc_clone(proc_t* p, const char* clone_name, proc_t** clone);
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);

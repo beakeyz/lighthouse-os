@@ -1,6 +1,8 @@
 #include "scheduler.h"
 #include <mem/heap.h>
 #include "entry/entry.h"
+#include "kevent/event.h"
+#include "kevent/types/proc.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "irq/interrupts.h"
@@ -549,6 +551,57 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, b
 
   resume_scheduler();
   return Success(0);
+}
+
+static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
+{
+  proc_t* param_proc = param;
+  kevent_proc_ctx_t* proc_ctx;
+
+  if (ctx->buffer_size != sizeof(*proc_ctx))
+    return false;
+
+  proc_ctx = ctx->buffer;
+
+  /* Check if this is our process */
+  if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process->m_id != param_proc->m_id)
+    return false;
+
+  /* Yes! Fire the hook */
+  return true;
+}
+
+kerror_t sched_add_proc_sync(proc_t* proc, enum SCHEDULER_PRIORITY prio)
+{
+  kerror_t error;
+  char hook_name[64] = { 0 };
+
+  if (!proc)
+    return -1;
+
+  sfmt(hook_name, "await_proc_termination_%d", proc->m_id);
+
+  /* Pause the scheduler so we don't get fucked while registering the door */
+  pause_scheduler();
+
+  /* Do an instant rescedule */
+  Must(sched_add_priority_proc(proc, SCHED_PRIO_MID, false));
+
+  error = kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
+
+  /* Resume the scheduler so we don't die */
+  resume_scheduler();
+
+  if (error)
+    return error;
+
+  /* Wait for the process to be bopped */
+  error = kevent_await_hook_fire("proc", hook_name, NULL, NULL);
+
+  if (error)
+    return error;
+
+  return kevent_remove_hook("proc", hook_name);
 }
 
 ANIVA_STATUS sched_remove_proc(proc_t *proc) 

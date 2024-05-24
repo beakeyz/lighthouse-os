@@ -95,6 +95,7 @@ void scheduler_set_request(scheduler_t* s);
  */
 ErrorOrPtr sched_add_priority_proc(proc_t*, enum SCHEDULER_PRIORITY prio, bool reschedule);
 ANIVA_STATUS sched_add_proc(proc_t*, enum SCHEDULER_PRIORITY prio);
+kerror_t sched_add_proc_sync(proc_t* p, enum SCHEDULER_PRIORITY prio);
 
 ANIVA_STATUS sched_remove_proc(proc_t*);
 ANIVA_STATUS sched_remove_proc_by_id(proc_id_t);
