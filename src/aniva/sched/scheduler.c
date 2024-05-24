@@ -356,7 +356,7 @@ void scheduler_set_request(scheduler_t* s)
   s->flags |= SCHEDULER_FLAG_HAS_REQUEST;
 }
 
-void scheduler_yield() 
+kerror_t scheduler_try_yield()
 {
   scheduler_t* s;
   sched_frame_t* frame;
@@ -365,9 +365,16 @@ void scheduler_yield()
 
   s = get_current_scheduler();
 
-  ASSERT_MSG(s, "Tried to yield without a scheduler!");
-  ASSERT_MSG((s->flags & SCHEDULER_FLAG_RUNNING) == SCHEDULER_FLAG_RUNNING, "Tried to yield to an unstarted scheduler!");
-  ASSERT_MSG(!s->pause_depth, "Tried to yield to a paused scheduler!");
+  if (!s)
+    return -KERR_NULL;
+
+  /* Ok lol */
+  if ((s->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
+    return 0;
+
+  /* LOL wtf is this */
+  if (s->pause_depth)
+    return -KERR_NOCON;
 
   CHECK_AND_DO_DISABLE_INTERRUPTS();
 
@@ -390,6 +397,21 @@ void scheduler_yield()
     scheduler_try_execute();
 
   CHECK_AND_TRY_ENABLE_INTERRUPTS();
+  return 0;
+}
+
+void scheduler_yield() 
+{
+  kerror_t error;
+
+  error = scheduler_try_yield();
+
+  if (error) {
+    pause_scheduler();
+
+    printf("Error: %d\n", error);
+    kernel_panic("Failed to yield!");
+  }
 }
 
 /*!
@@ -690,13 +712,6 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 
     thread_get_state(next_thread, &c_thread_state);
 
-    /*
-     * Completely skip this thread if there is something happening with it we may
-     * Srew up lol
-     */
-    if (mutex_is_locked(next_thread->m_lock))
-      goto cycle;
-
     switch (c_thread_state) {
       case RUNNABLE:
         // potential good thread so TODO: make an algorithm that chooses the optimal thread here
@@ -717,7 +732,6 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
         break;
     }
 
-cycle:
     c_idx++;
     /* Loop until we've completely scanned the entire scan list once */
   } while (c_idx < proc->m_threads->m_length);

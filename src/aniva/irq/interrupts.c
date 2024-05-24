@@ -686,7 +686,7 @@ registers_t* exception_handler (struct registers* regs)
 
   switch (result) {
     case FR_KILL_PROC:
-      Must(try_terminate_process(c_proc));
+      ASSERT_MSG(KERR_OK(try_terminate_process(c_proc)), "exception_handler: Failed to terminate process!");
       break;
     case FR_FATAL:
       kernel_panic("Failed to handle fatal fault!");

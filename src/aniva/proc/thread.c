@@ -506,8 +506,6 @@ void thread_unblock(thread_t* thread)
 {
   THREAD_STATE_t state;
 
-  mutex_lock(thread->m_lock);
-
   /* Get current state */
   thread_get_state(thread, &state);
 
@@ -520,9 +518,6 @@ void thread_unblock(thread_t* thread)
 
   /* Pop into the previous thread state */
   thread_pop_state(thread, NULL);
-
-  /* Unlock so the scheduler can fuck us again */
-  mutex_unlock(thread->m_lock);
 }
 
 /*!
@@ -562,12 +557,11 @@ void thread_wakeup(thread_t* thread)
 {
   THREAD_STATE_t state;
 
-  mutex_lock(thread->m_lock);
-
   /* Get current state */
   thread_get_state(thread, &state);
 
-  ASSERT_MSG(state == SLEEPING, "Tried to wake a thread which was awake!");
+  if (state != SLEEPING)
+    return;
 
   /* We can't unblock ourselves, can we? */
   if (get_current_scheduling_thread() == thread) {
@@ -576,7 +570,4 @@ void thread_wakeup(thread_t* thread)
 
   /* Pop into the previous thread state */
   thread_pop_state(thread, NULL);
-
-  /* Unlock so the scheduler can fuck us again */
-  mutex_lock(thread->m_lock);
 }

@@ -15,7 +15,6 @@
 #include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/handle.h"
-#include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
@@ -246,7 +245,8 @@ void destroy_proc(proc_t* proc)
 {
   oss_obj_do_destroy_reroute(proc);
 
-  proc_unregister(proc->m_id);
+  /* Murder the lock */
+  destroy_mutex(proc->lock);
 
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
@@ -280,9 +280,6 @@ void destroy_proc(proc_t* proc)
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
   }
 
-  /* Murder the lock */
-  destroy_mutex(proc->lock);
-
   kzfree(proc, sizeof(proc_t));
 }
 
@@ -312,7 +309,7 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
 int await_proc_termination(proc_id_t id)
 {
   proc_t* proc;
-  char hook_name[32] = { 0 };
+  char hook_name[64] = { 0 };
 
   /* Pause the scheduler so we don't get fucked while registering the door */
   pause_scheduler();
@@ -346,40 +343,29 @@ int await_proc_termination(proc_id_t id)
  *
  * NOTE: don't remove from the scheduler here, but in the reaper
  */
-ErrorOrPtr try_terminate_process(proc_t* proc)
+kerror_t try_terminate_process(proc_t* proc)
 {
   return try_terminate_process_ex(proc, false);
 }
 
-ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
+kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
 {
-  ErrorOrPtr result;
+  kerror_t error;
 
   if (!proc)
-    return Error();
-
-  /* Pause the scheduler to make sure we're not fucked while doing this */
-  pause_scheduler();
-
-  result = Error();
+    return -KERR_INVAL;
 
   /* Register from the global register store */
-  if (proc_unregister(proc->m_id))
-    goto unpause_and_exit;
+  error = proc_unregister(proc->m_id);
 
-  /* 
-   * Register to the reaper 
-   * NOTE: this also pauses the scheduler
-   */
-  result = reaper_register_process(proc);
-  
-unpause_and_exit:
-  resume_scheduler();
+  if (error)
+    return error;
 
   /* Yield to catch any terminates from within a process */
   if (!defer_yield)
     scheduler_yield();
-  return result;
+
+  return 0;
 }
 
 /*!

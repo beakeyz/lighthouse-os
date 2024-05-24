@@ -12,6 +12,7 @@
 #include "oss/core.h"
 #include "oss/obj.h"
 #include "proc/env.h"
+#include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -340,6 +341,10 @@ ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
 
 /*!
  * @brief: Unregister a process from the kernel
+ *
+ * There are a few things we need to detach a process from, in order of importance:
+ * 1) The process registry: This way we deny access to the process from the rest of the system
+ * 2) The scheduler
  */
 kerror_t proc_unregister(proc_id_t id)
 {
@@ -347,10 +352,17 @@ kerror_t proc_unregister(proc_id_t id)
   processor_t* cpu;
   kevent_proc_ctx_t ctx;
 
+  /* Remove from registry */
   p = __unregister_proc_by_id(id);
 
   if (!p)
     return -1;
+
+  /* Lock the process for this entire segment */
+  mutex_lock(p->lock);
+
+  /* Register to the reaper, so we can sleep tight tonight */
+  reaper_register_process(p);
 
   /* Make sure the process is removed form its profile */
   penv_remove_proc(p->m_env, p);
@@ -362,8 +374,26 @@ kerror_t proc_unregister(proc_id_t id)
   ctx.new_cpuid = cpu->m_cpu_num;
   ctx.old_cpuid = cpu->m_cpu_num;
 
+  /* Fire a process event. We can be sure the reaper won't fuck us over here, since it needs to wait until
+   * the processes lock is freed until it can destroy it */
   kevent_fire("proc", &ctx, sizeof(ctx));
 
+  /* Quick pause as to make sure we're unfucked */
+  pause_scheduler();
+
+  /* Mark yeeted */
+  p->m_flags |= PROC_FINISHED;
+
+  /* Remove from the scheduler */
+  sched_remove_proc(p);
+
+  /* Unlock, as to release the process from it's missery */
+  mutex_unlock(p->lock);
+
+  /* Resume scheduler, so we can be on our mary way */
+  resume_scheduler();
+
+  /* At this point the process may be killed (RIP) */
   return 0;
 }
 

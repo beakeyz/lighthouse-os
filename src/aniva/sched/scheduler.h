@@ -79,6 +79,7 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force);
  * yield to the scheduler and let it switch to a new thread
  */
 void scheduler_yield();
+kerror_t scheduler_try_yield();
 
 /* die */
 int scheduler_try_execute();

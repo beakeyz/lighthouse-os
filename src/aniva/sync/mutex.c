@@ -72,7 +72,7 @@ void destroy_mutex(mutex_t* mutex)
   if (!mutex)
     return;
 
-  //thread_unregister_mutex(mutex->m_lock_holder, mutex);
+  mutex_lock(mutex);
 
   clear_mutex(mutex);
 
@@ -203,8 +203,8 @@ static int __mutex_handle_unblock(mutex_t* mutex)
   /* Mark the thread unblocked */
   thread_unblock(next_holder);
 
-  /* Yield to the scheduler */
-  scheduler_yield();
+  /* Try to yield to the scheduler */
+  (void)scheduler_try_yield();
 
   return 0;
 }

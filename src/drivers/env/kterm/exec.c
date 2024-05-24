@@ -93,6 +93,39 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
   return error;
 }
 
+static inline void _kterm_prepare_execution_environment(proc_t* p, const char* cmdline)
+{
+  user_profile_t* login_profile;
+
+  khandle_t _stdin;
+  khandle_t _stdout;
+  khandle_t _stderr;
+
+  /* Make sure the profile has the correct rights */
+  kterm_get_login(&login_profile);
+
+  profile_add_penv(login_profile, p->m_env);
+
+  /* Attach the commandline variable to the profile */
+  sysvar_attach(p->m_env->node, "CMDLINE", 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
+
+  khandle_type_t driver_type = HNDL_TYPE_DRIVER;
+  drv_manifest_t* kterm_manifest = get_driver("other/kterm");
+
+  init_khandle(&_stdin, &driver_type, kterm_manifest);
+  init_khandle(&_stdout, &driver_type, kterm_manifest);
+  init_khandle(&_stderr, &driver_type, kterm_manifest);
+
+  _stdin.flags |= HNDL_FLAG_READACCESS;
+  _stdout.flags |= HNDL_FLAG_WRITEACCESS;
+  _stderr.flags |= HNDL_FLAG_RW;
+
+  bind_khandle(&p->m_handle_map, &_stdin);
+  bind_khandle(&p->m_handle_map, &_stdout);
+  bind_khandle(&p->m_handle_map, &_stderr);
+
+}
+
 /*!
  * @brief: Try to execute anything that is the first entry of @argv
  *
@@ -106,11 +139,6 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
   proc_t* p;
   proc_id_t id;
   const char* buffer;
-  user_profile_t* login_profile;
-
-  khandle_t _stdin;
-  khandle_t _stdout;
-  khandle_t _stderr;
 
   if (!argv || !argv[0])
     return 1;
@@ -156,40 +184,18 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
    */
   ASSERT_MSG(p, "Could not find process! (Lost to the void)");
 
-  /* Make sure the profile has the correct rights */
-  kterm_get_login(&login_profile);
-
-  profile_add_penv(login_profile, p->m_env);
-
-  /* Attach the commandline variable to the profile */
-  sysvar_attach(p->m_env->node, "CMDLINE", 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
-
-  khandle_type_t driver_type = HNDL_TYPE_DRIVER;
-  drv_manifest_t* kterm_manifest = get_driver("other/kterm");
-
-  init_khandle(&_stdin, &driver_type, kterm_manifest);
-  init_khandle(&_stdout, &driver_type, kterm_manifest);
-  init_khandle(&_stderr, &driver_type, kterm_manifest);
-
-  _stdin.flags |= HNDL_FLAG_READACCESS;
-  _stdout.flags |= HNDL_FLAG_WRITEACCESS;
-  _stderr.flags |= HNDL_FLAG_RW;
-
-  bind_khandle(&p->m_handle_map, &_stdin);
-  bind_khandle(&p->m_handle_map, &_stdout);
-  bind_khandle(&p->m_handle_map, &_stderr);
+  _kterm_prepare_execution_environment(p, cmdline);
 
   println("Adding to scheduler");
 
   /* Do an instant rescedule */
-  Must(sched_add_priority_proc(p, SCHED_PRIO_MID, true));
+  Must(sched_add_priority_proc(p, SCHED_PRIO_MID, false));
 
   /* Wait for process termination */
   ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
 
   /* Make sure we're in terminal right after this exit */
-  if (kterm_ismode(KTERM_MODE_GRAPHICS))
-    kterm_switch_to_terminal();
+  kterm_switch_to_terminal();
 
   kterm_println(NULL);
 

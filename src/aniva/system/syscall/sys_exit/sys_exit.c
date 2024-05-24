@@ -17,27 +17,19 @@ uintptr_t sys_exit_handler(uintptr_t code)
   print("(debug) Thread terminated with code: ");
   println(to_string(code));
 
-  scheduler_t* s;
   proc_t* current_proc;
   thread_t* current_thread;
 
-  s = get_current_scheduler();
-
-  printf("Schduler pause state: %d\n", s->pause_depth);
-
   current_proc = get_current_proc();
-
-  ASSERT_MSG(current_proc, "No current proc to exit! (sys_exit_handler)");
-
   current_thread = get_current_scheduling_thread();
 
+  ASSERT_MSG(current_proc, "No current proc to exit! (sys_exit_handler)");
   ASSERT_MSG(current_thread, "No current thread in the process");
   ASSERT_MSG(current_thread->fid.proc_id == current_proc->m_id, "Process to Thread mismatch!");
 
   /* In this case we may always kill the entire process */
-  if (current_thread == current_proc->m_init_thread) {
+  if (current_thread == current_proc->m_init_thread)
     goto exit_and_terminate;
-  } 
 
   /* There are more threads in this process */
   if (atomic_ptr_read(current_proc->m_thread_count) > 1) {
@@ -46,29 +38,13 @@ uintptr_t sys_exit_handler(uintptr_t code)
     goto exit_and_yield;
   }
 
-  /*
-   * This process was a shared library or a socket that finished initilization and we are waiting on 
-   * the signal for destruction
-   */
-  if (current_proc->m_flags & PROC_SHOULD_STALL) {
-
-    current_proc->m_flags |= PROC_STALLED | PROC_IDLE;
-
-    /* This thread will be idle forever */
-    thread_set_state(current_thread, BLOCKED);
-
-    goto exit_and_yield;
-  }
-
 exit_and_terminate:
   println("(debug) Terminate");
-  Must(try_terminate_process(current_proc));
+  ASSERT_MSG(KERR_OK(try_terminate_process(current_proc)), "Failed to terminate process!");
 
 exit_and_yield:
 
-  resume_scheduler();
-
-  printf("Schduler pause state (?): %d\n", s->pause_depth);
+  println("(debug) Yield");
   scheduler_yield();
 
   kernel_panic("Somehow returned to an exited process?");

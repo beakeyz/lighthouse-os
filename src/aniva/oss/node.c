@@ -59,6 +59,45 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
 }
 
 /*!
+ * @brief: Walks the object map of @node recursively and destroys every object if finds
+ *
+ * Assumes the nodes lock to be taken
+ */
+static inline int oss_node_clean_objects(oss_node_t* node)
+{
+  int error;
+  oss_node_entry_t** array;
+  size_t size;
+  size_t entry_count;
+
+  error = hashmap_to_array(node->obj_map, (void***)&array, &size);
+
+  if (error)
+    return error;
+
+  entry_count = size / (sizeof(oss_node_entry_t*));
+
+  for (uintptr_t i = 0; i < entry_count; i++) {
+    oss_node_entry_t* entry = array[i];
+
+    switch (entry->type) {
+      case OSS_ENTRY_NESTED_NODE:
+        destroy_oss_node(entry->node);
+        break;
+      case OSS_ENTRY_OBJECT:
+        destroy_oss_obj(entry->obj);
+        break;
+    }
+
+    destroy_oss_node_entry(entry);
+  }
+
+  kfree(array);
+  return error;
+}
+
+
+/*!
  * @brief: Clean up oss node memory
  */
 void destroy_oss_node(oss_node_t* node)
@@ -74,6 +113,8 @@ void destroy_oss_node(oss_node_t* node)
   if (node->parent)
     oss_node_remove_entry(node->parent, node->name, &entry);
 
+  destroy_mutex(node->lock);
+
   if (entry)
     destroy_oss_node_entry(entry);
 
@@ -82,7 +123,6 @@ void destroy_oss_node(oss_node_t* node)
 
   kfree((void*)node->name);
 
-  destroy_mutex(node->lock);
   destroy_hashmap(node->obj_map);
 
   zfree_fixed(_node_allocator, node);
@@ -496,51 +536,6 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
 int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param)
 {
   return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter, (uint64_t)param));
-}
-
-/*!
- * @brief: Walks the object map of @node recursively and destroys every object if finds
- */
-int oss_node_clean_objects(oss_node_t* node)
-{
-  int error;
-  oss_node_entry_t** array;
-  size_t size;
-  size_t entry_count;
-
-  printf("Trying to clean...\n");
-
-  mutex_lock(node->lock);
-
-  printf("Cleaning\n");
-
-  error = hashmap_to_array(node->obj_map, (void***)&array, &size);
-
-  if (error)
-    goto unlock_and_exit;
-
-  entry_count = size / (sizeof(oss_node_entry_t*));
-
-  for (uintptr_t i = 0; i < entry_count; i++) {
-    oss_node_entry_t* entry = array[i];
-
-    switch (entry->type) {
-      case OSS_ENTRY_NESTED_NODE:
-        destroy_oss_node(entry->node);
-        break;
-      case OSS_ENTRY_OBJECT:
-        destroy_oss_obj(entry->obj);
-        break;
-    }
-
-    destroy_oss_node_entry(entry);
-  }
-
-  kfree(array);
-
-unlock_and_exit:
-  mutex_unlock(node->lock);
-  return error;
 }
 
 oss_node_entry_t* create_oss_node_entry(enum OSS_ENTRY_TYPE type, void* obj)

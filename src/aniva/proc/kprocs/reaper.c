@@ -1,7 +1,7 @@
 #include "reaper.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
-#include "logging/log.h"
+#include "libk/stddef.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
@@ -20,6 +20,7 @@ static queue_t* __reaper_queue;
 static void USED reaper_main() 
 {
   proc_t* proc;
+  thread_t* c_thread;
 
   /* Check if we actually have a queue, otherwise try to create it again */
   if (!__reaper_queue)
@@ -27,47 +28,29 @@ static void USED reaper_main()
 
   if (!__reaper_lock)
     __reaper_lock = create_mutex(0);
+
+  /* Get the current thread, just to be safe */
+  c_thread = get_current_scheduling_thread();
   
   ASSERT_MSG(__reaper_queue, "Could not start reaper: unable to create queue");
   ASSERT_MSG(__reaper_lock, "Could not start reaper: unable to create mutex");
 
-  /*
   while (true) {
 
     mutex_lock(__reaper_lock);
 
-    proc = queue_dequeue(__reaper_queue);
+    while ((proc = queue_dequeue(__reaper_queue)) != nullptr) {
 
-    while (proc) {
+      printf("[REAPER]: Trying to destroy process %s\n", proc->m_name);
 
+      /* Buh bye */
       destroy_proc(proc);
-
-      proc = queue_dequeue(__reaper_queue);
     }
 
     mutex_unlock(__reaper_lock);
 
-    thread_sleep(__reaper_thread);
-  }
-  */
-
-  /* Simply pass execution through */
-  while (true) {
-
-    /* FIXME: Locking issue; trying to lock here seems to cause a deadlock somewhere? */
-    mutex_lock(__reaper_lock);
-
-    proc = queue_dequeue(__reaper_queue);
-
-    mutex_unlock(__reaper_lock);
-
-    if (proc) {
-      println("Procdestroy =)");
-
-      destroy_proc(proc);
-    }
-
-    scheduler_yield();
+    /* zzzzzz */
+    thread_sleep(c_thread);
   }
 
   kernel_panic("Reaper thread isn't supposed to exit its loop!");
@@ -93,20 +76,11 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
   /* Get the reaper lock so we know we can safely queue up the process */
   mutex_lock(__reaper_lock);
 
-  /* Now we can pause the scheduler, since we know we won't block on the mutex lock */
-  pause_scheduler();
-
-  /* Mark as finished, since we know we won't be seeing it again after we return from this call */
-  proc->m_flags |= PROC_FINISHED;
-
-  /* Remove from the scheduler (Pauses it) */
-  (void)sched_remove_proc(proc);
-
   /* Queue the process to the reaper */
   queue_enqueue(__reaper_queue, proc);
 
-  /* Resume stuff here too */
-  resume_scheduler();
+  /* Wake the thread if it's sleeping */
+  thread_wakeup(__reaper_thread);
 
   /* Unlock the mutex. After this we musn't access @proc anymore */
   mutex_unlock(__reaper_lock);
