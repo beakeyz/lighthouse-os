@@ -511,8 +511,6 @@ int printf(const char* fmt, ...)
 {
   int error;
 
-  try_lock();
-
   va_list args;
   va_start(args, fmt);
 
@@ -520,7 +518,6 @@ int printf(const char* fmt, ...)
 
   va_end(args);
 
-  try_unlock();
   return error;
 }
 

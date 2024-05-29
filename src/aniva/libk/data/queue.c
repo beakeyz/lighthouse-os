@@ -88,6 +88,31 @@ void* queue_dequeue(queue_t *queue)
   return ret;
 }
 
+int queue_remove(queue_t* q, void* ptr)
+{
+  queue_entry_t* target;
+  queue_entry_t** c_entry;
+
+  c_entry = &q->m_head_ptr;
+
+  while (*c_entry) {
+
+    /* Found it */
+    if ((*c_entry)->m_data == ptr) {
+      target = *c_entry;
+      /* Unlink the target */
+      *c_entry = target->m_preceding_entry;
+
+      kfree(target);
+      return 0;
+    }
+
+    c_entry = &(*c_entry)->m_preceding_entry;
+  }
+
+  return -1;
+}
+
 void* queue_peek(queue_t* queue) {
   if (!queue || !queue->m_head_ptr) {
     return nullptr;

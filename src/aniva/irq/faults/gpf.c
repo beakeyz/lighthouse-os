@@ -10,6 +10,8 @@ enum FAULT_RESULT gpf_handler(const aniva_fault_t* fault, registers_t* regs)
   proc_t* c_proc;
   thread_t* c_thrd;
 
+  pause_scheduler();
+
   c_proc = get_current_proc();
   c_thrd = get_current_scheduling_thread();
 
@@ -24,6 +26,7 @@ enum FAULT_RESULT gpf_handler(const aniva_fault_t* fault, registers_t* regs)
   if (is_kernel_proc(c_proc))
     goto kpanic;
 
+  resume_scheduler();
   return FR_KILL_PROC;
 kpanic:
   kernel_panic("GPF panic");

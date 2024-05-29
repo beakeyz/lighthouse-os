@@ -25,7 +25,7 @@ build-dynamic: $(ASM_OBJ) $(C_OBJ)
 	@$(LD) $(USER_DYNAMIC_LDFLAGS) $(LIBRARIES) -l:LibC.slb $^ -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT)
 
 build-static: $(ASM_OBJ) $(C_OBJ)
-	@$(LD) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT) $(USER_STATIC_LDFLAGS)
+	@$(LD) $(USER_STATIC_LDFLAGS) $^ $(LIBRARIES) -o $(THIS_OUT)/$(PROCESS_NAME)$(PROCESS_EXT)
 
 build:
 ifeq ($(LINK_TYPE), dynamic)

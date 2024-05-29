@@ -25,7 +25,7 @@ uintptr_t sys_exit_handler(uintptr_t code)
 
   ASSERT_MSG(current_proc, "No current proc to exit! (sys_exit_handler)");
   ASSERT_MSG(current_thread, "No current thread in the process");
-  ASSERT_MSG(current_thread->fid.proc_id == current_proc->m_id, "Process to Thread mismatch!");
+  ASSERT_MSG(current_thread->parent_proc->m_id == current_proc->m_id, "Process to Thread mismatch!");
 
   /* In this case we may always kill the entire process */
   if (current_thread == current_proc->m_init_thread)

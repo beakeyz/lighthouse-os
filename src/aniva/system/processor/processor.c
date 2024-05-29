@@ -272,10 +272,10 @@ void processor_enter_interruption(registers_t* registers, bool irq)
   processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when entering interruption");
 
-  current->m_prev_irq_depth = current->m_irq_depth;
-  if (irq) {
+  //current->m_prev_irq_depth = current->m_irq_depth;
+
+  if (irq)
     current->m_irq_depth++;
-  }
 }
 
 void processor_exit_interruption(registers_t* registers) 
@@ -283,10 +283,13 @@ void processor_exit_interruption(registers_t* registers)
   processor_t *current = get_current_processor();
   ASSERT_MSG(current, "could not get current processor when exiting interruption");
 
-  current->m_irq_depth = current->m_prev_irq_depth;
+  if (current->m_irq_depth)
+    current->m_irq_depth--;
 
-  if (current->m_prev_irq_depth > 0)
-    current->m_prev_irq_depth--;
+  //current->m_irq_depth = current->m_prev_irq_depth;
+
+  //if (current->m_prev_irq_depth > 0)
+   // current->m_prev_irq_depth--;
 
   /* call events or deferred calls here too? */
 

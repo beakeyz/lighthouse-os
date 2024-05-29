@@ -31,6 +31,7 @@ static void USED reaper_main()
 
   /* Get the current thread, just to be safe */
   c_thread = get_current_scheduling_thread();
+  (void)c_thread;
   
   ASSERT_MSG(__reaper_queue, "Could not start reaper: unable to create queue");
   ASSERT_MSG(__reaper_lock, "Could not start reaper: unable to create mutex");
@@ -50,7 +51,8 @@ static void USED reaper_main()
     mutex_unlock(__reaper_lock);
 
     /* zzzzzz */
-    thread_sleep(c_thread);
+    //thread_sleep(c_thread);
+    scheduler_yield();
   }
 
   kernel_panic("Reaper thread isn't supposed to exit its loop!");
@@ -80,7 +82,7 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
   queue_enqueue(__reaper_queue, proc);
 
   /* Wake the thread if it's sleeping */
-  thread_wakeup(__reaper_thread);
+  //thread_wakeup(__reaper_thread);
 
   /* Unlock the mutex. After this we musn't access @proc anymore */
   mutex_unlock(__reaper_lock);

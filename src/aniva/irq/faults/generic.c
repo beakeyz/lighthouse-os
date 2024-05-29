@@ -330,7 +330,8 @@ static const char* _get_best_symname(uint64_t ip, bool* ksym)
     return ret;
 
   *ksym = false;
-  return proc_try_get_symname(get_current_proc(), ip);
+  return nullptr;
+  //return proc_try_get_symname(get_current_proc(), ip);
 }
 
 /*!

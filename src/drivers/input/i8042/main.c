@@ -1,9 +1,9 @@
 #include "dev/core.h"
 #include "dev/endpoint.h"
+#include "dev/io/hid/event.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
 #include "kevent/event.h"
-#include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
 #include "system/acpi/acpi.h"
@@ -83,18 +83,12 @@ static int _init_i8042()
   /* Quick flush */
   (void)i8042_read_status();
 
-  /* Make sure the keyboard event isn't frozen */
-  unfreeze_kevent("keyboard");
-
   return 0;
 }
 
 static int _exit_i8042()
 {
   int error;
-
-  /* Make sure that the keyboard event is frozen, since there is no current kb driver */
-  freeze_kevent("keyboard");
 
   if (s_i8042_device) {
     /*
@@ -178,6 +172,7 @@ static inline void set_flags(uint16_t* flags, uint8_t bit, bool val)
 registers_t* i8042_irq_handler(registers_t* regs) 
 {
   char character;
+  hid_event_t* event;
   uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
   bool pressed = (!(scan_code & 0x80));
 
@@ -220,23 +215,22 @@ registers_t* i8042_irq_handler(registers_t* regs)
                  ? kbd_us_shift_map[key_code]
                  : kbd_us_map[key_code];
 
-  kevent_kb_ctx_t kb = {
-    .pressed = pressed,
-    .keycode = aniva_scancode_table[key_code],
-    .pressed_char = character,
-    .src_device = s_i8042_device,
-  };
+  event = create_hid_event(s_i8042_device, HID_EVENT_KEYPRESS);
+
+  event->key.pressed = pressed;
+  event->key.keycode = aniva_scancode_table[key_code];
+  event->key.pressed_char = character;
 
   //printf("Got a keypress (key_code: 0x%x, scan_code: 0x%x, char: %1.1s)!\n", key_code, scan_code, &character);
 
   /* Buffer the keycodes */
-  ps2_set_keycode_buffer(kb.keycode, pressed);
+  ps2_set_keycode_buffer(event->key.keycode, pressed);
 
   /* Copy the scancode buffer to the event */
-  memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
+  memcpy(&event->key.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
 
-  kevent_fire("keyboard", &kb, sizeof(kb));
-
+  /* Queue the event */
+  queue_hid_event(event);
   return regs;
 }
 

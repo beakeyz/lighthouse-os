@@ -13,9 +13,6 @@ static dgroup_t* _hid_group;
 void init_hid()
 {
   _hid_group = register_dev_group(DGROUP_TYPE_MISC, "hid", NULL, NULL);
-
-  /* Register a kernel event */
-  ASSERT_MSG(KERR_OK(add_kevent(HID_EVENTNAME, KE_DEVICE_EVENT, NULL, 512)), "Failed to add HID kevent");
 }
 
 /*!
@@ -46,7 +43,6 @@ hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struc
 
   hiddev->dev = device;
   hiddev->btype = btype;
-  hiddev->device_events = nullptr;
 
   return hiddev;
 }

@@ -675,12 +675,13 @@ registers_t* exception_handler (struct registers* regs)
 
   exc_num = regs->isr_no;
 
-  kwarnf("Got isr no (%lld) and err no (%lld)\n", regs->isr_no, regs->err_code);
-
   if (get_fault(exc_num, &fault))
     kernel_panic("Got an exception but failed to get the fault handler!");
 
   c_proc = get_current_proc();
+
+  kwarnf("Got isr no (%lld) and err no (%lld)\n", regs->isr_no, regs->err_code);
+  for (;;) {}
 
   result = try_handle_fault(&fault, regs);
 

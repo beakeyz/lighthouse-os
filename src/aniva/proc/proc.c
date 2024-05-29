@@ -356,7 +356,7 @@ static inline void _thread_init_for_proc(thread_t* thread, proc_t* proc)
   tcount = atomic_ptr_read(proc->m_thread_count);
 
   /* Initialize the threads fid */
-  thread->fid.id = create_full_procid(proc->m_id, tcount++);
+  thread->parent_proc = proc;
 
   /* Write back the correct thread count */
   atomic_ptr_write(proc->m_thread_count, tcount);
@@ -392,7 +392,7 @@ static inline void _thread_init_for_proc(thread_t* thread, proc_t* proc)
    * or we try to somehow let every thread share one stack (which like how tf would that work lol)
    */
   if (!kthread) {
-    thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->fid.thread_id * DEFAULT_STACK_SIZE);
+    thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->tid * DEFAULT_STACK_SIZE);
 
     thread->m_user_stack_bottom = Must(__kmem_alloc_range(
         proc->m_root_pd.m_root,

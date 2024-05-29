@@ -480,7 +480,7 @@ static void __apply_user_variables()
   /* Default provider for lwnd services */
   sysvar_attach(_user_profile.node, "DFLT_LWND_PATH", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("service/lwnd"));
   /* Default eventname for the keyboard event */
-  sysvar_attach(_user_profile.node, "DFLT_KB_EVENT", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("keyboard"));
+  sysvar_attach(_user_profile.node, "DFLT_KB_EVENT", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("hid"));
   /* Path variable to indicate default locations for executables */
   sysvar_attach(_user_profile.node, "PATH", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/Apps:Root/Users/User/Apps"));
   sysvar_attach(_user_profile.node, LIBSPATH_VAR, PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("Root/System/Lib"));

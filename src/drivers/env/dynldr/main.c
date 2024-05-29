@@ -370,7 +370,7 @@ static int __libinit_thread_eventhook(kevent_ctx_t* _ctx, void* param)
   if (ctx->type != THREAD_EVENTTYPE_DESTROY)
     return 0;
 
-  parent = find_proc_by_id(ctx->thread->fid.proc_id);
+  parent = ctx->thread->parent_proc;;
 
   /* This would be bad lol */
   //if (!parent)

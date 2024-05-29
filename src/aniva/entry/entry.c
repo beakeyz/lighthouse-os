@@ -5,6 +5,7 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/ramdisk.h"
 #include "dev/driver.h"
+#include "dev/io/hid/event.h"
 #include "dev/io/hid/hid.h"
 #include "dev/loader.h"
 #include "dev/pci/pci.h"
@@ -334,6 +335,9 @@ void kthread_entry(void)
 {
   /* Make sure the scheduler won't ruin our day */
   pause_scheduler();
+
+  /* HID needs it's own thread and kevent */
+  init_hid_events();
 
   /*
    * Install and load initial drivers 

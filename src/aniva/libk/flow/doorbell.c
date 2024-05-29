@@ -51,13 +51,11 @@ void doorbell_ring_one(kdoorbell_t* db, uint32_t idx)
   if (!door)
     return;
 
-  mutex_lock(db->m_lock);
   mutex_lock(door->m_lock);
 
   door->m_flags |= KDOOR_FLAG_RANG;
 
   mutex_unlock(door->m_lock);
-  mutex_unlock(db->m_lock);
 }
 
 void doorbell_ring(kdoorbell_t* db)
@@ -185,23 +183,14 @@ void destroy_kdoor(kdoor_t* door)
 
 ErrorOrPtr kdoor_reset(kdoor_t* door)
 {
-  kdoorbell_t* bell;
-
   if (!door->m_bell)
     return Error();
 
-  bell = door->m_bell;
-
-  if (!bell->m_lock)
-    return Error();
-
-  mutex_lock(bell->m_lock);
   mutex_lock(door->m_lock);
 
   door->m_flags &= ~(KDOOR_FLAG_RANG);
 
   mutex_unlock(door->m_lock);
-  mutex_unlock(bell->m_lock);
 
   return Success(0);
 }

@@ -1,6 +1,7 @@
 #ifndef __ANIVA_THREAD__
 #define __ANIVA_THREAD__
 
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "proc/context.h"
 #include <sync/atomic_ptr.h>
@@ -52,15 +53,18 @@ typedef struct thread {
 
   /* Lock that protects the threads internal data */
   struct mutex* m_lock;
+  list_t* m_locked_mutexes;
 
   /* Storage for the thread runtime when switching away from this thread */
   thread_rt_t m_runtime_state;
 
-  u_fid_t fid;
+  struct proc* parent_proc;
+
+  thread_id_t tid;
+  uint32_t m_cpu;
 
   /* Stack to store thread state */
   thread_state_stack_t state;
-  uint32_t m_cpu;
 
   uint64_t m_ticks_elapsed;
   uint64_t m_max_ticks;

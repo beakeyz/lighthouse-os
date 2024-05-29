@@ -46,7 +46,7 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
         current_proc->m_name,
         current_thread->m_name,
         current_proc->m_id,
-        current_thread->fid.thread_id,
+        current_thread->tid,
         current_proc->m_root_pd.m_phys_root
     );
     p_addr = kmem_to_phys(current_proc->m_root_pd.m_root, err_addr);
@@ -76,9 +76,7 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
   if ((current_proc->m_flags & PROC_DRIVER) == PROC_DRIVER)
     goto panic;
 
-  // /* NOTE: This yields and exits the interrupt context cleanly */
-  //Must(try_terminate_process(current_proc));
-  //return regs;
+  /* NOTE: This yields and exits the interrupt context cleanly */
   return FR_KILL_PROC;
 
 panic:

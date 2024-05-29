@@ -35,6 +35,8 @@ void queue_enqueue(queue_t *queue, void* data);
  */
 void* queue_dequeue(queue_t *queue);
 
+int queue_remove(queue_t* q, void* ptr);
+
 /*
  * get a pointer to the data that is first in the queue, without removing the entry
  */

@@ -8,7 +8,6 @@
 #include "drivers/env/lwnd/window/wallpaper.h"
 #include "fs/file.h"
 #include "kevent/event.h"
-#include "kevent/types/keyboard.h"
 #include "kevent/types/proc.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
@@ -27,8 +26,8 @@
 static fb_info_t _fb_info;
 static lwnd_mouse_t _mouse;
 static lwnd_keyboard_t _keyboard;
-static kevent_kb_ctx_t* _lwnd_key_ctx_buffer;
-static struct kevent_kb_keybuffer _lwnd_keybuffer;
+static hid_event_t* _lwnd_key_ctx_buffer;
+static struct hid_event_keybuffer _lwnd_keybuffer;
 
 static video_device_t* _lwnd_vdev;
 static fb_handle_t _lwnd_fb_handle;
@@ -43,7 +42,7 @@ static enum ANIVA_SCANCODES _forcequit_sequence[] = {
   ANIVA_SCANCODE_Q,
 };
 
-static int lwnd_on_key(kevent_kb_ctx_t* ctx);
+static int lwnd_on_key(hid_event_t* ctx);
 
 /*!
  * @brief: Main compositing loop
@@ -57,7 +56,7 @@ static void USED lwnd_main()
   bool recursive_update;
   lwnd_window_t* current_wnd;
   lwnd_screen_t* current_screen;
-  kevent_kb_ctx_t* c_kb_ctx;
+  hid_event_t* c_kb_ctx;
 
   (void)_mouse;
   (void)_keyboard;
@@ -123,7 +122,7 @@ static void USED lwnd_main()
  *
  * Sends the key event over to the focussed window if there isn't a special key combination pressed
  */
-int lwnd_on_key(kevent_kb_ctx_t* ctx)
+int lwnd_on_key(hid_event_t* ctx)
 {
   lwnd_window_t* wnd;
 
@@ -137,7 +136,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
 
   enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_LALT, ANIVA_SCANCODE_D };
  
-  if (kevent_is_keycombination_pressed(ctx, _forcequit_sequence, arrlen(_forcequit_sequence))) {
+  if (hid_event_is_keycombination_pressed(ctx, _forcequit_sequence, arrlen(_forcequit_sequence))) {
     switch (wnd->type) {
       case LWND_TYPE_PROCESS:
         try_terminate_process(wnd->client.proc);
@@ -147,7 +146,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
     return 0;
   }
 
-  if (kevent_is_keycombination_pressed(ctx, keys, 2)) {
+  if (hid_event_is_keycombination_pressed(ctx, keys, 2)) {
     file_t* doom_f = file_open("Root/Apps/doom");
 
     if (!doom_f)
@@ -166,7 +165,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
   }
 
   /* TODO: save this instantly to userspace aswell */
-  lwnd_save_keyevent(wnd, ctx);
+  lwnd_save_hid_event(wnd, ctx);
   return 0;
 }
 
@@ -223,7 +222,7 @@ static int on_proc(kevent_ctx_t* _ctx, void* param)
 
 static int __on_key(kevent_ctx_t* ctx, void* param)
 {
-  if (!ctx->buffer || ctx->buffer_size != sizeof(kevent_kb_ctx_t))
+  if (!ctx->buffer || ctx->buffer_size != sizeof(hid_event_t))
     return 0;
 
   /* Save the keypress */
@@ -256,7 +255,7 @@ int init_window_driver(drv_manifest_t* this)
 
   /* Initialize the lwnd keybuffer */
   _lwnd_key_ctx_buffer = kmalloc(sizeof(*_lwnd_key_ctx_buffer) * 32);
-  init_kevent_kb_keybuffer(&_lwnd_keybuffer, _lwnd_key_ctx_buffer, 32);
+  init_hid_event_keybuffer(&_lwnd_keybuffer, _lwnd_key_ctx_buffer, 32);
 
   _lwnd_vdev = get_active_vdev();
   /*
@@ -286,7 +285,7 @@ int init_window_driver(drv_manifest_t* this)
   vdev_map_fb(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE);
 
   /* TODO: register to I/O core */
-  kevent_add_hook("keyboard", "lwnd", __on_key, NULL);
+  kevent_add_hook("hid", "lwnd", __on_key, NULL);
   kevent_add_hook("proc", "lwnd", on_proc, NULL);
 
   println("Initializing screen!");
@@ -413,18 +412,18 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
       internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
 
       lkey_event_t* u_event;
-      kevent_kb_ctx_t kbd_ctx;
+      hid_event_t kbd_ctx;
 
-      if (lwnd_load_keyevent(internal_wnd, &kbd_ctx))
+      if (lwnd_load_hid_event(internal_wnd, &kbd_ctx))
         return DRV_STAT_INVAL;
 
       /* Grab a buffer entry */
       u_event = &uwindow->keyevent_buffer[uwindow->keyevent_buffer_write_idx++];
 
       /* Write the data */
-      u_event->keycode = kbd_ctx.keycode;
-      u_event->pressed_char = kbd_ctx.pressed_char;
-      u_event->pressed = kbd_ctx.pressed;
+      u_event->keycode = kbd_ctx.key.keycode;
+      u_event->pressed_char = kbd_ctx.key.pressed_char;
+      u_event->pressed = kbd_ctx.key.pressed;
       u_event->mod_flags = NULL;
 
       /* Make sure we cycle the index */

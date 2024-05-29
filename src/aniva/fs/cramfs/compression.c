@@ -109,7 +109,8 @@ static void build_fixed_tables() {
   fill_huffman_table(&fixed_distances, l, fixed_distances_size);
 }
 
-static void destroy_gzip_header(struct gzip_compressed_header* header) {
+static void destroy_gzip_header(struct gzip_compressed_header* header) 
+{
   kfree(header->comment);
   kfree(header->name);
 }

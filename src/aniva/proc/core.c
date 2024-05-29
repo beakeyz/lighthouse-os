@@ -270,7 +270,7 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
   FOREACH(i, proc->m_threads) {
     ret = i->data;
 
-    if (ret->fid.thread_id == tid)
+    if (ret->tid == tid)
       return ret;
   }
 
@@ -342,6 +342,8 @@ ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
 /*!
  * @brief: Unregister a process from the kernel
  *
+ * Can't be called from IRQ
+ *
  * There are a few things we need to detach a process from, in order of importance:
  * 1) The process registry: This way we deny access to the process from the rest of the system
  * 2) The scheduler
@@ -360,9 +362,6 @@ kerror_t proc_unregister(proc_id_t id)
 
   /* Lock the process for this entire segment */
   mutex_lock(p->lock);
-
-  /* Register to the reaper, so we can sleep tight tonight */
-  reaper_register_process(p);
 
   /* Make sure the process is removed form its profile */
   penv_remove_proc(p->m_env, p);
@@ -387,8 +386,13 @@ kerror_t proc_unregister(proc_id_t id)
   /* Remove from the scheduler */
   sched_remove_proc(p);
 
+  printf("Init thread is holding %d mutexes\n", p->m_init_thread->m_locked_mutexes->m_length);
+
   /* Unlock, as to release the process from it's missery */
   mutex_unlock(p->lock);
+
+  /* Register to the reaper, so we can sleep tight tonight */
+  reaper_register_process(p);
 
   /* Resume scheduler, so we can be on our mary way */
   resume_scheduler();

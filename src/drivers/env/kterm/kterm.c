@@ -3,6 +3,7 @@
 #include "LibGfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/driver.h"
+#include "dev/io/hid/event.h"
 #include "dev/manifest.h"
 #include "dev/video/core.h"
 #include "dev/video/device.h"
@@ -11,7 +12,6 @@
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
-#include "kevent/types/keyboard.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
@@ -97,7 +97,7 @@ static struct kterm_terminal_char* _characters;
 static struct kterm_terminal_pallet_entry* _clr_pallet;
 
 /* Keybuffer for graphical applications */
-struct kevent_kb_keybuffer _keybuffer;
+struct hid_event_keybuffer _keybuffer;
 
 /* Amound of chars on the x-axis */
 static uint32_t _chars_xres;
@@ -1036,7 +1036,7 @@ int kterm_init()
   memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
   /* Register ourselves to the keyboard event */
-  kevent_add_hook("keyboard", "kterm", kterm_on_key, NULL); 
+  kevent_add_hook("hid", "kterm", kterm_on_key, NULL); 
 
   /* TODO: integrate video device accel */
   // map our framebuffer
@@ -1056,9 +1056,9 @@ int kterm_init()
   /* Update video shit */
   _kterm_set_fb_props();
 
-  void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
+  void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(hid_event_t));
 
-  init_kevent_kb_keybuffer(&_keybuffer, _kb_buffer, KTERM_KEYBUFFER_CAPACITY);
+  init_hid_event_keybuffer(&_keybuffer, _kb_buffer, KTERM_KEYBUFFER_CAPACITY);
 
   /* Initialize our lwnd emulation capabilities */
   kterm_init_lwnd_emulation();
@@ -1268,7 +1268,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       uwnd = buffer;
 
       lkey_event_t* u_event;
-      kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer);
+      hid_event_t* event = keybuffer_read_key(&_keybuffer);
 
       if (!event)
         return DRV_STAT_INVAL;
@@ -1281,9 +1281,9 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       u_event = &uwnd->keyevent_buffer[uwnd->keyevent_buffer_write_idx++];
 
       /* Write the data */
-      u_event->keycode = event->keycode;
-      u_event->pressed_char = event->pressed_char;
-      u_event->pressed = event->pressed;
+      u_event->keycode = event->key.keycode;
+      u_event->pressed_char = event->key.pressed_char;
+      u_event->pressed = event->key.pressed;
       u_event->mod_flags = NULL;
 
       /* Make sure we cycle the index */
@@ -1295,12 +1295,12 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
   return DRV_STAT_OK;
 }
 
-int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
+int kterm_handle_terminal_key(hid_event_t* kbd)
 {
-  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !kbd->pressed)
+  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !kbd->key.pressed)
     return 0;
 
-  kterm_write_char(kbd->pressed_char);
+  kterm_write_char(kbd->key.pressed_char);
   return 0;
 }
 
@@ -1309,9 +1309,9 @@ int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
  *
  * Simply writes the event into the keybuffer
  */
-int kterm_handle_graphics_key(kevent_kb_ctx_t* kbd)
+int kterm_handle_graphics_key(hid_event_t* kbd)
 {
-  if (kevent_is_keycombination_pressed(kbd, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
+  if (hid_event_is_keycombination_pressed(kbd, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
     try_terminate_process(_active_grpx_app.client_proc);
 
   keybuffer_write_key(&_keybuffer, kbd);
@@ -1377,12 +1377,12 @@ static void kterm_submit_prompt()
   kterm_println(NULL);
 }
 
-int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
+int kterm_handle_prompt_key(hid_event_t* kbd)
 {
-  if (!kbd->pressed)
+  if (!kbd->key.pressed)
     return 0;
 
-  switch (kbd->pressed_char) {
+  switch (kbd->key.pressed_char) {
     case '\b':
       kterm_prompt_write(NULL);
       break;
@@ -1391,8 +1391,8 @@ int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
       kterm_submit_prompt();
       break;
     default:
-      if (kbd->pressed_char >= 0x20) {
-        kterm_prompt_write(kbd->pressed_char);
+      if (kbd->key.pressed_char >= 0x20) {
+        kterm_prompt_write(kbd->key.pressed_char);
       }
       break;
   }
@@ -1410,7 +1410,11 @@ int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
  */
 int kterm_on_key(kevent_ctx_t* ctx, void* param)
 {
-  kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
+  hid_event_t* k_event = ctx->buffer;
+
+  /* Not insteresting */
+  if (k_event->type != HID_EVENT_KEYPRESS)
+    return 0;
 
   /* Prompts intercept any input */
   if (_kterm_has_prompt())

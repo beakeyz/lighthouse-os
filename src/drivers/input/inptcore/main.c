@@ -5,6 +5,9 @@
 #include <dev/driver.h>
 #include <dev/device.h>
 
+static bool has_hid_keyboard;
+static bool has_hid_mouse;
+
 /*
  * Input core driver
  *
@@ -28,6 +31,8 @@ static bool __check_input_device(device_t* device)
 static int _init_input_core()
 {
   dgroup_t* usb_grp;
+  has_hid_mouse = false;
+  has_hid_keyboard = false;
 
   logln("Initalizing input driver!");
 
@@ -36,7 +41,7 @@ static int _init_input_core()
 
   device_for_each(usb_grp, __check_input_device);
 
-  if (kevent_flag_isset(kevent_get("keyboard"), KEVENT_FLAG_FROZEN))
+  if (!has_hid_keyboard)
     ASSERT_MSG(load_external_driver("Root/System/i8042.drv"), "Failed to load fallback input driver");
 
   return 0;

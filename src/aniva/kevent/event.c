@@ -30,7 +30,6 @@ struct {
   uint32_t flags;
   uint32_t hook_capacity;
 } default_kevents[] = {
-  { "keyboard", KE_KEY_EVENT,       KEVENT_FLAG_FROZEN, 512 },
   { "mouse",    KE_MOUSE_EVENT,     KEVENT_FLAG_FROZEN, 512 },
   { "error",    KE_ERROR_EVENT,     NULL, 128 },
   { "proc",     KE_PROC_EVENT,      NULL, 128 },
@@ -588,7 +587,7 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
    * in which case we probably need to switch kevent contexts back to pointers =D ) 
    */
   ctx.orig_cpu = c_cpu;
-  ctx.orig_fid = c_thread->fid.id;
+  ctx.orig_fid = create_full_procid(c_thread->parent_proc->m_id, c_thread->tid);
 
   do {
 

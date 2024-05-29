@@ -37,7 +37,7 @@ typedef struct processor {
   scheduler_t* m_scheduler;
 
   uint32_t m_irq_depth;
-  uint32_t m_prev_irq_depth;
+  //uint32_t m_prev_irq_depth;
   // 0 means this is the bsp
   uint32_t m_cpu_num;
   uint32_t m_flags;

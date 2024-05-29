@@ -1,4 +1,5 @@
 #include "thread.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/kmem_manager.h"
@@ -106,6 +107,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char* name, bool kt
   thread->f_entry = (ThreadEntry)entry;
   thread->f_exit = (FuncPtr)0;
   thread->m_name = strdup(name);
+  thread->m_locked_mutexes = init_list();
 
   memcpy(&thread->m_runtime_state.fpu_state, &standard_fpu_state, sizeof(FpuState));
 
@@ -192,12 +194,13 @@ void thread_pop_state(thread_t* thread, THREAD_STATE_t* state)
  */
 ANIVA_STATUS destroy_thread(thread_t *thread) 
 {
+  mutex_t* c_mtx;
   proc_t* parent_proc;
 
   if (!thread)
     return ANIVA_FAIL;
 
-  parent_proc = find_proc_by_id(thread->fid.proc_id);
+  parent_proc = thread->parent_proc;
 
   /* We need to do a bit more when we're actually still connected to a process */
   if (parent_proc) {
@@ -214,6 +217,15 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
   /* Destroy the state stack */
   destroy_thread_state_stack(&thread->state);
 
+  FOREACH(i, thread->m_locked_mutexes) {
+    c_mtx = i->data;
+
+    printf("Thread %s: leaking mutex!\n", thread->m_name);
+
+    mutex_thread_release(c_mtx, thread);
+  }
+
+  destroy_list(thread->m_locked_mutexes);
   destroy_mutex(thread->m_lock);
   kfree((void*)thread->m_name);
   kfree(thread);

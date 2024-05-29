@@ -145,6 +145,7 @@ void oss_obj_unref(oss_obj_t* obj)
   return;
 
 destroy_obj:
+  mutex_unlock(obj->lock);
   destroy_oss_obj(obj);
 }
 

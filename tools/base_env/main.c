@@ -26,7 +26,7 @@ struct sysvar_template base_defaults[] = {
  */
 struct sysvar_template user_defaults[] = {
   VAR_ENTRY("DFLT_LWND_PATH",   SYSVAR_TYPE_STRING, "service/lwnd", SYSVAR_FLAG_CONFIG),
-  VAR_ENTRY("DFLT_KB_EVENT",    SYSVAR_TYPE_STRING, "keyboard", SYSVAR_FLAG_CONFIG),
+  VAR_ENTRY("DFLT_KB_EVENT",    SYSVAR_TYPE_STRING, "hid", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("DFLT_ERR_EVENT",   SYSVAR_TYPE_STRING, "error", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("BOOTDISK_PATH",    SYSVAR_TYPE_STRING, "unknown", SYSVAR_FLAG_CONFIG),
   VAR_ENTRY("LOGIN_MSG",        SYSVAR_TYPE_STRING, "Welcome to LightOS!", SYSVAR_FLAG_GLOBAL),

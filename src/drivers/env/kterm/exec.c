@@ -190,6 +190,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
   ASSERT_MSG(sched_add_proc_sync(p, SCHED_PRIO_MID) == 0, "Process scheduling failed");
 
+  printf("Process ended!\n");
+
   /* Make sure we're in terminal right after this exit */
   kterm_switch_to_terminal();
 

@@ -1,8 +1,8 @@
 #ifndef __ANIVA_LWND_WINDOW__
 #define __ANIVA_LWND_WINDOW__
 
+#include "dev/io/hid/event.h"
 #include "dev/video/framebuffer.h"
-#include "kevent/types/keyboard.h"
 #include "proc/proc.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -25,7 +25,7 @@ typedef uint16_t window_type_t;
 /* Things like taskbar, menus, etc. that are managed by lwnd */
 #define LWND_TYPE_LWND_OWNED 0x5
 
-#define LWND_WINDOW_KEYBUFFER_CAPACITY 33
+#define LWND_WINDOW_KEYBUFFER_CAPACITY 32
 
 /*
  * Kernel-side structure representing a window on the screen
@@ -48,7 +48,7 @@ typedef struct lwnd_window {
   struct lwnd_window_ops* ops;
 
   /* Keypress ringbuffer thingy */
-  kevent_kb_ctx_t key_buffer[LWND_WINDOW_KEYBUFFER_CAPACITY];
+  hid_event_t key_buffer[LWND_WINDOW_KEYBUFFER_CAPACITY];
   uint32_t key_buffer_write_idx;
   uint32_t key_buffer_read_idx;
 
@@ -112,8 +112,8 @@ typedef struct lwnd_window_ops {
   int (*f_update)(lwnd_window_t* window);
 } lwnd_window_ops_t;
 
-int lwnd_save_keyevent(lwnd_window_t* window, kevent_kb_ctx_t* ctx);
-int lwnd_load_keyevent(lwnd_window_t* window, kevent_kb_ctx_t* ctx);
+int lwnd_save_hid_event(lwnd_window_t* window, hid_event_t* ctx);
+int lwnd_load_hid_event(lwnd_window_t* window, hid_event_t* ctx);
 
 int lwnd_draw(lwnd_window_t* window);
 int lwnd_clear(lwnd_window_t* window);

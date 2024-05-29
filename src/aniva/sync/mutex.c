@@ -1,4 +1,5 @@
 #include "mutex.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
 #include "libk/stddef.h"
@@ -72,8 +73,9 @@ void destroy_mutex(mutex_t* mutex)
   if (!mutex)
     return;
 
-  mutex_lock(mutex);
+  ASSERT_MSG(mutex->m_lock_holder == nullptr && mutex->m_lock_depth == 0, "Tried to destroy a locked mutex");
 
+  /* Clear any pending waiters */
   clear_mutex(mutex);
 
   destroy_spinlock(mutex->m_lock);
@@ -90,42 +92,38 @@ void mutex_lock(mutex_t* mutex)
   if (!current_thread)
     return;
 
-retry_lock:
-  spinlock_lock(mutex->m_lock);
+  do {
+    spinlock_lock(mutex->m_lock);
 
-  if (!mutex->m_lock_holder)
-    goto do_lock;
+    if (!mutex->m_lock_holder)
+      break;
 
-  /* 
-   * This also works outside the scheduler context, since we won't block threads ever 
-   * if they are null 
-   */
-  //ASSERT_MSG(current_thread != mutex->m_lock_holder, "Tried to lock the same mutex twice!");
-  if (current_thread == mutex->m_lock_holder)
-    goto do_lock;
+    /* 
+     * This also works outside the scheduler context, since we won't block threads ever 
+     * if they are null 
+     */
+    if (current_thread == mutex->m_lock_holder)
+      break;
 
-  /* We may lock a mutex from within a irq, but we cant block on it */
-  ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't block on a mutex from within an IRQ!");
+    /* We may lock a mutex from within a irq, but we cant block on it */
+    ASSERT_MSG(get_current_processor()->m_irq_depth == 0, "Can't block on a mutex from within an IRQ!");
 
-  // block current thread
-  queue_enqueue(mutex->m_waiters, current_thread);
+    // block current thread
+    queue_enqueue(mutex->m_waiters, current_thread);
 
-  // NOTE: when we block this thread, it returns executing here after it gets unblocked by mutex_unlock,
-  // since we just yield to the scheduler when we're blocked
+    // NOTE: when we block this thread, it returns executing here after it gets unblocked by mutex_unlock,
+    // since we just yield to the scheduler when we're blocked
 
-  spinlock_unlock(mutex->m_lock);
+    spinlock_unlock(mutex->m_lock);
 
-  thread_block(current_thread);
+    thread_block(current_thread);
 
-  goto retry_lock;
+  } while(true);
 
-  /*
-  spinlock_lock(mutex->m_lock);
 
-  ASSERT_MSG(mutex->m_lock_depth == 0, "Mutex was not unlocked after thread got unblocked!");
-  */
+  if (!mutex->m_lock_depth)
+    list_append(current_thread->m_locked_mutexes, mutex);
 
-do_lock:
   mutex->m_lock_holder = current_thread;
   mutex->m_lock_depth++;
   spinlock_unlock(mutex->m_lock);
@@ -149,11 +147,34 @@ void mutex_unlock(mutex_t* mutex)
   if (!mutex->m_lock_depth) {
 
     //thread_unregister_mutex(mutex->m_lock_holder, mutex);
+    if (mutex->m_lock_holder)
+      (void)list_remove_ex(mutex->m_lock_holder->m_locked_mutexes, mutex);
 
     /* Unblock */
     if (__mutex_handle_unblock(mutex) == 0)
       return;
   }
+
+  spinlock_unlock(mutex->m_lock);
+}
+
+/*!
+ * @brief: Removes a thread from a mutexes waiters queue
+ */
+void mutex_thread_release(mutex_t* mutex, thread_t* t)
+{
+  spinlock_lock(mutex->m_lock);
+
+  if (mutex->m_lock_holder == t) {
+    mutex->m_lock_depth = 0;
+
+    /* Unblock */
+    if (__mutex_handle_unblock(mutex) == 0)
+      return;
+  }
+
+  /* Try to remove t from the waiters */
+  (void)queue_remove(mutex->m_waiters, t);
 
   spinlock_unlock(mutex->m_lock);
 }
@@ -175,9 +196,8 @@ bool mutex_is_locked_by_current_thread(mutex_t* mutex)
  *
  * NOTE: the caller must have the mutexes spinlock held
  */
-static int __mutex_handle_unblock(mutex_t* mutex) 
+static int __mutex_handle_unblock(mutex_t* mutex)
 {
-  thread_t* current_thread;
   thread_t* next_holder;
 
   if (!mutex)
@@ -186,13 +206,13 @@ static int __mutex_handle_unblock(mutex_t* mutex)
   /* Preemptive reset of the holder field */
   mutex->m_lock_holder = nullptr;
 
-  current_thread = get_current_scheduling_thread();
   next_holder = queue_dequeue(mutex->m_waiters);
 
-  if (!current_thread || !next_holder)
+  if (!next_holder)
     return -1;
 
-  ASSERT_MSG(next_holder != current_thread, "Next thread to hold mutex is also the current thread!");
+  // NOTE: Never seems to happen
+  //ASSERT_MSG(next_holder != current_thread, "Next thread to hold mutex is also the current thread!");
 
   /* Set the next holder */
   mutex->m_lock_holder = next_holder;
@@ -204,7 +224,7 @@ static int __mutex_handle_unblock(mutex_t* mutex)
   thread_unblock(next_holder);
 
   /* Try to yield to the scheduler */
-  (void)scheduler_try_yield();
+  scheduler_yield();
 
   return 0;
 }
