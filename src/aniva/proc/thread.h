@@ -20,48 +20,53 @@ typedef int (*ThreadEntry) (
   uintptr_t arg
 );
 
+#define THREAD_FLAGS_HAS_RAN    0x00000001
+#define THREAD_FLAGS_SYSCALLING 0x00000002
+
 // TODO: thread uid?
 typedef struct thread {
-  struct thread* m_self;
-
-  ThreadEntry f_entry;
-  FuncPtr f_exit;
-
+  const char* m_name;
   struct mutex* m_lock;
-
+  struct proc* m_parent_proc;
   /* TODO: figure out if this is legal */
   list_t* m_mutex_list;
+  ThreadEntry f_entry;
 
   thread_context_t m_context;
-  FpuState m_fpu_state;
-
-  bool m_has_been_scheduled;
-
-  char m_name[32];
-  thread_id_t m_tid;
-  uint32_t m_cpu; // atomic?
-
   uint64_t m_ticks_elapsed;
   uint64_t m_max_ticks;
+  FpuState m_fpu_state;
+
+  thread_id_t m_tid;
+  uint32_t m_flags;
+  uint32_t m_cpu; // atomic?
+  THREAD_STATE_t m_current_state;
+
   /* The vaddress of the stack bottom, as seen by the kernel */
   vaddr_t m_kernel_stack_bottom;
   vaddr_t m_kernel_stack_top;
   /* The vaddress of the stack bottom and top, from the process */
   uintptr_t m_user_stack_bottom;
   uintptr_t m_user_stack_top;
-
-  thread_state_t m_current_state;
-
-  // allow nested context switches
-  struct proc *m_parent_proc; // nullable?
-} thread_t;
+} ALIGN(0x400) thread_t;
 
 /*
  * create a thread structure
  * when passing NULL to ThreadEntryWrapper, we use the default
  */
-thread_t *create_thread(FuncPtr, uintptr_t, const char[32], struct proc*, bool); // make this sucka
+thread_t *create_thread(FuncPtr, uintptr_t, const char*, struct proc*, bool); // make this sucka
+
+/*
+ * Cleans up any resources used by this thread
+ */
+ANIVA_STATUS destroy_thread(thread_t *);
+
 void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
+
+static inline bool thread_is_runnable(thread_t* t)
+{
+  return (t->m_current_state == RUNNABLE);
+}
 
 /*
  * create a thread that is supposed to execute code for a process
@@ -88,12 +93,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *);
 /*
  * set the current state of a thread
  */
-void thread_set_state(thread_t *, thread_state_t);
-
-/*
- * Cleans up any resources used by this thread
- */
-ANIVA_STATUS destroy_thread(thread_t *);
+void thread_set_state(thread_t *, THREAD_STATE_t);
 
 /*
  * Returns the default idle thread that can be used for any thread that does not
@@ -101,9 +101,9 @@ ANIVA_STATUS destroy_thread(thread_t *);
  */
 thread_t* get_generic_idle_thread();
 
-ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) 
+static ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) 
 {
-  return t->m_has_been_scheduled;
+  return (t->m_flags & THREAD_FLAGS_HAS_RAN) == THREAD_FLAGS_HAS_RAN;
 }
 
 bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread);

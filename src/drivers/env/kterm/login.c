@@ -31,6 +31,7 @@ int kterm_find_target_profile(user_profile_t** target)
 
   } while (KERR_ERR(error) && !l_target);
 
+  printf("Found target\n");
   *target = l_target;
   kfree(prompt_buffer);
   return error;

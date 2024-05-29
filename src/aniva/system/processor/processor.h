@@ -85,7 +85,8 @@ void flush_gdt(processor_t *processor);
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
 
-ALWAYS_INLINE processor_t *get_current_processor() {
+ALWAYS_INLINE processor_t *get_current_processor() 
+{
   return (processor_t *) read_gs(GET_OFFSET(processor_t, m_own_ptr));
 }
 

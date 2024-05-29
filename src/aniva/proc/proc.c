@@ -244,8 +244,6 @@ void destroy_proc(proc_t* proc)
 {
   oss_obj_do_destroy_reroute(proc);
 
-  proc_unregister(proc->m_id);
-
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
     destroy_thread(i->data);

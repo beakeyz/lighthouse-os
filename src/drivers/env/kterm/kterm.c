@@ -727,9 +727,9 @@ int kterm_set_login(user_profile_t* profile)
     profiles_lock_activation(&_c_login.profile_lock_key);
 
     /* FIXME: make sure the cwd never exceeds this size */
-    _c_login.cwd = kmalloc(2048);
+    _c_login.cwd = kmalloc(0x400);
 
-    sfmt(_c_login.cwd, "%s/%s" "Root/Users", (char*)profile->name);
+    sfmt(_c_login.cwd, "Root/Users/%s", (char*)profile->name);
 
     //cwd_obj = vfs_resolve(_c_login.cwd);
 

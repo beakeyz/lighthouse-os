@@ -8,10 +8,10 @@
 
 typedef struct mutex {
   const char* m_name;
-  atomic_ptr_t m_lock_depth;
   spinlock_t* m_lock;
   queue_t* m_waiters;
   thread_t* m_lock_holder;
+  uint64_t m_lock_depth;
 } mutex_t;
 
 /*

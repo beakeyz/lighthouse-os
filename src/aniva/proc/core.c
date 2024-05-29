@@ -9,6 +9,7 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "mem/zalloc.h"
 #include "oss/core.h"
 #include "oss/obj.h"
 #include "proc/env.h"
@@ -24,6 +25,7 @@
 // TODO: fix this mechanism, it sucks
 static atomic_ptr_t* __next_procid;
 static queue_t* __free_procid_queue;
+static zone_allocator_t* __thread_allocator;
 
 static vector_t* __proc_vect;
 static mutex_t* __proc_mutex;
@@ -391,6 +393,22 @@ bool current_proc_is_kernel()
   return is_kernel(curr);
 }
 
+/*!
+ * @brief: Allocate a thread on the dedicated thread allocator
+ */
+thread_t* allocate_thread()
+{
+  return zalloc_fixed(__thread_allocator);
+}
+
+/*!
+ * @brief: Deallocate a thread from the dedicated thread allocator
+ */
+void deallocate_thread(thread_t* thread)
+{
+  zfree_fixed(__thread_allocator, thread);
+}
+
 /*
  * Initialize:
  *  - socket registry
@@ -402,6 +420,8 @@ ANIVA_STATUS init_proc_core()
 {
   __next_procid = create_atomic_ptr_ex(0);
   __free_procid_queue = create_limitless_queue();
+
+  __thread_allocator = create_zone_allocator(1 * Mib, sizeof(thread_t), NULL);
 
   /*
    * TODO: we can also just store processes in a vector, since we

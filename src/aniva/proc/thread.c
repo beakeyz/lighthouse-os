@@ -3,6 +3,7 @@
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
+#include "mem/zalloc.h"
 #include "proc/context.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
@@ -29,38 +30,34 @@ static thread_t* __generic_idle_thread;
  */
 //static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
 
-thread_t *create_thread(FuncPtr entry, uintptr_t data, const char name[32], proc_t* proc, bool kthread)
+thread_t *create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t* proc, bool kthread)
 { // make this sucka
   thread_t *thread;
 
-  thread = kmalloc(sizeof(thread_t));
+  thread = allocate_thread();
 
   if (!thread)
     return nullptr;
 
   memset(thread, 0, sizeof(thread_t));
 
-  thread->m_self = thread;
-
+  thread->m_name = strdup(name);
   thread->m_lock = create_mutex(0);
 
   thread->m_cpu = get_current_processor()->m_cpu_num;
   thread->m_parent_proc = proc;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
-  thread->m_has_been_scheduled = false;
   thread->m_tid = -1;
   thread->m_mutex_list = init_list();
 
   thread->f_entry = (ThreadEntry)entry;
-  thread->f_exit = (FuncPtr)0;
 
   /* TODO: thread locking */
   thread->m_tid = atomic_ptr_read(proc->m_thread_count);
   atomic_ptr_write(proc->m_thread_count, thread->m_tid+1);
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
-  strcpy(thread->m_name, name);
 
   /* Allocate kernel memory for the stack */
   thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
@@ -139,11 +136,13 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr
   contex_set_rip(&ptr->m_context, (uintptr_t)entry, arg0, arg1);
 }
 
-void thread_set_state(thread_t *thread, thread_state_t state) {
-  // let's get a hold of the scheduler while doing this
+void thread_set_state(thread_t *thread, THREAD_STATE_t state) 
+{
+  mutex_lock(thread->m_lock);
 
   thread->m_current_state = state;
-  // TODO: update thread context(?) on state change TODO: (??) onThreadStateChangeEvent?
+
+  mutex_unlock(thread->m_lock);
 }
 
 // TODO: finish
@@ -182,7 +181,8 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
     Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
 
   destroy_mutex(thread->m_lock);
-  kfree(thread);
+  kfree((void*)thread->m_name);
+  deallocate_thread(thread);
   return ANIVA_SUCCESS;
 }
 
@@ -194,15 +194,6 @@ void thread_register_mutex(thread_t* thread, mutex_t* lock)
     return;
 
   list_append(thread->m_mutex_list, lock);
-
-  /* Cringe debug
-  print("Register to (");
-  print(thread->m_name);
-  print(":");
-  print(thread->m_parent_proc->m_name);
-  print("): ");
-  println(to_string(thread->m_mutex_list->m_length));
-  */
 }
 
 /* FIXME: thread-safe? */
@@ -212,14 +203,6 @@ void thread_unregister_mutex(thread_t* thread, mutex_t* lock)
     return;
 
   list_remove_ex(thread->m_mutex_list, lock);
-  /* More cringe debug
-  print("Unregister from (");
-  print(thread->m_name);
-  print(":");
-  print(thread->m_parent_proc->m_name);
-  print("): ");
-  println(to_string(thread->m_mutex_list->m_length));
-  */
 }
 
 thread_t* get_generic_idle_thread() 
@@ -270,7 +253,7 @@ extern void thread_enter_context(thread_t *to)
   thread_t* prev_thread;
 
   /* Check that we are legal */
-  ASSERT_MSG(to->m_current_state == RUNNABLE, to_string(to->m_current_state));
+  ASSERT_MSG(thread_is_runnable(to), to_string(to->m_current_state));
 
   cur_cpu = get_current_processor();
   prev_thread = get_previous_scheduled_thread();
@@ -321,8 +304,9 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread)
    * Stitch the exit function at the end of the thread stack 
    * NOTE: we can do this since STACK_PUSH first decrements the
    *       stack pointer and then it places the value
+   * TODO: Put an actual thing here?
    */
-  *(uintptr_t*)rsp = (uintptr_t)thread->f_exit;
+  *(uintptr_t*)rsp = (uintptr_t)NULL;
 
   if ((thread->m_context.cs & 3) != 0) {
     STACK_PUSH(rsp, uintptr_t, GDT_USER_DATA | 3);
@@ -372,7 +356,7 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread)
 // only on the first context switch
 void bootstrap_thread_entries(thread_t* thread) 
 {
-  thread->m_has_been_scheduled = true;
+  thread->m_flags |= THREAD_FLAGS_HAS_RAN;
 
   /* Prepare that bitch */
   if (thread->m_current_state == NO_CONTEXT)

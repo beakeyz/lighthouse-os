@@ -34,7 +34,7 @@ struct user_profile;
 
 enum SCHEDULER_PRIORITY;
 
-typedef enum thread_state {
+typedef enum THREAD_STATE {
   INVALID = 0,      // not initialized
   RUNNING,          // executing
   RUNNABLE,         // can be executed by the scheduler
@@ -43,11 +43,10 @@ typedef enum thread_state {
   STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
   BLOCKED,          // performing blocking operation
   SLEEPING,         // waiting for anything to happen (i.e. signals, data)
-} thread_state_t;
+} THREAD_STATE_t;
 
 typedef int thread_id_t;
 typedef int proc_id_t;
-
 
 /* 64 bit value that combines the tid and the pid together */
 typedef uint64_t full_proc_id_t;
@@ -93,6 +92,9 @@ static inline proc_id_t full_procid_get_pid(full_proc_id_t fprocid)
 }
 
 ANIVA_STATUS init_proc_core();
+
+struct thread* allocate_thread();
+void deallocate_thread(struct thread* thread);
 
 ErrorOrPtr generate_new_proc_id();
 

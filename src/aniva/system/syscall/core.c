@@ -1,6 +1,9 @@
 #include "core.h"
 #include "lightos/syscall.h"
 #include "libk/flow/error.h"
+#include "proc/core.h"
+#include "proc/thread.h"
+#include "sched/scheduler.h"
 #include "system/processor/processor.h"
 #include "system/processor/registers.h"
 
@@ -180,11 +183,12 @@ static inline bool __syscall_verify_sysid(enum SYSID id)
   return true;
 }
 
-static void sys_handler(registers_t* regs) {
-
+static void sys_handler(registers_t* regs) 
+{
   uintptr_t result;
   syscall_t call;
   syscall_args_t args;
+  thread_t* calling_thread;
 
   ASSERT_MSG(regs, "Somehow we got no registers from the syscall entry!");
 
@@ -197,6 +201,16 @@ static void sys_handler(registers_t* regs) {
     printf("Tried to call %d\n", args.syscall_id);
     kernel_panic("Tried to call an invalid syscall!");
   }
+
+  calling_thread = get_current_scheduling_thread();
+
+  ASSERT_MSG(calling_thread, "Syscall without a scheduling thread");
+
+  /* Lock the current thread */
+  //mutex_lock(calling_thread->m_lock);
+
+  /* We're syscalling */
+  calling_thread->m_flags |= THREAD_FLAGS_SYSCALLING;
 
   /* Execute the main syscall handler (All permissions) */
   call = __static_syscalls[args.syscall_id];
@@ -214,6 +228,10 @@ static void sys_handler(registers_t* regs) {
    */
 
   __syscall_set_retval(regs, result);
+
+  calling_thread->m_flags &= ~THREAD_FLAGS_SYSCALLING;
+
+  //mutex_unlock(calling_thread->m_lock);
 }
 
 typedef struct dynamic_syscall {
