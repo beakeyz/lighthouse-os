@@ -19,7 +19,7 @@ ErrorOrPtr init_multiboot(void* addr)
 
   /* This would be mega bad lmao */
   if (!mb_memmap) {
-    println("No memorymap found! aborted");
+    KLOG_ERR("No memorymap found! aborted\n");
     return Error();
   }
 
@@ -64,7 +64,7 @@ ErrorOrPtr finalize_multiboot()
   const paddr_t aligned_mb_start = ALIGN_DOWN(g_system_info.phys_multiboot_addr, SMALL_PAGE_SIZE);
   const uintptr_t mb_start_idx = kmem_get_page_idx(aligned_mb_start); 
 
-  printf("Setting multiboot range used at idx %lld with a size of %llx\n", mb_start_idx, mb_pagecount);
+  KLOG_DBG("Setting multiboot range used at idx %lld with a size of %llx\n", mb_start_idx, mb_pagecount);
 
   /* Reserve multiboot memory */
   kmem_set_phys_range_used(mb_start_idx, mb_pagecount);
@@ -91,7 +91,7 @@ ErrorOrPtr finalize_multiboot()
     uintptr_t phys_fb_start_idx = kmem_get_page_idx(ALIGN_DOWN(fbuffer->common.framebuffer_addr, SMALL_PAGE_SIZE));
     uintptr_t phys_fb_page_count = kmem_get_page_idx(ALIGN_UP(fbuffer->common.framebuffer_pitch * fbuffer->common.framebuffer_height, SMALL_PAGE_SIZE));
 
-    printf("Marking framebuffer as used! (start_page: 0x%llx, page_count: 0x%llx)\n", phys_fb_start_idx, phys_fb_page_count);
+    KLOG_DBG("Marking framebuffer as used! (start_page: 0x%llx, page_count: 0x%llx)\n", phys_fb_start_idx, phys_fb_page_count);
 
     kmem_set_phys_range_used(phys_fb_start_idx, phys_fb_page_count);
   }

@@ -31,6 +31,11 @@ export KERNEL_NAME=aniva
 export RAMDISK_NAME=anivaRamdisk
 export KERNEL_FILENAME=$(KERNEL_NAME).elf
 export RAMDISK_FILENAME=$(RAMDISK_NAME).igz
+# 1) verbose
+# 2) debug
+# 3) info
+# 4) none
+export KERNEL_DEBUG_LEVEL=verbose
 
 # NOTE: we've removed -Wall, since it does not play nice with ACPICA
 export KERNEL_CFLAGS := \
@@ -39,6 +44,19 @@ export KERNEL_CFLAGS := \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
 	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs \
 	-I$(SRC)/libs/LibC -D'KERNEL'
+
+ifeq ($(KERNEL_DEBUG_LEVEL), verbose)
+	KERNEL_CFLAGS += -DDBG_VERBOSE=1
+endif
+ifeq ($(KERNEL_DEBUG_LEVEL), debug)
+	KERNEL_CFLAGS += -DDBG_DEBUG=1
+endif
+ifeq ($(KERNEL_DEBUG_LEVEL), info)
+	KERNEL_CFLAGS += -DDBG_INFO=1
+endif
+ifeq ($(KERNEL_DEBUG_LEVEL), NONE)
+	KERNEL_CFLAGS += -DDBG_NONE=1
+endif
 
 export USER_INCLUDE_CFLAGS := \
 	-I$(SRC)/libs -I$(SRC)/libs/LibC

@@ -185,7 +185,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
   if (!lib_file)
     goto dealloc_and_exit;
 
-  printf("Trying to load dynamic library %s\n", lib_file->m_obj->name);
+  KLOG_DBG("Trying to load dynamic library %s\n", lib_file->m_obj->name);
 
   /* Get the image loaded */
   error = _dynlib_load_image(lib_file, lib);
@@ -202,7 +202,7 @@ kerror_t load_dynamic_lib(const char* path, struct loaded_app* target_app, dynam
   if (blib)
     *blib = lib;
 
-  printf("Successfully loaded %s (entry=0x%p)\n", lib->name, lib->entry);
+  KLOG_DBG("Successfully loaded %s (entry=0x%p)\n", lib->name, lib->entry);
   return 0;
 dealloc_and_exit:
   list_remove_ex(target_app->library_list, lib);

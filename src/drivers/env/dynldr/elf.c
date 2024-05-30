@@ -99,7 +99,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
   /* With this we can find the user base */
   image->user_base = (void*)(ALIGN_DOWN(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE));
 
-  printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
+  //printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
   /* Now we can actually start to load the headers */
   for (uint32_t i = 0; i < hdr->e_phnum; i++) {
@@ -608,7 +608,7 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
         case R_X86_64_TPOFF64:
         default:
           size = 0;
-          printf("Unsuported relocation type %lld!\n", ELF64_R_TYPE(current->r_info));
+          KLOG_ERR("Unsuported relocation type %lld!\n", ELF64_R_TYPE(current->r_info));
           kernel_panic("yikes");
           break;
       }

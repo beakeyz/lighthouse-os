@@ -63,9 +63,8 @@ fs_type_t ext2_type = {
   .f_mount = ext2_mount,
 };
 
-int ext2_init() {
-
-  println("Initialized ext2 driver");
+int ext2_init() 
+{
   ErrorOrPtr result;
 
   result = register_filesystem(&ext2_type);

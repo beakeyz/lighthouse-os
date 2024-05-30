@@ -55,7 +55,7 @@ ErrorOrPtr __init try_fetch_initramdisk(void)
   const paddr_t module_start = mod->mod_start;
   const paddr_t module_end = mod->mod_end;
 
-  printf("Ramdisk: from %llx to %llx\n", module_start, module_end);
+  KLOG_DBG("Ramdisk: from %llx to %llx\n", module_start, module_end);
 
   /* Prefetch data */
   const size_t cramdisk_size = module_end - module_start;
@@ -122,16 +122,16 @@ static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic
   init_serial();
 
   /* Our fist hello to serial */
-  printf("Hi from within (%s)\n", "Aniva");
+  KLOG_DBG("Hi from within (%s)\n", "Aniva");
 
   // Verify magic number
   if (mb_magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-    printf("ERROR: Expected magic bootloader number to be %x, but got %x =(\n", MULTIBOOT2_BOOTLOADER_MAGIC, mb_magic);
+    KLOG_ERR("Expected magic bootloader number to be %x, but got %x =(\n", MULTIBOOT2_BOOTLOADER_MAGIC, mb_magic);
     return -KERR_INVAL;
   }
 
   /* Quick bootloader interface info */
-  printf("Multiboot address from the bootloader is at: %p\n", (void*)mb_addr);
+  KLOG_DBG("Multiboot address from the bootloader is at: %p\n", (void*)mb_addr);
 
   /* Prepare for stage 1 */
   register_kernel_data((paddr_t)mb_addr);
@@ -178,7 +178,7 @@ static kerror_t _start_system_management(void)
   // Initialize an early console
   init_early_tty();
 
-  println("Initialized tty");
+  KLOG_INFO("Initialized tty");
 
   return KERR_NONE;
 }

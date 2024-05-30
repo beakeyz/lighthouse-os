@@ -61,7 +61,7 @@ int init_acpi_parser_early(acpi_parser_t* parser)
  */
 ErrorOrPtr init_acpi_parser(acpi_parser_t* parser) 
 {
-  println("Starting ACPI parser");
+  KLOG_DBG("Starting ACPI parser...\n");
 
   /* I stil hate init_list lmaoo */
   parser->m_tables = init_list();
@@ -76,7 +76,7 @@ ErrorOrPtr init_acpi_parser(acpi_parser_t* parser)
   parser->m_fadt = acpi_parser_find_table(parser, ACPI_SIG_FADT, sizeof(acpi_tbl_fadt_t));
   //hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
-  println("Started");
+  KLOG_DBG("Started ACPI parser\n");
   return Success(0);
 }
 
@@ -109,7 +109,7 @@ void parser_init_tables(acpi_parser_t* parser)
     if (stat == AE_ERROR)
       break;
 
-    printf("Found ACPI table: %-4.4s\n", hdr->Signature);
+    KLOG_DBG("Found ACPI table: %-4.4s\n", hdr->Signature);
 
     list_append(parser->m_tables, hdr);
   }

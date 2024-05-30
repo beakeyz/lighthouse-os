@@ -30,7 +30,7 @@ static inline void _oss_test_mem()
   memory_allocator_t alloc;
 
   kheap_copy_main_allocator(&alloc);
-  printf(" (*) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
+  KLOG_DBG(" (*) Got %lld/%lld bytes free\n", alloc.m_free_size, alloc.m_used_size+alloc.m_free_size);
 }
 
 /*!
@@ -191,6 +191,8 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
 
     if (!c_node) return -1;
   }
+
+  KLOG_DBG("OSS: Trying to find object at %s from node %s\n", path, c_node->name);
 
   while ((this_name = _find_path_subentry_at(path, c_idx++))) {
 

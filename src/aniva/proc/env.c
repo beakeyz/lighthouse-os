@@ -75,7 +75,7 @@ int penv_add_proc(penv_t* env, proc_t* p)
   p->m_env = env;
   env->proc_count++;
 
-  printf("Added proc (%s) to env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+  KLOG_DBG("Added proc (%s) to env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
 
   return 0;
 }
@@ -96,7 +96,7 @@ int penv_remove_proc(penv_t* env, struct proc* p)
   if (error)
     return -KERR_NOT_FOUND;
 
-  printf("Removing proc (%s) from env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+  KLOG_DBG("Removing proc (%s) from env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
   /* Just to be safe, check bounds */
   if (env->proc_count)
     env->proc_count--;

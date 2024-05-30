@@ -1108,15 +1108,15 @@ int kterm_init()
 
   kmem_get_info(&info, processor->m_cpu_num);
 
-  kwarnf(" CPU: %s\n", processor->m_info.m_model_id);
-  kwarnf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
-  kwarnf("  - L2: %d bytes\n  - L3: %d bytes\n  - L4: %d bytes\n\n", 
+  printf(" CPU: %s\n", processor->m_info.m_model_id);
+  printf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
+  printf("  - L2: %d bytes\n  - L3: %d bytes\n  - L4: %d bytes\n\n", 
       processor->m_info.m_l2.m_cache_size,
       processor->m_info.m_l3.m_cache_size, 
       processor->m_info.m_l4.m_cache_size);
 
-  kwarnf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
-  kwarnf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
+  printf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
+  printf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
   kterm_print("\n\n For any information about kterm, type: \'help\'\n");
 
   kterm_enable_newline_tag();

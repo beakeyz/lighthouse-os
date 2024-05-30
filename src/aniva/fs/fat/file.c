@@ -47,7 +47,6 @@ static int fat_close(file_t* file)
 
   fat_file = file->m_private;
 
-  println(" - Closing FAT file!");
   destroy_fat_file(fat_file);
   return 0;
 }

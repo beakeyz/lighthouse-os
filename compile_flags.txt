@@ -10,6 +10,8 @@
 -I
 ./src/libs/LibC
 
+-DDBG_VERBOSE=1
+
 -nostdlib
 -Wall
 -Werror

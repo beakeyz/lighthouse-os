@@ -626,7 +626,7 @@ bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr)
     uint8_t end = c_entry->EndBusNumber;
     uint32_t base = c_entry->Address;
 
-    printf("Found PCI bridge (%d -> %d) at 0x%x\n", start, end, base);
+    KLOG_DBG("Found PCI bridge (%d -> %d) at 0x%x\n", start, end, base);
   
     // add to pci bridge list
     bridge = create_pci_bus(base, start, end, i, NULL);

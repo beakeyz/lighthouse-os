@@ -385,9 +385,9 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
   if (!dev)
     return 3;
 
-  kwarnf("Found device: %s\n", dev->name);
-  kwarnf(" \\ Implements %d endpoint%s", dev->endpoint_count, (dev->endpoint_count == 1) ? "\n" : "s\n");
-  kwarnf(" \\ Device is powered %s\n", (dev->flags & DEV_FLAG_POWERED) == DEV_FLAG_POWERED ? "on" : "off");
+  printf("Found device: %s\n", dev->name);
+  printf(" \\ Implements %d endpoint%s", dev->endpoint_count, (dev->endpoint_count == 1) ? "\n" : "s\n");
+  printf(" \\ Device is powered %s\n", (dev->flags & DEV_FLAG_POWERED) == DEV_FLAG_POWERED ? "on" : "off");
 
   kterm_println("");
   return 0;

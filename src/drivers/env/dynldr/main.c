@@ -114,8 +114,6 @@ static int _dyn_loader_proc_hook(kevent_ctx_t* _ctx, void* param)
   if (!app)
     return 0;
 
-  printf("Removing process: %s\n", ctx->process->m_name);
-
   unregister_app(app);
 
   destroy_loaded_app(app);

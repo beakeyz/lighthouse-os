@@ -417,13 +417,14 @@ void* memory_allocate(memory_allocator_t * allocator, size_t bytes) {
    * )
    */
 
-  println("Malloc expantion!!!");
-
   heap_node_buffer_t* new_buffer;
-  size_t size = MEM_ALLOC_DEFAULT_BUFFERSIZE;
+  size_t extra_size = MEM_ALLOC_DEFAULT_BUFFERSIZE;
+  size_t total_size = allocator->m_used_size + allocator->m_free_size;
 
   /* Could not allocate in any existing buffer. Try to create a new one */
-  new_buffer = create_heap_node_buffer(allocator, &size);
+  new_buffer = create_heap_node_buffer(allocator, &extra_size);
+
+  KLOG_DBG("Malloc expantion (size: 0x%llx+0x%llx)\n", total_size, extra_size);
 
   /* FUCKKK */
   if (!new_buffer)

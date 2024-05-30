@@ -335,9 +335,8 @@ fs_type_t cramfs = {
   .m_flags = FST_REQ_DRIVER
 };
 
-int ramfs_init() {
-  println("Initialized ramfs");
-
+int ramfs_init() 
+{
   int ret = 0;
   ErrorOrPtr result = register_filesystem(&cramfs);
 

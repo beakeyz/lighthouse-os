@@ -11,6 +11,7 @@
 #define LOGGER_FLAG_INFO 0x02
 /* Does this logger display warnings? */
 #define LOGGER_FLAG_WARNINGS 0x04
+#define LOGGER_FLAG_NO_PREFIX 0x08
 
 typedef uint8_t logger_id_t;
 
@@ -49,11 +50,8 @@ int logger_scan(char* title, logger_t* buffer);
 int logger_swap_priority(logger_id_t old, logger_id_t new);
 
 #define LOG_TYPE_DEFAULT 0
-#define LOG_TYPE_FMT     1
-#define LOG_TYPE_LINE    2
-#define LOG_TYPE_CHAR    3
-#define LOG_TYPE_ERROR   4 /* Defaults to line type */
-#define LOG_TYPE_WARNING 5 /* Defaults to line type */
+#define LOG_TYPE_LINE    1
+#define LOG_TYPE_CHAR    2
 
 /*
  * NOTE: log calls only log to the logger with id 0 !!
@@ -61,11 +59,50 @@ int logger_swap_priority(logger_id_t old, logger_id_t new);
 
 void log(const char* msg);
 void logf(const char* fmt, ...);
+void vlogf(const char* fmt, va_list args);
 void logln(const char* msg);
 void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type);
 
 /* Format strings */
 int sfmt(char* buf, const char* fmt, ...);
+
+#if DBG_VERBOSE
+  #define KLOG(fmt, ...) printf(fmt, __VA_ARGS__-0)
+  #define KLOG_DBG(fmt, ...) kdbgf(fmt, __VA_ARGS__-0)
+  #define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__-0)
+
+  #define V_KLOG(fmt, args) vprintf(fmt, args)
+  #define V_KLOG_DBG(fmt, args) vkdbgf(false, fmt, args)
+  #define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
+#else
+  #define KLOG(fmt, ...)
+  #define V_KLOG(fmt, args)
+#endif
+
+#if DBG_DEBUG
+  #define KLOG_DBG(fmt, ...) kdbgf(fmt, __VA_ARGS__-0)
+  #define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__-0)
+
+  #define V_KLOG_DBG(fmt, args) vkdbgf(fmt, args)
+  #define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
+#else
+  #ifndef KLOG_DBG
+    #define KLOG_DBG(fmt, ...)
+    #define V_KLOG_DBG(fmt, args)
+  #endif
+#endif
+
+#if DBG_INFO
+  #define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__-0)
+  #define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
+#else
+  #ifndef KLOG_INFO
+    #define KLOG_INFO(fmt, ...)
+    #define V_KLOG_INFO(fmt, args)
+  #endif
+#endif // DEBUG
+
+#define KLOG_ERR(fmt, ...) kwarnf(fmt, __VA_ARGS__-0)
 
 /*
  * Functions that perform a print to the kernels 'stdio'
@@ -86,6 +123,7 @@ int vprintf(const char* fmt, va_list args);
  * These prints only send to debug loggers
  */
 int kdbgf(const char* fmt, ...);
+int vkdbgf(bool prefix, const char* fmt, va_list args);
 int kdbgln(const char* msg);
 int kdbg(const char* msg);
 int kdbgc(char c);

@@ -396,6 +396,13 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
   /* Try to detect the partitionig type */
   ASSERT_MSG(diskdev_populate_partition_table(port->m_generic) == 0, "Failed to populate partition table!");
 
+  /* Debug information */
+  KLOG_DBG("AHCI: Device (Name: %s) attached to port %d. Block count: 0x%llx, Blocksize: 0x%llx\n",
+      port->m_device_model,
+      port->m_port_index,
+      port->m_generic->m_max_blk,
+      port->m_generic->m_logical_sector_size);
+
   /* Clean the buffer */
   __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
   //kdebug();

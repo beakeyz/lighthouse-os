@@ -134,28 +134,26 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
     // function scope and into a macro
     switch(sig) {
       case 0xeb140101:
-        println("ATAPI (CD, DVD)");
+        KLOG_DBG("AHCI: found ATAPI (CD, DVD)");
         break;
       case AHCI_PxSIG_ATA:
-        println("AHCI: hard drive");
+        KLOG_DBG("AHCI: found hard drive");
         valid = true;
         break;
       case 0xffff0101:
-        println("AHCI: no dev");
+        KLOG_DBG("AHCI: no dev");
         break;
       default:
-        print("ACHI: unsupported signature ");
-        println(to_string(port_regs->signature));
+        KLOG_DBG("ACHI: unsupported signature: %d\n", port_regs->signature);
         break;
     }
 
-    if (!valid) {
+    if (!valid)
       continue;
-    }
 
     ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, internal_index);
     if (initialize_port(port) == ANIVA_FAIL) {
-      println("Failed! killing port...");
+      KLOG_DBG("AHCI: Failed to initialize port! killing port...");
       destroy_ahci_port(port);
       continue;
     }
@@ -185,7 +183,7 @@ static ErrorOrPtr gather_ports_info(ahci_device_t* device) {
     status = ahci_port_gather_info(port);
 
     if (status == ANIVA_FAIL) {
-      println("Failed to gather info!");
+      KLOG_DBG("AHCI: Failed to gather port info!");
       return Error();
     }
   }
@@ -234,12 +232,11 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
 
-  println("Gathering info about ports...");
+  KLOG_DBG("AHCI: Gathering info about ports...");
 
   if (IsError(gather_ports_info(device)))
       return ANIVA_FAIL;
 
-  println("Done!");
   return status;
 }
 

@@ -25,7 +25,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to initialize ACPI subsystem\n");
+    KLOG_ERR("Failed to initialize ACPI subsystem\n");
     /* TODO: again, let the system know */
     return stat;
   }
@@ -34,7 +34,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to initailize ACPI tables\n");
+    KLOG_ERR("Failed to initailize ACPI tables\n");
     return stat;
   }
 
@@ -42,7 +42,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to load ACPI tables\n");
+    KLOG_ERR("Failed to load ACPI tables\n");
     return stat;
   }
 
@@ -60,7 +60,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to enable ACPI\n");
+    KLOG_ERR("Failed to enable ACPI\n");
     return stat;
   }
   
@@ -68,7 +68,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to initialize ACPI objects\n");
+    KLOG_ERR("Failed to initialize ACPI objects\n");
     return stat;
   }
 
@@ -76,7 +76,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to install ACPI global event handler\n");
+    KLOG_ERR("Failed to install ACPI global event handler\n");
     return stat;
   }
 
@@ -84,7 +84,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to install ACPI global notifier\n");
+    KLOG_ERR("Failed to install ACPI global notifier\n");
     return stat;
   }
 
@@ -92,7 +92,7 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to enable ACPI runtime GPEs\n");
+    KLOG_ERR("Failed to enable ACPI runtime GPEs\n");
     return stat;
   }
 
@@ -100,10 +100,9 @@ ACPI_STATUS init_acpi_early()
 
   if (ACPI_FAILURE(stat))
   {
-    printf("Failed to update ACPI runtime GPEs\n");
+    KLOG_ERR("Failed to update ACPI runtime GPEs\n");
     return stat;
   }
 
-  printf("Acpica done!\n");
   return AE_OK;
 }

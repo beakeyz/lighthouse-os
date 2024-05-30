@@ -192,12 +192,7 @@ static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
   list_append(KMEM_DATA.m_phys_ranges, range);
 
   /* DEBUG */
-  print("Type: ");
-  println(to_string(range->type));
-  print("map entry start addr: ");
-  println(to_string(range->start));
-  print("map entry length: ");
-  println(to_string(range->length));
+  KLOG_DBG("mmap range (type=%d) addr=0x%llx len=0x%llx\n", range->type, range->start, range->length);
 
   range_end = ALIGN_DOWN(range->start + range->length, SMALL_PAGE_SIZE);
 
@@ -210,9 +205,7 @@ static kmem_range_t* _create_kmem_range(multiboot_memory_map_t* mb_mmap_entry)
   range->start = ALIGN_DOWN(range->start, SMALL_PAGE_SIZE);
   range->length = ALIGN_UP(range->length, SMALL_PAGE_SIZE);
 
-  printf("Adding %lld bytes to %lld\n", range->length, KMEM_DATA.m_total_avail_memory_bytes);
   KMEM_DATA.m_total_avail_memory_bytes += range->length;
-  printf("We now have %lld\n", KMEM_DATA.m_total_avail_memory_bytes);
 
 exit_and_return:
   return range;
@@ -376,8 +369,7 @@ void kmem_parse_mmap(void)
 
   KMEM_DATA.m_phys_pages_count = GET_PAGECOUNT(0, KMEM_DATA.m_total_avail_memory_bytes);
 
-  print("Total contiguous pages: ");
-  println(to_string(KMEM_DATA.m_phys_pages_count));
+  KLOG_DBG("Total contiguous pages: %lld\n", KMEM_DATA.m_phys_pages_count);
 }
 
 /*!
@@ -400,8 +392,7 @@ static int _allocate_free_physical_range(kmem_range_t* range, size_t size)
   /* Make sure we're allocating on page boundries */
   size = ALIGN_UP(size, SMALL_PAGE_SIZE);
 
-  printf("Looking for %lld bytes\n", size);
-  printf("We already have %lld bytes mapped\n", early_map_size);
+  KLOG_DBG("Looking for %lld bytes (early_map_size=%lld)\n", size, early_map_size);
 
   FOREACH(i, KMEM_DATA.m_phys_ranges) {
     c_range = i->data;
@@ -488,7 +479,7 @@ static void kmem_init_physical_allocator(void)
   physical_bitmap->m_entries = physical_pages;
   physical_bitmap->m_default = 0xff;
 
-  printf("Trying to initialize our bitmap at 0x%llx with %lld entries\n", bitmap_start_addr, physical_bitmap->m_entries);
+  KLOG_DBG("Trying to initialize our bitmap at 0x%llx with %lld entries\n", bitmap_start_addr, physical_bitmap->m_entries);
 
   memset(physical_bitmap->m_map, physical_bitmap->m_default, physical_pages_bytes);
 
@@ -507,7 +498,7 @@ static void kmem_init_physical_allocator(void)
     base = range->start;
     size = range->length;
 
-    printf("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
+    KLOG_DBG("Marking free range: start=0x%llx, size=0x%llx\n", base, size);
 
     /* Base and size should already be page-aligned */
     kmem_set_phys_range_free(
@@ -1332,8 +1323,6 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
   pml_entry_t* page;
   const size_t max_end_idx = kmem_get_page_idx(2ULL * Gib);
 
-  debug_kmem();
-
   for (uintptr_t i = 0; i < max_end_idx; i++) {
     if (kmem_get_page(&page, map, (i << PAGE_SHIFT) | HIGH_MAP_BASE, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE))
       break;
@@ -1342,7 +1331,7 @@ static void __kmem_map_kernel_range_to_map(pml_entry_t* map)
     kmem_set_page_flags(page, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
   }
 
-  printf("Mapped kernel text\n");
+  KLOG_INFO("Mapped kernel text\n");
 }
 
 static void __kmem_free_old_pagemaps()
@@ -1365,7 +1354,7 @@ static void __kmem_free_old_pagemaps()
     p_base = map_entries[i].base & ~HIGH_MAP_BASE;
     page_count = map_entries[i].entry_count >> 9;
 
-    printf("Setting old pagemap (vbase: 0x%llx, pbase: 0x%llx, pagecount: %lld) free\n", 
+    KLOG_DBG("Setting old pagemap (vbase: 0x%llx, pbase: 0x%llx, pagecount: %lld) free\n", 
         map_entries[i].base,
         p_base,
         page_count);

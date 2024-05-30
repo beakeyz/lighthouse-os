@@ -404,7 +404,7 @@ ErrorOrPtr load_driver(drv_manifest_t* manifest)
   if (!is_driver_installed(manifest) && IsError(install_driver(manifest)))
     goto fail_and_exit;
 
-  printf("Loading driver: %s\n", handle->m_name);
+  KLOG_INFO("Loading driver: %s\n", handle->m_name);
 
   if (!manifest->m_dep_list)
     goto skip_dependencies;
@@ -417,7 +417,7 @@ ErrorOrPtr load_driver(drv_manifest_t* manifest)
 
     // TODO: check for errors
     if (dep && !is_driver_loaded(dep->obj.drv)) {
-      printf("Loading dependency: %s\n", dep->obj.drv->m_url);
+      KLOG_INFO("Loading driver dependency: %s\n", dep->obj.drv->m_url);
 
       if (driver_is_deferred(dep->obj.drv))
         kernel_panic("TODO: handle deferred dependencies!");
@@ -509,12 +509,19 @@ bool is_driver_loaded(drv_manifest_t* manifest)
 
 bool is_driver_installed(drv_manifest_t* manifest) 
 {
+  bool is_installed;
   oss_obj_t* entry;
 
   if (!__driver_node || !manifest)
     return false;
 
-  return (oss_resolve_obj_rel(__driver_node, manifest->m_url, &entry) == 0 && entry != nullptr);
+  entry = nullptr;
+
+  is_installed = (oss_resolve_obj_rel(__driver_node, manifest->m_url, &entry) == 0 && entry != nullptr);
+
+  (void)oss_obj_close(entry);
+
+  return is_installed;
 }
 
 /*

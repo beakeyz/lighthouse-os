@@ -164,6 +164,9 @@ destroy_obj:
  */
 int oss_obj_close(oss_obj_t* obj)
 {
+  if (!obj)
+    return -1;
+
   oss_obj_unref(obj);
   return 0;
 }

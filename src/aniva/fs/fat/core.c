@@ -661,7 +661,6 @@ fail_dealloc_cchain:
  */
 static oss_obj_t* fat_open(oss_node_t* node, const char* path)
 {
-  printf("Trying to open fat: %s\n", path);
   int error;
   file_t* ret;
   fat_fs_info_t* info;
@@ -757,7 +756,6 @@ static oss_obj_t* fat_open(oss_node_t* node, const char* path)
 
 static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
 {
-  printf("Trying to open fat dir: %s\n", path);
   int error;
   dir_t* ret;
   fat_fs_info_t* info;
@@ -895,7 +893,7 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
   fat_boot_fsinfo_t* internal_fs_info;
   oss_node_t* node;
 
-  printf("Trying to mount FAT32\n");
+  KLOG_DBG("Trying to mount FAT32\n");
 
   int read_result = pd_bread(device, buffer, 0);
 
@@ -926,7 +924,6 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
    * Create a cache for our sectors 
    * NOTE: cache_count being NULL means we want the default number of cache entries
    */
-  printf("Device effective sector size: %d (0x%x)\n", device->m_parent->m_effective_sector_size, device->m_parent->m_effective_sector_size);
   ffi->sector_cache = create_fat_sector_cache(device->m_parent->m_effective_sector_size, NULL);
 
   /* Try to parse boot sector */
@@ -949,9 +946,8 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
   /* Attempt to reset the blocksize for the partitioned device */
   if (device->m_parent->m_logical_sector_size > oss_node_getfs(node)->m_blocksize) {
 
-    if (!pd_set_blocksize(device, oss_node_getfs(node)->m_blocksize)) {
+    if (!pd_set_blocksize(device, oss_node_getfs(node)->m_blocksize))
       kernel_panic("Failed to set blocksize! abort");
-    }
   }
 
   /* Did a previous OS mark this filesystem as dirty? */
@@ -998,8 +994,6 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
 
   oss_node_getfs(node)->m_free_blocks = ffi->boot_fs_info.free_clusters;
 
-  println("Did fat filesystem!");
-
   return node;
 fail:
 
@@ -1045,9 +1039,8 @@ fs_type_t fat32_type = {
   .f_unmount = fat32_unmount,
 };
 
-int fat32_init() {
-
-  println("Initialized fat32 driver");
+int fat32_init() 
+{
   ErrorOrPtr result;
 
   init_fat_cache();

@@ -37,14 +37,14 @@ void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char *Format, ...)
   va_list args;
   va_start(args, Format);
 
-  vprintf(Format, args);
+  V_KLOG_DBG(Format, args);
 
   va_end(args);
 }
 
 void ACPI_INTERNAL_VAR_XFACE AcpiOsVprintf(const char *Format, va_list Args)
 {
-  vprintf(Format, Args);
+  V_KLOG_DBG(Format, Args);
 }
 
 ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer()

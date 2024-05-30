@@ -194,22 +194,6 @@ int logger_swap_priority(logger_id_t old, logger_id_t new)
   return 0;
 }
 
-
-void log(const char* msg)
-{
-  log_ex(0, msg, nullptr, LOG_TYPE_DEFAULT);
-}
-
-void logf(const char* fmt, ...)
-{
-  kernel_panic("TODO: implement logf");
-}
-
-void logln(const char* msg)
-{
-  log_ex(0, msg, nullptr, LOG_TYPE_LINE);
-}
-
 /*!
  * @brief Extended generic logging function
  *
@@ -262,15 +246,16 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
 {
   logger_t* current;
 
-  for (uint16_t i = 0; i < __loggers_count; i++) {
+  /* Mask everything but the type flags */
+  flags &= (LOGGER_FLAG_INFO | LOGGER_FLAG_DEBUG | LOGGER_FLAG_WARNINGS);
+
+  for (uintptr_t i = 0; i < __loggers_count; i++) {
 
     current = __loggers[i];
 
     /* Only print to loggers that have matching flags */
-    if ((current->flags & flags) != flags)
-      continue;
-
-    log_ex(i, msg, nullptr, type);
+    if ((current->flags & flags))
+      log_ex(i, msg, nullptr, type);
   }
 
   return 0;
@@ -367,8 +352,25 @@ static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec, int
 static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
   int prec;
+  const char* prefix;
   uint32_t integer_width;
   uint32_t max_length;
+
+  prefix = nullptr;
+
+  /* Check for the no prefix flag */
+  if ((typeflags & LOGGER_FLAG_NO_PREFIX) != LOGGER_FLAG_NO_PREFIX) {
+    if ((typeflags & LOGGER_FLAG_WARNINGS) == LOGGER_FLAG_WARNINGS)
+      prefix = "[ ERROR ] ";
+    else if ((typeflags & LOGGER_FLAG_DEBUG) == LOGGER_FLAG_DEBUG)
+      prefix = "[ DEBUG ] ";
+    else if ((typeflags & LOGGER_FLAG_INFO) == LOGGER_FLAG_INFO)
+      prefix = "[ INFO ] ";
+  }
+
+  if (prefix)
+    for (const char* i = prefix; *i; i++)
+      output_cb(typeflags, *i, out);
 
   for (const char* c = fmt; *c; c++) {
 
@@ -493,12 +495,37 @@ int vprintf(const char* fmt, va_list args)
   int error;
 
   /*
-   * These kinds of prints should only go to loggers that are marked
-   * as supporting info
+   * These kinds of prints should go to all loggers
    */
-  error = _vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
+  error = _vprintf(LOGGER_FLAG_NO_PREFIX | LOGGER_FLAG_DEBUG | LOGGER_FLAG_INFO | LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
 
   return error;
+}
+
+
+void log(const char* msg)
+{
+  log_ex(0, msg, nullptr, LOG_TYPE_DEFAULT);
+}
+
+void vlogf(const char* fmt, va_list args)
+{
+  (void)_vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
+}  
+
+void logf(const char* fmt, ...)
+{
+  va_list args;
+  va_start(args, fmt);
+
+  vlogf(fmt, args);
+
+  va_end(args);
+}
+
+void logln(const char* msg)
+{
+  log_ex(0, msg, nullptr, LOG_TYPE_LINE);
 }
 
 /*!
@@ -511,16 +538,12 @@ int printf(const char* fmt, ...)
 {
   int error;
 
-  try_lock();
-
   va_list args;
   va_start(args, fmt);
 
   error = vprintf(fmt, args);
 
   va_end(args);
-
-  try_unlock();
   return error;
 }
 
@@ -540,11 +563,21 @@ int sfmt(char* buf, const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  error = _vprintf(LOGGER_FLAG_INFO, fmt, args, __bufout, &buf);
+  error = _vprintf(NULL, fmt, args, __bufout, &buf);
 
   va_end(args);
 
   return error;
+}
+
+int vkdbgf(bool prefix, const char* fmt, va_list args)
+{
+  uint8_t flags = LOGGER_FLAG_DEBUG;
+
+  if (!prefix)
+    flags |= LOGGER_FLAG_NO_PREFIX;
+
+  return _vprintf(flags, fmt, args, _kputch, NULL);
 }
 
 int kdbgf(const char* fmt, ...)
@@ -554,7 +587,7 @@ int kdbgf(const char* fmt, ...)
   va_list args;
   va_start(args, fmt);
 
-  error = _vprintf(LOGGER_FLAG_DEBUG, fmt, args, _kputch, NULL);
+  error = vkdbgf(true, fmt, args);
 
   va_end(args);
 

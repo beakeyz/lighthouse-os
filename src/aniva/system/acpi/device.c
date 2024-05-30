@@ -105,7 +105,7 @@ static acpi_device_t* _create_acpi_device(acpi_handle_t handle, int type, device
 
   acpi_device_init_busid(ret);
 
-  printf("Name: %s\n", ret->busid);
+  //KLOG_DBG("Found ACPI device. Name: %s\n", ret->busid);
 
   /* Create the generic device */
   device = create_device_ex(NULL, (char*)ret->busid, ret, NULL, eps);

@@ -61,11 +61,7 @@ boolean M_FileExists(char *filename)
 {
     FILE *fstream;
 
-    printf(" fTrying to open : %s\n", filename);
-
     fstream = fopen(filename, "r");
-
-    printf("Openend : %s\n", filename);
 
     if (fstream != NULL)
     {

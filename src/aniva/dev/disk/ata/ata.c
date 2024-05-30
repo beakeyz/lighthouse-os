@@ -26,12 +26,9 @@ static pci_driver_t ata_pci_driver = {
   .device_flags = NULL,
 };
 
-int ata_driver_init() {
-
-  println("Initializing generic ATA driver");
-
+int ata_driver_init() 
+{
   register_pci_driver(&ata_pci_driver);
-
   return 0;
 }
 
