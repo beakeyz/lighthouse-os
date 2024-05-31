@@ -97,6 +97,8 @@ static struct kterm_terminal_char* _characters;
 static struct kterm_terminal_pallet_entry* _clr_pallet;
 
 /* Keybuffer for graphical applications */
+uint32_t _keybuffer_app_r_ptr;
+uint32_t _keybuffer_kterm_r_ptr;
 struct kevent_kb_keybuffer _keybuffer;
 
 /* Amound of chars on the x-axis */
@@ -122,6 +124,7 @@ static bool _clear_cursor_char;
 static kdoor_t __processor_door;
 static kdoorbell_t* __kterm_cmd_doorbell;
 static thread_t* __kterm_worker_thread;
+static thread_t* __kterm_key_watcher_thread;
 
 /* Buffer information */
 static uintptr_t __kterm_buffer_ptr;
@@ -795,7 +798,37 @@ static inline void kterm_cmd_worker_finish_loop()
   _clear_cursor_char = true;
 }
 
-void kterm_command_worker() 
+/*!
+ * @brief: Entry for the thread that watches keypresses
+ *
+ * NOTE: Keybinds only get watched in graphics mode
+ */
+static void kterm_key_watcher()
+{
+  kevent_kb_ctx_t* key_event;
+
+  do {
+    if (!kterm_ismode(KTERM_MODE_GRAPHICS))
+      goto cycle;
+
+    key_event = keybuffer_read_key(&_keybuffer, &_keybuffer_kterm_r_ptr);
+
+    if (!key_event)
+      goto cycle;
+
+    /* Check for the force quit keybind */
+    if (kevent_is_keycombination_pressed(key_event, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
+      Must(try_terminate_process(_active_grpx_app.client_proc));
+
+cycle:
+    scheduler_yield();
+  } while (true);
+}
+
+/*!
+ * @brief: Thread entry for the thread that processes kterm commands
+ */
+static void kterm_command_worker() 
 {
   int error;
   f_kterm_command_handler_t current_handler;
@@ -849,6 +882,8 @@ void kterm_command_worker()
 
     if (!current_handler)
       goto exit_cmd_processing;
+
+    KLOG_DBG("Trying to handle cmd (%s)\n", argv[0]);
 
     /* Call the selected handler */
     error = current_handler((const char**)argv, argument_count, contents_cpy);
@@ -1009,9 +1044,11 @@ int kterm_init()
 {
   (void)kterm_redraw_terminal_chars;
 
+  /* Reset global variables */
   memset(&_c_login, 0, sizeof(_c_login));
   _clear_cursor_char = true;
   _old_dflt_lwnd_path_value = NULL;
+  _keybuffer_app_r_ptr = _keybuffer_kterm_r_ptr = 0;
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
   _kterm_vdev = get_active_vdev();
 
@@ -1128,6 +1165,7 @@ int kterm_init()
 
   /* TODO: we should probably have some kind of kernel-managed structure for async work */
   __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
+  __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", kterm_key_watcher, NULL);
   
   /* Make sure we create this fucker */
   ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");
@@ -1192,7 +1230,8 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
 
       mode = KTERM_MODE_GRAPHICS;
 
-      _keybuffer.r_idx = 0;
+      _keybuffer_app_r_ptr = 0;
+      _keybuffer_kterm_r_ptr = 0;
       _keybuffer.w_idx = 0;
 
       uwnd->wnd_id = 1;
@@ -1265,7 +1304,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
       uwnd = buffer;
 
       lkey_event_t* u_event;
-      kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer);
+      kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer, &_keybuffer_app_r_ptr);
 
       if (!event)
         return DRV_STAT_INVAL;
@@ -1308,9 +1347,6 @@ int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
  */
 int kterm_handle_graphics_key(kevent_kb_ctx_t* kbd)
 {
-  if (kevent_is_keycombination_pressed(kbd, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
-    try_terminate_process(_active_grpx_app.client_proc);
-
   keybuffer_write_key(&_keybuffer, kbd);
   return 0;
 }

@@ -90,8 +90,6 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         if (!obj)
           return HNDL_NOT_FOUND;
 
-        printf("Perms: %d -> %d\n", c_proc->m_env->priv_level, obj->access_priv_lvl);
-
         /* Yikes */
         if (!oss_obj_can_proc_access(obj, c_proc)) {
           oss_obj_unref(obj);

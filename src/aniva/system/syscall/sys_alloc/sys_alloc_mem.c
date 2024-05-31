@@ -42,7 +42,5 @@ uint32_t sys_alloc_page_range(size_t size, uint32_t flags, void* __user* buffer)
   /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
   *buffer = (void*)Must(kmem_user_alloc_range(current_process, size, customflags, kmem_flags));
 
-  printf("Allocated: %p\n", *buffer);
-
   return SYS_OK;
 }

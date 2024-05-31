@@ -29,8 +29,6 @@ static int _init_input_core()
 {
   dgroup_t* usb_grp;
 
-  logln("Initalizing input driver!");
-
   if (!KERR_OK(dev_group_get("Dev/usb", &usb_grp)))
     return -1;
 

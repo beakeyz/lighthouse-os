@@ -48,13 +48,7 @@ device_ep_t eps[] = {
  */
 int test_init(drv_manifest_t* driver) 
 {
-  //device = create_device_ex(driver, TEST_DEVICE, NULL, NULL, eps);
-
-  /* Register to the devicegroup root */
-  //device_register(device, NULL);
-
-  logln("Initalizing test driver!");
-
+  KLOG_INFO("Initializing test driver!\n");
   return 0;
 }
 
@@ -67,8 +61,6 @@ int test_init(drv_manifest_t* driver)
  */
 int test_exit() 
 {
-  //device_unregister(device);
-  //destroy_device(device);
-  logln("Exiting test driver! =D");
+  KLOG_INFO("Exiting test driver! =D\n");
   return 0;
 }

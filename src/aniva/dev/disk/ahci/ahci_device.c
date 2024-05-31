@@ -134,14 +134,14 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
     // function scope and into a macro
     switch(sig) {
       case 0xeb140101:
-        KLOG_DBG("AHCI: found ATAPI (CD, DVD)");
+        KLOG_DBG("AHCI: found ATAPI (CD, DVD)\n");
         break;
       case AHCI_PxSIG_ATA:
-        KLOG_DBG("AHCI: found hard drive");
+        KLOG_DBG("AHCI: found hard drive\n");
         valid = true;
         break;
       case 0xffff0101:
-        KLOG_DBG("AHCI: no dev");
+        KLOG_DBG("AHCI: no dev\n");
         break;
       default:
         KLOG_DBG("ACHI: unsupported signature: %d\n", port_regs->signature);
@@ -153,7 +153,7 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device) {
 
     ahci_port_t* port = create_ahci_port(device, (uintptr_t)device->m_hba_region + port_offset, internal_index);
     if (initialize_port(port) == ANIVA_FAIL) {
-      KLOG_DBG("AHCI: Failed to initialize port! killing port...");
+      KLOG_DBG("AHCI: Failed to initialize port! killing port...\n");
       destroy_ahci_port(port);
       continue;
     }
@@ -232,7 +232,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device) {
   uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
   ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
 
-  KLOG_DBG("AHCI: Gathering info about ports...");
+  KLOG_DBG("AHCI: Gathering info about ports...\n");
 
   if (IsError(gather_ports_info(device)))
       return ANIVA_FAIL;

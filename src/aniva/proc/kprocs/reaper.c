@@ -48,7 +48,6 @@ static void USED reaper_main()
 
     mutex_unlock(__reaper_lock);
 
-    println("Procdestroy =)");
     destroy_proc(proc);
 
 cycle_and_yield:

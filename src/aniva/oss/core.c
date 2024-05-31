@@ -192,7 +192,7 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
     if (!c_node) return -1;
   }
 
-  KLOG_DBG("OSS: Trying to find object at %s from node %s\n", path, c_node->name);
+  //KLOG_DBG("OSS: Trying to find object at %s from node %s\n", path, c_node->name);
 
   while ((this_name = _find_path_subentry_at(path, c_idx++))) {
 

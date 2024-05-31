@@ -26,6 +26,7 @@ static fb_info_t _fb_info;
 static lwnd_mouse_t _mouse;
 static lwnd_keyboard_t _keyboard;
 static kevent_kb_ctx_t* _lwnd_key_ctx_buffer;
+static uint32_t _lwnd_keybuffer_r_ptr;
 static struct kevent_kb_keybuffer _lwnd_keybuffer;
 
 static video_device_t* _lwnd_vdev;
@@ -107,7 +108,7 @@ static void USED lwnd_main()
 
     mutex_unlock(current_screen->draw_lock);
 
-    c_kb_ctx = keybuffer_read_key(&_lwnd_keybuffer);
+    c_kb_ctx = keybuffer_read_key(&_lwnd_keybuffer, &_lwnd_keybuffer_r_ptr);
 
     if (c_kb_ctx)
       (void)lwnd_on_key(c_kb_ctx);
@@ -253,6 +254,7 @@ int init_window_driver()
     return -1;
 
   /* Initialize the lwnd keybuffer */
+  _lwnd_keybuffer_r_ptr = NULL;
   _lwnd_key_ctx_buffer = kmalloc(sizeof(*_lwnd_key_ctx_buffer) * 32);
   init_kevent_kb_keybuffer(&_lwnd_keybuffer, _lwnd_key_ctx_buffer, 32);
 

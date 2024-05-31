@@ -179,8 +179,6 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
 
-  println("Adding to scheduler");
-
   /* Do an instant rescedule */
   Must(sched_add_priority_proc(p, SCHED_PRIO_MID, true));
 

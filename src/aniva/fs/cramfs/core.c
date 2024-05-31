@@ -267,9 +267,6 @@ int unmount_ramfs(fs_type_t* type, oss_node_t* node)
  */
 oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) 
 {
-
-  logln("Mounting ramfs");
-
   /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
   const disk_dev_t* parent = device->m_parent;
 
@@ -299,7 +296,6 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
      * We need to allocate for the decompressed size 
      * TODO: set this region to read-only after the decompress is done
      */
-    printf("Allocating %lld bytes\n", decompressed_size);
     TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
     TAR_SUPERBLOCK(node)->m_total_blocks = decompressed_size;
 

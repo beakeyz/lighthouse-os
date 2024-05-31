@@ -14,17 +14,23 @@ int init_kevent_kb_keybuffer(struct kevent_kb_keybuffer* out, kevent_kb_ctx_t* b
   return 0;
 }
 
-kevent_kb_ctx_t* keybuffer_read_key(struct kevent_kb_keybuffer* buffer)
+kevent_kb_ctx_t* keybuffer_read_key(struct kevent_kb_keybuffer* buffer, uint32_t* p_r_idx)
 {
+  uint32_t r_idx;
   kevent_kb_ctx_t* ret;
 
-  if (!buffer || buffer->r_idx == buffer->w_idx)
+  if (!p_r_idx)
     return nullptr;
 
-  ret = &buffer->buffer[buffer->r_idx++];
+  r_idx = *p_r_idx;
 
-  buffer->r_idx %= buffer->capacity;
+  if (!buffer || r_idx == buffer->w_idx)
+    return nullptr;
 
+  r_idx %= buffer->capacity;
+  ret = &buffer->buffer[r_idx++];
+
+  *p_r_idx = r_idx;
   return ret;
 }
 

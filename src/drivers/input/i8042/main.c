@@ -44,8 +44,6 @@ static int _init_i8042()
 {
   acpi_parser_t* parser = NULL;
 
-  logln("Initalizing i8042 driver!");
-
   get_root_acpi_parser(&parser);
 
   if (!parser)

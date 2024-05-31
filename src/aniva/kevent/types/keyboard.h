@@ -48,9 +48,8 @@ static inline bool kevent_is_keycombination_pressed(kevent_kb_ctx_t* ctx, enum A
  * should handle the buffer memory lifetime themselves
  */
 struct kevent_kb_keybuffer {
-  size_t capacity;
+  uint32_t capacity;
   uint32_t w_idx;
-  uint32_t r_idx;
   kevent_kb_ctx_t* buffer;
 };
 
@@ -58,7 +57,7 @@ int init_kevent_kb_keybuffer(struct kevent_kb_keybuffer* out, kevent_kb_ctx_t* b
 
 int keybuffer_clear(struct kevent_kb_keybuffer* buffer);
 
-kevent_kb_ctx_t* keybuffer_read_key(struct kevent_kb_keybuffer* buffer);
+kevent_kb_ctx_t* keybuffer_read_key(struct kevent_kb_keybuffer* buffer, uint32_t* p_r_idx);
 int keybuffer_write_key(struct kevent_kb_keybuffer* buffer, kevent_kb_ctx_t* event);
 
 #endif // !__ANIVA_KEVENT_KEYBOARD_TYPE__
