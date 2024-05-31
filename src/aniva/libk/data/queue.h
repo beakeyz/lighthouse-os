@@ -40,6 +40,8 @@ void* queue_dequeue(queue_t *queue);
  */
 void* queue_peek(queue_t* queue);
 
+int queue_remove(queue_t* queue, void* item);
+
 /*
  * checks to see that the maximum capacity is not exceeded and set correctly
  */

@@ -96,6 +96,32 @@ void* queue_peek(queue_t* queue) {
   return queue->m_head_ptr->m_data;
 }
 
+/*!
+ * @brief: Try to remove an entry from somewhere in the queue
+ */
+int queue_remove(queue_t* queue, void* item)
+{
+  queue_entry_t** walker;
+  queue_entry_t* target;
+
+  walker = &queue->m_head_ptr;
+
+  while (*walker) {
+    if ((*walker)->m_data == item) {
+      target = *walker;
+
+      *walker = target->m_preceding_entry;
+
+      kfree(target);
+      return 0;
+    }
+
+    walker = &(*walker)->m_preceding_entry;
+  }
+
+  return -1;
+}
+
 ANIVA_STATUS queue_ensure_capacity(queue_t* queue, size_t capacity) {
   if (queue->m_entries > capacity) {
     // TODO: truncate?

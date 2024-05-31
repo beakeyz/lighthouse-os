@@ -122,6 +122,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
   oss_obj_t* obj;
 
+  KLOG_DBG("Trying to find object: %s\n", buffer);
+
   if (_kterm_exec_find_obj(buffer, &obj)) {
     logln("Could not find object!");
     return 3;
@@ -137,6 +139,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     return 4;
   }
 
+  KLOG_DBG("Trying to execute object\n");
+
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
   result = elf_exec_64(file, false);
 
@@ -149,6 +153,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
   id = (proc_id_t)Release(result);
   p = find_proc_by_id(id);
+
+  KLOG_DBG("Got procid: %d\n", id);
 
   /*
    * Losing this process would be a fatal error because it compromises the entire system 

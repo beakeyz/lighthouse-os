@@ -26,7 +26,7 @@ NORETURN void kernel_panic(const char* panic_message) {
 
   has_paniced = true;
 
-  kwarnf("[KERNEL PANIC] %s\n", panic_message);
+  //kwarnf("[KERNEL PANIC] %s\n", panic_message);
 
   /* TMP: hack to generate ez stacktrace xD */
   //uint64_t a = 0;

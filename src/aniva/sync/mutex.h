@@ -37,6 +37,8 @@ void mutex_lock(mutex_t* mutex);
  */
 void mutex_unlock(mutex_t* mutex);
 
+void mutex_release(mutex_t* mutex, thread_t* thread);
+
 /*
  * Checks whether the mutex is held
  */

@@ -135,31 +135,71 @@ skip_lock_register:
   spinlock_unlock(mutex->m_lock);
 }
 
-void mutex_unlock(mutex_t* mutex) 
+/*!
+ * @brief: Unlocks a mutex
+ *
+ * @returns: True if an unblock happend, False otherwise
+ */
+static bool mutex_unlock_locked(mutex_t* mutex, bool should_unregister)
 {
   thread_t* c_thread;
 
   c_thread = get_current_scheduling_thread();
 
   if (!c_thread)
-    return;
+    return false;
 
   ASSERT_MSG(mutex && mutex->m_lock, "Tried to unlock a mutex that has not been initialized");
-
-  spinlock_lock(mutex->m_lock);
 
   ASSERT_MSG(mutex->m_lock_depth--, "Tried to unlock a mutex while it was already unlocked!");
 
   if (!mutex->m_lock_depth) {
 
-    thread_unregister_mutex(mutex->m_lock_holder, mutex);
+    if (should_unregister)
+      thread_unregister_mutex(mutex->m_lock_holder, mutex);
 
     /* Unblock */
     if (__mutex_handle_unblock(mutex) == 0)
-      return;
+      return true;
   }
 
-  spinlock_unlock(mutex->m_lock);
+  return false;
+}
+
+void mutex_unlock(mutex_t* mutex) 
+{
+  bool did_unblock;
+
+  spinlock_lock(mutex->m_lock);
+
+  did_unblock = mutex_unlock_locked(mutex, true);
+
+  /* Only unlock if there was no unblock */
+  if (!did_unblock)
+    spinlock_unlock(mutex->m_lock);
+}
+
+/*!
+ * @brief: Releases @thread from @mutex
+ *
+ * If @thread holds @mutex, we will call mutex_unlock. Otherwise we try to remove @thread
+ * from the waiters queue, if it's in it.
+ */
+void mutex_release(mutex_t* mutex, thread_t* thread)
+{
+  bool did_unblock;
+
+  spinlock_lock(mutex->m_lock);
+
+  did_unblock = false;
+
+  if (mutex->m_lock_holder == thread)
+    did_unblock = mutex_unlock_locked(mutex, false);
+  else
+    (void)queue_remove(mutex->m_waiters, thread);
+
+  if (!did_unblock)
+    spinlock_unlock(mutex->m_lock);
 }
 
 // FIXME: inline?

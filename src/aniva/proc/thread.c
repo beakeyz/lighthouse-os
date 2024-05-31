@@ -166,7 +166,7 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
   FOREACH(i , mutex_list) {
     /* Drain every taken mutex */
     while (mutex_is_locked(i->data))
-      mutex_unlock(i->data);
+      mutex_release(i->data, thread);
   }
 
   /* Get rid of the mutex list */
