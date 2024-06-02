@@ -265,6 +265,7 @@ void destroy_proc(proc_t* proc)
   /* Free everything else */
   destroy_atomic_ptr(proc->m_thread_count);
   destroy_list(proc->m_threads);
+  destroy_mutex(proc->m_lock);
 
   destroy_khandle_map(&proc->m_handle_map);
 
