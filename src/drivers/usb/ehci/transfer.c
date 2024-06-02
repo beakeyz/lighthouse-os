@@ -7,7 +7,7 @@
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 
 #define EHCI_MAX_PACKETSIZE (4 * SMALL_PAGE_SIZE)

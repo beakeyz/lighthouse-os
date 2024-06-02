@@ -18,8 +18,9 @@ __exit_with_error:
   mov rax, -1
   
 __do_exit_syscall:
-  ; NOTE: preserve the return value inside RAX and call exit
-  mov rbx, 0
+  ; NOTE: preserve the return value inside RAX to RBX and call exit
+  mov rbx, rax
+  mov rax, 1
   syscall
 
 times (4096 - ($ - __lib_trampoline)) db 0

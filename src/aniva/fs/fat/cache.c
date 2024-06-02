@@ -8,7 +8,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "sync/mutex.h"
-#include <mem/zalloc.h>
+#include <mem/zalloc/zalloc.h>
 
 #define DEFAULT_FAT_INFO_ENTRIES (8)
 #define DEFAULT_FAT_SECTOR_CACHES (8)

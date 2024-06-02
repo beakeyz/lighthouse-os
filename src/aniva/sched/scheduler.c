@@ -175,6 +175,8 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
   if (!force && cur_thread->m_ticks_elapsed++ < cur_thread->m_max_ticks)
     return false;
 
+  cur_thread->m_ticks_elapsed = 0;
+
   /* Increase the elapsed ticks */
   frame->m_proc->m_ticks_elapsed++;
   frame->m_frame_ticks++;
@@ -560,6 +562,12 @@ ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id)
   return res;
 }
 
+ANIVA_STATUS sched_remove_thread(thread_t* thread)
+{
+  kernel_panic("TODO: sched_remove_thread");
+  return ANIVA_SUCCESS;
+}
+
 /*!
  * @brief: Allocate memory for a scheduler frame
  */
@@ -673,7 +681,11 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
       ASSERT_MSG(next_thread, "FATAL: Tried to idle a process without it having an idle-thread");
       ASSERT_MSG(next_thread->m_current_state == RUNNABLE, "FATAL: the idle thread has not been marked runnable for some reason");
       break;
-    } 
+    }
+
+    /* Could happen when a threads maxticks are changed */
+    if (thread_ticksleft(next_thread) <= 0)
+      goto cycle;
 
     switch (next_thread->m_current_state) {
       case RUNNABLE:
@@ -697,6 +709,7 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
         break;
     }
 
+cycle:
     c_idx++;
     /* Loop until we've completely scanned the entire scan list once */
   } while (c_idx < proc->m_threads->m_length);

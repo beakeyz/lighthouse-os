@@ -104,6 +104,9 @@ void aquire_spinlock(__spinlock_t* lock)
 
   while (__sync_lock_test_and_set(lock->m_latch, 0x01)) {
     ASSERT_MSG(current->m_irq_depth == 0, "Can't block on a spinlock from within an IRQ!");
+
+    kernel_panic("Spinning on spinlock");
+
     /* FIXME: should we? */
     scheduler_yield();
   }

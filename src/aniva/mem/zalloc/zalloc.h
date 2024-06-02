@@ -122,10 +122,10 @@ void init_zalloc();
 
 void* kzalloc(size_t size);
 void kzfree(void* address, size_t size);
+void kzfree_scan(void* address);
 
 void* zalloc(zone_allocator_t* allocator, size_t size);
 void zfree(zone_allocator_t* allocator, void* address, size_t size);
-
 void* zalloc_fixed(zone_allocator_t* allocator);
 void zfree_fixed(zone_allocator_t* allocator, void* address);
 
@@ -136,22 +136,16 @@ void zfree_fixed(zone_allocator_t* allocator, void* address);
 zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
-
 ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* allocator, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
-
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
-
 void zone_allocator_clear(zone_allocator_t* allocator);
 
 zone_store_t* create_zone_store(size_t initial_capacity);
-
 void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store);
 void destroy_zone_stores(zone_allocator_t* allocator);
-
 ErrorOrPtr allocator_add_zone(zone_allocator_t* allocator, zone_t* zone);
 ErrorOrPtr allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone);
-
 ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone);
 ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone);
 
@@ -161,7 +155,6 @@ ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone);
  * the amount of pages allocated
  */
 zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t max_entries);
-
 void destroy_zone(zone_allocator_t* allocator, zone_t* zone);
 
 #endif //__ANIVA_ZALLOC__

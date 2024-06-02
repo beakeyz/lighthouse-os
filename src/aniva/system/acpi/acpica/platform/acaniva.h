@@ -8,7 +8,7 @@
 #define __ANIVA_ACPICA_AC__
 
 #include <sync/spinlock.h>
-#include <mem/zalloc.h>
+#include <mem/zalloc/zalloc.h>
 #include <libk/ctype.h>
 #include <libk/string.h>
 #include "system/asm_specifics.h"

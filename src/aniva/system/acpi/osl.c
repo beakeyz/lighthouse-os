@@ -18,7 +18,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/pg.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"

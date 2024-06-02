@@ -1,9 +1,9 @@
 #include "thread.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
 #include <mem/heap.h>
-#include "mem/zalloc.h"
 #include "proc/context.h"
 #include "proc/proc.h"
 #include "libk/stack.h"
@@ -45,6 +45,7 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
   thread->m_lock = create_mutex(0);
 
   thread->m_cpu = get_current_processor()->m_cpu_num;
+  thread->m_c_sysid = SYSID_INVAL | SYSID_INVAL_MASK;
   thread->m_parent_proc = proc;
   thread->m_ticks_elapsed = 0;
   thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
@@ -205,6 +206,25 @@ void thread_unregister_mutex(thread_t* thread, mutex_t* lock)
   list_remove_ex(thread->m_mutex_list, lock);
 }
 
+/*!
+ * @brief: Make sure a particular thread does not get scheduled again
+ */
+inline void thread_disable_scheduling(thread_t* thread)
+{
+  thread_set_max_ticks(thread, 0);
+}
+
+void thread_set_max_ticks(thread_t* thread, uintptr_t max_ticks)
+{
+  thread->m_max_ticks = max_ticks;
+  thread->m_ticks_elapsed = 0;
+}
+
+ssize_t thread_ticksleft(thread_t* thread)
+{
+  return thread->m_max_ticks - thread->m_ticks_elapsed;
+}
+
 thread_t* get_generic_idle_thread() 
 {
   ASSERT_MSG(__generic_idle_thread, "Tried to get generic idle thread before it was initialized");
@@ -356,8 +376,6 @@ ANIVA_STATUS thread_prepare_context(thread_t *thread)
 // only on the first context switch
 void bootstrap_thread_entries(thread_t* thread) 
 {
-  thread->m_flags |= THREAD_FLAGS_HAS_RAN;
-
   /* Prepare that bitch */
   if (thread->m_current_state == NO_CONTEXT)
     thread_prepare_context(thread);

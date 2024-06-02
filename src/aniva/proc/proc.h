@@ -11,6 +11,7 @@
 #include "system/resource.h"
 
 struct penv;
+struct mutex;
 struct thread;
 struct oss_obj;
 struct kresource;
@@ -69,6 +70,7 @@ typedef struct proc {
   /* This is used to compare a processes status in relation to other processes */
   struct penv* m_env;
   struct proc* m_parent;
+  struct mutex* m_lock;
 
   /* Resource tracking */
   page_dir_t m_root_pd;

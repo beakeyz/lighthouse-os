@@ -3,7 +3,7 @@
 #include "libk/flow/error.h"
 #include "lightos/proc/var_types.h"
 #include "mem/heap.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"
 #include "sync/atomic_ptr.h"
 

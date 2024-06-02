@@ -15,7 +15,7 @@
 #include "libk/io.h"
 #include "logging/log.h"
 #include "mem/heap.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "system/profile/profile.h"
 
 zone_allocator_t __usb_hub_allocator;

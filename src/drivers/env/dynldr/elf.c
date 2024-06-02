@@ -10,7 +10,7 @@
 #include "libk/flow/error.h"
 #include "lightos/lib/lightos.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "proc/proc.h"
 #include "system/resource.h"
 

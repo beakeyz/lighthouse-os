@@ -4,7 +4,7 @@
 #include "libk/flow/reference.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 
 /*

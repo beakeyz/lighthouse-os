@@ -7,11 +7,11 @@
  * as the userspace, so make sure this stays managable
  *
  * IDs are prefixed with            SYSID_
- * flags are prefixed with          F_
  * status codes are prefixed with   SYS_
  */
 
 enum SYSID {
+  SYSID_INVAL,
   SYSID_EXIT, /* Exit the process */
   SYSID_GET_RUNTIME_CTX,
   SYSID_CLOSE, /* Close a handle */
@@ -65,6 +65,13 @@ enum SYSID {
   SYSID_DISKDEV_BREAD = 200,
   SYSID_DISKDEV_BWRITE = 201,
 };
+
+/* Mask that marks a sysid invalid */
+#define SYSID_INVAL_MASK    0x80000000
+
+#define SYSID_IS_VALID(id)          (((unsigned int)(id) & SYSID_INVAL_MASK) != SYSID_INVAL_MASK)
+#define SYSID_GET(id)               (enum SYSID)((unsigned int)(id) & SYSID_INVAL_MASK)
+#define SYSID_SET_VALID(id, valid)  ({if (valid) id &= ~SYSID_INVAL_MASK; else id |= SYSID_INVAL_MASK; })
 
 #define SYS_OK              (0)
 #define SYS_INV             (-1)

@@ -102,8 +102,8 @@ __exit_error:
 
   ; Move the app exit code (from rax) into our arg0 register for a syscall
   mov rbx, rax
-  ; Move zero into rax to signal the EXIT syscall
-  mov rax, 0
+  ; Move one into rax to signal the EXIT syscall
+  mov rax, 1
 
   ; Call the syscall (FIXME: What if we're on a 'legacy' system which does not support the syscall instruciton?)
   syscall

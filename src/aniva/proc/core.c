@@ -9,7 +9,7 @@
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "oss/obj.h"
 #include "proc/env.h"

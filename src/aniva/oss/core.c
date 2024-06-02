@@ -2,6 +2,7 @@
 #include "fs/core.h"
 #include <libk/string.h>
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/malloc.h"
 #include "oss/node.h"
@@ -179,7 +180,7 @@ static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, s
   uint32_t c_idx;
   uint32_t obj_gen_path_idx;
 
-  ASSERT_MSG(mutex_is_locked(_core_lock), "Tried to call _oss_resolve_obj_rel_locked without having locked oss");
+  ASSERT_MSG(mutex_is_locked_by_current_thread(_core_lock), "Tried to call _oss_resolve_obj_rel_locked without having locked oss");
 
   c_node = rel;
   c_idx = 0;

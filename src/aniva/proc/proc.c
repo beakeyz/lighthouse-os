@@ -9,9 +9,10 @@
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "lightos/driver/loader.h"
+#include "lightos/syscall.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/handle.h"
@@ -79,6 +80,7 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   proc->m_flags = flags | PROC_UNRUNNED;
   proc->m_thread_count = create_atomic_ptr_ex(1);
   proc->m_threads = init_list();
+  proc->m_lock = create_mutex(NULL);
   proc->obj = create_oss_obj(name);
 
   /* Register ourselves */
@@ -244,6 +246,11 @@ void destroy_proc(proc_t* proc)
 {
   oss_obj_do_destroy_reroute(proc);
 
+  KLOG_DBG("destroy_proc: %s\n", proc->m_name);
+
+  /* Register from the global register store */
+  ASSERT_MSG(proc_unregister(proc->m_id) == 0, "Failed to unregister proc");
+
   FOREACH(i, proc->m_threads) {
     /* Kill every thread */
     destroy_thread(i->data);
@@ -344,21 +351,59 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
   return try_terminate_process_ex(proc, false);
 }
 
+/*!
+ * @brief: Queues a process for termination
+ *
+ * Order of opperation (+ lockings)
+ * 1) Freeze the scheduler so we don't get fucked out here (this function might
+ *    get called from inside a process, which means this function needs to always
+ *    return)
+ * 2) Make sure the targeted process does not get scheduled again
+ * 3) Register the process to the reaper process, so it can get destroyed
+ * 4) Unpause the scheduler
+ */
 ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
 {
+  thread_t* c_thread;
   ErrorOrPtr result;
 
   if (!proc)
     return Error();
 
+  mutex_lock(proc->m_lock);
+
+  /* Check every thread to see if there are any pending syscalls */
+  FOREACH(i, proc->m_threads) {
+    c_thread = i->data;
+
+    KLOG_DBG("Thread %s %s in syscall: %d\n", c_thread->m_name, SYSID_IS_VALID(c_thread->m_c_sysid) ?  "is" : "was last", c_thread->m_c_sysid);
+    
+    /* Wait until the thread finishes it's syscall */
+    if (c_thread->m_c_sysid != SYSID_EXIT) {
+      while (SYSID_IS_VALID(c_thread->m_c_sysid)) {
+        KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
+
+        /* Make the thread yield when it exits this syscall */
+        SYSID_SET_VALID(c_thread->m_c_sysid, false);
+
+        scheduler_yield();
+      }
+    }
+
+    /* Not in a syscall, yay */
+    thread_disable_scheduling(c_thread);
+  }
+
+  mutex_unlock(proc->m_lock);
+
   /* Pause the scheduler to make sure we're not fucked while doing this */
   pause_scheduler();
 
-  result = Error();
+  /* Mark as finished, since we know we won't be seeing it again after we return from this call */
+  proc->m_flags |= PROC_FINISHED;
 
-  /* Register from the global register store */
-  if (proc_unregister(proc->m_id))
-    goto unpause_and_exit;
+  /* Remove from the scheduler (Pauses it) */
+  (void)sched_remove_proc(proc);
 
   /* 
    * Register to the reaper 
@@ -366,7 +411,6 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
    */
   result = reaper_register_process(proc);
   
-unpause_and_exit:
   resume_scheduler();
 
   /* Yield to catch any terminates from within a process */
@@ -399,17 +443,32 @@ void proc_exit()
   scheduler_yield();
 }
 
+/*!
+ * @brief: Add a thread to @proc
+ *
+ * Locks the process and fails if we try to add a thread to a finished process
+ */
 ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) 
 {
+  ErrorOrPtr result;
   kevent_thread_ctx_t thread_ctx = { 0 };
 
   if (!thread || !proc)
     return Error();
 
-  ErrorOrPtr does_contain = list_indexof(proc->m_threads, thread);
+  result = Error();
 
-  if (does_contain.m_status == ANIVA_SUCCESS)
-    return Error();
+  mutex_lock(proc->m_lock);
+
+  if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+    goto unlock_and_exit;
+
+  result = list_indexof(proc->m_threads, thread);
+
+  if (result.m_status == ANIVA_SUCCESS)
+    goto unlock_and_exit;
+
+  result = Success(0);
 
   thread_ctx.thread = thread;
   thread_ctx.type = THREAD_EVENTTYPE_CREATE;
@@ -443,7 +502,10 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
     thread_prepare_context(thread);
   
   resume_scheduler();
-  return Success(0);
+
+unlock_and_exit:
+  mutex_unlock(proc->m_lock);
+  return result;
 }
 
 /*!
@@ -451,10 +513,18 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
  */
 kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
 {
+  kerror_t error;
   kevent_thread_ctx_t thread_ctx = { 0 };
 
+  error = -KERR_INVAL;
+
+  mutex_lock(proc->m_lock);
+
+  if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+    goto unlock_and_exit;
+
   if (!list_remove_ex(proc->m_threads, thread))
-    return -KERR_INVAL;
+    goto unlock_and_exit;
 
   atomic_ptr_write(proc->m_thread_count, 
     atomic_ptr_read(proc->m_thread_count) - 1
@@ -467,9 +537,11 @@ kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
   thread_ctx.old_cpu_id = 0;
 
   /* Fire the create event */
-  kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
+  (void)kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
-  return 0;
+unlock_and_exit:
+  mutex_unlock(proc->m_lock);
+  return error;
 }
 
 void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {

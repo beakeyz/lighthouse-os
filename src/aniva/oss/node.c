@@ -6,7 +6,7 @@
 #include "mem/heap.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
-#include <mem/zalloc.h>
+#include <mem/zalloc/zalloc.h>
 
 /*
  * Core code for the oss nodes

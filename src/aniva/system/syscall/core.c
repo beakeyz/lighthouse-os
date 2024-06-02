@@ -1,7 +1,6 @@
 #include "core.h"
 #include "lightos/syscall.h"
 #include "libk/flow/error.h"
-#include "proc/core.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "system/processor/processor.h"
@@ -206,11 +205,8 @@ static void sys_handler(registers_t* regs)
 
   ASSERT_MSG(calling_thread, "Syscall without a scheduling thread");
 
-  /* Lock the current thread */
-  //mutex_lock(calling_thread->m_lock);
-
   /* We're syscalling */
-  calling_thread->m_flags |= THREAD_FLAGS_SYSCALLING;
+  calling_thread->m_c_sysid = args.syscall_id;
 
   /* Execute the main syscall handler (All permissions) */
   call = __static_syscalls[args.syscall_id];
@@ -229,9 +225,17 @@ static void sys_handler(registers_t* regs)
 
   __syscall_set_retval(regs, result);
 
-  calling_thread->m_flags &= ~THREAD_FLAGS_SYSCALLING;
+  /*
+   * If the sysid is invalid at this point, consider the thread
+   * invalid and yield 
+   */
+  if (!SYSID_IS_VALID(calling_thread->m_c_sysid)) {
+    thread_set_max_ticks(calling_thread, 0);
+    scheduler_yield();
+  }
 
-  //mutex_unlock(calling_thread->m_lock);
+  /* Invalidate the sysid (i.e. mark the end of this syscall) */
+  SYSID_SET_VALID(calling_thread->m_c_sysid, false);
 }
 
 typedef struct dynamic_syscall {

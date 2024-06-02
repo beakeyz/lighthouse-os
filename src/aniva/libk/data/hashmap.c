@@ -2,7 +2,7 @@
 #include "libk/flow/error.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include <crypto/k_crc32.h>
 
 static zone_allocator_t* __hash_entry_allocator;

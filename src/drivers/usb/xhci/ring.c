@@ -1,7 +1,7 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "xhci.h"
 
 static bool valid_ring_type(uint32_t type)

@@ -5,7 +5,7 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "priv.h"
 #include "proc/core.h"
 #include "proc/proc.h"

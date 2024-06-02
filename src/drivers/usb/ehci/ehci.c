@@ -12,7 +12,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "proc/core.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"

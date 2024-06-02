@@ -4,7 +4,6 @@
 #include "mem/heap.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
-#include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include "system/processor/processor.h"
 
@@ -169,6 +168,10 @@ static bool mutex_unlock_locked(mutex_t* mutex, bool should_unregister)
 void mutex_unlock(mutex_t* mutex) 
 {
   bool did_unblock;
+
+  /* No need */
+  if (!get_current_scheduling_thread())
+    return;
 
   spinlock_lock(mutex->m_lock);
 

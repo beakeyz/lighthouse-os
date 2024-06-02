@@ -5,7 +5,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 
 static mutex_t* _ext_drv_lock = NULL;

@@ -75,13 +75,27 @@ int kheap_copy_main_allocator(memory_allocator_t* alloc)
 // our kernel malloc impl
 void* kmalloc (size_t len) 
 {
-  return memory_allocate(&__kernel_allocator, len);
+  //thread_t* c_thread;
+
+  //c_thread = get_current_scheduling_thread();
+
+  //if (!c_thread)
+ return memory_allocate(&__kernel_allocator, len);
+
+  //return kzalloc(len);
 }
 
 // our kernel free impl
 void kfree (void* addr) 
 {
-  memory_deallocate(&__kernel_allocator, addr);
+  //thread_t* c_thread;
+
+  //c_thread = get_current_scheduling_thread();
+
+  //if (!c_thread)
+  return memory_deallocate(&__kernel_allocator, addr);
+
+  //kzfree_scan(addr);
 }
 
 void kfree_sized(void* addr, size_t allocation_size) 

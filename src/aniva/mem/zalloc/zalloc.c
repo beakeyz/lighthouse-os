@@ -1,144 +1,24 @@
 #include "zalloc.h"
-#include "heap.h"
-#include "kmem_manager.h"
+#include <mem/heap.h>
+#include <mem/kmem_manager.h>
 #include "libk/data/bitmap.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
+#include "mem/zalloc/list.h"
+#include "sys/types.h"
 
 /* Only the sized list needs to know what its end is */
 
-size_t __kernel_allocator_count;
-zone_allocator_t* __kernel_allocators;
+zalloc_list_t* __kernel_alloc_list;
 
 zone_allocator_t __initial_allocator[DEFAULT_ZONE_ENTRY_SIZE_COUNT];
 
 static ErrorOrPtr zone_allocate(zone_t* zone, size_t size);
 static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size);
 
-static const enum ZONE_ENTRY_SIZE __default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_COUNT] = {
-  [0] = ZALLOC_8BYTES,
-  [1] = ZALLOC_16BYTES,
-  [2] = ZALLOC_32BYTES,
-  [3] = ZALLOC_64BYTES,
-  [4] = ZALLOC_128BYTES,
-  [5] = ZALLOC_256BYTES,
-  [6] = ZALLOC_512BYTES,
-  [7] = ZALLOC_1024BYTES,
-};
-
-/*
- * Find the middle of a range using a fast and a slow pointer
- */
-static zone_allocator_t** __try_find_middle_zone_allocator(zone_allocator_t** start, zone_allocator_t** end) {
-
-  zone_allocator_t** slow = start;
-  zone_allocator_t** fast = start;
-
-  while (*fast && ((*fast)->m_next) && (fast != end && (&(*fast)->m_next != end))) {
-    slow = &(*slow)->m_next;
-    fast = &(*fast)->m_next->m_next;
-  }
-
-  return slow;
-}
-
-/*
- * This could probably also be done with a binary search
- */
-static ErrorOrPtr __kallocators_add_allocator(zone_allocator_t* allocator)
-{
-  size_t size_to_add;
-  zone_allocator_t* next;
-  zone_allocator_t** itt;
-
-  if (!allocator || !allocator->m_entry_size)
-    return Error();
-
-  size_to_add = allocator->m_entry_size;
-
-  for (itt = &__kernel_allocators; *itt; itt = &(*itt)->m_next) {
-     next = (*itt)->m_next;
-
-    /* No duplicate sizes */
-    if (size_to_add == (*itt)->m_entry_size)
-      return Error();
-
-    if (size_to_add > (*itt)->m_entry_size && (!next || size_to_add < next->m_entry_size))
-      break;
-  }
-
-  if (*itt) {
-
-    /*
-     * Since the size of the allocator to add is inbetween the itterator and the nexts size,
-     * we need to put it inbetween the two
-     */
-    allocator->m_next = next;
-
-    (*itt)->m_next = allocator;
-
-  } else {
-    *itt = allocator;
-  }
-
-  __kernel_allocator_count++;
-
-  return Success(0);
-}
-
-/*!
- * @brief Find the optimal zone allocator to store a allocatin of the size specified
- *
- * Try to find a zone allocator that fits our size specification. The 
- */
-static zone_allocator_t* __get_allocator_for_size(size_t size)
-{
-  zone_allocator_t** current;
-  zone_allocator_t** priv = nullptr; 
-
-  zone_allocator_t** end = nullptr; 
-  zone_allocator_t** start = &__kernel_allocators; 
-
-  while ((current = __try_find_middle_zone_allocator(start, end)) != nullptr) {
-    if (!current || !(*current) || current == priv)
-      break;
-
-    /* If we accept this allocation size, break */
-    if ((*current)->m_entry_size == size ||
-        ((*current)->m_entry_size - size) <= ZALLOC_ACCEPTABLE_MEMSIZE_DEVIATON)
-      return (*current);
-
-    /*
-     * Otherwise devide the list and search the half that must contain the correct size 
-     */
-    if ((*current)->m_entry_size > size) {
-      end = current;
-    } else {
-      start = current;
-    }
-
-    priv = current;
-  }
-
-  return nullptr;
-}
-
 void init_zalloc() 
 {
-  __kernel_allocator_count = 0;
-  __kernel_allocators = nullptr;
-
-  zone_allocator_t* current;
-
-  for (uintptr_t i = 0; i < DEFAULT_ZONE_ENTRY_SIZE_COUNT; i++) {
-
-    current = &__initial_allocator[i];
-
-    init_zone_allocator(current, 16 * Kib, __default_entry_sizes[i], ZALLOC_FLAG_KERNEL);
-
-    ASSERT_MSG(current, "Failed to create kernel zone allocators");
-
-    Must(__kallocators_add_allocator(current));
-  }
+  __kernel_alloc_list = create_zalloc_list(1);
 }
 
 #define DEFAULT_ZONE_STORE_CAPACITY ((SMALL_PAGE_SIZE - sizeof(zone_store_t)) >> 3)
@@ -212,8 +92,8 @@ zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_ent
   return create_zone_allocator_ex(nullptr, 0, initial_size, hard_max_entry_size, flags);
 }
 
-zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) {
-
+zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags) 
+{
   zone_allocator_t *ret;
 
   if (!initial_size || !hard_max_entry_size)
@@ -222,13 +102,20 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
   /* FIXME: as an allocator, we don't want to depend on another allocator to be created */
   ret = kmalloc(sizeof(zone_allocator_t));
 
+  if (!ret)
+    return nullptr;
+
+  memset(ret, 0, sizeof(*ret));
+
   if (IsError(init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags)))
     return nullptr;
 
   return ret;
 }
 
-void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
+void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) 
+{
+  (void)clear_zones;
 
   // detach_allocator(allocator);
 
@@ -237,8 +124,6 @@ void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones) {
   //destroy_heap(allocator->m_heap);
 
   kfree(allocator);
-
-  (void)clear_zones;
 }
 
 /*!
@@ -574,51 +459,17 @@ zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t
 
 void* kzalloc(size_t size)
 {
-  size_t allocator_size;
-  zone_allocator_t* allocator;
-
-  if (!size)
-    return nullptr;
-
-  allocator = __get_allocator_for_size(size);
-
-  if (!allocator) {
-
-    allocator_size = ZALLOC_DEFAULT_ALLOC_COUNT * size;
-
-    /* Let's try to create a new allocator for this size */
-    allocator = create_zone_allocator(allocator_size, size, ZALLOC_FLAG_KERNEL);
-
-    Must(__kallocators_add_allocator(allocator));
-  } 
-
-  /*
-  if (!allocator)
-    return nullptr;
-    */
-
-  ASSERT_MSG(allocator, "Failed to find zone allocator for kernel allocation!");
-
-  return zalloc(allocator, size);
+  return zalloc_listed(__kernel_alloc_list, size);
 }
 
 void kzfree(void* address, size_t size)
 {
-  zone_allocator_t* allocator;
+  zfree_listed(__kernel_alloc_list, address, size);
+}
 
-  if (!size)
-    return;
-
-  allocator = __get_allocator_for_size(size);
-
-  /*
-  if (!allocator)
-    return;
-    */
-
-  ASSERT_MSG(allocator, "Failed to find zone allocator to free kernel allocation!");
-
-  zfree(allocator, address, size);
+void kzfree_scan(void* address)
+{
+  zfree_listed_scan(__kernel_alloc_list, address);
 }
 
 void* zalloc(zone_allocator_t* allocator, size_t size) {
@@ -674,8 +525,8 @@ void* zalloc(zone_allocator_t* allocator, size_t size) {
   return nullptr;
 }
 
-void zfree(zone_allocator_t* allocator, void* address, size_t size) {
-
+void zfree(zone_allocator_t* allocator, void* address, size_t size) 
+{
   ErrorOrPtr result;
   zone_store_t* current_store;
 
@@ -708,11 +559,13 @@ void zfree(zone_allocator_t* allocator, void* address, size_t size) {
   }
 }
 
-void* zalloc_fixed(zone_allocator_t* allocator) {
+void* zalloc_fixed(zone_allocator_t* allocator) 
+{
   return zalloc(allocator, allocator->m_entry_size);
 }
 
-void zfree_fixed(zone_allocator_t* allocator, void* address) {
+void zfree_fixed(zone_allocator_t* allocator, void* address) 
+{
   zfree(allocator, address, allocator->m_entry_size);
 }
 

@@ -19,7 +19,7 @@
 #include "libk/multiboot.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
 #include "proc/kprocs/reaper.h"

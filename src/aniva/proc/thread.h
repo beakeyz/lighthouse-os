@@ -3,6 +3,7 @@
 
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "lightos/syscall.h"
 #include "proc/context.h"
 #include <sync/atomic_ptr.h>
 #include "system/processor/fpu/state.h"
@@ -38,8 +39,8 @@ typedef struct thread {
   FpuState m_fpu_state;
 
   thread_id_t m_tid;
-  uint32_t m_flags;
   uint32_t m_cpu; // atomic?
+  enum SYSID m_c_sysid;
   THREAD_STATE_t m_current_state;
 
   /* The vaddress of the stack bottom, as seen by the kernel */
@@ -101,16 +102,15 @@ void thread_set_state(thread_t *, THREAD_STATE_t);
  */
 thread_t* get_generic_idle_thread();
 
-static ALWAYS_INLINE bool thread_has_been_scheduled_before(thread_t* t) 
-{
-  return (t->m_flags & THREAD_FLAGS_HAS_RAN) == THREAD_FLAGS_HAS_RAN;
-}
-
 bool thread_try_revert_userpacket_context(registers_t* regs, thread_t* thread);
 void thread_try_prepare_userpacket(thread_t* to);
 
 void thread_register_mutex(thread_t* thread, struct mutex* lock);
 void thread_unregister_mutex(thread_t* thread, struct mutex* lock);
+
+void thread_disable_scheduling(thread_t* thread);
+void thread_set_max_ticks(thread_t* thread, uintptr_t max_ticks);
+ssize_t thread_ticksleft(thread_t* thread);
 
 /*
  * TODO: blocking means we get ignored by the scheduler

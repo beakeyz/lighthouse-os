@@ -2,7 +2,7 @@
 #include "kevent/hash.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include <libk/stddef.h>
 #include <libk/string.h>
 

@@ -2,7 +2,6 @@
 #define __ANIVA_SYNC_MUTEX__
 #include "libk/data/queue.h"
 #include "proc/thread.h"
-#include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include <libk/stddef.h>
 

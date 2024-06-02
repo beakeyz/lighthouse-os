@@ -1,6 +1,5 @@
 #include "sys_exit.h"
 #include "libk/flow/error.h"
-#include "libk/string.h"
 #include "logging/log.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -14,8 +13,7 @@
  */
 uintptr_t sys_exit_handler(uintptr_t code) 
 {
-  print("(debug) Thread terminated with code: ");
-  println(to_string(code));
+  KLOG_DBG("(sys_exit) Thread terminated with code: %d\n", code);
 
   proc_t* current_proc;
   thread_t* current_thread;
@@ -56,7 +54,7 @@ uintptr_t sys_exit_handler(uintptr_t code)
   }
 
 exit_and_terminate:
-  println("(debug) Terminate");
+  KLOG_DBG("(sys_exit) Terminating process\n");
   Must(try_terminate_process(current_proc));
 
 exit_and_yield:

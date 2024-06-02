@@ -7,7 +7,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
 #include "libk/stddef.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/data/hashmap.h>

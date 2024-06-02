@@ -7,7 +7,7 @@
 #include "driver.h"
 #include <mem/heap.h>
 #include "libk/stddef.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "oss/obj.h"
 #include "proc/core.h"

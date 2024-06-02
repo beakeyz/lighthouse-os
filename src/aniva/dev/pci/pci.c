@@ -8,7 +8,7 @@
 #include <mem/heap.h>
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc.h"
+#include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"

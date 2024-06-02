@@ -139,8 +139,6 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     return 4;
   }
 
-  KLOG_DBG("Trying to execute object\n");
-
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
   result = elf_exec_64(file, false);
 
