@@ -21,42 +21,14 @@ static memory_allocator_t __kernel_allocator;
  *
  * Nothing to add here...
  */
-void init_kheap() {
+void init_kheap()
+{
+  malloc_heap_init(&__kernel_allocator, init_kmalloc_mem, sizeof(init_kmalloc_mem), NULL);
+}
 
-  heap_node_t* initial_node;
-  heap_node_buffer_t* initial_buffer;
-
-  /* Initialize the kernel allocator */
-  __kernel_allocator.m_flags = NULL;
-  __kernel_allocator.m_free_size = INITIAL_HEAP_TOTAL_SIZE;
-  __kernel_allocator.m_used_size = NULL;
-
-  /* Pretty good dummy for the parent dir lmao */
-  __kernel_allocator.m_parent_dir = (page_dir_t) {
-    .m_root = nullptr,
-    .m_kernel_low = HIGH_MAP_BASE,
-    .m_kernel_high = 0xFFFFFFFFFFFFFFFF,
-  };
-
-  /* Initialize the buffer */
-  initial_buffer = (heap_node_buffer_t*)&init_kmalloc_mem;
-
-  /* Set up the buffer */
-  initial_buffer->m_node_count = 1;
-  initial_buffer->m_buffer_size = INITIAL_HEAP_TOTAL_SIZE;
-  initial_buffer->m_next = nullptr;
-
-  /* Set up the initial node */
-  initial_node = initial_buffer->m_start_node;
-
-  initial_node->flags = NULL;
-  initial_node->identifier = MALLOC_NODE_IDENTIFIER;
-  initial_node->size = INITIAL_HEAP_TOTAL_SIZE - sizeof(heap_node_buffer_t) - sizeof(*initial_node);
-  initial_node->prev = nullptr;
-  initial_node->next = nullptr;
-
-  /* Give the buffer to the allocator */
-  __kernel_allocator.m_buffers = initial_buffer;
+void debug_kheap()
+{
+  malloc_heap_dump(&__kernel_allocator);
 }
 
 int kheap_copy_main_allocator(memory_allocator_t* alloc)
@@ -73,37 +45,13 @@ int kheap_copy_main_allocator(memory_allocator_t* alloc)
  **/
 
 // our kernel malloc impl
-void* kmalloc (size_t len) 
+inline void* kmalloc (size_t len) 
 {
-  //thread_t* c_thread;
-
-  //c_thread = get_current_scheduling_thread();
-
-  //if (!c_thread)
- return memory_allocate(&__kernel_allocator, len);
-
-  //return kzalloc(len);
+  return memory_allocate(&__kernel_allocator, len);
 }
 
 // our kernel free impl
-void kfree (void* addr) 
+inline void kfree (void* addr) 
 {
-  //thread_t* c_thread;
-
-  //c_thread = get_current_scheduling_thread();
-
-  //if (!c_thread)
   return memory_deallocate(&__kernel_allocator, addr);
-
-  //kzfree_scan(addr);
-}
-
-void kfree_sized(void* addr, size_t allocation_size) 
-{
-  memory_sized_deallocate(&__kernel_allocator, addr, allocation_size);
-}
-
-void kheap_ensure_size(size_t size) 
-{
-  memory_try_heap_expand(&__kernel_allocator, size);
 }

@@ -7,12 +7,13 @@
 #include "mem/page_dir.h"
 #include <libk/stddef.h>
 
-typedef enum MALLOC_NODE_FLAGS {
-  MALLOC_NODE_FLAG_USED = (1 << 0),
-  MALLOC_NODE_FLAG_READONLY = (1 << 1)
-} MALLOC_NODE_FLAGS_t;
+#define MALLOC_NODE_FLAG_USED       0x0000000000000001ULL
+/* Bit to check validity of the node */
+#define MALLOC_NODE_FLAG_PARITY     0x0000000000000002ULL
+#define MALLOC_NODE_FLAG_READONLY   0x0000000000000004ULL
 
-#define MALLOC_NODE_IDENTIFIER 0xF0CEDA22
+#define MALLOC_NODE_FLAGS_MASK      0x0000000000000007ULL
+#define MALLOC_NODE_SIZE_MASK       0xfffffffffffffff8ULL
 
 // TODO: spinlock :clown:
 
@@ -20,16 +21,11 @@ typedef enum MALLOC_NODE_FLAGS {
 // all heap nodes should be alligned to a page
 typedef struct heap_node {
   // size of this entry in bytes
-  size_t size;
+  size_t attr;
   // duh
   struct heap_node* next;
   // duh 2x
   struct heap_node* prev;
-  // plz no padding ;-;
-  // flags for this block
-  uint32_t flags;
-  // used to validate a node pointer
-  uint32_t identifier;
 
   uint8_t data[];
 } heap_node_t;
@@ -66,6 +62,9 @@ typedef struct memory_allocator {
   size_t m_free_size;
   size_t m_used_size;
 } memory_allocator_t;
+
+int malloc_heap_init(memory_allocator_t* allocator, void* buffer, size_t size, uint32_t flags);
+void malloc_heap_dump(memory_allocator_t* allocator);
 
 memory_allocator_t *create_malloc_heap(size_t size, vaddr_t virtual_base, uintptr_t flags);
 memory_allocator_t *create_malloc_heap_ex(page_dir_t* dir, size_t size, vaddr_t virtual_base, uintptr_t flags);
