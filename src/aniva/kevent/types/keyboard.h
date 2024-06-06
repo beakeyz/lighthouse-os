@@ -29,6 +29,10 @@ static inline kevent_kb_ctx_t* kevent_ctx_to_kb(kevent_ctx_t* ctx)
 
 static inline bool kevent_is_keycombination_pressed(kevent_kb_ctx_t* ctx, enum ANIVA_SCANCODES* keys, uint32_t len)
 {
+  /* This is a key release =/ */
+  if (!ctx->pressed)
+    return false;
+
   for (uint32_t i = 0; i < arrlen(ctx->pressed_keys) && len; i++) {
     /* Mismatch, return false */
     if (ctx->pressed_keys[i] != keys[i])

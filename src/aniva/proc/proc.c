@@ -100,7 +100,11 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
 
   Must(proc_add_thread(proc, init_thread));
 
-  proc_register(proc, profile);
+  /* Yikes */
+  if (IsError(proc_register(proc, profile))) {
+    destroy_proc(proc);
+    return nullptr;
+  }
 
   return proc;
 }
@@ -339,7 +343,6 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
  */
 ErrorOrPtr try_terminate_process(proc_t* proc)
 {
-  KLOG_DBG("try_terminate_process\n");
   return try_terminate_process_ex(proc, false);
 }
 
@@ -362,8 +365,6 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
   if (!proc)
     return Error();
 
-  mutex_lock(proc->m_lock);
-
   /* Check every thread to see if there are any pending syscalls */
   FOREACH(i, proc->m_threads) {
     c_thread = i->data;
@@ -385,8 +386,6 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
     /* Not in a syscall, yay */
     thread_disable_scheduling(c_thread);
   }
-
-  mutex_unlock(proc->m_lock);
 
   /* Pause the scheduler to make sure we're not fucked while doing this */
   pause_scheduler();

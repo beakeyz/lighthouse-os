@@ -117,6 +117,7 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
 
 static int _assign_penv(proc_t* proc, user_profile_t* profile)
 {
+  int error;
   penv_t* env;
   size_t size = strlen(proc->m_name) + 14;
   char env_label_buf[size];
@@ -145,7 +146,14 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
     return -1;
 
   /* Add to the profile */
-  profile_add_penv(profile, env);
+  error = profile_add_penv(profile, env);
+
+  /* Can't add this environment to the profile (duplicate?) */
+  if (error) {
+    /* Destroy this environment =/ */
+    destroy_penv(env);
+    return error;
+  }
 
   return penv_add_proc(env, proc);
 }

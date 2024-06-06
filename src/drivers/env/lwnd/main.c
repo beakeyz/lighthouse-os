@@ -21,6 +21,7 @@
 #include <dev/driver.h>
 #include <dev/video/device.h>
 #include "sync/mutex.h"
+#include "system/profile/profile.h"
 #include "window.h"
 
 static fb_info_t _fb_info;
@@ -147,7 +148,8 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
     return 0;
   }
 
-  if (kevent_is_keycombination_pressed(ctx, keys, 1)) {
+  if (kevent_is_keycombination_pressed(ctx, keys, 2)) {
+    KLOG_DBG("   Executing DOOM\n");
     file_t* doom_f = file_open("Root/Apps/doom");
 
     if (!doom_f)
@@ -160,7 +162,8 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
     if (!doom_p)
       return 0;
 
-    sched_add_priority_proc(doom_p, SCHED_PRIO_LOW, true);
+    sched_add_priority_proc(doom_p, SCHED_PRIO_HIGH, true);
+    return 0;
   }
 
   /* TODO: save this instantly to userspace aswell */
@@ -251,6 +254,8 @@ int init_window_driver()
 
   if (error)
     return -1;
+
+  profile_set_activated(get_user_profile());
 
   /* Initialize the lwnd keybuffer */
   _lwnd_keybuffer_r_ptr = NULL;

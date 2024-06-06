@@ -314,7 +314,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
   proc = create_proc(parent_proc, nullptr, (char*)file->m_obj->name, NULL, NULL, NULL);
 
   if (!proc)
-    return -KERR_NOMEM;
+    return -KERR_NULL;
 
   /* This gathers the needed ELF info */
   app = create_loaded_app(file, proc);

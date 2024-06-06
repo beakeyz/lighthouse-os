@@ -27,10 +27,9 @@ kevent_kb_ctx_t* keybuffer_read_key(struct kevent_kb_keybuffer* buffer, uint32_t
   if (!buffer || r_idx == buffer->w_idx)
     return nullptr;
 
-  r_idx %= buffer->capacity;
   ret = &buffer->buffer[r_idx++];
 
-  *p_r_idx = r_idx;
+  *p_r_idx = r_idx % buffer->capacity;
   return ret;
 }
 
