@@ -63,6 +63,9 @@ static heap_node_t* split_node(heap_node_buffer_t * buffer, heap_node_t *node, s
   ret->prev = node;
   heap_node_set_size(ret, size);
 
+  if (ret->next)
+    ret->next->prev = ret;
+
   /* Fix the byproduct node */
   node->next = ret;
   heap_node_set_size(node, node_size - (size + sizeof(*ret)));
@@ -75,7 +78,7 @@ static heap_node_t* split_node(heap_node_buffer_t * buffer, heap_node_t *node, s
  */
 static inline bool heap_nodes_can_merge(heap_node_t *node1, heap_node_t *node2)
 {
-  if (node2 == nullptr || node1 == nullptr)
+  if (!node1 || !node2)
     return false;
 
   /* Only free nodes can merge */
@@ -100,17 +103,21 @@ static inline heap_node_t* merge_node_with_next(heap_node_buffer_t* buffer, heap
 {
   size_t node_size;
   size_t next_size;
+  heap_node_t* next;
+
+  next = ptr->next;
 
   node_size = heap_node_get_size(ptr);
-  next_size = heap_node_get_size(ptr->next);
+  next_size = heap_node_get_size(next);
 
   heap_node_set_size(ptr, node_size + next_size + sizeof(heap_node_t));
-  ptr->next = ptr->next->next;
+  ptr->next = next->next;
 
   if (ptr->next)
     ptr->next->prev = ptr;
 
   buffer->m_node_count--;
+
   return ptr;
 }
 
@@ -128,6 +135,9 @@ static inline heap_node_t* merge_nodes(heap_node_buffer_t* buffer, heap_node_t* 
   return merge_node_with_next(buffer, (ptr1->next == ptr2) ? ptr1 : ptr2);
 }
 
+/*!
+ * @brief: Try to merge a node with it's surounding nodes 
+ */
 static inline heap_node_t* try_merge(heap_node_buffer_t* buffer, heap_node_t *node)
 {
   heap_node_t* result;
@@ -137,7 +147,13 @@ static inline heap_node_t* try_merge(heap_node_buffer_t* buffer, heap_node_t *no
     result = merge_nodes(buffer, node, node->next);
 
     if (!result)
-      result = merge_nodes(buffer, node, node->prev);
+      break;
+
+    node = result;
+  }
+
+  while (true) {
+    result = merge_nodes(buffer, node, node->prev);
 
     if (!result)
       break;
@@ -367,6 +383,7 @@ static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_nod
   /* Clear the nodes free flag */
   node->attr &= ~MALLOC_NODE_FLAG_USED;
 
+  /* Mergeeee */
   try_merge(buffer, node);
 
   // FIXME: should we zero freed nodes?

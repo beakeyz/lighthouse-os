@@ -4,7 +4,6 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
-#include "sync/atomic_ptr.h"
 
 /*
  * FIXME: what if a sub-thread of a certain process calls exit() ?
@@ -33,7 +32,7 @@ uintptr_t sys_exit_handler(uintptr_t code)
   } 
 
   /* There are more threads in this process */
-  if (atomic_ptr_read(current_proc->m_thread_count) > 1) {
+  if (current_proc->m_thread_count > 1) {
     thread_set_state(current_thread, DYING);
 
     goto exit_and_yield;

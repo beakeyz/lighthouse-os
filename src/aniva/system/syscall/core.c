@@ -14,7 +14,6 @@
 #include "sys_dev/sys_dev.h"
 #include "sys_open/sys_dir.h"
 #include "system/syscall/sys_exec/sys_exec.h"
-#include "sys_proc/sys_proc.h"
 
 extern void processor_enter_interruption(registers_t* registers, bool irq);
 extern void processor_exit_interruption(registers_t* registers);
@@ -27,7 +26,6 @@ static USED void sys_handler(registers_t* regs);
  */
 static syscall_t __static_syscalls[] = {
   [SYSID_EXIT]              = { 0, SYSID_EXIT, (sys_fn_t)sys_exit_handler },
-  [SYSID_GET_RUNTIME_CTX]   = { 0, SYSID_GET_RUNTIME_CTX, (sys_fn_t)sys_get_runtime_ctx, },
   [SYSID_CLOSE]             = { 0, SYSID_CLOSE , (sys_fn_t)sys_close, },
   [SYSID_READ]              = { 0, SYSID_READ, (sys_fn_t)sys_read, },
   [SYSID_WRITE]             = { 0, SYSID_WRITE, (sys_fn_t)sys_write },

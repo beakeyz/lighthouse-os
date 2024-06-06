@@ -6,7 +6,8 @@ USER_PATHS := 		\
 	./init 			\
 	./doomgeneric	\
 	./gfx_test		\
-	./ls
+	./ls			\
+	./vase_problem
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=

@@ -12,13 +12,11 @@
 #include "lightos/syscall.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
-#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
@@ -27,6 +25,8 @@
 #include <libk/string.h>
 #include "core.h"
 #include <mem/heap.h>
+
+static void __destroy_proc(proc_t* p);
 
 static void _proc_init_pagemap(proc_t* proc)
 {
@@ -65,7 +65,7 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
     profile = get_active_profile();
 
   /* TODO: create proc cache */
-  proc = kzalloc(sizeof(proc_t));
+  proc = kmalloc(sizeof(proc_t));
 
   if (!proc)
     return nullptr;
@@ -76,15 +76,14 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   proc->m_idle_thread = nullptr;
   proc->m_parent = parent;
   proc->m_name = strdup(name);
-  proc->m_id = Must(generate_new_proc_id());
   proc->m_flags = flags | PROC_UNRUNNED;
-  proc->m_thread_count = create_atomic_ptr_ex(1);
+  proc->m_thread_count = 1;
   proc->m_threads = init_list();
   proc->m_lock = create_mutex(NULL);
   proc->obj = create_oss_obj(name);
 
   /* Register ourselves */
-  oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, destroy_proc);
+  oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, __destroy_proc);
 
   /* Create a pagemap */
   _proc_init_pagemap(proc);
@@ -125,41 +124,6 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args)
 
   /* TODO: don't limit to one name */
   return create_proc(nullptr, admin, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
-}
-
-/*!
- * @brief: Install a runtime context into a process
- *
- * NOTE: This can only be done once
- */
-kerror_t proc_install_runtime(proc_t* proc, const char* rt)
-{
-  if (!proc || !rt)
-    return -KERR_INVAL;
-
-  if (proc->m_runtime_ctx)
-    return -KERR_INVAL;
-
-  proc->m_runtime_ctx = strdup(rt);
-  return 0;
-}
-
-/*!
- * @brief: Try to grab the runtime context of a process
- *
- * NOTE: This can only be called once for a given process. This is called
- * in the SYSID_GET_RUNTIME_CTX syscall handler by the lightos user library (libc)
- */
-kerror_t proc_get_runtime(proc_t* proc, const char** rt)
-{
-  if (!proc || !rt)
-    return -KERR_INVAL;
-
-  if (!proc->m_runtime_ctx || (proc->m_flags & PROC_DID_REQUEST_RT) == PROC_DID_REQUEST_RT)
-    return -KERR_INVAL;
-
-  *rt = proc->m_runtime_ctx;
-  return 0;
 }
 
 /*!
@@ -239,22 +203,42 @@ static void __proc_clear_handles(proc_t* proc)
   }
 }
 
+static inline void __proc_kill_threads(proc_t* proc)
+{
+  list_t* temp_tlist;
+
+  if (!proc)
+    return;
+
+  /* Create a temporary trampoline list */
+  temp_tlist = init_list();
+
+  /* Put all threads on a seperate temporary list */
+  FOREACH(i, proc->m_threads) {
+    /* Kill every thread */
+    list_append(temp_tlist, i->data);
+  }
+
+  /*  */
+  FOREACH(i, temp_tlist) {
+    /* Make sure we remove the thread from the processes queue */
+    proc_remove_thread(proc, i->data);
+
+    /* Murder the bitch */
+    destroy_thread(i->data);
+  }
+
+  destroy_list(temp_tlist);
+  destroy_list(proc->m_threads);
+}
+
 /*
  * Caller should ensure proc != zero
  */
-void destroy_proc(proc_t* proc) 
+void __destroy_proc(proc_t* proc) 
 {
-  oss_obj_do_destroy_reroute(proc);
-
-  KLOG_DBG("destroy_proc: %s\n", proc->m_name);
-
-  /* Register from the global register store */
-  ASSERT_MSG(proc_unregister(proc->m_id) == 0, "Failed to unregister proc");
-
-  FOREACH(i, proc->m_threads) {
-    /* Kill every thread */
-    destroy_thread(i->data);
-  }
+  /* Yeet threads */
+  __proc_kill_threads(proc);
 
   /* Yeet handles */
   __proc_clear_handles(proc);
@@ -263,16 +247,9 @@ void destroy_proc(proc_t* proc)
   __proc_clear_shared_resources(proc);
 
   /* Free everything else */
-  destroy_atomic_ptr(proc->m_thread_count);
-  destroy_list(proc->m_threads);
   destroy_mutex(proc->m_lock);
-
   destroy_khandle_map(&proc->m_handle_map);
-
   kfree((void*)proc->m_name);
-
-  if (proc->m_runtime_ctx)
-    kfree((void*)proc->m_runtime_ctx);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
@@ -280,11 +257,19 @@ void destroy_proc(proc_t* proc)
    * you never know... For that we simply allow every page directory to be 
    * killed as long as we are not currently using it :clown: 
    */
-  if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir) {
+  if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir)
     kmem_destroy_page_dir(proc->m_root_pd.m_root);
-  }
 
-  kzfree(proc, sizeof(proc_t));
+  kfree(proc);
+}
+
+void destroy_proc(proc_t* proc)
+{
+  /* Unregister from the global register store */
+  ASSERT_MSG(proc_unregister(proc->m_id) == 0, "Failed to unregister proc");
+
+  /* Calls __destroy_proc */
+  destroy_oss_obj(proc->obj);
 }
 
 static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
@@ -521,15 +506,10 @@ kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
 
   mutex_lock(proc->m_lock);
 
-  if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
-    goto unlock_and_exit;
-
   if (!list_remove_ex(proc->m_threads, thread))
     goto unlock_and_exit;
 
-  atomic_ptr_write(proc->m_thread_count, 
-    atomic_ptr_read(proc->m_thread_count) - 1
-  );
+  proc->m_thread_count--;
 
   thread_ctx.thread = thread;
   thread_ctx.type = THREAD_EVENTTYPE_DESTROY;

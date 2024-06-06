@@ -23,7 +23,8 @@ spinlock_t* create_spinlock() {
   return lock;
 }
 
-void destroy_spinlock(spinlock_t* lock) {
+void destroy_spinlock(spinlock_t* lock) 
+{
   destroy_atomic_ptr(lock->m_is_locked);
 
   memset(lock, 0, sizeof(spinlock_t));

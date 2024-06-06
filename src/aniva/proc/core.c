@@ -326,6 +326,7 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
  */
 ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
 {
+  int error;
   ErrorOrPtr result;
   processor_t* cpu;
   kevent_proc_ctx_t ctx;
@@ -335,8 +336,18 @@ ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
   if (IsError(result))
     return result;
 
+  mutex_lock(proc->m_lock);
+
+  /* Grant a process it's ID */
+  proc->m_id = Must(generate_new_proc_id());
+
   /* Try to assign a process environment */
-  if (KERR_ERR(_assign_penv(proc, profile)))
+  error = _assign_penv(proc, profile);
+
+  mutex_unlock(proc->m_lock);
+
+  /* Oops */
+  if (error)
     return Error(); 
 
   cpu = get_current_processor();

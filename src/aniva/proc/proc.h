@@ -7,7 +7,6 @@
 #include "mem/page_dir.h"
 #include "proc/core.h"
 #include "proc/handle.h"
-#include "sync/atomic_ptr.h"
 #include "system/resource.h"
 
 struct penv;
@@ -62,8 +61,6 @@ inline void proc_image_align(proc_image_t* image)
 typedef struct proc {
   const char* m_name;
   struct oss_obj* obj;
-  /* ASCII String which contains the runtime context of the process (aka the runtime parameters) */
-  const char* m_runtime_ctx;
   proc_id_t m_id;
   uint32_t m_flags;
 
@@ -81,8 +78,8 @@ typedef struct proc {
   struct thread* m_idle_thread;
   struct thread* m_prev_thread;
   list_t* m_threads;
-  atomic_ptr_t* m_thread_count;
 
+  size_t m_thread_count;
   size_t m_ticks_elapsed;
 
   /* Represent the image that this proc stems from (either from disk or in-ram) */
@@ -104,9 +101,6 @@ typedef struct proc {
 
 proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
-
-kerror_t proc_install_runtime(proc_t* proc, const char* rt);
-kerror_t proc_get_runtime(proc_t* proc, const char** rt);
 
 /* Block until the process has ended execution */
 int await_proc_termination(proc_id_t id);

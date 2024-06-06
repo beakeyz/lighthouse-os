@@ -1,0 +1,61 @@
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#define VASECOUNT 7
+
+uint8_t vases[VASECOUNT];
+
+/*
+ * idx 0 -> how many vases with 0 flowers
+ * idx 1 -> how many vases with 1 flowers
+ * idx n -> how many vases with n flowers
+ */
+uint8_t vasecounts[VASECOUNT];
+
+static void fill_vases()
+{
+  /* Count the fuckers */
+  for (int i = 0; i < VASECOUNT; i++)
+    vasecounts[vases[i]]++;
+
+  /* Put the things in */
+  for (int i = 0; i < VASECOUNT; i++)
+    vases[i] = vasecounts[i];
+}
+
+static void dump_vases()
+{
+  for (int i = 0; i < VASECOUNT; i++)
+    printf("Vase %d has %d flowers in it\n", i, vases[i]);
+
+  printf("\n");
+
+  for (int i = 0; i < VASECOUNT; i++)
+    printf("There are %d vases with %d flowers in them\n", vasecounts[i], i);
+}
+
+/*!
+ * @brief: Quick program that solves a vase-flower problem
+ *
+ * There are VASECOUNT vases:
+ * Vase 1 has as many flowers as there are empty vases
+ * Vase 2 has as many flowers as there are vases with one flower
+ * Vase 3 has as many flowers as there are vases with two flowers
+ * Vase VASECOUNT has as many flowers as there are vases with three flowers
+ *
+ * How are the vases filled, so that the rules above are satisfied?
+ */
+int main() 
+{
+  memset(vases, 0, sizeof(vases));
+
+  for (uint32_t i = 0; i < 1600; i++) {
+    memset(vasecounts, 0, sizeof(vasecounts));
+
+    fill_vases();
+  }
+
+  dump_vases();
+  return 0;
+}

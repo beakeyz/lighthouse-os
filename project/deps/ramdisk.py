@@ -67,6 +67,7 @@ class RamdiskManager(object):
         os.system(f"cp {self.USER_BINARIES_PATH}/init/init {self.APPS_PATH}")
         os.system(f"cp {self.USER_BINARIES_PATH}/gfx_test/gfx_test {self.APPS_PATH}")
         os.system(f"cp {self.USER_BINARIES_PATH}/ls/ls {self.APPS_PATH}")
+        os.system(f"cp {self.USER_BINARIES_PATH}/vase_problem/vaseprob {self.APPS_PATH}")
 
         return True
 

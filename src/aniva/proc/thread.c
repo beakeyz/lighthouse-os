@@ -34,6 +34,9 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
 { // make this sucka
   thread_t *thread;
 
+  if (!proc)
+    proc = get_current_proc();
+
   thread = allocate_thread();
 
   if (!thread)
@@ -55,8 +58,8 @@ thread_t *create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
   thread->f_entry = (ThreadEntry)entry;
 
   /* TODO: thread locking */
-  thread->m_tid = atomic_ptr_read(proc->m_thread_count);
-  atomic_ptr_write(proc->m_thread_count, thread->m_tid+1);
+  thread->m_tid = proc->m_thread_count;
+  proc->m_thread_count = thread->m_tid+1;
 
   memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
@@ -172,9 +175,6 @@ ANIVA_STATUS destroy_thread(thread_t *thread)
 
   /* Get rid of the mutex list */
   destroy_list(mutex_list);
-
-  /* Make sure we remove the thread from the processes queue */
-  proc_remove_thread(parent_proc, thread);
 
   Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
 

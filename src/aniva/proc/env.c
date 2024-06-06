@@ -97,6 +97,7 @@ int penv_remove_proc(penv_t* env, struct proc* p)
     return -KERR_NOT_FOUND;
 
   KLOG_DBG("Removing proc (%s) from env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+
   /* Just to be safe, check bounds */
   if (env->proc_count)
     env->proc_count--;

@@ -128,6 +128,4 @@ extern BOOL kill_process(
  */
 extern size_t get_process_time();
 
-extern const char* get_runtime_ctx();
-
 #endif // !__LIGHTENV_PROCESS__

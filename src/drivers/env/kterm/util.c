@@ -7,6 +7,7 @@
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -141,6 +142,10 @@ uint32_t kterm_cmd_drvinfo(const char** argv, size_t argc)
   return 0;
 }
 
+void a(){
+
+}
+
 /*!
  * @brief: kinda like neofetch, but fun
  */
@@ -161,7 +166,9 @@ uint32_t kterm_cmd_hello(const char** argv, size_t argc)
   kterm_println("");
   kterm_println("(Aniva): Hello to you too =) ");
 
-  (void)get_driver("other/kterm");
+  proc_t* p = create_proc(NULL, NULL, NULL, "test", (FuncPtr)a, NULL, NULL);
+
+  destroy_proc(p);
 
   return 0;
 }
