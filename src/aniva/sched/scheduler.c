@@ -4,6 +4,8 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "irq/interrupts.h"
+#include "logging/log.h"
+#include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/queue.h"
@@ -697,11 +699,9 @@ thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 
         return next_thread;
       case DYING:
-        /* TODO: What to do when this fails */
-        ASSERT_MSG(KERR_OK(proc_remove_thread(proc, next_thread)), "Failed to remove dying thread from process");
 
-        /* Murder that bitch */
-        destroy_thread(next_thread);
+        /* Register the thread for certain death */
+        reaper_register_thread(next_thread);
 
         /* Let's recurse here, in order to update our loop */
         return pull_runnable_thread_sched_frame(ptr);

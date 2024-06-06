@@ -104,7 +104,6 @@ __exit_error:
   mov rbx, rax
   ; Move one into rax to signal the EXIT syscall
   mov rax, 1
-
   ; Call the syscall (FIXME: What if we're on a 'legacy' system which does not support the syscall instruciton?)
   syscall
 

@@ -151,24 +151,24 @@ void a(){
  */
 uint32_t kterm_cmd_hello(const char** argv, size_t argc)
 {
-  kterm_println("   ,----,        ");
-  kterm_println("  /  .'  \\       ");
-  kterm_println(" /  ;     \\     ");
-  kterm_println("|  |       \\    ");
-  kterm_println("|  |   /\\   \\   ");
-  kterm_println("|  |  /; \\   \\  ");
-  kterm_println("|  |  |/  \\   \\ ");
-  kterm_println("|  |  | \\  \\ ,' ");
-  kterm_println("|  |  |  '--'   ");
-  kterm_println("|  |  |         ");
-  kterm_println("|  | ,'         ");
-  kterm_println("`--''           ");
+  kterm_println("   ,----,");
+  kterm_println("  /  .'  \\");
+  kterm_println(" /  ;     \\");
+  kterm_println("|  |       \\");
+  kterm_println("|  |   /\\   \\");
+  kterm_println("|  |  /; \\   \\");
+  kterm_println("|  |  |\\  ;   \\");
+  kterm_println("|  |  | \\  \\ ,'");
+  kterm_println("|  |  |  '--'");
+  kterm_println("|  |  |");
+  kterm_println("|  | ,'");
+  kterm_println("`--''");
   kterm_println("");
   kterm_println("(Aniva): Hello to you too =) ");
 
-  proc_t* p = create_proc(NULL, NULL, NULL, "test", (FuncPtr)a, NULL, NULL);
+  //proc_t* p = create_proc(NULL, NULL, NULL, "test", (FuncPtr)a, NULL, NULL);
 
-  destroy_proc(p);
+  //destroy_proc(p);
 
   return 0;
 }

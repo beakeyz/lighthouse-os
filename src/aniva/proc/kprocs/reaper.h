@@ -16,5 +16,6 @@ ErrorOrPtr init_reaper(proc_t* proc);
  * 'terminated' but not destroyed
  */
 ErrorOrPtr reaper_register_process(proc_t* proc);
+int reaper_register_thread(thread_t* thread);
 
 #endif // !__ANIVA_REAPER_THREAD__

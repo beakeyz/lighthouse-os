@@ -808,7 +808,7 @@ static void kterm_key_watcher()
   kevent_kb_ctx_t* key_event;
 
   do {
-    if (!kterm_ismode(KTERM_MODE_GRAPHICS))
+    if (!kterm_ismode(KTERM_MODE_GRAPHICS) || !_active_grpx_app.client_proc)
       goto cycle;
 
     key_event = keybuffer_read_key(&_keybuffer, &_keybuffer_kterm_r_ptr);

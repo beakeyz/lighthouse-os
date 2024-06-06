@@ -1,4 +1,5 @@
 #include "devacs/device.h"
+#include "lightos/dynamic.h"
 #include "lightos/handle.h"
 #include <sys/types.h>
 #include <lightos/memory/alloc.h>
@@ -23,13 +24,34 @@
 int main() 
 {
   DEVINFO info;
+  HANDLE devlib;
   DEV_HANDLE handle;
+
+  DEV_HANDLE (*f_open_dev)(const char* path, uint32_t flags);
+  bool (*f_close_dev)(DEV_HANDLE handle);
+  bool (*f_query)(DEV_HANDLE handle, DEVINFO* binfo);
+  bool (*f_enable)(DEV_HANDLE handle);
+
+  if (!load_library("devacs.slb", &devlib))
+    return -1;
+
+  if (!get_func_address(devlib, "open_device", (void**)&f_open_dev))
+    return -2;
+
+  if (!get_func_address(devlib, "close_device", (void**)&f_close_dev))
+    return -3;
+
+  if (!get_func_address(devlib, "device_query_info", (void**)&f_query))
+    return -4;
+
+  if (!get_func_address(devlib, "device_enable", (void**)&f_enable))
+    return -5;
 
   const char* device = "Dev/ahci/drive0";
 
   printf("Querying: %s\n", device);
 
-  handle = open_device(device, NULL);
+  handle = f_open_dev(device, NULL);
 
   if (handle == HNDL_NO_PERM) {
     printf("Could not open this handle! (No permission)\n");
@@ -39,7 +61,7 @@ int main()
   if (!handle_verify(handle))
     return -1;
 
-  if (!device_query_info(handle, &info))
+  if (!f_query(handle, &info))
     goto close_and_end;
 
   printf("Name: %s\n", info.devicename);
@@ -47,9 +69,9 @@ int main()
   printf("Device ID: %d\n", info.deviceid);
   printf("Class: %d\n", info.class);
   printf("Subclass: %d\n", info.subclass);
-  printf("Device state: %s\n", device_enable(handle) ? "Enabled" : "Disabled");
+  printf("Device state: %s\n", f_enable(handle) ? "Enabled" : "Disabled");
 
 close_and_end:
-  close_device(handle);
+  f_close_dev(handle);
   return 0;
 }

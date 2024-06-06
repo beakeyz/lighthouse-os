@@ -5,8 +5,8 @@ PROCESS_NAME=init
 # $(LIBRARY_BIN_PATH)/LibC/LibC.lib
 
 LINK_TYPE=dynamic
-LIBRARIES := \
-			 -l:devacs.slb
+LIBRARIES := 
+			# -l:devacs.slb
   
 
 include ../user.mk

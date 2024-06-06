@@ -334,6 +334,7 @@ int await_proc_termination(proc_id_t id)
  */
 ErrorOrPtr try_terminate_process(proc_t* proc)
 {
+  KLOG_DBG("try_terminate_process\n");
   return try_terminate_process_ex(proc, false);
 }
 

@@ -39,7 +39,8 @@ typedef enum THREAD_STATE {
   RUNNING,          // executing
   RUNNABLE,         // can be executed by the scheduler
   NO_CONTEXT,       // Runnable, but needs to recieve a context
-  DYING,            // waiting to be cleaned up
+  DYING,            // Waiting to be cleaned up
+  DEAD,             // Gone from the scheduler, in reaper queue
   STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
   BLOCKED,          // performing blocking operation
   SLEEPING,         // waiting for anything to happen (i.e. signals, data)

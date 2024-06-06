@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define VASECOUNT 6
+#define VASECOUNT 4
 
 uint8_t vases[VASECOUNT];
 /*
