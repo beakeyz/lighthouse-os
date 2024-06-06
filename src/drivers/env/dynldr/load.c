@@ -7,7 +7,6 @@
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "priv.h"
-#include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
@@ -289,10 +288,9 @@ static kerror_t _do_load(file_t* file, loaded_app_t* app)
  * This will result in a new process wrapped inside a loaded_app struct when 
  * the returnvalue is KERR_NONE
  */
-kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
+kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_t** p_proc)
 {
   kerror_t error;
-  proc_id_t pid;
   proc_t* proc;
   proc_t* parent_proc;
   loaded_app_t* app;
@@ -313,7 +311,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
     parent_proc = nullptr;
 
   /* Create an addressspsace for this bitch */
-  proc = create_proc(parent_proc, nullptr, &pid, (char*)file->m_obj->name, NULL, NULL, NULL);
+  proc = create_proc(parent_proc, nullptr, (char*)file->m_obj->name, NULL, NULL, NULL);
 
   if (!proc)
     return -KERR_NOMEM;
@@ -338,7 +336,7 @@ kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* bpid)
   /* TODO: Do actual cleanup here */
   ASSERT_MSG(KERR_OK(error), "FUCK: Failed to do a dynamic app load =(");
 
-  *bpid = pid;
+  *p_proc = proc;
   *out_app = app;
   return error;
 }

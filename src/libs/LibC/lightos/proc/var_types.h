@@ -28,6 +28,8 @@ enum SYSVAR_TYPE {
 #define SYSVAR_FLAG_CONFIG (0x00000008)
 /* Hidden to any profiles with lesser permissions */
 #define SYSVAR_FLAG_HIDDEN (0x00000010)
+/* Can't be removed or changed. Only the value can change */
+#define SYSVAR_FLAG_STATIC (0x00000020)
 
 /*
  * Structures for the .pvr files

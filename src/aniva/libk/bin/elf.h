@@ -4,14 +4,15 @@
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
 #include "libk/flow/error.h"
+#include "proc/proc.h"
 #include <libk/stddef.h>
 
 /*
  * Create a process that starts execution at the entrypoint of the elf file
  * and imidiately yield to it
  */
-ErrorOrPtr elf_exec_64(file_t* file, bool kernel);
-ErrorOrPtr elf_exec_32(file_t* file, bool kernel);
+proc_t* elf_exec_64(file_t* file, bool kernel);
+proc_t* elf_exec_32(file_t* file, bool kernel);
 
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 bool elf_verify_header(struct elf64_hdr* header);

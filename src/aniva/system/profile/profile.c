@@ -11,8 +11,10 @@
 #include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"
+#include "proc/core.h"
 #include "proc/env.h"
 #include "sync/mutex.h"
+#include "system/profile/runtime.h"
 #include "system/sysvar/loader.h"
 #include "system/sysvar/map.h"
 #include <libk/string.h>
@@ -488,6 +490,74 @@ static void __apply_user_variables()
   sysvar_attach(_user_profile.node, "LIBRT_NAME", PRIV_LVL_USER, SYSVAR_TYPE_STRING, SYSVAR_FLAG_GLOBAL, PROFILE_STR("librt.slb"));
 }
 
+static void __apply_runtime_variables()
+{
+  sysvar_attach(_runtime_node, RUNTIME_VARNAME_PROC_COUNT, PRIV_LVL_USER, SYSVAR_TYPE_DWORD, SYSVAR_FLAG_GLOBAL | SYSVAR_FLAG_STATIC, 0);
+}
+
+uint32_t runtime_get_proccount()
+{
+  int error;
+  uint32_t count;
+  sysvar_t* var;
+
+  /* Get the var */
+  error = profile_find_var(RUNTIME_VARNAME_PROC_COUNT, &var);
+
+  if (error)
+    return 0;
+
+  /* Read the value */
+  if (!sysvar_get_dword_value(var, &count))
+    return 0;
+
+  /* Release our reference */
+  release_sysvar(var);
+
+  return count;
+}
+
+static inline void runtime_add_proccount_delta(int32_t delta)
+{
+  int error;
+  int32_t count;
+  sysvar_t* var;
+
+  /* Get the var */
+  error = profile_find_var(RUNTIME_VARNAME_PROC_COUNT, &var);
+
+  if (error)
+    return;
+
+  /* Read the value */
+  if (!sysvar_get_dword_value(var, (uint32_t*)&count))
+    return;
+
+  ASSERT_MSG((count + delta) >= 0, "runtime_add_proccount_delta -> Can't have a negative proc count!");
+
+  /* Write delta to the sysvar */
+  sysvar_write(var, count + delta);
+
+  /* Release our reference */
+  release_sysvar(var);
+}
+
+/*!
+ * @brief: Add a proc to the proc count
+ */
+void runtime_add_proccount()
+{
+  runtime_add_proccount_delta(1);
+}
+
+/*!
+ * @brief: Remove a proc from the proc count
+ */
+void runtime_remove_proccount()
+{
+  runtime_add_proccount_delta(-1);
+}
+
 /*!
  * @brief Initialise the standard profiles present on all systems
  *
@@ -522,6 +592,8 @@ void init_user_profiles(void)
   /* Apply the default variables onto the default profiles */
   __apply_admin_variables();
   __apply_user_variables();
+
+  __apply_runtime_variables();
 }
 
 /*!

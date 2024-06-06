@@ -2,6 +2,7 @@
 #define __ANIVA_PROC__
 
 #include "libk/flow/error.h"
+#include <libk/string.h>
 #include "libk/data/linkedlist.h"
 #include "mem/kmem_manager.h"
 #include "mem/page_dir.h"
@@ -61,7 +62,6 @@ inline void proc_image_align(proc_image_t* image)
 typedef struct proc {
   const char* m_name;
   struct oss_obj* obj;
-  proc_id_t m_id;
   uint32_t m_flags;
 
   /* This is used to compare a processes status in relation to other processes */
@@ -99,11 +99,11 @@ typedef struct proc {
 #define PROC_NO_SOCKET      (0x00000200)
 #define PROC_DID_REQUEST_RT (0x00000400)
 
-proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
+proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 
 /* Block until the process has ended execution */
-int await_proc_termination(proc_id_t id);
+int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio);
 int proc_clone(proc_t* p, const char* clone_name, proc_t** clone);
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);
@@ -153,8 +153,9 @@ void stall_process(proc_t* proc);
 /*!
  * @brief: Checks if @proc is the process that runs the kernel
  */
-static inline bool is_kernel(proc_t* proc) {
-  return (proc->m_id == 0);
+static inline bool is_kernel(proc_t* proc) 
+{
+  return (strncmp(proc->m_name, PROC_CORE_PROCESS_NAME, strlen(PROC_CORE_PROCESS_NAME)) == 0);
 }
 
 /*!

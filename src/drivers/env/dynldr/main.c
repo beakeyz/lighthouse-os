@@ -149,13 +149,13 @@ static int _loader_exit()
 /*!
  * @brief: Load a dynamically linked program directly from @file
  */
-static kerror_t _loader_ld_appfile(file_t* file, proc_id_t* pid)
+static kerror_t _loader_ld_appfile(file_t* file, proc_t** p_proc)
 {
   kerror_t error;
   loaded_app_t* app;
 
   /* We've found the file, let's try to load this fucker */
-  error = load_app(file, &app, pid);
+  error = load_app(file, &app, p_proc);
 
   if (error || !app)
     return -DRV_STAT_INVAL;
@@ -169,7 +169,7 @@ static kerror_t _loader_ld_appfile(file_t* file, proc_id_t* pid)
 /*!
  * @brief: Open @path and load the app that in the resulting file
  */
-static kerror_t _loader_ld_app(const char* path, size_t pathlen, proc_id_t* pid)
+static kerror_t _loader_ld_app(const char* path, size_t pathlen, proc_t** p_proc)
 {
   kerror_t error;
   file_t* file;
@@ -180,7 +180,7 @@ static kerror_t _loader_ld_app(const char* path, size_t pathlen, proc_id_t* pid)
   if (!file)
     return -DRV_STAT_INVAL;
 
-  error = _loader_ld_appfile(file, pid);
+  error = _loader_ld_appfile(file, p_proc);
 
   file_close(file);
 
@@ -192,7 +192,6 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
   file_t* in_file;
   proc_t* c_proc;
   const char* in_path;
-  proc_id_t pid;
 
   c_proc = get_current_proc();
 
@@ -207,12 +206,13 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
       if (!in_path)
         return DRV_STAT_INVAL;
 
-      /* FIXME: Safety here lmao */
-      if (_loader_ld_app(in_path, in_bsize, &pid))
+      if (!out_buf || out_bsize != sizeof(proc_t*))
         return DRV_STAT_INVAL;
 
-      if (out_buf && out_bsize == sizeof(pid))
-        memcpy(out_buf, &pid, sizeof(pid));
+      /* FIXME: Safety here lmao */
+      if (_loader_ld_app(in_path, in_bsize, (proc_t**)out_buf))
+        return DRV_STAT_INVAL;
+
       break;
     case DYN_LDR_LOAD_APPFILE:
       in_file = in_buf;
@@ -221,16 +221,17 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
       if (!in_file || in_bsize != sizeof(*in_file))
         return DRV_STAT_INVAL;
 
+      if (!out_buf || out_bsize != sizeof(proc_t*))
+        return DRV_STAT_INVAL;
+
       /* 
        * Try to load this mofo directly.
        * NOTE: File ownership is in the hands of the caller, 
        *       so we can't touch file lifetime
        */
-      if (_loader_ld_appfile(in_file, &pid))
+      if (_loader_ld_appfile(in_file, (proc_t**)out_buf))
         return DRV_STAT_INVAL;
 
-      if (out_buf && out_bsize == sizeof(pid))
-        memcpy(out_buf, &pid, sizeof(pid));
       break;
     /* Look through the loaded libraries of the current process to find the specified library */
     case DYN_LDR_GET_LIB:
@@ -304,7 +305,7 @@ static uint64_t _loader_msg(aniva_driver_t* driver, dcc_t code, void* in_buf, si
         msgblock = in_buf;
 
         /* Find the process we need to check */
-        target_proc = find_proc_by_id(msgblock->pid);
+        target_proc = find_proc(msgblock->proc_path);
 
         if (!target_proc)
           return DRV_STAT_INVAL;

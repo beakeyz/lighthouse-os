@@ -40,7 +40,7 @@ enum DYNLDR_MSG_CODE {
 };
 
 typedef struct dynldr_getfuncname_msg {
-  unsigned int pid;
+  const char* proc_path;
   void* func_addr;
 } dynldr_getfuncname_msg_t;
 

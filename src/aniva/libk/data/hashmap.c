@@ -7,6 +7,61 @@
 
 static zone_allocator_t* __hash_entry_allocator;
 
+static inline uint32_t hashmap_keygen_get_seed()
+{
+  /* TODO: randomize this seed */
+  return 0x3982fa9d;
+}
+
+/*
+ * MurMur Hash scramble function
+ */
+static inline uint32_t hashmap_keygen_scramble(uint32_t key)
+{
+  key *= 0xcc9e2d51;
+  key = (key << 15) | (key >> 17);
+  key *= 0x1b873593;
+  return key;
+}
+
+/*!
+ * @brief: MurMur Hash function
+ *
+ * Used to compute a hash for a hashmap entry
+ * NOTE: this is for little-endian CPUs only
+ */
+static uint32_t hashmap_compute_key(const char* key_str)
+{
+  size_t len = strlen(key_str);
+  uint32_t h = hashmap_keygen_get_seed();
+  uint32_t k = 0;
+
+  /* Read in groups of 4. */
+  for (size_t i = len >> 2; i; i--) {
+      memcpy(&k, key_str, sizeof(uint32_t));
+      key_str += sizeof(uint32_t);
+      h ^= hashmap_keygen_scramble(k);
+      h = (h << 13) | (h >> 19);
+      h = h * 5 + 0xe6546b64;
+  }
+
+  /* Read the rest. */
+  k = 0;
+  for (size_t i = len & 3; i; i--) {
+      k <<= 8;
+      k |= key_str[i - 1];
+  }
+
+  h ^= hashmap_keygen_scramble(k);
+  h ^= len;
+  h ^= h >> 16;
+  h *= 0x85ebca6b;
+  h ^= h >> 13;
+  h *= 0xc2b2ae35;
+  h ^= h >> 16;
+  return h;
+}
+
 /*
  * Main hash function for string keys
  * FIXME: should we make this accept a dynamic memory size, in order to merge 
@@ -16,9 +71,7 @@ static uintptr_t __hashmap_hash_str(hashmap_key_t str)
 {
   char* _str = (char*)str;
 
-  uint32_t hashed_key = kcrc32(_str, strlen(_str));
-
-  return hashed_key;
+  return hashmap_compute_key(_str);
 }
 
 typedef struct hashmap_entry {

@@ -104,7 +104,7 @@ typedef struct loaded_app {
 extern loaded_app_t* create_loaded_app(file_t* file, struct proc* proc);
 extern void destroy_loaded_app(loaded_app_t* app);
 
-extern kerror_t load_app(file_t* file, loaded_app_t** out_app, proc_id_t* pid);
+extern kerror_t load_app(file_t* file, loaded_app_t** out_app, struct proc** proc);
 extern kerror_t unload_app(loaded_app_t* app);
 
 extern kerror_t register_app(loaded_app_t* app);

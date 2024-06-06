@@ -360,7 +360,7 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
 
 static bool procinfo_callback(proc_t* proc)
 {
-  kterm_print_keyvalue(proc->m_name, to_string(proc->m_id));
+  //kterm_print_keyvalue(proc->m_name, to_string(proc->m_id));
   return true;
 }
 

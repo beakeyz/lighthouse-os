@@ -11,6 +11,7 @@
 #include "kevent/types/proc.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
+#include "lightos/event/key.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/core.h"
@@ -134,7 +135,7 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
   if (!wnd)
     return 0;
 
-  enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_Q };
+  enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_LALT, ANIVA_SCANCODE_Q };
  
   if (kevent_is_keycombination_pressed(ctx, _forcequit_sequence, arrlen(_forcequit_sequence))) {
     switch (wnd->type) {
@@ -152,11 +153,9 @@ int lwnd_on_key(kevent_kb_ctx_t* ctx)
     if (!doom_f)
       return 0;
 
-    uint32_t pid = Must(elf_exec_64(doom_f, false));
+    proc_t* doom_p = elf_exec_64(doom_f, false);
 
     file_close(doom_f);
-
-    proc_t* doom_p = find_proc_by_id(pid); 
 
     if (!doom_p)
       return 0;
@@ -206,7 +205,7 @@ static int on_proc(kevent_ctx_t* _ctx, void* param)
           continue;
 
         /* Skip windows that are not from this process */
-        if (c_wnd->client.proc->m_id != ctx->process->m_id)
+        if (c_wnd->client.proc != ctx->process)
           continue;
         
         lwnd_screen_unregister_window(c_screen, c_wnd);
@@ -306,11 +305,9 @@ int init_window_driver()
   if (!test_f)
     return 0;
 
-  uint32_t test_pid = Must(elf_exec_64(test_f, false));
+  proc_t* test_p = elf_exec_64(test_f, false);
 
   file_close(test_f);
-
-  proc_t* test_p = find_proc_by_id(test_pid); 
 
   if (!test_p)
     return 0;

@@ -101,10 +101,7 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
  */
 uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 {
-  ErrorOrPtr result;
-
   proc_t* p;
-  proc_id_t id;
   const char* buffer;
   user_profile_t* login_profile;
 
@@ -140,19 +137,16 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
   }
 
   /* NOTE: defer the schedule here, since we still need to attach a few handles to the process */
-  result = elf_exec_64(file, false);
+  p = elf_exec_64(file, false);
 
   oss_obj_close(file->m_obj);
 
-  if (IsError(result)) {
+  if (!p) {
     logln("Coult not execute object!");
     return 5;
   }
 
-  id = (proc_id_t)Release(result);
-  p = find_proc_by_id(id);
-
-  KLOG_DBG("Got procid: %d\n", id);
+  KLOG_DBG("Got proc: %s\n", p->m_name);
 
   /*
    * Losing this process would be a fatal error because it compromises the entire system 
@@ -183,11 +177,8 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
   bind_khandle(&p->m_handle_map, &_stdout);
   bind_khandle(&p->m_handle_map, &_stderr);
 
-  /* Do an instant rescedule */
-  Must(sched_add_priority_proc(p, SCHED_PRIO_MID, true));
-
   /* Wait for process termination */
-  ASSERT_MSG(await_proc_termination(id) == 0, "Process termination failed");
+  ASSERT_MSG(proc_schedule_and_await(p, SCHED_PRIO_MID) == 0, "Process termination failed");
 
   /* Make sure we're in terminal right after this exit */
   if (kterm_ismode(KTERM_MODE_GRAPHICS))

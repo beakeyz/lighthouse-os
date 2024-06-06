@@ -1,9 +1,11 @@
 #include "env.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "proc/proc.h"
 #include "sync/mutex.h"
 #include "system/profile/profile.h"
+#include "system/profile/runtime.h"
 #include "system/sysvar/var.h"
 #include <libk/string.h>
 
@@ -77,6 +79,9 @@ int penv_add_proc(penv_t* env, proc_t* p)
 
   KLOG_DBG("Added proc (%s) to env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
 
+  /* Add a proc to the proccount */
+  runtime_add_proccount();
+
   return 0;
 }
 
@@ -97,6 +102,9 @@ int penv_remove_proc(penv_t* env, struct proc* p)
     return -KERR_NOT_FOUND;
 
   KLOG_DBG("Removing proc (%s) from env (%s): count=%d\n", p->m_name, env->label, env->proc_count);
+
+  /* Remove a proc from the proccount */
+  runtime_remove_proccount();
 
   /* Just to be safe, check bounds */
   if (env->proc_count)

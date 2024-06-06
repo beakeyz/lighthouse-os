@@ -1,8 +1,6 @@
 #include "core.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
-#include "libk/data/queue.h"
-#include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include <libk/data/hashmap.h>
@@ -16,81 +14,14 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
-#include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
+#include "system/profile/runtime.h"
 #include "system/sysvar/var.h"
 
 // TODO: fix this mechanism, it sucks
-static atomic_ptr_t* __next_procid;
-static queue_t* __free_procid_queue;
 static zone_allocator_t* __thread_allocator;
-
-static vector_t* __proc_vect;
-static mutex_t* __proc_mutex;
-
-/*!
- * @brief Register a process to the process list
- *
- * Nothing to add here...
- */
-static ErrorOrPtr __register_proc(proc_t* proc)
-{
-  ErrorOrPtr result;
-
-  if (!proc || !__proc_vect)
-    return Error();
-
-  mutex_lock(__proc_mutex);
-
-  result = vector_add(__proc_vect, &proc);
-
-  mutex_unlock(__proc_mutex);
-
-  return result;
-}
-
-static void _free_procid(proc_id_t id)
-{
-  queue_enqueue(__free_procid_queue, (void*)((uint64_t)id));
-}
-
-/*!
- * @brief Unregister a process of a given name @name
- *
- * @returns: Success(...) with a pointer to the unregistered process on a successful
- * unregister, otherwise Error()
- */
-static proc_t* __unregister_proc_by_id(proc_id_t id)
-{
-  proc_t* ret;
-  
-  if (!__proc_vect)
-    return NULL;
-
-  ret = NULL;
-
-  mutex_lock(__proc_mutex);
-
-  FOREACH_VEC(__proc_vect, i, j) {
-    proc_t* p = *(proc_t**)i;
-
-    if (p->m_id != id)
-      continue;
-
-    /* Remove the process */
-    vector_remove(__proc_vect, j);
-    
-    /* Register the freed up id */
-    _free_procid(id);
-    ret = p;
-    break;
-  }
-
-  mutex_unlock(__proc_mutex);
-  return ret;
-}
 
 thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0) 
 {
@@ -122,89 +53,6 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
 }
 
 /*!
- * @brief: Dequeue a free procid, if it's available
- *
- * Since procids can't be zero (because that id is reserved by the kernel proc), this function
- * returning 0 indicates that there is no free procid to take
- */
-static uint64_t _dequeue_free_procid()
-{
-  return (uint64_t)queue_dequeue(__free_procid_queue);
-}
-
-/*
- * TODO: have process ids be contained inside a bitmap.
- * This gives us more dynamic procid taking and releasing,
- * at the cost of a greater space complexity. For a max. capacity 
- * of 1024 processes we would need 16 qwords or 16 * 8 = 128 bytes
- * in our bitmap.
- */
-ErrorOrPtr generate_new_proc_id() 
-{
-  uintptr_t next;
-
-  next = _dequeue_free_procid();
-
-  if (!next) {
-    next = atomic_ptr_read(__next_procid);
-    atomic_ptr_write(__next_procid, next + 1);
-  }
-
-  /* Limit exceeded, since a proc_id is always 32-bit here (for now) */
-  if (next > 0xFFFFFFFF)
-    return Error();
-
-  return Success((uint32_t)next);
-}
-
-/*!
- * @brief: Find a process through its ID
- *
- * Look through the entire process vector to find the one with the ID we're looking for
- * TODO: Optimize
- */
-proc_t* find_proc_by_id(proc_id_t id)
-{
-  proc_t* ret;
-
-  mutex_lock(__proc_mutex);
-
-  ret = nullptr;
-
-  FOREACH_VEC(__proc_vect, data, index) {
-
-    if (!data)
-      break;
-
-    ret = *(proc_t**)data;
-
-    if (!ret || ret->m_id == id)
-      break;
-
-    ret = nullptr;
-  }
-
-  mutex_unlock(__proc_mutex);
-
-  return ret;
-}
-
-struct thread* find_thread_by_fid(full_proc_id_t fid) 
-{
-  u_fid_t __id;
-  proc_t* p;
-
-  __id.id = fid;
-
-  p = find_proc_by_id(__id.proc_id);
-
-  if (!p)
-    return nullptr;
-
-  return find_thread(p, __id.thread_id);
-}
-
-/*!
  * @brief: Find a process through oss
  *
  * Processes get attached to oss at the Runtime/ rootnode, under the node of the 
@@ -215,36 +63,26 @@ struct thread* find_thread_by_fid(full_proc_id_t fid)
  */
 proc_t* find_proc(const char* path) 
 {
-  proc_t* ret;
   oss_obj_t* obj;
 
   if (!path)
     return nullptr;
 
-  ret = nullptr;
   obj = nullptr;
 
-  mutex_lock(__proc_mutex);
-
   if (KERR_ERR(oss_resolve_obj(path, &obj)))
-    goto unlock_and_exit;
+    return nullptr;
 
   if (!obj || obj->type != OSS_OBJ_TYPE_PROC)
-    goto unlock_and_exit;
+    return nullptr;
 
   /* Yay this object contains our thing =D */
-  ret = oss_obj_unwrap(obj, proc_t);
-unlock_and_exit:
-  mutex_unlock(__proc_mutex);
-  return ret;
+  return oss_obj_unwrap(obj, proc_t);
 }
 
 uint32_t get_proc_count()
 {
-  if (!__proc_vect)
-    return NULL;
-
-  return __proc_vect->m_length;
+  return runtime_get_proccount();
 }
 
 /*!
@@ -256,20 +94,7 @@ uint32_t get_proc_count()
  */
 bool foreach_proc(bool (*f_callback)(struct proc*))
 {
-  proc_t* current;
-
-  mutex_lock(__proc_mutex);
-
-  FOREACH_VEC(__proc_vect, data, index) {
-    current = *(proc_t**)data;
-
-    if (!f_callback(current)) {
-      mutex_unlock(__proc_mutex);
-      return false;
-    }
-  }
-
-  mutex_unlock(__proc_mutex);
+  kernel_panic("TODO: foreach_proc");
   return true;
 }
 
@@ -293,7 +118,8 @@ thread_t* find_thread(proc_t* proc, thread_id_t tid) {
 static int _assign_penv(proc_t* proc, user_profile_t* profile)
 {
   penv_t* env;
-  char env_label_buf[strlen(proc->m_name) + 14];
+  size_t size = strlen(proc->m_name) + 14;
+  char env_label_buf[size];
 
   /* If at this point we don't have a profile, default to user */
   if (!profile)
@@ -305,8 +131,11 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
     return 0;
   }
 
+  /* Yay */
+  memset(env_label_buf, 0, size);
+
   /* Format the penv label */
-  if (sfmt(env_label_buf, "%s_%d", proc->m_name, proc->m_id))
+  if (sfmt(env_label_buf, "%s_env", proc->m_name))
     return -1;
 
   /* Create a environment in the user profile */
@@ -327,19 +156,10 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
 ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
 {
   int error;
-  ErrorOrPtr result;
   processor_t* cpu;
   kevent_proc_ctx_t ctx;
 
-  result = __register_proc(proc);
-
-  if (IsError(result))
-    return result;
-
   mutex_lock(proc->m_lock);
-
-  /* Grant a process it's ID */
-  proc->m_id = Must(generate_new_proc_id());
 
   /* Try to assign a process environment */
   error = _assign_penv(proc, profile);
@@ -360,34 +180,32 @@ ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
   /* Fire a funky kernel event */
   kevent_fire("proc", &ctx, sizeof(ctx));
 
-  return result;
+  return Success(0);
 }
 
 /*!
  * @brief: Unregister a process from the kernel
  */
-kerror_t proc_unregister(proc_id_t id)
+kerror_t proc_unregister(struct proc* proc)
 {
-  proc_t* p;
   processor_t* cpu;
   kevent_proc_ctx_t ctx;
 
-  p = __unregister_proc_by_id(id);
-
-  if (!p)
-    return -1;
-
-  /* Make sure the process is removed form its profile */
-  penv_remove_proc(p->m_env, p);
+  mutex_lock(proc->m_lock);
 
   cpu = get_current_processor();
 
-  ctx.process = p;
+  ctx.process = proc;
   ctx.type = PROC_EVENTTYPE_DESTROY;
   ctx.new_cpuid = cpu->m_cpu_num;
   ctx.old_cpuid = cpu->m_cpu_num;
 
   kevent_fire("proc", &ctx, sizeof(ctx));
+
+  /* Make sure the process is removed form its profile */
+  penv_remove_proc(proc->m_env, proc);
+
+  mutex_unlock(proc->m_lock);
 
   return 0;
 }
@@ -429,19 +247,7 @@ void deallocate_thread(thread_t* thread)
  */
 ANIVA_STATUS init_proc_core() 
 {
-  __next_procid = create_atomic_ptr_ex(0);
-  __free_procid_queue = create_limitless_queue();
-
-  __thread_allocator = create_zone_allocator(1 * Mib, sizeof(thread_t), NULL);
-
-  /*
-   * TODO: we can also just store processes in a vector, since we
-   * have the PROC_SOFTMAX that limits process creation
-   */
-  __proc_vect = create_vector(PROC_SOFTMAX, sizeof(proc_t*), VEC_FLAG_NO_DUPLICATES);
-  __proc_mutex = create_mutex(NULL);
-
-  //Must(create_kevent("proc_terminate", KEVENT_TYPE_CUSTOM, NULL, 8));
+  __thread_allocator = create_zone_allocator(128 * Kib, sizeof(thread_t), NULL);
 
   init_sysvars();
   init_user_profiles();

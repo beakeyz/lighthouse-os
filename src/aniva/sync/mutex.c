@@ -218,7 +218,7 @@ bool mutex_is_locked(mutex_t* mutex)
 // FIXME: inline?
 bool mutex_is_locked_by_current_thread(mutex_t* mutex) 
 {
-  return (mutex_is_locked(mutex) && mutex->m_lock_holder == get_current_scheduling_thread());
+  return (mutex->m_lock_holder == get_current_scheduling_thread());
 }
 
 /*!

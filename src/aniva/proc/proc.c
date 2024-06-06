@@ -52,7 +52,7 @@ static void _proc_init_pagemap(proc_t* proc)
  *
  * TODO: remove sockets from existing
  */
-proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_buffer, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
+proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
 {
   proc_t *proc;
   /* NOTE: ->m_init_thread gets set by proc_add_thread */
@@ -75,12 +75,12 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
   /* TODO: move away from the idea of idle threads */
   proc->m_idle_thread = nullptr;
   proc->m_parent = parent;
-  proc->m_name = strdup(name);
   proc->m_flags = flags | PROC_UNRUNNED;
   proc->m_thread_count = 1;
   proc->m_threads = init_list();
   proc->m_lock = create_mutex(NULL);
   proc->obj = create_oss_obj(name);
+  proc->m_name = proc->obj->name;
 
   /* Register ourselves */
   oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, __destroy_proc);
@@ -102,9 +102,6 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, proc_id_t* id_
 
   proc_register(proc, profile);
 
-  if (id_buffer)
-    *id_buffer = proc->m_id;
-
   return proc;
 }
 
@@ -123,7 +120,7 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args)
   admin = get_admin_profile();
 
   /* TODO: don't limit to one name */
-  return create_proc(nullptr, admin, nullptr, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+  return create_proc(nullptr, admin, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
 /*!
@@ -249,7 +246,6 @@ void __destroy_proc(proc_t* proc)
   /* Free everything else */
   destroy_mutex(proc->m_lock);
   destroy_khandle_map(&proc->m_handle_map);
-  kfree((void*)proc->m_name);
 
   /* 
    * Kill the root pd if it has one, other than the currently active page dir. 
@@ -266,7 +262,7 @@ void __destroy_proc(proc_t* proc)
 void destroy_proc(proc_t* proc)
 {
   /* Unregister from the global register store */
-  ASSERT_MSG(proc_unregister(proc->m_id) == 0, "Failed to unregister proc");
+  ASSERT_MSG(proc_unregister(proc) == 0, "Failed to unregister proc");
 
   /* Calls __destroy_proc */
   destroy_oss_obj(proc->obj);
@@ -283,7 +279,7 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
   proc_ctx = ctx->buffer;
 
   /* Check if this is our process */
-  if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process->m_id != param_proc->m_id)
+  if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process != param_proc)
     return false;
 
   /* Yes! Fire the hook */
@@ -295,15 +291,13 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
  *
  * 
  */
-int await_proc_termination(proc_id_t id)
+int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
 {
-  proc_t* proc;
-  char hook_name[32] = { 0 };
+  int error;
+  const char* hook_name;
 
   /* Pause the scheduler so we don't get fucked while registering the door */
   pause_scheduler();
-
-  proc = find_proc_by_id(id);
 
   /*
    * If we can't find the process here, that probably means its already
@@ -314,15 +308,26 @@ int await_proc_termination(proc_id_t id)
     return 0;
   }
 
-  sfmt(hook_name, "await_proc_termination_%d", id);
+  hook_name = oss_obj_get_fullpath(proc->obj);
 
   kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
+
+  /* Do an instant rescedule */
+  Must(sched_add_priority_proc(proc, prio, false));
 
   /* Resume the scheduler so we don't die */
   resume_scheduler();
 
   /* Wait for the process to be bopped */
-  return kevent_await_hook_fire("proc", hook_name, NULL, NULL);
+  error = kevent_await_hook_fire("proc", hook_name, NULL, NULL);
+
+  /* Remove the hook */
+  kevent_remove_hook("proc", hook_name);
+
+  /* Free the hook name */
+  kfree((void*)hook_name);
+
+  return error;
 }
 
 /*
@@ -534,23 +539,32 @@ void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {
 
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
 {
+  const char* proc_path;
   const char* buffer;
+  ErrorOrPtr result;
 
   if (!proc || !addr)
     return nullptr;
 
+  proc_path = oss_obj_get_fullpath(proc->obj);
+
   dynldr_getfuncname_msg_t msg_block = {
-    .pid = proc->m_id,
+    .proc_path = proc_path,
     .func_addr = (void*)addr,
   };
 
-  if (IsError(driver_send_msg_a(
+  result = driver_send_msg_a(
           DYN_LDR_URL,
           DYN_LDR_GET_FUNC_NAME,
           &msg_block,
           sizeof(msg_block),
           &buffer,
-          sizeof(char*))) || !buffer || !strlen(buffer))
+          sizeof(char*));
+
+  /* Free the path */
+  kfree((void*)proc_path);
+
+  if (IsError(result) || !buffer || !strlen(buffer))
     return nullptr;
 
   return buffer;

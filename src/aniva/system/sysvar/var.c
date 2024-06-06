@@ -114,10 +114,10 @@ void release_sysvar(sysvar_t* var)
 {
   uint64_t current_count = atomic_ptr_read(var->refc);
 
-  if (current_count)
-    atomic_ptr_write(var->refc, current_count-1);
+  if (current_count--)
+    atomic_ptr_write(var->refc, current_count);
 
-  if (!atomic_ptr_read(var->refc))
+  if (!current_count)
     destroy_sysvar(var);
 }
 

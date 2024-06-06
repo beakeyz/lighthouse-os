@@ -11,7 +11,6 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
-#include "proc/core.h"
 #include "proc/proc.h"
 #include "sys/types.h"
 #include "system/profile/profile.h"
@@ -145,28 +144,28 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
  * 2) Ask it to load our shit
  * 3) Profit
  */
-static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel)
+static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
 {
   ErrorOrPtr result;
-  proc_id_t pid;
+  proc_t* p;
   drv_manifest_t* driver;
 
   if (!file)
-    return Error();
+    return nullptr;
 
   driver = get_driver(DYN_LDR_URL);
 
   /* No dynamic capabilities at the moment =( */
   if (!driver)
-    return Error();
+    return nullptr;
 
   /* Simply ask the driver to load our shit */
-  result = driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), &pid, sizeof(pid));
+  result = driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), &p, sizeof(proc_t*));
 
   if (IsError(result))
-    return result;
+    return nullptr;
 
-  return Success(pid);
+  return p;
 }
 
 /*!
@@ -177,9 +176,8 @@ static ErrorOrPtr __elf_exec_dynamic_64(file_t* file, bool kernel)
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
  */
-ErrorOrPtr elf_exec_64(file_t* file, bool kernel) 
+proc_t* elf_exec_64(file_t* file, bool kernel) 
 {
-  proc_id_t id;
   proc_t* proc = NULL;
   struct elf64_phdr* phdrs = NULL;
   struct elf64_hdr header;
@@ -188,15 +186,15 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel)
   uint32_t page_flags;
    
   if (IsError(elf_grab_sheaders(file, &header)))
-    return Error();
+    return nullptr;
 
   if (header.e_type != ET_EXEC)
-    return Error();
+    return nullptr;
 
   phdrs = elf_load_phdrs_64(file, &header);
 
   if (!phdrs)
-    return Error();
+    return nullptr;
 
   for (uintptr_t i = 0; i < header.e_phnum; i++) {
     /* If there is an interpreter specified, we assume a dynamically linked binary */
@@ -215,7 +213,7 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel)
   if (kernel)
     proc_flags |= PROC_DRIVER;
 
-  proc = create_proc(nullptr, nullptr, &id, (char*)file->m_obj->name, (void*)header.e_entry, 0, proc_flags);
+  proc = create_proc(nullptr, nullptr, (char*)file->m_obj->name, (void*)header.e_entry, 0, proc_flags);
 
   if (!proc)
     goto error_and_out;
@@ -276,7 +274,7 @@ ErrorOrPtr elf_exec_64(file_t* file, bool kernel)
   /* Copy over the image object */
   proc->m_image = image;
 
-  return Success(id);
+  return proc;
 
 error_and_out:
   /* TODO: clean more stuff */
@@ -287,7 +285,7 @@ error_and_out:
   if (proc)
     destroy_proc(proc);
 
-  return Error();
+  return nullptr;
 
 }
 

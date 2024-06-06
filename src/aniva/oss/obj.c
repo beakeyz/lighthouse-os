@@ -1,5 +1,6 @@
 #include "obj.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/node.h"
 #include "proc/proc.h"
@@ -75,6 +76,8 @@ void destroy_oss_obj(oss_obj_t* obj)
   void* priv;
   oss_node_entry_t* entry = NULL;
 
+  KLOG_DBG("Killing object %s\n", obj->name);
+
   /* If we are still attached, might as well remove ourselves */
   if (obj->parent)
     oss_node_remove_entry(obj->parent, obj->name, &entry);
@@ -87,9 +90,12 @@ void destroy_oss_obj(oss_obj_t* obj)
   priv = obj->priv;
   obj->priv = nullptr;
 
+  KLOG_DBG("Killing object child%s\n", obj->name);
+
   if (obj->ops.f_destory_priv)
     obj->ops.f_destory_priv(priv);
 
+  KLOG_DBG("Killing rest of object %s\n", obj->name);
   destroy_mutex(obj->lock);
 
   kfree((void*)obj->name);
@@ -99,6 +105,7 @@ void destroy_oss_obj(oss_obj_t* obj)
 const char* oss_obj_get_fullpath(oss_obj_t* obj)
 {
   char* ret;
+  char* suffix;
   size_t c_strlen;
   oss_node_t* c_parent;
 
@@ -107,12 +114,29 @@ const char* oss_obj_get_fullpath(oss_obj_t* obj)
   if (!c_parent)
     return obj->name;
 
-  /* <name 1> / <name 2> <Nullbyte> */
-  c_strlen = strlen(c_parent->name) + 1 + strlen(obj->name) + 1;
-  ret = kmalloc(c_strlen);
+  suffix = strdup(obj->name);
 
-  (void)ret;
-  kernel_panic("TODO: oss_obj_get_fullpath");
+  do {
+    /* <name 1> / <name 2> <Nullbyte> */
+    c_strlen = strlen(c_parent->name) + 1 + strlen(suffix) + 1;
+    ret = kmalloc(c_strlen);
+    memset(ret, 0, c_strlen);
+
+    sfmt(ret, "%s/%s", c_parent->name, suffix);
+
+    /* Free the current suffix */
+    kfree(suffix);
+
+    /* Set the suffix to the next 'item' */
+    suffix = ret;
+
+    /* Cycle parents */
+    c_parent = c_parent->parent;
+  } while (c_parent && c_parent->parent);
+
+  KLOG_DBG("oss_obj_get_fullpath: %s\n", ret);
+
+  return ret;
 }
 
 void oss_obj_ref(oss_obj_t* obj)

@@ -4,7 +4,6 @@
 #include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
 #include "irq/interrupts.h"
-#include "logging/log.h"
 #include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -18,7 +17,7 @@
 // --- inline functions ---
 static ALWAYS_INLINE sched_frame_t *create_sched_frame(proc_t* proc, enum SCHEDULER_PRIORITY prio);
 static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame);
-static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t proc);
+static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_t* proc);
 static thread_t *pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
@@ -525,19 +524,6 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, b
 
 ANIVA_STATUS sched_remove_proc(proc_t *proc) 
 {
-  /* Should never remove the kernel process lmao */
-  if (!proc || is_kernel(proc))
-    return ANIVA_FAIL;
-
-  return sched_remove_proc_by_id(proc->m_id);
-}
-
-/*
- * We require the scheduler to be locked by this 
- * point, which generaly means it is paused
- */
-ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id) 
-{
   ANIVA_STATUS res;
   scheduler_t* s;
   sched_frame_t* frame;
@@ -547,7 +533,7 @@ ANIVA_STATUS sched_remove_proc_by_id(proc_id_t id)
   if (!s)
     return ANIVA_FAIL;
 
-  frame = find_sched_frame(id);
+  frame = find_sched_frame(proc);
 
   if (!frame)
     return ANIVA_FAIL;
@@ -608,7 +594,7 @@ static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame)
  * we might need to look into sorting processes based on proc_id, and the 
  * preforming a binary search, so TODO
  */
-static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid) 
+static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_t* p) 
 {
   sched_frame_t* frame;
   scheduler_t* s;
@@ -620,7 +606,7 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_id_t procid)
 
   for (frame = s->processes.dequeue; frame; frame = frame->previous) {
 
-    if (frame->m_proc->m_id == procid)
+    if (frame->m_proc == p)
       break;
   }
 

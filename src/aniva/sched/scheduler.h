@@ -96,7 +96,6 @@ ErrorOrPtr sched_add_priority_proc(proc_t*, enum SCHEDULER_PRIORITY prio, bool r
 ANIVA_STATUS sched_add_proc(proc_t*, enum SCHEDULER_PRIORITY prio);
 
 ANIVA_STATUS sched_remove_proc(proc_t*);
-ANIVA_STATUS sched_remove_proc_by_id(proc_id_t);
 ANIVA_STATUS sched_remove_thread(thread_t*);
 
 thread_t *get_current_scheduling_thread();

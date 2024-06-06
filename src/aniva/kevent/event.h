@@ -1,7 +1,6 @@
 #ifndef __ANIVA_KEVENT_EVENT__
 #define __ANIVA_KEVENT_EVENT__
 
-#include "proc/core.h"
 #include "system/processor/processor.h"
 #include <libk/stddef.h>
 
@@ -77,7 +76,7 @@ typedef struct kevent_ctx {
 
   /* Info about the call origin */
   processor_t* orig_cpu;
-  fid_t orig_fid;
+  thread_t* orig_thread;
 
   void* buffer;
 } kevent_ctx_t;
