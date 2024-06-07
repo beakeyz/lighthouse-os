@@ -14,6 +14,8 @@ typedef struct aniva_font {
   uint8_t data[];
 } aniva_font_t;
 
+#define CURSOR_GLYPH 127
+
 int get_glyph_at(aniva_font_t* font, uint32_t index, uint8_t** out);
 int get_glyph_for_char(aniva_font_t* font, char c, uint8_t** out);
 

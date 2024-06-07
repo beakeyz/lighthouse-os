@@ -4,6 +4,6 @@
 
 #define KTERM_CURSOR_GLYPH 127
 
-extern char font8x8_basic[128][8];
+//extern char font8x8_basic[128][8];
 
 #endif // !__ANIVA_KTERM_FONT__

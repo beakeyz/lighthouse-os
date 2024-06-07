@@ -14,6 +14,7 @@
 #include "kevent/types/keyboard.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
+#include "libk/gfx/font.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -25,7 +26,6 @@
 #include <system/processor/processor.h>
 #include <mem/kmem_manager.h>
 
-#include "font.h"
 #include "exec.h"
 #include "system/profile/profile.h"
 #include "system/sysvar/var.h"
@@ -34,7 +34,7 @@
 #define KTERM_KEYBUFFER_CAPACITY 512
 
 #define KTERM_FB_ADDR (EARLY_FB_MAP_BASE) 
-#define KTERM_FONT_HEIGHT 8
+#define KTERM_FONT_HEIGHT 16
 #define KTERM_FONT_WIDTH 8
 
 #define KTERM_CURSOR_WIDTH 2
@@ -113,6 +113,7 @@ static uint32_t _chars_cursor_y;
 /* Current index of the color used for printing */
 static uint32_t _current_color_idx;
 static uint32_t _current_background_idx;
+static aniva_font_t* _kterm_font;
 
 static const char* _old_dflt_lwnd_path_value;
 
@@ -235,7 +236,7 @@ static inline void kterm_clear_raw()
 
 static inline void kterm_update_term_char(struct kterm_terminal_char* char_start, uint32_t count)
 {
-  char* glyph;
+  uint8_t* glyph;
   /* x and y components inside the screen */
   uintptr_t offset;
   uint32_t color;
@@ -254,7 +255,7 @@ static inline void kterm_update_term_char(struct kterm_terminal_char* char_start
 
   do {
     /* Grab our font */
-    glyph = font8x8_basic[(uint32_t)char_start->ch];
+    (void)get_glyph_for_char(_kterm_font, char_start->ch, &glyph);
 
     x = (offset % _chars_xres) * KTERM_FONT_WIDTH;
     y = (ALIGN_DOWN(offset , _chars_xres) / _chars_xres) * KTERM_FONT_HEIGHT;
@@ -1052,6 +1053,9 @@ int kterm_init()
   __kterm_cmd_doorbell = create_doorbell(1, NULL);
   _kterm_vdev = get_active_vdev();
 
+  /* Grab our font */
+  get_default_font(&_kterm_font);
+
   kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook, NULL);
 
   ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
@@ -1138,7 +1142,6 @@ int kterm_init()
   mode = KTERM_MODE_TERMINAL;
 
   //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
-  kterm_print("\n");
   kterm_print(" -- Welcome to the aniva kterm driver --\n");
   processor_t* processor = get_current_processor();
   kmem_info_t info;
@@ -1147,14 +1150,14 @@ int kterm_init()
 
   printf(" CPU: %s\n", processor->m_info.m_model_id);
   printf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
-  printf("  - L2: %d bytes\n  - L3: %d bytes\n  - L4: %d bytes\n\n", 
+  printf("  - L2: %d bytes  - L3: %d bytes  - L4: %d bytes\n\n", 
       processor->m_info.m_l2.m_cache_size,
       processor->m_info.m_l3.m_cache_size, 
       processor->m_info.m_l4.m_cache_size);
 
   printf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
   printf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
-  kterm_print("\n\n For any information about kterm, type: \'help\'\n");
+  kterm_print("\n For any information about kterm, type: \'help\'\n");
 
   kterm_enable_newline_tag();
 
@@ -1495,7 +1498,7 @@ static void kterm_flush_buffer()
 
 static inline void kterm_draw_cursor_glyph()
 {
-  kterm_draw_char(_chars_cursor_x, _chars_cursor_y, KTERM_CURSOR_GLYPH, _current_color_idx, false);
+  kterm_draw_char(_chars_cursor_x, _chars_cursor_y, CURSOR_GLYPH, _current_color_idx, false);
 }
 
 /*!
