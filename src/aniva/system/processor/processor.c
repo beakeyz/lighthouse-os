@@ -287,9 +287,8 @@ void processor_exit_interruption(registers_t* registers)
 
   /* call events or deferred calls here too? */
 
-  if (current->m_irq_depth == 0 && atomic_ptr_read(current->m_critical_depth) == 0) {
+  if (current->m_irq_depth == 0 && atomic_ptr_read(current->m_critical_depth) == 0)
     scheduler_try_execute();
-  }
 }
 
 static ALWAYS_INLINE void init_smep(processor_info_t* info) {

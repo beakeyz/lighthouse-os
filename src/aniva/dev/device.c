@@ -18,6 +18,8 @@
 
 static oss_node_t* _device_node;
 
+static void __destroy_device(device_t* device);
+
 device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
 {
   return create_device_ex(parent, name, priv, NULL, NULL);
@@ -61,7 +63,7 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
   (void)device_implement_endpoints(ret, eps);
 
   /* Make sure the object knows about us */
-  oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, destroy_device);
+  oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, __destroy_device);
 
   /* Try to call f_create in the generic endpoint */
   g_ep = device_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
@@ -86,16 +88,25 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
  * NOTE: devices don't have ownership of the memory of their parents EVER, thus
  * we don't destroy device->parent
  */
-void destroy_device(device_t* device)
+void __destroy_device(device_t* device)
 {
-  if (device->obj && device->obj->priv == device) {
-    destroy_oss_obj(device->obj);
-    return;
-  }
+  device_ep_t* c_ep, *next_ep;
 
   /* Let the system know that there was a driver removed */
   if (device->driver)
     manifest_remove_dev(device->driver);
+
+  /* Remove any remaining endpoints from the device */
+  while (device->endpoints) {
+    /* Cycle to next */
+    c_ep = device->endpoints;
+    next_ep = c_ep->next;
+
+    /* Unimplement this endpoint */
+    (void)device_unimplement_endpoint(device, c_ep->type);
+
+    device->endpoints = next_ep;
+  }
 
   destroy_mutex(device->lock);
   destroy_mutex(device->ep_lock);
@@ -104,6 +115,18 @@ void destroy_device(device_t* device)
   memset(device, 0, sizeof(*device));
 
   kfree(device);
+}
+
+/*!
+ * @brief: Destroy a device
+ */
+void destroy_device(device_t* device)
+{
+  if (device->obj->parent)
+    device_unregister(device);
+
+  /* Destroy the parent object */
+  destroy_oss_obj(device->obj);
 }
 
 /*!

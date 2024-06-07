@@ -1,4 +1,5 @@
 #include "mutex.h"
+#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "libk/data/queue.h"
 #include "mem/heap.h"
@@ -242,6 +243,8 @@ static int __mutex_handle_unblock(mutex_t* mutex)
 
   if (!current_thread || !next_holder)
     return -1;
+
+  serial_println("Had to unblock");
 
   pause_scheduler();
 

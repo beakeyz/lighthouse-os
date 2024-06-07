@@ -4,6 +4,7 @@
 #include "kevent/types/error/kerror.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/thread.h"
@@ -205,8 +206,15 @@ int unfreeze_kevent_ex(struct kevent *event)
 struct kevent* kevent_get(const char* name)
 {
   kevent_t* ret;
+  processor_t* c_cpu;
 
   if (!name || !_kevent_lock)
+    return nullptr;
+
+  c_cpu = get_current_processor();
+
+  /* Can't do shit bruh */
+  if (c_cpu->m_irq_depth && mutex_is_locked(_kevent_lock))
     return nullptr;
 
   mutex_lock(_kevent_lock);
@@ -214,7 +222,6 @@ struct kevent* kevent_get(const char* name)
   ret = hashmap_get(_kevent_map, (hashmap_key_t)name);
 
   mutex_unlock(_kevent_lock);
-
   return ret;
 }
 
@@ -576,17 +583,12 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
    */
 
   /*
-   * Create the original fullid
-   * Why don't we simply pass the pointers to the event context?
-   * well the original process or thread might end while firing this event, making
-   * the pointers invalid. By passing the pid and tid to the context, any eventhook
-   * can know if the process or thread is still active, before trying to access them
-   *
-   * This does raise a few other weird behavioural possibilities that we need to account
-   * for, but these are easier to deal with than with lingering pointers
-   *
-   * (NOTE: perhaps we create a better system to track pointer validities
-   * in which case we probably need to switch kevent contexts back to pointers =D ) 
+   * Pass the original CPU and original thread which triggered the event
+   * to the context.
+   * Q: Might this thread get destroyed while the event is going?
+   * A: Yes, but this would also end execution here, which might in of itself
+   *    introduce weird behaviour, but it would make no difference wether we 
+   *    would pass by reference or pass a tuid.
    */
   ctx.orig_cpu = c_cpu;
   ctx.orig_thread = c_thread;
@@ -594,7 +596,6 @@ int kevent_fire_ex(struct kevent* event, void* buffer, size_t size)
   mutex_lock(event->lock);
 
   do {
-
     error = keventhook_call(current_hook, &ctx);
 
     if (error && kevent_flag_isset(event, KEVENT_FLAG_ERROR_FATAL))

@@ -298,7 +298,6 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     return 0;
   }
 
-  printf("Doing something\n");
   /* Finally, try to load an external driver */
   driver = load_external_driver(drv_path);
 

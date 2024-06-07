@@ -1,5 +1,7 @@
 #include "dev/device.h"
+#include "dev/endpoint.h"
 #include "dev/manifest.h"
+#include "logging/log.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 #include <libk/stddef.h>
@@ -30,8 +32,35 @@ EXPORT_DRIVER(extern_test_driver) = {
   .f_exit = test_exit,
 };
 
+static int _enable_test_device(device_t* device)
+{
+  KLOG_DBG("Enabling test device\n");
+  return 0;
+}
+
+static int _disable_test_device(device_t* device)
+{
+  KLOG_DBG("Disabling test device\n");
+  return 0;
+}
+
+static int _create_test_device(device_t* device)
+{
+  KLOG_DBG("Creating test device\n");
+  return 0;
+}
+
+static int _destroy_test_device(device_t* device)
+{
+  KLOG_DBG("Destroying test device\n");
+  return 0;
+}
+
 struct device_generic_endpoint generic = {
-  NULL,
+  .f_enable = _enable_test_device,
+  .f_disable = _disable_test_device,
+  .f_create = _create_test_device,
+  .f_destroy = _destroy_test_device,
 };
 
 device_ep_t eps[] = {
@@ -49,6 +78,14 @@ device_ep_t eps[] = {
 int test_init(drv_manifest_t* driver) 
 {
   KLOG_INFO("Initializing test driver!\n");
+
+  /* Regular device */
+  device = create_device_ex(driver, "test_device", NULL, NULL, eps);
+
+  if (!device)
+    return 0;
+
+  device_register(device, NULL);
   return 0;
 }
 
@@ -62,5 +99,8 @@ int test_init(drv_manifest_t* driver)
 int test_exit() 
 {
   KLOG_INFO("Exiting test driver! =D\n");
+
+  if (device)
+    destroy_device(device);
   return 0;
 }

@@ -6,6 +6,7 @@
 #include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
+#include "logging/log.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include <dev/driver.h>
@@ -227,6 +228,8 @@ registers_t* i8042_irq_handler(registers_t* regs)
 
   /* Copy the scancode buffer to the event */
   memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
+
+  KLOG_DBG("i8042 key event: %1.1s (keycode: 0x%x)\n", &kb.pressed_char, kb.keycode);
 
   kevent_fire("keyboard", &kb, sizeof(kb));
 

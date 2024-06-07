@@ -23,6 +23,7 @@ static logger_t serial_logger = {
  */
 void init_serial() {
 
+  /*
   out8(COM1 + 1, 0x00);
   out8(COM1 + 3, 0x80);
   out8(COM1 + 0, 0x02);
@@ -30,12 +31,13 @@ void init_serial() {
   out8(COM1 + 3, 0x03);
   out8(COM1 + 2, 0xC7);
   out8(COM1 + 4, 0x0B);
+  */
 
   // FIXME: test the serial bus???
   
-  has_serial = true;
+  //has_serial = true;
 
-  register_logger(&serial_logger);
+  //register_logger(&serial_logger);
 }
 
 int serial_putch(char c) {
