@@ -5,6 +5,7 @@
 #include "dev/group.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
+#include "dev/usb/usb.h"
 #include <libk/string.h>
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
@@ -279,7 +280,6 @@ int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
 device_t* device_open(const char* path)
 {
   int error;
-  oss_node_t* obj_rootnode;
   oss_obj_t* obj;
   device_t* ret;
 
@@ -288,14 +288,10 @@ device_t* device_open(const char* path)
   if (error || !obj)
     return nullptr;
 
-  obj_rootnode = oss_obj_get_root_parent(obj);
-
-  ASSERT_MSG(obj_rootnode, "device_open: Somehow we found an object without a root parent which was still attached to the oss???");
-
   ret = oss_obj_get_device(obj);
 
   /* If the object is invalid we have to close it */
-  if (!ret || obj_rootnode != _device_node) {
+  if (!ret) {
     oss_obj_close(obj);
     /* Make sure we return NULL no matter what */
     ret = nullptr;
@@ -682,7 +678,7 @@ void init_hw()
   init_acpi_core();
 
   /* Load the USB drivers on our system */
-  //init_usb_drivers();
+  init_usb_drivers();
 
   ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
 }

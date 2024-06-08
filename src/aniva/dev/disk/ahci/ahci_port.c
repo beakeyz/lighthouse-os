@@ -212,6 +212,13 @@ static int ahci_get_devinfo(device_t* device, DEVINFO* binfo)
 
   binfo->ctype = DEVICE_CTYPE_AHCI;
 
+  if (device->pci_dev) {
+    binfo->vendorid = device->pci_dev->vendor_id;
+    binfo->deviceid = device->pci_dev->dev_id;
+    binfo->class = device->pci_dev->class;
+    binfo->subclass = device->pci_dev->subclass;
+  }
+
   return 0;
 }
 

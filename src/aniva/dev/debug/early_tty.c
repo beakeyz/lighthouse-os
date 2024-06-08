@@ -4,6 +4,7 @@
 #include "libk/gfx/font.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "sync/mutex.h"
 
 /*
  * Aniva early debug tty
@@ -26,6 +27,7 @@ static uint32_t char_yres;
 static aniva_font_t* etty_font;
 static size_t _char_list_size;
 static struct simple_char* _char_list;
+static mutex_t* _early_tty_mtx;
 
 static uint32_t WHITE = 0xFFFFFFFF;
 static uint32_t BLACK = 0x00000000;
@@ -61,14 +63,18 @@ static int etty_draw_char_ex(uint32_t x, uint32_t y, char c, uint32_t clr, bool 
 
   s_char = get_simple_char_at(x, y);
 
+  if (!s_char)
+    return 0;
+
   /* If we force this update then it's all good */
   if (s_char->c == c && s_char->clr == clr && !force_update)
     return 0;
 
+  glyph = NULL;
   char_xstart = x * etty_font->width;
   char_ystart = y * etty_font->height;
 
-  if (get_glyph_for_char(etty_font, c, &glyph))
+  if (get_glyph_for_char(etty_font, c, &glyph) || !glyph)
     return -1;
 
   s_char->clr = clr;
@@ -112,6 +118,7 @@ void init_early_tty()
   y_idx = 0;
   x_idx = 0;
 
+  _early_tty_mtx = create_mutex(NULL);
   char_xres = fb->common.framebuffer_width / etty_font->width;
   char_yres = fb->common.framebuffer_height / etty_font->height;
 
@@ -142,8 +149,13 @@ void destroy_early_tty()
 
   unregister_logger(&early_logger);
 
+  /* Kill the lock */
+  destroy_mutex(_early_tty_mtx);
+
+  /* Clear the screen */
   etty_clear();
 
+  /* Signal to the kernel that the early tty has gone */
   g_system_info.sys_flags &= ~SYSFLAGS_HAS_EARLY_TTY;
 
   /* Deallocate the char list */
@@ -190,6 +202,8 @@ static int _etty_shift_x_idx()
 
 int etty_putch(char c)
 {
+  mutex_lock(_early_tty_mtx);
+
   if (c == '\n') {
     x_idx = 0;
     y_idx++;
@@ -201,11 +215,17 @@ int etty_putch(char c)
     _etty_shift_x_idx();
   }
 
+  mutex_unlock(_early_tty_mtx);
   return 0;
 }
 
 int etty_print(const char* str)
 {
+  if (!str)
+    return 0;
+
+  mutex_lock(_early_tty_mtx);
+
   while (*str) {
 
     if (*str == '\n') {
@@ -226,6 +246,7 @@ next:
     str++;
   }
 
+  mutex_unlock(_early_tty_mtx);
   return 0;
 }
 

@@ -144,6 +144,41 @@ typedef struct usb_configuration_descriptor {
   uint8_t max_power_mA;
 } __attribute__((packed)) usb_configuration_descriptor_t;
 
+/*
+ * Our buffer we use to store configuration Descriptors in usb device objects
+ */
+typedef struct usb_configuration_buffer {
+  uint32_t total_len;
+  uint32_t if_count;
+
+  usb_configuration_descriptor_t desc;
+  uint8_t extended_desc[];
+} __attribute__((packed)) usb_config_buffer_t;
+
+typedef struct usb_interface_descriptor {
+  usb_descriptor_hdr_t hdr;
+  uint8_t interface_number;
+  uint8_t alternate_setting;
+  uint8_t num_endpoints;
+  uint8_t interface_class;
+  uint8_t interface_subclass;
+  uint8_t interface_protocol;
+  uint8_t interface_str;
+} __attribute__((packed)) usb_interface_descriptor_t;
+
+typedef struct usb_endpoint_descriptor {
+  usb_descriptor_hdr_t hdr;
+  uint8_t endpoint_address;
+  uint8_t attributes;
+  uint16_t max_packet_size;
+  uint8_t interval;
+} __attribute__((packed)) usb_endpoint_descriptor_t;
+
+typedef struct usb_string_descriptor {
+  usb_descriptor_hdr_t hdr;
+  char string[];
+} __attribute__((packed)) usb_string_descriptor_t;
+
 typedef struct usb_hub_descriptor {
   usb_descriptor_hdr_t hdr;
   uint8_t portcount;

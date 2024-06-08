@@ -91,7 +91,7 @@ static int ehci_reset_port(ehci_hcd_t* ehci, uint32_t port)
   uint32_t port_sts;
   bool lowspeed_device;
 
-  printf("[EHCI] Resetting port %d\n", port);
+  KLOG_DBG("[EHCI] Resetting port %d\n", port);
 
   port_reg = ehci->opregs + EHCI_OPREG_PORTSC + (port * sizeof(uint32_t)) ;
   port_sts = _ehci_get_portsts(port_reg);
@@ -107,14 +107,14 @@ static int ehci_reset_port(ehci_hcd_t* ehci, uint32_t port)
   mmio_write_dword(port_reg, port_sts);
 
   /* Wait for hardware */
-  mdelay(500);
+  mdelay(50);
 
   /* Update */
   port_sts = _ehci_get_portsts(port_reg) & ~EHCI_PORTSC_RESET;
   mmio_write_dword(port_reg, port_sts);
 
   /* Wait for hardware v2 */
-  mdelay(200);
+  mdelay(20);
 
   port_sts = _ehci_get_portsts(port_reg);
 
@@ -188,7 +188,7 @@ int ehci_clear_port_feature(ehci_hcd_t* ehci, uint32_t port, uint16_t feature)
 static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 {
   uint32_t usbsts;
-  printf("EHCI: entered the ehci polling routine\n");
+  //KLOG_DBG("EHCI: entered the ehci polling routine\n");
 
   while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
 
@@ -197,16 +197,18 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 
     usbsts = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBSTS) & 0x3f;
 
+    /*
     if (usbsts & EHCI_OPREG_USBSTS_USBINT) {
-      printf("EHCI: Finished a transfer!\n");
+      KLOG_DBG("EHCI: Finished a transfer!\n");
     }
+    */
 
     if (usbsts & EHCI_OPREG_USBSTS_USBERRINT) {
-      printf("EHCI: Got a transfer error!\n");
+      KLOG_DBG("EHCI: Got a transfer error!\n");
     }
     
     if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE) {
-      printf("EHCI: Port change occured!\n");
+      KLOG_DBG("EHCI: Port change occured!\n");
 
       for (uint32_t i = 0; i < ehci->portcount; i++) {
         uint32_t port = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (i * sizeof(uint32_t)));
@@ -228,24 +230,15 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
     }
 
     if (usbsts & EHCI_OPREG_USBSTS_FLROLLOVER) {
-      printf("EHCI: Frame List rollover!\n");
-
-      ehci_qh_t* epic;
-
-      epic = ehci->async;
-
-      do {
-        printf("Async 0x%llx thing (alt: 0x%llx, next: 0x%llx)\n", epic->qh_dma, epic->hw_qtd_alt_next, epic->hw_next);
-        epic = epic->next;
-      } while (epic && epic != ehci->async);
+      KLOG_DBG("EHCI: Frame List rollover!\n");
     }
 
     if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR) {
-      printf("EHCI: Host system error (yikes)!\n");
+      KLOG_DBG("EHCI: Host system error (yikes)!\n");
     }
 
     if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
-      printf("EHCI: Advanced the async qh!\n");
+      KLOG_DBG("EHCI: Advanced the async qh!\n");
     }
 
     mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
@@ -264,7 +257,7 @@ static void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 
   /* Loop over the descriptors to check the status of the transfer */
   do {
-    //printf("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
+    //KLOG_DBG("Qtd: %llx : %s\n", c_qtd->qtd_dma_addr, (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE) ? "Active" : "Inactive");
 
     /* Still busy */
     if (c_qtd->hw_token & EHCI_QTD_STATUS_ACTIVE)
@@ -316,7 +309,8 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
     /* Remove from the local transfer list */
     list_remove_ex(ehci->transfer_list, c_xfer);
 
-    printf("EHCI: Finished a transfer\n");
+    //KLOG_DBG("EHCI: Finished a transfer\n");
+
     ehci_xfer_finalise(ehci, c_xfer);
 
     /* Transmit the transfer complete */
@@ -362,7 +356,7 @@ static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
   /* First try */
   takeover_tries = 1;
 
-  printf("We need to take control of EHCI from the BIOS (fuck)\n");
+  KLOG_DBG("We need to take control of EHCI from the BIOS (fuck)\n");
 
   /* Write a one into the OS-owned byte */
   pci_device_write8(dev, ext_cap + 3, 1);
@@ -371,12 +365,12 @@ static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
   do {
     pci_device_read32(dev, ext_cap, &legsup);
 
-    printf("Checking...\n");
+    KLOG_DBG("Checking...\n");
 
     if ((legsup & EHCI_LEGSUP_BIOSOWNED) == 0)
       return 0;
 
-    mdelay(500);
+    mdelay(50);
   } while (takeover_tries++ < 16);
 
   if ((legsup & EHCI_LEGSUP_OSOWNED) == 1)
@@ -404,7 +398,7 @@ static int ehci_halt(ehci_hcd_t* ehci)
     if ((tmp & EHCI_OPREG_USBSTS_HCHALTED) == EHCI_OPREG_USBSTS_HCHALTED)
       return 0;
 
-    mdelay(125);
+    mdelay(25);
   }
 
   return -1;
@@ -417,7 +411,7 @@ static int ehci_reset(ehci_hcd_t* ehci)
   mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, 0);
 
   /* Sleep a bit until the reset has come through */
-  mdelay(100);
+  mdelay(10);
 
   usbcmd = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
   usbcmd |= EHCI_OPREG_USBCMD_HC_RESET;
@@ -476,8 +470,6 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
   ehci->async->hw_qtd_token = EHCI_QTD_STATUS_HALTED;
   ehci->async->hw_qtd_next = EHCI_FLLP_TYPE_END;
 
-  printf("Writing async list addr: %llx\n", ehci->async->qh_dma);
-
   /* Set the async pointer */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_ASYNCLISTADDR, ehci->async->qh_dma);
 
@@ -507,17 +499,17 @@ static int ehci_setup(usb_hcd_t* hcd)
   ehci->register_size = pci_get_bar_size(hcd->pci_device, 0); 
   ehci->capregs = (void*)Must(__kmem_kernel_alloc(get_bar_address(bar0), ehci->register_size, NULL, KMEM_FLAG_DMA));
 
-  printf("Setup EHCI registerspace (addr=0x%p, size=0x%llx)\n", ehci->capregs, ehci->register_size);
+  KLOG_DBG("Setup EHCI registerspace (addr=0x%p, size=0x%llx)\n", ehci->capregs, ehci->register_size);
 
   hcd->pci_device->ops.read_byte(hcd->pci_device, EHCI_PCI_SBRN, &release_num);
 
-  printf("EHCI release number: 0x%x\n", release_num);
+  KLOG_DBG("EHCI release number: 0x%x\n", release_num);
 
   /* Compute the opregs address */
   caplen = mmio_read_byte(ehci->capregs + EHCI_HCCR_CAPLENGTH);
   ehci->opregs = ehci->capregs + caplen;
 
-  printf("EHCI opregs at 0x%p (caplen=0x%x)\n", ehci->opregs, caplen);
+  KLOG_DBG("EHCI opregs at 0x%p (caplen=0x%x)\n", ehci->opregs, caplen);
 
   ehci->hcs_params = mmio_read_dword(ehci->capregs + EHCI_HCCR_HCSPARAMS);
   ehci->hcc_params = mmio_read_dword(ehci->capregs + EHCI_HCCR_HCCPARAMS);
@@ -526,15 +518,13 @@ static int ehci_setup(usb_hcd_t* hcd)
   /* Default periodic size (TODO: this may be smaller than the default, detect this) */
   ehci->periodic_size = 1024;
 
-  printf("EHCI HCD portcount: %d\n", ehci->portcount);
+  KLOG_DBG("EHCI HCD portcount: %d\n", ehci->portcount);
 
   /* Make sure we own this biatch */
   error = ehci_take_bios_ownership(ehci);
 
   if (error)
     return error;
-
-  printf("Reseting EHCI\n");
 
   /* Reset ourselves */
   error = ehci_reset(ehci);
@@ -545,15 +535,11 @@ static int ehci_setup(usb_hcd_t* hcd)
   /* Spec wants us to set the segment register */
   mmio_write_dword(ehci->opregs + EHCI_OPREG_CTRLDSSEGMENT, 0);
 
-  printf("Doing EHCI memory\n");
-
   /* Initialize EHCI memory */
   error = ehci_init_mem(ehci);
 
   if (error)
     return error;
-
-  printf("Doing EHCI interrupts\n");
 
   /* Initialize EHCI interrupt stuff */
   error = ehci_init_interrupts(ehci);
@@ -571,7 +557,7 @@ static int ehci_setup(usb_hcd_t* hcd)
   ehci->async_lock = create_mutex(NULL);
   ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
 
-  printf("Done with EHCI initialization\n");
+  KLOG_DBG("Done with EHCI initialization\n");
   return 0;
 }
 
@@ -581,9 +567,10 @@ static int ehci_start(usb_hcd_t* hcd)
   uint32_t c_tmp;
   ehci_hcd_t* ehci;
   usb_device_t* ehci_rh_device;
-  printf("Starting ECHI controller!\n");
 
-  ehci_rh_device = create_usb_device(hcd, nullptr, USB_HIGHSPEED, 0, "ehci_rh");
+  KLOG_DBG("Starting ECHI controller!\n");
+
+  ehci_rh_device = create_usb_device(hcd, nullptr, USB_HIGHSPEED, 0, 0, "ehci_rh");
 
   /* Fuckkk */
   if (!ehci_rh_device)
@@ -606,12 +593,12 @@ static int ehci_start(usb_hcd_t* hcd)
     if ((c_tmp & EHCI_OPREG_USBSTS_HCHALTED) == 0)
       break;
 
-    mdelay(500);
+    mdelay(50);
   }
 
   if (c_hcstart_spin == EHCI_SPINUP_LIMIT) {
     /* Failed to start, yikes */
-    printf("EHCI: Failed to start\n");
+    KLOG_DBG("EHCI: Failed to start\n");
 
     destroy_usb_device(ehci_rh_device);
     return -1;
@@ -648,7 +635,7 @@ static int ehci_start(usb_hcd_t* hcd)
   mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
 
   /* Create this roothub */
-  if (create_usb_hub(&hcd->roothub, hcd, USB_HUB_TYPE_EHCI, nullptr, ehci_rh_device, ehci->portcount))
+  if (create_usb_hub(&hcd->roothub, hcd, USB_HUB_TYPE_EHCI, nullptr, ehci_rh_device, ehci->portcount, false))
     /* No need to destroy the usb device here, since the usb hub owns that memory now and
        create_usb_hub will clean up any memory if it fails */
     return -1;
@@ -656,7 +643,7 @@ static int ehci_start(usb_hcd_t* hcd)
   /* Enumerate the hub */
   usb_hub_enumerate(hcd->roothub);
 
-  printf("Started the EHCI controller\n");
+  KLOG_DBG("Started the EHCI controller\n");
   return 0;
 }
 
@@ -745,7 +732,7 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
   ehci_xfer_t* e_xfer;
   usb_hub_t* roothub;
 
-  printf("EHCI: Recieved transfer %d!\n", xfer->req_direction);
+  KLOG_DBG("EHCI: enqueue transfer (%s)!\n", xfer->req_direction == USB_DIRECTION_HOST_TO_DEVICE ? "Outgoing" : "Incomming");
 
   /*
    * This may happen when we're trying to create the EHCI roothub for this hcd. Should be okay
@@ -757,7 +744,7 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 
   roothub = hcd->roothub;
 
-  if (xfer->req_devaddr == roothub->device->dev_addr)
+  if (xfer->req_devaddr == roothub->udev->dev_addr)
     return ehci_process_hub_xfer(roothub, xfer);
 
   /* Process the EHCI transfer */
@@ -831,7 +818,7 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
   if (sfmt(hcd_name, "ehci_hcd%d", _ehci_hcd_count++))
     return -1;
 
-  printf("Found a EHCI device! {\n\tvendorid=0x%x,\n\tdevid=0x%x,\n\tclass=0x%x,\n\tsubclass=0x%x\n}\n", device->vendor_id, device->dev_id, device->class, device->subclass);
+  KLOG_DBG("Found a EHCI device! {\n\tvendorid=0x%x,\n\tdevid=0x%x,\n\tclass=0x%x,\n\tsubclass=0x%x\n}\n", device->vendor_id, device->dev_id, device->class, device->subclass);
 
   /* Enable the PCI device */
   pci_device_enable(device);

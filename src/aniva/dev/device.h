@@ -131,6 +131,12 @@ typedef struct device {
   struct oss_obj* obj;
   /* If this device is a bus, this node contains it's children */
   struct dgroup* bus_group;
+  
+  /* Device identifier info */
+  uint16_t vendor_id;
+  uint16_t device_id;
+  uint16_t class;
+  uint16_t subclass;
 
   /* Private field for drivers to use */
   void* private;
@@ -151,6 +157,14 @@ typedef struct device {
 static inline void* device_unwrap(device_t* device)
 {
   return device->private;
+}
+
+static inline void device_identify(device_t* device, uint16_t vid, uint16_t did, uint16_t class, uint16_t subclass)
+{
+  device->vendor_id = vid;
+  device->device_id = did;
+  device->class = class;
+  device->subclass = subclass;
 }
 
 /*

@@ -76,8 +76,6 @@ void destroy_oss_obj(oss_obj_t* obj)
   void* priv;
   oss_node_entry_t* entry = NULL;
 
-  KLOG_DBG("Killing object %s\n", obj->name);
-
   /* If we are still attached, might as well remove ourselves */
   if (obj->parent)
     oss_node_remove_entry(obj->parent, obj->name, &entry);
@@ -90,12 +88,9 @@ void destroy_oss_obj(oss_obj_t* obj)
   priv = obj->priv;
   obj->priv = nullptr;
 
-  KLOG_DBG("Killing object child%s\n", obj->name);
-
   if (obj->ops.f_destory_priv)
     obj->ops.f_destory_priv(priv);
 
-  KLOG_DBG("Killing rest of object %s\n", obj->name);
   destroy_mutex(obj->lock);
 
   kfree((void*)obj->name);

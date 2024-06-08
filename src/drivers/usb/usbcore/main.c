@@ -1,6 +1,12 @@
 #include <dev/core.h>
 #include <dev/driver.h>
 
+/*!
+ * @brief: Initialization code which is ran after dependencies are loaded
+ *
+ * Scan the USB tree created by the hardware-specific USB hc drivers and try to collect
+ * drivers for the devices
+ */
 static int _usbcore_init() 
 {
   return 0;

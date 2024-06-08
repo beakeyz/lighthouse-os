@@ -490,17 +490,12 @@ void thread_exit_init_state(thread_t *from, registers_t* regs)
 
 void thread_block(thread_t* thread) 
 {
-  pause_scheduler();
-
   thread_set_state(thread, BLOCKED);
-
-  resume_scheduler();
 
   // FIXME: we do allow blocking other threads here, we need to
   // check if that comes with extra complications
   if (thread == get_current_scheduling_thread())
     scheduler_yield();
-
 }
 
 /*
@@ -520,16 +515,26 @@ void thread_unblock(thread_t* thread)
   thread_set_state(thread, RUNNABLE);
 }
 
-/*
- * TODO:
- */
-void thread_sleep(thread_t* thread) {
-  kernel_panic("Unimplemented thread_sleep");
+void thread_sleep(thread_t* thread) 
+{
+  thread_set_state(thread, SLEEPING);
+
+  // FIXME: we do allow blocking other threads here, we need to
+  // check if that comes with extra complications
+  if (thread == get_current_scheduling_thread())
+    scheduler_yield();
 }
 
-/*
- * TODO:
- */
-void thread_wakeup(thread_t* thread) {
-  kernel_panic("Unimplemented thread_wakeup");
+void thread_wakeup(thread_t* thread) 
+{
+  ASSERT_MSG(thread->m_current_state == SLEEPING, "Tried to wake a non-sleeping thread!");
+
+  /* We can't unblock ourselves, can we? */
+  if (get_current_scheduling_thread() == thread) {
+    thread_set_state(thread, RUNNING);
+    kernel_panic("Wait, how did we wake ourselves?");
+    return;
+  }
+
+  thread_set_state(thread, RUNNABLE);
 }

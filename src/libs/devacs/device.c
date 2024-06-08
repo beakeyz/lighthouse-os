@@ -1,7 +1,6 @@
 #include "device.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
-#include "lightos/lib/lightos.h"
 #include "lightos/syscall.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -219,7 +218,7 @@ BOOL device_query_info(DEV_HANDLE handle, DEVINFO* binfo)
   return (syscall_2(SYSID_GET_DEVINFO, handle, (uintptr_t)binfo) == SYS_OK);
 }
 
-LIGHTENTRY int init_devices()
+int init_devices()
 {
   _cached_devices = NULL;
   return 0;

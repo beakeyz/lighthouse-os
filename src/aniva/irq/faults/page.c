@@ -3,7 +3,6 @@
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "mem/pg.h"
-#include "oss/obj.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
 #include "system/asm_specifics.h"
@@ -43,11 +42,9 @@ enum FAULT_RESULT pagefault_handler(const aniva_fault_t* fault, registers_t *reg
   printf(" Kernel CR3: %p\n", kmem_get_krnl_dir());
 
   if (current_proc && current_thread) {
-    printf("fault occured in: %s:%s pid-tid: (%d-%d) (cr3: 0x%llx)\n",
+    printf("fault occured in: %s:%s (cr3: 0x%llx)\n",
         current_proc->m_name,
         current_thread->m_name,
-        oss_obj_get_fullpath(current_proc->obj),
-        current_thread->m_tid,
         current_proc->m_root_pd.m_phys_root
     );
     p_addr = kmem_to_phys(current_proc->m_root_pd.m_root, err_addr);

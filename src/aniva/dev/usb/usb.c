@@ -13,9 +13,11 @@
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
 #include "libk/io.h"
+#include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
+#include "oss/obj.h"
 #include "system/profile/profile.h"
 
 zone_allocator_t __usb_hub_allocator;
@@ -51,6 +53,67 @@ void dealloc_usb_hcd(struct usb_hcd* hcd)
   zfree_fixed(&__usb_hub_allocator, hcd);
 }
 
+static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_configuration_descriptor_t* desc, uint32_t idx)
+{
+  int error;
+  uint32_t total_size;
+  usb_config_buffer_t* ret;
+
+  total_size = sizeof(*ret) + desc->total_len - sizeof(*desc);
+
+  ret = kmalloc(total_size);
+
+  if (!ret)
+    return ret;
+
+  ret->total_len = total_size;
+  ret->if_count = desc->if_num;
+
+  /* Yeet the entire config descriptor into the buffer */
+  error = usb_device_get_descriptor(udev, USB_DT_CONFIG, idx, 0, &ret->desc, desc->total_len);
+
+  if (error) {
+    kfree(ret);
+    return nullptr;
+  }
+
+  return ret;
+}
+
+static int udev_init_configurations(usb_device_t* udev)
+{
+  int error;
+  usb_config_buffer_t* c_desc;
+  usb_configuration_descriptor_t tmp_buffer = { 0 };
+
+  for (uint32_t i = 0; i < udev->config_count; i++) {
+
+    error = usb_device_get_descriptor(udev, USB_DT_CONFIG, i, 0, &tmp_buffer, sizeof(tmp_buffer));
+
+    if (error)
+      return error;
+
+    c_desc = _udev_create_config_buffer(udev, &tmp_buffer, i);
+
+    if (!c_desc)
+      return -KERR_NODEV;
+
+    udev->configuration_arr[i] = c_desc;
+  }
+
+  error = usb_device_submit_ctl(
+      udev, 
+      USB_TYPE_DEV_OUT | USB_TYPE_STANDARD,
+      USB_REQ_SET_CONFIGURATION,
+      udev->configuration_arr[0]->desc.config_value,
+      0, 0, NULL, 0);
+
+  /* Wait for hardware */
+  mdelay(50);
+
+  return error;
+}
+
 /*!
  * @brief: Send the appropriate control requests to teh HCD to initialize @device
  */
@@ -58,17 +121,11 @@ int init_usb_device(usb_device_t* device)
 {
   int tries;
   int error;
-  usb_hub_t* hub;
 
   tries = 4;
 
   do {
-    printf("Trying to set device %s addresss to %d\n", device->device->name, device->dev_addr);
-    /* Send  */
-    error = usb_hub_submit_hc_ctl(device->hub, USB_TYPE_STANDARD | USB_TYPE_DEV_OUT, USB_REQ_SET_ADDRESS, device->dev_addr, 0, NULL, NULL, NULL);
-
-    /* Wait a bit for hardware to catch up */
-    mdelay(500);
+    error = usb_device_set_address(device, device->dev_addr);
   } while (tries-- > 0 && error);
 
   printf("Trying to get device descriptor\n");
@@ -87,25 +144,50 @@ int init_usb_device(usb_device_t* device)
   printf("usb device subclass: %d\n", device->desc.dev_subclass);
   printf("usb device protocol: %d\n", device->desc.dev_prot);
   printf("usb max packet size: %d\n", device->desc.max_pckt_size);
+
+  error = usb_device_get_descriptor(
+      device,
+      USB_DT_DEVICE,
+      0,
+      0,
+      &device->desc,
+      sizeof(device->desc));
+
+  if (error)
+    return error;
+
+  device_identify(
+      device->device,
+      device->desc.vendor_id,
+      0xffff, 
+      device->desc.dev_class,
+      device->desc.dev_subclass);
+
+  KLOG_DBG("USB Device (%s) vendor_id: 0x%x, device_id: 0x%x, class-subclass: 0x%x:%x, config count: %d\n",
+      device->device->name,
+      device->device->vendor_id,
+      device->device->device_id,
+      device->device->class,
+      device->device->subclass,
+      device->desc.config_count);
+
+  /* Allocate and retrieve the configurations */
+  device->config_count = device->desc.config_count;
+  device->configuration_arr = kmalloc(sizeof(void*) * device->config_count);
+  memset(device->configuration_arr, 0, sizeof(void*) * device->config_count);
+
+  error = udev_init_configurations(device);
   
-  /* Regular device, yay */
-  if (!usb_device_is_hub(device))
-    return 0;
-
-  /* Create a new hub -_- */
-  if (create_usb_hub(&hub, device->hcd, device->hub->type, device->hub, device, NULL))
-    return -1;
-
-  /* 0o0 */
-  usb_hub_enumerate(hub);
-  return 0;
+  return error;
 }
 
 /*!
  * @brief Allocate and initialize a generic USB device
  *
+ * @dev_port: The port on @hub where we can find this device
+ * @hub_port: The port this device should use for its hub
  */
-usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name)
+usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t dev_port, uint8_t hub_port, const char* name)
 {
   dgroup_t* group;
   usb_device_t* device;
@@ -125,17 +207,27 @@ usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum U
   memset(device, 0, sizeof(*device));
 
   device->req_doorbell = create_doorbell(255, NULL);
+  device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
   device->hub = hub;
   device->hcd = hcd;
   device->speed = speed;
   device->hub_port = hub_port;
-  device->device = create_device_ex(NULL, (char*)name, device, NULL, NULL);
+  device->dev_port = dev_port + 1;
+  device->hub_addr = USB_ROOTHUB_PORT;
 
   /* 
    * Give ourselves a device address if we are on a hub, otherwise
    * we're at device address zero (we assume we are the roothub device in this case)
    */
   usb_hcd_alloc_devaddr(hcd, &device->dev_addr);
+
+  if (hub)
+    device->hub_addr = hub->udev->hub_addr;
+
+  if (device->speed == USB_HIGHSPEED || device->speed == USB_SUPERSPEED) {
+    device->hub_addr = device->dev_addr;
+    device->hub_port = device->dev_port;
+  }
 
   group = _root_usbhub_group;
 
@@ -195,23 +287,42 @@ dealloc_and_exit:
  */
 int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
-  uint32_t hubaddr;
-
   /* Can't send transfers to a device which is not on a hub */
   if (!device)
     return -1;
 
-  /* Default will be the roothub lolol */
-  hubaddr = USB_ROOTHUB_PORT;
-
-  if (device->hub)
-    hubaddr = device->hub->device->dev_addr;
-
-  return _usb_submit_ctl(device->hcd, device, device->dev_addr, hubaddr, device->hub_port,
+  return _usb_submit_ctl(device->hcd, device, device->dev_addr, device->hub_addr, device->hub_port,
       reqtype, req, value, idx, len, respbuf, respbuf_len);
 }
 
-int usb_device_get_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize)
+int usb_device_set_address(usb_device_t* device, uint8_t addr)
+{
+  int error;
+
+  printf("Trying to set device %s addresss to %d\n", device->device->name, device->dev_addr);
+
+  /* Send */
+  error = usb_device_submit_hc_ctl(device, USB_TYPE_STANDARD | USB_TYPE_DEV_OUT, USB_REQ_SET_ADDRESS, addr, 0, NULL, NULL, NULL);
+
+  /* Wait a bit for hardware to catch up */
+  mdelay(200);
+
+  return error;
+}
+
+int usb_device_reset_address(usb_device_t* device)
+{
+  int error;
+
+  /* TODO: Lock the USB device */
+
+  device->dev_addr = 0;
+  error = usb_device_set_address(device, 0);
+
+  return error;
+}
+
+int usb_device_get_class_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize)
 {
   return usb_device_submit_ctl(
     device,
@@ -225,10 +336,24 @@ int usb_device_get_descriptor(usb_device_t* device, uint8_t descriptor_type, uin
   );
 }
 
+int usb_device_get_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize)
+{
+  return usb_device_submit_ctl(
+    device,
+    USB_TYPE_STANDARD | USB_TYPE_DEV_IN,
+    USB_REQ_GET_DESCRIPTOR,
+    (descriptor_type << 8) | index,
+    language_id,
+    bsize,
+    buffer,
+    bsize
+  );
+}
+
 static int _init_usb_hub(usb_hub_t* hub)
 {
-  int error = usb_device_get_descriptor(
-    hub->device,
+  int error = usb_device_get_class_descriptor(
+    hub->udev,
     USB_DT_HUB,
     0,
     0,
@@ -239,6 +364,14 @@ static int _init_usb_hub(usb_hub_t* hub)
   if (error)
     return error;
 
+  /* Yoink the hub descriptor */
+  KLOG_DBG("Got hub descriptor for %s: (portcount: %d, removable: %s, max power: %d mA)\n",
+      hub->udev->device->name,
+      hub->hubdesc.portcount,
+      hub->hubdesc.removeable ? "Yes" : "No",
+      hub->hubdesc.max_power_mA);
+
+  /* We don't know the port count yet, set it now */
   if (!hub->portcount) {
     hub->portcount = hub->hubdesc.portcount;
 
@@ -252,9 +385,11 @@ static int _init_usb_hub(usb_hub_t* hub)
     memset(hub->ports, 0, hub->portcount * sizeof(usb_port_t));
   }
 
+  mdelay(100);
+
   for (uint32_t i = 0; i < hub->portcount; i++) {
     if (usb_device_submit_ctl(
-      hub->device,
+      hub->udev,
       USB_TYPE_CLASS | USB_TYPE_OTHER_OUT,
       USB_REQ_SET_FEATURE,
       USB_FEATURE_PORT_POWER,
@@ -279,7 +414,7 @@ static int _init_usb_hub(usb_hub_t* hub)
  *
  * TODO: create our own root hub configuration descriptor
  */
-int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, usb_device_t* device, uint32_t portcount)
+int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, usb_device_t* device, uint32_t portcount, bool do_init)
 {
   int error;
   usb_hub_t* hub;
@@ -293,7 +428,7 @@ int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type
   if (phub)
     *phub = nullptr;
 
-  if (sfmt(hubgroupname, "%d", device->hub_port))
+  if (sfmt(hubgroupname, "%d", (device->dev_port-1)))
     return -1;
 
   hub = kmalloc(sizeof(*hub));
@@ -308,7 +443,7 @@ int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type
   if (parent)
     parent_group = parent->devgroup;
 
-  hub->device = device;
+  hub->udev = device;
   hub->parent = parent;
   hub->hcd = hcd;
   hub->type = type;
@@ -328,6 +463,11 @@ int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type
       goto destroy_and_exit;
 
     memset(hub->ports, 0, portcount * sizeof(usb_port_t));
+  }
+
+  if (do_init) {
+    /* Initialize the usb device, since we don't know the portcount */
+    init_usb_device(device);
   }
 
   /* Creation is done, set the pointer and start init */
@@ -356,20 +496,20 @@ void destroy_usb_hub(usb_hub_t* hub)
   kernel_panic("TODO: destroy_usb_hub");
 }
 
-int usb_hub_submit_hc_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
+int usb_device_submit_hc_ctl(usb_device_t* dev, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len)
 {
-  if (!hub)
+  if (!dev)
     return -1;
 
-  return _usb_submit_ctl(hub->hcd, hub->device, USB_HC_PORT, hub->device->dev_addr, hub->device->hub_port,
+  return _usb_submit_ctl(dev->hcd, dev, USB_HC_PORT, dev->hub_addr, dev->hub_port,
       reqtype, req, value, idx, len, respbuf, respbuf_len);
 }
 
 static int usb_hub_get_portsts(usb_hub_t* hub, uint32_t i, usb_port_status_t* status)
 {
   return usb_device_submit_ctl(
-    hub->device,
-    USB_TYPE_STANDARD | USB_TYPE_DEV_IN,
+    hub->udev,
+    USB_TYPE_CLASS | USB_TYPE_OTHER_IN,
     USB_REQ_GET_STATUS,
     0,
     i+1,
@@ -382,7 +522,7 @@ static int usb_hub_get_portsts(usb_hub_t* hub, uint32_t i, usb_port_status_t* st
 static inline void _get_usb_speed(usb_hub_t* hub, usb_port_t* port, enum USB_SPEED *speed)
 {
   if ((port->status.status & USB_PORT_STATUS_POWER) == 0) {
-    *speed = hub->device->speed;
+    *speed = hub->udev->speed;
     return;
   }
 
@@ -403,7 +543,7 @@ static inline int _reset_port(usb_hub_t* hub, uint32_t i)
   int error;
   usb_port_t* port;
 
-  error = usb_device_submit_ctl(hub->device, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_RESET, i+1, NULL, NULL, NULL);
+  error = usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_RESET, i+1, NULL, NULL, NULL);
 
   if (error)
     return error;
@@ -425,13 +565,13 @@ static inline int _reset_port(usb_hub_t* hub, uint32_t i)
   if (error)
     return error;
 
-  error = usb_device_submit_ctl(hub->device, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET, i+1, NULL, NULL, NULL);
+  error = usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET, i+1, NULL, NULL, NULL);
 
   if (error)
     return error;
 
   /* Delay a bit to give hardware time to chill */
-  mdelay(250);
+  mdelay(100);
   return 0;
 }
 
@@ -463,7 +603,7 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
   sfmt(namebuf, "usbdev%d", i); 
 
   /* Create the device backend structs */
-  port->device = create_usb_device(hub->hcd, hub, speed, i, namebuf);
+  port->device = create_usb_device(hub->hcd, hub, speed, i, hub->udev->hub_port, namebuf);
 
   /* Bruh */
   if (!port->device)
@@ -471,6 +611,18 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 
   /* Try and get the device address to the HCD and get the descriptor from it */
   init_usb_device(port->device);
+
+  /* Hub, we have to do more stuff */
+  if (usb_device_is_hub(port->device)) {
+    /* Create a new hub -_- */
+    error = create_usb_hub(&hub, port->device->hcd, port->device->hub->type, port->device->hub, port->device, NULL, false);
+
+    if (error)
+      return error;
+
+    /* 0o0 */
+    usb_hub_enumerate(hub);
+  }
 
   return 0;
 }
@@ -488,7 +640,7 @@ static inline int _handle_device_disconnect(usb_hub_t* hub, uint32_t i)
 static inline int _handle_port_connection(usb_hub_t* hub, uint32_t i)
 {
   /* Clear the connected change status */
-  usb_device_submit_ctl(hub->device, USB_TYPE_CLASS, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION, i+1, NULL, NULL, NULL);
+  usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION, i+1, NULL, NULL, NULL);
 
   if (usb_port_is_connected(&hub->ports[i]))
     return _handle_device_connect(hub, i);
@@ -505,7 +657,7 @@ int usb_hub_enumerate(usb_hub_t* hub)
   usb_port_t* c_port;
 
   for (uint32_t i = 0; i < hub->portcount; i++) {
-    printf("%s: Scanning port %d...\n", hub->device->device->name, i);
+    printf("%s: Scanning port %d...\n", hub->udev->device->name, i);
     c_port = &hub->ports[i];
 
     error = usb_hub_get_portsts(hub, i, &c_port->status);
@@ -659,6 +811,7 @@ void deallocate_usb_xfer(usb_xfer_t* req)
  */
 void init_usb_drivers()
 {
+  /* Bootloader may choose to disable USB functionality */
   if (opt_parser_get_bool(KOPT_NO_USB))
     return;
 

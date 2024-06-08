@@ -49,10 +49,13 @@ typedef struct usb_device {
   /* When we discover a device, this is the first descriptor we'll get back */
   usb_device_descriptor_t desc;
 
-  uint8_t hub_port; /* From 0 to 255, what is our index? (nth device found on the hub) */
+  uint8_t hub_port; /* Port of the devices hub */
+  uint8_t hub_addr;
+  uint8_t dev_port; /* From 0 to 255, what is our index? (nth device found on the hub) */
   uint8_t dev_addr;
   uint8_t slot;
   uint8_t ep_count;
+  uint8_t config_count;
 
   char* product;
   char* manufacturer;
@@ -60,6 +63,9 @@ typedef struct usb_device {
 
   uint32_t state;
   enum USB_SPEED speed;
+
+  /* List of configurations for this device */
+  usb_config_buffer_t** configuration_arr;
 
   /*
    * Doorbell that rings on request completion and
@@ -78,10 +84,14 @@ static inline bool usb_device_is_hub(usb_device_t* device)
   return device->desc.dev_class == 0x9;
 }
 
-usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t hub_port, const char* name);
+usb_device_t* create_usb_device(struct usb_hcd* hcd, struct usb_hub* hub, enum USB_SPEED speed, uint8_t dev_port, uint8_t hub_port, const char* name);
 void destroy_usb_device(usb_device_t* device);
 struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
+
+int usb_device_get_class_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize);
 int usb_device_get_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize);
+int usb_device_set_address(usb_device_t* device, uint8_t addr);
+int usb_device_reset_address(usb_device_t* device);
 
 int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 
@@ -106,7 +116,7 @@ enum USB_HUB_TYPE {
  * usb device is a hub. Get it?
  */
 typedef struct usb_hub {
-  struct usb_device* device;
+  struct usb_device* udev;
   struct dgroup* devgroup;
   struct usb_hub_descriptor hubdesc;
 
@@ -119,11 +129,11 @@ typedef struct usb_hub {
   struct usb_hcd* hcd;
 } usb_hub_t;
 
-int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, usb_device_t* device, uint32_t portcount);
+int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, usb_device_t* device, uint32_t portcount, bool do_init);
 int init_usb_device(usb_device_t* device);
 void destroy_usb_hub(usb_hub_t* hub);
 
-int usb_hub_submit_hc_ctl(usb_hub_t* hub, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
+int usb_device_submit_hc_ctl(usb_device_t* dev, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_enumerate(usb_hub_t* hub);
 
 /*

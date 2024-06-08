@@ -261,7 +261,7 @@ static int print_ex(uint8_t flags, const char* msg, uint8_t type)
   return 0;
 }
 
-static inline int _kputch(uint8_t typeflags, char c, char** out)
+static int USED _kputch(uint8_t typeflags, char c, char** out)
 {
   return print_ex(typeflags, &c, LOG_TYPE_CHAR);
 }
@@ -366,11 +366,11 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
       prefix = "[ DEBUG ] ";
     else if ((typeflags & LOGGER_FLAG_INFO) == LOGGER_FLAG_INFO)
       prefix = "[ INFO ] ";
-  }
 
-  if (prefix)
-    for (const char* i = prefix; *i; i++)
-      output_cb(typeflags, *i, out);
+    if (prefix)
+      for (const char* i = prefix; *i; i++)
+        output_cb(typeflags, *i, out);
+  }
 
   for (const char* c = fmt; *c; c++) {
 

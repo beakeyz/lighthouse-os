@@ -94,15 +94,13 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_
     .length = len,
   };
 
-  if (target->speed == USB_HIGHSPEED || target->speed == USB_SUPERSPEED) {
-    hubaddr = target->dev_addr;
-    hubport = target->hub_port + 1;
-  }
-
   db = create_doorbell(1, NULL);
   xfer = create_usb_xfer(target, db, USB_CTL_XFER, dir, devaddr, hubaddr, hubport, 0, ctl, sizeof(*ctl), respbuf, respbuf_len);
 
   xfer->req_max_packet_size = 8;
+
+  if (target->desc.type)
+    xfer->req_max_packet_size = target->desc.max_pckt_size;
 
   *pxfer = xfer;
   *pdb = db;
@@ -164,7 +162,7 @@ static inline int _usb_get_ctl_packet_size(usb_device_t* udev, size_t* bsize)
     case USB_HIGHSPEED:
       *bsize = 64;
       break;
-    case USB_FULLSPEED:
+    case USB_SUPERSPEED:
       *bsize = 512;
       break;
     default:

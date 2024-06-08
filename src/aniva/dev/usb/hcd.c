@@ -76,6 +76,11 @@ int usb_hcd_alloc_devaddr(usb_hcd_t* hcd, uint8_t* paddr)
   uint64_t addr;
   ErrorOrPtr res;
 
+  if (!paddr)
+    return -1;
+
+  *paddr = 0x00;
+
   if (!hcd)
     return -1;
 

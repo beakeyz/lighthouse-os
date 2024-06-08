@@ -257,8 +257,6 @@ static void _ehci_link_qtds(ehci_qtd_t* a, ehci_qtd_t* b, ehci_qtd_t* alt)
   a->next = b;
   a->hw_next = b->qtd_dma_addr;
 
-  printf("Linked qtd!\n");
-
   /* Set alt descriptor */
   a->alt_next =     (alt ? alt : NULL);
   a->hw_alt_next =  (alt ? alt->qtd_dma_addr : EHCI_FLLP_TYPE_END);
@@ -279,8 +277,6 @@ static void _ehci_xfer_attach_data_qtds(ehci_hcd_t* ehci, ehci_qtd_t* alt, size_
 
   for (size_t i = 0; i < packet_count; i++) {
     c_packet_size = (bsize - i * EHCI_MAX_PACKETSIZE) % EHCI_MAX_PACKETSIZE;
-
-    printf("Filled a EHCI packet of size: 0x%llx\n", c_packet_size);
 
     b = _create_ehci_qtd_raw(ehci, c_packet_size, direction == USB_DIRECTION_DEVICE_TO_HOST ? EHCI_QTD_PID_IN : EHCI_QTD_PID_OUT);
 
@@ -328,7 +324,6 @@ int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_xfer_t** e
 
   _ehci_link_qtds(data_end, stat_desc, qh->qtd_alt);
 
-  printf("Did setup!\n");
   qh->qtd_link = setup_desc;
   qh->hw_qtd_next = setup_desc->qtd_dma_addr;
   qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
@@ -379,7 +374,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
         /* Copy to the response buffer */
         memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
 
-        printf("Copied %lld bytes into the buffer!\n", c_read_size);
+        //printf("Copied %lld bytes into the buffer!\n", c_read_size);
 
         /* Update the offsets */
         c_total_read_size += c_read_size;

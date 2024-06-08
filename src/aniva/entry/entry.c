@@ -36,6 +36,7 @@
 #include <sched/scheduler.h>
 
 system_info_t g_system_info;
+static proc_t* root_proc;
 
 void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
 void kthread_entry(void);
@@ -258,7 +259,6 @@ static kerror_t _start_subsystems(void)
 NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) 
 {
   kerror_t kinit_err;
-  proc_t* root_proc;
 
   disable_interrupts();
 
@@ -399,9 +399,9 @@ void kthread_entry(void)
   else 
     ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
-  while (true) {
-    scheduler_yield();
-  }
+  while (true)
+    /* Block this thread to save cycles */
+    thread_sleep(root_proc->m_init_thread);
 
   /* Should not happen lmao */
   kernel_panic("Reached end of start_thread");

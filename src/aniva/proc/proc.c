@@ -300,17 +300,16 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
   int error;
   const char* hook_name;
 
-  /* Pause the scheduler so we don't get fucked while registering the door */
-  pause_scheduler();
-
   /*
    * If we can't find the process here, that probably means its already
-   * terminated even before we could make this call
+   * terminated even before we could make this call (How the fuck could that have happend???)
    */
-  if (!proc) {
-    resume_scheduler();
+  if (!proc)
     return 0;
-  }
+
+
+  /* Pause the scheduler so we don't get fucked while registering the hook */
+  pause_scheduler();
 
   hook_name = oss_obj_get_fullpath(proc->obj);
 
