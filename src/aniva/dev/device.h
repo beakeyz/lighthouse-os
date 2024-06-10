@@ -92,6 +92,8 @@ enum DEVICE_TYPE {
     DEVICE_TYPE_USBHCD,
 };
 
+#define DEVICE_DRIVER_LIMIT 5
+
 /*
  * The device
  *
@@ -126,8 +128,12 @@ enum DEVICE_TYPE {
  */
 typedef struct device {
     const char* name;
-    /* Driver that is responsible for management of this device */
-    struct drv_manifest* driver;
+    /*
+     * Drivers that are responsible for management of this device
+     * I'm pretty sure that a single device never needs more than 3 drivers looking after it,
+     * so having space for 5 should be more than enough
+     */
+    struct drv_manifest* drivers[DEVICE_DRIVER_LIMIT];
     struct oss_obj* obj;
     /* If this device is a bus, this node contains it's children */
     struct dgroup* bus_group;
@@ -166,6 +172,10 @@ static inline void device_identify(device_t* device, uint16_t vid, uint16_t did,
     device->class = class;
     device->subclass = subclass;
 }
+
+kerror_t device_bind_driver(device_t* device, struct drv_manifest* driver);
+kerror_t device_unbind_driver(device_t* device, struct drv_manifest* driver);
+kerror_t device_clear_drivers(device_t* device);
 
 /*
  * endpoint.c
@@ -220,7 +230,6 @@ kerror_t device_dealloc_memory(device_t* dev, uintptr_t start, size_t size);
 kerror_t device_dealloc_irq(device_t* dev, uint32_t vec);
 kerror_t device_dealloc_io(device_t* dev, uint32_t start, uint32_t size);
 
-kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver);
 bool device_has_driver(device_t* dev);
 kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev);
 kerror_t device_bind_pci(device_t* dev, struct pci_device* pcidev);

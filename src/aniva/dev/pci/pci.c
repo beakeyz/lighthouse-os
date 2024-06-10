@@ -1,6 +1,7 @@
 #include "pci.h"
 #include "bus.h"
 #include "dev/device.h"
+#include "dev/manifest.h"
 #include "dev/pci/definitions.h"
 #include "io.h"
 #include "libk/data/linkedlist.h"
@@ -110,6 +111,8 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
                 if (!probe_error) {
                     driver->device_count++;
                     ret->driver = driver;
+                    /* Add the device to the manifest */
+                    manifest_add_dev(driver->manifest, ret->dev);
                 }
             }
 

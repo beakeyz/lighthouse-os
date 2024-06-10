@@ -9,7 +9,6 @@
 #include "dev/video/framebuffer.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include <libk/string.h>
 
@@ -81,16 +80,13 @@ struct video_device* get_active_vdev()
 /*!
  * @brief Try to deactivate the current active video driver
  *
- * Try to find a 'maindev' device on the video group and unload its driver
- * This *should* have the side-effect that the current video device gets removed,
- * if the driver is well behaved. If not, that could just be very fucky, so
- * FIXME/TODO: check if this is a potential bug and fix it if it is
+ * Try to find a 'maindev' device on the video group and remove the device. If the attached
+ * driver has only one device attached, this will prompt its unload
  */
 int video_deactivate_current_driver()
 {
     int error;
     device_t* maindev;
-    drv_manifest_t* class_manifest;
 
     error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
@@ -98,12 +94,7 @@ int video_deactivate_current_driver()
     if (error)
         return 0;
 
-    class_manifest = maindev->driver;
-
-    /* FIXME: what to do when this fails? */
-    logln("Trying to unload current video driver!");
-    Must(unload_driver(class_manifest->m_url));
-    logln(" Unloaded current video driver!");
+    kernel_panic("video_deactivate_current_driver: Bruh");
     return 0;
 }
 

@@ -12,6 +12,7 @@ struct drv_manifest;
 #define DRIVER_URL_SEPERATOR '/'
 #define DRIVER_TYPE_COUNT 9
 #define DRIVER_WAIT_UNTIL_READY (size_t) - 1
+#define DRIVER_MAX_DEV_COUNT 64
 
 typedef uint8_t dev_type_t;
 
@@ -79,7 +80,7 @@ typedef driver_control_code_t dcc_t;
 #define MAX_DRIVER_NAME_LENGTH 128
 #define MAX_DRIVER_DESCRIPTOR_LENGTH 64 /* Descriptions should be short, simple and effective */
 
-#define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t)-1))
+#define SOCKET_VERIFY_RESPONSE_SIZE(size) ((size) != ((size_t) - 1))
 
 #define EXPORT_DRIVER_PTR(name) USED SECTION(".kpcdrvs") aniva_driver_t* exported_##name = (aniva_driver_t*)&name
 #define EXPORT_CORE_DRIVER(name) USED SECTION(".core_drvs") aniva_driver_t* exported_core_##name = (aniva_driver_t*)&name

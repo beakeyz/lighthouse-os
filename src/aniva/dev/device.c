@@ -54,7 +54,7 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
     ret->lock = create_mutex(NULL);
     ret->ep_lock = create_mutex(NULL);
     ret->obj = create_oss_obj(ret->name);
-    ret->driver = parent;
+    ret->drivers[0] = parent;
     ret->flags = flags;
     ret->private = priv;
     ret->endpoints = NULL;
@@ -74,8 +74,8 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
         g_ep->impl.generic->f_create(ret);
 
     /* Make sure we register ourselves to the driver */
-    if (ret->driver)
-        manifest_add_dev(ret->driver);
+    if (parent)
+        manifest_add_dev(parent, ret);
 
     return ret;
 }
@@ -94,8 +94,7 @@ void __destroy_device(device_t* device)
     device_ep_t *c_ep, *next_ep;
 
     /* Let the system know that there was a driver removed */
-    if (device->driver)
-        manifest_remove_dev(device->driver);
+    device_clear_drivers(device);
 
     /* Remove any remaining endpoints from the device */
     while (device->endpoints) {
@@ -128,6 +127,68 @@ void destroy_device(device_t* device)
 
     /* Destroy the parent object */
     destroy_oss_obj(device->obj);
+}
+
+/*!
+ * @brief: Try to bind @driver to @device
+ */
+kerror_t device_bind_driver(device_t* device, struct drv_manifest* driver)
+{
+    uint32_t idx = 0;
+    drv_manifest_t** slot;
+
+    mutex_lock(device->lock);
+
+    do {
+        slot = &device->drivers[idx++];
+    } while (*slot && idx < DEVICE_DRIVER_LIMIT);
+
+    /* Fill the slot */
+    if (!(*slot))
+        *slot = driver;
+
+    mutex_unlock(device->lock);
+
+    /* If idx == DEVICE_DRIVER_LIMIT then we could not find an empty slot */
+    return (idx == DEVICE_DRIVER_LIMIT);
+}
+
+kerror_t device_unbind_driver(device_t* device, struct drv_manifest* driver)
+{
+    kerror_t error = -KERR_NOT_FOUND;
+
+    mutex_lock(device->lock);
+
+    for (uint32_t i = 0; i < DEVICE_DRIVER_LIMIT; i++) {
+        if (device->drivers[i] != driver)
+            continue;
+
+        device->drivers[i] = nullptr;
+        error = KERR_NONE;
+        break;
+    }
+
+    mutex_unlock(device->lock);
+    return error;
+}
+
+kerror_t device_clear_drivers(device_t* device)
+{
+    drv_manifest_t* c_driver;
+
+    mutex_lock(device->lock);
+
+    for (uint32_t i = 0; i < DEVICE_DRIVER_LIMIT; i++) {
+        c_driver = device->drivers[i];
+
+        (void)manifest_remove_dev(c_driver, device);
+    }
+
+    /* Clear the drivers list */
+    memset(device->drivers, 0, sizeof(device->drivers));
+
+    mutex_unlock(device->lock);
+    return 0;
 }
 
 /*!
@@ -306,24 +367,17 @@ int device_close(device_t* dev)
     return oss_obj_close(dev->obj);
 }
 
-kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver)
-{
-    if (dev->driver && driver)
-        return -KERR_INVAL;
-
-    mutex_lock(dev->lock);
-    dev->driver = driver;
-    mutex_unlock(dev->lock);
-
-    return KERR_NONE;
-}
-
 /*!
  * @brief: Check if @dev has a driver attached
  */
 bool device_has_driver(device_t* dev)
 {
-    return (dev->driver != nullptr);
+    for (uint32_t i = 0; i < DEVICE_DRIVER_LIMIT; i++)
+        /* Driver, yes */
+        if (dev->drivers[i])
+            return true;
+
+    return false;
 }
 
 kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev)
@@ -676,7 +730,7 @@ void init_hw()
     init_acpi_core();
 
     /* Load the USB drivers on our system */
-    init_usb_drivers();
+    load_usb_hcds();
 
     ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
 }

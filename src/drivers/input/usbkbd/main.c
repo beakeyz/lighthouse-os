@@ -1,17 +1,40 @@
 #include <dev/core.h>
 #include <dev/manifest.h>
 
+#include "dev/usb/driver.h"
+#include "dev/usb/usb.h"
 #include "logging/log.h"
+
+usb_device_ident_t usbkbd_ident_list[] = {
+    USB_DEV_IDENT(0, 0, 3, 0),
+    USB_END_IDENT
+};
+
+static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev)
+{
+    return 0;
+}
+
+usb_driver_desc_t usbkbd_usbdrv = {
+    .ident_list = usbkbd_ident_list,
+    .f_probe = usbkbd_probe,
+};
 
 static int usbkbd_init(drv_manifest_t* driver)
 {
     KLOG_DBG("Initializing usbkbd\n");
+
+    /* Register the usb driver */
+    register_usb_driver(driver, &usbkbd_usbdrv);
     return 0;
 }
 
 static int usbkbd_exit()
 {
     KLOG_DBG("Exiting usbkbd\n");
+
+    /* Aaaand remove the driver */
+    unregister_usb_driver(&usbkbd_usbdrv);
     return 0;
 }
 

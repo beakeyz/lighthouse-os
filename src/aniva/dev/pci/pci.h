@@ -290,19 +290,19 @@ bool is_end_devid(pci_dev_id_t* dev_id);
 
 #define FOREACH_PCI_DEVID(i, devids) for (pci_dev_id_t* i = devids; !is_end_devid(i); i++)
 
-#define PCI_DEVID_CLASSES(class, subclass, prog_if)             \
-    {                                                           \
-        {                                                       \
-            0,                                                  \
-        },                                                      \
-            { class, subclass, prog_if }, PCI_DEVID_USE_CLASSES \
+#define PCI_DEVID_CLASSES(class, subclass, prog_if)         \
+    {                                                       \
+        {                                                   \
+            0,                                              \
+        },                                                  \
+        { class, subclass, prog_if }, PCI_DEVID_USE_CLASSES \
     }
 #define PCI_DEVID_IDS(vendor, device, sub_vendor, sub_device) \
     {                                                         \
         { vendor, device, sub_vendor, sub_device }, {         \
-            0,                                                \
-        },                                                    \
-            PCI_DEVID_USE_IDS                                 \
+                                                        0,    \
+                                                    },        \
+        PCI_DEVID_USE_IDS                                     \
     }
 
 #define PCI_DEVID_CLASSES_EX(class, subclass, prog_if, bits) \
@@ -310,14 +310,14 @@ bool is_end_devid(pci_dev_id_t* dev_id);
         {                                                    \
             0,                                               \
         },                                                   \
-            { class, subclass, prog_if }, (bits)             \
+        { class, subclass, prog_if }, (bits)                 \
     }
 #define PCI_DEVID_IDS_EX(vendor, device, sub_vendor, sub_device, bits) \
     {                                                                  \
         { vendor, device, sub_vendor, sub_device }, {                  \
-            0,                                                         \
-        },                                                             \
-            (bits)                                                     \
+                                                        0,             \
+                                                    },                 \
+        (bits)                                                         \
     }
 
 #define PCI_DEVID_FULL(vendor, device, sub_vendor, sub_device, class, subclass, prog_if)            \
@@ -333,10 +333,10 @@ bool is_end_devid(pci_dev_id_t* dev_id);
         {             \
             0,        \
         },            \
-            {         \
-                0,    \
-            },        \
-            0         \
+        {             \
+            0,        \
+        },            \
+        0             \
     }
 
 #define PCI_DEV_FLAG_NO_RESCAN 0x01 /* Should we rewalk the found pci devices once this driver is registered? (Handy for internal drivers) */

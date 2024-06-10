@@ -21,6 +21,7 @@
 struct usb_hcd;
 struct usb_hub;
 struct device;
+struct usb_device;
 struct usb_xfer;
 
 enum USB_SPEED {
@@ -31,7 +32,9 @@ enum USB_SPEED {
 };
 
 void init_usb();
-void init_usb_drivers();
+void load_usb_hcds();
+
+int enumerate_usb_devices(void (*f_cb)(struct usb_device*, void*), void* param);
 
 /*
  * Generic USB device structure
@@ -159,17 +162,5 @@ int unregister_usb_hcd(struct usb_hcd* hub);
 /* Transfer stuff */
 struct usb_xfer* allocate_usb_xfer();
 void deallocate_usb_xfer(struct usb_xfer* req);
-
-/*
- * TODO: usb drivers
- *
- * These things can get registerd by class drivers which want to identify usb devices which they know
- * how to communicate with
- */
-typedef struct usb_driver {
-    int (*f_probe)(struct usb_driver* driver, usb_device_t* device);
-
-    uint32_t flags;
-} usb_driver_t;
 
 #endif // !__ANIVA_USB_DEF__

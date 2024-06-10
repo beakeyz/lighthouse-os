@@ -4,11 +4,13 @@
 #include "dev/group.h"
 #include "dev/loader.h"
 #include "dev/pci/pci.h"
+#include "dev/usb/driver.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/port.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
 #include "libk/cmdline/parser.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/flow/reference.h"
@@ -23,6 +25,38 @@
 zone_allocator_t __usb_hub_allocator;
 zone_allocator_t __usb_xfer_allocator;
 dgroup_t* _root_usbhub_group;
+list_t* _usbdev_list;
+
+static inline void _register_udev(usb_device_t* udev)
+{
+    if (!_usbdev_list)
+        return;
+
+    list_append(_usbdev_list, udev);
+}
+
+static inline void _unregister_udev(usb_device_t* udev)
+{
+    if (!_usbdev_list)
+        return;
+
+    list_remove_ex(_usbdev_list, udev);
+}
+
+/*!
+ * @brief: Enumerate all the usb devices we've loaded so far
+ */
+int enumerate_usb_devices(void (*f_cb)(struct usb_device*, void*), void* param)
+{
+    if (!_usbdev_list || !f_cb)
+        return -1;
+
+    FOREACH(i, _usbdev_list)
+    {
+        f_cb(i->data, param);
+    }
+    return 0;
+}
 
 /*!
  * @brief Allocate memory for a HCD
@@ -218,7 +252,7 @@ static int udev_init_configurations(usb_device_t* udev)
 /*!
  * @brief: Send the appropriate control requests to teh HCD to initialize @device
  */
-int init_usb_device(usb_device_t* device)
+int init_usb_device(usb_device_t* udev)
 {
     int tries;
     int error;
@@ -226,66 +260,68 @@ int init_usb_device(usb_device_t* device)
     tries = 4;
 
     do {
-        error = usb_device_set_address(device, device->dev_addr);
+        error = usb_device_set_address(udev, udev->dev_addr);
     } while (tries-- > 0 && error);
 
     printf("Trying to get device descriptor\n");
 
-    error = usb_device_submit_ctl(device, USB_TYPE_STANDARD | USB_TYPE_DEV_IN, USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8, 0, 8, &device->desc, 8);
+    error = usb_device_submit_ctl(udev, USB_TYPE_STANDARD | USB_TYPE_DEV_IN, USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8, 0, 8, &udev->desc, 8);
 
     if (error)
         kernel_panic("Failed to get descriptor?");
     // return error;
 
     printf("Got device descriptor!\n");
-    printf("len: %d\n", device->desc.length);
-    printf("type: %d\n", device->desc.type);
-    printf("usb version: %d\n", device->desc.bcd_usb);
-    printf("usb device class: %d\n", device->desc.dev_class);
-    printf("usb device subclass: %d\n", device->desc.dev_subclass);
-    printf("usb device protocol: %d\n", device->desc.dev_prot);
-    printf("usb max packet size: %d\n", device->desc.max_pckt_size);
+    printf("len: %d\n", udev->desc.length);
+    printf("type: %d\n", udev->desc.type);
+    printf("usb version: %d\n", udev->desc.bcd_usb);
+    printf("usb device class: %d\n", udev->desc.dev_class);
+    printf("usb device subclass: %d\n", udev->desc.dev_subclass);
+    printf("usb device protocol: %d\n", udev->desc.dev_prot);
+    printf("usb max packet size: %d\n", udev->desc.max_pckt_size);
 
     error = usb_device_get_descriptor(
-        device,
+        udev,
         USB_DT_DEVICE,
         0,
         0,
-        &device->desc,
-        sizeof(device->desc));
+        &udev->desc,
+        sizeof(udev->desc));
 
     if (error)
         return error;
 
     device_identify(
-        device->device,
-        device->desc.vendor_id,
-        device->desc.product_id,
-        device->desc.dev_class,
-        device->desc.dev_subclass);
+        udev->device,
+        udev->desc.vendor_id,
+        udev->desc.product_id,
+        udev->desc.dev_class,
+        udev->desc.dev_subclass);
 
     KLOG_DBG("USB Device (%s) vendor_id: 0x%x, device_id: 0x%x, class-subclass: 0x%x:%x, config count: %d\n",
-        device->device->name,
-        device->device->vendor_id,
-        device->device->device_id,
-        device->device->class,
-        device->device->subclass,
-        device->desc.config_count);
+        udev->device->name,
+        udev->device->vendor_id,
+        udev->device->device_id,
+        udev->device->class,
+        udev->device->subclass,
+        udev->desc.config_count);
 
     /* Allocate and retrieve the configurations */
-    device->config_count = device->desc.config_count;
-    device->configuration_arr = kmalloc(sizeof(void*) * device->config_count);
-    memset(device->configuration_arr, 0, sizeof(void*) * device->config_count);
+    udev->config_count = udev->desc.config_count;
+    udev->configuration_arr = kmalloc(sizeof(void*) * udev->config_count);
+    memset(udev->configuration_arr, 0, sizeof(void*) * udev->config_count);
 
-    error = udev_init_configurations(device);
+    error = udev_init_configurations(udev);
 
     KLOG_DBG("USB Device (%s) configuration :: n_interface: %d, class-subclass-prot: %d-%d-%d\n",
-        device->device->name,
-        device->configuration_arr[0]->desc.if_num,
-        device->configuration_arr[0]->if_arr[0].desc.interface_class,
-        device->configuration_arr[0]->if_arr[0].desc.interface_subclass,
-        device->configuration_arr[0]->if_arr[0].desc.interface_protocol, );
+        udev->device->name,
+        udev->configuration_arr[0]->desc.if_num,
+        udev->configuration_arr[0]->if_arr[0].desc.interface_class,
+        udev->configuration_arr[0]->if_arr[0].desc.interface_subclass,
+        udev->configuration_arr[0]->if_arr[0].desc.interface_protocol, );
 
+    /* Register the device once we're done with initialization */
+    _register_udev(udev);
     return error;
 }
 
@@ -355,6 +391,9 @@ void destroy_usb_device(usb_device_t* device)
 {
     kernel_panic("TODO: destroy_usb_device");
     destroy_doorbell(device->req_doorbell);
+
+    /* Remove from the global udev list */
+    _unregister_udev(device);
     kfree(device);
 }
 
@@ -916,7 +955,7 @@ void deallocate_usb_xfer(usb_xfer_t* req)
  *
  * Called after both the USB subsystem AND the driver subsystem have been initialized
  */
-void init_usb_drivers()
+void load_usb_hcds()
 {
     /* Bootloader may choose to disable USB functionality */
     if (opt_parser_get_bool(KOPT_NO_USB))
@@ -937,6 +976,10 @@ void init_usb()
     Must(init_zone_allocator(&__usb_xfer_allocator, 32 * Kib, sizeof(usb_xfer_t), NULL));
 
     _root_usbhub_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
+    _usbdev_list = init_list();
 
     ASSERT_MSG(_root_usbhub_group, "Failed to create vector for hcds");
+
+    /* Make sure usb drivers are setup */
+    init_usb_drivers();
 }

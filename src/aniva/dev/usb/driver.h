@@ -1,6 +1,7 @@
 #ifndef __ANIVA_USB_DEVICE_DRIVER__
 #define __ANIVA_USB_DEVICE_DRIVER__
 
+#include "dev/manifest.h"
 #include <libk/stddef.h>
 
 struct drv_manifest;
@@ -15,11 +16,17 @@ typedef struct usb_device_ident {
 
 #define USB_DEV_IDENT(vid, did, class, subclass) \
     {                                            \
-        (vid), (did), (class), (subclass),       \
+        (vid),                                   \
+        (did),                                   \
+        (class),                                 \
+        (subclass),                              \
     }
 #define USB_END_IDENT \
     {                 \
-        0, 0, 0, 0,   \
+        0,            \
+        0,            \
+        0,            \
+        0,            \
     }
 
 /*!
@@ -33,7 +40,8 @@ typedef struct usb_driver_desc {
     int (*f_remove)(struct drv_manifest* driver, struct usb_device* device);
 } usb_driver_desc_t;
 
-int register_usb_driver(usb_driver_desc_t* desc);
+int register_usb_driver(drv_manifest_t* driver, usb_driver_desc_t* desc);
 int unregister_usb_driver(usb_driver_desc_t* desc);
 
+void init_usb_drivers();
 #endif

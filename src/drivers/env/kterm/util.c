@@ -6,10 +6,10 @@
 #include "dev/manifest.h"
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
+#include "libk/data/vector.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/node.h"
@@ -120,7 +120,14 @@ bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
     if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
         return false;
 
-    kwarnf("%16.16s: %32.32s (Loaded: %s)\n", manifest->m_url, (manifest->m_driver_file_path == nullptr) ? "Internal" : manifest->m_driver_file_path, ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
+    printf("%16.16s: %32.32s (Loaded: %s)\n", manifest->m_url, (manifest->m_driver_file_path == nullptr) ? "Internal" : manifest->m_driver_file_path, ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
+
+    FOREACH_VEC(manifest->m_dev_list, data, index)
+    {
+        device_t* dev = *(device_t**)data;
+
+        printf("  - (%d) %s\n", index, dev->name);
+    }
 
     return true;
 }
@@ -131,11 +138,9 @@ bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
 uint32_t kterm_cmd_drvinfo(const char** argv, size_t argc)
 {
     kterm_println(" - Printing drivers...");
-    kwarnf("\n");
 
     foreach_driver(print_drv_info, NULL);
 
-    kterm_println("");
     return 0;
 }
 

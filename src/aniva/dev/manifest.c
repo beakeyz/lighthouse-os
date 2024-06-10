@@ -1,5 +1,6 @@
 #include "manifest.h"
 #include "dev/core.h"
+#include "dev/device.h"
 #include "dev/driver.h"
 #include "dev/loader.h"
 #include "libk/data/vector.h"
@@ -9,6 +10,7 @@
 #include "sync/mutex.h"
 #include "system/resource.h"
 #include <libk/string.h>
+#include <stdint.h>
 
 /*
  * A single driver can't manage more devices than this. If for some reason this number is
@@ -118,7 +120,6 @@ drv_manifest_t* create_drv_manifest(aniva_driver_t* handle)
 
     if (handle) {
         ret->m_check_version = handle->m_version;
-        ret->m_url_length = get_driver_url_length(handle);
         // TODO: concat
         ret->m_url = get_driver_url(handle);
 
@@ -137,6 +138,9 @@ drv_manifest_t* create_drv_manifest(aniva_driver_t* handle)
      */
     ret->m_resources = create_resource_bundle(NULL);
 
+    ret->m_max_n_dev = DRIVER_MAX_DEV_COUNT;
+    ret->m_dev_list = create_vector(ret->m_max_n_dev, sizeof(device_t*), VEC_FLAG_NO_DUPLICATES);
+
     return ret;
 }
 
@@ -154,7 +158,6 @@ ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* han
     /* Emplace the handle and its data */
     manifest->m_handle = handle;
     manifest->m_check_version = handle->m_version;
-    manifest->m_url_length = get_driver_url_length(handle);
     manifest->m_url = get_driver_url(handle);
 
     if (!manifest->m_obj) {
@@ -197,13 +200,20 @@ void destroy_drv_manifest(drv_manifest_t* manifest)
     if (manifest->m_dep_list)
         destroy_vector(manifest->m_dep_list);
 
+    /*
+     * Murder the vector for devices
+     * TODO/FIXME: What do we do with attached devices when
+     * a driver gets destroyed?
+     */
+    destroy_vector(manifest->m_dev_list);
+
+    /* Destroy the resources */
     destroy_resource_bundle(manifest->m_resources);
 
+    /* Free strings and stuff */
     kfree((void*)manifest->m_url);
-
     if (manifest->m_driver_file_path)
         kfree((void*)manifest->m_driver_file_path);
-
     free_dmanifest(manifest);
 }
 
@@ -318,19 +328,58 @@ int manifest_gather_dependencies(drv_manifest_t* manifest)
     return 0;
 }
 
-void manifest_add_dev(struct drv_manifest* driver)
+int manifest_add_dev(struct drv_manifest* driver, device_t* device)
 {
+    ErrorOrPtr result;
+
     mutex_lock(driver->m_lock);
-    driver->m_dev_count++;
+
+    result = vector_add(driver->m_dev_list, &device);
+
     mutex_unlock(driver->m_lock);
+
+    return IsError(result) ? -KERR_NOMEM : 0;
 }
 
-void manifest_remove_dev(struct drv_manifest* driver)
+int manifest_remove_dev(struct drv_manifest* driver, device_t* device)
 {
-    if (!driver->m_dev_count)
-        return;
+    int error = -KERR_NOT_FOUND;
+    uint32_t idx = 0;
 
     mutex_lock(driver->m_lock);
-    driver->m_dev_count--;
+
+    /* Try to get the devices index */
+    if (!manifest_has_dev(driver, device, &idx))
+        goto unlock_and_exit;
+
+    /* Try to remove from the vector */
+    if (IsError(vector_remove(driver->m_dev_list, idx)))
+        goto unlock_and_exit;
+
+    error = 0;
+unlock_and_exit:
     mutex_unlock(driver->m_lock);
+    return error;
+}
+
+/*!
+ * @brief: Check if @driver is responsible for @device
+ *
+ */
+bool manifest_has_dev(struct drv_manifest* driver, struct device* device, uint32_t* p_idx)
+{
+    ErrorOrPtr result;
+
+    mutex_lock(driver->m_lock);
+
+    result = vector_indexof(driver->m_dev_list, device);
+
+    mutex_unlock(driver->m_lock);
+
+    /* Pass the index */
+    if (p_idx)
+        *p_idx = Release(result);
+
+    /* If we where able to find an index, the driver has this device */
+    return !IsError(result);
 }
