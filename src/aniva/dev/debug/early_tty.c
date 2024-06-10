@@ -14,8 +14,8 @@
  */
 
 struct simple_char {
-  char c;
-  uint32_t clr;
+    char c;
+    uint32_t clr;
 };
 
 static struct multiboot_tag_framebuffer* framebuffer;
@@ -37,221 +37,221 @@ static int etty_print(const char* str);
 static int etty_println(const char* str);
 
 logger_t early_logger = {
-  .title = "early_tty",
-  .flags = LOGGER_FLAG_INFO | LOGGER_FLAG_DEBUG | LOGGER_FLAG_WARNINGS,
-  .f_log = etty_print,
-  .f_logln = etty_println,
-  .f_logc = etty_putch,
+    .title = "early_tty",
+    .flags = LOGGER_FLAG_INFO | LOGGER_FLAG_DEBUG | LOGGER_FLAG_WARNINGS,
+    .f_log = etty_print,
+    .f_logln = etty_println,
+    .f_logc = etty_putch,
 };
 
 static ALWAYS_INLINE void __etty_pixel(uint32_t x, uint32_t y, uint32_t clr)
 {
-  /* Unsafe poke into video memory */
-  *(uint32_t volatile*)(vid_buffer + framebuffer->common.framebuffer_pitch * y + x * framebuffer->common.framebuffer_bpp / 8) = clr;
+    /* Unsafe poke into video memory */
+    *(uint32_t volatile*)(vid_buffer + framebuffer->common.framebuffer_pitch * y + x * framebuffer->common.framebuffer_bpp / 8) = clr;
 }
 
 static inline struct simple_char* get_simple_char_at(uint32_t x, uint32_t y)
 {
-  return &_char_list[y * char_xres + x];
+    return &_char_list[y * char_xres + x];
 }
 
 static int etty_draw_char_ex(uint32_t x, uint32_t y, char c, uint32_t clr, bool force_update)
 {
-  struct simple_char* s_char;
-  uint32_t char_xstart, char_ystart;
-  uint8_t* glyph;
+    struct simple_char* s_char;
+    uint32_t char_xstart, char_ystart;
+    uint8_t* glyph;
 
-  s_char = get_simple_char_at(x, y);
+    s_char = get_simple_char_at(x, y);
 
-  if (!s_char)
-    return 0;
+    if (!s_char)
+        return 0;
 
-  /* If we force this update then it's all good */
-  if (s_char->c == c && s_char->clr == clr && !force_update)
-    return 0;
+    /* If we force this update then it's all good */
+    if (s_char->c == c && s_char->clr == clr && !force_update)
+        return 0;
 
-  glyph = NULL;
-  char_xstart = x * etty_font->width;
-  char_ystart = y * etty_font->height;
+    glyph = NULL;
+    char_xstart = x * etty_font->width;
+    char_ystart = y * etty_font->height;
 
-  if (get_glyph_for_char(etty_font, c, &glyph) || !glyph)
-    return -1;
+    if (get_glyph_for_char(etty_font, c, &glyph) || !glyph)
+        return -1;
 
-  s_char->clr = clr;
-  s_char->c = c;
+    s_char->clr = clr;
+    s_char->c = c;
 
-  for (uint32_t i = 0; i < etty_font->height; i++) {
-    for (uint32_t j = 0; j < etty_font->width; j++) {
-      if (glyph[i] & (1 << j))
-        __etty_pixel(char_xstart + j, char_ystart + i, clr);
-      else 
-        __etty_pixel(char_xstart + j, char_ystart + i, BLACK);
+    for (uint32_t i = 0; i < etty_font->height; i++) {
+        for (uint32_t j = 0; j < etty_font->width; j++) {
+            if (glyph[i] & (1 << j))
+                __etty_pixel(char_xstart + j, char_ystart + i, clr);
+            else
+                __etty_pixel(char_xstart + j, char_ystart + i, BLACK);
+        }
     }
-  }
 
-  return 0;
+    return 0;
 }
 
 static inline int etty_draw_char(uint32_t x, uint32_t y, char c, uint32_t clr)
 {
-  return etty_draw_char_ex(x, y, c, clr, false);
+    return etty_draw_char_ex(x, y, c, clr, false);
 }
 
 static inline void etty_clear()
 {
-  for (uint32_t y = 0; y < char_yres; y++) {
-    for (uint32_t x = 0; x < char_xres; x++) {
-      etty_draw_char_ex(x, y, NULL, BLACK, true);
+    for (uint32_t y = 0; y < char_yres; y++) {
+        for (uint32_t x = 0; x < char_xres; x++) {
+            etty_draw_char_ex(x, y, NULL, BLACK, true);
+        }
     }
-  }
 }
 
 void init_early_tty()
 {
-  struct multiboot_tag_framebuffer* fb;
+    struct multiboot_tag_framebuffer* fb;
 
-  get_default_font(&etty_font);
+    get_default_font(&etty_font);
 
-  fb = g_system_info.firmware_fb;
+    fb = g_system_info.firmware_fb;
 
-  framebuffer = fb;
-  y_idx = 0;
-  x_idx = 0;
+    framebuffer = fb;
+    y_idx = 0;
+    x_idx = 0;
 
-  _early_tty_mtx = create_mutex(NULL);
-  char_xres = fb->common.framebuffer_width / etty_font->width;
-  char_yres = fb->common.framebuffer_height / etty_font->height;
+    _early_tty_mtx = create_mutex(NULL);
+    char_xres = fb->common.framebuffer_width / etty_font->width;
+    char_yres = fb->common.framebuffer_height / etty_font->height;
 
-  vid_buffer = Must(__kmem_kernel_alloc(fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    vid_buffer = Must(__kmem_kernel_alloc(fb->common.framebuffer_addr, fb->common.framebuffer_pitch * fb->common.framebuffer_height, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-  KLOG_DBG("Framebuffer: 0x%llx\n", vid_buffer);
+    KLOG_DBG("Framebuffer: 0x%llx\n", vid_buffer);
 
-  /*
-   * Allocate a range for our characters
-   */
-  _char_list_size = char_xres * char_yres * sizeof(struct simple_char);
-  _char_list = (void*)Must(__kmem_kernel_alloc_range(_char_list_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    /*
+     * Allocate a range for our characters
+     */
+    _char_list_size = char_xres * char_yres * sizeof(struct simple_char);
+    _char_list = (void*)Must(__kmem_kernel_alloc_range(_char_list_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-  memset(_char_list, 0, _char_list_size);
+    memset(_char_list, 0, _char_list_size);
 
-  etty_clear();
+    etty_clear();
 
-  /* Make sure we're installed */
-  register_logger(&early_logger);
+    /* Make sure we're installed */
+    register_logger(&early_logger);
 
-  g_system_info.sys_flags |= SYSFLAGS_HAS_EARLY_TTY;
+    g_system_info.sys_flags |= SYSFLAGS_HAS_EARLY_TTY;
 }
 
 void destroy_early_tty()
 {
-  if ((g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) != SYSFLAGS_HAS_EARLY_TTY)
-    return;
+    if ((g_system_info.sys_flags & SYSFLAGS_HAS_EARLY_TTY) != SYSFLAGS_HAS_EARLY_TTY)
+        return;
 
-  unregister_logger(&early_logger);
+    unregister_logger(&early_logger);
 
-  /* Kill the lock */
-  destroy_mutex(_early_tty_mtx);
+    /* Kill the lock */
+    destroy_mutex(_early_tty_mtx);
 
-  /* Clear the screen */
-  etty_clear();
+    /* Clear the screen */
+    etty_clear();
 
-  /* Signal to the kernel that the early tty has gone */
-  g_system_info.sys_flags &= ~SYSFLAGS_HAS_EARLY_TTY;
+    /* Signal to the kernel that the early tty has gone */
+    g_system_info.sys_flags &= ~SYSFLAGS_HAS_EARLY_TTY;
 
-  /* Deallocate the char list */
-  __kmem_kernel_dealloc((vaddr_t)_char_list, _char_list_size);
+    /* Deallocate the char list */
+    __kmem_kernel_dealloc((vaddr_t)_char_list, _char_list_size);
 }
 
 static void etty_scroll(uint32_t lines)
 {
-  struct simple_char* c_char;
+    struct simple_char* c_char;
 
-  if (!lines)
-    return;
+    if (!lines)
+        return;
 
-  for (uint32_t y = lines; y < char_yres; y++) {
-    for (uint32_t x = 0; x < char_xres; x++) {
-      c_char = get_simple_char_at(x, y);
+    for (uint32_t y = lines; y < char_yres; y++) {
+        for (uint32_t x = 0; x < char_xres; x++) {
+            c_char = get_simple_char_at(x, y);
 
-      etty_draw_char_ex(x, y-lines, c_char->c, c_char->clr, false);
+            etty_draw_char_ex(x, y - lines, c_char->c, c_char->clr, false);
+        }
     }
-  }
 
-  for (uint32_t y = (char_yres - lines); y < char_yres; y++)
-    for (uint32_t x = 0; x < char_xres; x++)
-      etty_draw_char_ex(x, y, NULL, BLACK, false);
+    for (uint32_t y = (char_yres - lines); y < char_yres; y++)
+        for (uint32_t x = 0; x < char_xres; x++)
+            etty_draw_char_ex(x, y, NULL, BLACK, false);
 
-  y_idx -= lines;
+    y_idx -= lines;
 }
 
 static int _etty_shift_x_idx()
 {
-  x_idx++;
-  
-  if (x_idx >= char_xres) {
-    x_idx = 0;
-    y_idx++;
-  }
+    x_idx++;
 
-  if (y_idx >= char_yres) {
-    etty_scroll(1);
-  }
+    if (x_idx >= char_xres) {
+        x_idx = 0;
+        y_idx++;
+    }
 
-  return 0;
+    if (y_idx >= char_yres) {
+        etty_scroll(1);
+    }
+
+    return 0;
 }
 
 int etty_putch(char c)
 {
-  mutex_lock(_early_tty_mtx);
+    mutex_lock(_early_tty_mtx);
 
-  if (c == '\n') {
-    x_idx = 0;
-    y_idx++;
+    if (c == '\n') {
+        x_idx = 0;
+        y_idx++;
 
-    if (y_idx >= char_yres)
-      etty_scroll(1);
-  } else {
-    etty_draw_char(x_idx, y_idx, c, WHITE);
-    _etty_shift_x_idx();
-  }
+        if (y_idx >= char_yres)
+            etty_scroll(1);
+    } else {
+        etty_draw_char(x_idx, y_idx, c, WHITE);
+        _etty_shift_x_idx();
+    }
 
-  mutex_unlock(_early_tty_mtx);
-  return 0;
+    mutex_unlock(_early_tty_mtx);
+    return 0;
 }
 
 int etty_print(const char* str)
 {
-  if (!str)
-    return 0;
+    if (!str)
+        return 0;
 
-  mutex_lock(_early_tty_mtx);
+    mutex_lock(_early_tty_mtx);
 
-  while (*str) {
+    while (*str) {
 
-    if (*str == '\n') {
-      x_idx = 0;
-      y_idx++;
+        if (*str == '\n') {
+            x_idx = 0;
+            y_idx++;
 
-      if (y_idx >= char_yres)
-        etty_scroll(1);
+            if (y_idx >= char_yres)
+                etty_scroll(1);
 
-      goto next;
+            goto next;
+        }
+
+        etty_draw_char(x_idx, y_idx, *str, WHITE);
+
+        _etty_shift_x_idx();
+
+    next:
+        str++;
     }
 
-    etty_draw_char(x_idx, y_idx, *str, WHITE);
-
-    _etty_shift_x_idx();
-
-next:
-    str++;
-  }
-
-  mutex_unlock(_early_tty_mtx);
-  return 0;
+    mutex_unlock(_early_tty_mtx);
+    return 0;
 }
 
 int etty_println(const char* str)
 {
-  etty_print(str);
-  return etty_print("\n");
+    etty_print(str);
+    return etty_print("\n");
 }

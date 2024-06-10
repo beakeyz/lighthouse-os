@@ -3,46 +3,46 @@
 #include "dev/driver.h"
 #include "fs/ext2/core.h"
 #include "oss/node.h"
+#include <fs/core.h>
+#include <libk/flow/error.h>
 #include <libk/stddef.h>
 #include <libk/string.h>
-#include <libk/flow/error.h>
-#include <fs/core.h>
 
 int ext2_init();
 int ext2_exit();
 
 typedef struct ext2_info {
-  uint32_t blocksize;
-  uint32_t inodes_per_group;
-  uint32_t inode_size;
-  uint32_t blocks_group_count;
+    uint32_t blocksize;
+    uint32_t inodes_per_group;
+    uint32_t inode_size;
+    uint32_t blocks_group_count;
 } ext2_info_t;
 
 struct ext2 {
 
-  struct ext2_superblock*               m_superblock;
-  struct ext2_block_group_descriptor*   m_block_group_descriptor;
+    struct ext2_superblock* m_superblock;
+    struct ext2_block_group_descriptor* m_block_group_descriptor;
 
-  partitioned_disk_dev_t*               m_device;
+    partitioned_disk_dev_t* m_device;
 
-  /* stats of this ext2 filesystem */
-  ext2_info_t                           m_info;
-  
+    /* stats of this ext2 filesystem */
+    ext2_info_t m_info;
 };
 
 struct ext2_superblock* fetch_superblock();
 
-oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device) {
+oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device)
+{
 
-  ASSERT_MSG(device, "Can't initialize ext2 fs without a disk device");
+    ASSERT_MSG(device, "Can't initialize ext2 fs without a disk device");
 
-  //ext2_superblock_t* superblock = kmalloc(sizeof(ext2_superblock_t));
+    // ext2_superblock_t* superblock = kmalloc(sizeof(ext2_superblock_t));
 
-  //read_sync_partitioned_blocks(device, superblock, get_blockcount(device->m_parent, sizeof(ext2_superblock_t)), 1);
+    // read_sync_partitioned_blocks(device, superblock, get_blockcount(device->m_parent, sizeof(ext2_superblock_t)), 1);
 
-  // TODO: =)
+    // TODO: =)
 
-  return 0;
+    return 0;
 }
 
 /*
@@ -50,39 +50,39 @@ oss_node_t* ext2_mount(fs_type_t* type, const char* mountpoint, partitioned_disk
  * If there is no ahci driver, we would be fucked in this case lol
  */
 aniva_driver_t ext2_drv = {
-  .m_name = "ext2",
-  .m_type = DT_FS,
-  .f_init = ext2_init,
-  .f_exit = ext2_exit,
+    .m_name = "ext2",
+    .m_type = DT_FS,
+    .f_init = ext2_init,
+    .f_exit = ext2_exit,
 };
 EXPORT_DRIVER_PTR(ext2_drv);
 
 fs_type_t ext2_type = {
-  .m_driver = &ext2_drv,
-  .m_name = "ext2",
-  .f_mount = ext2_mount,
+    .m_driver = &ext2_drv,
+    .m_name = "ext2",
+    .f_mount = ext2_mount,
 };
 
-int ext2_init() 
+int ext2_init()
 {
-  ErrorOrPtr result;
+    ErrorOrPtr result;
 
-  result = register_filesystem(&ext2_type);
+    result = register_filesystem(&ext2_type);
 
-  if (result.m_status == ANIVA_FAIL)
-    return -1;
+    if (result.m_status == ANIVA_FAIL)
+        return -1;
 
-  // kernel_panic("Registered the ext2 filesystem...");
-  return 0;
+    // kernel_panic("Registered the ext2 filesystem...");
+    return 0;
 }
 
-int ext2_exit() {
+int ext2_exit()
+{
 
-  ErrorOrPtr result = unregister_filesystem(&ext2_type);
+    ErrorOrPtr result = unregister_filesystem(&ext2_type);
 
-  if (result.m_status == ANIVA_FAIL)
-    return -1;
+    if (result.m_status == ANIVA_FAIL)
+        return -1;
 
-  return 0;
+    return 0;
 }
-

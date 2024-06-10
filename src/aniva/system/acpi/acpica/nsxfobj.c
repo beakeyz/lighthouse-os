@@ -152,13 +152,12 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nsxfobj")
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nsxfobj")
 
 /*******************************************************************************
  *
@@ -175,52 +174,46 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetType (
-    ACPI_HANDLE             Handle,
-    ACPI_OBJECT_TYPE        *RetType)
+AcpiGetType(
+    ACPI_HANDLE Handle,
+    ACPI_OBJECT_TYPE* RetType)
 {
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_STATUS             Status;
-
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_STATUS Status;
 
     /* Parameter Validation */
 
-    if (!RetType)
-    {
+    if (!RetType) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Special case for the predefined Root Node (return type ANY) */
 
-    if (Handle == ACPI_ROOT_OBJECT)
-    {
+    if (Handle == ACPI_ROOT_OBJECT) {
         *RetType = ACPI_TYPE_ANY;
         return (AE_OK);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Convert and validate the handle */
 
-    Node = AcpiNsValidateHandle (Handle);
-    if (!Node)
-    {
-        (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    Node = AcpiNsValidateHandle(Handle);
+    if (!Node) {
+        (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
         return (AE_BAD_PARAMETER);
     }
 
     *RetType = Node->Type;
 
-    Status = AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    Status = AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetType)
-
+ACPI_EXPORT_SYMBOL(AcpiGetType)
 
 /*******************************************************************************
  *
@@ -237,38 +230,33 @@ ACPI_EXPORT_SYMBOL (AcpiGetType)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetParent (
-    ACPI_HANDLE             Handle,
-    ACPI_HANDLE             *RetHandle)
+AcpiGetParent(
+    ACPI_HANDLE Handle,
+    ACPI_HANDLE* RetHandle)
 {
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_NAMESPACE_NODE     *ParentNode;
-    ACPI_STATUS             Status;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_NAMESPACE_NODE* ParentNode;
+    ACPI_STATUS Status;
 
-
-    if (!RetHandle)
-    {
+    if (!RetHandle) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Special case for the predefined Root Node (no parent) */
 
-    if (Handle == ACPI_ROOT_OBJECT)
-    {
+    if (Handle == ACPI_ROOT_OBJECT) {
         return (AE_NULL_ENTRY);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Convert and validate the handle */
 
-    Node = AcpiNsValidateHandle (Handle);
-    if (!Node)
-    {
+    Node = AcpiNsValidateHandle(Handle);
+    if (!Node) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
@@ -276,24 +264,21 @@ AcpiGetParent (
     /* Get the parent entry */
 
     ParentNode = Node->Parent;
-    *RetHandle = ACPI_CAST_PTR (ACPI_HANDLE, ParentNode);
+    *RetHandle = ACPI_CAST_PTR(ACPI_HANDLE, ParentNode);
 
     /* Return exception if parent is null */
 
-    if (!ParentNode)
-    {
+    if (!ParentNode) {
         Status = AE_NULL_ENTRY;
     }
 
-
 UnlockAndExit:
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetParent)
-
+ACPI_EXPORT_SYMBOL(AcpiGetParent)
 
 /*******************************************************************************
  *
@@ -314,52 +299,44 @@ ACPI_EXPORT_SYMBOL (AcpiGetParent)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetNextObject (
-    ACPI_OBJECT_TYPE        Type,
-    ACPI_HANDLE             Parent,
-    ACPI_HANDLE             Child,
-    ACPI_HANDLE             *RetHandle)
+AcpiGetNextObject(
+    ACPI_OBJECT_TYPE Type,
+    ACPI_HANDLE Parent,
+    ACPI_HANDLE Child,
+    ACPI_HANDLE* RetHandle)
 {
-    ACPI_STATUS             Status;
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_NAMESPACE_NODE     *ParentNode = NULL;
-    ACPI_NAMESPACE_NODE     *ChildNode = NULL;
-
+    ACPI_STATUS Status;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_NAMESPACE_NODE* ParentNode = NULL;
+    ACPI_NAMESPACE_NODE* ChildNode = NULL;
 
     /* Parameter validation */
 
-    if (Type > ACPI_TYPE_EXTERNAL_MAX)
-    {
+    if (Type > ACPI_TYPE_EXTERNAL_MAX) {
         return (AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* If null handle, use the parent */
 
-    if (!Child)
-    {
+    if (!Child) {
         /* Start search at the beginning of the specified scope */
 
-        ParentNode = AcpiNsValidateHandle (Parent);
-        if (!ParentNode)
-        {
+        ParentNode = AcpiNsValidateHandle(Parent);
+        if (!ParentNode) {
             Status = AE_BAD_PARAMETER;
             goto UnlockAndExit;
         }
-    }
-    else
-    {
+    } else {
         /* Non-null handle, ignore the parent */
         /* Convert and validate the handle */
 
-        ChildNode = AcpiNsValidateHandle (Child);
-        if (!ChildNode)
-        {
+        ChildNode = AcpiNsValidateHandle(Child);
+        if (!ChildNode) {
             Status = AE_BAD_PARAMETER;
             goto UnlockAndExit;
         }
@@ -367,23 +344,20 @@ AcpiGetNextObject (
 
     /* Internal function does the real work */
 
-    Node = AcpiNsGetNextNodeTyped (Type, ParentNode, ChildNode);
-    if (!Node)
-    {
+    Node = AcpiNsGetNextNodeTyped(Type, ParentNode, ChildNode);
+    if (!Node) {
         Status = AE_NOT_FOUND;
         goto UnlockAndExit;
     }
 
-    if (RetHandle)
-    {
-        *RetHandle = ACPI_CAST_PTR (ACPI_HANDLE, Node);
+    if (RetHandle) {
+        *RetHandle = ACPI_CAST_PTR(ACPI_HANDLE, Node);
     }
-
 
 UnlockAndExit:
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetNextObject)
+ACPI_EXPORT_SYMBOL(AcpiGetNextObject)

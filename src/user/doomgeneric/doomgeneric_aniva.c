@@ -2,10 +2,10 @@
 #include "LibGfx/include/events.h"
 #include "LibGfx/include/lgfx.h"
 #include "LibGfx/include/video.h"
+#include "doomgeneric.h"
+#include "doomkeys.h"
 #include "lightos/event/key.h"
 #include "lightos/proc/process.h"
-#include "doomkeys.h"
-#include "doomgeneric.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -25,18 +25,18 @@ lframebuffer_t fb;
  */
 void DG_Init()
 {
-  BOOL res;
+    BOOL res;
 
-  /* Initialize the graphics API */
-  res = request_lwindow(&window, DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
+    /* Initialize the graphics API */
+    res = request_lwindow(&window, DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
 
-  if (!res)
-    I_Error("Could not request window!");
+    if (!res)
+        I_Error("Could not request window!");
 
-  res = lwindow_request_framebuffer(&window, &fb);
+    res = lwindow_request_framebuffer(&window, &fb);
 
-  if (!res)
-    I_Error("Could not request framebuffer!");
+    if (!res)
+        I_Error("Could not request framebuffer!");
 }
 
 /*!
@@ -44,10 +44,10 @@ void DG_Init()
  */
 void DG_DrawFrame()
 {
-  lwindow_draw_buffer(&window, 0, 0, window.current_width, window.current_height, (lcolor_t*)DG_ScreenBuffer);
+    lwindow_draw_buffer(&window, 0, 0, window.current_width, window.current_height, (lcolor_t*)DG_ScreenBuffer);
 
-  /* Get keys from the server */
-  get_key_event(&window, NULL);
+    /* Get keys from the server */
+    get_key_event(&window, NULL);
 }
 
 /*!
@@ -55,7 +55,7 @@ void DG_DrawFrame()
  */
 void DG_SleepMs(uint32_t ms)
 {
-  usleep(ms * 1000);
+    usleep(ms * 1000);
 }
 
 /*!
@@ -63,56 +63,56 @@ void DG_SleepMs(uint32_t ms)
  */
 uint32_t DG_GetTicksMs()
 {
-  /*
-   * TODO: this is currently just in 'ticks' (AKA scheduler ticks) 
-   * but we'll need a way to convert this into milliseconds
-   */
-  return get_process_time() * 3;
+    /*
+     * TODO: this is currently just in 'ticks' (AKA scheduler ticks)
+     * but we'll need a way to convert this into milliseconds
+     */
+    return get_process_time() * 3;
 }
 
 static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
 {
-  switch (keycode) {
+    switch (keycode) {
     case ANIVA_SCANCODE_LCTRL:
     case ANIVA_SCANCODE_RCTRL:
-      return KEY_FIRE;
+        return KEY_FIRE;
     case ANIVA_SCANCODE_SPACE:
-      return KEY_USE;
+        return KEY_USE;
     case ANIVA_SCANCODE_RSHIFT:
     case ANIVA_SCANCODE_LSHIFT:
-      return KEY_RSHIFT;
+        return KEY_RSHIFT;
     case ANIVA_SCANCODE_RALT:
     case ANIVA_SCANCODE_LALT:
-      return KEY_LALT;
+        return KEY_LALT;
     case ANIVA_SCANCODE_UP:
-      return KEY_UPARROW;
+        return KEY_UPARROW;
     case ANIVA_SCANCODE_DOWN:
-      return KEY_DOWNARROW;
+        return KEY_DOWNARROW;
     case ANIVA_SCANCODE_LEFT:
-      return KEY_LEFTARROW;
+        return KEY_LEFTARROW;
     case ANIVA_SCANCODE_RIGHT:
-      return KEY_RIGHTARROW;
+        return KEY_RIGHTARROW;
     case ANIVA_SCANCODE_ESCAPE:
-      return KEY_ESCAPE;
+        return KEY_ESCAPE;
 
     /* WASD-rebinds */
     case ANIVA_SCANCODE_A:
-      return KEY_STRAFE_L;
+        return KEY_STRAFE_L;
     case ANIVA_SCANCODE_D:
-      return KEY_STRAFE_R;
+        return KEY_STRAFE_R;
     case ANIVA_SCANCODE_W:
-      return KEY_UPARROW;
+        return KEY_UPARROW;
     case ANIVA_SCANCODE_S:
-      return KEY_DOWNARROW;
+        return KEY_DOWNARROW;
     case ANIVA_SCANCODE_Q:
-      return KEY_LEFTARROW;
+        return KEY_LEFTARROW;
     case ANIVA_SCANCODE_E:
-      return KEY_RIGHTARROW;
+        return KEY_RIGHTARROW;
     case ANIVA_SCANCODE_EQUALS:
-      return KEY_EQUALS;
+        return KEY_EQUALS;
     default:
-      return keycode;
-  }
+        return keycode;
+    }
 }
 
 /*!
@@ -120,30 +120,30 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
  */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
-  BOOL has_event;
-  lkey_event_t keyevent;
+    BOOL has_event;
+    lkey_event_t keyevent;
 
-  has_event = get_key_event(&window, &keyevent);
+    has_event = get_key_event(&window, &keyevent);
 
-  if (!has_event)
-    return 0;
+    if (!has_event)
+        return 0;
 
-  *pressed = keyevent.pressed;
-  *doomKey = aniva_keycode_to_doomkey(keyevent.keycode);
+    *pressed = keyevent.pressed;
+    *doomKey = aniva_keycode_to_doomkey(keyevent.keycode);
 
-  return 1;
+    return 1;
 }
 
-void DG_SetWindowTitle(const char * title)
+void DG_SetWindowTitle(const char* title)
 {
 }
 
 /* Our own argv and argc vars, since our system does not have those yet =)))) */
 char* argv[] = {
-  "doom",
-  "-testcontrols",
-  "-iwad",
-  "Root/Apps/doom1.wad",
+    "doom",
+    "-testcontrols",
+    "-iwad",
+    "Root/Apps/doom1.wad",
 };
 const int argc = 4;
 
@@ -152,12 +152,11 @@ const int argc = 4;
  */
 int main(/* int argc, char **argv */)
 {
-  doomgeneric_Create(argc, argv);
+    doomgeneric_Create(argc, argv);
 
-  for (;;)
-  {
-      doomgeneric_Tick();
-  }
-  
-  return 0;
+    for (;;) {
+        doomgeneric_Tick();
+    }
+
+    return 0;
 }

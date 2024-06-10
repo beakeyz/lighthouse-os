@@ -149,18 +149,16 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acdispat.h"
+#include "acinterp.h"
 #include "acnamesp.h"
 #include "acparser.h"
-#include "acdispat.h"
+#include "acpi.h"
 #include "actables.h"
-#include "acinterp.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nsparse")
-
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nsparse")
 
 /*******************************************************************************
  *
@@ -186,62 +184,55 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsExecuteTable (
-    UINT32                  TableIndex,
-    ACPI_NAMESPACE_NODE     *StartNode)
+AcpiNsExecuteTable(
+    UINT32 TableIndex,
+    ACPI_NAMESPACE_NODE* StartNode)
 {
-    ACPI_STATUS             Status;
-    ACPI_TABLE_HEADER       *Table;
-    ACPI_OWNER_ID           OwnerId;
-    ACPI_EVALUATE_INFO      *Info = NULL;
-    UINT32                  AmlLength;
-    UINT8                   *AmlStart;
-    ACPI_OPERAND_OBJECT     *MethodObj = NULL;
+    ACPI_STATUS Status;
+    ACPI_TABLE_HEADER* Table;
+    ACPI_OWNER_ID OwnerId;
+    ACPI_EVALUATE_INFO* Info = NULL;
+    UINT32 AmlLength;
+    UINT8* AmlStart;
+    ACPI_OPERAND_OBJECT* MethodObj = NULL;
 
+    ACPI_FUNCTION_TRACE(NsExecuteTable);
 
-    ACPI_FUNCTION_TRACE (NsExecuteTable);
-
-
-    Status = AcpiGetTableByIndex (TableIndex, &Table);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiGetTableByIndex(TableIndex, &Table);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Table must consist of at least a complete header */
 
-    if (Table->Length < sizeof (ACPI_TABLE_HEADER))
-    {
-        return_ACPI_STATUS (AE_BAD_HEADER);
+    if (Table->Length < sizeof(ACPI_TABLE_HEADER)) {
+        return_ACPI_STATUS(AE_BAD_HEADER);
     }
 
-    AmlStart = (UINT8 *) Table + sizeof (ACPI_TABLE_HEADER);
-    AmlLength = Table->Length - sizeof (ACPI_TABLE_HEADER);
+    AmlStart = (UINT8*)Table + sizeof(ACPI_TABLE_HEADER);
+    AmlLength = Table->Length - sizeof(ACPI_TABLE_HEADER);
 
-    Status = AcpiTbGetOwnerId (TableIndex, &OwnerId);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiTbGetOwnerId(TableIndex, &OwnerId);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Create, initialize, and link a new temporary method object */
 
-    MethodObj = AcpiUtCreateInternalObject (ACPI_TYPE_METHOD);
-    if (!MethodObj)
-    {
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    MethodObj = AcpiUtCreateInternalObject(ACPI_TYPE_METHOD);
+    if (!MethodObj) {
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
     /* Allocate the evaluation information block */
 
-    Info = ACPI_ALLOCATE_ZEROED (sizeof (ACPI_EVALUATE_INFO));
-    if (!Info)
-    {
+    Info = ACPI_ALLOCATE_ZEROED(sizeof(ACPI_EVALUATE_INFO));
+    if (!Info) {
         Status = AE_NO_MEMORY;
         goto Cleanup;
     }
 
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_PARSE,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_PARSE,
         "%s: Create table pseudo-method for [%4.4s] @%p, method %p\n",
         ACPI_GET_FUNCTION_NAME, Table->Signature, Table, MethodObj));
 
@@ -254,36 +245,33 @@ AcpiNsExecuteTable (
     Info->Node = StartNode;
     Info->ObjDesc = MethodObj;
     Info->NodeFlags = Info->Node->Flags;
-    Info->FullPathname = AcpiNsGetNormalizedPathname (Info->Node, TRUE);
-    if (!Info->FullPathname)
-    {
+    Info->FullPathname = AcpiNsGetNormalizedPathname(Info->Node, TRUE);
+    if (!Info->FullPathname) {
         Status = AE_NO_MEMORY;
         goto Cleanup;
     }
 
     /* Optional object evaluation log */
 
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_EVALUATION,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_EVALUATION,
         "%-26s:  (Definition Block level)\n", "Module-level evaluation"));
 
-    Status = AcpiPsExecuteTable (Info);
+    Status = AcpiPsExecuteTable(Info);
 
     /* Optional object evaluation log */
 
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_EVALUATION,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_EVALUATION,
         "%-26s:  (Definition Block level)\n", "Module-level complete"));
 
 Cleanup:
-    if (Info)
-    {
-        ACPI_FREE (Info->FullPathname);
+    if (Info) {
+        ACPI_FREE(Info->FullPathname);
         Info->FullPathname = NULL;
     }
-    ACPI_FREE (Info);
-    AcpiUtRemoveReference (MethodObj);
-    return_ACPI_STATUS (Status);
+    ACPI_FREE(Info);
+    AcpiUtRemoveReference(MethodObj);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -299,104 +287,91 @@ Cleanup:
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsOneCompleteParse (
-    UINT32                  PassNumber,
-    UINT32                  TableIndex,
-    ACPI_NAMESPACE_NODE     *StartNode)
+AcpiNsOneCompleteParse(
+    UINT32 PassNumber,
+    UINT32 TableIndex,
+    ACPI_NAMESPACE_NODE* StartNode)
 {
-    ACPI_PARSE_OBJECT       *ParseRoot;
-    ACPI_STATUS             Status;
-    UINT32                  AmlLength;
-    UINT8                   *AmlStart;
-    ACPI_WALK_STATE         *WalkState;
-    ACPI_TABLE_HEADER       *Table;
-    ACPI_OWNER_ID           OwnerId;
+    ACPI_PARSE_OBJECT* ParseRoot;
+    ACPI_STATUS Status;
+    UINT32 AmlLength;
+    UINT8* AmlStart;
+    ACPI_WALK_STATE* WalkState;
+    ACPI_TABLE_HEADER* Table;
+    ACPI_OWNER_ID OwnerId;
 
+    ACPI_FUNCTION_TRACE(NsOneCompleteParse);
 
-    ACPI_FUNCTION_TRACE (NsOneCompleteParse);
-
-
-    Status = AcpiGetTableByIndex (TableIndex, &Table);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiGetTableByIndex(TableIndex, &Table);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Table must consist of at least a complete header */
 
-    if (Table->Length < sizeof (ACPI_TABLE_HEADER))
-    {
-        return_ACPI_STATUS (AE_BAD_HEADER);
+    if (Table->Length < sizeof(ACPI_TABLE_HEADER)) {
+        return_ACPI_STATUS(AE_BAD_HEADER);
     }
 
-    AmlStart = (UINT8 *) Table + sizeof (ACPI_TABLE_HEADER);
-    AmlLength = Table->Length - sizeof (ACPI_TABLE_HEADER);
+    AmlStart = (UINT8*)Table + sizeof(ACPI_TABLE_HEADER);
+    AmlLength = Table->Length - sizeof(ACPI_TABLE_HEADER);
 
-    Status = AcpiTbGetOwnerId (TableIndex, &OwnerId);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiTbGetOwnerId(TableIndex, &OwnerId);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Create and init a Root Node */
 
-    ParseRoot = AcpiPsCreateScopeOp (AmlStart);
-    if (!ParseRoot)
-    {
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    ParseRoot = AcpiPsCreateScopeOp(AmlStart);
+    if (!ParseRoot) {
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
     /* Create and initialize a new walk state */
 
-    WalkState = AcpiDsCreateWalkState (OwnerId, NULL, NULL, NULL);
-    if (!WalkState)
-    {
-        AcpiPsFreeOp (ParseRoot);
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    WalkState = AcpiDsCreateWalkState(OwnerId, NULL, NULL, NULL);
+    if (!WalkState) {
+        AcpiPsFreeOp(ParseRoot);
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
-    Status = AcpiDsInitAmlWalk (WalkState, ParseRoot, NULL,
-        AmlStart, AmlLength, NULL, (UINT8) PassNumber);
-    if (ACPI_FAILURE (Status))
-    {
-        AcpiDsDeleteWalkState (WalkState);
+    Status = AcpiDsInitAmlWalk(WalkState, ParseRoot, NULL,
+        AmlStart, AmlLength, NULL, (UINT8)PassNumber);
+    if (ACPI_FAILURE(Status)) {
+        AcpiDsDeleteWalkState(WalkState);
         goto Cleanup;
     }
 
     /* Found OSDT table, enable the namespace override feature */
 
-    if (ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_OSDT) &&
-        PassNumber == ACPI_IMODE_LOAD_PASS1)
-    {
+    if (ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_OSDT) && PassNumber == ACPI_IMODE_LOAD_PASS1) {
         WalkState->NamespaceOverride = TRUE;
     }
 
     /* StartNode is the default location to load the table  */
 
-    if (StartNode && StartNode != AcpiGbl_RootNode)
-    {
-        Status = AcpiDsScopeStackPush (
+    if (StartNode && StartNode != AcpiGbl_RootNode) {
+        Status = AcpiDsScopeStackPush(
             StartNode, ACPI_TYPE_METHOD, WalkState);
-        if (ACPI_FAILURE (Status))
-        {
-            AcpiDsDeleteWalkState (WalkState);
+        if (ACPI_FAILURE(Status)) {
+            AcpiDsDeleteWalkState(WalkState);
             goto Cleanup;
         }
     }
 
     /* Parse the AML */
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_PARSE,
+    ACPI_DEBUG_PRINT((ACPI_DB_PARSE,
         "*PARSE* pass %u parse\n", PassNumber));
-    AcpiExEnterInterpreter ();
-    Status = AcpiPsParseAml (WalkState);
-    AcpiExExitInterpreter ();
+    AcpiExEnterInterpreter();
+    Status = AcpiPsParseAml(WalkState);
+    AcpiExExitInterpreter();
 
 Cleanup:
-    AcpiPsDeleteParseTree (ParseRoot);
-    return_ACPI_STATUS (Status);
+    AcpiPsDeleteParseTree(ParseRoot);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -412,15 +387,13 @@ Cleanup:
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsParseTable (
-    UINT32                  TableIndex,
-    ACPI_NAMESPACE_NODE     *StartNode)
+AcpiNsParseTable(
+    UINT32 TableIndex,
+    ACPI_NAMESPACE_NODE* StartNode)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (NsParseTable);
-
+    ACPI_FUNCTION_TRACE(NsParseTable);
 
     /*
      * Executes the AML table as one large control method.
@@ -430,10 +403,10 @@ AcpiNsParseTable (
      * Note: This causes the table to only have a single-pass parse.
      * However, this is compatible with other ACPI implementations.
      */
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_PARSE,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_PARSE,
         "%s: **** Start table execution pass\n", ACPI_GET_FUNCTION_NAME));
 
-    Status = AcpiNsExecuteTable (TableIndex, StartNode);
+    Status = AcpiNsExecuteTable(TableIndex, StartNode);
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }

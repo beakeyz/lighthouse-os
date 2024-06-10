@@ -17,23 +17,23 @@ uint8_t vasecounts[VASECOUNT];
  */
 static void fill_vase(int index)
 {
-  /* Count the fuckers */
-  for (int i = 0; i < VASECOUNT; i++)
-    vasecounts[vases[i]]++;
+    /* Count the fuckers */
+    for (int i = 0; i < VASECOUNT; i++)
+        vasecounts[vases[i]]++;
 
-  /* Put the things in */
-  vases[index] = vasecounts[index];
+    /* Put the things in */
+    vases[index] = vasecounts[index];
 }
 
 static void dump_vases()
 {
-  for (int i = 0; i < VASECOUNT; i++)
-    printf("Vase %d has %d flowers in it\n", i, vases[i]);
+    for (int i = 0; i < VASECOUNT; i++)
+        printf("Vase %d has %d flowers in it\n", i, vases[i]);
 
-  printf("\n");
+    printf("\n");
 
-  for (int i = 0; i < VASECOUNT; i++)
-    printf("There are %d vases with %d flowers in them\n", vasecounts[i], i);
+    for (int i = 0; i < VASECOUNT; i++)
+        printf("There are %d vases with %d flowers in them\n", vasecounts[i], i);
 }
 
 /*!
@@ -47,19 +47,19 @@ static void dump_vases()
  *
  * How are the vases filled, so that the rules above are satisfied?
  */
-int main() 
+int main()
 {
-  memset(vases, 0, sizeof(vases));
+    memset(vases, 0, sizeof(vases));
 
-  for (uint32_t i = 0; i < 999; i++) {
+    for (uint32_t i = 0; i < 999; i++) {
 
-    for (int j = VASECOUNT+1; j; j--) {
-      memset(vasecounts, 0, sizeof(vasecounts));
+        for (int j = VASECOUNT + 1; j; j--) {
+            memset(vasecounts, 0, sizeof(vasecounts));
 
-      fill_vase(j-1);
+            fill_vase(j - 1);
+        }
     }
-  }
 
-  dump_vases();
-  return 0;
+    dump_vases();
+    return 0;
 }

@@ -150,12 +150,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utstrtoul64")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utstrtoul64")
 
 /*******************************************************************************
  *
@@ -197,7 +196,6 @@
  *
  ******************************************************************************/
 
-
 /*******************************************************************************
  *
  * FUNCTION:    AcpiUtStrtoul64
@@ -226,37 +224,32 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtStrtoul64 (
-    char                    *String,
-    UINT64                  *ReturnValue)
+AcpiUtStrtoul64(
+    char* String,
+    UINT64* ReturnValue)
 {
-    ACPI_STATUS             Status = AE_OK;
-    UINT8                   OriginalBitWidth;
-    UINT32                  Base = 10;          /* Default is decimal */
+    ACPI_STATUS Status = AE_OK;
+    UINT8 OriginalBitWidth;
+    UINT32 Base = 10; /* Default is decimal */
 
-
-    ACPI_FUNCTION_TRACE_STR (UtStrtoul64, String);
-
+    ACPI_FUNCTION_TRACE_STR(UtStrtoul64, String);
 
     *ReturnValue = 0;
 
     /* A NULL return string returns a value of zero */
 
-    if (*String == 0)
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (*String == 0) {
+        return_ACPI_STATUS(AE_OK);
     }
 
-    if (!AcpiUtRemoveWhitespace (&String))
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (!AcpiUtRemoveWhitespace(&String)) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
      * 1) Check for a hex constant. A "0x" prefix indicates base 16.
      */
-    if (AcpiUtDetectHexPrefix (&String))
-    {
+    if (AcpiUtDetectHexPrefix(&String)) {
         Base = 16;
     }
 
@@ -264,14 +257,12 @@ AcpiUtStrtoul64 (
      * 2) Check for an octal constant, defined to be a leading zero
      * followed by sequence of octal digits (0-7)
      */
-    else if (AcpiUtDetectOctalPrefix (&String))
-    {
+    else if (AcpiUtDetectOctalPrefix(&String)) {
         Base = 8;
     }
 
-    if (!AcpiUtRemoveLeadingZeros (&String))
-    {
-        return_ACPI_STATUS (AE_OK);     /* Return value 0 */
+    if (!AcpiUtRemoveLeadingZeros(&String)) {
+        return_ACPI_STATUS(AE_OK); /* Return value 0 */
     }
 
     /*
@@ -286,28 +277,26 @@ AcpiUtStrtoul64 (
      * Perform the base 8, 10, or 16 conversion. A 64-bit numeric overflow
      * will return an exception (to allow iASL to flag the statement).
      */
-    switch (Base)
-    {
+    switch (Base) {
     case 8:
-        Status = AcpiUtConvertOctalString (String, ReturnValue);
+        Status = AcpiUtConvertOctalString(String, ReturnValue);
         break;
 
     case 10:
-        Status = AcpiUtConvertDecimalString (String, ReturnValue);
+        Status = AcpiUtConvertDecimalString(String, ReturnValue);
         break;
 
     case 16:
     default:
-        Status = AcpiUtConvertHexString (String, ReturnValue);
+        Status = AcpiUtConvertHexString(String, ReturnValue);
         break;
     }
 
     /* Only possible exception from above is a 64-bit overflow */
 
     AcpiGbl_IntegerBitWidth = OriginalBitWidth;
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -364,18 +353,15 @@ AcpiUtStrtoul64 (
  ******************************************************************************/
 
 UINT64
-AcpiUtImplicitStrtoul64 (
-    char                    *String)
+AcpiUtImplicitStrtoul64(
+    char* String)
 {
-    UINT64                  ConvertedInteger = 0;
+    UINT64 ConvertedInteger = 0;
 
+    ACPI_FUNCTION_TRACE_STR(UtImplicitStrtoul64, String);
 
-    ACPI_FUNCTION_TRACE_STR (UtImplicitStrtoul64, String);
-
-
-    if (!AcpiUtRemoveWhitespace (&String))
-    {
-        return_VALUE (0);
+    if (!AcpiUtRemoveWhitespace(&String)) {
+        return_VALUE(0);
     }
 
     /*
@@ -383,11 +369,10 @@ AcpiUtImplicitStrtoul64 (
      * implicit conversions, and the "0x" prefix is "not allowed".
      * However, allow a "0x" prefix as an ACPI extension.
      */
-    AcpiUtRemoveHexPrefix (&String);
+    AcpiUtRemoveHexPrefix(&String);
 
-    if (!AcpiUtRemoveLeadingZeros (&String))
-    {
-        return_VALUE (0);
+    if (!AcpiUtRemoveLeadingZeros(&String)) {
+        return_VALUE(0);
     }
 
     /*
@@ -395,10 +380,9 @@ AcpiUtImplicitStrtoul64 (
      * ignoring the return status from the conversion function called below.
      * On overflow, the input string is simply truncated.
      */
-    AcpiUtConvertHexString (String, &ConvertedInteger);
-    return_VALUE (ConvertedInteger);
+    AcpiUtConvertHexString(String, &ConvertedInteger);
+    return_VALUE(ConvertedInteger);
 }
-
 
 /*******************************************************************************
  *
@@ -452,33 +436,28 @@ AcpiUtImplicitStrtoul64 (
  ******************************************************************************/
 
 UINT64
-AcpiUtExplicitStrtoul64 (
-    char                    *String)
+AcpiUtExplicitStrtoul64(
+    char* String)
 {
-    UINT64                  ConvertedInteger = 0;
-    UINT32                  Base = 10;          /* Default is decimal */
+    UINT64 ConvertedInteger = 0;
+    UINT32 Base = 10; /* Default is decimal */
 
+    ACPI_FUNCTION_TRACE_STR(UtExplicitStrtoul64, String);
 
-    ACPI_FUNCTION_TRACE_STR (UtExplicitStrtoul64, String);
-
-
-    if (!AcpiUtRemoveWhitespace (&String))
-    {
-        return_VALUE (0);
+    if (!AcpiUtRemoveWhitespace(&String)) {
+        return_VALUE(0);
     }
 
     /*
      * Only Hex and Decimal are supported, as per the ACPI specification.
      * A "0x" prefix indicates hex; otherwise decimal is assumed.
      */
-    if (AcpiUtDetectHexPrefix (&String))
-    {
+    if (AcpiUtDetectHexPrefix(&String)) {
         Base = 16;
     }
 
-    if (!AcpiUtRemoveLeadingZeros (&String))
-    {
-        return_VALUE (0);
+    if (!AcpiUtRemoveLeadingZeros(&String)) {
+        return_VALUE(0);
     }
 
     /*
@@ -486,17 +465,16 @@ AcpiUtExplicitStrtoul64 (
      * ignoring the return status from the conversion functions called below.
      * On overflow, the input string is simply truncated.
      */
-    switch (Base)
-    {
+    switch (Base) {
     case 10:
     default:
-        AcpiUtConvertDecimalString (String, &ConvertedInteger);
+        AcpiUtConvertDecimalString(String, &ConvertedInteger);
         break;
 
     case 16:
-        AcpiUtConvertHexString (String, &ConvertedInteger);
+        AcpiUtConvertHexString(String, &ConvertedInteger);
         break;
     }
 
-    return_VALUE (ConvertedInteger);
+    return_VALUE(ConvertedInteger);
 }

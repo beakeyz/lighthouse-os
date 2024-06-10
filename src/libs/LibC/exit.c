@@ -1,29 +1,30 @@
 
+#include "errno.h"
 #include "lightos/syscall.h"
 #include "lightos/system.h"
-#include "errno.h"
 #include <stdio.h>
 
 void __attribute__((noreturn)) halt(void)
 {
-  for (;;){}
+    for (;;) { }
 }
 
-void exit(uintptr_t result) {
+void exit(uintptr_t result)
+{
 
-  /* TODO: Uninitialize libraries */
+    /* TODO: Uninitialize libraries */
 
-  /* Hard exit */
-  syscall_1(SYSID_EXIT, result);
+    /* Hard exit */
+    syscall_1(SYSID_EXIT, result);
 
-  /* We should never reach this point */
-  halt();
+    /* We should never reach this point */
+    halt();
 }
 
 void exit_noimpl(const char* impl_name)
 {
-  printf("Not implemented: %s", impl_name);
-  exit(ENOIMPL);
+    printf("Not implemented: %s", impl_name);
+    exit(ENOIMPL);
 }
 
 /*
@@ -31,5 +32,5 @@ void exit_noimpl(const char* impl_name)
  */
 void abort(void)
 {
-  exit(-1);
+    exit(-1);
 }

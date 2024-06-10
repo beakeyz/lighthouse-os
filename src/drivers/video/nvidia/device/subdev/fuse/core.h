@@ -5,15 +5,15 @@
 #include "sync/mutex.h"
 
 #define nv_subdev_fuse(subdev) \
-  (struct nv_subdev_fuse*)((subdev)->priv)
+    (struct nv_subdev_fuse*)((subdev)->priv)
 
 struct nv_device;
 struct nv_subdev_fuse_ops;
 
 typedef struct nv_subdev_fuse {
-  struct nv_subdev_fuse_ops* ops;
-  nv_subdev_t* subdev;
-  mutex_t* lock;
+    struct nv_subdev_fuse_ops* ops;
+    nv_subdev_t* subdev;
+    mutex_t* lock;
 } nv_subdev_fuse_t;
 
 nv_subdev_fuse_t* create_nv_fuse_subdev(struct nv_device* device, struct nv_subdev_fuse_ops* ops);

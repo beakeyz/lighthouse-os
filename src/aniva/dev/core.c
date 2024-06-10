@@ -2,10 +2,9 @@
 #include "dev/external.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
-#include "libk/flow/error.h"
-#include "libk/data/linkedlist.h"
 #include "driver.h"
-#include <mem/heap.h>
+#include "libk/data/linkedlist.h"
+#include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
@@ -16,13 +15,14 @@
 #include "sync/mutex.h"
 #include "system/processor/processor.h"
 #include <entry/entry.h>
+#include <mem/heap.h>
 #include <oss/node.h>
 
-/* 
+/*
  * These hives give us more flexibility with finding drivers in nested paths,
  * since we enforce these type urls, but everything after that is free to choose
  */
-//static hive_t* __installed_driver_manifests = nullptr;
+// static hive_t* __installed_driver_manifests = nullptr;
 static oss_node_t* __driver_node;
 
 static zone_allocator_t* __drv_manifest_allocator;
@@ -31,36 +31,36 @@ static zone_allocator_t* __drv_manifest_allocator;
 static mutex_t* __core_driver_lock;
 
 const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
-  /* Any driver that interacts with lts */
-  [DT_DISK] = "disk",
-  /* Drivers that interact with or implement filesystems */
-  [DT_FS] = "fs",
-  /* Drivers that deal with I/O devices (HID, serial, ect.) */
-  [DT_IO] = "io",
-  /* Drivers that manage sound devices */
-  [DT_SOUND] = "sound",
-  /* Drivers that manage graphics devices */
-  [DT_GRAPHICS] = "graphics",
-  /* Drivers that don't really deal with specific types of devices */
-  [DT_OTHER] = "other",
-  /* Drivers that gather system diagnostics */
-  [DT_DIAGNOSTICS] = "diagnostics",
-  /* Drivers that provide services, either to userspace or kernelspace */
-  [DT_SERVICE] = "service",
-  [DT_FIRMWARE] = "fw",
+    /* Any driver that interacts with lts */
+    [DT_DISK] = "disk",
+    /* Drivers that interact with or implement filesystems */
+    [DT_FS] = "fs",
+    /* Drivers that deal with I/O devices (HID, serial, ect.) */
+    [DT_IO] = "io",
+    /* Drivers that manage sound devices */
+    [DT_SOUND] = "sound",
+    /* Drivers that manage graphics devices */
+    [DT_GRAPHICS] = "graphics",
+    /* Drivers that don't really deal with specific types of devices */
+    [DT_OTHER] = "other",
+    /* Drivers that gather system diagnostics */
+    [DT_DIAGNOSTICS] = "diagnostics",
+    /* Drivers that provide services, either to userspace or kernelspace */
+    [DT_SERVICE] = "service",
+    [DT_FIRMWARE] = "fw",
 };
 
 /*
  * Core drivers
  *
- * Let's create a quick overview of what core drivers are supposed to do for us. As an example, Let's 
+ * Let's create a quick overview of what core drivers are supposed to do for us. As an example, Let's
  * imagine ourselves a system that booted from UEFI and got handed a GOP framebuffer from our bootloader.
  * When this happens, we are all well and happy and we load the efifb driver like a good little kernel. However,
  * this system also has dedicated graphics hardware and we also want smooth and clean graphics pretty please. For this,
- * we'll implement a core driver that sits on top of any graphics driver and manages their states. When we try to probe for 
- * graphics hardware and we find something we can support with a driver, we'll try to load the driver and it will register itself 
- * at the core graphics driver (core/video). The core driver will then determine if we want to keep the old driver, or replace 
- * it with this new and more fancy driver (through the use of precedence). 
+ * we'll implement a core driver that sits on top of any graphics driver and manages their states. When we try to probe for
+ * graphics hardware and we find something we can support with a driver, we'll try to load the driver and it will register itself
+ * at the core graphics driver (core/video). The core driver will then determine if we want to keep the old driver, or replace
+ * it with this new and more fancy driver (through the use of precedence).
  * When it comes to external applications that want to make use of any graphics interface (lwnd, most likely), we also want
  * it to have an easy time setting up a graphics environment. Any applications that make use of graphics should not have to figure
  * out which graphics driver is active on the system, but should make their requests through a middleman (core/video) that is aware
@@ -69,230 +69,184 @@ const char* dev_type_urls[DRIVER_TYPE_COUNT] = {
 
 const char* driver_get_type_str(struct drv_manifest* driver)
 {
-  size_t type_str_len = NULL;
-  dev_url_t drv_url = driver->m_url;
+    size_t type_str_len = NULL;
+    dev_url_t drv_url = driver->m_url;
 
-  while (*(drv_url + type_str_len) != DRIVER_URL_SEPERATOR) {
-    type_str_len++;
-  }
-
-  for (uint64_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
-    if (memcmp(dev_type_urls[i], drv_url, type_str_len)) {
-      return dev_type_urls[i];
+    while (*(drv_url + type_str_len) != DRIVER_URL_SEPERATOR) {
+        type_str_len++;
     }
-  }
 
-  /* Invalid type part in the url */
-  return nullptr;
+    for (uint64_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
+        if (memcmp(dev_type_urls[i], drv_url, type_str_len)) {
+            return dev_type_urls[i];
+        }
+    }
+
+    /* Invalid type part in the url */
+    return nullptr;
 }
 
 static mutex_t* __driver_constraint_lock;
 
 static dev_constraint_t __dev_constraints[DRIVER_TYPE_COUNT] = {
-  [DT_DISK] = {
-    .type = DT_DISK,
-    .max_count = DRV_INFINITE,
-    .max_active = DRV_INFINITE,
-    0
-  },
-  [DT_FS] = {
-    .type = DT_FS,
-    .max_count = DRV_INFINITE,
-    .max_active = DRV_INFINITE,
-    0
-  },
-  [DT_IO] = {
-    .type = DT_IO,
-    .max_count = DRV_INFINITE,
-    .max_active = DRV_INFINITE,
-    0
-  },
-  [DT_SOUND] = {
-    .type = DT_SOUND,
-    .max_count = 10,
-    .max_active = 1,
-    0
-  },
-  /*
-   * Most graphics drivers should be external 
-   * This means that When we are booting the kernel we load a local driver for the 
-   * efi framebuffer and then we detect available graphics cards later. When we find
-   * one we have a driver for, we find it in the fs and load it. When loading the graphics 
-   * driver (which is most likely on PCI) we will keep the EFI fb driver intact untill the 
-   * driver reports successful load. We can do this because the external driver scan will happen AFTER we have 
-   * scanned PCI for local drivers, so when we load the external graphics driver, the
-   * load will also probe PCI, which will load the full driver in one go. When this reports
-   * success, we can unload the EFI driver and switch the core to the new external driver
-   */
-  [DT_GRAPHICS] = {
-    .type = DT_GRAPHICS,
-    .max_count = 10,
-    .max_active = 2,
-    0
-  },
-  [DT_OTHER] = {
-    .type = DT_OTHER,
-    .max_count = DRV_INFINITE,
-    .max_active = DRV_INFINITE,
-    0
-  },
-  [DT_DIAGNOSTICS] = {
-    .type = DT_DIAGNOSTICS,
-    .max_count = 1,
-    .max_active = 1,
-    0
-  },
-  [DT_SERVICE] = {
-    .type = DT_SERVICE,
-    .max_count = DRV_SERVICE_MAX,
-    .max_active = DRV_SERVICE_MAX,
-    0
-  },
-  [DT_FIRMWARE] = {
-    .type = DT_FIRMWARE,
-    .max_count = DRV_INFINITE,
-    .max_active = DRV_INFINITE,
-    0
-  }
+    [DT_DISK] = {
+        .type = DT_DISK,
+        .max_count = DRV_INFINITE,
+        .max_active = DRV_INFINITE,
+        0 },
+    [DT_FS] = { .type = DT_FS, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 },
+    [DT_IO] = { .type = DT_IO, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 },
+    [DT_SOUND] = { .type = DT_SOUND, .max_count = 10, .max_active = 1, 0 },
+    /*
+     * Most graphics drivers should be external
+     * This means that When we are booting the kernel we load a local driver for the
+     * efi framebuffer and then we detect available graphics cards later. When we find
+     * one we have a driver for, we find it in the fs and load it. When loading the graphics
+     * driver (which is most likely on PCI) we will keep the EFI fb driver intact untill the
+     * driver reports successful load. We can do this because the external driver scan will happen AFTER we have
+     * scanned PCI for local drivers, so when we load the external graphics driver, the
+     * load will also probe PCI, which will load the full driver in one go. When this reports
+     * success, we can unload the EFI driver and switch the core to the new external driver
+     */
+    [DT_GRAPHICS] = { .type = DT_GRAPHICS, .max_count = 10, .max_active = 2, 0 },
+    [DT_OTHER] = { .type = DT_OTHER, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 },
+    [DT_DIAGNOSTICS] = { .type = DT_DIAGNOSTICS, .max_count = 1, .max_active = 1, 0 },
+    [DT_SERVICE] = { .type = DT_SERVICE, .max_count = DRV_SERVICE_MAX, .max_active = DRV_SERVICE_MAX, 0 },
+    [DT_FIRMWARE] = { .type = DT_FIRMWARE, .max_count = DRV_INFINITE, .max_active = DRV_INFINITE, 0 }
 };
 
 static list_t* __deferred_driver_manifests;
 
 static bool __load_precompiled_driver(drv_manifest_t* manifest)
 {
-  if (!manifest)
-    return false;
+    if (!manifest)
+        return false;
 
-  /* Trust that this will be loaded later */
-  if (manifest->m_flags & DRV_DEFERRED)
+    /* Trust that this will be loaded later */
+    if (manifest->m_flags & DRV_DEFERRED)
+        return true;
+
+    /* Skip already loaded drivers */
+    if ((manifest->m_flags & DRV_LOADED) == DRV_LOADED)
+        return true;
+
+    manifest_gather_dependencies(manifest);
+
+    /*
+     * NOTE: this fails if the driver is already loaded, but we ignore this
+     * since we also load drivers preemptively if they are needed as a dependency
+     */
+    load_driver(manifest);
+
     return true;
-
-  /* Skip already loaded drivers */
-  if ((manifest->m_flags & DRV_LOADED) == DRV_LOADED)
-    return true;
-
-  manifest_gather_dependencies(manifest);
-
-  /*
-   * NOTE: this fails if the driver is already loaded, but we ignore this
-   * since we also load drivers preemptively if they are needed as a dependency
-   */
-  load_driver(manifest);
-
-  return true;
 }
 
-
-static bool walk_precompiled_drivers_to_load(oss_node_t* node, oss_obj_t* data, void* arg) 
+static bool walk_precompiled_drivers_to_load(oss_node_t* node, oss_obj_t* data, void* arg)
 {
-  drv_manifest_t* manifest;
+    drv_manifest_t* manifest;
 
-  /* Walk recursively */
-  if (node)
-    return !oss_node_itterate(node, walk_precompiled_drivers_to_load, arg);
+    /* Walk recursively */
+    if (node)
+        return !oss_node_itterate(node, walk_precompiled_drivers_to_load, arg);
 
-  manifest = oss_obj_unwrap(data, drv_manifest_t);
+    manifest = oss_obj_unwrap(data, drv_manifest_t);
 
-  return __load_precompiled_driver(manifest);
+    return __load_precompiled_driver(manifest);
 }
-
 
 drv_manifest_t* allocate_dmanifest()
 {
-  drv_manifest_t* ret;
+    drv_manifest_t* ret;
 
-  if (!__drv_manifest_allocator)
-    return nullptr;
+    if (!__drv_manifest_allocator)
+        return nullptr;
 
-  ret = zalloc_fixed(__drv_manifest_allocator);
+    ret = zalloc_fixed(__drv_manifest_allocator);
 
-  memset(ret, 0, sizeof(drv_manifest_t));
+    memset(ret, 0, sizeof(drv_manifest_t));
 
-  return ret;
+    return ret;
 }
-
 
 void free_dmanifest(struct drv_manifest* manifest)
 {
-  if (!__drv_manifest_allocator)
-    return;
+    if (!__drv_manifest_allocator)
+        return;
 
-  zfree_fixed(__drv_manifest_allocator, manifest);
+    zfree_fixed(__drv_manifest_allocator, manifest);
 }
 
 /*!
  * @brief Verify the validity of a driver and also if it is clear to be loaded
  *
- * @returns: false on failure (the driver is invalid or not clear to be loaded) 
+ * @returns: false on failure (the driver is invalid or not clear to be loaded)
  * true on success (driver is valid)
  */
-bool verify_driver(drv_manifest_t* manifest) 
+bool verify_driver(drv_manifest_t* manifest)
 {
-  dev_constraint_t* constaint;
-  aniva_driver_t* driver;
+    dev_constraint_t* constaint;
+    aniva_driver_t* driver;
 
-  /* External driver are considered valid here */
-  if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
+    /* External driver are considered valid here */
+    if ((manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
+        return true;
+
+    driver = manifest->m_handle;
+
+    if (!driver || !driver->f_init)
+        return false;
+
+    if (driver->m_type >= DRIVER_TYPE_COUNT)
+        return false;
+
+    constaint = &__dev_constraints[driver->m_type];
+
+    /* We can't load more of this type of driver, so we mark this as invalid */
+    if (constaint->current_count == constaint->max_count)
+        return false;
+
     return true;
-
-  driver = manifest->m_handle;
-
-  if (!driver || !driver->f_init)
-    return false;
-
-  if (driver->m_type >= DRIVER_TYPE_COUNT)
-    return false;
-
-  constaint = &__dev_constraints[driver->m_type];
-
-  /* We can't load more of this type of driver, so we mark this as invalid */
-  if (constaint->current_count == constaint->max_count)
-    return false;
-
-  return true;
 }
 
 static bool __should_defer(drv_manifest_t* driver)
 {
-  /* TODO: */
-  (void)driver;
-  return false;
+    /* TODO: */
+    (void)driver;
+    return false;
 }
 
-
-ErrorOrPtr install_driver(drv_manifest_t* manifest) 
+ErrorOrPtr install_driver(drv_manifest_t* manifest)
 {
-  int error;
+    int error;
 
-  if (!manifest)
-    goto fail_and_exit;
+    if (!manifest)
+        goto fail_and_exit;
 
-  if (!verify_driver(manifest))
-    goto fail_and_exit;
+    if (!verify_driver(manifest))
+        goto fail_and_exit;
 
-  if (is_driver_installed(manifest))
-    goto fail_and_exit;
+    if (is_driver_installed(manifest))
+        goto fail_and_exit;
 
-  //result = hive_add_entry(__installed_driver_manifests, manifest, manifest->m_url);
-  error = oss_attach_obj_rel(__driver_node, manifest->m_url, manifest->m_obj);
+    // result = hive_add_entry(__installed_driver_manifests, manifest, manifest->m_url);
+    error = oss_attach_obj_rel(__driver_node, manifest->m_url, manifest->m_obj);
 
-  if (error)
-    goto fail_and_exit;
+    if (error)
+        goto fail_and_exit;
 
-  /* Mark this driver as deferred, so that we can delay its loading */
-  if (__deferred_driver_manifests && __should_defer(manifest)) {
-    list_append(__deferred_driver_manifests, manifest);
-    manifest->m_flags |= DRV_DEFERRED;
-  }
+    /* Mark this driver as deferred, so that we can delay its loading */
+    if (__deferred_driver_manifests && __should_defer(manifest)) {
+        list_append(__deferred_driver_manifests, manifest);
+        manifest->m_flags |= DRV_DEFERRED;
+    }
 
-  return Success(0);
+    return Success(0);
 
 fail_and_exit:
-  if (manifest)
-    destroy_drv_manifest(manifest);
-  return Error();
+    if (manifest)
+        destroy_drv_manifest(manifest);
+    return Error();
 }
-
 
 /*!
  * @brief Detaches the manifests path from the driver tree and destroys the manifest
@@ -300,64 +254,64 @@ fail_and_exit:
  * NOTE: We don't detach the obj here, since that's done in destroy_drv_manifest
  * TODO: resolve dependencies!
  */
-ErrorOrPtr uninstall_driver(drv_manifest_t* manifest) 
+ErrorOrPtr uninstall_driver(drv_manifest_t* manifest)
 {
-  if (!manifest)
-    return Error();
+    if (!manifest)
+        return Error();
 
-  /* Uninstalled stuff can't be uninstalled */
-  if (!is_driver_installed(manifest))
-    goto fail_and_exit;
+    /* Uninstalled stuff can't be uninstalled */
+    if (!is_driver_installed(manifest))
+        goto fail_and_exit;
 
-  /* When we fail to unload something, thats quite bad lmao */
-  if (is_driver_loaded(manifest) && IsError(unload_driver(manifest->m_url)))
-    goto fail_and_exit;
+    /* When we fail to unload something, thats quite bad lmao */
+    if (is_driver_loaded(manifest) && IsError(unload_driver(manifest->m_url)))
+        goto fail_and_exit;
 
-  if (manifest->m_external)
-    destroy_external_driver(manifest->m_external);
+    if (manifest->m_external)
+        destroy_external_driver(manifest->m_external);
 
-  destroy_drv_manifest(manifest);
+    destroy_drv_manifest(manifest);
 
-  return Success(0);
+    return Success(0);
 
 fail_and_exit:
-  //kfree((void*)driver_url);
-  return Error();
+    // kfree((void*)driver_url);
+    return Error();
 }
 
-static void __driver_register_presence(dev_type_t type) 
+static void __driver_register_presence(dev_type_t type)
 {
-  if (type >= DRIVER_TYPE_COUNT)
-    return;
+    if (type >= DRIVER_TYPE_COUNT)
+        return;
 
-  mutex_lock(__driver_constraint_lock);
-  __dev_constraints[type].current_count++;
-  mutex_unlock(__driver_constraint_lock);
+    mutex_lock(__driver_constraint_lock);
+    __dev_constraints[type].current_count++;
+    mutex_unlock(__driver_constraint_lock);
 }
 
-static void __driver_unregister_presence(dev_type_t type) 
+static void __driver_unregister_presence(dev_type_t type)
 {
-  if (type >= DRIVER_TYPE_COUNT || __dev_constraints[type].current_count)
-    return;
+    if (type >= DRIVER_TYPE_COUNT || __dev_constraints[type].current_count)
+        return;
 
-  mutex_lock(__driver_constraint_lock);
-  __dev_constraints[type].current_count--;
-  mutex_unlock(__driver_constraint_lock);
+    mutex_lock(__driver_constraint_lock);
+    __dev_constraints[type].current_count--;
+    mutex_unlock(__driver_constraint_lock);
 }
 
 static int _try_load_external_driver(drv_manifest_t* manifest)
 {
-  if ((manifest->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL || !manifest->m_driver_file_path)
-    return 1;
+    if ((manifest->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL || !manifest->m_driver_file_path)
+        return 1;
 
-  /* Don't load it if it already has an */
-  if (manifest->m_external)
-    return 1;
+    /* Don't load it if it already has an */
+    if (manifest->m_external)
+        return 1;
 
-  if (load_external_driver(manifest->m_driver_file_path) == nullptr)
-    return -1;
+    if (load_external_driver(manifest->m_driver_file_path) == nullptr)
+        return -1;
 
-  return 0;
+    return 0;
 }
 
 /*
@@ -366,218 +320,217 @@ static int _try_load_external_driver(drv_manifest_t* manifest)
  * 2: Validate the driver using its manifest
  * 3: emplace the driver into the drivertree
  * 4: run driver bootstraps
- * 
+ *
  * We also might want to create a kernel-process for each driver
  * TODO: better security
  */
-ErrorOrPtr load_driver(drv_manifest_t* manifest) 
+ErrorOrPtr load_driver(drv_manifest_t* manifest)
 {
-  kerror_t error;
-  ErrorOrPtr result;
-  aniva_driver_t* handle;
+    kerror_t error;
+    ErrorOrPtr result;
+    aniva_driver_t* handle;
 
-  if (!manifest)
-    return Error();
+    if (!manifest)
+        return Error();
 
-  if (!verify_driver(manifest))
-    goto fail_and_exit;
-
-  /* Just load the external driver if we can */
-  error = _try_load_external_driver(manifest);
-
-  if (!error)
-    return Success(0);
-
-  if (error < 0)
-    return Error();
-
-  handle = manifest->m_handle;
-
-  /* Can't load if it's already loaded lmao */
-  if (is_driver_loaded(manifest))
-    goto fail_and_exit;
-
-  // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
-  // where we say result == ANIVA_FAIL
-  // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
-  // need to be replaced with result != ANIVA_SUCCESS
-  if (!is_driver_installed(manifest) && IsError(install_driver(manifest)))
-    goto fail_and_exit;
-
-  KLOG_INFO("Loading driver: %s\n", handle->m_name);
-
-  if (!manifest->m_dep_list)
-    goto skip_dependencies;
-
-  FOREACH_VEC(manifest->m_dep_list, data, idx) {
-    manifest_dependency_t* dep = (manifest_dependency_t*)data;
-
-    /* Skip non-driver dependencies for now */
-    ASSERT_MSG(drv_dep_is_driver(&dep->dep), "TODO: implement non-driver dependencies for drivers");
-
-    // TODO: check for errors
-    if (dep && !is_driver_loaded(dep->obj.drv)) {
-      KLOG_INFO("Loading driver dependency: %s\n", dep->obj.drv->m_url);
-
-      if (driver_is_deferred(dep->obj.drv))
-        kernel_panic("TODO: handle deferred dependencies!");
-
-      if (IsError(load_driver(dep->obj.drv)))
+    if (!verify_driver(manifest))
         goto fail_and_exit;
+
+    /* Just load the external driver if we can */
+    error = _try_load_external_driver(manifest);
+
+    if (!error)
+        return Success(0);
+
+    if (error < 0)
+        return Error();
+
+    handle = manifest->m_handle;
+
+    /* Can't load if it's already loaded lmao */
+    if (is_driver_loaded(manifest))
+        goto fail_and_exit;
+
+    // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
+    // where we say result == ANIVA_FAIL
+    // these cases will return false if we start using ANIVA_FAIL_WITH_WARNING here, so they will
+    // need to be replaced with result != ANIVA_SUCCESS
+    if (!is_driver_installed(manifest) && IsError(install_driver(manifest)))
+        goto fail_and_exit;
+
+    KLOG_INFO("Loading driver: %s\n", handle->m_name);
+
+    if (!manifest->m_dep_list)
+        goto skip_dependencies;
+
+    FOREACH_VEC(manifest->m_dep_list, data, idx)
+    {
+        manifest_dependency_t* dep = (manifest_dependency_t*)data;
+
+        /* Skip non-driver dependencies for now */
+        ASSERT_MSG(drv_dep_is_driver(&dep->dep), "TODO: implement non-driver dependencies for drivers");
+
+        // TODO: check for errors
+        if (dep && !is_driver_loaded(dep->obj.drv)) {
+            KLOG_INFO("Loading driver dependency: %s\n", dep->obj.drv->m_url);
+
+            if (driver_is_deferred(dep->obj.drv))
+                kernel_panic("TODO: handle deferred dependencies!");
+
+            if (IsError(load_driver(dep->obj.drv)))
+                goto fail_and_exit;
+        }
     }
-  }
 
 skip_dependencies:
-  result = bootstrap_driver(manifest);
+    result = bootstrap_driver(manifest);
 
-  /* If the manifest says something went wrong, trust that */
-  if (IsError(result) || (manifest->m_flags & DRV_FAILED)) {
-    unload_driver(manifest->m_url);
-    return Error();
-  }
+    /* If the manifest says something went wrong, trust that */
+    if (IsError(result) || (manifest->m_flags & DRV_FAILED)) {
+        unload_driver(manifest->m_url);
+        return Error();
+    }
 
-  __driver_register_presence(handle->m_type);
+    __driver_register_presence(handle->m_type);
 
-  /*
-   * TODO: we need to detect when we want to apply the 'activity' and 'precedence' mechanisms
-   * since we always load a bunch of graphics drivers at startup. We need to select one once all the devices should be set up
-   * and then remove all the unused drivers once they are gracefully exited
-   *
-   * Maybe we simply do what linux drm does and have drivers mark themselves as the 'active' driver by removing any lingering
-   * apperature...
-   * 
-   */
-  //__driver_register_active(handle->m_type, manifest);
+    /*
+     * TODO: we need to detect when we want to apply the 'activity' and 'precedence' mechanisms
+     * since we always load a bunch of graphics drivers at startup. We need to select one once all the devices should be set up
+     * and then remove all the unused drivers once they are gracefully exited
+     *
+     * Maybe we simply do what linux drm does and have drivers mark themselves as the 'active' driver by removing any lingering
+     * apperature...
+     *
+     */
+    //__driver_register_active(handle->m_type, manifest);
 
-  manifest->m_flags |= DRV_LOADED;
+    manifest->m_flags |= DRV_LOADED;
 
-  return Success(0);
+    return Success(0);
 
 fail_and_exit:
-  return Error();
+    return Error();
 }
 
-
-ErrorOrPtr unload_driver(dev_url_t url) {
-
-  int error;
-  drv_manifest_t* manifest;
-  oss_obj_t* obj;
-
-  error = oss_resolve_obj_rel(__driver_node, url, &obj);
-
-  if (error && !obj)
-    return Error();
-
-  manifest = oss_obj_unwrap(obj, drv_manifest_t);
-
-  if (!verify_driver(manifest))
-    return Error();
-
-  mutex_lock(manifest->m_lock);
-
-  error = NULL; 
-
-  /* Exit */
-  if (manifest->m_handle->f_exit)
-    error = manifest->m_handle->f_exit();
-
-  /* Clear the loaded flag */
-  manifest->m_flags &= ~DRV_LOADED;
-
-  /* Unregister presence before unlocking the manifest */
-  __driver_unregister_presence(manifest->m_handle->m_type);
-
-  if (manifest->m_external && (manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
-    unload_external_driver(manifest->m_external);
-
-  mutex_unlock(manifest->m_lock);
-
-  /* Fuck man */
-  if (error)
-    return Error();
-
-  return Success(0);
-}
-
-
-bool is_driver_loaded(drv_manifest_t* manifest) 
+ErrorOrPtr unload_driver(dev_url_t url)
 {
-  return (is_driver_installed(manifest) && (manifest->m_flags & DRV_LOADED) == DRV_LOADED);
+
+    int error;
+    drv_manifest_t* manifest;
+    oss_obj_t* obj;
+
+    error = oss_resolve_obj_rel(__driver_node, url, &obj);
+
+    if (error && !obj)
+        return Error();
+
+    manifest = oss_obj_unwrap(obj, drv_manifest_t);
+
+    if (!verify_driver(manifest))
+        return Error();
+
+    mutex_lock(manifest->m_lock);
+
+    error = NULL;
+
+    /* Exit */
+    if (manifest->m_handle->f_exit)
+        error = manifest->m_handle->f_exit();
+
+    /* Clear the loaded flag */
+    manifest->m_flags &= ~DRV_LOADED;
+
+    /* Unregister presence before unlocking the manifest */
+    __driver_unregister_presence(manifest->m_handle->m_type);
+
+    if (manifest->m_external && (manifest->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
+        unload_external_driver(manifest->m_external);
+
+    mutex_unlock(manifest->m_lock);
+
+    /* Fuck man */
+    if (error)
+        return Error();
+
+    return Success(0);
 }
 
-
-bool is_driver_installed(drv_manifest_t* manifest) 
+bool is_driver_loaded(drv_manifest_t* manifest)
 {
-  bool is_installed;
-  oss_obj_t* entry;
+    return (is_driver_installed(manifest) && (manifest->m_flags & DRV_LOADED) == DRV_LOADED);
+}
 
-  if (!__driver_node || !manifest)
-    return false;
+bool is_driver_installed(drv_manifest_t* manifest)
+{
+    bool is_installed;
+    oss_obj_t* entry;
 
-  entry = nullptr;
+    if (!__driver_node || !manifest)
+        return false;
 
-  is_installed = (oss_resolve_obj_rel(__driver_node, manifest->m_url, &entry) == 0 && entry != nullptr);
+    entry = nullptr;
 
-  (void)oss_obj_close(entry);
+    is_installed = (oss_resolve_obj_rel(__driver_node, manifest->m_url, &entry) == 0 && entry != nullptr);
 
-  return is_installed;
+    (void)oss_obj_close(entry);
+
+    return is_installed;
 }
 
 /*
  * TODO: when checking this, it could be that the url
- * is totally invalid and results in a pagefault. In that 
- * case we want to be able to tell the pf handler that we 
- * can expect a pagefault and that when it happens, we should 
+ * is totally invalid and results in a pagefault. In that
+ * case we want to be able to tell the pf handler that we
+ * can expect a pagefault and that when it happens, we should
  * not terminate the kernel, but rather signal it to this
  * routine so that we can act accordingly
  */
-drv_manifest_t* get_driver(dev_url_t url) 
+drv_manifest_t* get_driver(dev_url_t url)
 {
-  int error;
-  oss_obj_t* obj;
+    int error;
+    oss_obj_t* obj;
 
-  if (!__driver_node || !url)
-    return nullptr;
+    if (!__driver_node || !url)
+        return nullptr;
 
-  error = oss_resolve_obj_rel(__driver_node, url, &obj);
+    error = oss_resolve_obj_rel(__driver_node, url, &obj);
 
-  if (error || !obj)
-    return nullptr;
+    if (error || !obj)
+        return nullptr;
 
-  /* Manifest should be packed into the object */
-  return oss_obj_unwrap(obj, drv_manifest_t);
+    /* Manifest should be packed into the object */
+    return oss_obj_unwrap(obj, drv_manifest_t);
 }
 
 size_t get_driver_type_count(dev_type_t type)
 {
-  return __dev_constraints[type].current_count;
+    return __dev_constraints[type].current_count;
 }
 
 struct drv_manifest* get_main_driver_from_type(dev_type_t type)
 {
-  dev_constraint_t constraint = __dev_constraints[type];
-  return constraint.active;
+    dev_constraint_t constraint = __dev_constraints[type];
+    return constraint.active;
 }
 
 int set_main_driver(struct drv_manifest* dev, dev_type_t type)
 {
-  dev_constraint_t* constraint = &__dev_constraints[type];
+    dev_constraint_t* constraint = &__dev_constraints[type];
 
-  if (constraint->active)
-    return -1;
+    if (constraint->active)
+        return -1;
 
-  mutex_lock(__driver_constraint_lock);
-  constraint->active = dev;
-  mutex_unlock(__driver_constraint_lock);
+    mutex_lock(__driver_constraint_lock);
+    constraint->active = dev;
+    mutex_unlock(__driver_constraint_lock);
 
-  return 0;
+    return 0;
 }
 
 /*!
  * @brief Copy the path of the driver url into a buffer
  *
- * The URL (we use path and URL together for the same stuff) of any driver will 
+ * The URL (we use path and URL together for the same stuff) of any driver will
  * probably never exceed 128 bytes. If they eventually do, we're fucked =)
  *
  * @buffer: the buffer we copy to
@@ -585,25 +538,25 @@ int set_main_driver(struct drv_manifest* dev, dev_type_t type)
  */
 int get_main_driver_path(char buffer[128], dev_type_t type)
 {
-  drv_manifest_t* manifest;
-  dev_constraint_t* constraint;
+    drv_manifest_t* manifest;
+    dev_constraint_t* constraint;
 
-  if (!buffer)
-    return -1;
+    if (!buffer)
+        return -1;
 
-  constraint = &__dev_constraints[type];
+    constraint = &__dev_constraints[type];
 
-  manifest = constraint->active;
+    manifest = constraint->active;
 
-  if (!manifest)
-    return -1;
+    if (!manifest)
+        return -1;
 
-  if (strlen(manifest->m_url) >= 128)
-    return -2;
+    if (strlen(manifest->m_url) >= 128)
+        return -2;
 
-  memcpy(buffer, manifest->m_url, strlen(manifest->m_url) + 1);
+    memcpy(buffer, manifest->m_url, strlen(manifest->m_url) + 1);
 
-  return 0;
+    return 0;
 }
 
 /*!
@@ -617,35 +570,35 @@ int get_main_driver_path(char buffer[128], dev_type_t type)
  */
 struct drv_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
 {
-  /*
-  const char* url_start = dev_type_urls[type];
-  dev_constraint_t constraint = __dev_constraints[type];
+    /*
+    const char* url_start = dev_type_urls[type];
+    dev_constraint_t constraint = __dev_constraints[type];
 
-  if (index >= constraint.current_count)
-    return nullptr;
+    if (index >= constraint.current_count)
+      return nullptr;
 
-  FOREACH(i, __installed_driver_manifests->m_entries) {
-    hive_entry_t* entry = i->data;
+    FOREACH(i, __installed_driver_manifests->m_entries) {
+      hive_entry_t* entry = i->data;
 
-    if (entry->m_hole && strcmp(entry->m_entry_part, url_start) == 0) {
+      if (entry->m_hole && strcmp(entry->m_entry_part, url_start) == 0) {
 
-      FOREACH(j, entry->m_hole->m_entries) {
-        hive_entry_t* entry = j->data;
+        FOREACH(j, entry->m_hole->m_entries) {
+          hive_entry_t* entry = j->data;
 
-        if (!entry->m_data)
-          continue;
+          if (!entry->m_data)
+            continue;
 
-        if (!index)
-          return entry->m_data;
+          if (!index)
+            return entry->m_data;
 
-        index--;
+          index--;
+        }
       }
     }
-  }
-  */
+    */
 
-  kernel_panic("TODO: get_driver_from_type");
-  return nullptr;
+    kernel_panic("TODO: get_driver_from_type");
+    return nullptr;
 }
 
 /*!
@@ -653,23 +606,23 @@ struct drv_manifest* get_driver_from_type(dev_type_t type, uint32_t index)
  */
 struct drv_manifest* get_core_driver(dev_type_t type)
 {
-  dev_constraint_t* constaint;
+    dev_constraint_t* constaint;
 
-  if (!VALID_DEV_TYPE(type))
-    return nullptr;
+    if (!VALID_DEV_TYPE(type))
+        return nullptr;
 
-  constaint = &__dev_constraints[type];
+    constaint = &__dev_constraints[type];
 
-  /* Sanity, would be weird if this happened */
-  if (!constaint)
-    return nullptr;
+    /* Sanity, would be weird if this happened */
+    if (!constaint)
+        return nullptr;
 
-  return constaint->core;
+    return constaint->core;
 }
 
 /*
  * Replaces the current active driver of this manifests type
- * with the manifests. This unloads the old driver and loads the 
+ * with the manifests. This unloads the old driver and loads the
  * new one. Both must be installed
  *
  * @manifest: the manifest to try to activate
@@ -677,13 +630,13 @@ struct drv_manifest* get_core_driver(dev_type_t type)
  */
 void replace_main_driver(struct drv_manifest* manifest, bool uninstall)
 {
-  kernel_panic("TODO: replace_active_driver");
+    kernel_panic("TODO: replace_active_driver");
 }
 
 /*!
  * @brief Register a core driver for a given type
  *
- * Fails if there already is a core driver for this type. Core drivers should abort their 
+ * Fails if there already is a core driver for this type. Core drivers should abort their
  * load when this fails
  *
  * @driver: the driver to register as a core driver
@@ -691,37 +644,37 @@ void replace_main_driver(struct drv_manifest* manifest, bool uninstall)
  */
 int register_core_driver(struct aniva_driver* driver, dev_type_t type)
 {
-  dev_url_t url;
-  drv_manifest_t* manifest;
-  dev_constraint_t* constraint;
+    dev_url_t url;
+    drv_manifest_t* manifest;
+    dev_constraint_t* constraint;
 
-  if (!driver || !VALID_DEV_TYPE(type))
-    return -1;
+    if (!driver || !VALID_DEV_TYPE(type))
+        return -1;
 
-  constraint = &__dev_constraints[type];
+    constraint = &__dev_constraints[type];
 
-  if (constraint->core)
-    return -2;
+    if (constraint->core)
+        return -2;
 
-  url = get_driver_url(driver);
+    url = get_driver_url(driver);
 
-  if (!url)
-    return -3;
+    if (!url)
+        return -3;
 
-  manifest = get_driver(url);
+    manifest = get_driver(url);
 
-  if (!manifest) {
+    if (!manifest) {
+        kfree((void*)url);
+        return -4;
+    }
+
+    mutex_lock(__core_driver_lock);
+
+    constraint->core = manifest;
+
+    mutex_unlock(__core_driver_lock);
     kfree((void*)url);
-    return -4;
-  }
-
-  mutex_lock(__core_driver_lock);
-
-  constraint->core = manifest;
-
-  mutex_unlock(__core_driver_lock);
-  kfree((void*)url);
-  return 0;
+    return 0;
 }
 
 /*!
@@ -733,94 +686,94 @@ int register_core_driver(struct aniva_driver* driver, dev_type_t type)
  */
 int unregister_core_driver(struct aniva_driver* driver)
 {
-  dev_url_t url;
-  drv_manifest_t* manifest;
-  dev_constraint_t* constraint;
+    dev_url_t url;
+    drv_manifest_t* manifest;
+    dev_constraint_t* constraint;
 
-  if (!driver)
-    return -1;
+    if (!driver)
+        return -1;
 
-  url = get_driver_url(driver);
-  manifest = get_driver(url);
+    url = get_driver_url(driver);
+    manifest = get_driver(url);
 
-  if (!manifest) {
-    kfree((void*)url);
-    return -2;
-  }
-
-  kfree((void*)url);
-
-  /* Lock the mutex to prevent any weirdness */
-  mutex_lock(__core_driver_lock);
-
-  for (uint32_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
-    constraint = &__dev_constraints[i];
-
-    /* Check if this manifest is contained somewhere as a core driver */
-    if (constraint->core == manifest) {
-      constraint->core = nullptr;
-
-      mutex_unlock(__core_driver_lock);
-      return 0;
+    if (!manifest) {
+        kfree((void*)url);
+        return -2;
     }
-  }
 
-  mutex_unlock(__core_driver_lock);
-  return -3;
+    kfree((void*)url);
+
+    /* Lock the mutex to prevent any weirdness */
+    mutex_lock(__core_driver_lock);
+
+    for (uint32_t i = 0; i < DRIVER_TYPE_COUNT; i++) {
+        constraint = &__dev_constraints[i];
+
+        /* Check if this manifest is contained somewhere as a core driver */
+        if (constraint->core == manifest) {
+            constraint->core = nullptr;
+
+            mutex_unlock(__core_driver_lock);
+            return 0;
+        }
+    }
+
+    mutex_unlock(__core_driver_lock);
+    return -3;
 }
 
-drv_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags) 
+drv_manifest_t* try_driver_get(aniva_driver_t* driver, uint32_t flags)
 {
-  dev_url_t path;
-  drv_manifest_t* ret;
+    dev_url_t path;
+    drv_manifest_t* ret;
 
-  if (!driver)
-    return nullptr;
+    if (!driver)
+        return nullptr;
 
-  path = get_driver_url(driver);
-  ret = get_driver(path);
+    path = get_driver_url(driver);
+    ret = get_driver(path);
 
-  kfree((void*)path);
+    kfree((void*)path);
 
-  if (!ret)
-    goto fail_and_exit;
+    if (!ret)
+        goto fail_and_exit;
 
-  /* If the flags specify that the driver has to be active, we check for that */
-  if ((ret->m_flags & DRV_ACTIVE) == 0 && (flags & DRV_ACTIVE) == DRV_ACTIVE)
-    goto fail_and_exit;
+    /* If the flags specify that the driver has to be active, we check for that */
+    if ((ret->m_flags & DRV_ACTIVE) == 0 && (flags & DRV_ACTIVE) == DRV_ACTIVE)
+        goto fail_and_exit;
 
-  return ret;
+    return ret;
 
 fail_and_exit:
-  return nullptr;
+    return nullptr;
 }
 
 /*
- * This function is kinda funky, since anyone who knows the url, can 
+ * This function is kinda funky, since anyone who knows the url, can
  * simply set the driver as ready for kicks and giggles. We might need
  * some security here lmao, so TODO/FIXME
  */
-ErrorOrPtr driver_set_ready(const char* path) 
+ErrorOrPtr driver_set_ready(const char* path)
 {
-  // Fetch from the loaded drivers here, since unloaded
-  // Drivers can never accept packets
-  drv_manifest_t* manifest = get_driver(path);
+    // Fetch from the loaded drivers here, since unloaded
+    // Drivers can never accept packets
+    drv_manifest_t* manifest = get_driver(path);
 
-  /* Check if the manifest is loaded */
-  if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
-    return Error();
+    /* Check if the manifest is loaded */
+    if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
+        return Error();
 
-  manifest->m_flags |= DRV_ACTIVE;
+    manifest->m_flags |= DRV_ACTIVE;
 
-  return Success(0);
+    return Success(0);
 }
 
 ErrorOrPtr foreach_driver(bool (*callback)(oss_node_t* h, oss_obj_t* obj, void* arg0), void* arg0)
 {
-  if (oss_node_itterate(__driver_node, callback, arg0))
-    return Error();
+    if (oss_node_itterate(__driver_node, callback, arg0))
+        return Error();
 
-  return Success(0);
+    return Success(0);
 }
 
 /*!
@@ -832,8 +785,9 @@ ErrorOrPtr foreach_driver(bool (*callback)(oss_node_t* h, oss_obj_t* obj, void* 
  * so often. We might want to probe a driver to see if it has a socket but that will require more busses and
  * more registry...
  */
-ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
-  return driver_send_msg_a(path, code, buffer, buffer_size, nullptr, NULL);
+ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size)
+{
+    return driver_send_msg_a(path, code, buffer, buffer_size, nullptr, NULL);
 }
 
 /*!
@@ -843,196 +797,206 @@ ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* b
  */
 ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size)
 {
-  drv_manifest_t* manifest;
+    drv_manifest_t* manifest;
 
-  if (!path)
-    return Error();
+    if (!path)
+        return Error();
 
-  manifest = get_driver(path);
+    manifest = get_driver(path);
 
-  /*
-   * Only loaded drivers can recieve messages
-   */
-  if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
-    return Error();
+    /*
+     * Only loaded drivers can recieve messages
+     */
+    if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
+        return Error();
 
-  return driver_send_msg_ex(manifest, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
+    return driver_send_msg_ex(manifest, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 }
-
 
 /*
  * When resp_buffer AND resp_buffer_size are non-null, we assume the caller wants to
  * take in a direct response, in which case we can copy the response from the driver
  * directly into the buffer that the caller gave us
  */
-ErrorOrPtr driver_send_msg_ex(struct drv_manifest* manifest, dcc_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size) 
+ErrorOrPtr driver_send_msg_ex(struct drv_manifest* manifest, dcc_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size)
 {
-  uintptr_t error;
-  aniva_driver_t* driver;
+    uintptr_t error;
+    aniva_driver_t* driver;
 
-  if (!manifest)
-    return Error();
+    if (!manifest)
+        return Error();
 
-  driver = manifest->m_handle;
+    driver = manifest->m_handle;
 
-  if (!driver || !driver->f_msg) 
-    return Error();
+    if (!driver || !driver->f_msg)
+        return Error();
 
-  mutex_lock(manifest->m_lock);
+    mutex_lock(manifest->m_lock);
 
-  /* NOTE: it is the drivers job to verify the buffers. We don't manage shit here */
-  error = driver->f_msg(manifest->m_handle, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
+    /* NOTE: it is the drivers job to verify the buffers. We don't manage shit here */
+    error = driver->f_msg(manifest->m_handle, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 
-  mutex_unlock(manifest->m_lock);
+    mutex_unlock(manifest->m_lock);
 
-  if (error)
-    return ErrorWithVal(error);
+    if (error)
+        return ErrorWithVal(error);
 
-  return Success(0);
+    return Success(0);
 }
-
 
 /*
  * NOTE: this function leaves behind a dirty packet response.
  * It is left to the caller to clean that up
  */
-ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size) {
-  return driver_send_msg_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
+ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size)
+{
+    return driver_send_msg_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
 }
 
+#define LOCK_SOCKET_MAYBE(socket)               \
+    do {                                        \
+        if (socket)                             \
+            mutex_lock(socket->m_packet_mutex); \
+    } while (0)
+#define UNLOCK_SOCKET_MAYBE(socket)               \
+    do {                                          \
+        if (socket)                               \
+            mutex_unlock(socket->m_packet_mutex); \
+    } while (0)
 
-#define LOCK_SOCKET_MAYBE(socket) do { if (socket) mutex_lock(socket->m_packet_mutex); } while(0)
-#define UNLOCK_SOCKET_MAYBE(socket) do { if (socket) mutex_unlock(socket->m_packet_mutex); } while(0)
+ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto)
+{
 
-ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto) {
+    uintptr_t result;
+    drv_manifest_t* manifest = get_driver(path);
 
-  uintptr_t result;
-  drv_manifest_t* manifest = get_driver(path);
-
-  if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
-    goto exit_fail;
-
-  /*
-   * Invalid, or our driver can't be reached =/
-   */
-  if (!manifest->m_handle || !manifest->m_handle->f_msg)
-    goto exit_fail;
-
-  // TODO: validate checksums and funnie hashes
-  // TODO: validate all dependencies are loaded
-
-  // NOTE: this skips any verification by the packet multiplexer, and just 
-  // kinda calls the drivers onPacket function whenever. This can result in
-  // funny behaviour, so we should try to take the drivers packet mutex, in order 
-  // to ensure we are the only ones asking this driver to handle some data
-
-  size_t timeout = mto;
-
-  /* NOTE: this is the same logic as that which is used in driver_is_ready(...) */
-  while (!driver_is_ready(manifest)) {
-
-    scheduler_yield();
-
-    if (timeout != DRIVER_WAIT_UNTIL_READY) {
-
-      timeout--;
-      if (timeout == 0) {
+    if (!manifest || (manifest->m_flags & DRV_LOADED) != DRV_LOADED)
         goto exit_fail;
-      }
+
+    /*
+     * Invalid, or our driver can't be reached =/
+     */
+    if (!manifest->m_handle || !manifest->m_handle->f_msg)
+        goto exit_fail;
+
+    // TODO: validate checksums and funnie hashes
+    // TODO: validate all dependencies are loaded
+
+    // NOTE: this skips any verification by the packet multiplexer, and just
+    // kinda calls the drivers onPacket function whenever. This can result in
+    // funny behaviour, so we should try to take the drivers packet mutex, in order
+    // to ensure we are the only ones asking this driver to handle some data
+
+    size_t timeout = mto;
+
+    /* NOTE: this is the same logic as that which is used in driver_is_ready(...) */
+    while (!driver_is_ready(manifest)) {
+
+        scheduler_yield();
+
+        if (timeout != DRIVER_WAIT_UNTIL_READY) {
+
+            timeout--;
+            if (timeout == 0) {
+                goto exit_fail;
+            }
+        }
     }
-  }
 
-  mutex_lock(manifest->m_lock);
+    mutex_lock(manifest->m_lock);
 
-  result = manifest->m_handle->f_msg(manifest->m_handle, code, buffer, buffer_size, NULL, NULL);
+    result = manifest->m_handle->f_msg(manifest->m_handle, code, buffer, buffer_size, NULL, NULL);
 
-  mutex_unlock(manifest->m_lock);
+    mutex_unlock(manifest->m_lock);
 
-  if (result)
-    return Error();
+    if (result)
+        return Error();
 
-  return Success(0);
+    return Success(0);
 
 exit_fail:
-  return Error();
+    return Error();
 }
 
 /*!
  * @brief: Initializes the in-kernel drivers
  */
-void init_aniva_driver_registry() 
+void init_aniva_driver_registry()
 {
-  //__installed_driver_manifests = create_hive("Devices");
-  __driver_node = create_oss_node("Drv", OSS_OBJ_STORE_NODE, NULL, NULL);
-  __drv_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, drv_manifest_SOFTMAX * sizeof(drv_manifest_t), sizeof(drv_manifest_t), NULL);
-  __deferred_driver_manifests = init_list();
+    //__installed_driver_manifests = create_hive("Devices");
+    __driver_node = create_oss_node("Drv", OSS_OBJ_STORE_NODE, NULL, NULL);
+    __drv_manifest_allocator = create_zone_allocator_ex(nullptr, NULL, drv_manifest_SOFTMAX * sizeof(drv_manifest_t), sizeof(drv_manifest_t), NULL);
+    __deferred_driver_manifests = init_list();
 
-  __driver_constraint_lock = create_mutex(NULL);
-  __core_driver_lock = create_mutex(NULL);
+    __driver_constraint_lock = create_mutex(NULL);
+    __core_driver_lock = create_mutex(NULL);
 
-  /*
-   * Attach the node to the rootmap 
-   * Access is now granted through Drv/<type>/<name>
-   */
-  oss_attach_rootnode(__driver_node);
+    /*
+     * Attach the node to the rootmap
+     * Access is now granted through Drv/<type>/<name>
+     */
+    oss_attach_rootnode(__driver_node);
 
-  FOREACH_CORE_DRV(ptr) {
+    FOREACH_CORE_DRV(ptr)
+    {
 
-    drv_manifest_t* manifest;
-    aniva_driver_t* driver = *ptr;
+        drv_manifest_t* manifest;
+        aniva_driver_t* driver = *ptr;
 
-    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
+        ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
 
-    manifest = create_drv_manifest(driver);
+        manifest = create_drv_manifest(driver);
 
-    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
+        ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
 
-    Must(install_driver(manifest));
-  }
+        Must(install_driver(manifest));
+    }
 
-  /* First load pass */
-  //hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
-  oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
+    /* First load pass */
+    // hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
+    oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
 
-  // Install exported drivers
-  FOREACH_PCDRV(ptr) {
+    // Install exported drivers
+    FOREACH_PCDRV(ptr)
+    {
 
-    drv_manifest_t* manifest;
-    aniva_driver_t* driver = *ptr;
+        drv_manifest_t* manifest;
+        aniva_driver_t* driver = *ptr;
 
-    ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
+        ASSERT_MSG(driver, "Got an invalid precompiled driver! (ptr = NULL)");
 
-    manifest = create_drv_manifest(driver);
+        manifest = create_drv_manifest(driver);
 
-    ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
+        ASSERT_MSG(manifest, "Failed to create manifest for a precompiled driver!");
 
-    // NOTE: we should just let errors happen here,
-    // since It could happen that a driver is already
-    // loaded as a dependency. This means that this call
-    // will always fail in that case, since we try to load
-    // a driver that has already been loaded
-    Must(install_driver(manifest));
-  }
+        // NOTE: we should just let errors happen here,
+        // since It could happen that a driver is already
+        // loaded as a dependency. This means that this call
+        // will always fail in that case, since we try to load
+        // a driver that has already been loaded
+        Must(install_driver(manifest));
+    }
 
-  /* Second load pass, with the core drivers already loaded */
-  //hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
-  oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
+    /* Second load pass, with the core drivers already loaded */
+    // hive_walk(__installed_driver_manifests, true, walk_precompiled_drivers_to_load);
+    oss_node_itterate(__driver_node, walk_precompiled_drivers_to_load, NULL);
 
-  FOREACH(i, __deferred_driver_manifests) {
-    drv_manifest_t* manifest = i->data;
+    FOREACH(i, __deferred_driver_manifests)
+    {
+        drv_manifest_t* manifest = i->data;
 
-    /* Skip invalid drivers, as a sanity check */
-    if (!verify_driver(manifest))
-      continue;
+        /* Skip invalid drivers, as a sanity check */
+        if (!verify_driver(manifest))
+            continue;
 
-    /* Clear the deferred flag */
-    manifest->m_flags &= ~DRV_DEFERRED;
-  
-    ASSERT_MSG(__load_precompiled_driver(manifest), "Failed to load deferred precompiled driver!");
-  }
+        /* Clear the deferred flag */
+        manifest->m_flags &= ~DRV_DEFERRED;
 
-  destroy_list(__deferred_driver_manifests);
-  __deferred_driver_manifests = nullptr;
+        ASSERT_MSG(__load_precompiled_driver(manifest), "Failed to load deferred precompiled driver!");
+    }
+
+    destroy_list(__deferred_driver_manifests);
+    __deferred_driver_manifests = nullptr;
 }
 
 /*!
@@ -1040,5 +1004,5 @@ void init_aniva_driver_registry()
  */
 void init_driver_subsys()
 {
-  init_external_drivers();
+    init_external_drivers();
 }

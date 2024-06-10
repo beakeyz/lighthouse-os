@@ -149,23 +149,20 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utxfmutex")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utxfmutex")
 
 /* Local prototypes */
 
 static ACPI_STATUS
-AcpiUtGetMutexObject (
-    ACPI_HANDLE             Handle,
-    ACPI_STRING             Pathname,
-    ACPI_OPERAND_OBJECT     **RetObj);
-
+AcpiUtGetMutexObject(
+    ACPI_HANDLE Handle,
+    ACPI_STRING Pathname,
+    ACPI_OPERAND_OBJECT** RetObj);
 
 /*******************************************************************************
  *
@@ -184,56 +181,48 @@ AcpiUtGetMutexObject (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiUtGetMutexObject (
-    ACPI_HANDLE             Handle,
-    ACPI_STRING             Pathname,
-    ACPI_OPERAND_OBJECT     **RetObj)
+AcpiUtGetMutexObject(
+    ACPI_HANDLE Handle,
+    ACPI_STRING Pathname,
+    ACPI_OPERAND_OBJECT** RetObj)
 {
-    ACPI_NAMESPACE_NODE     *MutexNode;
-    ACPI_OPERAND_OBJECT     *MutexObj;
-    ACPI_STATUS             Status;
-
+    ACPI_NAMESPACE_NODE* MutexNode;
+    ACPI_OPERAND_OBJECT* MutexObj;
+    ACPI_STATUS Status;
 
     /* Parameter validation */
 
-    if (!RetObj || (!Handle && !Pathname))
-    {
+    if (!RetObj || (!Handle && !Pathname)) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Get a the namespace node for the mutex */
 
     MutexNode = Handle;
-    if (Pathname != NULL)
-    {
-        Status = AcpiGetHandle (
-            Handle, Pathname, ACPI_CAST_PTR (ACPI_HANDLE, &MutexNode));
-        if (ACPI_FAILURE (Status))
-        {
+    if (Pathname != NULL) {
+        Status = AcpiGetHandle(
+            Handle, Pathname, ACPI_CAST_PTR(ACPI_HANDLE, &MutexNode));
+        if (ACPI_FAILURE(Status)) {
             return (Status);
         }
     }
 
     /* Ensure that we actually have a Mutex object */
 
-    if (!MutexNode ||
-        (MutexNode->Type != ACPI_TYPE_MUTEX))
-    {
+    if (!MutexNode || (MutexNode->Type != ACPI_TYPE_MUTEX)) {
         return (AE_TYPE);
     }
 
     /* Get the low-level mutex object */
 
-    MutexObj = AcpiNsGetAttachedObject (MutexNode);
-    if (!MutexObj)
-    {
+    MutexObj = AcpiNsGetAttachedObject(MutexNode);
+    if (!MutexObj) {
         return (AE_NULL_OBJECT);
     }
 
     *RetObj = MutexObj;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -254,31 +243,28 @@ AcpiUtGetMutexObject (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiAcquireMutex (
-    ACPI_HANDLE             Handle,
-    ACPI_STRING             Pathname,
-    UINT16                  Timeout)
+AcpiAcquireMutex(
+    ACPI_HANDLE Handle,
+    ACPI_STRING Pathname,
+    UINT16 Timeout)
 {
-    ACPI_STATUS             Status;
-    ACPI_OPERAND_OBJECT     *MutexObj;
-
+    ACPI_STATUS Status;
+    ACPI_OPERAND_OBJECT* MutexObj;
 
     /* Get the low-level mutex associated with Handle:Pathname */
 
-    Status = AcpiUtGetMutexObject (Handle, Pathname, &MutexObj);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtGetMutexObject(Handle, Pathname, &MutexObj);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Acquire the OS mutex */
 
-    Status = AcpiOsAcquireMutex (MutexObj->Mutex.OsMutex, Timeout);
+    Status = AcpiOsAcquireMutex(MutexObj->Mutex.OsMutex, Timeout);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiAcquireMutex)
-
+ACPI_EXPORT_SYMBOL(AcpiAcquireMutex)
 
 /*******************************************************************************
  *
@@ -298,26 +284,24 @@ ACPI_EXPORT_SYMBOL (AcpiAcquireMutex)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiReleaseMutex (
-    ACPI_HANDLE             Handle,
-    ACPI_STRING             Pathname)
+AcpiReleaseMutex(
+    ACPI_HANDLE Handle,
+    ACPI_STRING Pathname)
 {
-    ACPI_STATUS             Status;
-    ACPI_OPERAND_OBJECT     *MutexObj;
-
+    ACPI_STATUS Status;
+    ACPI_OPERAND_OBJECT* MutexObj;
 
     /* Get the low-level mutex associated with Handle:Pathname */
 
-    Status = AcpiUtGetMutexObject (Handle, Pathname, &MutexObj);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtGetMutexObject(Handle, Pathname, &MutexObj);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Release the OS mutex */
 
-    AcpiOsReleaseMutex (MutexObj->Mutex.OsMutex);
+    AcpiOsReleaseMutex(MutexObj->Mutex.OsMutex);
     return (AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiReleaseMutex)
+ACPI_EXPORT_SYMBOL(AcpiReleaseMutex)

@@ -3,25 +3,25 @@
 
 #include "libk/flow/error.h"
 
-#define DEFAULT_STACK_SIZE                      (64 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS                (8)
+#define DEFAULT_STACK_SIZE (64 * Kib)
+#define DEFAULT_THREAD_MAX_TICKS (8)
 
-#define PROC_DEFAULT_MAX_THREADS                (16)
-#define PROC_CORE_PROCESS_NAME                  "not_the_kernel"
-#define PROC_MAX_TICKS                          (20)
+#define PROC_DEFAULT_MAX_THREADS (16)
+#define PROC_CORE_PROCESS_NAME "not_the_kernel"
+#define PROC_MAX_TICKS (20)
 
-#define PROC_SOFTMAX                            (0x1000)
+#define PROC_SOFTMAX (0x1000)
 
 /* The 32-bit limit for proc ids */
-#define PROC_HARDMAX                            (0xFFFFFFFF)
+#define PROC_HARDMAX (0xFFFFFFFF)
 
-#define THREAD_HARDMAX                          (0xFFFFFFFF)
+#define THREAD_HARDMAX (0xFFFFFFFF)
 
-#define MIN_SOCKET_BUFFER_SIZE                  (0)
+#define MIN_SOCKET_BUFFER_SIZE (0)
 // FIXME: should this be the max size?
-#define SOCKET_DEFAULT_SOCKET_BUFFER_SIZE       (4096)
-#define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT     (128)
-#define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT     (64)
+#define SOCKET_DEFAULT_SOCKET_BUFFER_SIZE (4096)
+#define SOCKET_DEFAULT_MAXIMUM_SOCKET_COUNT (128)
+#define SOCKET_DEFAULT_MAXIMUM_BUFFER_COUNT (64)
 
 extern char thread_entry_stub[];
 extern char thread_entry_stub_end[];
@@ -35,15 +35,15 @@ struct user_profile;
 enum SCHEDULER_PRIORITY;
 
 typedef enum THREAD_STATE {
-  INVALID = 0,      // not initialized
-  RUNNING,          // executing
-  RUNNABLE,         // can be executed by the scheduler
-  NO_CONTEXT,       // Runnable, but needs to recieve a context
-  DYING,            // Waiting to be cleaned up
-  DEAD,             // Gone from the scheduler, in reaper queue
-  STOPPED,          // stopped by the scheduler, for whatever reason. waiting for reschedule
-  BLOCKED,          // performing blocking operation
-  SLEEPING,         // waiting for anything to happen (i.e. signals, data)
+    INVALID = 0, // not initialized
+    RUNNING, // executing
+    RUNNABLE, // can be executed by the scheduler
+    NO_CONTEXT, // Runnable, but needs to recieve a context
+    DYING, // Waiting to be cleaned up
+    DEAD, // Gone from the scheduler, in reaper queue
+    STOPPED, // stopped by the scheduler, for whatever reason. waiting for reschedule
+    BLOCKED, // performing blocking operation
+    SLEEPING, // waiting for anything to happen (i.e. signals, data)
 } THREAD_STATE_t;
 
 typedef int thread_id_t;

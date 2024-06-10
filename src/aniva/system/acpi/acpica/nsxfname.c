@@ -152,24 +152,22 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
 #include "acparser.h"
+#include "acpi.h"
 #include "amlcode.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nsxfname")
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nsxfname")
 
 /* Local prototypes */
 
-static char *
-AcpiNsCopyDeviceId (
-    ACPI_PNP_DEVICE_ID      *Dest,
-    ACPI_PNP_DEVICE_ID      *Source,
-    char                    *StringArea);
-
+static char*
+AcpiNsCopyDeviceId(
+    ACPI_PNP_DEVICE_ID* Dest,
+    ACPI_PNP_DEVICE_ID* Source,
+    char* StringArea);
 
 /******************************************************************************
  *
@@ -190,33 +188,28 @@ AcpiNsCopyDeviceId (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetHandle (
-    ACPI_HANDLE             Parent,
-    const char              *Pathname,
-    ACPI_HANDLE             *RetHandle)
+AcpiGetHandle(
+    ACPI_HANDLE Parent,
+    const char* Pathname,
+    ACPI_HANDLE* RetHandle)
 {
-    ACPI_STATUS             Status;
-    ACPI_NAMESPACE_NODE     *Node = NULL;
-    ACPI_NAMESPACE_NODE     *PrefixNode = NULL;
+    ACPI_STATUS Status;
+    ACPI_NAMESPACE_NODE* Node = NULL;
+    ACPI_NAMESPACE_NODE* PrefixNode = NULL;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /* Parameter Validation */
 
-    if (!RetHandle || !Pathname)
-    {
+    if (!RetHandle || !Pathname) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Convert a parent handle to a prefix node */
 
-    if (Parent)
-    {
-        PrefixNode = AcpiNsValidateHandle (Parent);
-        if (!PrefixNode)
-        {
+    if (Parent) {
+        PrefixNode = AcpiNsValidateHandle(Parent);
+        if (!PrefixNode) {
             return (AE_BAD_PARAMETER);
         }
     }
@@ -228,20 +221,16 @@ AcpiGetHandle (
      *
      * Error for <null Parent + relative path>
      */
-    if (ACPI_IS_ROOT_PREFIX (Pathname[0]))
-    {
+    if (ACPI_IS_ROOT_PREFIX(Pathname[0])) {
         /* Pathname is fully qualified (starts with '\') */
 
         /* Special case for root-only, since we can't search for it */
 
-        if (!strcmp (Pathname, ACPI_NS_ROOT_PATH))
-        {
-            *RetHandle = ACPI_CAST_PTR (ACPI_HANDLE, AcpiGbl_RootNode);
+        if (!strcmp(Pathname, ACPI_NS_ROOT_PATH)) {
+            *RetHandle = ACPI_CAST_PTR(ACPI_HANDLE, AcpiGbl_RootNode);
             return (AE_OK);
         }
-    }
-    else if (!PrefixNode)
-    {
+    } else if (!PrefixNode) {
         /* Relative path with null prefix is disallowed */
 
         return (AE_BAD_PARAMETER);
@@ -249,17 +238,15 @@ AcpiGetHandle (
 
     /* Find the Node and convert to a handle */
 
-    Status = AcpiNsGetNode (PrefixNode, Pathname, ACPI_NS_NO_UPSEARCH, &Node);
-    if (ACPI_SUCCESS (Status))
-    {
-        *RetHandle = ACPI_CAST_PTR (ACPI_HANDLE, Node);
+    Status = AcpiNsGetNode(PrefixNode, Pathname, ACPI_NS_NO_UPSEARCH, &Node);
+    if (ACPI_SUCCESS(Status)) {
+        *RetHandle = ACPI_CAST_PTR(ACPI_HANDLE, Node);
     }
 
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetHandle)
-
+ACPI_EXPORT_SYMBOL(AcpiGetHandle)
 
 /******************************************************************************
  *
@@ -278,24 +265,21 @@ ACPI_EXPORT_SYMBOL (AcpiGetHandle)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetName (
-    ACPI_HANDLE             Handle,
-    UINT32                  NameType,
-    ACPI_BUFFER             *Buffer)
+AcpiGetName(
+    ACPI_HANDLE Handle,
+    UINT32 NameType,
+    ACPI_BUFFER* Buffer)
 {
-    ACPI_STATUS             Status;
-
+    ACPI_STATUS Status;
 
     /* Parameter validation */
 
-    if (NameType > ACPI_NAME_TYPE_MAX)
-    {
+    if (NameType > ACPI_NAME_TYPE_MAX) {
         return (AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtValidateBuffer (Buffer);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtValidateBuffer(Buffer);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -303,33 +287,27 @@ AcpiGetName (
      * Wants the single segment ACPI name.
      * Validate handle and convert to a namespace Node
      */
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    if (NameType == ACPI_FULL_PATHNAME ||
-        NameType == ACPI_FULL_PATHNAME_NO_TRAILING)
-    {
+    if (NameType == ACPI_FULL_PATHNAME || NameType == ACPI_FULL_PATHNAME_NO_TRAILING) {
         /* Get the full pathname (From the namespace root) */
 
-        Status = AcpiNsHandleToPathname (Handle, Buffer,
+        Status = AcpiNsHandleToPathname(Handle, Buffer,
             NameType == ACPI_FULL_PATHNAME ? FALSE : TRUE);
-    }
-    else
-    {
+    } else {
         /* Get the single name */
 
-        Status = AcpiNsHandleToName (Handle, Buffer);
+        Status = AcpiNsHandleToName(Handle, Buffer);
     }
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetName)
-
+ACPI_EXPORT_SYMBOL(AcpiGetName)
 
 /******************************************************************************
  *
@@ -345,11 +323,11 @@ ACPI_EXPORT_SYMBOL (AcpiGetName)
  *
  ******************************************************************************/
 
-static char *
-AcpiNsCopyDeviceId (
-    ACPI_PNP_DEVICE_ID      *Dest,
-    ACPI_PNP_DEVICE_ID      *Source,
-    char                    *StringArea)
+static char*
+AcpiNsCopyDeviceId(
+    ACPI_PNP_DEVICE_ID* Dest,
+    ACPI_PNP_DEVICE_ID* Source,
+    char* StringArea)
 {
     /* Create the destination PNP_DEVICE_ID */
 
@@ -358,10 +336,9 @@ AcpiNsCopyDeviceId (
 
     /* Copy actual string and return a pointer to the next string area */
 
-    memcpy (StringArea, Source->String, Source->Length);
+    memcpy(StringArea, Source->String, Source->Length);
     return (StringArea + Source->Length);
 }
-
 
 /******************************************************************************
  *
@@ -392,66 +369,58 @@ AcpiNsCopyDeviceId (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetObjectInfo (
-    ACPI_HANDLE             Handle,
-    ACPI_DEVICE_INFO        **ReturnBuffer)
+AcpiGetObjectInfo(
+    ACPI_HANDLE Handle,
+    ACPI_DEVICE_INFO** ReturnBuffer)
 {
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_DEVICE_INFO        *Info;
-    ACPI_PNP_DEVICE_ID_LIST *CidList = NULL;
-    ACPI_PNP_DEVICE_ID      *Hid = NULL;
-    ACPI_PNP_DEVICE_ID      *Uid = NULL;
-    ACPI_PNP_DEVICE_ID      *Cls = NULL;
-    char                    *NextIdString;
-    ACPI_OBJECT_TYPE        Type;
-    ACPI_NAME               Name;
-    UINT8                   ParamCount= 0;
-    UINT16                  Valid = 0;
-    UINT32                  InfoSize;
-    UINT32                  i;
-    ACPI_STATUS             Status;
-
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_DEVICE_INFO* Info;
+    ACPI_PNP_DEVICE_ID_LIST* CidList = NULL;
+    ACPI_PNP_DEVICE_ID* Hid = NULL;
+    ACPI_PNP_DEVICE_ID* Uid = NULL;
+    ACPI_PNP_DEVICE_ID* Cls = NULL;
+    char* NextIdString;
+    ACPI_OBJECT_TYPE Type;
+    ACPI_NAME Name;
+    UINT8 ParamCount = 0;
+    UINT16 Valid = 0;
+    UINT32 InfoSize;
+    UINT32 i;
+    ACPI_STATUS Status;
 
     /* Parameter validation */
 
-    if (!Handle || !ReturnBuffer)
-    {
+    if (!Handle || !ReturnBuffer) {
         return (AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Node = AcpiNsValidateHandle (Handle);
-    if (!Node)
-    {
-        (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    Node = AcpiNsValidateHandle(Handle);
+    if (!Node) {
+        (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
         return (AE_BAD_PARAMETER);
     }
 
     /* Get the namespace node data while the namespace is locked */
 
-    InfoSize = sizeof (ACPI_DEVICE_INFO);
+    InfoSize = sizeof(ACPI_DEVICE_INFO);
     Type = Node->Type;
     Name = Node->Name.Integer;
 
-    if (Node->Type == ACPI_TYPE_METHOD)
-    {
+    if (Node->Type == ACPI_TYPE_METHOD) {
         ParamCount = Node->Object->Method.ParamCount;
     }
 
-    Status = AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    if ((Type == ACPI_TYPE_DEVICE) ||
-        (Type == ACPI_TYPE_PROCESSOR))
-    {
+    if ((Type == ACPI_TYPE_DEVICE) || (Type == ACPI_TYPE_PROCESSOR)) {
         /*
          * Get extra info for ACPI Device/Processor objects only:
          * Run the Device _HID, _UID, _CLS, and _CID methods.
@@ -463,38 +432,34 @@ AcpiGetObjectInfo (
 
         /* Execute the Device._HID method */
 
-        Status = AcpiUtExecute_HID (Node, &Hid);
-        if (ACPI_SUCCESS (Status))
-        {
+        Status = AcpiUtExecute_HID(Node, &Hid);
+        if (ACPI_SUCCESS(Status)) {
             InfoSize += Hid->Length;
             Valid |= ACPI_VALID_HID;
         }
 
         /* Execute the Device._UID method */
 
-        Status = AcpiUtExecute_UID (Node, &Uid);
-        if (ACPI_SUCCESS (Status))
-        {
+        Status = AcpiUtExecute_UID(Node, &Uid);
+        if (ACPI_SUCCESS(Status)) {
             InfoSize += Uid->Length;
             Valid |= ACPI_VALID_UID;
         }
 
         /* Execute the Device._CID method */
 
-        Status = AcpiUtExecute_CID (Node, &CidList);
-        if (ACPI_SUCCESS (Status))
-        {
+        Status = AcpiUtExecute_CID(Node, &CidList);
+        if (ACPI_SUCCESS(Status)) {
             /* Add size of CID strings and CID pointer array */
 
-            InfoSize += (CidList->ListSize - sizeof (ACPI_PNP_DEVICE_ID_LIST));
+            InfoSize += (CidList->ListSize - sizeof(ACPI_PNP_DEVICE_ID_LIST));
             Valid |= ACPI_VALID_CID;
         }
 
         /* Execute the Device._CLS method */
 
-        Status = AcpiUtExecute_CLS (Node, &Cls);
-        if (ACPI_SUCCESS (Status))
-        {
+        Status = AcpiUtExecute_CLS(Node, &Cls);
+        if (ACPI_SUCCESS(Status)) {
             InfoSize += Cls->Length;
             Valid |= ACPI_VALID_CLS;
         }
@@ -504,18 +469,15 @@ AcpiGetObjectInfo (
      * Now that we have the variable-length data, we can allocate the
      * return buffer
      */
-    Info = ACPI_ALLOCATE_ZEROED (InfoSize);
-    if (!Info)
-    {
+    Info = ACPI_ALLOCATE_ZEROED(InfoSize);
+    if (!Info) {
         Status = AE_NO_MEMORY;
         goto Cleanup;
     }
 
     /* Get the fixed-length data */
 
-    if ((Type == ACPI_TYPE_DEVICE) ||
-        (Type == ACPI_TYPE_PROCESSOR))
-    {
+    if ((Type == ACPI_TYPE_DEVICE) || (Type == ACPI_TYPE_PROCESSOR)) {
         /*
          * Get extra info for ACPI Device/Processor objects only:
          * Run the _ADR and, SxW, and _SxD methods.
@@ -527,30 +489,27 @@ AcpiGetObjectInfo (
 
         /* Execute the Device._ADR method */
 
-        Status = AcpiUtEvaluateNumericObject (METHOD_NAME__ADR, Node,
+        Status = AcpiUtEvaluateNumericObject(METHOD_NAME__ADR, Node,
             &Info->Address);
-        if (ACPI_SUCCESS (Status))
-        {
+        if (ACPI_SUCCESS(Status)) {
             Valid |= ACPI_VALID_ADR;
         }
 
         /* Execute the Device._SxW methods */
 
-        Status = AcpiUtExecutePowerMethods (Node,
+        Status = AcpiUtExecutePowerMethods(Node,
             AcpiGbl_LowestDstateNames, ACPI_NUM_SxW_METHODS,
             Info->LowestDstates);
-        if (ACPI_SUCCESS (Status))
-        {
+        if (ACPI_SUCCESS(Status)) {
             Valid |= ACPI_VALID_SXWS;
         }
 
         /* Execute the Device._SxD methods */
 
-        Status = AcpiUtExecutePowerMethods (Node,
+        Status = AcpiUtExecutePowerMethods(Node,
             AcpiGbl_HighestDstateNames, ACPI_NUM_SxD_METHODS,
             Info->HighestDstates);
-        if (ACPI_SUCCESS (Status))
-        {
+        if (ACPI_SUCCESS(Status)) {
             Valid |= ACPI_VALID_SXDS;
         }
     }
@@ -559,12 +518,11 @@ AcpiGetObjectInfo (
      * Create a pointer to the string area of the return buffer.
      * Point to the end of the base ACPI_DEVICE_INFO structure.
      */
-    NextIdString = ACPI_CAST_PTR (char, Info->CompatibleIdList.Ids);
-    if (CidList)
-    {
+    NextIdString = ACPI_CAST_PTR(char, Info->CompatibleIdList.Ids);
+    if (CidList) {
         /* Point past the CID PNP_DEVICE_ID array */
 
-        NextIdString += ((ACPI_SIZE) CidList->Count * sizeof (ACPI_PNP_DEVICE_ID));
+        NextIdString += ((ACPI_SIZE)CidList->Count * sizeof(ACPI_PNP_DEVICE_ID));
     }
 
     /*
@@ -573,45 +531,38 @@ AcpiGetObjectInfo (
      *
      * For HID and CID, check if the ID is a PCI Root Bridge.
      */
-    if (Hid)
-    {
-        NextIdString = AcpiNsCopyDeviceId (&Info->HardwareId,
+    if (Hid) {
+        NextIdString = AcpiNsCopyDeviceId(&Info->HardwareId,
             Hid, NextIdString);
 
-        if (AcpiUtIsPciRootBridge (Hid->String))
-        {
+        if (AcpiUtIsPciRootBridge(Hid->String)) {
             Info->Flags |= ACPI_PCI_ROOT_BRIDGE;
         }
     }
 
-    if (Uid)
-    {
-        NextIdString = AcpiNsCopyDeviceId (&Info->UniqueId,
+    if (Uid) {
+        NextIdString = AcpiNsCopyDeviceId(&Info->UniqueId,
             Uid, NextIdString);
     }
 
-    if (CidList)
-    {
+    if (CidList) {
         Info->CompatibleIdList.Count = CidList->Count;
         Info->CompatibleIdList.ListSize = CidList->ListSize;
 
         /* Copy each CID */
 
-        for (i = 0; i < CidList->Count; i++)
-        {
-            NextIdString = AcpiNsCopyDeviceId (&Info->CompatibleIdList.Ids[i],
+        for (i = 0; i < CidList->Count; i++) {
+            NextIdString = AcpiNsCopyDeviceId(&Info->CompatibleIdList.Ids[i],
                 &CidList->Ids[i], NextIdString);
 
-            if (AcpiUtIsPciRootBridge (CidList->Ids[i].String))
-            {
+            if (AcpiUtIsPciRootBridge(CidList->Ids[i].String)) {
                 Info->Flags |= ACPI_PCI_ROOT_BRIDGE;
             }
         }
     }
 
-    if (Cls)
-    {
-       (void) AcpiNsCopyDeviceId (&Info->ClassCode,
+    if (Cls) {
+        (void)AcpiNsCopyDeviceId(&Info->ClassCode,
             Cls, NextIdString);
     }
 
@@ -626,29 +577,23 @@ AcpiGetObjectInfo (
     *ReturnBuffer = Info;
     Status = AE_OK;
 
-
 Cleanup:
-    if (Hid)
-    {
-        ACPI_FREE (Hid);
+    if (Hid) {
+        ACPI_FREE(Hid);
     }
-    if (Uid)
-    {
-        ACPI_FREE (Uid);
+    if (Uid) {
+        ACPI_FREE(Uid);
     }
-    if (CidList)
-    {
-        ACPI_FREE (CidList);
+    if (CidList) {
+        ACPI_FREE(CidList);
     }
-    if (Cls)
-    {
-        ACPI_FREE (Cls);
+    if (Cls) {
+        ACPI_FREE(Cls);
     }
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetObjectInfo)
-
+ACPI_EXPORT_SYMBOL(AcpiGetObjectInfo)
 
 /******************************************************************************
  *
@@ -666,99 +611,89 @@ ACPI_EXPORT_SYMBOL (AcpiGetObjectInfo)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiInstallMethod (
-    UINT8                   *Buffer)
+AcpiInstallMethod(
+    UINT8* Buffer)
 {
-    ACPI_TABLE_HEADER       *Table = ACPI_CAST_PTR (ACPI_TABLE_HEADER, Buffer);
-    UINT8                   *AmlBuffer;
-    UINT8                   *AmlStart;
-    char                    *Path;
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_OPERAND_OBJECT     *MethodObj;
-    ACPI_PARSE_STATE        ParserState;
-    UINT32                  AmlLength;
-    UINT16                  Opcode;
-    UINT8                   MethodFlags;
-    ACPI_STATUS             Status;
-
+    ACPI_TABLE_HEADER* Table = ACPI_CAST_PTR(ACPI_TABLE_HEADER, Buffer);
+    UINT8* AmlBuffer;
+    UINT8* AmlStart;
+    char* Path;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_OPERAND_OBJECT* MethodObj;
+    ACPI_PARSE_STATE ParserState;
+    UINT32 AmlLength;
+    UINT16 Opcode;
+    UINT8 MethodFlags;
+    ACPI_STATUS Status;
 
     /* Parameter validation */
 
-    if (!Buffer)
-    {
+    if (!Buffer) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Table must be a DSDT or SSDT */
 
-    if (!ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_DSDT) &&
-        !ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_SSDT))
-    {
+    if (!ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_DSDT) && !ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_SSDT)) {
         return (AE_BAD_HEADER);
     }
 
     /* First AML opcode in the table must be a control method */
 
-    ParserState.Aml = Buffer + sizeof (ACPI_TABLE_HEADER);
-    Opcode = AcpiPsPeekOpcode (&ParserState);
-    if (Opcode != AML_METHOD_OP)
-    {
+    ParserState.Aml = Buffer + sizeof(ACPI_TABLE_HEADER);
+    Opcode = AcpiPsPeekOpcode(&ParserState);
+    if (Opcode != AML_METHOD_OP) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Extract method information from the raw AML */
 
-    ParserState.Aml += AcpiPsGetOpcodeSize (Opcode);
-    ParserState.PkgEnd = AcpiPsGetNextPackageEnd (&ParserState);
-    Path = AcpiPsGetNextNamestring (&ParserState);
+    ParserState.Aml += AcpiPsGetOpcodeSize(Opcode);
+    ParserState.PkgEnd = AcpiPsGetNextPackageEnd(&ParserState);
+    Path = AcpiPsGetNextNamestring(&ParserState);
 
     MethodFlags = *ParserState.Aml++;
     AmlStart = ParserState.Aml;
-    AmlLength = (UINT32) ACPI_PTR_DIFF (ParserState.PkgEnd, AmlStart);
+    AmlLength = (UINT32)ACPI_PTR_DIFF(ParserState.PkgEnd, AmlStart);
 
     /*
      * Allocate resources up-front. We don't want to have to delete a new
      * node from the namespace if we cannot allocate memory.
      */
-    AmlBuffer = ACPI_ALLOCATE (AmlLength);
-    if (!AmlBuffer)
-    {
+    AmlBuffer = ACPI_ALLOCATE(AmlLength);
+    if (!AmlBuffer) {
         return (AE_NO_MEMORY);
     }
 
-    MethodObj = AcpiUtCreateInternalObject (ACPI_TYPE_METHOD);
-    if (!MethodObj)
-    {
-        ACPI_FREE (AmlBuffer);
+    MethodObj = AcpiUtCreateInternalObject(ACPI_TYPE_METHOD);
+    if (!MethodObj) {
+        ACPI_FREE(AmlBuffer);
         return (AE_NO_MEMORY);
     }
 
     /* Lock namespace for AcpiNsLookup, we may be creating a new node */
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         goto ErrorExit;
     }
 
     /* The lookup either returns an existing node or creates a new one */
 
-    Status = AcpiNsLookup (NULL, Path, ACPI_TYPE_METHOD, ACPI_IMODE_LOAD_PASS1,
+    Status = AcpiNsLookup(NULL, Path, ACPI_TYPE_METHOD, ACPI_IMODE_LOAD_PASS1,
         ACPI_NS_DONT_OPEN_SCOPE | ACPI_NS_ERROR_IF_FOUND, NULL, &Node);
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
 
-    if (ACPI_FAILURE (Status)) /* NsLookup */
+    if (ACPI_FAILURE(Status)) /* NsLookup */
     {
-        if (Status != AE_ALREADY_EXISTS)
-        {
+        if (Status != AE_ALREADY_EXISTS) {
             goto ErrorExit;
         }
 
         /* Node existed previously, make sure it is a method node */
 
-        if (Node->Type != ACPI_TYPE_METHOD)
-        {
+        if (Node->Type != ACPI_TYPE_METHOD) {
             Status = AE_TYPE;
             goto ErrorExit;
         }
@@ -766,29 +701,26 @@ AcpiInstallMethod (
 
     /* Copy the method AML to the local buffer */
 
-    memcpy (AmlBuffer, AmlStart, AmlLength);
+    memcpy(AmlBuffer, AmlStart, AmlLength);
 
     /* Initialize the method object with the new method's information */
 
     MethodObj->Method.AmlStart = AmlBuffer;
     MethodObj->Method.AmlLength = AmlLength;
 
-    MethodObj->Method.ParamCount = (UINT8)
-        (MethodFlags & AML_METHOD_ARG_COUNT);
+    MethodObj->Method.ParamCount = (UINT8)(MethodFlags & AML_METHOD_ARG_COUNT);
 
-    if (MethodFlags & AML_METHOD_SERIALIZED)
-    {
+    if (MethodFlags & AML_METHOD_SERIALIZED) {
         MethodObj->Method.InfoFlags = ACPI_METHOD_SERIALIZED;
 
-        MethodObj->Method.SyncLevel = (UINT8)
-            ((MethodFlags & AML_METHOD_SYNC_LEVEL) >> 4);
+        MethodObj->Method.SyncLevel = (UINT8)((MethodFlags & AML_METHOD_SYNC_LEVEL) >> 4);
     }
 
     /*
      * Now that it is complete, we can attach the new method object to
      * the method Node (detaches/deletes any existing object)
      */
-    Status = AcpiNsAttachObject (Node, MethodObj, ACPI_TYPE_METHOD);
+    Status = AcpiNsAttachObject(Node, MethodObj, ACPI_TYPE_METHOD);
 
     /*
      * Flag indicates AML buffer is dynamic, must be deleted later.
@@ -798,15 +730,14 @@ AcpiInstallMethod (
 
     /* Remove local reference to the method object */
 
-    AcpiUtRemoveReference (MethodObj);
+    AcpiUtRemoveReference(MethodObj);
     return (Status);
-
 
 ErrorExit:
 
-    ACPI_FREE (AmlBuffer);
-    ACPI_FREE (MethodObj);
+    ACPI_FREE(AmlBuffer);
+    ACPI_FREE(MethodObj);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiInstallMethod)
+ACPI_EXPORT_SYMBOL(AcpiInstallMethod)

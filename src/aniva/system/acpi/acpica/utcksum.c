@@ -149,17 +149,15 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdisasm.h"
+#include "acpi.h"
 #include "acutils.h"
-
 
 /* This module used for application-level code only */
 
-#define _COMPONENT          ACPI_CA_DISASSEMBLER
-        ACPI_MODULE_NAME    ("utcksum")
-
+#define _COMPONENT ACPI_CA_DISASSEMBLER
+ACPI_MODULE_NAME("utcksum")
 
 /*******************************************************************************
  *
@@ -179,33 +177,29 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtVerifyChecksum (
-    ACPI_TABLE_HEADER       *Table,
-    UINT32                  Length)
+AcpiUtVerifyChecksum(
+    ACPI_TABLE_HEADER* Table,
+    UINT32 Length)
 {
-    UINT8                   Checksum;
-
+    UINT8 Checksum;
 
     /*
      * FACS/S3PT:
      * They are the odd tables, have no standard ACPI header and no checksum
      */
-    if (ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_S3PT) ||
-        ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_FACS))
-    {
+    if (ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_S3PT) || ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_FACS)) {
         return (AE_OK);
     }
 
     /* Compute the checksum on the table */
 
     Length = Table->Length;
-    Checksum = AcpiUtGenerateChecksum (ACPI_CAST_PTR (UINT8, Table), Length, Table->Checksum);
+    Checksum = AcpiUtGenerateChecksum(ACPI_CAST_PTR(UINT8, Table), Length, Table->Checksum);
 
     /* Computed checksum matches table? */
 
-    if (Checksum != Table->Checksum)
-    {
-        ACPI_BIOS_WARNING ((AE_INFO,
+    if (Checksum != Table->Checksum) {
+        ACPI_BIOS_WARNING((AE_INFO,
             "Incorrect checksum in table [%4.4s] - 0x%2.2X, "
             "should be 0x%2.2X",
             Table->Signature, Table->Checksum,
@@ -218,7 +212,6 @@ AcpiUtVerifyChecksum (
 
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -235,23 +228,21 @@ AcpiUtVerifyChecksum (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtVerifyCdatChecksum (
-    ACPI_TABLE_CDAT         *CdatTable,
-    UINT32                  Length)
+AcpiUtVerifyCdatChecksum(
+    ACPI_TABLE_CDAT* CdatTable,
+    UINT32 Length)
 {
-    UINT8                   Checksum;
-
+    UINT8 Checksum;
 
     /* Compute the checksum on the table */
 
-    Checksum = AcpiUtGenerateChecksum (ACPI_CAST_PTR (UINT8, CdatTable),
-                    CdatTable->Length, CdatTable->Checksum);
+    Checksum = AcpiUtGenerateChecksum(ACPI_CAST_PTR(UINT8, CdatTable),
+        CdatTable->Length, CdatTable->Checksum);
 
     /* Computed checksum matches table? */
 
-    if (Checksum != CdatTable->Checksum)
-    {
-        ACPI_BIOS_WARNING ((AE_INFO,
+    if (Checksum != CdatTable->Checksum) {
+        ACPI_BIOS_WARNING((AE_INFO,
             "Incorrect checksum in table [%4.4s] - 0x%2.2X, "
             "should be 0x%2.2X",
             AcpiGbl_CDAT, CdatTable->Checksum, Checksum));
@@ -264,7 +255,6 @@ AcpiUtVerifyCdatChecksum (
     CdatTable->Checksum = Checksum;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -281,28 +271,26 @@ AcpiUtVerifyCdatChecksum (
  ******************************************************************************/
 
 UINT8
-AcpiUtGenerateChecksum (
-    void                    *Table,
-    UINT32                  Length,
-    UINT8                   OriginalChecksum)
+AcpiUtGenerateChecksum(
+    void* Table,
+    UINT32 Length,
+    UINT8 OriginalChecksum)
 {
-    UINT8                   Checksum;
-
+    UINT8 Checksum;
 
     /* Sum the entire table as-is */
 
-    Checksum = AcpiUtChecksum ((UINT8 *) Table, Length);
+    Checksum = AcpiUtChecksum((UINT8*)Table, Length);
 
     /* Subtract off the existing checksum value in the table */
 
-    Checksum = (UINT8) (Checksum - OriginalChecksum);
+    Checksum = (UINT8)(Checksum - OriginalChecksum);
 
     /* Compute and return the final checksum */
 
-    Checksum = (UINT8) (0 - Checksum);
+    Checksum = (UINT8)(0 - Checksum);
     return (Checksum);
 }
-
 
 /*******************************************************************************
  *
@@ -318,17 +306,15 @@ AcpiUtGenerateChecksum (
  ******************************************************************************/
 
 UINT8
-AcpiUtChecksum (
-    UINT8                   *Buffer,
-    UINT32                  Length)
+AcpiUtChecksum(
+    UINT8* Buffer,
+    UINT32 Length)
 {
-    UINT8                   Sum = 0;
-    UINT8                   *End = Buffer + Length;
+    UINT8 Sum = 0;
+    UINT8* End = Buffer + Length;
 
-
-    while (Buffer < End)
-    {
-        Sum = (UINT8) (Sum + *(Buffer++));
+    while (Buffer < End) {
+        Sum = (UINT8)(Sum + *(Buffer++));
     }
 
     return (Sum);

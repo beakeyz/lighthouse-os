@@ -12,55 +12,54 @@ struct file;
 struct device;
 
 typedef struct oss_obj_ops {
-  void (*f_destory_priv)(void* obj);
+    void (*f_destory_priv)(void* obj);
 } oss_obj_ops_t;
 
-
 enum OSS_OBJ_TYPE {
-  OSS_OBJ_TYPE_EMPTY = 0,
-  /* Generic files in the filesystem get this */
-  OSS_OBJ_TYPE_FILE,
-  /* A directory can be extracted from a filesystem, in which case it gets a oss_obj */
-  OSS_OBJ_TYPE_DIR,
-  /* When we obtain a device */
-  OSS_OBJ_TYPE_DEVICE,
-  /* When we obtain a driver */
-  OSS_OBJ_TYPE_DRIVER,
-  /* System variables (Objects with this type always have CAPITAL names) */
-  OSS_OBJ_TYPE_VAR,
-  /* Processes */
-  OSS_OBJ_TYPE_PROC,
-  /* This boi links to another oss_obj */
-  OSS_OBJ_TYPE_LINK,
+    OSS_OBJ_TYPE_EMPTY = 0,
+    /* Generic files in the filesystem get this */
+    OSS_OBJ_TYPE_FILE,
+    /* A directory can be extracted from a filesystem, in which case it gets a oss_obj */
+    OSS_OBJ_TYPE_DIR,
+    /* When we obtain a device */
+    OSS_OBJ_TYPE_DEVICE,
+    /* When we obtain a driver */
+    OSS_OBJ_TYPE_DRIVER,
+    /* System variables (Objects with this type always have CAPITAL names) */
+    OSS_OBJ_TYPE_VAR,
+    /* Processes */
+    OSS_OBJ_TYPE_PROC,
+    /* This boi links to another oss_obj */
+    OSS_OBJ_TYPE_LINK,
 };
 
-#define OSS_OBJ_IMMUTABLE  0x00000001 /* Can we change the data that this object holds? */
-#define OSS_OBJ_CONFIG     0x00000002 /* Does this object point to configuration? */
-#define OSS_OBJ_SYS        0x00000004 /* Is this object owned by the system? */
-#define OSS_OBJ_ETERNAL    0x00000008 /* Does this oss_obj ever get cleaned? */
-#define OSS_OBJ_MOVABLE    0x00000010 /* Can this object be moved to different nodes? */
-#define OSS_OBJ_REF        0x00000020 /* Does this object reference another object? */
+#define OSS_OBJ_IMMUTABLE 0x00000001 /* Can we change the data that this object holds? */
+#define OSS_OBJ_CONFIG 0x00000002 /* Does this object point to configuration? */
+#define OSS_OBJ_SYS 0x00000004 /* Is this object owned by the system? */
+#define OSS_OBJ_ETERNAL 0x00000008 /* Does this oss_obj ever get cleaned? */
+#define OSS_OBJ_MOVABLE 0x00000010 /* Can this object be moved to different nodes? */
+#define OSS_OBJ_REF 0x00000020 /* Does this object reference another object? */
 
 typedef struct oss_obj {
-  const char* name;
+    const char* name;
 
-  atomic_ptr_t refc;
+    atomic_ptr_t refc;
 
-  /* Required privilge level to access this object */
-  uint8_t access_priv_lvl;
-  /* Required privilge level to read from this object */
-  uint8_t read_priv_lvl;
-  /* Required privilge level to write to this object */
-  uint8_t write_priv_lvl;
+    /* Required privilge level to access this object */
+    uint8_t access_priv_lvl;
+    /* Required privilge level to read from this object */
+    uint8_t read_priv_lvl;
+    /* Required privilge level to write to this object */
+    uint8_t write_priv_lvl;
 
-  uint32_t flags;
-  enum OSS_OBJ_TYPE type;
+    uint32_t flags;
+    enum OSS_OBJ_TYPE type;
 
-  mutex_t* lock;
-  struct oss_node* parent;
-  struct oss_obj_ops ops;
-  
-  void* priv;
+    mutex_t* lock;
+    struct oss_node* parent;
+    struct oss_obj_ops ops;
+
+    void* priv;
 } oss_obj_t;
 
 #define oss_obj_unwrap(obj, type) (type*)(obj->priv)
@@ -70,13 +69,13 @@ typedef struct oss_obj {
 #define oss_obj_can_proc_read(obj, p) __oss_obj_can_proc(obj, p, read)
 #define oss_obj_can_proc_write(obj, p) __oss_obj_can_proc(obj, p, write)
 
-#define oss_obj_do_destroy_reroute(c) \
-  do {                                \
-    if ((c)->obj && (c)->obj->priv) { \
-      destroy_oss_obj((c)->obj);      \
-      return;                         \
-    }                                 \
-  } while (0)                       
+#define oss_obj_do_destroy_reroute(c)     \
+    do {                                  \
+        if ((c)->obj && (c)->obj->priv) { \
+            destroy_oss_obj((c)->obj);    \
+            return;                       \
+        }                                 \
+    } while (0)
 
 oss_obj_t* create_oss_obj(const char* name);
 oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl);
@@ -96,18 +95,18 @@ struct oss_node* oss_obj_get_root_parent(oss_obj_t* obj);
 
 static inline struct file* oss_obj_get_file(oss_obj_t* obj)
 {
-  if (obj->type != OSS_OBJ_TYPE_FILE)
-    return nullptr;
+    if (obj->type != OSS_OBJ_TYPE_FILE)
+        return nullptr;
 
-  return oss_obj_unwrap(obj, struct file);
+    return oss_obj_unwrap(obj, struct file);
 }
 
 static inline struct device* oss_obj_get_device(oss_obj_t* obj)
 {
-  if (obj->type != OSS_OBJ_TYPE_DEVICE)
-    return nullptr;
+    if (obj->type != OSS_OBJ_TYPE_DEVICE)
+        return nullptr;
 
-  return oss_obj_unwrap(obj, struct device);
+    return oss_obj_unwrap(obj, struct device);
 }
 
 #endif // !__ANIVA_OSS_OBJ__

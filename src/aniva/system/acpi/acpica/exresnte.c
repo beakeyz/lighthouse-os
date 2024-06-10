@@ -149,16 +149,14 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdispat.h"
 #include "acinterp.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exresnte")
-
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exresnte")
 
 /*******************************************************************************
  *
@@ -187,40 +185,36 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExResolveNodeToValue (
-    ACPI_NAMESPACE_NODE     **ObjectPtr,
-    ACPI_WALK_STATE         *WalkState)
+AcpiExResolveNodeToValue(
+    ACPI_NAMESPACE_NODE** ObjectPtr,
+    ACPI_WALK_STATE* WalkState)
 
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_OPERAND_OBJECT     *SourceDesc;
-    ACPI_OPERAND_OBJECT     *ObjDesc = NULL;
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_OBJECT_TYPE        EntryType;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_OPERAND_OBJECT* SourceDesc;
+    ACPI_OPERAND_OBJECT* ObjDesc = NULL;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_OBJECT_TYPE EntryType;
 
-
-    ACPI_FUNCTION_TRACE (ExResolveNodeToValue);
-
+    ACPI_FUNCTION_TRACE(ExResolveNodeToValue);
 
     /*
      * The stack pointer points to a ACPI_NAMESPACE_NODE (Node). Get the
      * object that is attached to the Node.
      */
     Node = *ObjectPtr;
-    SourceDesc = AcpiNsGetAttachedObject (Node);
-    EntryType = AcpiNsGetType ((ACPI_HANDLE) Node);
+    SourceDesc = AcpiNsGetAttachedObject(Node);
+    EntryType = AcpiNsGetType((ACPI_HANDLE)Node);
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "Entry=%p SourceDesc=%p [%s]\n",
-         Node, SourceDesc, AcpiUtGetTypeName (EntryType)));
+    ACPI_DEBUG_PRINT((ACPI_DB_EXEC, "Entry=%p SourceDesc=%p [%s]\n",
+        Node, SourceDesc, AcpiUtGetTypeName(EntryType)));
 
-    if ((EntryType == ACPI_TYPE_LOCAL_ALIAS) ||
-        (EntryType == ACPI_TYPE_LOCAL_METHOD_ALIAS))
-    {
+    if ((EntryType == ACPI_TYPE_LOCAL_ALIAS) || (EntryType == ACPI_TYPE_LOCAL_METHOD_ALIAS)) {
         /* There is always exactly one level of indirection */
 
-        Node = ACPI_CAST_PTR (ACPI_NAMESPACE_NODE, Node->Object);
-        SourceDesc = AcpiNsGetAttachedObject (Node);
-        EntryType = AcpiNsGetType ((ACPI_HANDLE) Node);
+        Node = ACPI_CAST_PTR(ACPI_NAMESPACE_NODE, Node->Object);
+        SourceDesc = AcpiNsGetAttachedObject(Node);
+        EntryType = AcpiNsGetType((ACPI_HANDLE)Node);
         *ObjectPtr = Node;
     }
 
@@ -230,93 +224,81 @@ AcpiExResolveNodeToValue (
      * 2) Method locals and arguments have a pseudo-Node
      * 3) 10/2007: Added method type to assist with Package construction.
      */
-    if ((EntryType == ACPI_TYPE_DEVICE)  ||
-        (EntryType == ACPI_TYPE_THERMAL) ||
-        (EntryType == ACPI_TYPE_METHOD)  ||
-        (Node->Flags & (ANOBJ_METHOD_ARG | ANOBJ_METHOD_LOCAL)))
-    {
-        return_ACPI_STATUS (AE_OK);
+    if ((EntryType == ACPI_TYPE_DEVICE) || (EntryType == ACPI_TYPE_THERMAL) || (EntryType == ACPI_TYPE_METHOD) || (Node->Flags & (ANOBJ_METHOD_ARG | ANOBJ_METHOD_LOCAL))) {
+        return_ACPI_STATUS(AE_OK);
     }
 
-    if (!SourceDesc)
-    {
-        ACPI_ERROR ((AE_INFO, "No object attached to node [%4.4s] %p",
+    if (!SourceDesc) {
+        ACPI_ERROR((AE_INFO, "No object attached to node [%4.4s] %p",
             Node->Name.Ascii, Node));
-        return_ACPI_STATUS (AE_AML_UNINITIALIZED_NODE);
+        return_ACPI_STATUS(AE_AML_UNINITIALIZED_NODE);
     }
 
     /*
      * Action is based on the type of the Node, which indicates the type
      * of the attached object or pointer
      */
-    switch (EntryType)
-    {
+    switch (EntryType) {
     case ACPI_TYPE_PACKAGE:
 
-        if (SourceDesc->Common.Type != ACPI_TYPE_PACKAGE)
-        {
-            ACPI_ERROR ((AE_INFO, "Object not a Package, type %s",
-                AcpiUtGetObjectTypeName (SourceDesc)));
-            return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+        if (SourceDesc->Common.Type != ACPI_TYPE_PACKAGE) {
+            ACPI_ERROR((AE_INFO, "Object not a Package, type %s",
+                AcpiUtGetObjectTypeName(SourceDesc)));
+            return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
         }
 
-        Status = AcpiDsGetPackageArguments (SourceDesc);
-        if (ACPI_SUCCESS (Status))
-        {
+        Status = AcpiDsGetPackageArguments(SourceDesc);
+        if (ACPI_SUCCESS(Status)) {
             /* Return an additional reference to the object */
 
             ObjDesc = SourceDesc;
-            AcpiUtAddReference (ObjDesc);
+            AcpiUtAddReference(ObjDesc);
         }
         break;
 
     case ACPI_TYPE_BUFFER:
 
-        if (SourceDesc->Common.Type != ACPI_TYPE_BUFFER)
-        {
-            ACPI_ERROR ((AE_INFO, "Object not a Buffer, type %s",
-                AcpiUtGetObjectTypeName (SourceDesc)));
-            return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+        if (SourceDesc->Common.Type != ACPI_TYPE_BUFFER) {
+            ACPI_ERROR((AE_INFO, "Object not a Buffer, type %s",
+                AcpiUtGetObjectTypeName(SourceDesc)));
+            return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
         }
 
-        Status = AcpiDsGetBufferArguments (SourceDesc);
-        if (ACPI_SUCCESS (Status))
-        {
+        Status = AcpiDsGetBufferArguments(SourceDesc);
+        if (ACPI_SUCCESS(Status)) {
             /* Return an additional reference to the object */
 
             ObjDesc = SourceDesc;
-            AcpiUtAddReference (ObjDesc);
+            AcpiUtAddReference(ObjDesc);
         }
         break;
 
     case ACPI_TYPE_STRING:
 
-        if (SourceDesc->Common.Type != ACPI_TYPE_STRING)
-        {
-            ACPI_ERROR ((AE_INFO, "Object not a String, type %s",
-                AcpiUtGetObjectTypeName (SourceDesc)));
-            return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+        if (SourceDesc->Common.Type != ACPI_TYPE_STRING) {
+            ACPI_ERROR((AE_INFO, "Object not a String, type %s",
+                AcpiUtGetObjectTypeName(SourceDesc)));
+            return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
         }
 
         /* Return an additional reference to the object */
 
         ObjDesc = SourceDesc;
-        AcpiUtAddReference (ObjDesc);
+        AcpiUtAddReference(ObjDesc);
         break;
 
     case ACPI_TYPE_INTEGER:
 
-        if (SourceDesc->Common.Type != ACPI_TYPE_INTEGER)
-        {
-            ACPI_ERROR ((AE_INFO, "Object not a Integer, type %s",
-                AcpiUtGetObjectTypeName (SourceDesc)));
-            return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+        if (SourceDesc->Common.Type != ACPI_TYPE_INTEGER) {
+            ACPI_ERROR((AE_INFO, "Object not a Integer, type %s",
+                AcpiUtGetObjectTypeName(SourceDesc)));
+            return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
         }
 
         /* Return an additional reference to the object */
 
         ObjDesc = SourceDesc;
-        AcpiUtAddReference (ObjDesc);
+        AcpiUtAddReference(ObjDesc);
         break;
 
     case ACPI_TYPE_BUFFER_FIELD:
@@ -324,14 +306,14 @@ AcpiExResolveNodeToValue (
     case ACPI_TYPE_LOCAL_BANK_FIELD:
     case ACPI_TYPE_LOCAL_INDEX_FIELD:
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_EXEC,
+        ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
             "FieldRead Node=%p SourceDesc=%p Type=%X\n",
             Node, SourceDesc, EntryType));
 
-        Status = AcpiExReadDataFromField (WalkState, SourceDesc, &ObjDesc);
+        Status = AcpiExReadDataFromField(WalkState, SourceDesc, &ObjDesc);
         break;
 
-    /* For these objects, just return the object attached to the Node */
+        /* For these objects, just return the object attached to the Node */
 
     case ACPI_TYPE_MUTEX:
     case ACPI_TYPE_POWER:
@@ -342,41 +324,40 @@ AcpiExResolveNodeToValue (
         /* Return an additional reference to the object */
 
         ObjDesc = SourceDesc;
-        AcpiUtAddReference (ObjDesc);
+        AcpiUtAddReference(ObjDesc);
         break;
 
-    /* TYPE_ANY is untyped, and thus there is no object associated with it */
+        /* TYPE_ANY is untyped, and thus there is no object associated with it */
 
     case ACPI_TYPE_ANY:
 
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Untyped entry %p, no attached object!", Node));
 
-        return_ACPI_STATUS (AE_AML_OPERAND_TYPE);  /* Cannot be AE_TYPE */
+        return_ACPI_STATUS(AE_AML_OPERAND_TYPE); /* Cannot be AE_TYPE */
 
     case ACPI_TYPE_LOCAL_REFERENCE:
 
-        switch (SourceDesc->Reference.Class)
-        {
-        case ACPI_REFCLASS_TABLE:   /* This is a DdbHandle */
+        switch (SourceDesc->Reference.Class) {
+        case ACPI_REFCLASS_TABLE: /* This is a DdbHandle */
         case ACPI_REFCLASS_REFOF:
         case ACPI_REFCLASS_INDEX:
 
             /* Return an additional reference to the object */
 
             ObjDesc = SourceDesc;
-            AcpiUtAddReference (ObjDesc);
+            AcpiUtAddReference(ObjDesc);
             break;
 
         default:
 
             /* No named references are allowed here */
 
-            ACPI_ERROR ((AE_INFO,
+            ACPI_ERROR((AE_INFO,
                 "Unsupported Reference type 0x%X",
                 SourceDesc->Reference.Class));
 
-            return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+            return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
         }
         break;
 
@@ -384,17 +365,16 @@ AcpiExResolveNodeToValue (
 
         /* Default case is for unknown types */
 
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Node %p - Unknown object type 0x%X",
             Node, EntryType));
 
-        return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+        return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
 
     } /* switch (EntryType) */
 
-
     /* Return the object descriptor */
 
-    *ObjectPtr = (void *) ObjDesc;
-    return_ACPI_STATUS (Status);
+    *ObjectPtr = (void*)ObjDesc;
+    return_ACPI_STATUS(Status);
 }

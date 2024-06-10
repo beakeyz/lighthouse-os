@@ -149,90 +149,87 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdebug.h"
-#include "acnamesp.h"
-#include "acpredef.h"
 #include "acinterp.h"
+#include "acnamesp.h"
+#include "acpi.h"
+#include "acpredef.h"
 
-
-#define _COMPONENT          ACPI_CA_DEBUGGER
-        ACPI_MODULE_NAME    ("dbtest")
-
+#define _COMPONENT ACPI_CA_DEBUGGER
+ACPI_MODULE_NAME("dbtest")
 
 /* Local prototypes */
 
 static void
-AcpiDbTestAllObjects (
+AcpiDbTestAllObjects(
     void);
 
 static ACPI_STATUS
-AcpiDbTestOneObject (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue);
+AcpiDbTestOneObject(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue);
 
 static ACPI_STATUS
-AcpiDbTestIntegerType (
-    ACPI_NAMESPACE_NODE     *Node,
-    UINT32                  BitLength);
+AcpiDbTestIntegerType(
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 BitLength);
 
 static ACPI_STATUS
-AcpiDbTestBufferType (
-    ACPI_NAMESPACE_NODE     *Node,
-    UINT32                  BitLength);
+AcpiDbTestBufferType(
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 BitLength);
 
 static ACPI_STATUS
-AcpiDbTestStringType (
-    ACPI_NAMESPACE_NODE     *Node,
-    UINT32                  ByteLength);
+AcpiDbTestStringType(
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 ByteLength);
 
 static ACPI_STATUS
-AcpiDbTestPackageType (
-    ACPI_NAMESPACE_NODE     *Node);
+AcpiDbTestPackageType(
+    ACPI_NAMESPACE_NODE* Node);
 
 static ACPI_STATUS
-AcpiDbTestFieldUnitType (
-    ACPI_OPERAND_OBJECT     *ObjDesc);
+AcpiDbTestFieldUnitType(
+    ACPI_OPERAND_OBJECT* ObjDesc);
 
 static ACPI_STATUS
-AcpiDbReadFromObject (
-    ACPI_NAMESPACE_NODE     *Node,
-    ACPI_OBJECT_TYPE        ExpectedType,
-    ACPI_OBJECT             **Value);
+AcpiDbReadFromObject(
+    ACPI_NAMESPACE_NODE* Node,
+    ACPI_OBJECT_TYPE ExpectedType,
+    ACPI_OBJECT** Value);
 
 static ACPI_STATUS
-AcpiDbWriteToObject (
-    ACPI_NAMESPACE_NODE     *Node,
-    ACPI_OBJECT             *Value);
+AcpiDbWriteToObject(
+    ACPI_NAMESPACE_NODE* Node,
+    ACPI_OBJECT* Value);
 
 static void
-AcpiDbEvaluateAllPredefinedNames (
-    char                    *CountArg);
+AcpiDbEvaluateAllPredefinedNames(
+    char* CountArg);
 
 static ACPI_STATUS
-AcpiDbEvaluateOnePredefinedName (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue);
+AcpiDbEvaluateOnePredefinedName(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue);
 
 /*
  * Test subcommands
  */
-static ACPI_DB_ARGUMENT_INFO    AcpiDbTestTypes [] =
-{
-    {"OBJECTS"},
-    {"PREDEFINED"},
-    {NULL}           /* Must be null terminated */
+static ACPI_DB_ARGUMENT_INFO AcpiDbTestTypes[] = {
+    { "OBJECTS" },
+    { "PREDEFINED" },
+    { NULL } /* Must be null terminated */
 };
 
-#define CMD_TEST_OBJECTS        0
-#define CMD_TEST_PREDEFINED     1
+#define CMD_TEST_OBJECTS 0
+#define CMD_TEST_PREDEFINED 1
 
-#define BUFFER_FILL_VALUE       0xFF
+#define BUFFER_FILL_VALUE 0xFF
 
 /*
  * Support for the special debugger read/write control methods.
@@ -240,11 +237,11 @@ static ACPI_DB_ARGUMENT_INFO    AcpiDbTestTypes [] =
  * used to read and write the various namespace objects. The point
  * is to force the AML interpreter do all of the work.
  */
-#define ACPI_DB_READ_METHOD     "\\_T98"
-#define ACPI_DB_WRITE_METHOD    "\\_T99"
+#define ACPI_DB_READ_METHOD "\\_T98"
+#define ACPI_DB_WRITE_METHOD "\\_T99"
 
-static ACPI_HANDLE          ReadHandle = NULL;
-static ACPI_HANDLE          WriteHandle = NULL;
+static ACPI_HANDLE ReadHandle = NULL;
+static ACPI_HANDLE WriteHandle = NULL;
 
 /* ASL Definitions of the debugger read/write control methods. AML below. */
 
@@ -265,26 +262,23 @@ DefinitionBlock ("ssdt2.aml", "SSDT", 2, "Intel", "DEBUG", 0x00000001)
 }
 #endif
 
-static unsigned char ReadMethodCode[] =
-{
-    0x53,0x53,0x44,0x54,0x2E,0x00,0x00,0x00,  /* 00000000    "SSDT...." */
-    0x02,0xC9,0x49,0x6E,0x74,0x65,0x6C,0x00,  /* 00000008    "..Intel." */
-    0x44,0x45,0x42,0x55,0x47,0x00,0x00,0x00,  /* 00000010    "DEBUG..." */
-    0x01,0x00,0x00,0x00,0x49,0x4E,0x54,0x4C,  /* 00000018    "....INTL" */
-    0x18,0x12,0x13,0x20,0x14,0x09,0x5F,0x54,  /* 00000020    "... .._T" */
-    0x39,0x38,0x01,0xA4,0x83,0x68             /* 00000028    "98...h"   */
+static unsigned char ReadMethodCode[] = {
+    0x53, 0x53, 0x44, 0x54, 0x2E, 0x00, 0x00, 0x00, /* 00000000    "SSDT...." */
+    0x02, 0xC9, 0x49, 0x6E, 0x74, 0x65, 0x6C, 0x00, /* 00000008    "..Intel." */
+    0x44, 0x45, 0x42, 0x55, 0x47, 0x00, 0x00, 0x00, /* 00000010    "DEBUG..." */
+    0x01, 0x00, 0x00, 0x00, 0x49, 0x4E, 0x54, 0x4C, /* 00000018    "....INTL" */
+    0x18, 0x12, 0x13, 0x20, 0x14, 0x09, 0x5F, 0x54, /* 00000020    "... .._T" */
+    0x39, 0x38, 0x01, 0xA4, 0x83, 0x68 /* 00000028    "98...h"   */
 };
 
-static unsigned char WriteMethodCode[] =
-{
-    0x53,0x53,0x44,0x54,0x2E,0x00,0x00,0x00,  /* 00000000    "SSDT...." */
-    0x02,0x15,0x49,0x6E,0x74,0x65,0x6C,0x00,  /* 00000008    "..Intel." */
-    0x44,0x45,0x42,0x55,0x47,0x00,0x00,0x00,  /* 00000010    "DEBUG..." */
-    0x01,0x00,0x00,0x00,0x49,0x4E,0x54,0x4C,  /* 00000018    "....INTL" */
-    0x18,0x12,0x13,0x20,0x14,0x09,0x5F,0x54,  /* 00000020    "... .._T" */
-    0x39,0x39,0x02,0x70,0x69,0x68             /* 00000028    "99.pih"   */
+static unsigned char WriteMethodCode[] = {
+    0x53, 0x53, 0x44, 0x54, 0x2E, 0x00, 0x00, 0x00, /* 00000000    "SSDT...." */
+    0x02, 0x15, 0x49, 0x6E, 0x74, 0x65, 0x6C, 0x00, /* 00000008    "..Intel." */
+    0x44, 0x45, 0x42, 0x55, 0x47, 0x00, 0x00, 0x00, /* 00000010    "DEBUG..." */
+    0x01, 0x00, 0x00, 0x00, 0x49, 0x4E, 0x54, 0x4C, /* 00000018    "....INTL" */
+    0x18, 0x12, 0x13, 0x20, 0x14, 0x09, 0x5F, 0x54, /* 00000020    "... .._T" */
+    0x39, 0x39, 0x02, 0x70, 0x69, 0x68 /* 00000028    "99.pih"   */
 };
-
 
 /*******************************************************************************
  *
@@ -300,38 +294,33 @@ static unsigned char WriteMethodCode[] =
  *
  ******************************************************************************/
 
-void
-AcpiDbExecuteTest (
-    char                    *TypeArg)
+void AcpiDbExecuteTest(
+    char* TypeArg)
 {
-    UINT32                  Temp;
+    UINT32 Temp;
 
-
-    AcpiUtStrupr (TypeArg);
-    Temp = AcpiDbMatchArgument (TypeArg, AcpiDbTestTypes);
-    if (Temp == ACPI_TYPE_NOT_FOUND)
-    {
-        AcpiOsPrintf ("Invalid or unsupported argument\n");
+    AcpiUtStrupr(TypeArg);
+    Temp = AcpiDbMatchArgument(TypeArg, AcpiDbTestTypes);
+    if (Temp == ACPI_TYPE_NOT_FOUND) {
+        AcpiOsPrintf("Invalid or unsupported argument\n");
         return;
     }
 
-    switch (Temp)
-    {
+    switch (Temp) {
     case CMD_TEST_OBJECTS:
 
-        AcpiDbTestAllObjects ();
+        AcpiDbTestAllObjects();
         break;
 
     case CMD_TEST_PREDEFINED:
 
-        AcpiDbEvaluateAllPredefinedNames (NULL);
+        AcpiDbEvaluateAllPredefinedNames(NULL);
         break;
 
     default:
         break;
     }
 }
-
 
 /*******************************************************************************
  *
@@ -348,28 +337,24 @@ AcpiDbExecuteTest (
  ******************************************************************************/
 
 static void
-AcpiDbTestAllObjects (
+AcpiDbTestAllObjects(
     void)
 {
-    ACPI_STATUS             Status;
-
+    ACPI_STATUS Status;
 
     /* Install the debugger read-object control method if necessary */
 
-    if (!ReadHandle)
-    {
-        Status = AcpiInstallMethod (ReadMethodCode);
-        if (ACPI_FAILURE (Status))
-        {
-            AcpiOsPrintf ("%s, Could not install debugger read method\n",
-                AcpiFormatException (Status));
+    if (!ReadHandle) {
+        Status = AcpiInstallMethod(ReadMethodCode);
+        if (ACPI_FAILURE(Status)) {
+            AcpiOsPrintf("%s, Could not install debugger read method\n",
+                AcpiFormatException(Status));
             return;
         }
 
-        Status = AcpiGetHandle (NULL, ACPI_DB_READ_METHOD, &ReadHandle);
-        if (ACPI_FAILURE (Status))
-        {
-            AcpiOsPrintf ("Could not obtain handle for debug method %s\n",
+        Status = AcpiGetHandle(NULL, ACPI_DB_READ_METHOD, &ReadHandle);
+        if (ACPI_FAILURE(Status)) {
+            AcpiOsPrintf("Could not obtain handle for debug method %s\n",
                 ACPI_DB_READ_METHOD);
             return;
         }
@@ -377,20 +362,17 @@ AcpiDbTestAllObjects (
 
     /* Install the debugger write-object control method if necessary */
 
-    if (!WriteHandle)
-    {
-        Status = AcpiInstallMethod (WriteMethodCode);
-        if (ACPI_FAILURE (Status))
-        {
-            AcpiOsPrintf ("%s, Could not install debugger write method\n",
-                AcpiFormatException (Status));
+    if (!WriteHandle) {
+        Status = AcpiInstallMethod(WriteMethodCode);
+        if (ACPI_FAILURE(Status)) {
+            AcpiOsPrintf("%s, Could not install debugger write method\n",
+                AcpiFormatException(Status));
             return;
         }
 
-        Status = AcpiGetHandle (NULL, ACPI_DB_WRITE_METHOD, &WriteHandle);
-        if (ACPI_FAILURE (Status))
-        {
-            AcpiOsPrintf ("Could not obtain handle for debug method %s\n",
+        Status = AcpiGetHandle(NULL, ACPI_DB_WRITE_METHOD, &WriteHandle);
+        if (ACPI_FAILURE(Status)) {
+            AcpiOsPrintf("Could not obtain handle for debug method %s\n",
                 ACPI_DB_WRITE_METHOD);
             return;
         }
@@ -398,10 +380,9 @@ AcpiDbTestAllObjects (
 
     /* Walk the entire namespace, testing each supported named data object */
 
-    (void) AcpiWalkNamespace (ACPI_TYPE_ANY, ACPI_ROOT_OBJECT,
+    (void)AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT,
         ACPI_UINT32_MAX, AcpiDbTestOneObject, NULL, NULL, NULL);
 }
-
 
 /*******************************************************************************
  *
@@ -418,29 +399,27 @@ AcpiDbTestAllObjects (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbTestOneObject (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiDbTestOneObject(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_OBJECT_TYPE        LocalType;
-    UINT32                  BitLength = 0;
-    UINT32                  ByteLength = 0;
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_OBJECT_TYPE LocalType;
+    UINT32 BitLength = 0;
+    UINT32 ByteLength = 0;
+    ACPI_STATUS Status = AE_OK;
 
-
-    Node = ACPI_CAST_PTR (ACPI_NAMESPACE_NODE, ObjHandle);
+    Node = ACPI_CAST_PTR(ACPI_NAMESPACE_NODE, ObjHandle);
     ObjDesc = Node->Object;
 
     /*
      * For the supported types, get the actual bit length or
      * byte length. Map the type to one of Integer/String/Buffer.
      */
-    switch (Node->Type)
-    {
+    switch (Node->Type) {
     case ACPI_TYPE_INTEGER:
 
         /* Integer width is either 32 or 64 */
@@ -482,18 +461,16 @@ AcpiDbTestOneObject (
          * depending on the DSDT version).
          */
         LocalType = ACPI_TYPE_INTEGER;
-        if (ObjDesc)
-        {
+        if (ObjDesc) {
             BitLength = ObjDesc->CommonField.BitLength;
-            ByteLength = ACPI_ROUND_BITS_UP_TO_BYTES (BitLength);
-            if (BitLength > AcpiGbl_IntegerBitWidth)
-            {
+            ByteLength = ACPI_ROUND_BITS_UP_TO_BYTES(BitLength);
+            if (BitLength > AcpiGbl_IntegerBitWidth) {
                 LocalType = ACPI_TYPE_BUFFER;
             }
         }
         break;
 
-default:
+    default:
 
         /* Ignore all non-data types - Methods, Devices, Scopes, etc. */
 
@@ -502,62 +479,58 @@ default:
 
     /* Emit the common prefix: Type:Name */
 
-    AcpiOsPrintf ("%14s: %4.4s",
-        AcpiUtGetTypeName (Node->Type), Node->Name.Ascii);
+    AcpiOsPrintf("%14s: %4.4s",
+        AcpiUtGetTypeName(Node->Type), Node->Name.Ascii);
 
-    if (!ObjDesc)
-    {
-        AcpiOsPrintf (" No attached sub-object, ignoring\n");
+    if (!ObjDesc) {
+        AcpiOsPrintf(" No attached sub-object, ignoring\n");
         return (AE_OK);
     }
 
     /* At this point, we have resolved the object to one of the major types */
 
-    switch (LocalType)
-    {
+    switch (LocalType) {
     case ACPI_TYPE_INTEGER:
 
-        Status = AcpiDbTestIntegerType (Node, BitLength);
+        Status = AcpiDbTestIntegerType(Node, BitLength);
         break;
 
     case ACPI_TYPE_STRING:
 
-        Status = AcpiDbTestStringType (Node, ByteLength);
+        Status = AcpiDbTestStringType(Node, ByteLength);
         break;
 
     case ACPI_TYPE_BUFFER:
 
-        Status = AcpiDbTestBufferType (Node, BitLength);
+        Status = AcpiDbTestBufferType(Node, BitLength);
         break;
 
     case ACPI_TYPE_PACKAGE:
 
-        Status = AcpiDbTestPackageType (Node);
+        Status = AcpiDbTestPackageType(Node);
         break;
 
     case ACPI_TYPE_FIELD_UNIT:
 
-        Status = AcpiDbTestFieldUnitType (ObjDesc);
+        Status = AcpiDbTestFieldUnitType(ObjDesc);
         break;
 
     default:
 
-        AcpiOsPrintf (" Ignoring, type not implemented (%2.2X)",
+        AcpiOsPrintf(" Ignoring, type not implemented (%2.2X)",
             LocalType);
         break;
     }
 
     /* Exit on error, but don't abort the namespace walk */
 
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         Status = AE_OK;
     }
 
-    AcpiOsPrintf ("\n");
+    AcpiOsPrintf("\n");
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -577,97 +550,92 @@ default:
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbTestIntegerType (
-    ACPI_NAMESPACE_NODE     *Node,
-    UINT32                  BitLength)
+AcpiDbTestIntegerType(
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 BitLength)
 {
-    ACPI_OBJECT             *Temp1 = NULL;
-    ACPI_OBJECT             *Temp2 = NULL;
-    ACPI_OBJECT             *Temp3 = NULL;
-    ACPI_OBJECT             WriteValue;
-    UINT64                  ValueToWrite;
-    ACPI_STATUS             Status;
+    ACPI_OBJECT* Temp1 = NULL;
+    ACPI_OBJECT* Temp2 = NULL;
+    ACPI_OBJECT* Temp3 = NULL;
+    ACPI_OBJECT WriteValue;
+    UINT64 ValueToWrite;
+    ACPI_STATUS Status;
 
-
-    if (BitLength > 64)
-    {
-        AcpiOsPrintf (" Invalid length for an Integer: %u", BitLength);
+    if (BitLength > 64) {
+        AcpiOsPrintf(" Invalid length for an Integer: %u", BitLength);
         return (AE_OK);
     }
 
     /* Read the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_INTEGER, &Temp1);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_INTEGER, &Temp1);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    AcpiOsPrintf (ACPI_DEBUG_LENGTH_FORMAT " %8.8X%8.8X",
-        BitLength, ACPI_ROUND_BITS_UP_TO_BYTES (BitLength),
-        ACPI_FORMAT_UINT64 (Temp1->Integer.Value));
+    AcpiOsPrintf(ACPI_DEBUG_LENGTH_FORMAT " %8.8X%8.8X",
+        BitLength, ACPI_ROUND_BITS_UP_TO_BYTES(BitLength),
+        ACPI_FORMAT_UINT64(Temp1->Integer.Value));
 
     ValueToWrite = ACPI_UINT64_MAX >> (64 - BitLength);
-    if (Temp1->Integer.Value == ValueToWrite)
-    {
+    if (Temp1->Integer.Value == ValueToWrite) {
         ValueToWrite = 0;
     }
     /* Write a new value */
 
     WriteValue.Type = ACPI_TYPE_INTEGER;
     WriteValue.Integer.Value = ValueToWrite;
-    Status = AcpiDbWriteToObject (Node, &WriteValue);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbWriteToObject(Node, &WriteValue);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Ensure that we can read back the new value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_INTEGER, &Temp2);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_INTEGER, &Temp2);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
-    if (Temp2->Integer.Value != ValueToWrite)
-    {
-        AcpiOsPrintf (" MISMATCH 2: %8.8X%8.8X, expecting %8.8X%8.8X",
-            ACPI_FORMAT_UINT64 (Temp2->Integer.Value),
-            ACPI_FORMAT_UINT64 (ValueToWrite));
+    if (Temp2->Integer.Value != ValueToWrite) {
+        AcpiOsPrintf(" MISMATCH 2: %8.8X%8.8X, expecting %8.8X%8.8X",
+            ACPI_FORMAT_UINT64(Temp2->Integer.Value),
+            ACPI_FORMAT_UINT64(ValueToWrite));
     }
 
     /* Write back the original value */
 
     WriteValue.Integer.Value = Temp1->Integer.Value;
-    Status = AcpiDbWriteToObject (Node, &WriteValue);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbWriteToObject(Node, &WriteValue);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Ensure that we can read back the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_INTEGER, &Temp3);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_INTEGER, &Temp3);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
-    if (Temp3->Integer.Value != Temp1->Integer.Value)
-    {
-        AcpiOsPrintf (" MISMATCH 3: %8.8X%8.8X, expecting %8.8X%8.8X",
-            ACPI_FORMAT_UINT64 (Temp3->Integer.Value),
-            ACPI_FORMAT_UINT64 (Temp1->Integer.Value));
+    if (Temp3->Integer.Value != Temp1->Integer.Value) {
+        AcpiOsPrintf(" MISMATCH 3: %8.8X%8.8X, expecting %8.8X%8.8X",
+            ACPI_FORMAT_UINT64(Temp3->Integer.Value),
+            ACPI_FORMAT_UINT64(Temp1->Integer.Value));
     }
 
 Exit:
-    if (Temp1) {AcpiOsFree (Temp1);}
-    if (Temp2) {AcpiOsFree (Temp2);}
-    if (Temp3) {AcpiOsFree (Temp3);}
+    if (Temp1) {
+        AcpiOsFree(Temp1);
+    }
+    if (Temp2) {
+        AcpiOsFree(Temp2);
+    }
+    if (Temp3) {
+        AcpiOsFree(Temp3);
+    }
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -685,52 +653,47 @@ Exit:
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbTestBufferType (
-    ACPI_NAMESPACE_NODE     *Node,
-    UINT32                  BitLength)
+AcpiDbTestBufferType(
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 BitLength)
 {
-    ACPI_OBJECT             *Temp1 = NULL;
-    ACPI_OBJECT             *Temp2 = NULL;
-    ACPI_OBJECT             *Temp3 = NULL;
-    UINT8                   *Buffer;
-    ACPI_OBJECT             WriteValue;
-    ACPI_STATUS             Status;
-    UINT32                  ByteLength;
-    UINT32                  i;
-    UINT8                   ExtraBits;
+    ACPI_OBJECT* Temp1 = NULL;
+    ACPI_OBJECT* Temp2 = NULL;
+    ACPI_OBJECT* Temp3 = NULL;
+    UINT8* Buffer;
+    ACPI_OBJECT WriteValue;
+    ACPI_STATUS Status;
+    UINT32 ByteLength;
+    UINT32 i;
+    UINT8 ExtraBits;
 
-
-    ByteLength = ACPI_ROUND_BITS_UP_TO_BYTES (BitLength);
-    if (ByteLength == 0)
-    {
-        AcpiOsPrintf (" Ignoring zero length buffer");
+    ByteLength = ACPI_ROUND_BITS_UP_TO_BYTES(BitLength);
+    if (ByteLength == 0) {
+        AcpiOsPrintf(" Ignoring zero length buffer");
         return (AE_OK);
     }
 
     /* Allocate a local buffer */
 
-    Buffer = ACPI_ALLOCATE_ZEROED (ByteLength);
-    if (!Buffer)
-    {
+    Buffer = ACPI_ALLOCATE_ZEROED(ByteLength);
+    if (!Buffer) {
         return (AE_NO_MEMORY);
     }
 
     /* Read the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_BUFFER, &Temp1);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_BUFFER, &Temp1);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Emit a few bytes of the buffer */
 
-    AcpiOsPrintf (ACPI_DEBUG_LENGTH_FORMAT, BitLength, Temp1->Buffer.Length);
-    for (i = 0; ((i < 8) && (i < ByteLength)); i++)
-    {
-        AcpiOsPrintf (" %2.2X", Temp1->Buffer.Pointer[i]);
+    AcpiOsPrintf(ACPI_DEBUG_LENGTH_FORMAT, BitLength, Temp1->Buffer.Length);
+    for (i = 0; ((i < 8) && (i < ByteLength)); i++) {
+        AcpiOsPrintf(" %2.2X", Temp1->Buffer.Pointer[i]);
     }
-    AcpiOsPrintf ("...  ");
+    AcpiOsPrintf("...  ");
 
     /*
      * Write a new value.
@@ -740,34 +703,30 @@ AcpiDbTestBufferType (
      * count is not an integral number of bytes. Zero out the
      * unused bits.
      */
-    memset (Buffer, BUFFER_FILL_VALUE, ByteLength);
+    memset(Buffer, BUFFER_FILL_VALUE, ByteLength);
     ExtraBits = BitLength % 8;
-    if (ExtraBits)
-    {
-        Buffer [ByteLength - 1] = ACPI_MASK_BITS_ABOVE (ExtraBits);
+    if (ExtraBits) {
+        Buffer[ByteLength - 1] = ACPI_MASK_BITS_ABOVE(ExtraBits);
     }
 
     WriteValue.Type = ACPI_TYPE_BUFFER;
     WriteValue.Buffer.Length = ByteLength;
     WriteValue.Buffer.Pointer = Buffer;
 
-    Status = AcpiDbWriteToObject (Node, &WriteValue);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbWriteToObject(Node, &WriteValue);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Ensure that we can read back the new value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_BUFFER, &Temp2);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_BUFFER, &Temp2);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
-    if (memcmp (Temp2->Buffer.Pointer, Buffer, ByteLength))
-    {
-        AcpiOsPrintf (" MISMATCH 2: New buffer value");
+    if (memcmp(Temp2->Buffer.Pointer, Buffer, ByteLength)) {
+        AcpiOsPrintf(" MISMATCH 2: New buffer value");
     }
 
     /* Write back the original value */
@@ -775,34 +734,36 @@ AcpiDbTestBufferType (
     WriteValue.Buffer.Length = ByteLength;
     WriteValue.Buffer.Pointer = Temp1->Buffer.Pointer;
 
-    Status = AcpiDbWriteToObject (Node, &WriteValue);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbWriteToObject(Node, &WriteValue);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Ensure that we can read back the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_BUFFER, &Temp3);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_BUFFER, &Temp3);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
-    if (memcmp (Temp1->Buffer.Pointer,
-            Temp3->Buffer.Pointer, ByteLength))
-    {
-        AcpiOsPrintf (" MISMATCH 3: While restoring original buffer");
+    if (memcmp(Temp1->Buffer.Pointer,
+            Temp3->Buffer.Pointer, ByteLength)) {
+        AcpiOsPrintf(" MISMATCH 3: While restoring original buffer");
     }
 
 Exit:
-    ACPI_FREE (Buffer);
-    if (Temp1) {AcpiOsFree (Temp1);}
-    if (Temp2) {AcpiOsFree (Temp2);}
-    if (Temp3) {AcpiOsFree (Temp3);}
+    ACPI_FREE(Buffer);
+    if (Temp1) {
+        AcpiOsFree(Temp1);
+    }
+    if (Temp2) {
+        AcpiOsFree(Temp2);
+    }
+    if (Temp3) {
+        AcpiOsFree(Temp3);
+    }
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -820,87 +781,84 @@ Exit:
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbTestStringType (
-    ACPI_NAMESPACE_NODE     *Node,
-    UINT32                  ByteLength)
+AcpiDbTestStringType(
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 ByteLength)
 {
-    ACPI_OBJECT             *Temp1 = NULL;
-    ACPI_OBJECT             *Temp2 = NULL;
-    ACPI_OBJECT             *Temp3 = NULL;
-    char                    *ValueToWrite = "Test String from AML Debugger";
-    ACPI_OBJECT             WriteValue;
-    ACPI_STATUS             Status;
-
+    ACPI_OBJECT* Temp1 = NULL;
+    ACPI_OBJECT* Temp2 = NULL;
+    ACPI_OBJECT* Temp3 = NULL;
+    char* ValueToWrite = "Test String from AML Debugger";
+    ACPI_OBJECT WriteValue;
+    ACPI_STATUS Status;
 
     /* Read the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_STRING, &Temp1);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_STRING, &Temp1);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    AcpiOsPrintf (ACPI_DEBUG_LENGTH_FORMAT " \"%s\"", (Temp1->String.Length * 8),
+    AcpiOsPrintf(ACPI_DEBUG_LENGTH_FORMAT " \"%s\"", (Temp1->String.Length * 8),
         Temp1->String.Length, Temp1->String.Pointer);
 
     /* Write a new value */
 
     WriteValue.Type = ACPI_TYPE_STRING;
-    WriteValue.String.Length = strlen (ValueToWrite);
+    WriteValue.String.Length = strlen(ValueToWrite);
     WriteValue.String.Pointer = ValueToWrite;
 
-    Status = AcpiDbWriteToObject (Node, &WriteValue);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbWriteToObject(Node, &WriteValue);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Ensure that we can read back the new value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_STRING, &Temp2);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_STRING, &Temp2);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
-    if (strcmp (Temp2->String.Pointer, ValueToWrite))
-    {
-        AcpiOsPrintf (" MISMATCH 2: %s, expecting %s",
+    if (strcmp(Temp2->String.Pointer, ValueToWrite)) {
+        AcpiOsPrintf(" MISMATCH 2: %s, expecting %s",
             Temp2->String.Pointer, ValueToWrite);
     }
 
     /* Write back the original value */
 
-    WriteValue.String.Length = strlen (Temp1->String.Pointer);
+    WriteValue.String.Length = strlen(Temp1->String.Pointer);
     WriteValue.String.Pointer = Temp1->String.Pointer;
 
-    Status = AcpiDbWriteToObject (Node, &WriteValue);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbWriteToObject(Node, &WriteValue);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Ensure that we can read back the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_STRING, &Temp3);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_STRING, &Temp3);
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
-    if (strcmp (Temp1->String.Pointer, Temp3->String.Pointer))
-    {
-        AcpiOsPrintf (" MISMATCH 3: %s, expecting %s",
+    if (strcmp(Temp1->String.Pointer, Temp3->String.Pointer)) {
+        AcpiOsPrintf(" MISMATCH 3: %s, expecting %s",
             Temp3->String.Pointer, Temp1->String.Pointer);
     }
 
 Exit:
-    if (Temp1) {AcpiOsFree (Temp1);}
-    if (Temp2) {AcpiOsFree (Temp2);}
-    if (Temp3) {AcpiOsFree (Temp3);}
+    if (Temp1) {
+        AcpiOsFree(Temp1);
+    }
+    if (Temp2) {
+        AcpiOsFree(Temp2);
+    }
+    if (Temp3) {
+        AcpiOsFree(Temp3);
+    }
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -915,26 +873,23 @@ Exit:
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbTestPackageType (
-    ACPI_NAMESPACE_NODE     *Node)
+AcpiDbTestPackageType(
+    ACPI_NAMESPACE_NODE* Node)
 {
-    ACPI_OBJECT             *Temp1 = NULL;
-    ACPI_STATUS             Status;
-
+    ACPI_OBJECT* Temp1 = NULL;
+    ACPI_STATUS Status;
 
     /* Read the original value */
 
-    Status = AcpiDbReadFromObject (Node, ACPI_TYPE_PACKAGE, &Temp1);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbReadFromObject(Node, ACPI_TYPE_PACKAGE, &Temp1);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    AcpiOsPrintf (" %.2X Elements", Temp1->Package.Count);
-    AcpiOsFree (Temp1);
+    AcpiOsPrintf(" %.2X Elements", Temp1->Package.Count);
+    AcpiOsFree(Temp1);
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -949,59 +904,55 @@ AcpiDbTestPackageType (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbTestFieldUnitType (
-    ACPI_OPERAND_OBJECT     *ObjDesc)
+AcpiDbTestFieldUnitType(
+    ACPI_OPERAND_OBJECT* ObjDesc)
 {
-    ACPI_OPERAND_OBJECT     *RegionObj;
-    UINT32                  BitLength = 0;
-    UINT32                  ByteLength = 0;
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_OPERAND_OBJECT     *RetBufferDesc;
-
+    ACPI_OPERAND_OBJECT* RegionObj;
+    UINT32 BitLength = 0;
+    UINT32 ByteLength = 0;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_OPERAND_OBJECT* RetBufferDesc;
 
     /* Supported spaces are memory/io/pci_config */
 
     RegionObj = ObjDesc->Field.RegionObj;
-    switch (RegionObj->Region.SpaceId)
-    {
+    switch (RegionObj->Region.SpaceId) {
     case ACPI_ADR_SPACE_SYSTEM_MEMORY:
     case ACPI_ADR_SPACE_SYSTEM_IO:
     case ACPI_ADR_SPACE_PCI_CONFIG:
 
         /* Need the interpreter to execute */
 
-        AcpiUtAcquireMutex (ACPI_MTX_INTERPRETER);
-        AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
+        AcpiUtAcquireMutex(ACPI_MTX_INTERPRETER);
+        AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
 
         /* Exercise read-then-write */
 
-        Status = AcpiExReadDataFromField (NULL, ObjDesc, &RetBufferDesc);
-        if (Status == AE_OK)
-        {
-            AcpiExWriteDataToField (RetBufferDesc, ObjDesc, NULL);
-            AcpiUtRemoveReference (RetBufferDesc);
+        Status = AcpiExReadDataFromField(NULL, ObjDesc, &RetBufferDesc);
+        if (Status == AE_OK) {
+            AcpiExWriteDataToField(RetBufferDesc, ObjDesc, NULL);
+            AcpiUtRemoveReference(RetBufferDesc);
         }
 
-        AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
-        AcpiUtReleaseMutex (ACPI_MTX_INTERPRETER);
+        AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
+        AcpiUtReleaseMutex(ACPI_MTX_INTERPRETER);
 
         BitLength = ObjDesc->CommonField.BitLength;
-        ByteLength = ACPI_ROUND_BITS_UP_TO_BYTES (BitLength);
+        ByteLength = ACPI_ROUND_BITS_UP_TO_BYTES(BitLength);
 
-        AcpiOsPrintf (ACPI_DEBUG_LENGTH_FORMAT " [%s]", BitLength,
-            ByteLength, AcpiUtGetRegionName (RegionObj->Region.SpaceId));
+        AcpiOsPrintf(ACPI_DEBUG_LENGTH_FORMAT " [%s]", BitLength,
+            ByteLength, AcpiUtGetRegionName(RegionObj->Region.SpaceId));
         return (Status);
 
     default:
 
-        AcpiOsPrintf (
+        AcpiOsPrintf(
             "      %s address space is not supported in this command [%4.4s]",
-            AcpiUtGetRegionName (RegionObj->Region.SpaceId),
+            AcpiUtGetRegionName(RegionObj->Region.SpaceId),
             RegionObj->Region.Node->Name.Ascii);
         return (AE_OK);
     }
 }
-
 
 /*******************************************************************************
  *
@@ -1021,43 +972,40 @@ AcpiDbTestFieldUnitType (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbReadFromObject (
-    ACPI_NAMESPACE_NODE     *Node,
-    ACPI_OBJECT_TYPE        ExpectedType,
-    ACPI_OBJECT             **Value)
+AcpiDbReadFromObject(
+    ACPI_NAMESPACE_NODE* Node,
+    ACPI_OBJECT_TYPE ExpectedType,
+    ACPI_OBJECT** Value)
 {
-    ACPI_OBJECT             *RetValue;
-    ACPI_OBJECT_LIST        ParamObjects;
-    ACPI_OBJECT             Params[2];
-    ACPI_BUFFER             ReturnObj;
-    ACPI_STATUS             Status;
-
+    ACPI_OBJECT* RetValue;
+    ACPI_OBJECT_LIST ParamObjects;
+    ACPI_OBJECT Params[2];
+    ACPI_BUFFER ReturnObj;
+    ACPI_STATUS Status;
 
     Params[0].Type = ACPI_TYPE_LOCAL_REFERENCE;
     Params[0].Reference.ActualType = Node->Type;
-    Params[0].Reference.Handle = ACPI_CAST_PTR (ACPI_HANDLE, Node);
+    Params[0].Reference.Handle = ACPI_CAST_PTR(ACPI_HANDLE, Node);
 
     ParamObjects.Count = 1;
     ParamObjects.Pointer = Params;
 
-    ReturnObj.Length  = ACPI_ALLOCATE_BUFFER;
+    ReturnObj.Length = ACPI_ALLOCATE_BUFFER;
 
     AcpiGbl_MethodExecuting = TRUE;
-    Status = AcpiEvaluateObject (ReadHandle, NULL,
+    Status = AcpiEvaluateObject(ReadHandle, NULL,
         &ParamObjects, &ReturnObj);
 
     AcpiGbl_MethodExecuting = FALSE;
-    if (ACPI_FAILURE (Status))
-    {
-        AcpiOsPrintf ("Could not read from object, %s",
-            AcpiFormatException (Status));
+    if (ACPI_FAILURE(Status)) {
+        AcpiOsPrintf("Could not read from object, %s",
+            AcpiFormatException(Status));
         return (Status);
     }
 
-    RetValue = (ACPI_OBJECT *) ReturnObj.Pointer;
+    RetValue = (ACPI_OBJECT*)ReturnObj.Pointer;
 
-    switch (RetValue->Type)
-    {
+    switch (RetValue->Type) {
     case ACPI_TYPE_INTEGER:
     case ACPI_TYPE_BUFFER:
     case ACPI_TYPE_STRING:
@@ -1067,13 +1015,12 @@ AcpiDbReadFromObject (
          * Integer/Buffer case (when a field is larger than an Integer,
          * it should return a Buffer).
          */
-        if (RetValue->Type != ExpectedType)
-        {
-            AcpiOsPrintf (" Type mismatch:  Expected %s, Received %s",
-                AcpiUtGetTypeName (ExpectedType),
-                AcpiUtGetTypeName (RetValue->Type));
+        if (RetValue->Type != ExpectedType) {
+            AcpiOsPrintf(" Type mismatch:  Expected %s, Received %s",
+                AcpiUtGetTypeName(ExpectedType),
+                AcpiUtGetTypeName(RetValue->Type));
 
-            AcpiOsFree (ReturnObj.Pointer);
+            AcpiOsFree(ReturnObj.Pointer);
             return (AE_TYPE);
         }
 
@@ -1082,16 +1029,15 @@ AcpiDbReadFromObject (
 
     default:
 
-        AcpiOsPrintf (" Unsupported return object type, %s",
-            AcpiUtGetTypeName (RetValue->Type));
+        AcpiOsPrintf(" Unsupported return object type, %s",
+            AcpiUtGetTypeName(RetValue->Type));
 
-        AcpiOsFree (ReturnObj.Pointer);
+        AcpiOsFree(ReturnObj.Pointer);
         return (AE_TYPE);
     }
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -1110,39 +1056,36 @@ AcpiDbReadFromObject (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbWriteToObject (
-    ACPI_NAMESPACE_NODE     *Node,
-    ACPI_OBJECT             *Value)
+AcpiDbWriteToObject(
+    ACPI_NAMESPACE_NODE* Node,
+    ACPI_OBJECT* Value)
 {
-    ACPI_OBJECT_LIST        ParamObjects;
-    ACPI_OBJECT             Params[2];
-    ACPI_STATUS             Status;
-
+    ACPI_OBJECT_LIST ParamObjects;
+    ACPI_OBJECT Params[2];
+    ACPI_STATUS Status;
 
     Params[0].Type = ACPI_TYPE_LOCAL_REFERENCE;
     Params[0].Reference.ActualType = Node->Type;
-    Params[0].Reference.Handle = ACPI_CAST_PTR (ACPI_HANDLE, Node);
+    Params[0].Reference.Handle = ACPI_CAST_PTR(ACPI_HANDLE, Node);
 
     /* Copy the incoming user parameter */
 
-    memcpy (&Params[1], Value, sizeof (ACPI_OBJECT));
+    memcpy(&Params[1], Value, sizeof(ACPI_OBJECT));
 
     ParamObjects.Count = 2;
     ParamObjects.Pointer = Params;
 
     AcpiGbl_MethodExecuting = TRUE;
-    Status = AcpiEvaluateObject (WriteHandle, NULL, &ParamObjects, NULL);
+    Status = AcpiEvaluateObject(WriteHandle, NULL, &ParamObjects, NULL);
     AcpiGbl_MethodExecuting = FALSE;
 
-    if (ACPI_FAILURE (Status))
-    {
-        AcpiOsPrintf ("Could not write to object, %s",
-            AcpiFormatException (Status));
+    if (ACPI_FAILURE(Status)) {
+        AcpiOsPrintf("Could not write to object, %s",
+            AcpiFormatException(Status));
     }
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -1158,30 +1101,27 @@ AcpiDbWriteToObject (
  ******************************************************************************/
 
 static void
-AcpiDbEvaluateAllPredefinedNames (
-    char                    *CountArg)
+AcpiDbEvaluateAllPredefinedNames(
+    char* CountArg)
 {
-    ACPI_DB_EXECUTE_WALK    Info;
-
+    ACPI_DB_EXECUTE_WALK Info;
 
     Info.Count = 0;
     Info.MaxCount = ACPI_UINT32_MAX;
 
-    if (CountArg)
-    {
-        Info.MaxCount = strtoul (CountArg, NULL, 0);
+    if (CountArg) {
+        Info.MaxCount = strtoul(CountArg, NULL, 0);
     }
 
     /* Search all nodes in namespace */
 
-    (void) AcpiWalkNamespace (ACPI_TYPE_ANY, ACPI_ROOT_OBJECT,
+    (void)AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT,
         ACPI_UINT32_MAX, AcpiDbEvaluateOnePredefinedName, NULL,
-        (void *) &Info, NULL);
+        (void*)&Info, NULL);
 
-    AcpiOsPrintf (
+    AcpiOsPrintf(
         "Evaluated %u predefined names in the namespace\n", Info.Count);
 }
-
 
 /*******************************************************************************
  *
@@ -1197,65 +1137,59 @@ AcpiDbEvaluateAllPredefinedNames (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbEvaluateOnePredefinedName (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiDbEvaluateOnePredefinedName(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_NAMESPACE_NODE         *Node = (ACPI_NAMESPACE_NODE *) ObjHandle;
-    ACPI_DB_EXECUTE_WALK        *Info = (ACPI_DB_EXECUTE_WALK *) Context;
-    char                        *Pathname;
-    const ACPI_PREDEFINED_INFO  *Predefined;
-    ACPI_DEVICE_INFO            *ObjInfo;
-    ACPI_OBJECT_LIST            ParamObjects;
-    ACPI_OBJECT                 Params[ACPI_METHOD_NUM_ARGS];
-    ACPI_OBJECT                 *ThisParam;
-    ACPI_BUFFER                 ReturnObj;
-    ACPI_STATUS                 Status;
-    UINT16                      ArgTypeList;
-    UINT8                       ArgCount;
-    UINT8                       ArgType;
-    UINT32                      i;
-
+    ACPI_NAMESPACE_NODE* Node = (ACPI_NAMESPACE_NODE*)ObjHandle;
+    ACPI_DB_EXECUTE_WALK* Info = (ACPI_DB_EXECUTE_WALK*)Context;
+    char* Pathname;
+    const ACPI_PREDEFINED_INFO* Predefined;
+    ACPI_DEVICE_INFO* ObjInfo;
+    ACPI_OBJECT_LIST ParamObjects;
+    ACPI_OBJECT Params[ACPI_METHOD_NUM_ARGS];
+    ACPI_OBJECT* ThisParam;
+    ACPI_BUFFER ReturnObj;
+    ACPI_STATUS Status;
+    UINT16 ArgTypeList;
+    UINT8 ArgCount;
+    UINT8 ArgType;
+    UINT32 i;
 
     /* The name must be a predefined ACPI name */
 
-    Predefined = AcpiUtMatchPredefinedMethod (Node->Name.Ascii);
-    if (!Predefined)
-    {
+    Predefined = AcpiUtMatchPredefinedMethod(Node->Name.Ascii);
+    if (!Predefined) {
         return (AE_OK);
     }
 
-    if (Node->Type == ACPI_TYPE_LOCAL_SCOPE)
-    {
+    if (Node->Type == ACPI_TYPE_LOCAL_SCOPE) {
         return (AE_OK);
     }
 
-    Pathname = AcpiNsGetNormalizedPathname (Node, TRUE);
-    if (!Pathname)
-    {
+    Pathname = AcpiNsGetNormalizedPathname(Node, TRUE);
+    if (!Pathname) {
         return (AE_OK);
     }
 
     /* Get the object info for number of method parameters */
 
-    Status = AcpiGetObjectInfo (ObjHandle, &ObjInfo);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_FREE (Pathname);
+    Status = AcpiGetObjectInfo(ObjHandle, &ObjInfo);
+    if (ACPI_FAILURE(Status)) {
+        ACPI_FREE(Pathname);
         return (Status);
     }
 
     ParamObjects.Count = 0;
     ParamObjects.Pointer = NULL;
 
-    if (ObjInfo->Type == ACPI_TYPE_METHOD)
-    {
+    if (ObjInfo->Type == ACPI_TYPE_METHOD) {
         /* Setup default parameters (with proper types) */
 
         ArgTypeList = Predefined->Info.ArgumentList;
-        ArgCount = METHOD_GET_ARG_COUNT (ArgTypeList);
+        ArgCount = METHOD_GET_ARG_COUNT(ArgTypeList);
 
         /*
          * Setup the ACPI-required number of arguments, regardless of what
@@ -1263,13 +1197,11 @@ AcpiDbEvaluateOnePredefinedName (
          * method is wrong and a warning will be issued during execution.
          */
         ThisParam = Params;
-        for (i = 0; i < ArgCount; i++)
-        {
-            ArgType = METHOD_GET_NEXT_TYPE (ArgTypeList);
+        for (i = 0; i < ArgCount; i++) {
+            ArgType = METHOD_GET_NEXT_TYPE(ArgTypeList);
             ThisParam->Type = ArgType;
 
-            switch (ArgType)
-            {
+            switch (ArgType) {
             case ACPI_TYPE_INTEGER:
 
                 ThisParam->Integer.Value = 1;
@@ -1277,27 +1209,25 @@ AcpiDbEvaluateOnePredefinedName (
 
             case ACPI_TYPE_STRING:
 
-                ThisParam->String.Pointer =
-                    "This is the default argument string";
-                ThisParam->String.Length =
-                    strlen (ThisParam->String.Pointer);
+                ThisParam->String.Pointer = "This is the default argument string";
+                ThisParam->String.Length = strlen(ThisParam->String.Pointer);
                 break;
 
             case ACPI_TYPE_BUFFER:
 
-                ThisParam->Buffer.Pointer = (UINT8 *) Params; /* just a garbage buffer */
+                ThisParam->Buffer.Pointer = (UINT8*)Params; /* just a garbage buffer */
                 ThisParam->Buffer.Length = 48;
                 break;
 
-             case ACPI_TYPE_PACKAGE:
+            case ACPI_TYPE_PACKAGE:
 
                 ThisParam->Package.Elements = NULL;
                 ThisParam->Package.Count = 0;
                 break;
 
-           default:
+            default:
 
-                AcpiOsPrintf ("%s: Unsupported argument type: %u\n",
+                AcpiOsPrintf("%s: Unsupported argument type: %u\n",
                     Pathname, ArgType);
                 break;
             }
@@ -1309,7 +1239,7 @@ AcpiDbEvaluateOnePredefinedName (
         ParamObjects.Pointer = Params;
     }
 
-    ACPI_FREE (ObjInfo);
+    ACPI_FREE(ObjInfo);
     ReturnObj.Pointer = NULL;
     ReturnObj.Length = ACPI_ALLOCATE_BUFFER;
 
@@ -1317,12 +1247,12 @@ AcpiDbEvaluateOnePredefinedName (
 
     AcpiGbl_MethodExecuting = TRUE;
 
-    Status = AcpiEvaluateObject (Node, NULL, &ParamObjects, &ReturnObj);
+    Status = AcpiEvaluateObject(Node, NULL, &ParamObjects, &ReturnObj);
 
-    AcpiOsPrintf ("%-32s returned %s\n",
-        Pathname, AcpiFormatException (Status));
+    AcpiOsPrintf("%-32s returned %s\n",
+        Pathname, AcpiFormatException(Status));
     AcpiGbl_MethodExecuting = FALSE;
-    ACPI_FREE (Pathname);
+    ACPI_FREE(Pathname);
 
     /* Ignore status from method execution */
 
@@ -1331,8 +1261,7 @@ AcpiDbEvaluateOnePredefinedName (
     /* Update count, check if we have executed enough methods */
 
     Info->Count++;
-    if (Info->Count >= Info->MaxCount)
-    {
+    if (Info->Count >= Info->MaxCount) {
         Status = AE_CTRL_TERMINATE;
     }
 

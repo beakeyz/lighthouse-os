@@ -149,24 +149,23 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-#include "acparser.h"
-#include "amlcode.h"
 #include "acconvert.h"
+#include "acparser.h"
+#include "acpi.h"
+#include "amlcode.h"
 #include "logging/log.h"
 
-#define _COMPONENT          ACPI_PARSER
-        ACPI_MODULE_NAME    ("pstree")
+#define _COMPONENT ACPI_PARSER
+ACPI_MODULE_NAME("pstree")
 
 /* Local prototypes */
 
 #ifdef ACPI_OBSOLETE_FUNCTIONS
-ACPI_PARSE_OBJECT *
-AcpiPsGetChild (
-    ACPI_PARSE_OBJECT       *op);
+ACPI_PARSE_OBJECT*
+AcpiPsGetChild(
+    ACPI_PARSE_OBJECT* op);
 #endif
-
 
 /*******************************************************************************
  *
@@ -181,28 +180,26 @@ AcpiPsGetChild (
  *
  ******************************************************************************/
 
-ACPI_PARSE_OBJECT *
-AcpiPsGetArg (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  Argn)
+ACPI_PARSE_OBJECT*
+AcpiPsGetArg(
+    ACPI_PARSE_OBJECT* Op,
+    UINT32 Argn)
 {
-    ACPI_PARSE_OBJECT       *Arg = NULL;
-    const ACPI_OPCODE_INFO  *OpInfo;
+    ACPI_PARSE_OBJECT* Arg = NULL;
+    const ACPI_OPCODE_INFO* OpInfo;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-/*
-    if (Op->Common.AmlOpcode == AML_INT_CONNECTION_OP)
-    {
-        return (Op->Common.Value.Arg);
-    }
-*/
+    /*
+        if (Op->Common.AmlOpcode == AML_INT_CONNECTION_OP)
+        {
+            return (Op->Common.Value.Arg);
+        }
+    */
     /* Get the info structure for this opcode */
 
-    OpInfo = AcpiPsGetOpcodeInfo (Op->Common.AmlOpcode);
-    if (OpInfo->Class == AML_CLASS_UNKNOWN)
-    {
+    OpInfo = AcpiPsGetOpcodeInfo(Op->Common.AmlOpcode);
+    if (OpInfo->Class == AML_CLASS_UNKNOWN) {
         /* Invalid opcode or ASCII character */
 
         return (NULL);
@@ -210,8 +207,7 @@ AcpiPsGetArg (
 
     /* Check if this opcode requires argument sub-objects */
 
-    if (!(OpInfo->Flags & AML_HAS_ARGS))
-    {
+    if (!(OpInfo->Flags & AML_HAS_ARGS)) {
         /* Has no linked argument objects */
 
         return (NULL);
@@ -220,15 +216,13 @@ AcpiPsGetArg (
     /* Get the requested argument object */
 
     Arg = Op->Common.Value.Arg;
-    while (Arg && Argn)
-    {
+    while (Arg && Argn) {
         Argn--;
         Arg = Arg->Common.Next;
     }
 
     return (Arg);
 }
-
 
 /*******************************************************************************
  *
@@ -243,39 +237,33 @@ AcpiPsGetArg (
  *
  ******************************************************************************/
 
-void
-AcpiPsAppendArg (
-    ACPI_PARSE_OBJECT       *Op,
-    ACPI_PARSE_OBJECT       *Arg)
+void AcpiPsAppendArg(
+    ACPI_PARSE_OBJECT* Op,
+    ACPI_PARSE_OBJECT* Arg)
 {
-    ACPI_PARSE_OBJECT       *PrevArg;
-    const ACPI_OPCODE_INFO  *OpInfo;
+    ACPI_PARSE_OBJECT* PrevArg;
+    const ACPI_OPCODE_INFO* OpInfo;
 
+    ACPI_FUNCTION_TRACE(PsAppendArg);
 
-    ACPI_FUNCTION_TRACE (PsAppendArg);
-
-
-    if (!Op)
-    {
+    if (!Op) {
         return_VOID;
     }
 
     /* Get the info structure for this opcode */
 
-    OpInfo = AcpiPsGetOpcodeInfo (Op->Common.AmlOpcode);
-    if (OpInfo->Class == AML_CLASS_UNKNOWN)
-    {
+    OpInfo = AcpiPsGetOpcodeInfo(Op->Common.AmlOpcode);
+    if (OpInfo->Class == AML_CLASS_UNKNOWN) {
         /* Invalid opcode */
 
-        ACPI_ERROR ((AE_INFO, "Invalid AML Opcode: 0x%2.2X",
+        ACPI_ERROR((AE_INFO, "Invalid AML Opcode: 0x%2.2X",
             Op->Common.AmlOpcode));
         return_VOID;
     }
 
     /* Check if this opcode requires argument sub-objects */
 
-    if (!(OpInfo->Flags & AML_HAS_ARGS))
-    {
+    if (!(OpInfo->Flags & AML_HAS_ARGS)) {
         /* Has no linked argument objects */
 
         return_VOID;
@@ -283,19 +271,15 @@ AcpiPsAppendArg (
 
     /* Append the argument to the linked argument list */
 
-    if (Op->Common.Value.Arg)
-    {
+    if (Op->Common.Value.Arg) {
         /* Append to existing argument list */
 
         PrevArg = Op->Common.Value.Arg;
-        while (PrevArg->Common.Next)
-        {
+        while (PrevArg->Common.Next) {
             PrevArg = PrevArg->Common.Next;
         }
         PrevArg->Common.Next = Arg;
-    }
-    else
-    {
+    } else {
         /* No argument list, this will be the first argument */
 
         Op->Common.Value.Arg = Arg;
@@ -303,8 +287,7 @@ AcpiPsAppendArg (
 
     /* Set the parent in this arg and any args linked after it */
 
-    while (Arg)
-    {
+    while (Arg) {
         Arg->Common.Parent = Op;
         Arg = Arg->Common.Next;
 
@@ -313,7 +296,6 @@ AcpiPsAppendArg (
 
     return_VOID;
 }
-
 
 /*******************************************************************************
  *
@@ -329,39 +311,34 @@ AcpiPsAppendArg (
  *
  ******************************************************************************/
 
-ACPI_PARSE_OBJECT *
-AcpiPsGetDepthNext (
-    ACPI_PARSE_OBJECT       *Origin,
-    ACPI_PARSE_OBJECT       *Op)
+ACPI_PARSE_OBJECT*
+AcpiPsGetDepthNext(
+    ACPI_PARSE_OBJECT* Origin,
+    ACPI_PARSE_OBJECT* Op)
 {
-    ACPI_PARSE_OBJECT       *Next = NULL;
-    ACPI_PARSE_OBJECT       *Parent;
-    ACPI_PARSE_OBJECT       *Arg;
+    ACPI_PARSE_OBJECT* Next = NULL;
+    ACPI_PARSE_OBJECT* Parent;
+    ACPI_PARSE_OBJECT* Arg;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (!Op)
-    {
+    if (!Op) {
         return (NULL);
     }
 
     /* Look for an argument or child */
 
-    Next = AcpiPsGetArg (Op, 0);
-    if (Next)
-    {
-        ASL_CV_LABEL_FILENODE (Next);
+    Next = AcpiPsGetArg(Op, 0);
+    if (Next) {
+        ASL_CV_LABEL_FILENODE(Next);
         return (Next);
     }
 
     /* Look for a sibling */
 
     Next = Op->Common.Next;
-    if (Next)
-    {
-        ASL_CV_LABEL_FILENODE (Next);
+    if (Next) {
+        ASL_CV_LABEL_FILENODE(Next);
         return (Next);
     }
 
@@ -369,28 +346,24 @@ AcpiPsGetDepthNext (
 
     Parent = Op->Common.Parent;
 
-    while (Parent)
-    {
-        Arg = AcpiPsGetArg (Parent, 0);
-        while (Arg && (Arg != Origin) && (Arg != Op))
-        {
+    while (Parent) {
+        Arg = AcpiPsGetArg(Parent, 0);
+        while (Arg && (Arg != Origin) && (Arg != Op)) {
 
-            ASL_CV_LABEL_FILENODE (Arg);
+            ASL_CV_LABEL_FILENODE(Arg);
             Arg = Arg->Common.Next;
         }
 
-        if (Arg == Origin)
-        {
+        if (Arg == Origin) {
             /* Reached parent of origin, end search */
 
             return (NULL);
         }
 
-        if (Parent->Common.Next)
-        {
+        if (Parent->Common.Next) {
             /* Found sibling of parent */
 
-            ASL_CV_LABEL_FILENODE (Parent->Common.Next);
+            ASL_CV_LABEL_FILENODE(Parent->Common.Next);
             return (Parent->Common.Next);
         }
 
@@ -398,10 +371,9 @@ AcpiPsGetDepthNext (
         Parent = Parent->Common.Parent;
     }
 
-    ASL_CV_LABEL_FILENODE (Next);
+    ASL_CV_LABEL_FILENODE(Next);
     return (Next);
 }
-
 
 #ifdef ACPI_OBSOLETE_FUNCTIONS
 /*******************************************************************************
@@ -416,25 +388,22 @@ AcpiPsGetDepthNext (
  *
  ******************************************************************************/
 
-ACPI_PARSE_OBJECT *
-AcpiPsGetChild (
-    ACPI_PARSE_OBJECT       *Op)
+ACPI_PARSE_OBJECT*
+AcpiPsGetChild(
+    ACPI_PARSE_OBJECT* Op)
 {
-    ACPI_PARSE_OBJECT       *Child = NULL;
+    ACPI_PARSE_OBJECT* Child = NULL;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    switch (Op->Common.AmlOpcode)
-    {
+    switch (Op->Common.AmlOpcode) {
     case AML_SCOPE_OP:
     case AML_ELSE_OP:
     case AML_DEVICE_OP:
     case AML_THERMAL_ZONE_OP:
     case AML_INT_METHODCALL_OP:
 
-        Child = AcpiPsGetArg (Op, 0);
+        Child = AcpiPsGetArg(Op, 0);
         break;
 
     case AML_BUFFER_OP:
@@ -445,19 +414,19 @@ AcpiPsGetChild (
     case AML_WHILE_OP:
     case AML_FIELD_OP:
 
-        Child = AcpiPsGetArg (Op, 1);
+        Child = AcpiPsGetArg(Op, 1);
         break;
 
     case AML_POWER_RESOURCE_OP:
     case AML_INDEX_FIELD_OP:
 
-        Child = AcpiPsGetArg (Op, 2);
+        Child = AcpiPsGetArg(Op, 2);
         break;
 
     case AML_PROCESSOR_OP:
     case AML_BANK_FIELD_OP:
 
-        Child = AcpiPsGetArg (Op, 3);
+        Child = AcpiPsGetArg(Op, 3);
         break;
 
     default:

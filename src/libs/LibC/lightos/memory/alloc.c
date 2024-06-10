@@ -16,29 +16,29 @@
  */
 VOID* allocate_pool(size_t* poolsize, DWORD flags, DWORD pooltype)
 {
-  VOID* buffer;
-  QWORD result;
-  size_t size;
+    VOID* buffer;
+    QWORD result;
+    size_t size;
 
-  if (!poolsize || !(*poolsize))
-    return NULL;
+    if (!poolsize || !(*poolsize))
+        return NULL;
 
-  buffer = NULL;
-  size = ALIGN_UP(*poolsize, MEMPOOL_ALIGN);
+    buffer = NULL;
+    size = ALIGN_UP(*poolsize, MEMPOOL_ALIGN);
 
-  *poolsize = NULL;
+    *poolsize = NULL;
 
-  /* Request memory from the system */
-  result = syscall_3(SYSID_ALLOC_PAGE_RANGE, size, flags, (uint64_t)&buffer);
+    /* Request memory from the system */
+    result = syscall_3(SYSID_ALLOC_PAGE_RANGE, size, flags, (uint64_t)&buffer);
 
-  if (result != SYS_OK)
-    return NULL;
+    if (result != SYS_OK)
+        return NULL;
 
-  *poolsize = size;
-  return buffer;
+    *poolsize = size;
+    return buffer;
 }
 
 DWORD deallocate_pool(VOID* pooladdr, size_t poolsize)
 {
-  return NULL;
+    return NULL;
 }

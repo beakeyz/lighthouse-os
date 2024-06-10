@@ -149,25 +149,22 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-#include "acnamesp.h"
-#include "amlcode.h"
 #include "acdispat.h"
 #include "acinterp.h"
+#include "acnamesp.h"
 #include "acparser.h"
+#include "acpi.h"
+#include "amlcode.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("dspkginit")
-
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("dspkginit")
 
 /* Local prototypes */
 
 static void
-AcpiDsResolvePackageElement (
-    ACPI_OPERAND_OBJECT     **Element);
-
+AcpiDsResolvePackageElement(
+    ACPI_OPERAND_OBJECT** Element);
 
 /*******************************************************************************
  *
@@ -199,38 +196,33 @@ AcpiDsResolvePackageElement (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDsBuildInternalPackageObj (
-    ACPI_WALK_STATE         *WalkState,
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  ElementCount,
-    ACPI_OPERAND_OBJECT     **ObjDescPtr)
+AcpiDsBuildInternalPackageObj(
+    ACPI_WALK_STATE* WalkState,
+    ACPI_PARSE_OBJECT* Op,
+    UINT32 ElementCount,
+    ACPI_OPERAND_OBJECT** ObjDescPtr)
 {
-    ACPI_PARSE_OBJECT       *Arg;
-    ACPI_PARSE_OBJECT       *Parent;
-    ACPI_OPERAND_OBJECT     *ObjDesc = NULL;
-    ACPI_STATUS             Status = AE_OK;
-    BOOLEAN                 ModuleLevelCode = FALSE;
-    UINT16                  ReferenceCount;
-    UINT32                  Index;
-    UINT32                  i;
+    ACPI_PARSE_OBJECT* Arg;
+    ACPI_PARSE_OBJECT* Parent;
+    ACPI_OPERAND_OBJECT* ObjDesc = NULL;
+    ACPI_STATUS Status = AE_OK;
+    BOOLEAN ModuleLevelCode = FALSE;
+    UINT16 ReferenceCount;
+    UINT32 Index;
+    UINT32 i;
 
-
-    ACPI_FUNCTION_TRACE (DsBuildInternalPackageObj);
-
+    ACPI_FUNCTION_TRACE(DsBuildInternalPackageObj);
 
     /* Check if we are executing module level code */
 
-    if (WalkState->ParseFlags & ACPI_PARSE_MODULE_LEVEL)
-    {
+    if (WalkState->ParseFlags & ACPI_PARSE_MODULE_LEVEL) {
         ModuleLevelCode = TRUE;
     }
 
     /* Find the parent of a possibly nested package */
 
     Parent = Op->Common.Parent;
-    while ((Parent->Common.AmlOpcode == AML_PACKAGE_OP) ||
-           (Parent->Common.AmlOpcode == AML_VARIABLE_PACKAGE_OP))
-    {
+    while ((Parent->Common.AmlOpcode == AML_PACKAGE_OP) || (Parent->Common.AmlOpcode == AML_VARIABLE_PACKAGE_OP)) {
         Parent = Parent->Common.Parent;
     }
 
@@ -240,13 +232,11 @@ AcpiDsBuildInternalPackageObj (
      * the package object already exists, otherwise it must be created.
      */
     ObjDesc = *ObjDescPtr;
-    if (!ObjDesc)
-    {
-        ObjDesc = AcpiUtCreateInternalObject (ACPI_TYPE_PACKAGE);
+    if (!ObjDesc) {
+        ObjDesc = AcpiUtCreateInternalObject(ACPI_TYPE_PACKAGE);
         *ObjDescPtr = ObjDesc;
-        if (!ObjDesc)
-        {
-            return_ACPI_STATUS (AE_NO_MEMORY);
+        if (!ObjDesc) {
+            return_ACPI_STATUS(AE_NO_MEMORY);
         }
 
         ObjDesc->Package.Node = Parent->Common.Node;
@@ -254,7 +244,7 @@ AcpiDsBuildInternalPackageObj (
 
     if (ObjDesc->Package.Flags & AOPOBJ_DATA_VALID) /* Just in case */
     {
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
@@ -263,15 +253,13 @@ AcpiDsBuildInternalPackageObj (
      * parameter. Add an extra pointer slot so that the list is always
      * null terminated.
      */
-    if (!ObjDesc->Package.Elements)
-    {
-        ObjDesc->Package.Elements = ACPI_ALLOCATE_ZEROED (
-            ((ACPI_SIZE) ElementCount + 1) * sizeof (void *));
+    if (!ObjDesc->Package.Elements) {
+        ObjDesc->Package.Elements = ACPI_ALLOCATE_ZEROED(
+            ((ACPI_SIZE)ElementCount + 1) * sizeof(void*));
 
-        if (!ObjDesc->Package.Elements)
-        {
-            AcpiUtDeleteObjectDesc (ObjDesc);
-            return_ACPI_STATUS (AE_NO_MEMORY);
+        if (!ObjDesc->Package.Elements) {
+            AcpiUtDeleteObjectDesc(ObjDesc);
+            return_ACPI_STATUS(AE_NO_MEMORY);
         }
 
         ObjDesc->Package.Count = ElementCount;
@@ -288,12 +276,11 @@ AcpiDsBuildInternalPackageObj (
      * forward references from the elements. This provides
      * compatibility with other ACPI implementations.
      */
-    if (ModuleLevelCode)
-    {
+    if (ModuleLevelCode) {
         ObjDesc->Package.AmlStart = WalkState->Aml;
         ObjDesc->Package.AmlLength = 0;
 
-        ACPI_DEBUG_PRINT_RAW ((ACPI_DB_PARSE,
+        ACPI_DEBUG_PRINT_RAW((ACPI_DB_PARSE,
             "%s: Deferring resolution of Package elements\n",
             ACPI_GET_FUNCTION_NAME));
     }
@@ -304,12 +291,9 @@ AcpiDsBuildInternalPackageObj (
      * if NumElements is greater than the package list length. Likewise,
      * Package is truncated if NumElements is less than the list length.
      */
-    for (i = 0; Arg && (i < ElementCount); i++)
-    {
-        if (Arg->Common.AmlOpcode == AML_INT_RETURN_VALUE_OP)
-        {
-            if (!Arg->Common.Node)
-            {
+    for (i = 0; Arg && (i < ElementCount); i++) {
+        if (Arg->Common.AmlOpcode == AML_INT_RETURN_VALUE_OP) {
+            if (!Arg->Common.Node) {
                 /*
                  * This is the case where an expression has returned a value.
                  * The use of expressions (TermArgs) within individual
@@ -325,68 +309,57 @@ AcpiDsBuildInternalPackageObj (
                  *  1) No known AML interpreter supports this type of construct
                  *  2) This fixes a fault if the construct is encountered
                  */
-                ACPI_EXCEPTION ((AE_INFO, AE_SUPPORT,
+                ACPI_EXCEPTION((AE_INFO, AE_SUPPORT,
                     "Expressions within package elements are not supported"));
 
                 /* Cleanup the return object, it is not needed */
 
-                AcpiUtRemoveReference (WalkState->Results->Results.ObjDesc[0]);
-                return_ACPI_STATUS (AE_SUPPORT);
+                AcpiUtRemoveReference(WalkState->Results->Results.ObjDesc[0]);
+                return_ACPI_STATUS(AE_SUPPORT);
             }
 
-            if (Arg->Common.Node->Type == ACPI_TYPE_METHOD)
-            {
+            if (Arg->Common.Node->Type == ACPI_TYPE_METHOD) {
                 /*
                  * A method reference "looks" to the parser to be a method
                  * invocation, so we special case it here
                  */
                 Arg->Common.AmlOpcode = AML_INT_NAMEPATH_OP;
-                Status = AcpiDsBuildInternalObject (
+                Status = AcpiDsBuildInternalObject(
                     WalkState, Arg, &ObjDesc->Package.Elements[i]);
-            }
-            else
-            {
+            } else {
                 /* This package element is already built, just get it */
 
-                ObjDesc->Package.Elements[i] =
-                    ACPI_CAST_PTR (ACPI_OPERAND_OBJECT, Arg->Common.Node);
+                ObjDesc->Package.Elements[i] = ACPI_CAST_PTR(ACPI_OPERAND_OBJECT, Arg->Common.Node);
             }
-        }
-        else
-        {
-            Status = AcpiDsBuildInternalObject (
+        } else {
+            Status = AcpiDsBuildInternalObject(
                 WalkState, Arg, &ObjDesc->Package.Elements[i]);
-            if (Status == AE_NOT_FOUND)
-            {
-                ACPI_ERROR ((AE_INFO, "%-48s", "****DS namepath not found"));
+            if (Status == AE_NOT_FOUND) {
+                ACPI_ERROR((AE_INFO, "%-48s", "****DS namepath not found"));
             }
 
-            if (!ModuleLevelCode)
-            {
+            if (!ModuleLevelCode) {
                 /*
                  * Initialize this package element. This function handles the
                  * resolution of named references within the package.
                  * Forward references from module-level code are deferred
                  * until all ACPI tables are loaded.
                  */
-                AcpiDsInitPackageElement (0, ObjDesc->Package.Elements[i],
+                AcpiDsInitPackageElement(0, ObjDesc->Package.Elements[i],
                     NULL, &ObjDesc->Package.Elements[i]);
             }
         }
 
-        if (*ObjDescPtr)
-        {
+        if (*ObjDescPtr) {
             /* Existing package, get existing reference count */
 
             ReferenceCount = (*ObjDescPtr)->Common.ReferenceCount;
-            if (ReferenceCount > 1)
-            {
+            if (ReferenceCount > 1) {
                 /* Make new element ref count match original ref count */
                 /* TBD: Probably need an AcpiUtAddReferences function */
 
-                for (Index = 0; Index < ((UINT32) ReferenceCount - 1); Index++)
-                {
-                    AcpiUtAddReference ((ObjDesc->Package.Elements[i]));
+                for (Index = 0; Index < ((UINT32)ReferenceCount - 1); Index++) {
+                    AcpiUtAddReference((ObjDesc->Package.Elements[i]));
                 }
             }
         }
@@ -396,8 +369,7 @@ AcpiDsBuildInternalPackageObj (
 
     /* Check for match between NumElements and actual length of PackageList */
 
-    if (Arg)
-    {
+    if (Arg) {
         /*
          * NumElements was exhausted, but there are remaining elements in
          * the PackageList. Truncate the package to NumElements.
@@ -410,16 +382,14 @@ AcpiDsBuildInternalPackageObj (
          * the NumElements on the fly, possibly creating this type of
          * ill-formed package object.
          */
-        while (Arg)
-        {
+        while (Arg) {
             /*
              * We must delete any package elements that were created earlier
              * and are not going to be used because of the package truncation.
              */
-            if (Arg->Common.Node)
-            {
-                AcpiUtRemoveReference (
-                    ACPI_CAST_PTR (ACPI_OPERAND_OBJECT, Arg->Common.Node));
+            if (Arg->Common.Node) {
+                AcpiUtRemoveReference(
+                    ACPI_CAST_PTR(ACPI_OPERAND_OBJECT, Arg->Common.Node));
                 Arg->Common.Node = NULL;
             }
 
@@ -429,13 +399,11 @@ AcpiDsBuildInternalPackageObj (
             Arg = Arg->Common.Next;
         }
 
-        ACPI_INFO ((
+        ACPI_INFO((
             "Actual Package length (%u) is larger than "
             "NumElements field (%u), truncated",
             i, ElementCount));
-    }
-    else if (i < ElementCount)
-    {
+    } else if (i < ElementCount) {
         /*
          * Arg list (elements) was exhausted, but we did not reach
          * NumElements count.
@@ -443,7 +411,7 @@ AcpiDsBuildInternalPackageObj (
          * Note: this is not an error, the package is padded out
          * with NULLs as per the ACPI specification.
          */
-        ACPI_DEBUG_PRINT_RAW ((ACPI_DB_INFO,
+        ACPI_DEBUG_PRINT_RAW((ACPI_DB_INFO,
             "%s: Package List length (%u) smaller than NumElements "
             "count (%u), padded with null elements\n",
             ACPI_GET_FUNCTION_NAME, i, ElementCount));
@@ -451,15 +419,13 @@ AcpiDsBuildInternalPackageObj (
 
     /* Module-level packages will be resolved later */
 
-    if (!ModuleLevelCode)
-    {
+    if (!ModuleLevelCode) {
         ObjDesc->Package.Flags |= AOPOBJ_DATA_VALID;
     }
 
-    Op->Common.Node = ACPI_CAST_PTR (ACPI_NAMESPACE_NODE, ObjDesc);
-    return_ACPI_STATUS (Status);
+    Op->Common.Node = ACPI_CAST_PTR(ACPI_NAMESPACE_NODE, ObjDesc);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -474,21 +440,18 @@ AcpiDsBuildInternalPackageObj (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDsInitPackageElement (
-    UINT8                   ObjectType,
-    ACPI_OPERAND_OBJECT     *SourceObject,
-    ACPI_GENERIC_STATE      *State,
-    void                    *Context)
+AcpiDsInitPackageElement(
+    UINT8 ObjectType,
+    ACPI_OPERAND_OBJECT* SourceObject,
+    ACPI_GENERIC_STATE* State,
+    void* Context)
 {
-    ACPI_OPERAND_OBJECT     **ElementPtr;
+    ACPI_OPERAND_OBJECT** ElementPtr;
 
+    ACPI_FUNCTION_TRACE(DsInitPackageElement);
 
-    ACPI_FUNCTION_TRACE (DsInitPackageElement);
-
-
-    if (!SourceObject)
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (!SourceObject) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
@@ -497,14 +460,11 @@ AcpiDsInitPackageElement (
      * to the location within the element array because a new object
      * may be created and stored there.
      */
-    if (Context)
-    {
+    if (Context) {
         /* A direct call was made to this function */
 
-        ElementPtr = (ACPI_OPERAND_OBJECT **) Context;
-    }
-    else
-    {
+        ElementPtr = (ACPI_OPERAND_OBJECT**)Context;
+    } else {
         /* Call came from AcpiUtWalkPackageTree */
 
         ElementPtr = State->Pkg.ThisTargetObj;
@@ -512,20 +472,16 @@ AcpiDsInitPackageElement (
 
     /* We are only interested in reference objects/elements */
 
-    if (SourceObject->Common.Type == ACPI_TYPE_LOCAL_REFERENCE)
-    {
+    if (SourceObject->Common.Type == ACPI_TYPE_LOCAL_REFERENCE) {
         /* Attempt to resolve the (named) reference to a namespace node */
 
-        AcpiDsResolvePackageElement (ElementPtr);
-    }
-    else if (SourceObject->Common.Type == ACPI_TYPE_PACKAGE)
-    {
+        AcpiDsResolvePackageElement(ElementPtr);
+    } else if (SourceObject->Common.Type == ACPI_TYPE_PACKAGE) {
         SourceObject->Package.Flags |= AOPOBJ_DATA_VALID;
     }
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -541,27 +497,24 @@ AcpiDsInitPackageElement (
  ******************************************************************************/
 
 static void
-AcpiDsResolvePackageElement (
-    ACPI_OPERAND_OBJECT     **ElementPtr)
+AcpiDsResolvePackageElement(
+    ACPI_OPERAND_OBJECT** ElementPtr)
 {
-    ACPI_STATUS             Status;
-    ACPI_STATUS             Status2;
-    ACPI_GENERIC_STATE      ScopeInfo;
-    ACPI_OPERAND_OBJECT     *Element = *ElementPtr;
-    ACPI_NAMESPACE_NODE     *ResolvedNode;
-    ACPI_NAMESPACE_NODE     *OriginalNode;
-    char                    *ExternalPath = "";
-    ACPI_OBJECT_TYPE        Type;
+    ACPI_STATUS Status;
+    ACPI_STATUS Status2;
+    ACPI_GENERIC_STATE ScopeInfo;
+    ACPI_OPERAND_OBJECT* Element = *ElementPtr;
+    ACPI_NAMESPACE_NODE* ResolvedNode;
+    ACPI_NAMESPACE_NODE* OriginalNode;
+    char* ExternalPath = "";
+    ACPI_OBJECT_TYPE Type;
 
-
-    ACPI_FUNCTION_TRACE (DsResolvePackageElement);
-
+    ACPI_FUNCTION_TRACE(DsResolvePackageElement);
 
     /* Check if reference element is already resolved */
 
-    if (Element->Reference.Resolved)
-    {
-        ACPI_DEBUG_PRINT_RAW ((ACPI_DB_PARSE,
+    if (Element->Reference.Resolved) {
+        ACPI_DEBUG_PRINT_RAW((ACPI_DB_PARSE,
             "%s: Package element is already resolved\n",
             ACPI_GET_FUNCTION_NAME));
 
@@ -572,14 +525,12 @@ AcpiDsResolvePackageElement (
 
     ScopeInfo.Scope.Node = Element->Reference.Node; /* Prefix node */
 
-    Status = AcpiNsLookup (&ScopeInfo, (char *) Element->Reference.Aml,
+    Status = AcpiNsLookup(&ScopeInfo, (char*)Element->Reference.Aml,
         ACPI_TYPE_ANY, ACPI_IMODE_EXECUTE,
         ACPI_NS_SEARCH_PARENT | ACPI_NS_DONT_OPEN_SCOPE,
         NULL, &ResolvedNode);
-    if (ACPI_FAILURE (Status))
-    {
-        if ((Status == AE_NOT_FOUND) && AcpiGbl_IgnorePackageResolutionErrors)
-        {
+    if (ACPI_FAILURE(Status)) {
+        if ((Status == AE_NOT_FOUND) && AcpiGbl_IgnorePackageResolutionErrors) {
             /*
              * Optionally be silent about the NOT_FOUND case for the referenced
              * name. Although this is potentially a serious problem,
@@ -594,33 +545,30 @@ AcpiDsResolvePackageElement (
 
             /* Referenced name not found, set the element to NULL */
 
-            AcpiUtRemoveReference (*ElementPtr);
+            AcpiUtRemoveReference(*ElementPtr);
             *ElementPtr = NULL;
             return_VOID;
         }
 
-        Status2 = AcpiNsExternalizeName (ACPI_UINT32_MAX,
-            (char *) Element->Reference.Aml, NULL, &ExternalPath);
+        Status2 = AcpiNsExternalizeName(ACPI_UINT32_MAX,
+            (char*)Element->Reference.Aml, NULL, &ExternalPath);
 
-        ACPI_EXCEPTION ((AE_INFO, Status,
+        ACPI_EXCEPTION((AE_INFO, Status,
             "While resolving a named reference package element - %s",
             ExternalPath));
-        if (ACPI_SUCCESS (Status2))
-        {
-            ACPI_FREE (ExternalPath);
+        if (ACPI_SUCCESS(Status2)) {
+            ACPI_FREE(ExternalPath);
         }
 
         /* Could not resolve name, set the element to NULL */
 
-        AcpiUtRemoveReference (*ElementPtr);
+        AcpiUtRemoveReference(*ElementPtr);
         *ElementPtr = NULL;
         return_VOID;
-    }
-    else if (ResolvedNode->Type == ACPI_TYPE_ANY)
-    {
+    } else if (ResolvedNode->Type == ACPI_TYPE_ANY) {
         /* Named reference not resolved, return a NULL package element */
 
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Could not resolve named package element [%4.4s] in [%4.4s]",
             ResolvedNode->Name.Ascii, ScopeInfo.Scope.Node->Name.Ascii));
         *ElementPtr = NULL;
@@ -631,9 +579,8 @@ AcpiDsResolvePackageElement (
      * Special handling for Alias objects. We need ResolvedNode to point
      * to the Alias target. This effectively "resolves" the alias.
      */
-    if (ResolvedNode->Type == ACPI_TYPE_LOCAL_ALIAS)
-    {
-        ResolvedNode = ACPI_CAST_PTR (ACPI_NAMESPACE_NODE,
+    if (ResolvedNode->Type == ACPI_TYPE_LOCAL_ALIAS) {
+        ResolvedNode = ACPI_CAST_PTR(ACPI_NAMESPACE_NODE,
             ResolvedNode->Object);
     }
 
@@ -658,14 +605,12 @@ AcpiDsResolvePackageElement (
      * in the ACPI spec, but it appears to be an oversight.
      */
     OriginalNode = ResolvedNode;
-    Status = AcpiExResolveNodeToValue (&ResolvedNode, NULL);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiExResolveNodeToValue(&ResolvedNode, NULL);
+    if (ACPI_FAILURE(Status)) {
         return_VOID;
     }
 
-    switch (Type)
-    {
+    switch (Type) {
     /*
      * These object types are a result of named references, so we will
      * leave them as reference objects. In other words, these types
@@ -684,7 +629,7 @@ AcpiDsResolvePackageElement (
 
         /* AcpiExResolveNodeToValue gave these an extra reference */
 
-        AcpiUtRemoveReference (OriginalNode->Object);
+        AcpiUtRemoveReference(OriginalNode->Object);
         break;
 
     default:
@@ -693,8 +638,8 @@ AcpiDsResolvePackageElement (
          * operand object with a value, return the object. Remove
          * a reference on the existing object.
          */
-        AcpiUtRemoveReference (Element);
-        *ElementPtr = (ACPI_OPERAND_OBJECT *) ResolvedNode;
+        AcpiUtRemoveReference(Element);
+        *ElementPtr = (ACPI_OPERAND_OBJECT*)ResolvedNode;
         break;
     }
 

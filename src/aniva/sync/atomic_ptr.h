@@ -5,8 +5,8 @@
 #include <libk/stddef.h>
 
 typedef struct {
-  volatile _Atomic uintptr_t __val; 
-} atomic_ptr_t ;
+    volatile _Atomic uintptr_t __val;
+} atomic_ptr_t;
 
 int init_atomic_ptr(atomic_ptr_t* ptr, uintptr_t value);
 atomic_ptr_t* create_atomic_ptr();

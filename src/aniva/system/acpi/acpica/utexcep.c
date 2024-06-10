@@ -152,13 +152,11 @@
 #define EXPORT_ACPI_INTERFACES
 
 #define ACPI_DEFINE_EXCEPTION_TABLE
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utexcep")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utexcep")
 
 /*******************************************************************************
  *
@@ -174,22 +172,19 @@
  *
  ******************************************************************************/
 
-const char *
-AcpiFormatException (
-    ACPI_STATUS             Status)
+const char*
+AcpiFormatException(
+    ACPI_STATUS Status)
 {
-    const ACPI_EXCEPTION_INFO   *Exception;
+    const ACPI_EXCEPTION_INFO* Exception;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    Exception = AcpiUtValidateException (Status);
-    if (!Exception)
-    {
+    Exception = AcpiUtValidateException(Status);
+    if (!Exception) {
         /* Exception code was not recognized */
 
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Unknown exception code: 0x%8.8X", Status));
 
         return ("UNKNOWN_STATUS_CODE");
@@ -198,8 +193,7 @@ AcpiFormatException (
     return (Exception->Name);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiFormatException)
-
+ACPI_EXPORT_SYMBOL(AcpiFormatException)
 
 /*******************************************************************************
  *
@@ -215,61 +209,53 @@ ACPI_EXPORT_SYMBOL (AcpiFormatException)
  *
  ******************************************************************************/
 
-const ACPI_EXCEPTION_INFO *
-AcpiUtValidateException (
-    ACPI_STATUS             Status)
+const ACPI_EXCEPTION_INFO*
+AcpiUtValidateException(
+    ACPI_STATUS Status)
 {
-    UINT32                      SubStatus;
-    const ACPI_EXCEPTION_INFO   *Exception = NULL;
+    UINT32 SubStatus;
+    const ACPI_EXCEPTION_INFO* Exception = NULL;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /*
      * Status is composed of two parts, a "type" and an actual code
      */
     SubStatus = (Status & ~AE_CODE_MASK);
 
-    switch (Status & AE_CODE_MASK)
-    {
+    switch (Status & AE_CODE_MASK) {
     case AE_CODE_ENVIRONMENTAL:
 
-        if (SubStatus <= AE_CODE_ENV_MAX)
-        {
-            Exception = &AcpiGbl_ExceptionNames_Env [SubStatus];
+        if (SubStatus <= AE_CODE_ENV_MAX) {
+            Exception = &AcpiGbl_ExceptionNames_Env[SubStatus];
         }
         break;
 
     case AE_CODE_PROGRAMMER:
 
-        if (SubStatus <= AE_CODE_PGM_MAX)
-        {
-            Exception = &AcpiGbl_ExceptionNames_Pgm [SubStatus];
+        if (SubStatus <= AE_CODE_PGM_MAX) {
+            Exception = &AcpiGbl_ExceptionNames_Pgm[SubStatus];
         }
         break;
 
     case AE_CODE_ACPI_TABLES:
 
-        if (SubStatus <= AE_CODE_TBL_MAX)
-        {
-            Exception = &AcpiGbl_ExceptionNames_Tbl [SubStatus];
+        if (SubStatus <= AE_CODE_TBL_MAX) {
+            Exception = &AcpiGbl_ExceptionNames_Tbl[SubStatus];
         }
         break;
 
     case AE_CODE_AML:
 
-        if (SubStatus <= AE_CODE_AML_MAX)
-        {
-            Exception = &AcpiGbl_ExceptionNames_Aml [SubStatus];
+        if (SubStatus <= AE_CODE_AML_MAX) {
+            Exception = &AcpiGbl_ExceptionNames_Aml[SubStatus];
         }
         break;
 
     case AE_CODE_CONTROL:
 
-        if (SubStatus <= AE_CODE_CTRL_MAX)
-        {
-            Exception = &AcpiGbl_ExceptionNames_Ctrl [SubStatus];
+        if (SubStatus <= AE_CODE_CTRL_MAX) {
+            Exception = &AcpiGbl_ExceptionNames_Ctrl[SubStatus];
         }
         break;
 
@@ -278,8 +264,7 @@ AcpiUtValidateException (
         break;
     }
 
-    if (!Exception || !Exception->Name)
-    {
+    if (!Exception || !Exception->Name) {
         return (NULL);
     }
 

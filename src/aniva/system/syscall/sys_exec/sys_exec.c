@@ -1,11 +1,11 @@
 #include "sys_exec.h"
-#include "lightos/syscall.h"
 #include "dev/core.h"
 #include "libk/flow/error.h"
+#include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
-#include <libk/string.h>
 #include "sched/scheduler.h"
+#include <libk/string.h>
 
 #include "drivers/env/kterm/kterm.h"
 #include "time/core.h"
@@ -15,21 +15,21 @@
  */
 uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
 {
-  //kernel_panic("Reached a sys_exec syscall");
-  proc_t* current_proc;
+    // kernel_panic("Reached a sys_exec syscall");
+    proc_t* current_proc;
 
-  if (!cmd)
-    return SYS_INV;
+    if (!cmd)
+        return SYS_INV;
 
-  current_proc = get_current_proc();
+    current_proc = get_current_proc();
 
-  if (IsError(kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len)))
-      return SYS_INV;
+    if (IsError(kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len)))
+        return SYS_INV;
 
-  if (strcmp("clear", cmd) == 0)
-    driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
+    if (strcmp("clear", cmd) == 0)
+        driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
 
-  return SYS_OK;
+    return SYS_OK;
 }
 
 /*!
@@ -38,14 +38,14 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
  */
 uintptr_t sys_get_process_time()
 {
-  proc_t* curr_prc;
+    proc_t* curr_prc;
 
-  curr_prc = get_current_proc();
+    curr_prc = get_current_proc();
 
-  if (!curr_prc)
-    return SYS_INV;
+    if (!curr_prc)
+        return SYS_INV;
 
-  return get_system_ticks() >> 1;
+    return get_system_ticks() >> 1;
 }
 
 /*!
@@ -53,6 +53,6 @@ uintptr_t sys_get_process_time()
  */
 uintptr_t sys_sleep(uintptr_t ms)
 {
-  scheduler_yield();
-  return 0;
+    scheduler_yield();
+    return 0;
 }

@@ -151,14 +151,13 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acevents.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_EVENTS
-        ACPI_MODULE_NAME    ("evxfgpe")
-
+#define _COMPONENT ACPI_EVENTS
+ACPI_MODULE_NAME("evxfgpe")
 
 #if (!ACPI_REDUCED_HARDWARE) /* Entire module */
 /*******************************************************************************
@@ -184,48 +183,41 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUpdateAllGpes (
+AcpiUpdateAllGpes(
     void)
 {
-    ACPI_STATUS             Status;
-    BOOLEAN                 IsPollingNeeded = FALSE;
+    ACPI_STATUS Status;
+    BOOLEAN IsPollingNeeded = FALSE;
 
+    ACPI_FUNCTION_TRACE(AcpiUpdateAllGpes);
 
-    ACPI_FUNCTION_TRACE (AcpiUpdateAllGpes);
-
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    if (AcpiGbl_AllGpesInitialized)
-    {
+    if (AcpiGbl_AllGpesInitialized) {
         goto UnlockAndExit;
     }
 
-    Status = AcpiEvWalkGpeList (AcpiEvInitializeGpeBlock,
+    Status = AcpiEvWalkGpeList(AcpiEvInitializeGpeBlock,
         &IsPollingNeeded);
-    if (ACPI_SUCCESS (Status))
-    {
+    if (ACPI_SUCCESS(Status)) {
         AcpiGbl_AllGpesInitialized = TRUE;
     }
 
 UnlockAndExit:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
 
-    if (IsPollingNeeded && AcpiGbl_AllGpesInitialized)
-    {
+    if (IsPollingNeeded && AcpiGbl_AllGpesInitialized) {
         /* Poll GPEs to handle already triggered events */
 
-        AcpiEvGpeDetect (AcpiGbl_GpeXruptListHead);
+        AcpiEvGpeDetect(AcpiGbl_GpeXruptListHead);
     }
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiUpdateAllGpes)
-
+ACPI_EXPORT_SYMBOL(AcpiUpdateAllGpes)
 
 /*******************************************************************************
  *
@@ -242,55 +234,45 @@ ACPI_EXPORT_SYMBOL (AcpiUpdateAllGpes)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEnableGpe (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+AcpiEnableGpe(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
-    ACPI_STATUS             Status = AE_BAD_PARAMETER;
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_STATUS Status = AE_BAD_PARAMETER;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiEnableGpe);
 
-    ACPI_FUNCTION_TRACE (AcpiEnableGpe);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /*
      * Ensure that we have a valid GPE number and that there is some way
      * of handling the GPE (handler or a GPE method). In other words, we
      * won't allow a valid GPE to be enabled if there is no way to handle it.
      */
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (GpeEventInfo)
-    {
-        if (ACPI_GPE_DISPATCH_TYPE (GpeEventInfo->Flags) !=
-            ACPI_GPE_DISPATCH_NONE)
-        {
-            Status = AcpiEvAddGpeReference (GpeEventInfo, TRUE);
-            if (ACPI_SUCCESS (Status) &&
-                ACPI_GPE_IS_POLLING_NEEDED (GpeEventInfo))
-            {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (GpeEventInfo) {
+        if (ACPI_GPE_DISPATCH_TYPE(GpeEventInfo->Flags) != ACPI_GPE_DISPATCH_NONE) {
+            Status = AcpiEvAddGpeReference(GpeEventInfo, TRUE);
+            if (ACPI_SUCCESS(Status) && ACPI_GPE_IS_POLLING_NEEDED(GpeEventInfo)) {
                 /* Poll edge-triggered GPEs to handle existing events */
 
-                AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-                (void) AcpiEvDetectGpe (
+                AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+                (void)AcpiEvDetectGpe(
                     GpeDevice, GpeEventInfo, GpeNumber);
-                Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+                Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
             }
-        }
-        else
-        {
+        } else {
             Status = AE_NO_HANDLER;
         }
     }
 
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiEnableGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiEnableGpe)
 
 /*******************************************************************************
  *
@@ -308,34 +290,30 @@ ACPI_EXPORT_SYMBOL (AcpiEnableGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDisableGpe (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+AcpiDisableGpe(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
-    ACPI_STATUS             Status = AE_BAD_PARAMETER;
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_STATUS Status = AE_BAD_PARAMETER;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiDisableGpe);
 
-    ACPI_FUNCTION_TRACE (AcpiDisableGpe);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (GpeEventInfo)
-    {
-        Status = AcpiEvRemoveGpeReference (GpeEventInfo);
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (GpeEventInfo) {
+        Status = AcpiEvRemoveGpeReference(GpeEventInfo);
     }
 
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiDisableGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiDisableGpe)
 
 /*******************************************************************************
  *
@@ -367,43 +345,39 @@ ACPI_EXPORT_SYMBOL (AcpiDisableGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiSetGpe (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber,
-    UINT8                   Action)
+AcpiSetGpe(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber,
+    UINT8 Action)
 {
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_STATUS             Status;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_STATUS Status;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiSetGpe);
 
-    ACPI_FUNCTION_TRACE (AcpiSetGpe);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
     /* Perform the action */
 
-    switch (Action)
-    {
+    switch (Action) {
     case ACPI_GPE_ENABLE:
 
-        Status = AcpiHwLowSetGpe (GpeEventInfo, ACPI_GPE_ENABLE);
+        Status = AcpiHwLowSetGpe(GpeEventInfo, ACPI_GPE_ENABLE);
         GpeEventInfo->DisableForDispatch = FALSE;
         break;
 
     case ACPI_GPE_DISABLE:
 
-        Status = AcpiHwLowSetGpe (GpeEventInfo, ACPI_GPE_DISABLE);
+        Status = AcpiHwLowSetGpe(GpeEventInfo, ACPI_GPE_DISABLE);
         GpeEventInfo->DisableForDispatch = TRUE;
         break;
 
@@ -414,12 +388,11 @@ AcpiSetGpe (
     }
 
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiSetGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiSetGpe)
 
 /*******************************************************************************
  *
@@ -437,39 +410,35 @@ ACPI_EXPORT_SYMBOL (AcpiSetGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiMaskGpe (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber,
-    BOOLEAN                 IsMasked)
+AcpiMaskGpe(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber,
+    BOOLEAN IsMasked)
 {
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_STATUS             Status;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_STATUS Status;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiMaskGpe);
 
-    ACPI_FUNCTION_TRACE (AcpiMaskGpe);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
-    Status = AcpiEvMaskGpe (GpeEventInfo, IsMasked);
+    Status = AcpiEvMaskGpe(GpeEventInfo, IsMasked);
 
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiMaskGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiMaskGpe)
 
 /*******************************************************************************
  *
@@ -493,37 +462,33 @@ ACPI_EXPORT_SYMBOL (AcpiMaskGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiMarkGpeForWake (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+AcpiMarkGpeForWake(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_STATUS             Status = AE_BAD_PARAMETER;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_STATUS Status = AE_BAD_PARAMETER;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiMarkGpeForWake);
 
-    ACPI_FUNCTION_TRACE (AcpiMarkGpeForWake);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (GpeEventInfo) {
         /* Mark the GPE as a possible wake event */
 
         GpeEventInfo->Flags |= ACPI_GPE_CAN_WAKE;
         Status = AE_OK;
     }
 
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiMarkGpeForWake)
-
+ACPI_EXPORT_SYMBOL(AcpiMarkGpeForWake)
 
 /*******************************************************************************
  *
@@ -545,49 +510,42 @@ ACPI_EXPORT_SYMBOL (AcpiMarkGpeForWake)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiSetupGpeForWake (
-    ACPI_HANDLE             WakeDevice,
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+AcpiSetupGpeForWake(
+    ACPI_HANDLE WakeDevice,
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
-    ACPI_STATUS             Status;
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_NAMESPACE_NODE     *DeviceNode;
-    ACPI_GPE_NOTIFY_INFO    *Notify;
-    ACPI_GPE_NOTIFY_INFO    *NewNotify;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_STATUS Status;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_NAMESPACE_NODE* DeviceNode;
+    ACPI_GPE_NOTIFY_INFO* Notify;
+    ACPI_GPE_NOTIFY_INFO* NewNotify;
+    ACPI_CPU_FLAGS Flags;
 
-
-    ACPI_FUNCTION_TRACE (AcpiSetupGpeForWake);
-
+    ACPI_FUNCTION_TRACE(AcpiSetupGpeForWake);
 
     /* Parameter Validation */
 
-    if (!WakeDevice)
-    {
+    if (!WakeDevice) {
         /*
          * By forcing WakeDevice to be valid, we automatically enable the
          * implicit notify feature on all hosts.
          */
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Handle root object case */
 
-    if (WakeDevice == ACPI_ROOT_OBJECT)
-    {
+    if (WakeDevice == ACPI_ROOT_OBJECT) {
         DeviceNode = AcpiGbl_RootNode;
-    }
-    else
-    {
-        DeviceNode = ACPI_CAST_PTR (ACPI_NAMESPACE_NODE, WakeDevice);
+    } else {
+        DeviceNode = ACPI_CAST_PTR(ACPI_NAMESPACE_NODE, WakeDevice);
     }
 
     /* Validate WakeDevice is of type Device */
 
-    if (DeviceNode->Type != ACPI_TYPE_DEVICE)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (DeviceNode->Type != ACPI_TYPE_DEVICE) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /*
@@ -595,19 +553,17 @@ AcpiSetupGpeForWake (
      * Memory allocation while holding a spinlock is a big no-no
      * on some hosts.
      */
-    NewNotify = ACPI_ALLOCATE_ZEROED (sizeof (ACPI_GPE_NOTIFY_INFO));
-    if (!NewNotify)
-    {
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    NewNotify = ACPI_ALLOCATE_ZEROED(sizeof(ACPI_GPE_NOTIFY_INFO));
+    if (!NewNotify) {
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
@@ -618,24 +574,19 @@ AcpiSetupGpeForWake (
      * known as an "implicit notify". Note: The GPE is assumed to be
      * level-triggered (for windows compatibility).
      */
-    if (ACPI_GPE_DISPATCH_TYPE (GpeEventInfo->Flags) ==
-        ACPI_GPE_DISPATCH_NONE)
-    {
+    if (ACPI_GPE_DISPATCH_TYPE(GpeEventInfo->Flags) == ACPI_GPE_DISPATCH_NONE) {
         /*
          * This is the first device for implicit notify on this GPE.
          * Just set the flags here, and enter the NOTIFY block below.
          */
-        GpeEventInfo->Flags =
-            (ACPI_GPE_DISPATCH_NOTIFY | ACPI_GPE_LEVEL_TRIGGERED);
-    }
-    else if (GpeEventInfo->Flags & ACPI_GPE_AUTO_ENABLED)
-    {
+        GpeEventInfo->Flags = (ACPI_GPE_DISPATCH_NOTIFY | ACPI_GPE_LEVEL_TRIGGERED);
+    } else if (GpeEventInfo->Flags & ACPI_GPE_AUTO_ENABLED) {
         /*
          * A reference to this GPE has been added during the GPE block
          * initialization, so drop it now to prevent the GPE from being
          * permanently enabled and clear its ACPI_GPE_AUTO_ENABLED flag.
          */
-        (void) AcpiEvRemoveGpeReference (GpeEventInfo);
+        (void)AcpiEvRemoveGpeReference(GpeEventInfo);
         GpeEventInfo->Flags &= ~~ACPI_GPE_AUTO_ENABLED;
     }
 
@@ -643,16 +594,12 @@ AcpiSetupGpeForWake (
      * If we already have an implicit notify on this GPE, add
      * this device to the notify list.
      */
-    if (ACPI_GPE_DISPATCH_TYPE (GpeEventInfo->Flags) ==
-        ACPI_GPE_DISPATCH_NOTIFY)
-    {
+    if (ACPI_GPE_DISPATCH_TYPE(GpeEventInfo->Flags) == ACPI_GPE_DISPATCH_NOTIFY) {
         /* Ensure that the device is not already in the list */
 
         Notify = GpeEventInfo->Dispatch.NotifyList;
-        while (Notify)
-        {
-            if (Notify->DeviceNode == DeviceNode)
-            {
+        while (Notify) {
+            if (Notify->DeviceNode == DeviceNode) {
                 Status = AE_ALREADY_EXISTS;
                 goto UnlockAndExit;
             }
@@ -672,21 +619,18 @@ AcpiSetupGpeForWake (
     GpeEventInfo->Flags |= ACPI_GPE_CAN_WAKE;
     Status = AE_OK;
 
-
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
 
     /* Delete the notify object if it was not used above */
 
-    if (NewNotify)
-    {
-        ACPI_FREE (NewNotify);
+    if (NewNotify) {
+        ACPI_FREE(NewNotify);
     }
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiSetupGpeForWake)
-
+ACPI_EXPORT_SYMBOL(AcpiSetupGpeForWake)
 
 /*******************************************************************************
  *
@@ -704,77 +648,70 @@ ACPI_EXPORT_SYMBOL (AcpiSetupGpeForWake)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiSetGpeWakeMask (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber,
-    UINT8                   Action)
+AcpiSetGpeWakeMask(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber,
+    UINT8 Action)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_GPE_REGISTER_INFO  *GpeRegisterInfo;
-    ACPI_CPU_FLAGS          Flags;
-    UINT32                  RegisterBit;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_GPE_REGISTER_INFO* GpeRegisterInfo;
+    ACPI_CPU_FLAGS Flags;
+    UINT32 RegisterBit;
 
+    ACPI_FUNCTION_TRACE(AcpiSetGpeWakeMask);
 
-    ACPI_FUNCTION_TRACE (AcpiSetGpeWakeMask);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /*
      * Ensure that we have a valid GPE number and that this GPE is in
      * fact a wake GPE
      */
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
-    if (!(GpeEventInfo->Flags & ACPI_GPE_CAN_WAKE))
-    {
+    if (!(GpeEventInfo->Flags & ACPI_GPE_CAN_WAKE)) {
         Status = AE_TYPE;
         goto UnlockAndExit;
     }
 
     GpeRegisterInfo = GpeEventInfo->RegisterInfo;
-    if (!GpeRegisterInfo)
-    {
+    if (!GpeRegisterInfo) {
         Status = AE_NOT_EXIST;
         goto UnlockAndExit;
     }
 
-    RegisterBit = AcpiHwGetGpeRegisterBit (GpeEventInfo);
+    RegisterBit = AcpiHwGetGpeRegisterBit(GpeEventInfo);
 
     /* Perform the action */
 
-    switch (Action)
-    {
+    switch (Action) {
     case ACPI_GPE_ENABLE:
 
-        ACPI_SET_BIT (GpeRegisterInfo->EnableForWake, (UINT8) RegisterBit);
+        ACPI_SET_BIT(GpeRegisterInfo->EnableForWake, (UINT8)RegisterBit);
         break;
 
     case ACPI_GPE_DISABLE:
 
-        ACPI_CLEAR_BIT (GpeRegisterInfo->EnableForWake, (UINT8) RegisterBit);
+        ACPI_CLEAR_BIT(GpeRegisterInfo->EnableForWake, (UINT8)RegisterBit);
         break;
 
     default:
 
-        ACPI_ERROR ((AE_INFO, "%u, Invalid action", Action));
+        ACPI_ERROR((AE_INFO, "%u, Invalid action", Action));
         Status = AE_BAD_PARAMETER;
         break;
     }
 
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiSetGpeWakeMask)
-
+ACPI_EXPORT_SYMBOL(AcpiSetGpeWakeMask)
 
 /*******************************************************************************
  *
@@ -790,38 +727,34 @@ ACPI_EXPORT_SYMBOL (AcpiSetGpeWakeMask)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiClearGpe (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+AcpiClearGpe(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiClearGpe);
 
-    ACPI_FUNCTION_TRACE (AcpiClearGpe);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
-    Status = AcpiHwClearGpe (GpeEventInfo);
+    Status = AcpiHwClearGpe(GpeEventInfo);
 
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiClearGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiClearGpe)
 
 /*******************************************************************************
  *
@@ -839,41 +772,37 @@ ACPI_EXPORT_SYMBOL (AcpiClearGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetGpeStatus (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber,
-    ACPI_EVENT_STATUS       *EventStatus)
+AcpiGetGpeStatus(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber,
+    ACPI_EVENT_STATUS* EventStatus)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiGetGpeStatus);
 
-    ACPI_FUNCTION_TRACE (AcpiGetGpeStatus);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
     /* Obtain status on the requested GPE number */
 
-    Status = AcpiHwGetGpeStatus (GpeEventInfo, EventStatus);
+    Status = AcpiHwGetGpeStatus(GpeEventInfo, EventStatus);
 
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetGpeStatus)
-
+ACPI_EXPORT_SYMBOL(AcpiGetGpeStatus)
 
 /*******************************************************************************
  *
@@ -891,16 +820,15 @@ ACPI_EXPORT_SYMBOL (AcpiGetGpeStatus)
 
 UINT32
 AcpiDispatchGpe(
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
     ACPI_FUNCTION_TRACE(acpi_dispatch_gpe);
 
-    return (AcpiEvDetectGpe (GpeDevice, NULL, GpeNumber));
+    return (AcpiEvDetectGpe(GpeDevice, NULL, GpeNumber));
 }
 
-ACPI_EXPORT_SYMBOL (AcpiDispatchGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiDispatchGpe)
 
 /*******************************************************************************
  *
@@ -920,38 +848,34 @@ ACPI_EXPORT_SYMBOL (AcpiDispatchGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiFinishGpe (
-    ACPI_HANDLE             GpeDevice,
-    UINT32                  GpeNumber)
+AcpiFinishGpe(
+    ACPI_HANDLE GpeDevice,
+    UINT32 GpeNumber)
 {
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_STATUS             Status;
-    ACPI_CPU_FLAGS          Flags;
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_STATUS Status;
+    ACPI_CPU_FLAGS Flags;
 
+    ACPI_FUNCTION_TRACE(AcpiFinishGpe);
 
-    ACPI_FUNCTION_TRACE (AcpiFinishGpe);
-
-
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Ensure that we have a valid GPE number */
 
-    GpeEventInfo = AcpiEvGetGpeEventInfo (GpeDevice, GpeNumber);
-    if (!GpeEventInfo)
-    {
+    GpeEventInfo = AcpiEvGetGpeEventInfo(GpeDevice, GpeNumber);
+    if (!GpeEventInfo) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
-    Status = AcpiEvFinishGpe (GpeEventInfo);
+    Status = AcpiEvFinishGpe(GpeEventInfo);
 
 UnlockAndExit:
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiFinishGpe)
-
+ACPI_EXPORT_SYMBOL(AcpiFinishGpe)
 
 /******************************************************************************
  *
@@ -966,29 +890,25 @@ ACPI_EXPORT_SYMBOL (AcpiFinishGpe)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDisableAllGpes (
+AcpiDisableAllGpes(
     void)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiDisableAllGpes);
 
-    ACPI_FUNCTION_TRACE (AcpiDisableAllGpes);
-
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiHwDisableAllGpes ();
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
+    Status = AcpiHwDisableAllGpes();
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiDisableAllGpes)
-
+ACPI_EXPORT_SYMBOL(AcpiDisableAllGpes)
 
 /******************************************************************************
  *
@@ -1003,29 +923,25 @@ ACPI_EXPORT_SYMBOL (AcpiDisableAllGpes)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEnableAllRuntimeGpes (
+AcpiEnableAllRuntimeGpes(
     void)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiEnableAllRuntimeGpes);
 
-    ACPI_FUNCTION_TRACE (AcpiEnableAllRuntimeGpes);
-
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiHwEnableAllRuntimeGpes ();
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
+    Status = AcpiHwEnableAllRuntimeGpes();
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiEnableAllRuntimeGpes)
-
+ACPI_EXPORT_SYMBOL(AcpiEnableAllRuntimeGpes)
 
 /******************************************************************************
  *
@@ -1041,29 +957,25 @@ ACPI_EXPORT_SYMBOL (AcpiEnableAllRuntimeGpes)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEnableAllWakeupGpes (
+AcpiEnableAllWakeupGpes(
     void)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiEnableAllWakeupGpes);
 
-    ACPI_FUNCTION_TRACE (AcpiEnableAllWakeupGpes);
-
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiHwEnableAllWakeupGpes ();
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
+    Status = AcpiHwEnableAllWakeupGpes();
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiEnableAllWakeupGpes)
-
+ACPI_EXPORT_SYMBOL(AcpiEnableAllWakeupGpes)
 
 /******************************************************************************
  *
@@ -1079,29 +991,26 @@ ACPI_EXPORT_SYMBOL (AcpiEnableAllWakeupGpes)
  ******************************************************************************/
 
 UINT32
-AcpiAnyGpeStatusSet (
+AcpiAnyGpeStatusSet(
     void)
 {
-    ACPI_STATUS                Status;
-    UINT8                      Ret;
+    ACPI_STATUS Status;
+    UINT8 Ret;
 
+    ACPI_FUNCTION_TRACE(AcpiAnyGpeStatusSet);
 
-    ACPI_FUNCTION_TRACE (AcpiAnyGpeStatusSet);
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
         return (FALSE);
     }
 
-    Ret = AcpiHwCheckAllGpes ();
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
+    Ret = AcpiHwCheckAllGpes();
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
 
     return (Ret);
 }
 
 ACPI_EXPORT_SYMBOL(AcpiAnyGpeStatusSet)
-
 
 /*******************************************************************************
  *
@@ -1120,51 +1029,42 @@ ACPI_EXPORT_SYMBOL(AcpiAnyGpeStatusSet)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiInstallGpeBlock (
-    ACPI_HANDLE             GpeDevice,
-    ACPI_GENERIC_ADDRESS    *GpeBlockAddress,
-    UINT32                  RegisterCount,
-    UINT32                  InterruptNumber)
+AcpiInstallGpeBlock(
+    ACPI_HANDLE GpeDevice,
+    ACPI_GENERIC_ADDRESS* GpeBlockAddress,
+    UINT32 RegisterCount,
+    UINT32 InterruptNumber)
 {
-    ACPI_STATUS             Status;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_GPE_BLOCK_INFO     *GpeBlock;
+    ACPI_STATUS Status;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_GPE_BLOCK_INFO* GpeBlock;
 
+    ACPI_FUNCTION_TRACE(AcpiInstallGpeBlock);
 
-    ACPI_FUNCTION_TRACE (AcpiInstallGpeBlock);
-
-
-    if ((!GpeDevice)       ||
-        (!GpeBlockAddress) ||
-        (!RegisterCount))
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if ((!GpeDevice) || (!GpeBlockAddress) || (!RegisterCount)) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Node = AcpiNsValidateHandle (GpeDevice);
-    if (!Node)
-    {
+    Node = AcpiNsValidateHandle(GpeDevice);
+    if (!Node) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
     /* Validate the parent device */
 
-    if (Node->Type != ACPI_TYPE_DEVICE)
-    {
+    if (Node->Type != ACPI_TYPE_DEVICE) {
         Status = AE_TYPE;
         goto UnlockAndExit;
     }
 
-    if (Node->Object)
-    {
+    if (Node->Object) {
         Status = AE_ALREADY_EXISTS;
         goto UnlockAndExit;
     }
@@ -1173,37 +1073,33 @@ AcpiInstallGpeBlock (
      * For user-installed GPE Block Devices, the GpeBlockBaseNumber
      * is always zero
      */
-    Status = AcpiEvCreateGpeBlock (Node, GpeBlockAddress->Address,
+    Status = AcpiEvCreateGpeBlock(Node, GpeBlockAddress->Address,
         GpeBlockAddress->SpaceId, RegisterCount,
         0, InterruptNumber, &GpeBlock);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         goto UnlockAndExit;
     }
 
     /* Install block in the DeviceObject attached to the node */
 
-    ObjDesc = AcpiNsGetAttachedObject (Node);
-    if (!ObjDesc)
-    {
+    ObjDesc = AcpiNsGetAttachedObject(Node);
+    if (!ObjDesc) {
         /*
          * No object, create a new one (Device nodes do not always have
          * an attached object)
          */
-        ObjDesc = AcpiUtCreateInternalObject (ACPI_TYPE_DEVICE);
-        if (!ObjDesc)
-        {
+        ObjDesc = AcpiUtCreateInternalObject(ACPI_TYPE_DEVICE);
+        if (!ObjDesc) {
             Status = AE_NO_MEMORY;
             goto UnlockAndExit;
         }
 
-        Status = AcpiNsAttachObject (Node, ObjDesc, ACPI_TYPE_DEVICE);
+        Status = AcpiNsAttachObject(Node, ObjDesc, ACPI_TYPE_DEVICE);
 
         /* Remove local reference to the object */
 
-        AcpiUtRemoveReference (ObjDesc);
-        if (ACPI_FAILURE (Status))
-        {
+        AcpiUtRemoveReference(ObjDesc);
+        if (ACPI_FAILURE(Status)) {
             goto UnlockAndExit;
         }
     }
@@ -1212,14 +1108,12 @@ AcpiInstallGpeBlock (
 
     ObjDesc->Device.GpeBlock = GpeBlock;
 
-
 UnlockAndExit:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiInstallGpeBlock)
-
+ACPI_EXPORT_SYMBOL(AcpiInstallGpeBlock)
 
 /*******************************************************************************
  *
@@ -1234,67 +1128,57 @@ ACPI_EXPORT_SYMBOL (AcpiInstallGpeBlock)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiRemoveGpeBlock (
-    ACPI_HANDLE             GpeDevice)
+AcpiRemoveGpeBlock(
+    ACPI_HANDLE GpeDevice)
 {
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_STATUS             Status;
-    ACPI_NAMESPACE_NODE     *Node;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_STATUS Status;
+    ACPI_NAMESPACE_NODE* Node;
 
+    ACPI_FUNCTION_TRACE(AcpiRemoveGpeBlock);
 
-    ACPI_FUNCTION_TRACE (AcpiRemoveGpeBlock);
-
-
-    if (!GpeDevice)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!GpeDevice) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Node = AcpiNsValidateHandle (GpeDevice);
-    if (!Node)
-    {
+    Node = AcpiNsValidateHandle(GpeDevice);
+    if (!Node) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
     /* Validate the parent device */
 
-    if (Node->Type != ACPI_TYPE_DEVICE)
-    {
+    if (Node->Type != ACPI_TYPE_DEVICE) {
         Status = AE_TYPE;
         goto UnlockAndExit;
     }
 
     /* Get the DeviceObject attached to the node */
 
-    ObjDesc = AcpiNsGetAttachedObject (Node);
-    if (!ObjDesc ||
-        !ObjDesc->Device.GpeBlock)
-    {
-        return_ACPI_STATUS (AE_NULL_OBJECT);
+    ObjDesc = AcpiNsGetAttachedObject(Node);
+    if (!ObjDesc || !ObjDesc->Device.GpeBlock) {
+        return_ACPI_STATUS(AE_NULL_OBJECT);
     }
 
     /* Delete the GPE block (but not the DeviceObject) */
 
-    Status = AcpiEvDeleteGpeBlock (ObjDesc->Device.GpeBlock);
-    if (ACPI_SUCCESS (Status))
-    {
+    Status = AcpiEvDeleteGpeBlock(ObjDesc->Device.GpeBlock);
+    if (ACPI_SUCCESS(Status)) {
         ObjDesc->Device.GpeBlock = NULL;
     }
 
 UnlockAndExit:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiRemoveGpeBlock)
-
+ACPI_EXPORT_SYMBOL(AcpiRemoveGpeBlock)
 
 /*******************************************************************************
  *
@@ -1312,25 +1196,21 @@ ACPI_EXPORT_SYMBOL (AcpiRemoveGpeBlock)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetGpeDevice (
-    UINT32                  Index,
-    ACPI_HANDLE             *GpeDevice)
+AcpiGetGpeDevice(
+    UINT32 Index,
+    ACPI_HANDLE* GpeDevice)
 {
-    ACPI_GPE_DEVICE_INFO    Info;
-    ACPI_STATUS             Status;
+    ACPI_GPE_DEVICE_INFO Info;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiGetGpeDevice);
 
-    ACPI_FUNCTION_TRACE (AcpiGetGpeDevice);
-
-
-    if (!GpeDevice)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!GpeDevice) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    if (Index >= AcpiCurrentGpeCount)
-    {
-        return_ACPI_STATUS (AE_NOT_EXIST);
+    if (Index >= AcpiCurrentGpeCount) {
+        return_ACPI_STATUS(AE_NOT_EXIST);
     }
 
     /* Setup and walk the GPE list */
@@ -1340,16 +1220,15 @@ AcpiGetGpeDevice (
     Info.GpeDevice = NULL;
     Info.NextBlockBaseIndex = 0;
 
-    Status = AcpiEvWalkGpeList (AcpiEvGetGpeDevice, &Info);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiEvWalkGpeList(AcpiEvGetGpeDevice, &Info);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    *GpeDevice = ACPI_CAST_PTR (ACPI_HANDLE, Info.GpeDevice);
-    return_ACPI_STATUS (Info.Status);
+    *GpeDevice = ACPI_CAST_PTR(ACPI_HANDLE, Info.GpeDevice);
+    return_ACPI_STATUS(Info.Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetGpeDevice)
+ACPI_EXPORT_SYMBOL(AcpiGetGpeDevice)
 
 #endif /* !ACPI_REDUCED_HARDWARE */

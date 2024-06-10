@@ -1,10 +1,10 @@
 #include "idle.h"
 #include "sched/scheduler.h"
 
+void generic_proc_idle()
+{
 
-void generic_proc_idle () {
-
-  for (;;) {
-    scheduler_yield();
-  }
+    for (;;) {
+        scheduler_yield();
+    }
 }

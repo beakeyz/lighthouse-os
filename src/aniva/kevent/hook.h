@@ -1,17 +1,16 @@
-#ifndef __ANIVA_KEVENT_HOOK__ 
+#ifndef __ANIVA_KEVENT_HOOK__
 #define __ANIVA_KEVENT_HOOK__
 
 #include "kevent/event.h"
 
-typedef int (*f_hook_fn) (kevent_ctx_t* ctx, void* param);
-typedef bool (*f_hook_should_fire) (kevent_ctx_t* ctx, void* param);
-
+typedef int (*f_hook_fn)(kevent_ctx_t* ctx, void* param);
+typedef bool (*f_hook_should_fire)(kevent_ctx_t* ctx, void* param);
 
 /*
  * TODO: Depending on the type of hook that gets created, the hook gets handled differently
  * when the kevent is fired
  */
-#define KEVENT_HOOKTYPE_FUNC  0
+#define KEVENT_HOOKTYPE_FUNC 0
 #define KEVENT_HOOKTYPE_POLLABLE 1
 
 /* Default maximum length of the poll queue */
@@ -21,14 +20,14 @@ typedef bool (*f_hook_should_fire) (kevent_ctx_t* ctx, void* param);
  * Exctention for kevent hooks when they are polled
  *
  * Pollable kevent hooks don't have callback funcitons for when they are fired, but rather
- * have these buffers that filled with the fire data of the kevent. 
+ * have these buffers that filled with the fire data of the kevent.
  */
 typedef struct kevent_hook_poll_block {
-  void* buffer;
-  size_t bsize;
-  kevent_ctx_t ctx;
+    void* buffer;
+    size_t bsize;
+    kevent_ctx_t ctx;
 
-  struct kevent_hook_poll_block* next;
+    struct kevent_hook_poll_block* next;
 } kevent_hook_poll_block_t;
 
 void destroy_keventhook_poll_block(kevent_hook_poll_block_t* block);
@@ -38,26 +37,26 @@ void destroy_keventhook_poll_block(kevent_hook_poll_block_t* block);
  *
  */
 typedef struct kevent_hook {
-  const char* hookname;
+    const char* hookname;
 
-  union {
-    f_hook_fn f_hook;
-    f_hook_should_fire f_should_fire;
-  };
+    union {
+        f_hook_fn f_hook;
+        f_hook_should_fire f_should_fire;
+    };
 
-  bool is_frozen:1;
-  bool is_set:1;
-  uint8_t type;
-  uint16_t max_poll_depth;
-  /* Hashed hookname */
-  uint32_t key;
+    bool is_frozen : 1;
+    bool is_set : 1;
+    uint8_t type;
+    uint16_t max_poll_depth;
+    /* Hashed hookname */
+    uint32_t key;
 
-  kevent_hook_poll_block_t* poll_blocks;
-  void* param;
+    kevent_hook_poll_block_t* poll_blocks;
+    void* param;
 
-  /* Double linking for the traverse */
-  struct kevent_hook* next;
-  struct kevent_hook* prev;
+    /* Double linking for the traverse */
+    struct kevent_hook* next;
+    struct kevent_hook* prev;
 } kevent_hook_t;
 
 int init_keventhook(kevent_hook_t* hook, const char* name, uint8_t type, FuncPtr hook_fn, void* param);

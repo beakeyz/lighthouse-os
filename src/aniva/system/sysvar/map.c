@@ -7,7 +7,7 @@
 
 bool oss_node_can_contain_sysvar(oss_node_t* node)
 {
-  return (node->type == OSS_PROFILE_NODE || node->type == OSS_PROC_ENV_NODE);
+    return (node->type == OSS_PROFILE_NODE || node->type == OSS_PROC_ENV_NODE);
 }
 
 /*!
@@ -17,31 +17,31 @@ bool oss_node_can_contain_sysvar(oss_node_t* node)
  */
 sysvar_t* sysvar_get(oss_node_t* node, const char* key)
 {
-  sysvar_t* ret;
-  oss_obj_t* obj;
-  oss_node_entry_t* entry;
+    sysvar_t* ret;
+    oss_obj_t* obj;
+    oss_node_entry_t* entry;
 
-  if (!node || !key)
-    return nullptr;
+    if (!node || !key)
+        return nullptr;
 
-  if (!oss_node_can_contain_sysvar(node))
-    return nullptr;
+    if (!oss_node_can_contain_sysvar(node))
+        return nullptr;
 
-  if (KERR_ERR(oss_node_find(node, key, &entry)))
-    return nullptr;
+    if (KERR_ERR(oss_node_find(node, key, &entry)))
+        return nullptr;
 
-  if (entry->type != OSS_ENTRY_OBJECT)
-    return nullptr;
+    if (entry->type != OSS_ENTRY_OBJECT)
+        return nullptr;
 
-  obj = entry->obj;
+    obj = entry->obj;
 
-  if (obj->type != OSS_OBJ_TYPE_VAR)
-    return nullptr;
+    if (obj->type != OSS_OBJ_TYPE_VAR)
+        return nullptr;
 
-  ret = oss_obj_unwrap(obj, sysvar_t);
+    ret = oss_obj_unwrap(obj, sysvar_t);
 
-  /* Return with a taken reference */
-  return get_sysvar(ret);
+    /* Return with a taken reference */
+    return get_sysvar(ret);
 }
 
 /*!
@@ -53,15 +53,15 @@ sysvar_t* sysvar_get(oss_node_t* node, const char* key)
  */
 static bool sysvar_node__count_itter(oss_node_t* node, oss_obj_t* obj, void* param)
 {
-  if (!obj)
-    return true;
+    if (!obj)
+        return true;
 
-  if (obj->type != OSS_OBJ_TYPE_VAR)
-    return true;
+    if (obj->type != OSS_OBJ_TYPE_VAR)
+        return true;
 
-  /* Increase the node count */
-  (*(size_t*)param)++;
-  return true;
+    /* Increase the node count */
+    (*(size_t*)param)++;
+    return true;
 }
 
 /*!
@@ -73,24 +73,24 @@ static bool sysvar_node__count_itter(oss_node_t* node, oss_obj_t* obj, void* par
  */
 static bool sysvar_node__add_itter(oss_node_t* node, oss_obj_t* obj, void* param)
 {
-  sysvar_t*** p_arr;
+    sysvar_t*** p_arr;
 
-  if (!obj)
+    if (!obj)
+        return true;
+
+    if (obj->type != OSS_OBJ_TYPE_VAR)
+        return true;
+
+    p_arr = param;
+
+    /* Set this entry */
+    **p_arr = obj->priv;
+
+    /* Move the pointer 'head' */
+    (*p_arr)++;
+
+    /* Go next */
     return true;
-
-  if (obj->type != OSS_OBJ_TYPE_VAR)
-    return true;
-
-  p_arr = param;
-
-  /* Set this entry */
-  **p_arr = obj->priv;
-
-  /* Move the pointer 'head' */
-  (*p_arr)++;
-
-  /* Go next */
-  return true;
 }
 
 /*!
@@ -100,46 +100,46 @@ static bool sysvar_node__add_itter(oss_node_t* node, oss_obj_t* obj, void* param
  */
 int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
 {
-  int error;
-  sysvar_t** var_arr_start;
-  sysvar_t** var_arr;
-  
-  if (!node || !barr || !bsize)
-    return -1;
+    int error;
+    sysvar_t** var_arr_start;
+    sysvar_t** var_arr;
 
-  /* Quick reset */
-  *bsize = NULL;
+    if (!node || !barr || !bsize)
+        return -1;
 
-  /* First, count the variables on this node */
-  error = oss_node_itterate(node, sysvar_node__count_itter, bsize);
+    /* Quick reset */
+    *bsize = NULL;
 
-  if (error)
-    return error;
+    /* First, count the variables on this node */
+    error = oss_node_itterate(node, sysvar_node__count_itter, bsize);
 
-  if (!(*bsize))
-    return -KERR_NOT_FOUND;
+    if (error)
+        return error;
 
-  /* Allocate the list */
-  var_arr = kmalloc(sizeof(sysvar_t*) * (*bsize));
+    if (!(*bsize))
+        return -KERR_NOT_FOUND;
 
-  if (!(*barr))
-    return -KERR_NOMEM;
+    /* Allocate the list */
+    var_arr = kmalloc(sizeof(sysvar_t*) * (*bsize));
 
-  /* Keep the beginning of the array here, since var_arr will get mutated */
-  var_arr_start = var_arr;
-  
-  /* Try to itterate */
-  error = oss_node_itterate(node, sysvar_node__add_itter, var_arr);
+    if (!(*barr))
+        return -KERR_NOMEM;
 
-  /* Yikes */
-  if (error) {
-    kfree(var_arr_start);
-    return error;
-  }
+    /* Keep the beginning of the array here, since var_arr will get mutated */
+    var_arr_start = var_arr;
 
-  /* Set the param */
-  *barr = var_arr_start;
-  return 0;
+    /* Try to itterate */
+    error = oss_node_itterate(node, sysvar_node__add_itter, var_arr);
+
+    /* Yikes */
+    if (error) {
+        kfree(var_arr_start);
+        return error;
+    }
+
+    /* Set the param */
+    *barr = var_arr_start;
+    return 0;
 }
 
 /*!
@@ -149,21 +149,21 @@ int sysvar_dump(struct oss_node* node, struct sysvar*** barr, size_t* bsize)
  */
 int sysvar_attach(struct oss_node* node, const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE type, uint8_t flags, uintptr_t value)
 {
-  int error;
-  sysvar_t* target;
+    int error;
+    sysvar_t* target;
 
-  target = create_sysvar(key, priv_lvl, type, flags, value);
+    target = create_sysvar(key, priv_lvl, type, flags, value);
 
-  if (!target)
-    return -KERR_INVAL;
+    if (!target)
+        return -KERR_INVAL;
 
-  error = oss_node_add_obj(node, target->obj);
+    error = oss_node_add_obj(node, target->obj);
 
-  /* This is kinda yikes lol */
-  if (error)
-    release_sysvar(target);
+    /* This is kinda yikes lol */
+    if (error)
+        release_sysvar(target);
 
-  return error;
+    return error;
 }
 
 /*!
@@ -171,29 +171,29 @@ int sysvar_attach(struct oss_node* node, const char* key, uint16_t priv_lvl, enu
  */
 int sysvar_detach(struct oss_node* node, const char* key, struct sysvar** bvar)
 {
-  int error;
-  sysvar_t* var;
-  oss_node_entry_t* entry = NULL;
+    int error;
+    sysvar_t* var;
+    oss_node_entry_t* entry = NULL;
 
-  error = oss_node_remove_entry(node, key, &entry);
+    error = oss_node_remove_entry(node, key, &entry);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  if (entry->type != OSS_ENTRY_OBJECT)
-    return -KERR_NOT_FOUND;
+    if (entry->type != OSS_ENTRY_OBJECT)
+        return -KERR_NOT_FOUND;
 
-  var = oss_obj_unwrap(entry->obj, sysvar_t);
+    var = oss_obj_unwrap(entry->obj, sysvar_t);
 
-  /* Only return the reference if this variable is still referenced */
-  if (atomic_ptr_read(var->refc) > 1 && bvar)
-    *bvar = var;
+    /* Only return the reference if this variable is still referenced */
+    if (atomic_ptr_read(var->refc) > 1 && bvar)
+        *bvar = var;
 
-  /* Release a reference */
-  release_sysvar(var);
+    /* Release a reference */
+    release_sysvar(var);
 
-  /* Destroy the middleman */
-  destroy_oss_node_entry(entry);
+    /* Destroy the middleman */
+    destroy_oss_node_entry(entry);
 
-  return 0;
+    return 0;
 }

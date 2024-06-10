@@ -26,12 +26,11 @@
 
 #ifdef FEATURE_DEHACKED
 
-char *DEH_String(char *s);
-void DEH_printf(char *fmt, ...);
-void DEH_fprintf(FILE *fstream, char *fmt, ...);
-void DEH_snprintf(char *buffer, size_t len, char *fmt, ...);
-void DEH_AddStringReplacement(char *from_text, char *to_text);
-
+char* DEH_String(char* s);
+void DEH_printf(char* fmt, ...);
+void DEH_fprintf(FILE* fstream, char* fmt, ...);
+void DEH_snprintf(char* buffer, size_t len, char* fmt, ...);
+void DEH_AddStringReplacement(char* from_text, char* to_text);
 
 #else
 
@@ -44,4 +43,3 @@ void DEH_AddStringReplacement(char *from_text, char *to_text);
 #endif
 
 #endif /* #ifndef DEH_STR_H */
-

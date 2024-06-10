@@ -6,7 +6,7 @@
 /*
  * The aniva timekeeping subsystem
  *
- * This shit is waaay to bareboner rn, so we'll need to expand on this to add support for multiple 
+ * This shit is waaay to bareboner rn, so we'll need to expand on this to add support for multiple
  * kinds of timekeeping chips and types. For example, there are different sources where we can get
  * either ticks, or straight time data from on a single system, so choosing which type and which
  * sources to use, is pretty non-trivial. There are these types of 'time' formats that the system
@@ -21,11 +21,11 @@
 #define TARGET_TPS 1000
 
 typedef enum {
-  UNSET = 0,
-  PIT,
-  APIC_TIMER,
-  HPET,
-  RTC
+    UNSET = 0,
+    PIT,
+    APIC_TIMER,
+    HPET,
+    RTC
 } TICK_TYPE;
 
 void init_timer_system();

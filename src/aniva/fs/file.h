@@ -25,76 +25,76 @@ struct oss_obj;
 struct oss_node;
 
 typedef struct file_ops {
-  int (*f_sync)     (struct file* file);
-  int (*f_read)     (struct file* file, void* buffer, size_t* size, uintptr_t offset);
-  int (*f_write)    (struct file* file, void* buffer, size_t* size, uintptr_t offset);
-  /* Allocate a part of the file into a buffer and map that buffer to the specefied page dir */
-  struct file (*f_kmap)      (struct file* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
-  /* 
-   * Closing the file: 
-   *  - We will detach from the parent node
-   *  - We will sync if we can
-   *  - Try to clean data buffers if there are any
-   */
-  int (*f_close)    (struct file* file);
-  int (*f_resize)   (struct file* file, size_t new_size);
+    int (*f_sync)(struct file* file);
+    int (*f_read)(struct file* file, void* buffer, size_t* size, uintptr_t offset);
+    int (*f_write)(struct file* file, void* buffer, size_t* size, uintptr_t offset);
+    /* Allocate a part of the file into a buffer and map that buffer to the specefied page dir */
+    struct file (*f_kmap)(struct file* file, page_dir_t* dir, size_t size, uint32_t custom_flags, uint32_t page_flags);
+    /*
+     * Closing the file:
+     *  - We will detach from the parent node
+     *  - We will sync if we can
+     *  - Try to clean data buffers if there are any
+     */
+    int (*f_close)(struct file* file);
+    int (*f_resize)(struct file* file, size_t new_size);
 } file_ops_t;
 
-#define FILE_READONLY       (0x00000001)
-#define FILE_ORPHAN         (0x00000002)
+#define FILE_READONLY (0x00000001)
+#define FILE_ORPHAN (0x00000002)
 
 /*
  * TODO: Use this shit
  */
 enum FILE_TYPE {
-  /* Simple app */
-  APP_FILE,
-  /* Static library */
-  LIB_FILE,
-  /* Shared library */
-  SLB_FILE,
-  /* Driver file */
-  DRV_FILE,
-  /* Profile variable file */
-  PVR_FILE,
-  /* Header file */
-  C_HDR_FILE,
+    /* Simple app */
+    APP_FILE,
+    /* Static library */
+    LIB_FILE,
+    /* Shared library */
+    SLB_FILE,
+    /* Driver file */
+    DRV_FILE,
+    /* Profile variable file */
+    PVR_FILE,
+    /* Header file */
+    C_HDR_FILE,
 };
 
 /*
  * NOTE: When this object is alive, we assume it (and its node) have already been opend
- * 
- * Every file has a data buffer that can hold a single piece of contiguous memory that reflects 
+ *
+ * Every file has a data buffer that can hold a single piece of contiguous memory that reflects
  * the files internal data. We can only hold ONE buffer of a single size at a time, so when we
  * want to access a different part of the file (on disk for example) we'll have to (sync and) switch out
  * the entire buffer. We could (TODO) try to cache different buffers and link them together
  */
 typedef struct file {
 
-  uint32_t m_flags;
-  uint32_t m_res0;
+    uint32_t m_flags;
+    uint32_t m_res0;
 
-  /* How many 'chunks' this file encapsulates */
-  uintptr_t m_scatter_count;
+    /* How many 'chunks' this file encapsulates */
+    uintptr_t m_scatter_count;
 
-  /* The files parent object */
-  struct oss_obj* m_obj;
+    /* The files parent object */
+    struct oss_obj* m_obj;
 
-  file_ops_t* m_ops;
+    file_ops_t* m_ops;
 
-  void* m_private;
+    void* m_private;
 
-  /* Every file has an 'offset' or 'address' for where it starts */
-  disk_offset_t m_buffer_offset;
+    /* Every file has an 'offset' or 'address' for where it starts */
+    disk_offset_t m_buffer_offset;
 
-  /* Pointer to the data buffer. TODO: make this easily managable */
-  void* m_buffer;
+    /* Pointer to the data buffer. TODO: make this easily managable */
+    void* m_buffer;
 
-  size_t m_buffer_size;
-  /* Size on disk */
-  size_t m_total_size;
-  /* Logical size of the file */
-  size_t m_logical_size;
+    size_t m_buffer_size;
+    /* Size on disk */
+    size_t m_total_size;
+    /* Logical size of the file */
+    size_t m_logical_size;
 } file_t;
 
 file_t* create_file(struct oss_node* parent, uint32_t flags, const char* path);
@@ -115,7 +115,7 @@ int file_close(file_t* file);
  */
 static inline size_t file_get_size(file_t* file)
 {
-  return file->m_total_size;
+    return file->m_total_size;
 }
 
 /*!
@@ -124,7 +124,7 @@ static inline size_t file_get_size(file_t* file)
  */
 static inline size_t file_buffer_size(file_t* file)
 {
-  return file->m_buffer_size;
+    return file->m_buffer_size;
 }
 
 #endif // !__ANIVA_FIL_IMPL__

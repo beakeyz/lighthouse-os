@@ -149,13 +149,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utlock")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utlock")
 
 /*******************************************************************************
  *
@@ -171,37 +169,32 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtCreateRwLock (
-    ACPI_RW_LOCK            *Lock)
+AcpiUtCreateRwLock(
+    ACPI_RW_LOCK* Lock)
 {
-    ACPI_STATUS             Status;
-
+    ACPI_STATUS Status;
 
     Lock->NumReaders = 0;
-    Status = AcpiOsCreateMutex (&Lock->ReaderMutex);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsCreateMutex(&Lock->ReaderMutex);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiOsCreateMutex (&Lock->WriterMutex);
+    Status = AcpiOsCreateMutex(&Lock->WriterMutex);
     return (Status);
 }
 
-
-void
-AcpiUtDeleteRwLock (
-    ACPI_RW_LOCK            *Lock)
+void AcpiUtDeleteRwLock(
+    ACPI_RW_LOCK* Lock)
 {
 
-    AcpiOsDeleteMutex (Lock->ReaderMutex);
-    AcpiOsDeleteMutex (Lock->WriterMutex);
+    AcpiOsDeleteMutex(Lock->ReaderMutex);
+    AcpiOsDeleteMutex(Lock->WriterMutex);
 
     Lock->NumReaders = 0;
     Lock->ReaderMutex = NULL;
     Lock->WriterMutex = NULL;
 }
-
 
 /*******************************************************************************
  *
@@ -222,56 +215,48 @@ AcpiUtDeleteRwLock (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtAcquireReadLock (
-    ACPI_RW_LOCK            *Lock)
+AcpiUtAcquireReadLock(
+    ACPI_RW_LOCK* Lock)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    Status = AcpiOsAcquireMutex (Lock->ReaderMutex, ACPI_WAIT_FOREVER);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsAcquireMutex(Lock->ReaderMutex, ACPI_WAIT_FOREVER);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Acquire the write lock only for the first reader */
 
     Lock->NumReaders++;
-    if (Lock->NumReaders == 1)
-    {
-        Status = AcpiOsAcquireMutex (Lock->WriterMutex, ACPI_WAIT_FOREVER);
+    if (Lock->NumReaders == 1) {
+        Status = AcpiOsAcquireMutex(Lock->WriterMutex, ACPI_WAIT_FOREVER);
     }
 
-    AcpiOsReleaseMutex (Lock->ReaderMutex);
+    AcpiOsReleaseMutex(Lock->ReaderMutex);
     return (Status);
 }
 
-
 ACPI_STATUS
-AcpiUtReleaseReadLock (
-    ACPI_RW_LOCK            *Lock)
+AcpiUtReleaseReadLock(
+    ACPI_RW_LOCK* Lock)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    Status = AcpiOsAcquireMutex (Lock->ReaderMutex, ACPI_WAIT_FOREVER);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsAcquireMutex(Lock->ReaderMutex, ACPI_WAIT_FOREVER);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Release the write lock only for the very last reader */
 
     Lock->NumReaders--;
-    if (Lock->NumReaders == 0)
-    {
-        AcpiOsReleaseMutex (Lock->WriterMutex);
+    if (Lock->NumReaders == 0) {
+        AcpiOsReleaseMutex(Lock->WriterMutex);
     }
 
-    AcpiOsReleaseMutex (Lock->ReaderMutex);
+    AcpiOsReleaseMutex(Lock->ReaderMutex);
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -290,21 +275,18 @@ AcpiUtReleaseReadLock (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtAcquireWriteLock (
-    ACPI_RW_LOCK            *Lock)
+AcpiUtAcquireWriteLock(
+    ACPI_RW_LOCK* Lock)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    Status = AcpiOsAcquireMutex (Lock->WriterMutex, ACPI_WAIT_FOREVER);
+    Status = AcpiOsAcquireMutex(Lock->WriterMutex, ACPI_WAIT_FOREVER);
     return (Status);
 }
 
-
-void
-AcpiUtReleaseWriteLock (
-    ACPI_RW_LOCK            *Lock)
+void AcpiUtReleaseWriteLock(
+    ACPI_RW_LOCK* Lock)
 {
 
-    AcpiOsReleaseMutex (Lock->WriterMutex);
+    AcpiOsReleaseMutex(Lock->WriterMutex);
 }

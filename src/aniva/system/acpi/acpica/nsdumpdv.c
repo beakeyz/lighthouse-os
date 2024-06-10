@@ -152,11 +152,10 @@
 
 #include "acpi.h"
 
-
 /* TBD: This entire module is apparently obsolete and should be removed */
 
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nsdumpdv")
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nsdumpdv")
 
 #ifdef ACPI_OBSOLETE_FUNCTIONS
 #if defined(ACPI_DEBUG_OUTPUT) || defined(ACPI_DEBUGGER)
@@ -180,42 +179,37 @@
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiNsDumpOneDevice (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  Level,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiNsDumpOneDevice(
+    ACPI_HANDLE ObjHandle,
+    UINT32 Level,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_BUFFER             Buffer;
-    ACPI_DEVICE_INFO        *Info;
-    ACPI_STATUS             Status;
-    UINT32                  i;
+    ACPI_BUFFER Buffer;
+    ACPI_DEVICE_INFO* Info;
+    ACPI_STATUS Status;
+    UINT32 i;
 
+    ACPI_FUNCTION_NAME(NsDumpOneDevice);
 
-    ACPI_FUNCTION_NAME (NsDumpOneDevice);
-
-
-    Status = AcpiNsDumpOneObject (ObjHandle, Level, Context, ReturnValue);
+    Status = AcpiNsDumpOneObject(ObjHandle, Level, Context, ReturnValue);
 
     Buffer.Length = ACPI_ALLOCATE_LOCAL_BUFFER;
-    Status = AcpiGetObjectInfo (ObjHandle, &Buffer);
-    if (ACPI_SUCCESS (Status))
-    {
+    Status = AcpiGetObjectInfo(ObjHandle, &Buffer);
+    if (ACPI_SUCCESS(Status)) {
         Info = Buffer.Pointer;
-        for (i = 0; i < Level; i++)
-        {
-            ACPI_DEBUG_PRINT_RAW ((ACPI_DB_TABLES, " "));
+        for (i = 0; i < Level; i++) {
+            ACPI_DEBUG_PRINT_RAW((ACPI_DB_TABLES, " "));
         }
 
-        ACPI_DEBUG_PRINT_RAW ((ACPI_DB_TABLES,
+        ACPI_DEBUG_PRINT_RAW((ACPI_DB_TABLES,
             "    HID: %s, ADR: %8.8X%8.8X\n",
-            Info->HardwareId.Value, ACPI_FORMAT_UINT64 (Info->Address)));
-        ACPI_FREE (Info);
+            Info->HardwareId.Value, ACPI_FORMAT_UINT64(Info->Address)));
+        ACPI_FREE(Info);
     }
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -229,34 +223,29 @@ AcpiNsDumpOneDevice (
  *
  ******************************************************************************/
 
-void
-AcpiNsDumpRootDevices (
+void AcpiNsDumpRootDevices(
     void)
 {
-    ACPI_HANDLE             SysBusHandle;
-    ACPI_STATUS             Status;
+    ACPI_HANDLE SysBusHandle;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_NAME (NsDumpRootDevices);
-
+    ACPI_FUNCTION_NAME(NsDumpRootDevices);
 
     /* Only dump the table if tracing is enabled */
 
-    if (!(ACPI_LV_TABLES & AcpiDbgLevel))
-    {
+    if (!(ACPI_LV_TABLES & AcpiDbgLevel)) {
         return;
     }
 
-    Status = AcpiGetHandle (NULL, METHOD_NAME__SB_, &SysBusHandle);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiGetHandle(NULL, METHOD_NAME__SB_, &SysBusHandle);
+    if (ACPI_FAILURE(Status)) {
         return;
     }
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_TABLES,
+    ACPI_DEBUG_PRINT((ACPI_DB_TABLES,
         "Display of all devices in the namespace:\n"));
 
-    Status = AcpiNsWalkNamespace (ACPI_TYPE_DEVICE, SysBusHandle,
+    Status = AcpiNsWalkNamespace(ACPI_TYPE_DEVICE, SysBusHandle,
         ACPI_UINT32_MAX, ACPI_NS_WALK_NO_UNLOCK,
         AcpiNsDumpOneDevice, NULL, NULL, NULL);
 }

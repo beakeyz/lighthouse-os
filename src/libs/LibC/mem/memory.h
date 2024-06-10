@@ -11,23 +11,20 @@
  * Memory allocation on a byte alignment
  */
 void* mem_alloc(
-  size_t        size
-);
+    size_t size);
 
 /*
  * Move the allocation at a certain address to a bigger buffer
  * returns the old pointer if the size didn't change
  */
 void* mem_move_alloc(
-  void* ptr,
-  size_t new_size
-);
+    void* ptr,
+    size_t new_size);
 
 /*
- * Memory deallocation 
+ * Memory deallocation
  */
 int mem_dealloc(
-  void* addr
-);
+    void* addr);
 
 #endif // !__LIGHTENV_LIBC_MEMORY__

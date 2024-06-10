@@ -1,4 +1,4 @@
-#ifndef __ANIVA_ACPI__ 
+#ifndef __ANIVA_ACPI__
 #define __ANIVA_ACPI__
 
 #include "system/acpi/acpica/actypes.h"

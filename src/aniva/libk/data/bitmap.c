@@ -1,227 +1,229 @@
 #include "bitmap.h"
 #include "libk/flow/error.h"
-#include <mem/heap.h>
 #include <libk/string.h>
+#include <mem/heap.h>
 
 #ifndef BITMAP_DEFAULT
-  #define BITMAP_DEFAULT 0xff
+#define BITMAP_DEFAULT 0xff
 #endif
 
-// We leave the calculation of the amount of 
+// We leave the calculation of the amount of
 // bytes for this map to the caller
-bitmap_t* create_bitmap(size_t size) 
+bitmap_t* create_bitmap(size_t size)
 {
-  bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
-  map->m_default = (uint8_t)BITMAP_DEFAULT;
-  map->m_size = size;
-  map->m_entries = size * 8;
+    bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
+    map->m_default = (uint8_t)BITMAP_DEFAULT;
+    map->m_size = size;
+    map->m_entries = size * 8;
 
-  memset(map->m_map, map->m_default, size);
+    memset(map->m_map, map->m_default, size);
 
-  return map;
+    return map;
 }
 
 bitmap_t* create_bitmap_ex(size_t max_entries, uint8_t default_value)
 {
-  size_t bitmap_size;
-  bitmap_t* map;
+    size_t bitmap_size;
+    bitmap_t* map;
 
-  bitmap_size = max_entries / 8;
+    bitmap_size = max_entries / 8;
 
-  if (!bitmap_size)
-    return nullptr;
+    if (!bitmap_size)
+        return nullptr;
 
-  map = kmalloc(sizeof(*map) + bitmap_size);
+    map = kmalloc(sizeof(*map) + bitmap_size);
 
-  if (!map)
-    return nullptr;
+    if (!map)
+        return nullptr;
 
-  map->m_default = default_value;
-  map->m_size = bitmap_size;
-  map->m_entries = max_entries;
+    map->m_default = default_value;
+    map->m_size = bitmap_size;
+    map->m_entries = max_entries;
 
-  memset(map->m_map, default_value, bitmap_size);
+    memset(map->m_map, default_value, bitmap_size);
 
-  return map;
+    return map;
 }
 
-bitmap_t* create_bitmap_with_default(size_t size, uint8_t default_value) {
-
-  bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
-  map->m_default = default_value;
-  map->m_size = size;
-  map->m_entries = size << 3;
-
-  memset(map->m_map, map->m_default, size);
-
-  return map;
-}
-
-void destroy_bitmap(bitmap_t *map) {
-  if (!map)
-    return;
-
-  kfree(map->m_map);
-  kfree(map);
-}
-
-void bitmap_mark(bitmap_t* this, uint32_t index) 
+bitmap_t* create_bitmap_with_default(size_t size, uint8_t default_value)
 {
-  bitmap_mark_range(this, index, 1);
+
+    bitmap_t* map = kmalloc(sizeof(bitmap_t) + size);
+    map->m_default = default_value;
+    map->m_size = size;
+    map->m_entries = size << 3;
+
+    memset(map->m_map, map->m_default, size);
+
+    return map;
 }
 
-void bitmap_unmark(bitmap_t* this, uint32_t index) 
+void destroy_bitmap(bitmap_t* map)
 {
-  bitmap_unmark_range(this, index, 1);
+    if (!map)
+        return;
+
+    kfree(map->m_map);
+    kfree(map);
 }
 
-void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length) 
+void bitmap_mark(bitmap_t* this, uint32_t index)
 {
-  if (index >= this->m_entries) {
-    //printf("bitmap_unmark_range: index: %d, entries: %lld, length: %lld\n", index, this->m_entries, length);
-    return;
-    //kernel_panic("Huh");
-  }
+    bitmap_mark_range(this, index, 1);
+}
 
-  for (uint32_t i = 0; i < length; i++)
-    this->m_map[(index + i) >> 3] &= ~(1 << ((index + i) % 8));
+void bitmap_unmark(bitmap_t* this, uint32_t index)
+{
+    bitmap_unmark_range(this, index, 1);
+}
+
+void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length)
+{
+    if (index >= this->m_entries) {
+        // printf("bitmap_unmark_range: index: %d, entries: %lld, length: %lld\n", index, this->m_entries, length);
+        return;
+        // kernel_panic("Huh");
+    }
+
+    for (uint32_t i = 0; i < length; i++)
+        this->m_map[(index + i) >> 3] &= ~(1 << ((index + i) % 8));
 }
 
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length)
 {
-  if (index >= this->m_entries) {
-    //printf("bitmap_mark_range: index: %d, entries: %lld, length: %lld\n", index, this->m_entries, length);
-    return;
-  }
+    if (index >= this->m_entries) {
+        // printf("bitmap_mark_range: index: %d, entries: %lld, length: %lld\n", index, this->m_entries, length);
+        return;
+    }
 
-  for (uint32_t i = 0; i < length; i++)
-    this->m_map[(index + i) >> 3] |= (1 << ((index + i) % 8));
+    for (uint32_t i = 0; i < length; i++)
+        this->m_map[(index + i) >> 3] |= (1 << ((index + i) % 8));
 }
 
 ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir)
 {
-  switch (dir) {
-    case FORWARDS:
-      {
+    switch (dir) {
+    case FORWARDS: {
         /*
          * Let's hope we keep this in cache ;-;
          */
         for (uintptr_t i = 0; i < this->m_size; i++) {
-          if (this->m_map[i] == 0xff)
-            continue;
+            if (this->m_map[i] == 0xff)
+                continue;
 
-          uintptr_t start_idx = BYTES_TO_BITS(i);
+            uintptr_t start_idx = BYTES_TO_BITS(i);
 
-          for (uintptr_t j = 0; j < 8; j++) {
-            if (!bitmap_isset(this, start_idx + j))
-              return Success(start_idx + j);
-          }
+            for (uintptr_t j = 0; j < 8; j++) {
+                if (!bitmap_isset(this, start_idx + j))
+                    return Success(start_idx + j);
+            }
         }
         break;
-      }
-    case BACKWARDS:
-      {
+    }
+    case BACKWARDS: {
         for (uintptr_t i = 1; i <= this->m_size; i++) {
-          if (this->m_map[this->m_size - i] == 0xff)
-            continue;
+            if (this->m_map[this->m_size - i] == 0xff)
+                continue;
 
-          uintptr_t start_idx = BYTES_TO_BITS(this->m_size - i);
+            uintptr_t start_idx = BYTES_TO_BITS(this->m_size - i);
 
-          for (uintptr_t j = 0; j < 8; j++) {
-            if (!bitmap_isset(this, start_idx + j))
-              return Success(start_idx + j);
-          }
+            for (uintptr_t j = 0; j < 8; j++) {
+                if (!bitmap_isset(this, start_idx + j))
+                    return Success(start_idx + j);
+            }
         }
         break;
-      }
-  }
+    }
+    }
 
-  return Error();
+    return Error();
 }
 
 ErrorOrPtr bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir)
 {
-  kernel_panic("TODO: bitmap_find_free_range_ex");
+    kernel_panic("TODO: bitmap_find_free_range_ex");
 }
 ErrorOrPtr bitmap_find_free_range_from_ex(bitmap_t* this, size_t length, uintptr_t start_idx, enum BITMAP_SEARCH_DIR dir)
 {
-  kernel_panic("TODO: bitmap_find_free_range_from_ex");
+    kernel_panic("TODO: bitmap_find_free_range_from_ex");
 }
 
-ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length) {
-  /*
-   * We can perhaps cache the last found range so the next search 
-   * can start from that index, until the index gets 'corrupted' by 
-   * a free or something before the cached index
-   */
-  return bitmap_find_free_range_from(this, length, 0);
+ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length)
+{
+    /*
+     * We can perhaps cache the last found range so the next search
+     * can start from that index, until the index gets 'corrupted' by
+     * a free or something before the cached index
+     */
+    return bitmap_find_free_range_from(this, length, 0);
 }
 
 // TODO: find out if this bugs out
-ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx) {
-  if (!length)
-    return Error();
+ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx)
+{
+    if (!length)
+        return Error();
 
-  /* lol, we can never find anything if this happens :clown: */
-  if (start_idx + length >= this->m_entries)
-    return Error();
+    /* lol, we can never find anything if this happens :clown: */
+    if (start_idx + length >= this->m_entries)
+        return Error();
 
-  for (uintptr_t i = start_idx; i < this->m_entries; i++) {
+    for (uintptr_t i = start_idx; i < this->m_entries; i++) {
 
-    if (bitmap_isset(this, i))
-      continue;
+        if (bitmap_isset(this, i))
+            continue;
 
-    uintptr_t j = 1;
+        uintptr_t j = 1;
 
-    while (j < length) {
+        while (j < length) {
 
-      if (bitmap_isset(this, i + j))
-        break;
+            if (bitmap_isset(this, i + j))
+                break;
 
-      j++;
+            j++;
+        }
+
+        if (j == length)
+            return Success(i);
+
+        i += j;
     }
 
-    if (j == length)
-      return Success(i);
-
-    i += j;
-  }
-
-  return Error();
+    return Error();
 }
 
 // returns the index of the free bit
-ErrorOrPtr bitmap_find_free(bitmap_t* this) {
+ErrorOrPtr bitmap_find_free(bitmap_t* this)
+{
 
-  /*
-   * Let's hope we keep this in cache ;-;
-   */
-  for (uintptr_t i = 0; i < this->m_size; i++) {
-    if (this->m_map[i] == 0xff)
-      continue;
+    /*
+     * Let's hope we keep this in cache ;-;
+     */
+    for (uintptr_t i = 0; i < this->m_size; i++) {
+        if (this->m_map[i] == 0xff)
+            continue;
 
-    uintptr_t start_idx = BYTES_TO_BITS(i);
+        uintptr_t start_idx = BYTES_TO_BITS(i);
 
-    for (uintptr_t j = 0; j < 8; j++) {
-      if (!bitmap_isset(this, start_idx + j))
-        return Success(start_idx + j);
+        for (uintptr_t j = 0; j < 8; j++) {
+            if (!bitmap_isset(this, start_idx + j))
+                return Success(start_idx + j);
+        }
     }
-  }
 
-  return Error();
+    return Error();
 }
 
-bool bitmap_isset(bitmap_t* this, uint32_t index) 
+bool bitmap_isset(bitmap_t* this, uint32_t index)
 {
-  if (index >= this->m_entries) {
-    return true;
-  }
+    if (index >= this->m_entries) {
+        return true;
+    }
 
-  //ASSERT_MSG(index < this->m_entries, "Bitmap (bitmap_isset): index out of bounds");
+    // ASSERT_MSG(index < this->m_entries, "Bitmap (bitmap_isset): index out of bounds");
 
-  const uint64_t index_byte = index >> 3ULL;
-  const uint32_t index_bit = index % 8UL;
+    const uint64_t index_byte = index >> 3ULL;
+    const uint32_t index_bit = index % 8UL;
 
-
-  return (this->m_map[index_byte] & (1 << index_bit));
+    return (this->m_map[index_byte] & (1 << index_bit));
 }

@@ -151,53 +151,51 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_HARDWARE
-        ACPI_MODULE_NAME    ("hwxfsleep")
+#define _COMPONENT ACPI_HARDWARE
+ACPI_MODULE_NAME("hwxfsleep")
 
 /* Local prototypes */
 
 #if (!ACPI_REDUCED_HARDWARE)
 static ACPI_STATUS
-AcpiHwSetFirmwareWakingVector (
-    ACPI_TABLE_FACS         *Facs,
-    ACPI_PHYSICAL_ADDRESS   PhysicalAddress,
-    ACPI_PHYSICAL_ADDRESS   PhysicalAddress64);
+AcpiHwSetFirmwareWakingVector(
+    ACPI_TABLE_FACS* Facs,
+    ACPI_PHYSICAL_ADDRESS PhysicalAddress,
+    ACPI_PHYSICAL_ADDRESS PhysicalAddress64);
 #endif
 
 static ACPI_STATUS
-AcpiHwSleepDispatch (
-    UINT8                   SleepState,
-    UINT32                  FunctionId);
+AcpiHwSleepDispatch(
+    UINT8 SleepState,
+    UINT32 FunctionId);
 
 /*
  * Dispatch table used to efficiently branch to the various sleep
  * functions.
  */
-#define ACPI_SLEEP_FUNCTION_ID          0
-#define ACPI_WAKE_PREP_FUNCTION_ID      1
-#define ACPI_WAKE_FUNCTION_ID           2
+#define ACPI_SLEEP_FUNCTION_ID 0
+#define ACPI_WAKE_PREP_FUNCTION_ID 1
+#define ACPI_WAKE_FUNCTION_ID 2
 
 /* Legacy functions are optional, based upon ACPI_REDUCED_HARDWARE */
 
-static ACPI_SLEEP_FUNCTIONS         AcpiSleepDispatch[] =
-{
-    {ACPI_STRUCT_INIT (LegacyFunction,
-                       ACPI_HW_OPTIONAL_FUNCTION (AcpiHwLegacySleep)),
-     ACPI_STRUCT_INIT (ExtendedFunction,
-                       AcpiHwExtendedSleep) },
-    {ACPI_STRUCT_INIT (LegacyFunction,
-                       ACPI_HW_OPTIONAL_FUNCTION (AcpiHwLegacyWakePrep)),
-     ACPI_STRUCT_INIT (ExtendedFunction,
-                       AcpiHwExtendedWakePrep) },
-    {ACPI_STRUCT_INIT (LegacyFunction,
-                       ACPI_HW_OPTIONAL_FUNCTION (AcpiHwLegacyWake)),
-     ACPI_STRUCT_INIT (ExtendedFunction,
-                       AcpiHwExtendedWake) }
+static ACPI_SLEEP_FUNCTIONS AcpiSleepDispatch[] = {
+    { ACPI_STRUCT_INIT(LegacyFunction,
+          ACPI_HW_OPTIONAL_FUNCTION(AcpiHwLegacySleep)),
+        ACPI_STRUCT_INIT(ExtendedFunction,
+            AcpiHwExtendedSleep) },
+    { ACPI_STRUCT_INIT(LegacyFunction,
+          ACPI_HW_OPTIONAL_FUNCTION(AcpiHwLegacyWakePrep)),
+        ACPI_STRUCT_INIT(ExtendedFunction,
+            AcpiHwExtendedWakePrep) },
+    { ACPI_STRUCT_INIT(LegacyFunction,
+          ACPI_HW_OPTIONAL_FUNCTION(AcpiHwLegacyWake)),
+        ACPI_STRUCT_INIT(ExtendedFunction,
+            AcpiHwExtendedWake) }
 };
-
 
 /*
  * These functions are removed for the ACPI_REDUCED_HARDWARE case:
@@ -223,13 +221,12 @@ static ACPI_SLEEP_FUNCTIONS         AcpiSleepDispatch[] =
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiHwSetFirmwareWakingVector (
-    ACPI_TABLE_FACS         *Facs,
-    ACPI_PHYSICAL_ADDRESS   PhysicalAddress,
-    ACPI_PHYSICAL_ADDRESS   PhysicalAddress64)
+AcpiHwSetFirmwareWakingVector(
+    ACPI_TABLE_FACS* Facs,
+    ACPI_PHYSICAL_ADDRESS PhysicalAddress,
+    ACPI_PHYSICAL_ADDRESS PhysicalAddress64)
 {
-    ACPI_FUNCTION_TRACE (AcpiHwSetFirmwareWakingVector);
-
+    ACPI_FUNCTION_TRACE(AcpiHwSetFirmwareWakingVector);
 
     /*
      * According to the ACPI specification 2.0c and later, the 64-bit
@@ -241,27 +238,22 @@ AcpiHwSetFirmwareWakingVector (
 
     /* Set the 32-bit vector */
 
-    Facs->FirmwareWakingVector = (UINT32) PhysicalAddress;
+    Facs->FirmwareWakingVector = (UINT32)PhysicalAddress;
 
-    if (Facs->Length > 32)
-    {
-        if (Facs->Version >= 1)
-        {
+    if (Facs->Length > 32) {
+        if (Facs->Version >= 1) {
             /* Set the 64-bit vector */
 
             Facs->XFirmwareWakingVector = PhysicalAddress64;
-        }
-        else
-        {
+        } else {
             /* Clear the 64-bit vector if it exists */
 
             Facs->XFirmwareWakingVector = 0;
         }
     }
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -279,24 +271,22 @@ AcpiHwSetFirmwareWakingVector (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiSetFirmwareWakingVector (
-    ACPI_PHYSICAL_ADDRESS   PhysicalAddress,
-    ACPI_PHYSICAL_ADDRESS   PhysicalAddress64)
+AcpiSetFirmwareWakingVector(
+    ACPI_PHYSICAL_ADDRESS PhysicalAddress,
+    ACPI_PHYSICAL_ADDRESS PhysicalAddress64)
 {
 
-    ACPI_FUNCTION_TRACE (AcpiSetFirmwareWakingVector);
+    ACPI_FUNCTION_TRACE(AcpiSetFirmwareWakingVector);
 
-    if (AcpiGbl_FACS)
-    {
-        (void) AcpiHwSetFirmwareWakingVector (AcpiGbl_FACS,
+    if (AcpiGbl_FACS) {
+        (void)AcpiHwSetFirmwareWakingVector(AcpiGbl_FACS,
             PhysicalAddress, PhysicalAddress64);
     }
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiSetFirmwareWakingVector)
-
+ACPI_EXPORT_SYMBOL(AcpiSetFirmwareWakingVector)
 
 /*******************************************************************************
  *
@@ -312,71 +302,62 @@ ACPI_EXPORT_SYMBOL (AcpiSetFirmwareWakingVector)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEnterSleepStateS4bios (
+AcpiEnterSleepStateS4bios(
     void)
 {
-    UINT32                  InValue;
-    ACPI_STATUS             Status;
+    UINT32 InValue;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (AcpiEnterSleepStateS4bios);
-
+    ACPI_FUNCTION_TRACE(AcpiEnterSleepStateS4bios);
 
     /* Clear the wake status bit (PM1) */
 
-    Status = AcpiWriteBitRegister (ACPI_BITREG_WAKE_STATUS, ACPI_CLEAR_STATUS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiWriteBitRegister(ACPI_BITREG_WAKE_STATUS, ACPI_CLEAR_STATUS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiHwClearAcpiStatus ();
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiHwClearAcpiStatus();
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /*
      * 1) Disable all GPEs
      * 2) Enable all wakeup GPEs
      */
-    Status = AcpiHwDisableAllGpes ();
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiHwDisableAllGpes();
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
     AcpiGbl_SystemAwakeAndRunning = FALSE;
 
-    Status = AcpiHwEnableAllWakeupGpes ();
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiHwEnableAllWakeupGpes();
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiHwWritePort (AcpiGbl_FADT.SmiCommand,
-        (UINT32) AcpiGbl_FADT.S4BiosRequest, 8);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiHwWritePort(AcpiGbl_FADT.SmiCommand,
+        (UINT32)AcpiGbl_FADT.S4BiosRequest, 8);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     do {
-        AcpiOsStall (ACPI_USEC_PER_MSEC);
-        Status = AcpiReadBitRegister (ACPI_BITREG_WAKE_STATUS, &InValue);
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+        AcpiOsStall(ACPI_USEC_PER_MSEC);
+        Status = AcpiReadBitRegister(ACPI_BITREG_WAKE_STATUS, &InValue);
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
 
     } while (!InValue);
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiEnterSleepStateS4bios)
+ACPI_EXPORT_SYMBOL(AcpiEnterSleepStateS4bios)
 
 #endif /* !ACPI_REDUCED_HARDWARE */
-
 
 /*******************************************************************************
  *
@@ -393,13 +374,12 @@ ACPI_EXPORT_SYMBOL (AcpiEnterSleepStateS4bios)
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiHwSleepDispatch (
-    UINT8                   SleepState,
-    UINT32                  FunctionId)
+AcpiHwSleepDispatch(
+    UINT8 SleepState,
+    UINT32 FunctionId)
 {
-    ACPI_STATUS             Status;
-    ACPI_SLEEP_FUNCTIONS    *SleepFunctions = &AcpiSleepDispatch[FunctionId];
-
+    ACPI_STATUS Status;
+    ACPI_SLEEP_FUNCTIONS* SleepFunctions = &AcpiSleepDispatch[FunctionId];
 
 #if (!ACPI_REDUCED_HARDWARE)
     /*
@@ -409,15 +389,12 @@ AcpiHwSleepDispatch (
      * platforms only. They are not general-purpose replacements for the
      * legacy PM register sleep support.
      */
-    if (AcpiGbl_ReducedHardware)
-    {
-        Status = SleepFunctions->ExtendedFunction (SleepState);
-    }
-    else
-    {
+    if (AcpiGbl_ReducedHardware) {
+        Status = SleepFunctions->ExtendedFunction(SleepState);
+    } else {
         /* Legacy sleep */
 
-        Status = SleepFunctions->LegacyFunction (SleepState);
+        Status = SleepFunctions->LegacyFunction(SleepState);
     }
 
     return (Status);
@@ -427,12 +404,11 @@ AcpiHwSleepDispatch (
      * For the case where reduced-hardware-only code is being generated,
      * we know that only the extended sleep registers are available
      */
-    Status = SleepFunctions->ExtendedFunction (SleepState);
+    Status = SleepFunctions->ExtendedFunction(SleepState);
     return (Status);
 
 #endif /* !ACPI_REDUCED_HARDWARE */
 }
-
 
 /*******************************************************************************
  *
@@ -450,28 +426,25 @@ AcpiHwSleepDispatch (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEnterSleepStatePrep (
-    UINT8                   SleepState)
+AcpiEnterSleepStatePrep(
+    UINT8 SleepState)
 {
-    ACPI_STATUS             Status;
-    ACPI_OBJECT_LIST        ArgList;
-    ACPI_OBJECT             Arg;
-    UINT32                  SstValue;
+    ACPI_STATUS Status;
+    ACPI_OBJECT_LIST ArgList;
+    ACPI_OBJECT Arg;
+    UINT32 SstValue;
 
+    ACPI_FUNCTION_TRACE(AcpiEnterSleepStatePrep);
 
-    ACPI_FUNCTION_TRACE (AcpiEnterSleepStatePrep);
-
-
-    Status = AcpiGetSleepTypeData (SleepState,
+    Status = AcpiGetSleepTypeData(SleepState,
         &AcpiGbl_SleepTypeA, &AcpiGbl_SleepTypeB);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiGetSleepTypeData (ACPI_STATE_S0,
+    Status = AcpiGetSleepTypeData(ACPI_STATE_S0,
         &AcpiGbl_SleepTypeAS0, &AcpiGbl_SleepTypeBS0);
-    if (ACPI_FAILURE (Status)) {
+    if (ACPI_FAILURE(Status)) {
         AcpiGbl_SleepTypeAS0 = ACPI_SLEEP_TYPE_INVALID;
     }
 
@@ -482,16 +455,14 @@ AcpiEnterSleepStatePrep (
     Arg.Type = ACPI_TYPE_INTEGER;
     Arg.Integer.Value = SleepState;
 
-    Status = AcpiEvaluateObject (NULL, METHOD_PATHNAME__PTS, &ArgList, NULL);
-    if (ACPI_FAILURE (Status) && Status != AE_NOT_FOUND)
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiEvaluateObject(NULL, METHOD_PATHNAME__PTS, &ArgList, NULL);
+    if (ACPI_FAILURE(Status) && Status != AE_NOT_FOUND) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Setup the argument to the _SST method (System STatus) */
 
-    switch (SleepState)
-    {
+    switch (SleepState) {
     case ACPI_STATE_S0:
 
         SstValue = ACPI_SST_WORKING;
@@ -519,12 +490,11 @@ AcpiEnterSleepStatePrep (
      * Set the system indicators to show the desired sleep state.
      * _SST is an optional method (return no error if not found)
      */
-    AcpiHwExecuteSleepMethod (METHOD_PATHNAME__SST, SstValue);
-    return_ACPI_STATUS (AE_OK);
+    AcpiHwExecuteSleepMethod(METHOD_PATHNAME__SST, SstValue);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiEnterSleepStatePrep)
-
+ACPI_EXPORT_SYMBOL(AcpiEnterSleepStatePrep)
 
 /*******************************************************************************
  *
@@ -540,29 +510,24 @@ ACPI_EXPORT_SYMBOL (AcpiEnterSleepStatePrep)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEnterSleepState (
-    UINT8                   SleepState)
+AcpiEnterSleepState(
+    UINT8 SleepState)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiEnterSleepState);
 
-    ACPI_FUNCTION_TRACE (AcpiEnterSleepState);
-
-
-    if ((AcpiGbl_SleepTypeA > ACPI_SLEEP_TYPE_MAX) ||
-        (AcpiGbl_SleepTypeB > ACPI_SLEEP_TYPE_MAX))
-    {
-        ACPI_ERROR ((AE_INFO, "Sleep values out of range: A=0x%X B=0x%X",
+    if ((AcpiGbl_SleepTypeA > ACPI_SLEEP_TYPE_MAX) || (AcpiGbl_SleepTypeB > ACPI_SLEEP_TYPE_MAX)) {
+        ACPI_ERROR((AE_INFO, "Sleep values out of range: A=0x%X B=0x%X",
             AcpiGbl_SleepTypeA, AcpiGbl_SleepTypeB));
-        return_ACPI_STATUS (AE_AML_OPERAND_VALUE);
+        return_ACPI_STATUS(AE_AML_OPERAND_VALUE);
     }
 
-    Status = AcpiHwSleepDispatch (SleepState, ACPI_SLEEP_FUNCTION_ID);
-    return_ACPI_STATUS (Status);
+    Status = AcpiHwSleepDispatch(SleepState, ACPI_SLEEP_FUNCTION_ID);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiEnterSleepState)
-
+ACPI_EXPORT_SYMBOL(AcpiEnterSleepState)
 
 /*******************************************************************************
  *
@@ -580,21 +545,18 @@ ACPI_EXPORT_SYMBOL (AcpiEnterSleepState)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiLeaveSleepStatePrep (
-    UINT8                   SleepState)
+AcpiLeaveSleepStatePrep(
+    UINT8 SleepState)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiLeaveSleepStatePrep);
 
-    ACPI_FUNCTION_TRACE (AcpiLeaveSleepStatePrep);
-
-
-    Status = AcpiHwSleepDispatch (SleepState, ACPI_WAKE_PREP_FUNCTION_ID);
-    return_ACPI_STATUS (Status);
+    Status = AcpiHwSleepDispatch(SleepState, ACPI_WAKE_PREP_FUNCTION_ID);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiLeaveSleepStatePrep)
-
+ACPI_EXPORT_SYMBOL(AcpiLeaveSleepStatePrep)
 
 /*******************************************************************************
  *
@@ -610,17 +572,15 @@ ACPI_EXPORT_SYMBOL (AcpiLeaveSleepStatePrep)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiLeaveSleepState (
-    UINT8                   SleepState)
+AcpiLeaveSleepState(
+    UINT8 SleepState)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiLeaveSleepState);
 
-    ACPI_FUNCTION_TRACE (AcpiLeaveSleepState);
-
-
-    Status = AcpiHwSleepDispatch (SleepState, ACPI_WAKE_FUNCTION_ID);
-    return_ACPI_STATUS (Status);
+    Status = AcpiHwSleepDispatch(SleepState, ACPI_WAKE_FUNCTION_ID);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiLeaveSleepState)
+ACPI_EXPORT_SYMBOL(AcpiLeaveSleepState)

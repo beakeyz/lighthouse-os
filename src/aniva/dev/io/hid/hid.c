@@ -12,10 +12,10 @@ static dgroup_t* _hid_group;
  */
 void init_hid()
 {
-  _hid_group = register_dev_group(DGROUP_TYPE_MISC, "hid", NULL, NULL);
+    _hid_group = register_dev_group(DGROUP_TYPE_MISC, "hid", NULL, NULL);
 
-  /* Register a kernel event */
-  ASSERT_MSG(KERR_OK(add_kevent(HID_EVENTNAME, KE_DEVICE_EVENT, NULL, 512)), "Failed to add HID kevent");
+    /* Register a kernel event */
+    ASSERT_MSG(KERR_OK(add_kevent(HID_EVENTNAME, KE_DEVICE_EVENT, NULL, 512)), "Failed to add HID kevent");
 }
 
 /*!
@@ -23,32 +23,32 @@ void init_hid()
  */
 hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps)
 {
-  device_t* device;
-  hid_device_t* hiddev;
+    device_t* device;
+    hid_device_t* hiddev;
 
-  hiddev = kmalloc(sizeof(*hiddev));
+    hiddev = kmalloc(sizeof(*hiddev));
 
-  if (!hiddev)
-    return nullptr;
+    if (!hiddev)
+        return nullptr;
 
-  device = create_device_ex(NULL, (char*)name, hiddev, NULL, eps);
+    device = create_device_ex(NULL, (char*)name, hiddev, NULL, eps);
 
-  if (!device) {
-    kfree(hiddev);
-    return nullptr;
-  }
+    if (!device) {
+        kfree(hiddev);
+        return nullptr;
+    }
 
-  if (!device_has_endpoint(device, ENDPOINT_TYPE_HID)) {
-    destroy_device(device);
-    kfree(hiddev);
-    return nullptr;
-  }
+    if (!device_has_endpoint(device, ENDPOINT_TYPE_HID)) {
+        destroy_device(device);
+        kfree(hiddev);
+        return nullptr;
+    }
 
-  hiddev->dev = device;
-  hiddev->btype = btype;
-  hiddev->device_events = nullptr;
+    hiddev->dev = device;
+    hiddev->btype = btype;
+    hiddev->device_events = nullptr;
 
-  return hiddev;
+    return hiddev;
 }
 
 /*!
@@ -56,12 +56,12 @@ hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struc
  */
 void destroy_hid_device(hid_device_t* device)
 {
-  if (!device)
-    return;
+    if (!device)
+        return;
 
-  destroy_device(device->dev);
+    destroy_device(device->dev);
 
-  kfree(device);
+    kfree(device);
 }
 
 /*!
@@ -69,10 +69,10 @@ void destroy_hid_device(hid_device_t* device)
  */
 kerror_t register_hid_device(hid_device_t* device)
 {
-  if (!device)
-    return -KERR_INVAL;
+    if (!device)
+        return -KERR_INVAL;
 
-  return device_register(device->dev, _hid_group);
+    return device_register(device->dev, _hid_group);
 }
 
 /*!
@@ -80,10 +80,10 @@ kerror_t register_hid_device(hid_device_t* device)
  */
 kerror_t unregister_hid_device(hid_device_t* device)
 {
-  if (!device)
-    return -KERR_INVAL;
+    if (!device)
+        return -KERR_INVAL;
 
-  return device_unregister(device->dev);
+    return device_unregister(device->dev);
 }
 
 /*!
@@ -91,11 +91,11 @@ kerror_t unregister_hid_device(hid_device_t* device)
  */
 hid_device_t* get_hid_device(const char* name)
 {
-  device_t* bdev;
+    device_t* bdev;
 
-  if (!KERR_OK(dev_group_get_device(_hid_group, name, &bdev)))
-    return nullptr;
+    if (!KERR_OK(dev_group_get_device(_hid_group, name, &bdev)))
+        return nullptr;
 
-  /* hihi assume this is HID =) */
-  return bdev->private;
+    /* hihi assume this is HID =) */
+    return bdev->private;
 }

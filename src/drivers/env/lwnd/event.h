@@ -11,21 +11,21 @@ struct lwnd_screen;
 
 typedef struct lwnd_event {
 
-  uint8_t type;
-  window_id_t window_id;
+    uint8_t type;
+    window_id_t window_id;
 
-  union {
-    struct {
-      uint32_t new_x;
-      uint32_t new_y;
-    } move;
-    struct {
-      uint32_t new_width;
-      uint32_t new_height;
-    } resize;
-  };
+    union {
+        struct {
+            uint32_t new_x;
+            uint32_t new_y;
+        } move;
+        struct {
+            uint32_t new_width;
+            uint32_t new_height;
+        } resize;
+    };
 
-  struct lwnd_event* next;
+    struct lwnd_event* next;
 } lwnd_event_t;
 
 lwnd_event_t* create_lwnd_move_event(window_id_t window_id, uint32_t new_x, uint32_t new_y);

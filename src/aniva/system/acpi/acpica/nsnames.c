@@ -149,15 +149,13 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-#include "amlcode.h"
 #include "acnamesp.h"
+#include "acpi.h"
+#include "amlcode.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nsnames")
-
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nsnames")
 
 /*******************************************************************************
  *
@@ -174,20 +172,16 @@
  *
  ******************************************************************************/
 
-char *
-AcpiNsGetExternalPathname (
-    ACPI_NAMESPACE_NODE     *Node)
+char* AcpiNsGetExternalPathname(
+    ACPI_NAMESPACE_NODE* Node)
 {
-    char                    *NameBuffer;
+    char* NameBuffer;
 
+    ACPI_FUNCTION_TRACE_PTR(NsGetExternalPathname, Node);
 
-    ACPI_FUNCTION_TRACE_PTR (NsGetExternalPathname, Node);
-
-
-    NameBuffer = AcpiNsGetNormalizedPathname (Node, FALSE);
-    return_PTR (NameBuffer);
+    NameBuffer = AcpiNsGetNormalizedPathname(Node, FALSE);
+    return_PTR(NameBuffer);
 }
-
 
 /*******************************************************************************
  *
@@ -202,26 +196,23 @@ AcpiNsGetExternalPathname (
  ******************************************************************************/
 
 ACPI_SIZE
-AcpiNsGetPathnameLength (
-    ACPI_NAMESPACE_NODE     *Node)
+AcpiNsGetPathnameLength(
+    ACPI_NAMESPACE_NODE* Node)
 {
-    ACPI_SIZE               Size;
-
+    ACPI_SIZE Size;
 
     /* Validate the Node */
 
-    if (ACPI_GET_DESCRIPTOR_TYPE (Node) != ACPI_DESC_TYPE_NAMED)
-    {
-        ACPI_ERROR ((AE_INFO,
+    if (ACPI_GET_DESCRIPTOR_TYPE(Node) != ACPI_DESC_TYPE_NAMED) {
+        ACPI_ERROR((AE_INFO,
             "Invalid/cached reference target node: %p, descriptor type %d",
-            Node, ACPI_GET_DESCRIPTOR_TYPE (Node)));
+            Node, ACPI_GET_DESCRIPTOR_TYPE(Node)));
         return (0);
     }
 
-    Size = AcpiNsBuildNormalizedPath (Node, NULL, 0, FALSE);
+    Size = AcpiNsBuildNormalizedPath(Node, NULL, 0, FALSE);
     return (Size);
 }
-
 
 /*******************************************************************************
  *
@@ -238,42 +229,37 @@ AcpiNsGetPathnameLength (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsHandleToName (
-    ACPI_HANDLE             TargetHandle,
-    ACPI_BUFFER             *Buffer)
+AcpiNsHandleToName(
+    ACPI_HANDLE TargetHandle,
+    ACPI_BUFFER* Buffer)
 {
-    ACPI_STATUS             Status;
-    ACPI_NAMESPACE_NODE     *Node;
-    const char              *NodeName;
+    ACPI_STATUS Status;
+    ACPI_NAMESPACE_NODE* Node;
+    const char* NodeName;
 
+    ACPI_FUNCTION_TRACE_PTR(NsHandleToName, TargetHandle);
 
-    ACPI_FUNCTION_TRACE_PTR (NsHandleToName, TargetHandle);
-
-
-    Node = AcpiNsValidateHandle (TargetHandle);
-    if (!Node)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    Node = AcpiNsValidateHandle(TargetHandle);
+    if (!Node) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Validate/Allocate/Clear caller buffer */
 
-    Status = AcpiUtInitializeBuffer (Buffer, ACPI_PATH_SEGMENT_LENGTH);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtInitializeBuffer(Buffer, ACPI_PATH_SEGMENT_LENGTH);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Just copy the ACPI name from the Node and zero terminate it */
 
-    NodeName = AcpiUtGetNodeName (Node);
-    ACPI_COPY_NAMESEG (Buffer->Pointer, NodeName);
-    ((char *) Buffer->Pointer) [ACPI_NAMESEG_SIZE] = 0;
+    NodeName = AcpiUtGetNodeName(Node);
+    ACPI_COPY_NAMESEG(Buffer->Pointer, NodeName);
+    ((char*)Buffer->Pointer)[ACPI_NAMESEG_SIZE] = 0;
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "%4.4s\n", (char *) Buffer->Pointer));
-    return_ACPI_STATUS (AE_OK);
+    ACPI_DEBUG_PRINT((ACPI_DB_EXEC, "%4.4s\n", (char*)Buffer->Pointer));
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -292,51 +278,45 @@ AcpiNsHandleToName (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsHandleToPathname (
-    ACPI_HANDLE             TargetHandle,
-    ACPI_BUFFER             *Buffer,
-    BOOLEAN                 NoTrailing)
+AcpiNsHandleToPathname(
+    ACPI_HANDLE TargetHandle,
+    ACPI_BUFFER* Buffer,
+    BOOLEAN NoTrailing)
 {
-    ACPI_STATUS             Status;
-    ACPI_NAMESPACE_NODE     *Node;
-    ACPI_SIZE               RequiredSize;
+    ACPI_STATUS Status;
+    ACPI_NAMESPACE_NODE* Node;
+    ACPI_SIZE RequiredSize;
 
+    ACPI_FUNCTION_TRACE_PTR(NsHandleToPathname, TargetHandle);
 
-    ACPI_FUNCTION_TRACE_PTR (NsHandleToPathname, TargetHandle);
-
-
-    Node = AcpiNsValidateHandle (TargetHandle);
-    if (!Node)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    Node = AcpiNsValidateHandle(TargetHandle);
+    if (!Node) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Determine size required for the caller buffer */
 
-    RequiredSize = AcpiNsBuildNormalizedPath (Node, NULL, 0, NoTrailing);
-    if (!RequiredSize)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    RequiredSize = AcpiNsBuildNormalizedPath(Node, NULL, 0, NoTrailing);
+    if (!RequiredSize) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Validate/Allocate/Clear caller buffer */
 
-    Status = AcpiUtInitializeBuffer (Buffer, RequiredSize);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtInitializeBuffer(Buffer, RequiredSize);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Build the path in the caller buffer */
 
-    (void) AcpiNsBuildNormalizedPath (Node, Buffer->Pointer,
-        (UINT32) RequiredSize, NoTrailing);
+    (void)AcpiNsBuildNormalizedPath(Node, Buffer->Pointer,
+        (UINT32)RequiredSize, NoTrailing);
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "%s [%X]\n",
-        (char *) Buffer->Pointer, (UINT32) RequiredSize));
-    return_ACPI_STATUS (AE_OK);
+    ACPI_DEBUG_PRINT((ACPI_DB_EXEC, "%s [%X]\n",
+        (char*)Buffer->Pointer, (UINT32)RequiredSize));
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -361,64 +341,54 @@ AcpiNsHandleToPathname (
  ******************************************************************************/
 
 UINT32
-AcpiNsBuildNormalizedPath (
-    ACPI_NAMESPACE_NODE     *Node,
-    char                    *FullPath,
-    UINT32                  PathSize,
-    BOOLEAN                 NoTrailing)
+AcpiNsBuildNormalizedPath(
+    ACPI_NAMESPACE_NODE* Node,
+    char* FullPath,
+    UINT32 PathSize,
+    BOOLEAN NoTrailing)
 {
-    UINT32                  Length = 0, i;
-    char                    Name[ACPI_NAMESEG_SIZE];
-    BOOLEAN                 DoNoTrailing;
-    char                    c, *Left, *Right;
-    ACPI_NAMESPACE_NODE     *NextNode;
+    UINT32 Length = 0, i;
+    char Name[ACPI_NAMESEG_SIZE];
+    BOOLEAN DoNoTrailing;
+    char c, *Left, *Right;
+    ACPI_NAMESPACE_NODE* NextNode;
 
+    ACPI_FUNCTION_TRACE_PTR(NsBuildNormalizedPath, Node);
 
-    ACPI_FUNCTION_TRACE_PTR (NsBuildNormalizedPath, Node);
-
-
-#define ACPI_PATH_PUT8(Path, Size, Byte, Length)    \
-    do {                                            \
-        if ((Length) < (Size))                      \
-        {                                           \
-            (Path)[(Length)] = (Byte);              \
-        }                                           \
-        (Length)++;                                 \
+#define ACPI_PATH_PUT8(Path, Size, Byte, Length) \
+    do {                                         \
+        if ((Length) < (Size)) {                 \
+            (Path)[(Length)] = (Byte);           \
+        }                                        \
+        (Length)++;                              \
     } while (0)
 
     /*
      * Make sure the PathSize is correct, so that we don't need to
      * validate both FullPath and PathSize.
      */
-    if (!FullPath)
-    {
+    if (!FullPath) {
         PathSize = 0;
     }
 
-    if (!Node)
-    {
+    if (!Node) {
         goto BuildTrailingNull;
     }
 
     NextNode = Node;
-    while (NextNode && NextNode != AcpiGbl_RootNode)
-    {
-        if (NextNode != Node)
-        {
+    while (NextNode && NextNode != AcpiGbl_RootNode) {
+        if (NextNode != Node) {
             ACPI_PATH_PUT8(FullPath, PathSize, AML_DUAL_NAME_PREFIX, Length);
         }
 
-        ACPI_MOVE_32_TO_32 (Name, &NextNode->Name);
+        ACPI_MOVE_32_TO_32(Name, &NextNode->Name);
         DoNoTrailing = NoTrailing;
-        for (i = 0; i < 4; i++)
-        {
-            c = Name[4-i-1];
-            if (DoNoTrailing && c != '_')
-            {
+        for (i = 0; i < 4; i++) {
+            c = Name[4 - i - 1];
+            if (DoNoTrailing && c != '_') {
                 DoNoTrailing = FALSE;
             }
-            if (!DoNoTrailing)
-            {
+            if (!DoNoTrailing) {
                 ACPI_PATH_PUT8(FullPath, PathSize, c, Length);
             }
         }
@@ -430,13 +400,11 @@ AcpiNsBuildNormalizedPath (
 
     /* Reverse the path string */
 
-    if (Length <= PathSize)
-    {
+    if (Length <= PathSize) {
         Left = FullPath;
-        Right = FullPath+Length - 1;
+        Right = FullPath + Length - 1;
 
-        while (Left < Right)
-        {
+        while (Left < Right) {
             c = *Left;
             *Left++ = *Right;
             *Right-- = c;
@@ -446,13 +414,12 @@ AcpiNsBuildNormalizedPath (
     /* Append the trailing null */
 
 BuildTrailingNull:
-    ACPI_PATH_PUT8 (FullPath, PathSize, '\0', Length);
+    ACPI_PATH_PUT8(FullPath, PathSize, '\0', Length);
 
 #undef ACPI_PATH_PUT8
 
-    return_UINT32 (Length);
+    return_UINT32(Length);
 }
-
 
 /*******************************************************************************
  *
@@ -471,46 +438,40 @@ BuildTrailingNull:
  *
  ******************************************************************************/
 
-char *
-AcpiNsGetNormalizedPathname (
-    ACPI_NAMESPACE_NODE     *Node,
-    BOOLEAN                 NoTrailing)
+char* AcpiNsGetNormalizedPathname(
+    ACPI_NAMESPACE_NODE* Node,
+    BOOLEAN NoTrailing)
 {
-    char                    *NameBuffer;
-    ACPI_SIZE               Size;
+    char* NameBuffer;
+    ACPI_SIZE Size;
 
-
-    ACPI_FUNCTION_TRACE_PTR (NsGetNormalizedPathname, Node);
-
+    ACPI_FUNCTION_TRACE_PTR(NsGetNormalizedPathname, Node);
 
     /* Calculate required buffer size based on depth below root */
 
-    Size = AcpiNsBuildNormalizedPath (Node, NULL, 0, NoTrailing);
-    if (!Size)
-    {
-        return_PTR (NULL);
+    Size = AcpiNsBuildNormalizedPath(Node, NULL, 0, NoTrailing);
+    if (!Size) {
+        return_PTR(NULL);
     }
 
     /* Allocate a buffer to be returned to caller */
 
-    NameBuffer = ACPI_ALLOCATE_ZEROED (Size);
-    if (!NameBuffer)
-    {
-        ACPI_ERROR ((AE_INFO,
-            "Could not allocate %u bytes", (UINT32) Size));
-        return_PTR (NULL);
+    NameBuffer = ACPI_ALLOCATE_ZEROED(Size);
+    if (!NameBuffer) {
+        ACPI_ERROR((AE_INFO,
+            "Could not allocate %u bytes", (UINT32)Size));
+        return_PTR(NULL);
     }
 
     /* Build the path in the allocated buffer */
 
-    (void) AcpiNsBuildNormalizedPath (Node, NameBuffer, (UINT32) Size, NoTrailing);
+    (void)AcpiNsBuildNormalizedPath(Node, NameBuffer, (UINT32)Size, NoTrailing);
 
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_NAMES, "%s: Path \"%s\"\n",
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_NAMES, "%s: Path \"%s\"\n",
         ACPI_GET_FUNCTION_NAME, NameBuffer));
 
-    return_PTR (NameBuffer);
+    return_PTR(NameBuffer);
 }
-
 
 /*******************************************************************************
  *
@@ -527,74 +488,61 @@ AcpiNsGetNormalizedPathname (
  *
  ******************************************************************************/
 
-char *
-AcpiNsBuildPrefixedPathname (
-    ACPI_GENERIC_STATE      *PrefixScope,
-    const char              *InternalPath)
+char* AcpiNsBuildPrefixedPathname(
+    ACPI_GENERIC_STATE* PrefixScope,
+    const char* InternalPath)
 {
-    ACPI_STATUS             Status;
-    char                    *FullPath = NULL;
-    char                    *ExternalPath = NULL;
-    char                    *PrefixPath = NULL;
-    ACPI_SIZE               PrefixPathLength = 0;
-
+    ACPI_STATUS Status;
+    char* FullPath = NULL;
+    char* ExternalPath = NULL;
+    char* PrefixPath = NULL;
+    ACPI_SIZE PrefixPathLength = 0;
 
     /* If there is a prefix, get the pathname to it */
 
-    if (PrefixScope && PrefixScope->Scope.Node)
-    {
-        PrefixPath = AcpiNsGetNormalizedPathname (PrefixScope->Scope.Node, TRUE);
-        if (PrefixPath)
-        {
-            PrefixPathLength = strlen (PrefixPath);
+    if (PrefixScope && PrefixScope->Scope.Node) {
+        PrefixPath = AcpiNsGetNormalizedPathname(PrefixScope->Scope.Node, TRUE);
+        if (PrefixPath) {
+            PrefixPathLength = strlen(PrefixPath);
         }
     }
 
-    Status = AcpiNsExternalizeName (ACPI_UINT32_MAX, InternalPath,
+    Status = AcpiNsExternalizeName(ACPI_UINT32_MAX, InternalPath,
         NULL, &ExternalPath);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         goto Cleanup;
     }
 
     /* Merge the prefix path and the path. 2 is for one dot and trailing null */
 
-    FullPath = ACPI_ALLOCATE_ZEROED (
-        PrefixPathLength + strlen (ExternalPath) + 2);
-    if (!FullPath)
-    {
+    FullPath = ACPI_ALLOCATE_ZEROED(
+        PrefixPathLength + strlen(ExternalPath) + 2);
+    if (!FullPath) {
         goto Cleanup;
     }
 
     /* Don't merge if the External path is already fully qualified */
 
-    if (PrefixPath &&
-        (*ExternalPath != '\\') &&
-        (*ExternalPath != '^'))
-    {
-        strcat (FullPath, PrefixPath);
-        if (PrefixPath[1])
-        {
-            strcat (FullPath, ".");
+    if (PrefixPath && (*ExternalPath != '\\') && (*ExternalPath != '^')) {
+        strcat(FullPath, PrefixPath);
+        if (PrefixPath[1]) {
+            strcat(FullPath, ".");
         }
     }
 
-    AcpiNsNormalizePathname (ExternalPath);
-    strcat (FullPath, ExternalPath);
+    AcpiNsNormalizePathname(ExternalPath);
+    strcat(FullPath, ExternalPath);
 
 Cleanup:
-    if (PrefixPath)
-    {
-        ACPI_FREE (PrefixPath);
+    if (PrefixPath) {
+        ACPI_FREE(PrefixPath);
     }
-    if (ExternalPath)
-    {
-        ACPI_FREE (ExternalPath);
+    if (ExternalPath) {
+        ACPI_FREE(ExternalPath);
     }
 
     return (FullPath);
 }
-
 
 /*******************************************************************************
  *
@@ -610,36 +558,31 @@ Cleanup:
  *
  ******************************************************************************/
 
-void
-AcpiNsNormalizePathname (
-    char                    *OriginalPath)
+void AcpiNsNormalizePathname(
+    char* OriginalPath)
 {
-    char                    *InputPath = OriginalPath;
-    char                    *NewPathBuffer;
-    char                    *NewPath;
-    UINT32                  i;
-
+    char* InputPath = OriginalPath;
+    char* NewPathBuffer;
+    char* NewPath;
+    UINT32 i;
 
     /* Allocate a temp buffer in which to construct the new path */
 
-    NewPathBuffer = ACPI_ALLOCATE_ZEROED (strlen (InputPath) + 1);
+    NewPathBuffer = ACPI_ALLOCATE_ZEROED(strlen(InputPath) + 1);
     NewPath = NewPathBuffer;
-    if (!NewPathBuffer)
-    {
+    if (!NewPathBuffer) {
         return;
     }
 
     /* Special characters may appear at the beginning of the path */
 
-    if (*InputPath == '\\')
-    {
+    if (*InputPath == '\\') {
         *NewPath = *InputPath;
         NewPath++;
         InputPath++;
     }
 
-    while (*InputPath == '^')
-    {
+    while (*InputPath == '^') {
         *NewPath = *InputPath;
         NewPath++;
         InputPath++;
@@ -647,12 +590,10 @@ AcpiNsNormalizePathname (
 
     /* Remainder of the path */
 
-    while (*InputPath)
-    {
+    while (*InputPath) {
         /* Do one nameseg at a time */
 
-        for (i = 0; (i < ACPI_NAMESEG_SIZE) && *InputPath; i++)
-        {
+        for (i = 0; (i < ACPI_NAMESEG_SIZE) && *InputPath; i++) {
             if ((i == 0) || (*InputPath != '_')) /* First char is allowed to be underscore */
             {
                 *NewPath = *InputPath;
@@ -664,8 +605,7 @@ AcpiNsNormalizePathname (
 
         /* Dot means that there are more namesegs to come */
 
-        if (*InputPath == '.')
-        {
+        if (*InputPath == '.') {
             *NewPath = *InputPath;
             NewPath++;
             InputPath++;
@@ -673,6 +613,6 @@ AcpiNsNormalizePathname (
     }
 
     *NewPath = 0;
-    strcpy (OriginalPath, NewPathBuffer);
-    ACPI_FREE (NewPathBuffer);
+    strcpy(OriginalPath, NewPathBuffer);
+    ACPI_FREE(NewPathBuffer);
 }

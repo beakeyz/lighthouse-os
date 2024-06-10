@@ -13,8 +13,14 @@ typedef struct usb_device_ident {
     uint16_t subclass;
 } usb_device_ident_t;
 
-#define USB_DEV_IDENT(vid, did, class, subclass) { (vid), (did), (class), (subclass), }
-#define USB_END_IDENT { 0, 0, 0, 0, }
+#define USB_DEV_IDENT(vid, did, class, subclass) \
+    {                                            \
+        (vid), (did), (class), (subclass),       \
+    }
+#define USB_END_IDENT \
+    {                 \
+        0, 0, 0, 0,   \
+    }
 
 /*!
  * @brief: Static descriptor for a usb device driver

@@ -6,7 +6,6 @@
 #include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/usb/usb.h"
-#include <libk/string.h>
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -16,6 +15,7 @@
 #include "oss/obj.h"
 #include "sync/mutex.h"
 #include "system/acpi/acpi.h"
+#include <libk/string.h>
 
 static oss_node_t* _device_node;
 
@@ -23,13 +23,13 @@ static void __destroy_device(device_t* device);
 
 device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
 {
-  return create_device_ex(parent, name, priv, NULL, NULL);
+    return create_device_ex(parent, name, priv, NULL, NULL);
 }
 
 /*!
  * @brief: Allocate memory for a device on @path
  *
- * TODO: create a seperate allocator that lives in dev/core.c for faster 
+ * TODO: create a seperate allocator that lives in dev/core.c for faster
  * device (de)allocation
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
@@ -37,47 +37,47 @@ device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
  */
 device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps)
 {
-  device_t* ret;
-  struct device_endpoint* g_ep;
+    device_t* ret;
+    struct device_endpoint* g_ep;
 
-  if (!name)
-    return nullptr;
+    if (!name)
+        return nullptr;
 
-  ret = kmalloc(sizeof(*ret));
+    ret = kmalloc(sizeof(*ret));
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
+    memset(ret, 0, sizeof(*ret));
 
-  ret->name = strdup(name);
-  ret->lock = create_mutex(NULL);
-  ret->ep_lock = create_mutex(NULL);
-  ret->obj = create_oss_obj(ret->name);
-  ret->driver = parent;
-  ret->flags = flags;
-  ret->private = priv;
-  ret->endpoints = NULL;
-  ret->endpoint_count = NULL;
+    ret->name = strdup(name);
+    ret->lock = create_mutex(NULL);
+    ret->ep_lock = create_mutex(NULL);
+    ret->obj = create_oss_obj(ret->name);
+    ret->driver = parent;
+    ret->flags = flags;
+    ret->private = priv;
+    ret->endpoints = NULL;
+    ret->endpoint_count = NULL;
 
-  /* Implement the device endpoints */
-  (void)device_implement_endpoints(ret, eps);
+    /* Implement the device endpoints */
+    (void)device_implement_endpoints(ret, eps);
 
-  /* Make sure the object knows about us */
-  oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, __destroy_device);
+    /* Make sure the object knows about us */
+    oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, __destroy_device);
 
-  /* Try to call f_create in the generic endpoint */
-  g_ep = device_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
+    /* Try to call f_create in the generic endpoint */
+    g_ep = device_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
 
-  /* Call the private device constructor */
-  if (dev_is_valid_endpoint(g_ep) && g_ep->impl.generic->f_create)
-    g_ep->impl.generic->f_create(ret);
+    /* Call the private device constructor */
+    if (dev_is_valid_endpoint(g_ep) && g_ep->impl.generic->f_create)
+        g_ep->impl.generic->f_create(ret);
 
-  /* Make sure we register ourselves to the driver */
-  if (ret->driver)
-    manifest_add_dev(ret->driver);
+    /* Make sure we register ourselves to the driver */
+    if (ret->driver)
+        manifest_add_dev(ret->driver);
 
-  return ret;
+    return ret;
 }
 
 /*!
@@ -91,31 +91,31 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
  */
 void __destroy_device(device_t* device)
 {
-  device_ep_t* c_ep, *next_ep;
+    device_ep_t *c_ep, *next_ep;
 
-  /* Let the system know that there was a driver removed */
-  if (device->driver)
-    manifest_remove_dev(device->driver);
+    /* Let the system know that there was a driver removed */
+    if (device->driver)
+        manifest_remove_dev(device->driver);
 
-  /* Remove any remaining endpoints from the device */
-  while (device->endpoints) {
-    /* Cycle to next */
-    c_ep = device->endpoints;
-    next_ep = c_ep->next;
+    /* Remove any remaining endpoints from the device */
+    while (device->endpoints) {
+        /* Cycle to next */
+        c_ep = device->endpoints;
+        next_ep = c_ep->next;
 
-    /* Unimplement this endpoint */
-    (void)device_unimplement_endpoint(device, c_ep->type);
+        /* Unimplement this endpoint */
+        (void)device_unimplement_endpoint(device, c_ep->type);
 
-    device->endpoints = next_ep;
-  }
+        device->endpoints = next_ep;
+    }
 
-  destroy_mutex(device->lock);
-  destroy_mutex(device->ep_lock);
-  kfree((void*)device->name);
+    destroy_mutex(device->lock);
+    destroy_mutex(device->ep_lock);
+    kfree((void*)device->name);
 
-  memset(device, 0, sizeof(*device));
+    memset(device, 0, sizeof(*device));
 
-  kfree(device);
+    kfree(device);
 }
 
 /*!
@@ -123,11 +123,11 @@ void __destroy_device(device_t* device)
  */
 void destroy_device(device_t* device)
 {
-  if (device->obj->parent)
-    device_unregister(device);
+    if (device->obj->parent)
+        device_unregister(device);
 
-  /* Destroy the parent object */
-  destroy_oss_obj(device->obj);
+    /* Destroy the parent object */
+    destroy_oss_obj(device->obj);
 }
 
 /*!
@@ -135,13 +135,13 @@ void destroy_device(device_t* device)
  */
 int device_node_add_group(struct oss_node* node, dgroup_t* group)
 {
-  if (!group || !group->node)
-    return -1;
+    if (!group || !group->node)
+        return -1;
 
-  if (!node)
-    node = _device_node;
+    if (!node)
+        node = _device_node;
 
-  return oss_node_add_node(node, group->node);
+    return oss_node_add_node(node, group->node);
 }
 
 /*!
@@ -151,14 +151,14 @@ int device_node_add_group(struct oss_node* node, dgroup_t* group)
  */
 int device_register(device_t* dev, dgroup_t* group)
 {
-  oss_node_t* node;
+    oss_node_t* node;
 
-  node = _device_node;
+    node = _device_node;
 
-  if (group)
-    node = group->node;
+    if (group)
+        node = group->node;
 
-  return oss_node_add_obj(node, dev->obj);
+    return oss_node_add_obj(node, dev->obj);
 }
 
 /*!
@@ -166,27 +166,27 @@ int device_register(device_t* dev, dgroup_t* group)
  */
 int device_register_to_bus(device_t* dev, device_t* busdev)
 {
-  dgroup_t* grp;
+    dgroup_t* grp;
 
-  if (!device_is_bus(busdev))
-    return -KERR_INVAL;
+    if (!device_is_bus(busdev))
+        return -KERR_INVAL;
 
-  grp = busdev->bus_group;
+    grp = busdev->bus_group;
 
-  return device_register(dev, grp);
+    return device_register(dev, grp);
 }
 
 int device_unregister(device_t* dev)
 {
-  int error;
-  dgroup_t* dgroup;
+    int error;
+    dgroup_t* dgroup;
 
-  error = device_get_group(dev, &dgroup);
+    error = device_get_group(dev, &dgroup);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  return dev_group_remove_device(dgroup, dev);
+    return dev_group_remove_device(dgroup, dev);
 }
 
 /*!
@@ -198,78 +198,78 @@ int device_unregister(device_t* dev)
  */
 int device_move(device_t* dev, struct dgroup* newgroup)
 {
-  int error;
-  dgroup_t* oldgroup;
+    int error;
+    dgroup_t* oldgroup;
 
-  if (!dev || !newgroup)
-    return -KERR_INVAL;
+    if (!dev || !newgroup)
+        return -KERR_INVAL;
 
-  error = -1;
+    error = -1;
 
-  mutex_lock(dev->lock);
+    mutex_lock(dev->lock);
 
-  /* Check if the device has a driver attached */
-  if (device_has_driver(dev))
-    goto unlock_and_exit;
+    /* Check if the device has a driver attached */
+    if (device_has_driver(dev))
+        goto unlock_and_exit;
 
-  error = device_get_group(dev, &oldgroup);
+    error = device_get_group(dev, &oldgroup);
 
-  if (error)
-    goto unlock_and_exit;
+    if (error)
+        goto unlock_and_exit;
 
-  error = dev_group_remove_device(oldgroup, dev);
+    error = dev_group_remove_device(oldgroup, dev);
 
-  if (error)
-    goto unlock_and_exit;
+    if (error)
+        goto unlock_and_exit;
 
-  error = dev_group_add_device(newgroup, dev);
+    error = dev_group_add_device(newgroup, dev);
 
 unlock_and_exit:
-  mutex_unlock(dev->lock);
-  return error;
+    mutex_unlock(dev->lock);
+    return error;
 }
 
 int device_move_to_bus(device_t* dev, device_t* newbus)
 {
-  if (!newbus)
-    return -KERR_INVAL;
+    if (!newbus)
+        return -KERR_INVAL;
 
-  if (!device_is_bus(newbus))
-    return -KERR_INVAL;
+    if (!device_is_bus(newbus))
+        return -KERR_INVAL;
 
-  return device_move(dev, newbus->bus_group);
+    return device_move(dev, newbus->bus_group);
 }
 
 static bool __device_itterate(oss_node_t* node, oss_obj_t* obj, void* arg)
 {
-  DEVICE_ITTERATE ittr;
+    DEVICE_ITTERATE ittr;
 
-  if (!arg)
-    return false;
+    if (!arg)
+        return false;
 
-  ittr = arg;
+    ittr = arg;
 
-  /* If we have an object, we hope for it to be a device */
-  if (obj && obj->type == OSS_OBJ_TYPE_DEVICE)
-    return ittr(oss_obj_unwrap(obj, device_t));
+    /* If we have an object, we hope for it to be a device */
+    if (obj && obj->type == OSS_OBJ_TYPE_DEVICE)
+        return ittr(oss_obj_unwrap(obj, device_t));
 
-  return true;
+    return true;
 }
 
 int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
 {
-  oss_node_t* this;
+    oss_node_t* this;
 
-  if (!callback)
-    return -KERR_INVAL;
+    if (!callback)
+        return -KERR_INVAL;
 
-  /* Start itteration from the device root if there is no itteration root given through @root */
-  this = _device_node;
+    /* Start itteration from the device root if there is no itteration root given through @root */
+    this = _device_node;
 
-  if (root)
-    this = root->node;
+    if (root)
+        this = root->node;
 
-  return oss_node_itterate(this, __device_itterate, callback);
+    return oss_node_itterate(this, __device_itterate, callback);
 }
 
 /*!
@@ -279,43 +279,43 @@ int device_for_each(struct dgroup* root, DEVICE_ITTERATE callback)
  */
 device_t* device_open(const char* path)
 {
-  int error;
-  oss_obj_t* obj;
-  device_t* ret;
+    int error;
+    oss_obj_t* obj;
+    device_t* ret;
 
-  error = oss_resolve_obj(path, &obj);
+    error = oss_resolve_obj(path, &obj);
 
-  if (error || !obj)
-    return nullptr;
+    if (error || !obj)
+        return nullptr;
 
-  ret = oss_obj_get_device(obj);
+    ret = oss_obj_get_device(obj);
 
-  /* If the object is invalid we have to close it */
-  if (!ret) {
-    oss_obj_close(obj);
-    /* Make sure we return NULL no matter what */
-    ret = nullptr;
-  }
+    /* If the object is invalid we have to close it */
+    if (!ret) {
+        oss_obj_close(obj);
+        /* Make sure we return NULL no matter what */
+        ret = nullptr;
+    }
 
-  return ret;
+    return ret;
 }
 
 int device_close(device_t* dev)
 {
-  /* TODO: ... */
-  return oss_obj_close(dev->obj);
+    /* TODO: ... */
+    return oss_obj_close(dev->obj);
 }
 
 kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver)
 {
-  if (dev->driver && driver)
-    return -KERR_INVAL;
+    if (dev->driver && driver)
+        return -KERR_INVAL;
 
-  mutex_lock(dev->lock);
-  dev->driver = driver;
-  mutex_unlock(dev->lock);
+    mutex_lock(dev->lock);
+    dev->driver = driver;
+    mutex_unlock(dev->lock);
 
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 /*!
@@ -323,32 +323,31 @@ kerror_t device_bind_driver(device_t* dev, struct drv_manifest* driver)
  */
 bool device_has_driver(device_t* dev)
 {
-  return (dev->driver != nullptr);
+    return (dev->driver != nullptr);
 }
 
 kerror_t device_bind_acpi(device_t* dev, struct acpi_device* acpidev)
 {
-  if (dev->acpi_dev && acpidev)
-    return -KERR_INVAL;
+    if (dev->acpi_dev && acpidev)
+        return -KERR_INVAL;
 
-  mutex_lock(dev->lock);
-  dev->acpi_dev = acpidev;
-  mutex_unlock(dev->lock);
+    mutex_lock(dev->lock);
+    dev->acpi_dev = acpidev;
+    mutex_unlock(dev->lock);
 
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 kerror_t device_bind_pci(device_t* dev, struct pci_device* pcidev)
 {
-  if (dev->pci_dev && pcidev)
-    return -KERR_INVAL;
+    if (dev->pci_dev && pcidev)
+        return -KERR_INVAL;
 
-  mutex_lock(dev->lock);
-  dev->pci_dev = pcidev;
-  mutex_unlock(dev->lock);
+    mutex_lock(dev->lock);
+    dev->pci_dev = pcidev;
+    mutex_unlock(dev->lock);
 
-  return KERR_NONE;
-
+    return KERR_NONE;
 }
 
 /*!
@@ -358,25 +357,25 @@ kerror_t device_bind_pci(device_t* dev, struct pci_device* pcidev)
  */
 kerror_t device_rename(device_t* dev, const char* newname)
 {
-  kerror_t error;
+    kerror_t error;
 
-  if (!dev || !newname)
-    return -KERR_INVAL;
+    if (!dev || !newname)
+        return -KERR_INVAL;
 
-  /* Rename the object */
-  error = oss_obj_rename(dev->obj, newname);
+    /* Rename the object */
+    error = oss_obj_rename(dev->obj, newname);
 
-  /* This would be bad lololololol */
-  if (error)
-    return error;
+    /* This would be bad lololololol */
+    if (error)
+        return error;
 
-  if (dev->name)
-    kfree((void*)dev->name);
+    if (dev->name)
+        kfree((void*)dev->name);
 
-  /* Do our own rename */
-  dev->name = strdup(newname);
+    /* Do our own rename */
+    dev->name = strdup(newname);
 
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 /*!
@@ -389,19 +388,19 @@ kerror_t device_rename(device_t* dev, const char* newname)
  */
 int device_get_group(device_t* dev, struct dgroup** group_out)
 {
-  oss_node_t* dev_parent_node;
+    oss_node_t* dev_parent_node;
 
-  if (!dev || !group_out)
-    return -1;
+    if (!dev || !group_out)
+        return -1;
 
-  dev_parent_node = dev->obj->parent;
+    dev_parent_node = dev->obj->parent;
 
-  if (dev_parent_node->type != OSS_GROUP_NODE)
-    return -2;
+    if (dev_parent_node->type != OSS_GROUP_NODE)
+        return -2;
 
-  /* This node is of type group node, so we may assume it's private field is a devicegroup */
-  *group_out = dev_parent_node->priv;
-  return 0;
+    /* This node is of type group node, so we may assume it's private field is a devicegroup */
+    *group_out = dev_parent_node->priv;
+    return 0;
 }
 
 /*
@@ -427,15 +426,15 @@ int device_get_group(device_t* dev, struct dgroup** group_out)
  */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
-  device_ep_t* ep;
+    device_ep_t* ep;
 
-  ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+    ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-  /* This would all be very bad news */
-  if (!ep || !ep->impl.generic || !ep->impl.generic->f_read)
-    return -KERR_NULL;
+    /* This would all be very bad news */
+    if (!ep || !ep->impl.generic || !ep->impl.generic->f_read)
+        return -KERR_NULL;
 
-  return ep->impl.generic->f_read(dev, buffer, offset, size);
+    return ep->impl.generic->f_read(dev, buffer, offset, size);
 }
 
 /*!
@@ -446,47 +445,47 @@ int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
  */
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
-  device_ep_t* ep;
+    device_ep_t* ep;
 
-  ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+    ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-  /* This would all be very bad news */
-  if (!ep || !ep->impl.generic || !ep->impl.generic->f_write)
-    return -KERR_NULL;
+    /* This would all be very bad news */
+    if (!ep || !ep->impl.generic || !ep->impl.generic->f_write)
+        return -KERR_NULL;
 
-  return ep->impl.generic->f_write(dev, buffer, offset, size);
+    return ep->impl.generic->f_write(dev, buffer, offset, size);
 }
 
 int device_getinfo(device_t* dev, DEVINFO* binfo)
 {
-  device_ep_t* ep;
+    device_ep_t* ep;
 
-  ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+    ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-  if (!ep || !ep->impl.generic->f_get_devinfo)
-    return -KERR_NODEV;
+    if (!ep || !ep->impl.generic->f_get_devinfo)
+        return -KERR_NODEV;
 
-  return ep->impl.generic->f_get_devinfo(dev, binfo);
+    return ep->impl.generic->f_get_devinfo(dev, binfo);
 }
 
 int device_power_on(device_t* dev)
 {
-  kerror_t error;
-  device_ep_t* pwm_ep;
+    kerror_t error;
+    device_ep_t* pwm_ep;
 
-  pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
+    pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
 
-  if (!pwm_ep || !pwm_ep->impl.pwm->f_power_on)
-    return -1;
+    if (!pwm_ep || !pwm_ep->impl.pwm->f_power_on)
+        return -1;
 
-  /* Call endpoint */
-  error = pwm_ep->impl.pwm->f_power_on(dev);
+    /* Call endpoint */
+    error = pwm_ep->impl.pwm->f_power_on(dev);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  dev->flags |= DEV_FLAG_POWERED;
-  return 0;
+    dev->flags |= DEV_FLAG_POWERED;
+    return 0;
 }
 
 /*!
@@ -498,14 +497,14 @@ int device_power_on(device_t* dev)
  */
 int device_on_remove(device_t* dev)
 {
-  device_ep_t* pwm_ep;
+    device_ep_t* pwm_ep;
 
-  pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
+    pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
 
-  if (!pwm_ep)
-    return -1;
+    if (!pwm_ep)
+        return -1;
 
-  return pwm_ep->impl.pwm->f_remove(dev);
+    return pwm_ep->impl.pwm->f_remove(dev);
 }
 
 /*!
@@ -513,7 +512,7 @@ int device_on_remove(device_t* dev)
  */
 int device_suspend(device_t* dev)
 {
-  kernel_panic("TODO: device_suspend");
+    kernel_panic("TODO: device_suspend");
 }
 
 /*!
@@ -521,7 +520,7 @@ int device_suspend(device_t* dev)
  */
 int device_resume(device_t* dev)
 {
-  kernel_panic("TODO: device_resume");
+    kernel_panic("TODO: device_resume");
 }
 
 /*!
@@ -534,33 +533,33 @@ int device_resume(device_t* dev)
  */
 int device_enable(device_t* dev)
 {
-  int error;
-  struct device_endpoint* generic;
+    int error;
+    struct device_endpoint* generic;
 
-  if ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED)
-    return 0;
+    if ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED)
+        return 0;
 
-  mutex_lock(dev->lock);
+    mutex_lock(dev->lock);
 
-  /* Set the device flag */
-  dev->flags |= DEV_FLAG_ENABLED;
+    /* Set the device flag */
+    dev->flags |= DEV_FLAG_ENABLED;
 
-  error = 0;
-  generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+    error = 0;
+    generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-  if (!generic || !generic->impl.generic || !generic->impl.generic->f_enable)
-    goto unlock_and_exit;
+    if (!generic || !generic->impl.generic || !generic->impl.generic->f_enable)
+        goto unlock_and_exit;
 
-  /* Call the device endpoint for a enable, if it has it */
-  error = generic->impl.generic->f_enable(dev);
+    /* Call the device endpoint for a enable, if it has it */
+    error = generic->impl.generic->f_enable(dev);
 
-  /* Yikes */
-  if (error)
-    dev->flags &= ~DEV_FLAG_ENABLED;
+    /* Yikes */
+    if (error)
+        dev->flags &= ~DEV_FLAG_ENABLED;
 
 unlock_and_exit:
-  mutex_unlock(dev->lock);
-  return error;
+    mutex_unlock(dev->lock);
+    return error;
 }
 
 /*!
@@ -573,34 +572,34 @@ unlock_and_exit:
  */
 int device_disable(device_t* dev)
 {
-  int error;
-  struct device_endpoint* generic;
+    int error;
+    struct device_endpoint* generic;
 
-  /* Device already disabled? */
-  if ((dev->flags & DEV_FLAG_ENABLED) != DEV_FLAG_ENABLED)
-    return 0;
+    /* Device already disabled? */
+    if ((dev->flags & DEV_FLAG_ENABLED) != DEV_FLAG_ENABLED)
+        return 0;
 
-  mutex_lock(dev->lock);
+    mutex_lock(dev->lock);
 
-  /* Set the device flag */
-  dev->flags &= ~DEV_FLAG_ENABLED;
+    /* Set the device flag */
+    dev->flags &= ~DEV_FLAG_ENABLED;
 
-  error = 0;
-  generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
+    error = 0;
+    generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
 
-  if (!generic || !generic->impl.generic || !generic->impl.generic->f_disable)
-    goto unlock_and_exit;
+    if (!generic || !generic->impl.generic || !generic->impl.generic->f_disable)
+        goto unlock_and_exit;
 
-  /* Call the device endpoint for a enable, if it has it */
-  error = generic->impl.generic->f_disable(dev);
+    /* Call the device endpoint for a enable, if it has it */
+    error = generic->impl.generic->f_disable(dev);
 
-  /* Yikes v2 */
-  if (error)
-    dev->flags |= DEV_FLAG_ENABLED;
+    /* Yikes v2 */
+    if (error)
+        dev->flags |= DEV_FLAG_ENABLED;
 
 unlock_and_exit:
-  mutex_unlock(dev->lock);
-  return error;
+    mutex_unlock(dev->lock);
+    return error;
 }
 
 /*!
@@ -608,7 +607,7 @@ unlock_and_exit:
  */
 uintptr_t device_message(device_t* dev, dcc_t code)
 {
-  kernel_panic("TODO: device_message");
+    kernel_panic("TODO: device_message");
 }
 
 /*!
@@ -616,36 +615,35 @@ uintptr_t device_message(device_t* dev, dcc_t code)
  */
 uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  kernel_panic("TODO: device_message_ex");
+    kernel_panic("TODO: device_message_ex");
 }
 
-static void print_obj_path(oss_node_t* node) 
+static void print_obj_path(oss_node_t* node)
 {
-  if (node) {
-    print_obj_path(node->parent);
-    printf("/%s", node->name);
-  }
+    if (node) {
+        print_obj_path(node->parent);
+        printf("/%s", node->name);
+    }
 }
 
 static bool _itter(device_t* dev)
 {
-  oss_obj_t* obj = dev->obj;
+    oss_obj_t* obj = dev->obj;
 
-  if (obj) {
-    print_obj_path(obj->parent);
-    printf("/%s\n", obj->name);
-  }
+    if (obj) {
+        print_obj_path(obj->parent);
+        printf("/%s\n", obj->name);
+    }
 
-  return true;
+    return true;
 }
 
 void debug_devices()
 {
-  device_for_each(NULL, _itter);
+    device_for_each(NULL, _itter);
 
-  kernel_panic("debug_devices");
+    kernel_panic("debug_devices");
 }
-
 
 /*!
  * @brief: Initialize the device subsystem
@@ -653,19 +651,19 @@ void debug_devices()
  * The main job of the device subsystem is to allow for quick and easy device storage and access.
  * This is done through the oss, on the path 'Dev'.
  *
- * The first devices to be attached here are bus devices, firmware controllers, chipset/motherboard devices 
+ * The first devices to be attached here are bus devices, firmware controllers, chipset/motherboard devices
  * (PIC, PIT, CMOS, RTC, APIC, ect.)
  */
 void init_devices()
 {
-  /* Initialize an OSS endpoint for device access and storage */
-  _device_node = create_oss_node("Dev", OSS_OBJ_STORE_NODE, NULL, NULL);
+    /* Initialize an OSS endpoint for device access and storage */
+    _device_node = create_oss_node("Dev", OSS_OBJ_STORE_NODE, NULL, NULL);
 
-  ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
+    ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
 
-  init_dgroups();
+    init_dgroups();
 
-  /* Enumerate devices */
+    /* Enumerate devices */
 }
 
 /*!
@@ -673,12 +671,12 @@ void init_devices()
  */
 void init_hw()
 {
-  /* Initialized the ACPI core driver */
-  // Comented until we implement actual system-wide ACPI integration
-  init_acpi_core();
+    /* Initialized the ACPI core driver */
+    // Comented until we implement actual system-wide ACPI integration
+    init_acpi_core();
 
-  /* Load the USB drivers on our system */
-  init_usb_drivers();
+    /* Load the USB drivers on our system */
+    init_usb_drivers();
 
-  ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
+    ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
 }

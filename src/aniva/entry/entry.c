@@ -11,6 +11,7 @@
 #include "dev/usb/usb.h"
 #include "dev/video/core.h"
 #include "fs/core.h"
+#include "irq/interrupts.h"
 #include "kevent/event.h"
 #include "libk/bin/elf.h"
 #include "libk/cmdline/parser.h"
@@ -29,7 +30,6 @@
 #include "system/profile/profile.h"
 #include "system/resource.h"
 #include "time/core.h"
-#include "irq/interrupts.h"
 #include <dev/debug/serial.h>
 #include <mem/heap.h>
 #include <mem/kmem_manager.h>
@@ -38,7 +38,7 @@
 system_info_t g_system_info;
 static proc_t* root_proc;
 
-void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic);
+void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic);
 void kthread_entry(void);
 
 driver_version_t kernel_version = DRIVER_VERSION(0, 0, 1);
@@ -46,98 +46,98 @@ driver_version_t kernel_version = DRIVER_VERSION(0, 0, 1);
 /*
  * NOTE: has to be run after driver initialization
  */
-ErrorOrPtr __init try_fetch_initramdisk(void) 
+ErrorOrPtr __init try_fetch_initramdisk(void)
 {
-  struct multiboot_tag_module* mod = g_system_info.ramdisk;
+    struct multiboot_tag_module* mod = g_system_info.ramdisk;
 
-  if (!mod)
-    return Error();
+    if (!mod)
+        return Error();
 
-  const paddr_t module_start = mod->mod_start;
-  const paddr_t module_end = mod->mod_end;
+    const paddr_t module_start = mod->mod_start;
+    const paddr_t module_end = mod->mod_end;
 
-  KLOG_DBG("Ramdisk: from %llx to %llx\n", module_start, module_end);
+    KLOG_DBG("Ramdisk: from %llx to %llx\n", module_start, module_end);
 
-  /* Prefetch data */
-  const size_t cramdisk_size = module_end - module_start;
+    /* Prefetch data */
+    const size_t cramdisk_size = module_end - module_start;
 
-  /* Map user pages */
-  const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
+    /* Map user pages */
+    const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
 
-  /* Create ramdisk object */
-  disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
+    /* Create ramdisk object */
+    disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
-  if (!ramdisk)
-    return Error();
+    if (!ramdisk)
+        return Error();
 
-  /* We know ramdisks through modules are compressed */
-  ramdisk->m_flags |= GDISKDEV_FLAG_RAM_COMPRESSED;
+    /* We know ramdisks through modules are compressed */
+    ramdisk->m_flags |= GDISKDEV_FLAG_RAM_COMPRESSED;
 
-  /* Register the ramdisk as a disk device */
-  return register_gdisk_dev(ramdisk);
+    /* Register the ramdisk as a disk device */
+    return register_gdisk_dev(ramdisk);
 }
 
-static void register_kernel_data(paddr_t p_mb_addr) 
+static void register_kernel_data(paddr_t p_mb_addr)
 {
-  memset(&g_system_info, 0, sizeof(g_system_info));
+    memset(&g_system_info, 0, sizeof(g_system_info));
 
-  /* Register our desire to use legacy PIT early */
-  g_system_info.irq_chip_type = IRQ_CHIPTYPE_PIT;
+    /* Register our desire to use legacy PIT early */
+    g_system_info.irq_chip_type = IRQ_CHIPTYPE_PIT;
 
-  /* Kernel image info */
-  g_system_info.sys_flags = NULL;
-  g_system_info.kernel_start_addr = (vaddr_t)&_kernel_start;
-  g_system_info.kernel_end_addr = (vaddr_t)&_kernel_end;
-  g_system_info.kernel_version = kernel_version.version;
-  g_system_info.phys_multiboot_addr = p_mb_addr;
-  g_system_info.virt_multiboot_addr = kmem_ensure_high_mapping(p_mb_addr);
+    /* Kernel image info */
+    g_system_info.sys_flags = NULL;
+    g_system_info.kernel_start_addr = (vaddr_t)&_kernel_start;
+    g_system_info.kernel_end_addr = (vaddr_t)&_kernel_end;
+    g_system_info.kernel_version = kernel_version.version;
+    g_system_info.phys_multiboot_addr = p_mb_addr;
+    g_system_info.virt_multiboot_addr = kmem_ensure_high_mapping(p_mb_addr);
 
-  /* Cache the physical address of important tags */
-  g_system_info.rsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
-  g_system_info.xsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
-  g_system_info.firmware_fb = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-  g_system_info.ramdisk = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
-  g_system_info.cmdline = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_CMDLINE);
+    /* Cache the physical address of important tags */
+    g_system_info.rsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    g_system_info.xsdp = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    g_system_info.firmware_fb = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+    g_system_info.ramdisk = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_MODULE);
+    g_system_info.cmdline = get_mb2_tag((void*)g_system_info.virt_multiboot_addr, MULTIBOOT_TAG_TYPE_CMDLINE);
 
-  if (g_system_info.firmware_fb)
-    g_system_info.sys_flags |= SYSFLAGS_HAS_FRAMEBUFFER;
+    if (g_system_info.firmware_fb)
+        g_system_info.sys_flags |= SYSFLAGS_HAS_FRAMEBUFFER;
 }
 
 /*!
  * @brief: Start the absolute foundation of the kernel
  */
-static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic)
+static kerror_t _start_early_if(struct multiboot_tag* mb_addr, uint32_t mb_magic)
 {
-  /*
-   * TODO: move serial to driver level, have early serial that gets migrated to a driver later 
-   * TODO: create a nice logging system, with log clients that connect to a single place to post
-   * logs. The logging server can collect these logs and do all sorts of stuff with them, like save
-   * them to a file, display them to the current console provider, or beam them over serial or USB
-   * connectors =D
-   */
+    /*
+     * TODO: move serial to driver level, have early serial that gets migrated to a driver later
+     * TODO: create a nice logging system, with log clients that connect to a single place to post
+     * logs. The logging server can collect these logs and do all sorts of stuff with them, like save
+     * them to a file, display them to the current console provider, or beam them over serial or USB
+     * connectors =D
+     */
 
-  // Logging system asap
-  init_early_logging();
+    // Logging system asap
+    init_early_logging();
 
-  // First logger
-  init_serial();
+    // First logger
+    init_serial();
 
-  /* Our fist hello to serial */
-  KLOG_DBG("Hi from within (%s)\n", "Aniva");
+    /* Our fist hello to serial */
+    KLOG_DBG("Hi from within (%s)\n", "Aniva");
 
-  // Verify magic number
-  if (mb_magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-    KLOG_ERR("Expected magic bootloader number to be %x, but got %x =(\n", MULTIBOOT2_BOOTLOADER_MAGIC, mb_magic);
-    return -KERR_INVAL;
-  }
+    // Verify magic number
+    if (mb_magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
+        KLOG_ERR("Expected magic bootloader number to be %x, but got %x =(\n", MULTIBOOT2_BOOTLOADER_MAGIC, mb_magic);
+        return -KERR_INVAL;
+    }
 
-  /* Quick bootloader interface info */
-  KLOG_DBG("Multiboot address from the bootloader is at: %p\n", (void*)mb_addr);
+    /* Quick bootloader interface info */
+    KLOG_DBG("Multiboot address from the bootloader is at: %p\n", (void*)mb_addr);
 
-  /* Prepare for stage 1 */
-  register_kernel_data((paddr_t)mb_addr);
+    /* Prepare for stage 1 */
+    register_kernel_data((paddr_t)mb_addr);
 
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 /*!
@@ -147,41 +147,41 @@ static kerror_t _start_early_if(struct multiboot_tag *mb_addr, uint32_t mb_magic
  */
 static kerror_t _start_system_management(void)
 {
-  // parse multiboot
-  init_multiboot((void*)g_system_info.virt_multiboot_addr);
+    // parse multiboot
+    init_multiboot((void*)g_system_info.virt_multiboot_addr);
 
-  // init bootstrap processor
-  init_processor(&g_bsp, 0);
+    // init bootstrap processor
+    init_processor(&g_bsp, 0);
 
-  /*
-   * bootstrap the kernel heap
-   * We're pretty nicely under way to be able to move this call
-   * under init_kmem_manager, since we almost don't need the heap 
-   * in that system anymore. When that happens, we are able to completely
-   * initialize the kheap off of kmem_manager, since we can just 
-   * ask it for bulk memory that we can then create a memory_allocator
-   * from
-   */
-  init_kheap();
+    /*
+     * bootstrap the kernel heap
+     * We're pretty nicely under way to be able to move this call
+     * under init_kmem_manager, since we almost don't need the heap
+     * in that system anymore. When that happens, we are able to completely
+     * initialize the kheap off of kmem_manager, since we can just
+     * ask it for bulk memory that we can then create a memory_allocator
+     * from
+     */
+    init_kheap();
 
-  // initialize cpu-related things that need the memorymanager and the heap
-  init_processor_late(&g_bsp);
+    // initialize cpu-related things that need the memorymanager and the heap
+    init_processor_late(&g_bsp);
 
-  // Setup interrupts (Fault handlers and IRQ request framework)
-  init_interrupts();
+    // Setup interrupts (Fault handlers and IRQ request framework)
+    init_interrupts();
 
-  // we need memory
-  init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
+    // we need memory
+    init_kmem_manager((void*)g_system_info.virt_multiboot_addr);
 
-  // Fully initialize logging right after the memory setup
-  init_logging();
+    // Fully initialize logging right after the memory setup
+    init_logging();
 
-  // Initialize an early console
-  init_early_tty();
+    // Initialize an early console
+    init_early_tty();
 
-  KLOG_INFO("Initialized tty");
+    KLOG_INFO("Initialized tty");
 
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 /*!
@@ -191,46 +191,46 @@ static kerror_t _start_system_management(void)
  */
 static kerror_t _start_subsystems(void)
 {
-  // we need more memory
-  init_zalloc();
+    // we need more memory
+    init_zalloc();
 
-  // we need resources
-  init_kresources();
+    // we need resources
+    init_kresources();
 
-  // Initialize libk
-  init_libk();
+    // Initialize libk
+    init_libk();
 
-  // Initialize kevent
-  init_kevents();
+    // Initialize kevent
+    init_kevents();
 
-  // Make sure we know how to access the PCI configuration space at this point
-  init_pci_early();
+    // Make sure we know how to access the PCI configuration space at this point
+    init_pci_early();
 
-  /* Initialize OSS */
-  init_oss();
+    /* Initialize OSS */
+    init_oss();
 
-  /* Initialize the filesystem core */
-  init_fs_core();
+    /* Initialize the filesystem core */
+    init_fs_core();
 
-  /* Init the infrastructure needed for drivers */
-  init_driver_subsys();
+    /* Init the infrastructure needed for drivers */
+    init_driver_subsys();
 
-  /* Init the kernel device subsystem */
-  init_devices();
+    /* Init the kernel device subsystem */
+    init_devices();
 
-  /* Initialize global disk device subsystem */
-  init_gdisk_dev();
+    /* Initialize global disk device subsystem */
+    init_gdisk_dev();
 
-  /* Initialize the video subsystem */
-  init_video();
+    /* Initialize the video subsystem */
+    init_video();
 
-  /* Initialize HID driver subsystem */
-  init_hid();
+    /* Initialize HID driver subsystem */
+    init_hid();
 
-  /* Initialize the USB subsystem */
-  init_usb();
+    /* Initialize the USB subsystem */
+    init_usb();
 
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 /*!
@@ -256,153 +256,153 @@ static kerror_t _start_subsystems(void)
  * 1) Walk busses and register devices
  * 2) Walk the registerd devices and load drivers for them
  */
-NOINLINE void __init _start(struct multiboot_tag *mb_addr, uint32_t mb_magic) 
+NOINLINE void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic)
 {
-  kerror_t kinit_err;
+    kerror_t kinit_err;
 
-  disable_interrupts();
+    disable_interrupts();
 
-  /*
-   * Stage 0: Start most basic shit
-   */
-  kinit_err = _start_early_if(mb_addr, mb_magic);
+    /*
+     * Stage 0: Start most basic shit
+     */
+    kinit_err = _start_early_if(mb_addr, mb_magic);
 
-  ASSERT_MSG(kinit_err == KERR_NONE, "Stage 0 of the kernel init failed for some reason =(");
+    ASSERT_MSG(kinit_err == KERR_NONE, "Stage 0 of the kernel init failed for some reason =(");
 
-  /*
-   * Stage 1: Start basic memory management and a firmware-hosted 
-   * terminal interface to the user
-   */
-  kinit_err = _start_system_management();
+    /*
+     * Stage 1: Start basic memory management and a firmware-hosted
+     * terminal interface to the user
+     */
+    kinit_err = _start_system_management();
 
-  ASSERT_MSG(kinit_err == KERR_NONE, "Stage 1 of the kernel init failed for some reason =(");
+    ASSERT_MSG(kinit_err == KERR_NONE, "Stage 1 of the kernel init failed for some reason =(");
 
-  /*
-   * Stage 2: Start the system subsystems
-   */
-  kinit_err = _start_subsystems();
+    /*
+     * Stage 2: Start the system subsystems
+     */
+    kinit_err = _start_subsystems();
 
-  ASSERT_MSG(kinit_err == KERR_NONE, "Stage 2 of the kernel init failed for some reason =(");
+    ASSERT_MSG(kinit_err == KERR_NONE, "Stage 2 of the kernel init failed for some reason =(");
 
-  /* Initialize the ACPI subsystem */
-  init_acpi();
+    /* Initialize the ACPI subsystem */
+    init_acpi();
 
-  /* Initialize the PCI subsystem after ACPI */
-  init_pci();
+    /* Initialize the PCI subsystem after ACPI */
+    init_pci();
 
-  /* Initialize the timer system */
-  init_timer_system();
+    /* Initialize the timer system */
+    init_timer_system();
 
-  /* Initialize the subsystem responsible for managing processes */
-  init_proc_core();
+    /* Initialize the subsystem responsible for managing processes */
+    init_proc_core();
 
-  /* Initialize scheduler on the bsp */
-  init_scheduler(0);
+    /* Initialize scheduler on the bsp */
+    init_scheduler(0);
 
-  root_proc = create_kernel_proc(kthread_entry, NULL);
+    root_proc = create_kernel_proc(kthread_entry, NULL);
 
-  ASSERT_MSG(root_proc, "Failed to create a root process!");
+    ASSERT_MSG(root_proc, "Failed to create a root process!");
 
-  /* Create a reaper thread to kill processes through an async pipeline */
-  init_reaper(root_proc);
+    /* Create a reaper thread to kill processes through an async pipeline */
+    init_reaper(root_proc);
 
-  /* Register our kernel process */
-  set_kernel_proc(root_proc);
+    /* Register our kernel process */
+    set_kernel_proc(root_proc);
 
-  /* Add it to the scheduler */
-  sched_add_proc(root_proc, SCHED_PRIO_LOW);
+    /* Add it to the scheduler */
+    sched_add_proc(root_proc, SCHED_PRIO_LOW);
 
-  /* Start the scheduler (Should never return) */
-  start_scheduler();
+    /* Start the scheduler (Should never return) */
+    start_scheduler();
 
-  // Verify not reached
-  kernel_panic("Somehow came back to the kernel entry function!");
+    // Verify not reached
+    kernel_panic("Somehow came back to the kernel entry function!");
 }
 
 /*!
  * @brief: Our kernel thread entry point
  *
- * This function is not supposed to be called explicitly, but rather it serves as the 
- * 'third stage' of our kernel, with stage one being our assembly setup and stage two 
+ * This function is not supposed to be called explicitly, but rather it serves as the
+ * 'third stage' of our kernel, with stage one being our assembly setup and stage two
  * being the start of our C code.
  *
  * FIXME: We need to rationalize why we jump from the kernel boot context into this thread context. We do it to support
- * kernel subsystems that require async stuff (like USB drivers or some crap). Right now the order in which stuff happens 
+ * kernel subsystems that require async stuff (like USB drivers or some crap). Right now the order in which stuff happens
  * in this file seems kind of arbitrary, so we need to revisit this =/
  */
-void kthread_entry(void) 
+void kthread_entry(void)
 {
 
-  /* Make sure the scheduler won't ruin our day */
-  //pause_scheduler();
+    /* Make sure the scheduler won't ruin our day */
+    // pause_scheduler();
 
-  /*
-   * Install and load initial drivers 
-   * NOTE: arch specific devices like APIC, PIT, RTC, etc. are initialized 
-   * by the core system and thus the device objects accociated with these devices 
-   * will look like they have no driver that manages them
-   *
-   * This loads the in-kernel drivers that we need for further boot (FS, Bus, ect.). Most drivers for devices
-   * and other shit are found in Root/System/<driver name>.drv
-   * 
-   * TODO: We want to change the boot sequence to the following:
-   * Load in-kernel drivers -> Mount ramdisk -> Load device drivers from Root/System -> Load disk devices and find our rootdevice
-   * -> Move the ramdisk to Initrd/ -> Mount the rootdevice to Root/ -> Lock system parts of the rootdevice -> Load userspace
-   */
-  init_aniva_driver_registry();
+    /*
+     * Install and load initial drivers
+     * NOTE: arch specific devices like APIC, PIT, RTC, etc. are initialized
+     * by the core system and thus the device objects accociated with these devices
+     * will look like they have no driver that manages them
+     *
+     * This loads the in-kernel drivers that we need for further boot (FS, Bus, ect.). Most drivers for devices
+     * and other shit are found in Root/System/<driver name>.drv
+     *
+     * TODO: We want to change the boot sequence to the following:
+     * Load in-kernel drivers -> Mount ramdisk -> Load device drivers from Root/System -> Load disk devices and find our rootdevice
+     * -> Move the ramdisk to Initrd/ -> Mount the rootdevice to Root/ -> Lock system parts of the rootdevice -> Load userspace
+     */
+    init_aniva_driver_registry();
 
-  /* Try to fetch the initrd which we can mount initial root to */
-  try_fetch_initramdisk();
+    /* Try to fetch the initrd which we can mount initial root to */
+    try_fetch_initramdisk();
 
-  /* Initialize the ramdisk as our initial root */
-  init_root_ramdev();
+    /* Initialize the ramdisk as our initial root */
+    init_root_ramdev();
 
-  /* Initialize hardware (device.c) */
-  init_hw();
+    /* Initialize hardware (device.c) */
+    init_hw();
 
-  /* Scan for pci devices and initialize any matching drivers */
-  init_pci_drivers();
+    /* Scan for pci devices and initialize any matching drivers */
+    init_pci_drivers();
 
-  /* Probe for a root device */
-  init_root_device_probing();
+    /* Probe for a root device */
+    init_root_device_probing();
 
-  /*
-   * Late environment stuff right before we are done bootstrapping kernel systems
-   */
+    /*
+     * Late environment stuff right before we are done bootstrapping kernel systems
+     */
 
-  /* (libk/bin/elf.c): Load the driver for dynamic executables */
-  init_dynamic_loader();
+    /* (libk/bin/elf.c): Load the driver for dynamic executables */
+    init_dynamic_loader();
 
-  /* Do late initialization of the default profiles */
-  init_profiles_late();
+    /* Do late initialization of the default profiles */
+    init_profiles_late();
 
-  //ASSERT_MSG(load_external_driver("Root/System/nvidia.drv"), "Failed to load nvidia kernel driver!");
+    // ASSERT_MSG(load_external_driver("Root/System/nvidia.drv"), "Failed to load nvidia kernel driver!");
 
-  //kernel_panic("NVIDIA TEST");
-  /* 
-   * Remove the early TTY right before we finish low-level system setup. After
-   * this point we're able to support our own debug capabilities
-   */
-  destroy_early_tty();
+    // kernel_panic("NVIDIA TEST");
+    /*
+     * Remove the early TTY right before we finish low-level system setup. After
+     * this point we're able to support our own debug capabilities
+     */
+    destroy_early_tty();
 
-  /*
-   * Setup is done: we can start scheduling stuff 
-   * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the 
-   * 'userspace stuff' will consist of user tracking, configuration and utility processes. Any windowing will be done by the kernel this driver
-   * is an external driver that we will load from the ramfs, since it's not a driver that is an absolute non-trivial piece. When we fail to load
-   */
-  //resume_scheduler();
+    /*
+     * Setup is done: we can start scheduling stuff
+     * At this point, the kernel should have created a bunch of userspace processes that are ready to run on the next schedules. Most of the
+     * 'userspace stuff' will consist of user tracking, configuration and utility processes. Any windowing will be done by the kernel this driver
+     * is an external driver that we will load from the ramfs, since it's not a driver that is an absolute non-trivial piece. When we fail to load
+     */
+    // resume_scheduler();
 
-  /* Will be attached to Drv/other/kterm */
-  if (opt_parser_get_bool("use_kterm"))
-    ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
-  else 
-    ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
+    /* Will be attached to Drv/other/kterm */
+    if (opt_parser_get_bool("use_kterm"))
+        ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+    else
+        ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
-  while (true)
-    /* Block this thread to save cycles */
-    thread_sleep(root_proc->m_init_thread);
+    while (true)
+        /* Block this thread to save cycles */
+        thread_sleep(root_proc->m_init_thread);
 
-  /* Should not happen lmao */
-  kernel_panic("Reached end of start_thread");
+    /* Should not happen lmao */
+    kernel_panic("Reached end of start_thread");
 }

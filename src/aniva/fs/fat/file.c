@@ -10,151 +10,150 @@
 
 static int fat_read(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 {
-  oss_node_t* node = file->m_obj->parent;
+    oss_node_t* node = file->m_obj->parent;
 
-  if (!size)
-    return -1;
+    if (!size)
+        return -1;
 
-  if (offset >= file->m_total_size)
-    return -2;
+    if (offset >= file->m_total_size)
+        return -2;
 
-  /* Trim the size a bit if it happens to overflows */
-  if ((offset + *size) >= file->m_total_size)
-    *size -= ((offset + *size) - file->m_total_size);
+    /* Trim the size a bit if it happens to overflows */
+    if ((offset + *size) >= file->m_total_size)
+        *size -= ((offset + *size) - file->m_total_size);
 
-  return fat32_read_clusters(node, buffer, file->m_private, offset, *size);
+    return fat32_read_clusters(node, buffer, file->m_private, offset, *size);
 }
 
 static int fat_write(file_t* file, void* buffer, size_t* size, uintptr_t offset)
 {
-  if (!file || !file->m_obj)
-    return -KERR_INVAL;
+    if (!file || !file->m_obj)
+        return -KERR_INVAL;
 
-  return fat32_write_clusters(file->m_obj->parent, buffer, file->m_private, offset, *size);
+    return fat32_write_clusters(file->m_obj->parent, buffer, file->m_private, offset, *size);
 }
 
 static int fat_sync(file_t* file)
 {
-  if (!file || !file->m_obj)
-    return -KERR_INVAL;
+    if (!file || !file->m_obj)
+        return -KERR_INVAL;
 
-  return fatfs_flush(file->m_obj->parent);
+    return fatfs_flush(file->m_obj->parent);
 }
 
 static int fat_close(file_t* file)
 {
-  fat_file_t* fat_file;
+    fat_file_t* fat_file;
 
-  fat_file = file->m_private;
+    fat_file = file->m_private;
 
-  destroy_fat_file(fat_file);
-  return 0;
+    destroy_fat_file(fat_file);
+    return 0;
 }
 
 file_ops_t fat_file_ops = {
-  .f_close = fat_close,
-  .f_read = fat_read,
-  .f_write = fat_write,
-  .f_sync = fat_sync,
+    .f_close = fat_close,
+    .f_read = fat_read,
+    .f_write = fat_write,
+    .f_sync = fat_sync,
 };
 
 int fat_dir_destroy(dir_t* dir)
 {
-  fat_file_t* ffile;
+    fat_file_t* ffile;
 
-  if (!dir)
-    return -KERR_INVAL;
+    if (!dir)
+        return -KERR_INVAL;
 
-  ffile = dir->priv;
+    ffile = dir->priv;
 
-  destroy_fat_file(ffile);
-  return 0;
+    destroy_fat_file(ffile);
+    return 0;
 }
 
 int fat_dir_create_child(dir_t* dir, const char* name)
 {
-  kernel_panic("TODO: fat_dir_create_child");
+    kernel_panic("TODO: fat_dir_create_child");
 }
 
 int fat_dir_remove_child(dir_t* dir, const char* name)
 {
-  kernel_panic("TODO: fat_dir_remove_child");
+    kernel_panic("TODO: fat_dir_remove_child");
 }
 
 static void fat_8_3_to_filename(char* fat8_3, char* b_name, uint32_t bsize)
 {
-  uint32_t idx = 0;
-  uint32_t out_idx = 0;
+    uint32_t idx = 0;
+    uint32_t out_idx = 0;
 
-  memset(b_name, 0, bsize);
+    memset(b_name, 0, bsize);
 
-  /* First, copy over the filename before the period */
-  while (fat8_3[idx] != ' ' && idx < 11) {
-    b_name[out_idx++] = fat8_3[idx++];
-  }
+    /* First, copy over the filename before the period */
+    while (fat8_3[idx] != ' ' && idx < 11) {
+        b_name[out_idx++] = fat8_3[idx++];
+    }
 
-  /* If we reached the end, stop here */
-  if (idx == 11)
-    return;
+    /* If we reached the end, stop here */
+    if (idx == 11)
+        return;
 
-  /* Search where the file extention starts */
-  while (fat8_3[idx] == ' ' && idx < 11)
-    idx++;
+    /* Search where the file extention starts */
+    while (fat8_3[idx] == ' ' && idx < 11)
+        idx++;
 
-  if (idx == 11)
-    return;
+    if (idx == 11)
+        return;
 
-  /* Copy the period */
-  b_name[out_idx++] = '.';
+    /* Copy the period */
+    b_name[out_idx++] = '.';
 
-  /* Copy the extention */
-  while (idx < 11) {
-    b_name[out_idx++] = fat8_3[idx++];
-  }
+    /* Copy the extention */
+    while (idx < 11) {
+        b_name[out_idx++] = fat8_3[idx++];
+    }
 }
 
 kerror_t fat_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
 {
-  fat_dir_entry_t entry;
-  file_t* f = NULL;
-  dir_t* d = NULL;
-  char namebuf[12] = { NULL };
+    fat_dir_entry_t entry;
+    file_t* f = NULL;
+    dir_t* d = NULL;
+    char namebuf[12] = { NULL };
 
-  if (!bentry)
-    return -KERR_NULL;
+    if (!bentry)
+        return -KERR_NULL;
 
-  if (!KERR_OK(fat32_read_dir_entry(dir->node, dir->priv, &entry, idx, NULL)))
-    return -KERR_INVAL;
+    if (!KERR_OK(fat32_read_dir_entry(dir->node, dir->priv, &entry, idx, NULL)))
+        return -KERR_INVAL;
 
-  fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
+    fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
 
-  if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
-    d = create_fat_dir(GET_FAT_FSINFO(dir->node), NULL, namebuf);
-  else
-    f = create_fat_file(GET_FAT_FSINFO(dir->node), NULL, namebuf);
+    if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
+        d = create_fat_dir(GET_FAT_FSINFO(dir->node), NULL, namebuf);
+    else
+        f = create_fat_file(GET_FAT_FSINFO(dir->node), NULL, namebuf);
 
-  if (!d && !f)
-    return -KERR_INVAL;
+    if (!d && !f)
+        return -KERR_INVAL;
 
-  return init_direntry(
-    bentry,
-    (d != nullptr) ? (void*)d        : (void*)f,
-    (d != nullptr) ? DIRENT_TYPE_DIR : DIRENT_TYPE_FILE
-  );
+    return init_direntry(
+        bentry,
+        (d != nullptr) ? (void*)d : (void*)f,
+        (d != nullptr) ? DIRENT_TYPE_DIR : DIRENT_TYPE_FILE);
 }
 
 oss_obj_t* fat_dir_find(dir_t* dir, const char* path)
 {
-  kernel_panic("TODO: fat_dir_find");
-  return nullptr;
+    kernel_panic("TODO: fat_dir_find");
+    return nullptr;
 }
 
 dir_ops_t fat_dir_ops = {
-  .f_destroy = fat_dir_destroy,
-  .f_create_child = fat_dir_create_child,
-  .f_remove_child = fat_dir_remove_child,
-  .f_read = fat_dir_read,
-  .f_find = fat_dir_find,
+    .f_destroy = fat_dir_destroy,
+    .f_create_child = fat_dir_create_child,
+    .f_remove_child = fat_dir_remove_child,
+    .f_read = fat_dir_read,
+    .f_find = fat_dir_find,
 };
 
 /*!
@@ -163,33 +162,33 @@ dir_ops_t fat_dir_ops = {
  */
 file_t* create_fat_file(fat_fs_info_t* info, uint32_t flags, const char* path)
 {
-  file_t* ret;
-  fat_file_t* ffile;
+    file_t* ret;
+    fat_file_t* ffile;
 
-  ret = nullptr;
-  ffile = nullptr;
+    ret = nullptr;
+    ffile = nullptr;
 
-  /* Invaid args */
-  if (!info || !path || !path[0])
-    return nullptr;
+    /* Invaid args */
+    if (!info || !path || !path[0])
+        return nullptr;
 
-  ret = create_file(info->node, flags, path);
+    ret = create_file(info->node, flags, path);
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  /* This will make both the fat file and the regular file aware of each other */
-  ffile = allocate_fat_file(ret, FFILE_TYPE_FILE);
+    /* This will make both the fat file and the regular file aware of each other */
+    ffile = allocate_fat_file(ret, FFILE_TYPE_FILE);
 
-  if (!ffile)
-    goto fail_and_exit;
+    if (!ffile)
+        goto fail_and_exit;
 
-  file_set_ops(ret, &fat_file_ops);
+    file_set_ops(ret, &fat_file_ops);
 
-  return ret;
+    return ret;
 fail_and_exit:
-  destroy_oss_obj(ret->m_obj);
-  return nullptr;
+    destroy_oss_obj(ret->m_obj);
+    return nullptr;
 }
 
 /*!
@@ -197,35 +196,35 @@ fail_and_exit:
  */
 dir_t* create_fat_dir(fat_fs_info_t* info, uint32_t flags, const char* path)
 {
-  dir_t* ret;
-  fat_file_t* ffile;
+    dir_t* ret;
+    fat_file_t* ffile;
 
-  ret = create_dir(info->node, path, &fat_dir_ops, NULL, NULL);
+    ret = create_dir(info->node, path, &fat_dir_ops, NULL, NULL);
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  ffile = allocate_fat_file(ret, FFILE_TYPE_DIR);
+    ffile = allocate_fat_file(ret, FFILE_TYPE_DIR);
 
-  if (!ffile)
-    goto dealloc_and_exit;
+    if (!ffile)
+        goto dealloc_and_exit;
 
-  return ret;
+    return ret;
 dealloc_and_exit:
-  destroy_dir(ret);
-  return nullptr;
+    destroy_dir(ret);
+    return nullptr;
 }
 
 void destroy_fat_file(fat_file_t* file)
 {
-  if (file->clusterchain_buffer)
-    kfree(file->clusterchain_buffer);
+    if (file->clusterchain_buffer)
+        kfree(file->clusterchain_buffer);
 
-  /* If the file was a directory, this is allocated on the kernel heap */
-  if (file->dir_entries)
-    kfree(file->dir_entries);
+    /* If the file was a directory, this is allocated on the kernel heap */
+    if (file->dir_entries)
+        kfree(file->dir_entries);
 
-  deallocate_fat_file(file);
+    deallocate_fat_file(file);
 }
 
 /*!
@@ -237,41 +236,41 @@ void destroy_fat_file(fat_file_t* file)
  */
 size_t get_fat_file_size(fat_file_t* file)
 {
-  oss_node_t* parent;
+    oss_node_t* parent;
 
-  if (!file || !file->parent)
-    return NULL;
+    if (!file || !file->parent)
+        return NULL;
 
-  switch (file->type) {
+    switch (file->type) {
     case FFILE_TYPE_FILE:
-      parent = file->file_parent->m_obj->parent;
-      break;
+        parent = file->file_parent->m_obj->parent;
+        break;
     case FFILE_TYPE_DIR:
-      parent = file->dir_parent->node;
-      break;
-  }
+        parent = file->dir_parent->node;
+        break;
+    }
 
-  return file->clusters_num * GET_FAT_FSINFO(parent)->cluster_size;
+    return file->clusters_num * GET_FAT_FSINFO(parent)->cluster_size;
 }
 
 kerror_t fat_file_update_dir_entries(fat_file_t* file)
 {
-  size_t fsize;
+    size_t fsize;
 
-  if (!file || file->type != FFILE_TYPE_DIR) 
-    return -KERR_INVAL;
+    if (!file || file->type != FFILE_TYPE_DIR)
+        return -KERR_INVAL;
 
-  if (file->dir_entries)
-    kfree(file->dir_entries);
+    if (file->dir_entries)
+        kfree(file->dir_entries);
 
-  fsize = get_fat_file_size(file);
+    fsize = get_fat_file_size(file);
 
-  /* Reallocate */
-  file->dir_entries = kmalloc(fsize);
+    /* Reallocate */
+    file->dir_entries = kmalloc(fsize);
 
-  /* Load all the data into the buffer */
-  if (!KERR_OK(fat32_read_clusters(file->dir_parent->node, (uint8_t*)file->dir_entries, file, 0, fsize)))
-    return -KERR_IO;
+    /* Load all the data into the buffer */
+    if (!KERR_OK(fat32_read_clusters(file->dir_parent->node, (uint8_t*)file->dir_entries, file, 0, fsize)))
+        return -KERR_IO;
 
-  return 0;
+    return 0;
 }

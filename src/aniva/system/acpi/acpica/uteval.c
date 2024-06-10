@@ -149,14 +149,12 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("uteval")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("uteval")
 
 /*******************************************************************************
  *
@@ -178,26 +176,23 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtEvaluateObject (
-    ACPI_NAMESPACE_NODE     *PrefixNode,
-    const char              *Path,
-    UINT32                  ExpectedReturnBtypes,
-    ACPI_OPERAND_OBJECT     **ReturnDesc)
+AcpiUtEvaluateObject(
+    ACPI_NAMESPACE_NODE* PrefixNode,
+    const char* Path,
+    UINT32 ExpectedReturnBtypes,
+    ACPI_OPERAND_OBJECT** ReturnDesc)
 {
-    ACPI_EVALUATE_INFO      *Info;
-    ACPI_STATUS             Status;
-    UINT32                  ReturnBtype;
+    ACPI_EVALUATE_INFO* Info;
+    ACPI_STATUS Status;
+    UINT32 ReturnBtype;
 
-
-    ACPI_FUNCTION_TRACE (UtEvaluateObject);
-
+    ACPI_FUNCTION_TRACE(UtEvaluateObject);
 
     /* Allocate the evaluation information block */
 
-    Info = ACPI_ALLOCATE_ZEROED (sizeof (ACPI_EVALUATE_INFO));
-    if (!Info)
-    {
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    Info = ACPI_ALLOCATE_ZEROED(sizeof(ACPI_EVALUATE_INFO));
+    if (!Info) {
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
     Info->PrefixNode = PrefixNode;
@@ -205,17 +200,13 @@ AcpiUtEvaluateObject (
 
     /* Evaluate the object/method */
 
-    Status = AcpiNsEvaluate (Info);
-    if (ACPI_FAILURE (Status))
-    {
-        if (Status == AE_NOT_FOUND)
-        {
-            ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "[%4.4s.%s] was not found\n",
-                AcpiUtGetNodeName (PrefixNode), Path));
-        }
-        else
-        {
-            ACPI_ERROR_METHOD ("Method execution failed",
+    Status = AcpiNsEvaluate(Info);
+    if (ACPI_FAILURE(Status)) {
+        if (Status == AE_NOT_FOUND) {
+            ACPI_DEBUG_PRINT((ACPI_DB_EXEC, "[%4.4s.%s] was not found\n",
+                AcpiUtGetNodeName(PrefixNode), Path));
+        } else {
+            ACPI_ERROR_METHOD("Method execution failed",
                 PrefixNode, Path, Status);
         }
 
@@ -224,11 +215,9 @@ AcpiUtEvaluateObject (
 
     /* Did we get a return object? */
 
-    if (!Info->ReturnObject)
-    {
-        if (ExpectedReturnBtypes)
-        {
-            ACPI_ERROR_METHOD ("No object was returned from",
+    if (!Info->ReturnObject) {
+        if (ExpectedReturnBtypes) {
+            ACPI_ERROR_METHOD("No object was returned from",
                 PrefixNode, Path, AE_NOT_EXIST);
 
             Status = AE_NOT_EXIST;
@@ -239,8 +228,7 @@ AcpiUtEvaluateObject (
 
     /* Map the return object type to the bitmapped type */
 
-    switch ((Info->ReturnObject)->Common.Type)
-    {
+    switch ((Info->ReturnObject)->Common.Type) {
     case ACPI_TYPE_INTEGER:
 
         ReturnBtype = ACPI_BTYPE_INTEGER;
@@ -267,33 +255,30 @@ AcpiUtEvaluateObject (
         break;
     }
 
-    if ((AcpiGbl_EnableInterpreterSlack) &&
-        (!ExpectedReturnBtypes))
-    {
+    if ((AcpiGbl_EnableInterpreterSlack) && (!ExpectedReturnBtypes)) {
         /*
          * We received a return object, but one was not expected. This can
          * happen frequently if the "implicit return" feature is enabled.
          * Just delete the return object and return AE_OK.
          */
-        AcpiUtRemoveReference (Info->ReturnObject);
+        AcpiUtRemoveReference(Info->ReturnObject);
         goto Cleanup;
     }
 
     /* Is the return object one of the expected types? */
 
-    if (!(ExpectedReturnBtypes & ReturnBtype))
-    {
-        ACPI_ERROR_METHOD ("Return object type is incorrect",
+    if (!(ExpectedReturnBtypes & ReturnBtype)) {
+        ACPI_ERROR_METHOD("Return object type is incorrect",
             PrefixNode, Path, AE_TYPE);
 
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Type returned from %s was incorrect: %s, expected Btypes: 0x%X",
-            Path, AcpiUtGetObjectTypeName (Info->ReturnObject),
+            Path, AcpiUtGetObjectTypeName(Info->ReturnObject),
             ExpectedReturnBtypes));
 
         /* On error exit, we must delete the return object */
 
-        AcpiUtRemoveReference (Info->ReturnObject);
+        AcpiUtRemoveReference(Info->ReturnObject);
         Status = AE_TYPE;
         goto Cleanup;
     }
@@ -303,10 +288,9 @@ AcpiUtEvaluateObject (
     *ReturnDesc = Info->ReturnObject;
 
 Cleanup:
-    ACPI_FREE (Info);
-    return_ACPI_STATUS (Status);
+    ACPI_FREE(Info);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -326,23 +310,20 @@ Cleanup:
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtEvaluateNumericObject (
-    const char              *ObjectName,
-    ACPI_NAMESPACE_NODE     *DeviceNode,
-    UINT64                  *Value)
+AcpiUtEvaluateNumericObject(
+    const char* ObjectName,
+    ACPI_NAMESPACE_NODE* DeviceNode,
+    UINT64* Value)
 {
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_STATUS             Status;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(UtEvaluateNumericObject);
 
-    ACPI_FUNCTION_TRACE (UtEvaluateNumericObject);
-
-
-    Status = AcpiUtEvaluateObject (DeviceNode, ObjectName,
+    Status = AcpiUtEvaluateObject(DeviceNode, ObjectName,
         ACPI_BTYPE_INTEGER, &ObjDesc);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Get the returned Integer */
@@ -351,10 +332,9 @@ AcpiUtEvaluateNumericObject (
 
     /* On exit, we must delete the return object */
 
-    AcpiUtRemoveReference (ObjDesc);
-    return_ACPI_STATUS (Status);
+    AcpiUtRemoveReference(ObjDesc);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -374,49 +354,44 @@ AcpiUtEvaluateNumericObject (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtExecute_STA (
-    ACPI_NAMESPACE_NODE     *DeviceNode,
-    UINT32                  *Flags)
+AcpiUtExecute_STA(
+    ACPI_NAMESPACE_NODE* DeviceNode,
+    UINT32* Flags)
 {
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_STATUS             Status;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(UtExecute_STA);
 
-    ACPI_FUNCTION_TRACE (UtExecute_STA);
-
-
-    Status = AcpiUtEvaluateObject (DeviceNode, METHOD_NAME__STA,
+    Status = AcpiUtEvaluateObject(DeviceNode, METHOD_NAME__STA,
         ACPI_BTYPE_INTEGER, &ObjDesc);
-    if (ACPI_FAILURE (Status))
-    {
-        if (AE_NOT_FOUND == Status)
-        {
+    if (ACPI_FAILURE(Status)) {
+        if (AE_NOT_FOUND == Status) {
             /*
              * if _STA does not exist, then (as per the ACPI specification),
              * the returned flags will indicate that the device is present,
              * functional, and enabled.
              */
-            ACPI_DEBUG_PRINT ((ACPI_DB_EXEC,
+            ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
                 "_STA on %4.4s was not found, assuming device is present\n",
-                AcpiUtGetNodeName (DeviceNode)));
+                AcpiUtGetNodeName(DeviceNode)));
 
             *Flags = ACPI_UINT32_MAX;
             Status = AE_OK;
         }
 
-        return_ACPI_STATUS (Status);
+        return_ACPI_STATUS(Status);
     }
 
     /* Extract the status flags */
 
-    *Flags = (UINT32) ObjDesc->Integer.Value;
+    *Flags = (UINT32)ObjDesc->Integer.Value;
 
     /* On exit, we must delete the return object */
 
-    AcpiUtRemoveReference (ObjDesc);
-    return_ACPI_STATUS (Status);
+    AcpiUtRemoveReference(ObjDesc);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -437,51 +412,46 @@ AcpiUtExecute_STA (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtExecutePowerMethods (
-    ACPI_NAMESPACE_NODE     *DeviceNode,
-    const char              **MethodNames,
-    UINT8                   MethodCount,
-    UINT8                   *OutValues)
+AcpiUtExecutePowerMethods(
+    ACPI_NAMESPACE_NODE* DeviceNode,
+    const char** MethodNames,
+    UINT8 MethodCount,
+    UINT8* OutValues)
 {
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_STATUS             Status;
-    ACPI_STATUS             FinalStatus = AE_NOT_FOUND;
-    UINT32                  i;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_STATUS Status;
+    ACPI_STATUS FinalStatus = AE_NOT_FOUND;
+    UINT32 i;
 
+    ACPI_FUNCTION_TRACE(UtExecutePowerMethods);
 
-    ACPI_FUNCTION_TRACE (UtExecutePowerMethods);
-
-
-    for (i = 0; i < MethodCount; i++)
-    {
+    for (i = 0; i < MethodCount; i++) {
         /*
          * Execute the power method (_SxD or _SxW). The only allowable
          * return type is an Integer.
          */
-        Status = AcpiUtEvaluateObject (DeviceNode,
-            ACPI_CAST_PTR (char, MethodNames[i]),
+        Status = AcpiUtEvaluateObject(DeviceNode,
+            ACPI_CAST_PTR(char, MethodNames[i]),
             ACPI_BTYPE_INTEGER, &ObjDesc);
-        if (ACPI_SUCCESS (Status))
-        {
-            OutValues[i] = (UINT8) ObjDesc->Integer.Value;
+        if (ACPI_SUCCESS(Status)) {
+            OutValues[i] = (UINT8)ObjDesc->Integer.Value;
 
             /* Delete the return object */
 
-            AcpiUtRemoveReference (ObjDesc);
-            FinalStatus = AE_OK;            /* At least one value is valid */
+            AcpiUtRemoveReference(ObjDesc);
+            FinalStatus = AE_OK; /* At least one value is valid */
             continue;
         }
 
         OutValues[i] = ACPI_UINT8_MAX;
-        if (Status == AE_NOT_FOUND)
-        {
+        if (Status == AE_NOT_FOUND) {
             continue; /* Ignore if not found */
         }
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "Failed %s on Device %4.4s, %s\n",
-            ACPI_CAST_PTR (char, MethodNames[i]),
-            AcpiUtGetNodeName (DeviceNode), AcpiFormatException (Status)));
+        ACPI_DEBUG_PRINT((ACPI_DB_EXEC, "Failed %s on Device %4.4s, %s\n",
+            ACPI_CAST_PTR(char, MethodNames[i]),
+            AcpiUtGetNodeName(DeviceNode), AcpiFormatException(Status)));
     }
 
-    return_ACPI_STATUS (FinalStatus);
+    return_ACPI_STATUS(FinalStatus);
 }

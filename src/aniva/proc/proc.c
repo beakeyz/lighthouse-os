@@ -1,12 +1,12 @@
 #include "proc.h"
-#include <mem/heap.h>
+#include "core.h"
 #include "dev/core.h"
 #include "entry/entry.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
 #include "kevent/types/thread.h"
-#include "libk/flow/error.h"
 #include "libk/data/linkedlist.h"
+#include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/driver/loader.h"
 #include "lightos/syscall.h"
@@ -23,23 +23,22 @@
 #include "system/resource.h"
 #include "thread.h"
 #include <libk/string.h>
-#include "core.h"
 #include <mem/heap.h>
 
 static void __destroy_proc(proc_t* p);
 
 static void _proc_init_pagemap(proc_t* proc)
 {
-  // Only create new page dirs for non-kernel procs
-  if (!is_kernel_proc(proc) && !is_driver_proc(proc)) {
-    proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
-    return;
-  }
+    // Only create new page dirs for non-kernel procs
+    if (!is_kernel_proc(proc) && !is_driver_proc(proc)) {
+        proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
+        return;
+    }
 
-  proc->m_root_pd.m_root = nullptr;
-  proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
-  proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
-  proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
+    proc->m_root_pd.m_root = nullptr;
+    proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
+    proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
+    proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
 }
 
 /*!
@@ -54,77 +53,77 @@ static void _proc_init_pagemap(proc_t* proc)
  */
 proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags)
 {
-  proc_t *proc;
-  /* NOTE: ->m_init_thread gets set by proc_add_thread */
-  thread_t* init_thread;
+    proc_t* proc;
+    /* NOTE: ->m_init_thread gets set by proc_add_thread */
+    thread_t* init_thread;
 
-  if (!name)
-    return nullptr;
+    if (!name)
+        return nullptr;
 
-  if (!profile)
-    profile = get_active_profile();
+    if (!profile)
+        profile = get_active_profile();
 
-  /* TODO: create proc cache */
-  proc = kmalloc(sizeof(proc_t));
+    /* TODO: create proc cache */
+    proc = kmalloc(sizeof(proc_t));
 
-  if (!proc)
-    return nullptr;
+    if (!proc)
+        return nullptr;
 
-  memset(proc, 0, sizeof(proc_t));
+    memset(proc, 0, sizeof(proc_t));
 
-  /* TODO: move away from the idea of idle threads */
-  proc->m_idle_thread = nullptr;
-  proc->m_parent = parent;
-  proc->m_flags = flags | PROC_UNRUNNED;
-  proc->m_thread_count = 1;
-  proc->m_threads = init_list();
-  proc->m_lock = create_mutex(NULL);
-  proc->obj = create_oss_obj(name);
-  proc->m_name = proc->obj->name;
+    /* TODO: move away from the idea of idle threads */
+    proc->m_idle_thread = nullptr;
+    proc->m_parent = parent;
+    proc->m_flags = flags | PROC_UNRUNNED;
+    proc->m_thread_count = 1;
+    proc->m_threads = init_list();
+    proc->m_lock = create_mutex(NULL);
+    proc->obj = create_oss_obj(name);
+    proc->m_name = proc->obj->name;
 
-  /* Register ourselves */
-  oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, __destroy_proc);
+    /* Register ourselves */
+    oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, __destroy_proc);
 
-  /* Create a pagemap */
-  _proc_init_pagemap(proc);
+    /* Create a pagemap */
+    _proc_init_pagemap(proc);
 
-  /* Create a handle map */
-  init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
+    /* Create a handle map */
+    init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
 
-  /* Okay to pass a reference, since resource bundles should NEVER own this memory */
-  proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
-  
-  init_thread = create_thread_for_proc(proc, entry, args, "main");
+    /* Okay to pass a reference, since resource bundles should NEVER own this memory */
+    proc->m_resource_bundle = create_resource_bundle(&proc->m_root_pd);
 
-  ASSERT_MSG(init_thread, "Failed to create main thread for process!");
+    init_thread = create_thread_for_proc(proc, entry, args, "main");
 
-  Must(proc_add_thread(proc, init_thread));
+    ASSERT_MSG(init_thread, "Failed to create main thread for process!");
 
-  /* Yikes */
-  if (IsError(proc_register(proc, profile))) {
-    destroy_proc(proc);
-    return nullptr;
-  }
+    Must(proc_add_thread(proc, init_thread));
 
-  return proc;
+    /* Yikes */
+    if (IsError(proc_register(proc, profile))) {
+        destroy_proc(proc);
+        return nullptr;
+    }
+
+    return proc;
 }
 
 /* This should probably be done by kmem_manager lmao */
 #define IS_KERNEL_FUNC(func) true
 
-proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args) 
+proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
 {
-  user_profile_t* admin;
+    user_profile_t* admin;
 
-  /* TODO: check */
-  if (!IS_KERNEL_FUNC(entry))
-    return nullptr;
+    /* TODO: check */
+    if (!IS_KERNEL_FUNC(entry))
+        return nullptr;
 
-  /* Kernel processes always run inside the admin profile */
-  admin = get_admin_profile();
+    /* Kernel processes always run inside the admin profile */
+    admin = get_admin_profile();
 
-  /* TODO: don't limit to one name */
-  return create_proc(nullptr, admin, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+    /* TODO: don't limit to one name */
+    return create_proc(nullptr, admin, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
 }
 
 /*!
@@ -132,21 +131,21 @@ proc_t* create_kernel_proc (FuncPtr entry, uintptr_t  args)
  */
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1)
 {
-  if (!p || !p->m_init_thread)
-    return -KERR_INVAL;
+    if (!p || !p->m_init_thread)
+        return -KERR_INVAL;
 
-  /* Can't set the entry of a process that has already been scheduled */
-  if (p->m_init_thread->m_ticks_elapsed)
-    return -KERR_INVAL;
+    /* Can't set the entry of a process that has already been scheduled */
+    if (p->m_init_thread->m_ticks_elapsed)
+        return -KERR_INVAL;
 
-  mutex_lock(p->m_init_thread->m_lock);
+    mutex_lock(p->m_init_thread->m_lock);
 
-  p->m_init_thread->f_entry = (ThreadEntry)entry;
+    p->m_init_thread->f_entry = (ThreadEntry)entry;
 
-  thread_set_entrypoint(p->m_init_thread, entry, arg0, arg1);
+    thread_set_entrypoint(p->m_init_thread, entry, arg0, arg1);
 
-  mutex_unlock(p->m_init_thread->m_lock);
-  return KERR_NONE;
+    mutex_unlock(p->m_init_thread->m_lock);
+    return KERR_NONE;
 }
 
 /*!
@@ -157,180 +156,181 @@ kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1
  */
 int proc_clone(proc_t* p, const char* clone_name, proc_t** clone)
 {
-  /* Create new 'clone' process */
-  /* Copy handle map */
-  /* Copy resource list */
-  /* Copy thread state */
-  /* ... */
-  return 0;
+    /* Create new 'clone' process */
+    /* Copy handle map */
+    /* Copy resource list */
+    /* Copy thread state */
+    /* ... */
+    return 0;
 }
 
 static void __proc_clear_shared_resources(proc_t* proc)
 {
-  /* 1) Loop over all the allocated resources by this process */
-  /* 2) detach from every resource and then the resource manager should
-   *    automatically destroy resources and merge their address ranges
-   *    into neighboring resources
-   */
+    /* 1) Loop over all the allocated resources by this process */
+    /* 2) detach from every resource and then the resource manager should
+     *    automatically destroy resources and merge their address ranges
+     *    into neighboring resources
+     */
 
-  if (!proc->m_resource_bundle)
-    return;
+    if (!proc->m_resource_bundle)
+        return;
 
-  /* Destroy the entire bundle, which deallocates the structures */
-  destroy_resource_bundle(proc->m_resource_bundle);
+    /* Destroy the entire bundle, which deallocates the structures */
+    destroy_resource_bundle(proc->m_resource_bundle);
 }
 
 /*
- * Loop over all the open handles of this process and clear out the 
+ * Loop over all the open handles of this process and clear out the
  * lingering references and objects
  */
 static void __proc_clear_handles(proc_t* proc)
 {
-  khandle_map_t* map;
-  khandle_t* current_handle;
+    khandle_map_t* map;
+    khandle_t* current_handle;
 
-  if (!proc)
-    return;
+    if (!proc)
+        return;
 
-  map = &proc->m_handle_map;
+    map = &proc->m_handle_map;
 
-  for (uint32_t i = 0; i < map->max_count; i++) {
-    current_handle = &map->handles[i];
+    for (uint32_t i = 0; i < map->max_count; i++) {
+        current_handle = &map->handles[i];
 
-    if (!current_handle->reference.kobj || current_handle->index == KHNDL_INVALID_INDEX)
-      continue;
+        if (!current_handle->reference.kobj || current_handle->index == KHNDL_INVALID_INDEX)
+            continue;
 
-    destroy_khandle(current_handle);
-  }
+        destroy_khandle(current_handle);
+    }
 }
 
 static inline void __proc_kill_threads(proc_t* proc)
 {
-  list_t* temp_tlist;
+    list_t* temp_tlist;
 
-  if (!proc)
-    return;
+    if (!proc)
+        return;
 
-  /* Create a temporary trampoline list */
-  temp_tlist = init_list();
+    /* Create a temporary trampoline list */
+    temp_tlist = init_list();
 
-  /* Put all threads on a seperate temporary list */
-  FOREACH(i, proc->m_threads) {
-    /* Kill every thread */
-    list_append(temp_tlist, i->data);
-  }
+    /* Put all threads on a seperate temporary list */
+    FOREACH(i, proc->m_threads)
+    {
+        /* Kill every thread */
+        list_append(temp_tlist, i->data);
+    }
 
-  /*  */
-  FOREACH(i, temp_tlist) {
-    /* Make sure we remove the thread from the processes queue */
-    proc_remove_thread(proc, i->data);
+    /*  */
+    FOREACH(i, temp_tlist)
+    {
+        /* Make sure we remove the thread from the processes queue */
+        proc_remove_thread(proc, i->data);
 
-    /* Murder the bitch */
-    destroy_thread(i->data);
-  }
+        /* Murder the bitch */
+        destroy_thread(i->data);
+    }
 
-  destroy_list(temp_tlist);
-  destroy_list(proc->m_threads);
+    destroy_list(temp_tlist);
+    destroy_list(proc->m_threads);
 }
 
 /*
  * Caller should ensure proc != zero
  */
-void __destroy_proc(proc_t* proc) 
+void __destroy_proc(proc_t* proc)
 {
-  /* Yeet threads */
-  __proc_kill_threads(proc);
+    /* Yeet threads */
+    __proc_kill_threads(proc);
 
-  /* Yeet handles */
-  __proc_clear_handles(proc);
+    /* Yeet handles */
+    __proc_clear_handles(proc);
 
-  /* loop over all the resources of this process and release them by using __kmem_dealloc */
-  __proc_clear_shared_resources(proc);
+    /* loop over all the resources of this process and release them by using __kmem_dealloc */
+    __proc_clear_shared_resources(proc);
 
-  /* Free everything else */
-  destroy_mutex(proc->m_lock);
-  destroy_khandle_map(&proc->m_handle_map);
+    /* Free everything else */
+    destroy_mutex(proc->m_lock);
+    destroy_khandle_map(&proc->m_handle_map);
 
-  /* 
-   * Kill the root pd if it has one, other than the currently active page dir. 
-   * We already kinda expect this to only be called from kernel context, but 
-   * you never know... For that we simply allow every page directory to be 
-   * killed as long as we are not currently using it :clown: 
-   */
-  if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir)
-    kmem_destroy_page_dir(proc->m_root_pd.m_root);
+    /*
+     * Kill the root pd if it has one, other than the currently active page dir.
+     * We already kinda expect this to only be called from kernel context, but
+     * you never know... For that we simply allow every page directory to be
+     * killed as long as we are not currently using it :clown:
+     */
+    if (proc->m_root_pd.m_root != get_current_processor()->m_page_dir)
+        kmem_destroy_page_dir(proc->m_root_pd.m_root);
 
-  kfree(proc);
+    kfree(proc);
 }
 
 void destroy_proc(proc_t* proc)
 {
-  /* Unregister from the global register store */
-  ASSERT_MSG(proc_unregister(proc) == 0, "Failed to unregister proc");
+    /* Unregister from the global register store */
+    ASSERT_MSG(proc_unregister(proc) == 0, "Failed to unregister proc");
 
-  /* Calls __destroy_proc */
-  destroy_oss_obj(proc->obj);
+    /* Calls __destroy_proc */
+    destroy_oss_obj(proc->obj);
 }
 
 static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
 {
-  proc_t* param_proc = param;
-  kevent_proc_ctx_t* proc_ctx;
+    proc_t* param_proc = param;
+    kevent_proc_ctx_t* proc_ctx;
 
-  if (ctx->buffer_size != sizeof(*proc_ctx))
-    return false;
+    if (ctx->buffer_size != sizeof(*proc_ctx))
+        return false;
 
-  proc_ctx = ctx->buffer;
+    proc_ctx = ctx->buffer;
 
-  /* Check if this is our process */
-  if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process != param_proc)
-    return false;
+    /* Check if this is our process */
+    if (proc_ctx->type != PROC_EVENTTYPE_DESTROY || proc_ctx->process != param_proc)
+        return false;
 
-  /* Yes! Fire the hook */
-  return true;
+    /* Yes! Fire the hook */
+    return true;
 }
 
 /*!
  * @brief Wait for a process to be terminated
  *
- * 
+ *
  */
 int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
 {
-  int error;
-  const char* hook_name;
+    int error;
+    const char* hook_name;
 
-  /*
-   * If we can't find the process here, that probably means its already
-   * terminated even before we could make this call (How the fuck could that have happend???)
-   */
-  if (!proc)
-    return 0;
+    /*
+     * If we can't find the process here, that probably means its already
+     * terminated even before we could make this call (How the fuck could that have happend???)
+     */
+    if (!proc)
+        return 0;
 
+    /* Pause the scheduler so we don't get fucked while registering the hook */
+    pause_scheduler();
 
-  /* Pause the scheduler so we don't get fucked while registering the hook */
-  pause_scheduler();
+    hook_name = oss_obj_get_fullpath(proc->obj);
 
-  hook_name = oss_obj_get_fullpath(proc->obj);
+    kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
 
-  kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
+    /* Do an instant rescedule */
+    Must(sched_add_priority_proc(proc, prio, false));
 
-  /* Do an instant rescedule */
-  Must(sched_add_priority_proc(proc, prio, false));
+    /* Resume the scheduler so we don't die */
+    resume_scheduler();
 
-  /* Resume the scheduler so we don't die */
-  resume_scheduler();
+    /* Wait for the process to be bopped */
+    error = kevent_await_hook_fire("proc", hook_name, NULL, NULL);
 
-  /* Wait for the process to be bopped */
-  error = kevent_await_hook_fire("proc", hook_name, NULL, NULL);
+    /* Remove the hook */
+    kevent_remove_hook("proc", hook_name);
 
-  /* Remove the hook */
-  kevent_remove_hook("proc", hook_name);
+    /* Free the hook name */
+    kfree((void*)hook_name);
 
-  /* Free the hook name */
-  kfree((void*)hook_name);
-
-  return error;
+    return error;
 }
 
 /*
@@ -342,7 +342,7 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
  */
 ErrorOrPtr try_terminate_process(proc_t* proc)
 {
-  return try_terminate_process_ex(proc, false);
+    return try_terminate_process_ex(proc, false);
 }
 
 /*!
@@ -358,55 +358,56 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
  */
 ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
 {
-  thread_t* c_thread;
-  ErrorOrPtr result;
+    thread_t* c_thread;
+    ErrorOrPtr result;
 
-  if (!proc)
-    return Error();
+    if (!proc)
+        return Error();
 
-  /* Check every thread to see if there are any pending syscalls */
-  FOREACH(i, proc->m_threads) {
-    c_thread = i->data;
+    /* Check every thread to see if there are any pending syscalls */
+    FOREACH(i, proc->m_threads)
+    {
+        c_thread = i->data;
 
-    KLOG_DBG("Thread %s %s in syscall: %d\n", c_thread->m_name, SYSID_IS_VALID(c_thread->m_c_sysid) ?  "is" : "was last", c_thread->m_c_sysid);
-    
-    /* Wait until the thread finishes it's syscall */
-    if (c_thread->m_c_sysid != SYSID_EXIT) {
-      while (SYSID_IS_VALID(c_thread->m_c_sysid)) {
-        KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
+        KLOG_DBG("Thread %s %s in syscall: %d\n", c_thread->m_name, SYSID_IS_VALID(c_thread->m_c_sysid) ? "is" : "was last", c_thread->m_c_sysid);
 
-        /* Make the thread yield when it exits this syscall */
-        SYSID_SET_VALID(c_thread->m_c_sysid, false);
+        /* Wait until the thread finishes it's syscall */
+        if (c_thread->m_c_sysid != SYSID_EXIT) {
+            while (SYSID_IS_VALID(c_thread->m_c_sysid)) {
+                KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
 
-        scheduler_yield();
-      }
+                /* Make the thread yield when it exits this syscall */
+                SYSID_SET_VALID(c_thread->m_c_sysid, false);
+
+                scheduler_yield();
+            }
+        }
+
+        /* Not in a syscall, yay */
+        thread_disable_scheduling(c_thread);
     }
 
-    /* Not in a syscall, yay */
-    thread_disable_scheduling(c_thread);
-  }
+    /* Pause the scheduler to make sure we're not fucked while doing this */
+    pause_scheduler();
 
-  /* Pause the scheduler to make sure we're not fucked while doing this */
-  pause_scheduler();
+    /* Mark as finished, since we know we won't be seeing it again after we return from this call */
+    proc->m_flags |= PROC_FINISHED;
 
-  /* Mark as finished, since we know we won't be seeing it again after we return from this call */
-  proc->m_flags |= PROC_FINISHED;
+    /* Remove from the scheduler (Pauses it) */
+    (void)sched_remove_proc(proc);
 
-  /* Remove from the scheduler (Pauses it) */
-  (void)sched_remove_proc(proc);
+    /*
+     * Register to the reaper
+     * NOTE: this also pauses the scheduler
+     */
+    result = reaper_register_process(proc);
 
-  /* 
-   * Register to the reaper 
-   * NOTE: this also pauses the scheduler
-   */
-  result = reaper_register_process(proc);
-  
-  resume_scheduler();
+    resume_scheduler();
 
-  /* Yield to catch any terminates from within a process */
-  if (!defer_yield)
-    scheduler_yield();
-  return result;
+    /* Yield to catch any terminates from within a process */
+    if (!defer_yield)
+        scheduler_yield();
+    return result;
 }
 
 /*!
@@ -416,10 +417,10 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
  */
 void proc_set_env(proc_t* proc, penv_t* env)
 {
-  if (proc->m_env)
-    penv_remove_proc(proc->m_env, proc);
+    if (proc->m_env)
+        penv_remove_proc(proc->m_env, proc);
 
-  penv_add_proc(env, proc);
+    penv_add_proc(env, proc);
 }
 
 /*!
@@ -427,10 +428,10 @@ void proc_set_env(proc_t* proc, penv_t* env)
  *
  * Nothing to add here...
  */
-void proc_exit() 
+void proc_exit()
 {
-  try_terminate_process(get_current_proc());
-  scheduler_yield();
+    try_terminate_process(get_current_proc());
+    scheduler_yield();
 }
 
 /*!
@@ -438,64 +439,64 @@ void proc_exit()
  *
  * Locks the process and fails if we try to add a thread to a finished process
  */
-ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread) 
+ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
 {
-  ErrorOrPtr result;
-  kevent_thread_ctx_t thread_ctx = { 0 };
+    ErrorOrPtr result;
+    kevent_thread_ctx_t thread_ctx = { 0 };
 
-  if (!thread || !proc)
-    return Error();
+    if (!thread || !proc)
+        return Error();
 
-  result = Error();
+    result = Error();
 
-  mutex_lock(proc->m_lock);
+    mutex_lock(proc->m_lock);
 
-  if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
-    goto unlock_and_exit;
+    if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
+        goto unlock_and_exit;
 
-  result = list_indexof(proc->m_threads, thread);
+    result = list_indexof(proc->m_threads, thread);
 
-  if (result.m_status == ANIVA_SUCCESS)
-    goto unlock_and_exit;
+    if (result.m_status == ANIVA_SUCCESS)
+        goto unlock_and_exit;
 
-  result = Success(0);
+    result = Success(0);
 
-  thread_ctx.thread = thread;
-  thread_ctx.type = THREAD_EVENTTYPE_CREATE;
-  /* TODO: smp */
-  thread_ctx.new_cpu_id = 0;
-  thread_ctx.old_cpu_id = 0;
+    thread_ctx.thread = thread;
+    thread_ctx.type = THREAD_EVENTTYPE_CREATE;
+    /* TODO: smp */
+    thread_ctx.new_cpu_id = 0;
+    thread_ctx.old_cpu_id = 0;
 
-  /* Fire the create event */
-  kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
+    /* Fire the create event */
+    kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
-  pause_scheduler();
+    pause_scheduler();
 
-  /* If this is the first thread, we need to make sure it gets ran first */
-  if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
-    proc->m_init_thread = thread;
-    /* Ensure the schedulers picks up on this fact */
-    proc->m_flags |= PROC_UNRUNNED;
-  }
-  
-  /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
-  list_append(proc->m_threads, thread);
+    /* If this is the first thread, we need to make sure it gets ran first */
+    if (proc->m_threads->m_length == 0 && proc->m_init_thread == nullptr) {
+        proc->m_init_thread = thread;
+        /* Ensure the schedulers picks up on this fact */
+        proc->m_flags |= PROC_UNRUNNED;
+    }
 
-  /*
-   * Only prepare the context here if we're not trying to add the init thread 
-   * 
-   * When adding a seperate thread to a process, we have time to alter the thread between creating it and
-   * adding it. We don't have this time with the initial thread, which has it's context prepared right before it
-   * is scheduled for the first time
-   */
-  if (proc->m_init_thread != thread)
-    thread_prepare_context(thread);
-  
-  resume_scheduler();
+    /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
+    list_append(proc->m_threads, thread);
+
+    /*
+     * Only prepare the context here if we're not trying to add the init thread
+     *
+     * When adding a seperate thread to a process, we have time to alter the thread between creating it and
+     * adding it. We don't have this time with the initial thread, which has it's context prepared right before it
+     * is scheduled for the first time
+     */
+    if (proc->m_init_thread != thread)
+        thread_prepare_context(thread);
+
+    resume_scheduler();
 
 unlock_and_exit:
-  mutex_unlock(proc->m_lock);
-  return result;
+    mutex_unlock(proc->m_lock);
+    return result;
 }
 
 /*!
@@ -503,67 +504,68 @@ unlock_and_exit:
  */
 kerror_t proc_remove_thread(proc_t* proc, struct thread* thread)
 {
-  kerror_t error;
-  kevent_thread_ctx_t thread_ctx = { 0 };
+    kerror_t error;
+    kevent_thread_ctx_t thread_ctx = { 0 };
 
-  error = -KERR_INVAL;
+    error = -KERR_INVAL;
 
-  mutex_lock(proc->m_lock);
+    mutex_lock(proc->m_lock);
 
-  if (!list_remove_ex(proc->m_threads, thread))
-    goto unlock_and_exit;
+    if (!list_remove_ex(proc->m_threads, thread))
+        goto unlock_and_exit;
 
-  proc->m_thread_count--;
+    proc->m_thread_count--;
 
-  thread_ctx.thread = thread;
-  thread_ctx.type = THREAD_EVENTTYPE_DESTROY;
-  /* TODO: smp */
-  thread_ctx.new_cpu_id = 0;
-  thread_ctx.old_cpu_id = 0;
+    thread_ctx.thread = thread;
+    thread_ctx.type = THREAD_EVENTTYPE_DESTROY;
+    /* TODO: smp */
+    thread_ctx.new_cpu_id = 0;
+    thread_ctx.old_cpu_id = 0;
 
-  /* Fire the create event */
-  (void)kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
+    /* Fire the create event */
+    (void)kevent_fire("thread", &thread_ctx, sizeof(thread_ctx));
 
 unlock_and_exit:
-  mutex_unlock(proc->m_lock);
-  return error;
+    mutex_unlock(proc->m_lock);
+    return error;
 }
 
-void proc_add_async_task_thread(proc_t *proc, FuncPtr entry, uintptr_t args) {
-  // TODO: generate new unique name
-  //list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
-  kernel_panic("TODO: implement async task threads");
+void proc_add_async_task_thread(proc_t* proc, FuncPtr entry, uintptr_t args)
+{
+    // TODO: generate new unique name
+    // list_append(proc->m_threads, create_thread_for_proc(proc, entry, args, "AsyncThread #TODO"));
+    kernel_panic("TODO: implement async task threads");
 }
 
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
 {
-  const char* proc_path;
-  const char* buffer;
-  ErrorOrPtr result;
+    const char* proc_path;
+    const char* buffer;
+    ErrorOrPtr result;
 
-  if (!proc || !addr)
-    return nullptr;
+    if (!proc || !addr)
+        return nullptr;
 
-  proc_path = oss_obj_get_fullpath(proc->obj);
+    proc_path = oss_obj_get_fullpath(proc->obj);
 
-  dynldr_getfuncname_msg_t msg_block = {
-    .proc_path = proc_path,
-    .func_addr = (void*)addr,
-  };
+    dynldr_getfuncname_msg_t msg_block = {
+        .proc_path = proc_path,
+        .func_addr = (void*)addr,
+    };
 
-  result = driver_send_msg_a(
-          DYN_LDR_URL,
-          DYN_LDR_GET_FUNC_NAME,
-          &msg_block,
-          sizeof(msg_block),
-          &buffer,
-          sizeof(char*));
+    result = driver_send_msg_a(
+        DYN_LDR_URL,
+        DYN_LDR_GET_FUNC_NAME,
+        &msg_block,
+        sizeof(msg_block),
+        &buffer,
+        sizeof(char*));
 
-  /* Free the path */
-  kfree((void*)proc_path);
+    /* Free the path */
+    kfree((void*)proc_path);
 
-  if (IsError(result) || !buffer || !strlen(buffer))
-    return nullptr;
+    if (IsError(result) || !buffer || !strlen(buffer))
+        return nullptr;
 
-  return buffer;
+    return buffer;
 }

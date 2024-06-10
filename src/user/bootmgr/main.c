@@ -4,9 +4,9 @@
  *
  * Start services for userspace
  * Verify install context / system integrity
- * 
+ *
  */
-int main() 
+int main()
 {
-  return 0;
+    return 0;
 }

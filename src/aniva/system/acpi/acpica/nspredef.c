@@ -151,15 +151,13 @@
 
 #define ACPI_CREATE_PREDEFINED_TABLE
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 #include "acpredef.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nspredef")
-
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nspredef")
 
 /*******************************************************************************
  *
@@ -182,18 +180,16 @@
  *
  ******************************************************************************/
 
-
 /* Local prototypes */
 
 static ACPI_STATUS
-AcpiNsCheckReference (
-    ACPI_EVALUATE_INFO          *Info,
-    ACPI_OPERAND_OBJECT         *ReturnObject);
+AcpiNsCheckReference(
+    ACPI_EVALUATE_INFO* Info,
+    ACPI_OPERAND_OBJECT* ReturnObject);
 
 static UINT32
-AcpiNsGetBitmappedType (
-    ACPI_OPERAND_OBJECT         *ReturnObject);
-
+AcpiNsGetBitmappedType(
+    ACPI_OPERAND_OBJECT* ReturnObject);
 
 /*******************************************************************************
  *
@@ -213,34 +209,31 @@ AcpiNsGetBitmappedType (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsCheckReturnValue (
-    ACPI_NAMESPACE_NODE         *Node,
-    ACPI_EVALUATE_INFO          *Info,
-    UINT32                      UserParamCount,
-    ACPI_STATUS                 ReturnStatus,
-    ACPI_OPERAND_OBJECT         **ReturnObjectPtr)
+AcpiNsCheckReturnValue(
+    ACPI_NAMESPACE_NODE* Node,
+    ACPI_EVALUATE_INFO* Info,
+    UINT32 UserParamCount,
+    ACPI_STATUS ReturnStatus,
+    ACPI_OPERAND_OBJECT** ReturnObjectPtr)
 {
-    ACPI_STATUS                 Status;
-    const ACPI_PREDEFINED_INFO  *Predefined;
+    ACPI_STATUS Status;
+    const ACPI_PREDEFINED_INFO* Predefined;
 
-    ACPI_FUNCTION_TRACE (NsCheckReturnValue);
+    ACPI_FUNCTION_TRACE(NsCheckReturnValue);
 
     /* If not a predefined name, we cannot validate the return object */
 
     Predefined = Info->Predefined;
-    if (!Predefined)
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (!Predefined) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
      * If the method failed or did not actually return an object, we cannot
      * validate the return object
      */
-    if ((ReturnStatus != AE_OK) &&
-        (ReturnStatus != AE_CTRL_RETURN_VALUE))
-    {
-        return_ACPI_STATUS (AE_OK);
+    if ((ReturnStatus != AE_OK) && (ReturnStatus != AE_CTRL_RETURN_VALUE)) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
@@ -256,21 +249,17 @@ AcpiNsCheckReturnValue (
      * 3) If the return value can be of any type, then we cannot perform
      * any validation, just exit.
      */
-    if (AcpiGbl_DisableAutoRepair ||
-        (!Predefined->Info.ExpectedBtypes) ||
-        (Predefined->Info.ExpectedBtypes == ACPI_RTYPE_ALL))
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (AcpiGbl_DisableAutoRepair || (!Predefined->Info.ExpectedBtypes) || (Predefined->Info.ExpectedBtypes == ACPI_RTYPE_ALL)) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
      * Check that the type of the main return object is what is expected
      * for this predefined name
      */
-    Status = AcpiNsCheckObjectType (Info, ReturnObjectPtr,
+    Status = AcpiNsCheckObjectType(Info, ReturnObjectPtr,
         Predefined->Info.ExpectedBtypes, ACPI_NOT_PACKAGE_ELEMENT);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
@@ -279,8 +268,7 @@ AcpiNsCheckReturnValue (
      * 4) If there is no return value and it is optional, just return
      * AE_OK (_WAK).
      */
-    if (!(*ReturnObjectPtr))
-    {
+    if (!(*ReturnObjectPtr)) {
         goto Exit;
     }
 
@@ -288,17 +276,13 @@ AcpiNsCheckReturnValue (
      * For returned Package objects, check the type of all sub-objects.
      * Note: Package may have been newly created by call above.
      */
-    if ((*ReturnObjectPtr)->Common.Type == ACPI_TYPE_PACKAGE)
-    {
+    if ((*ReturnObjectPtr)->Common.Type == ACPI_TYPE_PACKAGE) {
         Info->ParentPackage = *ReturnObjectPtr;
-        Status = AcpiNsCheckPackage (Info, ReturnObjectPtr);
-        if (ACPI_FAILURE (Status))
-        {
+        Status = AcpiNsCheckPackage(Info, ReturnObjectPtr);
+        if (ACPI_FAILURE(Status)) {
             /* We might be able to fix some errors */
 
-            if ((Status != AE_AML_OPERAND_TYPE) &&
-                (Status != AE_AML_OPERAND_VALUE))
-            {
+            if ((Status != AE_AML_OPERAND_TYPE) && (Status != AE_AML_OPERAND_VALUE)) {
                 goto Exit;
             }
         }
@@ -312,7 +296,7 @@ AcpiNsCheckReturnValue (
      * performed on a per-name basis, i.e., the code is specific to
      * particular predefined names.
      */
-    Status = AcpiNsComplexRepairs (Info, Node, Status, ReturnObjectPtr);
+    Status = AcpiNsComplexRepairs(Info, Node, Status, ReturnObjectPtr);
 
 Exit:
     /*
@@ -320,15 +304,12 @@ Exit:
      * or more objects, mark the parent node to suppress further warning
      * messages during the next evaluation of the same method/object.
      */
-    if (ACPI_FAILURE (Status) ||
-       (Info->ReturnFlags & ACPI_OBJECT_REPAIRED))
-    {
+    if (ACPI_FAILURE(Status) || (Info->ReturnFlags & ACPI_OBJECT_REPAIRED)) {
         Node->Flags |= ANOBJ_EVALUATED;
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -350,26 +331,23 @@ Exit:
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiNsCheckObjectType (
-    ACPI_EVALUATE_INFO          *Info,
-    ACPI_OPERAND_OBJECT         **ReturnObjectPtr,
-    UINT32                      ExpectedBtypes,
-    UINT32                      PackageIndex)
+AcpiNsCheckObjectType(
+    ACPI_EVALUATE_INFO* Info,
+    ACPI_OPERAND_OBJECT** ReturnObjectPtr,
+    UINT32 ExpectedBtypes,
+    UINT32 PackageIndex)
 {
-    ACPI_OPERAND_OBJECT         *ReturnObject = *ReturnObjectPtr;
-    ACPI_STATUS                 Status = AE_OK;
-    char                        TypeBuffer[96]; /* Room for 10 types */
-
+    ACPI_OPERAND_OBJECT* ReturnObject = *ReturnObjectPtr;
+    ACPI_STATUS Status = AE_OK;
+    char TypeBuffer[96]; /* Room for 10 types */
 
     /* A Namespace node should not get here, but make sure */
 
-    if (ReturnObject &&
-        ACPI_GET_DESCRIPTOR_TYPE (ReturnObject) == ACPI_DESC_TYPE_NAMED)
-    {
-        ACPI_WARN_PREDEFINED ((AE_INFO, Info->FullPathname, Info->NodeFlags,
+    if (ReturnObject && ACPI_GET_DESCRIPTOR_TYPE(ReturnObject) == ACPI_DESC_TYPE_NAMED) {
+        ACPI_WARN_PREDEFINED((AE_INFO, Info->FullPathname, Info->NodeFlags,
             "Invalid return type - Found a Namespace node [%4.4s] type %s",
             ReturnObject->Node.Name.Ascii,
-            AcpiUtGetTypeName (ReturnObject->Node.Type)));
+            AcpiUtGetTypeName(ReturnObject->Node.Type)));
         return (AE_AML_OPERAND_TYPE);
     }
 
@@ -381,60 +359,51 @@ AcpiNsCheckObjectType (
      * from all of the predefined names (including elements of returned
      * packages)
      */
-    Info->ReturnBtype = AcpiNsGetBitmappedType (ReturnObject);
-    if (Info->ReturnBtype == ACPI_RTYPE_ANY)
-    {
+    Info->ReturnBtype = AcpiNsGetBitmappedType(ReturnObject);
+    if (Info->ReturnBtype == ACPI_RTYPE_ANY) {
         /* Not one of the supported objects, must be incorrect */
         goto TypeErrorExit;
     }
 
     /* For reference objects, check that the reference type is correct */
 
-    if ((Info->ReturnBtype & ExpectedBtypes) == ACPI_RTYPE_REFERENCE)
-    {
-        Status = AcpiNsCheckReference (Info, ReturnObject);
+    if ((Info->ReturnBtype & ExpectedBtypes) == ACPI_RTYPE_REFERENCE) {
+        Status = AcpiNsCheckReference(Info, ReturnObject);
         return (Status);
     }
 
     /* Attempt simple repair of the returned object if necessary */
 
-    Status = AcpiNsSimpleRepair (Info, ExpectedBtypes,
+    Status = AcpiNsSimpleRepair(Info, ExpectedBtypes,
         PackageIndex, ReturnObjectPtr);
-    if (ACPI_SUCCESS (Status))
-    {
+    if (ACPI_SUCCESS(Status)) {
         return (AE_OK); /* Successful repair */
     }
-
 
 TypeErrorExit:
 
     /* Create a string with all expected types for this predefined object */
 
-    AcpiUtGetExpectedReturnTypes (TypeBuffer, ExpectedBtypes);
+    AcpiUtGetExpectedReturnTypes(TypeBuffer, ExpectedBtypes);
 
-    if (!ReturnObject)
-    {
-        ACPI_WARN_PREDEFINED ((AE_INFO, Info->FullPathname, Info->NodeFlags,
+    if (!ReturnObject) {
+        ACPI_WARN_PREDEFINED((AE_INFO, Info->FullPathname, Info->NodeFlags,
             "Expected return object of type %s",
             TypeBuffer));
-    }
-    else if (PackageIndex == ACPI_NOT_PACKAGE_ELEMENT)
-    {
-        ACPI_WARN_PREDEFINED ((AE_INFO, Info->FullPathname, Info->NodeFlags,
+    } else if (PackageIndex == ACPI_NOT_PACKAGE_ELEMENT) {
+        ACPI_WARN_PREDEFINED((AE_INFO, Info->FullPathname, Info->NodeFlags,
             "Return type mismatch - found %s, expected %s",
-            AcpiUtGetObjectTypeName (ReturnObject), TypeBuffer));
-    }
-    else
-    {
-        ACPI_WARN_PREDEFINED ((AE_INFO, Info->FullPathname, Info->NodeFlags,
+            AcpiUtGetObjectTypeName(ReturnObject), TypeBuffer));
+    } else {
+        ACPI_WARN_PREDEFINED((AE_INFO, Info->FullPathname, Info->NodeFlags,
             "Return Package type mismatch at index %u - "
-            "found %s, expected %s", PackageIndex,
-            AcpiUtGetObjectTypeName (ReturnObject), TypeBuffer));
+            "found %s, expected %s",
+            PackageIndex,
+            AcpiUtGetObjectTypeName(ReturnObject), TypeBuffer));
     }
 
     return (AE_AML_OPERAND_TYPE);
 }
-
 
 /*******************************************************************************
  *
@@ -453,9 +422,9 @@ TypeErrorExit:
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiNsCheckReference (
-    ACPI_EVALUATE_INFO          *Info,
-    ACPI_OPERAND_OBJECT         *ReturnObject)
+AcpiNsCheckReference(
+    ACPI_EVALUATE_INFO* Info,
+    ACPI_OPERAND_OBJECT* ReturnObject)
 {
 
     /*
@@ -463,19 +432,17 @@ AcpiNsCheckReference (
      * The only type of reference that can be converted to an ACPI_OBJECT is
      * a reference to a named object (reference class: NAME)
      */
-    if (ReturnObject->Reference.Class == ACPI_REFCLASS_NAME)
-    {
+    if (ReturnObject->Reference.Class == ACPI_REFCLASS_NAME) {
         return (AE_OK);
     }
 
-    ACPI_WARN_PREDEFINED ((AE_INFO, Info->FullPathname, Info->NodeFlags,
+    ACPI_WARN_PREDEFINED((AE_INFO, Info->FullPathname, Info->NodeFlags,
         "Return type mismatch - unexpected reference object type [%s] %2.2X",
-        AcpiUtGetReferenceName (ReturnObject),
+        AcpiUtGetReferenceName(ReturnObject),
         ReturnObject->Reference.Class));
 
     return (AE_AML_OPERAND_TYPE);
 }
-
 
 /*******************************************************************************
  *
@@ -492,21 +459,18 @@ AcpiNsCheckReference (
  ******************************************************************************/
 
 static UINT32
-AcpiNsGetBitmappedType (
-    ACPI_OPERAND_OBJECT         *ReturnObject)
+AcpiNsGetBitmappedType(
+    ACPI_OPERAND_OBJECT* ReturnObject)
 {
-    UINT32                      ReturnBtype;
+    UINT32 ReturnBtype;
 
-
-    if (!ReturnObject)
-    {
+    if (!ReturnObject) {
         return (ACPI_RTYPE_NONE);
     }
 
     /* Map ACPI_OBJECT_TYPE to internal bitmapped type */
 
-    switch (ReturnObject->Common.Type)
-    {
+    switch (ReturnObject->Common.Type) {
     case ACPI_TYPE_INTEGER:
 
         ReturnBtype = ACPI_RTYPE_INTEGER;

@@ -14,14 +14,14 @@
  * Everything we do as a kernel either has effect on os is affected by the hardware. On most modern
  * systems we can always devide the hardware into groups and subgroups: devices. This is the lowest point
  * of abstraction for the kernel to talk to hardware. The kernel sees its underlying system as a tree of
- * devices that depend on each other, need different power management, or simply provide some kind of 
+ * devices that depend on each other, need different power management, or simply provide some kind of
  * service to the software. It's our job as the kernel to keep every device seperated and controlled in
  * such a way that access is as unobstructed as can be, while keeping the options for abstraction maximized.
  * In an ideal world, there should be no point in time where userspace has to worry about any kind of
  * hardware issue. It just needs to do it's thing and request it's needs while the big strong kernel
  * defends it from the scary and unpredictable hardware.
  *
- * Leading up to userspace, there are a few sublayers that make up the entire abstraction layer for the 
+ * Leading up to userspace, there are a few sublayers that make up the entire abstraction layer for the
  * hardware (HAL). Starting from raw hardware, we get:
  * - Physical device
  * - Firmware on the device / endpoint for any device driver
@@ -37,15 +37,15 @@
  * Let's take a simple example of a userspace program that wants to paint a singular pixel.
  * It might make a call to a graphics library to draw a pixel, which will eventually land in kernel-space
  * to invoke the appropriate API. The chain might look something like this:
- * 
+ *
  * < System call -> subsystem parse -> device parse (we either choose the best fitting device, or use a specified device)
  * -> device call -> driver code handles endpoint -> return all the way back to userspace with the result of our call >
  *
  * A program that's a bit smarter might do something like:
- * 
+ *
  * < Call graphics device to draw the pixel -> return >
  *
- * But we can't assume every program is as smart as this. The option should be there for direct device calls 
+ * But we can't assume every program is as smart as this. The option should be there for direct device calls
  * (It's ofcourse not advised) in order to enable freedom on the system.
  */
 
@@ -59,20 +59,20 @@ struct aniva_driver;
 struct drv_manifest;
 
 /* Device that is managed and backed entirely by software */
-#define DEV_FLAG_SOFTDEV    0x00000001
+#define DEV_FLAG_SOFTDEV 0x00000001
 /* Device that controlls other devices (Think AHCI controller or EHCI, OHCI or XHCI stuff) */
 #define DEV_FLAG_CONTROLLER 0x00000002
 /*
- * Is this device powered on? (When powered on, the device can still be in sleep mode for example. 
- * This needs to also get checked) 
+ * Is this device powered on? (When powered on, the device can still be in sleep mode for example.
+ * This needs to also get checked)
  */
-#define DEV_FLAG_POWERED    0x00000004
+#define DEV_FLAG_POWERED 0x00000004
 /* A bus device can have multiple devices that it manages */
-#define DEV_FLAG_BUS        0x00000008
-#define DEV_FLAG_ERROR      0x00000010
+#define DEV_FLAG_BUS 0x00000008
+#define DEV_FLAG_ERROR 0x00000010
 /* Device without driver attached and managed by the system core */
-#define DEV_FLAG_CORE       0x00000020
-#define DEV_FLAG_ENABLED    0x00000040
+#define DEV_FLAG_CORE 0x00000020
+#define DEV_FLAG_ENABLED 0x00000040
 /* TODO: more device flags */
 
 typedef bool (*DEVICE_ITTERATE)(struct device* dev);
@@ -82,14 +82,14 @@ typedef bool (*DEVICE_ITTERATE)(struct device* dev);
  * TODO: use
  */
 enum DEVICE_TYPE {
-  DEVICE_TYPE_GENERIC = 0,
-  DEVICE_TYPE_ACPI,
-  DEVICE_TYPE_DISK,
-  DEVICE_TYPE_VIDEO,
-  DEVICE_TYPE_HID,
-  DEVICE_TYPE_PCI,
-  DEVICE_TYPE_USBCLASS,
-  DEVICE_TYPE_USBHCD,
+    DEVICE_TYPE_GENERIC = 0,
+    DEVICE_TYPE_ACPI,
+    DEVICE_TYPE_DISK,
+    DEVICE_TYPE_VIDEO,
+    DEVICE_TYPE_HID,
+    DEVICE_TYPE_PCI,
+    DEVICE_TYPE_USBCLASS,
+    DEVICE_TYPE_USBHCD,
 };
 
 /*
@@ -114,8 +114,8 @@ enum DEVICE_TYPE {
  * device on the bus will then become:
  *
  * 'Dev/pci/3/epic_dev'
- * 
- * This way we can easily distinguish devices from eachother. What happens when there are nested bus devices inside 
+ *
+ * This way we can easily distinguish devices from eachother. What happens when there are nested bus devices inside
  * a bus? They just get a new bus number, together with a new node to match that number. So let's say there is a
  * nested bus on 'sick_pci_bridge' which is called 'nested_bridge'. It is the only other bridge/bus device here, so
  * it get's bus number 0. There are now three entries on the group node for 'sick_pci_bridge'. They are:
@@ -125,46 +125,46 @@ enum DEVICE_TYPE {
  * 'Dev/pci/3/0'
  */
 typedef struct device {
-  const char* name;
-  /* Driver that is responsible for management of this device */
-  struct drv_manifest* driver;
-  struct oss_obj* obj;
-  /* If this device is a bus, this node contains it's children */
-  struct dgroup* bus_group;
-  
-  /* Device identifier info */
-  uint16_t vendor_id;
-  uint16_t device_id;
-  uint16_t class;
-  uint16_t subclass;
+    const char* name;
+    /* Driver that is responsible for management of this device */
+    struct drv_manifest* driver;
+    struct oss_obj* obj;
+    /* If this device is a bus, this node contains it's children */
+    struct dgroup* bus_group;
 
-  /* Private field for drivers to use */
-  void* private;
+    /* Device identifier info */
+    uint16_t vendor_id;
+    uint16_t device_id;
+    uint16_t class;
+    uint16_t subclass;
 
-  mutex_t* lock;
-  mutex_t* ep_lock;
+    /* Private field for drivers to use */
+    void* private;
 
-  /* Handle to the ACPI stuff if this device has that */
-  struct acpi_device* acpi_dev;
-  struct pci_device* pci_dev;
+    mutex_t* lock;
+    mutex_t* ep_lock;
 
-  uint32_t flags;
-  /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
-  uint32_t endpoint_count;
-  struct device_endpoint* endpoints;
+    /* Handle to the ACPI stuff if this device has that */
+    struct acpi_device* acpi_dev;
+    struct pci_device* pci_dev;
+
+    uint32_t flags;
+    /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
+    uint32_t endpoint_count;
+    struct device_endpoint* endpoints;
 } device_t;
 
 static inline void* device_unwrap(device_t* device)
 {
-  return device->private;
+    return device->private;
 }
 
 static inline void device_identify(device_t* device, uint16_t vid, uint16_t did, uint16_t class, uint16_t subclass)
 {
-  device->vendor_id = vid;
-  device->device_id = did;
-  device->class = class;
-  device->subclass = subclass;
+    device->vendor_id = vid;
+    device->device_id = did;
+    device->class = class;
+    device->subclass = subclass;
 }
 
 /*
@@ -177,15 +177,15 @@ extern kerror_t device_implement_endpoints(device_t* device, struct device_endpo
 
 static inline bool device_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
 {
-  return (device_get_endpoint(device, type) != nullptr);
+    return (device_get_endpoint(device, type) != nullptr);
 }
 
 /*!
  * @brief: Check if this device has a bus group linked to it
  */
-static inline bool device_is_bus(device_t *dev)
+static inline bool device_is_bus(device_t* dev)
 {
-  return dev->bus_group != nullptr;
+    return dev->bus_group != nullptr;
 }
 
 /* Subsystem */
@@ -231,7 +231,6 @@ device_t* device_open(const char* path);
 int device_close(device_t* dev);
 int device_getinfo(device_t* dev, DEVINFO* binfo);
 
-
 /* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size);
@@ -251,10 +250,10 @@ int device_disable(device_t* dev);
 
 static inline bool device_is_enabled(device_t* dev)
 {
-  if (!dev)
-    return false;
+    if (!dev)
+        return false;
 
-  return ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED);
+    return ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED);
 }
 
 #endif // !__ANIVA_DEV_DEVICE__

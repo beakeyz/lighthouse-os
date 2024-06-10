@@ -149,31 +149,29 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acdebug.h"
 #include "acdispat.h"
 #include "acnamesp.h"
-#include "acdebug.h"
 #include "acparser.h"
+#include "acpi.h"
 #include "acpredef.h"
 
-
-#define _COMPONENT          ACPI_CA_DEBUGGER
-        ACPI_MODULE_NAME    ("dbmethod")
+#define _COMPONENT ACPI_CA_DEBUGGER
+ACPI_MODULE_NAME("dbmethod")
 
 /* Local prototypes */
 
 static ACPI_STATUS
-AcpiDbWalkForExecute (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue);
+AcpiDbWalkForExecute(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue);
 
 static ACPI_STATUS
-AcpiDbEvaluateObject (
-    ACPI_NAMESPACE_NODE     *Node);
-
+AcpiDbEvaluateObject(
+    ACPI_NAMESPACE_NODE* Node);
 
 /*******************************************************************************
  *
@@ -190,39 +188,34 @@ AcpiDbEvaluateObject (
  *
  ******************************************************************************/
 
-void
-AcpiDbSetMethodBreakpoint (
-    char                    *Location,
-    ACPI_WALK_STATE         *WalkState,
-    ACPI_PARSE_OBJECT       *Op)
+void AcpiDbSetMethodBreakpoint(
+    char* Location,
+    ACPI_WALK_STATE* WalkState,
+    ACPI_PARSE_OBJECT* Op)
 {
-    UINT32                  Address;
-    UINT32                  AmlOffset;
+    UINT32 Address;
+    UINT32 AmlOffset;
 
-
-    if (!Op)
-    {
-        AcpiOsPrintf ("There is no method currently executing\n");
+    if (!Op) {
+        AcpiOsPrintf("There is no method currently executing\n");
         return;
     }
 
     /* Get and verify the breakpoint address */
 
-    Address = strtoul (Location, NULL, 16);
-    AmlOffset = (UINT32) ACPI_PTR_DIFF (Op->Common.Aml,
+    Address = strtoul(Location, NULL, 16);
+    AmlOffset = (UINT32)ACPI_PTR_DIFF(Op->Common.Aml,
         WalkState->ParserState.AmlStart);
-    if (Address <= AmlOffset)
-    {
-        AcpiOsPrintf ("Breakpoint %X is beyond current address %X\n",
+    if (Address <= AmlOffset) {
+        AcpiOsPrintf("Breakpoint %X is beyond current address %X\n",
             Address, AmlOffset);
     }
 
     /* Save breakpoint in current walk */
 
     WalkState->UserBreakpoint = Address;
-    AcpiOsPrintf ("Breakpoint set at AML offset %X\n", Address);
+    AcpiOsPrintf("Breakpoint set at AML offset %X\n", Address);
 }
-
 
 /*******************************************************************************
  *
@@ -237,21 +230,17 @@ AcpiDbSetMethodBreakpoint (
  *
  ******************************************************************************/
 
-void
-AcpiDbSetMethodCallBreakpoint (
-    ACPI_PARSE_OBJECT       *Op)
+void AcpiDbSetMethodCallBreakpoint(
+    ACPI_PARSE_OBJECT* Op)
 {
 
-
-    if (!Op)
-    {
-        AcpiOsPrintf ("There is no method currently executing\n");
+    if (!Op) {
+        AcpiOsPrintf("There is no method currently executing\n");
         return;
     }
 
     AcpiGbl_StepToNextCall = TRUE;
 }
-
 
 /*******************************************************************************
  *
@@ -268,46 +257,38 @@ AcpiDbSetMethodCallBreakpoint (
  *
  ******************************************************************************/
 
-void
-AcpiDbSetMethodData (
-    char                    *TypeArg,
-    char                    *IndexArg,
-    char                    *ValueArg)
+void AcpiDbSetMethodData(
+    char* TypeArg,
+    char* IndexArg,
+    char* ValueArg)
 {
-    char                    Type;
-    UINT32                  Index;
-    UINT32                  Value;
-    ACPI_WALK_STATE         *WalkState;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_STATUS             Status;
-    ACPI_NAMESPACE_NODE     *Node;
-
+    char Type;
+    UINT32 Index;
+    UINT32 Value;
+    ACPI_WALK_STATE* WalkState;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_STATUS Status;
+    ACPI_NAMESPACE_NODE* Node;
 
     /* Validate TypeArg */
 
-    AcpiUtStrupr (TypeArg);
+    AcpiUtStrupr(TypeArg);
     Type = TypeArg[0];
-    if ((Type != 'L') &&
-        (Type != 'A') &&
-        (Type != 'N'))
-    {
-        AcpiOsPrintf ("Invalid SET operand: %s\n", TypeArg);
+    if ((Type != 'L') && (Type != 'A') && (Type != 'N')) {
+        AcpiOsPrintf("Invalid SET operand: %s\n", TypeArg);
         return;
     }
 
-    Value = strtoul (ValueArg, NULL, 16);
+    Value = strtoul(ValueArg, NULL, 16);
 
-    if (Type == 'N')
-    {
-        Node = AcpiDbConvertToNode (IndexArg);
-        if (!Node)
-        {
+    if (Type == 'N') {
+        Node = AcpiDbConvertToNode(IndexArg);
+        if (!Node) {
             return;
         }
 
-        if (Node->Type != ACPI_TYPE_INTEGER)
-        {
-            AcpiOsPrintf ("Can only set Integer nodes\n");
+        if (Node->Type != ACPI_TYPE_INTEGER) {
+            AcpiOsPrintf("Can only set Integer nodes\n");
             return;
         }
         ObjDesc = Node->Object;
@@ -317,74 +298,67 @@ AcpiDbSetMethodData (
 
     /* Get the index and value */
 
-    Index = strtoul (IndexArg, NULL, 16);
+    Index = strtoul(IndexArg, NULL, 16);
 
-    WalkState = AcpiDsGetCurrentWalkState (AcpiGbl_CurrentWalkList);
-    if (!WalkState)
-    {
-        AcpiOsPrintf ("There is no method currently executing\n");
+    WalkState = AcpiDsGetCurrentWalkState(AcpiGbl_CurrentWalkList);
+    if (!WalkState) {
+        AcpiOsPrintf("There is no method currently executing\n");
         return;
     }
 
     /* Create and initialize the new object */
 
-    ObjDesc = AcpiUtCreateIntegerObject ((UINT64) Value);
-    if (!ObjDesc)
-    {
-        AcpiOsPrintf ("Could not create an internal object\n");
+    ObjDesc = AcpiUtCreateIntegerObject((UINT64)Value);
+    if (!ObjDesc) {
+        AcpiOsPrintf("Could not create an internal object\n");
         return;
     }
 
     /* Store the new object into the target */
 
-    switch (Type)
-    {
+    switch (Type) {
     case 'A':
 
         /* Set a method argument */
 
-        if (Index > ACPI_METHOD_MAX_ARG)
-        {
-            AcpiOsPrintf ("Arg%u - Invalid argument name\n",
+        if (Index > ACPI_METHOD_MAX_ARG) {
+            AcpiOsPrintf("Arg%u - Invalid argument name\n",
                 Index);
             goto Cleanup;
         }
 
-        Status = AcpiDsStoreObjectToLocal (ACPI_REFCLASS_ARG,
+        Status = AcpiDsStoreObjectToLocal(ACPI_REFCLASS_ARG,
             Index, ObjDesc, WalkState);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             goto Cleanup;
         }
 
         ObjDesc = WalkState->Arguments[Index].Object;
 
-        AcpiOsPrintf ("Arg%u: ", Index);
-        AcpiDbDisplayInternalObject (ObjDesc, WalkState);
+        AcpiOsPrintf("Arg%u: ", Index);
+        AcpiDbDisplayInternalObject(ObjDesc, WalkState);
         break;
 
     case 'L':
 
         /* Set a method local */
 
-        if (Index > ACPI_METHOD_MAX_LOCAL)
-        {
-            AcpiOsPrintf ("Local%u - Invalid local variable name\n",
+        if (Index > ACPI_METHOD_MAX_LOCAL) {
+            AcpiOsPrintf("Local%u - Invalid local variable name\n",
                 Index);
             goto Cleanup;
         }
 
-        Status = AcpiDsStoreObjectToLocal (ACPI_REFCLASS_LOCAL,
+        Status = AcpiDsStoreObjectToLocal(ACPI_REFCLASS_LOCAL,
             Index, ObjDesc, WalkState);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             goto Cleanup;
         }
 
         ObjDesc = WalkState->LocalVariables[Index].Object;
 
-        AcpiOsPrintf ("Local%u: ", Index);
-        AcpiDbDisplayInternalObject (ObjDesc, WalkState);
+        AcpiOsPrintf("Local%u: ", Index);
+        AcpiDbDisplayInternalObject(ObjDesc, WalkState);
         break;
 
     default:
@@ -393,9 +367,8 @@ AcpiDbSetMethodData (
     }
 
 Cleanup:
-    AcpiUtRemoveReference (ObjDesc);
+    AcpiUtRemoveReference(ObjDesc);
 }
-
 
 #ifdef ACPI_DISASSEMBLER
 /*******************************************************************************
@@ -412,28 +385,23 @@ Cleanup:
  *
  ******************************************************************************/
 
-void
-AcpiDbDisassembleAml (
-    char                    *Statements,
-    ACPI_PARSE_OBJECT       *Op)
+void AcpiDbDisassembleAml(
+    char* Statements,
+    ACPI_PARSE_OBJECT* Op)
 {
-    UINT32                  NumStatements = 8;
+    UINT32 NumStatements = 8;
 
-
-    if (!Op)
-    {
-        AcpiOsPrintf ("There is no method currently executing\n");
+    if (!Op) {
+        AcpiOsPrintf("There is no method currently executing\n");
         return;
     }
 
-    if (Statements)
-    {
-        NumStatements = strtoul (Statements, NULL, 0);
+    if (Statements) {
+        NumStatements = strtoul(Statements, NULL, 0);
     }
 
-    AcpiDmDisassemble (NULL, Op, NumStatements);
+    AcpiDmDisassemble(NULL, Op, NumStatements);
 }
-
 
 /*******************************************************************************
  *
@@ -449,56 +417,49 @@ AcpiDbDisassembleAml (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDbDisassembleMethod (
-    char                    *Name)
+AcpiDbDisassembleMethod(
+    char* Name)
 {
-    ACPI_STATUS             Status;
-    ACPI_PARSE_OBJECT       *Op;
-    ACPI_WALK_STATE         *WalkState;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_NAMESPACE_NODE     *Method;
+    ACPI_STATUS Status;
+    ACPI_PARSE_OBJECT* Op;
+    ACPI_WALK_STATE* WalkState;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_NAMESPACE_NODE* Method;
 
-
-    Method = AcpiDbConvertToNode (Name);
-    if (!Method)
-    {
+    Method = AcpiDbConvertToNode(Name);
+    if (!Method) {
         return (AE_BAD_PARAMETER);
     }
 
-    if (Method->Type != ACPI_TYPE_METHOD)
-    {
-        ACPI_ERROR ((AE_INFO, "%s (%s): Object must be a control method",
-            Name, AcpiUtGetTypeName (Method->Type)));
+    if (Method->Type != ACPI_TYPE_METHOD) {
+        ACPI_ERROR((AE_INFO, "%s (%s): Object must be a control method",
+            Name, AcpiUtGetTypeName(Method->Type)));
         return (AE_BAD_PARAMETER);
     }
 
     ObjDesc = Method->Object;
 
-    Op = AcpiPsCreateScopeOp (ObjDesc->Method.AmlStart);
-    if (!Op)
-    {
+    Op = AcpiPsCreateScopeOp(ObjDesc->Method.AmlStart);
+    if (!Op) {
         return (AE_NO_MEMORY);
     }
 
     /* Create and initialize a new walk state */
 
-    WalkState = AcpiDsCreateWalkState (0, Op, NULL, NULL);
-    if (!WalkState)
-    {
+    WalkState = AcpiDsCreateWalkState(0, Op, NULL, NULL);
+    if (!WalkState) {
         return (AE_NO_MEMORY);
     }
 
-    Status = AcpiDsInitAmlWalk (WalkState, Op, NULL,
+    Status = AcpiDsInitAmlWalk(WalkState, Op, NULL,
         ObjDesc->Method.AmlStart,
         ObjDesc->Method.AmlLength, NULL, ACPI_IMODE_LOAD_PASS1);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiUtAllocateOwnerId (&ObjDesc->Method.OwnerId);
-    if (ACPI_FAILURE(Status))
-    {
+    Status = AcpiUtAllocateOwnerId(&ObjDesc->Method.OwnerId);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -506,10 +467,9 @@ AcpiDbDisassembleMethod (
 
     /* Push start scope on scope stack and make it current */
 
-    Status = AcpiDsScopeStackPush (Method,
+    Status = AcpiDsScopeStackPush(Method,
         Method->Type, WalkState);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -518,31 +478,29 @@ AcpiDbDisassembleMethod (
     WalkState->ParseFlags &= ~ACPI_PARSE_DELETE_TREE;
     WalkState->ParseFlags |= ACPI_PARSE_DISASSEMBLE;
 
-    Status = AcpiPsParseAml (WalkState);
-    if (ACPI_FAILURE(Status))
-    {
+    Status = AcpiPsParseAml(WalkState);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    (void) AcpiDmParseDeferredOps (Op);
+    (void)AcpiDmParseDeferredOps(Op);
 
     /* Now we can disassemble the method */
 
     AcpiGbl_DmOpt_Verbose = FALSE;
-    AcpiDmDisassemble (NULL, Op, 0);
+    AcpiDmDisassemble(NULL, Op, 0);
     AcpiGbl_DmOpt_Verbose = TRUE;
 
-    AcpiPsDeleteParseTree (Op);
+    AcpiPsDeleteParseTree(Op);
 
     /* Method cleanup */
 
-    AcpiNsDeleteNamespaceSubtree (Method);
-    AcpiNsDeleteNamespaceByOwner (ObjDesc->Method.OwnerId);
-    AcpiUtReleaseOwnerId (&ObjDesc->Method.OwnerId);
+    AcpiNsDeleteNamespaceSubtree(Method);
+    AcpiNsDeleteNamespaceByOwner(ObjDesc->Method.OwnerId);
+    AcpiUtReleaseOwnerId(&ObjDesc->Method.OwnerId);
     return (AE_OK);
 }
 #endif
-
 
 /*******************************************************************************
  *
@@ -558,51 +516,46 @@ AcpiDbDisassembleMethod (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbEvaluateObject (
-    ACPI_NAMESPACE_NODE     *Node)
+AcpiDbEvaluateObject(
+    ACPI_NAMESPACE_NODE* Node)
 {
-    char                    *Pathname;
-    UINT32                  i;
-    ACPI_DEVICE_INFO        *ObjInfo;
-    ACPI_OBJECT_LIST        ParamObjects;
-    ACPI_OBJECT             Params[ACPI_METHOD_NUM_ARGS];
-    ACPI_BUFFER             ReturnObj;
-    ACPI_STATUS             Status;
+    char* Pathname;
+    UINT32 i;
+    ACPI_DEVICE_INFO* ObjInfo;
+    ACPI_OBJECT_LIST ParamObjects;
+    ACPI_OBJECT Params[ACPI_METHOD_NUM_ARGS];
+    ACPI_BUFFER ReturnObj;
+    ACPI_STATUS Status;
 
-
-    Pathname = AcpiNsGetExternalPathname (Node);
-    if (!Pathname)
-    {
+    Pathname = AcpiNsGetExternalPathname(Node);
+    if (!Pathname) {
         return (AE_OK);
     }
 
     /* Get the object info for number of method parameters */
 
-    Status = AcpiGetObjectInfo (Node, &ObjInfo);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_FREE (Pathname);
+    Status = AcpiGetObjectInfo(Node, &ObjInfo);
+    if (ACPI_FAILURE(Status)) {
+        ACPI_FREE(Pathname);
         return (Status);
     }
 
     ParamObjects.Pointer = NULL;
-    ParamObjects.Count   = 0;
+    ParamObjects.Count = 0;
 
-    if (ObjInfo->Type == ACPI_TYPE_METHOD)
-    {
+    if (ObjInfo->Type == ACPI_TYPE_METHOD) {
         /* Setup default parameters */
 
-        for (i = 0; i < ObjInfo->ParamCount; i++)
-        {
-            Params[i].Type           = ACPI_TYPE_INTEGER;
-            Params[i].Integer.Value  = 1;
+        for (i = 0; i < ObjInfo->ParamCount; i++) {
+            Params[i].Type = ACPI_TYPE_INTEGER;
+            Params[i].Integer.Value = 1;
         }
 
-        ParamObjects.Pointer     = Params;
-        ParamObjects.Count       = ObjInfo->ParamCount;
+        ParamObjects.Pointer = Params;
+        ParamObjects.Count = ObjInfo->ParamCount;
     }
 
-    ACPI_FREE (ObjInfo);
+    ACPI_FREE(ObjInfo);
     ReturnObj.Pointer = NULL;
     ReturnObj.Length = ACPI_ALLOCATE_BUFFER;
 
@@ -610,28 +563,26 @@ AcpiDbEvaluateObject (
 
     AcpiGbl_MethodExecuting = TRUE;
 
-    Status = AcpiEvaluateObject (Node, NULL, &ParamObjects, &ReturnObj);
+    Status = AcpiEvaluateObject(Node, NULL, &ParamObjects, &ReturnObj);
     AcpiGbl_MethodExecuting = FALSE;
 
-    AcpiOsPrintf ("%-32s returned %s\n", Pathname, AcpiFormatException (Status));
-    if (ReturnObj.Length)
-    {
-        AcpiOsPrintf ("Evaluation of %s returned object %p, "
-            "external buffer length %X\n",
-            Pathname, ReturnObj.Pointer, (UINT32) ReturnObj.Length);
+    AcpiOsPrintf("%-32s returned %s\n", Pathname, AcpiFormatException(Status));
+    if (ReturnObj.Length) {
+        AcpiOsPrintf("Evaluation of %s returned object %p, "
+                     "external buffer length %X\n",
+            Pathname, ReturnObj.Pointer, (UINT32)ReturnObj.Length);
 
-        AcpiDbDumpExternalObject (ReturnObj.Pointer, 1);
-        AcpiOsPrintf ("\n");
+        AcpiDbDumpExternalObject(ReturnObj.Pointer, 1);
+        AcpiOsPrintf("\n");
     }
 
-    ACPI_FREE (Pathname);
+    ACPI_FREE(Pathname);
 
     /* Ignore status from method execution */
 
     return (AE_OK);
 
     /* Update count, check if we have executed enough methods */
-
 }
 
 /*******************************************************************************
@@ -648,30 +599,27 @@ AcpiDbEvaluateObject (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbWalkForExecute (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiDbWalkForExecute(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_NAMESPACE_NODE     *Node = (ACPI_NAMESPACE_NODE *) ObjHandle;
-    ACPI_DB_EXECUTE_WALK    *Info = (ACPI_DB_EXECUTE_WALK *) Context;
-    ACPI_STATUS             Status;
-    const ACPI_PREDEFINED_INFO *Predefined;
+    ACPI_NAMESPACE_NODE* Node = (ACPI_NAMESPACE_NODE*)ObjHandle;
+    ACPI_DB_EXECUTE_WALK* Info = (ACPI_DB_EXECUTE_WALK*)Context;
+    ACPI_STATUS Status;
+    const ACPI_PREDEFINED_INFO* Predefined;
 
-
-    Predefined = AcpiUtMatchPredefinedMethod (Node->Name.Ascii);
-    if (!Predefined)
-    {
+    Predefined = AcpiUtMatchPredefinedMethod(Node->Name.Ascii);
+    if (!Predefined) {
         return (AE_OK);
     }
 
-    if (Node->Type == ACPI_TYPE_LOCAL_SCOPE)
-    {
+    if (Node->Type == ACPI_TYPE_LOCAL_SCOPE) {
         return (AE_OK);
     }
 
-    AcpiDbEvaluateObject (Node);
+    AcpiDbEvaluateObject(Node);
 
     /* Ignore status from object evaluation */
 
@@ -680,14 +628,12 @@ AcpiDbWalkForExecute (
     /* Update count, check if we have executed enough methods */
 
     Info->Count++;
-    if (Info->Count >= Info->MaxCount)
-    {
+    if (Info->Count >= Info->MaxCount) {
         Status = AE_CTRL_TERMINATE;
     }
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -703,30 +649,27 @@ AcpiDbWalkForExecute (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbWalkForExecuteAll (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  NestingLevel,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiDbWalkForExecuteAll(
+    ACPI_HANDLE ObjHandle,
+    UINT32 NestingLevel,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_NAMESPACE_NODE     *Node = (ACPI_NAMESPACE_NODE *) ObjHandle;
-    ACPI_DB_EXECUTE_WALK    *Info = (ACPI_DB_EXECUTE_WALK *) Context;
-    ACPI_STATUS             Status;
+    ACPI_NAMESPACE_NODE* Node = (ACPI_NAMESPACE_NODE*)ObjHandle;
+    ACPI_DB_EXECUTE_WALK* Info = (ACPI_DB_EXECUTE_WALK*)Context;
+    ACPI_STATUS Status;
 
-
-    if (!ACPI_COMPARE_NAMESEG (Node->Name.Ascii, Info->NameSeg))
-    {
+    if (!ACPI_COMPARE_NAMESEG(Node->Name.Ascii, Info->NameSeg)) {
         return (AE_OK);
     }
 
-    if (Node->Type == ACPI_TYPE_LOCAL_SCOPE)
-    {
+    if (Node->Type == ACPI_TYPE_LOCAL_SCOPE) {
         return (AE_OK);
     }
 
     /* Now evaluate the input object (node) */
 
-    AcpiDbEvaluateObject (Node);
+    AcpiDbEvaluateObject(Node);
 
     /* Ignore status from method execution */
 
@@ -737,7 +680,6 @@ AcpiDbWalkForExecuteAll (
     Info->Count++;
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -752,24 +694,21 @@ AcpiDbWalkForExecuteAll (
  *
  ******************************************************************************/
 
-void
-AcpiDbEvaluatePredefinedNames (
+void AcpiDbEvaluatePredefinedNames(
     void)
 {
-    ACPI_DB_EXECUTE_WALK    Info;
-
+    ACPI_DB_EXECUTE_WALK Info;
 
     Info.Count = 0;
     Info.MaxCount = ACPI_UINT32_MAX;
 
     /* Search all nodes in namespace */
 
-    (void) AcpiWalkNamespace (ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
-                AcpiDbWalkForExecute, NULL, (void *) &Info, NULL);
+    (void)AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
+        AcpiDbWalkForExecute, NULL, (void*)&Info, NULL);
 
-    AcpiOsPrintf ("Evaluated %u predefined names in the namespace\n", Info.Count);
+    AcpiOsPrintf("Evaluated %u predefined names in the namespace\n", Info.Count);
 }
-
 
 /*******************************************************************************
  *
@@ -785,22 +724,20 @@ AcpiDbEvaluatePredefinedNames (
  *
  ******************************************************************************/
 
-void
-AcpiDbEvaluateAll (
-    char                    *NameSeg)
+void AcpiDbEvaluateAll(
+    char* NameSeg)
 {
-    ACPI_DB_EXECUTE_WALK    Info;
-
+    ACPI_DB_EXECUTE_WALK Info;
 
     Info.Count = 0;
     Info.MaxCount = ACPI_UINT32_MAX;
-    ACPI_COPY_NAMESEG (Info.NameSeg, NameSeg);
+    ACPI_COPY_NAMESEG(Info.NameSeg, NameSeg);
     Info.NameSeg[ACPI_NAMESEG_SIZE] = 0;
 
     /* Search all nodes in namespace */
 
-    (void) AcpiWalkNamespace (ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
-                AcpiDbWalkForExecuteAll, NULL, (void *) &Info, NULL);
+    (void)AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
+        AcpiDbWalkForExecuteAll, NULL, (void*)&Info, NULL);
 
-    AcpiOsPrintf ("Evaluated %u names in the namespace\n", Info.Count);
+    AcpiOsPrintf("Evaluated %u names in the namespace\n", Info.Count);
 }

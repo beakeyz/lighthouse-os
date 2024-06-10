@@ -1,9 +1,9 @@
 #include "node.h"
 #include "fs/dir.h"
-#include "libk/flow/error.h"
-#include "obj.h"
 #include "libk/data/hashmap.h"
+#include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "obj.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
 #include <mem/zalloc/zalloc.h>
@@ -22,9 +22,9 @@ static zone_allocator_t* _entry_allocator;
 
 void init_oss_nodes()
 {
-  /* Initialize the caches */
-  _node_allocator = create_zone_allocator(16 * Kib, sizeof(oss_node_t), NULL);
-  _entry_allocator = create_zone_allocator(16 * Kib, sizeof(oss_node_entry_t), NULL);
+    /* Initialize the caches */
+    _node_allocator = create_zone_allocator(16 * Kib, sizeof(oss_node_t), NULL);
+    _entry_allocator = create_zone_allocator(16 * Kib, sizeof(oss_node_entry_t), NULL);
 }
 
 /*!
@@ -34,28 +34,28 @@ void init_oss_nodes()
  */
 oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct oss_node_ops* ops, struct oss_node* parent)
 {
-  oss_node_t* ret;
+    oss_node_t* ret;
 
-  if (!name)
-    return nullptr;
+    if (!name)
+        return nullptr;
 
-  ret = zalloc_fixed(_node_allocator);
+    ret = zalloc_fixed(_node_allocator);
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
+    memset(ret, 0, sizeof(*ret));
 
-  ret->name = strdup(name);
-  ret->type = type;
-  ret->parent = parent;
-  ret->ops = ops;
+    ret->name = strdup(name);
+    ret->type = type;
+    ret->parent = parent;
+    ret->ops = ops;
 
-  ret->lock = create_mutex(NULL);
-  /* TODO: Allow the hashmap to be resized */
-  ret->obj_map = create_hashmap(SOFT_OSS_NODE_OBJ_MAX, NULL);
+    ret->lock = create_mutex(NULL);
+    /* TODO: Allow the hashmap to be resized */
+    ret->obj_map = create_hashmap(SOFT_OSS_NODE_OBJ_MAX, NULL);
 
-  return ret;
+    return ret;
 }
 
 /*!
@@ -63,29 +63,29 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
  */
 void destroy_oss_node(oss_node_t* node)
 {
-  oss_node_entry_t* entry;
+    oss_node_entry_t* entry;
 
-  if (!node)
-    return;
+    if (!node)
+        return;
 
-  entry = nullptr;
+    entry = nullptr;
 
-  /* Remove ourselves if we're still attached */
-  if (node->parent)
-    oss_node_remove_entry(node->parent, node->name, &entry);
+    /* Remove ourselves if we're still attached */
+    if (node->parent)
+        oss_node_remove_entry(node->parent, node->name, &entry);
 
-  if (entry)
-    destroy_oss_node_entry(entry);
+    if (entry)
+        destroy_oss_node_entry(entry);
 
-  /* Make sure there are no lingering objects */
-  oss_node_clean_objects(node);
+    /* Make sure there are no lingering objects */
+    oss_node_clean_objects(node);
 
-  kfree((void*)node->name);
+    kfree((void*)node->name);
 
-  destroy_mutex(node->lock);
-  destroy_hashmap(node->obj_map);
+    destroy_mutex(node->lock);
+    destroy_hashmap(node->obj_map);
 
-  zfree_fixed(_node_allocator, node);
+    zfree_fixed(_node_allocator, node);
 }
 
 /*!
@@ -96,20 +96,20 @@ void destroy_oss_node(oss_node_t* node)
  */
 void* oss_node_unwrap(oss_node_t* node)
 {
-  if (node->priv)
+    if (node->priv)
+        return node->priv;
+
+    if (!node->parent)
+        return nullptr;
+
+    do {
+        node = node->parent;
+    } while (node && !node->priv);
+
+    if (!node)
+        return nullptr;
+
     return node->priv;
-
-  if (!node->parent)
-    return nullptr;
-
-  do {
-    node = node->parent;
-  } while (node && !node->priv);
-
-  if (!node)
-    return nullptr;
-
-  return node->priv;
 }
 
 /*!
@@ -117,19 +117,19 @@ void* oss_node_unwrap(oss_node_t* node)
  */
 kerror_t oss_node_attach_dir(oss_node_t* node, dir_t* dir)
 {
-  if (!node || !dir)
-    return -KERR_NULL;
+    if (!node || !dir)
+        return -KERR_NULL;
 
-  if (node->dir)
-    return -KERR_INVAL;
+    if (node->dir)
+        return -KERR_INVAL;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  node->dir = dir;
-  dir->node = node;
+    node->dir = dir;
+    dir->node = node;
 
-  mutex_unlock(node->lock);
-  return 0;
+    mutex_unlock(node->lock);
+    return 0;
 }
 
 /*!
@@ -137,34 +137,34 @@ kerror_t oss_node_attach_dir(oss_node_t* node, dir_t* dir)
  */
 kerror_t oss_node_replace_dir(oss_node_t* node, struct dir* dir)
 {
-  if (!node || !dir)
-    return -KERR_NULL;
+    if (!node || !dir)
+        return -KERR_NULL;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  /* Detach */
-  if (node->dir)
-    node->dir->node = nullptr;
+    /* Detach */
+    if (node->dir)
+        node->dir->node = nullptr;
 
-  node->dir = dir;
-  dir->node = node;
+    node->dir = dir;
+    dir->node = node;
 
-  mutex_unlock(node->lock);
-  return 0;
+    mutex_unlock(node->lock);
+    return 0;
 }
 
 kerror_t oss_node_detach_dir(oss_node_t* node)
 {
-  if (!node || !node->dir)
-    return -KERR_NULL;
+    if (!node || !node->dir)
+        return -KERR_NULL;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  node->dir->node = nullptr;
-  node->dir = nullptr;
+    node->dir->node = nullptr;
+    node->dir = nullptr;
 
-  mutex_unlock(node->lock);
-  return 0;
+    mutex_unlock(node->lock);
+    return 0;
 }
 
 /*!
@@ -174,7 +174,7 @@ kerror_t oss_node_detach_dir(oss_node_t* node)
  */
 bool oss_node_is_empty(oss_node_t* node)
 {
-  return node->obj_map->m_size == 0;
+    return node->obj_map->m_size == 0;
 }
 
 /*!
@@ -182,16 +182,16 @@ bool oss_node_is_empty(oss_node_t* node)
  */
 static bool _valid_entry_name(const char* name)
 {
-  while (*name) {
+    while (*name) {
 
-    /* OSS node entry may not have a path seperator in it's name */
-    if (*name == '/')
-      return false;
+        /* OSS node entry may not have a path seperator in it's name */
+        if (*name == '/')
+            return false;
 
-    name++;
-  }
+        name++;
+    }
 
-  return true;
+    return true;
 }
 
 /*!
@@ -202,15 +202,15 @@ static bool _valid_entry_name(const char* name)
  */
 static inline bool _node_contains_entry(oss_node_t* node, oss_node_entry_t* entry)
 {
-  const char* entry_name;
+    const char* entry_name;
 
-  entry_name = oss_node_entry_getname(entry);
+    entry_name = oss_node_entry_getname(entry);
 
-  /* How the fuck does this entry not have a name? */
-  if (!entry_name)
-    return false;
+    /* How the fuck does this entry not have a name? */
+    if (!entry_name)
+        return false;
 
-  return (hashmap_get(node->obj_map, (hashmap_key_t)entry_name) != nullptr);
+    return (hashmap_get(node->obj_map, (hashmap_key_t)entry_name) != nullptr);
 }
 
 /*!
@@ -220,38 +220,38 @@ static inline bool _node_contains_entry(oss_node_t* node, oss_node_entry_t* entr
  */
 int oss_node_add_obj(oss_node_t* node, struct oss_obj* obj)
 {
-  int error;
-  oss_node_entry_t* entry;
+    int error;
+    oss_node_entry_t* entry;
 
-  if (!node || !obj)
-    return -1;
+    if (!node || !obj)
+        return -1;
 
-  if (!_valid_entry_name(obj->name))
-    return -2;
+    if (!_valid_entry_name(obj->name))
+        return -2;
 
-  entry = create_oss_node_entry(OSS_ENTRY_OBJECT, obj);
+    entry = create_oss_node_entry(OSS_ENTRY_OBJECT, obj);
 
-  if (!entry)
-    return -3;
+    if (!entry)
+        return -3;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  error = -1;
+    error = -1;
 
-  if (_node_contains_entry(node, entry))
-    goto unlock_and_exit;
+    if (_node_contains_entry(node, entry))
+        goto unlock_and_exit;
 
-  error = IsError(hashmap_put(node->obj_map, (hashmap_key_t)obj->name, entry));
+    error = IsError(hashmap_put(node->obj_map, (hashmap_key_t)obj->name, entry));
 
-  if (!error)
-    obj->parent = node;
-  
+    if (!error)
+        obj->parent = node;
+
 unlock_and_exit:
-  if (error)
-    destroy_oss_node_entry(entry);
+    if (error)
+        destroy_oss_node_entry(entry);
 
-  mutex_unlock(node->lock);
-  return error;
+    mutex_unlock(node->lock);
+    return error;
 }
 
 /*!
@@ -261,47 +261,47 @@ unlock_and_exit:
  */
 int oss_node_add_node(oss_node_t* target, struct oss_node* node)
 {
-  int error;
-  oss_node_entry_t* entry;
+    int error;
+    oss_node_entry_t* entry;
 
-  if (!target || !node)
-    return -1;
+    if (!target || !node)
+        return -1;
 
-  if (!_valid_entry_name(node->name))
-    return -2;
+    if (!_valid_entry_name(node->name))
+        return -2;
 
-  entry = create_oss_node_entry(OSS_ENTRY_NESTED_NODE, node);
+    entry = create_oss_node_entry(OSS_ENTRY_NESTED_NODE, node);
 
-  if (!entry)
-    return -3;
+    if (!entry)
+        return -3;
 
-  mutex_lock(target->lock);
+    mutex_lock(target->lock);
 
-  error = -1;
+    error = -1;
 
-  if (_node_contains_entry(target, entry))
-    goto unlock_and_exit;
+    if (_node_contains_entry(target, entry))
+        goto unlock_and_exit;
 
-  error = IsError(hashmap_put(target->obj_map, (hashmap_key_t)node->name, entry));
+    error = IsError(hashmap_put(target->obj_map, (hashmap_key_t)node->name, entry));
 
-  if (!error)
-    node->parent = target;
-  
+    if (!error)
+        node->parent = target;
+
 unlock_and_exit:
-  mutex_unlock(target->lock);
-  return error;
+    mutex_unlock(target->lock);
+    return error;
 }
 
 static inline void _entry_on_detach(oss_node_entry_t* entry)
 {
-  switch (entry->type) {
+    switch (entry->type) {
     case OSS_ENTRY_OBJECT:
-      entry->obj->parent = nullptr;
-      break;
+        entry->obj->parent = nullptr;
+        break;
     case OSS_ENTRY_NESTED_NODE:
-      entry->node->parent = nullptr;
-      break;
-  }
+        entry->node->parent = nullptr;
+        break;
+    }
 }
 
 /*!
@@ -312,36 +312,36 @@ static inline void _entry_on_detach(oss_node_entry_t* entry)
  */
 int oss_node_remove_entry(oss_node_t* node, const char* name, struct oss_node_entry** entry_out)
 {
-  int error;
-  oss_node_entry_t* entry;
+    int error;
+    oss_node_entry_t* entry;
 
-  if (!node || !name)
-    return -1;
+    if (!node || !name)
+        return -1;
 
-  /* If the name is invalid we don't even have to go through all this fuckery */
-  if (!_valid_entry_name(name))
-    return -2;
+    /* If the name is invalid we don't even have to go through all this fuckery */
+    if (!_valid_entry_name(name))
+        return -2;
 
-  /* Lock because we don't want do die */
-  mutex_lock(node->lock);
+    /* Lock because we don't want do die */
+    mutex_lock(node->lock);
 
-  /* Remove and get the thing */
-  error = -3;
-  entry = hashmap_remove(node->obj_map, (hashmap_key_t)name);
+    /* Remove and get the thing */
+    error = -3;
+    entry = hashmap_remove(node->obj_map, (hashmap_key_t)name);
 
-  if (!entry)
-    goto unlock_and_exit;
-  
-  /* Only return if the caller means to */
-  if (entry_out)
-    *entry_out = entry;
+    if (!entry)
+        goto unlock_and_exit;
 
-  /* Make sure we tell the entry it's detached */
-  _entry_on_detach(entry);
-  error = 0;
+    /* Only return if the caller means to */
+    if (entry_out)
+        *entry_out = entry;
+
+    /* Make sure we tell the entry it's detached */
+    _entry_on_detach(entry);
+    error = 0;
 unlock_and_exit:
-  mutex_unlock(node->lock);
-  return error;
+    mutex_unlock(node->lock);
+    return error;
 }
 
 /*!
@@ -352,35 +352,35 @@ unlock_and_exit:
  */
 int oss_node_find(oss_node_t* node, const char* name, struct oss_node_entry** entry_out)
 {
-  oss_node_entry_t* entry;
+    oss_node_entry_t* entry;
 
-  if (!entry_out)
-    return -1;
+    if (!entry_out)
+        return -1;
 
-  /* Set to NULL to please fuckers that only check this variable -_- */
-  *entry_out = NULL;
+    /* Set to NULL to please fuckers that only check this variable -_- */
+    *entry_out = NULL;
 
-  /* If the name is invalid we don't even have to go through all this fuckery */
-  if (!_valid_entry_name(name))
-    return -2;
+    /* If the name is invalid we don't even have to go through all this fuckery */
+    if (!_valid_entry_name(name))
+        return -2;
 
-  /* Lock because we don't want do die */
-  mutex_lock(node->lock);
+    /* Lock because we don't want do die */
+    mutex_lock(node->lock);
 
-  /* Get the thing */
-  entry = hashmap_get(node->obj_map, (hashmap_key_t)name);
+    /* Get the thing */
+    entry = hashmap_get(node->obj_map, (hashmap_key_t)name);
 
-  if (!entry)
-    goto unlock_and_exit;
-  
-  *entry_out = entry;
+    if (!entry)
+        goto unlock_and_exit;
 
-  mutex_unlock(node->lock);
-  return 0;
+    *entry_out = entry;
+
+    mutex_unlock(node->lock);
+    return 0;
 
 unlock_and_exit:
-  mutex_unlock(node->lock);
-  return -3;
+    mutex_unlock(node->lock);
+    return -3;
 }
 
 /*!
@@ -391,62 +391,62 @@ unlock_and_exit:
  */
 int oss_node_find_at(oss_node_t* node, uint64_t idx, struct oss_node_entry** entry_out)
 {
-  int error;
-  size_t size;
-  oss_node_entry_t** array;
+    int error;
+    size_t size;
+    oss_node_entry_t** array;
 
-  size = NULL;
-  array = NULL;
+    size = NULL;
+    array = NULL;
 
-  if (!node || !node->obj_map || idx >= node->obj_map->m_size)
-    return -KERR_INVAL;
+    if (!node || !node->obj_map || idx >= node->obj_map->m_size)
+        return -KERR_INVAL;
 
-  error = hashmap_to_array(node->obj_map, (void***)&array, &size);
+    error = hashmap_to_array(node->obj_map, (void***)&array, &size);
 
-  if (!KERR_OK(error))
-    return error;
+    if (!KERR_OK(error))
+        return error;
 
-  if (!array || !size)
-    return -KERR_NULL;
+    if (!array || !size)
+        return -KERR_NULL;
 
-  *entry_out = array[idx];
+    *entry_out = array[idx];
 
-  kfree(array);
-  return 0;
+    kfree(array);
+    return 0;
 }
 
 int oss_node_query(oss_node_t* node, const char* path, struct oss_obj** obj_out)
 {
-  if (!obj_out || !node || !node->ops || !node->ops->f_open)
-    return -1;
+    if (!obj_out || !node || !node->ops || !node->ops->f_open)
+        return -1;
 
-  /* Can't query on a non-gen node =/ */
-  if (node->type != OSS_OBJ_GEN_NODE)
-    return -2;
+    /* Can't query on a non-gen node =/ */
+    if (node->type != OSS_OBJ_GEN_NODE)
+        return -2;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  *obj_out = node->ops->f_open(node, path);
+    *obj_out = node->ops->f_open(node, path);
 
-  mutex_unlock(node->lock);
-  return (*obj_out ? 0 : -1);
+    mutex_unlock(node->lock);
+    return (*obj_out ? 0 : -1);
 }
 
 int oss_node_query_node(oss_node_t* node, const char* path, struct oss_node** node_out)
 {
-  if (!node_out || !node || !node->ops || !node->ops->f_open_node)
-    return -1;
+    if (!node_out || !node || !node->ops || !node->ops->f_open_node)
+        return -1;
 
-  /* Can't query on a non-gen node =/ */
-  if (node->type != OSS_OBJ_GEN_NODE)
-    return -2;
+    /* Can't query on a non-gen node =/ */
+    if (node->type != OSS_OBJ_GEN_NODE)
+        return -2;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  *node_out = node->ops->f_open_node(node, path);
+    *node_out = node->ops->f_open_node(node, path);
 
-  mutex_unlock(node->lock);
-  return (*node_out ? 0 : -1);
+    mutex_unlock(node->lock);
+    return (*node_out ? 0 : -1);
 }
 
 /*!
@@ -457,45 +457,45 @@ int oss_node_query_node(oss_node_t* node, const char* path, struct oss_node** no
  */
 static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
 {
-  int error;
-  oss_node_entry_t* entry = v;
-  oss_node_t* node;
-  oss_obj_t* obj;
-  bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* arg0) = (void*)arg0;
+    int error;
+    oss_node_entry_t* entry = v;
+    oss_node_t* node;
+    oss_obj_t* obj;
+    bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* arg0) = (void*)arg0;
 
-  if (!entry)
-    return Success(0);
+    if (!entry)
+        return Success(0);
 
-  error = 0;
+    error = 0;
 
-  switch (entry->type) {
+    switch (entry->type) {
     /* In case of an object, simply call it in the itteration */
     case OSS_ENTRY_OBJECT:
-      obj = entry->obj;
+        obj = entry->obj;
 
-      if (!f_itter(nullptr, obj, (void*)arg1))
-        return Error();
-      break;
+        if (!f_itter(nullptr, obj, (void*)arg1))
+            return Error();
+        break;
     /* Itterate over nodes recursively */
     case OSS_ENTRY_NESTED_NODE:
-      node = entry->node;
+        node = entry->node;
 
-      if (!f_itter(node, nullptr, (void*)arg1))
-        return Error();
-      break;
+        if (!f_itter(node, nullptr, (void*)arg1))
+            return Error();
+        break;
     default:
-      break;
-  }
+        break;
+    }
 
-  return error ? Error() : Success(0);
+    return error ? Error() : Success(0);
 }
 
 /*!
  * @brief: Walk all the child objects under @node
  */
-int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param)
+int oss_node_itterate(oss_node_t* node, bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param)
 {
-  return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter, (uint64_t)param));
+    return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter, (uint64_t)param));
 }
 
 /*!
@@ -503,61 +503,60 @@ int oss_node_itterate(oss_node_t* node, bool(*f_itter)(oss_node_t* node, struct 
  */
 int oss_node_clean_objects(oss_node_t* node)
 {
-  int error;
-  oss_node_entry_t** array;
-  size_t size;
-  size_t entry_count;
+    int error;
+    oss_node_entry_t** array;
+    size_t size;
+    size_t entry_count;
 
-  mutex_lock(node->lock);
+    mutex_lock(node->lock);
 
-  error = hashmap_to_array(node->obj_map, (void***)&array, &size);
+    error = hashmap_to_array(node->obj_map, (void***)&array, &size);
 
-  if (error)
-    goto unlock_and_exit;
+    if (error)
+        goto unlock_and_exit;
 
-  entry_count = size / (sizeof(oss_node_entry_t*));
+    entry_count = size / (sizeof(oss_node_entry_t*));
 
-  for (uintptr_t i = 0; i < entry_count; i++) {
-    oss_node_entry_t* entry = array[i];
+    for (uintptr_t i = 0; i < entry_count; i++) {
+        oss_node_entry_t* entry = array[i];
 
-    switch (entry->type) {
-      case OSS_ENTRY_NESTED_NODE:
-        destroy_oss_node(entry->node);
-        break;
-      case OSS_ENTRY_OBJECT:
-        destroy_oss_obj(entry->obj);
-        break;
+        switch (entry->type) {
+        case OSS_ENTRY_NESTED_NODE:
+            destroy_oss_node(entry->node);
+            break;
+        case OSS_ENTRY_OBJECT:
+            destroy_oss_obj(entry->obj);
+            break;
+        }
+
+        destroy_oss_node_entry(entry);
     }
 
-    destroy_oss_node_entry(entry);
-  }
-
-  kfree(array);
+    kfree(array);
 
 unlock_and_exit:
-  mutex_unlock(node->lock);
-  return error;
+    mutex_unlock(node->lock);
+    return error;
 }
 
 oss_node_entry_t* create_oss_node_entry(enum OSS_ENTRY_TYPE type, void* obj)
 {
-  oss_node_entry_t* ret;
+    oss_node_entry_t* ret;
 
-  ret = zalloc_fixed(_entry_allocator);
+    ret = zalloc_fixed(_entry_allocator);
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
+    memset(ret, 0, sizeof(*ret));
 
-  ret->type = type;
-  ret->ptr = obj;
+    ret->type = type;
+    ret->ptr = obj;
 
-  return ret;
+    return ret;
 }
 
 void destroy_oss_node_entry(oss_node_entry_t* entry)
 {
-  zfree_fixed(_entry_allocator, entry);
+    zfree_fixed(_entry_allocator, entry);
 }
-

@@ -1,6 +1,6 @@
-#include "lightos/proc/var_types.h"
 #include "drivers/env/kterm/kterm.h"
 #include "libk/string.h"
+#include "lightos/proc/var_types.h"
 #include "oss/core.h"
 #include "oss/node.h"
 #include "oss/obj.h"
@@ -15,45 +15,45 @@
  */
 static bool print_profile_variable(oss_node_t* node, oss_obj_t* obj, void* param)
 {
-  sysvar_t* var;
+    sysvar_t* var;
 
-  if (!obj)
-    return true;
+    if (!obj)
+        return true;
 
-  var = (sysvar_t*)obj->priv;
+    var = (sysvar_t*)obj->priv;
 
-  if ((var->flags & SYSVAR_FLAG_HIDDEN) == SYSVAR_FLAG_HIDDEN)
-    return true;
+    if ((var->flags & SYSVAR_FLAG_HIDDEN) == SYSVAR_FLAG_HIDDEN)
+        return true;
 
-  kterm_print(var->key);
-  kterm_print(": ");
+    kterm_print(var->key);
+    kterm_print(": ");
 
-  switch (var->type) {
+    switch (var->type) {
     case SYSVAR_TYPE_STRING:
-      kterm_println(var->str_value);
-      break;
+        kterm_println(var->str_value);
+        break;
     default:
-      kterm_println(to_string(var->qword_value));
-  }
+        kterm_println(to_string(var->qword_value));
+    }
 
-  return true;
+    return true;
 }
 
 static bool print_profiles(oss_node_t* node, oss_obj_t* obj, void* param)
 {
-  user_profile_t* profile;
+    user_profile_t* profile;
 
-  if (!node || node->type != OSS_PROFILE_NODE)
+    if (!node || node->type != OSS_PROFILE_NODE)
+        return true;
+
+    profile = node->priv;
+
+    if (!profile->name)
+        return false;
+
+    kterm_println(profile->name);
+
     return true;
-
-  profile = node->priv;
-
-  if (!profile->name)
-    return false;
-
-  kterm_println(profile->name);
-
-  return true;
 }
 
 /*!
@@ -64,35 +64,35 @@ static bool print_profiles(oss_node_t* node, oss_obj_t* obj, void* param)
  */
 uint32_t kterm_cmd_envinfo(const char** argv, size_t argc)
 {
-  int error;
-  user_profile_t* profile;
-  oss_node_t* node;
+    int error;
+    user_profile_t* profile;
+    oss_node_t* node;
 
-  switch (argc) {
+    switch (argc) {
     case 1:
-      error = oss_resolve_node("Runtime", &node);
+        error = oss_resolve_node("Runtime", &node);
 
-      if (error)
-        return 3;
+        if (error)
+            return 3;
 
-      error = oss_node_itterate(node, print_profiles, NULL);
+        error = oss_node_itterate(node, print_profiles, NULL);
 
-      if (error)
-        return 3;
+        if (error)
+            return 3;
 
-      break;
+        break;
     case 2:
-      error = profile_find(argv[1], &profile);
+        error = profile_find(argv[1], &profile);
 
-      if (error || !profile)
-        return 2;
+        if (error || !profile)
+            return 2;
 
-      /* Print every variable */
-      oss_node_itterate(profile->node, print_profile_variable, NULL);
-      break;
+        /* Print every variable */
+        oss_node_itterate(profile->node, print_profile_variable, NULL);
+        break;
     default:
-      return 1;
-  }
+        return 1;
+    }
 
-  return 0;
+    return 0;
 }

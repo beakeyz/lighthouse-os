@@ -32,64 +32,64 @@ void enable_interrupts();
  */
 inline bool interrupts_are_enabled()
 {
-  return ((get_eflags() & 0x200) != 0);
+    return ((get_eflags() & 0x200) != 0);
 }
 
 // hopefully this does not get used anywhere else ;-;
-#define CHECK_AND_DO_DISABLE_INTERRUPTS()               \
-  bool ___were_enabled_x = interrupts_are_enabled(); \
-  disable_interrupts()                                 
+#define CHECK_AND_DO_DISABLE_INTERRUPTS()              \
+    bool ___were_enabled_x = interrupts_are_enabled(); \
+    disable_interrupts()
 
-#define CHECK_AND_TRY_ENABLE_INTERRUPTS()               \
-  if (___were_enabled_x) {                              \
-    enable_interrupts();                               \
-  }
+#define CHECK_AND_TRY_ENABLE_INTERRUPTS() \
+    if (___were_enabled_x) {              \
+        enable_interrupts();              \
+    }
 
 /*
  * Entrypoints for any interrupts
  */
-registers_t* irq_handler (struct registers* regs);
-registers_t* exception_handler (struct registers* regs);
+registers_t* irq_handler(struct registers* regs);
+registers_t* exception_handler(struct registers* regs);
 
 /* The handler isn't passed any irq or register information, only the ctx */
 #define IRQHANDLER_FLAG_DIRECT_CALL 0x00000001
 /* offload the IRQ to the irq thread to be called asynchronously */
-#define IRQHANDLER_FLAG_THREADED    0x00000002
+#define IRQHANDLER_FLAG_THREADED 0x00000002
 
 typedef struct irq_handler {
-  /* Handler to be called when the IRQ fires */
-  union {
-    int (*f_handle)(struct irq*, registers_t*);
-    int (*f_handle_direct)(void* ctx);
-  };
+    /* Handler to be called when the IRQ fires */
+    union {
+        int (*f_handle)(struct irq*, registers_t*);
+        int (*f_handle_direct)(void* ctx);
+    };
 
-  /*
-   * IRQ context. determined by the caller of irq_allocate and also owned by that caller 
-   * This means that ->ctx should never be memory managed by IRQ code
-   */
-  void* ctx;
-  const char* desc;
+    /*
+     * IRQ context. determined by the caller of irq_allocate and also owned by that caller
+     * This means that ->ctx should never be memory managed by IRQ code
+     */
+    void* ctx;
+    const char* desc;
 
-  uint32_t flags;
-  struct irq_handler* next;
+    uint32_t flags;
+    struct irq_handler* next;
 } irq_handler_t;
 
 /*
  * Flags for irq entries
  */
-#define IRQ_FLAG_ALLOCATED  0x00000001
+#define IRQ_FLAG_ALLOCATED 0x00000001
 /* Do we mean to use MSI with this vector? */
-#define IRQ_FLAG_MSI        0x00000002
-#define IRQ_FLAG_MASKED     0x00000004
+#define IRQ_FLAG_MSI 0x00000002
+#define IRQ_FLAG_MASKED 0x00000004
 #define IRQ_FLAG_SHOULD_DBG 0x00000008
-/* 
- * The handler is currently masked, but we would like to unmask it =) 
+/*
+ * The handler is currently masked, but we would like to unmask it =)
  * There are certain times in the boot process that we scan the IRQs in order to find
  * irqs with this flag. This mostly happens when we're doing stuff with irq chips right
  * after they where disabled or something
  */
 #define IRQ_FLAG_PENDING_UNMASK 0x00000010
-#define IRQ_FLAG_SHARED         0x00000020
+#define IRQ_FLAG_SHARED 0x00000020
 
 /*
  * IRQ template
@@ -99,11 +99,11 @@ typedef struct irq_handler {
  * is allocated
  */
 typedef struct irq {
-  uint32_t vec;
-  uint32_t flags;
+    uint32_t vec;
+    uint32_t flags;
 
-  /* The funky handlers */
-  irq_handler_t* handlers;
+    /* The funky handlers */
+    irq_handler_t* handlers;
 } irq_t;
 
 int irq_allocate(uint32_t vec, uint32_t irq_flags, uint32_t handler_flags, void* handler, void* ctx, const char* desc);
@@ -120,4 +120,3 @@ int irq_lock();
 int irq_unlock();
 
 #endif // !__ANIVA_INTERRUPTS__
-

@@ -2,12 +2,12 @@
 
 int abs(int j)
 {
-  return (j < 0 ? -j : j);
+    return (j < 0 ? -j : j);
 }
 
 double fabs(double x)
 {
-  return __builtin_fabs(x);
+    return __builtin_fabs(x);
 }
 
 double exp(double x);

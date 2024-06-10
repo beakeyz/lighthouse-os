@@ -10,16 +10,16 @@ int lightenv_exit();
 uint64_t lightenv_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
 EXPORT_DEPENDENCIES(deps) = {
-  DRV_DEP_END,
+    DRV_DEP_END,
 };
 
 EXPORT_DRIVER(env_driver) = {
-  .m_name = "login",
-  .m_type = DT_SERVICE,
-  .m_version = DRIVER_VERSION(0, 0, 1),
-  .f_init = nullptr,
-  .f_exit = nullptr,
-  .f_msg = nullptr,
+    .m_name = "login",
+    .m_type = DT_SERVICE,
+    .m_version = DRIVER_VERSION(0, 0, 1),
+    .f_init = nullptr,
+    .f_exit = nullptr,
+    .f_msg = nullptr,
 };
 
 /*
@@ -29,16 +29,16 @@ EXPORT_DRIVER(env_driver) = {
  */
 int lightenv_init()
 {
-  /* ??? */
-  return 0;
+    /* ??? */
+    return 0;
 }
 
 int lightenv_exit()
 {
-  return 0;
+    return 0;
 }
 
 uint64_t lightenv_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  return 0;
+    return 0;
 }

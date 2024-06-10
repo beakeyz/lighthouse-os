@@ -20,76 +20,76 @@ struct partitioned_disk_dev;
 struct gpt_table;
 struct mbr_table;
 
-#define PART_TYPE_NONE              (0)
-#define PART_TYPE_GPT               (1)
-#define PART_TYPE_MBR               (2)
+#define PART_TYPE_NONE (0)
+#define PART_TYPE_GPT (1)
+#define PART_TYPE_MBR (2)
 
 typedef struct disk_dev {
-  const char* m_device_name;
+    const char* m_device_name;
 
-  uint32_t m_flags;
+    uint32_t m_flags;
 
-  /* Generic uid that acts as an index into the list of device that are available */
-  disk_uid_t m_uid;         // 8 bits
-  uint8_t m_partition_type; // 8 bits
+    /* Generic uid that acts as an index into the list of device that are available */
+    disk_uid_t m_uid; // 8 bits
+    uint8_t m_partition_type; // 8 bits
 
-  uint16_t m_firmware_rev[4]; // 64 bits
+    uint16_t m_firmware_rev[4]; // 64 bits
 
-  uintptr_t m_max_blk;
+    uintptr_t m_max_blk;
 
-  struct device_disk_endpoint* m_ops;
+    struct device_disk_endpoint* m_ops;
 
-  /*
-   * Let's hope there aren't any disks with blocksizes of 4+ Gib 0.0 
-   */
-  uint32_t m_logical_sector_size;
-  uint32_t m_physical_sector_size;
-  /* Whats the maximum size of block transfers */
-  uint32_t m_effective_sector_size;
-  uint16_t m_max_sector_transfer_count;
+    /*
+     * Let's hope there aren't any disks with blocksizes of 4+ Gib 0.0
+     */
+    uint32_t m_logical_sector_size;
+    uint32_t m_physical_sector_size;
+    /* Whats the maximum size of block transfers */
+    uint32_t m_effective_sector_size;
+    uint16_t m_max_sector_transfer_count;
 
-  size_t m_partitioned_dev_count;
-  struct partitioned_disk_dev* m_devs;
+    size_t m_partitioned_dev_count;
+    struct partitioned_disk_dev* m_devs;
 
-  /* We'll cache the partition structure here, for if we want to make modifications */
-  union {
-    struct gpt_table* gpt_table;
-    struct mbr_table* mbr_table;
-  };
+    /* We'll cache the partition structure here, for if we want to make modifications */
+    union {
+        struct gpt_table* gpt_table;
+        struct mbr_table* mbr_table;
+    };
 
-  struct device* m_dev;
+    struct device* m_dev;
 
-  /* FIXME: this is private data, so make the name match that */
-  void* m_priv;
+    /* FIXME: this is private data, so make the name match that */
+    void* m_priv;
 } disk_dev_t;
 
-#define GDISKDEV_FLAG_SCSI                   (0x00000001) /* Does this device use SCSI */
-#define GDISKDEV_FLAG_RAM                    (0x00000002) /* Is this a ramdevice */
-#define GDISKDEV_FLAG_RAM_COMPRESSED         (0x00000004) /* Is this a compressed ramdevice */
-#define GDISKDEV_FLAG_RO                     (0x00000008)
-#define GDISKDEV_FLAG_NO_PART                (0x00000010)
-#define GDISKDEV_FLAG_LEGACY                 (0x00000020)
+#define GDISKDEV_FLAG_SCSI (0x00000001) /* Does this device use SCSI */
+#define GDISKDEV_FLAG_RAM (0x00000002) /* Is this a ramdevice */
+#define GDISKDEV_FLAG_RAM_COMPRESSED (0x00000004) /* Is this a compressed ramdevice */
+#define GDISKDEV_FLAG_RO (0x00000008)
+#define GDISKDEV_FLAG_NO_PART (0x00000010)
+#define GDISKDEV_FLAG_LEGACY (0x00000020)
 /* Optional flag to mark that this device was mounted earlier */
-#define GDISKDEV_FLAG_WAS_MOUNTED            (0x00000040)
+#define GDISKDEV_FLAG_WAS_MOUNTED (0x00000040)
 
-#define PD_FLAG_ONLY_SYNC                    (0x00000001) /* This partitioned device can't use async IO */
+#define PD_FLAG_ONLY_SYNC (0x00000001) /* This partitioned device can't use async IO */
 
 typedef struct partitioned_disk_dev {
-  struct disk_dev* m_parent;
+    struct disk_dev* m_parent;
 
-  char* m_name;
-  uint64_t m_start_lba;
-  uint64_t m_end_lba;
+    char* m_name;
+    uint64_t m_start_lba;
+    uint64_t m_end_lba;
 
-  uint32_t m_flags;
-  uint32_t m_block_size;
+    uint32_t m_flags;
+    uint32_t m_block_size;
 
-  struct partitioned_disk_dev* m_next;
+    struct partitioned_disk_dev* m_next;
 } partitioned_disk_dev_t;
 
 static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
 {
-  return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
+    return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
 }
 
 disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, struct device_endpoint* eps);
@@ -121,7 +121,7 @@ bool gdisk_is_valid(disk_dev_t* device);
 int diskdev_populate_partition_table(disk_dev_t* dev);
 
 /*
- * find the partitioned device (weird naming sceme but its whatever) 
+ * find the partitioned device (weird naming sceme but its whatever)
  * of a generic disk device at idx
  * idx is a dword, since the number of partitions should never exceed that limit lmao
  */

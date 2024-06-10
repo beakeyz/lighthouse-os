@@ -149,22 +149,19 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-#include "acnamesp.h"
 #include "acdebug.h"
+#include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_CA_DEBUGGER
-        ACPI_MODULE_NAME    ("dbobject")
-
+#define _COMPONENT ACPI_CA_DEBUGGER
+ACPI_MODULE_NAME("dbobject")
 
 /* Local prototypes */
 
 static void
-AcpiDbDecodeNode (
-    ACPI_NAMESPACE_NODE     *Node);
-
+AcpiDbDecodeNode(
+    ACPI_NAMESPACE_NODE* Node);
 
 /*******************************************************************************
  *
@@ -181,36 +178,31 @@ AcpiDbDecodeNode (
  *
  ******************************************************************************/
 
-void
-AcpiDbDumpMethodInfo (
-    ACPI_STATUS             Status,
-    ACPI_WALK_STATE         *WalkState)
+void AcpiDbDumpMethodInfo(
+    ACPI_STATUS Status,
+    ACPI_WALK_STATE* WalkState)
 {
-    ACPI_THREAD_STATE       *Thread;
-    ACPI_NAMESPACE_NODE     *Node;
-
+    ACPI_THREAD_STATE* Thread;
+    ACPI_NAMESPACE_NODE* Node;
 
     Node = WalkState->MethodNode;
 
     /* There are no locals or arguments for the module-level code case */
 
-    if (Node == AcpiGbl_RootNode)
-    {
+    if (Node == AcpiGbl_RootNode) {
         return;
     }
 
     /* Ignore control codes, they are not errors */
 
-    if (ACPI_CNTL_EXCEPTION (Status))
-    {
+    if (ACPI_CNTL_EXCEPTION(Status)) {
         return;
     }
 
     /* We may be executing a deferred opcode */
 
-    if (WalkState->DeferredNode)
-    {
-        AcpiOsPrintf ("Executing subtree for Buffer/Package/Region\n");
+    if (WalkState->DeferredNode) {
+        AcpiOsPrintf("Executing subtree for Buffer/Package/Region\n");
         return;
     }
 
@@ -220,20 +212,18 @@ AcpiDbDumpMethodInfo (
      * to perform constant folding.
      */
     Thread = WalkState->Thread;
-    if (!Thread)
-    {
+    if (!Thread) {
         return;
     }
 
     /* Display the method locals and arguments */
 
-    AcpiOsPrintf ("\n");
-    AcpiDbDecodeLocals (WalkState);
-    AcpiOsPrintf ("\n");
-    AcpiDbDecodeArguments (WalkState);
-    AcpiOsPrintf ("\n");
+    AcpiOsPrintf("\n");
+    AcpiDbDecodeLocals(WalkState);
+    AcpiOsPrintf("\n");
+    AcpiDbDecodeArguments(WalkState);
+    AcpiOsPrintf("\n");
 }
-
 
 /*******************************************************************************
  *
@@ -247,67 +237,57 @@ AcpiDbDumpMethodInfo (
  *
  ******************************************************************************/
 
-void
-AcpiDbDecodeInternalObject (
-    ACPI_OPERAND_OBJECT     *ObjDesc)
+void AcpiDbDecodeInternalObject(
+    ACPI_OPERAND_OBJECT* ObjDesc)
 {
-    UINT32                  i;
+    UINT32 i;
 
-
-    if (!ObjDesc)
-    {
-        AcpiOsPrintf (" Uninitialized");
+    if (!ObjDesc) {
+        AcpiOsPrintf(" Uninitialized");
         return;
     }
 
-    if (ACPI_GET_DESCRIPTOR_TYPE (ObjDesc) != ACPI_DESC_TYPE_OPERAND)
-    {
-        AcpiOsPrintf (" %p [%s]", ObjDesc,
-            AcpiUtGetDescriptorName (ObjDesc));
+    if (ACPI_GET_DESCRIPTOR_TYPE(ObjDesc) != ACPI_DESC_TYPE_OPERAND) {
+        AcpiOsPrintf(" %p [%s]", ObjDesc,
+            AcpiUtGetDescriptorName(ObjDesc));
         return;
     }
 
-    AcpiOsPrintf (" %s", AcpiUtGetObjectTypeName (ObjDesc));
+    AcpiOsPrintf(" %s", AcpiUtGetObjectTypeName(ObjDesc));
 
-    switch (ObjDesc->Common.Type)
-    {
+    switch (ObjDesc->Common.Type) {
     case ACPI_TYPE_INTEGER:
 
-        AcpiOsPrintf (" %8.8X%8.8X",
-            ACPI_FORMAT_UINT64 (ObjDesc->Integer.Value));
+        AcpiOsPrintf(" %8.8X%8.8X",
+            ACPI_FORMAT_UINT64(ObjDesc->Integer.Value));
         break;
 
     case ACPI_TYPE_STRING:
 
-        AcpiOsPrintf ("(%u) \"%.60s",
+        AcpiOsPrintf("(%u) \"%.60s",
             ObjDesc->String.Length, ObjDesc->String.Pointer);
 
-        if (ObjDesc->String.Length > 60)
-        {
-            AcpiOsPrintf ("...");
-        }
-        else
-        {
-            AcpiOsPrintf ("\"");
+        if (ObjDesc->String.Length > 60) {
+            AcpiOsPrintf("...");
+        } else {
+            AcpiOsPrintf("\"");
         }
         break;
 
     case ACPI_TYPE_BUFFER:
 
-        AcpiOsPrintf ("(%u)", ObjDesc->Buffer.Length);
-        for (i = 0; (i < 8) && (i < ObjDesc->Buffer.Length); i++)
-        {
-            AcpiOsPrintf (" %2.2X", ObjDesc->Buffer.Pointer[i]);
+        AcpiOsPrintf("(%u)", ObjDesc->Buffer.Length);
+        for (i = 0; (i < 8) && (i < ObjDesc->Buffer.Length); i++) {
+            AcpiOsPrintf(" %2.2X", ObjDesc->Buffer.Pointer[i]);
         }
         break;
 
     default:
 
-        AcpiOsPrintf (" %p", ObjDesc);
+        AcpiOsPrintf(" %p", ObjDesc);
         break;
     }
 }
-
 
 /*******************************************************************************
  *
@@ -322,43 +302,39 @@ AcpiDbDecodeInternalObject (
  ******************************************************************************/
 
 static void
-AcpiDbDecodeNode (
-    ACPI_NAMESPACE_NODE     *Node)
+AcpiDbDecodeNode(
+    ACPI_NAMESPACE_NODE* Node)
 {
 
-    AcpiOsPrintf ("<Node>            Name %4.4s",
-        AcpiUtGetNodeName (Node));
+    AcpiOsPrintf("<Node>            Name %4.4s",
+        AcpiUtGetNodeName(Node));
 
-    if (Node->Flags & ANOBJ_METHOD_ARG)
-    {
-        AcpiOsPrintf (" [Method Arg]");
+    if (Node->Flags & ANOBJ_METHOD_ARG) {
+        AcpiOsPrintf(" [Method Arg]");
     }
-    if (Node->Flags & ANOBJ_METHOD_LOCAL)
-    {
-        AcpiOsPrintf (" [Method Local]");
+    if (Node->Flags & ANOBJ_METHOD_LOCAL) {
+        AcpiOsPrintf(" [Method Local]");
     }
 
-    switch (Node->Type)
-    {
-    /* These types have no attached object */
+    switch (Node->Type) {
+        /* These types have no attached object */
 
     case ACPI_TYPE_DEVICE:
 
-        AcpiOsPrintf (" Device");
+        AcpiOsPrintf(" Device");
         break;
 
     case ACPI_TYPE_THERMAL:
 
-        AcpiOsPrintf (" Thermal Zone");
+        AcpiOsPrintf(" Thermal Zone");
         break;
 
     default:
 
-        AcpiDbDecodeInternalObject (AcpiNsGetAttachedObject (Node));
+        AcpiDbDecodeInternalObject(AcpiNsGetAttachedObject(Node));
         break;
     }
 }
-
 
 /*******************************************************************************
  *
@@ -373,133 +349,120 @@ AcpiDbDecodeNode (
  *
  ******************************************************************************/
 
-void
-AcpiDbDisplayInternalObject (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    ACPI_WALK_STATE         *WalkState)
+void AcpiDbDisplayInternalObject(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    ACPI_WALK_STATE* WalkState)
 {
-    UINT8                   Type;
+    UINT8 Type;
 
+    AcpiOsPrintf("%p ", ObjDesc);
 
-    AcpiOsPrintf ("%p ", ObjDesc);
-
-    if (!ObjDesc)
-    {
-        AcpiOsPrintf ("<Null Object>\n");
+    if (!ObjDesc) {
+        AcpiOsPrintf("<Null Object>\n");
         return;
     }
 
     /* Decode the object type */
 
-    switch (ACPI_GET_DESCRIPTOR_TYPE (ObjDesc))
-    {
+    switch (ACPI_GET_DESCRIPTOR_TYPE(ObjDesc)) {
     case ACPI_DESC_TYPE_PARSER:
 
-        AcpiOsPrintf ("<Parser>  ");
+        AcpiOsPrintf("<Parser>  ");
         break;
 
     case ACPI_DESC_TYPE_NAMED:
 
-        AcpiDbDecodeNode ((ACPI_NAMESPACE_NODE *) ObjDesc);
+        AcpiDbDecodeNode((ACPI_NAMESPACE_NODE*)ObjDesc);
         break;
 
     case ACPI_DESC_TYPE_OPERAND:
 
         Type = ObjDesc->Common.Type;
-        if (Type > ACPI_TYPE_LOCAL_MAX)
-        {
-            AcpiOsPrintf (" Type %X [Invalid Type]", (UINT32) Type);
+        if (Type > ACPI_TYPE_LOCAL_MAX) {
+            AcpiOsPrintf(" Type %X [Invalid Type]", (UINT32)Type);
             return;
         }
 
         /* Decode the ACPI object type */
 
-        switch (ObjDesc->Common.Type)
-        {
+        switch (ObjDesc->Common.Type) {
         case ACPI_TYPE_LOCAL_REFERENCE:
 
-            AcpiOsPrintf ("[%s] ", AcpiUtGetReferenceName (ObjDesc));
+            AcpiOsPrintf("[%s] ", AcpiUtGetReferenceName(ObjDesc));
 
             /* Decode the reference */
 
-            switch (ObjDesc->Reference.Class)
-            {
+            switch (ObjDesc->Reference.Class) {
             case ACPI_REFCLASS_LOCAL:
 
-                AcpiOsPrintf ("%X ", ObjDesc->Reference.Value);
-                if (WalkState)
-                {
+                AcpiOsPrintf("%X ", ObjDesc->Reference.Value);
+                if (WalkState) {
                     ObjDesc = WalkState->LocalVariables
-                        [ObjDesc->Reference.Value].Object;
-                    AcpiOsPrintf ("%p", ObjDesc);
-                    AcpiDbDecodeInternalObject (ObjDesc);
+                                  [ObjDesc->Reference.Value]
+                                      .Object;
+                    AcpiOsPrintf("%p", ObjDesc);
+                    AcpiDbDecodeInternalObject(ObjDesc);
                 }
                 break;
 
             case ACPI_REFCLASS_ARG:
 
-                AcpiOsPrintf ("%X ", ObjDesc->Reference.Value);
-                if (WalkState)
-                {
+                AcpiOsPrintf("%X ", ObjDesc->Reference.Value);
+                if (WalkState) {
                     ObjDesc = WalkState->Arguments
-                        [ObjDesc->Reference.Value].Object;
-                    AcpiOsPrintf ("%p", ObjDesc);
-                    AcpiDbDecodeInternalObject (ObjDesc);
+                                  [ObjDesc->Reference.Value]
+                                      .Object;
+                    AcpiOsPrintf("%p", ObjDesc);
+                    AcpiDbDecodeInternalObject(ObjDesc);
                 }
                 break;
 
             case ACPI_REFCLASS_INDEX:
 
-                switch (ObjDesc->Reference.TargetType)
-                {
+                switch (ObjDesc->Reference.TargetType) {
                 case ACPI_TYPE_BUFFER_FIELD:
 
-                    AcpiOsPrintf ("%p", ObjDesc->Reference.Object);
-                    AcpiDbDecodeInternalObject (ObjDesc->Reference.Object);
+                    AcpiOsPrintf("%p", ObjDesc->Reference.Object);
+                    AcpiDbDecodeInternalObject(ObjDesc->Reference.Object);
                     break;
 
                 case ACPI_TYPE_PACKAGE:
 
-                    AcpiOsPrintf ("%p", ObjDesc->Reference.Where);
-                    if (!ObjDesc->Reference.Where)
-                    {
-                        AcpiOsPrintf (" Uninitialized WHERE pointer");
-                    }
-                    else
-                    {
-                        AcpiDbDecodeInternalObject (
+                    AcpiOsPrintf("%p", ObjDesc->Reference.Where);
+                    if (!ObjDesc->Reference.Where) {
+                        AcpiOsPrintf(" Uninitialized WHERE pointer");
+                    } else {
+                        AcpiDbDecodeInternalObject(
                             *(ObjDesc->Reference.Where));
                     }
                     break;
 
                 default:
 
-                    AcpiOsPrintf ("Unknown index target type");
+                    AcpiOsPrintf("Unknown index target type");
                     break;
                 }
                 break;
 
             case ACPI_REFCLASS_REFOF:
 
-                if (!ObjDesc->Reference.Object)
-                {
-                    AcpiOsPrintf (
+                if (!ObjDesc->Reference.Object) {
+                    AcpiOsPrintf(
                         "Uninitialized reference subobject pointer");
                     break;
                 }
 
                 /* Reference can be to a Node or an Operand object */
 
-                switch (ACPI_GET_DESCRIPTOR_TYPE (ObjDesc->Reference.Object))
-                {
+                switch (ACPI_GET_DESCRIPTOR_TYPE(ObjDesc->Reference.Object)) {
                 case ACPI_DESC_TYPE_NAMED:
 
-                    AcpiDbDecodeNode (ObjDesc->Reference.Object);
+                    AcpiDbDecodeNode(ObjDesc->Reference.Object);
                     break;
 
                 case ACPI_DESC_TYPE_OPERAND:
 
-                    AcpiDbDecodeInternalObject (ObjDesc->Reference.Object);
+                    AcpiDbDecodeInternalObject(ObjDesc->Reference.Object);
                     break;
 
                 default:
@@ -509,40 +472,39 @@ AcpiDbDisplayInternalObject (
 
             case ACPI_REFCLASS_NAME:
 
-                AcpiDbDecodeNode (ObjDesc->Reference.Node);
+                AcpiDbDecodeNode(ObjDesc->Reference.Node);
                 break;
 
             case ACPI_REFCLASS_DEBUG:
             case ACPI_REFCLASS_TABLE:
 
-                AcpiOsPrintf ("\n");
+                AcpiOsPrintf("\n");
                 break;
 
-            default:    /* Unknown reference class */
+            default: /* Unknown reference class */
 
-                AcpiOsPrintf ("%2.2X\n", ObjDesc->Reference.Class);
+                AcpiOsPrintf("%2.2X\n", ObjDesc->Reference.Class);
                 break;
             }
             break;
 
         default:
 
-            AcpiOsPrintf ("<Obj>            ");
-            AcpiDbDecodeInternalObject (ObjDesc);
+            AcpiOsPrintf("<Obj>            ");
+            AcpiDbDecodeInternalObject(ObjDesc);
             break;
         }
         break;
 
     default:
 
-        AcpiOsPrintf ("<Not a valid ACPI Object Descriptor> [%s]",
-            AcpiUtGetDescriptorName (ObjDesc));
+        AcpiOsPrintf("<Not a valid ACPI Object Descriptor> [%s]",
+            AcpiUtGetDescriptorName(ObjDesc));
         break;
     }
 
-    AcpiOsPrintf ("\n");
+    AcpiOsPrintf("\n");
 }
-
 
 /*******************************************************************************
  *
@@ -556,45 +518,38 @@ AcpiDbDisplayInternalObject (
  *
  ******************************************************************************/
 
-void
-AcpiDbDecodeLocals (
-    ACPI_WALK_STATE         *WalkState)
+void AcpiDbDecodeLocals(
+    ACPI_WALK_STATE* WalkState)
 {
-    UINT32                  i;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_NAMESPACE_NODE     *Node;
-    BOOLEAN                 DisplayLocals = FALSE;
-
+    UINT32 i;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_NAMESPACE_NODE* Node;
+    BOOLEAN DisplayLocals = FALSE;
 
     Node = WalkState->MethodNode;
 
     /* There are no locals for the module-level code case */
 
-    if (Node == AcpiGbl_RootNode)
-    {
+    if (Node == AcpiGbl_RootNode) {
         return;
     }
 
-    if (!Node)
-    {
-        AcpiOsPrintf (
+    if (!Node) {
+        AcpiOsPrintf(
             "No method node (Executing subtree for buffer or opregion)\n");
         return;
     }
 
-    if (Node->Type != ACPI_TYPE_METHOD)
-    {
-        AcpiOsPrintf ("Executing subtree for Buffer/Package/Region\n");
+    if (Node->Type != ACPI_TYPE_METHOD) {
+        AcpiOsPrintf("Executing subtree for Buffer/Package/Region\n");
         return;
     }
 
     /* Are any locals actually set? */
 
-    for (i = 0; i < ACPI_METHOD_NUM_LOCALS; i++)
-    {
+    for (i = 0; i < ACPI_METHOD_NUM_LOCALS; i++) {
         ObjDesc = WalkState->LocalVariables[i].Object;
-        if (ObjDesc)
-        {
+        if (ObjDesc) {
             DisplayLocals = TRUE;
             break;
         }
@@ -602,29 +557,23 @@ AcpiDbDecodeLocals (
 
     /* If any are set, only display the ones that are set */
 
-    if (DisplayLocals)
-    {
-        AcpiOsPrintf ("\nInitialized Local Variables for Method [%4.4s]:\n",
-            AcpiUtGetNodeName (Node));
+    if (DisplayLocals) {
+        AcpiOsPrintf("\nInitialized Local Variables for Method [%4.4s]:\n",
+            AcpiUtGetNodeName(Node));
 
-        for (i = 0; i < ACPI_METHOD_NUM_LOCALS; i++)
-        {
+        for (i = 0; i < ACPI_METHOD_NUM_LOCALS; i++) {
             ObjDesc = WalkState->LocalVariables[i].Object;
-            if (ObjDesc)
-            {
-                AcpiOsPrintf ("    Local%X: ", i);
-                AcpiDbDisplayInternalObject (ObjDesc, WalkState);
+            if (ObjDesc) {
+                AcpiOsPrintf("    Local%X: ", i);
+                AcpiDbDisplayInternalObject(ObjDesc, WalkState);
             }
         }
-    }
-    else
-    {
-        AcpiOsPrintf (
+    } else {
+        AcpiOsPrintf(
             "No Local Variables are initialized for Method [%4.4s]\n",
-            AcpiUtGetNodeName (Node));
+            AcpiUtGetNodeName(Node));
     }
 }
-
 
 /*******************************************************************************
  *
@@ -638,45 +587,38 @@ AcpiDbDecodeLocals (
  *
  ******************************************************************************/
 
-void
-AcpiDbDecodeArguments (
-    ACPI_WALK_STATE         *WalkState)
+void AcpiDbDecodeArguments(
+    ACPI_WALK_STATE* WalkState)
 {
-    UINT32                  i;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
-    ACPI_NAMESPACE_NODE     *Node;
-    BOOLEAN                 DisplayArgs = FALSE;
-
+    UINT32 i;
+    ACPI_OPERAND_OBJECT* ObjDesc;
+    ACPI_NAMESPACE_NODE* Node;
+    BOOLEAN DisplayArgs = FALSE;
 
     Node = WalkState->MethodNode;
 
     /* There are no arguments for the module-level code case */
 
-    if (Node == AcpiGbl_RootNode)
-    {
+    if (Node == AcpiGbl_RootNode) {
         return;
     }
 
-    if (!Node)
-    {
-        AcpiOsPrintf (
+    if (!Node) {
+        AcpiOsPrintf(
             "No method node (Executing subtree for buffer or opregion)\n");
         return;
     }
 
-    if (Node->Type != ACPI_TYPE_METHOD)
-    {
-        AcpiOsPrintf ("Executing subtree for Buffer/Package/Region\n");
+    if (Node->Type != ACPI_TYPE_METHOD) {
+        AcpiOsPrintf("Executing subtree for Buffer/Package/Region\n");
         return;
     }
 
     /* Are any arguments actually set? */
 
-    for (i = 0; i < ACPI_METHOD_NUM_ARGS; i++)
-    {
+    for (i = 0; i < ACPI_METHOD_NUM_ARGS; i++) {
         ObjDesc = WalkState->Arguments[i].Object;
-        if (ObjDesc)
-        {
+        if (ObjDesc) {
             DisplayArgs = TRUE;
             break;
         }
@@ -684,27 +626,22 @@ AcpiDbDecodeArguments (
 
     /* If any are set, only display the ones that are set */
 
-    if (DisplayArgs)
-    {
-        AcpiOsPrintf (
+    if (DisplayArgs) {
+        AcpiOsPrintf(
             "Initialized Arguments for Method [%4.4s]:  "
             "(%X arguments defined for method invocation)\n",
-            AcpiUtGetNodeName (Node), Node->Object->Method.ParamCount);
+            AcpiUtGetNodeName(Node), Node->Object->Method.ParamCount);
 
-        for (i = 0; i < ACPI_METHOD_NUM_ARGS; i++)
-        {
+        for (i = 0; i < ACPI_METHOD_NUM_ARGS; i++) {
             ObjDesc = WalkState->Arguments[i].Object;
-            if (ObjDesc)
-            {
-                AcpiOsPrintf ("    Arg%u:   ", i);
-                AcpiDbDisplayInternalObject (ObjDesc, WalkState);
+            if (ObjDesc) {
+                AcpiOsPrintf("    Arg%u:   ", i);
+                AcpiDbDisplayInternalObject(ObjDesc, WalkState);
             }
         }
-    }
-    else
-    {
-        AcpiOsPrintf (
+    } else {
+        AcpiOsPrintf(
             "No Arguments are initialized for method [%4.4s]\n",
-            AcpiUtGetNodeName (Node));
+            AcpiUtGetNodeName(Node));
     }
 }

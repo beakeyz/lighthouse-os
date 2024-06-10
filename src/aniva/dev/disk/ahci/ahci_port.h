@@ -1,35 +1,35 @@
 #ifndef __ANIVA_AHCIPORT__
 #define __ANIVA_AHCIPORT__
 
-#include <sync/spinlock.h>
 #include "dev/disk/generic.h"
 #include "libk/flow/error.h"
+#include <sync/spinlock.h>
 
 struct ahci_device;
 
 typedef struct ahci_port {
-  struct ahci_device* m_device;
+    struct ahci_device* m_device;
 
-  char m_device_model[40];
+    char m_device_model[40];
 
-  bool m_awaiting_dma_transfer_complete;
-  bool m_is_waiting;
-  bool m_transfer_failed;
+    bool m_awaiting_dma_transfer_complete;
+    bool m_is_waiting;
+    bool m_transfer_failed;
 
-  uintptr_t m_port_offset;
+    uintptr_t m_port_offset;
 
-  spinlock_t* m_hard_lock;
+    spinlock_t* m_hard_lock;
 
-  uintptr_t m_ib_page;
-  uintptr_t m_cmd_list_page;
-  uintptr_t m_fis_recieve_page;
+    uintptr_t m_ib_page;
+    uintptr_t m_cmd_list_page;
+    uintptr_t m_fis_recieve_page;
 
-  uintptr_t m_dma_buffer;
-  uintptr_t m_cmd_table_buffer;
+    uintptr_t m_dma_buffer;
+    uintptr_t m_cmd_table_buffer;
 
-  uint32_t m_port_index;
+    uint32_t m_port_index;
 
-  disk_dev_t* m_generic;
+    disk_dev_t* m_generic;
 } ahci_port_t;
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index);

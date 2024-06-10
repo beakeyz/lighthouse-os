@@ -8,66 +8,66 @@
 
 Directory* open_dir(const char* path, DWORD flags, DWORD mode)
 {
-  HANDLE handle;
-  Directory* dir;
+    HANDLE handle;
+    Directory* dir;
 
-  handle = open_handle(path, HNDL_TYPE_DIR, flags, mode);
+    handle = open_handle(path, HNDL_TYPE_DIR, flags, mode);
 
-  if (!handle_verify(handle))
-    return nullptr;
+    if (!handle_verify(handle))
+        return nullptr;
 
-  dir = malloc(sizeof(*dir));
+    dir = malloc(sizeof(*dir));
 
-  if (!dir)
-    goto close_and_exit;
+    if (!dir)
+        goto close_and_exit;
 
-  memset(dir, 0, sizeof(*dir));
+    memset(dir, 0, sizeof(*dir));
 
-  dir->handle = handle;
-  dir->entries = nullptr;
+    dir->handle = handle;
+    dir->entries = nullptr;
 
-  return dir;
+    return dir;
 
 close_and_exit:
-  close_handle(handle);
-  return nullptr;
+    close_handle(handle);
+    return nullptr;
 }
 
 void close_dir(Directory* dir)
 {
-  DirEntry* c_entry;
+    DirEntry* c_entry;
 
-  while (dir->entries) {
-    c_entry = dir->entries;
-    dir->entries = dir->entries->next;
+    while (dir->entries) {
+        c_entry = dir->entries;
+        dir->entries = dir->entries->next;
 
-    free(c_entry);
-  }
+        free(c_entry);
+    }
 
-  close_handle(dir->handle);
-  free(dir);
+    close_handle(dir->handle);
+    free(dir);
 }
 
 static DirEntry* _dir_read_entry(Directory* dir, uint32_t idx)
 {
-  DirEntry* walker;
+    DirEntry* walker;
 
-  if (!dir->entries)
+    if (!dir->entries)
+        return nullptr;
+
+    walker = dir->entries;
+
+    do {
+        if (walker->idx == idx)
+            return walker;
+
+        if (walker->idx > idx)
+            break;
+
+        walker = walker->next;
+    } while (walker);
+
     return nullptr;
-
-  walker = dir->entries;
-
-  do {
-    if (walker->idx == idx)
-      return walker;
-
-    if (walker->idx > idx)
-      break;
-
-    walker = walker->next;
-  } while (walker);
-
-  return nullptr;
 }
 
 /*!
@@ -78,70 +78,69 @@ static DirEntry* _dir_read_entry(Directory* dir, uint32_t idx)
  */
 static void _dir_link_direntry(Directory* dir, DirEntry* entry)
 {
-  DirEntry** walker;
+    DirEntry** walker;
 
-  if (!dir->entries) {
-    dir->entries = entry;
-    return;
-  }
-
-  walker = &dir->entries;
-
-  do {
-
-    /* If this entry is a higher index than the one we're currently at, we just
-       smash it into the list =0 */
-    if (entry->idx > (*walker)->idx) {
-      entry->next = (*walker)->next;
-      (*walker)->next = entry;
-      return;
+    if (!dir->entries) {
+        dir->entries = entry;
+        return;
     }
 
-    walker = &(*walker)->next;
-  } while (*walker);
+    walker = &dir->entries;
 
-  if (!(*walker))
-    *walker = entry;
+    do {
+
+        /* If this entry is a higher index than the one we're currently at, we just
+           smash it into the list =0 */
+        if (entry->idx > (*walker)->idx) {
+            entry->next = (*walker)->next;
+            (*walker)->next = entry;
+            return;
+        }
+
+        walker = &(*walker)->next;
+    } while (*walker);
+
+    if (!(*walker))
+        *walker = entry;
 }
 
 DirEntry* dir_read_entry(Directory* dir, uint32_t idx)
 {
-  DirEntry* ent;
-  syscall_result_t res;
+    DirEntry* ent;
+    syscall_result_t res;
 
-  /* Check if we have the entry cached */
-  ent = _dir_read_entry(dir, idx);
+    /* Check if we have the entry cached */
+    ent = _dir_read_entry(dir, idx);
 
-  if (ent)
+    if (ent)
+        return ent;
+
+    /* Nope, make a new one */
+    ent = malloc(sizeof(*ent));
+
+    if (!ent)
+        return nullptr;
+
+    memset(ent, 0, sizeof(*ent));
+
+    ent->idx = idx;
+
+    /* Ask kernel uwu */
+    res = syscall_4(SYSID_DIR_READ, dir->handle, idx, (uint64_t)&ent->name, sizeof(ent->name));
+
+    if (res != SYS_OK)
+        goto dealloc_and_exit;
+
+    /* Make sure the last byte is null */
+    ent->name[sizeof(ent->name) - 1] = '\0';
+
+    _dir_link_direntry(dir, ent);
+
     return ent;
-
-  /* Nope, make a new one */
-  ent = malloc(sizeof(*ent));
-
-  if (!ent)
-    return nullptr;
-
-  memset(ent, 0, sizeof(*ent));
-
-  ent->idx = idx;
-
-  /* Ask kernel uwu */
-  res = syscall_4(SYSID_DIR_READ, dir->handle, idx, (uint64_t)&ent->name, sizeof(ent->name));
-
-  if (res != SYS_OK)
-    goto dealloc_and_exit;
-
-  /* Make sure the last byte is null */
-  ent->name[sizeof(ent->name)-1] = '\0';
-
-  _dir_link_direntry(dir, ent);
-
-  return ent;
 dealloc_and_exit:
-  free(ent);
-  return nullptr;
+    free(ent);
+    return nullptr;
 }
 
 HANDLE dir_entry_open(
- __IN__ DirEntry* entry
-);
+    __IN__ DirEntry* entry);

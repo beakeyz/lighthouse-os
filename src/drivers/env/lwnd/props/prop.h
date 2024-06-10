@@ -13,20 +13,20 @@ struct lwnd_screen;
 /*
  * Dumb prop
  *
- * Acts as a generic framework on top of which we can build things like 
+ * Acts as a generic framework on top of which we can build things like
  * widgets or cursors
  */
 typedef struct lwnd_dynamic_prop {
 
-  uint8_t type;
+    uint8_t type;
 
-  /* Heap-allocated */
-  void* private;
+    /* Heap-allocated */
+    void* private;
 
-  struct lwnd_screen* parent;
+    struct lwnd_screen* parent;
 
-  /* Link through to the next prop */
-  struct lwnd_dynamic_prop* next;
+    /* Link through to the next prop */
+    struct lwnd_dynamic_prop* next;
 } lwnd_dynamic_prop_t;
 
 #endif // !__ANIVA_LWND_DYNAMIC_PROP__

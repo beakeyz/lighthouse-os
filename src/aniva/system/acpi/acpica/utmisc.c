@@ -149,14 +149,12 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utmisc")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utmisc")
 
 /*******************************************************************************
  *
@@ -171,26 +169,25 @@
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtIsPciRootBridge (
-    char                    *Id)
+AcpiUtIsPciRootBridge(
+    char* Id)
 {
 
     /*
      * Check if this is a PCI root bridge.
      * ACPI 3.0+: check for a PCI Express root also.
      */
-    if (!(strcmp (Id,
-        PCI_ROOT_HID_STRING)) ||
+    if (!(strcmp(Id,
+            PCI_ROOT_HID_STRING))
+        ||
 
-        !(strcmp (Id,
-        PCI_EXPRESS_ROOT_HID_STRING)))
-    {
+        !(strcmp(Id,
+            PCI_EXPRESS_ROOT_HID_STRING))) {
         return (TRUE);
     }
 
     return (FALSE);
 }
-
 
 #if (defined ACPI_ASL_COMPILER || defined ACPI_EXEC_APP || defined ACPI_NAMES_APP)
 /*******************************************************************************
@@ -208,25 +205,19 @@ AcpiUtIsPciRootBridge (
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtIsAmlTable (
-    ACPI_TABLE_HEADER       *Table)
+AcpiUtIsAmlTable(
+    ACPI_TABLE_HEADER* Table)
 {
 
     /* These are the only tables that contain executable AML */
 
-    if (ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_DSDT) ||
-        ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_PSDT) ||
-        ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_SSDT) ||
-        ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_OSDT) ||
-        ACPI_IS_OEM_SIG (Table->Signature))
-    {
+    if (ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_DSDT) || ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_PSDT) || ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_SSDT) || ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_OSDT) || ACPI_IS_OEM_SIG(Table->Signature)) {
         return (TRUE);
     }
 
     return (FALSE);
 }
 #endif
-
 
 /*******************************************************************************
  *
@@ -241,23 +232,19 @@ AcpiUtIsAmlTable (
  ******************************************************************************/
 
 UINT32
-AcpiUtDwordByteSwap (
-    UINT32                  Value)
+AcpiUtDwordByteSwap(
+    UINT32 Value)
 {
-    union
-    {
-        UINT32              Value;
-        UINT8               Bytes[4];
+    union {
+        UINT32 Value;
+        UINT8 Bytes[4];
     } Out;
-    union
-    {
-        UINT32              Value;
-        UINT8               Bytes[4];
+    union {
+        UINT32 Value;
+        UINT8 Bytes[4];
     } In;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     In.Value = Value;
 
@@ -268,7 +255,6 @@ AcpiUtDwordByteSwap (
 
     return (Out.Value);
 }
-
 
 /*******************************************************************************
  *
@@ -285,21 +271,17 @@ AcpiUtDwordByteSwap (
  *
  ******************************************************************************/
 
-void
-AcpiUtSetIntegerWidth (
-    UINT8                   Revision)
+void AcpiUtSetIntegerWidth(
+    UINT8 Revision)
 {
 
-    if (Revision < 2)
-    {
+    if (Revision < 2) {
         /* 32-bit case */
 
         AcpiGbl_IntegerBitWidth = 32;
         AcpiGbl_IntegerNybbleWidth = 8;
         AcpiGbl_IntegerByteWidth = 4;
-    }
-    else
-    {
+    } else {
         /* 64-bit case (ACPI 2.0+) */
 
         AcpiGbl_IntegerBitWidth = 64;
@@ -307,7 +289,6 @@ AcpiUtSetIntegerWidth (
         AcpiGbl_IntegerByteWidth = 8;
     }
 }
-
 
 /*******************************************************************************
  *
@@ -324,34 +305,29 @@ AcpiUtSetIntegerWidth (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtCreateUpdateStateAndPush (
-    ACPI_OPERAND_OBJECT     *Object,
-    UINT16                  Action,
-    ACPI_GENERIC_STATE      **StateList)
+AcpiUtCreateUpdateStateAndPush(
+    ACPI_OPERAND_OBJECT* Object,
+    UINT16 Action,
+    ACPI_GENERIC_STATE** StateList)
 {
-    ACPI_GENERIC_STATE       *State;
+    ACPI_GENERIC_STATE* State;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /* Ignore null objects; these are expected */
 
-    if (!Object)
-    {
+    if (!Object) {
         return (AE_OK);
     }
 
-    State = AcpiUtCreateUpdateState (Object, Action);
-    if (!State)
-    {
+    State = AcpiUtCreateUpdateState(Object, Action);
+    if (!State) {
         return (AE_NO_MEMORY);
     }
 
-    AcpiUtPushGenericState (StateList, State);
+    AcpiUtPushGenericState(StateList, State);
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -369,37 +345,31 @@ AcpiUtCreateUpdateStateAndPush (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtWalkPackageTree (
-    ACPI_OPERAND_OBJECT     *SourceObject,
-    void                    *TargetObject,
-    ACPI_PKG_CALLBACK       WalkCallback,
-    void                    *Context)
+AcpiUtWalkPackageTree(
+    ACPI_OPERAND_OBJECT* SourceObject,
+    void* TargetObject,
+    ACPI_PKG_CALLBACK WalkCallback,
+    void* Context)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_GENERIC_STATE      *StateList = NULL;
-    ACPI_GENERIC_STATE      *State;
-    ACPI_OPERAND_OBJECT     *ThisSourceObj;
-    UINT32                  ThisIndex;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_GENERIC_STATE* StateList = NULL;
+    ACPI_GENERIC_STATE* State;
+    ACPI_OPERAND_OBJECT* ThisSourceObj;
+    UINT32 ThisIndex;
 
+    ACPI_FUNCTION_TRACE(UtWalkPackageTree);
 
-    ACPI_FUNCTION_TRACE (UtWalkPackageTree);
-
-
-    State = AcpiUtCreatePkgState (SourceObject, TargetObject, 0);
-    if (!State)
-    {
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    State = AcpiUtCreatePkgState(SourceObject, TargetObject, 0);
+    if (!State) {
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
-    while (State)
-    {
+    while (State) {
         /* Get one element of the package */
 
         ThisIndex = State->Pkg.Index;
-        ThisSourceObj =
-            State->Pkg.SourceObject->Package.Elements[ThisIndex];
-        State->Pkg.ThisTargetObj =
-            &State->Pkg.SourceObject->Package.Elements[ThisIndex];
+        ThisSourceObj = State->Pkg.SourceObject->Package.Elements[ThisIndex];
+        State->Pkg.ThisTargetObj = &State->Pkg.SourceObject->Package.Elements[ThisIndex];
 
         /*
          * Check for:
@@ -409,22 +379,15 @@ AcpiUtWalkPackageTree (
          * 3) Any type other than a package. Packages are handled in else
          *    case below.
          */
-        if ((!ThisSourceObj) ||
-            (ACPI_GET_DESCRIPTOR_TYPE (ThisSourceObj) !=
-                ACPI_DESC_TYPE_OPERAND) ||
-            (ThisSourceObj->Common.Type != ACPI_TYPE_PACKAGE))
-        {
-            Status = WalkCallback (ACPI_COPY_TYPE_SIMPLE, ThisSourceObj,
+        if ((!ThisSourceObj) || (ACPI_GET_DESCRIPTOR_TYPE(ThisSourceObj) != ACPI_DESC_TYPE_OPERAND) || (ThisSourceObj->Common.Type != ACPI_TYPE_PACKAGE)) {
+            Status = WalkCallback(ACPI_COPY_TYPE_SIMPLE, ThisSourceObj,
                 State, Context);
-            if (ACPI_FAILURE (Status))
-            {
-                return_ACPI_STATUS (Status);
+            if (ACPI_FAILURE(Status)) {
+                return_ACPI_STATUS(Status);
             }
 
             State->Pkg.Index++;
-            while (State->Pkg.Index >=
-                State->Pkg.SourceObject->Package.Count)
-            {
+            while (State->Pkg.Index >= State->Pkg.SourceObject->Package.Count) {
                 /*
                  * We've handled all of the objects at this level,  This means
                  * that we have just completed a package. That package may
@@ -432,19 +395,18 @@ AcpiUtWalkPackageTree (
                  *
                  * Delete this state and pop the previous state (package).
                  */
-                AcpiUtDeleteGenericState (State);
-                State = AcpiUtPopGenericState (&StateList);
+                AcpiUtDeleteGenericState(State);
+                State = AcpiUtPopGenericState(&StateList);
 
                 /* Finished when there are no more states */
 
-                if (!State)
-                {
+                if (!State) {
                     /*
                      * We have handled all of the objects in the top level
                      * package just add the length of the package objects
                      * and exit
                      */
-                    return_ACPI_STATUS (AE_OK);
+                    return_ACPI_STATUS(AE_OK);
                 }
 
                 /*
@@ -453,47 +415,41 @@ AcpiUtWalkPackageTree (
                  */
                 State->Pkg.Index++;
             }
-        }
-        else
-        {
+        } else {
             /* This is a subobject of type package */
 
-            Status = WalkCallback (
+            Status = WalkCallback(
                 ACPI_COPY_TYPE_PACKAGE, ThisSourceObj, State, Context);
-            if (ACPI_FAILURE (Status))
-            {
-                return_ACPI_STATUS (Status);
+            if (ACPI_FAILURE(Status)) {
+                return_ACPI_STATUS(Status);
             }
 
             /*
              * Push the current state and create a new one
              * The callback above returned a new target package object.
              */
-            AcpiUtPushGenericState (&StateList, State);
-            State = AcpiUtCreatePkgState (
+            AcpiUtPushGenericState(&StateList, State);
+            State = AcpiUtCreatePkgState(
                 ThisSourceObj, State->Pkg.ThisTargetObj, 0);
-            if (!State)
-            {
+            if (!State) {
                 /* Free any stacked Update State objects */
 
-                while (StateList)
-                {
-                    State = AcpiUtPopGenericState (&StateList);
-                    AcpiUtDeleteGenericState (State);
+                while (StateList) {
+                    State = AcpiUtPopGenericState(&StateList);
+                    AcpiUtDeleteGenericState(State);
                 }
-                return_ACPI_STATUS (AE_NO_MEMORY);
+                return_ACPI_STATUS(AE_NO_MEMORY);
             }
         }
     }
 
     /* We should never get here */
 
-    ACPI_ERROR ((AE_INFO,
+    ACPI_ERROR((AE_INFO,
         "State list did not terminate correctly"));
 
-    return_ACPI_STATUS (AE_AML_INTERNAL);
+    return_ACPI_STATUS(AE_AML_INTERNAL);
 }
-
 
 #ifdef ACPI_DEBUG_OUTPUT
 /*******************************************************************************
@@ -511,63 +467,56 @@ AcpiUtWalkPackageTree (
  *
  ******************************************************************************/
 
-void
-AcpiUtDisplayInitPathname (
-    UINT8                   Type,
-    ACPI_NAMESPACE_NODE     *ObjHandle,
-    const char              *Path)
+void AcpiUtDisplayInitPathname(
+    UINT8 Type,
+    ACPI_NAMESPACE_NODE* ObjHandle,
+    const char* Path)
 {
-    ACPI_STATUS             Status;
-    ACPI_BUFFER             Buffer;
+    ACPI_STATUS Status;
+    ACPI_BUFFER Buffer;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /* Only print the path if the appropriate debug level is enabled */
 
-    if (!(AcpiDbgLevel & ACPI_LV_INIT_NAMES))
-    {
+    if (!(AcpiDbgLevel & ACPI_LV_INIT_NAMES)) {
         return;
     }
 
     /* Get the full pathname to the node */
 
     Buffer.Length = ACPI_ALLOCATE_LOCAL_BUFFER;
-    Status = AcpiNsHandleToPathname (ObjHandle, &Buffer, TRUE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiNsHandleToPathname(ObjHandle, &Buffer, TRUE);
+    if (ACPI_FAILURE(Status)) {
         return;
     }
 
     /* Print what we're doing */
 
-    switch (Type)
-    {
+    switch (Type) {
     case ACPI_TYPE_METHOD:
 
-        AcpiOsPrintf ("Executing    ");
+        AcpiOsPrintf("Executing    ");
         break;
 
     default:
 
-        AcpiOsPrintf ("Initializing ");
+        AcpiOsPrintf("Initializing ");
         break;
     }
 
     /* Print the object type and pathname */
 
-    AcpiOsPrintf ("%-12s  %s",
-        AcpiUtGetTypeName (Type), (char *) Buffer.Pointer);
+    AcpiOsPrintf("%-12s  %s",
+        AcpiUtGetTypeName(Type), (char*)Buffer.Pointer);
 
     /* Extra path is used to append names like _STA, _INI, etc. */
 
-    if (Path)
-    {
-        AcpiOsPrintf (".%s", Path);
+    if (Path) {
+        AcpiOsPrintf(".%s", Path);
     }
-    AcpiOsPrintf ("\n");
+    AcpiOsPrintf("\n");
 
-    ACPI_FREE (Buffer.Pointer);
+    ACPI_FREE(Buffer.Pointer);
 }
 #endif

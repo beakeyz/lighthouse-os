@@ -16,8 +16,8 @@ struct dgroup;
  * This is a structure that manages the devices that are attached to a bus
  */
 typedef struct dbus {
-  uint32_t busnum;
-  struct dgroup* group;
+    uint32_t busnum;
+    struct dgroup* group;
 } dbus_t;
 
 #endif // !__ANIVA_DEV_BUS__

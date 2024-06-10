@@ -13,7 +13,7 @@ extern int execp(const char*, char* const[]);
 extern pid_t fork(void);
 extern pid_t getpid(void);
 
-extern uint32_t sleep (uint32_t seconds);
+extern uint32_t sleep(uint32_t seconds);
 extern uint32_t usleep(uint32_t useconds);
 
 extern int pause(void);

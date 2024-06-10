@@ -6,16 +6,16 @@
 struct processor;
 
 typedef volatile struct {
-  volatile int m_latch[1];
-  int m_cpu_num;
-  const char* m_func;
+    volatile int m_latch[1];
+    int m_cpu_num;
+    const char* m_func;
 } __spinlock_t;
 
 typedef struct spinlock {
-  __spinlock_t m_lock;
-  struct processor* m_processor;
-  atomic_ptr_t* m_is_locked;
-  // TODO:
+    __spinlock_t m_lock;
+    struct processor* m_processor;
+    atomic_ptr_t* m_is_locked;
+    // TODO:
 } spinlock_t;
 
 spinlock_t* create_spinlock();

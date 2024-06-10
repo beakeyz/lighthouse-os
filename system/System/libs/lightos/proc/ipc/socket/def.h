@@ -1,8 +1,8 @@
 #ifndef __LIGHTENV_LIBSYS_IPC_SOCKET_DEF__
 #define __LIGHTENV_LIBSYS_IPC_SOCKET_DEF__
 
-#include <sys/types.h>
 #include <lightos/handle_def.h>
+#include <sys/types.h>
 
 struct ipc_packet;
 
@@ -17,13 +17,13 @@ struct ipc_packet;
  *       for high frequency transfers rates, one may look into shared memory regions
  */
 typedef struct ipc_socket {
-  HANDLE partner_proc;
-  uint32_t packet_size;
-  uint32_t packet_capacity;
-  /* We make use of a simple ringbuffer */
-  uint32_t packet_tx_idx;
-  uint32_t packet_rx_idx;
-  struct ipc_packet* packet_buffer;
+    HANDLE partner_proc;
+    uint32_t packet_size;
+    uint32_t packet_capacity;
+    /* We make use of a simple ringbuffer */
+    uint32_t packet_tx_idx;
+    uint32_t packet_rx_idx;
+    struct ipc_packet* packet_buffer;
 } ipc_socket_t;
 
 /*
@@ -32,8 +32,8 @@ typedef struct ipc_socket {
  * NOTE: packets NEVER own the memory of their data
  */
 typedef struct ipc_packet {
-  uint32_t timestamp;
-  uint8_t data[];
+    uint32_t timestamp;
+    uint8_t data[];
 } ipc_packet_t;
 
 #endif // !__LIGHTENV_LIBSYS_IPC_SOCKET_DEF__

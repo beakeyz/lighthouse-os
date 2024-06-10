@@ -5,12 +5,12 @@
 
 #ifndef assert
 
-  #define assert(thing) \
+#define assert(thing)   \
     do {                \
-      if (!(thing)) {   \
-        exit(-2);       \
-      }                 \
-    } while (0)         
+        if (!(thing)) { \
+            exit(-2);   \
+        }               \
+    } while (0)
 
 #endif
 

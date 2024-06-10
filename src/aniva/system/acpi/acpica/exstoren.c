@@ -150,15 +150,13 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acinterp.h"
+#include "acpi.h"
 #include "amlcode.h"
 
-
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exstoren")
-
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exstoren")
 
 /*******************************************************************************
  *
@@ -176,22 +174,19 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExResolveObject (
-    ACPI_OPERAND_OBJECT     **SourceDescPtr,
-    ACPI_OBJECT_TYPE        TargetType,
-    ACPI_WALK_STATE         *WalkState)
+AcpiExResolveObject(
+    ACPI_OPERAND_OBJECT** SourceDescPtr,
+    ACPI_OBJECT_TYPE TargetType,
+    ACPI_WALK_STATE* WalkState)
 {
-    ACPI_OPERAND_OBJECT     *SourceDesc = *SourceDescPtr;
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_OPERAND_OBJECT* SourceDesc = *SourceDescPtr;
+    ACPI_STATUS Status = AE_OK;
 
-
-    ACPI_FUNCTION_TRACE (ExResolveObject);
-
+    ACPI_FUNCTION_TRACE(ExResolveObject);
 
     /* Ensure we have a Target that can be stored to */
 
-    switch (TargetType)
-    {
+    switch (TargetType) {
     case ACPI_TYPE_BUFFER_FIELD:
     case ACPI_TYPE_LOCAL_REGION_FIELD:
     case ACPI_TYPE_LOCAL_BANK_FIELD:
@@ -208,38 +203,30 @@ AcpiExResolveObject (
          * are all essentially the same. This case handles the
          * "interchangeable" types Integer, String, and Buffer.
          */
-        if (SourceDesc->Common.Type == ACPI_TYPE_LOCAL_REFERENCE)
-        {
+        if (SourceDesc->Common.Type == ACPI_TYPE_LOCAL_REFERENCE) {
             /* Resolve a reference object first */
 
-            Status = AcpiExResolveToValue (SourceDescPtr, WalkState);
-            if (ACPI_FAILURE (Status))
-            {
+            Status = AcpiExResolveToValue(SourceDescPtr, WalkState);
+            if (ACPI_FAILURE(Status)) {
                 break;
             }
         }
 
         /* For CopyObject, no further validation necessary */
 
-        if (WalkState->Opcode == AML_COPY_OBJECT_OP)
-        {
+        if (WalkState->Opcode == AML_COPY_OBJECT_OP) {
             break;
         }
 
         /* Must have a Integer, Buffer, or String */
 
-        if ((SourceDesc->Common.Type != ACPI_TYPE_INTEGER)    &&
-            (SourceDesc->Common.Type != ACPI_TYPE_BUFFER)     &&
-            (SourceDesc->Common.Type != ACPI_TYPE_STRING)     &&
-            !((SourceDesc->Common.Type == ACPI_TYPE_LOCAL_REFERENCE) &&
-                (SourceDesc->Reference.Class== ACPI_REFCLASS_TABLE)))
-        {
+        if ((SourceDesc->Common.Type != ACPI_TYPE_INTEGER) && (SourceDesc->Common.Type != ACPI_TYPE_BUFFER) && (SourceDesc->Common.Type != ACPI_TYPE_STRING) && !((SourceDesc->Common.Type == ACPI_TYPE_LOCAL_REFERENCE) && (SourceDesc->Reference.Class == ACPI_REFCLASS_TABLE))) {
             /* Conversion successful but still not a valid type */
 
-            ACPI_ERROR ((AE_INFO,
+            ACPI_ERROR((AE_INFO,
                 "Cannot assign type [%s] to [%s] (must be type Int/Str/Buf)",
-                AcpiUtGetObjectTypeName (SourceDesc),
-                AcpiUtGetTypeName (TargetType)));
+                AcpiUtGetObjectTypeName(SourceDesc),
+                AcpiUtGetTypeName(TargetType)));
 
             Status = AE_AML_OPERAND_TYPE;
         }
@@ -251,7 +238,7 @@ AcpiExResolveObject (
          * All aliases should have been resolved earlier, during the
          * operand resolution phase.
          */
-        ACPI_ERROR ((AE_INFO, "Store into an unresolved Alias object"));
+        ACPI_ERROR((AE_INFO, "Store into an unresolved Alias object"));
         Status = AE_AML_INTERNAL;
         break;
 
@@ -264,9 +251,8 @@ AcpiExResolveObject (
         break;
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -304,33 +290,29 @@ AcpiExResolveObject (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExStoreObjectToObject (
-    ACPI_OPERAND_OBJECT     *SourceDesc,
-    ACPI_OPERAND_OBJECT     *DestDesc,
-    ACPI_OPERAND_OBJECT     **NewDesc,
-    ACPI_WALK_STATE         *WalkState)
+AcpiExStoreObjectToObject(
+    ACPI_OPERAND_OBJECT* SourceDesc,
+    ACPI_OPERAND_OBJECT* DestDesc,
+    ACPI_OPERAND_OBJECT** NewDesc,
+    ACPI_WALK_STATE* WalkState)
 {
-    ACPI_OPERAND_OBJECT     *ActualSrcDesc;
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_OPERAND_OBJECT* ActualSrcDesc;
+    ACPI_STATUS Status = AE_OK;
 
-
-    ACPI_FUNCTION_TRACE_PTR (ExStoreObjectToObject, SourceDesc);
-
+    ACPI_FUNCTION_TRACE_PTR(ExStoreObjectToObject, SourceDesc);
 
     ActualSrcDesc = SourceDesc;
-    if (!DestDesc)
-    {
+    if (!DestDesc) {
         /*
          * There is no destination object (An uninitialized node or
          * package element), so we can simply copy the source object
          * creating a new destination object
          */
-        Status = AcpiUtCopyIobjectToIobject (ActualSrcDesc, NewDesc, WalkState);
-        return_ACPI_STATUS (Status);
+        Status = AcpiUtCopyIobjectToIobject(ActualSrcDesc, NewDesc, WalkState);
+        return_ACPI_STATUS(Status);
     }
 
-    if (SourceDesc->Common.Type != DestDesc->Common.Type)
-    {
+    if (SourceDesc->Common.Type != DestDesc->Common.Type) {
         /*
          * The source type does not match the type of the destination.
          * Perform the "implicit conversion" of the source to the current type
@@ -340,21 +322,19 @@ AcpiExStoreObjectToObject (
          * Otherwise, ActualSrcDesc is a temporary object to hold the
          * converted object.
          */
-        Status = AcpiExConvertToTargetType (DestDesc->Common.Type,
+        Status = AcpiExConvertToTargetType(DestDesc->Common.Type,
             SourceDesc, &ActualSrcDesc, WalkState);
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
 
-        if (SourceDesc == ActualSrcDesc)
-        {
+        if (SourceDesc == ActualSrcDesc) {
             /*
              * No conversion was performed. Return the SourceDesc as the
              * new object.
              */
             *NewDesc = SourceDesc;
-            return_ACPI_STATUS (AE_OK);
+            return_ACPI_STATUS(AE_OK);
         }
     }
 
@@ -362,51 +342,49 @@ AcpiExStoreObjectToObject (
      * We now have two objects of identical types, and we can perform a
      * copy of the *value* of the source object.
      */
-    switch (DestDesc->Common.Type)
-    {
+    switch (DestDesc->Common.Type) {
     case ACPI_TYPE_INTEGER:
 
         DestDesc->Integer.Value = ActualSrcDesc->Integer.Value;
 
         /* Truncate value if we are executing from a 32-bit ACPI table */
 
-        (void) AcpiExTruncateFor32bitTable (DestDesc);
+        (void)AcpiExTruncateFor32bitTable(DestDesc);
         break;
 
     case ACPI_TYPE_STRING:
 
-        Status = AcpiExStoreStringToString (ActualSrcDesc, DestDesc);
+        Status = AcpiExStoreStringToString(ActualSrcDesc, DestDesc);
         break;
 
     case ACPI_TYPE_BUFFER:
 
-        Status = AcpiExStoreBufferToBuffer (ActualSrcDesc, DestDesc);
+        Status = AcpiExStoreBufferToBuffer(ActualSrcDesc, DestDesc);
         break;
 
     case ACPI_TYPE_PACKAGE:
 
-        Status = AcpiUtCopyIobjectToIobject (ActualSrcDesc, &DestDesc,
-                    WalkState);
+        Status = AcpiUtCopyIobjectToIobject(ActualSrcDesc, &DestDesc,
+            WalkState);
         break;
 
     default:
         /*
          * All other types come here.
          */
-        ACPI_WARNING ((AE_INFO, "Store into type [%s] not implemented",
-            AcpiUtGetObjectTypeName (DestDesc)));
+        ACPI_WARNING((AE_INFO, "Store into type [%s] not implemented",
+            AcpiUtGetObjectTypeName(DestDesc)));
 
         Status = AE_NOT_IMPLEMENTED;
         break;
     }
 
-    if (ActualSrcDesc != SourceDesc)
-    {
+    if (ActualSrcDesc != SourceDesc) {
         /* Delete the intermediate (temporary) source object */
 
-        AcpiUtRemoveReference (ActualSrcDesc);
+        AcpiUtRemoveReference(ActualSrcDesc);
     }
 
     *NewDesc = DestDesc;
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }

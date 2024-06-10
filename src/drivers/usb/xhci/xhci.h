@@ -19,10 +19,10 @@ struct xhci_hub;
 
 #define XHCI_PORT_REG_NUM 4
 
-#define XHCI_PORTSC		0
-#define XHCI_PORTPMSC	1
-#define XHCI_PORTLI		2
-#define XHCI_PORTHLPMC	3
+#define XHCI_PORTSC 0
+#define XHCI_PORTPMSC 1
+#define XHCI_PORTLI 2
+#define XHCI_PORTHLPMC 3
 
 #define XHCI_MAX_HC_SLOTS 255
 #define XHCI_MAX_HC_PORTS 127
@@ -34,29 +34,29 @@ struct xhci_hub;
 #define XHCI_HALT_TIMEOUT_US (32 * 1000)
 
 typedef struct xhci_op_regs {
-  uint32_t cmd;
-  uint32_t status;
-  uint32_t page_size;
-  uint32_t res0[2];
-  uint32_t device_notif;
-  uintptr_t cmd_ring;
-  uint32_t res1[4];
-  uintptr_t dcbaa_ptr; // Device Context Base Address Array
-  uint32_t config_reg;
-  uint32_t res2[241];
-  union {
-    struct {
-      uint32_t port_status_base;
-      uint32_t port_pwr_base;
-      uint32_t port_link_base;
-      uint32_t res3;
-    } ports[255];
-    uint32_t res4[XHCI_PORT_REG_NUM*255];
-  };
+    uint32_t cmd;
+    uint32_t status;
+    uint32_t page_size;
+    uint32_t res0[2];
+    uint32_t device_notif;
+    uintptr_t cmd_ring;
+    uint32_t res1[4];
+    uintptr_t dcbaa_ptr; // Device Context Base Address Array
+    uint32_t config_reg;
+    uint32_t res2[241];
+    union {
+        struct {
+            uint32_t port_status_base;
+            uint32_t port_pwr_base;
+            uint32_t port_link_base;
+            uint32_t res3;
+        } ports[255];
+        uint32_t res4[XHCI_PORT_REG_NUM * 255];
+    };
 } xhci_op_regs_t;
 
 /*
- * XHCI operation register command bits 
+ * XHCI operation register command bits
  * for the definitions, go to the linux kernel
  * xhci driver or the xhci spec
  */
@@ -88,17 +88,17 @@ typedef struct xhci_op_regs {
 /* bits 13 -> 31 are reserved and should not be touched */
 
 /*
- * XHCI Port Status and Control Register bits 
+ * XHCI Port Status and Control Register bits
  * op_regs->port_status_base
  */
-#define	XHCI_PORT_RO ((1<<0) | (1<<3) | (0xf<<10) | (1<<30))
-#define XHCI_PORT_RWS ((0xf<<5) | (1<<9) | (0x3<<14) | (0x7<<25))
+#define XHCI_PORT_RO ((1 << 0) | (1 << 3) | (0xf << 10) | (1 << 30))
+#define XHCI_PORT_RWS ((0xf << 5) | (1 << 9) | (0x3 << 14) | (0x7 << 25))
 
 #define XHCI_PORT_CCS (1 << 0)
 #define XHCI_PORT_PED (1 << 1)
 /* bit 2 reserved and zero */
 #define XHCI_PORT_OCA (1 << 3)
-#define XHCI_PORT_RESET	(1 << 4)
+#define XHCI_PORT_RESET (1 << 4)
 #define XHCI_PORT_POWR (1 << 9)
 
 #define XHCI_PORT_LWS (1 << 16)
@@ -106,12 +106,12 @@ typedef struct xhci_op_regs {
 #define XHCI_PORT_PEC (1 << 18)
 #define XHCI_PORT_WRX (1 << 19)
 #define XHCI_PORT_OCC (1 << 20)
-#define XHCI_PORT_RC  (1 << 21)
+#define XHCI_PORT_RC (1 << 21)
 
 #define XHCI_CMD_RING_PAUSED (1 << 1)
 #define XHCI_CMD_RING_ABORT (1 << 2)
 #define XHCI_CMD_RING_RUNNING (1 << 3)
-#define XHCI_CMD_RING_RSVD_BITS	(0x3f)
+#define XHCI_CMD_RING_RSVD_BITS (0x3f)
 
 /*
  * XHCI Port Link state Register bits
@@ -132,41 +132,41 @@ typedef struct xhci_op_regs {
 #define XHCI_XDEV_TEST_MODE (0xb << 5)
 #define XHCI_XDEV_RESUME (0xf << 5)
 
-#define XHCI_DEV_SPEED_MASK	(0xf << 10)
+#define XHCI_DEV_SPEED_MASK (0xf << 10)
 #define XHCI_XDEV_FS (0x1 << 10)
 #define XHCI_XDEV_LS (0x2 << 10)
 #define XHCI_XDEV_HS (0x3 << 10)
 #define XHCI_XDEV_SS (0x4 << 10)
 #define XHCI_XDEV_SSP (0x5 << 10)
 
-#define	XHCI_SLOT_SPEED_FS (XHCI_XDEV_FS << 10)
-#define	XHCI_SLOT_SPEED_LS (XHCI_XDEV_LS << 10)
-#define	XHCI_SLOT_SPEED_HS (XHCI_XDEV_HS << 10)
-#define	XHCI_SLOT_SPEED_SS (XHCI_XDEV_SS << 10)
-#define	XHCI_SLOT_SPEED_SSP (XHCI_XDEV_SSP << 10)
+#define XHCI_SLOT_SPEED_FS (XHCI_XDEV_FS << 10)
+#define XHCI_SLOT_SPEED_LS (XHCI_XDEV_LS << 10)
+#define XHCI_SLOT_SPEED_HS (XHCI_XDEV_HS << 10)
+#define XHCI_SLOT_SPEED_SS (XHCI_XDEV_SS << 10)
+#define XHCI_SLOT_SPEED_SSP (XHCI_XDEV_SSP << 10)
 
 typedef struct xhci_intr_regs {
-  uint32_t irq_pending;
-  uint32_t irq_ctl;
-  uint32_t erst_size;
-  uint32_t rsvd;
-  uint64_t erst_base;
-  uint64_t erst_dequeue;
+    uint32_t irq_pending;
+    uint32_t irq_ctl;
+    uint32_t erst_size;
+    uint32_t rsvd;
+    uint64_t erst_base;
+    uint64_t erst_dequeue;
 } xhci_intr_regs_t;
 
 #define XHCI_ERST_SIZE_MASK (0xFFFF << 16)
-#define XHCI_ERST_PTR_MASK  (0xf)
+#define XHCI_ERST_PTR_MASK (0xf)
 
-#define	XHCI_ER_IRQ_PENDING(p)	((p) & 0x1)
+#define XHCI_ER_IRQ_PENDING(p) ((p) & 0x1)
 /* Idk man */
-#define	XHCI_ER_IRQ_CLEAR(p)		((p) & 0xfffffffe)
-#define	XHCI_ER_IRQ_ENABLE(p)	((XHCI_ER_IRQ_CLEAR(p)) | 0x2)
-#define	XHCI_ER_IRQ_DISABLE(p)	((XHCI_ER_IRQ_CLEAR(p)) & ~(0x2))
+#define XHCI_ER_IRQ_CLEAR(p) ((p) & 0xfffffffe)
+#define XHCI_ER_IRQ_ENABLE(p) ((XHCI_ER_IRQ_CLEAR(p)) | 0x2)
+#define XHCI_ER_IRQ_DISABLE(p) ((XHCI_ER_IRQ_CLEAR(p)) & ~(0x2))
 
 typedef struct xhci_runtime_regs {
-  uint32_t microframe_idx;
-  uint32_t res[7];
-  xhci_intr_regs_t ir_set[128];
+    uint32_t microframe_idx;
+    uint32_t res[7];
+    xhci_intr_regs_t ir_set[128];
 } xhci_runtime_regs_t;
 
 /*
@@ -175,14 +175,14 @@ typedef struct xhci_runtime_regs {
  * These are at the direct start of the xhci MMIO config space
  */
 typedef struct xhci_cap_regs {
-  uint32_t hc_capbase;
-  uint32_t hcs_params_1;
-  uint32_t hcs_params_2;
-  uint32_t hcs_params_3;
-  uint32_t hcc_params_1;
-  uint32_t db_arr_offset;
-  uint32_t runtime_regs_offset;
-  uint32_t hcc_params_2;
+    uint32_t hc_capbase;
+    uint32_t hcs_params_1;
+    uint32_t hcs_params_2;
+    uint32_t hcs_params_3;
+    uint32_t hcc_params_1;
+    uint32_t db_arr_offset;
+    uint32_t runtime_regs_offset;
+    uint32_t hcc_params_2;
 } xhci_cap_regs_t;
 
 #define HC_LENGTH(cb) (((cb) >> 00) & 0x00ff)
@@ -202,10 +202,10 @@ typedef struct xhci_cap_regs {
  * Layout: Section 5.6 of the xhci spec
  */
 typedef struct xhci_db_array {
-  uint32_t db[256];
+    uint32_t db[256];
 } xhci_db_array_t;
 
-#define DB_VALUE(ep, stream)	((((ep) + 1) & 0xff) | ((stream) << 16))
+#define DB_VALUE(ep, stream) ((((ep) + 1) & 0xff) | ((stream) << 16))
 
 /*
  * xhci contexts
@@ -215,25 +215,25 @@ typedef struct xhci_db_array {
 #define XHCI_CTX_BYTES 32
 
 typedef struct xhci_slot_ctx {
-  uint32_t dev_info;
-  uint32_t dev_info2;
-  uint32_t tt_info;
-  uint32_t dev_state;
-  uint32_t res[4];
+    uint32_t dev_info;
+    uint32_t dev_info2;
+    uint32_t tt_info;
+    uint32_t dev_state;
+    uint32_t res[4];
 } xhci_slot_ctx_t;
 
 typedef struct xhci_endpoint_ctx {
-  uint32_t ep_info;
-  uint32_t ep_info2;
-  uintptr_t deq_ptr;
-  uint32_t tx_info;
-  uint32_t res[3];
+    uint32_t ep_info;
+    uint32_t ep_info2;
+    uintptr_t deq_ptr;
+    uint32_t tx_info;
+    uint32_t res[3];
 } xhci_endpoint_ctx_t;
 
 typedef struct xhci_ip_ctl_ctx {
-  uint32_t drp_flags;
-  uint32_t add_flags;
-  uint32_t res[6];
+    uint32_t drp_flags;
+    uint32_t add_flags;
+    uint32_t res[6];
 } xhci_ip_ctl_ctx_t;
 
 /*
@@ -241,30 +241,30 @@ typedef struct xhci_ip_ctl_ctx {
  * FIXME: size?
  */
 typedef struct xhci_dma_ctx {
-  uint32_t type;
-  uint32_t size;
-  uint8_t* data;
-  paddr_t dma_addr;
+    uint32_t type;
+    uint32_t size;
+    uint8_t* data;
+    paddr_t dma_addr;
 } xhci_input_dma_t;
 
 #define XHCI_DMA_CTX_DEVICE 0x01
-#define XHCI_DMA_CTX_INPUT  0x02
+#define XHCI_DMA_CTX_INPUT 0x02
 
 typedef struct xhci_dev_ctx_array {
-  uint64_t dev_ctx_ptrs[XHCI_MAX_HC_SLOTS];
-  paddr_t dma;
+    uint64_t dev_ctx_ptrs[XHCI_MAX_HC_SLOTS];
+    paddr_t dma;
 } xhci_dev_ctx_array_t;
 
 /*
  * xhci trb
  *
- * For the complete layout of every TRB type, check 
+ * For the complete layout of every TRB type, check
  * xhci spec Section 6.4
  */
 typedef struct xhci_trb {
-  uint64_t addr;
-  uint32_t status;
-  uint32_t control;
+    uint64_t addr;
+    uint32_t status;
+    uint32_t control;
 } xhci_trb_t;
 
 /*
@@ -286,10 +286,10 @@ typedef struct xhci_trb {
 /* isoc transfers */
 #define TRB_ISOC 5
 /* TRB for linking ring segments */
-#define TRB_LIN	6
+#define TRB_LIN 6
 #define TRB_EVENT_DATA 7
 /* Transfer Ring No-op (not for the command ring) */
-#define TRB_TR_NOOP	8
+#define TRB_TR_NOOP 8
 /* Command TRBs */
 /* Enable Slot Command */
 #define TRB_ENABLE_SLOT 9
@@ -306,7 +306,7 @@ typedef struct xhci_trb {
 /* Stop Transfer Ring Command */
 #define TRB_STOP_RING 15
 /* Set Transfer Ring Dequeue Pointer Command */
-#define TRB_SET_DEQ	16
+#define TRB_SET_DEQ 16
 /* Reset Device Command */
 #define TRB_RESET_DEV 17
 /* Force Event Command (opt) */
@@ -328,9 +328,9 @@ typedef struct xhci_trb {
 /* Command Completion Event */
 #define TRB_COMPLETION 33
 /* Port Status Change Event */
-#define TRB_PORT_STATUS	34
+#define TRB_PORT_STATUS 34
 /* Bandwidth Request Event (opt) */
-#define TRB_BANDWIDTH_EVENT	35
+#define TRB_BANDWIDTH_EVENT 35
 /* Doorbell Event (opt) */
 #define TRB_DOORBELL 36
 /* Host Controller Event */
@@ -342,9 +342,9 @@ typedef struct xhci_trb {
 /* TRB IDs 40-47 reserved, 48-63 is vendor-defined */
 #define TRB_VENDOR_DEFINED_LOW 48
 /* Nec vendor-specific command completion event. */
-#define	TRB_NEC_CMD_COM	48
+#define TRB_NEC_CMD_COM 48
 /* Get NEC firmware revision. */
-#define	TRB_NEC_GET_FW 49
+#define TRB_NEC_GET_FW 49
 
 /*
  * Xhci ring segment
@@ -356,10 +356,10 @@ typedef struct xhci_trb {
  * TODO: implement lmao
  */
 typedef struct xhci_segment {
-  xhci_trb_t* trbs;
-  struct xhci_segment* next;
-  paddr_t dma;
-  /* Linux has bounce buffers. WTF? */
+    xhci_trb_t* trbs;
+    struct xhci_segment* next;
+    paddr_t dma;
+    /* Linux has bounce buffers. WTF? */
 } xhci_segment_t;
 
 #define XHCI_TRBS_PER_SEGMENT (256)
@@ -368,11 +368,11 @@ typedef struct xhci_segment {
  * xhci transfer descriptor
  */
 typedef struct xhci_td {
-  /* All the trbs in a td will be contiguous (for now), so we only need one pointer */
-  xhci_trb_t* trbs;
+    /* All the trbs in a td will be contiguous (for now), so we only need one pointer */
+    xhci_trb_t* trbs;
 
-  uint32_t trb_count;
-  uint32_t status;
+    uint32_t trb_count;
+    uint32_t status;
 } xhci_td_t;
 
 #define XHCI_RING_TYPE_CTL 0
@@ -386,31 +386,31 @@ typedef struct xhci_td {
 #define XHCI_RING_TYPE_MAX (XHCI_RING_TYPE_EVENT)
 
 /*
- * The xhci ring is a structure that can be found at 
- * transfer rings and such. We basically keep track of the 
+ * The xhci ring is a structure that can be found at
+ * transfer rings and such. We basically keep track of the
  * start, end, enqueue and dequeue pointers
  *
- * Right now any ring consists of only one segment (aka 256 trbs) so 
+ * Right now any ring consists of only one segment (aka 256 trbs) so
  * we need to implement multi-segmenting the trbs together into one scattered
- * ring. This means: 
+ * ring. This means:
  * @ring_buffer: simply points to the start of our one segment
  * @ring_dma: our dma (physical, dma mapped) address of the segment
  * @ring_size: almost always XHCI_TRBS_PER_SEGMENT * sizeof(xhci_trb_t) = SMALL_PAGE_SIZE
  * @ring_type: our type
  */
 typedef struct xhci_ring {
-  /* Both these pointers are virtual kernel addresses to the trbs */
-  xhci_trb_t* enqueue;
-  xhci_trb_t* dequeue;
+    /* Both these pointers are virtual kernel addresses to the trbs */
+    xhci_trb_t* enqueue;
+    xhci_trb_t* dequeue;
 
-  xhci_trb_t* last_trb;
+    xhci_trb_t* last_trb;
 
-  /* Kernel address to the ring buffer */
-  void* ring_buffer;
-  paddr_t ring_dma;
-  uint32_t ring_size;
-  uint32_t ring_type;
-  uint32_t ring_cycle;
+    /* Kernel address to the ring buffer */
+    void* ring_buffer;
+    paddr_t ring_dma;
+    uint32_t ring_size;
+    uint32_t ring_type;
+    uint32_t ring_cycle;
 } xhci_ring_t;
 
 /* ring.c */
@@ -431,22 +431,22 @@ extern int xhci_ring_dequeue(struct xhci_hcd* hcd, xhci_ring_t* ring, xhci_trb_t
  * @buffer: store the kernel addresses for the buffers
  */
 typedef struct xhci_scratchpad {
-  paddr_t* array;
-  paddr_t dma;
-  void** buffers;
+    paddr_t* array;
+    paddr_t dma;
+    void** buffers;
 } xhci_scratchpad_t;
 
 typedef struct xhci_erst_entry {
-  uint64_t addr;
-  uint32_t size;
-  uint32_t res;
+    uint64_t addr;
+    uint32_t size;
+    uint32_t res;
 } xhci_erst_entry_t;
 
 typedef struct xhci_erst {
-  xhci_erst_entry_t* entries;
-  uint32_t entry_count;
-  uint32_t erst_size;
-  paddr_t dma;
+    xhci_erst_entry_t* entries;
+    uint32_t entry_count;
+    uint32_t erst_size;
+    paddr_t dma;
 } xhci_erst_t;
 
 /*
@@ -454,23 +454,23 @@ typedef struct xhci_erst {
  */
 
 typedef struct xhci_cmd {
-  xhci_input_dma_t* input_ctx;
+    xhci_input_dma_t* input_ctx;
 
-  uint32_t status;
-  uint32_t slot_id;
+    uint32_t status;
+    uint32_t slot_id;
 
-  /* Store waiters for this command */
-  kdoorbell_t* doorbell;
+    /* Store waiters for this command */
+    kdoorbell_t* doorbell;
 
-  /* Underlying TRB of the command */
-  xhci_trb_t* cmd_trb;
+    /* Underlying TRB of the command */
+    xhci_trb_t* cmd_trb;
 } xhci_cmd_t;
 
 typedef struct xhci_interrupter {
-  xhci_ring_t* event_ring;
-  xhci_erst_t erst;
-  xhci_intr_regs_t* ir_regs;
-  uint32_t inter_num;
+    xhci_ring_t* event_ring;
+    xhci_erst_t erst;
+    xhci_intr_regs_t* ir_regs;
+    uint32_t inter_num;
 } xhci_interrupter_t;
 
 /* ring.c */
@@ -485,16 +485,16 @@ extern int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* inter
  * This represents a USB device connected to a xhci hub
  */
 typedef struct xhci_port {
-  /* Base register address */
-  void* base_addr;
-  void* dcba_entry_addr;
-  void* device_context;
+    /* Base register address */
+    void* base_addr;
+    void* dcba_entry_addr;
+    void* device_context;
 
-  uint8_t port_num;
-  uint8_t device_slot;
-  
-  enum USB_SPEED speed;
-  struct xhci_hub* p_hub;
+    uint8_t port_num;
+    uint8_t device_slot;
+
+    enum USB_SPEED speed;
+    struct xhci_hub* p_hub;
 } xhci_port_t;
 
 extern xhci_port_t* create_xhci_port(struct xhci_hub* hub, enum USB_SPEED speed);
@@ -503,7 +503,7 @@ extern void init_xhci_port(xhci_port_t* port, void* base_addr, void* dcba_entry_
 
 static inline bool __is_active_xhci_port(xhci_port_t* port)
 {
-  return (port->base_addr != nullptr);
+    return (port->base_addr != nullptr);
 }
 
 /*
@@ -513,11 +513,11 @@ static inline bool __is_active_xhci_port(xhci_port_t* port)
  * it
  */
 typedef struct xhci_hub {
-  xhci_port_t** ports;
-  uint32_t port_count;
-  uint32_t port_arr_size;
+    xhci_port_t** ports;
+    uint32_t port_count;
+    uint32_t port_arr_size;
 
-  struct usb_hub* phub;
+    struct usb_hub* phub;
 } xhci_hub_t;
 
 xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address);
@@ -529,53 +529,53 @@ void destroy_xhci_hub(xhci_hub_t* hub);
 #define XHC_FLAG_HALTED 0x00000001
 
 typedef struct xhci_hcd {
-  struct usb_hcd* parent;
+    struct usb_hcd* parent;
 
-  uint32_t xhc_flags;
+    uint32_t xhc_flags;
 
-  mutex_t* event_lock;
+    mutex_t* event_lock;
 
-  /* These threads are used to do events and trfs by probing */
-  thread_t* event_thread;
-  thread_t* trf_finish_thread;
+    /* These threads are used to do events and trfs by probing */
+    thread_t* event_thread;
+    thread_t* trf_finish_thread;
 
-  uint8_t sbrn;
-  uint8_t cmd_queue_cycle;
-  uint16_t hci_version;
-  uint8_t max_slots;
-  uint16_t max_interrupters;
-  uint8_t max_ports;
-  uint8_t isoc_threshold;
+    uint8_t sbrn;
+    uint8_t cmd_queue_cycle;
+    uint16_t hci_version;
+    uint8_t max_slots;
+    uint16_t max_interrupters;
+    uint8_t max_ports;
+    uint8_t isoc_threshold;
 
-  uintptr_t register_ptr;
-  size_t register_size;
-  uint32_t cap_regs_offset;
-  uint32_t oper_regs_offset;
-  uint32_t runtime_regs_offset;
-  uint32_t doorbell_regs_offset;
+    uintptr_t register_ptr;
+    size_t register_size;
+    uint32_t cap_regs_offset;
+    uint32_t oper_regs_offset;
+    uint32_t runtime_regs_offset;
+    uint32_t doorbell_regs_offset;
 
-  /* FIXME: seperate 3.0 and 2.0 roothubs */
-  xhci_hub_t* rhub;
+    /* FIXME: seperate 3.0 and 2.0 roothubs */
+    xhci_hub_t* rhub;
 
-  xhci_cap_regs_t* cap_regs;
-  xhci_op_regs_t* op_regs;
-  xhci_runtime_regs_t* runtime_regs;
-  xhci_db_array_t* db_arr;
+    xhci_cap_regs_t* cap_regs;
+    xhci_op_regs_t* op_regs;
+    xhci_runtime_regs_t* runtime_regs;
+    xhci_db_array_t* db_arr;
 
-  uint32_t scratchpad_count;
+    uint32_t scratchpad_count;
 
-  /* We allocate these things ourselves for the xhci controller */
-  xhci_dev_ctx_array_t* dctx_array_ptr;
-  xhci_ring_t* cmd_ring_ptr;
-  xhci_interrupter_t* interrupter;
-  xhci_scratchpad_t* scratchpad_ptr;
+    /* We allocate these things ourselves for the xhci controller */
+    xhci_dev_ctx_array_t* dctx_array_ptr;
+    xhci_ring_t* cmd_ring_ptr;
+    xhci_interrupter_t* interrupter;
+    xhci_scratchpad_t* scratchpad_ptr;
 } xhci_hcd_t;
 
 extern void _xhci_event_poll(xhci_hcd_t* xhci);
 
 static inline xhci_hcd_t* hcd_to_xhci(usb_hcd_t* hcd)
 {
-  return (xhci_hcd_t*)(hcd->private);
+    return (xhci_hcd_t*)(hcd->private);
 }
 
 #define XHCI_CAP_OF(xhci_hub) ((xhci_hub)->cap_regs_offset)

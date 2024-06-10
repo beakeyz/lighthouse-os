@@ -4,7 +4,7 @@
 /*
  * Main header for the lightos userlib
  *
- * 
+ *
  */
 
 #define LIGHTENTRY_SECTION_NAME ".lightentry"

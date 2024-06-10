@@ -1,8 +1,8 @@
 #include "log.h"
-#include <libk/string.h>
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include <libk/ctype.h>
+#include <libk/string.h>
 #include <sync/mutex.h>
 
 static mutex_t* __default_mutex = NULL;
@@ -11,23 +11,23 @@ static size_t __loggers_count;
 
 static bool valid_logger_id(logger_id_t id)
 {
-  return (id < LOGGER_MAX_COUNT);
+    return (id < LOGGER_MAX_COUNT);
 }
 
 static inline void try_lock()
 {
-  if (!__default_mutex)
-    return;
+    if (!__default_mutex)
+        return;
 
-  mutex_lock(__default_mutex);
+    mutex_lock(__default_mutex);
 }
 
 static inline void try_unlock()
 {
-  if (!__default_mutex)
-    return;
+    if (!__default_mutex)
+        return;
 
-  mutex_unlock(__default_mutex);
+    mutex_unlock(__default_mutex);
 }
 
 /*!
@@ -38,18 +38,18 @@ static inline void try_unlock()
  */
 int register_logger(logger_t* logger)
 {
-  /* A logger MUST at least support f_log */
-  if (!logger || !logger->f_log)
-    return -1;
+    /* A logger MUST at least support f_log */
+    if (!logger || !logger->f_log)
+        return -1;
 
-  try_lock();
+    try_lock();
 
-  logger->id = __loggers_count;
-  __loggers[__loggers_count++] = logger;
+    logger->id = __loggers_count;
+    __loggers[__loggers_count++] = logger;
 
-  try_unlock();
+    try_unlock();
 
-  return logger->id;
+    return logger->id;
 }
 
 /*!
@@ -61,37 +61,37 @@ int register_logger(logger_t* logger)
  */
 int unregister_logger(logger_t* logger)
 {
-  logger_t* target;
+    logger_t* target;
 
-  if (!valid_logger_id(logger->id))
-    return -1;
+    if (!valid_logger_id(logger->id))
+        return -1;
 
-  target = __loggers[logger->id];
+    target = __loggers[logger->id];
 
-  if (!target)
-    return -2;
+    if (!target)
+        return -2;
 
-  try_lock();
+    try_lock();
 
-  /* Clear the logger from the list */
-  __loggers[logger->id] = nullptr;
+    /* Clear the logger from the list */
+    __loggers[logger->id] = nullptr;
 
-  /* Shift over all the loggers after this one back by one */
-  for (uint16_t i = logger->id; i < LOGGER_MAX_COUNT; i++) {
-    if (!valid_logger_id(i))
-      break;
+    /* Shift over all the loggers after this one back by one */
+    for (uint16_t i = logger->id; i < LOGGER_MAX_COUNT; i++) {
+        if (!valid_logger_id(i))
+            break;
 
-    __loggers[i] = __loggers[i+1];
+        __loggers[i] = __loggers[i + 1];
 
-    /* Check if we are shifting nullptrs, in which case we can just stop */
-    if (!__loggers[i])
-      break;
-  }
+        /* Check if we are shifting nullptrs, in which case we can just stop */
+        if (!__loggers[i])
+            break;
+    }
 
-  __loggers_count--;
+    __loggers_count--;
 
-  try_unlock();
-  return 0;
+    try_unlock();
+    return 0;
 }
 
 /*!
@@ -101,25 +101,25 @@ int unregister_logger(logger_t* logger)
  */
 int logger_get(logger_id_t id, logger_t* buffer)
 {
-  logger_t* target;
+    logger_t* target;
 
-  if (!valid_logger_id(id))
-    return -1;
+    if (!valid_logger_id(id))
+        return -1;
 
-  target = __loggers[id];
+    target = __loggers[id];
 
-  if (!target)
-    return -2;
+    if (!target)
+        return -2;
 
-  /*
-   * Lock the mutex to prevent any funnynes
-   */
-  try_lock();
+    /*
+     * Lock the mutex to prevent any funnynes
+     */
+    try_lock();
 
-  memcpy(buffer, target, sizeof(logger_t));
+    memcpy(buffer, target, sizeof(logger_t));
 
-  try_unlock();
-  return 0;
+    try_unlock();
+    return 0;
 }
 
 /*!
@@ -129,69 +129,69 @@ int logger_get(logger_id_t id, logger_t* buffer)
  */
 int logger_scan(char* title, logger_t* buffer)
 {
-  logger_t* target = nullptr;
+    logger_t* target = nullptr;
 
-  for (uint16_t i = 0; i < __loggers_count; i++) {
-    target = __loggers[i];
+    for (uint16_t i = 0; i < __loggers_count; i++) {
+        target = __loggers[i];
+
+        if (!target)
+            break;
+
+        if (strcmp(title, target->title) == 0)
+            break;
+    }
 
     if (!target)
-      break;
+        return -1;
 
-    if (strcmp(title, target->title) == 0)
-      break;
-  }
+    try_lock();
 
-  if (!target)
-    return -1;
+    memcpy(buffer, target, sizeof(logger_t));
 
-  try_lock();
-
-  memcpy(buffer, target, sizeof(logger_t));
-
-  try_unlock();
-  return 0;
+    try_unlock();
+    return 0;
 }
 
 /*!
  * @brief Swap the priorities of two valid loggers
  *
- * 
+ *
  */
 int logger_swap_priority(logger_id_t old, logger_id_t new)
 {
-  logger_t* old_target;
-  logger_t* new_target;
-  logger_t buffer = { 0 };
+    logger_t* old_target;
+    logger_t* new_target;
+    logger_t buffer = { 0 };
 
-  if (!valid_logger_id(old) || !valid_logger_id(new))
-    return -1;
+    if (!valid_logger_id(old) || !valid_logger_id(new))
+        return -1;
 
-  old_target = __loggers[old];
+    old_target = __loggers[old];
 
-  if (!old_target)
-    return -2;
+    if (!old_target)
+        return -2;
 
-  new_target = __loggers[new];
+    new_target = __loggers[new];
 
-  /* We enforce priority swaps with loggers that exist */
-  if (!new_target)
-    return -3;
+    /* We enforce priority swaps with loggers that exist */
+    if (!new_target)
+        return -3;
 
-  try_lock();
+    try_lock();
 
-  /* Copy the new target into the buffer */
-  memcpy(&buffer, new_target, sizeof(logger_t));
+    /* Copy the new target into the buffer */
+    memcpy(&buffer, new_target, sizeof(logger_t));
 
-  /* Swap the ids */
-  new_target->id = old_target->id;
-  old_target->id = buffer.id;
+    /* Swap the ids */
+    new_target->id = old_target->id;
+    old_target->id = buffer.id;
 
-  memcpy(new_target, old_target, sizeof(logger_t));
-  memcpy(old_target, &buffer, sizeof(logger_t));
+    memcpy(new_target, old_target, sizeof(logger_t));
+    memcpy(old_target, &buffer, sizeof(logger_t));
 
-  try_unlock();
+    try_unlock();
 
-  return 0;
+    return 0;
 }
 
 /*!
@@ -201,40 +201,37 @@ int logger_swap_priority(logger_id_t old, logger_id_t new)
  */
 void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
 {
-  logger_t* target;
+    logger_t* target;
 
-  if (!valid_logger_id(id))
-    return;
+    if (!valid_logger_id(id))
+        return;
 
-  target = __loggers[id];
+    target = __loggers[id];
 
-  if (!target)
-    return;
+    if (!target)
+        return;
 
-  switch (type) {
-    case LOG_TYPE_DEFAULT:
-      {
+    switch (type) {
+    case LOG_TYPE_DEFAULT: {
         if (target->f_log)
-          target->f_log(msg);
+            target->f_log(msg);
         break;
-      }
-    case LOG_TYPE_CHAR:
-      {
+    }
+    case LOG_TYPE_CHAR: {
         if (target->f_logc)
-          target->f_logc(msg[0]);
+            target->f_logc(msg[0]);
 
         break;
-      }
-    case LOG_TYPE_LINE:
-      {
+    }
+    case LOG_TYPE_LINE: {
         if (target->f_logln)
-          target->f_logln(msg);
+            target->f_logln(msg);
         break;
-      }
+    }
     default:
-      kernel_panic("TODO: implement logging type!");
-      break;
-  }
+        kernel_panic("TODO: implement logging type!");
+        break;
+    }
 }
 
 /*!
@@ -244,288 +241,283 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type)
  */
 static int print_ex(uint8_t flags, const char* msg, uint8_t type)
 {
-  logger_t* current;
+    logger_t* current;
 
-  /* Mask everything but the type flags */
-  flags &= (LOGGER_FLAG_INFO | LOGGER_FLAG_DEBUG | LOGGER_FLAG_WARNINGS);
+    /* Mask everything but the type flags */
+    flags &= (LOGGER_FLAG_INFO | LOGGER_FLAG_DEBUG | LOGGER_FLAG_WARNINGS);
 
-  for (uintptr_t i = 0; i < __loggers_count; i++) {
+    for (uintptr_t i = 0; i < __loggers_count; i++) {
 
-    current = __loggers[i];
+        current = __loggers[i];
 
-    /* Only print to loggers that have matching flags */
-    if ((current->flags & flags))
-      log_ex(i, msg, nullptr, type);
-  }
+        /* Only print to loggers that have matching flags */
+        if ((current->flags & flags))
+            log_ex(i, msg, nullptr, type);
+    }
 
-  return 0;
+    return 0;
 }
 
 static int USED _kputch(uint8_t typeflags, char c, char** out)
 {
-  return print_ex(typeflags, &c, LOG_TYPE_CHAR);
+    return print_ex(typeflags, &c, LOG_TYPE_CHAR);
 }
 
-int kputch(char c) 
+int kputch(char c)
 {
-  return _kputch(LOGGER_FLAG_INFO, c, NULL);
+    return _kputch(LOGGER_FLAG_INFO, c, NULL);
 }
 
 int print(const char* msg)
 {
-  return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_DEFAULT);
+    return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_DEFAULT);
 }
 
 int println(const char* msg)
 {
-  return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_LINE);
+    return print_ex(LOGGER_FLAG_INFO, msg, LOG_TYPE_LINE);
 }
 
 static inline void _print_hex(uint8_t typeflags, uint64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
-  uint32_t idx;
-  char tmp[128];
-  const char hex_chars[17] = "0123456789ABCDEF";
-  uint8_t len = 1;
+    uint32_t idx;
+    char tmp[128];
+    const char hex_chars[17] = "0123456789ABCDEF";
+    uint8_t len = 1;
 
-  memset(tmp, '0', sizeof(tmp));
+    memset(tmp, '0', sizeof(tmp));
 
-  uint64_t size_test = value;
-  while (size_test / 16 > 0) {
-    size_test /= 16;
-    len++;
-  }
+    uint64_t size_test = value;
+    while (size_test / 16 > 0) {
+        size_test /= 16;
+        len++;
+    }
 
-  if (len < prec && prec && prec != -1)
-    len = prec;
+    if (len < prec && prec && prec != -1)
+        len = prec;
 
-  idx = 0;
+    idx = 0;
 
-  while (value / 16 > 0) {
-    uint8_t remainder = value % 16;
-    value -= remainder;
-    tmp[len - 1 - idx] = hex_chars[remainder];
-    idx++;
-    value /= 16;
-  }
-  uint8_t last = value % 16;
-  tmp[len - 1 - idx] = hex_chars[last];
+    while (value / 16 > 0) {
+        uint8_t remainder = value % 16;
+        value -= remainder;
+        tmp[len - 1 - idx] = hex_chars[remainder];
+        idx++;
+        value /= 16;
+    }
+    uint8_t last = value % 16;
+    tmp[len - 1 - idx] = hex_chars[last];
 
-  for (uint32_t i = 0; i < len; i++)
-    output_cb(typeflags, tmp[i], out);
+    for (uint32_t i = 0; i < len; i++)
+        output_cb(typeflags, tmp[i], out);
 }
 
 static inline int _print_decimal(uint8_t typeflags, int64_t value, int prec, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
-  char tmp[128];
-  uint8_t size = 1;
+    char tmp[128];
+    uint8_t size = 1;
 
-  memset(tmp, '0', sizeof(tmp));
+    memset(tmp, '0', sizeof(tmp));
 
-  /* Test the size of this value */
-  uint64_t size_test = value;
-  while (size_test / 10 > 0) {
-      size_test /= 10;
-      size++;
-  }
+    /* Test the size of this value */
+    uint64_t size_test = value;
+    while (size_test / 10 > 0) {
+        size_test /= 10;
+        size++;
+    }
 
-  if (size < prec && prec && prec != -1)
-    size = prec;
+    if (size < prec && prec && prec != -1)
+        size = prec;
 
-  uint8_t index = 0;
-  
-  while (value / 10 > 0) {
-      uint8_t remain = value % 10;
-      value /= 10;
-      tmp[size - 1 - index] = remain + '0';
-      index++;
-  }
-  uint8_t remain = value % 10;
-  tmp[size - 1 - index] = remain + '0';
+    uint8_t index = 0;
 
-  for (uint32_t i = 0; i < size; i++)
-    output_cb(typeflags, tmp[i], out);
+    while (value / 10 > 0) {
+        uint8_t remain = value % 10;
+        value /= 10;
+        tmp[size - 1 - index] = remain + '0';
+        index++;
+    }
+    uint8_t remain = value % 10;
+    tmp[size - 1 - index] = remain + '0';
 
-  return size;
+    for (uint32_t i = 0; i < size; i++)
+        output_cb(typeflags, tmp[i], out);
+
+    return size;
 }
 
 static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int (*output_cb)(uint8_t typeflags, char c, char** out), char** out)
 {
-  int prec;
-  const char* prefix;
-  uint32_t integer_width;
-  uint32_t max_length;
+    int prec;
+    const char* prefix;
+    uint32_t integer_width;
+    uint32_t max_length;
 
-  prefix = nullptr;
+    prefix = nullptr;
 
-  /* Check for the no prefix flag */
-  if ((typeflags & LOGGER_FLAG_NO_PREFIX) != LOGGER_FLAG_NO_PREFIX) {
-    if ((typeflags & LOGGER_FLAG_WARNINGS) == LOGGER_FLAG_WARNINGS)
-      prefix = "[ ERROR ] ";
-    else if ((typeflags & LOGGER_FLAG_DEBUG) == LOGGER_FLAG_DEBUG)
-      prefix = "[ DEBUG ] ";
-    else if ((typeflags & LOGGER_FLAG_INFO) == LOGGER_FLAG_INFO)
-      prefix = "[ INFO ] ";
+    /* Check for the no prefix flag */
+    if ((typeflags & LOGGER_FLAG_NO_PREFIX) != LOGGER_FLAG_NO_PREFIX) {
+        if ((typeflags & LOGGER_FLAG_WARNINGS) == LOGGER_FLAG_WARNINGS)
+            prefix = "[ ERROR ] ";
+        else if ((typeflags & LOGGER_FLAG_DEBUG) == LOGGER_FLAG_DEBUG)
+            prefix = "[ DEBUG ] ";
+        else if ((typeflags & LOGGER_FLAG_INFO) == LOGGER_FLAG_INFO)
+            prefix = "[ INFO ] ";
 
-    if (prefix)
-      for (const char* i = prefix; *i; i++)
-        output_cb(typeflags, *i, out);
-  }
-
-  for (const char* c = fmt; *c; c++) {
-
-    if (*c != '%')
-      goto kputch_cycle;
-
-    integer_width = 0;
-    max_length = 0;
-    prec = -1;
-    c++;
-
-    if (*c == '-')
-      c++;
-
-    /* FIXME: Register digits at the start */
-    while (isdigit(*c)) {
-      max_length = (max_length * 10) + ((*c) - '0');
-      c++;
+        if (prefix)
+            for (const char* i = prefix; *i; i++)
+                output_cb(typeflags, *i, out);
     }
 
-    if (*c == '.') {
-      prec = 0;
-      c++;
+    for (const char* c = fmt; *c; c++) {
 
-      while (*c >= '0' && *c <= '9') {
-        prec *= 10;
-        prec += *c - '0';
+        if (*c != '%')
+            goto kputch_cycle;
+
+        integer_width = 0;
+        max_length = 0;
+        prec = -1;
         c++;
-      }
-    }
 
-    /* Account for size */
-    while (*c == 'l' && integer_width < 2) {
-      integer_width++;
-      c++;
-    }
+        if (*c == '-')
+            c++;
 
-    switch (*c) {
-      case 'i':
-      case 'd':
-        {
-          int64_t value;
-          switch (integer_width) {
+        /* FIXME: Register digits at the start */
+        while (isdigit(*c)) {
+            max_length = (max_length * 10) + ((*c) - '0');
+            c++;
+        }
+
+        if (*c == '.') {
+            prec = 0;
+            c++;
+
+            while (*c >= '0' && *c <= '9') {
+                prec *= 10;
+                prec += *c - '0';
+                c++;
+            }
+        }
+
+        /* Account for size */
+        while (*c == 'l' && integer_width < 2) {
+            integer_width++;
+            c++;
+        }
+
+        switch (*c) {
+        case 'i':
+        case 'd': {
+            int64_t value;
+            switch (integer_width) {
             case 0:
-              value = va_arg(args, int);
-              break;
+                value = va_arg(args, int);
+                break;
             case 1:
-              value = va_arg(args, long);
-              break;
+                value = va_arg(args, long);
+                break;
             case 2:
-              value = va_arg(args, long long);
-              break;
+                value = va_arg(args, long long);
+                break;
             default:
-              value = 0;
-          }
+                value = 0;
+            }
 
-          if (value < 0) {
-            value = -value;
-            output_cb(typeflags, '-', out);
-          }
+            if (value < 0) {
+                value = -value;
+                output_cb(typeflags, '-', out);
+            }
 
-          _print_decimal(typeflags, value, prec, output_cb, out);
-          break;
+            _print_decimal(typeflags, value, prec, output_cb, out);
+            break;
         }
-      case 'p':
-        integer_width = 2;
-      case 'x':
-      case 'X':
-        {
-          uint64_t value;
-          switch (integer_width) {
+        case 'p':
+            integer_width = 2;
+        case 'x':
+        case 'X': {
+            uint64_t value;
+            switch (integer_width) {
             case 0:
-              value = va_arg(args, int);
-              break;
+                value = va_arg(args, int);
+                break;
             case 1:
-              value = va_arg(args, long);
-              break;
+                value = va_arg(args, long);
+                break;
             case 2:
-              value = va_arg(args, long long);
-              break;
+                value = va_arg(args, long long);
+                break;
             default:
-              value = 0;
-          }
+                value = 0;
+            }
 
-          _print_hex(typeflags, value, prec, output_cb, out);
-          break;
+            _print_hex(typeflags, value, prec, output_cb, out);
+            break;
         }
-      case 's':
-        {
-          const char* str = va_arg(args, char*);
+        case 's': {
+            const char* str = va_arg(args, char*);
 
-          if (!max_length)
-            while (*str)
-              output_cb(typeflags, *str++, out);
-          else
-            while (max_length--)
-              if (*str)
-                output_cb(typeflags, *str++, out);
-              else
-                output_cb(typeflags, ' ', out);
+            if (!max_length)
+                while (*str)
+                    output_cb(typeflags, *str++, out);
+            else
+                while (max_length--)
+                    if (*str)
+                        output_cb(typeflags, *str++, out);
+                    else
+                        output_cb(typeflags, ' ', out);
 
-          break;
+            break;
         }
-      default:
-        {
-          output_cb(typeflags, *c, out);
-          break;
+        default: {
+            output_cb(typeflags, *c, out);
+            break;
         }
+        }
+
+        continue;
+
+    kputch_cycle:
+        output_cb(typeflags, *c, out);
     }
 
-    continue;
-
-kputch_cycle:
-    output_cb(typeflags, *c, out);
-  }
-
-  return 0;
+    return 0;
 }
 
 int vprintf(const char* fmt, va_list args)
 {
-  int error;
+    int error;
 
-  /*
-   * These kinds of prints should go to all loggers
-   */
-  error = _vprintf(LOGGER_FLAG_NO_PREFIX | LOGGER_FLAG_DEBUG | LOGGER_FLAG_INFO | LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
+    /*
+     * These kinds of prints should go to all loggers
+     */
+    error = _vprintf(LOGGER_FLAG_NO_PREFIX | LOGGER_FLAG_DEBUG | LOGGER_FLAG_INFO | LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
 
-  return error;
+    return error;
 }
-
 
 void log(const char* msg)
 {
-  log_ex(0, msg, nullptr, LOG_TYPE_DEFAULT);
+    log_ex(0, msg, nullptr, LOG_TYPE_DEFAULT);
 }
 
 void vlogf(const char* fmt, va_list args)
 {
-  (void)_vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
-}  
+    (void)_vprintf(LOGGER_FLAG_INFO, fmt, args, _kputch, NULL);
+}
 
 void logf(const char* fmt, ...)
 {
-  va_list args;
-  va_start(args, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-  vlogf(fmt, args);
+    vlogf(fmt, args);
 
-  va_end(args);
+    va_end(args);
 }
 
 void logln(const char* msg)
 {
-  log_ex(0, msg, nullptr, LOG_TYPE_LINE);
+    log_ex(0, msg, nullptr, LOG_TYPE_LINE);
 }
 
 /*!
@@ -536,130 +528,130 @@ void logln(const char* msg)
  */
 int printf(const char* fmt, ...)
 {
-  int error;
+    int error;
 
-  va_list args;
-  va_start(args, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-  error = vprintf(fmt, args);
+    error = vprintf(fmt, args);
 
-  va_end(args);
-  return error;
+    va_end(args);
+    return error;
 }
 
 static int __bufout(uint8_t typeflags, char c, char** out)
 {
-  **out = c;
-  (*out)++;
-  /* Null terminate */
-  **out = '\0';
-  return 0;
+    **out = c;
+    (*out)++;
+    /* Null terminate */
+    **out = '\0';
+    return 0;
 }
 
 int sfmt(char* buf, const char* fmt, ...)
 {
-  int error;
+    int error;
 
-  va_list args;
-  va_start(args, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-  error = _vprintf(NULL, fmt, args, __bufout, &buf);
+    error = _vprintf(NULL, fmt, args, __bufout, &buf);
 
-  va_end(args);
+    va_end(args);
 
-  return error;
+    return error;
 }
 
 int vkdbgf(bool prefix, const char* fmt, va_list args)
 {
-  uint8_t flags = LOGGER_FLAG_DEBUG;
+    uint8_t flags = LOGGER_FLAG_DEBUG;
 
-  if (!prefix)
-    flags |= LOGGER_FLAG_NO_PREFIX;
+    if (!prefix)
+        flags |= LOGGER_FLAG_NO_PREFIX;
 
-  return _vprintf(flags, fmt, args, _kputch, NULL);
+    return _vprintf(flags, fmt, args, _kputch, NULL);
 }
 
 int kdbgf(const char* fmt, ...)
 {
-  int error;
+    int error;
 
-  va_list args;
-  va_start(args, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-  error = vkdbgf(true, fmt, args);
+    error = vkdbgf(true, fmt, args);
 
-  va_end(args);
+    va_end(args);
 
-  return error;
+    return error;
 }
 
 int kdbgln(const char* msg)
 {
-  int error;
+    int error;
 
-  error = print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_LINE);
+    error = print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_LINE);
 
-  return error;
+    return error;
 }
 
 int kdbg(const char* msg)
 {
-  int error;
+    int error;
 
-  error = print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_DEFAULT);
+    error = print_ex(LOGGER_FLAG_DEBUG, msg, LOG_TYPE_DEFAULT);
 
-  return error;
+    return error;
 }
 
 int kdbgc(char c)
 {
-  int error;
+    int error;
 
-  error = _kputch(LOGGER_FLAG_DEBUG, c, NULL);
+    error = _kputch(LOGGER_FLAG_DEBUG, c, NULL);
 
-  return error;
+    return error;
 }
 
 int kwarnf(const char* fmt, ...)
 {
-  int error;
+    int error;
 
-  va_list args;
-  va_start(args, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-  error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
+    error = _vprintf(LOGGER_FLAG_WARNINGS, fmt, args, _kputch, NULL);
 
-  va_end(args);
+    va_end(args);
 
-  return error;
+    return error;
 }
 
 int kwarnln(const char* msg)
 {
-  int error;
+    int error;
 
-  error = print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_LINE);
+    error = print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_LINE);
 
-  return error;
+    return error;
 }
 
 int kwarn(const char* msg)
 {
-  int error;
+    int error;
 
-  error = print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_DEFAULT);
+    error = print_ex(LOGGER_FLAG_WARNINGS, msg, LOG_TYPE_DEFAULT);
 
-  return error;
+    return error;
 }
 
 int kwarnc(char c)
 {
-  int error;
+    int error;
 
-  error = _kputch(LOGGER_FLAG_WARNINGS, c, NULL);
+    error = _kputch(LOGGER_FLAG_WARNINGS, c, NULL);
 
-  return error;
+    return error;
 }
 
 /*!
@@ -669,9 +661,9 @@ int kwarnc(char c)
  */
 void init_early_logging()
 {
-  __loggers_count = 0;
-  __default_mutex = nullptr;
-  memset(__loggers, 0, sizeof(__loggers));
+    __loggers_count = 0;
+    __default_mutex = nullptr;
+    memset(__loggers, 0, sizeof(__loggers));
 }
 
 /*!
@@ -682,5 +674,5 @@ void init_early_logging()
  */
 void init_logging()
 {
-  __default_mutex = create_mutex(NULL);
+    __default_mutex = create_mutex(NULL);
 }

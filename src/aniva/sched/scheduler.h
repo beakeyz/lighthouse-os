@@ -21,42 +21,42 @@
 #define SCHED_FRAME_FLAG_MUST_RESCEDULE 0x00000008
 
 enum SCHEDULER_PRIORITY {
-  SCHED_PRIO_LOW = 1,
-  SCHED_PRIO_MID = 2,
-  SCHED_PRIO_HIGH = 4,
-  SCHED_PRIO_HIGHEST = 8,
+    SCHED_PRIO_LOW = 1,
+    SCHED_PRIO_MID = 2,
+    SCHED_PRIO_HIGH = 4,
+    SCHED_PRIO_HIGHEST = 8,
 };
 
 typedef struct sched_frame {
-  proc_t* m_proc;
-  size_t m_frame_ticks;
-  size_t m_max_ticks;
-  uint32_t m_scheduled_thread_index;
-  uint32_t m_flags;
+    proc_t* m_proc;
+    size_t m_frame_ticks;
+    size_t m_max_ticks;
+    uint32_t m_scheduled_thread_index;
+    uint32_t m_flags;
 
-  /* Item after us in the queue */
-  struct sched_frame* previous;
+    /* Item after us in the queue */
+    struct sched_frame* previous;
 } sched_frame_t;
 
-#define SCHEDULER_FLAG_HAS_REQUEST      0x00000001
-#define SCHEDULER_FLAG_PAUSED           0x00000002
+#define SCHEDULER_FLAG_HAS_REQUEST 0x00000001
+#define SCHEDULER_FLAG_PAUSED 0x00000002
 /* Do we need to reorder the process list? */
-#define SCHEDULER_FLAG_NEED_REORDER     0x00000004
-#define SCHEDULER_FLAG_RUNNING          0x00000008
+#define SCHEDULER_FLAG_NEED_REORDER 0x00000004
+#define SCHEDULER_FLAG_RUNNING 0x00000008
 
 /*
- * This is the structure that holds information about a processors 
+ * This is the structure that holds information about a processors
  * scheduler
  */
 typedef struct scheduler {
-  //list_t* scheduler_frames;
-  scheduler_queue_t processes;
-  mutex_t* lock;
-  uint32_t pause_depth;
-  uint32_t interrupt_depth;
-  uint32_t flags;
+    // list_t* scheduler_frames;
+    scheduler_queue_t processes;
+    mutex_t* lock;
+    uint32_t pause_depth;
+    uint32_t interrupt_depth;
+    uint32_t flags;
 
-  registers_t* (*f_tick)(registers_t* regs);
+    registers_t* (*f_tick)(registers_t* regs);
 } scheduler_t;
 
 /*
@@ -72,7 +72,7 @@ ANIVA_STATUS pause_scheduler();
 
 /*
  * pick the next thread to run in the current sched frame
- */ 
+ */
 bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force);
 
 /*
@@ -84,12 +84,11 @@ void scheduler_yield();
 int scheduler_try_execute();
 void scheduler_set_request(scheduler_t* s);
 
-
 /*
  * Try and insert a new process into the scheduler
  * to be scheduled on the next reschedule. This function
- * either agressively inserts itself at the front of the 
- * process selection or simply puts itself behind the current 
+ * either agressively inserts itself at the front of the
+ * process selection or simply puts itself behind the current
  * running process to be scheduled next, based on the reschedule param
  */
 ErrorOrPtr sched_add_priority_proc(proc_t*, enum SCHEDULER_PRIORITY prio, bool reschedule);
@@ -98,8 +97,8 @@ ANIVA_STATUS sched_add_proc(proc_t*, enum SCHEDULER_PRIORITY prio);
 ANIVA_STATUS sched_remove_proc(proc_t*);
 ANIVA_STATUS sched_remove_thread(thread_t*);
 
-thread_t *get_current_scheduling_thread();
-thread_t *get_previous_scheduled_thread();
+thread_t* get_current_scheduling_thread();
+thread_t* get_previous_scheduled_thread();
 proc_t* get_current_proc();
 
 scheduler_t* get_current_scheduler();

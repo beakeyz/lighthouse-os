@@ -149,173 +149,147 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 #include "acresrc.h"
 
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utresdecode")
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utresdecode")
-
-
-#if defined (ACPI_DEBUG_OUTPUT) || \
-    defined (ACPI_DISASSEMBLER) || \
-    defined (ACPI_DEBUGGER)
+#if defined(ACPI_DEBUG_OUTPUT) || defined(ACPI_DISASSEMBLER) || defined(ACPI_DEBUGGER)
 
 /*
  * Strings used to decode resource descriptors.
  * Used by both the disassembler and the debugger resource dump routines
  */
-const char                      *AcpiGbl_BmDecode[] =
-{
+const char* AcpiGbl_BmDecode[] = {
     "NotBusMaster",
     "BusMaster"
 };
 
-const char                      *AcpiGbl_ConfigDecode[] =
-{
+const char* AcpiGbl_ConfigDecode[] = {
     "0 - Good Configuration",
     "1 - Acceptable Configuration",
     "2 - Suboptimal Configuration",
     "3 - ***Invalid Configuration***",
 };
 
-const char                      *AcpiGbl_ConsumeDecode[] =
-{
+const char* AcpiGbl_ConsumeDecode[] = {
     "ResourceProducer",
     "ResourceConsumer"
 };
 
-const char                      *AcpiGbl_DecDecode[] =
-{
+const char* AcpiGbl_DecDecode[] = {
     "PosDecode",
     "SubDecode"
 };
 
-const char                      *AcpiGbl_HeDecode[] =
-{
+const char* AcpiGbl_HeDecode[] = {
     "Level",
     "Edge"
 };
 
-const char                      *AcpiGbl_IoDecode[] =
-{
+const char* AcpiGbl_IoDecode[] = {
     "Decode10",
     "Decode16"
 };
 
-const char                      *AcpiGbl_LlDecode[] =
-{
+const char* AcpiGbl_LlDecode[] = {
     "ActiveHigh",
     "ActiveLow",
     "ActiveBoth",
     "Reserved"
 };
 
-const char                      *AcpiGbl_MaxDecode[] =
-{
+const char* AcpiGbl_MaxDecode[] = {
     "MaxNotFixed",
     "MaxFixed"
 };
 
-const char                      *AcpiGbl_MemDecode[] =
-{
+const char* AcpiGbl_MemDecode[] = {
     "NonCacheable",
     "Cacheable",
     "WriteCombining",
     "Prefetchable"
 };
 
-const char                      *AcpiGbl_MinDecode[] =
-{
+const char* AcpiGbl_MinDecode[] = {
     "MinNotFixed",
     "MinFixed"
 };
 
-const char                      *AcpiGbl_MtpDecode[] =
-{
+const char* AcpiGbl_MtpDecode[] = {
     "AddressRangeMemory",
     "AddressRangeReserved",
     "AddressRangeACPI",
     "AddressRangeNVS"
 };
 
-const char                      *AcpiGbl_PhyDecode[] =
-{
+const char* AcpiGbl_PhyDecode[] = {
     "Type C",
     "Type D",
     "Unknown Type",
     "Unknown Type"
 };
 
-const char                      *AcpiGbl_RngDecode[] =
-{
+const char* AcpiGbl_RngDecode[] = {
     "InvalidRanges",
     "NonISAOnlyRanges",
     "ISAOnlyRanges",
     "EntireRange"
 };
 
-const char                      *AcpiGbl_RwDecode[] =
-{
+const char* AcpiGbl_RwDecode[] = {
     "ReadOnly",
     "ReadWrite"
 };
 
-const char                      *AcpiGbl_ShrDecode[] =
-{
+const char* AcpiGbl_ShrDecode[] = {
     "Exclusive",
     "Shared",
-    "ExclusiveAndWake",         /* ACPI 5.0 */
-    "SharedAndWake"             /* ACPI 5.0 */
+    "ExclusiveAndWake", /* ACPI 5.0 */
+    "SharedAndWake" /* ACPI 5.0 */
 };
 
-const char                      *AcpiGbl_SizDecode[] =
-{
+const char* AcpiGbl_SizDecode[] = {
     "Transfer8",
     "Transfer8_16",
     "Transfer16",
     "InvalidSize"
 };
 
-const char                      *AcpiGbl_TrsDecode[] =
-{
+const char* AcpiGbl_TrsDecode[] = {
     "DenseTranslation",
     "SparseTranslation"
 };
 
-const char                      *AcpiGbl_TtpDecode[] =
-{
+const char* AcpiGbl_TtpDecode[] = {
     "TypeStatic",
     "TypeTranslation"
 };
 
-const char                      *AcpiGbl_TypDecode[] =
-{
+const char* AcpiGbl_TypDecode[] = {
     "Compatibility",
     "TypeA",
     "TypeB",
     "TypeF"
 };
 
-const char                      *AcpiGbl_PpcDecode[] =
-{
+const char* AcpiGbl_PpcDecode[] = {
     "PullDefault",
     "PullUp",
     "PullDown",
     "PullNone"
 };
 
-const char                      *AcpiGbl_IorDecode[] =
-{
+const char* AcpiGbl_IorDecode[] = {
     "IoRestrictionNone",
     "IoRestrictionInputOnly",
     "IoRestrictionOutputOnly",
     "IoRestrictionNoneAndPreserve"
 };
 
-const char                      *AcpiGbl_DtsDecode[] =
-{
+const char* AcpiGbl_DtsDecode[] = {
     "Width8bit",
     "Width16bit",
     "Width32bit",
@@ -326,16 +300,14 @@ const char                      *AcpiGbl_DtsDecode[] =
 
 /* GPIO connection type */
 
-const char                      *AcpiGbl_CtDecode[] =
-{
+const char* AcpiGbl_CtDecode[] = {
     "Interrupt",
     "I/O"
 };
 
 /* Serial bus type */
 
-const char                      *AcpiGbl_SbtDecode[] =
-{
+const char* AcpiGbl_SbtDecode[] = {
     "/* UNKNOWN serial bus type */",
     "I2C",
     "SPI",
@@ -345,64 +317,56 @@ const char                      *AcpiGbl_SbtDecode[] =
 
 /* I2C serial bus access mode */
 
-const char                      *AcpiGbl_AmDecode[] =
-{
+const char* AcpiGbl_AmDecode[] = {
     "AddressingMode7Bit",
     "AddressingMode10Bit"
 };
 
 /* I2C serial bus slave mode */
 
-const char                      *AcpiGbl_SmDecode[] =
-{
+const char* AcpiGbl_SmDecode[] = {
     "ControllerInitiated",
     "DeviceInitiated"
 };
 
 /* SPI serial bus wire mode */
 
-const char                      *AcpiGbl_WmDecode[] =
-{
+const char* AcpiGbl_WmDecode[] = {
     "FourWireMode",
     "ThreeWireMode"
 };
 
 /* SPI serial clock phase */
 
-const char                      *AcpiGbl_CphDecode[] =
-{
+const char* AcpiGbl_CphDecode[] = {
     "ClockPhaseFirst",
     "ClockPhaseSecond"
 };
 
 /* SPI serial bus clock polarity */
 
-const char                      *AcpiGbl_CpoDecode[] =
-{
+const char* AcpiGbl_CpoDecode[] = {
     "ClockPolarityLow",
     "ClockPolarityHigh"
 };
 
 /* SPI serial bus device polarity */
 
-const char                      *AcpiGbl_DpDecode[] =
-{
+const char* AcpiGbl_DpDecode[] = {
     "PolarityLow",
     "PolarityHigh"
 };
 
 /* UART serial bus endian */
 
-const char                      *AcpiGbl_EdDecode[] =
-{
+const char* AcpiGbl_EdDecode[] = {
     "LittleEndian",
     "BigEndian"
 };
 
 /* UART serial bus bits per byte */
 
-const char                      *AcpiGbl_BpbDecode[] =
-{
+const char* AcpiGbl_BpbDecode[] = {
     "DataBitsFive",
     "DataBitsSix",
     "DataBitsSeven",
@@ -415,8 +379,7 @@ const char                      *AcpiGbl_BpbDecode[] =
 
 /* UART serial bus stop bits */
 
-const char                      *AcpiGbl_SbDecode[] =
-{
+const char* AcpiGbl_SbDecode[] = {
     "StopBitsZero",
     "StopBitsOne",
     "StopBitsOnePlusHalf",
@@ -425,8 +388,7 @@ const char                      *AcpiGbl_SbDecode[] =
 
 /* UART serial bus flow control */
 
-const char                      *AcpiGbl_FcDecode[] =
-{
+const char* AcpiGbl_FcDecode[] = {
     "FlowControlNone",
     "FlowControlHardware",
     "FlowControlXON",
@@ -435,8 +397,7 @@ const char                      *AcpiGbl_FcDecode[] =
 
 /* UART serial bus parity type */
 
-const char                      *AcpiGbl_PtDecode[] =
-{
+const char* AcpiGbl_PtDecode[] = {
     "ParityTypeNone",
     "ParityTypeEven",
     "ParityTypeOdd",
@@ -449,8 +410,7 @@ const char                      *AcpiGbl_PtDecode[] =
 
 /* PinConfig type */
 
-const char                      *AcpiGbl_PtypDecode[] =
-{
+const char* AcpiGbl_PtypDecode[] = {
     "Default",
     "Bias Pull-up",
     "Bias Pull-down",
@@ -467,14 +427,12 @@ const char                      *AcpiGbl_PtypDecode[] =
     "Input Schmitt Trigger",
 };
 
-const char                      *AcpiGbl_ClockInputMode[] =
-{
+const char* AcpiGbl_ClockInputMode[] = {
     "Fixed",
     "Variable",
 };
 
-const char                      *AcpiGbl_ClockInputScale[] =
-{
+const char* AcpiGbl_ClockInputScale[] = {
     "Hz",
     "KHz",
     "MHz",

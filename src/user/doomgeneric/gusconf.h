@@ -20,10 +20,9 @@
 
 #include "doomtype.h"
 
-extern char *gus_patch_path;
+extern char* gus_patch_path;
 extern unsigned int gus_ram_kb;
 
-boolean GUS_WriteConfig(char *path);
+boolean GUS_WriteConfig(char* path);
 
 #endif /* #ifndef __GUSCONF_H__ */
-

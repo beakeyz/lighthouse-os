@@ -1,8 +1,8 @@
 #ifndef __ANIVA_SYSCALL_CORE__
 #define __ANIVA_SYSCALL_CORE__
-#include <libk/stddef.h>
 #include "libk/flow/error.h"
 #include "lightos/syscall.h"
+#include <libk/stddef.h>
 
 /*
  * This header represents the core of the kernel syscall system
@@ -16,11 +16,10 @@ typedef uint64_t (*sys_fn_t)(
     uint64_t arg1,
     uint64_t arg2,
     uint64_t arg3,
-    uint64_t arg4
-);
+    uint64_t arg4);
 
-#define SYSCALL_CALLED  (0x00000001)
-#define SYSCALL_CUSTOM  (0x00000002)
+#define SYSCALL_CALLED (0x00000001)
+#define SYSCALL_CUSTOM (0x00000002)
 
 /*
  * Concepts for syscalls
@@ -29,9 +28,9 @@ typedef uint64_t (*sys_fn_t)(
  * o Call counting -> track syscall call counts per process
  */
 typedef struct syscall {
-  uint32_t m_flags;
-  enum SYSID m_id;
-  sys_fn_t m_handler;
+    uint32_t m_flags;
+    enum SYSID m_id;
+    sys_fn_t m_handler;
 } syscall_t;
 
 void sys_entry();

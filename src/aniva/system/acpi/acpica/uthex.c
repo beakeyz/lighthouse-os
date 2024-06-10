@@ -149,20 +149,17 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_COMPILER
-        ACPI_MODULE_NAME    ("uthex")
-
+#define _COMPONENT ACPI_COMPILER
+ACPI_MODULE_NAME("uthex")
 
 /* Hex to ASCII conversion table */
 
-static const char           AcpiGbl_HexToAscii[] =
-{
-    '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
+static const char AcpiGbl_HexToAscii[] = {
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
 };
-
 
 /*******************************************************************************
  *
@@ -178,17 +175,15 @@ static const char           AcpiGbl_HexToAscii[] =
  *
  ******************************************************************************/
 
-char
-AcpiUtHexToAsciiChar (
-    UINT64                  Integer,
-    UINT32                  Position)
+char AcpiUtHexToAsciiChar(
+    UINT64 Integer,
+    UINT32 Position)
 {
-    UINT64                  Index;
+    UINT64 Index;
 
-    AcpiUtShortShiftRight (Integer, Position, &Index);
+    AcpiUtShortShiftRight(Integer, Position, &Index);
     return (AcpiGbl_HexToAscii[Index & 0xF]);
 }
-
 
 /*******************************************************************************
  *
@@ -205,26 +200,21 @@ AcpiUtHexToAsciiChar (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtAsciiToHexByte (
-    char                    *TwoAsciiChars,
-    UINT8                   *ReturnByte)
+AcpiUtAsciiToHexByte(
+    char* TwoAsciiChars,
+    UINT8* ReturnByte)
 {
 
     /* Both ASCII characters must be valid hex digits */
 
-    if (!isxdigit ((int) TwoAsciiChars[0]) ||
-        !isxdigit ((int) TwoAsciiChars[1]))
-    {
+    if (!isxdigit((int)TwoAsciiChars[0]) || !isxdigit((int)TwoAsciiChars[1])) {
         return (AE_BAD_HEX_CONSTANT);
     }
 
-    *ReturnByte =
-        AcpiUtAsciiCharToHex (TwoAsciiChars[1]) |
-        (AcpiUtAsciiCharToHex (TwoAsciiChars[0]) << 4);
+    *ReturnByte = AcpiUtAsciiCharToHex(TwoAsciiChars[1]) | (AcpiUtAsciiCharToHex(TwoAsciiChars[0]) << 4);
 
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -240,25 +230,23 @@ AcpiUtAsciiToHexByte (
  ******************************************************************************/
 
 UINT8
-AcpiUtAsciiCharToHex (
-    int                     HexChar)
+AcpiUtAsciiCharToHex(
+    int HexChar)
 {
 
     /* Values 0-9 */
 
-    if (HexChar <= '9')
-    {
-        return ((UINT8) (HexChar - '0'));
+    if (HexChar <= '9') {
+        return ((UINT8)(HexChar - '0'));
     }
 
     /* Upper case A-F */
 
-    if (HexChar <= 'F')
-    {
-        return ((UINT8) (HexChar - 0x37));
+    if (HexChar <= 'F') {
+        return ((UINT8)(HexChar - 0x37));
     }
 
     /* Lower case a-f */
 
-    return ((UINT8) (HexChar - 0x57));
+    return ((UINT8)(HexChar - 0x57));
 }

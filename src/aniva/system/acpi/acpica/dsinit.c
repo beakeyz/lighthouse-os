@@ -149,26 +149,24 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdispat.h"
-#include "acnamesp.h"
-#include "actables.h"
 #include "acinterp.h"
+#include "acnamesp.h"
+#include "acpi.h"
+#include "actables.h"
 
-#define _COMPONENT          ACPI_DISPATCHER
-        ACPI_MODULE_NAME    ("dsinit")
-
+#define _COMPONENT ACPI_DISPATCHER
+ACPI_MODULE_NAME("dsinit")
 
 /* Local prototypes */
 
 static ACPI_STATUS
-AcpiDsInitOneObject (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  Level,
-    void                    *Context,
-    void                    **ReturnValue);
-
+AcpiDsInitOneObject(
+    ACPI_HANDLE ObjHandle,
+    UINT32 Level,
+    void* Context,
+    void** ReturnValue);
 
 /*******************************************************************************
  *
@@ -191,27 +189,24 @@ AcpiDsInitOneObject (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDsInitOneObject (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  Level,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiDsInitOneObject(
+    ACPI_HANDLE ObjHandle,
+    UINT32 Level,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_INIT_WALK_INFO     *Info = (ACPI_INIT_WALK_INFO *) Context;
-    ACPI_NAMESPACE_NODE     *Node = (ACPI_NAMESPACE_NODE *) ObjHandle;
-    ACPI_STATUS             Status;
-    ACPI_OPERAND_OBJECT     *ObjDesc;
+    ACPI_INIT_WALK_INFO* Info = (ACPI_INIT_WALK_INFO*)Context;
+    ACPI_NAMESPACE_NODE* Node = (ACPI_NAMESPACE_NODE*)ObjHandle;
+    ACPI_STATUS Status;
+    ACPI_OPERAND_OBJECT* ObjDesc;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /*
      * We are only interested in NS nodes owned by the table that
      * was just loaded
      */
-    if (Node->OwnerId != Info->OwnerId)
-    {
+    if (Node->OwnerId != Info->OwnerId) {
         return (AE_OK);
     }
 
@@ -219,16 +214,14 @@ AcpiDsInitOneObject (
 
     /* And even then, we are only interested in a few object types */
 
-    switch (AcpiNsGetType (ObjHandle))
-    {
+    switch (AcpiNsGetType(ObjHandle)) {
     case ACPI_TYPE_REGION:
 
-        Status = AcpiDsInitializeRegion (ObjHandle);
-        if (ACPI_FAILURE (Status))
-        {
-            ACPI_EXCEPTION ((AE_INFO, Status,
+        Status = AcpiDsInitializeRegion(ObjHandle);
+        if (ACPI_FAILURE(Status)) {
+            ACPI_EXCEPTION((AE_INFO, Status,
                 "During Region initialization %p [%4.4s]",
-                ObjHandle, AcpiUtGetNodeName (ObjHandle)));
+                ObjHandle, AcpiUtGetNodeName(ObjHandle)));
         }
 
         Info->OpRegionCount++;
@@ -244,27 +237,23 @@ AcpiDsInitOneObject (
          * an AE_ALREADY_EXISTS exception and method abort.
          */
         Info->MethodCount++;
-        ObjDesc = AcpiNsGetAttachedObject (Node);
-        if (!ObjDesc)
-        {
+        ObjDesc = AcpiNsGetAttachedObject(Node);
+        if (!ObjDesc) {
             break;
         }
 
         /* Ignore if already serialized */
 
-        if (ObjDesc->Method.InfoFlags & ACPI_METHOD_SERIALIZED)
-        {
+        if (ObjDesc->Method.InfoFlags & ACPI_METHOD_SERIALIZED) {
             Info->SerialMethodCount++;
             break;
         }
 
-        if (AcpiGbl_AutoSerializeMethods)
-        {
+        if (AcpiGbl_AutoSerializeMethods) {
             /* Parse/scan method and serialize it if necessary */
 
-            AcpiDsAutoSerializeMethod (Node, ObjDesc);
-            if (ObjDesc->Method.InfoFlags & ACPI_METHOD_SERIALIZED)
-            {
+            AcpiDsAutoSerializeMethod(Node, ObjDesc);
+            if (ObjDesc->Method.InfoFlags & ACPI_METHOD_SERIALIZED) {
                 /* Method was just converted to Serialized */
 
                 Info->SerialMethodCount++;
@@ -293,7 +282,6 @@ AcpiDsInitOneObject (
     return (AE_OK);
 }
 
-
 /*******************************************************************************
  *
  * FUNCTION:    AcpiDsInitializeObjects
@@ -309,31 +297,28 @@ AcpiDsInitOneObject (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDsInitializeObjects (
-    UINT32                  TableIndex,
-    ACPI_NAMESPACE_NODE     *StartNode)
+AcpiDsInitializeObjects(
+    UINT32 TableIndex,
+    ACPI_NAMESPACE_NODE* StartNode)
 {
-    ACPI_STATUS             Status;
-    ACPI_INIT_WALK_INFO     Info;
-    ACPI_TABLE_HEADER       *Table;
-    ACPI_OWNER_ID           OwnerId;
+    ACPI_STATUS Status;
+    ACPI_INIT_WALK_INFO Info;
+    ACPI_TABLE_HEADER* Table;
+    ACPI_OWNER_ID OwnerId;
 
+    ACPI_FUNCTION_TRACE(DsInitializeObjects);
 
-    ACPI_FUNCTION_TRACE (DsInitializeObjects);
-
-
-    Status = AcpiTbGetOwnerId (TableIndex, &OwnerId);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiTbGetOwnerId(TableIndex, &OwnerId);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_DISPATCH,
+    ACPI_DEBUG_PRINT((ACPI_DB_DISPATCH,
         "**** Starting initialization of namespace objects ****\n"));
 
     /* Set all init info to zero */
 
-    memset (&Info, 0, sizeof (ACPI_INIT_WALK_INFO));
+    memset(&Info, 0, sizeof(ACPI_INIT_WALK_INFO));
 
     Info.OwnerId = OwnerId;
     Info.TableIndex = TableIndex;
@@ -344,39 +329,36 @@ AcpiDsInitializeObjects (
      * We don't use AcpiWalkNamespace since we do not want to acquire
      * the namespace reader lock.
      */
-    Status = AcpiNsWalkNamespace (ACPI_TYPE_ANY, StartNode, ACPI_UINT32_MAX,
+    Status = AcpiNsWalkNamespace(ACPI_TYPE_ANY, StartNode, ACPI_UINT32_MAX,
         ACPI_NS_WALK_NO_UNLOCK, AcpiDsInitOneObject, NULL, &Info, NULL);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_EXCEPTION ((AE_INFO, Status, "During WalkNamespace"));
+    if (ACPI_FAILURE(Status)) {
+        ACPI_EXCEPTION((AE_INFO, Status, "During WalkNamespace"));
     }
 
-    Status = AcpiGetTableByIndex (TableIndex, &Table);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiGetTableByIndex(TableIndex, &Table);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* DSDT is always the first AML table */
 
-    if (ACPI_COMPARE_NAMESEG (Table->Signature, ACPI_SIG_DSDT))
-    {
-        ACPI_DEBUG_PRINT_RAW ((ACPI_DB_INIT,
+    if (ACPI_COMPARE_NAMESEG(Table->Signature, ACPI_SIG_DSDT)) {
+        ACPI_DEBUG_PRINT_RAW((ACPI_DB_INIT,
             "\nACPI table initialization:\n"));
     }
 
     /* Summary of objects initialized */
 
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_INIT,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_INIT,
         "Table [%4.4s: %-8.8s] (id %.2X) - %4u Objects with %3u Devices, "
         "%3u Regions, %4u Methods (%u/%u/%u Serial/Non/Cvt)\n",
         Table->Signature, Table->OemTableId, OwnerId, Info.ObjectCount,
-        Info.DeviceCount,Info.OpRegionCount, Info.MethodCount,
+        Info.DeviceCount, Info.OpRegionCount, Info.MethodCount,
         Info.SerialMethodCount, Info.NonSerialMethodCount,
         Info.SerializedMethodCount));
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_DISPATCH, "%u Methods, %u Regions\n",
+    ACPI_DEBUG_PRINT((ACPI_DB_DISPATCH, "%u Methods, %u Regions\n",
         Info.MethodCount, Info.OpRegionCount));
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }

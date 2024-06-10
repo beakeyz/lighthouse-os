@@ -165,21 +165,20 @@
 
 #define DEFINE_AML_GLOBALS
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acinterp.h"
+#include "acpi.h"
 #include "amlcode.h"
 
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exutils")
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exutils")
 
 /* Local prototypes */
 
 static UINT32
-AcpiExDigitsNeeded (
-    UINT64                  Value,
-    UINT32                  Base);
-
+AcpiExDigitsNeeded(
+    UINT64 Value,
+    UINT32 Base);
 
 /*******************************************************************************
  *
@@ -195,30 +194,24 @@ AcpiExDigitsNeeded (
  *
  ******************************************************************************/
 
-void
-AcpiExEnterInterpreter (
+void AcpiExEnterInterpreter(
     void)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(ExEnterInterpreter);
 
-    ACPI_FUNCTION_TRACE (ExEnterInterpreter);
-
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_INTERPRETER);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_ERROR ((AE_INFO, "Could not acquire AML Interpreter mutex"));
+    Status = AcpiUtAcquireMutex(ACPI_MTX_INTERPRETER);
+    if (ACPI_FAILURE(Status)) {
+        ACPI_ERROR((AE_INFO, "Could not acquire AML Interpreter mutex"));
     }
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_ERROR ((AE_INFO, "Could not acquire AML Namespace mutex"));
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
+        ACPI_ERROR((AE_INFO, "Could not acquire AML Namespace mutex"));
     }
 
     return_VOID;
 }
-
 
 /*******************************************************************************
  *
@@ -243,30 +236,24 @@ AcpiExEnterInterpreter (
  *
  ******************************************************************************/
 
-void
-AcpiExExitInterpreter (
+void AcpiExExitInterpreter(
     void)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(ExExitInterpreter);
 
-    ACPI_FUNCTION_TRACE (ExExitInterpreter);
-
-
-    Status = AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_ERROR ((AE_INFO, "Could not release AML Namespace mutex"));
+    Status = AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
+        ACPI_ERROR((AE_INFO, "Could not release AML Namespace mutex"));
     }
-    Status = AcpiUtReleaseMutex (ACPI_MTX_INTERPRETER);
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_ERROR ((AE_INFO, "Could not release AML Interpreter mutex"));
+    Status = AcpiUtReleaseMutex(ACPI_MTX_INTERPRETER);
+    if (ACPI_FAILURE(Status)) {
+        ACPI_ERROR((AE_INFO, "Could not release AML Interpreter mutex"));
     }
 
     return_VOID;
 }
-
 
 /*******************************************************************************
  *
@@ -282,38 +269,31 @@ AcpiExExitInterpreter (
  ******************************************************************************/
 
 BOOLEAN
-AcpiExTruncateFor32bitTable (
-    ACPI_OPERAND_OBJECT     *ObjDesc)
+AcpiExTruncateFor32bitTable(
+    ACPI_OPERAND_OBJECT* ObjDesc)
 {
 
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /*
      * Object must be a valid number and we must be executing
      * a control method. Object could be NS node for AML_INT_NAMEPATH_OP.
      */
-    if ((!ObjDesc) ||
-        (ACPI_GET_DESCRIPTOR_TYPE (ObjDesc) != ACPI_DESC_TYPE_OPERAND) ||
-        (ObjDesc->Common.Type != ACPI_TYPE_INTEGER))
-    {
+    if ((!ObjDesc) || (ACPI_GET_DESCRIPTOR_TYPE(ObjDesc) != ACPI_DESC_TYPE_OPERAND) || (ObjDesc->Common.Type != ACPI_TYPE_INTEGER)) {
         return (FALSE);
     }
 
-    if ((AcpiGbl_IntegerByteWidth == 4) &&
-        (ObjDesc->Integer.Value > (UINT64) ACPI_UINT32_MAX))
-    {
+    if ((AcpiGbl_IntegerByteWidth == 4) && (ObjDesc->Integer.Value > (UINT64)ACPI_UINT32_MAX)) {
         /*
          * We are executing in a 32-bit ACPI table. Truncate
          * the value to 32 bits by zeroing out the upper 32-bit field
          */
-        ObjDesc->Integer.Value &= (UINT64) ACPI_UINT32_MAX;
+        ObjDesc->Integer.Value &= (UINT64)ACPI_UINT32_MAX;
         return (TRUE);
     }
 
     return (FALSE);
 }
-
 
 /*******************************************************************************
  *
@@ -329,37 +309,31 @@ AcpiExTruncateFor32bitTable (
  *
  ******************************************************************************/
 
-void
-AcpiExAcquireGlobalLock (
-    UINT32                  FieldFlags)
+void AcpiExAcquireGlobalLock(
+    UINT32 FieldFlags)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (ExAcquireGlobalLock);
-
+    ACPI_FUNCTION_TRACE(ExAcquireGlobalLock);
 
     /* Only use the lock if the AlwaysLock bit is set */
 
-    if (!(FieldFlags & AML_FIELD_LOCK_RULE_MASK))
-    {
+    if (!(FieldFlags & AML_FIELD_LOCK_RULE_MASK)) {
         return_VOID;
     }
 
     /* Attempt to get the global lock, wait forever */
 
-    Status = AcpiExAcquireMutexObject (ACPI_WAIT_FOREVER,
-        AcpiGbl_GlobalLockMutex, AcpiOsGetThreadId ());
+    Status = AcpiExAcquireMutexObject(ACPI_WAIT_FOREVER,
+        AcpiGbl_GlobalLockMutex, AcpiOsGetThreadId());
 
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_EXCEPTION ((AE_INFO, Status,
+    if (ACPI_FAILURE(Status)) {
+        ACPI_EXCEPTION((AE_INFO, Status,
             "Could not acquire Global Lock"));
     }
 
     return_VOID;
 }
-
 
 /*******************************************************************************
  *
@@ -374,37 +348,31 @@ AcpiExAcquireGlobalLock (
  *
  ******************************************************************************/
 
-void
-AcpiExReleaseGlobalLock (
-    UINT32                  FieldFlags)
+void AcpiExReleaseGlobalLock(
+    UINT32 FieldFlags)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (ExReleaseGlobalLock);
-
+    ACPI_FUNCTION_TRACE(ExReleaseGlobalLock);
 
     /* Only use the lock if the AlwaysLock bit is set */
 
-    if (!(FieldFlags & AML_FIELD_LOCK_RULE_MASK))
-    {
+    if (!(FieldFlags & AML_FIELD_LOCK_RULE_MASK)) {
         return_VOID;
     }
 
     /* Release the global lock */
 
-    Status = AcpiExReleaseMutexObject (AcpiGbl_GlobalLockMutex);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiExReleaseMutexObject(AcpiGbl_GlobalLockMutex);
+    if (ACPI_FAILURE(Status)) {
         /* Report the error, but there isn't much else we can do */
 
-        ACPI_EXCEPTION ((AE_INFO, Status,
+        ACPI_EXCEPTION((AE_INFO, Status,
             "Could not release Global Lock"));
     }
 
     return_VOID;
 }
-
 
 /*******************************************************************************
  *
@@ -421,22 +389,19 @@ AcpiExReleaseGlobalLock (
  ******************************************************************************/
 
 static UINT32
-AcpiExDigitsNeeded (
-    UINT64                  Value,
-    UINT32                  Base)
+AcpiExDigitsNeeded(
+    UINT64 Value,
+    UINT32 Base)
 {
-    UINT32                  NumDigits;
-    UINT64                  CurrentValue;
+    UINT32 NumDigits;
+    UINT64 CurrentValue;
 
-
-    ACPI_FUNCTION_TRACE (ExDigitsNeeded);
-
+    ACPI_FUNCTION_TRACE(ExDigitsNeeded);
 
     /* UINT64 is unsigned, so we don't worry about a '-' prefix */
 
-    if (Value == 0)
-    {
-        return_UINT32 (1);
+    if (Value == 0) {
+        return_UINT32(1);
     }
 
     CurrentValue = Value;
@@ -444,15 +409,13 @@ AcpiExDigitsNeeded (
 
     /* Count the digits in the requested base */
 
-    while (CurrentValue)
-    {
-        (void) AcpiUtShortDivide (CurrentValue, Base, &CurrentValue, NULL);
+    while (CurrentValue) {
+        (void)AcpiUtShortDivide(CurrentValue, Base, &CurrentValue, NULL);
         NumDigits++;
     }
 
-    return_UINT32 (NumDigits);
+    return_UINT32(NumDigits);
 }
-
 
 /*******************************************************************************
  *
@@ -470,43 +433,38 @@ AcpiExDigitsNeeded (
  *
  ******************************************************************************/
 
-void
-AcpiExEisaIdToString (
-    char                    *OutString,
-    UINT64                  CompressedId)
+void AcpiExEisaIdToString(
+    char* OutString,
+    UINT64 CompressedId)
 {
-    UINT32                  SwappedId;
+    UINT32 SwappedId;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /* The EISAID should be a 32-bit integer */
 
-    if (CompressedId > ACPI_UINT32_MAX)
-    {
-        ACPI_WARNING ((AE_INFO,
+    if (CompressedId > ACPI_UINT32_MAX) {
+        ACPI_WARNING((AE_INFO,
             "Expected EISAID is larger than 32 bits: "
             "0x%8.8X%8.8X, truncating",
-            ACPI_FORMAT_UINT64 (CompressedId)));
+            ACPI_FORMAT_UINT64(CompressedId)));
     }
 
     /* Swap ID to big-endian to get contiguous bits */
 
-    SwappedId = AcpiUtDwordByteSwap ((UINT32) CompressedId);
+    SwappedId = AcpiUtDwordByteSwap((UINT32)CompressedId);
 
     /* First 3 bytes are uppercase letters. Next 4 bytes are hexadecimal */
 
-    OutString[0] = (char) (0x40 + (((unsigned long) SwappedId >> 26) & 0x1F));
-    OutString[1] = (char) (0x40 + ((SwappedId >> 21) & 0x1F));
-    OutString[2] = (char) (0x40 + ((SwappedId >> 16) & 0x1F));
-    OutString[3] = AcpiUtHexToAsciiChar ((UINT64) SwappedId, 12);
-    OutString[4] = AcpiUtHexToAsciiChar ((UINT64) SwappedId, 8);
-    OutString[5] = AcpiUtHexToAsciiChar ((UINT64) SwappedId, 4);
-    OutString[6] = AcpiUtHexToAsciiChar ((UINT64) SwappedId, 0);
+    OutString[0] = (char)(0x40 + (((unsigned long)SwappedId >> 26) & 0x1F));
+    OutString[1] = (char)(0x40 + ((SwappedId >> 21) & 0x1F));
+    OutString[2] = (char)(0x40 + ((SwappedId >> 16) & 0x1F));
+    OutString[3] = AcpiUtHexToAsciiChar((UINT64)SwappedId, 12);
+    OutString[4] = AcpiUtHexToAsciiChar((UINT64)SwappedId, 8);
+    OutString[5] = AcpiUtHexToAsciiChar((UINT64)SwappedId, 4);
+    OutString[6] = AcpiUtHexToAsciiChar((UINT64)SwappedId, 0);
     OutString[7] = 0;
 }
-
 
 /*******************************************************************************
  *
@@ -525,29 +483,24 @@ AcpiExEisaIdToString (
  *
  ******************************************************************************/
 
-void
-AcpiExIntegerToString (
-    char                    *OutString,
-    UINT64                  Value)
+void AcpiExIntegerToString(
+    char* OutString,
+    UINT64 Value)
 {
-    UINT32                  Count;
-    UINT32                  DigitsNeeded;
-    UINT32                  Remainder;
+    UINT32 Count;
+    UINT32 DigitsNeeded;
+    UINT32 Remainder;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    DigitsNeeded = AcpiExDigitsNeeded (Value, 10);
+    DigitsNeeded = AcpiExDigitsNeeded(Value, 10);
     OutString[DigitsNeeded] = 0;
 
-    for (Count = DigitsNeeded; Count > 0; Count--)
-    {
-        (void) AcpiUtShortDivide (Value, 10, &Value, &Remainder);
-        OutString[Count-1] = (char) ('0' + Remainder);\
+    for (Count = DigitsNeeded; Count > 0; Count--) {
+        (void)AcpiUtShortDivide(Value, 10, &Value, &Remainder);
+        OutString[Count - 1] = (char)('0' + Remainder);
     }
 }
-
 
 /*******************************************************************************
  *
@@ -565,26 +518,23 @@ AcpiExIntegerToString (
  *
  ******************************************************************************/
 
-void
-AcpiExPciClsToString (
-    char                    *OutString,
-    UINT8                   ClassCode[3])
+void AcpiExPciClsToString(
+    char* OutString,
+    UINT8 ClassCode[3])
 {
 
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /* All 3 bytes are hexadecimal */
 
-    OutString[0] = AcpiUtHexToAsciiChar ((UINT64) ClassCode[0], 4);
-    OutString[1] = AcpiUtHexToAsciiChar ((UINT64) ClassCode[0], 0);
-    OutString[2] = AcpiUtHexToAsciiChar ((UINT64) ClassCode[1], 4);
-    OutString[3] = AcpiUtHexToAsciiChar ((UINT64) ClassCode[1], 0);
-    OutString[4] = AcpiUtHexToAsciiChar ((UINT64) ClassCode[2], 4);
-    OutString[5] = AcpiUtHexToAsciiChar ((UINT64) ClassCode[2], 0);
+    OutString[0] = AcpiUtHexToAsciiChar((UINT64)ClassCode[0], 4);
+    OutString[1] = AcpiUtHexToAsciiChar((UINT64)ClassCode[0], 0);
+    OutString[2] = AcpiUtHexToAsciiChar((UINT64)ClassCode[1], 4);
+    OutString[3] = AcpiUtHexToAsciiChar((UINT64)ClassCode[1], 0);
+    OutString[4] = AcpiUtHexToAsciiChar((UINT64)ClassCode[2], 4);
+    OutString[5] = AcpiUtHexToAsciiChar((UINT64)ClassCode[2], 0);
     OutString[6] = 0;
 }
-
 
 /*******************************************************************************
  *
@@ -599,15 +549,11 @@ AcpiExPciClsToString (
  ******************************************************************************/
 
 BOOLEAN
-AcpiIsValidSpaceId (
-    UINT8                   SpaceId)
+AcpiIsValidSpaceId(
+    UINT8 SpaceId)
 {
 
-    if ((SpaceId >= ACPI_NUM_PREDEFINED_REGIONS) &&
-        (SpaceId < ACPI_USER_REGION_BEGIN) &&
-        (SpaceId != ACPI_ADR_SPACE_DATA_TABLE) &&
-        (SpaceId != ACPI_ADR_SPACE_FIXED_HARDWARE))
-    {
+    if ((SpaceId >= ACPI_NUM_PREDEFINED_REGIONS) && (SpaceId < ACPI_USER_REGION_BEGIN) && (SpaceId != ACPI_ADR_SPACE_DATA_TABLE) && (SpaceId != ACPI_ADR_SPACE_FIXED_HARDWARE)) {
         return (FALSE);
     }
 

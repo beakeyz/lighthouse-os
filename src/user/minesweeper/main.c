@@ -1,6 +1,6 @@
 #include "sys/types.h"
-#include <LibGfx/include/lgfx.h>
 #include <LibGfx/include/driver.h>
+#include <LibGfx/include/lgfx.h>
 
 lwindow_t game_window;
 
@@ -14,23 +14,23 @@ lwindow_t game_window;
  * - Create a window
  * - Enter game loop
  */
-int main() 
+int main()
 {
-  BOOL res;
+    BOOL res;
 
-  /* Create a window for our game */
-  res = request_lwindow(&game_window, WINDOW_WIDTH, WINDOW_HEIGHT, NULL);
+    /* Create a window for our game */
+    res = request_lwindow(&game_window, WINDOW_WIDTH, WINDOW_HEIGHT, NULL);
 
-  if (!res)
-    return -1;
+    if (!res)
+        return -1;
 
-  /* Initialize our resources */
+    /* Initialize our resources */
 
-  /* Render a start screen */
-  
-  /* Enter the game loop and render shit */
+    /* Render a start screen */
 
-  /* Close the window like a good process */
-  close_lwindow(&game_window);
-  return 0;
+    /* Enter the game loop and render shit */
+
+    /* Close the window like a good process */
+    close_lwindow(&game_window);
+    return 0;
 }

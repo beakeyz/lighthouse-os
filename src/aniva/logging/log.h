@@ -22,18 +22,18 @@ typedef uint8_t logger_id_t;
  * This structure is not supposed to be allocated on the heap EVER
  */
 typedef struct {
-  char* title;
- 
-  /*
-   * EVERYWHERE where there is a logger struct, this field needs 
-   * to either be used, or set to NULL 
-   */
-  uint8_t flags;
-  logger_id_t id;
+    char* title;
 
-  int (*f_logc)(char c);
-  int (*f_log)(const char* str);
-  int (*f_logln)(const char* str);
+    /*
+     * EVERYWHERE where there is a logger struct, this field needs
+     * to either be used, or set to NULL
+     */
+    uint8_t flags;
+    logger_id_t id;
+
+    int (*f_logc)(char c);
+    int (*f_log)(const char* str);
+    int (*f_logln)(const char* str);
 } logger_t;
 
 void init_early_logging();
@@ -50,8 +50,8 @@ int logger_scan(char* title, logger_t* buffer);
 int logger_swap_priority(logger_id_t old, logger_id_t new);
 
 #define LOG_TYPE_DEFAULT 0
-#define LOG_TYPE_LINE    1
-#define LOG_TYPE_CHAR    2
+#define LOG_TYPE_LINE 1
+#define LOG_TYPE_CHAR 2
 
 /*
  * NOTE: log calls only log to the logger with id 0 !!
@@ -67,46 +67,46 @@ void log_ex(logger_id_t id, const char* msg, va_list args, uint8_t type);
 int sfmt(char* buf, const char* fmt, ...);
 
 #if DBG_VERBOSE
-  #define KLOG(fmt, ...) printf(fmt, __VA_ARGS__-0)
-  #define KLOG_DBG(fmt, ...) kdbgf(fmt, __VA_ARGS__-0)
-  #define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__-0)
+#define KLOG(fmt, ...) printf(fmt, __VA_ARGS__ - 0)
+#define KLOG_DBG(fmt, ...) kdbgf(fmt, __VA_ARGS__ - 0)
+#define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__ - 0)
 
-  #define V_KLOG(fmt, args) vprintf(fmt, args)
-  #define V_KLOG_DBG(fmt, args) vkdbgf(false, fmt, args)
-  #define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
+#define V_KLOG(fmt, args) vprintf(fmt, args)
+#define V_KLOG_DBG(fmt, args) vkdbgf(false, fmt, args)
+#define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
 #else
-  #define KLOG(fmt, ...)
-  #define V_KLOG(fmt, args)
+#define KLOG(fmt, ...)
+#define V_KLOG(fmt, args)
 #endif
 
 #if DBG_DEBUG
-  #define KLOG_DBG(fmt, ...) kdbgf(fmt, __VA_ARGS__-0)
-  #define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__-0)
+#define KLOG_DBG(fmt, ...) kdbgf(fmt, __VA_ARGS__ - 0)
+#define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__ - 0)
 
-  #define V_KLOG_DBG(fmt, args) vkdbgf(fmt, args)
-  #define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
+#define V_KLOG_DBG(fmt, args) vkdbgf(fmt, args)
+#define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
 #else
-  #ifndef KLOG_DBG
-    #define KLOG_DBG(fmt, ...)
-    #define V_KLOG_DBG(fmt, args)
-  #endif
+#ifndef KLOG_DBG
+#define KLOG_DBG(fmt, ...)
+#define V_KLOG_DBG(fmt, args)
+#endif
 #endif
 
 #if DBG_INFO
-  #define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__-0)
-  #define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
+#define KLOG_INFO(fmt, ...) logf(fmt, __VA_ARGS__ - 0)
+#define V_KLOG_INFO(fmt, args) vlogf(fmt, args)
 #else
-  #ifndef KLOG_INFO
-    #define KLOG_INFO(fmt, ...)
-    #define V_KLOG_INFO(fmt, args)
-  #endif
+#ifndef KLOG_INFO
+#define KLOG_INFO(fmt, ...)
+#define V_KLOG_INFO(fmt, args)
+#endif
 #endif // DEBUG
 
-#define KLOG_ERR(fmt, ...) kwarnf(fmt, __VA_ARGS__-0)
+#define KLOG_ERR(fmt, ...) kwarnf(fmt, __VA_ARGS__ - 0)
 
 /*
  * Functions that perform a print to the kernels 'stdio'
- * 
+ *
  * TODO: rename to kprintf, kprintln, ect.
  *
  * These prints only send to info loggers
@@ -117,7 +117,7 @@ int println(const char* msg);
 int printf(const char* fmt, ...);
 int vprintf(const char* fmt, va_list args);
 
-/* 
+/*
  * Debug print routines
  *
  * These prints only send to debug loggers
@@ -128,7 +128,7 @@ int kdbgln(const char* msg);
 int kdbg(const char* msg);
 int kdbgc(char c);
 
-/* 
+/*
  * Warning print routines
  *
  * These prints only send to warning loggers

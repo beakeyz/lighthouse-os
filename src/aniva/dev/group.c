@@ -9,23 +9,23 @@
 
 static dgroup_t* _create_dgroup()
 {
-  dgroup_t* ret;
+    dgroup_t* ret;
 
-  ret = kmalloc(sizeof(*ret));
+    ret = kmalloc(sizeof(*ret));
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
-  return ret;
+    memset(ret, 0, sizeof(*ret));
+    return ret;
 }
 
 static void _destroy_dgroup(dgroup_t* group)
 {
-  /* This is a dangerous call, since all downstream objects just get nuked */
-  if (group->node)
-    destroy_oss_node(group->node);
-  kfree(group);
+    /* This is a dangerous call, since all downstream objects just get nuked */
+    if (group->node)
+        destroy_oss_node(group->node);
+    kfree(group);
 }
 
 /*!
@@ -35,82 +35,82 @@ static void _destroy_dgroup(dgroup_t* group)
  */
 dgroup_t* register_dev_group(enum DGROUP_TYPE type, const char* name, uint32_t flags, struct oss_node* parent)
 {
-  dgroup_t* group;
+    dgroup_t* group;
 
-  group = _create_dgroup();
+    group = _create_dgroup();
 
-  if (!group)
-    return nullptr;
+    if (!group)
+        return nullptr;
 
-  /* Create the node that houses this group */
-  group->node = create_oss_node(name, OSS_GROUP_NODE, NULL, NULL);
+    /* Create the node that houses this group */
+    group->node = create_oss_node(name, OSS_GROUP_NODE, NULL, NULL);
 
-  if (!group->node)
-    goto dealloc_and_fail;
+    if (!group->node)
+        goto dealloc_and_fail;
 
-  group->node->priv = group;
-  group->name = group->node->name;
-  group->type = type;
-  group->flags = flags;
+    group->node->priv = group;
+    group->name = group->node->name;
+    group->type = type;
+    group->flags = flags;
 
-  /* Register the group on the OSS endpoint */
-  device_node_add_group(parent, group);
-  return group;
+    /* Register the group on the OSS endpoint */
+    device_node_add_group(parent, group);
+    return group;
 
 dealloc_and_fail:
-  _destroy_dgroup(group);
-  return nullptr;
+    _destroy_dgroup(group);
+    return nullptr;
 }
 
 int unregister_dev_group(dgroup_t* group)
 {
-  _destroy_dgroup(group);
-  return 0;
+    _destroy_dgroup(group);
+    return 0;
 }
 
 dgroup_t* dev_group_get_parent(dgroup_t* group)
 {
-  oss_node_t* parent;
+    oss_node_t* parent;
 
-  if (!group || !group->node)
-    return nullptr;
-  
-  parent = group->node->parent;
+    if (!group || !group->node)
+        return nullptr;
 
-  if (!parent->priv || parent->type != OSS_GROUP_NODE)
-    return nullptr;
+    parent = group->node->parent;
 
-  /*
-  * NOTE: Don't use oss_node_unwrap, since we know that
-  * ->priv is non-null
-  */
-  return parent->priv;
+    if (!parent->priv || parent->type != OSS_GROUP_NODE)
+        return nullptr;
+
+    /*
+     * NOTE: Don't use oss_node_unwrap, since we know that
+     * ->priv is non-null
+     */
+    return parent->priv;
 }
 
 /*!
  * @brief: Get a dgroup with the name @name
  *
- * 
+ *
  */
 int dev_group_get(const char* path, dgroup_t** out)
 {
-  int error;
-  oss_node_t* node;
-  
-  if (!out || !path)
-    return -1;
+    int error;
+    oss_node_t* node;
 
-  error = oss_resolve_node(path, &node);
+    if (!out || !path)
+        return -1;
 
-  if (error)
-    return error;
+    error = oss_resolve_node(path, &node);
 
-  if (!node || node->type != OSS_GROUP_NODE || !node->priv)
-    return -KERR_INVAL;
+    if (error)
+        return error;
 
-  /* Found the bastard */
-  *out = node->priv;
-  return 0;
+    if (!node || node->type != OSS_GROUP_NODE || !node->priv)
+        return -KERR_INVAL;
+
+    /* Found the bastard */
+    *out = node->priv;
+    return 0;
 }
 
 /*!
@@ -121,48 +121,48 @@ int dev_group_get(const char* path, dgroup_t** out)
  */
 int dev_group_get_device(dgroup_t* group, const char* path, struct device** dev)
 {
-  int error;
-  oss_node_t* node;
-  oss_obj_t* obj;
+    int error;
+    oss_node_t* node;
+    oss_obj_t* obj;
 
-  if (!group || !path || !dev)
-    return -1;
+    if (!group || !path || !dev)
+        return -1;
 
-  node = group->node;
+    node = group->node;
 
-  if (!node)
-    return -1;
+    if (!node)
+        return -1;
 
-  error = oss_resolve_obj_rel(node, path, &obj);
+    error = oss_resolve_obj_rel(node, path, &obj);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  /* Invalid attachment =( */
-  if (!obj || obj->type != OSS_OBJ_TYPE_DEVICE)
-    return -2;
+    /* Invalid attachment =( */
+    if (!obj || obj->type != OSS_OBJ_TYPE_DEVICE)
+        return -2;
 
-  *dev = oss_obj_unwrap(obj, device_t);
-  return 0;
+    *dev = oss_obj_unwrap(obj, device_t);
+    return 0;
 }
 
 int dev_group_add_device(dgroup_t* group, struct device* dev)
 {
-  if (!group || !dev)
-    return -1;
+    if (!group || !dev)
+        return -1;
 
-  return oss_node_add_obj(group->node, dev->obj);
+    return oss_node_add_obj(group->node, dev->obj);
 }
 
 int dev_group_remove_device(dgroup_t* group, struct device* dev)
 {
-  oss_node_entry_t* entry;
+    oss_node_entry_t* entry;
 
-  if (oss_node_remove_entry(group->node, dev->obj->name, &entry) || !entry)
-    return -1;
+    if (oss_node_remove_entry(group->node, dev->obj->name, &entry) || !entry)
+        return -1;
 
-  destroy_oss_node_entry(entry);
-  return 0;
+    destroy_oss_node_entry(entry);
+    return 0;
 }
 
 /*!
@@ -175,5 +175,5 @@ int dev_group_remove_device(dgroup_t* group, struct device* dev)
  */
 void init_dgroups()
 {
-  (void)0;
+    (void)0;
 }

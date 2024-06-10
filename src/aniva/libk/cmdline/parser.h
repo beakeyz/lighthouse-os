@@ -5,31 +5,31 @@
 #include <libk/stddef.h>
 
 enum KOPT_TYPE {
-  KOPT_TYPE_NUM,
-  KOPT_TYPE_BOOL,
-  KOPT_TYPE_STR,
+    KOPT_TYPE_NUM,
+    KOPT_TYPE_BOOL,
+    KOPT_TYPE_STR,
 };
 
-#define KOPT_USE_KTERM  "use_kterm"
-#define KOPT_FORCE_RD   "force_rd"
-#define KOPT_FORCE_PIT  "force_pit"
-#define KOPT_KRNL_DBG   "krnl_dbg"
-#define KOPT_NO_ACPICA  "no_acpica"
-#define KOPT_NO_USB     "no_usb"
+#define KOPT_USE_KTERM "use_kterm"
+#define KOPT_FORCE_RD "force_rd"
+#define KOPT_FORCE_PIT "force_pit"
+#define KOPT_KRNL_DBG "krnl_dbg"
+#define KOPT_NO_ACPICA "no_acpica"
+#define KOPT_NO_USB "no_usb"
 
 /*
  * These objects are the tokens that the parser generates from a single cmdline given to us
  * by the bootloader
  */
 typedef struct kopt {
-  const char* key;
-  enum KOPT_TYPE type;
+    const char* key;
+    enum KOPT_TYPE type;
 
-  union {
-    bool bool_value;
-    uint64_t num_val;
-    const char* str_value;
-  };
+    union {
+        bool bool_value;
+        uint64_t num_val;
+        const char* str_value;
+    };
 } kopt_t;
 
 void init_cmdline_parser();

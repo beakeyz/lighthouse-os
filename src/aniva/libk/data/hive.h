@@ -1,8 +1,8 @@
 #ifndef __ANIVA_HIVE__
 #define __ANIVA_HIVE__
 #include "libk/data/linkedlist.h"
-#include <libk/stddef.h>
 #include <libk/flow/error.h>
+#include <libk/stddef.h>
 
 /*
  * experimental data structure: the hive works by combining a height-map with a two-dimensional list.
@@ -11,7 +11,7 @@
  * importance.
  *
  * One issue is that we need this to be efficient, which will be a challenge and maybe even impossible...
- * 
+ *
  *     hive0 -> hive0_entry1 -> hive1 -> hive1_entry1
  *              |   |               \-> hive1_entry2
  *          entry1  entry2
@@ -21,8 +21,8 @@ struct hive_entry;
 struct hive;
 
 typedef enum HIVE_ENTRY_TYPE {
-  HIVE_ENTRY_TYPE_DATA = 0,
-  HIVE_ENTRY_TYPE_HOLE
+    HIVE_ENTRY_TYPE_DATA = 0,
+    HIVE_ENTRY_TYPE_HOLE
 } HIVE_ENTRY_TYPE_t;
 
 #define HIVE_PART_SEPERATOR '/'
@@ -34,27 +34,27 @@ typedef char* hive_url_part_t;
  */
 typedef struct hive_entry {
 
-  // HIVE_ENTRY_TYPE_t m_type;
+    // HIVE_ENTRY_TYPE_t m_type;
 
-  void* m_data;
-  struct hive* m_hole;
+    void* m_data;
+    struct hive* m_hole;
 
-  hive_url_part_t m_entry_part;
+    hive_url_part_t m_entry_part;
 } hive_entry_t;
 
 /* TODO: implement hives with hashmaps */
 typedef struct hive {
-  list_t *m_entries;
-  size_t m_hole_count;
-  size_t m_total_entry_count;
+    list_t* m_entries;
+    size_t m_hole_count;
+    size_t m_total_entry_count;
 
-  hive_url_part_t m_url_part;
+    hive_url_part_t m_url_part;
 } hive_t;
 
 /*
  * Allocate and init a hive struct
  */
-hive_t *create_hive(hive_url_part_t root_part);
+hive_t* create_hive(hive_url_part_t root_part);
 
 /*
  * Destroy and deallocate a hive object
@@ -121,8 +121,9 @@ void* hive_get_relative(hive_t* root, const char* subpath);
  */
 ErrorOrPtr hive_walk(hive_t* root, bool recursive, bool (*itterate_fn)(hive_t* hive, void* data));
 
-static ALWAYS_INLINE bool hive_entry_is_hole(hive_entry_t* entry) {
-  return (entry->m_hole != nullptr);
+static ALWAYS_INLINE bool hive_entry_is_hole(hive_entry_t* entry)
+{
+    return (entry->m_hole != nullptr);
 }
 
 #endif //__ANIVA_HIVE__

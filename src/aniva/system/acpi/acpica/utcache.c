@@ -149,12 +149,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utcache")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utcache")
 
 #ifdef ACPI_USE_LOCAL_CACHE
 /*******************************************************************************
@@ -173,34 +172,30 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiOsCreateCache (
-    char                    *CacheName,
-    UINT16                  ObjectSize,
-    UINT16                  MaxDepth,
-    ACPI_MEMORY_LIST        **ReturnCache)
+AcpiOsCreateCache(
+    char* CacheName,
+    UINT16 ObjectSize,
+    UINT16 MaxDepth,
+    ACPI_MEMORY_LIST** ReturnCache)
 {
-    ACPI_MEMORY_LIST        *Cache;
+    ACPI_MEMORY_LIST* Cache;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (!CacheName || !ReturnCache || !ObjectSize)
-    {
+    if (!CacheName || !ReturnCache || !ObjectSize) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Create the cache object */
 
-    Cache = AcpiOsAllocate (sizeof (ACPI_MEMORY_LIST));
-    if (!Cache)
-    {
+    Cache = AcpiOsAllocate(sizeof(ACPI_MEMORY_LIST));
+    if (!Cache) {
         return (AE_NO_MEMORY);
     }
 
     /* Populate the cache object and return it */
 
-    memset (Cache, 0, sizeof (ACPI_MEMORY_LIST));
+    memset(Cache, 0, sizeof(ACPI_MEMORY_LIST));
     Cache->ListName = CacheName;
     Cache->ObjectSize = ObjectSize;
     Cache->MaxDepth = MaxDepth;
@@ -208,7 +203,6 @@ AcpiOsCreateCache (
     *ReturnCache = Cache;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -223,44 +217,38 @@ AcpiOsCreateCache (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiOsPurgeCache (
-    ACPI_MEMORY_LIST        *Cache)
+AcpiOsPurgeCache(
+    ACPI_MEMORY_LIST* Cache)
 {
-    void                    *Next;
-    ACPI_STATUS             Status;
+    void* Next;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (!Cache)
-    {
+    if (!Cache) {
         return (AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_CACHES);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_CACHES);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Walk the list of objects in this cache */
 
-    while (Cache->ListHead)
-    {
+    while (Cache->ListHead) {
         /* Delete and unlink one cached state object */
 
-        Next = ACPI_GET_DESCRIPTOR_PTR (Cache->ListHead);
-        ACPI_FREE (Cache->ListHead);
+        Next = ACPI_GET_DESCRIPTOR_PTR(Cache->ListHead);
+        ACPI_FREE(Cache->ListHead);
 
         Cache->ListHead = Next;
         Cache->CurrentDepth--;
     }
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_CACHES);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_CACHES);
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -276,29 +264,25 @@ AcpiOsPurgeCache (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiOsDeleteCache (
-    ACPI_MEMORY_LIST        *Cache)
+AcpiOsDeleteCache(
+    ACPI_MEMORY_LIST* Cache)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
+    /* Purge all objects in the cache */
 
-
-   /* Purge all objects in the cache */
-
-    Status = AcpiOsPurgeCache (Cache);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsPurgeCache(Cache);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Now we can delete the cache object */
 
-    AcpiOsFree (Cache);
+    AcpiOsFree(Cache);
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -315,56 +299,49 @@ AcpiOsDeleteCache (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiOsReleaseObject (
-    ACPI_MEMORY_LIST        *Cache,
-    void                    *Object)
+AcpiOsReleaseObject(
+    ACPI_MEMORY_LIST* Cache,
+    void* Object)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (!Cache || !Object)
-    {
+    if (!Cache || !Object) {
         return (AE_BAD_PARAMETER);
     }
 
     /* If cache is full, just free this object */
 
-    if (Cache->CurrentDepth >= Cache->MaxDepth)
-    {
-        ACPI_FREE (Object);
-        ACPI_MEM_TRACKING (Cache->TotalFreed++);
+    if (Cache->CurrentDepth >= Cache->MaxDepth) {
+        ACPI_FREE(Object);
+        ACPI_MEM_TRACKING(Cache->TotalFreed++);
     }
 
     /* Otherwise put this object back into the cache */
 
-    else
-    {
-        Status = AcpiUtAcquireMutex (ACPI_MTX_CACHES);
-        if (ACPI_FAILURE (Status))
-        {
+    else {
+        Status = AcpiUtAcquireMutex(ACPI_MTX_CACHES);
+        if (ACPI_FAILURE(Status)) {
             return (Status);
         }
 
         /* Mark the object as cached */
 
-        memset (Object, 0xCA, Cache->ObjectSize);
-        ACPI_SET_DESCRIPTOR_TYPE (Object, ACPI_DESC_TYPE_CACHED);
+        memset(Object, 0xCA, Cache->ObjectSize);
+        ACPI_SET_DESCRIPTOR_TYPE(Object, ACPI_DESC_TYPE_CACHED);
 
         /* Put the object at the head of the cache list */
 
-        ACPI_SET_DESCRIPTOR_PTR (Object, Cache->ListHead);
+        ACPI_SET_DESCRIPTOR_PTR(Object, Cache->ListHead);
         Cache->ListHead = Object;
         Cache->CurrentDepth++;
 
-        (void) AcpiUtReleaseMutex (ACPI_MTX_CACHES);
+        (void)AcpiUtReleaseMutex(ACPI_MTX_CACHES);
     }
 
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -379,84 +356,72 @@ AcpiOsReleaseObject (
  *
  ******************************************************************************/
 
-void *
-AcpiOsAcquireObject (
-    ACPI_MEMORY_LIST        *Cache)
+void* AcpiOsAcquireObject(
+    ACPI_MEMORY_LIST* Cache)
 {
-    ACPI_STATUS             Status;
-    void                    *Object;
+    ACPI_STATUS Status;
+    void* Object;
 
+    ACPI_FUNCTION_TRACE(OsAcquireObject);
 
-    ACPI_FUNCTION_TRACE (OsAcquireObject);
-
-
-    if (!Cache)
-    {
-        return_PTR (NULL);
+    if (!Cache) {
+        return_PTR(NULL);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_CACHES);
-    if (ACPI_FAILURE (Status))
-    {
-        return_PTR (NULL);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_CACHES);
+    if (ACPI_FAILURE(Status)) {
+        return_PTR(NULL);
     }
 
-    ACPI_MEM_TRACKING (Cache->Requests++);
+    ACPI_MEM_TRACKING(Cache->Requests++);
 
     /* Check the cache first */
 
-    if (Cache->ListHead)
-    {
+    if (Cache->ListHead) {
         /* There is an object available, use it */
 
         Object = Cache->ListHead;
-        Cache->ListHead = ACPI_GET_DESCRIPTOR_PTR (Object);
+        Cache->ListHead = ACPI_GET_DESCRIPTOR_PTR(Object);
 
         Cache->CurrentDepth--;
 
-        ACPI_MEM_TRACKING (Cache->Hits++);
-        ACPI_DEBUG_PRINT_RAW ((ACPI_DB_EXEC,
+        ACPI_MEM_TRACKING(Cache->Hits++);
+        ACPI_DEBUG_PRINT_RAW((ACPI_DB_EXEC,
             "%s: Object %p from %s cache\n",
             ACPI_GET_FUNCTION_NAME, Object, Cache->ListName));
 
-        Status = AcpiUtReleaseMutex (ACPI_MTX_CACHES);
-        if (ACPI_FAILURE (Status))
-        {
-            return_PTR (NULL);
+        Status = AcpiUtReleaseMutex(ACPI_MTX_CACHES);
+        if (ACPI_FAILURE(Status)) {
+            return_PTR(NULL);
         }
 
         /* Clear (zero) the previously used Object */
 
-        memset (Object, 0, Cache->ObjectSize);
-    }
-    else
-    {
+        memset(Object, 0, Cache->ObjectSize);
+    } else {
         /* The cache is empty, create a new object */
 
-        ACPI_MEM_TRACKING (Cache->TotalAllocated++);
+        ACPI_MEM_TRACKING(Cache->TotalAllocated++);
 
 #ifdef ACPI_DBG_TRACK_ALLOCATIONS
-        if ((Cache->TotalAllocated - Cache->TotalFreed) > Cache->MaxOccupied)
-        {
+        if ((Cache->TotalAllocated - Cache->TotalFreed) > Cache->MaxOccupied) {
             Cache->MaxOccupied = Cache->TotalAllocated - Cache->TotalFreed;
         }
 #endif
 
         /* Avoid deadlock with ACPI_ALLOCATE_ZEROED */
 
-        Status = AcpiUtReleaseMutex (ACPI_MTX_CACHES);
-        if (ACPI_FAILURE (Status))
-        {
-            return_PTR (NULL);
+        Status = AcpiUtReleaseMutex(ACPI_MTX_CACHES);
+        if (ACPI_FAILURE(Status)) {
+            return_PTR(NULL);
         }
 
-        Object = ACPI_ALLOCATE_ZEROED (Cache->ObjectSize);
-        if (!Object)
-        {
-            return_PTR (NULL);
+        Object = ACPI_ALLOCATE_ZEROED(Cache->ObjectSize);
+        if (!Object) {
+            return_PTR(NULL);
         }
     }
 
-    return_PTR (Object);
+    return_PTR(Object);
 }
 #endif /* ACPI_USE_LOCAL_CACHE */

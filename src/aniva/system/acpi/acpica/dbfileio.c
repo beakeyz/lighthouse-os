@@ -150,18 +150,16 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdebug.h"
+#include "acpi.h"
 #include "actables.h"
 
-#define _COMPONENT          ACPI_CA_DEBUGGER
-        ACPI_MODULE_NAME    ("dbfileio")
-
+#define _COMPONENT ACPI_CA_DEBUGGER
+ACPI_MODULE_NAME("dbfileio")
 
 #ifdef ACPI_APPLICATION
 #include "acapps.h"
-
 
 #ifdef ACPI_DEBUGGER
 /*******************************************************************************
@@ -176,21 +174,18 @@
  *
  ******************************************************************************/
 
-void
-AcpiDbCloseDebugFile (
+void AcpiDbCloseDebugFile(
     void)
 {
 
-    if (AcpiGbl_DebugFile)
-    {
-       fclose (AcpiGbl_DebugFile);
-       AcpiGbl_DebugFile = NULL;
-       AcpiGbl_DbOutputToFile = FALSE;
-       AcpiOsPrintf ("Debug output file %s closed\n",
+    if (AcpiGbl_DebugFile) {
+        fclose(AcpiGbl_DebugFile);
+        AcpiGbl_DebugFile = NULL;
+        AcpiGbl_DbOutputToFile = FALSE;
+        AcpiOsPrintf("Debug output file %s closed\n",
             AcpiGbl_DbDebugFilename);
     }
 }
-
 
 /*******************************************************************************
  *
@@ -204,26 +199,23 @@ AcpiDbCloseDebugFile (
  *
  ******************************************************************************/
 
-void
-AcpiDbOpenDebugFile (
-    char                    *Name)
+void AcpiDbOpenDebugFile(
+    char* Name)
 {
 
-    AcpiDbCloseDebugFile ();
-    AcpiGbl_DebugFile = fopen (Name, "w+");
-    if (!AcpiGbl_DebugFile)
-    {
-        AcpiOsPrintf ("Could not open debug file %s\n", Name);
+    AcpiDbCloseDebugFile();
+    AcpiGbl_DebugFile = fopen(Name, "w+");
+    if (!AcpiGbl_DebugFile) {
+        AcpiOsPrintf("Could not open debug file %s\n", Name);
         return;
     }
 
-    AcpiOsPrintf ("Debug output file %s opened\n", Name);
-    AcpiUtSafeStrncpy (AcpiGbl_DbDebugFilename, Name,
-        sizeof (AcpiGbl_DbDebugFilename));
+    AcpiOsPrintf("Debug output file %s opened\n", Name);
+    AcpiUtSafeStrncpy(AcpiGbl_DbDebugFilename, Name,
+        sizeof(AcpiGbl_DbDebugFilename));
     AcpiGbl_DbOutputToFile = TRUE;
 }
 #endif
-
 
 /*******************************************************************************
  *
@@ -238,39 +230,33 @@ AcpiDbOpenDebugFile (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDbLoadTables (
-    ACPI_NEW_TABLE_DESC     *ListHead)
+AcpiDbLoadTables(
+    ACPI_NEW_TABLE_DESC* ListHead)
 {
-    ACPI_STATUS             Status;
-    ACPI_NEW_TABLE_DESC     *TableListHead;
-    ACPI_TABLE_HEADER       *Table;
-
+    ACPI_STATUS Status;
+    ACPI_NEW_TABLE_DESC* TableListHead;
+    ACPI_TABLE_HEADER* Table;
 
     /* Load all ACPI tables in the list */
 
     TableListHead = ListHead;
-    while (TableListHead)
-    {
+    while (TableListHead) {
         Table = TableListHead->Table;
 
-        Status = AcpiLoadTable (Table, NULL);
-        if (ACPI_FAILURE (Status))
-        {
-            if (Status == AE_ALREADY_EXISTS)
-            {
-                AcpiOsPrintf ("Table %4.4s is already installed\n",
+        Status = AcpiLoadTable(Table, NULL);
+        if (ACPI_FAILURE(Status)) {
+            if (Status == AE_ALREADY_EXISTS) {
+                AcpiOsPrintf("Table %4.4s is already installed\n",
                     Table->Signature);
-            }
-            else
-            {
-                AcpiOsPrintf ("Could not install table, %s\n",
-                    AcpiFormatException (Status));
+            } else {
+                AcpiOsPrintf("Could not install table, %s\n",
+                    AcpiFormatException(Status));
             }
 
             return (Status);
         }
 
-        AcpiOsPrintf ("Acpi table [%4.4s] successfully installed and loaded\n",
+        AcpiOsPrintf("Acpi table [%4.4s] successfully installed and loaded\n",
             Table->Signature);
 
         TableListHead = TableListHead->Next;

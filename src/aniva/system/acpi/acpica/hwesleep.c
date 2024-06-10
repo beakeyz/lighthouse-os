@@ -150,12 +150,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_HARDWARE
-        ACPI_MODULE_NAME    ("hwesleep")
-
+#define _COMPONENT ACPI_HARDWARE
+ACPI_MODULE_NAME("hwesleep")
 
 /*******************************************************************************
  *
@@ -171,36 +170,31 @@
  *
  ******************************************************************************/
 
-void
-AcpiHwExecuteSleepMethod (
-    char                    *MethodPathname,
-    UINT32                  IntegerArgument)
+void AcpiHwExecuteSleepMethod(
+    char* MethodPathname,
+    UINT32 IntegerArgument)
 {
-    ACPI_OBJECT_LIST        ArgList;
-    ACPI_OBJECT             Arg;
-    ACPI_STATUS             Status;
+    ACPI_OBJECT_LIST ArgList;
+    ACPI_OBJECT Arg;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (HwExecuteSleepMethod);
-
+    ACPI_FUNCTION_TRACE(HwExecuteSleepMethod);
 
     /* One argument, IntegerArgument; No return value expected */
 
     ArgList.Count = 1;
     ArgList.Pointer = &Arg;
     Arg.Type = ACPI_TYPE_INTEGER;
-    Arg.Integer.Value = (UINT64) IntegerArgument;
+    Arg.Integer.Value = (UINT64)IntegerArgument;
 
-    Status = AcpiEvaluateObject (NULL, MethodPathname, &ArgList, NULL);
-    if (ACPI_FAILURE (Status) && Status != AE_NOT_FOUND)
-    {
-        ACPI_EXCEPTION ((AE_INFO, Status, "While executing method %s",
+    Status = AcpiEvaluateObject(NULL, MethodPathname, &ArgList, NULL);
+    if (ACPI_FAILURE(Status) && Status != AE_NOT_FOUND) {
+        ACPI_EXCEPTION((AE_INFO, Status, "While executing method %s",
             MethodPathname));
     }
 
     return_VOID;
 }
-
 
 /*******************************************************************************
  *
@@ -217,32 +211,27 @@ AcpiHwExecuteSleepMethod (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwExtendedSleep (
-    UINT8                   SleepState)
+AcpiHwExtendedSleep(
+    UINT8 SleepState)
 {
-    ACPI_STATUS             Status;
-    UINT8                   SleepControl;
-    UINT64                  SleepStatus;
+    ACPI_STATUS Status;
+    UINT8 SleepControl;
+    UINT64 SleepStatus;
 
-
-    ACPI_FUNCTION_TRACE (HwExtendedSleep);
-
+    ACPI_FUNCTION_TRACE(HwExtendedSleep);
 
     /* Extended sleep registers must be valid */
 
-    if (!AcpiGbl_FADT.SleepControl.Address ||
-        !AcpiGbl_FADT.SleepStatus.Address)
-    {
-        return_ACPI_STATUS (AE_NOT_EXIST);
+    if (!AcpiGbl_FADT.SleepControl.Address || !AcpiGbl_FADT.SleepStatus.Address) {
+        return_ACPI_STATUS(AE_NOT_EXIST);
     }
 
     /* Clear wake status (WAK_STS) */
 
-    Status = AcpiWrite ((UINT64) ACPI_X_WAKE_STATUS,
+    Status = AcpiWrite((UINT64)ACPI_X_WAKE_STATUS,
         &AcpiGbl_FADT.SleepStatus);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     AcpiGbl_SystemAwakeAndRunning = FALSE;
@@ -253,50 +242,42 @@ AcpiHwExtendedSleep (
      * Note: We only use the first value returned by the \_Sx method
      * (AcpiGbl_SleepTypeA) - As per ACPI specification.
      */
-    ACPI_DEBUG_PRINT ((ACPI_DB_INIT,
+    ACPI_DEBUG_PRINT((ACPI_DB_INIT,
         "Entering sleep state [S%u]\n", SleepState));
 
-    SleepControl = ((AcpiGbl_SleepTypeA << ACPI_X_SLEEP_TYPE_POSITION) &
-        ACPI_X_SLEEP_TYPE_MASK) | ACPI_X_SLEEP_ENABLE;
+    SleepControl = ((AcpiGbl_SleepTypeA << ACPI_X_SLEEP_TYPE_POSITION) & ACPI_X_SLEEP_TYPE_MASK) | ACPI_X_SLEEP_ENABLE;
 
     /* Flush caches, as per ACPI specification */
 
-    if (SleepState < ACPI_STATE_S4)
-    {
-        ACPI_FLUSH_CPU_CACHE ();
+    if (SleepState < ACPI_STATE_S4) {
+        ACPI_FLUSH_CPU_CACHE();
     }
 
-    Status = AcpiOsEnterSleep (SleepState, SleepControl, 0);
-    if (Status == AE_CTRL_TERMINATE)
-    {
-        return_ACPI_STATUS (AE_OK);
+    Status = AcpiOsEnterSleep(SleepState, SleepControl, 0);
+    if (Status == AE_CTRL_TERMINATE) {
+        return_ACPI_STATUS(AE_OK);
     }
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    Status = AcpiWrite ((UINT64) SleepControl, &AcpiGbl_FADT.SleepControl);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiWrite((UINT64)SleepControl, &AcpiGbl_FADT.SleepControl);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Wait for transition back to Working State */
 
-    do
-    {
-        Status = AcpiRead (&SleepStatus, &AcpiGbl_FADT.SleepStatus);
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+    do {
+        Status = AcpiRead(&SleepStatus, &AcpiGbl_FADT.SleepStatus);
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
 
-    } while (!(((UINT8) SleepStatus) & ACPI_X_WAKE_STATUS));
+    } while (!(((UINT8)SleepStatus) & ACPI_X_WAKE_STATUS));
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -312,27 +293,22 @@ AcpiHwExtendedSleep (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwExtendedWakePrep (
-    UINT8                   SleepState)
+AcpiHwExtendedWakePrep(
+    UINT8 SleepState)
 {
-    UINT8                   SleepTypeValue;
+    UINT8 SleepTypeValue;
 
+    ACPI_FUNCTION_TRACE(HwExtendedWakePrep);
 
-    ACPI_FUNCTION_TRACE (HwExtendedWakePrep);
+    if (AcpiGbl_SleepTypeAS0 != ACPI_SLEEP_TYPE_INVALID) {
+        SleepTypeValue = ((AcpiGbl_SleepTypeAS0 << ACPI_X_SLEEP_TYPE_POSITION) & ACPI_X_SLEEP_TYPE_MASK);
 
-
-    if (AcpiGbl_SleepTypeAS0 != ACPI_SLEEP_TYPE_INVALID)
-    {
-        SleepTypeValue = ((AcpiGbl_SleepTypeAS0 << ACPI_X_SLEEP_TYPE_POSITION) &
-            ACPI_X_SLEEP_TYPE_MASK);
-
-        (void) AcpiWrite ((UINT64) (SleepTypeValue | ACPI_X_SLEEP_ENABLE),
+        (void)AcpiWrite((UINT64)(SleepTypeValue | ACPI_X_SLEEP_ENABLE),
             &AcpiGbl_FADT.SleepControl);
     }
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -348,11 +324,10 @@ AcpiHwExtendedWakePrep (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwExtendedWake (
-    UINT8                   SleepState)
+AcpiHwExtendedWake(
+    UINT8 SleepState)
 {
-    ACPI_FUNCTION_TRACE (HwExtendedWake);
-
+    ACPI_FUNCTION_TRACE(HwExtendedWake);
 
     /* Ensure EnterSleepStatePrep -> EnterSleepState ordering */
 
@@ -360,17 +335,17 @@ AcpiHwExtendedWake (
 
     /* Execute the wake methods */
 
-    AcpiHwExecuteSleepMethod (METHOD_PATHNAME__SST, ACPI_SST_WAKING);
-    AcpiHwExecuteSleepMethod (METHOD_PATHNAME__WAK, SleepState);
+    AcpiHwExecuteSleepMethod(METHOD_PATHNAME__SST, ACPI_SST_WAKING);
+    AcpiHwExecuteSleepMethod(METHOD_PATHNAME__WAK, SleepState);
 
     /*
      * Some BIOS code assumes that WAK_STS will be cleared on resume
      * and use it to determine whether the system is rebooting or
      * resuming. Clear WAK_STS for compatibility.
      */
-    (void) AcpiWrite ((UINT64) ACPI_X_WAKE_STATUS, &AcpiGbl_FADT.SleepStatus);
+    (void)AcpiWrite((UINT64)ACPI_X_WAKE_STATUS, &AcpiGbl_FADT.SleepStatus);
     AcpiGbl_SystemAwakeAndRunning = TRUE;
 
-    AcpiHwExecuteSleepMethod (METHOD_PATHNAME__SST, ACPI_SST_WORKING);
-    return_ACPI_STATUS (AE_OK);
+    AcpiHwExecuteSleepMethod(METHOD_PATHNAME__SST, ACPI_SST_WORKING);
+    return_ACPI_STATUS(AE_OK);
 }

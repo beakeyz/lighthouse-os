@@ -27,10 +27,10 @@
  * Structure for keyevents under lwnd
  */
 typedef struct lkey_event {
-  bool pressed;
-  uint8_t pressed_char;
-  uint16_t mod_flags;
-  uint32_t keycode;
+    bool pressed;
+    uint8_t pressed_char;
+    uint16_t mod_flags;
+    uint32_t keycode;
 } lkey_event_t;
 
 /*
@@ -38,12 +38,12 @@ typedef struct lkey_event {
  */
 
 /* Should this window have a top bar */
-#define LWND_FLAG_NO_BAR            0x00000001;
-#define LWND_FLAG_NO_CLOSE_BTN      0x00000002;
-#define LWND_FLAG_NO_HIDE_BTN       0x00000004;
+#define LWND_FLAG_NO_BAR 0x00000001;
+#define LWND_FLAG_NO_CLOSE_BTN 0x00000002;
+#define LWND_FLAG_NO_HIDE_BTN 0x00000004;
 #define LWND_FLAG_NO_FULLSCREEN_BTN 0x00000008;
-#define LWND_FLAG_DEFER_UPDATE      0x00000010
-#define LWND_FLAG_CENTERED          0x00000020
+#define LWND_FLAG_DEFER_UPDATE 0x00000010
+#define LWND_FLAG_CENTERED 0x00000020
 
 #define LWND_DEFAULT_EVENTBUFFER_CAPACITY 512
 
@@ -51,20 +51,20 @@ typedef struct lkey_event {
  * One process can have multiple windows?
  */
 typedef struct lwindow {
-  HANDLE lwnd_handle;
-  /* Handle to the key event */
-  HANDLE event_handle;
-  uint32_t wnd_id;
-  uint32_t wnd_flags;
-  uint32_t current_width;
-  uint32_t current_height;
+    HANDLE lwnd_handle;
+    /* Handle to the key event */
+    HANDLE event_handle;
+    uint32_t wnd_id;
+    uint32_t wnd_flags;
+    uint32_t current_width;
+    uint32_t current_height;
 
-  uint32_t keyevent_buffer_capacity;
-  uint32_t keyevent_buffer_write_idx;
-  uint32_t keyevent_buffer_read_idx;
-  lkey_event_t* keyevent_buffer;
+    uint32_t keyevent_buffer_capacity;
+    uint32_t keyevent_buffer_write_idx;
+    uint32_t keyevent_buffer_read_idx;
+    lkey_event_t* keyevent_buffer;
 
-  void* fb;
+    void* fb;
 } lwindow_t;
 
 #endif // !__LIGHTENV_LIBGFX_DRIVER__

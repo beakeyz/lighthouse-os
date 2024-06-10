@@ -149,15 +149,14 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-#include "acparser.h"
-#include "amlcode.h"
 #include "acconvert.h"
+#include "acparser.h"
+#include "acpi.h"
+#include "amlcode.h"
 
-#define _COMPONENT          ACPI_PARSER
-        ACPI_MODULE_NAME    ("psutils")
-
+#define _COMPONENT ACPI_PARSER
+ACPI_MODULE_NAME("psutils")
 
 /*******************************************************************************
  *
@@ -171,23 +170,20 @@
  *
  ******************************************************************************/
 
-ACPI_PARSE_OBJECT *
-AcpiPsCreateScopeOp (
-    UINT8                   *Aml)
+ACPI_PARSE_OBJECT*
+AcpiPsCreateScopeOp(
+    UINT8* Aml)
 {
-    ACPI_PARSE_OBJECT       *ScopeOp;
+    ACPI_PARSE_OBJECT* ScopeOp;
 
-
-    ScopeOp = AcpiPsAllocOp (AML_SCOPE_OP, Aml);
-    if (!ScopeOp)
-    {
+    ScopeOp = AcpiPsAllocOp(AML_SCOPE_OP, Aml);
+    if (!ScopeOp) {
         return (NULL);
     }
 
     ScopeOp->Named.Name = ACPI_ROOT_NAME;
     return (ScopeOp);
 }
-
 
 /*******************************************************************************
  *
@@ -202,22 +198,19 @@ AcpiPsCreateScopeOp (
  *
  ******************************************************************************/
 
-void
-AcpiPsInitOp (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT16                  Opcode)
+void AcpiPsInitOp(
+    ACPI_PARSE_OBJECT* Op,
+    UINT16 Opcode)
 {
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     Op->Common.DescriptorType = ACPI_DESC_TYPE_PARSER;
     Op->Common.AmlOpcode = Opcode;
 
-    ACPI_DISASM_ONLY_MEMBERS (AcpiUtSafeStrncpy (Op->Common.AmlOpName,
-        (AcpiPsGetOpcodeInfo (Opcode))->Name,
-        sizeof (Op->Common.AmlOpName)));
+    ACPI_DISASM_ONLY_MEMBERS(AcpiUtSafeStrncpy(Op->Common.AmlOpName,
+        (AcpiPsGetOpcodeInfo(Opcode))->Name,
+        sizeof(Op->Common.AmlOpName)));
 }
-
 
 /*******************************************************************************
  *
@@ -235,73 +228,59 @@ AcpiPsInitOp (
  ******************************************************************************/
 
 ACPI_PARSE_OBJECT*
-AcpiPsAllocOp (
-    UINT16                  Opcode,
-    UINT8                   *Aml)
+AcpiPsAllocOp(
+    UINT16 Opcode,
+    UINT8* Aml)
 {
-    ACPI_PARSE_OBJECT       *Op;
-    const ACPI_OPCODE_INFO  *OpInfo;
-    UINT8                   Flags = ACPI_PARSEOP_GENERIC;
+    ACPI_PARSE_OBJECT* Op;
+    const ACPI_OPCODE_INFO* OpInfo;
+    UINT8 Flags = ACPI_PARSEOP_GENERIC;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    OpInfo = AcpiPsGetOpcodeInfo (Opcode);
+    OpInfo = AcpiPsGetOpcodeInfo(Opcode);
 
     /* Determine type of ParseOp required */
 
-    if (OpInfo->Flags & AML_DEFER)
-    {
+    if (OpInfo->Flags & AML_DEFER) {
         Flags = ACPI_PARSEOP_DEFERRED;
-    }
-    else if (OpInfo->Flags & AML_NAMED)
-    {
+    } else if (OpInfo->Flags & AML_NAMED) {
         Flags = ACPI_PARSEOP_NAMED_OBJECT;
-    }
-    else if (Opcode == AML_INT_BYTELIST_OP)
-    {
+    } else if (Opcode == AML_INT_BYTELIST_OP) {
         Flags = ACPI_PARSEOP_BYTELIST;
     }
 
     /* Allocate the minimum required size object */
 
-    if (Flags == ACPI_PARSEOP_GENERIC)
-    {
+    if (Flags == ACPI_PARSEOP_GENERIC) {
         /* The generic op (default) is by far the most common (16 to 1) */
 
-        Op = AcpiOsAcquireObject (AcpiGbl_PsNodeCache);
-    }
-    else
-    {
+        Op = AcpiOsAcquireObject(AcpiGbl_PsNodeCache);
+    } else {
         /* Extended parseop */
 
-        Op = AcpiOsAcquireObject (AcpiGbl_PsNodeExtCache);
+        Op = AcpiOsAcquireObject(AcpiGbl_PsNodeExtCache);
     }
 
     /* Initialize the Op */
 
-    if (Op)
-    {
-        AcpiPsInitOp (Op, Opcode);
+    if (Op) {
+        AcpiPsInitOp(Op, Opcode);
         Op->Common.Aml = Aml;
         Op->Common.Flags = Flags;
         ASL_CV_CLEAR_OP_COMMENTS(Op);
 
-        if (Opcode == AML_SCOPE_OP)
-        {
+        if (Opcode == AML_SCOPE_OP) {
             AcpiGbl_CurrentScope = Op;
         }
 
-        if (AcpiGbl_CaptureComments)
-        {
-            ASL_CV_TRANSFER_COMMENTS (Op);
+        if (AcpiGbl_CaptureComments) {
+            ASL_CV_TRANSFER_COMMENTS(Op);
         }
     }
 
     return (Op);
 }
-
 
 /*******************************************************************************
  *
@@ -316,30 +295,23 @@ AcpiPsAllocOp (
  *
  ******************************************************************************/
 
-void
-AcpiPsFreeOp (
-    ACPI_PARSE_OBJECT       *Op)
+void AcpiPsFreeOp(
+    ACPI_PARSE_OBJECT* Op)
 {
-    ACPI_FUNCTION_NAME (PsFreeOp);
-
+    ACPI_FUNCTION_NAME(PsFreeOp);
 
     ASL_CV_CLEAR_OP_COMMENTS(Op);
-    if (Op->Common.AmlOpcode == AML_INT_RETURN_VALUE_OP)
-    {
-        ACPI_DEBUG_PRINT ((ACPI_DB_ALLOCATIONS,
+    if (Op->Common.AmlOpcode == AML_INT_RETURN_VALUE_OP) {
+        ACPI_DEBUG_PRINT((ACPI_DB_ALLOCATIONS,
             "Free retval op: %p\n", Op));
     }
 
-    if (Op->Common.Flags & ACPI_PARSEOP_GENERIC)
-    {
-        (void) AcpiOsReleaseObject (AcpiGbl_PsNodeCache, Op);
-    }
-    else
-    {
-        (void) AcpiOsReleaseObject (AcpiGbl_PsNodeExtCache, Op);
+    if (Op->Common.Flags & ACPI_PARSEOP_GENERIC) {
+        (void)AcpiOsReleaseObject(AcpiGbl_PsNodeCache, Op);
+    } else {
+        (void)AcpiOsReleaseObject(AcpiGbl_PsNodeExtCache, Op);
     }
 }
-
 
 /*******************************************************************************
  *
@@ -349,30 +321,27 @@ AcpiPsFreeOp (
  *
  ******************************************************************************/
 
-
 /*
  * Is "c" a namestring lead character?
  */
 BOOLEAN
-AcpiPsIsLeadingChar (
-    UINT32                  c)
+AcpiPsIsLeadingChar(
+    UINT32 c)
 {
-    return ((BOOLEAN) (c == '_' || (c >= 'A' && c <= 'Z')));
+    return ((BOOLEAN)(c == '_' || (c >= 'A' && c <= 'Z')));
 }
-
 
 /*
  * Get op's name (4-byte name segment) or 0 if unnamed
  */
 UINT32
-AcpiPsGetName (
-    ACPI_PARSE_OBJECT       *Op)
+AcpiPsGetName(
+    ACPI_PARSE_OBJECT* Op)
 {
 
     /* The "generic" object has no name associated with it */
 
-    if (Op->Common.Flags & ACPI_PARSEOP_GENERIC)
-    {
+    if (Op->Common.Flags & ACPI_PARSEOP_GENERIC) {
         return (0);
     }
 
@@ -381,20 +350,17 @@ AcpiPsGetName (
     return (Op->Named.Name);
 }
 
-
 /*
  * Set op's name
  */
-void
-AcpiPsSetName (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  name)
+void AcpiPsSetName(
+    ACPI_PARSE_OBJECT* Op,
+    UINT32 name)
 {
 
     /* The "generic" object has no name associated with it */
 
-    if (Op->Common.Flags & ACPI_PARSEOP_GENERIC)
-    {
+    if (Op->Common.Flags & ACPI_PARSEOP_GENERIC) {
         return;
     }
 

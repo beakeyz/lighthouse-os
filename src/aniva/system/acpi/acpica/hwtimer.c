@@ -151,12 +151,11 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_HARDWARE
-        ACPI_MODULE_NAME    ("hwtimer")
-
+#define _COMPONENT ACPI_HARDWARE
+ACPI_MODULE_NAME("hwtimer")
 
 #if (!ACPI_REDUCED_HARDWARE) /* Entire module */
 /******************************************************************************
@@ -172,31 +171,25 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetTimerResolution (
-    UINT32                  *Resolution)
+AcpiGetTimerResolution(
+    UINT32* Resolution)
 {
-    ACPI_FUNCTION_TRACE (AcpiGetTimerResolution);
+    ACPI_FUNCTION_TRACE(AcpiGetTimerResolution);
 
-
-    if (!Resolution)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!Resolution) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    if ((AcpiGbl_FADT.Flags & ACPI_FADT_32BIT_TIMER) == 0)
-    {
+    if ((AcpiGbl_FADT.Flags & ACPI_FADT_32BIT_TIMER) == 0) {
         *Resolution = 24;
-    }
-    else
-    {
+    } else {
         *Resolution = 32;
     }
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetTimerResolution)
-
+ACPI_EXPORT_SYMBOL(AcpiGetTimerResolution)
 
 /******************************************************************************
  *
@@ -211,41 +204,35 @@ ACPI_EXPORT_SYMBOL (AcpiGetTimerResolution)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetTimer (
-    UINT32                  *Ticks)
+AcpiGetTimer(
+    UINT32* Ticks)
 {
-    ACPI_STATUS             Status;
-    UINT64                  TimerValue;
+    ACPI_STATUS Status;
+    UINT64 TimerValue;
 
+    ACPI_FUNCTION_TRACE(AcpiGetTimer);
 
-    ACPI_FUNCTION_TRACE (AcpiGetTimer);
-
-
-    if (!Ticks)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!Ticks) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* ACPI 5.0A: PM Timer is optional */
 
-    if (!AcpiGbl_FADT.XPmTimerBlock.Address)
-    {
-        return_ACPI_STATUS (AE_SUPPORT);
+    if (!AcpiGbl_FADT.XPmTimerBlock.Address) {
+        return_ACPI_STATUS(AE_SUPPORT);
     }
 
-    Status = AcpiHwRead (&TimerValue, &AcpiGbl_FADT.XPmTimerBlock);
-    if (ACPI_SUCCESS (Status))
-    {
+    Status = AcpiHwRead(&TimerValue, &AcpiGbl_FADT.XPmTimerBlock);
+    if (ACPI_SUCCESS(Status)) {
         /* ACPI PM Timer is defined to be 32 bits (PM_TMR_LEN) */
 
-        *Ticks = (UINT32) TimerValue;
+        *Ticks = (UINT32)TimerValue;
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetTimer)
-
+ACPI_EXPORT_SYMBOL(AcpiGetTimer)
 
 /******************************************************************************
  *
@@ -277,35 +264,30 @@ ACPI_EXPORT_SYMBOL (AcpiGetTimer)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetTimerDuration (
-    UINT32                  StartTicks,
-    UINT32                  EndTicks,
-    UINT32                  *TimeElapsed)
+AcpiGetTimerDuration(
+    UINT32 StartTicks,
+    UINT32 EndTicks,
+    UINT32* TimeElapsed)
 {
-    ACPI_STATUS             Status;
-    UINT64                  DeltaTicks;
-    UINT64                  Quotient;
+    ACPI_STATUS Status;
+    UINT64 DeltaTicks;
+    UINT64 Quotient;
 
+    ACPI_FUNCTION_TRACE(AcpiGetTimerDuration);
 
-    ACPI_FUNCTION_TRACE (AcpiGetTimerDuration);
-
-
-    if (!TimeElapsed)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!TimeElapsed) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* ACPI 5.0A: PM Timer is optional */
 
-    if (!AcpiGbl_FADT.XPmTimerBlock.Address)
-    {
-        return_ACPI_STATUS (AE_SUPPORT);
+    if (!AcpiGbl_FADT.XPmTimerBlock.Address) {
+        return_ACPI_STATUS(AE_SUPPORT);
     }
 
-    if (StartTicks == EndTicks)
-    {
+    if (StartTicks == EndTicks) {
         *TimeElapsed = 0;
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
@@ -313,19 +295,15 @@ AcpiGetTimerDuration (
      * Handle (max one) timer rollovers on 24-bit versus 32-bit timers.
      */
     DeltaTicks = EndTicks;
-    if (StartTicks > EndTicks)
-    {
-        if ((AcpiGbl_FADT.Flags & ACPI_FADT_32BIT_TIMER) == 0)
-        {
+    if (StartTicks > EndTicks) {
+        if ((AcpiGbl_FADT.Flags & ACPI_FADT_32BIT_TIMER) == 0) {
             /* 24-bit Timer */
 
-            DeltaTicks |= (UINT64) 1 << 24;
-        }
-        else
-        {
+            DeltaTicks |= (UINT64)1 << 24;
+        } else {
             /* 32-bit Timer */
 
-            DeltaTicks |= (UINT64) 1 << 32;
+            DeltaTicks |= (UINT64)1 << 32;
         }
     }
     DeltaTicks -= StartTicks;
@@ -336,13 +314,13 @@ AcpiGetTimerDuration (
      * TimeElapsed (microseconds) =
      *  (DeltaTicks * ACPI_USEC_PER_SEC) / ACPI_PM_TIMER_FREQUENCY;
      */
-    Status = AcpiUtShortDivide (DeltaTicks * ACPI_USEC_PER_SEC,
-                ACPI_PM_TIMER_FREQUENCY, &Quotient, NULL);
+    Status = AcpiUtShortDivide(DeltaTicks * ACPI_USEC_PER_SEC,
+        ACPI_PM_TIMER_FREQUENCY, &Quotient, NULL);
 
-    *TimeElapsed = (UINT32) Quotient;
-    return_ACPI_STATUS (Status);
+    *TimeElapsed = (UINT32)Quotient;
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetTimerDuration)
+ACPI_EXPORT_SYMBOL(AcpiGetTimerDuration)
 
 #endif /* !ACPI_REDUCED_HARDWARE */

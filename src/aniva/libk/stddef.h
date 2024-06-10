@@ -8,31 +8,31 @@
  * Not exactly sure though, so I'll have to verify...
  */
 
-typedef signed              char    int8_t;
-typedef unsigned            char    uint8_t;
-typedef signed              short   int16_t;
-typedef unsigned            short   uint16_t;
-typedef signed              int     int32_t;
-typedef unsigned            int     uint32_t;
-typedef long long signed    int     int64_t;
-typedef long long unsigned  int     uint64_t;
-typedef unsigned            int     uint_t;
+typedef signed char int8_t;
+typedef unsigned char uint8_t;
+typedef signed short int16_t;
+typedef unsigned short uint16_t;
+typedef signed int int32_t;
+typedef unsigned int uint32_t;
+typedef long long signed int int64_t;
+typedef long long unsigned int uint64_t;
+typedef unsigned int uint_t;
 
-typedef uint64_t                    size_t;
-typedef int64_t                     ssize_t;
-typedef uint64_t                    uintptr_t;
-typedef uint8_t                     bool;
+typedef uint64_t size_t;
+typedef int64_t ssize_t;
+typedef uint64_t uintptr_t;
+typedef uint8_t bool;
 
-typedef uintptr_t                   vaddr_t;
-typedef uintptr_t                   paddr_t;
+typedef uintptr_t vaddr_t;
+typedef uintptr_t paddr_t;
 
-typedef __builtin_va_list        va_list;
+typedef __builtin_va_list va_list;
 
 typedef void (*FuncPtr)();
 
 /* Marks everything that comes from userspace and should thus be checked */
 #ifndef __user
-  #define __user
+#define __user
 #endif
 
 #define FuncPtrWith(type, name) type (*name)()
@@ -43,7 +43,7 @@ typedef void (*FuncPtr)();
 #define true 1
 #define false 0
 
-/* Support macros to help label owned and unowned pointers 
+/* Support macros to help label owned and unowned pointers
    Use it not enforced, rather strongly recommended */
 #define OWNED
 #define UNOWNED
@@ -63,20 +63,20 @@ typedef void (*FuncPtr)();
 #define STATIC_CAST(type, value) ((type)(value))
 #define DYNAMIC_CAST(type, value) (*(type*)&(value))
 
-#define va_start(ap, pN)    \
-  __builtin_va_start(ap, pN)
+#define va_start(ap, pN) \
+    __builtin_va_start(ap, pN)
 
-#define va_end(ap)          \
-  __builtin_va_end(ap)
+#define va_end(ap) \
+    __builtin_va_end(ap)
 
-#define va_arg(ap, t)       \
-  __builtin_va_arg(ap, t)
+#define va_arg(ap, t) \
+    __builtin_va_arg(ap, t)
 
 #define arrlen(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
 #define Kib 1024
-#define Mib Kib * Kib
-#define Gib Mib * Kib
-#define Tib Gib * Kib
+#define Mib Kib* Kib
+#define Gib Mib* Kib
+#define Tib Gib* Kib
 
 #endif // !__STDDEF__

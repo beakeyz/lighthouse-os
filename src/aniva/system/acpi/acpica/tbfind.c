@@ -149,13 +149,12 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 #include "actables.h"
 
-#define _COMPONENT          ACPI_TABLES
-        ACPI_MODULE_NAME    ("tbfind")
-
+#define _COMPONENT ACPI_TABLES
+ACPI_MODULE_NAME("tbfind")
 
 /*******************************************************************************
  *
@@ -175,50 +174,43 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiTbFindTable (
-    char                    *Signature,
-    char                    *OemId,
-    char                    *OemTableId,
-    UINT32                  *TableIndex)
+AcpiTbFindTable(
+    char* Signature,
+    char* OemId,
+    char* OemTableId,
+    UINT32* TableIndex)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_TABLE_HEADER       Header;
-    UINT32                  i;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_TABLE_HEADER Header;
+    UINT32 i;
 
-
-    ACPI_FUNCTION_TRACE (TbFindTable);
-
+    ACPI_FUNCTION_TRACE(TbFindTable);
 
     /* Validate the input table signature */
 
-    if (!AcpiUtValidNameseg (Signature))
-    {
-        return_ACPI_STATUS (AE_BAD_SIGNATURE);
+    if (!AcpiUtValidNameseg(Signature)) {
+        return_ACPI_STATUS(AE_BAD_SIGNATURE);
     }
 
     /* Don't allow the OEM strings to be too long */
 
-    if ((strlen (OemId) > ACPI_OEM_ID_SIZE) ||
-        (strlen (OemTableId) > ACPI_OEM_TABLE_ID_SIZE))
-    {
-        return_ACPI_STATUS (AE_AML_STRING_LIMIT);
+    if ((strlen(OemId) > ACPI_OEM_ID_SIZE) || (strlen(OemTableId) > ACPI_OEM_TABLE_ID_SIZE)) {
+        return_ACPI_STATUS(AE_AML_STRING_LIMIT);
     }
 
     /* Normalize the input strings */
 
-    memset (&Header, 0, sizeof (ACPI_TABLE_HEADER));
-    ACPI_COPY_NAMESEG (Header.Signature, Signature);
-    strncpy (Header.OemId, OemId, ACPI_OEM_ID_SIZE);
-    strncpy (Header.OemTableId, OemTableId, ACPI_OEM_TABLE_ID_SIZE);
+    memset(&Header, 0, sizeof(ACPI_TABLE_HEADER));
+    ACPI_COPY_NAMESEG(Header.Signature, Signature);
+    strncpy(Header.OemId, OemId, ACPI_OEM_ID_SIZE);
+    strncpy(Header.OemTableId, OemTableId, ACPI_OEM_TABLE_ID_SIZE);
 
     /* Search for the table */
 
-    (void) AcpiUtAcquireMutex (ACPI_MTX_TABLES);
-    for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; ++i)
-    {
-        if (memcmp (&(AcpiGbl_RootTableList.Tables[i].Signature),
-            Header.Signature, ACPI_NAMESEG_SIZE))
-        {
+    (void)AcpiUtAcquireMutex(ACPI_MTX_TABLES);
+    for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; ++i) {
+        if (memcmp(&(AcpiGbl_RootTableList.Tables[i].Signature),
+                Header.Signature, ACPI_NAMESEG_SIZE)) {
             /* Not the requested table */
 
             continue;
@@ -226,36 +218,27 @@ AcpiTbFindTable (
 
         /* Table with matching signature has been found */
 
-        if (!AcpiGbl_RootTableList.Tables[i].Pointer)
-        {
+        if (!AcpiGbl_RootTableList.Tables[i].Pointer) {
             /* Table is not currently mapped, map it */
 
-            Status = AcpiTbValidateTable (&AcpiGbl_RootTableList.Tables[i]);
-            if (ACPI_FAILURE (Status))
-            {
+            Status = AcpiTbValidateTable(&AcpiGbl_RootTableList.Tables[i]);
+            if (ACPI_FAILURE(Status)) {
                 goto UnlockAndExit;
             }
 
-            if (!AcpiGbl_RootTableList.Tables[i].Pointer)
-            {
+            if (!AcpiGbl_RootTableList.Tables[i].Pointer) {
                 continue;
             }
         }
 
         /* Check for table match on all IDs */
 
-        if (!memcmp (AcpiGbl_RootTableList.Tables[i].Pointer->Signature,
-                Header.Signature, ACPI_NAMESEG_SIZE) &&
-            (!OemId[0] ||
-             !memcmp (AcpiGbl_RootTableList.Tables[i].Pointer->OemId,
-                 Header.OemId, ACPI_OEM_ID_SIZE)) &&
-            (!OemTableId[0] ||
-             !memcmp (AcpiGbl_RootTableList.Tables[i].Pointer->OemTableId,
-                 Header.OemTableId, ACPI_OEM_TABLE_ID_SIZE)))
-        {
+        if (!memcmp(AcpiGbl_RootTableList.Tables[i].Pointer->Signature,
+                Header.Signature, ACPI_NAMESEG_SIZE)
+            && (!OemId[0] || !memcmp(AcpiGbl_RootTableList.Tables[i].Pointer->OemId, Header.OemId, ACPI_OEM_ID_SIZE)) && (!OemTableId[0] || !memcmp(AcpiGbl_RootTableList.Tables[i].Pointer->OemTableId, Header.OemTableId, ACPI_OEM_TABLE_ID_SIZE))) {
             *TableIndex = i;
 
-            ACPI_DEBUG_PRINT ((ACPI_DB_TABLES, "Found table [%4.4s]\n",
+            ACPI_DEBUG_PRINT((ACPI_DB_TABLES, "Found table [%4.4s]\n",
                 Header.Signature));
             goto UnlockAndExit;
         }
@@ -263,6 +246,6 @@ AcpiTbFindTable (
     Status = AE_NOT_FOUND;
 
 UnlockAndExit:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_TABLES);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_TABLES);
+    return_ACPI_STATUS(Status);
 }

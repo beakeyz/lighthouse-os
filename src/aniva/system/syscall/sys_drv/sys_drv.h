@@ -1,8 +1,8 @@
 #ifndef __ANIVA_SYS_IOCTL__
 #define __ANIVA_SYS_IOCTL__
+#include "dev/core.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/var_types.h"
-#include "dev/core.h"
 #include <libk/stddef.h>
 
 #include <lightos/driver/ctl.h>

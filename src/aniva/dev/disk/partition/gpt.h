@@ -15,36 +15,36 @@
 // The first hals is big endian
 // The second half is small endian
 typedef struct gpt_partition_type {
-  uint8_t m_guid[16];
-  char m_name[72];
+    uint8_t m_guid[16];
+    char m_name[72];
 } gpt_partition_type_t;
 
-static ALWAYS_INLINE void gpt_part_type_decode_name(gpt_partition_type_t* type) {
-  uintptr_t index = 0;
-  char decoded_name[72] = {0};
+static ALWAYS_INLINE void gpt_part_type_decode_name(gpt_partition_type_t* type)
+{
+    uintptr_t index = 0;
+    char decoded_name[72] = { 0 };
 
-  for (uintptr_t i = 0; i < 72; i++) {
-    if (type->m_name[i]) {
-      decoded_name[index] = type->m_name[i];
-      index++;
+    for (uintptr_t i = 0; i < 72; i++) {
+        if (type->m_name[i]) {
+            decoded_name[index] = type->m_name[i];
+            index++;
+        }
     }
-  }
 
-  memcpy(type->m_name, decoded_name, 72);
+    memcpy(type->m_name, decoded_name, 72);
 }
 
-
 typedef struct gpt_partition {
-  // TODO:
-  gpt_partition_type_t m_type;
+    // TODO:
+    gpt_partition_type_t m_type;
 
-  // Path how we can find this partition through 
-  // Its parent device
-  char* m_path;
-  uintptr_t m_index;
+    // Path how we can find this partition through
+    // Its parent device
+    char* m_path;
+    uintptr_t m_index;
 
-  uint64_t m_start_lba;
-  uint64_t m_end_lba;
+    uint64_t m_start_lba;
+    uint64_t m_end_lba;
 } gpt_partition_t;
 
 typedef struct gpt_partition_entry {
@@ -80,12 +80,12 @@ typedef struct gpt_partition_header {
 } __attribute__((packed)) gpt_partition_header_t;
 
 typedef struct gpt_table {
-  gpt_partition_header_t m_header;
+    gpt_partition_header_t m_header;
 
-  size_t m_partition_count;
+    size_t m_partition_count;
 
-  disk_dev_t* m_device;
-  list_t* m_partitions;
+    disk_dev_t* m_device;
+    list_t* m_partitions;
 } gpt_table_t;
 
 gpt_table_t* create_gpt_table(disk_dev_t* device);

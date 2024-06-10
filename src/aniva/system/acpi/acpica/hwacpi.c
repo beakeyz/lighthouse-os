@@ -149,13 +149,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_HARDWARE
-        ACPI_MODULE_NAME    ("hwacpi")
-
+#define _COMPONENT ACPI_HARDWARE
+ACPI_MODULE_NAME("hwacpi")
 
 #if (!ACPI_REDUCED_HARDWARE) /* Entire module */
 /******************************************************************************
@@ -171,32 +169,28 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwSetMode (
-    UINT32                  Mode)
+AcpiHwSetMode(
+    UINT32 Mode)
 {
 
-    ACPI_STATUS             Status;
-    UINT32                  Retry;
+    ACPI_STATUS Status;
+    UINT32 Retry;
 
-
-    ACPI_FUNCTION_TRACE (HwSetMode);
-
+    ACPI_FUNCTION_TRACE(HwSetMode);
 
     /* If the Hardware Reduced flag is set, machine is always in acpi mode */
 
-    if (AcpiGbl_ReducedHardware)
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (AcpiGbl_ReducedHardware) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
      * ACPI 2.0 clarified that if SMI_CMD in FADT is zero,
      * system does not support mode transition.
      */
-    if (!AcpiGbl_FADT.SmiCommand)
-    {
-        ACPI_ERROR ((AE_INFO, "No SMI_CMD in FADT, mode transition failed"));
-        return_ACPI_STATUS (AE_NO_HARDWARE_RESPONSE);
+    if (!AcpiGbl_FADT.SmiCommand) {
+        ACPI_ERROR((AE_INFO, "No SMI_CMD in FADT, mode transition failed"));
+        return_ACPI_STATUS(AE_NO_HARDWARE_RESPONSE);
     }
 
     /*
@@ -206,23 +200,21 @@ AcpiHwSetMode (
      * we make sure both the numbers are zero to determine these
      * transitions are not supported.
      */
-    if (!AcpiGbl_FADT.AcpiEnable && !AcpiGbl_FADT.AcpiDisable)
-    {
-        ACPI_ERROR ((AE_INFO,
+    if (!AcpiGbl_FADT.AcpiEnable && !AcpiGbl_FADT.AcpiDisable) {
+        ACPI_ERROR((AE_INFO,
             "No ACPI mode transition supported in this system "
             "(enable/disable both zero)"));
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
-    switch (Mode)
-    {
+    switch (Mode) {
     case ACPI_SYS_MODE_ACPI:
 
         /* BIOS should have disabled ALL fixed and GP events */
 
-        Status = AcpiHwWritePort (AcpiGbl_FADT.SmiCommand,
-            (UINT32) AcpiGbl_FADT.AcpiEnable, 8);
-        ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Attempting to enable ACPI mode\n"));
+        Status = AcpiHwWritePort(AcpiGbl_FADT.SmiCommand,
+            (UINT32)AcpiGbl_FADT.AcpiEnable, 8);
+        ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Attempting to enable ACPI mode\n"));
         break;
 
     case ACPI_SYS_MODE_LEGACY:
@@ -230,22 +222,21 @@ AcpiHwSetMode (
          * BIOS should clear all fixed status bits and restore fixed event
          * enable bits to default
          */
-        Status = AcpiHwWritePort (AcpiGbl_FADT.SmiCommand,
-            (UINT32) AcpiGbl_FADT.AcpiDisable, 8);
-        ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
+        Status = AcpiHwWritePort(AcpiGbl_FADT.SmiCommand,
+            (UINT32)AcpiGbl_FADT.AcpiDisable, 8);
+        ACPI_DEBUG_PRINT((ACPI_DB_INFO,
             "Attempting to enable Legacy (non-ACPI) mode\n"));
         break;
 
     default:
 
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_EXCEPTION ((AE_INFO, Status,
+    if (ACPI_FAILURE(Status)) {
+        ACPI_EXCEPTION((AE_INFO, Status,
             "Could not write ACPI mode change"));
-        return_ACPI_STATUS (Status);
+        return_ACPI_STATUS(Status);
     }
 
     /*
@@ -253,22 +244,19 @@ AcpiHwSetMode (
      * do so, but allow faster systems to proceed more quickly.
      */
     Retry = 3000;
-    while (Retry)
-    {
-        if (AcpiHwGetMode () == Mode)
-        {
-            ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
+    while (Retry) {
+        if (AcpiHwGetMode() == Mode) {
+            ACPI_DEBUG_PRINT((ACPI_DB_INFO,
                 "Mode %X successfully enabled\n", Mode));
-            return_ACPI_STATUS (AE_OK);
+            return_ACPI_STATUS(AE_OK);
         }
-        AcpiOsStall (ACPI_USEC_PER_MSEC);
+        AcpiOsStall(ACPI_USEC_PER_MSEC);
         Retry--;
     }
 
-    ACPI_ERROR ((AE_INFO, "Hardware did not change modes"));
-    return_ACPI_STATUS (AE_NO_HARDWARE_RESPONSE);
+    ACPI_ERROR((AE_INFO, "Hardware did not change modes"));
+    return_ACPI_STATUS(AE_NO_HARDWARE_RESPONSE);
 }
-
 
 /*******************************************************************************
  *
@@ -284,45 +272,37 @@ AcpiHwSetMode (
  ******************************************************************************/
 
 UINT32
-AcpiHwGetMode (
+AcpiHwGetMode(
     void)
 {
-    ACPI_STATUS             Status;
-    UINT32                  Value;
+    ACPI_STATUS Status;
+    UINT32 Value;
 
-
-    ACPI_FUNCTION_TRACE (HwGetMode);
-
+    ACPI_FUNCTION_TRACE(HwGetMode);
 
     /* If the Hardware Reduced flag is set, machine is always in acpi mode */
 
-    if (AcpiGbl_ReducedHardware)
-    {
-        return_UINT32 (ACPI_SYS_MODE_ACPI);
+    if (AcpiGbl_ReducedHardware) {
+        return_UINT32(ACPI_SYS_MODE_ACPI);
     }
 
     /*
      * ACPI 2.0 clarified that if SMI_CMD in FADT is zero,
      * system does not support mode transition.
      */
-    if (!AcpiGbl_FADT.SmiCommand)
-    {
-        return_UINT32 (ACPI_SYS_MODE_ACPI);
+    if (!AcpiGbl_FADT.SmiCommand) {
+        return_UINT32(ACPI_SYS_MODE_ACPI);
     }
 
-    Status = AcpiReadBitRegister (ACPI_BITREG_SCI_ENABLE, &Value);
-    if (ACPI_FAILURE (Status))
-    {
-        return_UINT32 (ACPI_SYS_MODE_LEGACY);
+    Status = AcpiReadBitRegister(ACPI_BITREG_SCI_ENABLE, &Value);
+    if (ACPI_FAILURE(Status)) {
+        return_UINT32(ACPI_SYS_MODE_LEGACY);
     }
 
-    if (Value)
-    {
-        return_UINT32 (ACPI_SYS_MODE_ACPI);
-    }
-    else
-    {
-        return_UINT32 (ACPI_SYS_MODE_LEGACY);
+    if (Value) {
+        return_UINT32(ACPI_SYS_MODE_ACPI);
+    } else {
+        return_UINT32(ACPI_SYS_MODE_LEGACY);
     }
 }
 

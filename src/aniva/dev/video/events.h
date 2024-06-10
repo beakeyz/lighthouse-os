@@ -4,18 +4,18 @@
 struct video_device;
 
 enum VDEV_EVENT_TYPE {
-  VDEV_EVENT_REMOVE,
-  VDEV_EVENT_REGISTER,
-  VDEV_EVENT_VBLANK,
+    VDEV_EVENT_REMOVE,
+    VDEV_EVENT_REGISTER,
+    VDEV_EVENT_VBLANK,
 };
 
 /*
  * The base context used in every vdev event
  */
 typedef struct vdev_event_ctx {
-  enum VDEV_EVENT_TYPE type;
+    enum VDEV_EVENT_TYPE type;
 
-  struct video_device* device;
+    struct video_device* device;
 } vdev_event_ctx_t;
 
 #endif // !__ANIVA_VIDEO_DEVICE_EVENTS__

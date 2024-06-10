@@ -6,6 +6,6 @@
  */
 LIGHTENTRY int gfxlibentry(void)
 {
-  printf("Initialized gfxlib!\n");
-  return 0;
+    printf("Initialized gfxlib!\n");
+    return 0;
 }

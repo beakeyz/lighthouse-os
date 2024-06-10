@@ -11,17 +11,17 @@ struct drv_manifest;
 struct dgroup;
 
 typedef struct ahci_device {
-  pci_device_t* m_identifier;
+    pci_device_t* m_identifier;
 
-  volatile HBA* m_hba_region;
-  list_t* m_ports;
+    volatile HBA* m_hba_region;
+    list_t* m_ports;
 
-  uint32_t m_idx;
-  uint32_t m_used_ports;
-  uint32_t m_available_ports;
+    uint32_t m_idx;
+    uint32_t m_used_ports;
+    uint32_t m_available_ports;
 
-  struct drv_manifest* m_parent;
-  struct ahci_device* m_next;
+    struct drv_manifest* m_parent;
+    struct ahci_device* m_next;
 } ahci_device_t;
 
 ahci_device_t* create_ahci_device(pci_device_t* identifier);

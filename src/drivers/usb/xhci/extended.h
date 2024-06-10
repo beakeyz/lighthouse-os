@@ -12,17 +12,17 @@
 #define XHCI_EXT_CAPS_LEGACY 1
 
 #define XHCI_EXT_CAPS_PROTOCOLS 2
-#define XHCI_EXT_CAPS_PROTOCOLS_0_MINOR(x)	(((x) >> 16) & 0xff)
-#define XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(x)	(((x) >> 24) & 0xff)
-#define XHCI_EXT_CAPS_PROTOCOLS_1_COUNT(x)	(((x) >> 8) & 0xff)
-#define XHCI_EXT_CAPS_PROTOCOLS_1_OFFSET(x)	(((x) >> 0) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_0_MINOR(x) (((x) >> 16) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_0_MAJOR(x) (((x) >> 24) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_1_COUNT(x) (((x) >> 8) & 0xff)
+#define XHCI_EXT_CAPS_PROTOCOLS_1_OFFSET(x) (((x) >> 0) & 0xff)
 
 #define XHCI_EXT_CAPS_PM 3
 #define XHCI_EXT_CAPS_VIRT 4
 #define XHCI_EXT_CAPS_ROUTE 5
 
-#define XHCI_HC_BIOS_OWNED (1<<16)
-#define XHCI_HC_OS_OWNED (1<<24)
+#define XHCI_HC_BIOS_OWNED (1 << 16)
+#define XHCI_HC_OS_OWNED (1 << 24)
 
 #define XHCI_LEGACY_SUPP_OFF (0x00)
 #define XHCI_LEGACY_CTL_OFF (0x04)

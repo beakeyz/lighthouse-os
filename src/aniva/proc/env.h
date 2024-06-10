@@ -15,16 +15,16 @@ struct user_profile;
  * Groups processes together, which share privileges, ctlvars, ect.
  */
 typedef struct penv {
-  const char* label;
-  uint16_t flags;
-  /* This goes from 0x00 to 0xff. Anything beyond that is considered invalid */
-  uint16_t priv_level;
-  uint32_t proc_count;
+    const char* label;
+    uint16_t flags;
+    /* This goes from 0x00 to 0xff. Anything beyond that is considered invalid */
+    uint16_t priv_level;
+    uint32_t proc_count;
 
-  mutex_t* lock;
+    mutex_t* lock;
 
-  struct oss_node* node;
-  struct user_profile* profile;
+    struct oss_node* node;
+    struct user_profile* profile;
 } penv_t;
 
 penv_t* create_penv(const char* label, uint32_t priv_level, uint32_t flags);

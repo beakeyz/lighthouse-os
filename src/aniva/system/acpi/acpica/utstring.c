@@ -149,14 +149,12 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utstring")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utstring")
 
 /*******************************************************************************
  *
@@ -173,97 +171,87 @@
  *
  ******************************************************************************/
 
-void
-AcpiUtPrintString (
-    char                    *String,
-    UINT16                  MaxLength)
+void AcpiUtPrintString(
+    char* String,
+    UINT16 MaxLength)
 {
-    UINT32                  i;
+    UINT32 i;
 
-
-    if (!String)
-    {
-        AcpiOsPrintf ("<\"NULL STRING PTR\">");
+    if (!String) {
+        AcpiOsPrintf("<\"NULL STRING PTR\">");
         return;
     }
 
-    AcpiOsPrintf ("\"");
-    for (i = 0; (i < MaxLength) && String[i]; i++)
-    {
+    AcpiOsPrintf("\"");
+    for (i = 0; (i < MaxLength) && String[i]; i++) {
         /* Escape sequences */
 
-        switch (String[i])
-        {
+        switch (String[i]) {
         case 0x07:
 
-            AcpiOsPrintf ("\\a");       /* BELL */
+            AcpiOsPrintf("\\a"); /* BELL */
             break;
 
         case 0x08:
 
-            AcpiOsPrintf ("\\b");       /* BACKSPACE */
+            AcpiOsPrintf("\\b"); /* BACKSPACE */
             break;
 
         case 0x0C:
 
-            AcpiOsPrintf ("\\f");       /* FORMFEED */
+            AcpiOsPrintf("\\f"); /* FORMFEED */
             break;
 
         case 0x0A:
 
-            AcpiOsPrintf ("\\n");       /* LINEFEED */
+            AcpiOsPrintf("\\n"); /* LINEFEED */
             break;
 
         case 0x0D:
 
-            AcpiOsPrintf ("\\r");       /* CARRIAGE RETURN*/
+            AcpiOsPrintf("\\r"); /* CARRIAGE RETURN*/
             break;
 
         case 0x09:
 
-            AcpiOsPrintf ("\\t");       /* HORIZONTAL TAB */
+            AcpiOsPrintf("\\t"); /* HORIZONTAL TAB */
             break;
 
         case 0x0B:
 
-            AcpiOsPrintf ("\\v");       /* VERTICAL TAB */
+            AcpiOsPrintf("\\v"); /* VERTICAL TAB */
             break;
 
-        case '\'':                      /* Single Quote */
-        case '\"':                      /* Double Quote */
-        case '\\':                      /* Backslash */
+        case '\'': /* Single Quote */
+        case '\"': /* Double Quote */
+        case '\\': /* Backslash */
 
-            AcpiOsPrintf ("\\%c", (int) String[i]);
+            AcpiOsPrintf("\\%c", (int)String[i]);
             break;
 
         default:
 
             /* Check for printable character or hex escape */
 
-            if (isprint ((int) String[i]))
-            {
+            if (isprint((int)String[i])) {
                 /* This is a normal character */
 
-                AcpiOsPrintf ("%c", (int) String[i]);
-            }
-            else
-            {
+                AcpiOsPrintf("%c", (int)String[i]);
+            } else {
                 /* All others will be Hex escapes */
 
-                AcpiOsPrintf ("\\x%2.2X", (INT32) String[i]);
+                AcpiOsPrintf("\\x%2.2X", (INT32)String[i]);
             }
             break;
         }
     }
 
-    AcpiOsPrintf ("\"");
+    AcpiOsPrintf("\"");
 
-    if (i == MaxLength && String[i])
-    {
-        AcpiOsPrintf ("...");
+    if (i == MaxLength && String[i]) {
+        AcpiOsPrintf("...");
     }
 }
-
 
 /*******************************************************************************
  *
@@ -287,35 +275,29 @@ AcpiUtPrintString (
  *
  ******************************************************************************/
 
-void
-AcpiUtRepairName (
-    char                    *Name)
+void AcpiUtRepairName(
+    char* Name)
 {
-    UINT32                  i;
-    BOOLEAN                 FoundBadChar = FALSE;
-    UINT32                  OriginalName;
+    UINT32 i;
+    BOOLEAN FoundBadChar = FALSE;
+    UINT32 OriginalName;
 
-
-    ACPI_FUNCTION_NAME (UtRepairName);
-
+    ACPI_FUNCTION_NAME(UtRepairName);
 
     /*
      * Special case for the root node. This can happen if we get an
      * error during the execution of module-level code.
      */
-    if (ACPI_COMPARE_NAMESEG (Name, ACPI_ROOT_PATHNAME))
-    {
+    if (ACPI_COMPARE_NAMESEG(Name, ACPI_ROOT_PATHNAME)) {
         return;
     }
 
-    ACPI_COPY_NAMESEG (&OriginalName, &Name[0]);
+    ACPI_COPY_NAMESEG(&OriginalName, &Name[0]);
 
     /* Check each character in the name */
 
-    for (i = 0; i < ACPI_NAMESEG_SIZE; i++)
-    {
-        if (AcpiUtValidNameChar (Name[i], i))
-        {
+    for (i = 0; i < ACPI_NAMESEG_SIZE; i++) {
+        if (AcpiUtValidNameChar(Name[i], i)) {
             continue;
         }
 
@@ -328,25 +310,20 @@ AcpiUtRepairName (
         FoundBadChar = TRUE;
     }
 
-    if (FoundBadChar)
-    {
+    if (FoundBadChar) {
         /* Report warning only if in strict mode or debug mode */
 
-        if (!AcpiGbl_EnableInterpreterSlack)
-        {
-            ACPI_WARNING ((AE_INFO,
+        if (!AcpiGbl_EnableInterpreterSlack) {
+            ACPI_WARNING((AE_INFO,
                 "Invalid character(s) in name (0x%.8X) %p, repaired: [%s]",
                 OriginalName, Name, &Name[0]));
-        }
-        else
-        {
-            ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
+        } else {
+            ACPI_DEBUG_PRINT((ACPI_DB_INFO,
                 "Invalid character(s) in name (0x%.8X), repaired: [%4.4s]",
                 OriginalName, Name));
         }
     }
 }
-
 
 #if defined ACPI_ASL_COMPILER || defined ACPI_EXEC_APP
 /*******************************************************************************
@@ -362,20 +339,16 @@ AcpiUtRepairName (
  *
  ******************************************************************************/
 
-void
-UtConvertBackslashes (
-    char                    *Pathname)
+void UtConvertBackslashes(
+    char* Pathname)
 {
 
-    if (!Pathname)
-    {
+    if (!Pathname) {
         return;
     }
 
-    while (*Pathname)
-    {
-        if (*Pathname == '\\')
-        {
+    while (*Pathname) {
+        if (*Pathname == '\\') {
             *Pathname = '/';
         }
 

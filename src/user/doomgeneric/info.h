@@ -24,8 +24,7 @@
 // Needed for action function pointer handling.
 #include "d_think.h"
 
-typedef enum
-{
+typedef enum {
     SPR_TROO,
     SPR_SHTG,
     SPR_PUNG,
@@ -168,8 +167,7 @@ typedef enum
 
 } spritenum_t;
 
-typedef enum
-{
+typedef enum {
     S_NULL,
     S_LIGHTDONE,
     S_PUNCH,
@@ -1140,7 +1138,6 @@ typedef enum
     NUMSTATES
 } statenum_t;
 
-
 typedef struct
 {
     spritenum_t sprite;
@@ -1153,8 +1150,8 @@ typedef struct
     int misc2;
 } state_t;
 
-extern state_t	states[NUMSTATES];
-extern char *sprnames[];
+extern state_t states[NUMSTATES];
+extern char* sprnames[];
 
 typedef enum {
     MT_PLAYER,
@@ -1300,29 +1297,29 @@ typedef enum {
 
 typedef struct
 {
-    int	doomednum;
-    int	spawnstate;
-    int	spawnhealth;
-    int	seestate;
-    int	seesound;
-    int	reactiontime;
-    int	attacksound;
-    int	painstate;
-    int	painchance;
-    int	painsound;
-    int	meleestate;
-    int	missilestate;
-    int	deathstate;
-    int	xdeathstate;
-    int	deathsound;
-    int	speed;
-    int	radius;
-    int	height;
-    int	mass;
-    int	damage;
-    int	activesound;
-    int	flags;
-    int	raisestate;
+    int doomednum;
+    int spawnstate;
+    int spawnhealth;
+    int seestate;
+    int seesound;
+    int reactiontime;
+    int attacksound;
+    int painstate;
+    int painchance;
+    int painsound;
+    int meleestate;
+    int missilestate;
+    int deathstate;
+    int xdeathstate;
+    int deathsound;
+    int speed;
+    int radius;
+    int height;
+    int mass;
+    int damage;
+    int activesound;
+    int flags;
+    int raisestate;
 
 } mobjinfo_t;
 

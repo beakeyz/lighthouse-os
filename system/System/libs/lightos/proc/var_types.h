@@ -9,13 +9,13 @@
  * FIXME: we should make this naming sceme consistent with PVAR_FLAG___ naming
  */
 enum SYSVAR_TYPE {
-  SYSVAR_TYPE_UNSET = 0,
+    SYSVAR_TYPE_UNSET = 0,
 
-  SYSVAR_TYPE_STRING,
-  SYSVAR_TYPE_BYTE,
-  SYSVAR_TYPE_WORD,
-  SYSVAR_TYPE_DWORD,
-  SYSVAR_TYPE_QWORD,
+    SYSVAR_TYPE_STRING,
+    SYSVAR_TYPE_BYTE,
+    SYSVAR_TYPE_WORD,
+    SYSVAR_TYPE_DWORD,
+    SYSVAR_TYPE_QWORD,
 };
 
 /* Open for anyone to read */
@@ -44,10 +44,10 @@ enum SYSVAR_TYPE {
 #define SYSVAR_SIG "PvR]"
 
 typedef struct pvr_file_header {
-  const char sign[4];
-  uint32_t kernel_version;
-  uint32_t strtab_offset;
-  uint32_t varbuf_offset;
+    const char sign[4];
+    uint32_t kernel_version;
+    uint32_t strtab_offset;
+    uint32_t varbuf_offset;
 } pvr_file_header_t;
 
 /*
@@ -56,32 +56,32 @@ typedef struct pvr_file_header {
  * table only holds qword values
  */
 typedef struct pvr_file_var {
-  uint32_t key_off;
-  uint32_t var_flags;
-  enum SYSVAR_TYPE var_type;
-  uint64_t var_value;
+    uint32_t key_off;
+    uint32_t var_flags;
+    enum SYSVAR_TYPE var_type;
+    uint64_t var_value;
 } pvr_file_var_t;
 
 #define PVR_VAR_ISUSED(pvr_var) ((pvr_var)->key_off == 0 && (pvr_var)->var_type != SYSVAR_TYPE_UNSET)
 
 typedef struct pvr_file_var_buffer {
-  uint64_t next_valbuffer;
-  uint32_t var_count;
-  uint32_t var_capacity;
-  pvr_file_var_t variables[];
+    uint64_t next_valbuffer;
+    uint32_t var_count;
+    uint32_t var_capacity;
+    pvr_file_var_t variables[];
 } pvr_file_var_buffer_t;
 
 /* TODO: Upgrade this shit */
 typedef struct pvr_file_strtab_entry {
-  uint16_t len;
-  char str[];
+    uint16_t len;
+    char str[];
 } pvr_file_strtab_entry_t;
 
 typedef struct pvr_file_strtab {
-  uint32_t next_valtab_off;
-  uint32_t bytecount;
-  /* All entries are combined into a single string and seperated by null-bytes */
-  pvr_file_strtab_entry_t entries[];
+    uint32_t next_valtab_off;
+    uint32_t bytecount;
+    /* All entries are combined into a single string and seperated by null-bytes */
+    pvr_file_strtab_entry_t entries[];
 } pvr_file_strtab_t;
 
 #endif // !__LIGHTENV_SYS_VAR_TYPES__

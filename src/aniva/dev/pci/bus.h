@@ -5,16 +5,16 @@
 struct device;
 
 typedef struct pci_bus {
-  struct pci_bus* m_parent;
-  struct device *dev;
+    struct pci_bus* m_parent;
+    struct device* dev;
 
-  uint8_t start_bus;
-  uint8_t end_bus;
-  uint32_t base_addr;
-  uint32_t index;
+    uint8_t start_bus;
+    uint8_t end_bus;
+    uint32_t base_addr;
+    uint32_t index;
 
-  bool is_mapped;
-  void* mapped_base;
+    bool is_mapped;
+    void* mapped_base;
 } pci_bus_t;
 
 void init_pci_bus();
@@ -32,8 +32,8 @@ uint32_t read_field32(pci_bus_t* this, uint8_t bus, uint8_t device, uint8_t func
 uint16_t read_field16(pci_bus_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field);
 uint8_t read_field8(pci_bus_t* this, uint8_t bus, uint8_t device, uint8_t function, uint32_t field);
 
-static ALWAYS_INLINE bool is_pci_bus_root(pci_bus_t* bus) 
+static ALWAYS_INLINE bool is_pci_bus_root(pci_bus_t* bus)
 {
-  return !(bus->m_parent);
+    return !(bus->m_parent);
 }
 #endif // !__ANIVA_BRIDGE__

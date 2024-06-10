@@ -3,7 +3,8 @@ DRIVER_SRC=$(SRC)/drivers
 
 INPUT_DRIVERS := \
 	./input/inptcore \
-	./input/i8042
+	./input/i8042 \
+	./input/usbkbd
 
 ACPI_DRIVERS := \
 	./acpi/acpicore \
@@ -12,7 +13,7 @@ ACPI_DRIVERS := \
 USB_DRIVERS := \
 	./usb/usbcore \
 	./usb/ehci \
-	./usb/xhci 
+	./usb/xhci
 
 # Define where the drivers are located
 DRIVER_PATHS := \

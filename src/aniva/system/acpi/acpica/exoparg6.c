@@ -150,16 +150,14 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acinterp.h"
 #include "acparser.h"
+#include "acpi.h"
 #include "amlcode.h"
 
-
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exoparg6")
-
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exoparg6")
 
 /*!
  * Naming convention for AML interpreter execution routines.
@@ -186,11 +184,10 @@
 /* Local prototypes */
 
 static BOOLEAN
-AcpiExDoMatch (
-    UINT32                  MatchOp,
-    ACPI_OPERAND_OBJECT     *PackageObj,
-    ACPI_OPERAND_OBJECT     *MatchObj);
-
+AcpiExDoMatch(
+    UINT32 MatchOp,
+    ACPI_OPERAND_OBJECT* PackageObj,
+    ACPI_OPERAND_OBJECT* MatchObj);
 
 /*******************************************************************************
  *
@@ -209,14 +206,13 @@ AcpiExDoMatch (
  ******************************************************************************/
 
 static BOOLEAN
-AcpiExDoMatch (
-    UINT32                  MatchOp,
-    ACPI_OPERAND_OBJECT     *PackageObj,
-    ACPI_OPERAND_OBJECT     *MatchObj)
+AcpiExDoMatch(
+    UINT32 MatchOp,
+    ACPI_OPERAND_OBJECT* PackageObj,
+    ACPI_OPERAND_OBJECT* MatchObj)
 {
-    BOOLEAN                 LogicalResult = TRUE;
-    ACPI_STATUS             Status;
-
+    BOOLEAN LogicalResult = TRUE;
+    ACPI_STATUS Status;
 
     /*
      * Note: Since the PackageObj/MatchObj ordering is opposite to that of
@@ -228,8 +224,7 @@ AcpiExDoMatch (
      *
      * Below, P[i] refers to the package element, M refers to the Match object.
      */
-    switch (MatchOp)
-    {
+    switch (MatchOp) {
     case MATCH_MTR:
 
         /* Always true */
@@ -241,10 +236,9 @@ AcpiExDoMatch (
          * True if equal: (P[i] == M)
          * Change to:     (M == P[i])
          */
-        Status = AcpiExDoLogicalOp (
+        Status = AcpiExDoLogicalOp(
             AML_LOGICAL_EQUAL_OP, MatchObj, PackageObj, &LogicalResult);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             return (FALSE);
         }
         break;
@@ -254,13 +248,12 @@ AcpiExDoMatch (
          * True if less than or equal: (P[i] <= M) (P[i] NotGreater than M)
          * Change to:                  (M >= P[i]) (M NotLess than P[i])
          */
-        Status = AcpiExDoLogicalOp (
+        Status = AcpiExDoLogicalOp(
             AML_LOGICAL_LESS_OP, MatchObj, PackageObj, &LogicalResult);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             return (FALSE);
         }
-        LogicalResult = (BOOLEAN) !LogicalResult;
+        LogicalResult = (BOOLEAN)!LogicalResult;
         break;
 
     case MATCH_MLT:
@@ -268,10 +261,9 @@ AcpiExDoMatch (
          * True if less than: (P[i] < M)
          * Change to:         (M > P[i])
          */
-        Status = AcpiExDoLogicalOp (
+        Status = AcpiExDoLogicalOp(
             AML_LOGICAL_GREATER_OP, MatchObj, PackageObj, &LogicalResult);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             return (FALSE);
         }
         break;
@@ -281,10 +273,9 @@ AcpiExDoMatch (
          * True if greater than or equal: (P[i] >= M) (P[i] NotLess than M)
          * Change to:                     (M <= P[i]) (M NotGreater than P[i])
          */
-        Status = AcpiExDoLogicalOp (
+        Status = AcpiExDoLogicalOp(
             AML_LOGICAL_GREATER_OP, MatchObj, PackageObj, &LogicalResult);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             return (FALSE);
         }
         LogicalResult = (BOOLEAN)!LogicalResult;
@@ -295,10 +286,9 @@ AcpiExDoMatch (
          * True if greater than: (P[i] > M)
          * Change to:            (M < P[i])
          */
-        Status = AcpiExDoLogicalOp (
+        Status = AcpiExDoLogicalOp(
             AML_LOGICAL_LESS_OP, MatchObj, PackageObj, &LogicalResult);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             return (FALSE);
         }
         break;
@@ -313,7 +303,6 @@ AcpiExDoMatch (
     return (LogicalResult);
 }
 
-
 /*******************************************************************************
  *
  * FUNCTION:    AcpiExOpcode_6A_0T_1R
@@ -327,22 +316,19 @@ AcpiExDoMatch (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExOpcode_6A_0T_1R (
-    ACPI_WALK_STATE         *WalkState)
+AcpiExOpcode_6A_0T_1R(
+    ACPI_WALK_STATE* WalkState)
 {
-    ACPI_OPERAND_OBJECT     **Operand = &WalkState->Operands[0];
-    ACPI_OPERAND_OBJECT     *ReturnDesc = NULL;
-    ACPI_STATUS             Status = AE_OK;
-    UINT64                  Index;
-    ACPI_OPERAND_OBJECT     *ThisElement;
+    ACPI_OPERAND_OBJECT** Operand = &WalkState->Operands[0];
+    ACPI_OPERAND_OBJECT* ReturnDesc = NULL;
+    ACPI_STATUS Status = AE_OK;
+    UINT64 Index;
+    ACPI_OPERAND_OBJECT* ThisElement;
 
+    ACPI_FUNCTION_TRACE_STR(ExOpcode_6A_0T_1R,
+        AcpiPsGetOpcodeName(WalkState->Opcode));
 
-    ACPI_FUNCTION_TRACE_STR (ExOpcode_6A_0T_1R,
-        AcpiPsGetOpcodeName (WalkState->Opcode));
-
-
-    switch (WalkState->Opcode)
-    {
+    switch (WalkState->Opcode) {
     case AML_MATCH_OP:
         /*
          * Match (SearchPkg[0], MatchOp1[1], MatchObj1[2],
@@ -351,10 +337,8 @@ AcpiExOpcode_6A_0T_1R (
 
         /* Validate both Match Term Operators (MTR, MEQ, etc.) */
 
-        if ((Operand[1]->Integer.Value > MAX_MATCH_OPERATOR) ||
-            (Operand[3]->Integer.Value > MAX_MATCH_OPERATOR))
-        {
-            ACPI_ERROR ((AE_INFO, "Match operator out of range"));
+        if ((Operand[1]->Integer.Value > MAX_MATCH_OPERATOR) || (Operand[3]->Integer.Value > MAX_MATCH_OPERATOR)) {
+            ACPI_ERROR((AE_INFO, "Match operator out of range"));
             Status = AE_AML_OPERAND_VALUE;
             goto Cleanup;
         }
@@ -362,11 +346,10 @@ AcpiExOpcode_6A_0T_1R (
         /* Get the package StartIndex, validate against the package length */
 
         Index = Operand[5]->Integer.Value;
-        if (Index >= Operand[0]->Package.Count)
-        {
-            ACPI_ERROR ((AE_INFO,
+        if (Index >= Operand[0]->Package.Count) {
+            ACPI_ERROR((AE_INFO,
                 "Index (0x%8.8X%8.8X) beyond package end (0x%X)",
-                ACPI_FORMAT_UINT64 (Index), Operand[0]->Package.Count));
+                ACPI_FORMAT_UINT64(Index), Operand[0]->Package.Count));
             Status = AE_AML_PACKAGE_LIMIT;
             goto Cleanup;
         }
@@ -374,12 +357,10 @@ AcpiExOpcode_6A_0T_1R (
         /* Create an integer for the return value */
         /* Default return value is ACPI_UINT64_MAX if no match found */
 
-        ReturnDesc = AcpiUtCreateIntegerObject (ACPI_UINT64_MAX);
-        if (!ReturnDesc)
-        {
+        ReturnDesc = AcpiUtCreateIntegerObject(ACPI_UINT64_MAX);
+        if (!ReturnDesc) {
             Status = AE_NO_MEMORY;
             goto Cleanup;
-
         }
 
         /*
@@ -393,16 +374,14 @@ AcpiExOpcode_6A_0T_1R (
          * ACPI_UINT64_MAX (Ones) (its initial value) indicating that no
          * match was found.
          */
-        for ( ; Index < Operand[0]->Package.Count; Index++)
-        {
+        for (; Index < Operand[0]->Package.Count; Index++) {
             /* Get the current package element */
 
             ThisElement = Operand[0]->Package.Elements[Index];
 
             /* Treat any uninitialized (NULL) elements as non-matching */
 
-            if (!ThisElement)
-            {
+            if (!ThisElement) {
                 continue;
             }
 
@@ -411,15 +390,13 @@ AcpiExOpcode_6A_0T_1R (
              * (proceed to next iteration of enclosing for loop) signifies a
              * non-match.
              */
-            if (!AcpiExDoMatch ((UINT32) Operand[1]->Integer.Value,
-                    ThisElement, Operand[2]))
-            {
+            if (!AcpiExDoMatch((UINT32)Operand[1]->Integer.Value,
+                    ThisElement, Operand[2])) {
                 continue;
             }
 
-            if (!AcpiExDoMatch ((UINT32) Operand[3]->Integer.Value,
-                    ThisElement, Operand[4]))
-            {
+            if (!AcpiExDoMatch((UINT32)Operand[3]->Integer.Value,
+                    ThisElement, Operand[4])) {
                 continue;
             }
 
@@ -432,34 +409,31 @@ AcpiExOpcode_6A_0T_1R (
 
     case AML_LOAD_TABLE_OP:
 
-        Status = AcpiExLoadTableOp (WalkState, &ReturnDesc);
+        Status = AcpiExLoadTableOp(WalkState, &ReturnDesc);
         break;
 
     default:
 
-        ACPI_ERROR ((AE_INFO, "Unknown AML opcode 0x%X",
+        ACPI_ERROR((AE_INFO, "Unknown AML opcode 0x%X",
             WalkState->Opcode));
 
         Status = AE_AML_BAD_OPCODE;
         goto Cleanup;
     }
 
-
 Cleanup:
 
     /* Delete return object on error */
 
-    if (ACPI_FAILURE (Status))
-    {
-        AcpiUtRemoveReference (ReturnDesc);
+    if (ACPI_FAILURE(Status)) {
+        AcpiUtRemoveReference(ReturnDesc);
     }
 
     /* Save return object on success */
 
-    else
-    {
+    else {
         WalkState->ResultObj = ReturnDesc;
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }

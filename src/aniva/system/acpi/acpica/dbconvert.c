@@ -149,17 +149,14 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdebug.h"
+#include "acpi.h"
 
+#define _COMPONENT ACPI_CA_DEBUGGER
+ACPI_MODULE_NAME("dbconvert")
 
-#define _COMPONENT          ACPI_CA_DEBUGGER
-        ACPI_MODULE_NAME    ("dbconvert")
-
-
-#define DB_DEFAULT_PKG_ELEMENTS     33
-
+#define DB_DEFAULT_PKG_ELEMENTS 33
 
 /*******************************************************************************
  *
@@ -175,33 +172,27 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDbHexCharToValue (
-    int                     HexChar,
-    UINT8                   *ReturnValue)
+AcpiDbHexCharToValue(
+    int HexChar,
+    UINT8* ReturnValue)
 {
-    UINT8                   Value;
-
+    UINT8 Value;
 
     /* Digit must be ascii [0-9a-fA-F] */
 
-    if (!isxdigit (HexChar))
-    {
+    if (!isxdigit(HexChar)) {
         return (AE_BAD_HEX_CONSTANT);
     }
 
-    if (HexChar <= 0x39)
-    {
-        Value = (UINT8) (HexChar - 0x30);
-    }
-    else
-    {
-        Value = (UINT8) (toupper (HexChar) - 0x37);
+    if (HexChar <= 0x39) {
+        Value = (UINT8)(HexChar - 0x30);
+    } else {
+        Value = (UINT8)(toupper(HexChar) - 0x37);
     }
 
     *ReturnValue = Value;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -218,35 +209,31 @@ AcpiDbHexCharToValue (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbHexByteToBinary (
-    char                    *HexByte,
-    UINT8                   *ReturnValue)
+AcpiDbHexByteToBinary(
+    char* HexByte,
+    UINT8* ReturnValue)
 {
-    UINT8                   Local0;
-    UINT8                   Local1;
-    ACPI_STATUS             Status;
-
+    UINT8 Local0;
+    UINT8 Local1;
+    ACPI_STATUS Status;
 
     /* High byte */
 
-    Status = AcpiDbHexCharToValue (HexByte[0], &Local0);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbHexCharToValue(HexByte[0], &Local0);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Low byte */
 
-    Status = AcpiDbHexCharToValue (HexByte[1], &Local1);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiDbHexCharToValue(HexByte[1], &Local1);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    *ReturnValue = (UINT8) ((Local0 << 4) | Local1);
+    *ReturnValue = (UINT8)((Local0 << 4) | Local1);
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -263,57 +250,48 @@ AcpiDbHexByteToBinary (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiDbConvertToBuffer (
-    char                    *String,
-    ACPI_OBJECT             *Object)
+AcpiDbConvertToBuffer(
+    char* String,
+    ACPI_OBJECT* Object)
 {
-    UINT32                  i;
-    UINT32                  j;
-    UINT32                  Length;
-    UINT8                   *Buffer;
-    ACPI_STATUS             Status;
-
+    UINT32 i;
+    UINT32 j;
+    UINT32 Length;
+    UINT8* Buffer;
+    ACPI_STATUS Status;
 
     /* Skip all preceding white space*/
 
-    AcpiUtRemoveWhitespace (&String);
+    AcpiUtRemoveWhitespace(&String);
 
     /* Generate the final buffer length */
 
-    for (i = 0, Length = 0; String[i];)
-    {
-        i+=2;
+    for (i = 0, Length = 0; String[i];) {
+        i += 2;
         Length++;
 
-        while (String[i] &&
-              ((String[i] == ',') || (String[i] == ' ')))
-        {
+        while (String[i] && ((String[i] == ',') || (String[i] == ' '))) {
             i++;
         }
     }
 
-    Buffer = ACPI_ALLOCATE (Length);
-    if (!Buffer)
-    {
+    Buffer = ACPI_ALLOCATE(Length);
+    if (!Buffer) {
         return (AE_NO_MEMORY);
     }
 
     /* Convert the command line bytes to the buffer */
 
-    for (i = 0, j = 0; String[i];)
-    {
-        Status = AcpiDbHexByteToBinary (&String[i], &Buffer[j]);
-        if (ACPI_FAILURE (Status))
-        {
-            ACPI_FREE (Buffer);
+    for (i = 0, j = 0; String[i];) {
+        Status = AcpiDbHexByteToBinary(&String[i], &Buffer[j]);
+        if (ACPI_FAILURE(Status)) {
+            ACPI_FREE(Buffer);
             return (Status);
         }
 
         j++;
         i += 2;
-        while (String[i] &&
-              ((String[i] == ',') || (String[i] == ' ')))
-        {
+        while (String[i] && ((String[i] == ',') || (String[i] == ' '))) {
             i++;
         }
     }
@@ -323,7 +301,6 @@ AcpiDbConvertToBuffer (
     Object->Buffer.Length = Length;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -340,37 +317,33 @@ AcpiDbConvertToBuffer (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDbConvertToPackage (
-    char                    *String,
-    ACPI_OBJECT             *Object)
+AcpiDbConvertToPackage(
+    char* String,
+    ACPI_OBJECT* Object)
 {
-    char                    *This;
-    char                    *Next;
-    UINT32                  i;
-    ACPI_OBJECT_TYPE        Type;
-    ACPI_OBJECT             *Elements;
-    ACPI_STATUS             Status;
+    char* This;
+    char* Next;
+    UINT32 i;
+    ACPI_OBJECT_TYPE Type;
+    ACPI_OBJECT* Elements;
+    ACPI_STATUS Status;
 
-
-    Elements = ACPI_ALLOCATE_ZEROED (
-        DB_DEFAULT_PKG_ELEMENTS * sizeof (ACPI_OBJECT));
+    Elements = ACPI_ALLOCATE_ZEROED(
+        DB_DEFAULT_PKG_ELEMENTS * sizeof(ACPI_OBJECT));
 
     This = String;
-    for (i = 0; i < (DB_DEFAULT_PKG_ELEMENTS - 1); i++)
-    {
-        This = AcpiDbGetNextToken (This, &Next, &Type);
-        if (!This)
-        {
+    for (i = 0; i < (DB_DEFAULT_PKG_ELEMENTS - 1); i++) {
+        This = AcpiDbGetNextToken(This, &Next, &Type);
+        if (!This) {
             break;
         }
 
         /* Recursive call to convert each package element */
 
-        Status = AcpiDbConvertToObject (Type, This, &Elements[i]);
-        if (ACPI_FAILURE (Status))
-        {
-            AcpiDbDeleteObjects (i + 1, Elements);
-            ACPI_FREE (Elements);
+        Status = AcpiDbConvertToObject(Type, This, &Elements[i]);
+        if (ACPI_FAILURE(Status)) {
+            AcpiDbDeleteObjects(i + 1, Elements);
+            ACPI_FREE(Elements);
             return (Status);
         }
 
@@ -382,7 +355,6 @@ AcpiDbConvertToPackage (
     Object->Package.Elements = Elements;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -403,43 +375,40 @@ AcpiDbConvertToPackage (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDbConvertToObject (
-    ACPI_OBJECT_TYPE        Type,
-    char                    *String,
-    ACPI_OBJECT             *Object)
+AcpiDbConvertToObject(
+    ACPI_OBJECT_TYPE Type,
+    char* String,
+    ACPI_OBJECT* Object)
 {
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_STATUS Status = AE_OK;
 
-
-    switch (Type)
-    {
+    switch (Type) {
     case ACPI_TYPE_STRING:
 
         Object->Type = ACPI_TYPE_STRING;
         Object->String.Pointer = String;
-        Object->String.Length = (UINT32) strlen (String);
+        Object->String.Length = (UINT32)strlen(String);
         break;
 
     case ACPI_TYPE_BUFFER:
 
-        Status = AcpiDbConvertToBuffer (String, Object);
+        Status = AcpiDbConvertToBuffer(String, Object);
         break;
 
     case ACPI_TYPE_PACKAGE:
 
-        Status = AcpiDbConvertToPackage (String, Object);
+        Status = AcpiDbConvertToPackage(String, Object);
         break;
 
     default:
 
         Object->Type = ACPI_TYPE_INTEGER;
-        Status = AcpiUtStrtoul64 (String, &Object->Integer.Value);
+        Status = AcpiUtStrtoul64(String, &Object->Integer.Value);
         break;
     }
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -453,78 +422,74 @@ AcpiDbConvertToObject (
  *
  ******************************************************************************/
 
-UINT8 *
-AcpiDbEncodePldBuffer (
-    ACPI_PLD_INFO           *PldInfo)
+UINT8*
+AcpiDbEncodePldBuffer(
+    ACPI_PLD_INFO* PldInfo)
 {
-    UINT32                  *Buffer;
-    UINT32                  Dword;
+    UINT32* Buffer;
+    UINT32 Dword;
 
-
-    Buffer = ACPI_ALLOCATE_ZEROED (ACPI_PLD_BUFFER_SIZE);
-    if (!Buffer)
-    {
+    Buffer = ACPI_ALLOCATE_ZEROED(ACPI_PLD_BUFFER_SIZE);
+    if (!Buffer) {
         return (NULL);
     }
 
     /* First 32 bits */
 
     Dword = 0;
-    ACPI_PLD_SET_REVISION       (&Dword, PldInfo->Revision);
-    ACPI_PLD_SET_IGNORE_COLOR   (&Dword, PldInfo->IgnoreColor);
-    ACPI_PLD_SET_RED            (&Dword, PldInfo->Red);
-    ACPI_PLD_SET_GREEN          (&Dword, PldInfo->Green);
-    ACPI_PLD_SET_BLUE           (&Dword, PldInfo->Blue);
-    ACPI_MOVE_32_TO_32 (&Buffer[0], &Dword);
+    ACPI_PLD_SET_REVISION(&Dword, PldInfo->Revision);
+    ACPI_PLD_SET_IGNORE_COLOR(&Dword, PldInfo->IgnoreColor);
+    ACPI_PLD_SET_RED(&Dword, PldInfo->Red);
+    ACPI_PLD_SET_GREEN(&Dword, PldInfo->Green);
+    ACPI_PLD_SET_BLUE(&Dword, PldInfo->Blue);
+    ACPI_MOVE_32_TO_32(&Buffer[0], &Dword);
 
     /* Second 32 bits */
 
     Dword = 0;
-    ACPI_PLD_SET_WIDTH          (&Dword, PldInfo->Width);
-    ACPI_PLD_SET_HEIGHT         (&Dword, PldInfo->Height);
-    ACPI_MOVE_32_TO_32 (&Buffer[1], &Dword);
+    ACPI_PLD_SET_WIDTH(&Dword, PldInfo->Width);
+    ACPI_PLD_SET_HEIGHT(&Dword, PldInfo->Height);
+    ACPI_MOVE_32_TO_32(&Buffer[1], &Dword);
 
     /* Third 32 bits */
 
     Dword = 0;
-    ACPI_PLD_SET_USER_VISIBLE   (&Dword, PldInfo->UserVisible);
-    ACPI_PLD_SET_DOCK           (&Dword, PldInfo->Dock);
-    ACPI_PLD_SET_LID            (&Dword, PldInfo->Lid);
-    ACPI_PLD_SET_PANEL          (&Dword, PldInfo->Panel);
-    ACPI_PLD_SET_VERTICAL       (&Dword, PldInfo->VerticalPosition);
-    ACPI_PLD_SET_HORIZONTAL     (&Dword, PldInfo->HorizontalPosition);
-    ACPI_PLD_SET_SHAPE          (&Dword, PldInfo->Shape);
-    ACPI_PLD_SET_ORIENTATION    (&Dword, PldInfo->GroupOrientation);
-    ACPI_PLD_SET_TOKEN          (&Dword, PldInfo->GroupToken);
-    ACPI_PLD_SET_POSITION       (&Dword, PldInfo->GroupPosition);
-    ACPI_PLD_SET_BAY            (&Dword, PldInfo->Bay);
-    ACPI_MOVE_32_TO_32 (&Buffer[2], &Dword);
+    ACPI_PLD_SET_USER_VISIBLE(&Dword, PldInfo->UserVisible);
+    ACPI_PLD_SET_DOCK(&Dword, PldInfo->Dock);
+    ACPI_PLD_SET_LID(&Dword, PldInfo->Lid);
+    ACPI_PLD_SET_PANEL(&Dword, PldInfo->Panel);
+    ACPI_PLD_SET_VERTICAL(&Dword, PldInfo->VerticalPosition);
+    ACPI_PLD_SET_HORIZONTAL(&Dword, PldInfo->HorizontalPosition);
+    ACPI_PLD_SET_SHAPE(&Dword, PldInfo->Shape);
+    ACPI_PLD_SET_ORIENTATION(&Dword, PldInfo->GroupOrientation);
+    ACPI_PLD_SET_TOKEN(&Dword, PldInfo->GroupToken);
+    ACPI_PLD_SET_POSITION(&Dword, PldInfo->GroupPosition);
+    ACPI_PLD_SET_BAY(&Dword, PldInfo->Bay);
+    ACPI_MOVE_32_TO_32(&Buffer[2], &Dword);
 
     /* Fourth 32 bits */
 
     Dword = 0;
-    ACPI_PLD_SET_EJECTABLE      (&Dword, PldInfo->Ejectable);
-    ACPI_PLD_SET_OSPM_EJECT     (&Dword, PldInfo->OspmEjectRequired);
-    ACPI_PLD_SET_CABINET        (&Dword, PldInfo->CabinetNumber);
-    ACPI_PLD_SET_CARD_CAGE      (&Dword, PldInfo->CardCageNumber);
-    ACPI_PLD_SET_REFERENCE      (&Dword, PldInfo->Reference);
-    ACPI_PLD_SET_ROTATION       (&Dword, PldInfo->Rotation);
-    ACPI_PLD_SET_ORDER          (&Dword, PldInfo->Order);
-    ACPI_MOVE_32_TO_32 (&Buffer[3], &Dword);
+    ACPI_PLD_SET_EJECTABLE(&Dword, PldInfo->Ejectable);
+    ACPI_PLD_SET_OSPM_EJECT(&Dword, PldInfo->OspmEjectRequired);
+    ACPI_PLD_SET_CABINET(&Dword, PldInfo->CabinetNumber);
+    ACPI_PLD_SET_CARD_CAGE(&Dword, PldInfo->CardCageNumber);
+    ACPI_PLD_SET_REFERENCE(&Dword, PldInfo->Reference);
+    ACPI_PLD_SET_ROTATION(&Dword, PldInfo->Rotation);
+    ACPI_PLD_SET_ORDER(&Dword, PldInfo->Order);
+    ACPI_MOVE_32_TO_32(&Buffer[3], &Dword);
 
-    if (PldInfo->Revision >= 2)
-    {
+    if (PldInfo->Revision >= 2) {
         /* Fifth 32 bits */
 
         Dword = 0;
-        ACPI_PLD_SET_VERT_OFFSET    (&Dword, PldInfo->VerticalOffset);
-        ACPI_PLD_SET_HORIZ_OFFSET   (&Dword, PldInfo->HorizontalOffset);
-        ACPI_MOVE_32_TO_32 (&Buffer[4], &Dword);
+        ACPI_PLD_SET_VERT_OFFSET(&Dword, PldInfo->VerticalOffset);
+        ACPI_PLD_SET_HORIZ_OFFSET(&Dword, PldInfo->HorizontalOffset);
+        ACPI_MOVE_32_TO_32(&Buffer[4], &Dword);
     }
 
-    return (ACPI_CAST_PTR (UINT8, Buffer));
+    return (ACPI_CAST_PTR(UINT8, Buffer));
 }
-
 
 /*******************************************************************************
  *
@@ -538,105 +503,97 @@ AcpiDbEncodePldBuffer (
  *
  ******************************************************************************/
 
-#define ACPI_PLD_OUTPUT     "%20s : %-6X\n"
+#define ACPI_PLD_OUTPUT "%20s : %-6X\n"
 
-void
-AcpiDbDumpPldBuffer (
-    ACPI_OBJECT             *ObjDesc)
+void AcpiDbDumpPldBuffer(
+    ACPI_OBJECT* ObjDesc)
 {
-    ACPI_OBJECT             *BufferDesc;
-    ACPI_PLD_INFO           *PldInfo;
-    UINT8                   *NewBuffer;
-    ACPI_STATUS             Status;
-
+    ACPI_OBJECT* BufferDesc;
+    ACPI_PLD_INFO* PldInfo;
+    UINT8* NewBuffer;
+    ACPI_STATUS Status;
 
     /* Object must be of type Package with at least one Buffer element */
 
-    if (ObjDesc->Type != ACPI_TYPE_PACKAGE)
-    {
+    if (ObjDesc->Type != ACPI_TYPE_PACKAGE) {
         return;
     }
 
     BufferDesc = &ObjDesc->Package.Elements[0];
-    if (BufferDesc->Type != ACPI_TYPE_BUFFER)
-    {
+    if (BufferDesc->Type != ACPI_TYPE_BUFFER) {
         return;
     }
 
     /* Convert _PLD buffer to local _PLD struct */
 
-    Status = AcpiDecodePldBuffer (BufferDesc->Buffer.Pointer,
+    Status = AcpiDecodePldBuffer(BufferDesc->Buffer.Pointer,
         BufferDesc->Buffer.Length, &PldInfo);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return;
     }
 
     /* Encode local _PLD struct back to a _PLD buffer */
 
-    NewBuffer = AcpiDbEncodePldBuffer (PldInfo);
-    if (!NewBuffer)
-    {
+    NewBuffer = AcpiDbEncodePldBuffer(PldInfo);
+    if (!NewBuffer) {
         goto Exit;
     }
 
     /* The two bit-packed buffers should match */
 
-    if (memcmp (NewBuffer, BufferDesc->Buffer.Pointer,
-        BufferDesc->Buffer.Length))
-    {
-        AcpiOsPrintf ("Converted _PLD buffer does not compare. New:\n");
+    if (memcmp(NewBuffer, BufferDesc->Buffer.Pointer,
+            BufferDesc->Buffer.Length)) {
+        AcpiOsPrintf("Converted _PLD buffer does not compare. New:\n");
 
-        AcpiUtDumpBuffer (NewBuffer,
+        AcpiUtDumpBuffer(NewBuffer,
             BufferDesc->Buffer.Length, DB_BYTE_DISPLAY, 0);
     }
 
     /* First 32-bit dword */
 
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Revision", PldInfo->Revision);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_IgnoreColor", PldInfo->IgnoreColor);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Red", PldInfo->Red);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Green", PldInfo->Green);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Blue", PldInfo->Blue);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Revision", PldInfo->Revision);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_IgnoreColor", PldInfo->IgnoreColor);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Red", PldInfo->Red);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Green", PldInfo->Green);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Blue", PldInfo->Blue);
 
     /* Second 32-bit dword */
 
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Width", PldInfo->Width);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Height", PldInfo->Height);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Width", PldInfo->Width);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Height", PldInfo->Height);
 
     /* Third 32-bit dword */
 
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_UserVisible", PldInfo->UserVisible);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Dock", PldInfo->Dock);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Lid", PldInfo->Lid);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Panel", PldInfo->Panel);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_VerticalPosition", PldInfo->VerticalPosition);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_HorizontalPosition", PldInfo->HorizontalPosition);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Shape", PldInfo->Shape);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_GroupOrientation", PldInfo->GroupOrientation);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_GroupToken", PldInfo->GroupToken);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_GroupPosition", PldInfo->GroupPosition);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Bay", PldInfo->Bay);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_UserVisible", PldInfo->UserVisible);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Dock", PldInfo->Dock);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Lid", PldInfo->Lid);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Panel", PldInfo->Panel);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_VerticalPosition", PldInfo->VerticalPosition);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_HorizontalPosition", PldInfo->HorizontalPosition);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Shape", PldInfo->Shape);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_GroupOrientation", PldInfo->GroupOrientation);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_GroupToken", PldInfo->GroupToken);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_GroupPosition", PldInfo->GroupPosition);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Bay", PldInfo->Bay);
 
     /* Fourth 32-bit dword */
 
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Ejectable", PldInfo->Ejectable);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_EjectRequired", PldInfo->OspmEjectRequired);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_CabinetNumber", PldInfo->CabinetNumber);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_CardCageNumber", PldInfo->CardCageNumber);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Reference", PldInfo->Reference);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Rotation", PldInfo->Rotation);
-    AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_Order", PldInfo->Order);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Ejectable", PldInfo->Ejectable);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_EjectRequired", PldInfo->OspmEjectRequired);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_CabinetNumber", PldInfo->CabinetNumber);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_CardCageNumber", PldInfo->CardCageNumber);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Reference", PldInfo->Reference);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Rotation", PldInfo->Rotation);
+    AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_Order", PldInfo->Order);
 
     /* Fifth 32-bit dword */
 
-    if (BufferDesc->Buffer.Length > 16)
-    {
-        AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_VerticalOffset", PldInfo->VerticalOffset);
-        AcpiOsPrintf (ACPI_PLD_OUTPUT, "PLD_HorizontalOffset", PldInfo->HorizontalOffset);
+    if (BufferDesc->Buffer.Length > 16) {
+        AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_VerticalOffset", PldInfo->VerticalOffset);
+        AcpiOsPrintf(ACPI_PLD_OUTPUT, "PLD_HorizontalOffset", PldInfo->HorizontalOffset);
     }
 
-    ACPI_FREE (NewBuffer);
+    ACPI_FREE(NewBuffer);
 Exit:
-    ACPI_FREE (PldInfo);
+    ACPI_FREE(PldInfo);
 }

@@ -151,13 +151,12 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdebug.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utxface")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utxface")
 
 /*******************************************************************************
  *
@@ -172,31 +171,28 @@
  ******************************************************************************/
 
 ACPI_STATUS ACPI_INIT_FUNCTION
-AcpiTerminate (
+AcpiTerminate(
     void)
 {
-    ACPI_STATUS         Status;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (AcpiTerminate);
-
+    ACPI_FUNCTION_TRACE(AcpiTerminate);
 
     /* Shutdown and free all resources */
 
-    AcpiUtSubsystemShutdown ();
+    AcpiUtSubsystemShutdown();
 
     /* Free the mutex objects */
 
-    AcpiUtMutexTerminate ();
+    AcpiUtMutexTerminate();
 
     /* Now we can shutdown the OS-dependent layer */
 
-    Status = AcpiOsTerminate ();
-    return_ACPI_STATUS (Status);
+    Status = AcpiOsTerminate();
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL_INIT (AcpiTerminate)
-
+ACPI_EXPORT_SYMBOL_INIT(AcpiTerminate)
 
 #ifndef ACPI_ASL_COMPILER
 /*******************************************************************************
@@ -214,22 +210,18 @@ ACPI_EXPORT_SYMBOL_INIT (AcpiTerminate)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiSubsystemStatus (
+AcpiSubsystemStatus(
     void)
 {
 
-    if (AcpiGbl_StartupFlags & ACPI_INITIALIZED_OK)
-    {
+    if (AcpiGbl_StartupFlags & ACPI_INITIALIZED_OK) {
         return (AE_OK);
-    }
-    else
-    {
+    } else {
         return (AE_ERROR);
     }
 }
 
-ACPI_EXPORT_SYMBOL (AcpiSubsystemStatus)
-
+ACPI_EXPORT_SYMBOL(AcpiSubsystemStatus)
 
 /*******************************************************************************
  *
@@ -250,36 +242,32 @@ ACPI_EXPORT_SYMBOL (AcpiSubsystemStatus)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetSystemInfo (
-    ACPI_BUFFER             *OutBuffer)
+AcpiGetSystemInfo(
+    ACPI_BUFFER* OutBuffer)
 {
-    ACPI_SYSTEM_INFO        *InfoPtr;
-    ACPI_STATUS             Status;
+    ACPI_SYSTEM_INFO* InfoPtr;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (AcpiGetSystemInfo);
-
+    ACPI_FUNCTION_TRACE(AcpiGetSystemInfo);
 
     /* Parameter validation */
 
-    Status = AcpiUtValidateBuffer (OutBuffer);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtValidateBuffer(OutBuffer);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Validate/Allocate/Clear caller buffer */
 
-    Status = AcpiUtInitializeBuffer (OutBuffer, sizeof (ACPI_SYSTEM_INFO));
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtInitializeBuffer(OutBuffer, sizeof(ACPI_SYSTEM_INFO));
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /*
      * Populate the return buffer
      */
-    InfoPtr = (ACPI_SYSTEM_INFO *) OutBuffer->Pointer;
+    InfoPtr = (ACPI_SYSTEM_INFO*)OutBuffer->Pointer;
     InfoPtr->AcpiCaVersion = ACPI_CA_VERSION;
 
     /* System flags (ACPI capabilities) */
@@ -288,12 +276,9 @@ AcpiGetSystemInfo (
 
     /* Timer resolution - 24 or 32 bits  */
 
-    if (AcpiGbl_FADT.Flags & ACPI_FADT_32BIT_TIMER)
-    {
+    if (AcpiGbl_FADT.Flags & ACPI_FADT_32BIT_TIMER) {
         InfoPtr->TimerResolution = 24;
-    }
-    else
-    {
+    } else {
         InfoPtr->TimerResolution = 32;
     }
 
@@ -307,11 +292,10 @@ AcpiGetSystemInfo (
     InfoPtr->DebugLayer = AcpiDbgLayer;
     InfoPtr->DebugLevel = AcpiDbgLevel;
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetSystemInfo)
-
+ACPI_EXPORT_SYMBOL(AcpiGetSystemInfo)
 
 /*******************************************************************************
  *
@@ -326,17 +310,15 @@ ACPI_EXPORT_SYMBOL (AcpiGetSystemInfo)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetStatistics (
-    ACPI_STATISTICS         *Stats)
+AcpiGetStatistics(
+    ACPI_STATISTICS* Stats)
 {
-    ACPI_FUNCTION_TRACE (AcpiGetStatistics);
-
+    ACPI_FUNCTION_TRACE(AcpiGetStatistics);
 
     /* Parameter validation */
 
-    if (!Stats)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!Stats) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Various interrupt-based event counters */
@@ -344,17 +326,16 @@ AcpiGetStatistics (
     Stats->SciCount = AcpiSciCount;
     Stats->GpeCount = AcpiGpeCount;
 
-    memcpy (Stats->FixedEventCount, AcpiFixedEventCount,
-        sizeof (AcpiFixedEventCount));
+    memcpy(Stats->FixedEventCount, AcpiFixedEventCount,
+        sizeof(AcpiFixedEventCount));
 
     /* Other counters */
 
     Stats->MethodCount = AcpiMethodCount;
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetStatistics)
-
+ACPI_EXPORT_SYMBOL(AcpiGetStatistics)
 
 /*****************************************************************************
  *
@@ -372,18 +353,16 @@ ACPI_EXPORT_SYMBOL (AcpiGetStatistics)
  ****************************************************************************/
 
 ACPI_STATUS
-AcpiInstallInitializationHandler (
-    ACPI_INIT_HANDLER       Handler,
-    UINT32                  Function)
+AcpiInstallInitializationHandler(
+    ACPI_INIT_HANDLER Handler,
+    UINT32 Function)
 {
 
-    if (!Handler)
-    {
+    if (!Handler) {
         return (AE_BAD_PARAMETER);
     }
 
-    if (AcpiGbl_InitHandler)
-    {
+    if (AcpiGbl_InitHandler) {
         return (AE_ALREADY_EXISTS);
     }
 
@@ -391,8 +370,7 @@ AcpiInstallInitializationHandler (
     return (AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiInstallInitializationHandler)
-
+ACPI_EXPORT_SYMBOL(AcpiInstallInitializationHandler)
 
 /*****************************************************************************
  *
@@ -407,22 +385,20 @@ ACPI_EXPORT_SYMBOL (AcpiInstallInitializationHandler)
  ****************************************************************************/
 
 ACPI_STATUS
-AcpiPurgeCachedObjects (
+AcpiPurgeCachedObjects(
     void)
 {
-    ACPI_FUNCTION_TRACE (AcpiPurgeCachedObjects);
+    ACPI_FUNCTION_TRACE(AcpiPurgeCachedObjects);
 
+    (void)AcpiOsPurgeCache(AcpiGbl_StateCache);
+    (void)AcpiOsPurgeCache(AcpiGbl_OperandCache);
+    (void)AcpiOsPurgeCache(AcpiGbl_PsNodeCache);
+    (void)AcpiOsPurgeCache(AcpiGbl_PsNodeExtCache);
 
-    (void) AcpiOsPurgeCache (AcpiGbl_StateCache);
-    (void) AcpiOsPurgeCache (AcpiGbl_OperandCache);
-    (void) AcpiOsPurgeCache (AcpiGbl_PsNodeCache);
-    (void) AcpiOsPurgeCache (AcpiGbl_PsNodeExtCache);
-
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiPurgeCachedObjects)
-
+ACPI_EXPORT_SYMBOL(AcpiPurgeCachedObjects)
 
 /*****************************************************************************
  *
@@ -437,58 +413,48 @@ ACPI_EXPORT_SYMBOL (AcpiPurgeCachedObjects)
  ****************************************************************************/
 
 ACPI_STATUS
-AcpiInstallInterface (
-    ACPI_STRING             InterfaceName)
+AcpiInstallInterface(
+    ACPI_STRING InterfaceName)
 {
-    ACPI_STATUS             Status;
-    ACPI_INTERFACE_INFO     *InterfaceInfo;
-
+    ACPI_STATUS Status;
+    ACPI_INTERFACE_INFO* InterfaceInfo;
 
     /* Parameter validation */
 
-    if (!InterfaceName || (strlen (InterfaceName) == 0))
-    {
+    if (!InterfaceName || (strlen(InterfaceName) == 0)) {
         return (AE_BAD_PARAMETER);
     }
 
-    Status = AcpiOsAcquireMutex (AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsAcquireMutex(AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Check if the interface name is already in the global list */
 
-    InterfaceInfo = AcpiUtGetInterface (InterfaceName);
-    if (InterfaceInfo)
-    {
+    InterfaceInfo = AcpiUtGetInterface(InterfaceName);
+    if (InterfaceInfo) {
         /*
          * The interface already exists in the list. This is OK if the
          * interface has been marked invalid -- just clear the bit.
          */
-        if (InterfaceInfo->Flags & ACPI_OSI_INVALID)
-        {
+        if (InterfaceInfo->Flags & ACPI_OSI_INVALID) {
             InterfaceInfo->Flags &= ~ACPI_OSI_INVALID;
             Status = AE_OK;
-        }
-        else
-        {
+        } else {
             Status = AE_ALREADY_EXISTS;
         }
-    }
-    else
-    {
+    } else {
         /* New interface name, install into the global list */
 
-        Status = AcpiUtInstallInterface (InterfaceName);
+        Status = AcpiUtInstallInterface(InterfaceName);
     }
 
-    AcpiOsReleaseMutex (AcpiGbl_OsiMutex);
+    AcpiOsReleaseMutex(AcpiGbl_OsiMutex);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiInstallInterface)
-
+ACPI_EXPORT_SYMBOL(AcpiInstallInterface)
 
 /*****************************************************************************
  *
@@ -503,33 +469,29 @@ ACPI_EXPORT_SYMBOL (AcpiInstallInterface)
  ****************************************************************************/
 
 ACPI_STATUS
-AcpiRemoveInterface (
-    ACPI_STRING             InterfaceName)
+AcpiRemoveInterface(
+    ACPI_STRING InterfaceName)
 {
-    ACPI_STATUS             Status;
-
+    ACPI_STATUS Status;
 
     /* Parameter validation */
 
-    if (!InterfaceName || (strlen (InterfaceName) == 0))
-    {
+    if (!InterfaceName || (strlen(InterfaceName) == 0)) {
         return (AE_BAD_PARAMETER);
     }
 
-    Status = AcpiOsAcquireMutex (AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsAcquireMutex(AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiUtRemoveInterface (InterfaceName);
+    Status = AcpiUtRemoveInterface(InterfaceName);
 
-    AcpiOsReleaseMutex (AcpiGbl_OsiMutex);
+    AcpiOsReleaseMutex(AcpiGbl_OsiMutex);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiRemoveInterface)
-
+ACPI_EXPORT_SYMBOL(AcpiRemoveInterface)
 
 /*****************************************************************************
  *
@@ -547,33 +509,27 @@ ACPI_EXPORT_SYMBOL (AcpiRemoveInterface)
  ****************************************************************************/
 
 ACPI_STATUS
-AcpiInstallInterfaceHandler (
-    ACPI_INTERFACE_HANDLER  Handler)
+AcpiInstallInterfaceHandler(
+    ACPI_INTERFACE_HANDLER Handler)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    Status = AcpiOsAcquireMutex (AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsAcquireMutex(AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    if (Handler && AcpiGbl_InterfaceHandler)
-    {
+    if (Handler && AcpiGbl_InterfaceHandler) {
         Status = AE_ALREADY_EXISTS;
-    }
-    else
-    {
+    } else {
         AcpiGbl_InterfaceHandler = Handler;
     }
 
-    AcpiOsReleaseMutex (AcpiGbl_OsiMutex);
+    AcpiOsReleaseMutex(AcpiGbl_OsiMutex);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiInstallInterfaceHandler)
-
+ACPI_EXPORT_SYMBOL(AcpiInstallInterfaceHandler)
 
 /*****************************************************************************
  *
@@ -590,24 +546,21 @@ ACPI_EXPORT_SYMBOL (AcpiInstallInterfaceHandler)
  ****************************************************************************/
 
 ACPI_STATUS
-AcpiUpdateInterfaces (
-    UINT8                   Action)
+AcpiUpdateInterfaces(
+    UINT8 Action)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    Status = AcpiOsAcquireMutex (AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiOsAcquireMutex(AcpiGbl_OsiMutex, ACPI_WAIT_FOREVER);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiUtUpdateInterfaces (Action);
+    Status = AcpiUtUpdateInterfaces(Action);
 
-    AcpiOsReleaseMutex (AcpiGbl_OsiMutex);
+    AcpiOsReleaseMutex(AcpiGbl_OsiMutex);
     return (Status);
 }
-
 
 /*****************************************************************************
  *
@@ -626,33 +579,30 @@ AcpiUpdateInterfaces (
  ****************************************************************************/
 
 UINT32
-AcpiCheckAddressRange (
-    ACPI_ADR_SPACE_TYPE     SpaceId,
-    ACPI_PHYSICAL_ADDRESS   Address,
-    ACPI_SIZE               Length,
-    BOOLEAN                 Warn)
+AcpiCheckAddressRange(
+    ACPI_ADR_SPACE_TYPE SpaceId,
+    ACPI_PHYSICAL_ADDRESS Address,
+    ACPI_SIZE Length,
+    BOOLEAN Warn)
 {
-    UINT32                  Overlaps;
-    ACPI_STATUS             Status;
+    UINT32 Overlaps;
+    ACPI_STATUS Status;
 
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
         return (0);
     }
 
-    Overlaps = AcpiUtCheckAddressRange (SpaceId, Address,
-        (UINT32) Length, Warn);
+    Overlaps = AcpiUtCheckAddressRange(SpaceId, Address,
+        (UINT32)Length, Warn);
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
     return (Overlaps);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiCheckAddressRange)
+ACPI_EXPORT_SYMBOL(AcpiCheckAddressRange)
 
 #endif /* !ACPI_ASL_COMPILER */
-
 
 /*******************************************************************************
  *
@@ -671,81 +621,77 @@ ACPI_EXPORT_SYMBOL (AcpiCheckAddressRange)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiDecodePldBuffer (
-    UINT8                   *InBuffer,
-    ACPI_SIZE               Length,
-    ACPI_PLD_INFO           **ReturnBuffer)
+AcpiDecodePldBuffer(
+    UINT8* InBuffer,
+    ACPI_SIZE Length,
+    ACPI_PLD_INFO** ReturnBuffer)
 {
-    ACPI_PLD_INFO           *PldInfo;
-    UINT32                  *Buffer = ACPI_CAST_PTR (UINT32, InBuffer);
-    UINT32                  Dword;
-
+    ACPI_PLD_INFO* PldInfo;
+    UINT32* Buffer = ACPI_CAST_PTR(UINT32, InBuffer);
+    UINT32 Dword;
 
     /* Parameter validation */
 
-    if (!InBuffer || !ReturnBuffer || (Length < ACPI_PLD_REV1_BUFFER_SIZE))
-    {
+    if (!InBuffer || !ReturnBuffer || (Length < ACPI_PLD_REV1_BUFFER_SIZE)) {
         return (AE_BAD_PARAMETER);
     }
 
-    PldInfo = ACPI_ALLOCATE_ZEROED (sizeof (ACPI_PLD_INFO));
-    if (!PldInfo)
-    {
+    PldInfo = ACPI_ALLOCATE_ZEROED(sizeof(ACPI_PLD_INFO));
+    if (!PldInfo) {
         return (AE_NO_MEMORY);
     }
 
     /* First 32-bit DWord */
 
-    ACPI_MOVE_32_TO_32 (&Dword, &Buffer[0]);
-    PldInfo->Revision =             ACPI_PLD_GET_REVISION (&Dword);
-    PldInfo->IgnoreColor =          ACPI_PLD_GET_IGNORE_COLOR (&Dword);
-    PldInfo->Red =                  ACPI_PLD_GET_RED (&Dword);
-    PldInfo->Green =                ACPI_PLD_GET_GREEN (&Dword);
-    PldInfo->Blue =                 ACPI_PLD_GET_BLUE (&Dword);
+    ACPI_MOVE_32_TO_32(&Dword, &Buffer[0]);
+    PldInfo->Revision = ACPI_PLD_GET_REVISION(&Dword);
+    PldInfo->IgnoreColor = ACPI_PLD_GET_IGNORE_COLOR(&Dword);
+    PldInfo->Red = ACPI_PLD_GET_RED(&Dword);
+    PldInfo->Green = ACPI_PLD_GET_GREEN(&Dword);
+    PldInfo->Blue = ACPI_PLD_GET_BLUE(&Dword);
 
     /* Second 32-bit DWord */
 
-    ACPI_MOVE_32_TO_32 (&Dword, &Buffer[1]);
-    PldInfo->Width =                ACPI_PLD_GET_WIDTH (&Dword);
-    PldInfo->Height =               ACPI_PLD_GET_HEIGHT(&Dword);
+    ACPI_MOVE_32_TO_32(&Dword, &Buffer[1]);
+    PldInfo->Width = ACPI_PLD_GET_WIDTH(&Dword);
+    PldInfo->Height = ACPI_PLD_GET_HEIGHT(&Dword);
 
     /* Third 32-bit DWord */
 
-    ACPI_MOVE_32_TO_32 (&Dword, &Buffer[2]);
-    PldInfo->UserVisible =          ACPI_PLD_GET_USER_VISIBLE (&Dword);
-    PldInfo->Dock =                 ACPI_PLD_GET_DOCK (&Dword);
-    PldInfo->Lid =                  ACPI_PLD_GET_LID (&Dword);
-    PldInfo->Panel =                ACPI_PLD_GET_PANEL (&Dword);
-    PldInfo->VerticalPosition =     ACPI_PLD_GET_VERTICAL (&Dword);
-    PldInfo->HorizontalPosition =   ACPI_PLD_GET_HORIZONTAL (&Dword);
-    PldInfo->Shape =                ACPI_PLD_GET_SHAPE (&Dword);
-    PldInfo->GroupOrientation =     ACPI_PLD_GET_ORIENTATION (&Dword);
-    PldInfo->GroupToken =           ACPI_PLD_GET_TOKEN (&Dword);
-    PldInfo->GroupPosition =        ACPI_PLD_GET_POSITION (&Dword);
-    PldInfo->Bay =                  ACPI_PLD_GET_BAY (&Dword);
+    ACPI_MOVE_32_TO_32(&Dword, &Buffer[2]);
+    PldInfo->UserVisible = ACPI_PLD_GET_USER_VISIBLE(&Dword);
+    PldInfo->Dock = ACPI_PLD_GET_DOCK(&Dword);
+    PldInfo->Lid = ACPI_PLD_GET_LID(&Dword);
+    PldInfo->Panel = ACPI_PLD_GET_PANEL(&Dword);
+    PldInfo->VerticalPosition = ACPI_PLD_GET_VERTICAL(&Dword);
+    PldInfo->HorizontalPosition = ACPI_PLD_GET_HORIZONTAL(&Dword);
+    PldInfo->Shape = ACPI_PLD_GET_SHAPE(&Dword);
+    PldInfo->GroupOrientation = ACPI_PLD_GET_ORIENTATION(&Dword);
+    PldInfo->GroupToken = ACPI_PLD_GET_TOKEN(&Dword);
+    PldInfo->GroupPosition = ACPI_PLD_GET_POSITION(&Dword);
+    PldInfo->Bay = ACPI_PLD_GET_BAY(&Dword);
 
     /* Fourth 32-bit DWord */
 
-    ACPI_MOVE_32_TO_32 (&Dword, &Buffer[3]);
-    PldInfo->Ejectable =            ACPI_PLD_GET_EJECTABLE (&Dword);
-    PldInfo->OspmEjectRequired =    ACPI_PLD_GET_OSPM_EJECT (&Dword);
-    PldInfo->CabinetNumber =        ACPI_PLD_GET_CABINET (&Dword);
-    PldInfo->CardCageNumber =       ACPI_PLD_GET_CARD_CAGE (&Dword);
-    PldInfo->Reference =            ACPI_PLD_GET_REFERENCE (&Dword);
-    PldInfo->Rotation =             ACPI_PLD_GET_ROTATION (&Dword);
-    PldInfo->Order =                ACPI_PLD_GET_ORDER (&Dword);
+    ACPI_MOVE_32_TO_32(&Dword, &Buffer[3]);
+    PldInfo->Ejectable = ACPI_PLD_GET_EJECTABLE(&Dword);
+    PldInfo->OspmEjectRequired = ACPI_PLD_GET_OSPM_EJECT(&Dword);
+    PldInfo->CabinetNumber = ACPI_PLD_GET_CABINET(&Dword);
+    PldInfo->CardCageNumber = ACPI_PLD_GET_CARD_CAGE(&Dword);
+    PldInfo->Reference = ACPI_PLD_GET_REFERENCE(&Dword);
+    PldInfo->Rotation = ACPI_PLD_GET_ROTATION(&Dword);
+    PldInfo->Order = ACPI_PLD_GET_ORDER(&Dword);
 
-    if (Length >= ACPI_PLD_REV2_BUFFER_SIZE)
-    {
+    if (Length >= ACPI_PLD_REV2_BUFFER_SIZE) {
         /* Fifth 32-bit DWord (Revision 2 of _PLD) */
 
-        ACPI_MOVE_32_TO_32 (&Dword, &Buffer[4]);
-        PldInfo->VerticalOffset =       ACPI_PLD_GET_VERT_OFFSET (&Dword);
-        PldInfo->HorizontalOffset =     ACPI_PLD_GET_HORIZ_OFFSET (&Dword);
+        ACPI_MOVE_32_TO_32(&Dword, &Buffer[4]);
+        PldInfo->VerticalOffset = ACPI_PLD_GET_VERT_OFFSET(&Dword);
+        PldInfo->HorizontalOffset = ACPI_PLD_GET_HORIZ_OFFSET(&Dword);
     }
 
     *ReturnBuffer = PldInfo;
     return (AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiDecodePldBuffer)
+ACPI_EXPORT_SYMBOL(AcpiDecodePldBuffer)

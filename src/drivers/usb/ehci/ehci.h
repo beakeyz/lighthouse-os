@@ -17,41 +17,41 @@ struct usb_xfer;
 #define EHCI_HCD_FLAG_STOPPING 0x00000001
 
 typedef struct ehci_hcd {
-  struct usb_hcd* hcd;
+    struct usb_hcd* hcd;
 
-  size_t register_size;
-  void* capregs;
-  void* opregs;
+    size_t register_size;
+    void* capregs;
+    void* opregs;
 
-  uint32_t ehci_flags;
-  uint32_t hcs_params;
-  uint32_t hcc_params;
-  uint32_t portcount;
-  uint32_t cur_interrupt_state;
+    uint32_t ehci_flags;
+    uint32_t hcs_params;
+    uint32_t hcc_params;
+    uint32_t portcount;
+    uint32_t cur_interrupt_state;
 
-  /* Bitfield that tells us which ports have been reset */
-  uint32_t port_reset_bits;
+    /* Bitfield that tells us which ports have been reset */
+    uint32_t port_reset_bits;
 
-  /* Periodic table stuffskis */
-  uint32_t periodic_size;
-  uint32_t* periodic_table;
-  paddr_t periodic_dma;
+    /* Periodic table stuffskis */
+    uint32_t periodic_size;
+    uint32_t* periodic_table;
+    paddr_t periodic_dma;
 
-  /* DMA Pools for the EHCI datastructures */
-  zone_allocator_t* qh_pool;
-  zone_allocator_t* qtd_pool;
-  zone_allocator_t* itd_pool;
-  zone_allocator_t* sitd_pool;
+    /* DMA Pools for the EHCI datastructures */
+    zone_allocator_t* qh_pool;
+    zone_allocator_t* qtd_pool;
+    zone_allocator_t* itd_pool;
+    zone_allocator_t* sitd_pool;
 
-  /* Asynchronous thingy */
-  ehci_qh_t* async;
+    /* Asynchronous thingy */
+    ehci_qh_t* async;
 
-  list_t* transfer_list;
+    list_t* transfer_list;
 
-  thread_t* interrupt_polling_thread;
-  thread_t* transfer_finish_thread;
-  mutex_t* transfer_lock;
-  mutex_t* async_lock;
+    thread_t* interrupt_polling_thread;
+    thread_t* transfer_finish_thread;
+    mutex_t* transfer_lock;
+    mutex_t* async_lock;
 } ehci_hcd_t;
 
 extern int ehci_process_hub_xfer(usb_hub_t* hub, usb_xfer_t* xfer);
@@ -75,9 +75,9 @@ extern ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci
  * 2) qh: Owned by the EHCI hcd
  */
 typedef struct ehci_xfer {
-  struct usb_xfer* xfer;
-  struct ehci_qh* qh;
-  struct ehci_qtd* data_qtd;
+    struct usb_xfer* xfer;
+    struct ehci_qh* qh;
+    struct ehci_qtd* data_qtd;
 } ehci_xfer_t;
 
 extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xfer** e_xfer, ehci_qh_t* qh);

@@ -2,60 +2,60 @@
 #include "dev/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "libk/string.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"
-#include "libk/string.h"
 #include "oss/obj.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 
 static int _generic_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
 {
-  int error;
-  dir_t* new_dir;
-  oss_node_t* node;
-  /* NOTE: We don't own this pointer */
-  oss_node_entry_t* entry;
+    int error;
+    dir_t* new_dir;
+    oss_node_t* node;
+    /* NOTE: We don't own this pointer */
+    oss_node_entry_t* entry;
 
-  node = dir->node;
+    node = dir->node;
 
-  if (!node)
-    return -KERR_NULL;
+    if (!node)
+        return -KERR_NULL;
 
-  error = oss_node_find_at(node, idx, &entry);
+    error = oss_node_find_at(node, idx, &entry);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  switch (entry->type) {
+    switch (entry->type) {
     case OSS_ENTRY_OBJECT:
-      oss_obj_ref(entry->obj);
+        oss_obj_ref(entry->obj);
 
-      init_direntry(bentry, entry->obj, DIRENT_TYPE_OBJ);
-      break;
+        init_direntry(bentry, entry->obj, DIRENT_TYPE_OBJ);
+        break;
     case OSS_ENTRY_NESTED_NODE:
 
-      new_dir = entry->node->dir;
+        new_dir = entry->node->dir;
 
-      if (!new_dir)
-        /* Don't give a path, as to signal we want to create this dir onto the specified node */
-        new_dir = create_dir(entry->node, NULL, NULL, NULL, NULL);
+        if (!new_dir)
+            /* Don't give a path, as to signal we want to create this dir onto the specified node */
+            new_dir = create_dir(entry->node, NULL, NULL, NULL, NULL);
 
-      /* Reference the new directory */
-      dir_ref(new_dir);
+        /* Reference the new directory */
+        dir_ref(new_dir);
 
-      /* Init that bitch */
-      init_direntry(bentry, new_dir, DIRENT_TYPE_DIR);
-      break;
-  }
+        /* Init that bitch */
+        init_direntry(bentry, new_dir, DIRENT_TYPE_DIR);
+        break;
+    }
 
-  return 0;
+    return 0;
 }
 
 static dir_ops_t _generic_dir_ops = {
-  .f_destroy = NULL,
-  .f_read = _generic_dir_read,
+    .f_destroy = NULL,
+    .f_read = _generic_dir_read,
 };
 
 /*!
@@ -70,253 +70,251 @@ static dir_ops_t _generic_dir_ops = {
  */
 dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags)
 {
-  dir_t* dir;
-  oss_node_t* node = root;
-  const char* name = NULL;
+    dir_t* dir;
+    oss_node_t* node = root;
+    const char* name = NULL;
 
-  /* This would be bad lmao */
-  if (!root && !path)
-    return nullptr;
+    /* This would be bad lmao */
+    if (!root && !path)
+        return nullptr;
 
-  if (path) {
-    /* NOTE: This allocates @name on the heap */
-    name = oss_get_objname(path);
+    if (path) {
+        /* NOTE: This allocates @name on the heap */
+        name = oss_get_objname(path);
 
-    if (!name)
-      return nullptr;
+        if (!name)
+            return nullptr;
 
-    printf("Path: %s, Name: %s\n", path, name);
+        printf("Path: %s, Name: %s\n", path, name);
 
-    /* We have a path, but we might not have a root, no biggie */
-    node = oss_create_path(root, path);
+        /* We have a path, but we might not have a root, no biggie */
+        node = oss_create_path(root, path);
 
-  } else
-    /* We know we have a root at this point, steal it's name */
-    name = strdup(node->name);
+    } else
+        /* We know we have a root at this point, steal it's name */
+        name = strdup(node->name);
 
-  dir = kmalloc(sizeof(*dir));
+    dir = kmalloc(sizeof(*dir));
 
-  if (!dir)
-    return nullptr;
+    if (!dir)
+        return nullptr;
 
-  memset(dir, 0, sizeof(*dir));
+    memset(dir, 0, sizeof(*dir));
 
-  if (!ops)
-    ops = &_generic_dir_ops;
+    if (!ops)
+        ops = &_generic_dir_ops;
 
-  dir->node = node;
-  dir->name = name;
-  dir->ops = ops;
-  dir->priv = priv;
-  dir->flags = flags;
-  dir->child_capacity = 0xFFFFFFFF;
-  dir->size = 0xFFFFFFFF;
-  dir->lock = create_mutex(NULL);
+    dir->node = node;
+    dir->name = name;
+    dir->ops = ops;
+    dir->priv = priv;
+    dir->flags = flags;
+    dir->child_capacity = 0xFFFFFFFF;
+    dir->size = 0xFFFFFFFF;
+    dir->lock = create_mutex(NULL);
 
-  init_atomic_ptr(&dir->ref, 0);
-  
-  /* Try to attach */
-  if (oss_node_attach_dir(dir->node, dir))
-    goto dealloc_and_fail;
+    init_atomic_ptr(&dir->ref, 0);
 
-  return dir;
+    /* Try to attach */
+    if (oss_node_attach_dir(dir->node, dir))
+        goto dealloc_and_fail;
+
+    return dir;
 
 dealloc_and_fail:
-  kfree(dir);
-  return nullptr;
+    kfree(dir);
+    return nullptr;
 }
 
 dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags)
 {
-  dir_t* ret;
+    dir_t* ret;
 
-  ret = kmalloc(sizeof(*ret));
+    ret = kmalloc(sizeof(*ret));
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
+    memset(ret, 0, sizeof(*ret));
 
-  if (!ops)
-    ops = &_generic_dir_ops;
+    if (!ops)
+        ops = &_generic_dir_ops;
 
-  ret->name = strdup(node->name);
-  ret->node = node;
-  ret->ops = ops;
-  ret->priv = priv;
-  ret->flags = flags;
-  ret->child_capacity = 0xFFFFFFFF;
-  ret->size = 0xFFFFFFFF;
-  ret->lock = create_mutex(NULL);
+    ret->name = strdup(node->name);
+    ret->node = node;
+    ret->ops = ops;
+    ret->priv = priv;
+    ret->flags = flags;
+    ret->child_capacity = 0xFFFFFFFF;
+    ret->size = 0xFFFFFFFF;
+    ret->lock = create_mutex(NULL);
 
-  init_atomic_ptr(&ret->ref, 0);
+    init_atomic_ptr(&ret->ref, 0);
 
-  oss_node_attach_dir(node, ret);
+    oss_node_attach_dir(node, ret);
 
-  return ret;
+    return ret;
 }
 
 void dir_ref(dir_t* dir)
 {
-  if (!dir)
-    return;
+    if (!dir)
+        return;
 
-  mutex_lock(dir->lock);
+    mutex_lock(dir->lock);
 
-  /* Increase the refcount by one */
-  atomic_ptr_write(&dir->ref,
-    atomic_ptr_read(&dir->ref)+1
-  );
+    /* Increase the refcount by one */
+    atomic_ptr_write(&dir->ref,
+        atomic_ptr_read(&dir->ref) + 1);
 
-  mutex_unlock(dir->lock);
+    mutex_unlock(dir->lock);
 }
 
 void dir_unref(dir_t* dir)
 {
-  uint32_t refc;
+    uint32_t refc;
 
-  if (!dir)
-    return;
+    if (!dir)
+        return;
 
-  mutex_lock(dir->lock);
+    mutex_lock(dir->lock);
 
-  refc = atomic_ptr_read(&dir->ref);
+    refc = atomic_ptr_read(&dir->ref);
 
-  if (!refc)
-    goto unlock_and_exit;
+    if (!refc)
+        goto unlock_and_exit;
 
-  /* Increase the refcount by one */
-  atomic_ptr_write(&dir->ref,
-    (refc = refc-1)
-  );
+    /* Increase the refcount by one */
+    atomic_ptr_write(&dir->ref,
+        (refc = refc - 1));
 
 unlock_and_exit:
-  mutex_unlock(dir->lock);
+    mutex_unlock(dir->lock);
 
-  if (!refc)
-    destroy_dir(dir);
+    if (!refc)
+        destroy_dir(dir);
 }
 
 void destroy_dir(dir_t* dir)
 {
-  if (!dir)
-    return;
+    if (!dir)
+        return;
 
-  if (dir->ops && dir->ops->f_destroy)
-    dir->ops->f_destroy(dir);
+    if (dir->ops && dir->ops->f_destroy)
+        dir->ops->f_destroy(dir);
 
-  /* Detach first */
-  if (dir->node) {
-    if (oss_node_is_empty(dir->node))
-      /* Destroy the thing if it's unused */
-      destroy_oss_node(dir->node);
-    else
-      oss_node_detach_dir(dir->node);
-  }
+    /* Detach first */
+    if (dir->node) {
+        if (oss_node_is_empty(dir->node))
+            /* Destroy the thing if it's unused */
+            destroy_oss_node(dir->node);
+        else
+            oss_node_detach_dir(dir->node);
+    }
 
-  destroy_mutex(dir->lock);
+    destroy_mutex(dir->lock);
 
-  kfree((void*)dir->name);
-  kfree(dir);
+    kfree((void*)dir->name);
+    kfree(dir);
 }
 
 int dir_create_child(dir_t* dir, const char* name)
 {
-  if (!dir || !name)
-    return -KERR_INVAL;
+    if (!dir || !name)
+        return -KERR_INVAL;
 
-  if (!dir->ops || !dir->ops->f_create_child)
-    return -KERR_NULL;
+    if (!dir->ops || !dir->ops->f_create_child)
+        return -KERR_NULL;
 
-  return dir->ops->f_create_child(dir, name);
+    return dir->ops->f_create_child(dir, name);
 }
 
 int dir_remove_child(dir_t* dir, const char* name)
 {
-  if (!dir || !name)
-    return -KERR_INVAL;
+    if (!dir || !name)
+        return -KERR_INVAL;
 
-  if (!dir->ops || !dir->ops->f_remove_child)
-    return -KERR_NULL;
+    if (!dir->ops || !dir->ops->f_remove_child)
+        return -KERR_NULL;
 
-  return dir->ops->f_remove_child(dir, name);
+    return dir->ops->f_remove_child(dir, name);
 }
 
 struct oss_obj* dir_find(dir_t* dir, const char* path)
 {
-  if (!dir || !path)
-    return nullptr;
+    if (!dir || !path)
+        return nullptr;
 
-  if (!dir->ops || !dir->ops->f_find)
-    return nullptr;
+    if (!dir->ops || !dir->ops->f_find)
+        return nullptr;
 
-  return dir->ops->f_find(dir, path);
+    return dir->ops->f_find(dir, path);
 }
 
 int dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
 {
-  if (!dir)
-    return -KERR_INVAL;
+    if (!dir)
+        return -KERR_INVAL;
 
-  if (!dir->ops || !dir->ops->f_read)
-    return -KERR_INVAL;
+    if (!dir->ops || !dir->ops->f_read)
+        return -KERR_INVAL;
 
-  return dir->ops->f_read(dir, idx, bentry);
+    return dir->ops->f_read(dir, idx, bentry);
 }
 
 dir_t* dir_open(const char* path)
 {
-  dir_t* ret;
-  oss_node_t* orig_node;
-  oss_node_t* node = NULL;
+    dir_t* ret;
+    oss_node_t* orig_node;
+    oss_node_t* node = NULL;
 
-  oss_resolve_node(path, &node);
+    oss_resolve_node(path, &node);
 
-  if (!node)
-    return nullptr;
+    if (!node)
+        return nullptr;
 
-  ret = node->dir;
+    ret = node->dir;
 
-  /* This node does not have a directory, so we'll probably have to query the gen node */
-  if (ret)
-    goto ref_and_exit;
+    /* This node does not have a directory, so we'll probably have to query the gen node */
+    if (ret)
+        goto ref_and_exit;
 
-  orig_node = node;
+    orig_node = node;
 
-  do {
-    node = node->parent;
-  } while (node && node->type != OSS_OBJ_GEN_NODE);
+    do {
+        node = node->parent;
+    } while (node && node->type != OSS_OBJ_GEN_NODE);
 
-  /* No object generation node somewhere downstream, just create a new generic dir */
-  if (!node)
-    return create_dir_on_node(orig_node, NULL, NULL, NULL);
+    /* No object generation node somewhere downstream, just create a new generic dir */
+    if (!node)
+        return create_dir_on_node(orig_node, NULL, NULL, NULL);
 
-  uintptr_t idx = 0;
-  const char* rel_path = nullptr;
+    uintptr_t idx = 0;
+    const char* rel_path = nullptr;
 
-  while (path[idx]) {
-    /* We've found the node name in our path yay */
-    if (strncmp(&path[idx], node->name, strlen(node->name)) == 0) {
-      rel_path = &path[idx + strlen(node->name) + 1];
-      break;
+    while (path[idx]) {
+        /* We've found the node name in our path yay */
+        if (strncmp(&path[idx], node->name, strlen(node->name)) == 0) {
+            rel_path = &path[idx + strlen(node->name) + 1];
+            break;
+        }
+
+        idx++;
     }
 
-    idx++;
-  }
+    /* Scan failed */
+    if (!rel_path)
+        return nullptr;
 
-  /* Scan failed */
-  if (!rel_path)
-    return nullptr;
+    /* In this case there should be a filesystem driver which initializes the dir struct correctly for us */
+    if (!KERR_OK(oss_node_query_node(node, rel_path, &node)))
+        return nullptr;
 
-  /* In this case there should be a filesystem driver which initializes the dir struct correctly for us */
-  if (!KERR_OK(oss_node_query_node(node, rel_path, &node)))
-    return nullptr;
-
-  ret = node->dir;
+    ret = node->dir;
 
 ref_and_exit:
-  dir_ref(ret);
-  return ret;
+    dir_ref(ret);
+    return ret;
 }
 
 /*!
@@ -329,39 +327,39 @@ ref_and_exit:
  */
 kerror_t dir_close(dir_t* dir)
 {
-  dir_unref(dir);
-  return 0;
+    dir_unref(dir);
+    return 0;
 }
 
 kerror_t init_direntry(direntry_t* dirent, void* entry, enum DIRENT_TYPE type)
 {
-  if (!dirent || !entry)
-    return -KERR_INVAL;
+    if (!dirent || !entry)
+        return -KERR_INVAL;
 
-  dirent->_entry = entry;
-  dirent->type = type;
+    dirent->_entry = entry;
+    dirent->type = type;
 
-  return 0;
+    return 0;
 }
 
 kerror_t close_direntry(direntry_t* entry)
 {
-  if (!entry || !entry->_entry)
-    return -KERR_INVAL;
+    if (!entry || !entry->_entry)
+        return -KERR_INVAL;
 
-  switch (entry->type) {
+    switch (entry->type) {
     case DIRENT_TYPE_FILE:
-      file_close(entry->file);
-      break;
+        file_close(entry->file);
+        break;
     case DIRENT_TYPE_DIR:
-      dir_close(entry->dir);
-      break;
+        dir_close(entry->dir);
+        break;
     case DIRENT_TYPE_OBJ:
-      oss_obj_close(entry->obj);
-      break;
+        oss_obj_close(entry->obj);
+        break;
     default:
-      kernel_panic("TODO: unhandled direntry type in close_direntry");
-  }
+        kernel_panic("TODO: unhandled direntry type in close_direntry");
+    }
 
-  return 0;
+    return 0;
 }

@@ -149,15 +149,13 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 #include "acpredef.h"
 
-
-#define _COMPONENT          ACPI_NAMESPACE
-        ACPI_MODULE_NAME    ("nsarguments")
-
+#define _COMPONENT ACPI_NAMESPACE
+ACPI_MODULE_NAME("nsarguments")
 
 /*******************************************************************************
  *
@@ -172,16 +170,14 @@
  *
  ******************************************************************************/
 
-void
-AcpiNsCheckArgumentTypes (
-    ACPI_EVALUATE_INFO          *Info)
+void AcpiNsCheckArgumentTypes(
+    ACPI_EVALUATE_INFO* Info)
 {
-    UINT16                      ArgTypeList;
-    UINT8                       ArgCount;
-    UINT8                       ArgType;
-    UINT8                       UserArgType;
-    UINT32                      i;
-
+    UINT16 ArgTypeList;
+    UINT8 ArgCount;
+    UINT8 ArgType;
+    UINT8 UserArgType;
+    UINT32 i;
 
     /*
      * If not a predefined name, cannot typecheck args, because
@@ -190,30 +186,28 @@ AcpiNsCheckArgumentTypes (
      * has already been evaluated at least once -- in order
      * to suppress repetitive messages.
      */
-    if (!Info->Predefined || (Info->Node->Flags & ANOBJ_EVALUATED))
-    {
+    if (!Info->Predefined || (Info->Node->Flags & ANOBJ_EVALUATED)) {
         return;
     }
 
     ArgTypeList = Info->Predefined->Info.ArgumentList;
-    ArgCount = METHOD_GET_ARG_COUNT (ArgTypeList);
+    ArgCount = METHOD_GET_ARG_COUNT(ArgTypeList);
 
     /* Typecheck all arguments */
 
-    for (i = 0; ((i < ArgCount) && (i < Info->ParamCount)); i++)
-    {
-        ArgType = METHOD_GET_NEXT_TYPE (ArgTypeList);
+    for (i = 0; ((i < ArgCount) && (i < Info->ParamCount)); i++) {
+        ArgType = METHOD_GET_NEXT_TYPE(ArgTypeList);
         UserArgType = Info->Parameters[i]->Common.Type;
 
         /* No typechecking for ACPI_TYPE_ANY */
 
-        if ((UserArgType != ArgType) && (ArgType != ACPI_TYPE_ANY))
-        {
-            ACPI_WARN_PREDEFINED ((AE_INFO, Info->FullPathname, ACPI_WARN_ALWAYS,
+        if ((UserArgType != ArgType) && (ArgType != ACPI_TYPE_ANY)) {
+            ACPI_WARN_PREDEFINED((AE_INFO, Info->FullPathname, ACPI_WARN_ALWAYS,
                 "Argument #%u type mismatch - "
-                "Found [%s], ACPI requires [%s]", (i + 1),
-                AcpiUtGetTypeName (UserArgType),
-                AcpiUtGetTypeName (ArgType)));
+                "Found [%s], ACPI requires [%s]",
+                (i + 1),
+                AcpiUtGetTypeName(UserArgType),
+                AcpiUtGetTypeName(ArgType)));
 
             /* Prevent any additional typechecking for this method */
 
@@ -221,7 +215,6 @@ AcpiNsCheckArgumentTypes (
         }
     }
 }
-
 
 /*******************************************************************************
  *
@@ -239,48 +232,40 @@ AcpiNsCheckArgumentTypes (
  *
  ******************************************************************************/
 
-void
-AcpiNsCheckAcpiCompliance (
-    char                        *Pathname,
-    ACPI_NAMESPACE_NODE         *Node,
-    const ACPI_PREDEFINED_INFO  *Predefined)
+void AcpiNsCheckAcpiCompliance(
+    char* Pathname,
+    ACPI_NAMESPACE_NODE* Node,
+    const ACPI_PREDEFINED_INFO* Predefined)
 {
-    UINT32                      AmlParamCount;
-    UINT32                      RequiredParamCount;
+    UINT32 AmlParamCount;
+    UINT32 RequiredParamCount;
 
-
-    if (!Predefined || (Node->Flags & ANOBJ_EVALUATED))
-    {
+    if (!Predefined || (Node->Flags & ANOBJ_EVALUATED)) {
         return;
     }
 
     /* Get the ACPI-required arg count from the predefined info table */
 
-    RequiredParamCount =
-        METHOD_GET_ARG_COUNT (Predefined->Info.ArgumentList);
+    RequiredParamCount = METHOD_GET_ARG_COUNT(Predefined->Info.ArgumentList);
 
     /*
      * If this object is not a control method, we can check if the ACPI
      * spec requires that it be a method.
      */
-    if (Node->Type != ACPI_TYPE_METHOD)
-    {
-        if (RequiredParamCount > 0)
-        {
+    if (Node->Type != ACPI_TYPE_METHOD) {
+        if (RequiredParamCount > 0) {
             /* Object requires args, must be implemented as a method */
 
-            ACPI_BIOS_ERROR_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+            ACPI_BIOS_ERROR_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
                 "Object (%s) must be a control method with %u arguments",
-                AcpiUtGetTypeName (Node->Type), RequiredParamCount));
-        }
-        else if (!RequiredParamCount && !Predefined->Info.ExpectedBtypes)
-        {
+                AcpiUtGetTypeName(Node->Type), RequiredParamCount));
+        } else if (!RequiredParamCount && !Predefined->Info.ExpectedBtypes) {
             /* Object requires no args and no return value, must be a method */
 
-            ACPI_BIOS_ERROR_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+            ACPI_BIOS_ERROR_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
                 "Object (%s) must be a control method "
                 "with no arguments and no return value",
-                AcpiUtGetTypeName (Node->Type)));
+                AcpiUtGetTypeName(Node->Type)));
         }
 
         return;
@@ -298,23 +283,18 @@ AcpiNsCheckAcpiCompliance (
      */
     AmlParamCount = Node->Object->Method.ParamCount;
 
-    if (AmlParamCount < RequiredParamCount)
-    {
-        ACPI_BIOS_ERROR_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+    if (AmlParamCount < RequiredParamCount) {
+        ACPI_BIOS_ERROR_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
             "Insufficient arguments - "
             "ASL declared %u, ACPI requires %u",
             AmlParamCount, RequiredParamCount));
-    }
-    else if ((AmlParamCount > RequiredParamCount) &&
-        !(Predefined->Info.ArgumentList & ARG_COUNT_IS_MINIMUM))
-    {
-        ACPI_BIOS_ERROR_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+    } else if ((AmlParamCount > RequiredParamCount) && !(Predefined->Info.ArgumentList & ARG_COUNT_IS_MINIMUM)) {
+        ACPI_BIOS_ERROR_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
             "Excess arguments - "
             "ASL declared %u, ACPI requires %u",
             AmlParamCount, RequiredParamCount));
     }
 }
-
 
 /*******************************************************************************
  *
@@ -332,35 +312,29 @@ AcpiNsCheckAcpiCompliance (
  *
  ******************************************************************************/
 
-void
-AcpiNsCheckArgumentCount (
-    char                        *Pathname,
-    ACPI_NAMESPACE_NODE         *Node,
-    UINT32                      UserParamCount,
-    const ACPI_PREDEFINED_INFO  *Predefined)
+void AcpiNsCheckArgumentCount(
+    char* Pathname,
+    ACPI_NAMESPACE_NODE* Node,
+    UINT32 UserParamCount,
+    const ACPI_PREDEFINED_INFO* Predefined)
 {
-    UINT32                      AmlParamCount;
-    UINT32                      RequiredParamCount;
+    UINT32 AmlParamCount;
+    UINT32 RequiredParamCount;
 
-
-    if (Node->Flags & ANOBJ_EVALUATED)
-    {
+    if (Node->Flags & ANOBJ_EVALUATED) {
         return;
     }
 
-    if (!Predefined)
-    {
+    if (!Predefined) {
         /*
          * Not a predefined name. Check the incoming user argument count
          * against the count that is specified in the method/object.
          */
-        if (Node->Type != ACPI_TYPE_METHOD)
-        {
-            if (UserParamCount)
-            {
-                ACPI_INFO_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+        if (Node->Type != ACPI_TYPE_METHOD) {
+            if (UserParamCount) {
+                ACPI_INFO_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
                     "%u arguments were passed to a non-method ACPI object (%s)",
-                    UserParamCount, AcpiUtGetTypeName (Node->Type)));
+                    UserParamCount, AcpiUtGetTypeName(Node->Type)));
             }
 
             return;
@@ -380,16 +354,13 @@ AcpiNsCheckArgumentCount (
          */
         AmlParamCount = Node->Object->Method.ParamCount;
 
-        if (UserParamCount < AmlParamCount)
-        {
-            ACPI_WARN_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+        if (UserParamCount < AmlParamCount) {
+            ACPI_WARN_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
                 "Insufficient arguments - "
                 "Caller passed %u, method requires %u",
                 UserParamCount, AmlParamCount));
-        }
-        else if (UserParamCount > AmlParamCount)
-        {
-            ACPI_INFO_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+        } else if (UserParamCount > AmlParamCount) {
+            ACPI_INFO_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
                 "Excess arguments - "
                 "Caller passed %u, method requires %u",
                 UserParamCount, AmlParamCount));
@@ -408,20 +379,15 @@ AcpiNsCheckArgumentCount (
      * Some methods are allowed to have a "minimum" number of args (_SCP)
      * because their definition in ACPI has changed over time.
      */
-    RequiredParamCount =
-        METHOD_GET_ARG_COUNT (Predefined->Info.ArgumentList);
+    RequiredParamCount = METHOD_GET_ARG_COUNT(Predefined->Info.ArgumentList);
 
-    if (UserParamCount < RequiredParamCount)
-    {
-        ACPI_WARN_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+    if (UserParamCount < RequiredParamCount) {
+        ACPI_WARN_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
             "Insufficient arguments - "
             "Caller passed %u, ACPI requires %u",
             UserParamCount, RequiredParamCount));
-    }
-    else if ((UserParamCount > RequiredParamCount) &&
-        !(Predefined->Info.ArgumentList & ARG_COUNT_IS_MINIMUM))
-    {
-        ACPI_INFO_PREDEFINED ((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
+    } else if ((UserParamCount > RequiredParamCount) && !(Predefined->Info.ArgumentList & ARG_COUNT_IS_MINIMUM)) {
+        ACPI_INFO_PREDEFINED((AE_INFO, Pathname, ACPI_WARN_ALWAYS,
             "Excess arguments - "
             "Caller passed %u, ACPI requires %u",
             UserParamCount, RequiredParamCount));

@@ -152,17 +152,17 @@
 #ifndef __ACGCC_H__
 #define __ACGCC_H__
 
-#define ACPI_INLINE             __inline__
+#define ACPI_INLINE __inline__
 
 /* Function name is used for debug output. Non-ANSI, compiler-dependent */
 
-#define ACPI_GET_FUNCTION_NAME          __func__
+#define ACPI_GET_FUNCTION_NAME __func__
 
 /*
  * This macro is used to tag functions as "printf-like" because
  * some compilers (like GCC) can catch printf format string problems.
  */
-#define ACPI_PRINTF_LIKE(c) __attribute__ ((__format__ (__printf__, c, c+1)))
+#define ACPI_PRINTF_LIKE(c) __attribute__((__format__(__printf__, c, c + 1)))
 
 /*
  * Some compilers complain about unused variables. Sometimes we don't want to
@@ -170,11 +170,11 @@
  * to tell the compiler warning in a per-variable manner that a variable
  * is unused.
  */
-#define ACPI_UNUSED_VAR __attribute__ ((unused))
+#define ACPI_UNUSED_VAR __attribute__((unused))
 
 /* GCC supports __VA_ARGS__ in macros */
 
-#define COMPILER_VA_MACRO               1
+#define COMPILER_VA_MACRO 1
 
 /* GCC supports native multiply/shift on 32-bit platforms */
 
@@ -201,11 +201,12 @@
  * limitation.
  */
 #ifndef __cplusplus
-#define ACPI_FLEX_ARRAY(TYPE, NAME)             \
-        struct {                                \
-                struct { } __Empty_ ## NAME;    \
-                TYPE NAME[];                    \
-        }
+#define ACPI_FLEX_ARRAY(TYPE, NAME) \
+    struct {                        \
+        struct {                    \
+        } __Empty_##NAME;           \
+        TYPE NAME[];                \
+    }
 #endif
 
 #endif /* __ACGCC_H__ */

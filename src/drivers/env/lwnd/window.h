@@ -5,8 +5,8 @@
 #include "kevent/types/keyboard.h"
 #include "proc/proc.h"
 #include "sync/mutex.h"
-#include <libk/stddef.h>
 #include <dev/manifest.h>
+#include <libk/stddef.h>
 
 struct lwnd_screen;
 struct lwnd_window_ops;
@@ -31,49 +31,49 @@ typedef uint16_t window_type_t;
  * Kernel-side structure representing a window on the screen
  */
 typedef struct lwnd_window {
-  window_id_t uid;
-  window_id_t stack_idx;
-  window_type_t type;
-  uint32_t flags;
+    window_id_t uid;
+    window_id_t stack_idx;
+    window_type_t type;
+    uint32_t flags;
 
-  /* Dimentions */
-  uint32_t width;
-  uint32_t height;
+    /* Dimentions */
+    uint32_t width;
+    uint32_t height;
 
-  /* Positions */
-  uint32_t x;
-  uint32_t y;
+    /* Positions */
+    uint32_t x;
+    uint32_t y;
 
-  struct lwnd_screen* screen;
-  struct lwnd_window_ops* ops;
+    struct lwnd_screen* screen;
+    struct lwnd_window_ops* ops;
 
-  /* Keypress ringbuffer thingy */
-  kevent_kb_ctx_t key_buffer[LWND_WINDOW_KEYBUFFER_CAPACITY];
-  uint32_t key_buffer_write_idx;
-  uint32_t key_buffer_read_idx;
+    /* Keypress ringbuffer thingy */
+    kevent_kb_ctx_t key_buffer[LWND_WINDOW_KEYBUFFER_CAPACITY];
+    uint32_t key_buffer_write_idx;
+    uint32_t key_buffer_read_idx;
 
-  mutex_t* lock;
+    mutex_t* lock;
 
-  const char* label;
+    const char* label;
 
-  /*
-   * More things than only processes may open
-   * windows
-   */
-  union {
-    proc_t* proc;
-    drv_manifest_t* driver;
-    void* raw;
-  } client;
+    /*
+     * More things than only processes may open
+     * windows
+     */
+    union {
+        proc_t* proc;
+        drv_manifest_t* driver;
+        void* raw;
+    } client;
 
-  /* TODO: better framebuffer management */
-  void* user_real_fb_ptr;
-  void* user_fb_ptr;
-  void* fb_ptr;
-  size_t fb_size;
+    /* TODO: better framebuffer management */
+    void* user_real_fb_ptr;
+    void* user_fb_ptr;
+    void* fb_ptr;
+    size_t fb_size;
 } lwnd_window_t;
 
-#define LWND_WNDW_HIDDEN    0x00000001
+#define LWND_WNDW_HIDDEN 0x00000001
 #define LWND_WNDW_MAXIMIZED 0x00000002
 #define LWND_WNDW_LOCKED_CURSOR 0x00000004
 #define LWND_WNDW_GPU_RENDERED 0x00000008
@@ -97,19 +97,19 @@ int lwnd_request_framebuffer(lwnd_window_t* window);
 
 static inline int lwnd_window_set_ops(lwnd_window_t* window, struct lwnd_window_ops* ops)
 {
-  if (!window)
-    return -1;
-  
-  if (window && window->ops && ops)
-    return -1;
+    if (!window)
+        return -1;
 
-  window->ops = ops;
-  return 0;
+    if (window && window->ops && ops)
+        return -1;
+
+    window->ops = ops;
+    return 0;
 }
 
 typedef struct lwnd_window_ops {
-  int (*f_draw)(lwnd_window_t* window);
-  int (*f_update)(lwnd_window_t* window);
+    int (*f_draw)(lwnd_window_t* window);
+    int (*f_update)(lwnd_window_t* window);
 } lwnd_window_ops_t;
 
 int lwnd_save_keyevent(lwnd_window_t* window, kevent_kb_ctx_t* ctx);
@@ -125,16 +125,15 @@ int lwnd_window_update(lwnd_window_t* window, bool should_clear);
 
 static inline bool lwnd_window_should_redraw(lwnd_window_t* window)
 {
-  return ((window->flags & LWND_WNDW_NEEDS_SYNC) == LWND_WNDW_NEEDS_SYNC ||
-          (window->flags & LWND_WNDW_NEEDS_REPAINT) == LWND_WNDW_NEEDS_REPAINT);
+    return ((window->flags & LWND_WNDW_NEEDS_SYNC) == LWND_WNDW_NEEDS_SYNC || (window->flags & LWND_WNDW_NEEDS_REPAINT) == LWND_WNDW_NEEDS_REPAINT);
 }
 
 static inline fb_color_t* get_color_at(lwnd_window_t* window, uint32_t x, uint32_t y)
 {
-  if (!window->fb_ptr)
-    return nullptr;
+    if (!window->fb_ptr)
+        return nullptr;
 
-  return ((fb_color_t*)window->fb_ptr + (y * window->width + x));
+    return ((fb_color_t*)window->fb_ptr + (y * window->width + x));
 }
 
 #endif // !__ANIVA_LWND_WINDOW__

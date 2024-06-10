@@ -12,7 +12,7 @@ ErrorOrPtr init_reaper(proc_t* proc);
 
 /*
  * Enqueue a process into the reaper queue.
- * NOTE: we require the process we want to reap to already be 
+ * NOTE: we require the process we want to reap to already be
  * 'terminated' but not destroyed
  */
 ErrorOrPtr reaper_register_process(proc_t* proc);

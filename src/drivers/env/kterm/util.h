@@ -9,7 +9,7 @@
 
 static inline bool cmd_has_args(size_t argc)
 {
-  return (argc > 1);
+    return (argc > 1);
 }
 
 uint32_t kterm_cmd_help(const char** argv, size_t argc);

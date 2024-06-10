@@ -19,20 +19,20 @@ struct extern_driver;
 
 /*
  * We let drivers implement a few functions that are mostly meant to
- * simulate the file opperations like read, write, seek, ect. that some 
+ * simulate the file opperations like read, write, seek, ect. that some
  * linux / unix drivers would implement.
  */
 typedef struct driver_ops {
-  int (*f_write) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
-  int (*f_read) (aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
+    int (*f_write)(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
+    int (*f_read)(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
 } driver_ops_t;
 
 typedef struct manifest_dependency {
-  drv_dependency_t dep;
-  union {
-    struct drv_manifest* drv;
-    struct proc* proc;
-  } obj;
+    drv_dependency_t dep;
+    union {
+        struct drv_manifest* drv;
+        struct proc* proc;
+    } obj;
 } manifest_dependency_t;
 
 /*
@@ -44,52 +44,52 @@ typedef struct manifest_dependency {
  * TODO: Implement
  */
 typedef struct driver_resources {
-  /* Resources for mapped and kmem_alloced regions */
-  kresource_bundle_t* raw_resources;
-  /* Allocator on wich common objects will be allocated */
-  zone_allocator_t* zallocator;
-  /* List that keeps track of the syscalls that have been allocated by this driver */
-  list_t* syscall_list;
-  /* List that keeps track of the non-persistent oss_objs created by this driver */
-  list_t* oss_obj_list;
+    /* Resources for mapped and kmem_alloced regions */
+    kresource_bundle_t* raw_resources;
+    /* Allocator on wich common objects will be allocated */
+    zone_allocator_t* zallocator;
+    /* List that keeps track of the syscalls that have been allocated by this driver */
+    list_t* syscall_list;
+    /* List that keeps track of the non-persistent oss_objs created by this driver */
+    list_t* oss_obj_list;
 
-  size_t leaked_bytes;
-  size_t total_allocated_bytes;
+    size_t leaked_bytes;
+    size_t total_allocated_bytes;
 } driver_resources_t;
 
 /*
- * TODO: rework driver dependencies to make every driver keep track of a list of 
+ * TODO: rework driver dependencies to make every driver keep track of a list of
  * other drivers that depend on them
  *
  * TODO: work out device attaching
  */
 typedef struct drv_manifest {
-  aniva_driver_t* m_handle;
+    aniva_driver_t* m_handle;
 
-  vector_t* m_dep_list;
-  uint32_t m_dep_count;
-  uint32_t m_dev_count;
+    vector_t* m_dep_list;
+    uint32_t m_dep_count;
+    uint32_t m_dev_count;
 
-  uint32_t m_flags;
-  driver_version_t m_check_version;
+    uint32_t m_flags;
+    driver_version_t m_check_version;
 
-  /* Resources that this driver has claimed */
-  kresource_bundle_t* m_resources;
-  mutex_t* m_lock;
+    /* Resources that this driver has claimed */
+    kresource_bundle_t* m_resources;
+    mutex_t* m_lock;
 
-  /* Url of the installed driver */
-  dev_url_t m_url;
-  size_t m_url_length;
+    /* Url of the installed driver */
+    dev_url_t m_url;
+    size_t m_url_length;
 
-  struct oss_obj* m_obj;
-  /* Any data that's specific to the kind of driver this is */
-  //void* m_private;
+    struct oss_obj* m_obj;
+    /* Any data that's specific to the kind of driver this is */
+    // void* m_private;
 
-  /* Path to the binary of the driver, only on external drivers */
-  const char* m_driver_file_path;
-  struct extern_driver* m_external;
+    /* Path to the binary of the driver, only on external drivers */
+    const char* m_driver_file_path;
+    struct extern_driver* m_external;
 
-  driver_ops_t m_ops;
+    driver_ops_t m_ops;
 } drv_manifest_t;
 
 drv_manifest_t* create_drv_manifest(aniva_driver_t* handle);
@@ -101,15 +101,15 @@ bool is_manifest_valid(drv_manifest_t* manifest);
 
 ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* handle);
 
-bool driver_manifest_write(struct aniva_driver* manifest, int(*write_fn)());
-bool driver_manifest_read(struct aniva_driver* manifest, int(*read_fn)());
+bool driver_manifest_write(struct aniva_driver* manifest, int (*write_fn)());
+bool driver_manifest_read(struct aniva_driver* manifest, int (*read_fn)());
 
 void manifest_add_dev(struct drv_manifest* driver);
 void manifest_remove_dev(struct drv_manifest* driver);
 
 static inline bool manifest_is_active(drv_manifest_t* manifest)
 {
-  return (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
+    return (manifest->m_flags & DRV_ACTIVE) == DRV_ACTIVE;
 }
 
 #endif // !__ANIVA_drv_manifest__

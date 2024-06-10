@@ -27,15 +27,14 @@ int pci_io_read32_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t fiel
 int pci_io_read16_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t* value);
 int pci_io_read8_type2(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t* value);
 
-
 typedef struct pci_device_io_ops {
-  int (*write32)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t value);
-  int (*write16)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t value);
-  int (*write8)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t value);
-  int (*read32)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t* value);
-  int (*read16)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t* value);
-  int (*read8)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t* value);
-//  void* (*map)(struct pci_bus* bus, uint32_t device_function, int where);
+    int (*write32)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t value);
+    int (*write16)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t value);
+    int (*write8)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t value);
+    int (*read32)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint32_t* value);
+    int (*read16)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint16_t* value);
+    int (*read8)(uint32_t bus, uint32_t dev, uint32_t func, uint32_t field, uint8_t* value);
+    //  void* (*map)(struct pci_bus* bus, uint32_t device_function, int where);
 } pci_device_ops_io_t;
 
 extern pci_device_ops_io_t g_pci_type1_impl;

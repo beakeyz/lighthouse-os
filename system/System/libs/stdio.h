@@ -2,37 +2,37 @@
 #define __LIGHTENV_LIBC_STDIO__
 
 #include "stdarg.h"
-#include <sys/types.h>
 #include <stddef.h>
+#include <sys/types.h>
 
 #define SEEK_SET 0
 #define _STDIO_H
 
 #define F_REACHED_EOF 0x00000001
-#define F_READ_ERR    0x00000002
-#define F_WRITE_ERR   0x00000004
+#define F_READ_ERR 0x00000002
+#define F_WRITE_ERR 0x00000004
 #define F_DIRTY_RBUFF 0x00000008
 #define F_DIRTY_WBUFF 0x00000010
-#define F_RO          0x00000020
+#define F_RO 0x00000020
 
 /*
  * Weird struct ...
  */
-typedef struct _FILE { 
-  /* NOTE: prevent including any external libraries in libc headers */
-  uint32_t handle;
+typedef struct _FILE {
+    /* NOTE: prevent including any external libraries in libc headers */
+    uint32_t handle;
 
-  uint8_t* w_buff; 
-  uint8_t* r_buff; 
+    uint8_t* w_buff;
+    uint8_t* r_buff;
 
-  size_t w_buf_size;
-  size_t w_buf_written;
+    size_t w_buf_size;
+    size_t w_buf_written;
 
-  size_t r_buf_size;
-  size_t r_offset;
-  size_t r_capacity;
+    size_t r_buf_size;
+    size_t r_offset;
+    size_t r_capacity;
 
-  uint32_t _flags;
+    uint32_t _flags;
 
 } FILE;
 
@@ -44,9 +44,9 @@ extern FILE* stdin;
 extern FILE* stdout;
 extern FILE* stderr;
 
-#define stdin   stdin
-#define stdout  stdout
-#define stderr  stderr
+#define stdin stdin
+#define stdout stdout
+#define stderr stderr
 
 #define SEEK_SET 0 /* Set fileoffset directly */
 #define SEEK_CUR 1 /* Add to or subtract from the current offset */
@@ -71,22 +71,22 @@ extern int feof(FILE* stream);
 /*
  * Write a formatted string to the stream
  */
-extern int fprintf(FILE *__restrict stream,
+extern int fprintf(FILE* __restrict stream,
     const char* format, ...);
 
 /*
- * Write a formatted string to stdout 
+ * Write a formatted string to stdout
  */
 extern int printf(const char* fmt, ...);
 extern int sprintf(const char* buf, const char* fmt, ...);
-extern int snprintf(char * buf, size_t size, const char * fmt, ...);
-extern int vsprintf(char * buf, const char *fmt, va_list args);
-extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
+extern int snprintf(char* buf, size_t size, const char* fmt, ...);
+extern int vsprintf(char* buf, const char* fmt, va_list args);
+extern int vsnprintf(char* buf, size_t size, const char* fmt, va_list args);
 extern int vfprintf(FILE* stream, const char* fmt, char*);
 
-extern int scanf (const char *__restrict __format, ...);
-extern int sscanf (const char*__restrict __s,
-    const char *__restrict __format, ...);
+extern int scanf(const char* __restrict __format, ...);
+extern int sscanf(const char* __restrict __s,
+    const char* __restrict __format, ...);
 
 extern int printf(const char* fmt, ...);
 
@@ -95,7 +95,7 @@ extern char* fgets(char* str, size_t size, FILE* stream);
 extern int fgetc(FILE* stream);
 extern int fputc(int c, FILE* stream);
 extern int puts(const char* str);
-extern int putchar (int c);
+extern int putchar(int c);
 
 #ifdef __cplusplus
 }

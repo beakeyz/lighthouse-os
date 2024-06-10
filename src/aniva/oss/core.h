@@ -13,7 +13,7 @@
  * (1) When it's loaded, it registers a new fs_type so the system knows we support this kind of fs.
  * Then, (2) when a subsystem finds a partition that might contain a valid FAT32 filesystem, it contacts
  * the oss API and asks it if it can attach the filesystem on this partition to the oss node tree.
- * (3) The oss will envoke the driver and the driver then has to comply to the mount call. It is only 
+ * (3) The oss will envoke the driver and the driver then has to comply to the mount call. It is only
  * given information that is relevant to the driver at mount time. The only thing the driver needs to do
  * is do it's own fs-specific things to set up the filesystem and then create an oss node that can keep track
  * of all that shit. (4) OSS will verify that the returned oss node is OK and it will continue to attach it where

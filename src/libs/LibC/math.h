@@ -2,7 +2,7 @@
 #define __LIGHTOS_LIBC_MATH__
 
 #define M_PI 3.14159265358979323846
-#define M_E  2.7182818284590452354
+#define M_E 2.7182818284590452354
 #define NAN (__builtin_nanf(""))
 #define INFINITY (__builtin_inff())
 

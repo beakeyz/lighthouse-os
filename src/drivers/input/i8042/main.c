@@ -8,8 +8,8 @@
 #include "lightos/event/key.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
-#include <dev/driver.h>
 #include <dev/device.h>
+#include <dev/driver.h>
 #include <dev/io/hid/hid.h>
 
 /*
@@ -25,7 +25,7 @@ static uint16_t s_current_scancodes[7];
 registers_t* i8042_irq_handler(registers_t* regs);
 
 struct device_hid_endpoint _i8042_hid_ep = {
-  .f_poll = NULL
+    .f_poll = NULL
 };
 
 /*
@@ -35,79 +35,79 @@ struct device_generic_endpoint _i8042_generic_ep = {
 */
 
 device_ep_t i8042_eps[] = {
-  DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _i8042_hid_ep),
-  //DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _i8042_generic_ep),
-  { NULL },
+    DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _i8042_hid_ep),
+    // DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _i8042_generic_ep),
+    { NULL },
 };
 
 static int _init_i8042()
 {
-  acpi_parser_t* parser = NULL;
+    acpi_parser_t* parser = NULL;
 
-  get_root_acpi_parser(&parser);
+    get_root_acpi_parser(&parser);
 
-  if (!parser)
-    return -KERR_NODEV;
+    if (!parser)
+        return -KERR_NODEV;
 
-  //if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
-    //return -KERR_NODEV;
-    //kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
+    // if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
+    // return -KERR_NODEV;
+    // kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
 
-  int error;
-  s_mod_flags = NULL;
-  s_current_scancode = NULL;
+    int error;
+    s_mod_flags = NULL;
+    s_current_scancode = NULL;
 
-  /* Create a HID device for this bitch */
-  s_i8042_device = create_hid_device("i8042", HID_BUS_TYPE_PS2, i8042_eps);
+    /* Create a HID device for this bitch */
+    s_i8042_device = create_hid_device("i8042", HID_BUS_TYPE_PS2, i8042_eps);
 
-  /* Register it */
-  if (!KERR_OK(register_hid_device(s_i8042_device)))
-    return -1;
+    /* Register it */
+    if (!KERR_OK(register_hid_device(s_i8042_device)))
+        return -1;
 
-  /* Enable the device */
-  device_enable(s_i8042_device->dev);
+    /* Enable the device */
+    device_enable(s_i8042_device->dev);
 
-  /* Zero scancode buffer */
-  memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
+    /* Zero scancode buffer */
+    memset(&s_current_scancodes, 0, sizeof(s_current_scancodes));
 
-  /* Try to allocate an IRQ */
-  error = irq_allocate(PS2_KB_IRQ_VEC, NULL, NULL, i8042_irq_handler, NULL, "PS/2 keyboard");
+    /* Try to allocate an IRQ */
+    error = irq_allocate(PS2_KB_IRQ_VEC, NULL, NULL, i8042_irq_handler, NULL, "PS/2 keyboard");
 
-  if (error)
-    return -1;
+    if (error)
+        return -1;
 
-  /* Quick flush */
-  (void)i8042_read_status();
+    /* Quick flush */
+    (void)i8042_read_status();
 
-  /* Make sure the keyboard event isn't frozen */
-  unfreeze_kevent("keyboard");
+    /* Make sure the keyboard event isn't frozen */
+    unfreeze_kevent("keyboard");
 
-  return 0;
+    return 0;
 }
 
 static int _exit_i8042()
 {
-  int error;
+    int error;
 
-  /* Make sure that the keyboard event is frozen, since there is no current kb driver */
-  freeze_kevent("keyboard");
+    /* Make sure that the keyboard event is frozen, since there is no current kb driver */
+    freeze_kevent("keyboard");
 
-  if (s_i8042_device) {
-    /*
-     * Remove the device 
-     * FIXME: What happens to any handles that are held to a device? What do we do when the device is
-     * being accessed while we want to destroy it?
-     */
-    unregister_hid_device(s_i8042_device);
+    if (s_i8042_device) {
+        /*
+         * Remove the device
+         * FIXME: What happens to any handles that are held to a device? What do we do when the device is
+         * being accessed while we want to destroy it?
+         */
+        unregister_hid_device(s_i8042_device);
 
-    destroy_hid_device(s_i8042_device);
+        destroy_hid_device(s_i8042_device);
 
-    kernel_panic("FIXME: Remove i8042 HID device");
-  }
+        kernel_panic("FIXME: Remove i8042 HID device");
+    }
 
-  error = irq_deallocate(PS2_KB_IRQ_VEC, i8042_irq_handler);
+    error = irq_deallocate(PS2_KB_IRQ_VEC, i8042_irq_handler);
 
-  return error;
+    return error;
 }
 
 /*!
@@ -117,134 +117,132 @@ static int _exit_i8042()
  */
 static kerror_t _probe_i8042(aniva_driver_t* driver, device_t* dev)
 {
-  return -KERR_INVAL;
+    return -KERR_INVAL;
 }
 
 static void ps2_set_keycode_buffer(uint16_t keycode, bool pressed)
 {
-  uint32_t key_idx;
+    uint32_t key_idx;
 
-  if (pressed) {
-    for (uint32_t i = 0; i < arrlen(s_current_scancodes); i++) {
-      /* No duplicates */
-      if (s_current_scancodes[i] == keycode)
-        break;
+    if (pressed) {
+        for (uint32_t i = 0; i < arrlen(s_current_scancodes); i++) {
+            /* No duplicates */
+            if (s_current_scancodes[i] == keycode)
+                break;
 
-      /* Skip taken scancodes */
-      if (s_current_scancodes[i])
-        continue;
+            /* Skip taken scancodes */
+            if (s_current_scancodes[i])
+                continue;
 
-      s_current_scancodes[i] = keycode;
-      break;
+            s_current_scancodes[i] = keycode;
+            break;
+        }
+
+        return;
     }
 
-    return;
-  }
+    key_idx = 0;
 
-  key_idx = 0;
+    /* Search for our keycode */
+    for (; key_idx < arrlen(s_current_scancodes); key_idx++)
+        if (s_current_scancodes[key_idx] == keycode)
+            break;
 
-  /* Search for our keycode */
-  for (; key_idx < arrlen(s_current_scancodes); key_idx++)
-    if (s_current_scancodes[key_idx] == keycode)
-      break;
+    /* Shift the remaining keys forwards */
+    while (key_idx < arrlen(s_current_scancodes)) {
 
-  /* Shift the remaining keys forwards */
-  while (key_idx < arrlen(s_current_scancodes)) {
+        /* If we can't, simply put a NULL */
+        if ((key_idx + 1) >= arrlen(s_current_scancodes))
+            s_current_scancodes[key_idx] = NULL;
+        else
+            s_current_scancodes[key_idx] = s_current_scancodes[key_idx + 1];
 
-    /* If we can't, simply put a NULL */
-    if ((key_idx+1) >= arrlen(s_current_scancodes))
-      s_current_scancodes[key_idx] = NULL;
-    else
-      s_current_scancodes[key_idx] = s_current_scancodes[key_idx+1];
-
-    key_idx++;
-  }
+        key_idx++;
+    }
 }
 
-
-static inline void set_flags(uint16_t* flags, uint8_t bit, bool val) 
+static inline void set_flags(uint16_t* flags, uint8_t bit, bool val)
 {
-  if (val) {
-    *flags |= bit;
-  } else {
-    *flags &= ~bit;
-  }
+    if (val) {
+        *flags |= bit;
+    } else {
+        *flags &= ~bit;
+    }
 }
 
-registers_t* i8042_irq_handler(registers_t* regs) 
+registers_t* i8042_irq_handler(registers_t* regs)
 {
-  char character;
-  uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
-  bool pressed = (!(scan_code & 0x80));
+    char character;
+    uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
+    bool pressed = (!(scan_code & 0x80));
 
-  /* Don't do anything if the device is not enabled */
-  if (!device_is_enabled(s_i8042_device->dev))
-    return nullptr;
+    /* Don't do anything if the device is not enabled */
+    if (!device_is_enabled(s_i8042_device->dev))
+        return nullptr;
 
-  if (scan_code == 0x00e0) {
-    /* Extended keycode */
-    s_current_scancode = scan_code;
-    return regs;
-  }
-  
-  s_current_scancode = NULL;
+    if (scan_code == 0x00e0) {
+        /* Extended keycode */
+        s_current_scancode = scan_code;
+        return regs;
+    }
 
-  uint16_t key_code = scan_code & 0x7f;
+    s_current_scancode = NULL;
 
-  switch (key_code) {
+    uint16_t key_code = scan_code & 0x7f;
+
+    switch (key_code) {
     case KBD_SCANCODE_ALT:
-      set_flags(&s_mod_flags, KBD_MOD_ALT, pressed);
-      break;
+        set_flags(&s_mod_flags, KBD_MOD_ALT, pressed);
+        break;
     case KBD_SCANCODE_LSHIFT:
     case KBD_SCANCODE_RSHIFT:
-      set_flags(&s_mod_flags, KBD_MOD_SHIFT, pressed);
-      break;
+        set_flags(&s_mod_flags, KBD_MOD_SHIFT, pressed);
+        break;
     case KBD_SCANCODE_CTRL:
-      set_flags(&s_mod_flags, KBD_MOD_CTRL, pressed);
-      break;
+        set_flags(&s_mod_flags, KBD_MOD_CTRL, pressed);
+        break;
     case KBD_SCANCODE_SUPER:
-      set_flags(&s_mod_flags, KBD_MOD_SUPER, pressed);
-      break;
-  default:
-    break;
-  }
+        set_flags(&s_mod_flags, KBD_MOD_SUPER, pressed);
+        break;
+    default:
+        break;
+    }
 
-  character = NULL;
+    character = NULL;
 
-  if (key_code < 256)
-    character = (s_mod_flags & KBD_MOD_SHIFT)
-                 ? kbd_us_shift_map[key_code]
-                 : kbd_us_map[key_code];
+    if (key_code < 256)
+        character = (s_mod_flags & KBD_MOD_SHIFT)
+            ? kbd_us_shift_map[key_code]
+            : kbd_us_map[key_code];
 
-  kevent_kb_ctx_t kb = {
-    .pressed = pressed,
-    .keycode = aniva_scancode_table[key_code],
-    .pressed_char = character,
-  };
+    kevent_kb_ctx_t kb = {
+        .pressed = pressed,
+        .keycode = aniva_scancode_table[key_code],
+        .pressed_char = character,
+    };
 
-  /* Buffer the keycodes */
-  ps2_set_keycode_buffer(kb.keycode, pressed);
+    /* Buffer the keycodes */
+    ps2_set_keycode_buffer(kb.keycode, pressed);
 
-  /* Copy the scancode buffer to the event */
-  memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
+    /* Copy the scancode buffer to the event */
+    memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
 
-  kevent_fire("keyboard", &kb, sizeof(kb));
+    kevent_fire("keyboard", &kb, sizeof(kb));
 
-  return regs;
+    return regs;
 }
 
 EXPORT_DRIVER(i8042) = {
-  .m_name = "i8042",
-  .m_descriptor = "i8042 input driver",
-  .m_type = DT_IO,
-  .m_version = DRIVER_VERSION(0, 0, 1),
-  .f_init = _init_i8042,
-  .f_exit = _exit_i8042,
-  .f_probe = _probe_i8042,
+    .m_name = "i8042",
+    .m_descriptor = "i8042 input driver",
+    .m_type = DT_IO,
+    .m_version = DRIVER_VERSION(0, 0, 1),
+    .f_init = _init_i8042,
+    .f_exit = _exit_i8042,
+    .f_probe = _probe_i8042,
 };
 
 EXPORT_DEPENDENCIES(deps) = {
-  //DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Root/System/"),
-  DRV_DEP_END,
+    // DRV_DEP(DRV_DEPTYPE_PATH, NULL, "Root/System/"),
+    DRV_DEP_END,
 };
-

@@ -149,14 +149,12 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acinterp.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exstorob")
-
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exstorob")
 
 /*******************************************************************************
  *
@@ -172,40 +170,34 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExStoreBufferToBuffer (
-    ACPI_OPERAND_OBJECT     *SourceDesc,
-    ACPI_OPERAND_OBJECT     *TargetDesc)
+AcpiExStoreBufferToBuffer(
+    ACPI_OPERAND_OBJECT* SourceDesc,
+    ACPI_OPERAND_OBJECT* TargetDesc)
 {
-    UINT32                  Length;
-    UINT8                   *Buffer;
+    UINT32 Length;
+    UINT8* Buffer;
 
-
-    ACPI_FUNCTION_TRACE_PTR (ExStoreBufferToBuffer, SourceDesc);
-
+    ACPI_FUNCTION_TRACE_PTR(ExStoreBufferToBuffer, SourceDesc);
 
     /* If Source and Target are the same, just return */
 
-    if (SourceDesc == TargetDesc)
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (SourceDesc == TargetDesc) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /* We know that SourceDesc is a buffer by now */
 
-    Buffer = ACPI_CAST_PTR (UINT8, SourceDesc->Buffer.Pointer);
+    Buffer = ACPI_CAST_PTR(UINT8, SourceDesc->Buffer.Pointer);
     Length = SourceDesc->Buffer.Length;
 
     /*
      * If target is a buffer of length zero or is a static buffer,
      * allocate a new buffer of the proper length
      */
-    if ((TargetDesc->Buffer.Length == 0) ||
-        (TargetDesc->Common.Flags & AOPOBJ_STATIC_POINTER))
-    {
-        TargetDesc->Buffer.Pointer = ACPI_ALLOCATE (Length);
-        if (!TargetDesc->Buffer.Pointer)
-        {
-            return_ACPI_STATUS (AE_NO_MEMORY);
+    if ((TargetDesc->Buffer.Length == 0) || (TargetDesc->Common.Flags & AOPOBJ_STATIC_POINTER)) {
+        TargetDesc->Buffer.Pointer = ACPI_ALLOCATE(Length);
+        if (!TargetDesc->Buffer.Pointer) {
+            return_ACPI_STATUS(AE_NO_MEMORY);
         }
 
         TargetDesc->Buffer.Length = Length;
@@ -213,12 +205,11 @@ AcpiExStoreBufferToBuffer (
 
     /* Copy source buffer to target buffer */
 
-    if (Length <= TargetDesc->Buffer.Length)
-    {
+    if (Length <= TargetDesc->Buffer.Length) {
         /* Clear existing buffer and copy in the new one */
 
-        memset (TargetDesc->Buffer.Pointer, 0, TargetDesc->Buffer.Length);
-        memcpy (TargetDesc->Buffer.Pointer, Buffer, Length);
+        memset(TargetDesc->Buffer.Pointer, 0, TargetDesc->Buffer.Length);
+        memcpy(TargetDesc->Buffer.Pointer, Buffer, Length);
 
 #ifdef ACPI_OBSOLETE_BEHAVIOR
         /*
@@ -235,22 +226,19 @@ AcpiExStoreBufferToBuffer (
          * according to the ACPI spec. Integer-to-Buffer and Buffer-to-Buffer
          * copy must not truncate the original buffer.
          */
-        if (OriginalSrcType == ACPI_TYPE_STRING)
-        {
+        if (OriginalSrcType == ACPI_TYPE_STRING) {
             /* Set the new length of the target */
 
             TargetDesc->Buffer.Length = Length;
         }
 #endif
-    }
-    else
-    {
+    } else {
         /* Truncate the source, copy only what will fit */
 
-        memcpy (TargetDesc->Buffer.Pointer, Buffer,
+        memcpy(TargetDesc->Buffer.Pointer, Buffer,
             TargetDesc->Buffer.Length);
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
+        ACPI_DEBUG_PRINT((ACPI_DB_INFO,
             "Truncating source buffer from %X to %X\n",
             Length, TargetDesc->Buffer.Length));
     }
@@ -259,9 +247,8 @@ AcpiExStoreBufferToBuffer (
 
     TargetDesc->Buffer.Flags = SourceDesc->Buffer.Flags;
     TargetDesc->Common.Flags &= ~AOPOBJ_STATIC_POINTER;
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -277,72 +264,61 @@ AcpiExStoreBufferToBuffer (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExStoreStringToString (
-    ACPI_OPERAND_OBJECT     *SourceDesc,
-    ACPI_OPERAND_OBJECT     *TargetDesc)
+AcpiExStoreStringToString(
+    ACPI_OPERAND_OBJECT* SourceDesc,
+    ACPI_OPERAND_OBJECT* TargetDesc)
 {
-    UINT32                  Length;
-    UINT8                   *Buffer;
+    UINT32 Length;
+    UINT8* Buffer;
 
-
-    ACPI_FUNCTION_TRACE_PTR (ExStoreStringToString, SourceDesc);
-
+    ACPI_FUNCTION_TRACE_PTR(ExStoreStringToString, SourceDesc);
 
     /* If Source and Target are the same, just return */
 
-    if (SourceDesc == TargetDesc)
-    {
-        return_ACPI_STATUS (AE_OK);
+    if (SourceDesc == TargetDesc) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /* We know that SourceDesc is a string by now */
 
-    Buffer = ACPI_CAST_PTR (UINT8, SourceDesc->String.Pointer);
+    Buffer = ACPI_CAST_PTR(UINT8, SourceDesc->String.Pointer);
     Length = SourceDesc->String.Length;
 
     /*
      * Replace existing string value if it will fit and the string
      * pointer is not a static pointer (part of an ACPI table)
      */
-    if ((Length < TargetDesc->String.Length) &&
-       (!(TargetDesc->Common.Flags & AOPOBJ_STATIC_POINTER)))
-    {
+    if ((Length < TargetDesc->String.Length) && (!(TargetDesc->Common.Flags & AOPOBJ_STATIC_POINTER))) {
         /*
          * String will fit in existing non-static buffer.
          * Clear old string and copy in the new one
          */
-        memset (TargetDesc->String.Pointer, 0,
-            (ACPI_SIZE) TargetDesc->String.Length + 1);
-        memcpy (TargetDesc->String.Pointer, Buffer, Length);
-    }
-    else
-    {
+        memset(TargetDesc->String.Pointer, 0,
+            (ACPI_SIZE)TargetDesc->String.Length + 1);
+        memcpy(TargetDesc->String.Pointer, Buffer, Length);
+    } else {
         /*
          * Free the current buffer, then allocate a new buffer
          * large enough to hold the value
          */
-        if (TargetDesc->String.Pointer &&
-           (!(TargetDesc->Common.Flags & AOPOBJ_STATIC_POINTER)))
-        {
+        if (TargetDesc->String.Pointer && (!(TargetDesc->Common.Flags & AOPOBJ_STATIC_POINTER))) {
             /* Only free if not a pointer into the DSDT */
 
-            ACPI_FREE (TargetDesc->String.Pointer);
+            ACPI_FREE(TargetDesc->String.Pointer);
         }
 
-        TargetDesc->String.Pointer =
-            ACPI_ALLOCATE_ZEROED ((ACPI_SIZE) Length + 1);
+        TargetDesc->String.Pointer = ACPI_ALLOCATE_ZEROED((ACPI_SIZE)Length + 1);
 
-        if (!TargetDesc->String.Pointer)
-        {
-            return_ACPI_STATUS (AE_NO_MEMORY);
+        if (!TargetDesc->String.Pointer) {
+            return_ACPI_STATUS(AE_NO_MEMORY);
         }
 
         TargetDesc->Common.Flags &= ~AOPOBJ_STATIC_POINTER;
-        memcpy (TargetDesc->String.Pointer, Buffer, Length);
+        memcpy(TargetDesc->String.Pointer, Buffer, Length);
     }
 
     /* Set the new target length */
 
     TargetDesc->String.Length = Length;
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }

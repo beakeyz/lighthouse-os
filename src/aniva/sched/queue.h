@@ -13,9 +13,9 @@
 struct sched_frame;
 
 typedef struct scheduler_queue {
-  struct sched_frame* dequeue;
-  struct sched_frame* enqueue;
-  uint32_t count;
+    struct sched_frame* dequeue;
+    struct sched_frame* enqueue;
+    uint32_t count;
 } scheduler_queue_t;
 
 ANIVA_STATUS init_scheduler_queue(scheduler_queue_t* out);

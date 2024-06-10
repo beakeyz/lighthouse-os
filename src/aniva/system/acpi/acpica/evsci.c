@@ -151,22 +151,20 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acevents.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_EVENTS
-        ACPI_MODULE_NAME    ("evsci")
+#define _COMPONENT ACPI_EVENTS
+ACPI_MODULE_NAME("evsci")
 
 #if (!ACPI_REDUCED_HARDWARE) /* Entire module */
 
 /* Local prototypes */
 
 static UINT32 ACPI_SYSTEM_XFACE
-AcpiEvSciXruptHandler (
-    void                    *Context);
-
+AcpiEvSciXruptHandler(
+    void* Context);
 
 /*******************************************************************************
  *
@@ -181,43 +179,38 @@ AcpiEvSciXruptHandler (
  ******************************************************************************/
 
 UINT32
-AcpiEvSciDispatch (
+AcpiEvSciDispatch(
     void)
 {
-    ACPI_SCI_HANDLER_INFO   *SciHandler;
-    ACPI_CPU_FLAGS          Flags;
-    UINT32                  IntStatus = ACPI_INTERRUPT_NOT_HANDLED;
+    ACPI_SCI_HANDLER_INFO* SciHandler;
+    ACPI_CPU_FLAGS Flags;
+    UINT32 IntStatus = ACPI_INTERRUPT_NOT_HANDLED;
 
-
-    ACPI_FUNCTION_NAME (EvSciDispatch);
-
+    ACPI_FUNCTION_NAME(EvSciDispatch);
 
     /* Are there any host-installed SCI handlers? */
 
-    if (!AcpiGbl_SciHandlerList)
-    {
+    if (!AcpiGbl_SciHandlerList) {
         return (IntStatus);
     }
 
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Invoke all host-installed SCI handlers */
 
     SciHandler = AcpiGbl_SciHandlerList;
-    while (SciHandler)
-    {
+    while (SciHandler) {
         /* Invoke the installed handler (at interrupt level) */
 
-        IntStatus |= SciHandler->Address (
+        IntStatus |= SciHandler->Address(
             SciHandler->Context);
 
         SciHandler = SciHandler->Next;
     }
 
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
     return (IntStatus);
 }
-
 
 /*******************************************************************************
  *
@@ -233,15 +226,13 @@ AcpiEvSciDispatch (
  ******************************************************************************/
 
 static UINT32 ACPI_SYSTEM_XFACE
-AcpiEvSciXruptHandler (
-    void                    *Context)
+AcpiEvSciXruptHandler(
+    void* Context)
 {
-    ACPI_GPE_XRUPT_INFO     *GpeXruptList = Context;
-    UINT32                  InterruptHandled = ACPI_INTERRUPT_NOT_HANDLED;
+    ACPI_GPE_XRUPT_INFO* GpeXruptList = Context;
+    UINT32 InterruptHandled = ACPI_INTERRUPT_NOT_HANDLED;
 
-
-    ACPI_FUNCTION_TRACE (EvSciXruptHandler);
-
+    ACPI_FUNCTION_TRACE(EvSciXruptHandler);
 
     /*
      * We are guaranteed by the ACPICA initialization/shutdown code that
@@ -252,22 +243,21 @@ AcpiEvSciXruptHandler (
      * Fixed Events:
      * Check for and dispatch any Fixed Events that have occurred
      */
-    InterruptHandled |= AcpiEvFixedEventDetect ();
+    InterruptHandled |= AcpiEvFixedEventDetect();
 
     /*
      * General Purpose Events:
      * Check for and dispatch any GPEs that have occurred
      */
-    InterruptHandled |= AcpiEvGpeDetect (GpeXruptList);
+    InterruptHandled |= AcpiEvGpeDetect(GpeXruptList);
 
     /* Invoke all host-installed SCI handlers */
 
-    InterruptHandled |= AcpiEvSciDispatch ();
+    InterruptHandled |= AcpiEvSciDispatch();
 
     AcpiSciCount++;
-    return_UINT32 (InterruptHandled);
+    return_UINT32(InterruptHandled);
 }
-
 
 /*******************************************************************************
  *
@@ -282,15 +272,13 @@ AcpiEvSciXruptHandler (
  ******************************************************************************/
 
 UINT32 ACPI_SYSTEM_XFACE
-AcpiEvGpeXruptHandler (
-    void                    *Context)
+AcpiEvGpeXruptHandler(
+    void* Context)
 {
-    ACPI_GPE_XRUPT_INFO     *GpeXruptList = Context;
-    UINT32                  InterruptHandled = ACPI_INTERRUPT_NOT_HANDLED;
+    ACPI_GPE_XRUPT_INFO* GpeXruptList = Context;
+    UINT32 InterruptHandled = ACPI_INTERRUPT_NOT_HANDLED;
 
-
-    ACPI_FUNCTION_TRACE (EvGpeXruptHandler);
-
+    ACPI_FUNCTION_TRACE(EvGpeXruptHandler);
 
     /*
      * We are guaranteed by the ACPICA initialization/shutdown code that
@@ -299,10 +287,9 @@ AcpiEvGpeXruptHandler (
 
     /* GPEs: Check for and dispatch any GPEs that have occurred */
 
-    InterruptHandled |= AcpiEvGpeDetect (GpeXruptList);
-    return_UINT32 (InterruptHandled);
+    InterruptHandled |= AcpiEvGpeDetect(GpeXruptList);
+    return_UINT32(InterruptHandled);
 }
-
 
 /******************************************************************************
  *
@@ -317,20 +304,17 @@ AcpiEvGpeXruptHandler (
  ******************************************************************************/
 
 UINT32
-AcpiEvInstallSciHandler (
+AcpiEvInstallSciHandler(
     void)
 {
-    UINT32                  Status = AE_OK;
+    UINT32 Status = AE_OK;
 
+    ACPI_FUNCTION_TRACE(EvInstallSciHandler);
 
-    ACPI_FUNCTION_TRACE (EvInstallSciHandler);
-
-
-    Status = AcpiOsInstallInterruptHandler ((UINT32) AcpiGbl_FADT.SciInterrupt,
+    Status = AcpiOsInstallInterruptHandler((UINT32)AcpiGbl_FADT.SciInterrupt,
         AcpiEvSciXruptHandler, AcpiGbl_GpeXruptListHead);
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /******************************************************************************
  *
@@ -352,40 +336,36 @@ AcpiEvInstallSciHandler (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEvRemoveAllSciHandlers (
+AcpiEvRemoveAllSciHandlers(
     void)
 {
-    ACPI_SCI_HANDLER_INFO   *SciHandler;
-    ACPI_CPU_FLAGS          Flags;
-    ACPI_STATUS             Status;
+    ACPI_SCI_HANDLER_INFO* SciHandler;
+    ACPI_CPU_FLAGS Flags;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (EvRemoveAllSciHandlers);
-
+    ACPI_FUNCTION_TRACE(EvRemoveAllSciHandlers);
 
     /* Just let the OS remove the handler and disable the level */
 
-    Status = AcpiOsRemoveInterruptHandler ((UINT32) AcpiGbl_FADT.SciInterrupt,
+    Status = AcpiOsRemoveInterruptHandler((UINT32)AcpiGbl_FADT.SciInterrupt,
         AcpiEvSciXruptHandler);
 
-    if (!AcpiGbl_SciHandlerList)
-    {
+    if (!AcpiGbl_SciHandlerList) {
         return (Status);
     }
 
-    Flags = AcpiOsAcquireLock (AcpiGbl_GpeLock);
+    Flags = AcpiOsAcquireLock(AcpiGbl_GpeLock);
 
     /* Free all host-installed SCI handlers */
 
-    while (AcpiGbl_SciHandlerList)
-    {
+    while (AcpiGbl_SciHandlerList) {
         SciHandler = AcpiGbl_SciHandlerList;
         AcpiGbl_SciHandlerList = SciHandler->Next;
-        ACPI_FREE (SciHandler);
+        ACPI_FREE(SciHandler);
     }
 
-    AcpiOsReleaseLock (AcpiGbl_GpeLock, Flags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_GpeLock, Flags);
+    return_ACPI_STATUS(Status);
 }
 
 #endif /* !ACPI_REDUCED_HARDWARE */

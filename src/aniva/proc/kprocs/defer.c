@@ -2,10 +2,11 @@
 
 defered_call_t* s_calls;
 
-void init_defered_calls() {
-  /* Register work thread */
-  
-  /* Setup call queue */
+void init_defered_calls()
+{
+    /* Register work thread */
 
-  /* Setup scheduler overwrite (?) */
+    /* Setup call queue */
+
+    /* Setup scheduler overwrite (?) */
 }

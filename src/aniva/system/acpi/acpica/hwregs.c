@@ -150,38 +150,36 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acevents.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_HARDWARE
-        ACPI_MODULE_NAME    ("hwregs")
-
+#define _COMPONENT ACPI_HARDWARE
+ACPI_MODULE_NAME("hwregs")
 
 #if (!ACPI_REDUCED_HARDWARE)
 
 /* Local Prototypes */
 
 static UINT8
-AcpiHwGetAccessBitWidth (
-    UINT64                  Address,
-    ACPI_GENERIC_ADDRESS    *Reg,
-    UINT8                   MaxBitWidth);
+AcpiHwGetAccessBitWidth(
+    UINT64 Address,
+    ACPI_GENERIC_ADDRESS* Reg,
+    UINT8 MaxBitWidth);
 
 static ACPI_STATUS
-AcpiHwReadMultiple (
-    UINT32                  *Value,
-    ACPI_GENERIC_ADDRESS    *RegisterA,
-    ACPI_GENERIC_ADDRESS    *RegisterB);
+AcpiHwReadMultiple(
+    UINT32* Value,
+    ACPI_GENERIC_ADDRESS* RegisterA,
+    ACPI_GENERIC_ADDRESS* RegisterB);
 
 static ACPI_STATUS
-AcpiHwWriteMultiple (
-    UINT32                  Value,
-    ACPI_GENERIC_ADDRESS    *RegisterA,
-    ACPI_GENERIC_ADDRESS    *RegisterB);
+AcpiHwWriteMultiple(
+    UINT32 Value,
+    ACPI_GENERIC_ADDRESS* RegisterA,
+    ACPI_GENERIC_ADDRESS* RegisterB);
 
 #endif /* !ACPI_REDUCED_HARDWARE */
-
 
 /******************************************************************************
  *
@@ -198,13 +196,12 @@ AcpiHwWriteMultiple (
  ******************************************************************************/
 
 static UINT8
-AcpiHwGetAccessBitWidth (
-    UINT64                  Address,
-    ACPI_GENERIC_ADDRESS    *Reg,
-    UINT8                   MaxBitWidth)
+AcpiHwGetAccessBitWidth(
+    UINT64 Address,
+    ACPI_GENERIC_ADDRESS* Reg,
+    UINT8 MaxBitWidth)
 {
-    UINT8                   AccessBitWidth;
-
+    UINT8 AccessBitWidth;
 
     /*
      * GAS format "register", used by FADT:
@@ -220,28 +217,17 @@ AcpiHwGetAccessBitWidth (
      * Note: This algorithm assumes that the "Address" fields should always
      *       contain aligned values.
      */
-    if (!Reg->BitOffset && Reg->BitWidth &&
-        ACPI_IS_POWER_OF_TWO (Reg->BitWidth) &&
-        ACPI_IS_ALIGNED (Reg->BitWidth, 8))
-    {
+    if (!Reg->BitOffset && Reg->BitWidth && ACPI_IS_POWER_OF_TWO(Reg->BitWidth) && ACPI_IS_ALIGNED(Reg->BitWidth, 8)) {
         AccessBitWidth = Reg->BitWidth;
-    }
-    else if (Reg->AccessWidth)
-    {
-        AccessBitWidth = ACPI_ACCESS_BIT_WIDTH (Reg->AccessWidth);
-    }
-    else
-    {
-        AccessBitWidth = ACPI_ROUND_UP_POWER_OF_TWO_8 (
+    } else if (Reg->AccessWidth) {
+        AccessBitWidth = ACPI_ACCESS_BIT_WIDTH(Reg->AccessWidth);
+    } else {
+        AccessBitWidth = ACPI_ROUND_UP_POWER_OF_TWO_8(
             Reg->BitOffset + Reg->BitWidth);
-        if (AccessBitWidth <= 8)
-        {
+        if (AccessBitWidth <= 8) {
             AccessBitWidth = 8;
-        }
-        else
-        {
-            while (!ACPI_IS_ALIGNED (Address, AccessBitWidth >> 3))
-            {
+        } else {
+            while (!ACPI_IS_ALIGNED(Address, AccessBitWidth >> 3)) {
                 AccessBitWidth >>= 1;
             }
         }
@@ -249,8 +235,7 @@ AcpiHwGetAccessBitWidth (
 
     /* Maximum IO port access bit width is 32 */
 
-    if (Reg->SpaceId == ACPI_ADR_SPACE_SYSTEM_IO)
-    {
+    if (Reg->SpaceId == ACPI_ADR_SPACE_SYSTEM_IO) {
         MaxBitWidth = 32;
     }
 
@@ -259,13 +244,11 @@ AcpiHwGetAccessBitWidth (
      * as the caller should know the format of the register and may enforce
      * a 32-bit accesses.
      */
-    if (AccessBitWidth < MaxBitWidth)
-    {
+    if (AccessBitWidth < MaxBitWidth) {
         return (AccessBitWidth);
     }
     return (MaxBitWidth);
 }
-
 
 /******************************************************************************
  *
@@ -284,19 +267,17 @@ AcpiHwGetAccessBitWidth (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwValidateRegister (
-    ACPI_GENERIC_ADDRESS    *Reg,
-    UINT8                   MaxBitWidth,
-    UINT64                  *Address)
+AcpiHwValidateRegister(
+    ACPI_GENERIC_ADDRESS* Reg,
+    UINT8 MaxBitWidth,
+    UINT64* Address)
 {
-    UINT8                   BitWidth;
-    UINT8                   AccessWidth;
-
+    UINT8 BitWidth;
+    UINT8 AccessWidth;
 
     /* Must have a valid pointer to a GAS structure */
 
-    if (!Reg)
-    {
+    if (!Reg) {
         return (AE_BAD_PARAMETER);
     }
 
@@ -305,38 +286,33 @@ AcpiHwValidateRegister (
      * Address must not be null. A null address also indicates an optional
      * ACPI register that is not supported, so no error message.
      */
-    ACPI_MOVE_64_TO_64 (Address, &Reg->Address);
-    if (!(*Address))
-    {
+    ACPI_MOVE_64_TO_64(Address, &Reg->Address);
+    if (!(*Address)) {
         return (AE_BAD_ADDRESS);
     }
 
     /* Validate the SpaceID */
 
-    if ((Reg->SpaceId != ACPI_ADR_SPACE_SYSTEM_MEMORY) &&
-        (Reg->SpaceId != ACPI_ADR_SPACE_SYSTEM_IO))
-    {
-        ACPI_ERROR ((AE_INFO,
+    if ((Reg->SpaceId != ACPI_ADR_SPACE_SYSTEM_MEMORY) && (Reg->SpaceId != ACPI_ADR_SPACE_SYSTEM_IO)) {
+        ACPI_ERROR((AE_INFO,
             "Unsupported address space: 0x%X", Reg->SpaceId));
         return (AE_SUPPORT);
     }
 
     /* Validate the AccessWidth */
 
-    if (Reg->AccessWidth > 4)
-    {
-        ACPI_ERROR ((AE_INFO,
+    if (Reg->AccessWidth > 4) {
+        ACPI_ERROR((AE_INFO,
             "Unsupported register access width: 0x%X", Reg->AccessWidth));
         return (AE_SUPPORT);
     }
 
     /* Validate the BitWidth, convert AccessWidth into number of bits */
 
-    AccessWidth = AcpiHwGetAccessBitWidth (*Address, Reg, MaxBitWidth);
-    BitWidth = ACPI_ROUND_UP (Reg->BitOffset + Reg->BitWidth, AccessWidth);
-    if (MaxBitWidth < BitWidth)
-    {
-        ACPI_WARNING ((AE_INFO,
+    AccessWidth = AcpiHwGetAccessBitWidth(*Address, Reg, MaxBitWidth);
+    BitWidth = ACPI_ROUND_UP(Reg->BitOffset + Reg->BitWidth, AccessWidth);
+    if (MaxBitWidth < BitWidth) {
+        ACPI_WARNING((AE_INFO,
             "Requested bit width 0x%X is smaller than register bit width 0x%X",
             MaxBitWidth, BitWidth));
         return (AE_SUPPORT);
@@ -344,7 +320,6 @@ AcpiHwValidateRegister (
 
     return (AE_OK);
 }
-
 
 /******************************************************************************
  *
@@ -364,28 +339,25 @@ AcpiHwValidateRegister (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwRead (
-    UINT64                  *Value,
-    ACPI_GENERIC_ADDRESS    *Reg)
+AcpiHwRead(
+    UINT64* Value,
+    ACPI_GENERIC_ADDRESS* Reg)
 {
-    UINT64                  Address;
-    UINT8                   AccessWidth;
-    UINT32                  BitWidth;
-    UINT8                   BitOffset;
-    UINT64                  Value64;
-    UINT32                  Value32;
-    UINT8                   Index;
-    ACPI_STATUS             Status;
+    UINT64 Address;
+    UINT8 AccessWidth;
+    UINT32 BitWidth;
+    UINT8 BitOffset;
+    UINT64 Value64;
+    UINT32 Value32;
+    UINT8 Index;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_NAME (HwRead);
-
+    ACPI_FUNCTION_NAME(HwRead);
 
     /* Validate contents of the GAS register */
 
-    Status = AcpiHwValidateRegister (Reg, 64, &Address);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiHwValidateRegister(Reg, 64, &Address);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -394,7 +366,7 @@ AcpiHwRead (
      * into number of bits based
      */
     *Value = 0;
-    AccessWidth = AcpiHwGetAccessBitWidth (Address, Reg, 64);
+    AccessWidth = AcpiHwGetAccessBitWidth(Address, Reg, 64);
     BitWidth = Reg->BitOffset + Reg->BitWidth;
     BitOffset = Reg->BitOffset;
 
@@ -403,27 +375,23 @@ AcpiHwRead (
      * not supported here because the GAS structure is insufficient
      */
     Index = 0;
-    while (BitWidth)
-    {
-        if (BitOffset >= AccessWidth)
-        {
+    while (BitWidth) {
+        if (BitOffset >= AccessWidth) {
             Value64 = 0;
             BitOffset -= AccessWidth;
-        }
-        else
-        {
-            if (Reg->SpaceId == ACPI_ADR_SPACE_SYSTEM_MEMORY)
-            {
-                Status = AcpiOsReadMemory ((ACPI_PHYSICAL_ADDRESS)
-                    Address + Index * ACPI_DIV_8 (AccessWidth),
+        } else {
+            if (Reg->SpaceId == ACPI_ADR_SPACE_SYSTEM_MEMORY) {
+                Status = AcpiOsReadMemory((ACPI_PHYSICAL_ADDRESS)
+                                              Address
+                        + Index * ACPI_DIV_8(AccessWidth),
                     &Value64, AccessWidth);
-            }
-            else /* ACPI_ADR_SPACE_SYSTEM_IO, validated earlier */
+            } else /* ACPI_ADR_SPACE_SYSTEM_IO, validated earlier */
             {
-                Status = AcpiHwReadPort ((ACPI_IO_ADDRESS)
-                    Address + Index * ACPI_DIV_8 (AccessWidth),
+                Status = AcpiHwReadPort((ACPI_IO_ADDRESS)
+                                            Address
+                        + Index * ACPI_DIV_8(AccessWidth),
                     &Value32, AccessWidth);
-                Value64 = (UINT64) Value32;
+                Value64 = (UINT64)Value32;
             }
         }
 
@@ -431,21 +399,20 @@ AcpiHwRead (
          * Use offset style bit writes because "Index * AccessWidth" is
          * ensured to be less than 64-bits by AcpiHwValidateRegister().
          */
-        ACPI_SET_BITS (Value, Index * AccessWidth,
-            ACPI_MASK_BITS_ABOVE_64 (AccessWidth), Value64);
+        ACPI_SET_BITS(Value, Index * AccessWidth,
+            ACPI_MASK_BITS_ABOVE_64(AccessWidth), Value64);
 
         BitWidth -= BitWidth > AccessWidth ? AccessWidth : BitWidth;
         Index++;
     }
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_IO,
+    ACPI_DEBUG_PRINT((ACPI_DB_IO,
         "Read:  %8.8X%8.8X width %2d from %8.8X%8.8X (%s)\n",
-        ACPI_FORMAT_UINT64 (*Value), AccessWidth,
-        ACPI_FORMAT_UINT64 (Address), AcpiUtGetRegionName (Reg->SpaceId)));
+        ACPI_FORMAT_UINT64(*Value), AccessWidth,
+        ACPI_FORMAT_UINT64(Address), AcpiUtGetRegionName(Reg->SpaceId)));
 
     return (Status);
 }
-
 
 /******************************************************************************
  *
@@ -462,33 +429,30 @@ AcpiHwRead (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwWrite (
-    UINT64                  Value,
-    ACPI_GENERIC_ADDRESS    *Reg)
+AcpiHwWrite(
+    UINT64 Value,
+    ACPI_GENERIC_ADDRESS* Reg)
 {
-    UINT64                  Address;
-    UINT8                   AccessWidth;
-    UINT32                  BitWidth;
-    UINT8                   BitOffset;
-    UINT64                  Value64;
-    UINT8                   Index;
-    ACPI_STATUS             Status;
+    UINT64 Address;
+    UINT8 AccessWidth;
+    UINT32 BitWidth;
+    UINT8 BitOffset;
+    UINT64 Value64;
+    UINT8 Index;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_NAME (HwWrite);
-
+    ACPI_FUNCTION_NAME(HwWrite);
 
     /* Validate contents of the GAS register */
 
-    Status = AcpiHwValidateRegister (Reg, 64, &Address);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiHwValidateRegister(Reg, 64, &Address);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Convert AccessWidth into number of bits based */
 
-    AccessWidth = AcpiHwGetAccessBitWidth (Address, Reg, 64);
+    AccessWidth = AcpiHwGetAccessBitWidth(Address, Reg, 64);
     BitWidth = Reg->BitOffset + Reg->BitWidth;
     BitOffset = Reg->BitOffset;
 
@@ -497,32 +461,28 @@ AcpiHwWrite (
      * not supported here because the GAS structure is insufficient
      */
     Index = 0;
-    while (BitWidth)
-    {
+    while (BitWidth) {
         /*
          * Use offset style bit reads because "Index * AccessWidth" is
          * ensured to be less than 64-bits by AcpiHwValidateRegister().
          */
-        Value64 = ACPI_GET_BITS (&Value, Index * AccessWidth,
-            ACPI_MASK_BITS_ABOVE_64 (AccessWidth));
+        Value64 = ACPI_GET_BITS(&Value, Index * AccessWidth,
+            ACPI_MASK_BITS_ABOVE_64(AccessWidth));
 
-        if (BitOffset >= AccessWidth)
-        {
+        if (BitOffset >= AccessWidth) {
             BitOffset -= AccessWidth;
-        }
-        else
-        {
-            if (Reg->SpaceId == ACPI_ADR_SPACE_SYSTEM_MEMORY)
-            {
-                Status = AcpiOsWriteMemory ((ACPI_PHYSICAL_ADDRESS)
-                    Address + Index * ACPI_DIV_8 (AccessWidth),
+        } else {
+            if (Reg->SpaceId == ACPI_ADR_SPACE_SYSTEM_MEMORY) {
+                Status = AcpiOsWriteMemory((ACPI_PHYSICAL_ADDRESS)
+                                               Address
+                        + Index * ACPI_DIV_8(AccessWidth),
                     Value64, AccessWidth);
-            }
-            else /* ACPI_ADR_SPACE_SYSTEM_IO, validated earlier */
+            } else /* ACPI_ADR_SPACE_SYSTEM_IO, validated earlier */
             {
-                Status = AcpiHwWritePort ((ACPI_IO_ADDRESS)
-                    Address + Index * ACPI_DIV_8 (AccessWidth),
-                    (UINT32) Value64, AccessWidth);
+                Status = AcpiHwWritePort((ACPI_IO_ADDRESS)
+                                             Address
+                        + Index * ACPI_DIV_8(AccessWidth),
+                    (UINT32)Value64, AccessWidth);
             }
         }
 
@@ -534,14 +494,13 @@ AcpiHwWrite (
         Index++;
     }
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_IO,
+    ACPI_DEBUG_PRINT((ACPI_DB_IO,
         "Wrote: %8.8X%8.8X width %2d   to %8.8X%8.8X (%s)\n",
-        ACPI_FORMAT_UINT64 (Value), AccessWidth,
-        ACPI_FORMAT_UINT64 (Address), AcpiUtGetRegionName (Reg->SpaceId)));
+        ACPI_FORMAT_UINT64(Value), AccessWidth,
+        ACPI_FORMAT_UINT64(Address), AcpiUtGetRegionName(Reg->SpaceId)));
 
     return (Status);
 }
-
 
 #if (!ACPI_REDUCED_HARDWARE)
 /*******************************************************************************
@@ -557,42 +516,38 @@ AcpiHwWrite (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwClearAcpiStatus (
+AcpiHwClearAcpiStatus(
     void)
 {
-    ACPI_STATUS             Status;
-    ACPI_CPU_FLAGS          LockFlags = 0;
+    ACPI_STATUS Status;
+    ACPI_CPU_FLAGS LockFlags = 0;
 
+    ACPI_FUNCTION_TRACE(HwClearAcpiStatus);
 
-    ACPI_FUNCTION_TRACE (HwClearAcpiStatus);
-
-
-    ACPI_DEBUG_PRINT ((ACPI_DB_IO, "About to write %04X to %8.8X%8.8X\n",
+    ACPI_DEBUG_PRINT((ACPI_DB_IO, "About to write %04X to %8.8X%8.8X\n",
         ACPI_BITMASK_ALL_FIXED_STATUS,
-        ACPI_FORMAT_UINT64 (AcpiGbl_XPm1aStatus.Address)));
+        ACPI_FORMAT_UINT64(AcpiGbl_XPm1aStatus.Address)));
 
-    LockFlags = AcpiOsAcquireLock (AcpiGbl_HardwareLock);
+    LockFlags = AcpiOsAcquireLock(AcpiGbl_HardwareLock);
 
     /* Clear the fixed events in PM1 A/B */
 
-    Status = AcpiHwRegisterWrite (ACPI_REGISTER_PM1_STATUS,
+    Status = AcpiHwRegisterWrite(ACPI_REGISTER_PM1_STATUS,
         ACPI_BITMASK_ALL_FIXED_STATUS);
 
-    AcpiOsReleaseLock (AcpiGbl_HardwareLock, LockFlags);
+    AcpiOsReleaseLock(AcpiGbl_HardwareLock, LockFlags);
 
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         goto Exit;
     }
 
     /* Clear the GPE Bits in all GPE registers in all GPE blocks */
 
-    Status = AcpiEvWalkGpeList (AcpiHwClearGpeBlock, NULL);
+    Status = AcpiEvWalkGpeList(AcpiHwClearGpeBlock, NULL);
 
 Exit:
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -606,22 +561,19 @@ Exit:
  *
  ******************************************************************************/
 
-ACPI_BIT_REGISTER_INFO *
-AcpiHwGetBitRegisterInfo (
-    UINT32                  RegisterId)
+ACPI_BIT_REGISTER_INFO*
+AcpiHwGetBitRegisterInfo(
+    UINT32 RegisterId)
 {
-    ACPI_FUNCTION_ENTRY ();
+    ACPI_FUNCTION_ENTRY();
 
-
-    if (RegisterId > ACPI_BITREG_MAX)
-    {
-        ACPI_ERROR ((AE_INFO, "Invalid BitRegister ID: 0x%X", RegisterId));
+    if (RegisterId > ACPI_BITREG_MAX) {
+        ACPI_ERROR((AE_INFO, "Invalid BitRegister ID: 0x%X", RegisterId));
         return (NULL);
     }
 
     return (&AcpiGbl_BitRegisterInfo[RegisterId]);
 }
-
 
 /******************************************************************************
  *
@@ -641,29 +593,24 @@ AcpiHwGetBitRegisterInfo (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwWritePm1Control (
-    UINT32                  Pm1aControl,
-    UINT32                  Pm1bControl)
+AcpiHwWritePm1Control(
+    UINT32 Pm1aControl,
+    UINT32 Pm1bControl)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(HwWritePm1Control);
 
-    ACPI_FUNCTION_TRACE (HwWritePm1Control);
-
-
-    Status = AcpiHwWrite (Pm1aControl, &AcpiGbl_FADT.XPm1aControlBlock);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiHwWrite(Pm1aControl, &AcpiGbl_FADT.XPm1aControlBlock);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    if (AcpiGbl_FADT.XPm1bControlBlock.Address)
-    {
-        Status = AcpiHwWrite (Pm1bControl, &AcpiGbl_FADT.XPm1bControlBlock);
+    if (AcpiGbl_FADT.XPm1bControlBlock.Address) {
+        Status = AcpiHwWrite(Pm1bControl, &AcpiGbl_FADT.XPm1bControlBlock);
     }
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /******************************************************************************
  *
@@ -679,37 +626,34 @@ AcpiHwWritePm1Control (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwRegisterRead (
-    UINT32                  RegisterId,
-    UINT32                  *ReturnValue)
+AcpiHwRegisterRead(
+    UINT32 RegisterId,
+    UINT32* ReturnValue)
 {
-    UINT32                  Value = 0;
-    UINT64                  Value64;
-    ACPI_STATUS             Status;
+    UINT32 Value = 0;
+    UINT64 Value64;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(HwRegisterRead);
 
-    ACPI_FUNCTION_TRACE (HwRegisterRead);
+    switch (RegisterId) {
+    case ACPI_REGISTER_PM1_STATUS: /* PM1 A/B: 16-bit access each */
 
-
-    switch (RegisterId)
-    {
-    case ACPI_REGISTER_PM1_STATUS:           /* PM1 A/B: 16-bit access each */
-
-        Status = AcpiHwReadMultiple (&Value,
+        Status = AcpiHwReadMultiple(&Value,
             &AcpiGbl_XPm1aStatus,
             &AcpiGbl_XPm1bStatus);
         break;
 
-    case ACPI_REGISTER_PM1_ENABLE:           /* PM1 A/B: 16-bit access each */
+    case ACPI_REGISTER_PM1_ENABLE: /* PM1 A/B: 16-bit access each */
 
-        Status = AcpiHwReadMultiple (&Value,
+        Status = AcpiHwReadMultiple(&Value,
             &AcpiGbl_XPm1aEnable,
             &AcpiGbl_XPm1bEnable);
         break;
 
-    case ACPI_REGISTER_PM1_CONTROL:          /* PM1 A/B: 16-bit access each */
+    case ACPI_REGISTER_PM1_CONTROL: /* PM1 A/B: 16-bit access each */
 
-        Status = AcpiHwReadMultiple (&Value,
+        Status = AcpiHwReadMultiple(&Value,
             &AcpiGbl_FADT.XPm1aControlBlock,
             &AcpiGbl_FADT.XPm1bControlBlock);
 
@@ -721,46 +665,42 @@ AcpiHwRegisterRead (
         Value &= ~ACPI_PM1_CONTROL_WRITEONLY_BITS;
         break;
 
-    case ACPI_REGISTER_PM2_CONTROL:          /* 8-bit access */
+    case ACPI_REGISTER_PM2_CONTROL: /* 8-bit access */
 
-        Status = AcpiHwRead (&Value64, &AcpiGbl_FADT.XPm2ControlBlock);
-        if (ACPI_SUCCESS (Status))
-        {
-            Value = (UINT32) Value64;
+        Status = AcpiHwRead(&Value64, &AcpiGbl_FADT.XPm2ControlBlock);
+        if (ACPI_SUCCESS(Status)) {
+            Value = (UINT32)Value64;
         }
         break;
 
-    case ACPI_REGISTER_PM_TIMER:             /* 32-bit access */
+    case ACPI_REGISTER_PM_TIMER: /* 32-bit access */
 
-        Status = AcpiHwRead (&Value64, &AcpiGbl_FADT.XPmTimerBlock);
-        if (ACPI_SUCCESS (Status))
-        {
-            Value = (UINT32) Value64;
+        Status = AcpiHwRead(&Value64, &AcpiGbl_FADT.XPmTimerBlock);
+        if (ACPI_SUCCESS(Status)) {
+            Value = (UINT32)Value64;
         }
 
         break;
 
-    case ACPI_REGISTER_SMI_COMMAND_BLOCK:    /* 8-bit access */
+    case ACPI_REGISTER_SMI_COMMAND_BLOCK: /* 8-bit access */
 
-        Status = AcpiHwReadPort (AcpiGbl_FADT.SmiCommand, &Value, 8);
+        Status = AcpiHwReadPort(AcpiGbl_FADT.SmiCommand, &Value, 8);
         break;
 
     default:
 
-        ACPI_ERROR ((AE_INFO, "Unknown Register ID: 0x%X",
+        ACPI_ERROR((AE_INFO, "Unknown Register ID: 0x%X",
             RegisterId));
         Status = AE_BAD_PARAMETER;
         break;
     }
 
-    if (ACPI_SUCCESS (Status))
-    {
-        *ReturnValue = (UINT32) Value;
+    if (ACPI_SUCCESS(Status)) {
+        *ReturnValue = (UINT32)Value;
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /******************************************************************************
  *
@@ -789,21 +729,18 @@ AcpiHwRegisterRead (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiHwRegisterWrite (
-    UINT32                  RegisterId,
-    UINT32                  Value)
+AcpiHwRegisterWrite(
+    UINT32 RegisterId,
+    UINT32 Value)
 {
-    ACPI_STATUS             Status;
-    UINT32                  ReadValue;
-    UINT64                  ReadValue64;
+    ACPI_STATUS Status;
+    UINT32 ReadValue;
+    UINT64 ReadValue64;
 
+    ACPI_FUNCTION_TRACE(HwRegisterWrite);
 
-    ACPI_FUNCTION_TRACE (HwRegisterWrite);
-
-
-    switch (RegisterId)
-    {
-    case ACPI_REGISTER_PM1_STATUS:           /* PM1 A/B: 16-bit access each */
+    switch (RegisterId) {
+    case ACPI_REGISTER_PM1_STATUS: /* PM1 A/B: 16-bit access each */
         /*
          * Handle the "ignored" bit in PM1 Status. According to the ACPI
          * specification, ignored bits are to be preserved when writing.
@@ -816,85 +753,82 @@ AcpiHwRegisterWrite (
          */
         Value &= ~ACPI_PM1_STATUS_PRESERVED_BITS;
 
-        Status = AcpiHwWriteMultiple (Value,
+        Status = AcpiHwWriteMultiple(Value,
             &AcpiGbl_XPm1aStatus,
             &AcpiGbl_XPm1bStatus);
         break;
 
-    case ACPI_REGISTER_PM1_ENABLE:           /* PM1 A/B: 16-bit access each */
+    case ACPI_REGISTER_PM1_ENABLE: /* PM1 A/B: 16-bit access each */
 
-        Status = AcpiHwWriteMultiple (Value,
+        Status = AcpiHwWriteMultiple(Value,
             &AcpiGbl_XPm1aEnable,
             &AcpiGbl_XPm1bEnable);
         break;
 
-    case ACPI_REGISTER_PM1_CONTROL:          /* PM1 A/B: 16-bit access each */
+    case ACPI_REGISTER_PM1_CONTROL: /* PM1 A/B: 16-bit access each */
         /*
          * Perform a read first to preserve certain bits (per ACPI spec)
          * Note: This includes SCI_EN, we never want to change this bit
          */
-        Status = AcpiHwReadMultiple (&ReadValue,
+        Status = AcpiHwReadMultiple(&ReadValue,
             &AcpiGbl_FADT.XPm1aControlBlock,
             &AcpiGbl_FADT.XPm1bControlBlock);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             goto Exit;
         }
 
         /* Insert the bits to be preserved */
 
-        ACPI_INSERT_BITS (Value, ACPI_PM1_CONTROL_PRESERVED_BITS, ReadValue);
+        ACPI_INSERT_BITS(Value, ACPI_PM1_CONTROL_PRESERVED_BITS, ReadValue);
 
         /* Now we can write the data */
 
-        Status = AcpiHwWriteMultiple (Value,
+        Status = AcpiHwWriteMultiple(Value,
             &AcpiGbl_FADT.XPm1aControlBlock,
             &AcpiGbl_FADT.XPm1bControlBlock);
         break;
 
-    case ACPI_REGISTER_PM2_CONTROL:          /* 8-bit access */
+    case ACPI_REGISTER_PM2_CONTROL: /* 8-bit access */
         /*
          * For control registers, all reserved bits must be preserved,
          * as per the ACPI spec.
          */
-        Status = AcpiHwRead (&ReadValue64, &AcpiGbl_FADT.XPm2ControlBlock);
-        if (ACPI_FAILURE (Status))
-        {
+        Status = AcpiHwRead(&ReadValue64, &AcpiGbl_FADT.XPm2ControlBlock);
+        if (ACPI_FAILURE(Status)) {
             goto Exit;
         }
-        ReadValue = (UINT32) ReadValue64;
+        ReadValue = (UINT32)ReadValue64;
 
         /* Insert the bits to be preserved */
 
-        ACPI_INSERT_BITS (Value, ACPI_PM2_CONTROL_PRESERVED_BITS, ReadValue);
+        ACPI_INSERT_BITS(Value, ACPI_PM2_CONTROL_PRESERVED_BITS, ReadValue);
 
-        Status = AcpiHwWrite (Value, &AcpiGbl_FADT.XPm2ControlBlock);
+        Status = AcpiHwWrite(Value, &AcpiGbl_FADT.XPm2ControlBlock);
         break;
 
-    case ACPI_REGISTER_PM_TIMER:             /* 32-bit access */
+    case ACPI_REGISTER_PM_TIMER: /* 32-bit access */
 
-        Status = AcpiHwWrite (Value, &AcpiGbl_FADT.XPmTimerBlock);
+        Status = AcpiHwWrite(Value, &AcpiGbl_FADT.XPmTimerBlock);
         break;
 
-    case ACPI_REGISTER_SMI_COMMAND_BLOCK:    /* 8-bit access */
+    case ACPI_REGISTER_SMI_COMMAND_BLOCK: /* 8-bit access */
 
         /* SMI_CMD is currently always in IO space */
 
-        Status = AcpiHwWritePort (AcpiGbl_FADT.SmiCommand, Value, 8);
+        Status = AcpiHwWritePort(AcpiGbl_FADT.SmiCommand, Value, 8);
         break;
 
     default:
 
-        ACPI_ERROR ((AE_INFO, "Unknown Register ID: 0x%X",
+        ACPI_ERROR((AE_INFO, "Unknown Register ID: 0x%X",
             RegisterId));
         Status = AE_BAD_PARAMETER;
         break;
     }
 
 Exit:
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /******************************************************************************
  *
@@ -911,36 +845,32 @@ Exit:
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiHwReadMultiple (
-    UINT32                  *Value,
-    ACPI_GENERIC_ADDRESS    *RegisterA,
-    ACPI_GENERIC_ADDRESS    *RegisterB)
+AcpiHwReadMultiple(
+    UINT32* Value,
+    ACPI_GENERIC_ADDRESS* RegisterA,
+    ACPI_GENERIC_ADDRESS* RegisterB)
 {
-    UINT32                  ValueA = 0;
-    UINT32                  ValueB = 0;
-    UINT64                  Value64;
-    ACPI_STATUS             Status;
-
+    UINT32 ValueA = 0;
+    UINT32 ValueB = 0;
+    UINT64 Value64;
+    ACPI_STATUS Status;
 
     /* The first register is always required */
 
-    Status = AcpiHwRead (&Value64, RegisterA);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiHwRead(&Value64, RegisterA);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
-    ValueA = (UINT32) Value64;
+    ValueA = (UINT32)Value64;
 
     /* Second register is optional */
 
-    if (RegisterB->Address)
-    {
-        Status = AcpiHwRead (&Value64, RegisterB);
-        if (ACPI_FAILURE (Status))
-        {
+    if (RegisterB->Address) {
+        Status = AcpiHwRead(&Value64, RegisterB);
+        if (ACPI_FAILURE(Status)) {
             return (Status);
         }
-        ValueB = (UINT32) Value64;
+        ValueB = (UINT32)Value64;
     }
 
     /*
@@ -957,7 +887,6 @@ AcpiHwReadMultiple (
     return (AE_OK);
 }
 
-
 /******************************************************************************
  *
  * FUNCTION:    AcpiHwWriteMultiple
@@ -973,19 +902,17 @@ AcpiHwReadMultiple (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiHwWriteMultiple (
-    UINT32                  Value,
-    ACPI_GENERIC_ADDRESS    *RegisterA,
-    ACPI_GENERIC_ADDRESS    *RegisterB)
+AcpiHwWriteMultiple(
+    UINT32 Value,
+    ACPI_GENERIC_ADDRESS* RegisterA,
+    ACPI_GENERIC_ADDRESS* RegisterB)
 {
-    ACPI_STATUS             Status;
-
+    ACPI_STATUS Status;
 
     /* The first register is always required */
 
-    Status = AcpiHwWrite (Value, RegisterA);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiHwWrite(Value, RegisterA);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -1001,9 +928,8 @@ AcpiHwWriteMultiple (
      * those implemented in the other register block) always returns zeros,
      * and writes have no side effects"
      */
-    if (RegisterB->Address)
-    {
-        Status = AcpiHwWrite (Value, RegisterB);
+    if (RegisterB->Address) {
+        Status = AcpiHwWrite(Value, RegisterB);
     }
 
     return (Status);

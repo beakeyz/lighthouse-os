@@ -149,33 +149,31 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utstrsuppt")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utstrsuppt")
 
 /* Local prototypes */
 
 static ACPI_STATUS
-AcpiUtInsertDigit (
-    UINT64                  *AccumulatedValue,
-    UINT32                  Base,
-    int                     AsciiDigit);
+AcpiUtInsertDigit(
+    UINT64* AccumulatedValue,
+    UINT32 Base,
+    int AsciiDigit);
 
 static ACPI_STATUS
-AcpiUtStrtoulMultiply64 (
-    UINT64                  Multiplicand,
-    UINT32                  Base,
-    UINT64                  *OutProduct);
+AcpiUtStrtoulMultiply64(
+    UINT64 Multiplicand,
+    UINT32 Base,
+    UINT64* OutProduct);
 
 static ACPI_STATUS
-AcpiUtStrtoulAdd64 (
-    UINT64                  Addend1,
-    UINT32                  Digit,
-    UINT64                  *OutSum);
-
+AcpiUtStrtoulAdd64(
+    UINT64 Addend1,
+    UINT32 Digit,
+    UINT64* OutSum);
 
 /*******************************************************************************
  *
@@ -195,25 +193,22 @@ AcpiUtStrtoulAdd64 (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtConvertOctalString (
-    char                    *String,
-    UINT64                  *ReturnValuePtr)
+AcpiUtConvertOctalString(
+    char* String,
+    UINT64* ReturnValuePtr)
 {
-    UINT64                  AccumulatedValue = 0;
-    ACPI_STATUS             Status = AE_OK;
-
+    UINT64 AccumulatedValue = 0;
+    ACPI_STATUS Status = AE_OK;
 
     /* Convert each ASCII byte in the input string */
 
-    while (*String)
-    {
+    while (*String) {
         /*
          * Character must be ASCII 0-7, otherwise:
          * 1) Runtime: terminate with no error, per the ACPI spec
          * 2) Compiler: return an error
          */
-        if (!(ACPI_IS_OCTAL_DIGIT (*String)))
-        {
+        if (!(ACPI_IS_OCTAL_DIGIT(*String))) {
 #ifdef ACPI_ASL_COMPILER
             Status = AE_BAD_OCTAL_CONSTANT;
 #endif
@@ -222,9 +217,8 @@ AcpiUtConvertOctalString (
 
         /* Convert and insert this octal digit into the accumulator */
 
-        Status = AcpiUtInsertDigit (&AccumulatedValue, 8, *String);
-        if (ACPI_FAILURE (Status))
-        {
+        Status = AcpiUtInsertDigit(&AccumulatedValue, 8, *String);
+        if (ACPI_FAILURE(Status)) {
             Status = AE_OCTAL_OVERFLOW;
             break;
         }
@@ -237,7 +231,6 @@ AcpiUtConvertOctalString (
     *ReturnValuePtr = AccumulatedValue;
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -257,36 +250,32 @@ AcpiUtConvertOctalString (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtConvertDecimalString (
-    char                    *String,
-    UINT64                  *ReturnValuePtr)
+AcpiUtConvertDecimalString(
+    char* String,
+    UINT64* ReturnValuePtr)
 {
-    UINT64                  AccumulatedValue = 0;
-    ACPI_STATUS             Status = AE_OK;
-
+    UINT64 AccumulatedValue = 0;
+    ACPI_STATUS Status = AE_OK;
 
     /* Convert each ASCII byte in the input string */
 
-    while (*String)
-    {
+    while (*String) {
         /*
          * Character must be ASCII 0-9, otherwise:
          * 1) Runtime: terminate with no error, per the ACPI spec
          * 2) Compiler: return an error
          */
-        if (!isdigit ((int) *String))
-        {
+        if (!isdigit((int)*String)) {
 #ifdef ACPI_ASL_COMPILER
             Status = AE_BAD_DECIMAL_CONSTANT;
 #endif
-           break;
+            break;
         }
 
         /* Convert and insert this decimal digit into the accumulator */
 
-        Status = AcpiUtInsertDigit (&AccumulatedValue, 10, *String);
-        if (ACPI_FAILURE (Status))
-        {
+        Status = AcpiUtInsertDigit(&AccumulatedValue, 10, *String);
+        if (ACPI_FAILURE(Status)) {
             Status = AE_DECIMAL_OVERFLOW;
             break;
         }
@@ -299,7 +288,6 @@ AcpiUtConvertDecimalString (
     *ReturnValuePtr = AccumulatedValue;
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -319,25 +307,22 @@ AcpiUtConvertDecimalString (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtConvertHexString (
-    char                    *String,
-    UINT64                  *ReturnValuePtr)
+AcpiUtConvertHexString(
+    char* String,
+    UINT64* ReturnValuePtr)
 {
-    UINT64                  AccumulatedValue = 0;
-    ACPI_STATUS             Status = AE_OK;
-
+    UINT64 AccumulatedValue = 0;
+    ACPI_STATUS Status = AE_OK;
 
     /* Convert each ASCII byte in the input string */
 
-    while (*String)
-    {
+    while (*String) {
         /*
          * Character must be ASCII A-F, a-f, or 0-9, otherwise:
          * 1) Runtime: terminate with no error, per the ACPI spec
          * 2) Compiler: return an error
          */
-        if (!isxdigit ((int) *String))
-        {
+        if (!isxdigit((int)*String)) {
 #ifdef ACPI_ASL_COMPILER
             Status = AE_BAD_HEX_CONSTANT;
 #endif
@@ -346,9 +331,8 @@ AcpiUtConvertHexString (
 
         /* Convert and insert this hex digit into the accumulator */
 
-        Status = AcpiUtInsertDigit (&AccumulatedValue, 16, *String);
-        if (ACPI_FAILURE (Status))
-        {
+        Status = AcpiUtInsertDigit(&AccumulatedValue, 16, *String);
+        if (ACPI_FAILURE(Status)) {
             Status = AE_HEX_OVERFLOW;
             break;
         }
@@ -361,7 +345,6 @@ AcpiUtConvertHexString (
     *ReturnValuePtr = AccumulatedValue;
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -378,19 +361,16 @@ AcpiUtConvertHexString (
  *
  ******************************************************************************/
 
-char
-AcpiUtRemoveLeadingZeros (
-    char                    **String)
+char AcpiUtRemoveLeadingZeros(
+    char** String)
 {
 
-    while (**String == ACPI_ASCII_ZERO)
-    {
+    while (**String == ACPI_ASCII_ZERO) {
         *String += 1;
     }
 
     return (**String);
 }
-
 
 /*******************************************************************************
  *
@@ -407,19 +387,16 @@ AcpiUtRemoveLeadingZeros (
  *
  ******************************************************************************/
 
-char
-AcpiUtRemoveWhitespace (
-    char                    **String)
+char AcpiUtRemoveWhitespace(
+    char** String)
 {
 
-    while (isspace ((UINT8) **String))
-    {
+    while (isspace((UINT8) * *String)) {
         *String += 1;
     }
 
     return (**String);
 }
-
 
 /*******************************************************************************
  *
@@ -434,20 +411,18 @@ AcpiUtRemoveWhitespace (
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtDetectHexPrefix (
-    char                    **String)
+AcpiUtDetectHexPrefix(
+    char** String)
 {
-    char                    *InitialPosition = *String;
+    char* InitialPosition = *String;
 
-    AcpiUtRemoveHexPrefix (String);
-    if (*String != InitialPosition)
-    {
+    AcpiUtRemoveHexPrefix(String);
+    if (*String != InitialPosition) {
         return (TRUE); /* String is past leading 0x */
     }
 
-    return (FALSE);     /* Not a hex string */
+    return (FALSE); /* Not a hex string */
 }
-
 
 /*******************************************************************************
  *
@@ -461,17 +436,13 @@ AcpiUtDetectHexPrefix (
  *
  ******************************************************************************/
 
-void
-AcpiUtRemoveHexPrefix (
-    char                    **String)
+void AcpiUtRemoveHexPrefix(
+    char** String)
 {
-    if ((**String == ACPI_ASCII_ZERO) &&
-        (tolower ((int) *(*String + 1)) == 'x'))
-    {
-        *String += 2;        /* Go past the leading 0x */
+    if ((**String == ACPI_ASCII_ZERO) && (tolower((int)*(*String + 1)) == 'x')) {
+        *String += 2; /* Go past the leading 0x */
     }
 }
-
 
 /*******************************************************************************
  *
@@ -487,19 +458,17 @@ AcpiUtRemoveHexPrefix (
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtDetectOctalPrefix (
-    char                    **String)
+AcpiUtDetectOctalPrefix(
+    char** String)
 {
 
-    if (**String == ACPI_ASCII_ZERO)
-    {
-        *String += 1;       /* Go past the leading 0 */
+    if (**String == ACPI_ASCII_ZERO) {
+        *String += 1; /* Go past the leading 0 */
         return (TRUE);
     }
 
-    return (FALSE);     /* Not an octal string */
+    return (FALSE); /* Not an octal string */
 }
-
 
 /*******************************************************************************
  *
@@ -529,31 +498,28 @@ AcpiUtDetectOctalPrefix (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiUtInsertDigit (
-    UINT64                  *AccumulatedValue,
-    UINT32                  Base,
-    int                     AsciiDigit)
+AcpiUtInsertDigit(
+    UINT64* AccumulatedValue,
+    UINT32 Base,
+    int AsciiDigit)
 {
-    ACPI_STATUS             Status;
-    UINT64                  Product;
+    ACPI_STATUS Status;
+    UINT64 Product;
 
+    /* Make room in the accumulated value for the incoming digit */
 
-     /* Make room in the accumulated value for the incoming digit */
-
-    Status = AcpiUtStrtoulMultiply64 (*AccumulatedValue, Base, &Product);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtStrtoulMultiply64(*AccumulatedValue, Base, &Product);
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /* Add in the new digit, and store the sum to the accumulated value */
 
-    Status = AcpiUtStrtoulAdd64 (Product, AcpiUtAsciiCharToHex (AsciiDigit),
+    Status = AcpiUtStrtoulAdd64(Product, AcpiUtAsciiCharToHex(AsciiDigit),
         AccumulatedValue);
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -572,20 +538,18 @@ AcpiUtInsertDigit (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiUtStrtoulMultiply64 (
-    UINT64                  Multiplicand,
-    UINT32                  Base,
-    UINT64                  *OutProduct)
+AcpiUtStrtoulMultiply64(
+    UINT64 Multiplicand,
+    UINT32 Base,
+    UINT64* OutProduct)
 {
-    UINT64                  Product;
-    UINT64                  Quotient;
-
+    UINT64 Product;
+    UINT64 Quotient;
 
     /* Exit if either operand is zero */
 
     *OutProduct = 0;
-    if (!Multiplicand || !Base)
-    {
+    if (!Multiplicand || !Base) {
         return (AE_OK);
     }
 
@@ -597,9 +561,8 @@ AcpiUtStrtoulMultiply64 (
      * 64-bit divide function. Also, Multiplier is currently only used
      * as the radix (8/10/16), to the 64/32 divide will always work.
      */
-    AcpiUtShortDivide (ACPI_UINT64_MAX, Base, &Quotient, NULL);
-    if (Multiplicand > Quotient)
-    {
+    AcpiUtShortDivide(ACPI_UINT64_MAX, Base, &Quotient, NULL);
+    if (Multiplicand > Quotient) {
         return (AE_NUMERIC_OVERFLOW);
     }
 
@@ -607,15 +570,13 @@ AcpiUtStrtoulMultiply64 (
 
     /* Check for 32-bit overflow if necessary */
 
-    if ((AcpiGbl_IntegerBitWidth == 32) && (Product > ACPI_UINT32_MAX))
-    {
+    if ((AcpiGbl_IntegerBitWidth == 32) && (Product > ACPI_UINT32_MAX)) {
         return (AE_NUMERIC_OVERFLOW);
     }
 
     *OutProduct = Product;
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -634,18 +595,16 @@ AcpiUtStrtoulMultiply64 (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiUtStrtoulAdd64 (
-    UINT64                  Addend1,
-    UINT32                  Digit,
-    UINT64                  *OutSum)
+AcpiUtStrtoulAdd64(
+    UINT64 Addend1,
+    UINT32 Digit,
+    UINT64* OutSum)
 {
-    UINT64                  Sum;
-
+    UINT64 Sum;
 
     /* Check for 64-bit overflow before the actual addition */
 
-    if ((Addend1 > 0) && (Digit > (ACPI_UINT64_MAX - Addend1)))
-    {
+    if ((Addend1 > 0) && (Digit > (ACPI_UINT64_MAX - Addend1))) {
         return (AE_NUMERIC_OVERFLOW);
     }
 
@@ -653,8 +612,7 @@ AcpiUtStrtoulAdd64 (
 
     /* Check for 32-bit overflow if necessary */
 
-    if ((AcpiGbl_IntegerBitWidth == 32) && (Sum > ACPI_UINT32_MAX))
-    {
+    if ((AcpiGbl_IntegerBitWidth == 32) && (Sum > ACPI_UINT32_MAX)) {
         return (AE_NUMERIC_OVERFLOW);
     }
 

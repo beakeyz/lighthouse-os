@@ -151,13 +151,12 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_HARDWARE
-        ACPI_MODULE_NAME    ("hwxface")
-
+#define _COMPONENT ACPI_HARDWARE
+ACPI_MODULE_NAME("hwxface")
 
 /******************************************************************************
  *
@@ -174,28 +173,23 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiReset (
+AcpiReset(
     void)
 {
-    ACPI_GENERIC_ADDRESS    *ResetReg;
-    ACPI_STATUS             Status;
+    ACPI_GENERIC_ADDRESS* ResetReg;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (AcpiReset);
-
+    ACPI_FUNCTION_TRACE(AcpiReset);
 
     ResetReg = &AcpiGbl_FADT.ResetRegister;
 
     /* Check if the reset register is supported */
 
-    if (!(AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) ||
-        !ResetReg->Address)
-    {
-        return_ACPI_STATUS (AE_NOT_EXIST);
+    if (!(AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) || !ResetReg->Address) {
+        return_ACPI_STATUS(AE_NOT_EXIST);
     }
 
-    if (ResetReg->SpaceId == ACPI_ADR_SPACE_SYSTEM_IO)
-    {
+    if (ResetReg->SpaceId == ACPI_ADR_SPACE_SYSTEM_IO) {
         /*
          * For I/O space, write directly to the OSL. This bypasses the port
          * validation mechanism, which may block a valid write to the reset
@@ -207,21 +201,18 @@ AcpiReset (
          * compatibility with other ACPI implementations that have allowed
          * BIOS code with bad register width values to go unnoticed.
          */
-        Status = AcpiOsWritePort ((ACPI_IO_ADDRESS) ResetReg->Address,
+        Status = AcpiOsWritePort((ACPI_IO_ADDRESS)ResetReg->Address,
             AcpiGbl_FADT.ResetValue, ACPI_RESET_REGISTER_WIDTH);
-    }
-    else
-    {
+    } else {
         /* Write the reset value to the reset register */
 
-        Status = AcpiHwWrite (AcpiGbl_FADT.ResetValue, ResetReg);
+        Status = AcpiHwWrite(AcpiGbl_FADT.ResetValue, ResetReg);
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiReset)
-
+ACPI_EXPORT_SYMBOL(AcpiReset)
 
 /******************************************************************************
  *
@@ -243,22 +234,19 @@ ACPI_EXPORT_SYMBOL (AcpiReset)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiRead (
-    UINT64                  *ReturnValue,
-    ACPI_GENERIC_ADDRESS    *Reg)
+AcpiRead(
+    UINT64* ReturnValue,
+    ACPI_GENERIC_ADDRESS* Reg)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_NAME(AcpiRead);
 
-    ACPI_FUNCTION_NAME (AcpiRead);
-
-
-    Status = AcpiHwRead (ReturnValue, Reg);
+    Status = AcpiHwRead(ReturnValue, Reg);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiRead)
-
+ACPI_EXPORT_SYMBOL(AcpiRead)
 
 /******************************************************************************
  *
@@ -274,22 +262,19 @@ ACPI_EXPORT_SYMBOL (AcpiRead)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiWrite (
-    UINT64                  Value,
-    ACPI_GENERIC_ADDRESS    *Reg)
+AcpiWrite(
+    UINT64 Value,
+    ACPI_GENERIC_ADDRESS* Reg)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_NAME(AcpiWrite);
 
-    ACPI_FUNCTION_NAME (AcpiWrite);
-
-
-    Status = AcpiHwWrite (Value, Reg);
+    Status = AcpiHwWrite(Value, Reg);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiWrite)
-
+ACPI_EXPORT_SYMBOL(AcpiWrite)
 
 #if (!ACPI_REDUCED_HARDWARE)
 /*******************************************************************************
@@ -318,34 +303,30 @@ ACPI_EXPORT_SYMBOL (AcpiWrite)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiReadBitRegister (
-    UINT32                  RegisterId,
-    UINT32                  *ReturnValue)
+AcpiReadBitRegister(
+    UINT32 RegisterId,
+    UINT32* ReturnValue)
 {
-    ACPI_BIT_REGISTER_INFO  *BitRegInfo;
-    UINT32                  RegisterValue;
-    UINT32                  Value;
-    ACPI_STATUS             Status;
+    ACPI_BIT_REGISTER_INFO* BitRegInfo;
+    UINT32 RegisterValue;
+    UINT32 Value;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE_U32 (AcpiReadBitRegister, RegisterId);
-
+    ACPI_FUNCTION_TRACE_U32(AcpiReadBitRegister, RegisterId);
 
     /* Get the info structure corresponding to the requested ACPI Register */
 
-    BitRegInfo = AcpiHwGetBitRegisterInfo (RegisterId);
-    if (!BitRegInfo)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    BitRegInfo = AcpiHwGetBitRegisterInfo(RegisterId);
+    if (!BitRegInfo) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Read the entire parent register */
 
-    Status = AcpiHwRegisterRead (BitRegInfo->ParentRegister,
+    Status = AcpiHwRegisterRead(BitRegInfo->ParentRegister,
         &RegisterValue);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Normalize the value that was read, mask off other bits */
@@ -353,16 +334,15 @@ AcpiReadBitRegister (
     Value = ((RegisterValue & BitRegInfo->AccessBitMask)
         >> BitRegInfo->BitPosition);
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_IO,
+    ACPI_DEBUG_PRINT((ACPI_DB_IO,
         "BitReg %X, ParentReg %X, Actual %8.8X, ReturnValue %8.8X\n",
         RegisterId, BitRegInfo->ParentRegister, RegisterValue, Value));
 
     *ReturnValue = Value;
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiReadBitRegister)
-
+ACPI_EXPORT_SYMBOL(AcpiReadBitRegister)
 
 /*******************************************************************************
  *
@@ -387,45 +367,40 @@ ACPI_EXPORT_SYMBOL (AcpiReadBitRegister)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiWriteBitRegister (
-    UINT32                  RegisterId,
-    UINT32                  Value)
+AcpiWriteBitRegister(
+    UINT32 RegisterId,
+    UINT32 Value)
 {
-    ACPI_BIT_REGISTER_INFO  *BitRegInfo;
-    ACPI_CPU_FLAGS          LockFlags;
-    UINT32                  RegisterValue;
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_BIT_REGISTER_INFO* BitRegInfo;
+    ACPI_CPU_FLAGS LockFlags;
+    UINT32 RegisterValue;
+    ACPI_STATUS Status = AE_OK;
 
-
-    ACPI_FUNCTION_TRACE_U32 (AcpiWriteBitRegister, RegisterId);
-
+    ACPI_FUNCTION_TRACE_U32(AcpiWriteBitRegister, RegisterId);
 
     /* Get the info structure corresponding to the requested ACPI Register */
 
-    BitRegInfo = AcpiHwGetBitRegisterInfo (RegisterId);
-    if (!BitRegInfo)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    BitRegInfo = AcpiHwGetBitRegisterInfo(RegisterId);
+    if (!BitRegInfo) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    LockFlags = AcpiOsAcquireLock (AcpiGbl_HardwareLock);
+    LockFlags = AcpiOsAcquireLock(AcpiGbl_HardwareLock);
 
     /*
      * At this point, we know that the parent register is one of the
      * following: PM1 Status, PM1 Enable, PM1 Control, or PM2 Control
      */
-    if (BitRegInfo->ParentRegister != ACPI_REGISTER_PM1_STATUS)
-    {
+    if (BitRegInfo->ParentRegister != ACPI_REGISTER_PM1_STATUS) {
         /*
          * 1) Case for PM1 Enable, PM1 Control, and PM2 Control
          *
          * Perform a register read to preserve the bits that we are not
          * interested in
          */
-        Status = AcpiHwRegisterRead (BitRegInfo->ParentRegister,
+        Status = AcpiHwRegisterRead(BitRegInfo->ParentRegister,
             &RegisterValue);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             goto UnlockAndExit;
         }
 
@@ -433,14 +408,12 @@ AcpiWriteBitRegister (
          * Insert the input bit into the value that was just read
          * and write the register
          */
-        ACPI_REGISTER_INSERT_VALUE (RegisterValue, BitRegInfo->BitPosition,
+        ACPI_REGISTER_INSERT_VALUE(RegisterValue, BitRegInfo->BitPosition,
             BitRegInfo->AccessBitMask, Value);
 
-        Status = AcpiHwRegisterWrite (BitRegInfo->ParentRegister,
+        Status = AcpiHwRegisterWrite(BitRegInfo->ParentRegister,
             RegisterValue);
-    }
-    else
-    {
+    } else {
         /*
          * 2) Case for PM1 Status
          *
@@ -449,33 +422,30 @@ AcpiWriteBitRegister (
          * information is the single bit we're interested in, all others
          * should be written as 0 so they will be left unchanged.
          */
-        RegisterValue = ACPI_REGISTER_PREPARE_BITS (Value,
+        RegisterValue = ACPI_REGISTER_PREPARE_BITS(Value,
             BitRegInfo->BitPosition, BitRegInfo->AccessBitMask);
 
         /* No need to write the register if value is all zeros */
 
-        if (RegisterValue)
-        {
-            Status = AcpiHwRegisterWrite (ACPI_REGISTER_PM1_STATUS,
+        if (RegisterValue) {
+            Status = AcpiHwRegisterWrite(ACPI_REGISTER_PM1_STATUS,
                 RegisterValue);
         }
     }
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_IO,
+    ACPI_DEBUG_PRINT((ACPI_DB_IO,
         "BitReg %X, ParentReg %X, Value %8.8X, Actual %8.8X\n",
         RegisterId, BitRegInfo->ParentRegister, Value, RegisterValue));
 
-
 UnlockAndExit:
 
-    AcpiOsReleaseLock (AcpiGbl_HardwareLock, LockFlags);
-    return_ACPI_STATUS (Status);
+    AcpiOsReleaseLock(AcpiGbl_HardwareLock, LockFlags);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiWriteBitRegister)
+ACPI_EXPORT_SYMBOL(AcpiWriteBitRegister)
 
 #endif /* !ACPI_REDUCED_HARDWARE */
-
 
 /*******************************************************************************
  *
@@ -516,33 +486,28 @@ ACPI_EXPORT_SYMBOL (AcpiWriteBitRegister)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetSleepTypeData (
-    UINT8                   SleepState,
-    UINT8                   *SleepTypeA,
-    UINT8                   *SleepTypeB)
+AcpiGetSleepTypeData(
+    UINT8 SleepState,
+    UINT8* SleepTypeA,
+    UINT8* SleepTypeB)
 {
-    ACPI_STATUS             Status;
-    ACPI_EVALUATE_INFO      *Info;
-    ACPI_OPERAND_OBJECT     **Elements;
+    ACPI_STATUS Status;
+    ACPI_EVALUATE_INFO* Info;
+    ACPI_OPERAND_OBJECT** Elements;
 
-
-    ACPI_FUNCTION_TRACE (AcpiGetSleepTypeData);
-
+    ACPI_FUNCTION_TRACE(AcpiGetSleepTypeData);
 
     /* Validate parameters */
 
-    if ((SleepState > ACPI_S_STATES_MAX) ||
-        !SleepTypeA || !SleepTypeB)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if ((SleepState > ACPI_S_STATES_MAX) || !SleepTypeA || !SleepTypeB) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /* Allocate the evaluation information block */
 
-    Info = ACPI_ALLOCATE_ZEROED (sizeof (ACPI_EVALUATE_INFO));
-    if (!Info)
-    {
-        return_ACPI_STATUS (AE_NO_MEMORY);
+    Info = ACPI_ALLOCATE_ZEROED(sizeof(ACPI_EVALUATE_INFO));
+    if (!Info) {
+        return_ACPI_STATUS(AE_NO_MEMORY);
     }
 
     /*
@@ -551,11 +516,9 @@ AcpiGetSleepTypeData (
      */
     Info->RelativePathname = AcpiGbl_SleepStateNames[SleepState];
 
-    Status = AcpiNsEvaluate (Info);
-    if (ACPI_FAILURE (Status))
-    {
-        if (Status == AE_NOT_FOUND)
-        {
+    Status = AcpiNsEvaluate(Info);
+    if (ACPI_FAILURE(Status)) {
+        if (Status == AE_NOT_FOUND) {
             /* The _Sx states are optional, ignore NOT_FOUND */
 
             goto FinalCleanup;
@@ -566,9 +529,8 @@ AcpiGetSleepTypeData (
 
     /* Must have a return object */
 
-    if (!Info->ReturnObject)
-    {
-        ACPI_ERROR ((AE_INFO, "No Sleep State object returned from [%s]",
+    if (!Info->ReturnObject) {
+        ACPI_ERROR((AE_INFO, "No Sleep State object returned from [%s]",
             Info->RelativePathname));
         Status = AE_AML_NO_RETURN_VALUE;
         goto WarningCleanup;
@@ -576,9 +538,8 @@ AcpiGetSleepTypeData (
 
     /* Return object must be of type Package */
 
-    if (Info->ReturnObject->Common.Type != ACPI_TYPE_PACKAGE)
-    {
-        ACPI_ERROR ((AE_INFO, "Sleep State return object is not a Package"));
+    if (Info->ReturnObject->Common.Type != ACPI_TYPE_PACKAGE) {
+        ACPI_ERROR((AE_INFO, "Sleep State return object is not a Package"));
         Status = AE_AML_OPERAND_TYPE;
         goto ReturnValueCleanup;
     }
@@ -589,8 +550,7 @@ AcpiGetSleepTypeData (
      * need to repeat them here.
      */
     Elements = Info->ReturnObject->Package.Elements;
-    switch (Info->ReturnObject->Package.Count)
-    {
+    switch (Info->ReturnObject->Package.Count) {
     case 0:
 
         Status = AE_AML_PACKAGE_LIMIT;
@@ -598,49 +558,45 @@ AcpiGetSleepTypeData (
 
     case 1:
 
-        if (Elements[0]->Common.Type != ACPI_TYPE_INTEGER)
-        {
+        if (Elements[0]->Common.Type != ACPI_TYPE_INTEGER) {
             Status = AE_AML_OPERAND_TYPE;
             break;
         }
 
         /* A valid _Sx_ package with one integer */
 
-        *SleepTypeA = (UINT8) Elements[0]->Integer.Value;
-        *SleepTypeB = (UINT8) (Elements[0]->Integer.Value >> 8);
+        *SleepTypeA = (UINT8)Elements[0]->Integer.Value;
+        *SleepTypeB = (UINT8)(Elements[0]->Integer.Value >> 8);
         break;
 
     case 2:
     default:
 
-        if ((Elements[0]->Common.Type != ACPI_TYPE_INTEGER) ||
-            (Elements[1]->Common.Type != ACPI_TYPE_INTEGER))
-        {
+        if ((Elements[0]->Common.Type != ACPI_TYPE_INTEGER) || (Elements[1]->Common.Type != ACPI_TYPE_INTEGER)) {
             Status = AE_AML_OPERAND_TYPE;
             break;
         }
 
         /* A valid _Sx_ package with two integers */
 
-        *SleepTypeA = (UINT8) Elements[0]->Integer.Value;
-        *SleepTypeB = (UINT8) Elements[1]->Integer.Value;
+        *SleepTypeA = (UINT8)Elements[0]->Integer.Value;
+        *SleepTypeB = (UINT8)Elements[1]->Integer.Value;
         break;
     }
 
 ReturnValueCleanup:
-    AcpiUtRemoveReference (Info->ReturnObject);
+    AcpiUtRemoveReference(Info->ReturnObject);
 
 WarningCleanup:
-    if (ACPI_FAILURE (Status))
-    {
-        ACPI_EXCEPTION ((AE_INFO, Status,
+    if (ACPI_FAILURE(Status)) {
+        ACPI_EXCEPTION((AE_INFO, Status,
             "While evaluating Sleep State [%s]",
             Info->RelativePathname));
     }
 
 FinalCleanup:
-    ACPI_FREE (Info);
-    return_ACPI_STATUS (Status);
+    ACPI_FREE(Info);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetSleepTypeData)
+ACPI_EXPORT_SYMBOL(AcpiGetSleepTypeData)

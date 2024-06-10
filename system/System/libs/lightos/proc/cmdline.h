@@ -18,9 +18,9 @@
  * Top most structure of the commandline
  */
 typedef struct lightos_cmdline {
-  const char* raw;
-  char** argv;
-  uint32_t argc;
+    const char* raw;
+    char** argv;
+    uint32_t argc;
 } lightos_cmdline_t, CMDLINE;
 
 extern int __init_lightos_cmdline();
@@ -40,9 +40,9 @@ extern void cmdline_destroy(CMDLINE* cmdline);
  * 2) Selectors: These are specific values baked into the parameter (format: -[name]=[value])
  */
 typedef struct lightos_pparam {
-  const char** aliases;
-  const char** value;
-  uint64_t flag_mask;
+    const char** aliases;
+    const char** value;
+    uint64_t flag_mask;
 } lightos_pparam_t, PPARAM;
 
 #endif // !__LIGHTOS_PROC_CMDLINE__

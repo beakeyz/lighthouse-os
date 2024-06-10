@@ -13,38 +13,38 @@ struct direntry;
 struct file;
 
 typedef struct dir_ops {
-  int               (*f_destroy) (struct dir*);
-  int               (*f_create_child)(struct dir*, const char* name);
-  int               (*f_remove_child)(struct dir*, const char* name);
-  int               (*f_read)(struct dir*, uint64_t idx, struct direntry* bentry);
-  struct oss_obj*   (*f_find)(struct dir*, const char* path);
+    int (*f_destroy)(struct dir*);
+    int (*f_create_child)(struct dir*, const char* name);
+    int (*f_remove_child)(struct dir*, const char* name);
+    int (*f_read)(struct dir*, uint64_t idx, struct direntry* bentry);
+    struct oss_obj* (*f_find)(struct dir*, const char* path);
 } dir_ops_t;
 
 typedef struct dir {
-  struct oss_node* node;
-  struct dir_ops* ops;
+    struct oss_node* node;
+    struct dir_ops* ops;
 
-  const char* name;
+    const char* name;
 
-  size_t mtime;
-  size_t ctime;
-  size_t atime;
+    size_t mtime;
+    size_t ctime;
+    size_t atime;
 
-  uint32_t child_capacity;
-  uint32_t flags;
-  uint32_t size;
+    uint32_t child_capacity;
+    uint32_t flags;
+    uint32_t size;
 
-  atomic_ptr_t ref;
+    atomic_ptr_t ref;
 
-  mutex_t* lock;
+    mutex_t* lock;
 
-  void* priv;
+    void* priv;
 } dir_t;
 
 enum DIRENT_TYPE {
-  DIRENT_TYPE_FILE,
-  DIRENT_TYPE_DIR,
-  DIRENT_TYPE_OBJ,
+    DIRENT_TYPE_FILE,
+    DIRENT_TYPE_DIR,
+    DIRENT_TYPE_OBJ,
 };
 
 dir_t* create_dir(struct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
@@ -63,20 +63,19 @@ int dir_read(dir_t* dir, uint64_t idx, struct direntry* bentry);
 dir_t* dir_open(const char* path);
 kerror_t dir_close(dir_t* dir);
 
-
 /*
  * Wraps all possible outcomes from dir_read
  *
  * Should never be allocated on the heap
  */
 typedef struct direntry {
-  union {
-    struct file* file;
-    struct dir* dir;
-    struct oss_obj* obj;
-    void* _entry;
-  };
-  enum DIRENT_TYPE type;
+    union {
+        struct file* file;
+        struct dir* dir;
+        struct oss_obj* obj;
+        void* _entry;
+    };
+    enum DIRENT_TYPE type;
 } direntry_t;
 
 kerror_t init_direntry(direntry_t* dirent, void* entry, enum DIRENT_TYPE type);

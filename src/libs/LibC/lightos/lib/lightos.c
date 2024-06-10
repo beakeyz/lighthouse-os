@@ -4,9 +4,9 @@
 
 int __init_lightos()
 {
-  int error;
+    int error;
 
-  error = __init_lightos_cmdline();
+    error = __init_lightos_cmdline();
 
-  return error;
+    return error;
 }

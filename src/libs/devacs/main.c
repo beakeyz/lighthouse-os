@@ -11,9 +11,9 @@ extern int init_devices();
  */
 LIGHTENTRY int devacs_init()
 {
-  int error;
+    int error;
 
-  error = init_devices();
+    error = init_devices();
 
-  return error;
+    return error;
 }

@@ -17,26 +17,26 @@
 #include "acpidev.h"
 
 struct {
-  uintptr_t addr;
-  uint32_t interrupt;
-  uint16_t pci_deviceid;
-  uint16_t pci_vendorid;
+    uintptr_t addr;
+    uint32_t interrupt;
+    uint16_t pci_deviceid;
+    uint16_t pci_vendorid;
 } spcr_uart;
 
 static uint64_t _acpi_dev_msg(device_t* device, dcc_t code)
 {
-  return KERR_NONE;
+    return KERR_NONE;
 }
 
 static int _acpi_dev_create(device_t* device)
 {
-  return 0;
+    return 0;
 }
 
 struct device_generic_endpoint _acpi_generic_dep = {
-  .f_create = _acpi_dev_create,
-  .f_msg = _acpi_dev_msg,
-  NULL,
+    .f_create = _acpi_dev_create,
+    .f_msg = _acpi_dev_msg,
+    NULL,
 };
 
 /*!
@@ -46,18 +46,18 @@ struct device_generic_endpoint _acpi_generic_dep = {
  */
 static kerror_t _acpi_dev_power_on(device_t* device)
 {
-  acpi_device_t* acpi_dev;
+    acpi_device_t* acpi_dev;
 
-  if (!device || !device->private)
-    return -KERR_INVAL;
+    if (!device || !device->private)
+        return -KERR_INVAL;
 
-  acpi_dev = device->private;
+    acpi_dev = device->private;
 
-  return acpi_device_set_pwrstate(acpi_dev, ACPI_STATE_D0);
+    return acpi_device_set_pwrstate(acpi_dev, ACPI_STATE_D0);
 }
 
 struct device_pwm_endpoint _acpi_pwm_dep = {
-  .f_power_on = _acpi_dev_power_on,
+    .f_power_on = _acpi_dev_power_on,
 };
 
 /*
@@ -67,87 +67,91 @@ struct device_pwm_endpoint _acpi_pwm_dep = {
  * opperations, since that is kinda what ACPI is meant for lmao
  */
 static device_ep_t _acpi_eps[] = {
-  { ENDPOINT_TYPE_GENERIC, sizeof(struct device_generic_endpoint), { &_acpi_generic_dep } },
-  { ENDPOINT_TYPE_PWM, sizeof(struct device_pwm_endpoint), { &_acpi_pwm_dep, } },
-  { NULL, },
+    { ENDPOINT_TYPE_GENERIC, sizeof(struct device_generic_endpoint), { &_acpi_generic_dep } },
+    { ENDPOINT_TYPE_PWM, sizeof(struct device_pwm_endpoint), {
+                                                                 &_acpi_pwm_dep,
+                                                             } },
+    {
+        NULL,
+    },
 };
 
 static bool _should_ignore_device(acpi_handle_t dev)
 {
-  // TODO: 
-  return false;
+    // TODO:
+    return false;
 }
 
 ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, void** ret)
 {
-  kerror_t error;
-  ACPI_STATUS Status;
-  ACPI_OBJECT_TYPE obj_type;
-  ACPI_BUFFER Path;
-  char Buffer[256];
+    kerror_t error;
+    ACPI_STATUS Status;
+    ACPI_OBJECT_TYPE obj_type;
+    ACPI_BUFFER Path;
+    char Buffer[256];
 
-  Path.Length = sizeof (Buffer);
-  Path.Pointer = Buffer;
+    Path.Length = sizeof(Buffer);
+    Path.Pointer = Buffer;
 
-  if (ACPI_FAILURE(AcpiGetType(dev, &obj_type)))
-    return AE_OK;
-
-  /* Get the full path of this device and print it */
-  Status = AcpiNsHandleToPathname(dev, &Path, true);
-
-  if (!ACPI_SUCCESS (Status))
-    return AE_OK;
-
-  /* TODO: what to do on different types? */
-  switch (obj_type) {
-    case ACPI_TYPE_DEVICE:
-      if (_should_ignore_device(dev))
+    if (ACPI_FAILURE(AcpiGetType(dev, &obj_type)))
         return AE_OK;
-      break;
+
+    /* Get the full path of this device and print it */
+    Status = AcpiNsHandleToPathname(dev, &Path, true);
+
+    if (!ACPI_SUCCESS(Status))
+        return AE_OK;
+
+    /* TODO: what to do on different types? */
+    switch (obj_type) {
+    case ACPI_TYPE_DEVICE:
+        if (_should_ignore_device(dev))
+            return AE_OK;
+        break;
     default:
-      break;
-  }
+        break;
+    }
 
-  error = acpi_add_device(dev, obj_type, _acpi_eps, Path.Pointer);
-  /* FIXME: Ignore these failures? */
-  if (error)
+    error = acpi_add_device(dev, obj_type, _acpi_eps, Path.Pointer);
+    /* FIXME: Ignore these failures? */
+    if (error)
+        return AE_OK;
+
     return AE_OK;
-
-  return AE_OK;
 }
 
 static void _acpidev_do_uart_ignore()
 {
-  ACPI_STATUS status;
-  struct acpi_table_stao* stao_tbl;
-  struct acpi_table_spcr* spcr_tbl;
+    ACPI_STATUS status;
+    struct acpi_table_stao* stao_tbl;
+    struct acpi_table_spcr* spcr_tbl;
 
-  stao_tbl = NULL;
-  spcr_tbl = NULL;
+    stao_tbl = NULL;
+    spcr_tbl = NULL;
 
-  status = AcpiGetTable(ACPI_SIG_STAO, NULL, (struct acpi_table_header**)&stao_tbl);
+    status = AcpiGetTable(ACPI_SIG_STAO, NULL, (struct acpi_table_header**)&stao_tbl);
 
-  /* No STAO table, OK */
-  if (ACPI_FAILURE(status) || !stao_tbl)
-    return;
+    /* No STAO table, OK */
+    if (ACPI_FAILURE(status) || !stao_tbl)
+        return;
 
-  if (!stao_tbl->IgnoreUart)
-    goto release_table_and_exit;
+    if (!stao_tbl->IgnoreUart)
+        goto release_table_and_exit;
 
-  status = AcpiGetTable(ACPI_SIG_SPCR, NULL, (struct acpi_table_header**)&spcr_tbl);
+    status = AcpiGetTable(ACPI_SIG_SPCR, NULL, (struct acpi_table_header**)&spcr_tbl);
 
-  /* No SPRC table, OK */
-  if (ACPI_FAILURE(status) || !spcr_tbl)
-    return;
+    /* No SPRC table, OK */
+    if (ACPI_FAILURE(status) || !spcr_tbl)
+        return;
 
-  spcr_uart.addr = spcr_tbl->SerialPort.Address;
-  spcr_uart.interrupt = spcr_tbl->Interrupt;
-  spcr_uart.pci_deviceid = spcr_tbl->PciDeviceId;
-  spcr_uart.pci_vendorid = spcr_tbl->PciVendorId;
+    spcr_uart.addr = spcr_tbl->SerialPort.Address;
+    spcr_uart.interrupt = spcr_tbl->Interrupt;
+    spcr_uart.pci_deviceid = spcr_tbl->PciDeviceId;
+    spcr_uart.pci_vendorid = spcr_tbl->PciVendorId;
 
-  AcpiPutTable((struct acpi_table_header*)spcr_tbl);
+    AcpiPutTable((struct acpi_table_header*)spcr_tbl);
 release_table_and_exit:
-  AcpiPutTable((struct acpi_table_header*)stao_tbl);
+    AcpiPutTable((struct acpi_table_header*)stao_tbl);
 }
 
 /*!
@@ -155,38 +159,38 @@ release_table_and_exit:
  */
 static int _init_acpidev()
 {
-  ACPI_STATUS stat;
-  acpi_handle_t sysbus_hndl;
+    ACPI_STATUS stat;
+    acpi_handle_t sysbus_hndl;
 
-  _acpidev_do_uart_ignore();
+    _acpidev_do_uart_ignore();
 
-  stat = AcpiGetHandle(NULL, ACPI_NS_ROOT_PATH, &sysbus_hndl);
+    stat = AcpiGetHandle(NULL, ACPI_NS_ROOT_PATH, &sysbus_hndl);
 
-  if (!ACPI_SUCCESS(stat))
+    if (!ACPI_SUCCESS(stat))
+        return 0;
+
+    stat = AcpiWalkNamespace(ACPI_TYPE_DEVICE, sysbus_hndl, ACPI_UINT32_MAX, register_acpi_device, NULL, NULL, NULL);
+
+    if (!ACPI_SUCCESS(stat))
+        return 0;
+
     return 0;
-
-  stat = AcpiWalkNamespace(ACPI_TYPE_DEVICE, sysbus_hndl, ACPI_UINT32_MAX, register_acpi_device, NULL, NULL, NULL);
-
-  if (!ACPI_SUCCESS(stat))
-    return 0;
-
-  return 0;
 }
 
 static int _exit_acpidev()
 {
-  return 0;
+    return 0;
 }
 
 EXPORT_DRIVER(acpidev) = {
-  .m_name = "acpidev",
-  .m_descriptor = "Generic ACPI device driver",
-  .m_version = DRIVER_VERSION(0, 0, 1),
-  .m_type = DT_FIRMWARE,
-  .f_init = _init_acpidev,
-  .f_exit = _exit_acpidev,
+    .m_name = "acpidev",
+    .m_descriptor = "Generic ACPI device driver",
+    .m_version = DRIVER_VERSION(0, 0, 1),
+    .m_type = DT_FIRMWARE,
+    .f_init = _init_acpidev,
+    .f_exit = _exit_acpidev,
 };
 
 EXPORT_DEPENDENCIES(deps) = {
-  DRV_DEP_END,
+    DRV_DEP_END,
 };

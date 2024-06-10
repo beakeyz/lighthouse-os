@@ -2,14 +2,14 @@
 #include "lightos/handle.h"
 #include "stdarg.h"
 #include "sys/types.h"
-#include <lightos/system.h>
-#include <lightos/syscall.h>
 #include <lightos/handle_def.h>
+#include <lightos/syscall.h>
+#include <lightos/system.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define FILE_BUFSIZE    (0x2000)
+#define FILE_BUFSIZE (0x2000)
 
 FILE __std_files[3] = { NULL };
 
@@ -17,48 +17,48 @@ FILE* stdin;
 FILE* stdout;
 FILE* stderr;
 
-extern int real_va_sprintf(uint8_t, FILE* , const char* , va_list);
+extern int real_va_sprintf(uint8_t, FILE*, const char*, va_list);
 extern int real_va_scanf(FILE*, const char*, va_list);
 extern int real_va_sscanf(const char* buffer, const char* fmt, va_list args);
 
 void __init_stdio(void)
 {
-  stdin = &__std_files[0];
-  stdout = &__std_files[1];
-  stderr = &__std_files[2];
+    stdin = &__std_files[0];
+    stdout = &__std_files[1];
+    stderr = &__std_files[2];
 
-  /* Make sure no junk */
-  memset(stdin, 0, sizeof(*stdin));
-  memset(stdout, 0, sizeof(*stdout));
-  memset(stderr, 0, sizeof(*stderr));
+    /* Make sure no junk */
+    memset(stdin, 0, sizeof(*stdin));
+    memset(stdout, 0, sizeof(*stdout));
+    memset(stderr, 0, sizeof(*stderr));
 
-  /* Set stdin */
-  stdin->handle = 0;
-  stdin->r_buf_size = FILE_BUFSIZE;
-  /* Create buffer */
-  stdin->r_buff = malloc(FILE_BUFSIZE);
-  /* Make sure the buffer is empty empty */
-  memset(stdin->r_buff, 0, FILE_BUFSIZE);
+    /* Set stdin */
+    stdin->handle = 0;
+    stdin->r_buf_size = FILE_BUFSIZE;
+    /* Create buffer */
+    stdin->r_buff = malloc(FILE_BUFSIZE);
+    /* Make sure the buffer is empty empty */
+    memset(stdin->r_buff, 0, FILE_BUFSIZE);
 
-  /* Set stdout */
-  stdout->handle = 1;
-  stdout->w_buf_size = FILE_BUFSIZE;
-  /* Create buffer */
-  stdout->w_buff = malloc(FILE_BUFSIZE);
-  /* Make sure the buffer is empty empty */
-  memset(stdout->w_buff, 0, FILE_BUFSIZE);
+    /* Set stdout */
+    stdout->handle = 1;
+    stdout->w_buf_size = FILE_BUFSIZE;
+    /* Create buffer */
+    stdout->w_buff = malloc(FILE_BUFSIZE);
+    /* Make sure the buffer is empty empty */
+    memset(stdout->w_buff, 0, FILE_BUFSIZE);
 
-  /* Set stderr */
-  stderr->handle = 2;
+    /* Set stderr */
+    stderr->handle = 2;
 
-  if (!handle_verify(stdin->handle))
-    stdin->handle = HNDL_INVAL;
+    if (!handle_verify(stdin->handle))
+        stdin->handle = HNDL_INVAL;
 
-  if (!handle_verify(stdout->handle))
-    stdout->handle = HNDL_INVAL;
+    if (!handle_verify(stdout->handle))
+        stdout->handle = HNDL_INVAL;
 
-  if (!handle_verify(stderr->handle))
-    stderr->handle = HNDL_INVAL;
+    if (!handle_verify(stderr->handle))
+        stderr->handle = HNDL_INVAL;
 }
 
 /*
@@ -66,19 +66,19 @@ void __init_stdio(void)
  */
 int __write_byte(FILE* stream, uint64_t* counter, char byte)
 {
-  if (!stream->w_buff)
-    return -1;
+    if (!stream->w_buff)
+        return -1;
 
-  stream->w_buff[stream->w_buf_written++] = byte;
+    stream->w_buff[stream->w_buf_written++] = byte;
 
-  /* Sync the buffer if the max. buffersize is reached, or the byte is a null-char */
-  if (stream->w_buf_written >= stream->w_buf_size || !byte)
-    fflush(stream);
+    /* Sync the buffer if the max. buffersize is reached, or the byte is a null-char */
+    if (stream->w_buf_written >= stream->w_buf_size || !byte)
+        fflush(stream);
 
-  if (counter)
-    (*counter)++;
+    if (counter)
+        (*counter)++;
 
-  return 0;
+    return 0;
 }
 
 /*
@@ -88,438 +88,444 @@ int __write_byte(FILE* stream, uint64_t* counter, char byte)
  */
 int __write_bytes(FILE* stream, uint64_t* counter, char* bytes)
 {
-  int result = 0;
+    int result = 0;
 
-  for (char* c = bytes;; c++) {
-    result = __write_byte(stream, counter, *c);
+    for (char* c = bytes;; c++) {
+        result = __write_byte(stream, counter, *c);
 
-    if (result < 0 || !(*c))
-      break;
-  }
+        if (result < 0 || !(*c))
+            break;
+    }
 
-  return result;
+    return result;
 }
 
 int __read_byte(FILE* stream, uint8_t* buffer)
 {
-  size_t r_size;
+    size_t r_size;
 
-  if (!buffer || !stream->r_buff)
-    return NULL;
+    if (!buffer || !stream->r_buff)
+        return NULL;
 
-  /* We have run out of local buffer space. Lets ask for some new */
-  if (!stream->r_capacity) {
+    /* We have run out of local buffer space. Lets ask for some new */
+    if (!stream->r_capacity) {
 
-    memset(stream->r_buff, 0, stream->r_buf_size);
+        memset(stream->r_buff, 0, stream->r_buf_size);
 
-    /* Call the kernel deliver a new section of the stream */
-    r_size = syscall_3(SYSID_READ, stream->handle, (uint64_t)((void*)stream->r_buff), stream->r_buf_size);
+        /* Call the kernel deliver a new section of the stream */
+        r_size = syscall_3(SYSID_READ, stream->handle, (uint64_t)((void*)stream->r_buff), stream->r_buf_size);
 
-    if (!r_size)
-      return NULL;
+        if (!r_size)
+            return NULL;
 
-    /* Reset the read offset */
-    stream->r_offset = NULL;
+        /* Reset the read offset */
+        stream->r_offset = NULL;
 
-    /* Set capacity for the next read */
-    stream->r_capacity = r_size;
-  }
+        /* Set capacity for the next read */
+        stream->r_capacity = r_size;
+    }
 
-  *buffer = stream->r_buff[stream->r_offset];
+    *buffer = stream->r_buff[stream->r_offset];
 
-  stream->r_offset++;
-  stream->r_capacity--;
+    stream->r_offset++;
+    stream->r_capacity--;
 
-  return 1;
+    return 1;
 }
 
 int __read_bytes(FILE* stream, uint8_t* buffer, size_t size)
 {
-  int ret = 0;
-  int result;
+    int ret = 0;
+    int result;
 
-  for (uint64_t i = 0; i < size; i++) {
-    result = __read_byte(stream, &buffer[i]);
+    for (uint64_t i = 0; i < size; i++) {
+        result = __read_byte(stream, &buffer[i]);
 
-    if (!result)
-      break;
+        if (!result)
+            break;
 
-    ret++;
-  }
+        ret++;
+    }
 
-  /* Return the amount of bytes read */
-  return ret;
+    /* Return the amount of bytes read */
+    return ret;
 }
 
 static int parse_modes(const char* modes, uint32_t* flags, uint32_t* mode)
 {
-  uint32_t _flags = NULL;
-  uint32_t _mode = NULL;
+    uint32_t _flags = NULL;
+    uint32_t _mode = NULL;
 
-  for (uint32_t i = 0; i < strlen(modes); i++) {
-    char c = modes[i];
+    for (uint32_t i = 0; i < strlen(modes); i++) {
+        char c = modes[i];
 
-    switch (c) {
-      case 'r':
-      case 'R':
-        _flags |= HNDL_FLAG_READACCESS;
-        break;
-      case 'w':
-      case 'W':
-        _flags |= HNDL_FLAG_WRITEACCESS;
-        break;
+        switch (c) {
+        case 'r':
+        case 'R':
+            _flags |= HNDL_FLAG_READACCESS;
+            break;
+        case 'w':
+        case 'W':
+            _flags |= HNDL_FLAG_WRITEACCESS;
+            break;
+        }
     }
-  }
 
-  *flags = _flags;
-  *mode = _mode;
+    *flags = _flags;
+    *mode = _mode;
 
-  return 0;
+    return 0;
 }
 
 /*
  * Open a file at the specified path with the specified modes
  * returns a FILE object that holds a local read- and write buffer
  */
-FILE* fopen(const char* path, const char* modes) 
+FILE* fopen(const char* path, const char* modes)
 {
-  FILE* ret;
-  HANDLE hndl;
-  uint32_t flags;
-  uint32_t mode;
+    FILE* ret;
+    HANDLE hndl;
+    uint32_t flags;
+    uint32_t mode;
 
-  if (parse_modes(modes, &flags, &mode))
-    return nullptr;
+    if (parse_modes(modes, &flags, &mode))
+        return nullptr;
 
-  /* TODO: implement open flags and modes */
-  hndl = open_handle(path, HNDL_TYPE_FILE, flags, mode);
+    /* TODO: implement open flags and modes */
+    hndl = open_handle(path, HNDL_TYPE_FILE, flags, mode);
 
-  if (!handle_verify(hndl))
-    return nullptr;
+    if (!handle_verify(hndl))
+        return nullptr;
 
-  ret = malloc(sizeof(*ret));
+    ret = malloc(sizeof(*ret));
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  memset(ret, 0, sizeof(*ret));
+    memset(ret, 0, sizeof(*ret));
 
-  ret->handle = hndl;
-  ret->w_buff = malloc(FILE_BUFSIZE);
-  ret->w_buf_size = FILE_BUFSIZE;
-  ret->r_buff = malloc(FILE_BUFSIZE);
-  ret->r_buf_size = FILE_BUFSIZE;
+    ret->handle = hndl;
+    ret->w_buff = malloc(FILE_BUFSIZE);
+    ret->w_buf_size = FILE_BUFSIZE;
+    ret->r_buff = malloc(FILE_BUFSIZE);
+    ret->r_buf_size = FILE_BUFSIZE;
 
-  return ret;
+    return ret;
 }
 
 /*
- * Send the fclose syscall in order to close the 
- * file stream and resources that where attached to it 
+ * Send the fclose syscall in order to close the
+ * file stream and resources that where attached to it
  */
-int fclose(FILE* file) 
+int fclose(FILE* file)
 {
-  if (!file)
-    return -1;
+    if (!file)
+        return -1;
 
-  fflush(file);
-  
-  syscall_1(SYSID_CLOSE, file->handle);
+    fflush(file);
 
-  if (file->w_buff)
-    free(file->w_buff);
-  if (file->r_buff)
-    free(file->r_buff);
+    syscall_1(SYSID_CLOSE, file->handle);
 
-  free(file);
+    if (file->w_buff)
+        free(file->w_buff);
+    if (file->r_buff)
+        free(file->r_buff);
 
-  return 0;
+    free(file);
+
+    return 0;
 }
 
 /*
- * Flush the local write buffer for this 
+ * Flush the local write buffer for this
  * stream (file) to the kernel
  */
-int fflush(FILE* file) {
+int fflush(FILE* file)
+{
 
-  if (!file || !file->w_buff) return -1;
+    if (!file || !file->w_buff)
+        return -1;
 
-  /*
-   * The syscall should handle empty buffers or invalid handles
-   * but we'll check here just to be safe
-   */
-  if (!file->w_buf_written || file->handle == HNDL_INVAL)
+    /*
+     * The syscall should handle empty buffers or invalid handles
+     * but we'll check here just to be safe
+     */
+    if (!file->w_buf_written || file->handle == HNDL_INVAL)
+        return 0;
+
+    /* Call the kernel to empty our buffer */
+    syscall_3(SYSID_WRITE, file->handle, (uint64_t)((void*)file->w_buff), file->w_buf_written);
+
+    /* Reset the buffer */
+    memset(file->w_buff, 0, file->w_buf_written);
+
+    /* Reset the written count */
+    file->w_buf_written = NULL;
+
     return 0;
-
-  /* Call the kernel to empty our buffer */
-  syscall_3(SYSID_WRITE, file->handle, (uint64_t)((void*)file->w_buff), file->w_buf_written);
-
-  /* Reset the buffer */
-  memset(file->w_buff, 0, file->w_buf_written);
-
-  /* Reset the written count */
-  file->w_buf_written = NULL;
-
-  return 0;
 }
 
 /*
  * This takes bytes from stdin until we get a newline/EOF
  */
-int scanf (const char *__restrict __format, ...)
+int scanf(const char* __restrict __format, ...)
 {
-  int result;
-  va_list args;
-  va_start(args, __format);
+    int result;
+    va_list args;
+    va_start(args, __format);
 
-  result = real_va_scanf(stdout, __format, args);
+    result = real_va_scanf(stdout, __format, args);
 
-  va_end(args);
+    va_end(args);
 
-  return result;
+    return result;
 }
 
-int sscanf (const char* buffer, const char* format, ...)
+int sscanf(const char* buffer, const char* format, ...)
 {
-  int result;
-  va_list args;
-  va_start(args, format);
+    int result;
+    va_list args;
+    va_start(args, format);
 
-  result = real_va_sscanf(buffer, format, args);
+    result = real_va_sscanf(buffer, format, args);
 
-  va_end(args);
-  return result;
+    va_end(args);
+    return result;
 }
 
 /*
  * Write a formated stream of bytes into a file
  */
-int fprintf(FILE* stream, const char* str, ...) {
-  (void)stream;
-  (void)str;
+int fprintf(FILE* stream, const char* str, ...)
+{
+    (void)stream;
+    (void)str;
 
-  exit_noimpl("fprintf");
-  return NULL;
+    exit_noimpl("fprintf");
+    return NULL;
 }
 
 /*
  * Read a certain amount of bytes from a file into a buffer
  */
-unsigned long long fread(void* buffer, unsigned long long size, unsigned long long count, FILE* file) {
+unsigned long long fread(void* buffer, unsigned long long size, unsigned long long count, FILE* file)
+{
 
-  int r_count;
-  uint8_t* i_buffer;
+    int r_count;
+    uint8_t* i_buffer;
 
-  if (!buffer || !size || !count || !file)
-    return NULL;
+    if (!buffer || !size || !count || !file)
+        return NULL;
 
-  i_buffer = (uint8_t*)buffer;
+    i_buffer = (uint8_t*)buffer;
 
-  for (uint64_t i = 0; i < count; i++) {
-    r_count = __read_bytes(file, i_buffer, size);
+    for (uint64_t i = 0; i < count; i++) {
+        r_count = __read_bytes(file, i_buffer, size);
 
-    i_buffer += r_count;
+        i_buffer += r_count;
 
-    /* Check this read */
-    if (r_count != size)
-      return i;
-  }
+        /* Check this read */
+        if (r_count != size)
+            return i;
+    }
 
-  return count;
+    return count;
 }
 
 static size_t __file_get_offset(FILE* file, long offset, int whence)
 {
-  if (!file)
-    return -1;
+    if (!file)
+        return -1;
 
-  if (file->w_buf_written)
-    fflush(file);
+    if (file->w_buf_written)
+        fflush(file);
 
-  /* Make sure we've reset our local I/O trackers */
-  file->r_offset = 0;
-  file->r_capacity = 0;
+    /* Make sure we've reset our local I/O trackers */
+    file->r_offset = 0;
+    file->r_capacity = 0;
 
-  /* Do the syscall */
-  return syscall_3(SYSID_SEEK, file->handle, offset, whence);
+    /* Do the syscall */
+    return syscall_3(SYSID_SEEK, file->handle, offset, whence);
 }
 
 /*
  * Tell the kernel we want to read and write from a certain offset
  * within a file
  */
-int fseek(FILE* file, long offset, int whence) 
+int fseek(FILE* file, long offset, int whence)
 {
-  uint64_t error;
+    uint64_t error;
 
-  error = __file_get_offset(file, offset, whence);
+    error = __file_get_offset(file, offset, whence);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  return 0;
+    return 0;
 }
 
 /*
  * Return the current offset within a file
  */
-long ftell(FILE* file) 
+long ftell(FILE* file)
 {
-  return __file_get_offset(file, 0, SEEK_CUR);
+    return __file_get_offset(file, 0, SEEK_CUR);
 }
 
 /*
- * Write a certain amount of bytes from a buffer into a file 
+ * Write a certain amount of bytes from a buffer into a file
  */
-unsigned long long fwrite(const void* buffer, unsigned long long size, unsigned long long count, FILE* file) {
-  (void)buffer;
-  (void)size;
-  (void)count;
-  (void)file;
-  exit_noimpl("fwrite");
-  return NULL;
+unsigned long long fwrite(const void* buffer, unsigned long long size, unsigned long long count, FILE* file)
+{
+    (void)buffer;
+    (void)size;
+    (void)count;
+    (void)file;
+    exit_noimpl("fwrite");
+    return NULL;
 }
 
 /*
  * Set the local buffer of a file to something else I guess?
  */
-void setbuf(FILE* file, char* buf) {
-  (void)file;
-  (void)buf;
-  exit_noimpl("setbuf");
+void setbuf(FILE* file, char* buf)
+{
+    (void)file;
+    (void)buf;
+    exit_noimpl("setbuf");
 }
 
 int clearerr(FILE* stream)
 {
-  (void)stream;
-  exit_noimpl("clearerr");
-  return 0;
+    (void)stream;
+    exit_noimpl("clearerr");
+    return 0;
 }
 
 int ferror(FILE* stream)
 {
-  (void)stream;
-  exit_noimpl("ferror");
-  return 0;
+    (void)stream;
+    exit_noimpl("ferror");
+    return 0;
 }
 
 int feof(FILE* stream)
 {
-  (void)stream;
-  exit_noimpl("feof");
-  return 0;
+    (void)stream;
+    exit_noimpl("feof");
+    return 0;
 }
 
-int vfprintf(FILE* out, const char* str, char* f) 
+int vfprintf(FILE* out, const char* str, char* f)
 {
-  exit_noimpl("vfprintf");
-  return NULL;
+    exit_noimpl("vfprintf");
+    return NULL;
 }
 
-int printf(const char* fmt, ...) 
+int printf(const char* fmt, ...)
 {
-  int result;
-  va_list args;
-  va_start(args, fmt);
+    int result;
+    va_list args;
+    va_start(args, fmt);
 
-  result = real_va_sprintf(0, stdout, fmt, args);
+    result = real_va_sprintf(0, stdout, fmt, args);
 
-  va_end(args);
+    va_end(args);
 
-  return result;
+    return result;
 }
 
-int vsnprintf(char * buf, size_t size, const char *fmt, va_list args)
+int vsnprintf(char* buf, size_t size, const char* fmt, va_list args)
 {
-  FILE out = {
-    .w_buff = (uint8_t*)buf,
-    .w_buf_size = size,
-    .w_buf_written = 0,
-    .handle = HNDL_INVAL,
-  };
+    FILE out = {
+        .w_buff = (uint8_t*)buf,
+        .w_buf_size = size,
+        .w_buf_written = 0,
+        .handle = HNDL_INVAL,
+    };
 
-  return real_va_sprintf(0, &out, fmt, args);
+    return real_va_sprintf(0, &out, fmt, args);
 }
 
-int snprintf(char* buf, size_t size, const char * fmt, ...)
+int snprintf(char* buf, size_t size, const char* fmt, ...)
 {
-  int result;
-  va_list args;
-  va_start(args, fmt);
+    int result;
+    va_list args;
+    va_start(args, fmt);
 
-  FILE out = {
-    .w_buff = (uint8_t*)buf,
-    .w_buf_size = size,
-    .w_buf_written = 0,
-    .handle = HNDL_INVAL,
-  };
+    FILE out = {
+        .w_buff = (uint8_t*)buf,
+        .w_buf_size = size,
+        .w_buf_written = 0,
+        .handle = HNDL_INVAL,
+    };
 
-  result = real_va_sprintf(0, &out, fmt, args);
+    result = real_va_sprintf(0, &out, fmt, args);
 
-  va_end(args);
+    va_end(args);
 
-  return result;
+    return result;
 }
 
 char* gets(char* buffer, size_t size)
 {
-  return fgets(buffer, size, stdin);
+    return fgets(buffer, size, stdin);
 }
 
 char* fgets(char* buffer, size_t size, FILE* stream)
 {
-  int c;
-  char* ret;
+    int c;
+    char* ret;
 
-  /* Cache the start of the string */
-  ret = buffer;
+    /* Cache the start of the string */
+    ret = buffer;
 
-  memset(buffer, 0, size);
+    memset(buffer, 0, size);
 
-  for (c = fgetc(stream); size; c = fgetc(stream)) {
+    for (c = fgetc(stream); size; c = fgetc(stream)) {
 
-    if (c < 0)
-      break;
+        if (c < 0)
+            break;
 
-    if ((uint8_t)c == '\n')
-      return ret;
+        if ((uint8_t)c == '\n')
+            return ret;
 
-    size--;
-    *buffer++ = c;
+        size--;
+        *buffer++ = c;
 
-    if (!c)
-      return ret;
-  }
+        if (!c)
+            return ret;
+    }
 
-  if (!size)
-    return ret;
+    if (!size)
+        return ret;
 
-  return NULL;
+    return NULL;
 }
 
 int fgetc(FILE* stream)
 {
-  uint8_t buffer;
+    uint8_t buffer;
 
-  if (!__read_byte(stream, &buffer))
-    return -1;
+    if (!__read_byte(stream, &buffer))
+        return -1;
 
-  return buffer;
+    return buffer;
 }
 
 int fputc(int c, FILE* stream)
 {
-  return __write_byte(stream, NULL, c);
+    return __write_byte(stream, NULL, c);
 }
 
 int puts(const char* str)
 {
-  __write_bytes(stdout, nullptr, (char*)str);
-  __write_byte(stdout, nullptr, '\n');
-  return 0;
+    __write_bytes(stdout, nullptr, (char*)str);
+    __write_byte(stdout, nullptr, '\n');
+    return 0;
 }
 
-int putchar (int c) 
+int putchar(int c)
 {
-  return fputc(c, stdout);
+    return fputc(c, stdout);
 }

@@ -149,12 +149,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utbuffer")
-
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utbuffer")
 
 /*******************************************************************************
  *
@@ -175,83 +174,74 @@
  *
  ******************************************************************************/
 
-void
-AcpiUtDumpBuffer (
-    UINT8                   *Buffer,
-    UINT32                  Count,
-    UINT32                  Display,
-    UINT32                  BaseOffset)
+void AcpiUtDumpBuffer(
+    UINT8* Buffer,
+    UINT32 Count,
+    UINT32 Display,
+    UINT32 BaseOffset)
 {
-    UINT32                  i = 0;
-    UINT32                  j;
-    UINT32                  Temp32;
-    UINT8                   BufChar;
-    UINT32                  DisplayDataOnly = Display & DB_DISPLAY_DATA_ONLY;
-
+    UINT32 i = 0;
+    UINT32 j;
+    UINT32 Temp32;
+    UINT8 BufChar;
+    UINT32 DisplayDataOnly = Display & DB_DISPLAY_DATA_ONLY;
 
     Display &= ~DB_DISPLAY_DATA_ONLY;
-    if (!Buffer)
-    {
-        AcpiOsPrintf ("Null Buffer Pointer in DumpBuffer!\n");
+    if (!Buffer) {
+        AcpiOsPrintf("Null Buffer Pointer in DumpBuffer!\n");
         return;
     }
 
-    if ((Count < 4) || (Count & 0x01))
-    {
+    if ((Count < 4) || (Count & 0x01)) {
         Display = DB_BYTE_DISPLAY;
     }
 
     /* Nasty little dump buffer routine! */
 
-    while (i < Count)
-    {
+    while (i < Count) {
         /* Print current offset */
 
-        if (!DisplayDataOnly)
-        {
-            AcpiOsPrintf ("%8.4X: ", (BaseOffset + i));
+        if (!DisplayDataOnly) {
+            AcpiOsPrintf("%8.4X: ", (BaseOffset + i));
         }
 
         /* Print 16 hex chars */
 
-        for (j = 0; j < 16;)
-        {
-            if (i + j >= Count)
-            {
+        for (j = 0; j < 16;) {
+            if (i + j >= Count) {
                 /* Dump fill spaces */
 
-                AcpiOsPrintf ("%*s", ((Display * 2) + 1), " ");
+                AcpiOsPrintf("%*s", ((Display * 2) + 1), " ");
                 j += Display;
                 continue;
             }
 
-            switch (Display)
-            {
+            switch (Display) {
             case DB_BYTE_DISPLAY:
-            default:    /* Default is BYTE display */
+            default: /* Default is BYTE display */
 
-                AcpiOsPrintf ("%02X ", Buffer[(ACPI_SIZE) i + j]);
+                AcpiOsPrintf("%02X ", Buffer[(ACPI_SIZE)i + j]);
                 break;
 
             case DB_WORD_DISPLAY:
 
-                ACPI_MOVE_16_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j]);
-                AcpiOsPrintf ("%04X ", Temp32);
+                ACPI_MOVE_16_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j]);
+                AcpiOsPrintf("%04X ", Temp32);
                 break;
 
             case DB_DWORD_DISPLAY:
 
-                ACPI_MOVE_32_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j]);
-                AcpiOsPrintf ("%08X ", Temp32);
+                ACPI_MOVE_32_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j]);
+                AcpiOsPrintf("%08X ", Temp32);
                 break;
 
             case DB_QWORD_DISPLAY:
 
-                ACPI_MOVE_32_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j]);
-                AcpiOsPrintf ("%08X", Temp32);
+                ACPI_MOVE_32_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j]);
+                AcpiOsPrintf("%08X", Temp32);
 
-                ACPI_MOVE_32_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j + 4]);
-                AcpiOsPrintf ("%08X ", Temp32);
+                ACPI_MOVE_32_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j + 4]);
+                AcpiOsPrintf("%08X ", Temp32);
                 break;
             }
 
@@ -262,14 +252,11 @@ AcpiUtDumpBuffer (
          * Print the ASCII equivalent characters but watch out for the bad
          * unprintable ones (printable chars are 0x20 through 0x7E)
          */
-        if (!DisplayDataOnly)
-        {
-            AcpiOsPrintf (" ");
-            for (j = 0; j < 16; j++)
-            {
-                if (i + j >= Count)
-                {
-                    AcpiOsPrintf ("\n");
+        if (!DisplayDataOnly) {
+            AcpiOsPrintf(" ");
+            for (j = 0; j < 16; j++) {
+                if (i + j >= Count) {
+                    AcpiOsPrintf("\n");
                     return;
                 }
 
@@ -277,32 +264,27 @@ AcpiUtDumpBuffer (
                  * Add comment characters so rest of line is ignored when
                  * compiled
                  */
-                if (j == 0)
-                {
-                    AcpiOsPrintf ("// ");
+                if (j == 0) {
+                    AcpiOsPrintf("// ");
                 }
 
-                BufChar = Buffer[(ACPI_SIZE) i + j];
-                if (isprint (BufChar))
-                {
-                    AcpiOsPrintf ("%c", BufChar);
-                }
-                else
-                {
-                    AcpiOsPrintf (".");
+                BufChar = Buffer[(ACPI_SIZE)i + j];
+                if (isprint(BufChar)) {
+                    AcpiOsPrintf("%c", BufChar);
+                } else {
+                    AcpiOsPrintf(".");
                 }
             }
 
             /* Done with that line. */
 
-            AcpiOsPrintf ("\n");
+            AcpiOsPrintf("\n");
         }
         i += 16;
     }
 
     return;
 }
-
 
 /*******************************************************************************
  *
@@ -323,25 +305,21 @@ AcpiUtDumpBuffer (
  *
  ******************************************************************************/
 
-void
-AcpiUtDebugDumpBuffer (
-    UINT8                   *Buffer,
-    UINT32                  Count,
-    UINT32                  Display,
-    UINT32                  ComponentId)
+void AcpiUtDebugDumpBuffer(
+    UINT8* Buffer,
+    UINT32 Count,
+    UINT32 Display,
+    UINT32 ComponentId)
 {
 
     /* Only dump the buffer if tracing is enabled */
 
-    if (!((ACPI_LV_TABLES & AcpiDbgLevel) &&
-        (ComponentId & AcpiDbgLayer)))
-    {
+    if (!((ACPI_LV_TABLES & AcpiDbgLevel) && (ComponentId & AcpiDbgLayer))) {
         return;
     }
 
-    AcpiUtDumpBuffer (Buffer, Count, Display, 0);
+    AcpiUtDumpBuffer(Buffer, Count, Display, 0);
 }
-
 
 #ifdef ACPI_APPLICATION
 /*******************************************************************************
@@ -364,79 +342,71 @@ AcpiUtDebugDumpBuffer (
  *
  ******************************************************************************/
 
-void
-AcpiUtDumpBufferToFile (
-    ACPI_FILE               File,
-    UINT8                   *Buffer,
-    UINT32                  Count,
-    UINT32                  Display,
-    UINT32                  BaseOffset)
+void AcpiUtDumpBufferToFile(
+    ACPI_FILE File,
+    UINT8* Buffer,
+    UINT32 Count,
+    UINT32 Display,
+    UINT32 BaseOffset)
 {
-    UINT32                  i = 0;
-    UINT32                  j;
-    UINT32                  Temp32;
-    UINT8                   BufChar;
+    UINT32 i = 0;
+    UINT32 j;
+    UINT32 Temp32;
+    UINT8 BufChar;
 
-
-    if (!Buffer)
-    {
-        fprintf (File, "Null Buffer Pointer in DumpBuffer!\n");
+    if (!Buffer) {
+        fprintf(File, "Null Buffer Pointer in DumpBuffer!\n");
         return;
     }
 
-    if ((Count < 4) || (Count & 0x01))
-    {
+    if ((Count < 4) || (Count & 0x01)) {
         Display = DB_BYTE_DISPLAY;
     }
 
     /* Nasty little dump buffer routine! */
 
-    while (i < Count)
-    {
+    while (i < Count) {
         /* Print current offset */
 
-        fprintf (File, "%8.4X: ", (BaseOffset + i));
+        fprintf(File, "%8.4X: ", (BaseOffset + i));
 
         /* Print 16 hex chars */
 
-        for (j = 0; j < 16;)
-        {
-            if (i + j >= Count)
-            {
+        for (j = 0; j < 16;) {
+            if (i + j >= Count) {
                 /* Dump fill spaces */
 
-                fprintf (File, "%*s", ((Display * 2) + 1), " ");
+                fprintf(File, "%*s", ((Display * 2) + 1), " ");
                 j += Display;
                 continue;
             }
 
-            switch (Display)
-            {
+            switch (Display) {
             case DB_BYTE_DISPLAY:
-            default:    /* Default is BYTE display */
+            default: /* Default is BYTE display */
 
-                fprintf (File, "%02X ", Buffer[(ACPI_SIZE) i + j]);
+                fprintf(File, "%02X ", Buffer[(ACPI_SIZE)i + j]);
                 break;
 
             case DB_WORD_DISPLAY:
 
-                ACPI_MOVE_16_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j]);
-                fprintf (File, "%04X ", Temp32);
+                ACPI_MOVE_16_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j]);
+                fprintf(File, "%04X ", Temp32);
                 break;
 
             case DB_DWORD_DISPLAY:
 
-                ACPI_MOVE_32_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j]);
-                fprintf (File, "%08X ", Temp32);
+                ACPI_MOVE_32_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j]);
+                fprintf(File, "%08X ", Temp32);
                 break;
 
             case DB_QWORD_DISPLAY:
 
-                ACPI_MOVE_32_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j]);
-                fprintf (File, "%08X", Temp32);
+                ACPI_MOVE_32_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j]);
+                fprintf(File, "%08X", Temp32);
 
-                ACPI_MOVE_32_TO_32 (&Temp32, &Buffer[(ACPI_SIZE) i + j + 4]);
-                fprintf (File, "%08X ", Temp32);
+                ACPI_MOVE_32_TO_32(&Temp32, &Buffer[(ACPI_SIZE)i + j + 4]);
+                fprintf(File, "%08X ", Temp32);
                 break;
             }
 
@@ -447,29 +417,24 @@ AcpiUtDumpBufferToFile (
          * Print the ASCII equivalent characters but watch out for the bad
          * unprintable ones (printable chars are 0x20 through 0x7E)
          */
-        fprintf (File, " ");
-        for (j = 0; j < 16; j++)
-        {
-            if (i + j >= Count)
-            {
-                fprintf (File, "\n");
+        fprintf(File, " ");
+        for (j = 0; j < 16; j++) {
+            if (i + j >= Count) {
+                fprintf(File, "\n");
                 return;
             }
 
-            BufChar = Buffer[(ACPI_SIZE) i + j];
-            if (isprint (BufChar))
-            {
-                fprintf (File, "%c", BufChar);
-            }
-            else
-            {
-                fprintf (File, ".");
+            BufChar = Buffer[(ACPI_SIZE)i + j];
+            if (isprint(BufChar)) {
+                fprintf(File, "%c", BufChar);
+            } else {
+                fprintf(File, ".");
             }
         }
 
         /* Done with that line. */
 
-        fprintf (File, "\n");
+        fprintf(File, "\n");
         i += 16;
     }
 

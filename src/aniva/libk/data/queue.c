@@ -2,98 +2,102 @@
 #include <mem/heap.h>
 
 // FIXME: the entire capacity concept of queues is not used at the moment, let's use it
-queue_t *create_queue(size_t capacity) {
-  queue_t *queue_ptr; 
-
-  queue_ptr = kmalloc(sizeof(queue_t));
-
-  if (!queue_ptr)
-    return nullptr;
-
-  queue_ptr->m_entries = 0;
-  queue_ptr->m_head_ptr = nullptr;
-  queue_ptr->m_tail_ptr = nullptr;
-  queue_ptr->m_max_entries = capacity;
-  return queue_ptr;
-}
-
-queue_t *create_limitless_queue() {
-  return create_queue(0);
-}
-
-void initialize_queue(queue_t* queue_ptr, size_t capacity) {
-  if (queue_ptr == nullptr) {
-    return;
-  }
-  queue_ptr->m_entries = 0;
-  queue_ptr->m_head_ptr = nullptr;
-  queue_ptr->m_tail_ptr = nullptr;
-  queue_ptr->m_max_entries = capacity;
-}
-
-ANIVA_STATUS destroy_queue(queue_t* queue, bool eliminate_entries) 
+queue_t* create_queue(size_t capacity)
 {
-  void *entry = queue_dequeue(queue);
+    queue_t* queue_ptr;
 
-  for (; entry != nullptr; entry = queue_dequeue(queue)) {
-    if (eliminate_entries)
-      kfree(entry);
-  }
+    queue_ptr = kmalloc(sizeof(queue_t));
 
-  kfree(queue);
-  return ANIVA_SUCCESS;
+    if (!queue_ptr)
+        return nullptr;
+
+    queue_ptr->m_entries = 0;
+    queue_ptr->m_head_ptr = nullptr;
+    queue_ptr->m_tail_ptr = nullptr;
+    queue_ptr->m_max_entries = capacity;
+    return queue_ptr;
 }
 
-void queue_enqueue(queue_t *queue, void* data) {
-  queue_entry_t *new_entry = kmalloc(sizeof(queue_entry_t));
+queue_t* create_limitless_queue()
+{
+    return create_queue(0);
+}
 
-  if (new_entry == nullptr) {
-    return;
-  }
+void initialize_queue(queue_t* queue_ptr, size_t capacity)
+{
+    if (queue_ptr == nullptr) {
+        return;
+    }
+    queue_ptr->m_entries = 0;
+    queue_ptr->m_head_ptr = nullptr;
+    queue_ptr->m_tail_ptr = nullptr;
+    queue_ptr->m_max_entries = capacity;
+}
 
-  queue->m_entries++;
-  new_entry->m_data = data;
-  new_entry->m_preceding_entry = nullptr;
+ANIVA_STATUS destroy_queue(queue_t* queue, bool eliminate_entries)
+{
+    void* entry = queue_dequeue(queue);
 
-  if (queue->m_head_ptr == nullptr || queue->m_tail_ptr == nullptr) {
-    queue->m_head_ptr = new_entry;
+    for (; entry != nullptr; entry = queue_dequeue(queue)) {
+        if (eliminate_entries)
+            kfree(entry);
+    }
+
+    kfree(queue);
+    return ANIVA_SUCCESS;
+}
+
+void queue_enqueue(queue_t* queue, void* data)
+{
+    queue_entry_t* new_entry = kmalloc(sizeof(queue_entry_t));
+
+    if (new_entry == nullptr) {
+        return;
+    }
+
+    queue->m_entries++;
+    new_entry->m_data = data;
+    new_entry->m_preceding_entry = nullptr;
+
+    if (queue->m_head_ptr == nullptr || queue->m_tail_ptr == nullptr) {
+        queue->m_head_ptr = new_entry;
+        queue->m_tail_ptr = new_entry;
+
+    } else {
+        queue->m_tail_ptr->m_preceding_entry = new_entry;
+    }
+
     queue->m_tail_ptr = new_entry;
-
-  } else {
-    queue->m_tail_ptr->m_preceding_entry = new_entry;
-  }
-
-  queue->m_tail_ptr = new_entry;
-
 }
 
-void* queue_dequeue(queue_t *queue)
+void* queue_dequeue(queue_t* queue)
 {
-  if (queue->m_head_ptr == nullptr)
-    return nullptr;
+    if (queue->m_head_ptr == nullptr)
+        return nullptr;
 
-  queue_entry_t *entry_to_remove = queue->m_head_ptr;
-  void *ret = entry_to_remove->m_data;
+    queue_entry_t* entry_to_remove = queue->m_head_ptr;
+    void* ret = entry_to_remove->m_data;
 
-  if (entry_to_remove->m_preceding_entry != nullptr) {
-    queue->m_head_ptr = entry_to_remove->m_preceding_entry;
-  } else {
-    // empty
-    queue->m_head_ptr = nullptr;
-    queue->m_tail_ptr = nullptr;
-  }
-  queue->m_entries--;
+    if (entry_to_remove->m_preceding_entry != nullptr) {
+        queue->m_head_ptr = entry_to_remove->m_preceding_entry;
+    } else {
+        // empty
+        queue->m_head_ptr = nullptr;
+        queue->m_tail_ptr = nullptr;
+    }
+    queue->m_entries--;
 
-  kfree(entry_to_remove);
-  return ret;
+    kfree(entry_to_remove);
+    return ret;
 }
 
-void* queue_peek(queue_t* queue) {
-  if (!queue || !queue->m_head_ptr) {
-    return nullptr;
-  }
+void* queue_peek(queue_t* queue)
+{
+    if (!queue || !queue->m_head_ptr) {
+        return nullptr;
+    }
 
-  return queue->m_head_ptr->m_data;
+    return queue->m_head_ptr->m_data;
 }
 
 /*!
@@ -101,33 +105,34 @@ void* queue_peek(queue_t* queue) {
  */
 int queue_remove(queue_t* queue, void* item)
 {
-  queue_entry_t** walker;
-  queue_entry_t* target;
+    queue_entry_t** walker;
+    queue_entry_t* target;
 
-  walker = &queue->m_head_ptr;
+    walker = &queue->m_head_ptr;
 
-  while (*walker) {
-    if ((*walker)->m_data == item) {
-      target = *walker;
+    while (*walker) {
+        if ((*walker)->m_data == item) {
+            target = *walker;
 
-      *walker = target->m_preceding_entry;
+            *walker = target->m_preceding_entry;
 
-      kfree(target);
-      return 0;
+            kfree(target);
+            return 0;
+        }
+
+        walker = &(*walker)->m_preceding_entry;
     }
 
-    walker = &(*walker)->m_preceding_entry;
-  }
-
-  return -1;
+    return -1;
 }
 
-ANIVA_STATUS queue_ensure_capacity(queue_t* queue, size_t capacity) {
-  if (queue->m_entries > capacity) {
-    // TODO: truncate?
-    return ANIVA_FAIL;
-  }
+ANIVA_STATUS queue_ensure_capacity(queue_t* queue, size_t capacity)
+{
+    if (queue->m_entries > capacity) {
+        // TODO: truncate?
+        return ANIVA_FAIL;
+    }
 
-  queue->m_max_entries = capacity;
-  return ANIVA_SUCCESS;
+    queue->m_max_entries = capacity;
+    return ANIVA_SUCCESS;
 }

@@ -149,13 +149,12 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acinterp.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exsystem")
-
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exsystem")
 
 /*******************************************************************************
  *
@@ -173,41 +172,36 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemWaitSemaphore (
-    ACPI_SEMAPHORE          Semaphore,
-    UINT16                  Timeout)
+AcpiExSystemWaitSemaphore(
+    ACPI_SEMAPHORE Semaphore,
+    UINT16 Timeout)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(ExSystemWaitSemaphore);
 
-    ACPI_FUNCTION_TRACE (ExSystemWaitSemaphore);
-
-
-    Status = AcpiOsWaitSemaphore (Semaphore, 1, ACPI_DO_NOT_WAIT);
-    if (ACPI_SUCCESS (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiOsWaitSemaphore(Semaphore, 1, ACPI_DO_NOT_WAIT);
+    if (ACPI_SUCCESS(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    if (Status == AE_TIME)
-    {
+    if (Status == AE_TIME) {
         /* We must wait, so unlock the interpreter */
 
-        AcpiExExitInterpreter ();
-        Status = AcpiOsWaitSemaphore (Semaphore, 1, Timeout);
+        AcpiExExitInterpreter();
+        Status = AcpiOsWaitSemaphore(Semaphore, 1, Timeout);
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_EXEC,
+        ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
             "*** Thread awake after blocking, %s\n",
-            AcpiFormatException (Status)));
+            AcpiFormatException(Status)));
 
         /* Reacquire the interpreter */
 
-        AcpiExEnterInterpreter ();
+        AcpiExEnterInterpreter();
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -225,41 +219,36 @@ AcpiExSystemWaitSemaphore (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemWaitMutex (
-    ACPI_MUTEX              Mutex,
-    UINT16                  Timeout)
+AcpiExSystemWaitMutex(
+    ACPI_MUTEX Mutex,
+    UINT16 Timeout)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(ExSystemWaitMutex);
 
-    ACPI_FUNCTION_TRACE (ExSystemWaitMutex);
-
-
-    Status = AcpiOsAcquireMutex (Mutex, ACPI_DO_NOT_WAIT);
-    if (ACPI_SUCCESS (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiOsAcquireMutex(Mutex, ACPI_DO_NOT_WAIT);
+    if (ACPI_SUCCESS(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
-    if (Status == AE_TIME)
-    {
+    if (Status == AE_TIME) {
         /* We must wait, so unlock the interpreter */
 
-        AcpiExExitInterpreter ();
-        Status = AcpiOsAcquireMutex (Mutex, Timeout);
+        AcpiExExitInterpreter();
+        Status = AcpiOsAcquireMutex(Mutex, Timeout);
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_EXEC,
+        ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
             "*** Thread awake after blocking, %s\n",
-            AcpiFormatException (Status)));
+            AcpiFormatException(Status)));
 
         /* Reacquire the interpreter */
 
-        AcpiExEnterInterpreter ();
+        AcpiExEnterInterpreter();
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -279,40 +268,33 @@ AcpiExSystemWaitMutex (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemDoStall (
-    UINT32                  HowLongUs)
+AcpiExSystemDoStall(
+    UINT32 HowLongUs)
 {
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_STATUS Status = AE_OK;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (HowLongUs > 255)
-    {
+    if (HowLongUs > 255) {
         /*
          * Longer than 255 microseconds, this is an error
          *
          * (ACPI specifies 100 usec as max, but this gives some slack in
          * order to support existing BIOSs)
          */
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Time parameter is too large (%u)", HowLongUs));
         Status = AE_AML_OPERAND_VALUE;
-    }
-    else
-    {
-        if (HowLongUs > 100)
-        {
-            ACPI_WARNING ((AE_INFO,
+    } else {
+        if (HowLongUs > 100) {
+            ACPI_WARNING((AE_INFO,
                 "Time parameter %u us > 100 us violating ACPI spec, please fix the firmware.", HowLongUs));
         }
-        AcpiOsStall (HowLongUs);
+        AcpiOsStall(HowLongUs);
     }
 
     return (Status);
 }
-
 
 /*******************************************************************************
  *
@@ -328,33 +310,30 @@ AcpiExSystemDoStall (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemDoSleep (
-    UINT64                  HowLongMs)
+AcpiExSystemDoSleep(
+    UINT64 HowLongMs)
 {
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /* Since this thread will sleep, we must release the interpreter */
 
-    AcpiExExitInterpreter ();
+    AcpiExExitInterpreter();
 
     /*
      * For compatibility with other ACPI implementations and to prevent
      * accidental deep sleeps, limit the sleep time to something reasonable.
      */
-    if (HowLongMs > ACPI_MAX_SLEEP)
-    {
+    if (HowLongMs > ACPI_MAX_SLEEP) {
         HowLongMs = ACPI_MAX_SLEEP;
     }
 
-    AcpiOsSleep (HowLongMs);
+    AcpiOsSleep(HowLongMs);
 
     /* And now we must get the interpreter again */
 
-    AcpiExEnterInterpreter ();
+    AcpiExEnterInterpreter();
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -370,23 +349,19 @@ AcpiExSystemDoSleep (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemSignalEvent (
-    ACPI_OPERAND_OBJECT     *ObjDesc)
+AcpiExSystemSignalEvent(
+    ACPI_OPERAND_OBJECT* ObjDesc)
 {
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_STATUS Status = AE_OK;
 
+    ACPI_FUNCTION_TRACE(ExSystemSignalEvent);
 
-    ACPI_FUNCTION_TRACE (ExSystemSignalEvent);
-
-
-    if (ObjDesc)
-    {
-        Status = AcpiOsSignalSemaphore (ObjDesc->Event.OsSemaphore, 1);
+    if (ObjDesc) {
+        Status = AcpiOsSignalSemaphore(ObjDesc->Event.OsSemaphore, 1);
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -404,25 +379,21 @@ AcpiExSystemSignalEvent (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemWaitEvent (
-    ACPI_OPERAND_OBJECT     *TimeDesc,
-    ACPI_OPERAND_OBJECT     *ObjDesc)
+AcpiExSystemWaitEvent(
+    ACPI_OPERAND_OBJECT* TimeDesc,
+    ACPI_OPERAND_OBJECT* ObjDesc)
 {
-    ACPI_STATUS             Status = AE_OK;
+    ACPI_STATUS Status = AE_OK;
 
+    ACPI_FUNCTION_TRACE(ExSystemWaitEvent);
 
-    ACPI_FUNCTION_TRACE (ExSystemWaitEvent);
-
-
-    if (ObjDesc)
-    {
-        Status = AcpiExSystemWaitSemaphore (ObjDesc->Event.OsSemaphore,
-            (UINT16) TimeDesc->Integer.Value);
+    if (ObjDesc) {
+        Status = AcpiExSystemWaitSemaphore(ObjDesc->Event.OsSemaphore,
+            (UINT16)TimeDesc->Integer.Value);
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -437,24 +408,21 @@ AcpiExSystemWaitEvent (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExSystemResetEvent (
-    ACPI_OPERAND_OBJECT     *ObjDesc)
+AcpiExSystemResetEvent(
+    ACPI_OPERAND_OBJECT* ObjDesc)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_SEMAPHORE          TempSemaphore;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_SEMAPHORE TempSemaphore;
 
-
-    ACPI_FUNCTION_ENTRY ();
-
+    ACPI_FUNCTION_ENTRY();
 
     /*
      * We are going to simply delete the existing semaphore and
      * create a new one!
      */
-    Status = AcpiOsCreateSemaphore (ACPI_NO_UNIT_LIMIT, 0, &TempSemaphore);
-    if (ACPI_SUCCESS (Status))
-    {
-        (void) AcpiOsDeleteSemaphore (ObjDesc->Event.OsSemaphore);
+    Status = AcpiOsCreateSemaphore(ACPI_NO_UNIT_LIMIT, 0, &TempSemaphore);
+    if (ACPI_SUCCESS(Status)) {
+        (void)AcpiOsDeleteSemaphore(ObjDesc->Event.OsSemaphore);
         ObjDesc->Event.OsSemaphore = TempSemaphore;
     }
 

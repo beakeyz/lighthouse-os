@@ -149,13 +149,13 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acevents.h"
 #include "acnamesp.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_EVENTS
-        ACPI_MODULE_NAME    ("evgpeinit")
+#define _COMPONENT ACPI_EVENTS
+ACPI_MODULE_NAME("evgpeinit")
 
 #if (!ACPI_REDUCED_HARDWARE) /* Entire module */
 
@@ -189,25 +189,22 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEvGpeInitialize (
+AcpiEvGpeInitialize(
     void)
 {
-    UINT32                  RegisterCount0 = 0;
-    UINT32                  RegisterCount1 = 0;
-    UINT32                  GpeNumberMax = 0;
-    ACPI_STATUS             Status;
+    UINT32 RegisterCount0 = 0;
+    UINT32 RegisterCount1 = 0;
+    UINT32 GpeNumberMax = 0;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(EvGpeInitialize);
 
-    ACPI_FUNCTION_TRACE (EvGpeInitialize);
-
-
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_INIT,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_INIT,
         "Initializing General Purpose Events (GPEs):\n"));
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_NAMESPACE);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /*
@@ -235,66 +232,55 @@ AcpiEvGpeInitialize (
      * If EITHER the register length OR the block address are zero, then that
      * particular block is not supported.
      */
-    if (AcpiGbl_FADT.Gpe0BlockLength &&
-        AcpiGbl_FADT.XGpe0Block.Address)
-    {
+    if (AcpiGbl_FADT.Gpe0BlockLength && AcpiGbl_FADT.XGpe0Block.Address) {
         /* GPE block 0 exists (has both length and address > 0) */
 
-        RegisterCount0 = (UINT16) (AcpiGbl_FADT.Gpe0BlockLength / 2);
+        RegisterCount0 = (UINT16)(AcpiGbl_FADT.Gpe0BlockLength / 2);
         GpeNumberMax = (RegisterCount0 * ACPI_GPE_REGISTER_WIDTH) - 1;
 
         /* Install GPE Block 0 */
 
-        Status = AcpiEvCreateGpeBlock (AcpiGbl_FadtGpeDevice,
+        Status = AcpiEvCreateGpeBlock(AcpiGbl_FadtGpeDevice,
             AcpiGbl_FADT.XGpe0Block.Address,
             AcpiGbl_FADT.XGpe0Block.SpaceId,
             RegisterCount0, 0,
             AcpiGbl_FADT.SciInterrupt, &AcpiGbl_GpeFadtBlocks[0]);
 
-        if (ACPI_FAILURE (Status))
-        {
-            ACPI_EXCEPTION ((AE_INFO, Status,
+        if (ACPI_FAILURE(Status)) {
+            ACPI_EXCEPTION((AE_INFO, Status,
                 "Could not create GPE Block 0"));
         }
     }
 
-    if (AcpiGbl_FADT.Gpe1BlockLength &&
-        AcpiGbl_FADT.XGpe1Block.Address)
-    {
+    if (AcpiGbl_FADT.Gpe1BlockLength && AcpiGbl_FADT.XGpe1Block.Address) {
         /* GPE block 1 exists (has both length and address > 0) */
 
-        RegisterCount1 = (UINT16) (AcpiGbl_FADT.Gpe1BlockLength / 2);
+        RegisterCount1 = (UINT16)(AcpiGbl_FADT.Gpe1BlockLength / 2);
 
         /* Check for GPE0/GPE1 overlap (if both banks exist) */
 
-        if ((RegisterCount0) &&
-            (GpeNumberMax >= AcpiGbl_FADT.Gpe1Base))
-        {
-            ACPI_ERROR ((AE_INFO,
+        if ((RegisterCount0) && (GpeNumberMax >= AcpiGbl_FADT.Gpe1Base)) {
+            ACPI_ERROR((AE_INFO,
                 "GPE0 block (GPE 0 to %u) overlaps the GPE1 block "
                 "(GPE %u to %u) - Ignoring GPE1",
                 GpeNumberMax, AcpiGbl_FADT.Gpe1Base,
-                AcpiGbl_FADT.Gpe1Base +
-                ((RegisterCount1 * ACPI_GPE_REGISTER_WIDTH) - 1)));
+                AcpiGbl_FADT.Gpe1Base + ((RegisterCount1 * ACPI_GPE_REGISTER_WIDTH) - 1)));
 
             /* Ignore GPE1 block by setting the register count to zero */
 
             RegisterCount1 = 0;
-        }
-        else
-        {
+        } else {
             /* Install GPE Block 1 */
 
-            Status = AcpiEvCreateGpeBlock (AcpiGbl_FadtGpeDevice,
+            Status = AcpiEvCreateGpeBlock(AcpiGbl_FadtGpeDevice,
                 AcpiGbl_FADT.XGpe1Block.Address,
                 AcpiGbl_FADT.XGpe1Block.SpaceId,
                 RegisterCount1,
                 AcpiGbl_FADT.Gpe1Base,
                 AcpiGbl_FADT.SciInterrupt, &AcpiGbl_GpeFadtBlocks[1]);
 
-            if (ACPI_FAILURE (Status))
-            {
-                ACPI_EXCEPTION ((AE_INFO, Status,
+            if (ACPI_FAILURE(Status)) {
+                ACPI_EXCEPTION((AE_INFO, Status,
                     "Could not create GPE Block 1"));
             }
 
@@ -307,21 +293,18 @@ AcpiEvGpeInitialize (
 
     /* Exit if there are no GPE registers */
 
-    if ((RegisterCount0 + RegisterCount1) == 0)
-    {
+    if ((RegisterCount0 + RegisterCount1) == 0) {
         /* GPEs are not required by ACPI, this is OK */
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_INIT,
+        ACPI_DEBUG_PRINT((ACPI_DB_INIT,
             "There are no GPE blocks defined in the FADT\n"));
         goto Cleanup;
     }
 
-
 Cleanup:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_NAMESPACE);
-    return_ACPI_STATUS (AE_OK);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_NAMESPACE);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -337,15 +320,13 @@ Cleanup:
  *
  ******************************************************************************/
 
-void
-AcpiEvUpdateGpes (
-    ACPI_OWNER_ID           TableOwnerId)
+void AcpiEvUpdateGpes(
+    ACPI_OWNER_ID TableOwnerId)
 {
-    ACPI_GPE_XRUPT_INFO     *GpeXruptInfo;
-    ACPI_GPE_BLOCK_INFO     *GpeBlock;
-    ACPI_GPE_WALK_INFO      WalkInfo;
-    ACPI_STATUS             Status = AE_OK;
-
+    ACPI_GPE_XRUPT_INFO* GpeXruptInfo;
+    ACPI_GPE_BLOCK_INFO* GpeBlock;
+    ACPI_GPE_WALK_INFO WalkInfo;
+    ACPI_STATUS Status = AE_OK;
 
     /*
      * Find any _Lxx/_Exx GPE methods that have just been loaded.
@@ -356,9 +337,8 @@ AcpiEvUpdateGpes (
      * Examine the namespace underneath each GpeDevice within the
      * GpeBlock lists.
      */
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
         return;
     }
 
@@ -369,23 +349,20 @@ AcpiEvUpdateGpes (
     /* Walk the interrupt level descriptor list */
 
     GpeXruptInfo = AcpiGbl_GpeXruptListHead;
-    while (GpeXruptInfo)
-    {
+    while (GpeXruptInfo) {
         /* Walk all Gpe Blocks attached to this interrupt level */
 
         GpeBlock = GpeXruptInfo->GpeBlockListHead;
-        while (GpeBlock)
-        {
+        while (GpeBlock) {
             WalkInfo.GpeBlock = GpeBlock;
             WalkInfo.GpeDevice = GpeBlock->Node;
 
-            Status = AcpiNsWalkNamespace (ACPI_TYPE_METHOD,
+            Status = AcpiNsWalkNamespace(ACPI_TYPE_METHOD,
                 WalkInfo.GpeDevice, ACPI_UINT32_MAX,
                 ACPI_NS_WALK_NO_UNLOCK, AcpiEvMatchGpeMethod,
                 NULL, &WalkInfo, NULL);
-            if (ACPI_FAILURE (Status))
-            {
-                ACPI_EXCEPTION ((AE_INFO, Status,
+            if (ACPI_FAILURE(Status)) {
+                ACPI_EXCEPTION((AE_INFO, Status,
                     "While decoding _Lxx/_Exx methods"));
             }
 
@@ -395,15 +372,13 @@ AcpiEvUpdateGpes (
         GpeXruptInfo = GpeXruptInfo->Next;
     }
 
-    if (WalkInfo.Count)
-    {
-        ACPI_INFO (("Enabled %u new GPEs", WalkInfo.Count));
+    if (WalkInfo.Count) {
+        ACPI_INFO(("Enabled %u new GPEs", WalkInfo.Count));
     }
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
     return;
 }
-
 
 /*******************************************************************************
  *
@@ -432,31 +407,27 @@ AcpiEvUpdateGpes (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiEvMatchGpeMethod (
-    ACPI_HANDLE             ObjHandle,
-    UINT32                  Level,
-    void                    *Context,
-    void                    **ReturnValue)
+AcpiEvMatchGpeMethod(
+    ACPI_HANDLE ObjHandle,
+    UINT32 Level,
+    void* Context,
+    void** ReturnValue)
 {
-    ACPI_NAMESPACE_NODE     *MethodNode = ACPI_CAST_PTR (ACPI_NAMESPACE_NODE, ObjHandle);
-    ACPI_GPE_WALK_INFO      *WalkInfo = ACPI_CAST_PTR (ACPI_GPE_WALK_INFO, Context);
-    ACPI_GPE_EVENT_INFO     *GpeEventInfo;
-    ACPI_STATUS             Status;
-    UINT32                  GpeNumber;
-    UINT8                   TempGpeNumber;
-    char                    Name[ACPI_NAMESEG_SIZE + 1];
-    UINT8                   Type;
+    ACPI_NAMESPACE_NODE* MethodNode = ACPI_CAST_PTR(ACPI_NAMESPACE_NODE, ObjHandle);
+    ACPI_GPE_WALK_INFO* WalkInfo = ACPI_CAST_PTR(ACPI_GPE_WALK_INFO, Context);
+    ACPI_GPE_EVENT_INFO* GpeEventInfo;
+    ACPI_STATUS Status;
+    UINT32 GpeNumber;
+    UINT8 TempGpeNumber;
+    char Name[ACPI_NAMESEG_SIZE + 1];
+    UINT8 Type;
 
-
-    ACPI_FUNCTION_TRACE (EvMatchGpeMethod);
-
+    ACPI_FUNCTION_TRACE(EvMatchGpeMethod);
 
     /* Check if requested OwnerId matches this OwnerId */
 
-    if ((WalkInfo->ExecuteByOwnerId) &&
-        (MethodNode->OwnerId != WalkInfo->OwnerId))
-    {
-        return_ACPI_STATUS (AE_OK);
+    if ((WalkInfo->ExecuteByOwnerId) && (MethodNode->OwnerId != WalkInfo->OwnerId)) {
+        return_ACPI_STATUS(AE_OK);
     }
 
     /*
@@ -464,22 +435,20 @@ AcpiEvMatchGpeMethod (
      *
      * 1) Extract the method name and null terminate it
      */
-    ACPI_MOVE_32_TO_32 (Name, &MethodNode->Name.Integer);
+    ACPI_MOVE_32_TO_32(Name, &MethodNode->Name.Integer);
     Name[ACPI_NAMESEG_SIZE] = 0;
 
     /* 2) Name must begin with an underscore */
 
-    if (Name[0] != '_')
-    {
-        return_ACPI_STATUS (AE_OK); /* Ignore this method */
+    if (Name[0] != '_') {
+        return_ACPI_STATUS(AE_OK); /* Ignore this method */
     }
 
     /*
      * 3) Edge/Level determination is based on the 2nd character
      *    of the method name
      */
-    switch (Name[1])
-    {
+    switch (Name[1]) {
     case 'L':
 
         Type = ACPI_GPE_LEVEL_TRIGGERED;
@@ -494,81 +463,74 @@ AcpiEvMatchGpeMethod (
 
         /* Unknown method type, just ignore it */
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_LOAD,
+        ACPI_DEBUG_PRINT((ACPI_DB_LOAD,
             "Ignoring unknown GPE method type: %s "
-            "(name not of form _Lxx or _Exx)", Name));
-        return_ACPI_STATUS (AE_OK);
+            "(name not of form _Lxx or _Exx)",
+            Name));
+        return_ACPI_STATUS(AE_OK);
     }
 
     /* 4) The last two characters of the name are the hex GPE Number */
 
-    Status = AcpiUtAsciiToHexByte (&Name[2], &TempGpeNumber);
-    if (ACPI_FAILURE (Status))
-    {
+    Status = AcpiUtAsciiToHexByte(&Name[2], &TempGpeNumber);
+    if (ACPI_FAILURE(Status)) {
         /* Conversion failed; invalid method, just ignore it */
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_LOAD,
+        ACPI_DEBUG_PRINT((ACPI_DB_LOAD,
             "Could not extract GPE number from name: %s "
-            "(name is not of form _Lxx or _Exx)", Name));
-        return_ACPI_STATUS (AE_OK);
+            "(name is not of form _Lxx or _Exx)",
+            Name));
+        return_ACPI_STATUS(AE_OK);
     }
 
     /* Ensure that we have a valid GPE number for this GPE block */
 
-    GpeNumber = (UINT32) TempGpeNumber;
-    GpeEventInfo = AcpiEvLowGetGpeInfo (GpeNumber, WalkInfo->GpeBlock);
-    if (!GpeEventInfo)
-    {
+    GpeNumber = (UINT32)TempGpeNumber;
+    GpeEventInfo = AcpiEvLowGetGpeInfo(GpeNumber, WalkInfo->GpeBlock);
+    if (!GpeEventInfo) {
         /*
          * This GpeNumber is not valid for this GPE block, just ignore it.
          * However, it may be valid for a different GPE block, since GPE0
          * and GPE1 methods both appear under \_GPE.
          */
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
-    if ((ACPI_GPE_DISPATCH_TYPE (GpeEventInfo->Flags) ==
-            ACPI_GPE_DISPATCH_HANDLER) ||
-        (ACPI_GPE_DISPATCH_TYPE (GpeEventInfo->Flags) ==
-            ACPI_GPE_DISPATCH_RAW_HANDLER))
-    {
+    if ((ACPI_GPE_DISPATCH_TYPE(GpeEventInfo->Flags) == ACPI_GPE_DISPATCH_HANDLER) || (ACPI_GPE_DISPATCH_TYPE(GpeEventInfo->Flags) == ACPI_GPE_DISPATCH_RAW_HANDLER)) {
         /* If there is already a handler, ignore this GPE method */
 
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
-    if (ACPI_GPE_DISPATCH_TYPE (GpeEventInfo->Flags) ==
-        ACPI_GPE_DISPATCH_METHOD)
-    {
+    if (ACPI_GPE_DISPATCH_TYPE(GpeEventInfo->Flags) == ACPI_GPE_DISPATCH_METHOD) {
         /*
          * If there is already a method, ignore this method. But check
          * for a type mismatch (if both the _Lxx AND _Exx exist)
          */
-        if (Type != (GpeEventInfo->Flags & ACPI_GPE_XRUPT_TYPE_MASK))
-        {
-            ACPI_ERROR ((AE_INFO,
+        if (Type != (GpeEventInfo->Flags & ACPI_GPE_XRUPT_TYPE_MASK)) {
+            ACPI_ERROR((AE_INFO,
                 "For GPE 0x%.2X, found both _L%2.2X and _E%2.2X methods",
                 GpeNumber, GpeNumber, GpeNumber));
         }
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
     /* Disable the GPE in case it's been enabled already. */
 
-    (void) AcpiHwLowSetGpe (GpeEventInfo, ACPI_GPE_DISABLE);
+    (void)AcpiHwLowSetGpe(GpeEventInfo, ACPI_GPE_DISABLE);
 
     /*
      * Add the GPE information from above to the GpeEventInfo block for
      * use during dispatch of this GPE.
      */
     GpeEventInfo->Flags &= ~(ACPI_GPE_DISPATCH_MASK);
-    GpeEventInfo->Flags |= (UINT8) (Type | ACPI_GPE_DISPATCH_METHOD);
+    GpeEventInfo->Flags |= (UINT8)(Type | ACPI_GPE_DISPATCH_METHOD);
     GpeEventInfo->Dispatch.MethodNode = MethodNode;
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_LOAD,
+    ACPI_DEBUG_PRINT((ACPI_DB_LOAD,
         "Registered GPE method %s as GPE number 0x%.2X\n",
         Name, GpeNumber));
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
 
 #endif /* !ACPI_REDUCED_HARDWARE */

@@ -17,15 +17,15 @@ struct usb_device;
 struct usb_ctlreq;
 
 enum USB_XFER_TYPE {
-  USB_CTL_XFER,
-  USB_INT_XFER,
-  USB_BULK_XFER,
-  USB_ISO_XFER,
+    USB_CTL_XFER,
+    USB_INT_XFER,
+    USB_BULK_XFER,
+    USB_ISO_XFER,
 };
 
 enum USB_XFER_DIRECTION {
-  USB_DIRECTION_HOST_TO_DEVICE,
-  USB_DIRECTION_DEVICE_TO_HOST,
+    USB_DIRECTION_HOST_TO_DEVICE,
+    USB_DIRECTION_DEVICE_TO_HOST,
 };
 
 #define USB_XFER_FLAG_DONE 0x0001
@@ -34,7 +34,7 @@ enum USB_XFER_DIRECTION {
 #define USB_XFER_FLAG_DATA_TGL 0x0008
 
 /*!
- * Generic USB request structure for the 
+ * Generic USB request structure for the
  * entire subsystem
  *
  * HCD drivers should construct the correct commands based on the request types
@@ -47,38 +47,38 @@ enum USB_XFER_DIRECTION {
  * device)
  */
 typedef struct usb_xfer {
-  flat_refc_t ref;
-  enum USB_XFER_TYPE req_type;
-  enum USB_XFER_DIRECTION req_direction;
+    flat_refc_t ref;
+    enum USB_XFER_TYPE req_type;
+    enum USB_XFER_DIRECTION req_direction;
 
-  void* resp_buffer;
-  void* req_buffer;
+    void* resp_buffer;
+    void* req_buffer;
 
-  paddr_t resp_dma_addr;
-  paddr_t req_dma_addr;
+    paddr_t resp_dma_addr;
+    paddr_t req_dma_addr;
 
-  uint32_t resp_size;
-  uint32_t req_size;
+    uint32_t resp_size;
+    uint32_t req_size;
 
-  uint32_t req_tranfered_size;
-  /* What interface do we want to communicate with */
-  uint32_t req_endpoint;
-  uint32_t req_devaddr;
-  uint32_t req_hubaddr;
-  uint32_t req_hubport;
-  uint16_t req_max_packet_size;
+    uint32_t req_tranfered_size;
+    /* What interface do we want to communicate with */
+    uint32_t req_endpoint;
+    uint32_t req_devaddr;
+    uint32_t req_hubaddr;
+    uint32_t req_hubport;
+    uint16_t req_max_packet_size;
 
-  uint16_t xfer_flags;
+    uint16_t xfer_flags;
 
-  struct usb_device* device;
+    struct usb_device* device;
 
-  /* Doorbell for async status reports */
-  kdoor_t* req_door;
+    /* Doorbell for async status reports */
+    kdoor_t* req_door;
 } usb_xfer_t;
 
 static inline bool usb_xfer_is_done(usb_xfer_t* xfer)
 {
-  return ((xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE);
+    return ((xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE);
 }
 
 usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, enum USB_XFER_TYPE type, enum USB_XFER_DIRECTION direction, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint32_t endpoint, void* req_buf, uint32_t req_bsize, void* resp_buf, uint32_t resp_bsize);

@@ -160,14 +160,13 @@
 
 /* Types for ACPI_MUTEX_TYPE */
 
-#define ACPI_BINARY_SEMAPHORE       0
-#define ACPI_OSL_MUTEX              1
+#define ACPI_BINARY_SEMAPHORE 0
+#define ACPI_OSL_MUTEX 1
 
 /* Types for DEBUGGER_THREADING */
 
-#define DEBUGGER_SINGLE_THREADED    0
-#define DEBUGGER_MULTI_THREADED     1
-
+#define DEBUGGER_SINGLE_THREADED 0
+#define DEBUGGER_MULTI_THREADED 1
 
 /******************************************************************************
  *
@@ -177,15 +176,7 @@
 
 /* Common application configuration. All single threaded except for AcpiExec. */
 
-#if (defined ACPI_ASL_COMPILER) || \
-    (defined ACPI_BIN_APP)      || \
-    (defined ACPI_DUMP_APP)     || \
-    (defined ACPI_HELP_APP)     || \
-    (defined ACPI_NAMES_APP)    || \
-    (defined ACPI_SRC_APP)      || \
-    (defined ACPI_XTRACT_APP)   || \
-    (defined ACPI_EXAMPLE_APP)  || \
-    (defined ACPI_EFI_HELLO)
+#if (defined ACPI_ASL_COMPILER) || (defined ACPI_BIN_APP) || (defined ACPI_DUMP_APP) || (defined ACPI_HELP_APP) || (defined ACPI_NAMES_APP) || (defined ACPI_SRC_APP) || (defined ACPI_XTRACT_APP) || (defined ACPI_EXAMPLE_APP) || (defined ACPI_EFI_HELLO)
 #define ACPI_APPLICATION
 #define ACPI_SINGLE_THREADED
 #define USE_NATIVE_ALLOCATE_ZEROED
@@ -225,9 +216,7 @@
 
 /* AcpiExec/AcpiNames/Example configuration. Native RSDP used. */
 
-#if (defined ACPI_EXEC_APP)     || \
-    (defined ACPI_EXAMPLE_APP)  || \
-    (defined ACPI_NAMES_APP)
+#if (defined ACPI_EXEC_APP) || (defined ACPI_EXAMPLE_APP) || (defined ACPI_NAMES_APP)
 #define ACPI_USE_NATIVE_RSDP_POINTER
 #endif
 
@@ -239,8 +228,7 @@
 
 /* AcpiNames/Example configuration. Hardware disabled */
 
-#if (defined ACPI_EXAMPLE_APP)  || \
-    (defined ACPI_NAMES_APP)
+#if (defined ACPI_EXAMPLE_APP) || (defined ACPI_NAMES_APP)
 #define ACPI_REDUCED_HARDWARE 1
 #endif
 
@@ -294,12 +282,10 @@
  *
  *****************************************************************************/
 
-#include "acgcc.h"
 #include "acaniva.h"
-
+#include "acgcc.h"
 
 /*! [End] no source code translation !*/
-
 
 /******************************************************************************
  *
@@ -311,17 +297,17 @@
 /* 64-bit data types */
 
 #ifndef COMPILER_DEPENDENT_INT64
-#define COMPILER_DEPENDENT_INT64   long long
+#define COMPILER_DEPENDENT_INT64 long long
 #endif
 
 #ifndef COMPILER_DEPENDENT_UINT64
-#define COMPILER_DEPENDENT_UINT64  unsigned long long
+#define COMPILER_DEPENDENT_UINT64 unsigned long long
 #endif
 
 /* Type of mutex supported by host. Default is binary semaphores. */
 
 #ifndef ACPI_MUTEX_TYPE
-#define ACPI_MUTEX_TYPE             ACPI_BINARY_SEMAPHORE
+#define ACPI_MUTEX_TYPE ACPI_BINARY_SEMAPHORE
 #endif
 
 /* Global Lock acquire/release */
@@ -348,7 +334,7 @@
 
 /* Use ordered initialization if compiler doesn't support designated. */
 #ifndef ACPI_STRUCT_INIT
-#define ACPI_STRUCT_INIT(field, value)  value
+#define ACPI_STRUCT_INIT(field, value) value
 #endif
 
 /*
@@ -375,7 +361,6 @@
 #define ACPI_INTERNAL_VAR_XFACE
 #endif
 
-
 /*
  * Debugger threading model
  * Use single threaded if the entire subsystem is contained in an application
@@ -385,14 +370,13 @@
  * multi-threaded if ACPI_APPLICATION is not set.
  */
 #ifndef DEBUGGER_THREADING
-#if !defined (ACPI_APPLICATION) || defined (ACPI_EXEC_APP)
-#define DEBUGGER_THREADING          DEBUGGER_MULTI_THREADED
+#if !defined(ACPI_APPLICATION) || defined(ACPI_EXEC_APP)
+#define DEBUGGER_THREADING DEBUGGER_MULTI_THREADED
 
 #else
-#define DEBUGGER_THREADING          DEBUGGER_SINGLE_THREADED
+#define DEBUGGER_THREADING DEBUGGER_SINGLE_THREADED
 #endif
 #endif /* !DEBUGGER_THREADING */
-
 
 /******************************************************************************
  *
@@ -416,9 +400,9 @@
 
 /* Use the standard C library headers. We want to keep these to a minimum. */
 
-#define ACPI_FILE              void *
-#define ACPI_FILE_OUT          NULL
-#define ACPI_FILE_ERR          NULL
+#define ACPI_FILE void*
+#define ACPI_FILE_OUT NULL
+#define ACPI_FILE_ERR NULL
 
 #ifndef ACPI_INIT_FUNCTION
 #define ACPI_INIT_FUNCTION

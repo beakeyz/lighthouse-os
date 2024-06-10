@@ -9,8 +9,8 @@ struct usb_device;
  * A particular endpoint on a USB device
  */
 typedef struct usb_endpoint {
-  uint32_t ep;
-  void* priv;
+    uint32_t ep;
+    void* priv;
 } usb_endpoint_t;
 
 #endif // !__ANIVA_USB_ENDPOINT__

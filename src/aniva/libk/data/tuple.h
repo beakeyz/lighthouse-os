@@ -5,15 +5,14 @@
 // should have the same size
 // TODO: tuples of different types
 typedef struct tuple {
-  uintptr_t one;
-  uintptr_t two;
+    uintptr_t one;
+    uintptr_t two;
 } tuple_t;
 
 typedef struct ptr_tuple {
-  void* one;
-  void* two;
+    void* one;
+    void* two;
 } ptr_tuple_t;
-
 
 tuple_t create_tuple_t(uintptr_t one, uintptr_t two);
 tuple_t empty_tuple_t();

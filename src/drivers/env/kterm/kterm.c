@@ -1,5 +1,4 @@
 #include "kterm.h"
-#include <lightos/event/key.h>
 #include "LibGfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/driver.h"
@@ -23,8 +22,9 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/scheduler.h"
-#include <system/processor/processor.h>
+#include <lightos/event/key.h>
 #include <mem/kmem_manager.h>
+#include <system/processor/processor.h>
 
 #include "exec.h"
 #include "system/profile/profile.h"
@@ -33,7 +33,7 @@
 #define KTERM_MAX_BUFFER_SIZE 512
 #define KTERM_KEYBUFFER_CAPACITY 512
 
-#define KTERM_FB_ADDR (EARLY_FB_MAP_BASE) 
+#define KTERM_FB_ADDR (EARLY_FB_MAP_BASE)
 #define KTERM_FONT_HEIGHT 16
 #define KTERM_FONT_WIDTH 8
 
@@ -41,52 +41,51 @@
 #define KTERM_MAX_PALLET_ENTRY_COUNT 256
 
 enum KTERM_BASE_CLR {
-  BASE_CLR_RED = 0,
-  BASE_CLR_YELLOW,
-  BASE_CLR_GREEN,
-  BASE_CLR_CYAN,
-  BASE_CLR_BLUE,
-  BASE_CLR_PURPLE,
-  BASE_CLR_PINK,
+    BASE_CLR_RED = 0,
+    BASE_CLR_YELLOW,
+    BASE_CLR_GREEN,
+    BASE_CLR_CYAN,
+    BASE_CLR_BLUE,
+    BASE_CLR_PURPLE,
+    BASE_CLR_PINK,
 
-  BASE_CLR_COUNT
+    BASE_CLR_COUNT
 };
 
-/* 
+/*
  * Single entry in the kterm color pallet
  */
 struct kterm_terminal_pallet_entry {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-  uint8_t padding;
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+    uint8_t padding;
 };
 
 struct kterm_terminal_char {
-  uint8_t pallet_idx;
-  uint8_t ch;
+    uint8_t pallet_idx;
+    uint8_t ch;
 };
 
 /*
  * This is only accessed when mode is KTERM_MODE_GRAPHICS
  */
 struct {
-  uint32_t* c_fb;
-  size_t fb_size;
-  uint32_t startx, starty;
-  uint32_t width, height;
-  proc_t* client_proc;
+    uint32_t* c_fb;
+    size_t fb_size;
+    uint32_t startx, starty;
+    uint32_t width, height;
+    proc_t* client_proc;
 } _active_grpx_app;
 
 /*
  * Scancode sequence to forcequit a graphics application
  */
 static enum ANIVA_SCANCODES _forcequit_sequence[] = {
-  ANIVA_SCANCODE_LALT,
-  ANIVA_SCANCODE_LSHIFT,
-  ANIVA_SCANCODE_Q,
+    ANIVA_SCANCODE_LALT,
+    ANIVA_SCANCODE_LSHIFT,
+    ANIVA_SCANCODE_Q,
 };
-
 
 static enum kterm_mode mode;
 
@@ -165,7 +164,7 @@ static void kterm_cursor_shiftback_x();
 static void kterm_cursor_shift_x();
 static void kterm_cursor_shift_y();
 
-//static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
+// static void kterm_draw_pixel(uintptr_t x, uintptr_t y, uint32_t color);
 static void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color, bool defer_update);
 
 static void kterm_enable_newline_tag();
@@ -174,107 +173,106 @@ static const char* kterm_get_buffer_contents();
 static void kterm_scroll(uintptr_t lines);
 
 logger_t kterm_logger = {
-  .title = "kterm",
-  /* Only let warnings through */
-  .flags = LOGGER_FLAG_WARNINGS,
-  .f_logln = kterm_println,
-  .f_log = kterm_print,
-  .f_logc = kterm_putc,
+    .title = "kterm",
+    /* Only let warnings through */
+    .flags = LOGGER_FLAG_WARNINGS,
+    .f_logln = kterm_println,
+    .f_log = kterm_print,
+    .f_logc = kterm_putc,
 };
 
 int kterm_on_key(kevent_ctx_t* event, void* param);
 
-static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color) 
+static inline void kterm_draw_pixel_raw(uint32_t x, uint32_t y, uint32_t color)
 {
-  if (_kterm_vdev && _kterm_fb_bpp && x >= 0 && y >= 0 && x < _kterm_fb_width && y < _kterm_fb_height)
-    *(uint32_t volatile*)(KTERM_FB_ADDR + _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8) = color;
+    if (_kterm_vdev && _kterm_fb_bpp && x >= 0 && y >= 0 && x < _kterm_fb_width && y < _kterm_fb_height)
+        *(uint32_t volatile*)(KTERM_FB_ADDR + _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8) = color;
 }
 
 static inline void kterm_draw_rect(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
-  void* addr;
-  uint32_t current_offset = _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8;
-  const uint32_t increment = (_kterm_fb_bpp / 8);
+    void* addr;
+    uint32_t current_offset = _kterm_fb_pitch * y + x * _kterm_fb_bpp / 8;
+    const uint32_t increment = (_kterm_fb_bpp / 8);
 
-  addr = (void*)(KTERM_FB_ADDR + current_offset);
+    addr = (void*)(KTERM_FB_ADDR + current_offset);
 
-  for (uint32_t i = 0; i < height; i++) {
-    for (uint32_t j = 0; j < width; j++)
-      *(uint32_t volatile*)(addr + (j * increment)) = color;
-    addr += _kterm_fb_pitch;
-  }
+    for (uint32_t i = 0; i < height; i++) {
+        for (uint32_t j = 0; j < width; j++)
+            *(uint32_t volatile*)(addr + (j * increment)) = color;
+        addr += _kterm_fb_pitch;
+    }
 }
 
 static inline uint32_t kterm_color_for_pallet_idx(uint32_t idx)
 {
-  uint32_t clr;
-  struct kterm_terminal_pallet_entry* entry;
+    uint32_t clr;
+    struct kterm_terminal_pallet_entry* entry;
 
-  if (!_kterm_vdev)
-    return NULL;
+    if (!_kterm_vdev)
+        return NULL;
 
-  /* Return black */
-  if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
-    return NULL;
+    /* Return black */
+    if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
+        return NULL;
 
-  entry = &_clr_pallet[idx];
-  clr = ((uint32_t)entry->red << vdev_get_fb_red_offset(_kterm_vdev->device, _kterm_fb_handle)) |
-        ((uint32_t)entry->green << vdev_get_fb_green_offset(_kterm_vdev->device, _kterm_fb_handle)) |
-        ((uint32_t)entry->blue << vdev_get_fb_blue_offset(_kterm_vdev->device, _kterm_fb_handle));
+    entry = &_clr_pallet[idx];
+    clr = ((uint32_t)entry->red << vdev_get_fb_red_offset(_kterm_vdev->device, _kterm_fb_handle)) | ((uint32_t)entry->green << vdev_get_fb_green_offset(_kterm_vdev->device, _kterm_fb_handle)) | ((uint32_t)entry->blue << vdev_get_fb_blue_offset(_kterm_vdev->device, _kterm_fb_handle));
 
-  return clr;
+    return clr;
 }
 
 static inline void kterm_clear_raw()
 {
-  if (!_kterm_vdev)
-    return;
+    if (!_kterm_vdev)
+        return;
 
-  kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, kterm_color_for_pallet_idx(_current_background_idx));
+    kterm_draw_rect(0, 0, _kterm_fb_width, _kterm_fb_height, kterm_color_for_pallet_idx(_current_background_idx));
 }
-
 
 static inline void kterm_update_term_char(struct kterm_terminal_char* char_start, uint32_t count)
 {
-  uint8_t* glyph;
-  /* x and y components inside the screen */
-  uintptr_t offset;
-  uint32_t color;
-  uint32_t background_clr;
-  uint32_t x;
-  uint32_t y;
+    uint8_t* glyph;
+    /* x and y components inside the screen */
+    uintptr_t offset;
+    uint32_t color;
+    uint32_t background_clr;
+    uint32_t x;
+    uint32_t y;
 
-  if (!count)
-    return;
+    if (!count)
+        return;
 
-  /* Find the background color */
-  background_clr = kterm_color_for_pallet_idx(_current_background_idx);
+    /* Find the background color */
+    background_clr = kterm_color_for_pallet_idx(_current_background_idx);
 
-  /* Calculate the offset of the starting character */
-  offset = ((uintptr_t)char_start - (uintptr_t)_characters) / sizeof(*char_start);
+    /* Calculate the offset of the starting character */
+    offset = ((uintptr_t)char_start - (uintptr_t)_characters) / sizeof(*char_start);
 
-  do {
-    /* Grab our font */
-    (void)get_glyph_for_char(_kterm_font, char_start->ch, &glyph);
+    do {
+        /* Grab our font */
+        (void)get_glyph_for_char(_kterm_font, char_start->ch, &glyph);
 
-    x = (offset % _chars_xres) * KTERM_FONT_WIDTH;
-    y = (ALIGN_DOWN(offset , _chars_xres) / _chars_xres) * KTERM_FONT_HEIGHT;
+        x = (offset % _chars_xres) * KTERM_FONT_WIDTH;
+        y = (ALIGN_DOWN(offset, _chars_xres) / _chars_xres) * KTERM_FONT_HEIGHT;
 
-    color = kterm_color_for_pallet_idx(char_start->pallet_idx);
+        color = kterm_color_for_pallet_idx(char_start->pallet_idx);
 
-    for (uintptr_t _y = 0; _y < KTERM_FONT_HEIGHT; _y++) {
-      for (uintptr_t _x = 0; _x < KTERM_FONT_WIDTH; _x++) {
+        for (uintptr_t _y = 0; _y < KTERM_FONT_HEIGHT; _y++) {
+            for (uintptr_t _x = 0; _x < KTERM_FONT_WIDTH; _x++) {
 
-        if (glyph[_y] & (1 << _x)) kterm_draw_pixel_raw(x + _x, y + _y, color);
-        /* TODO: draw a background color */
-        else kterm_draw_pixel_raw(x + _x, y + _y, background_clr);
-      }
-    }
+                if (glyph[_y] & (1 << _x))
+                    kterm_draw_pixel_raw(x + _x, y + _y, color);
+                /* TODO: draw a background color */
+                else
+                    kterm_draw_pixel_raw(x + _x, y + _y, background_clr);
+            }
+        }
 
-    count--;
-    char_start++;
-    offset++;
-  } while (count);
+        count--;
+        char_start++;
+        offset++;
+    } while (count);
 }
 
 /*!
@@ -283,252 +281,266 @@ static inline void kterm_update_term_char(struct kterm_terminal_char* char_start
  */
 static void kterm_fill_pallet()
 {
-  struct kterm_terminal_pallet_entry* entry;
-  enum KTERM_BASE_CLR base_clr;
-  uint32_t dimness;
-  uint32_t tint_count;
+    struct kterm_terminal_pallet_entry* entry;
+    enum KTERM_BASE_CLR base_clr;
+    uint32_t dimness;
+    uint32_t tint_count;
 
-  _clr_pallet[0] = (struct kterm_terminal_pallet_entry){ 0xff, 0xff, 0xff, 0xff, };
-  _clr_pallet[1] = (struct kterm_terminal_pallet_entry){ 0x00, 0x00, 0x00, 0xff, };
-  _clr_pallet[2] = (struct kterm_terminal_pallet_entry){ 0x21, 0x21, 0x21, 0xff, };
+    _clr_pallet[0] = (struct kterm_terminal_pallet_entry) {
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+    };
+    _clr_pallet[1] = (struct kterm_terminal_pallet_entry) {
+        0x00,
+        0x00,
+        0x00,
+        0xff,
+    };
+    _clr_pallet[2] = (struct kterm_terminal_pallet_entry) {
+        0x21,
+        0x21,
+        0x21,
+        0xff,
+    };
 
-  tint_count = ALIGN_DOWN(KTERM_MAX_PALLET_ENTRY_COUNT - 3, BASE_CLR_COUNT) / BASE_CLR_COUNT;
+    tint_count = ALIGN_DOWN(KTERM_MAX_PALLET_ENTRY_COUNT - 3, BASE_CLR_COUNT) / BASE_CLR_COUNT;
 
-  /* 
-   * Start at 3
-   * Since 0, 1 and 2 are reserved for white, black and gray
-   * 
-   * The pallet is divided into 7 base colors:
-   *  Red
-   *  Yellow
-   *  Green
-   *  Cyan
-   *  Blue
-   *  Purple
-   *  Pink
-   */
-  for (uint32_t i = 0; i < ALIGN_DOWN(KTERM_MAX_PALLET_ENTRY_COUNT - 3, BASE_CLR_COUNT); i++) {
-    entry = &_clr_pallet[3 + i];
+    /*
+     * Start at 3
+     * Since 0, 1 and 2 are reserved for white, black and gray
+     *
+     * The pallet is divided into 7 base colors:
+     *  Red
+     *  Yellow
+     *  Green
+     *  Cyan
+     *  Blue
+     *  Purple
+     *  Pink
+     */
+    for (uint32_t i = 0; i < ALIGN_DOWN(KTERM_MAX_PALLET_ENTRY_COUNT - 3, BASE_CLR_COUNT); i++) {
+        entry = &_clr_pallet[3 + i];
 
-    memset(entry, 0, sizeof(*entry));
+        memset(entry, 0, sizeof(*entry));
 
-    /* This is going to tell us what base color we're working on */
-    base_clr = ALIGN_DOWN(i, tint_count) / tint_count;
-    dimness = (i % tint_count) * 8; 
+        /* This is going to tell us what base color we're working on */
+        base_clr = ALIGN_DOWN(i, tint_count) / tint_count;
+        dimness = (i % tint_count) * 8;
 
-    /* Compute the amount for the components per base color */
-    switch (base_clr) {
-      /* RGB: these colors only have one component */
-      case BASE_CLR_RED:
-        entry->red = 0xff - dimness;
-        break;
-      case BASE_CLR_GREEN:
-        entry->green = 0xff - dimness;
-        break;
-      case BASE_CLR_BLUE:
-        entry->blue = 0xff - dimness;
-        break;
-      /* Intermediate tints, these tints have two components with one variable */
-      case BASE_CLR_YELLOW:
-        entry->red = 0xff;
-        entry->green = 0xff - dimness;
-        break;
-      case BASE_CLR_CYAN:
-        entry->green = 0xff;
-        entry->blue = 0xff - dimness;
-        break;
-      case BASE_CLR_PURPLE:
-        entry->blue = 0xff;
-        entry->red = 0xff - dimness;
-        break;
-      case BASE_CLR_PINK:
-        entry->blue = 0x7f - dimness;
-        entry->red = 0xff;
-      default:
-        break;
+        /* Compute the amount for the components per base color */
+        switch (base_clr) {
+        /* RGB: these colors only have one component */
+        case BASE_CLR_RED:
+            entry->red = 0xff - dimness;
+            break;
+        case BASE_CLR_GREEN:
+            entry->green = 0xff - dimness;
+            break;
+        case BASE_CLR_BLUE:
+            entry->blue = 0xff - dimness;
+            break;
+        /* Intermediate tints, these tints have two components with one variable */
+        case BASE_CLR_YELLOW:
+            entry->red = 0xff;
+            entry->green = 0xff - dimness;
+            break;
+        case BASE_CLR_CYAN:
+            entry->green = 0xff;
+            entry->blue = 0xff - dimness;
+            break;
+        case BASE_CLR_PURPLE:
+            entry->blue = 0xff;
+            entry->red = 0xff - dimness;
+            break;
+        case BASE_CLR_PINK:
+            entry->blue = 0x7f - dimness;
+            entry->red = 0xff;
+        default:
+            break;
+        }
     }
-  }
 }
 
 static void kterm_set_background_color(uint32_t idx)
 {
-  if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
-    idx = 0;
+    if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
+        idx = 0;
 
-  _current_background_idx = idx;
+    _current_background_idx = idx;
 }
 
 static void kterm_set_print_color(uint32_t idx)
 {
-  if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
-    idx = 0;
+    if (idx >= KTERM_MAX_PALLET_ENTRY_COUNT)
+        idx = 0;
 
-  _current_color_idx = idx;
+    _current_color_idx = idx;
 }
 
 static inline uint32_t _dirty_pow(uint32_t a, uint32_t b)
 {
-  if (!b)
-    return 1;
+    if (!b)
+        return 1;
 
-  for (uint32_t i = 0; i < (b-1); i++)
-    a *= a;
+    for (uint32_t i = 0; i < (b - 1); i++)
+        a *= a;
 
-  return a;
+    return a;
 }
 
 static inline void _print_pallet_preview(uint32_t idx)
 {
-  kterm_set_print_color(idx);
+    kterm_set_print_color(idx);
 
-  kterm_print("Color of pallet idx: ");
-  kterm_println(to_string(idx));
+    kterm_print("Color of pallet idx: ");
+    kterm_println(to_string(idx));
 
-  kterm_set_print_color(_current_color_idx);
+    kterm_set_print_color(_current_color_idx);
 }
 
 static uint32_t kterm_cmd_palletinfo(const char** argv, size_t argc)
 {
-  switch (argc) {
+    switch (argc) {
     case 1:
-      for (uint32_t i = 10; i <= 250; i+=10)
-        _print_pallet_preview(i);
+        for (uint32_t i = 10; i <= 250; i += 10)
+            _print_pallet_preview(i);
 
-      break;
-    case 2:
-      {
+        break;
+    case 2: {
         uint8_t i;
         uint16_t buffer = 0;
         const char* count = argv[1];
 
         /* Too long */
         if (strlen(count) > 3 || !strlen(count))
-          return 2;
+            return 2;
 
         /* Check for numbers */
         for (i = 0; i < strlen(count); i++) {
-          if (count[i] < '0' || count[i] > '9')
-            return 3;
+            if (count[i] < '0' || count[i] > '9')
+                return 3;
 
-          buffer += (count[i] - '0') * _dirty_pow(10, strlen(count) - 1 - i);
+            buffer += (count[i] - '0') * _dirty_pow(10, strlen(count) - 1 - i);
         }
 
         _print_pallet_preview(buffer);
 
         break;
-      }
-  }
-  return 0;
+    }
+    }
+    return 0;
 }
 
 struct kterm_cmd kterm_commands[] = {
-  {
-    "help",
-    "Display help about kterm and it's commands",
-    (f_kterm_command_handler_t)kterm_cmd_help,
-  },
-  {
-    "hello",
-    "Say hello",
-    (f_kterm_command_handler_t)kterm_cmd_hello,
-  },
-  {
-    "exit",
-    "Exit the system and shut down",
-    (f_kterm_command_handler_t)kterm_cmd_exit,
-  },
-  {
-    "clear",
-    "Clear the command window",
-    (f_kterm_command_handler_t)kterm_cmd_clear,
-  },
-  {
-    "sysinfo",
-    "Print generic system information",
-    (f_kterm_command_handler_t)kterm_cmd_sysinfo,
-  },
-  {
-    "drvinfo",
-    "Print information about the installed drivers",
-    (f_kterm_command_handler_t)kterm_cmd_drvinfo,
-  },
-  {
-    "drvld",
-    "Manage drivers",
-    (f_kterm_command_handler_t)kterm_cmd_drvld,
-  },
-  {
-    "devinfo",
-    "Print info about a particular device",
-    (f_kterm_command_handler_t)kterm_cmd_devinfo, 
-  },
-  {
-    "diskinfo",
-    "Print info about a disk device",
-    (f_kterm_command_handler_t)kterm_cmd_diskinfo,
-  },
-  {
-    "vidinfo",
-    "Print info about the current video device",
-    nullptr,
-  },
-  {
-    "dispinfo",
-    "Print info about the available displays",
-    nullptr,
-  },
-  {
-    "netinfo",
-    "Print info about the current network configuration",
-    nullptr,
-  },
-  {
-    "pwrinfo",
-    "Print info about the current power and thermal status",
-    nullptr,
-  },
-  {
-    "procinfo",
-    "Print info about the current running processes",
-    (f_kterm_command_handler_t)kterm_cmd_procinfo,
-  },
-  {
-    "envinfo",
-    "Print info about the current environment (Profiles and variables)",
-    (f_kterm_command_handler_t)kterm_cmd_envinfo,
-  },
-  {
-    "envset",
-    "Interract with the environment",
-    nullptr,
-  },
-  /* VFS functions */
-  {
-    "cd",
-    "Change the current working directory",
-    nullptr,
-  },
-  {
-    /* Unixes pwd lmao */
-    "cwd",
-    "Print the current working directory",
-    kterm_fs_print_working_dir,
-  },
-  {
-    "palletinfo",
-    "Info about kterms color pallet",
-    (f_kterm_command_handler_t)kterm_cmd_palletinfo,
-  },
-  /*
-   * NOTE: this is exec and this should always
-   * be placed at the end of this list, otherwise
-   * kterm_grab_handler_for might miss some commands
-   */
-  {
-    nullptr,
-    nullptr,
-    kterm_try_exec,
-  }
+    {
+        "help",
+        "Display help about kterm and it's commands",
+        (f_kterm_command_handler_t)kterm_cmd_help,
+    },
+    {
+        "hello",
+        "Say hello",
+        (f_kterm_command_handler_t)kterm_cmd_hello,
+    },
+    {
+        "exit",
+        "Exit the system and shut down",
+        (f_kterm_command_handler_t)kterm_cmd_exit,
+    },
+    {
+        "clear",
+        "Clear the command window",
+        (f_kterm_command_handler_t)kterm_cmd_clear,
+    },
+    {
+        "sysinfo",
+        "Print generic system information",
+        (f_kterm_command_handler_t)kterm_cmd_sysinfo,
+    },
+    {
+        "drvinfo",
+        "Print information about the installed drivers",
+        (f_kterm_command_handler_t)kterm_cmd_drvinfo,
+    },
+    {
+        "drvld",
+        "Manage drivers",
+        (f_kterm_command_handler_t)kterm_cmd_drvld,
+    },
+    {
+        "devinfo",
+        "Print info about a particular device",
+        (f_kterm_command_handler_t)kterm_cmd_devinfo,
+    },
+    {
+        "diskinfo",
+        "Print info about a disk device",
+        (f_kterm_command_handler_t)kterm_cmd_diskinfo,
+    },
+    {
+        "vidinfo",
+        "Print info about the current video device",
+        nullptr,
+    },
+    {
+        "dispinfo",
+        "Print info about the available displays",
+        nullptr,
+    },
+    {
+        "netinfo",
+        "Print info about the current network configuration",
+        nullptr,
+    },
+    {
+        "pwrinfo",
+        "Print info about the current power and thermal status",
+        nullptr,
+    },
+    {
+        "procinfo",
+        "Print info about the current running processes",
+        (f_kterm_command_handler_t)kterm_cmd_procinfo,
+    },
+    {
+        "envinfo",
+        "Print info about the current environment (Profiles and variables)",
+        (f_kterm_command_handler_t)kterm_cmd_envinfo,
+    },
+    {
+        "envset",
+        "Interract with the environment",
+        nullptr,
+    },
+    /* VFS functions */
+    {
+        "cd",
+        "Change the current working directory",
+        nullptr,
+    },
+    {
+        /* Unixes pwd lmao */
+        "cwd",
+        "Print the current working directory",
+        kterm_fs_print_working_dir,
+    },
+    {
+        "palletinfo",
+        "Info about kterms color pallet",
+        (f_kterm_command_handler_t)kterm_cmd_palletinfo,
+    },
+    /*
+     * NOTE: this is exec and this should always
+     * be placed at the end of this list, otherwise
+     * kterm_grab_handler_for might miss some commands
+     */
+    {
+        nullptr,
+        nullptr,
+        kterm_try_exec,
+    }
 };
 
 uint32_t kterm_cmd_count = sizeof(kterm_commands) / sizeof(kterm_commands[0]);
@@ -540,56 +552,56 @@ uint32_t kterm_cmd_count = sizeof(kterm_commands) / sizeof(kterm_commands[0]);
  */
 static f_kterm_command_handler_t kterm_grab_handler_for(char* cmd)
 {
-  struct kterm_cmd* current;
+    struct kterm_cmd* current;
 
-  if (!cmd || !(*cmd))
-    return nullptr;
+    if (!cmd || !(*cmd))
+        return nullptr;
 
-  current = nullptr;
-  
-  for (uint32_t i = 0; i < kterm_cmd_count; i++) {
-    current = &kterm_commands[i];
-  
-    /* Reached exec, exit */
-    if (!current->argv_zero)
-      break;
+    current = nullptr;
 
-    if (strcmp(cmd, current->argv_zero) == 0)
-      return current->handler;
-  }
+    for (uint32_t i = 0; i < kterm_cmd_count; i++) {
+        current = &kterm_commands[i];
 
-  /* Should not happen */
-  if (!current)
-    return nullptr;
+        /* Reached exec, exit */
+        if (!current->argv_zero)
+            break;
 
-  return current->handler;
+        if (strcmp(cmd, current->argv_zero) == 0)
+            return current->handler;
+    }
+
+    /* Should not happen */
+    if (!current)
+        return nullptr;
+
+    return current->handler;
 }
 
 static int kterm_get_argument_count(char* cmd_buffer, size_t* count)
 {
-  size_t current_count;
+    size_t current_count;
 
-  if (!cmd_buffer || !count)
-    return -1;
+    if (!cmd_buffer || !count)
+        return -1;
 
-  /* Empty string =/ */
-  if (!(*cmd_buffer))
-    return -2;
+    /* Empty string =/ */
+    if (!(*cmd_buffer))
+        return -2;
 
-  current_count = 1;
+    current_count = 1;
 
-  while (*cmd_buffer) {
+    while (*cmd_buffer) {
 
-    if (*cmd_buffer == ' ') {
-      current_count++;
+        if (*cmd_buffer == ' ') {
+            current_count++;
+        }
+
+        cmd_buffer++;
     }
-    
-    cmd_buffer++;
-  }
 
-  *count = current_count;
+    *count = current_count;
 
-  return 0;
+    return 0;
 }
 
 /*!
@@ -601,62 +613,62 @@ static int kterm_get_argument_count(char* cmd_buffer, size_t* count)
  */
 static int kterm_parse_cmd_buffer(char* cmd_buffer, char** argv_buffer)
 {
-  char previous_char;
-  char* current;
-  size_t current_count;
-  
-  if (!cmd_buffer || !argv_buffer)
-    return -1;
+    char previous_char;
+    char* current;
+    size_t current_count;
 
-  current = cmd_buffer;
-  current_count = NULL;
-  previous_char = NULL;
+    if (!cmd_buffer || !argv_buffer)
+        return -1;
 
-  /* Make sure the 'command' is in the argv */
-  argv_buffer[current_count++] = cmd_buffer;
+    current = cmd_buffer;
+    current_count = NULL;
+    previous_char = NULL;
 
-  /*
-   * Loop to see if we find any other arguments
-   */
-  while (*current) {
-  
-    if (*current == ' ' && previous_char != ' ') {
-      argv_buffer[current_count] = current+1;
+    /* Make sure the 'command' is in the argv */
+    argv_buffer[current_count++] = cmd_buffer;
 
-      current_count++;
+    /*
+     * Loop to see if we find any other arguments
+     */
+    while (*current) {
 
-      /*
-       * Mutate cmd_buffer and place a null-byte here, in
-       * order to terminate the vector entry 
-       */
-      *current = NULL;
+        if (*current == ' ' && previous_char != ' ') {
+            argv_buffer[current_count] = current + 1;
+
+            current_count++;
+
+            /*
+             * Mutate cmd_buffer and place a null-byte here, in
+             * order to terminate the vector entry
+             */
+            *current = NULL;
+        }
+
+        previous_char = *current;
+        current++;
     }
-    
-    previous_char = *current;
-    current++;
-  }
 
-  return 0;
+    return 0;
 }
 
 static void kterm_clear_terminal_chars()
 {
-  struct kterm_terminal_char* ch;
+    struct kterm_terminal_char* ch;
 
-  for (uint32_t i = 0; i < _chars_yres; i++) {
-    for (uint32_t j = 0; j < _chars_xres; j++) {
+    for (uint32_t i = 0; i < _chars_yres; i++) {
+        for (uint32_t j = 0; j < _chars_xres; j++) {
 
-      ch = kterm_get_term_char(j, i);
+            ch = kterm_get_term_char(j, i);
 
-      if (!ch->ch)
-        continue;
+            if (!ch->ch)
+                continue;
 
-      /* Draw null chars */
-      kterm_draw_char(j, i, NULL, 1, true);
+            /* Draw null chars */
+            kterm_draw_char(j, i, NULL, 1, true);
+        }
     }
-  }
 
-  kterm_update_term_char(_characters, _chars_xres * _chars_yres);
+    kterm_update_term_char(_characters, _chars_xres * _chars_yres);
 }
 
 /*!
@@ -664,16 +676,16 @@ static void kterm_clear_terminal_chars()
  */
 static void kterm_redraw_terminal_chars()
 {
-  struct kterm_terminal_char* ch;
+    struct kterm_terminal_char* ch;
 
-  for (uint32_t i = 0; i < _chars_yres; i++) {
-    for (uint32_t j = 0; j < _chars_xres; j++) {
+    for (uint32_t i = 0; i < _chars_yres; i++) {
+        for (uint32_t j = 0; j < _chars_xres; j++) {
 
-      ch = kterm_get_term_char(j, i);
+            ch = kterm_get_term_char(j, i);
 
-      kterm_draw_char(j, i, ch->ch, ch->pallet_idx, false);
+            kterm_draw_char(j, i, ch->ch, ch->pallet_idx, false);
+        }
     }
-  }
 }
 
 /*!
@@ -681,90 +693,90 @@ static void kterm_redraw_terminal_chars()
  *
  * Nothing to add here...
  */
-void kterm_clear() 
+void kterm_clear()
 {
-  _chars_cursor_y = 0;
-  _chars_cursor_x = 0;
+    _chars_cursor_y = 0;
+    _chars_cursor_x = 0;
 
-  /* Clear every terminal character */
-  kterm_clear_terminal_chars();
+    /* Clear every terminal character */
+    kterm_clear_terminal_chars();
 
-  kterm_handle_newline_tag();
+    kterm_handle_newline_tag();
 }
 
 void kterm_switch_to_terminal()
 {
-  if (mode == KTERM_MODE_TERMINAL || !_active_grpx_app.c_fb)
-    return;
+    if (mode == KTERM_MODE_TERMINAL || !_active_grpx_app.c_fb)
+        return;
 
-  mode = KTERM_MODE_TERMINAL;
+    mode = KTERM_MODE_TERMINAL;
 }
 
 bool kterm_ismode(enum kterm_mode _mode)
 {
-  return (mode == _mode);
+    return (mode == _mode);
 }
 
 bool kterm_is_logged_in()
 {
-  return (_c_login.profile != nullptr);
+    return (_c_login.profile != nullptr);
 }
 
 int kterm_set_login(user_profile_t* profile)
 {
-  int error;
-  //vobj_t* cwd_obj;
-  sysvar_t* login_msg_var;
-  const char* login_msg;
+    int error;
+    // vobj_t* cwd_obj;
+    sysvar_t* login_msg_var;
+    const char* login_msg;
 
-  _c_login.profile = profile;
+    _c_login.profile = profile;
 
-  if (profile) {
-    /* Set this profile as the current activated profile */
-    error = profile_set_activated(profile);
+    if (profile) {
+        /* Set this profile as the current activated profile */
+        error = profile_set_activated(profile);
 
-    /* Fuck bro */
-    if (error)
-      return error;
+        /* Fuck bro */
+        if (error)
+            return error;
 
-    /* Lock profile activation, since we don't want anything weird to happen lololol */
-    profiles_lock_activation(&_c_login.profile_lock_key);
+        /* Lock profile activation, since we don't want anything weird to happen lololol */
+        profiles_lock_activation(&_c_login.profile_lock_key);
 
-    /* FIXME: make sure the cwd never exceeds this size */
-    _c_login.cwd = kmalloc(0x400);
+        /* FIXME: make sure the cwd never exceeds this size */
+        _c_login.cwd = kmalloc(0x400);
 
-    sfmt(_c_login.cwd, "Root/Users/%s", (char*)profile->name);
+        sfmt(_c_login.cwd, "Root/Users/%s", (char*)profile->name);
 
-    //cwd_obj = vfs_resolve(_c_login.cwd);
+        // cwd_obj = vfs_resolve(_c_login.cwd);
 
-    //if (!cwd_obj)
-      //create_profile_working_directory(_c_login.cwd);
+        // if (!cwd_obj)
+        // create_profile_working_directory(_c_login.cwd);
 
-    /* Profiles don't have to have a login msg */
-    if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))
-      return 0;
+        /* Profiles don't have to have a login msg */
+        if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))
+            return 0;
 
-    if (sysvar_get_str_value(login_msg_var, &login_msg) == false)
-      return 0;
+        if (sysvar_get_str_value(login_msg_var, &login_msg) == false)
+            return 0;
 
-    kterm_println(login_msg);
+        kterm_println(login_msg);
+        return 0;
+    }
+
+    if (!_c_login.cwd)
+        return -1;
+
+    kfree((void*)_c_login.cwd);
     return 0;
-  }
-
-  if (!_c_login.cwd)
-    return -1;
-
-  kfree((void*)_c_login.cwd);
-  return 0;
 }
 
 int kterm_get_login(struct user_profile** profile)
 {
-  if (!profile || !_c_login.profile)
-    return -1;
+    if (!profile || !_c_login.profile)
+        return -1;
 
-  *profile = _c_login.profile;
-  return 0;
+    *profile = _c_login.profile;
+    return 0;
 }
 
 /*!
@@ -774,10 +786,10 @@ int kterm_get_login(struct user_profile** profile)
  */
 static inline void kterm_clear_cmd_buffer()
 {
-  /* Clear the buffer ourselves */
-  memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
+    /* Clear the buffer ourselves */
+    memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
 
-  Must(kdoor_reset(&__processor_door));
+    Must(kdoor_reset(&__processor_door));
 }
 
 /*!
@@ -785,18 +797,18 @@ static inline void kterm_clear_cmd_buffer()
  */
 static inline void kterm_cmd_worker_finish_loop()
 {
-  /* Clear the cmd buffer for the next loop */
-  kterm_clear_cmd_buffer();
+    /* Clear the cmd buffer for the next loop */
+    kterm_clear_cmd_buffer();
 
-  /* Enable drawing the newline tag */
-  kterm_enable_newline_tag();
+    /* Enable drawing the newline tag */
+    kterm_enable_newline_tag();
 
-  /* Hacky shit to draw a newline tag correctly */
-  if (_chars_cursor_y)
-    _chars_cursor_y--;
-  _clear_cursor_char = false;
-  kterm_println(NULL);
-  _clear_cursor_char = true;
+    /* Hacky shit to draw a newline tag correctly */
+    if (_chars_cursor_y)
+        _chars_cursor_y--;
+    _clear_cursor_char = false;
+    kterm_println(NULL);
+    _clear_cursor_char = true;
 }
 
 /*!
@@ -806,202 +818,201 @@ static inline void kterm_cmd_worker_finish_loop()
  */
 static void kterm_key_watcher()
 {
-  kevent_kb_ctx_t* key_event;
+    kevent_kb_ctx_t* key_event;
 
-  do {
-    if (!kterm_ismode(KTERM_MODE_GRAPHICS) || !_active_grpx_app.client_proc)
-      goto cycle;
+    do {
+        if (!kterm_ismode(KTERM_MODE_GRAPHICS) || !_active_grpx_app.client_proc)
+            goto cycle;
 
-    key_event = keybuffer_read_key(&_keybuffer, &_keybuffer_kterm_r_ptr);
+        key_event = keybuffer_read_key(&_keybuffer, &_keybuffer_kterm_r_ptr);
 
-    if (!key_event)
-      goto cycle;
+        if (!key_event)
+            goto cycle;
 
-    /* Check for the force quit keybind */
-    if (kevent_is_keycombination_pressed(key_event, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
-      Must(try_terminate_process(_active_grpx_app.client_proc));
+        /* Check for the force quit keybind */
+        if (kevent_is_keycombination_pressed(key_event, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
+            Must(try_terminate_process(_active_grpx_app.client_proc));
 
-cycle:
-    scheduler_yield();
-  } while (true);
+    cycle:
+        scheduler_yield();
+    } while (true);
 }
 
 /*!
  * @brief: Thread entry for the thread that processes kterm commands
  */
-static void kterm_command_worker() 
+static void kterm_command_worker()
 {
-  int error;
-  f_kterm_command_handler_t current_handler;
-  size_t argument_count;
-  char* contents_cpy;
-  char processor_buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
+    int error;
+    f_kterm_command_handler_t current_handler;
+    size_t argument_count;
+    char* contents_cpy;
+    char processor_buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
 
-  init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
+    init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
 
-  Must(register_kdoor(__kterm_cmd_doorbell, &__processor_door));
+    Must(register_kdoor(__kterm_cmd_doorbell, &__processor_door));
 
-  while (true) {
+    while (true) {
 
-    if (!kdoor_is_rang(&__processor_door)) {
-      scheduler_yield();
-      continue;
+        if (!kdoor_is_rang(&__processor_door)) {
+            scheduler_yield();
+            continue;
+        }
+
+        char* contents = __processor_door.m_buffer;
+        contents_cpy = strdup(contents);
+        argument_count = 0;
+
+        error = kterm_get_argument_count(contents, &argument_count);
+
+        /* Yikes */
+        if (error || !argument_count) {
+            /* Need to duplicate the shit under the 'exit_cmd_processing' label
+             Since we can't do a goto above a variable stack array =/ */
+            kterm_cmd_worker_finish_loop();
+            kfree(contents_cpy);
+            continue;
+        }
+
+        char* argv[argument_count];
+
+        /* Clear argv */
+        memset(argv, 0, sizeof(char*) * argument_count);
+
+        /* Parse the contents into an argument vector */
+        error = kterm_parse_cmd_buffer(contents, argv);
+
+        if (error)
+            goto exit_cmd_processing;
+
+        /*
+         * We have now indexed our entire command, so we can start matching
+         * the actions against argv[0]
+         */
+        current_handler = kterm_grab_handler_for(argv[0]);
+
+        if (!current_handler)
+            goto exit_cmd_processing;
+
+        KLOG_DBG("Trying to handle cmd (%s)\n", argv[0]);
+
+        /* Call the selected handler */
+        error = current_handler((const char**)argv, argument_count, contents_cpy);
+
+        if (error) {
+            /* TODO: implement kernel printf / logf lmao */
+            kterm_print("Command failed with code: ");
+            kterm_println(to_string(error));
+        }
+
+    exit_cmd_processing:
+        kterm_cmd_worker_finish_loop();
+        kfree(contents_cpy);
     }
-
-    char* contents = __processor_door.m_buffer;
-    contents_cpy = strdup(contents);
-    argument_count = 0;
-
-    error = kterm_get_argument_count(contents, &argument_count);
-
-    /* Yikes */
-    if (error || !argument_count) {
-      /* Need to duplicate the shit under the 'exit_cmd_processing' label 
-       Since we can't do a goto above a variable stack array =/ */
-      kterm_cmd_worker_finish_loop();
-      kfree(contents_cpy);
-      continue;
-    }
-
-    char* argv[argument_count];
-
-    /* Clear argv */
-    memset(argv, 0, sizeof(char*) * argument_count);
-
-    /* Parse the contents into an argument vector */
-    error = kterm_parse_cmd_buffer(contents, argv);
-
-    if (error)
-      goto exit_cmd_processing;
-
-
-    /*
-     * We have now indexed our entire command, so we can start matching
-     * the actions against argv[0]
-     */
-    current_handler = kterm_grab_handler_for(argv[0]);
-
-    if (!current_handler)
-      goto exit_cmd_processing;
-
-    KLOG_DBG("Trying to handle cmd (%s)\n", argv[0]);
-
-    /* Call the selected handler */
-    error = current_handler((const char**)argv, argument_count, contents_cpy);
-
-    if (error) {
-      /* TODO: implement kernel printf / logf lmao */
-      kterm_print("Command failed with code: ");
-      kterm_println(to_string(error));
-    }
-
-exit_cmd_processing:
-    kterm_cmd_worker_finish_loop();
-    kfree(contents_cpy);
-  }
 }
 
 EXPORT_DEPENDENCIES(_deps) = {
-  //DRV_DEP(DRV_DEPTYPE_PATH, DRVDEP_FLAG_RELPATH, "test.drv"),
-  DRV_DEP_END,
+    // DRV_DEP(DRV_DEPTYPE_PATH, DRVDEP_FLAG_RELPATH, "test.drv"),
+    DRV_DEP_END,
 };
 
 EXPORT_DRIVER(base_kterm_driver) = {
-  .m_name = "kterm",
-  .m_type = DT_OTHER,
-  .f_init = kterm_init,
-  .f_exit = kterm_exit,
-  .f_msg = kterm_on_packet,
+    .m_name = "kterm",
+    .m_type = DT_OTHER,
+    .f_init = kterm_init,
+    .f_exit = kterm_exit,
+    .f_msg = kterm_on_packet,
 };
 
 static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
-  char* str = (char*)buffer;
+    char* str = (char*)buffer;
 
-  /* Make sure the end of the buffer is null-terminated and the start is non-null */
-  //if (IsError(kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
-    //return DRV_STAT_INVAL;
+    /* Make sure the end of the buffer is null-terminated and the start is non-null */
+    // if (IsError(kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
+    // return DRV_STAT_INVAL;
 
-  /* TODO; string.h: char validation */
-  kterm_print(str);
+    /* TODO; string.h: char validation */
+    kterm_print(str);
 
-  return DRV_STAT_OK;
+    return DRV_STAT_OK;
 }
 
 static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
-  (void)offset;
+    (void)offset;
 
-  /* Ew */
-  if (!buffer || !buffer_size || !(*buffer_size))
-    return DRV_STAT_INVAL;
+    /* Ew */
+    if (!buffer || !buffer_size || !(*buffer_size))
+        return DRV_STAT_INVAL;
 
-  /* Wait until we have shit to read */
-  while (*__kterm_stdin_buffer == NULL)
-    scheduler_yield();
+    /* Wait until we have shit to read */
+    while (*__kterm_stdin_buffer == NULL)
+        scheduler_yield();
 
-  /* Set the buffersize to our string in preperation for the copy */
-  *buffer_size = strlen(__kterm_stdin_buffer);
+    /* Set the buffersize to our string in preperation for the copy */
+    *buffer_size = strlen(__kterm_stdin_buffer);
 
-  /* Yay, copy */
-  memcpy(buffer, __kterm_stdin_buffer, *buffer_size);
+    /* Yay, copy */
+    memcpy(buffer, __kterm_stdin_buffer, *buffer_size);
 
-  /* Reset stdin_buffer */
-  memset(__kterm_stdin_buffer, NULL, sizeof(__kterm_stdin_buffer));
+    /* Reset stdin_buffer */
+    memset(__kterm_stdin_buffer, NULL, sizeof(__kterm_stdin_buffer));
 
-  return DRV_STAT_OK;
+    return DRV_STAT_OK;
 }
 
 static inline void kterm_init_lwnd_emulation()
 {
-  const char* var_buffer;
-  sysvar_t* var;
+    const char* var_buffer;
+    sysvar_t* var;
 
-  ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
+    ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
 
-  sysvar_get_str_value(var, &var_buffer);
+    sysvar_get_str_value(var, &var_buffer);
 
-  /* Make sure this is owned by us */
-  _old_dflt_lwnd_path_value = strdup(var_buffer);
+    /* Make sure this is owned by us */
+    _old_dflt_lwnd_path_value = strdup(var_buffer);
 
-  /* Make sure the system knows we emulate lwnd */
-  sysvar_write(var, PROFILE_STR("other/kterm"));
+    /* Make sure the system knows we emulate lwnd */
+    sysvar_write(var, PROFILE_STR("other/kterm"));
 }
 
 static inline void kterm_fini_lwnd_emulation()
 {
-  sysvar_t* var;
+    sysvar_t* var;
 
-  ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
+    ASSERT_MSG(profile_find_var("User/DFLT_LWND_PATH", &var) == 0, "Could not find global variable for the default LWND path while initializing kterm!");
 
-  /* Set the default back to the old default */
-  sysvar_write(var, PROFILE_STR(_old_dflt_lwnd_path_value));
+    /* Set the default back to the old default */
+    sysvar_write(var, PROFILE_STR(_old_dflt_lwnd_path_value));
 }
 
 static void kterm_reset_prompt_vars()
 {
-  _c_prompt_buffer = NULL;
-  _c_prompt_buffersize = NULL;
-  _c_prompt_idx = NULL;
-  _c_prompt_hide_input = false;
-  _c_prompt_is_submitted = false;
+    _c_prompt_buffer = NULL;
+    _c_prompt_buffersize = NULL;
+    _c_prompt_idx = NULL;
+    _c_prompt_hide_input = false;
+    _c_prompt_is_submitted = false;
 }
 
 static void _kterm_set_fb_props()
 {
-  if (!_kterm_vdev)
-    return;
+    if (!_kterm_vdev)
+        return;
 
-  /* Initialize framebuffer and video stuff */
-  ASSERT_MSG(vdev_get_mainfb(_kterm_vdev->device, &_kterm_fb_handle) == 0, "kterm: Failed to get main fb handle!");
+    /* Initialize framebuffer and video stuff */
+    ASSERT_MSG(vdev_get_mainfb(_kterm_vdev->device, &_kterm_fb_handle) == 0, "kterm: Failed to get main fb handle!");
 
-  /* Map the framebuffer to our base */
-  vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
+    /* Map the framebuffer to our base */
+    vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
 
-  _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
-  _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
-  _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);
-  _kterm_fb_bpp = vdev_get_fb_bpp(_kterm_vdev->device, _kterm_fb_handle);
+    _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
+    _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
+    _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);
+    _kterm_fb_bpp = vdev_get_fb_bpp(_kterm_vdev->device, _kterm_fb_handle);
 }
 
 /*!
@@ -1011,184 +1022,185 @@ static void _kterm_set_fb_props()
  */
 static int _kterm_vdev_event_hook(kevent_ctx_t* _ctx, void* param)
 {
-  vdev_event_ctx_t* ctx;
+    vdev_event_ctx_t* ctx;
 
-  ctx = _ctx->buffer;
+    ctx = _ctx->buffer;
 
-  switch (ctx->type) {
+    switch (ctx->type) {
     case VDEV_EVENT_REMOVE:
 
-      kterm_clear_raw();
+        kterm_clear_raw();
 
-      vdev_unmap_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
-      _kterm_vdev = nullptr;
-      break;
+        vdev_unmap_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
+        _kterm_vdev = nullptr;
+        break;
     case VDEV_EVENT_REGISTER:
-      if (!_kterm_vdev) {
-        _kterm_vdev = ctx->device;
+        if (!_kterm_vdev) {
+            _kterm_vdev = ctx->device;
 
-        _kterm_set_fb_props();
-      }
-      break;
+            _kterm_set_fb_props();
+        }
+        break;
     case VDEV_EVENT_VBLANK:
-      break;
-  }
+        break;
+    }
 
-  return 0;
+    return 0;
 }
 
 /*
- * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it 
+ * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it
  * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
  */
-int kterm_init() 
+int kterm_init()
 {
-  (void)kterm_redraw_terminal_chars;
+    (void)kterm_redraw_terminal_chars;
 
-  /* Reset global variables */
-  memset(&_c_login, 0, sizeof(_c_login));
-  _clear_cursor_char = true;
-  _old_dflt_lwnd_path_value = NULL;
-  _keybuffer_app_r_ptr = _keybuffer_kterm_r_ptr = 0;
-  __kterm_cmd_doorbell = create_doorbell(1, NULL);
-  _kterm_vdev = get_active_vdev();
+    /* Reset global variables */
+    memset(&_c_login, 0, sizeof(_c_login));
+    _clear_cursor_char = true;
+    _old_dflt_lwnd_path_value = NULL;
+    _keybuffer_app_r_ptr = _keybuffer_kterm_r_ptr = 0;
+    __kterm_cmd_doorbell = create_doorbell(1, NULL);
+    _kterm_vdev = get_active_vdev();
 
-  /* Grab our font */
-  get_default_font(&_kterm_font);
+    /* Grab our font */
+    get_default_font(&_kterm_font);
 
-  kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook, NULL);
+    kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook, NULL);
 
-  ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
+    ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
 
-  kterm_init_fs(&_c_login);
+    kterm_init_fs(&_c_login);
 
-  kterm_reset_prompt_vars();
+    kterm_reset_prompt_vars();
 
-  kterm_disable_newline_tag();
+    kterm_disable_newline_tag();
 
-  ASSERT_MSG(driver_manifest_write(&base_kterm_driver, kterm_write), "Failed to manifest kterm write");
-  ASSERT_MSG(driver_manifest_read(&base_kterm_driver, kterm_read), "Failed to manifest kterm read");
+    ASSERT_MSG(driver_manifest_write(&base_kterm_driver, kterm_write), "Failed to manifest kterm write");
+    ASSERT_MSG(driver_manifest_read(&base_kterm_driver, kterm_read), "Failed to manifest kterm read");
 
-  /* Zero out the cmd buffer */
-  memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
-  memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
+    /* Zero out the cmd buffer */
+    memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
+    memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
 
-  /* Register ourselves to the keyboard event */
-  kevent_add_hook("keyboard", "kterm", kterm_on_key, NULL); 
+    /* Register ourselves to the keyboard event */
+    kevent_add_hook("keyboard", "kterm", kterm_on_key, NULL);
 
-  /* TODO: integrate video device accel */
-  // map our framebuffer
+    /* TODO: integrate video device accel */
+    // map our framebuffer
 
-  /*
-   * TODO: Call the kernel video interface instead of invoking the core video driver
-   *
-   * The kernel video interface should figure out which device to use and the device is managed by a single video/graphics driver
-   * which will make the process of preparing a framebuffer waaaay less ambiguous. The video device should for example be able to
-   * keep track of which framebuffers it has (cached) so we don't lose graphics data. We also may want to make the video device
-   * ready for 2D (or 3D) accelerated rendering, vblank interrupts, ect.
-   * Through this API we can also easily access PWM through ACPI, without having to do weird funky shit with driver messages
-   */
-  //Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
-  //Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_kterm_fb_ sizeof(fb_info_t)));
+    /*
+     * TODO: Call the kernel video interface instead of invoking the core video driver
+     *
+     * The kernel video interface should figure out which device to use and the device is managed by a single video/graphics driver
+     * which will make the process of preparing a framebuffer waaaay less ambiguous. The video device should for example be able to
+     * keep track of which framebuffers it has (cached) so we don't lose graphics data. We also may want to make the video device
+     * ready for 2D (or 3D) accelerated rendering, vblank interrupts, ect.
+     * Through this API we can also easily access PWM through ACPI, without having to do weird funky shit with driver messages
+     */
+    // Must(driver_send_msg("core/video", VIDDEV_DCC_MAPFB, &fb_map, sizeof(fb_map)));
+    // Must(driver_send_msg_a("core/video", VIDDEV_DCC_GET_FBINFO, NULL, NULL, &_kterm_fb_ sizeof(fb_info_t)));
 
-  /* Update video shit */
-  _kterm_set_fb_props();
+    /* Update video shit */
+    _kterm_set_fb_props();
 
-  void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
+    void* _kb_buffer = kmalloc(KTERM_KEYBUFFER_CAPACITY * sizeof(kevent_kb_ctx_t));
 
-  init_kevent_kb_keybuffer(&_keybuffer, _kb_buffer, KTERM_KEYBUFFER_CAPACITY);
+    init_kevent_kb_keybuffer(&_keybuffer, _kb_buffer, KTERM_KEYBUFFER_CAPACITY);
 
-  /* Initialize our lwnd emulation capabilities */
-  kterm_init_lwnd_emulation();
+    /* Initialize our lwnd emulation capabilities */
+    kterm_init_lwnd_emulation();
 
-  _chars_xres = _kterm_fb_width / KTERM_FONT_WIDTH;
-  _chars_yres = _kterm_fb_height / KTERM_FONT_HEIGHT;
+    _chars_xres = _kterm_fb_width / KTERM_FONT_WIDTH;
+    _chars_yres = _kterm_fb_height / KTERM_FONT_HEIGHT;
 
-  _chars_cursor_x = 0;
-  _chars_cursor_y = 0;
-  
-  /*
-   * TODO: Set these variables based on the profile settings
-   * KTERM_PRINT_CLR_IDX and KTERM_BACKGROUND_CLR_IDX
-   */
+    _chars_cursor_x = 0;
+    _chars_cursor_y = 0;
 
-  /* Make sure we print white */
-  kterm_set_print_color(0);
-  /* Set the background color */
-  kterm_set_background_color(1);
+    /*
+     * TODO: Set these variables based on the profile settings
+     * KTERM_PRINT_CLR_IDX and KTERM_BACKGROUND_CLR_IDX
+     */
 
-  /*
-   * Allocate a range for our characters
-   */
-  _characters = (void*)Must(__kmem_kernel_alloc_range(_chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    /* Make sure we print white */
+    kterm_set_print_color(0);
+    /* Set the background color */
+    kterm_set_background_color(1);
 
-  /* Allocate the color pallet */
-  _clr_pallet = (void*)Must(__kmem_kernel_alloc_range(KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    /*
+     * Allocate a range for our characters
+     */
+    _characters = (void*)Must(__kmem_kernel_alloc_range(_chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-  kterm_fill_pallet();
+    /* Allocate the color pallet */
+    _clr_pallet = (void*)Must(__kmem_kernel_alloc_range(KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-  /* Make sure there is no garbage on the screen */
-  kterm_clear_raw();
+    kterm_fill_pallet();
 
-  /* Register our logger to the logger subsys */
-  register_logger(&kterm_logger);
+    /* Make sure there is no garbage on the screen */
+    kterm_clear_raw();
 
-  /* Make sure we are the logger with the highest prio */
-  logger_swap_priority(kterm_logger.id, 0);
+    /* Register our logger to the logger subsys */
+    register_logger(&kterm_logger);
 
-  // flush our terminal buffer
-  kterm_flush_buffer();
+    /* Make sure we are the logger with the highest prio */
+    logger_swap_priority(kterm_logger.id, 0);
 
-  mode = KTERM_MODE_TERMINAL;
+    // flush our terminal buffer
+    kterm_flush_buffer();
 
-  //memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
-  kterm_print(" -- Welcome to the aniva kterm driver --\n");
-  processor_t* processor = get_current_processor();
-  kmem_info_t info;
+    mode = KTERM_MODE_TERMINAL;
 
-  kmem_get_info(&info, processor->m_cpu_num);
+    // memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
+    kterm_print(" -- Welcome to the aniva kterm driver --\n");
+    processor_t* processor = get_current_processor();
+    kmem_info_t info;
 
-  printf(" CPU: %s\n", processor->m_info.m_model_id);
-  printf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
-  printf("  - L2: %d bytes  - L3: %d bytes  - L4: %d bytes\n\n", 
-      processor->m_info.m_l2.m_cache_size,
-      processor->m_info.m_l3.m_cache_size, 
-      processor->m_info.m_l4.m_cache_size);
+    kmem_get_info(&info, processor->m_cpu_num);
 
-  printf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
-  printf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
-  kterm_print("\n For any information about kterm, type: \'help\'\n");
+    printf(" CPU: %s\n", processor->m_info.m_model_id);
+    printf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
+    printf("  - L2: %d bytes  - L3: %d bytes  - L4: %d bytes\n\n",
+        processor->m_info.m_l2.m_cache_size,
+        processor->m_info.m_l3.m_cache_size,
+        processor->m_info.m_l4.m_cache_size);
 
-  kterm_enable_newline_tag();
+    printf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
+    printf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
+    kterm_print("\n For any information about kterm, type: \'help\'\n");
 
-  /* Prompt a newline tag draw */
-  kterm_println(NULL);
+    kterm_enable_newline_tag();
 
-  kterm_handle_login();
+    /* Prompt a newline tag draw */
+    kterm_println(NULL);
 
-  /* TODO: we should probably have some kind of kernel-managed structure for async work */
-  __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
-  __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", kterm_key_watcher, NULL);
-  
-  /* Make sure we create this fucker */
-  ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");
+    kterm_handle_login();
 
-  return 0;
+    /* TODO: we should probably have some kind of kernel-managed structure for async work */
+    __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
+    __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", kterm_key_watcher, NULL);
+
+    /* Make sure we create this fucker */
+    ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");
+
+    return 0;
 }
 
-int kterm_exit() {
-  /*
-   * TODO:
-   * - unmap framebuffer
-   * - unregister logger
-   * - wait until the worker thread exists
-   * - ect.
-   */
-  kernel_panic("kterm_exit");
+int kterm_exit()
+{
+    /*
+     * TODO:
+     * - unmap framebuffer
+     * - unregister logger
+     * - wait until the worker thread exists
+     * - ect.
+     */
+    kernel_panic("kterm_exit");
 
-  kterm_fini_lwnd_emulation();
+    kterm_fini_lwnd_emulation();
 
-  return 0;
+    return 0;
 }
 
 /*!
@@ -1196,208 +1208,206 @@ int kterm_exit() {
  *
  * Make sure we support at least the most basic form of LWND emulation
  */
-uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffer, size_t size, void* out_buffer, size_t out_size) 
+uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-  lwindow_t* uwnd = NULL;
-  proc_t* c_proc = get_current_proc();
+    lwindow_t* uwnd = NULL;
+    proc_t* c_proc = get_current_proc();
 
-  /* Check pointer */
-  if (buffer && IsError(kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
-    return DRV_STAT_INVAL;
+    /* Check pointer */
+    if (buffer && IsError(kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
+        return DRV_STAT_INVAL;
 
-  switch (code) {
-    case KTERM_DRV_DRAW_STRING: 
-      {
+    switch (code) {
+    case KTERM_DRV_DRAW_STRING: {
         const char* str = *(const char**)buffer;
         size_t buffer_size = size;
 
         /* Make sure the end of the buffer is null-terminated and the start is non-null */
         if (str[buffer_size] != NULL || str[0] == NULL)
-          return DRV_STAT_INVAL;
+            return DRV_STAT_INVAL;
 
         println(str);
         kterm_print(str);
-        //kterm_println("\n");
+        // kterm_println("\n");
         break;
-      }
+    }
     case KTERM_DRV_CLEAR:
-      kterm_clear();
-      break;
+        kterm_clear();
+        break;
     case LWND_DCC_CREATE:
-      /* Switch the kterm mode to KTERM_MODE_GRAPHICS and prepare a canvas for the graphical application to run
-       */
-      if (size != sizeof(*uwnd))
-        return DRV_STAT_INVAL;
+        /* Switch the kterm mode to KTERM_MODE_GRAPHICS and prepare a canvas for the graphical application to run
+         */
+        if (size != sizeof(*uwnd))
+            return DRV_STAT_INVAL;
 
-      uwnd = buffer;
+        uwnd = buffer;
 
-      mode = KTERM_MODE_GRAPHICS;
+        mode = KTERM_MODE_GRAPHICS;
 
-      _keybuffer_app_r_ptr = 0;
-      _keybuffer_kterm_r_ptr = 0;
-      _keybuffer.w_idx = 0;
+        _keybuffer_app_r_ptr = 0;
+        _keybuffer_kterm_r_ptr = 0;
+        _keybuffer.w_idx = 0;
 
-      uwnd->wnd_id = 1;
-      break;
+        uwnd->wnd_id = 1;
+        break;
     case LWND_DCC_CLOSE:
-      /* Don't do anything: We switch back to terminal mode once the app exits
-       */
+        /* Don't do anything: We switch back to terminal mode once the app exits
+         */
 
-      //Must(kmem_user_dealloc(c_proc, (vaddr_t)_active_grpx_app.c_fb, _active_grpx_app.fb_size));
-      break;
+        // Must(kmem_user_dealloc(c_proc, (vaddr_t)_active_grpx_app.c_fb, _active_grpx_app.fb_size));
+        break;
     case LWND_DCC_MINIMIZE:
-      /* Won't be implemented
-       */
+        /* Won't be implemented
+         */
     case LWND_DCC_RESIZE:
-      /* Won't be implemented
-       */
-      break;
+        /* Won't be implemented
+         */
+        break;
     case LWND_DCC_REQ_FB:
-      /* Allocate a portion of the framebuffer for the process
-       */
-      if (size != sizeof(*uwnd))
-        return DRV_STAT_INVAL;
+        /* Allocate a portion of the framebuffer for the process
+         */
+        if (size != sizeof(*uwnd))
+            return DRV_STAT_INVAL;
 
-      uwnd = buffer;
+        uwnd = buffer;
 
-      /* Clamp width */
-      if (uwnd->current_width > _kterm_fb_width)
-        uwnd->current_width = _kterm_fb_width;
+        /* Clamp width */
+        if (uwnd->current_width > _kterm_fb_width)
+            uwnd->current_width = _kterm_fb_width;
 
-      /* Clamp height */
-      if (uwnd->current_height > _kterm_fb_height)
-        uwnd->current_height = _kterm_fb_height;
+        /* Clamp height */
+        if (uwnd->current_height > _kterm_fb_height)
+            uwnd->current_height = _kterm_fb_height;
 
-      _active_grpx_app.client_proc = c_proc;
-      _active_grpx_app.width = uwnd->current_width;
-      _active_grpx_app.height = uwnd->current_height;
+        _active_grpx_app.client_proc = c_proc;
+        _active_grpx_app.width = uwnd->current_width;
+        _active_grpx_app.height = uwnd->current_height;
 
-      /* Compute best startx and starty */
-      _active_grpx_app.startx = (_kterm_fb_width >> 1) - (_active_grpx_app.width >> 1);
-      _active_grpx_app.starty = (_kterm_fb_height >> 1) - (_active_grpx_app.height >> 1);
+        /* Compute best startx and starty */
+        _active_grpx_app.startx = (_kterm_fb_width >> 1) - (_active_grpx_app.width >> 1);
+        _active_grpx_app.starty = (_kterm_fb_height >> 1) - (_active_grpx_app.height >> 1);
 
-      /* Allocate this crap in the userprocess */
-      _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);
-      _active_grpx_app.c_fb = uwnd->fb = (void*)Must(kmem_user_alloc_range(c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
+        /* Allocate this crap in the userprocess */
+        _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);
+        _active_grpx_app.c_fb = uwnd->fb = (void*)Must(kmem_user_alloc_range(c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
 
-      memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
+        memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
 
-    case LWND_DCC_UPDATE_WND:
-      {
+    case LWND_DCC_UPDATE_WND: {
         /* Update the windows framebuffer to the frontbuffer
          */
 
         uintptr_t current_offset = 0;
 
         for (uint32_t y = 0; y < _active_grpx_app.height; y++) {
-          for (uint32_t x = 0; x < _active_grpx_app.width; x++) {
-            kterm_draw_pixel_raw(_active_grpx_app.startx + x, _active_grpx_app.starty + y, *(uint32_t*)(_active_grpx_app.c_fb + current_offset));
+            for (uint32_t x = 0; x < _active_grpx_app.width; x++) {
+                kterm_draw_pixel_raw(_active_grpx_app.startx + x, _active_grpx_app.starty + y, *(uint32_t*)(_active_grpx_app.c_fb + current_offset));
 
-            current_offset++;
-          }
+                current_offset++;
+            }
         }
         break;
-      }
+    }
     case LWND_DCC_GETKEY:
-      /* Give the graphical process information about any keyevents
-       */
-      if (size != sizeof(*uwnd))
-        return DRV_STAT_INVAL;
+        /* Give the graphical process information about any keyevents
+         */
+        if (size != sizeof(*uwnd))
+            return DRV_STAT_INVAL;
 
-      uwnd = buffer;
+        uwnd = buffer;
 
-      lkey_event_t* u_event;
-      kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer, &_keybuffer_app_r_ptr);
+        lkey_event_t* u_event;
+        kevent_kb_ctx_t* event = keybuffer_read_key(&_keybuffer, &_keybuffer_app_r_ptr);
 
-      if (!event)
-        return DRV_STAT_INVAL;
+        if (!event)
+            return DRV_STAT_INVAL;
 
-      /*
-       * TODO: create functions that handle with this reading and writing to user keybuffers
-       */
+        /*
+         * TODO: create functions that handle with this reading and writing to user keybuffers
+         */
 
-      /* Grab a buffer entry */
-      u_event = &uwnd->keyevent_buffer[uwnd->keyevent_buffer_write_idx++];
+        /* Grab a buffer entry */
+        u_event = &uwnd->keyevent_buffer[uwnd->keyevent_buffer_write_idx++];
 
-      /* Write the data */
-      u_event->keycode = event->keycode;
-      u_event->pressed_char = event->pressed_char;
-      u_event->pressed = event->pressed;
-      u_event->mod_flags = NULL;
+        /* Write the data */
+        u_event->keycode = event->keycode;
+        u_event->pressed_char = event->pressed_char;
+        u_event->pressed = event->pressed;
+        u_event->mod_flags = NULL;
 
-      /* Make sure we cycle the index */
-      uwnd->keyevent_buffer_write_idx %= uwnd->keyevent_buffer_capacity;
+        /* Make sure we cycle the index */
+        uwnd->keyevent_buffer_write_idx %= uwnd->keyevent_buffer_capacity;
 
-      break;
-  }
+        break;
+    }
 
-  return DRV_STAT_OK;
+    return DRV_STAT_OK;
 }
 
 int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
 {
-  if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !kbd->pressed)
-    return 0;
+    if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !kbd->pressed)
+        return 0;
 
-  kterm_write_char(kbd->pressed_char);
-  return 0;
+    kterm_write_char(kbd->pressed_char);
+    return 0;
 }
 
-/*! 
+/*!
  * @brief: Handle a keypress in graphics mode
  *
  * Simply writes the event into the keybuffer
  */
 int kterm_handle_graphics_key(kevent_kb_ctx_t* kbd)
 {
-  keybuffer_write_key(&_keybuffer, kbd);
-  return 0;
+    keybuffer_write_key(&_keybuffer, kbd);
+    return 0;
 }
 
 static bool _kterm_has_prompt()
 {
-  return (_c_prompt_buffer != NULL && _c_prompt_buffersize != NULL);
+    return (_c_prompt_buffer != NULL && _c_prompt_buffersize != NULL);
 }
 
 static inline void _kterm_draw_prompt_char(char c)
 {
-  /* Manual kterm_print */
-  if (!_c_prompt_hide_input) {
-    /* Draw the char */
-    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, c, _current_color_idx, false);
-  }
+    /* Manual kterm_print */
+    if (!_c_prompt_hide_input) {
+        /* Draw the char */
+        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, c, _current_color_idx, false);
+    }
 }
 
 static void kterm_prompt_write(char c)
 {
-  /* The last byte must always be zero and it may thus not be overwritten */
-  if (_c_prompt_idx >= (_c_prompt_buffersize-1))
-    return;
+    /* The last byte must always be zero and it may thus not be overwritten */
+    if (_c_prompt_idx >= (_c_prompt_buffersize - 1))
+        return;
 
-  /* Check if we want to input a new char */
-  if (c) {
-    /* Draw it first */
+    /* Check if we want to input a new char */
+    if (c) {
+        /* Draw it first */
+        _kterm_draw_prompt_char(c);
+
+        /* Then increment the 'cursor' */
+        _c_prompt_buffer[_c_prompt_idx++] = c;
+        kterm_cursor_shift_x();
+
+        /* We're done */
+        return;
+    }
+
+    /* We can't backspace in this case! */
+    if (!_c_prompt_idx)
+        return;
+
+    /* First decrement the 'cursor' */
+    _c_prompt_idx--;
+    _c_prompt_buffer[_c_prompt_idx] = c;
+    kterm_cursor_shiftback_x();
+
+    /* Then draw the null-char (Which paints the terminal_char the background color) */
     _kterm_draw_prompt_char(c);
-
-    /* Then increment the 'cursor' */
-    _c_prompt_buffer[_c_prompt_idx++] = c;
-    kterm_cursor_shift_x();
-
-    /* We're done */
-    return;
-  }
-
-  /* We can't backspace in this case! */
-  if (!_c_prompt_idx)
-    return;
-
-  /* First decrement the 'cursor' */
-  _c_prompt_idx--;
-  _c_prompt_buffer[_c_prompt_idx] = c;
-  kterm_cursor_shiftback_x();
-
-  /* Then draw the null-char (Which paints the terminal_char the background color) */
-  _kterm_draw_prompt_char(c);
 }
 
 /*!
@@ -1407,33 +1417,33 @@ static void kterm_prompt_write(char c)
  */
 static void kterm_submit_prompt()
 {
-  kterm_reset_prompt_vars();
+    kterm_reset_prompt_vars();
 
-  _c_prompt_is_submitted = true;
-  kterm_println(NULL);
+    _c_prompt_is_submitted = true;
+    kterm_println(NULL);
 }
 
 int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
 {
-  if (!kbd->pressed)
-    return 0;
+    if (!kbd->pressed)
+        return 0;
 
-  switch (kbd->pressed_char) {
+    switch (kbd->pressed_char) {
     case '\b':
-      kterm_prompt_write(NULL);
-      break;
+        kterm_prompt_write(NULL);
+        break;
     case (char)0x0A:
-      /* Enter */
-      kterm_submit_prompt();
-      break;
+        /* Enter */
+        kterm_submit_prompt();
+        break;
     default:
-      if (kbd->pressed_char >= 0x20) {
-        kterm_prompt_write(kbd->pressed_char);
-      }
-      break;
-  }
+        if (kbd->pressed_char >= 0x20) {
+            kterm_prompt_write(kbd->pressed_char);
+        }
+        break;
+    }
 
-  return 0;
+    return 0;
 }
 
 /*!
@@ -1446,59 +1456,59 @@ int kterm_handle_prompt_key(kevent_kb_ctx_t* kbd)
  */
 int kterm_on_key(kevent_ctx_t* ctx, void* param)
 {
-  kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
+    kevent_kb_ctx_t* k_event = kevent_ctx_to_kb(ctx);
 
-  /* Prompts intercept any input */
-  if (_kterm_has_prompt())
-    return kterm_handle_prompt_key(k_event);
+    /* Prompts intercept any input */
+    if (_kterm_has_prompt())
+        return kterm_handle_prompt_key(k_event);
 
-  switch (mode) {
+    switch (mode) {
     case KTERM_MODE_TERMINAL:
-      return kterm_handle_terminal_key(k_event);
+        return kterm_handle_terminal_key(k_event);
     case KTERM_MODE_GRAPHICS:
-      return kterm_handle_graphics_key(k_event);
+        return kterm_handle_graphics_key(k_event);
     default:
-      break;
-  }
+        break;
+    }
 
-  return 0;
+    return 0;
 }
 
 int kterm_create_prompt(const char* prompt, char* buffer, size_t buffersize, bool hide_input)
 {
-  if (!buffer || !buffersize)
-    return -1;
+    if (!buffer || !buffersize)
+        return -1;
 
-  if (prompt)
-    kterm_print(prompt);
+    if (prompt)
+        kterm_print(prompt);
 
-  memset(buffer, NULL, buffersize);
+    memset(buffer, NULL, buffersize);
 
-  _c_prompt_buffersize = buffersize;
-  _c_prompt_buffer = buffer;
-  _c_prompt_idx = NULL;
-  _c_prompt_hide_input = hide_input;
-  _c_prompt_is_submitted = false;
+    _c_prompt_buffersize = buffersize;
+    _c_prompt_buffer = buffer;
+    _c_prompt_idx = NULL;
+    _c_prompt_hide_input = hide_input;
+    _c_prompt_is_submitted = false;
 
-  while (!_c_prompt_is_submitted)
-    scheduler_yield();
+    while (!_c_prompt_is_submitted)
+        scheduler_yield();
 
-  _c_prompt_is_submitted = false;
-  return 0;
+    _c_prompt_is_submitted = false;
+    return 0;
 }
 
-/*! 
+/*!
  * @brief: Make sure there is no garbage in our character buffer
  */
-static void kterm_flush_buffer() 
+static void kterm_flush_buffer()
 {
-  memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
-  __kterm_buffer_ptr = 0;
+    memset(__kterm_char_buffer, 0, sizeof(__kterm_char_buffer));
+    __kterm_buffer_ptr = 0;
 }
 
 static inline void kterm_draw_cursor_glyph()
 {
-  kterm_draw_char(_chars_cursor_x, _chars_cursor_y, CURSOR_GLYPH, _current_color_idx, false);
+    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, CURSOR_GLYPH, _current_color_idx, false);
 }
 
 /*!
@@ -1506,104 +1516,104 @@ static inline void kterm_draw_cursor_glyph()
  *
  * FIXME: much like with kterm_print, fix the voodoo shit with KTERM_CURSOR_WIDTH and __kterm_char_buffer
  */
-static void kterm_write_char(char c) 
+static void kterm_write_char(char c)
 {
-  char msg[2] = { 0 };
+    char msg[2] = { 0 };
 
-  if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
-    // time to flush the buffer
-    return;
-  }
+    if (__kterm_buffer_ptr >= KTERM_MAX_BUFFER_SIZE) {
+        // time to flush the buffer
+        return;
+    }
 
-  msg[0] = c;
+    msg[0] = c;
 
-  switch (c) {
+    switch (c) {
     case '\b':
-      if (__kterm_buffer_ptr > 0) {
+        if (__kterm_buffer_ptr > 0) {
 
-        /* Erase old cursor (NOTE: color does not matter, since we are drawing a null-char) */
-        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, 0, false);
+            /* Erase old cursor (NOTE: color does not matter, since we are drawing a null-char) */
+            kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, 0, false);
 
-        kterm_cursor_shiftback_x();
+            kterm_cursor_shiftback_x();
 
-        /* Draw new cursor */
-        kterm_draw_cursor_glyph();
+            /* Draw new cursor */
+            kterm_draw_cursor_glyph();
 
-        __kterm_buffer_ptr--;
-        __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
+            __kterm_buffer_ptr--;
+            __kterm_char_buffer[__kterm_buffer_ptr] = NULL;
 
-        //kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
-      } else {
-        __kterm_buffer_ptr = 0;
-      }
-      break;
+            // kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
+        } else {
+            __kterm_buffer_ptr = 0;
+        }
+        break;
     case (char)0x0A:
-      /* Enter */
-      kterm_process_buffer();
-      break;
+        /* Enter */
+        kterm_process_buffer();
+        break;
     default:
-      if (c >= 0x20) {
-        kterm_print(msg);
-        __kterm_char_buffer[__kterm_buffer_ptr] = c;
-        __kterm_buffer_ptr++;
+        if (c >= 0x20) {
+            kterm_print(msg);
+            __kterm_char_buffer[__kterm_buffer_ptr] = c;
+            __kterm_buffer_ptr++;
 
-        kterm_draw_cursor_glyph();
-        //kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
-      }
-      break;
-  }
+            kterm_draw_cursor_glyph();
+            // kterm_draw_char((KTERM_CURSOR_WIDTH + __kterm_buffer_ptr) * KTERM_FONT_WIDTH, __kterm_current_line * KTERM_FONT_HEIGHT, '_', 0, 0);
+        }
+        break;
+    }
 }
 
 /*!
  * @brief Process an incomming command
  *
  */
-static void kterm_process_buffer() 
+static void kterm_process_buffer()
 {
-  char buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
-  size_t buffer_size = 0;
+    char buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
+    size_t buffer_size = 0;
 
-  /* Copy the buffer localy, so we can clear it early */
-  const char* contents = kterm_get_buffer_contents();
+    /* Copy the buffer localy, so we can clear it early */
+    const char* contents = kterm_get_buffer_contents();
 
-  if (contents) {
-    buffer_size = strlen(contents);
+    if (contents) {
+        buffer_size = strlen(contents);
 
-    if (buffer_size >= KTERM_MAX_BUFFER_SIZE) {
-      /* Bruh, we cant process this... */
-      return;
+        if (buffer_size >= KTERM_MAX_BUFFER_SIZE) {
+            /* Bruh, we cant process this... */
+            return;
+        }
+
+        memcpy(buffer, contents, buffer_size);
     }
 
-    memcpy(buffer, contents, buffer_size);
-  }
+    kterm_disable_newline_tag();
 
-  kterm_disable_newline_tag();
+    /* Make sure we add the newline so we also flush the char buffer */
+    kterm_println(NULL);
 
-  /* Make sure we add the newline so we also flush the char buffer */
-  kterm_println(NULL);
+    /* Redirect to the stdin buffer when there is an active command still */
+    if (kdoor_is_rang(&__processor_door)) {
+        memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
+        memcpy(__kterm_stdin_buffer, buffer, buffer_size);
 
-  /* Redirect to the stdin buffer when there is an active command still */
-  if (kdoor_is_rang(&__processor_door)) {
-    memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
-    memcpy(__kterm_stdin_buffer, buffer, buffer_size);
+        __kterm_stdin_buffer[buffer_size] = '\n';
+        return;
+    }
 
-    __kterm_stdin_buffer[buffer_size] = '\n';
-    return;
-  }
+    doorbell_write(__kterm_cmd_doorbell, buffer, buffer_size + 1, 0);
 
-  doorbell_write(__kterm_cmd_doorbell, buffer, buffer_size + 1, 0);
-
-  doorbell_ring(__kterm_cmd_doorbell);
+    doorbell_ring(__kterm_cmd_doorbell);
 }
 
 static void kterm_enable_newline_tag()
 {
-  _print_newline_tag = true;
+    _print_newline_tag = true;
 }
 
 static void kterm_disable_newline_tag()
 {
-  _print_newline_tag = false;
+    _print_newline_tag = false;
 }
 
 /*!
@@ -1614,24 +1624,24 @@ static void kterm_disable_newline_tag()
  */
 static void kterm_handle_newline_tag()
 {
-  /* Only print newline tags if that is enabled */
-  if (!_print_newline_tag)
-    return;
+    /* Only print newline tags if that is enabled */
+    if (!_print_newline_tag)
+        return;
 
-  /* 
-   * Print a basic newline tag 
-   * TODO: allow for custom tags
-   */
-  kterm_set_print_color(127);
-  kterm_print("$> ");
-  kterm_set_print_color(0);
+    /*
+     * Print a basic newline tag
+     * TODO: allow for custom tags
+     */
+    kterm_set_print_color(127);
+    kterm_print("$> ");
+    kterm_set_print_color(0);
 
-  kterm_draw_cursor_glyph();
+    kterm_draw_cursor_glyph();
 }
 
 static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32_t y)
 {
-  return &_characters[y * _chars_xres + x];
+    return &_characters[y * _chars_xres + x];
 }
 
 /*!
@@ -1641,32 +1651,32 @@ static inline struct kterm_terminal_char* kterm_get_term_char(uint32_t x, uint32
  */
 static inline void kterm_draw_char(uintptr_t x, uintptr_t y, char c, uint32_t color_idx, bool defer_update)
 {
-  struct kterm_terminal_char* term_chr;
+    struct kterm_terminal_char* term_chr;
 
-  //if (mode != KTERM_MODE_TERMINAL)
-    //return;
+    // if (mode != KTERM_MODE_TERMINAL)
+    // return;
 
-  /* Grab the terminal character entry */
-  term_chr = kterm_get_term_char(x, y);
+    /* Grab the terminal character entry */
+    term_chr = kterm_get_term_char(x, y);
 
-  if (term_chr->ch == c && term_chr->pallet_idx == color_idx)
-    return;
+    if (term_chr->ch == c && term_chr->pallet_idx == color_idx)
+        return;
 
-  term_chr->ch = c;
-  term_chr->pallet_idx = color_idx;
+    term_chr->ch = c;
+    term_chr->pallet_idx = color_idx;
 
-  if (defer_update)
-    return;
+    if (defer_update)
+        return;
 
-  kterm_update_term_char(term_chr, 1);
+    kterm_update_term_char(term_chr, 1);
 }
 
-static inline const char* kterm_get_buffer_contents() 
+static inline const char* kterm_get_buffer_contents()
 {
-  if (__kterm_char_buffer[0] == NULL)
-    return nullptr;
+    if (__kterm_char_buffer[0] == NULL)
+        return nullptr;
 
-  return __kterm_char_buffer;
+    return __kterm_char_buffer;
 }
 
 /*!
@@ -1677,14 +1687,14 @@ static inline const char* kterm_get_buffer_contents()
  */
 static void kterm_cursor_shiftback_x()
 {
-  if (_chars_cursor_x) {
-    _chars_cursor_x--;
-    return;
-  }
+    if (_chars_cursor_x) {
+        _chars_cursor_x--;
+        return;
+    }
 
-  _chars_cursor_x = _chars_xres-1;
-  if (_chars_yres)
-    _chars_yres--;
+    _chars_cursor_x = _chars_xres - 1;
+    if (_chars_yres)
+        _chars_yres--;
 }
 
 /*!
@@ -1692,16 +1702,16 @@ static void kterm_cursor_shiftback_x()
  */
 static void kterm_cursor_shift_x()
 {
-  _chars_cursor_x++;
+    _chars_cursor_x++;
 
-  if (_chars_cursor_x >= _chars_xres-1) {
-    _chars_cursor_x = 0;
-    _chars_cursor_y++;
-  }
+    if (_chars_cursor_x >= _chars_xres - 1) {
+        _chars_cursor_x = 0;
+        _chars_cursor_y++;
+    }
 
-  if (_chars_cursor_y >= _chars_yres-1) {
-    kterm_scroll(1);
-  }
+    if (_chars_cursor_y >= _chars_yres - 1) {
+        kterm_scroll(1);
+    }
 }
 
 /*!
@@ -1709,107 +1719,107 @@ static void kterm_cursor_shift_x()
  */
 static void kterm_cursor_shift_y()
 {
-  if (_clear_cursor_char)
-    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, NULL, false);
+    if (_clear_cursor_char)
+        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, NULL, NULL, false);
 
-  _chars_cursor_x = 0;
-  _chars_cursor_y ++;
+    _chars_cursor_x = 0;
+    _chars_cursor_y++;
 
-  if (_chars_cursor_y >= _chars_yres-1) {
-    kterm_scroll(1);
-  }
+    if (_chars_cursor_y >= _chars_yres - 1) {
+        kterm_scroll(1);
+    }
 }
 
 /*!
  * @brief: This prints a line on the kterm and, if _print_newline_tag is enabled, prints a newline tag
  */
-int kterm_println(const char* msg) 
+int kterm_println(const char* msg)
 {
-  if (msg)
-    kterm_print(msg);
+    if (msg)
+        kterm_print(msg);
 
-  /* Flush the buffer on every println */
-  kterm_flush_buffer();
+    /* Flush the buffer on every println */
+    kterm_flush_buffer();
 
-  kterm_cursor_shift_y();
-  kterm_handle_newline_tag();
-  return 0;
+    kterm_cursor_shift_y();
+    kterm_handle_newline_tag();
+    return 0;
 }
 
 int kterm_putc(char msg)
 {
-  char b[2] = { msg, 0 };
+    char b[2] = { msg, 0 };
 
-  return kterm_print(b);
+    return kterm_print(b);
 }
 
 /*!
  * @brief Print a string to our terminal
  *
- * FIXME: the magic we have with KTERM_CURSOR_WIDTH and kterm_buffer_ptr_copy should get nuked 
+ * FIXME: the magic we have with KTERM_CURSOR_WIDTH and kterm_buffer_ptr_copy should get nuked
  * and redone xD
  */
-int kterm_print(const char* msg) 
+int kterm_print(const char* msg)
 {
-  uint32_t idx;
+    uint32_t idx;
 
-  if (!msg /* || mode != KTERM_MODE_TERMINAL */)
-    return 0;
+    if (!msg /* || mode != KTERM_MODE_TERMINAL */)
+        return 0;
 
-  idx = 0;
+    idx = 0;
 
-  while (msg[idx]) {
+    while (msg[idx]) {
 
-    /*
-     * When we encounter a newline character during a kterm_print, we should simply do the following:
-     * Shift y of the cursor and don't do anything else
-     */
-    if (msg[idx] == '\n') {
-      kterm_cursor_shift_y();
-      goto cycle;
+        /*
+         * When we encounter a newline character during a kterm_print, we should simply do the following:
+         * Shift y of the cursor and don't do anything else
+         */
+        if (msg[idx] == '\n') {
+            kterm_cursor_shift_y();
+            goto cycle;
+        }
+
+        /*
+         * Draw the char
+         * FIXME: currently we only draw these white, support other colors
+         */
+        kterm_draw_char(_chars_cursor_x, _chars_cursor_y, msg[idx], _current_color_idx, false);
+        kterm_cursor_shift_x();
+
+    cycle:
+        idx++;
     }
-
-    /* 
-     * Draw the char 
-     * FIXME: currently we only draw these white, support other colors
-     */
-    kterm_draw_char(_chars_cursor_x, _chars_cursor_y, msg[idx], _current_color_idx, false);
-    kterm_cursor_shift_x();
-
-cycle:
-    idx++;
-  }
-  return 0;
+    return 0;
 }
 
 // TODO: add a scroll direction (up, down, left, ect)
-static void kterm_scroll(uintptr_t lines) 
+static void kterm_scroll(uintptr_t lines)
 {
-  uint32_t new_y;
-  struct kterm_terminal_char* c_char;
+    uint32_t new_y;
+    struct kterm_terminal_char* c_char;
 
-  if (!lines)
-    return;
+    if (!lines)
+        return;
 
-  /* We'll always begin drawing at zero */
-  new_y = 0;
+    /* We'll always begin drawing at zero */
+    new_y = 0;
 
-  for (uint32_t y = lines; y < (_chars_yres-lines); y++) {
-    for (uint32_t x = 0; x < _chars_xres; x++) {
-      c_char = kterm_get_term_char(x, y);
+    for (uint32_t y = lines; y < (_chars_yres - lines); y++) {
+        for (uint32_t x = 0; x < _chars_xres; x++) {
+            c_char = kterm_get_term_char(x, y);
 
-      kterm_draw_char(x, y-lines, c_char->ch, c_char->pallet_idx, false);
+            kterm_draw_char(x, y - lines, c_char->ch, c_char->pallet_idx, false);
+        }
+
+        new_y++;
     }
 
-    new_y++;
-  }
+    while (new_y < _chars_yres) {
 
-  while (new_y < _chars_yres) {
-    
-    for (uint32_t x = 0; x < _chars_xres; x++)
-      kterm_draw_char(x, new_y, NULL, 1, false);
-    new_y++;
-  }
+        for (uint32_t x = 0; x < _chars_xres; x++)
+            kterm_draw_char(x, new_y, NULL, 1, false);
+        new_y++;
+    }
 
-  _chars_cursor_y -= lines;
+    _chars_cursor_y -= lines;
 }

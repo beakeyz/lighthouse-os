@@ -151,13 +151,12 @@
 
 #define EXPORT_ACPI_INTERFACES
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 #include "actables.h"
 
-#define _COMPONENT          ACPI_TABLES
-        ACPI_MODULE_NAME    ("tbxface")
-
+#define _COMPONENT ACPI_TABLES
+ACPI_MODULE_NAME("tbxface")
 
 /*******************************************************************************
  *
@@ -174,16 +173,15 @@
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiAllocateRootTable (
-    UINT32                  InitialTableCount)
+AcpiAllocateRootTable(
+    UINT32 InitialTableCount)
 {
 
     AcpiGbl_RootTableList.MaxTableCount = InitialTableCount;
     AcpiGbl_RootTableList.Flags = ACPI_ROOT_ALLOW_RESIZE;
 
-    return (AcpiTbResizeRootTableList ());
+    return (AcpiTbResizeRootTableList());
 }
-
 
 /*******************************************************************************
  *
@@ -212,52 +210,44 @@ AcpiAllocateRootTable (
  ******************************************************************************/
 
 ACPI_STATUS ACPI_INIT_FUNCTION
-AcpiInitializeTables (
-    ACPI_TABLE_DESC         *InitialTableArray,
-    UINT32                  InitialTableCount,
-    BOOLEAN                 AllowResize)
+AcpiInitializeTables(
+    ACPI_TABLE_DESC* InitialTableArray,
+    UINT32 InitialTableCount,
+    BOOLEAN AllowResize)
 {
-    ACPI_PHYSICAL_ADDRESS   RsdpAddress;
-    ACPI_STATUS             Status;
+    ACPI_PHYSICAL_ADDRESS RsdpAddress;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (AcpiInitializeTables);
-
+    ACPI_FUNCTION_TRACE(AcpiInitializeTables);
 
     /*
      * Setup the Root Table Array and allocate the table array
      * if requested
      */
-    if (!InitialTableArray)
-    {
-        Status = AcpiAllocateRootTable (InitialTableCount);
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+    if (!InitialTableArray) {
+        Status = AcpiAllocateRootTable(InitialTableCount);
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
-    }
-    else
-    {
+    } else {
         /* Root Table Array has been statically allocated by the host */
 
-        memset (InitialTableArray, 0,
-            (ACPI_SIZE) InitialTableCount * sizeof (ACPI_TABLE_DESC));
+        memset(InitialTableArray, 0,
+            (ACPI_SIZE)InitialTableCount * sizeof(ACPI_TABLE_DESC));
 
         AcpiGbl_RootTableList.Tables = InitialTableArray;
         AcpiGbl_RootTableList.MaxTableCount = InitialTableCount;
         AcpiGbl_RootTableList.Flags = ACPI_ROOT_ORIGIN_UNKNOWN;
-        if (AllowResize)
-        {
+        if (AllowResize) {
             AcpiGbl_RootTableList.Flags |= ACPI_ROOT_ALLOW_RESIZE;
         }
     }
 
     /* Get the address of the RSDP */
 
-    RsdpAddress = AcpiOsGetRootPointer ();
-    if (!RsdpAddress)
-    {
-        return_ACPI_STATUS (AE_NOT_FOUND);
+    RsdpAddress = AcpiOsGetRootPointer();
+    if (!RsdpAddress) {
+        return_ACPI_STATUS(AE_NOT_FOUND);
     }
 
     /*
@@ -265,12 +255,11 @@ AcpiInitializeTables (
      * Root Table Array. This array contains the information of the RSDT/XSDT
      * in a common, more usable format.
      */
-    Status = AcpiTbParseRootTable (RsdpAddress);
-    return_ACPI_STATUS (Status);
+    Status = AcpiTbParseRootTable(RsdpAddress);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL_INIT (AcpiInitializeTables)
-
+ACPI_EXPORT_SYMBOL_INIT(AcpiInitializeTables)
 
 /*******************************************************************************
  *
@@ -288,16 +277,14 @@ ACPI_EXPORT_SYMBOL_INIT (AcpiInitializeTables)
  ******************************************************************************/
 
 ACPI_STATUS ACPI_INIT_FUNCTION
-AcpiReallocateRootTable (
+AcpiReallocateRootTable(
     void)
 {
-    ACPI_STATUS             Status;
-    ACPI_TABLE_DESC         *TableDesc;
-    UINT32                  i, j;
+    ACPI_STATUS Status;
+    ACPI_TABLE_DESC* TableDesc;
+    UINT32 i, j;
 
-
-    ACPI_FUNCTION_TRACE (AcpiReallocateRootTable);
-
+    ACPI_FUNCTION_TRACE(AcpiReallocateRootTable);
 
     /*
      * If there are tables unverified, it is required to reallocate the
@@ -305,13 +292,11 @@ AcpiReallocateRootTable (
      * reallocate the root table list if the host provided a static buffer
      * for the table array in the call to AcpiInitializeTables().
      */
-    if ((AcpiGbl_RootTableList.Flags & ACPI_ROOT_ORIGIN_ALLOCATED) &&
-        AcpiGbl_EnableTableValidation)
-    {
-        return_ACPI_STATUS (AE_SUPPORT);
+    if ((AcpiGbl_RootTableList.Flags & ACPI_ROOT_ORIGIN_ALLOCATED) && AcpiGbl_EnableTableValidation) {
+        return_ACPI_STATUS(AE_SUPPORT);
     }
 
-    (void) AcpiUtAcquireMutex (ACPI_MTX_TABLES);
+    (void)AcpiUtAcquireMutex(ACPI_MTX_TABLES);
 
     /*
      * Ensure OS early boot logic, which is required by some hosts. If the
@@ -319,48 +304,41 @@ AcpiReallocateRootTable (
      * issue by invoking AcpiPutTable() for the reported table during the
      * early stage.
      */
-    for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; ++i)
-    {
+    for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; ++i) {
         TableDesc = &AcpiGbl_RootTableList.Tables[i];
-        if (TableDesc->Pointer)
-        {
-            ACPI_ERROR ((AE_INFO,
+        if (TableDesc->Pointer) {
+            ACPI_ERROR((AE_INFO,
                 "Table [%4.4s] is not invalidated during early boot stage",
                 TableDesc->Signature.Ascii));
         }
     }
 
-    if (!AcpiGbl_EnableTableValidation)
-    {
+    if (!AcpiGbl_EnableTableValidation) {
         /*
          * Now it's safe to do full table validation. We can do deferred
          * table initialization here once the flag is set.
          */
         AcpiGbl_EnableTableValidation = TRUE;
-        for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; ++i)
-        {
+        for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; ++i) {
             TableDesc = &AcpiGbl_RootTableList.Tables[i];
-            if (!(TableDesc->Flags & ACPI_TABLE_IS_VERIFIED))
-            {
-                Status = AcpiTbVerifyTempTable (TableDesc, NULL, &j);
-                if (ACPI_FAILURE (Status))
-                {
-                    AcpiTbUninstallTable (TableDesc);
+            if (!(TableDesc->Flags & ACPI_TABLE_IS_VERIFIED)) {
+                Status = AcpiTbVerifyTempTable(TableDesc, NULL, &j);
+                if (ACPI_FAILURE(Status)) {
+                    AcpiTbUninstallTable(TableDesc);
                 }
             }
         }
     }
 
     AcpiGbl_RootTableList.Flags |= ACPI_ROOT_ALLOW_RESIZE;
-    Status = AcpiTbResizeRootTableList ();
+    Status = AcpiTbResizeRootTableList();
     AcpiGbl_RootTableList.Flags |= ACPI_ROOT_ORIGIN_ALLOCATED;
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_TABLES);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_TABLES);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL_INIT (AcpiReallocateRootTable)
-
+ACPI_EXPORT_SYMBOL_INIT(AcpiReallocateRootTable)
 
 /*******************************************************************************
  *
@@ -380,65 +358,51 @@ ACPI_EXPORT_SYMBOL_INIT (AcpiReallocateRootTable)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetTableHeader (
-    char                    *Signature,
-    UINT32                  Instance,
-    ACPI_TABLE_HEADER       *OutTableHeader)
+AcpiGetTableHeader(
+    char* Signature,
+    UINT32 Instance,
+    ACPI_TABLE_HEADER* OutTableHeader)
 {
-    UINT32                  i;
-    UINT32                  j;
-    ACPI_TABLE_HEADER       *Header;
-
+    UINT32 i;
+    UINT32 j;
+    ACPI_TABLE_HEADER* Header;
 
     /* Parameter validation */
 
-    if (!Signature || !OutTableHeader)
-    {
+    if (!Signature || !OutTableHeader) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Walk the root table list */
 
-    for (i = 0, j = 0; i < AcpiGbl_RootTableList.CurrentTableCount; i++)
-    {
-        if (!ACPI_COMPARE_NAMESEG (
-                &(AcpiGbl_RootTableList.Tables[i].Signature), Signature))
-        {
+    for (i = 0, j = 0; i < AcpiGbl_RootTableList.CurrentTableCount; i++) {
+        if (!ACPI_COMPARE_NAMESEG(
+                &(AcpiGbl_RootTableList.Tables[i].Signature), Signature)) {
             continue;
         }
 
-        if (++j < Instance)
-        {
+        if (++j < Instance) {
             continue;
         }
 
-        if (!AcpiGbl_RootTableList.Tables[i].Pointer)
-        {
-            if ((AcpiGbl_RootTableList.Tables[i].Flags &
-                    ACPI_TABLE_ORIGIN_MASK) ==
-                ACPI_TABLE_ORIGIN_INTERNAL_PHYSICAL)
-            {
-                Header = AcpiOsMapMemory (
+        if (!AcpiGbl_RootTableList.Tables[i].Pointer) {
+            if ((AcpiGbl_RootTableList.Tables[i].Flags & ACPI_TABLE_ORIGIN_MASK) == ACPI_TABLE_ORIGIN_INTERNAL_PHYSICAL) {
+                Header = AcpiOsMapMemory(
                     AcpiGbl_RootTableList.Tables[i].Address,
-                    sizeof (ACPI_TABLE_HEADER));
-                if (!Header)
-                {
+                    sizeof(ACPI_TABLE_HEADER));
+                if (!Header) {
                     return (AE_NO_MEMORY);
                 }
 
-                memcpy (OutTableHeader, Header, sizeof (ACPI_TABLE_HEADER));
-                AcpiOsUnmapMemory (Header, sizeof (ACPI_TABLE_HEADER));
-            }
-            else
-            {
+                memcpy(OutTableHeader, Header, sizeof(ACPI_TABLE_HEADER));
+                AcpiOsUnmapMemory(Header, sizeof(ACPI_TABLE_HEADER));
+            } else {
                 return (AE_NOT_FOUND);
             }
-        }
-        else
-        {
-            memcpy (OutTableHeader,
+        } else {
+            memcpy(OutTableHeader,
                 AcpiGbl_RootTableList.Tables[i].Pointer,
-                sizeof (ACPI_TABLE_HEADER));
+                sizeof(ACPI_TABLE_HEADER));
         }
 
         return (AE_OK);
@@ -447,8 +411,7 @@ AcpiGetTableHeader (
     return (AE_NOT_FOUND);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetTableHeader)
-
+ACPI_EXPORT_SYMBOL(AcpiGetTableHeader)
 
 /*******************************************************************************
  *
@@ -471,21 +434,19 @@ ACPI_EXPORT_SYMBOL (AcpiGetTableHeader)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetTable (
-    char                    *Signature,
-    UINT32                  Instance,
-    ACPI_TABLE_HEADER       **OutTable)
+AcpiGetTable(
+    char* Signature,
+    UINT32 Instance,
+    ACPI_TABLE_HEADER** OutTable)
 {
-    UINT32                  i;
-    UINT32                  j;
-    ACPI_STATUS             Status = AE_NOT_FOUND;
-    ACPI_TABLE_DESC         *TableDesc;
-
+    UINT32 i;
+    UINT32 j;
+    ACPI_STATUS Status = AE_NOT_FOUND;
+    ACPI_TABLE_DESC* TableDesc;
 
     /* Parameter validation */
 
-    if (!Signature || !OutTable)
-    {
+    if (!Signature || !OutTable) {
         return (AE_BAD_PARAMETER);
     }
 
@@ -496,34 +457,30 @@ AcpiGetTable (
      */
     *OutTable = NULL;
 
-    (void) AcpiUtAcquireMutex (ACPI_MTX_TABLES);
+    (void)AcpiUtAcquireMutex(ACPI_MTX_TABLES);
 
     /* Walk the root table list */
 
-    for (i = 0, j = 0; i < AcpiGbl_RootTableList.CurrentTableCount; i++)
-    {
+    for (i = 0, j = 0; i < AcpiGbl_RootTableList.CurrentTableCount; i++) {
         TableDesc = &AcpiGbl_RootTableList.Tables[i];
 
-        if (!ACPI_COMPARE_NAMESEG (&TableDesc->Signature, Signature))
-        {
+        if (!ACPI_COMPARE_NAMESEG(&TableDesc->Signature, Signature)) {
             continue;
         }
 
-        if (++j < Instance)
-        {
+        if (++j < Instance) {
             continue;
         }
 
-        Status = AcpiTbGetTable (TableDesc, OutTable);
+        Status = AcpiTbGetTable(TableDesc, OutTable);
         break;
     }
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_TABLES);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_TABLES);
     return (Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetTable)
-
+ACPI_EXPORT_SYMBOL(AcpiGetTable)
 
 /*******************************************************************************
  *
@@ -541,45 +498,38 @@ ACPI_EXPORT_SYMBOL (AcpiGetTable)
  *
  ******************************************************************************/
 
-void
-AcpiPutTable (
-    ACPI_TABLE_HEADER       *Table)
+void AcpiPutTable(
+    ACPI_TABLE_HEADER* Table)
 {
-    UINT32                  i;
-    ACPI_TABLE_DESC         *TableDesc;
+    UINT32 i;
+    ACPI_TABLE_DESC* TableDesc;
 
+    ACPI_FUNCTION_TRACE(AcpiPutTable);
 
-    ACPI_FUNCTION_TRACE (AcpiPutTable);
-
-
-    if (!Table)
-    {
+    if (!Table) {
         return_VOID;
     }
 
-    (void) AcpiUtAcquireMutex (ACPI_MTX_TABLES);
+    (void)AcpiUtAcquireMutex(ACPI_MTX_TABLES);
 
     /* Walk the root table list */
 
-    for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; i++)
-    {
+    for (i = 0; i < AcpiGbl_RootTableList.CurrentTableCount; i++) {
         TableDesc = &AcpiGbl_RootTableList.Tables[i];
 
-        if (TableDesc->Pointer != Table)
-        {
+        if (TableDesc->Pointer != Table) {
             continue;
         }
 
-        AcpiTbPutTable (TableDesc);
+        AcpiTbPutTable(TableDesc);
         break;
     }
 
-    (void) AcpiUtReleaseMutex (ACPI_MTX_TABLES);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_TABLES);
     return_VOID;
 }
 
-ACPI_EXPORT_SYMBOL (AcpiPutTable)
-
+ACPI_EXPORT_SYMBOL(AcpiPutTable)
 
 /*******************************************************************************
  *
@@ -596,21 +546,18 @@ ACPI_EXPORT_SYMBOL (AcpiPutTable)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiGetTableByIndex (
-    UINT32                  TableIndex,
-    ACPI_TABLE_HEADER       **OutTable)
+AcpiGetTableByIndex(
+    UINT32 TableIndex,
+    ACPI_TABLE_HEADER** OutTable)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
-
-    ACPI_FUNCTION_TRACE (AcpiGetTableByIndex);
-
+    ACPI_FUNCTION_TRACE(AcpiGetTableByIndex);
 
     /* Parameter validation */
 
-    if (!OutTable)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!OutTable) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
     /*
@@ -620,26 +567,24 @@ AcpiGetTableByIndex (
      */
     *OutTable = NULL;
 
-    (void) AcpiUtAcquireMutex (ACPI_MTX_TABLES);
+    (void)AcpiUtAcquireMutex(ACPI_MTX_TABLES);
 
     /* Validate index */
 
-    if (TableIndex >= AcpiGbl_RootTableList.CurrentTableCount)
-    {
+    if (TableIndex >= AcpiGbl_RootTableList.CurrentTableCount) {
         Status = AE_BAD_PARAMETER;
         goto UnlockAndExit;
     }
 
-    Status = AcpiTbGetTable (
+    Status = AcpiTbGetTable(
         &AcpiGbl_RootTableList.Tables[TableIndex], OutTable);
 
 UnlockAndExit:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_TABLES);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_TABLES);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiGetTableByIndex)
-
+ACPI_EXPORT_SYMBOL(AcpiGetTableByIndex)
 
 /*******************************************************************************
  *
@@ -655,31 +600,26 @@ ACPI_EXPORT_SYMBOL (AcpiGetTableByIndex)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiInstallTableHandler (
-    ACPI_TABLE_HANDLER      Handler,
-    void                    *Context)
+AcpiInstallTableHandler(
+    ACPI_TABLE_HANDLER Handler,
+    void* Context)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiInstallTableHandler);
 
-    ACPI_FUNCTION_TRACE (AcpiInstallTableHandler);
-
-
-    if (!Handler)
-    {
-        return_ACPI_STATUS (AE_BAD_PARAMETER);
+    if (!Handler) {
+        return_ACPI_STATUS(AE_BAD_PARAMETER);
     }
 
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Don't allow more than one handler */
 
-    if (AcpiGbl_TableHandler)
-    {
+    if (AcpiGbl_TableHandler) {
         Status = AE_ALREADY_EXISTS;
         goto Cleanup;
     }
@@ -690,12 +630,11 @@ AcpiInstallTableHandler (
     AcpiGbl_TableHandlerContext = Context;
 
 Cleanup:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiInstallTableHandler)
-
+ACPI_EXPORT_SYMBOL(AcpiInstallTableHandler)
 
 /*******************************************************************************
  *
@@ -711,26 +650,21 @@ ACPI_EXPORT_SYMBOL (AcpiInstallTableHandler)
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiRemoveTableHandler (
-    ACPI_TABLE_HANDLER      Handler)
+AcpiRemoveTableHandler(
+    ACPI_TABLE_HANDLER Handler)
 {
-    ACPI_STATUS             Status;
+    ACPI_STATUS Status;
 
+    ACPI_FUNCTION_TRACE(AcpiRemoveTableHandler);
 
-    ACPI_FUNCTION_TRACE (AcpiRemoveTableHandler);
-
-
-    Status = AcpiUtAcquireMutex (ACPI_MTX_EVENTS);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiUtAcquireMutex(ACPI_MTX_EVENTS);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /* Make sure that the installed handler is the same */
 
-    if (!Handler ||
-        Handler != AcpiGbl_TableHandler)
-    {
+    if (!Handler || Handler != AcpiGbl_TableHandler) {
         Status = AE_BAD_PARAMETER;
         goto Cleanup;
     }
@@ -740,8 +674,8 @@ AcpiRemoveTableHandler (
     AcpiGbl_TableHandler = NULL;
 
 Cleanup:
-    (void) AcpiUtReleaseMutex (ACPI_MTX_EVENTS);
-    return_ACPI_STATUS (Status);
+    (void)AcpiUtReleaseMutex(ACPI_MTX_EVENTS);
+    return_ACPI_STATUS(Status);
 }
 
-ACPI_EXPORT_SYMBOL (AcpiRemoveTableHandler)
+ACPI_EXPORT_SYMBOL(AcpiRemoveTableHandler)

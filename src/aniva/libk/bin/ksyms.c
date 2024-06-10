@@ -17,78 +17,77 @@ extern uint8_t __ksyms_table;
 
 const char* get_ksym_name(uintptr_t address)
 {
-  uint8_t* i = &__ksyms_table;
-  ksym_t* current_symbol = (ksym_t*)i;
+    uint8_t* i = &__ksyms_table;
+    ksym_t* current_symbol = (ksym_t*)i;
 
-  while (current_symbol->sym_len) {
-    current_symbol = (ksym_t*)i;
+    while (current_symbol->sym_len) {
+        current_symbol = (ksym_t*)i;
 
-    if (current_symbol->address == address)
-      return current_symbol->name;
-    
-    i += current_symbol->sym_len;
-  }
+        if (current_symbol->address == address)
+            return current_symbol->name;
 
-  return nullptr;
+        i += current_symbol->sym_len;
+    }
+
+    return nullptr;
 }
 
 const char* get_best_ksym_name(uintptr_t address)
 {
-  uint8_t* i = &__ksyms_table;
-  ksym_t* c_symbol = (ksym_t*)i;
-  ksym_t* best_symbol = nullptr;
-  size_t best_addr = 0;
+    uint8_t* i = &__ksyms_table;
+    ksym_t* c_symbol = (ksym_t*)i;
+    ksym_t* best_symbol = nullptr;
+    size_t best_addr = 0;
 
-  /* No kernel address, fuck off */
-  if (address < KERNEL_MAP_BASE)
-    return nullptr;
+    /* No kernel address, fuck off */
+    if (address < KERNEL_MAP_BASE)
+        return nullptr;
 
-  while (c_symbol->sym_len) {
-    c_symbol = (ksym_t*)i;
+    while (c_symbol->sym_len) {
+        c_symbol = (ksym_t*)i;
 
-    /* Check if the address is inside this function */
-    if (c_symbol->address > address)
-      goto cycle_next;
+        /* Check if the address is inside this function */
+        if (c_symbol->address > address)
+            goto cycle_next;
 
-    /* Check if this delta is better than the current best delta */
-    if (c_symbol->address < best_addr)
-      goto cycle_next;
+        /* Check if this delta is better than the current best delta */
+        if (c_symbol->address < best_addr)
+            goto cycle_next;
 
-    best_addr = c_symbol->address;
-    best_symbol = c_symbol;
-    
-cycle_next:
-    i += c_symbol->sym_len;
-  }
+        best_addr = c_symbol->address;
+        best_symbol = c_symbol;
 
-  if (!best_symbol)
-    return nullptr;
+    cycle_next:
+        i += c_symbol->sym_len;
+    }
 
-  return best_symbol->name;
+    if (!best_symbol)
+        return nullptr;
+
+    return best_symbol->name;
 }
 
 uintptr_t get_ksym_address(char* name)
 {
-  uint8_t* i = &__ksyms_table;
-  ksym_t* current_symbol = (ksym_t*)i;
+    uint8_t* i = &__ksyms_table;
+    ksym_t* current_symbol = (ksym_t*)i;
 
-  if (!name || !*name)
+    if (!name || !*name)
+        return NULL;
+
+    while (current_symbol->sym_len) {
+        current_symbol = (ksym_t*)i;
+
+        if (memcmp(name, current_symbol->name, strlen(current_symbol->name)) && memcmp(name, current_symbol->name, strlen(name)))
+            return current_symbol->address;
+
+        i += current_symbol->sym_len;
+    }
+
     return NULL;
-
-  while (current_symbol->sym_len) {
-    current_symbol = (ksym_t*)i;
-
-    if (memcmp(name, current_symbol->name, strlen(current_symbol->name)) &&
-        memcmp(name, current_symbol->name, strlen(name)))
-      return current_symbol->address;
-    
-    i += current_symbol->sym_len;
-  }
-
-  return NULL;
 }
 
 size_t get_total_ksym_area_size()
 {
-  return (_end_ksyms - _start_ksyms);
+    return (_end_ksyms - _start_ksyms);
 }

@@ -11,73 +11,73 @@
  */
 
 enum SYSID {
-  SYSID_INVAL,
-  SYSID_EXIT, /* Exit the process */
-  SYSID_CLOSE, /* Close a handle */
-  SYSID_READ, /* Read from a handle */
-  SYSID_WRITE, /* Write to a handle */
-  SYSID_OPEN,
-  SYSID_OPEN_PROC,
-  SYSID_OPEN_DRIVER,
-  SYSID_SEND_MSG,
-  SYSID_CREATE_THREAD,
-  SYSID_CREATE_PROC,
-  SYSID_CREATE_FILE,
+    SYSID_INVAL,
+    SYSID_EXIT, /* Exit the process */
+    SYSID_CLOSE, /* Close a handle */
+    SYSID_READ, /* Read from a handle */
+    SYSID_WRITE, /* Write to a handle */
+    SYSID_OPEN,
+    SYSID_OPEN_PROC,
+    SYSID_OPEN_DRIVER,
+    SYSID_SEND_MSG,
+    SYSID_CREATE_THREAD,
+    SYSID_CREATE_PROC,
+    SYSID_CREATE_FILE,
 
-  SYSID_ALLOC_PAGE_RANGE,
-  SYSID_DEALLOC_PAGE_RANGE,
+    SYSID_ALLOC_PAGE_RANGE,
+    SYSID_DEALLOC_PAGE_RANGE,
 
-  SYSID_SYSEXEC, /* Ask the system to do stuff for us */
-  SYSID_DESTROY_THREAD,
-  SYSID_DESTROY_PROC,
-  SYSID_DESTROY_FILE,
-  SYSID_GET_HNDL_TYPE,
-  /* Open a profile variable on the handle of a profile */
-  SYSID_OPEN_SYSVAR,
-  SYSID_GET_SYSVAR_TYPE,
-  SYSID_CREATE_SYSVAR,
-  /* Directory syscalls */
-  SYSID_CREATE_DIR,
-  SYSID_DIR_READ,
-  SYSID_DIR_FIND,
-  /* Manipulate the R/W offset of a handle */
-  SYSID_SEEK,
-  SYSID_GET_PROCESSTIME,
-  SYSID_SLEEP,
+    SYSID_SYSEXEC, /* Ask the system to do stuff for us */
+    SYSID_DESTROY_THREAD,
+    SYSID_DESTROY_PROC,
+    SYSID_DESTROY_FILE,
+    SYSID_GET_HNDL_TYPE,
+    /* Open a profile variable on the handle of a profile */
+    SYSID_OPEN_SYSVAR,
+    SYSID_GET_SYSVAR_TYPE,
+    SYSID_CREATE_SYSVAR,
+    /* Directory syscalls */
+    SYSID_CREATE_DIR,
+    SYSID_DIR_READ,
+    SYSID_DIR_FIND,
+    /* Manipulate the R/W offset of a handle */
+    SYSID_SEEK,
+    SYSID_GET_PROCESSTIME,
+    SYSID_SLEEP,
 
-  /* TODO: */
-  SYSID_LOAD_DRV,
-  SYSID_CREATE_PROFILE,
-  SYSID_DESTROY_PROFILE,
+    /* TODO: */
+    SYSID_LOAD_DRV,
+    SYSID_CREATE_PROFILE,
+    SYSID_DESTROY_PROFILE,
 
-  /* Dynamic loader-specific syscalls */
-  SYSID_GET_FUNCADDR,
+    /* Dynamic loader-specific syscalls */
+    SYSID_GET_FUNCADDR,
 
-  /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
-  SYSID_GET_DEVINFO,
-  /* Enable/Disable device */
-  SYSID_DEV_ENABLE,
+    /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
+    SYSID_GET_DEVINFO,
+    /* Enable/Disable device */
+    SYSID_DEV_ENABLE,
 
-  /* HID dev interfacing */
-  SYSID_HIDDEV_POLL = 100,
-  /* Disk dev interfacing */
-  SYSID_DISKDEV_BREAD = 200,
-  SYSID_DISKDEV_BWRITE = 201,
+    /* HID dev interfacing */
+    SYSID_HIDDEV_POLL = 100,
+    /* Disk dev interfacing */
+    SYSID_DISKDEV_BREAD = 200,
+    SYSID_DISKDEV_BWRITE = 201,
 };
 
 /* Mask that marks a sysid invalid */
-#define SYSID_INVAL_MASK    0x80000000
+#define SYSID_INVAL_MASK 0x80000000
 
-#define SYSID_IS_VALID(id)          (((unsigned int)(id) & SYSID_INVAL_MASK) != SYSID_INVAL_MASK)
-#define SYSID_GET(id)               (enum SYSID)((unsigned int)(id) & SYSID_INVAL_MASK)
-#define SYSID_SET_VALID(id, valid)  ({if (valid) id &= ~SYSID_INVAL_MASK; else id |= SYSID_INVAL_MASK; })
+#define SYSID_IS_VALID(id) (((unsigned int)(id) & SYSID_INVAL_MASK) != SYSID_INVAL_MASK)
+#define SYSID_GET(id) (enum SYSID)((unsigned int)(id) & SYSID_INVAL_MASK)
+#define SYSID_SET_VALID(id, valid) ({if (valid) id &= ~SYSID_INVAL_MASK; else id |= SYSID_INVAL_MASK; })
 
-#define SYS_OK              (0)
-#define SYS_INV             (-1)
-#define SYS_KERR            (-2)
-#define SYS_NOENT           (-3)
-#define SYS_NOPERM          (-4)
-#define SYS_NULL            (-5)
-#define SYS_ERR             (-6)
+#define SYS_OK (0)
+#define SYS_INV (-1)
+#define SYS_KERR (-2)
+#define SYS_NOENT (-3)
+#define SYS_NOPERM (-4)
+#define SYS_NULL (-5)
+#define SYS_ERR (-6)
 
 #endif // !__LIGHTENV_SYSCALL__

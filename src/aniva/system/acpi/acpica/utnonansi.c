@@ -149,12 +149,11 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
+#include "acpi.h"
 
-
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utnonansi")
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utnonansi")
 
 /*
  * Non-ANSI C library functions - strlwr, strupr, stricmp, and "safe"
@@ -173,29 +172,23 @@
  *
  ******************************************************************************/
 
-void
-AcpiUtStrlwr (
-    char                    *SrcString)
+void AcpiUtStrlwr(
+    char* SrcString)
 {
-    char                    *String;
+    char* String;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (!SrcString)
-    {
+    if (!SrcString) {
         return;
     }
 
     /* Walk entire string, lowercasing the letters */
 
-    for (String = SrcString; *String; String++)
-    {
-        *String = (char) tolower ((int) *String);
+    for (String = SrcString; *String; String++) {
+        *String = (char)tolower((int)*String);
     }
 }
-
 
 /*******************************************************************************
  *
@@ -209,29 +202,23 @@ AcpiUtStrlwr (
  *
  ******************************************************************************/
 
-void
-AcpiUtStrupr (
-    char                    *SrcString)
+void AcpiUtStrupr(
+    char* SrcString)
 {
-    char                    *String;
+    char* String;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    if (!SrcString)
-    {
+    if (!SrcString) {
         return;
     }
 
     /* Walk entire string, uppercasing the letters */
 
-    for (String = SrcString; *String; String++)
-    {
-        *String = (char) toupper ((int) *String);
+    for (String = SrcString; *String; String++) {
+        *String = (char)toupper((int)*String);
     }
 }
-
 
 /******************************************************************************
  *
@@ -248,30 +235,25 @@ AcpiUtStrupr (
  *
  ******************************************************************************/
 
-int
-AcpiUtStricmp (
-    char                    *String1,
-    char                    *String2)
+int AcpiUtStricmp(
+    char* String1,
+    char* String2)
 {
-    int                     c1;
-    int                     c2;
+    int c1;
+    int c2;
 
-
-    do
-    {
-        c1 = tolower ((int) *String1);
-        c2 = tolower ((int) *String2);
+    do {
+        c1 = tolower((int)*String1);
+        c2 = tolower((int)*String2);
 
         String1++;
         String2++;
-    }
-    while ((c1 == c2) && (c1));
+    } while ((c1 == c2) && (c1));
 
     return (c1 - c2);
 }
 
-
-#if defined (ACPI_DEBUGGER) || defined (ACPI_APPLICATION) || defined (ACPI_DEBUG_OUTPUT)
+#if defined(ACPI_DEBUGGER) || defined(ACPI_APPLICATION) || defined(ACPI_DEBUG_OUTPUT)
 /*******************************************************************************
  *
  * FUNCTION:    AcpiUtSafeStrcpy, AcpiUtSafeStrcat, AcpiUtSafeStrncat
@@ -293,67 +275,62 @@ AcpiUtStricmp (
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtSafeStrcpy (
-    char                    *Dest,
-    ACPI_SIZE               DestSize,
-    char                    *Source)
+AcpiUtSafeStrcpy(
+    char* Dest,
+    ACPI_SIZE DestSize,
+    char* Source)
 {
 
-    if (strlen (Source) >= DestSize)
-    {
+    if (strlen(Source) >= DestSize) {
         return (TRUE);
     }
 
-    strcpy (Dest, Source);
+    strcpy(Dest, Source);
     return (FALSE);
 }
 
 BOOLEAN
-AcpiUtSafeStrcat (
-    char                    *Dest,
-    ACPI_SIZE               DestSize,
-    char                    *Source)
+AcpiUtSafeStrcat(
+    char* Dest,
+    ACPI_SIZE DestSize,
+    char* Source)
 {
 
-    if ((strlen (Dest) + strlen (Source)) >= DestSize)
-    {
+    if ((strlen(Dest) + strlen(Source)) >= DestSize) {
         return (TRUE);
     }
 
-    strcat (Dest, Source);
+    strcat(Dest, Source);
     return (FALSE);
 }
 
 BOOLEAN
-AcpiUtSafeStrncat (
-    char                    *Dest,
-    ACPI_SIZE               DestSize,
-    char                    *Source,
-    ACPI_SIZE               MaxTransferLength)
+AcpiUtSafeStrncat(
+    char* Dest,
+    ACPI_SIZE DestSize,
+    char* Source,
+    ACPI_SIZE MaxTransferLength)
 {
-    ACPI_SIZE               ActualTransferLength;
+    ACPI_SIZE ActualTransferLength;
 
+    ActualTransferLength = ACPI_MIN(MaxTransferLength, strlen(Source));
 
-    ActualTransferLength = ACPI_MIN (MaxTransferLength, strlen (Source));
-
-    if ((strlen (Dest) + ActualTransferLength) >= DestSize)
-    {
+    if ((strlen(Dest) + ActualTransferLength) >= DestSize) {
         return (TRUE);
     }
 
-    strncat (Dest, Source, MaxTransferLength);
+    strncat(Dest, Source, MaxTransferLength);
     return (FALSE);
 }
 
-void
-AcpiUtSafeStrncpy (
-    char                    *Dest,
-    char                    *Source,
-    ACPI_SIZE               DestSize)
+void AcpiUtSafeStrncpy(
+    char* Dest,
+    char* Source,
+    ACPI_SIZE DestSize)
 {
     /* Always terminate destination string */
 
-    strncpy (Dest, Source, DestSize);
+    strncpy(Dest, Source, DestSize);
     Dest[DestSize - 1] = 0;
 }
 

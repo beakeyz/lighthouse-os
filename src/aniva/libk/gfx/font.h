@@ -7,11 +7,11 @@
  * Very incomplete font structure
  */
 typedef struct aniva_font {
-  /* Width and Height, counted in pixels */
-  uint8_t width, height;
-  uint16_t bytes_per_glyph;
-  uint32_t glyph_count;
-  uint8_t data[];
+    /* Width and Height, counted in pixels */
+    uint8_t width, height;
+    uint16_t bytes_per_glyph;
+    uint32_t glyph_count;
+    uint8_t data[];
 } aniva_font_t;
 
 #define CURSOR_GLYPH 127

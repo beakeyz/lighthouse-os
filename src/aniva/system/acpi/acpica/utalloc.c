@@ -149,15 +149,14 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
 #include "acdebug.h"
+#include "acpi.h"
 
-#define _COMPONENT          ACPI_UTILITIES
-        ACPI_MODULE_NAME    ("utalloc")
+#define _COMPONENT ACPI_UTILITIES
+ACPI_MODULE_NAME("utalloc")
 
-
-#if !defined (USE_NATIVE_ALLOCATE_ZEROED)
+#if !defined(USE_NATIVE_ALLOCATE_ZEROED)
 /*******************************************************************************
  *
  * FUNCTION:    AcpiOsAllocateZeroed
@@ -172,29 +171,24 @@
  *
  ******************************************************************************/
 
-void *
-AcpiOsAllocateZeroed (
-    ACPI_SIZE               Size)
+void* AcpiOsAllocateZeroed(
+    ACPI_SIZE Size)
 {
-    void                    *Allocation;
+    void* Allocation;
 
+    ACPI_FUNCTION_ENTRY();
 
-    ACPI_FUNCTION_ENTRY ();
-
-
-    Allocation = AcpiOsAllocate (Size);
-    if (Allocation)
-    {
+    Allocation = AcpiOsAllocate(Size);
+    if (Allocation) {
         /* Clear the memory block */
 
-        memset (Allocation, 0, Size);
+        memset(Allocation, 0, Size);
     }
 
     return (Allocation);
 }
 
 #endif /* !USE_NATIVE_ALLOCATE_ZEROED */
-
 
 /*******************************************************************************
  *
@@ -209,46 +203,40 @@ AcpiOsAllocateZeroed (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtCreateCaches (
+AcpiUtCreateCaches(
     void)
 {
-    ACPI_STATUS             Status;
-
+    ACPI_STATUS Status;
 
     /* Object Caches, for frequently used objects */
 
-    Status = AcpiOsCreateCache ("Acpi-Namespace", sizeof (ACPI_NAMESPACE_NODE),
+    Status = AcpiOsCreateCache("Acpi-Namespace", sizeof(ACPI_NAMESPACE_NODE),
         ACPI_MAX_NAMESPACE_CACHE_DEPTH, &AcpiGbl_NamespaceCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiOsCreateCache ("Acpi-State", sizeof (ACPI_GENERIC_STATE),
+    Status = AcpiOsCreateCache("Acpi-State", sizeof(ACPI_GENERIC_STATE),
         ACPI_MAX_STATE_CACHE_DEPTH, &AcpiGbl_StateCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiOsCreateCache ("Acpi-Parse", sizeof (ACPI_PARSE_OBJ_COMMON),
+    Status = AcpiOsCreateCache("Acpi-Parse", sizeof(ACPI_PARSE_OBJ_COMMON),
         ACPI_MAX_PARSE_CACHE_DEPTH, &AcpiGbl_PsNodeCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiOsCreateCache ("Acpi-ParseExt", sizeof (ACPI_PARSE_OBJ_NAMED),
+    Status = AcpiOsCreateCache("Acpi-ParseExt", sizeof(ACPI_PARSE_OBJ_NAMED),
         ACPI_MAX_EXTPARSE_CACHE_DEPTH, &AcpiGbl_PsNodeExtCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiOsCreateCache ("Acpi-Operand", sizeof (ACPI_OPERAND_OBJECT),
+    Status = AcpiOsCreateCache("Acpi-Operand", sizeof(ACPI_OPERAND_OBJECT),
         ACPI_MAX_OBJECT_CACHE_DEPTH, &AcpiGbl_OperandCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -257,10 +245,9 @@ AcpiUtCreateCaches (
      * For use with the ASL-/ASL+ option. This cache keeps track of regular
      * 0xA9 0x01 comments.
      */
-    Status = AcpiOsCreateCache ("Acpi-Comment", sizeof (ACPI_COMMENT_NODE),
+    Status = AcpiOsCreateCache("Acpi-Comment", sizeof(ACPI_COMMENT_NODE),
         ACPI_MAX_COMMENT_CACHE_DEPTH, &AcpiGbl_RegCommentCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
@@ -268,47 +255,41 @@ AcpiUtCreateCaches (
      * This cache keeps track of the starting addresses of where the comments
      * lie. This helps prevent duplication of comments.
      */
-    Status = AcpiOsCreateCache ("Acpi-Comment-Addr", sizeof (ACPI_COMMENT_ADDR_NODE),
+    Status = AcpiOsCreateCache("Acpi-Comment-Addr", sizeof(ACPI_COMMENT_ADDR_NODE),
         ACPI_MAX_COMMENT_CACHE_DEPTH, &AcpiGbl_CommentAddrCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
     /*
      * This cache will be used for nodes that represent files.
      */
-    Status = AcpiOsCreateCache ("Acpi-File", sizeof (ACPI_FILE_NODE),
+    Status = AcpiOsCreateCache("Acpi-File", sizeof(ACPI_FILE_NODE),
         ACPI_MAX_COMMENT_CACHE_DEPTH, &AcpiGbl_FileCache);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 #endif
-
 
 #ifdef ACPI_DBG_TRACK_ALLOCATIONS
 
     /* Memory allocation lists */
 
-    Status = AcpiUtCreateList ("Acpi-Global", 0,
+    Status = AcpiUtCreateList("Acpi-Global", 0,
         &AcpiGbl_GlobalList);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 
-    Status = AcpiUtCreateList ("Acpi-Namespace", sizeof (ACPI_NAMESPACE_NODE),
+    Status = AcpiUtCreateList("Acpi-Namespace", sizeof(ACPI_NAMESPACE_NODE),
         &AcpiGbl_NsNodeList);
-    if (ACPI_FAILURE (Status))
-    {
+    if (ACPI_FAILURE(Status)) {
         return (Status);
     }
 #endif
 
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -323,43 +304,41 @@ AcpiUtCreateCaches (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtDeleteCaches (
+AcpiUtDeleteCaches(
     void)
 {
 #ifdef ACPI_DBG_TRACK_ALLOCATIONS
-    char                    Buffer[7];
+    char Buffer[7];
 
-
-    if (AcpiGbl_DisplayFinalMemStats)
-    {
-        strcpy (Buffer, "MEMORY");
-        (void) AcpiDbDisplayStatistics (Buffer);
+    if (AcpiGbl_DisplayFinalMemStats) {
+        strcpy(Buffer, "MEMORY");
+        (void)AcpiDbDisplayStatistics(Buffer);
     }
 #endif
 
-    (void) AcpiOsDeleteCache (AcpiGbl_NamespaceCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_NamespaceCache);
     AcpiGbl_NamespaceCache = NULL;
 
-    (void) AcpiOsDeleteCache (AcpiGbl_StateCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_StateCache);
     AcpiGbl_StateCache = NULL;
 
-    (void) AcpiOsDeleteCache (AcpiGbl_OperandCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_OperandCache);
     AcpiGbl_OperandCache = NULL;
 
-    (void) AcpiOsDeleteCache (AcpiGbl_PsNodeCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_PsNodeCache);
     AcpiGbl_PsNodeCache = NULL;
 
-    (void) AcpiOsDeleteCache (AcpiGbl_PsNodeExtCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_PsNodeExtCache);
     AcpiGbl_PsNodeExtCache = NULL;
 
 #ifdef ACPI_ASL_COMPILER
-    (void) AcpiOsDeleteCache (AcpiGbl_RegCommentCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_RegCommentCache);
     AcpiGbl_RegCommentCache = NULL;
 
-    (void) AcpiOsDeleteCache (AcpiGbl_CommentAddrCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_CommentAddrCache);
     AcpiGbl_CommentAddrCache = NULL;
 
-    (void) AcpiOsDeleteCache (AcpiGbl_FileCache);
+    (void)AcpiOsDeleteCache(AcpiGbl_FileCache);
     AcpiGbl_FileCache = NULL;
 #endif
 
@@ -367,20 +346,19 @@ AcpiUtDeleteCaches (
 
     /* Debug only - display leftover memory allocation, if any */
 
-    AcpiUtDumpAllocations (ACPI_UINT32_MAX, NULL);
+    AcpiUtDumpAllocations(ACPI_UINT32_MAX, NULL);
 
     /* Free memory lists */
 
-    AcpiOsFree (AcpiGbl_GlobalList);
+    AcpiOsFree(AcpiGbl_GlobalList);
     AcpiGbl_GlobalList = NULL;
 
-    AcpiOsFree (AcpiGbl_NsNodeList);
+    AcpiOsFree(AcpiGbl_NsNodeList);
     AcpiGbl_NsNodeList = NULL;
 #endif
 
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -395,36 +373,30 @@ AcpiUtDeleteCaches (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtValidateBuffer (
-    ACPI_BUFFER             *Buffer)
+AcpiUtValidateBuffer(
+    ACPI_BUFFER* Buffer)
 {
 
     /* Obviously, the structure pointer must be valid */
 
-    if (!Buffer)
-    {
+    if (!Buffer) {
         return (AE_BAD_PARAMETER);
     }
 
     /* Special semantics for the length */
 
-    if ((Buffer->Length == ACPI_NO_BUFFER)              ||
-        (Buffer->Length == ACPI_ALLOCATE_BUFFER)        ||
-        (Buffer->Length == ACPI_ALLOCATE_LOCAL_BUFFER))
-    {
+    if ((Buffer->Length == ACPI_NO_BUFFER) || (Buffer->Length == ACPI_ALLOCATE_BUFFER) || (Buffer->Length == ACPI_ALLOCATE_LOCAL_BUFFER)) {
         return (AE_OK);
     }
 
     /* Length is valid, the buffer pointer must be also */
 
-    if (!Buffer->Pointer)
-    {
+    if (!Buffer->Pointer) {
         return (AE_BAD_PARAMETER);
     }
 
     return (AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -441,17 +413,15 @@ AcpiUtValidateBuffer (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiUtInitializeBuffer (
-    ACPI_BUFFER             *Buffer,
-    ACPI_SIZE               RequiredLength)
+AcpiUtInitializeBuffer(
+    ACPI_BUFFER* Buffer,
+    ACPI_SIZE RequiredLength)
 {
-    ACPI_SIZE               InputBufferLength;
-
+    ACPI_SIZE InputBufferLength;
 
     /* Parameter validation */
 
-    if (!Buffer || !RequiredLength)
-    {
+    if (!Buffer || !RequiredLength) {
         return (AE_BAD_PARAMETER);
     }
 
@@ -466,8 +436,7 @@ AcpiUtInitializeBuffer (
      * The input buffer length contains the actual buffer length, or the type
      * of buffer to be allocated by this routine.
      */
-    switch (InputBufferLength)
-    {
+    switch (InputBufferLength) {
     case ACPI_NO_BUFFER:
 
         /* Return the exception (and the required buffer length) */
@@ -482,22 +451,21 @@ AcpiUtInitializeBuffer (
          * allocations. Note: The caller should use AcpiOsFree to free this
          * buffer created via ACPI_ALLOCATE_BUFFER.
          */
-        Buffer->Pointer = AcpiOsAllocate (RequiredLength);
+        Buffer->Pointer = AcpiOsAllocate(RequiredLength);
         break;
 
     case ACPI_ALLOCATE_LOCAL_BUFFER:
 
         /* Allocate a new buffer with local interface to allow tracking */
 
-        Buffer->Pointer = ACPI_ALLOCATE (RequiredLength);
+        Buffer->Pointer = ACPI_ALLOCATE(RequiredLength);
         break;
 
     default:
 
         /* Existing buffer: Validate the size of the buffer */
 
-        if (InputBufferLength < RequiredLength)
-        {
+        if (InputBufferLength < RequiredLength) {
             return (AE_BUFFER_OVERFLOW);
         }
         break;
@@ -505,13 +473,12 @@ AcpiUtInitializeBuffer (
 
     /* Validate allocation from above or input buffer pointer */
 
-    if (!Buffer->Pointer)
-    {
+    if (!Buffer->Pointer) {
         return (AE_NO_MEMORY);
     }
 
     /* Have a valid buffer, clear it */
 
-    memset (Buffer->Pointer, 0, RequiredLength);
+    memset(Buffer->Pointer, 0, RequiredLength);
     return (AE_OK);
 }

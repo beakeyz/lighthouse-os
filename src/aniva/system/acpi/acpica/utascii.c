@@ -149,9 +149,8 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-
+#include "acpi.h"
 
 /*******************************************************************************
  *
@@ -168,25 +167,21 @@
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtValidNameseg (
-    char                    *Name)
+AcpiUtValidNameseg(
+    char* Name)
 {
-    UINT32                  i;
-
+    UINT32 i;
 
     /* Validate each character in the signature */
 
-    for (i = 0; i < ACPI_NAMESEG_SIZE; i++)
-    {
-        if (!AcpiUtValidNameChar (Name[i], i))
-        {
+    for (i = 0; i < ACPI_NAMESEG_SIZE; i++) {
+        if (!AcpiUtValidNameChar(Name[i], i)) {
             return (FALSE);
         }
     }
 
     return (TRUE);
 }
-
 
 /*******************************************************************************
  *
@@ -207,19 +202,15 @@ AcpiUtValidNameseg (
  ******************************************************************************/
 
 BOOLEAN
-AcpiUtValidNameChar (
-    char                    Character,
-    UINT32                  Position)
+AcpiUtValidNameChar(
+    char Character,
+    UINT32 Position)
 {
 
-    if (!((Character >= 'A' && Character <= 'Z') ||
-          (Character >= '0' && Character <= '9') ||
-          (Character == '_')))
-    {
+    if (!((Character >= 'A' && Character <= 'Z') || (Character >= '0' && Character <= '9') || (Character == '_'))) {
         /* Allow a '!' in the last position */
 
-        if (Character == '!' && Position == 3)
-        {
+        if (Character == '!' && Position == 3) {
             return (TRUE);
         }
 
@@ -228,7 +219,6 @@ AcpiUtValidNameChar (
 
     return (TRUE);
 }
-
 
 /*******************************************************************************
  *
@@ -244,25 +234,20 @@ AcpiUtValidNameChar (
  *
  ******************************************************************************/
 
-void
-AcpiUtCheckAndRepairAscii (
-    UINT8                   *Name,
-    char                    *RepairedName,
-    UINT32                  Count)
+void AcpiUtCheckAndRepairAscii(
+    UINT8* Name,
+    char* RepairedName,
+    UINT32 Count)
 {
-    UINT32                  i;
+    UINT32 i;
 
+    for (i = 0; i < Count; i++) {
+        RepairedName[i] = (char)Name[i];
 
-    for (i = 0; i < Count; i++)
-    {
-        RepairedName[i] = (char) Name[i];
-
-        if (!Name[i])
-        {
+        if (!Name[i]) {
             return;
         }
-        if (!isprint (Name[i]))
-        {
+        if (!isprint(Name[i])) {
             RepairedName[i] = ' ';
         }
     }

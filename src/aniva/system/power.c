@@ -8,7 +8,7 @@
  */
 static inline void do_pre_shutdown_checks()
 {
-  /* TODO: check permission of the current process to shutdown the system */
+    /* TODO: check permission of the current process to shutdown the system */
 }
 
 /*!
@@ -20,15 +20,15 @@ static inline void do_pre_shutdown_checks()
  */
 void aniva_shutdown()
 {
-  do_pre_shutdown_checks();
+    do_pre_shutdown_checks();
 
-  /* 
-   * Call shutdown event 
-   * There is no special context tied to this event
-   */
-  kevent_fire("shutdown", NULL, NULL);
+    /*
+     * Call shutdown event
+     * There is no special context tied to this event
+     */
+    kevent_fire("shutdown", NULL, NULL);
 
-  /* TODO: shutdown =) */
+    /* TODO: shutdown =) */
 }
 
 /*!
@@ -41,10 +41,10 @@ void aniva_shutdown()
  */
 void aniva_reboot()
 {
-  kernel_panic("TODO: reboot");
+    kernel_panic("TODO: reboot");
 }
 
 void aniva_suspend()
 {
-  kernel_panic("TODO: suspend");
+    kernel_panic("TODO: suspend");
 }

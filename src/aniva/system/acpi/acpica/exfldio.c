@@ -149,36 +149,34 @@
  *
  *****************************************************************************/
 
-#include "acpi.h"
 #include "accommon.h"
-#include "acinterp.h"
-#include "amlcode.h"
-#include "acevents.h"
 #include "acdispat.h"
+#include "acevents.h"
+#include "acinterp.h"
+#include "acpi.h"
+#include "amlcode.h"
 
-
-#define _COMPONENT          ACPI_EXECUTER
-        ACPI_MODULE_NAME    ("exfldio")
+#define _COMPONENT ACPI_EXECUTER
+ACPI_MODULE_NAME("exfldio")
 
 /* Local prototypes */
 
 static ACPI_STATUS
-AcpiExFieldDatumIo (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT32                  FieldDatumByteOffset,
-    UINT64                  *Value,
-    UINT32                  ReadWrite);
+AcpiExFieldDatumIo(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT32 FieldDatumByteOffset,
+    UINT64* Value,
+    UINT32 ReadWrite);
 
 static BOOLEAN
-AcpiExRegisterOverflow (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT64                  Value);
+AcpiExRegisterOverflow(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT64 Value);
 
 static ACPI_STATUS
-AcpiExSetupRegion (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT32                  FieldDatumByteOffset);
-
+AcpiExSetupRegion(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT32 FieldDatumByteOffset);
 
 /*******************************************************************************
  *
@@ -197,52 +195,46 @@ AcpiExSetupRegion (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiExSetupRegion (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT32                  FieldDatumByteOffset)
+AcpiExSetupRegion(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT32 FieldDatumByteOffset)
 {
-    ACPI_STATUS             Status = AE_OK;
-    ACPI_OPERAND_OBJECT     *RgnDesc;
-    UINT8                   SpaceId;
+    ACPI_STATUS Status = AE_OK;
+    ACPI_OPERAND_OBJECT* RgnDesc;
+    UINT8 SpaceId;
 
-
-    ACPI_FUNCTION_TRACE_U32 (ExSetupRegion, FieldDatumByteOffset);
-
+    ACPI_FUNCTION_TRACE_U32(ExSetupRegion, FieldDatumByteOffset);
 
     RgnDesc = ObjDesc->CommonField.RegionObj;
 
     /* We must have a valid region */
 
-    if (RgnDesc->Common.Type != ACPI_TYPE_REGION)
-    {
-        ACPI_ERROR ((AE_INFO, "Needed Region, found type 0x%X (%s)",
+    if (RgnDesc->Common.Type != ACPI_TYPE_REGION) {
+        ACPI_ERROR((AE_INFO, "Needed Region, found type 0x%X (%s)",
             RgnDesc->Common.Type,
-            AcpiUtGetObjectTypeName (RgnDesc)));
+            AcpiUtGetObjectTypeName(RgnDesc)));
 
-        return_ACPI_STATUS (AE_AML_OPERAND_TYPE);
+        return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
     }
 
     SpaceId = RgnDesc->Region.SpaceId;
 
     /* Validate the Space ID */
 
-    if (!AcpiIsValidSpaceId (SpaceId))
-    {
-        ACPI_ERROR ((AE_INFO,
+    if (!AcpiIsValidSpaceId(SpaceId)) {
+        ACPI_ERROR((AE_INFO,
             "Invalid/unknown Address Space ID: 0x%2.2X", SpaceId));
-        return_ACPI_STATUS (AE_AML_INVALID_SPACE_ID);
+        return_ACPI_STATUS(AE_AML_INVALID_SPACE_ID);
     }
 
     /*
      * If the Region Address and Length have not been previously evaluated,
      * evaluate them now and save the results.
      */
-    if (!(RgnDesc->Common.Flags & AOPOBJ_DATA_VALID))
-    {
-        Status = AcpiDsGetRegionArguments (RgnDesc);
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+    if (!(RgnDesc->Common.Flags & AOPOBJ_DATA_VALID)) {
+        Status = AcpiDsGetRegionArguments(RgnDesc);
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
     }
 
@@ -250,13 +242,10 @@ AcpiExSetupRegion (
      * Exit now for SMBus, GSBus or IPMI address space, it has a non-linear
      * address space and the request cannot be directly validated
      */
-    if (SpaceId == ACPI_ADR_SPACE_SMBUS ||
-        SpaceId == ACPI_ADR_SPACE_GSBUS ||
-        SpaceId == ACPI_ADR_SPACE_IPMI)
-    {
+    if (SpaceId == ACPI_ADR_SPACE_SMBUS || SpaceId == ACPI_ADR_SPACE_GSBUS || SpaceId == ACPI_ADR_SPACE_IPMI) {
         /* SMBus or IPMI has a non-linear address space */
 
-        return_ACPI_STATUS (AE_OK);
+        return_ACPI_STATUS(AE_OK);
     }
 
 #ifdef ACPI_UNDER_DEVELOPMENT
@@ -264,11 +253,9 @@ AcpiExSetupRegion (
      * If the Field access is AnyAcc, we can now compute the optimal
      * access (because we know the length of the parent region)
      */
-    if (!(ObjDesc->Common.Flags & AOPOBJ_DATA_VALID))
-    {
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+    if (!(ObjDesc->Common.Flags & AOPOBJ_DATA_VALID)) {
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
     }
 #endif
@@ -278,40 +265,32 @@ AcpiExSetupRegion (
      * length of one field datum (access width) must fit within the region.
      * (Region length is specified in bytes)
      */
-    if (RgnDesc->Region.Length <
-        (ObjDesc->CommonField.BaseByteOffset + FieldDatumByteOffset +
-        ObjDesc->CommonField.AccessByteWidth))
-    {
-        if (AcpiGbl_EnableInterpreterSlack)
-        {
+    if (RgnDesc->Region.Length < (ObjDesc->CommonField.BaseByteOffset + FieldDatumByteOffset + ObjDesc->CommonField.AccessByteWidth)) {
+        if (AcpiGbl_EnableInterpreterSlack) {
             /*
              * Slack mode only:  We will go ahead and allow access to this
              * field if it is within the region length rounded up to the next
              * access width boundary. ACPI_SIZE cast for 64-bit compile.
              */
-            if (ACPI_ROUND_UP (RgnDesc->Region.Length,
-                    ObjDesc->CommonField.AccessByteWidth) >=
-                ((ACPI_SIZE) ObjDesc->CommonField.BaseByteOffset +
-                    ObjDesc->CommonField.AccessByteWidth +
-                    FieldDatumByteOffset))
-            {
-                return_ACPI_STATUS (AE_OK);
+            if (ACPI_ROUND_UP(RgnDesc->Region.Length,
+                    ObjDesc->CommonField.AccessByteWidth)
+                >= ((ACPI_SIZE)ObjDesc->CommonField.BaseByteOffset + ObjDesc->CommonField.AccessByteWidth + FieldDatumByteOffset)) {
+                return_ACPI_STATUS(AE_OK);
             }
         }
 
-        if (RgnDesc->Region.Length < ObjDesc->CommonField.AccessByteWidth)
-        {
+        if (RgnDesc->Region.Length < ObjDesc->CommonField.AccessByteWidth) {
             /*
              * This is the case where the AccessType (AccWord, etc.) is wider
              * than the region itself. For example, a region of length one
              * byte, and a field with Dword access specified.
              */
-            ACPI_ERROR ((AE_INFO,
+            ACPI_ERROR((AE_INFO,
                 "Field [%4.4s] access width (%u bytes) "
                 "too large for region [%4.4s] (length %u)",
-                AcpiUtGetNodeName (ObjDesc->CommonField.Node),
+                AcpiUtGetNodeName(ObjDesc->CommonField.Node),
                 ObjDesc->CommonField.AccessByteWidth,
-                AcpiUtGetNodeName (RgnDesc->Region.Node),
+                AcpiUtGetNodeName(RgnDesc->Region.Node),
                 RgnDesc->Region.Length));
         }
 
@@ -319,21 +298,20 @@ AcpiExSetupRegion (
          * Offset rounded up to next multiple of field width
          * exceeds region length, indicate an error
          */
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Field [%4.4s] Base+Offset+Width %u+%u+%u "
             "is beyond end of region [%4.4s] (length %u)",
-            AcpiUtGetNodeName (ObjDesc->CommonField.Node),
+            AcpiUtGetNodeName(ObjDesc->CommonField.Node),
             ObjDesc->CommonField.BaseByteOffset,
             FieldDatumByteOffset, ObjDesc->CommonField.AccessByteWidth,
-            AcpiUtGetNodeName (RgnDesc->Region.Node),
+            AcpiUtGetNodeName(RgnDesc->Region.Node),
             RgnDesc->Region.Length));
 
-        return_ACPI_STATUS (AE_AML_REGION_LIMIT);
+        return_ACPI_STATUS(AE_AML_REGION_LIMIT);
     }
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -354,28 +332,25 @@ AcpiExSetupRegion (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExAccessRegion (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT32                  FieldDatumByteOffset,
-    UINT64                  *Value,
-    UINT32                  Function)
+AcpiExAccessRegion(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT32 FieldDatumByteOffset,
+    UINT64* Value,
+    UINT32 Function)
 {
-    ACPI_STATUS             Status;
-    ACPI_OPERAND_OBJECT     *RgnDesc;
-    UINT32                  RegionOffset;
+    ACPI_STATUS Status;
+    ACPI_OPERAND_OBJECT* RgnDesc;
+    UINT32 RegionOffset;
 
-
-    ACPI_FUNCTION_TRACE (ExAccessRegion);
-
+    ACPI_FUNCTION_TRACE(ExAccessRegion);
 
     /*
      * Ensure that the region operands are fully evaluated and verify
      * the validity of the request
      */
-    Status = AcpiExSetupRegion (ObjDesc, FieldDatumByteOffset);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiExSetupRegion(ObjDesc, FieldDatumByteOffset);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
 
     /*
@@ -386,55 +361,45 @@ AcpiExAccessRegion (
      * 3) The current offset into the field
      */
     RgnDesc = ObjDesc->CommonField.RegionObj;
-    RegionOffset =
-        ObjDesc->CommonField.BaseByteOffset +
-        FieldDatumByteOffset;
+    RegionOffset = ObjDesc->CommonField.BaseByteOffset + FieldDatumByteOffset;
 
-    if ((Function & ACPI_IO_MASK) == ACPI_READ)
-    {
-        ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD, "[READ]"));
-    }
-    else
-    {
-        ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD, "[WRITE]"));
+    if ((Function & ACPI_IO_MASK) == ACPI_READ) {
+        ACPI_DEBUG_PRINT((ACPI_DB_BFIELD, "[READ]"));
+    } else {
+        ACPI_DEBUG_PRINT((ACPI_DB_BFIELD, "[WRITE]"));
     }
 
-    ACPI_DEBUG_PRINT_RAW ((ACPI_DB_BFIELD,
+    ACPI_DEBUG_PRINT_RAW((ACPI_DB_BFIELD,
         " Region [%s:%X], Width %X, ByteBase %X, Offset %X at %8.8X%8.8X\n",
-        AcpiUtGetRegionName (RgnDesc->Region.SpaceId),
+        AcpiUtGetRegionName(RgnDesc->Region.SpaceId),
         RgnDesc->Region.SpaceId,
         ObjDesc->CommonField.AccessByteWidth,
         ObjDesc->CommonField.BaseByteOffset,
         FieldDatumByteOffset,
-        ACPI_FORMAT_UINT64 (RgnDesc->Region.Address + RegionOffset)));
+        ACPI_FORMAT_UINT64(RgnDesc->Region.Address + RegionOffset)));
 
     /* Invoke the appropriate AddressSpace/OpRegion handler */
 
-    Status = AcpiEvAddressSpaceDispatch (RgnDesc, ObjDesc,
+    Status = AcpiEvAddressSpaceDispatch(RgnDesc, ObjDesc,
         Function, RegionOffset,
-        ACPI_MUL_8 (ObjDesc->CommonField.AccessByteWidth), Value);
+        ACPI_MUL_8(ObjDesc->CommonField.AccessByteWidth), Value);
 
-    if (ACPI_FAILURE (Status))
-    {
-        if (Status == AE_NOT_IMPLEMENTED)
-        {
-            ACPI_ERROR ((AE_INFO,
+    if (ACPI_FAILURE(Status)) {
+        if (Status == AE_NOT_IMPLEMENTED) {
+            ACPI_ERROR((AE_INFO,
                 "Region %s (ID=%u) not implemented",
-                AcpiUtGetRegionName (RgnDesc->Region.SpaceId),
+                AcpiUtGetRegionName(RgnDesc->Region.SpaceId),
                 RgnDesc->Region.SpaceId));
-        }
-        else if (Status == AE_NOT_EXIST)
-        {
-            ACPI_ERROR ((AE_INFO,
+        } else if (Status == AE_NOT_EXIST) {
+            ACPI_ERROR((AE_INFO,
                 "Region %s (ID=%u) has no handler",
-                AcpiUtGetRegionName (RgnDesc->Region.SpaceId),
+                AcpiUtGetRegionName(RgnDesc->Region.SpaceId),
                 RgnDesc->Region.SpaceId));
         }
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -454,13 +419,12 @@ AcpiExAccessRegion (
  ******************************************************************************/
 
 static BOOLEAN
-AcpiExRegisterOverflow (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT64                  Value)
+AcpiExRegisterOverflow(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT64 Value)
 {
 
-    if (ObjDesc->CommonField.BitLength >= ACPI_INTEGER_BIT_SIZE)
-    {
+    if (ObjDesc->CommonField.BitLength >= ACPI_INTEGER_BIT_SIZE) {
         /*
          * The field is large enough to hold the maximum integer, so we can
          * never overflow it.
@@ -468,15 +432,14 @@ AcpiExRegisterOverflow (
         return (FALSE);
     }
 
-    if (Value >= ((UINT64) 1 << ObjDesc->CommonField.BitLength))
-    {
+    if (Value >= ((UINT64)1 << ObjDesc->CommonField.BitLength)) {
         /*
          * The Value is larger than the maximum value that can fit into
          * the register.
          */
-        ACPI_ERROR ((AE_INFO,
+        ACPI_ERROR((AE_INFO,
             "Index value 0x%8.8X%8.8X overflows field width 0x%X",
-            ACPI_FORMAT_UINT64 (Value),
+            ACPI_FORMAT_UINT64(Value),
             ObjDesc->CommonField.BitLength));
 
         return (TRUE);
@@ -486,7 +449,6 @@ AcpiExRegisterOverflow (
 
     return (FALSE);
 }
-
 
 /*******************************************************************************
  *
@@ -507,23 +469,19 @@ AcpiExRegisterOverflow (
  ******************************************************************************/
 
 static ACPI_STATUS
-AcpiExFieldDatumIo (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT32                  FieldDatumByteOffset,
-    UINT64                  *Value,
-    UINT32                  ReadWrite)
+AcpiExFieldDatumIo(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT32 FieldDatumByteOffset,
+    UINT64* Value,
+    UINT32 ReadWrite)
 {
-    ACPI_STATUS             Status;
-    UINT64                  LocalValue;
+    ACPI_STATUS Status;
+    UINT64 LocalValue;
 
+    ACPI_FUNCTION_TRACE_U32(ExFieldDatumIo, FieldDatumByteOffset);
 
-    ACPI_FUNCTION_TRACE_U32 (ExFieldDatumIo, FieldDatumByteOffset);
-
-
-    if (ReadWrite == ACPI_READ)
-    {
-        if (!Value)
-        {
+    if (ReadWrite == ACPI_READ) {
+        if (!Value) {
             LocalValue = 0;
 
             /* To support reads without saving return value */
@@ -545,43 +503,33 @@ AcpiExFieldDatumIo (
      * IndexField  - Write to an Index Register, then read/write from/to a
      *               Data Register
      */
-    switch (ObjDesc->Common.Type)
-    {
+    switch (ObjDesc->Common.Type) {
     case ACPI_TYPE_BUFFER_FIELD:
         /*
          * If the BufferField arguments have not been previously evaluated,
          * evaluate them now and save the results.
          */
-        if (!(ObjDesc->Common.Flags & AOPOBJ_DATA_VALID))
-        {
-            Status = AcpiDsGetBufferFieldArguments (ObjDesc);
-            if (ACPI_FAILURE (Status))
-            {
-                return_ACPI_STATUS (Status);
+        if (!(ObjDesc->Common.Flags & AOPOBJ_DATA_VALID)) {
+            Status = AcpiDsGetBufferFieldArguments(ObjDesc);
+            if (ACPI_FAILURE(Status)) {
+                return_ACPI_STATUS(Status);
             }
         }
 
-        if (ReadWrite == ACPI_READ)
-        {
+        if (ReadWrite == ACPI_READ) {
             /*
              * Copy the data from the source buffer.
              * Length is the field width in bytes.
              */
-            memcpy (Value,
-                (ObjDesc->BufferField.BufferObj)->Buffer.Pointer +
-                    ObjDesc->BufferField.BaseByteOffset +
-                    FieldDatumByteOffset,
+            memcpy(Value,
+                (ObjDesc->BufferField.BufferObj)->Buffer.Pointer + ObjDesc->BufferField.BaseByteOffset + FieldDatumByteOffset,
                 ObjDesc->CommonField.AccessByteWidth);
-        }
-        else
-        {
+        } else {
             /*
              * Copy the data to the target buffer.
              * Length is the field width in bytes.
              */
-            memcpy ((ObjDesc->BufferField.BufferObj)->Buffer.Pointer +
-                ObjDesc->BufferField.BaseByteOffset +
-                FieldDatumByteOffset,
+            memcpy((ObjDesc->BufferField.BufferObj)->Buffer.Pointer + ObjDesc->BufferField.BaseByteOffset + FieldDatumByteOffset,
                 Value, ObjDesc->CommonField.AccessByteWidth);
         }
 
@@ -593,22 +541,20 @@ AcpiExFieldDatumIo (
          * Ensure that the BankValue is not beyond the capacity of
          * the register
          */
-        if (AcpiExRegisterOverflow (ObjDesc->BankField.BankObj,
-                (UINT64) ObjDesc->BankField.Value))
-        {
-            return_ACPI_STATUS (AE_AML_REGISTER_LIMIT);
+        if (AcpiExRegisterOverflow(ObjDesc->BankField.BankObj,
+                (UINT64)ObjDesc->BankField.Value)) {
+            return_ACPI_STATUS(AE_AML_REGISTER_LIMIT);
         }
 
         /*
          * For BankFields, we must write the BankValue to the BankRegister
          * (itself a RegionField) before we can access the data.
          */
-        Status = AcpiExInsertIntoField (ObjDesc->BankField.BankObj,
-                    &ObjDesc->BankField.Value,
-                    sizeof (ObjDesc->BankField.Value));
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+        Status = AcpiExInsertIntoField(ObjDesc->BankField.BankObj,
+            &ObjDesc->BankField.Value,
+            sizeof(ObjDesc->BankField.Value));
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
 
         /*
@@ -623,7 +569,7 @@ AcpiExFieldDatumIo (
          * For simple RegionFields, we just directly access the owning
          * Operation Region.
          */
-        Status = AcpiExAccessRegion (
+        Status = AcpiExAccessRegion(
             ObjDesc, FieldDatumByteOffset, Value, ReadWrite);
         break;
 
@@ -632,79 +578,69 @@ AcpiExFieldDatumIo (
          * Ensure that the IndexValue is not beyond the capacity of
          * the register
          */
-        if (AcpiExRegisterOverflow (ObjDesc->IndexField.IndexObj,
-                (UINT64) ObjDesc->IndexField.Value))
-        {
-            return_ACPI_STATUS (AE_AML_REGISTER_LIMIT);
+        if (AcpiExRegisterOverflow(ObjDesc->IndexField.IndexObj,
+                (UINT64)ObjDesc->IndexField.Value)) {
+            return_ACPI_STATUS(AE_AML_REGISTER_LIMIT);
         }
 
         /* Write the index value to the IndexRegister (itself a RegionField) */
 
         FieldDatumByteOffset += ObjDesc->IndexField.Value;
 
-        ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD,
+        ACPI_DEBUG_PRINT((ACPI_DB_BFIELD,
             "Write to Index Register: Value %8.8X\n",
             FieldDatumByteOffset));
 
-        Status = AcpiExInsertIntoField (ObjDesc->IndexField.IndexObj,
-            &FieldDatumByteOffset, sizeof (FieldDatumByteOffset));
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+        Status = AcpiExInsertIntoField(ObjDesc->IndexField.IndexObj,
+            &FieldDatumByteOffset, sizeof(FieldDatumByteOffset));
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
 
-        if (ReadWrite == ACPI_READ)
-        {
+        if (ReadWrite == ACPI_READ) {
             /* Read the datum from the DataRegister */
 
-            ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD,
+            ACPI_DEBUG_PRINT((ACPI_DB_BFIELD,
                 "Read from Data Register\n"));
 
-            Status = AcpiExExtractFromField (
-                ObjDesc->IndexField.DataObj, Value, sizeof (UINT64));
-        }
-        else
-        {
+            Status = AcpiExExtractFromField(
+                ObjDesc->IndexField.DataObj, Value, sizeof(UINT64));
+        } else {
             /* Write the datum to the DataRegister */
 
-            ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD,
+            ACPI_DEBUG_PRINT((ACPI_DB_BFIELD,
                 "Write to Data Register: Value %8.8X%8.8X\n",
-                ACPI_FORMAT_UINT64 (*Value)));
+                ACPI_FORMAT_UINT64(*Value)));
 
-            Status = AcpiExInsertIntoField (
-                ObjDesc->IndexField.DataObj, Value, sizeof (UINT64));
+            Status = AcpiExInsertIntoField(
+                ObjDesc->IndexField.DataObj, Value, sizeof(UINT64));
         }
         break;
 
     default:
 
-        ACPI_ERROR ((AE_INFO, "Wrong object type in field I/O %u",
+        ACPI_ERROR((AE_INFO, "Wrong object type in field I/O %u",
             ObjDesc->Common.Type));
         Status = AE_AML_INTERNAL;
         break;
     }
 
-    if (ACPI_SUCCESS (Status))
-    {
-        if (ReadWrite == ACPI_READ)
-        {
-            ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD,
+    if (ACPI_SUCCESS(Status)) {
+        if (ReadWrite == ACPI_READ) {
+            ACPI_DEBUG_PRINT((ACPI_DB_BFIELD,
                 "Value Read %8.8X%8.8X, Width %u\n",
-                ACPI_FORMAT_UINT64 (*Value),
+                ACPI_FORMAT_UINT64(*Value),
                 ObjDesc->CommonField.AccessByteWidth));
-        }
-        else
-        {
-            ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD,
+        } else {
+            ACPI_DEBUG_PRINT((ACPI_DB_BFIELD,
                 "Value Written %8.8X%8.8X, Width %u\n",
-                ACPI_FORMAT_UINT64 (*Value),
+                ACPI_FORMAT_UINT64(*Value),
                 ObjDesc->CommonField.AccessByteWidth));
         }
     }
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -722,19 +658,17 @@ AcpiExFieldDatumIo (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExWriteWithUpdateRule (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    UINT64                  Mask,
-    UINT64                  FieldValue,
-    UINT32                  FieldDatumByteOffset)
+AcpiExWriteWithUpdateRule(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    UINT64 Mask,
+    UINT64 FieldValue,
+    UINT32 FieldDatumByteOffset)
 {
-    ACPI_STATUS             Status = AE_OK;
-    UINT64                  MergedValue;
-    UINT64                  CurrentValue;
+    ACPI_STATUS Status = AE_OK;
+    UINT64 MergedValue;
+    UINT64 CurrentValue;
 
-
-    ACPI_FUNCTION_TRACE_U32 (ExWriteWithUpdateRule, Mask);
-
+    ACPI_FUNCTION_TRACE_U32(ExWriteWithUpdateRule, Mask);
 
     /* Start with the new bits  */
 
@@ -742,29 +676,24 @@ AcpiExWriteWithUpdateRule (
 
     /* If the mask is all ones, we don't need to worry about the update rule */
 
-    if (Mask != ACPI_UINT64_MAX)
-    {
+    if (Mask != ACPI_UINT64_MAX) {
         /* Decode the update rule */
 
-        switch (ObjDesc->CommonField.FieldFlags & AML_FIELD_UPDATE_RULE_MASK)
-        {
+        switch (ObjDesc->CommonField.FieldFlags & AML_FIELD_UPDATE_RULE_MASK) {
         case AML_FIELD_UPDATE_PRESERVE:
             /*
              * Check if update rule needs to be applied (not if mask is all
              * ones)  The left shift drops the bits we want to ignore.
              */
-            if ((~Mask << (ACPI_MUL_8 (sizeof (Mask)) -
-                   ACPI_MUL_8 (ObjDesc->CommonField.AccessByteWidth))) != 0)
-            {
+            if ((~Mask << (ACPI_MUL_8(sizeof(Mask)) - ACPI_MUL_8(ObjDesc->CommonField.AccessByteWidth))) != 0) {
                 /*
                  * Read the current contents of the byte/word/dword containing
                  * the field, and merge with the new field value.
                  */
-                Status = AcpiExFieldDatumIo (
+                Status = AcpiExFieldDatumIo(
                     ObjDesc, FieldDatumByteOffset, &CurrentValue, ACPI_READ);
-                if (ACPI_FAILURE (Status))
-                {
-                    return_ACPI_STATUS (Status);
+                if (ACPI_FAILURE(Status)) {
+                    return_ACPI_STATUS(Status);
                 }
 
                 MergedValue |= (CurrentValue & ~Mask);
@@ -787,31 +716,29 @@ AcpiExWriteWithUpdateRule (
 
         default:
 
-            ACPI_ERROR ((AE_INFO,
+            ACPI_ERROR((AE_INFO,
                 "Unknown UpdateRule value: 0x%X",
-                (ObjDesc->CommonField.FieldFlags &
-                    AML_FIELD_UPDATE_RULE_MASK)));
-            return_ACPI_STATUS (AE_AML_OPERAND_VALUE);
+                (ObjDesc->CommonField.FieldFlags & AML_FIELD_UPDATE_RULE_MASK)));
+            return_ACPI_STATUS(AE_AML_OPERAND_VALUE);
         }
     }
 
-    ACPI_DEBUG_PRINT ((ACPI_DB_BFIELD,
+    ACPI_DEBUG_PRINT((ACPI_DB_BFIELD,
         "Mask %8.8X%8.8X, DatumOffset %X, Width %X, "
         "Value %8.8X%8.8X, MergedValue %8.8X%8.8X\n",
-        ACPI_FORMAT_UINT64 (Mask),
+        ACPI_FORMAT_UINT64(Mask),
         FieldDatumByteOffset,
         ObjDesc->CommonField.AccessByteWidth,
-        ACPI_FORMAT_UINT64 (FieldValue),
-        ACPI_FORMAT_UINT64 (MergedValue)));
+        ACPI_FORMAT_UINT64(FieldValue),
+        ACPI_FORMAT_UINT64(MergedValue)));
 
     /* Write the merged value */
 
-    Status = AcpiExFieldDatumIo (
+    Status = AcpiExFieldDatumIo(
         ObjDesc, FieldDatumByteOffset, &MergedValue, ACPI_WRITE);
 
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }
-
 
 /*******************************************************************************
  *
@@ -828,101 +755,87 @@ AcpiExWriteWithUpdateRule (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExExtractFromField (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    void                    *Buffer,
-    UINT32                  BufferLength)
+AcpiExExtractFromField(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    void* Buffer,
+    UINT32 BufferLength)
 {
-    ACPI_STATUS             Status;
-    UINT64                  RawDatum;
-    UINT64                  MergedDatum;
-    UINT32                  FieldOffset = 0;
-    UINT32                  BufferOffset = 0;
-    UINT32                  BufferTailBits;
-    UINT32                  DatumCount;
-    UINT32                  FieldDatumCount;
-    UINT32                  AccessBitWidth;
-    UINT32                  i;
+    ACPI_STATUS Status;
+    UINT64 RawDatum;
+    UINT64 MergedDatum;
+    UINT32 FieldOffset = 0;
+    UINT32 BufferOffset = 0;
+    UINT32 BufferTailBits;
+    UINT32 DatumCount;
+    UINT32 FieldDatumCount;
+    UINT32 AccessBitWidth;
+    UINT32 i;
 
-
-    ACPI_FUNCTION_TRACE (ExExtractFromField);
-
+    ACPI_FUNCTION_TRACE(ExExtractFromField);
 
     /* Validate target buffer and clear it */
 
-    if (BufferLength <
-        ACPI_ROUND_BITS_UP_TO_BYTES (ObjDesc->CommonField.BitLength))
-    {
-        ACPI_ERROR ((AE_INFO,
+    if (BufferLength < ACPI_ROUND_BITS_UP_TO_BYTES(ObjDesc->CommonField.BitLength)) {
+        ACPI_ERROR((AE_INFO,
             "Field size %u (bits) is too large for buffer (%u)",
             ObjDesc->CommonField.BitLength, BufferLength));
 
-        return_ACPI_STATUS (AE_BUFFER_OVERFLOW);
+        return_ACPI_STATUS(AE_BUFFER_OVERFLOW);
     }
 
-    memset (Buffer, 0, BufferLength);
-    AccessBitWidth = ACPI_MUL_8 (ObjDesc->CommonField.AccessByteWidth);
+    memset(Buffer, 0, BufferLength);
+    AccessBitWidth = ACPI_MUL_8(ObjDesc->CommonField.AccessByteWidth);
 
     /* Handle the simple case here */
 
-    if ((ObjDesc->CommonField.StartFieldBitOffset == 0) &&
-        (ObjDesc->CommonField.BitLength == AccessBitWidth))
-    {
-        if (BufferLength >= sizeof (UINT64))
-        {
-            Status = AcpiExFieldDatumIo (ObjDesc, 0, Buffer, ACPI_READ);
-        }
-        else
-        {
+    if ((ObjDesc->CommonField.StartFieldBitOffset == 0) && (ObjDesc->CommonField.BitLength == AccessBitWidth)) {
+        if (BufferLength >= sizeof(UINT64)) {
+            Status = AcpiExFieldDatumIo(ObjDesc, 0, Buffer, ACPI_READ);
+        } else {
             /* Use RawDatum (UINT64) to handle buffers < 64 bits */
 
-            Status = AcpiExFieldDatumIo (ObjDesc, 0, &RawDatum, ACPI_READ);
-            memcpy (Buffer, &RawDatum, BufferLength);
+            Status = AcpiExFieldDatumIo(ObjDesc, 0, &RawDatum, ACPI_READ);
+            memcpy(Buffer, &RawDatum, BufferLength);
         }
 
-        return_ACPI_STATUS (Status);
+        return_ACPI_STATUS(Status);
     }
 
-/* TBD: Move to common setup code */
+    /* TBD: Move to common setup code */
 
     /* Field algorithm is limited to sizeof(UINT64), truncate if needed */
 
-    if (ObjDesc->CommonField.AccessByteWidth > sizeof (UINT64))
-    {
-        ObjDesc->CommonField.AccessByteWidth = sizeof (UINT64);
-        AccessBitWidth = sizeof (UINT64) * 8;
+    if (ObjDesc->CommonField.AccessByteWidth > sizeof(UINT64)) {
+        ObjDesc->CommonField.AccessByteWidth = sizeof(UINT64);
+        AccessBitWidth = sizeof(UINT64) * 8;
     }
 
     /* Compute the number of datums (access width data items) */
 
-    DatumCount = ACPI_ROUND_UP_TO (
+    DatumCount = ACPI_ROUND_UP_TO(
         ObjDesc->CommonField.BitLength, AccessBitWidth);
 
-    FieldDatumCount = ACPI_ROUND_UP_TO (
-        ObjDesc->CommonField.BitLength +
-        ObjDesc->CommonField.StartFieldBitOffset, AccessBitWidth);
+    FieldDatumCount = ACPI_ROUND_UP_TO(
+        ObjDesc->CommonField.BitLength + ObjDesc->CommonField.StartFieldBitOffset, AccessBitWidth);
 
     /* Priming read from the field */
 
-    Status = AcpiExFieldDatumIo (ObjDesc, FieldOffset, &RawDatum, ACPI_READ);
-    if (ACPI_FAILURE (Status))
-    {
-        return_ACPI_STATUS (Status);
+    Status = AcpiExFieldDatumIo(ObjDesc, FieldOffset, &RawDatum, ACPI_READ);
+    if (ACPI_FAILURE(Status)) {
+        return_ACPI_STATUS(Status);
     }
     MergedDatum = RawDatum >> ObjDesc->CommonField.StartFieldBitOffset;
 
     /* Read the rest of the field */
 
-    for (i = 1; i < FieldDatumCount; i++)
-    {
+    for (i = 1; i < FieldDatumCount; i++) {
         /* Get next input datum from the field */
 
         FieldOffset += ObjDesc->CommonField.AccessByteWidth;
-        Status = AcpiExFieldDatumIo (
+        Status = AcpiExFieldDatumIo(
             ObjDesc, FieldOffset, &RawDatum, ACPI_READ);
-        if (ACPI_FAILURE (Status))
-        {
-            return_ACPI_STATUS (Status);
+        if (ACPI_FAILURE(Status)) {
+            return_ACPI_STATUS(Status);
         }
 
         /*
@@ -933,21 +846,17 @@ AcpiExExtractFromField (
          * This avoids the differences in behavior between different compilers
          * concerning shift values larger than the target data width.
          */
-        if (AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset <
-            ACPI_INTEGER_BIT_SIZE)
-        {
-            MergedDatum |= RawDatum <<
-                (AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset);
+        if (AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset < ACPI_INTEGER_BIT_SIZE) {
+            MergedDatum |= RawDatum << (AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset);
         }
 
-        if (i == DatumCount)
-        {
+        if (i == DatumCount) {
             break;
         }
 
         /* Write merged datum to target buffer */
 
-        memcpy (((char *) Buffer) + BufferOffset, &MergedDatum,
+        memcpy(((char*)Buffer) + BufferOffset, &MergedDatum,
             ACPI_MIN(ObjDesc->CommonField.AccessByteWidth,
                 BufferLength - BufferOffset));
 
@@ -958,20 +867,18 @@ AcpiExExtractFromField (
     /* Mask off any extra bits in the last datum */
 
     BufferTailBits = ObjDesc->CommonField.BitLength % AccessBitWidth;
-    if (BufferTailBits)
-    {
-        MergedDatum &= ACPI_MASK_BITS_ABOVE (BufferTailBits);
+    if (BufferTailBits) {
+        MergedDatum &= ACPI_MASK_BITS_ABOVE(BufferTailBits);
     }
 
     /* Write the last datum to the buffer */
 
-    memcpy (((char *) Buffer) + BufferOffset, &MergedDatum,
+    memcpy(((char*)Buffer) + BufferOffset, &MergedDatum,
         ACPI_MIN(ObjDesc->CommonField.AccessByteWidth,
             BufferLength - BufferOffset));
 
-    return_ACPI_STATUS (AE_OK);
+    return_ACPI_STATUS(AE_OK);
 }
-
 
 /*******************************************************************************
  *
@@ -988,34 +895,32 @@ AcpiExExtractFromField (
  ******************************************************************************/
 
 ACPI_STATUS
-AcpiExInsertIntoField (
-    ACPI_OPERAND_OBJECT     *ObjDesc,
-    void                    *Buffer,
-    UINT32                  BufferLength)
+AcpiExInsertIntoField(
+    ACPI_OPERAND_OBJECT* ObjDesc,
+    void* Buffer,
+    UINT32 BufferLength)
 {
-    void                    *NewBuffer;
-    ACPI_STATUS             Status;
-    UINT64                  Mask;
-    UINT64                  WidthMask;
-    UINT64                  MergedDatum;
-    UINT64                  RawDatum = 0;
-    UINT32                  FieldOffset = 0;
-    UINT32                  BufferOffset = 0;
-    UINT32                  BufferTailBits;
-    UINT32                  DatumCount;
-    UINT32                  FieldDatumCount;
-    UINT32                  AccessBitWidth;
-    UINT32                  RequiredLength;
-    UINT32                  i;
+    void* NewBuffer;
+    ACPI_STATUS Status;
+    UINT64 Mask;
+    UINT64 WidthMask;
+    UINT64 MergedDatum;
+    UINT64 RawDatum = 0;
+    UINT32 FieldOffset = 0;
+    UINT32 BufferOffset = 0;
+    UINT32 BufferTailBits;
+    UINT32 DatumCount;
+    UINT32 FieldDatumCount;
+    UINT32 AccessBitWidth;
+    UINT32 RequiredLength;
+    UINT32 i;
 
-
-    ACPI_FUNCTION_TRACE (ExInsertIntoField);
-
+    ACPI_FUNCTION_TRACE(ExInsertIntoField);
 
     /* Validate input buffer */
 
     NewBuffer = NULL;
-    RequiredLength = ACPI_ROUND_BITS_UP_TO_BYTES (
+    RequiredLength = ACPI_ROUND_BITS_UP_TO_BYTES(
         ObjDesc->CommonField.BitLength);
 
     /*
@@ -1024,14 +929,12 @@ AcpiExInsertIntoField (
      * indivisible and partial writes are not supported -- as per
      * the ACPI specification.
      */
-    if (BufferLength < RequiredLength)
-    {
+    if (BufferLength < RequiredLength) {
         /* We need to create a new buffer */
 
-        NewBuffer = ACPI_ALLOCATE_ZEROED (RequiredLength);
-        if (!NewBuffer)
-        {
-            return_ACPI_STATUS (AE_NO_MEMORY);
+        NewBuffer = ACPI_ALLOCATE_ZEROED(RequiredLength);
+        if (!NewBuffer) {
+            return_ACPI_STATUS(AE_NO_MEMORY);
         }
 
         /*
@@ -1039,39 +942,36 @@ AcpiExInsertIntoField (
          * at Byte zero. All unused (upper) bytes of the
          * buffer will be 0.
          */
-        memcpy ((char *) NewBuffer, (char *) Buffer, BufferLength);
+        memcpy((char*)NewBuffer, (char*)Buffer, BufferLength);
         Buffer = NewBuffer;
         BufferLength = RequiredLength;
     }
 
-/* TBD: Move to common setup code */
+    /* TBD: Move to common setup code */
 
     /* Algo is limited to sizeof(UINT64), so cut the AccessByteWidth */
-    if (ObjDesc->CommonField.AccessByteWidth > sizeof (UINT64))
-    {
-        ObjDesc->CommonField.AccessByteWidth = sizeof (UINT64);
+    if (ObjDesc->CommonField.AccessByteWidth > sizeof(UINT64)) {
+        ObjDesc->CommonField.AccessByteWidth = sizeof(UINT64);
     }
 
-    AccessBitWidth = ACPI_MUL_8 (ObjDesc->CommonField.AccessByteWidth);
+    AccessBitWidth = ACPI_MUL_8(ObjDesc->CommonField.AccessByteWidth);
 
     /* Create the bitmasks used for bit insertion */
 
-    WidthMask = ACPI_MASK_BITS_ABOVE_64 (AccessBitWidth);
-    Mask = WidthMask &
-        ACPI_MASK_BITS_BELOW (ObjDesc->CommonField.StartFieldBitOffset);
+    WidthMask = ACPI_MASK_BITS_ABOVE_64(AccessBitWidth);
+    Mask = WidthMask & ACPI_MASK_BITS_BELOW(ObjDesc->CommonField.StartFieldBitOffset);
 
     /* Compute the number of datums (access width data items) */
 
-    DatumCount = ACPI_ROUND_UP_TO (ObjDesc->CommonField.BitLength,
+    DatumCount = ACPI_ROUND_UP_TO(ObjDesc->CommonField.BitLength,
         AccessBitWidth);
 
-    FieldDatumCount = ACPI_ROUND_UP_TO (ObjDesc->CommonField.BitLength +
-        ObjDesc->CommonField.StartFieldBitOffset,
+    FieldDatumCount = ACPI_ROUND_UP_TO(ObjDesc->CommonField.BitLength + ObjDesc->CommonField.StartFieldBitOffset,
         AccessBitWidth);
 
     /* Get initial Datum from the input buffer */
 
-    memcpy (&RawDatum, Buffer,
+    memcpy(&RawDatum, Buffer,
         ACPI_MIN(ObjDesc->CommonField.AccessByteWidth,
             BufferLength - BufferOffset));
 
@@ -1079,15 +979,13 @@ AcpiExInsertIntoField (
 
     /* Write the entire field */
 
-    for (i = 1; i < FieldDatumCount; i++)
-    {
+    for (i = 1; i < FieldDatumCount; i++) {
         /* Write merged datum to the target field */
 
         MergedDatum &= Mask;
-        Status = AcpiExWriteWithUpdateRule (
+        Status = AcpiExWriteWithUpdateRule(
             ObjDesc, Mask, MergedDatum, FieldOffset);
-        if (ACPI_FAILURE (Status))
-        {
+        if (ACPI_FAILURE(Status)) {
             goto Exit;
         }
 
@@ -1102,55 +1000,46 @@ AcpiExInsertIntoField (
          * This avoids the differences in behavior between different compilers
          * concerning shift values larger than the target data width.
          */
-        if ((AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset) <
-            ACPI_INTEGER_BIT_SIZE)
-        {
-            MergedDatum = RawDatum >>
-                (AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset);
-        }
-        else
-        {
+        if ((AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset) < ACPI_INTEGER_BIT_SIZE) {
+            MergedDatum = RawDatum >> (AccessBitWidth - ObjDesc->CommonField.StartFieldBitOffset);
+        } else {
             MergedDatum = 0;
         }
 
         Mask = WidthMask;
 
-        if (i == DatumCount)
-        {
+        if (i == DatumCount) {
             break;
         }
 
         /* Get the next input datum from the buffer */
 
         BufferOffset += ObjDesc->CommonField.AccessByteWidth;
-        memcpy (&RawDatum, ((char *) Buffer) + BufferOffset,
+        memcpy(&RawDatum, ((char*)Buffer) + BufferOffset,
             ACPI_MIN(ObjDesc->CommonField.AccessByteWidth,
-                 BufferLength - BufferOffset));
+                BufferLength - BufferOffset));
 
         MergedDatum |= RawDatum << ObjDesc->CommonField.StartFieldBitOffset;
     }
 
     /* Mask off any extra bits in the last datum */
 
-    BufferTailBits = (ObjDesc->CommonField.BitLength +
-        ObjDesc->CommonField.StartFieldBitOffset) % AccessBitWidth;
-    if (BufferTailBits)
-    {
-        Mask &= ACPI_MASK_BITS_ABOVE (BufferTailBits);
+    BufferTailBits = (ObjDesc->CommonField.BitLength + ObjDesc->CommonField.StartFieldBitOffset) % AccessBitWidth;
+    if (BufferTailBits) {
+        Mask &= ACPI_MASK_BITS_ABOVE(BufferTailBits);
     }
 
     /* Write the last datum to the field */
 
     MergedDatum &= Mask;
-    Status = AcpiExWriteWithUpdateRule (
+    Status = AcpiExWriteWithUpdateRule(
         ObjDesc, Mask, MergedDatum, FieldOffset);
 
 Exit:
     /* Free temporary buffer if we used one */
 
-    if (NewBuffer)
-    {
-        ACPI_FREE (NewBuffer);
+    if (NewBuffer) {
+        ACPI_FREE(NewBuffer);
     }
-    return_ACPI_STATUS (Status);
+    return_ACPI_STATUS(Status);
 }

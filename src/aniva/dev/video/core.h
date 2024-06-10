@@ -1,8 +1,8 @@
 #ifndef __ANIVA_VID_CORE__
 #define __ANIVA_VID_CORE__
 
-#include <libk/stddef.h>
 #include "framebuffer.h"
+#include <libk/stddef.h>
 
 struct device;
 
@@ -12,7 +12,7 @@ void init_video();
 
 bool dev_is_vdev(struct device* device);
 
-/* 
+/*
  * Routines to interact with the framebuffer of a videodevice
  *
  * device.c
