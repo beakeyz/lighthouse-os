@@ -111,6 +111,9 @@ enum USB_HUB_TYPE {
 /* This is the port of our roothub */
 #define USB_ROOTHUB_PORT 1
 
+#define USBHUB_FLAGS_ENUMERATING    0x0001
+#define USBHUB_FLAGS_ACTIVE         0x0002
+
 /*
  * Every hub is a usb device but not every
  * usb device is a hub. Get it?
@@ -119,6 +122,7 @@ typedef struct usb_hub {
   struct usb_device* udev;
   struct dgroup* devgroup;
   struct usb_hub_descriptor hubdesc;
+  uint16_t flags;
 
   enum USB_HUB_TYPE type;
 
@@ -132,6 +136,8 @@ typedef struct usb_hub {
 int create_usb_hub(usb_hub_t** phub, struct usb_hcd* hcd, enum USB_HUB_TYPE type, usb_hub_t* parent, usb_device_t* device, uint32_t portcount, bool do_init);
 int init_usb_device(usb_device_t* device);
 void destroy_usb_hub(usb_hub_t* hub);
+
+int usb_hub_handle_port_connection(usb_hub_t* hub, uint32_t i);
 
 int usb_device_submit_hc_ctl(usb_device_t* dev, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
 int usb_hub_enumerate(usb_hub_t* hub);

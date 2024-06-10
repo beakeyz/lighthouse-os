@@ -53,11 +53,52 @@ void dealloc_usb_hcd(struct usb_hcd* hcd)
   zfree_fixed(&__usb_hub_allocator, hcd);
 }
 
+static void _udev_destroy_config_buffer(usb_config_buffer_t* buffer)
+{
+  usb_endpoint_buffer_t* c_ep_buffer;
+  usb_endpoint_buffer_t* next_ep_buffer;
+  
+  /* Free up all the endpoints in the interface buffers */
+  for (uintptr_t i = 0; i < buffer->if_count; i++) {
+    usb_interface_buffer_t* _if = &buffer->if_arr[i];
+
+    do {
+      c_ep_buffer = _if->ep_arr;
+
+      if (!c_ep_buffer)
+        break;
+
+      next_ep_buffer = c_ep_buffer->next;
+
+      /* Free the endpoint */
+      kfree(c_ep_buffer);
+
+      /* Set to next buffer */
+      c_ep_buffer = next_ep_buffer;
+    } while (c_ep_buffer);
+  } 
+
+  kfree(buffer->if_arr);
+  kfree(buffer);
+}
+
 static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_configuration_descriptor_t* desc, uint32_t idx)
 {
   int error;
   uint32_t total_size;
+  uint32_t c_interface_idx;
+  usb_endpoint_descriptor_t* ep_desc;
+  usb_interface_descriptor_t* if_desc;
+  usb_interface_buffer_t* c_if_buffer;
+  usb_endpoint_buffer_t* c_ep_buffer;
+  usb_descriptor_hdr_t* c_desc;
   usb_config_buffer_t* ret;
+
+  c_ep_buffer = nullptr;
+  c_if_buffer = nullptr;
+  ep_desc = nullptr;
+  if_desc = nullptr;
+  c_interface_idx = 0;
 
   total_size = sizeof(*ret) + desc->total_len - sizeof(*desc);
 
@@ -68,13 +109,74 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
 
   ret->total_len = total_size;
   ret->if_count = desc->if_num;
+  ret->active_if = 0;
+
+  /* Create an array for the interfaces */
+  ret->if_arr = kmalloc(ret->if_count * sizeof(usb_interface_buffer_t));
+
+  if (!ret->if_arr) {
+    kfree(ret);
+    return nullptr;
+  }
+
+  /* Clear */
+  memset(ret->if_arr, 0, ret->if_count * sizeof(usb_interface_buffer_t));
 
   /* Yeet the entire config descriptor into the buffer */
   error = usb_device_get_descriptor(udev, USB_DT_CONFIG, idx, 0, &ret->desc, desc->total_len);
 
   if (error) {
-    kfree(ret);
+    _udev_destroy_config_buffer(ret);
     return nullptr;
+  }
+
+  c_desc = (usb_descriptor_hdr_t*)ret->extended_desc;
+
+  /* Go until we reach the end of this mofo */
+  while ((uintptr_t)c_desc < (ret->total_len + (uintptr_t)ret)) {
+    switch (c_desc->type) {
+      case USB_DT_INTERFACE:
+        if_desc = (usb_interface_descriptor_t*)c_desc;
+
+        KLOG_DBG("USB Interface -> class: %d, subclass: %d, protocol: %d, n_endpoints: %d\n",
+            if_desc->interface_class,
+            if_desc->interface_subclass,
+            if_desc->interface_protocol,
+            if_desc->num_endpoints,
+            );
+
+        /* Set the current interface buffer */
+        c_if_buffer = &ret->if_arr[c_interface_idx++];
+
+        /* Copy the interface into it's buffer */
+        memcpy(&c_if_buffer->desc, if_desc, sizeof(*if_desc));
+        break;
+      case USB_DT_ENDPOINT:
+        ep_desc = (usb_endpoint_descriptor_t*)c_desc;
+
+        KLOG_DBG("USB Endpoint -> addr: %d, max_packet_size: %d\n",
+            ep_desc->endpoint_address,
+            ep_desc->max_packet_size);
+
+        /* Fuck bro */
+        if (!if_desc)
+          break;
+
+        c_ep_buffer = kmalloc(sizeof(*c_ep_buffer));
+
+        /* Copy the thing */
+        memcpy(&c_ep_buffer->desc, ep_desc, sizeof(*ep_desc));
+
+        /* Link this endpoint into it's interface */
+        c_ep_buffer->next = c_if_buffer->ep_arr;
+        c_if_buffer->ep_arr = c_ep_buffer;
+        break;
+      default:
+        break;
+    }
+
+    /* Go next */
+    c_desc = (usb_descriptor_hdr_t*)((uintptr_t)c_desc + c_desc->length);
   }
 
   return ret;
@@ -159,7 +261,7 @@ int init_usb_device(usb_device_t* device)
   device_identify(
       device->device,
       device->desc.vendor_id,
-      0xffff, 
+      device->desc.product_id, 
       device->desc.dev_class,
       device->desc.dev_subclass);
 
@@ -177,6 +279,14 @@ int init_usb_device(usb_device_t* device)
   memset(device->configuration_arr, 0, sizeof(void*) * device->config_count);
 
   error = udev_init_configurations(device);
+
+  KLOG_DBG("USB Device (%s) configuration :: n_interface: %d, class-subclass-prot: %d-%d-%d\n",
+      device->device->name,
+      device->configuration_arr[0]->desc.if_num,
+      device->configuration_arr[0]->if_arr[0].desc.interface_class,
+      device->configuration_arr[0]->if_arr[0].desc.interface_subclass,
+      device->configuration_arr[0]->if_arr[0].desc.interface_protocol,
+      );
   
   return error;
 }
@@ -629,6 +739,7 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 
 static inline int _handle_device_disconnect(usb_hub_t* hub, uint32_t i)
 {
+  kernel_panic("TODO (EHCI): Handle a device disconnect");
   return 0;
 }
 
@@ -637,7 +748,7 @@ static inline int _handle_device_disconnect(usb_hub_t* hub, uint32_t i)
  *
  * When there is not yet a device at this port, we create it
  */
-static inline int _handle_port_connection(usb_hub_t* hub, uint32_t i)
+int usb_hub_handle_port_connection(usb_hub_t* hub, uint32_t i)
 {
   /* Clear the connected change status */
   usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_CONNECTION, i+1, NULL, NULL, NULL);
@@ -656,6 +767,8 @@ int usb_hub_enumerate(usb_hub_t* hub)
   int error;
   usb_port_t* c_port;
 
+  hub->flags |= USBHUB_FLAGS_ENUMERATING;
+
   for (uint32_t i = 0; i < hub->portcount; i++) {
     printf("%s: Scanning port %d...\n", hub->udev->device->name, i);
     c_port = &hub->ports[i];
@@ -672,10 +785,11 @@ int usb_hub_enumerate(usb_hub_t* hub)
         );
 
     if (usb_port_is_uninitialised(c_port) || usb_port_has_connchange(c_port))
-      error = _handle_port_connection(hub, i);
+      error = usb_hub_handle_port_connection(hub, i);
   }
 
-  return 0;
+  hub->flags &= ~USBHUB_FLAGS_ENUMERATING;
+  return error;
 }
 
 /*!

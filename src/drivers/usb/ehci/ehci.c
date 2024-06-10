@@ -208,24 +208,21 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
     }
     
     if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE) {
-      KLOG_DBG("EHCI: Port change occured!\n");
+      printf("EHCI: Port change occured!\n");
 
-      for (uint32_t i = 0; i < ehci->portcount; i++) {
-        uint32_t port = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (i * sizeof(uint32_t)));
+      /* Check if we are done enumerating the hub */
+      if ((ehci->hcd->roothub->flags & USBHUB_FLAGS_ENUMERATING) != USBHUB_FLAGS_ENUMERATING) {
+        /* Check which port has changed */
+        for (uint32_t i = 0; i < ehci->portcount; i++) {
+          uint32_t port = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (i * sizeof(uint32_t)));
 
-        if ((port & EHCI_PORTSC_CONNECT_CHANGE) != EHCI_PORTSC_CONNECT_CHANGE)
-          continue;
+          /* This port has no connection change, skip */
+          if ((port & EHCI_PORTSC_CONNECT_CHANGE) != EHCI_PORTSC_CONNECT_CHANGE)
+            continue;
 
-        if ((port & EHCI_PORTSC_CONNECT) != EHCI_PORTSC_CONNECT)
-          continue;
-
-        /* TODO: Check if we're actually up and running */
-        //char name_buf[16] = { NULL };
-
-        //sfmt(name_buf, "usbdev%d", port);
-
-        /* Create a USB device on port connect */
-        //(void)create_usb_device(ehci->hcd->roothub, USB_HIGHSPEED, port, name_buf);
+          /* Handle its connection change */
+          usb_hub_handle_port_connection(ehci->hcd->roothub, i);
+        }
       }
     }
 
@@ -732,7 +729,7 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
   ehci_xfer_t* e_xfer;
   usb_hub_t* roothub;
 
-  KLOG_DBG("EHCI: enqueue transfer (%s)!\n", xfer->req_direction == USB_DIRECTION_HOST_TO_DEVICE ? "Outgoing" : "Incomming");
+  //KLOG_DBG("EHCI: enqueue transfer (%s)!\n", xfer->req_direction == USB_DIRECTION_HOST_TO_DEVICE ? "Outgoing" : "Incomming");
 
   /*
    * This may happen when we're trying to create the EHCI roothub for this hcd. Should be okay

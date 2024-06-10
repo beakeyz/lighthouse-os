@@ -3,6 +3,9 @@
 
 #include <libk/stddef.h>
 
+struct usb_interface_buffer;
+struct usb_endpoint_buffer;
+
 /*
  * Standard requests, for the bRequest field of a SETUP packet.
  *
@@ -149,7 +152,9 @@ typedef struct usb_configuration_descriptor {
  */
 typedef struct usb_configuration_buffer {
   uint32_t total_len;
-  uint32_t if_count;
+  uint16_t if_count;
+  uint16_t active_if;
+  struct usb_interface_buffer* if_arr;
 
   usb_configuration_descriptor_t desc;
   uint8_t extended_desc[];
@@ -166,6 +171,17 @@ typedef struct usb_interface_descriptor {
   uint8_t interface_str;
 } __attribute__((packed)) usb_interface_descriptor_t;
 
+/*
+ * Buffer to store interfaces for a specific configuration
+ *
+ * Stored in an array most likely
+ */
+typedef struct usb_interface_buffer {
+  struct usb_endpoint_buffer* ep_arr;
+
+  usb_interface_descriptor_t desc;
+} usb_interface_buffer_t;
+
 typedef struct usb_endpoint_descriptor {
   usb_descriptor_hdr_t hdr;
   uint8_t endpoint_address;
@@ -173,6 +189,17 @@ typedef struct usb_endpoint_descriptor {
   uint16_t max_packet_size;
   uint8_t interval;
 } __attribute__((packed)) usb_endpoint_descriptor_t;
+
+/*
+ * Buffer to store endpoint descriptors for a specific interface
+ *
+ * Stored in a linked list
+ */
+typedef struct usb_endpoint_buffer {
+  usb_endpoint_descriptor_t desc;
+
+  struct usb_endpoint_buffer* next;
+} usb_endpoint_buffer_t;
 
 typedef struct usb_string_descriptor {
   usb_descriptor_hdr_t hdr;
