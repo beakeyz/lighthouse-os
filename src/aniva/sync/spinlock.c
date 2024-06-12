@@ -1,5 +1,4 @@
 #include "spinlock.h"
-#include "dev/debug/serial.h"
 #include "libk/flow/error.h"
 #include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
@@ -108,9 +107,6 @@ void aquire_spinlock(__spinlock_t* lock)
     current = get_current_processor();
 
     while (__sync_lock_test_and_set(lock->m_latch, 0x01)) {
-        serial_println("Spinning on spinlock");
-        kernel_panic("Spinning on spinlock");
-
         ASSERT_MSG(current->m_irq_depth == 0, "Can't block on a spinlock from within an IRQ!");
 
         /* FIXME: should we? */

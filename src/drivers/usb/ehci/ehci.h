@@ -17,6 +17,7 @@ struct usb_xfer;
 #define EHCI_INT_ENTRY_COUNT 8
 
 #define EHCI_HCD_FLAG_STOPPING 0x00000001
+#define EHCI_HCD_FLAG_CAN_DESTROY_QH 0x00000002
 
 typedef struct ehci_hcd {
     struct usb_hcd* hcd;
@@ -54,9 +55,12 @@ typedef struct ehci_hcd {
     ehci_qh_t* async;
 
     list_t* transfer_list;
+    queue_t* destroyable_qh_q;
 
     thread_t* interrupt_polling_thread;
     thread_t* transfer_finish_thread;
+    thread_t* qhead_cleanup_thread;
+    mutex_t* cleanup_lock;
     mutex_t* transfer_lock;
     mutex_t* async_lock;
 } ehci_hcd_t;
@@ -91,7 +95,7 @@ extern int ehci_init_ctl_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct e
 extern int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xfer** e_xfer, ehci_qh_t* qh);
 
 extern ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh, ehci_qtd_t* data_qtd);
-extern void destroy_ehci_xfer(ehci_xfer_t* xfer);
+extern void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 
 extern int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 

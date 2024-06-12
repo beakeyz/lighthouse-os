@@ -183,6 +183,9 @@ int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hcd* hcd)
     if (!hcd->io_ops || !hcd->io_ops->enq_request)
         return -KERR_INVAL;
 
+    /* Make sure the response buffer isn't dirty */
+    memset(xfer->resp_buffer, 0, xfer->resp_size);
+
     mutex_lock(hcd->hcd_lock);
 
     error = hcd->io_ops->enq_request(hcd, xfer);

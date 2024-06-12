@@ -7,6 +7,7 @@
 #include "dev/usb/xfer.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "libk/data/linkedlist.h"
+#include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
@@ -228,16 +229,19 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
             }
         }
 
+        /*
         if (usbsts & EHCI_OPREG_USBSTS_FLROLLOVER) {
             KLOG_DBG("EHCI: Frame List rollover!\n");
         }
+        */
 
         if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR) {
             KLOG_DBG("EHCI: Host system error (yikes)!\n");
         }
 
         if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
-            KLOG_DBG("EHCI: Advanced the async qh!\n");
+            // KLOG_DBG("EHCI: Advanced the async qh!\n");
+            ehci->ehci_flags |= EHCI_HCD_FLAG_CAN_DESTROY_QH;
         }
 
         mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
@@ -320,7 +324,7 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
         _ehci_remove_async_qh(ehci, c_xfer->qh);
 
         /* Destroy our local transfer struct */
-        destroy_ehci_xfer(c_xfer);
+        destroy_ehci_xfer(ehci, c_xfer);
 
     unlock_and_yield:
         mutex_unlock(ehci->transfer_lock);
@@ -328,6 +332,44 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
         scheduler_yield();
     }
 
+    return 0;
+}
+
+/*!
+ * @brief: Threaded routine to make sure qheads are safely destroyed
+ */
+static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
+{
+    ehci_qh_t* to_destroy;
+
+    while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
+        /* If this mutex is locked someone is fucking with the hcd qh q */
+        if (mutex_is_locked(ehci->cleanup_lock))
+            goto yield;
+
+        /* If there was no recent async advance, we can't destroy anything */
+        if ((ehci->ehci_flags & EHCI_HCD_FLAG_CAN_DESTROY_QH) != EHCI_HCD_FLAG_CAN_DESTROY_QH)
+            goto yield;
+
+        /* Lock the mutex to be cool */
+        mutex_lock(ehci->cleanup_lock);
+
+        /* Yoink a qh */
+        to_destroy = queue_dequeue(ehci->destroyable_qh_q);
+
+        /* Fuck */
+        if (!to_destroy)
+            goto unlock_and_yield;
+
+        /* Destroy the qh and clear the async adv flag */
+        destroy_ehci_qh(ehci, to_destroy);
+        ehci->ehci_flags &= ~EHCI_HCD_FLAG_CAN_DESTROY_QH;
+
+    unlock_and_yield:
+        mutex_unlock(ehci->cleanup_lock);
+    yield:
+        scheduler_yield();
+    }
     return 0;
 }
 
@@ -436,7 +478,6 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
 {
     ehci_qh_t* c_qh;
     ehci_qh_t* first_int;
-    paddr_t pfl_int_array_dma = (ehci->periodic_dma + SMALL_PAGE_SIZE);
 
     ehci->interrupt_list = (ehci_qh_t**)kmalloc(EHCI_INT_ENTRY_COUNT * sizeof(ehci_qh_t*));
 
@@ -447,21 +488,47 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
         memset(c_qh, 0, sizeof(*c_qh));
 
         /* Set fields */
-        c_qh->qh_dma = (pfl_int_array_dma + (i * sizeof(ehci_pfl_int_entry_t))) | EHCI_FLLP_TYPE_QH;
+        c_qh->qh_dma = kmem_to_phys(nullptr, (vaddr_t)c_qh) | EHCI_FLLP_TYPE_QH;
         c_qh->hw_qtd_token = EHCI_QTD_STATUS_HALTED;
+        c_qh->hw_next = EHCI_FLLP_TYPE_END;
         c_qh->hw_qtd_next = EHCI_FLLP_TYPE_END;
         c_qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
-        c_qh->hw_cur_qtd = 0;
 
         c_qh->hw_info_0 |= (EHCI_QH_HIGH_SPEED | EHCI_QH_TOGGLE_CTL | EHCI_QH_MPL(64) | EHCI_QH_RLC(3));
         c_qh->hw_info_1 |= (EHCI_QH_INTSCHED(0xff) | EHCI_QH_MULT_VAL(1));
     }
 
+    ehci->n_itd = 128;
+    ehci->itd_list = (ehci_itd_t**)kmalloc(ehci->n_itd * sizeof(ehci_itd_t*));
+    ehci->sitd_list = (ehci_sitd_t**)kmalloc(ehci->n_itd * sizeof(ehci_sitd_t*));
+
+    /* Initialize the periodic frame list */
+    for (uint32_t i = 0; i < ehci->n_itd; i++) {
+        /* Allocate a new sitd */
+        ehci->sitd_list[i] = zalloc_fixed(ehci->sitd_pool);
+        memset(ehci->sitd_list[i], 0, sizeof(ehci_sitd_t));
+
+        /* Initialize it's fields */
+        ehci->sitd_list[i]->sitd_dma = kmem_to_phys(nullptr, (vaddr_t)ehci->sitd_list[i]) | EHCI_FLLP_TYPE_SITD;
+        ehci->sitd_list[i]->hw_back_buf = EHCI_FLLP_TYPE_END;
+        ehci->sitd_list[i]->hw_next = EHCI_FLLP_TYPE_END;
+
+        /* Allocate a new itd */
+        ehci->itd_list[i] = zalloc_fixed(ehci->itd_pool);
+        memset(ehci->itd_list[i], 0, sizeof(ehci_itd_t));
+
+        ehci->itd_list[i]->itd_dma = kmem_to_phys(nullptr, (vaddr_t)ehci->itd_list[i]) | EHCI_FLLP_TYPE_ITD;
+        ehci->itd_list[i]->hw_next = ehci->sitd_list[i]->sitd_dma;
+    }
+
     /* Yoink the first fucker */
     first_int = ehci->interrupt_list[0];
+    /* Follow the EHCI spec and link the first periodic entry to the interrupt qh closest to the list */
+    ehci->sitd_list[0]->hw_next = first_int->qh_dma;
 
     for (uint32_t i = 1; i < EHCI_INT_ENTRY_COUNT; i++) {
         c_qh = ehci->interrupt_list[i];
+
         c_qh->hw_next = first_int->qh_dma;
         c_qh->next = first_int;
         c_qh->prev = nullptr;
@@ -470,24 +537,8 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
     /* Terminate the first entry */
     first_int->hw_next = EHCI_FLLP_TYPE_END;
 
-    ehci->n_itd = 128;
-    ehci->itd_list = (ehci_itd_t**)kmalloc(ehci->n_itd * sizeof(ehci_itd_t*));
-    ehci->sitd_list = (ehci_sitd_t**)kmalloc(ehci->n_itd * sizeof(ehci_sitd_t*));
-
-    /* Initialize the periodic frame list */
-    for (uint32_t i = 0; i < ehci->n_itd; i++) {
-
-        ehci->sitd_list[i] = zalloc_fixed(ehci->sitd_pool);
-        ehci->sitd_list[i]->sitd_dma = kmem_to_phys(nullptr, (vaddr_t)ehci->sitd_list[i]) | EHCI_FLLP_TYPE_SITD;
-        ehci->sitd_list[i]->hw_back_buf = EHCI_FLLP_TYPE_END;
-
-        ehci->itd_list[i] = zalloc_fixed(ehci->itd_pool);
-        ehci->itd_list[i]->itd_dma = kmem_to_phys(nullptr, (vaddr_t)ehci->itd_list[i]) | EHCI_FLLP_TYPE_ITD;
-        ehci->itd_list[i]->hw_next = ehci->sitd_list[i]->sitd_dma;
-    }
-
     uint32_t intr = ehci->n_itd;
-    uint32_t int_entry_idx = EHCI_INT_ENTRY_COUNT - 1;
+    int32_t int_entry_idx = EHCI_INT_ENTRY_COUNT - 1;
     uint32_t sidt_idx;
 
     /* Fill the sitds with qh at the correct indecies */
@@ -495,6 +546,9 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
         /* Put the interrupt qheads at the right intervals */
         for (sidt_idx = intr / 2; sidt_idx < ehci->n_itd; sidt_idx += intr)
             ehci->sitd_list[sidt_idx]->hw_next = ehci->interrupt_list[int_entry_idx]->qh_dma;
+
+        if (!int_entry_idx)
+            break;
 
         /* Cut back to the next (or rather previous) interval */
         int_entry_idx--;
@@ -542,7 +596,8 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
     /* Write the thing lmao */
     mmio_write_dword(ehci->opregs + EHCI_OPREG_PERIODICLISTBASE, ehci->periodic_dma);
 
-    ehci_init_periodic_list(ehci);
+    /* Initialize the periodic list for interrupt entries */
+    (void)ehci_init_periodic_list(ehci);
 
     ehci->async = create_ehci_qh(ehci, NULL);
 
@@ -637,9 +692,12 @@ static int ehci_setup(usb_hcd_t* hcd)
         return error;
 
     ehci->transfer_list = init_list();
+    ehci->destroyable_qh_q = create_limitless_queue();
     ehci->transfer_lock = create_mutex(NULL);
     ehci->async_lock = create_mutex(NULL);
+    ehci->cleanup_lock = create_mutex(NULL);
     ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
+    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
 
     KLOG_DBG("Done with EHCI initialization\n");
     return 0;

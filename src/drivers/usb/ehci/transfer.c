@@ -4,6 +4,7 @@
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "ehci.h"
 #include "libk/data/linkedlist.h"
+#include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
@@ -31,8 +32,19 @@ ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh, ehci_qtd_t* 
     return e_xfer;
 }
 
-void destroy_ehci_xfer(ehci_xfer_t* xfer)
+void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
+    mutex_lock(ehci->cleanup_lock);
+
+    /* Enqueue the queue head so we can kill it peacefully */
+    queue_enqueue(ehci->destroyable_qh_q, xfer->qh);
+
+    if (xfer->xfer->req_type == USB_INT_XFER)
+        ehci->ehci_flags |= EHCI_HCD_FLAG_CAN_DESTROY_QH;
+
+    mutex_unlock(ehci->cleanup_lock);
+
+    // destroy_ehci_qh(ehci, xfer->qh);
     kfree(xfer);
 }
 
@@ -426,7 +438,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             /* Copy to the response buffer */
             memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
 
-            printf("Copied %lld bytes into the buffer!\n", c_read_size);
+            // printf("Copied %lld bytes into the buffer!\n", c_read_size);
 
             /* Update the offsets */
             c_total_read_size += c_read_size;
@@ -442,6 +454,8 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             c_qtd = c_qtd->next;
         }
 
+        /* Update the total transfer size */
+        usb_xfer->resp_transfer_size = c_total_read_size;
         break;
     /* We have sent info to the device, check status */
     case USB_DIRECTION_HOST_TO_DEVICE:

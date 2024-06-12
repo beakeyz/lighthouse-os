@@ -64,11 +64,12 @@ typedef struct usb_xfer {
     /* What interface do we want to communicate with */
     uint32_t req_endpoint;
     uint32_t req_devaddr;
-    uint32_t req_hubaddr;
-    uint32_t req_hubport;
+    uint16_t req_hubaddr;
+    uint16_t req_hubport;
     uint16_t req_max_packet_size;
     uint8_t xfer_flags;
     uint8_t xfer_interval;
+    uint32_t resp_transfer_size;
 
     struct usb_device* device;
 
