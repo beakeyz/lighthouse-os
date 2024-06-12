@@ -1,9 +1,11 @@
 #include "driver.h"
 #include "dev/manifest.h"
+#include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 
 list_t* usbdrv_list;
@@ -14,24 +16,51 @@ typedef struct usb_driver {
     drv_manifest_t* driver;
 } usb_driver_t;
 
-static inline bool _matching_device(usb_device_ident_t* idents, device_t* device)
+static inline bool _usb_if_matches_ident(usb_device_t* dev, usb_device_ident_t* ident, usb_interface_buffer_t* intf)
+{
+    if (ident->class && ident->class != intf->desc.interface_class)
+        return false;
+    if (ident->subclass && ident->subclass != intf->desc.interface_subclass)
+        return false;
+    if (ident->protocol && ident->protocol != intf->desc.interface_protocol)
+        return false;
+    if (ident->if_num && ident->if_num != intf->desc.interface_number)
+        return false;
+    if (ident->vendor_id && ident->vendor_id != dev->device->vendor_id)
+        return false;
+    if (ident->device_id && ident->device_id != dev->device->device_id)
+        return false;
+
+    return true;
+}
+
+static inline bool _matching_device(usb_device_ident_t* idents, usb_device_t* device, usb_interface_buffer_t** matching_if)
 {
     uint32_t idx = 0;
+    uint32_t if_idx;
+    usb_config_buffer_t cfg_buffer;
+    usb_interface_buffer_t* c_interface;
 
-    /* 0-0-0-0 means end of identifiers */
-    while (idents[idx].class || idents[idx].subclass || idents[idx].device_id || idents[idx].vendor_id) {
-        if (idents[idx].class && idents[idx].class != device->class)
-            goto cycle;
-        if (idents[idx].subclass && idents[idx].subclass != device->subclass)
-            goto cycle;
-        if (idents[idx].device_id && idents[idx].device_id != device->device_id)
-            goto cycle;
-        if (idents[idx].vendor_id && idents[idx].vendor_id != device->vendor_id)
-            goto cycle;
+    usb_device_get_active_config(device, &cfg_buffer);
 
-        return true;
+    /* 0-0-0-0-0-0 means end of identifiers */
+    while (idents[idx].class || idents[idx].subclass || idents[idx].protocol || idents[idx].if_num || idents[idx].device_id || idents[idx].vendor_id) {
 
-    cycle:
+        for (if_idx = 0; if_idx < cfg_buffer.if_count; if_idx++) {
+            c_interface = &cfg_buffer.if_arr[if_idx];
+
+            KLOG_DBG("Checking interface %d:%d:%d to ident %d:%d:%d\n",
+                c_interface->desc.interface_class, c_interface->desc.interface_subclass, c_interface->desc.interface_protocol,
+                idents[idx].class, idents[idx].subclass, idents[idx].protocol);
+
+            if (!_usb_if_matches_ident(device, &idents[idx], c_interface))
+                continue;
+
+            /* Export the matching interface */
+            if (matching_if)
+                *matching_if = c_interface;
+            return true;
+        }
         idx++;
     }
 
@@ -42,27 +71,34 @@ static inline bool _matching_device(usb_device_ident_t* idents, device_t* device
  * @brief: Scan the driver list for a compatible driver for @udev
  *
  */
-static int usbdrv_device_scan_driver(usb_device_t* udev)
+int usbdrv_device_scan_driver(usb_device_t* udev)
 {
     int error;
     usb_driver_t* c_driver;
+    usb_interface_buffer_t* matching_if;
 
+    matching_if = nullptr;
     c_driver = nullptr;
 
     FOREACH(i, usbdrv_list)
     {
         c_driver = i->data;
 
-        if (!_matching_device(c_driver->desc->ident_list, udev->device) || !c_driver->desc->f_probe)
-            continue;
+        /* Already probed this fucker, skip */
+        if (manifest_has_dev(c_driver->driver, udev->device, NULL))
+            goto cycle;
+
+        if (!_matching_device(c_driver->desc->ident_list, udev, &matching_if) || !c_driver->desc->f_probe)
+            goto cycle;
 
         /* Do the probe */
-        error = c_driver->desc->f_probe(c_driver->driver, udev);
+        error = c_driver->desc->f_probe(c_driver->driver, udev, matching_if);
 
         /* Yay we've found our device */
         if (KERR_OK(error))
             break;
 
+    cycle:
         c_driver = nullptr;
     }
 

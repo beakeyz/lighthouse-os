@@ -28,10 +28,10 @@ enum USB_XFER_DIRECTION {
     USB_DIRECTION_DEVICE_TO_HOST,
 };
 
-#define USB_XFER_FLAG_DONE 0x0001
-#define USB_XFER_FLAG_CANCELED 0x0002
-#define USB_XFER_FLAG_ERROR 0x0004
-#define USB_XFER_FLAG_DATA_TGL 0x0008
+#define USB_XFER_FLAG_DONE 0x01
+#define USB_XFER_FLAG_CANCELED 0x02
+#define USB_XFER_FLAG_ERROR 0x04
+#define USB_XFER_FLAG_DATA_TGL 0x08
 
 /*!
  * Generic USB request structure for the
@@ -67,12 +67,15 @@ typedef struct usb_xfer {
     uint32_t req_hubaddr;
     uint32_t req_hubport;
     uint16_t req_max_packet_size;
-
-    uint16_t xfer_flags;
+    uint8_t xfer_flags;
+    uint8_t xfer_interval;
 
     struct usb_device* device;
 
-    /* Doorbell for async status reports */
+    /* Called when there is no door(bell) registered */
+    int (*f_completion_cb)(struct usb_xfer*);
+
+    /* Doorbell for status reports */
     kdoor_t* req_door;
 } usb_xfer_t;
 
@@ -81,9 +84,10 @@ static inline bool usb_xfer_is_done(usb_xfer_t* xfer)
     return ((xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE);
 }
 
-usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, enum USB_XFER_TYPE type, enum USB_XFER_DIRECTION direction, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint32_t endpoint, void* req_buf, uint32_t req_bsize, void* resp_buf, uint32_t resp_bsize);
+usb_xfer_t* create_usb_xfer(struct usb_device* device, kdoorbell_t* completion_db, int (*f_cb)(struct usb_xfer*), enum USB_XFER_TYPE type, enum USB_XFER_DIRECTION direction, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* req_buf, uint32_t req_bsize, void* resp_buf, uint32_t resp_bsize);
 
 int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, struct usb_ctlreq* ctl, struct usb_device* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
+int init_int_xfer(usb_xfer_t** pxfer, int (*f_cb)(struct usb_xfer*), struct usb_device* target, enum USB_XFER_DIRECTION direction, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* buffer, size_t bsize);
 
 /* Manage the existance of the request object with a reference counter */
 void get_usb_xfer(usb_xfer_t* req);

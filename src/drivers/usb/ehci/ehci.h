@@ -14,6 +14,8 @@ struct usb_xfer;
 
 #define EHCI_SPINUP_LIMIT 16
 
+#define EHCI_INT_ENTRY_COUNT 8
+
 #define EHCI_HCD_FLAG_STOPPING 0x00000001
 
 typedef struct ehci_hcd {
@@ -34,14 +36,19 @@ typedef struct ehci_hcd {
 
     /* Periodic table stuffskis */
     uint32_t periodic_size;
+    uint32_t n_itd; // TODO: Replace with something useful (This is always == periodic_size)
     uint32_t* periodic_table;
     paddr_t periodic_dma;
+    ehci_qh_t** interrupt_list;
+    ehci_itd_t** itd_list;
+    ehci_sitd_t** sitd_list;
 
     /* DMA Pools for the EHCI datastructures */
     zone_allocator_t* qh_pool;
     zone_allocator_t* qtd_pool;
     zone_allocator_t* itd_pool;
     zone_allocator_t* sitd_pool;
+    zone_allocator_t* int_entry_pool;
 
     /* Asynchronous thingy */
     ehci_qh_t* async;

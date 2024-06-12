@@ -219,7 +219,9 @@ typedef struct ehci_qtd {
 
 /* qh info 1 */
 #define EHCI_QH_SMASK 0x000000ff
+#define EHCI_QH_INTSCHED(p) ((p) << 0)
 #define EHCI_QH_CMASK 0x0000ff00
+#define EHCI_QH_SPLITCOMP(p) ((p) << 8)
 #define EHCI_QH_HUBADDR_MASK 0x007f0000
 #define EHCI_QH_HUBADDR(p) ((p) << 16)
 #define EHCI_QH_HUBPORT_MASK 0x3f800000
@@ -286,5 +288,10 @@ typedef struct ehci_sitd {
     size_t bufsize;
     vaddr_t buf;
 } __attribute__((packed, aligned(32))) ehci_sitd_t;
+
+typedef struct ehci_pfl_int_entry {
+    ehci_qh_t qh;
+    uint32_t pad[6];
+} ehci_pfl_int_entry_t;
 
 #endif // !__ANIVA_USB_EHCI_SPEC__

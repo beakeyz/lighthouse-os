@@ -15,6 +15,7 @@
 
 #include "dev/pci/pci.h"
 #include "dev/usb/spec.h"
+#include "dev/usb/xfer.h"
 #include "libk/flow/doorbell.h"
 #include <libk/stddef.h>
 
@@ -59,6 +60,7 @@ typedef struct usb_device {
     uint8_t slot;
     uint8_t ep_count;
     uint8_t config_count;
+    uint8_t active_config;
 
     char* product;
     char* manufacturer;
@@ -94,9 +96,12 @@ struct usb_hcd* usb_device_get_hcd(usb_device_t* device);
 int usb_device_get_class_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize);
 int usb_device_get_descriptor(usb_device_t* device, uint8_t descriptor_type, uint8_t index, uint16_t language_id, void* buffer, size_t bsize);
 int usb_device_set_address(usb_device_t* device, uint8_t addr);
+int usb_device_set_config(usb_device_t* device, uint8_t config_idx);
+int usb_device_get_active_config(usb_device_t* device, usb_config_buffer_t* conf_buf);
 int usb_device_reset_address(usb_device_t* device);
 
 int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
+int usb_device_submit_int(usb_device_t* device, usb_xfer_t** pxfer, int (*f_cb)(struct usb_xfer*), enum USB_XFER_DIRECTION direct, usb_endpoint_buffer_t* epb, void* buffer, size_t bsize);
 
 /*
  * TODO: Define the functions for handling transfers to specific endpoints on a device

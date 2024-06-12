@@ -1,3 +1,4 @@
+#include "dev/loader.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 
@@ -9,6 +10,7 @@
  */
 static int _usbcore_init()
 {
+    ASSERT_MSG(load_external_driver("Root/System/usbkbd.drv") != nullptr, "Failed to load generic usbkbd driver");
     return 0;
 }
 

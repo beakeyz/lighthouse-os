@@ -5,6 +5,7 @@
 #include "ehci.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
@@ -114,6 +115,12 @@ static ehci_qtd_t* _create_ehci_qtd_raw(ehci_hcd_t* ehci, size_t bsize, uint8_t 
     return ret;
 }
 
+static void _destroy_ehci_qtd(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
+{
+    __kmem_kernel_dealloc((vaddr_t)qtd->buffer, qtd->len);
+    zfree_fixed(ehci->qtd_pool, qtd);
+}
+
 void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer)
 {
     size_t max_pckt_size;
@@ -196,7 +203,29 @@ ehci_qh_t* create_ehci_qh(ehci_hcd_t* ehci, struct usb_xfer* xfer)
     return qh;
 }
 
-void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh);
+void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
+{
+    ehci_qtd_t *this_qtd, *next_qtd;
+
+    this_qtd = qh->qtd_link;
+
+    /* Murder this fucker if it is not part of the link */
+    if (qh->qtd_alt != this_qtd)
+        _destroy_ehci_qtd(ehci, qh->qtd_alt);
+
+    while (this_qtd) {
+        next_qtd = this_qtd->next;
+
+        /* Destroy this fucker */
+        _destroy_ehci_qtd(ehci, this_qtd);
+
+        /* Go next */
+        this_qtd = next_qtd;
+    }
+
+    /* Return to pool */
+    zfree_fixed(ehci->qh_pool, qh);
+}
 
 ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 
@@ -326,9 +355,43 @@ dealloc_and_exit:
     return -1;
 }
 
+/*!
+ * @brief: Create a transfer queue for data
+ *
+ * Called from the enqueue_transfer routine, which manages qh memory, so we don't have to be weird with destroying things we
+ * create as long as we attach them correctly
+ */
 int ehci_init_data_queue(ehci_hcd_t* ehci, struct usb_xfer* xfer, struct ehci_xfer** e_xfer, ehci_qh_t* qh)
 {
-    kernel_panic("TODO: ehci_init_data_queue");
+    size_t write_size;
+    ehci_qtd_t *start, *end;
+
+    start = end = nullptr;
+
+    /* Create a descriptor chain */
+    _ehci_xfer_attach_data_qtds(ehci, qh->qtd_alt, xfer->req_size, xfer->req_direction, &start, &end);
+
+    if (!start || !end)
+        return -KERR_INVAL;
+
+    /* Interrupt when we reach this qtd */
+    end->hw_token |= EHCI_QTD_IOC;
+
+    if (xfer->req_direction == USB_DIRECTION_HOST_TO_DEVICE) {
+        write_size = _ehci_write_qtd_chain(ehci, start, NULL, xfer->req_buffer, xfer->req_direction);
+
+        if (write_size != xfer->req_size)
+            return -KERR_INVAL;
+    } else if (!xfer->resp_buffer || !xfer->resp_size)
+        return -KERR_INVAL;
+
+    qh->qtd_link = start;
+    qh->hw_qtd_next = start->qtd_dma_addr;
+    qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
+
+    /* Create the EHCI transfer */
+    *e_xfer = create_ehci_xfer(xfer, qh, start);
+    return 0;
 }
 
 /*!
@@ -358,12 +421,12 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 
             /* Clamp */
             if ((c_total_read_size + c_read_size) > xfer->xfer->resp_size)
-                c_read_size = (c_total_read_size + c_read_size) - xfer->xfer->resp_size;
+                c_read_size = xfer->xfer->resp_size - c_buffer_offset;
 
             /* Copy to the response buffer */
             memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
 
-            // printf("Copied %lld bytes into the buffer!\n", c_read_size);
+            printf("Copied %lld bytes into the buffer!\n", c_read_size);
 
             /* Update the offsets */
             c_total_read_size += c_read_size;

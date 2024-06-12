@@ -33,6 +33,9 @@ static inline void _register_udev(usb_device_t* udev)
         return;
 
     list_append(_usbdev_list, udev);
+
+    /* Scan for a driver for this device */
+    usbdrv_device_scan_driver(udev);
 }
 
 static inline void _unregister_udev(usb_device_t* udev)
@@ -215,6 +218,59 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
     return ret;
 }
 
+/*!
+ * @brief: Sets the active config for a certain usb device
+ *
+ * Driver API function
+ *
+ */
+int usb_device_set_config(usb_device_t* device, uint8_t config_idx)
+{
+    int error;
+
+    if (!device)
+        return -KERR_INVAL;
+
+    if (config_idx >= device->config_count)
+        return -KERR_INVAL;
+
+    error = usb_device_submit_ctl(
+        device,
+        USB_TYPE_DEV_OUT | USB_TYPE_STANDARD,
+        USB_REQ_SET_CONFIGURATION,
+        device->configuration_arr[config_idx]->desc.config_value,
+        0, 0, NULL, 0);
+
+    /* Yayyy */
+    if (KERR_OK(error))
+        device->active_config = config_idx;
+
+    /* Wait for hardware */
+    mdelay(50);
+    return 0;
+}
+
+/*!
+ * @brief: Gets the active config of a certain usb device
+ *
+ * Driver API function
+ *
+ * Copies the buffer for the active config into @conf_buf. This will then
+ * contain more information about interfaces and endpoints.
+ */
+int usb_device_get_active_config(usb_device_t* device, usb_config_buffer_t* conf_buf)
+{
+    if (!device || !conf_buf)
+        return -KERR_INVAL;
+
+    if (!device->configuration_arr[device->active_config])
+        return -KERR_NULL;
+
+    /* Copy the configuration buffer */
+    memcpy(conf_buf, device->configuration_arr[device->active_config], sizeof(*conf_buf));
+    return 0;
+}
+
 static int udev_init_configurations(usb_device_t* udev)
 {
     int error;
@@ -222,7 +278,7 @@ static int udev_init_configurations(usb_device_t* udev)
     usb_configuration_descriptor_t tmp_buffer = { 0 };
 
     for (uint32_t i = 0; i < udev->config_count; i++) {
-
+        /* Yoink descriptors */
         error = usb_device_get_descriptor(udev, USB_DT_CONFIG, i, 0, &tmp_buffer, sizeof(tmp_buffer));
 
         if (error)
@@ -236,17 +292,11 @@ static int udev_init_configurations(usb_device_t* udev)
         udev->configuration_arr[i] = c_desc;
     }
 
-    error = usb_device_submit_ctl(
-        udev,
-        USB_TYPE_DEV_OUT | USB_TYPE_STANDARD,
-        USB_REQ_SET_CONFIGURATION,
-        udev->configuration_arr[0]->desc.config_value,
-        0, 0, NULL, 0);
+    if (error)
+        return error;
 
-    /* Wait for hardware */
-    mdelay(50);
-
-    return error;
+    /* Select the first, just for kicks */
+    return usb_device_set_config(udev, 0);
 }
 
 /*!
@@ -404,9 +454,6 @@ static inline int _usb_submit_ctl(usb_hcd_t* hcd, usb_device_t* target, uint8_t 
     kdoorbell_t* db;
     usb_ctlreq_t ctl;
 
-    if (!target)
-        return -1;
-
     /* Initialize the control transfer */
     init_ctl_xfer(&xfer, &db, &ctl, target, devaddr, hubaddr, hubport,
         reqtype, req, value, idx, len, respbuf, respbuf_len);
@@ -427,6 +474,27 @@ dealloc_and_exit:
     return error;
 }
 
+static inline int _usb_submit_int(usb_hcd_t* hcd, usb_xfer_t** pxfer, int (*f_cb)(struct usb_xfer*), usb_device_t* target, enum USB_XFER_DIRECTION direct, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* buffer, size_t bsize)
+{
+    int error;
+    usb_xfer_t* xfer;
+
+    if (!pxfer)
+        return -KERR_INVAL;
+
+    /* Initialize the control transfer */
+    error = init_int_xfer(&xfer, f_cb, target, direct, endpoint, max_pckt_size, interval, buffer, bsize);
+
+    if (error)
+        return error;
+
+    /* Export the transfer object */
+    *pxfer = xfer;
+
+    /* Enqueue the bitch */
+    return usb_xfer_enqueue(xfer, hcd);
+}
+
 /*!
  * @brief: Submit a control transfer to the control pipe of @device
  *
@@ -440,6 +508,17 @@ int usb_device_submit_ctl(usb_device_t* device, uint8_t reqtype, uint8_t req, ui
 
     return _usb_submit_ctl(device->hcd, device, device->dev_addr, device->hub_addr, device->hub_port,
         reqtype, req, value, idx, len, respbuf, respbuf_len);
+}
+
+int usb_device_submit_int(usb_device_t* device, usb_xfer_t** pxfer, int (*f_cb)(struct usb_xfer*), enum USB_XFER_DIRECTION direct, usb_endpoint_buffer_t* epb, void* buffer, size_t bsize)
+{
+    if (!device || !epb)
+        return -KERR_INVAL;
+
+    if (!buffer || !bsize)
+        return -KERR_INVAL;
+
+    return _usb_submit_int(device->hcd, pxfer, f_cb, device, direct, epb->desc.endpoint_address, epb->desc.max_packet_size, epb->desc.interval, buffer, bsize);
 }
 
 int usb_device_set_address(usb_device_t* device, uint8_t addr)

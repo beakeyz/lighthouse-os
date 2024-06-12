@@ -17,12 +17,15 @@
 usb_xfer_t* create_usb_xfer(
     struct usb_device* device,
     kdoorbell_t* completion_db,
+    int (*f_cb)(struct usb_xfer*),
     enum USB_XFER_TYPE type,
     enum USB_XFER_DIRECTION direction,
     uint8_t devaddr,
     uint8_t hubaddr,
     uint8_t hubport,
-    uint32_t endpoint,
+    uint8_t endpoint,
+    uint16_t max_pckt_size,
+    uint8_t interval,
     void* req_buf,
     uint32_t req_bsize,
     void* resp_buf,
@@ -35,6 +38,8 @@ usb_xfer_t* create_usb_xfer(
 
     if (!request)
         return nullptr;
+
+    memset(request, 0, sizeof(*request));
 
     request->ref = 1;
     request->device = device;
@@ -50,6 +55,24 @@ usb_xfer_t* create_usb_xfer(
     request->req_size = req_bsize;
     request->resp_buffer = resp_buf;
     request->resp_size = resp_bsize;
+    request->f_completion_cb = f_cb;
+
+    request->xfer_interval = interval;
+    request->req_max_packet_size = 8;
+
+    /*
+     * Update max packet size to what the device specifies if we're a control
+     * transfer, otherwise what the caller specifies
+     */
+    if (device->desc.type && type == USB_CTL_XFER)
+        request->req_max_packet_size = device->desc.max_pckt_size;
+    else if (max_pckt_size)
+        request->req_max_packet_size = max_pckt_size;
+
+    /* No doorbell just return at this point */
+    if (!completion_db)
+        return request;
+
     request->req_door = kmalloc(sizeof(kdoor_t));
 
     /* Initialize the door */
@@ -94,15 +117,24 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_
     };
 
     db = create_doorbell(1, NULL);
-    xfer = create_usb_xfer(target, db, USB_CTL_XFER, dir, devaddr, hubaddr, hubport, 0, ctl, sizeof(*ctl), respbuf, respbuf_len);
-
-    xfer->req_max_packet_size = 8;
-
-    if (target->desc.type)
-        xfer->req_max_packet_size = target->desc.max_pckt_size;
+    xfer = create_usb_xfer(target, db, nullptr, USB_CTL_XFER, dir, devaddr, hubaddr, hubport, 0, 0, 0, ctl, sizeof(*ctl), respbuf, respbuf_len);
 
     *pxfer = xfer;
     *pdb = db;
+    return 0;
+}
+
+int init_int_xfer(usb_xfer_t** pxfer, int (*f_cb)(struct usb_xfer*), struct usb_device* target, enum USB_XFER_DIRECTION direction, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* buffer, size_t bsize)
+{
+    usb_xfer_t* xfer;
+
+    xfer = create_usb_xfer(target, nullptr, f_cb, USB_INT_XFER, direction, target->dev_addr, target->hub_addr, target->hub_port, endpoint, max_pckt_size, interval, buffer, bsize, buffer, bsize);
+
+    /* Fuck */
+    if (!xfer)
+        return -KERR_NOMEM;
+
+    *pxfer = xfer;
     return 0;
 }
 
@@ -124,8 +156,16 @@ void release_usb_xfer(usb_xfer_t* req)
 
 int usb_xfer_complete(usb_xfer_t* xfer)
 {
-    doorbell_ring(xfer->req_door->m_bell);
-    return 0;
+    int error = 0;
+
+    /* Call the completion method if it exists */
+    if (xfer->f_completion_cb)
+        error = xfer->f_completion_cb(xfer);
+
+    /* Only ring the doorbell if we have it */
+    if (xfer->req_door && xfer->req_door->m_bell)
+        doorbell_ring(xfer->req_door->m_bell);
+    return error;
 }
 
 /*!

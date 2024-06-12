@@ -9,6 +9,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
+#include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -18,6 +19,7 @@
 #include "sync/mutex.h"
 #include <dev/core.h>
 #include <dev/manifest.h>
+#include <stdint.h>
 
 /*
  * EHCI HC driver
@@ -428,6 +430,85 @@ static int ehci_reset(ehci_hcd_t* ehci)
 }
 
 /*!
+ * @brief: Prepare a list of interrupt queueheads
+ */
+static int ehci_init_periodic_list(ehci_hcd_t* ehci)
+{
+    ehci_qh_t* c_qh;
+    ehci_qh_t* first_int;
+    paddr_t pfl_int_array_dma = (ehci->periodic_dma + SMALL_PAGE_SIZE);
+
+    ehci->interrupt_list = (ehci_qh_t**)kmalloc(EHCI_INT_ENTRY_COUNT * sizeof(ehci_qh_t*));
+
+    for (uint32_t i = 0; i < EHCI_INT_ENTRY_COUNT; i++) {
+        c_qh = ehci->interrupt_list[i] = zalloc_fixed(ehci->qh_pool);
+
+        /* Clear the qh */
+        memset(c_qh, 0, sizeof(*c_qh));
+
+        /* Set fields */
+        c_qh->qh_dma = (pfl_int_array_dma + (i * sizeof(ehci_pfl_int_entry_t))) | EHCI_FLLP_TYPE_QH;
+        c_qh->hw_qtd_token = EHCI_QTD_STATUS_HALTED;
+        c_qh->hw_qtd_next = EHCI_FLLP_TYPE_END;
+        c_qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
+        c_qh->hw_cur_qtd = 0;
+
+        c_qh->hw_info_0 |= (EHCI_QH_HIGH_SPEED | EHCI_QH_TOGGLE_CTL | EHCI_QH_MPL(64) | EHCI_QH_RLC(3));
+        c_qh->hw_info_1 |= (EHCI_QH_INTSCHED(0xff) | EHCI_QH_MULT_VAL(1));
+    }
+
+    /* Yoink the first fucker */
+    first_int = ehci->interrupt_list[0];
+
+    for (uint32_t i = 1; i < EHCI_INT_ENTRY_COUNT; i++) {
+        c_qh = ehci->interrupt_list[i];
+        c_qh->hw_next = first_int->qh_dma;
+        c_qh->next = first_int;
+        c_qh->prev = nullptr;
+    }
+
+    /* Terminate the first entry */
+    first_int->hw_next = EHCI_FLLP_TYPE_END;
+
+    ehci->n_itd = 128;
+    ehci->itd_list = (ehci_itd_t**)kmalloc(ehci->n_itd * sizeof(ehci_itd_t*));
+    ehci->sitd_list = (ehci_sitd_t**)kmalloc(ehci->n_itd * sizeof(ehci_sitd_t*));
+
+    /* Initialize the periodic frame list */
+    for (uint32_t i = 0; i < ehci->n_itd; i++) {
+
+        ehci->sitd_list[i] = zalloc_fixed(ehci->sitd_pool);
+        ehci->sitd_list[i]->sitd_dma = kmem_to_phys(nullptr, (vaddr_t)ehci->sitd_list[i]) | EHCI_FLLP_TYPE_SITD;
+        ehci->sitd_list[i]->hw_back_buf = EHCI_FLLP_TYPE_END;
+
+        ehci->itd_list[i] = zalloc_fixed(ehci->itd_pool);
+        ehci->itd_list[i]->itd_dma = kmem_to_phys(nullptr, (vaddr_t)ehci->itd_list[i]) | EHCI_FLLP_TYPE_ITD;
+        ehci->itd_list[i]->hw_next = ehci->sitd_list[i]->sitd_dma;
+    }
+
+    uint32_t intr = ehci->n_itd;
+    uint32_t int_entry_idx = EHCI_INT_ENTRY_COUNT - 1;
+    uint32_t sidt_idx;
+
+    /* Fill the sitds with qh at the correct indecies */
+    do {
+        /* Put the interrupt qheads at the right intervals */
+        for (sidt_idx = intr / 2; sidt_idx < ehci->n_itd; sidt_idx += intr)
+            ehci->sitd_list[sidt_idx]->hw_next = ehci->interrupt_list[int_entry_idx]->qh_dma;
+
+        /* Cut back to the next (or rather previous) interval */
+        int_entry_idx--;
+        intr /= 2;
+    } while (intr > 1);
+
+    /* Finally, put the itds into the periodic list */
+    for (uint32_t i = 0; i < ehci->periodic_size; i++)
+        ehci->periodic_table[i] = ehci->itd_list[i % ehci->n_itd]->itd_dma;
+
+    return 0;
+}
+
+/*!
  * @brief: Allocate the structures needed for the function of ehci
  *
  */
@@ -445,6 +526,9 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
     /* Alignment should also be good */
     ehci->sitd_pool = create_zone_allocator(4096, sizeof(ehci_sitd_t), ZALLOC_FLAG_DMA);
 
+    /* Alignment should, once again, be good */
+    ehci->int_entry_pool = create_zone_allocator(4096, sizeof(ehci_pfl_int_entry_t), ZALLOC_FLAG_DMA);
+
     /* Allocate the periodic shedule table */
     ehci->periodic_table = (uint32_t*)Must(__kmem_kernel_alloc_range(
         ehci->periodic_size * sizeof(uint32_t),
@@ -457,6 +541,8 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
 
     /* Write the thing lmao */
     mmio_write_dword(ehci->opregs + EHCI_OPREG_PERIODICLISTBASE, ehci->periodic_dma);
+
+    ehci_init_periodic_list(ehci);
 
     ehci->async = create_ehci_qh(ehci, NULL);
 
@@ -605,40 +691,42 @@ static int ehci_start(usb_hcd_t* hcd)
     /* Clear interrupt ctl */
     c_tmp &= ~(EHCI_OPREG_USBCMD_INTER_CTL(EHCI_OPREG_USBCMD_INTER_CTL_MASK) | EHCI_OPREG_USBCMD_PPCEE);
     /* Program framelist size */
-  c_tmp |= EHCI_OPREG_USBCMD_FRAMELIST_SIZE(((c_tmp >> EHCI_OPREG_USBCMD_FRAMELIST_SIZE_SHIFT) & EHCI_OPREG_USBCMD_FRAMELIST_SIZE_MASK)));
-  /* Program interrupt ctl */
-  c_tmp |= (1 << EHCI_OPREG_USBCMD_INTER_CTL_SHIFT);
+    c_tmp |= EHCI_OPREG_USBCMD_FRAMELIST_SIZE(((c_tmp >> EHCI_OPREG_USBCMD_FRAMELIST_SIZE_SHIFT) & EHCI_OPREG_USBCMD_FRAMELIST_SIZE_MASK)));
+    /* Program interrupt ctl */
+    c_tmp |= (1 << EHCI_OPREG_USBCMD_INTER_CTL_SHIFT);
+    /* Enable periodic schedule */
+    c_tmp |= EHCI_OPREG_USBCMD_PERIODIC_SCHEDULE_ENABLE;
 
-  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, c_tmp);
+    mmio_write_dword(ehci->opregs + EHCI_OPREG_USBCMD, c_tmp);
 
-  /*
-   * Route ports to us from any companion controller(s)
-   * NOTE/FIXME: These controllers may be in the middle of a port reset. This
-   * may cause some issues...
-   * See: https://github.com/torvalds/linux/blob/master/drivers/usb/host/ehci-hcd.c#L573
-   */
-  mmio_write_dword(ehci->opregs + EHCI_OPREG_CONFIGFLAG, 1);
+    /*
+     * Route ports to us from any companion controller(s)
+     * NOTE/FIXME: These controllers may be in the middle of a port reset. This
+     * may cause some issues...
+     * See: https://github.com/torvalds/linux/blob/master/drivers/usb/host/ehci-hcd.c#L573
+     */
+    mmio_write_dword(ehci->opregs + EHCI_OPREG_CONFIGFLAG, 1);
 
-  /* Flush */
-  c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
-  mdelay(5);
+    /* Flush */
+    c_tmp = mmio_read_dword(ehci->opregs + EHCI_OPREG_USBCMD);
+    mdelay(5);
 
-  ehci->cur_interrupt_state = EHCI_USBINTR_HOSTSYSERR | EHCI_USBINTR_USBERRINT | EHCI_USBINTR_INTONAA | EHCI_USBINTR_PORTCHANGE | EHCI_USBINTR_USBINT;
+    ehci->cur_interrupt_state = EHCI_USBINTR_HOSTSYSERR | EHCI_USBINTR_USBERRINT | EHCI_USBINTR_INTONAA | EHCI_USBINTR_PORTCHANGE | EHCI_USBINTR_USBINT;
 
-  /* Write the things to the HC */
-  mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
+    /* Write the things to the HC */
+    mmio_write_dword(ehci->opregs + EHCI_OPREG_USBINTR, ehci->cur_interrupt_state);
 
-  /* Create this roothub */
-  if (create_usb_hub(&hcd->roothub, hcd, USB_HUB_TYPE_EHCI, nullptr, ehci_rh_device, ehci->portcount, false))
-      /* No need to destroy the usb device here, since the usb hub owns that memory now and
-         create_usb_hub will clean up any memory if it fails */
-      return -1;
+    /* Create this roothub */
+    if (create_usb_hub(&hcd->roothub, hcd, USB_HUB_TYPE_EHCI, nullptr, ehci_rh_device, ehci->portcount, false))
+        /* No need to destroy the usb device here, since the usb hub owns that memory now and
+           create_usb_hub will clean up any memory if it fails */
+        return -1;
 
-  /* Enumerate the hub */
-  usb_hub_enumerate(hcd->roothub);
+    /* Enumerate the hub */
+    usb_hub_enumerate(hcd->roothub);
 
-  KLOG_DBG("Started the EHCI controller\n");
-  return 0;
+    KLOG_DBG("Started the EHCI controller\n");
+    return 0;
 }
 
 static void ehci_stop(usb_hcd_t* hcd)
@@ -717,6 +805,64 @@ static int _ehci_add_async_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
     return 0;
 }
 
+static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
+{
+    uint8_t interval;
+    ehci_qh_t *qh, *link_qh;
+    usb_xfer_t* xfer;
+
+    xfer = e_xfer->xfer;
+    qh = e_xfer->qh;
+
+    interval = xfer->xfer_interval;
+
+    if (interval > EHCI_INT_ENTRY_COUNT)
+        interval = EHCI_INT_ENTRY_COUNT;
+
+    switch (xfer->device->speed) {
+    case USB_HIGHSPEED:
+        qh->hw_info_1 |= EHCI_QH_INTSCHED(0xff);
+        break;
+    case USB_LOWSPEED:
+        interval = 4;
+        // Fallthrough
+    default:
+        qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
+        break;
+    }
+
+    /* Fuck man */
+    ASSERT_MSG(interval, "_ehci_add_async_int_xfer: Got a null-interval");
+
+    mutex_lock(ehci->async_lock);
+
+    link_qh = ehci->interrupt_list[interval - 1];
+
+    /* Link the new queuehead to the target qh */
+    qh->prev = link_qh;
+    qh->next = link_qh->next;
+    qh->hw_next = link_qh->hw_next;
+
+    /* Make sure the qh we place this new one behind knows about us */
+    if (qh->next)
+        qh->next->prev = qh;
+
+    /* Finish the link */
+    link_qh->next = qh;
+    link_qh->hw_next = qh->qh_dma;
+
+    mutex_unlock(ehci->async_lock);
+    return 0;
+}
+
+static int _ehci_link_transfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
+{
+    if (e_xfer->xfer->req_type == USB_INT_XFER)
+        return _ehci_add_async_int_xfer(ehci, e_xfer);
+
+    return _ehci_add_async_qh(ehci, e_xfer->qh);
+}
+
 int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
 {
     int error;
@@ -761,7 +907,7 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
     if (error)
         goto destroy_and_exit;
 
-    error = _ehci_add_async_qh(ehci, qh);
+    error = _ehci_link_transfer(ehci, e_xfer);
 
     if (error)
         goto destroy_and_exit;

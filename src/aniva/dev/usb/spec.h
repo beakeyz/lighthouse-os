@@ -2,6 +2,7 @@
 #define __ANIVA_USB_SPECIFICATION__
 
 #include <libk/stddef.h>
+#include <libk/string.h>
 
 struct usb_interface_buffer;
 struct usb_endpoint_buffer;
