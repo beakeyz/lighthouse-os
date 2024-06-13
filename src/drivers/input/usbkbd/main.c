@@ -1,13 +1,14 @@
 #include <dev/core.h>
 #include <dev/manifest.h>
+#include <dev/usb/driver.h>
 
-#include "dev/usb/driver.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
 #include "drivers/input/i8042/i8042.h"
 #include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "lightos/event/key.h"
 #include "logging/log.h"
 #include "mem/heap.h"
@@ -143,16 +144,16 @@ static inline void usbkbd_set_keycode_buffer(usbkbd_t* kbd, uint16_t keycode, bo
     uint32_t key_idx;
 
     if (pressed) {
-        for (uint32_t i = 0; i < arrlen(kbd->c_scancodes); i++) {
+        for (key_idx = 0; key_idx < arrlen(kbd->c_scancodes); key_idx++) {
             /* No duplicates */
-            if (kbd->c_scancodes[i] == keycode)
+            if (kbd->c_scancodes[key_idx] == keycode)
                 break;
 
             /* Skip taken scancodes */
-            if (kbd->c_scancodes[i])
+            if (kbd->c_scancodes[key_idx])
                 continue;
 
-            kbd->c_scancodes[i] = keycode;
+            kbd->c_scancodes[key_idx] = keycode;
             break;
         }
 
@@ -191,7 +192,7 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
 {
     kbd->c_ctx.pressed = pressed;
     kbd->c_ctx.keycode = aniva_scancode_table[keycode];
-    kbd->c_ctx.pressed_char = kbd_us_map[keycode];
+    kbd->c_ctx.pressed_char = (kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)) ? kbd_us_shift_map[keycode] : kbd_us_map[keycode];
 
     switch (kbd->c_ctx.keycode) {
     case ANIVA_SCANCODE_LSHIFT:
@@ -204,9 +205,6 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
         usbkbd_set_mod(kbd, USBKBD_MOD_TAB, pressed);
         break;
     }
-
-    if ((kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)))
-        kbd->c_ctx.pressed_char = kbd_us_shift_map[keycode];
 
     usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.keycode, pressed);
 

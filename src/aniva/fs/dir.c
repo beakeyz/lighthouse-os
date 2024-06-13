@@ -205,8 +205,8 @@ void destroy_dir(dir_t* dir)
 
     /* Detach first */
     if (dir->node) {
-        if (oss_node_is_empty(dir->node))
-            /* Destroy the thing if it's unused */
+        if (dir->node->type == OSS_OBJ_STORE_NODE && oss_node_is_empty(dir->node))
+            /* Destroy the thing if it's unused and is not holding special data */
             destroy_oss_node(dir->node);
         else
             oss_node_detach_dir(dir->node);

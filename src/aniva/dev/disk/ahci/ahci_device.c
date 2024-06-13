@@ -408,7 +408,7 @@ int ahci_driver_init(drv_manifest_t* driver)
     _ahci_driver = driver;
     _ahci_group = register_dev_group(DGROUP_TYPE_AHCI, "ahci", NULL, NULL);
 
-    register_pci_driver(&ahci_pci_driver);
+    register_pci_driver(driver, &ahci_pci_driver);
 
     return 0;
 }

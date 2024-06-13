@@ -1084,7 +1084,7 @@ void init_usb()
     _root_usbhub_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
     _usbdev_list = init_list();
 
-    ASSERT_MSG(_root_usbhub_group, "Failed to create vector for hcds");
+    ASSERT_MSG(_root_usbhub_group && _root_usbhub_group->node, "Failed to create vector for hcds");
 
     /* Make sure usb drivers are setup */
     init_usb_drivers();

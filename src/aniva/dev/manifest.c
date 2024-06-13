@@ -332,6 +332,9 @@ int manifest_add_dev(struct drv_manifest* driver, device_t* device)
 {
     kerror_t error;
 
+    if (!driver || !device)
+        return -1;
+
     mutex_lock(driver->m_lock);
 
     error = vector_add(driver->m_dev_list, &device, NULL);

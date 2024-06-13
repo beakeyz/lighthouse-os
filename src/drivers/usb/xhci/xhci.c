@@ -910,7 +910,7 @@ int xhci_init(drv_manifest_t* driver)
 {
     _xhci_driver = driver;
 
-    register_pci_driver(&xhci_pci_driver);
+    register_pci_driver(driver, &xhci_pci_driver);
     return 0;
 }
 

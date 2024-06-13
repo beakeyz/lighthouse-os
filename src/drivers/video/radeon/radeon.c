@@ -45,7 +45,7 @@ int radeon_init(drv_manifest_t* driver)
     /* Setup driver software stuff */
 
     /* Register pci driver */
-    register_pci_driver(&radeon_pci);
+    register_pci_driver(driver, &radeon_pci);
 
     return 0;
 }

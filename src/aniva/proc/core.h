@@ -4,11 +4,11 @@
 #include "libk/flow/error.h"
 
 #define DEFAULT_STACK_SIZE (64 * Kib)
-#define DEFAULT_THREAD_MAX_TICKS (8)
+#define DEFAULT_THREAD_MAX_TICKS (32)
 
 #define PROC_DEFAULT_MAX_THREADS (16)
 #define PROC_CORE_PROCESS_NAME "not_the_kernel"
-#define PROC_MAX_TICKS (20)
+#define PROC_MAX_TICKS (64)
 
 #define PROC_SOFTMAX (0x1000)
 

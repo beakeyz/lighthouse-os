@@ -1,6 +1,5 @@
-#include "ata.h"
 #include "dev/core.h"
-#include "dev/debug/serial.h"
+#include "dev/manifest.h"
 #include "dev/pci/pci.h"
 #include <dev/pci/definitions.h>
 
@@ -27,9 +26,9 @@ static pci_driver_t ata_pci_driver = {
     .device_flags = NULL,
 };
 
-int ata_driver_init()
+int ata_driver_init(drv_manifest_t* driver)
 {
-    register_pci_driver(&ata_pci_driver);
+    register_pci_driver(driver, &ata_pci_driver);
     return 0;
 }
 

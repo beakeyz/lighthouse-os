@@ -111,8 +111,10 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
                 if (!probe_error) {
                     driver->device_count++;
                     ret->driver = driver;
+
                     /* Add the device to the manifest */
                     manifest_add_dev(driver->manifest, ret->dev);
+                    break;
                 }
             }
 
@@ -291,12 +293,13 @@ bool is_pci_driver_unused(pci_driver_t* driver)
  * NOTE: This function may fail when we can't find a device for this driver to govern
  * and the driver has specified volatile rescans
  */
-int register_pci_driver(struct pci_driver* driver)
+int register_pci_driver(struct drv_manifest* drv, struct pci_driver* driver)
 {
     if (!driver->id_table)
         return -1;
 
     driver->lock = create_mutex(NULL);
+    driver->manifest = drv;
 
     return __add_pci_driver(driver);
 }

@@ -39,7 +39,7 @@ void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
     /* Enqueue the queue head so we can kill it peacefully */
     queue_enqueue(ehci->destroyable_qh_q, xfer->qh);
 
-    if (xfer->xfer->req_type == USB_INT_XFER)
+    if (xfer->xfer->req_type != USB_CTL_XFER)
         ehci->ehci_flags |= EHCI_HCD_FLAG_CAN_DESTROY_QH;
 
     mutex_unlock(ehci->cleanup_lock);
@@ -429,15 +429,19 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 
         while (c_qtd && c_qtd->buffer) {
             /* Get the buffer size of this descriptor */
-            c_read_size = c_qtd->len - (c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK;
+            c_read_size = c_qtd->len - ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK);
 
-            /* Clamp */
-            if ((c_total_read_size + c_read_size) > xfer->xfer->resp_size)
+            /*
+             * If the size of the current qtd is bigger than the size
+             * of the transfer buffer, we have to clamp the size to fit.
+             */
+            if ((c_total_read_size + c_read_size) > (xfer->xfer->resp_size - c_buffer_offset))
                 c_read_size = xfer->xfer->resp_size - c_buffer_offset;
 
             /* Copy to the response buffer */
             memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
 
+            // if (c_read_size)
             // printf("Copied %lld bytes into the buffer!\n", c_read_size);
 
             /* Update the offsets */
@@ -457,7 +461,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
         /* Update the total transfer size */
         usb_xfer->resp_transfer_size = c_total_read_size;
         break;
-    /* We have sent info to the device, check status */
+    /* TODO: We have sent info to the device, check status */
     case USB_DIRECTION_HOST_TO_DEVICE:
         break;
     }

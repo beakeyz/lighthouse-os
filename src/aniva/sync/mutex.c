@@ -148,8 +148,6 @@ static bool mutex_unlock_locked(mutex_t* mutex, bool should_unregister)
     if (!c_thread)
         return false;
 
-    ASSERT_MSG(mutex && mutex->m_lock, "Tried to unlock a mutex that has not been initialized");
-
     ASSERT_MSG(mutex->m_lock_depth--, "Tried to unlock a mutex while it was already unlocked!");
 
     if (!mutex->m_lock_depth) {
@@ -172,6 +170,8 @@ void mutex_unlock(mutex_t* mutex)
     /* No need */
     if (!get_current_scheduling_thread())
         return;
+
+    ASSERT_MSG(mutex && mutex->m_lock, "Tried to unlock a mutex that has not been initialized");
 
     spinlock_lock(mutex->m_lock);
 

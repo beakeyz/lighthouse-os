@@ -347,11 +347,8 @@ bool is_end_devid(pci_dev_id_t* dev_id);
  */
 typedef struct pci_driver {
     /* Amount of devices this driver is giving service to */
-    uint8_t device_count; // NOTE: we are wasting a bunch of space here. For any 8-, 16- or 32 bit numbers place them below here
-    uint8_t device_flags;
-
-    /* Lock that ensures only one opperation at a time on this driver */
-    mutex_t* lock;
+    uint32_t device_count; // NOTE: we are wasting a bunch of space here. For any 8-, 16- or 32 bit numbers place them below here
+    uint32_t device_flags;
 
     /*
      * Functions that are called for specific PCI housekeeping
@@ -366,6 +363,8 @@ typedef struct pci_driver {
 
     pci_dev_id_t* id_table;
 
+    /* Lock that ensures only one opperation at a time on this driver */
+    mutex_t* lock;
     /* The parent driver that makes up */
     struct drv_manifest* manifest;
 } pci_driver_t;
@@ -376,7 +375,7 @@ bool is_pci_driver_unused(pci_driver_t* driver);
 void pci_device_attach_driver(pci_device_t* device, struct pci_driver* driver);
 void pci_device_detach_driver(pci_device_t* device, struct pci_driver* driver);
 
-int register_pci_driver(struct pci_driver* driver);
+int register_pci_driver(struct drv_manifest* drv, struct pci_driver* driver);
 int unregister_pci_driver(struct pci_driver* driver);
 
 extern bool __has_registered_bridges;

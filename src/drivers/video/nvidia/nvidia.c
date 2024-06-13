@@ -120,7 +120,7 @@ int nvidia_init(drv_manifest_t* driver)
         return -1;
 
     println("Registered nvidia PCI driver!");
-    register_pci_driver(&nvfb_pci_driver);
+    register_pci_driver(driver, &nvfb_pci_driver);
     return 0;
 }
 

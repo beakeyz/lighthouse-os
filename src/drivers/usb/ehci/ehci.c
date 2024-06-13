@@ -367,8 +367,6 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
 
     unlock_and_yield:
         mutex_unlock(ehci->cleanup_lock);
-        continue;
-
     yield:
         scheduler_yield();
     }
@@ -946,7 +944,6 @@ int ehci_enqueue_transfer(usb_hcd_t* hcd, usb_xfer_t* xfer)
         return -1;
 
     ehci = hcd->private;
-
     roothub = hcd->roothub;
 
     if (xfer->req_devaddr == roothub->udev->dev_addr)
@@ -1062,11 +1059,11 @@ pci_driver_t ehci_pci_driver = {
     .device_flags = NULL,
 };
 
-int ehci_init(drv_manifest_t* this)
+int ehci_init(drv_manifest_t* driver)
 {
     _ehci_hcd_count = 0;
-    _ehci_driver = this;
-    register_pci_driver(&ehci_pci_driver);
+    _ehci_driver = driver;
+    register_pci_driver(driver, &ehci_pci_driver);
     return 0;
 }
 
