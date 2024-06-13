@@ -46,12 +46,13 @@ driver_version_t kernel_version = DRIVER_VERSION(0, 0, 1);
 /*
  * NOTE: has to be run after driver initialization
  */
-ErrorOrPtr __init try_fetch_initramdisk(void)
+kerror_t __init try_fetch_initramdisk(void)
 {
+    uintptr_t ramdisk_addr;
     struct multiboot_tag_module* mod = g_system_info.ramdisk;
 
     if (!mod)
-        return Error();
+        return -1;
 
     const paddr_t module_start = mod->mod_start;
     const paddr_t module_end = mod->mod_end;
@@ -62,13 +63,13 @@ ErrorOrPtr __init try_fetch_initramdisk(void)
     const size_t cramdisk_size = module_end - module_start;
 
     /* Map user pages */
-    const uintptr_t ramdisk_addr = Must(__kmem_kernel_alloc(module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc((void**)&ramdisk_addr, module_start, cramdisk_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
 
     /* Create ramdisk object */
     disk_dev_t* ramdisk = create_generic_ramdev_at(ramdisk_addr, cramdisk_size);
 
     if (!ramdisk)
-        return Error();
+        return -1;
 
     /* We know ramdisks through modules are compressed */
     ramdisk->m_flags |= GDISKDEV_FLAG_RAM_COMPRESSED;

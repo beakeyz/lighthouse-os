@@ -53,39 +53,43 @@ static inline bool __covers_entire_resource(uintptr_t start, size_t size, kresou
  * start and size represent the contained range,
  * the resource is the containing host
  */
-static inline ErrorOrPtr __resource_get_low_side_space(uintptr_t start, size_t size, kresource_t* resource)
+static inline int __resource_get_low_side_space(uintptr_t start, size_t size, kresource_t* resource, size_t* bsize)
 {
     if (!resource)
-        return Error();
+        return -1;
 
     if (!resource_contains(resource, start))
-        return Error();
+        return -1;
 
     if (resource->m_start >= start)
-        return Error();
+        return -1;
 
-    return Success(start - resource->m_start);
+    if (bsize)
+        *bsize = (start - resource->m_start);
+    return 0;
 }
 
 /*
  * start and size represent the contained range,
  * the resource is the containing host
  */
-static inline ErrorOrPtr __resource_get_high_side_space(uintptr_t start, size_t size, kresource_t* resource)
+static inline int __resource_get_high_side_space(uintptr_t start, size_t size, kresource_t* resource, size_t* bsize)
 {
     if (!resource)
-        return Error();
+        return -1;
 
     if (!resource_contains(resource, start + size))
-        return Error();
+        return -1;
 
     uintptr_t r_end_addr = resource->m_start + resource->m_size;
     uintptr_t end_addr = start + size;
 
     if (end_addr > r_end_addr)
-        return Error();
+        return -1;
 
-    return Success(r_end_addr - end_addr);
+    if (bsize)
+        *bsize = (r_end_addr - end_addr);
+    return 0;
 }
 
 static inline bool __resource_type_is_valid(kresource_type_t type)
@@ -240,7 +244,7 @@ static kresource_t* __create_kresource(uintptr_t start, size_t size, kresource_t
  *
  * this can be used for any resources that are used by devices and drivers
  */
-ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type)
+int resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type)
 {
     return resource_claim_ex(name, owner, start, size, type, __kernel_resource_bundle);
 }
@@ -252,12 +256,12 @@ ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start,
  * overlapping resources. @regions needs to be an active object that represents a resource range
  * (Like a memoryspace or an IRQ range)
  */
-ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* regions)
+int resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* regions)
 {
     kresource_t** curr_resource_slot;
 
     if (!__resource_mutex || !__resource_allocator || !regions || !__resource_type_is_valid(type))
-        return Error();
+        return -1;
 
     mutex_lock(__resource_mutex);
 
@@ -266,7 +270,7 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
 
     if (!(*curr_resource_slot)) {
         mutex_unlock(__resource_mutex);
-        return Error();
+        return -1;
     }
 
     /*
@@ -277,10 +281,11 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
      *    - If it's not shared and it is entirely enveloped by the requested resource,
      *      we can simply 'claim' it by setting the reference count to 1
      */
-    ErrorOrPtr result;
+    int error;
     kresource_t* last_referenced_resource = nullptr;
     uintptr_t itt_addr = start;
     size_t itt_size = size;
+    uintptr_t delta;
 
     while (*curr_resource_slot && itt_addr < (start + size)) {
 
@@ -293,16 +298,15 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
          * If we have space left on the low side, that means we'll have to place a new
          * resource above the old resource
          */
-        result = __resource_get_low_side_space(start, size, *curr_resource_slot);
+        error = __resource_get_low_side_space(start, size, *curr_resource_slot, &delta);
 
-        if (result.m_status == ANIVA_SUCCESS) {
+        if (!error) {
 
             if (__resource_is_referenced(*curr_resource_slot) && last_referenced_resource != *curr_resource_slot) {
                 goto mark_and_cycle;
             }
 
             uintptr_t resource_start = (*curr_resource_slot)->m_start;
-            uintptr_t delta = Release(result);
 
             kresource_t* split = __create_kresource(resource_start, delta, type);
 
@@ -326,13 +330,13 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
         }
 
         /* If we have some space left on the high side, we can split it and claim */
-        result = __resource_get_high_side_space(start, size, *curr_resource_slot);
+        error = __resource_get_high_side_space(start, size, *curr_resource_slot, &delta);
 
         /*
          * NOTE: Being able to get high space means that
          * the requested range ends at this resource.
          */
-        if (result.m_status == ANIVA_SUCCESS) {
+        if (!error) {
 
             if (__resource_is_referenced(*curr_resource_slot) && last_referenced_resource != *curr_resource_slot) {
                 __resource_reference(*curr_resource_slot, owner);
@@ -341,7 +345,6 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
 
             uintptr_t resource_start = (*curr_resource_slot)->m_start;
             uintptr_t resource_end = resource_start + (*curr_resource_slot)->m_size;
-            uintptr_t delta = Release(result);
             /* Split is the resource that gets created as a result of the space we have left high */
             kresource_t* split = __create_kresource(resource_end - delta, delta, type);
 
@@ -386,20 +389,20 @@ ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, siz
     }
 
     mutex_unlock(__resource_mutex);
-    return Success(0);
+    return 0;
 }
 
 /*
  * NOTE: Since a releaseable region will always have
  */
-ErrorOrPtr resource_release_region(kresource_t* previous_resource, kresource_t* current_resource)
+int resource_release_region(kresource_t* previous_resource, kresource_t* current_resource)
 {
     uintptr_t start;
     size_t size;
 
     /* We can't live without a current_region =/ */
     if (!current_resource)
-        return Error();
+        return -1;
 
     /* Grab region info */
     start = current_resource->m_start;
@@ -470,19 +473,19 @@ ErrorOrPtr resource_release_region(kresource_t* previous_resource, kresource_t* 
     }
 
     mutex_unlock(__resource_mutex);
-    return Success(0);
+    return 0;
 }
 
-ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_start)
+int resource_release(uintptr_t start, size_t size, kresource_t* mirrors_start)
 {
-    ErrorOrPtr result;
+    int error;
     kresource_t* current;
     kresource_t* previous;
     kresource_t* next;
 
     /* No */
     if (!size)
-        return Error();
+        return -1;
 
     next = nullptr;
     previous = nullptr;
@@ -510,7 +513,7 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_s
      * satisfied this release request. This means that we are spread over multiple
      * resource objects...
      */
-    result = Error();
+    error = -1;
 
     while (size && current) {
 
@@ -521,30 +524,30 @@ ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_s
 
         next = current->m_next;
 
-        result = resource_release_region(previous, current);
+        error = resource_release_region(previous, current);
 
-        if (IsError(result))
+        if (error)
             break;
 
         current = next;
     }
 
-    return result;
+    return error;
 }
 
-ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t flags, kresource_t* regions)
+int resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t flags, kresource_t* regions)
 {
     kresource_t** start_resource;
     kresource_t* itt;
     uintptr_t itt_addr;
 
     if (!size || !regions)
-        return Error();
+        return -1;
 
     start_resource = __find_kresource(start, regions->m_type, &regions);
 
     if (!start_resource || !*start_resource)
-        return Error();
+        return -1;
 
     mutex_lock(__resource_mutex);
 
@@ -560,7 +563,7 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
     }
 
     mutex_unlock(__resource_mutex);
-    return Success(0);
+    return (0);
 }
 
 /*
@@ -568,26 +571,28 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
  * Creates a kresource mirror that may be used in order to
  * claim this region, for instance
  */
-ErrorOrPtr resource_find_usable_range(kresource_bundle_t* bundle, kresource_type_t type, size_t size)
+int resource_find_usable_range(kresource_bundle_t* bundle, kresource_type_t type, size_t size, uintptr_t* brange)
 {
     kresource_t* current;
 
-    if (!bundle)
-        return Error();
+    if (!bundle || !brange)
+        return -1;
 
     current = bundle->resources[type];
 
     if (!current)
-        return Error();
+        return -1;
 
     do {
         /* Unused resource? */
-        if (!current->m_shared_count && current->m_size >= size)
-            return Success(current->m_start);
+        if (!current->m_shared_count && current->m_size >= size) {
+            *brange = current->m_start;
+            return 0;
+        }
 
     } while ((current = current->m_next) != nullptr);
 
-    return Error();
+    return -KERR_NOT_FOUND;
 }
 
 void destroy_kresource(kresource_t* resource)
@@ -686,19 +691,19 @@ static void __bundle_clear_resources(kresource_bundle_t* bundle)
  * @brief Clears all the resources in a bundle that we own
  * Nothing to add here...
  */
-ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t* bundle)
+int resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t* bundle)
 {
     kresource_t* next;
     kresource_t* current;
 
     /* We cannot clear anonymus resources with this */
     if (!owner)
-        return Error();
+        return -1;
 
     next = GET_RESOURCE(bundle, type);
 
     if (!next)
-        return Error();
+        return -1;
 
     while (next) {
         current = next;
@@ -709,7 +714,7 @@ ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bu
             __clear_mem_resource(current, bundle);
     }
 
-    return Success(0);
+    return (0);
 }
 
 void destroy_resource_bundle(kresource_bundle_t* bundle)

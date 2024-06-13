@@ -145,7 +145,7 @@ static size_t __get_hashmap_size(size_t max_entries, uint32_t hm_flags)
  */
 hashmap_t* create_hashmap(size_t max_entries, uint32_t flags)
 {
-
+    int error;
     hashmap_t* ret;
     size_t hashmap_size;
     size_t aligned_size;
@@ -160,9 +160,10 @@ hashmap_t* create_hashmap(size_t max_entries, uint32_t flags)
     hashmap_size = __get_hashmap_size(max_entries, flags);
     aligned_size = ALIGN_UP(hashmap_size, SMALL_PAGE_SIZE);
 
-    ret = (hashmap_t*)Must(__kmem_kernel_alloc_range(aligned_size, 0, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
+    error = (__kmem_kernel_alloc_range((void**)&ret, aligned_size, 0, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
 
-    if (!ret)
+    /* Fuck */
+    if (error)
         return nullptr;
 
     memset(ret, 0, aligned_size);
@@ -228,12 +229,12 @@ void destroy_hashmap(hashmap_t* map)
     __kmem_kernel_dealloc((vaddr_t)map, map->m_total_size);
 }
 
-ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1)
+kerror_t hashmap_itterate(hashmap_t* map, void** p_itt_result, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1)
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
     if (!map || !fn)
-        return Error();
+        return -1;
 
     if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA) {
 
@@ -242,16 +243,19 @@ ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t a
 
             while (entry) {
 
-                result = fn(entry->m_value, arg0, arg1);
+                error = fn(entry->m_value, arg0, arg1);
 
-                if (IsError(result))
-                    return ErrorWithVal((uint64_t)entry->m_value);
+                if (error) {
+                    if (p_itt_result)
+                        *p_itt_result = entry->m_value;
+                    return error;
+                }
 
                 entry = entry->m_next;
             }
         }
 
-        return Success(0);
+        return (0);
     }
 
     for (uint64_t i = 0; i < map->m_max_entries; i++) {
@@ -260,15 +264,18 @@ ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t a
         if (!v)
             continue;
 
-        result = fn(v, arg0, arg1);
+        error = fn(v, arg0, arg1);
 
         /* On error, return the value that caused it */
-        if (IsError(result))
-            return ErrorWithVal((uint64_t)v);
+        if (error) {
+            if (p_itt_result)
+                *p_itt_result = v;
+            return error;
+        }
     }
 
-    kernel_panic("TODO: implement hashmap_itterate");
-    return Success(0);
+    kernel_panic("TODO: implement hashmap_itterate for open shit");
+    return (0);
 }
 
 /*
@@ -279,18 +286,18 @@ ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t a
  *    in such a way that the hashing indecies don't get fucked
  * 3) Fixup pointers (?)
  */
-static ErrorOrPtr __hashmap_try_resize(hashmap_t* map)
+static kerror_t __hashmap_try_resize(hashmap_t* map)
 {
     kernel_panic("TODO: implement __hashmap_try_resize");
-    return Error();
+    return -1;
 }
 
 /*
  * Sort the closed entry buffer based on hash from low to high
-static ErrorOrPtr __hashmap_sort_closed_entry(hashmap_entry_t* root)
+static kerror_t __hashmap_sort_closed_entry(hashmap_entry_t* root)
 {
   kernel_panic("TODO: implement __hashmap_sort_closed_entry");
-  return Error();
+  return -1;
 }
  */
 
@@ -298,13 +305,13 @@ static ErrorOrPtr __hashmap_sort_closed_entry(hashmap_entry_t* root)
  * Find the middle pointer in the linked list of entries
  * end is nullable
  */
-static ErrorOrPtr __hashmap_find_middle_entry(hashmap_entry_t* root, hashmap_entry_t* end)
+static kerror_t __hashmap_find_middle_entry(hashmap_entry_t* root, hashmap_entry_t* end, hashmap_entry_t** result)
 {
     hashmap_entry_t* slow;
     hashmap_entry_t* fast;
 
     if (!root)
-        return Error();
+        return -1;
 
     slow = root;
     fast = root;
@@ -319,29 +326,33 @@ static ErrorOrPtr __hashmap_find_middle_entry(hashmap_entry_t* root, hashmap_ent
         fast = fast->m_next->m_next;
     }
 
-    return Success((uintptr_t)slow);
+    *result = slow;
+    return 0;
 }
 
 /*
  * Find a hashmap entry though the key, by using binary search which
  * works on the fact that entries are sorted based on hash (low -> high)
  */
-static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, uintptr_t key)
+static kerror_t __hashmap_find_entry(hashmap_t* map, hashmap_entry_t** result, hashmap_entry_t* root, uintptr_t key)
 {
     hashmap_entry_t* current_end;
     hashmap_entry_t* current_start;
 
-    if (!map || !root)
-        return Error();
+    if (!map || !root || !result)
+        return -1;
 
     current_end = nullptr;
     current_start = root;
 
     for (uintptr_t i = 0; i < map->m_max_entries; i++) {
-        hashmap_entry_t* middle = (hashmap_entry_t*)Release(__hashmap_find_middle_entry(current_start, current_end));
+        hashmap_entry_t* middle = nullptr;
+
+        /* Find the middle bastard */
+        __hashmap_find_middle_entry(current_start, current_end, &middle);
 
         if (!middle)
-            return Error();
+            return -1;
 
         /* Bigger, the desired key is in the next few entries */
         if (key > middle->m_hash) {
@@ -356,10 +367,11 @@ static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, ui
         }
 
         /* Equal, we have found our entry */
-        return Success((uintptr_t)middle);
+        *result = middle;
+        return 0;
     }
 
-    return Error();
+    return -1;
 }
 
 #define __HASHMAP_GET_INDX(map, hashed_key, key, idx) \
@@ -376,7 +388,7 @@ static ErrorOrPtr __hashmap_find_entry(hashmap_t* map, hashmap_entry_t* root, ui
  * when a double hit occurs, we rehash the original index with the hashed_key as a salt.
  * then, we insert the entry in order of that hash from low to high.
  */
-static ErrorOrPtr __hashmap_put_closed(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
+static kerror_t __hashmap_put_closed(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 {
     __HASHMAP_GET_INDX(map, hashed_key, key, idx);
 
@@ -389,12 +401,12 @@ static ErrorOrPtr __hashmap_put_closed(hashmap_t* map, hashmap_key_t key, hashma
         entry->m_hash = hashed_key;
 
         map->m_size++;
-        return Success(0);
+        return (0);
     }
 
     /* Duplicate entry, fuck off */
     if (entry->m_hash == hashed_key) {
-        return Error();
+        return -1;
     }
 
     __HASHMAP_GET_NEW_INDX(map, new_idx, new_hash, idx, hashed_key);
@@ -403,7 +415,7 @@ static ErrorOrPtr __hashmap_put_closed(hashmap_t* map, hashmap_key_t key, hashma
     hashmap_entry_t* new_entry = __create_hashmap_entry(value, NULL, new_hash);
 
     if (!new_entry)
-        return Error();
+        return -1;
 
     while (entry) {
 
@@ -424,23 +436,23 @@ static ErrorOrPtr __hashmap_put_closed(hashmap_t* map, hashmap_key_t key, hashma
 
     /* NOTE: prev may not be NULL, but entry may */
     if (!prev)
-        return Error();
+        return -1;
 
     prev->m_next = new_entry;
     new_entry->m_next = entry;
 
     map->m_size++;
 
-    return Success(0);
+    return (0);
 }
 
 /*
  * Try to put a value into the hashmap with open addressing
  */
-static ErrorOrPtr __hashmap_put_open(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
+static kerror_t __hashmap_put_open(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 {
     kernel_panic("TODO: implement __hashmap_put_open");
-    return Error();
+    return -1;
 }
 
 /*
@@ -453,19 +465,23 @@ static ErrorOrPtr __hashmap_put_open(hashmap_t* map, hashmap_key_t key, hashmap_
  * hashmap is partially unusable at this point, so we'll have to either switch
  * to linear scanning of the linked lists or we invalidate the entire hashmap and crash =/
  */
-ErrorOrPtr hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
+kerror_t hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 {
+    kerror_t error;
 
     /* This implies we don't allow nullable values. KEEP THIS CONSISTENT */
     if (!map || !key || !value)
-        return Error();
+        return -1;
 
     if (map->m_size >= map->m_max_entries) {
 
         if (map->m_flags & HASHMAP_FLAG_FS)
-            return Error();
+            return -1;
 
-        TRY(_, __hashmap_try_resize(map));
+        error = __hashmap_try_resize(map);
+
+        if (error)
+            return error;
     }
 
     if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
@@ -500,9 +516,7 @@ static hashmap_value_t __hashmap_get_closed(hashmap_t* map, hashmap_key_t key)
     __HASHMAP_GET_NEW_INDX(map, new_idx, new_hash, idx, hashed_key);
 
     /* value is NULL if the entry was not found */
-    entry = (hashmap_entry_t*)Release(__hashmap_find_entry(map, entry, new_hash));
-
-    if (!entry)
+    if (__hashmap_find_entry(map, &entry, entry, new_hash))
         return nullptr;
 
     ASSERT_MSG(entry->m_hash == new_hash, "Sanity check failed: (hashmap:__hashmap_get_closed) ->m_hash != new_hash!");
@@ -540,9 +554,9 @@ hashmap_value_t hashmap_get(hashmap_t* map, hashmap_key_t key)
  * __hashmap_get_closed and __hashmap_set_closed are very similare, so we need
  * to find ways to make em share some more code (FIXME)
  */
-static ErrorOrPtr __hashmap_set_closed(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
+static kerror_t __hashmap_set_closed(hashmap_t* map, hashmap_value_t* b_old_value, hashmap_key_t key, hashmap_value_t value)
 {
-    uintptr_t old_value;
+    hashmap_value_t old_value;
     hashmap_entry_t* entry;
 
     __HASHMAP_GET_INDX(map, hashed_key, key, idx);
@@ -551,35 +565,39 @@ static ErrorOrPtr __hashmap_set_closed(hashmap_t* map, hashmap_key_t key, hashma
 
     /* No hash automatically means no entry =/ */
     if (!entry || !entry->m_hash)
-        return Error();
+        return -1;
 
     if (entry->m_hash == (uint32_t)hashed_key) {
-        old_value = (uintptr_t)entry->m_value;
+        old_value = entry->m_value;
         entry->m_value = value;
-        return Success(old_value);
+
+        if (b_old_value)
+            *b_old_value = old_value;
+        return 0;
     }
 
     /* No next means we don't have to continue looking xD */
     if (!entry->m_next)
-        return Error();
+        return -1;
 
     __HASHMAP_GET_NEW_INDX(map, new_idx, new_hash, idx, hashed_key);
 
     /* value is NULL if the entry was not found */
-    entry = (hashmap_entry_t*)Release(__hashmap_find_entry(map, entry, new_hash));
-
-    if (!entry)
-        return Error();
+    if (__hashmap_find_entry(map, &entry, entry, new_hash))
+        return -1;
 
     ASSERT_MSG(entry->m_hash == new_hash, "Sanity check failed: (hashmap:__hashmap_get_closed) ->m_hash != new_hash!");
 
-    old_value = (uintptr_t)entry->m_value;
+    old_value = entry->m_value;
     entry->m_value = value;
 
-    return Success(old_value);
+    if (b_old_value)
+        *b_old_value = old_value;
+
+    return 0;
 }
 
-static ErrorOrPtr __hashmap_set_open(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
+static kerror_t __hashmap_set_open(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
 {
     kernel_panic("TODO: implement __hashmap_set_open");
 }
@@ -588,14 +606,13 @@ static ErrorOrPtr __hashmap_set_open(hashmap_t* map, hashmap_key_t key, hashmap_
  * Set (mutate) a value in the map
  * NOTE: this fails if the entry does not exist
  */
-ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value)
+kerror_t hashmap_set(hashmap_t* map, void** p_old_value, hashmap_key_t key, hashmap_value_t value)
 {
-
     if (!map || !key)
-        return Error();
+        return -1;
 
     if ((map->m_flags & HASHMAP_FLAG_CA) == HASHMAP_FLAG_CA)
-        return __hashmap_set_closed(map, key, value);
+        return __hashmap_set_closed(map, (hashmap_value_t*)p_old_value, key, value);
 
     return __hashmap_set_open(map, key, value);
 }
@@ -642,8 +659,11 @@ void* __hashmap_remove_closed(hashmap_t* map, hashmap_key_t key)
     /* Cache the root */
     prev = entry;
 
+    /* Set entry back to null */
+    entry = nullptr;
+
     /* value is NULL if the entry was not found */
-    entry = (hashmap_entry_t*)Release(__hashmap_find_entry(map, entry, new_hash));
+    __hashmap_find_entry(map, &entry, entry, new_hash);
 
     if (!entry)
         return nullptr;

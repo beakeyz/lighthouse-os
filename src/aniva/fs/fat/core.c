@@ -893,9 +893,9 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
 
     KLOG_DBG("Trying to mount FAT32\n");
 
-    int read_result = pd_bread(device, buffer, 0);
+    int read_error = pd_bread(device, buffer, 0);
 
-    if (read_result < 0)
+    if (read_error < 0)
         return nullptr;
 
     /* Create root node */
@@ -925,10 +925,10 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
     ffi->sector_cache = create_fat_sector_cache(device->m_parent->m_effective_sector_size, NULL);
 
     /* Try to parse boot sector */
-    int parse_result = parse_fat_bpb(boot_sector, node);
+    int parse_error = parse_fat_bpb(boot_sector, node);
 
     /* Not a valid FAT fs */
-    if (parse_result != FAT_OK)
+    if (parse_error != FAT_OK)
         goto fail;
 
     /* Check FAT type */
@@ -979,9 +979,9 @@ oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_dis
     };
 
     /* NOTE: we reuse the buffer of the boot sector */
-    read_result = pd_bread(device, buffer, 1);
+    read_error = pd_bread(device, buffer, 1);
 
-    if (read_result < 0)
+    if (read_error < 0)
         goto fail;
 
     /* Set the local pointer */
@@ -1039,15 +1039,14 @@ fs_type_t fat32_type = {
 
 int fat32_init()
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
     init_fat_cache();
 
-    result = register_filesystem(&fat32_type);
+    error = register_filesystem(&fat32_type);
 
-    if (result.m_status == ANIVA_FAIL) {
+    if (error)
         return -1;
-    }
 
     return 0;
 }
@@ -1055,9 +1054,9 @@ int fat32_init()
 int fat32_exit()
 {
 
-    ErrorOrPtr result = unregister_filesystem(&fat32_type);
+    kerror_t error = unregister_filesystem(&fat32_type);
 
-    if (result.m_status == ANIVA_FAIL)
+    if (error)
         return -1;
 
     return 0;

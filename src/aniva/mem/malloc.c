@@ -192,7 +192,7 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
     size_t data_size;
     heap_node_t* start_node;
     heap_node_buffer_t* ret;
-    ErrorOrPtr result;
+    kerror_t error;
 
     if (!allocator || !size || !(*size))
         return nullptr;
@@ -202,7 +202,8 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
 
     total_buffer_size = ALIGN_UP(*size + sizeof(heap_node_buffer_t), SMALL_PAGE_SIZE);
 
-    result = __kmem_alloc_range(
+    error = __kmem_alloc_range(
+        (void**)&ret,
         allocator->m_parent_dir.m_root,
         nullptr,
         KERNEL_MAP_BASE,
@@ -210,11 +211,8 @@ static heap_node_buffer_t* create_heap_node_buffer(memory_allocator_t* allocator
         NULL,
         KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
-    if (IsError(result))
+    if (error)
         return nullptr;
-
-    /* FIXME: is this allocation corret? */
-    ret = (heap_node_buffer_t*)Release(result);
 
     /* Total size of the available data */
     data_size = total_buffer_size - sizeof(heap_node_buffer_t) - sizeof(heap_node_t);
@@ -272,7 +270,7 @@ static void destroy_heap_node_buffer(memory_allocator_t* allocator, heap_node_bu
         ASSERT_MSG(current_buffer, "Failed to destroy heap_node_buffer! Did the allocator contain the buffer?");
     }
 
-    Must(__kmem_dealloc(allocator->m_parent_dir.m_root, nullptr, (uintptr_t)buffer, buffer->m_buffer_size));
+    __kmem_dealloc(allocator->m_parent_dir.m_root, nullptr, (uintptr_t)buffer, buffer->m_buffer_size);
 }
 
 static inline bool heap_buffer_contains(heap_node_buffer_t* buffer, uintptr_t addr)
@@ -301,13 +299,13 @@ heap_node_t* memory_get_heapnode_at(heap_node_buffer_t* buffer, uint32_t index)
     return ret;
 }
 
-static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_node_buffer_t* buffer, heap_node_t* node, size_t bytes)
+static kerror_t heap_buffer_allocate_in(memory_allocator_t* allocator, heap_node_buffer_t* buffer, heap_node_t* node, size_t bytes, void** p_res)
 {
     size_t node_size;
     heap_node_t* new_node;
 
-    if (!allocator || !buffer || !bytes)
-        return Error();
+    if (!allocator || !buffer || !bytes || !p_res)
+        return -1;
 
     while (node) {
         if (heap_node_has_flag(node, MALLOC_NODE_FLAG_USED))
@@ -323,7 +321,8 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
 
             allocator_add_used(allocator, node_size);
 
-            return Success((uintptr_t)node->data);
+            *p_res = node->data;
+            return 0;
         }
 
         /* We need enough bytes to store the data + the heap node struct */
@@ -342,7 +341,8 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
             allocator_add_used(allocator, bytes);
 
             // TODO: edit global shit
-            return Success((uintptr_t)new_node->data);
+            *p_res = new_node->data;
+            return 0;
         }
 
     cycle:
@@ -350,29 +350,29 @@ static ErrorOrPtr heap_buffer_allocate_in(memory_allocator_t* allocator, heap_no
     }
 
     /* Could not split off a node. We need a new buffer */
-    return Error();
+    return -1;
 }
 
-static ErrorOrPtr heap_buffer_allocate(memory_allocator_t* allocator, heap_node_buffer_t* buffer, size_t bytes)
+static kerror_t heap_buffer_allocate(memory_allocator_t* allocator, heap_node_buffer_t* buffer, size_t bytes, void** p_res)
 {
     /*
      * Just bruteforce it from the start
      * FIXME: should we start from the end actually?
      */
-    return heap_buffer_allocate_in(allocator, buffer, buffer->m_start_node, bytes);
+    return heap_buffer_allocate_in(allocator, buffer, buffer->m_start_node, bytes, p_res);
 }
 
-static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_node_buffer_t* buffer, void* addr)
+static kerror_t heap_buffer_deallocate(memory_allocator_t* allocator, heap_node_buffer_t* buffer, void* addr)
 {
     // first we'll check if we can do this easily
     heap_node_t* node = TO_NODE(addr);
 
     /* Wrong buffer */
     if (!heap_buffer_contains(buffer, (uintptr_t)node))
-        return Error();
+        return -1;
 
     if (!heap_node_has_flag(node, MALLOC_NODE_FLAG_USED))
-        return Error();
+        return -1;
 
     allocator_add_free(
         allocator,
@@ -385,7 +385,7 @@ static ErrorOrPtr heap_buffer_deallocate(memory_allocator_t* allocator, heap_nod
     try_merge(buffer, node);
 
     // FIXME: should we zero freed nodes?
-    return Success(0);
+    return (0);
 }
 
 int malloc_heap_init(memory_allocator_t* allocator, void* buffer, size_t size, uint32_t flags)
@@ -482,8 +482,8 @@ void destroy_malloc_heap(memory_allocator_t* allocator)
 // find an unused node
 void* memory_allocate(memory_allocator_t* allocator, size_t bytes)
 {
-
-    ErrorOrPtr ret;
+    kerror_t error;
+    void* result;
     heap_node_buffer_t* current_buffer;
 
     if (!allocator || !bytes)
@@ -498,10 +498,10 @@ void* memory_allocate(memory_allocator_t* allocator, size_t bytes)
      */
     while (current_buffer) {
 
-        ret = heap_buffer_allocate(allocator, current_buffer, bytes);
+        error = heap_buffer_allocate(allocator, current_buffer, bytes, &result);
 
-        if (!IsError(ret))
-            return (void*)Release(ret);
+        if (!error)
+            return result;
 
         current_buffer = current_buffer->m_next;
     }
@@ -527,12 +527,12 @@ void* memory_allocate(memory_allocator_t* allocator, size_t bytes)
     if (!new_buffer)
         return nullptr;
 
-    ret = heap_buffer_allocate(allocator, new_buffer, bytes);
+    error = heap_buffer_allocate(allocator, new_buffer, bytes, &result);
 
-    if (IsError(ret))
+    if (error)
         return nullptr;
 
-    return (void*)Release(ret);
+    return result;
 }
 
 void memory_sized_deallocate(memory_allocator_t* allocator, void* addr, size_t allocation_size)
@@ -552,9 +552,8 @@ void memory_deallocate(memory_allocator_t* allocator, void* addr)
 
     while (current_buffer) {
 
-        if (!IsError(heap_buffer_deallocate(allocator, current_buffer, addr))) {
+        if (!heap_buffer_deallocate(allocator, current_buffer, addr))
             break;
-        }
 
         current_buffer = current_buffer->m_next;
     }

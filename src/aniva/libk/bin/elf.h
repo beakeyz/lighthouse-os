@@ -17,7 +17,7 @@ proc_t* elf_exec_32(file_t* file, bool kernel);
 int elf_read(file_t* file, void* buffer, size_t* size, uintptr_t offset);
 bool elf_verify_header(struct elf64_hdr* header);
 
-ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header);
+kerror_t elf_grab_sheaders(file_t* file, struct elf64_hdr* header);
 struct elf64_phdr* elf_load_phdrs_64(file_t* elf, struct elf64_hdr* elf_header);
 
 uint32_t elf_find_section(struct elf64_hdr* header, const char* name);

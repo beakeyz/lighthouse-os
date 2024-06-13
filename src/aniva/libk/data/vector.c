@@ -84,16 +84,19 @@ static bool __vector_grow(vector_t* ptr)
     return true;
 }
 
-ErrorOrPtr vector_indexof(vector_t* vec, void* value)
+kerror_t vector_indexof(vector_t* vec, void* value, uint32_t* p_idx)
 {
 
     for (int i = 0; i < vec->m_length; i++) {
-        if (memcmp(__vector_get_at(vec, i), value, vec->m_entry_size)) {
-            return Success(i);
-        }
+        if (!memcmp(__vector_get_at(vec, i), value, vec->m_entry_size))
+            continue;
+
+        if (p_idx)
+            *p_idx = (i);
+        return 0;
     }
 
-    return Error();
+    return -1;
 }
 
 void* vector_get(vector_t* vec, uint32_t index)
@@ -108,23 +111,26 @@ void* vector_get(vector_t* vec, uint32_t index)
 /*!
  * @brief Add an entry to the end of the vector
  *
- * @returns: Error() with no status on failure, Success() with
+ * @returns:  with no status on failure, Success() with
  * the index of the new entry on success
  */
-ErrorOrPtr vector_add(vector_t* vec, void* data)
+kerror_t vector_add(vector_t* vec, void* data, uint32_t* p_idx)
 {
     if (vec->m_length >= vec->m_capacity && !__vector_grow(vec))
-        return Error();
+        return -1;
 
-    if (__vector_no_duplicates(vec) && !IsError(vector_indexof(vec, data)))
-        return Error();
+    /* If we can find the index for this data, thats a yikes */
+    if (__vector_no_duplicates(vec) && vector_indexof(vec, data, NULL) == 0)
+        return -1;
 
     /* Copy the data */
     memcpy(__vector_get_at(vec, vec->m_length), data, vec->m_entry_size);
 
     vec->m_length++;
 
-    return Success(vec->m_length - 1);
+    if (p_idx)
+        *p_idx = (vec->m_length - 1);
+    return 0;
 }
 
 /*!
@@ -133,13 +139,13 @@ ErrorOrPtr vector_add(vector_t* vec, void* data)
  * Find the index in the array and shifts every entry after it
  * by back by one index, so the entry to remove gets overwritten
  *
- * @returns: Error() on failure, Success() when we could find the
+ * @returns:  on failure, Success() when we could find the
  * entry and it was successfully removed
  */
-ErrorOrPtr vector_remove(vector_t* vec, uint32_t index)
+kerror_t vector_remove(vector_t* vec, uint32_t index)
 {
     if (!vec->m_length || index >= vec->m_length)
-        return Error();
+        return -1;
 
     for (uintptr_t i = index; i < vec->m_length; i++) {
         if (i + 1 == vec->m_length) {
@@ -150,5 +156,5 @@ ErrorOrPtr vector_remove(vector_t* vec, uint32_t index)
 
     vec->m_length--;
 
-    return Success(0);
+    return (0);
 }

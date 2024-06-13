@@ -28,29 +28,29 @@ fs_type_t* get_fs_driver(fs_type_t* fs)
     kernel_panic("TODO: implement get_fs_driver");
 }
 
-ErrorOrPtr register_filesystem(fs_type_t* fs)
+kerror_t register_filesystem(fs_type_t* fs)
 {
     fs_type_t** ptr;
 
     if (fs->m_next)
-        return Error();
+        return -1;
 
     mutex_lock(fsystems_lock);
 
     ptr = find_fs_type(fs->m_name, strlen(fs->m_name));
 
     if (*ptr) {
-        return Error();
+        return -1;
     } else {
         *ptr = fs;
     }
 
     mutex_unlock(fsystems_lock);
 
-    return Success(0);
+    return (0);
 }
 
-ErrorOrPtr unregister_filesystem(fs_type_t* fs)
+kerror_t unregister_filesystem(fs_type_t* fs)
 {
     kernel_panic("TODO: test unregister_filesystem");
 
@@ -67,14 +67,14 @@ ErrorOrPtr unregister_filesystem(fs_type_t* fs)
             fs->m_next = nullptr;
 
             mutex_unlock(fsystems_lock);
-            return Success(0);
+            return (0);
         }
 
         itterator = &(*itterator)->m_next;
     }
 
     mutex_unlock(fsystems_lock);
-    return Error();
+    return -1;
 }
 
 static fs_type_t* __get_fs_type(const char* name, uint32_t length)

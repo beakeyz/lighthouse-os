@@ -27,18 +27,18 @@
 
 static void __destroy_proc(proc_t* p);
 
-static void _proc_init_pagemap(proc_t* proc)
+static int _proc_init_pagemap(proc_t* proc)
 {
     // Only create new page dirs for non-kernel procs
     if (!is_kernel_proc(proc) && !is_driver_proc(proc)) {
-        proc->m_root_pd = kmem_create_page_dir(KMEM_CUSTOMFLAG_CREATE_USER, 0);
-        return;
+        return kmem_create_page_dir(&proc->m_root_pd, KMEM_CUSTOMFLAG_CREATE_USER, 0);
     }
 
     proc->m_root_pd.m_root = nullptr;
     proc->m_root_pd.m_phys_root = (paddr_t)kmem_get_krnl_dir();
     proc->m_root_pd.m_kernel_high = (uintptr_t)&_kernel_end;
     proc->m_root_pd.m_kernel_low = (uintptr_t)&_kernel_start;
+    return 0;
 }
 
 /*!
@@ -97,10 +97,10 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
 
     ASSERT_MSG(init_thread, "Failed to create main thread for process!");
 
-    Must(proc_add_thread(proc, init_thread));
+    ASSERT(proc_add_thread(proc, init_thread) == 0);
 
     /* Yikes */
-    if (IsError(proc_register(proc, profile))) {
+    if ((proc_register(proc, profile))) {
         destroy_proc(proc);
         return nullptr;
     }
@@ -316,7 +316,13 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
     kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
 
     /* Do an instant rescedule */
-    Must(sched_add_priority_proc(proc, prio, false));
+    error = sched_add_priority_proc(proc, prio, false);
+
+    /* Fuck */
+    if (error) {
+        resume_scheduler();
+        goto remove_hook_and_fail;
+    }
 
     /* Resume the scheduler so we don't die */
     resume_scheduler();
@@ -324,6 +330,7 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
     /* Wait for the process to be bopped */
     error = kevent_await_hook_fire("proc", hook_name, NULL, NULL);
 
+remove_hook_and_fail:
     /* Remove the hook */
     kevent_remove_hook("proc", hook_name);
 
@@ -340,7 +347,7 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
  *
  * NOTE: don't remove from the scheduler here, but in the reaper
  */
-ErrorOrPtr try_terminate_process(proc_t* proc)
+kerror_t try_terminate_process(proc_t* proc)
 {
     return try_terminate_process_ex(proc, false);
 }
@@ -356,13 +363,13 @@ ErrorOrPtr try_terminate_process(proc_t* proc)
  * 3) Register the process to the reaper process, so it can get destroyed
  * 4) Unpause the scheduler
  */
-ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
+kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
 {
     thread_t* c_thread;
-    ErrorOrPtr result;
+    kerror_t error;
 
     if (!proc)
-        return Error();
+        return -1;
 
     /* Check every thread to see if there are any pending syscalls */
     FOREACH(i, proc->m_threads)
@@ -400,14 +407,14 @@ ErrorOrPtr try_terminate_process_ex(proc_t* proc, bool defer_yield)
      * Register to the reaper
      * NOTE: this also pauses the scheduler
      */
-    result = reaper_register_process(proc);
+    error = reaper_register_process(proc);
 
     resume_scheduler();
 
     /* Yield to catch any terminates from within a process */
     if (!defer_yield)
         scheduler_yield();
-    return result;
+    return error;
 }
 
 /*!
@@ -439,27 +446,28 @@ void proc_exit()
  *
  * Locks the process and fails if we try to add a thread to a finished process
  */
-ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
+kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     kevent_thread_ctx_t thread_ctx = { 0 };
 
     if (!thread || !proc)
-        return Error();
+        return -1;
 
-    result = Error();
+    error = -1;
 
     mutex_lock(proc->m_lock);
 
     if ((proc->m_flags & PROC_FINISHED) == PROC_FINISHED)
         goto unlock_and_exit;
 
-    result = list_indexof(proc->m_threads, thread);
+    /* We just need to know that this thread is not yet added to the process */
+    error = list_indexof(proc->m_threads, NULL, thread);
 
-    if (result.m_status == ANIVA_SUCCESS)
+    if (error == 0)
         goto unlock_and_exit;
 
-    result = Success(0);
+    error = (0);
 
     thread_ctx.thread = thread;
     thread_ctx.type = THREAD_EVENTTYPE_CREATE;
@@ -496,7 +504,7 @@ ErrorOrPtr proc_add_thread(proc_t* proc, struct thread* thread)
 
 unlock_and_exit:
     mutex_unlock(proc->m_lock);
-    return result;
+    return error;
 }
 
 /*!
@@ -541,7 +549,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
 {
     const char* proc_path;
     const char* buffer;
-    ErrorOrPtr result;
+    kerror_t error;
 
     if (!proc || !addr)
         return nullptr;
@@ -553,7 +561,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
         .func_addr = (void*)addr,
     };
 
-    result = driver_send_msg_a(
+    error = driver_send_msg_a(
         DYN_LDR_URL,
         DYN_LDR_GET_FUNC_NAME,
         &msg_block,
@@ -564,7 +572,7 @@ const char* proc_try_get_symname(proc_t* proc, uintptr_t addr)
     /* Free the path */
     kfree((void*)proc_path);
 
-    if (IsError(result) || !buffer || !strlen(buffer))
+    if ((error) || !buffer || !strlen(buffer))
         return nullptr;
 
     return buffer;

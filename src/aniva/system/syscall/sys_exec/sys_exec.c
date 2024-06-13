@@ -1,6 +1,5 @@
 #include "sys_exec.h"
 #include "dev/core.h"
-#include "libk/flow/error.h"
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
 #include "proc/proc.h"
@@ -23,7 +22,7 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
 
     current_proc = get_current_proc();
 
-    if (IsError(kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len)))
+    if (kmem_validate_ptr(current_proc, (uintptr_t)cmd, cmd_len))
         return SYS_INV;
 
     if (strcmp("clear", cmd) == 0)

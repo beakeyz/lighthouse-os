@@ -100,7 +100,7 @@ int manifest_gather_dependencies(drv_manifest_t* manifest);
 
 bool is_manifest_valid(drv_manifest_t* manifest);
 
-ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* handle);
+kerror_t manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* handle);
 
 bool driver_manifest_write(struct aniva_driver* manifest, int (*write_fn)());
 bool driver_manifest_read(struct aniva_driver* manifest, int (*read_fn)());

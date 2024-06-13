@@ -41,6 +41,6 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port);
 
 ANIVA_STATUS ahci_port_handle_int(ahci_port_t* port);
 
-ErrorOrPtr ahci_port_find_unused_command_header(ahci_port_t* port);
+kerror_t ahci_port_find_unused_command_header(ahci_port_t* port);
 
 #endif // !__ANIVA_AHCIPORT__

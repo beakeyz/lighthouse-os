@@ -112,22 +112,22 @@ void free_dmanifest(struct drv_manifest* manifest);
 /*
  * Registers the driver so it can be loaded
  */
-ErrorOrPtr install_driver(struct drv_manifest* driver);
+kerror_t install_driver(struct drv_manifest* driver);
 
 /*
  * Unregisters the driver and also unloads it if it is still loaded
  */
-ErrorOrPtr uninstall_driver(struct drv_manifest* handle);
+kerror_t uninstall_driver(struct drv_manifest* handle);
 
 /*
  * load a driver from its structure in RAM
  */
-ErrorOrPtr load_driver(struct drv_manifest* manifest);
+kerror_t load_driver(struct drv_manifest* manifest);
 
 /*
  * unload a driver from its structure in RAM
  */
-ErrorOrPtr unload_driver(dev_url_t url);
+kerror_t unload_driver(dev_url_t url);
 
 /*
  * Check if the driver is installed into the grid
@@ -149,7 +149,7 @@ struct drv_manifest* get_core_driver(dev_type_t type);
 int get_main_driver_path(char buffer[128], dev_type_t type);
 size_t get_driver_type_count(dev_type_t type);
 
-ErrorOrPtr foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj, void* arg), void* arg);
+kerror_t foreach_driver(bool (*callback)(struct oss_node* h, struct oss_obj* obj, void* arg), void* arg);
 
 int set_main_driver(struct drv_manifest* dev, dev_type_t type);
 bool verify_driver(struct drv_manifest* manifest);
@@ -170,7 +170,7 @@ struct drv_manifest* try_driver_get(struct aniva_driver* driver, uint32_t flags)
 /*
  * Marks the driver as ready to recieve packets preemptively
  */
-ErrorOrPtr driver_set_ready(const char* path);
+kerror_t driver_set_ready(const char* path);
 
 const char* driver_get_type_str(struct drv_manifest* driver);
 
@@ -182,10 +182,10 @@ static ALWAYS_INLINE const char* get_driver_type_url(dev_type_t type)
     return dev_type_urls[type];
 }
 
-ErrorOrPtr driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
-ErrorOrPtr driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
-ErrorOrPtr driver_send_msg_ex(struct drv_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
-ErrorOrPtr driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+kerror_t driver_send_msg(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
+kerror_t driver_send_msg_a(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
+kerror_t driver_send_msg_ex(struct drv_manifest* driver, driver_control_code_t code, void* buffer, size_t buffer_size, void* resp_buffer, size_t resp_buffer_size);
+kerror_t driver_send_msg_sync(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size);
 
 int driver_map(struct drv_manifest* driver, void* base, size_t size, uint32_t page_flags);
 int driver_unmap(struct drv_manifest* driver, void* base, size_t size);
@@ -200,7 +200,7 @@ int driver_kfree(struct drv_manifest* driver, void*);
  *
  * When mto is set to DRIVER_WAIT_UNTIL_READY, we simply wait untill the driver marks itself ready
  */
-ErrorOrPtr driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
+kerror_t driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto);
 
 extern const char* get_driver_url(struct aniva_driver* handle);
 extern size_t get_driver_url_length(struct aniva_driver* handle);

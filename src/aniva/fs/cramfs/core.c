@@ -4,6 +4,7 @@
 #include "fs/cramfs/compression.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -265,6 +266,8 @@ int unmount_ramfs(fs_type_t* type, oss_node_t* node)
  */
 oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device)
 {
+    kerror_t error;
+    size_t decompressed_size;
     /* Since our 'lbas' are only one byte, we can obtain a size in bytes here =D */
     const disk_dev_t* parent = device->m_parent;
 
@@ -285,7 +288,7 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
 
         ASSERT_MSG(cram_is_compressed_library(device), "Library marked as a compressed library, but check failed!");
 
-        size_t decompressed_size = cram_find_decompressed_size(device);
+        decompressed_size = cram_find_decompressed_size(device);
 
         ASSERT_MSG(decompressed_size, "Got a decompressed_size of zero!");
 
@@ -293,22 +296,38 @@ oss_node_t* mount_ramfs(fs_type_t* type, const char* mountpoint, partitioned_dis
          * We need to allocate for the decompressed size
          * TODO: set this region to read-only after the decompress is done
          */
-        TAR_BLOCK_START(node) = (void*)Must(__kmem_kernel_alloc_range(decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE));
+        error = __kmem_kernel_alloc_range(&TAR_BLOCK_START(node), decompressed_size, KMEM_CUSTOMFLAG_GET_MAKE, KMEM_FLAG_WRITABLE);
+
+        if (error)
+            goto dealloc_and_exit;
+
         TAR_SUPERBLOCK(node)->m_total_blocks = decompressed_size;
 
         /* Is enforcing success here a good idea? */
-        Must(cram_decompress(device, TAR_BLOCK_START(node)));
+        error = cram_decompress(device, TAR_BLOCK_START(node));
+
+        if (error)
+            goto dealloc_and_exit;
 
         ASSERT_MSG(TAR_BLOCK_START(node) != nullptr, "decompressing resulted in NULL");
 
         /* Free the pages of the compressed ramdisk */
-        Must(__kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node)->m_free_blocks)));
+        __kmem_kernel_dealloc(device->m_start_lba, GET_PAGECOUNT(device->m_start_lba, TAR_SUPERBLOCK(node)->m_free_blocks));
 
         device->m_start_lba = (uintptr_t)TAR_BLOCK_START(node);
         device->m_end_lba = (uintptr_t)TAR_BLOCK_START(node) + decompressed_size;
     }
 
     return node;
+
+dealloc_and_exit:
+
+    /* Fuck mann */
+    if (TAR_BLOCK_START(node))
+        __kmem_kernel_dealloc((vaddr_t)TAR_BLOCK_START(node), decompressed_size);
+
+    destroy_fs_oss_node(node);
+    return nullptr;
 }
 
 aniva_driver_t ramfs = {
@@ -331,9 +350,9 @@ fs_type_t cramfs = {
 int ramfs_init()
 {
     int ret = 0;
-    ErrorOrPtr result = register_filesystem(&cramfs);
+    kerror_t error = register_filesystem(&cramfs);
 
-    if (result.m_status == ANIVA_FAIL) {
+    if (error) {
         kernel_panic("Failed to register filesystem");
         ret = -1;
     }

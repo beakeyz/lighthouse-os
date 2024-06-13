@@ -16,14 +16,14 @@ static const enum ZONE_ENTRY_SIZE __default_entry_sizes[DEFAULT_ZONE_ENTRY_SIZE_
 /*
  * This could probably also be done with a binary search
  */
-static ErrorOrPtr __allocator_list_add_allocator(zalloc_list_t* list, zone_allocator_t* allocator)
+static kerror_t __allocator_list_add_allocator(zalloc_list_t* list, zone_allocator_t* allocator)
 {
     size_t size_to_add;
     zone_allocator_t* next;
     zone_allocator_t** itt;
 
     if (!list || !allocator || !allocator->m_entry_size)
-        return Error();
+        return -1;
 
     size_to_add = allocator->m_entry_size;
 
@@ -32,7 +32,7 @@ static ErrorOrPtr __allocator_list_add_allocator(zalloc_list_t* list, zone_alloc
 
         /* No duplicate sizes */
         if (size_to_add == (*itt)->m_entry_size)
-            return Error();
+            return -1;
 
         if (size_to_add > (*itt)->m_entry_size && (!next || size_to_add < next->m_entry_size))
             break;
@@ -51,7 +51,7 @@ static ErrorOrPtr __allocator_list_add_allocator(zalloc_list_t* list, zone_alloc
         *itt = allocator;
 
     list->allocator_count++;
-    return Success(0);
+    return (0);
 }
 
 /*
@@ -123,7 +123,7 @@ void* zalloc_listed(zalloc_list_t* list, size_t size)
         /* Let's try to create a new allocator for this size */
         allocator = create_zone_allocator(allocator_size, size, ZALLOC_FLAG_KERNEL);
 
-        Must(__allocator_list_add_allocator(list, allocator));
+        ASSERT(!__allocator_list_add_allocator(list, allocator));
     }
 
     /*
@@ -203,7 +203,7 @@ zalloc_list_t* create_zalloc_list(uint32_t pagecount)
 
     ASSERT_MSG(pagecount < 4, "Tried to create a zalloc list that's too large (max 4 pages)");
 
-    list = (void*)Must(__kmem_kernel_alloc_range(pagecount << PAGE_SHIFT, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&list, pagecount << PAGE_SHIFT, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
     ASSERT_MSG(list, "Failed to allocate zalloc list");
 
     /* Clear it */
@@ -217,7 +217,7 @@ zalloc_list_t* create_zalloc_list(uint32_t pagecount)
 
         ASSERT_MSG(current, "Failed to create kernel zone allocators");
 
-        Must(__allocator_list_add_allocator(list, current));
+        ASSERT(!__allocator_list_add_allocator(list, current));
     }
 
     return list;

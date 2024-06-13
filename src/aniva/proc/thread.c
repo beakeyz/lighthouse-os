@@ -27,11 +27,12 @@ static thread_t* __generic_idle_thread;
  * and a trampoline so we can return from userspace when
  * the process exits (aka returns)
  */
-// static ErrorOrPtr __thread_populate_user_stack(thread_t* thread);
+// static kerror_t __thread_populate_user_stack(thread_t* thread);
 
 thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t* proc, bool kthread)
 { // make this sucka
     thread_t* thread;
+    void* k_stack_addr;
 
     if (!proc)
         proc = get_current_proc();
@@ -63,13 +64,15 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     memcpy(&thread->m_fpu_state, &standard_fpu_state, sizeof(FpuState));
 
     /* Allocate kernel memory for the stack */
-    thread->m_kernel_stack_bottom = Must(__kmem_alloc_range(
-        proc->m_root_pd.m_root,
-        proc->m_resource_bundle,
-        KERNEL_MAP_BASE,
-        DEFAULT_STACK_SIZE,
-        NULL,
-        KMEM_FLAG_WRITABLE));
+    ASSERT(__kmem_alloc_range(
+               (void**)&thread->m_kernel_stack_bottom,
+               proc->m_root_pd.m_root,
+               proc->m_resource_bundle,
+               KERNEL_MAP_BASE,
+               DEFAULT_STACK_SIZE,
+               NULL,
+               KMEM_FLAG_WRITABLE)
+        == 0);
 
     /* Compute the kernel stack top */
     thread->m_kernel_stack_top = ALIGN_DOWN(thread->m_kernel_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
@@ -91,19 +94,23 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     if (!kthread) {
         thread->m_user_stack_bottom = HIGH_STACK_BASE - (thread->m_tid * DEFAULT_STACK_SIZE);
 
-        thread->m_user_stack_bottom = Must(__kmem_alloc_range(
-            proc->m_root_pd.m_root,
-            proc->m_resource_bundle,
-            thread->m_user_stack_bottom,
-            DEFAULT_STACK_SIZE,
-            KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
-            KMEM_FLAG_WRITABLE));
+        ASSERT(__kmem_alloc_range(
+                   (void**)&thread->m_user_stack_bottom,
+                   proc->m_root_pd.m_root,
+                   proc->m_resource_bundle,
+                   thread->m_user_stack_bottom,
+                   DEFAULT_STACK_SIZE,
+                   KMEM_CUSTOMFLAG_NO_REMAP | KMEM_CUSTOMFLAG_CREATE_USER,
+                   KMEM_FLAG_WRITABLE)
+            == 0);
 
         /* TODO: subtract random offset */
         thread->m_user_stack_top = ALIGN_DOWN(thread->m_user_stack_bottom + DEFAULT_STACK_SIZE - 8, 16);
 
-        memset(
-            (void*)Must(kmem_get_kernel_address(thread->m_user_stack_bottom, proc->m_root_pd.m_root)), 0, DEFAULT_STACK_SIZE);
+        ASSERT(kmem_get_kernel_address((uintptr_t*)&k_stack_addr, thread->m_user_stack_bottom, proc->m_root_pd.m_root) == 0);
+
+        /* Clear the user stack */
+        memset(k_stack_addr, 0, DEFAULT_STACK_SIZE);
 
         /* We don't touch rsp when the thread is not a kthread */
         thread->m_context.rsp = thread->m_user_stack_top;
@@ -173,10 +180,10 @@ ANIVA_STATUS destroy_thread(thread_t* thread)
     /* Get rid of the mutex list */
     destroy_list(mutex_list);
 
-    Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE));
+    __kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_kernel_stack_bottom, DEFAULT_STACK_SIZE);
 
     if (thread->m_user_stack_bottom)
-        Must(__kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE));
+        __kmem_dealloc(parent_proc->m_root_pd.m_root, parent_proc->m_resource_bundle, thread->m_user_stack_bottom, DEFAULT_STACK_SIZE);
 
     destroy_mutex(thread->m_lock);
     kfree((void*)thread->m_name);

@@ -116,25 +116,25 @@ bool elf_verify_header(struct elf64_hdr* header)
     return true;
 }
 
-ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
+kerror_t elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
 {
     int error;
     size_t read_size;
 
     if (!file || !header)
-        return Error();
+        return -1;
 
     read_size = sizeof(struct elf64_hdr);
 
     error = elf_read(file, header, &read_size, 0);
 
     if (error)
-        return Error();
+        return -1;
 
     if (!elf_verify_header(header))
-        return Error();
+        return -1;
 
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -146,7 +146,7 @@ ErrorOrPtr elf_grab_sheaders(file_t* file, struct elf64_hdr* header)
  */
 static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     proc_t* p;
     drv_manifest_t* driver;
 
@@ -160,9 +160,9 @@ static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
         return nullptr;
 
     /* Simply ask the driver to load our shit */
-    result = driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), &p, sizeof(proc_t*));
+    error = driver_send_msg_ex(driver, DYN_LDR_LOAD_APPFILE, file, sizeof(*file), &p, sizeof(proc_t*));
 
-    if (IsError(result))
+    if ((error))
         return nullptr;
 
     return p;
@@ -171,7 +171,7 @@ static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
 /*!
  * @brief: Tries to prepare a .elf file for execution
  *
- * @returns: the proc_id wrapped in Success() on success. Otherwise Error()
+ * @returns: the proc_id wrapped in Success() on success. Otherwise
  *
  * FIXME: do we close the file if this function fails?
  * FIXME: flags?
@@ -185,7 +185,7 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
     uintptr_t proc_flags;
     uint32_t page_flags;
 
-    if (IsError(elf_grab_sheaders(file, &header)))
+    if ((elf_grab_sheaders(file, &header)))
         return nullptr;
 
     if (header.e_type != ET_EXEC)
@@ -227,18 +227,23 @@ proc_t* elf_exec_64(file_t* file, bool kernel)
 
         switch (phdr.p_type) {
         case PT_LOAD: {
+            vaddr_t v_user_phdr_start;
+            vaddr_t v_kernel_phdr_start;
             vaddr_t virtual_phdr_base = phdr.p_vaddr;
             size_t phdr_size = phdr.p_memsz;
 
-            vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
-                proc->m_root_pd.m_root,
-                proc->m_resource_bundle,
-                virtual_phdr_base,
-                phdr_size,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
-                page_flags));
+            ASSERT_MSG(!__kmem_alloc_range(
+                           (void**)&v_user_phdr_start,
+                           proc->m_root_pd.m_root,
+                           proc->m_resource_bundle,
+                           virtual_phdr_base,
+                           phdr_size,
+                           KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
+                           page_flags),
+                "elf.c: Failed to alloc range");
 
-            vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
+            /* Grab the kernel phdr */
+            ASSERT_MSG(!kmem_get_kernel_address(&v_kernel_phdr_start, v_user_phdr_start, proc->m_root_pd.m_root), "elf.c: Failed to get kernel address");
 
             /* Then, zero the rest of the buffer */
             /* TODO: ??? */

@@ -43,7 +43,7 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
     if (!thread)
         return nullptr;
 
-    if (IsError(proc_add_thread(current, thread))) {
+    if ((proc_add_thread(current, thread))) {
         /* Sadge */
         destroy_thread(thread);
         return nullptr;
@@ -163,7 +163,7 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
 /*!
  * @brief: Register a process to the kernel
  */
-ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
+kerror_t proc_register(struct proc* proc, user_profile_t* profile)
 {
     int error;
     processor_t* cpu;
@@ -178,7 +178,7 @@ ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
 
     /* Oops */
     if (error)
-        return Error();
+        return -1;
 
     cpu = get_current_processor();
 
@@ -190,7 +190,7 @@ ErrorOrPtr proc_register(struct proc* proc, user_profile_t* profile)
     /* Fire a funky kernel event */
     kevent_fire("proc", &ctx, sizeof(ctx));
 
-    return Success(0);
+    return (0);
 }
 
 /*!

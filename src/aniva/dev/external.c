@@ -88,7 +88,7 @@ void destroy_external_driver(extern_driver_t* driver)
 
         /* Make sure we also deallocate our load base, just in case */
         if (driver->m_load_size)
-            Must(__kmem_dealloc(nullptr, manifest->m_resources, driver->m_load_base, driver->m_load_size));
+            (__kmem_dealloc(nullptr, manifest->m_resources, driver->m_load_base, driver->m_load_size));
     }
 
     /* Some driver may not even have an exported symmap */

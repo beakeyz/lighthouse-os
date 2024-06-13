@@ -22,13 +22,14 @@ struct sec_cache_entry;
 typedef struct {
     uint32_t blocksize;
     uint32_t cache_count;
+    uint8_t* block_buffers;
 
     struct sec_cache_entry* entries[];
 } fat_sector_cache_t;
 
 void init_fat_cache(void);
 
-ErrorOrPtr create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device);
+kerror_t create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device);
 void destroy_fat_info(oss_node_t* node);
 
 fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache_count);

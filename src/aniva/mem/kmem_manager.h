@@ -215,9 +215,9 @@ void kmem_refresh_tlb();
  */
 void kmem_flush_tlb();
 
-ErrorOrPtr kmem_request_physical_page();
-ErrorOrPtr kmem_prepare_new_physical_page();
-ErrorOrPtr kmem_return_physical_page(paddr_t page_base);
+int kmem_request_physical_page(paddr_t* p_idx);
+int kmem_prepare_new_physical_page(paddr_t* p_addr);
+int kmem_return_physical_page(paddr_t page_base);
 pml_entry_t* kmem_get_krnl_dir();
 
 kerror_t kmem_get_page(pml_entry_t** bentry, pml_entry_t* root, uintptr_t addr, uint32_t kmem_flags, uint32_t page_flags);
@@ -235,7 +235,7 @@ void kmem_set_page_flags(pml_entry_t* page, uint32_t flags);
  */
 bool kmem_map_page(pml_entry_t* table, uintptr_t virt, uintptr_t phys, uint32_t kmem_flags, uint32_t page_flags);
 bool kmem_map_range(pml_entry_t* table, uintptr_t virt_base, uintptr_t phys_base, size_t page_count, uint32_t kmem_flags, uint32_t page_flags);
-ErrorOrPtr kmem_copy_kernel_mapping(pml_entry_t* new_table);
+int kmem_copy_kernel_mapping(pml_entry_t* new_table);
 bool kmem_unmap_page(pml_entry_t* table, uintptr_t virt);
 bool kmem_unmap_page_ex(pml_entry_t* table, uintptr_t virt, uint32_t custom_flags);
 bool kmem_unmap_range(pml_entry_t* table, uintptr_t virt, size_t page_count);
@@ -244,35 +244,35 @@ bool kmem_unmap_range_ex(pml_entry_t* table, uintptr_t virt, size_t page_count, 
 /*
  * Check if the process has access to the specified range
  */
-ErrorOrPtr kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size);
-ErrorOrPtr kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size);
+int kmem_validate_ptr(struct proc* process, vaddr_t v_address, size_t size);
+int kmem_ensure_mapped(pml_entry_t* table, vaddr_t base, size_t size);
 
 /*
  * These functions are all about mapping and allocating
  * memory using the global physical memory bitmap
  */
-ErrorOrPtr __kmem_kernel_alloc(uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr __kmem_kernel_alloc_range(size_t size, uint32_t custom_flags, uint32_t page_flags);
+int __kmem_kernel_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int __kmem_kernel_alloc_range(void** p_result, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-ErrorOrPtr __kmem_dma_alloc(uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
-ErrorOrPtr __kmem_dma_alloc_range(size_t size, uint32_t custom_flag, uint32_t page_flags);
+int __kmem_dma_alloc(void** p_result, uintptr_t addr, size_t size, uint32_t custom_flag, uint32_t page_flags);
+int __kmem_dma_alloc_range(void** p_result, size_t size, uint32_t custom_flag, uint32_t page_flags);
 
-ErrorOrPtr __kmem_alloc(pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr __kmem_alloc_ex(pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
+int __kmem_alloc(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int __kmem_alloc_ex(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, paddr_t addr, vaddr_t vbase, size_t size, uint32_t custom_flags, uintptr_t page_flags);
 
-ErrorOrPtr __kmem_alloc_range(pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int __kmem_alloc_range(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-ErrorOrPtr __kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
-ErrorOrPtr __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
-ErrorOrPtr __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
+int __kmem_dealloc(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
+int __kmem_dealloc_unmap(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size);
+int __kmem_dealloc_ex(pml_entry_t* map, kresource_bundle_t* resources, uintptr_t virt_base, size_t size, bool unmap, bool ignore_unused, bool defer_res_release);
 
-ErrorOrPtr __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
+int __kmem_kernel_dealloc(uintptr_t virt_base, size_t size);
 
-ErrorOrPtr __kmem_map_and_alloc_scattered(pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int __kmem_map_and_alloc_scattered(void** p_result, pml_entry_t* map, kresource_bundle_t* resources, vaddr_t vbase, size_t size, uint32_t custom_flags, uint32_t page_flags);
 
-ErrorOrPtr kmem_user_alloc_range(struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr kmem_user_alloc(struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
-ErrorOrPtr kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
+int kmem_user_alloc_range(void** p_result, struct proc* p, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_user_alloc(void** p_result, struct proc* p, paddr_t addr, size_t size, uint32_t custom_flags, uint32_t page_flags);
+int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
 
 /*
  * Return a translation of the address provided that is
@@ -280,10 +280,10 @@ ErrorOrPtr kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
  *
  * Fails if virtual_address is not mapped into the provided map
  */
-ErrorOrPtr kmem_get_kernel_address(vaddr_t virtual_address, pml_entry_t* from_map);
-ErrorOrPtr kmem_get_kernel_address_ex(vaddr_t virtual_address, vaddr_t map_base, pml_entry_t* from_map);
+int kmem_get_kernel_address(vaddr_t* p_kaddr, vaddr_t virtual_address, pml_entry_t* from_map);
+int kmem_get_kernel_address_ex(vaddr_t* p_kaddr, vaddr_t virtual_address, vaddr_t map_base, pml_entry_t* from_map);
 
-ErrorOrPtr kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
+int kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 
 /* access to kmem_manager data struct */
 list_t const* kmem_get_phys_ranges_list();
@@ -292,12 +292,12 @@ list_t const* kmem_get_phys_ranges_list();
  * Prepares a new pagemap that has virtual memory mapped from 0 -> initial_size
  * This can act as clean userspace directory creation, though a lot is still missing
  */
-page_dir_t kmem_create_page_dir(uint32_t custom_flags, size_t initial_size);
+int kmem_create_page_dir(page_dir_t* dir, uint32_t custom_flags, size_t initial_size);
 
 /*
  * Free this entire addressspace for future use
  */
-ErrorOrPtr kmem_destroy_page_dir(pml_entry_t* dir);
+int kmem_destroy_page_dir(pml_entry_t* dir);
 
 // TODO: write kmem_manager tests
 

@@ -1,6 +1,5 @@
 #include "cache.h"
 #include "libk/flow/error.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 
 static inline int disk_cache_get_entry(disk_blk_cache_t* cache, disk_blk_cache_entry_t** entry, uint32_t idx)
@@ -99,7 +98,7 @@ disk_blk_cache_t* create_disk_blk_cache(struct partitioned_disk_dev* dev, uint32
     needed_size = ALIGN_UP(sizeof(*cache) + (capacity * (blocksize + sizeof(disk_blk_cache_entry_t))), SMALL_PAGE_SIZE);
 
     /* Allocate */
-    cache = (disk_blk_cache_t*)Must(__kmem_kernel_alloc_range(needed_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&cache, needed_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     if (!cache)
         return nullptr;
@@ -117,7 +116,7 @@ disk_blk_cache_t* create_disk_blk_cache(struct partitioned_disk_dev* dev, uint32
 
 void destroy_disk_blk_cache(disk_blk_cache_t* cache)
 {
-    Must(__kmem_kernel_dealloc((uintptr_t)cache, cache->total_size));
+    ASSERT(!__kmem_kernel_dealloc((uintptr_t)cache, cache->total_size));
 }
 
 static int _disk_read_blk_into_cache(disk_blk_cache_t* cache, uintptr_t block_idx)

@@ -74,7 +74,7 @@ void destroy_usb_hcd(usb_hcd_t* hub)
 int usb_hcd_alloc_devaddr(usb_hcd_t* hcd, uint8_t* paddr)
 {
     uint64_t addr;
-    ErrorOrPtr res;
+    kerror_t res;
 
     if (!paddr)
         return -1;
@@ -84,12 +84,10 @@ int usb_hcd_alloc_devaddr(usb_hcd_t* hcd, uint8_t* paddr)
     if (!hcd)
         return -1;
 
-    res = bitmap_find_free(hcd->devaddr_bitmap);
+    res = bitmap_find_free(hcd->devaddr_bitmap, &addr);
 
-    if (IsError(res))
+    if (res)
         return -1;
-
-    addr = Release(res);
 
     /* Outside of the device address range */
     if (addr >= 128)

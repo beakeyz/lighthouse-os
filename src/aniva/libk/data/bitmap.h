@@ -1,6 +1,6 @@
 #ifndef __ANIVA_BITMAP__
 #define __ANIVA_BITMAP__
-#include "libk/flow/error.h"
+
 #include <libk/stddef.h>
 
 struct bitmap;
@@ -33,13 +33,13 @@ void bitmap_unmark(bitmap_t* this, uint32_t index);
 
 bool bitmap_isset(bitmap_t* this, uint32_t index);
 
-ErrorOrPtr bitmap_find_free(bitmap_t* this);
-ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length);
-ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx);
+int bitmap_find_free(bitmap_t* this, uintptr_t* p_result);
+int bitmap_find_free_range(bitmap_t* this, size_t length, uintptr_t* p_result);
+int bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx, uintptr_t* p_result);
 
-ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir);
-ErrorOrPtr bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir);
-ErrorOrPtr bitmap_find_free_range_from_ex(bitmap_t* this, size_t length, uintptr_t start_idx, enum BITMAP_SEARCH_DIR dir);
+int bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result);
+int bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result);
+int bitmap_find_free_range_from_ex(bitmap_t* this, size_t length, uintptr_t start_idx, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result);
 
 void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length);
 void bitmap_unmark_range(bitmap_t* this, uint32_t index, size_t length);

@@ -66,7 +66,7 @@ uint32_t get_proc_count();
 
 struct thread* find_thread(struct proc* proc, thread_id_t tid);
 
-ErrorOrPtr proc_register(struct proc* proc, struct user_profile* profile);
+kerror_t proc_register(struct proc* proc, struct user_profile* profile);
 kerror_t proc_unregister(struct proc* proc);
 
 bool current_proc_is_kernel();

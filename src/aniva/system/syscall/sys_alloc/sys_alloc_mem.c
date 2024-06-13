@@ -1,5 +1,4 @@
 #include "sys_alloc_mem.h"
-#include "libk/flow/error.h"
 #include "lightos/memory/memflags.h"
 #include "lightos/syscall.h"
 #include "proc/proc.h"
@@ -21,8 +20,10 @@ static inline void _apply_memory_flags(uint32_t userflags, uint32_t* customflags
  */
 uint32_t sys_alloc_page_range(size_t size, uint32_t flags, void* __user* buffer)
 {
+    int error;
     uint32_t customflags;
     uint32_t kmem_flags;
+    void* result;
     proc_t* current_process;
 
     if (!size || !buffer)
@@ -33,14 +34,19 @@ uint32_t sys_alloc_page_range(size_t size, uint32_t flags, void* __user* buffer)
 
     current_process = get_current_proc();
 
-    if (!current_process || IsError(kmem_validate_ptr(current_process, (uintptr_t)buffer, 1)))
+    if (!current_process || (kmem_validate_ptr(current_process, (uintptr_t)buffer, 1)))
         return SYS_INV;
 
     /* Translate user flags into kernel flags */
     _apply_memory_flags(flags, &customflags, &kmem_flags);
 
     /* TODO: Must calls in syscalls that fail may kill the process with the internal error flags set */
-    *buffer = (void*)Must(kmem_user_alloc_range(current_process, size, customflags, kmem_flags));
+    error = kmem_user_alloc_range(&result, current_process, size, customflags, kmem_flags);
 
+    if (error)
+        return SYS_KERR;
+
+    /* Set the buffer hihi */
+    *buffer = result;
     return SYS_OK;
 }

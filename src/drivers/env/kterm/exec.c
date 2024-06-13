@@ -173,9 +173,9 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     _stdout.flags |= HNDL_FLAG_WRITEACCESS;
     _stderr.flags |= HNDL_FLAG_RW;
 
-    bind_khandle(&p->m_handle_map, &_stdin);
-    bind_khandle(&p->m_handle_map, &_stdout);
-    bind_khandle(&p->m_handle_map, &_stderr);
+    bind_khandle(&p->m_handle_map, &_stdin, NULL);
+    bind_khandle(&p->m_handle_map, &_stdout, NULL);
+    bind_khandle(&p->m_handle_map, &_stderr, NULL);
 
     /* Wait for process termination */
     ASSERT_MSG(proc_schedule_and_await(p, SCHED_PRIO_MID) == 0, "Process termination failed");

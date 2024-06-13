@@ -223,5 +223,5 @@ bool sysvar_write(sysvar_t* var, uint64_t value)
 
 void init_sysvars(void)
 {
-    Must(init_zone_allocator(&__var_allocator, (16 * Kib), sizeof(sysvar_t), NULL));
+    ASSERT(init_zone_allocator(&__var_allocator, (16 * Kib), sizeof(sysvar_t), NULL) == 0);
 }

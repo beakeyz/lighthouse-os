@@ -78,12 +78,15 @@ int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 
 static inline void _try_allocate_qtd_buffer(ehci_hcd_t* ehci, ehci_qtd_t* qtd)
 {
+    void* qtd_buffer;
     paddr_t c_phys;
 
     if (!qtd->len)
         return;
 
-    qtd->buffer = (void*)Must(__kmem_kernel_alloc_range(qtd->len, NULL, KMEM_FLAG_DMA));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&qtd_buffer, qtd->len, NULL, KMEM_FLAG_DMA));
+
+    qtd->buffer = qtd_buffer;
 
     memset(qtd->buffer, 0, qtd->len);
 

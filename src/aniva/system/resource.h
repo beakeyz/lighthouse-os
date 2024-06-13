@@ -1,7 +1,6 @@
 #ifndef __ANIVA_SYS_RESOURCE__
 #define __ANIVA_SYS_RESOURCE__
 
-#include "libk/flow/error.h"
 #include "libk/flow/reference.h"
 #include "mem/page_dir.h"
 #include <libk/stddef.h>
@@ -131,12 +130,12 @@ void destroy_kresource(kresource_t* resource);
  * when regions is null we will use the default system list
  * TODO: integrate flags
  */
-ErrorOrPtr resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* bundle);
-ErrorOrPtr resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type);
+int resource_claim_ex(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* bundle);
+int resource_claim_kernel(const char* name, void* owner, uintptr_t start, size_t size, kresource_type_t type);
 
-ErrorOrPtr resource_commit(uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* bundle);
+int resource_commit(uintptr_t start, size_t size, kresource_type_t type, kresource_bundle_t* bundle);
 
-ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t flags, kresource_t* resources_start);
+int resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t flags, kresource_t* resources_start);
 
 /*
  * Resource release routines
@@ -147,10 +146,10 @@ ErrorOrPtr resource_apply_flags(uintptr_t start, size_t size, kresource_flags_t 
  * - Warning -> the resource was successfully unreferenced, but parts of it are still referenced
  * - Error   -> something went wrong while trying to release
  */
-ErrorOrPtr resource_release_region(kresource_t* previous_region, kresource_t* current_region);
-ErrorOrPtr resource_release(uintptr_t start, size_t size, kresource_t* mirrors_start);
+int resource_release_region(kresource_t* previous_region, kresource_t* current_region);
+int resource_release(uintptr_t start, size_t size, kresource_t* mirrors_start);
 
-ErrorOrPtr resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t* bundle);
+int resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t* bundle);
 
-ErrorOrPtr resource_find_usable_range(kresource_bundle_t* bundle, kresource_type_t type, size_t size);
+int resource_find_usable_range(kresource_bundle_t* bundle, kresource_type_t type, size_t size, uintptr_t* brange);
 #endif // !__ANIVA_SYS_RESOURCE__

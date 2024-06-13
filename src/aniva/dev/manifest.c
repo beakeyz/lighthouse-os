@@ -144,10 +144,10 @@ drv_manifest_t* create_drv_manifest(aniva_driver_t* handle)
     return ret;
 }
 
-ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* handle)
+kerror_t manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* handle)
 {
     if (manifest->m_handle || (manifest->m_flags & DRV_DEFERRED_HNDL) != DRV_DEFERRED_HNDL)
-        return Error();
+        return -1;
 
     ASSERT_MSG(manifest->m_obj == nullptr || strcmp(manifest->m_obj->name, handle->m_name) == 0, "Tried to emplace a handle on a manifest which already has an object");
 
@@ -166,7 +166,7 @@ ErrorOrPtr manifest_emplace_handle(drv_manifest_t* manifest, aniva_driver_t* han
         /* Make sure our object knows about us */
         oss_obj_register_child(manifest->m_obj, manifest, OSS_OBJ_TYPE_DRIVER, destroy_drv_manifest);
     }
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -322,7 +322,7 @@ int manifest_gather_dependencies(drv_manifest_t* manifest)
         }
 
         /* Copy the dependency into the vector */
-        vector_add(manifest->m_dep_list, &man_dep);
+        vector_add(manifest->m_dep_list, &man_dep, NULL);
     }
 
     return 0;
@@ -330,21 +330,24 @@ int manifest_gather_dependencies(drv_manifest_t* manifest)
 
 int manifest_add_dev(struct drv_manifest* driver, device_t* device)
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
     mutex_lock(driver->m_lock);
 
-    result = vector_add(driver->m_dev_list, &device);
+    error = vector_add(driver->m_dev_list, &device, NULL);
 
     mutex_unlock(driver->m_lock);
 
-    return IsError(result) ? -KERR_NOMEM : 0;
+    return (error) ? -KERR_NOMEM : 0;
 }
 
 int manifest_remove_dev(struct drv_manifest* driver, device_t* device)
 {
     int error = -KERR_NOT_FOUND;
     uint32_t idx = 0;
+
+    if (!driver || !device)
+        return -1;
 
     mutex_lock(driver->m_lock);
 
@@ -353,7 +356,7 @@ int manifest_remove_dev(struct drv_manifest* driver, device_t* device)
         goto unlock_and_exit;
 
     /* Try to remove from the vector */
-    if (IsError(vector_remove(driver->m_dev_list, idx)))
+    if ((vector_remove(driver->m_dev_list, idx)))
         goto unlock_and_exit;
 
     error = 0;
@@ -368,18 +371,14 @@ unlock_and_exit:
  */
 bool manifest_has_dev(struct drv_manifest* driver, struct device* device, uint32_t* p_idx)
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
     mutex_lock(driver->m_lock);
 
-    result = vector_indexof(driver->m_dev_list, device);
+    error = vector_indexof(driver->m_dev_list, device, p_idx);
 
     mutex_unlock(driver->m_lock);
 
-    /* Pass the index */
-    if (p_idx)
-        *p_idx = Release(result);
-
     /* If we where able to find an index, the driver has this device */
-    return !IsError(result);
+    return (error == 0);
 }

@@ -30,13 +30,13 @@ void init_resource_list(resource_list_t* list, const char* name, kresource_type_
 resource_list_t* create_resource_list(const char* name, kresource_type_t type);
 void destroy_resource_list(resource_list_t* list);
 
-ErrorOrPtr resource_add(resource_list_t* list, uintptr_t start, size_t size, kresource_flags_t flags);
-ErrorOrPtr resource_add_ex(resource_list_t* list, kresource_t* prev, kresource_t* resource);
+kerror_t resource_add(resource_list_t* list, uintptr_t start, size_t size, kresource_flags_t flags);
+kerror_t resource_add_ex(resource_list_t* list, kresource_t* prev, kresource_t* resource);
 
-ErrorOrPtr resource_remove(resource_list_t* list, uintptr_t start, size_t size);
-ErrorOrPtr resource_remove_ex(resource_list_t* list, kresource_t* resource);
+kerror_t resource_remove(resource_list_t* list, uintptr_t start, size_t size);
+kerror_t resource_remove_ex(resource_list_t* list, kresource_t* resource);
 
-ErrorOrPtr resource_get(resource_list_t* list, uintptr_t address);
-ErrorOrPtr resource_put(resource_list_t* list, uintptr_t address);
+kerror_t resource_get(resource_list_t* list, uintptr_t address);
+kerror_t resource_put(resource_list_t* list, uintptr_t address);
 
 #endif // !__ANIVA_RESOURCE_LIST__

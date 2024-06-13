@@ -32,7 +32,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
 
     current_proc = get_current_proc();
 
-    if (!current_proc || IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
+    if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, length))
         return SYS_INV;
 
     khandle = find_khandle(&current_proc->m_handle_map, handle);
@@ -112,7 +112,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
 
     current_proc = get_current_proc();
 
-    if (!current_proc || IsError(kmem_validate_ptr(current_proc, (uintptr_t)buffer, length)))
+    if (!current_proc || kmem_validate_ptr(current_proc, (uintptr_t)buffer, length))
         return NULL;
 
     read_len = 0;
@@ -280,7 +280,7 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, si
 
     c_proc = get_current_proc();
 
-    if (IsError(kmem_validate_ptr(c_proc, (vaddr_t)namebuffer, 1)))
+    if (kmem_validate_ptr(c_proc, (vaddr_t)namebuffer, 1))
         return SYS_INV;
 
     /* Don't want to go poking in kernel memory */

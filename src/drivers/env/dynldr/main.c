@@ -413,8 +413,8 @@ kerror_t await_lib_init(dynamic_library_t* lib)
         return -KERR_NULL;
 
     /* Allocate a page for the trampoline code inside the process */
-    libtramp_uvirt = Must(kmem_user_alloc_range(target_proc, SMALL_PAGE_SIZE, NULL, NULL));
-    libtramp_kvirt = Must(kmem_get_kernel_address(libtramp_uvirt, target_proc->m_root_pd.m_root));
+    ASSERT(!kmem_user_alloc_range((void**)&libtramp_uvirt, target_proc, SMALL_PAGE_SIZE, NULL, NULL));
+    ASSERT(!kmem_get_kernel_address(&libtramp_kvirt, libtramp_uvirt, target_proc->m_root_pd.m_root));
 
     /* Copy the code into the process */
     memcpy((void*)libtramp_kvirt, __lib_trampoline, SMALL_PAGE_SIZE);

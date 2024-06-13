@@ -137,12 +137,12 @@ int generic_driver_entry(drv_manifest_t* manifest)
     return error;
 }
 
-ErrorOrPtr bootstrap_driver(drv_manifest_t* manifest)
+kerror_t bootstrap_driver(drv_manifest_t* manifest)
 {
     int error;
 
     if (!manifest)
-        return Error();
+        return -1;
 
     if (manifest->m_flags & DRV_FS) {
         /* TODO: redo */
@@ -157,7 +157,7 @@ ErrorOrPtr bootstrap_driver(drv_manifest_t* manifest)
     error = generic_driver_entry(manifest);
 
     if (error)
-        return Error();
+        return -1;
 
-    return Success(0);
+    return (0);
 }

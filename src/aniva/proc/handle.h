@@ -82,25 +82,25 @@ typedef struct khandle_map {
 
 /* Unconventional create, since this does not use the heap */
 khandle_map_t create_khandle_map_ex(uint32_t max_count);
-void init_khandle_map(khandle_map_t* map, uint32_t max_count);
+int init_khandle_map(khandle_map_t* map, uint32_t max_count);
 
 /* Cleans up the maps handles */
 void destroy_khandle_map(khandle_map_t* map);
 
 /* NOTE: mutates the handle to fill in the index they are put at */
-ErrorOrPtr bind_khandle(khandle_map_t* map, khandle_t* handle);
+kerror_t bind_khandle(khandle_map_t* map, khandle_t* handle, uint32_t* bidx);
 
-ErrorOrPtr bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
-ErrorOrPtr try_bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
+kerror_t bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
+kerror_t try_bind_khandle_at(khandle_map_t* map, khandle_t* handle, uint32_t index);
 
 /* NOTE: mutates the handle to clear the index */
-ErrorOrPtr unbind_khandle(khandle_map_t* map, khandle_t* handle);
+kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle);
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t index);
 
 /*
  * Mutate the handle that lives in the index specified
  */
-ErrorOrPtr mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index);
+kerror_t mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index);
 
 #endif // !__ANIVA_HANDLE__

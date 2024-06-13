@@ -41,7 +41,8 @@ lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_window_count)
     ret->pixel_bitmap = create_bitmap_ex(fb->width * fb->height, 0);
     ret->uid_bitmap = create_bitmap_ex(0xffff, 0);
     ret->window_stack_size = ALIGN_UP(max_window_count * sizeof(lwnd_window_t*), SMALL_PAGE_SIZE);
-    ret->window_stack = (lwnd_window_t**)Must(__kmem_kernel_alloc_range(ret->window_stack_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->window_stack, ret->window_stack_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     ASSERT_MSG(ret->pixel_bitmap, "Could not make bitmap!");
 
@@ -63,22 +64,20 @@ void destroy_lwnd_screen(lwnd_screen_t* screen)
     destroy_mutex(screen->event_lock);
     destroy_bitmap(screen->pixel_bitmap);
     destroy_bitmap(screen->uid_bitmap);
-    Must(__kmem_kernel_dealloc((uint64_t)screen->window_stack, screen->window_stack_size));
+    ASSERT(!__kmem_kernel_dealloc((uint64_t)screen->window_stack, screen->window_stack_size));
     deallocate_lwnd_screen(screen);
 }
 
 static int _generate_window_uid(lwnd_screen_t* screen, window_id_t* uid)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     window_id_t id;
 
-    result = bitmap_find_free(screen->uid_bitmap);
+    error = bitmap_find_free(screen->uid_bitmap, (uint64_t*)&id);
 
     /* Could not find free entry */
-    if (IsError(result))
+    if ((error))
         return -1;
-
-    id = Release(result);
 
     /* Mark this bitch */
     bitmap_mark(screen->uid_bitmap, id);
@@ -123,7 +122,7 @@ unlock_and_exit:
  * @brief: Register a window at a specific id
  *
  * We can only register at places where there either already is a window, or
- * at the end of the current stack, resulting in a call to lwnd_screen_register_window
+ * at the end of the current stack, erroring in a call to lwnd_screen_register_window
  *
  * FIXME: do we need to update windows anywhere?
  */

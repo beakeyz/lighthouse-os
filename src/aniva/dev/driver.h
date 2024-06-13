@@ -129,6 +129,6 @@ int driver_takeover_device(struct drv_manifest* manifest, struct device* device,
  * Create a thread for this driver in the kernel process
  * and run the entry
  */
-ErrorOrPtr bootstrap_driver(struct drv_manifest* manifest);
+kerror_t bootstrap_driver(struct drv_manifest* manifest);
 
 #endif //__ANIVA_DRIVER__

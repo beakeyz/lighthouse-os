@@ -96,11 +96,11 @@ typedef struct kdoor {
 void init_kdoor(kdoor_t* door, void* buffer, uint32_t buffer_size);
 void destroy_kdoor(kdoor_t* door);
 
-ErrorOrPtr register_kdoor(kdoorbell_t* db, kdoor_t* door);
-ErrorOrPtr unregister_kdoor(kdoorbell_t* db, kdoor_t* door);
-ErrorOrPtr kdoor_move(kdoor_t* door, kdoorbell_t* new_doorbell);
+kerror_t register_kdoor(kdoorbell_t* db, kdoor_t* door);
+kerror_t unregister_kdoor(kdoorbell_t* db, kdoor_t* door);
+kerror_t kdoor_move(kdoor_t* door, kdoorbell_t* new_doorbell);
 
-ErrorOrPtr kdoor_reset(kdoor_t* door);
+kerror_t kdoor_reset(kdoor_t* door);
 
 static inline bool kdoor_is_rang(kdoor_t* door)
 {

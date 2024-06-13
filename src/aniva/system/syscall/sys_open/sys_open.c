@@ -31,15 +31,13 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
 {
     HANDLE ret;
     khandle_t handle = { 0 };
-    ErrorOrPtr result;
+    kerror_t error;
     proc_t* c_proc;
 
     c_proc = get_current_proc();
 
-    if (!c_proc || (path && IsError(kmem_validate_ptr(c_proc, (uintptr_t)path, 1))))
+    if (!c_proc || (path && (kmem_validate_ptr(c_proc, (uintptr_t)path, 1))))
         return HNDL_INVAL;
-
-    ret = HNDL_NOT_FOUND;
 
     /*
      * TODO: check for permissions and open with the appropriate flags
@@ -212,7 +210,7 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         /* We (the kernel) does not need to know about how dynamic_library memory is ordered */
         dynamic_library_t* lib_addr = NULL;
 
-        if (IsError(driver_send_msg_a(DYN_LDR_URL, DYN_LDR_LOAD_LIB, (void*)path, sizeof(path), &lib_addr, sizeof(void*))) || !lib_addr)
+        if ((driver_send_msg_a(DYN_LDR_URL, DYN_LDR_LOAD_LIB, (void*)path, sizeof(path), &lib_addr, sizeof(void*))) || !lib_addr)
             return HNDL_NOT_FOUND;
 
         init_khandle(&handle, &type, lib_addr);
@@ -243,10 +241,10 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     khandle_set_flags(&handle, flags);
 
     /* Copy the handle into the map */
-    result = bind_khandle(&c_proc->m_handle_map, &handle);
+    error = bind_khandle(&c_proc->m_handle_map, &handle, (uint32_t*)&ret);
 
-    if (!IsError(result))
-        ret = Release(result);
+    if (error)
+        ret = HNDL_NOT_FOUND;
 
     return ret;
 }
@@ -258,14 +256,14 @@ vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path)
 
     c_proc = get_current_proc();
 
-    if (IsError(kmem_validate_ptr(c_proc, (vaddr_t)path, 1)))
+    if (kmem_validate_ptr(c_proc, (vaddr_t)path, 1))
         return NULL;
 
     /* NOTE: Dangerous */
     if (!strlen(path))
         return NULL;
 
-    if (IsError(driver_send_msg_a(DYN_LDR_URL, DYN_LDR_GET_FUNC_ADDR, (void*)path, sizeof(path), &out, sizeof(out))))
+    if (driver_send_msg_a(DYN_LDR_URL, DYN_LDR_GET_FUNC_ADDR, (void*)path, sizeof(path), &out, sizeof(out)))
         return NULL;
 
     return out;
@@ -279,7 +277,8 @@ vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path)
  */
 HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t flags)
 {
-    ErrorOrPtr result;
+    HANDLE ret;
+    kerror_t error;
     proc_t* current_proc;
     sysvar_t* svar;
     oss_node_t* target_node;
@@ -290,7 +289,7 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
     current_proc = get_current_proc();
 
     /* Validate pointers */
-    if (!current_proc || IsError(kmem_validate_ptr(current_proc, (uint64_t)name, 1)))
+    if (!current_proc || kmem_validate_ptr(current_proc, (uint64_t)name, 1))
         return HNDL_INVAL;
 
     /* Grab the kernel handle to the target profile */
@@ -330,12 +329,12 @@ HANDLE sys_open_pvar(const char* __user name, HANDLE profile_handle, uint16_t fl
     khandle_set_flags(&pvar_khndl, flags);
 
     /* Copy the handle into the map */
-    result = bind_khandle(&current_proc->m_handle_map, &pvar_khndl);
+    error = bind_khandle(&current_proc->m_handle_map, &pvar_khndl, (uint32_t*)&ret);
 
-    if (!IsError(result))
-        return Release(result);
+    if (error)
+        return HNDL_INVAL;
 
-    return HNDL_INVAL;
+    return ret;
 }
 
 HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
@@ -347,7 +346,7 @@ HANDLE sys_open_proc(const char* __user name, uint16_t flags, uint32_t mode)
 uintptr_t sys_close(HANDLE handle)
 {
     khandle_t* c_handle;
-    ErrorOrPtr result;
+    kerror_t error;
     proc_t* current_process;
 
     current_process = get_current_proc();
@@ -358,9 +357,9 @@ uintptr_t sys_close(HANDLE handle)
         return SYS_INV;
 
     /* Destroying the khandle */
-    result = unbind_khandle(&current_process->m_handle_map, c_handle);
+    error = unbind_khandle(&current_process->m_handle_map, c_handle);
 
-    if (IsError(result))
+    if (error)
         return SYS_ERR;
 
     return SYS_OK;
@@ -382,10 +381,10 @@ bool sys_create_pvar(HANDLE handle, const char* __user name, enum SYSVAR_TYPE ty
 
     proc = get_current_proc();
 
-    if (IsError(kmem_validate_ptr(proc, (uintptr_t)name, 1)))
+    if ((kmem_validate_ptr(proc, (uintptr_t)name, 1)))
         return false;
 
-    if (IsError(kmem_validate_ptr(proc, (uintptr_t)value, 1)))
+    if ((kmem_validate_ptr(proc, (uintptr_t)value, 1)))
         return false;
 
     khandle = find_khandle(&proc->m_handle_map, handle);

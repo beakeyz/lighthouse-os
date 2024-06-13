@@ -24,20 +24,20 @@ struct sec_cache_entry {
     uintptr_t current_block;
 };
 
-ErrorOrPtr create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device)
+kerror_t create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device)
 {
     fs_oss_node_t* fsnode;
     fat_fs_info_t* info;
 
     if (!node)
-        return Error();
+        return -1;
 
     fsnode = oss_node_getfs(node);
 
     info = zalloc_fixed(&__fat_info_cache);
 
     if (!info)
-        return Error();
+        return -1;
 
     info->fat_lock = create_mutex(NULL);
     info->node = node;
@@ -46,7 +46,7 @@ ErrorOrPtr create_fat_info(oss_node_t* node, partitioned_disk_dev_t* device)
 
     fsnode->m_fs_priv = info;
 
-    return Success(0);
+    return (0);
 }
 
 void destroy_fat_info(oss_node_t* node)
@@ -85,10 +85,15 @@ fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache
     if (!cache)
         return nullptr;
 
+    memset(cache, 0, sizeof(*cache));
+
     cache->blocksize = block_size;
     cache->cache_count = cache_count;
 
     c_entry = cache->entries;
+
+    if (__kmem_kernel_alloc_range((void**)&cache->block_buffers, block_size * cache_count, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE))
+        goto dealloc_and_exit;
 
     /*
      * Initialize all the cache entries
@@ -96,14 +101,29 @@ fat_sector_cache_t* create_fat_sector_cache(uintptr_t block_size, uint32_t cache
     for (uint32_t i = 0; i < cache_count; i++) {
         c_entry[i] = zalloc_fixed(&__fat_sec_entry_alloc);
 
+        if (!c_entry[i])
+            goto dealloc_and_exit;
+
         memset(c_entry[i], 0, sizeof(struct sec_cache_entry));
 
-        c_entry[i]->block_buffer = Must(__kmem_kernel_alloc_range(block_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+        c_entry[i]->block_buffer = (uintptr_t)&cache->block_buffers[i * block_size];
 
         memset((void*)c_entry[i]->block_buffer, 0, block_size);
     }
 
     return cache;
+
+dealloc_and_exit:
+
+    for (int i = 0; i < cache_count; i++)
+        if (c_entry[i])
+            zfree_fixed(&__fat_sec_entry_alloc, c_entry[i]);
+
+    if (cache->block_buffers)
+        __kmem_kernel_dealloc((vaddr_t)cache->block_buffers, block_size * cache_count);
+
+    kfree(cache);
+    return nullptr;
 }
 
 void destroy_fat_sector_cache(fat_sector_cache_t* cache)
@@ -112,10 +132,10 @@ void destroy_fat_sector_cache(fat_sector_cache_t* cache)
         return;
 
     for (uint32_t i = 0; i < cache->cache_count; i++) {
-        __kmem_kernel_dealloc(cache->entries[i]->block_buffer, cache->blocksize);
         zfree_fixed(&__fat_sec_entry_alloc, cache->entries[i]);
     }
 
+    __kmem_kernel_dealloc((vaddr_t)cache->block_buffers, cache->blocksize * cache->cache_count);
     kfree(cache);
 }
 
@@ -405,17 +425,17 @@ void deallocate_fat_file(fat_file_t* file)
  */
 void init_fat_cache(void)
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
-    result = init_zone_allocator(&__fat_info_cache, DEFAULT_FAT_INFO_ENTRIES * sizeof(fat_fs_info_t), sizeof(fat_fs_info_t), NULL);
+    error = init_zone_allocator(&__fat_info_cache, DEFAULT_FAT_INFO_ENTRIES * sizeof(fat_fs_info_t), sizeof(fat_fs_info_t), NULL);
 
-    ASSERT_MSG(!IsError(result), "Could not create FAT info cache!");
+    ASSERT_MSG(!(error), "Could not create FAT info cache!");
 
-    result = init_zone_allocator(&__fat_file_cache, ZALLOC_DEFAULT_ALLOC_COUNT * sizeof(fat_file_t), sizeof(fat_file_t), NULL);
+    error = init_zone_allocator(&__fat_file_cache, ZALLOC_DEFAULT_ALLOC_COUNT * sizeof(fat_file_t), sizeof(fat_file_t), NULL);
 
-    ASSERT_MSG(!IsError(result), "Could not create FAT file cache!");
+    ASSERT_MSG(!(error), "Could not create FAT file cache!");
 
     ASSERT_MSG(
-        !IsError(init_zone_allocator(&__fat_sec_entry_alloc, DEFAULT_FAT_SECTOR_CACHES * sizeof(struct sec_cache_entry), sizeof(struct sec_cache_entry), NULL)),
+        !(init_zone_allocator(&__fat_sec_entry_alloc, DEFAULT_FAT_SECTOR_CACHES * sizeof(struct sec_cache_entry), sizeof(struct sec_cache_entry), NULL)),
         "Failed to create a FAT sector cache allocator!");
 }

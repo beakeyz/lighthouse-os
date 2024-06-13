@@ -28,10 +28,10 @@ struct huffman_table {
     uint16_t alphabet[288];
 };
 
-static ErrorOrPtr handle_non_compressed(decompress_ctx_t* ctx);
-static ErrorOrPtr huffman_inflate(decompress_ctx_t* ctx, struct huffman_table* lengths, struct huffman_table* dists);
-static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx);
-static ErrorOrPtr generic_inflate(decompress_ctx_t* ctx);
+static kerror_t handle_non_compressed(decompress_ctx_t* ctx);
+static kerror_t huffman_inflate(decompress_ctx_t* ctx, struct huffman_table* lengths, struct huffman_table* dists);
+static kerror_t dynamic_huffman_inflate(decompress_ctx_t* ctx);
+static kerror_t generic_inflate(decompress_ctx_t* ctx);
 static void c_write(decompress_ctx_t* ctx, uint8_t data);
 static void c_write_from(decompress_ctx_t* ctx, uint32_t offset);
 
@@ -223,7 +223,7 @@ static uint32_t c_read_symbol(decompress_ctx_t* ctx, struct huffman_table* table
     return table->alphabet[count + current];
 }
 
-static ErrorOrPtr handle_non_compressed(decompress_ctx_t* ctx)
+static kerror_t handle_non_compressed(decompress_ctx_t* ctx)
 {
 
     println("Found Non-compressed block");
@@ -240,7 +240,7 @@ static ErrorOrPtr handle_non_compressed(decompress_ctx_t* ctx)
     /* Check validety */
     if (check_len != check_nlen) {
         printf("%d <-> %d ykes\n", check_len, check_nlen);
-        return Error();
+        return -1;
     }
 
     /* Just write this data to the out buffer */
@@ -248,10 +248,10 @@ static ErrorOrPtr handle_non_compressed(decompress_ctx_t* ctx)
         c_write(ctx, c_read(ctx));
     }
 
-    return Success(0);
+    return (0);
 }
 
-static ErrorOrPtr huffman_inflate(decompress_ctx_t* ctx, struct huffman_table* lengths, struct huffman_table* dists)
+static kerror_t huffman_inflate(decompress_ctx_t* ctx, struct huffman_table* lengths, struct huffman_table* dists)
 {
 
     // TODO: implement
@@ -299,10 +299,10 @@ static ErrorOrPtr huffman_inflate(decompress_ctx_t* ctx, struct huffman_table* l
         }
     }
 
-    return Success(0);
+    return (0);
 }
 
-static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx)
+static kerror_t dynamic_huffman_inflate(decompress_ctx_t* ctx)
 {
 
     // TODO: implement
@@ -366,7 +366,7 @@ static ErrorOrPtr dynamic_huffman_inflate(decompress_ctx_t* ctx)
     return huffman_inflate(ctx, &dyn_len_table, &dyn_dist_table);
 }
 
-ErrorOrPtr generic_inflate(decompress_ctx_t* ctx)
+kerror_t generic_inflate(decompress_ctx_t* ctx)
 {
 
     c_reset_bit_buffer(ctx);
@@ -374,7 +374,7 @@ ErrorOrPtr generic_inflate(decompress_ctx_t* ctx)
     /* Build the fixed tables for the huffman tables if they are not built already */
     build_fixed_tables();
 
-    ErrorOrPtr result = Success(0);
+    kerror_t error = (0);
 
     for (;;) {
         bool last = c_read_bit(ctx);
@@ -383,29 +383,29 @@ ErrorOrPtr generic_inflate(decompress_ctx_t* ctx)
         switch (block_type) {
         /* Not compressed */
         case 0x00:
-            result = handle_non_compressed(ctx);
+            error = handle_non_compressed(ctx);
             break;
         /* fixed huffman code */
         case 0x01:
-            result = huffman_inflate(ctx, &fixed_lengths, &fixed_distances);
+            error = huffman_inflate(ctx, &fixed_lengths, &fixed_distances);
             break;
         /* dynamic huffman code */
         case 0x02:
-            result = dynamic_huffman_inflate(ctx);
+            error = dynamic_huffman_inflate(ctx);
             break;
         /* Invalid */
         case 0x03:
         default:
-            result = Error();
+            error = -KERR_INVAL;
             break;
         }
 
-        if (last || result.m_status != ANIVA_SUCCESS) {
+        if (last || error) {
             break;
         }
     }
 
-    return result;
+    return error;
 }
 
 #define GZIP_MAGIC_BYTE0 0x1F
@@ -439,7 +439,7 @@ bool cram_is_compressed_library(partitioned_disk_dev_t* device)
     return true;
 }
 
-ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
+kerror_t cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
 {
 
     decompress_ctx_t ctx = {
@@ -454,10 +454,10 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
     };
 
     if (c_read(&ctx) != GZIP_MAGIC_BYTE0)
-        return Error();
+        return -1;
 
     if (c_read(&ctx) != GZIP_MAGIC_BYTE1)
-        return Error();
+        return -1;
 
     /* TODO: find a practical reason to store the header */
     struct gzip_compressed_header header = { 0 };
@@ -472,7 +472,7 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
 
     /* Can't compress blocks with this that aren't encoded with DEFLATE */
     if (header.compression_method != GZIP_DEFLATE_CM)
-        return Error();
+        return -1;
 
     /* Extra bytes we can discard */
     if (header.flags & GZIP_FLAG_EXTR) {
@@ -511,9 +511,7 @@ ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer)
 
     destroy_gzip_header(&header);
 
-    ErrorOrPtr result = generic_inflate(&ctx);
-
-    return result;
+    return generic_inflate(&ctx);
 }
 
 size_t cram_find_decompressed_size(partitioned_disk_dev_t* device)

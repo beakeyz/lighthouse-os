@@ -23,7 +23,7 @@ static ALWAYS_INLINE void init_umip(processor_info_t* info);
 processor_t g_bsp;
 extern FpuState standard_fpu_state;
 
-static ErrorOrPtr __init_syscalls(processor_t* processor)
+static kerror_t __init_syscalls(processor_t* processor)
 {
     /* We support the syscall feature */
     processor->m_flags &= ~PROCESSOR_FLAG_INT_SYSCALLS;
@@ -40,7 +40,7 @@ static ErrorOrPtr __init_syscalls(processor_t* processor)
     /* Mask all these eflag bits so there is no leaking of kernel data to userspace */
     wrmsr(MSR_SFMASK, EFLAGS_CF | EFLAGS_PF | EFLAGS_AF | EFLAGS_ZF | EFLAGS_SF | EFLAGS_TF | EFLAGS_IF | EFLAGS_DF | EFLAGS_OF | EFLAGS_IOPL | EFLAGS_NT | EFLAGS_RF | EFLAGS_AC | EFLAGS_ID);
 
-    return Success(0);
+    return (0);
 }
 
 // Should not be used to initialize bsp
@@ -139,7 +139,7 @@ void init_processor_late(processor_t* processor)
 
     if (processor_has(&processor->m_info, X86_FEATURE_SYSCALL)) {
         // Set syscall entry
-        ASSERT_MSG(__init_syscalls(processor).m_status == ANIVA_SUCCESS, "Failed to initialize syscalls");
+        ASSERT_MSG(__init_syscalls(processor) == 0, "Failed to initialize syscalls");
     }
 
     if (is_bsp(processor)) {

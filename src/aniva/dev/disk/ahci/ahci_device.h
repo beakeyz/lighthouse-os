@@ -4,7 +4,6 @@
 #include "dev/driver.h"
 #include "libk/data/linkedlist.h"
 #include <dev/pci/pci.h>
-#include <libk/data/hive.h>
 
 struct ahci_port;
 struct drv_manifest;

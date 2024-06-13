@@ -190,17 +190,17 @@ void destroy_kdoor(kdoor_t* door)
         door->m_flags |= KDOOR_FLAG_DIRTY;
 }
 
-ErrorOrPtr kdoor_reset(kdoor_t* door)
+kerror_t kdoor_reset(kdoor_t* door)
 {
     kdoorbell_t* bell;
 
     if (!door->m_bell)
-        return Error();
+        return -1;
 
     bell = door->m_bell;
 
     if (!bell->m_lock)
-        return Error();
+        return -1;
 
     mutex_lock(bell->m_lock);
     mutex_lock(door->m_lock);
@@ -210,16 +210,16 @@ ErrorOrPtr kdoor_reset(kdoor_t* door)
     mutex_unlock(door->m_lock);
     mutex_unlock(bell->m_lock);
 
-    return Success(0);
+    return (0);
 }
 
-ErrorOrPtr register_kdoor(kdoorbell_t* db, kdoor_t* door)
+kerror_t register_kdoor(kdoorbell_t* db, kdoor_t* door)
 {
     if (!db || !door || door->m_bell)
-        return Error();
+        return -1;
 
     if (db->m_door_count == db->m_door_capacity)
-        return Error();
+        return -1;
 
     mutex_lock(db->m_lock);
 
@@ -236,19 +236,19 @@ ErrorOrPtr register_kdoor(kdoorbell_t* db, kdoor_t* door)
     }
 
     mutex_unlock(db->m_lock);
-    return Success(0);
+    return (0);
 }
 
-ErrorOrPtr unregister_kdoor(kdoorbell_t* db, kdoor_t* door)
+kerror_t unregister_kdoor(kdoorbell_t* db, kdoor_t* door)
 {
     if (!db || !door || !door->m_bell)
-        return Error();
+        return -1;
 
     if (!db->m_door_count || door->m_idx >= db->m_door_capacity)
-        return Error();
+        return -1;
 
     if (!db->m_doors[door->m_idx])
-        return Error();
+        return -1;
 
     mutex_lock(db->m_lock);
 
@@ -259,22 +259,22 @@ ErrorOrPtr unregister_kdoor(kdoorbell_t* db, kdoor_t* door)
     door->m_idx = KDOOR_INVALID_IDX;
 
     mutex_unlock(db->m_lock);
-    return Success(0);
+    return (0);
 }
 
-ErrorOrPtr kdoor_move(kdoor_t* door, kdoorbell_t* new_doorbell)
+kerror_t kdoor_move(kdoor_t* door, kdoorbell_t* new_doorbell)
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
-    result = unregister_kdoor(door->m_bell, door);
+    error = unregister_kdoor(door->m_bell, door);
 
-    if (IsError(result))
-        return result;
+    if ((error))
+        return error;
 
-    result = register_kdoor(new_doorbell, door);
+    error = register_kdoor(new_doorbell, door);
 
-    if (IsError(result))
-        return Error();
+    if ((error))
+        return -1;
 
-    return Success(0);
+    return (0);
 }

@@ -37,16 +37,16 @@ void* vector_get(vector_t*, uint32_t);
 /*
  * get the index of an item
  */
-ErrorOrPtr vector_indexof(vector_t*, void*);
+kerror_t vector_indexof(vector_t*, void*, uint32_t*);
 
 /*
  * add an item
  */
-ErrorOrPtr vector_add(vector_t*, void*);
+kerror_t vector_add(vector_t*, void*, uint32_t* p_idx);
 
 /*
  * remove an item at an index
  */
-ErrorOrPtr vector_remove(vector_t*, uint32_t);
+kerror_t vector_remove(vector_t*, uint32_t);
 
 #endif //__ANIVA_VECTOR__

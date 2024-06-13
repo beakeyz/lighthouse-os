@@ -483,7 +483,7 @@ ANIVA_STATUS sched_add_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio)
     return ANIVA_SUCCESS;
 }
 
-ErrorOrPtr sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, bool reschedule)
+kerror_t sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, bool reschedule)
 {
     scheduler_t* s;
     sched_frame_t* frame;
@@ -491,7 +491,7 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, b
     s = get_current_scheduler();
 
     if (!s)
-        return Error();
+        return -1;
 
     pause_scheduler();
 
@@ -514,11 +514,11 @@ ErrorOrPtr sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, b
         /* Yield to the scheduler to initialize the reschedule */
         scheduler_yield();
 
-        return Success(0);
+        return (0);
     }
 
     resume_scheduler();
-    return Success(0);
+    return (0);
 }
 
 ANIVA_STATUS sched_remove_proc(proc_t* proc)

@@ -54,7 +54,7 @@ uintptr_t sys_exit_handler(uintptr_t code)
 
 exit_and_terminate:
     KLOG_DBG("(sys_exit) Terminating process\n");
-    Must(try_terminate_process(current_proc));
+    try_terminate_process(current_proc);
 
 exit_and_yield:
 

@@ -27,9 +27,9 @@ typedef struct binary_tree_node {
 binary_tree_t* create_binary_tree(f_bin_tree_comperator_t comperator);
 void destroy_binary_tree(binary_tree_t* tree);
 
-ErrorOrPtr binary_tree_insert(binary_tree_t* tree, void* data);
-ErrorOrPtr binary_tree_remove(binary_tree_t* tree, void* data);
+kerror_t binary_tree_insert(binary_tree_t* tree, void* data);
+kerror_t binary_tree_remove(binary_tree_t* tree, void* data);
 
-ErrorOrPtr binary_tree_find(binary_tree_t* tree, void* data);
+kerror_t binary_tree_find(binary_tree_t* tree, void* data);
 
 #endif // !__ANIVA_TREE__

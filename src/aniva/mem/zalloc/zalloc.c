@@ -13,8 +13,8 @@ zalloc_list_t* __kernel_alloc_list;
 
 zone_allocator_t __initial_allocator[DEFAULT_ZONE_ENTRY_SIZE_COUNT];
 
-static ErrorOrPtr zone_allocate(zone_t* zone, size_t size);
-static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size);
+static inline void* zone_allocate(zone_t* zone, size_t size);
+static inline int zone_deallocate(zone_t* zone, void* address, size_t size);
 
 void init_zalloc()
 {
@@ -23,20 +23,20 @@ void init_zalloc()
 
 #define DEFAULT_ZONE_STORE_CAPACITY ((SMALL_PAGE_SIZE - sizeof(zone_store_t)) >> 3)
 
-ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+int init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
 {
     return init_zone_allocator_ex(allocator, nullptr, NULL, initial_size, hard_max_entry_size, flags);
 }
 
-ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
+int init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
 {
-    ErrorOrPtr result;
+    int error = -1;
     size_t entries_for_this_zone;
     zone_t* new_zone;
     zone_store_t* new_zone_store;
 
     if (!ret || !initial_size || !hard_max_entry_size)
-        return Error();
+        return -KERR_INVAL;
 
     new_zone = nullptr;
     new_zone_store = nullptr;
@@ -66,14 +66,14 @@ ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* ret, pml_entry_t* map, vaddr
     if (!new_zone)
         goto fail_and_dealloc;
 
-    result = zone_store_add(ret->m_store, new_zone);
+    error = zone_store_add(ret->m_store, new_zone);
 
-    if (IsError(result))
+    if (error)
         goto fail_and_dealloc;
 
     ret->m_total_size += new_zone->m_total_available_size;
 
-    return Success(0);
+    return 0;
 
 fail_and_dealloc:
 
@@ -84,7 +84,7 @@ fail_and_dealloc:
         destroy_zone_store(ret, new_zone_store);
 
     kfree(ret);
-    return Error();
+    return error;
 }
 
 zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags)
@@ -107,7 +107,7 @@ zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr,
 
     memset(ret, 0, sizeof(*ret));
 
-    if (IsError(init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags)))
+    if (init_zone_allocator_ex(ret, map, start_addr, initial_size, hard_max_entry_size, flags))
         return nullptr;
 
     return ret;
@@ -156,17 +156,17 @@ void zone_allocator_clear(zone_allocator_t* allocator)
  * to an exsisting store, or otherwise creating a new store to put the new zone into
  * @returns a pointer to the zone that was added to the allocator
  */
-static ErrorOrPtr grow_zone_allocator(zone_allocator_t* allocator)
+static int grow_zone_allocator(zone_allocator_t* allocator, zone_t** p_zone)
 {
 
     zone_t* new_zone;
     zone_store_t* new_zone_store;
     size_t grow_size;
     size_t entry_size;
-    ErrorOrPtr result;
+    int error;
 
     if (!allocator)
-        return Error();
+        return -1;
 
     /*
      * Create a new zone to fit the new size
@@ -182,27 +182,29 @@ static ErrorOrPtr grow_zone_allocator(zone_allocator_t* allocator)
 
     /* Failed to create zone: probably out of physical memory */
     if (!new_zone)
-        return Error();
+        return -1;
 
-    result = allocator_add_zone(allocator, new_zone);
+    error = allocator_add_zone(allocator, new_zone);
 
     /*
      * If we where able to add the new zone, thats a successful growth.
      * Otherwise we need to add a new zone store...
      */
-    if (!IsError(result))
-        return Success((uintptr_t)new_zone);
+    if (!error) {
+        *p_zone = new_zone;
+        return 0;
+    }
 
     new_zone_store = create_zone_store(DEFAULT_ZONE_STORE_CAPACITY);
 
     if (!new_zone_store)
-        return Error();
+        return -KERR_NOMEM;
 
-    result = zone_store_add(new_zone_store, new_zone);
+    error = zone_store_add(new_zone_store, new_zone);
 
     /* Could not even add a zone to the new store we just made.. this is bad =( */
-    if (IsError(result))
-        return Error();
+    if (error)
+        return error;
 
     /* Yay we have a new store that also has a clean zone! lets add it to the allocator */
 
@@ -211,11 +213,14 @@ static ErrorOrPtr grow_zone_allocator(zone_allocator_t* allocator)
     allocator->m_store = new_zone_store;
     allocator->m_store_count++;
 
-    return Success((uintptr_t)new_zone);
+    *p_zone = new_zone;
+    return 0;
 }
 
 zone_store_t* create_zone_store(size_t initial_capacity)
 {
+    int error;
+    zone_store_t* store;
 
     // We subtract the size of the entire zone_store header struct without
     // the size of the m_zones field
@@ -226,15 +231,10 @@ zone_store_t* create_zone_store(size_t initial_capacity)
 
     initial_capacity += delta_entries;
 
-    zone_store_t* store;
-    ErrorOrPtr result;
+    error = __kmem_kernel_alloc_range((void**)&store, bytes, 0, KMEM_FLAG_WRITABLE);
 
-    result = __kmem_kernel_alloc_range(bytes, 0, KMEM_FLAG_WRITABLE);
-
-    if (IsError(result))
+    if (error)
         return nullptr;
-
-    store = (zone_store_t*)Release(result);
 
     // set the counts
     store->m_zones_count = 0;
@@ -282,67 +282,66 @@ void destroy_zone_stores(zone_allocator_t* allocator)
     }
 }
 
-ErrorOrPtr allocator_add_zone(zone_allocator_t* allocator, zone_t* zone)
+int allocator_add_zone(zone_allocator_t* allocator, zone_t* zone)
 {
-    ErrorOrPtr result;
+    int error;
 
     if (!allocator || !zone)
-        return Error();
+        return -1;
 
     FOREACH_ZONESTORE(allocator, store)
     {
-        result = zone_store_add(store, zone);
+        error = zone_store_add(store, zone);
 
-        if (!IsError(result))
-            return result;
+        if (!error)
+            return error;
     }
 
-    return result;
+    return error;
 }
 
-ErrorOrPtr allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone)
+int allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone)
 {
-    ErrorOrPtr result;
+    int error;
 
     if (!allocator || !zone)
-        return Error();
+        return -1;
 
     FOREACH_ZONESTORE(allocator, store)
     {
-        result = zone_store_remove(store, zone);
+        error = zone_store_remove(store, zone);
 
-        if (!IsError(result))
-            return result;
+        if (!error)
+            return error;
     }
 
-    return result;
+    return error;
 }
 
-ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone)
+int zone_store_add(zone_store_t* store, zone_t* zone)
 {
-
     if (!store || !zone || !store->m_capacity)
-        return Error();
+        return -1;
 
     // More zones than we can handle?
     if (store->m_zones_count > store->m_capacity)
-        return Error();
+        return -1;
 
     store->m_zones[store->m_zones_count] = zone;
 
     store->m_zones_count++;
 
-    return Success(0);
+    return 0;
 }
 
 /*
  * We assume the zone is already destroyed when we remove it
  */
-ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone)
+int zone_store_remove(zone_store_t* store, zone_t* zone)
 {
 
     if (!store || !zone)
-        return Error();
+        return -1;
 
     // Sanity check
     if (store->m_zones_count == (uintptr_t)-1) {
@@ -360,9 +359,8 @@ ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone)
     }
 
     // Let's assume we never get to this point lmao
-    if (index == (uintptr_t)-1) {
-        return Error();
-    }
+    if (index == (uintptr_t)-1)
+        return -1;
 
     // Shift every entry after the one we want to remove back by one
     for (uintptr_t i = index; i < store->m_zones_count - 1; i++) {
@@ -371,7 +369,7 @@ ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone)
 
     store->m_zones_count--;
 
-    return Success(0);
+    return 0;
 }
 
 void destroy_zone(zone_allocator_t* allocator, zone_t* zone)
@@ -394,6 +392,9 @@ void destroy_zone(zone_allocator_t* allocator, zone_t* zone)
  */
 zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t max_entries)
 {
+    int error;
+    zone_t* zone;
+
     ASSERT_MSG(entry_size != 0 && max_entries != 0, "create_zone: expected non-null parameters!");
 
     uint32_t kmem_flags = KMEM_FLAG_WRITABLE;
@@ -436,13 +437,10 @@ zone_t* create_zone(zone_allocator_t* allocator, const size_t entry_size, size_t
     if ((allocator->m_flags & ZALLOC_FLAG_DMA) == ZALLOC_FLAG_DMA)
         kmem_flags |= KMEM_FLAG_DMA;
 
-    zone_t* zone;
-    ErrorOrPtr result = __kmem_kernel_alloc_range(aligned_size, 0, kmem_flags);
+    error = __kmem_kernel_alloc_range((void**)&zone, aligned_size, 0, kmem_flags);
 
-    if (IsError(result))
+    if (error)
         return nullptr;
-
-    zone = (zone_t*)Release(result);
 
     // We'll have to construct this bitmap ourselves
     zone->m_entries = (bitmap_t) {
@@ -481,8 +479,8 @@ void kzfree_scan(void* address)
 
 void* zalloc(zone_allocator_t* allocator, size_t size)
 {
-
-    ErrorOrPtr result;
+    int error;
+    void* result;
     zone_t* new_zone;
     zone_store_t* current_store;
 
@@ -502,30 +500,25 @@ void* zalloc(zone_allocator_t* allocator, size_t size)
             if (size <= zone->m_zone_entry_size) {
                 result = zone_allocate(zone, size);
 
-                if (IsError(result))
+                if (!result)
                     continue;
 
-                return (void*)Release(result);
+                return result;
             }
         }
 
         current_store = current_store->m_next;
     }
 
-    result = grow_zone_allocator(allocator);
+    error = grow_zone_allocator(allocator, &new_zone);
 
-    if (IsError(result))
-        return nullptr;
-
-    new_zone = (zone_t*)Release(result);
-
-    if (!new_zone)
+    if (error)
         return nullptr;
 
     result = zone_allocate(new_zone, size);
 
-    if (!IsError(result))
-        return (void*)Release(result);
+    if (result)
+        return result;
 
     /* TODO: try to create a new zone somewhere and allocate there */
     kernel_panic("zalloc call failed! TODO: fix this dumb panic!");
@@ -535,7 +528,7 @@ void* zalloc(zone_allocator_t* allocator, size_t size)
 
 void zfree(zone_allocator_t* allocator, void* address, size_t size)
 {
-    ErrorOrPtr result;
+    int error;
     zone_store_t* current_store;
 
     if (!allocator || !address || !size)
@@ -552,11 +545,10 @@ void zfree(zone_allocator_t* allocator, void* address, size_t size)
                 continue;
 
             if (size <= zone->m_zone_entry_size) {
-                result = zone_deallocate(zone, address, size);
+                error = zone_deallocate(zone, address, size);
 
-                if (IsError(result)) {
+                if (error)
                     continue;
-                }
 
                 // If the deallocation succeeded, just exit
                 break;
@@ -577,31 +569,28 @@ void zfree_fixed(zone_allocator_t* allocator, void* address)
     zfree(allocator, address, allocator->m_entry_size);
 }
 
-static ErrorOrPtr zone_allocate(zone_t* zone, size_t size)
+static inline void* zone_allocate(zone_t* zone, size_t size)
 {
     uintptr_t index;
-    ASSERT_MSG(size <= zone->m_zone_entry_size, "Allocating over the span of multiple subzones is not yet implemented!");
+
+    // ASSERT_MSG(size <= zone->m_zone_entry_size, "Allocating over the span of multiple subzones is not yet implemented!");
 
     // const size_t entries_needed = (size + zone->m_zone_entry_size - 1) / zone->m_zone_entry_size;
-    ErrorOrPtr result = bitmap_find_free(&zone->m_entries);
+    if (!KERR_OK(bitmap_find_free(&zone->m_entries, &index)))
+        return nullptr;
 
-    if (result.m_status == ANIVA_FAIL)
-        return Error();
-
-    index = result.m_ptr;
     bitmap_mark(&zone->m_entries, index);
-    vaddr_t ret = zone->m_entries_start + (index * zone->m_zone_entry_size);
-    return Success(ret);
+
+    return (void*)(zone->m_entries_start + (index * zone->m_zone_entry_size));
 }
 
-static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size)
+static inline int zone_deallocate(zone_t* zone, void* address, size_t size)
 {
     ASSERT_MSG(size <= zone->m_zone_entry_size, "Deallocating over the span of multiple subzones is not yet implemented!");
 
     // Address is not contained inside this zone
-    if ((uintptr_t)address < zone->m_entries_start) {
-        return Error();
-    }
+    if ((uintptr_t)address < zone->m_entries_start)
+        return -1;
 
     /*
      * FIXME: this integer division is dangerous. We really should only accept sizes that are
@@ -614,12 +603,12 @@ static ErrorOrPtr zone_deallocate(zone_t* zone, void* address, size_t size)
     // If an offset is equal to or greater than the amount of entries, something has
     // gone wrong, since offsets start at 0
     if (address_offset >= zone->m_entries.m_entries)
-        return Error();
+        return -1;
 
     if (!bitmap_isset(&zone->m_entries, address_offset))
-        return Error();
+        return -1;
 
     bitmap_unmark(&zone->m_entries, address_offset);
 
-    return Success(0);
+    return 0;
 }

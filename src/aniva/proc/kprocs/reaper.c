@@ -101,13 +101,13 @@ static void USED reaper_exit()
  *
  *
  */
-ErrorOrPtr reaper_register_process(proc_t* proc)
+kerror_t reaper_register_process(proc_t* proc)
 {
     if (!proc)
-        return Error();
+        return -1;
 
     if (!__reaper_thread)
-        return Error();
+        return -1;
 
     /* TODO: If the reaper thread is idle, wake it up */
     ASSERT_MSG(!(__reaper_thread->m_parent_proc->m_flags & PROC_IDLE), "Kernelprocess seems to be idle!");
@@ -121,7 +121,7 @@ ErrorOrPtr reaper_register_process(proc_t* proc)
     /* Unlock the mutex. After this we musn't access @proc anymore */
     mutex_unlock(__reaper_process_lock);
 
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -143,10 +143,10 @@ int reaper_register_thread(thread_t* thread)
     return 0;
 }
 
-ErrorOrPtr init_reaper(proc_t* proc)
+kerror_t init_reaper(proc_t* proc)
 {
     if (!proc || !(proc->m_flags & PROC_KERNEL))
-        return Error();
+        return -1;
 
     /* Make sure we know this is the process that contains the reaper */
     proc->m_flags |= PROC_REAPER;
@@ -171,5 +171,5 @@ ErrorOrPtr init_reaper(proc_t* proc)
 
     proc_add_thread(proc, __reaper_thread);
 
-    return Success(0);
+    return (0);
 }

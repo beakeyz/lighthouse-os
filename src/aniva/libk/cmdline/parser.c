@@ -85,7 +85,7 @@ void _destroy_kopt(kopt_t* opt)
 /*!
  * @brief: Itterator callback to destroy all the kopts in the _opt_map
  */
-static ErrorOrPtr _destroy_opts(void* val, uint64_t a, uint64_t b)
+static kerror_t _destroy_opts(void* val, uint64_t a, uint64_t b)
 {
     kopt_t* opt;
 
@@ -93,12 +93,12 @@ static ErrorOrPtr _destroy_opts(void* val, uint64_t a, uint64_t b)
     (void)b;
 
     if (!val)
-        return Success(0);
+        return (0);
 
     opt = (kopt_t*)val;
 
     _destroy_kopt(opt);
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -108,7 +108,7 @@ static ErrorOrPtr _destroy_opts(void* val, uint64_t a, uint64_t b)
  */
 void destroy_cmdline_parser()
 {
-    hashmap_itterate(_opt_map, _destroy_opts, NULL, NULL);
+    hashmap_itterate(_opt_map, NULL, _destroy_opts, NULL, NULL);
     destroy_hashmap(_opt_map);
 
     _opt_map = nullptr;

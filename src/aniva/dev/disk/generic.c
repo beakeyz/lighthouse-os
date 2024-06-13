@@ -259,18 +259,18 @@ int generic_disk_opperation(disk_dev_t* dev, void* buffer, size_t size, disk_off
     return -1;
 }
 
-ErrorOrPtr register_gdisk_dev(disk_dev_t* device)
+kerror_t register_gdisk_dev(disk_dev_t* device)
 {
     struct gdisk_store_entry** entry;
 
     if (!device)
-        return Error();
+        return -1;
 
     entry = get_store_entry(device);
 
     /* We need to assert that get_store_entry returned an empty entry */
     if (*entry)
-        return Error();
+        return -1;
 
     mutex_lock(_gdisk_lock);
 
@@ -281,7 +281,7 @@ ErrorOrPtr register_gdisk_dev(disk_dev_t* device)
 
     mutex_unlock(_gdisk_lock);
 
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -289,13 +289,13 @@ ErrorOrPtr register_gdisk_dev(disk_dev_t* device)
  *
  * Nothing to add here...
  */
-ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device)
+kerror_t unregister_gdisk_dev(disk_dev_t* device)
 {
     struct gdisk_store_entry** entry;
     struct gdisk_store_entry** previous_entry;
 
     if (!device)
-        return Error();
+        return -1;
 
     mutex_lock(_gdisk_lock);
 
@@ -327,7 +327,7 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device)
     /* No entry found =/ */
     if (!*entry) {
         mutex_unlock(_gdisk_lock);
-        return Error();
+        return -1;
     }
 
     /* If we remove the only entry, update s_last_gdisk */
@@ -348,7 +348,7 @@ ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device)
 
     mutex_unlock(_gdisk_lock);
 
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -382,11 +382,11 @@ disk_dev_t* find_gdisk_device(disk_uid_t uid)
  *
  * Nothing to add here...
  */
-ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
+kerror_t register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
 {
 
     if (!device)
-        return Error();
+        return -1;
 
     mutex_lock(_gdisk_lock);
 
@@ -439,7 +439,7 @@ ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid)
 
     mutex_unlock(_gdisk_lock);
 
-    return Success(0);
+    return (0);
 }
 
 int read_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t size, disk_offset_t offset)
@@ -535,13 +535,16 @@ int pd_set_blocksize(partitioned_disk_dev_t* dev, uint32_t blksize)
 
 disk_dev_t* create_generic_ramdev(size_t size)
 {
+    uintptr_t start_addr;
 
+    /* Align the size */
     size = ALIGN_UP(size, SMALL_PAGE_SIZE);
-    uintptr_t start_addr = Must(__kmem_kernel_alloc_range(size, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
-    disk_dev_t* dev = create_generic_ramdev_at(start_addr, size);
+    /* Allocate a block */
+    ASSERT(!__kmem_kernel_alloc_range((void**)&start_addr, size, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE));
 
-    return dev;
+    /* Create a ramdev */
+    return create_generic_ramdev_at(start_addr, size);
 }
 
 /*
@@ -614,9 +617,9 @@ bool destroy_generic_ramdev(disk_dev_t* device)
 
     const size_t ramdev_size = end_addr - start_addr;
 
-    ErrorOrPtr result = __kmem_kernel_dealloc(start_addr, ramdev_size);
+    kerror_t error = __kmem_kernel_dealloc(start_addr, ramdev_size);
 
-    if (result.m_status != ANIVA_SUCCESS)
+    if (error)
         return false;
 
     /* We should only have one partition, so this works */

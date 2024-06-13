@@ -91,7 +91,7 @@ void scheduler_set_request(scheduler_t* s);
  * process selection or simply puts itself behind the current
  * running process to be scheduled next, based on the reschedule param
  */
-ErrorOrPtr sched_add_priority_proc(proc_t*, enum SCHEDULER_PRIORITY prio, bool reschedule);
+kerror_t sched_add_priority_proc(proc_t*, enum SCHEDULER_PRIORITY prio, bool reschedule);
 ANIVA_STATUS sched_add_proc(proc_t*, enum SCHEDULER_PRIORITY prio);
 
 ANIVA_STATUS sched_remove_proc(proc_t*);

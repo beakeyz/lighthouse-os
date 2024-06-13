@@ -1078,8 +1078,8 @@ void load_usb_hcds()
  */
 void init_usb()
 {
-    Must(init_zone_allocator(&__usb_hub_allocator, 16 * Kib, sizeof(usb_hcd_t), NULL));
-    Must(init_zone_allocator(&__usb_xfer_allocator, 32 * Kib, sizeof(usb_xfer_t), NULL));
+    ASSERT(!init_zone_allocator(&__usb_hub_allocator, 16 * Kib, sizeof(usb_hcd_t), NULL));
+    ASSERT(!init_zone_allocator(&__usb_xfer_allocator, 32 * Kib, sizeof(usb_xfer_t), NULL));
 
     _root_usbhub_group = register_dev_group(DGROUP_TYPE_USB, "usb", NULL, NULL);
     _usbdev_list = init_list();

@@ -1,4 +1,5 @@
 #include "linkedlist.h"
+#include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include <dev/debug/serial.h>
 #include <libk/string.h>
@@ -240,15 +241,16 @@ void* list_get(list_t* list, uint32_t index)
 }
 
 // NOTE: ErrorOrPtr returns an uint64_t, while linkedlist indexing uses uint32_t here
-ErrorOrPtr list_indexof(list_t* list, void* data)
+int list_indexof(list_t* list, uint32_t* p_idx, void* data)
 {
     uint32_t idx = 0;
     FOREACH(i, list)
     {
         if (i->data == data) {
-            return Success(idx);
+            *p_idx = idx;
+            return 0;
         }
         idx++;
     }
-    return Error();
+    return -KERR_NOT_FOUND;
 }

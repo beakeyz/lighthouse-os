@@ -29,7 +29,7 @@ typedef struct {
     struct huffman_cache* m_cache;
 } decompress_ctx_t;
 
-ErrorOrPtr cram_decompress(partitioned_disk_dev_t* device, void* result_buffer);
+kerror_t cram_decompress(partitioned_disk_dev_t* device, void* result_buffer);
 
 bool cram_is_compressed_library(partitioned_disk_dev_t* device);
 

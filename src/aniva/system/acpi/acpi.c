@@ -25,7 +25,7 @@ void init_acpi()
 
     // kernel_panic(")/ o.o)/ : How the fuck did we exit early ACPI init?");
 
-    Must(init_acpi_parser(&_parser));
+    ASSERT_MSG(KERR_OK(init_acpi_parser(&_parser)), "Failed to initialize in-house ACPI parser!");
 
     /* Init devices through ACPI */
     init_acpi_devices();

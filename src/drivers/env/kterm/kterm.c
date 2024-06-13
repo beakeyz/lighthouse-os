@@ -789,7 +789,7 @@ static inline void kterm_clear_cmd_buffer()
     /* Clear the buffer ourselves */
     memset(__processor_door.m_buffer, 0, __processor_door.m_buffer_size);
 
-    Must(kdoor_reset(&__processor_door));
+    ASSERT(!kdoor_reset(&__processor_door));
 }
 
 /*!
@@ -831,7 +831,7 @@ static void kterm_key_watcher()
 
         /* Check for the force quit keybind */
         if (kevent_is_keycombination_pressed(key_event, _forcequit_sequence, arrlen(_forcequit_sequence)) && _active_grpx_app.client_proc)
-            Must(try_terminate_process(_active_grpx_app.client_proc));
+            ASSERT(!try_terminate_process(_active_grpx_app.client_proc));
 
     cycle:
         scheduler_yield();
@@ -851,7 +851,7 @@ static void kterm_command_worker()
 
     init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
 
-    Must(register_kdoor(__kterm_cmd_doorbell, &__processor_door));
+    ASSERT(!register_kdoor(__kterm_cmd_doorbell, &__processor_door));
 
     while (true) {
 
@@ -930,7 +930,7 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
     char* str = (char*)buffer;
 
     /* Make sure the end of the buffer is null-terminated and the start is non-null */
-    // if (IsError(kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
+    // if ((kmem_validate_ptr(get_current_proc(), (uintptr_t)buffer, 1)))
     // return DRV_STAT_INVAL;
 
     /* TODO; string.h: char validation */
@@ -1131,10 +1131,10 @@ int kterm_init()
     /*
      * Allocate a range for our characters
      */
-    _characters = (void*)Must(__kmem_kernel_alloc_range(_chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&_characters, _chars_xres * _chars_yres * sizeof(struct kterm_terminal_char), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     /* Allocate the color pallet */
-    _clr_pallet = (void*)Must(__kmem_kernel_alloc_range(KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&_clr_pallet, KTERM_MAX_PALLET_ENTRY_COUNT * sizeof(struct kterm_terminal_pallet_entry), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     kterm_fill_pallet();
 
@@ -1214,7 +1214,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
     proc_t* c_proc = get_current_proc();
 
     /* Check pointer */
-    if (buffer && IsError(kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
+    if (buffer && (kmem_validate_ptr(c_proc, (uintptr_t)buffer, size)))
         return DRV_STAT_INVAL;
 
     switch (code) {
@@ -1289,7 +1289,10 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
 
         /* Allocate this crap in the userprocess */
         _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);
-        _active_grpx_app.c_fb = uwnd->fb = (void*)Must(kmem_user_alloc_range(c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
+
+        ASSERT(!kmem_user_alloc_range((void**)&uwnd->fb, c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
+
+        _active_grpx_app.c_fb = uwnd->fb;
 
         memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
 

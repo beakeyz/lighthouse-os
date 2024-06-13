@@ -188,7 +188,7 @@ uint32_t kterm_cmd_hello(const char** argv, size_t argc)
  */
 uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     extern_driver_t* driver;
     drv_manifest_t* manifest;
     const char* drv_path = nullptr;
@@ -264,9 +264,9 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
             return 1;
         }
 
-        result = uninstall_driver(manifest);
+        error = uninstall_driver(manifest);
 
-        if (IsError(result)) {
+        if ((error)) {
             kterm_println("Failed to uninstall that driver!");
             return 2;
         }
@@ -275,9 +275,9 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     }
 
     if (should_unload) {
-        result = unload_driver(drv_path);
+        error = unload_driver(drv_path);
 
-        if (IsError(result)) {
+        if ((error)) {
             kterm_println("Failed to unload that driver!");
             return 1;
         }
@@ -295,7 +295,7 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     }
 
     /* If this path it to a valid installed manifest, load that */
-    if (manifest && !IsError(load_driver(manifest))) {
+    if (manifest && !(load_driver(manifest))) {
         kterm_println("Successfully loaded driver!");
         return 0;
     }

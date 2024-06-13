@@ -16,17 +16,17 @@
 uintptr_t
 sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     khandle_t* c_hndl;
     proc_t* c_proc;
 
     c_proc = get_current_proc();
 
     /* Check the buffer(s) if they are given */
-    if (buffer && IsError(kmem_validate_ptr(c_proc, (vaddr_t)buffer, size)))
+    if (buffer && kmem_validate_ptr(c_proc, (vaddr_t)buffer, size))
         return SYS_INV;
 
-    if (out_buffer && IsError(kmem_validate_ptr(c_proc, (vaddr_t)out_buffer, size)))
+    if (out_buffer && kmem_validate_ptr(c_proc, (vaddr_t)out_buffer, size))
         return SYS_INV;
 
     /* Find the handle */
@@ -35,14 +35,14 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
     if (!c_hndl)
         return SYS_INV;
 
-    result = Success(0);
+    error = (0);
 
     switch (c_hndl->type) {
     case HNDL_TYPE_DRIVER: {
         drv_manifest_t* driver = c_hndl->reference.driver;
 
         /* NOTE: this call locks the manifest */
-        result = driver_send_msg_ex(driver, code, buffer, size, out_buffer, out_size);
+        error = driver_send_msg_ex(driver, code, buffer, size, out_buffer, out_size);
         break;
     }
     case HNDL_TYPE_FILE: {
@@ -50,14 +50,14 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
 
         /* TODO: follow unix? */
         (void)file;
-        result = Error();
+        error = -1;
         break;
     }
     default:
         return SYS_INV;
     }
 
-    if (IsError(result))
+    if (error)
         return SYS_ERR;
 
     return SYS_OK;
@@ -94,7 +94,7 @@ bool sys_get_pvar_type(HANDLE pvar_handle, enum SYSVAR_TYPE __user* type_buffer)
     current_proc = get_current_proc();
 
     /* Check the buffer address */
-    if (IsError(kmem_validate_ptr(current_proc, (uint64_t)type_buffer, sizeof(type_buffer))))
+    if (kmem_validate_ptr(current_proc, (uint64_t)type_buffer, sizeof(type_buffer)))
         return false;
 
     /* Find the khandle */

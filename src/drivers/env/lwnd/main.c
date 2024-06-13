@@ -349,7 +349,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         return DRV_STAT_INVAL;
 
     /* Check pointer */
-    if (IsError(kmem_validate_ptr(calling_process, (uintptr_t)buffer, size)))
+    if ((kmem_validate_ptr(calling_process, (uintptr_t)buffer, size)))
         return DRV_STAT_INVAL;
 
     /* Unsafe assignment */

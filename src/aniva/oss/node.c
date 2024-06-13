@@ -241,7 +241,7 @@ int oss_node_add_obj(oss_node_t* node, struct oss_obj* obj)
     if (_node_contains_entry(node, entry))
         goto unlock_and_exit;
 
-    error = IsError(hashmap_put(node->obj_map, (hashmap_key_t)obj->name, entry));
+    error = (hashmap_put(node->obj_map, (hashmap_key_t)obj->name, entry));
 
     if (!error)
         obj->parent = node;
@@ -282,7 +282,7 @@ int oss_node_add_node(oss_node_t* target, struct oss_node* node)
     if (_node_contains_entry(target, entry))
         goto unlock_and_exit;
 
-    error = IsError(hashmap_put(target->obj_map, (hashmap_key_t)node->name, entry));
+    error = (hashmap_put(target->obj_map, (hashmap_key_t)node->name, entry));
 
     if (!error)
         node->parent = target;
@@ -455,7 +455,7 @@ int oss_node_query_node(oss_node_t* node, const char* path, struct oss_node** no
  * @arg0: The itteration callback for _node_itter
  * @arg1: The suplementary argument for the itteration
  */
-static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
+static kerror_t _node_itter(void* v, uint64_t arg0, uint64_t arg1)
 {
     int error;
     oss_node_entry_t* entry = v;
@@ -464,7 +464,7 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
     bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* arg0) = (void*)arg0;
 
     if (!entry)
-        return Success(0);
+        return (0);
 
     error = 0;
 
@@ -474,20 +474,20 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
         obj = entry->obj;
 
         if (!f_itter(nullptr, obj, (void*)arg1))
-            return Error();
+            return -1;
         break;
     /* Itterate over nodes recursively */
     case OSS_ENTRY_NESTED_NODE:
         node = entry->node;
 
         if (!f_itter(node, nullptr, (void*)arg1))
-            return Error();
+            return -1;
         break;
     default:
         break;
     }
 
-    return error ? Error() : Success(0);
+    return error ? -1 : (0);
 }
 
 /*!
@@ -495,7 +495,7 @@ static ErrorOrPtr _node_itter(void* v, uint64_t arg0, uint64_t arg1)
  */
 int oss_node_itterate(oss_node_t* node, bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param)
 {
-    return IsError(hashmap_itterate(node->obj_map, _node_itter, (uint64_t)f_itter, (uint64_t)param));
+    return (hashmap_itterate(node->obj_map, NULL, _node_itter, (uint64_t)f_itter, (uint64_t)param));
 }
 
 /*!

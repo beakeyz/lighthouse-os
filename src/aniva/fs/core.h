@@ -31,8 +31,8 @@ void init_fs_core();
 fs_type_t* get_fs_driver(fs_type_t* fs);
 fs_type_t* get_fs_type(const char* name);
 
-ErrorOrPtr register_filesystem(fs_type_t* fs);
-ErrorOrPtr unregister_filesystem(fs_type_t* fs);
+kerror_t register_filesystem(fs_type_t* fs);
+kerror_t unregister_filesystem(fs_type_t* fs);
 
 typedef struct fs_oss_node {
     fs_type_t* m_type;

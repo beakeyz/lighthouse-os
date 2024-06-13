@@ -100,8 +100,11 @@ void bitmap_mark_range(bitmap_t* this, uint32_t index, size_t length)
         this->m_map[(index + i) >> 3] |= (1 << ((index + i) % 8));
 }
 
-ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir)
+int bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result)
 {
+    if (!this || !p_result)
+        return -KERR_INVAL;
+
     switch (dir) {
     case FORWARDS: {
         /*
@@ -114,8 +117,11 @@ ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir)
             uintptr_t start_idx = BYTES_TO_BITS(i);
 
             for (uintptr_t j = 0; j < 8; j++) {
-                if (!bitmap_isset(this, start_idx + j))
-                    return Success(start_idx + j);
+                if (bitmap_isset(this, start_idx + j))
+                    continue;
+
+                *p_result = (start_idx + j);
+                return 0;
             }
         }
         break;
@@ -128,45 +134,48 @@ ErrorOrPtr bitmap_find_free_ex(bitmap_t* this, enum BITMAP_SEARCH_DIR dir)
             uintptr_t start_idx = BYTES_TO_BITS(this->m_size - i);
 
             for (uintptr_t j = 0; j < 8; j++) {
-                if (!bitmap_isset(this, start_idx + j))
-                    return Success(start_idx + j);
+                if (bitmap_isset(this, start_idx + j))
+                    continue;
+
+                *p_result = start_idx + j;
+                return 0;
             }
         }
         break;
     }
     }
 
-    return Error();
+    return -KERR_NOT_FOUND;
 }
 
-ErrorOrPtr bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir)
+int bitmap_find_free_range_ex(bitmap_t* this, size_t length, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result)
 {
     kernel_panic("TODO: bitmap_find_free_range_ex");
 }
-ErrorOrPtr bitmap_find_free_range_from_ex(bitmap_t* this, size_t length, uintptr_t start_idx, enum BITMAP_SEARCH_DIR dir)
+int bitmap_find_free_range_from_ex(bitmap_t* this, size_t length, uintptr_t start_idx, enum BITMAP_SEARCH_DIR dir, uintptr_t* p_result)
 {
     kernel_panic("TODO: bitmap_find_free_range_from_ex");
 }
 
-ErrorOrPtr bitmap_find_free_range(bitmap_t* this, size_t length)
+int bitmap_find_free_range(bitmap_t* this, size_t length, uintptr_t* p_result)
 {
     /*
      * We can perhaps cache the last found range so the next search
      * can start from that index, until the index gets 'corrupted' by
      * a free or something before the cached index
      */
-    return bitmap_find_free_range_from(this, length, 0);
+    return bitmap_find_free_range_from(this, length, 0, p_result);
 }
 
 // TODO: find out if this bugs out
-ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx)
+int bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t start_idx, uintptr_t* p_result)
 {
-    if (!length)
-        return Error();
+    if (!length || !p_result)
+        return -1;
 
     /* lol, we can never find anything if this happens :clown: */
     if (start_idx + length >= this->m_entries)
-        return Error();
+        return -1;
 
     for (uintptr_t i = start_idx; i < this->m_entries; i++) {
 
@@ -183,19 +192,23 @@ ErrorOrPtr bitmap_find_free_range_from(bitmap_t* this, size_t length, uintptr_t 
             j++;
         }
 
-        if (j == length)
-            return Success(i);
+        if (j != length)
+            goto cycle;
 
+        *p_result = i;
+        return 0;
+    cycle:
         i += j;
     }
 
-    return Error();
+    return 0;
 }
 
 // returns the index of the free bit
-ErrorOrPtr bitmap_find_free(bitmap_t* this)
+int bitmap_find_free(bitmap_t* this, uintptr_t* p_result)
 {
-
+    if (!p_result)
+        return -1;
     /*
      * Let's hope we keep this in cache ;-;
      */
@@ -206,12 +219,15 @@ ErrorOrPtr bitmap_find_free(bitmap_t* this)
         uintptr_t start_idx = BYTES_TO_BITS(i);
 
         for (uintptr_t j = 0; j < 8; j++) {
-            if (!bitmap_isset(this, start_idx + j))
-                return Success(start_idx + j);
+            if (bitmap_isset(this, start_idx + j))
+                continue;
+
+            *p_result = start_idx + j;
+            return 0;
         }
     }
 
-    return Error();
+    return -KERR_NOT_FOUND;
 }
 
 bool bitmap_isset(bitmap_t* this, uint32_t index)

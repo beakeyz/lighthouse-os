@@ -350,7 +350,8 @@ static int xhci_create_scratchpad(xhci_hcd_t* xhci)
     memset(sp, 0, sizeof(xhci_scratchpad_t));
 
     /* Allocate the dma arrray */
-    sp->array = (void*)Must(__kmem_kernel_alloc_range(
+    ASSERT(!__kmem_kernel_alloc_range(
+        (void**)&sp->array,
         sizeof(uintptr_t) * xhci->scratchpad_count, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
     /* Set the dma (aka physical) address */
@@ -361,8 +362,14 @@ static int xhci_create_scratchpad(xhci_hcd_t* xhci)
 
     /* Allocate all the buffers */
     for (uintptr_t i = 0; i < xhci->scratchpad_count; i++) {
-        vaddr_t buffer_addr = Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
-        paddr_t dma_addr = kmem_to_phys(nullptr, buffer_addr);
+        vaddr_t buffer_addr;
+        paddr_t dma_addr;
+
+        /* Allocate the buffer address for the scratchpad */
+        ASSERT(!__kmem_kernel_alloc_range((void**)&buffer_addr, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+
+        /* Get it's DMA address */
+        dma_addr = kmem_to_phys(nullptr, buffer_addr);
 
         sp->array[i] = dma_addr;
         sp->buffers[i] = (void*)buffer_addr;
@@ -438,7 +445,7 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
     /* Program the max slots */
     mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
 
-    xhci->dctx_array_ptr = (void*)Must(__kmem_kernel_alloc_range(sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&xhci->dctx_array_ptr, sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
     xhci->dctx_array_ptr->dma = kmem_to_phys(nullptr, (vaddr_t)xhci->dctx_array_ptr);
 
     memset(xhci->dctx_array_ptr, 0, sizeof(xhci_dev_ctx_array_t));
@@ -656,7 +663,8 @@ int xhci_setup(usb_hcd_t* hcd)
      * them better lmao
      */
     xhci->register_size = ALIGN_UP(xhci_register_size, SMALL_PAGE_SIZE);
-    xhci->register_ptr = Must(__kmem_kernel_alloc(
+    ASSERT(!__kmem_kernel_alloc(
+        (void**)&xhci->register_ptr,
         xhci_register_p, xhci->register_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
 
     xhci->cap_regs_offset = 0;

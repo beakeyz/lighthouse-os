@@ -16,7 +16,6 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"
-#include "libk/string.h"
 #include "logging/log.h"
 #include "sync/mutex.h"
 #include <crypto/k_crc32.h>
@@ -93,6 +92,8 @@ void ahci_mmio_write32(uintptr_t base, uintptr_t offset, uint32_t data)
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device)
 {
+    uintptr_t bar_addr;
+    uintptr_t hba_region;
 
     const uint32_t bus_num = device->m_identifier->address.bus_num;
     const uint32_t device_num = device->m_identifier->address.device_num;
@@ -100,9 +101,11 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device)
     uint32_t bar5;
     g_pci_type1_impl.read32(bus_num, device_num, func_num, BAR5, &bar5);
 
-    uintptr_t bar_addr = get_bar_address(bar5);
+    /* Grab the bar addr */
+    bar_addr = get_bar_address(bar5);
 
-    uintptr_t hba_region = (uintptr_t)Must(__kmem_kernel_alloc(bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    /* Map the range */
+    ASSERT(!__kmem_kernel_alloc((void**)&hba_region, bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
     return (void*)hba_region;
 }
@@ -176,7 +179,7 @@ static ANIVA_STATUS reset_hba(ahci_device_t* device)
     return ANIVA_SUCCESS;
 }
 
-static ErrorOrPtr gather_ports_info(ahci_device_t* device)
+static kerror_t gather_ports_info(ahci_device_t* device)
 {
 
     ANIVA_STATUS status;
@@ -190,11 +193,11 @@ static ErrorOrPtr gather_ports_info(ahci_device_t* device)
 
         if (status == ANIVA_FAIL) {
             KLOG_DBG("AHCI: Failed to gather port info!");
-            return Error();
+            return -1;
         }
     }
 
-    return Success(0);
+    return (0);
 }
 
 static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device)
@@ -241,7 +244,7 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device)
 
     KLOG_DBG("AHCI: Gathering info about ports...\n");
 
-    if (IsError(gather_ports_info(device)))
+    if ((gather_ports_info(device)))
         return ANIVA_FAIL;
 
     return status;

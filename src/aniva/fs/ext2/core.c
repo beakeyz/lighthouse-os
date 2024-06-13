@@ -65,11 +65,11 @@ fs_type_t ext2_type = {
 
 int ext2_init()
 {
-    ErrorOrPtr result;
+    kerror_t error;
 
-    result = register_filesystem(&ext2_type);
+    error = register_filesystem(&ext2_type);
 
-    if (result.m_status == ANIVA_FAIL)
+    if (error)
         return -1;
 
     // kernel_panic("Registered the ext2 filesystem...");
@@ -79,9 +79,9 @@ int ext2_init()
 int ext2_exit()
 {
 
-    ErrorOrPtr result = unregister_filesystem(&ext2_type);
+    kerror_t error = unregister_filesystem(&ext2_type);
 
-    if (result.m_status == ANIVA_FAIL)
+    if (error)
         return -1;
 
     return 0;

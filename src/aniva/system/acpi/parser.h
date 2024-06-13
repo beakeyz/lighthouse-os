@@ -52,7 +52,7 @@ typedef struct acpi_parser {
 
 int init_acpi_parser_early(acpi_parser_t* parser);
 void parser_init_tables(acpi_parser_t* parser);
-ErrorOrPtr init_acpi_parser(acpi_parser_t* parser);
+kerror_t init_acpi_parser(acpi_parser_t* parser);
 
 static inline enum acpi_rsdp_method acpi_parser_get_rsdp_method(acpi_parser_t* p)
 {

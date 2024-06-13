@@ -31,17 +31,17 @@ typedef struct __hashmap {
     hashmap_value_t m_list[];
 } hashmap_t;
 
-typedef ErrorOrPtr (*hashmap_itterate_fn_t)(hashmap_value_t value, uint64_t arg0, uint64_t arg1);
+typedef kerror_t (*hashmap_itterate_fn_t)(hashmap_value_t value, uint64_t arg0, uint64_t arg1);
 
 void init_hashmap();
 
 hashmap_t* create_hashmap(size_t max_entries, uint32_t flags);
 void destroy_hashmap(hashmap_t* map);
 
-ErrorOrPtr hashmap_itterate(hashmap_t* map, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1);
+kerror_t hashmap_itterate(hashmap_t* map, void** p_itt_result, hashmap_itterate_fn_t fn, uint64_t arg0, uint64_t arg1);
 
-ErrorOrPtr hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
-ErrorOrPtr hashmap_set(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
+kerror_t hashmap_put(hashmap_t* map, hashmap_key_t key, hashmap_value_t value);
+kerror_t hashmap_set(hashmap_t* map, void** p_old_value, hashmap_key_t key, hashmap_value_t value);
 hashmap_value_t hashmap_remove(hashmap_t* map, hashmap_key_t key);
 hashmap_value_t hashmap_get(hashmap_t* map, hashmap_key_t key);
 int hashmap_to_array(hashmap_t* map, void*** array_ptr, size_t* size_ptr);

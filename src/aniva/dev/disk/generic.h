@@ -112,9 +112,9 @@ void init_gdisk_dev();
 void init_root_device_probing();
 void init_root_ramdev();
 
-ErrorOrPtr register_gdisk_dev(disk_dev_t* device);
-ErrorOrPtr register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid);
-ErrorOrPtr unregister_gdisk_dev(disk_dev_t* device);
+kerror_t register_gdisk_dev(disk_dev_t* device);
+kerror_t register_gdisk_dev_with_uid(disk_dev_t* device, disk_uid_t uid);
+kerror_t unregister_gdisk_dev(disk_dev_t* device);
 
 bool gdisk_is_valid(disk_dev_t* device);
 

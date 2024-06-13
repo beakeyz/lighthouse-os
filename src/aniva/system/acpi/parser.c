@@ -60,7 +60,7 @@ int init_acpi_parser_early(acpi_parser_t* parser)
  *
  * TODO: use acpica
  */
-ErrorOrPtr init_acpi_parser(acpi_parser_t* parser)
+kerror_t init_acpi_parser(acpi_parser_t* parser)
 {
     KLOG_DBG("Starting ACPI parser...\n");
 
@@ -78,7 +78,7 @@ ErrorOrPtr init_acpi_parser(acpi_parser_t* parser)
     // hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
     KLOG_DBG("Started ACPI parser\n");
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -96,8 +96,8 @@ void parser_init_tables(acpi_parser_t* parser)
     if (!parser || !parser->m_rsdp_table)
         return;
 
-    rsdt = (void*)Must(__kmem_kernel_alloc(parser->m_rsdt_phys, sizeof(acpi_tbl_rsdt_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
-    rsdt = (void*)Must(__kmem_kernel_alloc(parser->m_rsdt_phys, rsdt->Header.Length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(__kmem_kernel_alloc((void**)&rsdt, parser->m_rsdt_phys, sizeof(acpi_tbl_rsdt_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
+    ASSERT(__kmem_kernel_alloc((void**)&rsdt, parser->m_rsdt_phys, rsdt->Header.Length, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
 
     if (parser->m_is_xsdp)
         tbl_count = (rsdt->Header.Length - sizeof(rsdt->Header)) / sizeof(uint64_t);
@@ -142,9 +142,10 @@ void* find_rsdp(acpi_parser_t* parser)
 
         printf("Multiboot has xsdp: 0x%llx\n", rsdp_addr);
 
+        ASSERT(__kmem_kernel_alloc((void**)&parser->m_rsdp_table, rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
+
         parser->m_is_xsdp = true;
         parser->m_xsdp_phys = rsdp_addr;
-        parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
         parser->m_rsdt_phys = parser->m_rsdp_table->XsdtPhysicalAddress;
         parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_NEW);
 
@@ -159,8 +160,8 @@ void* find_rsdp(acpi_parser_t* parser)
 
         printf("Multiboot has rsdp: 0x%llx\n", rsdp_addr);
 
+        ASSERT(__kmem_kernel_alloc((void**)&parser->m_rsdp_table, rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
         parser->m_rsdp_phys = rsdp_addr;
-        parser->m_rsdp_table = (void*)Must(__kmem_kernel_alloc(rsdp_addr, sizeof(acpi_tbl_rsdp_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
         parser->m_rsdt_phys = parser->m_rsdp_table->RsdtPhysicalAddress;
         parser->m_rsdp_discovery_method = create_rsdp_method_state(MULTIBOOT_OLD);
         return parser->m_rsdp_table;
@@ -172,8 +173,8 @@ void* find_rsdp(acpi_parser_t* parser)
     uintptr_t bios_start_addr = 0xe0000;
     size_t bios_mem_size = ALIGN_UP(128 * Kib, SMALL_PAGE_SIZE);
 
-    if (IsError(kmem_ensure_mapped(nullptr, bios_start_addr, bios_mem_size)))
-        bios_start_addr = Must(__kmem_kernel_alloc(bios_start_addr, bios_mem_size, NULL, NULL));
+    if (kmem_ensure_mapped(nullptr, bios_start_addr, bios_mem_size))
+        ASSERT(__kmem_kernel_alloc((void**)&bios_start_addr, bios_start_addr, bios_mem_size, NULL, NULL) == 0);
 
     for (uintptr_t i = bios_start_addr; i < bios_start_addr + bios_mem_size; i += 16) {
         acpi_tbl_rsdp_t* potential = (void*)i;

@@ -255,7 +255,8 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     ret->m_port_index = index;
     ret->m_device = device;
     ret->m_port_offset = port_offset;
-    ret->m_ib_page = Must(kmem_prepare_new_physical_page());
+
+    ASSERT(!kmem_prepare_new_physical_page(&ret->m_ib_page));
 
     ret->m_hard_lock = create_spinlock();
 
@@ -267,11 +268,11 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, _ahci_eps);
 
     // prepare buffers
-    ret->m_fis_recieve_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-    ret->m_cmd_list_page = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_fis_recieve_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_cmd_list_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
-    ret->m_dma_buffer = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
-    ret->m_cmd_table_buffer = (paddr_t)Must(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_dma_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_cmd_table_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
 
     return ret;
 }
@@ -360,7 +361,11 @@ ANIVA_STATUS ahci_port_gather_info(ahci_port_t* port)
     ahci_port_mmio_write32(port, AHCI_REG_PxIE, AHCI_PORT_INTERRUPT_FULL_ENABLE);
 
     /* Prepare a buffer for the identify data */
-    ata_identify_block_t* dev_identify_buffer = (ata_identify_block_t*)Release(__kmem_kernel_alloc_range(SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
+    ata_identify_block_t* dev_identify_buffer;
+
+    /* Allocate a buffer for us */
+    ASSERT(__kmem_kernel_alloc_range((void**)&dev_identify_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA) == 0);
+
     paddr_t dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
 
     /* Send the identify command to the device */

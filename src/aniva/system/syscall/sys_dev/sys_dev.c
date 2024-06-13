@@ -19,7 +19,7 @@ uintptr_t sys_get_devinfo(HANDLE handle, DEVINFO* binfo)
     c_proc = get_current_proc();
 
     /* Check if we're not getting trolled */
-    if (IsError(kmem_validate_ptr(c_proc, (vaddr_t)binfo, sizeof(*binfo))))
+    if (kmem_validate_ptr(c_proc, (vaddr_t)binfo, sizeof(*binfo)))
         return SYS_INV;
 
     /* Check if we're not getting trolled v2 */

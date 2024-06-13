@@ -46,7 +46,7 @@ void destroy_lwnd_window(lwnd_window_t* window)
 {
     ASSERT_MSG(!window->screen, "Tried to destroy a window which is still registered");
 
-    Must(__kmem_kernel_dealloc((vaddr_t)window->fb_ptr, window->fb_size));
+    ASSERT(!__kmem_kernel_dealloc((vaddr_t)window->fb_ptr, window->fb_size));
 
     destroy_mutex(window->lock);
     deallocate_lwnd_window(window);
@@ -86,13 +86,13 @@ static inline int lwnd_allocate_fb_range(lwnd_window_t* window, size_t size)
     window->user_real_fb_ptr = nullptr;
     window->fb_ptr = nullptr;
 
-    window->fb_ptr = (void*)Must(__kmem_kernel_alloc_range(size, NULL, KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc_range((void**)&window->fb_ptr, size, NULL, KMEM_FLAG_WRITABLE));
 
     if (window->type == LWND_TYPE_PROCESS && window->client.proc) {
 
         physical = kmem_to_phys(nullptr, (uintptr_t)window->fb_ptr);
 
-        window->user_real_fb_ptr = (void*)Must(kmem_user_alloc(client, physical, size, NULL, KMEM_FLAG_WRITABLE));
+        ASSERT(!kmem_user_alloc((void**)&window->user_real_fb_ptr, client, physical, size, NULL, KMEM_FLAG_WRITABLE));
     }
 
     memset(window->fb_ptr, 0, size);
@@ -138,7 +138,7 @@ int lwnd_request_framebuffer(lwnd_window_t* window)
     window->flags |= LWND_WNDW_NEEDS_SYNC;
 
     /* Deallocate old framebuffer and return */
-    Must(__kmem_kernel_dealloc((vaddr_t)old_fb, old_size));
+    ASSERT(!__kmem_kernel_dealloc((vaddr_t)old_fb, old_size));
     return 0;
 
 create_new_framebuffer:

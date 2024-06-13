@@ -135,18 +135,18 @@ void zfree_fixed(zone_allocator_t* allocator, void* address);
 zone_allocator_t* create_zone_allocator(size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_at(vaddr_t start_addr, size_t initial_size, uintptr_t flags);
 zone_allocator_t* create_zone_allocator_ex(pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
-ErrorOrPtr init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
-ErrorOrPtr init_zone_allocator_ex(zone_allocator_t* allocator, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
+int init_zone_allocator(zone_allocator_t* allocator, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
+int init_zone_allocator_ex(zone_allocator_t* allocator, pml_entry_t* map, vaddr_t start_addr, size_t initial_size, size_t hard_max_entry_size, uintptr_t flags);
 void destroy_zone_allocator(zone_allocator_t* allocator, bool clear_zones);
 void zone_allocator_clear(zone_allocator_t* allocator);
 
 zone_store_t* create_zone_store(size_t initial_capacity);
 void destroy_zone_store(zone_allocator_t* allocator, zone_store_t* store);
 void destroy_zone_stores(zone_allocator_t* allocator);
-ErrorOrPtr allocator_add_zone(zone_allocator_t* allocator, zone_t* zone);
-ErrorOrPtr allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone);
-ErrorOrPtr zone_store_add(zone_store_t* store, zone_t* zone);
-ErrorOrPtr zone_store_remove(zone_store_t* store, zone_t* zone);
+int allocator_add_zone(zone_allocator_t* allocator, zone_t* zone);
+int allocator_remove_zone(zone_allocator_t* allocator, zone_t* zone);
+int zone_store_add(zone_store_t* store, zone_t* zone);
+int zone_store_remove(zone_store_t* store, zone_t* zone);
 
 /*
  * Allocate a number of pages for this zone.

@@ -32,8 +32,11 @@ struct loader_ctx {
 /*!
  * @brief: Make sure there is backing memory for sections that need is
  */
-static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
+static kerror_t __fixup_section_headers(struct loader_ctx* ctx)
 {
+    kerror_t error;
+    void* result;
+
     for (uint32_t i = 0; i < ctx->hdr->e_shnum; i++) {
         struct elf64_shdr* shdr = elf_get_shdr(ctx->hdr, i);
 
@@ -43,9 +46,12 @@ static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
                 break;
 
             /* Just give any NOBITS sections a bit of memory */
-            TRY(result, __kmem_alloc_range(nullptr, ctx->driver->m_manifest->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL));
+            error = __kmem_alloc_range(&result, nullptr, ctx->driver->m_manifest->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
-            shdr->sh_addr = result;
+            if (error)
+                return error;
+
+            shdr->sh_addr = (vaddr_t)result;
             break;
         }
         default:
@@ -54,7 +60,7 @@ static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
         }
     }
 
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -62,7 +68,7 @@ static ErrorOrPtr __fixup_section_headers(struct loader_ctx* ctx)
  *
  * Simply finds relocation section headers and does ELF section relocating
  */
-static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
+static kerror_t __do_driver_relocations(struct loader_ctx* ctx)
 {
     struct elf64_shdr* shdr;
     struct elf64_rela* table;
@@ -127,13 +133,13 @@ static ErrorOrPtr __do_driver_relocations(struct loader_ctx* ctx)
             // printf("Relocation (%d/%lld) type=%lld size=0x%llx\n", i, rela_count, ELF64_R_TYPE(current->r_info), size);
 
             if (!size)
-                return Error();
+                return -1;
 
             memcpy((void*)P, &val, size);
         }
     }
 
-    return Success(0);
+    return (0);
 }
 
 static inline vaddr_t __get_symbol_address(char* name)
@@ -154,9 +160,9 @@ static inline vaddr_t __get_symbol_address(char* name)
 /*!
  * @brief: Loop over the unresolved symbols in the binary and try to match them to kernel symbols
  *
- * When we fail to find a symbol, this function fails and returns Error()
+ * When we fail to find a symbol, this function fails and returns
  */
-static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
+static kerror_t __resolve_kernel_symbols(struct loader_ctx* ctx)
 {
     struct elf64_shdr* shdr = &ctx->shdrs[ctx->symtab_idx];
 
@@ -199,7 +205,7 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
         }
     }
 
-    return Success(0);
+    return (0);
 }
 
 /*!
@@ -210,21 +216,21 @@ static ErrorOrPtr __resolve_kernel_symbols(struct loader_ctx* ctx)
  *  - resolves kernel symbols
  *  - relocates sections
  */
-static ErrorOrPtr __move_driver(struct loader_ctx* ctx)
+static kerror_t __move_driver(struct loader_ctx* ctx)
 {
 
     /* First, make sure any values and addresses are mapped correctly */
-    if (IsError(__fixup_section_headers(ctx)))
-        return Error();
+    if ((__fixup_section_headers(ctx)))
+        return -1;
 
-    if (IsError(__resolve_kernel_symbols(ctx)))
-        return Error();
+    if ((__resolve_kernel_symbols(ctx)))
+        return -1;
 
     /* Then handle any pending relocations */
-    if (IsError(__do_driver_relocations(ctx)))
-        return Error();
+    if ((__do_driver_relocations(ctx)))
+        return -1;
 
-    return Success(0);
+    return (0);
 }
 
 /*
@@ -339,7 +345,7 @@ static void __detect_driver_attributes(drv_manifest_t* manifest)
  * We do this by checking if the address that the function pointers contain, points to a valid symbol.
  * If they do, we consider the driver safe to run
  */
-static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_manifest)
+static kerror_t __verify_driver_functions(struct loader_ctx* ctx, bool verify_manifest)
 {
     size_t function_count;
     struct elf64_shdr* symtab_shdr;
@@ -380,7 +386,7 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
 
         /* If the function isn't mapped high, it's just instantly invalid lol */
         if (func <= (void*)HIGH_MAP_BASE)
-            return Error();
+            return -1;
 
         for (uintptr_t j = 0; j < ctx->sym_count; j++) {
             struct elf64_sym* current_symbol = &sym_table_start[j];
@@ -391,13 +397,13 @@ static ErrorOrPtr __verify_driver_functions(struct loader_ctx* ctx, bool verify_
             }
         }
         if (!found_symbol)
-            return Error();
+            return -1;
     }
 
-    return Success(0);
+    return (0);
 }
 
-static ErrorOrPtr __remove_installed_manifest(drv_manifest_t* new_manifest)
+static kerror_t __remove_installed_manifest(drv_manifest_t* new_manifest)
 {
     drv_manifest_t* current;
 
@@ -405,15 +411,15 @@ static ErrorOrPtr __remove_installed_manifest(drv_manifest_t* new_manifest)
 
     /* Driver is not yet loaded OR installed. Happy day */
     if (!current)
-        return Success(0);
+        return (0);
 
     /* This is less ideal (TODO: figure out how to safely deal with these) */
     if (is_driver_loaded(current))
-        return Error();
+        return -1;
 
     /* We already have an internal driver for this or something? this really should not happen */
     if (!(current->m_flags & DRV_IS_EXTERNAL))
-        return Warning();
+        return 1;
 
     /* Remove the old driver manifest */
     return uninstall_driver(current);
@@ -432,9 +438,9 @@ static inline void _ctx_prepare_manifest(struct loader_ctx* ctx)
  * the driver in the kernel context. When the driver is put
  * into place, load_driver will call its init function
  */
-static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
+static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     struct elf64_shdr* driver_header;
     struct elf64_shdr* deps_header;
     aniva_driver_t* driver_data;
@@ -445,38 +451,38 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
     driver_data = (aniva_driver_t*)driver_header->sh_addr;
     driver_data->m_deps = (drv_dependency_t*)deps_header->sh_addr;
 
-    result = manifest_emplace_handle(ctx->driver->m_manifest, driver_data);
+    error = manifest_emplace_handle(ctx->driver->m_manifest, driver_data);
 
-    if (IsError(result))
-        return Error();
+    if ((error))
+        return -1;
 
     /*
      * If there already is an installed version of this driver, we need to verify
      * that it's not already loaded (and it thus in an idle installed-only state)
      * and we can thus load it here
      */
-    result = __remove_installed_manifest(ctx->driver->m_manifest);
+    error = __remove_installed_manifest(ctx->driver->m_manifest);
 
-    if (IsError(result))
-        return Error();
+    if ((error))
+        return -1;
 
-    result = __verify_driver_functions(ctx, false);
+    error = __verify_driver_functions(ctx, false);
 
-    if (IsError(result))
-        return Error();
+    if ((error))
+        return -1;
 
     __detect_driver_attributes(ctx->driver->m_manifest);
 
     /* When loading a new driver, we need to have valid dependencies */
     if (manifest_gather_dependencies(ctx->driver->m_manifest) < 0)
-        return Error();
+        return -1;
 
     if (install) {
-        result = install_driver(ctx->driver->m_manifest);
+        error = install_driver(ctx->driver->m_manifest);
 
         _ctx_prepare_manifest(ctx);
 
-        return result;
+        return error;
     }
 
     _ctx_prepare_manifest(ctx);
@@ -488,14 +494,14 @@ static ErrorOrPtr __init_driver(struct loader_ctx* ctx, bool install)
 /*
  * TODO: match every allocation with a deallocation on load failure
  */
-static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx, bool install)
+static kerror_t __load_ext_driver(struct loader_ctx* ctx, bool install)
 {
     /* TODO: implement + check signatures */
     if (__check_driver(ctx))
-        return Error();
+        return -1;
 
-    if (IsError(__move_driver(ctx)))
-        return Error();
+    if ((__move_driver(ctx)))
+        return -1;
 
     return __init_driver(ctx, install);
 }
@@ -508,7 +514,7 @@ static ErrorOrPtr __load_ext_driver(struct loader_ctx* ctx, bool install)
  */
 extern_driver_t* load_external_driver(const char* path)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     uintptr_t driver_load_base;
     size_t read_size;
     file_t* file;
@@ -526,12 +532,10 @@ extern_driver_t* load_external_driver(const char* path)
         goto fail_and_deallocate;
 
     /* Allocate contiguous high space for the driver */
-    result = __kmem_alloc_range(nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+    error = __kmem_alloc_range((void**)&driver_load_base, nullptr, out->m_manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
-    if (IsError(result))
+    if ((error))
         goto fail_and_deallocate;
-
-    driver_load_base = Release(result);
 
     /* Set driver fields */
     out->m_load_base = driver_load_base;
@@ -550,11 +554,11 @@ extern_driver_t* load_external_driver(const char* path)
     ctx.driver = out;
     ctx.path = strdup(path);
 
-    result = __load_ext_driver(&ctx, false);
+    error = __load_ext_driver(&ctx, false);
 
     kfree((void*)ctx.path);
 
-    if (IsError(result))
+    if ((error))
         goto fail_and_deallocate;
 
     file_close(file);
@@ -582,12 +586,12 @@ fail_and_deallocate:
  *
  * The path should point to a file that contains driver code. We verify this and
  * we create a manifest that is only installed and not loaded. Loading this manifest
- * will result in the file being loaded from disk and the manifest being overwritten
+ * will error in the file being loaded from disk and the manifest being overwritten
  *
  */
 drv_manifest_t* install_external_driver(const char* path)
 {
-    ErrorOrPtr result;
+    kerror_t error;
     uintptr_t driver_load_base;
     size_t read_size;
     file_t* file;
@@ -610,9 +614,8 @@ drv_manifest_t* install_external_driver(const char* path)
     manifest = ext_drv->m_manifest;
 
     /* Allocate contiguous high space for the driver */
-    result = __kmem_alloc_range(nullptr, manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+    error = __kmem_alloc_range((void**)&driver_load_base, nullptr, manifest->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
-    driver_load_base = Release(result);
     read_size = file_get_size(file);
 
     /* Set driver fields */
@@ -620,7 +623,7 @@ drv_manifest_t* install_external_driver(const char* path)
     ext_drv->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
 
     /* Only check failure here (unlikely failure) */
-    if (IsError(result))
+    if ((error))
         goto fail_and_deallocate;
 
     /* Read the driver into RAM */
@@ -636,9 +639,9 @@ drv_manifest_t* install_external_driver(const char* path)
     ctx.path = path;
 
     /* Init the external driver with install-only enabled */
-    result = __load_ext_driver(&ctx, true);
+    error = __load_ext_driver(&ctx, true);
 
-    if (IsError(result))
+    if ((error))
         goto fail_and_deallocate;
 
     /*

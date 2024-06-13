@@ -1,6 +1,5 @@
 #include "multiboot.h"
 #include "entry/entry.h"
-#include "libk/flow/error.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include <libk/stddef.h>
@@ -8,7 +7,7 @@
 #define MB_MOD_PROBE_LOOPLIM 32
 #define MB_TAG_PROBE_LOOPLIM 128
 
-ErrorOrPtr init_multiboot(void* addr)
+int init_multiboot(void* addr)
 {
     size_t delta;
     vaddr_t virt_mod_end;
@@ -20,7 +19,7 @@ ErrorOrPtr init_multiboot(void* addr)
     /* This would be mega bad lmao */
     if (!mb_memmap) {
         KLOG_ERR("No memorymap found! aborted\n");
-        return Error();
+        return -1;
     }
 
     /* NOTE: addr is virtual */
@@ -50,7 +49,7 @@ ErrorOrPtr init_multiboot(void* addr)
         mb_current_module = next_mb2_tag((uint8_t*)ALIGN_UP((uintptr_t)mb_current_module + mb_current_module->size, 8), MULTIBOOT_TAG_TYPE_MODULE);
     }
 
-    return Success(0);
+    return (0);
 }
 
 /*
@@ -58,7 +57,7 @@ ErrorOrPtr init_multiboot(void* addr)
  * allocator here. This function will preserve any essensial multiboot memory so that
  * it does not get overwritten by any allocations
  */
-ErrorOrPtr finalize_multiboot()
+int finalize_multiboot()
 {
     const size_t mb_pagecount = GET_PAGECOUNT(g_system_info.phys_multiboot_addr, g_system_info.total_multiboot_size);
     const paddr_t aligned_mb_start = ALIGN_DOWN(g_system_info.phys_multiboot_addr, SMALL_PAGE_SIZE);
@@ -96,7 +95,7 @@ ErrorOrPtr finalize_multiboot()
         kmem_set_phys_range_used(phys_fb_start_idx, phys_fb_page_count);
     }
 
-    return Success(0);
+    return (0);
 }
 
 size_t get_total_mb2_size(void* start_addr)

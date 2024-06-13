@@ -77,6 +77,7 @@ void destroy_loaded_app(loaded_app_t* app)
 
 void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
 {
+    void* addr;
     paddr_t paddr;
 
     if (!proc)
@@ -89,7 +90,8 @@ void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
     if (!paddr)
         return nullptr;
 
-    return (void*)Must(__kmem_kernel_alloc(
+    ASSERT(!__kmem_kernel_alloc(
+        &addr,
         /* Physical address */
         paddr,
         /* Our size */
@@ -97,6 +99,8 @@ void* proc_map_into_kernel(proc_t* proc, vaddr_t uaddr, size_t size)
         NULL,
         /* Basic kernel flags */
         KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+    return addr;
 }
 
 static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entrycount)
@@ -117,7 +121,7 @@ static uintptr_t allocate_lib_entrypoint_vec(loaded_app_t* app, uintptr_t* entry
         return NULL;
 
     /* This has to be readonly */
-    uaddr = Must(kmem_user_alloc_range(app->proc, libarr_size, NULL, NULL));
+    ASSERT(!kmem_user_alloc_range((void**)&uaddr, app->proc, libarr_size, NULL, NULL));
     kaddr = proc_map_into_kernel(app->proc, uaddr, libarr_size);
 
     if (!kaddr)

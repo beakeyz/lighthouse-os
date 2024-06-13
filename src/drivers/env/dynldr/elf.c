@@ -24,7 +24,9 @@ kerror_t load_elf_image(elf_image_t* image, proc_t* proc, file_t* file)
 
     image->proc = proc;
     image->kernel_image_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
-    image->kernel_image = (void*)Must(__kmem_kernel_alloc_range(image->kernel_image_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+
+    /* Allocate space for the image */
+    ASSERT(__kmem_kernel_alloc_range(&image->kernel_image, image->kernel_image_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE) == 0);
 
     if (!file_read(file, image->kernel_image, file->m_total_size, 0))
         return -KERR_IO;
@@ -97,7 +99,9 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
     /* Simple delta */
     image->user_image_size = ALIGN_UP(user_high, SMALL_PAGE_SIZE);
     /* With this we can find the user base */
-    image->user_base = (void*)(ALIGN_DOWN(Must(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size)), SMALL_PAGE_SIZE));
+    ASSERT(resource_find_usable_range(image->proc->m_resource_bundle, KRES_TYPE_MEM, image->user_image_size, (uintptr_t*)&image->user_base) == 0);
+
+    image->user_base = (void*)ALIGN_DOWN((uintptr_t)image->user_base, SMALL_PAGE_SIZE);
 
     // printf("Found elf image user base: 0x%p (size=%lld bytes)\n", image->user_base, image->user_image_size);
 
@@ -107,23 +111,27 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
 
         switch (c_phdr->p_type) {
         case PT_LOAD: {
+            vaddr_t v_user_phdr_start;
+            vaddr_t v_kernel_phdr_start;
             vaddr_t virtual_phdr_base = (vaddr_t)image->user_base + c_phdr->p_vaddr;
             size_t phdr_size = c_phdr->p_memsz;
 
-            vaddr_t v_user_phdr_start = Must(__kmem_alloc_range(
-                proc->m_root_pd.m_root,
-                proc->m_resource_bundle,
-                virtual_phdr_base,
-                phdr_size,
-                KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
-                KMEM_FLAG_WRITABLE));
+            ASSERT(__kmem_alloc_range(
+                       (void**)&v_user_phdr_start,
+                       proc->m_root_pd.m_root,
+                       proc->m_resource_bundle,
+                       virtual_phdr_base,
+                       phdr_size,
+                       KMEM_CUSTOMFLAG_GET_MAKE | KMEM_CUSTOMFLAG_CREATE_USER | KMEM_CUSTOMFLAG_NO_REMAP,
+                       KMEM_FLAG_WRITABLE)
+                == 0);
 
             /* NOTE: This gives us a memory range in HIGH_MAP_BASE, which might just fuck us over if we start
              * to allocate over 2 Gib. When we get fucked, it might be nice to try this the other way around
              * (meaning we first allocate in the kernel (With KERNEL_MAP_BASE) and then transfer the mapping to userspace)
              * or use proc_map_into_kernel. This does use a little bit more physical RAM though
              */
-            vaddr_t v_kernel_phdr_start = Must(kmem_get_kernel_address(v_user_phdr_start, proc->m_root_pd.m_root));
+            ASSERT(kmem_get_kernel_address(&v_kernel_phdr_start, v_user_phdr_start, proc->m_root_pd.m_root) == 0);
 
             // printf("Allocated %lld bytes at 0x%llx (kernel_addr=%llx)\n", phdr_size, v_user_phdr_start, v_kernel_phdr_start);
 
@@ -140,7 +148,7 @@ kerror_t _elf_load_phdrs(elf_image_t* image)
         case PT_DYNAMIC:
             /* Remap to the kernel */
             image->elf_dyntbl_mapsize = ALIGN_UP(c_phdr->p_memsz, SMALL_PAGE_SIZE);
-            image->elf_dyntbl = (void*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root));
+            ASSERT(kmem_get_kernel_address((vaddr_t*)&image->elf_dyntbl, (vaddr_t)image->user_base + c_phdr->p_vaddr, proc->m_root_pd.m_root) == 0);
 
             // printf("Setting PT_DYNAMIC addr=0x%p size=0x%llx\n", image->elf_dyntbl, image->elf_dyntbl_mapsize);
             break;
@@ -172,11 +180,11 @@ kerror_t _elf_do_headers(elf_image_t* image)
                 break;
 
             /* Just give any NOBITS sections a bit of memory */
-            shdr->sh_addr = Must(kmem_user_alloc_range(image->proc, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE));
+            ASSERT(kmem_user_alloc_range((void**)&shdr->sh_addr, image->proc, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE) == 0);
 
             /* Zero the scattered range (FIXME: How do we assure that we don't reach memory we haven't mapped to the kernel?) */
             for (uint64_t i = 0; i < GET_PAGECOUNT(shdr->sh_addr, shdr->sh_size); i++) {
-                kaddr = (void*)Must(kmem_get_kernel_address(shdr->sh_addr + kmem_get_page_addr(i), image->proc->m_root_pd.m_root));
+                ASSERT(kmem_get_kernel_address((vaddr_t*)&kaddr, shdr->sh_addr + kmem_get_page_addr(i), image->proc->m_root_pd.m_root) == 0);
 
                 memset(kaddr, 0, SMALL_PAGE_SIZE);
             }
@@ -216,7 +224,7 @@ kerror_t _elf_do_headers(elf_image_t* image)
     }
 
     /* There must be at least a generic '.strtab' shdr in every ELF file */
-    ASSERT(image->elf_strtab);
+    ASSERT_MSG(image->elf_strtab, "dynldr: Could not find .strtab");
 
     return 0;
 }
@@ -408,6 +416,7 @@ kerror_t _elf_do_symbols(list_t* symbol_list, hashmap_t* exported_symbol_map, lo
 
 static kerror_t __elf_get_dynsect_info(elf_image_t* image)
 {
+    Elf64_Word* _elf_dynsym_count_p;
     char* strtab;
     struct elf64_sym* dyn_syms;
     struct elf64_dyn* dyns_entry;
@@ -423,13 +432,18 @@ static kerror_t __elf_get_dynsect_info(elf_image_t* image)
         switch (dyns_entry->d_tag) {
         case DT_STRTAB:
             /* We can do this, since we have assured a kernel mapping through loading this pheader beforehand */
-            strtab = (char*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root));
+            ASSERT(kmem_get_kernel_address((vaddr_t*)&strtab, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
             break;
         case DT_SYMTAB:
-            dyn_syms = (struct elf64_sym*)Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root));
+            ASSERT(kmem_get_kernel_address((vaddr_t*)&dyn_syms, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
             break;
         case DT_HASH:
-            image->elf_dynsym_count = ((Elf64_Word*)(Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root))))[1];
+            // image->elf_dynsym_count = ((Elf64_Word*)(Must(kmem_get_kernel_address((vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root))))[1];
+            /* Get the address */
+            ASSERT(kmem_get_kernel_address((uint64_t*)&_elf_dynsym_count_p, (vaddr_t)image->user_base + dyns_entry->d_un.d_ptr, image->proc->m_root_pd.m_root) == 0);
+
+            /* Yoink the value */
+            image->elf_dynsym_count = _elf_dynsym_count_p[1];
             break;
         case DT_PLTGOT:
         case DT_PLTREL:
@@ -545,7 +559,10 @@ kerror_t _elf_do_relocations(elf_image_t* image, loaded_app_t* app)
             const char* symname = image->elf_dynstrtab + sym->st_name;
 
             /* Where we are going to change stuff */
-            const vaddr_t P = Must(kmem_get_kernel_address((vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root));
+            vaddr_t P;
+
+            /* Yoink it from the kernel address */
+            ASSERT(kmem_get_kernel_address(&P, (vaddr_t)image->user_base + current->r_offset, image->proc->m_root_pd.m_root) == 0);
 
             /* The value of the symbol we are referring to */
             vaddr_t A = current->r_addend;

@@ -1,11 +1,7 @@
 #ifndef __ANIVA_GPT_PARTITION__
 #define __ANIVA_GPT_PARTITION__
-#include "dev/debug/serial.h"
 #include "dev/disk/generic.h"
 #include "libk/data/linkedlist.h"
-#include "libk/string.h"
-#include "mem/kmem_manager.h"
-#include <libk/data/hive.h>
 #include <libk/stddef.h>
 
 #define GPT_SIG_0 0x20494645
