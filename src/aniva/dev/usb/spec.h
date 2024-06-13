@@ -50,8 +50,13 @@ struct usb_endpoint_buffer;
 #define USB_REQ_GET_VDM 23
 #define USB_REQ_SEND_VDM 24
 
-#define USB_TYPE_DEV_IN (0x80)
-#define USB_TYPE_DEV_OUT (0x00)
+/* Incomming means: device to host */
+#define USB_DIRECTION_IN (0x80)
+/* Outgoing means: host to device */
+#define USB_DIRECTION_OUT (0x00)
+
+#define USB_TYPE_DEV_IN USB_DIRECTION_IN
+#define USB_TYPE_DEV_OUT USB_DIRECTION_OUT
 #define USB_TYPE_IF_IN (0x81)
 #define USB_TYPE_IF_OUT (0x01)
 #define USB_TYPE_EP_IN (0x82)
@@ -173,15 +178,48 @@ typedef struct usb_interface_descriptor {
 } __attribute__((packed)) usb_interface_descriptor_t;
 
 /*
- * Buffer to store interfaces for a specific configuration
+ * An actual interface inside the buffer
+ */
+typedef struct usb_interface_entry {
+    usb_interface_descriptor_t desc;
+
+    struct usb_endpoint_buffer* ep_list;
+    struct usb_interface_entry* next;
+} usb_interface_entry_t;
+
+static inline unsigned int usb_interface_get_ep_count(usb_interface_entry_t* ife)
+{
+    return ife->desc.num_endpoints;
+}
+
+/*
+ * Buffer to store interface entries for a specific configuration
  *
  * Stored in an array most likely
  */
 typedef struct usb_interface_buffer {
-    struct usb_endpoint_buffer* ep_arr;
-
-    usb_interface_descriptor_t desc;
+    uint8_t alt_count;
+    usb_interface_entry_t* alt_list;
 } usb_interface_buffer_t;
+
+static inline usb_interface_entry_t** usb_if_buffer_get_last_entry(usb_interface_buffer_t* if_buf)
+{
+    usb_interface_entry_t** ret;
+
+    for (ret = &if_buf->alt_list; *ret; ret = &(*ret)->next)
+        ;
+
+    return ret;
+}
+
+#define USB_ENDPOINT_NUMBER_MASK 0x0f /* in endpoint_address */
+#define USB_ENDPOINT_DIR_MASK 0x80
+
+#define USB_ENDPOINT_XFERTYPE_MASK 0x03 /* in attributes */
+#define USB_ENDPOINT_XFER_CTL 0
+#define USB_ENDPOINT_XFER_ISOC 1
+#define USB_ENDPOINT_XFER_BULK 2
+#define USB_ENDPOINT_XFER_INT 3
 
 typedef struct usb_endpoint_descriptor {
     usb_descriptor_hdr_t hdr;
@@ -201,6 +239,36 @@ typedef struct usb_endpoint_buffer {
 
     struct usb_endpoint_buffer* next;
 } usb_endpoint_buffer_t;
+
+static inline bool usb_endpoint_type_is_int(usb_endpoint_buffer_t* ep)
+{
+    return ((ep->desc.attributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_INT);
+}
+
+static inline bool usb_endpoint_type_is_ctl(usb_endpoint_buffer_t* ep)
+{
+    return ((ep->desc.attributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_CTL);
+}
+
+static inline bool usb_endpoint_type_is_bulk(usb_endpoint_buffer_t* ep)
+{
+    return ((ep->desc.attributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_BULK);
+}
+
+static inline bool usb_endpoint_type_is_isoc(usb_endpoint_buffer_t* ep)
+{
+    return ((ep->desc.attributes & USB_ENDPOINT_XFERTYPE_MASK) == USB_ENDPOINT_XFER_ISOC);
+}
+
+static inline bool usb_endpoint_dir_is_inc(usb_endpoint_buffer_t* ep)
+{
+    return ((ep->desc.endpoint_address & USB_ENDPOINT_DIR_MASK) == USB_DIRECTION_IN);
+}
+
+static inline bool usb_endpoint_dir_is_out(usb_endpoint_buffer_t* ep)
+{
+    return ((ep->desc.endpoint_address & USB_ENDPOINT_DIR_MASK) == USB_DIRECTION_OUT);
+}
 
 typedef struct usb_string_descriptor {
     usb_descriptor_hdr_t hdr;

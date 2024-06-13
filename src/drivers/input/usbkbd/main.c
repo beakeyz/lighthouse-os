@@ -8,6 +8,7 @@
 #include "drivers/input/i8042/i8042.h"
 #include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
+#include "lightos/event/key.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 
@@ -16,12 +17,28 @@ usb_device_ident_t usbkbd_ident_list[] = {
     USB_END_IDENT
 };
 
+#define USBKBD_MOD_RSHIFT 0x0001
+#define USBKBD_MOD_LSHIFT 0x0002
+#define USBKBD_MOD_RALT 0x0004
+#define USBKBD_MOD_LALT 0x0008
+#define USBKBD_MOD_LCTL 0x0010
+#define USBKBD_MOD_RCTL 0x0020
+#define USBKBD_MOD_HOME 0x0040
+#define USBKBD_MOD_CAPSLOCK 0x0080
+#define USBKBD_MOD_TAB 0x0100
+#define USBKBD_MOD_RETURN 0x0200
+#define USBKBD_MOD_ESC 0x0400
+
 typedef struct usbkbd {
     usb_device_t* dev;
     usb_xfer_t* probe_xfer;
 
     uint8_t this_resp[8];
     uint8_t prev_resp[8];
+    uint16_t mod_keys;
+    uint16_t c_scancodes[7];
+
+    kevent_kb_ctx_t c_ctx;
 
     struct usbkbd* next;
 } usbkbd_t;
@@ -46,7 +63,16 @@ static const unsigned char usb_kbd_keycode[256] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    29, 42, 56, 125, 97, 54, 100, 126, 164, 166, 165, 163, 161, 115, 114, 113,
+    29, // Tab
+    42, // LShift
+    56, // Lalt
+    125, // ??
+    97, // ??
+    54, // RShift
+    100, // ??
+    126, // ??
+    164, // ??
+    166, 165, 163, 161, 115, 114, 113,
     150, 158, 159, 128, 136, 177, 178, 176, 142, 152, 173, 140
 };
 
@@ -101,57 +127,139 @@ static int get_usbkbd(usbkbd_t** p_kbd, usb_device_t* udev)
 {
     usbkbd_t* ret;
 
+    ret = nullptr;
+
     for (ret = keyboards; ret; ret = ret->next) {
         if (ret->dev == udev)
             break;
     }
 
     *p_kbd = ret;
-    return -(int)(ret == nullptr);
+    return 0;
 }
 
+static inline void usbkbd_set_keycode_buffer(usbkbd_t* kbd, uint16_t keycode, bool pressed)
+{
+    uint32_t key_idx;
+
+    if (pressed) {
+        for (uint32_t i = 0; i < arrlen(kbd->c_scancodes); i++) {
+            /* No duplicates */
+            if (kbd->c_scancodes[i] == keycode)
+                break;
+
+            /* Skip taken scancodes */
+            if (kbd->c_scancodes[i])
+                continue;
+
+            kbd->c_scancodes[i] = keycode;
+            break;
+        }
+
+        return;
+    }
+
+    key_idx = 0;
+
+    /* Search for our keycode */
+    for (; key_idx < arrlen(kbd->c_scancodes); key_idx++)
+        if (kbd->c_scancodes[key_idx] == keycode)
+            break;
+
+    /* Shift the remaining keys forwards */
+    while (key_idx < arrlen(kbd->c_scancodes)) {
+
+        /* If we can't, simply put a NULL */
+        if ((key_idx + 1) >= arrlen(kbd->c_scancodes))
+            kbd->c_scancodes[key_idx] = NULL;
+        else
+            kbd->c_scancodes[key_idx] = kbd->c_scancodes[key_idx + 1];
+
+        key_idx++;
+    }
+}
+
+static inline void usbkbd_set_mod(usbkbd_t* kbd, uint16_t flag, bool pressed)
+{
+    if (pressed)
+        kbd->mod_keys |= flag;
+    else
+        kbd->mod_keys &= ~flag;
+}
+
+static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
+{
+    kbd->c_ctx.pressed = pressed;
+    kbd->c_ctx.keycode = aniva_scancode_table[keycode];
+    kbd->c_ctx.pressed_char = kbd_us_map[keycode];
+
+    switch (kbd->c_ctx.keycode) {
+    case ANIVA_SCANCODE_LSHIFT:
+        usbkbd_set_mod(kbd, USBKBD_MOD_LSHIFT, pressed);
+        break;
+    case ANIVA_SCANCODE_RSHIFT:
+        usbkbd_set_mod(kbd, USBKBD_MOD_RSHIFT, pressed);
+        break;
+    case ANIVA_SCANCODE_TAB:
+        usbkbd_set_mod(kbd, USBKBD_MOD_TAB, pressed);
+        break;
+    }
+
+    if ((kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)))
+        kbd->c_ctx.pressed_char = kbd_us_shift_map[keycode];
+
+    usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.keycode, pressed);
+
+    /* Copy the scancode buffer to the event */
+    memcpy(&kbd->c_ctx.pressed_keys, kbd->c_scancodes, 7);
+
+    kevent_fire("keyboard", &kbd->c_ctx, sizeof(kbd->c_ctx));
+    return 0;
+}
+
+static bool has_pressed_key(uint8_t keys[6], uint8_t key)
+{
+    for (uint8_t i = 0; i < 6; i++)
+        if (keys[i] == key)
+            return true;
+
+    return false;
+}
+
+/*!
+ * @brief: IRQ callback for the usb device polling routine
+ *
+ * Most of this idea is yoinked from linux xD
+ */
 static int usbkbd_irq(usb_xfer_t* xfer)
 {
-    int error;
     usbkbd_t* kbd;
-    bool pressed;
+    int error;
     uint8_t i;
-    uint8_t keycode, prev_keycode;
 
     error = get_usbkbd(&kbd, xfer->device);
 
     if (error)
         goto resubmit;
 
-    pressed = false;
+    /* Check modifier keys */
+    for (i = 0; i < 8; i++) {
+        if (((kbd->this_resp[0] >> i) & 1) == 1 && ((kbd->prev_resp[0] >> i) & 1) == 0)
+            usbkbd_fire_key(kbd, usb_kbd_keycode[224 + i], true);
 
-    for (i = 2; i < 8; i++) {
-        keycode = (usb_kbd_keycode[kbd->this_resp[i]]);
-        prev_keycode = (usb_kbd_keycode[kbd->prev_resp[i]]);
-
-        if (!prev_keycode) {
-            pressed = true;
-            break;
-        }
-
-        if (!keycode && prev_keycode)
-            break;
+        if (((kbd->this_resp[0] >> i) & 1) == 0 && ((kbd->prev_resp[0] >> i) & 1) == 1)
+            usbkbd_fire_key(kbd, usb_kbd_keycode[224 + i], false);
     }
 
-    if (pressed)
-        KLOG("%1.1s", &kbd_us_map[keycode]);
-    /*
-    kevent_kb_ctx_t kb = {
-        .pressed = pressed,
-        .keycode = aniva_scancode_table[keycode],
-        .pressed_char = kbd_us_map[keycode],
-    };
-    */
+    for (i = 2; i < 8; i++) {
+        /* Check if there was a difference in a previous input in regard to the current input to check key releases */
+        if (kbd->prev_resp[i] > 3 && !has_pressed_key(kbd->this_resp + 2, kbd->prev_resp[i]))
+            usbkbd_fire_key(kbd, usb_kbd_keycode[kbd->prev_resp[i]], false);
 
-    /* Copy the scancode buffer to the event */
-    // memcpy(&kb.pressed_keys, &kbd->this_resp[2], 6);
-
-    // kevent_fire("keyboard", &kb, sizeof(kb));
+        /* The exact reverse for keypresses */
+        if (kbd->this_resp[i] > 3 && !has_pressed_key(kbd->prev_resp + 2, kbd->this_resp[i]))
+            usbkbd_fire_key(kbd, usb_kbd_keycode[kbd->this_resp[i]], true);
+    }
 
     /* Copy the previous key response into a new buffer */
     memcpy(kbd->prev_resp, kbd->this_resp, sizeof(kbd->prev_resp));
@@ -160,10 +268,31 @@ resubmit:
     return usb_xfer_enqueue(xfer, xfer->device->hcd);
 }
 
-static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_buffer_t* interface)
+static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_buffer_t* intf_buf)
 {
     int error;
+    usb_interface_entry_t* interface;
     usbkbd_t* kbd;
+
+    if (!intf_buf)
+        return -KERR_NULL;
+
+    interface = intf_buf->alt_list;
+
+    if (!interface)
+        return -KERR_NULL;
+
+    /* Can't do this crap on interfaces with more than one endpoints */
+    if (interface->desc.num_endpoints != 1)
+        return -KERR_DEV;
+
+    /* Endpoint has to be incomming */
+    if (!usb_endpoint_dir_is_inc(interface->ep_list))
+        return -KERR_DEV;
+
+    /* Endpoint has to be of the interrupt type */
+    if (!usb_endpoint_type_is_int(interface->ep_list))
+        return -KERR_DEV;
 
     error = create_usbkbd(&kbd, udev);
 
@@ -171,7 +300,7 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
         return error;
 
     /* Submit an interrupt transfer */
-    error = usb_device_submit_int(udev, &kbd->probe_xfer, usbkbd_irq, USB_DIRECTION_DEVICE_TO_HOST, interface->ep_arr, kbd->this_resp, sizeof(kbd->this_resp));
+    error = usb_device_submit_int(udev, &kbd->probe_xfer, usbkbd_irq, USB_DIRECTION_DEVICE_TO_HOST, interface->ep_list, kbd->this_resp, sizeof(kbd->this_resp));
 
     return error;
 }

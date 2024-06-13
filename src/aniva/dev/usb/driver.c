@@ -16,7 +16,7 @@ typedef struct usb_driver {
     drv_manifest_t* driver;
 } usb_driver_t;
 
-static inline bool _usb_if_matches_ident(usb_device_t* dev, usb_device_ident_t* ident, usb_interface_buffer_t* intf)
+static inline bool _usb_if_matches_ident(usb_device_t* dev, usb_device_ident_t* ident, usb_interface_entry_t* intf)
 {
     if (ident->class && ident->class != intf->desc.interface_class)
         return false;
@@ -34,12 +34,13 @@ static inline bool _usb_if_matches_ident(usb_device_t* dev, usb_device_ident_t* 
     return true;
 }
 
-static inline bool _matching_device(usb_device_ident_t* idents, usb_device_t* device, usb_interface_buffer_t** matching_if)
+static inline bool _matching_device(usb_device_ident_t* idents, usb_device_t* device, usb_interface_buffer_t** matching_if_buff)
 {
     uint32_t idx = 0;
     uint32_t if_idx;
     usb_config_buffer_t cfg_buffer;
-    usb_interface_buffer_t* c_interface;
+    usb_interface_buffer_t* c_if_buffer;
+    usb_interface_entry_t* c_interface;
 
     usb_device_get_active_config(device, &cfg_buffer);
 
@@ -47,19 +48,23 @@ static inline bool _matching_device(usb_device_ident_t* idents, usb_device_t* de
     while (idents[idx].class || idents[idx].subclass || idents[idx].protocol || idents[idx].if_num || idents[idx].device_id || idents[idx].vendor_id) {
 
         for (if_idx = 0; if_idx < cfg_buffer.if_count; if_idx++) {
-            c_interface = &cfg_buffer.if_arr[if_idx];
+            c_if_buffer = &cfg_buffer.if_arr[if_idx];
 
-            KLOG_DBG("Checking interface %d:%d:%d to ident %d:%d:%d\n",
-                c_interface->desc.interface_class, c_interface->desc.interface_subclass, c_interface->desc.interface_protocol,
-                idents[idx].class, idents[idx].subclass, idents[idx].protocol);
+            c_interface = c_if_buffer->alt_list;
 
-            if (!_usb_if_matches_ident(device, &idents[idx], c_interface))
-                continue;
+            for (; c_interface != nullptr; c_interface = c_interface->next) {
+                KLOG_DBG("Checking interface %d:%d:%d to ident %d:%d:%d\n",
+                    c_interface->desc.interface_class, c_interface->desc.interface_subclass, c_interface->desc.interface_protocol,
+                    idents[idx].class, idents[idx].subclass, idents[idx].protocol);
 
-            /* Export the matching interface */
-            if (matching_if)
-                *matching_if = c_interface;
-            return true;
+                if (!_usb_if_matches_ident(device, &idents[idx], c_interface))
+                    continue;
+
+                /* Export the matching interface */
+                if (matching_if_buff)
+                    *matching_if_buff = c_if_buffer;
+                return true;
+            }
         }
         idx++;
     }

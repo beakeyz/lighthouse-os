@@ -579,16 +579,16 @@ void zfree_fixed(zone_allocator_t* allocator, void* address)
 
 static ErrorOrPtr zone_allocate(zone_t* zone, size_t size)
 {
+    uintptr_t index;
     ASSERT_MSG(size <= zone->m_zone_entry_size, "Allocating over the span of multiple subzones is not yet implemented!");
 
     // const size_t entries_needed = (size + zone->m_zone_entry_size - 1) / zone->m_zone_entry_size;
     ErrorOrPtr result = bitmap_find_free(&zone->m_entries);
 
-    if (result.m_status == ANIVA_FAIL) {
+    if (result.m_status == ANIVA_FAIL)
         return Error();
-    }
 
-    uintptr_t index = result.m_ptr;
+    index = result.m_ptr;
     bitmap_mark(&zone->m_entries, index);
     vaddr_t ret = zone->m_entries_start + (index * zone->m_zone_entry_size);
     return Success(ret);

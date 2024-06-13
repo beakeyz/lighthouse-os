@@ -1,5 +1,4 @@
 #include "event.h"
-#include "dev/debug/serial.h"
 #include "hook.h"
 #include "kevent/hash.h"
 #include "kevent/types/error/kerror.h"
@@ -643,7 +642,7 @@ int kevent_await_hook_fire(const char* event_name, const char* hook_name, uint64
             if (timeout-- == 0)
                 break;
 
-        serial_println("Waiting for hook..");
+        // serial_println("Waiting for hook..");
 
         /* Fuck bro */
         scheduler_yield();

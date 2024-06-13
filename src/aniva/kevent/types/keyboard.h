@@ -7,7 +7,7 @@
 typedef struct kevent_kb_ctx {
     /* Is the current key pressed or released? */
     uint8_t pressed : 1;
-    /* Keycode that was typed */
+    /* Keycode that was typed (TODO: Refactor name to enum ANIVA_SCANCODES)*/
     uint32_t keycode;
     /* Can be null. Depends on the underlying driver */
     uint8_t pressed_char;

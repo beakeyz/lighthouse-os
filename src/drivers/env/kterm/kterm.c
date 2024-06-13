@@ -1346,7 +1346,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
 
 int kterm_handle_terminal_key(kevent_kb_ctx_t* kbd)
 {
-    if (!doorbell_has_door(__kterm_cmd_doorbell, 0) || !kbd->pressed)
+    if (!kbd->pressed || !doorbell_has_door(__kterm_cmd_doorbell, 0))
         return 0;
 
     kterm_write_char(kbd->pressed_char);

@@ -94,25 +94,40 @@ static void _udev_destroy_config_buffer(usb_config_buffer_t* buffer)
 {
     usb_endpoint_buffer_t* c_ep_buffer;
     usb_endpoint_buffer_t* next_ep_buffer;
+    usb_interface_entry_t* c_if_entry;
+    usb_interface_entry_t* next_if_entry;
 
     /* Free up all the endpoints in the interface buffers */
     for (uintptr_t i = 0; i < buffer->if_count; i++) {
         usb_interface_buffer_t* _if = &buffer->if_arr[i];
 
-        do {
-            c_ep_buffer = _if->ep_arr;
+        c_if_entry = _if->alt_list;
 
-            if (!c_ep_buffer)
-                break;
+        /* Kill all interface entries of a single interface buffer */
+        while (c_if_entry) {
 
-            next_ep_buffer = c_ep_buffer->next;
+            c_ep_buffer = c_if_entry->ep_list;
 
-            /* Free the endpoint */
-            kfree(c_ep_buffer);
+            /* First kill all endpoints of a single interface entry */
+            while (c_ep_buffer) {
+                next_ep_buffer = c_ep_buffer->next;
 
-            /* Set to next buffer */
-            c_ep_buffer = next_ep_buffer;
-        } while (c_ep_buffer);
+                /* Free the endpoint */
+                kfree(c_ep_buffer);
+
+                /* Set to next buffer */
+                c_ep_buffer = next_ep_buffer;
+            }
+
+            /* Grab the next entry */
+            next_if_entry = c_if_entry->next;
+
+            /* Murder this memory */
+            kfree(c_if_entry);
+
+            /* Set the next interface */
+            c_if_entry = next_if_entry;
+        }
     }
 
     kfree(buffer->if_arr);
@@ -123,10 +138,10 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
 {
     int error;
     uint32_t total_size;
-    uint32_t c_interface_idx;
     usb_endpoint_descriptor_t* ep_desc;
     usb_interface_descriptor_t* if_desc;
     usb_interface_buffer_t* c_if_buffer;
+    usb_interface_entry_t **c_if_entry_slot, *c_if_entry;
     usb_endpoint_buffer_t* c_ep_buffer;
     usb_descriptor_hdr_t* c_desc;
     usb_config_buffer_t* ret;
@@ -135,7 +150,6 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
     c_if_buffer = nullptr;
     ep_desc = nullptr;
     if_desc = nullptr;
-    c_interface_idx = 0;
 
     total_size = sizeof(*ret) + desc->total_len - sizeof(*desc);
 
@@ -181,11 +195,24 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
                 if_desc->interface_protocol,
                 if_desc->num_endpoints, );
 
+            if (if_desc->interface_number >= ret->if_count)
+                if_desc->interface_number = ret->if_count - 1;
+
             /* Set the current interface buffer */
-            c_if_buffer = &ret->if_arr[c_interface_idx++];
+            c_if_buffer = &ret->if_arr[if_desc->interface_number];
+
+            /* Fetch the last entry for this buffer */
+            c_if_entry_slot = usb_if_buffer_get_last_entry(c_if_buffer);
+
+            ASSERT_MSG(!(*c_if_entry_slot), "_udev_create_config_buffer: LOGIC BREAKDOWN usb_if_buffer_get_last_entry returned a non-null slot!");
+
+            c_if_entry = *c_if_entry_slot = kmalloc(sizeof(*c_if_entry));
+            c_if_buffer->alt_count++;
+
+            memset(c_if_entry, 0, sizeof(*c_if_entry));
 
             /* Copy the interface into it's buffer */
-            memcpy(&c_if_buffer->desc, if_desc, sizeof(*if_desc));
+            memcpy(&c_if_entry->desc, if_desc, sizeof(*if_desc));
             break;
         case USB_DT_ENDPOINT:
             ep_desc = (usb_endpoint_descriptor_t*)c_desc;
@@ -195,7 +222,7 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
                 ep_desc->max_packet_size);
 
             /* Fuck bro */
-            if (!if_desc)
+            if (!if_desc || !c_if_entry)
                 break;
 
             c_ep_buffer = kmalloc(sizeof(*c_ep_buffer));
@@ -204,8 +231,8 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
             memcpy(&c_ep_buffer->desc, ep_desc, sizeof(*ep_desc));
 
             /* Link this endpoint into it's interface */
-            c_ep_buffer->next = c_if_buffer->ep_arr;
-            c_if_buffer->ep_arr = c_ep_buffer;
+            c_ep_buffer->next = c_if_entry->ep_list;
+            c_if_entry->ep_list = c_ep_buffer;
             break;
         default:
             break;
@@ -366,9 +393,9 @@ int init_usb_device(usb_device_t* udev)
     KLOG_DBG("USB Device (%s) configuration :: n_interface: %d, class-subclass-prot: %d-%d-%d\n",
         udev->device->name,
         udev->configuration_arr[0]->desc.if_num,
-        udev->configuration_arr[0]->if_arr[0].desc.interface_class,
-        udev->configuration_arr[0]->if_arr[0].desc.interface_subclass,
-        udev->configuration_arr[0]->if_arr[0].desc.interface_protocol, );
+        udev->configuration_arr[0]->if_arr[0].alt_list->desc.interface_class,
+        udev->configuration_arr[0]->if_arr[0].alt_list->desc.interface_subclass,
+        udev->configuration_arr[0]->if_arr[0].alt_list->desc.interface_protocol, );
 
     /* Register the device once we're done with initialization */
     _register_udev(udev);
@@ -518,7 +545,7 @@ int usb_device_submit_int(usb_device_t* device, usb_xfer_t** pxfer, int (*f_cb)(
     if (!buffer || !bsize)
         return -KERR_INVAL;
 
-    return _usb_submit_int(device->hcd, pxfer, f_cb, device, direct, epb->desc.endpoint_address, epb->desc.max_packet_size, epb->desc.interval, buffer, bsize);
+    return _usb_submit_int(device->hcd, pxfer, f_cb, device, direct, (epb->desc.endpoint_address & USB_ENDPOINT_NUMBER_MASK), epb->desc.max_packet_size, epb->desc.interval, buffer, bsize);
 }
 
 int usb_device_set_address(usb_device_t* device, uint8_t addr)

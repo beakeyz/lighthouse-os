@@ -44,7 +44,6 @@ void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 
     mutex_unlock(ehci->cleanup_lock);
 
-    // destroy_ehci_qh(ehci, xfer->qh);
     kfree(xfer);
 }
 
@@ -238,8 +237,6 @@ void destroy_ehci_qh(ehci_hcd_t* ehci, ehci_qh_t* qh)
     /* Return to pool */
     zfree_fixed(ehci->qh_pool, qh);
 }
-
-ehci_qtd_t* create_ehci_qtd(ehci_hcd_t* ehci, struct usb_xfer* xfer, ehci_qh_t* qh);
 
 /*!
  * @brief: Write to a queue transfer chain

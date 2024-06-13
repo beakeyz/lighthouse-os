@@ -367,6 +367,8 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
 
     unlock_and_yield:
         mutex_unlock(ehci->cleanup_lock);
+        continue;
+
     yield:
         scheduler_yield();
     }
@@ -888,6 +890,9 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
         break;
     }
+
+    if (xfer->device->speed == USB_FULLSPEED)
+        interval = 1;
 
     /* Fuck man */
     ASSERT_MSG(interval, "_ehci_add_async_int_xfer: Got a null-interval");
