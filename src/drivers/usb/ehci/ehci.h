@@ -102,4 +102,7 @@ extern int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 extern int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 extern int ehci_deq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer);
 
+extern int ehci_init_xfer();
+extern int ehci_fini_xfer();
+
 #endif // !__ANIVA_USB_EHCI_HCD__

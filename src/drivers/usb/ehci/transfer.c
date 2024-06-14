@@ -7,10 +7,11 @@
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
+
+static zone_allocator_t* _ehci_xfer_cache;
 
 #define EHCI_MAX_PACKETSIZE (4 * SMALL_PAGE_SIZE)
 
@@ -18,12 +19,10 @@ ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh, ehci_qtd_t* 
 {
     ehci_xfer_t* e_xfer;
 
-    e_xfer = kmalloc(sizeof(*e_xfer));
+    e_xfer = zalloc_fixed(_ehci_xfer_cache);
 
     if (!e_xfer)
         return nullptr;
-
-    memset(e_xfer, 0, sizeof(*e_xfer));
 
     e_xfer->xfer = xfer;
     e_xfer->qh = qh;
@@ -44,7 +43,7 @@ void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 
     mutex_unlock(ehci->cleanup_lock);
 
-    kfree(xfer);
+    zfree_fixed(_ehci_xfer_cache, xfer);
 }
 
 int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
@@ -465,5 +464,19 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
     case USB_DIRECTION_HOST_TO_DEVICE:
         break;
     }
+    return 0;
+}
+
+int ehci_init_xfer()
+{
+    _ehci_xfer_cache = create_zone_allocator(SMALL_PAGE_SIZE, sizeof(ehci_xfer_t), NULL);
+
+    return 0;
+}
+
+int ehci_fini_xfer()
+{
+    destroy_zone_allocator(_ehci_xfer_cache, false);
+
     return 0;
 }

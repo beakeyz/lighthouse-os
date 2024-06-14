@@ -131,6 +131,7 @@ void init_processor_late(processor_t* processor)
 
         if (processor_has(&processor->m_info, X86_FEATURE_AVX)) {
             write_xcr0(read_xcr0() | (AVX | SSE | X87));
+            processor->m_flags |= PROCESSOR_FLAG_XSAVE;
         }
     }
 

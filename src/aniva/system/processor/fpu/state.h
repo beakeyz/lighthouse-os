@@ -55,6 +55,6 @@ typedef struct {
 
 void save_fpu_state(FpuState* buffer);
 
-void store_fpu_state(FpuState* buffer);
+void load_fpu_state(FpuState* buffer);
 
 #endif // !__ANIVA_FPU_STATE__

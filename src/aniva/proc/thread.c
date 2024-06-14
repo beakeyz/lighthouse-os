@@ -287,7 +287,7 @@ extern void thread_enter_context(thread_t* to)
     to->m_cpu = cur_cpu->m_cpu_num;
 
     /* Gib floats */
-    store_fpu_state(&to->m_fpu_state);
+    load_fpu_state(&to->m_fpu_state);
 
     thread_set_state(to, RUNNING);
 

@@ -28,7 +28,6 @@ typedef struct processor {
     /* GDT */
     gdt_entry_t m_gdt[7] __attribute__((aligned(0x10)));
     tss_entry_t m_tss __attribute__((aligned(0x10)));
-    gdt_pointer_t m_gdtr __attribute__((aligned(0x10)));
 
     // spinlock_t *m_hard_processor_lock;
     atomic_ptr_t* m_locked_level;
@@ -55,6 +54,7 @@ typedef struct processor {
 
     proc_t* m_current_proc;
     proc_t* m_kernel_process;
+    gdt_pointer_t m_gdtr __attribute__((aligned(0x10)));
 } processor_t;
 
 extern processor_t g_bsp;

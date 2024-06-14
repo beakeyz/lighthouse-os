@@ -50,6 +50,14 @@ struct usb_endpoint_buffer;
 #define USB_REQ_GET_VDM 23
 #define USB_REQ_SEND_VDM 24
 
+/* specific request for HID devices */
+#define USB_REQ_GET_REPORT 0x01
+#define USB_REQ_GET_IDLE 0x02
+#define USB_REQ_GET_PROTOCOL 0x03
+#define USB_REQ_SET_REPORT 0x09
+#define USB_REQ_SET_IDLE 0x0A
+#define USB_REQ_SET_PROTOCOL 0x0B
+
 /* Incomming means: device to host */
 #define USB_DIRECTION_IN (0x80)
 /* Outgoing means: host to device */

@@ -1063,6 +1063,9 @@ int ehci_init(drv_manifest_t* driver)
 {
     _ehci_hcd_count = 0;
     _ehci_driver = driver;
+
+    ehci_init_xfer();
+
     register_pci_driver(driver, &ehci_pci_driver);
     return 0;
 }
