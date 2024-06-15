@@ -243,4 +243,7 @@ typedef enum pci_progif {
     PCI_PROGIF_USB_DEV = 0xfe,
 } PCI_PROGIF;
 
+#define PCI_CAP_ID_MSI 0x05
+#define PCI_CAP_ID_MSIX 0x11
+
 #endif // !__ANIVA_PCI_DEFINITIONS__

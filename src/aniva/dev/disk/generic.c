@@ -954,11 +954,11 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
     int error;
     bool verify_result;
     oss_node_t* c_node;
-    const char* filesystems[] = {
+    static const char* filesystems[] = {
         "fat32",
         //"ext2",
     };
-    const uint32_t filesystems_count = sizeof(filesystems) / sizeof(*filesystems);
+    static const uint32_t filesystems_count = sizeof(filesystems) / sizeof(*filesystems);
 
     for (uint32_t i = 0; i < filesystems_count; i++) {
         const char* fs = filesystems[i];

@@ -523,46 +523,56 @@ void enumerate_function(pci_callback_t* callback, pci_bus_t* bus, uint8_t bus_nu
 
 void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus, uint8_t device)
 {
-
+    uint8_t cur_header_type;
+    uint8_t class;
+    uint8_t subclass;
+    uint8_t sec_bus;
     uint16_t cur_vendor_id;
+
     __current_pci_access_impl->read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
 
-    if (cur_vendor_id == PCI_NONE_VALUE) {
+    /*
+     * Invalid vendor ID, don't enumerate the device further
+     */
+    if (cur_vendor_id == PCI_NONE_VALUE)
         return;
-    }
 
+    /*
+     * Enumerate the root function of the device
+     */
     enumerate_function(callback, base_addr, bus, device, 0);
 
-    uint8_t cur_header_type;
     __current_pci_access_impl->read8(bus, device, 0, HEADER_TYPE, &cur_header_type);
 
-    if (!(cur_header_type & 0x80)) {
+    /*
+     * If this bit isn't set in the header_type register, the device isn't multifunctional,
+     * and we don't have to do any further scanning
+     */
+    if ((cur_header_type & 0x80) != 0x80)
         return;
-    }
 
+    /*
+     * Enumerate the remaining functions on the device
+     */
     for (uint8_t func = 1; func < 8; func++) {
         enumerate_function(callback, base_addr, bus, device, func);
 
-        /* FIXME: does mcfg cover this?
-        uint8_t class, subclass;
-        uint8_t sec_bus;
+        /* FIXME: does mcfg cover this? */
 
         __current_pci_access_impl->read8(bus, device, func, CLASS, &class);
         __current_pci_access_impl->read8(bus, device, func, SUBCLASS, &subclass);
 
         // TODO: add bridges here to the bus list?
-        if (class == BRIDGE_DEVICE && subclass == PCI_SUBCLASS_BRIDGE_PCI) {
-
-          __current_pci_access_impl->read8(bus, device, func, SECONDARY_BUS, &sec_bus);
-
-          // We've already had this one :clown:
-          if (sec_bus >= base_addr->start_bus || sec_bus <= base_addr->end_bus)
+        if (class != BRIDGE_DEVICE || subclass != PCI_SUBCLASS_BRIDGE_PCI)
             continue;
 
-          enumerate_bus(callback, base_addr, sec_bus);
-        }
+        __current_pci_access_impl->read8(bus, device, func, SECONDARY_BUS, &sec_bus);
 
-        */
+        // We've already had this one :clown:
+        if (sec_bus >= base_addr->start_bus || sec_bus <= base_addr->end_bus)
+            continue;
+
+        enumerate_bus(callback, base_addr, sec_bus);
     }
 }
 
@@ -808,12 +818,19 @@ static uint8_t __pci_find_cap(pci_device_t* device, uint8_t start, uint32_t cap)
 
         device->ops.read_word(device, pos, &value);
 
+        /* Invalid ID */
         if ((value & 0xff) == 0xff)
             break;
 
+        /* Found our ID */
         if ((value & 0xff) == cap)
             return pos;
 
+        /*
+         * Cap ID is in the bottom 8 bits of the word and the upper
+         * 8 bits contain the next cap pointer. Shift the read word
+         * down in order to obtain the next capability position.
+         */
         pos = (value >> 8);
     }
 

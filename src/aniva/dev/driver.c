@@ -149,8 +149,7 @@ kerror_t bootstrap_driver(drv_manifest_t* manifest)
     }
 
     /* Preemptively set the driver to inactive */
-    manifest->m_flags &= ~DRV_ACTIVE;
-    manifest->m_flags &= ~DRV_FAILED;
+    manifest->m_flags &= ~(DRV_ACTIVE | DRV_FAILED);
 
     // NOTE: if the drivers port is not valid, the subsystem will verify
     // it and provide a new port, so we won't have to wory about that here
