@@ -150,8 +150,8 @@
  *****************************************************************************/
 
 #include "accommon.h"
-#include "acpi.h"
 #include "actables.h"
+#include "system/acpi/acpica/acpiosxf.h"
 
 #define _COMPONENT ACPI_TABLES
 ACPI_MODULE_NAME("tbinstal")

@@ -3,6 +3,7 @@
 
 /* Include the ACPICA tables */
 #include "acpica/actbl.h"
+#include "system/acpi/acpica/actbl2.h"
 
 typedef ACPI_TABLE_HEADER acpi_std_hdr_t;
 

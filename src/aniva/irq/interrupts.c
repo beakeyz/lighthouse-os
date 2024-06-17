@@ -215,6 +215,28 @@ int irq_unmask_pending()
     return 0;
 }
 
+int irq_register_chip(irq_chip_t* chip)
+{
+    irq_lock();
+
+    for (uint32_t i = 0; i < chip->irq_count; i++)
+        _irq_list[chip->irq_base + i].chip = chip;
+
+    irq_unlock();
+    return 0;
+}
+
+int irq_unregister_chip(irq_chip_t* chip)
+{
+    irq_lock();
+
+    for (uint32_t i = 0; i < chip->irq_count; i++)
+        _irq_list[chip->irq_base + i].chip = nullptr;
+
+    irq_unlock();
+    return 0;
+}
+
 /*!
  * @brief: Mask a singulare IRQ vector
  *
@@ -225,9 +247,9 @@ int irq_unmask_pending()
  */
 int irq_mask(irq_t* irq)
 {
-    irq_chip_t* c;
+    irq_chip_t* c = irq->chip;
 
-    if (get_active_irq_chip(&c))
+    if (!c && get_active_irq_chip(&c))
         return -1;
 
     /*
@@ -251,17 +273,22 @@ int irq_mask(irq_t* irq)
  */
 int irq_unmask(irq_t* irq)
 {
-    irq_chip_t* c;
+    int error;
+    irq_chip_t* c = irq->chip;
 
-    if (get_active_irq_chip(&c))
+    if (!c && get_active_irq_chip(&c))
         return -1;
+
+    error = irq_chip_unmask(c, irq->vec);
+
+    if (error)
+        return error;
 
     /* Clear this just in case */
     irq->flags &= ~IRQ_FLAG_PENDING_UNMASK;
     /* Make sure we know this bitch is masked */
     irq->flags &= ~IRQ_FLAG_MASKED;
-
-    return irq_chip_unmask(c, irq->vec);
+    return error;
 }
 
 #define REGISTER_IDT_EXCEPTION_ENTRY(num) \
@@ -544,6 +571,12 @@ void init_interrupts()
 
     _irq_lock = create_mutex(NULL);
 
+    /* Clear the irq list */
+    memset(_irq_list, 0, sizeof(_irq_list));
+
+    for (int i = 0; i < IRQ_COUNT; i++)
+        _irq_list[i].vec = i;
+
     /* Install stubs for exceptions */
     install_exception_stubs();
 
@@ -579,9 +612,9 @@ static inline void irq_debug(irq_t* irq, int handler_error)
  */
 static inline void irq_ack(irq_t* irq)
 {
-    irq_chip_t* chip;
+    irq_chip_t* chip = irq->chip;
 
-    if (get_active_irq_chip(&chip))
+    if (!chip && get_active_irq_chip(&chip) != 0)
         return;
 
     irq_chip_ack(chip, irq);

@@ -166,6 +166,8 @@
  * file. Useful because they make it more difficult to inadvertently type in
  * the wrong signature.
  */
+#include "system/acpi/acpica/actbl.h"
+#include "system/acpi/acpica/actbl1.h"
 #define ACPI_SIG_SLIC "SLIC" /* Software Licensing Description Table */
 #define ACPI_SIG_SLIT "SLIT" /* System Locality Distance Information Table */
 #define ACPI_SIG_SPCR "SPCR" /* Serial Port Console Redirection table */

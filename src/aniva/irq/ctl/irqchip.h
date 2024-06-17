@@ -33,6 +33,11 @@ typedef struct irq_chip_ops {
  * In the case of most X86 systems we pretty much always deal with PIC (emulation) and APIC
  */
 typedef struct irq_chip {
+    /* The first IRQ this chip handles */
+    uint32_t irq_base;
+    /* How many IRQ vectors this chip covers */
+    uint32_t irq_count;
+
     irq_chip_ops_t* ops;
     /* Implemented by the anonymous chip drivers */
     void* private;
@@ -41,6 +46,8 @@ typedef struct irq_chip {
 void init_irq_chips();
 
 int get_active_irq_chip(irq_chip_t** chip);
+
+int irq_disable_fallback_chip();
 
 int irq_chip_ack(irq_chip_t* chip, struct irq* irq);
 int irq_chip_enable(irq_chip_t* chip);

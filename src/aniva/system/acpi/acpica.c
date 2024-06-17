@@ -17,8 +17,6 @@ static void generic_glob_notif_handler(ACPI_HANDLE dev, UINT32 value, void* ctx)
 
 ACPI_STATUS init_acpi_early()
 {
-    ACPI_OBJECT arg;
-    ACPI_OBJECT_LIST param;
     ACPI_STATUS stat;
 
     stat = AcpiInitializeSubsystem();
@@ -42,6 +40,15 @@ ACPI_STATUS init_acpi_early()
         KLOG_ERR("Failed to load ACPI tables\n");
         return stat;
     }
+
+    return 0;
+}
+
+ACPI_STATUS init_acpi_full()
+{
+    ACPI_OBJECT arg;
+    ACPI_OBJECT_LIST param;
+    ACPI_STATUS stat;
 
     /* Initialize system interrupt controller (1 = APIC, 0 = PIC) */
     arg.Integer.Type = ACPI_TYPE_INTEGER;

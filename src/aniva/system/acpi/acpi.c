@@ -1,5 +1,6 @@
 #include "acpi.h"
 #include "dev/loader.h"
+#include "irq/ctl/irqchip.h"
 #include "libk/flow/error.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/parser.h"
@@ -24,6 +25,10 @@ void init_acpi()
         kernel_panic("Failed to init acpi!");
 
     // kernel_panic(")/ o.o)/ : How the fuck did we exit early ACPI init?");
+    init_irq_chips();
+
+    /* Initialize the rest of ACPI */
+    init_acpi_full();
 
     ASSERT_MSG(KERR_OK(init_acpi_parser(&_parser)), "Failed to initialize in-house ACPI parser!");
 

@@ -5,7 +5,6 @@
 #define __C_PIC___
 
 #include "irq/ctl/irqchip.h"
-#include "libk/io.h"
 #include <libk/stddef.h>
 
 #define PIC_EOI_CODE 0x20

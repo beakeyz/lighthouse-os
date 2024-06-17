@@ -124,17 +124,23 @@ int init_ctl_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, usb_ctlreq_t* ctl, usb_
     return 0;
 }
 
-int init_int_xfer(usb_xfer_t** pxfer, int (*f_cb)(struct usb_xfer*), struct usb_device* target, enum USB_XFER_DIRECTION direction, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* buffer, size_t bsize)
+int init_int_xfer(usb_xfer_t** pxfer, kdoorbell_t** pdb, int (*f_cb)(struct usb_xfer*), struct usb_device* target, enum USB_XFER_DIRECTION direction, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* buffer, size_t bsize)
 {
     usb_xfer_t* xfer;
+    kdoorbell_t* db = nullptr;
 
-    xfer = create_usb_xfer(target, nullptr, f_cb, USB_INT_XFER, direction, target->dev_addr, target->hub_addr, target->hub_port, endpoint, max_pckt_size, interval, buffer, bsize, buffer, bsize);
+    if (pdb)
+        db = create_doorbell(1, NULL);
+
+    xfer = create_usb_xfer(target, db, f_cb, USB_INT_XFER, direction, target->dev_addr, target->hub_addr, target->hub_port, endpoint, max_pckt_size, interval, buffer, bsize, buffer, bsize);
 
     /* Fuck */
     if (!xfer)
         return -KERR_NOMEM;
 
     *pxfer = xfer;
+    if (pdb)
+        *pdb = db;
     return 0;
 }
 

@@ -510,7 +510,7 @@ static inline int _usb_submit_int(usb_hcd_t* hcd, usb_xfer_t** pxfer, int (*f_cb
         return -KERR_INVAL;
 
     /* Initialize the control transfer */
-    error = init_int_xfer(&xfer, f_cb, target, direct, endpoint, max_pckt_size, interval, buffer, bsize);
+    error = init_int_xfer(&xfer, NULL, f_cb, target, direct, endpoint, max_pckt_size, interval, buffer, bsize);
 
     if (error)
         return error;

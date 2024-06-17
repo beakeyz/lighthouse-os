@@ -270,6 +270,7 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
 {
     int error;
     usb_interface_entry_t* interface;
+
     usbkbd_t* kbd;
 
     if (!intf_buf)
@@ -297,17 +298,17 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
     if (error)
         return error;
 
-    error = usb_device_submit_ctl(udev, USB_TYPE_CLASS | USB_TYPE_IF_OUT, USB_REQ_SET_PROTOCOL, 0, interface->desc.interface_number, 0, NULL, NULL);
+    // error = usb_device_submit_ctl(udev, USB_TYPE_CLASS | USB_TYPE_IF_OUT, USB_REQ_SET_PROTOCOL, 0, interface->desc.interface_number, 0, NULL, NULL);
 
-    if (error)
-        goto dealloc_and_exit;
+    // if (error)
+    // goto dealloc_and_exit;
 
     /* Submit an interrupt transfer */
     error = usb_device_submit_int(udev, &kbd->probe_xfer, usbkbd_irq, USB_DIRECTION_DEVICE_TO_HOST, interface->ep_list, kbd->this_resp, sizeof(kbd->this_resp));
 
     return error;
 
-dealloc_and_exit:
+    // dealloc_and_exit:
     destroy_usbkbd(kbd);
     return error;
 }

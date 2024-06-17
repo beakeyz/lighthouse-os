@@ -113,6 +113,8 @@ irq_chip_ops_t _pic_ops = {
 };
 
 irq_chip_t pic_controller = {
+    .irq_base = 0,
+    .irq_count = 16,
     .ops = &_pic_ops,
     .private = &pic,
 };

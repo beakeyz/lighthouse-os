@@ -156,6 +156,7 @@
 #include "system/acpi/acpica/aclocal.h"
 #include "system/acpi/acpica/acobject.h"
 #include "system/acpi/acpica/acstruct.h"
+#include "system/acpi/acpica/actbl1.h"
 #include "system/acpi/acpica/actypes.h"
 
 extern const UINT8 AcpiGbl_ResourceAmlSizes[];

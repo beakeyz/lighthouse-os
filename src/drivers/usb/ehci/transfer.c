@@ -155,7 +155,7 @@ void ehci_init_qh(ehci_qh_t* qh, usb_xfer_t* xfer)
 
     (void)usb_xfer_get_max_packet_size(xfer, &max_pckt_size);
 
-    qh->hw_info_0 |= (EHCI_QH_DEVADDR(xfer->req_devaddr) | EHCI_QH_EP_NUM(xfer->req_endpoint) | EHCI_QH_MPL(max_pckt_size) | EHCI_QH_TOGGLE_CTL);
+    qh->hw_info_0 |= (EHCI_QH_RLC(3) | EHCI_QH_DEVADDR(xfer->req_devaddr) | EHCI_QH_EP_NUM(xfer->req_endpoint) | EHCI_QH_MPL(max_pckt_size) | EHCI_QH_TOGGLE_CTL);
     qh->hw_info_1 = EHCI_QH_MULT_VAL(1);
 
     if (xfer->device->speed == USB_HIGHSPEED)

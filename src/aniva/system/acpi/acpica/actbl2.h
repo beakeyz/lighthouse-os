@@ -166,6 +166,9 @@
  * file. Useful because they make it more difficult to inadvertently type in
  * the wrong signature.
  */
+#include "system/acpi/acpica/actbl.h"
+#include "system/acpi/acpica/actbl1.h"
+
 #define ACPI_SIG_AGDI "AGDI" /* Arm Generic Diagnostic Dump and Reset Device Interface */
 #define ACPI_SIG_APMT "APMT" /* Arm Performance Monitoring Unit table */
 #define ACPI_SIG_BDAT "BDAT" /* BIOS Data ACPI Table */

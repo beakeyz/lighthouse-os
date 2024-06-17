@@ -1,17 +1,7 @@
 #include "irqchip.h"
-#include "dev/debug/serial.h"
-#include "entry/entry.h"
 #include "irq/ctl/apic.h"
 #include "irq/ctl/pic.h"
-#include "libk/data/linkedlist.h"
-#include "libk/flow/error.h"
-#include "libk/string.h"
-#include "mem/kmem_manager.h"
-#include "sched/scheduler.h"
-#include "system/acpi/acpi.h"
-#include "system/acpi/parser.h"
-#include "system/processor/processor.h"
-#include "system/processor/processor_info.h"
+#include "irq/interrupts.h"
 #include <mem/heap.h>
 
 /*
@@ -65,24 +55,42 @@
 
 /* Most likely a DUAL PIC */
 static irq_chip_t* _c_active;
+static irq_chip_t* _fallback_chip;
 
 /*!
  * @brief: Initialize the interrupt chips
  *
- * Done after ACPI and IDT where initialized and during the late
- * processor initialization
+ * Done after ACPI and IDT where initialized. In the case where there are no APIC
+ * chips present on the system, we can simply activate the backup DUAL PIC chip (emulation).
+ *
+ * TODO: Map certain IRQ ranges to the particular IRQ chips responsible for them
  *
  * Currently this only initializes a DUAL PIC controller
  */
 void init_irq_chips()
 {
-    _c_active = get_pic();
+    _c_active = NULL;
+    _fallback_chip = get_pic();
 
-    irq_chip_enable(_c_active);
+    /* Initialize the apics, if we have them */
+    if (init_apics()) {
+        irq_register_chip(_fallback_chip);
 
-    irq_chip_mask_all(_c_active);
+        /* Enable it */
+        irq_chip_enable(_fallback_chip);
+
+        irq_chip_mask_all(_fallback_chip);
+    }
 
     irq_unmask_pending();
+}
+
+/*!
+ * @brief: Disables the fallback PIC
+ */
+int irq_disable_fallback_chip()
+{
+    return irq_chip_disable(_fallback_chip);
 }
 
 /*!

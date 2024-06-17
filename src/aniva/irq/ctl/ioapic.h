@@ -1,5 +1,6 @@
 #ifndef __IOAPIC__
 #define __IOAPIC__
+#include "irq/ctl/apic.h"
 #include <libk/stddef.h>
 
 #define IO_APIC_ID_OFFSET 0x0
@@ -61,5 +62,7 @@ typedef union io_apic_redirect_entry_t {
     };
     uint64_t raw;
 } __attribute__((packed)) io_apic_redirect_entry_t;
+
+int init_io_apic(io_apic_t** io_apic, lapic_t* lapic, uint32_t addr, uint32_t gsi_base);
 
 #endif

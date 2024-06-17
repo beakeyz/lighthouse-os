@@ -15,6 +15,7 @@ void* find_acpi_table(char* signature, size_t table_size);
 paddr_t find_acpi_root_ptr();
 
 extern ACPI_STATUS init_acpi_early();
+extern ACPI_STATUS init_acpi_full();
 extern void init_acpi_devices();
 
 #endif // !

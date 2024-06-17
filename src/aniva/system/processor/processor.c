@@ -144,8 +144,6 @@ void init_processor_late(processor_t* processor)
     }
 
     if (is_bsp(processor)) {
-        init_irq_chips();
-
         fpu_generic_init();
 
         // FIXME: other save mechs?

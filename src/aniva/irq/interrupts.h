@@ -101,6 +101,7 @@ typedef struct irq_handler {
 typedef struct irq {
     uint32_t vec;
     uint32_t flags;
+    irq_chip_t* chip;
 
     /* The funky handlers */
     irq_handler_t* handlers;
@@ -115,6 +116,9 @@ int irq_unmask(irq_t* vec);
 int irq_unmask_pending();
 
 int irq_get(uint32_t vec, irq_t** irq);
+
+int irq_register_chip(irq_chip_t* chip);
+int irq_unregister_chip(irq_chip_t* chip);
 
 int irq_lock();
 int irq_unlock();
