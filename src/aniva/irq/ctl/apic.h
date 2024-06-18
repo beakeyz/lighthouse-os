@@ -102,7 +102,7 @@ typedef struct lapic {
 } lapic_t;
 
 int init_apics();
-int init_apic(apic_t** apic, uint32_t base);
+int init_apic(apic_t** apic, size_t size, uint32_t base);
 int lapic_eoi(lapic_t* lapic);
 
 typedef struct {

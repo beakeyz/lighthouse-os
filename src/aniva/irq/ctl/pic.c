@@ -12,21 +12,16 @@ static inline void out8_pic(uint16_t port, uint8_t value)
     udelay(2);
 }
 
-void pic_enable(irq_chip_t* ctl)
+static void _pic_remap(PIC_t* pic, uint8_t off)
 {
-    PIC_t* pic = ctl->private;
-
-    pic->m_pic1_line = in8(PIC1_DATA);
-    pic->m_pic2_line = in8(PIC2_DATA);
-
     // cascade init =D
     out8_pic(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
     out8_pic(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
 
     /* Start PIC1 at idt entry 32 */
-    out8_pic(PIC1_DATA, 0x20);
+    out8_pic(PIC1_DATA, off);
     /* Start PIC2 at idt entry 40 */
-    out8_pic(PIC2_DATA, 0x28);
+    out8_pic(PIC2_DATA, off + 8);
 
     out8_pic(PIC1_DATA, 0x04);
     out8_pic(PIC2_DATA, 0x02);
@@ -38,12 +33,27 @@ void pic_enable(irq_chip_t* ctl)
     out8(PIC2_DATA, pic->m_pic2_line);
 }
 
+void pic_enable(irq_chip_t* ctl)
+{
+    PIC_t* pic = ctl->private;
+
+    pic->m_pic1_line = in8(PIC1_DATA);
+    pic->m_pic2_line = in8(PIC2_DATA);
+
+    _pic_remap(pic, 0x20);
+}
+
 void pic_disable(irq_chip_t* this)
 {
+    PIC_t* pic = this->private;
+    /* Remap to correct stuff */
+    _pic_remap(pic, 0x20);
 
-    // send funnie
+    /* send funnie */
     out8(PIC1_DATA, 0xFF);
     out8(PIC2_DATA, 0xFF);
+    pic->m_pic1_line = 0xff;
+    pic->m_pic2_line = 0xff;
 }
 
 void pic_eoi(irq_chip_t* chip, uint32_t irq_num)

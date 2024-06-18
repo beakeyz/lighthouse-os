@@ -44,7 +44,7 @@ uintptr_t sys_get_process_time()
     if (!curr_prc)
         return SYS_INV;
 
-    return get_system_ticks() >> 1;
+    return time_get_system_ticks() >> 1;
 }
 
 /*!

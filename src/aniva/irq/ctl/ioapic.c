@@ -86,22 +86,46 @@ static inline int __io_apic_conf_redirect(io_apic_t* apic, uint32_t idx, uint8_t
     return 0;
 }
 
-static int io_apic_map_redirect(io_apic_t* apic, uint32_t vec, uint32_t* idx)
+static int io_apic_map_redirect(io_apic_t* apic, uint32_t isr_num, uint32_t* idx)
 {
     int error;
-    uint32_t _idx;
+    uint32_t redir_idx;
+    uint32_t i;
+    bool act_lo = false;
+    bool tlm = false;
+    irq_override_t c_override;
 
-    if (vec < IRQ_VEC_BASE)
+    if (isr_num < IRQ_VEC_BASE)
         return -KERR_INVAL;
 
-    _idx = (vec - IRQ_VEC_BASE);
+    i = 0;
+    redir_idx = (isr_num - IRQ_VEC_BASE);
 
-    error = __io_apic_conf_redirect(apic, _idx, vec, 0, false, false, false, true, 0);
+    /* Check if there are any IRQ overrides we need to be aware of */
+    while (apic_get_irq_override(i++, &c_override) == 0) {
+        if (c_override.src != redir_idx)
+            continue;
+
+        /* This apic can't fucking handle this bitch huh */
+        if (c_override.gsi >= (apic->gsi_base + apic->redirect_count))
+            continue;
+
+        /* These overrides are ACPI overrides, see ACPI spec v6.2 p.205 */
+        act_lo = (c_override.flags & 0x03) == 0x03;
+        tlm = ((c_override.flags >> 2) & 0x03) == 0x03;
+
+        /* Grab the corresponding GSI for this io_apic */
+        redir_idx = c_override.gsi - apic->gsi_base;
+        break;
+    }
+
+    /* Configure the redirection entry */
+    error = __io_apic_conf_redirect(apic, redir_idx, isr_num, 0, false, act_lo, tlm, true, 0);
 
     if (error)
         return error;
 
-    *idx = _idx;
+    *idx = redir_idx;
     return 0;
 }
 
@@ -110,25 +134,34 @@ static int io_apic_mask_vector(irq_chip_t* chip, uint32_t vec)
     return 0;
 }
 
+/*!
+ * @brief: Unmask an IRQ vector through the IOAPIC
+ *
+ * NOTE: The IOAPIC talks in terms of (what we call) ISR numbers, but we consider IRQs relative
+ * from the IRQ_VEC_BASE, meaning (for example) that ISR 32 corresponds to IRQ 0.
+ */
 static int io_apic_unmask_vector(irq_chip_t* chip, uint32_t vec)
 {
     uint32_t i;
-    uint32_t c_vec;
+    uint32_t c_isr_num;
+    uint32_t isr_num;
     io_apic_t* apic = chip->private;
 
+    isr_num = vec + IRQ_VEC_BASE;
+
     for (i = 0; i < chip->irq_count; i++) {
-        c_vec = (io_apic_read(apic, ((i) << 1) + IO_APIC_REDTBL_START_OFFSET) & 0xFF);
+        c_isr_num = (io_apic_read(apic, ((i) << 1) + IO_APIC_REDTBL_START_OFFSET) & 0xFF);
 
-        KLOG_DBG("c_vec: %d\n", c_vec);
+        KLOG_DBG("c_vec: %d\n", c_isr_num);
 
-        if (c_vec == vec)
+        if (c_isr_num == isr_num)
             break;
     }
 
     if (i == chip->irq_count)
-        io_apic_map_redirect(apic, vec, &i);
+        io_apic_map_redirect(apic, isr_num, &i);
 
-    io_apic_mask_redirect(apic, i);
+    io_apic_unmask_redirect(apic, i);
     return 0;
 }
 
@@ -151,7 +184,7 @@ int init_io_apic(io_apic_t** io_apic, lapic_t* lapic, uint32_t addr, uint32_t gs
     int error;
     io_apic_t* ret;
 
-    error = init_apic((apic_t**)io_apic, addr);
+    error = init_apic((apic_t**)io_apic, sizeof(*ret), addr);
 
     if (error)
         return error;

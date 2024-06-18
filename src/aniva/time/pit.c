@@ -2,7 +2,7 @@
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
-#include "sched/scheduler.h"
+#include "logging/log.h"
 #include "time/core.h"
 #include <system/asm_specifics.h>
 
@@ -27,12 +27,12 @@
 #define PIT_WRITE 0x30
 
 registers_t* pit_irq_handler(registers_t*);
-ALWAYS_INLINE void reset_pit(uint8_t mode);
-static size_t s_pit_ticks;
 
-ANIVA_STATUS set_pit_interrupt_handler()
+static ANIVA_STATUS set_pit_interrupt_handler()
 {
     int error;
+
+    KLOG_DBG("Trying to allocate PIT irq\n");
 
     error = irq_allocate(PIT_TIMER_INT_NUM, NULL, NULL, pit_irq_handler, NULL, "Legacy PIT timer");
 
@@ -44,7 +44,7 @@ ANIVA_STATUS set_pit_interrupt_handler()
     return ANIVA_SUCCESS;
 }
 
-void set_pit_frequency(size_t freq, bool _enable_interrupts)
+static void set_pit_frequency(size_t freq, bool _enable_interrupts)
 {
     disable_interrupts();
     const size_t new_val = PIT_BASE_FREQ / freq;
@@ -55,13 +55,13 @@ void set_pit_frequency(size_t freq, bool _enable_interrupts)
         enable_interrupts();
 }
 
-bool pit_frequency_capability(size_t freq)
+static bool pit_frequency_capability(size_t freq)
 {
     // FIXME
     return TARGET_TPS >= freq;
 }
 
-void set_pit_periodic(bool value)
+static void set_pit_periodic(bool value)
 {
     // FIXME
 }
@@ -69,7 +69,7 @@ void set_pit_periodic(bool value)
 // NOTE: we require the caller to enable interrupts again after this call
 // I guarantee I will forget this some time so thats why this note is here
 // for ez identification
-ALWAYS_INLINE void reset_pit(uint8_t mode)
+static ALWAYS_INLINE void reset_pit(uint8_t mode)
 {
     if (pit_frequency_capability(TARGET_TPS)) {
         out8(PIT_CTRL, T0_SEL | PIT_WRITE | mode);
@@ -77,58 +77,49 @@ ALWAYS_INLINE void reset_pit(uint8_t mode)
     }
 }
 
-void init_and_install_pit()
+static int enable_pit(time_chip_t* chip)
 {
     ANIVA_STATUS status;
 
     disable_interrupts();
 
-    s_pit_ticks = NULL;
     status = set_pit_interrupt_handler();
 
     if (status != ANIVA_SUCCESS)
-        return;
+        return -1;
 
+    /* Reset this badboy */
     reset_pit(RATE);
+
+    return 0;
 }
 
-void uninstall_pit()
+static int disable_pit(time_chip_t* chip)
 {
     CHECK_AND_DO_DISABLE_INTERRUPTS();
 
     irq_deallocate(PIT_TIMER_INT_NUM, pit_irq_handler);
 
     CHECK_AND_TRY_ENABLE_INTERRUPTS();
+    return 0;
 }
 
-size_t get_pit_ticks()
-{
-    return s_pit_ticks;
-}
+time_chip_t pit_chip = {
+    .type = PIT,
+    .flags = NULL,
+    .f_enable = enable_pit,
+    .f_disable = disable_pit,
+    .f_probe = NULL,
+    .f_get_datetime = NULL,
+};
 
 registers_t* pit_irq_handler(registers_t* regs)
 {
-    scheduler_t* this;
-    // FIXME: these calls do stuff to the heap. this means that when we get interrupted while
-    // in some kind of heap call, a load of stuff can/will go wrong. we need to fix this in the future
-    // by making sure there either is a lock on the heap (which might actually be a good idea anyways) or
-    // by actually finishing the dynamic heap idea I have had for a while (being able to dynamically
-    // create/remove different kinds of heaps (zone,blob,bump,ect.) which we can then call individually.
-    // this would for this example mean that the kernel event system gets its own heap to allocate to.
-    // we can give it a heaptype that is suitable to its kind of allocations and we also don't mess with the
-    // main system heap. A big feature this heap should have is being able to be mapped to virtual ranges
-    /*
-    struct time_update_event_hook hook = create_time_update_event_hook(s_pit_ticks, regs);
-    call_event(TIME_UPDATE_EVENT, &hook);
-    */
-
-    s_pit_ticks++;
-
-    /* NOTE: we store the current processor structure in the GS register */
-    this = get_current_scheduler();
-
-    if (this && this->f_tick)
-        this->f_tick(regs);
-
+    (void)__do_tick(&pit_chip, regs, 1);
     return regs;
+}
+
+void init_pit_chip_driver()
+{
+    (void)time_register_chip(&pit_chip);
 }

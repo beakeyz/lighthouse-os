@@ -92,15 +92,15 @@ int apic_get_irq_override(uint32_t idx, irq_override_t* boverride)
     return 0;
 }
 
-int init_apic(apic_t** apic, uint32_t base)
+int init_apic(apic_t** apic, size_t size, uint32_t base)
 {
     int error;
-    apic_t* ret = kmalloc(sizeof(lapic_t));
+    apic_t* ret = kmalloc(size);
 
     if (!ret)
         return -1;
 
-    memset(ret, 0, sizeof(*ret));
+    memset(ret, 0, size);
 
     ret->phys_register_base = base;
     ret->type = APIC_TYPE_LAPIC;
@@ -108,7 +108,7 @@ int init_apic(apic_t** apic, uint32_t base)
     ret->next = (apic_t*)(*apic);
 
     /* Map the local apic  */
-    error = __kmem_alloc((void**)&ret->register_base, NULL, NULL, base, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+    error = __kmem_alloc((void**)&ret->register_base, NULL, NULL, base, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE | KMEM_FLAG_NOCACHE);
 
     if (error) {
         kfree(ret);
@@ -153,6 +153,21 @@ static inline void _apic_set_lvt(lapic_t* apic, uint32_t reg, uint32_t iv, uint3
     lapic_write(apic, reg, (((iv) & 0xff) | (((dm) & 0x7) << 8)) | mask);
 }
 
+static void lapic_set_base(lapic_t* apic)
+{
+    uint64_t base;
+
+    /* Grab the page-aligned base */
+    base = apic->base.phys_register_base & 0xfffff000ULL;
+    base |= (1 << 11);
+    if (apic->is_x2)
+        base |= (1 << 10);
+
+    KLOG_DBG("LAPIC: Setting base: 0x%llx -> 0x%llx\n", (uint32_t)apic->base.phys_register_base, base);
+
+    wrmsr(MSR_APIC_BASE, base);
+}
+
 static int enable_lapic(lapic_t* apic)
 {
     uint32_t ld;
@@ -160,10 +175,10 @@ static int enable_lapic(lapic_t* apic)
     KLOG_DBG("Enabling APIC on cpu: %d\n", apic->parent_cpu->m_cpu_num);
 
     /* TODO: Set X2 mode on this apic */
-    if (apic->is_x2) {
-    } else {
+    if (apic->is_x2)
+        apic->apic_id = lapic_read(apic, APIC_REG_ID);
+    else {
         ld = lapic_read(apic, APIC_REG_LD) & 0x00ffffff;
-
         lapic_write(apic, APIC_REG_LD, ld | (apic->parent_cpu->m_cpu_num << 24));
 
         apic->apic_id = lapic_read(apic, APIC_REG_LD) >> 24;
@@ -178,7 +193,7 @@ static int enable_lapic(lapic_t* apic)
     }
 
     lapic_write(apic, APIC_REG_LVT_ERR, lapic_read(apic, APIC_REG_LVT_ERR) | IRQ_APIC_ERR);
-    lapic_write(apic, APIC_REG_SIV, lapic_read(apic, APIC_REG_SIV) | IRQ_APIC_SPURIOUS);
+    lapic_write(apic, APIC_REG_SIV, lapic_read(apic, APIC_REG_SIV) | IRQ_APIC_SPURIOUS | APIC_SOFTWARE_ENABLE);
 
     /* Set the LVT entries */
     _apic_set_lvt(apic, APIC_REG_LVT_TIMER, 0, 0, APIC_LVT_MASKED);
@@ -197,7 +212,7 @@ static int init_lapic(lapic_t** apic, processor_t* cpu, uint32_t base)
     int error;
     lapic_t* ret;
 
-    error = init_apic((apic_t**)apic, base);
+    error = init_apic((apic_t**)apic, sizeof(lapic_t), base);
 
     if (error)
         return error;
@@ -208,7 +223,7 @@ static int init_lapic(lapic_t** apic, processor_t* cpu, uint32_t base)
     ret->is_x2 = processor_has(&cpu->m_info, X86_FEATURE_X2APIC);
     ret->apic_id = lapic_read(ret, APIC_REG_ID) >> (ret->is_x2 ? 0 : 24);
 
-    return enable_lapic(ret);
+    return 0;
 }
 
 int lapic_eoi(lapic_t* lapic)
@@ -266,9 +281,12 @@ static int _get_apics()
             KLOG_DBG("Foudn IO APIC on MATD. IO=%d\n", api->Id);
 
             init_io_apic(&_io_apic, _bsp_lapic, api->Address, api->GlobalIrqBase);
+            lapic_set_base(_bsp_lapic);
         }
         case ACPI_MADT_TYPE_INTERRUPT_OVERRIDE: {
             ACPI_MADT_INTERRUPT_OVERRIDE* override = (ACPI_MADT_INTERRUPT_OVERRIDE*)subtable;
+
+            KLOG_DBG("Interrupt override: GSI=%lld, FLAGS=%lld, SOURCEIRQ=%lld, BUS=%lld\n", override->GlobalIrq, override->IntiFlags, override->SourceIrq, override->Bus);
 
             /* Add the override */
             _add_irq_override(override->GlobalIrq, override->IntiFlags, override->SourceIrq, override->Bus);

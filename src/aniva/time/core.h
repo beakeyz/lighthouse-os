@@ -2,6 +2,7 @@
 #define __ANIVA_TIME_CORE__
 
 #include "libk/stddef.h"
+#include "system/processor/registers.h"
 
 /*
  * The aniva timekeeping subsystem
@@ -20,16 +21,38 @@
 /* A good target for fast machines might be 1000 or more */
 #define TARGET_TPS 1000
 
-typedef enum {
+typedef enum TICK_TYPE {
     UNSET = 0,
     PIT,
     APIC_TIMER,
     HPET,
-    RTC
+    RTC,
+
+    TICK_TYPE_COUNT
 } TICK_TYPE;
 
+#define TIME_CHIP_FLAG_DATETIME 0x00000001
+#define TIME_CHIP_FLAG_ENABLED 0x00000002
+#define TIME_CHIP_FLAG_PRESENT 0x00000004
+
+typedef struct time_chip {
+    TICK_TYPE type;
+    uint32_t flags;
+
+    int (*f_enable)(struct time_chip* chip);
+    int (*f_disable)(struct time_chip* chip);
+    int (*f_probe)(struct time_chip* chip);
+    int (*f_get_datetime)(struct time_chip* chip);
+} time_chip_t;
+
 void init_timer_system();
-void set_kernel_ticker_type(TICK_TYPE type);
-size_t get_system_ticks();
+
+size_t time_get_system_ticks();
+int time_get_system_tick_type(TICK_TYPE* type);
+
+int time_register_chip(struct time_chip* chip);
+
+/* Called by chip drivers, implemented by the time core */
+int __do_tick(struct time_chip* chip, registers_t* regs, size_t delta);
 
 #endif // !__ANIVA_TIME_CORE__

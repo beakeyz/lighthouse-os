@@ -19,6 +19,8 @@
 
 #define MSR_FS_BASE (0xC0000100)
 #define MSR_GS_BASE (0xC0000101)
+#define MSR_APIC_BASE (0x1b)
+#define MSR_APIC_REGS_BASE (0x800)
 
 uint64_t rdmsr(uint32_t address);
 void wrmsr(uint32_t address, uint64_t value);
