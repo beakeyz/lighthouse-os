@@ -174,7 +174,6 @@ AcpiHwSetMode(
 {
 
     ACPI_STATUS Status;
-    UINT32 Retry;
 
     ACPI_FUNCTION_TRACE(HwSetMode);
 
@@ -237,21 +236,6 @@ AcpiHwSetMode(
         ACPI_EXCEPTION((AE_INFO, Status,
             "Could not write ACPI mode change"));
         return_ACPI_STATUS(Status);
-    }
-
-    /*
-     * Some hardware takes a LONG time to switch modes. Give them 3 sec to
-     * do so, but allow faster systems to proceed more quickly.
-     */
-    Retry = 3000;
-    while (Retry) {
-        if (AcpiHwGetMode() == Mode) {
-            ACPI_DEBUG_PRINT((ACPI_DB_INFO,
-                "Mode %X successfully enabled\n", Mode));
-            return_ACPI_STATUS(AE_OK);
-        }
-        AcpiOsStall(ACPI_USEC_PER_MSEC);
-        Retry--;
     }
 
     ACPI_ERROR((AE_INFO, "Hardware did not change modes"));

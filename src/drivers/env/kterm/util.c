@@ -110,6 +110,7 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
 
 bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
 {
+    driver_version_t* version;
     drv_manifest_t* manifest;
 
     if (node)
@@ -120,7 +121,15 @@ bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
     if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
         return false;
 
-    printf("%16.16s: %32.32s (Loaded: %s)\n", manifest->m_url, (manifest->m_driver_file_path == nullptr) ? "Internal" : manifest->m_driver_file_path, ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
+    version = &manifest->m_handle->m_version;
+
+    printf("%16.16s: %32.32s (Version: (%lld:%lld:%lld), Loaded: %s)\n",
+        manifest->m_url,
+        (manifest->m_driver_file_path == nullptr) ? "Internal" : manifest->m_driver_file_path,
+        version->maj,
+        version->min,
+        version->bump,
+        ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
 
     FOREACH_VEC(manifest->m_dev_list, data, index)
     {

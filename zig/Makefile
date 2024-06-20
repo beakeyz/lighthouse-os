@@ -1,5 +1,4 @@
-ZIG_MAIN_ABI_OUT=anv_abi.zig
-ZIG_KLIB_ABI_OUT=anv_klib.zig
+ZIG_MAIN_ABI_OUT=std/lightos/anv_abi.zig
 
 genbindings:
 	@zig translate-c -I./../src/aniva -I./../src ./bindings.h > $(ZIG_MAIN_ABI_OUT)

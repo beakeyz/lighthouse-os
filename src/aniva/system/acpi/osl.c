@@ -27,6 +27,7 @@
 #include "system/acpi/acpi.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acpiosxf.h"
+#include "system/acpi/acpica/acpixf.h"
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/acpica/platform/acaniva.h"
 #include "system/acpi/acpica/platform/acenv.h"
@@ -420,7 +421,21 @@ void AcpiOsSleep(UINT64 Milliseconds)
 
 void AcpiOsStall(UINT32 Microseconds)
 {
-    kernel_panic("TODO: AcpiOsStall");
+    uint32_t delta;
+
+    do {
+        delta = 1000;
+
+        /* Cap it */
+        if (delta > Microseconds)
+            delta = Microseconds;
+
+        /* Spin */
+        udelay(delta);
+
+        /* Subtract */
+        Microseconds -= delta;
+    } while (Microseconds);
 }
 
 ACPI_STATUS AcpiOsEnterSleep(UINT8 SleepState, UINT32 RegaValue, UINT32 RegbValue)
@@ -577,8 +592,13 @@ void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 
 ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void* Context)
 {
+    KLOG_DBG("ACPI OSL: Trying to allocate interrupt: %lld\n", InterruptLevel);
+
+    if (InterruptLevel != AcpiGbl_FADT.SciInterrupt)
+        return AE_BAD_PARAMETER;
+
     /* ACPI requires a direct call */
-    if (irq_allocate(InterruptLevel, IRQ_FLAG_MASKED | IRQ_FLAG_PENDING_UNMASK, IRQHANDLER_FLAG_DIRECT_CALL, Handler, Context, "ACPI osl alloc"))
+    if (irq_allocate(InterruptLevel, NULL, IRQHANDLER_FLAG_DIRECT_CALL, Handler, Context, "ACPI osl alloc"))
         return AE_NOT_ACQUIRED;
 
     return AE_OK;

@@ -9,6 +9,7 @@
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "system/profile/profile.h"
@@ -22,6 +23,7 @@ struct loader_ctx {
     char* section_strings;
     char* strtab;
     extern_driver_t* driver;
+    aniva_driver_t* zig_driver;
 
     size_t size;
     size_t sym_count;
@@ -130,7 +132,7 @@ static kerror_t __do_driver_relocations(struct loader_ctx* ctx)
                 break;
             }
 
-            // printf("Relocation (%d/%lld) type=%lld size=0x%llx\n", i, rela_count, ELF64_R_TYPE(current->r_info), size);
+            KLOG_DBG("Relocation (%d/%lld) type=%lld size=0x%llx\n", i, rela_count, ELF64_R_TYPE(current->r_info), size);
 
             if (!size)
                 return -1;
@@ -194,6 +196,13 @@ static kerror_t __resolve_kernel_symbols(struct loader_ctx* ctx)
             struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
             current_symbol->st_value += hdr->sh_addr;
 
+            /* Check if we can find a zig mofo here */
+            if (strncmp(sym_name, DRVLOADER_ZIG_DRIVER_SYM, strlen(DRVLOADER_ZIG_DRIVER_SYM)) == 0 && !ctx->zig_driver) {
+                ctx->zig_driver = (aniva_driver_t*)current_symbol->st_value;
+                ctx->driver->m_manifest->m_flags |= DRV_ZIG;
+                break;
+            }
+
             if (!ctx->expsym_idx)
                 break;
 
@@ -218,18 +227,21 @@ static kerror_t __resolve_kernel_symbols(struct loader_ctx* ctx)
  */
 static kerror_t __move_driver(struct loader_ctx* ctx)
 {
-
+    KLOG("A\n");
     /* First, make sure any values and addresses are mapped correctly */
     if ((__fixup_section_headers(ctx)))
         return -1;
 
+    KLOG("B\n");
     if ((__resolve_kernel_symbols(ctx)))
         return -1;
 
+    KLOG("C\n");
     /* Then handle any pending relocations */
     if ((__do_driver_relocations(ctx)))
         return -1;
 
+    KLOG("D\n");
     return (0);
 }
 
@@ -303,16 +315,19 @@ static int __check_driver(struct loader_ctx* ctx)
         }
     }
 
+    if (symtab_sections != 1)
+        return -KERR_INVAL;
+
     /*
      * All these sections are a must-have for external drivers so
      * they must explicitly export both a driver AND a dependency table
      */
-    if (expdrv_sections != 1 || symtab_sections != 1 || deps_sections != 1)
-        return -1;
+    if (expdrv_sections != 1 || deps_sections != 1)
+        return KERR_NOT_FOUND;
 
     /* Can't have more than one exported symbol sections */
     if (expsym_sections > 1)
-        return -2;
+        return KERR_NOT_FOUND;
 
     return 0;
 }
@@ -441,15 +456,22 @@ static inline void _ctx_prepare_manifest(struct loader_ctx* ctx)
 static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
 {
     kerror_t error;
-    struct elf64_shdr* driver_header;
-    struct elf64_shdr* deps_header;
+    struct elf64_shdr* driver_header = NULL;
+    struct elf64_shdr* deps_header = NULL;
     aniva_driver_t* driver_data;
 
-    driver_header = &ctx->shdrs[ctx->expdrv_idx];
-    deps_header = &ctx->shdrs[ctx->deps_idx];
+    /* If we couldn't find a zig driver, use the header indeces. */
+    if (!ctx->zig_driver) {
+        driver_header = &ctx->shdrs[ctx->expdrv_idx];
+        deps_header = &ctx->shdrs[ctx->deps_idx];
 
-    driver_data = (aniva_driver_t*)driver_header->sh_addr;
-    driver_data->m_deps = (drv_dependency_t*)deps_header->sh_addr;
+        driver_data = (aniva_driver_t*)driver_header->sh_addr;
+        driver_data->m_deps = (drv_dependency_t*)deps_header->sh_addr;
+    } else {
+        /* Otherwise, yoink the zig driver (Can't use dependencies) */
+        driver_data = ctx->zig_driver;
+        driver_data->m_deps = NULL;
+    }
 
     error = manifest_emplace_handle(ctx->driver->m_manifest, driver_data);
 
@@ -496,11 +518,20 @@ static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
  */
 static kerror_t __load_ext_driver(struct loader_ctx* ctx, bool install)
 {
+    int error;
     /* TODO: implement + check signatures */
-    if (__check_driver(ctx))
+    error = __check_driver(ctx);
+
+    /* If the error is fatal, die */
+    if (error < 0)
+        return error;
+
+    /* Do the relocations anyway */
+    if ((__move_driver(ctx)))
         return -1;
 
-    if ((__move_driver(ctx)))
+    /* If we could find a zig driver, all is good */
+    if (error && !ctx->zig_driver)
         return -1;
 
     return __init_driver(ctx, install);

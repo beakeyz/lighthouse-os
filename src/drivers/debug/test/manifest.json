@@ -1,5 +1,5 @@
 {
-  "name": "test.drv",
-  "linking": "static",
-  "type": "driver"
+    "name": "test.drv",
+    "linking": "static",
+    "type": "driver"
 }

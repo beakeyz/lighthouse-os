@@ -3,34 +3,44 @@
 
 #include <libk/stddef.h>
 
+#define PRISM_BYTECODE_SIG 0x1f
+
 /*
  * Single prism bytecode instruction
  */
 typedef struct raw_bytecode_instruction {
+    uint8_t signature;
     uint8_t instruction;
     uint8_t params[];
 } raw_bytecode_instruction_t;
 
-/*
- * Buffer to contain the actual code
- */
-typedef struct prism_bytecode {
-    size_t buffer_size;
-    raw_bytecode_instruction_t code[];
-} prism_bytecode_t;
-
 enum BYTECODE_INSTRUCTIONS {
-    PRISM_BYTECODE_ADD = 0x00,
-    PRISM_BYTECODE_SUBTRACT,
-    PRISM_BYTECODE_JUMP,
+    PRISM_BYTECODE_LABEL,
     PRISM_BYTECODE_VAR,
+    PRISM_BYTECODE_ADD,
+    PRISM_BYTECODE_SUB,
+    PRISM_BYTECODE_CALL,
+    PRISM_BYTECODE_EXIT,
+    PRISM_BYTECODE_TO,
+    PRISM_BYTECODE_CPY,
+    PRISM_BYTECODE_XOR,
+    PRISM_BYTECODE_OR,
+    PRISM_BYTECODE_AND,
+    PRISM_BYTECODE_FUN,
+    PRISM_BYTECODE_MOD,
+    PRISM_BYTECODE_JIF,
+    PRISM_BYTECODE_JMP,
 };
+
+#define PRISM_BYTE_TOK_DEF_RETVAR "->"
+#define PRISM_BYTE_TOK_RET "<-"
 
 /*
  * State machine for prism bytecode
  */
 typedef struct prism_byte_executor {
-    prism_bytecode_t* code;
+    void* code;
+    size_t code_len;
     raw_bytecode_instruction_t* c_instr;
 
     size_t stack_size;

@@ -10,6 +10,7 @@
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
@@ -1041,6 +1042,9 @@ void init_root_device_probing()
             part = part->m_next;
         }
 
+        if (found_root_device)
+            break;
+
     cycle_next:
         root_device = find_gdisk_device(device_index++);
     }
@@ -1050,6 +1054,8 @@ void init_root_device_probing()
     /* If there was no root device, use the initrd as a rootdevice */
     if (!found_root_device)
         initrd_mp = FS_DEFAULT_ROOT_MP;
+    else
+        KLOG_INFO("Found a root device: %s!\n", root_device->m_device_name);
 
     if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk)) {
         kernel_panic("Could not find a root device to mount! TODO: fix");

@@ -1,0 +1,5 @@
+{
+    "name": "zigtest.drv",
+    "linking": "static",
+    "type": "driver"
+}

@@ -27,6 +27,8 @@
 #include "dev/external.h"
 #include "fs/file.h"
 
+#define DRVLOADER_ZIG_DRIVER_SYM "___lightos_driver"
+
 /* TODO ? */
 bool file_contains_driver(file_t* file);
 

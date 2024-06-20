@@ -17,6 +17,7 @@ export SRC=$(WORKING_DIR)/src
 export PROJECT_DIR=$(WORKING_DIR)/project
 export TOOLS_DIR=$(WORKING_DIR)/tools
 export SYSROOT_DIR=$(WORKING_DIR)/system
+export ZIG_DIR=$(WORKING_DIR)/zig
 
 export LIBRARY_BIN_PATH=$(WORKING_DIR)/out/libs
 
@@ -84,8 +85,7 @@ libs: ## Build system libraries
 user: ## Build userspace stuff
 	@make -C ./src/user build
 
-ramdisk: ## Create the system ramdisk
-	@echo -e "TODO: create ramdisk"
+install: ## Create the system ramdisk
 	@cd $(PROJECT_DIR)/.. && python3 $(PROJECT_DIR)/x.py ramdisk
 
 clean: ## Remove any build artifacts
@@ -93,7 +93,7 @@ clean: ## Remove any build artifacts
 	@rm -r $(OUT)
 	@echo -e "Cleaned build artifacts!"
 
-all: aniva drivers libs user ramdisk
+all: aniva drivers libs user install
 	@echo Built the entire project =D
 
 install-gcc-hdrs:

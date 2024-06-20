@@ -44,9 +44,11 @@ typedef struct drv_dependency {
     const char* location;
 } drv_dependency_t;
 
-#define DRV_DEP(_type, _flags, _location)                            \
-    {                                                                \
-        .type = (_type), .flags = (_flags), .location = (_location), \
+#define DRV_DEP(_type, _flags, _location) \
+    {                                     \
+        .type = (_type),                  \
+        .flags = (_flags),                \
+        .location = (_location),          \
     }
 #define DRV_DEP_END      \
     {                    \
@@ -69,8 +71,8 @@ static inline bool drv_dep_is_optional(drv_dependency_t* dep)
  *
  */
 typedef struct aniva_driver {
-    const char m_name[MAX_DRIVER_NAME_LENGTH];
-    const char m_descriptor[MAX_DRIVER_DESCRIPTOR_LENGTH];
+    const char* m_name;
+    const char* m_descriptor;
 
     driver_version_t m_version;
     dev_type_t m_type;
@@ -109,6 +111,7 @@ typedef struct aniva_driver {
 
 #define DRV_CORE (0x00008000) /* Is this driver for core functions? */
 #define DRV_LOADED (0x00010000) /* Is this driver loaded? */
+#define DRV_ZIG (0x00020000) /* This is probably a zig driver xD */
 
 #define DRV_STAT_OK (0)
 #define DRV_STAT_INVAL (-1)
