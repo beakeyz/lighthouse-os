@@ -8,6 +8,6 @@
 #include <mem/heap.h>
 
 /* Framework headers */
-#include "disk_bindings.h" 
+// #include "disk_bindings.h"
 
 #endif // !__ANIVA_ZIG_ABI_BINDINGS__

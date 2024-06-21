@@ -1,7 +1,6 @@
-ZIG_MAIN_ABI_OUT=anv_abi.zig
-ZIG_KLIB_ABI_OUT=anv_klib.zig
+ZIG_DRV_ABI_OUT=anvdrv_abi.zig
 
 genbindings:
-	@zig translate-c -I./../src/aniva -I./../src ./bindings.h > $(ZIG_MAIN_ABI_OUT)
+	@zig translate-c -I./../src/aniva -I./../src ./driver_bindings.h > $(ZIG_DRV_ABI_OUT)
 
 .PHONY: genbindings
