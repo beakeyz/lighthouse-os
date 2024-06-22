@@ -55,14 +55,14 @@ void destroy_lwnd_window(lwnd_window_t* window)
 /*!
  * @brief: Add a keyevent to the keybuffer of a window
  */
-int lwnd_save_keyevent(lwnd_window_t* window, kevent_kb_ctx_t* ctx)
+int lwnd_save_keyevent(lwnd_window_t* window, hid_event_t* ctx)
 {
     window->key_buffer[window->key_buffer_write_idx++] = *ctx;
     window->key_buffer_write_idx %= LWND_WINDOW_KEYBUFFER_CAPACITY;
     return 0;
 }
 
-int lwnd_load_keyevent(lwnd_window_t* window, kevent_kb_ctx_t* ctx)
+int lwnd_load_keyevent(lwnd_window_t* window, hid_event_t* ctx)
 {
     if (!window || window->key_buffer_read_idx == window->key_buffer_write_idx)
         return -1;

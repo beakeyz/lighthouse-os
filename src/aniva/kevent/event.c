@@ -30,8 +30,8 @@ struct {
     uint32_t flags;
     uint32_t hook_capacity;
 } default_kevents[] = {
-    { "keyboard", KE_KEY_EVENT, KEVENT_FLAG_FROZEN, 512 },
-    { "mouse", KE_MOUSE_EVENT, KEVENT_FLAG_FROZEN, 512 },
+    //{ "keyboard", KE_KEY_EVENT, KEVENT_FLAG_FROZEN, 512 },
+    //{ "mouse", KE_MOUSE_EVENT, KEVENT_FLAG_FROZEN, 512 },
     { "error", KE_ERROR_EVENT, NULL, 128 },
     { "proc", KE_PROC_EVENT, NULL, 128 },
     { "thread", KE_THREAD_EVENT, NULL, 128 },

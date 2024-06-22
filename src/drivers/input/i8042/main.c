@@ -1,11 +1,12 @@
 #include "dev/core.h"
 #include "dev/endpoint.h"
+#include "dev/io/hid/event.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
 #include "kevent/event.h"
-#include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
+#include "logging/log.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include <dev/device.h>
@@ -24,8 +25,18 @@ static uint16_t s_current_scancodes[7];
 
 registers_t* i8042_irq_handler(registers_t* regs);
 
+/**
+ * @brief: i8042 poll routine
+ *
+ * There is no such thing as polling on a i8042 device, since the IRQ handler dumps the events directly into the ring buffer
+ */
+static int i8042_poll(device_t* device)
+{
+  return 0;
+}
+
 struct device_hid_endpoint _i8042_hid_ep = {
-    .f_poll = NULL
+    .f_poll = i8042_poll, 
 };
 
 /*
@@ -176,9 +187,13 @@ registers_t* i8042_irq_handler(registers_t* regs)
     uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
     bool pressed = (!(scan_code & 0x80));
 
+    KLOG("hihi\n");
+
     /* Don't do anything if the device is not enabled */
     if (!device_is_enabled(s_i8042_device->dev))
         return nullptr;
+
+    KLOG("hihai\n");
 
     if (scan_code == 0x00e0) {
         /* Extended keycode */
@@ -215,19 +230,26 @@ registers_t* i8042_irq_handler(registers_t* regs)
             ? kbd_us_shift_map[key_code]
             : kbd_us_map[key_code];
 
-    kevent_kb_ctx_t kb = {
-        .pressed = pressed,
-        .keycode = aniva_scancode_table[key_code],
-        .pressed_char = character,
-    };
+    hid_event_t event = { 0 };
+
+    event.type = HID_EVENT_KEYPRESS;
+    event.device = s_i8042_device;
+    event.key.scancode = aniva_scancode_table[key_code];
+    event.key.pressed_char = character;
+    /* Set mod flags */
+    event.key.flags = ((s_mod_flags << HID_EVENT_KEY_FLAG_MOD_BITSHIFT) & HID_EVENT_KEY_FLAG_MOD_MASK);
+
+    if (pressed)
+      event.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
 
     /* Buffer the keycodes */
-    ps2_set_keycode_buffer(kb.keycode, pressed);
+    ps2_set_keycode_buffer(event.key.scancode, pressed);
 
     /* Copy the scancode buffer to the event */
-    memcpy(&kb.pressed_keys, &s_current_scancodes, sizeof(s_current_scancodes));
+    memcpy(&event.key.pressed_buffer, &s_current_scancodes, sizeof(s_current_scancodes));
 
-    kevent_fire("keyboard", &kb, sizeof(kb));
+    //kevent_fire("keyboard", &kb, sizeof(kb));
+    hid_event_buffer_write(&s_i8042_device->device_events, &event);
 
     return regs;
 }

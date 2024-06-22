@@ -709,7 +709,6 @@ registers_t* exception_handler(struct registers* regs)
     exc_num = regs->isr_no;
 
     KLOG_ERR("Got isr no (%lld) and err no (%lld)\n", regs->isr_no, regs->err_code);
-    // serial_println("Oopsie");
 
     if (get_fault(exc_num, &fault))
         kernel_panic("Got an exception but failed to get the fault handler!");

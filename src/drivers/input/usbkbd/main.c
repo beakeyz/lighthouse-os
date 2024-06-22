@@ -2,11 +2,13 @@
 #include <dev/manifest.h>
 #include <dev/usb/driver.h>
 
+#include "dev/endpoint.h"
+#include "dev/io/hid/event.h"
+#include "dev/io/hid/hid.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
 #include "drivers/input/i8042/i8042.h"
-#include "kevent/types/keyboard.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/event/key.h"
@@ -32,6 +34,7 @@ usb_device_ident_t usbkbd_ident_list[] = {
 
 typedef struct usbkbd {
     usb_device_t* dev;
+    hid_device_t* hiddev;
     usb_xfer_t* probe_xfer;
 
     uint8_t this_resp[8];
@@ -39,7 +42,7 @@ typedef struct usbkbd {
     uint16_t mod_keys;
     uint16_t c_scancodes[7];
 
-    kevent_kb_ctx_t c_ctx;
+    hid_event_t c_ctx;
 
     struct usbkbd* next;
 } usbkbd_t;
@@ -77,6 +80,20 @@ static const unsigned char usb_kbd_keycode[256] = {
     150, 158, 159, 128, 136, 177, 178, 176, 142, 152, 173, 140
 };
 
+static int usbkbd_poll(device_t* device)
+{
+  return 0;
+}
+
+struct device_hid_endpoint _hid_endpoint = {
+  .f_poll = usbkbd_poll,
+};
+
+device_ep_t hid_endpoints[] = {
+  DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _hid_endpoint),
+  { 0 },
+};
+
 /*!
  * @brief: Create a new usb keyboard device
  *
@@ -85,6 +102,7 @@ static const unsigned char usb_kbd_keycode[256] = {
 static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
 {
     usbkbd_t* _ret;
+    char name_buffer[16];
 
     _ret = kmalloc(sizeof(*_ret));
 
@@ -93,7 +111,14 @@ static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
 
     memset(_ret, 0, sizeof(*_ret));
 
+    sfmt(name_buffer, "%s%lld", "usbkbd", dev->dev_addr);
+
     _ret->dev = dev;
+    _ret->hiddev = create_hid_device(name_buffer, HID_BUS_TYPE_USB, hid_endpoints);
+
+    /* Prepare the hid context */
+    _ret->c_ctx.type = HID_EVENT_KEYPRESS;
+    _ret->c_ctx.device = _ret->hiddev;
 
     /* Link it to our list */
     _ret->next = keyboards;
@@ -190,11 +215,12 @@ static inline void usbkbd_set_mod(usbkbd_t* kbd, uint16_t flag, bool pressed)
 
 static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
 {
-    kbd->c_ctx.pressed = pressed;
-    kbd->c_ctx.keycode = aniva_scancode_table[keycode];
-    kbd->c_ctx.pressed_char = (kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)) ? kbd_us_shift_map[keycode] : kbd_us_map[keycode];
+    if (pressed)
+      kbd->c_ctx.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
+    kbd->c_ctx.key.scancode = aniva_scancode_table[keycode];
+    kbd->c_ctx.key.pressed_char = (kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)) ? kbd_us_shift_map[keycode] : kbd_us_map[keycode];
 
-    switch (kbd->c_ctx.keycode) {
+    switch (kbd->c_ctx.key.scancode) {
     case ANIVA_SCANCODE_LSHIFT:
         usbkbd_set_mod(kbd, USBKBD_MOD_LSHIFT, pressed);
         break;
@@ -204,14 +230,17 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
     case ANIVA_SCANCODE_TAB:
         usbkbd_set_mod(kbd, USBKBD_MOD_TAB, pressed);
         break;
+    default:
+        break;
     }
 
-    usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.keycode, pressed);
+    usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.key.scancode, pressed);
 
     /* Copy the scancode buffer to the event */
-    memcpy(&kbd->c_ctx.pressed_keys, kbd->c_scancodes, 7);
+    memcpy(&kbd->c_ctx.key.pressed_buffer, kbd->c_scancodes, 7);
 
-    kevent_fire("keyboard", &kbd->c_ctx, sizeof(kbd->c_ctx));
+    /* Queue into the device event queue */
+    hid_device_queue(kbd->hiddev, &kbd->c_ctx);
     return 0;
 }
 

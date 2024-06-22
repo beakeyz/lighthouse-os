@@ -202,8 +202,6 @@ static int _etty_shift_x_idx()
 
 int etty_putch(char c)
 {
-    mutex_lock(_early_tty_mtx);
-
     if (c == '\n') {
         x_idx = 0;
         y_idx++;
@@ -214,8 +212,6 @@ int etty_putch(char c)
         etty_draw_char(x_idx, y_idx, c, WHITE);
         _etty_shift_x_idx();
     }
-
-    mutex_unlock(_early_tty_mtx);
     return 0;
 }
 
@@ -223,8 +219,6 @@ int etty_print(const char* str)
 {
     if (!str)
         return 0;
-
-    mutex_lock(_early_tty_mtx);
 
     while (*str) {
 
@@ -246,7 +240,6 @@ int etty_print(const char* str)
         str++;
     }
 
-    mutex_unlock(_early_tty_mtx);
     return 0;
 }
 

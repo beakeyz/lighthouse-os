@@ -1,7 +1,6 @@
 #include "dev/core.h"
 #include "dev/group.h"
 #include "dev/loader.h"
-#include "kevent/event.h"
 #include <dev/device.h>
 #include <dev/driver.h>
 
@@ -34,8 +33,7 @@ static int _init_input_core()
 
     device_for_each(usb_grp, __check_input_device);
 
-    if (kevent_flag_isset(kevent_get("keyboard"), KEVENT_FLAG_FROZEN))
-        ASSERT_MSG(load_external_driver("Root/System/i8042.drv"), "Failed to load fallback input driver");
+    ASSERT_MSG(load_external_driver("Root/System/i8042.drv"), "Failed to load fallback input driver");
 
     return 0;
 }
