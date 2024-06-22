@@ -258,7 +258,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
 
     ASSERT(!kmem_prepare_new_physical_page(&ret->m_ib_page));
 
-    ret->m_hard_lock = create_spinlock();
+    ret->m_hard_lock = create_spinlock(NULL);
 
     /* Flags? */
     ret->m_awaiting_dma_transfer_complete = false;

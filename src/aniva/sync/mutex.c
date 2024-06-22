@@ -25,7 +25,7 @@ mutex_t* create_mutex(uint8_t flags)
     memset(ret, 0, sizeof(*ret));
 
     ret->m_waiters = create_limitless_queue();
-    ret->m_lock = create_spinlock();
+    ret->m_lock = create_spinlock(NULL);
     ret->m_lock_holder = nullptr;
 
     return ret;
@@ -36,7 +36,7 @@ void init_mutex(mutex_t* lock, uint8_t flags)
     memset(lock, 0, sizeof(*lock));
 
     lock->m_waiters = create_limitless_queue();
-    lock->m_lock = create_spinlock();
+    lock->m_lock = create_spinlock(NULL);
     lock->m_lock_holder = nullptr;
 }
 

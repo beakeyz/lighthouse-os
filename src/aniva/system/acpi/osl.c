@@ -538,7 +538,7 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 
 ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK* OutHandle)
 {
-    *OutHandle = create_spinlock();
+    *OutHandle = create_spinlock(NULL);
 
     ASSERT_MSG(*OutHandle, __func__);
     return AE_OK;

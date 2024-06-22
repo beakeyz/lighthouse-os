@@ -26,7 +26,7 @@ struct semaphore* create_semaphore(uint32_t limit, uint32_t value, uint32_t wait
 
     ret->limit = limit;
     ret->waiters = create_queue(wait_capacity);
-    ret->wait_lock = create_spinlock();
+    ret->wait_lock = create_spinlock(NULL);
     init_atomic_ptr(&ret->value, value);
 
     return ret;
