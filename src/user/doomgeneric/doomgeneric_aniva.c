@@ -5,6 +5,7 @@
 #include "doomgeneric.h"
 #include "doomkeys.h"
 #include "lightos/event/key.h"
+#include "lightos/proc/cmdline.h"
 #include "lightos/proc/process.h"
 
 #include <stdio.h>
@@ -95,6 +96,9 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
     case ANIVA_SCANCODE_ESCAPE:
         return KEY_ESCAPE;
 
+    case ANIVA_SCANCODE_RETURN:
+        return KEY_ENTER;
+
     /* WASD-rebinds */
     case ANIVA_SCANCODE_A:
         return KEY_STRAFE_L;
@@ -150,13 +154,23 @@ const int argc = 4;
 /*!
  * @brief: Main entry for this app
  */
-int main(/* int argc, char **argv */)
+static int _main(int argc, char **argv)
 {
     doomgeneric_Create(argc, argv);
 
-    for (;;) {
+    for (;;)
         doomgeneric_Tick();
-    }
 
     return 0;
+}
+
+int main() 
+{
+  CMDLINE line;
+
+  /* Try to grab the commandline for this process */
+  if (cmdline_get(&line))
+    return -1;
+
+  return _main(line.argc, line.argv);
 }

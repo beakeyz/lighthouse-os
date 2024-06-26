@@ -23,6 +23,36 @@ enum DEVICE_CTYPE {
     DEVICE_CTYPE_OTHER
 };
 
+static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
+{
+  switch (type) {
+    case DEVICE_CTYPE_PCI:
+      return "PCI";
+    case DEVICE_CTYPE_USB:
+      return "USB";
+    case DEVICE_CTYPE_AHCI:
+      return "AHCI";
+    case DEVICE_CTYPE_IDE:
+      return "IDE";
+    case DEVICE_CTYPE_ATAPI:
+      return "ATAPI";
+    case DEVICE_CTYPE_SOFTDEV:
+      return "softdev";
+    case DEVICE_CTYPE_CPU:
+      return "cpu";
+    case DEVICE_CTYPE_I2C:
+      return "I2C";
+    case DEVICE_CTYPE_GPIO:
+      return "GPIO";
+    case DEVICE_CTYPE_UNKNOWN:
+      return "Unknown";
+    case DEVICE_CTYPE_OTHER:
+      return "Other";
+  }
+
+  return "N/A";
+}
+
 /*
  * Data block which a device fills when there is
  * a query for the deviceinfo

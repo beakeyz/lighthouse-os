@@ -1,4 +1,5 @@
 #include "devacs/device.h"
+#include "devacs/shared.h"
 #include "lightos/dynamic.h"
 #include "lightos/handle.h"
 #include <lightos/fs/dir.h>
@@ -65,6 +66,7 @@ int main()
     if (!f_query(handle, &info))
         goto close_and_end;
 
+    printf("Type: %s\n", devinfo_get_ctype(info.ctype));
     printf("Name: %s\n", info.devicename);
     printf("Vendor ID: %d\n", info.vendorid);
     printf("Device ID: %d\n", info.deviceid);

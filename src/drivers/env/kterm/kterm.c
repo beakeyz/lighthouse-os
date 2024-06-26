@@ -1079,7 +1079,8 @@ int kterm_init()
     _kterm_vdev = get_active_vdev();
 
     /* TODO: Make a routine that gets the best available keyboard device */
-    _kterm_kbddev = get_hid_device("usbkbd");
+    //_kterm_kbddev = get_hid_device("usbkbd");
+    _kterm_kbddev = get_hid_device("i8042");
 
     /* Grab our font */
     get_default_font(&_kterm_font);

@@ -26,6 +26,7 @@
 
 // static char* s_root_dev_name;
 // static char s_root_dev_name_buffer[64];
+//static dgroup_t* _lts_group;
 static mutex_t* _gdisk_lock;
 
 /* This is so dumb */
@@ -908,6 +909,7 @@ void init_gdisk_dev()
 {
     _c_drive_idx = 0;
     _gdisk_lock = create_mutex(0);
+    //_lts_group = register_dev_group(DGROUP_TYPE_LTS, "lts", NULL, NULL);
 }
 
 /*!

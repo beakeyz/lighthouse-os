@@ -24,6 +24,13 @@ struct mbr_table;
 #define PART_TYPE_GPT (1)
 #define PART_TYPE_MBR (2)
 
+/*
+ * Aniva disk device
+ *
+ * Right now, drivers are responsible for exporting the device to OSS, which means
+ * system software must be aware of which drivers hold which devices, so the correct
+ * sceme can be followed
+ */
 typedef struct disk_dev {
     const char* m_device_name;
 

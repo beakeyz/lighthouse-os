@@ -115,4 +115,5 @@ BOOL device_query_info(
     __IN__ DEV_HANDLE handle,
     __OUT__ DEVINFO* binfo);
 
+
 #endif // !__LIGHTOS_DEVACS_DEVICE__
