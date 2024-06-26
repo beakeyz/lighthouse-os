@@ -478,11 +478,10 @@ static inline int _usb_submit_ctl(usb_hcd_t* hcd, usb_device_t* target, uint8_t 
 {
     int error;
     usb_xfer_t* xfer;
-    kdoorbell_t* db;
     usb_ctlreq_t ctl;
 
     /* Initialize the control transfer */
-    init_ctl_xfer(&xfer, &db, &ctl, target, devaddr, hubaddr, hubport,
+    init_ctl_xfer(&xfer, &ctl, target, devaddr, hubaddr, hubport,
         reqtype, req, value, idx, len, respbuf, respbuf_len);
 
     error = usb_xfer_enqueue(xfer, hcd);
@@ -497,7 +496,6 @@ static inline int _usb_submit_ctl(usb_hcd_t* hcd, usb_device_t* target, uint8_t 
 
 dealloc_and_exit:
     release_usb_xfer(xfer);
-    destroy_doorbell(db);
     return error;
 }
 
@@ -510,7 +508,7 @@ static inline int _usb_submit_int(usb_hcd_t* hcd, usb_xfer_t** pxfer, int (*f_cb
         return -KERR_INVAL;
 
     /* Initialize the control transfer */
-    error = init_int_xfer(&xfer, NULL, f_cb, target, direct, endpoint, max_pckt_size, interval, buffer, bsize);
+    error = init_int_xfer(&xfer, f_cb, target, direct, endpoint, max_pckt_size, interval, buffer, bsize);
 
     if (error)
         return error;

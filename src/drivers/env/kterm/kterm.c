@@ -148,6 +148,9 @@ static uint32_t _kterm_fb_width;
 static uint32_t _kterm_fb_height;
 static uint32_t _kterm_fb_pitch;
 static uint8_t _kterm_fb_bpp;
+static uint32_t _kterm_fb_red_shift;
+static uint32_t _kterm_fb_green_shift;
+static uint32_t _kterm_fb_blue_shift;
 static video_device_t* _kterm_vdev;
 static hid_device_t* _kterm_kbddev;
 
@@ -219,7 +222,7 @@ static inline uint32_t kterm_color_for_pallet_idx(uint32_t idx)
         return NULL;
 
     entry = &_clr_pallet[idx];
-    clr = ((uint32_t)entry->red << vdev_get_fb_red_offset(_kterm_vdev->device, _kterm_fb_handle)) | ((uint32_t)entry->green << vdev_get_fb_green_offset(_kterm_vdev->device, _kterm_fb_handle)) | ((uint32_t)entry->blue << vdev_get_fb_blue_offset(_kterm_vdev->device, _kterm_fb_handle));
+    clr = ((uint32_t)entry->red << _kterm_fb_red_shift) | ((uint32_t)entry->green << _kterm_fb_green_shift) | ((uint32_t)entry->blue << _kterm_fb_blue_shift);
 
     return clr;
 }
@@ -1015,10 +1018,15 @@ static void _kterm_set_fb_props()
     /* Map the framebuffer to our base */
     vdev_map_fb(_kterm_vdev->device, _kterm_fb_handle, KTERM_FB_ADDR);
 
+    /* Cache videodevice attributes (TODO: Format this into a struct) */
     _kterm_fb_width = vdev_get_fb_width(_kterm_vdev->device, _kterm_fb_handle);
     _kterm_fb_height = vdev_get_fb_height(_kterm_vdev->device, _kterm_fb_handle);
     _kterm_fb_pitch = vdev_get_fb_pitch(_kterm_vdev->device, _kterm_fb_handle);
     _kterm_fb_bpp = vdev_get_fb_bpp(_kterm_vdev->device, _kterm_fb_handle);
+
+    _kterm_fb_red_shift = vdev_get_fb_red_offset(_kterm_vdev->device, _kterm_fb_handle);
+    _kterm_fb_green_shift = vdev_get_fb_green_offset(_kterm_vdev->device, _kterm_fb_handle);
+    _kterm_fb_blue_shift = vdev_get_fb_blue_offset(_kterm_vdev->device, _kterm_fb_handle);
 }
 
 /*!
@@ -1071,7 +1079,7 @@ int kterm_init()
     _kterm_vdev = get_active_vdev();
 
     /* TODO: Make a routine that gets the best available keyboard device */
-    _kterm_kbddev = get_hid_device("i8042");
+    _kterm_kbddev = get_hid_device("usbkbd");
 
     /* Grab our font */
     get_default_font(&_kterm_font);
@@ -1158,6 +1166,9 @@ int kterm_init()
 
     mode = KTERM_MODE_TERMINAL;
 
+    /* Spawn the key thread before we prompt for login */
+    __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", kterm_key_watcher, NULL);
+
     // memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
     kterm_print(" -- Welcome to the aniva kterm driver --\n");
     processor_t* processor = get_current_processor();
@@ -1185,7 +1196,6 @@ int kterm_init()
 
     /* TODO: we should probably have some kind of kernel-managed structure for async work */
     __kterm_worker_thread = spawn_thread("kterm_cmd_worker", kterm_command_worker, NULL);
-    __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", kterm_key_watcher, NULL);
 
     /* Make sure we create this fucker */
     ASSERT_MSG(__kterm_worker_thread, "Failed to create kterm command worker!");

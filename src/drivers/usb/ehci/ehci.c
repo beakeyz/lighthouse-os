@@ -211,7 +211,7 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         }
 
         if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE) {
-            printf("EHCI: Port change occured!\n");
+            KLOG_DBG("EHCI: Port change occured!\n");
 
             /* Check if we are done enumerating the hub */
             if ((ehci->hcd->roothub->flags & USBHUB_FLAGS_ENUMERATING) != USBHUB_FLAGS_ENUMERATING) {

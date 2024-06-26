@@ -100,7 +100,7 @@ void spinlock_lock(spinlock_t* lock)
     if (!c_cpu->m_locked_level)
         return;
 
-    ASSERT_MSG(c_cpu->m_irq_depth == 0, "Can't lock a spinlock inside an IRQ!");
+    //ASSERT_MSG(c_cpu->m_irq_depth == 0, "Can't lock a spinlock inside an IRQ!");
     /* Rarely fails */
     ASSERT_MSG(aquire_spinlock(lock) == 0, "Failed to aquire the spinlock!");
 

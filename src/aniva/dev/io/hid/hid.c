@@ -112,20 +112,24 @@ hid_device_t* get_hid_device(const char* name)
     if (!KERR_OK(dev_group_get_device(_hid_group, name, &bdev)))
         return nullptr;
 
+    if (!bdev)
+        return nullptr;
+
     /* hihi assume this is HID =) */
     return bdev->private;
 }
 
 kerror_t hid_device_queue(hid_device_t* device, struct hid_event* event)
 {
+    if (!device || !event)
+        return -1;
+
     return hid_event_buffer_write(&device->device_events, event);
 }
 
 static inline int _hid_device_do_poll(hid_device_t* device)
 {
-    device_ep_t* ep;
-
-    ep = device_get_endpoint(device->dev, ENDPOINT_TYPE_HID);
+    device_ep_t* ep = device_get_endpoint(device->dev, ENDPOINT_TYPE_HID);
 
     /* Check params */
     if (!ep || !ep->impl.hid || !ep->impl.hid->f_poll)
@@ -138,6 +142,9 @@ static inline int _hid_device_do_poll(hid_device_t* device)
 kerror_t hid_device_poll(hid_device_t* device, struct hid_event** p_event)
 {
     kerror_t error;
+
+    if (!device || !p_event)
+      return -KERR_INVAL;
 
     error = 0;
 
@@ -155,5 +162,15 @@ kerror_t hid_device_poll(hid_device_t* device, struct hid_event** p_event)
 
     return -KERR_NOT_FOUND;
 }
-kerror_t hid_device_flush(hid_device_t* device);
+
+kerror_t hid_device_flush(hid_device_t* device)
+{
+  if (!device)
+    return -KERR_INVAL;
+
+  memset(device->device_events.buffer, 0, device->device_events.capacity * sizeof(hid_event_t));
+
+  device->device_events.r_idx = device->device_events.w_idx;
+  return 0;
+}
 

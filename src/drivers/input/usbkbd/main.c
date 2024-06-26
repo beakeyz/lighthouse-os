@@ -80,8 +80,43 @@ static const unsigned char usb_kbd_keycode[256] = {
     150, 158, 159, 128, 136, 177, 178, 176, 142, 152, 173, 140
 };
 
+static int get_usbkbd(usbkbd_t** p_kbd, usb_device_t* udev, hid_device_t* hdev)
+{
+    usbkbd_t* ret;
+
+    ret = nullptr;
+
+    for (ret = keyboards; ret; ret = ret->next) {
+        if ((udev && ret->dev == udev) ||
+            (hdev && ret->hiddev == hdev))
+            break;
+    }
+
+    *p_kbd = ret;
+    return 0;
+}
+
+/**
+ * @brief: Poll a HID device
+ *
+ * Checks if the specified device is one we care about and
+ * submits a polling transfer
+ */
 static int usbkbd_poll(device_t* device)
 {
+  int error;
+  usbkbd_t* kbd;
+
+  error = get_usbkbd(&kbd, NULL, device->private);
+
+  if (error)
+    return error;
+
+  /* Enqueue the interrupt transfer */
+  usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
+
+  /* Wait for a response from the device */
+  usb_await_xfer_complete(kbd->probe_xfer, NULL);
   return 0;
 }
 
@@ -102,7 +137,7 @@ device_ep_t hid_endpoints[] = {
 static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
 {
     usbkbd_t* _ret;
-    char name_buffer[16];
+    char name_buffer[16] = { 0 };
 
     _ret = kmalloc(sizeof(*_ret));
 
@@ -111,10 +146,18 @@ static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
 
     memset(_ret, 0, sizeof(*_ret));
 
-    sfmt(name_buffer, "%s%lld", "usbkbd", dev->dev_addr);
+    sfmt(name_buffer, "%s", "usbkbd");
 
     _ret->dev = dev;
     _ret->hiddev = create_hid_device(name_buffer, HID_BUS_TYPE_USB, hid_endpoints);
+
+    if (!_ret->hiddev) {
+      kfree(_ret);
+      return -KERR_NOMEM;
+    }
+
+    /* Register the hid device so we can use it externaly */
+    register_hid_device(_ret->hiddev);
 
     /* Prepare the hid context */
     _ret->c_ctx.type = HID_EVENT_KEYPRESS;
@@ -146,21 +189,6 @@ static int destroy_usbkbd(usbkbd_t* kbd)
 
     /* Buhbye */
     kfree(kbd);
-    return 0;
-}
-
-static int get_usbkbd(usbkbd_t** p_kbd, usb_device_t* udev)
-{
-    usbkbd_t* ret;
-
-    ret = nullptr;
-
-    for (ret = keyboards; ret; ret = ret->next) {
-        if (ret->dev == udev)
-            break;
-    }
-
-    *p_kbd = ret;
     return 0;
 }
 
@@ -217,6 +245,8 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
 {
     if (pressed)
       kbd->c_ctx.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
+    else 
+      kbd->c_ctx.key.flags &= ~HID_EVENT_KEY_FLAG_PRESSED;
     kbd->c_ctx.key.scancode = aniva_scancode_table[keycode];
     kbd->c_ctx.key.pressed_char = (kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)) ? kbd_us_shift_map[keycode] : kbd_us_map[keycode];
 
@@ -264,7 +294,7 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     int error;
     uint8_t i;
 
-    error = get_usbkbd(&kbd, xfer->device);
+    error = get_usbkbd(&kbd, xfer->device, NULL);
 
     if (error)
         goto resubmit;
@@ -292,7 +322,8 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     memcpy(kbd->prev_resp, kbd->this_resp, sizeof(kbd->prev_resp));
 resubmit:
     /* Resubmit this xfer to the hcd in order to keep probing the device */
-    return usb_xfer_enqueue(xfer, xfer->device->hcd);
+    //return usb_xfer_enqueue(xfer, xfer->device->hcd);
+    return 0;
 }
 
 static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_buffer_t* intf_buf)

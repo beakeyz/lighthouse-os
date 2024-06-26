@@ -6,7 +6,6 @@
 #include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
-#include "logging/log.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include <dev/device.h>
@@ -187,13 +186,9 @@ registers_t* i8042_irq_handler(registers_t* regs)
     uint16_t scan_code = (uint16_t)(in8(0x60)) | s_current_scancode;
     bool pressed = (!(scan_code & 0x80));
 
-    KLOG("hihi\n");
-
     /* Don't do anything if the device is not enabled */
     if (!device_is_enabled(s_i8042_device->dev))
         return nullptr;
-
-    KLOG("hihai\n");
 
     if (scan_code == 0x00e0) {
         /* Extended keycode */

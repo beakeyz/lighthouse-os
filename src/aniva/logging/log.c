@@ -1,11 +1,13 @@
 #include "log.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "sync/spinlock.h"
 #include <libk/ctype.h>
 #include <libk/string.h>
 #include <sync/mutex.h>
 
 static mutex_t* __default_mutex = NULL;
+static spinlock_t* __log_lock = NULL;
 static logger_t* __loggers[LOGGER_MAX_COUNT];
 static size_t __loggers_count;
 
@@ -28,6 +30,22 @@ static inline void try_unlock()
         return;
 
     mutex_unlock(__default_mutex);
+}
+
+static inline void try_lock_logging()
+{
+    if (!__log_lock)
+        return;
+
+    spinlock_lock(__log_lock);
+}
+
+static inline void try_unlock_logging()
+{
+    if (!__log_lock)
+        return;
+
+    spinlock_unlock(__log_lock);
 }
 
 /*!
@@ -131,6 +149,8 @@ int logger_scan(char* title, logger_t* buffer)
 {
     logger_t* target = nullptr;
 
+    try_lock();
+
     for (uint16_t i = 0; i < __loggers_count; i++) {
         target = __loggers[i];
 
@@ -141,14 +161,13 @@ int logger_scan(char* title, logger_t* buffer)
             break;
     }
 
+    try_unlock();
+
     if (!target)
         return -1;
 
-    try_lock();
-
     memcpy(buffer, target, sizeof(logger_t));
 
-    try_unlock();
     return 0;
 }
 
@@ -355,6 +374,8 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
 
     prefix = nullptr;
 
+    try_lock_logging();
+
     /* Check for the no prefix flag */
     if ((typeflags & LOGGER_FLAG_NO_PREFIX) != LOGGER_FLAG_NO_PREFIX) {
         if ((typeflags & LOGGER_FLAG_WARNINGS) == LOGGER_FLAG_WARNINGS)
@@ -480,6 +501,7 @@ static inline int _vprintf(uint8_t typeflags, const char* fmt, va_list args, int
         output_cb(typeflags, *c, out);
     }
 
+    try_unlock_logging();
     return 0;
 }
 
@@ -675,4 +697,5 @@ void init_early_logging()
 void init_logging()
 {
     __default_mutex = create_mutex(NULL);
+    __log_lock = create_spinlock(SPINLOCK_FLAG_SOFT);
 }

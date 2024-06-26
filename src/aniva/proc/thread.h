@@ -116,6 +116,7 @@ ssize_t thread_ticksleft(thread_t* thread);
  * this can happen through multiple means in threory,
  * but for now it contains:
  *  - mutexes
+ *  - semaphores
  *
  * we will get unblocked when the mutex is released
  */

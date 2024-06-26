@@ -1,7 +1,8 @@
 #include "sem.h"
 #include "libk/data/queue.h"
-#include "libk/flow/error.h"
 #include "mem/heap.h"
+#include "proc/thread.h"
+#include "sched/scheduler.h"
 #include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 
@@ -41,15 +42,37 @@ void destroy_semaphore(struct semaphore* sem)
 
 int sem_enqueue_waiter(struct semaphore* sem, void* waiter)
 {
-    kernel_panic("TODO: queue a waiter for a semaphore");
+    thread_t* this_thread;
+    //kernel_panic("TODO: queue a waiter for a semaphore");
+    //spinlock_lock(sem->wait_lock);
+    
+    this_thread = get_current_scheduling_thread();
+    
+    if (!this_thread)
+        return -1;
+
+    queue_enqueue(sem->waiters, this_thread);
+
+    spinlock_unlock(sem->wait_lock);
+
+    thread_block(this_thread);
+    
+    /* Lock the spinlock again once we get unblocked */
     spinlock_lock(sem->wait_lock);
+
     return 0;
 }
 
 int sem_dequeue_waiter(struct semaphore* sem)
 {
-    kernel_panic("TODO: dequeue a waiter for a semaphore");
-    spinlock_unlock(sem->wait_lock);
+    thread_t* target_thread;
+
+    target_thread = queue_dequeue(sem->waiters);
+
+    if (!target_thread)
+      return -1;
+
+    thread_unblock(target_thread);
     return 0;
 }
 
@@ -64,13 +87,19 @@ int sem_wait(struct semaphore* sem, void* waiter)
     int64_t val;
 
     error = 0;
-    val = atomic_ptr_read(&sem->value);
 
-    if (val <= 0)
-        error = sem_enqueue_waiter(sem, waiter);
+    spinlock_lock(sem->wait_lock);
+
+    val = atomic_ptr_read(&sem->value) - 1;
 
     /* Always decrement the semaphore value */
-    atomic_ptr_write(&sem->value, val - 1);
+    atomic_ptr_write(&sem->value, val);
+
+    if (val < 0)
+        error = sem_enqueue_waiter(sem, waiter);
+
+    spinlock_unlock(sem->wait_lock);
+
     return error;
 }
 
@@ -79,15 +108,57 @@ int sem_post(struct semaphore* sem)
     int error;
     int64_t val;
 
-    val = atomic_ptr_read(&sem->value);
     error = 0;
+
+    spinlock_lock(sem->wait_lock);
+
+    /* Post the semaphore */
+    val = atomic_ptr_read(&sem->value) + 1;
+
+    /* Always increment the semaphore value */
+    atomic_ptr_write(&sem->value, val);
 
     /* There are waiters. Dequeue them */
     if (val <= 0)
         error = sem_dequeue_waiter(sem);
 
-    /* Always increment the semaphore value */
-    atomic_ptr_write(&sem->value, val + 1);
+    spinlock_unlock(sem->wait_lock);
+
+    return error;
+}
+
+/**
+ * @brief: Resets the semaphore to zero if there are waiters
+ */
+int sem_drain(struct semaphore* sem)
+{
+    int error;
+    int64_t val;
+
+    error = 0;
+
+    spinlock_lock(sem->wait_lock);
+
+    val = atomic_ptr_read(&sem->value);
+
+    if (val)
+      goto unlock_and_exit;
+
+    val++;
+
+    do {
+        /* Always increment the semaphore value */
+        atomic_ptr_write(&sem->value, val);
+
+        /* There are waiters. Dequeue them */
+        if (val <= 0)
+            error = sem_dequeue_waiter(sem);
+
+        val++;
+    } while (val <= 0);
+
+unlock_and_exit:
+    spinlock_unlock(sem->wait_lock);
     return error;
 }
 
