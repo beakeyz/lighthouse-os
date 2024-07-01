@@ -192,8 +192,8 @@ size_t device_write(DEV_HANDLE handle, VOID* buf, size_t bsize, QWORD offset)
 
 BOOL device_enable(DEV_HANDLE handle)
 {
-    // if (syscall_2(SYSID_DEV_ENABLE, handle, TRUE) != SYS_OK)
-    // return FALSE;
+    if (syscall_2(SYSID_DEV_ENABLE, handle, TRUE) != SYS_OK)
+        return FALSE;
 
     return TRUE;
 }
