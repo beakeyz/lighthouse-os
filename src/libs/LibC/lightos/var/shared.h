@@ -1,7 +1,15 @@
-#ifndef __LIGHTENV_SYS_VAR_TYPES__
-#define __LIGHTENV_SYS_VAR_TYPES__
+#ifndef __LIGHTOS_VAR_SHARED__
+#define __LIGHTOS_VAR_SHARED__
 
 #include <stdint.h>
+
+#define SYSVAR_PROCNAME "NAME"
+#define SYSVAR_CMDLINE "CMDLINE"
+
+/* Sysvar ids for standard i/o */
+#define SYSVAR_STDIO_HANDLE_TYPE "IO-HANDLE"
+#define SYSVAR_STDIO "IO-DUMP"
+#define SYSVAR_IO_DUMP SYSVAR_STDIO
 
 /*
  * The different types that a profile variable can hold
@@ -84,4 +92,5 @@ typedef struct pvr_file_strtab {
     pvr_file_strtab_entry_t entries[];
 } pvr_file_strtab_t;
 
-#endif // !__LIGHTENV_SYS_VAR_TYPES__
+
+#endif // !__LIGHTOS_VAR_SHARED__

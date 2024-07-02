@@ -1,9 +1,9 @@
 #include "exec.h"
-#include "dev/manifest.h"
 #include "drivers/env/kterm/kterm.h"
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
+#include "lightos/var/shared.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
@@ -102,12 +102,9 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 {
     proc_t* p;
+    oss_obj_t* obj;
     const char* buffer;
     user_profile_t* login_profile;
-
-    khandle_t _stdin;
-    khandle_t _stdout;
-    khandle_t _stderr;
 
     if (!argv || !argv[0])
         return 1;
@@ -116,8 +113,6 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
 
     if (buffer[0] == NULL)
         return 2;
-
-    oss_obj_t* obj;
 
     KLOG_DBG("Trying to find object: %s\n", buffer);
 
@@ -160,22 +155,11 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     profile_add_penv(login_profile, p->m_env);
 
     /* Attach the commandline variable to the profile */
-    sysvar_attach(p->m_env->node, "CMDLINE", 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
-
-    khandle_type_t driver_type = HNDL_TYPE_DRIVER;
-    drv_manifest_t* kterm_manifest = get_driver("other/kterm");
-
-    init_khandle(&_stdin, &driver_type, kterm_manifest);
-    init_khandle(&_stdout, &driver_type, kterm_manifest);
-    init_khandle(&_stderr, &driver_type, kterm_manifest);
-
-    _stdin.flags |= HNDL_FLAG_READACCESS;
-    _stdout.flags |= HNDL_FLAG_WRITEACCESS;
-    _stderr.flags |= HNDL_FLAG_RW;
-
-    bind_khandle(&p->m_handle_map, &_stdin, NULL);
-    bind_khandle(&p->m_handle_map, &_stdout, NULL);
-    bind_khandle(&p->m_handle_map, &_stderr, NULL);
+    sysvar_attach(p->m_env->node, SYSVAR_CMDLINE, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
+    /* Attach the process name to the environment */
+    sysvar_attach(p->m_env->node, SYSVAR_PROCNAME, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(p->m_name));
+    sysvar_attach(p->m_env->node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR("other/kterm"));
+    sysvar_attach(p->m_env->node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, HNDL_TYPE_DRIVER);
 
     /* Wait for process termination */
     ASSERT_MSG(proc_schedule_and_await(p, SCHED_PRIO_MID) == 0, "Process termination failed");

@@ -1,6 +1,6 @@
 #include "var.h"
 #include "libk/flow/error.h"
-#include "lightos/proc/var_types.h"
+#include "lightos/var/shared.h"
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/obj.h"

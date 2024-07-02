@@ -5,7 +5,7 @@
 #include "kevent/types/profile.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
-#include "lightos/proc/var_types.h"
+#include "lightos/var/shared.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"

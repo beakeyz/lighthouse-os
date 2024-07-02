@@ -8,8 +8,9 @@
 #include "libk/flow/error.h"
 #include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
-#include "lightos/proc/var_types.h"
+#include "lightos/var/shared.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -33,6 +34,8 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     khandle_t handle = { 0 };
     kerror_t error;
     proc_t* c_proc;
+
+    KLOG_DBG("TRYINGO TO OPEN THING %s\n", path);
 
     c_proc = get_current_proc();
 
@@ -119,8 +122,12 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     case HNDL_TYPE_DRIVER: {
         drv_manifest_t* driver = get_driver(path);
 
+        KLOG_DBG("Dk\n");
+
         if (!driver)
             return HNDL_NOT_FOUND;
+        
+        KLOG_DBG("hdhehelf\n");
 
         init_khandle(&handle, &type, driver);
         break;

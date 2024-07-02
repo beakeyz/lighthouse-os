@@ -1,5 +1,8 @@
 #include "stdio.h"
+#include "errno.h"
 #include "lightos/handle.h"
+#include "lightos/var/shared.h"
+#include "lightos/var/var.h"
 #include "stdarg.h"
 #include "sys/types.h"
 #include <lightos/handle_def.h>
@@ -21,11 +24,19 @@ extern int real_va_sprintf(uint8_t, FILE*, const char*, va_list);
 extern int real_va_scanf(FILE*, const char*, va_list);
 extern int real_va_sscanf(const char* buffer, const char* fmt, va_list args);
 
-void __init_stdio(void)
+static int __init_stdio_buffers(unsigned int buffer_size)
 {
+    uint8_t* file_buffer;
+
     stdin = &__std_files[0];
     stdout = &__std_files[1];
     stderr = &__std_files[2];
+
+    /* Allocate memory for the filebuffers */
+    file_buffer = malloc(3 * buffer_size);
+
+    if (!file_buffer)
+      return -ENOMEM;
 
     /* Make sure no junk */
     memset(stdin, 0, sizeof(*stdin));
@@ -33,32 +44,67 @@ void __init_stdio(void)
     memset(stderr, 0, sizeof(*stderr));
 
     /* Set stdin */
-    stdin->handle = 0;
-    stdin->r_buf_size = FILE_BUFSIZE;
+    stdin->handle = HNDL_INVAL;
+    stdin->r_buf_size = buffer_size;
     /* Create buffer */
-    stdin->r_buff = malloc(FILE_BUFSIZE);
+    stdin->r_buff = file_buffer + (0 * buffer_size);
     /* Make sure the buffer is empty empty */
-    memset(stdin->r_buff, 0, FILE_BUFSIZE);
+    memset(stdin->r_buff, 0, buffer_size);
 
     /* Set stdout */
-    stdout->handle = 1;
-    stdout->w_buf_size = FILE_BUFSIZE;
+    stdout->handle = HNDL_INVAL;
+    stdout->w_buf_size = buffer_size;
     /* Create buffer */
-    stdout->w_buff = malloc(FILE_BUFSIZE);
+    stdout->w_buff = file_buffer + (1 * buffer_size);
     /* Make sure the buffer is empty empty */
-    memset(stdout->w_buff, 0, FILE_BUFSIZE);
+    memset(stdout->w_buff, 0, buffer_size);
 
     /* Set stderr */
-    stderr->handle = 2;
+    stderr->handle = HNDL_INVAL;
+    stderr->w_buf_size = buffer_size;
+    /* Create buffer */
+    stderr->w_buff = file_buffer + (2 * buffer_size);
+    /* Make sure the buffer is empty empty */
+    memset(stderr->w_buff, 0, buffer_size);
 
-    if (!handle_verify(stdin->handle))
-        stdin->handle = HNDL_INVAL;
+    return 0;
+}
 
-    if (!handle_verify(stdout->handle))
-        stdout->handle = HNDL_INVAL;
+void __init_stdio(void)
+{
+    int error;
+    HANDLE stdio_handle;
+    HANDLE_TYPE type = HNDL_TYPE_NONE;
+    char stdio_path[512] = { 0 };
 
-    if (!handle_verify(stderr->handle))
-        stderr->handle = HNDL_INVAL;
+    /* Prepare the stdio I/O buffers */
+    if ((error = __init_stdio_buffers(FILE_BUFSIZE)))
+        exit(error);
+
+    /* Open the stdio path variable */
+    stdio_handle = open_sysvar(SYSVAR_STDIO, HNDL_FLAG_R);
+
+    /* Read it's value */
+    (void)sysvar_read(stdio_handle, sizeof(stdio_path), stdio_path);
+
+    /* Close the handle */
+    close_handle(stdio_handle);
+
+    /* Open the handle type variable */
+    stdio_handle = open_sysvar(SYSVAR_STDIO_HANDLE_TYPE, HNDL_FLAG_R);
+
+    /* Read which type of handle we need to open */
+    (void)sysvar_read(stdio_handle, sizeof(type), &type);
+
+    /* Close the handle */
+    close_handle(stdio_handle);
+
+    if (type == HNDL_TYPE_NONE)
+        return;
+
+    stdout->handle = open_handle(stdio_path, type, HNDL_FLAG_W, NULL);
+    stdin->handle = open_handle(stdio_path, type, HNDL_FLAG_R, NULL);
+    stderr->handle = open_handle(stdio_path, type, HNDL_FLAG_W, NULL);
 }
 
 /*

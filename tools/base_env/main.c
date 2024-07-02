@@ -1,5 +1,5 @@
 #include "defaults.h"
-#include "proc/var_types.h"
+#include "var/shared.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

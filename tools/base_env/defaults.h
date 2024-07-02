@@ -1,7 +1,7 @@
 #ifndef __TOOLS_BASE_ENV_DEFAULTS__
 #define __TOOLS_BASE_ENV_DEFAULTS__
 
-#include "proc/var_types.h"
+#include "var/shared.h"
 #include <stdint.h>
 
 struct sysvar_template {

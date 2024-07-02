@@ -30,6 +30,7 @@ enum ENDPOINT_TYPE {
 };
 
 struct device;
+struct device_pwr_info;
 struct device_generic_endpoint;
 struct device_disk_endpoint;
 /* Defined in video/device.h */
@@ -99,6 +100,7 @@ struct device_pwm_endpoint {
     int (*f_remove)(struct device* device);
     int (*f_suspend)(struct device* device);
     int (*f_resume)(struct device* device);
+    int (*f_get_power_info)(struct device* device, struct device_pwr_info** p_info);
 };
 
 #endif // !__ANIVA_DEVICE_ENDPOINT__

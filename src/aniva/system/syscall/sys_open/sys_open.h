@@ -1,7 +1,7 @@
 #ifndef __ANIVA_SYS_OPEN__
 #define __ANIVA_SYS_OPEN__
 
-#include "lightos/proc/var_types.h"
+#include "lightos/var/shared.h"
 #include <libk/stddef.h>
 #include <lightos/handle_def.h>
 

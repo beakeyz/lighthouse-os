@@ -7,8 +7,9 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
-#include "lightos/proc/var_types.h"
+#include "lightos/var/shared.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
@@ -217,10 +218,15 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
          * 'memsets' into userspace
          */
 
-        memcpy(buffer, var->value, data_size);
 
-        if (var->type == SYSVAR_TYPE_STRING)
+        if (var->type == SYSVAR_TYPE_STRING) {
+            /* Copy the string */
+            memcpy(buffer, var->str_value, data_size);
+
+            /* Make sure it's legal */
             buffer[length - 1] = '\0';
+        } else
+            memcpy(buffer, &var->value, data_size);
 
         read_len = data_size;
         break;

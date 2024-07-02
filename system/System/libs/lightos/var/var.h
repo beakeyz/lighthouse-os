@@ -2,7 +2,7 @@
 #define __LIGHTOS_VAR_SYSVAR__
 
 #include "lightos/handle_def.h"
-#include "lightos/proc/var_types.h"
+#include "lightos/var/shared.h"
 #include "lightos/system.h"
 
 /*!
@@ -20,7 +20,6 @@ HANDLE open_sysvar_ex(
 /*!
  * @brief: Open a sysvar
  *
- * @handle: A handle to either a user profile or penv. Both of these can contain sysvars
  * @key: The sysvar key. This will always be capital
  * @flags: The flags with which to open the sysvar
  */
