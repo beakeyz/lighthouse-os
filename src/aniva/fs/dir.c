@@ -3,6 +3,8 @@
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "lightos/fs/shared.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/node.h"
@@ -15,6 +17,7 @@ static int _generic_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
     int error;
     dir_t* new_dir;
     oss_node_t* node;
+    enum LIGHTOS_DIRENT_TYPE type;
     /* NOTE: We don't own this pointer */
     oss_node_entry_t* entry;
 
@@ -32,7 +35,30 @@ static int _generic_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
     case OSS_ENTRY_OBJECT:
         oss_obj_ref(entry->obj);
 
-        init_direntry(bentry, entry->obj, DIRENT_TYPE_OBJ);
+        switch (entry->obj->type) {
+        case OSS_OBJ_TYPE_VAR:
+            type = LIGHTOS_DIRENT_TYPE_VAR;
+            break;
+        case OSS_OBJ_TYPE_FILE:
+            type = LIGHTOS_DIRENT_TYPE_FILE;
+            break;
+        case OSS_OBJ_TYPE_PROC:
+            type = LIGHTOS_DIRENT_TYPE_PROC;
+            break;
+        case OSS_OBJ_TYPE_DEVICE:
+            type = LIGHTOS_DIRENT_TYPE_DEV;
+            break;
+        case OSS_OBJ_TYPE_DRIVER:
+            type = LIGHTOS_DIRENT_TYPE_DRV;
+            break;
+        default:
+            type = LIGHTOS_DIRENT_TYPE_UNKNOWN;
+
+            KLOG_ERR("Could not read dirent with object of type %lld\n", entry->obj->type);
+            break;
+        }
+
+        init_direntry(bentry, entry->obj, type);
         break;
     case OSS_ENTRY_NESTED_NODE:
 
@@ -46,7 +72,7 @@ static int _generic_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
         dir_ref(new_dir);
 
         /* Init that bitch */
-        init_direntry(bentry, new_dir, DIRENT_TYPE_DIR);
+        init_direntry(bentry, new_dir, LIGHTOS_DIRENT_TYPE_DIR);
         break;
     }
 
@@ -84,8 +110,6 @@ dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void*
 
         if (!name)
             return nullptr;
-
-        printf("Path: %s, Name: %s\n", path, name);
 
         /* We have a path, but we might not have a root, no biggie */
         node = oss_create_path(root, path);
@@ -331,7 +355,7 @@ kerror_t dir_close(dir_t* dir)
     return 0;
 }
 
-kerror_t init_direntry(direntry_t* dirent, void* entry, enum DIRENT_TYPE type)
+kerror_t init_direntry(direntry_t* dirent, void* entry, enum LIGHTOS_DIRENT_TYPE type)
 {
     if (!dirent || !entry)
         return -KERR_INVAL;
@@ -348,13 +372,17 @@ kerror_t close_direntry(direntry_t* entry)
         return -KERR_INVAL;
 
     switch (entry->type) {
-    case DIRENT_TYPE_FILE:
+    case LIGHTOS_DIRENT_TYPE_FILE:
         file_close(entry->file);
         break;
-    case DIRENT_TYPE_DIR:
+    case LIGHTOS_DIRENT_TYPE_DIR:
         dir_close(entry->dir);
         break;
-    case DIRENT_TYPE_OBJ:
+    case LIGHTOS_DIRENT_TYPE_OBJ:
+    case LIGHTOS_DIRENT_TYPE_DEV:
+    case LIGHTOS_DIRENT_TYPE_DRV:
+    case LIGHTOS_DIRENT_TYPE_VAR:
+    case LIGHTOS_DIRENT_TYPE_PROC:
         oss_obj_close(entry->obj);
         break;
     default:

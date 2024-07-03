@@ -114,8 +114,6 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     if (buffer[0] == NULL)
         return 2;
 
-    KLOG_DBG("Trying to find object: %s\n", buffer);
-
     if (_kterm_exec_find_obj(buffer, &obj)) {
         logln("Could not find object!");
         return 3;
@@ -161,8 +159,11 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     sysvar_attach(p->m_env->node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR("other/kterm"));
     sysvar_attach(p->m_env->node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, HNDL_TYPE_DRIVER);
 
-    /* Wait for process termination */
+    /* Wait for process termination if we don't want to run in the background */
+    // if (true)
     ASSERT_MSG(proc_schedule_and_await(p, SCHED_PRIO_MID) == 0, "Process termination failed");
+    // else
+    // proc_schedule(p, SCHED_PRIO_MID);
 
     /* Make sure we're in terminal right after this exit */
     if (kterm_ismode(KTERM_MODE_GRAPHICS))

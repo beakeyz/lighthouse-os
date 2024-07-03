@@ -6,10 +6,10 @@
 #include "fs/dir.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
-#include "lightos/var/shared.h"
 #include "lightos/syscall.h"
-#include "logging/log.h"
+#include "lightos/var/shared.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/handle.h"
@@ -218,7 +218,6 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
          * 'memsets' into userspace
          */
 
-
         if (var->type == SYSVAR_TYPE_STRING) {
             /* Copy the string */
             memcpy(buffer, var->str_value, data_size);
@@ -276,7 +275,7 @@ uint64_t sys_seek(handle_t handle, uintptr_t offset, uint32_t type)
 /*!
  * @brief: Read from a directory at index @idx
  */
-uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, size_t blen)
+uint64_t sys_dir_read(handle_t handle, uint32_t idx, lightos_direntry_t __user* b_dirent, size_t blen)
 {
     dir_t* target_dir;
     direntry_t target_entry;
@@ -286,11 +285,11 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, si
 
     c_proc = get_current_proc();
 
-    if (kmem_validate_ptr(c_proc, (vaddr_t)namebuffer, 1))
+    if (kmem_validate_ptr(c_proc, (vaddr_t)b_dirent, 1))
         return SYS_INV;
 
     /* Don't want to go poking in kernel memory */
-    if ((vaddr_t)namebuffer >= KERNEL_MAP_BASE)
+    if ((vaddr_t)b_dirent >= KERNEL_MAP_BASE)
         return SYS_INV;
 
     khandle = find_khandle(&c_proc->m_handle_map, handle);
@@ -311,20 +310,18 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, si
         return SYS_INV;
 
     /* Clear the buffer */
-    memset(namebuffer, 0, blen);
+    memset(b_dirent, 0, blen);
 
     switch (target_entry.type) {
-    case DIRENT_TYPE_DIR:
+    case LIGHTOS_DIRENT_TYPE_DIR:
         target_name = target_entry.dir->name;
         break;
-    case DIRENT_TYPE_FILE:
+    case LIGHTOS_DIRENT_TYPE_FILE:
         target_name = target_entry.file->m_obj->name;
         break;
-    case DIRENT_TYPE_OBJ:
+    default:
         target_name = target_entry.obj->name;
         break;
-    default:
-        target_name = nullptr;
     }
 
     if (!target_name)
@@ -335,8 +332,9 @@ uint64_t sys_dir_read(handle_t handle, uint32_t idx, char __user* namebuffer, si
         blen = strlen(target_name);
 
     /* Copy */
-    sfmt(namebuffer, "%s%s", target_name, (target_entry.type == DIRENT_TYPE_DIR) ? "/" : "\0");
-    strncpy(namebuffer, target_name, blen);
+    strncpy(b_dirent->name, target_name, blen);
+
+    b_dirent->type = target_entry.type;
 
     close_direntry(&target_entry);
     return SYS_OK;

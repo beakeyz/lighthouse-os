@@ -4,7 +4,6 @@
 #include "fs/fat/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
-#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/obj.h"
 
@@ -139,7 +138,7 @@ kerror_t fat_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
     return init_direntry(
         bentry,
         (d != nullptr) ? (void*)d : (void*)f,
-        (d != nullptr) ? DIRENT_TYPE_DIR : DIRENT_TYPE_FILE);
+        (d != nullptr) ? LIGHTOS_DIRENT_TYPE_DIR : LIGHTOS_DIRENT_TYPE_FILE);
 }
 
 oss_obj_t* fat_dir_find(dir_t* dir, const char* path)
@@ -256,6 +255,10 @@ size_t get_fat_file_size(fat_file_t* file)
 kerror_t fat_file_update_dir_entries(fat_file_t* file)
 {
     size_t fsize;
+    size_t n_actual_dirent = 0;
+    size_t n_raw_dirent;
+    fat_dir_entry_t* tmp_buffer;
+    fat_dir_entry_t* tmp_dest_buffer;
 
     if (!file || file->type != FFILE_TYPE_DIR)
         return -KERR_INVAL;
@@ -264,13 +267,66 @@ kerror_t fat_file_update_dir_entries(fat_file_t* file)
         kfree(file->dir_entries);
 
     fsize = get_fat_file_size(file);
+    n_raw_dirent = fsize / sizeof(fat_dir_entry_t);
 
-    /* Reallocate */
-    file->dir_entries = kmalloc(fsize);
+    /* Allocate buffer nr. 1 */
+    tmp_buffer = kmalloc(fsize);
+
+    /* FUCKK */
+    if (!tmp_buffer)
+        return -KERR_NOMEM;
+
+    /* Okay, buffer nr. 2 */
+    tmp_dest_buffer = kmalloc(fsize);
+
+    /* SHIT */
+    if (!tmp_dest_buffer) {
+        kfree(tmp_buffer);
+        return -KERR_NOMEM;
+    }
 
     /* Load all the data into the buffer */
-    if (!KERR_OK(fat32_read_clusters(file->dir_parent->node, (uint8_t*)file->dir_entries, file, 0, fsize)))
+    if (!KERR_OK(fat32_read_clusters(file->dir_parent->node, (uint8_t*)tmp_buffer, file, 0, fsize)))
         return -KERR_IO;
 
+    for (uint64_t i = 0; i < n_raw_dirent; i++) {
+        fat_dir_entry_t* entry = &tmp_buffer[i];
+
+        /* End */
+        if (entry->name[0] == 0x00)
+            break;
+
+        /* TODO: Support this */
+        if (entry->attr == FAT_ATTR_LFN)
+            continue;
+
+        if (entry->attr & FAT_ATTR_VOLUME_ID)
+            continue;
+
+        /* Copy this entry into the destination buffer */
+        memcpy(&tmp_dest_buffer[n_actual_dirent], entry, sizeof(*entry));
+        n_actual_dirent++;
+    }
+
+    if (!n_actual_dirent)
+        goto free_and_exit;
+
+    /* Reallocate */
+    file->dir_entries = kmalloc(n_actual_dirent * sizeof(fat_dir_entry_t));
+    file->n_direntries = n_actual_dirent;
+
+    /* Yikes */
+    if (!file->dir_entries)
+        goto free_and_exit;
+
+    /* Copy the actual entries into the directories buffer */
+    memcpy(file->dir_entries, tmp_dest_buffer, n_actual_dirent * sizeof(fat_dir_entry_t));
+
+free_and_exit:
+    /* Clear this buffer */
+    kfree(tmp_buffer);
+
+    /* Clear this buffer as well */
+    kfree(tmp_dest_buffer);
     return 0;
 }

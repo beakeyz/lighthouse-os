@@ -112,6 +112,8 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
         return KEY_LEFTARROW;
     case ANIVA_SCANCODE_E:
         return KEY_RIGHTARROW;
+    case ANIVA_SCANCODE_Y:
+        return 'y';
     case ANIVA_SCANCODE_EQUALS:
         return KEY_EQUALS;
     default:
@@ -154,7 +156,7 @@ const int argc = 4;
 /*!
  * @brief: Main entry for this app
  */
-static int _main(int argc, char **argv)
+static int _main(int argc, char** argv)
 {
     doomgeneric_Create(argc, argv);
 
@@ -164,13 +166,13 @@ static int _main(int argc, char **argv)
     return 0;
 }
 
-int main() 
+int main()
 {
-  CMDLINE line;
+    CMDLINE line;
 
-  /* Try to grab the commandline for this process */
-  if (cmdline_get(&line))
-    return -1;
+    /* Try to grab the commandline for this process */
+    if (cmdline_get(&line))
+        return -1;
 
-  return _main(line.argc, line.argv);
+    return _main(line.argc, line.argv);
 }

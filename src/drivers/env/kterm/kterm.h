@@ -1,6 +1,7 @@
 #ifndef __ANIVA_KTERM_DRIVER__
 #define __ANIVA_KTERM_DRIVER__
 
+#include "oss/node.h"
 #include <libk/stddef.h>
 
 #define KTERM_DRV_DRAW_STRING 7
@@ -18,7 +19,8 @@ enum kterm_mode {
 typedef struct kterm_login {
     uint32_t profile_lock_key;
     struct user_profile* profile;
-    char* cwd;
+    const char* cwd;
+    oss_node_t* c_node;
 } kterm_login_t;
 
 /*

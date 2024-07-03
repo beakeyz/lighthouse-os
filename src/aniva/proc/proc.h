@@ -95,14 +95,13 @@ typedef struct proc {
 #define PROC_REAPER (0x00000040) /* Process capable of killing other processes and threads */
 #define PROC_HAD_HANDLE (0x00000080) /* Process is referenced in userspace by a handle */
 #define PROC_SHOULD_STALL (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
-#define PROC_NO_SOCKET (0x00000200)
-#define PROC_DID_REQUEST_RT (0x00000400)
 
 proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 
 /* Block until the process has ended execution */
 int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio);
+int proc_schedule(proc_t* proc, enum SCHEDULER_PRIORITY prio);
 int proc_clone(proc_t* p, const char* clone_name, proc_t** clone);
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);

@@ -2,6 +2,7 @@
 #define __ANIVA_FS_DIR__
 
 #include "libk/flow/error.h"
+#include "lightos/fs/shared.h"
 #include "sync/atomic_ptr.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -41,12 +42,6 @@ typedef struct dir {
     void* priv;
 } dir_t;
 
-enum DIRENT_TYPE {
-    DIRENT_TYPE_FILE,
-    DIRENT_TYPE_DIR,
-    DIRENT_TYPE_OBJ,
-};
-
 dir_t* create_dir(struct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
 dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags);
 void destroy_dir(dir_t* dir);
@@ -75,10 +70,10 @@ typedef struct direntry {
         struct oss_obj* obj;
         void* _entry;
     };
-    enum DIRENT_TYPE type;
+    enum LIGHTOS_DIRENT_TYPE type;
 } direntry_t;
 
-kerror_t init_direntry(direntry_t* dirent, void* entry, enum DIRENT_TYPE type);
+kerror_t init_direntry(direntry_t* dirent, void* entry, enum LIGHTOS_DIRENT_TYPE type);
 kerror_t close_direntry(direntry_t* entry);
 
 #endif // !__ANIVA_FS_DIR__

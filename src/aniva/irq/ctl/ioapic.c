@@ -111,8 +111,8 @@ static int io_apic_map_redirect(io_apic_t* apic, uint32_t isr_num, uint32_t* idx
             continue;
 
         /* These overrides are ACPI overrides, see ACPI spec v6.2 p.205 */
-        act_lo = (c_override.flags & 0x03) == 0x03;
-        tlm = ((c_override.flags >> 2) & 0x03) == 0x03;
+        act_lo = ((c_override.flags & 0x03) == 0x03);
+        tlm = (((c_override.flags >> 2) & 0x03) == 0x03);
 
         /* Grab the corresponding GSI for this io_apic */
         redir_idx = c_override.gsi - apic->gsi_base;
@@ -138,7 +138,7 @@ static int io_apic_mask_vector(irq_chip_t* chip, uint32_t vec)
  * @brief: Unmask an IRQ vector through the IOAPIC
  *
  * NOTE: The IOAPIC talks in terms of (what we call) ISR numbers, but we consider IRQs relative
- * from the IRQ_VEC_BASE, meaning (for example) that ISR 32 corresponds to IRQ 0.
+ * from the IRQ_VEC_BASE, meaning (in our case) that ISR 32 corresponds to IRQ 0.
  */
 static int io_apic_unmask_vector(irq_chip_t* chip, uint32_t vec)
 {
@@ -152,7 +152,7 @@ static int io_apic_unmask_vector(irq_chip_t* chip, uint32_t vec)
     for (i = 0; i < chip->irq_count; i++) {
         c_isr_num = (io_apic_read(apic, ((i) << 1) + IO_APIC_REDTBL_START_OFFSET) & 0xFF);
 
-        KLOG_DBG("c_vec: %d\n", c_isr_num);
+        // KLOG_DBG("c_vec: %d\n", c_isr_num);
 
         if (c_isr_num == isr_num)
             break;

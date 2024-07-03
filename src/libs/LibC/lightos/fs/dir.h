@@ -1,12 +1,12 @@
 #ifndef __LIGHTENV_FS_DIR__
 #define __LIGHTENV_FS_DIR__
 
+#include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/system.h"
-#include <string.h>
 
 typedef struct _DirEntry {
-    char name[500];
+    lightos_direntry_t entry;
 
     uint32_t idx;
 
@@ -15,7 +15,7 @@ typedef struct _DirEntry {
 
 static inline bool direntry_is_dir(DirEntry* dentry)
 {
-    return ((dentry)->name[strlen((dentry)->name)] == '/');
+    return ((dentry)->entry.type == LIGHTOS_DIRENT_TYPE_DIR);
 }
 
 typedef struct {

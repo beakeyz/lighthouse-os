@@ -105,7 +105,7 @@ static void _fill_semi_sorted_dirlist(struct list_entry** sorted, struct list_en
 
 static void _ls_print_direntry(DirEntry* entry)
 {
-    printf(" %s\n", entry->name);
+    printf(" %s%s\n", entry->entry.name, direntry_is_dir(entry) ? "/" : " ");
 }
 
 /*!

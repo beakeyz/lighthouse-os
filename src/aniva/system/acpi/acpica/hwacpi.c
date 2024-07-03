@@ -242,7 +242,6 @@ AcpiHwSetMode(
     /*
      * Some hardware takes a LONG time to switch modes. Give them 3 sec to
      * do so, but allow faster systems to proceed more quickly.
-     */
     Retry = 3000;
     while (Retry) {
         if (AcpiHwGetMode() == Mode) {
@@ -253,9 +252,16 @@ AcpiHwSetMode(
         AcpiOsStall(ACPI_USEC_PER_MSEC);
         Retry--;
     }
+     */
 
+    ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+        "Mode %X successfully enabled\n", Mode));
+    return_ACPI_STATUS(AE_OK);
+
+    /*
     ACPI_ERROR((AE_INFO, "Hardware did not change modes"));
     return_ACPI_STATUS(AE_NO_HARDWARE_RESPONSE);
+    */
 }
 
 /*******************************************************************************

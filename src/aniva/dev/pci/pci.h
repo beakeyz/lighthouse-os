@@ -250,6 +250,8 @@ uint8_t pci_find_cap(pci_device_t* device, uint32_t cap);
 int pci_device_enable(pci_device_t* device);
 int pci_device_disable(pci_device_t* device);
 
+extern int pci_device_allocate_irq(pci_device_t* device, uint32_t irq_flags, uint32_t handler_flags, void* handler, void* ctx, const char* desc);
+
 #define PCI_DEVID_USE_VENDOR_ID (1 << 0)
 #define PCI_DEVID_USE_DEVICE_ID (1 << 1)
 #define PCI_DEVID_USE_SUB_VENDOR_ID (1 << 2)

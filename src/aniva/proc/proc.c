@@ -340,6 +340,16 @@ remove_hook_and_fail:
     return error;
 }
 
+/*!
+ * @brief: Adds a process to the scheduler
+ *
+ * Pretty much a wrapper around sched_add_proc
+ */
+int proc_schedule(proc_t* proc, enum SCHEDULER_PRIORITY prio)
+{
+    return sched_add_proc(proc, prio);
+}
+
 /*
  * Terminate the process, which means that we
  * 1) Remove it from the global register store, so that the id gets freed

@@ -15,10 +15,13 @@
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/gfx/font.h"
+#include "libk/stddef.h"
 #include "libk/string.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
+#include "oss/core.h"
+#include "oss/node.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -730,7 +733,7 @@ bool kterm_is_logged_in()
 int kterm_set_login(user_profile_t* profile)
 {
     int error;
-    // vobj_t* cwd_obj;
+    oss_node_t* node;
     sysvar_t* login_msg_var;
     const char* login_msg;
 
@@ -747,15 +750,17 @@ int kterm_set_login(user_profile_t* profile)
         /* Lock profile activation, since we don't want anything weird to happen lololol */
         profiles_lock_activation(&_c_login.profile_lock_key);
 
-        /* FIXME: make sure the cwd never exceeds this size */
-        _c_login.cwd = kmalloc(0x400);
+        char tmp_buf[256] = { 0 };
+        sfmt(tmp_buf, "Root/Users/%s", (char*)profile->name);
 
-        sfmt(_c_login.cwd, "Root/Users/%s", (char*)profile->name);
+        /* Try to find the node */
+        error = oss_resolve_node(tmp_buf, &node);
 
-        // cwd_obj = vfs_resolve(_c_login.cwd);
-
-        // if (!cwd_obj)
-        // create_profile_working_directory(_c_login.cwd);
+        if (error == 0) {
+            /* FIXME: make sure the cwd never exceeds this size */
+            oss_node_get_path(node, &_c_login.cwd);
+            _c_login.c_node = node;
+        }
 
         /* Profiles don't have to have a login msg */
         if (profile_get_var(profile, "LOGIN_MSG", &login_msg_var))
@@ -855,7 +860,8 @@ static void kterm_command_worker()
     int error;
     f_kterm_command_handler_t current_handler;
     size_t argument_count;
-    char* contents_cpy;
+    char* input_buffer_cpy;
+    char* cmdline;
     char processor_buffer[KTERM_MAX_BUFFER_SIZE] = { 0 };
 
     init_kdoor(&__processor_door, processor_buffer, sizeof(processor_buffer));
@@ -869,18 +875,22 @@ static void kterm_command_worker()
             continue;
         }
 
-        char* contents = __processor_door.m_buffer;
-        contents_cpy = strdup(contents);
+        char* input_buffer = __processor_door.m_buffer;
+
+        /* Copy the buffer contents */
+        input_buffer_cpy = strdup(input_buffer);
+        cmdline = input_buffer_cpy;
+
         argument_count = 0;
 
-        error = kterm_get_argument_count(contents, &argument_count);
+        error = kterm_get_argument_count(input_buffer, &argument_count);
 
         /* Yikes */
         if (error || !argument_count) {
             /* Need to duplicate the shit under the 'exit_cmd_processing' label
              Since we can't do a goto above a variable stack array =/ */
             kterm_cmd_worker_finish_loop();
-            kfree(contents_cpy);
+            kfree(input_buffer_cpy);
             continue;
         }
 
@@ -890,7 +900,7 @@ static void kterm_command_worker()
         memset(argv, 0, sizeof(char*) * argument_count);
 
         /* Parse the contents into an argument vector */
-        error = kterm_parse_cmd_buffer(contents, argv);
+        error = kterm_parse_cmd_buffer(input_buffer, argv);
 
         if (error)
             goto exit_cmd_processing;
@@ -907,7 +917,7 @@ static void kterm_command_worker()
         KLOG_DBG("Trying to handle cmd (%s)\n", argv[0]);
 
         /* Call the selected handler */
-        error = current_handler((const char**)argv, argument_count, contents_cpy);
+        error = current_handler((const char**)argv, argument_count, cmdline);
 
         if (error) {
             /* TODO: implement kernel printf / logf lmao */
@@ -917,7 +927,7 @@ static void kterm_command_worker()
 
     exit_cmd_processing:
         kterm_cmd_worker_finish_loop();
-        kfree(contents_cpy);
+        kfree(input_buffer_cpy);
     }
 }
 
@@ -1079,8 +1089,10 @@ int kterm_init()
     _kterm_vdev = get_active_vdev();
 
     /* TODO: Make a routine that gets the best available keyboard device */
-    //_kterm_kbddev = get_hid_device("usbkbd");
-    _kterm_kbddev = get_hid_device("i8042");
+    _kterm_kbddev = get_hid_device("usbkbd");
+
+    if (!_kterm_kbddev)
+        _kterm_kbddev = get_hid_device("i8042");
 
     /* Grab our font */
     get_default_font(&_kterm_font);
@@ -1171,7 +1183,7 @@ int kterm_init()
     __kterm_key_watcher_thread = spawn_thread("kterm_key_watcher", kterm_key_watcher, NULL);
 
     // memset((void*)KTERM_FB_ADDR, 0, kterm_fb_info.used_pages * SMALL_PAGE_SIZE);
-    kterm_print(" -- Welcome to the aniva kterm driver --\n");
+    kterm_print(" -*- Welcome to the aniva kterm driver -*-\n");
     processor_t* processor = get_current_processor();
     kmem_info_t info;
 
@@ -1179,12 +1191,6 @@ int kterm_init()
 
     printf(" CPU: %s\n", processor->m_info.m_model_id);
     printf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
-    printf("  - L2: %d bytes  - L3: %d bytes  - L4: %d bytes\n\n",
-        processor->m_info.m_l2.m_cache_size,
-        processor->m_info.m_l3.m_cache_size,
-        processor->m_info.m_l4.m_cache_size);
-
-    printf(" Phys bitwidth: %d, Virtual bitwidth: %d\n", processor->m_info.m_physical_bit_width, processor->m_info.m_virtual_bit_width);
     printf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
     kterm_print("\n For any information about kterm, type: \'help\'\n");
 
@@ -1651,7 +1657,18 @@ static void kterm_handle_newline_tag()
      * TODO: allow for custom tags
      */
     kterm_set_print_color(127);
-    kterm_print("$> ");
+    kterm_print("$ ");
+
+    /* Print the current working directory if we have that */
+    if (_c_login.cwd) {
+        kterm_set_print_color(0);
+
+        kterm_print(_c_login.cwd);
+
+        kterm_set_print_color(127);
+    }
+
+    kterm_print(" ~> ");
     kterm_set_print_color(0);
 
     kterm_draw_cursor_glyph();

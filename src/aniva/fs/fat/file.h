@@ -23,7 +23,8 @@ typedef struct fat_file {
      */
     fat_dir_entry_t* dir_entries;
     uint32_t* clusterchain_buffer;
-    size_t clusters_num;
+    uint32_t clusters_num;
+    uint32_t n_direntries;
 
     uint32_t direntry_cluster;
     uint32_t direntry_offset;

@@ -10,6 +10,7 @@
 #include "libk/flow/error.h"
 #include "libk/math/log2.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
@@ -26,7 +27,6 @@
 
 // static char* s_root_dev_name;
 // static char s_root_dev_name_buffer[64];
-//static dgroup_t* _lts_group;
 static mutex_t* _gdisk_lock;
 
 /* This is so dumb */
@@ -281,7 +281,6 @@ kerror_t register_gdisk_dev(disk_dev_t* device)
     s_last_gdisk = *entry;
 
     mutex_unlock(_gdisk_lock);
-
     return (0);
 }
 
@@ -909,7 +908,6 @@ void init_gdisk_dev()
 {
     _c_drive_idx = 0;
     _gdisk_lock = create_mutex(0);
-    //_lts_group = register_dev_group(DGROUP_TYPE_LTS, "lts", NULL, NULL);
 }
 
 /*!
@@ -1041,6 +1039,11 @@ void init_root_device_probing()
                 break;
 
             part = part->m_next;
+        }
+
+        if (found_root_device) {
+            KLOG_DBG("Found a rootdevice: %s -> %s\n", root_device->m_dev->name, part->m_name);
+            break;
         }
 
     cycle_next:

@@ -497,29 +497,17 @@ free_and_exit:
  */
 int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out, uint32_t idx, uint32_t* diroffset)
 {
-    size_t dir_entries_count;
-    size_t clusters_size;
-
-    fat_fs_info_t* p;
-
     if (!out)
         return -1;
 
     if (dir->type != FFILE_TYPE_DIR)
         return -KERR_INVAL;
 
-    if (!dir->clusters_num || !dir->clusterchain_buffer || !dir->dir_entries)
+    if (!dir->dir_parent || !dir->dir_entries)
         return -KERR_INVAL;
 
-    /* Get our filesystem info and cluster number */
-    p = GET_FAT_FSINFO(node);
-
-    /* Calculate the size of the data */
-    clusters_size = dir->clusters_num * p->cluster_size;
-    dir_entries_count = clusters_size / sizeof(fat_dir_entry_t);
-
     /* Outside the range =/ */
-    if (idx >= dir_entries_count)
+    if (idx >= dir->n_direntries)
         return -KERR_INVAL;
 
     *out = dir->dir_entries[idx];

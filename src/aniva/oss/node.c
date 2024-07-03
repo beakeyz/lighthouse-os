@@ -2,11 +2,13 @@
 #include "fs/dir.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "obj.h"
 #include "sync/mutex.h"
 #include <libk/string.h>
 #include <mem/zalloc/zalloc.h>
+#include <time.h>
 
 /*
  * Core code for the oss nodes
@@ -496,6 +498,69 @@ static kerror_t _node_itter(void* v, uint64_t arg0, uint64_t arg1)
 int oss_node_itterate(oss_node_t* node, bool (*f_itter)(oss_node_t* node, struct oss_obj* obj, void* param), void* param)
 {
     return (hashmap_itterate(node->obj_map, NULL, _node_itter, (uint64_t)f_itter, (uint64_t)param));
+}
+
+/*!
+ * @brief: Create a full path for an oss node
+ *
+ * Exports the reference to the caller, which is responsable for memory cleanup
+ *
+ * TODO: Instead of just exporting a raw path pointer, we might be able to create a unified structure
+ * for this purpose (something like aniva_buffer_t) which can support different memory cleanup functions
+ */
+int oss_node_get_path(oss_node_t* node, const char** p_path)
+{
+    const char* path;
+    char* tmp_path;
+
+    size_t c_pathlen;
+    size_t parent_namelen;
+    size_t total_len;
+
+    if (!node || !p_path)
+        return -KERR_INVAL;
+
+    /* Copy path */
+    path = strdup(node->name);
+
+    if (!path)
+        return -KERR_NOMEM;
+
+    /* If this node has no parent, we've already prepended the final part we needed. Time to return */
+    while (node->parent) {
+        c_pathlen = strlen(path);
+        parent_namelen = strlen(node->parent->name);
+        total_len = c_pathlen + 1 + parent_namelen + 1;
+
+        /* Allocate a path part */
+        tmp_path = kmalloc(total_len);
+
+        /* FUCKKKKK bro wtf */
+        if (!tmp_path) {
+            kfree((void*)path);
+            return -KERR_NOMEM;
+        }
+
+        /* Clear the temporary buffer */
+        memset(tmp_path, 0, total_len);
+
+        /* Prepend the current parents name in front of the current constructed path */
+        sfmt(tmp_path, "%s/%s", node->parent->name, path);
+
+        /* Free the previous instance of the constructed path */
+        kfree((void*)path);
+
+        /* Update the path pointer */
+        path = tmp_path;
+
+        /* Go the the previous node */
+        node = node->parent;
+    }
+
+    /* Export the path */
+    *p_path = path;
+
+    return 0;
 }
 
 /*!

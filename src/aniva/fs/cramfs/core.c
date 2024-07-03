@@ -2,6 +2,7 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "fs/cramfs/compression.h"
+#include "fs/dir.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -169,7 +170,7 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
         uintptr_t current_file_offset = (uintptr_t)TAR_BLOCK_START(node) + current_offset;
         uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
 
-        if (strcmp(name, (const char*)current_file.fn) == 0) {
+        if (strncmp(name, (const char*)current_file.fn, strlen((const char*)current_file.fn)) == 0) {
             /*
              * TODO: how do we want this to work?
              * TODO: Create vobj
@@ -207,6 +208,89 @@ static oss_obj_t* ramfs_find(oss_node_t* node, const char* name)
     return nullptr;
 }
 
+static int ramfs_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
+{
+    u64 c_offset = (u64)dir->priv;
+    oss_node_t* root_node;
+    tar_file_t c_file;
+
+    root_node = oss_node_unwrap(dir->node);
+
+    do {
+        ramfs_read(root_node, &c_file, sizeof(tar_file_t), c_offset);
+
+    } while (c_offset);
+
+    return 0;
+}
+
+dir_ops_t ramfs_dir_ops = {
+    .f_read = ramfs_dir_read,
+};
+
+static oss_node_t* ramfs_open_node(oss_node_t* node, const char* path)
+{
+    dir_t* dir;
+    tar_file_t current_file = { 0 };
+    fs_oss_node_t* fsnode;
+    uintptr_t current_offset = 0;
+    size_t name_len = strlen(path);
+
+    if (!path || !name_len)
+        return nullptr;
+
+    fsnode = oss_node_unwrap(node);
+
+    dir = nullptr;
+
+    while (current_offset <= fsnode->m_total_blocks) {
+        /* Raw read :clown: */
+        int result = ramfs_read(node, &current_file, sizeof(tar_file_t), current_offset);
+
+        if (result)
+            break;
+
+        /* Invalid TAR archive file */
+        if (!memcmp(current_file.ustar, TAR_USTAR_SIG, 5))
+            break;
+
+        uintptr_t filesize = decode_tar_ascii(current_file.size, 11);
+
+        if (strncmp(path, (const char*)current_file.fn, strlen((const char*)current_file.fn)) == 0) {
+            /*
+             * TODO: how do we want this to work?
+             * TODO: Create vobj
+             */
+            switch (current_file.type) {
+            case TAR_TYPE_FILE:
+                return nullptr;
+            case TAR_TYPE_DIR: {
+
+                dir = create_dir(node, path, &ramfs_dir_ops, NULL, NULL);
+
+                if (!dir)
+                    return nullptr;
+
+                dir->priv = (void*)current_offset;
+                break;
+            }
+            default:
+                kernel_panic("cramfs: unsupported fsentry type");
+            }
+        }
+
+        if (dir)
+            break;
+
+        current_offset += apply_tar_alignment(filesize);
+    }
+
+    if (dir)
+        return dir->node;
+
+    return nullptr;
+}
+
 int ramfs_close(oss_node_t* node, oss_obj_t* obj)
 {
     return 0;
@@ -225,6 +309,7 @@ int ramfs_destroy(oss_node_t* node)
 static struct oss_node_ops ramfs_node_ops = {
     .f_open = ramfs_find,
     .f_close = ramfs_close,
+    .f_open_node = ramfs_open_node,
     .f_msg = ramfs_msg,
     .f_destroy = ramfs_destroy,
 };

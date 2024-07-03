@@ -3,7 +3,6 @@
 #include "dev/io/hid/event.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
-#include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
 #include "system/acpi/acpi.h"
@@ -31,11 +30,11 @@ registers_t* i8042_irq_handler(registers_t* regs);
  */
 static int i8042_poll(device_t* device)
 {
-  return 0;
+    return 0;
 }
 
 struct device_hid_endpoint _i8042_hid_ep = {
-    .f_poll = i8042_poll, 
+    .f_poll = i8042_poll,
 };
 
 /*
@@ -88,19 +87,12 @@ static int _init_i8042()
 
     /* Quick flush */
     (void)i8042_read_status();
-
-    /* Make sure the keyboard event isn't frozen */
-    unfreeze_kevent("keyboard");
-
     return 0;
 }
 
 static int _exit_i8042()
 {
     int error;
-
-    /* Make sure that the keyboard event is frozen, since there is no current kb driver */
-    freeze_kevent("keyboard");
 
     if (s_i8042_device) {
         /*
@@ -235,7 +227,7 @@ registers_t* i8042_irq_handler(registers_t* regs)
     event.key.flags = ((s_mod_flags << HID_EVENT_KEY_FLAG_MOD_BITSHIFT) & HID_EVENT_KEY_FLAG_MOD_MASK);
 
     if (pressed)
-      event.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
+        event.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
 
     /* Buffer the keycodes */
     ps2_set_keycode_buffer(event.key.scancode, pressed);
@@ -243,7 +235,7 @@ registers_t* i8042_irq_handler(registers_t* regs)
     /* Copy the scancode buffer to the event */
     memcpy(&event.key.pressed_buffer, &s_current_scancodes, sizeof(s_current_scancodes));
 
-    //kevent_fire("keyboard", &kb, sizeof(kb));
+    // kevent_fire("keyboard", &kb, sizeof(kb));
     hid_event_buffer_write(&s_i8042_device->device_events, &event);
 
     return regs;

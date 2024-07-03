@@ -105,7 +105,7 @@ static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device)
     bar_addr = get_bar_address(bar5);
 
     /* Map the range */
-    ASSERT(!__kmem_kernel_alloc((void**)&hba_region, bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_WC | KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
+    ASSERT(!__kmem_kernel_alloc((void**)&hba_region, bar_addr, ALIGN_UP(sizeof(HBA), SMALL_PAGE_SIZE * 2), 0, KMEM_FLAG_DMA | KMEM_FLAG_KERNEL));
 
     return (void*)hba_region;
 }
@@ -200,23 +200,8 @@ static kerror_t gather_ports_info(ahci_device_t* device)
     return (0);
 }
 
-static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device)
+static void maybe_claim_hba(ahci_device_t* device)
 {
-
-    // enable hba interrupts
-    uint16_t bus_num = device->m_identifier->address.bus_num;
-    uint16_t dev_num = device->m_identifier->address.device_num;
-    uint16_t func_num = device->m_identifier->address.func_num;
-
-    // pci_set_interrupt_line(&device->m_identifier->address, true);
-    // pci_set_bus_mastering(&device->m_identifier->address, true);
-    // pci_set_memory(&device->m_identifier->address, true);
-
-    uint8_t interrupt_line;
-    device->m_identifier->raw_ops.read8(bus_num, dev_num, func_num, INTERRUPT_LINE, &interrupt_line);
-
-    device->m_hba_region = get_hba_region(__ahci_devices);
-
     // We might need to fetch AHCI from the BIOS
     if (ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_CAP2) & AHCI_CAP2_BOH) {
         uint32_t bohc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_BOHC) | AHCI_BOHC_OOS;
@@ -226,25 +211,41 @@ static ALWAYS_INLINE ANIVA_STATUS initialize_hba(ahci_device_t* device)
             udelay(100);
         }
     }
+}
 
-    ANIVA_STATUS status = reset_hba(device);
+static ANIVA_STATUS initialize_hba(ahci_device_t* device)
+{
+    int error;
+    ANIVA_STATUS status;
+    uint32_t ghc;
 
+    /* Get the HBA mmio region */
+    device->m_hba_region = get_hba_region(__ahci_devices);
+
+    /* Claim the HBA from BIOS if we need to */
+    maybe_claim_hba(device);
+
+    /* Reset HBA hardware */
+    status = reset_hba(device);
+
+    /* Fuck */
     if (status != ANIVA_SUCCESS)
         return status;
 
     // HBA has been reset, enable its interrupts and claim this line
     /* TODO: notify PCI of any interrupt line changes */
-    int error = irq_allocate(interrupt_line, NULL, NULL, ahci_irq_handler, NULL, "AHCI controller");
+    error = pci_device_allocate_irq(device->m_identifier, NULL, NULL, ahci_irq_handler, NULL, "AHCI controller");
 
     /* TODO: handle this propperly =)))) */
     ASSERT_MSG(error == NULL, "Failed to allocate an IRQ for this AHCI device!");
 
-    uint32_t ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
+    ghc = ahci_mmio_read32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC) | AHCI_GHC_IE;
     ahci_mmio_write32((uintptr_t)device->m_hba_region, AHCI_REG_AHCI_GHC, ghc);
 
     KLOG_DBG("AHCI: Gathering info about ports...\n");
 
-    if ((gather_ports_info(device)))
+    /* Try and send an identify command */
+    if (gather_ports_info(device) != 0)
         return ANIVA_FAIL;
 
     return status;
@@ -296,10 +297,10 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
 {
     device_t* dev;
     ahci_device_t* ahci_device = kmalloc(sizeof(ahci_device_t));
-    char buffer[16];
+    char name_buffer[16];
 
     memset(ahci_device, 0, sizeof(ahci_device_t));
-    memset(buffer, 0, sizeof(buffer));
+    memset(name_buffer, 0, sizeof(name_buffer));
 
     ahci_device->m_identifier = identifier;
     ahci_device->m_ports = init_list();
@@ -309,14 +310,14 @@ ahci_device_t* create_ahci_device(pci_device_t* identifier)
     __register_ahci_device(ahci_device);
 
     /* Format */
-    sfmt(buffer, "ahci%d", ahci_device->m_idx);
+    sfmt(name_buffer, "ahci%d", ahci_device->m_idx);
 
     dev = identifier->dev;
 
     mutex_lock(dev->lock);
 
     /* Take the device from PCI */
-    (void)driver_takeover_device(_ahci_driver, dev, buffer, NULL, ahci_device);
+    (void)driver_takeover_device(_ahci_driver, dev, name_buffer, NULL, ahci_device);
 
     /* Set the bus group */
     dev->bus_group = _ahci_group;
