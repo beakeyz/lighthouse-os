@@ -245,7 +245,7 @@ size_t get_fat_file_size(fat_file_t* file)
         parent = file->file_parent->m_obj->parent;
         break;
     case FFILE_TYPE_DIR:
-        parent = file->dir_parent->node;
+        parent = file->dir_parent->rootnode;
         break;
     }
 
@@ -286,7 +286,7 @@ kerror_t fat_file_update_dir_entries(fat_file_t* file)
     }
 
     /* Load all the data into the buffer */
-    if (!KERR_OK(fat32_read_clusters(file->dir_parent->node, (uint8_t*)tmp_buffer, file, 0, fsize)))
+    if (!KERR_OK(fat32_read_clusters(file->dir_parent->rootnode, (uint8_t*)tmp_buffer, file, 0, fsize)))
         return -KERR_IO;
 
     for (uint64_t i = 0; i < n_raw_dirent; i++) {

@@ -64,9 +64,13 @@ static int _generic_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
 
         new_dir = entry->node->dir;
 
-        if (!new_dir)
+        if (!new_dir) {
             /* Don't give a path, as to signal we want to create this dir onto the specified node */
-            new_dir = create_dir(entry->node, NULL, NULL, NULL, NULL);
+            new_dir = create_dir(entry->node->parent, entry->node->name, NULL, NULL, NULL);
+
+            /* Attach the dir, since that's not yet done */
+            oss_node_attach_dir(entry->node, new_dir);
+        }
 
         /* Reference the new directory */
         dir_ref(new_dir);
@@ -97,39 +101,32 @@ static dir_ops_t _generic_dir_ops = {
 dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags)
 {
     dir_t* dir;
-    oss_node_t* node = root;
     const char* name = NULL;
 
     /* This would be bad lmao */
-    if (!root && !path)
+    if (!root || !path)
         return nullptr;
 
-    if (path) {
-        /* NOTE: This allocates @name on the heap */
-        name = oss_get_objname(path);
+    /* NOTE: This allocates @name on the heap */
+    name = oss_get_objname(path);
 
-        if (!name)
-            return nullptr;
-
-        /* We have a path, but we might not have a root, no biggie */
-        node = oss_create_path(root, path);
-
-    } else
-        /* We know we have a root at this point, steal it's name */
-        name = strdup(node->name);
+    if (!name)
+        return nullptr;
 
     dir = kmalloc(sizeof(*dir));
 
-    if (!dir)
+    if (!dir) {
+        kfree((void*)name);
         return nullptr;
+    }
 
     memset(dir, 0, sizeof(*dir));
 
     if (!ops)
         ops = &_generic_dir_ops;
 
-    dir->node = node;
     dir->name = name;
+    dir->rootnode = root;
     dir->ops = ops;
     dir->priv = priv;
     dir->flags = flags;
@@ -139,15 +136,7 @@ dir_t* create_dir(oss_node_t* root, const char* path, struct dir_ops* ops, void*
 
     init_atomic_ptr(&dir->ref, 0);
 
-    /* Try to attach */
-    if (oss_node_attach_dir(dir->node, dir))
-        goto dealloc_and_fail;
-
     return dir;
-
-dealloc_and_fail:
-    kfree(dir);
-    return nullptr;
 }
 
 dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags)
@@ -235,6 +224,29 @@ void destroy_dir(dir_t* dir)
 
     kfree((void*)dir->name);
     kfree(dir);
+}
+
+/*!
+ * @brief: Ensure a directory gets attached to a node
+ */
+int dir_do_attach(dir_t* dir, const char* path)
+{
+    if (dir->node) {
+        KLOG_DBG("Already had a node: %s\n", dir->node->name);
+        return 0;
+    }
+
+    KLOG_DBG("Creating path: (%s)/%s\n", dir->rootnode->name, path);
+
+    dir->node = oss_create_path(dir->rootnode, path);
+
+    /* Huh */
+    if (!dir->node)
+        return -KERR_INVAL;
+
+    /* Attach the dir to it's node */
+    oss_node_attach_dir(dir->node, dir);
+    return 0;
 }
 
 int dir_create_child(dir_t* dir, const char* name)

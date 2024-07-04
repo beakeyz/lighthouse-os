@@ -23,6 +23,8 @@ typedef struct dir_ops {
 
 typedef struct dir {
     struct oss_node* node;
+    /* Object generation node */
+    struct oss_node* rootnode;
     struct dir_ops* ops;
 
     const char* name;
@@ -45,6 +47,8 @@ typedef struct dir {
 dir_t* create_dir(struct oss_node* root, const char* path, struct dir_ops* ops, void* priv, uint32_t flags);
 dir_t* create_dir_on_node(struct oss_node* node, struct dir_ops* ops, void* priv, uint32_t flags);
 void destroy_dir(dir_t* dir);
+
+int dir_do_attach(dir_t* dir, const char* path);
 
 int dir_create_child(dir_t* dir, const char* name);
 int dir_remove_child(dir_t* dir, const char* name);
