@@ -753,6 +753,10 @@ static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
         return nullptr;
 
     info = GET_FAT_FSINFO(node);
+    ret = create_fat_dir(info, NULL, path);
+
+    if (!ret)
+        return nullptr;
 
     fat_file = ret->priv;
 
