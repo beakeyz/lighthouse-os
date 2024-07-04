@@ -356,7 +356,7 @@ int oss_node_find(oss_node_t* node, const char* name, struct oss_node_entry** en
 {
     oss_node_entry_t* entry;
 
-    if (!entry_out)
+    if (!node || !name || !entry_out)
         return -1;
 
     /* Set to NULL to please fuckers that only check this variable -_- */

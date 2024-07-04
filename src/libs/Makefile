@@ -5,7 +5,8 @@ LIBRARY_PATHS := \
 	./librt \
 	./LibC \
 	./LibGfx \
-	./devacs
+	./devacs \
+	./kterm
 
 export LIBRARY_SHARED_FILE_EXT := .slb
 export LIBRARY_STATIC_FILE_EXT := .lib

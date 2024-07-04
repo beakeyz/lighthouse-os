@@ -126,13 +126,13 @@ DirEntry* dir_read_entry(Directory* dir, uint32_t idx)
     ent->idx = idx;
 
     /* Ask kernel uwu */
-    res = syscall_4(SYSID_DIR_READ, dir->handle, idx, (uint64_t)&ent->name, sizeof(ent->name));
+    res = syscall_4(SYSID_DIR_READ, dir->handle, idx, (uint64_t)&ent->entry.name, sizeof(ent->entry.name));
 
     if (res != SYS_OK)
         goto dealloc_and_exit;
 
     /* Make sure the last byte is null */
-    ent->name[sizeof(ent->name) - 1] = '\0';
+    ent->entry.name[sizeof(ent->entry.name) - 1] = '\0';
 
     _dir_link_direntry(dir, ent);
 

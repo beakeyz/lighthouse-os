@@ -14,7 +14,7 @@
 #include <lightos/driver/ctl.h>
 
 uintptr_t
-sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
+sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size)
 {
     kerror_t error;
     khandle_t* c_hndl;
@@ -24,9 +24,6 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
 
     /* Check the buffer(s) if they are given */
     if (buffer && kmem_validate_ptr(c_proc, (vaddr_t)buffer, size))
-        return SYS_INV;
-
-    if (out_buffer && kmem_validate_ptr(c_proc, (vaddr_t)out_buffer, size))
         return SYS_INV;
 
     /* Find the handle */
@@ -42,7 +39,7 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
         drv_manifest_t* driver = c_hndl->reference.driver;
 
         /* NOTE: this call locks the manifest */
-        error = driver_send_msg_ex(driver, code, buffer, size, out_buffer, out_size);
+        error = driver_send_msg_ex(driver, code, buffer, size, NULL, NULL);
         break;
     }
     case HNDL_TYPE_FILE: {

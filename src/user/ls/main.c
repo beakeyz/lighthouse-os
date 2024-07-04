@@ -1,5 +1,7 @@
 #include "lightos/fs/dir.h"
 #include "lightos/proc/cmdline.h"
+#include "sys/types.h"
+#include <kterm/kterm.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -67,6 +69,8 @@ static int destroy_list(struct list_entry* list_head)
 
 static const char* _ls_get_target_path()
 {
+    const char* ret;
+
     for (uint32_t i = 1; i < line.argc; i++) {
         if (!line.argv[i])
             continue;
@@ -77,7 +81,11 @@ static const char* _ls_get_target_path()
         return line.argv[i];
     }
 
-    return "Dev/usb";
+    /* Grab the cwd from kterm if we need to */
+    if (kterm_get_cwd(&ret))
+        return nullptr;
+
+    return ret;
 }
 
 static void _fill_semi_sorted_dirlist(struct list_entry** sorted, struct list_entry** unsorted)
@@ -129,8 +137,6 @@ int main()
 
     if (error)
         return error;
-
-    printf("CMDLINE: %s\n", line.raw);
 
     path = _ls_get_target_path();
 

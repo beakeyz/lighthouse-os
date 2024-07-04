@@ -12,6 +12,7 @@
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
+#include "kterm/shared.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/gfx/font.h"
@@ -526,7 +527,7 @@ struct kterm_cmd kterm_commands[] = {
     {
         "cd",
         "Change the current working directory",
-        nullptr,
+        (f_kterm_command_handler_t)kterm_fs_cd,
     },
     {
         /* Unixes pwd lmao */
@@ -728,6 +729,28 @@ bool kterm_ismode(enum kterm_mode _mode)
 bool kterm_is_logged_in()
 {
     return (_c_login.profile != nullptr);
+}
+
+/*!
+ * @brief: Set the current working directory
+ */
+int kterm_set_cwd(const char* path, struct oss_node* node)
+{
+    int error = 0;
+
+    if (!node)
+        error = oss_resolve_node(path, &node);
+
+    if (error)
+        return error;
+
+    error = oss_node_get_path(node, &_c_login.cwd);
+
+    if (error)
+        return error;
+
+    _c_login.c_node = node;
+    return 0;
 }
 
 int kterm_set_login(user_profile_t* profile)
@@ -1241,21 +1264,22 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
         return DRV_STAT_INVAL;
 
     switch (code) {
-    case KTERM_DRV_DRAW_STRING: {
-        const char* str = *(const char**)buffer;
-        size_t buffer_size = size;
-
-        /* Make sure the end of the buffer is null-terminated and the start is non-null */
-        if (str[buffer_size] != NULL || str[0] == NULL)
-            return DRV_STAT_INVAL;
-
-        println(str);
-        kterm_print(str);
-        // kterm_println("\n");
-        break;
-    }
     case KTERM_DRV_CLEAR:
         kterm_clear();
+        break;
+    case KTERM_DRV_GET_CWD:
+        if (!size)
+            return DRV_STAT_INVAL;
+
+        /* ??? */
+        if (!buffer)
+            return DRV_STAT_INVAL;
+
+        /* Is the size enough to fit the entire string? */
+        if (size > (strlen(_c_login.cwd) + 1))
+            size = (strlen(_c_login.cwd) + 1);
+
+        memcpy(buffer, _c_login.cwd, size);
         break;
     case LWND_DCC_CREATE:
         /* Switch the kterm mode to KTERM_MODE_GRAPHICS and prepare a canvas for the graphical application to run

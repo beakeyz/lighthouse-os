@@ -1,12 +1,15 @@
 #include "core.h"
 #include "fs/core.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/malloc.h"
 #include "oss/node.h"
 #include "oss/obj.h"
+#include "oss/path.h"
 #include "sync/mutex.h"
+#include "sys/types.h"
 #include <libk/string.h>
 
 static oss_node_t* _rootnode = nullptr;
@@ -168,6 +171,125 @@ static inline oss_node_t* _get_rootnode_from_path(const char* path, uint32_t* id
         (*idx)++;
 
     return ret;
+}
+
+/*!
+ * @brief: Resolve an oss entry based on a path
+ *
+ * Loops over every subpath inside the path and tries to itteratively find a new entry every time
+ *
+ * NOTE: Either obj_out or node_out must be null, as to indicate which type of oss entry we're looking for
+ */
+static int __oss_resolve_node_entry_rel_locked(struct oss_node* rel, const char* path, struct oss_obj** obj_out, struct oss_node** node_out)
+{
+    int error;
+    u32 obj_gen_idx;
+    oss_node_t* obj_gen_node;
+    const char* c_subpath;
+    oss_node_t* c_node;
+    oss_path_t oss_path;
+    oss_node_entry_t* c_entry;
+
+    if (!obj_out && !node_out)
+        return -KERR_INVAL;
+
+    ASSERT_MSG(mutex_is_locked_by_current_thread(_core_lock), "Tried to call __oss_resolve_node_entry_rel_locked without having locked oss");
+
+    error = 0;
+    c_node = rel;
+    obj_gen_node = nullptr;
+    obj_gen_idx = 0;
+
+    /* No relative node. Fetch the rootnode */
+    if (!c_node)
+        c_node = _rootnode;
+
+    /* Parse the path into a vector */
+    error = _oss_parse_path(path, &oss_path);
+
+    /* Fuck */
+    if (error)
+        return error;
+
+    /* First subpath was a skip. Start from the root xD */
+    if (oss_path.subpath_vec[0] && *oss_path.subpath_vec[0] == _OSS_PATH_SKIP)
+        c_node = _rootnode;
+
+    /* Loop over every subpath */
+    for (u32 i = 0; i < oss_path.n_subpath; i++) {
+        c_subpath = oss_path.subpath_vec[i];
+
+        /* Skip a path that starts with a skip identifier */
+        if (*c_subpath == _OSS_PATH_SKIP)
+            continue;
+
+        /* Go back a node */
+        if (strncmp(c_subpath, "..", 2) == 0) {
+            if (c_node)
+                c_node = c_node->parent;
+
+            continue;
+        }
+
+        /* Check this mofo */
+        if (strncmp(c_subpath, ".", 1) == 0)
+            continue;
+
+        /* Cache the object generation node */
+        if (c_node->type == OSS_OBJ_GEN_NODE && !obj_gen_node) {
+            obj_gen_node = c_node;
+            obj_gen_idx = i;
+        }
+
+        /* Clear */
+        c_entry = nullptr;
+
+        /* Try to find shit on this node */
+        error = oss_node_find(c_node, c_subpath, &c_entry);
+
+        /* Can't find shit on this node */
+        if (error || !oss_node_entry_has_node(c_entry))
+            break;
+
+        c_node = c_entry->node;
+    }
+
+    /*
+     * We've finished scanning the path. If there was an error this may mean a few things:
+     * 1) Somewhere along the way there was a mismatch, we might terminate early
+     * 2) There might have been an object where we might have expected a node
+     */
+
+    /* Error in the scan and no generation node found */
+    if (error && !obj_gen_node)
+        goto destroy_path_and_exit;
+    else if (error) {
+        /* There was an error, but we've passed a generation node, try to see if it has awnsers */
+        error = _oss_get_relative_path(path, obj_gen_idx, &c_subpath);
+
+        if (error)
+            goto destroy_path_and_exit;
+
+        /* Query the node for the thing we're looking for */
+        if (obj_out)
+            error = oss_node_query(obj_gen_node, c_subpath, obj_out);
+        else
+            error = oss_node_query_node(obj_gen_node, c_subpath, node_out);
+    } else {
+        /* No error in the scan, see if we found the right thing */
+        if (obj_out && c_entry && c_entry->type == OSS_ENTRY_OBJECT)
+            *obj_out = c_entry->obj;
+        else if (node_out && c_node)
+            *node_out = c_node;
+        else
+            /* Probably a type mismatch */
+            error = -KERR_NOT_FOUND;
+    }
+
+destroy_path_and_exit:
+    _oss_destroy_path(&oss_path);
+
+    return error;
 }
 
 static int _oss_resolve_obj_rel_locked(struct oss_node* rel, const char* path, struct oss_obj** out)
@@ -392,14 +514,14 @@ static int _oss_resolve_node_rel_locked(struct oss_node* rel, const char* path, 
     *out = c_node;
     return 0;
 }
-
 int oss_resolve_node_rel(struct oss_node* rel, const char* path, struct oss_node** out)
 {
     int error;
 
     mutex_lock(_core_lock);
 
-    error = _oss_resolve_node_rel_locked(rel, path, out);
+    // error = _oss_resolve_node_rel_locked(rel, path, out);
+    error = __oss_resolve_node_entry_rel_locked(rel, path, NULL, out);
 
     mutex_unlock(_core_lock);
 
@@ -413,7 +535,7 @@ static int _oss_resolve_node_locked(const char* path, oss_node_t** out)
 
     *out = NULL;
 
-    return _oss_resolve_node_rel_locked(_rootnode, path, out);
+    return __oss_resolve_node_entry_rel_locked(_rootnode, path, NULL, out);
 }
 
 /*!
@@ -868,6 +990,8 @@ void init_oss()
 {
     init_oss_nodes();
 
+    char rootname[] = { _OSS_PATH_SKIP, '\0' };
+
     _core_lock = create_mutex(NULL);
-    _rootnode = create_oss_node("%", OSS_OBJ_STORE_NODE, nullptr, nullptr);
+    _rootnode = create_oss_node(rootname, OSS_OBJ_STORE_NODE, nullptr, nullptr);
 }

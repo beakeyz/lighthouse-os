@@ -7,7 +7,7 @@
 
 #include <lightos/driver/ctl.h>
 
-uintptr_t sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
+uintptr_t sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t size);
 
 uintptr_t sys_send_drv_ctl(HANDLE handle, enum DRV_CTL_MODE mode);
 
