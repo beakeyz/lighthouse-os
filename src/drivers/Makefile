@@ -22,6 +22,7 @@ DRIVER_PATHS := \
 	./env/lwnd \
 	./env/dynldr \
 	./env/prism \
+	./env/upi \
 	./video/nvidia \
 	./video/radeon \
 	./debug/test \

@@ -31,6 +31,8 @@ enum OSS_OBJ_TYPE {
     OSS_OBJ_TYPE_PROC,
     /* This boi links to another oss_obj */
     OSS_OBJ_TYPE_LINK,
+    /* This mofo has a upipe (probably managed by upi?) */
+    OSS_OBJ_TYPE_PIPE,
 };
 
 #define OSS_OBJ_IMMUTABLE 0x00000001 /* Can we change the data that this object holds? */

@@ -104,8 +104,8 @@ extern BOOL read_process_memory(
 extern BOOL create_process(
     __IN__ const char* name,
     __IN__ FuncPtr entry,
-    __IN__ const char* args,
-    __IN__ size_t* argc,
+    __IN__ const char** args,
+    __IN__ size_t argc,
     __IN__ DWORD flags);
 
 extern BOOL kill_process(

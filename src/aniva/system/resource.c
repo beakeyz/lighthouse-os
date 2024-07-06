@@ -621,7 +621,31 @@ kresource_bundle_t* create_resource_bundle(page_dir_t* dir)
         ret->resources[type] = start_resource;
     }
 
+    ret->refcount = 1;
     ret->page_dir = dir;
+
+    return ret;
+}
+
+kresource_bundle_t* share_resource_bundle(kresource_bundle_t* bundle)
+{
+    kresource_t* c_resource;
+    kresource_bundle_t* ret;
+
+    ret = bundle;
+
+    if (!ret)
+        return nullptr;
+
+    ret->refcount++;
+
+    for (kresource_type_t type = KRES_MIN_TYPE; type <= KRES_MAX_TYPE; type++) {
+        c_resource = ret->resources[type];
+
+        for (; c_resource; c_resource = c_resource->m_next)
+            if (__resource_is_referenced(c_resource))
+                __resource_reference(c_resource, NULL);
+    }
 
     return ret;
 }
@@ -720,6 +744,14 @@ int resource_clear_owned(void* owner, kresource_type_t type, kresource_bundle_t*
 void destroy_resource_bundle(kresource_bundle_t* bundle)
 {
     kresource_t* current;
+
+    /* Lower the refcount */
+    if (bundle->refcount)
+        bundle->refcount--;
+
+    /* If there are still references, dont actually destroy the bundle yet */
+    if (bundle->refcount)
+        return;
 
     __bundle_clear_resources(bundle);
 

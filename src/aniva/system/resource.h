@@ -105,11 +105,13 @@ static inline bool resource_is_anonymous(kresource_t* resource)
  * all resource entries
  */
 typedef struct kresource_bundle {
+    u32 refcount;
     page_dir_t* page_dir;
     kresource_t* resources[3];
 } kresource_bundle_t;
 
 kresource_bundle_t* create_resource_bundle(page_dir_t* dir);
+kresource_bundle_t* share_resource_bundle(kresource_bundle_t* bundle);
 
 /*
  * Destroy every kresource in the bundle

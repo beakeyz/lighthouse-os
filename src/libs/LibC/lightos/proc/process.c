@@ -22,6 +22,11 @@ BOOL proc_get_profile(HANDLE proc_handle, HANDLE* profile_handle)
     return FALSE;
 }
 
+BOOL create_process(const char* name, FuncPtr entry, const char** args, size_t argc, DWORD flags)
+{
+    return FALSE;
+}
+
 size_t get_process_time()
 {
     return syscall_0(SYSID_GET_PROCESSTIME);

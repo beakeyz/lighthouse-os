@@ -108,6 +108,72 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     return proc;
 }
 
+/*!
+ * @brief: Create a duplicate process
+ *
+ * Make sure that there are no threads in this process that hold any mutexes, since the clone
+ * can't hold these at the same time.
+ *
+ * NOTE: Only copies process state (handles, pagemap, resourcemaps, ect.)
+ */
+int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** clone)
+{
+    proc_t* cloneproc;
+    thread_t* init_thread;
+
+    /* Create new 'clone' process */
+    /* Copy handle map */
+    /* Copy resource list */
+    /* Copy environment */
+    /* Copy thread state */
+    /* ... */
+
+    kernel_panic("TODO: proc_clone");
+
+    cloneproc = kmalloc(sizeof(*cloneproc));
+
+    if (!cloneproc)
+        return -KERR_NOMEM;
+
+    memset(cloneproc, 0, sizeof(proc_t));
+
+    /* TODO: move away from the idea of idle threads */
+    cloneproc->m_idle_thread = nullptr;
+    cloneproc->m_parent = p->m_parent;
+    cloneproc->m_flags = cloneproc->m_flags | PROC_UNRUNNED;
+    cloneproc->m_thread_count = 1;
+    cloneproc->m_threads = init_list();
+    cloneproc->m_lock = create_mutex(NULL);
+    cloneproc->obj = create_oss_obj(clone_name);
+    cloneproc->m_name = cloneproc->obj->name;
+
+    /* Register ourselves */
+    oss_obj_register_child(cloneproc->obj, cloneproc, OSS_OBJ_TYPE_PROC, __destroy_proc);
+
+    /* Copy the pagemap */
+    //_proc_init_pagemap(proc);
+
+    /* Copy the handle map */
+    // init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
+
+    /* Yoink the resource bundle */
+    cloneproc->m_resource_bundle = share_resource_bundle(p->m_resource_bundle);
+
+    init_thread = create_thread_for_proc(cloneproc, clone_entry, NULL, "main");
+
+    ASSERT_MSG(init_thread, "Failed to create main thread for cloned process!");
+
+    ASSERT(proc_add_thread(cloneproc, init_thread) == 0);
+
+    /* Yikes */
+    if ((proc_register(cloneproc, p->m_env->profile))) {
+        destroy_proc(cloneproc);
+        return -KERR_INVAL;
+    }
+
+    return 0;
+}
+
 /* This should probably be done by kmem_manager lmao */
 #define IS_KERNEL_FUNC(func) true
 
@@ -146,22 +212,6 @@ kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1
 
     mutex_unlock(p->m_init_thread->m_lock);
     return KERR_NONE;
-}
-
-/*!
- * @brief: Create a duplicate process
- *
- * Make sure that there are no threads in this process that hold any mutexes, since the clone
- * can't hold these at the same time
- */
-int proc_clone(proc_t* p, const char* clone_name, proc_t** clone)
-{
-    /* Create new 'clone' process */
-    /* Copy handle map */
-    /* Copy resource list */
-    /* Copy thread state */
-    /* ... */
-    return 0;
 }
 
 static void __proc_clear_shared_resources(proc_t* proc)
