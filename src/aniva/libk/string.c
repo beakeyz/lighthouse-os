@@ -64,7 +64,10 @@ char* strncpy(char* dest, const char* src, size_t len)
     while (len > 0) {
         *out = (*src != NULL) ? *src : '\0';
         ++out;
-        ++src;
+
+        /* If src ends before len is depleted, fill the rest with '\0' */
+        if (*src)
+            ++src;
         --len;
     }
 

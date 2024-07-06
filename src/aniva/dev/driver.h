@@ -114,6 +114,12 @@ typedef struct aniva_driver {
 #define DRV_STAT_INVAL (-1)
 #define DRV_STAT_NOMAN (-2)
 #define DRV_STAT_BUSY (-3)
+#define DRV_STAT_FULL (-4)
+#define DRV_STAT_DUPLICATE (-5)
+#define DRV_STAT_NULL (-6)
+#define DRV_STAT_OUT_OF_RANGE (-7)
+#define DRV_STAT_NOT_FOUND (-8)
+#define DRV_STAT_NODATA (-9)
 
 #define driver_is_deferred(manifest) ((manifest->m_flags & DRV_DEFERRED) == DRV_DEFERRED)
 

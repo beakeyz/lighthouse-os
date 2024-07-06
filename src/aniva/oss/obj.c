@@ -73,7 +73,7 @@ oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl)
 
 void destroy_oss_obj(oss_obj_t* obj)
 {
-    void* priv;
+    void* priv = obj->priv;
     oss_node_entry_t* entry = NULL;
 
     /* If we are still attached, might as well remove ourselves */
@@ -85,7 +85,6 @@ void destroy_oss_obj(oss_obj_t* obj)
         destroy_oss_node_entry(entry);
 
     /* Cache the private attachment */
-    priv = obj->priv;
     obj->priv = nullptr;
 
     if (obj->ops.f_destory_priv)
@@ -148,14 +147,14 @@ void oss_obj_ref(oss_obj_t* obj)
 
 void oss_obj_unref(oss_obj_t* obj)
 {
-    uint64_t val;
+    int64_t val;
 
     mutex_lock(obj->lock);
 
     val = atomic_ptr_read(&obj->refc) - 1;
 
     /* No need to write if  */
-    if (!val)
+    if (val <= 0)
         goto destroy_obj;
 
     atomic_ptr_write(&obj->refc, val);
@@ -164,6 +163,7 @@ void oss_obj_unref(oss_obj_t* obj)
     return;
 
 destroy_obj:
+    mutex_unlock(obj->lock);
     destroy_oss_obj(obj);
 }
 

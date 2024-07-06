@@ -1,6 +1,8 @@
 #include "handle.h"
+#include "lightos/handle_def.h"
 #include "lightos/syscall.h"
 #include "lightos/system.h"
+#include "stdlib.h"
 #include <stdio.h>
 
 /*
@@ -31,6 +33,18 @@ BOOL get_handle_type(HANDLE handle, HANDLE_TYPE* type)
     return TRUE;
 }
 
+BOOL handle_expand_type(HANDLE handle)
+{
+    exit_noimpl("TODO: handle_expand_type");
+    return FALSE;
+}
+
+BOOL handle_reclassify(HANDLE handle, HANDLE_TYPE type)
+{
+    exit_noimpl("TODO: handle_reclassify");
+    return FALSE;
+}
+
 BOOL close_handle(HANDLE handle)
 {
     QWORD result = syscall_1(SYSID_CLOSE, handle);
@@ -51,6 +65,15 @@ open_handle(const char* path, HANDLE_TYPE type, DWORD flags, DWORD mode)
         path = "\0";
 
     return syscall_4(SYSID_OPEN, (uint64_t)path, type, flags, mode);
+}
+
+HANDLE 
+open_handle_rel(HANDLE rel_handle, const char* path, DWORD flags, DWORD mode)
+{
+    if (!path)
+        return HNDL_INVAL;
+
+    return syscall_4(SYSID_OPEN_REL, rel_handle, (uintptr_t)path, flags, mode);
 }
 
 BOOL handle_set_offset(HANDLE handle, QWORD offset)

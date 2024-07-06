@@ -17,7 +17,40 @@ int epic_sauce()
     lightos_pipe_transaction_t transaction;
 
     printf("Epic sauce\n");
-    return 0;
+
+    this_proc = open_proc("Runtime/User/init_env/init", HNDL_FLAG_R, NULL);
+
+    if (!handle_verify(this_proc))
+        return -43;
+
+    error = lightos_pipe_connect(&pipe, this_proc, "test_pipe");
+
+    if (error)
+        return -55;
+
+    /* Keep polling for transactions */
+    do {
+        error = lightos_pipe_preview(&pipe, &transaction);
+    } while (error);
+
+    /* Allocate our own buffer */
+    buffer = malloc(transaction.data_size);
+
+    /* Accept the incomming data */
+    error = lightos_pipe_accept(&pipe, buffer, transaction.data_size);
+
+    if (error)
+        goto free_disconnect_and_return;
+
+    printf("Recieved buffer: %s\n", buffer);
+
+    /* Kill the temporary buffer */
+free_disconnect_and_return:
+    free(buffer);
+
+    /* Disconnect from the pipe */
+    lightos_pipe_disconnect(&pipe);
+    return -45545;
 }
 
 /*
@@ -37,19 +70,25 @@ int epic_sauce()
  */
 int main()
 {
+    int error;
     lightos_pipe_t pipe;
     lightos_pipe_transaction_t test_transaction;
     char buffer[8];
 
-    // init_lightos_pipe(&pipe, "test_pipe");
+    error = init_lightos_pipe(&pipe, "test_pipe", NULL, NULL);
+
+    if (error)
+        return error;
 
     create_process("Epic sauce", (FuncPtr)epic_sauce, NULL, NULL, NULL);
 
-    printf("Input: ");
     gets(buffer, sizeof(buffer));
 
-    // lightos_pipe_send(&pipe, &test_transaction, LIGHTOS_PIPE_TRANSACT_TYPE_DATA, buffer, sizeof(buffer));
+    lightos_pipe_send(&pipe, &test_transaction, LIGHTOS_PIPE_TRANSACT_TYPE_DATA, buffer, sizeof(buffer));
 
     printf("Got: %s\n", buffer);
+
+    destroy_lightos_pipe(&pipe);
+
     return 0;
 }

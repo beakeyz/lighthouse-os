@@ -40,6 +40,15 @@ BOOL get_handle_type(
     __IN__ HANDLE handle,
     __OUT__ HANDLE_TYPE* type);
 
+/*!
+ * @brief: Tries to 'expand' the type of a certain handle into something more specific
+ *
+ * Some types (Like HNDL_TYPE_OSS_OBJ) are 'basic' handle types, which can have multiple underlying
+ * objects, like files, devices, drivers, ect. 
+ */
+BOOL handle_expand_type(HANDLE handle);
+BOOL handle_reclassify(HANDLE handle, HANDLE_TYPE type);
+
 /*
  * Close this handle and make the kernel deallocate its resources
  */
@@ -59,6 +68,18 @@ BOOL close_handle(
 HANDLE open_handle(
     __IN__ const char* path,
     __IN__ __OPTIONAL__ HANDLE_TYPE type,
+    __IN__ DWORD flags,
+    __IN__ DWORD mode);
+
+/*!
+ * @brief: Open a handle relative to another handle
+ *
+ * This will always return a handle of the type HNDL_TYPE_OSS_OBJ.
+ * The handletype can be expanded by handle_expand_type
+ */
+HANDLE open_handle_rel(
+    __IN__ HANDLE rel_handle,
+    __IN__ const char* path,
     __IN__ DWORD flags,
     __IN__ DWORD mode);
 

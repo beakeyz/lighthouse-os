@@ -34,34 +34,31 @@ static void __on_handle_change(khandle_t* handle, bool bind)
 
         dir_close(handle->reference.dir);
         break;
-    case HNDL_TYPE_FILE: {
-        obj = handle->reference.file->m_obj;
-        // fallthrough
-    }
-    case HNDL_TYPE_OSS_OBJ: {
+    case HNDL_TYPE_FILE:
+        file_close(handle->reference.file);
+        break;
+    case HNDL_TYPE_OSS_OBJ:
+        obj = handle->reference.oss_obj;
+
         if (bind)
             break;
-
-        /* Check if the object was already set */
-        if (!obj)
-            obj = handle->reference.oss_obj;
 
         /* Close the object */
         ASSERT_MSG(oss_obj_close(obj) == 0, "Failed to close vobject!");
         break;
-    }
-    case HNDL_TYPE_SYSVAR: {
-        sysvar_t* pvar = handle->reference.pvar;
+    case HNDL_TYPE_SYSVAR: 
+        {
+            sysvar_t* pvar = handle->reference.pvar;
 
-        /*
-         * Make sure to release the reference of the variable
-         * since we took it when we opened it
-         */
-        if (!bind)
-            release_sysvar(pvar);
+            /*
+             * Make sure to release the reference of the variable
+             * since we took it when we opened it
+             */
+            if (!bind)
+                release_sysvar(pvar);
 
-        break;
-    }
+            break;
+        }
     case HNDL_TYPE_NONE:
     default:
         break;
@@ -203,16 +200,24 @@ void destroy_khandle_map(khandle_map_t* map)
 
 khandle_t* find_khandle(khandle_map_t* map, uint32_t user_handle)
 {
+    khandle_t* handle = nullptr;
+
+    mutex_lock(map->lock);
+
     if (!map)
-        return nullptr;
+        goto unlock_and_exit;
 
     if (user_handle >= map->max_count)
-        return nullptr;
+        goto unlock_and_exit;
 
     if (!__is_khandle_bound(&map->handles[user_handle]))
-        return nullptr;
+        goto unlock_and_exit;
 
-    return &map->handles[user_handle];
+    handle = &map->handles[user_handle];
+
+unlock_and_exit:
+    mutex_unlock(map->lock);
+    return handle;
 }
 
 static kerror_t __try_reallocate_handles(khandle_map_t* map, size_t new_max_count)
@@ -345,14 +350,22 @@ kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle)
 {
     khandle_t* _handle;
 
+    mutex_lock(map->lock);
+
     if (!map || !handle)
-        return -1;
+        goto error_and_unlock;
 
     _handle = &map->handles[handle->index];
 
     /* WTF */
     if (_handle != handle)
-        return -1;
+        goto error_and_unlock;
+
+    /*
+    map->next_free_index ^= _handle->index;
+    _handle->index ^= map->next_free_index;
+    map->next_free_index ^= _handle->index;
+    */
 
     map->next_free_index = _handle->index;
 
@@ -362,7 +375,12 @@ kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle)
      */
     destroy_khandle(_handle);
 
-    return (0);
+    mutex_unlock(map->lock);
+    return 0;
+
+error_and_unlock:
+    mutex_unlock(map->lock);
+    return -1;
 }
 
 kerror_t mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index)

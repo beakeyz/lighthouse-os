@@ -249,6 +249,64 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     return ret;
 }
 
+HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, uint32_t flags, uint32_t mode)
+{
+    proc_t* c_proc;
+    oss_obj_t* obj;
+    oss_node_t* rel_node;
+    khandle_t* rel_khandle;
+    khandle_t new_handle = { 0 };
+    HANDLE_TYPE type = HNDL_TYPE_OSS_OBJ;
+    HANDLE ret;
+
+    c_proc = get_current_proc();
+
+    if (kmem_validate_ptr(c_proc, (u64)path, sizeof(const char*)))
+        return HNDL_INVAL;
+
+    rel_khandle = find_khandle(&c_proc->m_handle_map, rel_handle);
+
+    if (!rel_khandle || !rel_khandle->reference.kobj)
+        return HNDL_INVAL;
+
+    switch (rel_khandle->type) {
+        case HNDL_TYPE_PROC:
+            if (!rel_khandle->reference.process->m_env)
+                return HNDL_INVAL;
+
+            rel_node = rel_khandle->reference.process->m_env->node;
+            break;
+        case HNDL_TYPE_PROC_ENV:
+            rel_node = rel_khandle->reference.penv->node;
+            break;
+        case HNDL_TYPE_DIR:
+            rel_node = rel_khandle->reference.dir->node;
+            break;
+        case HNDL_TYPE_PROFILE:
+            rel_node = rel_khandle->reference.profile->node;
+            break;
+        default:
+            rel_node = nullptr;
+            break;
+    }
+
+    if (!rel_node)
+        return HNDL_INVAL;
+
+    /* Try to find an object here */
+    if (oss_resolve_obj_rel(rel_node, path, &obj))
+        return HNDL_INVAL;
+
+    /* Initialize the handle */
+    init_khandle(&new_handle, &type, obj);
+
+    /* Bind the thing */
+    if (bind_khandle(&c_proc->m_handle_map, &new_handle, (u32*)&ret))
+        return HNDL_INVAL;
+
+    return ret;
+}
+
 vaddr_t sys_get_funcaddr(HANDLE lib_handle, const char __user* path)
 {
     proc_t* c_proc;
