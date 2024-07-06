@@ -24,6 +24,27 @@ BOOL proc_get_profile(HANDLE proc_handle, HANDLE* profile_handle)
 
 BOOL create_process(const char* name, FuncPtr entry, const char** args, size_t argc, DWORD flags)
 {
+    uintptr_t sys_result;
+
+    /* Cry to the kernel about it */
+    sys_result = syscall_2(SYSID_CREATE_PROC, (uintptr_t)name, (uintptr_t)entry);
+
+    if (sys_result == SYS_OK)
+        return TRUE;
+
+    return FALSE;
+}
+
+BOOL kill_process(HANDLE handle, DWORD flags)
+{
+    uintptr_t sys_result;
+
+    /* Cry to the kernel about it */
+    sys_result = syscall_2(SYSID_DESTROY_PROC, handle, flags);
+
+    if (sys_result == SYS_OK)
+        return TRUE;
+
     return FALSE;
 }
 

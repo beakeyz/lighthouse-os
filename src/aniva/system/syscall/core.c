@@ -12,6 +12,7 @@
 #include "sys_exit/sys_exit.h"
 #include "sys_open/sys_dir.h"
 #include "sys_open/sys_open.h"
+#include "sys_proc/sys_proc.h"
 #include "sys_rw/sys_rw.h"
 #include "system/syscall/sys_exec/sys_exec.h"
 
@@ -110,6 +111,8 @@ static syscall_t __static_syscalls[] = {
         SYSID_DEV_ENABLE,
         (sys_fn_t)sys_enable_device,
     },
+    [SYSID_CREATE_PROC] = { 0, SYSID_CREATE_PROC, (sys_fn_t)sys_create_proc },
+    [SYSID_DESTROY_PROC] = { 0, SYSID_DESTROY_PROC, (sys_fn_t)sys_destroy_proc },
 };
 
 static const size_t __static_syscall_count = (sizeof(__static_syscalls) / (sizeof(*__static_syscalls)));

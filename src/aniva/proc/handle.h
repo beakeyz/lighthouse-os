@@ -83,6 +83,7 @@ typedef struct khandle_map {
 /* Unconventional create, since this does not use the heap */
 khandle_map_t create_khandle_map_ex(uint32_t max_count);
 int init_khandle_map(khandle_map_t* map, uint32_t max_count);
+int copy_khandle_map(khandle_map_t* dst_map, khandle_map_t* src_map);
 
 /* Cleans up the maps handles */
 void destroy_khandle_map(khandle_map_t* map);

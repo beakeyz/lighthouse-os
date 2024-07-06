@@ -18,6 +18,7 @@
 #include "proc/kprocs/reaper.h"
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
+#include "sys/types.h"
 #include "system/processor/processor.h"
 #include "system/profile/profile.h"
 #include "system/resource.h"
@@ -108,6 +109,45 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     return proc;
 }
 
+extern void NORETURN __userproc_entry_wrapper(FuncPtr entry);
+
+static int _userproc_wrap_entry(proc_t* p, FuncPtr entry)
+{
+    int error;
+    thread_t* init_thread;
+    void* entry_buffer;
+    vaddr_t k_entry_buffer;
+    paddr_t p_entry_buffer;
+
+    /* Allocate a userbuffer where we can put the entry wrapper */
+    error = kmem_user_alloc_range(&entry_buffer, p, SMALL_PAGE_SIZE, NULL, KMEM_FLAG_WRITABLE);
+
+    if (error)
+        return error;
+
+    /* Grab the physical address of the buffer */
+    p_entry_buffer = kmem_to_phys(p->m_root_pd.m_root, (vaddr_t)entry_buffer);
+    k_entry_buffer = kmem_from_phys(p_entry_buffer, KERNEL_MAP_BASE);
+
+    /* Map this fucker to the kernel */
+    kmem_map_page(NULL, k_entry_buffer, p_entry_buffer, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+
+    /* Copy the entry wrapper stub into the buffer */
+    memcpy((void*)k_entry_buffer, __userproc_entry_wrapper, SMALL_PAGE_SIZE);
+
+    /* Unmap the page from the kernel */
+    kmem_unmap_page(NULL, k_entry_buffer);
+
+    /* Create a thread that starts at the entry wrapper stub */
+    init_thread = create_thread_for_proc(p, entry_buffer, (u64)entry, "main");
+
+    ASSERT_MSG(init_thread, "Failed to create main thread for cloned process!");
+
+    ASSERT(proc_add_thread(p, init_thread) == 0);
+
+    return 0;
+}
+
 /*!
  * @brief: Create a duplicate process
  *
@@ -119,7 +159,6 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
 int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** clone)
 {
     proc_t* cloneproc;
-    thread_t* init_thread;
 
     /* Create new 'clone' process */
     /* Copy handle map */
@@ -128,7 +167,8 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     /* Copy thread state */
     /* ... */
 
-    kernel_panic("TODO: proc_clone");
+    if (!p || !clone_entry || !clone_name || !clone)
+        return -KERR_INVAL;
 
     cloneproc = kmalloc(sizeof(*cloneproc));
 
@@ -140,7 +180,7 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     /* TODO: move away from the idea of idle threads */
     cloneproc->m_idle_thread = nullptr;
     cloneproc->m_parent = p->m_parent;
-    cloneproc->m_flags = cloneproc->m_flags | PROC_UNRUNNED;
+    cloneproc->m_flags = (cloneproc->m_flags | PROC_UNRUNNED) & ~PROC_FINISHED;
     cloneproc->m_thread_count = 1;
     cloneproc->m_threads = init_list();
     cloneproc->m_lock = create_mutex(NULL);
@@ -151,19 +191,16 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     oss_obj_register_child(cloneproc->obj, cloneproc, OSS_OBJ_TYPE_PROC, __destroy_proc);
 
     /* Copy the pagemap */
-    //_proc_init_pagemap(proc);
+    kmem_copy_page_dir(&cloneproc->m_root_pd, &p->m_root_pd);
 
     /* Copy the handle map */
-    // init_khandle_map(&proc->m_handle_map, KHNDL_DEFAULT_ENTRIES);
+    copy_khandle_map(&cloneproc->m_handle_map, &p->m_handle_map);
 
     /* Yoink the resource bundle */
     cloneproc->m_resource_bundle = share_resource_bundle(p->m_resource_bundle);
 
-    init_thread = create_thread_for_proc(cloneproc, clone_entry, NULL, "main");
-
-    ASSERT_MSG(init_thread, "Failed to create main thread for cloned process!");
-
-    ASSERT(proc_add_thread(cloneproc, init_thread) == 0);
+    /* Wrap the entry in a healthy environment and create a thread for it */
+    _userproc_wrap_entry(cloneproc, clone_entry);
 
     /* Yikes */
     if ((proc_register(cloneproc, p->m_env->profile))) {
@@ -171,6 +208,8 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
         return -KERR_INVAL;
     }
 
+    /* Export the bitch */
+    *clone = cloneproc;
     return 0;
 }
 
@@ -397,7 +436,14 @@ remove_hook_and_fail:
  */
 int proc_schedule(proc_t* proc, enum SCHEDULER_PRIORITY prio)
 {
-    return sched_add_proc(proc, prio);
+    ANIVA_STATUS stat;
+
+    stat = sched_add_proc(proc, prio);
+
+    if (stat == ANIVA_SUCCESS)
+        return 0;
+
+    return -KERR_INVAL;
 }
 
 /*

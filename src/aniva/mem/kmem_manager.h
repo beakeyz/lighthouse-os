@@ -293,6 +293,7 @@ list_t const* kmem_get_phys_ranges_list();
  * This can act as clean userspace directory creation, though a lot is still missing
  */
 int kmem_create_page_dir(page_dir_t* dir, uint32_t custom_flags, size_t initial_size);
+int kmem_copy_page_dir(page_dir_t* result, page_dir_t* src_dir);
 
 /*
  * Free this entire addressspace for future use

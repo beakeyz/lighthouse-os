@@ -469,11 +469,11 @@ ANIVA_STATUS sched_add_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio)
     if (!s)
         return ANIVA_FAIL;
 
-    /* NOTE: this only fails if we try to pause the scheduler before it has been started */
-    pause_scheduler();
-
     /* Make sure our thread is ready *.* */
     thread_prepare_context(proc->m_init_thread);
+
+    /* NOTE: this only fails if we try to pause the scheduler before it has been started */
+    pause_scheduler();
 
     frame = create_sched_frame(proc, prio);
 

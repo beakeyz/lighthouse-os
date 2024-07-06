@@ -1436,6 +1436,80 @@ int kmem_create_page_dir(page_dir_t* ret, uint32_t custom_flags, size_t initial_
     return 0;
 }
 
+/*!
+ * @brief: Copy the contents of a pagemap into a new pagemap
+ */
+int kmem_copy_page_dir(page_dir_t* result, page_dir_t* src_dir)
+{
+    int error;
+    pml_entry_t* dir;
+
+    error = kmem_create_page_dir(result, NULL, NULL);
+
+    if (error)
+        return error;
+
+    dir = src_dir->m_root;
+
+    const uintptr_t dir_entry_limit = SMALL_PAGE_SIZE / sizeof(pml_entry_t);
+
+    /* Don't go up into the kernel part */
+    for (uintptr_t i = 0; i < (dir_entry_limit >> 1); i++) {
+
+        /* Check the root pagedir entry (pml4 entry) */
+        if (!pml_entry_is_bit_set(&dir[i], PDE_PRESENT))
+            continue;
+
+        paddr_t pml4_entry_phys = kmem_get_page_base(dir[i].raw_bits);
+        pml_entry_t* pml4_entry = (pml_entry_t*)kmem_ensure_high_mapping(pml4_entry_phys);
+
+        for (uintptr_t j = 0; j < dir_entry_limit; j++) {
+
+            /* Check the second layer pagedir entry (pml3 entry) */
+            if (!pml_entry_is_bit_set(&pml4_entry[j], PDE_PRESENT))
+                continue;
+
+            paddr_t pdp_entry_phys = kmem_get_page_base(pml4_entry[j].raw_bits);
+            pml_entry_t* pdp_entry = (pml_entry_t*)kmem_ensure_high_mapping(pdp_entry_phys);
+
+            for (uintptr_t k = 0; k < dir_entry_limit; k++) {
+
+                /* Check the third layer pagedir entry (pml2 entry) */
+                if (!pml_entry_is_bit_set(&pdp_entry[k], PDE_PRESENT))
+                    continue;
+
+                paddr_t pd_entry_phys = kmem_get_page_base(pdp_entry[k].raw_bits);
+                pml_entry_t* pd_entry = (pml_entry_t*)kmem_ensure_high_mapping(pd_entry_phys);
+
+                for (uintptr_t l = 0; l < dir_entry_limit; l++) {
+
+                    /* Check the fourth layer pagedir entry (pml1 entry) */
+                    if (!pml_entry_is_bit_set(&pd_entry[l], PTE_PRESENT))
+                        continue;
+
+                    /* Now we've reached the pagetable entry. If it's present we can mark it free */
+                    paddr_t p_pt_entry = kmem_get_page_base(pd_entry[l].raw_bits);
+
+                    // KLOG_DBG("kmem copying mapping p:0x%llx -> v:0x%llx\n", p_pt_entry, ((l << PAGE_SHIFT) | (k << (PAGE_SHIFT + 9)) | (j << (PAGE_SHIFT + 18)) | (i << (PAGE_SHIFT + 27))));
+
+                    /* Map into the result root */
+                    kmem_map_page(
+                        result->m_root,
+                        ((l << PAGE_SHIFT) | (k << (PAGE_SHIFT + 9)) | (j << (PAGE_SHIFT + 18)) | (i << (PAGE_SHIFT + 27))),
+                        p_pt_entry,
+                        KMEM_CUSTOMFLAG_GET_MAKE,
+                        (pml_entry_is_bit_set(&pd_entry[l], PTE_USER) ? 0 : KMEM_FLAG_KERNEL) | (pml_entry_is_bit_set(&pd_entry[l], PTE_WRITABLE) ? KMEM_FLAG_WRITABLE : 0));
+                } // pt loop
+
+            } // pd loop
+
+        } // pdp loop
+
+    } // pml4 loop
+
+    return 0;
+}
+
 void kmem_copy_bytes_into_map(vaddr_t vbase, void* buffer, size_t size, pml_entry_t* map)
 {
 

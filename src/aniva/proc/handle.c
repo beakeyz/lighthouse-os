@@ -151,6 +151,34 @@ int init_khandle_map(khandle_map_t* ret, uint32_t max_count)
     return 0;
 }
 
+/*!
+ * @brief: Copy an entire khandle map into a new map
+ */
+int copy_khandle_map(khandle_map_t* dst_map, khandle_map_t* src_map)
+{
+    int error;
+
+    if (!dst_map || !src_map)
+        return -KERR_INVAL;
+
+    mutex_lock(src_map->lock);
+
+    error = init_khandle_map(dst_map, src_map->max_count);
+
+    if (error)
+        goto unlock_and_error;
+
+    dst_map->count = src_map->count;
+    dst_map->next_free_index = src_map->next_free_index;
+
+    /* Copy the handles */
+    memcpy(dst_map->handles, src_map->handles, sizeof(khandle_t) * dst_map->max_count);
+
+unlock_and_error:
+    mutex_unlock(src_map->lock);
+    return error;
+}
+
 khandle_map_t create_khandle_map_ex(uint32_t max_count)
 {
     khandle_map_t ret;

@@ -5,22 +5,23 @@
 align 4096
 __lib_trampoline: ; RDI: actual lib function
 
-  cmp rdi, 0
-  je __exit_with_error
+    cmp rdi, 0
+    je  __exit_with_error
 
-  call rdi
+    call rdi
 
-  ; At this point we want to preserve RAX
-  jmp __do_exit_syscall
+	;   At this point we want to preserve RAX
+	jmp __do_exit_syscall
 
-  ; When RDI is invalid, we land here
+	; When RDI is invalid, we land here
+
 __exit_with_error:
-  mov rax, -1
-  
-__do_exit_syscall:
-  ; NOTE: preserve the return value inside RAX to RBX and call exit
-  mov rbx, rax
-  mov rax, 1
-  syscall
+	mov rax, -1
 
-times (4096 - ($ - __lib_trampoline)) db 0
+__do_exit_syscall:
+	;   NOTE: preserve the return value inside RAX to RBX and call exit
+	mov rbx, rax
+	mov rax, 1
+	syscall
+
+	times (4096 - ($ - __lib_trampoline)) db 0
