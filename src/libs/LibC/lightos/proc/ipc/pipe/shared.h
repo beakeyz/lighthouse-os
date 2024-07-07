@@ -5,11 +5,11 @@
 #define LIGHTOS_UPIPE_DRIVERNAME "upi"
 #define LIGHTOS_UPIPE_DRIVER "service/" LIGHTOS_UPIPE_DRIVERNAME
 
-#define LIGHTOS_UPIPE_FLAGS_MULTIDUPLEX 0x00000001 
+#define LIGHTOS_UPIPE_FLAGS_FULLDUPLEX 0x00000001 
 #define LIGHTOS_UPIPE_FLAGS_UNIFORM 0x00000002
 
 /*
- * Multiduplex IPC struct
+ * full/signle duplex IPC struct
  *
  * Processes can send transactions over the pipe and the other processes on the pipe
  * can choose to accept or deny the transactions.
@@ -35,6 +35,33 @@ typedef struct lightos_pipe {
     /* The maximum number of listeners this pipe may have. Zero for infinite */
     unsigned int max_listeners;
 } lightos_pipe_t;
+
+/*
+ * Info dump of a certain pipe
+ */
+typedef struct lightos_pipe_dump {
+    HANDLE pipe;
+    /* The number of active transactions currently in the pipe */
+    unsigned int n_cur_transact;
+    /* The number of current connections on the pipe */
+    unsigned int n_connection;
+    /*
+     * Data throughput rate from 0% to 100%, where a higher number means more accepted transactions
+     * per single transaction. i.e. averate 'acceptance rate' of all transaction over all connections
+     *
+     * Calculation: sum((n_accept(i) / n_transact(i)) * 100, i -> n_connection) / n_connection
+     */
+    unsigned int acceptance_rate;
+    /* The number of accepted transactions */
+    unsigned long long n_accept;
+    /* The number of denied transactions */
+    unsigned long long n_deny;
+} lightos_pipe_dump_t;
+
+static inline unsigned long long lightos_pipe_n_total_transact(lightos_pipe_dump_t* dump)
+{
+    return (dump->n_deny + dump->n_accept);
+}
 
 enum LIGHTOS_PIPE_TRANSACT_TYPE {
     /* Placeholder for empty transaction structs */
@@ -69,6 +96,7 @@ static inline unsigned int lightos_pipe_transact_get_n_handle(lightos_pipe_trans
 #define LIGHTOS_UPI_MSG_ACCEPT_TRANSACT 5
 #define LIGHTOS_UPI_MSG_DENY_TRANSACT 6
 #define LIGHTOS_UPI_MSG_PREVIEW_TRANSACT 7
+#define LIGHTOS_UPI_MSG_DUMP_PIPE 8
 
 /*
  * Sent to the driver when a transaction is sent

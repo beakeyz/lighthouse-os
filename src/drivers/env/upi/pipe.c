@@ -132,6 +132,10 @@ u64 upi_send_transact(proc_t* proc, lightos_pipe_ft_t* ft)
     if (!pipe)
         return DRV_STAT_INVAL;
 
+    /* If this pipe is not fullduplex, only the creator of the pipe can send over the pipe */
+    if (proc != pipe->creator_proc && (pipe->flags & LIGHTOS_UPIPE_FLAGS_FULLDUPLEX) != LIGHTOS_UPIPE_FLAGS_FULLDUPLEX)
+        return DRV_STAT_INVAL;
+
     /* Handle the signal transaction if it needs imediate attention */
     if (ft->transaction.transaction_type == LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL)
         upi_maybe_handle_signal_transact(proc, ft);
@@ -211,6 +215,9 @@ u64 upi_transact_accept(proc_t* proc, lightos_pipe_accept_t* accept)
     listener->n_accepted_transacts++;
     listener->n_transacts++;
 
+    /* Increment data on the pipe as well */
+    pipe->n_total_accept++;
+
     /* Copy the data in the ft into the accept buffer */
     switch (c_ft->transaction.transaction_type) {
         case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
@@ -279,6 +286,42 @@ u64 upi_transact_deny(proc_t* proc, HANDLE handle)
     /* Increment the data on this connection */
     listener->n_transacts++;
 
+    /* Also increment data on the indevidual pipe */
+    pipe->n_total_deny++;
+
     /* Maybe remove this transaction if its done */
     return upi_pipe_check_transaction(pipe, c_ft_idx);
+}
+
+u64 upi_dump_pipe(proc_t* proc, lightos_pipe_dump_t* dump)
+{
+    upi_pipe_t* pipe;
+    u64 n_total_transaction;
+
+    pipe = get_upi_pipe(proc, dump->pipe, NULL);
+
+    if (!pipe)
+        return DRV_STAT_INVAL;
+
+    dump->n_connection = pipe->n_listeners;
+    dump->n_cur_transact = pipe->n_ft;
+    dump->n_deny = pipe->n_total_deny;
+    dump->n_accept = pipe->n_total_accept;
+
+    dump->acceptance_rate = 0;
+
+    n_total_transaction = pipe->n_total_deny + pipe->n_total_accept;
+
+    /* Calculate the average transaction acceptance rate for this pipe */
+    for (upi_listener_t* l = pipe->listeners; l != nullptr; l = l->next)
+        /* Sum up the acceptance rate per connection */
+        dump->acceptance_rate += (l->n_accepted_transacts * 100) / (n_total_transaction * 100);
+
+    /*
+     * Devide by the amount of connections to get the average across all connections 
+     * FIXME: Would it be nice to use floating point math here?
+     */
+    dump->acceptance_rate /= pipe->n_listeners;
+
+    return 0;
 }

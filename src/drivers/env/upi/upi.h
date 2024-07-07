@@ -42,6 +42,11 @@ typedef struct upi_pipe {
     /* Flags for this pipe */
     u32 flags;
 
+    /* Total number of accepted transactions that have ran through this pipe */
+    u64 n_total_accept;
+    /* Total number of denied transactions that have ran through this pipe */
+    u64 n_total_deny;
+
     /* Index where new packets will be put */
     u32 ft_w_idx;
     /* Number of fts present in the buffer */
@@ -91,6 +96,7 @@ extern u64 upi_send_transact(proc_t* proc, lightos_pipe_ft_t* ft);
 extern u64 upi_transact_preview(proc_t* proc, lightos_pipe_ft_t* tranact);
 extern u64 upi_transact_accept(proc_t* proc, lightos_pipe_accept_t* accept);
 extern u64 upi_transact_deny(proc_t* proc, HANDLE handle);
+extern u64 upi_dump_pipe(proc_t* proc, lightos_pipe_dump_t* dump);
 
 extern u64 upi_pipe_add_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft);
 extern u64 upi_pipe_check_transaction(upi_pipe_t* pipe, u32 idx);

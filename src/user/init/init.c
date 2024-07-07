@@ -1,7 +1,8 @@
-#include "lightos/handle.h"
 #include "lightos/proc/ipc/pipe/pipe.h"
 #include "lightos/proc/ipc/pipe/shared.h"
 #include "lightos/proc/process.h"
+#include "time.h"
+#include "unistd.h"
 #include <lightos/fs/dir.h>
 #include <lightos/memory/alloc.h>
 #include <stdio.h>
@@ -11,25 +12,16 @@
 int epic_sauce()
 {
     int error;
-    HANDLE this_proc;
     char* buffer;
     lightos_pipe_t pipe;
     lightos_pipe_transaction_t transaction;
 
     printf("Epic sauce\n");
 
-    this_proc = open_proc("Runtime/User/init_env/init", HNDL_FLAG_R, NULL);
-
-    if (!handle_verify(this_proc))
-        return -43;
-
-    error = lightos_pipe_connect(&pipe, this_proc, "test_pipe");
+    error = lightos_pipe_connect(&pipe, "Runtime/User/init_env/test_pipe");
 
     if (error)
-        return -55;
-
-    /* Close the process handle */
-    close_handle(this_proc);
+        return error;
 
     /* Keep polling for transactions */
     error = lightos_pipe_await_transaction(&pipe, &transaction);
@@ -55,7 +47,7 @@ free_disconnect_and_return:
 disconnect_and_return:
     /* Disconnect from the pipe */
     lightos_pipe_disconnect(&pipe);
-    return -45545;
+    return error;
 }
 
 /*
@@ -77,10 +69,11 @@ int main()
 {
     int error;
     lightos_pipe_t pipe;
+    lightos_pipe_dump_t dump;
     lightos_pipe_transaction_t test_transaction;
     char buffer[8] = { 0 };
 
-    error = init_lightos_pipe(&pipe, "test_pipe", NULL, NULL);
+    error = init_lightos_pipe(&pipe, "test_pipe", LIGHTOS_UPIPE_FLAGS_FULLDUPLEX, NULL, NULL);
 
     if (error)
         return error;
@@ -95,9 +88,18 @@ int main()
 
     lightos_pipe_send(&pipe, &test_transaction, LIGHTOS_PIPE_TRANSACT_TYPE_DATA, buffer, sizeof(buffer));
 
-    gets(buffer, sizeof(buffer) - 1);
+    printf("Waiting\n");
 
-    printf("Got: %s\n", buffer);
+    do {
+        error = lightos_pipe_dump(&pipe, &dump);
+
+        if (error)
+            break;
+
+        usleep(1000);
+    } while (lightos_pipe_n_total_transact(&dump) == 0);
+
+    printf("Done!\n");
 
     destroy_lightos_pipe(&pipe);
 

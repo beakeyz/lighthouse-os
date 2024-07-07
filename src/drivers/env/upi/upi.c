@@ -174,6 +174,13 @@ upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t __user* upipe)
 {
     upi_pipe_t* ret;
 
+    if (!upipe)
+        return nullptr;
+
+    /* Can't have a uniform pipe without a datasize */
+    if (((upipe->flags & LIGHTOS_UPIPE_FLAGS_UNIFORM) == LIGHTOS_UPIPE_FLAGS_UNIFORM) && !upipe->data_size)
+        return nullptr;
+
     ret = zalloc_fixed(_upi_pipe_allocator);
 
     if (!ret)
@@ -291,6 +298,11 @@ u64 upi_msg(struct aniva_driver *this, driver_control_code_t dcc, void *in_buf, 
                 return DRV_STAT_INVAL;
 
             return upi_transact_preview(c_proc, (lightos_pipe_ft_t*)in_buf);
+        case LIGHTOS_UPI_MSG_DUMP_PIPE:
+            if (in_bsize != sizeof(lightos_pipe_dump_t))
+                return DRV_STAT_INVAL;
+
+            return upi_dump_pipe(c_proc, (lightos_pipe_dump_t*)in_buf);
     }
 
     return DRV_STAT_INVAL;

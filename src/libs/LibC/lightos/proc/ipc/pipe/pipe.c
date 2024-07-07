@@ -113,7 +113,15 @@ static inline int _lightos_pipe_preview(lightos_pipe_ft_t* ft)
     return -1;
 }
 
-int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners)
+static inline int _lightos_pipe_dump(lightos_pipe_dump_t* dump)
+{
+    if (driver_send_msg(upi_handle, LIGHTOS_UPI_MSG_DUMP_PIPE, dump, sizeof(*dump)))
+        return 0;
+
+    return -1;
+}
+
+int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize)
 {
     memset(pipe, 0, sizeof(*pipe));
 
@@ -121,9 +129,18 @@ int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD
     strncpy((char*)pipe->name, name, sizeof(pipe->name) - 1);
     pipe->flags = flags;
     pipe->max_listeners = max_listeners;
+    pipe->data_size = datasize;
 
     /* The driver will finalise pipe creation and give us a handle */
     return _lightos_pipe_create(pipe);
+}
+
+int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize)
+{
+    if (!datasize)
+        return -EINVAL;
+
+    return init_lightos_pipe(pipe, name, flags | LIGHTOS_UPIPE_FLAGS_UNIFORM, max_listeners, datasize);
 }
 
 int destroy_lightos_pipe(lightos_pipe_t* pipe)
@@ -131,14 +148,26 @@ int destroy_lightos_pipe(lightos_pipe_t* pipe)
     return _lightos_pipe_destroy(pipe->pipe);
 }
 
-int lightos_pipe_connect(lightos_pipe_t* pipe, HANDLE process, const char* name)
+int lightos_pipe_dump(lightos_pipe_t* pipe, lightos_pipe_dump_t* pdump)
+{
+    if (!pipe || !pdump)
+        return -EINVAL;
+
+    /* Tell the driver what pipe we want to dump */
+    pdump->pipe = pipe->pipe;
+
+    /* Ask the driver to dump info about the pipe into the dump struct */
+    return _lightos_pipe_dump(pdump);
+}
+
+int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path)
 {
     HANDLE pipe_handle;
 
-    if (!pipe || !name)
+    if (!pipe || !path)
         return -EINVAL;
 
-    pipe_handle = open_handle_rel(process, name, HNDL_FLAG_RW, NULL);
+    pipe_handle = open_handle(path, HNDL_TYPE_OSS_OBJ, HNDL_FLAG_RW, HNDL_MODE_NORMAL);
 
     /* Could not find this pipe */
     if (!handle_verify(pipe_handle))
@@ -150,6 +179,36 @@ int lightos_pipe_connect(lightos_pipe_t* pipe, HANDLE process, const char* name)
     /* Hihi */
     pipe->pipe = pipe_handle;
 
+    /*
+     * The driver will copy all the needed information about the pipe
+     * into our structure
+     */
+    return _lightos_pipe_connect(pipe);
+}
+
+int lightos_pipe_connect_rel(lightos_pipe_t* pipe, HANDLE rel_handle, const char* name)
+{
+    HANDLE pipe_handle;
+
+    if (!pipe || !name)
+        return -EINVAL;
+
+    pipe_handle = open_handle_rel(rel_handle, name, HNDL_FLAG_RW, NULL);
+
+    /* Could not find this pipe */
+    if (!handle_verify(pipe_handle))
+        return -EPIPE;
+
+    /* Clear pipe */
+    memset(pipe, 0, sizeof(*pipe));
+
+    /* Hihi */
+    pipe->pipe = pipe_handle;
+
+    /*
+     * The driver will copy all the needed information about the pipe
+     * into our structure
+     */
     return _lightos_pipe_connect(pipe);
 }
 

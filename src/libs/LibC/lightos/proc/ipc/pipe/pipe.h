@@ -13,15 +13,19 @@
  *
  * @pipe: The pipe struct to initialize
  */
-int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners);
+int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
+int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
 
 int destroy_lightos_pipe(lightos_pipe_t* pipe);
+
+int lightos_pipe_dump(lightos_pipe_t* pipe, lightos_pipe_dump_t* pdump);
 
 /*!
  * @brief: Connect to an already existing pipe
  *
  */
-int lightos_pipe_connect(lightos_pipe_t* pipe, HANDLE process, const char* name);
+int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path);
+int lightos_pipe_connect_rel(lightos_pipe_t* pipe, HANDLE rel_handle, const char* name);
 int lightos_pipe_disconnect(lightos_pipe_t* pipe);
 
 int lightos_pipe_send(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_transaction, int type, void* pdata, size_t size);
