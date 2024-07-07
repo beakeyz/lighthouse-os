@@ -154,6 +154,10 @@ u64 upi_pipe_remove_transaction(upi_pipe_t* pipe, u32 ft_idx)
 {
     lightos_pipe_ft_t* ft;
 
+    /* Can't do shit */
+    if (!pipe->n_ft)
+        return DRV_STAT_NOT_FOUND;
+
     if (ft_idx >= pipe->ft_capacity)
         return DRV_STAT_OUT_OF_RANGE;
 
@@ -169,6 +173,7 @@ u64 upi_pipe_remove_transaction(upi_pipe_t* pipe, u32 ft_idx)
     ft->next_free = pipe->next_free_ft;
     /* This ft is now the first next free ft */
     pipe->next_free_ft = ft_idx;
+    pipe->n_ft--;
 
     return 0;
 }

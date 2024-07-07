@@ -28,10 +28,14 @@ int epic_sauce()
     if (error)
         return -55;
 
+    /* Close the process handle */
+    close_handle(this_proc);
+
     /* Keep polling for transactions */
-    do {
-        error = lightos_pipe_preview(&pipe, &transaction);
-    } while (error);
+    error = lightos_pipe_await_transaction(&pipe, &transaction);
+
+    if (error)
+        goto disconnect_and_return;
 
     /* Allocate our own buffer */
     buffer = malloc(transaction.data_size);
@@ -48,6 +52,7 @@ int epic_sauce()
 free_disconnect_and_return:
     free(buffer);
 
+disconnect_and_return:
     /* Disconnect from the pipe */
     lightos_pipe_disconnect(&pipe);
     return -45545;
@@ -73,7 +78,7 @@ int main()
     int error;
     lightos_pipe_t pipe;
     lightos_pipe_transaction_t test_transaction;
-    char buffer[8];
+    char buffer[8] = { 0 };
 
     error = init_lightos_pipe(&pipe, "test_pipe", NULL, NULL);
 
@@ -82,9 +87,15 @@ int main()
 
     create_process("Epic sauce", (FuncPtr)epic_sauce, NULL, NULL, NULL);
 
-    gets(buffer, sizeof(buffer));
+    buffer[0] = 'h';
+    buffer[1] = 'e';
+    buffer[2] = 'l';
+    buffer[3] = 'l';
+    buffer[4] = 'o';
 
     lightos_pipe_send(&pipe, &test_transaction, LIGHTOS_PIPE_TRANSACT_TYPE_DATA, buffer, sizeof(buffer));
+
+    gets(buffer, sizeof(buffer) - 1);
 
     printf("Got: %s\n", buffer);
 

@@ -104,8 +104,8 @@ void destroy_upi_pipe(upi_pipe_t* pipe);
 upi_pipe_t* get_upi_pipe(proc_t* proc, HANDLE handle, khandle_t** pkhandle);
 bool upi_pipe_can_proc_connect(upi_pipe_t* pipe, proc_t* proc);
 
-upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe);
-void destroy_upi_listener(upi_listener_t* listener);
+upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe, HANDLE pipe_handle);
+void destroy_upi_listener(upi_pipe_t* pipe, upi_listener_t* listener);
 
 
 upi_listener_t* get_upi_listener(upi_pipe_t* pipe, proc_t* proc);

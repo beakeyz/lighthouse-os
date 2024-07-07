@@ -1,6 +1,7 @@
 #include "dev/driver.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/ipc/pipe/shared.h"
+#include "oss/obj.h"
 #include "proc/handle.h"
 #include "upi.h"
 
@@ -51,11 +52,17 @@ u64 upi_destroy_pipe(proc_t* proc, HANDLE pipe_handle)
     if (pipe->creator_proc != proc)
         return DRV_STAT_INVAL;
 
-    /* This should release the 'hopefuly' only reference to the pipe obj */
-    unbind_khandle(&proc->m_handle_map, pipe_khandle);
+    /* completely fucking murder this pipe and its connections */
+    destroy_upi_pipe(pipe);
     return 0;
 }
 
+/*!
+ * @brief: Connect a process to a userpipe
+ *
+ * The upipe struct passed by the process should already contain a handle from the requesting
+ * process to the pipe. We use this to link to the listener
+ */
 u64 upi_connect_pipe(proc_t* proc, lightos_pipe_t* upipe)
 {
     upi_pipe_t* pipe;
@@ -71,8 +78,11 @@ u64 upi_connect_pipe(proc_t* proc, lightos_pipe_t* upipe)
         return DRV_STAT_INVAL;
 
     /* We may connect, do da thing */
-    if (!create_upi_listener(proc, pipe))
+    if (!create_upi_listener(proc, pipe, upipe->pipe))
         return DRV_STAT_INVAL;
+
+    /* Reference the pipe object */
+    oss_obj_ref(pipe->obj);
 
     upipe->max_listeners= pipe->max_listeners;
     upipe->flags = pipe->flags;
@@ -100,7 +110,7 @@ u64 upi_disconnect_pipe(proc_t* proc, HANDLE pipe_handle)
         return DRV_STAT_INVAL;
 
     /* Murder the listener */
-    destroy_upi_listener(listener);
+    destroy_upi_listener(pipe, listener);
     return 0;
 }
 
@@ -158,10 +168,6 @@ u64 upi_transact_preview(proc_t* proc, lightos_pipe_ft_t* tranact)
 
         c_ft = upi_listener_get_ft(pipe, listener, NULL);
     }
-
-    /* No new transaction */
-    if (c_ft->transaction.transaction_type == 0)
-        return DRV_STAT_NODATA;
 
     /* Copy the transaction into the ft struct */
     memcpy(&tranact->transaction, &c_ft->transaction, sizeof(lightos_pipe_transaction_t));

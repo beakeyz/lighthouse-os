@@ -15,7 +15,6 @@
 #include <proc/env.h>
 #include "oss/obj.h"
 #include "proc/handle.h"
-#include "sync/mutex.h"
 #include "sys/types.h"
 
 static zone_allocator_t* _upi_pipe_allocator = NULL;
@@ -50,7 +49,7 @@ static inline void upi_pipe_unlink_listener(upi_pipe_t* pipe, upi_listener_t* li
  * opened the pipe and have a handle to it.
  * @pipe_handle: The handle of @proc to the pipe it wishes to connect to
  */
-upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe)
+upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe, HANDLE pipe_handle)
 {
     upi_listener_t* ret;
 
@@ -64,6 +63,7 @@ upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe)
 
     memset(ret, 0, sizeof(*ret));
 
+    ret->pipe_handle = pipe_handle;
     ret->proc = proc;
     ret->ft_idx = pipe->ft_w_idx;
 
@@ -77,13 +77,15 @@ upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe)
  *
  * This also unlinks the listener from its pipe after the handle has been yoinked
  */
-void destroy_upi_listener(upi_listener_t* listener)
+void destroy_upi_listener(upi_pipe_t* pipe, upi_listener_t* listener)
 {
-    upi_pipe_t* pipe;
     khandle_t* handle;
 
     if (!listener || !listener->proc)
         return;
+
+    /* Unlink the listener from it's pipe */
+    upi_pipe_unlink_listener(pipe, listener);
 
     mutex_lock(listener->proc->m_handle_map.lock);
 
@@ -94,15 +96,6 @@ void destroy_upi_listener(upi_listener_t* listener)
 
     if (unbind_khandle(&listener->proc->m_handle_map, handle))
         goto free_and_exit;
-
-    /* Grab the pipe */
-    pipe = get_upi_pipe(listener->proc, listener->pipe_handle, NULL);
-
-    if (!pipe)
-        goto free_and_exit;
-
-    /* Unlink the listener from it's pipe */
-    upi_pipe_unlink_listener(pipe, listener);
 
 free_and_exit:
     mutex_unlock(listener->proc->m_handle_map.lock);
@@ -144,7 +137,14 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
 {
     upi_listener_t* c_listener, *next_listener;
 
-    ASSERT_MSG(pipe, "Recieved null???");
+    ASSERT_MSG(pipe, "__destroy_upi_pipe: Recieved null pipe???");
+
+    /* Remove all instances of this pipe from the creator_procs handle map */
+    khandle_map_remove(&pipe->creator_proc->m_handle_map, HNDL_TYPE_OSS_OBJ, pipe->obj);
+
+    /* Make sure these fuckers aren't gonna fuck us either */
+    for (upi_listener_t* i = pipe->listeners; i != nullptr; i = i->next)
+        khandle_map_remove(&i->proc->m_handle_map, HNDL_TYPE_OSS_OBJ, pipe->obj);
 
     if (pipe->uniform_allocator)
         destroy_zone_allocator(pipe->uniform_allocator, false);
@@ -157,7 +157,7 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
         next_listener = c_listener->next;
 
         /* Destroy this listener */
-        destroy_upi_listener(c_listener);
+        destroy_upi_listener(pipe, c_listener);
 
         c_listener = next_listener;
     }

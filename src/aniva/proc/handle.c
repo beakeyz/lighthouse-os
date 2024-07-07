@@ -82,15 +82,22 @@ void init_khandle(khandle_t* out_handle, khandle_type_t* type, void* ref)
     __on_handle_change(out_handle, true);
 }
 
+static inline void __destroy_khandle(khandle_t* handle)
+{
+    memset(handle, 0, sizeof(khandle_t));
+    handle->index = KHNDL_INVALID_INDEX;
+}
+
 void destroy_khandle(khandle_t* handle)
 {
     if (!handle)
         return;
 
+    /* Make sure to handle the state change on this handle inside the object */
     __on_handle_change(handle, false);
 
-    memset(handle, 0, sizeof(khandle_t));
-    handle->index = KHNDL_INVALID_INDEX;
+    /* Actually clear the handle internally */
+    __destroy_khandle(handle);
 }
 
 /*!
@@ -381,6 +388,30 @@ kerror_t unbind_khandle(khandle_map_t* map, khandle_t* handle)
 error_and_unlock:
     mutex_unlock(map->lock);
     return -1;
+}
+
+/*!
+ * @brief: Removes all instances of @addr of type @type
+ *
+ * Does not do any kind of object cleanup. Caller is responsable for that
+ */
+kerror_t khandle_map_remove(khandle_map_t* map, HANDLE_TYPE type, void* addr)
+{
+    if (!map || !map->lock)
+        return -KERR_INVAL;
+
+    mutex_lock(map->lock);
+
+    for (u32 i = 0; i < map->max_count; i++) {
+        if (map->handles[i].type != type || map->handles[i].reference.kobj != addr)
+            continue;
+
+        __destroy_khandle(&map->handles[i]);
+    }
+
+    mutex_unlock(map->lock);
+
+    return 0;
 }
 
 kerror_t mutate_khandle(khandle_map_t* map, khandle_t handle, uint32_t index)

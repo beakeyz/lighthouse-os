@@ -76,6 +76,8 @@ void destroy_oss_obj(oss_obj_t* obj)
     void* priv = obj->priv;
     oss_node_entry_t* entry = NULL;
 
+    KLOG_DBG("Destroying oss obj %s\n", obj->name);
+
     /* If we are still attached, might as well remove ourselves */
     if (obj->parent)
         oss_node_remove_entry(obj->parent, obj->name, &entry);
@@ -147,7 +149,7 @@ void oss_obj_ref(oss_obj_t* obj)
 
 void oss_obj_unref(oss_obj_t* obj)
 {
-    int64_t val;
+    uint64_t val;
 
     mutex_lock(obj->lock);
 

@@ -6,6 +6,8 @@
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/ipc/pipe/shared.h"
+#include "time.h"
+#include "unistd.h"
 
 static HANDLE upi_handle = HNDL_INVAL;
 
@@ -220,6 +222,27 @@ int lightos_pipe_preview(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_tra
     error = _lightos_pipe_preview(&ft);
 
     *p_transaction = ft.transaction;
+
+    return error;
+}
+
+int lightos_pipe_await_transaction(lightos_pipe_t* pipe, lightos_pipe_transaction_t* ptransaction)
+{
+    int error;
+    lightos_pipe_transaction_t transact;
+
+    do {
+        error = lightos_pipe_preview(pipe, &transact);
+
+        if (error)
+            break;
+
+        // TODO: Yield
+        usleep(1000);
+    } while (!lightos_transaction_is_valid(&transact));
+
+    if (ptransaction)
+        *ptransaction = transact;
 
     return error;
 }
