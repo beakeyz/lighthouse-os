@@ -3,6 +3,7 @@
 #include "irq/interrupts.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
+#include "libk/stddef.h"
 #include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -17,7 +18,7 @@
 static ALWAYS_INLINE sched_frame_t* create_sched_frame(proc_t* proc, enum SCHEDULER_PRIORITY prio);
 static ALWAYS_INLINE void destroy_sched_frame(sched_frame_t* frame);
 static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_t* proc);
-static thread_t* pull_runnable_thread_sched_frame(sched_frame_t* ptr);
+static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* ptr);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
 
@@ -125,7 +126,7 @@ void start_scheduler(void)
  *
  * This requeues the current first process and cycles untill it finds one it likes
  */
-static sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
+static inline sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
 {
     sched_frame_t* current;
 
@@ -164,7 +165,7 @@ static sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
  */
 bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
 {
-    static uint32_t reschedule_limit = 8;
+    static uint32_t reschedule_limit = 3;
     uint32_t reschedule_count;
     thread_t* next_thread;
     thread_t* cur_thread;
@@ -603,7 +604,7 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_t* p)
     if (!s)
         return nullptr;
 
-    for (frame = s->processes.dequeue; frame; frame = frame->previous) {
+    for (frame = s->processes.dequeue; frame; frame = frame->next) {
 
         if (frame->m_proc == p)
             break;
@@ -621,85 +622,70 @@ static ALWAYS_INLINE sched_frame_t* find_sched_frame(proc_t* p)
  *
  * Returning nullptr means that this thread does not have any threads left. Let's just kill it at that point...
  */
-thread_t* pull_runnable_thread_sched_frame(sched_frame_t* ptr)
+static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* ptr)
 {
     uint32_t c_idx;
-    thread_t* next_thread = nullptr;
+    uint32_t c_abolute_idx;
     uint32_t start_idx = ptr->m_scheduled_thread_index + 1;
+    thread_t* next_thread = nullptr;
     proc_t* proc = ptr->m_proc;
 
-    if (!proc->m_threads->m_length)
-        return nullptr;
+    switch (proc->m_threads->m_length) {
+        case 0:
+            return nullptr;
+        case 1:
+            return proc->m_init_thread;
+        default:
+            /* Clear the flag and run initializer */
+            if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {
+                proc->m_flags &= ~PROC_UNRUNNED;
 
-    /* Clear the flag and run initializer */
-    if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {
-        proc->m_flags &= ~PROC_UNRUNNED;
+                /* We require the initial thread to be in the threads list */
+                ptr->m_scheduled_thread_index = 0;
 
-        /* We require the initial thread to be in the threads list */
-        ptr->m_scheduled_thread_index = 0;
+                return proc->m_init_thread;
+            }
 
-        return proc->m_init_thread;
+            c_idx = 0;
+
+            do {
+                c_abolute_idx = (start_idx + c_idx) % proc->m_threads->m_length;
+                next_thread = list_get(proc->m_threads, c_abolute_idx);
+
+                if (!next_thread)
+                    goto cycle;
+
+                /* Could happen when a threads maxticks are changed */
+                if (thread_ticksleft(next_thread) <= 0)
+                    goto cycle;
+
+                switch (next_thread->m_current_state) {
+                case RUNNABLE:
+                    // potential good thread so TODO: make an algorithm that chooses the optimal thread here
+                    // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
+                    ptr->m_scheduled_thread_index = c_abolute_idx;
+                    next_thread->m_current_state = RUNNABLE;
+
+                    return next_thread;
+                case DYING:
+
+                    /* Register the thread for certain death */
+                    reaper_register_thread(next_thread);
+
+                    break;
+                default:
+                    break;
+                }
+
+            cycle:
+                c_idx++;
+                /* Loop until we've completely scanned the entire scan list once */
+            } while (c_idx < proc->m_threads->m_length);
+            break;
     }
 
-    c_idx = 0;
-
-    do {
-        next_thread = list_get(proc->m_threads, (start_idx + c_idx) % proc->m_threads->m_length);
-
-        if (!next_thread) {
-
-            /* If there are no threads left, this process is just dead */
-            if (!proc->m_threads->m_length)
-                return nullptr;
-
-            /*
-             * FIXME: in stead of switching to an idle thread, we should mark the process as idle, and skip it
-             * from this point onwards until it gets woken up
-             */
-            next_thread = ptr->m_proc->m_idle_thread;
-
-            printf("Failed to get a thread from the process: %s\n", proc->m_name);
-            printf("Init thread: %s\n", proc->m_init_thread ? proc->m_init_thread->m_name : "null");
-            printf("First thread: %s\n", ((thread_t*)list_get(proc->m_threads, 0))->m_name);
-
-            kernel_panic("TODO: the scheduler failed to pull a thread from the process so we should do sm about it!");
-
-            /* FIXME: we can prob allow this, because we can just kill the process */
-            ASSERT_MSG(next_thread, "FATAL: Tried to idle a process without it having an idle-thread");
-            ASSERT_MSG(next_thread->m_current_state == RUNNABLE, "FATAL: the idle thread has not been marked runnable for some reason");
-            break;
-        }
-
-        /* Could happen when a threads maxticks are changed */
-        if (thread_ticksleft(next_thread) <= 0)
-            goto cycle;
-
-        switch (next_thread->m_current_state) {
-        case RUNNABLE:
-            // potential good thread so TODO: make an algorithm that chooses the optimal thread here
-            // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
-            ptr->m_scheduled_thread_index = (start_idx + c_idx) % proc->m_threads->m_length;
-
-            next_thread->m_current_state = RUNNABLE;
-
-            return next_thread;
-        case DYING:
-
-            /* Register the thread for certain death */
-            reaper_register_thread(next_thread);
-
-            /* Let's recurse here, in order to update our loop */
-            return pull_runnable_thread_sched_frame(ptr);
-        default:
-            break;
-        }
-
-    cycle:
-        c_idx++;
-        /* Loop until we've completely scanned the entire scan list once */
-    } while (c_idx < proc->m_threads->m_length);
-
-    return nullptr;
+    /* Return the current process... */
+    return list_get(proc->m_threads, ptr->m_scheduled_thread_index);
 }
 
 /*!

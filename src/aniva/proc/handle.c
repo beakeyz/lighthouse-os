@@ -35,6 +35,9 @@ static void __on_handle_change(khandle_t* handle, bool bind)
         dir_close(handle->reference.dir);
         break;
     case HNDL_TYPE_FILE:
+        if (bind)
+            break;
+
         file_close(handle->reference.file);
         break;
     case HNDL_TYPE_OSS_OBJ:

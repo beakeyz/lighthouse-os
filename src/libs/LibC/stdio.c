@@ -245,8 +245,10 @@ FILE* fopen(const char* path, const char* modes)
 
     ret = malloc(sizeof(*ret));
 
-    if (!ret)
+    if (!ret) {
+        close_handle(hndl);
         return nullptr;
+    }
 
     memset(ret, 0, sizeof(*ret));
 
@@ -270,7 +272,8 @@ int fclose(FILE* file)
 
     fflush(file);
 
-    syscall_1(SYSID_CLOSE, file->handle);
+    if (!close_handle(file->handle))
+        return -EBADFD;
 
     if (file->w_buff)
         free(file->w_buff);

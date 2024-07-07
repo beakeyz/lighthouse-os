@@ -1,7 +1,9 @@
 #ifndef __LIBC_ERRNO__
 #define __LIBC_ERRNO__
 
+#ifndef KERNEL
 extern int errno;
+#endif // !KERNEL
 
 #define EPERM 1 /* Not super-user */
 #define ENOENT 2 /* No such file or directory */

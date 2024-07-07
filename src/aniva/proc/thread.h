@@ -107,7 +107,6 @@ void thread_try_prepare_userpacket(thread_t* to);
 void thread_register_mutex(thread_t* thread, struct mutex* lock);
 void thread_unregister_mutex(thread_t* thread, struct mutex* lock);
 
-void thread_disable_scheduling(thread_t* thread);
 void thread_set_max_ticks(thread_t* thread, uintptr_t max_ticks);
 ssize_t thread_ticksleft(thread_t* thread);
 
@@ -121,21 +120,10 @@ ssize_t thread_ticksleft(thread_t* thread);
  * we will get unblocked when the mutex is released
  */
 void thread_block(thread_t* thread);
-
-/*
- * TODO: unblocking means returning to the runnable threadpool
- */
 void thread_unblock(thread_t* thread);
-
-/*
- * TODO:
- */
 void thread_sleep(thread_t* thread);
-
-/*
- * TODO:
- */
 void thread_wakeup(thread_t* thread);
+void thread_stop(thread_t* thread);
 
 #define THREAD_PUSH_REGS \
     "pushfq \n"          \

@@ -984,6 +984,7 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
 static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
 {
     (void)offset;
+    size_t stdin_strlen;
 
     /* Ew */
     if (!buffer || !buffer_size || !(*buffer_size))
@@ -993,11 +994,14 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
     while (*__kterm_stdin_buffer == NULL)
         scheduler_yield();
 
+    stdin_strlen = strlen(__kterm_stdin_buffer);
+
     /* Set the buffersize to our string in preperation for the copy */
-    *buffer_size = strlen(__kterm_stdin_buffer);
+    if (*buffer_size > stdin_strlen)
+        *buffer_size = stdin_strlen;
 
     /* Yay, copy */
-    memcpy(buffer, __kterm_stdin_buffer, *buffer_size);
+    strncpy(buffer, __kterm_stdin_buffer, *buffer_size);
 
     /* Reset stdin_buffer */
     memset(__kterm_stdin_buffer, NULL, sizeof(__kterm_stdin_buffer));

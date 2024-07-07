@@ -21,10 +21,10 @@
 #define SCHED_FRAME_FLAG_MUST_RESCEDULE 0x00000008
 
 enum SCHEDULER_PRIORITY {
-    SCHED_PRIO_LOW = 4,
-    SCHED_PRIO_MID = 8,
-    SCHED_PRIO_HIGH = 24,
-    SCHED_PRIO_HIGHEST = 32,
+    SCHED_PRIO_LOW = 5,
+    SCHED_PRIO_MID = 6,
+    SCHED_PRIO_HIGH = 7,
+    SCHED_PRIO_HIGHEST = 8,
 };
 
 typedef struct sched_frame {
@@ -35,7 +35,7 @@ typedef struct sched_frame {
     uint32_t m_flags;
 
     /* Item after us in the queue */
-    struct sched_frame* previous;
+    struct sched_frame* next;
 } sched_frame_t;
 
 #define SCHEDULER_FLAG_HAS_REQUEST 0x00000001

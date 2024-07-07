@@ -41,9 +41,9 @@ ANIVA_STATUS scheduler_queue_enqueue(scheduler_queue_t* queue, struct sched_fram
         return ANIVA_FAIL;
 
     if (queue->enqueue)
-        queue->enqueue->previous = frame;
+        queue->enqueue->next = frame;
 
-    frame->previous = nullptr;
+    frame->next = nullptr;
     queue->enqueue = frame;
 
     /* First entry to go in, also link the dequeue pointer */
@@ -63,7 +63,7 @@ ANIVA_STATUS scheduler_queue_enqueue_front(scheduler_queue_t* queue, struct sche
     if (!queue || !frame)
         return ANIVA_FAIL;
 
-    frame->previous = queue->dequeue;
+    frame->next = queue->dequeue;
     queue->dequeue = frame;
 
     if (!queue->enqueue)
@@ -91,7 +91,7 @@ ANIVA_STATUS scheduler_queue_enqueue_behind(scheduler_queue_t* queue, struct sch
 
     /* Try to find the target */
     while (current && current != target)
-        current = current->previous;
+        current = current->next;
 
     if (!current)
         return ANIVA_FAIL;
@@ -100,8 +100,8 @@ ANIVA_STATUS scheduler_queue_enqueue_behind(scheduler_queue_t* queue, struct sch
     if (queue->enqueue == current)
         queue->enqueue = entry;
 
-    entry->previous = current->previous;
-    current->previous = entry;
+    entry->next = current->next;
+    current->next = entry;
 
     queue->count++;
 
@@ -122,8 +122,8 @@ struct sched_frame* scheduler_queue_dequeue(scheduler_queue_t* queue)
 
     ret = queue->dequeue;
 
-    queue->dequeue = ret->previous;
-    ret->previous = nullptr;
+    queue->dequeue = ret->next;
+    ret->next = nullptr;
 
     queue->count--;
 
@@ -171,22 +171,22 @@ ANIVA_STATUS scheduler_queue_remove(scheduler_queue_t* queue, struct sched_frame
     /* Try to find the target */
     while (current && current != frame) {
         next = current;
-        current = current->previous;
+        current = current->next;
     }
 
     if (!current)
         return ANIVA_FAIL;
 
     if (next)
-        next->previous = current->previous;
+        next->next = current->next;
 
     if (queue->dequeue == current)
-        queue->dequeue = current->previous;
+        queue->dequeue = current->next;
 
     if (queue->enqueue == current)
         queue->enqueue = next;
 
-    current->previous = nullptr;
+    current->next = nullptr;
 
     queue->count--;
 

@@ -5,7 +5,6 @@
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
-#include "sched/scheduler.h"
 #include "sync/mutex.h"
 
 static thread_t* __reaper_thread;
@@ -85,7 +84,9 @@ static void USED reaper_main()
         if (proc)
             destroy_proc(proc);
 
-        scheduler_yield();
+        //scheduler_yield();
+        if (!thread && !proc)
+            thread_block(__reaper_thread);
     }
 
     kernel_panic("Reaper thread isn't supposed to exit its loop!");
@@ -121,6 +122,7 @@ kerror_t reaper_register_process(proc_t* proc)
     /* Unlock the mutex. After this we musn't access @proc anymore */
     mutex_unlock(__reaper_process_lock);
 
+    thread_unblock(__reaper_thread);
     return (0);
 }
 
@@ -140,6 +142,7 @@ int reaper_register_thread(thread_t* thread)
     /* Unlock the reaper */
     mutex_unlock(__reaper_thread_lock);
 
+    thread_unblock(__reaper_thread);
     return 0;
 }
 

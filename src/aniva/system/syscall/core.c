@@ -295,10 +295,8 @@ static void sys_handler(registers_t* regs)
      * If the sysid is invalid at this point, consider the thread
      * invalid and yield
      */
-    if (!SYSID_IS_VALID(calling_thread->m_c_sysid)) {
-        thread_set_max_ticks(calling_thread, 0);
-        scheduler_yield();
-    }
+    if (!SYSID_IS_VALID(calling_thread->m_c_sysid))
+        thread_stop(calling_thread);
 
     /* Invalidate the sysid (i.e. mark the end of this syscall) */
     SYSID_SET_VALID(calling_thread->m_c_sysid, false);

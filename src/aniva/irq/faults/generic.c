@@ -341,7 +341,7 @@ int generate_traceback(registers_t* regs)
     uint64_t sym_start;
     uint64_t ip, bp;
     uint8_t current_depth = 0,
-            max_depth = 20;
+            max_depth = 10;
     bool is_ksym;
 
     if (!regs)

@@ -472,32 +472,42 @@ kerror_t try_terminate_process(proc_t* proc)
 kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
 {
     thread_t* c_thread;
+    thread_t* this_thread;
     kerror_t error;
 
     if (!proc)
         return -1;
+
+    this_thread = get_current_scheduling_thread();
 
     /* Check every thread to see if there are any pending syscalls */
     FOREACH(i, proc->m_threads)
     {
         c_thread = i->data;
 
+        /* We already know we're in a syscall if we meet ourselves */
+        if (c_thread == this_thread)
+            continue;
+
         KLOG_DBG("Thread %s %s in syscall: %d\n", c_thread->m_name, SYSID_IS_VALID(c_thread->m_c_sysid) ? "is" : "was last", c_thread->m_c_sysid);
 
-        /* Wait until the thread finishes it's syscall */
-        if (c_thread->m_c_sysid != SYSID_EXIT) {
-            while (SYSID_IS_VALID(c_thread->m_c_sysid)) {
-                KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
+        /* This thread is OK, just murder it */
+        if (c_thread->m_c_sysid == SYSID_EXIT || !SYSID_IS_VALID(c_thread->m_c_sysid))
+            goto disable_scheduling_and_go_next;
 
-                /* Make the thread yield when it exits this syscall */
-                SYSID_SET_VALID(c_thread->m_c_sysid, false);
+        /* Wait until the thread finishes it's syscall and stops itself */
+        while (c_thread->m_current_state != STOPPED) {
+            KLOG_DBG("Waiting for syscall... %d\n", c_thread->m_c_sysid);
 
-                scheduler_yield();
-            }
+            /* Make the thread yield when it exits this syscall */
+            SYSID_SET_VALID(c_thread->m_c_sysid, false);
+
+            scheduler_yield();
         }
 
+disable_scheduling_and_go_next:
         /* Not in a syscall, yay */
-        thread_disable_scheduling(c_thread);
+        thread_stop(c_thread);
     }
 
     /* Pause the scheduler to make sure we're not fucked while doing this */

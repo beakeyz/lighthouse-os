@@ -206,28 +206,11 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         }
         */
 
-        if (usbsts & EHCI_OPREG_USBSTS_USBERRINT) {
+        if (usbsts & EHCI_OPREG_USBSTS_USBERRINT)
             KLOG_DBG("EHCI: Got a transfer error!\n");
-        }
 
-        if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE) {
+        if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE)
             KLOG_DBG("EHCI: Port change occured!\n");
-
-            /* Check if we are done enumerating the hub */
-            if ((ehci->hcd->roothub->flags & USBHUB_FLAGS_ENUMERATING) != USBHUB_FLAGS_ENUMERATING) {
-                /* Check which port has changed */
-                for (uint32_t i = 0; i < ehci->portcount; i++) {
-                    uint32_t port = mmio_read_dword(ehci->opregs + EHCI_OPREG_PORTSC + (i * sizeof(uint32_t)));
-
-                    /* This port has no connection change, skip */
-                    if ((port & EHCI_PORTSC_CONNECT_CHANGE) != EHCI_PORTSC_CONNECT_CHANGE)
-                        continue;
-
-                    /* Handle its connection change */
-                    usb_hub_handle_port_connection(ehci->hcd->roothub, i);
-                }
-            }
-        }
 
         /*
         if (usbsts & EHCI_OPREG_USBSTS_FLROLLOVER) {
@@ -235,9 +218,8 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         }
         */
 
-        if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR) {
+        if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR)
             KLOG_DBG("EHCI: Host system error (yikes)!\n");
-        }
 
         if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
             // KLOG_DBG("EHCI: Advanced the async qh!\n");
@@ -252,7 +234,7 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
     return 0;
 }
 
-static void _ehci_check_xfer_status(ehci_xfer_t* xfer)
+static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 {
     ehci_qtd_t* c_qtd;
 
@@ -698,9 +680,9 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->destroyable_qh_q = create_limitless_queue();
     ehci->transfer_lock = create_mutex(NULL);
     ehci->async_lock = create_mutex(NULL);
-    ehci->cleanup_lock = create_mutex(NULL);
+    //ehci->cleanup_lock = create_mutex(NULL);
     ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
-    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
+    //ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
 
     KLOG_DBG("Done with EHCI initialization\n");
     return 0;

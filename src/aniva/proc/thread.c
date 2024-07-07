@@ -210,14 +210,6 @@ void thread_unregister_mutex(thread_t* thread, mutex_t* lock)
     list_remove_ex(thread->m_mutex_list, lock);
 }
 
-/*!
- * @brief: Make sure a particular thread does not get scheduled again
- */
-inline void thread_disable_scheduling(thread_t* thread)
-{
-    thread_set_max_ticks(thread, 0);
-}
-
 void thread_set_max_ticks(thread_t* thread, uintptr_t max_ticks)
 {
     thread->m_max_ticks = max_ticks;
@@ -503,7 +495,10 @@ void thread_block(thread_t* thread)
  */
 void thread_unblock(thread_t* thread)
 {
-    ASSERT_MSG(thread->m_current_state == BLOCKED, "Tried to unblock a non-blocking thread!");
+    //ASSERT_MSG(thread->m_current_state == BLOCKED, "Tried to unblock a non-blocking thread!");
+
+    if (thread->m_current_state != BLOCKED)
+        return;
 
     /* We can't unblock ourselves, can we? */
     if (get_current_scheduling_thread() == thread) {
@@ -537,4 +532,21 @@ void thread_wakeup(thread_t* thread)
     }
 
     thread_set_state(thread, RUNNABLE);
+}
+
+void thread_stop(thread_t* thread)
+{
+    thread_t* c_thread;
+
+    if (!thread)
+        return;
+
+    c_thread = get_current_scheduling_thread();
+
+    thread_set_max_ticks(thread, 0);
+    thread_set_state(thread, STOPPED);
+
+    /* Yield to get out of the scheduler */
+    if (thread == c_thread)
+        scheduler_yield();
 }
