@@ -22,12 +22,16 @@ class RamdiskManager(object):
     DRV_BINARIES_PATH: str = "out/drivers"
     USER_BINARIES_PATH: str = "out/user"
 
-    ASSETS_PATH: str = SYSROOT_PATH + "/Assets"
     SYS_PATH: str = SYSROOT_PATH + "/System"
-    APPS_PATH: str = SYSROOT_PATH + "/Apps"
-    USER_PATH: str = SYSROOT_PATH + "/User"
     LIBS_BIN_PATH: str = SYS_PATH + "/Lib"
-    GLOB_USR_PATH: str = USER_PATH + "/Global"
+
+    APPS_PATH: str = SYSROOT_PATH + "/Apps"
+
+    USERS_PATH: str = SYSROOT_PATH + "/Users"
+    USER_USR_PATH: str = USERS_PATH + "/User"
+    ADMIN_USR_PATH: str = USERS_PATH + "/Admin"
+
+    ADMIN_CORE_PATH: str = ADMIN_USR_PATH + "/Core"
 
     CFG_PATH: str = SYSROOT_PATH + "/kcfg.ini"
 
@@ -55,6 +59,30 @@ class RamdiskManager(object):
 
         return tarinfo
 
+    def __copy_app(self, name: str, dest: str) -> bool:
+
+        result: int = os.system(
+            f"cp {self.USER_BINARIES_PATH}/name/name {dest}")
+
+        if result == 0:
+            return True
+
+        return False
+
+    def __copy_admin_core(self) -> bool:
+        '''
+        Copy core utilities for the admin user
+        This might include private library- or utility
+        binaries, database file, ect.
+        '''
+
+        self.__ensure_existance(self.ADMIN_CORE_PATH)
+
+        # Copy the init application into the admin core
+        self.__copy_app("init", self.ADMIN_CORE_PATH)
+
+        return True
+
     def __copy_apps(self) -> bool:
         '''
         Copy any apps to the sysroot folder that the kernel (or user) might
@@ -63,11 +91,10 @@ class RamdiskManager(object):
 
         self.__ensure_existance(self.APPS_PATH)
 
-        os.system(f"cp {self.USER_BINARIES_PATH}/doomgeneric/doom {self.APPS_PATH}")
-        os.system(f"cp {self.USER_BINARIES_PATH}/init/init {self.APPS_PATH}")
-        os.system(f"cp {self.USER_BINARIES_PATH}/gfx_test/gfx_test {self.APPS_PATH}")
-        os.system(f"cp {self.USER_BINARIES_PATH}/ls/ls {self.APPS_PATH}")
-        os.system(f"cp {self.USER_BINARIES_PATH}/vase_problem/vaseprob {self.APPS_PATH}")
+        self.__copy_app("doom", self.APPS_PATH)
+        self.__copy_app("gfx_test", self.APPS_PATH)
+        self.__copy_app("ls", self.APPS_PATH)
+        self.__copy_app("vaseprob", self.APPS_PATH)
 
         return True
 
@@ -109,21 +136,24 @@ class RamdiskManager(object):
             path: str = manifest.path.replace("/src/libs", "/out/libs")
             path = path.replace("manifest.json", f"{manifest.manifested_name}")
 
-            os.system(f"cp {path}{self.c.STATIC_LIB_EXTENTION} {self.LIBS_BIN_PATH}")
-            os.system(f"cp {path}{self.c.SHARED_LIB_EXTENTION} {self.LIBS_BIN_PATH}")
+            os.system(f"cp {path}{self.c.STATIC_LIB_EXTENTION} {
+                      self.LIBS_BIN_PATH}")
+            os.system(f"cp {path}{self.c.SHARED_LIB_EXTENTION} {
+                      self.LIBS_BIN_PATH}")
             manifest.manifested_name
             pass
 
         return self.__copy_crt_components()
 
-    def __prepare_user_dir(self) -> bool:
+    def __prepare_users_dir(self) -> bool:
         '''
         Prepare the user directories of the ramdisk
         (These are probably useless but we'll keep them for now
          as a sort of mock-up)
         '''
-        self.__ensure_existance(self.USER_PATH)
-        self.__ensure_existance(self.GLOB_USR_PATH)
+        self.__ensure_existance(self.USERS_PATH)
+        self.__ensure_existance(self.USER_USR_PATH)
+        self.__ensure_existance(self.ADMIN_USR_PATH)
         return True
 
     def __gather_headers(self, path: str) -> bool:
@@ -213,10 +243,10 @@ class RamdiskManager(object):
 
     def add_rd_entry(self, ramdisk: TarFile, path: str, name: str) -> None:
         ramdisk.add(
-                name=path,
-                arcname=name,
-                filter=self.__tar_filter
-                )
+            name=path,
+            arcname=name,
+            filter=self.__tar_filter
+        )
         pass
 
     def reset_ramdisk_root_dir(self) -> bool:
@@ -239,9 +269,14 @@ class RamdiskManager(object):
 
     def create_ramdisk(self) -> None:
 
-        self.__prepare_user_dir()
+        # Make sure the users directory exsists
+        self.__prepare_users_dir()
+        # Prepare the admin user
+        self.__copy_admin_core()
 
+        # Prepare global libary binaries
         self.__copy_libs()
+        # Prepare global application binaries
         self.__copy_apps()
 
         # Add driver binaries to the system directory
