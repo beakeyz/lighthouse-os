@@ -87,6 +87,8 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 
         /* Next path */
         c_path = c_char + 1;
+        /* Put back this char */
+        *c_char = PATH_SEPERATOR_CHAR;
     }
 
     kfree(fullpath_buf);

@@ -22,6 +22,7 @@
 
 #define SOFTMAX_ACTIVE_PROFILES 4096
 #define DEFAULT_USER_PVR_PATH "Root/Users/User/user.pvr"
+#define DEFAULT_ADMIN_PVR_PATH "Root/Users/Admin/admin.pvr"
 
 static mutex_t* _profile_mutex;
 
@@ -644,6 +645,27 @@ static int default_profile_handler(kevent_ctx_t* _ctx, void* param)
     return 0;
 }
 
+static inline void __profile_load_variables(user_profile_t* profile, const char* path)
+{
+    int error = -1;
+    file_t* f;
+
+    if (!profile || !path)
+        return;
+
+    f = file_open(path);
+
+    if (!f)
+        return;
+
+    error = sysvarldr_load_variables(profile->node, profile->priv_level, f);
+
+    file_close(f);
+
+    if (!error)
+        profile->path = path;
+}
+
 /*!
  * @brief: Late initialization of the profiles
  *
@@ -652,16 +674,8 @@ static int default_profile_handler(kevent_ctx_t* _ctx, void* param)
  */
 void init_profiles_late(void)
 {
-    int error = -1;
-    file_t* f = file_open(DEFAULT_USER_PVR_PATH);
-
-    if (f)
-        error = sysvarldr_load_variables(_user_profile.node, _user_profile.priv_level, f);
-
-    file_close(f);
-
-    if (!error)
-        _user_profile.path = DEFAULT_USER_PVR_PATH;
+    __profile_load_variables(&_user_profile, DEFAULT_USER_PVR_PATH);
+    __profile_load_variables(&_admin_profile, DEFAULT_ADMIN_PVR_PATH);
 
     /* Create an eventhook for shutdown */
     kevent_add_hook("shutdown", "save default profiles", save_default_profiles, NULL);

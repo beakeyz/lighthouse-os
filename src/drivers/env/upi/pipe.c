@@ -53,7 +53,8 @@ u64 upi_destroy_pipe(proc_t* proc, HANDLE pipe_handle)
         return DRV_STAT_INVAL;
 
     /* completely fucking murder this pipe and its connections */
-    destroy_upi_pipe(pipe);
+    //destroy_upi_pipe(pipe);
+    oss_obj_unref(pipe->obj);
     return 0;
 }
 

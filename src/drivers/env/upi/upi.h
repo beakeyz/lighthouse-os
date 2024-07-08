@@ -104,6 +104,8 @@ extern u64 upi_pipe_add_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft);
 extern u64 upi_pipe_check_transaction(upi_pipe_t* pipe, u32 idx);
 extern u64 upi_pipe_next_transaction(upi_pipe_t* pipe, u32* p_idx);
 
+extern void upi_destroy_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft);
+
 int upi_maybe_handle_signal_transact(proc_t* calling_proc, lightos_pipe_ft_t* ft);
 
 upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t* upipe);

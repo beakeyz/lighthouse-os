@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* Buffers that get placed into the file */
 pvr_file_header_t pvr_hdr;
@@ -29,6 +30,11 @@ struct sysvar_template user_defaults[] = {
     VAR_ENTRY("BOOTDISK_PATH", SYSVAR_TYPE_STRING, "unknown", SYSVAR_FLAG_CONFIG),
     VAR_ENTRY("LOGIN_MSG", SYSVAR_TYPE_STRING, "Welcome to LightOS!", SYSVAR_FLAG_GLOBAL),
     VAR_ENTRY("EPIC_TEST", SYSVAR_TYPE_WORD, 69, 0),
+};
+
+struct sysvar_template admin_defaults[] = {
+    VAR_ENTRY("LOGIN_MSG", SYSVAR_TYPE_STRING, "Welcome to LightOS, dearest Admin! (Try not to break shit)", SYSVAR_FLAG_GLOBAL),
+    VAR_ENTRY("PATH", SYSVAR_TYPE_STRING, "Root/Users/Admin/Core:Root/Apps", SYSVAR_FLAG_GLOBAL),
 };
 
 static inline pvr_file_strtab_entry_t* pvr_file_get_strtab_entry(uint32_t offset)
@@ -196,8 +202,8 @@ static int base_env_save_to_file(const char* path, struct sysvar_template* templ
     if (!f)
         return -1;
 
-    for (uint32_t i = 0; i < (sizeof user_defaults / sizeof user_defaults[0]); i++)
-        pvr_file_add_variable(&user_defaults[i]);
+    for (uint32_t i = 0; i < count; i++)
+        pvr_file_add_variable(&templates[i]);
 
     /*
      * Write the entire thing to disk
@@ -233,6 +239,23 @@ static int base_env_save_to_file(const char* path, struct sysvar_template* templ
     return 0;
 }
 
+static bool admin_template = false;
+
+static void _parse_args(int argc, char** argv)
+{
+    char* c_arg;
+
+    for (int i = 0; i < argc; i++) {
+        c_arg = argv[i];
+
+        if (*c_arg != '-')
+            continue;
+
+        if (strncmp(c_arg, "--admin-template", 16) == 0)
+            admin_template = true;
+    }
+}
+
 /*!
  * @brief: Tool to create .pvr files for lightos
  *
@@ -265,12 +288,21 @@ static int base_env_save_to_file(const char* path, struct sysvar_template* templ
 int main(int argc, char** argv)
 {
     const char* output_file;
+    uint32_t count;
     printf("Welcome to the base_env manager\n");
+
+    /* Parse input args */
+    _parse_args(argc, argv);
 
     output_file = _get_output_file(argc, argv);
 
     if (!output_file)
         output_file = "out.pvr";
 
-    return base_env_save_to_file(output_file, user_defaults, (sizeof user_defaults / sizeof user_defaults[0]));
+    count = (sizeof user_defaults / sizeof user_defaults[0]);
+
+    if (admin_template)
+        count = (sizeof admin_defaults / sizeof admin_defaults[0]);
+
+    return base_env_save_to_file(output_file, admin_template ? admin_defaults : user_defaults, count);
 }

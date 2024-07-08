@@ -26,7 +26,7 @@ static inline void _upi_pipe_deallocate(upi_pipe_t* pipe, void* addr)
     kfree(addr);
 }
 
-static void _upi_destroy_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft)
+void upi_destroy_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft)
 {
     if (ft->transaction.transaction_type != LIGHTOS_PIPE_TRANSACT_TYPE_DATA)
         return;
@@ -180,7 +180,7 @@ u64 upi_pipe_remove_transaction(upi_pipe_t* pipe, u32 ft_idx)
     ft = &pipe->ft_buffer[ft_idx];
 
     /* Murder the transaction memory */
-    _upi_destroy_transaction(pipe, ft);
+    upi_destroy_transaction(pipe, ft);
 
     /* Clear the memory */
     memset(ft, 0, sizeof(*ft));

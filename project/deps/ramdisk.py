@@ -62,7 +62,7 @@ class RamdiskManager(object):
     def __copy_app(self, name: str, dest: str) -> bool:
 
         result: int = os.system(
-            f"cp {self.USER_BINARIES_PATH}/name/name {dest}")
+            f"cp {self.USER_BINARIES_PATH}/{name}/{name} {dest}")
 
         if result == 0:
             return True
@@ -100,6 +100,8 @@ class RamdiskManager(object):
 
     def __copy_crt_components(self) -> bool:
 
+        self.__ensure_existance(self.c.SYSROOT_HEADERS_DIR)
+
         libcManifest: m.BuildManifest = None
 
         for manifest in self.c.LIBRARY_MANIFESTS:
@@ -131,6 +133,8 @@ class RamdiskManager(object):
         return True
 
     def __copy_libs(self) -> bool:
+
+        self.__ensure_existance(self.LIBS_BIN_PATH)
 
         for manifest in self.c.LIBRARY_MANIFESTS:
             path: str = manifest.path.replace("/src/libs", "/out/libs")

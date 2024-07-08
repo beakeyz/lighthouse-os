@@ -18,7 +18,7 @@ int epic_sauce()
 
     printf("Epic sauce\n");
 
-    error = lightos_pipe_connect(&pipe, "Runtime/User/init_env/test_pipe");
+    error = lightos_pipe_connect(&pipe, "Runtime/Admin/init_env/test_pipe");
 
     if (error)
         return error;

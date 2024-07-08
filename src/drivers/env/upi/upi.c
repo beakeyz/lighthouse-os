@@ -149,6 +149,14 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
     if (pipe->uniform_allocator)
         destroy_zone_allocator(pipe->uniform_allocator, false);
 
+    for (u32 i = 0; i < pipe->ft_capacity; i++)
+        /*
+         * This function destroys the buffer allocated for this ft if it was
+         * a data transaction. Any other type of ft does not need special
+         * attention and simply mudering the ft buffer will be enough
+         */
+        upi_destroy_transaction(pipe, &pipe->ft_buffer[i]);
+
     kfree(pipe->ft_buffer);
 
     c_listener = pipe->listeners;
