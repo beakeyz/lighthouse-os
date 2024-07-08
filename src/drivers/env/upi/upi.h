@@ -8,7 +8,8 @@
 #include <proc/proc.h>
 #include <oss/obj.h>
 
-#define UPI_DEFAULT_FT_CAPACITY 32
+/* This way we can allocate a single page for these fuckers */
+#define UPI_DEFAULT_FT_CAPACITY 128
 
 typedef struct upi_listener {
     /* Process which is listening */
@@ -25,6 +26,8 @@ typedef struct upi_listener {
 
     /* Link listeners in a linear fashion */
     struct upi_listener* next;
+
+    struct upi_listener* _upi_next;
 } upi_listener_t;
 
 /*!
@@ -70,6 +73,8 @@ typedef struct upi_pipe {
     u32 n_listeners;
     /* Linked list of all listeners */
     upi_listener_t* listeners;
+
+    struct upi_pipe* _upi_next;
 } upi_pipe_t;
 
 static inline bool upi_pipe_is_uniform(upi_pipe_t* pipe)

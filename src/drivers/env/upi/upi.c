@@ -8,7 +8,6 @@
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/ipc/pipe/shared.h"
-#include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/node.h"
@@ -18,6 +17,14 @@
 #include "sys/types.h"
 
 static zone_allocator_t* _upi_pipe_allocator = NULL;
+static zone_allocator_t* _upi_listener_allocator = NULL;
+
+/*
+ * List to keep a global list of all the pipes and listeners created 
+ * TODO: Graceful driver shutdown
+ */
+static upi_pipe_t* _upi_pipe_list;
+static upi_listener_t* _upi_listener_list;
 
 static inline void upi_pipe_link_listener(upi_pipe_t* pipe, upi_listener_t* listener)
 {
@@ -56,7 +63,7 @@ upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe, HANDLE pipe_
     if (!proc || !pipe)
         return nullptr;
 
-    ret = kmalloc(sizeof(*ret));
+    ret = zalloc_fixed(_upi_listener_allocator);
 
     if (!ret)
         return nullptr;
@@ -99,7 +106,7 @@ void destroy_upi_listener(upi_pipe_t* pipe, upi_listener_t* listener)
 
 free_and_exit:
     mutex_unlock(listener->proc->m_handle_map.lock);
-    kfree(listener);
+    zfree_fixed(_upi_listener_allocator, listener);
 }
 
 upi_listener_t* get_upi_listener(upi_pipe_t* pipe, proc_t* proc)
@@ -157,7 +164,9 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
          */
         upi_destroy_transaction(pipe, &pipe->ft_buffer[i]);
 
-    kfree(pipe->ft_buffer);
+    /* Deallocate the ft buffer */
+    __kmem_kernel_dealloc((vaddr_t)pipe->ft_buffer, sizeof(lightos_pipe_ft_t) * pipe->ft_capacity);
+    //kfree(pipe->ft_buffer);
 
     c_listener = pipe->listeners;
 
@@ -202,22 +211,43 @@ upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t __user* upipe)
     ret->flags = upipe->flags;
     ret->obj = create_oss_obj(upipe->name);
 
-    /* Register the pipe as a child to the object */
-    oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_PIPE, __destroy_upi_pipe);
+    if (!ret->obj)
+        goto destroy_and_exit;
 
     /* Uniform pipes have their own data cache */
-    if (upi_pipe_is_uniform(ret))
+    if (upi_pipe_is_uniform(ret)) {
         ret->uniform_allocator = create_zone_allocator(64 * Kib, upipe->data_size, NULL);
 
+        if (!ret->uniform_allocator)
+            goto destroy_and_exit;
+    }
+
     ret->ft_capacity = UPI_DEFAULT_FT_CAPACITY;
-    ret->ft_buffer = kmalloc(sizeof(lightos_pipe_ft_t) * ret->ft_capacity);
+
+    /* Try to allocate a buffer */
+    if (__kmem_kernel_alloc_range((void**)&ret->ft_buffer, sizeof(lightos_pipe_ft_t) * ret->ft_capacity, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE))
+        goto destroy_and_exit;
 
     memset(ret->ft_buffer, 0, sizeof(lightos_pipe_ft_t) * ret->ft_capacity);
+
+    /* Register the pipe as a child to the object */
+    oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_PIPE, __destroy_upi_pipe);
 
     /* Finally, add the object to the environment node */
     oss_node_add_obj(proc->m_env->node, ret->obj);
 
     return ret;
+
+destroy_and_exit:
+
+    if (ret->obj)
+        destroy_oss_obj(ret->obj);
+
+    if (ret->uniform_allocator)
+        destroy_zone_allocator(ret->uniform_allocator, false);
+
+    zfree_fixed(_upi_pipe_allocator, ret);
+    return nullptr;
 }
 
 /*!
@@ -323,6 +353,11 @@ int upi_init(drv_manifest_t* this)
     if (!_upi_pipe_allocator)
         return -KERR_NOMEM;
 
+    _upi_listener_allocator = create_zone_allocator(64 * Kib, sizeof(upi_listener_t), NULL);
+
+    if (!_upi_listener_allocator)
+        return -KERR_NOMEM;
+
     return 0;
 }
 
@@ -330,6 +365,8 @@ int upi_exit()
 {
     if (_upi_pipe_allocator)
         destroy_zone_allocator(_upi_pipe_allocator, false);
+    if (_upi_listener_allocator)
+        destroy_zone_allocator(_upi_listener_allocator, false);
     return 0;
 }
 

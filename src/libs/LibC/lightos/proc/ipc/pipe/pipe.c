@@ -160,6 +160,46 @@ int lightos_pipe_dump(lightos_pipe_t* pipe, lightos_pipe_dump_t* pdump)
     return _lightos_pipe_dump(pdump);
 }
 
+int lightos_pipe_is_empty(lightos_pipe_t* pipe, BOOL* empty)
+{
+    int error;
+    lightos_pipe_dump_t dump;
+
+    if (!pipe || !empty)
+        return -EINVAL;
+
+    *empty = FALSE;
+
+    error = lightos_pipe_dump(pipe, &dump);
+
+    if (error)
+        return error;
+
+    /* If there are no transactions in the pipe, the pipe is empty xD */
+    if (!dump.n_cur_transact)
+        *empty = TRUE;
+
+    return 0;
+}
+
+int lightos_pipe_await_empty(lightos_pipe_t* pipe)
+{
+    int error;
+    BOOL empty = FALSE;
+
+    do {
+        /* Check emptyness */
+        error = lightos_pipe_is_empty(pipe, &empty);
+
+        if (error || empty)
+            break;
+
+        usleep(1000);
+    } while (error == 0);
+
+    return error;
+}
+
 int lightos_pipe_connect(lightos_pipe_t* pipe, const char* path)
 {
     HANDLE pipe_handle;

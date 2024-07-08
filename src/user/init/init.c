@@ -2,7 +2,6 @@
 #include "lightos/proc/ipc/pipe/shared.h"
 #include "lightos/proc/process.h"
 #include "time.h"
-#include "unistd.h"
 #include <lightos/fs/dir.h>
 #include <lightos/memory/alloc.h>
 #include <stdio.h>
@@ -16,7 +15,7 @@ int epic_sauce()
     char alphabet[27] = { 0 };
     lightos_pipe_t pipe;
 
-    printf("Epic sauce\n");
+    printf("Epic sauce: Entering process: Epic sauce\n");
 
     error = lightos_pipe_connect(&pipe, "Runtime/Admin/init_env/test_pipe");
 
@@ -26,20 +25,16 @@ int epic_sauce()
     do {
         char buffer[2] = { 0 };
 
-        if (idx % 2 == 0)
-            /* Accept the incomming data */
-            error = lightos_pipe_accept(&pipe, buffer, sizeof(buffer));
-        else
-            error = lightos_pipe_deny(&pipe);
+        /* Accept the incomming data */
+        error = lightos_pipe_accept(&pipe, buffer, sizeof(buffer));
 
         if (error)
             continue;
 
-        alphabet[idx] = (idx % 2 == 0) ? buffer[0] : ' ';
-        idx++;
+        alphabet[idx++] = buffer[0];
     } while (idx < 26);
 
-    printf("Recieved the alphabet: %s\n", alphabet);
+    printf("Epic sauce: Recieved the alphabet from init: %s\n", alphabet);
 
     /* Disconnect from the pipe */
     lightos_pipe_disconnect(&pipe);
@@ -65,9 +60,10 @@ int main()
 {
     int error;
     lightos_pipe_t pipe;
-    lightos_pipe_dump_t dump;
     lightos_pipe_transaction_t test_transaction;
     char buffer[2] = { 0 };
+
+    printf("init: Setting up test pipe\n");
 
     error = init_lightos_pipe(&pipe, "test_pipe", LIGHTOS_UPIPE_FLAGS_FULLDUPLEX, NULL, NULL);
 
@@ -75,6 +71,8 @@ int main()
         return error;
 
     create_process("Epic sauce", (FuncPtr)epic_sauce, NULL, NULL, NULL);
+
+    printf("init: Sending the alphabet over the test pipe...\n");
 
     buffer[0] = 'a';
 
@@ -85,19 +83,12 @@ int main()
         buffer[0]++;
     }
 
-    printf("Waiting\n");
+    printf("init: Waiting until the pipe is empty\n");
 
     /* Wait until all our transactions have been handled */
-    do {
-        error = lightos_pipe_dump(&pipe, &dump);
+    lightos_pipe_await_empty(&pipe);
 
-        if (error)
-            break;
-
-        usleep(1000);
-    } while (lightos_pipe_n_total_transact(&dump) < 26);
-
-    printf("Done! transaction rate: %d%%\n", dump.acceptance_rate);
+    printf("init: Done!\n");
 
     destroy_lightos_pipe(&pipe);
 

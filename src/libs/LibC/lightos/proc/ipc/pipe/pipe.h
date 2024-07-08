@@ -14,11 +14,28 @@
  * @pipe: The pipe struct to initialize
  */
 int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
+
+/*!
+ * @brief: Initialize a pipe for uniform data
+ *
+ * Wrapper for init_lightos_pipe
+ *
+ */
 int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
 
+/*!
+ * @brief: Destroys a lightos pipe object
+ *
+ * Instantly ends pipe lifetime. This should pretty much always be called when a host process
+ * is ending, since pipes most of the time live inside a processes environment, which gets killed
+ * together with the process itself.
+ */
 int destroy_lightos_pipe(lightos_pipe_t* pipe);
 
 int lightos_pipe_dump(lightos_pipe_t* pipe, lightos_pipe_dump_t* pdump);
+
+int lightos_pipe_is_empty(lightos_pipe_t* pipe, BOOL* empty);
+int lightos_pipe_await_empty(lightos_pipe_t* pipe);
 
 /*!
  * @brief: Connect to an already existing pipe
