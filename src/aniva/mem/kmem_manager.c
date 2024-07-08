@@ -1713,6 +1713,10 @@ void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts)
 
     pml_entry_t* page_map = (pml_entry_t*)dir;
 
+    /* Load the kernel map if there was no map specified */
+    if (!page_map)
+        page_map = KMEM_DATA.m_kernel_base_pd; 
+
     ASSERT(get_current_processor() != nullptr);
     get_current_processor()->m_page_dir = page_map;
 

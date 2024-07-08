@@ -33,11 +33,6 @@ int lightos_pipe_send_data(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_t
 int lightos_pipe_send_signal(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_transaction, int signal);
 int lightos_pipe_send_handle(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_transaction, HANDLE handle);
 
-static inline bool lightos_transaction_is_valid(lightos_pipe_transaction_t* transact)
-{
-    return (transact->data_size && transact->transaction_type != LIGHTOS_PIPE_TRANSACT_TYPE_NONE);
-}
-
 int lightos_pipe_await_transaction(lightos_pipe_t* pipe, lightos_pipe_transaction_t* transaction);
 int lightos_pipe_preview(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_transaction);
 int lightos_pipe_accept(lightos_pipe_t* pipe, void* pdata, size_t psize);

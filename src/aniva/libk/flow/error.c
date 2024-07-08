@@ -19,7 +19,6 @@ static bool has_paniced = false;
 // TODO: retrieve stack info and stacktrace, for debugging purposes
 NORETURN void kernel_panic(const char* panic_message)
 {
-
     disable_interrupts();
 
     if (has_paniced)
@@ -31,8 +30,8 @@ NORETURN void kernel_panic(const char* panic_message)
     printf("[KERNEL PANIC] %s\n", panic_message);
 
     /* TMP: hack to generate ez stacktrace xD */
-    uint64_t a = 0;
-    *(uint64_t*)(a) = 0;
+    uint64_t* a = 0;
+    *a = 0;
 
 skip_diagnostics:
     __kernel_panic();

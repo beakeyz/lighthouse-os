@@ -40,6 +40,7 @@ static void _upi_destroy_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft)
  */
 static u64 _upi_pipe_do_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_t __user* ft, u32 idx)
 {
+    u64 data_size;
     lightos_pipe_ft_t* target;
 
     /* Invalid index */
@@ -55,6 +56,12 @@ static u64 _upi_pipe_do_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_t __user* ft, u
     target->pipe_handle = ft->pipe_handle;
     target->next_free = 0;
 
+    data_size = target->transaction.data_size;
+
+    /* If the transaction gives us a bigger buffer than this uniform pipe can handle, cut it down */
+    if (upi_pipe_is_uniform(pipe) && pipe->uniform_allocator && data_size > pipe->uniform_allocator->m_entry_size)
+        data_size = pipe->uniform_allocator->m_entry_size;
+
     switch (target->transaction.transaction_type) {
         case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
             target->payload.handle = ft->payload.handle;
@@ -64,14 +71,26 @@ static u64 _upi_pipe_do_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_t __user* ft, u
             break;
         case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
             /* Allocate the buffer */
-            target->payload.data = _upi_pipe_allocate(pipe, target->transaction.data_size);
+            target->payload.data = _upi_pipe_allocate(pipe, data_size);
+
+            if (!target->payload.data)
+                goto clear_and_exit_error;
+
+            /* Clear any unwanted data */
+            memset(target->payload.data, 0, data_size);
 
             /* Copy the entire buffer to us */
-            memcpy(target->payload.data, ft->payload.data, target->transaction.data_size);
+            memcpy(target->payload.data, ft->payload.data, data_size);
             break;
     }
 
+    pipe->n_total_transacts++;
+    pipe->n_ft++;
     return 0;
+
+clear_and_exit_error:
+    memset(target, 0, sizeof(*target));
+    return DRV_STAT_INVAL;
 }
 
 static inline u64 _upi_pipe_do_regular_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_t __user* ft)
@@ -82,9 +101,15 @@ static inline u64 _upi_pipe_do_regular_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_
     if (res)
         return res;
 
-    pipe->n_ft++;
-    pipe->ft_w_idx = (pipe->ft_w_idx + 1) & pipe->ft_capacity;
-    pipe->next_free_ft = pipe->ft_w_idx;
+    do {
+        pipe->ft_w_idx = (pipe->ft_w_idx + 1) % pipe->ft_capacity;
+        pipe->next_free_ft = pipe->ft_w_idx;
+        /*
+         * If this add fills up the ft buffer until the max, don't try to find a new free ft slot.
+         * Simply reset both ft_w_idx and next_free_ft and return success. At this point we'll most
+         * likely only be doing fragmented adds
+         */
+    } while (pipe->n_ft != pipe->ft_capacity && pipe->ft_buffer[pipe->ft_w_idx].transaction.transaction_type != LIGHTOS_PIPE_TRANSACT_TYPE_NONE);
 
     return res;
 }
@@ -105,7 +130,6 @@ static inline void _upi_pipe_switch_free_indecies(u32* next_free_a, u32* next_fr
  */
 static inline u64 _upi_pipe_do_fragmented_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_t __user* ft)
 {
-    u64 res;
     lightos_pipe_ft_t* next_free_ft;
 
     /* Read the next free ft */
@@ -115,15 +139,7 @@ static inline u64 _upi_pipe_do_fragmented_ft_add(upi_pipe_t* pipe, lightos_pipe_
     _upi_pipe_switch_free_indecies(&pipe->next_free_ft, &next_free_ft->next_free);
 
     /* Put the new ft in the spot of the next free ft */
-    res = _upi_pipe_do_ft_add(pipe, ft, next_free_ft->next_free);
-
-    if (res)
-        return res;
-
-    /* Only increment the pipes ft count */
-    pipe->n_ft++;
-
-    return res;
+    return _upi_pipe_do_ft_add(pipe, ft, next_free_ft->next_free);
 }
 
 /*!
@@ -213,8 +229,7 @@ u64 upi_pipe_next_transaction(upi_pipe_t* pipe, u32* p_idx)
         return DRV_STAT_INVAL;
 
     prev_idx = *p_idx;
-    /* Set to NULL, just in case */
-    *p_idx = 0;
+    *p_idx = pipe->next_free_ft;
 
     /* No transactions, just return */
     if (!pipe->n_ft)

@@ -144,6 +144,24 @@ u64 upi_send_transact(proc_t* proc, lightos_pipe_ft_t* ft)
     return upi_pipe_add_transaction(pipe, ft);
 }
 
+static inline lightos_pipe_ft_t* __upi_pipe_get_next_ft_for_listener(upi_pipe_t* pipe, upi_listener_t* listener, u32* p_prev_idx)
+{
+    lightos_pipe_ft_t* ret;
+
+    /* Get the current ft for this connection */
+    ret = upi_listener_get_ft(pipe, listener, p_prev_idx);
+
+    /* No transaction... */
+    if (!ret || !lightos_transaction_is_valid(&ret->transaction)) {
+        /* Fuck, we need a new transaction */
+        upi_pipe_next_transaction(pipe, &listener->ft_idx);
+
+        ret = upi_listener_get_ft(pipe, listener, p_prev_idx);
+    }
+
+    return ret;
+}
+
 /*!
  * @brief: Grab the transaction info for the current transaction on a connection
  */
@@ -163,18 +181,13 @@ u64 upi_transact_preview(proc_t* proc, lightos_pipe_ft_t* tranact)
     if (!listener)
         return DRV_STAT_INVAL;
 
-    /* Get the current ft for this connection */
-    c_ft = upi_listener_get_ft(pipe, listener, NULL);
+    c_ft = __upi_pipe_get_next_ft_for_listener(pipe, listener, NULL);
 
-    if (!c_ft) {
-        /* Fuck, we need a new transaction */
-        upi_pipe_next_transaction(pipe, &listener->ft_idx);
-
-        c_ft = upi_listener_get_ft(pipe, listener, NULL);
-    }
-
-    /* Copy the transaction into the ft struct */
-    memcpy(&tranact->transaction, &c_ft->transaction, sizeof(lightos_pipe_transaction_t));
+    if (!c_ft || !lightos_transaction_is_valid(&c_ft->transaction))
+        memset(&tranact->transaction, 0, sizeof(lightos_pipe_transaction_t));
+    else
+        /* Copy the transaction into the ft struct */
+        memcpy(&tranact->transaction, &c_ft->transaction, sizeof(lightos_pipe_transaction_t));
 
     return 0;
 }
@@ -199,13 +212,13 @@ u64 upi_transact_accept(proc_t* proc, lightos_pipe_accept_t* accept)
         return DRV_STAT_INVAL;
 
     /* Grab the current ft for this connection */
-    c_ft = upi_listener_get_ft(pipe, listener, &c_ft_idx);
+    c_ft = __upi_pipe_get_next_ft_for_listener(pipe, listener, &c_ft_idx);
 
-    /* Increment the current transfer index on the listener */
-    (void)upi_pipe_next_transaction(pipe, &listener->ft_idx);
+    /* Always do a transaction cycle */
+    upi_pipe_next_transaction(pipe, &listener->ft_idx);
 
     /* Empty transaction, don't do anything */
-    if (!c_ft || c_ft->transaction.transaction_type == LIGHTOS_PIPE_TRANSACT_TYPE_NONE)
+    if (!c_ft || !lightos_transaction_is_valid(&c_ft->transaction))
         return DRV_STAT_INVAL;
 
     /* Increment the data on this transaction */
@@ -271,7 +284,8 @@ u64 upi_transact_deny(proc_t* proc, HANDLE handle)
     if (!listener)
         return DRV_STAT_INVAL;
 
-    c_ft = upi_listener_get_ft(pipe, listener, &c_ft_idx);
+    /* Grab the next ft for this connection */
+    c_ft = __upi_pipe_get_next_ft_for_listener(pipe, listener, &c_ft_idx);
 
     /* Increment the current transfer index on the listener */
     (void)upi_pipe_next_transaction(pipe, &listener->ft_idx);
@@ -296,7 +310,6 @@ u64 upi_transact_deny(proc_t* proc, HANDLE handle)
 u64 upi_dump_pipe(proc_t* proc, lightos_pipe_dump_t* dump)
 {
     upi_pipe_t* pipe;
-    u64 n_total_transaction;
 
     pipe = get_upi_pipe(proc, dump->pipe, NULL);
 
@@ -307,21 +320,13 @@ u64 upi_dump_pipe(proc_t* proc, lightos_pipe_dump_t* dump)
     dump->n_cur_transact = pipe->n_ft;
     dump->n_deny = pipe->n_total_deny;
     dump->n_accept = pipe->n_total_accept;
-
     dump->acceptance_rate = 0;
 
-    n_total_transaction = pipe->n_total_deny + pipe->n_total_accept;
+    /* No transactions, don't do weird things */
+    if (!pipe->n_total_transacts)
+        return 0;
 
-    /* Calculate the average transaction acceptance rate for this pipe */
-    for (upi_listener_t* l = pipe->listeners; l != nullptr; l = l->next)
-        /* Sum up the acceptance rate per connection */
-        dump->acceptance_rate += (l->n_accepted_transacts * 100) / (n_total_transaction * 100);
-
-    /*
-     * Devide by the amount of connections to get the average across all connections 
-     * FIXME: Would it be nice to use floating point math here?
-     */
-    dump->acceptance_rate /= pipe->n_listeners;
+    dump->acceptance_rate = (pipe->n_total_accept * 100) / (pipe->n_total_transacts);
 
     return 0;
 }

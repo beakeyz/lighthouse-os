@@ -12,9 +12,9 @@
 int epic_sauce()
 {
     int error;
-    char* buffer;
+    int idx = 0;
+    char alphabet[27] = { 0 };
     lightos_pipe_t pipe;
-    lightos_pipe_transaction_t transaction;
 
     printf("Epic sauce\n");
 
@@ -23,28 +23,24 @@ int epic_sauce()
     if (error)
         return error;
 
-    /* Keep polling for transactions */
-    error = lightos_pipe_await_transaction(&pipe, &transaction);
+    do {
+        char buffer[2] = { 0 };
 
-    if (error)
-        goto disconnect_and_return;
+        if (idx % 2 == 0)
+            /* Accept the incomming data */
+            error = lightos_pipe_accept(&pipe, buffer, sizeof(buffer));
+        else
+            error = lightos_pipe_deny(&pipe);
 
-    /* Allocate our own buffer */
-    buffer = malloc(transaction.data_size);
+        if (error)
+            continue;
 
-    /* Accept the incomming data */
-    error = lightos_pipe_accept(&pipe, buffer, transaction.data_size);
+        alphabet[idx] = (idx % 2 == 0) ? buffer[0] : ' ';
+        idx++;
+    } while (idx < 26);
 
-    if (error)
-        goto free_disconnect_and_return;
+    printf("Recieved the alphabet: %s\n", alphabet);
 
-    printf("Recieved buffer: %s\n", buffer);
-
-    /* Kill the temporary buffer */
-free_disconnect_and_return:
-    free(buffer);
-
-disconnect_and_return:
     /* Disconnect from the pipe */
     lightos_pipe_disconnect(&pipe);
     return error;
@@ -71,7 +67,7 @@ int main()
     lightos_pipe_t pipe;
     lightos_pipe_dump_t dump;
     lightos_pipe_transaction_t test_transaction;
-    char buffer[8] = { 0 };
+    char buffer[2] = { 0 };
 
     error = init_lightos_pipe(&pipe, "test_pipe", LIGHTOS_UPIPE_FLAGS_FULLDUPLEX, NULL, NULL);
 
@@ -80,16 +76,18 @@ int main()
 
     create_process("Epic sauce", (FuncPtr)epic_sauce, NULL, NULL, NULL);
 
-    buffer[0] = 'h';
-    buffer[1] = 'e';
-    buffer[2] = 'l';
-    buffer[3] = 'l';
-    buffer[4] = 'o';
+    buffer[0] = 'a';
 
-    lightos_pipe_send(&pipe, &test_transaction, LIGHTOS_PIPE_TRANSACT_TYPE_DATA, buffer, sizeof(buffer));
+    /* Send the alphabet */
+    for (int i = 0; i < 26; i++) {
+        lightos_pipe_send(&pipe, &test_transaction, LIGHTOS_PIPE_TRANSACT_TYPE_DATA, buffer, sizeof(buffer));
+
+        buffer[0]++;
+    }
 
     printf("Waiting\n");
 
+    /* Wait until all our transactions have been handled */
     do {
         error = lightos_pipe_dump(&pipe, &dump);
 
@@ -97,9 +95,9 @@ int main()
             break;
 
         usleep(1000);
-    } while (lightos_pipe_n_total_transact(&dump) == 0);
+    } while (lightos_pipe_n_total_transact(&dump) < 26);
 
-    printf("Done!\n");
+    printf("Done! transaction rate: %d%%\n", dump.acceptance_rate);
 
     destroy_lightos_pipe(&pipe);
 

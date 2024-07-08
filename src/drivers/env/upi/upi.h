@@ -46,6 +46,8 @@ typedef struct upi_pipe {
     u64 n_total_accept;
     /* Total number of denied transactions that have ran through this pipe */
     u64 n_total_deny;
+    /* Total number of transactions that have ran throught this pipe */
+    u64 n_total_transacts;
 
     /* Index where new packets will be put */
     u32 ft_w_idx;
@@ -72,7 +74,7 @@ typedef struct upi_pipe {
 
 static inline bool upi_pipe_is_uniform(upi_pipe_t* pipe)
 {
-    return ((pipe->flags & LIGHTOS_UPIPE_FLAGS_UNIFORM) != LIGHTOS_UPIPE_FLAGS_UNIFORM);
+    return ((pipe->flags & LIGHTOS_UPIPE_FLAGS_UNIFORM) == LIGHTOS_UPIPE_FLAGS_UNIFORM);
 }
 
 /*!
