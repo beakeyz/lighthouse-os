@@ -78,7 +78,7 @@ int kterm_handle_login()
                 break;
 
             /* Funky delay */
-            mdelay(200);
+            mdelay(400);
 
             kterm_print("That was not quite correct. ");
             kterm_print(to_string(passwd_retries - 1));

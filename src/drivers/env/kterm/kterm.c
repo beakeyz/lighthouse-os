@@ -953,8 +953,6 @@ static void kterm_command_worker()
     exit_cmd_processing:
         kterm_cmd_worker_finish_loop();
         kfree(input_buffer_cpy);
-
-        scheduler_yield();
     }
 }
 

@@ -192,23 +192,11 @@ void destroy_kdoor(kdoor_t* door)
 
 kerror_t kdoor_reset(kdoor_t* door)
 {
-    kdoorbell_t* bell;
-
-    if (!door->m_bell)
-        return -1;
-
-    bell = door->m_bell;
-
-    if (!bell->m_lock)
-        return -1;
-
-    mutex_lock(bell->m_lock);
     mutex_lock(door->m_lock);
 
     door->m_flags &= ~(KDOOR_FLAG_RANG);
 
     mutex_unlock(door->m_lock);
-    mutex_unlock(bell->m_lock);
 
     return (0);
 }

@@ -21,6 +21,7 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
     char* fullpath_buf;
     char* c_path;
     char* full_buffer;
+    size_t fullpath_len;
     size_t c_path_len;
     size_t path_len;
     size_t total_len;
@@ -51,11 +52,12 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 
     /* Duplicate the string */
     fullpath_buf = strdup(fullpath_buf);
+    fullpath_len = strlen(fullpath_buf);
     c_path = fullpath_buf;
     path_len = strlen(path);
 
     /* Filter on the path seperator */
-    for (uint32_t i = 0; i < (strlen(fullpath_buf) + 1); i++) {
+    for (uint32_t i = 0; i < (fullpath_len + 1); i++) {
         char* c_char = fullpath_buf + i;
 
         /* Cut off the seperator char */
@@ -87,8 +89,6 @@ static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
 
         /* Next path */
         c_path = c_char + 1;
-        /* Put back this char */
-        *c_char = PATH_SEPERATOR_CHAR;
     }
 
     kfree(fullpath_buf);

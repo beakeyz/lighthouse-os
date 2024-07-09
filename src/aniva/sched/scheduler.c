@@ -645,16 +645,18 @@ static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* p
         case 0:
             return nullptr;
         case 1:
-            if (!proc->m_init_thread)
+            next_thread = list_get(proc->m_threads, 0);
+
+            if (!next_thread)
                 return nullptr;
 
             /* Fuck */
-            if (proc->m_init_thread->m_current_state != RUNNING && proc->m_init_thread->m_current_state != RUNNABLE)
+            if (next_thread->m_current_state != RUNNING && next_thread->m_current_state != RUNNABLE)
                 return nullptr;
 
             ptr->m_scheduled_thread_index = 0;
 
-            return proc->m_init_thread;
+            return next_thread;
         default:
             c_idx = 0;
 
@@ -689,7 +691,7 @@ static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* p
             cycle:
                 c_idx++;
                 /* Loop until we've completely scanned the entire scan list once */
-            } while (c_idx <= proc->m_threads->m_length);
+            } while (c_idx < proc->m_threads->m_length);
             break;
     }
 
