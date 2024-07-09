@@ -2,9 +2,9 @@
 #define __ANIVA_OSS_NODE__
 
 #include "dev/core.h"
-#include "libk/flow/error.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
+#include <libk/flow/error.h>
 #include <libk/data/hashmap.h>
 #include <libk/stddef.h>
 

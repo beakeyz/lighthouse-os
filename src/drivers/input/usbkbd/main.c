@@ -112,11 +112,6 @@ static int usbkbd_poll(device_t* device)
   if (error)
     return error;
 
-  /* Enqueue the interrupt transfer */
-  usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
-
-  /* Wait for a response from the device */
-  usb_await_xfer_complete(kbd->probe_xfer, NULL);
   return 0;
 }
 
@@ -138,6 +133,10 @@ static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
 {
     usbkbd_t* _ret;
     char name_buffer[16] = { 0 };
+
+    /* TEST: only have one keyboard for now */
+    if (keyboards)
+        return -KERR_DEV;
 
     _ret = kmalloc(sizeof(*_ret));
 
@@ -186,6 +185,8 @@ static int destroy_usbkbd(usbkbd_t* kbd)
             break;
         }
     }
+
+    //if (kbd->probe_xfer)
 
     /* Buhbye */
     kfree(kbd);
@@ -270,7 +271,9 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
     memcpy(&kbd->c_ctx.key.pressed_buffer, kbd->c_scancodes, 7);
 
     /* Queue into the device event queue */
-    hid_device_queue(kbd->hiddev, &kbd->c_ctx);
+    //hid_device_queue(kbd->hiddev, &kbd->c_ctx);
+    if (kbd->c_ctx.key.pressed_char && pressed)
+        kputch(kbd->c_ctx.key.pressed_char);
     return 0;
 }
 
@@ -299,6 +302,13 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     if (error)
         goto resubmit;
 
+    /* No data transfered (Probably a NAK) */
+    if (xfer->resp_transfer_size == 0)
+        goto resubmit;
+
+    KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3],kbd->prev_resp[4],kbd->prev_resp[5],
+            kbd->this_resp[2],kbd->this_resp[3],kbd->this_resp[4],kbd->this_resp[5]);
+
     /* Check modifier keys */
     for (i = 0; i < 8; i++) {
         if (((kbd->this_resp[0] >> i) & 1) == 1 && ((kbd->prev_resp[0] >> i) & 1) == 0)
@@ -322,8 +332,7 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     memcpy(kbd->prev_resp, kbd->this_resp, sizeof(kbd->prev_resp));
 resubmit:
     /* Resubmit this xfer to the hcd in order to keep probing the device */
-    //return usb_xfer_enqueue(xfer, xfer->device->hcd);
-    return 0;
+    return usb_xfer_enqueue(xfer, xfer->device->hcd);
 }
 
 static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_buffer_t* intf_buf)
@@ -358,17 +367,20 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
     if (error)
         return error;
 
-    // error = usb_device_submit_ctl(udev, USB_TYPE_CLASS | USB_TYPE_IF_OUT, USB_REQ_SET_PROTOCOL, 0, interface->desc.interface_number, 0, NULL, NULL);
+    error = usb_device_submit_ctl(udev, USB_TYPE_CLASS | USB_TYPE_IF_OUT, USB_REQ_SET_PROTOCOL, 0, 0, 0, NULL, NULL);
 
-    // if (error)
-    // goto dealloc_and_exit;
+    if (error)
+        goto dealloc_and_exit;
 
     /* Submit an interrupt transfer */
     error = usb_device_submit_int(udev, &kbd->probe_xfer, usbkbd_irq, USB_DIRECTION_DEVICE_TO_HOST, interface->ep_list, kbd->this_resp, sizeof(kbd->this_resp));
 
-    return error;
+    if (error)
+        goto dealloc_and_exit;
 
-    // dealloc_and_exit:
+    return usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
+
+dealloc_and_exit:
     destroy_usbkbd(kbd);
     return error;
 }

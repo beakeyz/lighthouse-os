@@ -1,6 +1,7 @@
 #ifndef __ANIVA_FS_CORE__
 #define __ANIVA_FS_CORE__
 
+#include "oss/node.h"
 #include <dev/disk/generic.h>
 #include <libk/flow/error.h>
 #include <libk/stddef.h>
@@ -8,7 +9,6 @@
 #define FS_DEFAULT_ROOT_MP "Root"
 #define FS_INITRD_MP "Initrd"
 
-struct oss_node;
 struct oss_node_ops;
 struct aniva_driver;
 
@@ -16,7 +16,7 @@ typedef struct fs_type {
     const char* m_name;
     uint32_t m_flags;
 
-    int (*f_unmount)(struct fs_type*, struct oss_node*);
+    int (*f_unmount)(struct fs_type*, oss_node_t*);
     struct oss_node* (*f_mount)(struct fs_type*, const char*, partitioned_disk_dev_t* dev);
 
     struct aniva_driver* m_driver;
@@ -53,7 +53,18 @@ typedef struct fs_oss_node {
     void* m_fs_priv;
 } fs_oss_node_t;
 
-#define oss_node_getfs(node) ((fs_oss_node_t*)oss_node_unwrap((node)))
+static inline fs_oss_node_t* oss_node_unwrap_to_fsnode(oss_node_t* node)
+{
+    while (node->type != OSS_OBJ_GEN_NODE && !node->priv)
+        node = node->parent;
+
+    if (!node)
+        return nullptr;
+
+    return (fs_oss_node_t*)node->priv;
+}
+
+#define oss_node_getfs(node) (oss_node_unwrap_to_fsnode((node)))
 
 struct oss_node* create_fs_oss_node(const char* name, fs_type_t* type, struct oss_node_ops* ops);
 void destroy_fs_oss_node(struct oss_node* node);

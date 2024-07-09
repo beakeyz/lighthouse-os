@@ -4,6 +4,7 @@
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "proc/core.h"
 #include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -165,10 +166,10 @@ static inline sched_frame_t* pick_next_process_scheduler(scheduler_t* s)
  */
 bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
 {
-    static uint32_t reschedule_limit = 3;
-    uint32_t reschedule_count;
     thread_t* next_thread;
     thread_t* cur_thread;
+    uint32_t reschedule_count;
+    uint32_t reschedule_limit = sched->processes.count+1;
 
     /* we should now either be in the kernel boot context, or in this mfs context */
     cur_thread = get_current_scheduling_thread();
@@ -208,7 +209,7 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
     } while (reschedule_count++ < reschedule_limit);
 
     /* If we can't seem to get a new thread, when there is only one process, just don't do shit */
-    if (next_thread == cur_thread)
+    if (!next_thread || next_thread == cur_thread)
         return false;
 
     set_current_proc(frame->m_proc);
@@ -630,22 +631,31 @@ static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* p
     thread_t* next_thread = nullptr;
     proc_t* proc = ptr->m_proc;
 
+    /* Clear the flag and run initializer */
+    if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {
+        proc->m_flags &= ~PROC_UNRUNNED;
+
+        /* We require the initial thread to be in the threads list */
+        ptr->m_scheduled_thread_index = 0;
+
+        return proc->m_init_thread;
+    }
+
     switch (proc->m_threads->m_length) {
         case 0:
             return nullptr;
         case 1:
+            if (!proc->m_init_thread)
+                return nullptr;
+
+            /* Fuck */
+            if (proc->m_init_thread->m_current_state != RUNNING && proc->m_init_thread->m_current_state != RUNNABLE)
+                return nullptr;
+
+            ptr->m_scheduled_thread_index = 0;
+
             return proc->m_init_thread;
         default:
-            /* Clear the flag and run initializer */
-            if ((proc->m_flags & PROC_UNRUNNED) == PROC_UNRUNNED) {
-                proc->m_flags &= ~PROC_UNRUNNED;
-
-                /* We require the initial thread to be in the threads list */
-                ptr->m_scheduled_thread_index = 0;
-
-                return proc->m_init_thread;
-            }
-
             c_idx = 0;
 
             do {
@@ -662,7 +672,6 @@ static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* p
                 switch (next_thread->m_current_state) {
                 case RUNNABLE:
                     // potential good thread so TODO: make an algorithm that chooses the optimal thread here
-                    // another TODO: we need to figure out how to handle sleeping threads (i.e. sockets waiting for packets)
                     ptr->m_scheduled_thread_index = c_abolute_idx;
                     next_thread->m_current_state = RUNNABLE;
 
@@ -680,12 +689,12 @@ static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* p
             cycle:
                 c_idx++;
                 /* Loop until we've completely scanned the entire scan list once */
-            } while (c_idx < proc->m_threads->m_length);
+            } while (c_idx <= proc->m_threads->m_length);
             break;
     }
 
     /* Return the current process... */
-    return list_get(proc->m_threads, ptr->m_scheduled_thread_index);
+    return nullptr;
 }
 
 /*!

@@ -449,6 +449,10 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             /* Get the buffer size of this descriptor */
             c_read_size = c_qtd->len - ((c_qtd->hw_token >> EHCI_QTD_BYTES_SHIFT) & EHCI_QTD_BYTES_MASK);
 
+            /* Nothing transfered */
+            if (!c_read_size || (int64_t)c_read_size < 0)
+                goto check_next;
+
             /*
              * If the size of the current qtd is bigger than the size
              * of the transfer buffer, we have to clamp the size to fit.
@@ -470,6 +474,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             if (c_buffer_offset >= xfer->xfer->resp_size)
                 break;
 
+check_next:
             if (c_qtd->hw_next == EHCI_FLLP_TYPE_END)
                 break;
 

@@ -89,7 +89,7 @@ static int enable_pit(time_chip_t* chip)
         return -1;
 
     /* Reset this badboy */
-    reset_pit(RATE);
+    reset_pit(SQ_WAVE);
 
     return 0;
 }

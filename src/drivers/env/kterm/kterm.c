@@ -854,6 +854,8 @@ static void kterm_key_watcher()
     hid_event_t* key_event;
 
     do {
+        key_event = nullptr;
+
         /* Check if there is a keypress ready */
         if (hid_device_poll(_kterm_kbddev, &key_event) == 0)
             kterm_on_key(key_event);
@@ -951,6 +953,8 @@ static void kterm_command_worker()
     exit_cmd_processing:
         kterm_cmd_worker_finish_loop();
         kfree(input_buffer_cpy);
+
+        scheduler_yield();
     }
 }
 
@@ -1219,7 +1223,8 @@ int kterm_init()
     printf(" CPU: %s\n", processor->m_info.m_model_id);
     printf(" Max available cores: %d\n", processor->m_info.m_max_available_cores);
     printf(" Total memory: %lld bytes\n", ((info.total_pages) * SMALL_PAGE_SIZE));
-    kterm_print("\n For any information about kterm, type: \'help\'\n");
+    printf(" Input source: %s\n\n", (_kterm_kbddev && _kterm_kbddev->dev && _kterm_kbddev->dev->name) ? _kterm_kbddev->dev->name : "None");
+    kterm_print(" For any information about kterm, type: \'help\'\n");
 
     kterm_enable_newline_tag();
 

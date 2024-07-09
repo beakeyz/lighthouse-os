@@ -290,12 +290,18 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
 
         /* No finished transfers, cycle */
         if (!c_xfer || !usb_xfer_is_done(c_xfer->xfer))
-            goto unlock_and_yield;
+            c_xfer = nullptr;
+        else
+            /* Remove from the local transfer list */
+            list_remove_ex(ehci->transfer_list, c_xfer);
 
-        /* Remove from the local transfer list */
-        list_remove_ex(ehci->transfer_list, c_xfer);
+        mutex_unlock(ehci->transfer_lock);
 
-        // KLOG_DBG("EHCI: Finished a transfer\n");
+        /* Nothing to do */
+        if (!c_xfer)
+            goto yield;
+
+        //KLOG_DBG("EHCI: Finished a transfer\n");
 
         ehci_xfer_finalise(ehci, c_xfer);
 
@@ -308,8 +314,6 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
         /* Destroy our local transfer struct */
         destroy_ehci_xfer(ehci, c_xfer);
 
-    unlock_and_yield:
-        mutex_unlock(ehci->transfer_lock);
     yield:
         scheduler_yield();
     }
@@ -395,12 +399,12 @@ static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
             return 0;
 
         mdelay(50);
-    } while (takeover_tries++ < 16);
+    } while (takeover_tries++ < 20);
 
-    if ((legsup & EHCI_LEGSUP_OSOWNED) == 1)
+    if ((legsup & EHCI_LEGSUP_OSOWNED) == EHCI_LEGSUP_OSOWNED)
         return 0;
 
-    return -1;
+    return 0;
 }
 
 static int ehci_halt(ehci_hcd_t* ehci)
@@ -868,14 +872,15 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
         break;
     case USB_LOWSPEED:
         interval = 4;
-        // Fallthrough
-    default:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
         break;
-    }
-
-    if (xfer->device->speed == USB_FULLSPEED)
+    case USB_FULLSPEED:
         interval = 1;
+        qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
+        break;
+    default:
+        break;
+    }
 
     /* Fuck man */
     ASSERT_MSG(interval, "_ehci_add_async_int_xfer: Got a null-interval");

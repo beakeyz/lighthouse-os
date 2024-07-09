@@ -12,6 +12,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
+#include "oss/obj.h"
 #include "oss/path.h"
 #include <libk/stddef.h>
 
@@ -641,11 +642,107 @@ fail_dealloc_cchain:
     return error;
 }
 
-/*
- * If this path does not resolve to a file, but does end in a directory,
- * we should make this file
+
+/*!
+ * @brief: Open a file direntry on the fat filesystem
  */
 static oss_obj_t* fat_open(oss_node_t* node, const char* path)
+{
+    int error;
+    file_t* ret;
+    fat_file_t* fat_file;
+    fat_fs_info_t* info;
+    fat_dir_entry_t current;
+    oss_path_t oss_path;
+
+    u32 direntry_cluster;
+    u32 direntry_offset;
+
+    if (!path)
+        return nullptr;
+
+    info = GET_FAT_FSINFO(node);
+    /* Copy the root entry copy =D */
+    current = info->root_entry_cpy;
+
+    oss_parse_path(path, &oss_path);
+
+    for (uintptr_t i = 0; i < oss_path.n_subpath; i++) {
+
+        /* Skip invalid subpaths */
+        if (!oss_path.subpath_vec[i])
+            continue;
+
+        /* Respect skip tokens */
+        if (oss_path.subpath_vec[i][0] == _OSS_PATH_SKIP)
+            continue;
+
+        /* Pre-cache the starting offset of the direntry we're searching in */
+        direntry_cluster = __fat32_dir_entry_get_start_cluster(&current);
+
+        /* Find the directory entry */
+        error = fat32_open_dir_entry(node, &current, &current, oss_path.subpath_vec[i], &direntry_offset);
+
+        /* A single directory may have entries spanning over multiple clusters */
+        direntry_cluster += direntry_offset / info->cluster_size;
+        direntry_offset %= info->cluster_size;
+
+        if (error)
+            break;
+    }
+
+    /* Kill the path we don't need anymore */
+    oss_destroy_path(&oss_path);
+
+    if (error)
+        return nullptr;
+
+    /*
+     * If we found our file (its not a directory) we can populate the file object and return it
+     */
+    if ((current.attr & (FAT_ATTR_DIR | FAT_ATTR_VOLUME_ID)) == FAT_ATTR_DIR)
+        return nullptr;
+
+    /* Create the fat directory once we've found it exists */
+    ret = create_fat_file(info, NULL, path);
+
+    if (!ret)
+        return nullptr;
+
+    fat_file = ret->m_private;
+
+    if (!fat_file)
+        return nullptr;
+
+    /* Make sure the file knows about its cluster chain */
+    error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
+
+    if (error)
+        goto destroy_and_exit;
+
+    /* This is quite aggressive, we should prob just clean and return nullptr... */
+    ASSERT_MSG(!oss_attach_obj_rel(node, path, ret->m_obj), "Failed to attach FAT object");
+
+    ret->m_total_size = get_fat_file_size(fat_file);
+    ret->m_logical_size = current.size;
+
+    /* Cache the offset of the clusterchain */
+    fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));
+    fat_file->direntry_offset = direntry_offset;
+    fat_file->direntry_cluster = direntry_cluster;
+
+    return ret->m_obj;
+    
+destroy_and_exit:
+    destroy_oss_obj(ret->m_obj);
+    return nullptr;
+
+}
+
+/*!
+ * Old open routine for the fat filesystem
+ */
+static oss_obj_t* _fat_open(oss_node_t* node, const char* path)
 {
     int error;
     file_t* ret;
@@ -808,9 +905,6 @@ static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
     if (!fat_file)
         return nullptr;
 
-    /* Complete the link */
-    ret->priv = fat_file;
-
     /* Make sure the file knows about its cluster chain */
     error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
 
@@ -833,8 +927,6 @@ static oss_node_t* fat_open_dir(oss_node_t* node, const char* path)
     fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));
     fat_file->direntry_offset = direntry_offset;
     fat_file->direntry_cluster = direntry_cluster;
-
-    printf("Opening FAT dir object: %p (size=%d, child_capacity=%d)\n", ret, ret->size, ret->child_capacity);
 
     /* Do attach the directory */
     dir_do_attach(ret, path);
