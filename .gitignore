@@ -21,3 +21,5 @@ zig/**_abi.zig
 **/**/**_abi.zig
 */**/**_abi.zig
 /**/**_abi.zig
+
+/rust/target/
