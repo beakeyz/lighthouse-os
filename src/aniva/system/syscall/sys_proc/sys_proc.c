@@ -1,9 +1,42 @@
 #include "sys_proc.h"
+#include "fs/file.h"
+#include "libk/bin/elf.h"
+#include "libk/stddef.h"
 #include "lightos/handle_def.h"
 #include "mem/kmem_manager.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+
+/*!
+ * @brief: Creates a new process from the given parameters
+ *
+ * Tries to execute a process binary and clones the current process if this fails
+ */
+static int _sys_do_create(proc_t* c_proc, const char __user* name, FuncPtr __user entry, proc_t** p_proc)
+{
+    file_t* file;
+    proc_t* new_proc;
+
+    file = file_open(name);
+
+    if (!file)
+        goto clone_and_exit;
+
+    /* Try to create a new process */
+    new_proc = elf_exec_64(file, (c_proc->m_flags & PROC_KERNEL) == PROC_KERNEL);
+
+    /* Close the file regardles of exec result */
+    file_close(file);
+
+    if (!new_proc)
+        goto clone_and_exit;
+
+    return 0;
+
+clone_and_exit:
+    return proc_clone(c_proc, entry, name, p_proc);
+}
 
 u64 sys_create_proc(const char __user* name, FuncPtr __user entry)
 {
@@ -16,7 +49,8 @@ u64 sys_create_proc(const char __user* name, FuncPtr __user entry)
     if (kmem_validate_ptr(c_proc, (u64)name, sizeof(const char*)) || kmem_validate_ptr(c_proc, (u64)entry, sizeof(FuncPtr)))
         return SYS_ERR;
 
-    error = proc_clone(c_proc, entry, name, &new_proc);
+    // error = proc_clone(c_proc, entry, name, &new_proc);
+    error = _sys_do_create(c_proc, name, entry, &new_proc);
 
     /* If something went wrong here, we're mega fucked */
     if (error)

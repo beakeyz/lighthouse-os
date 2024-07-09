@@ -22,6 +22,7 @@ int init_lightos_pipe(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD
  *
  */
 int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
+int init_lightos_pipe_global(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize);
 
 /*!
  * @brief: Destroys a lightos pipe object

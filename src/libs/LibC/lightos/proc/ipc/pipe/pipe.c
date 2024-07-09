@@ -1,13 +1,13 @@
 #include "pipe.h"
-#include <errno.h>
-#include <lightos/driver/drv.h>
-#include <stdio.h>
-#include <string.h>
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/ipc/pipe/shared.h"
 #include "time.h"
 #include "unistd.h"
+#include <errno.h>
+#include <lightos/driver/drv.h>
+#include <stdio.h>
+#include <string.h>
 
 static HANDLE upi_handle = HNDL_INVAL;
 
@@ -143,6 +143,14 @@ int init_lightos_pipe_uniform(lightos_pipe_t* pipe, const char* name, DWORD flag
     return init_lightos_pipe(pipe, name, flags | LIGHTOS_UPIPE_FLAGS_UNIFORM, max_listeners, datasize);
 }
 
+int init_lightos_pipe_global(lightos_pipe_t* pipe, const char* name, DWORD flags, DWORD max_listeners, DWORD datasize)
+{
+    if (!datasize)
+        return -EINVAL;
+
+    return init_lightos_pipe(pipe, name, flags | LIGHTOS_UPIPE_FLAGS_GLOBAL, max_listeners, datasize);
+}
+
 int destroy_lightos_pipe(lightos_pipe_t* pipe)
 {
     return _lightos_pipe_destroy(pipe->pipe);
@@ -271,20 +279,20 @@ int lightos_pipe_send(lightos_pipe_t* pipe, lightos_pipe_transaction_t* p_transa
     ft.pipe_handle = pipe->pipe;
 
     switch (type) {
-        case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
-            ft.payload.data = pdata;
-            break;
-        case LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL:
-            ft.payload.signal = (int)(uintptr_t)pdata;
-            ft.transaction.data_size = sizeof(int);
-            break;
-        case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
-            ft.payload.handle = (HANDLE)(uintptr_t)pdata;
-            ft.transaction.data_size = sizeof(HANDLE);
-            break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
+        ft.payload.data = pdata;
+        break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL:
+        ft.payload.signal = (int)(uintptr_t)pdata;
+        ft.transaction.data_size = sizeof(int);
+        break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
+        ft.payload.handle = (HANDLE)(uintptr_t)pdata;
+        ft.transaction.data_size = sizeof(HANDLE);
+        break;
     }
 
-    error =  _lightos_pipe_send(&ft);
+    error = _lightos_pipe_send(&ft);
 
     /* Export the transaction */
     *p_transaction = ft.transaction;

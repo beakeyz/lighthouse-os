@@ -5,8 +5,9 @@
 #define LIGHTOS_UPIPE_DRIVERNAME "upi"
 #define LIGHTOS_UPIPE_DRIVER "service/" LIGHTOS_UPIPE_DRIVERNAME
 
-#define LIGHTOS_UPIPE_FLAGS_FULLDUPLEX 0x00000001 
-#define LIGHTOS_UPIPE_FLAGS_UNIFORM    0x00000002
+#define LIGHTOS_UPIPE_FLAGS_FULLDUPLEX 0x00000001
+#define LIGHTOS_UPIPE_FLAGS_UNIFORM 0x00000002
+#define LIGHTOS_UPIPE_FLAGS_GLOBAL 0x00000004
 
 /*
  * full/signle duplex IPC struct
@@ -92,7 +93,6 @@ static inline unsigned char lightos_transaction_is_valid(lightos_pipe_transactio
 {
     return (transact && transact->data_size && transact->transaction_type != LIGHTOS_PIPE_TRANSACT_TYPE_NONE);
 }
-
 
 #define LIGHTOS_UPI_MSG_CREATE_PIPE 0
 #define LIGHTOS_UPI_MSG_DESTROY_PIPE 1

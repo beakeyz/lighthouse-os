@@ -57,6 +57,10 @@ oss_node_t* create_oss_node(const char* name, enum OSS_NODE_TYPE type, struct os
     /* TODO: Allow the hashmap to be resized */
     ret->obj_map = create_hashmap(SOFT_OSS_NODE_OBJ_MAX, NULL);
 
+    /* Add to the parent, if this was specified */
+    if (parent)
+        oss_node_add_node(parent, ret);
+
     return ret;
 }
 

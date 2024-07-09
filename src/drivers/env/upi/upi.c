@@ -2,29 +2,51 @@
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
-#include <proc/proc.h>
-#include <sched/scheduler.h>
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
 #include "lightos/proc/ipc/pipe/shared.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
+#include "oss/core.h"
 #include "oss/node.h"
-#include <proc/env.h>
 #include "oss/obj.h"
 #include "proc/handle.h"
 #include "sys/types.h"
+#include <proc/env.h>
+#include <proc/proc.h>
+#include <sched/scheduler.h>
 
+static oss_node_t* _upi_pipe_node;
 static zone_allocator_t* _upi_pipe_allocator = NULL;
 static zone_allocator_t* _upi_listener_allocator = NULL;
 
 /*
- * List to keep a global list of all the pipes and listeners created 
+ * List to keep a global list of all the pipes and listeners created
  * TODO: Graceful driver shutdown
  */
 static upi_pipe_t* _upi_pipe_list;
-static upi_listener_t* _upi_listener_list;
+
+static inline void __upi_register_pipe(upi_pipe_t* pipe)
+{
+    pipe->_upi_next = _upi_pipe_list;
+    _upi_pipe_list = pipe;
+}
+
+static inline void __upi_unregister_pipe(upi_pipe_t* pipe)
+{
+    upi_pipe_t** walker = &_upi_pipe_list;
+
+    while (*walker && *walker != pipe)
+        walker = &(*walker)->_upi_next;
+
+    /* Not found */
+    if (!(*walker))
+        return;
+
+    /* Do the unlink */
+    *walker = pipe->_upi_next;
+}
 
 static inline void upi_pipe_link_listener(upi_pipe_t* pipe, upi_listener_t* listener)
 {
@@ -142,9 +164,12 @@ bool upi_pipe_can_proc_connect(upi_pipe_t* pipe, proc_t* proc)
  */
 static void __destroy_upi_pipe(upi_pipe_t* pipe)
 {
-    upi_listener_t* c_listener, *next_listener;
+    upi_listener_t *c_listener, *next_listener;
 
     ASSERT_MSG(pipe, "__destroy_upi_pipe: Recieved null pipe???");
+
+    /* Unregister the pipe from UPI */
+    __upi_unregister_pipe(pipe);
 
     /* Remove all instances of this pipe from the creator_procs handle map */
     khandle_map_remove(&pipe->creator_proc->m_handle_map, HNDL_TYPE_OSS_OBJ, pipe->obj);
@@ -166,7 +191,6 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
 
     /* Deallocate the ft buffer */
     __kmem_kernel_dealloc((vaddr_t)pipe->ft_buffer, sizeof(lightos_pipe_ft_t) * pipe->ft_capacity);
-    //kfree(pipe->ft_buffer);
 
     c_listener = pipe->listeners;
 
@@ -178,7 +202,7 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
 
         c_listener = next_listener;
     }
-    
+
     zfree_fixed(_upi_pipe_allocator, pipe);
 }
 
@@ -190,6 +214,7 @@ static void __destroy_upi_pipe(upi_pipe_t* pipe)
 upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t __user* upipe)
 {
     upi_pipe_t* ret;
+    oss_node_t* pipe_node;
 
     if (!upipe)
         return nullptr;
@@ -230,11 +255,21 @@ upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t __user* upipe)
 
     memset(ret->ft_buffer, 0, sizeof(lightos_pipe_ft_t) * ret->ft_capacity);
 
+    pipe_node = proc->m_env->node;
+
+    /* If we wanted to create a global pipe, try to add it here */
+    if ((ret->flags & LIGHTOS_UPIPE_FLAGS_GLOBAL) == LIGHTOS_UPIPE_FLAGS_GLOBAL && _upi_pipe_node)
+        pipe_node = _upi_pipe_node;
+
+    /* Finally, add the object to the environment node */
+    if (oss_node_add_obj(pipe_node, ret->obj))
+        goto destroy_and_exit;
+
     /* Register the pipe as a child to the object */
     oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_PIPE, __destroy_upi_pipe);
 
-    /* Finally, add the object to the environment node */
-    oss_node_add_obj(proc->m_env->node, ret->obj);
+    /* Register the pipe to upi */
+    __upi_register_pipe(ret);
 
     return ret;
 
@@ -245,6 +280,9 @@ destroy_and_exit:
 
     if (ret->uniform_allocator)
         destroy_zone_allocator(ret->uniform_allocator, false);
+
+    if (ret->ft_buffer)
+        __kmem_kernel_dealloc((vaddr_t)ret->ft_buffer, sizeof(lightos_pipe_t) * ret->ft_capacity);
 
     zfree_fixed(_upi_pipe_allocator, ret);
     return nullptr;
@@ -285,7 +323,7 @@ upi_pipe_t* get_upi_pipe(proc_t* proc, HANDLE handle, khandle_t** pkhandle)
     return oss_obj_unwrap(obj, upi_pipe_t);
 }
 
-u64 upi_msg(struct aniva_driver *this, driver_control_code_t dcc, void *in_buf, size_t in_bsize, void *out_buf, size_t out_bsize)
+u64 upi_msg(struct aniva_driver* this, driver_control_code_t dcc, void* in_buf, size_t in_bsize, void* out_buf, size_t out_bsize)
 {
     proc_t* c_proc;
 
@@ -296,51 +334,51 @@ u64 upi_msg(struct aniva_driver *this, driver_control_code_t dcc, void *in_buf, 
         return DRV_STAT_INVAL;
 
     switch (dcc) {
-        case LIGHTOS_UPI_MSG_CREATE_PIPE:
-            if (in_bsize != sizeof(lightos_pipe_t))
-                return DRV_STAT_INVAL;
+    case LIGHTOS_UPI_MSG_CREATE_PIPE:
+        if (in_bsize != sizeof(lightos_pipe_t))
+            return DRV_STAT_INVAL;
 
-            return upi_create_pipe(c_proc, (lightos_pipe_t*)in_buf);
-        case LIGHTOS_UPI_MSG_DESTROY_PIPE:
-            if (in_bsize != sizeof(HANDLE))
-                return DRV_STAT_INVAL;
+        return upi_create_pipe(c_proc, (lightos_pipe_t*)in_buf);
+    case LIGHTOS_UPI_MSG_DESTROY_PIPE:
+        if (in_bsize != sizeof(HANDLE))
+            return DRV_STAT_INVAL;
 
-            return upi_destroy_pipe(c_proc, *(HANDLE*)in_buf);
-        case LIGHTOS_UPI_MSG_CONNECT_PIPE:
-            if (in_bsize != sizeof(lightos_pipe_t))
-                return DRV_STAT_INVAL;
+        return upi_destroy_pipe(c_proc, *(HANDLE*)in_buf);
+    case LIGHTOS_UPI_MSG_CONNECT_PIPE:
+        if (in_bsize != sizeof(lightos_pipe_t))
+            return DRV_STAT_INVAL;
 
-            return upi_connect_pipe(c_proc, (lightos_pipe_t*)in_buf);
-        case LIGHTOS_UPI_MSG_DISCONNECT_PIPE:
-            if (in_bsize != sizeof(HANDLE))
-                return DRV_STAT_INVAL;
+        return upi_connect_pipe(c_proc, (lightos_pipe_t*)in_buf);
+    case LIGHTOS_UPI_MSG_DISCONNECT_PIPE:
+        if (in_bsize != sizeof(HANDLE))
+            return DRV_STAT_INVAL;
 
-            return upi_disconnect_pipe(c_proc, *(HANDLE*)in_buf);
-        case LIGHTOS_UPI_MSG_SEND_TRANSACT:
-            if (in_bsize != sizeof(lightos_pipe_ft_t))
-                return DRV_STAT_INVAL;
+        return upi_disconnect_pipe(c_proc, *(HANDLE*)in_buf);
+    case LIGHTOS_UPI_MSG_SEND_TRANSACT:
+        if (in_bsize != sizeof(lightos_pipe_ft_t))
+            return DRV_STAT_INVAL;
 
-            return upi_send_transact(c_proc, (lightos_pipe_ft_t*)in_buf);
-        case LIGHTOS_UPI_MSG_ACCEPT_TRANSACT:
-            if (in_bsize != sizeof(lightos_pipe_accept_t))
-                return DRV_STAT_INVAL;
+        return upi_send_transact(c_proc, (lightos_pipe_ft_t*)in_buf);
+    case LIGHTOS_UPI_MSG_ACCEPT_TRANSACT:
+        if (in_bsize != sizeof(lightos_pipe_accept_t))
+            return DRV_STAT_INVAL;
 
-            return upi_transact_accept(c_proc, (lightos_pipe_accept_t*)in_buf);
-        case LIGHTOS_UPI_MSG_DENY_TRANSACT:
-            if (in_bsize != sizeof(HANDLE))
-                return DRV_STAT_INVAL;
+        return upi_transact_accept(c_proc, (lightos_pipe_accept_t*)in_buf);
+    case LIGHTOS_UPI_MSG_DENY_TRANSACT:
+        if (in_bsize != sizeof(HANDLE))
+            return DRV_STAT_INVAL;
 
-            return upi_transact_deny(c_proc, *(HANDLE*)in_buf);
-        case LIGHTOS_UPI_MSG_PREVIEW_TRANSACT:
-            if (in_bsize != sizeof(lightos_pipe_ft_t))
-                return DRV_STAT_INVAL;
+        return upi_transact_deny(c_proc, *(HANDLE*)in_buf);
+    case LIGHTOS_UPI_MSG_PREVIEW_TRANSACT:
+        if (in_bsize != sizeof(lightos_pipe_ft_t))
+            return DRV_STAT_INVAL;
 
-            return upi_transact_preview(c_proc, (lightos_pipe_ft_t*)in_buf);
-        case LIGHTOS_UPI_MSG_DUMP_PIPE:
-            if (in_bsize != sizeof(lightos_pipe_dump_t))
-                return DRV_STAT_INVAL;
+        return upi_transact_preview(c_proc, (lightos_pipe_ft_t*)in_buf);
+    case LIGHTOS_UPI_MSG_DUMP_PIPE:
+        if (in_bsize != sizeof(lightos_pipe_dump_t))
+            return DRV_STAT_INVAL;
 
-            return upi_dump_pipe(c_proc, (lightos_pipe_dump_t*)in_buf);
+        return upi_dump_pipe(c_proc, (lightos_pipe_dump_t*)in_buf);
     }
 
     return DRV_STAT_INVAL;
@@ -348,6 +386,15 @@ u64 upi_msg(struct aniva_driver *this, driver_control_code_t dcc, void *in_buf, 
 
 int upi_init(drv_manifest_t* this)
 {
+    oss_node_t* root_node;
+
+    /* Make sure these things are NULL */
+    _upi_pipe_node = NULL;
+    _upi_pipe_allocator = NULL;
+    _upi_listener_allocator = NULL;
+
+    _upi_pipe_list = NULL;
+
     _upi_pipe_allocator = create_zone_allocator(1 * Mib, sizeof(upi_pipe_t), NULL);
 
     if (!_upi_pipe_allocator)
@@ -358,15 +405,28 @@ int upi_init(drv_manifest_t* this)
     if (!_upi_listener_allocator)
         return -KERR_NOMEM;
 
+    /* Failed to resolve root, no biggie */
+    if (oss_resolve_node("%/Runtime", &root_node))
+        return 0;
+
+    /* Try to create the node */
+    _upi_pipe_node = create_oss_node("Upi", OSS_OBJ_STORE_NODE, NULL, root_node);
+
     return 0;
 }
 
 int upi_exit()
 {
+    for (upi_pipe_t* pipe = _upi_pipe_list; pipe != nullptr; pipe = pipe->_upi_next)
+        destroy_upi_pipe(pipe);
+
     if (_upi_pipe_allocator)
         destroy_zone_allocator(_upi_pipe_allocator, false);
     if (_upi_listener_allocator)
         destroy_zone_allocator(_upi_listener_allocator, false);
+
+    /* Destroy the oss node for global pipes */
+    destroy_oss_node(_upi_pipe_node);
     return 0;
 }
 
