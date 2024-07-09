@@ -207,7 +207,7 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         */
 
         if (usbsts & EHCI_OPREG_USBSTS_USBERRINT)
-            KLOG_DBG("EHCI: Got a transfer error!\n");
+            kernel_panic("EHCI: Got a transfer error!");
 
         if (usbsts & EHCI_OPREG_USBSTS_PORTCHANGE)
             KLOG_DBG("EHCI: Port change occured!\n");
@@ -219,7 +219,7 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
         */
 
         if (usbsts & EHCI_OPREG_USBSTS_HOSTSYSERR)
-            KLOG_DBG("EHCI: Host system error (yikes)!\n");
+            kernel_panic("EHCI: Host system error (yikes)!\n");
 
         if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
             // KLOG_DBG("EHCI: Advanced the async qh!\n");
@@ -480,8 +480,8 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
         c_qh->hw_qtd_next = EHCI_FLLP_TYPE_END;
         c_qh->hw_qtd_alt_next = EHCI_FLLP_TYPE_END;
 
-        c_qh->hw_info_0 |= (EHCI_QH_HIGH_SPEED | EHCI_QH_TOGGLE_CTL | EHCI_QH_MPL(64) | EHCI_QH_RLC(3));
-        c_qh->hw_info_1 |= (EHCI_QH_INTSCHED(0xff) | EHCI_QH_MULT_VAL(1));
+        c_qh->hw_info_0 = (EHCI_QH_FULL_SPEED | EHCI_QH_TOGGLE_CTL | EHCI_QH_MPL(64) | EHCI_QH_RLC(3));
+        c_qh->hw_info_1 = (EHCI_QH_INTSCHED(0xff) | EHCI_QH_MULT_VAL(1));
     }
 
     ehci->n_itd = 128;
@@ -565,9 +565,6 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
 
     /* Alignment should also be good */
     ehci->sitd_pool = create_zone_allocator(4096, sizeof(ehci_sitd_t), ZALLOC_FLAG_DMA);
-
-    /* Alignment should, once again, be good */
-    ehci->int_entry_pool = create_zone_allocator(4096, sizeof(ehci_pfl_int_entry_t), ZALLOC_FLAG_DMA);
 
     /* Allocate the periodic shedule table */
     ASSERT(!__kmem_kernel_alloc_range(
@@ -866,6 +863,8 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     if (interval > EHCI_INT_ENTRY_COUNT)
         interval = EHCI_INT_ENTRY_COUNT;
 
+    //KLOG("Reported interval: %d\n", interval);
+
     switch (xfer->device->speed) {
     case USB_HIGHSPEED:
         qh->hw_info_1 |= EHCI_QH_INTSCHED(0xff);
@@ -885,7 +884,7 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     /* Fuck man */
     ASSERT_MSG(interval, "_ehci_add_async_int_xfer: Got a null-interval");
 
-    mutex_lock(ehci->async_lock);
+    //mutex_lock(ehci->async_lock);
 
     link_qh = ehci->interrupt_list[interval - 1];
 
@@ -902,7 +901,7 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     link_qh->next = qh;
     link_qh->hw_next = qh->qh_dma;
 
-    mutex_unlock(ehci->async_lock);
+    //mutex_unlock(ehci->async_lock);
     return 0;
 }
 

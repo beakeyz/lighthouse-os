@@ -49,7 +49,6 @@ typedef struct ehci_hcd {
     zone_allocator_t* qtd_pool;
     zone_allocator_t* itd_pool;
     zone_allocator_t* sitd_pool;
-    zone_allocator_t* int_entry_pool;
 
     /* Asynchronous thingy */
     ehci_qh_t* async;

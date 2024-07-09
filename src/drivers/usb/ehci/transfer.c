@@ -463,9 +463,6 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             /* Copy to the response buffer */
             memcpy(xfer->xfer->resp_buffer + c_buffer_offset, c_qtd->buffer, c_read_size);
 
-            // if (c_read_size)
-            // printf("Copied %lld bytes into the buffer!\n", c_read_size);
-
             /* Update the offsets */
             c_total_read_size += c_read_size;
             c_buffer_offset += c_read_size;

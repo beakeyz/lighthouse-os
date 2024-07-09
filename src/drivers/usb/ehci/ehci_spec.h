@@ -195,12 +195,11 @@ typedef struct ehci_qtd {
     uint32_t hw_buffer_hi[5];
 
     /* Soft side */
-    paddr_t qtd_dma_addr;
+    u32 len;
     struct ehci_qtd* next;
-    struct ehci_qtd* prev;
     struct ehci_qtd* alt_next;
     void* buffer;
-    size_t len;
+    paddr_t qtd_dma_addr;
 } __attribute__((packed, aligned(32))) ehci_qtd_t;
 
 /* qh info 0 */
@@ -243,7 +242,7 @@ typedef struct ehci_qh {
     uint32_t hw_qtd_buffer_hi[5];
 
     /* ehci_qh softside */
-    paddr_t qh_dma;
+    u32 qh_dma;
     struct ehci_qh* next;
     struct ehci_qh* prev;
     struct ehci_qtd* qtd_link;
@@ -257,14 +256,14 @@ typedef struct ehci_itd {
     uint32_t hw_buffer[7];
     uint32_t hw_ext_buffer[7];
 
+    u32 bufsize;
     struct ehci_itd* next;
     struct ehci_itd* prev;
     paddr_t itd_dma;
     vaddr_t buffer;
-    size_t bufsize;
 
-    /* Need size to be aligned to 32 bytes */
-} __attribute__((packed, aligned(32))) ehci_itd_t;
+    /* Need size to be aligned to 128 bytes */
+} __attribute__((packed, aligned(128))) ehci_itd_t;
 
 typedef struct ehci_sitd {
     uint32_t hw_next;
@@ -282,16 +281,10 @@ typedef struct ehci_sitd {
     uint32_t hw_back_buf;
     uint32_t hw_ext_buffer[2];
 
+    u32 bufsize;
     struct ehci_sitd* next;
     struct ehci_sitd* prev;
     paddr_t sitd_dma;
-    size_t bufsize;
-    vaddr_t buf;
-} __attribute__((packed, aligned(32))) ehci_sitd_t;
-
-typedef struct ehci_pfl_int_entry {
-    ehci_qh_t qh;
-    uint32_t pad[6];
-} ehci_pfl_int_entry_t;
+} __attribute__((packed, aligned(64))) ehci_sitd_t;
 
 #endif // !__ANIVA_USB_EHCI_SPEC__

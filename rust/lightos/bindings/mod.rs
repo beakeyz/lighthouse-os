@@ -1,4 +1,3 @@
-#![no_std]
 #![allow(
     clippy::all,
     missing_docs,
@@ -10,11 +9,6 @@
     unsafe_op_in_unsafe_fn
 )]
 
-mod raw_lightos_bindings {
-    include!(concat!(
-        env!("OBJTREE"),
-        "/rust/bindings/raw_lightos_bindings.rs"
-    ));
-}
+pub mod raw_lightos_bindings;
 
 pub use raw_lightos_bindings::*;

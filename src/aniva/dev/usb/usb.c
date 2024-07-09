@@ -204,7 +204,7 @@ static usb_config_buffer_t* _udev_create_config_buffer(usb_device_t* udev, usb_c
             /* Fetch the last entry for this buffer */
             c_if_entry_slot = usb_if_buffer_get_last_entry(c_if_buffer);
 
-            ASSERT_MSG(!(*c_if_entry_slot), "_udev_create_config_buffer: LOGIC BREAKDOWN usb_if_buffer_get_last_entry returned a non-null slot!");
+            ASSERT_MSG(!(*c_if_entry_slot), "_udev_create_config_buffer: usb_if_buffer_get_last_entry returned a non-null slot!");
 
             c_if_entry = *c_if_entry_slot = kmalloc(sizeof(*c_if_entry));
             c_if_buffer->alt_count++;

@@ -225,7 +225,7 @@ upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t __user* upipe)
     ret->ft_capacity = UPI_DEFAULT_FT_CAPACITY;
 
     /* Try to allocate a buffer */
-    if (__kmem_kernel_alloc_range((void**)&ret->ft_buffer, sizeof(lightos_pipe_ft_t) * ret->ft_capacity, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE))
+    if (__kmem_kernel_alloc_range((void**)&ret->ft_buffer, sizeof(lightos_pipe_ft_t) * ret->ft_capacity, KMEM_CUSTOMFLAG_CREATE_USER, KMEM_FLAG_WRITABLE) || !ret->ft_buffer)
         goto destroy_and_exit;
 
     memset(ret->ft_buffer, 0, sizeof(lightos_pipe_ft_t) * ret->ft_capacity);

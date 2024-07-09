@@ -271,19 +271,29 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
     memcpy(&kbd->c_ctx.key.pressed_buffer, kbd->c_scancodes, 7);
 
     /* Queue into the device event queue */
-    //hid_device_queue(kbd->hiddev, &kbd->c_ctx);
-    if (kbd->c_ctx.key.pressed_char && pressed)
-        kputch(kbd->c_ctx.key.pressed_char);
+    hid_device_queue(kbd->hiddev, &kbd->c_ctx);
+    //if (kbd->c_ctx.key.pressed_char && pressed)
+        //kputch(kbd->c_ctx.key.pressed_char);
     return 0;
 }
 
-static bool has_pressed_key(uint8_t keys[6], uint8_t key)
+static inline bool has_pressed_key(uint8_t keys[6], uint8_t key)
 {
     for (uint8_t i = 0; i < 6; i++)
         if (keys[i] == key)
             return true;
 
     return false;
+}
+
+static inline bool _usbkbd_has_new_packet(usbkbd_t* kbd)
+{
+    u64* prev, *new;
+
+    prev = (u64*)kbd->prev_resp;
+    new = (u64*)kbd->this_resp;
+
+    return (*prev != *new);
 }
 
 /*!
@@ -304,6 +314,10 @@ static int usbkbd_irq(usb_xfer_t* xfer)
 
     /* No data transfered (Probably a NAK) */
     if (xfer->resp_transfer_size == 0)
+        goto resubmit;
+
+    /* Buffers are the same, skip */
+    if (!_usbkbd_has_new_packet(kbd))
         goto resubmit;
 
     KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3],kbd->prev_resp[4],kbd->prev_resp[5],
@@ -367,19 +381,15 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
     if (error)
         return error;
 
-    error = usb_device_submit_ctl(udev, USB_TYPE_CLASS | USB_TYPE_IF_OUT, USB_REQ_SET_PROTOCOL, 0, 0, 0, NULL, NULL);
-
-    if (error)
-        goto dealloc_and_exit;
-
     /* Submit an interrupt transfer */
     error = usb_device_submit_int(udev, &kbd->probe_xfer, usbkbd_irq, USB_DIRECTION_DEVICE_TO_HOST, interface->ep_list, kbd->this_resp, sizeof(kbd->this_resp));
 
     if (error)
         goto dealloc_and_exit;
 
-    return usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
+    usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
 
+    return 0;
 dealloc_and_exit:
     destroy_usbkbd(kbd);
     return error;
