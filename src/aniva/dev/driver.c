@@ -39,9 +39,6 @@ int drv_read(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintpt
     if (!driver || !manifest->m_ops.f_read)
         return DRV_STAT_NOMAN;
 
-    if (driver_is_busy(manifest))
-        return DRV_STAT_BUSY;
-
     // mutex_lock(manifest->m_lock);
 
     result = manifest->m_ops.f_read(driver, buffer, buffer_size, offset);
@@ -63,9 +60,6 @@ int drv_write(drv_manifest_t* manifest, void* buffer, size_t* buffer_size, uintp
 
     if (!driver || !manifest->m_ops.f_write)
         return DRV_STAT_NOMAN;
-
-    if (driver_is_busy(manifest))
-        return DRV_STAT_BUSY;
 
     // mutex_lock(manifest->m_lock);
 

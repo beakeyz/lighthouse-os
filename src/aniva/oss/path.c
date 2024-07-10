@@ -3,10 +3,15 @@
 #include "mem/heap.h"
 #include <libk/string.h>
 
-/*!
- * @brief: Private OSS function to parse a path into tokens
- */
 int oss_parse_path(const char* path, oss_path_t* p_path)
+{
+    return oss_parse_path_ex(path, p_path, _OSS_PATH_SLASH);
+}
+
+/*!
+ * @brief: Function to parse a path into tokens
+ */
+int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator)
 {
     u32 n_subpath;
     u32 c_delta;
@@ -28,7 +33,7 @@ int oss_parse_path(const char* path, oss_path_t* p_path)
          * If we've reached a slash and our delta pointer is more than one byte
          * away from our main pointer, we've found a subpath
          */
-        if (*c_char_ptr == _OSS_PATH_SLASH || *c_char_ptr == NULL) {
+        if (*c_char_ptr == seperator || *c_char_ptr == NULL) {
 
             if ((u64)(c_char_ptr - delta_ptr) >= 1)
                 n_subpath++;
@@ -58,7 +63,7 @@ int oss_parse_path(const char* path, oss_path_t* p_path)
          * If we've reached a slash and our delta pointer is more than one byte
          * away from our main pointer, we've found a subpath
          */
-        if (*c_char_ptr == _OSS_PATH_SLASH || *c_char_ptr == NULL) {
+        if (*c_char_ptr == seperator || *c_char_ptr == NULL) {
 
             /* Compute the delta between the pointers */
             c_delta = (u32)(c_char_ptr - delta_ptr);

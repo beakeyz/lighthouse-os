@@ -77,7 +77,7 @@ extern int errno;
 #define EBADMSG 77 /* Trying to read unreadable message */
 #define EFTYPE 79 /* Inappropriate file type or format */
 #define ENOTUNIQ 80 /* Given log. name not unique */
-#define EBADFD 81 /* f.d. invalid for this operation */
+#define EBADHANDLE 81 /* f.d. invalid for this operation */
 #define EREMCHG 82 /* Remote address changed */
 #define ELIBACC 83 /* Can't access a needed shared lib */
 #define ELIBBAD 84 /* Accessing a corrupted shared lib */

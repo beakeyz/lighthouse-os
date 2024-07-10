@@ -24,6 +24,7 @@
 #include "system/profile/profile.h"
 #include "system/resource.h"
 #include "thread.h"
+#include "time/core.h"
 #include <libk/string.h>
 #include <mem/heap.h>
 
@@ -58,6 +59,7 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     proc_t* proc;
     /* NOTE: ->m_init_thread gets set by proc_add_thread */
     thread_t* init_thread;
+    system_time_t time;
 
     if (!name)
         return nullptr;
@@ -82,6 +84,10 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     proc->m_lock = create_mutex(NULL);
     proc->obj = create_oss_obj(name);
     proc->m_name = proc->obj->name;
+
+    /* Set the process launch time */
+    if (time_get_system_time(&time) == 0)
+        proc->m_dt_since_boot = time.s_since_boot;
 
     /* Register ourselves */
     oss_obj_register_child(proc->obj, proc, OSS_OBJ_TYPE_PROC, __destroy_proc);
@@ -386,7 +392,7 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
  *
  *
  */
-int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
+int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
 {
     int error;
     const char* hook_name;
@@ -406,7 +412,7 @@ int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const ch
     kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
 
     /* Do an instant rescedule */
-    error = proc_schedule(proc, profile, stdio_path, stdio_type, prio);
+    error = proc_schedule(proc, profile, cmd, stdio_path, stdio_type, prio);
 
     /* Fuck */
     if (error) {
@@ -435,7 +441,7 @@ remove_hook_and_fail:
  *
  * Pretty much a wrapper around sched_add_proc
  */
-int proc_schedule(proc_t* proc, struct user_profile* profile, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
+int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
 {
     oss_node_t* env_node;
 
@@ -448,6 +454,9 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* stdio_
         stdio_type = HNDL_TYPE_DEVICE;
     }
 
+    if (!cmd)
+        cmd = proc->m_name;
+
     env_node = proc->m_env->node;
 
     if (!env_node)
@@ -458,6 +467,7 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* stdio_
         profile_add_penv(profile, proc->m_env);
 
     /* Attach needed sysvars to the environment */
+    sysvar_attach(env_node, SYSVAR_CMDLINE, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmd));
     sysvar_attach(env_node, SYSVAR_PROCNAME, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(proc->m_name));
     sysvar_attach(env_node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(stdio_path));
     sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, stdio_type);

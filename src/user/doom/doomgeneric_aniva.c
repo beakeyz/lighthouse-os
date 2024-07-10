@@ -64,11 +64,7 @@ void DG_SleepMs(uint32_t ms)
  */
 uint32_t DG_GetTicksMs()
 {
-    /*
-     * TODO: this is currently just in 'ticks' (AKA scheduler ticks)
-     * but we'll need a way to convert this into milliseconds
-     */
-    return get_process_time() * 3;
+    return get_process_time();
 }
 
 static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)

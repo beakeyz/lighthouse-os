@@ -3,16 +3,13 @@
 #include "libk/bin/elf.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
-#include "lightos/var/shared.h"
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
 #include "oss/obj.h"
-#include "proc/core.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
-#include "system/sysvar/map.h"
 #include <proc/env.h>
 
 static int _kterm_exec_find_obj(const char* path, oss_obj_t** bobj)
@@ -153,11 +150,10 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     kterm_get_login(&login_profile);
 
     /* Attach the commandline variable to the profile */
-    sysvar_attach(p->m_env->node, SYSVAR_CMDLINE, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
 
     /* Wait for process termination if we don't want to run in the background */
     // if (true)
-    ASSERT_MSG(proc_schedule_and_await(p, login_profile, "other/kterm", HNDL_TYPE_DRIVER, SCHED_PRIO_MID) == 0, "Process termination failed");
+    ASSERT_MSG(proc_schedule_and_await(p, login_profile, cmdline, "other/kterm", HNDL_TYPE_DRIVER, SCHED_PRIO_MID) == 0, "Process termination failed");
     // else
     // proc_schedule(p, SCHED_PRIO_MID);
 

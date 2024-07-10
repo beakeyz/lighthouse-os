@@ -62,6 +62,7 @@ typedef struct proc {
     const char* m_name;
     struct oss_obj* obj;
     uint32_t m_flags;
+    uint32_t m_dt_since_boot;
 
     /* This is used to compare a processes status in relation to other processes */
     struct penv* m_env;
@@ -100,8 +101,8 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
 
 /* Block until the process has ended execution */
-int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
-int proc_schedule(proc_t* proc, struct user_profile* profile, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
+int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
+int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio);
 int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** clone);
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1);
 const char* proc_try_get_symname(proc_t* proc, uintptr_t addr);

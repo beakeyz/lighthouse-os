@@ -112,8 +112,9 @@ extern BOOL kill_process(
     __IN__ HANDLE handle,
     __IN__ DWORD flags);
 
-/*
- * Find the amount of ticks used by this process
+/*!
+ * @brief: Gets the time in MS since this process has been running
+ *
  */
 extern size_t get_process_time();
 

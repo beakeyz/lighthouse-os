@@ -3,7 +3,9 @@
 #include "libk/bin/elf.h"
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
+#include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
+#include "oss/path.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
@@ -16,10 +18,16 @@
  */
 static int _sys_do_create(proc_t* c_proc, const char __user* name, FuncPtr __user entry, proc_t** p_proc)
 {
+    int error;
     file_t* file;
     proc_t* new_proc;
+    oss_path_t path = { 0 };
 
-    file = file_open(name);
+    /* Parse this mofo into an oss path */
+    oss_parse_path_ex(name, &path, ' ');
+
+    /* Grab the file specified in the first 'argument' */
+    file = file_open(path.subpath_vec[0]);
 
     if (!file)
         goto clone_and_exit;
@@ -33,13 +41,20 @@ static int _sys_do_create(proc_t* c_proc, const char __user* name, FuncPtr __use
     if (!new_proc)
         goto clone_and_exit;
 
+    *p_proc = new_proc;
+
+    oss_destroy_path(&path);
     return 0;
 
 clone_and_exit:
-    return proc_clone(c_proc, entry, name, p_proc);
+    error = proc_clone(c_proc, entry, path.subpath_vec[0], p_proc);
+
+    oss_destroy_path(&path);
+
+    return error;
 }
 
-u64 sys_create_proc(const char __user* name, FuncPtr __user entry)
+u64 sys_create_proc(const char __user* cmd, FuncPtr __user entry)
 {
     int error;
     proc_t* c_proc;
@@ -47,17 +62,17 @@ u64 sys_create_proc(const char __user* name, FuncPtr __user entry)
 
     c_proc = get_current_proc();
 
-    if (kmem_validate_ptr(c_proc, (u64)name, sizeof(const char*)) || (entry && kmem_validate_ptr(c_proc, (u64)entry, sizeof(FuncPtr))))
+    if (kmem_validate_ptr(c_proc, (u64)cmd, sizeof(const char*)) || (entry && kmem_validate_ptr(c_proc, (u64)entry, sizeof(FuncPtr))))
         return SYS_ERR;
 
     // error = proc_clone(c_proc, entry, name, &new_proc);
-    error = _sys_do_create(c_proc, name, entry, &new_proc);
+    error = _sys_do_create(c_proc, cmd, entry, &new_proc);
 
     /* If something went wrong here, we're mega fucked */
     if (error)
         return SYS_KERR;
 
-    error = proc_schedule(new_proc, c_proc->m_env->profile, NULL, NULL, SCHED_PRIO_MID);
+    error = proc_schedule(new_proc, c_proc->m_env->profile, cmd, NULL, NULL, SCHED_PRIO_MID);
 
     if (error)
         destroy_proc(new_proc);
@@ -83,6 +98,13 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
         return SYS_INV;
 
     target_proc = proc_handle->reference.process;
+
+    /*
+     * Yikes
+     * TODO: Add a force flag
+     */
+    if (target_proc->m_env->priv_level >= c_proc->m_env->priv_level)
+        return SYS_NOPERM;
 
     /*
      * Try to terminate the process

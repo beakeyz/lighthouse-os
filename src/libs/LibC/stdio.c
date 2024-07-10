@@ -279,7 +279,7 @@ int fclose(FILE* file)
     fflush(file);
 
     if (!close_handle(file->handle))
-        return -EBADFD;
+        return -EBADHANDLE;
 
     if (file->w_buff)
         free(file->w_buff);

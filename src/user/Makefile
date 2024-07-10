@@ -4,9 +4,10 @@ USER_SRC=$(SRC)/user
 # Define where the drivers are located
 USER_PATHS := 		\
 	./init 			\
-	./doom	\
+	./doom			\
 	./gfx_test		\
 	./ls			\
+	./kill			\
 	./vaseprob
 
 # Currently there is no process extention lmao

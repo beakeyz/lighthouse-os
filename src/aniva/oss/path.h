@@ -12,6 +12,7 @@ typedef struct oss_path {
 } oss_path_t;
 
 int oss_parse_path(const char* path, oss_path_t* p_path);
+int oss_parse_path_ex(const char* path, oss_path_t* p_path, char seperator);
 int oss_get_relative_path(const char* path, u32 subpath_idx, const char** p_relpath);
 int oss_destroy_path(oss_path_t* path);
 

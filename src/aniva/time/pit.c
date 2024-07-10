@@ -3,6 +3,7 @@
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "logging/log.h"
+#include "mem/kmem_manager.h"
 #include "time/core.h"
 #include <system/asm_specifics.h>
 
@@ -26,6 +27,9 @@
 
 #define PIT_WRITE 0x30
 
+static u8 _pit_current_mode;
+static u32 _pit_current_tps;
+
 registers_t* pit_irq_handler(registers_t*);
 
 static ANIVA_STATUS set_pit_interrupt_handler()
@@ -38,16 +42,20 @@ static ANIVA_STATUS set_pit_interrupt_handler()
 
     ASSERT_MSG(error == 0, "Failed to allocate IRQ for the PIT timer =(");
 
-    /* Ensure disabled */
-    disable_interrupts();
-
     return ANIVA_SUCCESS;
 }
 
-static void set_pit_frequency(size_t freq, bool _enable_interrupts)
+static void set_pit_frequency(size_t tps, bool _enable_interrupts)
 {
     disable_interrupts();
-    const size_t new_val = PIT_BASE_FREQ / freq;
+
+    const size_t new_val = PIT_BASE_FREQ / tps;
+
+    /*
+     * Fit the thing in the thing
+     * This sets the counter base from which the PIT will
+     * start decrementing every signal input.
+     */
     out8(T0_CTRL, new_val & 0xff);
     out8(T0_CTRL, (new_val >> 8) & 0xff);
 
@@ -57,30 +65,36 @@ static void set_pit_frequency(size_t freq, bool _enable_interrupts)
 
 static bool pit_frequency_capability(size_t freq)
 {
-    // FIXME
     return TARGET_TPS >= freq;
-}
-
-static void set_pit_periodic(bool value)
-{
-    // FIXME
 }
 
 // NOTE: we require the caller to enable interrupts again after this call
 // I guarantee I will forget this some time so thats why this note is here
 // for ez identification
-static ALWAYS_INLINE void reset_pit(uint8_t mode)
+static ALWAYS_INLINE void reset_pit(uint8_t mode, u32 tps)
 {
-    if (pit_frequency_capability(TARGET_TPS)) {
-        out8(PIT_CTRL, T0_SEL | PIT_WRITE | mode);
-        set_pit_frequency(TARGET_TPS, false);
-    }
+    if (!pit_frequency_capability(TARGET_TPS))
+        return;
+
+    /* Enable the PIT */
+    out8(PIT_CTRL, T0_SEL | PIT_WRITE | mode);
+
+    _pit_current_mode = mode;
+
+    /* Wait a lil bit */
+    io_delay();
+
+    _pit_current_tps = tps;
+
+    /* Set the desired frequency */
+    set_pit_frequency(tps, false);
 }
 
-static int enable_pit(time_chip_t* chip)
+static int enable_pit(time_chip_t* chip, u32 tps)
 {
     ANIVA_STATUS status;
 
+    /* Make sure interrupts are disabled */
     disable_interrupts();
 
     status = set_pit_interrupt_handler();
@@ -89,7 +103,7 @@ static int enable_pit(time_chip_t* chip)
         return -1;
 
     /* Reset this badboy */
-    reset_pit(SQ_WAVE);
+    reset_pit(SQ_WAVE, tps);
 
     return 0;
 }
@@ -104,11 +118,40 @@ static int disable_pit(time_chip_t* chip)
     return 0;
 }
 
+static int pit_get_systemtime(time_chip_t* chip, system_time_t* btime)
+{
+    u64 system_ticks;
+    u64 tick_delta;
+
+    if (!btime)
+        return -1;
+
+    /* Grab the system ticks */
+    system_ticks = time_get_system_ticks();
+
+    if (_pit_current_mode == SQ_WAVE)
+        system_ticks /= 2;
+
+    /* Calculate how many ticks have run past the second */
+    tick_delta = system_ticks - ALIGN_DOWN(system_ticks, _pit_current_tps);
+
+    /* Grab the amount of seconds since boot */
+    btime->s_since_boot = ALIGN_DOWN(system_ticks, _pit_current_tps) / _pit_current_tps;
+    /* Calculate the ms */
+    btime->ms_since_last_s = (tick_delta * 1000) / _pit_current_tps;
+
+    /* PIT does not know this xD */
+    btime->boot_datetime = NULL;
+
+    return 0;
+}
+
 time_chip_t pit_chip = {
     .type = PIT,
     .flags = NULL,
     .f_enable = enable_pit,
     .f_disable = disable_pit,
+    .f_get_systemtime = pit_get_systemtime,
     .f_probe = NULL,
     .f_get_datetime = NULL,
 };
@@ -121,5 +164,7 @@ registers_t* pit_irq_handler(registers_t* regs)
 
 void init_pit_chip_driver()
 {
+    _pit_current_tps = NULL;
+
     (void)time_register_chip(&pit_chip);
 }

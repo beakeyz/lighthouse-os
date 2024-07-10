@@ -128,15 +128,6 @@ static int _assign_penv(proc_t* proc, user_profile_t* profile)
     if (!profile)
         profile = get_user_profile();
 
-    /*
-     * If there is a parent, use that environment
-     * FIXME: Should this be the behaviour?
-     */
-    if (proc->m_parent) {
-        penv_add_proc(proc->m_parent->m_env, proc);
-        return 0;
-    }
-
     /* Yay */
     memset(env_label_buf, 0, size);
 

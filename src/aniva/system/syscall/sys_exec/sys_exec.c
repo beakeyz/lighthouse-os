@@ -38,13 +38,19 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
 uintptr_t sys_get_process_time()
 {
     proc_t* curr_prc;
+    system_time_t time;
 
     curr_prc = get_current_proc();
 
     if (!curr_prc)
         return SYS_INV;
 
-    return time_get_system_ticks() >> 1;
+    if (time_get_system_time(&time))
+        return 0;
+
+    // KLOG_DBG("Getting system time %d -> %lld\n", time.s_since_boot, time.ms_since_last_s);
+
+    return ((time.s_since_boot - curr_prc->m_dt_since_boot) * 1000) + time.ms_since_last_s;
 }
 
 /*!

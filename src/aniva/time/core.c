@@ -1,6 +1,4 @@
 #include "core.h"
-#include "entry/entry.h"
-#include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "time/apic.h"
 #include <sched/scheduler.h>
@@ -12,6 +10,7 @@
  * system
  */
 static time_chip_t* _active_ticker_chip;
+static time_chip_t* _active_datetime_chip;
 /*
  * Array of chip drivers, indexed by type
  */
@@ -31,6 +30,17 @@ static size_t _system_ticks;
 size_t time_get_system_ticks()
 {
     return _system_ticks;
+}
+
+/*!
+ * @brief: Get the current system time from the current active tick source
+ */
+int time_get_system_time(system_time_t* btime)
+{
+    if (!btime || !_active_ticker_chip || !_active_ticker_chip->f_get_systemtime)
+        return -1;
+
+    return _active_ticker_chip->f_get_systemtime(_active_ticker_chip, btime);
 }
 
 /*!
@@ -111,7 +121,7 @@ static int _timer_chip_disable(time_chip_t* chip)
  *
  * Calls the enable function implemented by the chip driver
  */
-static int _timer_chip_enable(time_chip_t* chip)
+static int _timer_chip_enable(time_chip_t* chip, u32 tps)
 {
     int error;
 
@@ -122,7 +132,7 @@ static int _timer_chip_enable(time_chip_t* chip)
     if ((chip->flags & TIME_CHIP_FLAG_ENABLED) == TIME_CHIP_FLAG_ENABLED)
         return 0;
 
-    error = chip->f_enable(chip);
+    error = chip->f_enable(chip, tps);
 
     if (error)
         return error;
@@ -136,7 +146,7 @@ static int _timer_chip_enable(time_chip_t* chip)
  *
  * Disables the current chip if it is present and enables the target chip
  */
-static int _activate_timer_chip(time_chip_t* chip)
+static int _activate_ticker_chip(time_chip_t* chip, u32 tps)
 {
     int error;
 
@@ -153,7 +163,13 @@ static int _activate_timer_chip(time_chip_t* chip)
     if (error)
         return error;
 
-    return _timer_chip_enable(chip);
+    error = _timer_chip_enable(chip, tps);
+
+    if (error)
+        return error;
+
+    _active_ticker_chip = chip;
+    return error;
 }
 
 static void _timer_init_apic_timers()
@@ -161,25 +177,25 @@ static void _timer_init_apic_timers()
     int error;
 
     /* Try to enable the APIC timer */
-    error = _activate_timer_chip(_system_chip_drivers[APIC_TIMER]);
+    error = _activate_ticker_chip(_system_chip_drivers[APIC_TIMER], TARGET_TPS);
 
     if (!error)
         return;
 
     /* Shit, try to enable HPET as a fallback */
-    error = _activate_timer_chip(_system_chip_drivers[HPET]);
+    error = _activate_ticker_chip(_system_chip_drivers[HPET], TARGET_TPS);
 
     if (!error)
         return;
 
     /* Shit^2, try to enable RTC as a second fallback */
-    error = _activate_timer_chip(_system_chip_drivers[RTC]);
+    error = _activate_ticker_chip(_system_chip_drivers[RTC], TARGET_TPS);
 
     if (!error)
         return;
 
     /* As a last ditch effort, try to enable PIT =/ */
-    error = _activate_timer_chip(_system_chip_drivers[PIT]);
+    error = _activate_ticker_chip(_system_chip_drivers[PIT], TARGET_TPS);
 
     /* Fuck */
     ASSERT_MSG(error == 0, "Failed to initialize a tick timer");
@@ -193,7 +209,7 @@ static void _timer_init_apic_timers()
  */
 static void _timer_init_pic_timers()
 {
-    (void)_activate_timer_chip(_system_chip_drivers[PIT]);
+    (void)_activate_ticker_chip(_system_chip_drivers[PIT], TARGET_TPS);
 }
 
 /*!

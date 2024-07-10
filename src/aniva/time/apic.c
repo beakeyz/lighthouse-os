@@ -1,7 +1,7 @@
 #include "apic.h"
 #include "time/core.h"
 
-static int apic_timer_enable(time_chip_t* chip)
+static int apic_timer_enable(time_chip_t* chip, u32 tps)
 {
     return 0;
 }
