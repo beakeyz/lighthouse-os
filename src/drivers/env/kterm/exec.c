@@ -152,18 +152,12 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     /* Make sure the profile has the correct rights */
     kterm_get_login(&login_profile);
 
-    profile_add_penv(login_profile, p->m_env);
-
     /* Attach the commandline variable to the profile */
     sysvar_attach(p->m_env->node, SYSVAR_CMDLINE, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(cmdline));
-    /* Attach the process name to the environment */
-    sysvar_attach(p->m_env->node, SYSVAR_PROCNAME, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(p->m_name));
-    sysvar_attach(p->m_env->node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR("other/kterm"));
-    sysvar_attach(p->m_env->node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, HNDL_TYPE_DRIVER);
 
     /* Wait for process termination if we don't want to run in the background */
     // if (true)
-    ASSERT_MSG(proc_schedule_and_await(p, SCHED_PRIO_MID) == 0, "Process termination failed");
+    ASSERT_MSG(proc_schedule_and_await(p, login_profile, "other/kterm", HNDL_TYPE_DRIVER, SCHED_PRIO_MID) == 0, "Process termination failed");
     // else
     // proc_schedule(p, SCHED_PRIO_MID);
 

@@ -36,7 +36,7 @@ static int __init_stdio_buffers(unsigned int buffer_size)
     file_buffer = malloc(3 * buffer_size);
 
     if (!file_buffer)
-      return -ENOMEM;
+        return -ENOMEM;
 
     /* Make sure no junk */
     memset(stdin, 0, sizeof(*stdin));
@@ -84,6 +84,9 @@ void __init_stdio(void)
     /* Open the stdio path variable */
     stdio_handle = open_sysvar(SYSVAR_STDIO, HNDL_FLAG_R);
 
+    if (!handle_verify(stdio_handle))
+        return;
+
     /* Read it's value */
     (void)sysvar_read(stdio_handle, sizeof(stdio_path), stdio_path);
 
@@ -92,6 +95,9 @@ void __init_stdio(void)
 
     /* Open the handle type variable */
     stdio_handle = open_sysvar(SYSVAR_STDIO_HANDLE_TYPE, HNDL_FLAG_R);
+
+    if (!handle_verify(stdio_handle))
+        return;
 
     /* Read which type of handle we need to open */
     (void)sysvar_read(stdio_handle, sizeof(type), &type);

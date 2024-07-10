@@ -5,6 +5,7 @@
 #include "dev/group.h"
 #include "dev/loader.h"
 #include "dev/manifest.h"
+#include "dev/misc/null.h"
 #include "dev/usb/usb.h"
 #include "dev/video/device.h"
 #include "libk/flow/error.h"
@@ -716,6 +717,8 @@ void init_devices()
     ASSERT_MSG(oss_attach_rootnode(_device_node) == 0, "Failed to attach device node");
 
     init_dgroups();
+
+    init_null_device(_device_node);
 
     /* Enumerate devices */
 }

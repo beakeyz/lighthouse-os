@@ -12,6 +12,7 @@
 #include "lightos/syscall.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "oss/node.h"
 #include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/handle.h"
@@ -385,7 +386,7 @@ static bool _await_proc_term_hook_condition(kevent_ctx_t* ctx, void* param)
  *
  *
  */
-int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
+int proc_schedule_and_await(proc_t* proc, struct user_profile* profile, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
 {
     int error;
     const char* hook_name;
@@ -405,7 +406,7 @@ int proc_schedule_and_await(proc_t* proc, enum SCHEDULER_PRIORITY prio)
     kevent_add_poll_hook("proc", hook_name, _await_proc_term_hook_condition, proc);
 
     /* Do an instant rescedule */
-    error = sched_add_priority_proc(proc, prio, false);
+    error = proc_schedule(proc, profile, stdio_path, stdio_type, prio);
 
     /* Fuck */
     if (error) {
@@ -434,16 +435,34 @@ remove_hook_and_fail:
  *
  * Pretty much a wrapper around sched_add_proc
  */
-int proc_schedule(proc_t* proc, enum SCHEDULER_PRIORITY prio)
+int proc_schedule(proc_t* proc, struct user_profile* profile, const char* stdio_path, HANDLE_TYPE stdio_type, enum SCHEDULER_PRIORITY prio)
 {
-    ANIVA_STATUS stat;
+    oss_node_t* env_node;
 
-    stat = sched_add_proc(proc, prio);
+    if (!proc || !proc->m_env)
+        return -KERR_INVAL;
 
-    if (stat == ANIVA_SUCCESS)
-        return 0;
+    /* Default to the null device in this case */
+    if (!stdio_path) {
+        stdio_path = "Dev/Null";
+        stdio_type = HNDL_TYPE_DEVICE;
+    }
 
-    return -KERR_INVAL;
+    env_node = proc->m_env->node;
+
+    if (!env_node)
+        return -KERR_INVAL;
+
+    /* Add the process to a profile, if this hasn't been done yet */
+    if (profile && profile != proc->m_env->profile)
+        profile_add_penv(profile, proc->m_env);
+
+    /* Attach needed sysvars to the environment */
+    sysvar_attach(env_node, SYSVAR_PROCNAME, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(proc->m_name));
+    sysvar_attach(env_node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(stdio_path));
+    sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, stdio_type);
+
+    return -(sched_add_proc(proc, prio) != ANIVA_SUCCESS);
 }
 
 /*
@@ -505,7 +524,7 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
             scheduler_yield();
         }
 
-disable_scheduling_and_go_next:
+    disable_scheduling_and_go_next:
         /* Not in a syscall, yay */
         thread_stop(c_thread);
     }

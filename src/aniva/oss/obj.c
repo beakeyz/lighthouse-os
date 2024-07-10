@@ -10,7 +10,7 @@
 #include <libk/string.h>
 #include <proc/env.h>
 
-void init_oss_obj(oss_obj_t* obj, uint32_t priv_lvl)
+static void init_oss_obj_priv(oss_obj_t* obj, uint32_t priv_lvl)
 {
     uint8_t obj_priv_lvl;
     proc_t* create_proc;
@@ -65,7 +65,7 @@ oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl)
     ret->parent = nullptr;
     ret->lock = create_mutex(NULL);
 
-    init_oss_obj(ret, priv_lvl);
+    init_oss_obj_priv(ret, priv_lvl);
 
     init_atomic_ptr(&ret->refc, 1);
     return ret;
@@ -96,6 +96,16 @@ void destroy_oss_obj(oss_obj_t* obj)
 
     kfree((void*)obj->name);
     kfree(obj);
+}
+
+int oss_obj_set_priv_levels(oss_obj_t* obj, u32 level)
+{
+    if (!obj)
+        return -KERR_INVAL;
+
+    init_oss_obj_priv(obj, level);
+
+    return 0;
 }
 
 const char* oss_obj_get_fullpath(oss_obj_t* obj)

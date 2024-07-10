@@ -83,6 +83,8 @@ oss_obj_t* create_oss_obj(const char* name);
 oss_obj_t* create_oss_obj_ex(const char* name, uint32_t priv_lvl);
 void destroy_oss_obj(oss_obj_t* obj);
 
+int oss_obj_set_priv_levels(oss_obj_t* obj, u32 level);
+
 void oss_obj_ref(oss_obj_t* obj);
 void oss_obj_unref(oss_obj_t* obj);
 

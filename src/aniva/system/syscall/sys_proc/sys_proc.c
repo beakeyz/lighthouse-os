@@ -7,6 +7,7 @@
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include <proc/env.h>
 
 /*!
  * @brief: Creates a new process from the given parameters
@@ -46,7 +47,7 @@ u64 sys_create_proc(const char __user* name, FuncPtr __user entry)
 
     c_proc = get_current_proc();
 
-    if (kmem_validate_ptr(c_proc, (u64)name, sizeof(const char*)) || kmem_validate_ptr(c_proc, (u64)entry, sizeof(FuncPtr)))
+    if (kmem_validate_ptr(c_proc, (u64)name, sizeof(const char*)) || (entry && kmem_validate_ptr(c_proc, (u64)entry, sizeof(FuncPtr))))
         return SYS_ERR;
 
     // error = proc_clone(c_proc, entry, name, &new_proc);
@@ -56,7 +57,7 @@ u64 sys_create_proc(const char __user* name, FuncPtr __user entry)
     if (error)
         return SYS_KERR;
 
-    error = proc_schedule(new_proc, SCHED_PRIO_MID);
+    error = proc_schedule(new_proc, c_proc->m_env->profile, NULL, NULL, SCHED_PRIO_MID);
 
     if (error)
         destroy_proc(new_proc);

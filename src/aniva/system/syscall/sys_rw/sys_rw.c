@@ -74,6 +74,19 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
         kernel_panic("Failed to write to driver");
         return SYS_KERR;
     }
+    case HNDL_TYPE_DEVICE: {
+        device_t* device = khandle->reference.device;
+
+        if (!device || !oss_obj_can_proc_write(device->obj, current_proc))
+            return NULL;
+
+        if (device_write(device, buffer, khandle->offset, length))
+            return SYS_ERR;
+
+        khandle->offset += length;
+
+        break;
+    }
     case HNDL_TYPE_PROC: {
 
         break;

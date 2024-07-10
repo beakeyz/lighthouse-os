@@ -169,7 +169,7 @@ bool try_do_schedule(scheduler_t* sched, sched_frame_t* frame, bool force)
     thread_t* next_thread;
     thread_t* cur_thread;
     uint32_t reschedule_count;
-    uint32_t reschedule_limit = sched->processes.count+1;
+    uint32_t reschedule_limit = sched->processes.count + 1;
 
     /* we should now either be in the kernel boot context, or in this mfs context */
     cur_thread = get_current_scheduling_thread();
@@ -495,10 +495,10 @@ kerror_t sched_add_priority_proc(proc_t* proc, enum SCHEDULER_PRIORITY prio, boo
     if (!s)
         return -1;
 
-    pause_scheduler();
-
     /* Make sure our thread is ready *.* */
     thread_prepare_context(proc->m_init_thread);
+
+    pause_scheduler();
 
     frame = create_sched_frame(proc, prio);
 
@@ -642,57 +642,57 @@ static ALWAYS_INLINE thread_t* pull_runnable_thread_sched_frame(sched_frame_t* p
     }
 
     switch (proc->m_threads->m_length) {
-        case 0:
+    case 0:
+        return nullptr;
+    case 1:
+        next_thread = list_get(proc->m_threads, 0);
+
+        if (!next_thread)
             return nullptr;
-        case 1:
-            next_thread = list_get(proc->m_threads, 0);
+
+        /* Fuck */
+        if (next_thread->m_current_state != RUNNING && next_thread->m_current_state != RUNNABLE)
+            return nullptr;
+
+        ptr->m_scheduled_thread_index = 0;
+
+        return next_thread;
+    default:
+        c_idx = 0;
+
+        do {
+            c_abolute_idx = (start_idx + c_idx) % proc->m_threads->m_length;
+            next_thread = list_get(proc->m_threads, c_abolute_idx);
 
             if (!next_thread)
-                return nullptr;
+                goto cycle;
 
-            /* Fuck */
-            if (next_thread->m_current_state != RUNNING && next_thread->m_current_state != RUNNABLE)
-                return nullptr;
+            /* Could happen when a threads maxticks are changed */
+            if (thread_ticksleft(next_thread) <= 0)
+                goto cycle;
 
-            ptr->m_scheduled_thread_index = 0;
+            switch (next_thread->m_current_state) {
+            case RUNNABLE:
+                // potential good thread so TODO: make an algorithm that chooses the optimal thread here
+                ptr->m_scheduled_thread_index = c_abolute_idx;
+                next_thread->m_current_state = RUNNABLE;
 
-            return next_thread;
-        default:
-            c_idx = 0;
+                return next_thread;
+            case DYING:
 
-            do {
-                c_abolute_idx = (start_idx + c_idx) % proc->m_threads->m_length;
-                next_thread = list_get(proc->m_threads, c_abolute_idx);
+                /* Register the thread for certain death */
+                reaper_register_thread(next_thread);
 
-                if (!next_thread)
-                    goto cycle;
+                break;
+            default:
+                break;
+            }
 
-                /* Could happen when a threads maxticks are changed */
-                if (thread_ticksleft(next_thread) <= 0)
-                    goto cycle;
-
-                switch (next_thread->m_current_state) {
-                case RUNNABLE:
-                    // potential good thread so TODO: make an algorithm that chooses the optimal thread here
-                    ptr->m_scheduled_thread_index = c_abolute_idx;
-                    next_thread->m_current_state = RUNNABLE;
-
-                    return next_thread;
-                case DYING:
-
-                    /* Register the thread for certain death */
-                    reaper_register_thread(next_thread);
-
-                    break;
-                default:
-                    break;
-                }
-
-            cycle:
-                c_idx++;
-                /* Loop until we've completely scanned the entire scan list once */
-            } while (c_idx < proc->m_threads->m_length);
-            break;
+        cycle:
+            c_idx++;
+            /* Loop until we've completely scanned the entire scan list once */
+        } while (c_idx < proc->m_threads->m_length);
+        break;
     }
 
     /* Return the current process... */

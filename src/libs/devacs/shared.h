@@ -25,32 +25,32 @@ enum DEVICE_CTYPE {
 
 static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
 {
-  switch (type) {
+    switch (type) {
     case DEVICE_CTYPE_PCI:
-      return "PCI";
+        return "PCI";
     case DEVICE_CTYPE_USB:
-      return "USB";
+        return "USB";
     case DEVICE_CTYPE_AHCI:
-      return "AHCI";
+        return "AHCI";
     case DEVICE_CTYPE_IDE:
-      return "IDE";
+        return "IDE";
     case DEVICE_CTYPE_ATAPI:
-      return "ATAPI";
+        return "ATAPI";
     case DEVICE_CTYPE_SOFTDEV:
-      return "softdev";
+        return "softdev";
     case DEVICE_CTYPE_CPU:
-      return "cpu";
+        return "cpu";
     case DEVICE_CTYPE_I2C:
-      return "I2C";
+        return "I2C";
     case DEVICE_CTYPE_GPIO:
-      return "GPIO";
+        return "GPIO";
     case DEVICE_CTYPE_UNKNOWN:
-      return "Unknown";
+        return "Unknown";
     case DEVICE_CTYPE_OTHER:
-      return "Other";
-  }
+        return "Other";
+    }
 
-  return "N/A";
+    return "N/A";
 }
 
 /*
@@ -58,8 +58,8 @@ static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
  * a query for the deviceinfo
  */
 typedef struct devinfo {
-    const char devicename[64];
-    const char manufacturer[48];
+    char devicename[64];
+    char manufacturer[48];
 
     /* Describe the origins of this devce */
     uint16_t vendorid;

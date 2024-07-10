@@ -311,7 +311,8 @@ NOINLINE void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic)
     set_kernel_proc(root_proc);
 
     /* Add it to the scheduler */
-    sched_add_proc(root_proc, SCHED_PRIO_LOW);
+    // sched_add_proc(root_proc, SCHED_PRIO_MID);
+    ASSERT(proc_schedule(root_proc, NULL, NULL, NULL, SCHED_PRIO_MID) == 0);
 
     /* Start the scheduler (Should never return) */
     start_scheduler();
