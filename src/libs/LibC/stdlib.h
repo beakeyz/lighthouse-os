@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-extern void exit(uintptr_t result);
+extern void exit(int result);
 
 /* Non-posix: Exit the app, since it hit a library function that has not yet been implemented */
 extern void exit_noimpl(const char* impl_name);

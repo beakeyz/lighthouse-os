@@ -61,7 +61,7 @@ struct thread* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
 
 struct proc* find_proc(const char* path);
 
-bool foreach_proc(bool (*f_callback)(struct proc*));
+bool foreach_proc(bool (*f_callback)(struct proc*), struct proc** presult);
 uint32_t get_proc_count();
 
 struct thread* find_thread(struct proc* proc, thread_id_t tid);

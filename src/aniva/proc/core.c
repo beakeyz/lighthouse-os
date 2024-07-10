@@ -8,6 +8,7 @@
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
+#include "oss/node.h"
 #include "oss/obj.h"
 #include "proc/env.h"
 #include "proc/proc.h"
@@ -85,16 +86,47 @@ uint32_t get_proc_count()
     return runtime_get_proccount();
 }
 
+static bool __env_itterate(oss_node_t* node, oss_obj_t* obj, void* param)
+{
+    bool (*f_callback)(struct proc*) = param;
+
+    if (!obj || obj->type != OSS_OBJ_TYPE_PROC)
+        return true;
+
+    return f_callback(obj->priv);
+}
+
+static bool __profile_itterate(oss_node_t* node, oss_obj_t* obj, void* param)
+{
+    if (!node)
+        return true;
+
+    oss_node_itterate(node, __env_itterate, param);
+
+    return true;
+}
+
 /*!
- * @brief: Loop over all the current processes and call @f_callback
+ * @brief: Loop over all the current processes and calls @f_callback
  *
- * If @f_callback returns false, the loop is broken
+ * If @f_callback returns true, the loop is broken and the process that did it will be put in @presult
+ * TODO: Implement this lmao
+ *
+ * All processes live in their own environment inside a profile in %/Runtime. We'll first have to itterate all
+ * profiles and then all objects inside these profiles.
  *
  * @returns: Wether we were able to walk the entire vector
  */
-bool foreach_proc(bool (*f_callback)(struct proc*))
+bool foreach_proc(bool (*f_callback)(struct proc*), struct proc** presult)
 {
-    kernel_panic("TODO: foreach_proc");
+    user_profile_t* profiles[2] = {
+        get_user_profile(),
+        get_admin_profile(),
+    };
+
+    for (int i = 0; i < arrlen(profiles); i++)
+        oss_node_itterate(profiles[i]->node, __profile_itterate, f_callback);
+
     return true;
 }
 

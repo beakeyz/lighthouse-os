@@ -10,6 +10,7 @@
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "oss/node.h"
@@ -20,6 +21,7 @@
 #include "system/acpi/parser.h"
 #include <dev/external.h>
 #include <dev/loader.h>
+#include <proc/env.h>
 
 static const char* __help_str = "Welcome to the Aniva kernel terminal application (kterm)\n"
                                 "kterm provides a few internal utilities and a way to execute binaries from the filesystem\n"
@@ -362,6 +364,7 @@ uint32_t kterm_cmd_diskinfo(const char** argv, size_t argc)
 static bool procinfo_callback(proc_t* proc)
 {
     // kterm_print_keyvalue(proc->m_name, to_string(proc->m_id));
+    KLOG("%s (%d)\n", proc->m_name, proc->m_env->priv_level);
     return true;
 }
 
@@ -370,8 +373,8 @@ static bool procinfo_callback(proc_t* proc)
  */
 uint32_t kterm_cmd_procinfo(const char** argv, size_t argc)
 {
-    kterm_print_keyvalue("Active procs", to_string(get_proc_count()));
-    foreach_proc(procinfo_callback);
+    KLOG("Active procs: %d\n", get_proc_count());
+    foreach_proc(procinfo_callback, NULL);
     return 0;
 }
 

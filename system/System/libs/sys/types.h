@@ -16,6 +16,7 @@
 #include <stdint.h>
 
 /* -Required */
+typedef long off_t;
 typedef int pid_t;
 typedef int time_t;
 

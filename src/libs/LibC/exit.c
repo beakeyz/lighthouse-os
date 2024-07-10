@@ -9,7 +9,7 @@ void __attribute__((noreturn)) halt(void)
     for (;;) { }
 }
 
-void exit(uintptr_t result)
+void exit(int result)
 {
 
     /* TODO: Uninitialize libraries */
