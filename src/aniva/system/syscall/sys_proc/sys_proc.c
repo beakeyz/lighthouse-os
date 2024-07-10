@@ -3,12 +3,14 @@
 #include "libk/bin/elf.h"
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
+#include "lightos/proc/shared.h"
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
 #include "oss/path.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
+#include "system/profile/profile.h"
 #include <proc/env.h>
 
 /*!
@@ -101,10 +103,11 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
 
     /*
      * Yikes
-     * TODO: Add a force flag
+     * TODO: Add a force flag for admin processes
      */
-    if (target_proc->m_env->priv_level >= c_proc->m_env->priv_level)
-        return SYS_NOPERM;
+    if ((flags & LIGHTOS_PROC_FLAG_FORCE) != LIGHTOS_PROC_FLAG_FORCE || c_proc->m_env->priv_level != PRIV_LVL_ADMIN)
+        if (target_proc->m_env->priv_level >= c_proc->m_env->priv_level)
+            return SYS_NOPERM;
 
     /*
      * Try to terminate the process
