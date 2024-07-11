@@ -1,5 +1,5 @@
 #include "include/lgfx.h"
-#include "LibGfx/include/driver.h"
+#include "libgfx/include/driver.h"
 #include "lightos/driver/drv.h"
 #include "lightos/handle.h"
 #include "lightos/var/var.h"

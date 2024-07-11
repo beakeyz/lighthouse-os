@@ -1,5 +1,5 @@
 #include "include/events.h"
-#include "LibGfx/include/driver.h"
+#include "libgfx/include/driver.h"
 #include "lightos/driver/drv.h"
 
 BOOL cache_keyevent(lwindow_t* wnd)

@@ -17,7 +17,7 @@
  * but userprocesses can also directly interract with lwnd.drv through this
  */
 #include "driver.h"
-#include <LibC/sys/types.h>
+#include <sys/types.h>
 
 /*
  * Processes may know this path

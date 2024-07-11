@@ -1,5 +1,5 @@
 
-LIBRARY_NAME=LibGfx
+LIBRARY_NAME=libgfx
 LINKTYPE=dynamic
 DEPS=
 

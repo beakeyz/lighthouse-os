@@ -1,6 +1,6 @@
 #include "sys/types.h"
-#include <LibGfx/include/driver.h>
-#include <LibGfx/include/lgfx.h>
+#include <libgfx/include/driver.h>
+#include <libgfx/include/lgfx.h>
 
 lwindow_t game_window;
 

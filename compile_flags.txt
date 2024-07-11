@@ -8,7 +8,7 @@
 ./src/libs/
 
 -I
-./src/libs/LibC
+./src/libs/libc
 
 -DDBG_VERBOSE=1
 

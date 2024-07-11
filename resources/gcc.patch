@@ -73,7 +73,7 @@ index 000000000..e9fb8ab0d
 +/* Default arguments you want when running your
 +   i686-lightos-gcc/x86_64-lightos-gcc toolchain */
 +#undef LIB_SPEC
-+#define LIB_SPEC "-l:LibC.slb" /* link against c library */
++#define LIB_SPEC "-l:libc.slb" /* link against c library */
 +
 +/* Files that are linked before user code.
 +   The %s tells GCC to look for these files in the library directory. */

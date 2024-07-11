@@ -1,8 +1,0 @@
-{
-  "name": "LibC",
-  "path": "System/Lib",
-  "linking": "dynamic",
-  "type": "library",
-  "libs": [
-  ]
-}

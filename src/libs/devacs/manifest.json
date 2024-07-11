@@ -4,6 +4,6 @@
     "linking": "dynamic",
     "type": "library",
     "libs": [
-        "LibC"
+        "libc"
     ]
 }

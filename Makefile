@@ -43,7 +43,7 @@ export KERNEL_CFLAGS := \
 	-mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large \
 	-ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar \
 	-fno-lto -fno-exceptions -MMD -I$(SRC) -I$(SRC)/$(KERNEL_NAME) -I$(SRC)/libs \
-	-I$(SRC)/libs/LibC -D'KERNEL'
+	-I$(SRC)/libs/libc -D'KERNEL'
 
 ifeq ($(KERNEL_DEBUG_LEVEL), verbose)
 	KERNEL_CFLAGS += -DDBG_VERBOSE=1
@@ -59,7 +59,7 @@ ifeq ($(KERNEL_DEBUG_LEVEL), NONE)
 endif
 
 export USER_INCLUDE_CFLAGS := \
-	-I$(SRC)/libs -I$(SRC)/libs/LibC
+	-I$(SRC)/libs -I$(SRC)/libs/libc
 
 export KERNEL_LDFLAGS := \
 	-T ${KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000

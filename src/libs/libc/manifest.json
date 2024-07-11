@@ -1,9 +1,7 @@
 {
-    "name": "kterm",
+    "name": "libc",
     "path": "System/Lib",
     "linking": "dynamic",
     "type": "library",
-    "libs": [
-        "libc"
-    ]
+    "libs": []
 }

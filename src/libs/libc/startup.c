@@ -1,4 +1,4 @@
-#include <LibC/mem/memory.h>
+#include <mem/memory.h>
 
 #include "lightos/handle_def.h"
 #include "lightos/lib/lightos.h"

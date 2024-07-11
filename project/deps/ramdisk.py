@@ -107,7 +107,7 @@ class RamdiskManager(object):
 
         for manifest in self.c.LIBRARY_MANIFESTS:
             # FIXME: Name of libc should be easily changeable
-            if manifest.manifested_name == "LibC":
+            if manifest.manifested_name == "libc":
                 libcManifest = manifest
                 break
 

@@ -1,7 +1,7 @@
 #ifndef __LIGHTENV_GFX_VIDEO__
 #define __LIGHTENV_GFX_VIDEO__
 
-#include "LibGfx/include/driver.h"
+#include "libgfx/include/driver.h"
 #include "sys/types.h"
 
 /*

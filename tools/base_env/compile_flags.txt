@@ -1,5 +1,5 @@
 -I
-./../../src/libs/LibC/lightos
+./../../src/libs/libc/lightos
 
 -I
 ./

@@ -1,5 +1,5 @@
 {
-    "name": "kterm",
+    "name": "libgfx",
     "path": "System/Lib",
     "linking": "dynamic",
     "type": "library",

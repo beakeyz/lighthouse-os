@@ -114,7 +114,8 @@ class ProjectBuilder(object):
                 if libSrcFile.language == SourceLanguage.C:
                     libSrcFile.setBuildFlags(self.constants.USERSPACE_C_FLAGS)
                 elif libSrcFile.language == SourceLanguage.ASM:
-                    libSrcFile.setBuildFlags(self.constants.USERSPACE_ASM_FLAGS)
+                    libSrcFile.setBuildFlags(
+                        self.constants.USERSPACE_ASM_FLAGS)
 
                 print(f"Building {libSrcFile.path}...")
                 os.system(f"mkdir -p {libSrcFile.getOutputDir()}")
@@ -180,7 +181,8 @@ class ProjectBuilder(object):
                         if srcFile.language == SourceLanguage.C:
                             srcFile.setBuildFlags(userCFlags)
                         elif srcFile.language == SourceLanguage.ASM:
-                            srcFile.setBuildFlags(self.constants.USERSPACE_ASM_FLAGS)
+                            srcFile.setBuildFlags(
+                                self.constants.USERSPACE_ASM_FLAGS)
 
                         print(f"Building {srcFile.path}...")
                         os.system(f"mkdir -p {srcFile.getOutputDir()}")
@@ -229,7 +231,8 @@ class ProjectBuilder(object):
         ld = self.constants.CROSS_LD_DIR
         nm = self.constants.CROSS_NM_DIR
 
-        file = symb.write_dummy_source(self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
+        file = symb.write_dummy_source(
+            self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
 
         if file is None:
             return BuilderResult.FAIL
@@ -253,10 +256,12 @@ class ProjectBuilder(object):
             return BuilderResult.FAIL
 
         # Run the symbol generator to inject the kernels symbols directly into the build
-        symbols: list[symb.KSymbol] = symb.read_map(self.constants.KERNEL_MAP_PATH)
+        symbols: list[symb.KSymbol] = symb.read_map(
+            self.constants.KERNEL_MAP_PATH)
 
         # We can no generate the corrent symbol sourcefile
-        file = symb.write_map_to_source(symbols, self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
+        file = symb.write_map_to_source(
+            symbols, self.constants.KERNEL_KSYMS_SRC_PATH, self.constants)
 
         if file is None:
             return BuilderResult.FAIL
@@ -313,7 +318,8 @@ class ProjectBuilder(object):
 
                     objFiles: str = " "
                     print(f"Building process: {entryName}")
-                    print(f"Binary out path: {self.constants.OUT_DIR}/user/{entryName}")
+                    print(f"Binary out path: {
+                          self.constants.OUT_DIR}/user/{entryName}")
 
                     BIN_OUT_PATH = f"{self.constants.OUT_DIR}/user/{entryName}"
                     BIN_OUT = BIN_OUT_PATH + "/" + programName
@@ -330,14 +336,16 @@ class ProjectBuilder(object):
                     for lib_man in self.constants.LIBRARY_MANIFESTS:
                         lib_man: BuildManifest = lib_man
 
-                        # LibC is an essensial part of any app and until we
+                        # libc is an essensial part of any app and until we
                         # have dynamic linking, this should be here
-                        if lib_man.manifested_name == "LibC":
-                            objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
+                        if lib_man.manifested_name == "libc":
+                            objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{
+                                lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
                         elif libraries is not None:
                             for lib in libraries:
                                 if lib == lib_man.manifested_name:
-                                    objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
+                                    objFiles += f" {self.constants.SYSROOT_DIR}/{lib_man.output_path}/{
+                                        lib_man.manifested_name}{self.constants.STATIC_LIB_EXTENTION} "
                                     break
 
                     ld = self.constants.CROSS_LD_DIR
@@ -364,7 +372,8 @@ class ProjectBuilder(object):
 
         for manifest in self.constants.LIBRARY_MANIFESTS:
             manifest: BuildManifest = manifest
-            manifest_out_path: str = manifest.path.strip("manifest.json").replace(self.constants.SRC_DIR, self.constants.OUT_DIR)
+            manifest_out_path: str = manifest.path.strip("manifest.json").replace(
+                self.constants.SRC_DIR, self.constants.OUT_DIR)
 
             dynamicDeps: str = " "
             objFiles: str = " "
@@ -398,13 +407,14 @@ class ProjectBuilder(object):
             # Build a dynamic library
             if manifest.link_type == "dynamic":
                 # Fuck you, GCC
-                BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + self.constants.SHARED_LIB_EXTENTION
+                BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + \
+                    self.constants.SHARED_LIB_EXTENTION
                 ULF = self.constants.LIB_LD_FLAGS
 
                 objFilesCpy = objFiles
 
                 # Check if we are dealing with libc
-                if manifest.manifested_name == "LibC":
+                if manifest.manifested_name == "libc":
                     crt0ObjPath = getCrt0ObjPath(self.constants)
                     objFilesCpy = objFilesCpy.replace(crt0ObjPath, "")
 
@@ -416,7 +426,8 @@ class ProjectBuilder(object):
             objFiles = objFiles.replace(staticOmit, "")
 
             # Build a static library
-            BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + self.constants.STATIC_LIB_EXTENTION
+            BIN_OUT: str = bin_out_path + "/" + manifest.manifested_name + \
+                self.constants.STATIC_LIB_EXTENTION
             ULF = self.constants.LIB_LD_STATIC_FLAGS
 
             if os.system(f"{ld} {ULF} -o {BIN_OUT} {objFiles}") != 0:
@@ -428,7 +439,8 @@ class ProjectBuilder(object):
         for manifest in self.constants.DRIVER_MANIFESTS:
 
             manifest: manifest.manifest.BuildManifest = manifest
-            manifest_out_path: str = manifest.path.strip("manifest.json").replace(self.constants.SRC_DIR, self.constants.OUT_DIR)
+            manifest_out_path: str = manifest.path.strip("manifest.json").replace(
+                self.constants.SRC_DIR, self.constants.OUT_DIR)
 
             objFiles: str = " "
 

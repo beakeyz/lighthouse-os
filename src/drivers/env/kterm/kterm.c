@@ -1,5 +1,5 @@
 #include "kterm.h"
-#include "LibGfx/include/driver.h"
+#include "libgfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/io/hid/event.h"

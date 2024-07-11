@@ -42,7 +42,7 @@ class Consts:
 
     SYSROOT_DIR = PROJECT_DIR + "/" + SYSROOT_DIR_NAME
     SYSROOT_HEADERS_DIR = SYSROOT_DIR + "/System/libs"
-    LIBC_SRC_DIR = SRC_DIR + "/libs" + "/LibC"
+    LIBC_SRC_DIR = SRC_DIR + "/libs" + "/libc"
     LIBS_OUT_DIR = OUT_DIR + "/libs"
     PROJECT_MANAGEMENT_DIR = PROJECT_DIR + "/project"
     COMPILER_DIR = PROJECT_DIR + "/cross_compiler/bin"
@@ -61,9 +61,6 @@ class Consts:
     CROSS_NM_DIR = COMPILER_DIR + "/x86_64-pc-lightos-nm"
     CROSS_ASM_DIR = "/usr/bin/nasm"
 
-    # Libraries that should always be linked staticly
-    LIBENV_ALWAYS_STATIC_LIBS = ["libs/LibC", "libs/LibEnv"]
-
     # TODO:
     DEFAULT_C_FLAGS = ""
 
@@ -73,7 +70,7 @@ class Consts:
     KERNEL_C_FLAGS += " -mno-mmx -mno-80387 -mno-red-zone -m64 -march=x86-64 -mcmodel=large"
     KERNEL_C_FLAGS += " -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar"
     KERNEL_C_FLAGS += " -fno-lto -fno-exceptions -MMD -I./src -I./src/aniva/ -I./src/libs"
-    KERNEL_C_FLAGS += " -I./src/libs/LibC -D\'KERNEL\'"
+    KERNEL_C_FLAGS += " -I./src/libs/libc -D\'KERNEL\'"
 
     # Default libenv flags (aka the aniva equivilant of libc)
     LIBENV_C_FLAGS = "-std=gnu11 -Wall -O2 -ffreestanding -fPIC -shared"
@@ -81,7 +78,7 @@ class Consts:
 
     # TODO: implement compat with external kernel drivers as modules (which are treated as userspace until they are discovered to be drivers)
     # Default userspace flags (just anything that isn't the kernel basically)
-    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/LibC"
+    USERSPACE_C_FLAGS = "-std=gnu11 -Wall -shared -fPIC -O2 -ffreestanding -I./src/libs -I./src/libs/libc"
     USERSPACE_C_FLAGS += " -D\'USER\'"
 
     # Extention for the userspace CFlags to include kernel headers
@@ -90,7 +87,8 @@ class Consts:
     KERNEL_ASM_FLAGS = " -f elf64"
     USERSPACE_ASM_FLAGS = " -f elf64"
 
-    KERNEL_LD_FLAGS = f" -T {KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000"
+    KERNEL_LD_FLAGS = f" -T {
+        KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000"
     KERNEL_NM_FLAGS = f" -g {KERNEL_ELF_PATH}"
 
     DRIVER_LD_FLAGS_EXT = " -r "
@@ -214,7 +212,7 @@ class Consts:
                 self.LIBRARY_MANIFESTS.append(manifest)
 
                 # Make sure libc is at entry 0
-                if manifest.manifested_name == "LibC":
+                if manifest.manifested_name == "libc":
                     self.LIBRARY_MANIFESTS.reverse()
 
         for entry in dirs:
@@ -228,28 +226,36 @@ class Consts:
             elif isfile(abs_entry):
                 # CRTs are special, so we handle them first
                 if entry.startswith("crt") and (entry.endswith(".S") or entry.endswith(".s")):
-                    file = SourceFile(False, abs_entry, entry, SourceLanguage.ASM)
+                    file = SourceFile(False, abs_entry,
+                                      entry, SourceLanguage.ASM)
                     file.set_compiler(self.CROSS_GCC_DIR)
-                    file.setOutputPath(file.get_path().replace(self.SRC_DIR, self.OUT_DIR))
+                    file.setOutputPath(file.get_path().replace(
+                        self.SRC_DIR, self.OUT_DIR))
                     self.CRT_FILES.append(file)
                 elif entry.endswith(".c"):
-                    file = SourceFile(False, abs_entry, entry, SourceLanguage.C)
+                    file = SourceFile(False, abs_entry,
+                                      entry, SourceLanguage.C)
                     file.set_compiler(self.CROSS_GCC_DIR)
-                    file.setOutputPath(file.get_path().replace(self.SRC_DIR, self.OUT_DIR))
+                    file.setOutputPath(file.get_path().replace(
+                        self.SRC_DIR, self.OUT_DIR))
                     self.SRC_FILES.append(file)
                 if entry.endswith(".py"):
-                    file = SourceFile(False, abs_entry, entry, SourceLanguage.PYTHON)
+                    file = SourceFile(False, abs_entry, entry,
+                                      SourceLanguage.PYTHON)
                     self.SRC_FILES.append(file)
                 elif entry.endswith(".h"):
                     file = SourceFile(True, abs_entry, entry, SourceLanguage.C)
                     self.SRC_FILES.append(file)
                 elif entry.endswith(".asm"):
-                    file = SourceFile(False, abs_entry, entry, SourceLanguage.ASM)
+                    file = SourceFile(False, abs_entry,
+                                      entry, SourceLanguage.ASM)
                     file.set_compiler(self.CROSS_ASM_DIR)
-                    file.setOutputPath(file.get_path().replace(self.SRC_DIR, self.OUT_DIR))
+                    file.setOutputPath(file.get_path().replace(
+                        self.SRC_DIR, self.OUT_DIR))
                     self.SRC_FILES.append(file)
                 elif entry.endswith(".md"):
-                    file = SourceFile(False, abs_entry, entry, SourceLanguage.MARKDOWN)
+                    file = SourceFile(False, abs_entry, entry,
+                                      SourceLanguage.MARKDOWN)
                     self.SRC_FILES.append(file)
                 elif entry.endswith(".o"):
                     self.OBJ_FILES.append(abs_entry)
@@ -267,7 +273,8 @@ class Consts:
 
             percentage: float = round(line_count / self.TOTAL_LINES * 100, 1)
 
-            print(f" - Found {line_count} lines of " + str(SourceLanguage(index)) + f" which is {percentage}% of the project")
+            print(f" - Found {line_count} lines of " + str(SourceLanguage(index)
+                                                           ) + f" which is {percentage}% of the project")
             index += 1
 
     def draw_source_bar(self) -> None:

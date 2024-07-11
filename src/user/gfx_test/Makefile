@@ -2,6 +2,6 @@
 PROCESS_NAME=gfx_test
 LINK_TYPE=dynamic
 LIBRARIES := \
-			 -l:LibGfx.slb
+			 -l:libgfx.slb
 
 include ../user.mk

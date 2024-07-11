@@ -15,7 +15,7 @@ HEADER_FILES := ./def.h \
 
 CFLAGS := -O2 \
 		  -I./ \
-		  -I./../../src/libs/LibC/lightos
+		  -I./../../src/libs/libc/lightos
 
 HEADER_DEPS := $(patsubst %.o,%.d,$(OBJ_FILES))
 
