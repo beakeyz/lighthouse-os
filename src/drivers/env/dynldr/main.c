@@ -140,7 +140,16 @@ static int _loader_init()
  */
 static int _loader_exit()
 {
+    loaded_app_t* app;
+
     ASSERT(KERR_OK(kevent_remove_hook("proc", DYN_LDR_NAME)));
+
+    FOREACH(i, _loaded_apps)
+    {
+        app = i->data;
+
+        destroy_loaded_app(app);
+    }
 
     destroy_list(_loaded_apps);
     destroy_mutex(_dynld_lock);

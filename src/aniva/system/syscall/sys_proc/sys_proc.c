@@ -11,6 +11,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
+#include "time/core.h"
 #include <proc/env.h>
 
 /*!
@@ -117,4 +118,26 @@ u64 sys_destroy_proc(HANDLE proc, u32 flags)
         return SYS_ERR;
 
     return 0;
+}
+
+/*!
+ * @brief: Get the number of ms since a process launch
+ *
+ */
+uintptr_t sys_get_process_time_ms()
+{
+    proc_t* curr_prc;
+    system_time_t time;
+
+    curr_prc = get_current_proc();
+
+    if (!curr_prc)
+        return SYS_INV;
+
+    if (time_get_system_time(&time))
+        return 0;
+
+    // KLOG_DBG("Getting system time %d -> %lld\n", time.s_since_boot, time.ms_since_last_s);
+
+    return ((time.s_since_boot - curr_prc->m_dt_since_boot) * 1000) + time.ms_since_last_s;
 }

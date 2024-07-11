@@ -209,7 +209,7 @@ BOOL device_disable(DEV_HANDLE handle)
 BOOL device_msg(DEV_HANDLE handle, DWORD dcc, VOID* buf, size_t bsize)
 {
     /* Too lazy =) */
-    exit_noimpl("devacs: device_msg");
+    exit_noimpl("devices: device_msg");
     return TRUE;
 }
 

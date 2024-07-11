@@ -90,7 +90,7 @@ static syscall_t __static_syscalls[] = {
     [SYSID_GET_PROCESSTIME] = {
         0,
         SYSID_GET_PROCESSTIME,
-        (sys_fn_t)sys_get_process_time,
+        (sys_fn_t)sys_get_process_time_ms,
     },
     [SYSID_SLEEP] = {
         0,

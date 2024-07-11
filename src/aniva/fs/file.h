@@ -50,9 +50,9 @@ enum FILE_TYPE {
     /* Simple app */
     APP_FILE,
     /* Static library */
-    LIB_FILE,
+    OBJ_FILE,
     /* Shared library */
-    SLB_FILE,
+    LIB_FILE,
     /* Driver file */
     DRV_FILE,
     /* Profile variable file */

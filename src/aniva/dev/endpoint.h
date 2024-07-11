@@ -17,7 +17,7 @@
  */
 
 #include "dev/core.h"
-#include "devacs/shared.h"
+#include "devices/shared.h"
 #include <libk/stddef.h>
 
 enum ENDPOINT_TYPE {

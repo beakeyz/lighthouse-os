@@ -101,8 +101,8 @@ class Consts:
     LIB_COMMON_SRC_FILES = ""
 
     ELF_EXTENTION = ".elf"
-    SHARED_LIB_EXTENTION = ".slb"  # Shared library binary
-    STATIC_LIB_EXTENTION = ".lib"
+    SHARED_LIB_EXTENTION = ".lib"  # Shared library binary
+    STATIC_LIB_EXTENTION = ".obj"
 
     # NOTE: crt files have to be asm files!
     CRT_FILES: list[SourceFile] = []

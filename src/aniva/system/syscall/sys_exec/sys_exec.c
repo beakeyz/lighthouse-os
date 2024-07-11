@@ -7,8 +7,6 @@
 #include "sched/scheduler.h"
 #include <libk/string.h>
 
-#include "time/core.h"
-
 /*
  * TODO: this function should be redone, since the existance of kterm is not a given
  */
@@ -29,28 +27,6 @@ uintptr_t sys_exec(char __user* cmd, size_t cmd_len)
         driver_send_msg("other/kterm", KTERM_DRV_CLEAR, NULL, NULL);
 
     return SYS_OK;
-}
-
-/*!
- * @brief: Get the number of ms since a process launch
- *
- */
-uintptr_t sys_get_process_time()
-{
-    proc_t* curr_prc;
-    system_time_t time;
-
-    curr_prc = get_current_proc();
-
-    if (!curr_prc)
-        return SYS_INV;
-
-    if (time_get_system_time(&time))
-        return 0;
-
-    // KLOG_DBG("Getting system time %d -> %lld\n", time.s_since_boot, time.ms_since_last_s);
-
-    return ((time.s_since_boot - curr_prc->m_dt_since_boot) * 1000) + time.ms_since_last_s;
 }
 
 /*!

@@ -46,7 +46,7 @@ build-shared: $(ASM_OBJ) $(C_OBJ)
 ifeq ($(LIBRARY_NAME), libc)
 	@$(LD) $(LIBRARY_SHARED_LDFLAGS) $^ -o $(SHARED_BIN_OUT) 
 else
-	@$(LD) $(LIBRARY_SHARED_LDFLAGS) -l:libc.slb $(DEPS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
+	@$(LD) $(LIBRARY_SHARED_LDFLAGS) -l:libc.lib $(DEPS) $^ -o $(THIS_OUT)/$(LIBRARY_NAME)$(LIBRARY_SHARED_FILE_EXT)
 endif
 
 build-static: $(ASM_OBJ) $(C_OBJ) $(S_OBJ)
@@ -64,6 +64,7 @@ endif
 ifeq ($(LINKTYPE), shared)
 	@$(MAKE) build-shared
 endif
+	@mkdir -p $(LIB_INSTALL_DIR)
 	@cp $(SHARED_BIN_OUT) $(LIB_INSTALL_DIR)/$(SHARED_BIN)
 	@echo "Built lib: " $(LIBRARY_NAME)
 

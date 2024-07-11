@@ -1,8 +1,8 @@
-#ifndef __LIGHTOS_DEVACS_DEVICE__
-#define __LIGHTOS_DEVACS_DEVICE__
+#ifndef __LIGHTOS_DEVICES_DEVICE__
+#define __LIGHTOS_DEVICES_DEVICE__
 
 #include "lightos/system.h"
-#include <devacs/shared.h>
+#include <devices/shared.h>
 #include <lightos/handle.h>
 
 /*
@@ -116,4 +116,4 @@ BOOL device_query_info(
     __OUT__ DEVINFO* binfo);
 
 
-#endif // !__LIGHTOS_DEVACS_DEVICE__
+#endif // !__LIGHTOS_DEVICES_DEVICE__

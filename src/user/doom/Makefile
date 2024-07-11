@@ -2,6 +2,6 @@
 PROCESS_NAME=doom
 LINK_TYPE=dynamic
 LIBRARIES := \
-			 -l:libgfx.slb
+			 -l:libgfx.lib
 
 include ../user.mk

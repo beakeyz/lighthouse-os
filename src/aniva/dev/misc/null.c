@@ -1,7 +1,7 @@
 #include "null.h"
 #include "dev/device.h"
 #include "dev/endpoint.h"
-#include "devacs/shared.h"
+#include "devices/shared.h"
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "system/profile/profile.h"

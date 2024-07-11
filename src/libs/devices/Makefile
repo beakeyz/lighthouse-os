@@ -1,4 +1,4 @@
-LIBRARY_NAME=devacs
+LIBRARY_NAME=devices
 LINKTYPE=shared
 DEPS=
 

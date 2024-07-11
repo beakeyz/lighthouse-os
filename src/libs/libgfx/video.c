@@ -14,6 +14,10 @@ VOID lwindow_set_updates_immediate(lwindow_t* wnd)
 
 BOOL lwindow_update(lwindow_t* wnd)
 {
+    /* No need to update, don't do shit =) */
+    if ((wnd->wnd_flags & LWND_FLAG_NEED_UPDATE) != LWND_FLAG_NEED_UPDATE)
+        return FALSE;
+
     return driver_send_msg(wnd->lwnd_handle, LWND_DCC_UPDATE_WND, wnd, sizeof(*wnd));
 }
 
@@ -40,6 +44,10 @@ BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, u
     if (!wnd || !wnd->fb)
         return FALSE;
 
+    /* No dimentions, don't need to do jack */
+    if (!width || !height)
+        return FALSE;
+
     fb = (lframebuffer_t)wnd->fb + y * wnd->current_width + x;
 
     for (uint32_t i = 0; i < height; i++) {
@@ -47,6 +55,9 @@ BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, u
             *(fb + j) = clr;
         fb += wnd->current_width;
     }
+
+    /* We did shit, need an update */
+    wnd->wnd_flags |= LWND_FLAG_NEED_UPDATE;
 
     if ((wnd->wnd_flags & LWND_FLAG_DEFER_UPDATE) == LWND_FLAG_DEFER_UPDATE)
         return TRUE;
@@ -68,6 +79,8 @@ BOOL lwindow_draw_buffer(lwindow_t* wnd, uint32_t startx, uint32_t starty, uint3
             *(fb + j) = *buffer++;
         fb += wnd->current_width;
     }
+
+    wnd->wnd_flags |= LWND_FLAG_NEED_UPDATE;
 
     if ((wnd->wnd_flags & LWND_FLAG_DEFER_UPDATE) == LWND_FLAG_DEFER_UPDATE)
         return TRUE;

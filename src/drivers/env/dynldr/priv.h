@@ -14,7 +14,7 @@ struct proc;
 struct loaded_app;
 struct loaded_sym;
 
-#define RUNTIMELIB_NAME "librt.slb"
+#define RUNTIMELIB_NAME "librt.lib"
 #define RUNTIMELIB_APP_ENTRY_SYMNAME "__app_entrypoint"
 #define RUNTIMELIB_APP_TRAMP_SYMNAME "___app_trampoline"
 #define RUNTIMELIB_LIB_ENTRIES_SYMNAME "__lib_entrypoints"

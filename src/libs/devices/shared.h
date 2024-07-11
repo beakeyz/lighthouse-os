@@ -1,5 +1,5 @@
-#ifndef __LIGHTOS_DEVACS_SHARED_STRUCTS__
-#define __LIGHTOS_DEVACS_SHARED_STRUCTS__
+#ifndef __LIGHTOS_DEVICES_SHARED_STRUCTS__
+#define __LIGHTOS_DEVICES_SHARED_STRUCTS__
 
 #include <stdint.h>
 
@@ -75,4 +75,4 @@ typedef struct devinfo {
     uint8_t dev_specific_info[];
 } devinfo_t, DEVINFO;
 
-#endif // !__LIGHTOS_DEVACS_SHARED_STRUCTS__
+#endif // !__LIGHTOS_DEVICES_SHARED_STRUCTS__

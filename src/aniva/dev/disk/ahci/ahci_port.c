@@ -5,7 +5,7 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
 #include "dev/endpoint.h"
-#include "devacs/shared.h"
+#include "devices/shared.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
 #include "libk/stddef.h"

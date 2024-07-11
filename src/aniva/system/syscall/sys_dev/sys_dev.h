@@ -1,7 +1,7 @@
 #ifndef __ANIVA_SYSCALLS_DEVICE__
 #define __ANIVA_SYSCALLS_DEVICE__
 
-#include "devacs/shared.h"
+#include "devices/shared.h"
 #include "lightos/handle_def.h"
 #include <libk/stddef.h>
 

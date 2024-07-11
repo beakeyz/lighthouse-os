@@ -1,6 +1,6 @@
 PROCESS_NAME=kill
 LINK_TYPE=dynamic
 LIBRARIES := 
-			# -l:devacs.slb
+			# -l:devices.lib
 
 include ../user.mk
