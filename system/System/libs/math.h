@@ -19,5 +19,14 @@ extern double fabs(double x);
 extern float fabsf(float x);
 extern double sin(double x);
 extern double cos(double x);
+extern double tan(double x);
+extern float sinf(float x);
+extern float cosf(float x);
+extern float tanf(float x);
+extern float atan2f(float a, float b);
+
+extern float roundf(float a);
+extern double round(double a);
+extern long double roundl(long double arg);
 
 #endif // !__LIGHTOS_LIBC_MATH__

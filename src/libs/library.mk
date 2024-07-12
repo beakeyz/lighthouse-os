@@ -6,8 +6,8 @@ ASM_SRC := $(shell find $(THIS_SRC) -type f -name '*.asm')
 # TODO: remove these and make them NASM
 S_SRC := $(shell find $(THIS_SRC) -type f -name '*.S')
 
-C_OBJ := $(patsubst %.c,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(C_SRC)))
-ASM_OBJ := $(patsubst %.asm,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(ASM_SRC)))
+C_OBJ ?= $(patsubst %.c,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(C_SRC)))
+ASM_OBJ ?= $(patsubst %.asm,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(ASM_SRC)))
 S_OBJ ?= $(patsubst %.S,%.o,$(subst $(THIS_SRC),$(THIS_OUT),$(S_SRC)))
 
 override HEADER_DEPS := $(patsubst %.o,%.d,$(C_OBJ))

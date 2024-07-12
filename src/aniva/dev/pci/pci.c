@@ -1,8 +1,10 @@
 #include "pci.h"
 #include "bus.h"
 #include "dev/device.h"
+#include "dev/endpoint.h"
 #include "dev/manifest.h"
 #include "dev/pci/definitions.h"
+#include "devices/shared.h"
 #include "io.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
@@ -438,6 +440,35 @@ static int pci_dev_read_dword(pci_device_t* device, uint32_t field, uint32_t* ou
     return device->raw_ops.read32(address->bus_num, address->device_num, address->func_num, field, out);
 }
 
+static int _pcidev_get_devinfo(device_t* device, DEVINFO* binfo)
+{
+    pci_device_t* pdev;
+
+    pdev = device->pci_dev;
+
+    if (!pdev)
+        return -KERR_INVAL;
+
+    memset(binfo, 0, sizeof(*binfo));
+
+    binfo->class = pdev->class;
+    binfo->subclass = pdev->subclass;
+    binfo->deviceid = pdev->dev_id;
+    binfo->vendorid = pdev->vendor_id;
+    binfo->ctype = DEVICE_CTYPE_PCI;
+
+    return 0;
+}
+
+static struct device_generic_endpoint _pci_generic_ep = {
+    .f_get_devinfo = _pcidev_get_devinfo,
+};
+
+static device_ep_t pci_eps[] = {
+    DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _pci_generic_ep),
+    { NULL },
+};
+
 static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t* bus)
 {
     pci_device_t* ret;
@@ -465,7 +496,7 @@ static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t*
         .read_word = pci_dev_read_word,
         .read_dword = pci_dev_read_dword,
     };
-    ret->dev = create_device(NULL, pci_name, NULL);
+    ret->dev = create_device_ex(NULL, pci_name, NULL, NULL, pci_eps);
     ret->bus = bus;
 
     /* Register the pci device to its bus */

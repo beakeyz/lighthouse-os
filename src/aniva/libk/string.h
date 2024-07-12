@@ -21,8 +21,6 @@ char* strstr(const char* h, const char* n);
 
 bool memcmp(const void* dest, const void* src, size_t size);
 void* memcpy(void* restrict dest, const void* restrict src, size_t length);
-// Problematic rn
-void* memmove(void* dest, const void* src, size_t n);
 void* memset(void* data, int value, size_t length);
 void* memchr(const void* s, int c, size_t n);
 

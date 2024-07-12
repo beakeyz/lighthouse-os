@@ -3,6 +3,21 @@
 
 #include <stdint.h>
 
+enum ENDPOINT_TYPE {
+    ENDPOINT_TYPE_INVALID = 0,
+    ENDPOINT_TYPE_GENERIC,
+    ENDPOINT_TYPE_DISK,
+    ENDPOINT_TYPE_VIDEO,
+    ENDPOINT_TYPE_HID,
+    ENDPOINT_TYPE_PWM,
+};
+
+#define DEVICE_HAS_EP_GENERIC 0x01
+#define DEVICE_HAS_EP_DISK 0x02
+#define DEVICE_HAS_EP_VIDEO 0x04
+#define DEVICE_HAS_EP_HID 0x08
+#define DEVICE_HAS_EP_PWM 0x10
+
 /*
  * Enum with low level connection types of a device
  *
@@ -66,6 +81,8 @@ typedef struct devinfo {
     uint16_t deviceid;
     uint16_t class;
     uint16_t subclass;
+
+    uint8_t endpoint_flags;
 
     /* Some higher level description(s) */
     enum DEVICE_CTYPE ctype;

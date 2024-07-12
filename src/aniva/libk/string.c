@@ -181,11 +181,6 @@ void* memset(void* dest, int c, size_t n)
     return dest;
 }
 
-void* memmove(void* dest, const void* src, size_t n)
-{
-    kernel_panic("(memmove) Just don't");
-}
-
 void* memchr(const void* s, int c, size_t n)
 {
     const unsigned char* copy = (const unsigned char*)s;

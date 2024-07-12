@@ -59,6 +59,20 @@ static void destroy_sysvar(sysvar_t* var)
     zfree_fixed(&__var_allocator, var);
 }
 
+static const char* __sysvar_fmt_key(char* str)
+{
+    u32 i = 0;
+
+    while (str[i]) {
+        if (str[i] >= 'a' && str[i] <= 'z')
+            str[i] -= ('a' - 'A');
+        else if (str[i] == ' ')
+            str[i] = '_';
+        i++;
+    }
+    return str;
+}
+
 /*!
  * @brief: Creates a profile variable
  *
@@ -77,7 +91,7 @@ sysvar_t* create_sysvar(const char* key, uint16_t priv_lvl, enum SYSVAR_TYPE typ
 
     memset(var, 0, sizeof *var);
 
-    var->key = strdup(key);
+    var->key = __sysvar_fmt_key(strdup(key));
     var->type = type;
     var->flags = flags;
 

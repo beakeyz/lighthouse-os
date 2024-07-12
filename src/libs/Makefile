@@ -1,6 +1,8 @@
 export LIBRARY_OUT=$(OUT)/libs
 export LIBRARY_SRC=$(SRC)/libs
 
+# Excluded libraries:
+#  - raylib: Until we feature an OpenGL implementation
 LIBRARY_PATHS := \
 	./libc \
 	./librt \

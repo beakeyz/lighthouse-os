@@ -23,26 +23,40 @@ typedef struct {
         uint16_t dev_type : 1;
     } general_config;
 
-    uint16_t obsolete;
+    uint16_t n_cylinders;
     uint16_t specific_config;
 
-    uint16_t obsolete2;
+    uint16_t n_heads;
     uint16_t retired[2];
-    uint16_t obsolete3;
+    uint16_t n_sectors_per_track;
 
-    uint16_t reserved_for_cfa[2];
-    uint16_t retired2;
+    uint16_t vendor_unique_1[3];
     uint8_t serial_number[20];
 
     uint16_t retired3[2];
     uint16_t obsolete4;
 
-    uint16_t firmware_revision[4];
+    uint8_t firmware_revision[8];
     uint8_t model_number[40];
 
-    uint16_t maximum_logical_sectors_per_drq;
+    uint8_t maximum_logical_sectors_per_drq;
+    uint8_t vendor_unique_2;
     uint16_t trusted_computing_features;
-    uint16_t capabilities[2];
+    union {
+        struct {
+            uint8_t CurrentLongPhysicalSectorAlignment : 2;
+            uint8_t ReservedByte49 : 6;
+            uint8_t DmaSupported : 1;
+            uint8_t LbaSupported : 1;
+            uint8_t IordyDisable : 1;
+            uint8_t IordySupported : 1;
+            uint8_t Reserved1 : 1;
+            uint8_t StandybyTimerSupport : 1;
+            uint8_t Reserved2 : 2;
+            uint16_t ReservedWord50;
+        } s_capabilities;
+        uint16_t capabilities[2];
+    };
     uint16_t obsolete5[2];
     uint16_t validity_flags;
     uint16_t obsolete6[5];
@@ -60,12 +74,57 @@ typedef struct {
     uint16_t minimum_multiword_pio_transfer_cycle_without_flow_control;
     uint16_t minimum_multiword_pio_transfer_cycle_with_flow_control;
 
-    uint16_t additional_supported;
+    union {
+        struct {
+            uint16_t ZonedCapabilities : 2;
+            uint16_t NonVolatileWriteCache : 1;
+            uint16_t ExtendedUserAddressableSectorsSupported : 1;
+            uint16_t DeviceEncryptsAllUserData : 1;
+            uint16_t ReadZeroAfterTrimSupported : 1;
+            uint16_t Optional28BitCommandsSupported : 1;
+            uint16_t IEEE1667 : 1;
+            uint16_t DownloadMicrocodeDmaSupported : 1;
+            uint16_t SetMaxSetPasswordUnlockDmaSupported : 1;
+            uint16_t WriteBufferDmaSupported : 1;
+            uint16_t ReadBufferDmaSupported : 1;
+            uint16_t DeviceConfigIdentifySetDmaSupported : 1;
+            uint16_t LPSAERCSupported : 1;
+            uint16_t DeterministicReadAfterTrimSupported : 1;
+            uint16_t CFastSpecSupported : 1;
+        } s_additional_supported;
+        uint16_t additional_supported;
+    };
     uint16_t reserved3[5];
     uint16_t queue_depth;
 
-    uint16_t serial_ata_capabilities;
-    uint16_t serial_ata_additional_capabilities;
+    union {
+        struct {
+            uint16_t Reserved0 : 1;
+            uint16_t SataGen1 : 1;
+            uint16_t SataGen2 : 1;
+            uint16_t SataGen3 : 1;
+            uint16_t Reserved1 : 4;
+            uint16_t NCQ : 1;
+            uint16_t HIPM : 1;
+            uint16_t PhyEvents : 1;
+            uint16_t NcqUnload : 1;
+            uint16_t NcqPriority : 1;
+            uint16_t HostAutoPS : 1;
+            uint16_t DeviceAutoPS : 1;
+            uint16_t ReadLogDMA : 1;
+            uint16_t Reserved2 : 1;
+            uint16_t CurrentSpeed : 3;
+            uint16_t NcqStreaming : 1;
+            uint16_t NcqQueueMgmt : 1;
+            uint16_t NcqReceiveSend : 1;
+            uint16_t DEVSLPtoReducedPwrState : 1;
+            uint16_t Reserved3 : 8;
+        } s_sata_caps;
+        struct {
+            uint16_t serial_ata_capabilities;
+            uint16_t serial_ata_additional_capabilities;
+        };
+    };
     uint16_t serial_ata_features_supported;
     uint16_t serial_ata_features_enabled;
     uint16_t major_version_number;

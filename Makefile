@@ -59,7 +59,7 @@ ifeq ($(KERNEL_DEBUG_LEVEL), NONE)
 endif
 
 export USER_INCLUDE_CFLAGS := \
-	-I$(SRC)/libs -I$(SRC)/libs/libc
+	-I. -I$(SRC)/libs -I$(SRC)/libs/libc
 
 export KERNEL_LDFLAGS := \
 	-T ${KERNEL_LINKERSCRIPT_PATH} -export-dynamic -z max-page-size=0x1000

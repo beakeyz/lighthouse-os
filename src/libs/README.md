@@ -15,9 +15,20 @@ When a library is used by a program, it might need to setup some of it's local s
 easy for shared libraries, since they simply specify which function is their initialization function by giving it the LIGHTENTRY prefix.
 This tells the compiler to put the function into it's own section, which the dynamic loader will look for.
 
-NODE: It is possible to put multiple functions in this section, but the order of execution is not guaranteed. ABI (trust me) states that there should
+NOTE: It is possible to put multiple functions in this section, but the order of execution is not guaranteed. ABI (trust me) states that there should
 only be one function present inside this section, which then determines further execution flow predictably. 
 
 Right before transfering execution to the main program entry, all the dynamic dependencies are initialized by the method described above, with
 libc being loaded first. After that we analyse the dependencies to determine the correct order of loading the libraries. After that we assume 
 all is well and pray the application does not crash lol
+
+## Needed libraries
+
+- Network
+- Disk
+- USB
+- GPU
+- Prism bytecode
+- Screen
+- Firmware
+- OpenGL

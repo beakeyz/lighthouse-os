@@ -20,15 +20,6 @@
 #include "devices/shared.h"
 #include <libk/stddef.h>
 
-enum ENDPOINT_TYPE {
-    ENDPOINT_TYPE_INVALID = NULL,
-    ENDPOINT_TYPE_GENERIC,
-    ENDPOINT_TYPE_DISK,
-    ENDPOINT_TYPE_VIDEO,
-    ENDPOINT_TYPE_HID,
-    ENDPOINT_TYPE_PWM,
-};
-
 struct device;
 struct device_pwr_info;
 struct device_generic_endpoint;

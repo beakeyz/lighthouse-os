@@ -5,6 +5,7 @@
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
 #include "dev/endpoint.h"
+#include "dev/pci/definitions.h"
 #include "devices/shared.h"
 #include "libk/flow/error.h"
 #include "libk/io.h"
@@ -218,13 +219,8 @@ static int ahci_get_devinfo(device_t* device, DEVINFO* binfo)
     sfmt((char*)binfo->devicename, "%s", diskdev->m_device_name);
 
     binfo->ctype = DEVICE_CTYPE_AHCI;
-
-    if (device->pci_dev) {
-        binfo->vendorid = device->pci_dev->vendor_id;
-        binfo->deviceid = device->pci_dev->dev_id;
-        binfo->class = device->pci_dev->class;
-        binfo->subclass = device->pci_dev->subclass;
-    }
+    binfo->class = MASS_STORAGE;
+    binfo->subclass = PCI_SUBCLASS_SATA;
 
     return 0;
 }

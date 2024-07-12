@@ -161,7 +161,5 @@ uint32_t kterm_try_exec(const char** argv, size_t argc, const char* cmdline)
     if (kterm_ismode(KTERM_MODE_GRAPHICS))
         kterm_switch_to_terminal();
 
-    kterm_println(NULL);
-
     return 0;
 }

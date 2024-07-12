@@ -1,5 +1,4 @@
 #include "kterm.h"
-#include "libgfx/include/driver.h"
 #include "dev/core.h"
 #include "dev/driver.h"
 #include "dev/io/hid/event.h"
@@ -13,6 +12,7 @@
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
 #include "kterm/shared.h"
+#include "libgfx/include/driver.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/gfx/font.h"
@@ -837,11 +837,10 @@ static inline void kterm_cmd_worker_finish_loop()
     kterm_enable_newline_tag();
 
     /* Hacky shit to draw a newline tag correctly */
-    if (_chars_cursor_y)
-        _chars_cursor_y--;
-    _clear_cursor_char = false;
-    kterm_println(NULL);
-    _clear_cursor_char = true;
+    //_clear_cursor_char = false;
+    // kterm_print(NULL);
+    //_clear_cursor_char = true;
+    kterm_handle_newline_tag();
 }
 
 /*!
@@ -1775,7 +1774,7 @@ static void kterm_cursor_shift_x()
         _chars_cursor_y++;
     }
 
-    if (_chars_cursor_y >= _chars_yres - 1) {
+    if (_chars_cursor_y >= _chars_yres) {
         kterm_scroll(1);
     }
 }
@@ -1791,7 +1790,7 @@ static void kterm_cursor_shift_y()
     _chars_cursor_x = 0;
     _chars_cursor_y++;
 
-    if (_chars_cursor_y >= _chars_yres - 1) {
+    if (_chars_cursor_y >= _chars_yres) {
         kterm_scroll(1);
     }
 }
@@ -1870,7 +1869,7 @@ static void kterm_scroll(uintptr_t lines)
     /* We'll always begin drawing at zero */
     new_y = 0;
 
-    for (uint32_t y = lines; y < (_chars_yres - lines); y++) {
+    for (uint32_t y = lines; y < _chars_yres; y++) {
         for (uint32_t x = 0; x < _chars_xres; x++) {
             c_char = kterm_get_term_char(x, y);
 
