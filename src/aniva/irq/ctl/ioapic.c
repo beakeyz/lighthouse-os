@@ -72,7 +72,7 @@ static inline int __io_apic_conf_redirect(io_apic_t* apic, uint32_t idx, uint8_t
     uint32_t redirect_lo, redirect_hi;
     uint32_t reg;
 
-    disable_interrupts();
+    CHECK_AND_DO_DISABLE_INTERRUPTS();
 
     redirect_lo = vec | (mode & 0b111) << 8 | locical << 11 | act_lo << 13 | tlm << 15 | masked << 16;
     redirect_hi = dest << 24;
@@ -81,7 +81,7 @@ static inline int __io_apic_conf_redirect(io_apic_t* apic, uint32_t idx, uint8_t
     io_apic_write(apic, reg, redirect_lo);
     io_apic_write(apic, reg + 1, redirect_hi);
 
-    enable_interrupts();
+    CHECK_AND_TRY_ENABLE_INTERRUPTS();
 
     return 0;
 }

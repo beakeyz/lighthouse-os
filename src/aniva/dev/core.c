@@ -798,12 +798,12 @@ kerror_t driver_send_msg_ex(struct drv_manifest* manifest, dcc_t code, void* buf
     if (!driver || !driver->f_msg)
         return -1;
 
-    mutex_lock(manifest->m_lock);
+    // mutex_lock(manifest->m_lock);
 
     /* NOTE: it is the drivers job to verify the buffers. We don't manage shit here */
     error = driver->f_msg(manifest->m_handle, code, buffer, buffer_size, resp_buffer, resp_buffer_size);
 
-    mutex_unlock(manifest->m_lock);
+    // mutex_unlock(manifest->m_lock);
 
     if (error)
         return error;
@@ -819,17 +819,6 @@ kerror_t driver_send_msg_sync(const char* path, driver_control_code_t code, void
 {
     return driver_send_msg_sync_with_timeout(path, code, buffer, buffer_size, DRIVER_WAIT_UNTIL_READY);
 }
-
-#define LOCK_SOCKET_MAYBE(socket)               \
-    do {                                        \
-        if (socket)                             \
-            mutex_lock(socket->m_packet_mutex); \
-    } while (0)
-#define UNLOCK_SOCKET_MAYBE(socket)               \
-    do {                                          \
-        if (socket)                               \
-            mutex_unlock(socket->m_packet_mutex); \
-    } while (0)
 
 kerror_t driver_send_msg_sync_with_timeout(const char* path, driver_control_code_t code, void* buffer, size_t buffer_size, size_t mto)
 {
@@ -870,11 +859,11 @@ kerror_t driver_send_msg_sync_with_timeout(const char* path, driver_control_code
         }
     }
 
-    mutex_lock(manifest->m_lock);
+    // mutex_lock(manifest->m_lock);
 
     result = manifest->m_handle->f_msg(manifest->m_handle, code, buffer, buffer_size, NULL, NULL);
 
-    mutex_unlock(manifest->m_lock);
+    // mutex_unlock(manifest->m_lock);
 
     if (result)
         return -1;

@@ -32,3 +32,5 @@ all is well and pray the application does not crash lol
 - Screen
 - Firmware
 - OpenGL
+- Terminal
+- Input

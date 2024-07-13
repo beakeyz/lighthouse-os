@@ -1774,9 +1774,8 @@ static void kterm_cursor_shift_x()
         _chars_cursor_y++;
     }
 
-    if (_chars_cursor_y >= _chars_yres) {
+    if (_chars_cursor_y >= _chars_yres)
         kterm_scroll(1);
-    }
 }
 
 /*!
@@ -1790,9 +1789,8 @@ static void kterm_cursor_shift_y()
     _chars_cursor_x = 0;
     _chars_cursor_y++;
 
-    if (_chars_cursor_y >= _chars_yres) {
+    if (_chars_cursor_y >= _chars_yres)
         kterm_scroll(1);
-    }
 }
 
 /*!

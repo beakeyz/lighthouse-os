@@ -301,7 +301,7 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
         if (!c_xfer)
             goto yield;
 
-        //KLOG_DBG("EHCI: Finished a transfer\n");
+        // KLOG_DBG("EHCI: Finished a transfer\n");
 
         ehci_xfer_finalise(ehci, c_xfer);
 
@@ -681,9 +681,9 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->destroyable_qh_q = create_limitless_queue();
     ehci->transfer_lock = create_mutex(NULL);
     ehci->async_lock = create_mutex(NULL);
-    //ehci->cleanup_lock = create_mutex(NULL);
+    // ehci->cleanup_lock = create_mutex(NULL);
     ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
-    //ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
+    // ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
 
     KLOG_DBG("Done with EHCI initialization\n");
     return 0;
@@ -863,18 +863,16 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     if (interval > EHCI_INT_ENTRY_COUNT)
         interval = EHCI_INT_ENTRY_COUNT;
 
-    //KLOG("Reported interval: %d\n", interval);
+    KLOG("Reported interval: %d\n", interval);
 
     switch (xfer->device->speed) {
     case USB_HIGHSPEED:
         qh->hw_info_1 |= EHCI_QH_INTSCHED(0xff);
         break;
     case USB_LOWSPEED:
-        interval = 4;
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
         break;
     case USB_FULLSPEED:
-        interval = 1;
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
         break;
     default:
@@ -884,7 +882,7 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     /* Fuck man */
     ASSERT_MSG(interval, "_ehci_add_async_int_xfer: Got a null-interval");
 
-    //mutex_lock(ehci->async_lock);
+    // mutex_lock(ehci->async_lock);
 
     link_qh = ehci->interrupt_list[interval - 1];
 
@@ -901,7 +899,7 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     link_qh->next = qh;
     link_qh->hw_next = qh->qh_dma;
 
-    //mutex_unlock(ehci->async_lock);
+    // mutex_unlock(ehci->async_lock);
     return 0;
 }
 

@@ -23,7 +23,7 @@
  */
 int main()
 {
-    create_process("Root/Apps/doom -iwad Root/Apps/doom1.wad", NULL, NULL, NULL, NULL);
+    (void)create_process("Root/Apps/doom -iwad Root/Apps/doom1.wad", NULL, NULL, NULL, NULL);
 
     return 0;
 }

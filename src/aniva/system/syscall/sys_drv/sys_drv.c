@@ -1,5 +1,6 @@
 #include "sys_drv.h"
 #include "dev/core.h"
+#include "dev/device.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
 #include "lightos/handle_def.h"
@@ -35,13 +36,13 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
     error = (0);
 
     switch (c_hndl->type) {
-    case HNDL_TYPE_DRIVER: {
-        drv_manifest_t* driver = c_hndl->reference.driver;
-
-        /* NOTE: this call locks the manifest */
-        error = driver_send_msg_ex(driver, code, buffer, size, NULL, NULL);
+    case HNDL_TYPE_DRIVER:
+        /* NOTE: this call does not lock the manifest */
+        error = driver_send_msg_ex(c_hndl->reference.driver, code, buffer, size, NULL, NULL);
         break;
-    }
+    case HNDL_TYPE_DEVICE:
+        error = device_message_ex(c_hndl->reference.device, code, buffer, size, NULL, NULL);
+        break;
     case HNDL_TYPE_FILE: {
         file_t* file = c_hndl->reference.file;
 
