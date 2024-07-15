@@ -11,7 +11,7 @@ BOOL open_driver(const char* name, DWORD flags, DWORD mode, HANDLE* handle)
     HANDLE ret;
     HANDLE_TYPE type = HNDL_TYPE_DRIVER;
 
-    if (!handle || !name || !name[0])
+    if (!name || !name[0])
         return FALSE;
 
     ret = open_handle(name, type, flags, mode);
@@ -26,7 +26,8 @@ BOOL open_driver(const char* name, DWORD flags, DWORD mode, HANDLE* handle)
         goto fail_exit;
     }
 
-    *handle = ret;
+    if (handle)
+        *handle = ret;
 
     return TRUE;
 
@@ -60,12 +61,17 @@ BOOL driver_send_msg(HANDLE handle, DWORD code, VOID* buffer, size_t size)
 
 BOOL load_driver(const char* path, DWORD flags, HANDLE* handle)
 {
-    return FALSE;
+    return open_driver(path, flags, HNDL_MODE_CREATE, handle);
 }
 
 BOOL unload_driver(HANDLE handle)
 {
-    return FALSE;
+    QWORD stat = syscall_1(SYSID_UNLOAD_DRV, handle);
+
+    if (stat != SYS_OK)
+        return FALSE;
+
+    return TRUE;
 }
 
 BOOL driver_query_info(HANDLE handle, drv_info_t* info_buffer)

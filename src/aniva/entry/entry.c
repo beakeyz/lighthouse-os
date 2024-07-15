@@ -174,13 +174,13 @@ static kerror_t _start_system_management(void)
     // Initialize an early console
     init_early_tty();
 
+    KLOG_INFO("Initialized tty");
+
     // Setup interrupts (Fault handlers and IRQ request framework)
     init_interrupts();
 
     // initialize cpu-related things that need the memorymanager and the heap
     init_processor_late(&g_bsp);
-
-    KLOG_INFO("Initialized tty");
 
     return KERR_NONE;
 }
@@ -394,13 +394,18 @@ void kthread_entry(void)
      */
     // resume_scheduler();
 
+    /* Allocate a quick buffer for our init process */
+    char init_buffer[256] = { 0 };
+
+    /* Format the buffer */
+    sfmt(init_buffer, "Root/Users/Admin/Core/init %s", opt_parser_get_bool("use_kterm") ? "--use-kterm" : " ");
+
+    /* Execute the buffer */
+    proc_exec(init_buffer, get_admin_profile(), PROC_KERNEL | PROC_SYNC);
+
     /* Will be attached to Drv/other/kterm */
     if (opt_parser_get_bool("use_kterm"))
         ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
-    else
-        ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
-
-    // proc_exec("Root/Users/Admin/Core/init --use-kterm", get_admin_profile(), PROC_KERNEL);
 
     while (true)
         /* Block this thread to save cycles */

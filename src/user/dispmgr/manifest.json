@@ -1,0 +1,6 @@
+{
+    "name": "dispmgr",
+    "linking": "dynamic",
+    "type": "process",
+    "libs": []
+}

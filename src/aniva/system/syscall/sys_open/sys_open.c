@@ -1,6 +1,8 @@
 #include "sys_open.h"
 #include "dev/core.h"
 #include "dev/device.h"
+#include "dev/external.h"
+#include "dev/loader.h"
 #include "dev/manifest.h"
 #include "fs/dir.h"
 #include "fs/file.h"
@@ -117,7 +119,22 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         break;
     }
     case HNDL_TYPE_DRIVER: {
-        drv_manifest_t* driver = get_driver(path);
+        extern_driver_t* ext;
+        drv_manifest_t* driver = NULL;
+
+        switch (mode) {
+        case HNDL_MODE_CREATE:
+            ext = load_external_driver(path);
+
+            if (!ext || !ext->m_manifest)
+                return HNDL_NOT_FOUND;
+
+            driver = ext->m_manifest;
+            break;
+        default:
+            driver = get_driver(path);
+            break;
+        }
 
         if (!driver)
             return HNDL_NOT_FOUND;
@@ -270,24 +287,24 @@ HANDLE sys_open_rel(HANDLE rel_handle, const char* __user path, uint32_t flags, 
         return HNDL_INVAL;
 
     switch (rel_khandle->type) {
-        case HNDL_TYPE_PROC:
-            if (!rel_khandle->reference.process->m_env)
-                return HNDL_INVAL;
+    case HNDL_TYPE_PROC:
+        if (!rel_khandle->reference.process->m_env)
+            return HNDL_INVAL;
 
-            rel_node = rel_khandle->reference.process->m_env->node;
-            break;
-        case HNDL_TYPE_PROC_ENV:
-            rel_node = rel_khandle->reference.penv->node;
-            break;
-        case HNDL_TYPE_DIR:
-            rel_node = rel_khandle->reference.dir->node;
-            break;
-        case HNDL_TYPE_PROFILE:
-            rel_node = rel_khandle->reference.profile->node;
-            break;
-        default:
-            rel_node = nullptr;
-            break;
+        rel_node = rel_khandle->reference.process->m_env->node;
+        break;
+    case HNDL_TYPE_PROC_ENV:
+        rel_node = rel_khandle->reference.penv->node;
+        break;
+    case HNDL_TYPE_DIR:
+        rel_node = rel_khandle->reference.dir->node;
+        break;
+    case HNDL_TYPE_PROFILE:
+        rel_node = rel_khandle->reference.profile->node;
+        break;
+    default:
+        rel_node = nullptr;
+        break;
     }
 
     if (!rel_node)

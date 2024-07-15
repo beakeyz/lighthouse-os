@@ -279,7 +279,10 @@ proc_t* proc_exec(const char* cmd, struct user_profile* profile, u32 flags)
     if (!p)
         return nullptr;
 
-    error = proc_schedule(p, profile, cmd, NULL, NULL, SCHED_PRIO_MID);
+    if ((flags & PROC_SYNC) == PROC_SYNC)
+        error = proc_schedule_and_await(p, profile, cmd, NULL, NULL, SCHED_PRIO_MID);
+    else
+        error = proc_schedule(p, profile, cmd, NULL, NULL, SCHED_PRIO_MID);
 
     if (error) {
         destroy_proc(p);

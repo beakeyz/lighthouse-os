@@ -1,19 +1,18 @@
 #include "params/params.h"
 #include <errno.h>
+#include <lightos/driver/drv.h>
 #include <lightos/fs/dir.h>
 #include <lightos/memory/alloc.h>
 #include <lightos/proc/cmdline.h>
-#include <stdio.h>
+#include <lightos/proc/process.h>
 #include <sys/types.h>
 
-BOOL test;
-char buffer[8];
-uint32_t num;
+BOOL use_kterm = false;
+BOOL no_pipes = false;
 
 cmd_param_t params[] = {
-    CMD_PARAM_AUTO(test, CMD_PARAM_TYPE_BOOL, 't', "Does a test"),
-    CMD_PARAM_AUTO_2_ALIAS(buffer, CMD_PARAM_TYPE_STRING, 'b', "Does a buffer", "set-buffer", "do-thing"),
-    CMD_PARAM_AUTO(num, CMD_PARAM_TYPE_NUM, 'n', "Does a number"),
+    CMD_PARAM_AUTO_1_ALIAS(use_kterm, CMD_PARAM_TYPE_BOOL, 'k', "Use kterm", "use-kterm"),
+    CMD_PARAM_AUTO_1_ALIAS(no_pipes, CMD_PARAM_TYPE_BOOL, 'p', "Don't load the pipes driver", "no-pipes"),
 };
 /*
  * What should the init process do?
@@ -32,17 +31,21 @@ cmd_param_t params[] = {
  */
 int main()
 {
+    BOOL success = true;
     CMDLINE cmd;
-    //(void)create_process("Root/Apps/doom -iwad Root/Apps/doom1.wad", NULL, NULL, NULL, NULL);
 
     if (cmdline_get(&cmd))
         return -EINVAL;
 
-    params_parse((const char**)cmd.argv, cmd.argc, params, 3);
+    params_parse((const char**)cmd.argv, cmd.argc, params, (sizeof params / sizeof params[0]));
 
-    printf("Test was set to: %s, (%d)\n", test ? "true" : "false", test);
-    buffer[7] = '\0';
-    printf("Buffer was set to: %s\n", buffer);
-    printf("Num was set to: %d\n", num);
-    return 0;
+    /* Load the pipes driver if it's loading is prevented */
+    if (!no_pipes)
+        load_driver("Root/System/upi.drv", NULL, NULL);
+
+    /* If the kernel wants to use kterm, only launch that */
+    if (!use_kterm)
+        success = create_process("Root/Users/Admin/Core/dispmgr", NULL, NULL, NULL, NULL);
+
+    return (success) ? 0 : -EINVAL;
 }

@@ -96,6 +96,7 @@ typedef struct proc {
 #define PROC_REAPER (0x00000040) /* Process capable of killing other processes and threads */
 #define PROC_HAD_HANDLE (0x00000080) /* Process is referenced in userspace by a handle */
 #define PROC_SHOULD_STALL (0x00000100) /* Process was launched as an entity that needs explicit signaling for actual exit and destruction */
+#define PROC_SYNC (0x00000200) /* Launcher should await process termination */
 
 proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, FuncPtr entry, uintptr_t args, uint32_t flags);
 proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args);
