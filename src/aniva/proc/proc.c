@@ -2,9 +2,11 @@
 #include "core.h"
 #include "dev/core.h"
 #include "entry/entry.h"
+#include "fs/file.h"
 #include "kevent/event.h"
 #include "kevent/types/proc.h"
 #include "kevent/types/thread.h"
+#include "libk/bin/elf.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
@@ -14,6 +16,7 @@
 #include "mem/kmem_manager.h"
 #include "oss/node.h"
 #include "oss/obj.h"
+#include "oss/path.h"
 #include "proc/env.h"
 #include "proc/handle.h"
 #include "proc/kprocs/reaper.h"
@@ -236,6 +239,54 @@ proc_t* create_kernel_proc(FuncPtr entry, uintptr_t args)
 
     /* TODO: don't limit to one name */
     return create_proc(nullptr, admin, PROC_CORE_PROCESS_NAME, entry, args, PROC_KERNEL);
+}
+
+/*!
+ * @brief: Execute an executable at @path
+ *
+ * @cmd: The path to the executable to execute. Also includes the
+ * command parameters.
+ * @profile: The profile to which we want to register this process
+ * @flags: Flags to be passed to the process
+ */
+proc_t* proc_exec(const char* cmd, struct user_profile* profile, u32 flags)
+{
+    int error;
+    proc_t* p;
+    file_t* file;
+    oss_path_t oss_path = { 0 };
+
+    /* Parse the path on it's spaces */
+    error = oss_parse_path_ex(cmd, &oss_path, ' ');
+
+    /* Failed to parse */
+    if (error || !oss_path.n_subpath)
+        return nullptr;
+
+    /* Open the file which hopefully houses our executable */
+    file = file_open(oss_path.subpath_vec[0]);
+
+    if (!file)
+        return nullptr;
+
+    /* Create a process from this file */
+    p = elf_exec_64(file, (flags & PROC_KERNEL) == PROC_KERNEL);
+
+    /* Close the file */
+    file_close(file);
+
+    /* Fuck, could not create process */
+    if (!p)
+        return nullptr;
+
+    error = proc_schedule(p, profile, cmd, NULL, NULL, SCHED_PRIO_MID);
+
+    if (error) {
+        destroy_proc(p);
+        return nullptr;
+    }
+
+    return p;
 }
 
 /*!

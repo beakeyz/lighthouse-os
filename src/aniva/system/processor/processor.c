@@ -1,6 +1,5 @@
 #include "processor.h"
 #include "entry/entry.h"
-#include "irq/ctl/irqchip.h"
 #include "irq/idt.h"
 #include "libk/flow/error.h"
 #include "sched/scheduler.h"

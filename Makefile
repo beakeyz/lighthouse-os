@@ -73,16 +73,16 @@ help: ## Prints help for targets with comments
 #
 
 aniva: ## Build the kernel binary
-	@make -C ./src/aniva build
+	@make -j$(nproc) -C ./src/aniva build
 
 drivers: ## Build on-disk drivers
-	@make -C ./src/drivers build
+	@make -j$(nproc) -C ./src/drivers build
 
 libs: ## Build system libraries
-	@make -C ./src/libs build
+	@make -j$(nproc) -C ./src/libs build
 
 user: ## Build userspace stuff
-	@make -C ./src/user build
+	@make -j$(nproc) -C ./src/user build
 
 ramdisk: ## Create the system ramdisk
 	@echo -e "TODO: create ramdisk"

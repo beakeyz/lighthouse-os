@@ -191,4 +191,62 @@ void* memchr(const void* s, int c, size_t n)
     return nullptr;
 }
 
-// void *memmove(void *dest, const void *src, size_t n);
+static inline bool _isxdigit(char c)
+{
+    return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+}
+
+static const char* __parse_base(const char* s, int* base)
+{
+    if (!*base) {
+        if (s[0] != '0')
+            *base = 10;
+        else {
+            if ((s[1] == 'x' || s[1] == 'X') && _isxdigit(s[2]))
+                *base = 16;
+            else
+                *base = 8;
+        }
+    }
+
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X') && _isxdigit(s[2]))
+        s += 2;
+
+    return s;
+}
+
+/*!
+ * @brief: Quick and dirty strtoul (strtoull)
+ */
+size_t strtoull(const char* cp, char** endptr, int base)
+{
+    uint64_t result = 0ULL;
+
+    cp = __parse_base(cp, &base);
+
+    /* Check for numbers */
+    while (*cp && _isxdigit(*cp)) {
+
+        uint32_t c_val;
+
+        if (*cp >= '0' && *cp <= '9')
+            c_val = *cp - '0';
+        else if ((*cp >= 'a' && *cp <= 'f'))
+            c_val = *cp - 'a' + 10;
+        else if ((*cp >= 'A' && *cp <= 'F'))
+            c_val = *cp - 'A' + 10;
+        else
+            break;
+
+        if (c_val > base)
+            break;
+
+        result = result * base + c_val;
+        cp++;
+    }
+
+    if (endptr)
+        *endptr = (char*)cp;
+
+    return result;
+}

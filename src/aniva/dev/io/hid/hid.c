@@ -22,7 +22,7 @@ void init_hid()
 /*!
  * @brief: Create a simple human input device struct
  */
-hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps)
+hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps)
 {
     size_t event_capacity;
     device_t* device;
@@ -43,7 +43,7 @@ hid_device_t* create_hid_device(const char* name, enum HID_BUS_TYPE btype, struc
         return nullptr;
     }
 
-    device = create_device_ex(NULL, (char*)name, hiddev, NULL, eps);
+    device = create_device_ex(driver, (char*)name, hiddev, NULL, eps);
 
     if (!device) {
         kfree(hiddev);
@@ -133,7 +133,7 @@ static inline int _hid_device_do_poll(hid_device_t* device)
 
     /* Check params */
     if (!ep || !ep->impl.hid || !ep->impl.hid->f_poll)
-      return -1;
+        return -1;
 
     /* Call the device poll */
     return ep->impl.hid->f_poll(device->dev);
@@ -144,33 +144,32 @@ kerror_t hid_device_poll(hid_device_t* device, struct hid_event** p_event)
     kerror_t error;
 
     if (!device || !p_event)
-      return -KERR_INVAL;
+        return -KERR_INVAL;
 
     error = 0;
 
     /* If there is no new data */
     if (device->device_events.r_idx == device->device_events.w_idx)
-      error = _hid_device_do_poll(device);
+        error = _hid_device_do_poll(device);
 
     if (error)
-      return error;
+        return error;
 
     *p_event = hid_event_buffer_read(&device->device_events, &device->device_events.r_idx);
 
     if (*p_event)
-      return 0;
+        return 0;
 
     return -KERR_NOT_FOUND;
 }
 
 kerror_t hid_device_flush(hid_device_t* device)
 {
-  if (!device)
-    return -KERR_INVAL;
+    if (!device)
+        return -KERR_INVAL;
 
-  memset(device->device_events.buffer, 0, device->device_events.capacity * sizeof(hid_event_t));
+    memset(device->device_events.buffer, 0, device->device_events.capacity * sizeof(hid_event_t));
 
-  device->device_events.r_idx = device->device_events.w_idx;
-  return 0;
+    device->device_events.r_idx = device->device_events.w_idx;
+    return 0;
 }
-

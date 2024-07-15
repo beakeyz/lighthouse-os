@@ -8,6 +8,7 @@ LIBRARY_PATHS := \
 	./librt \
 	./libgfx \
 	./devices \
+	./params \
 	./kterm
 
 export LIBRARY_SHARED_FILE_EXT := .lib

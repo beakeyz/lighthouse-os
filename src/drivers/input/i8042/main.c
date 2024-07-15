@@ -1,6 +1,7 @@
 #include "dev/core.h"
 #include "dev/endpoint.h"
 #include "dev/io/hid/event.h"
+#include "dev/manifest.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
@@ -49,7 +50,7 @@ device_ep_t i8042_eps[] = {
     { NULL },
 };
 
-static int _init_i8042()
+static int _init_i8042(drv_manifest_t* driver)
 {
     acpi_parser_t* parser = NULL;
 
@@ -67,7 +68,7 @@ static int _init_i8042()
     s_current_scancode = NULL;
 
     /* Create a HID device for this bitch */
-    s_i8042_device = create_hid_device("i8042", HID_BUS_TYPE_PS2, i8042_eps);
+    s_i8042_device = create_hid_device(driver, "i8042", HID_BUS_TYPE_PS2, i8042_eps);
 
     /* Register it */
     if (!KERR_OK(register_hid_device(s_i8042_device)))

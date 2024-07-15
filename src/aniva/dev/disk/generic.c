@@ -16,6 +16,9 @@
 #include "oss/core.h"
 #include "oss/obj.h"
 #include "ramdisk.h"
+#include "system/profile/profile.h"
+#include "system/sysvar/map.h"
+#include "system/sysvar/var.h"
 #include <dev/device.h>
 #include <dev/manifest.h>
 #include <libk/string.h>
@@ -993,6 +996,52 @@ static bool try_mount_root(partitioned_disk_dev_t* device)
     return true;
 }
 
+static int _set_bootdevice(disk_dev_t* device)
+{
+    int error = -KERR_INVAL;
+    const char* path;
+    const char* sysvar_names[] = {
+        BOOT_DEVICE_VARKEY,
+        BOOT_DEVICE_NAME_VARKEY,
+        BOOT_DEVICE_SIZE_VARKEY,
+    };
+    u64 sysvar_values[] = {
+        0, // Will get set later
+        (u64)device->m_dev->name,
+        device->m_max_blk,
+    };
+    sysvar_t* sysvar;
+    user_profile_t* profile = get_admin_profile();
+
+    if (!device)
+        return -1;
+
+    path = oss_obj_get_fullpath(device->m_dev->obj);
+
+    if (!path)
+        return -1;
+
+    sysvar_values[0] = (u64)path;
+
+    for (u32 i = 0; i < 3; i++) {
+        sysvar = sysvar_get(profile->node, sysvar_names[i]);
+        error = -KERR_NOT_FOUND;
+
+        if (!sysvar)
+            goto free_and_exit;
+
+        error = -KERR_INVAL;
+
+        if (!sysvar_write(sysvar, sysvar_values[i]))
+            goto free_and_exit;
+    }
+
+    error = 0;
+free_and_exit:
+    kfree((void*)path);
+    return error;
+}
+
 void init_root_device_probing()
 {
     /*
@@ -1055,10 +1104,13 @@ void init_root_device_probing()
     /* If there was no root device, use the initrd as a rootdevice */
     if (!found_root_device)
         initrd_mp = FS_DEFAULT_ROOT_MP;
+    else
+        _set_bootdevice(root_device);
 
-    if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk)) {
+    if (!root_ramdisk || oss_attach_fs(nullptr, initrd_mp, "cramfs", root_ramdisk))
         kernel_panic("Could not find a root device to mount! TODO: fix");
-    }
+    else
+        _set_bootdevice(root_ramdisk->m_parent);
 }
 
 /*!

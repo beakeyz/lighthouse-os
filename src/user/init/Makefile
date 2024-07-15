@@ -5,8 +5,7 @@ PROCESS_NAME=init
 # $(LIBRARY_BIN_PATH)/LibC/LibC.obj
 
 LINK_TYPE=dynamic
-LIBRARIES := 
-			# -l:devices.lib
+LIBRARIES := -l:params.lib
   
 
 include ../user.mk

@@ -87,8 +87,7 @@ static int get_usbkbd(usbkbd_t** p_kbd, usb_device_t* udev, hid_device_t* hdev)
     ret = nullptr;
 
     for (ret = keyboards; ret; ret = ret->next) {
-        if ((udev && ret->dev == udev) ||
-            (hdev && ret->hiddev == hdev))
+        if ((udev && ret->dev == udev) || (hdev && ret->hiddev == hdev))
             break;
     }
 
@@ -104,24 +103,24 @@ static int get_usbkbd(usbkbd_t** p_kbd, usb_device_t* udev, hid_device_t* hdev)
  */
 static int usbkbd_poll(device_t* device)
 {
-  int error;
-  usbkbd_t* kbd;
+    int error;
+    usbkbd_t* kbd;
 
-  error = get_usbkbd(&kbd, NULL, device->private);
+    error = get_usbkbd(&kbd, NULL, device->private);
 
-  if (error)
-    return error;
+    if (error)
+        return error;
 
-  return 0;
+    return 0;
 }
 
 struct device_hid_endpoint _hid_endpoint = {
-  .f_poll = usbkbd_poll,
+    .f_poll = usbkbd_poll,
 };
 
 device_ep_t hid_endpoints[] = {
-  DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _hid_endpoint),
-  { 0 },
+    DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _hid_endpoint),
+    { 0 },
 };
 
 /*!
@@ -129,7 +128,7 @@ device_ep_t hid_endpoints[] = {
  *
  * Registers the new device to our keyboard device list
  */
-static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
+static int create_usbkbd(usbkbd_t** ret, drv_manifest_t* usbkbd_driver, usb_device_t* dev)
 {
     usbkbd_t* _ret;
     char name_buffer[16] = { 0 };
@@ -148,11 +147,11 @@ static int create_usbkbd(usbkbd_t** ret, usb_device_t* dev)
     sfmt(name_buffer, "%s", "usbkbd");
 
     _ret->dev = dev;
-    _ret->hiddev = create_hid_device(name_buffer, HID_BUS_TYPE_USB, hid_endpoints);
+    _ret->hiddev = create_hid_device(usbkbd_driver, name_buffer, HID_BUS_TYPE_USB, hid_endpoints);
 
     if (!_ret->hiddev) {
-      kfree(_ret);
-      return -KERR_NOMEM;
+        kfree(_ret);
+        return -KERR_NOMEM;
     }
 
     /* Register the hid device so we can use it externaly */
@@ -186,7 +185,7 @@ static int destroy_usbkbd(usbkbd_t* kbd)
         }
     }
 
-    //if (kbd->probe_xfer)
+    // if (kbd->probe_xfer)
 
     /* Buhbye */
     kfree(kbd);
@@ -245,9 +244,9 @@ static inline void usbkbd_set_mod(usbkbd_t* kbd, uint16_t flag, bool pressed)
 static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
 {
     if (pressed)
-      kbd->c_ctx.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
-    else 
-      kbd->c_ctx.key.flags &= ~HID_EVENT_KEY_FLAG_PRESSED;
+        kbd->c_ctx.key.flags |= HID_EVENT_KEY_FLAG_PRESSED;
+    else
+        kbd->c_ctx.key.flags &= ~HID_EVENT_KEY_FLAG_PRESSED;
     kbd->c_ctx.key.scancode = aniva_scancode_table[keycode];
     kbd->c_ctx.key.pressed_char = (kbd->mod_keys & (USBKBD_MOD_LSHIFT | USBKBD_MOD_RSHIFT)) ? kbd_us_shift_map[keycode] : kbd_us_map[keycode];
 
@@ -272,8 +271,8 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
 
     /* Queue into the device event queue */
     hid_device_queue(kbd->hiddev, &kbd->c_ctx);
-    //if (kbd->c_ctx.key.pressed_char && pressed)
-        //kputch(kbd->c_ctx.key.pressed_char);
+    // if (kbd->c_ctx.key.pressed_char && pressed)
+    // kputch(kbd->c_ctx.key.pressed_char);
     return 0;
 }
 
@@ -288,7 +287,7 @@ static inline bool has_pressed_key(uint8_t keys[6], uint8_t key)
 
 static inline bool _usbkbd_has_new_packet(usbkbd_t* kbd)
 {
-    u64* prev, *new;
+    u64 *prev, *new;
 
     prev = (u64*)kbd->prev_resp;
     new = (u64*)kbd->this_resp;
@@ -320,8 +319,8 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     if (!_usbkbd_has_new_packet(kbd))
         goto resubmit;
 
-    KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3],kbd->prev_resp[4],kbd->prev_resp[5],
-            kbd->this_resp[2],kbd->this_resp[3],kbd->this_resp[4],kbd->this_resp[5]);
+    // KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3],kbd->prev_resp[4],kbd->prev_resp[5],
+    // kbd->this_resp[2],kbd->this_resp[3],kbd->this_resp[4],kbd->this_resp[5]);
 
     /* Check modifier keys */
     for (i = 0; i < 8; i++) {
@@ -376,7 +375,7 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
     if (!usb_endpoint_type_is_int(interface->ep_list))
         return -KERR_DEV;
 
-    error = create_usbkbd(&kbd, udev);
+    error = create_usbkbd(&kbd, this, udev);
 
     if (error)
         return error;

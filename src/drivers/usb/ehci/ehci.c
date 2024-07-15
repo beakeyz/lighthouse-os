@@ -863,7 +863,7 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
     if (interval > EHCI_INT_ENTRY_COUNT)
         interval = EHCI_INT_ENTRY_COUNT;
 
-    KLOG("Reported interval: %d\n", interval);
+    // KLOG("Reported interval: %d\n", interval);
 
     switch (xfer->device->speed) {
     case USB_HIGHSPEED:
