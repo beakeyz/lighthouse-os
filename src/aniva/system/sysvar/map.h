@@ -1,7 +1,7 @@
 #ifndef __ANIVA_SYSVAR_MAP__
 #define __ANIVA_SYSVAR_MAP__
 
-#include "lightos/var/shared.h"
+#include "lightos/sysvar/shared.h"
 #include <libk/stddef.h>
 
 struct sysvar;

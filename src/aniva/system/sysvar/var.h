@@ -2,7 +2,7 @@
 #define __ANIVA_VARIABLE__
 
 #include <libk/stddef.h>
-#include <lightos/var/shared.h>
+#include <lightos/sysvar/shared.h>
 #include <sync/atomic_ptr.h>
 
 struct user_profile;

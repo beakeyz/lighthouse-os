@@ -1,4 +1,4 @@
-LIBRARY_NAME=librt
+LIBRARY_NAME=dispmgr
 LINKTYPE=shared
 
 include ../library.mk

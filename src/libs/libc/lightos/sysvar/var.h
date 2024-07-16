@@ -1,9 +1,8 @@
-#ifndef __LIGHTOS_VAR_SYSVAR__
-#define __LIGHTOS_VAR_SYSVAR__
+#ifndef __LIGHTOS_PVR_ULIB__
+#define __LIGHTOS_PVR_ULIB__
 
-#include "lightos/handle_def.h"
-#include "lightos/var/shared.h"
-#include "lightos/system.h"
+#include "shared.h"
+#include <lightos/handle.h>
 
 /*!
  * @brief: Open a sysvar from a handle
@@ -12,7 +11,7 @@
  * @key: The sysvar key. This will always be capital
  * @flags: The flags with which to open the sysvar
  */
-HANDLE open_sysvar_ex(
+extern HANDLE open_sysvar_ex(
     __IN__ HANDLE handle,
     __IN__ char* key,
     __IN__ WORD flags);
@@ -23,7 +22,7 @@ HANDLE open_sysvar_ex(
  * @key: The sysvar key. This will always be capital
  * @flags: The flags with which to open the sysvar
  */
-HANDLE open_sysvar(
+extern HANDLE open_sysvar(
     __IN__ char* key,
     __IN__ WORD flags);
 
@@ -35,7 +34,7 @@ HANDLE open_sysvar(
  * Fails if the variable already exists
  * Fails if we don't have permission to create variables on this profile
  */
-BOOL create_sysvar(
+extern BOOL create_sysvar(
     __IN__ HANDLE handle,
     __IN__ const char* key,
     __IN__ enum SYSVAR_TYPE type,
@@ -45,14 +44,14 @@ BOOL create_sysvar(
 /*
  * Grab the type of a certain profile variable
  */
-BOOL sysvar_get_type(
+extern BOOL sysvar_get_type(
     __IN__ HANDLE var_handle,
     __OUT__ enum SYSVAR_TYPE* type);
 
 /*
  * Read from a system variable
  */
-BOOL sysvar_read(
+extern BOOL sysvar_read(
     __IN__ HANDLE var_handle,
     __IN__ QWORD buffer_size,
     __OUT__ void* buffer);
@@ -60,7 +59,7 @@ BOOL sysvar_read(
 /*
  * Write to a system variable
  */
-BOOL sysvar_write(
+extern BOOL sysvar_write(
     __IN__ HANDLE var_handle,
     __IN__ QWORD buffer_size,
     __IN__ void* buffer);
@@ -69,7 +68,7 @@ BOOL sysvar_write(
  * @brief: Read from a system variable on a profile
  *
  */
-BOOL sysvar_read_from_profile(
+extern BOOL sysvar_read_from_profile(
     __IN__ char* profile_name,
     __IN__ char* var_key,
     __IN__ WORD flags,
@@ -79,11 +78,19 @@ BOOL sysvar_read_from_profile(
 /*
  * Write to a profile variable in one go
  */
-BOOL sysvar_write_from_profile(
+extern BOOL sysvar_write_from_profile(
     __IN__ char* profile_name,
     __IN__ char* var_key,
     __IN__ WORD flags,
     __IN__ QWORD buffer_size,
     __OUT__ void* buffer);
 
-#endif // !__LIGHTOS_VAR_SYSVAR__
+/*!
+ * @brief: Loads a PVR file into the environment of the current process
+ *
+ *
+ */
+extern int load_pvr(const char* path);
+extern int load_pvr_ex(const char* path, HANDLE env);
+
+#endif // !__LIGHTOS_PVR_ULIB__

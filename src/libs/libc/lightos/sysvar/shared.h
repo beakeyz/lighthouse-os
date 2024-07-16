@@ -92,5 +92,4 @@ typedef struct pvr_file_strtab {
     pvr_file_strtab_entry_t entries[];
 } pvr_file_strtab_t;
 
-
 #endif // !__LIGHTOS_VAR_SHARED__
