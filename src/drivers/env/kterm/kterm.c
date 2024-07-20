@@ -12,7 +12,7 @@
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
 #include "kterm/shared.h"
-#include "libgfx/include/driver.h"
+#include "libgfx/shared.h"
 #include "libk/flow/doorbell.h"
 #include "libk/flow/error.h"
 #include "libk/gfx/font.h"

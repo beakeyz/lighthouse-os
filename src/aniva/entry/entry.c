@@ -404,8 +404,10 @@ void kthread_entry(void)
     proc_exec(init_buffer, get_admin_profile(), PROC_KERNEL | PROC_SYNC);
 
     /* Will be attached to Drv/other/kterm */
-    if (opt_parser_get_bool("use_kterm"))
-        ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+    // if (opt_parser_get_bool("use_kterm"))
+    // ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
+    // else
+    ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
 
     while (true)
         /* Block this thread to save cycles */

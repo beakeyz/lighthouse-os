@@ -1,7 +1,7 @@
 #ifndef __ANIVA_LWND_APP_WINDOW__
 #define __ANIVA_LWND_APP_WINDOW__
 
-#include "libgfx/include/driver.h"
+#include "libgfx/shared.h"
 #include "drivers/env/lwnd/screen.h"
 #include "drivers/env/lwnd/window.h"
 #include "proc/proc.h"

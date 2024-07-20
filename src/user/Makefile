@@ -8,7 +8,6 @@ USER_PATHS := 		\
 	./gfx_test		\
 	./ls			\
 	./kill			\
-	./dispmgr 	    \
 	./vaseprob
 
 # Currently there is no process extention lmao

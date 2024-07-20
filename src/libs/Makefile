@@ -9,7 +9,6 @@ LIBRARY_PATHS := \
 	./libgfx \
 	./devices \
 	./params \
-	./dispmgr \
 	./kterm
 
 export LIBRARY_SHARED_FILE_EXT := .lib

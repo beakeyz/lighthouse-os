@@ -1,5 +1,5 @@
 #include "app.h"
-#include "libgfx/include/driver.h"
+#include "libgfx/shared.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/window.h"
 #include "sync/mutex.h"

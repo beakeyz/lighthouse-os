@@ -1,8 +1,8 @@
-#include "include/lgfx.h"
-#include "libgfx/include/driver.h"
+#include "lgfx.h"
+#include "libgfx/shared.h"
 #include "lightos/driver/drv.h"
 #include "lightos/handle.h"
-#include "lightos/var/var.h"
+#include "lightos/sysvar/var.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

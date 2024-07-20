@@ -37,14 +37,21 @@ lwnd_screen_t* create_lwnd_screen(fb_info_t* fb, uint16_t max_window_count)
     ret->event_lock = create_mutex(NULL);
     ret->draw_lock = create_mutex(NULL);
 
-    /* This can get quite big once the resolution gets bigger */
-    ret->pixel_bitmap = create_bitmap_ex(fb->width * fb->height, 0);
+    /* Default quadrant size will be 16x16 */
+    ret->quadrant_sz_log2 = 4;
+    ret->quadrant_width = (u16)(ret->width >> ret->quadrant_sz_log2);
+    /*
+     * Create the quadrant bitmap
+     * 0: Quadrant does not need to be updated
+     * 1: Quadrant needs to be updated
+     */
+    ret->quadrant_bitmap = create_bitmap_ex((fb->width * fb->height) >> (2 * ret->quadrant_sz_log2), 0);
     ret->uid_bitmap = create_bitmap_ex(0xffff, 0);
     ret->window_stack_size = ALIGN_UP(max_window_count * sizeof(lwnd_window_t*), SMALL_PAGE_SIZE);
 
     ASSERT(!__kmem_kernel_alloc_range((void**)&ret->window_stack, ret->window_stack_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE));
 
-    ASSERT_MSG(ret->pixel_bitmap, "Could not make bitmap!");
+    ASSERT_MSG(ret->quadrant_bitmap, "Could not make bitmap!");
 
     /* Make sure it is cleared */
     memset(ret->window_stack, 0, ret->window_stack_size);
@@ -62,7 +69,7 @@ void destroy_lwnd_screen(lwnd_screen_t* screen)
 
     destroy_mutex(screen->draw_lock);
     destroy_mutex(screen->event_lock);
-    destroy_bitmap(screen->pixel_bitmap);
+    destroy_bitmap(screen->quadrant_bitmap);
     destroy_bitmap(screen->uid_bitmap);
     ASSERT(!__kmem_kernel_dealloc((uint64_t)screen->window_stack, screen->window_stack_size));
     deallocate_lwnd_screen(screen);
@@ -249,6 +256,14 @@ lwnd_window_t* lwnd_screen_get_window_by_label(lwnd_screen_t* screen, const char
     return c;
 }
 
+static inline bool get_quadrant_for_pixel(lwnd_screen_t* screen, u32 x, u32 y)
+{
+    u32 q_x = x >> screen->quadrant_sz_log2;
+    u32 q_y = y >> screen->quadrant_sz_log2;
+
+    return bitmap_isset(screen->quadrant_bitmap, q_y * screen->quadrant_width + q_x);
+}
+
 /*!
  * @brief: Draw a windows framebuffer to the screen
  *
@@ -266,7 +281,16 @@ int lwnd_screen_draw_window(lwnd_window_t* window)
 
     uint32_t current_offset = this->info->pitch * window->y + window->x * this->info->bpp / 8;
     const uint32_t bpp = this->info->bpp;
-    const uint32_t increment = (bpp / 8);
+    const uint32_t increment = (bpp >> 3);
+
+    for (u32 y = 0; y < window->height; y++) {
+        for (u32 x = 0; x < (window->width * increment); x += increment) {
+            if ((window->x + x) >= (this->width * increment))
+                break;
+
+            if (get_quadrant_for_pixel(this, x, y))
+        }
+    }
 
     for (uint32_t i = 0; i < window->height; i++) {
         for (uint32_t j = 0; j < window->width; j++) {
@@ -274,7 +298,7 @@ int lwnd_screen_draw_window(lwnd_window_t* window)
             if (window->x + j >= this->width)
                 break;
 
-            if (bitmap_isset(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j)))
+            if (bitmap_isset(this->quadrant_bitmap, (window->y + i) * this->width + (window->x + j)))
                 continue;
 
             current_color = get_color_at(window, j, i);
@@ -286,7 +310,7 @@ int lwnd_screen_draw_window(lwnd_window_t* window)
             *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.green.offset_bits / 8)) = current_color->components.g;
             *(uint8_t volatile*)(this->info->kernel_addr + current_offset + j * increment + (this->info->colors.blue.offset_bits / 8)) = current_color->components.b;
 
-            bitmap_mark(this->pixel_bitmap, (window->y + i) * this->width + (window->x + j));
+            bitmap_mark(this->quadrant_bitmap, (window->y + i) * this->width + (window->x + j));
         }
 
         if (window->y + i >= this->height)

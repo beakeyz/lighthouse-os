@@ -43,9 +43,5 @@ int main()
     if (!no_pipes)
         load_driver("Root/System/upi.drv", NULL, NULL);
 
-    /* If the kernel wants to use kterm, only launch that */
-    if (!use_kterm)
-        success = create_process("Root/Users/Admin/Core/dispmgr", NULL, NULL, NULL, NULL);
-
     return (success) ? 0 : -EINVAL;
 }

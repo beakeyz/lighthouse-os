@@ -80,7 +80,6 @@ class RamdiskManager(object):
 
         # Copy the init application into the admin core
         self.__copy_app("init", self.ADMIN_CORE_PATH)
-        self.__copy_app("dispmgr", self.ADMIN_CORE_PATH)
 
         return True
 

@@ -12,6 +12,9 @@
 #define APIENTRYP APIENTRY*
 #endif
 
+#define GL_APIENTRYP APIENTRYP
+#define GL_APICALL GLAPI
+
 // See: https://www.khronos.org/opengl/wiki/OpenGL_Type
 typedef char GLchar;
 typedef signed char GLbyte;

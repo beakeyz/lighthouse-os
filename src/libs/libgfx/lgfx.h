@@ -16,7 +16,7 @@
 /* These are the driver control codes implemented by lwnd. This library makes use of these
  * but userprocesses can also directly interract with lwnd.drv through this
  */
-#include "driver.h"
+#include "shared.h"
 #include <sys/types.h>
 
 /*

@@ -5,7 +5,7 @@
  * Ask our GFX provider for events
  */
 
-#include "libgfx/include/driver.h"
+#include "libgfx/shared.h"
 #include "sys/types.h"
 
 BOOL get_key_event(lwindow_t* wnd, lkey_event_t* keyevent);

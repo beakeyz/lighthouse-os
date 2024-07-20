@@ -1,4 +1,5 @@
 #include "dev/io/hid/event.h"
+#include "dev/io/hid/hid.h"
 #include "dev/video/core.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/alloc.h"
@@ -29,9 +30,9 @@ static lwnd_mouse_t _mouse;
 static lwnd_keyboard_t _keyboard;
 static hid_event_t* _lwnd_key_ctx_buffer;
 static uint32_t _lwnd_keybuffer_r_ptr;
-static hid_event_buffer_t _lwnd_keybuffer;
 
 static video_device_t* _lwnd_vdev;
+static hid_device_t* _lwnd_kbddev;
 static fb_handle_t _lwnd_fb_handle;
 
 // static uint32_t _main_screen;
@@ -68,7 +69,20 @@ static void USED lwnd_main()
 
     current_screen = main_screen;
 
+    /*
+     * How to do the draw pass with the new quadrant system
+     * 1) Itterate all windows and collect all quadrants that need updating
+     * 2) Solve the depth tests per quadrant
+     *    - Check which windows are inside a quadrant
+     *    - Draw the windows top-to-bottom
+     * 3) Clear the quadrant
+     */
     while (true) {
+        c_kb_ctx = nullptr;
+
+        /* Check if there is a keypress ready */
+        if (hid_device_poll(_lwnd_kbddev, &c_kb_ctx) == 0)
+            lwnd_on_key(c_kb_ctx);
 
         recursive_update = false;
 
@@ -110,11 +124,6 @@ static void USED lwnd_main()
 
         mutex_unlock(current_screen->draw_lock);
 
-        c_kb_ctx = hid_event_buffer_read(&_lwnd_keybuffer, &_lwnd_keybuffer_r_ptr);
-
-        if (c_kb_ctx)
-            (void)lwnd_on_key(c_kb_ctx);
-
         scheduler_yield();
     }
 }
@@ -150,19 +159,8 @@ int lwnd_on_key(hid_event_t* ctx)
 
     if (hid_event_is_keycombination_pressed(ctx, keys, 2)) {
         KLOG_DBG("   Executing DOOM\n");
-        file_t* doom_f = file_open("Root/Apps/doom");
 
-        if (!doom_f)
-            return 0;
-
-        proc_t* doom_p = elf_exec_64(doom_f, false);
-
-        file_close(doom_f);
-
-        if (!doom_p)
-            return 0;
-
-        sched_add_priority_proc(doom_p, SCHED_PRIO_HIGH, true);
+        proc_exec("Root/Apps/doom -iwad Root/Apps/doom1.wad", get_user_profile(), NULL);
         return 0;
     }
 
@@ -223,16 +221,6 @@ static int on_proc(kevent_ctx_t* _ctx, void* param)
     return 0;
 }
 
-static int __on_key(kevent_ctx_t* ctx, void* param)
-{
-    if (!ctx->buffer || ctx->buffer_size != sizeof(hid_event_t))
-        return 0;
-
-    /* Save the keypress */
-    hid_event_buffer_write(&_lwnd_keybuffer, ctx->buffer);
-    return 0;
-}
-
 /*
  * Yay, we are weird!
  * We will try to manage window creation, movement, minimalisation, ect. directly from kernelspace.
@@ -261,9 +249,12 @@ int init_window_driver()
     /* Initialize the lwnd keybuffer */
     _lwnd_keybuffer_r_ptr = NULL;
     _lwnd_key_ctx_buffer = kmalloc(sizeof(*_lwnd_key_ctx_buffer) * 32);
-    init_hid_event_buffer(&_lwnd_keybuffer, _lwnd_key_ctx_buffer, 32);
 
     _lwnd_vdev = get_active_vdev();
+    _lwnd_kbddev = get_hid_device("usbkbd");
+
+    if (!_lwnd_kbddev)
+        _lwnd_kbddev = get_hid_device("i8042");
     /*
      * Try and get framebuffer info from the active video device
      * TODO: when we implement 2D acceleration, we probably need to do something else here
@@ -291,7 +282,6 @@ int init_window_driver()
     vdev_map_fb(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE);
 
     /* TODO: register to I/O core */
-    kevent_add_hook("keyboard", "lwnd", __on_key, NULL);
     kevent_add_hook("proc", "lwnd", on_proc, NULL);
 
     println("Initializing screen!");

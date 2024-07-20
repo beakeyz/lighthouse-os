@@ -1,9 +1,9 @@
 #include "defaults.h"
-#include "var/shared.h"
+#include "sysvar/shared.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 /* Buffers that get placed into the file */
 pvr_file_header_t pvr_hdr;
@@ -35,6 +35,17 @@ struct sysvar_template user_defaults[] = {
 struct sysvar_template admin_defaults[] = {
     VAR_ENTRY("LOGIN_MSG", SYSVAR_TYPE_STRING, "Welcome to LightOS, dearest Admin! (Try not to break shit)", SYSVAR_FLAG_GLOBAL),
     VAR_ENTRY("PATH", SYSVAR_TYPE_STRING, "Root/Users/Admin/Core:Root/Apps", SYSVAR_FLAG_GLOBAL),
+};
+
+struct sysvar_template dispmgr_defaults[] = {
+    VAR_ENTRY("KEYDEV", SYSVAR_TYPE_STRING, "Dev/hid/i8042", SYSVAR_FLAG_CONFIG),
+    VAR_ENTRY("MOUSEDEV", SYSVAR_TYPE_STRING, "None", SYSVAR_FLAG_CONFIG),
+    VAR_ENTRY("VIDDEV", SYSVAR_TYPE_STRING, "Dev/video/maindev", SYSVAR_FLAG_CONFIG),
+    VAR_ENTRY("AUDIODEV", SYSVAR_TYPE_STRING, "None", SYSVAR_FLAG_CONFIG),
+    /* Video modes are going to be indexed and mode zero is going to be the default mode (1920x1080@60Hz or something) */
+    VAR_ENTRY("VIDMODE", SYSVAR_TYPE_DWORD, 0, SYSVAR_FLAG_CONFIG),
+    /* 0% -> 100% */
+    VAR_ENTRY("AUDIOVOLUME", SYSVAR_TYPE_DWORD, 100, SYSVAR_FLAG_CONFIG),
 };
 
 static inline pvr_file_strtab_entry_t* pvr_file_get_strtab_entry(uint32_t offset)

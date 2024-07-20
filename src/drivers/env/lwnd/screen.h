@@ -39,6 +39,11 @@ typedef struct lwnd_screen {
 
     uint32_t highest_wnd_idx;
 
+    /* Quadrants are squares which have sides with lenghts which are powers of 2 */
+    u8 quadrant_sz_log2;
+    u16 quadrant_width;
+    u8 unused;
+
     lwnd_mouse_t* mouse;
     fb_info_t* info;
 
@@ -53,7 +58,7 @@ typedef struct lwnd_screen {
     lwnd_dynamic_prop_t* props;
 
     /* This bitmap is cleared on every render pass */
-    bitmap_t* pixel_bitmap;
+    bitmap_t* quadrant_bitmap;
     bitmap_t* uid_bitmap;
     /* We consider every kind of 'widget' on the screen a window. This means that even the taskbar is a 'window' =) */
     lwnd_window_t** window_stack;
