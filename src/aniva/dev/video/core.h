@@ -2,6 +2,7 @@
 #define __ANIVA_VID_CORE__
 
 #include "framebuffer.h"
+#include "libk/stdint.h"
 #include <libk/stddef.h>
 
 struct device;
@@ -33,6 +34,7 @@ extern uint32_t vdev_get_fb_green_length(struct device* device, fb_handle_t fb);
 extern uint32_t vdev_get_fb_blue_length(struct device* device, fb_handle_t fb);
 
 extern int vdev_get_mainfb(struct device* device, fb_handle_t* fb);
+extern int vdev_get_fbinfo(struct device* device, fb_handle_t fb, vaddr_t fb_map_addr, fb_info_t* binfo);
 
 extern ssize_t vdev_map_fb(struct device* device, fb_handle_t fb, vaddr_t base);
 extern int vdev_map_fb_ex(struct device* device, fb_handle_t fb, uint32_t x, uint32_t y, uint32_t width, uint32_t height, vaddr_t base);

@@ -1,43 +1,22 @@
 #include "dev/io/hid/event.h"
 #include "dev/io/hid/hid.h"
 #include "dev/video/core.h"
+#include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "drivers/env/lwnd/alloc.h"
-#include "drivers/env/lwnd/io.h"
-#include "drivers/env/lwnd/screen.h"
-#include "drivers/env/lwnd/window/app.h"
-#include "drivers/env/lwnd/window/wallpaper.h"
-#include "fs/file.h"
-#include "kevent/event.h"
-#include "kevent/types/proc.h"
-#include "libk/bin/elf.h"
+#include "drivers/env/lwnd/windowing/stack.h"
+#include "drivers/env/lwnd/windowing/window.h"
 #include "libk/flow/error.h"
-#include "lightos/event/key.h"
-#include "logging/log.h"
 #include "mem/kmem_manager.h"
-#include "proc/core.h"
-#include "proc/proc.h"
 #include "sched/scheduler.h"
-#include "sync/mutex.h"
 #include "system/profile/profile.h"
-#include "window.h"
-#include <dev/core.h>
-#include <dev/driver.h>
-#include <dev/video/device.h>
-
-static fb_info_t _fb_info;
-static lwnd_mouse_t _mouse;
-static lwnd_keyboard_t _keyboard;
-static hid_event_t* _lwnd_key_ctx_buffer;
-static uint32_t _lwnd_keybuffer_r_ptr;
+#include <libgfx/shared.h>
 
 static video_device_t* _lwnd_vdev;
 static hid_device_t* _lwnd_kbddev;
+static fb_info_t _fb_info;
 static fb_handle_t _lwnd_fb_handle;
 
-// static uint32_t _main_screen;
-// static vector_t* _screens;
-static lwnd_screen_t* main_screen;
+static lwnd_wndstack_t* _lwnd_stack;
 
 static enum ANIVA_SCANCODES _forcequit_sequence[] = {
     ANIVA_SCANCODE_LALT,
@@ -56,73 +35,39 @@ static int lwnd_on_key(hid_event_t* ctx);
  */
 static void USED lwnd_main()
 {
-    bool recursive_update;
-    lwnd_window_t* current_wnd;
-    lwnd_screen_t* current_screen;
     hid_event_t* c_kb_ctx;
 
-    (void)_mouse;
-    (void)_keyboard;
-
-    /* Launch an app to test our shit */
-    // create_test_app(main_screen);
-
-    current_screen = main_screen;
-
-    /*
-     * How to do the draw pass with the new quadrant system
-     * 1) Itterate all windows and collect all quadrants that need updating
-     * 2) Solve the depth tests per quadrant
-     *    - Check which windows are inside a quadrant
-     *    - Draw the windows top-to-bottom
-     * 3) Clear the quadrant
-     */
     while (true) {
-        c_kb_ctx = nullptr;
+
+        c_kb_ctx = NULL;
 
         /* Check if there is a keypress ready */
         if (hid_device_poll(_lwnd_kbddev, &c_kb_ctx) == 0)
             lwnd_on_key(c_kb_ctx);
 
-        recursive_update = false;
+        fb_color_t color = ((fb_color_t) { { 0xff, 0x00, 0x00, 0x00 } });
 
-        /* Check for event BEFORE we draw */
-        lwnd_screen_handle_events(current_screen);
+        /*
+         * Loop over all the windows from front to back to render all windows in
+         * the right order, at the right depth
+         */
+        for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
 
-        mutex_lock(current_screen->draw_lock);
-
-        /* Loop over the stack from top to bottom */
-        for (uint32_t i = current_screen->highest_wnd_idx - 1;; i--) {
-            current_wnd = current_screen->window_stack[i];
-
-            if (!current_wnd)
+            /*
+             * Per window, check if it's visible, by breaking the window in smaller parts
+             * and rendering those seperately
+             */
+            if (!lwnd_window_should_update(w))
                 continue;
 
-            /* Lock this window */
-            mutex_lock(current_wnd->lock);
+            generic_draw_rect(&_fb_info, w->x, w->y, w->width, w->height, color);
 
-            /* Check if this windows wants to move */
-            /* Clear the old bits in the pixel bitmap (These pixels will be overwritten with whatever is under them)*/
-            /* Set the new bits in the pixel bitmap */
-            /* Draw whatever is visible of the internal window buffer to its new location */
+            lwnd_window_split(&_fb_info, w);
 
-            /* If a window needs to sync, everything under it also needs to sync */
-            if (!recursive_update)
-                recursive_update = lwnd_window_should_redraw(current_wnd);
-            else
-                current_wnd->flags |= LWND_WNDW_NEEDS_REPAINT;
+            w->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
 
-            /* Funky draw */
-            (void)lwnd_draw(current_wnd);
-
-            /* Unlock this window */
-            mutex_unlock(current_wnd->lock);
-
-            if (!i)
-                break;
+            color.components.g += 0xff;
         }
-
-        mutex_unlock(current_screen->draw_lock);
 
         scheduler_yield();
     }
@@ -135,89 +80,7 @@ static void USED lwnd_main()
  */
 int lwnd_on_key(hid_event_t* ctx)
 {
-    lwnd_window_t* wnd;
-
-    if (!main_screen || !main_screen->event_lock || mutex_is_locked(main_screen->event_lock))
-        return 0;
-
-    wnd = lwnd_screen_get_top_window(main_screen);
-
-    if (!wnd)
-        return 0;
-
-    enum ANIVA_SCANCODES keys[] = { ANIVA_SCANCODE_LALT, ANIVA_SCANCODE_Q };
-
-    if (hid_event_is_keycombination_pressed(ctx, _forcequit_sequence, arrlen(_forcequit_sequence))) {
-        switch (wnd->type) {
-        case LWND_TYPE_PROCESS:
-            try_terminate_process(wnd->client.proc);
-            break;
-        }
-
-        return 0;
-    }
-
-    if (hid_event_is_keycombination_pressed(ctx, keys, 2)) {
-        KLOG_DBG("   Executing DOOM\n");
-
-        proc_exec("Root/Apps/doom -iwad Root/Apps/doom1.wad", get_user_profile(), NULL);
-        return 0;
-    }
-
-    /* TODO: save this instantly to userspace aswell */
-    lwnd_save_keyevent(wnd, ctx);
-    return 0;
-}
-
-static int on_proc(kevent_ctx_t* _ctx, void* param)
-{
-    uint32_t wnd_count, wnd_idx;
-    lwnd_window_t* c_wnd;
-    lwnd_screen_t* c_screen;
-    kevent_proc_ctx_t* ctx;
-
-    if (_ctx->buffer_size != sizeof(*ctx))
-        return 0;
-
-    wnd_idx = 0;
-    wnd_count = 0;
-    c_screen = main_screen;
-    ctx = _ctx->buffer;
-
-    switch (ctx->type) {
-    case PROC_EVENTTYPE_DESTROY:
-
-        /*
-         * When a process gets destroyed, we need to check if it had windows open with us.
-         * Right now we just itterate all the windows, which is fine if we don't have that many windows.
-         *
-         * FIXME: We probably also need to itterate the screens, but since we only have one screen rn, that should be fine
-         * TODO: Cache the windows per process, so we don't have to do weird itterations when processes die
-         */
-        do {
-            c_wnd = c_screen->window_stack[wnd_idx++];
-
-            if (!c_wnd)
-                continue;
-
-            wnd_count++;
-
-            if (c_wnd->type != LWND_TYPE_PROCESS)
-                continue;
-
-            /* Skip windows that are not from this process */
-            if (c_wnd->client.proc != ctx->process)
-                continue;
-
-            lwnd_screen_unregister_window(c_screen, c_wnd);
-
-            destroy_lwnd_window(c_wnd);
-        } while (wnd_count < c_screen->window_count);
-        break;
-    default:
-        break;
-    }
-
+    lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 1, _lwnd_stack->top_window->y);
     return 0;
 }
 
@@ -234,21 +97,11 @@ int init_window_driver()
 {
     println("Initializing window driver!");
 
-    int error;
-
     memset(&_fb_info, 0, sizeof(_fb_info));
 
     println("Initializing allocators!");
-    error = init_lwnd_alloc();
-
-    if (error)
-        return -1;
 
     profile_set_activated(get_user_profile());
-
-    /* Initialize the lwnd keybuffer */
-    _lwnd_keybuffer_r_ptr = NULL;
-    _lwnd_key_ctx_buffer = kmalloc(sizeof(*_lwnd_key_ctx_buffer) * 32);
 
     _lwnd_vdev = get_active_vdev();
     _lwnd_kbddev = get_hid_device("usbkbd");
@@ -264,51 +117,23 @@ int init_window_driver()
     vdev_get_mainfb(_lwnd_vdev->device, &_lwnd_fb_handle);
 
     /* Fill our framebuffer info struct */
-    _fb_info.size = vdev_get_fb_size(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.bpp = vdev_get_fb_bpp(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.pitch = vdev_get_fb_pitch(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.width = vdev_get_fb_width(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.height = vdev_get_fb_height(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.colors.red.offset_bits = vdev_get_fb_red_offset(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.colors.red.length_bits = vdev_get_fb_red_length(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.colors.green.offset_bits = vdev_get_fb_green_offset(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.colors.green.offset_bits = vdev_get_fb_green_offset(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.colors.blue.length_bits = vdev_get_fb_blue_length(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.colors.blue.length_bits = vdev_get_fb_blue_length(_lwnd_vdev->device, _lwnd_fb_handle);
-    _fb_info.addr = EARLY_FB_MAP_BASE;
-    _fb_info.kernel_addr = EARLY_FB_MAP_BASE;
-
-    /* Map the thing */
-    vdev_map_fb(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE);
-
-    /* TODO: register to I/O core */
-    kevent_add_hook("proc", "lwnd", on_proc, NULL);
+    ASSERT_MSG(vdev_get_fbinfo(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE, &_fb_info) == 0, "Failed to get fbinfo from video device");
 
     println("Initializing screen!");
-    main_screen = create_lwnd_screen(&_fb_info, LWND_SCREEN_MAX_WND_COUNT);
 
-    if (!main_screen)
-        return -1;
-
-    println("Initializing wallpaper!");
-    init_lwnd_wallpaper(main_screen);
+    generic_draw_rect(&_fb_info, 0, 0, _fb_info.width, _fb_info.height, (fb_color_t) { { 0x1f, 0x1f, 0x1f, 0xff } });
 
     println("Starting deamon!");
     ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
 
-    file_t* test_f = file_open("Root/Apps/gfx_test");
+    /* TEST */
+    _lwnd_stack = create_lwnd_wndstack(16);
 
-    if (!test_f)
-        return 0;
+    lwnd_window_t* window_1 = create_window("Test 1", 100, 100, 200, 180);
+    lwnd_window_t* window_2 = create_window("Test 2", 50, 150, 200, 180);
 
-    proc_t* test_p = elf_exec_64(test_f, false);
-
-    file_close(test_f);
-
-    if (!test_p)
-        return 0;
-
-    sched_add_priority_proc(test_p, SCHED_PRIO_LOW, true);
+    wndstack_add_window(_lwnd_stack, window_1);
+    wndstack_add_window(_lwnd_stack, window_2);
 
     return 0;
 }
@@ -327,111 +152,31 @@ int exit_window_driver()
  */
 uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
-    window_id_t lwnd_id;
-    lwnd_window_t* internal_wnd;
-    lwindow_t* uwindow;
     proc_t* calling_process;
 
     calling_process = get_current_proc();
 
     /* Check size */
-    if (!calling_process || size != sizeof(*uwindow))
+    if (!calling_process)
         return DRV_STAT_INVAL;
 
     /* Check pointer */
     if ((kmem_validate_ptr(calling_process, (uintptr_t)buffer, size)))
         return DRV_STAT_INVAL;
 
-    /* Unsafe assignment */
-    uwindow = buffer;
-
-    static size_t offset_yay = 0;
-
     switch (code) {
 
     case LWND_DCC_CREATE:
-        /*
-         * Create the window while we know we aren't drawing anything
-         * NOTE: This takes the draw lock
-         */
-        lwnd_id = create_app_lwnd_window(main_screen, offset_yay, offset_yay, uwindow, calling_process);
-
-        if (lwnd_id == LWND_INVALID_ID)
-            return DRV_STAT_INVAL;
-
-        offset_yay += 20;
-        uwindow->wnd_id = lwnd_id;
         break;
-
     case LWND_DCC_CLOSE:
-        internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
-
-        if (!internal_wnd)
-            return DRV_STAT_INVAL;
-
-        lwnd_screen_unregister_window(main_screen, internal_wnd);
-
-        destroy_lwnd_window(internal_wnd);
         break;
     case LWND_DCC_REQ_FB:
-        mutex_lock(main_screen->draw_lock);
-
-        /* Grab the window */
-        internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
-
-        mutex_unlock(main_screen->draw_lock);
-
-        if (!internal_wnd)
-            return DRV_STAT_INVAL;
-
-        uwindow->fb = internal_wnd->user_fb_ptr;
         break;
-
     case LWND_DCC_UPDATE_WND:
-        mutex_lock(main_screen->draw_lock);
-
-        internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
-
-        if (!internal_wnd) {
-            mutex_unlock(main_screen->draw_lock);
-            return DRV_STAT_INVAL;
-        }
-
-        lwnd_window_update(internal_wnd, true);
-
-        mutex_unlock(main_screen->draw_lock);
         break;
     case LWND_DCC_GETKEY:
-        /* Grab the window */
-        internal_wnd = lwnd_screen_get_window(main_screen, uwindow->wnd_id);
-
-        lkey_event_t* u_event;
-        hid_event_t kbd_ctx;
-
-        if (lwnd_load_keyevent(internal_wnd, &kbd_ctx))
-            return DRV_STAT_INVAL;
-
-        /* Grab a buffer entry */
-        u_event = &uwindow->keyevent_buffer[uwindow->keyevent_buffer_write_idx++];
-
-        /* Write the data */
-        u_event->keycode = kbd_ctx.key.scancode;
-        u_event->pressed_char = kbd_ctx.key.pressed_char;
-        u_event->pressed = hid_keyevent_is_pressed(&kbd_ctx);
-        u_event->mod_flags = NULL;
-
-        /* Make sure we cycle the index */
-        uwindow->keyevent_buffer_write_idx %= uwindow->keyevent_buffer_capacity;
-
         break;
     }
-    /*
-     * TODO:
-     * - Check what the process wants to do
-     * - Check if the process is cleared to do that thing
-     * - do the thing
-     * - fuck off
-     */
     return DRV_STAT_OK;
 }
 

@@ -1,7 +1,7 @@
 #ifndef __ANIVA_VID_DEV_FRAMEBUFFER__
 #define __ANIVA_VID_DEV_FRAMEBUFFER__
 
-#include "libk/stddef.h"
+#include <stdint.h>
 
 struct device;
 struct vdfb_ops;

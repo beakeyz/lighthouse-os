@@ -7,11 +7,12 @@
 #include "entry/entry.h"
 #include "libk/flow/error.h"
 #include "libk/multiboot.h"
-#include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "sys/types.h"
 #include <dev/driver.h>
+
+#include <stdint.h>
 
 /*
  * Driver for the EFI framebuffer protocols

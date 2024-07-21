@@ -227,6 +227,32 @@ static inline fb_info_t* _get_fb_info(device_t* device, fb_handle_t fb)
     return fb_helper_get(dev->fb_helper, fb);
 }
 
+int vdev_get_fbinfo(struct device* device, fb_handle_t fb, vaddr_t fb_map_addr, fb_info_t* binfo)
+{
+    ssize_t map_error;
+    fb_info_t dummy = { 0 };
+    fb_info_t* info = _get_fb_info(device, fb);
+
+    if (!info)
+        return -KERR_NOT_FOUND;
+
+    /* Copy the info */
+    memcpy(&dummy, info, sizeof(*info));
+
+    dummy.addr = fb_map_addr;
+    dummy.kernel_addr = fb_map_addr;
+
+    /* Map the thing */
+    map_error = vdev_map_fb(device, fb, fb_map_addr);
+
+    if (map_error < 0)
+        return (kerror_t)map_error;
+
+    /* Copy over the dummy */
+    memcpy(binfo, &dummy, sizeof(*binfo));
+    return 0;
+}
+
 #define DEF_VDEV_GET_FB_(type, thing)                               \
     type vdev_get_fb_##thing(struct device* device, fb_handle_t fb) \
     {                                                               \
