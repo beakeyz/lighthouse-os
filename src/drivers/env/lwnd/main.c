@@ -6,6 +6,7 @@
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "libk/flow/error.h"
+#include "lightos/event/key.h"
 #include "mem/kmem_manager.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
@@ -25,6 +26,12 @@ static enum ANIVA_SCANCODES _forcequit_sequence[] = {
 };
 
 static int lwnd_on_key(hid_event_t* ctx);
+
+static void __tmp_draw_fragmented_windo(lwnd_window_t* window, fb_color_t clr)
+{
+    for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
+        generic_draw_rect(&_fb_info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
+}
 
 /*!
  * @brief: Main compositing loop
@@ -60,9 +67,12 @@ static void USED lwnd_main()
             if (!lwnd_window_should_update(w))
                 continue;
 
-            generic_draw_rect(&_fb_info, w->x, w->y, w->width, w->height, color);
-
             lwnd_window_split(&_fb_info, w);
+
+            if (w->rects)
+                __tmp_draw_fragmented_windo(w, color);
+            else
+                generic_draw_rect(&_fb_info, w->x, w->y, w->width, w->height, color);
 
             w->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
 
@@ -80,7 +90,25 @@ static void USED lwnd_main()
  */
 int lwnd_on_key(hid_event_t* ctx)
 {
-    lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 1, _lwnd_stack->top_window->y);
+    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
+        return 0;
+
+    switch (ctx->key.scancode) {
+    case ANIVA_SCANCODE_W:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y - 10);
+        break;
+    case ANIVA_SCANCODE_S:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y + 10);
+        break;
+    case ANIVA_SCANCODE_A:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x - 10, _lwnd_stack->top_window->y);
+        break;
+    case ANIVA_SCANCODE_D:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
+        break;
+    default:
+        break;
+    }
     return 0;
 }
 
@@ -130,7 +158,7 @@ int init_window_driver()
     _lwnd_stack = create_lwnd_wndstack(16);
 
     lwnd_window_t* window_1 = create_window("Test 1", 100, 100, 200, 180);
-    lwnd_window_t* window_2 = create_window("Test 2", 50, 150, 200, 180);
+    lwnd_window_t* window_2 = create_window("Test 2", 120, 120, 50, 50);
 
     wndstack_add_window(_lwnd_stack, window_1);
     wndstack_add_window(_lwnd_stack, window_2);

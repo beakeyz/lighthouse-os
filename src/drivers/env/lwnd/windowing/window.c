@@ -1,7 +1,8 @@
 #include "window.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
-#include <string.h>
+#include "mem/kmem_manager.h"
+#include "mem/zalloc/zalloc.h"
 
 lwnd_window_t* create_window(const char* title, u32 x, u32 y, u32 width, u32 height)
 {
@@ -19,6 +20,7 @@ lwnd_window_t* create_window(const char* title, u32 x, u32 y, u32 width, u32 hei
     ret->y = y;
     ret->width = width;
     ret->height = height;
+    ret->rect_cache = create_zone_allocator(SMALL_PAGE_SIZE, sizeof(lwnd_wndrect_t), NULL);
     ret->flags = LWND_WINDOW_FLAG_NEED_UPDATE;
 
     return ret;
@@ -26,6 +28,9 @@ lwnd_window_t* create_window(const char* title, u32 x, u32 y, u32 width, u32 hei
 
 void destroy_window(lwnd_window_t* window)
 {
+    destroy_zone_allocator(window->rect_cache, false);
+
+    kfree((void*)window->title);
     kfree(window);
 }
 

@@ -3,6 +3,7 @@
 
 #include "dev/video/framebuffer.h"
 #include "libk/stddef.h"
+#include "mem/zalloc/zalloc.h"
 
 #define LWND_WINDOW_FLAG_NEED_UPDATE 0x00000001
 
@@ -17,6 +18,9 @@ typedef struct lwnd_window {
     /* Index this window has inside it's window stack */
     i32 stack_idx;
     u32 flags;
+
+    /* Small cache to store the local rectancles of this window */
+    zone_allocator_t* rect_cache;
 
     /* The window under this window xD */
     struct lwnd_window* next_layer;
