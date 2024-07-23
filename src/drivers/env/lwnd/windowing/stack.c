@@ -1,4 +1,5 @@
 #include "stack.h"
+#include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
@@ -8,7 +9,7 @@
 #include <libk/string.h>
 #include <system/asm_specifics.h>
 
-lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd)
+lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, fb_info_t* info)
 {
     lwnd_wndstack_t* ret;
 
@@ -22,7 +23,10 @@ lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd)
     ret->top_window = nullptr;
     ret->bottom_window = nullptr;
     ret->max_n_wnd = max_n_wnd;
+    ret->fbinfo = info;
     ret->wnd_map = create_hashmap(max_n_wnd, NULL);
+
+    ret->background_window = create_window("__background", 0, 0, info->width, info->height);
 
     return ret;
 }
@@ -31,6 +35,32 @@ void destroy_lwnd_wndstack(lwnd_wndstack_t* stack)
 {
     destroy_hashmap(stack->wnd_map);
     kfree(stack);
+}
+
+static void __tmp_draw_fragmented_windo(fb_info_t* info, lwnd_window_t* window, fb_color_t clr)
+{
+    if (!window->rects)
+        generic_draw_rect(info, window->x, window->y, window->width, window->height, clr);
+    else
+        for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
+            generic_draw_rect(info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
+}
+
+int lwnd_wndstack_update_background(lwnd_wndstack_t* stack)
+{
+    if (!lwnd_window_should_update(stack->background_window))
+        return 0;
+
+    stack->background_window->prev_layer = stack->bottom_window;
+
+    /* Split the background window based on it's top most windows */
+    lwnd_window_split(stack->fbinfo, stack->background_window);
+
+    __tmp_draw_fragmented_windo(stack->fbinfo, stack->background_window, (fb_color_t) { { 0x1f, 0x1f, 0x1f, 0xff } });
+
+    /* Update the 'window' itself */
+    stack->background_window->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
+    return 0;
 }
 
 static void _wndstack_link_window(lwnd_wndstack_t* stack, lwnd_window_t* wnd)
@@ -134,6 +164,44 @@ int wndstack_focus_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd)
 
     /* Relink at the start */
     _wndstack_link_window(stack, wnd);
+
+    return 0;
+}
+
+int wndstack_cycle_windows(lwnd_wndstack_t* stack)
+{
+    lwnd_window_t* old_top;
+    lwnd_window_t* new_top;
+
+    old_top = stack->top_window;
+
+    /* No windows in the stack */
+    if (!old_top || !stack->bottom_window)
+        return KERR_NOT_FOUND;
+
+    new_top = old_top->next_layer;
+
+    /* Only one window, can't cycle */
+    if (!new_top)
+        return KERR_NOT_FOUND;
+
+    /* The bottom of the stack is now going to be the old top window */
+    stack->bottom_window->next_layer = old_top;
+    old_top->prev_layer = stack->bottom_window;
+    old_top->next_layer = nullptr;
+
+    /* Put the old top window at the bottom */
+    stack->bottom_window = old_top;
+
+    /* The new top isn't going to have a next layer */
+    new_top->prev_layer = nullptr;
+
+    /* And finish off the stack */
+    stack->top_window = new_top;
+
+    /* Make sure both windows are updated */
+    lwnd_window_update(old_top);
+    lwnd_window_update(new_top);
 
     return 0;
 }

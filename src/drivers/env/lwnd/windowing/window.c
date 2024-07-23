@@ -23,6 +23,9 @@ lwnd_window_t* create_window(const char* title, u32 x, u32 y, u32 width, u32 hei
     ret->rect_cache = create_zone_allocator(SMALL_PAGE_SIZE, sizeof(lwnd_wndrect_t), NULL);
     ret->flags = LWND_WINDOW_FLAG_NEED_UPDATE;
 
+    /* Link a windows initial rect */
+    create_and_link_lwndrect(&ret->rects, ret->rect_cache, 0, 0, width, height);
+
     return ret;
 }
 

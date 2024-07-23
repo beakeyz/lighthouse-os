@@ -29,8 +29,11 @@ static int lwnd_on_key(hid_event_t* ctx);
 
 static void __tmp_draw_fragmented_windo(lwnd_window_t* window, fb_color_t clr)
 {
-    for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
-        generic_draw_rect(&_fb_info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
+    if (!window->rects)
+        generic_draw_rect(&_fb_info, window->x, window->y, window->width, window->height, clr);
+    else
+        for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
+            generic_draw_rect(&_fb_info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
 }
 
 /*!
@@ -69,15 +72,17 @@ static void USED lwnd_main()
 
             lwnd_window_split(&_fb_info, w);
 
-            if (w->rects)
-                __tmp_draw_fragmented_windo(w, color);
-            else
-                generic_draw_rect(&_fb_info, w->x, w->y, w->width, w->height, color);
+            __tmp_draw_fragmented_windo(w, color);
 
             w->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
 
+            /* Make sure the background knows about this */
+            lwnd_window_update(_lwnd_stack->background_window);
+
             color.components.g += 0xff;
         }
+
+        lwnd_wndstack_update_background(_lwnd_stack);
 
         scheduler_yield();
     }
@@ -105,6 +110,9 @@ int lwnd_on_key(hid_event_t* ctx)
         break;
     case ANIVA_SCANCODE_D:
         lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
+        break;
+    case ANIVA_SCANCODE_TAB:
+        wndstack_cycle_windows(_lwnd_stack);
         break;
     default:
         break;
@@ -155,10 +163,10 @@ int init_window_driver()
     ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
 
     /* TEST */
-    _lwnd_stack = create_lwnd_wndstack(16);
+    _lwnd_stack = create_lwnd_wndstack(16, &_fb_info);
 
     lwnd_window_t* window_1 = create_window("Test 1", 100, 100, 200, 180);
-    lwnd_window_t* window_2 = create_window("Test 2", 120, 120, 50, 50);
+    lwnd_window_t* window_2 = create_window("Test 2", 400, 120, 50, 50);
 
     wndstack_add_window(_lwnd_stack, window_1);
     wndstack_add_window(_lwnd_stack, window_2);
