@@ -100,6 +100,7 @@ lwnd_wndrect_t* create_and_link_lwndrect(lwnd_wndrect_t** rect_list, zone_alloca
     rect->y = y;
     rect->w = w;
     rect->h = h;
+    rect->rect_changed = true;
 
     /* Link into the window */
     *rect_list = rect;
@@ -107,10 +108,21 @@ lwnd_wndrect_t* create_and_link_lwndrect(lwnd_wndrect_t** rect_list, zone_alloca
     return rect;
 }
 
-static inline void __window_clear_rects(lwnd_window_t* wnd)
+static inline void __window_clear_rects(lwnd_window_t* wnd, lwnd_wndrect_t** pstart)
 {
-    lwnd_wndrect_t* this, *next;
+    lwnd_wndrect_t* next;
 
+    while (*pstart) {
+        next = (*pstart)->next_part;
+
+        zfree_fixed(wnd->rect_cache, *pstart);
+
+        *pstart = next;
+    }
+}
+
+static inline void window_clear_rects(lwnd_window_t* wnd)
+{
     if (!wnd->rects) {
         create_and_link_lwndrect(&wnd->rects, wnd->rect_cache, 0, 0, wnd->width, wnd->height);
         return;
@@ -121,18 +133,9 @@ static inline void __window_clear_rects(lwnd_window_t* wnd)
     wnd->rects->y = 0;
     wnd->rects->w = wnd->width;
     wnd->rects->h = wnd->height;
+    wnd->rects->rect_changed = true;
 
-    this = wnd->rects->next_part;
-    wnd->rects->next_part = nullptr;
-
-    while (this) {
-        next = this->next_part;
-
-        /* Free from our cache */
-        zfree_fixed(wnd->rect_cache, this);
-
-        this = next;
-    }
+    __window_clear_rects(wnd, &wnd->rects->next_part);
 }
 
 /*!
@@ -150,6 +153,7 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
     u32 c_y = rect->y;
     u32 c_w = overlap->x;
     u32 c_h = overlap->y + overlap->h;
+    lwnd_wndrect_t* new_rect;
 
     // KLOG_DBG("Trying to fix overlapping rect: (x: %d, y: %d)\n", overlap->x, overlap->y);
 
@@ -192,7 +196,12 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
         if (c_w && c_h) {
             // lwnd_draw_dbg_box(info, wnd->x + c_x, wnd->y + c_y, c_w, c_h, (fb_color_t) { { 0, 0xff, 0, 0xff } });
 
-            create_and_link_lwndrect(p_rects, wnd->rect_cache, c_x, c_y, c_w, c_h);
+            new_rect = create_and_link_lwndrect(p_rects, wnd->rect_cache, c_x, c_y, c_w, c_h);
+
+            for (lwnd_wndrect_t* r = wnd->prev_rects; r && new_rect->rect_changed; r = r->next_part) {
+                if (r->x == new_rect->x && r->y == new_rect->y && r->w == new_rect->w && r->h == new_rect->h)
+                    new_rect->rect_changed = false;
+            }
 
             n_split++;
         }
@@ -271,11 +280,21 @@ static int __window_split(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t** 
     return 0;
 }
 
+static void __window_set_prev_rects(lwnd_window_t* wnd)
+{
+    __window_clear_rects(wnd, &wnd->prev_rects);
+
+    wnd->prev_rects = wnd->rects;
+    wnd->rects = nullptr;
+
+    create_and_link_lwndrect(&wnd->rects, wnd->rect_cache, 0, 0, wnd->width, wnd->height);
+}
+
 int lwnd_window_split(fb_info_t* info, lwnd_window_t* wnd)
 {
     lwnd_wndrect_t overlap = { 0 };
     /* Preemptive rect clear */
-    __window_clear_rects(wnd);
+    __window_set_prev_rects(wnd);
 
     KLOG_DBG("Splitting window: (%d:%d)\n", wnd->width, wnd->height);
 
@@ -288,10 +307,7 @@ int lwnd_window_split(fb_info_t* info, lwnd_window_t* wnd)
 
         /* Full overlap, die */
         if (wnd->width == overlap.w && wnd->height == overlap.h) {
-            __window_clear_rects(wnd);
-
-            zfree_fixed(wnd->rect_cache, wnd->rects);
-            wnd->rects = nullptr;
+            __window_clear_rects(wnd, &wnd->rects);
             break;
         }
 

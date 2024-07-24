@@ -31,7 +31,8 @@ static int lwnd_on_key(hid_event_t* ctx);
 static void __tmp_draw_fragmented_windo(lwnd_window_t* window, fb_color_t clr)
 {
     for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
-        generic_draw_rect(&_fb_info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
+        if (r->rect_changed)
+            generic_draw_rect(&_fb_info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
 }
 
 /*!
@@ -82,6 +83,7 @@ static void USED lwnd_main()
 
         lwnd_wndstack_update_background(_lwnd_stack);
 
+        /*
         _lwnd_stack->bottom_window->next_layer = _lwnd_stack->background_window;
 
         for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
@@ -89,6 +91,7 @@ static void USED lwnd_main()
                 lwnd_draw_dbg_box(&_fb_info, w->x + r->x, w->y + r->y, r->w, r->h, ((fb_color_t) { { 0x00, 00, 0xff } }));
             }
         }
+        */
 
         scheduler_yield();
     }

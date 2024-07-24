@@ -20,7 +20,10 @@ typedef struct lwnd_wndrect {
     u32 x;
     u32 y;
     u32 w;
-    u32 h;
+    struct {
+        bool rect_changed : 1;
+        u32 h : 31;
+    };
 
     struct lwnd_wndrect* next_part;
 } lwnd_wndrect_t;
@@ -47,6 +50,7 @@ typedef struct lwnd_window {
      * Null if the window us unbroken
      */
     lwnd_wndrect_t* rects;
+    lwnd_wndrect_t* prev_rects;
 } lwnd_window_t;
 
 static inline void lwnd_window_update(lwnd_window_t* wnd)
