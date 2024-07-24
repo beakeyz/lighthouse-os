@@ -17,8 +17,10 @@ struct lwnd_wndstack;
  */
 typedef struct lwnd_wndrect {
     /* These are relative to the window */
-    u32 x, y;
-    u32 w, h;
+    u32 x;
+    u32 y;
+    u32 w;
+    u32 h;
 
     struct lwnd_wndrect* next_part;
 } lwnd_wndrect_t;

@@ -39,11 +39,8 @@ void destroy_lwnd_wndstack(lwnd_wndstack_t* stack)
 
 static void __tmp_draw_fragmented_windo(fb_info_t* info, lwnd_window_t* window, fb_color_t clr)
 {
-    if (!window->rects)
-        generic_draw_rect(info, window->x, window->y, window->width, window->height, clr);
-    else
-        for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
-            generic_draw_rect(info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
+    for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
+        generic_draw_rect(info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
 }
 
 int lwnd_wndstack_update_background(lwnd_wndstack_t* stack)

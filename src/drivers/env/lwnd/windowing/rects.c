@@ -1,6 +1,6 @@
 #include "dev/video/framebuffer.h"
-#include "drivers/env/lwnd/drawing/draw.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "window.h"
 
@@ -111,8 +111,10 @@ static inline void __window_clear_rects(lwnd_window_t* wnd)
 {
     lwnd_wndrect_t* this, *next;
 
-    if (!wnd->rects)
+    if (!wnd->rects) {
+        create_and_link_lwndrect(&wnd->rects, wnd->rect_cache, 0, 0, wnd->width, wnd->height);
         return;
+    }
 
     /* Reuse the first window */
     wnd->rects->x = 0;
@@ -149,7 +151,7 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
     u32 c_w = overlap->x;
     u32 c_h = overlap->y + overlap->h;
 
-    printf("Trying to fix overlapping rect: (x: %d, y: %d)\n", overlap->x, overlap->y);
+    // KLOG_DBG("Trying to fix overlapping rect: (x: %d, y: %d)\n", overlap->x, overlap->y);
 
     /* The x and y coords of @overlap, relative to @wnd */
     u32 r_overlap_x = rect->x + overlap->x;
@@ -188,7 +190,7 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
         }
 
         if (c_w && c_h) {
-            lwnd_draw_dbg_box(info, wnd->x + c_x, wnd->y + c_y, c_w, c_h, (fb_color_t) { { 0, 0xff, 0, 0xff } });
+            // lwnd_draw_dbg_box(info, wnd->x + c_x, wnd->y + c_y, c_w, c_h, (fb_color_t) { { 0, 0xff, 0, 0xff } });
 
             create_and_link_lwndrect(p_rects, wnd->rect_cache, c_x, c_y, c_w, c_h);
 
@@ -210,6 +212,7 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
  */
 static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t** overlapped, lwnd_wndrect_t* overlapping)
 {
+    lwnd_wndrect_t** list;
     lwnd_wndrect_t* old_rect;
 
     if (!overlapped || !overlapping)
@@ -220,44 +223,38 @@ static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd,
     if (!old_rect)
         return -KERR_NULL;
 
-    /* Do the unlink, since we need to do this anyway later */
-    *overlapped = old_rect->next_part;
+    /* Create a list */
+    list = &old_rect->next_part;
 
     /* Split the old rectangle */
-    __rect_split(info, overlapped, wnd, old_rect, overlapping);
+    if (__rect_split(info, list, wnd, old_rect, overlapping)) {
+        *overlapped = *list;
 
-    printf("Freeing\n");
-    /* Finish with freeing the old rectangle */
-    zfree_fixed(wnd->rect_cache, old_rect);
+        /* Finish with freeing the old rectangle */
+        zfree_fixed(wnd->rect_cache, old_rect);
+    }
     return 0;
 }
 
-static inline bool try_replace_recursive_overlapping(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t* rect)
+static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t* rect)
 {
-    bool did_find_overlap = false;
     lwnd_wndrect_t overlap = { 0 };
-
-    lwnd_wndrect_t** next;
     lwnd_wndrect_t** r = &wnd->rects;
 
-    /* Loop over all the rectangles already created for wnd */
-    while (*r) {
-        next = &(*r)->next_part;
+    while (true) {
+        for (; *r; r = &(*r)->next_part) {
+            /* Skip rectangles that don't overlap */
+            if (lwndrects_get_overlap_rect(*r, rect, &overlap) == 0)
+                break;
+        }
 
-        /* Skip rectangles that don't overlap */
-        if (lwndrects_get_overlap_rect(*r, rect, &overlap))
-            goto cycle;
+        /* Could not find any overlapping rect */
+        if (!(*r))
+            break;
 
         /* Smite it */
         __window_replace_overlapped_rect(info, wnd, r, &overlap);
-
-        did_find_overlap = true;
-
-    cycle:
-        r = next;
     }
-
-    return did_find_overlap;
 }
 
 /*!
@@ -269,18 +266,18 @@ static inline bool try_replace_recursive_overlapping(fb_info_t* info, lwnd_windo
 static int __window_split(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t** p_rects, lwnd_wndrect_t* overlap)
 {
     /* If we did find overlapping, no need to do weird shit */
-    if (try_replace_recursive_overlapping(info, wnd, overlap))
-        return 0;
+    try_replace_recursive_overlapping(info, wnd, overlap);
 
     return 0;
 }
 
 int lwnd_window_split(fb_info_t* info, lwnd_window_t* wnd)
 {
-    bool is_inside_window;
     lwnd_wndrect_t overlap = { 0 };
     /* Preemptive rect clear */
     __window_clear_rects(wnd);
+
+    KLOG_DBG("Splitting window: (%d:%d)\n", wnd->width, wnd->height);
 
     /* Loop over all previous layers */
     for (lwnd_window_t* c_window = wnd->prev_layer; c_window != nullptr; c_window = c_window->prev_layer) {
@@ -289,22 +286,19 @@ int lwnd_window_split(fb_info_t* info, lwnd_window_t* wnd)
         if (lwnd_get_overlap_rect(wnd, c_window, &overlap))
             continue;
 
-        is_inside_window = false;
+        /* Full overlap, die */
+        if (wnd->width == overlap.w && wnd->height == overlap.h) {
+            __window_clear_rects(wnd);
 
-        /* Check if this window is completely inside another window later down the line */
-        for (lwnd_window_t* next_window = c_window->prev_layer; next_window && !is_inside_window; next_window = next_window->prev_layer) {
-            if (lwnd_window_is_inside_window(c_window, next_window))
-                is_inside_window = true;
+            zfree_fixed(wnd->rect_cache, wnd->rects);
+            wnd->rects = nullptr;
+            break;
         }
-
-        /* Inside another window, no need to split */
-        if (is_inside_window)
-            continue;
 
         /* Split the window based on the overlap(ping) rectangle(s) */
         __window_split(info, wnd, &wnd->rects, &overlap);
 
-        lwnd_draw_dbg_box(info, wnd->x + overlap.x, wnd->y + overlap.y, overlap.w, overlap.h, (fb_color_t) { { 0, 0, 0xff, 0xff } });
+        // lwnd_draw_dbg_box(info, wnd->x + overlap.x, wnd->y + overlap.y, overlap.w, overlap.h, (fb_color_t) { { 0, 0, 0xff, 0xff } });
     }
     return 0;
 }
