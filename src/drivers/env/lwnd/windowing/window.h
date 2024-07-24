@@ -74,7 +74,7 @@ void destroy_window(lwnd_window_t* window);
 extern lwnd_wndrect_t* create_and_link_lwndrect(lwnd_wndrect_t** rect_list, zone_allocator_t* cache, u32 x, u32 y, u32 w, u32 h);
 
 // Uses fb_info or debug
-extern int lwnd_window_split(fb_info_t* info, lwnd_window_t* wnd);
+extern int lwnd_window_split(struct lwnd_wndstack* stack, lwnd_window_t* wnd, bool front_to_back);
 int lwnd_window_move(lwnd_window_t* wnd, u32 newx, u32 newy);
 
 #endif // !__LWND_WINDOWING_WINDOW__

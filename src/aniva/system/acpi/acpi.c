@@ -28,7 +28,7 @@ void init_acpi()
     init_irq_chips();
 
     /* Initialize the rest of ACPI */
-    init_acpi_full();
+    // init_acpi_full();
 
     ASSERT_MSG(KERR_OK(init_acpi_parser(&_parser)), "Failed to initialize in-house ACPI parser!");
 

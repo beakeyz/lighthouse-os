@@ -3,7 +3,7 @@
 #include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "drivers/env/lwnd/drawing/draw.h"
+#include "drawing/draw.h"
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "libk/flow/error.h"
@@ -61,6 +61,7 @@ static void USED lwnd_main()
          * the right order, at the right depth
          */
         for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
+            color.components.g += 0x1f;
 
             /*
              * Per window, check if it's visible, by breaking the window in smaller parts
@@ -69,7 +70,7 @@ static void USED lwnd_main()
             if (!lwnd_window_should_update(w))
                 continue;
 
-            lwnd_window_split(&_fb_info, w);
+            lwnd_window_split(_lwnd_stack, w, false);
 
             __tmp_draw_fragmented_windo(w, color);
 
@@ -77,13 +78,10 @@ static void USED lwnd_main()
 
             /* Make sure the background knows about this */
             lwnd_window_update(_lwnd_stack->background_window);
-
-            color.components.g += 0xff;
         }
 
         lwnd_wndstack_update_background(_lwnd_stack);
 
-        /*
         _lwnd_stack->bottom_window->next_layer = _lwnd_stack->background_window;
 
         for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
@@ -91,7 +89,7 @@ static void USED lwnd_main()
                 lwnd_draw_dbg_box(&_fb_info, w->x + r->x, w->y + r->y, r->w, r->h, ((fb_color_t) { { 0x00, 00, 0xff } }));
             }
         }
-        */
+        _lwnd_stack->bottom_window->next_layer = nullptr;
 
         scheduler_yield();
     }
@@ -176,9 +174,11 @@ int init_window_driver()
 
     lwnd_window_t* window_1 = create_window("Test 1", 100, 100, 200, 180);
     lwnd_window_t* window_2 = create_window("Test 2", 400, 120, 50, 50);
+    lwnd_window_t* window_3 = create_window("Test 3", 400, 500, 150, 150);
 
     wndstack_add_window(_lwnd_stack, window_1);
     wndstack_add_window(_lwnd_stack, window_2);
+    wndstack_add_window(_lwnd_stack, window_3);
 
     return 0;
 }

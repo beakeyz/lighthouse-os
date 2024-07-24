@@ -52,7 +52,7 @@ int lwnd_wndstack_update_background(lwnd_wndstack_t* stack)
     stack->background_window->prev_layer = stack->bottom_window;
 
     /* Split the background window based on it's top most windows */
-    lwnd_window_split(stack->fbinfo, stack->background_window);
+    lwnd_window_split(stack, stack->background_window, true);
 
     __tmp_draw_fragmented_windo(stack->fbinfo, stack->background_window, (fb_color_t) { { 0x1f, 0x1f, 0x1f, 0xff } });
 
@@ -197,9 +197,11 @@ int wndstack_cycle_windows(lwnd_wndstack_t* stack)
     /* And finish off the stack */
     stack->top_window = new_top;
 
-    /* Make sure both windows are updated */
-    lwnd_window_update(old_top);
-    lwnd_window_update(new_top);
+    /* Make sure all underlying windows are updated */
+    do {
+        lwnd_window_update(new_top);
+        new_top = new_top->next_layer;
+    } while (new_top);
 
     return 0;
 }
