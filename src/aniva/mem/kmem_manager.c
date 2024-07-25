@@ -542,7 +542,9 @@ uintptr_t kmem_to_phys_aligned(pml_entry_t* root, vaddr_t addr)
     return kmem_get_page_base(page->raw_bits);
 }
 
-/*
+/*!
+ * @brief: Get a physical address by mapping
+ *
  * Same as the function above, but this one also keeps the alignment in mind
  */
 uintptr_t kmem_to_phys(pml_entry_t* root, vaddr_t addr)

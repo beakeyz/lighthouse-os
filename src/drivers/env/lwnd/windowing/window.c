@@ -77,9 +77,14 @@ void lwnd_window_clear_update(lwnd_window_t* wnd)
  * @brief: Moves a single window across the screen
  *
  * Checks if this window had any intersections with other screens and prompts redraws of those windows
+ *
+ * FIXME: Check for negative overflow
  */
 int lwnd_window_move(lwnd_window_t* wnd, u32 newx, u32 newy)
 {
+    if (!wnd)
+        return -KERR_INVAL;
+
     wnd->x = newx;
     wnd->y = newy;
 
@@ -131,6 +136,8 @@ static inline void __lwnd_redraw_rect(lwnd_window_t* wnd, lwnd_screen_t* screen,
     /* Get the starting offset inside the windows framebuffer where we need to draw */
     rect_offset = wnd->this_fb->kernel_addr + (void*)(u64)(rect->y * wnd_info->pitch + rect->x * wnd_bytes_per_pixel);
 
+    // KLOG_DBG("Trying to draw: x:%d y:%d (%dx%d)\n", rect->x, rect->y, rect->w, rect->h);
+
     /*
      * Our manual slow bitblt xD
      */
@@ -161,9 +168,10 @@ static inline void __lwnd_redraw_rect(lwnd_window_t* wnd, lwnd_screen_t* screen,
 
 int lwnd_window_draw(lwnd_window_t* wnd, struct lwnd_screen* screen)
 {
-    for (lwnd_wndrect_t* r = wnd->rects; r; r = r->next_part)
+    for (lwnd_wndrect_t* r = wnd->rects; r; r = r->next_part) {
         if (r->rect_changed)
             __lwnd_redraw_rect(wnd, screen, r);
+    }
 
     return 0;
 }
@@ -174,8 +182,9 @@ int lwnd_window_draw(lwnd_window_t* wnd, struct lwnd_screen* screen)
 int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
 {
     int error;
+    u32 bytes_pp;
     fb_info_t* info;
-    u8 bytes_pp;
+    paddr_t fb_phys;
 
     if (!wnd)
         return -KERR_INVAL;
@@ -204,22 +213,33 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
     /* We don't inherit the fb handle =/ */
     info->handle = 0;
 
-    error = kmem_user_alloc_range((void**)&info->addr, wnd->proc, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE);
+    /* First, allocate a contiguous range in the kernel */
+    error = __kmem_kernel_alloc_range((void**)&info->kernel_addr, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE);
 
     if (error)
         goto error_and_exit;
 
-    /* Map to the kernel */
-    error = kmem_map_to_kernel(&info->kernel_addr, info->addr, info->size, KERNEL_MAP_BASE, wnd->proc->m_root_pd.m_root, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE);
+    if (wnd->proc) {
+        /* Grab the physical address of the framebuffer */
+        fb_phys = kmem_to_phys(NULL, info->kernel_addr);
 
-    if (error)
-        goto unmap_fb_and_exit;
+        if (!fb_phys)
+            goto dealloc_and_exit;
+
+        /* Allocate inside the userprocess */
+        error = kmem_user_alloc((void**)&info->addr, wnd->proc, fb_phys, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE);
+
+        if (error)
+            goto dealloc_and_exit;
+    } else
+        /* System-owned, address will always be in the kernel (I hope) */
+        info->addr = info->kernel_addr;
 
     wnd->this_fb = info;
     return 0;
 
-unmap_fb_and_exit:
-    kmem_user_dealloc(wnd->proc, info->addr, info->size);
+dealloc_and_exit:
+    __kmem_kernel_dealloc(info->kernel_addr, info->size);
 error_and_exit:
     kfree(info);
     return error;

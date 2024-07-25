@@ -1,7 +1,6 @@
 #ifndef __LWND_WINDOWING_WINDOW__
 #define __LWND_WINDOWING_WINDOW__
 
-#include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
 #include "libk/stddef.h"
 #include "mem/zalloc/zalloc.h"

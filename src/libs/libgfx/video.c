@@ -33,6 +33,7 @@ BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, u
 {
     uintptr_t vaddr;
     uint32_t _clr = 0;
+    uint32_t bytes_pp;
 
     if (!wnd || !lwindow_has_fb(wnd))
         return FALSE;
@@ -42,16 +43,17 @@ BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, u
         return FALSE;
 
     /* Compute the initial video address */
-    vaddr = wnd->fb.fb + y * wnd->fb.pitch + (x * (wnd->fb.bpp >> 3));
+    bytes_pp = (wnd->fb.bpp >> 3);
+    vaddr = wnd->fb.fb + y * wnd->fb.pitch + (x * bytes_pp);
 
     /* Compute the internal color variable */
-    _clr |= ((clr.r << wnd->fb.red_lshift) & wnd->fb.red_mask);
-    _clr |= ((clr.g << wnd->fb.green_lshift) & wnd->fb.green_mask);
-    _clr |= ((clr.b << wnd->fb.blue_lshift) & wnd->fb.blue_mask);
+    _clr |= (((uint32_t)clr.r << wnd->fb.red_lshift));
+    _clr |= (((uint32_t)clr.g << wnd->fb.green_lshift));
+    _clr |= (((uint32_t)clr.b << wnd->fb.blue_lshift));
 
     for (uint32_t i = 0; i < height; i++) {
         for (uint32_t j = 0; j < width; j++)
-            *(uint32_t volatile*)(vaddr + j) = _clr;
+            *(uint32_t volatile*)(vaddr + j * bytes_pp) = _clr;
         /* Add the pitch to offset to the start of the next 'scanline' */
         vaddr += wnd->fb.pitch;
     }
@@ -65,6 +67,8 @@ BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, u
 BOOL lwindow_draw_buffer(lwindow_t* wnd, uint32_t startx, uint32_t starty, lclr_buffer_t* buffer)
 {
     uintptr_t vaddr;
+    uint32_t bytes_pp;
+    void* color_buffer;
 
     if (!wnd || !lwindow_has_fb(wnd))
         return FALSE;
@@ -73,13 +77,15 @@ BOOL lwindow_draw_buffer(lwindow_t* wnd, uint32_t startx, uint32_t starty, lclr_
         return FALSE;
 
     /* Compute the initial video address */
-    vaddr = wnd->fb.fb + starty * wnd->fb.pitch + (startx * (wnd->fb.bpp >> 3));
+    bytes_pp = (wnd->fb.bpp >> 3);
+    vaddr = wnd->fb.fb + (uint64_t)starty * wnd->fb.pitch + (startx * bytes_pp);
+    color_buffer = buffer->buffer;
 
     for (uint32_t i = 0; i < buffer->height; i++) {
         for (uint32_t j = 0; j < buffer->width; j++) {
-            *(uint32_t volatile*)(vaddr + j) = *(uint32_t*)buffer->buffer;
+            *(uint32_t volatile*)(vaddr + j * bytes_pp) = *(uint32_t*)color_buffer;
 
-            buffer->buffer += (wnd->fb.bpp >> 3);
+            color_buffer += bytes_pp;
         }
         /* Add the pitch to offset to the start of the next 'scanline' */
         vaddr += wnd->fb.pitch;

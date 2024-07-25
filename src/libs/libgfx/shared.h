@@ -45,10 +45,10 @@ typedef struct lframebuffer {
     uint8_t green_lshift;
     uint8_t blue_lshift;
     uint8_t alpha_lshift;
-    uint16_t red_mask;
-    uint16_t green_mask;
-    uint16_t blue_mask;
-    uint16_t alpha_mask;
+    uint32_t red_mask;
+    uint32_t green_mask;
+    uint32_t blue_mask;
+    uint32_t alpha_mask;
 
     /* Bytes per scanline ((bpp >> 3) * width) */
     uint32_t pitch;

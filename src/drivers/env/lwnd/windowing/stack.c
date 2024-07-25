@@ -77,6 +77,11 @@ static void _wndstack_link_window(lwnd_wndstack_t* stack, lwnd_window_t* wnd)
         stack->bottom_window = wnd;
 }
 
+struct lwnd_window* wndstack_find_window(lwnd_wndstack_t* stack, const char* title)
+{
+    return hashmap_get(stack->wnd_map, (hashmap_key_t)title);
+}
+
 /*!
  * @brief: Add a window to the window stack
  *

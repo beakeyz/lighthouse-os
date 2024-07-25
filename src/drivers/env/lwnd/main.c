@@ -1,3 +1,4 @@
+#include "dev/driver.h"
 #include "dev/io/hid/event.h"
 #include "dev/io/hid/hid.h"
 #include "dev/video/core.h"
@@ -38,19 +39,48 @@ static lwnd_screen_t* _lwnd_0_screen;
 static lwnd_workspace_t* _lwnd_c_ws;
 static lwnd_wndstack_t* _lwnd_stack;
 
-static enum ANIVA_SCANCODES _forcequit_sequence[] = {
+static enum ANIVA_SCANCODES _forcequit_sequence[] USED = {
     ANIVA_SCANCODE_LALT,
     ANIVA_SCANCODE_LSHIFT,
     ANIVA_SCANCODE_Q,
 };
 
-static int lwnd_on_key(hid_event_t* ctx);
-
-static void __tmp_draw_fragmented_windo(lwnd_window_t* window, fb_color_t clr)
+/*!
+ * @brief: This is a temporary key handler to test out window event and shit
+ *
+ * Sends the key event over to the focussed window if there isn't a special key combination pressed
+ */
+static int lwnd_on_key(hid_event_t* ctx)
 {
-    for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
-        if (r->rect_changed)
-            generic_draw_rect(&_fb_info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
+    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
+        return 0;
+
+    switch (ctx->key.scancode) {
+    case ANIVA_SCANCODE_W:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y - 10);
+        break;
+    case ANIVA_SCANCODE_S:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y + 10);
+        break;
+    case ANIVA_SCANCODE_A:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x - 10, _lwnd_stack->top_window->y);
+        break;
+    case ANIVA_SCANCODE_D:
+        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
+        break;
+    case ANIVA_SCANCODE_TAB:
+        wndstack_cycle_windows(_lwnd_stack);
+        break;
+    case ANIVA_SCANCODE_RIGHTBRACKET:
+        proc_exec("Root/Apps/doom -iwad Root/Apps/doom1.wad", get_user_profile(), NULL);
+        break;
+    case ANIVA_SCANCODE_LEFTBRACKET:
+        proc_exec("Root/Apps/gfx_test", get_user_profile(), NULL);
+        break;
+    default:
+        break;
+    }
+    return 0;
 }
 
 /*!
@@ -65,6 +95,9 @@ static void USED lwnd_main()
     hid_event_t* c_kb_ctx;
 
     while (true) {
+
+        if (!_lwnd_0_screen)
+            goto yield_and_continue;
 
         c_kb_ctx = NULL;
         _lwnd_c_ws = lwnd_screen_get_c_workspace(_lwnd_0_screen);
@@ -87,11 +120,14 @@ static void USED lwnd_main()
             if (!lwnd_window_should_update(w))
                 continue;
 
+            /* Split the fucker */
             lwnd_window_split(_lwnd_stack, w, false);
 
+            /* Draw the fucker */
             lwnd_window_draw(w, _lwnd_0_screen);
 
-            w->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
+            /* We've done the update =) */
+            lwnd_window_clear_update(w);
 
             /* Make sure the background knows about this */
             lwnd_window_update(_lwnd_stack->background_window);
@@ -110,43 +146,9 @@ static void USED lwnd_main()
         _lwnd_stack->bottom_window->next_layer = nullptr;
         */
 
+    yield_and_continue:
         scheduler_yield();
     }
-}
-
-/*!
- * @brief: This is a temporary key handler to test out window event and shit
- *
- * Sends the key event over to the focussed window if there isn't a special key combination pressed
- */
-int lwnd_on_key(hid_event_t* ctx)
-{
-    if ((ctx->key.flags & HID_EVENT_KEY_FLAG_PRESSED) != HID_EVENT_KEY_FLAG_PRESSED)
-        return 0;
-
-    switch (ctx->key.scancode) {
-    case ANIVA_SCANCODE_W:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y - 10);
-        break;
-    case ANIVA_SCANCODE_S:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y + 10);
-        break;
-    case ANIVA_SCANCODE_A:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x - 10, _lwnd_stack->top_window->y);
-        break;
-    case ANIVA_SCANCODE_D:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
-        break;
-    case ANIVA_SCANCODE_TAB:
-        wndstack_cycle_windows(_lwnd_stack);
-        break;
-    case ANIVA_SCANCODE_RIGHTBRACKET:
-        proc_exec("Root/Apps/gfx_test", get_user_profile(), NULL);
-        break;
-    default:
-        break;
-    }
-    return 0;
 }
 
 /*
@@ -186,13 +188,11 @@ int init_window_driver()
 
     println("Initializing screen!");
 
-    generic_draw_rect(&_fb_info, 0, 0, _fb_info.width, _fb_info.height, (fb_color_t) { { 0x1f, 0x1f, 0x1f, 0xff } });
+    /* Create the main screen */
+    _lwnd_0_screen = create_lwnd_screen(_lwnd_vdev, &_fb_info);
 
     println("Starting deamon!");
     ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
-
-    /* Create the main screen */
-    _lwnd_0_screen = create_lwnd_screen(_lwnd_vdev, &_fb_info);
 
     return 0;
 }
@@ -214,6 +214,9 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
     proc_t* calling_process;
     lwindow_t* uwnd;
 
+    lwnd_window_t* wnd;
+    lwnd_workspace_t* c_workspace;
+
     calling_process = get_current_proc();
 
     /* Check size */
@@ -226,18 +229,74 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
 
     uwnd = (lwindow_t*)buffer;
 
+    /* Check the title buffer */
+    if (kmem_validate_ptr(calling_process, (u64)uwnd->title, sizeof(const char*)))
+        return DRV_STAT_INVAL;
+
+    /* Grab workspace */
+    c_workspace = lwnd_screen_get_c_workspace(_lwnd_0_screen);
+
     switch (code) {
     case LWND_DCC_CREATE:
         KLOG_DBG("Trying to create lwnd window!\n");
+        /* Create the window */
+        if ((wnd = create_window(calling_process, uwnd->title, 10, 10, uwnd->current_width, uwnd->current_height)) == nullptr)
+            return DRV_STAT_INVAL;
+
+        /* Also register the window to the current stack */
+        if (wndstack_add_window(c_workspace->stack, wnd))
+            return DRV_STAT_DUPLICATE;
         break;
     case LWND_DCC_CLOSE:
         KLOG_DBG("Trying to close lwnd window!\n");
+        wnd = wndstack_find_window(c_workspace->stack, uwnd->title);
+
+        if (!wnd)
+            return DRV_STAT_NOT_FOUND;
+
+        if (wndstack_remove_window(c_workspace->stack, wnd))
+            return DRV_STAT_NOT_FOUND;
+
+        destroy_window(wnd);
         break;
     case LWND_DCC_REQ_FB:
         KLOG_DBG("Trying to request framebuffer for lwnd window!\n");
+        wnd = wndstack_find_window(c_workspace->stack, uwnd->title);
+
+        if (!wnd)
+            return DRV_STAT_NOT_FOUND;
+
+        if (lwnd_window_request_fb(wnd, _lwnd_0_screen))
+            return DRV_STAT_INVAL;
+
+        /* Fill in user framebuffer info */
+        uwnd->fb.fb = wnd->this_fb->addr;
+        uwnd->fb.height = wnd->this_fb->height;
+        uwnd->fb.pitch = wnd->this_fb->pitch;
+        uwnd->fb.bpp = wnd->this_fb->bpp;
+        uwnd->fb.red_lshift = wnd->this_fb->colors.red.offset_bits;
+        uwnd->fb.green_lshift = wnd->this_fb->colors.green.offset_bits;
+        uwnd->fb.blue_lshift = wnd->this_fb->colors.blue.offset_bits;
+        uwnd->fb.alpha_lshift = wnd->this_fb->colors.alpha.offset_bits;
+
+        uwnd->fb.red_mask = wnd->this_fb->colors.red.length_bits << uwnd->fb.red_lshift;
+        uwnd->fb.green_mask = wnd->this_fb->colors.green.length_bits << uwnd->fb.green_lshift;
+        uwnd->fb.blue_mask = wnd->this_fb->colors.blue.length_bits << uwnd->fb.blue_lshift;
+        uwnd->fb.alpha_mask = wnd->this_fb->colors.alpha.length_bits << uwnd->fb.alpha_lshift;
+
+        KLOG_DBG("Red mask: %x\n", uwnd->fb.red_lshift);
+        KLOG_DBG("Green mask: %x\n", uwnd->fb.green_mask);
+        KLOG_DBG("Blue mask: %x\n", uwnd->fb.blue_mask);
+
         break;
     case LWND_DCC_UPDATE_WND:
-        KLOG_DBG("Trying to update window!\n");
+        wnd = wndstack_find_window(c_workspace->stack, uwnd->title);
+
+        if (!wnd)
+            return DRV_STAT_NOT_FOUND;
+
+        /* Mark as needing updating */
+        lwnd_window_full_update(wnd);
         break;
     case LWND_DCC_GETKEY:
         KLOG_DBG("Trying to get key event!\n");

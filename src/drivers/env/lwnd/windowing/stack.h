@@ -36,6 +36,8 @@ void destroy_lwnd_wndstack(lwnd_wndstack_t* stack);
 
 int lwnd_wndstack_update_background(lwnd_wndstack_t* stack);
 
+struct lwnd_window* wndstack_find_window(lwnd_wndstack_t* stack, const char* title);
+
 int wndstack_add_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd);
 int wndstack_remove_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd);
 

@@ -53,7 +53,7 @@ void DG_DrawFrame()
     lwindow_draw_buffer(&window, 0, 0, &screenbuffer);
 
     /* Get keys from the server */
-    get_key_event(&window, NULL);
+    // get_key_event(&window, NULL);
 }
 
 /*!
@@ -127,6 +127,7 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
  */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
+    return 0;
     BOOL has_event;
     lkey_event_t keyevent;
 
