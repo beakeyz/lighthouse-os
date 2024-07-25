@@ -4,6 +4,7 @@
 #include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "window.h"
+#include <string.h>
 
 /*
  * Code that handles breaking up windows into smaller rectangles
@@ -109,7 +110,7 @@ lwnd_wndrect_t* create_and_link_lwndrect(lwnd_wndrect_t** rect_list, zone_alloca
     return rect;
 }
 
-static inline void __window_clear_rects(lwnd_window_t* wnd, lwnd_wndrect_t** pstart)
+void __window_clear_rects(lwnd_window_t* wnd, lwnd_wndrect_t** pstart)
 {
     lwnd_wndrect_t* next;
 
@@ -122,8 +123,9 @@ static inline void __window_clear_rects(lwnd_window_t* wnd, lwnd_wndrect_t** pst
     }
 }
 
-static inline void window_clear_rects(lwnd_window_t* wnd)
+void window_clear_rects(lwnd_window_t* wnd)
 {
+    /* Create a new base rectangle if it does not yet exist (how?) */
     if (!wnd->rects) {
         create_and_link_lwndrect(&wnd->rects, wnd->rect_cache, 0, 0, wnd->width, wnd->height);
         return;
@@ -199,10 +201,9 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
 
             new_rect = create_and_link_lwndrect(p_rects, wnd->rect_cache, c_x, c_y, c_w, c_h);
 
-            for (lwnd_wndrect_t* r = wnd->prev_rects; r && new_rect->rect_changed; r = r->next_part) {
+            for (lwnd_wndrect_t* r = wnd->prev_rects; r && new_rect->rect_changed; r = r->next_part)
                 if (r->x == new_rect->x && r->y == new_rect->y && r->w == new_rect->w && r->h == new_rect->h)
                     new_rect->rect_changed = false;
-            }
 
             n_split++;
         }
@@ -222,7 +223,7 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
  */
 static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t** overlapped, lwnd_wndrect_t* overlapping)
 {
-    lwnd_wndrect_t** list;
+    lwnd_wndrect_t* list;
     lwnd_wndrect_t* old_rect;
 
     if (!overlapped || !overlapping)
@@ -234,17 +235,16 @@ static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd,
         return -KERR_NULL;
 
     /* Create a list */
-    list = &old_rect->next_part;
+    list = old_rect->next_part;
 
     /* Split the old rectangle */
-    if (__rect_split(info, list, wnd, old_rect, overlapping)) {
-        *overlapped = *list;
+    __rect_split(info, &list, wnd, old_rect, overlapping);
 
-        /* Finish with freeing the old rectangle */
-        zfree_fixed(wnd->rect_cache, old_rect);
-        return 0;
-    }
-    return -KERR_NOT_FOUND;
+    *overlapped = list;
+
+    /* Finish with freeing the old rectangle */
+    zfree_fixed(wnd->rect_cache, old_rect);
+    return 0;
 }
 
 static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t* rect)
@@ -253,7 +253,8 @@ static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_windo
     lwnd_wndrect_t** r = &wnd->rects;
 
     do {
-        KLOG_DBG("Looping...\n");
+        memset(&overlap, 0, sizeof(overlap));
+
         for (; *r; r = &(*r)->next_part) {
             /* Skip rectangles that don't overlap */
             if (lwndrects_get_overlap_rect(*r, rect, &overlap) == 0)
@@ -264,8 +265,11 @@ static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_windo
         if (!(*r))
             break;
 
+        KLOG_DBG("Looping... overlap: x:%d,y:%d %d:%d\n", (*r)->x + overlap.x, (*r)->y + overlap.y, overlap.w, overlap.h);
+
         /* Smite it */
-    } while (__window_replace_overlapped_rect(info, wnd, r, &overlap) == 0);
+        __window_replace_overlapped_rect(info, wnd, r, &overlap);
+    } while (true);
 }
 
 /*!

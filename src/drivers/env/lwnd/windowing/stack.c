@@ -199,7 +199,8 @@ int wndstack_cycle_windows(lwnd_wndstack_t* stack)
 
     /* Make sure all underlying windows are updated */
     do {
-        lwnd_window_update(new_top);
+        /* Need to do a full update, since no sizes changed, only drawing order */
+        lwnd_window_full_update(new_top);
         new_top = new_top->next_layer;
     } while (new_top);
 

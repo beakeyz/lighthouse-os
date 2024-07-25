@@ -3,6 +3,7 @@
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "mem/zalloc/zalloc.h"
+#include "priv.h"
 
 lwnd_window_t* create_window(const char* title, u32 x, u32 y, u32 width, u32 height)
 {
@@ -38,6 +39,38 @@ void destroy_window(lwnd_window_t* window)
 }
 
 /*!
+ * @brief: Mark a window as needing an update
+ */
+void lwnd_window_update(lwnd_window_t* wnd)
+{
+    wnd->flags |= LWND_WINDOW_FLAG_NEED_UPDATE;
+}
+
+/*!
+ * @brief: Mark a window as needing an update, without considiring the privious window state
+ */
+void lwnd_window_full_update(lwnd_window_t* wnd)
+{
+    lwnd_window_update(wnd);
+
+    /* Clear the privous rectangle cache, in order to ensure this window */
+    __window_clear_rects(wnd, &wnd->prev_rects);
+
+    /* Also clear the default rect list */
+    window_clear_rects(wnd);
+}
+
+/*!
+ * @brief: Mark a window as not needing an update
+ *
+ * Called when the window update is finished
+ */
+void lwnd_window_clear_update(lwnd_window_t* wnd)
+{
+    wnd->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
+}
+
+/*!
  * @brief: Moves a single window across the screen
  *
  * Checks if this window had any intersections with other screens and prompts redraws of those windows
@@ -47,8 +80,8 @@ int lwnd_window_move(lwnd_window_t* wnd, u32 newx, u32 newy)
     wnd->x = newx;
     wnd->y = newy;
 
-    // for (lwnd_window_t* w = wnd; w != nullptr; w = wnd->next_layer)
     do {
+        /* Just do a simple update */
         lwnd_window_update(wnd);
 
         wnd = wnd->next_layer;

@@ -3,7 +3,6 @@
 #include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
-#include "drawing/draw.h"
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "libk/flow/error.h"
@@ -61,7 +60,8 @@ static void USED lwnd_main()
          * the right order, at the right depth
          */
         for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
-            color.components.g += 0x1f;
+            color.components.r += 0x3f;
+            color.components.b -= 0x2f;
 
             /*
              * Per window, check if it's visible, by breaking the window in smaller parts
@@ -82,6 +82,7 @@ static void USED lwnd_main()
 
         lwnd_wndstack_update_background(_lwnd_stack);
 
+        /*
         _lwnd_stack->bottom_window->next_layer = _lwnd_stack->background_window;
 
         for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
@@ -90,6 +91,7 @@ static void USED lwnd_main()
             }
         }
         _lwnd_stack->bottom_window->next_layer = nullptr;
+        */
 
         scheduler_yield();
     }
