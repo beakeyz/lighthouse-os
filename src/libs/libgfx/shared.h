@@ -34,17 +34,42 @@ typedef struct lkey_event {
 } lkey_event_t;
 
 /*
+ * User-side framebuffer
+ *
+ * Filled by the window management driver when the framebuffer is requested.
+ * contains instructions on how to format colors and the 64-bit address to
+ * our beautiful buffer =)
+ */
+typedef struct lframebuffer {
+    uint8_t red_lshift;
+    uint8_t green_lshift;
+    uint8_t blue_lshift;
+    uint8_t alpha_lshift;
+    uint16_t red_mask;
+    uint16_t green_mask;
+    uint16_t blue_mask;
+    uint16_t alpha_mask;
+
+    /* Bytes per scanline ((bpp >> 3) * width) */
+    uint32_t pitch;
+    uint32_t height;
+    /* bits per pixel */
+    uint32_t bpp;
+
+    uintptr_t fb;
+} lframebuffer_t;
+
+typedef struct lclr_buffer {
+    uint32_t width;
+    uint32_t height;
+
+    void* buffer;
+} lclr_buffer_t;
+
+/*
  * Userspace window flags
  */
-
-/* Should this window have a top bar */
-#define LWND_FLAG_NO_BAR 0x00000001;
-#define LWND_FLAG_NO_CLOSE_BTN 0x00000002;
-#define LWND_FLAG_NO_HIDE_BTN 0x00000004;
-#define LWND_FLAG_NO_FULLSCREEN_BTN 0x00000008;
-#define LWND_FLAG_DEFER_UPDATE 0x00000010
-#define LWND_FLAG_CENTERED 0x00000020
-
+#define LWND_FLAG_HAS_FB 0x000000001
 #define LWND_FLAG_NEED_UPDATE 0x80000000
 
 #define LWND_DEFAULT_EVENTBUFFER_CAPACITY 512
@@ -56,17 +81,20 @@ typedef struct lwindow {
     HANDLE lwnd_handle;
     /* Handle to the key event */
     HANDLE event_handle;
-    uint32_t wnd_id;
-    uint32_t wnd_flags;
+
+    /* Windows have a unique title, which acts as a identifier */
+    const char* title;
+
     uint32_t current_width;
     uint32_t current_height;
 
+    uint32_t wnd_flags;
     uint32_t keyevent_buffer_capacity;
     uint32_t keyevent_buffer_write_idx;
     uint32_t keyevent_buffer_read_idx;
     lkey_event_t* keyevent_buffer;
 
-    void* fb;
+    lframebuffer_t fb;
 } lwindow_t;
 
 #endif // !__LIGHTENV_LIBGFX_DRIVER__

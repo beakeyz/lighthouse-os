@@ -1,10 +1,8 @@
-#include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "window.h"
-#include <string.h>
 
 /*
  * Code that handles breaking up windows into smaller rectangles
@@ -148,7 +146,7 @@ void window_clear_rects(lwnd_window_t* wnd)
  *
  * @returns: The amount of splits done
  */
-static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t* wnd, lwnd_wndrect_t* rect, lwnd_wndrect_t* overlap)
+static u32 __rect_split(lwnd_wndrect_t** p_rects, lwnd_window_t* wnd, lwnd_wndrect_t* rect, lwnd_wndrect_t* overlap)
 {
     u32 n_split = 0;
     /* Start at the rects topleft */
@@ -221,7 +219,7 @@ static u32 __rect_split(fb_info_t* info, lwnd_wndrect_t** p_rects, lwnd_window_t
  * @overlapped: The overlapped rect from @wnd by @overlapping
  * @overlapping: The rectangle which overlaps with @overlapped
  */
-static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t** overlapped, lwnd_wndrect_t* overlapping)
+static int __window_replace_overlapped_rect(lwnd_window_t* wnd, lwnd_wndrect_t** overlapped, lwnd_wndrect_t* overlapping)
 {
     lwnd_wndrect_t* list;
     lwnd_wndrect_t* old_rect;
@@ -238,7 +236,7 @@ static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd,
     list = old_rect->next_part;
 
     /* Split the old rectangle */
-    __rect_split(info, &list, wnd, old_rect, overlapping);
+    __rect_split(&list, wnd, old_rect, overlapping);
 
     *overlapped = list;
 
@@ -247,7 +245,7 @@ static int __window_replace_overlapped_rect(fb_info_t* info, lwnd_window_t* wnd,
     return 0;
 }
 
-static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t* rect)
+static inline void try_replace_recursive_overlapping(lwnd_window_t* wnd, lwnd_wndrect_t* rect)
 {
     lwnd_wndrect_t overlap = { 0 };
     lwnd_wndrect_t** r = &wnd->rects;
@@ -268,7 +266,7 @@ static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_windo
         KLOG_DBG("Looping... overlap: x:%d,y:%d %d:%d\n", (*r)->x + overlap.x, (*r)->y + overlap.y, overlap.w, overlap.h);
 
         /* Smite it */
-        __window_replace_overlapped_rect(info, wnd, r, &overlap);
+        __window_replace_overlapped_rect(wnd, r, &overlap);
     } while (true);
 }
 
@@ -278,10 +276,10 @@ static inline void try_replace_recursive_overlapping(fb_info_t* info, lwnd_windo
  * First checks if the @overlap rect is not also overlapping with other rects. If this is the case, every rect
  * that overlaps with @overlap will be recursively split. If not, we can just split the window like normal
  */
-static int __window_split(fb_info_t* info, lwnd_window_t* wnd, lwnd_wndrect_t** p_rects, lwnd_wndrect_t* overlap)
+static int __window_split(lwnd_window_t* wnd, lwnd_wndrect_t** p_rects, lwnd_wndrect_t* overlap)
 {
     /* If we did find overlapping, no need to do weird shit */
-    try_replace_recursive_overlapping(info, wnd, overlap);
+    try_replace_recursive_overlapping(wnd, overlap);
 
     return 0;
 }
@@ -329,7 +327,7 @@ int lwnd_window_split(lwnd_wndstack_t* stack, lwnd_window_t* wnd, bool front_to_
         }
 
         /* Split the window based on the overlap(ping) rectangle(s) */
-        __window_split(stack->fbinfo, wnd, &wnd->rects, &overlap);
+        __window_split(wnd, &wnd->rects, &overlap);
 
         // lwnd_draw_dbg_box(info, wnd->x + overlap.x, wnd->y + overlap.y, overlap.w, overlap.h, (fb_color_t) { { 0, 0, 0xff, 0xff } });
 

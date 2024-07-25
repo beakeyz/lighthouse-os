@@ -1,5 +1,6 @@
 #include "stack.h"
 #include "dev/video/framebuffer.h"
+#include "drivers/env/lwnd/display/screen.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "libk/data/hashmap.h"
 #include "libk/flow/error.h"
@@ -9,7 +10,7 @@
 #include <libk/string.h>
 #include <system/asm_specifics.h>
 
-lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, fb_info_t* info)
+lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, lwnd_screen_t* screen)
 {
     lwnd_wndstack_t* ret;
 
@@ -23,11 +24,17 @@ lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, fb_info_t* info)
     ret->top_window = nullptr;
     ret->bottom_window = nullptr;
     ret->max_n_wnd = max_n_wnd;
-    ret->fbinfo = info;
+    ret->screen = screen;
     ret->wnd_map = create_hashmap(max_n_wnd, NULL);
 
-    ret->background_window = create_window("__background", 0, 0, info->width, info->height);
+    ret->background_window = create_window(nullptr, "__background__", 0, 0, screen->px_width, screen->px_height);
 
+    /* Request a framebuffer for the background window */
+    lwnd_window_request_fb(ret->background_window, screen);
+
+    /* Fill the buffer with the default background image (or color lmao) */
+    if (ret->background_window->this_fb)
+        memset((void*)ret->background_window->this_fb->kernel_addr, 0x1f, ret->background_window->this_fb->size);
     return ret;
 }
 
@@ -35,13 +42,6 @@ void destroy_lwnd_wndstack(lwnd_wndstack_t* stack)
 {
     destroy_hashmap(stack->wnd_map);
     kfree(stack);
-}
-
-static void __tmp_draw_fragmented_windo(fb_info_t* info, lwnd_window_t* window, fb_color_t clr)
-{
-    for (lwnd_wndrect_t* r = window->rects; r; r = r->next_part)
-        if (r->rect_changed)
-            generic_draw_rect(info, window->x + r->x, window->y + r->y, r->w, r->h, clr);
 }
 
 int lwnd_wndstack_update_background(lwnd_wndstack_t* stack)
@@ -54,7 +54,8 @@ int lwnd_wndstack_update_background(lwnd_wndstack_t* stack)
     /* Split the background window based on it's top most windows */
     lwnd_window_split(stack, stack->background_window, true);
 
-    __tmp_draw_fragmented_windo(stack->fbinfo, stack->background_window, (fb_color_t) { { 0x1f, 0x1f, 0x1f, 0xff } });
+    /* Actualy draw the window */
+    lwnd_window_draw(stack->background_window, stack->screen);
 
     /* Update the 'window' itself */
     stack->background_window->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
@@ -84,6 +85,9 @@ static void _wndstack_link_window(lwnd_wndstack_t* stack, lwnd_window_t* wnd)
 int wndstack_add_window(lwnd_wndstack_t* stack, struct lwnd_window* wnd)
 {
     int error;
+
+    if (!stack || !wnd)
+        return -KERR_INVAL;
 
     /* Check bounds here */
     if (stack->wnd_map->m_size >= stack->max_n_wnd)

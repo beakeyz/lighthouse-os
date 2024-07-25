@@ -2,16 +2,6 @@
 #include "libgfx/shared.h"
 #include "lightos/driver/drv.h"
 
-VOID lwindow_set_updates_deferred(lwindow_t* wnd)
-{
-    wnd->wnd_flags |= LWND_FLAG_DEFER_UPDATE;
-}
-
-VOID lwindow_set_updates_immediate(lwindow_t* wnd)
-{
-    wnd->wnd_flags &= ~LWND_FLAG_DEFER_UPDATE;
-}
-
 BOOL lwindow_update(lwindow_t* wnd)
 {
     /* No need to update, don't do shit =) */
@@ -33,57 +23,70 @@ BOOL lwindow_request_framebuffer(lwindow_t* wnd, lframebuffer_t* fb)
     if (!res)
         return FALSE;
 
+    wnd->wnd_flags |= LWND_FLAG_HAS_FB;
+
     *fb = wnd->fb;
     return TRUE;
 }
 
 BOOL lwindow_draw_rect(lwindow_t* wnd, uint32_t x, uint32_t y, uint32_t width, uint32_t height, lcolor_t clr)
 {
-    lframebuffer_t fb;
+    uintptr_t vaddr;
+    uint32_t _clr = 0;
 
-    if (!wnd || !wnd->fb)
+    if (!wnd || !lwindow_has_fb(wnd))
         return FALSE;
 
     /* No dimentions, don't need to do jack */
     if (!width || !height)
         return FALSE;
 
-    fb = (lframebuffer_t)wnd->fb + y * wnd->current_width + x;
+    /* Compute the initial video address */
+    vaddr = wnd->fb.fb + y * wnd->fb.pitch + (x * (wnd->fb.bpp >> 3));
+
+    /* Compute the internal color variable */
+    _clr |= ((clr.r << wnd->fb.red_lshift) & wnd->fb.red_mask);
+    _clr |= ((clr.g << wnd->fb.green_lshift) & wnd->fb.green_mask);
+    _clr |= ((clr.b << wnd->fb.blue_lshift) & wnd->fb.blue_mask);
 
     for (uint32_t i = 0; i < height; i++) {
         for (uint32_t j = 0; j < width; j++)
-            *(fb + j) = clr;
-        fb += wnd->current_width;
+            *(uint32_t volatile*)(vaddr + j) = _clr;
+        /* Add the pitch to offset to the start of the next 'scanline' */
+        vaddr += wnd->fb.pitch;
     }
 
     /* We did shit, need an update */
     wnd->wnd_flags |= LWND_FLAG_NEED_UPDATE;
 
-    if ((wnd->wnd_flags & LWND_FLAG_DEFER_UPDATE) == LWND_FLAG_DEFER_UPDATE)
-        return TRUE;
-
     return lwindow_update(wnd);
 }
 
-BOOL lwindow_draw_buffer(lwindow_t* wnd, uint32_t startx, uint32_t starty, uint32_t width, uint32_t height, lcolor_t* buffer)
+BOOL lwindow_draw_buffer(lwindow_t* wnd, uint32_t startx, uint32_t starty, lclr_buffer_t* buffer)
 {
-    lframebuffer_t fb;
+    uintptr_t vaddr;
 
-    if (!wnd || !wnd->fb)
+    if (!wnd || !lwindow_has_fb(wnd))
         return FALSE;
 
-    fb = (lframebuffer_t)wnd->fb + starty * wnd->current_width + startx;
+    if (!buffer || !buffer->width || !buffer->height)
+        return FALSE;
 
-    for (uint32_t i = 0; i < height; i++) {
-        for (uint32_t j = 0; j < width; j++)
-            *(fb + j) = *buffer++;
-        fb += wnd->current_width;
+    /* Compute the initial video address */
+    vaddr = wnd->fb.fb + starty * wnd->fb.pitch + (startx * (wnd->fb.bpp >> 3));
+
+    for (uint32_t i = 0; i < buffer->height; i++) {
+        for (uint32_t j = 0; j < buffer->width; j++) {
+            *(uint32_t volatile*)(vaddr + j) = *(uint32_t*)buffer->buffer;
+
+            buffer->buffer += (wnd->fb.bpp >> 3);
+        }
+        /* Add the pitch to offset to the start of the next 'scanline' */
+        vaddr += wnd->fb.pitch;
     }
 
+    /* We did shit, need an update */
     wnd->wnd_flags |= LWND_FLAG_NEED_UPDATE;
-
-    if ((wnd->wnd_flags & LWND_FLAG_DEFER_UPDATE) == LWND_FLAG_DEFER_UPDATE)
-        return TRUE;
 
     return lwindow_update(wnd);
 }

@@ -1715,7 +1715,7 @@ void kmem_load_page_dir(paddr_t dir, bool __disable_interrupts)
 
     /* Load the kernel map if there was no map specified */
     if (!page_map)
-        page_map = KMEM_DATA.m_kernel_base_pd; 
+        page_map = KMEM_DATA.m_kernel_base_pd;
 
     ASSERT(get_current_processor() != nullptr);
     get_current_processor()->m_page_dir = page_map;
@@ -1759,6 +1759,49 @@ int kmem_get_kernel_address_ex(vaddr_t* p_kaddr, vaddr_t virtual_address, vaddr_
      *  - ect.
      */
     v_kernel_address = kmem_from_phys(p_address, map_base);
+
+    /* Make sure the return the correctly aligned address */
+    *p_kaddr = (v_kernel_address + v_align_delta);
+    return 0;
+}
+
+/*!
+ * @brief: Map a non-kernel address to the kernel map
+ *
+ * This will let the kernel access the same physical memory as a certain userprocess
+ */
+int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map_base, pml_entry_t* map, u32 custom_flags, u32 kmem_flags)
+{
+    pml_entry_t* page;
+    paddr_t p_address;
+    vaddr_t v_kernel_address;
+    vaddr_t v_align_delta;
+
+    /* Can't grab from NULL */
+    if (!map)
+        return -1;
+
+    /* Make sure we don't make a new page here */
+    if (kmem_get_page(&page, map, uaddr, 0, 0))
+        return -1;
+
+    p_address = kmem_get_page_base(page->raw_bits);
+
+    /* Calculate the delta of the virtual address to its closest page base downwards */
+    v_align_delta = uaddr - ALIGN_DOWN(uaddr, SMALL_PAGE_SIZE);
+
+    /*
+     * FIXME: 'high' mappings have a hard limit in them, so we will have to
+     * create some kind of dynamic mapping for certain types of memory.
+     * For example:
+     *  - we map driver memory at a certain base for driver memory * the driver index
+     *  - we map kernel resources at a certain base just for kernel resources
+     *  - ect.
+     */
+    v_kernel_address = kmem_from_phys(p_address, map_base);
+
+    /* Try to map the address */
+    kmem_map_range(nullptr, v_kernel_address, p_address, GET_PAGECOUNT(uaddr, size), custom_flags | KMEM_CUSTOMFLAG_GET_MAKE, kmem_flags);
 
     /* Make sure the return the correctly aligned address */
     *p_kaddr = (v_kernel_address + v_align_delta);

@@ -1,9 +1,9 @@
-#include "libgfx/shared.h"
-#include "libgfx/events.h"
-#include "libgfx/lgfx.h"
-#include "libgfx/video.h"
 #include "doomgeneric.h"
 #include "doomkeys.h"
+#include "libgfx/events.h"
+#include "libgfx/lgfx.h"
+#include "libgfx/shared.h"
+#include "libgfx/video.h"
 #include "lightos/event/key.h"
 #include "lightos/proc/cmdline.h"
 #include "lightos/proc/process.h"
@@ -16,6 +16,7 @@
 #include "i_system.h"
 
 lwindow_t window;
+lclr_buffer_t screenbuffer;
 lframebuffer_t fb;
 
 /*!
@@ -29,7 +30,7 @@ void DG_Init()
     BOOL res;
 
     /* Initialize the graphics API */
-    res = request_lwindow(&window, DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
+    res = request_lwindow(&window, "doom", DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
 
     if (!res)
         I_Error("Could not request window!");
@@ -38,6 +39,10 @@ void DG_Init()
 
     if (!res)
         I_Error("Could not request framebuffer!");
+
+    screenbuffer.width = window.current_width;
+    screenbuffer.height = window.current_height;
+    screenbuffer.buffer = DG_ScreenBuffer;
 }
 
 /*!
@@ -45,7 +50,7 @@ void DG_Init()
  */
 void DG_DrawFrame()
 {
-    lwindow_draw_buffer(&window, 0, 0, window.current_width, window.current_height, (lcolor_t*)DG_ScreenBuffer);
+    lwindow_draw_buffer(&window, 0, 0, &screenbuffer);
 
     /* Get keys from the server */
     get_key_event(&window, NULL);

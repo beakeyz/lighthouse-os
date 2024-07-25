@@ -1,9 +1,6 @@
-# libgfx (dl_gfx.sys)
+# libgfx (libgfx.lib)
 
-The gfx system library
-This library focusses on the graphics interface. This library works with either a graphics card driver, or a flat framebuffer
+Low-level GFX library for lightos
 
-This library is split in a few parst:
- - interfacing with lwnd.drv (our driver for window management =) )
- - software rendering algorithms
- - (Hopefuly sometime) GPU rendering routines (Like Vulcan or OpenGL)
+This library is responsible for talking with the window management driver and it implements some basic framebuffer
+functionality. The framebuffer and window stuff can also simply be exported for raw use by higher level libraries

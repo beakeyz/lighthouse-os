@@ -2,8 +2,15 @@
 #include "draw.h"
 #include "libk/flow/error.h"
 
-int lwnd_draw_dbg_box(fb_info_t* info, u32 x, u32 y, u32 w, u32 h, fb_color_t clr)
+int lwnd_draw_dbg_box(lwnd_screen_t* screen, u32 x, u32 y, u32 w, u32 h, fb_color_t clr)
 {
+    fb_info_t* info;
+
+    if (!screen)
+        return -KERR_INVAL;
+
+    info = screen->fbinfo;
+
     if (!info)
         return -KERR_INVAL;
 

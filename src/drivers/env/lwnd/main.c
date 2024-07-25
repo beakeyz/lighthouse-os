@@ -3,20 +3,39 @@
 #include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
+#include "drivers/env/lwnd/display/screen.h"
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "drivers/env/lwnd/windowing/window.h"
+#include "drivers/env/lwnd/windowing/workspace.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
+#include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/profile/profile.h"
 #include <libgfx/shared.h>
 
+/*
+ * Video device that acts as a communications portal for us to
+ * actual video hardware (both GPU and display)
+ */
 static video_device_t* _lwnd_vdev;
+/* Keyboard HID device for keyboard input */
 static hid_device_t* _lwnd_kbddev;
+/*
+ * Static framebuffer info
+ * I don't really know how prone this is to change in the future, since
+ * I only have one video driver working right now, but I'm not sure if
+ * every driver is going to use the same framebuffer framework in the future
+ */
 static fb_info_t _fb_info;
+/* Handle to the internal FB mapping in the video device */
 static fb_handle_t _lwnd_fb_handle;
 
+/* Main lwnd screen */
+static lwnd_screen_t* _lwnd_0_screen;
+static lwnd_workspace_t* _lwnd_c_ws;
 static lwnd_wndstack_t* _lwnd_stack;
 
 static enum ANIVA_SCANCODES _forcequit_sequence[] = {
@@ -48,20 +67,18 @@ static void USED lwnd_main()
     while (true) {
 
         c_kb_ctx = NULL;
+        _lwnd_c_ws = lwnd_screen_get_c_workspace(_lwnd_0_screen);
+        _lwnd_stack = _lwnd_c_ws->stack;
 
         /* Check if there is a keypress ready */
         if (hid_device_poll(_lwnd_kbddev, &c_kb_ctx) == 0)
             lwnd_on_key(c_kb_ctx);
-
-        fb_color_t color = ((fb_color_t) { { 0xff, 0x00, 0x00, 0x00 } });
 
         /*
          * Loop over all the windows from front to back to render all windows in
          * the right order, at the right depth
          */
         for (lwnd_window_t* w = _lwnd_stack->top_window; w != nullptr; w = w->next_layer) {
-            color.components.r += 0x3f;
-            color.components.b -= 0x2f;
 
             /*
              * Per window, check if it's visible, by breaking the window in smaller parts
@@ -72,7 +89,7 @@ static void USED lwnd_main()
 
             lwnd_window_split(_lwnd_stack, w, false);
 
-            __tmp_draw_fragmented_windo(w, color);
+            lwnd_window_draw(w, _lwnd_0_screen);
 
             w->flags &= ~LWND_WINDOW_FLAG_NEED_UPDATE;
 
@@ -123,6 +140,9 @@ int lwnd_on_key(hid_event_t* ctx)
     case ANIVA_SCANCODE_TAB:
         wndstack_cycle_windows(_lwnd_stack);
         break;
+    case ANIVA_SCANCODE_RIGHTBRACKET:
+        proc_exec("Root/Apps/gfx_test", get_user_profile(), NULL);
+        break;
     default:
         break;
     }
@@ -171,16 +191,8 @@ int init_window_driver()
     println("Starting deamon!");
     ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
 
-    /* TEST */
-    _lwnd_stack = create_lwnd_wndstack(16, &_fb_info);
-
-    lwnd_window_t* window_1 = create_window("Test 1", 100, 100, 200, 180);
-    lwnd_window_t* window_2 = create_window("Test 2", 400, 120, 50, 50);
-    lwnd_window_t* window_3 = create_window("Test 3", 400, 500, 150, 150);
-
-    wndstack_add_window(_lwnd_stack, window_1);
-    wndstack_add_window(_lwnd_stack, window_2);
-    wndstack_add_window(_lwnd_stack, window_3);
+    /* Create the main screen */
+    _lwnd_0_screen = create_lwnd_screen(_lwnd_vdev, &_fb_info);
 
     return 0;
 }
@@ -200,6 +212,7 @@ int exit_window_driver()
 uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
 {
     proc_t* calling_process;
+    lwindow_t* uwnd;
 
     calling_process = get_current_proc();
 
@@ -208,20 +221,26 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         return DRV_STAT_INVAL;
 
     /* Check pointer */
-    if ((kmem_validate_ptr(calling_process, (uintptr_t)buffer, size)))
+    if ((kmem_validate_ptr(calling_process, (uintptr_t)buffer, size)) || size != sizeof(*uwnd))
         return DRV_STAT_INVAL;
 
-    switch (code) {
+    uwnd = (lwindow_t*)buffer;
 
+    switch (code) {
     case LWND_DCC_CREATE:
+        KLOG_DBG("Trying to create lwnd window!\n");
         break;
     case LWND_DCC_CLOSE:
+        KLOG_DBG("Trying to close lwnd window!\n");
         break;
     case LWND_DCC_REQ_FB:
+        KLOG_DBG("Trying to request framebuffer for lwnd window!\n");
         break;
     case LWND_DCC_UPDATE_WND:
+        KLOG_DBG("Trying to update window!\n");
         break;
     case LWND_DCC_GETKEY:
+        KLOG_DBG("Trying to get key event!\n");
         break;
     }
     return DRV_STAT_OK;

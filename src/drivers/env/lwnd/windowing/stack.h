@@ -1,11 +1,11 @@
 #ifndef __LWND_WINDOWING_STACK__
 #define __LWND_WINDOWING_STACK__
 
-#include "dev/video/framebuffer.h"
 #include "libk/data/hashmap.h"
 #include "libk/stddef.h"
 
 struct lwnd_window;
+struct lwnd_screen;
 
 #define LWND_WNDSTACK_DEFAULT_MAXWND 1024
 
@@ -16,10 +16,12 @@ typedef struct lwnd_wndstack {
     hashmap_t* wnd_map;
 
     /*
-     * Information about the framebuffer this stack is opperating on
-     * maybe TMP ?
+     * Reference to the screen this stack is bound to.
+     * When a stack is moved from one screen to another, there are a
+     * lot of things that need managing, so don't just change
+     * this value whenever plz
      */
-    fb_info_t* fbinfo;
+    struct lwnd_screen* screen;
 
     /* The top window */
     struct lwnd_window* top_window;
@@ -29,7 +31,7 @@ typedef struct lwnd_wndstack {
     struct lwnd_window* background_window;
 } lwnd_wndstack_t;
 
-lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, fb_info_t* info);
+lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, struct lwnd_screen* screen);
 void destroy_lwnd_wndstack(lwnd_wndstack_t* stack);
 
 int lwnd_wndstack_update_background(lwnd_wndstack_t* stack);

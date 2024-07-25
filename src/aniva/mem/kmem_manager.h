@@ -282,6 +282,7 @@ int kmem_user_dealloc(struct proc* p, vaddr_t vaddr, size_t size);
  */
 int kmem_get_kernel_address(vaddr_t* p_kaddr, vaddr_t virtual_address, pml_entry_t* from_map);
 int kmem_get_kernel_address_ex(vaddr_t* p_kaddr, vaddr_t virtual_address, vaddr_t map_base, pml_entry_t* from_map);
+int kmem_map_to_kernel(vaddr_t* p_kaddr, vaddr_t uaddr, size_t size, vaddr_t map_base, pml_entry_t* from_map, u32 custom_flags, u32 kmem_flags);
 
 int kmem_to_current_pagemap(vaddr_t vaddr, pml_entry_t* external_map);
 

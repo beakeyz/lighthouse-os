@@ -1300,8 +1300,6 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
         _keybuffer_app_r_ptr = 0;
         _keybuffer_kterm_r_ptr = 0;
         _keybuffer.w_idx = 0;
-
-        uwnd->wnd_id = 1;
         break;
     case LWND_DCC_CLOSE:
         /* Don't do anything: We switch back to terminal mode once the app exits
@@ -1345,7 +1343,7 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
 
         ASSERT(!kmem_user_alloc_range((void**)&uwnd->fb, c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
 
-        _active_grpx_app.c_fb = uwnd->fb;
+        _active_grpx_app.c_fb = (uint32_t*)uwnd->fb.fb;
 
         memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
 

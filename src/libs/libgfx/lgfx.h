@@ -19,23 +19,18 @@
 #include "shared.h"
 #include <sys/types.h>
 
-/*
- * Processes may know this path
- * FIXME: Should we make this path available through a profile variable? (Like 'LWND_DRV_PATH')
- */
 #define LWND_DRV_PATH_VAR "DFLT_LWND_PATH"
 
 /*!
  * @brief: Ask the kernel about the value of the variable LWND_DRV_PATH_VAR on the Global profile
  */
-BOOL get_lwnd_drv_path(char* buffer, size_t bufsize);
+extern BOOL get_lwnd_drv_path(char* buffer, size_t bufsize);
 
 /*
  * The window manager will keep track of which window comes from which
  * process by looking at who the request is comming from
  */
-BOOL request_lwindow(lwindow_t* wnd, DWORD width, DWORD height, DWORD flags);
-
-BOOL close_lwindow(lwindow_t* wnd);
+extern BOOL request_lwindow(lwindow_t* p_wnd, const char* title, DWORD width, DWORD height, DWORD flags);
+extern BOOL close_lwindow(lwindow_t* wnd);
 
 #endif // !__LIGHTLIB_LGFX__
