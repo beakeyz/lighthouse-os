@@ -8,6 +8,7 @@
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "drivers/env/lwnd/windowing/workspace.h"
+#include "kevent/types/proc.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
 #include "logging/log.h"
@@ -76,6 +77,34 @@ static int lwnd_on_key(hid_event_t* ctx)
         break;
     case ANIVA_SCANCODE_LEFTBRACKET:
         proc_exec("Root/Apps/gfx_test", get_user_profile(), NULL);
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
+#include <kevent/event.h>
+
+static int lwnd_on_process_event(kevent_ctx_t* ctx, void* param)
+{
+    lwnd_workspace_t* workspace;
+    kevent_proc_ctx_t* proc_ctx = ctx->buffer;
+
+    switch (proc_ctx->type) {
+    case PROC_EVENTTYPE_DESTROY:
+        /*
+         * FIXME: When we support multiple screens, do this for all screens
+         */
+        for (uint32_t i = 0; i < _lwnd_0_screen->n_workspace; i++) {
+            workspace = lwnd_screen_get_workspace(_lwnd_0_screen, i);
+
+            if (!workspace || !workspace->stack)
+                continue;
+
+            /* Remove all windows of this process */
+            lwnd_workspace_remove_windows_of_process(workspace, proc_ctx->process);
+        }
         break;
     default:
         break;
@@ -187,6 +216,8 @@ int init_window_driver()
     ASSERT_MSG(vdev_get_fbinfo(_lwnd_vdev->device, _lwnd_fb_handle, EARLY_FB_MAP_BASE, &_fb_info) == 0, "Failed to get fbinfo from video device");
 
     println("Initializing screen!");
+
+    kevent_add_hook("proc", "lwnd", lwnd_on_process_event, NULL);
 
     /* Create the main screen */
     _lwnd_0_screen = create_lwnd_screen(_lwnd_vdev, &_fb_info);
@@ -302,7 +333,7 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
         lwnd_window_full_update(wnd);
         break;
     case LWND_DCC_GETKEY:
-        KLOG_DBG("Trying to get key event!\n");
+        // KLOG_DBG("Trying to get key event!\n");
         break;
     }
     return DRV_STAT_OK;

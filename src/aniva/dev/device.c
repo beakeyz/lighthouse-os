@@ -3,7 +3,6 @@
 #include "dev/driver.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
-#include "dev/loader.h"
 #include "dev/manifest.h"
 #include "dev/misc/null.h"
 #include "dev/usb/usb.h"
@@ -733,7 +732,5 @@ void init_hw()
     init_acpi_core();
 
     /* Load the USB drivers on our system */
-    // load_usb_hcds();
-
-    ASSERT_MSG(load_external_driver("Root/System/inptcore.drv"), "Could not load input stuff");
+    load_usb_hcds();
 }

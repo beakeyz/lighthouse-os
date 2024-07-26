@@ -164,17 +164,6 @@ static int i8042_enable(device_t* device)
     i8042_mouse_write(MOUSE_SET_DEFAULTS);
     i8042_mouse_write(MOUSE_DATA_ON);
 
-    i8042_mouse_write(MOUSE_DEVICE_ID);
-    (void)i8042_read_data();
-    i8042_mouse_write(MOUSE_SAMPLE_RATE);
-    i8042_mouse_write(200);
-    i8042_mouse_write(MOUSE_SAMPLE_RATE);
-    i8042_mouse_write(100);
-    i8042_mouse_write(MOUSE_SAMPLE_RATE);
-    i8042_mouse_write(80);
-    i8042_mouse_write(MOUSE_DEVICE_ID);
-    (void)i8042_read_data();
-
     return 0;
 }
 
@@ -207,8 +196,9 @@ static int _init_i8042(drv_manifest_t* driver)
     if (!parser)
         return -KERR_NODEV;
 
-    // if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
-    // return -KERR_NODEV;
+    if (!acpi_parser_is_fadt_bootflag(parser, ACPI_FADT_8042))
+        return -KERR_NODEV;
+
     // kernel_panic("Fuck, there seems to be no i8042 present on the system =/");
 
     int error;

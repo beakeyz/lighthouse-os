@@ -77,6 +77,9 @@ kerror_t init_acpi_parser(acpi_parser_t* parser)
     parser->m_fadt = acpi_parser_find_table(parser, ACPI_SIG_FADT, sizeof(acpi_tbl_fadt_t));
     // hw_reduced = ((parser->m_fadt->flags >> 20) & 1);
 
+    if (parser->m_fadt)
+        KLOG_DBG("Found FADT. model: %d, SciInterrupt: %d\n", parser->m_fadt->Model, parser->m_fadt->SciInterrupt);
+
     KLOG_DBG("Started ACPI parser\n");
     return (0);
 }

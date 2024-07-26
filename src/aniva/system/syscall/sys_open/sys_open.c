@@ -11,7 +11,6 @@
 #include "lightos/driver/loader.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "lightos/var/shared.h"
 #include "mem/kmem_manager.h"
 #include "oss/core.h"
 #include "oss/node.h"

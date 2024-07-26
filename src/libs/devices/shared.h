@@ -10,6 +10,7 @@ enum ENDPOINT_TYPE {
     ENDPOINT_TYPE_VIDEO,
     ENDPOINT_TYPE_HID,
     ENDPOINT_TYPE_PWM,
+    ENDPOINT_TYPE_AUDIO,
 };
 
 #define DEVICE_HAS_EP_GENERIC 0x01
@@ -17,6 +18,7 @@ enum ENDPOINT_TYPE {
 #define DEVICE_HAS_EP_VIDEO 0x04
 #define DEVICE_HAS_EP_HID 0x08
 #define DEVICE_HAS_EP_PWM 0x10
+#define DEVICE_HAS_EP_AUDIO 0x20
 
 /*
  * Enum with low level connection types of a device
@@ -26,13 +28,11 @@ enum ENDPOINT_TYPE {
 enum DEVICE_CTYPE {
     DEVICE_CTYPE_PCI,
     DEVICE_CTYPE_USB,
-    DEVICE_CTYPE_AHCI,
-    DEVICE_CTYPE_IDE,
-    DEVICE_CTYPE_ATAPI,
     DEVICE_CTYPE_SOFTDEV,
     DEVICE_CTYPE_CPU,
     DEVICE_CTYPE_I2C,
     DEVICE_CTYPE_GPIO,
+    DEVICE_CTYPE_PS2,
 
     DEVICE_CTYPE_UNKNOWN,
     DEVICE_CTYPE_OTHER
@@ -45,12 +45,6 @@ static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
         return "PCI";
     case DEVICE_CTYPE_USB:
         return "USB";
-    case DEVICE_CTYPE_AHCI:
-        return "AHCI";
-    case DEVICE_CTYPE_IDE:
-        return "IDE";
-    case DEVICE_CTYPE_ATAPI:
-        return "ATAPI";
     case DEVICE_CTYPE_SOFTDEV:
         return "softdev";
     case DEVICE_CTYPE_CPU:
@@ -59,6 +53,8 @@ static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
         return "I2C";
     case DEVICE_CTYPE_GPIO:
         return "GPIO";
+    case DEVICE_CTYPE_PS2:
+        return "PS/2";
     case DEVICE_CTYPE_UNKNOWN:
         return "Unknown";
     case DEVICE_CTYPE_OTHER:

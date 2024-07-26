@@ -36,7 +36,6 @@ extern DirEntry* dir_read_entry(
     __IN__ Directory* dir,
     __IN__ uint32_t idx);
 
-extern HANDLE dir_entry_open(
-    __IN__ DirEntry* entry);
+extern HANDLE dir_entry_open(Directory* parent, DirEntry* entry, DWORD flags, DWORD mode);
 
 #endif // !__LIGHTENV_FS_DIR__

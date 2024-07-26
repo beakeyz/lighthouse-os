@@ -3,6 +3,7 @@
 
 #include "libk/data/hashmap.h"
 #include "libk/stddef.h"
+#include "sync/mutex.h"
 
 struct lwnd_window;
 struct lwnd_screen;
@@ -14,6 +15,9 @@ typedef struct lwnd_wndstack {
 
     /* Windows are stored based on their names */
     hashmap_t* wnd_map;
+
+    /* Mutex that protects the window stack order */
+    mutex_t* lock;
 
     /*
      * Reference to the screen this stack is bound to.

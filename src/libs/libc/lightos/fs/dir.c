@@ -3,6 +3,7 @@
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
 #include "lightos/system.h"
+#include "sys/types.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -142,5 +143,7 @@ dealloc_and_exit:
     return nullptr;
 }
 
-HANDLE dir_entry_open(
-    __IN__ DirEntry* entry);
+HANDLE dir_entry_open(Directory* parent, DirEntry* entry, DWORD flags, DWORD mode)
+{
+    return open_handle_rel(parent->handle, entry->entry.name, flags, mode);
+}

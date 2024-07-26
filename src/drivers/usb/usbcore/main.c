@@ -1,4 +1,3 @@
-#include "dev/loader.h"
 #include <dev/core.h>
 #include <dev/driver.h>
 
@@ -10,7 +9,6 @@
  */
 static int _usbcore_init()
 {
-    ASSERT_MSG(load_external_driver("Root/System/usbkbd.drv") != nullptr, "Failed to load generic usbkbd driver");
     return 0;
 }
 
@@ -30,6 +28,7 @@ EXPORT_DRIVER(usbcore) = {
 
 EXPORT_DEPENDENCIES(deps) = {
     // DRV_DEP(DRV_DEPTYPE_PATH, DRVDEP_FLAG_RELPATH | DRVDEP_FLAG_OPTIONAL, "xhci.drv"),
+    DRV_DEP(DRV_DEPTYPE_PATH, DRVDEP_FLAG_RELPATH, "usbkbd.drv"),
     DRV_DEP(DRV_DEPTYPE_PATH, DRVDEP_FLAG_RELPATH | DRVDEP_FLAG_OPTIONAL, "ehci.drv"),
     DRV_DEP_END,
 };

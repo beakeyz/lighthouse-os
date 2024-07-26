@@ -55,3 +55,41 @@ void destroy_lwnd_workspace(lwnd_workspace_t* ws)
 {
     destroy_lwnd_wndstack(ws->stack);
 }
+
+int lwnd_workspace_remove_windows_of_process(lwnd_workspace_t* ws, proc_t* p)
+{
+    lwnd_window_t *this_wnd, *next_wnd;
+
+    if (!ws || !p)
+        return -KERR_INVAL;
+
+    if (!ws->stack)
+        return -KERR_INVAL;
+
+    /* Lock the stack */
+    mutex_lock(ws->stack->lock);
+
+    /* Grab the top window */
+    this_wnd = ws->stack->top_window;
+
+    /* Move down */
+    while (this_wnd) {
+        next_wnd = this_wnd->next_layer;
+
+        /* Check */
+        if (this_wnd->proc != p)
+            goto cycle_next_window;
+
+        if (wndstack_remove_window(ws->stack, this_wnd))
+            goto cycle_next_window;
+
+        /* Murder the window */
+        destroy_window(this_wnd);
+    cycle_next_window:
+        this_wnd = next_wnd;
+    }
+
+    mutex_unlock(ws->stack->lock);
+
+    return 0;
+}
