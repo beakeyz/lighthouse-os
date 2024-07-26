@@ -4,7 +4,7 @@
 /*
  * Main header for the lightos userlib
  *
- *
+ * Supposed to be used by libraries alone
  */
 
 #define LIGHTENTRY_SECTION_NAME ".lightentry"
@@ -12,6 +12,8 @@
 
 #define LIGHTENTRY static __attribute__((noinline, used, section(LIGHTENTRY_SECTION_NAME)))
 #define LIGHTEXIT static __attribute__((noinline, used, section(LIGHTEXIT_SECTION_NAME)))
+
+#define LEXPORT extern
 
 extern int __init_lightos();
 

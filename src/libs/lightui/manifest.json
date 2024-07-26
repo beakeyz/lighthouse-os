@@ -1,0 +1,10 @@
+{
+    "name": "lightui",
+    "path": "System/Lib",
+    "linking": "dynamic",
+    "type": "library",
+    "libs": [
+        "libc",
+        "libgfx"
+    ]
+}

@@ -1,4 +1,3 @@
-
 LIBRARY_NAME=libgfx
 LINKTYPE=dynamic
 DEPS=
