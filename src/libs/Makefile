@@ -7,6 +7,7 @@ LIBRARY_PATHS := \
 	./libc \
 	./librt \
 	./libgfx \
+	./lightui \
 	./devices \
 	./params \
 	./kterm
