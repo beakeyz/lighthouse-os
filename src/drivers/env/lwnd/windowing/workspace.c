@@ -50,4 +50,8 @@ int init_lwnd_workspace(lwnd_workspace_t* ws, lwnd_screen_t* screen)
 
     return 0;
 }
-void destroy_lwnd_workspace(lwnd_workspace_t* ws);
+
+void destroy_lwnd_workspace(lwnd_workspace_t* ws)
+{
+    destroy_lwnd_wndstack(ws->stack);
+}

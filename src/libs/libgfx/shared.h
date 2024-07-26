@@ -70,6 +70,8 @@ typedef struct lclr_buffer {
  * Userspace window flags
  */
 #define LWND_FLAG_HAS_FB 0x000000001
+#define LWND_FLAG_FOCUSSED 0x000000002
+#define LWND_FLAG_DEFER_UPDATES 0x000000004
 #define LWND_FLAG_NEED_UPDATE 0x80000000
 
 #define LWND_DEFAULT_EVENTBUFFER_CAPACITY 512

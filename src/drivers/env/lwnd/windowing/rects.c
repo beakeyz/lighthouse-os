@@ -1,6 +1,5 @@
 #include "drivers/env/lwnd/windowing/stack.h"
 #include "libk/stddef.h"
-#include "logging/log.h"
 #include "mem/zalloc/zalloc.h"
 #include "window.h"
 
@@ -263,7 +262,7 @@ static inline void try_replace_recursive_overlapping(lwnd_window_t* wnd, lwnd_wn
         if (!(*r))
             break;
 
-        KLOG_DBG("Looping... overlap: x:%d,y:%d %d:%d\n", (*r)->x + overlap.x, (*r)->y + overlap.y, overlap.w, overlap.h);
+        // KLOG_DBG("Looping... overlap: x:%d,y:%d %d:%d\n", (*r)->x + overlap.x, (*r)->y + overlap.y, overlap.w, overlap.h);
 
         /* Smite it */
         __window_replace_overlapped_rect(wnd, r, &overlap);
@@ -303,7 +302,7 @@ int lwnd_window_split(lwnd_wndstack_t* stack, lwnd_window_t* wnd, bool front_to_
     /* Preemptive rect clear */
     __window_set_prev_rects(wnd);
 
-    KLOG_DBG("Splitting window: (%d:%d)\n", wnd->width, wnd->height);
+    // KLOG_DBG("Splitting window: (%d:%d)\n", wnd->width, wnd->height);
 
     if (front_to_back) {
         c_window = stack->top_window;

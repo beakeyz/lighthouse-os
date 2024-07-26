@@ -1,9 +1,7 @@
 #include "doomgeneric.h"
 #include "doomkeys.h"
 #include "libgfx/events.h"
-#include "libgfx/lgfx.h"
 #include "libgfx/shared.h"
-#include "libgfx/video.h"
 #include "lightos/event/key.h"
 #include "lightos/proc/cmdline.h"
 #include "lightos/proc/process.h"
@@ -14,10 +12,11 @@
 #include <stdbool.h>
 
 #include "i_system.h"
+#include "lightui/draw.h"
+#include "lightui/window.h"
 
-lwindow_t window;
+lightui_window_t* window;
 lclr_buffer_t screenbuffer;
-lframebuffer_t fb;
 
 /*!
  * @brief: Initialize the game graphics core
@@ -27,21 +26,15 @@ lframebuffer_t fb;
  */
 void DG_Init()
 {
-    BOOL res;
 
     /* Initialize the graphics API */
-    res = request_lwindow(&window, "doom", DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
+    window = lightui_request_window("doom", DOOMGENERIC_RESX, DOOMGENERIC_RESY, NULL);
 
-    if (!res)
+    if (!window)
         I_Error("Could not request window!");
 
-    res = lwindow_request_framebuffer(&window, &fb);
-
-    if (!res)
-        I_Error("Could not request framebuffer!");
-
-    screenbuffer.width = window.current_width;
-    screenbuffer.height = window.current_height;
+    screenbuffer.width = window->lui_width;
+    screenbuffer.height = window->lui_height;
     screenbuffer.buffer = DG_ScreenBuffer;
 }
 
@@ -50,10 +43,12 @@ void DG_Init()
  */
 void DG_DrawFrame()
 {
-    lwindow_draw_buffer(&window, 0, 0, &screenbuffer);
+    lightui_draw_buffer(window, 0, 0, &screenbuffer);
+
+    lightui_window_update(window);
 
     /* Get keys from the server */
-    // get_key_event(&window, NULL);
+    get_key_event(&window->gfxwnd, NULL);
 }
 
 /*!
@@ -127,11 +122,10 @@ static unsigned char aniva_keycode_to_doomkey(uint32_t keycode)
  */
 int DG_GetKey(int* pressed, unsigned char* doomKey)
 {
-    return 0;
     BOOL has_event;
     lkey_event_t keyevent;
 
-    has_event = get_key_event(&window, &keyevent);
+    has_event = get_key_event(&window->gfxwnd, &keyevent);
 
     if (!has_event)
         return 0;

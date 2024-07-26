@@ -81,7 +81,7 @@ void lwnd_window_update(lwnd_window_t* wnd);
 void lwnd_window_full_update(lwnd_window_t* wnd);
 void lwnd_window_clear_update(lwnd_window_t* wnd);
 
-int lwnd_window_move(lwnd_window_t* wnd, u32 newx, u32 newy);
+int lwnd_window_move(struct lwnd_screen* screen, lwnd_window_t* wnd, u32 newx, u32 newy);
 int lwnd_window_request_fb(lwnd_window_t* wnd, struct lwnd_screen* screen);
 int lwnd_window_draw(lwnd_window_t* wnd, struct lwnd_screen* screen);
 

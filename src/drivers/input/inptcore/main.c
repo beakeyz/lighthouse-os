@@ -11,9 +11,8 @@
  *
  */
 
-static bool __check_input_device(device_t* device)
+static bool __check_usb_device(device_t* device)
 {
-    /* TODO: Check if we have drivers which can handle the given device */
     return true;
 }
 
@@ -31,7 +30,7 @@ static int _init_input_core()
     if (!KERR_OK(dev_group_get("Dev/usb", &usb_grp)))
         return -1;
 
-    device_for_each(usb_grp, __check_input_device);
+    device_for_each(usb_grp, __check_usb_device);
 
     ASSERT_MSG(load_external_driver("Root/System/i8042.drv"), "Failed to load fallback input driver");
 

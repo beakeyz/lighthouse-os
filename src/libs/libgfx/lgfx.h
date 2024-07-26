@@ -33,4 +33,7 @@ extern BOOL get_lwnd_drv_path(char* buffer, size_t bufsize);
 extern BOOL request_lwindow(lwindow_t* p_wnd, const char* title, DWORD width, DWORD height, DWORD flags);
 extern BOOL close_lwindow(lwindow_t* wnd);
 
+extern BOOL lwindow_move(lwindow_t* wnd, uint32_t newx, uint32_t newy);
+extern BOOL lwindow_resize(lwindow_t* wnd, uint32_t newwidth, uint32_t newheight);
+
 #endif // !__LIGHTLIB_LGFX__

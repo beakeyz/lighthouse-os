@@ -408,7 +408,6 @@ fail_and_exit:
 
 kerror_t unload_driver(dev_url_t url)
 {
-
     int error;
     drv_manifest_t* manifest;
     oss_obj_t* obj;

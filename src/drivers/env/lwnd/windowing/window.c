@@ -1,6 +1,7 @@
 #include "window.h"
 #include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/display/screen.h"
+#include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -26,6 +27,7 @@ lwnd_window_t* create_window(proc_t* p, const char* title, u32 x, u32 y, u32 wid
     ret->height = height;
     ret->rect_cache = create_zone_allocator(SMALL_PAGE_SIZE, sizeof(lwnd_wndrect_t), NULL);
     ret->flags = LWND_WINDOW_FLAG_NEED_UPDATE;
+    ret->this_fb = NULL;
 
     /* Link a windows initial rect */
     create_and_link_lwndrect(&ret->rects, ret->rect_cache, 0, 0, width, height);
@@ -36,6 +38,14 @@ lwnd_window_t* create_window(proc_t* p, const char* title, u32 x, u32 y, u32 wid
 void destroy_window(lwnd_window_t* window)
 {
     destroy_zone_allocator(window->rect_cache, false);
+
+    if (window->this_fb) {
+
+        if (window->this_fb->kernel_addr)
+            __kmem_kernel_dealloc(window->this_fb->kernel_addr, window->this_fb->size);
+
+        kfree(window->this_fb);
+    }
 
     kfree((void*)window->title);
     kfree(window);
@@ -80,10 +90,16 @@ void lwnd_window_clear_update(lwnd_window_t* wnd)
  *
  * FIXME: Check for negative overflow
  */
-int lwnd_window_move(lwnd_window_t* wnd, u32 newx, u32 newy)
+int lwnd_window_move(struct lwnd_screen* screen, lwnd_window_t* wnd, u32 newx, u32 newy)
 {
     if (!wnd)
         return -KERR_INVAL;
+
+    if (newx >= screen->px_width)
+        return -KERR_SIZE_MISMATCH;
+
+    if (newy >= screen->px_height)
+        return -KERR_SIZE_MISMATCH;
 
     wnd->x = newx;
     wnd->y = newy;
@@ -108,6 +124,8 @@ static inline void __lwnd_redraw_rect(lwnd_window_t* wnd, lwnd_screen_t* screen,
 {
     u32 abs_rect_x;
     u32 abs_rect_y;
+    u32 draw_width;
+    u32 draw_height;
     fb_info_t* screen_info;
     fb_info_t* wnd_info;
     void* screen_offset;
@@ -136,30 +154,17 @@ static inline void __lwnd_redraw_rect(lwnd_window_t* wnd, lwnd_screen_t* screen,
     /* Get the starting offset inside the windows framebuffer where we need to draw */
     rect_offset = wnd->this_fb->kernel_addr + (void*)(u64)(rect->y * wnd_info->pitch + rect->x * wnd_bytes_per_pixel);
 
+    /* Calculate actual draw width and height */
+    draw_height = rect->h - ((abs_rect_y + rect->h) > screen_info->height ? ((abs_rect_y + rect->h) - screen_info->height) : 0);
+    draw_width = rect->w - ((abs_rect_x + rect->w) > screen_info->width ? ((abs_rect_x + rect->w) - screen_info->width) : 0);
     // KLOG_DBG("Trying to draw: x:%d y:%d (%dx%d)\n", rect->x, rect->y, rect->w, rect->h);
 
     /*
      * Our manual slow bitblt xD
      */
-    for (uint32_t i = 0; i < rect->h; i++) {
-        for (uint32_t j = 0; j < rect->w; j++) {
-
-            /* Don't overflow the screen */
-            if ((abs_rect_x + j) >= screen_info->width)
-                break;
-
-            /* Don't overflow the window */
-            if ((rect->x + j) >= wnd_info->width)
-                break;
-
+    for (uint32_t i = 0; i < draw_height; i++) {
+        for (uint32_t j = 0; j < draw_width; j++)
             *(uint32_t volatile*)(screen_offset + j * screen_bytes_per_pixel) = *(uint32_t*)(rect_offset + j * wnd_bytes_per_pixel);
-        }
-
-        if ((abs_rect_y + i) >= screen_info->height)
-            break;
-
-        if ((rect->y + i) >= wnd_info->height)
-            break;
 
         screen_offset += screen_info->pitch;
         rect_offset += wnd_info->pitch;
@@ -214,7 +219,7 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
     info->handle = 0;
 
     /* First, allocate a contiguous range in the kernel */
-    error = __kmem_kernel_alloc_range((void**)&info->kernel_addr, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE);
+    error = __kmem_kernel_alloc_range((void**)&info->kernel_addr, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
     if (error)
         goto error_and_exit;
@@ -227,7 +232,7 @@ int lwnd_window_request_fb(lwnd_window_t* wnd, lwnd_screen_t* screen)
             goto dealloc_and_exit;
 
         /* Allocate inside the userprocess */
-        error = kmem_user_alloc((void**)&info->addr, wnd->proc, fb_phys, info->size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_NOEXECUTE);
+        error = kmem_user_alloc((void**)&info->addr, wnd->proc, fb_phys, info->size, NULL, KMEM_FLAG_WRITABLE);
 
         if (error)
             goto dealloc_and_exit;

@@ -5,6 +5,7 @@
 #include <libk/stddef.h>
 
 #define PS2_KB_IRQ_VEC 1
+#define PS2_MOUSE_IRQ_VEC 12
 
 char kbd_us_map[256] = {
     0,
@@ -196,13 +197,32 @@ char kbd_us_shift_map[256] = {
 #define I8042_STATUS_PORT 0x64
 #define I8042_CMD_PORT 0x64
 
-#define KBD_STATUS_OUTBUF_FULL 0x1u
-#define KBD_STATUS_INBUF_FULL 0x2u
-#define KBD_STATUS_SYSFLAG 0x4u
-#define KBD_STATUS_CMDORDATA 0x8u
-#define KBD_STATUS_WHICHBUF 0x20u
-#define KBD_STATUS_TIMEOUT 0x40u
-#define KBD_STATUS_PARITYERR 0x80u
+#define I8042_STATUS_OUTBUF_FULL 0x1u
+#define I8042_STATUS_INBUF_FULL 0x2u
+#define I8042_STATUS_SYSFLAG 0x4u
+#define I8042_STATUS_CMDORDATA 0x8u
+#define I8042_STATUS_WHICHBUF 0x20u
+#define I8042_STATUS_TIMEOUT 0x40u
+#define I8042_STATUS_PARITYERR 0x80u
+
+#define I8042_CFG_PORT1_IRQ 0x01
+#define I8042_CFG_PORT2_IRQ 0x02
+#define I8042_CFG_PORT1_TRANSLATE 0x04
+
+#define I8042_CMD_RD_CFG 0x20
+#define I8042_CMD_WR_CFG 0x60
+#define I8042_CMD_DISABLE_PORT2 0xA7
+#define I8042_CMD_ENABLE_PORT2 0xA8
+#define I8042_CMD_DISABLE_PORT1 0xAD
+#define I8042_CMD_ENABLE_PORT1 0xAE
+#define I8042_CMD_WRITE_MOUSE 0xD4
+
+#define MOUSE_SET_REMOTE 0xF0
+#define MOUSE_DEVICE_ID 0xF2
+#define MOUSE_SAMPLE_RATE 0xF3
+#define MOUSE_DATA_ON 0xF4
+#define MOUSE_DATA_OFF 0xF5
+#define MOUSE_SET_DEFAULTS 0xF6
 
 #define KBD_MOD_NONE 0x0u
 #define KBD_MOD_ALT 0x1u
@@ -221,24 +241,13 @@ char kbd_us_shift_map[256] = {
 
 #define KBD_IS_PRESSED 0x80u
 
-static inline uint32_t i8042_read_data()
-{
-    return in8(I8042_DATA_PORT);
-}
-
-static inline uint32_t i8042_read_status()
-{
-    return in8(I8042_STATUS_PORT);
-}
-
-static inline void i8042_write_data(uint8_t byte)
-{
-    out8(I8042_DATA_PORT, byte);
-}
-
-static inline void i8042_write_cmd(uint8_t byte)
-{
-    out8(I8042_CMD_PORT, byte);
-}
+#define MOUSE_STAT_LBTN 0x01
+#define MOUSE_STAT_RBTN 0x02
+#define MOUSE_STAT_MBTN 0x04
+#define MOSUE_STAT_IDK 0x08
+#define MOUSE_STAT_X_NEGATIVE 0x1
+#define MOUSE_STAT_Y_NEGATIVE 0x20
+#define MOUSE_STAT_X_OVERFLOW 0x40
+#define MOUSE_STAT_Y_OVERFLOW 0x80
 
 #endif // !__ANIVA_DRV_I8042__

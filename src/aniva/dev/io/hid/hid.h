@@ -57,4 +57,10 @@ kerror_t hid_device_flush(hid_device_t* device);
 
 kerror_t hid_poll(struct hid_event** p_event);
 
+/*
+ * Can be called by HID drivers when they need
+ * i8042 (emulation) to be disabled
+ */
+kerror_t hid_disable_i8042();
+
 #endif // !__ANIVA_HID_CORE__

@@ -137,6 +137,8 @@ static int create_usbkbd(usbkbd_t** ret, drv_manifest_t* usbkbd_driver, usb_devi
     if (keyboards)
         return -KERR_DEV;
 
+    ASSERT(hid_disable_i8042() == 0);
+
     _ret = kmalloc(sizeof(*_ret));
 
     if (!_ret)

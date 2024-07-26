@@ -1,9 +1,11 @@
 #include "hid.h"
+#include "dev/core.h"
 #include "dev/device.h"
 #include "dev/endpoint.h"
 #include "dev/group.h"
 #include "dev/io/hid/event.h"
 #include "kevent/event.h"
+#include "libk/flow/error.h"
 #include "mem/heap.h"
 
 static dgroup_t* _hid_group;
@@ -171,5 +173,36 @@ kerror_t hid_device_flush(hid_device_t* device)
     memset(device->device_events.buffer, 0, device->device_events.capacity * sizeof(hid_event_t));
 
     device->device_events.r_idx = device->device_events.w_idx;
+    return 0;
+}
+
+kerror_t hid_disable_i8042()
+{
+    kerror_t error;
+    hid_device_t* i8042;
+    drv_manifest_t* driver;
+
+    i8042 = get_hid_device("i8042");
+
+    /* Already disabled */
+    if (!i8042)
+        return 0;
+
+    driver = get_driver("io/i8042");
+
+    if (!driver)
+        return 0;
+
+    error = uninstall_driver(driver);
+
+    if (error)
+        return error;
+
+    i8042 = get_hid_device("i8042");
+
+    /* If we can still find the device, there is definitely something wrong here */
+    if (i8042)
+        return -KERR_DEV;
+
     return 0;
 }

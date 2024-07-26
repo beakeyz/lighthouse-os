@@ -395,6 +395,7 @@ void kthread_entry(void)
     // resume_scheduler();
 
     /* Allocate a quick buffer for our init process */
+    extern_driver_t* drv;
     char init_buffer[256] = { 0 };
 
     /* Format the buffer */
@@ -403,11 +404,13 @@ void kthread_entry(void)
     /* Execute the buffer */
     proc_exec(init_buffer, get_admin_profile(), PROC_KERNEL | PROC_SYNC);
 
-    /* Will be attached to Drv/other/kterm */
-    // if (opt_parser_get_bool("use_kterm"))
-    // ASSERT_MSG(load_external_driver("Root/System/kterm.drv"), "Failed to load kterm!");
-    // else
-    ASSERT_MSG(load_external_driver("Root/System/lwnd.drv"), "Failed to load kterm!");
+    drv = nullptr;
+
+    if (!opt_parser_get_bool("use_kterm"))
+        drv = load_external_driver("Root/System/lwnd.drv");
+
+    if (!drv)
+        drv = load_external_driver("Root/System/kterm.drv");
 
     while (true)
         /* Block this thread to save cycles */

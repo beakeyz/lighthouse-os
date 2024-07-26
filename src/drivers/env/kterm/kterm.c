@@ -1341,9 +1341,22 @@ uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void __user* buffe
         /* Allocate this crap in the userprocess */
         _active_grpx_app.fb_size = ALIGN_UP(_active_grpx_app.width * _active_grpx_app.height * sizeof(uint32_t), SMALL_PAGE_SIZE);
 
-        ASSERT(!kmem_user_alloc_range((void**)&uwnd->fb, c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
+        /* Allocate a userframebuffer */
+        ASSERT(!kmem_user_alloc_range((void**)&_active_grpx_app.c_fb, c_proc, _active_grpx_app.fb_size, NULL, KMEM_FLAG_WRITABLE));
 
-        _active_grpx_app.c_fb = (uint32_t*)uwnd->fb.fb;
+        uwnd->fb.fb = (u64)_active_grpx_app.c_fb;
+        uwnd->fb.height = uwnd->current_height;
+        uwnd->fb.pitch = uwnd->current_width * (_kterm_fb_bpp >> 3);
+        uwnd->fb.bpp = _kterm_fb_bpp;
+        uwnd->fb.red_lshift = _kterm_fb_red_shift;
+        uwnd->fb.green_lshift = _kterm_fb_green_shift;
+        uwnd->fb.blue_lshift = _kterm_fb_blue_shift;
+        uwnd->fb.alpha_lshift = 0;
+
+        uwnd->fb.red_mask = 0xffffffff;
+        uwnd->fb.green_mask = 0xffffffff;
+        uwnd->fb.blue_mask = 0xffffffff;
+        uwnd->fb.alpha_mask = 0;
 
         memset(_active_grpx_app.c_fb, 0, _active_grpx_app.fb_size);
 
@@ -1510,6 +1523,10 @@ int kterm_handle_prompt_key(hid_event_t* kbd)
  */
 int kterm_on_key(hid_event_t* ctx)
 {
+    if (ctx->type == HID_EVENT_MOUSE) {
+        KLOG_DBG("dX: %d, dY: %d lbtn: %d\n", ctx->mouse.deltax, ctx->mouse.deltay, (ctx->mouse.flags & HID_MOUSE_FLAG_LBTN_PRESSED) ? 1 : 0);
+        return 0;
+    }
     /* Prompts intercept any input */
     if (_kterm_has_prompt())
         return kterm_handle_prompt_key(ctx);

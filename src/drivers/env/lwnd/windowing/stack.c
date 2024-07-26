@@ -1,5 +1,4 @@
 #include "stack.h"
-#include "dev/video/framebuffer.h"
 #include "drivers/env/lwnd/display/screen.h"
 #include "drivers/env/lwnd/windowing/window.h"
 #include "libk/data/hashmap.h"
@@ -25,16 +24,9 @@ lwnd_wndstack_t* create_lwnd_wndstack(u16 max_n_wnd, lwnd_screen_t* screen)
     ret->bottom_window = nullptr;
     ret->max_n_wnd = max_n_wnd;
     ret->screen = screen;
+    ret->background_window = screen->background_window;
     ret->wnd_map = create_hashmap(max_n_wnd, NULL);
 
-    ret->background_window = create_window(nullptr, "__background__", 0, 0, screen->px_width, screen->px_height);
-
-    /* Request a framebuffer for the background window */
-    lwnd_window_request_fb(ret->background_window, screen);
-
-    /* Fill the buffer with the default background image (or color lmao) */
-    if (ret->background_window->this_fb)
-        memset((void*)ret->background_window->this_fb->kernel_addr, 0x1f, ret->background_window->this_fb->size);
     return ret;
 }
 

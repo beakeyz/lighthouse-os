@@ -2,6 +2,6 @@
 PROCESS_NAME=gfx_test
 LINK_TYPE=dynamic
 LIBRARIES := \
-			 -l:libgfx.lib
+			 -l:lightui.lib
 
 include ../user.mk

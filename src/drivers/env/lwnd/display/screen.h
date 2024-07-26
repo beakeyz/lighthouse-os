@@ -3,6 +3,7 @@
 
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
+#include "drivers/env/lwnd/windowing/window.h"
 #include "drivers/env/lwnd/windowing/workspace.h"
 
 /*
@@ -27,6 +28,8 @@ typedef struct lwnd_screen {
     u32 mode_setting_id;
     u32 c_workspace;
     u32 n_workspace;
+
+    lwnd_window_t* background_window;
 
     lwnd_workspace_t workspaces[MAX_WORKSPACES];
 } lwnd_screen_t;

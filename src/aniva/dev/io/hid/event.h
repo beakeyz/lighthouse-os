@@ -6,7 +6,7 @@
 
 enum HID_EVENT_TYPE {
     HID_EVENT_KEYPRESS = 0,
-    HID_EVENT_MOUSE_MOVE,
+    HID_EVENT_MOUSE,
     HID_EVENT_STATUS_CHANGE,
     HID_EVENT_CONNECT,
     HID_EVENT_DISCONNECT,
@@ -20,7 +20,7 @@ enum HID_EVENT_TYPE {
 #define HID_EVENT_KEY_FLAG_MOD_SHIFT 0x10
 #define HID_EVENT_KEY_FLAG_MOD_SUPER 0x20
 #define HID_EVENT_KEY_FLAG_MOD_ALTGR 0x40
-#define HID_EVENT_KEY_FLAG_MOD_MASK  0x7C
+#define HID_EVENT_KEY_FLAG_MOD_MASK 0x7C
 #define HID_EVENT_KEY_FLAG_MOD_BITSHIFT 2
 
 #define HID_MOUSE_FLAG_LBTN_PRESSED 0x0001
@@ -43,9 +43,9 @@ typedef struct hid_event {
         } key;
         /* Mouse event */
         struct {
-            uint32_t deltax;
-            uint32_t deltay;
-            uint32_t deltaz;
+            int32_t deltax;
+            int32_t deltay;
+            int32_t deltaz;
             uint16_t flags;
         } mouse;
     };
@@ -56,7 +56,7 @@ typedef struct hid_event {
 static inline bool hid_event_is_keycombination_pressed(hid_event_t* event, enum ANIVA_SCANCODES* keys, uint32_t len)
 {
     if (event->type != HID_EVENT_KEYPRESS)
-      return false;
+        return false;
 
     /* This is a key release =/ */
     if (!(event->key.flags | HID_EVENT_KEY_FLAG_PRESSED))
@@ -75,10 +75,10 @@ static inline bool hid_event_is_keycombination_pressed(hid_event_t* event, enum 
 
 static inline bool hid_keyevent_is_pressed(hid_event_t* event)
 {
-  if (event->type != HID_EVENT_KEYPRESS)
-    return false;
+    if (event->type != HID_EVENT_KEYPRESS)
+        return false;
 
-  return ((event->key.flags & HID_EVENT_KEY_FLAG_PRESSED) == HID_EVENT_KEY_FLAG_PRESSED);
+    return ((event->key.flags & HID_EVENT_KEY_FLAG_PRESSED) == HID_EVENT_KEY_FLAG_PRESSED);
 }
 
 /**

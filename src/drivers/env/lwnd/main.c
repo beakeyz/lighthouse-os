@@ -57,16 +57,16 @@ static int lwnd_on_key(hid_event_t* ctx)
 
     switch (ctx->key.scancode) {
     case ANIVA_SCANCODE_W:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y - 10);
+        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y - 10);
         break;
     case ANIVA_SCANCODE_S:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y + 10);
+        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x, _lwnd_stack->top_window->y + 10);
         break;
     case ANIVA_SCANCODE_A:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x - 10, _lwnd_stack->top_window->y);
+        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x - 10, _lwnd_stack->top_window->y);
         break;
     case ANIVA_SCANCODE_D:
-        lwnd_window_move(_lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
+        lwnd_window_move(_lwnd_0_screen, _lwnd_stack->top_window, _lwnd_stack->top_window->x + 10, _lwnd_stack->top_window->y);
         break;
     case ANIVA_SCANCODE_TAB:
         wndstack_cycle_windows(_lwnd_stack);
@@ -190,6 +190,9 @@ int init_window_driver()
 
     /* Create the main screen */
     _lwnd_0_screen = create_lwnd_screen(_lwnd_vdev, &_fb_info);
+
+    if (!_lwnd_0_screen)
+        return -KERR_NULL;
 
     println("Starting deamon!");
     ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
