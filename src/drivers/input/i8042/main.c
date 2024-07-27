@@ -77,18 +77,19 @@ static inline uint32_t i8042_read_data()
 
 static inline void i8042_write_data(uint8_t byte)
 {
+    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     out8(I8042_DATA_PORT, byte);
 }
 
 static inline void i8042_write_cmd(uint8_t byte)
 {
+    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     out8(I8042_CMD_PORT, byte);
 }
 
 static u8 i8042_exec_cmd(u8 byte)
 {
     /* Write the command when the input buffer is empty */
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(byte);
 
     /* Wait until we can read  */
@@ -97,9 +98,7 @@ static u8 i8042_exec_cmd(u8 byte)
 
 static void i8042_exec_cmd_arg(u8 cmd, u8 arg)
 {
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(cmd);
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_data(arg);
 }
 
@@ -137,9 +136,7 @@ static inline kerror_t i8042_try_flush_input()
 static int i8042_enable(device_t* device)
 {
     /* Disable both ports */
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(I8042_CMD_DISABLE_PORT1);
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(I8042_CMD_DISABLE_PORT2);
 
     if (i8042_try_flush_input())
@@ -149,15 +146,11 @@ static int i8042_enable(device_t* device)
     cfg |= (I8042_CFG_PORT1_IRQ | I8042_CFG_PORT2_IRQ);
 
     /* Set the new config byte */
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(I8042_CMD_WR_CFG);
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_data(cfg);
 
     /* Enable both ports */
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(I8042_CMD_ENABLE_PORT1);
-    i8042_poll_status_clear(I8042_STATUS_INBUF_FULL);
     i8042_write_cmd(I8042_CMD_ENABLE_PORT2);
 
     /* Enable mouse data */
