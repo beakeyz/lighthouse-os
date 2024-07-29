@@ -8,7 +8,8 @@ USER_PATHS := 		\
 	./gfx_test		\
 	./ls			\
 	./kill			\
-	./vaseprob
+	./vaseprob		\
+	./mndlbrt
 
 # Currently there is no process extention lmao
 export PROCESS_EXT=

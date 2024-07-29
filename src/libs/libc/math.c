@@ -10,11 +10,15 @@ double fabs(double x)
     return __builtin_fabs(x);
 }
 
+float fabsf(float x)
+{
+    return __builtin_fabsf(x);
+}
+
 double exp(double x);
 double fmod(double x, double y);
 double sqrt(double x);
 float sqrtf(float x);
-float fabsf(float x);
 double sin(double x);
 double cos(double x);
 

@@ -94,8 +94,8 @@ class RamdiskManager(object):
         self.__copy_app("doom", self.APPS_PATH)
         self.__copy_app("gfx_test", self.APPS_PATH)
         self.__copy_app("ls", self.APPS_PATH)
-        self.__copy_app("vaseprob", self.APPS_PATH)
         self.__copy_app("kill", self.APPS_PATH)
+        self.__copy_app("mndlbrt", self.APPS_PATH)
 
         return True
 
