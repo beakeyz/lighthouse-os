@@ -163,6 +163,9 @@ int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hcd* hcd)
     if (!hcd->io_ops || !hcd->io_ops->enq_request)
         return -KERR_INVAL;
 
+    /* Clear xfer flags */
+    xfer->xfer_flags &= ~(USB_XFER_FLAG_DONE | USB_XFER_FLAG_ERROR | USB_XFER_FLAG_REQUEUE);
+
     mutex_lock(hcd->hcd_lock);
 
     error = hcd->io_ops->enq_request(hcd, xfer);
@@ -254,7 +257,7 @@ void usb_cancel_xfer(usb_xfer_t* req)
  */
 bool usb_await_xfer_complete(usb_xfer_t* req, uint32_t max_timeout)
 {
-    (void) max_timeout;
+    (void)max_timeout;
 
     /* Wait */
     return KERR_OK(sem_wait(req->status_sem, NULL));

@@ -313,16 +313,20 @@ static int usbkbd_irq(usb_xfer_t* xfer)
     if (error)
         goto resubmit;
 
+    if (usb_xfer_is_err(xfer))
+        goto resubmit;
+
     /* No data transfered (Probably a NAK) */
     if (xfer->resp_transfer_size == 0)
         goto resubmit;
 
-    /* Buffers are the same, skip */
-    if (!_usbkbd_has_new_packet(kbd))
+    if (_usbkbd_has_new_packet(kbd) == false)
         goto resubmit;
 
-    // KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3],kbd->prev_resp[4],kbd->prev_resp[5],
-    // kbd->this_resp[2],kbd->this_resp[3],kbd->this_resp[4],kbd->this_resp[5]);
+    // KLOG("(%x %x %x %x) -> (%x %x %x %x)\n", kbd->prev_resp[2], kbd->prev_resp[3], kbd->prev_resp[4], kbd->prev_resp[5],
+    // kbd->this_resp[2], kbd->this_resp[3], kbd->this_resp[4], kbd->this_resp[5]);
+
+    // goto resubmit;
 
     /* Check modifier keys */
     for (i = 0; i < 8; i++) {

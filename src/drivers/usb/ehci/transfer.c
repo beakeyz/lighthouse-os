@@ -52,7 +52,6 @@ static inline void _maybe_destroy_ehci_qh(ehci_hcd_t* ehci)
 
 void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
-
     /* Enqueue the queue head so we can kill it peacefully */
     queue_enqueue(ehci->destroyable_qh_q, xfer->qh);
 
@@ -62,7 +61,7 @@ void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
     zfree_fixed(_ehci_xfer_cache, xfer);
 
     /* Check if we might be able to destroy a qh */
-    _maybe_destroy_ehci_qh(ehci);
+    //_maybe_destroy_ehci_qh(ehci);
 }
 
 int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
@@ -471,7 +470,7 @@ int ehci_xfer_finalise(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
             if (c_buffer_offset >= xfer->xfer->resp_size)
                 break;
 
-check_next:
+        check_next:
             if (c_qtd->hw_next == EHCI_FLLP_TYPE_END)
                 break;
 

@@ -27,10 +27,16 @@ enum USB_XFER_DIRECTION {
     USB_DIRECTION_DEVICE_TO_HOST,
 };
 
+/* This transfer has been handled by the targeted USB device */
 #define USB_XFER_FLAG_DONE 0x01
+/* Transfer has been canceled by the transferer */
 #define USB_XFER_FLAG_CANCELED 0x02
+/* An error orrured during this transfer */
 #define USB_XFER_FLAG_ERROR 0x04
+/* ??? */
 #define USB_XFER_FLAG_DATA_TGL 0x08
+/* This transfer has been completed and needs a requeue */
+#define USB_XFER_FLAG_REQUEUE 0x10
 
 /*!
  * Generic USB request structure for the
@@ -84,6 +90,11 @@ static inline bool usb_xfer_is_done(usb_xfer_t* xfer)
     return ((xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE);
 }
 
+static inline bool usb_xfer_is_err(usb_xfer_t* xfer)
+{
+    return ((xfer->xfer_flags & USB_XFER_FLAG_ERROR) == USB_XFER_FLAG_ERROR);
+}
+
 usb_xfer_t* create_usb_xfer(struct usb_device* device, int (*f_cb)(struct usb_xfer*), enum USB_XFER_TYPE type, enum USB_XFER_DIRECTION direction, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t endpoint, uint16_t max_pckt_size, uint8_t interval, void* req_buf, uint32_t req_bsize, void* resp_buf, uint32_t resp_bsize);
 
 int init_ctl_xfer(usb_xfer_t** pxfer, struct usb_ctlreq* ctl, struct usb_device* target, uint8_t devaddr, uint8_t hubaddr, uint8_t hubport, uint8_t reqtype, uint8_t req, uint16_t value, uint16_t idx, uint16_t len, void* respbuf, uint32_t respbuf_len);
@@ -95,6 +106,7 @@ void release_usb_xfer(usb_xfer_t* req);
 
 int usb_xfer_complete(usb_xfer_t* xfer);
 int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hcd* hcd);
+int usb_xfer_requeue(usb_xfer_t* xfer, struct usb_hcd* hcd);
 int usb_xfer_get_max_packet_size(usb_xfer_t* xfer, size_t* bsize);
 
 void usb_post_xfer(usb_xfer_t* req, uint8_t type);

@@ -1,10 +1,10 @@
 #include "drivers/usb/ehci/ehci.h"
-#include "dev/pci/definitions.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
+#include "devices/pci.h"
 #include "drivers/usb/ehci/ehci_spec.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/queue.h"
@@ -264,58 +264,70 @@ static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
     } while (c_qtd);
 }
 
+static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_xfer)
+{
+    ehci_xfer_t* c_e_xfer = nullptr;
+
+    FOREACH(i, ehci->transfer_list)
+    {
+        c_e_xfer = i->data;
+
+        /* Check how the transfer is going */
+        _ehci_check_xfer_status(c_e_xfer);
+
+        /* Not done yet, continue */
+        if ((c_e_xfer->xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE)
+            break;
+    }
+
+    /* Check if we have a finished transfer */
+    if (c_e_xfer && usb_xfer_is_done(c_e_xfer->xfer))
+        /* Remove from the local transfer list */
+        list_remove_ex(ehci->transfer_list, c_e_xfer);
+    else
+        /* No finished transfers, cycle */
+        c_e_xfer = nullptr;
+
+    /* Nothing to do */
+    if (!c_e_xfer)
+        return -1;
+
+    *p_xfer = c_e_xfer;
+    return 0;
+}
+
 static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
 {
-    ehci_xfer_t* c_xfer;
+    ehci_xfer_t* c_e_xfer;
+    usb_xfer_t* c_usb_xfer;
 
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
 
         /* Spin until there are transfers to process */
         while (ehci->transfer_list->m_length == 0)
-            goto yield;
+            scheduler_yield();
 
         mutex_lock(ehci->transfer_lock);
 
-        FOREACH(i, ehci->transfer_list)
-        {
-            c_xfer = i->data;
-
-            /* Check how the transfer is going */
-            _ehci_check_xfer_status(c_xfer);
-
-            /* Not done yet, continue */
-            if ((c_xfer->xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE)
-                break;
-        }
-
-        /* No finished transfers, cycle */
-        if (!c_xfer || !usb_xfer_is_done(c_xfer->xfer))
-            c_xfer = nullptr;
-        else
-            /* Remove from the local transfer list */
-            list_remove_ex(ehci->transfer_list, c_xfer);
+        /* Find a finished transfer */
+        while (ehci_get_finished_transfer(ehci, &c_e_xfer))
+            continue;
 
         mutex_unlock(ehci->transfer_lock);
 
-        /* Nothing to do */
-        if (!c_xfer)
-            goto yield;
-
         // KLOG_DBG("EHCI: Finished a transfer\n");
+        c_usb_xfer = c_e_xfer->xfer;
 
-        ehci_xfer_finalise(ehci, c_xfer);
-
-        /* Transmit the transfer complete */
-        (void)usb_xfer_complete(c_xfer->xfer);
+        ehci_xfer_finalise(ehci, c_e_xfer);
 
         /* Remove from the async link */
-        _ehci_remove_async_qh(ehci, c_xfer->qh);
+        _ehci_remove_async_qh(ehci, c_e_xfer->qh);
 
         /* Destroy our local transfer struct */
-        destroy_ehci_xfer(ehci, c_xfer);
+        destroy_ehci_xfer(ehci, c_e_xfer);
 
-    yield:
-        scheduler_yield();
+        /* Transmit the transfer complete */
+        (void)usb_xfer_complete(c_usb_xfer);
     }
 
     return 0;
@@ -329,32 +341,21 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
     ehci_qh_t* to_destroy;
 
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
-        /* If this mutex is locked someone is fucking with the hcd qh q */
-        if (mutex_is_locked(ehci->cleanup_lock))
-            goto yield;
 
         /* If there was no recent async advance, we can't destroy anything */
-        if ((ehci->ehci_flags & EHCI_HCD_FLAG_CAN_DESTROY_QH) != EHCI_HCD_FLAG_CAN_DESTROY_QH)
-            goto yield;
-
-        /* Lock the mutex to be cool */
-        mutex_lock(ehci->cleanup_lock);
+        while ((ehci->ehci_flags & EHCI_HCD_FLAG_CAN_DESTROY_QH) != EHCI_HCD_FLAG_CAN_DESTROY_QH)
+            scheduler_yield();
 
         /* Yoink a qh */
         to_destroy = queue_dequeue(ehci->destroyable_qh_q);
 
         /* Fuck */
         if (!to_destroy)
-            goto unlock_and_yield;
+            continue;
 
         /* Destroy the qh and clear the async adv flag */
         destroy_ehci_qh(ehci, to_destroy);
         ehci->ehci_flags &= ~EHCI_HCD_FLAG_CAN_DESTROY_QH;
-
-    unlock_and_yield:
-        mutex_unlock(ehci->cleanup_lock);
-    yield:
-        scheduler_yield();
     }
     return 0;
 }
@@ -399,7 +400,7 @@ static int ehci_take_bios_ownership(ehci_hcd_t* ehci)
             return 0;
 
         mdelay(50);
-    } while (takeover_tries++ < 20);
+    } while (takeover_tries++ < 32);
 
     if ((legsup & EHCI_LEGSUP_OSOWNED) == EHCI_LEGSUP_OSOWNED)
         return 0;
@@ -469,6 +470,9 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
 
     for (uint32_t i = 0; i < EHCI_INT_ENTRY_COUNT; i++) {
         c_qh = ehci->interrupt_list[i] = zalloc_fixed(ehci->qh_pool);
+
+        /* Assert that the queue head is aligned */
+        ASSERT_MSG(((u64)c_qh & 0x1f) == 0, "Allocated a EHCI queue head on a non 32-byte boundry!");
 
         /* Clear the qh */
         memset(c_qh, 0, sizeof(*c_qh));
@@ -543,7 +547,7 @@ static int ehci_init_periodic_list(ehci_hcd_t* ehci)
 
     /* Finally, put the itds into the periodic list */
     for (uint32_t i = 0; i < ehci->periodic_size; i++)
-        ehci->periodic_table[i] = ehci->itd_list[i % ehci->n_itd]->itd_dma;
+        ehci->periodic_table[i] = ehci->itd_list[i & (ehci->n_itd - 1)]->itd_dma;
 
     return 0;
 }
@@ -683,7 +687,7 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->async_lock = create_mutex(NULL);
     // ehci->cleanup_lock = create_mutex(NULL);
     ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
-    // ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
+    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
 
     KLOG_DBG("Done with EHCI initialization\n");
     return 0;
@@ -871,9 +875,11 @@ static int _ehci_add_async_int_xfer(ehci_hcd_t* ehci, ehci_xfer_t* e_xfer)
         break;
     case USB_LOWSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
+        interval = 1;
         break;
     case USB_FULLSPEED:
         qh->hw_info_1 |= (EHCI_QH_INTSCHED(0x01) | EHCI_QH_SPLITCOMP(0x1c));
+        interval = 4;
         break;
     default:
         break;
