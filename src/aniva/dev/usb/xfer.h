@@ -107,10 +107,11 @@ void release_usb_xfer(usb_xfer_t* req);
 int usb_xfer_complete(usb_xfer_t* xfer);
 int usb_xfer_enqueue(usb_xfer_t* xfer, struct usb_hcd* hcd);
 int usb_xfer_requeue(usb_xfer_t* xfer, struct usb_hcd* hcd);
+int usb_xfer_cancel(usb_xfer_t* xfer);
 int usb_xfer_get_max_packet_size(usb_xfer_t* xfer, size_t* bsize);
 
 void usb_post_xfer(usb_xfer_t* req, uint8_t type);
 void usb_cancel_xfer(usb_xfer_t* req);
-bool usb_await_xfer_complete(usb_xfer_t* req, uint32_t max_timeout);
+bool usb_xfer_await_complete(usb_xfer_t* req, uint32_t max_timeout);
 
 #endif // !__ANIVA_usb_xfer__

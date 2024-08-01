@@ -223,7 +223,7 @@ static int ehci_interrupt_poll(ehci_hcd_t* ehci)
 
         if (usbsts & EHCI_OPREG_USBSTS_INTONAA) {
             // KLOG_DBG("EHCI: Advanced the async qh!\n");
-            ehci->ehci_flags |= EHCI_HCD_FLAG_CAN_DESTROY_QH;
+            ehci->n_destroyable_qh++;
         }
 
         mmio_write_dword(ehci->opregs + EHCI_OPREG_USBSTS, usbsts);
@@ -266,6 +266,7 @@ static inline void _ehci_check_xfer_status(ehci_xfer_t* xfer)
 
 static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_xfer)
 {
+    uint64_t idx = 0;
     ehci_xfer_t* c_e_xfer = nullptr;
 
     FOREACH(i, ehci->transfer_list)
@@ -276,23 +277,27 @@ static inline int ehci_get_finished_transfer(ehci_hcd_t* ehci, ehci_xfer_t** p_x
         _ehci_check_xfer_status(c_e_xfer);
 
         /* Not done yet, continue */
-        if ((c_e_xfer->xfer->xfer_flags & USB_XFER_FLAG_DONE) == USB_XFER_FLAG_DONE)
+        if (usb_xfer_is_done(c_e_xfer->xfer))
             break;
+
+        idx++;
     }
 
     /* Check if we have a finished transfer */
     if (c_e_xfer && usb_xfer_is_done(c_e_xfer->xfer))
         /* Remove from the local transfer list */
-        list_remove_ex(ehci->transfer_list, c_e_xfer);
+        list_remove(ehci->transfer_list, idx);
     else
         /* No finished transfers, cycle */
         c_e_xfer = nullptr;
+
+    /* Export */
+    *p_xfer = c_e_xfer;
 
     /* Nothing to do */
     if (!c_e_xfer)
         return -1;
 
-    *p_xfer = c_e_xfer;
     return 0;
 }
 
@@ -302,18 +307,16 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
     usb_xfer_t* c_usb_xfer;
 
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
+        c_e_xfer = nullptr;
+        c_usb_xfer = nullptr;
 
         /* Spin until there are transfers to process */
         while (ehci->transfer_list->m_length == 0)
             scheduler_yield();
 
-        mutex_lock(ehci->transfer_lock);
-
         /* Find a finished transfer */
         while (ehci_get_finished_transfer(ehci, &c_e_xfer))
             continue;
-
-        mutex_unlock(ehci->transfer_lock);
 
         // KLOG_DBG("EHCI: Finished a transfer\n");
         c_usb_xfer = c_e_xfer->xfer;
@@ -326,6 +329,7 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
         /* Destroy our local transfer struct */
         destroy_ehci_xfer(ehci, c_e_xfer);
 
+        KLOG_DBG("Completing: %p\n", c_e_xfer);
         /* Transmit the transfer complete */
         (void)usb_xfer_complete(c_usb_xfer);
     }
@@ -343,7 +347,7 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
     while ((ehci->ehci_flags & EHCI_HCD_FLAG_STOPPING) != EHCI_HCD_FLAG_STOPPING) {
 
         /* If there was no recent async advance, we can't destroy anything */
-        while ((ehci->ehci_flags & EHCI_HCD_FLAG_CAN_DESTROY_QH) != EHCI_HCD_FLAG_CAN_DESTROY_QH)
+        while (!ehci->n_destroyable_qh)
             scheduler_yield();
 
         /* Yoink a qh */
@@ -355,7 +359,7 @@ static int ehci_qhead_cleanup_thread(ehci_hcd_t* ehci)
 
         /* Destroy the qh and clear the async adv flag */
         destroy_ehci_qh(ehci, to_destroy);
-        ehci->ehci_flags &= ~EHCI_HCD_FLAG_CAN_DESTROY_QH;
+        ehci->n_destroyable_qh--;
     }
     return 0;
 }

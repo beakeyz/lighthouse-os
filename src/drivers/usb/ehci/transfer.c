@@ -31,37 +31,15 @@ ehci_xfer_t* create_ehci_xfer(struct usb_xfer* xfer, ehci_qh_t* qh, ehci_qtd_t* 
     return e_xfer;
 }
 
-static inline void _maybe_destroy_ehci_qh(ehci_hcd_t* ehci)
-{
-    ehci_qh_t* to_destroy;
-
-    if ((ehci->ehci_flags & EHCI_HCD_FLAG_CAN_DESTROY_QH) != EHCI_HCD_FLAG_CAN_DESTROY_QH)
-        return;
-
-    /* Yoink a qh */
-    to_destroy = queue_dequeue(ehci->destroyable_qh_q);
-
-    /* Fuck */
-    if (!to_destroy)
-        return;
-
-    /* Destroy the qh and clear the async adv flag */
-    destroy_ehci_qh(ehci, to_destroy);
-    ehci->ehci_flags &= ~EHCI_HCD_FLAG_CAN_DESTROY_QH;
-}
-
 void destroy_ehci_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)
 {
     /* Enqueue the queue head so we can kill it peacefully */
     queue_enqueue(ehci->destroyable_qh_q, xfer->qh);
 
     if (xfer->xfer->req_type != USB_CTL_XFER)
-        ehci->ehci_flags |= EHCI_HCD_FLAG_CAN_DESTROY_QH;
+        ehci->n_destroyable_qh++;
 
     zfree_fixed(_ehci_xfer_cache, xfer);
-
-    /* Check if we might be able to destroy a qh */
-    //_maybe_destroy_ehci_qh(ehci);
 }
 
 int ehci_enq_xfer(ehci_hcd_t* ehci, ehci_xfer_t* xfer)

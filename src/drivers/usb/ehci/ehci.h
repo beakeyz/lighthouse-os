@@ -17,7 +17,6 @@ struct usb_xfer;
 #define EHCI_INT_ENTRY_COUNT 8
 
 #define EHCI_HCD_FLAG_STOPPING 0x00000001
-#define EHCI_HCD_FLAG_CAN_DESTROY_QH 0x00000002
 
 typedef struct ehci_hcd {
     struct usb_hcd* hcd;
@@ -55,6 +54,7 @@ typedef struct ehci_hcd {
 
     list_t* transfer_list;
     queue_t* destroyable_qh_q;
+    u32 n_destroyable_qh;
 
     thread_t* interrupt_polling_thread;
     thread_t* transfer_finish_thread;

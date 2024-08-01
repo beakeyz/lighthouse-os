@@ -200,7 +200,7 @@ int init_window_driver()
     profile_set_activated(get_user_profile());
 
     _lwnd_vdev = get_active_vdev();
-    _lwnd_kbddev = get_hid_device("usbkbd");
+    _lwnd_kbddev = get_hid_device("usbkbd_0");
 
     if (!_lwnd_kbddev)
         _lwnd_kbddev = get_hid_device("i8042");

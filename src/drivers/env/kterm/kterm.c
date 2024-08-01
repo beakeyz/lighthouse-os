@@ -1117,7 +1117,7 @@ int kterm_init()
     _kterm_vdev = get_active_vdev();
 
     /* TODO: Make a routine that gets the best available keyboard device */
-    _kterm_kbddev = get_hid_device("usbkbd");
+    _kterm_kbddev = get_hid_device("usbkbd_0");
 
     if (!_kterm_kbddev)
         _kterm_kbddev = get_hid_device("i8042");

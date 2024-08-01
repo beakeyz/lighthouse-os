@@ -255,7 +255,7 @@ void usb_cancel_xfer(usb_xfer_t* req)
  *
  * Nothing to add here...
  */
-bool usb_await_xfer_complete(usb_xfer_t* req, uint32_t max_timeout)
+bool usb_xfer_await_complete(usb_xfer_t* req, uint32_t max_timeout)
 {
     (void)max_timeout;
 

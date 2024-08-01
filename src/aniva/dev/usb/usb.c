@@ -489,7 +489,7 @@ static inline int _usb_submit_ctl(usb_hcd_t* hcd, usb_device_t* target, uint8_t 
     if (error)
         goto dealloc_and_exit;
 
-    (void)usb_await_xfer_complete(xfer, NULL);
+    (void)usb_xfer_await_complete(xfer, NULL);
 
     if (xfer->xfer_flags & USB_XFER_FLAG_ERROR)
         error = -KERR_DEV;
