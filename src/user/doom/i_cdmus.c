@@ -19,8 +19,8 @@
 #include <stdio.h>
 
 #ifdef ORIGCODE
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_cdrom.h"
+#include "sdl1/include/SDL2/SDL.h"
+#include "sdl1/include/SDL2/SDL_cdrom.h"
 #endif
 
 #include "doomtype.h"

@@ -16,8 +16,8 @@
 //
 
 #ifdef ORIGCODE
-#include "SDL.h"
-#include "SDL_joystick.h"
+#include "sdl1/include/SDL.h"
+#include "sdl1/include/SDL_joystick.h"
 #endif
 
 #include <stdio.h>
