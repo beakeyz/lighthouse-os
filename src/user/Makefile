@@ -4,6 +4,7 @@ USER_SRC=$(SRC)/user
 # Define where the drivers are located
 USER_PATHS := 		\
 	./init 			\
+	./test 			\
 	./doom			\
 	./gfx_test		\
 	./ls			\
