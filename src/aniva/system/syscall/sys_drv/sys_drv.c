@@ -6,11 +6,13 @@
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
 #include "mem/kmem_manager.h"
+#include "oss/obj.h"
 #include "proc/handle.h"
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/sysvar/var.h"
 #include <dev/manifest.h>
+#include <proc/env.h>
 
 #include <lightos/driver/ctl.h>
 
@@ -41,7 +43,7 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
         error = driver_send_msg_ex(c_hndl->reference.driver, code, buffer, size, NULL, NULL);
         break;
     case HNDL_TYPE_DEVICE:
-        error = device_message_ex(c_hndl->reference.device, code, buffer, size, NULL, NULL);
+        error = device_send_ctl_ex(c_hndl->reference.device, code, NULL, buffer, size);
         break;
     case HNDL_TYPE_FILE: {
         file_t* file = c_hndl->reference.file;
@@ -61,10 +63,42 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
     return SYS_OK;
 }
 
-uintptr_t
-sys_send_drv_ctl(HANDLE handle, enum DRV_CTL_MODE mode)
+uintptr_t sys_send_ctl(HANDLE handle, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize)
 {
-    kernel_panic("TODO: sys_send_drv_ctl");
+    int error;
+    khandle_t* c_hndl;
+    proc_t* c_proc;
+
+    c_proc = get_current_proc();
+
+    /* Check the buffer(s) if they are given */
+    if (buffer && kmem_validate_ptr(c_proc, (vaddr_t)buffer, bsize))
+        return SYS_INV;
+
+    /* Find the handle */
+    c_hndl = find_khandle(&c_proc->m_handle_map, handle);
+
+    if (!c_hndl)
+        return SYS_INV;
+
+    switch (c_hndl->type) {
+    case HNDL_TYPE_DEVICE:
+        if (!c_hndl->reference.device)
+            return SYS_ERR;
+
+        if (!oss_obj_can_proc_access(c_hndl->reference.device->obj, c_proc))
+            return SYS_NOPERM;
+
+        error = device_send_ctl_ex(c_hndl->reference.device, code, offset, buffer, bsize);
+        break;
+    default:
+        error = -KERR_NOT_FOUND;
+        break;
+    }
+
+    if (error)
+        return SYS_ERR;
+
     return SYS_OK;
 }
 

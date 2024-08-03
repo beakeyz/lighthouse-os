@@ -1,7 +1,7 @@
 #include "dev/device.h"
-#include "dev/endpoint.h"
+#include "devices/shared.h"
 #include "libk/flow/error.h"
-#include "system/acpi/acpi.h"
+#include "logging/log.h"
 #include "system/acpi/acpica/acexcep.h"
 #include "system/acpi/acpica/acnames.h"
 #include "system/acpi/acpica/acnamesp.h"
@@ -9,7 +9,6 @@
 #include "system/acpi/acpica/actbl3.h"
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/device.h"
-#include "system/acpi/parser.h"
 #include "system/acpi/tables.h"
 #include <dev/core.h>
 #include <dev/driver.h>
@@ -23,21 +22,11 @@ struct {
     uint16_t pci_vendorid;
 } spcr_uart;
 
-static uint64_t _acpi_dev_msg(device_t* device, dcc_t code)
-{
-    return KERR_NONE;
-}
-
 static int _acpi_dev_create(device_t* device)
 {
+    KLOG_DBG("Creating acpi device\n");
     return 0;
 }
-
-struct device_generic_endpoint _acpi_generic_dep = {
-    .f_create = _acpi_dev_create,
-    .f_msg = _acpi_dev_msg,
-    NULL,
-};
 
 /*!
  * @brief: ...
@@ -56,24 +45,10 @@ static kerror_t _acpi_dev_power_on(device_t* device)
     return acpi_device_set_pwrstate(acpi_dev, ACPI_STATE_D0);
 }
 
-struct device_pwm_endpoint _acpi_pwm_dep = {
-    .f_power_on = _acpi_dev_power_on,
-};
-
-/*
- * Endpoint table for the acpi device driver
- *
- * Here we define the endpoints our devices adhere to. These will mostly be power management
- * opperations, since that is kinda what ACPI is meant for lmao
- */
-static device_ep_t _acpi_eps[] = {
-    { ENDPOINT_TYPE_GENERIC, sizeof(struct device_generic_endpoint), { &_acpi_generic_dep } },
-    { ENDPOINT_TYPE_PWM, sizeof(struct device_pwm_endpoint), {
-                                                                 &_acpi_pwm_dep,
-                                                             } },
-    {
-        NULL,
-    },
+static device_ctl_node_t _acpi_ctls[] = {
+    DEVICE_CTL(DEVICE_CTLC_CREATE, _acpi_dev_create, NULL),
+    DEVICE_CTL(DEVICE_CTLC_POWER_ON, _acpi_dev_power_on, NULL),
+    DEVICE_CTL_END,
 };
 
 static bool _should_ignore_device(acpi_handle_t dev)
@@ -112,7 +87,7 @@ ACPI_STATUS register_acpi_device(acpi_handle_t dev, uint32_t lvl, void* ctx, voi
         break;
     }
 
-    error = acpi_add_device(dev, obj_type, _acpi_eps, Path.Pointer);
+    error = acpi_add_device(dev, obj_type, _acpi_ctls, Path.Pointer);
     /* FIXME: Ignore these failures? */
     if (error)
         return AE_OK;

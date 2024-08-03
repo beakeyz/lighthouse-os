@@ -1,7 +1,9 @@
 #include "device.h"
+#include "devices/shared.h"
 #include "lightos/handle.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
+#include "lightos/system.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -192,30 +194,29 @@ size_t device_write(DEV_HANDLE handle, VOID* buf, size_t bsize, QWORD offset)
 
 BOOL device_enable(DEV_HANDLE handle)
 {
-    if (syscall_2(SYSID_DEV_ENABLE, handle, TRUE) != SYS_OK)
-        return FALSE;
-
-    return TRUE;
+    return device_send_ctl(handle, DEVICE_CTLC_ENABLE);
 }
 
 BOOL device_disable(DEV_HANDLE handle)
 {
-    if (syscall_2(SYSID_DEV_ENABLE, handle, FALSE) != SYS_OK)
-        return FALSE;
-
-    return TRUE;
+    return device_send_ctl(handle, DEVICE_CTLC_DISABLE);
 }
 
-BOOL device_msg(DEV_HANDLE handle, DWORD dcc, VOID* buf, size_t bsize)
+BOOL device_send_ctl(DEV_HANDLE handle, enum DEVICE_CTLC code)
 {
-    /* Too lazy =) */
-    exit_noimpl("devices: device_msg");
+    return device_send_ctl_ex(handle, code, NULL, NULL, NULL);
+}
+
+BOOL device_send_ctl_ex(DEV_HANDLE handle, enum DEVICE_CTLC code, uintptr_t offset, VOID* buf, size_t bsize)
+{
+    if (syscall_5(SYSID_SEND_CTL, handle, code, offset, (uintptr_t)buf, bsize))
+        return FALSE;
     return TRUE;
 }
 
 BOOL device_query_info(DEV_HANDLE handle, DEVINFO* binfo)
 {
-    return (syscall_2(SYSID_GET_DEVINFO, handle, (uintptr_t)binfo) == SYS_OK);
+    return device_send_ctl_ex(handle, DEVICE_CTLC_GETINFO, NULL, binfo, sizeof(*binfo));
 }
 
 int init_devices()

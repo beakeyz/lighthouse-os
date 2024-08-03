@@ -3,7 +3,6 @@
 #include "libk/data/linkedlist.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
-#include <dev/endpoint.h>
 
 /*
  * Since there are most likely to only be a maximum of four mbr partitions, let's just
@@ -33,7 +32,7 @@ mbr_table_t* create_mbr_table(disk_dev_t* device, uintptr_t start_lba)
         return nullptr;
 
     /* The MBR should always be at offset 0 of a device */
-    error = device->m_ops->f_bread(device->m_dev, buffer, start_lba, 1);
+    error = device->m_ops->f_bread(device->m_dev, NULL, start_lba, buffer, 1);
 
     if (error)
         goto dealloc_and_fail;

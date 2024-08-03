@@ -1,6 +1,5 @@
 #include "dev/device.h"
 #include "acpi.h"
-#include "dev/endpoint.h"
 #include "dev/group.h"
 #include "libk/flow/error.h"
 #include "system/acpi/acpica/acexcep.h"
@@ -87,7 +86,7 @@ static void acpi_device_init_busid(acpi_device_t* dev)
 /*!
  * @brief: Allocate memory for an acpi device and its generic device parent
  */
-static acpi_device_t* _create_acpi_device(acpi_handle_t handle, int type, device_ep_t* eps, const char* acpi_path)
+static acpi_device_t* _create_acpi_device(acpi_handle_t handle, int type, device_ctl_node_t* ctl_list, const char* acpi_path)
 {
     device_t* device;
     acpi_device_t* ret;
@@ -108,7 +107,7 @@ static acpi_device_t* _create_acpi_device(acpi_handle_t handle, int type, device
     // KLOG_DBG("Found ACPI device. Name: %s\n", ret->busid);
 
     /* Create the generic device */
-    device = create_device_ex(NULL, (char*)ret->busid, ret, NULL, eps);
+    device = create_device_ex(NULL, (char*)ret->busid, ret, NULL, ctl_list);
 
     if (!device)
         goto dealloc_and_exit;
@@ -163,11 +162,11 @@ static inline kerror_t _get_acpidev_info(acpi_handle_t handle, ACPI_DEVICE_INFO*
     return 0;
 }
 
-kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ep_t* eps, const char* acpi_path)
+kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ctl_node_t* ctl_list, const char* acpi_path)
 {
     acpi_device_t* device;
 
-    device = _create_acpi_device(handle, type, eps, acpi_path);
+    device = _create_acpi_device(handle, type, ctl_list, acpi_path);
 
     if (!device)
         return -KERR_NOMEM;

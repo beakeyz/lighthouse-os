@@ -7,7 +7,6 @@
 #include "system/processor/registers.h"
 
 #include "sys_alloc/sys_alloc_mem.h"
-#include "sys_dev/sys_dev.h"
 #include "sys_drv/sys_drv.h"
 #include "sys_exit/sys_exit.h"
 #include "sys_open/sys_dir.h"
@@ -46,6 +45,7 @@ static syscall_t __static_syscalls[] = {
         SYSID_SEND_MSG,
         (sys_fn_t)sys_send_message,
     },
+    [SYSID_SEND_CTL] = { 0, SYSID_SEND_CTL, (sys_fn_t)sys_send_ctl },
     [SYSID_ALLOC_PAGE_RANGE] = {
         0,
         SYSID_ALLOC_PAGE_RANGE,
@@ -101,16 +101,6 @@ static syscall_t __static_syscalls[] = {
         0,
         SYSID_GET_FUNCADDR,
         (sys_fn_t)sys_get_funcaddr,
-    },
-    [SYSID_GET_DEVINFO] = {
-        0,
-        SYSID_GET_DEVINFO,
-        (sys_fn_t)sys_get_devinfo,
-    },
-    [SYSID_DEV_ENABLE] = {
-        0,
-        SYSID_DEV_ENABLE,
-        (sys_fn_t)sys_enable_device,
     },
     [SYSID_CREATE_PROC] = { 0, SYSID_CREATE_PROC, (sys_fn_t)sys_create_proc },
     [SYSID_DESTROY_PROC] = { 0, SYSID_DESTROY_PROC, (sys_fn_t)sys_destroy_proc },

@@ -1,5 +1,5 @@
 #include "dev/core.h"
-#include "dev/endpoint.h"
+#include "dev/device.h"
 #include "dev/manifest.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
@@ -42,7 +42,7 @@ static video_device_t* _vdev;
 /* Local framebuffer information for the driver */
 static fb_info_t* _main_info = nullptr;
 
-static int efifb_get_info(device_t* dev, vdev_info_t* info)
+static int efifb_get_info(device_t* dev, drv_manifest_t* driver, u64 offset, vdev_info_t* info, size_t bsize)
 {
     /* TODO: */
     memset(info, 0, sizeof(*info));
@@ -186,11 +186,7 @@ fb_helper_ops_t _efifb_helper_ops = {
     .f_unmap = efifb_unmap,
 };
 
-static struct device_video_endpoint _efi_vdev_ep = {
-    .f_get_info = efifb_get_info,
-};
-
-static int efifb_get_devinfo(device_t* device, DEVINFO* binfo)
+static int efifb_get_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
 {
     memset(binfo, 0, sizeof(*binfo));
 
@@ -202,17 +198,10 @@ static int efifb_get_devinfo(device_t* device, DEVINFO* binfo)
     return 0;
 }
 
-static struct device_generic_endpoint _efi_generic_ep = {
-    .f_get_devinfo = efifb_get_devinfo,
-    NULL
-};
-
-static device_ep_t _efi_endpoints[] = {
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_VIDEO, _efi_vdev_ep),
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _efi_generic_ep),
-    {
-        NULL,
-    },
+static device_ctl_node_t efi_ctls[] = {
+    DEVICE_CTL(DEVICE_CTLC_GETINFO, efifb_get_devinfo, NULL),
+    DEVICE_CTL(DEVICE_CTLC_GET_FBINFO, efifb_get_info, NULL),
+    DEVICE_CTL_END,
 };
 
 // FIXME: this driver only works for the multiboot fb that we get passed
@@ -281,7 +270,7 @@ int fb_driver_init(drv_manifest_t* driver)
     if (!fb)
         return -1;
 
-    vdev = create_video_device(_this, VIDDEV_MAINDEVICE, _efi_endpoints);
+    vdev = create_video_device(_this, VIDDEV_MAINDEVICE, efi_ctls);
 
     if (!vdev)
         return -2;

@@ -1,6 +1,7 @@
 #ifndef __ANIVA_USB_HCD__
 #define __ANIVA_USB_HCD__
 
+#include "dev/device.h"
 #include "dev/pci/pci.h"
 #include "libk/flow/reference.h"
 #include <libk/stddef.h>
@@ -10,7 +11,6 @@ struct usb_hcd;
 struct usb_hub;
 struct usb_xfer;
 struct drv_manifest;
-struct device_endpoint;
 
 /*
  * MMIO operations for hcds
@@ -71,7 +71,7 @@ static inline struct device* usb_hcd_get_device(usb_hcd_t* hcd)
     return hcd->pci_device->dev;
 }
 
-usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, struct device_endpoint* eps);
+usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, device_ctl_node_t* ctllist);
 void destroy_usb_hcd(usb_hcd_t* hub);
 
 int usb_hcd_alloc_devaddr(usb_hcd_t* hub, uint8_t* paddr);

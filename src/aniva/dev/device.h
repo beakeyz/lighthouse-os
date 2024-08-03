@@ -2,8 +2,9 @@
 #define __ANIVA_DEV_DEVICE__
 
 #include "dev/core.h"
-#include "dev/endpoint.h"
+#include "dev/ctl.h"
 #include "dev/group.h"
+#include "devices/shared.h"
 #include "libk/flow/error.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
@@ -54,9 +55,9 @@ struct device;
 struct dgroup;
 struct pci_device;
 struct acpi_device;
-struct device_endpoint;
 struct aniva_driver;
 struct drv_manifest;
+struct device_ctl_node;
 
 /* Device that is managed and backed entirely by software */
 #define DEV_FLAG_SOFTDEV 0x00000001
@@ -76,21 +77,6 @@ struct drv_manifest;
 /* TODO: more device flags */
 
 typedef bool (*DEVICE_ITTERATE)(struct device* dev);
-
-/*
- * Types to specify devices
- * TODO: use
- */
-enum DEVICE_TYPE {
-    DEVICE_TYPE_GENERIC = 0,
-    DEVICE_TYPE_ACPI,
-    DEVICE_TYPE_DISK,
-    DEVICE_TYPE_VIDEO,
-    DEVICE_TYPE_HID,
-    DEVICE_TYPE_PCI,
-    DEVICE_TYPE_USBCLASS,
-    DEVICE_TYPE_USBHCD,
-};
 
 #define DEVICE_DRIVER_LIMIT 5
 
@@ -144,6 +130,10 @@ typedef struct device {
     uint16_t class;
     uint16_t subclass;
 
+    /* Flags to indicate device status stuff */
+    uint32_t flags;
+    /* General enum used to identify what kind of general device this represents */
+    enum DEVICE_CTYPE type;
     /* Private field for drivers to use */
     void* private;
 
@@ -154,10 +144,12 @@ typedef struct device {
     struct acpi_device* acpi_dev;
     struct pci_device* pci_dev;
 
-    uint32_t flags;
-    /* Should be initialized by the device driver. Remains constant throughout the entire lifetime of the device */
-    uint32_t endpoint_count;
-    struct device_endpoint* endpoints;
+    /*
+     * Map that holds the different control implementations of a device. These may
+     * change according to different drivers taking (partial) control of different
+     * devices
+     */
+    device_ctlmap_t* ctlmap;
 } device_t;
 
 static inline void* device_unwrap(device_t* device)
@@ -177,19 +169,6 @@ kerror_t device_bind_driver(device_t* device, struct drv_manifest* driver);
 kerror_t device_unbind_driver(device_t* device, struct drv_manifest* driver);
 kerror_t device_clear_drivers(device_t* device);
 
-/*
- * endpoint.c
- */
-extern struct device_endpoint* device_get_endpoint(device_t* device, enum ENDPOINT_TYPE type);
-extern kerror_t device_unimplement_endpoint(device_t* device, enum ENDPOINT_TYPE type);
-extern kerror_t device_implement_endpoint(device_t* device, enum ENDPOINT_TYPE type, void* ep, size_t ep_size);
-extern kerror_t device_implement_endpoints(device_t* device, struct device_endpoint* endpoints);
-
-static inline bool device_has_endpoint(device_t* device, enum ENDPOINT_TYPE type)
-{
-    return (device_get_endpoint(device, type) != nullptr);
-}
-
 /*!
  * @brief: Check if this device has a bus group linked to it
  */
@@ -205,7 +184,7 @@ void debug_devices();
 
 /* Object management */
 device_t* create_device(struct drv_manifest* parent, char* name, void* priv);
-device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps);
+device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_ctl_node* ctl_list);
 void destroy_device(device_t* device);
 
 /* Device registering */
@@ -240,12 +219,36 @@ device_t* device_open(const char* path);
 int device_close(device_t* dev);
 int device_getinfo(device_t* dev, DEVINFO* binfo);
 
+/*
+ * Simple struct to wrap control implementations for a driver
+ * into a small buffer we can put into an array in order to
+ * quickly implement a bunch of control codes
+ */
+typedef struct device_ctl_node {
+    u32 flags;
+    enum DEVICE_CTLC code;
+    f_device_ctl_t ctl;
+} device_ctl_node_t;
+
+#define DEVICE_CTL(code, ctl, flags)           \
+    {                                          \
+        (flags), (code), (f_device_ctl_t)(ctl) \
+    }
+
+#define DEVICE_CTL_END \
+    {                  \
+        0, 0, 0        \
+    }
+
+int device_impl_ctl(device_t* dev, struct drv_manifest* driver, enum DEVICE_CTLC code, f_device_ctl_t impl, u16 flags);
+int device_impl_ctl_n(device_t* dev, struct drv_manifest* driver, device_ctl_node_t* ctl_list);
+int device_unimpl_ctl(device_t* dev, enum DEVICE_CTLC code);
+int device_send_ctl(device_t* dev, enum DEVICE_CTLC code);
+int device_send_ctl_ex(device_t* dev, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t size);
+
 /* I/O */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size);
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size);
-
-uintptr_t device_message(device_t* dev, dcc_t code);
-uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
 /* Power management */
 int device_power_on(device_t* dev);

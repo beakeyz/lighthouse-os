@@ -1,6 +1,7 @@
 #ifndef __ANIVA_HID_CORE__
 #define __ANIVA_HID_CORE__
 
+#include "dev/device.h"
 #include "dev/manifest.h"
 #include "event.h"
 #include "libk/flow/error.h"
@@ -12,19 +13,9 @@
 
 struct device;
 struct hid_device;
-struct device_endpoint;
 
 #define HID_KEVENTNAME "hid"
 #define HID_DEFAULT_EBUF_CAPACITY 16
-
-/*
- * Opperations that most if not all HID devices
- * will be able to implement
- */
-struct device_hid_endpoint {
-    /* Check if there is a HID event from this device */
-    int (*f_poll)(struct device* dev);
-};
 
 enum HID_BUS_TYPE {
     HID_BUS_TYPE_PS2 = 0,
@@ -44,7 +35,7 @@ typedef struct hid_device {
 
 void init_hid();
 
-hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps);
+hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, device_ctl_node_t* ctllist);
 void destroy_hid_device(hid_device_t* device);
 
 kerror_t register_hid_device(hid_device_t* device);

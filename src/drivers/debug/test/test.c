@@ -1,6 +1,6 @@
 #include "dev/device.h"
-#include "dev/endpoint.h"
 #include "dev/manifest.h"
+#include "devices/shared.h"
 #include "logging/log.h"
 #include <dev/core.h>
 #include <dev/driver.h>
@@ -56,18 +56,12 @@ static int _destroy_test_device(device_t* device)
     return 0;
 }
 
-struct device_generic_endpoint generic = {
-    .f_enable = _enable_test_device,
-    .f_disable = _disable_test_device,
-    .f_create = _create_test_device,
-    .f_destroy = _destroy_test_device,
-};
-
-device_ep_t eps[] = {
-    { ENDPOINT_TYPE_GENERIC, sizeof(generic), {
-                                                  &generic,
-                                              } },
-    { NULL },
+static device_ctl_node_t generic[] = {
+    DEVICE_CTL(DEVICE_CTLC_ENABLE, _enable_test_device, NULL),
+    DEVICE_CTL(DEVICE_CTLC_DISABLE, _disable_test_device, NULL),
+    DEVICE_CTL(DEVICE_CTLC_CREATE, _create_test_device, NULL),
+    DEVICE_CTL(DEVICE_CTLC_DESTROY, _destroy_test_device, NULL),
+    DEVICE_CTL_END,
 };
 
 /*
@@ -82,7 +76,7 @@ int test_init(drv_manifest_t* driver)
     KLOG_INFO("Initializing test driver!\n");
 
     /* Regular device */
-    device = create_device_ex(driver, "test_device", NULL, NULL, eps);
+    device = create_device_ex(driver, "test_device", NULL, NULL, generic);
 
     if (!device)
         return 0;

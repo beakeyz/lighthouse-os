@@ -1,7 +1,7 @@
 #include "dev/core.h"
-#include "dev/endpoint.h"
 #include "dev/io/hid/event.h"
 #include "dev/manifest.h"
+#include "devices/shared.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
@@ -34,10 +34,6 @@ static int i8042_poll(device_t* device)
 {
     return 0;
 }
-
-struct device_hid_endpoint _i8042_hid_ep = {
-    .f_poll = i8042_poll,
-};
 
 static inline uint32_t i8042_read_status()
 {
@@ -169,15 +165,11 @@ static int i8042_disable(device_t* device)
     return 0;
 }
 
-struct device_generic_endpoint _i8042_generic_ep = {
-    .f_enable = i8042_enable,
-    .f_disable = i8042_disable,
-};
-
-device_ep_t i8042_eps[] = {
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _i8042_hid_ep),
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _i8042_generic_ep),
-    { NULL },
+static device_ctl_node_t i8042_ctl[] = {
+    DEVICE_CTL(DEVICE_CTLC_ENABLE, i8042_enable, NULL),
+    DEVICE_CTL(DEVICE_CTLC_DISABLE, i8042_disable, NULL),
+    DEVICE_CTL(DEVICE_CTLC_HID_POLL, i8042_poll, NULL),
+    DEVICE_CTL_END,
 };
 
 static int _init_i8042(drv_manifest_t* driver)
@@ -199,7 +191,7 @@ static int _init_i8042(drv_manifest_t* driver)
     s_current_scancode = NULL;
 
     /* Create a HID device for this bitch */
-    s_i8042_device = create_hid_device(driver, "i8042", HID_BUS_TYPE_PS2, i8042_eps);
+    s_i8042_device = create_hid_device(driver, "i8042", HID_BUS_TYPE_PS2, i8042_ctl);
 
     /* Register it */
     if (!KERR_OK(register_hid_device(s_i8042_device)))

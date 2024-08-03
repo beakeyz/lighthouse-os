@@ -9,7 +9,7 @@
  * @brief Allocate the needed memory for a USB hub structure
  *
  */
-usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, struct device_endpoint* eps)
+usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, device_ctl_node_t* ctllist)
 {
     usb_hcd_t* ret;
     device_t* device;
@@ -33,10 +33,11 @@ usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char*
 
     mutex_lock(device->lock);
 
+    /* Take the device from (most likely) PCI */
     driver_takeover_device(driver, device, hub_name, NULL, ret);
 
-    /* Implement the needed endpoints */
-    (void)device_implement_endpoints(device, eps);
+    /* Implement the needed USB control codes */
+    device_impl_ctl_n(device, driver, ctllist);
 
     mutex_unlock(device->lock);
 

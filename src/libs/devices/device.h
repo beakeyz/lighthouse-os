@@ -91,6 +91,10 @@ BOOL device_enable(
 BOOL device_disable(
     __IN__ DEV_HANDLE handle);
 
+BOOL device_send_ctl(
+    __IN__ DEV_HANDLE handle,
+    __IN__ enum DEVICE_CTLC code);
+
 /*!
  * @brief: Send a control message to a device
  * @handle: The handle to the device to message
@@ -98,9 +102,10 @@ BOOL device_disable(
  * @buf: The buffer to send
  * @bsize: The size of the buffer
  */
-BOOL device_msg(
+BOOL device_send_ctl_ex(
     __IN__ DEV_HANDLE handle,
-    __IN__ DWORD dcc,
+    __IN__ enum DEVICE_CTLC code,
+    __IN__ __OPTIONAL__ uintptr_t offset,
     __IN__ __OPTIONAL__ VOID* buf,
     __IN__ __OPTIONAL__ size_t bsize);
 
@@ -114,6 +119,5 @@ BOOL device_msg(
 BOOL device_query_info(
     __IN__ DEV_HANDLE handle,
     __OUT__ DEVINFO* binfo);
-
 
 #endif // !__LIGHTOS_DEVICES_DEVICE__

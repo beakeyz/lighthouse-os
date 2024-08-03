@@ -1,9 +1,9 @@
 #include "hid.h"
 #include "dev/core.h"
 #include "dev/device.h"
-#include "dev/endpoint.h"
 #include "dev/group.h"
 #include "dev/io/hid/event.h"
+#include "devices/shared.h"
 #include "kevent/event.h"
 #include "libk/flow/error.h"
 #include "mem/heap.h"
@@ -24,7 +24,7 @@ void init_hid()
 /*!
  * @brief: Create a simple human input device struct
  */
-hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, struct device_endpoint* eps)
+hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, device_ctl_node_t* ctllist)
 {
     size_t event_capacity;
     device_t* device;
@@ -45,16 +45,9 @@ hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum H
         return nullptr;
     }
 
-    device = create_device_ex(driver, (char*)name, hiddev, NULL, eps);
+    device = create_device_ex(driver, (char*)name, hiddev, NULL, ctllist);
 
     if (!device) {
-        kfree(hiddev);
-        kfree(event_buffer);
-        return nullptr;
-    }
-
-    if (!device_has_endpoint(device, ENDPOINT_TYPE_HID)) {
-        destroy_device(device);
         kfree(hiddev);
         kfree(event_buffer);
         return nullptr;
@@ -129,16 +122,12 @@ kerror_t hid_device_queue(hid_device_t* device, struct hid_event* event)
     return hid_event_buffer_write(&device->device_events, event);
 }
 
+/*!
+ * @brief: Send a poll CTLC to the device
+ */
 static inline int _hid_device_do_poll(hid_device_t* device)
 {
-    device_ep_t* ep = device_get_endpoint(device->dev, ENDPOINT_TYPE_HID);
-
-    /* Check params */
-    if (!ep || !ep->impl.hid || !ep->impl.hid->f_poll)
-        return -1;
-
-    /* Call the device poll */
-    return ep->impl.hid->f_poll(device->dev);
+    return device_send_ctl(device->dev, DEVICE_CTLC_HID_POLL);
 }
 
 kerror_t hid_device_poll(hid_device_t* device, struct hid_event** p_event)

@@ -2,7 +2,6 @@
 #include <dev/manifest.h>
 #include <dev/usb/driver.h>
 
-#include "dev/endpoint.h"
 #include "dev/io/hid/event.h"
 #include "dev/io/hid/hid.h"
 #include "dev/usb/spec.h"
@@ -109,10 +108,6 @@ static int usbkbd_poll(device_t* device)
     return 0;
 }
 
-struct device_hid_endpoint _hid_endpoint = {
-    .f_poll = usbkbd_poll,
-};
-
 static int usbkbd_disable(device_t* device)
 {
     usbkbd_t* kbd;
@@ -152,15 +147,11 @@ static int usbkbd_enable(device_t* device)
     return 0;
 }
 
-struct device_generic_endpoint _generic_ep = {
-    .f_disable = usbkbd_disable,
-    .f_enable = usbkbd_enable,
-};
-
-device_ep_t hid_endpoints[] = {
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_HID, _hid_endpoint),
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _generic_ep),
-    { 0 },
+static device_ctl_node_t _usbkbd_ctllist[] = {
+    DEVICE_CTL(DEVICE_CTLC_ENABLE, usbkbd_enable, NULL),
+    DEVICE_CTL(DEVICE_CTLC_DISABLE, usbkbd_disable, NULL),
+    DEVICE_CTL(DEVICE_CTLC_HID_POLL, usbkbd_poll, NULL),
+    DEVICE_CTL_END,
 };
 
 /*!
@@ -168,7 +159,8 @@ device_ep_t hid_endpoints[] = {
  *
  * Registers the new device to our keyboard device list
  */
-static int create_usbkbd(usbkbd_t** ret, drv_manifest_t* usbkbd_driver, usb_device_t* dev)
+static int
+create_usbkbd(usbkbd_t** ret, drv_manifest_t* usbkbd_driver, usb_device_t* dev)
 {
     usbkbd_t* _ret;
     char name_buffer[16] = { 0 };
@@ -190,7 +182,7 @@ static int create_usbkbd(usbkbd_t** ret, drv_manifest_t* usbkbd_driver, usb_devi
     sfmt(name_buffer, "usbkbd_%d", n_keyboards);
 
     _ret->dev = dev;
-    _ret->hiddev = create_hid_device(usbkbd_driver, name_buffer, HID_BUS_TYPE_USB, hid_endpoints);
+    _ret->hiddev = create_hid_device(usbkbd_driver, name_buffer, HID_BUS_TYPE_USB, _usbkbd_ctllist);
 
     if (!_ret->hiddev) {
         kfree(_ret);

@@ -1,5 +1,6 @@
 #ifndef __ANIVA_GENERIC_DISK_DEV__
 #define __ANIVA_GENERIC_DISK_DEV__
+#include "dev/ctl.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/disk/shared.h"
 #include "libk/flow/error.h"
@@ -13,7 +14,6 @@ typedef uint8_t disk_uid_t;
 struct device;
 struct disk_dev;
 struct drv_manifest;
-struct device_endpoint;
 struct device_disk_endpoint;
 struct partitioned_disk_dev;
 
@@ -23,6 +23,15 @@ struct mbr_table;
 #define PART_TYPE_NONE (0)
 #define PART_TYPE_GPT (1)
 #define PART_TYPE_MBR (2)
+
+typedef struct disk_dev_ops {
+    f_device_ctl_t f_read;
+    f_device_ctl_t f_write;
+    f_device_ctl_t f_bread;
+    f_device_ctl_t f_bwrite;
+    f_device_ctl_t f_ata_ident;
+    f_device_ctl_t f_flush;
+} disk_dev_ops_t;
 
 /*
  * Aniva disk device
@@ -44,7 +53,7 @@ typedef struct disk_dev {
 
     uintptr_t m_max_blk;
 
-    struct device_disk_endpoint* m_ops;
+    disk_dev_ops_t* m_ops;
 
     /*
      * Let's hope there aren't any disks with blocksizes of 4+ Gib 0.0
@@ -99,7 +108,7 @@ static inline uintptr_t get_blockcount(disk_dev_t* device, uintptr_t size)
     return (ALIGN_UP((size), (device)->m_logical_sector_size) / (device)->m_logical_sector_size);
 }
 
-disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, struct device_endpoint* eps);
+disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, disk_dev_ops_t* ops);
 void destroy_generic_disk(disk_dev_t* device);
 
 void disk_set_effective_sector_count(disk_dev_t* dev, uint32_t count);

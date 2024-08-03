@@ -1,6 +1,6 @@
 #include "null.h"
 #include "dev/device.h"
-#include "dev/endpoint.h"
+#include "dev/manifest.h"
 #include "devices/shared.h"
 #include "oss/node.h"
 #include "oss/obj.h"
@@ -9,17 +9,17 @@
 
 device_t* null_device;
 
-int null_read(device_t* device, void* buffer, u64 offset, size_t size)
+int null_read(device_t* device, u64 offset, void* buffer, size_t size)
 {
     return 0;
 }
 
-int null_write(device_t* device, void* buffer, u64 offset, size_t size)
+int null_write(device_t* device, drv_manifest_t* driver, u64 offset, void* buffer, size_t size)
 {
     return 0;
 }
 
-int null_devinfo(device_t* device, DEVINFO* binfo)
+int null_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
 {
     memset(binfo, 0, sizeof(*binfo));
 
@@ -36,16 +36,11 @@ int null_devinfo(device_t* device, DEVINFO* binfo)
     return 0;
 }
 
-struct device_generic_endpoint generic_ep = {
-    NULL,
-    .f_get_devinfo = null_devinfo,
-    .f_read = null_read,
-    .f_write = null_write,
-};
-
-device_ep_t null_eps[] = {
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, generic_ep),
-    { NULL },
+static device_ctl_node_t null_ctl[] = {
+    DEVICE_CTL(DEVICE_CTLC_READ, null_read, NULL),
+    DEVICE_CTL(DEVICE_CTLC_WRITE, null_write, NULL),
+    DEVICE_CTL(DEVICE_CTLC_GETINFO, null_devinfo, NULL),
+    DEVICE_CTL_END,
 };
 
 void init_null_device(oss_node_t* dev_node)
@@ -54,7 +49,7 @@ void init_null_device(oss_node_t* dev_node)
     if (!dev_node)
         return;
 
-    null_device = create_device_ex(NULL, "Null", NULL, NULL, null_eps);
+    null_device = create_device_ex(NULL, "Null", NULL, NULL, null_ctl);
 
     if (!null_device)
         return;

@@ -4,7 +4,7 @@
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
-#include "dev/endpoint.h"
+#include "dev/manifest.h"
 #include "devices/pci.h"
 #include "devices/shared.h"
 #include "libk/flow/error.h"
@@ -15,13 +15,6 @@
 #include "sched/scheduler.h"
 #include "sync/spinlock.h"
 #include <mem/heap.h>
-
-static int ahci_port_read(device_t* port, void* buffer, disk_offset_t offset, size_t size);
-static int ahci_port_write(device_t* port, void* buffer, disk_offset_t offset, size_t size);
-static int ahci_port_flush(device_t* device);
-
-static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, size_t count);
-static int ahci_port_read_blk(device_t* device, void* buffer, uintptr_t blk, size_t count);
 
 static void decode_disk_model_number(char* model_number)
 {
@@ -205,9 +198,15 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
-static int ahci_get_devinfo(device_t* device, DEVINFO* binfo)
+static int ahci_get_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, void* buffer, size_t size)
 {
+    DEVINFO* binfo;
     disk_dev_t* diskdev;
+
+    if (!buffer || size != sizeof(*binfo))
+        return -KERR_INVAL;
+
+    binfo = buffer;
 
     memset(binfo, 0, sizeof(*binfo));
 
@@ -225,24 +224,199 @@ static int ahci_get_devinfo(device_t* device, DEVINFO* binfo)
     return 0;
 }
 
-static struct device_generic_endpoint _ahci_gen_ep = {
+/*
+ * TODO: implement
+ */
+
+int ahci_port_read(device_t* port, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
+{
+    kernel_panic("TODO: implement async ahci read");
+
+    return -1;
+}
+
+int ahci_port_write(device_t* port, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
+{
+    kernel_panic("TODO: implement async ahci write");
+
+    return -1;
+}
+
+static int ahci_port_flush(device_t* device, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
+{
+    kernel_panic("TODO: ahci_port_flush");
+}
+
+/*!
+ * @brief: Write a block to our AHCI port
+ *
+ * In de device identify phase, we have retrieved information about how many blocks this device likes to give us at once. This means
+ * we have two 'blocksizes': a logical blocksize (which is how blocks are addressed on disk) and a effective blocksize (which is the
+ * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
+ *
+ */
+static int ahci_port_write_blk(device_t* device, drv_manifest_t* driver, uintptr_t blk, void* buffer, size_t count)
+{
+    ahci_port_t* port;
+    disk_dev_t* disk_dev;
+    paddr_t phys_tmp;
+    size_t buffer_size;
+    ANIVA_STATUS status;
+
+    if (!device || !count || !buffer)
+        return -1;
+
+    disk_dev = device->private;
+
+    if (!disk_dev)
+        return -2;
+
+    // Prepare the parent port
+    port = disk_dev->m_priv;
+
+    if (!port)
+        return -2;
+
+    /* Won't ever fit lmao */
+    if (blk > disk_dev->m_max_blk)
+        return -3;
+
+    /* FIXME: Should we try to fit count into the disk when it overflows? */
+
+    /* Calculate buffersize */
+    buffer_size = count * disk_dev->m_logical_sector_size;
+
+    /* Preallocate a buffer (TODO: contact a generic disk block cache) */
+    // tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
+
+    if (phys_tmp == NULL)
+        return -4;
+
+    /* Send the AHCI command */
+    status = ahci_port_send_command(port, AHCI_COMMAND_WRITE_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
+
+    if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
+        return -5;
+
+    return 0;
+}
+
+/*!
+ * @brief: Read a block from our AHCI port
+ *
+ * In de device identify phase, we have retrieved information about how many blocks this device likes to give us at once. This means
+ * we have two 'blocksizes': a logical blocksize (which is how blocks are addressed on disk) and a effective blocksize (which is the
+ * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
+ *
+ * NOTE/FIXME: could we use @buffer directly?
+ * Another NOTE: Yes we prob. could do that, IF we build another framework around the diskdevice interface, which makes sure
+ * that @buffer is allocated with KMEM_FLAG_DMA. This would be coupled with persistent disk caches in a centralised place, much
+ * like we have in the bootloader (Which has a better disk-interface than us lmaooo)
+ */
+static int ahci_port_read_blk(device_t* device, drv_manifest_t* driver, uintptr_t blk, void* buffer, size_t count)
+{
+    ahci_port_t* port;
+    disk_dev_t* disk_dev;
+    paddr_t phys_tmp;
+    size_t buffer_size;
+    ANIVA_STATUS status;
+
+    if (!device || !count || !buffer)
+        return -1;
+
+    // Prepare the parent port
+    disk_dev = device->private;
+
+    if (!disk_dev)
+        return -2;
+
+    port = disk_dev->m_priv;
+
+    if (!port)
+        return -2;
+
+    /* Won't ever fit lmao */
+    if (blk > disk_dev->m_max_blk)
+        return -3;
+
+    /* FIXME: Should we try to fit count into the disk when it overflows? */
+
+    /* Calculate buffersize */
+    buffer_size = count * disk_dev->m_logical_sector_size;
+
+    /* Preallocate a buffer (TODO: contact a generic disk block cache) */
+    // tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
+    phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
+
+    if (phys_tmp == NULL)
+        return -4;
+
+    /* Send the AHCI command */
+    status = ahci_port_send_command(port, AHCI_COMMAND_READ_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
+
+    if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
+        return -5;
+
+    return 0;
+}
+
+static int ahci_port_ata_ident(device_t* device, drv_manifest_t* driver, uintptr_t blk, void* buffer, size_t bsize)
+{
+    disk_dev_t* disk_device;
+    ahci_port_t* port;
+
+    /* Buffer needs to at least fit an entire ATA identify block */
+    if (bsize > sizeof(ata_identify_block_t))
+        bsize = sizeof(ata_identify_block_t);
+
+    disk_device = device->private;
+
+    if (!disk_device)
+        return -KERR_INVAL;
+
+    port = disk_device->m_priv;
+
+    if (!port)
+        return -KERR_INVAL;
+
+    /* Prepare a buffer for the identify data */
+    ata_identify_block_t* dev_identify_buffer;
+    paddr_t dev_ident_phys;
+
+    /* Allocate a buffer for us */
+    ASSERT(__kmem_kernel_alloc_range((void**)&dev_identify_buffer, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA) == 0);
+
+    /* Grab the physical address */
+    dev_ident_phys = kmem_to_phys(nullptr, (vaddr_t)dev_identify_buffer);
+
+    /* Send the identify command to the device */
+    if (ahci_port_send_command(port, AHCI_COMMAND_IDENTIFY_DEVICE, dev_ident_phys, 512, false, 0, 0) == ANIVA_FAIL)
+        goto fail_and_dealloc;
+
+    /* Wait until this action is completed */
+    if (ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
+        goto fail_and_dealloc;
+
+    /* Copy the ATA identify block into the callers buffer */
+    memcpy(buffer, dev_identify_buffer, bsize);
+
+    /* Deallocate the stuff */
+    __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+    return 0;
+
+fail_and_dealloc:
+    __kmem_kernel_dealloc((vaddr_t)dev_identify_buffer, SMALL_PAGE_SIZE);
+    return -KERR_DEV;
+}
+
+static disk_dev_ops_t _ahci_ops = {
     .f_read = ahci_port_read,
     .f_write = ahci_port_write,
-    .f_get_devinfo = ahci_get_devinfo,
-};
-
-static struct device_disk_endpoint _ahci_disk_ep = {
     .f_bread = ahci_port_read_blk,
     .f_bwrite = ahci_port_write_blk,
     .f_flush = ahci_port_flush,
-};
-
-static device_ep_t _ahci_eps[] = {
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_GENERIC, _ahci_gen_ep),
-    DEVICE_ENDPOINT(ENDPOINT_TYPE_DISK, _ahci_disk_ep),
-    {
-        NULL,
-    },
+    .f_ata_ident = ahci_port_ata_ident,
 };
 
 ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset, uint32_t index)
@@ -261,7 +435,10 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     ret->m_transfer_failed = false;
     ret->m_is_waiting = false;
 
-    ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, _ahci_eps);
+    ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, &_ahci_ops);
+
+    /* Implement the devinfo control code */
+    device_impl_ctl(ret->m_generic->m_dev, NULL, DEVICE_CTLC_GETINFO, ahci_get_devinfo, NULL);
 
     // prepare buffers
     ASSERT(!__kmem_kernel_alloc_range((void**)&ret->m_fis_recieve_page, SMALL_PAGE_SIZE, 0, KMEM_FLAG_DMA));
@@ -535,143 +712,4 @@ static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port)
 {
     uint32_t sata_stat = ahci_port_mmio_read32(port, AHCI_REG_PxSSTS);
     return (sata_stat & 0x0f) == 3;
-}
-
-/*
- * TODO: implement
- */
-
-int ahci_port_read(device_t* port, void* buffer, disk_offset_t offset, size_t size)
-{
-
-    kernel_panic("TODO: implement async ahci read");
-
-    return -1;
-}
-
-int ahci_port_write(device_t* port, void* buffer, disk_offset_t offset, size_t size)
-{
-
-    kernel_panic("TODO: implement async ahci write");
-
-    return -1;
-}
-
-static int ahci_port_flush(device_t* device)
-{
-    kernel_panic("TODO: ahci_port_flush");
-}
-
-/*!
- * @brief: Write a block to our AHCI port
- *
- * In de device identify phase, we have retrieved information about how many blocks this device likes to give us at once. This means
- * we have two 'blocksizes': a logical blocksize (which is how blocks are addressed on disk) and a effective blocksize (which is the
- * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
- *
- */
-static int ahci_port_write_blk(device_t* device, void* buffer, uintptr_t blk, size_t count)
-{
-    ahci_port_t* port;
-    disk_dev_t* disk_dev;
-    paddr_t phys_tmp;
-    size_t buffer_size;
-    ANIVA_STATUS status;
-
-    if (!device || !count || !buffer)
-        return -1;
-
-    disk_dev = device->private;
-
-    if (!disk_dev)
-        return -2;
-
-    // Prepare the parent port
-    port = disk_dev->m_priv;
-
-    if (!port)
-        return -2;
-
-    /* Won't ever fit lmao */
-    if (blk > disk_dev->m_max_blk)
-        return -3;
-
-    /* FIXME: Should we try to fit count into the disk when it overflows? */
-
-    /* Calculate buffersize */
-    buffer_size = count * disk_dev->m_logical_sector_size;
-
-    /* Preallocate a buffer (TODO: contact a generic disk block cache) */
-    // tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
-    phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
-
-    if (phys_tmp == NULL)
-        return -4;
-
-    /* Send the AHCI command */
-    status = ahci_port_send_command(port, AHCI_COMMAND_WRITE_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
-
-    if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
-        return -5;
-
-    return 0;
-}
-
-/*!
- * @brief: Read a block from our AHCI port
- *
- * In de device identify phase, we have retrieved information about how many blocks this device likes to give us at once. This means
- * we have two 'blocksizes': a logical blocksize (which is how blocks are addressed on disk) and a effective blocksize (which is the
- * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
- *
- * NOTE/FIXME: could we use @buffer directly?
- * Another NOTE: Yes we prob. could do that, IF we build another framework around the diskdevice interface, which makes sure
- * that @buffer is allocated with KMEM_FLAG_DMA. This would be coupled with persistent disk caches in a centralised place, much
- * like we have in the bootloader (Which has a better disk-interface than us lmaooo)
- */
-static int ahci_port_read_blk(device_t* device, void* buffer, uintptr_t blk, size_t count)
-{
-    ahci_port_t* port;
-    disk_dev_t* disk_dev;
-    paddr_t phys_tmp;
-    size_t buffer_size;
-    ANIVA_STATUS status;
-
-    if (!device || !count || !buffer)
-        return -1;
-
-    // Prepare the parent port
-    disk_dev = device->private;
-
-    if (!disk_dev)
-        return -2;
-
-    port = disk_dev->m_priv;
-
-    if (!port)
-        return -2;
-
-    /* Won't ever fit lmao */
-    if (blk > disk_dev->m_max_blk)
-        return -3;
-
-    /* FIXME: Should we try to fit count into the disk when it overflows? */
-
-    /* Calculate buffersize */
-    buffer_size = count * disk_dev->m_logical_sector_size;
-
-    /* Preallocate a buffer (TODO: contact a generic disk block cache) */
-    // tmp = Must(__kmem_kernel_alloc_range(buffer_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA));
-    phys_tmp = kmem_to_phys(nullptr, (uintptr_t)buffer);
-
-    if (phys_tmp == NULL)
-        return -4;
-
-    /* Send the AHCI command */
-    status = ahci_port_send_command(port, AHCI_COMMAND_READ_DMA_EXT, phys_tmp, buffer_size, false, blk, count);
-
-    if (status == ANIVA_FAIL || ahci_port_await_dma_completion_sync(port) == ANIVA_FAIL)
-        return -5;
-
-    return 0;
 }

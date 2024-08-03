@@ -4,6 +4,7 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "dev/manifest.h"
+#include "devices/shared.h"
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
 #include "libk/data/vector.h"
@@ -397,7 +398,7 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
         return 3;
 
     printf("Found device: %s\n", dev->name);
-    printf(" \\ Implements %d endpoint%s", dev->endpoint_count, (dev->endpoint_count == 1) ? "\n" : "s\n");
+    printf(" \\ Device is of type: %s\n", devinfo_get_ctype(dev->type));
     printf(" \\ Device is powered %s\n", (dev->flags & DEV_FLAG_POWERED) == DEV_FLAG_POWERED ? "on" : "off");
 
     kterm_println("");

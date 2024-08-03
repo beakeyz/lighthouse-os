@@ -2,7 +2,6 @@
 #include "core.h"
 #include "dev/core.h"
 #include "dev/device.h"
-#include "dev/endpoint.h"
 #include "dev/group.h"
 #include "dev/manifest.h"
 #include "dev/video/events.h"
@@ -24,9 +23,6 @@ int register_video_device(video_device_t* vdev)
 {
     if (!vdev || !vdev->device)
         return -1;
-
-    if (!device_has_endpoint(vdev->device, ENDPOINT_TYPE_VIDEO))
-        return -2;
 
     vdev_event_ctx_t vdev_ctx = {
         .type = VDEV_EVENT_REGISTER,
@@ -70,7 +66,7 @@ struct video_device* get_active_vdev()
     error = dev_group_get_device(_video_group, VIDDEV_MAINDEVICE, &maindev);
 
     /* If the device does not have an video endpoint we're fucked lmao */
-    if (error || !maindev || !device_has_endpoint(maindev, ENDPOINT_TYPE_VIDEO))
+    if (error || !maindev)
         return nullptr;
 
     /* 'maindev' may not contain anything other than a video device */
@@ -99,38 +95,17 @@ int video_deactivate_current_driver()
 }
 
 /*!
- * @brief: Check if a collection of endpoints contains a video endpoint
- */
-static inline bool _has_video_endpoint(struct device_endpoint* eps)
-{
-    while (eps && eps->type != ENDPOINT_TYPE_INVALID) {
-
-        if (eps->type == ENDPOINT_TYPE_VIDEO)
-            return true;
-
-        /* Next */
-        eps++;
-    }
-
-    return false;
-}
-
-/*!
  * @brief: Allocate memory for a video device
  *
  * Also allocates a generic device object
  */
-video_device_t* create_video_device(struct drv_manifest* driver, const char* name, struct device_endpoint* eps)
+video_device_t* create_video_device(struct drv_manifest* driver, const char* name, device_ctl_node_t* ctl_list)
 {
     video_device_t* ret;
 
     ret = nullptr;
 
-    if (!driver || !eps)
-        return nullptr;
-
-    /* This would suck big time lmao */
-    if (!_has_video_endpoint(eps))
+    if (!driver)
         return nullptr;
 
     ret = kmalloc(sizeof(*ret));
@@ -141,7 +116,7 @@ video_device_t* create_video_device(struct drv_manifest* driver, const char* nam
     memset(ret, 0, sizeof(*ret));
 
     /* Create a device with our own endpoints */
-    ret->device = create_device_ex(driver, (char*)name, ret, NULL, eps);
+    ret->device = create_device_ex(driver, (char*)name, ret, NULL, ctl_list);
 
 exit:
     return ret;
@@ -201,7 +176,7 @@ int vdev_get_mainfb(struct device* device, fb_handle_t* fb)
 {
     video_device_t* dev;
 
-    if (!device || !device_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
+    if (!device)
         return -1;
 
     dev = device->private;
@@ -216,7 +191,7 @@ static inline fb_info_t* _get_fb_info(device_t* device, fb_handle_t fb)
 {
     video_device_t* dev;
 
-    if (!device || !device_has_endpoint(device, ENDPOINT_TYPE_VIDEO))
+    if (!device)
         return nullptr;
 
     dev = device->private;

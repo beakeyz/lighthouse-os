@@ -1,12 +1,12 @@
 #include "device.h"
 #include "dev/core.h"
+#include "dev/ctl.h"
 #include "dev/driver.h"
-#include "dev/endpoint.h"
 #include "dev/group.h"
 #include "dev/manifest.h"
 #include "dev/misc/null.h"
 #include "dev/usb/usb.h"
-#include "dev/video/device.h"
+#include "devices/shared.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "mem/heap.h"
@@ -14,6 +14,7 @@
 #include "oss/node.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
+#include "sys/types.h"
 #include "system/acpi/acpi.h"
 #include <libk/string.h>
 
@@ -33,12 +34,11 @@ device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
  * device (de)allocation
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
- * NOTE: @eps needs to be an array of endpoints, with a terminating entry with ->type = ENDPOINT_TYPE_INVALID
  */
-device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_endpoint* eps)
+device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, device_ctl_node_t* ctl_list)
 {
+    int error;
     device_t* ret;
-    struct device_endpoint* g_ep;
 
     if (!name)
         return nullptr;
@@ -57,25 +57,26 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
     ret->drivers[0] = parent;
     ret->flags = flags;
     ret->private = priv;
-    ret->endpoints = NULL;
-    ret->endpoint_count = NULL;
+    ret->ctlmap = create_device_ctlmap(ret);
 
-    /* Implement the device endpoints */
-    (void)device_implement_endpoints(ret, eps);
+    if (ctl_list)
+        device_impl_ctl_n(ret, parent, ctl_list);
 
     /* Make sure the object knows about us */
     oss_obj_register_child(ret->obj, ret, OSS_OBJ_TYPE_DEVICE, __destroy_device);
 
-    /* Try to call f_create in the generic endpoint */
-    g_ep = device_get_endpoint(ret, ENDPOINT_TYPE_GENERIC);
-
-    /* Call the private device constructor */
-    if (dev_is_valid_endpoint(g_ep) && g_ep->impl.generic->f_create)
-        g_ep->impl.generic->f_create(ret);
-
     /* Make sure we register ourselves to the driver */
     if (parent)
         manifest_add_dev(parent, ret);
+
+    /* Execute the create control code if it's implemented */
+    error = device_send_ctl(ret, DEVICE_CTLC_CREATE);
+
+    /* Failed to create device on the driver side, return null */
+    if (error && (error != -KERR_NOT_FOUND)) {
+        destroy_device(ret);
+        return nullptr;
+    }
 
     return ret;
 }
@@ -91,25 +92,12 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
  */
 void __destroy_device(device_t* device)
 {
-    device_ep_t *c_ep, *next_ep;
-
     /* Let the system know that there was a driver removed */
     device_clear_drivers(device);
 
-    /* Remove any remaining endpoints from the device */
-    while (device->endpoints) {
-        /* Cycle to next */
-        c_ep = device->endpoints;
-        next_ep = c_ep->next;
-
-        /* Unimplement this endpoint */
-        (void)device_unimplement_endpoint(device, c_ep->type);
-
-        device->endpoints = next_ep;
-    }
-
     destroy_mutex(device->lock);
     destroy_mutex(device->ep_lock);
+    destroy_device_ctlmap(device->ctlmap);
     kfree((void*)device->name);
 
     memset(device, 0, sizeof(*device));
@@ -122,6 +110,9 @@ void __destroy_device(device_t* device)
  */
 void destroy_device(device_t* device)
 {
+    /* Send a destroy control code to the driver */
+    (void)device_send_ctl(device, DEVICE_CTLC_DESTROY);
+
     if (device->obj->parent)
         device_unregister(device);
 
@@ -468,6 +459,102 @@ int device_get_group(device_t* dev, struct dgroup** group_out)
  */
 
 /*!
+ * @brief: Implements a number of control codes after each other
+ *
+ * Fails if either one of the codes is a duplicate or any error occurs during implementation
+ */
+int device_impl_ctl_n(device_t* dev, struct drv_manifest* driver, device_ctl_node_t* ctl_list)
+{
+    int error;
+
+    /* Check params before we lock shit */
+    if (!dev || !ctl_list)
+        return -KERR_INVAL;
+
+    mutex_lock(dev->ep_lock);
+
+    while (ctl_list->code) {
+
+        /* Mask the rollover flag */
+        device_ctlflags_mask_status(ctl_list->flags);
+
+        error = device_map_ctl(dev->ctlmap, ctl_list->code, driver, ctl_list->ctl, ctl_list->flags);
+
+        if (error)
+            break;
+
+        /* Next ctl */
+        ctl_list++;
+    }
+
+    mutex_unlock(dev->ep_lock);
+    return error;
+}
+
+/*!
+ * @brief: Implements a single device control code for a driver
+ */
+int device_impl_ctl(device_t* dev, struct drv_manifest* driver, enum DEVICE_CTLC code, f_device_ctl_t impl, u16 flags)
+{
+    int error;
+
+    /* Check params before we lock shit */
+    if (!dev || !code || !impl)
+        return -KERR_INVAL;
+
+    /* Mask the rollover flag */
+    device_ctlflags_mask_status(flags);
+
+    mutex_lock(dev->ep_lock);
+
+    error = device_map_ctl(dev->ctlmap, code, driver, impl, flags);
+
+    mutex_unlock(dev->ep_lock);
+
+    return error;
+}
+
+int device_unimpl_ctl(device_t* dev, enum DEVICE_CTLC code)
+{
+    int error;
+
+    mutex_lock(dev->ep_lock);
+
+    error = device_unmap_ctl(dev->ctlmap, code);
+
+    mutex_unlock(dev->ep_lock);
+
+    return error;
+}
+
+/*!
+ * @brief: Sends a control code to a device
+ *
+ * Controlcodes are implemented by device drivers, so the control
+ * will get redirected and handled to that driver
+ */
+int device_send_ctl(device_t* dev, enum DEVICE_CTLC code)
+{
+    return device_send_ctl_ex(dev, code, NULL, NULL, NULL);
+}
+
+/*!
+ * @brief: ...
+ */
+int device_send_ctl_ex(device_t* dev, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t size)
+{
+    int error;
+
+    mutex_lock(dev->ep_lock);
+
+    error = device_ctl(dev->ctlmap, code, offset, buffer, size);
+
+    mutex_unlock(dev->ep_lock);
+
+    return error;
+}
+
+/*!
  * @brief: Read from a device
  *
  * Should only be implemented on device types where it makes sense. Read opperations should
@@ -480,15 +567,7 @@ int device_get_group(device_t* dev, struct dgroup** group_out)
  */
 int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
-    device_ep_t* ep;
-
-    ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
-
-    /* This would all be very bad news */
-    if (!ep || !ep->impl.generic || !ep->impl.generic->f_read)
-        return -KERR_NULL;
-
-    return ep->impl.generic->f_read(dev, buffer, offset, size);
+    return device_send_ctl_ex(dev, DEVICE_CTLC_READ, offset, buffer, size);
 }
 
 /*!
@@ -499,41 +578,20 @@ int device_read(device_t* dev, void* buffer, uintptr_t offset, size_t size)
  */
 int device_write(device_t* dev, void* buffer, uintptr_t offset, size_t size)
 {
-    device_ep_t* ep;
-
-    ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
-
-    /* This would all be very bad news */
-    if (!ep || !ep->impl.generic || !ep->impl.generic->f_write)
-        return -KERR_NULL;
-
-    return ep->impl.generic->f_write(dev, buffer, offset, size);
+    return device_send_ctl_ex(dev, DEVICE_CTLC_WRITE, offset, buffer, size);
 }
 
 int device_getinfo(device_t* dev, DEVINFO* binfo)
 {
-    device_ep_t* ep;
-
-    ep = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
-
-    if (!ep || !ep->impl.generic->f_get_devinfo)
-        return -KERR_NODEV;
-
-    return ep->impl.generic->f_get_devinfo(dev, binfo);
+    return device_send_ctl_ex(dev, DEVICE_CTLC_GETINFO, NULL, binfo, sizeof(*binfo));
 }
 
 int device_power_on(device_t* dev)
 {
     kerror_t error;
-    device_ep_t* pwm_ep;
 
-    pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
-
-    if (!pwm_ep || !pwm_ep->impl.pwm->f_power_on)
-        return -1;
-
-    /* Call endpoint */
-    error = pwm_ep->impl.pwm->f_power_on(dev);
+    /* Send the poweron control */
+    error = device_send_ctl(dev, DEVICE_CTLC_POWER_ON);
 
     if (error)
         return error;
@@ -551,14 +609,7 @@ int device_power_on(device_t* dev)
  */
 int device_on_remove(device_t* dev)
 {
-    device_ep_t* pwm_ep;
-
-    pwm_ep = device_get_endpoint(dev, ENDPOINT_TYPE_PWM);
-
-    if (!pwm_ep)
-        return -1;
-
-    return pwm_ep->impl.pwm->f_remove(dev);
+    return device_send_ctl(dev, DEVICE_CTLC_REMOVE);
 }
 
 /*!
@@ -566,7 +617,7 @@ int device_on_remove(device_t* dev)
  */
 int device_suspend(device_t* dev)
 {
-    kernel_panic("TODO: device_suspend");
+    return device_send_ctl(dev, DEVICE_CTLC_SUSPEND);
 }
 
 /*!
@@ -574,7 +625,7 @@ int device_suspend(device_t* dev)
  */
 int device_resume(device_t* dev)
 {
-    kernel_panic("TODO: device_resume");
+    return device_send_ctl(dev, DEVICE_CTLC_RESUME);
 }
 
 /*!
@@ -588,30 +639,18 @@ int device_resume(device_t* dev)
 int device_enable(device_t* dev)
 {
     int error;
-    struct device_endpoint* generic;
 
     if ((dev->flags & DEV_FLAG_ENABLED) == DEV_FLAG_ENABLED)
         return 0;
 
     mutex_lock(dev->lock);
 
-    /* Set the device flag */
-    dev->flags |= DEV_FLAG_ENABLED;
-
-    error = 0;
-    generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
-
-    if (!generic || !generic->impl.generic || !generic->impl.generic->f_enable)
-        goto unlock_and_exit;
-
-    /* Call the device endpoint for a enable, if it has it */
-    error = generic->impl.generic->f_enable(dev);
+    error = device_send_ctl(dev, DEVICE_CTLC_ENABLE);
 
     /* Yikes */
-    if (error)
-        dev->flags &= ~DEV_FLAG_ENABLED;
+    if (!error)
+        dev->flags |= DEV_FLAG_ENABLED;
 
-unlock_and_exit:
     mutex_unlock(dev->lock);
     return error;
 }
@@ -627,7 +666,6 @@ unlock_and_exit:
 int device_disable(device_t* dev)
 {
     int error;
-    struct device_endpoint* generic;
 
     /* Device already disabled? */
     if ((dev->flags & DEV_FLAG_ENABLED) != DEV_FLAG_ENABLED)
@@ -635,41 +673,14 @@ int device_disable(device_t* dev)
 
     mutex_lock(dev->lock);
 
-    /* Set the device flag */
-    dev->flags &= ~DEV_FLAG_ENABLED;
-
-    error = 0;
-    generic = device_get_endpoint(dev, ENDPOINT_TYPE_GENERIC);
-
-    if (!generic || !generic->impl.generic || !generic->impl.generic->f_disable)
-        goto unlock_and_exit;
-
-    /* Call the device endpoint for a enable, if it has it */
-    error = generic->impl.generic->f_disable(dev);
+    error = device_send_ctl(dev, DEVICE_CTLC_DISABLE);
 
     /* Yikes v2 */
     if (error)
-        dev->flags |= DEV_FLAG_ENABLED;
+        dev->flags &= ~DEV_FLAG_ENABLED;
 
-unlock_and_exit:
     mutex_unlock(dev->lock);
     return error;
-}
-
-/*!
- * @brief: ...
- */
-uintptr_t device_message(device_t* dev, dcc_t code)
-{
-    kernel_panic("TODO: device_message");
-}
-
-/*!
- * @brief: ...
- */
-uintptr_t device_message_ex(device_t* dev, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size)
-{
-    kernel_panic("TODO: device_message_ex");
 }
 
 static void print_obj_path(oss_node_t* node)

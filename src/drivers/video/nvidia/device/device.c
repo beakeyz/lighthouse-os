@@ -1,5 +1,5 @@
 #include "device.h"
-#include "dev/endpoint.h"
+#include "dev/device.h"
 #include "dev/pci/pci.h"
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/subdev.h"
@@ -184,15 +184,8 @@ static device_video_endpoint_t _nv_vid_ep = {
     .f_disable_engine = NULL,
 };
 
-static device_ep_t _nv_eps[] = {
-    {
-        ENDPOINT_TYPE_VIDEO,
-        sizeof(_nv_vid_ep),
-        {
-            &_nv_vid_ep,
-        },
-    },
-    { NULL },
+static device_ctl_node_t _nv_ctl_list[] = {
+    DEVICE_CTL_END,
 };
 
 /*!
@@ -219,7 +212,7 @@ nv_device_t* create_nv_device(drv_manifest_t* driver, pci_device_t* pdev)
     nvd->id.vendor = pdev->vendor_id;
 
     /* Create the nvidia video device object */
-    nvd->vdev = create_video_device(driver, VIDDEV_MAINDEVICE, _nv_eps);
+    nvd->vdev = create_video_device(driver, VIDDEV_MAINDEVICE, _nv_ctl_list);
     nvd->pdevice = pdev;
 
     /* Perform main device initialization */

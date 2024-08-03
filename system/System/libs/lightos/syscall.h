@@ -20,7 +20,8 @@ enum SYSID {
     SYSID_OPEN_REL,
     SYSID_OPEN_PROC,
     SYSID_OPEN_DRIVER,
-    SYSID_SEND_MSG,
+    SYSID_SEND_MSG, /* Send a driver message */
+    SYSID_SEND_CTL, /* Send a device control code */
     SYSID_CREATE_THREAD,
     SYSID_CREATE_PROC,
     SYSID_CREATE_FILE,
@@ -53,17 +54,6 @@ enum SYSID {
 
     /* Dynamic loader-specific syscalls */
     SYSID_GET_FUNCADDR,
-
-    /* Device syscalls: Here we pretty much implement all the device endpoints that might be useful to userspace */
-    SYSID_GET_DEVINFO,
-    /* Enable/Disable device */
-    SYSID_DEV_ENABLE,
-
-    /* HID dev interfacing */
-    SYSID_HIDDEV_POLL = 100,
-    /* Disk dev interfacing */
-    SYSID_DISKDEV_BREAD = 200,
-    SYSID_DISKDEV_BWRITE = 201,
 };
 
 /* Mask that marks a sysid invalid */

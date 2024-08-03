@@ -3,23 +3,6 @@
 
 #include <stdint.h>
 
-enum ENDPOINT_TYPE {
-    ENDPOINT_TYPE_INVALID = 0,
-    ENDPOINT_TYPE_GENERIC,
-    ENDPOINT_TYPE_DISK,
-    ENDPOINT_TYPE_VIDEO,
-    ENDPOINT_TYPE_HID,
-    ENDPOINT_TYPE_PWM,
-    ENDPOINT_TYPE_AUDIO,
-};
-
-#define DEVICE_HAS_EP_GENERIC 0x01
-#define DEVICE_HAS_EP_DISK 0x02
-#define DEVICE_HAS_EP_VIDEO 0x04
-#define DEVICE_HAS_EP_HID 0x08
-#define DEVICE_HAS_EP_PWM 0x10
-#define DEVICE_HAS_EP_AUDIO 0x20
-
 /*
  * Enum with low level connection types of a device
  *
@@ -105,6 +88,8 @@ enum DEVICE_CTLC {
     DEVICE_CTLC_NONE,
 
     /* Generic device control codes */
+    DEVICE_CTLC_CREATE,
+    DEVICE_CTLC_DESTROY,
     DEVICE_CTLC_DISABLE,
     DEVICE_CTLC_ENABLE,
     DEVICE_CTLC_WRITE,
@@ -124,6 +109,7 @@ enum DEVICE_CTLC {
     DEVICE_CTLC_POWER_LO,
     DEVICE_CTLC_SUSPEND,
     DEVICE_CTLC_RESUME,
+    DEVICE_CTLC_REMOVE,
     DEVICE_CTLC_GET_PWR,
 
     /* HID control codes */
@@ -133,6 +119,9 @@ enum DEVICE_CTLC {
     DEVICE_CTLC_DISK_BREAD,
     DEVICE_CTLC_DISK_BWRITE,
     DEVICE_CTLC_ATA_IDENTIFY, // Executes an ATA identify command
+
+    /* Video control codes */
+    DEVICE_CTLC_GET_FBINFO,
 
     /* The amount of control codes there are */
     N_DEVICE_CTLC

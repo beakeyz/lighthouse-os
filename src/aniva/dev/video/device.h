@@ -2,6 +2,7 @@
 #define __ANIVA_VID_DEVICE__
 
 #include "dev/core.h"
+#include "dev/device.h"
 #include "dev/video/connector.h"
 
 #define VIDDEV_FLAG_FB (0x01)
@@ -17,7 +18,6 @@ struct fb_helper;
 struct vdev_info;
 struct aniva_driver;
 struct fb_helper_ops;
-struct device_endpoint;
 
 union fb_color;
 
@@ -64,7 +64,7 @@ typedef struct video_device {
 
 void init_vdevice();
 
-video_device_t* create_video_device(struct drv_manifest* driver, const char* name, struct device_endpoint* eps);
+video_device_t* create_video_device(struct drv_manifest* driver, const char* name, device_ctl_node_t* ctl_list);
 int destroy_video_device(video_device_t* device);
 
 int vdev_init_fb_helper(video_device_t* device, uint32_t fb_capacity, struct fb_helper_ops* ops);

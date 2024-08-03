@@ -1,10 +1,11 @@
 #include "generic.h"
 #include "dev/core.h"
+#include "dev/ctl.h"
 #include "dev/disk/partition/gpt.h"
 #include "dev/disk/partition/mbr.h"
 #include "dev/driver.h"
-#include "dev/endpoint.h"
 #include "dev/group.h"
+#include "devices/shared.h"
 #include "fs/core.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
@@ -473,44 +474,32 @@ int write_sync_partitioned(partitioned_disk_dev_t* dev, void* buffer, size_t siz
 
 int read_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block)
 {
-    device_ep_t* ep;
     uintptr_t abs_block;
-    int result = -1;
 
     if (!dev || !dev->m_parent)
-        return result;
+        return -KERR_INVAL;
 
     abs_block = dev->m_start_lba + block;
-    ep = device_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
     if (abs_block < dev->m_start_lba || abs_block > dev->m_end_lba)
-        return result;
+        return -KERR_INVAL;
 
-    if (ep->impl.disk->f_bread)
-        result = ep->impl.disk->f_bread(dev->m_parent->m_dev, buffer, abs_block, count);
-
-    return result;
+    return device_send_ctl_ex(dev->m_parent->m_dev, DEVICE_CTLC_DISK_BREAD, abs_block, buffer, count);
 }
 
 int write_sync_partitioned_blocks(partitioned_disk_dev_t* dev, void* buffer, size_t count, uintptr_t block)
 {
-    device_ep_t* ep;
     uintptr_t abs_block;
-    int result = -1;
 
     if (!dev || !dev->m_parent)
-        return result;
+        return -KERR_INVAL;
 
     abs_block = dev->m_start_lba + block;
-    ep = device_get_endpoint(dev->m_parent->m_dev, ENDPOINT_TYPE_DISK);
 
     if (abs_block < dev->m_start_lba || abs_block > dev->m_end_lba)
-        return result;
+        return -KERR_INVAL;
 
-    if (ep->impl.disk->f_bwrite)
-        result = ep->impl.disk->f_bwrite(dev->m_parent->m_dev, buffer, abs_block, count);
-
-    return result;
+    return device_send_ctl_ex(dev->m_parent->m_dev, DEVICE_CTLC_DISK_BWRITE, abs_block, buffer, count);
 }
 
 int pd_bread(partitioned_disk_dev_t* dev, void* buffer, uintptr_t blockn)
@@ -550,26 +539,12 @@ disk_dev_t* create_generic_ramdev(size_t size)
     return create_generic_ramdev_at(start_addr, size);
 }
 
-/*
- * This is okay since ramdisks have a 'blocksize' of one byte lmao
- * We need to implement this endpoint to classify as 'diskdevice'
- */
-static struct device_disk_endpoint _rd_disk_ep = {
-    .f_bread = ramdisk_read,
-    .f_bwrite = ramdisk_write,
-};
-
-static struct device_generic_endpoint _rd_gen_ep = {
+static disk_dev_ops_t _rd_disk_ops = {
     .f_read = ramdisk_read,
     .f_write = ramdisk_write,
-};
-
-static device_ep_t _rd_eps[] = {
-    { ENDPOINT_TYPE_GENERIC, sizeof(_rd_gen_ep), { &_rd_gen_ep } },
-    { ENDPOINT_TYPE_DISK, sizeof(_rd_disk_ep), { &_rd_disk_ep } },
-    {
-        NULL,
-    },
+    .f_bread = ramdisk_read,
+    .f_bwrite = ramdisk_write,
+    NULL
 };
 
 /*
@@ -588,7 +563,7 @@ disk_dev_t* create_generic_ramdev_at(uintptr_t address, size_t size)
         return nullptr;
 
     /* NOTE: ideally, we want this to be the first 'drive' we create, so we claim the first entry */
-    dev = create_generic_disk(NULL, "ramdisk", NULL, _rd_eps);
+    dev = create_generic_disk(NULL, "ramdisk", NULL, &_rd_disk_ops);
 
     if (!dev)
         return nullptr;
@@ -741,7 +716,7 @@ int diskdev_populate_partition_table(disk_dev_t* dev)
     return -1;
 }
 
-int ramdisk_read(device_t* _dev, void* buffer, disk_offset_t offset, size_t size)
+int ramdisk_read(struct device* _dev, struct drv_manifest* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     disk_dev_t* device;
 
@@ -773,7 +748,7 @@ int ramdisk_read(device_t* _dev, void* buffer, disk_offset_t offset, size_t size
     return 0;
 }
 
-int ramdisk_write(device_t* device, void* buffer, disk_offset_t offset, size_t size)
+int ramdisk_write(struct device* device, struct drv_manifest* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     kernel_panic("TODO: implement ramdisk_write");
 }
@@ -798,15 +773,34 @@ static inline char* _construct_dev_name()
     return ret;
 }
 
+static void __disk_device_implement_ops(disk_dev_t* device, drv_manifest_t* parent, disk_dev_ops_t* ops)
+{
+    device->m_ops = ops;
+
+    if (!ops)
+        return;
+
+    /* Implement the devices control codes */
+    device_impl_ctl(device->m_dev, parent, DEVICE_CTLC_READ, ops->f_read, NULL);
+    device_impl_ctl(device->m_dev, parent, DEVICE_CTLC_WRITE, ops->f_write, NULL);
+    device_impl_ctl(device->m_dev, parent, DEVICE_CTLC_DISK_BREAD, ops->f_bread, NULL);
+    device_impl_ctl(device->m_dev, parent, DEVICE_CTLC_DISK_BWRITE, ops->f_bwrite, NULL);
+    device_impl_ctl(device->m_dev, parent, DEVICE_CTLC_ATA_IDENTIFY, ops->f_ata_ident, NULL);
+    device_impl_ctl(device->m_dev, parent, DEVICE_CTLC_FLUSH, ops->f_flush, NULL);
+}
+
 /*!
  * @brief: Creates a generic disk device
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, device_ep_t* eps)
+disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, disk_dev_ops_t* ops)
 {
     disk_dev_t* ret = nullptr;
     char* dev_name = nullptr;
+
+    if (!ops)
+        return nullptr;
 
     /* Duplicate name so we can simply free dev_name when we're done */
     if (name)
@@ -825,12 +819,10 @@ disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* p
     memset(ret, 0, sizeof(*ret));
 
     ret->m_priv = private;
-    ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, eps);
+    ret->m_dev = create_device_ex(parent, dev_name, ret, NULL, NULL);
 
-    if (!ret || !device_has_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK))
-        goto dealloc_and_exit;
-
-    ret->m_ops = device_get_endpoint(ret->m_dev, ENDPOINT_TYPE_DISK)->impl.disk;
+    /* Implement the disk opperations */
+    __disk_device_implement_ops(ret, parent, ops);
 
     kfree((void*)dev_name);
     return ret;

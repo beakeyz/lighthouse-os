@@ -1,12 +1,11 @@
 #ifndef __ANIVA_ACPI_DEVICE__
 #define __ANIVA_ACPI_DEVICE__
 
+#include "dev/device.h"
 #include "dev/pci/pci.h"
 #include "libk/data/linkedlist.h"
 #include "system/acpi/acpica/actypes.h"
 #include "system/acpi/tables.h"
-
-struct device_endpoint;
 
 typedef char acpi_busid_t[8];
 
@@ -36,7 +35,7 @@ typedef struct apci_device {
     const char* hid;
 } acpi_device_t;
 
-kerror_t acpi_add_device(acpi_handle_t handle, int type, struct device_endpoint* eps, const char* acpi_path);
+kerror_t acpi_add_device(acpi_handle_t handle, int type, device_ctl_node_t* ctl_list, const char* acpi_path);
 
 kerror_t acpi_device_get_pci_addr(acpi_device_t* device, pci_device_address_t* address);
 

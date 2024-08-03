@@ -3,7 +3,6 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include <dev/disk/generic.h>
-#include <dev/endpoint.h>
 #include <libk/string.h>
 
 static char* gpt_partition_create_path(gpt_partition_t* partition)
@@ -56,7 +55,7 @@ bool disk_try_copy_gpt_header(disk_dev_t* device, gpt_table_t* table)
     if (device->m_logical_sector_size == 512)
         gpt_block = 1;
 
-    int result = device->m_ops->f_bread(device->m_dev, buffer, gpt_block, 1);
+    int result = device->m_ops->f_bread(device->m_dev, NULL, gpt_block, buffer, 1);
 
     if (result < 0)
         return false;
@@ -109,7 +108,7 @@ gpt_table_t* create_gpt_table(disk_dev_t* device)
 
     for (uintptr_t i = 0; i < ret->m_header.entries_count; i++) {
 
-        if (device->m_ops->f_bread(device->m_dev, entry_buffer, blk, 1) < 0)
+        if (device->m_ops->f_bread(device->m_dev, NULL, blk, entry_buffer, 1) < 0)
             goto fail_and_destroy;
 
         gpt_partition_entry_t* entries = (gpt_partition_entry_t*)entry_buffer;
