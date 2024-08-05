@@ -59,6 +59,9 @@ typedef struct usb_xfer {
     void* resp_buffer;
     void* req_buffer;
 
+    /* Private xfer-specific context */
+    void* priv_ctx;
+
     paddr_t resp_dma_addr;
     paddr_t req_dma_addr;
 

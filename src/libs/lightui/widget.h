@@ -25,6 +25,27 @@ enum LIGHTUI_WIDGET_TYPE {
     LIGHTUI_WIDGET_TYPE_CUSTOM,
 };
 
+enum LIGHTUI_WIDGETEVENT_TYPE {
+    LIGHTUI_WIDGETEVENT_TYPE_CREATE,
+    LIGHTUI_WIDGETEVENT_TYPE_DESTROY,
+    LIGHTUI_WIDGETEVENT_TYPE_KEY,
+    LIGHTUI_WIDGETEVENT_TYPE_CLICK,
+    LIGHTUI_WIDGETEVENT_TYPE_SELECT,
+};
+
+#define LIGHTUI_WIDGETEVENT_FLAG_PRESSED 0x0001
+#define LIGHTUI_WIDGETEVENT_FLAG_LMB 0x0002
+#define LIGHTUI_WIDGETEVENT_FLAG_RMB 0x0004
+#define LIGHTUI_WIDGETEVENT_FLAG_MMB 0x0008
+#define LIGHTUI_WIDGETEVENT_FLAG_4MB 0x0010
+#define LIGHTUI_WIDGETEVENT_FLAG_5MB 0x0020
+
+typedef struct lightui_widget_event {
+    enum LIGHTUI_WIDGETEVENT_TYPE type;
+    uint16_t flags;
+    uint16_t scancode;
+} lightui_widget_event_t;
+
 typedef struct lightui_widget {
     lightui_window_t* wnd;
     uint32_t x, y;
@@ -39,15 +60,9 @@ typedef struct lightui_widget {
     /* Private data which differs per widget type */
     void* private;
 
-    /* Lifetime ops */
-    void (*f_create)(struct lightui_widget* w);
-    void (*f_destroy)(struct lightui_widget* w);
-
     /* GFX ops */
     void (*f_draw)(struct lightui_widget* w);
-    void (*f_onclick)(struct lightui_widget* w);
-    void (*f_onkey)(struct lightui_widget* w);
-    void (*f_onselect)(struct lightui_widget* w);
+    void (*f_onevent)(struct lightui_widget* w, lightui_widget_event_t* event);
 
     /* Links widgets together */
     struct lightui_widget* next;

@@ -6,6 +6,7 @@
 #include "irq/interrupts.h"
 #include "libk/flow/error.h"
 #include "lightos/event/key.h"
+#include "logging/log.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
 #include <dev/device.h>

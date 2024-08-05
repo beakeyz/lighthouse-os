@@ -329,7 +329,7 @@ static int ehci_transfer_finish_thread(ehci_hcd_t* ehci)
         /* Destroy our local transfer struct */
         destroy_ehci_xfer(ehci, c_e_xfer);
 
-        KLOG_DBG("Completing: %p\n", c_e_xfer);
+        // KLOG_DBG("Completing: %p\n", c_e_xfer);
         /* Transmit the transfer complete */
         (void)usb_xfer_complete(c_usb_xfer);
     }

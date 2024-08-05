@@ -2,7 +2,8 @@
 #define __LIGHTENV_LIBC_STDIO__
 
 #include "stdarg.h"
-#include <sys/types.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define SEEK_SET 0
 #define _STDIO_H

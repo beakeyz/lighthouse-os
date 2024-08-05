@@ -307,7 +307,7 @@ static int usbkbd_fire_key(usbkbd_t* kbd, uint16_t keycode, bool pressed)
         break;
     }
 
-    KLOG_DBG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
+    // KLOG_DBG("%s %s\n", pressed ? "Pressed" : "Released", (u8[]) { kbd->c_ctx.key.pressed_char, 0 });
 
     usbkbd_set_keycode_buffer(kbd, kbd->c_ctx.key.scancode, pressed);
 
@@ -338,13 +338,13 @@ static inline bool has_pressed_key(uint8_t keys[6], uint8_t key)
 static int usbkbd_irq(usb_xfer_t* xfer)
 {
     usbkbd_t* kbd;
-    int error;
     uint8_t i;
 
-    error = get_usbkbd(&kbd, xfer->device, NULL);
+    kbd = xfer->priv_ctx;
 
-    if (error)
-        goto resubmit;
+    /* This sucks balls */
+    if (!kbd)
+        return -1;
 
     if (usb_xfer_is_err(xfer))
         goto resubmit;
@@ -422,6 +422,9 @@ static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_
 
     if (error)
         goto dealloc_and_exit;
+
+    /* Set the xfer context */
+    kbd->probe_xfer->priv_ctx = kbd;
 
     usb_xfer_enqueue(kbd->probe_xfer, kbd->dev->hcd);
 

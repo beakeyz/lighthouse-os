@@ -1,9 +1,10 @@
 DRIVER_OUT=$(OUT)/drivers
 DRIVER_SRC=$(SRC)/drivers
 
-INPUT_DRIVERS := \
-	./input/i8042 \
-	./input/usbkbd
+INPUT_DRIVERS := 	\
+	./input/i8042 	\
+	./input/usbkbd	\
+	./input/usbmouse
 
 ACPI_DRIVERS := \
 	./acpi/acpicore \
