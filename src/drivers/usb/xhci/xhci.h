@@ -586,16 +586,16 @@ static inline xhci_hcd_t* hcd_to_xhci(usb_hcd_t* hcd)
  * These macros are only safe to use after the xhci device has discovered all their offsets
  * we also assume 32-bit I/O so TODO: figure out if there are ever exceptions to this
  */
-#define xhci_cap_read(hub, offset) ((hub)->parent->mmio_ops->mmio_read32((hub)->parent, (hub)->cap_regs_offset + (offset)))
-#define xhci_cap_write(hub, offset, value) ((hub)->parent->mmio_ops->mmio_write32((hub)->parent, (hub)->cap_regs_offset + (offset), (value)))
+#define xhci_cap_read(hub, offset) (xhci_read32((hub)->parent, (hub)->cap_regs_offset + (offset)))
+#define xhci_cap_write(hub, offset, value) (xhci_write32((hub)->parent, (hub)->cap_regs_offset + (offset), (value)))
 
-#define xhci_oper_read(hub, offset) ((hub)->parent->mmio_ops->mmio_read32((hub)->parent, (hub)->oper_regs_offset + (offset)))
-#define xhci_oper_write(hub, offset, value) ((hub)->parent->mmio_ops->mmio_write32((hub)->parent, (hub)->oper_regs_offset + (offset), (value)))
+#define xhci_oper_read(hub, offset) (xhci_read32((hub)->parent, (hub)->oper_regs_offset + (offset)))
+#define xhci_oper_write(hub, offset, value) (xhci_write32((hub)->parent, (hub)->oper_regs_offset + (offset), (value)))
 
-#define xhci_runtime_read(hub, offset) ((hub)->parent->mmio_ops->mmio_read32((hub)->parent, (hub)->runtime_regs_offset + (offset)))
-#define xhci_runtime_write(hub, offset, value) ((hub)->parent->mmio_ops->mmio_write32((hub)->parent, (hub)->runtime_regs_offset + (offset), (value)))
+#define xhci_runtime_read(hub, offset) (xhci_read32((hub)->parent, (hub)->runtime_regs_offset + (offset)))
+#define xhci_runtime_write(hub, offset, value) (xhci_write32((hub)->parent, (hub)->runtime_regs_offset + (offset), (value)))
 
-#define xhci_doorbell_read(hub, offset) ((hub)->parent->mmio_ops->mmio_read32((hub)->parent, (hub)->doorbell_regs_offset + (offset)))
-#define xhci_doorbell_write(hub, offset, value) ((hub)->parent->mmio_ops->mmio_write32((hub)->parent, (hub)->doorbell_regs_offset + (offset), (value)))
+#define xhci_doorbell_read(hub, offset) (xhci_read32((hub)->parent, (hub)->doorbell_regs_offset + (offset)))
+#define xhci_doorbell_write(hub, offset, value) (xhci_write32((hub)->parent, (hub)->doorbell_regs_offset + (offset), (value)))
 
 #endif // !__ANIVA_XHCI_HUB__

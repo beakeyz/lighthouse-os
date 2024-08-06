@@ -12,25 +12,6 @@ struct usb_hub;
 struct usb_xfer;
 struct drv_manifest;
 
-/*
- * MMIO operations for hcds
- */
-typedef struct usb_hcd_mmio_ops {
-    uint64_t (*mmio_read64)(struct usb_hcd* hub, uintptr_t offset);
-    void (*mmio_write64)(struct usb_hcd* hub, uintptr_t offset, uint64_t value);
-
-    uint32_t (*mmio_read32)(struct usb_hcd* hub, uintptr_t offset);
-    void (*mmio_write32)(struct usb_hcd* hub, uintptr_t offset, uint32_t value);
-
-    uint16_t (*mmio_read16)(struct usb_hcd* hub, uintptr_t offset);
-    void (*mmio_write16)(struct usb_hcd* hub, uintptr_t offset, uint16_t value);
-
-    uint8_t (*mmio_read8)(struct usb_hcd* hub, uintptr_t offset);
-    void (*mmio_write8)(struct usb_hcd* hub, uintptr_t offset, uint8_t value);
-
-    int (*mmio_wait_read)(struct usb_hcd* hub, uintptr_t max_timeout, void* address, uintptr_t mask, uintptr_t expect);
-} usb_hcd_mmio_ops_t;
-
 typedef struct usb_hcd_io_ops {
     int (*enq_request)(struct usb_hcd* hcd, struct usb_xfer* request);
     int (*deq_request)(struct usb_hcd* hcd, struct usb_xfer* request);
@@ -55,7 +36,6 @@ typedef struct usb_hcd {
     struct usb_hub* roothub;
     struct drv_manifest* driver;
 
-    usb_hcd_mmio_ops_t* mmio_ops;
     usb_hcd_io_ops_t* io_ops;
     usb_hcd_hw_ops_t* hw_ops;
 

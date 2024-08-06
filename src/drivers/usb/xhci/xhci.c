@@ -116,22 +116,6 @@ static int xhci_wait_read(struct usb_hcd* hub, uintptr_t max_timeout, void* addr
     return -1;
 }
 
-/*
- * This looks so fucking useless
- */
-usb_hcd_mmio_ops_t xhci_mmio_ops = {
-    .mmio_read64 = xhci_read64,
-    .mmio_write64 = xhci_write64,
-    .mmio_write32 = xhci_write32,
-    .mmio_read32 = xhci_read32,
-    .mmio_read16 = xhci_read16,
-    .mmio_write16 = xhci_write16,
-    .mmio_read8 = xhci_read8,
-    .mmio_write8 = xhci_write8,
-
-    .mmio_wait_read = xhci_wait_read,
-};
-
 static kerror_t xhci_submit_cmd(xhci_hcd_t* xhci, uint64_t trb_addr, uint32_t trb_status, uint32_t trb_control)
 {
     xhci_ring_t* ring;
@@ -511,13 +495,13 @@ static int xhci_reset(usb_hcd_t* hcd)
     udelay(1000);
 
     /* Wait for cmd to clear */
-    error = hcd->mmio_ops->mmio_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->cmd, XHCI_CMD_RESET, 0);
+    error = xhci_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->cmd, XHCI_CMD_RESET, 0);
 
     if (error)
         return error;
 
     /* Wait for cnr to clear */
-    error = hcd->mmio_ops->mmio_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->status, XHCI_STS_CNR, 0);
+    error = xhci_wait_read(hcd, (10 * 1000 * 1000), &xhci->op_regs->status, XHCI_STS_CNR, 0);
 
     if (error)
         return error;
@@ -564,7 +548,7 @@ static void xhci_bios_takeover(usb_hcd_t* hcd)
             /* Tell xhci we own them */
             mmio_write_dword(legacy_offset, value | XHCI_HC_OS_OWNED);
 
-            error = hcd->mmio_ops->mmio_wait_read(hcd, 50 * 1000, legacy_offset, XHCI_HC_BIOS_OWNED, 0);
+            error = xhci_wait_read(hcd, 50 * 1000, legacy_offset, XHCI_HC_BIOS_OWNED, 0);
 
             if (error) {
                 /*
@@ -610,7 +594,7 @@ static int xhci_force_halt(usb_hcd_t* hcd)
     mmio_write_dword(&xhci->op_regs->cmd, cmd);
 
     /* Wait for the host to mark itself halted */
-    int error = hcd->mmio_ops->mmio_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, XHCI_STS_HLT);
+    int error = xhci_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, XHCI_STS_HLT);
 
     if (error)
         return error;
@@ -766,7 +750,7 @@ int xhci_start(usb_hcd_t* hcd)
     cmd |= (XHCI_CMD_RUN);
     mmio_write_dword(&xhci->op_regs->cmd, cmd);
 
-    error = hcd->mmio_ops->mmio_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, 0);
+    error = xhci_wait_read(hcd, XHCI_HALT_TIMEOUT_US, &xhci->op_regs->status, XHCI_STS_HLT, 0);
 
     if (error) {
         println("XHCI hcd took too long to get out of halt state!");
@@ -833,7 +817,6 @@ int xhci_probe(pci_device_t* device, pci_driver_t* driver)
 
     /* Set the hcd methods manually */
     hcd->private = xhci_hcd;
-    hcd->mmio_ops = &xhci_mmio_ops;
     hcd->hw_ops = &xhci_hw_ops;
     hcd->io_ops = &xhci_io_ops;
 
