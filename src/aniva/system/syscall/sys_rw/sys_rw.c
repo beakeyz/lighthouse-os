@@ -9,7 +9,7 @@
 #include "lightos/fs/shared.h"
 #include "lightos/handle_def.h"
 #include "lightos/syscall.h"
-#include "lightos/var/shared.h"
+#include "lightos/sysvar/shared.h"
 #include "mem/kmem_manager.h"
 #include "oss/obj.h"
 #include "proc/handle.h"

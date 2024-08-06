@@ -5,14 +5,47 @@
 #include <string.h>
 
 typedef struct device_ctl {
-    u16 b_flags;
-    u16 s_n_calls;
+    u8 b_flags;
+    u32 s_n_calls : 24;
     enum DEVICE_CTLC e_code;
     struct drv_manifest* p_driver;
     f_device_ctl_t f_impl;
 
     struct device_ctl* next;
 } device_ctl_t;
+
+/*!
+ * @brief: Retrieve the device ctl code
+ */
+enum DEVICE_CTLC device_ctl_get_code(struct device_ctl* ctl)
+{
+    if (!ctl)
+        return DEVICE_CTLC_NONE;
+
+    return ctl->e_code;
+}
+
+/*!
+ * @brief: Computees the total call count for a single device control node
+ *
+ * The call count is stored as a 24-bit integer, with a single rollover bit in the flags, which gives us 25 bits
+ * to store the total call count.
+ */
+i32 device_ctl_get_callcount(struct device_ctl* ctl)
+{
+    i32 count;
+
+    if (!ctl)
+        return -KERR_INVAL;
+
+    count = ctl->s_n_calls;
+
+    if (count < 0)
+        return -KERR_INVAL;
+
+    /* Add the rollover bit to the total count */
+    return count | ((ctl->b_flags & DEVICE_CTL_FLAG_CALL_ROLLOVER) << 24);
+}
 
 /*!
  * @brief: Creates a device controlmap
@@ -210,7 +243,7 @@ int device_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, u64 offset, void* bu
         return -KERR_INVAL;
 
     /* Increase call cound for this fucker */
-    if (ctl->s_n_calls == 0xffff) {
+    if (ctl->s_n_calls == 0xffffff) {
         ctl->b_flags |= DEVICE_CTL_FLAG_CALL_ROLLOVER;
         ctl->s_n_calls = 0;
     } else
@@ -218,4 +251,45 @@ int device_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, u64 offset, void* bu
 
     /* Call the implementation */
     return ctl->f_impl(map->p_device, ctl->p_driver, offset, buffer, bsize);
+}
+
+/*!
+ * @brief: Loops over all the control codes inside a device control map
+ *
+ * Stops the loop when the callback populates p_result, or when an error is encountered
+ */
+int foreach_device_ctl(device_ctlmap_t* map, int (*f_cb)(struct device* dev, struct device_ctl* ctl, struct device_ctl** p_result), struct device_ctl** p_result)
+{
+    int error;
+    device_ctl_t* c_ctl;
+
+    if (!map || !f_cb)
+        return -KERR_INVAL;
+
+    /* Prepare the result parameter */
+    if (p_result)
+        *p_result = NULL;
+
+    /* Loop over all possible control nodes */
+    for (u32 i = 0; i < map->ctlmap_sz; i++) {
+        c_ctl = &map->map[i];
+
+        /* Invalid code, skip this entry */
+        if (!c_ctl->e_code)
+            continue;
+
+        do {
+            /* Call the itterator callback */
+            error = f_cb(map->p_device, c_ctl, p_result);
+
+            /* We've either encountered an error, or found the ctl we wanted, return */
+            if (error || (p_result && *p_result))
+                return error;
+
+            /* Go to possible next entry */
+            c_ctl = c_ctl->next;
+        } while (c_ctl);
+    }
+
+    return 0;
 }

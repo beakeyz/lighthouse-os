@@ -1,5 +1,6 @@
 #include "util.h"
 #include "dev/core.h"
+#include "dev/ctl.h"
 #include "dev/device.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
@@ -23,6 +24,7 @@
 #include <dev/external.h>
 #include <dev/loader.h>
 #include <proc/env.h>
+#include <stdio.h>
 
 static const char* __help_str = "Welcome to the Aniva kernel terminal application (kterm)\n"
                                 "kterm provides a few internal utilities and a way to execute binaries from the filesystem\n"
@@ -379,6 +381,12 @@ uint32_t kterm_cmd_procinfo(const char** argv, size_t argc)
     return 0;
 }
 
+static int devinfo_ctl_cb(device_t* dev, struct device_ctl* ctl, struct device_ctl** p_result)
+{
+    printf("  Ctl 0x%4.4x (Called %d times)\n", device_ctl_get_code(ctl), device_ctl_get_callcount(ctl));
+    return 0;
+}
+
 uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
 {
     const char* dev_path;
@@ -398,9 +406,11 @@ uint32_t kterm_cmd_devinfo(const char** argv, size_t argc)
         return 3;
 
     printf("Found device: %s\n", dev->name);
-    printf(" \\ Device is of type: %s\n", devinfo_get_ctype(dev->type));
-    printf(" \\ Device is powered %s\n", (dev->flags & DEV_FLAG_POWERED) == DEV_FLAG_POWERED ? "on" : "off");
+    printf("  Type: %s\n", devinfo_get_ctype(dev->type));
+    printf("  Power: %s\n", (dev->flags & DEV_FLAG_POWERED) == DEV_FLAG_POWERED ? "on" : "off");
 
-    kterm_println("");
+    foreach_device_ctl(dev->ctlmap, devinfo_ctl_cb, NULL);
+
+    device_close(dev);
     return 0;
 }

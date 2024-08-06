@@ -9,6 +9,8 @@
  * This enum describes how the host talks to a particular device
  */
 enum DEVICE_CTYPE {
+    DEVICE_CTYPE_UNKNOWN = 0,
+
     DEVICE_CTYPE_PCI,
     DEVICE_CTYPE_USB,
     DEVICE_CTYPE_SOFTDEV,
@@ -17,13 +19,14 @@ enum DEVICE_CTYPE {
     DEVICE_CTYPE_GPIO,
     DEVICE_CTYPE_PS2,
 
-    DEVICE_CTYPE_UNKNOWN,
     DEVICE_CTYPE_OTHER
 };
 
 static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
 {
     switch (type) {
+    case DEVICE_CTYPE_UNKNOWN:
+        return "Unknown";
     case DEVICE_CTYPE_PCI:
         return "PCI";
     case DEVICE_CTYPE_USB:
@@ -38,8 +41,6 @@ static inline const char* devinfo_get_ctype(enum DEVICE_CTYPE type)
         return "GPIO";
     case DEVICE_CTYPE_PS2:
         return "PS/2";
-    case DEVICE_CTYPE_UNKNOWN:
-        return "Unknown";
     case DEVICE_CTYPE_OTHER:
         return "Other";
     }

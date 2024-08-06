@@ -10,12 +10,12 @@ struct drv_manifest;
 typedef int (*f_device_ctl_t)(struct device* device, struct drv_manifest* driver, u64 offset, void* buffer, size_t bsize);
 
 /* control can be rerouted by a different driver */
-#define DEVICE_CTL_FLAG_UNIMPORTANT 0x0001
+#define DEVICE_CTL_FLAG_UNIMPORTANT 0x01
 /*
  * The call count has been rolled over. The maximum amount of calls we
  * can count like this is 0x1ffff which is ~13000
  */
-#define DEVICE_CTL_FLAG_CALL_ROLLOVER 0x0002
+#define DEVICE_CTL_FLAG_CALL_ROLLOVER 0x02
 
 static inline u16 device_ctlflags_mask_status(u16 flags)
 {
@@ -23,6 +23,9 @@ static inline u16 device_ctlflags_mask_status(u16 flags)
 }
 
 struct device_ctl;
+
+enum DEVICE_CTLC device_ctl_get_code(struct device_ctl* ctl);
+i32 device_ctl_get_callcount(struct device_ctl* ctl);
 
 /*
  * Map which gets exported by a single device
@@ -41,5 +44,7 @@ int device_map_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, struct drv_manif
 int device_unmap_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code);
 
 int device_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize);
+
+int foreach_device_ctl(device_ctlmap_t* map, int (*f_cb)(struct device* dev, struct device_ctl* ctl, struct device_ctl** p_result), struct device_ctl** p_result);
 
 #endif // !__ANIVA_DEVICE_CTL_H__

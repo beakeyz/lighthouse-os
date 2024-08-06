@@ -24,7 +24,7 @@ int null_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, DEVINFO* 
     memset(binfo, 0, sizeof(*binfo));
 
     strncpy((char*)binfo->devicename, "No device lmao", sizeof(binfo->devicename));
-    strncpy((char*)binfo->manufacturer, "Not Beakey, idk who made dis", sizeof(binfo->manufacturer));
+    strncpy((char*)binfo->manufacturer, "Idk who made dis", sizeof(binfo->manufacturer));
 
     binfo->vendorid = 0;
     binfo->deviceid = 0;
@@ -57,5 +57,6 @@ void init_null_device(oss_node_t* dev_node)
     /* Reset the priv level, so anyone can access this device */
     oss_obj_set_priv_levels(null_device->obj, PRIV_LVL_USER);
 
+    /* Add this object to the %/Dev node */
     oss_node_add_obj(dev_node, null_device->obj);
 }
