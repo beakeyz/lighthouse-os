@@ -479,9 +479,6 @@ static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t*
 
     memset(ret, 0, sizeof(*ret));
 
-    /* Format the pci name */
-    sfmt(pci_name, "pdev.%x.%x.%x", address->bus_num, address->device_num, address->func_num);
-
     ret->address = *address;
     ret->raw_ops = *__current_pci_access_impl;
     ret->ops = (pci_device_ops_t) {
@@ -491,12 +488,7 @@ static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t*
         .read_word = pci_dev_read_word,
         .read_dword = pci_dev_read_dword,
     };
-    ret->dev = create_device_ex(NULL, pci_name, NULL, NULL, pci_ctl);
     ret->bus = bus;
-
-    /* Register the pci device to its bus */
-    device_register_to_bus(ret->dev, bus->dev);
-    device_bind_pci(ret->dev, ret);
 
     /* Cache the devices PCI standard header fields */
     ret->raw_ops.read16(address->bus_num, address->device_num, address->func_num, DEVICE_ID, &ret->dev_id);
@@ -514,6 +506,15 @@ static pci_device_t* create_pci_device(pci_device_address_t* address, pci_bus_t*
     ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, INTERRUPT_PIN, &ret->interrupt_pin);
     ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, BIST, &ret->BIST);
     ret->raw_ops.read8(address->bus_num, address->device_num, address->func_num, CAPABILITIES_POINTER, &ret->capabilities_ptr);
+
+    /* Format the pci name */
+    sfmt(pci_name, "pdev.%x.%x.%x", ret->class, ret->subclass, ret->prog_if);
+
+    ret->dev = create_device_ex(NULL, pci_name, NULL, NULL, pci_ctl);
+
+    /* Register the pci device to its bus */
+    device_register_to_bus(ret->dev, bus->dev);
+    device_bind_pci(ret->dev, ret);
 
     return ret;
 }

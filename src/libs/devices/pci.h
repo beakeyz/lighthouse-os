@@ -234,8 +234,8 @@ typedef enum pci_progif {
     PCI_PROGIF_NVME = 0x02,
 
     /* USB bus */
+    PCI_PROGIF_UHCI = 0x00,
     PCI_PROGIF_OHCI = 0x10,
-    PCI_PROGIF_UHCI = 0x20,
     PCI_PROGIF_EHCI = 0x20,
     PCI_PROGIF_XHCI = 0x30,
     PCI_PROGIF_USB4 = 0x40,

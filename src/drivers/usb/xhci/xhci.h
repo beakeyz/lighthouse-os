@@ -236,6 +236,11 @@ typedef struct xhci_ip_ctl_ctx {
     uint32_t res[6];
 } xhci_ip_ctl_ctx_t;
 
+typedef struct xhci_device_ctx {
+    xhci_slot_ctx_t slot_ctx;
+    xhci_endpoint_ctx_t eps_ctx[31];
+} xhci_device_ctx_t;
+
 /*
  * DMA supporting 'context'
  * FIXME: size?
