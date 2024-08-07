@@ -555,6 +555,7 @@ void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bu
     uint8_t subclass;
     uint8_t sec_bus;
     uint16_t cur_vendor_id;
+    pci_bus_t* child_bus;
 
     __current_pci_access_impl->read16(bus, device, 0, VENDOR_ID, &cur_vendor_id);
 
@@ -595,20 +596,23 @@ void enumerate_device(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bu
 
         __current_pci_access_impl->read8(bus, device, func, SECONDARY_BUS, &sec_bus);
 
+        child_bus = create_pci_bus(NULL, sec_bus, sec_bus, sec_bus, base_addr);
+
+        if (!child_bus)
+            continue;
+
         // We've already had this one :clown:
         if (sec_bus >= base_addr->start_bus || sec_bus <= base_addr->end_bus)
             continue;
 
-        enumerate_bus(callback, base_addr, sec_bus);
+        enumerate_bus(callback, child_bus, sec_bus);
     }
 }
 
 void enumerate_bus(pci_callback_t* callback, pci_bus_t* base_addr, uint8_t bus)
 {
-
-    for (uintptr_t device = 0; device < 32; device++) {
+    for (uintptr_t device = 0; device < 32; device++)
         enumerate_device(callback, base_addr, bus, device);
-    }
 }
 
 void enumerate_bridges(pci_callback_t* callback)
@@ -670,7 +674,7 @@ bool register_pci_bridges_from_mcfg(acpi_tbl_mcfg_t* mcfg_ptr)
 
         uint8_t start = c_entry->StartBusNumber;
         uint8_t end = c_entry->EndBusNumber;
-        uint32_t base = c_entry->Address;
+        uint64_t base = c_entry->Address;
 
         KLOG_DBG("Found PCI bridge (%d -> %d) at 0x%x\n", start, end, base);
 

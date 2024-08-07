@@ -10,7 +10,7 @@ typedef struct pci_bus {
 
     uint8_t start_bus;
     uint8_t end_bus;
-    uint32_t base_addr;
+    uint64_t address;
     uint32_t index;
 
     bool is_mapped;
@@ -19,7 +19,7 @@ typedef struct pci_bus {
 
 void init_pci_bus();
 
-pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t busnum, pci_bus_t* parent);
+pci_bus_t* create_pci_bus(uint64_t base, uint8_t start, uint8_t end, uint32_t busnum, pci_bus_t* parent);
 void destroy_pci_bus(pci_bus_t* bus);
 
 static ALWAYS_INLINE bool is_pci_bus_root(pci_bus_t* bus)

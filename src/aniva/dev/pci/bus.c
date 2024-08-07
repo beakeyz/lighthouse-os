@@ -37,7 +37,7 @@ static const char* _create_bus_name(uint32_t busnum)
     return buffer;
 }
 
-pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t busnum, pci_bus_t* parent)
+pci_bus_t* create_pci_bus(uint64_t base, uint8_t start, uint8_t end, uint32_t busnum, pci_bus_t* parent)
 {
     pci_bus_t* bus;
     dgroup_t* parent_group;
@@ -55,7 +55,7 @@ pci_bus_t* create_pci_bus(uint32_t base, uint8_t start, uint8_t end, uint32_t bu
     else
         parent_group = parent->dev->bus_group;
 
-    bus->base_addr = base;
+    bus->address = base;
     bus->mapped_base = nullptr;
     bus->is_mapped = false;
 
