@@ -1,4 +1,3 @@
-
 PROCESS_NAME=init
 #LINK_TYPE=static
 #LIBRARIES := \

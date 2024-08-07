@@ -625,6 +625,9 @@ static int ehci_setup(usb_hcd_t* hcd)
     uintptr_t bar0 = 0;
     uint8_t release_num, caplen;
 
+    /* Enable the PCI device */
+    pci_device_enable(hcd->pci_device);
+
     hcd->pci_device->ops.read_dword(hcd->pci_device, BAR0, (uint32_t*)&bar0);
 
     ehci->register_size = pci_get_bar_size(hcd->pci_device, 0);
@@ -1015,9 +1018,6 @@ int ehci_probe(pci_device_t* device, pci_driver_t* driver)
         return -1;
 
     KLOG_DBG("Found a EHCI device! {\n\tvendorid=0x%x,\n\tdevid=0x%x,\n\tclass=0x%x,\n\tsubclass=0x%x\n}\n", device->vendor_id, device->dev_id, device->class, device->subclass);
-
-    /* Enable the PCI device */
-    pci_device_enable(device);
 
     hcd = create_usb_hcd(_ehci_driver, device, hcd_name, NULL);
 

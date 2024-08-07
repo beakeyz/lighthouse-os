@@ -7,6 +7,9 @@ struct usb_device;
 
 typedef struct usb_port {
     usb_port_status_t status;
+
+    /* Private HCD specific shit */
+    void* priv;
     /* NOTE: Memory not owned by struct usb_port */
     struct usb_device* device;
 } usb_port_t;

@@ -1,7 +1,8 @@
+#include "dev/usb/port.h"
 #include "mem/heap.h"
 #include "xhci.h"
 
-xhci_port_t* create_xhci_port(struct xhci_hub* hub, enum USB_SPEED speed)
+xhci_port_t* create_xhci_port(usb_port_t* pport, struct xhci_hub* hub, enum USB_SPEED speed)
 {
     xhci_port_t* port;
 
@@ -15,8 +16,12 @@ xhci_port_t* create_xhci_port(struct xhci_hub* hub, enum USB_SPEED speed)
 
     memset(port, 0, sizeof(*port));
 
+    port->p_port = pport;
     port->p_hub = hub;
     port->speed = speed;
+
+    /* Register the private field */
+    pport->priv = port;
 
     return port;
 }

@@ -786,20 +786,20 @@ static inline void _get_usb_speed(usb_hub_t* hub, usb_port_t* port, enum USB_SPE
     }
 }
 
-static inline int _reset_port(usb_hub_t* hub, uint32_t i)
+static inline int _reset_port(usb_hub_t* hub, uint32_t idx)
 {
     int error;
     usb_port_t* port;
 
-    error = usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_RESET, i + 1, NULL, NULL, NULL);
+    error = usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_SET_FEATURE, USB_FEATURE_PORT_RESET, idx + 1, NULL, NULL, NULL);
 
     if (error)
         return error;
 
-    port = &hub->ports[i];
+    port = &hub->ports[idx];
 
     for (uint32_t i = 0; i < 16; i++) {
-        error = usb_hub_get_portsts(hub, i, &port->status);
+        error = usb_hub_get_portsts(hub, idx, &port->status);
 
         if (error)
             return error;
@@ -813,7 +813,7 @@ static inline int _reset_port(usb_hub_t* hub, uint32_t i)
     if (error)
         return error;
 
-    error = usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET, i + 1, NULL, NULL, NULL);
+    error = usb_device_submit_ctl(hub->udev, USB_TYPE_CLASS | USB_TYPE_OTHER_OUT, USB_REQ_CLEAR_FEATURE, USB_FEATURE_C_PORT_RESET, idx + 1, NULL, NULL, NULL);
 
     if (error)
         return error;
@@ -877,7 +877,7 @@ static inline int _handle_device_connect(usb_hub_t* hub, uint32_t i)
 
 static inline int _handle_device_disconnect(usb_hub_t* hub, uint32_t i)
 {
-    kernel_panic("TODO (EHCI): Handle a device disconnect");
+    // kernel_panic("TODO: Handle a device disconnect");
     return 0;
 }
 

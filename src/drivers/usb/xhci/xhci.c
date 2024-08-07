@@ -6,6 +6,7 @@
 #include "dev/driver.h"
 #include "dev/manifest.h"
 #include "dev/usb/hcd.h"
+#include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "dev/usb/xfer.h"
 #include "libk/flow/error.h"
@@ -16,6 +17,7 @@
 #include "mem/zalloc/zalloc.h"
 #include <dev/pci/definitions.h>
 #include <dev/pci/pci.h>
+#include <dev/usb/port.h>
 
 #include "extended.h"
 #include "xhci.h"
@@ -166,6 +168,153 @@ static void xhci_port_power(xhci_hcd_t* hcd, xhci_port_t* port, bool status)
     }
 }
 
+int xhci_get_port_sts(struct xhci_hcd* xhci, u8 idx, usb_port_status_t* status)
+{
+    xhci_hub_t* rhub;
+    xhci_port_t* xhci_port;
+    u32 port_status;
+
+    if (!xhci || !status)
+        return -1;
+
+    rhub = xhci->rhub;
+
+    if (idx >= rhub->port_count)
+        return -1;
+
+    /* Grab the xhci port */
+    xhci_port = xhci->rhub->ports[idx];
+
+    /* Could we find the port? */
+    if (!xhci_port)
+        return -KERR_NOT_FOUND;
+
+    /* Read */
+    port_status = mmio_read_dword(&xhci->op_regs->ports[idx].port_status_base);
+
+    KLOG_DBG("XHCI: Getting port status for port %d (status=0x%d)\n", idx, port_status);
+
+    /* Grab the port speed */
+    u8 port_speed = (port_status >> XHCI_PORT_SPEED_OFFSET) & XHCI_PORT_SPEED_MASK;
+
+    /* Detect hi-lo speed ports */
+    if (port_speed == 3)
+        status->status |= USB_PORT_STATUS_HIGH_SPEED;
+    else if (port_speed == 2)
+        status->status |= USB_PORT_STATUS_LOW_SPEED;
+
+    /* Scan regular port status bits */
+    if (port_status & XHCI_PORT_CCS)
+        status->status |= USB_PORT_STATUS_CONNECTION;
+    if (port_status & XHCI_PORT_PED)
+        status->status |= USB_PORT_STATUS_ENABLE;
+    if (port_status & XHCI_PORT_POWR)
+        status->status |= USB_PORT_STATUS_POWER;
+    if (port_status & XHCI_PORT_RESET)
+        status->status |= USB_PORT_STATUS_RESET;
+    if (port_status & XHCI_PORT_OCA)
+        status->status |= USB_PORT_STATUS_OVER_CURRENT;
+
+    /* Scan port status change bits */
+    if (port_status & XHCI_PORT_CSC)
+        status->change |= USB_PORT_STATUS_CONNECTION;
+    if (port_status & XHCI_PORT_PEC)
+        status->change |= USB_PORT_STATUS_POWER;
+    if (port_status & XHCI_PORT_OCC)
+        status->change |= USB_PORT_STATUS_OVER_CURRENT;
+    if (port_status & XHCI_PORT_RC)
+        status->change |= USB_PORT_STATUS_RESET;
+
+    return 0;
+}
+
+int xhci_clear_port_ftr(struct xhci_hcd* xhci, u8 idx, u32 feature)
+{
+    xhci_hub_t* rhub;
+    u32 port_status;
+    u32* p_port_status;
+
+    if (!xhci)
+        return -1;
+
+    rhub = xhci->rhub;
+
+    if (idx >= rhub->port_count)
+        return -1;
+
+    /* Compute the port status address */
+    p_port_status = &xhci->op_regs->ports[idx].port_status_base;
+
+    /* Read */
+    port_status = mmio_read_dword(p_port_status) & ~XHCI_PORT_STATUS_MASK;
+
+    switch (feature) {
+    case USB_FEATURE_PORT_ENABLE:
+        port_status |= XHCI_PORT_PED;
+        break;
+    case USB_FEATURE_PORT_SUSPEND:
+        return -1;
+    case USB_FEATURE_PORT_POWER:
+        port_status &= ~XHCI_PORT_POWR;
+        break;
+    case USB_FEATURE_C_PORT_CONNECTION:
+        port_status |= XHCI_PORT_CSC;
+        break;
+    case USB_FEATURE_C_PORT_OVER_CURRENT:
+        port_status |= XHCI_PORT_OCC;
+        break;
+    case USB_FEATURE_C_PORT_RESET:
+        port_status |= XHCI_PORT_RC;
+        break;
+    default:
+        return -KERR_NOT_FOUND;
+    }
+
+    /* Write the change */
+    mmio_write_dword(p_port_status, port_status);
+    /* Flush read the register */
+    (void)mmio_read_dword(p_port_status);
+    return 0;
+}
+
+int xhci_set_port_ftr(struct xhci_hcd* xhci, u8 idx, u32 feature)
+{
+    xhci_hub_t* rhub;
+    u32 port_status;
+    u32* p_port_status;
+
+    if (!xhci)
+        return -1;
+
+    rhub = xhci->rhub;
+
+    if (idx >= rhub->port_count)
+        return -1;
+
+    /* Compute the port status address */
+    p_port_status = &xhci->op_regs->ports[idx].port_status_base;
+
+    /* Read */
+    port_status = mmio_read_dword(p_port_status) & ~XHCI_PORT_STATUS_MASK;
+
+    switch (feature) {
+    case USB_FEATURE_PORT_RESET:
+        port_status |= XHCI_PORT_RESET;
+        break;
+    case USB_FEATURE_PORT_POWER:
+        port_status |= XHCI_PORT_POWR;
+        break;
+    default:
+        return -KERR_NOT_FOUND;
+    }
+
+    /* Write the change */
+    mmio_write_dword(p_port_status, port_status);
+    /* Flush read the register */
+    (void)mmio_read_dword(p_port_status);
+    return 0;
+}
+
 /*!
  * @brief Create a xhci (root) hub
  *
@@ -173,26 +322,42 @@ static void xhci_port_power(xhci_hcd_t* hcd, xhci_port_t* port, bool status)
  *  - to be able to recieve device_descriptors from every port (device) that is attached to this hub and print out the data we recieved
  *  - to power on the ports we find
  */
-xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
+int create_xhci_hub(xhci_hub_t** phub, struct xhci_hcd* xhci, struct usb_device* udev)
 {
     uint32_t eec;
     uint32_t eecp;
     uint32_t hcc_params;
     xhci_hub_t* hub;
 
+    if (!phub)
+        return -KERR_INVAL;
+
     hub = kzalloc(sizeof(*hub));
 
     if (!hub)
-        return nullptr;
+        return -KERR_INVAL;
 
     memset(hub, 0, sizeof(*hub));
 
     hub->port_count = 0;
     hub->port_arr_size = sizeof(xhci_port_t*) * xhci->max_ports;
-    /* This creates a generic USB hub and asks the host controller for its data */
-    // hub->phub = create_usb_hub(xhci->parent, USB_HUB_TYPE_XHCI, nullptr, 0, dev_address, 0);
-
     hub->ports = kmalloc(hub->port_arr_size);
+
+    if (!hub->ports) {
+        kzfree(hub, sizeof(*hub));
+        return -KERR_INVAL;
+    }
+
+    /* Export the hub lol */
+    *phub = hub;
+
+    /* This creates a generic USB hub and asks the host controller for its data */
+    if (create_usb_hub(&hub->phub, xhci->parent, USB_HUB_TYPE_XHCI, nullptr, udev, xhci->max_ports, false)) {
+        kfree(hub->ports);
+        kzfree(hub, sizeof(*hub));
+        return -KERR_INVAL;
+    }
+
     memset(hub->ports, 0, hub->port_arr_size);
 
     /*
@@ -236,23 +401,16 @@ xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address)
             if (hub->ports[i])
                 hub->ports[i]->speed = speed;
             else
-                hub->ports[i] = create_xhci_port(hub, speed);
+                hub->ports[i] = create_xhci_port(&hub->phub->ports[i], hub, speed);
 
             hub->port_count++;
         }
     }
 
-    /* Before doing any port/device enumeration, let's first register our own roothub
-     * to see if that system at least works */
-    for (uint64_t i = 0; i < hub->port_count; i++) {
-        init_xhci_port(hub->ports[i], &xhci->op_regs->ports[i], nullptr, nullptr, i, NULL);
+    /* Enumerate the standard USB hub */
+    usb_hub_enumerate(hub->phub);
 
-        xhci_port_power(xhci, hub->ports[i], true);
-    }
-
-    xhci_submit_cmd(xhci, NULL, NULL, (XHCI_TRB_TYPE(TRB_FORCE_EVENT)));
-
-    return hub;
+    return 0;
 }
 
 /*!
@@ -289,7 +447,22 @@ int xhci_enq_request(usb_hcd_t* hcd, usb_xfer_t* req)
 {
     xhci_hcd_t* xhci;
 
+    if (!hcd)
+        return -1;
+
     xhci = hcd->private;
+
+    /* Need the xhci hcd */
+    if (!xhci)
+        return -1;
+
+    /* Need the xhci roothub xD */
+    if (!xhci->rhub || !xhci->rhub->phub || !xhci->rhub->phub->udev)
+        return -1;
+
+    /* Check if this is a request for our own roothub */
+    if (req->req_devaddr == xhci->rhub->phub->udev->dev_addr)
+        return xhci_process_rhub_xfer(xhci->rhub->phub, req);
 
     kernel_panic("TODO: implement xhci_enq_request");
 
@@ -429,22 +602,25 @@ static int xhci_prepare_memory(usb_hcd_t* hcd)
     /* Program the max slots */
     mmio_write_dword(&xhci->op_regs->config_reg, xhci->max_slots);
 
+    /* Allocate the dctx array */
     ASSERT(!__kmem_kernel_alloc_range((void**)&xhci->dctx_array_ptr, sizeof(xhci_dev_ctx_array_t), NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH));
     xhci->dctx_array_ptr->dma = kmem_to_phys(nullptr, (vaddr_t)xhci->dctx_array_ptr);
 
+    /* Clear the dctx array */
     memset(xhci->dctx_array_ptr, 0, sizeof(xhci_dev_ctx_array_t));
 
+    /* Set the dcbaa pointer in the HC */
     mmio_write_qword(&xhci->op_regs->dcbaa_ptr, xhci->dctx_array_ptr->dma);
 
+    /* Allocate a zone allocator for device context structures */
+    xhci->device_ctx_allocator = create_zone_allocator(2 * Mib, sizeof(xhci_device_ctx_t), KMEM_FLAG_DMA | KMEM_FLAG_WRITETHROUGH | KMEM_FLAG_KERNEL);
+
+    /* Grab the scratchpad count */
     xhci->scratchpad_count = HC_MAX_SCRTCHPD(hcs_params_2);
 
-    if (xhci->scratchpad_count) {
-        /* NOTE: it is legal for there to be no scratchpad */
-        error = xhci_create_scratchpad(xhci);
-
-        if (error)
-            return -1;
-    }
+    /* NOTE: it is legal for there to be no scratchpad */
+    if (xhci->scratchpad_count && xhci_create_scratchpad(xhci))
+        return -1;
 
     /* Set the command ring */
     xhci->cmd_ring_ptr = create_xhci_ring(xhci, XHCI_MAX_COMMANDS, XHCI_RING_TYPE_CMD);
@@ -736,6 +912,12 @@ int xhci_start(usb_hcd_t* hcd)
     uint32_t cmd;
     xhci_interrupter_t* itr;
     xhci_hcd_t* xhci = hcd->private;
+    usb_device_t* xhci_rh_dev;
+
+    xhci_rh_dev = create_usb_device(hcd, NULL, USB_SUPERSPEED, 0, 0, "xhci_rh");
+
+    if (!xhci_rh_dev)
+        return -1;
 
     cmd = mmio_read_dword(&xhci->op_regs->cmd);
     cmd |= (XHCI_CMD_EIE);
@@ -754,6 +936,9 @@ int xhci_start(usb_hcd_t* hcd)
 
     if (error) {
         println("XHCI hcd took too long to get out of halt state!");
+
+        /* Destroy the device we just created =( */
+        destroy_usb_device(xhci_rh_dev);
         return error;
     }
 
@@ -763,7 +948,7 @@ int xhci_start(usb_hcd_t* hcd)
      */
 
     /* Create the xhci roothub and gather device info / power up */
-    xhci->rhub = create_xhci_hub(xhci, 1);
+    create_xhci_hub(&xhci->rhub, xhci, xhci_rh_dev);
 
     return error;
 }

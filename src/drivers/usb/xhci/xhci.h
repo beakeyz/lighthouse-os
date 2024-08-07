@@ -6,14 +6,17 @@
  */
 
 #include "dev/usb/hcd.h"
+#include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "libk/flow/doorbell.h"
+#include "mem/zalloc/zalloc.h"
 #include "proc/thread.h"
 #include "sync/mutex.h"
 #include <libk/stddef.h>
 
 struct usb_hcd;
 struct usb_device;
+struct usb_port;
 struct xhci_hcd;
 struct xhci_hub;
 
@@ -94,19 +97,55 @@ typedef struct xhci_op_regs {
 #define XHCI_PORT_RO ((1 << 0) | (1 << 3) | (0xf << 10) | (1 << 30))
 #define XHCI_PORT_RWS ((0xf << 5) | (1 << 9) | (0x3 << 14) | (0x7 << 25))
 
+#define XHCI_PORT_STATUS_MASK 0x80FF00F7U
+
+/* Current connect status */
 #define XHCI_PORT_CCS (1 << 0)
+/* Port enabled/disabled */
 #define XHCI_PORT_PED (1 << 1)
 /* bit 2 reserved and zero */
+/* Over-current active */
 #define XHCI_PORT_OCA (1 << 3)
+/* Port reset */
 #define XHCI_PORT_RESET (1 << 4)
+/* R/W port link state */
+#define XHCI_PORT_LINK_STATE_OFFSET 5
+#define XHCI_PORT_LINK_STATE_MASK 0x0f
+/* Port power status */
 #define XHCI_PORT_POWR (1 << 9)
 
+/* Port speed */
+#define XHCI_PORT_SPEED_OFFSET 10
+#define XHCI_PORT_SPEED_MASK 0x0f
+
+/* Link state write strobe */
 #define XHCI_PORT_LWS (1 << 16)
-#define XHCI_PORT_CST (1 << 17)
+/* Connect status change */
+#define XHCI_PORT_CSC (1 << 17)
+/* Port Enable/Disable state change */
 #define XHCI_PORT_PEC (1 << 18)
-#define XHCI_PORT_WRX (1 << 19)
+/* Port warm reset change */
+#define XHCI_PORT_WRC (1 << 19)
+/* Port Over-current state change */
 #define XHCI_PORT_OCC (1 << 20)
+/* Port reset change */
 #define XHCI_PORT_RC (1 << 21)
+/* Port link state change */
+#define XHCI_PORT_PLC (1 << 22)
+/* Port config error change */
+#define XHCI_PORT_CEC (1 << 23)
+/* Port cold attach status */
+#define XHCI_PORT_CAS (1 << 24)
+/* Port wake on connect enable */
+#define XHCI_PORT_WCE (1 << 25)
+/* Port wake on disconnect enable */
+#define XHCI_PORT_WDE (1 << 26)
+/* Port wake on over-current enable */
+#define XHCI_PORT_WOE (1 << 27)
+/* Port device removable status */
+#define XHCI_PORT_DR (1 << 30)
+/* Port warm reset */
+#define XHCI_PORT_WPR (1 << 31)
 
 #define XHCI_CMD_RING_PAUSED (1 << 1)
 #define XHCI_CMD_RING_ABORT (1 << 2)
@@ -492,17 +531,24 @@ extern int xhci_add_interrupter(struct xhci_hcd* xhci, xhci_interrupter_t* inter
 typedef struct xhci_port {
     /* Base register address */
     void* base_addr;
-    void* dcba_entry_addr;
-    void* device_context;
+    /* Pointer to the entry inside the dctx array entry */
+    u64* dcba_entry_addr;
+    /* Device context structure located at dcba_entry_addr */
+    xhci_device_ctx_t* device_context;
 
+    /* The index of this port */
     uint8_t port_num;
+    /* The slot we've been given by xhci (index of dcba_entry_addr) */
     uint8_t device_slot;
+
+    /* Base port struct */
+    struct usb_port* p_port;
 
     enum USB_SPEED speed;
     struct xhci_hub* p_hub;
 } xhci_port_t;
 
-extern xhci_port_t* create_xhci_port(struct xhci_hub* hub, enum USB_SPEED speed);
+extern xhci_port_t* create_xhci_port(struct usb_port* port, struct xhci_hub* hub, enum USB_SPEED speed);
 extern void destroy_xhci_port(struct xhci_port* port);
 extern void init_xhci_port(xhci_port_t* port, void* base_addr, void* dcba_entry_addr, void* device_ctx, uint8_t port_num, uint8_t slot);
 
@@ -525,8 +571,11 @@ typedef struct xhci_hub {
     struct usb_hub* phub;
 } xhci_hub_t;
 
-xhci_hub_t* create_xhci_hub(struct xhci_hcd* xhci, uint8_t dev_address);
+int create_xhci_hub(xhci_hub_t** phub, struct xhci_hcd* xhci, struct usb_device* udev);
 void destroy_xhci_hub(xhci_hub_t* hub);
+
+/* xhci_roothub.c */
+extern int xhci_process_rhub_xfer(usb_hub_t* hub, usb_xfer_t* xfer);
 
 /*
  * Flags to mark the state that the xhc is in
@@ -569,12 +618,19 @@ typedef struct xhci_hcd {
 
     uint32_t scratchpad_count;
 
+    /* Cache for 1024-byte aligned device ctx structures */
+    zone_allocator_t* device_ctx_allocator;
+
     /* We allocate these things ourselves for the xhci controller */
     xhci_dev_ctx_array_t* dctx_array_ptr;
     xhci_ring_t* cmd_ring_ptr;
     xhci_interrupter_t* interrupter;
     xhci_scratchpad_t* scratchpad_ptr;
 } xhci_hcd_t;
+
+int xhci_get_port_sts(struct xhci_hcd* xhci, u8 idx, usb_port_status_t* status);
+int xhci_clear_port_ftr(struct xhci_hcd* xhci, u8 idx, u32 feature);
+int xhci_set_port_ftr(struct xhci_hcd* xhci, u8 idx, u32 feature);
 
 extern void _xhci_event_poll(xhci_hcd_t* xhci);
 

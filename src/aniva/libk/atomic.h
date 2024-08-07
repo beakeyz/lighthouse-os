@@ -33,14 +33,31 @@ static ALWAYS_INLINE uintptr_t _atomic_load_alt(volatile uintptr_t* var, MemOrde
     return __atomic_load_n(var, order);
 }
 
-// defaults
+//
+// Defaults
+//
+// x86 memory barier instructions
+//
+// NOTE: If (Or rather when) we want to port this system
+// to multiple architectures, we need to find the arch-specific instructions
+//
 
-// ensure memory syncronisation
-static ALWAYS_INLINE void full_mem_barier()
+static ALWAYS_INLINE void mem_barier_read()
 {
-    // thx serenityOS once again
-    __atomic_signal_fence(memory_order_acq_rel);
-    __atomic_thread_fence(memory_order_acq_rel);
+    /* Load fence */
+    asm volatile("lfence" : : : "memory");
+}
+
+static ALWAYS_INLINE void mem_barier_write()
+{
+    /* Store fence */
+    asm volatile("sfence" : : : "memory");
+}
+
+static ALWAYS_INLINE void mem_barier_full()
+{
+    /* Memory fence */
+    asm volatile("mfence" : : : "memory");
 }
 
 static ALWAYS_INLINE void atomicStore(volatile void** var, void* d)
