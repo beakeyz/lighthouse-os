@@ -74,9 +74,11 @@ typedef struct proc {
     khandle_map_t m_handle_map;
     kresource_bundle_t* m_resource_bundle;
 
+    /* A couple of static pointers to certain threads */
     struct thread* m_init_thread;
     struct thread* m_idle_thread;
-    struct thread* m_prev_thread;
+
+    /* Simple linked list that contains all our threads */
     list_t* m_threads;
 
     size_t m_thread_count;

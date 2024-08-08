@@ -55,7 +55,7 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     thread->m_tid = -1;
     thread->m_mutex_list = init_list();
 
-    thread->f_entry = (ThreadEntry)entry;
+    thread->f_entry = (f_tentry_t)entry;
 
     /* TODO: thread locking */
     thread->m_tid = proc->m_thread_count;

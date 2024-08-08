@@ -4,8 +4,12 @@
 #include "libk/stddef.h"
 #include "system/processor/registers.h"
 
-/* Yoink */
-struct tm {
+/*
+ * Yoink
+ *
+ * This is a UNIX (ew) time struct I'm pretty sure lol
+ */
+typedef struct tm {
     int tm_sec; /* Seconds          [0, 60] */
     int tm_min; /* Minutes          [0, 59] */
     int tm_hour; /* Hour             [0, 23] */
@@ -18,7 +22,7 @@ struct tm {
 
     long tm_gmtoff; /* Seconds East of UTC */
     const char* tm_zone; /* Timezone abbreviation */
-};
+} tm_t, timestamp_t;
 
 /*
  * The aniva timekeeping subsystem

@@ -17,30 +17,39 @@ struct mutex;
 struct threaded_socket;
 struct drv_manifest;
 
-typedef int (*ThreadEntry)(
-    uintptr_t arg);
-
-#define THREAD_FLAGS_HAS_RAN 0x00000001
-#define THREAD_FLAGS_SYSCALLING 0x00000002
+typedef int (*f_tentry_t)(uintptr_t arg);
 
 // TODO: thread uid?
 typedef struct thread {
     const char* m_name;
+    /* Only one thread may access another thread at a given time */
     struct mutex* m_lock;
+    /* The parent process of this thread */
     struct proc* m_parent_proc;
+
     /* TODO: figure out if this is legal */
     list_t* m_mutex_list;
-    ThreadEntry f_entry;
 
+    /* Internal thread hw context */
     thread_context_t m_context;
-    uint64_t m_ticks_elapsed;
-    uint64_t m_max_ticks;
+    /* Internal thread FPU hw context */
     FpuState m_fpu_state;
 
+    /* Entrypoint */
+    f_tentry_t f_entry;
+
+    /* Tick information about this thread */
+    uint64_t m_ticks_elapsed;
+    uint64_t m_max_ticks;
+
+    /* The ID this thread has */
     thread_id_t m_tid;
+    /* The CPU ID of the cpu that this thread is getting scheduled on */
     uint32_t m_cpu; // atomic?
+    /* The current or last sysid that is being called or was called */
     enum SYSID m_c_sysid;
-    THREAD_STATE_t m_current_state;
+    /* State this thread is in */
+    enum THREAD_STATE m_current_state;
 
     /* The vaddress of the stack bottom, as seen by the kernel */
     vaddr_t m_kernel_stack_bottom;
@@ -52,7 +61,7 @@ typedef struct thread {
 
 /*
  * create a thread structure
- * when passing NULL to ThreadEntryWrapper, we use the default
+ * when passing NULL to f_tentry_tWrapper, we use the default
  */
 thread_t* create_thread(FuncPtr, uintptr_t, const char*, struct proc*, bool); // make this sucka
 

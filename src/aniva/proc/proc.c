@@ -306,7 +306,7 @@ kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1
 
     mutex_lock(p->m_init_thread->m_lock);
 
-    p->m_init_thread->f_entry = (ThreadEntry)entry;
+    p->m_init_thread->f_entry = (f_tentry_t)entry;
 
     thread_set_entrypoint(p->m_init_thread, entry, arg0, arg1);
 
@@ -526,7 +526,8 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     sysvar_attach(env_node, SYSVAR_STDIO, 0, SYSVAR_TYPE_STRING, NULL, PROFILE_STR(stdio_path));
     sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, stdio_type);
 
-    return -(sched_add_proc(proc, prio) != ANIVA_SUCCESS);
+    /* Try to add all threads of this process to the scheduler */
+    return scheduler_add_proc(proc);
 }
 
 /*
@@ -600,7 +601,7 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
     proc->m_flags |= PROC_FINISHED;
 
     /* Remove from the scheduler (Pauses it) */
-    (void)sched_remove_proc(proc);
+    (void)scheduler_remove_proc(proc);
 
     /*
      * Register to the reaper
