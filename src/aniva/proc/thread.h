@@ -13,6 +13,7 @@
 
 struct proc;
 struct thread;
+struct sthread;
 struct mutex;
 struct threaded_socket;
 struct drv_manifest;
@@ -38,9 +39,8 @@ typedef struct thread {
     /* Entrypoint */
     f_tentry_t f_entry;
 
-    /* Tick information about this thread */
-    uint64_t m_ticks_elapsed;
-    uint64_t m_max_ticks;
+    /* The scheduler thread for this thread */
+    struct sthread** scheduler_thread;
 
     /* The ID this thread has */
     thread_id_t m_tid;
@@ -115,9 +115,6 @@ void thread_try_prepare_userpacket(thread_t* to);
 
 void thread_register_mutex(thread_t* thread, struct mutex* lock);
 void thread_unregister_mutex(thread_t* thread, struct mutex* lock);
-
-void thread_set_max_ticks(thread_t* thread, uintptr_t max_ticks);
-ssize_t thread_ticksleft(thread_t* thread);
 
 /*
  * TODO: blocking means we get ignored by the scheduler

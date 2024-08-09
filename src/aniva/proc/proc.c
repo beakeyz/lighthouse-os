@@ -79,7 +79,6 @@ proc_t* create_proc(proc_t* parent, struct user_profile* profile, char* name, Fu
     memset(proc, 0, sizeof(proc_t));
 
     /* TODO: move away from the idea of idle threads */
-    proc->m_idle_thread = nullptr;
     proc->m_parent = parent;
     proc->m_flags = flags | PROC_UNRUNNED;
     proc->m_thread_count = 1;
@@ -188,7 +187,6 @@ int proc_clone(proc_t* p, FuncPtr clone_entry, const char* clone_name, proc_t** 
     memset(cloneproc, 0, sizeof(proc_t));
 
     /* TODO: move away from the idea of idle threads */
-    cloneproc->m_idle_thread = nullptr;
     cloneproc->m_parent = p->m_parent;
     cloneproc->m_flags = (cloneproc->m_flags | PROC_UNRUNNED) & ~PROC_FINISHED;
     cloneproc->m_thread_count = 1;
@@ -298,10 +296,6 @@ proc_t* proc_exec(const char* cmd, struct user_profile* profile, u32 flags)
 kerror_t proc_set_entry(proc_t* p, FuncPtr entry, uintptr_t arg0, uintptr_t arg1)
 {
     if (!p || !p->m_init_thread)
-        return -KERR_INVAL;
-
-    /* Can't set the entry of a process that has already been scheduled */
-    if (p->m_init_thread->m_ticks_elapsed)
         return -KERR_INVAL;
 
     mutex_lock(p->m_init_thread->m_lock);

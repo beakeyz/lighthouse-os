@@ -23,6 +23,7 @@
 #include "mem/zalloc/zalloc.h"
 #include "oss/core.h"
 #include "proc/core.h"
+#include "proc/kprocs/idle.h"
 #include "proc/kprocs/reaper.h"
 #include "proc/proc.h"
 #include "system/acpi/acpi.h"
@@ -297,21 +298,24 @@ NOINLINE void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic)
     /* Initialize the subsystem responsible for managing processes */
     init_proc_core();
 
+    /* Initialize the kernel idle process */
+    init_kernel_idle();
+
     /* Initialize scheduler on the bsp */
     init_scheduler(0);
 
-    root_proc = create_kernel_proc(kthread_entry, NULL);
+    // root_proc = create_kernel_proc(kthread_entry, NULL);
 
-    ASSERT_MSG(root_proc, "Failed to create a root process!");
+    // ASSERT_MSG(root_proc, "Failed to create a root process!");
 
     /* Create a reaper thread to kill processes through an async pipeline */
-    init_reaper(root_proc);
+    // init_reaper(root_proc);
 
     /* Register our kernel process */
-    set_kernel_proc(root_proc);
+    // set_kernel_proc(root_proc);
 
     /* Add it to the scheduler */
-    ASSERT(proc_schedule(root_proc, NULL, NULL, NULL, NULL, SCHED_PRIO_MID) == 0);
+    // ASSERT(proc_schedule(root_proc, NULL, NULL, NULL, NULL, SCHED_PRIO_MID) == 0);
 
     /* Start the scheduler (Should never return) */
     start_scheduler();

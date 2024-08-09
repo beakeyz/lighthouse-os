@@ -85,8 +85,11 @@ int __do_tick(struct time_chip* chip, registers_t* regs, size_t delta)
     /* NOTE: we store the current processor structure in the GS register */
     this = get_current_scheduler();
 
-    if (this && this->f_tick)
-        this->f_tick(regs);
+    if (!this || !this->f_tick)
+        return 0;
+
+    /* Call the scheduler */
+    (void)this->f_tick(regs);
 
     return 0;
 }

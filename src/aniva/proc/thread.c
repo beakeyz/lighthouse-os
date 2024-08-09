@@ -30,7 +30,7 @@ static thread_t* __generic_idle_thread;
 // static kerror_t __thread_populate_user_stack(thread_t* thread);
 
 thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t* proc, bool kthread)
-{ // make this sucka
+{
     thread_t* thread;
     void* k_stack_addr;
 
@@ -50,8 +50,6 @@ thread_t* create_thread(FuncPtr entry, uintptr_t data, const char* name, proc_t*
     thread->m_cpu = get_current_processor()->m_cpu_num;
     thread->m_c_sysid = SYSID_INVAL | SYSID_INVAL_MASK;
     thread->m_parent_proc = proc;
-    thread->m_ticks_elapsed = 0;
-    thread->m_max_ticks = DEFAULT_THREAD_MAX_TICKS;
     thread->m_tid = -1;
     thread->m_mutex_list = init_list();
 
@@ -145,11 +143,29 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr
 
 void thread_set_state(thread_t* thread, THREAD_STATE_t state)
 {
+    pause_scheduler();
+
     mutex_lock(thread->m_lock);
 
     thread->m_current_state = state;
 
     mutex_unlock(thread->m_lock);
+
+    switch (state) {
+    case STOPPED:
+    case BLOCKED:
+    case SLEEPING:
+        /* Need to inactivate this thread */
+        break;
+    case RUNNABLE:
+    case RUNNING:
+        /* Need to reactivate this thread */
+        break;
+    default:
+        break;
+    }
+
+    resume_scheduler();
 }
 
 // TODO: finish
@@ -208,17 +224,6 @@ void thread_unregister_mutex(thread_t* thread, mutex_t* lock)
         return;
 
     list_remove_ex(thread->m_mutex_list, lock);
-}
-
-void thread_set_max_ticks(thread_t* thread, uintptr_t max_ticks)
-{
-    thread->m_max_ticks = max_ticks;
-    thread->m_ticks_elapsed = 0;
-}
-
-ssize_t thread_ticksleft(thread_t* thread)
-{
-    return thread->m_max_ticks - thread->m_ticks_elapsed;
 }
 
 thread_t* get_generic_idle_thread()
@@ -495,7 +500,7 @@ void thread_block(thread_t* thread)
  */
 void thread_unblock(thread_t* thread)
 {
-    //ASSERT_MSG(thread->m_current_state == BLOCKED, "Tried to unblock a non-blocking thread!");
+    // ASSERT_MSG(thread->m_current_state == BLOCKED, "Tried to unblock a non-blocking thread!");
 
     if (thread->m_current_state != BLOCKED)
         return;
@@ -543,7 +548,6 @@ void thread_stop(thread_t* thread)
 
     c_thread = get_current_scheduling_thread();
 
-    thread_set_max_ticks(thread, 0);
     thread_set_state(thread, STOPPED);
 
     /* Yield to get out of the scheduler */

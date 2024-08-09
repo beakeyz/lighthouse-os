@@ -1,11 +1,17 @@
 #ifndef __ANIVA_SCHEDULER__
 #define __ANIVA_SCHEDULER__
+
 #include "libk/flow/error.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/time.h"
 #include "system/processor/registers.h"
+#include "time/core.h"
 #include <mem/zalloc/zalloc.h>
+
+struct squeue;
+struct sthread;
+struct scheduler;
 
 /*
  * LightOS Scheduler v2
@@ -112,17 +118,46 @@ typedef struct sthread {
     /* Priority scores given to this thread by the scheduler */
     u16 prio_penalty;
 
+    /* The queue we're currently in */
+    struct squeue* c_queue;
+
     /* sthreads with the same scheduler priority are put into a linked list */
     struct sthread* next;
 } sched_thread_t, sthread_t;
+
+/* sthread.c */
+extern sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIORITY p);
+extern void destroy_sthread(struct scheduler* s, sthread_t* st);
+
+static inline void sthread_calc_stimeslice(sthread_t* st)
+{
+    if (st->base_prio & SCHED_PRIO_CHANGED_BIT) {
+        /* Clear the prio changed bit */
+        st->base_prio &= ~SCHED_PRIO_CHANGED_BIT;
+        /* recalculate priority */
+        st->actual_prio = SCHEDULER_CALC_PRIO(st);
+    }
+
+    /* Calculate a new timeslice */
+    st->tslice = STIMESLICE(st);
+}
+
+typedef struct sthread_list_head {
+    struct sthread* list;
+    struct sthread** enq;
+} sthread_list_head_t;
 
 /*
  * A scheduler thread queue
  */
 typedef struct squeue {
     /* An array of sthread lists */
-    struct sthread* vec_threads[N_SCHED_PRIO];
+    sthread_list_head_t vec_threads[N_SCHED_PRIO];
+    /* Pointer to the current sthread inside vec_threads[thread_base_prio] */
+    struct sthread** c_ptr_sthread;
 
+    /* The current active priority that's being scheduled */
+    u32 active_prio;
     /* The sthread count in this queue */
     u32 n_sthread;
 } scheduler_queue_t, squeue_t;
@@ -130,9 +165,36 @@ typedef struct squeue {
 /* queue.c */
 extern kerror_t init_squeue(scheduler_queue_t* out);
 extern kerror_t squeue_clear(scheduler_queue_t* queue);
-extern kerror_t squeue_enqueue(scheduler_queue_t* queue, struct thread* t);
-extern struct sched_frame* squeue_dequeue(scheduler_queue_t* queue);
-extern struct sched_frame* squeue_peek(scheduler_queue_t* queue);
+
+static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
+{
+    /* Set the threads next pointer */
+    t->next = nullptr;
+    t->c_queue = queue;
+
+    /* Put the thread inside the correct list */
+    *queue->vec_threads[t->base_prio].enq = t;
+    queue->vec_threads[t->base_prio].enq = &t->next;
+
+    /* Increase the threads count */
+    queue->n_sthread++;
+}
+
+static inline void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
+{
+    /* If *t->next is null, we know that the queue enqueue pointer points to it */
+    if (!(*t)->next)
+        queue->vec_threads[(*t)->base_prio].enq = t;
+
+    /* Close the link */
+    *t = (*t)->next;
+
+    /* Update the threads queue status */
+    (*t)->c_queue = nullptr;
+
+    /* Decrease the threads count */
+    queue->n_sthread--;
+}
 
 /*
  * This is the structure that holds information about a processors
@@ -140,10 +202,15 @@ extern struct sched_frame* squeue_peek(scheduler_queue_t* queue);
  */
 typedef struct scheduler {
     /* Lock to make sure only one thread accesses the scheduler at once */
-    mutex_t* lock;
+    spinlock_t* lock;
+    /* How many layered pause calls have we already had */
     uint32_t pause_depth;
-    uint32_t interrupt_depth;
+    /* How often did we try to disable interrupts */
+    uint32_t int_disable_depth;
+    /* Scheduler status flags */
     uint32_t flags;
+    /* How many timer ticks left until the scheduler gets called again */
+    uint32_t tick_saldo;
 
     /*
      * We have two queues to move threads between.
@@ -156,19 +223,42 @@ typedef struct scheduler {
     /* Queue where active threads sit (threads which still have an active timeslice) */
     squeue_t* active_q;
     /* Queue where all the threads go that have used up their timeslice of this epoch */
-    squeue_t* inactive_q;
+    squeue_t* expired_q;
 
-    /* The current running thread on the scheduler */
-    sthread_t* c_thread;
+    /* Inactivated threads go here */
+    sthread_t* inactive_thread_list;
+    sthread_t** inactive_thread_list_enq;
     /* The idle thread for this CPU/scheduler */
     sthread_t* idle;
 
     /* sthread cache */
     zone_allocator_t* sthread_allocator;
 
+    /* Base time at the time of creating the scheduler */
+    system_time_t scheduler_base_time;
+
     /* Ticker function. Called every scheduler interrupt */
     registers_t* (*f_tick)(registers_t* regs);
 } scheduler_t;
+
+/*
+ * Switch around the two queue pointers, using the XOR
+ * swizzle method
+ */
+static inline void scheduler_switch_queues(scheduler_t* s)
+{
+    s->active_q = (squeue_t*)((u64)s->active_q ^ (u64)s->expired_q);
+    s->expired_q = (squeue_t*)((u64)s->expired_q ^ (u64)s->active_q);
+    s->active_q = (squeue_t*)((u64)s->active_q ^ (u64)s->expired_q);
+}
+
+static inline sthread_t* scheduler_get_active_sthrad(scheduler_t* s)
+{
+    if (!s->active_q->c_ptr_sthread)
+        return nullptr;
+
+    return *s->active_q->c_ptr_sthread;
+}
 
 /*
  * initialization
@@ -185,9 +275,14 @@ ANIVA_STATUS pause_scheduler();
  * yield to the scheduler and let it switch to a new thread
  */
 void scheduler_yield();
+int scheduler_try_execute();
 
 kerror_t scheduler_add_thread(thread_t* thread, enum SCHEDULER_PRIORITY prio);
+kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULER_PRIORITY prio);
 kerror_t scheduler_remove_thread(thread_t* thread);
+kerror_t scheduler_remove_thread_ex(scheduler_t* s, thread_t* thread);
+kerror_t scheduler_inactivate_thread(thread_t* thread);
+kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread);
 /*
  * Try and insert a new process into the scheduler
  * to be scheduled on the next reschedule. This function

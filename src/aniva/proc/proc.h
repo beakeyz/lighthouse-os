@@ -76,7 +76,6 @@ typedef struct proc {
 
     /* A couple of static pointers to certain threads */
     struct thread* m_init_thread;
-    struct thread* m_idle_thread;
 
     /* Simple linked list that contains all our threads */
     list_t* m_threads;
