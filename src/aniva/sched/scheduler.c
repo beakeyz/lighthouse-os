@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "entry/entry.h"
 #include "irq/interrupts.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "logging/log.h"
@@ -10,6 +11,7 @@
 #include "proc/thread.h"
 #include "sched/time.h"
 #include "sync/atomic_ptr.h"
+#include "sync/spinlock.h"
 #include "sys/types.h"
 #include "system/asm_specifics.h"
 #include "system/processor/processor.h"
@@ -198,6 +200,9 @@ ANIVA_STATUS init_scheduler(uint32_t cpu)
     this->active_q = &this->queues[0];
     this->expired_q = &this->queues[1];
 
+    this->inactive_thread_list = NULL;
+    this->inactive_thread_list_enq = &this->inactive_thread_list;
+
     set_current_handled_thread(nullptr);
     set_current_proc(nullptr);
 
@@ -326,24 +331,6 @@ ANIVA_STATUS resume_scheduler()
     return ANIVA_SUCCESS;
 }
 
-static inline bool scheduler_has_request(scheduler_t* s)
-{
-    return (s->flags & SCHEDULER_FLAG_HAS_REQUEST) == SCHEDULER_FLAG_HAS_REQUEST;
-}
-
-static inline void scheduler_clear_request(scheduler_t* s)
-{
-    s->flags &= ~SCHEDULER_FLAG_HAS_REQUEST;
-}
-
-/*!
- * @brief: Notify the scheduler that we want to reschedule
- */
-void scheduler_set_request(scheduler_t* s)
-{
-    s->flags |= SCHEDULER_FLAG_HAS_REQUEST;
-}
-
 /*!
  * @brief: Try to execute a schedule on the current scheduler
  *
@@ -363,23 +350,28 @@ int scheduler_try_execute()
     ASSERT_MSG(p->m_irq_depth == 0, "Trying to call scheduler while in irq");
 
     if (atomic_ptr_read(p->m_critical_depth))
-        return -1;
+        return -KERR_INVAL;
 
-    /* If we don't want to schedule, or our scheduler is paused, return */
-    if (!scheduler_has_request(s))
-        return -1;
+    if (s->pause_depth)
+        return -KERR_INVAL;
 
-    scheduler_clear_request(s);
+    /* Grab the current thread */
+    c_thread = get_current_scheduling_thread();
 
+    /* Grab the current target thread */
     target_thread = s->active_q->c_ptr_sthread ? *s->active_q->c_ptr_sthread : NULL;
 
     if (!target_thread) {
         target_thread = s->idle;
 
-        KLOG_INFO("Scheduler: Switching to idle thread!");
+        KLOG_INFO("Scheduler: Switching to idle thread!\n");
     }
 
-    c_thread = get_current_scheduling_thread();
+    /* No thread change, don't do a context switch */
+    if (c_thread == target_thread->t)
+        return -1;
+
+    KLOG_INFO("Scheduler: Switching contexts! (%s:%s -> %s:%s)\n", c_thread->m_parent_proc->m_name, c_thread->m_name, target_thread->t->m_parent_proc->m_name, target_thread->t->m_name);
 
     /* Set the previous and current threads */
     set_previous_thread(c_thread);
@@ -432,7 +424,7 @@ void scheduler_yield()
  * @returns: true if the scheduler needs to do a sthread reschedule, false if there
  * is nothing to be done.
  */
-static inline bool try_do_sthread_tick(scheduler_t* sched, bool force)
+static inline bool try_do_sthread_tick(scheduler_t* sched, stimeslice_t delta, bool force)
 {
     squeue_t* active_q;
     sthread_t* c_sthread;
@@ -457,7 +449,7 @@ static inline bool try_do_sthread_tick(scheduler_t* sched, bool force)
         active_q->active_prio = SCHED_PRIO_7 - i;
 
         /* Set the current scheduler thread */
-        c_ptr_sthread = &active_q->vec_threads[SCHED_PRIO_7 - i].list;
+        active_q->c_ptr_sthread = c_ptr_sthread = &active_q->vec_threads[SCHED_PRIO_7 - i].list;
     }
 
     /* Check if we found something */
@@ -467,14 +459,13 @@ static inline bool try_do_sthread_tick(scheduler_t* sched, bool force)
         return false;
     }
 
-    /* Set the current thread in the queue */
-    active_q->c_ptr_sthread = c_ptr_sthread;
-
     /* Dereference 0.0 */
     c_sthread = *c_ptr_sthread;
 
     /* Add a single stepping to the timeslice */
-    c_sthread->elapsed_tslice += STIMESLICE_STEPPING;
+    c_sthread->elapsed_tslice += delta;
+
+    KLOG_DBG("Stepping: %s:%s\n", c_sthread->t->m_parent_proc->m_name, c_sthread->t->m_name);
 
     /*
      * Check if this thread still has time left
@@ -521,14 +512,14 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
     if (!active_thread || !(*active_thread))
         return;
 
-    /* Make sure the scheduler does requeue */
-    scheduler_set_request(scheduler);
-
     /* Does this thread still have time in this epoch? */
     if ((*active_thread)->tslice <= 0)
         scheduler_move_thread_to_inactive(scheduler, active_thread);
     else
         scheduler->active_q->c_ptr_sthread = &(*active_thread)->next;
+
+    /* pseudo-tick */
+    try_do_sthread_tick(scheduler, 0, false);
 }
 
 /*!
@@ -540,9 +531,13 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
  */
 static inline void scheduler_end_epoch(scheduler_t* scheduler)
 {
+    KLOG_DBG("Scheduler: Ending epoch!\n");
+
     /* Switch the two queue pointers around, if the inactive_q does have threads */
-    if (scheduler->expired_q->n_sthread)
+    if (scheduler->expired_q->n_sthread) {
+        KLOG_DBG("Scheduler: Switching expired and active queue pointers!\n");
         scheduler_switch_queues(scheduler);
+    }
 
     /* Make sure the active thread is reset propperly */
     scheduler->active_q->active_prio = SCHED_PRIO_7;
@@ -550,6 +545,9 @@ static inline void scheduler_end_epoch(scheduler_t* scheduler)
 
     /* Reset this shit, just in case */
     scheduler->expired_q->c_ptr_sthread = NULL;
+
+    /* Do a single pseudo-tick, to fixup the current thread pointer for the active queue */
+    try_do_sthread_tick(scheduler, 0, false);
 }
 
 /*!
@@ -569,7 +567,7 @@ static inline void scheduler_do_tick(scheduler_t* sched, bool force)
     bool need_requeue;
 
     /* Don't force the reschedule */
-    need_requeue = try_do_sthread_tick(sched, force);
+    need_requeue = try_do_sthread_tick(sched, STIMESLICE_STEPPING, force);
 
     /* We need to requeue the current sthread lolol */
     if (need_requeue)
@@ -627,14 +625,24 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
 
     /* Grab the direct pointer */
     if (!p_sched_thread)
+        /* New thread, create a new sthread for it */
         sched_thread = create_sthread(s, thread, prio);
     else {
+        /* Gotta reactivate this thread, yoink it from the inactive list */
         sched_thread = *p_sched_thread;
         *p_sched_thread = (*p_sched_thread)->next;
     }
 
-    /* Enqueue the bitch */
+    /*
+     * Enqueue the bitch in the expired list. This way we don't mess up
+     * the current epoch
+     */
     squeue_enqueue(s->expired_q, sched_thread);
+
+    KLOG_DBG("Added thread (%s) to queue 0x%p\n", thread->m_name, sched_thread->c_queue);
+
+    /* Recalculate the timeslice, just in case */
+    sthread_calc_stimeslice(sched_thread);
 
     resume_scheduler();
     return 0;
@@ -665,37 +673,85 @@ kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread)
     if (!thread->scheduler_thread)
         return -KERR_INVAL;
 
+    pause_scheduler();
+
     sthread = *thread->scheduler_thread;
 
-    if (!sthread)
+    if (!sthread) {
+        resume_scheduler();
         return -KERR_INVAL;
+    }
 
-    pause_scheduler();
+    KLOG_DBG("Removing thread from it's queue\n");
 
     /* Remove the scheduler thread from it's queue */
     squeue_remove(sthread->c_queue, thread->scheduler_thread);
 
-    /* Enqueue the thread at the end of the inactive thread list */
-    sthread->next = nullptr;
-    /* This sthread isn't in a queue anymore */
-    sthread->c_queue = nullptr;
-    *s->inactive_thread_list_enq = sthread;
+    KLOG_DBG("Fixing thread link\n");
 
     /* Set the threads slot pointer */
     thread->scheduler_thread = s->inactive_thread_list_enq;
 
+    *s->inactive_thread_list_enq = sthread;
     s->inactive_thread_list_enq = &sthread->next;
 
     resume_scheduler();
     return 0;
 }
 
-kerror_t scheduler_add_proc(proc_t* p)
+kerror_t scheduler_add_proc(proc_t* p, enum SCHEDULER_PRIORITY prio)
 {
-    return 0;
+    return scheduler_add_proc_ex(get_current_scheduler(), p, prio);
+}
+
+/*!
+ * @brief: Adds all the threads of a single process to the scheduler
+ *
+ * NOTE: All the threads currently in the process will all recieve the same base priority
+ */
+kerror_t scheduler_add_proc_ex(scheduler_t* scheduler, proc_t* p, enum SCHEDULER_PRIORITY prio)
+{
+    int error = 0;
+    thread_t* c_thread;
+
+    if (!scheduler || !p)
+        return -KERR_INVAL;
+
+    FOREACH(i, p->m_threads)
+    {
+        c_thread = i->data;
+
+        error = scheduler_add_thread_ex(scheduler, c_thread, prio);
+
+        if (error)
+            break;
+    }
+
+    return error;
 }
 
 kerror_t scheduler_remove_proc(proc_t* p)
 {
-    return 0;
+    return scheduler_remove_proc_ex(get_current_scheduler(), p);
+}
+
+kerror_t scheduler_remove_proc_ex(scheduler_t* scheduler, proc_t* p)
+{
+    int error = 0;
+    thread_t* c_thread;
+
+    if (!scheduler || !p)
+        return -KERR_INVAL;
+
+    FOREACH(i, p->m_threads)
+    {
+        c_thread = i->data;
+
+        error = scheduler_remove_thread_ex(scheduler, c_thread);
+
+        if (error)
+            break;
+    }
+
+    return error;
 }

@@ -521,7 +521,7 @@ int proc_schedule(proc_t* proc, struct user_profile* profile, const char* cmd, c
     sysvar_attach(env_node, SYSVAR_STDIO_HANDLE_TYPE, 0, SYSVAR_TYPE_BYTE, NULL, stdio_type);
 
     /* Try to add all threads of this process to the scheduler */
-    return scheduler_add_proc(proc);
+    return scheduler_add_proc(proc, prio);
 }
 
 /*
@@ -691,8 +691,7 @@ kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
      * adding it. We don't have this time with the initial thread, which has it's context prepared right before it
      * is scheduled for the first time
      */
-    if (proc->m_init_thread != thread)
-        thread_prepare_context(thread);
+    thread_prepare_context(thread);
 
     resume_scheduler();
 

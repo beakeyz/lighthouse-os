@@ -143,29 +143,11 @@ void thread_set_entrypoint(thread_t* ptr, FuncPtr entry, uintptr_t arg0, uintptr
 
 void thread_set_state(thread_t* thread, THREAD_STATE_t state)
 {
-    pause_scheduler();
-
     mutex_lock(thread->m_lock);
 
     thread->m_current_state = state;
 
     mutex_unlock(thread->m_lock);
-
-    switch (state) {
-    case STOPPED:
-    case BLOCKED:
-    case SLEEPING:
-        /* Need to inactivate this thread */
-        break;
-    case RUNNABLE:
-    case RUNNING:
-        /* Need to reactivate this thread */
-        break;
-    default:
-        break;
-    }
-
-    resume_scheduler();
 }
 
 // TODO: finish
@@ -487,7 +469,14 @@ void thread_exit_init_state(thread_t* from, registers_t* regs)
 
 void thread_block(thread_t* thread)
 {
+    pause_scheduler();
+
     thread_set_state(thread, BLOCKED);
+
+    /* Need to inactivate this thread */
+    scheduler_inactivate_thread(thread);
+
+    resume_scheduler();
 
     // FIXME: we do allow blocking other threads here, we need to
     // check if that comes with extra complications
@@ -505,6 +494,11 @@ void thread_unblock(thread_t* thread)
     if (thread->m_current_state != BLOCKED)
         return;
 
+    ASSERT_MSG(thread->scheduler_thread && *thread->scheduler_thread, "Tried to unblock a thread without a scheduler thread");
+
+    /* Add the thread back into the scheduler */
+    scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
+
     /* We can't unblock ourselves, can we? */
     if (get_current_scheduling_thread() == thread) {
         thread_set_state(thread, RUNNING);
@@ -517,7 +511,14 @@ void thread_unblock(thread_t* thread)
 
 void thread_sleep(thread_t* thread)
 {
+    pause_scheduler();
+
     thread_set_state(thread, SLEEPING);
+
+    /* Need to inactivate this thread */
+    scheduler_inactivate_thread(thread);
+
+    resume_scheduler();
 
     // FIXME: we do allow blocking other threads here, we need to
     // check if that comes with extra complications
@@ -528,6 +529,11 @@ void thread_sleep(thread_t* thread)
 void thread_wakeup(thread_t* thread)
 {
     ASSERT_MSG(thread->m_current_state == SLEEPING, "Tried to wake a non-sleeping thread!");
+
+    ASSERT_MSG(thread->scheduler_thread && *thread->scheduler_thread, "Tried to unblock a thread without a scheduler thread");
+
+    /* Add the thread back into the scheduler */
+    scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
 
     /* We can't unblock ourselves, can we? */
     if (get_current_scheduling_thread() == thread) {
@@ -548,7 +554,14 @@ void thread_stop(thread_t* thread)
 
     c_thread = get_current_scheduling_thread();
 
+    pause_scheduler();
+
     thread_set_state(thread, STOPPED);
+
+    /* Need to inactivate this thread */
+    scheduler_inactivate_thread(thread);
+
+    resume_scheduler();
 
     /* Yield to get out of the scheduler */
     if (thread == c_thread)

@@ -70,7 +70,7 @@ enum SCHEDULER_PRIORITY {
     SCHED_PRIO_CHANGED_BIT = 0x80000000,
 };
 
-#define SCHEDULER_FLAG_HAS_REQUEST 0x00000001
+// #define SCHEDULER_FLAG_HAS_REQUEST 0x00000001
 #define SCHEDULER_FLAG_PAUSED 0x00000002
 /* Do we need to reorder the process list? */
 #define SCHEDULER_FLAG_NEED_REORDER 0x00000004
@@ -171,6 +171,8 @@ static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
     /* Set the threads next pointer */
     t->next = nullptr;
     t->c_queue = queue;
+    /* Update the threads scheduler thread link */
+    t->t->scheduler_thread = queue->vec_threads[t->base_prio].enq;
 
     /* Put the thread inside the correct list */
     *queue->vec_threads[t->base_prio].enq = t;
@@ -182,15 +184,24 @@ static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
 
 static inline void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
 {
+    sthread_t* drf_thread = *t;
+
+    if (queue->c_ptr_sthread == &drf_thread->next)
+        queue->c_ptr_sthread = t;
+
     /* If *t->next is null, we know that the queue enqueue pointer points to it */
-    if (!(*t)->next)
-        queue->vec_threads[(*t)->base_prio].enq = t;
+    if (!drf_thread->next)
+        queue->vec_threads[drf_thread->base_prio].enq = t;
+    else
+        /* Make sure the link of the next thread doesn't break */
+        drf_thread->next->t->scheduler_thread = t;
 
     /* Close the link */
-    *t = (*t)->next;
+    *t = drf_thread->next;
 
     /* Update the threads queue status */
-    (*t)->c_queue = nullptr;
+    drf_thread->next = nullptr;
+    drf_thread->c_queue = nullptr;
 
     /* Decrease the threads count */
     queue->n_sthread--;
@@ -290,8 +301,10 @@ kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread);
  * process selection or simply puts itself behind the current
  * running process to be scheduled next, based on the reschedule param
  */
-kerror_t scheduler_add_proc(proc_t* p);
+kerror_t scheduler_add_proc(proc_t* p, enum SCHEDULER_PRIORITY prio);
+kerror_t scheduler_add_proc_ex(scheduler_t* scheduler, proc_t* p, enum SCHEDULER_PRIORITY prio);
 kerror_t scheduler_remove_proc(proc_t* p);
+kerror_t scheduler_remove_proc_ex(scheduler_t* scheduler, proc_t* p);
 
 thread_t* get_current_scheduling_thread();
 thread_t* get_previous_scheduled_thread();

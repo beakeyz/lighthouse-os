@@ -21,7 +21,7 @@ typedef i32 stimeslice_t;
 #define STIMESLICE_MIN 2
 /* and a maximum of however many ticks are stuffed into one second */
 #define STIMESLICE_MAX 40000
-#define STIMESLICE_STEPPING 40
+#define STIMESLICE_STEPPING 400
 /* After how much time should a thread get switched away from */
 #define STIMESLICE_GRANULARITY (3 * STIMESLICE_STEPPING)
 
