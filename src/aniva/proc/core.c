@@ -24,7 +24,7 @@
 // TODO: fix this mechanism, it sucks
 static zone_allocator_t* __thread_allocator;
 
-thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
+struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr entry, uint64_t arg0)
 {
     proc_t* current;
     thread_t* thread;
@@ -50,6 +50,7 @@ thread_t* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0)
         return nullptr;
     }
 
+    scheduler_add_thread(thread, prio);
     return thread;
 }
 

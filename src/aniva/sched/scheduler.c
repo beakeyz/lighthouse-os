@@ -371,7 +371,7 @@ int scheduler_try_execute()
     if (c_thread == target_thread->t)
         return -1;
 
-    KLOG_INFO("Scheduler: Switching contexts! (%s:%s -> %s:%s)\n", c_thread->m_parent_proc->m_name, c_thread->m_name, target_thread->t->m_parent_proc->m_name, target_thread->t->m_name);
+    // KLOG_DBG("Scheduler: Switching contexts! (%s:%s -> %s:%s)\n", c_thread->m_parent_proc->m_name, c_thread->m_name, target_thread->t->m_parent_proc->m_name, target_thread->t->m_name);
 
     /* Set the previous and current threads */
     set_previous_thread(c_thread);
@@ -465,8 +465,6 @@ static inline bool try_do_sthread_tick(scheduler_t* sched, stimeslice_t delta, b
     /* Add a single stepping to the timeslice */
     c_sthread->elapsed_tslice += delta;
 
-    KLOG_DBG("Stepping: %s:%s\n", c_sthread->t->m_parent_proc->m_name, c_sthread->t->m_name);
-
     /*
      * Check if this thread still has time left
      * If the force flag is set, just always fuck over the thread
@@ -531,11 +529,11 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
  */
 static inline void scheduler_end_epoch(scheduler_t* scheduler)
 {
-    KLOG_DBG("Scheduler: Ending epoch!\n");
+    // KLOG_DBG("Scheduler: Ending epoch!\n");
 
     /* Switch the two queue pointers around, if the inactive_q does have threads */
     if (scheduler->expired_q->n_sthread) {
-        KLOG_DBG("Scheduler: Switching expired and active queue pointers!\n");
+        // KLOG_DBG("Scheduler: Switching expired and active queue pointers!\n");
         scheduler_switch_queues(scheduler);
     }
 
@@ -624,10 +622,19 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
     p_sched_thread = thread->scheduler_thread;
 
     /* Grab the direct pointer */
-    if (!p_sched_thread)
+    if (!p_sched_thread) {
         /* New thread, create a new sthread for it */
         sched_thread = create_sthread(s, thread, prio);
-    else {
+
+        /*
+         * Only prepare the context here if we're not trying to add the init thread
+         *
+         * When adding a seperate thread to a process, we have time to alter the thread between creating it and
+         * adding it. We don't have this time with the initial thread, which has it's context prepared right before it
+         * is scheduled for the first time
+         */
+        thread_prepare_context(thread);
+    } else {
         /* Gotta reactivate this thread, yoink it from the inactive list */
         sched_thread = *p_sched_thread;
         *p_sched_thread = (*p_sched_thread)->next;
@@ -639,8 +646,6 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
      */
     squeue_enqueue(s->expired_q, sched_thread);
 
-    KLOG_DBG("Added thread (%s) to queue 0x%p\n", thread->m_name, sched_thread->c_queue);
-
     /* Recalculate the timeslice, just in case */
     sthread_calc_stimeslice(sched_thread);
 
@@ -650,6 +655,7 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
 
 kerror_t scheduler_remove_thread(thread_t* thread)
 {
+    kernel_panic("TODO: scheduler_remove_thread");
     return 0;
 }
 
@@ -682,12 +688,8 @@ kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread)
         return -KERR_INVAL;
     }
 
-    KLOG_DBG("Removing thread from it's queue\n");
-
     /* Remove the scheduler thread from it's queue */
     squeue_remove(sthread->c_queue, thread->scheduler_thread);
-
-    KLOG_DBG("Fixing thread link\n");
 
     /* Set the threads slot pointer */
     thread->scheduler_thread = s->inactive_thread_list_enq;

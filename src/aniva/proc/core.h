@@ -57,7 +57,7 @@ void deallocate_thread(struct thread* thread);
  * Spawn a thread for the current running process. Does not
  * care about if we are in usermode or kernelland
  */
-struct thread* spawn_thread(char name[32], FuncPtr entry, uint64_t arg0);
+struct thread* spawn_thread(char* name, enum SCHEDULER_PRIORITY prio, FuncPtr entry, uint64_t arg0);
 
 struct proc* find_proc(const char* path);
 

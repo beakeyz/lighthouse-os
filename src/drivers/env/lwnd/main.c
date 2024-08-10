@@ -226,7 +226,7 @@ int init_window_driver()
         return -KERR_NULL;
 
     println("Starting deamon!");
-    ASSERT_MSG(spawn_thread("lwnd_main", lwnd_main, NULL), "Failed to create lwnd main thread");
+    ASSERT_MSG(spawn_thread("lwnd_main", SCHED_PRIO_3, lwnd_main, NULL), "Failed to create lwnd main thread");
 
     return 0;
 }

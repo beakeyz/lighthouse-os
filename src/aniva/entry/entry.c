@@ -337,10 +337,6 @@ NOINLINE void __init _start(struct multiboot_tag* mb_addr, uint32_t mb_magic)
  */
 void kthread_entry(void)
 {
-    for (;;) {
-        KLOG_DBG("Fun\n");
-        scheduler_yield();
-    }
     /* Make sure the scheduler won't ruin our day */
     // pause_scheduler();
 

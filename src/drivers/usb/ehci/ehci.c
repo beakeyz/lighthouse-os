@@ -610,7 +610,7 @@ static int ehci_init_mem(ehci_hcd_t* ehci)
 static int ehci_init_interrupts(ehci_hcd_t* ehci)
 {
     /* TODO: Setup actual interrupts */
-    ehci->interrupt_polling_thread = spawn_thread("EHCI Polling", (FuncPtr)ehci_interrupt_poll, (uint64_t)ehci);
+    ehci->interrupt_polling_thread = spawn_thread("EHCI Polling", SCHED_PRIO_HIGH, (FuncPtr)ehci_interrupt_poll, (uint64_t)ehci);
 
     ASSERT_MSG(ehci->interrupt_polling_thread, "Failed to spawn the EHCI Polling thread!");
 
@@ -693,8 +693,8 @@ static int ehci_setup(usb_hcd_t* hcd)
     ehci->transfer_lock = create_mutex(NULL);
     ehci->async_lock = create_mutex(NULL);
     // ehci->cleanup_lock = create_mutex(NULL);
-    ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
-    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
+    ehci->transfer_finish_thread = spawn_thread("EHCI Transfer Finisher", SCHED_PRIO_HIGH, (FuncPtr)ehci_transfer_finish_thread, (uintptr_t)ehci);
+    ehci->qhead_cleanup_thread = spawn_thread("EHCI Qhead cleanup", SCHED_PRIO_IMPORTANT, (FuncPtr)ehci_qhead_cleanup_thread, (uintptr_t)ehci);
 
     KLOG_DBG("Done with EHCI initialization\n");
     return 0;

@@ -684,15 +684,6 @@ kerror_t proc_add_thread(proc_t* proc, struct thread* thread)
     /* Add the thread to the processes list (NOTE: ->m_thread_count has already been updated at this point) */
     list_append(proc->m_threads, thread);
 
-    /*
-     * Only prepare the context here if we're not trying to add the init thread
-     *
-     * When adding a seperate thread to a process, we have time to alter the thread between creating it and
-     * adding it. We don't have this time with the initial thread, which has it's context prepared right before it
-     * is scheduled for the first time
-     */
-    thread_prepare_context(thread);
-
     resume_scheduler();
 
 unlock_and_exit:

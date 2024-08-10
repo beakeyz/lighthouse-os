@@ -20,6 +20,7 @@
 #include <dev/usb/port.h>
 
 #include "extended.h"
+#include "sched/scheduler.h"
 #include "xhci.h"
 
 int xhci_init(drv_manifest_t* driver);
@@ -865,7 +866,7 @@ int xhci_setup(usb_hcd_t* hcd)
         goto fail_and_dealloc;
 
     /* Create the async polling threads (TODO: only when it's configured to use this) */
-    xhci->event_thread = spawn_thread("xhci_event", _xhci_event_poll, (uint64_t)xhci);
+    xhci->event_thread = spawn_thread("xhci_event", SCHED_PRIO_6, _xhci_event_poll, (uint64_t)xhci);
     // xhci->trf_finish_thread = spawn_thread("xhci_trf_thread", nullptr, (uint64_t)xhci);
 
     /*
