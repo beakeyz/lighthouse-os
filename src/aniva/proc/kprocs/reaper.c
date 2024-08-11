@@ -2,6 +2,7 @@
 #include "libk/data/queue.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
+#include "logging/log.h"
 #include "proc/core.h"
 #include "proc/proc.h"
 #include "proc/thread.h"
@@ -84,9 +85,11 @@ static void USED reaper_main()
         if (proc)
             destroy_proc(proc);
 
-        //scheduler_yield();
-        if (!thread && !proc)
+        // scheduler_yield();
+        if (!thread && !proc) {
+            KLOG_DBG("Reaper: Nothing to be done, blockin...\n");
             thread_block(__reaper_thread);
+        }
     }
 
     kernel_panic("Reaper thread isn't supposed to exit its loop!");
@@ -122,7 +125,9 @@ kerror_t reaper_register_process(proc_t* proc)
     /* Unlock the mutex. After this we musn't access @proc anymore */
     mutex_unlock(__reaper_process_lock);
 
+    KLOG_DBG("Unblocking reaper...\n");
     thread_unblock(__reaper_thread);
+    KLOG_DBG("Unblocked reaper!\n");
     return (0);
 }
 

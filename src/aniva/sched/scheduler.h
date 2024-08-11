@@ -129,6 +129,24 @@ typedef struct sthread {
 extern sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIORITY p);
 extern void destroy_sthread(struct scheduler* s, sthread_t* st);
 
+static inline void sthread_remove_link(sthread_t** st_slot)
+{
+    sthread_t* drf_thread = *st_slot;
+
+    /* If *t->next is null, we know that the queue enqueue pointer points to it */
+    if (drf_thread->next)
+        /* Make sure the link of the next thread doesn't break */
+        drf_thread->next->t->scheduler_thread = st_slot;
+
+    /* Close the link */
+    *st_slot = drf_thread->next;
+
+    /* Update the threads queue status */
+    drf_thread->next = nullptr;
+    drf_thread->c_queue = nullptr;
+    drf_thread->t->scheduler_thread = NULL;
+}
+
 static inline void sthread_calc_stimeslice(sthread_t* st)
 {
     if (st->base_prio & SCHED_PRIO_CHANGED_BIT) {
@@ -184,24 +202,15 @@ static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
 
 static inline void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
 {
-    sthread_t* drf_thread = *t;
-
-    if (queue->c_ptr_sthread == &drf_thread->next)
+    if (queue->c_ptr_sthread == &(*t)->next)
         queue->c_ptr_sthread = t;
 
     /* If *t->next is null, we know that the queue enqueue pointer points to it */
-    if (!drf_thread->next)
-        queue->vec_threads[drf_thread->base_prio].enq = t;
-    else
-        /* Make sure the link of the next thread doesn't break */
-        drf_thread->next->t->scheduler_thread = t;
+    if (!(*t)->next)
+        queue->vec_threads[(*t)->base_prio].enq = t;
 
-    /* Close the link */
-    *t = drf_thread->next;
-
-    /* Update the threads queue status */
-    drf_thread->next = nullptr;
-    drf_thread->c_queue = nullptr;
+    /* Remove the thread link */
+    sthread_remove_link(t);
 
     /* Decrease the threads count */
     queue->n_sthread--;

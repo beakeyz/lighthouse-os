@@ -496,17 +496,10 @@ void thread_unblock(thread_t* thread)
 
     ASSERT_MSG(thread->scheduler_thread && *thread->scheduler_thread, "Tried to unblock a thread without a scheduler thread");
 
+    thread_set_state(thread, RUNNABLE);
+
     /* Add the thread back into the scheduler */
     scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
-
-    /* We can't unblock ourselves, can we? */
-    if (get_current_scheduling_thread() == thread) {
-        thread_set_state(thread, RUNNING);
-        kernel_panic("Wait, how did we unblock ourselves?");
-        return;
-    }
-
-    thread_set_state(thread, RUNNABLE);
 }
 
 void thread_sleep(thread_t* thread)
@@ -532,9 +525,6 @@ void thread_wakeup(thread_t* thread)
 
     ASSERT_MSG(thread->scheduler_thread && *thread->scheduler_thread, "Tried to unblock a thread without a scheduler thread");
 
-    /* Add the thread back into the scheduler */
-    scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
-
     /* We can't unblock ourselves, can we? */
     if (get_current_scheduling_thread() == thread) {
         thread_set_state(thread, RUNNING);
@@ -543,6 +533,9 @@ void thread_wakeup(thread_t* thread)
     }
 
     thread_set_state(thread, RUNNABLE);
+
+    /* Add the thread back into the scheduler */
+    scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
 }
 
 void thread_stop(thread_t* thread)
@@ -559,7 +552,7 @@ void thread_stop(thread_t* thread)
     thread_set_state(thread, STOPPED);
 
     /* Need to inactivate this thread */
-    scheduler_inactivate_thread(thread);
+    scheduler_remove_thread(thread);
 
     resume_scheduler();
 

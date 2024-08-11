@@ -594,14 +594,14 @@ kerror_t try_terminate_process_ex(proc_t* proc, bool defer_yield)
     /* Mark as finished, since we know we won't be seeing it again after we return from this call */
     proc->m_flags |= PROC_FINISHED;
 
-    /* Remove from the scheduler (Pauses it) */
-    (void)scheduler_remove_proc(proc);
-
     /*
      * Register to the reaper
      * NOTE: this also pauses the scheduler
      */
     error = reaper_register_process(proc);
+
+    /* Remove from the scheduler (Pauses it) */
+    (void)scheduler_remove_proc(proc);
 
     resume_scheduler();
 
