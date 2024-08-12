@@ -494,12 +494,12 @@ void thread_unblock(thread_t* thread)
     if (thread->m_current_state != BLOCKED)
         return;
 
-    ASSERT_MSG(thread->scheduler_thread && *thread->scheduler_thread, "Tried to unblock a thread without a scheduler thread");
+    ASSERT_MSG(thread->sthread_slot && *thread->sthread_slot, "Tried to unblock a thread without a scheduler thread");
 
     thread_set_state(thread, RUNNABLE);
 
     /* Add the thread back into the scheduler */
-    scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
+    scheduler_add_thread(thread, (*thread->sthread_slot)->base_prio);
 }
 
 void thread_sleep(thread_t* thread)
@@ -523,7 +523,7 @@ void thread_wakeup(thread_t* thread)
 {
     ASSERT_MSG(thread->m_current_state == SLEEPING, "Tried to wake a non-sleeping thread!");
 
-    ASSERT_MSG(thread->scheduler_thread && *thread->scheduler_thread, "Tried to unblock a thread without a scheduler thread");
+    ASSERT_MSG(thread->sthread_slot && *thread->sthread_slot, "Tried to unblock a thread without a scheduler thread");
 
     /* We can't unblock ourselves, can we? */
     if (get_current_scheduling_thread() == thread) {
@@ -535,7 +535,7 @@ void thread_wakeup(thread_t* thread)
     thread_set_state(thread, RUNNABLE);
 
     /* Add the thread back into the scheduler */
-    scheduler_add_thread(thread, (*thread->scheduler_thread)->base_prio);
+    scheduler_add_thread(thread, (*thread->sthread_slot)->base_prio);
 }
 
 void thread_stop(thread_t* thread)

@@ -136,7 +136,7 @@ static inline void sthread_remove_link(sthread_t** st_slot)
     /* If *t->next is null, we know that the queue enqueue pointer points to it */
     if (drf_thread->next)
         /* Make sure the link of the next thread doesn't break */
-        drf_thread->next->t->scheduler_thread = st_slot;
+        drf_thread->next->t->sthread_slot = st_slot;
 
     /* Close the link */
     *st_slot = drf_thread->next;
@@ -144,7 +144,7 @@ static inline void sthread_remove_link(sthread_t** st_slot)
     /* Update the threads queue status */
     drf_thread->next = nullptr;
     drf_thread->c_queue = nullptr;
-    drf_thread->t->scheduler_thread = NULL;
+    drf_thread->t->sthread_slot = &drf_thread->t->sthread;
 }
 
 static inline void sthread_calc_stimeslice(sthread_t* st)
@@ -158,6 +158,7 @@ static inline void sthread_calc_stimeslice(sthread_t* st)
 
     /* Calculate a new timeslice */
     st->tslice = STIMESLICE(st);
+    st->elapsed_tslice = 0;
 }
 
 typedef struct sthread_list_head {
@@ -190,7 +191,7 @@ static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
     t->next = nullptr;
     t->c_queue = queue;
     /* Update the threads scheduler thread link */
-    t->t->scheduler_thread = queue->vec_threads[t->base_prio].enq;
+    t->t->sthread_slot = queue->vec_threads[t->base_prio].enq;
 
     /* Put the thread inside the correct list */
     *queue->vec_threads[t->base_prio].enq = t;
@@ -245,9 +246,6 @@ typedef struct scheduler {
     /* Queue where all the threads go that have used up their timeslice of this epoch */
     squeue_t* expired_q;
 
-    /* Inactivated threads go here */
-    sthread_t* inactive_thread_list;
-    sthread_t** inactive_thread_list_enq;
     /* The idle thread for this CPU/scheduler */
     sthread_t* idle;
 
