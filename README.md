@@ -30,15 +30,21 @@ I am so insane at naming shit, holy fuck
 
 ## TODOS:
 
- - kevents: fun idea, probably quite usefull, but we need to create a full mental image of how this should go AND code the thing together =))))
- - USB drivers: help me
- - HID drivers: help me ^ 2
- - NET drivers: I don't even have to say it
- - Just a lot of drivers really
- - A working windowmanager that is a lil fast
- - Video drivers to support a lil fast windowmanager
- - Drivers kill me
- - 
+ [ ] Fully implement FAT32 (File creation/deletion, reading AND writing, lfn, ect.)
+ [ ] Also make sure cramfs is on the same level as FAT (obv we can't write or create files, but u get me)
+ [ ] Implement actual system time (why don't we have this yet)
+ [ ] Implement signals via upi
+ [ ] Make the scheduler fast again or sm
+ [ ] Fix the USB hid drivers
+ [ ] Fix the EHCI driver for real hardware
+ [ ] Fully implement xhci
+ [ ] Implement usbblk driver
+ [ ] NET drivers: I don't even have to say it
+ [ ] Implement power management and diagnostics (I want to know how much power devices are using, I think that would be so cool)
+ [ ] Fix this OS on AMD cpus lol. It currently throws an Illegal instruction exception somewhere during processor init...
+ [ ] Fully implement the lwnd window manager
+ [ ] Video drivers to support a lil fast windowmanager
+ [ ] Drivers kill me
 
 ## Build & Run
 
