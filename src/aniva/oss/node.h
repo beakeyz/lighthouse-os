@@ -4,8 +4,8 @@
 #include "dev/core.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
-#include <libk/flow/error.h>
 #include <libk/data/hashmap.h>
+#include <libk/flow/error.h>
 #include <libk/stddef.h>
 
 struct dir;
@@ -131,6 +131,11 @@ typedef struct oss_node_ops {
      * Force an object to be synced
      */
     int (*f_force_obj_sync)(struct oss_obj*);
+    /*
+     * Creates a new entry inside the fs
+     * Relative to the parent node
+     */
+    int (*f_create_entry)(struct oss_node*, const char*, enum OSS_ENTRY_TYPE);
     /*
      * Grab named data associated with this node
      */

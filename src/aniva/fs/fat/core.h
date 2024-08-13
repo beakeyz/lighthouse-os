@@ -14,9 +14,11 @@ struct fat_file_ops;
 
 #define FAT_LFN_LEN 255 /* maximum long name length */
 #define FAT_MAX_NAME 11 /* maximum name length */
-#define FAT_MAX_SLOTS 21 /* max # of slots for short and long names */
+#define FAT_MAX_NAME_SLOTS 21 /* max # of slots for short and long names */
 #define MSDOS_DOT ".          " /* ".", padded to MSDOS_NAME chars */
 #define MSDOS_DOTDOT "..         " /* "..", padded to MSDOS_NAME chars */
+
+#define FAT_LFN_LAST_ENTRY 0x40
 
 /* start of data cluster's entry (number of reserved clusters) */
 #define FAT_START_ENT 2
@@ -50,6 +52,7 @@ struct fat_file_ops;
 #define FAT_ATTR_DIR 0x10
 #define FAT_ATTR_ARCHIVE 0x20
 #define FAT_ATTR_LFN (FAT_ATTR_RO | FAT_ATTR_HIDDEN | FAT_ATTR_SYSTEM | FAT_ATTR_VOLUME_ID)
+#define FAT_ATTR_LFN_MASK (FAT_ATTR_LFN | FAT_ATTR_DIR | FAT_ATTR_ARCHIVE)
 
 #define FAT_STATE_DIRTY 0x01
 
@@ -151,7 +154,14 @@ typedef struct {
 } fat_dir_t;
 
 typedef struct {
-    /* TODO */
+    u8 idx_ord;
+    u16 name_0[5];
+    u8 attr;
+    u8 type;
+    u8 chksum;
+    u16 name_1[6];
+    u16 fst_clus_lo;
+    u16 name_2[2];
 } __attribute__((packed)) fat_lfn_entry_t;
 
 #define FTYPE_FAT32 (32)

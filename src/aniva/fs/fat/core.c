@@ -12,6 +12,7 @@
 #include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/core.h"
+#include "oss/node.h"
 #include "oss/obj.h"
 #include "oss/path.h"
 #include <libk/stddef.h>
@@ -554,13 +555,49 @@ transform_fat_filename(char* dest, const char* src)
     }
 }
 
+/*!
+ * @brief: Parse a single lfn entry
+ *
+ * Every lfn is able to hold 13 Unicode characters.
+ */
+static inline void fat_lfn_parse(fat_lfn_entry_t* lfn, char lfn_buffer[255], u32* p_lfn_len)
+{
+    u32 write_idx;
+    u32 ort_idx = (lfn->idx_ord & ~FAT_LFN_LAST_ENTRY);
+
+    /* Invalid index */
+    if (!ort_idx || ort_idx > FAT_MAX_NAME_SLOTS)
+        return;
+
+    /* The index we need to write at in the lfn_buffer */
+    write_idx = (ort_idx - 1) * 13;
+
+    /* Parse the first name field */
+    for (u32 i = 0; i < 5 && lfn->name_0[i] && lfn->name_0[i] != 0xffff; i++)
+        lfn_buffer[write_idx++] = (char)lfn->name_0[i];
+
+    /* Parse the second name field */
+    for (u32 i = 0; i < 6 && lfn->name_1[i] && lfn->name_1[i] != 0xffff; i++)
+        lfn_buffer[write_idx++] = (char)lfn->name_1[i];
+
+    /* Parse the third name field */
+    for (u32 i = 0; i < 2 && lfn->name_2[i] && lfn->name_2[i] != 0xffff; i++)
+        lfn_buffer[write_idx++] = (char)lfn->name_2[i];
+
+    /* Export the largest write index */
+    if (p_lfn_len && write_idx > *p_lfn_len)
+        *p_lfn_len = write_idx;
+}
+
 static int
 fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t* out, char* rel_path, uint32_t* diroffset)
 {
     int error;
     /* We always use this buffer if we don't support lfn */
-    char transformed_buffer[11];
+    char transformed_buffer[12] = { 0 };
+    char lfn_buffer[256] = { 0 };
     uint32_t cluster_num;
+    u32 lfn_len = 0;
 
     size_t dir_entries_count;
     size_t clusters_size;
@@ -613,8 +650,8 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
         }
 
         if (entry.attr == FAT_ATTR_LFN) {
-            /* TODO: support
-             */
+            /* TODO: support */
+            fat_lfn_parse((fat_lfn_entry_t*)&entry, lfn_buffer, &lfn_len);
             error = -4;
             continue;
         }
@@ -623,7 +660,10 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
             continue;
 
         /* This our file/directory? */
-        if (strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
+        if ((lfn_len && strncmp(lfn_buffer, (const char*)rel_path, lfn_len) == 0) || strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
+
+            KLOG_DBG("FAT32: Found (lfn: %s)\n", lfn_buffer);
+
             *out = entry;
 
             /* Give out where we found this bitch */
@@ -633,6 +673,9 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
             error = 0;
             break;
         }
+
+        memset(lfn_buffer, 0, sizeof(lfn_buffer));
+        lfn_len = 0;
     }
 
 fail_dealloc_dir_entries:
@@ -641,7 +684,6 @@ fail_dealloc_cchain:
     kfree(tmp_ffile.clusterchain_buffer);
     return error;
 }
-
 
 /*!
  * @brief: Open a file direntry on the fat filesystem
@@ -732,107 +774,8 @@ static oss_obj_t* fat_open(oss_node_t* node, const char* path)
     fat_file->direntry_cluster = direntry_cluster;
 
     return ret->m_obj;
-    
+
 destroy_and_exit:
-    destroy_oss_obj(ret->m_obj);
-    return nullptr;
-
-}
-
-/*!
- * Old open routine for the fat filesystem
- */
-static oss_obj_t* _fat_open(oss_node_t* node, const char* path)
-{
-    int error;
-    file_t* ret;
-    fat_fs_info_t* info;
-    fat_file_t* fat_file;
-    fat_dir_entry_t current;
-    uintptr_t current_idx;
-    size_t path_size;
-
-    if (!path)
-        return nullptr;
-
-    info = GET_FAT_FSINFO(node);
-    ret = create_fat_file(info, NULL, path);
-
-    if (!ret)
-        return nullptr;
-
-    fat_file = ret->m_private;
-
-    if (!fat_file)
-        return nullptr;
-
-    /* Complete the link */
-    ret->m_private = fat_file;
-
-    /* Copy the root entry copy =D */
-    current = info->root_entry_cpy;
-    current_idx = 0;
-
-    path_size = strlen(path) + 1;
-    char path_buffer[path_size];
-
-    memcpy(path_buffer, path, path_size);
-
-    for (uintptr_t i = 0; i < path_size; i++) {
-
-        /* Stop either at the end, or at any '/' char */
-        if (path_buffer[i] != '/' && path_buffer[i] != '\0')
-            continue;
-
-        /* Place a null-byte */
-        path_buffer[i] = '\0';
-
-        /* Pre-cache the starting offset of the direntry we're searching in */
-        fat_file->direntry_cluster = __fat32_dir_entry_get_start_cluster(&current);
-
-        /* Find the directory entry */
-        error = fat32_open_dir_entry(node, &current, &current, &path_buffer[current_idx], &fat_file->direntry_offset);
-
-        /* A single directory may have entries spanning over multiple clusters */
-        fat_file->direntry_cluster += fat_file->direntry_offset / info->cluster_size;
-        fat_file->direntry_offset %= info->cluster_size;
-
-        if (error)
-            break;
-
-        /*
-         * If we found our file (its not a directory) we can populate the file object and return it
-         */
-        if ((current.attr & (FAT_ATTR_DIR | FAT_ATTR_VOLUME_ID)) != FAT_ATTR_DIR) {
-
-            /* Make sure the file knows about its cluster chain */
-            error = fat32_cache_cluster_chain(node, fat_file, (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16)));
-
-            if (error)
-                break;
-
-            /* This is quite aggressive, we should prob just clean and return nullptr... */
-            ASSERT_MSG(!oss_attach_obj_rel(node, path, ret->m_obj), "Failed to attach FAT object");
-
-            ret->m_total_size = get_fat_file_size(fat_file);
-            ret->m_logical_size = current.size;
-
-            /* Cache the offset of the clusterchain */
-            fat_file->clusterchain_offset = (current.first_cluster_low | ((uint32_t)current.first_cluster_hi << 16));
-
-            return ret->m_obj;
-        }
-
-        /* Set the current index if we have successfuly 'switched' directories */
-        current_idx = i + 1;
-
-        /*
-         * Place back the slash
-         */
-        path_buffer[i] = '/';
-    }
-
-    /* NOTE: destroy the vobj, which will also destroy the file obj */
     destroy_oss_obj(ret->m_obj);
     return nullptr;
 }
@@ -943,6 +886,16 @@ static int fat_close(oss_node_t* node, oss_obj_t* obj)
     return 0;
 }
 
+/*!
+ * @brief: Creates a new entry inside the fat filesystem
+ *
+ * TODO:
+ */
+static int fat_create(oss_node_t* node, const char* path, enum OSS_ENTRY_TYPE type)
+{
+    return 0;
+}
+
 static int fat_msg(oss_node_t* node, dcc_t code, void* buffer, size_t size)
 {
     return 0;
@@ -956,6 +909,7 @@ static int fat_destroy(oss_node_t* node)
 
 static struct oss_node_ops fat_node_ops = {
     .f_msg = fat_msg,
+    .f_create_entry = fat_create,
     .f_open = fat_open,
     .f_open_node = fat_open_dir,
     .f_close = fat_close,
@@ -968,7 +922,6 @@ static struct oss_node_ops fat_node_ops = {
  */
 oss_node_t* fat32_mount(fs_type_t* type, const char* mountpoint, partitioned_disk_dev_t* device)
 {
-
     /* Get FAT =^) */
     fat_fs_info_t* ffi;
     uint8_t buffer[device->m_parent->m_logical_sector_size];
