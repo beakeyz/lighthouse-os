@@ -1,0 +1,6 @@
+#ifndef __LIGHTOS_LIBC_SIGNAL_SHARED_H__
+#define __LIGHTOS_LIBC_SIGNAL_SHARED_H__
+
+#define SIGABRT 0
+
+#endif // !__LIGHTOS_LIBC_SIGNAL_H__

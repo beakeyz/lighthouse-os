@@ -496,7 +496,6 @@ static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
  */
 static kerror_t __load_ext_driver(struct loader_ctx* ctx, bool install)
 {
-    /* TODO: implement + check signatures */
     if (__check_driver(ctx))
         return -1;
 

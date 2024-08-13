@@ -103,7 +103,7 @@ static int enable_pit(time_chip_t* chip, u32 tps)
         return -1;
 
     /* Reset this badboy */
-    reset_pit(RATE, tps);
+    reset_pit(SQ_WAVE, tps);
 
     return 0;
 }
@@ -128,9 +128,6 @@ static int pit_get_systemtime(time_chip_t* chip, system_time_t* btime)
 
     /* Grab the system ticks */
     system_ticks = time_get_system_ticks();
-
-    if (_pit_current_mode == SQ_WAVE)
-        system_ticks /= 2;
 
     /* Calculate how many ticks have run past the second */
     tick_delta = system_ticks - ALIGN_DOWN(system_ticks, _pit_current_tps);

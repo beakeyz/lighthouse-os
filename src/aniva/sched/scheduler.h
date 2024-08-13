@@ -185,6 +185,22 @@ typedef struct squeue {
 extern kerror_t init_squeue(scheduler_queue_t* out);
 extern kerror_t squeue_clear(scheduler_queue_t* queue);
 
+/*!
+ * @brief: Do a single scheduler priority shift
+ *
+ * The scheduler runs from high priority down to lower priority, with wraparound
+ */
+static inline void squeue_next_prio(squeue_t* q)
+{
+    if (q->active_prio)
+        q->active_prio--;
+    else
+        q->active_prio = SCHED_PRIO_MAX;
+
+    /* Set the current sthread */
+    q->c_ptr_sthread = &q->vec_threads[q->active_prio].list;
+}
+
 static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
 {
     /* Set the threads next pointer */

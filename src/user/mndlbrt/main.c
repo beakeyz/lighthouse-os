@@ -42,7 +42,7 @@ static inline void draw_mandlebrot()
             c = (struct compl ) { (x + offset_vec.x) * scale, (y + offset_vec.y) * scale };
             z = c;
 
-            while (n < 64) {
+            while (n < 1024) {
                 z = (struct compl ) { (z.x * z.x) - (z.y * z.y) + c.x, 2 * (z.x * z.y) + c.y };
 
                 /* Check if the coord is inside a circle with r=2 */
@@ -52,7 +52,7 @@ static inline void draw_mandlebrot()
                 n++;
             }
 
-            *(color++) = LCLR_RGBA(n * 4, 0, n * 4, 0xff);
+            *(color++) = LCLR_RGBA(n >> 3, 0, 0, 0xff);
         }
     }
 }
@@ -68,8 +68,8 @@ int main()
         return EXIT_ERROR("Failed to create window");
 
     img = malloc(sizeof(*img) * window->lui_width * window->lui_height);
-    offset_vec = (struct compl ) { -(window->lui_width / 2.0f), -(window->lui_height / 2.0f) };
-    scale = 0.05f / 1.5f;
+    offset_vec = (struct compl ) { -(window->lui_width / 16.0f), -(window->lui_height / 2.0f) };
+    scale = 0.001f / 1.5f;
 
     img_buffer.width = window->lui_width;
     img_buffer.height = window->lui_height;
@@ -82,16 +82,16 @@ int main()
         if (get_key_event(&window->gfxwnd, &event) && event.pressed) {
             switch (event.keycode) {
             case ANIVA_SCANCODE_W:
-                offset_vec.y -= 1.0f;
+                offset_vec.y -= 10.0f;
                 break;
             case ANIVA_SCANCODE_A:
-                offset_vec.x -= 1.0f;
+                offset_vec.x -= 10.0f;
                 break;
             case ANIVA_SCANCODE_S:
-                offset_vec.y += 1.0f;
+                offset_vec.y += 10.0f;
                 break;
             case ANIVA_SCANCODE_D:
-                offset_vec.x += (1.0f);
+                offset_vec.x += (10.0f);
                 break;
             case ANIVA_SCANCODE_E:
                 scale += 0.0005F;

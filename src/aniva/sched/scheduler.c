@@ -441,16 +441,16 @@ static inline bool try_do_sthread_tick(scheduler_t* sched, stimeslice_t delta, b
     c_ptr_sthread = active_q->c_ptr_sthread;
 
     /* Find the thread list with the highest prio if we didn't already */
-    for (u32 i = (SCHED_PRIO_7 - active_q->active_prio); i < N_SCHED_PRIO; i++) {
+    for (u32 i = 0; i < N_SCHED_PRIO; i++) {
         /* Check if we found a thread */
         if (c_ptr_sthread && (*c_ptr_sthread))
             break;
 
         /* Cache the active priority index */
-        active_q->active_prio = SCHED_PRIO_7 - i;
+        squeue_next_prio(active_q);
 
         /* Set the current scheduler thread */
-        active_q->c_ptr_sthread = c_ptr_sthread = &active_q->vec_threads[SCHED_PRIO_7 - i].list;
+        active_q->c_ptr_sthread = c_ptr_sthread = &active_q->vec_threads[active_q->active_prio].list;
     }
 
     /* Check if we found something */
@@ -470,7 +470,7 @@ static inline bool try_do_sthread_tick(scheduler_t* sched, stimeslice_t delta, b
      * Check if this thread still has time left
      * If the force flag is set, just always fuck over the thread
      */
-    if (c_sthread->elapsed_tslice < STIMESLICE_GRANULARITY && !force)
+    if (c_sthread->elapsed_tslice < STIMESLICE_GRANULARITY && c_sthread->elapsed_tslice < c_sthread->tslice && !force)
         return false;
 
     /* If this was a pseudo-tick, don't affect the timeslices stats */
@@ -525,11 +525,17 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
         /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
         scheduler_move_thread_to_inactive(scheduler, active_thread);
 
-    /* Skip the active queue current thread pointer up the link */
-    scheduler->active_q->c_ptr_sthread = &sthread->next;
+    if (sthread->next)
+        /* Skip the active queue current thread pointer up the link */
+        scheduler->active_q->c_ptr_sthread = &sthread->next;
+    else
+        /* Reached the end of this queue, move over to the next available priority */
+        squeue_next_prio(scheduler->active_q);
 
-    /* Do a pseudo-tick, to make sure c_ptr_sthread is valid */
-    try_do_sthread_tick(scheduler, NULL, false);
+    /* Only tick if there are still threads left */
+    if (scheduler->active_q->n_sthread)
+        /* Do a pseudo-tick, to make sure c_ptr_sthread is valid */
+        try_do_sthread_tick(scheduler, NULL, false);
 }
 
 /*!

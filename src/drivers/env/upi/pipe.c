@@ -84,7 +84,7 @@ u64 upi_connect_pipe(proc_t* proc, lightos_pipe_t* upipe)
     /* Reference the pipe object */
     oss_obj_ref(pipe->obj);
 
-    upipe->max_listeners= pipe->max_listeners;
+    upipe->max_listeners = pipe->max_listeners;
     upipe->flags = pipe->flags;
     upipe->data_size = upi_pipe_get_uniform_datasize(pipe);
 
@@ -137,8 +137,8 @@ u64 upi_send_transact(proc_t* proc, lightos_pipe_ft_t* ft)
         return DRV_STAT_INVAL;
 
     /* Handle the signal transaction if it needs imediate attention */
-    if (ft->transaction.transaction_type == LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL)
-        upi_maybe_handle_signal_transact(proc, ft);
+    if (ft->transaction.transaction_type == LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL && upi_maybe_handle_signal_transact(proc, ft))
+        return 0;
 
     /* Add the transaction to the pipes buffer */
     return upi_pipe_add_transaction(pipe, ft);
@@ -192,7 +192,6 @@ u64 upi_transact_preview(proc_t* proc, lightos_pipe_ft_t* tranact)
     return 0;
 }
 
-
 u64 upi_transact_accept(proc_t* proc, lightos_pipe_accept_t* accept)
 {
     size_t bsize;
@@ -233,34 +232,33 @@ u64 upi_transact_accept(proc_t* proc, lightos_pipe_accept_t* accept)
 
     /* Copy the data in the ft into the accept buffer */
     switch (c_ft->transaction.transaction_type) {
-        case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
-            bsize = accept->buffer_size;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
+        bsize = accept->buffer_size;
 
-            /* If the acceptor has a bigger buffer than the transactions datasize, use the datasize */
-            if (bsize > c_ft->transaction.data_size)
-                bsize = c_ft->transaction.data_size;
+        /* If the acceptor has a bigger buffer than the transactions datasize, use the datasize */
+        if (bsize > c_ft->transaction.data_size)
+            bsize = c_ft->transaction.data_size;
 
-            /* Copy the data */
-            memcpy(accept->buffer, c_ft->payload.data, bsize);
-            break;
-        case LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL:
-            bsize = accept->buffer_size;
+        /* Copy the data */
+        memcpy(accept->buffer, c_ft->payload.data, bsize);
+        break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL:
+        bsize = accept->buffer_size;
 
-            if (bsize > sizeof(c_ft->payload.signal))
-                bsize = sizeof(c_ft->payload.signal);
-            
-            memcpy(accept->buffer, &c_ft->payload.signal, bsize);
-            break;
+        if (bsize > sizeof(c_ft->payload.signal))
+            bsize = sizeof(c_ft->payload.signal);
 
-        case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
-            bsize = accept->buffer_size;
+        memcpy(accept->buffer, &c_ft->payload.signal, bsize);
+        break;
 
-            if (bsize > sizeof(c_ft->payload.handle))
-                bsize = sizeof(c_ft->payload.handle);
-            
-            memcpy(accept->buffer, &c_ft->payload.handle, bsize);
-            break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
+        bsize = accept->buffer_size;
 
+        if (bsize > sizeof(c_ft->payload.handle))
+            bsize = sizeof(c_ft->payload.handle);
+
+        memcpy(accept->buffer, &c_ft->payload.handle, bsize);
+        break;
     }
 
     /* Check if the pipe can throw this ft out */

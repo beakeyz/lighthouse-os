@@ -50,10 +50,18 @@ typedef int kerror_t;
 #define KERR_DRV 8
 /* No connection (to absolutely whatever) */
 #define KERR_NOCON 9
+/* Could not find what we where looking for */
 #define KERR_NOT_FOUND 10
+/* Size was divergent from what we expected */
 #define KERR_SIZE_MISMATCH 11
+/* Got a nullpointer */
 #define KERR_NULL 12
+/* Entry is a duplicate when this isn't allowed */
 #define KERR_DUPLICATE 13
+/* Caller has no permission to do the opperation */
+#define KERR_NOPERM 14
+/* Case has already been handled, no further action needed */
+#define KERR_HANDLED 15
 
 #define KERR_OK(err) ((err) == KERR_NONE)
 #define KERR_ERR(err) ((kerror_t)(err) < KERR_NONE)

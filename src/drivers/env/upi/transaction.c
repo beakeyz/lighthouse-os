@@ -4,6 +4,8 @@
 #include "mem/heap.h"
 #include "mem/zalloc/zalloc.h"
 #include "upi.h"
+/* Include the shared signal header from libc for standard signal definitions */
+#include <signal_shr.h>
 
 static inline bool _upi_pipe_has_fragmentation(upi_pipe_t* pipe)
 {
@@ -35,6 +37,25 @@ void upi_destroy_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft)
     _upi_pipe_deallocate(pipe, ft->payload.data);
 }
 
+kerror_t upi_maybe_handle_signal_transact(proc_t* calling_proc, lightos_pipe_ft_t* ft)
+{
+    kerror_t error = 0;
+    /* Grab the signal from the transfer */
+    u32 signal = ft->payload.signal;
+
+    /* Check if this is a signal that needs handling of a higher power */
+    switch (signal) {
+    case SIGABRT:
+        /* TODO: Check if any recieving process has configured a handler for this signal */
+        error = KERR_HANDLED;
+        break;
+    default:
+        break;
+    }
+
+    return error;
+}
+
 /*!
  * @brief: Add a ft at @idx withtout question
  */
@@ -63,25 +84,25 @@ static u64 _upi_pipe_do_ft_add(upi_pipe_t* pipe, lightos_pipe_ft_t __user* ft, u
         data_size = pipe->uniform_allocator->m_entry_size;
 
     switch (target->transaction.transaction_type) {
-        case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
-            target->payload.handle = ft->payload.handle;
-            break;
-        case LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL:
-            target->payload.signal = ft->payload.signal;
-            break;
-        case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
-            /* Allocate the buffer */
-            target->payload.data = _upi_pipe_allocate(pipe, data_size);
+    case LIGHTOS_PIPE_TRANSACT_TYPE_HANDLE:
+        target->payload.handle = ft->payload.handle;
+        break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_SIGNAL:
+        target->payload.signal = ft->payload.signal;
+        break;
+    case LIGHTOS_PIPE_TRANSACT_TYPE_DATA:
+        /* Allocate the buffer */
+        target->payload.data = _upi_pipe_allocate(pipe, data_size);
 
-            if (!target->payload.data)
-                goto clear_and_exit_error;
+        if (!target->payload.data)
+            goto clear_and_exit_error;
 
-            /* Clear any unwanted data */
-            memset(target->payload.data, 0, data_size);
+        /* Clear any unwanted data */
+        memset(target->payload.data, 0, data_size);
 
-            /* Copy the entire buffer to us */
-            memcpy(target->payload.data, ft->payload.data, data_size);
-            break;
+        /* Copy the entire buffer to us */
+        memcpy(target->payload.data, ft->payload.data, data_size);
+        break;
     }
 
     pipe->n_total_transacts++;
@@ -124,7 +145,7 @@ static inline void _upi_pipe_switch_free_indecies(u32* next_free_a, u32* next_fr
 /*!
  * @brief: Adds a ft to the pipe when its buffer is in a fragmented state
  *
- * When a transaction is removed which causes fragmentation, the slot will be reset and transaction_type will be 
+ * When a transaction is removed which causes fragmentation, the slot will be reset and transaction_type will be
  * set to NONE, as usual, but the next_free will be set. We can then follow a (kind of) linked list until we return
  * back to the index of ft_w_idx.
  */
@@ -197,7 +218,7 @@ u64 upi_pipe_remove_transaction(upi_pipe_t* pipe, u32 ft_idx)
 /*!
  * @brief: Checks if the transaction at @idx has been completed and removes it if it has
  *
- * A transaction has been completed when every listener on the pipe has said to have handled the transaction, 
+ * A transaction has been completed when every listener on the pipe has said to have handled the transaction,
  * of if a certain threshold, set by the pipe, has been reached.
  *
  * NOTE: Caller should check if idx is in the range of the ft buffer

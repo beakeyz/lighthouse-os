@@ -5,8 +5,8 @@
 #include "lightos/proc/ipc/pipe/shared.h"
 #include "mem/zalloc/zalloc.h"
 #include "proc/handle.h"
-#include <proc/proc.h>
 #include <oss/obj.h>
+#include <proc/proc.h>
 
 /* This way we can allocate a single page for these fuckers */
 #define UPI_DEFAULT_FT_CAPACITY 128
@@ -16,7 +16,7 @@ typedef struct upi_listener {
     proc_t* proc;
     /*
      * Index into the pipes ft buffer, pointing to the current transaction this
-     * listener is dealing with 
+     * listener is dealing with
      */
     u32 ft_idx;
     u32 n_transacts;
@@ -33,7 +33,7 @@ typedef struct upi_listener {
 /*!
  * @brief: Kernel-side pipe structure
  *
- * The kernel driver is responsible for acting as a sort of middleman in charge of every user pipe 
+ * The kernel driver is responsible for acting as a sort of middleman in charge of every user pipe
  * that is created (NOTE: This does make this the most likely performance bottleneck in the future).
  * It keeps track of the transactions present in the pipe and the listeners on the pipe
  */
@@ -57,7 +57,7 @@ typedef struct upi_pipe {
     /* Number of fts present in the buffer */
     u32 n_ft;
     /*
-     * Set when a removal of an ft would cause fragmentation 
+     * Set when a removal of an ft would cause fragmentation
      * inside the ft buffer, otherwise equal to ft_w_idx
      */
     u32 next_free_ft;
@@ -111,7 +111,7 @@ extern u64 upi_pipe_next_transaction(upi_pipe_t* pipe, u32* p_idx);
 
 extern void upi_destroy_transaction(upi_pipe_t* pipe, lightos_pipe_ft_t* ft);
 
-int upi_maybe_handle_signal_transact(proc_t* calling_proc, lightos_pipe_ft_t* ft);
+kerror_t upi_maybe_handle_signal_transact(proc_t* calling_proc, lightos_pipe_ft_t* ft);
 
 upi_pipe_t* create_upi_pipe(proc_t* proc, lightos_pipe_t* upipe);
 void destroy_upi_pipe(upi_pipe_t* pipe);
@@ -121,7 +121,6 @@ bool upi_pipe_can_proc_connect(upi_pipe_t* pipe, proc_t* proc);
 
 upi_listener_t* create_upi_listener(proc_t* proc, upi_pipe_t* pipe, HANDLE pipe_handle);
 void destroy_upi_listener(upi_pipe_t* pipe, upi_listener_t* listener);
-
 
 upi_listener_t* get_upi_listener(upi_pipe_t* pipe, proc_t* proc);
 
