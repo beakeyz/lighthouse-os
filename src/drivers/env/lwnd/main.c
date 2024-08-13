@@ -278,8 +278,10 @@ uintptr_t msg_window_driver(aniva_driver_t* this, dcc_t code, void* buffer, size
             return DRV_STAT_INVAL;
 
         /* Also register the window to the current stack */
-        if (wndstack_add_window(c_workspace->stack, wnd))
+        if (wndstack_add_window(c_workspace->stack, wnd)) {
+            destroy_window(wnd);
             return DRV_STAT_DUPLICATE;
+        }
         break;
     case LWND_DCC_CLOSE:
         KLOG_DBG("Trying to close lwnd window!\n");

@@ -233,6 +233,9 @@ typedef struct scheduler {
     /* How many timer ticks left until the scheduler gets called again */
     uint32_t tick_saldo;
 
+    /* How many systicks had elapsed last scheduler tick */
+    u64 last_nr_ticks;
+
     /*
      * We have two queues to move threads between.
      * The inactive queue is also where we put threads
@@ -256,8 +259,13 @@ typedef struct scheduler {
     system_time_t scheduler_base_time;
 
     /* Ticker function. Called every scheduler interrupt */
-    registers_t* (*f_tick)(registers_t* regs);
+    void (*f_tick)(struct scheduler* s, registers_t* regs, u64 timeticks);
 } scheduler_t;
+
+static inline bool scheduler_is_paused(scheduler_t* s)
+{
+    return (s->pause_depth > 0);
+}
 
 /*
  * Switch around the two queue pointers, using the XOR

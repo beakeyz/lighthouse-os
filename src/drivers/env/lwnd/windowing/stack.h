@@ -17,7 +17,9 @@ typedef struct lwnd_wndstack {
     hashmap_t* wnd_map;
 
     /* Mutex that protects the window stack order */
-    mutex_t* lock;
+    mutex_t* order_lock;
+    /* Mutex that protects the window stack map */
+    mutex_t* map_lock;
 
     /*
      * Reference to the screen this stack is bound to.

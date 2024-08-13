@@ -19,13 +19,13 @@
 #include <mem/heap.h>
 
 // --- inline functions ---
-static inline void scheduler_do_tick(scheduler_t* sched, bool force);
+static inline void scheduler_do_tick(scheduler_t* sched, u64 tick_delta, bool force);
 static inline bool try_do_sthread_tick(scheduler_t* sched, stimeslice_t delta, bool force);
 static ALWAYS_INLINE void set_previous_thread(thread_t* thread);
 static ALWAYS_INLINE void set_current_proc(proc_t* proc);
 
 /* Default scheduler tick function */
-static registers_t* sched_tick(registers_t* registers_ptr);
+static void sched_tick(scheduler_t* s, registers_t* registers_ptr, u64 timeticks);
 
 /*!
  * @brief: Helper to easily track interrupt disables and disable
@@ -400,7 +400,7 @@ void scheduler_yield()
     CHECK_AND_DO_DISABLE_INTERRUPTS();
 
     // prepare the next thread
-    scheduler_do_tick(s, true);
+    scheduler_do_tick(s, NULL, true);
 
     current = get_current_processor();
     current_thread = get_current_scheduling_thread();
@@ -473,11 +473,15 @@ static inline bool try_do_sthread_tick(scheduler_t* sched, stimeslice_t delta, b
     if (c_sthread->elapsed_tslice < STIMESLICE_GRANULARITY && !force)
         return false;
 
+    /* If this was a pseudo-tick, don't affect the timeslices stats */
+    if (!delta)
+        return true;
+
     /*
      * If we've overrun our time quota for this thread, force a reschedule
      * and decrease the timeslice.
      */
-    c_sthread->tslice -= STIMESLICE_GRANULARITY;
+    c_sthread->tslice -= c_sthread->elapsed_tslice;
     c_sthread->elapsed_tslice = 0;
 
     return true;
@@ -517,11 +521,14 @@ static inline void scheduler_do_requeue(scheduler_t* scheduler, sthread_t** acti
     // KLOG_DBG("Doing requeue for %s:%s\n", (*active_thread)->t->m_parent_proc->m_name, (*active_thread)->t->m_name);
 
     /* Does this thread still have time in this epoch? */
-    if (sthread->tslice <= 0)
+    if (sthread->c_queue && sthread->tslice <= 0)
+        /* Thread has used up it's timeslice, recalculate it and move the thread to expired */
         scheduler_move_thread_to_inactive(scheduler, active_thread);
 
+    /* Skip the active queue current thread pointer up the link */
     scheduler->active_q->c_ptr_sthread = &sthread->next;
 
+    /* Do a pseudo-tick, to make sure c_ptr_sthread is valid */
     try_do_sthread_tick(scheduler, NULL, false);
 }
 
@@ -565,12 +572,12 @@ static inline void scheduler_end_epoch(scheduler_t* scheduler)
  * for this CPU. otherwise, the scheduler enters a new epoch and switches the active and
  * inactive queues.
  */
-static inline void scheduler_do_tick(scheduler_t* sched, bool force)
+static inline void scheduler_do_tick(scheduler_t* sched, u64 tick_delta, bool force)
 {
     bool need_requeue;
 
     /* Don't force the reschedule */
-    need_requeue = try_do_sthread_tick(sched, STIMESLICE_STEPPING, force);
+    need_requeue = try_do_sthread_tick(sched, tick_delta * STIMESLICE_STEPPING, force);
 
     /* We need to requeue the current sthread lolol */
     if (need_requeue)
@@ -584,25 +591,13 @@ static inline void scheduler_do_tick(scheduler_t* sched, bool force)
 /*!
  * @brief: The beating heart of the scheduler
  */
-static registers_t* sched_tick(registers_t* registers_ptr)
+static void sched_tick(scheduler_t* s, registers_t* registers_ptr, u64 timeticks)
 {
-    scheduler_t* this;
-
-    this = get_current_scheduler();
-
-    if (!this)
-        return registers_ptr;
-
-    if ((this->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING)
-        return registers_ptr;
-
-    if (this->pause_depth || spinlock_is_locked(this->lock))
-        return registers_ptr;
-
     /* Do a scheduler tick */
-    scheduler_do_tick(this, false);
+    scheduler_do_tick(s, (timeticks - s->last_nr_ticks), false);
 
-    return registers_ptr;
+    /* Update the previous tick count */
+    s->last_nr_ticks = timeticks;
 }
 
 /*!
@@ -624,6 +619,8 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
     if (!thread->sthread) {
         /* New thread, create a new sthread for it */
         thread->sthread = create_sthread(s, thread, prio);
+
+        ASSERT_MSG(thread->sthread, "Scheduler: Failed to create sthread!");
 
         /*
          * Only prepare the context here if we're not trying to add the init thread

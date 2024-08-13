@@ -12,18 +12,22 @@
  */
 
 /*
- * A timeslice is simply a 32-bit number telling the scheduler how many ms
+ * A timeslice is simply a 32-bit number telling the scheduler how many ns
  * a certain thread has left on the schedule
+ *
+ * the scheduler tick routine should get called every 1ms and timeslices are
+ * in nanoseconds.
  */
 typedef i32 stimeslice_t;
 
-/* A particular task may enjoy this as minimum number of ms of scheduler time */
-#define STIMESLICE_MIN 2
-/* and a maximum of however many ticks are stuffed into one second */
-#define STIMESLICE_MAX 4000000
-#define STIMESLICE_STEPPING 100000
+/* A particular task may enjoy this as minimum number of ns of scheduler time */
+#define STIMESLICE_MIN 2000
+/* Maximum number of nanoseconds a single thread may have */
+#define STIMESLICE_MAX 1000000
+/* Steps of 1ms */
+#define STIMESLICE_STEPPING 1000
 /* After how much time should a thread get switched away from */
-#define STIMESLICE_GRANULARITY (5 * STIMESLICE_STEPPING)
+#define STIMESLICE_GRANULARITY (2 * STIMESLICE_STEPPING)
 
 /* Calculate the timeslice for a given sthread */
 #define STIMESLICE(st) (STIMESLICE_MIN + (((STIMESLICE_MAX) * ((stimeslice_t)st->actual_prio + 1)) >> SCHEDULER_PRIORITY_MAX_LOG2))

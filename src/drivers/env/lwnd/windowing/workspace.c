@@ -67,7 +67,8 @@ int lwnd_workspace_remove_windows_of_process(lwnd_workspace_t* ws, proc_t* p)
         return -KERR_INVAL;
 
     /* Lock the stack */
-    mutex_lock(ws->stack->lock);
+    mutex_lock(ws->stack->map_lock);
+    mutex_lock(ws->stack->order_lock);
 
     /* Grab the top window */
     this_wnd = ws->stack->top_window;
@@ -89,7 +90,8 @@ int lwnd_workspace_remove_windows_of_process(lwnd_workspace_t* ws, proc_t* p)
         this_wnd = next_wnd;
     }
 
-    mutex_unlock(ws->stack->lock);
+    mutex_unlock(ws->stack->order_lock);
+    mutex_unlock(ws->stack->map_lock);
 
     return 0;
 }

@@ -4,6 +4,7 @@
 #include "libk/flow/error.h"
 #include "libk/stack.h"
 #include "lightos/syscall.h"
+#include "logging/log.h"
 #include "mem/kmem_manager.h"
 #include "proc/context.h"
 #include "proc/proc.h"
@@ -471,6 +472,8 @@ void thread_block(thread_t* thread)
 {
     pause_scheduler();
 
+    KLOG_DBG("Blocking thread: %s\n", thread->m_name);
+
     thread_set_state(thread, BLOCKED);
 
     /* Need to inactivate this thread */
@@ -494,12 +497,14 @@ void thread_unblock(thread_t* thread)
     if (thread->m_current_state != BLOCKED)
         return;
 
-    ASSERT_MSG(thread->sthread_slot && *thread->sthread_slot, "Tried to unblock a thread without a scheduler thread");
+    ASSERT_MSG(thread->sthread, "Tried to unblock a thread without a scheduler thread");
+
+    KLOG_DBG("Unblocking thread: %s\n", thread->m_name);
 
     thread_set_state(thread, RUNNABLE);
 
     /* Add the thread back into the scheduler */
-    scheduler_add_thread(thread, (*thread->sthread_slot)->base_prio);
+    scheduler_add_thread(thread, thread->sthread->base_prio);
 }
 
 void thread_sleep(thread_t* thread)

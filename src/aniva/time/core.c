@@ -88,8 +88,12 @@ int __do_tick(struct time_chip* chip, registers_t* regs, size_t delta)
     if (!this || !this->f_tick)
         return 0;
 
+    /* Dont tick the scheduler if we're not running or paused */
+    if ((this->flags & SCHEDULER_FLAG_RUNNING) != SCHEDULER_FLAG_RUNNING || scheduler_is_paused(this))
+        return 0;
+
     /* Call the scheduler */
-    (void)this->f_tick(regs);
+    this->f_tick(this, regs, _system_ticks);
 
     return 0;
 }
