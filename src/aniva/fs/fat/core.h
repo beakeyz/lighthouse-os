@@ -224,6 +224,6 @@ static inline bool is_fat12(fat_fs_info_t* finfo)
 
 int fat32_read_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* file, uint32_t start, size_t size);
 int fat32_write_clusters(oss_node_t* node, uint8_t* buffer, struct fat_file* ffile, uint32_t offset, size_t size);
-int fat32_read_dir_entry(oss_node_t* node, struct fat_file* dir, fat_dir_entry_t* out, uint32_t idx, uint32_t* diroffset);
+int fat32_read_dir_entry(oss_node_t* node, struct fat_file* dir, fat_dir_entry_t* out, char* namebuf, u32 namelen, uint32_t idx, uint32_t* diroffset);
 
 #endif // !__ANIVA_GENERIC_FAT__

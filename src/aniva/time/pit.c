@@ -103,7 +103,7 @@ static int enable_pit(time_chip_t* chip, u32 tps)
         return -1;
 
     /* Reset this badboy */
-    reset_pit(SQ_WAVE, tps);
+    reset_pit(RATE, tps);
 
     return 0;
 }

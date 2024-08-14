@@ -4,6 +4,7 @@
 #include "fs/fat/core.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "oss/obj.h"
 
@@ -117,15 +118,19 @@ kerror_t fat_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
     fat_dir_entry_t entry;
     file_t* f = NULL;
     dir_t* d = NULL;
-    char namebuf[12] = { NULL };
+    char namebuf[256] = { NULL };
 
     if (!bentry)
         return -KERR_NULL;
 
-    if (!KERR_OK(fat32_read_dir_entry(dir->node, dir->priv, &entry, idx, NULL)))
+    if (!KERR_OK(fat32_read_dir_entry(dir->node, dir->priv, &entry, namebuf, sizeof(namebuf), idx, NULL)))
         return -KERR_INVAL;
 
-    fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
+    /* If the first byte in the name buffer is still null, we could not find any lfn entries for this index... */
+    if (!namebuf[0])
+        fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
+
+    KLOG_DBG("FAT dir read: %s\n", namebuf);
 
     if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
         d = create_fat_dir(GET_FAT_FSINFO(dir->node), NULL, namebuf);

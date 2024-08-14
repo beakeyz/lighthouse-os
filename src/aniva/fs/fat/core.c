@@ -496,10 +496,46 @@ free_and_exit:
 }
 
 /*!
+ * @brief: Parse a single lfn entry
+ *
+ * Every lfn is able to hold 13 Unicode characters.
+ */
+static inline void fat_lfn_parse(fat_lfn_entry_t* lfn, char lfn_buffer[255], u32* p_lfn_len)
+{
+    u32 write_idx;
+    u32 ort_idx = (lfn->idx_ord & ~FAT_LFN_LAST_ENTRY);
+
+    /* Invalid index */
+    if (!ort_idx || ort_idx > FAT_MAX_NAME_SLOTS)
+        return;
+
+    /* The index we need to write at in the lfn_buffer */
+    write_idx = (ort_idx - 1) * 13;
+
+    /* Parse the first name field */
+    for (u32 i = 0; i < 5 && lfn->name_0[i] && lfn->name_0[i] != 0xffff; i++)
+        lfn_buffer[write_idx++] = (char)lfn->name_0[i];
+
+    /* Parse the second name field */
+    for (u32 i = 0; i < 6 && lfn->name_1[i] && lfn->name_1[i] != 0xffff; i++)
+        lfn_buffer[write_idx++] = (char)lfn->name_1[i];
+
+    /* Parse the third name field */
+    for (u32 i = 0; i < 2 && lfn->name_2[i] && lfn->name_2[i] != 0xffff; i++)
+        lfn_buffer[write_idx++] = (char)lfn->name_2[i];
+
+    /* Export the largest write index */
+    if (p_lfn_len && write_idx > *p_lfn_len)
+        *p_lfn_len = write_idx;
+}
+
+/*!
  * @brief: Reads a dir entry from a directory at index @idx
  */
-int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out, uint32_t idx, uint32_t* diroffset)
+int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out, char* namebuf, u32 namelen, uint32_t idx, uint32_t* diroffset)
 {
+    fat_dir_entry_t* c_entry;
+
     if (!out)
         return -1;
 
@@ -509,16 +545,29 @@ int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out
     if (!dir->dir_parent || !dir->dir_entries)
         return -KERR_INVAL;
 
-    /* Outside the range =/ */
-    if (idx >= dir->n_direntries)
-        return -KERR_INVAL;
+    /* Loop over all entries in the directory */
+    for (u32 i = 0; i < dir->n_direntries; i++) {
+        c_entry = &dir->dir_entries[i];
 
-    *out = dir->dir_entries[idx];
+        /* Parse the lfn entry if we find it */
+        if (c_entry->attr == FAT_ATTR_LFN)
+            fat_lfn_parse((fat_lfn_entry_t*)c_entry, namebuf, NULL);
+        else {
+            if (!idx) {
+                *out = dir->dir_entries[i];
 
-    if (diroffset)
-        *diroffset = idx * sizeof(fat_dir_entry_t);
+                if (diroffset)
+                    *diroffset = i * sizeof(fat_dir_entry_t);
 
-    return 0;
+                return 0;
+            }
+
+            memset(namebuf, 0, namelen);
+            idx--;
+        }
+    }
+
+    return -KERR_NOT_FOUND;
 }
 
 static void
@@ -553,40 +602,6 @@ transform_fat_filename(char* dest, const char* src)
             i++;
         }
     }
-}
-
-/*!
- * @brief: Parse a single lfn entry
- *
- * Every lfn is able to hold 13 Unicode characters.
- */
-static inline void fat_lfn_parse(fat_lfn_entry_t* lfn, char lfn_buffer[255], u32* p_lfn_len)
-{
-    u32 write_idx;
-    u32 ort_idx = (lfn->idx_ord & ~FAT_LFN_LAST_ENTRY);
-
-    /* Invalid index */
-    if (!ort_idx || ort_idx > FAT_MAX_NAME_SLOTS)
-        return;
-
-    /* The index we need to write at in the lfn_buffer */
-    write_idx = (ort_idx - 1) * 13;
-
-    /* Parse the first name field */
-    for (u32 i = 0; i < 5 && lfn->name_0[i] && lfn->name_0[i] != 0xffff; i++)
-        lfn_buffer[write_idx++] = (char)lfn->name_0[i];
-
-    /* Parse the second name field */
-    for (u32 i = 0; i < 6 && lfn->name_1[i] && lfn->name_1[i] != 0xffff; i++)
-        lfn_buffer[write_idx++] = (char)lfn->name_1[i];
-
-    /* Parse the third name field */
-    for (u32 i = 0; i < 2 && lfn->name_2[i] && lfn->name_2[i] != 0xffff; i++)
-        lfn_buffer[write_idx++] = (char)lfn->name_2[i];
-
-    /* Export the largest write index */
-    if (p_lfn_len && write_idx > *p_lfn_len)
-        *p_lfn_len = write_idx;
 }
 
 static int

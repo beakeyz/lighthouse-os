@@ -20,6 +20,10 @@ sthread_t* create_sthread(struct scheduler* s, thread_t* t, enum SCHEDULER_PRIOR
     /* Calculate the initial timeslice */
     ret->tslice = STIMESLICE(ret);
 
+    /* Pre-set the sthread slot */
+    t->sthread = ret;
+    t->sthread_slot = &t->sthread;
+
     return ret;
 }
 

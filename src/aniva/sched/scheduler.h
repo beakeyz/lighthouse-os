@@ -70,13 +70,13 @@ enum SCHEDULER_PRIORITY {
     SCHED_PRIO_CHANGED_BIT = 0x80000000,
 };
 
-// #define SCHEDULER_FLAG_HAS_REQUEST 0x00000001
+#define SCHEDULER_FLAG_FORCE_REQUEUE 0x00000001
 #define SCHEDULER_FLAG_PAUSED 0x00000002
 /* Do we need to reorder the process list? */
 #define SCHEDULER_FLAG_NEED_REORDER 0x00000004
 #define SCHEDULER_FLAG_RUNNING 0x00000008
 
-#define SCHEDULER_PRIORITY_MAX 0x7fff
+#define SCHEDULER_PRIORITY_MAX 0x8000
 #define SCHEDULER_PRIORITY_DYDX 0x1000
 #define SCHEDULER_PRIORITY_MAX_LOG2 15
 
@@ -149,16 +149,56 @@ static inline void sthread_remove_link(sthread_t** st_slot)
 
 static inline void sthread_calc_stimeslice(sthread_t* st)
 {
-    if (st->base_prio & SCHED_PRIO_CHANGED_BIT) {
-        /* Clear the prio changed bit */
-        st->base_prio &= ~SCHED_PRIO_CHANGED_BIT;
-        /* recalculate priority */
-        st->actual_prio = SCHEDULER_CALC_PRIO(st);
-    }
+    st->actual_prio = SCHEDULER_CALC_PRIO(st);
 
     /* Calculate a new timeslice */
     st->tslice = STIMESLICE(st);
     st->elapsed_tslice = 0;
+}
+
+/*!
+ * @brief: Ticks a single sthread
+ *
+ * Removes the appropriate amount of time from the current sthreads time quota.
+ * If there seems to be no active thread in the current active queue, this function
+ * tries to find a new thread in one of the lower priority lists.
+ *
+ * @returns: true if the scheduler needs to do a sthread reschedule, false if there
+ * is nothing to be done.
+ */
+static inline void try_do_sthread_tick(sthread_t* t, stimeslice_t delta, bool force)
+{
+    /* Force the timeslice to be empty */
+    if (force) {
+        t->tslice = 0;
+        return;
+    }
+
+    /* Add a single stepping to the timeslice */
+    t->elapsed_tslice += delta;
+
+    /*
+     * Check if this thread still has time left
+     * If the force flag is set, just always fuck over the thread
+     */
+    if (t->elapsed_tslice < STIMESLICE_GRANULARITY && t->elapsed_tslice < t->tslice)
+        return;
+
+    /* If this was a pseudo-tick, don't affect the timeslices stats */
+    if (!delta)
+        return;
+
+    /*
+     * If we've overrun our time quota for this thread, force a reschedule
+     * and decrease the timeslice.
+     */
+    t->tslice -= t->elapsed_tslice;
+    t->elapsed_tslice = 0;
+}
+
+static inline bool sthread_needs_requeue(sthread_t* s)
+{
+    return (!s || !s->c_queue || s->tslice <= 0 || s->elapsed_tslice >= s->tslice || s->elapsed_tslice >= STIMESLICE_GRANULARITY);
 }
 
 typedef struct sthread_list_head {
@@ -173,7 +213,7 @@ typedef struct squeue {
     /* An array of sthread lists */
     sthread_list_head_t vec_threads[N_SCHED_PRIO];
     /* Pointer to the current sthread inside vec_threads[thread_base_prio] */
-    struct sthread** c_ptr_sthread;
+    // struct sthread** c_ptr_sthread;
 
     /* The current active priority that's being scheduled */
     u32 active_prio;
@@ -185,6 +225,11 @@ typedef struct squeue {
 extern kerror_t init_squeue(scheduler_queue_t* out);
 extern kerror_t squeue_clear(scheduler_queue_t* queue);
 
+static inline sthread_t* squeue_get_active_threadlist(squeue_t* q)
+{
+    return q->vec_threads[q->active_prio].list;
+}
+
 /*!
  * @brief: Do a single scheduler priority shift
  *
@@ -192,13 +237,18 @@ extern kerror_t squeue_clear(scheduler_queue_t* queue);
  */
 static inline void squeue_next_prio(squeue_t* q)
 {
-    if (q->active_prio)
-        q->active_prio--;
-    else
-        q->active_prio = SCHED_PRIO_MAX;
+    for (u32 i = 0; i < N_SCHED_PRIO; i++) {
+        if (q->active_prio)
+            q->active_prio--;
+        else
+            q->active_prio = SCHED_PRIO_MAX;
+
+        if (squeue_get_active_threadlist(q))
+            break;
+    }
 
     /* Set the current sthread */
-    q->c_ptr_sthread = &q->vec_threads[q->active_prio].list;
+    // q->c_ptr_sthread = &q->vec_threads[q->active_prio].list;
 }
 
 static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
@@ -219,8 +269,8 @@ static inline void squeue_enqueue(scheduler_queue_t* queue, struct sthread* t)
 
 static inline void squeue_remove(scheduler_queue_t* queue, struct sthread** t)
 {
-    if (queue->c_ptr_sthread == &(*t)->next)
-        queue->c_ptr_sthread = t;
+    // if (queue->c_ptr_sthread == &(*t)->next)
+    // queue->c_ptr_sthread = t;
 
     /* If *t->next is null, we know that the queue enqueue pointer points to it */
     if (!(*t)->next)
@@ -278,6 +328,25 @@ typedef struct scheduler {
     void (*f_tick)(struct scheduler* s, registers_t* regs, u64 timeticks);
 } scheduler_t;
 
+static inline sthread_t* scheduler_get_new_thread(scheduler_t* s, sthread_t* c_active)
+{
+    sthread_t* walker = nullptr;
+
+    if (c_active)
+        walker = c_active->next;
+
+    /* Check if this thread has a next broski */
+    if (!walker) {
+        /* Get the next priority level with a available thread */
+        squeue_next_prio(s->active_q);
+
+        /* Get the first thread for this priority level */
+        walker = s->active_q->vec_threads[s->active_q->active_prio].list;
+    }
+
+    return walker;
+}
+
 static inline bool scheduler_is_paused(scheduler_t* s)
 {
     return (s->pause_depth > 0);
@@ -292,14 +361,6 @@ static inline void scheduler_switch_queues(scheduler_t* s)
     s->active_q = (squeue_t*)((u64)s->active_q ^ (u64)s->expired_q);
     s->expired_q = (squeue_t*)((u64)s->expired_q ^ (u64)s->active_q);
     s->active_q = (squeue_t*)((u64)s->active_q ^ (u64)s->expired_q);
-}
-
-static inline sthread_t* scheduler_get_active_sthrad(scheduler_t* s)
-{
-    if (!s->active_q->c_ptr_sthread)
-        return nullptr;
-
-    return *s->active_q->c_ptr_sthread;
 }
 
 /*

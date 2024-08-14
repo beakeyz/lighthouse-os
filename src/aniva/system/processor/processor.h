@@ -103,6 +103,8 @@ ALWAYS_INLINE void processor_decrement_critical_depth(processor_t* processor)
 
     ASSERT_MSG(current_level > 0, "Tried to leave a critical processor section while not being in one!");
 
+    atomic_ptr_write(processor->m_critical_depth, current_level - 1);
+
     if (current_level == 1) {
 
         if (processor->m_irq_depth == 0) {
@@ -113,8 +115,6 @@ ALWAYS_INLINE void processor_decrement_critical_depth(processor_t* processor)
             scheduler_try_execute();
         }
     }
-
-    atomic_ptr_write(processor->m_critical_depth, current_level - 1);
 }
 
 static ALWAYS_INLINE uint64_t get_user_stack_offset()
