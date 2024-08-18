@@ -93,11 +93,9 @@ void init_processor_late(processor_t* processor)
     uint64_t cr4;
 
     processor->m_processes = init_list();
-    processor->m_critical_depth = create_atomic_ptr();
     processor->m_locked_level = create_atomic_ptr();
     processor->m_info = gather_processor_info();
 
-    atomic_ptr_write(processor->m_critical_depth, 0);
     atomic_ptr_write(processor->m_locked_level, 0);
 
     init_sse(processor);
@@ -286,8 +284,8 @@ void processor_exit_interruption(registers_t* registers)
 
     /* call events or deferred calls here too? */
 
-    if (current->m_irq_depth == 0 && atomic_ptr_read(current->m_critical_depth) == 0)
-        scheduler_try_execute();
+    if (current->m_irq_depth == 0)
+        scheduler_try_execute(current);
 }
 
 static ALWAYS_INLINE void init_smep(processor_info_t* info)

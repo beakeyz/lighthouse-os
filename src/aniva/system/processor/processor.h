@@ -31,7 +31,6 @@ typedef struct processor {
 
     // spinlock_t *m_hard_processor_lock;
     atomic_ptr_t* m_locked_level;
-    atomic_ptr_t* m_critical_depth;
 
     scheduler_t* m_scheduler;
 
@@ -87,34 +86,6 @@ extern void processor_exit_interruption(registers_t* registers);
 ALWAYS_INLINE processor_t* get_current_processor()
 {
     return (processor_t*)read_gs(GET_OFFSET(processor_t, m_own_ptr));
-}
-
-ALWAYS_INLINE void processor_increment_critical_depth(processor_t* processor)
-{
-    CHECK_AND_DO_DISABLE_INTERRUPTS();
-    uintptr_t current_level = atomic_ptr_read(processor->m_critical_depth);
-    atomic_ptr_write(processor->m_critical_depth, current_level + 1);
-    CHECK_AND_TRY_ENABLE_INTERRUPTS();
-}
-
-ALWAYS_INLINE void processor_decrement_critical_depth(processor_t* processor)
-{
-    uintptr_t current_level = atomic_ptr_read(processor->m_critical_depth);
-
-    ASSERT_MSG(current_level > 0, "Tried to leave a critical processor section while not being in one!");
-
-    atomic_ptr_write(processor->m_critical_depth, current_level - 1);
-
-    if (current_level == 1) {
-
-        if (processor->m_irq_depth == 0) {
-            // TODO: call the deferred_call_event here
-            // we should make sure that we dont enter any
-            // critical sections here ;-;
-
-            scheduler_try_execute();
-        }
-    }
 }
 
 static ALWAYS_INLINE uint64_t get_user_stack_offset()

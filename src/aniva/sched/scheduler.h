@@ -378,7 +378,7 @@ ANIVA_STATUS pause_scheduler();
  * yield to the scheduler and let it switch to a new thread
  */
 void scheduler_yield();
-int scheduler_try_execute();
+int scheduler_try_execute(struct processor* processor);
 
 kerror_t scheduler_add_thread(thread_t* thread, enum SCHEDULER_PRIORITY prio);
 kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULER_PRIORITY prio);

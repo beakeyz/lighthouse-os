@@ -10,7 +10,6 @@
 #include "proc/proc.h"
 #include "proc/thread.h"
 #include "sched/time.h"
-#include "sync/atomic_ptr.h"
 #include "sync/spinlock.h"
 #include "sys/types.h"
 #include "system/asm_specifics.h"
@@ -47,8 +46,7 @@ static inline void scheduler_try_disable_interrupts(scheduler_t* s)
  */
 static inline void scheduler_try_enable_interrupts(scheduler_t* s)
 {
-    if (!s)
-        return;
+    ASSERT(s);
 
     if (s->int_disable_depth)
         s->int_disable_depth--;
@@ -403,22 +401,19 @@ static inline void scheduler_end_epoch(scheduler_t* scheduler)
  * @brief: Try to execute a schedule on the current scheduler
  *
  * Checks if the current thread needs to get rescheduled
+ * TODO: This function seems to be quite heavy and gets called quite often. We need to check
+ * if we can simplify this to make it faster.
  */
-int scheduler_try_execute()
+int scheduler_try_execute(struct processor* p)
 {
-    processor_t* p;
     scheduler_t* s;
     thread_t* c_thread;
     sthread_t* target_thread;
 
-    p = get_current_processor();
     s = get_current_scheduler();
 
     ASSERT_MSG(p && s, "Could not get current processor while trying to calling scheduler");
     ASSERT_MSG(p->m_irq_depth == 0, "Trying to call scheduler while in irq");
-
-    if (atomic_ptr_read(p->m_critical_depth))
-        return -KERR_INVAL;
 
     if (s->pause_depth)
         return -KERR_INVAL;
@@ -503,8 +498,8 @@ void scheduler_yield()
 
     // in this case we don't have to wait for us to exit a
     // critical CPU section, since we are not being interrupted at all
-    if (current->m_irq_depth == 0 && atomic_ptr_read(current->m_critical_depth) == 0)
-        scheduler_try_execute();
+    if (current->m_irq_depth == 0)
+        scheduler_try_execute(current);
 
     CHECK_AND_TRY_ENABLE_INTERRUPTS();
 }
@@ -587,7 +582,7 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
      * Enqueue the bitch in the expired list. This way we don't mess up
      * the current epoch
      */
-    squeue_enqueue(s->expired_q, thread->sthread);
+    squeue_enqueue(s->active_q, thread->sthread);
 
     /* Recalculate the timeslice, just in case */
     sthread_calc_stimeslice(thread->sthread);
