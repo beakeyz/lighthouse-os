@@ -587,6 +587,10 @@ kerror_t scheduler_add_thread_ex(scheduler_t* s, thread_t* thread, enum SCHEDULE
     /* Recalculate the timeslice, just in case */
     sthread_calc_stimeslice(thread->sthread);
 
+    /* Set the current active priority, based on the bas prio of the new thread */
+    if (thread->sthread->base_prio >= s->active_q->active_prio)
+        s->active_q->active_prio = thread->sthread->base_prio;
+
     resume_scheduler();
     return 0;
 }
@@ -596,6 +600,9 @@ kerror_t scheduler_remove_thread(thread_t* thread)
     return scheduler_remove_thread_ex(get_current_scheduler(), thread);
 }
 
+/*!
+ * @brief: Remove a thread from the scheduler
+ */
 kerror_t scheduler_remove_thread_ex(scheduler_t* s, thread_t* thread)
 {
     int error = -KERR_NOT_FOUND;
@@ -628,6 +635,11 @@ kerror_t scheduler_inactivate_thread(thread_t* thread)
     return scheduler_inactivate_thread_ex(get_current_scheduler(), thread);
 }
 
+/*!
+ * @brief: Remove a thread from the scheduler queue
+ *
+ * Prevent a thread from being scheduled, by removing the thread from the scheduler queue
+ */
 kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread)
 {
     sthread_t* sthread;
@@ -659,6 +671,9 @@ kerror_t scheduler_inactivate_thread_ex(scheduler_t* s, thread_t* thread)
     return 0;
 }
 
+/*!
+ * @brief: Add all the threads of a process to the current scheduler
+ */
 kerror_t scheduler_add_proc(proc_t* p, enum SCHEDULER_PRIORITY prio)
 {
     return scheduler_add_proc_ex(get_current_scheduler(), p, prio);
@@ -692,11 +707,19 @@ kerror_t scheduler_add_proc_ex(scheduler_t* scheduler, proc_t* p, enum SCHEDULER
     return error;
 }
 
+/*!
+ * @brief: Remove all threads of a process from the current scheduler
+ */
 kerror_t scheduler_remove_proc(proc_t* p)
 {
     return scheduler_remove_proc_ex(get_current_scheduler(), p);
 }
 
+/*!
+ * @brief: Remove all threads from a process from the scheduelr
+ *
+ * Loops over all the threads inside a process and remove each one of them.
+ */
 kerror_t scheduler_remove_proc_ex(scheduler_t* scheduler, proc_t* p)
 {
     int error = 0;
@@ -704,6 +727,9 @@ kerror_t scheduler_remove_proc_ex(scheduler_t* scheduler, proc_t* p)
 
     if (!scheduler || !p)
         return -KERR_INVAL;
+
+    /* Pause the scheduler just in case */
+    pause_scheduler();
 
     FOREACH(i, p->m_threads)
     {
@@ -714,6 +740,9 @@ kerror_t scheduler_remove_proc_ex(scheduler_t* scheduler, proc_t* p)
         if (error)
             break;
     }
+
+    /* Make sure the scheduler is resumed */
+    resume_scheduler();
 
     return error;
 }

@@ -130,8 +130,6 @@ kerror_t fat_dir_read(dir_t* dir, uint64_t idx, direntry_t* bentry)
     if (!namebuf[0])
         fat_8_3_to_filename((char*)entry.name, namebuf, sizeof(namebuf));
 
-    KLOG_DBG("FAT dir read: %s\n", namebuf);
-
     if ((entry.attr & FAT_ATTR_DIR) == FAT_ATTR_DIR)
         d = create_fat_dir(GET_FAT_FSINFO(dir->node), NULL, namebuf);
     else
@@ -301,11 +299,7 @@ kerror_t fat_file_update_dir_entries(fat_file_t* file)
         if (entry->name[0] == 0x00)
             break;
 
-        /* TODO: Support this */
-        if (entry->attr == FAT_ATTR_LFN)
-            continue;
-
-        if (entry->attr & FAT_ATTR_VOLUME_ID)
+        if (entry->attr & FAT_ATTR_VOLUME_ID && entry->attr != FAT_ATTR_LFN)
             continue;
 
         /* Copy this entry into the destination buffer */

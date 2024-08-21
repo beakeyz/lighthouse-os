@@ -549,22 +549,29 @@ int fat32_read_dir_entry(oss_node_t* node, fat_file_t* dir, fat_dir_entry_t* out
     for (u32 i = 0; i < dir->n_direntries; i++) {
         c_entry = &dir->dir_entries[i];
 
+        if (c_entry->name[0] == 0)
+            break;
+
         /* Parse the lfn entry if we find it */
-        if (c_entry->attr == FAT_ATTR_LFN)
+        if (c_entry->attr == FAT_ATTR_LFN) {
             fat_lfn_parse((fat_lfn_entry_t*)c_entry, namebuf, NULL);
-        else {
-            if (!idx) {
-                *out = dir->dir_entries[i];
-
-                if (diroffset)
-                    *diroffset = i * sizeof(fat_dir_entry_t);
-
-                return 0;
-            }
-
-            memset(namebuf, 0, namelen);
-            idx--;
+            continue;
         }
+
+        if (c_entry->attr & FAT_ATTR_VOLUME_ID)
+            continue;
+
+        if (!idx) {
+            *out = dir->dir_entries[i];
+
+            if (diroffset)
+                *diroffset = i * sizeof(fat_dir_entry_t);
+
+            return 0;
+        }
+
+        memset(namebuf, 0, namelen);
+        idx--;
     }
 
     return -KERR_NOT_FOUND;
@@ -676,9 +683,6 @@ fat32_open_dir_entry(oss_node_t* node, fat_dir_entry_t* current, fat_dir_entry_t
 
         /* This our file/directory? */
         if ((lfn_len && strncmp(lfn_buffer, (const char*)rel_path, lfn_len) == 0) || strncmp(transformed_buffer, (const char*)entry.name, 11) == 0) {
-
-            KLOG_DBG("FAT32: Found (lfn: %s)\n", lfn_buffer);
-
             *out = entry;
 
             /* Give out where we found this bitch */
