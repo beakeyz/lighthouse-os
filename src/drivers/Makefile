@@ -1,6 +1,9 @@
 DRIVER_OUT=$(OUT)/drivers
 DRIVER_SRC=$(SRC)/drivers
 
+DISK_DRIVERS := 	\
+	./disk/usb/usbdisk 
+
 INPUT_DRIVERS := 	\
 	./input/i8042 	\
 	./input/usbkbd	\
@@ -27,6 +30,7 @@ DRIVER_PATHS := \
 	./video/nvidia \
 	./video/radeon \
 	./debug/test \
+	$(DISK_DRIVERS) \
 	$(USB_DRIVERS) \
 	$(INPUT_DRIVERS) \
 	$(ACPI_DRIVERS)

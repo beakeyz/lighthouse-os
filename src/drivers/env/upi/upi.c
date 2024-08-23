@@ -405,8 +405,10 @@ int upi_init(drv_manifest_t* this)
     if (!_upi_listener_allocator)
         return -KERR_NOMEM;
 
+    root_node = NULL;
+
     /* Failed to resolve root, no biggie */
-    if (oss_resolve_node("%/Runtime", &root_node))
+    if (oss_resolve_node("%/Runtime", &root_node) || !root_node)
         return 0;
 
     /* Try to create the node */

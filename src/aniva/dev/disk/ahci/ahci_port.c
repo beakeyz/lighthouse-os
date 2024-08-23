@@ -244,7 +244,30 @@ int ahci_port_write(device_t* port, drv_manifest_t* driver, disk_offset_t offset
 
 static int ahci_port_flush(device_t* device, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
 {
-    kernel_panic("TODO: ahci_port_flush");
+    disk_dev_t* ddev;
+    ahci_port_t* port;
+
+    /* Grab the disk device from the generic device */
+    ddev = device->private;
+
+    if (!ddev)
+        return -KERR_INVAL;
+
+    /* Grab the port from the disk device object */
+    port = ddev->m_priv;
+
+    if (!port)
+        return -KERR_INVAL;
+
+    /* Order the device to flush it's cache */
+    if (ahci_port_send_command(port, AHCI_COMMAND_FLUSH_CACHE, NULL, NULL, false, NULL, NULL) != ANIVA_SUCCESS)
+        return -KERR_IO;
+
+    /* Wait until the command is marked as completed */
+    if (ahci_port_await_dma_completion_sync(port) != ANIVA_SUCCESS)
+        return -KERR_IO;
+
+    return 0;
 }
 
 /*!

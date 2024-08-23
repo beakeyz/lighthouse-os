@@ -14,6 +14,9 @@ typedef struct usb_driver {
     usb_driver_desc_t* desc;
     /* The core driver associated with this usb driver */
     drv_manifest_t* driver;
+
+    /* List where we keep all devices attached to this driver through USB */
+    list_t* usb_devices;
 } usb_driver_t;
 
 static inline bool _usb_if_matches_ident(usb_device_t* dev, usb_device_ident_t* ident, usb_interface_entry_t* intf)
@@ -112,6 +115,9 @@ int usbdrv_device_scan_driver(usb_device_t* udev)
 
     /* Give the driver a device */
     manifest_add_dev(c_driver->driver, udev->device);
+
+    /* Attach the usb device */
+    list_append(c_driver->usb_devices, udev);
     return 0;
 }
 
@@ -155,6 +161,7 @@ int register_usb_driver(drv_manifest_t* driver, usb_driver_desc_t* desc)
 
     drv->driver = driver;
     drv->desc = desc;
+    drv->usb_devices = init_list();
 
     /* Add to the list */
     list_append(usbdrv_list, drv);
@@ -164,14 +171,23 @@ int register_usb_driver(drv_manifest_t* driver, usb_driver_desc_t* desc)
     return 0;
 }
 
+/*!
+ * @brief: Unregister a USB driver through its descriptor
+ *
+ * Removes the driver from the driverlist, so it won't get included anymore in the
+ * probe sequence. This also removes any devices this driver has created
+ */
 int unregister_usb_driver(usb_driver_desc_t* desc)
 {
+    int error;
+    usb_device_t* device;
     usb_driver_t* driver;
 
     if (!desc)
         return -KERR_INVAL;
 
     driver = 0;
+    error = 0;
 
     /* Find the correct driver object */
     FOREACH(i, usbdrv_list)
@@ -187,9 +203,28 @@ int unregister_usb_driver(usb_driver_desc_t* desc)
     if (!driver)
         return -1;
 
+    /* Check if this driver even provides a 'remove' option */
+    if (!driver->desc->f_remove)
+        goto remove_and_free;
+
+    /* Remove all devices */
+    FOREACH(i, driver->usb_devices)
+    {
+        device = i->data;
+
+        /* Remove this device */
+        error = driver->desc->f_remove(driver->driver, device);
+
+        /* This sucks man */
+        if (error)
+            break;
+    }
+
+remove_and_free:
     list_remove_ex(usbdrv_list, driver);
+    destroy_list(driver->usb_devices);
     kfree(driver);
-    return 0;
+    return error;
 }
 
 void init_usb_drivers()

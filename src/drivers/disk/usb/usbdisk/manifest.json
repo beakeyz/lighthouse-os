@@ -1,0 +1,5 @@
+{
+    "name": "usbdisk.drv",
+    "linking": "static",
+    "type": "driver"
+}

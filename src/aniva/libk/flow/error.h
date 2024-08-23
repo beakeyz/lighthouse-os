@@ -62,6 +62,8 @@ typedef int kerror_t;
 #define KERR_NOPERM 14
 /* Case has already been handled, no further action needed */
 #define KERR_HANDLED 15
+/* We've been waiting too long broooo */
+#define KERR_TIMEOUT 16
 
 #define KERR_OK(err) ((err) == KERR_NONE)
 #define KERR_ERR(err) ((kerror_t)(err) < KERR_NONE)

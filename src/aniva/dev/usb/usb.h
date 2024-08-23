@@ -78,6 +78,9 @@ typedef struct usb_device {
      */
     kdoorbell_t* req_doorbell;
 
+    /* Private field for usb class drivers */
+    void* private;
+
     /* Parent hub this device is located on */
     struct device* device;
     struct usb_hcd* hcd;
