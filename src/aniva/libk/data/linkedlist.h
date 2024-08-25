@@ -16,20 +16,6 @@ typedef struct list {
     size_t m_length;
 } list_t;
 
-// hihi
-#define ITTERATE(list)                \
-    node_t* itterator = (list)->head; \
-    while (itterator)
-
-// deprecated
-#define SKIP_ITTERATION()        \
-    itterator = itterator->next; \
-    continue
-// deprecated
-#define ENDITTERATE(list)        \
-    itterator = itterator->next; \
-    }
-
 #define FOREACH(i, list) for (struct node * (i) = (list)->head; (i) != nullptr; (i) = (i)->next)
 
 // TODO: finish linkedlist (double link)

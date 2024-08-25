@@ -1081,7 +1081,9 @@ int fat32_unmount(fs_type_t* type, oss_node_t* node)
 
 aniva_driver_t fat32_drv = {
     .m_name = "fat32",
+    .m_descriptor = "FAT32 filesystem driver",
     .m_type = DT_FS,
+    .m_version = DRIVER_VERSION(1, 0, 0),
     .f_init = fat32_init,
     .f_exit = fat32_exit,
 };
@@ -1110,7 +1112,6 @@ int fat32_init()
 
 int fat32_exit()
 {
-
     kerror_t error = unregister_filesystem(&fat32_type);
 
     if (error)
