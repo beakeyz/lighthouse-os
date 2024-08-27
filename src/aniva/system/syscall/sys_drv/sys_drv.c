@@ -11,7 +11,7 @@
 #include "proc/proc.h"
 #include "sched/scheduler.h"
 #include "system/sysvar/var.h"
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <proc/env.h>
 
 #include <lightos/driver/ctl.h>
@@ -39,7 +39,7 @@ sys_send_message(HANDLE handle, driver_control_code_t code, void* buffer, size_t
 
     switch (c_hndl->type) {
     case HNDL_TYPE_DRIVER:
-        /* NOTE: this call does not lock the manifest */
+        /* NOTE: this call does not lock the driver */
         error = driver_send_msg_ex(c_hndl->reference.driver, code, buffer, size, NULL, NULL);
         break;
     case HNDL_TYPE_DEVICE:

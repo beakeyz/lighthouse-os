@@ -6,7 +6,7 @@
 #include <dev/pci/pci.h>
 
 struct ahci_port;
-struct drv_manifest;
+struct driver;
 struct dgroup;
 
 typedef struct ahci_device {
@@ -19,7 +19,7 @@ typedef struct ahci_device {
     uint32_t m_used_ports;
     uint32_t m_available_ports;
 
-    struct drv_manifest* m_parent;
+    struct driver* m_parent;
     struct ahci_device* m_next;
 } ahci_device_t;
 

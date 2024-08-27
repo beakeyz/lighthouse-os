@@ -1,7 +1,7 @@
 #include "elf.h"
 #include "dev/core.h"
 #include "dev/loader.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "entry/entry.h"
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
@@ -148,7 +148,7 @@ static proc_t* __elf_exec_dynamic_64(file_t* file, bool kernel)
 {
     kerror_t error;
     proc_t* p;
-    drv_manifest_t* driver;
+    driver_t* driver;
 
     if (!file)
         return nullptr;

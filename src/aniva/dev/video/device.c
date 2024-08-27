@@ -3,7 +3,7 @@
 #include "dev/core.h"
 #include "dev/device.h"
 #include "dev/group.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
 #include "kevent/event.h"
@@ -99,7 +99,7 @@ int video_deactivate_current_driver()
  *
  * Also allocates a generic device object
  */
-video_device_t* create_video_device(struct drv_manifest* driver, const char* name, device_ctl_node_t* ctl_list)
+video_device_t* create_video_device(struct driver* driver, const char* name, device_ctl_node_t* ctl_list)
 {
     video_device_t* ret;
 

@@ -1,7 +1,7 @@
 #include "drivers/env/upi/upi.h"
 #include "dev/core.h"
 #include "dev/driver.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "lightos/handle_def.h"
@@ -384,7 +384,7 @@ u64 upi_msg(struct aniva_driver* this, driver_control_code_t dcc, void* in_buf, 
     return DRV_STAT_INVAL;
 }
 
-int upi_init(drv_manifest_t* this)
+int upi_init(driver_t* this)
 {
     oss_node_t* root_node;
 

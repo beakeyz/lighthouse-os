@@ -1,6 +1,6 @@
 #include "dev/core.h"
 #include "dev/io/hid/event.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "devices/shared.h"
 #include "drivers/input/i8042/i8042.h"
 #include "irq/interrupts.h"
@@ -173,7 +173,7 @@ static device_ctl_node_t i8042_ctl[] = {
     DEVICE_CTL_END,
 };
 
-static int _init_i8042(drv_manifest_t* driver)
+static int _init_i8042(driver_t* driver)
 {
     acpi_parser_t* parser = NULL;
 

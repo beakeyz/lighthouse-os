@@ -2,7 +2,7 @@
 #include "sys_rw.h"
 #include "dev/device.h"
 #include "dev/driver.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "fs/dir.h"
 #include "fs/file.h"
 #include "libk/flow/error.h"
@@ -64,7 +64,7 @@ uint64_t sys_write(handle_t handle, uint8_t __user* buffer, size_t length)
     case HNDL_TYPE_DRIVER: {
         int result;
         size_t buffer_size = length;
-        drv_manifest_t* driver = khandle->reference.driver;
+        driver_t* driver = khandle->reference.driver;
 
         result = drv_write(driver, buffer, &buffer_size, khandle->offset);
 
@@ -166,7 +166,7 @@ uint64_t sys_read(handle_t handle, uint8_t __user* buffer, size_t length)
     }
     case HNDL_TYPE_DRIVER: {
         int result;
-        drv_manifest_t* driver = khandle->reference.driver;
+        driver_t* driver = khandle->reference.driver;
 
         result = drv_read(driver, buffer, &length, khandle->offset);
 

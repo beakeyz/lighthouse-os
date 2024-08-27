@@ -16,7 +16,7 @@ struct thread;
 struct sthread;
 struct mutex;
 struct threaded_socket;
-struct drv_manifest;
+struct driver;
 
 typedef int (*f_tentry_t)(uintptr_t arg);
 

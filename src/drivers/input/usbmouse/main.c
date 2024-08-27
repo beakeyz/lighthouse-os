@@ -5,7 +5,7 @@
 #include "mem/heap.h"
 #include <dev/core.h>
 #include <dev/driver.h>
-#include <dev/manifest.h>
+#include <dev/driver.h>
 
 #include <dev/usb/driver.h>
 #include <dev/usb/usb.h>
@@ -68,7 +68,7 @@ static int usbmouse_irq(usb_xfer_t* xfer)
     return 0;
 }
 
-static struct usbmouse* create_and_link_usbmouse(drv_manifest_t* driver, usb_device_t* dev, usb_interface_buffer_t* interf)
+static struct usbmouse* create_and_link_usbmouse(driver_t* driver, usb_device_t* dev, usb_interface_buffer_t* interf)
 {
     struct usbmouse* ret;
     usb_endpoint_buffer_t* ep;
@@ -120,7 +120,7 @@ static struct usbmouse* create_and_link_usbmouse(drv_manifest_t* driver, usb_dev
     return ret;
 }
 
-static int usbmouse_probe(drv_manifest_t* driver, usb_device_t* device, usb_interface_buffer_t* interf)
+static int usbmouse_probe(driver_t* driver, usb_device_t* device, usb_interface_buffer_t* interf)
 {
     struct usbmouse* usbmouse;
     usb_interface_entry_t* interface;
@@ -159,7 +159,7 @@ usb_driver_desc_t usbmouse_drv = {
     .ident_list = usbmouse_ident,
 };
 
-static int usbmouse_init(drv_manifest_t* driver)
+static int usbmouse_init(driver_t* driver)
 {
     _usbmice = nullptr;
     _next_usbmouse_id = 0;

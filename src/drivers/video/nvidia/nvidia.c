@@ -4,12 +4,12 @@
 #include "dev/video/device.h"
 #include "drivers/video/nvidia/device/device.h"
 #include "libk/flow/error.h"
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <dev/pci/pci.h>
 
-static drv_manifest_t* _nv_driver;
+static driver_t* _nv_driver;
 
-int nvidia_init(drv_manifest_t* driver);
+int nvidia_init(driver_t* driver);
 int nvidia_exit();
 uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 int nvidia_probe(pci_device_t* dev, pci_driver_t* driver);
@@ -107,10 +107,10 @@ uint64_t nvidia_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size,
 /*!
  * @brief: nvidia driver initialization
  *
- * We need to expose our manifest to the rest of the driver, since we need it to
+ * We need to expose our driver to the rest of the driver, since we need it to
  * attach our graphics device
  */
-int nvidia_init(drv_manifest_t* driver)
+int nvidia_init(driver_t* driver)
 {
     println("Initializing nvidia driver!");
     /* We should be active at this point lol */

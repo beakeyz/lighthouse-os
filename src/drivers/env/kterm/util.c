@@ -4,7 +4,6 @@
 #include "dev/device.h"
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
-#include "dev/manifest.h"
 #include "devices/shared.h"
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
@@ -115,19 +114,19 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
 
 bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
 {
-    drv_manifest_t* manifest;
+    driver_t* driver;
 
     if (node)
         return !oss_node_itterate(node, print_drv_info, arg0);
 
-    manifest = oss_obj_unwrap(obj, drv_manifest_t);
+    driver = oss_obj_unwrap(obj, driver_t);
 
-    if (obj->type != OSS_OBJ_TYPE_DRIVER || !manifest)
+    if (obj->type != OSS_OBJ_TYPE_DRIVER || !driver)
         return false;
 
-    printf("%16.16s: %32.32s (Loaded: %s)\n", manifest->m_url, (manifest->m_driver_file_path == nullptr) ? "Internal" : manifest->m_driver_file_path, ((manifest->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
+    printf("%16.16s: %32.32s (Loaded: %s)\n", driver->m_url, (driver->m_driver_file_path == nullptr) ? "Internal" : driver->m_driver_file_path, ((driver->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
 
-    FOREACH_VEC(manifest->m_dev_list, data, index)
+    FOREACH_VEC(driver->m_dev_list, data, index)
     {
         device_t* dev = *(device_t**)data;
 
@@ -194,8 +193,8 @@ uint32_t kterm_cmd_hello(const char** argv, size_t argc)
 uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 {
     kerror_t error;
-    extern_driver_t* driver;
-    drv_manifest_t* manifest;
+    extern_driver_t* ext_driver;
+    driver_t* driver;
     const char* drv_path = nullptr;
     bool should_unload = false;
     bool should_uninstall = false;
@@ -260,16 +259,16 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
         return 0;
     }
 
-    manifest = get_driver(drv_path);
+    driver = get_driver(drv_path);
 
     if (should_uninstall) {
 
-        if (!manifest) {
+        if (!driver) {
             kterm_println("Failed to find that driver!");
             return 1;
         }
 
-        error = uninstall_driver(manifest);
+        error = uninstall_driver(driver);
 
         if ((error)) {
             kterm_println("Failed to uninstall that driver!");
@@ -299,16 +298,16 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
         return 1;
     }
 
-    /* If this path it to a valid installed manifest, load that */
-    if (manifest && !(load_driver(manifest))) {
+    /* If this path it to a valid installed driver, load that */
+    if (driver && !(load_driver(driver))) {
         kterm_println("Successfully loaded driver!");
         return 0;
     }
 
     /* Finally, try to load an external driver */
-    driver = load_external_driver(drv_path);
+    ext_driver = load_external_driver(drv_path);
 
-    if (!driver) {
+    if (!ext_driver) {
         kterm_println("Failed to load that driver!");
         return 1;
     }

@@ -1,6 +1,6 @@
 #include "null.h"
 #include "dev/device.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "devices/shared.h"
 #include "oss/node.h"
 #include "oss/obj.h"
@@ -14,12 +14,12 @@ int null_read(device_t* device, u64 offset, void* buffer, size_t size)
     return 0;
 }
 
-int null_write(device_t* device, drv_manifest_t* driver, u64 offset, void* buffer, size_t size)
+int null_write(device_t* device, driver_t* driver, u64 offset, void* buffer, size_t size)
 {
     return 0;
 }
 
-int null_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
+int null_devinfo(device_t* device, driver_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
 {
     memset(binfo, 0, sizeof(*binfo));
 

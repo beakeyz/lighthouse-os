@@ -8,7 +8,7 @@ typedef struct device_ctl {
     u8 b_flags;
     u32 s_n_calls : 24;
     enum DEVICE_CTLC e_code;
-    struct drv_manifest* p_driver;
+    struct driver* p_driver;
     f_device_ctl_t f_impl;
 
     struct device_ctl* next;
@@ -94,7 +94,7 @@ static inline u32 __hash_device_ctlc_to_idx(device_ctlmap_t* map, enum DEVICE_CT
     return code & (map->ctlmap_sz - 1);
 }
 
-static inline int __devicemap_link_colliding_ctlcode(device_ctl_t* ctl, enum DEVICE_CTLC code, struct drv_manifest* driver, f_device_ctl_t impl, u16 flags)
+static inline int __devicemap_link_colliding_ctlcode(device_ctl_t* ctl, enum DEVICE_CTLC code, struct driver* driver, f_device_ctl_t impl, u16 flags)
 {
     device_ctl_t** walker;
     device_ctl_t* new_ctl;
@@ -137,7 +137,7 @@ static inline int __devicemap_link_colliding_ctlcode(device_ctl_t* ctl, enum DEV
     return 0;
 }
 
-int device_map_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, struct drv_manifest* driver, f_device_ctl_t impl, u16 flags)
+int device_map_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, struct driver* driver, f_device_ctl_t impl, u16 flags)
 {
     u32 idx;
     device_ctl_t* p_ctl;

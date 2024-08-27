@@ -19,7 +19,7 @@
 #include "sched/scheduler.h"
 #include "sync/mutex.h"
 #include <dev/core.h>
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <stdint.h>
 
 /*
@@ -30,7 +30,7 @@
  */
 
 static uint32_t _ehci_hcd_count;
-static drv_manifest_t* _ehci_driver;
+static driver_t* _ehci_driver;
 static pci_dev_id_t ehci_pci_ids[] = {
     PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_EHCI),
     PCI_DEVID_END,
@@ -1052,7 +1052,7 @@ pci_driver_t ehci_pci_driver = {
     .device_flags = NULL,
 };
 
-int ehci_init(drv_manifest_t* driver)
+int ehci_init(driver_t* driver)
 {
     _ehci_hcd_count = 0;
     _ehci_driver = driver;

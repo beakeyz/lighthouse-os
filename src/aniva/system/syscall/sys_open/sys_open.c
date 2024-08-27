@@ -3,7 +3,7 @@
 #include "dev/device.h"
 #include "dev/external.h"
 #include "dev/loader.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "fs/dir.h"
 #include "fs/file.h"
 #include "kevent/event.h"
@@ -119,16 +119,16 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
     }
     case HNDL_TYPE_DRIVER: {
         extern_driver_t* ext;
-        drv_manifest_t* driver = NULL;
+        driver_t* driver = NULL;
 
         switch (mode) {
         case HNDL_MODE_CREATE:
             ext = load_external_driver(path);
 
-            if (!ext || !ext->m_manifest)
+            if (!ext || !ext->m_driver)
                 return HNDL_NOT_FOUND;
 
-            driver = ext->m_manifest;
+            driver = ext->m_driver;
             break;
         default:
             driver = get_driver(path);

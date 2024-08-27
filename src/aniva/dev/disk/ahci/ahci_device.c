@@ -6,7 +6,7 @@
 #include "dev/disk/generic.h"
 #include "dev/driver.h"
 #include "dev/group.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "dev/pci/bus.h"
 #include "dev/pci/definitions.h"
 #include "dev/pci/io.h"
@@ -25,7 +25,7 @@
 
 static uint32_t _ahci_dev_count;
 static ahci_device_t* __ahci_devices = nullptr;
-static drv_manifest_t* _ahci_driver;
+static driver_t* _ahci_driver;
 static dgroup_t* _ahci_group;
 
 static pci_dev_id_t ahci_id_table[] = {
@@ -33,7 +33,7 @@ static pci_dev_id_t ahci_id_table[] = {
     PCI_DEVID_END
 };
 
-int ahci_driver_init(drv_manifest_t* driver);
+int ahci_driver_init(driver_t* driver);
 int ahci_driver_exit();
 
 static ALWAYS_INLINE void* get_hba_region(ahci_device_t* device);
@@ -402,7 +402,7 @@ EXPORT_DRIVER_PTR(base_ahci_driver);
  * PCI bus driver is initialized) and we register our own bus group. The group will simply be called 'ahci' which is
  * where all the ahci controllers and devices we find will be attached.
  */
-int ahci_driver_init(drv_manifest_t* driver)
+int ahci_driver_init(driver_t* driver)
 {
     __ahci_devices = nullptr;
     _ahci_dev_count = NULL;

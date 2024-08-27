@@ -1,4 +1,4 @@
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include <dev/core.h>
 #include <dev/ctl.h>
 #include <dev/driver.h>
@@ -22,13 +22,13 @@ usb_device_ident_t usbdisk_ident[] = {
 
 struct usbdisk_dev;
 
-extern int usbdisk_create(drv_manifest_t* driver, usb_device_t* dev, usb_interface_buffer_t* intrf);
+extern int usbdisk_create(driver_t* driver, usb_device_t* dev, usb_interface_buffer_t* intrf);
 extern int usbdisk_destroy(struct usbdisk_dev* dev);
 
 /*!
  * @brief: Checks if we are able to drive this device lol
  */
-static int usbdisk_probe(drv_manifest_t* driver, usb_device_t* dev, usb_interface_buffer_t* intrf)
+static int usbdisk_probe(driver_t* driver, usb_device_t* dev, usb_interface_buffer_t* intrf)
 {
     return usbdisk_create(driver, dev, intrf);
 }
@@ -36,7 +36,7 @@ static int usbdisk_probe(drv_manifest_t* driver, usb_device_t* dev, usb_interfac
 /*!
  * @brief: Remove a usbdisk device
  */
-static int usbdisk_remove(drv_manifest_t* driver, usb_device_t* dev)
+static int usbdisk_remove(driver_t* driver, usb_device_t* dev)
 {
     return usbdisk_destroy(dev->private);
 }
@@ -51,7 +51,7 @@ usb_driver_desc_t usbdisk_drv = {
  * @brief: Initialize the driver infastructure
  *
  */
-static int usbdisk_init(drv_manifest_t* driver)
+static int usbdisk_init(driver_t* driver)
 {
     /* Register the usb driver and collect the devices */
     register_usb_driver(driver, &usbdisk_drv);

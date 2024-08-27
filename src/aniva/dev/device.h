@@ -56,7 +56,7 @@ struct dgroup;
 struct pci_device;
 struct acpi_device;
 struct aniva_driver;
-struct drv_manifest;
+struct driver;
 struct device_ctl_node;
 
 /* Device that is managed and backed entirely by software */
@@ -119,7 +119,7 @@ typedef struct device {
      * I'm pretty sure that a single device never needs more than 3 drivers looking after it,
      * so having space for 5 should be more than enough
      */
-    struct drv_manifest* drivers[DEVICE_DRIVER_LIMIT];
+    struct driver* drivers[DEVICE_DRIVER_LIMIT];
     struct oss_obj* obj;
     /* If this device is a bus, this node contains it's children */
     struct dgroup* bus_group;
@@ -165,8 +165,8 @@ static inline void device_identify(device_t* device, uint16_t vid, uint16_t did,
     device->subclass = subclass;
 }
 
-kerror_t device_bind_driver(device_t* device, struct drv_manifest* driver);
-kerror_t device_unbind_driver(device_t* device, struct drv_manifest* driver);
+kerror_t device_bind_driver(device_t* device, struct driver* driver);
+kerror_t device_unbind_driver(device_t* device, struct driver* driver);
 kerror_t device_clear_drivers(device_t* device);
 
 /*!
@@ -183,8 +183,8 @@ void init_hw();
 void debug_devices();
 
 /* Object management */
-device_t* create_device(struct drv_manifest* parent, char* name, void* priv);
-device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, struct device_ctl_node* ctl_list);
+device_t* create_device(struct driver* parent, char* name, void* priv);
+device_t* create_device_ex(struct driver* parent, char* name, void* priv, uint32_t flags, struct device_ctl_node* ctl_list);
 void destroy_device(device_t* device);
 
 /* Device registering */
@@ -240,8 +240,8 @@ typedef struct device_ctl_node {
         0, 0, 0        \
     }
 
-int device_impl_ctl(device_t* dev, struct drv_manifest* driver, enum DEVICE_CTLC code, f_device_ctl_t impl, u16 flags);
-int device_impl_ctl_n(device_t* dev, struct drv_manifest* driver, device_ctl_node_t* ctl_list);
+int device_impl_ctl(device_t* dev, struct driver* driver, enum DEVICE_CTLC code, f_device_ctl_t impl, u16 flags);
+int device_impl_ctl_n(device_t* dev, struct driver* driver, device_ctl_node_t* ctl_list);
 int device_unimpl_ctl(device_t* dev, enum DEVICE_CTLC code);
 int device_send_ctl(device_t* dev, enum DEVICE_CTLC code);
 int device_send_ctl_ex(device_t* dev, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t size);

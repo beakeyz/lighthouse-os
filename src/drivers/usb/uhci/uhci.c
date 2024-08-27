@@ -2,7 +2,7 @@
 #include "devices/pci.h"
 #include <dev/core.h>
 #include <dev/driver.h>
-#include <dev/manifest.h>
+#include <dev/driver.h>
 
 static pci_dev_id_t uhci_ids[] = {
     PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_UHCI),
@@ -20,7 +20,7 @@ static pci_driver_t uhci_pci = {
     .device_flags = NULL,
 };
 
-static int uhci_init(drv_manifest_t* driver)
+static int uhci_init(driver_t* driver)
 {
     register_pci_driver(driver, &uhci_pci);
     return 0;

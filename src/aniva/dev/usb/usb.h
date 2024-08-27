@@ -13,6 +13,7 @@
  * that gets created and registered
  */
 
+#include "dev/device.h"
 #include "dev/pci/pci.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/xfer.h"
@@ -82,7 +83,7 @@ typedef struct usb_device {
     void* private;
 
     /* Parent hub this device is located on */
-    struct device* device;
+    device_t* device;
     struct usb_hcd* hcd;
     struct usb_hub* hub;
 } usb_device_t;

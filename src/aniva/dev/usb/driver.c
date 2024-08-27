@@ -1,5 +1,5 @@
 #include "driver.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
 #include "libk/data/linkedlist.h"
@@ -13,7 +13,7 @@ list_t* usbdrv_list;
 typedef struct usb_driver {
     usb_driver_desc_t* desc;
     /* The core driver associated with this usb driver */
-    drv_manifest_t* driver;
+    driver_t* driver;
 
     /* List where we keep all devices attached to this driver through USB */
     list_t* usb_devices;
@@ -93,7 +93,7 @@ int usbdrv_device_scan_driver(usb_device_t* udev)
         c_driver = i->data;
 
         /* Already probed this fucker, skip */
-        if (manifest_has_dev(c_driver->driver, udev->device, NULL))
+        if (driver_has_dev(c_driver->driver, udev->device, NULL))
             goto cycle;
 
         if (!_matching_device(c_driver->desc->ident_list, udev, &matching_if) || !c_driver->desc->f_probe)
@@ -114,7 +114,7 @@ int usbdrv_device_scan_driver(usb_device_t* udev)
         return -KERR_NODRV;
 
     /* Give the driver a device */
-    manifest_add_dev(c_driver->driver, udev->device);
+    driver_add_dev(c_driver->driver, udev->device);
 
     /* Attach the usb device */
     list_append(c_driver->usb_devices, udev);
@@ -137,7 +137,7 @@ static inline int usbdrv_do_device_scan()
     return enumerate_usb_devices(__usbdrv_do_device_scan, NULL);
 }
 
-int register_usb_driver(drv_manifest_t* driver, usb_driver_desc_t* desc)
+int register_usb_driver(driver_t* driver, usb_driver_desc_t* desc)
 {
     usb_driver_t* drv;
 

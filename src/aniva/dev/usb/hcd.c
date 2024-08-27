@@ -9,7 +9,7 @@
  * @brief Allocate the needed memory for a USB hub structure
  *
  */
-usb_hcd_t* create_usb_hcd(struct drv_manifest* driver, pci_device_t* host, char* hub_name, device_ctl_node_t* ctllist)
+usb_hcd_t* create_usb_hcd(struct driver* driver, pci_device_t* host, char* hub_name, device_ctl_node_t* ctllist)
 {
     usb_hcd_t* ret;
     device_t* device;

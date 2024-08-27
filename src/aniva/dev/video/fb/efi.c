@@ -1,6 +1,6 @@
 #include "dev/core.h"
 #include "dev/device.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "dev/video/device.h"
 #include "dev/video/framebuffer.h"
 #include "devices/shared.h"
@@ -33,16 +33,16 @@
  *  - HW cursor
  */
 
-int fb_driver_init(drv_manifest_t* driver);
+int fb_driver_init(driver_t* driver);
 int fb_driver_exit();
 
-/* Our manifest */
-static drv_manifest_t* _this;
+/* Our driver */
+static driver_t* _this;
 static video_device_t* _vdev;
 /* Local framebuffer information for the driver */
 static fb_info_t* _main_info = nullptr;
 
-static int efifb_get_info(device_t* dev, drv_manifest_t* driver, u64 offset, vdev_info_t* info, size_t bsize)
+static int efifb_get_info(device_t* dev, driver_t* driver, u64 offset, vdev_info_t* info, size_t bsize)
 {
     /* TODO: */
     memset(info, 0, sizeof(*info));
@@ -186,7 +186,7 @@ fb_helper_ops_t _efifb_helper_ops = {
     .f_unmap = efifb_unmap,
 };
 
-static int efifb_get_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
+static int efifb_get_devinfo(device_t* device, driver_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
 {
     memset(binfo, 0, sizeof(*binfo));
 
@@ -252,14 +252,14 @@ static inline void _init_main_info(struct multiboot_tag_framebuffer* fb)
  * - Make sure we are exported so we can be used
  *
  */
-int fb_driver_init(drv_manifest_t* driver)
+int fb_driver_init(driver_t* driver)
 {
     video_device_t* vdev;
     struct multiboot_tag_framebuffer* fb;
 
     _this = driver;
 
-    ASSERT_MSG(_this, "Could not get the efifb driver manifest!");
+    ASSERT_MSG(_this, "Could not get the efifb driver driver!");
 
     /* Check the early system logs. This is okay, but we really do want to get an actual gpu driver running soon lol */
     if (!(g_system_info.sys_flags & SYSFLAGS_HAS_FRAMEBUFFER))
@@ -286,7 +286,7 @@ int fb_driver_init(drv_manifest_t* driver)
 
     ASSERT(video_deactivate_current_driver() == 0);
 
-    /* Register the video device (install it on our manifest) */
+    /* Register the video device (install it on our driver) */
     register_video_device(vdev);
 
     _vdev = vdev;

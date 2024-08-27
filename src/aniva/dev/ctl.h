@@ -5,9 +5,9 @@
 #include <libk/stddef.h>
 
 struct device;
-struct drv_manifest;
+struct driver;
 
-typedef int (*f_device_ctl_t)(struct device* device, struct drv_manifest* driver, u64 offset, void* buffer, size_t bsize);
+typedef int (*f_device_ctl_t)(struct device* device, struct driver* driver, u64 offset, void* buffer, size_t bsize);
 
 /* control can be rerouted by a different driver */
 #define DEVICE_CTL_FLAG_UNIMPORTANT 0x01
@@ -40,7 +40,7 @@ typedef struct device_ctlmap {
 device_ctlmap_t* create_device_ctlmap(struct device* dev);
 void destroy_device_ctlmap(device_ctlmap_t* map);
 
-int device_map_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, struct drv_manifest* driver, f_device_ctl_t ctl, u16 flags);
+int device_map_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, struct driver* driver, f_device_ctl_t ctl, u16 flags);
 int device_unmap_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code);
 
 int device_ctl(device_ctlmap_t* map, enum DEVICE_CTLC code, u64 offset, void* buffer, size_t bsize);

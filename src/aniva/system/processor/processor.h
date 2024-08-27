@@ -16,7 +16,7 @@
 #include <libk/stddef.h>
 
 struct processor;
-struct drv_manifest;
+struct driver;
 
 #define PROCESSOR_FLAG_INT_SYSCALLS (0x00000001) /* Do we use interrupts for syscalls, or does this CPU have the SYSCALL feature (sysenter/sysexit) */
 #define PROCESSOR_FLAG_XSAVE (0x00000002) /* Do we have xsave for fpu stuff */

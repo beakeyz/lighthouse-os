@@ -1,5 +1,5 @@
 #include <dev/core.h>
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <dev/usb/driver.h>
 
 #include "dev/io/hid/event.h"
@@ -160,7 +160,7 @@ static device_ctl_node_t _usbkbd_ctllist[] = {
  * Registers the new device to our keyboard device list
  */
 static int
-create_usbkbd(usbkbd_t** ret, drv_manifest_t* usbkbd_driver, usb_device_t* dev)
+create_usbkbd(usbkbd_t** ret, driver_t* usbkbd_driver, usb_device_t* dev)
 {
     usbkbd_t* _ret;
     char name_buffer[16] = { 0 };
@@ -385,7 +385,7 @@ resubmit:
     return usb_xfer_enqueue(xfer, xfer->device->hcd);
 }
 
-static int usbkbd_probe(drv_manifest_t* this, usb_device_t* udev, usb_interface_buffer_t* intf_buf)
+static int usbkbd_probe(driver_t* this, usb_device_t* udev, usb_interface_buffer_t* intf_buf)
 {
     int error;
     usb_interface_entry_t* interface;
@@ -439,7 +439,7 @@ usb_driver_desc_t usbkbd_usbdrv = {
     .f_probe = usbkbd_probe,
 };
 
-static int usbkbd_init(drv_manifest_t* driver)
+static int usbkbd_init(driver_t* driver)
 {
     KLOG_DBG("Initializing usbkbd\n");
 

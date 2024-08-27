@@ -3,7 +3,7 @@
 #include "dev/ctl.h"
 #include "dev/driver.h"
 #include "dev/group.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "dev/misc/null.h"
 #include "dev/usb/usb.h"
 #include "devices/shared.h"
@@ -22,7 +22,7 @@ static oss_node_t* _device_node;
 
 static void __destroy_device(device_t* device);
 
-device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
+device_t* create_device(driver_t* parent, char* name, void* priv)
 {
     return create_device_ex(parent, name, priv, NULL, NULL);
 }
@@ -35,7 +35,7 @@ device_t* create_device(drv_manifest_t* parent, char* name, void* priv)
  *
  * NOTE: this does not register a device to a driver, which means that it won't have a parent
  */
-device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, uint32_t flags, device_ctl_node_t* ctl_list)
+device_t* create_device_ex(struct driver* parent, char* name, void* priv, uint32_t flags, device_ctl_node_t* ctl_list)
 {
     int error;
     device_t* ret;
@@ -67,7 +67,7 @@ device_t* create_device_ex(struct drv_manifest* parent, char* name, void* priv, 
 
     /* Make sure we register ourselves to the driver */
     if (parent)
-        manifest_add_dev(parent, ret);
+        driver_add_dev(parent, ret);
 
     /* Execute the create control code if it's implemented */
     error = device_send_ctl(ret, DEVICE_CTLC_CREATE);
@@ -123,10 +123,10 @@ void destroy_device(device_t* device)
 /*!
  * @brief: Try to bind @driver to @device
  */
-kerror_t device_bind_driver(device_t* device, struct drv_manifest* driver)
+kerror_t device_bind_driver(device_t* device, struct driver* driver)
 {
     uint32_t idx = 0;
-    drv_manifest_t** slot;
+    driver_t** slot;
 
     mutex_lock(device->lock);
 
@@ -144,7 +144,7 @@ kerror_t device_bind_driver(device_t* device, struct drv_manifest* driver)
     return (idx == DEVICE_DRIVER_LIMIT);
 }
 
-kerror_t device_unbind_driver(device_t* device, struct drv_manifest* driver)
+kerror_t device_unbind_driver(device_t* device, struct driver* driver)
 {
     kerror_t error = -KERR_NOT_FOUND;
 
@@ -165,14 +165,14 @@ kerror_t device_unbind_driver(device_t* device, struct drv_manifest* driver)
 
 kerror_t device_clear_drivers(device_t* device)
 {
-    drv_manifest_t* c_driver;
+    driver_t* c_driver;
 
     mutex_lock(device->lock);
 
     for (uint32_t i = 0; i < DEVICE_DRIVER_LIMIT; i++) {
         c_driver = device->drivers[i];
 
-        (void)manifest_remove_dev(c_driver, device);
+        (void)driver_remove_dev(c_driver, device);
     }
 
     /* Clear the drivers list */
@@ -463,7 +463,7 @@ int device_get_group(device_t* dev, struct dgroup** group_out)
  *
  * Fails if either one of the codes is a duplicate or any error occurs during implementation
  */
-int device_impl_ctl_n(device_t* dev, struct drv_manifest* driver, device_ctl_node_t* ctl_list)
+int device_impl_ctl_n(device_t* dev, struct driver* driver, device_ctl_node_t* ctl_list)
 {
     int error;
 
@@ -494,7 +494,7 @@ int device_impl_ctl_n(device_t* dev, struct drv_manifest* driver, device_ctl_nod
 /*!
  * @brief: Implements a single device control code for a driver
  */
-int device_impl_ctl(device_t* dev, struct drv_manifest* driver, enum DEVICE_CTLC code, f_device_ctl_t impl, u16 flags)
+int device_impl_ctl(device_t* dev, struct driver* driver, enum DEVICE_CTLC code, f_device_ctl_t impl, u16 flags)
 {
     int error;
 

@@ -5,7 +5,7 @@
 #include "lightos/handle_def.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <mem/kmem_manager.h>
 #include <proc/proc.h>
 

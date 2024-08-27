@@ -368,7 +368,7 @@ typedef struct pci_driver {
     /* Lock that ensures only one opperation at a time on this driver */
     mutex_t* lock;
     /* The parent driver that makes up */
-    struct drv_manifest* manifest;
+    struct driver* driver;
 } pci_driver_t;
 
 bool is_pci_driver_unused(pci_driver_t* driver);
@@ -377,7 +377,7 @@ bool is_pci_driver_unused(pci_driver_t* driver);
 void pci_device_attach_driver(pci_device_t* device, struct pci_driver* driver);
 void pci_device_detach_driver(pci_device_t* device, struct pci_driver* driver);
 
-int register_pci_driver(struct drv_manifest* drv, struct pci_driver* driver);
+int register_pci_driver(struct driver* drv, struct pci_driver* driver);
 int unregister_pci_driver(struct pci_driver* driver);
 
 extern bool __has_registered_bridges;

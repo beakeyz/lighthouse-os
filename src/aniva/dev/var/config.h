@@ -4,7 +4,7 @@
 #include <libk/stddef.h>
 #include <oss/node.h>
 
-struct drv_manifest;
+struct driver;
 
 /*
  * This header defines the framework for drivers (and devices) to expose a configuration
@@ -28,12 +28,12 @@ struct drv_manifest;
  * @returns: 0 if the driver is okay with the change and has processed it correctly and a negative error number
  * otherwise, if the mutation should be aborted.
  */
-typedef int (*f_drvconfig_cb)(struct drv_manifest* driver, sysvar_t* var, sysvar_t* newval_var);
+typedef int (*f_drvconfig_cb)(struct driver* driver, sysvar_t* var, sysvar_t* newval_var);
 
 /* Driver configuration node */
 typedef oss_node_t drvconf_node_t;
 
-int drvconf_create(drvconf_node_t** pnode, struct drv_manifest* driver);
+int drvconf_create(drvconf_node_t** pnode, struct driver* driver);
 int drvconf_destroy(drvconf_node_t* drvconf_node);
 
 int drvconf_add_num(drvconf_node_t* confnode, const char* key, u64 num);

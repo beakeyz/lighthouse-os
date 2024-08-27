@@ -21,7 +21,7 @@
 #include "system/sysvar/map.h"
 #include "system/sysvar/var.h"
 #include <dev/device.h>
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <libk/string.h>
 #include <oss/node.h>
 #include <sync/mutex.h>
@@ -716,7 +716,7 @@ int diskdev_populate_partition_table(disk_dev_t* dev)
     return -1;
 }
 
-int ramdisk_read(struct device* _dev, struct drv_manifest* driver, disk_offset_t offset, void* buffer, size_t size)
+int ramdisk_read(struct device* _dev, struct driver* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     disk_dev_t* device;
 
@@ -748,7 +748,7 @@ int ramdisk_read(struct device* _dev, struct drv_manifest* driver, disk_offset_t
     return 0;
 }
 
-int ramdisk_write(struct device* device, struct drv_manifest* driver, disk_offset_t offset, void* buffer, size_t size)
+int ramdisk_write(struct device* device, struct driver* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     kernel_panic("TODO: implement ramdisk_write");
 }
@@ -773,7 +773,7 @@ static inline char* _construct_dev_name()
     return ret;
 }
 
-static void __disk_device_implement_ops(disk_dev_t* device, drv_manifest_t* parent, disk_dev_ops_t* ops)
+static void __disk_device_implement_ops(disk_dev_t* device, driver_t* parent, disk_dev_ops_t* ops)
 {
     device->m_ops = ops;
 
@@ -794,7 +794,7 @@ static void __disk_device_implement_ops(disk_dev_t* device, drv_manifest_t* pare
  *
  * Also attaches it to the core disk driver
  */
-disk_dev_t* create_generic_disk(struct drv_manifest* parent, char* name, void* private, disk_dev_ops_t* ops)
+disk_dev_t* create_generic_disk(struct driver* parent, char* name, void* private, disk_dev_ops_t* ops)
 {
     disk_dev_t* ret = nullptr;
     char* dev_name = nullptr;

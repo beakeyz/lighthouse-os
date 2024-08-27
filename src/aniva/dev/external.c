@@ -1,6 +1,5 @@
 #include "external.h"
 #include "dev/driver.h"
-#include "dev/manifest.h"
 #include "libk/data/hashmap.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
@@ -48,8 +47,8 @@ extern_driver_t* create_external_driver(uint32_t flags)
     drv->m_exp_symmap = create_hashmap(512, NULL);
 
     if ((flags & EX_DRV_OLDMANIFEST) != EX_DRV_OLDMANIFEST) {
-        drv->m_manifest = create_drv_manifest(nullptr);
-        drv->m_manifest->m_flags |= (DRV_IS_EXTERNAL);
+        drv->m_driver = create_driver(nullptr);
+        drv->m_driver->m_flags |= (DRV_IS_EXTERNAL);
     }
 
     /* Add a mofo */
@@ -61,39 +60,39 @@ extern_driver_t* create_external_driver(uint32_t flags)
 /*
  * TODO: move this resource clear routine to the resource context subsystem
  *
- * NOTE: caller should have the manifests mutex held
+ * NOTE: caller should have the drivers mutex held
  */
-void destroy_external_driver(extern_driver_t* driver)
+void destroy_external_driver(extern_driver_t* ext_driver)
 {
-    drv_manifest_t* manifest;
+    driver_t* driver;
 
     /* Bummer */
-    if (!driver)
+    if (!ext_driver)
         return;
 
     /* Unregister the driver */
-    _unregister_ext_driver(driver);
+    _unregister_ext_driver(ext_driver);
 
-    manifest = driver->m_manifest;
+    driver = ext_driver->m_driver;
 
     /*
-     * We need to let the manifest know that it does not have a driver anymore xD
+     * We need to let the driver know that it does not have a driver anymore xD
      */
-    if (manifest) {
-        manifest->m_handle = nullptr;
-        manifest->m_external = nullptr;
+    if (driver) {
+        driver->m_handle = nullptr;
+        driver->m_external = nullptr;
 
-        manifest->m_flags &= ~DRV_HAS_HANDLE;
-        manifest->m_flags |= DRV_DEFERRED_HNDL;
+        driver->m_flags &= ~DRV_HAS_HANDLE;
+        driver->m_flags |= DRV_DEFERRED_HNDL;
 
         /* Make sure we also deallocate our load base, just in case */
-        if (driver->m_load_size)
-            (__kmem_dealloc(nullptr, manifest->m_resources, driver->m_load_base, driver->m_load_size));
+        if (ext_driver->m_load_size)
+            (__kmem_dealloc(nullptr, driver->m_resources, ext_driver->m_load_base, ext_driver->m_load_size));
     }
 
     /* Some driver may not even have an exported symmap */
-    if (driver->m_exp_symmap)
-        destroy_hashmap(driver->m_exp_symmap);
+    if (ext_driver->m_exp_symmap)
+        destroy_hashmap(ext_driver->m_exp_symmap);
 
     kzfree(driver, sizeof(extern_driver_t));
 }

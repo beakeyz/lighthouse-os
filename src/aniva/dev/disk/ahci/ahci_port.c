@@ -4,7 +4,7 @@
 #include "dev/disk/ahci/definitions.h"
 #include "dev/disk/generic.h"
 #include "dev/disk/shared.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "devices/pci.h"
 #include "devices/shared.h"
 #include "libk/flow/error.h"
@@ -198,7 +198,7 @@ static ALWAYS_INLINE void port_set_active(ahci_port_t* port);
 static ALWAYS_INLINE void port_set_sleeping(ahci_port_t* port);
 static ALWAYS_INLINE bool port_has_phy(ahci_port_t* port);
 
-static int ahci_get_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, void* buffer, size_t size)
+static int ahci_get_devinfo(device_t* device, driver_t* driver, u64 offset, void* buffer, size_t size)
 {
     DEVINFO* binfo;
     disk_dev_t* diskdev;
@@ -228,21 +228,21 @@ static int ahci_get_devinfo(device_t* device, drv_manifest_t* driver, u64 offset
  * TODO: implement
  */
 
-int ahci_port_read(device_t* port, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
+int ahci_port_read(device_t* port, driver_t* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     kernel_panic("TODO: implement async ahci read");
 
     return -1;
 }
 
-int ahci_port_write(device_t* port, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
+int ahci_port_write(device_t* port, driver_t* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     kernel_panic("TODO: implement async ahci write");
 
     return -1;
 }
 
-static int ahci_port_flush(device_t* device, drv_manifest_t* driver, disk_offset_t offset, void* buffer, size_t size)
+static int ahci_port_flush(device_t* device, driver_t* driver, disk_offset_t offset, void* buffer, size_t size)
 {
     disk_dev_t* ddev;
     ahci_port_t* port;
@@ -278,7 +278,7 @@ static int ahci_port_flush(device_t* device, drv_manifest_t* driver, disk_offset
  * 'optimal' amount of blocks we can transfer at a time times the logical blocksize).
  *
  */
-static int ahci_port_write_blk(device_t* device, drv_manifest_t* driver, uintptr_t blk, void* buffer, size_t count)
+static int ahci_port_write_blk(device_t* device, driver_t* driver, uintptr_t blk, void* buffer, size_t count)
 {
     ahci_port_t* port;
     disk_dev_t* disk_dev;
@@ -337,7 +337,7 @@ static int ahci_port_write_blk(device_t* device, drv_manifest_t* driver, uintptr
  * that @buffer is allocated with KMEM_FLAG_DMA. This would be coupled with persistent disk caches in a centralised place, much
  * like we have in the bootloader (Which has a better disk-interface than us lmaooo)
  */
-static int ahci_port_read_blk(device_t* device, drv_manifest_t* driver, uintptr_t blk, void* buffer, size_t count)
+static int ahci_port_read_blk(device_t* device, driver_t* driver, uintptr_t blk, void* buffer, size_t count)
 {
     ahci_port_t* port;
     disk_dev_t* disk_dev;
@@ -384,7 +384,7 @@ static int ahci_port_read_blk(device_t* device, drv_manifest_t* driver, uintptr_
     return 0;
 }
 
-static int ahci_port_ata_ident(device_t* device, drv_manifest_t* driver, uintptr_t blk, void* buffer, size_t bsize)
+static int ahci_port_ata_ident(device_t* device, driver_t* driver, uintptr_t blk, void* buffer, size_t bsize)
 {
     disk_dev_t* disk_device;
     ahci_port_t* port;

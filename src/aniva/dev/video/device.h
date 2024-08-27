@@ -64,7 +64,7 @@ typedef struct video_device {
 
 void init_vdevice();
 
-video_device_t* create_video_device(struct drv_manifest* driver, const char* name, device_ctl_node_t* ctl_list);
+video_device_t* create_video_device(struct driver* driver, const char* name, device_ctl_node_t* ctl_list);
 int destroy_video_device(video_device_t* device);
 
 int vdev_init_fb_helper(video_device_t* device, uint32_t fb_capacity, struct fb_helper_ops* ops);

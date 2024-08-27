@@ -3,7 +3,7 @@
 #include "libk/flow/error.h"
 #include <dev/core.h>
 #include <dev/driver.h>
-#include <dev/manifest.h>
+#include <dev/driver.h>
 #include <libk/string.h>
 
 static const char* __sample_code = "mode driver\n"
@@ -12,7 +12,7 @@ static const char* __sample_code = "mode driver\n"
                                    "{\n"
                                    "}\n";
 
-int _prism_init(drv_manifest_t* driver)
+int _prism_init(driver_t* driver)
 {
     prism_error_t error;
     prism_ast_t* test_ast;

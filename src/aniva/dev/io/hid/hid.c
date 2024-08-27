@@ -24,7 +24,7 @@ void init_hid()
 /*!
  * @brief: Create a simple human input device struct
  */
-hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, device_ctl_node_t* ctllist)
+hid_device_t* create_hid_device(driver_t* driver, const char* name, enum HID_BUS_TYPE btype, device_ctl_node_t* ctllist)
 {
     size_t event_capacity;
     device_t* device;
@@ -169,7 +169,7 @@ kerror_t hid_disable_i8042()
 {
     kerror_t error;
     hid_device_t* i8042;
-    drv_manifest_t* driver;
+    driver_t* driver;
 
     i8042 = get_hid_device("i8042");
 

@@ -29,7 +29,7 @@ extern char thread_entry_stub_end[];
 struct proc;
 struct penv;
 struct thread;
-struct drv_manifest;
+struct driver;
 struct user_profile;
 
 enum SCHEDULER_PRIORITY;

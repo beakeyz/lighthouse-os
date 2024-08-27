@@ -4,7 +4,7 @@
 
 #include "dev/core.h"
 #include "dev/driver.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
@@ -23,11 +23,11 @@
 #include "sched/scheduler.h"
 #include "xhci.h"
 
-int xhci_init(drv_manifest_t* driver);
+int xhci_init(driver_t* driver);
 int xhci_exit();
 uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
-static drv_manifest_t* _xhci_driver;
+static driver_t* _xhci_driver;
 pci_dev_id_t xhci_pci_ids[] = {
     PCI_DEVID_CLASSES(SERIAL_BUS_CONTROLLER, PCI_SUBCLASS_SBC_USB, PCI_PROGIF_XHCI),
     PCI_DEVID_END,
@@ -1075,7 +1075,7 @@ uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, 
     return 0;
 }
 
-int xhci_init(drv_manifest_t* driver)
+int xhci_init(driver_t* driver)
 {
     _xhci_driver = driver;
 

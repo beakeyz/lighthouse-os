@@ -10,7 +10,7 @@ struct usbdisk_dev {
 /*!
  * @brief: Read a block from the usbstick
  */
-static int usbdisk_bread(struct device* device, struct drv_manifest* driver, u64 offset, void* buffer, size_t bsize)
+static int usbdisk_bread(struct device* device, struct driver* driver, u64 offset, void* buffer, size_t bsize)
 {
     return 0;
 }
@@ -18,7 +18,7 @@ static int usbdisk_bread(struct device* device, struct drv_manifest* driver, u64
 /*!
  * @brief: Write a block to the usbstick
  */
-static int usbdisk_bwrite(struct device* device, struct drv_manifest* driver, u64 offset, void* buffer, size_t bsize)
+static int usbdisk_bwrite(struct device* device, struct driver* driver, u64 offset, void* buffer, size_t bsize)
 {
     return 0;
 }

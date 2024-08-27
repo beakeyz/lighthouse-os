@@ -2,7 +2,7 @@
 #define __ANIVA_HID_CORE__
 
 #include "dev/device.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "event.h"
 #include "libk/flow/error.h"
 #include <libk/stddef.h>
@@ -35,7 +35,7 @@ typedef struct hid_device {
 
 void init_hid();
 
-hid_device_t* create_hid_device(drv_manifest_t* driver, const char* name, enum HID_BUS_TYPE btype, device_ctl_node_t* ctllist);
+hid_device_t* create_hid_device(driver_t* driver, const char* name, enum HID_BUS_TYPE btype, device_ctl_node_t* ctllist);
 void destroy_hid_device(hid_device_t* device);
 
 kerror_t register_hid_device(hid_device_t* device);

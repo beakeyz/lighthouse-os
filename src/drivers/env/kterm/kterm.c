@@ -1,13 +1,14 @@
 #include "kterm.h"
 #include "dev/core.h"
+#include "dev/device.h"
 #include "dev/driver.h"
 #include "dev/io/hid/event.h"
 #include "dev/io/hid/hid.h"
-#include "dev/manifest.h"
 #include "dev/video/core.h"
 #include "dev/video/device.h"
 #include "dev/video/events.h"
 #include "dev/video/framebuffer.h"
+#include "devices/shared.h"
 #include "drivers/env/kterm/fs.h"
 #include "drivers/env/kterm/util.h"
 #include "kevent/event.h"
@@ -100,6 +101,9 @@ static struct kterm_terminal_char* _characters;
 /* Entire kterm color pallet. Maximum 256 colors available in this pallet */
 static struct kterm_terminal_pallet_entry* _clr_pallet;
 
+/* Kterm interface device */
+static device_t* _kterm_device;
+
 /* Keybuffer for graphical applications */
 uint32_t _keybuffer_app_r_ptr;
 uint32_t _keybuffer_kterm_r_ptr;
@@ -158,7 +162,7 @@ static uint32_t _kterm_fb_blue_shift;
 static video_device_t* _kterm_vdev;
 static hid_device_t* _kterm_kbddev;
 
-int kterm_init();
+int kterm_init(driver_t* driver);
 int kterm_exit();
 uintptr_t kterm_on_packet(aniva_driver_t* driver, dcc_t code, void* buffer, size_t size, void* out_buffer, size_t out_size);
 
@@ -968,7 +972,7 @@ EXPORT_DRIVER(base_kterm_driver) = {
     .f_msg = kterm_on_packet,
 };
 
-static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
+static int kterm_write(device_t* device, driver_t* kterm, u64 offset, void* buffer, size_t bsize)
 {
     char* str = (char*)buffer;
 
@@ -982,13 +986,13 @@ static int kterm_write(aniva_driver_t* d, void* buffer, size_t* buffer_size, uin
     return DRV_STAT_OK;
 }
 
-static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uintptr_t offset)
+static int kterm_read(device_t* device, driver_t* kterm, u64 offset, void* buffer, size_t bsize)
 {
     (void)offset;
     size_t stdin_strlen;
 
     /* Ew */
-    if (!buffer || !buffer_size || !(*buffer_size))
+    if (!buffer || !bsize)
         return DRV_STAT_INVAL;
 
     /* Wait until we have shit to read */
@@ -998,11 +1002,11 @@ static int kterm_read(aniva_driver_t* d, void* buffer, size_t* buffer_size, uint
     stdin_strlen = strlen(__kterm_stdin_buffer);
 
     /* Set the buffersize to our string in preperation for the copy */
-    if (*buffer_size > stdin_strlen)
-        *buffer_size = stdin_strlen;
+    if (bsize > stdin_strlen)
+        bsize = stdin_strlen;
 
     /* Yay, copy */
-    strncpy(buffer, __kterm_stdin_buffer, *buffer_size);
+    strncpy(buffer, __kterm_stdin_buffer, bsize);
 
     /* Reset stdin_buffer */
     memset(__kterm_stdin_buffer, NULL, sizeof(__kterm_stdin_buffer));
@@ -1100,11 +1104,17 @@ static int _kterm_vdev_event_hook(kevent_ctx_t* _ctx, void* param)
     return 0;
 }
 
+static device_ctl_node_t _kterm_device_ctl[] = {
+    DEVICE_CTL(DEVICE_CTLC_READ, kterm_read, NULL),
+    DEVICE_CTL(DEVICE_CTLC_WRITE, kterm_write, NULL),
+    DEVICE_CTL_END,
+};
+
 /*
  * The aniva kterm driver is a text-based terminal program that runs directly in kernel-mode. Any processes it
  * runs get a handle to the driver as stdin, stdout and stderr, with room for any other handle
  */
-int kterm_init()
+int kterm_init(driver_t* driver)
 {
     (void)kterm_redraw_terminal_chars;
 
@@ -1113,30 +1123,41 @@ int kterm_init()
     _clear_cursor_char = true;
     _old_dflt_lwnd_path_value = NULL;
     _keybuffer_app_r_ptr = _keybuffer_kterm_r_ptr = 0;
+
+    /* Create a command doorbell (ew) */
     __kterm_cmd_doorbell = create_doorbell(1, NULL);
+
+    /* Grab the raw active video device (ew^2) */
     _kterm_vdev = get_active_vdev();
+
+    ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
 
     /* TODO: Make a routine that gets the best available keyboard device */
     _kterm_kbddev = get_hid_device("usbkbd_0");
 
+    /* Grab the fallback device lmao */
     if (!_kterm_kbddev)
         _kterm_kbddev = get_hid_device("i8042");
 
     /* Grab our font */
     get_default_font(&_kterm_font);
 
+    /* Add an eventhook for ourselves in the video device interface */
     kevent_add_hook(VDEV_EVENTNAME, "kterm", _kterm_vdev_event_hook, NULL);
 
-    ASSERT_MSG(_kterm_vdev, "kterm: Failed to get active vdev");
-
+    /* Init the kterm filesystem subsys */
     kterm_init_fs(&_c_login);
 
+    /* Reset all propting vars */
     kterm_reset_prompt_vars();
 
-    kterm_disable_newline_tag();
+    /* Create the kterm interface device */
+    _kterm_device = create_device_ex(driver, "kterm", NULL, NULL, _kterm_device_ctl);
 
-    ASSERT_MSG(driver_manifest_write(&base_kterm_driver, kterm_write), "Failed to manifest kterm write");
-    ASSERT_MSG(driver_manifest_read(&base_kterm_driver, kterm_read), "Failed to manifest kterm read");
+    ASSERT_MSG(_kterm_device, "Failed to create control driver for kterm");
+
+    /* Set this device as a control device */
+    driver_set_ctl_device(driver, _kterm_device);
 
     /* Zero out the cmd buffer */
     memset(__kterm_stdin_buffer, 0, sizeof(__kterm_stdin_buffer));
@@ -1182,6 +1203,9 @@ int kterm_init()
     kterm_set_print_color(0);
     /* Set the background color */
     kterm_set_background_color(1);
+
+    /* Disable the newline tag in preperation for drawing the welcome text */
+    kterm_disable_newline_tag();
 
     /*
      * Allocate a range for our characters

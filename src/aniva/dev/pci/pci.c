@@ -1,7 +1,7 @@
 #include "pci.h"
 #include "bus.h"
 #include "dev/device.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "devices/pci.h"
 #include "devices/shared.h"
 #include "io.h"
@@ -113,8 +113,8 @@ static int __find_fitting_pci_devices(pci_driver_t* driver)
                     driver->device_count++;
                     ret->driver = driver;
 
-                    /* Add the device to the manifest */
-                    manifest_add_dev(driver->manifest, ret->dev);
+                    /* Add the device to the driver */
+                    driver_add_dev(driver->driver, ret->dev);
                     break;
                 }
             }
@@ -294,13 +294,13 @@ bool is_pci_driver_unused(pci_driver_t* driver)
  * NOTE: This function may fail when we can't find a device for this driver to govern
  * and the driver has specified volatile rescans
  */
-int register_pci_driver(struct drv_manifest* drv, struct pci_driver* driver)
+int register_pci_driver(struct driver* drv, struct pci_driver* driver)
 {
     if (!driver->id_table)
         return -1;
 
     driver->lock = create_mutex(NULL);
-    driver->manifest = drv;
+    driver->driver = drv;
 
     return __add_pci_driver(driver);
 }
@@ -439,7 +439,7 @@ static int pci_dev_read_dword(pci_device_t* device, uint32_t field, uint32_t* ou
     return device->raw_ops.read32(address->bus_num, address->device_num, address->func_num, field, out);
 }
 
-static int _pcidev_get_devinfo(device_t* device, drv_manifest_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
+static int _pcidev_get_devinfo(device_t* device, driver_t* driver, u64 offset, DEVINFO* binfo, size_t bsize)
 {
     pci_device_t* pdev;
 

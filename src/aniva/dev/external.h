@@ -1,7 +1,8 @@
 #ifndef __ANIVA_EXTERNAL_DRIVER__
 #define __ANIVA_EXTERNAL_DRIVER__
 
-#include "dev/manifest.h"
+#include "dev/driver.h"
+#include "libk/data/hashmap.h"
 
 #define EX_DRV_LOAD_FAILURE (0x00000001)
 #define EX_DRV_USER (0x00000002)
@@ -22,8 +23,8 @@ typedef struct extern_driver {
     /* Symbols exported by this driver */
     hashmap_t* m_exp_symmap;
 
-    /* This drivers manifest */
-    drv_manifest_t* m_manifest;
+    /* This drivers driver */
+    driver_t* m_driver;
 } extern_driver_t;
 
 void init_external_drivers();

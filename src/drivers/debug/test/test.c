@@ -1,5 +1,5 @@
 #include "dev/device.h"
-#include "dev/manifest.h"
+#include "dev/driver.h"
 #include "devices/shared.h"
 #include "logging/log.h"
 #include <dev/core.h>
@@ -14,9 +14,9 @@
 #define TEST_DEVICE "testdev"
 
 device_t* device;
-drv_manifest_t* manifest;
+driver_t* driver;
 
-int test_init(drv_manifest_t* driver);
+int test_init(driver_t* driver);
 int test_exit();
 
 EXPORT_DEPENDENCIES(deps) = {
@@ -71,7 +71,7 @@ static device_ctl_node_t generic[] = {
  * And here is a list of things that are currently being tested:
  *  - Driver-bound devices
  */
-int test_init(drv_manifest_t* driver)
+int test_init(driver_t* driver)
 {
     KLOG_INFO("Initializing test driver!\n");
 
@@ -90,7 +90,7 @@ int test_init(drv_manifest_t* driver)
  *
  * Make sure we remove the device from this driver on unload
  * NOTE: a device should never be persistant through driver lifetime, so
- * any devices without manifests should be considered fatal errors
+ * any devices without drivers should be considered fatal errors
  */
 int test_exit()
 {

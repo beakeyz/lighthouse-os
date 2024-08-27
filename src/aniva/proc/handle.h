@@ -17,7 +17,7 @@ struct oss_obj;
 struct kevent_hook;
 struct sysvar;
 struct user_profile;
-struct drv_manifest;
+struct driver;
 struct virtual_namespace;
 
 typedef uint8_t khandle_type_t;
@@ -38,7 +38,7 @@ typedef struct kernel_handle {
         struct file* file;
         struct dir* dir;
         struct device* device;
-        struct drv_manifest* driver;
+        struct driver* driver;
         struct proc* process;
         struct thread* thread;
         struct virtual_namespace* namespace;
