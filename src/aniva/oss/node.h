@@ -26,6 +26,8 @@ enum OSS_NODE_TYPE {
     OSS_PROFILE_NODE,
     /* Node that holds an environment */
     OSS_PROC_ENV_NODE,
+    /* Node that holds driver/system configuration */
+    OSS_CONFIG_NODE,
 };
 
 void init_oss_nodes();

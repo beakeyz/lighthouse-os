@@ -1,15 +1,20 @@
 USER_OUT=$(OUT)/user
 USER_SRC=$(SRC)/user
 
-# Define where the drivers are located
-USER_PATHS := 		\
-	./init 			\
-	./test 			\
-	./doom			\
-	./gfx_test		\
-	./ls			\
-	./kill			\
-	./vaseprob		\
+# These are fancy admin core programs
+ADMIN_CORE_PROCS := 	\
+	./init 				\
+	./sysconf
+
+# Define where the userapp sources are located
+USER_PATHS := 			\
+	$(ADMIN_CORE_PROCS) \
+	./test 				\
+	./doom				\
+	./gfx_test			\
+	./ls				\
+	./kill				\
+	./vaseprob			\
 	./mndlbrt
 
 # Currently there is no process extention lmao

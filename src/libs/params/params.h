@@ -26,7 +26,12 @@ typedef struct cmd_param {
 
 #define CMD_PARAM_5_ALIAS(dest, dest_len, type, flag, desc, alias_1, alias_2, alias_3, alias_4, alias_5) \
     {                                                                                                    \
-        { (void*)&dest }, dest_len, type, flag, desc, {                                                  \
+        { (void*)&dest },                                                                                \
+        dest_len,                                                                                        \
+        type,                                                                                            \
+        flag,                                                                                            \
+        desc,                                                                                            \
+        {                                                                                                \
             alias_1,                                                                                     \
             alias_2,                                                                                     \
             alias_3,                                                                                     \

@@ -1,5 +1,5 @@
 {
-    "name": "init",
+    "name": "sysinfo",
     "linking": "dynamic",
     "type": "process",
     "libs": []

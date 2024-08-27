@@ -6,7 +6,6 @@
 #include "dev/driver.h"
 #include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
-#include "libk/stddef.h"
 #include "mem/zalloc/zalloc.h"
 #include "sync/mutex.h"
 #include "system/resource.h"
@@ -21,6 +20,8 @@ struct extern_driver;
  * We let drivers implement a few functions that are mostly meant to
  * simulate the file opperations like read, write, seek, ect. that some
  * linux / unix drivers would implement.
+ *
+ * TODO: Migrate to control codes lol
  */
 typedef struct driver_ops {
     int (*f_write)(aniva_driver_t* driver, void* buffer, size_t* buffer_size, uintptr_t offset);
@@ -58,10 +59,9 @@ typedef struct driver_resources {
 } driver_resources_t;
 
 /*
- * TODO: rework driver dependencies to make every driver keep track of a list of
- * other drivers that depend on them
+ * Weird driver thing
  *
- * TODO: work out device attaching
+ * TODO: Clean up this mess and merge driver.c/h and manifest.c/h
  */
 typedef struct drv_manifest {
     aniva_driver_t* m_handle;

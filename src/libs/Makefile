@@ -10,7 +10,8 @@ LIBRARY_PATHS := \
 	./lightui \
 	./devices \
 	./params \
-	./kterm
+	./kterm \
+	./sysconf
 
 export LIBRARY_SHARED_FILE_EXT := .lib
 export LIBRARY_STATIC_FILE_EXT := .obj
