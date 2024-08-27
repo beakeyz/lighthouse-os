@@ -3,7 +3,6 @@
 #include "dev/ctl.h"
 #include "dev/driver.h"
 #include "dev/group.h"
-#include "dev/driver.h"
 #include "dev/misc/null.h"
 #include "dev/usb/usb.h"
 #include "devices/shared.h"

@@ -1068,7 +1068,7 @@ void load_usb_hcds()
     /*
      * Load the core driver for the USB subsytem
      */
-    ASSERT_MSG(!!load_external_driver_from_var(USBCORE_DRV_VAR_PATH), "Failed to load USB drivers");
+    ASSERT_MSG(load_external_driver_from_var(USBCORE_DRV_VAR_PATH), "Failed to load USB drivers");
 }
 
 /*!

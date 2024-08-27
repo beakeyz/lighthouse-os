@@ -7,7 +7,7 @@
 #include "devices/shared.h"
 #include "drivers/env/kterm/kterm.h"
 #include "entry/entry.h"
-#include "libk/data/vector.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "libk/stddef.h"
 #include "libk/string.h"
@@ -20,7 +20,6 @@
 #include "proc/proc.h"
 #include "system/acpi/acpi.h"
 #include "system/acpi/parser.h"
-#include <dev/external.h>
 #include <dev/loader.h>
 #include <proc/env.h>
 #include <stdio.h>
@@ -114,6 +113,7 @@ uint32_t kterm_cmd_sysinfo(const char** argv, size_t argc)
 
 bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
 {
+    u32 idx = 0;
     driver_t* driver;
 
     if (node)
@@ -126,11 +126,11 @@ bool print_drv_info(oss_node_t* node, oss_obj_t* obj, void* arg0)
 
     printf("%16.16s: %32.32s (Loaded: %s)\n", driver->m_url, (driver->m_driver_file_path == nullptr) ? "Internal" : driver->m_driver_file_path, ((driver->m_flags & DRV_LOADED) == DRV_LOADED) ? "Yes" : "No");
 
-    FOREACH_VEC(driver->m_dev_list, data, index)
+    FOREACH(i, driver->m_dev_list)
     {
-        device_t* dev = *(device_t**)data;
+        device_t* dev = i->data;
 
-        printf("  - (%d) %s\n", index, dev->name);
+        printf("  - (%d) %s\n", idx++, dev->name);
     }
 
     return true;
@@ -193,7 +193,6 @@ uint32_t kterm_cmd_hello(const char** argv, size_t argc)
 uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
 {
     kerror_t error;
-    extern_driver_t* ext_driver;
     driver_t* driver;
     const char* drv_path = nullptr;
     bool should_unload = false;
@@ -305,9 +304,9 @@ uint32_t kterm_cmd_drvld(const char** argv, size_t argc)
     }
 
     /* Finally, try to load an external driver */
-    ext_driver = load_external_driver(drv_path);
+    driver = load_external_driver(drv_path);
 
-    if (!ext_driver) {
+    if (!driver) {
         kterm_println("Failed to load that driver!");
         return 1;
     }

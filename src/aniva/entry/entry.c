@@ -398,7 +398,7 @@ void kthread_entry(void)
     // resume_scheduler();
 
     /* Allocate a quick buffer for our init process */
-    extern_driver_t* drv;
+    driver_t* drv;
     char init_buffer[256] = { 0 };
 
     /* Format the buffer */

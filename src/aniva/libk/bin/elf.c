@@ -1,12 +1,11 @@
 #include "elf.h"
 #include "dev/core.h"
-#include "dev/loader.h"
 #include "dev/driver.h"
+#include "dev/loader.h"
 #include "entry/entry.h"
 #include "fs/file.h"
 #include "libk/bin/elf_types.h"
 #include "libk/flow/error.h"
-#include "libk/stddef.h"
 #include "lightos/driver/loader.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
@@ -293,7 +292,7 @@ error_and_out:
  */
 void init_dynamic_loader()
 {
-    extern_driver_t* driver;
+    driver_t* driver;
 
     /* Load the driver which is pointed to by the DYN_LDR_DRV variable */
     driver = load_external_driver_from_var(DYNLOADER_DRV_VAR_PATH);

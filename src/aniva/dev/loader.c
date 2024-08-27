@@ -1,17 +1,16 @@
 #include "loader.h"
 #include "dev/core.h"
 #include "dev/driver.h"
-#include "dev/external.h"
 #include "fs/file.h"
 #include "libk/bin/elf.h"
 #include "libk/bin/elf_types.h"
 #include "libk/bin/ksyms.h"
 #include "libk/flow/error.h"
 #include "libk/string.h"
+#include "logging/log.h"
 #include "mem/heap.h"
 #include "mem/kmem_manager.h"
 #include "system/profile/profile.h"
-#include "system/resource.h"
 #include "system/sysvar/var.h"
 
 struct loader_ctx {
@@ -20,12 +19,12 @@ struct loader_ctx {
     struct elf64_shdr* shdrs;
     char* section_strings;
     char* strtab;
-    extern_driver_t* driver;
+    driver_t* driver;
 
     size_t size;
     size_t sym_count;
 
-    uint32_t expdrv_idx, deps_idx, expsym_idx, symtab_idx;
+    uint32_t expdrv_idx, deps_idx, symtab_idx;
 };
 
 /*!
@@ -45,7 +44,7 @@ static kerror_t __fixup_section_headers(struct loader_ctx* ctx)
                 break;
 
             /* Just give any NOBITS sections a bit of memory */
-            error = __kmem_alloc_range(&result, nullptr, ctx->driver->m_driver->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
+            error = __kmem_alloc_range(&result, nullptr, ctx->driver->m_resources, HIGH_MAP_BASE, shdr->sh_size, NULL, KMEM_FLAG_WRITABLE | KMEM_FLAG_KERNEL);
 
             if (error)
                 return error;
@@ -143,17 +142,10 @@ static kerror_t __do_driver_relocations(struct loader_ctx* ctx)
 
 static inline vaddr_t __get_symbol_address(char* name)
 {
-    vaddr_t ret;
-
     if (!name)
         return NULL;
 
-    ret = get_ksym_address(name);
-
-    if (ret)
-        return ret;
-
-    return get_exported_drvsym(name);
+    return get_ksym_address(name);
 }
 
 /*!
@@ -187,19 +179,11 @@ static kerror_t __resolve_kernel_symbols(struct loader_ctx* ctx)
             if (!current_symbol->st_value)
                 break;
 
-            ctx->driver->m_ksymbol_count++;
+            ctx->driver->ksym_count++;
             break;
         default: {
             struct elf64_shdr* hdr = elf_get_shdr(ctx->hdr, current_symbol->st_shndx);
             current_symbol->st_value += hdr->sh_addr;
-
-            if (!ctx->expsym_idx)
-                break;
-
-            if (ELF64_ST_TYPE(current_symbol->st_info) != STT_FUNC || current_symbol->st_shndx != ctx->expsym_idx)
-                break;
-
-            set_exported_drvsym(ctx->driver, sym_name, current_symbol->st_value);
         }
         }
     }
@@ -294,9 +278,6 @@ static int __check_driver(struct loader_ctx* ctx)
                 /* TODO: real validation */
                 deps_sections++;
                 ctx->deps_idx = i;
-            } else if (strncmp(EXPSYM_SHDR_NAME, ctx->section_strings + shdr->sh_name, strlen(EXPSYM_SHDR_NAME)) == 0) {
-                expsym_sections++;
-                ctx->expsym_idx = i;
             }
             break;
         }
@@ -349,7 +330,7 @@ static kerror_t __verify_driver_functions(struct loader_ctx* ctx, bool verify_dr
     size_t function_count;
     struct elf64_shdr* symtab_shdr;
     struct elf64_sym* sym_table_start;
-    driver_t* driver = ctx->driver->m_driver;
+    driver_t* driver = ctx->driver;
 
     void* driver_functions[] = {
         driver->m_handle->f_init,
@@ -420,10 +401,8 @@ static kerror_t __remove_installed_driver(driver_t* new_driver)
 
 static inline void _ctx_prepare_driver(struct loader_ctx* ctx)
 {
-    if (!ctx->driver->m_driver->m_driver_file_path)
-        ctx->driver->m_driver->m_driver_file_path = strdup(ctx->path);
-
-    ctx->driver->m_driver->m_external = ctx->driver;
+    if (!ctx->driver->m_driver_file_path)
+        ctx->driver->m_driver_file_path = strdup(ctx->path);
 }
 
 /*
@@ -444,7 +423,7 @@ static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
     driver_data = (aniva_driver_t*)driver_header->sh_addr;
     driver_data->m_deps = (drv_dependency_t*)deps_header->sh_addr;
 
-    error = driver_emplace_handle(ctx->driver->m_driver, driver_data);
+    error = driver_emplace_handle(ctx->driver, driver_data);
 
     if ((error))
         return -1;
@@ -454,7 +433,7 @@ static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
      * that it's not already loaded (and it thus in an idle installed-only state)
      * and we can thus load it here
      */
-    error = __remove_installed_driver(ctx->driver->m_driver);
+    error = __remove_installed_driver(ctx->driver);
 
     if ((error))
         return -1;
@@ -464,14 +443,14 @@ static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
     if ((error))
         return -1;
 
-    __detect_driver_attributes(ctx->driver->m_driver);
+    __detect_driver_attributes(ctx->driver);
 
     /* When loading a new driver, we need to have valid dependencies */
-    if (driver_gather_dependencies(ctx->driver->m_driver) < 0)
+    if (driver_gather_dependencies(ctx->driver) < 0)
         return -1;
 
     if (install) {
-        error = install_driver(ctx->driver->m_driver);
+        error = install_driver(ctx->driver);
 
         _ctx_prepare_driver(ctx);
 
@@ -481,7 +460,7 @@ static kerror_t __init_driver(struct loader_ctx* ctx, bool install)
     _ctx_prepare_driver(ctx);
 
     /* We could install the driver, so we came that far =D */
-    return load_driver(ctx->driver->m_driver);
+    return load_driver(ctx->driver);
 }
 
 /*
@@ -504,13 +483,13 @@ static kerror_t __load_ext_driver(struct loader_ctx* ctx, bool install)
  * This will load, verify and init an external driver/klib from
  * a file. This will ultimately fail if the driver is already installed
  */
-extern_driver_t* load_external_driver(const char* path)
+driver_t* load_external_driver(const char* path)
 {
     kerror_t error;
     uintptr_t driver_load_base;
     size_t read_size;
     file_t* file;
-    extern_driver_t* out;
+    driver_t* out;
     struct loader_ctx ctx = { 0 };
 
     file = file_open(path);
@@ -518,25 +497,25 @@ extern_driver_t* load_external_driver(const char* path)
     if (!file || !file->m_total_size)
         return nullptr;
 
-    out = create_external_driver(NULL);
+    out = create_driver(NULL);
 
-    if (!out || !out->m_driver)
+    if (!out)
         goto fail_and_deallocate;
 
     /* Allocate contiguous high space for the driver */
-    error = __kmem_alloc_range((void**)&driver_load_base, nullptr, out->m_driver->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
+    error = __kmem_alloc_range((void**)&driver_load_base, nullptr, out->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
 
     if ((error))
         goto fail_and_deallocate;
 
     /* Set driver fields */
-    out->m_load_base = driver_load_base;
-    out->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
+    out->load_base = driver_load_base;
+    out->load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
 
     read_size = file_get_size(file);
 
     /* Read the driver into RAM */
-    read_size = file_read(file, (void*)out->m_load_base, read_size, 0);
+    read_size = file_read(file, (void*)out->load_base, read_size, 0);
 
     if (!read_size)
         goto fail_and_deallocate;
@@ -558,13 +537,8 @@ extern_driver_t* load_external_driver(const char* path)
 
 fail_and_deallocate:
 
-    if (out && out->m_driver) {
-        destroy_driver(out->m_driver);
-        out->m_driver = nullptr;
-    }
-
     if (out)
-        destroy_external_driver(out);
+        destroy_driver(out);
 
     if (file)
         file_close(file);
@@ -588,7 +562,6 @@ driver_t* install_external_driver(const char* path)
     size_t read_size;
     file_t* file;
     driver_t* driver;
-    extern_driver_t* ext_drv;
     struct loader_ctx ctx = { 0 };
 
     driver = nullptr;
@@ -598,12 +571,10 @@ driver_t* install_external_driver(const char* path)
         return nullptr;
 
     /* Create an external driver so we can  */
-    ext_drv = create_external_driver(NULL);
+    driver = create_driver(NULL);
 
-    if (!ext_drv || !ext_drv->m_driver)
+    if (!driver)
         goto fail_and_deallocate;
-
-    driver = ext_drv->m_driver;
 
     /* Allocate contiguous high space for the driver */
     error = __kmem_alloc_range((void**)&driver_load_base, nullptr, driver->m_resources, HIGH_MAP_BASE, file->m_total_size, NULL, KMEM_FLAG_KERNEL | KMEM_FLAG_WRITABLE);
@@ -611,8 +582,8 @@ driver_t* install_external_driver(const char* path)
     read_size = file_get_size(file);
 
     /* Set driver fields */
-    ext_drv->m_load_base = driver_load_base;
-    ext_drv->m_load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
+    driver->load_base = driver_load_base;
+    driver->load_size = ALIGN_UP(file->m_total_size, SMALL_PAGE_SIZE);
 
     /* Only check failure here (unlikely failure) */
     if ((error))
@@ -627,7 +598,7 @@ driver_t* install_external_driver(const char* path)
     /* Set the context in preperation for the parse */
     ctx.hdr = (struct elf64_hdr*)driver_load_base;
     ctx.size = read_size;
-    ctx.driver = ext_drv;
+    ctx.driver = driver;
     ctx.path = path;
 
     /* Init the external driver with install-only enabled */
@@ -636,32 +607,17 @@ driver_t* install_external_driver(const char* path)
     if ((error))
         goto fail_and_deallocate;
 
-    /*
-     * Successfully installed the driver, clean up stuff
-     * We need to:
-     *  - close the file
-     *  - deallocate the driver load area
-     *  - clean up weird variables in the driver
-     *
-     * All of this is done by destroying the temporary ext. driver
-     */
+    /* Close the file this fucker came from */
     file_close(file);
 
-    /* Destroy the temporary external driver */
-    destroy_external_driver(ext_drv);
-
-    /* Clear the drivers resources */
-    destroy_resource_bundle(driver->m_resources);
-
-    /* Give the driver a clean resource bundle */
-    driver->m_resources = create_resource_bundle(NULL);
-
+    /*
+     * Return our beauty
+     * At this point the entire driver is loaded into memory, but not
+     * yet initialized and/or active
+     */
     return driver;
 
 fail_and_deallocate:
-
-    if (ext_drv)
-        destroy_external_driver(ext_drv);
 
     if (driver)
         destroy_driver(driver);
@@ -671,31 +627,6 @@ fail_and_deallocate:
 
     /* TODO */
     return nullptr;
-}
-
-/*!
- * @brief Deals with the driver memory and resources
- *
- * Called from unload_driver after the ->f_exit function has
- * been called. At this point we can deallocate the driver and stuff
- *
- * The driver driver will still be installed in the driver tree, so
- * TODO: when we try to load an external driver that was already installed,
- * we can reuse that driver. When the driver is also uninstalled and after
- * that it is loaded AGAIN, we have to create a new driver for it
- */
-void unload_external_driver(extern_driver_t* driver)
-{
-    if (!driver)
-        return;
-
-    /*
-     * the destructor of the external driver will deallocate most if not all
-     * of the resources used by the driver. This will happen since the driver gets assigned a resource
-     * context, which gets entered every time the driver is called. Every subsequent allocation will go through
-     * the context and gets tracked, so that we can clean it up nicely when the context is destroyed
-     */
-    destroy_external_driver(driver);
 }
 
 /*!
@@ -720,7 +651,7 @@ static const char* _get_driver_path()
     return ret;
 }
 
-extern_driver_t* load_external_driver_from_var(const char* varpath)
+driver_t* load_external_driver_from_var(const char* varpath)
 {
     kerror_t error;
     const char* driver_filename;
@@ -728,7 +659,7 @@ extern_driver_t* load_external_driver_from_var(const char* varpath)
     char* driver_path;
     size_t driver_path_len;
     sysvar_t* var;
-    extern_driver_t* ret;
+    driver_t* ret;
 
     error = profile_find_var(varpath, &var);
     if (error)
@@ -752,6 +683,8 @@ extern_driver_t* load_external_driver_from_var(const char* varpath)
 
     memset(driver_path, 0, driver_path_len);
     concat((void*)driver_rootpath, (void*)driver_filename, driver_path);
+
+    KLOG_DBG("Loading driver at %s from var %s\n", driver_path, varpath);
 
     ret = load_external_driver(driver_path);
 

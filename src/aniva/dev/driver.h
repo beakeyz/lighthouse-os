@@ -2,6 +2,7 @@
 #define __ANIVA_DRIVER__
 
 #include "core.h"
+#include "libk/data/linkedlist.h"
 #include "libk/data/vector.h"
 #include "mem/zalloc/zalloc.h"
 #include "system/resource.h"
@@ -184,7 +185,7 @@ typedef struct driver {
     uint32_t m_max_n_dev;
 
     vector_t* m_dep_list;
-    vector_t* m_dev_list;
+    list_t* m_dev_list;
 
     uint32_t m_flags;
     driver_version_t m_check_version;
@@ -206,7 +207,11 @@ typedef struct driver {
 
     /* Path to the binary of the driver, only on external drivers */
     const char* m_driver_file_path;
-    struct extern_driver* m_external;
+
+    /* Loader information */
+    vaddr_t load_base;
+    u64 load_size;
+    u64 ksym_count;
 } driver_t;
 
 driver_t* create_driver(aniva_driver_t* handle);

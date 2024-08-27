@@ -91,9 +91,6 @@ typedef driver_control_code_t dcc_t;
     DRV_DEP_END,                                                                                    \
 }
 
-#define EXPSYM_SHDR_NAME ".expsym"
-#define EXPORT_DRVSYM USED SECTION(EXPSYM_SHDR_NAME)
-
 /*
  * Initializes the registry for kernel drivers.
  * Also bootstraps any drivers that came precompiled

@@ -1,7 +1,5 @@
 #include "core.h"
 #include "dev/driver.h"
-#include "dev/external.h"
-#include "dev/loader.h"
 #include "driver.h"
 #include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
@@ -20,7 +18,6 @@
 #include <oss/node.h>
 
 static oss_node_t* __driver_node;
-
 static zone_allocator_t* __driver_allocator;
 
 /* This lock protects the core driver registry */
@@ -262,9 +259,6 @@ kerror_t uninstall_driver(driver_t* driver)
     if (is_driver_loaded(driver) && (unload_driver(driver->m_url)))
         goto fail_and_exit;
 
-    if (driver->m_external)
-        destroy_external_driver(driver->m_external);
-
     destroy_driver(driver);
 
     return (0);
@@ -294,21 +288,6 @@ static void __driver_unregister_presence(enum DRIVER_TYPE type)
     mutex_unlock(__driver_constraint_lock);
 }
 
-static int _try_load_external_driver(driver_t* driver)
-{
-    if ((driver->m_flags & DRV_IS_EXTERNAL) != DRV_IS_EXTERNAL || !driver->m_driver_file_path)
-        return 1;
-
-    /* Don't load it if it already has an */
-    if (driver->m_external)
-        return 1;
-
-    if (load_external_driver(driver->m_driver_file_path) == nullptr)
-        return -1;
-
-    return 0;
-}
-
 /*
  * Steps to load a driver into our registry
  * 1: Resolve the url in the driver
@@ -330,20 +309,11 @@ kerror_t load_driver(driver_t* driver)
     if (!verify_driver(driver))
         goto fail_and_exit;
 
-    /* Just load the external driver if we can */
-    error = _try_load_external_driver(driver);
-
-    if (!error)
-        return (0);
-
-    if (error < 0)
-        return -1;
-
     handle = driver->m_handle;
 
     /* Can't load if it's already loaded lmao */
     if (is_driver_loaded(driver))
-        goto fail_and_exit;
+        return 0;
 
     // TODO: we can use ANIVA_FAIL_WITH_WARNING here, but we'll need to refactor some things
     // where we say result == ANIVA_FAIL
@@ -371,7 +341,7 @@ kerror_t load_driver(driver_t* driver)
             if (driver_is_deferred(dep->obj.drv))
                 kernel_panic("TODO: handle deferred dependencies!");
 
-            if ((load_driver(dep->obj.drv)))
+            if (load_driver(dep->obj.drv))
                 goto fail_and_exit;
         }
     }
@@ -435,9 +405,6 @@ kerror_t unload_driver(dev_url_t url)
 
     /* Unregister presence before unlocking the driver */
     __driver_unregister_presence(driver->m_handle->m_type);
-
-    if (driver->m_external && (driver->m_flags & DRV_IS_EXTERNAL) == DRV_IS_EXTERNAL)
-        unload_external_driver(driver->m_external);
 
     mutex_unlock(driver->m_lock);
 
@@ -783,5 +750,5 @@ void init_aniva_driver_registry()
  */
 void init_driver_subsys()
 {
-    init_external_drivers();
+    /* ... */
 }

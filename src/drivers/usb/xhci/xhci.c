@@ -4,7 +4,6 @@
 
 #include "dev/core.h"
 #include "dev/driver.h"
-#include "dev/driver.h"
 #include "dev/usb/hcd.h"
 #include "dev/usb/spec.h"
 #include "dev/usb/usb.h"
@@ -1077,6 +1076,7 @@ uintptr_t xhci_msg(aniva_driver_t* this, dcc_t code, void* buffer, size_t size, 
 
 int xhci_init(driver_t* driver)
 {
+    KLOG_DBG("Starting XHCI driver\n");
     _xhci_driver = driver;
 
     register_pci_driver(driver, &xhci_pci_driver);

@@ -3,6 +3,7 @@
 #include "dev/driver.h"
 #include "dev/loader.h"
 #include "devices/shared.h"
+#include "libk/data/linkedlist.h"
 #include "libk/flow/error.h"
 #include "oss/obj.h"
 #include "sync/mutex.h"
@@ -204,7 +205,8 @@ driver_t* create_driver(aniva_driver_t* handle)
     ret->m_resources = create_resource_bundle(NULL);
 
     ret->m_max_n_dev = DRIVER_MAX_DEV_COUNT;
-    ret->m_dev_list = create_vector(ret->m_max_n_dev, sizeof(device_t*), VEC_FLAG_NO_DUPLICATES);
+    // ret->m_dev_list = create_vector(ret->m_max_n_dev, sizeof(device_t*), VEC_FLAG_NO_DUPLICATES);
+    ret->m_dev_list = init_list();
 
     return ret;
 }
@@ -270,7 +272,7 @@ void destroy_driver(driver_t* driver)
      * TODO/FIXME: What do we do with attached devices when
      * a driver gets destroyed?
      */
-    destroy_vector(driver->m_dev_list);
+    destroy_list(driver->m_dev_list);
 
     /* Destroy the resources */
     destroy_resource_bundle(driver->m_resources);
@@ -395,36 +397,35 @@ int driver_gather_dependencies(driver_t* driver)
 
 int driver_add_dev(struct driver* driver, device_t* device)
 {
-    kerror_t error;
+    kerror_t error = 0;
 
     if (!driver || !device)
         return -1;
 
     mutex_lock(driver->m_lock);
 
-    error = vector_add(driver->m_dev_list, &device, NULL);
+    /* Check if we're still under the max */
+    if (driver->m_dev_list->m_length < driver->m_max_n_dev)
+        list_append(driver->m_dev_list, device);
+    else
+        error = -KERR_NOMEM;
 
     mutex_unlock(driver->m_lock);
 
-    return (error) ? -KERR_NOMEM : 0;
+    return error;
 }
 
 int driver_remove_dev(struct driver* driver, device_t* device)
 {
     int error = -KERR_NOT_FOUND;
-    uint32_t idx = 0;
 
     if (!driver || !device)
         return -1;
 
     mutex_lock(driver->m_lock);
 
-    /* Try to get the devices index */
-    if (!driver_has_dev(driver, device, &idx))
-        goto unlock_and_exit;
-
-    /* Try to remove from the vector */
-    if ((vector_remove(driver->m_dev_list, idx)))
+    /* Try to remove the bitch */
+    if (!list_remove_ex(driver->m_dev_list, device))
         goto unlock_and_exit;
 
     error = 0;
@@ -443,7 +444,7 @@ bool driver_has_dev(struct driver* driver, struct device* device, uint32_t* p_id
 
     mutex_lock(driver->m_lock);
 
-    error = vector_indexof(driver->m_dev_list, device, p_idx);
+    error = list_indexof(driver->m_dev_list, p_idx, device);
 
     mutex_unlock(driver->m_lock);
 

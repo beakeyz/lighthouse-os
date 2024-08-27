@@ -24,16 +24,15 @@
  * while also keeping things nice and lightweight
  */
 
-#include "dev/external.h"
 #include "fs/file.h"
+#include <dev/driver.h>
 
 /* TODO ? */
 bool file_contains_driver(file_t* file);
 
 driver_t* install_external_driver(const char* path);
-extern_driver_t* load_external_driver(const char* path);
-void unload_external_driver(extern_driver_t* driver);
+driver_t* load_external_driver(const char* path);
 
-extern_driver_t* load_external_driver_from_var(const char* varpath);
+driver_t* load_external_driver_from_var(const char* varpath);
 
 #endif // !__ANIVA_DRV_LOADER__

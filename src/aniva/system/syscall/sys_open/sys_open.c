@@ -1,9 +1,8 @@
 #include "sys_open.h"
 #include "dev/core.h"
 #include "dev/device.h"
-#include "dev/external.h"
-#include "dev/loader.h"
 #include "dev/driver.h"
+#include "dev/loader.h"
 #include "fs/dir.h"
 #include "fs/file.h"
 #include "kevent/event.h"
@@ -118,17 +117,11 @@ HANDLE sys_open(const char* __user path, HANDLE_TYPE type, uint32_t flags, uint3
         break;
     }
     case HNDL_TYPE_DRIVER: {
-        extern_driver_t* ext;
         driver_t* driver = NULL;
 
         switch (mode) {
         case HNDL_MODE_CREATE:
-            ext = load_external_driver(path);
-
-            if (!ext || !ext->m_driver)
-                return HNDL_NOT_FOUND;
-
-            driver = ext->m_driver;
+            driver = load_external_driver(path);
             break;
         default:
             driver = get_driver(path);
