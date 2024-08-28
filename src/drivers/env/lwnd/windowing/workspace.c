@@ -1,6 +1,7 @@
 #include "workspace.h"
 #include "drivers/env/lwnd/display/screen.h"
 #include "drivers/env/lwnd/windowing/stack.h"
+#include "drivers/env/lwnd/windowing/window.h"
 #include "libk/flow/error.h"
 
 /*
@@ -76,6 +77,9 @@ int lwnd_workspace_remove_windows_of_process(lwnd_workspace_t* ws, proc_t* p)
     /* Move down */
     while (this_wnd) {
         next_wnd = this_wnd->next_layer;
+
+        /* Order updates to all other windows */
+        lwnd_window_update(this_wnd);
 
         /* Check */
         if (this_wnd->proc != p)

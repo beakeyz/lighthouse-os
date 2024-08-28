@@ -458,7 +458,7 @@ ahci_port_t* create_ahci_port(struct ahci_device* device, uintptr_t port_offset,
     ret->m_transfer_failed = false;
     ret->m_is_waiting = false;
 
-    ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, DEVICE_CTYPE_OTHER, &_ahci_ops);
+    ret->m_generic = create_generic_disk(device->m_parent, NULL, ret, DEVICE_CTYPE_SATA, &_ahci_ops);
 
     /* Implement the devinfo control code */
     device_impl_ctl(ret->m_generic->m_dev, NULL, DEVICE_CTLC_GETINFO, ahci_get_devinfo, NULL);
